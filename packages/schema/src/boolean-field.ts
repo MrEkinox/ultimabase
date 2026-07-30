@@ -1,0 +1,53 @@
+import { immutableRecord } from '@ultimabase/shared'
+
+import {
+	normalizeFieldOptions,
+	normalizeFlatValidation,
+} from './field-options.js'
+import type {
+	FieldDefinition,
+	FieldOptions,
+	FieldValidationOptions,
+} from './field.js'
+
+type EmptyBooleanFieldOptions = Readonly<Record<PropertyKey, never>>
+
+/**
+ * Names the presence-only validation contract exposed by boolean fields.
+ */
+export type BooleanValidationOptions = FieldValidationOptions
+
+/**
+ * Describes boolean metadata through the common field contract.
+ */
+export type BooleanFieldOptions = FieldOptions<boolean>
+
+/**
+ * Carries the boolean value type and exact options through schema inference.
+ */
+export type BooleanField<
+	TOptions extends BooleanFieldOptions = BooleanFieldOptions,
+> = FieldDefinition<'boolean', boolean, TOptions>
+
+const emptyBooleanFieldOptions: EmptyBooleanFieldOptions = immutableRecord({})
+
+/**
+ * Creates an optional, non-null boolean field with no additional metadata.
+ */
+export function booleanField(): BooleanField<EmptyBooleanFieldOptions>
+
+/**
+ * Creates immutable boolean metadata while preserving every option literal.
+ */
+export function booleanField<const TOptions extends BooleanFieldOptions>(
+	options: TOptions,
+): BooleanField<TOptions>
+
+export function booleanField(
+	options: BooleanFieldOptions = emptyBooleanFieldOptions,
+): BooleanField {
+	return immutableRecord({
+		kind: 'boolean',
+		options: normalizeFieldOptions(options, normalizeFlatValidation),
+	})
+}

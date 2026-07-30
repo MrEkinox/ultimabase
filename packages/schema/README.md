@@ -39,6 +39,16 @@ Both modes support `validation.range.min`, `validation.range.max`, and `validati
 
 Integer fields additionally support `autoIncrement: true | false` as declarative database-sequence metadata. Float fields reject this option at both the TypeScript and runtime boundaries.
 
+## Boolean fields
+
+`booleanField(options)` creates immutable boolean metadata and preserves literal `true` or `false` defaults. It uses the common presence validation and field options without adding boolean-specific constraints.
+
+## Date fields
+
+`dateField(options)` represents server-side JavaScript `Date` values. Static defaults and `validation.range.min/max` boundaries accept only valid `Date` objects; Schema snapshots supplied dates and rejects inverted ranges. ISO string serialization belongs to transport packages and is deliberately absent here.
+
+Default functions are rejected until the explicit static, runtime-factory, and database-default contracts are introduced by issue 109.
+
 ## Typed extensions
 
 - `defineSchemaExtension(name, config)` creates plugin-owned schema metadata.

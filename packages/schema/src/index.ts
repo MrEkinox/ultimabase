@@ -1,3 +1,16 @@
+export { booleanField } from './boolean-field.js'
+export type {
+	BooleanField,
+	BooleanFieldOptions,
+	BooleanValidationOptions,
+} from './boolean-field.js'
+export { dateField } from './date-field.js'
+export type {
+	DateField,
+	DateFieldOptions,
+	DateRangeValidationOptions,
+	DateValidationOptions,
+} from './date-field.js'
 export {
 	defineExtensions,
 	defineFieldExtension,

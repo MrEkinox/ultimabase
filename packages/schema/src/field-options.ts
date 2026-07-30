@@ -4,6 +4,15 @@ import { defineExtensions } from './extension.js'
 import type { FieldOptions, FieldValidationOptions } from './field.js'
 
 /**
+ * Freezes presence-only validation shared by primitive fields without extra constraints.
+ */
+export const normalizeFlatValidation = <
+	const TValidation extends FieldValidationOptions,
+>(
+	validation: TValidation,
+): Readonly<TValidation> => immutableRecord(validation)
+
+/**
  * Copies common field metadata while delegating primitive-specific validation.
  */
 export const normalizeFieldOptions = <

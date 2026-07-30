@@ -13,6 +13,8 @@ describe('cross-package public entry points', () => {
 
 		expect(exportedKeys).toStrictEqual([
 			[
+				'booleanField',
+				'dateField',
 				'defineExtensions',
 				'defineFieldExtension',
 				'defineSchemaExtension',
