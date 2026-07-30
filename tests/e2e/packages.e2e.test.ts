@@ -12,7 +12,12 @@ describe('cross-package public entry points', () => {
 		]
 
 		expect(exportedKeys).toStrictEqual([
-			['defineExtensions', 'defineFieldExtension', 'defineSchemaExtension'],
+			[
+				'defineExtensions',
+				'defineFieldExtension',
+				'defineSchemaExtension',
+				'stringField',
+			],
 			[],
 		])
 	})

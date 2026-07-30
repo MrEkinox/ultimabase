@@ -28,7 +28,7 @@ test('preserves literal information in immutable collections', () => {
 	const values = immutableArray(['first', 'second'] as const)
 	const record = immutableRecord({ kind: 'string', required: true } as const)
 
-	expectTypeOf(values).toEqualTypeOf<readonly ('first' | 'second')[]>()
+	expectTypeOf(values).toEqualTypeOf<readonly ['first', 'second']>()
 	expectTypeOf(record).toEqualTypeOf<
 		Readonly<{ kind: 'string'; required: true }>
 	>()

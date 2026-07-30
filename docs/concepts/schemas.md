@@ -7,7 +7,9 @@ const UserSchema = defineSchema({
 	className: 'User',
 	fields: {
 		name: stringField({
-			required: true,
+			validation: {
+				required: true,
+			},
 		}),
 	},
 	extensions: [],

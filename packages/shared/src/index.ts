@@ -24,9 +24,9 @@ export const assertNever = (value: never): never => {
 /**
  * Copies and freezes an array so later caller mutations cannot cross a public boundary.
  */
-export const immutableArray = <const TValue>(
-	values: readonly TValue[],
-): readonly TValue[] => Object.freeze([...values])
+export const immutableArray = <const TValues extends readonly unknown[]>(
+	values: TValues,
+): readonly [...TValues] => Object.freeze([...values])
 
 /**
  * Copies and freezes a record while preserving its literal keys and value types.

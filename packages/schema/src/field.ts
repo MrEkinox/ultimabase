@@ -1,3 +1,5 @@
+import type { FieldExtension } from './extension.js'
+
 declare const fieldValueMarker: unique symbol
 
 /**
@@ -5,7 +7,7 @@ declare const fieldValueMarker: unique symbol
  *
  * Optional fields remain non-null by default, while required fields can never be nullable.
  */
-export type FieldPresenceOptions =
+export type FieldValidationOptions =
 	| {
 			readonly required: true
 			readonly nullable?: false
@@ -18,12 +20,16 @@ export type FieldPresenceOptions =
 /**
  * Defines metadata shared by every field kind without introducing storage concerns.
  */
-export type FieldOptions<TValue> = FieldPresenceOptions & {
+export interface FieldOptions<
+	TValue,
+	TValidation extends FieldValidationOptions = FieldValidationOptions,
+> {
+	readonly validation?: TValidation
 	readonly default?: TValue
 	readonly immutable?: boolean
-	readonly unique?: boolean
-	readonly index?: boolean
+	readonly indexed?: boolean | 'unique'
 	readonly description?: string
+	readonly extensions?: readonly FieldExtension<string, object>[]
 }
 
 /**

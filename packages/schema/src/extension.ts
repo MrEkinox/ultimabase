@@ -75,10 +75,14 @@ export const defineFieldExtension = <
  * Copies an extension list and rejects duplicate names within the same scope.
  */
 export const defineExtensions = <
-	const TExtension extends ExtensionDefinition<ExtensionScope, string, object>,
+	const TExtensions extends readonly ExtensionDefinition<
+		ExtensionScope,
+		string,
+		object
+	>[],
 >(
-	extensions: readonly TExtension[],
-): readonly TExtension[] => {
+	extensions: TExtensions,
+): readonly [...TExtensions] => {
 	const identities = new Set<string>()
 
 	for (const extension of extensions) {

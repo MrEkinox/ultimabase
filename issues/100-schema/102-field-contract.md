@@ -12,7 +12,7 @@ Define immutable field metadata and common options without database-specific typ
 
 ## Acceptance criteria
 
-- [x] Required, nullable, default, immutable, unique, index, and description are represented.
+- [x] Validation, default, immutable, indexed, description, and extensions are represented.
 - [x] Required and nullable cannot both be true.
 - [x] Field kind literals are preserved.
 
@@ -23,5 +23,6 @@ Define immutable field metadata and common options without database-specific typ
 ## Implementation notes
 
 - Kept the contract type-only so concrete field factories can own runtime construction.
-- Represented required and nullable states as a union that rejects contradictory metadata.
+- Grouped required and nullable states under `validation` with a union that rejects contradictory metadata.
+- Combined regular and unique single-field indexes under `indexed`.
 - Preserved exact field kinds, options, and base value types for later schema inference.

@@ -12,5 +12,12 @@ export type {
 export type {
 	FieldDefinition,
 	FieldOptions,
-	FieldPresenceOptions,
+	FieldValidationOptions,
 } from './field.js'
+export { stringField } from './string-field.js'
+export type {
+	StringField,
+	StringFieldOptions,
+	StringLengthValidationOptions,
+	StringValidationOptions,
+} from './string-field.js'

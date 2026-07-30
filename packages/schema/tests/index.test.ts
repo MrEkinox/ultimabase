@@ -9,6 +9,7 @@ describe('@ultimabase/schema public entry point', () => {
 			'defineExtensions',
 			'defineFieldExtension',
 			'defineSchemaExtension',
+			'stringField',
 		])
 	})
 })

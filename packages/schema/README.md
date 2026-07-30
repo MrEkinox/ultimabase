@@ -16,11 +16,17 @@ This package must not know ACL, CLP, roles, PostgreSQL, Drizzle, Hono, or GraphQ
 
 ## Generic field contract
 
-- `FieldPresenceOptions` represents omission and nullability independently. Fields are optional and non-null by default, and `required: true` cannot be combined with `nullable: true`.
-- `FieldOptions<TValue>` adds typed static defaults, field-value immutability, uniqueness, indexing, and descriptions without introducing database-specific metadata.
+- `FieldValidationOptions` represents omission and nullability inside the `validation` option. Fields are optional and non-null by default, and `required: true` cannot be combined with `nullable: true`.
+- `FieldOptions<TValue, TValidation>` adds typed static defaults, field-value immutability, `indexed`, descriptions, and field extensions without introducing database-specific metadata. `indexed: true` requests a regular index, `indexed: "unique"` requests a unique index, and `false` disables indexing explicitly.
 - `FieldDefinition<TKind, TValue, TOptions>` preserves the literal field kind, its base value type, and its exact readonly options for later schema inference.
 
 These contracts are type-only. Concrete field factories will construct and freeze their runtime metadata in their dedicated implementations.
+
+## String fields
+
+`stringField(options)` creates immutable string metadata while preserving literal options for later schema inference. Calling `stringField()` defines an optional, non-null string.
+
+String fields add declarative `validation.length.min`, `validation.length.max`, and `validation.match` constraints. Lengths must be non-negative safe integers, and `min` cannot exceed `max`. Match constraints use native `RegExp` values and are stored as metadata; validation is compiled by the runtime rather than executed by the field factory.
 
 ## Typed extensions
 
