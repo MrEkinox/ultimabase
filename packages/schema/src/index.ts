@@ -11,6 +11,13 @@ export type {
 	DateRangeValidationOptions,
 	DateValidationOptions,
 } from './date-field.js'
+export { enumField } from './enum-field.js'
+export type {
+	EnumField,
+	EnumFieldOptions,
+	EnumValue,
+	EnumValues,
+} from './enum-field.js'
 export {
 	defineExtensions,
 	defineFieldExtension,

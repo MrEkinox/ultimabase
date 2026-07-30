@@ -49,6 +49,22 @@ Integer fields additionally support `autoIncrement: true | false` as declarative
 
 Default functions are rejected until the explicit static, runtime-factory, and database-default contracts are introduced by issue 109.
 
+## Enum fields
+
+`enumField(options)` accepts an inline string list, a native TypeScript string enum, or a symbolic key-value mapping:
+
+```ts
+enumField({
+	values: {
+		Draft: 'draft',
+		Published: 'published',
+	},
+	default: 'draft',
+})
+```
+
+Persisted values form the exact inferred string union, while mapping keys remain available to future GraphQL and SDK generators. Sources must be non-empty, persisted values must be unique, and static defaults must belong to the inferred domain. Numeric TypeScript enums are rejected because their runtime reverse mappings do not represent a string domain.
+
 ## Typed extensions
 
 - `defineSchemaExtension(name, config)` creates plugin-owned schema metadata.
