@@ -20,6 +20,7 @@
 		"format": "prettier . --write",
 		"format:check": "prettier . --check",
 		"lint": "eslint .",
+		"release:publish": "yarn test:all && changeset publish",
 		"test": "vitest run --project unit --project types",
 		"test:all": "yarn test && yarn test:e2e",
 		"test:coverage": "vitest run --project unit --coverage",

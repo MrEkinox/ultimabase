@@ -1,6 +1,7 @@
 # Documentation
 
 - [`PRODUCT_SPEC.md`](PRODUCT_SPEC.md): agreed product scope and semantics.
+- [`RELEASING.md`](RELEASING.md): Changesets, prereleases, and npm publication.
 - [`concepts/`](concepts/README.md): detailed conceptual contracts.
 - [`adr/`](adr/README.md): accepted architectural decisions.
 
