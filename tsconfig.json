@@ -1,0 +1,32 @@
+{
+	"extends": "./tooling/tsconfig/base.json",
+	"compilerOptions": {
+		"composite": false,
+		"declaration": false,
+		"declarationMap": false,
+		"isolatedDeclarations": false,
+		"noEmit": true,
+		"skipLibCheck": true,
+		"types": ["node"]
+	},
+	"include": ["*.config.ts"],
+	"references": [
+		{ "path": "./packages/shared" },
+		{ "path": "./packages/schema" },
+		{ "path": "./packages/query" },
+		{ "path": "./packages/access" },
+		{ "path": "./packages/core" },
+		{ "path": "./packages/runtime" },
+		{ "path": "./packages/roles" },
+		{ "path": "./packages/clp-permissions" },
+		{ "path": "./packages/acl-permissions" },
+		{ "path": "./packages/field-permissions" },
+		{ "path": "./packages/postgres" },
+		{ "path": "./packages/postgres-migrations" },
+		{ "path": "./packages/server-hono" },
+		{ "path": "./packages/rest" },
+		{ "path": "./packages/graphql" },
+		{ "path": "./packages/graphql-yoga" },
+		{ "path": "./packages/testing" }
+	]
+}

@@ -1,0 +1,36 @@
+{
+	"name": "@ultimabase/acl-permissions",
+	"version": "0.0.0",
+	"type": "module",
+	"license": "Apache-2.0",
+	"sideEffects": false,
+	"files": [
+		"dist"
+	],
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js"
+		}
+	},
+	"scripts": {
+		"build": "tsdown",
+		"test": "vitest run",
+		"typecheck": "tsc --build"
+	},
+	"dependencies": {
+		"@ultimabase/access": "workspace:^",
+		"@ultimabase/core": "workspace:^",
+		"@ultimabase/query": "workspace:^",
+		"@ultimabase/runtime": "workspace:^",
+		"@ultimabase/schema": "workspace:^"
+	},
+	"peerDependencies": {
+		"@ultimabase/roles": "workspace:^"
+	},
+	"peerDependenciesMeta": {
+		"@ultimabase/roles": {
+			"optional": true
+		}
+	}
+}

@@ -1,0 +1,41 @@
+{
+	"name": "ultimabase",
+	"version": "0.0.0",
+	"private": true,
+	"type": "module",
+	"license": "Apache-2.0",
+	"packageManager": "yarn@4.9.2",
+	"engines": {
+		"node": ">=24.0.0"
+	},
+	"workspaces": [
+		"apps/*",
+		"examples/*",
+		"packages/*",
+		"tooling/*"
+	],
+	"scripts": {
+		"build": "tsdown --workspace",
+		"changeset": "changeset",
+		"clean": "yarn workspaces foreach --all -p run clean",
+		"format": "prettier . --write",
+		"format:check": "prettier . --check",
+		"lint": "eslint .",
+		"test": "vitest run",
+		"test:watch": "vitest",
+		"typecheck": "tsc --build"
+	},
+	"devDependencies": {
+		"@changesets/cli": "^2.29.7",
+		"@eslint/js": "^10.0.1",
+		"@types/node": "^24.0.0",
+		"@vitest/coverage-v8": "^4.1.10",
+		"eslint": "^10.7.0",
+		"jiti": "^2.6.1",
+		"prettier": "^3.6.2",
+		"tsdown": "^0.22.14",
+		"typescript": "^6.0.3",
+		"typescript-eslint": "^8.65.0",
+		"vitest": "^4.1.10"
+	}
+}

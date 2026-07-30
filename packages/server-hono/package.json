@@ -1,0 +1,27 @@
+{
+	"name": "@ultimabase/server-hono",
+	"version": "0.0.0",
+	"type": "module",
+	"license": "Apache-2.0",
+	"sideEffects": false,
+	"files": [
+		"dist"
+	],
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js"
+		}
+	},
+	"scripts": {
+		"build": "tsdown",
+		"test": "vitest run",
+		"typecheck": "tsc --build"
+	},
+	"dependencies": {
+		"@hono/node-server": "^2.0.12",
+		"@ultimabase/core": "workspace:^",
+		"@ultimabase/runtime": "workspace:^",
+		"hono": "^4.9.6"
+	}
+}
