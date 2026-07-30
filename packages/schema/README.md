@@ -21,3 +21,13 @@ This package must not know ACL, CLP, roles, PostgreSQL, Drizzle, Hono, or GraphQ
 - `FieldDefinition<TKind, TValue, TOptions>` preserves the literal field kind, its base value type, and its exact readonly options for later schema inference.
 
 These contracts are type-only. Concrete field factories will construct and freeze their runtime metadata in their dedicated implementations.
+
+## Typed extensions
+
+- `defineSchemaExtension(name, config)` creates plugin-owned schema metadata.
+- `defineFieldExtension(name, config)` creates plugin-owned field metadata.
+- `defineExtensions(extensions)` copies and freezes a list while rejecting duplicate names within the same scope.
+
+Each extension exposes the literal `scope`, `name`, and typed readonly `config` properties. Schema transports this opaque configuration without interpreting it; the owning runtime plugin will provide its handler.
+
+Schema and field names use separate namespaces. The same name may therefore exist once in each scope, while two schema extensions or two field extensions with the same name produce a `TypeError`. Extension values and their configuration objects are shallowly copied and frozen.

@@ -30,7 +30,7 @@
 		"test:pack:built": "vitest run --project e2e tests/e2e/package-archives.e2e.test.ts",
 		"test:types": "vitest run --project types",
 		"test:watch": "vitest --project unit --watch",
-		"typecheck": "tsc --build tsconfig.json tests/tsconfig.json"
+		"typecheck": "tsc --build tsconfig.json tooling/tsconfig/test.json"
 	},
 	"devDependencies": {
 		"@arethetypeswrong/core": "^0.18.5",

@@ -7,10 +7,13 @@ describe('cross-package public entry points', () => {
 	it('loads multiple built packages through their export maps', () => {
 		// E2E tests consume built public APIs instead of package source paths.
 		const exportedKeys: string[][] = [
-			Object.keys(schemaApi),
+			Object.keys(schemaApi).sort(),
 			Object.keys(runtimeApi),
 		]
 
-		expect(exportedKeys).toStrictEqual([[], []])
+		expect(exportedKeys).toStrictEqual([
+			['defineExtensions', 'defineFieldExtension', 'defineSchemaExtension'],
+			[],
+		])
 	})
 })

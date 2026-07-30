@@ -37,11 +37,15 @@ export default defineConfig(
 		},
 	},
 	{
-		files: ['packages/*/tests/**/*.test.ts', 'tests/e2e/**/*.e2e.test.ts'],
+		files: [
+			'packages/*/tests/**/*.test.ts',
+			'packages/*/tests/**/*.test-d.ts',
+			'tests/e2e/**/*.e2e.test.ts',
+		],
 		languageOptions: {
 			parserOptions: {
-				// Runtime tests are excluded from publishable package projects.
-				project: './tests/tsconfig.json',
+				// Tests share strict compiler options without entering publishable projects.
+				project: './tooling/tsconfig/test.json',
 				projectService: false,
 				tsconfigRootDir: configDirectory,
 			},

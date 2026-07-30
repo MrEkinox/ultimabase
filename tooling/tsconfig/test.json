@@ -1,5 +1,5 @@
 {
-	"extends": "../tooling/tsconfig/base.json",
+	"extends": "./base.json",
 	"compilerOptions": {
 		"composite": false,
 		"declaration": false,
@@ -8,5 +8,9 @@
 		"noEmit": true,
 		"types": ["node", "vitest"]
 	},
-	"include": ["../packages/*/tests/**/*.test.ts", "e2e/**/*.e2e.test.ts"]
+	"include": [
+		"../../packages/*/tests/**/*.test.ts",
+		"../../packages/*/tests/**/*.test-d.ts",
+		"../../tests/e2e/**/*.e2e.test.ts"
+	]
 }

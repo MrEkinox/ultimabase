@@ -26,9 +26,9 @@ const testProjects: TestProjectConfiguration[] = [
 			name: 'types',
 			typecheck: {
 				enabled: true,
-				include: ['tests/types/**/*.test-d.ts'],
+				include: ['packages/*/tests/**/*.test-d.ts'],
 				only: true,
-				tsconfig: './tests/types/tsconfig.json',
+				tsconfig: './tooling/tsconfig/test.json',
 			},
 		},
 	},

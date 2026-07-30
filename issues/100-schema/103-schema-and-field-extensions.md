@@ -1,6 +1,6 @@
 # 103: Add typed schema and field extensions
 
-- Status: planned
+- Status: done
 - Milestone: 1
 - Packages: `@ultimabase/schema`
 - Depends on: 102
@@ -12,11 +12,17 @@ Allow plugins to contribute typed opaque configuration without Schema knowing co
 
 ## Acceptance criteria
 
-- [ ] Extension names and config types remain literal.
-- [ ] Duplicate extension policy is explicit.
-- [ ] Schema and field extensions share a consistent contract.
-- [ ] Extensions are inspectable without unsafe casts.
+- [x] Extension names and config types remain literal.
+- [x] Duplicate extension policy is explicit.
+- [x] Schema and field extensions share a consistent contract.
+- [x] Extensions are inspectable without unsafe casts.
 
 ## Tests
 
-- [ ] A fixture plugin contributes an extension without changing Schema.
+- [x] A fixture plugin contributes an extension without changing Schema.
+
+## Implementation notes
+
+- Schema and field extensions share one discriminated `ExtensionDefinition` contract.
+- Duplicate names fail within one scope; schema and field namespaces remain independent.
+- Factories copy and shallow-freeze opaque config objects without interpreting them.

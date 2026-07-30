@@ -9,6 +9,12 @@ const config: ViteUserConfig = defineConfig({
 		// Each workspace discovers only the tests owned by that package.
 		include: ['tests/**/*.test.ts'],
 		pool: 'forks',
+		typecheck: {
+			enabled: true,
+			include: ['tests/**/*.test-d.ts'],
+			only: false,
+			tsconfig: '../../tooling/tsconfig/test.json',
+		},
 	},
 })
 

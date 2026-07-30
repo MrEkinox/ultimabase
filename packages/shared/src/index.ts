@@ -31,8 +31,6 @@ export const immutableArray = <const TValue>(
 /**
  * Copies and freezes a record while preserving its literal keys and value types.
  */
-export const immutableRecord = <
-	const TRecord extends Readonly<Record<PropertyKey, unknown>>,
->(
+export const immutableRecord = <const TRecord extends object>(
 	value: TRecord,
 ): Readonly<TRecord> => Object.freeze({ ...value })

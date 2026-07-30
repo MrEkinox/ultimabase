@@ -6,7 +6,7 @@ import {
 	immutableRecord,
 	type Brand,
 	type MaybePromise,
-} from '../../packages/shared/src/index.js'
+} from '../src/index.js'
 
 test('keeps brands incompatible across typed boundaries', () => {
 	type UserId = Brand<string, 'UserId'>
@@ -32,6 +32,18 @@ test('preserves literal information in immutable collections', () => {
 	expectTypeOf(record).toEqualTypeOf<
 		Readonly<{ kind: 'string'; required: true }>
 	>()
+})
+
+test('accepts typed objects without requiring an index signature', () => {
+	interface PluginConfig {
+		enabled: boolean
+	}
+
+	const config: PluginConfig = { enabled: true }
+	const immutable = immutableRecord(config)
+
+	// Named configuration interfaces remain precise and become readonly.
+	expectTypeOf(immutable).toEqualTypeOf<Readonly<PluginConfig>>()
 })
 
 test('enforces exhaustive discriminated-union handling', () => {

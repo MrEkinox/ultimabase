@@ -4,7 +4,7 @@ import type {
 	FieldDefinition,
 	FieldOptions,
 	FieldPresenceOptions,
-} from '../../packages/schema/src/index.js'
+} from '../src/index.js'
 
 test('represents every common field option without widening literals', () => {
 	const options = {
