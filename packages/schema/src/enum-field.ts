@@ -1,5 +1,6 @@
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
+import { isStaticDefault } from './default-value.js'
 import {
 	normalizeFieldOptions,
 	normalizeFlatValidation,
@@ -125,6 +126,7 @@ const normalizeEnumFieldOptions = (
 
 	if (
 		normalized.default !== undefined &&
+		isStaticDefault(normalized.default) &&
 		!enumSource.values.includes(normalized.default)
 	) {
 		throw new TypeError(`Invalid enum default: ${normalized.default}`)
@@ -143,9 +145,9 @@ export function enumField<
 	const TValues extends EnumValues,
 	const TOptions extends EnumFieldOptions<TValues>,
 >(
-	options: TOptions & {
-		readonly values: NonEmptyMapping<TValues>
-	},
+	options: TOptions &
+		{ readonly values: NonEmptyMapping<TValues> } &
+		Omit<EnumFieldOptions<NoInfer<TValues>>, 'values'>,
 ): EnumField<TValues, TOptions>
 
 export function enumField(options: EnumFieldOptions): EnumField {

@@ -1,5 +1,6 @@
 import { immutableRecord } from '@ultimabase/shared'
 
+import { isStaticDefault } from './default-value.js'
 import { normalizeFieldOptions } from './field-options.js'
 import type {
 	FieldDefinition,
@@ -93,11 +94,11 @@ const normalizeDateFieldOptions = (
 ): Readonly<DateFieldOptions> => {
 	const normalized = normalizeFieldOptions(options, normalizeDateValidation)
 	const defaultValue =
-		normalized.default === undefined
+		normalized.default === undefined || !isStaticDefault(normalized.default)
 			? undefined
 			: snapshotDate(normalized.default, 'default')
 
-	// Static Date defaults are snapshotted but remain distinct from future factories.
+	// Only static Dates need snapshots; runtime and database defaults retain their identity.
 	return defaultValue === undefined
 		? normalized
 		: immutableRecord({ ...normalized, default: defaultValue })

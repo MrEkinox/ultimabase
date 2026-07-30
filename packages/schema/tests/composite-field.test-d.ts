@@ -70,21 +70,22 @@ test('infers structured values from reusable fields', () => {
 })
 
 test('rejects invalid child definitions and defaults', () => {
+	// @ts-expect-error -- Array elements must be field definitions.
 	arrayField({
-		// @ts-expect-error -- Array elements must be field definitions.
 		items: 'string',
 	})
+	// @ts-expect-error -- Object properties must be field definitions.
 	objectField({
 		fields: {
-			// @ts-expect-error -- Object properties must be field definitions.
 			name: 'string',
 		},
 	})
+	// @ts-expect-error -- Array defaults must match their element field.
 	arrayField({
 		items: booleanField(),
-		// @ts-expect-error -- Array defaults must match their element field.
 		default: [true, 'false'],
 	})
+	// @ts-expect-error -- Object defaults must use each child field value type.
 	objectField({
 		fields: {
 			name: stringField(),
@@ -92,13 +93,12 @@ test('rejects invalid child definitions and defaults', () => {
 		},
 		default: {
 			name: 'fixture',
-			// @ts-expect-error -- Object defaults must use each child field value type.
 			active: 'yes',
 		},
 	})
+	// @ts-expect-error -- Schema extensions cannot attach to individual fields.
 	arrayField({
 		items: stringField(),
-		// @ts-expect-error -- Schema extensions cannot attach to individual fields.
 		extensions: [defineSchemaExtension('fixture.array', {})],
 	})
 })

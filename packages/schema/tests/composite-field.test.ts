@@ -124,9 +124,9 @@ describe('composite fields', () => {
 
 	it('rejects invalid object field metadata at runtime', () => {
 		expect(() => {
+			// @ts-expect-error -- Runtime coverage intentionally crosses the field boundary.
 			objectField({
 				fields: {
-					// @ts-expect-error -- Runtime coverage intentionally crosses the field boundary.
 					name: 'string',
 				},
 			})

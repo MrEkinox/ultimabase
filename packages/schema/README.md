@@ -17,10 +17,39 @@ This package must not know ACL, CLP, roles, PostgreSQL, Drizzle, Hono, or GraphQ
 ## Generic field contract
 
 - `FieldValidationOptions` represents omission and nullability inside the `validation` option. Fields are optional and non-null by default, and `required: true` cannot be combined with `nullable: true`.
-- `FieldOptions<TValue, TValidation>` adds typed static defaults, field-value immutability, `indexed`, descriptions, and field extensions without introducing database-specific metadata. `indexed: true` requests a regular index, `indexed: "unique"` requests a unique index, and `false` disables indexing explicitly.
+- `FieldOptions<TValue, TValidation>` adds typed defaults, field-value immutability, `indexed`, descriptions, and field extensions without introducing database-specific metadata. `indexed: true` requests a regular index, `indexed: "unique"` requests a unique index, and `false` disables indexing explicitly.
 - `FieldDefinition<TKind, TValue, TOptions>` preserves the literal field kind, its base value type, and its exact readonly options for later schema inference.
 
 These contracts are type-only. Concrete field factories will construct and freeze their runtime metadata in their dedicated implementations.
+
+## Default values
+
+Static defaults keep the direct syntax and exact literal inference:
+
+```ts
+stringField({
+	default: 'draft',
+})
+```
+
+Runtime defaults use a simple arrow function:
+
+```ts
+dateField({
+	default: () => new Date(),
+})
+```
+
+The callback is stored without being executed during schema declaration. Every
+function supplied as `default` is interpreted as a runtime factory;
+function-valued static defaults are therefore unsupported. Composite fields
+validate the factory return type before considering static object shapes.
+
+`DatabaseDefault<TValue, TConfig>` is the neutral low-level contract used by
+adapter plugins for database-generated values. Its name and copied
+configuration are immutable. Schema can classify metadata as `static`,
+`runtime`, or `database` with `getDefaultKind`, but it never interprets or
+executes database expressions.
 
 ## String fields
 
@@ -46,8 +75,6 @@ Integer fields additionally support `autoIncrement: true | false` as declarative
 ## Date fields
 
 `dateField(options)` represents server-side JavaScript `Date` values. Static defaults and `validation.range.min/max` boundaries accept only valid `Date` objects; Schema snapshots supplied dates and rejects inverted ranges. ISO string serialization belongs to transport packages and is deliberately absent here.
-
-Default functions are rejected until the explicit static, runtime-factory, and database-default contracts are introduced by issue 109.
 
 ## Enum fields
 

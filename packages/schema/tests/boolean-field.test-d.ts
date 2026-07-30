@@ -39,8 +39,6 @@ test('creates an exact empty option contract by default', () => {
 test('rejects incompatible boolean metadata', () => {
 	// @ts-expect-error -- Boolean defaults cannot use numeric values.
 	booleanField({ default: 0 })
-	// @ts-expect-error -- Factories receive an explicit contract in issue 109.
-	booleanField({ default: () => true })
 	// @ts-expect-error -- Required fields cannot also be nullable.
 	booleanField({ validation: { required: true, nullable: true } })
 	booleanField({

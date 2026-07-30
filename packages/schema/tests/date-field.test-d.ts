@@ -40,13 +40,13 @@ test('creates an exact empty option contract by default', () => {
 	>()
 })
 
-test('rejects transport values and future default factories', () => {
+test('rejects transport values and invalid default factories', () => {
 	// @ts-expect-error -- ISO strings belong to transport serialization.
 	dateField({ default: '2026-01-01T00:00:00.000Z' })
 	// @ts-expect-error -- Date range boundaries use server-side Date values.
 	dateField({ validation: { range: { min: 0 } } })
-	// @ts-expect-error -- Factories receive an explicit contract in issue 109.
-	dateField({ default: () => new Date() })
+	// @ts-expect-error -- Runtime factories must produce Date values.
+	dateField({ default: () => '2026-01-01' })
 	// @ts-expect-error -- Required fields cannot also be nullable.
 	dateField({ validation: { required: true, nullable: true } })
 	dateField({

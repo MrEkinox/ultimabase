@@ -1,4 +1,5 @@
 import type { FieldExtension } from './extension.js'
+import type { FieldDefault } from './default-value.js'
 
 declare const fieldValueMarker: unique symbol
 
@@ -25,7 +26,7 @@ export interface FieldOptions<
 	TValidation extends FieldValidationOptions = FieldValidationOptions,
 > {
 	readonly validation?: TValidation
-	readonly default?: TValue
+	readonly default?: FieldDefault<TValue>
 	readonly immutable?: boolean
 	readonly indexed?: boolean | 'unique'
 	readonly description?: string
@@ -40,7 +41,7 @@ export interface FieldOptions<
 export interface FieldDefinition<
 	TKind extends string,
 	TValue,
-	TOptions extends FieldOptions<TValue> = FieldOptions<TValue>,
+	TOptions extends object = FieldOptions<TValue>,
 > {
 	readonly kind: TKind
 	readonly options: Readonly<TOptions>

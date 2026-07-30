@@ -1,6 +1,11 @@
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
 import {
+	isStaticDefault,
+	type DatabaseDefault,
+	type DefaultFactory,
+} from './default-value.js'
+import {
 	normalizeFieldOptions,
 	normalizeFlatValidation,
 } from './field-options.js'
@@ -36,7 +41,7 @@ export type ObjectFieldOptions<TFields extends ObjectFields = ObjectFields> =
  */
 export type ObjectField<
 	TFields extends ObjectFields = ObjectFields,
-	TOptions extends ObjectFieldOptions<TFields> = ObjectFieldOptions<TFields>,
+	TOptions extends object = ObjectFieldOptions<TFields>,
 > = FieldDefinition<'object', ObjectFieldValue<TFields>, TOptions>
 
 /**
@@ -52,8 +57,62 @@ export type ArrayFieldOptions<TItem extends GenericField = GenericField> =
  */
 export type ArrayField<
 	TItem extends GenericField = GenericField,
-	TOptions extends ArrayFieldOptions<TItem> = ArrayFieldOptions<TItem>,
+	TOptions extends object = ArrayFieldOptions<TItem>,
 > = FieldDefinition<'array', readonly FieldValue<TItem>[], TOptions>
+
+type DefaultIsCompatible<TOptions, TValue> = TOptions extends {
+	readonly default: infer TDefault
+}
+	? TDefault extends (...args: never[]) => unknown
+		? TDefault extends DefaultFactory<TValue>
+			? true
+			: false
+		: TDefault extends DatabaseDefault<TValue> | TValue
+			? true
+			: false
+	: true
+
+type ValidatedObjectOptions<TOptions extends { readonly fields: object }> =
+	TOptions extends {
+		readonly fields: infer TFields extends ObjectFields
+	}
+		? Omit<TOptions, 'default'> extends Omit<
+				ObjectFieldOptions<TFields>,
+				'default'
+			>
+			? DefaultIsCompatible<TOptions, ObjectFieldValue<TFields>> extends true
+				? TOptions
+				: never
+			: never
+		: never
+
+type ValidatedArrayOptions<TOptions extends { readonly items: unknown }> =
+	TOptions extends {
+		readonly items: infer TItem extends GenericField
+	}
+		? Omit<TOptions, 'default'> extends Omit<
+				ArrayFieldOptions<TItem>,
+				'default'
+			>
+			? DefaultIsCompatible<TOptions, readonly FieldValue<TItem>[]> extends true
+				? TOptions
+				: never
+			: never
+		: never
+
+type FieldsFromOptions<TOptions extends { readonly fields: object }> =
+	TOptions extends {
+		readonly fields: infer TFields extends ObjectFields
+	}
+		? TFields
+		: ObjectFields
+
+type ItemFromOptions<TOptions extends { readonly items: unknown }> =
+	TOptions extends {
+		readonly items: infer TItem extends GenericField
+	}
+		? TItem
+		: GenericField
 
 const isUnknownRecord = (value: unknown): value is Record<string, unknown> =>
 	typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -178,11 +237,13 @@ const assertAcyclicFieldTree = (
  * Creates immutable structured object metadata from existing field definitions.
  */
 export function objectField<
-	const TFields extends ObjectFields,
-	const TOptions extends ObjectFieldOptions<TFields>,
+	const TOptions extends {
+		readonly fields: object
+	},
 >(
-	options: TOptions & { readonly fields: TFields },
-): ObjectField<TFields, TOptions>
+	options: TOptions &
+		(ValidatedObjectOptions<NoInfer<TOptions>> extends never ? never : unknown),
+): ObjectField<FieldsFromOptions<TOptions>, TOptions>
 
 export function objectField(
 	options: ObjectFieldOptions,
@@ -193,7 +254,7 @@ export function objectField(
 
 	const normalized = normalizeFieldOptions(options, normalizeFlatValidation)
 	const defaultValue =
-		normalized.default === undefined
+		normalized.default === undefined || !isStaticDefault(normalized.default)
 			? undefined
 			: snapshotStructuredDefault(normalized.default)
 
@@ -212,9 +273,13 @@ export function objectField(
  * Creates immutable array metadata from one reusable field definition.
  */
 export function arrayField<
-	const TItem extends GenericField,
-	const TOptions extends ArrayFieldOptions<TItem>,
->(options: TOptions & { readonly items: TItem }): ArrayField<TItem, TOptions>
+	const TOptions extends {
+		readonly items: unknown
+	},
+>(
+	options: TOptions &
+		(ValidatedArrayOptions<NoInfer<TOptions>> extends never ? never : unknown),
+): ArrayField<ItemFromOptions<TOptions>, TOptions>
 
 export function arrayField(
 	options: ArrayFieldOptions,
@@ -223,7 +288,7 @@ export function arrayField(
 
 	const normalized = normalizeFieldOptions(options, normalizeFlatValidation)
 	const defaultValue =
-		normalized.default === undefined
+		normalized.default === undefined || !isStaticDefault(normalized.default)
 			? undefined
 			: snapshotStructuredDefault(normalized.default)
 

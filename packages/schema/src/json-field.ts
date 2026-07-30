@@ -1,5 +1,6 @@
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
+import { isStaticDefault } from './default-value.js'
 import {
 	normalizeFieldOptions,
 	normalizeFlatValidation,
@@ -102,7 +103,10 @@ const normalizeJsonFieldOptions = (
 ): Readonly<JsonFieldOptions> => {
 	const normalized = normalizeFieldOptions(options, normalizeFlatValidation)
 
-	if (normalized.default === undefined) {
+	if (
+		normalized.default === undefined ||
+		!isStaticDefault(normalized.default)
+	) {
 		return normalized
 	}
 

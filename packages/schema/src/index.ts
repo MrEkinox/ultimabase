@@ -20,6 +20,16 @@ export type {
 	DateRangeValidationOptions,
 	DateValidationOptions,
 } from './date-field.js'
+export {
+	DatabaseDefault,
+	getDefaultKind,
+	isStaticDefault,
+} from './default-value.js'
+export type {
+	DefaultFactory,
+	DefaultKind,
+	FieldDefault,
+} from './default-value.js'
 export { enumField } from './enum-field.js'
 export type {
 	EnumField,
