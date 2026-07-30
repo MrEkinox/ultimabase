@@ -36,3 +36,5 @@ Each package declares its own TypeScript, tsdown, and Vitest development depende
 - `yarn typecheck` checks only its publishable source project.
 
 Each `vitest.config.ts` is a minimal discovery entry point that reuses the shared configuration under `tooling/`.
+
+From the repository root, `yarn test:pack` builds and validates every public archive with publint, Are The Types Wrong, an archive allowlist, and a Vitest Node consumer.

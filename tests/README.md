@@ -18,8 +18,9 @@ Vitest runs these conventions as distinct projects named `unit`, `e2e`, and `typ
 ## Commands
 
 - `yarn test`: run package unit tests and compile-time type tests.
-- `yarn test:all`: run unit, type, build, and cross-package E2E checks.
+- `yarn test:all`: run unit, type, build, cross-package E2E, and package archive checks.
 - `yarn test:e2e`: build every package, then run cross-package E2E tests.
+- `yarn test:pack`: build and validate every publishable package archive.
 - `yarn test:coverage`: run package unit tests with V8 coverage.
 - `yarn test:types`: run compile-time type tests only.
 - `yarn test:watch [path]`: watch package-local unit tests, optionally filtered by path.

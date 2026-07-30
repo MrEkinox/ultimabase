@@ -58,5 +58,5 @@ jobs:
         # Testcontainers will use the same Docker daemon in future integration tests.
         run: docker version
 
-      - name: Build and run E2E tests
+      - name: Build and run E2E package tests
         run: yarn test:e2e
