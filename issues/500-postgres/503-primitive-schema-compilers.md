@@ -17,7 +17,7 @@ Compile every first-release primitive field into PostgreSQL/Drizzle metadata.
 - [ ] Nested Dates have a lossless adapter-owned codec.
 - [ ] Unsupported nested indexes fail setup instead of being ignored.
 - [ ] Static and named database defaults compile without executing runtime defaults.
-- [ ] UUID v7 and timestamps compile correctly.
+- [ ] System `uuidVersion`, `generatedOn`, and timestamp metadata compile correctly.
 - [ ] No compiler logic enters Schema.
 
 ## Tests

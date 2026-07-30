@@ -23,11 +23,10 @@ describe('schema definitions', () => {
 		fields.summary = stringField()
 		extensions.push(extension)
 
-		expect(schema).toStrictEqual({
-			className: 'Post',
-			fields: { title },
-			extensions: [extension],
-		})
+		expect(schema.className).toBe('Post')
+		expect(schema.fields.title).toBe(title)
+		expect(schema.fields).not.toHaveProperty('summary')
+		expect(schema.extensions).toStrictEqual([extension])
 		expect(Object.isFrozen(schema)).toBe(true)
 		expect(Object.isFrozen(schema.fields)).toBe(true)
 		expect(Object.isFrozen(schema.extensions)).toBe(true)

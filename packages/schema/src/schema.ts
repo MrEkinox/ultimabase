@@ -2,11 +2,12 @@ import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
 import { defineExtensions, type SchemaExtension } from './extension.js'
 import type { GenericField } from './field.js'
-
-/**
- * Identifies fields owned by UltimaBase rather than developer schemas.
- */
-export type ReservedSystemFieldName = 'createdAt' | 'id' | 'updatedAt'
+import {
+	reservedSystemFieldNames,
+	systemFields,
+	type ReservedSystemFieldName,
+	type SystemFields,
+} from './system-field.js'
 
 /**
  * Collects named field definitions without erasing their concrete literals.
@@ -41,7 +42,7 @@ export interface SchemaDefinition<
 	TExtensions extends SchemaExtensions = SchemaExtensions,
 > {
 	readonly className: TClassName
-	readonly fields: Readonly<TFields>
+	readonly fields: Readonly<TFields> & Readonly<SystemFields>
 	readonly extensions: readonly [...TExtensions]
 }
 
@@ -49,12 +50,6 @@ type ReservedFieldCollision<TFields extends SchemaFields> =
 	Extract<keyof TFields, ReservedSystemFieldName> extends never
 		? unknown
 		: never
-
-const reservedSystemFieldNames: readonly ReservedSystemFieldName[] = [
-	'id',
-	'createdAt',
-	'updatedAt',
-]
 
 const emptySchemaExtensions: readonly [] = immutableArray([])
 
@@ -104,7 +99,10 @@ export function defineSchema(options: {
 	// Field definitions are already immutable, so only the caller-owned map needs copying.
 	return immutableRecord({
 		className: options.className,
-		fields: immutableRecord(options.fields),
+		fields: immutableRecord({
+			...options.fields,
+			...systemFields,
+		}),
 		extensions,
 	})
 }

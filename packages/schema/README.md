@@ -44,6 +44,25 @@ metadata.
 Developer declarations using those keys fail both TypeScript checking and
 runtime declaration.
 
+## System fields
+
+Every schema field map includes three immutable framework-owned definitions:
+
+- `id` is a `string` value represented by the `uuid` field kind with
+  `uuidVersion: 7`;
+- `createdAt` and `updatedAt` are server-side `Date` values represented by the
+  `date` field kind.
+
+System options expose `system: true`, `generatedOn`, `immutable: true`, and
+`validation.required: true`. The identifier and both timestamps are generated
+during creation; `updatedAt` is additionally refreshed during persisted
+updates. These markers let input inference exclude generated fields from
+creates and immutable fields from developer updates without checking reserved
+names.
+
+Schema only declares this contract. UUID and timestamp generation belongs to
+Runtime, while database-native compilation belongs to adapter plugins.
+
 ## Generic field contract
 
 - `FieldValidationOptions` represents omission and nullability inside the `validation` option. Fields are optional and non-null by default, and `required: true` cannot be combined with `nullable: true`.

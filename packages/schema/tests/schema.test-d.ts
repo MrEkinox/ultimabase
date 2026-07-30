@@ -28,7 +28,7 @@ test('preserves schema, field, and extension literals', () => {
 
 	expectTypeOf(schema.className).toEqualTypeOf<'Post'>()
 	expectTypeOf<keyof typeof schema.fields>().toEqualTypeOf<
-		'published' | 'title'
+		'createdAt' | 'id' | 'published' | 'title' | 'updatedAt'
 	>()
 	expectTypeOf(schema.fields.title.kind).toEqualTypeOf<'string'>()
 	expectTypeOf(schema.fields.published.kind).toEqualTypeOf<'boolean'>()

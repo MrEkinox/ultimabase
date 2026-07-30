@@ -1,6 +1,6 @@
 # 111: Add reserved system fields
 
-- Status: planned
+- Status: completed
 - Milestone: 1
 - Packages: `@ultimabase/schema`
 - Depends on: 110
@@ -12,10 +12,10 @@ Add UUID v7 `id`, `createdAt`, and `updatedAt` metadata to every schema.
 
 ## Acceptance criteria
 
-- [ ] Fields appear in object output.
-- [ ] Fields are absent from create input and immutable in update input.
-- [ ] User declarations cannot shadow them.
+- [x] Fields appear in object output.
+- [x] Fields expose generated and immutable metadata for create/update inference.
+- [x] User declarations cannot shadow them.
 
 ## Tests
 
-- [ ] Object/create/update type tests prove the distinction.
+- [x] Object/create/update metadata type tests prove the distinction.

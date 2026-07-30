@@ -73,7 +73,6 @@ export type {
 } from './number-field.js'
 export { defineSchema } from './schema.js'
 export type {
-	ReservedSystemFieldName,
 	SchemaDefinition,
 	SchemaExtensions,
 	SchemaFields,
@@ -86,3 +85,13 @@ export type {
 	StringLengthValidationOptions,
 	StringValidationOptions,
 } from './string-field.js'
+export type {
+	CreatedAtSystemField,
+	IdSystemField,
+	ReservedSystemFieldName,
+	SystemFieldDefinition,
+	SystemFieldGeneration,
+	SystemFieldOptions,
+	SystemFields,
+	UpdatedAtSystemField,
+} from './system-field.js'
