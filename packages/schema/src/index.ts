@@ -46,6 +46,8 @@ export type {
 	ExtensionDefinition,
 	ExtensionScope,
 	FieldExtension,
+	FieldInferenceExtension,
+	FieldInferenceOverride,
 	SchemaExtension,
 } from './extension.js'
 export type {
@@ -54,6 +56,11 @@ export type {
 	FieldValidationOptions,
 	FieldValue,
 } from './field.js'
+export type {
+	InferCreateInput,
+	InferObject,
+	InferUpdateInput,
+} from './inference.js'
 export { jsonField } from './json-field.js'
 export type {
 	JsonArray,

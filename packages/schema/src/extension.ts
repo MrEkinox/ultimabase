@@ -1,5 +1,7 @@
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
+declare const fieldInferenceMarker: unique symbol
+
 /**
  * Identifies where an extension may be attached and keeps both namespaces independent.
  */
@@ -33,6 +35,40 @@ export type FieldExtension<
 	TName extends string,
 	TConfig extends object,
 > = ExtensionDefinition<'field', TName, TConfig>
+
+/**
+ * Describes the optional value override contributed by a field extension per operation.
+ *
+ * Returning never removes the field from the corresponding inferred shape.
+ */
+export interface FieldInferenceOverride {
+	readonly object?: unknown
+	readonly create?: unknown
+	readonly update?: unknown
+}
+
+/**
+ * Associates inference-only metadata with a regular opaque field extension.
+ *
+ * The symbol property never exists at runtime, so Schema remains independent from plugins.
+ */
+export type FieldInferenceExtension<
+	TName extends string,
+	TConfig extends object,
+	TInference extends FieldInferenceOverride,
+> = FieldExtension<TName, TConfig> & {
+	readonly [fieldInferenceMarker]?: TInference
+}
+
+/**
+ * Extracts the inference contract carried by a field extension.
+ */
+export type FieldExtensionInference<TExtension> = TExtension extends {
+	readonly [fieldInferenceMarker]?: infer TInference extends
+		FieldInferenceOverride
+}
+	? TInference
+	: object
 
 const createExtension = <
 	const TScope extends ExtensionScope,

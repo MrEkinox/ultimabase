@@ -63,6 +63,30 @@ names.
 Schema only declares this contract. UUID and timestamp generation belongs to
 Runtime, while database-native compilation belongs to adapter plugins.
 
+## Inferred data shapes
+
+Schema exports three operation-specific helpers:
+
+```ts
+type Post = InferObject<typeof PostSchema>
+type CreatePostInput = InferCreateInput<typeof PostSchema>
+type UpdatePostInput = InferUpdateInput<typeof PostSchema>
+```
+
+`InferObject` describes persisted values returned by UltimaBase. Required,
+defaulted, auto-incremented, and system-generated fields are always present;
+other fields remain optional. Its properties are readonly because persisted
+objects are immutable snapshots.
+
+`InferCreateInput` excludes server-generated fields. Required fields must be
+provided unless a default or auto-increment supplies their value. Immutable
+developer fields remain accepted during creation.
+
+`InferUpdateInput` excludes generated and immutable fields, and makes every
+remaining property optional. In all three modes, `validation.nullable: true`
+adds `null` to the field value. Object and array fields apply the same rules
+recursively.
+
 ## Generic field contract
 
 - `FieldValidationOptions` represents omission and nullability inside the `validation` option. Fields are optional and non-null by default, and `required: true` cannot be combined with `nullable: true`.
@@ -198,3 +222,11 @@ default mapping without adding database metadata to this package.
 Each extension exposes the literal `scope`, `name`, and typed readonly `config` properties. Schema transports this opaque configuration without interpreting it; the owning runtime plugin will provide its handler.
 
 Schema and field names use separate namespaces. The same name may therefore exist once in each scope, while two schema extensions or two field extensions with the same name produce a `TypeError`. Extension values and their configuration objects are shallowly copied and frozen.
+
+Plugins that transform field values may expose a
+`FieldInferenceExtension<Name, Config, Inference>` from their own field helper.
+The optional `object`, `create`, and `update` entries override only the
+corresponding inferred value. Returning `never` removes the field from that
+shape. Exact extension tuples compose in declaration order, so a later
+extension may intentionally refine an earlier result without exposing its
+type-only contract at runtime.

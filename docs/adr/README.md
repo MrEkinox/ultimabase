@@ -22,5 +22,6 @@ Accepted records:
 - [ADR-0016: Controlled public exports](0016-controlled-public-exports.md)
 - [ADR-0017: Composite fields and PostgreSQL storage](0017-composite-fields-and-postgres-storage.md)
 - [ADR-0018: Default value boundaries](0018-default-value-boundaries.md)
+- [ADR-0019: Operation-specific schema inference](0019-operation-specific-schema-inference.md)
 
 New decisions receive the next number. Do not rewrite history; supersede a record.
