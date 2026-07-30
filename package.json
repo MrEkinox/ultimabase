@@ -15,13 +15,14 @@
 		"tooling/*"
 	],
 	"scripts": {
-		"build": "tsdown --workspace",
+		"build": "yarn workspaces foreach --all --topological --no-private run build",
 		"changeset": "changeset",
 		"clean": "yarn workspaces foreach --all -p run clean",
 		"format": "prettier . --write",
 		"format:check": "prettier . --check",
 		"lint": "eslint .",
 		"test": "vitest run",
+		"test:pack": "node ./tooling/scripts/verify-packed-packages.ts",
 		"test:watch": "vitest",
 		"typecheck": "tsc --build"
 	},

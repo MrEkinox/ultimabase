@@ -50,7 +50,11 @@ Run or update `yarn constraints` when dependency constraints exist. If a request
 - Every builder method returns a new instance. Never mutate a previous `Query` or `ACL`.
 - Prefer arrow functions for stateless factories, hooks, scopes, permission rules, and utilities.
 - Do not implement Active Record APIs such as `role.save()`. Persistence always passes through a `RequestEngine`.
-- Keep inference intact. Public APIs must not expose `any`.
+- Never use `any`, whether explicit, implicit, hidden behind an assertion, or exposed through a public API. Use `unknown` plus validation at untrusted boundaries.
+- Type variables and boundaries as precisely as possible. Keep inference when it already produces a precise, verifiable type.
+- Every code contribution must include comments written in English. Explain intent, invariants, security boundaries, and non-obvious decisions rather than restating the implementation.
+- Avoid code duplication whenever practical. Reuse focused functions, variables, types, and modules for shared behavior or invariants without abstracting coincidental similarities.
+- Prefer a suitable standard, native, or established-library solution over custom code. Add code only when existing alternatives cannot correctly satisfy the requirement.
 - Do not promise subclassing as an extension mechanism; prefer composition and plugins.
 
 ## Plugins
@@ -103,6 +107,8 @@ yarn build
 ```
 
 Document anything that could not be run.
+
+Create a dedicated commit after an issue is complete, but never push it without the user's explicit confirmation.
 
 ## Documentation and decisions
 

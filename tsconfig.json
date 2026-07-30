@@ -9,7 +9,7 @@
 		"skipLibCheck": true,
 		"types": ["node"]
 	},
-	"include": ["*.config.ts"],
+	"include": ["*.config.ts", "tooling/scripts/*.ts"],
 	"references": [
 		{ "path": "./packages/shared" },
 		{ "path": "./packages/schema" },

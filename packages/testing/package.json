@@ -14,7 +14,7 @@
 		}
 	},
 	"scripts": {
-		"build": "tsdown",
+		"build": "yarn run --top-level tsdown",
 		"test": "vitest run",
 		"typecheck": "tsc --build"
 	},
