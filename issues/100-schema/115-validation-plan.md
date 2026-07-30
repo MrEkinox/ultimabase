@@ -1,10 +1,10 @@
 # 115: Compile primitive validation plans
 
-- Status: planned
+- Status: completed
 - Milestone: 1
 - Packages: `@ultimabase/schema`
 - Depends on: 104, 105, 106, 107, 108, 109, 112
-- ADR: ADR-0002
+- ADR: ADR-0002, ADR-0020
 
 ## Goal
 
@@ -12,10 +12,10 @@ Compile primitive field metadata into transport-neutral normalization and valida
 
 ## Acceptance criteria
 
-- [ ] Required, nullable, defaults, constraints, and unknown fields are represented.
-- [ ] Plans distinguish create and update behavior.
-- [ ] Validation issues carry stable paths and codes.
+- [x] Required, nullable, defaults, constraints, and unknown fields are represented.
+- [x] Plans distinguish create and update behavior.
+- [x] Validation issues carry stable paths and codes.
 
 ## Tests
 
-- [ ] Primitive success/failure matrix.
+- [x] Primitive success/failure matrix.

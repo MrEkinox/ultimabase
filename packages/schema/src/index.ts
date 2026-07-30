@@ -108,3 +108,28 @@ export type {
 	SystemFields,
 	UpdatedAtSystemField,
 } from './system-field.js'
+export { compileValidationPlans } from './validation-plan.js'
+export type {
+	ArrayValidationPlan,
+	BooleanValidationPlan,
+	DatabaseValidationDefaultPlan,
+	DateValidationPlan,
+	EnumValidationPlan,
+	FieldValidationPlan,
+	JsonValidationPlan,
+	NumberValidationPlan,
+	ObjectValidationPlan,
+	RuntimeValidationDefaultPlan,
+	SchemaValidationPlan,
+	SchemaValidationPlans,
+	StaticValidationDefaultPlan,
+	StringValidationPlan,
+	UnknownFieldPolicy,
+	UuidValidationPlan,
+	ValidationDefaultPlan,
+	ValidationIssue,
+	ValidationIssueCode,
+	ValidationIssuePath,
+	ValidationOperation,
+	ValidationPresence,
+} from './validation-plan.js'

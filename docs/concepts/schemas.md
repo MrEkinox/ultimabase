@@ -60,3 +60,15 @@ top-level fields. Composite declarations may reference `id`, `createdAt`, and
 Schema combines both declaration styles into one immutable ordered
 `schema.indexes` list. It contains no SQL, table names, or Drizzle values;
 database adapters own physical compilation and table naming.
+
+## Validation plans
+
+`compileValidationPlans(schema)` derives separate create and update plans.
+Every field plan records its expected kind, nullability, input presence, and
+primitive constraints. Object fields reject unknown properties recursively,
+and array fields carry a reusable item plan.
+
+Defaults remain inert descriptors during compilation: static values are
+retained, runtime factories are never called, and database defaults remain
+adapter-owned. Runtime later executes the plan and returns `ValidationIssue`
+objects with stable codes and nested paths.

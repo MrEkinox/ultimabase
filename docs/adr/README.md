@@ -23,5 +23,6 @@ Accepted records:
 - [ADR-0017: Composite fields and PostgreSQL storage](0017-composite-fields-and-postgres-storage.md)
 - [ADR-0018: Default value boundaries](0018-default-value-boundaries.md)
 - [ADR-0019: Operation-specific schema inference](0019-operation-specific-schema-inference.md)
+- [ADR-0020: Compiled validation plans](0020-compiled-validation-plans.md)
 
 New decisions receive the next number. Do not rewrite history; supersede a record.

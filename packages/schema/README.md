@@ -10,6 +10,7 @@ Responsibilities:
 - schema and field extension contracts;
 - normalized index metadata;
 - TypeScript inference;
+- transport-neutral validation plans;
 - isolated `SchemaRegistry` instances.
 
 This package must not know ACL, CLP, roles, PostgreSQL, Drizzle, Hono, or GraphQL. Optional capabilities contribute opaque, typed extensions that runtime plugins later claim.
@@ -131,6 +132,33 @@ tuple and an explicit boolean `unique` value.
 This contract expresses portable indexing intent only. Adapter plugins decide
 how to compile supported indexes and reject unsupported nested metadata. Table
 naming is likewise owned by the concrete database adapter rather than Schema.
+
+## Validation plans
+
+`compileValidationPlans(schema)` produces immutable create and update contracts
+from the same field metadata used for inference:
+
+```ts
+const plans = compileValidationPlans(UserSchema)
+
+plans.create.fields.name?.presence // "required", "optional", or "forbidden"
+plans.update.unknownFields // "reject"
+```
+
+Plans preserve primitive constraints, enum domains, object and array structure,
+nullability, and default ownership. Static values, runtime factories, and
+`DatabaseDefault` instances use separate discriminated descriptors. Compilation
+never invokes a factory or executes a constraint.
+
+Create plans require only fields without a default or generated value. Update
+plans make mutable fields optional and mark generated or immutable fields as
+forbidden. Array items are always values rather than optional properties, while
+object children apply the active operation recursively.
+
+`ValidationIssue` defines closed stable codes and paths containing property
+names and array offsets. Runtime will execute these plans before access checks
+and hooks; Schema does not validate request data itself and does not depend on a
+third-party schema language.
 
 ## Default values
 

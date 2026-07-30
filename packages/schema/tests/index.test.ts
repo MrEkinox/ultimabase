@@ -11,6 +11,7 @@ describe('@ultimabase/schema public entry point', () => {
 			'SchemaRegistry',
 			'arrayField',
 			'booleanField',
+			'compileValidationPlans',
 			'dateField',
 			'defineExtensions',
 			'defineFieldExtension',

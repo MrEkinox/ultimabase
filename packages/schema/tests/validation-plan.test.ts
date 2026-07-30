@@ -1,0 +1,255 @@
+import { describe, expect, it, vi } from 'vitest'
+
+import {
+	DatabaseDefault,
+	arrayField,
+	booleanField,
+	compileValidationPlans,
+	dateField,
+	defineSchema,
+	enumField,
+	jsonField,
+	numberField,
+	objectField,
+	stringField,
+	type FieldDefinition,
+} from '../src/index.js'
+
+describe('validation plans', () => {
+	it('compiles primitive create and update rules without executing defaults', () => {
+		const runtimeDefault = vi.fn(() => new Date('2026-07-30T12:00:00.000Z'))
+		const databaseDefault = new DatabaseDefault<Date>(
+			'postgres.currentTimestamp',
+			{},
+		)
+		const match = /^[a-z]+$/u
+		const minDate = new Date('2026-01-01T00:00:00.000Z')
+		const maxDate = new Date('2026-12-31T23:59:59.999Z')
+		const schema = defineSchema({
+			className: 'PrimitivePlan',
+			fields: {
+				name: stringField({
+					validation: {
+						required: true,
+						length: { min: 2, max: 40 },
+						match,
+					},
+				}),
+				nickname: stringField({
+					validation: { nullable: true },
+				}),
+				active: booleanField({ default: true }),
+				publishedAt: dateField({
+					default: runtimeDefault,
+					validation: { range: { min: minDate, max: maxDate } },
+				}),
+				importedAt: dateField({ default: databaseDefault }),
+				sequence: numberField({
+					mode: 'integer',
+					autoIncrement: true,
+					validation: { required: true, range: { min: 1 }, finite: true },
+				}),
+				ratio: numberField({
+					mode: 'float',
+					validation: { range: { min: 0, max: 1 }, finite: true },
+				}),
+				status: enumField({
+					values: {
+						Draft: 'draft',
+						Published: 'published',
+					},
+				}),
+				payload: jsonField(),
+				immutableCode: stringField({
+					validation: { required: true },
+					immutable: true,
+				}),
+			},
+		})
+
+		const plans = compileValidationPlans(schema)
+
+		expect(runtimeDefault).not.toHaveBeenCalled()
+		expect(plans.create.operation).toBe('create')
+		expect(plans.update.operation).toBe('update')
+		expect(plans.create.unknownFields).toBe('reject')
+		expect(plans.create.fields.name).toMatchObject({
+			kind: 'string',
+			presence: 'required',
+			nullable: false,
+			length: { min: 2, max: 40 },
+			match,
+		})
+		expect(plans.update.fields.name).toMatchObject({
+			kind: 'string',
+			presence: 'optional',
+			nullable: false,
+		})
+		expect(plans.create.fields.nickname).toMatchObject({
+			kind: 'string',
+			presence: 'optional',
+			nullable: true,
+		})
+		expect(plans.create.fields.active).toMatchObject({
+			kind: 'boolean',
+			presence: 'optional',
+			default: { kind: 'static', value: true },
+		})
+		expect(plans.update.fields.active).not.toHaveProperty('default')
+		expect(plans.create.fields.publishedAt).toMatchObject({
+			kind: 'date',
+			default: { kind: 'runtime', factory: runtimeDefault },
+			range: { min: minDate, max: maxDate },
+		})
+		expect(plans.create.fields.importedAt).toMatchObject({
+			kind: 'date',
+			default: { kind: 'database', value: databaseDefault },
+		})
+		expect(plans.create.fields.sequence).toMatchObject({
+			kind: 'number',
+			mode: 'integer',
+			presence: 'optional',
+			range: { min: 1 },
+			finite: true,
+		})
+		expect(plans.create.fields.ratio).toMatchObject({
+			kind: 'number',
+			mode: 'float',
+			range: { min: 0, max: 1 },
+			finite: true,
+		})
+		expect(plans.create.fields.status).toMatchObject({
+			kind: 'enum',
+			values: ['draft', 'published'],
+		})
+		expect(plans.create.fields.payload).toMatchObject({
+			kind: 'json',
+			presence: 'optional',
+		})
+		expect(plans.create.fields.immutableCode?.presence).toBe('required')
+		expect(plans.update.fields.immutableCode?.presence).toBe('forbidden')
+	})
+
+	it('compiles system fields and structured children recursively', () => {
+		const schema = defineSchema({
+			className: 'StructuredPlan',
+			fields: {
+				profile: objectField({
+					validation: { required: true },
+					fields: {
+						displayName: stringField({
+							validation: { required: true },
+						}),
+						internalCode: stringField({ immutable: true }),
+					},
+				}),
+				tags: arrayField({
+					items: stringField({
+						validation: {
+							nullable: true,
+							length: { min: 1 },
+						},
+						default: 'unused-for-array-items',
+					}),
+				}),
+			},
+		})
+
+		const plans = compileValidationPlans(schema)
+		const createProfile = plans.create.fields.profile
+		const updateProfile = plans.update.fields.profile
+		const createTags = plans.create.fields.tags
+
+		expect(plans.create.fields.id).toMatchObject({
+			kind: 'uuid',
+			version: 7,
+			presence: 'forbidden',
+		})
+		expect(plans.create.fields.createdAt?.presence).toBe('forbidden')
+		expect(plans.update.fields.updatedAt?.presence).toBe('forbidden')
+
+		expect(createProfile).toMatchObject({
+			kind: 'object',
+			presence: 'required',
+			unknownFields: 'reject',
+			fields: {
+				displayName: {
+					kind: 'string',
+					presence: 'required',
+					nullable: false,
+				},
+			},
+		})
+		expect(updateProfile).toMatchObject({
+			kind: 'object',
+			presence: 'optional',
+			fields: {
+				displayName: { presence: 'optional' },
+				internalCode: { presence: 'forbidden' },
+			},
+		})
+		expect(createTags).toMatchObject({
+			kind: 'array',
+			items: {
+				kind: 'string',
+				presence: 'required',
+				nullable: true,
+				length: { min: 1 },
+			},
+		})
+
+		if (createTags?.kind === 'array') {
+			// Array items are values rather than optional properties, so defaults never apply.
+			expect(createTags.items).not.toHaveProperty('default')
+		}
+	})
+
+	it('freezes every compiled container while retaining immutable metadata', () => {
+		const schema = defineSchema({
+			className: 'FrozenPlan',
+			fields: {
+				status: enumField({ values: ['draft', 'published'] }),
+				profile: objectField({
+					fields: {
+						name: stringField(),
+					},
+				}),
+			},
+		})
+
+		const plans = compileValidationPlans(schema)
+		const status = plans.create.fields.status
+		const profile = plans.create.fields.profile
+
+		expect(Object.isFrozen(plans)).toBe(true)
+		expect(Object.isFrozen(plans.create)).toBe(true)
+		expect(Object.isFrozen(plans.create.fields)).toBe(true)
+		expect(Object.isFrozen(status)).toBe(true)
+		expect(Object.isFrozen(profile)).toBe(true)
+
+		if (status?.kind === 'enum') {
+			expect(Object.isFrozen(status.values)).toBe(true)
+		}
+
+		if (profile?.kind === 'object') {
+			expect(Object.isFrozen(profile.fields)).toBe(true)
+		}
+	})
+
+	it('rejects field kinds without a registered built-in validation contract', () => {
+		const customField: FieldDefinition<'custom', string, object> = {
+			kind: 'custom',
+			options: {},
+		}
+		const schema = defineSchema({
+			className: 'UnsupportedPlan',
+			fields: {
+				custom: customField,
+			},
+		})
+
+		expect(() => compileValidationPlans(schema)).toThrow(
+			new TypeError('Unsupported validation field kind: custom'),
+		)
+	})
+})
