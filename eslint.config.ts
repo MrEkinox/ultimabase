@@ -11,7 +11,13 @@ export default defineConfig(
 	...tseslint.configs.strictTypeChecked,
 	...tseslint.configs.stylisticTypeChecked,
 	{
-		ignores: ['**/coverage/**', '**/dist/**', '**/node_modules/**'],
+		// Generated artifacts must never influence repository lint results.
+		ignores: [
+			'**/coverage/**',
+			'**/dist/**',
+			'**/node_modules/**',
+			'**/*.generated.ts',
+		],
 	},
 	{
 		files: ['**/*.ts'],
