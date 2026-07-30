@@ -7,6 +7,8 @@ describe('@ultimabase/schema public entry point', () => {
 		// Type-only field and extension contracts must not leak runtime placeholders.
 		expect(Object.keys(publicApi).sort()).toStrictEqual([
 			'DatabaseDefault',
+			'DuplicateSchemaError',
+			'SchemaRegistry',
 			'arrayField',
 			'booleanField',
 			'dateField',

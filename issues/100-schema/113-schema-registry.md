@@ -1,6 +1,6 @@
 # 113: Implement isolated SchemaRegistry
 
-- Status: planned
+- Status: completed
 - Milestone: 1
 - Packages: `@ultimabase/schema`
 - Depends on: 110
@@ -12,11 +12,11 @@ Register and retrieve explicit schemas without global mutable state.
 
 ## Acceptance criteria
 
-- [ ] Duplicate class names fail with a typed error.
-- [ ] Registration order is stable.
-- [ ] Registry instances are isolated.
-- [ ] Lookup supports literal-name inference where possible.
+- [x] Duplicate class names fail with a typed error.
+- [x] Registration order is stable.
+- [x] Registry instances are isolated.
+- [x] Lookup supports literal-name inference where possible.
 
 ## Tests
 
-- [ ] Parallel registries do not leak definitions.
+- [x] Parallel registries do not leak definitions.

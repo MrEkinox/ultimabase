@@ -230,3 +230,26 @@ corresponding inferred value. Returning `never` removes the field from that
 shape. Exact extension tuples compose in declaration order, so a later
 extension may intentionally refine an earlier result without exposing its
 type-only contract at runtime.
+
+## Schema registry
+
+`SchemaRegistry` stores explicit schema definitions for one application without
+using global mutable state:
+
+```ts
+const registry = new SchemaRegistry([UserSchema, PostSchema])
+
+registry.get('User') // typeof UserSchema | undefined
+registry.has('Post') // boolean
+registry.values() // immutable registration-order snapshot
+```
+
+Schemas supplied directly to the constructor retain literal `className`
+inference during lookup. `register(schema)` supports later plugin-owned
+contributions; because dynamic calls cannot change an existing variable's
+generic type, those lookups safely return `SchemaDefinition | undefined`.
+
+Each registry owns an independent native `Map`, whose insertion order defines
+iteration order. Registering an existing class name throws
+`DuplicateSchemaError` with the stable `SCHEMA_DUPLICATE_CLASS_NAME` code and
+does not replace the original schema.

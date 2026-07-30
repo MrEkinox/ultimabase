@@ -38,3 +38,14 @@ every applicable shape, and composite fields apply these rules recursively.
 Plugin field helpers can carry operation-specific type overrides with
 `FieldInferenceExtension` while their runtime extension configuration remains
 opaque to Schema.
+
+## Registration
+
+Each application owns a separate `SchemaRegistry`. Constructor-provided schemas
+retain literal-name lookup inference, registrations preserve configuration
+order, and `values()` returns an immutable snapshot. Plugins may register
+additional internal schemas during setup without sharing state with another
+application.
+
+Duplicate `className` values fail with `DuplicateSchemaError`; a failed
+registration never replaces the previously registered definition.
