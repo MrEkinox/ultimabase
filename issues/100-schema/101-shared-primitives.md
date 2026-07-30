@@ -1,6 +1,6 @@
 # 101: Add foundational shared primitives
 
-- Status: planned
+- Status: done
 - Milestone: 1
 - Packages: `@ultimabase/shared`
 - Depends on: 002, 004
@@ -12,9 +12,15 @@ Add only the branded IDs, `MaybePromise`, exhaustive checks, and immutable helpe
 
 ## Acceptance criteria
 
-- [ ] Every export has at least two planned consumers or a boundary-level purpose.
-- [ ] No domain or infrastructure concept enters Shared.
+- [x] Every export has at least two planned consumers or a boundary-level purpose.
+- [x] No domain or infrastructure concept enters Shared.
 
 ## Tests
 
-- [ ] Runtime and type tests cover each exported primitive.
+- [x] Runtime and type tests cover each exported primitive.
+
+## Implementation notes
+
+- Added `Brand` and `MaybePromise` as type-only boundary primitives.
+- Added `assertNever`, `immutableArray`, and `immutableRecord` without external dependencies.
+- Kept immutable helpers shallow so nested values remain the responsibility of their own construction boundary.
