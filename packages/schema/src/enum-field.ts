@@ -145,9 +145,10 @@ export function enumField<
 	const TValues extends EnumValues,
 	const TOptions extends EnumFieldOptions<TValues>,
 >(
-	options: TOptions &
-		{ readonly values: NonEmptyMapping<TValues> } &
-		Omit<EnumFieldOptions<NoInfer<TValues>>, 'values'>,
+	options: TOptions & { readonly values: NonEmptyMapping<TValues> } & Omit<
+			EnumFieldOptions<NoInfer<TValues>>,
+			'values'
+		>,
 ): EnumField<TValues, TOptions>
 
 export function enumField(options: EnumFieldOptions): EnumField {

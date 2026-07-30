@@ -11,11 +11,7 @@ export type DefaultFactory<TValue> = () => TValue
 export type DefaultKind = 'database' | 'runtime' | 'static'
 
 const assertDatabaseDefaultConfig = (config: unknown): void => {
-	if (
-		typeof config !== 'object' ||
-		config === null ||
-		Array.isArray(config)
-	) {
+	if (typeof config !== 'object' || config === null || Array.isArray(config)) {
 		throw new TypeError('Database default config must be an object')
 	}
 }
