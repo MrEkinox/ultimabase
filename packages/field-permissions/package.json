@@ -14,8 +14,8 @@
 		}
 	},
 	"scripts": {
-		"build": "yarn run --top-level tsdown",
-		"test": "vitest run",
+		"build": "tsdown",
+		"test": "vitest run --passWithNoTests",
 		"typecheck": "tsc --build"
 	},
 	"dependencies": {
@@ -24,5 +24,10 @@
 		"@ultimabase/query": "workspace:^",
 		"@ultimabase/runtime": "workspace:^",
 		"@ultimabase/schema": "workspace:^"
+	},
+	"devDependencies": {
+		"tsdown": "^0.22.14",
+		"typescript": "^6.0.3",
+		"vitest": "4.1.10"
 	}
 }

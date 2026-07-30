@@ -68,6 +68,18 @@ const users = await requestEngine
 - [`examples/`](examples/README.md): user-facing examples.
 - [`tests/`](tests/README.md): cross-package integration and conformance tests.
 
+## Development setup
+
+UltimaBase requires Node.js 24 and the Yarn version declared by `packageManager`.
+
+```sh
+corepack enable
+yarn install --immutable
+yarn test
+```
+
+Corepack ensures that `yarn` uses the repository's pinned Yarn version instead of a globally installed Yarn Classic binary.
+
 ## Contributing
 
 Read [`CONTRIBUTING.md`](CONTRIBUTING.md) and [`AGENTS.md`](AGENTS.md) before making changes. Work should normally start from one issue file and respect its dependencies.

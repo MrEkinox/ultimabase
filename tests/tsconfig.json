@@ -1,0 +1,12 @@
+{
+	"extends": "../tooling/tsconfig/base.json",
+	"compilerOptions": {
+		"composite": false,
+		"declaration": false,
+		"declarationMap": false,
+		"isolatedDeclarations": false,
+		"noEmit": true,
+		"types": ["node", "vitest"]
+	},
+	"include": ["../packages/*/tests/**/*.test.ts", "e2e/**/*.e2e.test.ts"]
+}

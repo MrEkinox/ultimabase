@@ -26,3 +26,13 @@ Every publishable workspace uses the `@ultimabase/*` scope and exposes only deli
 - `testing`
 
 No package may import another package through its source directory.
+
+## Local development
+
+Each package declares its own TypeScript, tsdown, and Vitest development dependencies. From a package workspace:
+
+- `yarn build` builds only that package.
+- `yarn test` runs only files from its local `tests` directory.
+- `yarn typecheck` checks only its publishable source project.
+
+Each `vitest.config.ts` is a minimal discovery entry point that reuses the shared configuration under `tooling/`.

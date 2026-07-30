@@ -14,8 +14,8 @@
 		}
 	},
 	"scripts": {
-		"build": "yarn run --top-level tsdown",
-		"test": "vitest run",
+		"build": "tsdown",
+		"test": "vitest run --passWithNoTests",
 		"typecheck": "tsc --build"
 	},
 	"dependencies": {
@@ -24,6 +24,9 @@
 		"@ultimabase/schema": "workspace:^"
 	},
 	"devDependencies": {
-		"@testcontainers/postgresql": "^12.0.4"
+		"@testcontainers/postgresql": "^12.0.4",
+		"tsdown": "^0.22.14",
+		"typescript": "^6.0.3",
+		"vitest": "4.1.10"
 	}
 }

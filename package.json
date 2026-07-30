@@ -17,26 +17,29 @@
 	"scripts": {
 		"build": "yarn workspaces foreach --all --topological --no-private run build",
 		"changeset": "changeset",
-		"clean": "yarn workspaces foreach --all -p run clean",
 		"format": "prettier . --write",
 		"format:check": "prettier . --check",
 		"lint": "eslint .",
-		"test": "vitest run",
+		"test": "vitest run --project unit --project types",
+		"test:all": "yarn test && yarn test:e2e",
+		"test:coverage": "vitest run --project unit --coverage",
+		"test:e2e": "yarn build && vitest run --project e2e --passWithNoTests",
 		"test:pack": "node ./tooling/scripts/verify-packed-packages.ts",
-		"test:watch": "vitest",
-		"typecheck": "tsc --build"
+		"test:types": "vitest run --project types",
+		"test:watch": "vitest --project unit --watch",
+		"typecheck": "tsc --build tsconfig.json tests/tsconfig.json"
 	},
 	"devDependencies": {
 		"@changesets/cli": "^2.29.7",
 		"@eslint/js": "^10.0.1",
 		"@types/node": "^24.0.0",
-		"@vitest/coverage-v8": "^4.1.10",
+		"@vitest/coverage-v8": "4.1.10",
 		"eslint": "^10.7.0",
 		"jiti": "^2.6.1",
 		"prettier": "^3.6.2",
 		"tsdown": "^0.22.14",
 		"typescript": "^6.0.3",
 		"typescript-eslint": "^8.65.0",
-		"vitest": "^4.1.10"
+		"vitest": "4.1.10"
 	}
 }

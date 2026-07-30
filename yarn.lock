@@ -1430,6 +1430,9 @@ __metadata:
   dependencies:
     "@ultimabase/schema": "workspace:^"
     "@ultimabase/shared": "workspace:^"
+    tsdown: "npm:^0.22.14"
+    typescript: "npm:^6.0.3"
+    vitest: "npm:4.1.10"
   languageName: unknown
   linkType: soft
 
@@ -1442,6 +1445,9 @@ __metadata:
     "@ultimabase/query": "workspace:^"
     "@ultimabase/runtime": "workspace:^"
     "@ultimabase/schema": "workspace:^"
+    tsdown: "npm:^0.22.14"
+    typescript: "npm:^6.0.3"
+    vitest: "npm:4.1.10"
   peerDependencies:
     "@ultimabase/roles": "workspace:^"
   peerDependenciesMeta:
@@ -1458,6 +1464,9 @@ __metadata:
     "@ultimabase/core": "workspace:^"
     "@ultimabase/runtime": "workspace:^"
     "@ultimabase/schema": "workspace:^"
+    tsdown: "npm:^0.22.14"
+    typescript: "npm:^6.0.3"
+    vitest: "npm:4.1.10"
   peerDependencies:
     "@ultimabase/roles": "workspace:^"
   peerDependenciesMeta:
@@ -1473,6 +1482,9 @@ __metadata:
     "@ultimabase/access": "workspace:^"
     "@ultimabase/schema": "workspace:^"
     "@ultimabase/shared": "workspace:^"
+    tsdown: "npm:^0.22.14"
+    typescript: "npm:^6.0.3"
+    vitest: "npm:4.1.10"
   languageName: unknown
   linkType: soft
 
@@ -1485,6 +1497,9 @@ __metadata:
     "@ultimabase/query": "workspace:^"
     "@ultimabase/runtime": "workspace:^"
     "@ultimabase/schema": "workspace:^"
+    tsdown: "npm:^0.22.14"
+    typescript: "npm:^6.0.3"
+    vitest: "npm:4.1.10"
   languageName: unknown
   linkType: soft
 
@@ -1497,6 +1512,9 @@ __metadata:
     "@ultimabase/runtime": "workspace:^"
     graphql: "npm:^16.14.2"
     graphql-yoga: "npm:^5.21.2"
+    tsdown: "npm:^0.22.14"
+    typescript: "npm:^6.0.3"
+    vitest: "npm:4.1.10"
   languageName: unknown
   linkType: soft
 
@@ -1511,6 +1529,9 @@ __metadata:
     "@ultimabase/schema": "workspace:^"
     dataloader: "npm:^2.2.3"
     graphql: "npm:^16.14.2"
+    tsdown: "npm:^0.22.14"
+    typescript: "npm:^6.0.3"
+    vitest: "npm:4.1.10"
   languageName: unknown
   linkType: soft
 
@@ -1521,6 +1542,9 @@ __metadata:
     "@ultimabase/core": "workspace:^"
     "@ultimabase/postgres": "workspace:^"
     "@ultimabase/schema": "workspace:^"
+    tsdown: "npm:^0.22.14"
+    typescript: "npm:^6.0.3"
+    vitest: "npm:4.1.10"
   languageName: unknown
   linkType: soft
 
@@ -1536,6 +1560,9 @@ __metadata:
     "@ultimabase/schema": "workspace:^"
     drizzle-orm: "npm:^0.45.2"
     pg: "npm:^8.16.3"
+    tsdown: "npm:^0.22.14"
+    typescript: "npm:^6.0.3"
+    vitest: "npm:4.1.10"
   languageName: unknown
   linkType: soft
 
@@ -1545,6 +1572,9 @@ __metadata:
   dependencies:
     "@ultimabase/schema": "workspace:^"
     "@ultimabase/shared": "workspace:^"
+    tsdown: "npm:^0.22.14"
+    typescript: "npm:^6.0.3"
+    vitest: "npm:4.1.10"
   languageName: unknown
   linkType: soft
 
@@ -1556,6 +1586,9 @@ __metadata:
     "@ultimabase/query": "workspace:^"
     "@ultimabase/runtime": "workspace:^"
     "@ultimabase/schema": "workspace:^"
+    tsdown: "npm:^0.22.14"
+    typescript: "npm:^6.0.3"
+    vitest: "npm:4.1.10"
   languageName: unknown
   linkType: soft
 
@@ -1567,6 +1600,9 @@ __metadata:
     "@ultimabase/core": "workspace:^"
     "@ultimabase/runtime": "workspace:^"
     "@ultimabase/schema": "workspace:^"
+    tsdown: "npm:^0.22.14"
+    typescript: "npm:^6.0.3"
+    vitest: "npm:4.1.10"
   languageName: unknown
   linkType: soft
 
@@ -1579,6 +1615,9 @@ __metadata:
     "@ultimabase/query": "workspace:^"
     "@ultimabase/schema": "workspace:^"
     "@ultimabase/shared": "workspace:^"
+    tsdown: "npm:^0.22.14"
+    typescript: "npm:^6.0.3"
+    vitest: "npm:4.1.10"
   languageName: unknown
   linkType: soft
 
@@ -1587,6 +1626,9 @@ __metadata:
   resolution: "@ultimabase/schema@workspace:packages/schema"
   dependencies:
     "@ultimabase/shared": "workspace:^"
+    tsdown: "npm:^0.22.14"
+    typescript: "npm:^6.0.3"
+    vitest: "npm:4.1.10"
   languageName: unknown
   linkType: soft
 
@@ -1598,12 +1640,19 @@ __metadata:
     "@ultimabase/core": "workspace:^"
     "@ultimabase/runtime": "workspace:^"
     hono: "npm:^4.9.6"
+    tsdown: "npm:^0.22.14"
+    typescript: "npm:^6.0.3"
+    vitest: "npm:4.1.10"
   languageName: unknown
   linkType: soft
 
 "@ultimabase/shared@workspace:^, @ultimabase/shared@workspace:packages/shared":
   version: 0.0.0-use.local
   resolution: "@ultimabase/shared@workspace:packages/shared"
+  dependencies:
+    tsdown: "npm:^0.22.14"
+    typescript: "npm:^6.0.3"
+    vitest: "npm:4.1.10"
   languageName: unknown
   linkType: soft
 
@@ -1615,10 +1664,13 @@ __metadata:
     "@ultimabase/core": "workspace:^"
     "@ultimabase/runtime": "workspace:^"
     "@ultimabase/schema": "workspace:^"
+    tsdown: "npm:^0.22.14"
+    typescript: "npm:^6.0.3"
+    vitest: "npm:4.1.10"
   languageName: unknown
   linkType: soft
 
-"@vitest/coverage-v8@npm:^4.1.10":
+"@vitest/coverage-v8@npm:4.1.10":
   version: 4.1.10
   resolution: "@vitest/coverage-v8@npm:4.1.10"
   dependencies:
@@ -5069,14 +5121,14 @@ __metadata:
     "@changesets/cli": "npm:^2.29.7"
     "@eslint/js": "npm:^10.0.1"
     "@types/node": "npm:^24.0.0"
-    "@vitest/coverage-v8": "npm:^4.1.10"
+    "@vitest/coverage-v8": "npm:4.1.10"
     eslint: "npm:^10.7.0"
     jiti: "npm:^2.6.1"
     prettier: "npm:^3.6.2"
     tsdown: "npm:^0.22.14"
     typescript: "npm:^6.0.3"
     typescript-eslint: "npm:^8.65.0"
-    vitest: "npm:^4.1.10"
+    vitest: "npm:4.1.10"
   languageName: unknown
   linkType: soft
 
@@ -5212,7 +5264,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"vitest@npm:^4.1.10":
+"vitest@npm:4.1.10":
   version: 4.1.10
   resolution: "vitest@npm:4.1.10"
   dependencies:

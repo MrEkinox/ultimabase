@@ -30,4 +30,15 @@ export default defineConfig(
 			'@typescript-eslint/prefer-readonly': 'error',
 		},
 	},
+	{
+		files: ['packages/*/tests/**/*.test.ts', 'tests/e2e/**/*.e2e.test.ts'],
+		languageOptions: {
+			parserOptions: {
+				// Runtime tests are excluded from publishable package projects.
+				project: './tests/tsconfig.json',
+				projectService: false,
+				tsconfigRootDir: configDirectory,
+			},
+		},
+	},
 )
