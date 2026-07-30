@@ -29,4 +29,5 @@ Run install, format, lint, typecheck, unit tests, integration tests, and build o
 - Corepack is enabled before Yarn runs, and immutable registry archives under `.yarn/cache` are keyed by the lockfile.
 - The runner verifies Docker access before E2E tests so future Testcontainers suites inherit the same environment.
 - Workflow-level concurrency keeps only the latest run for each Git reference.
+- Typechecking precedes linting because project references emit the declarations consumed by typed E2E lint rules on a clean runner.
 - Prettier and a YAML 1.2 parser validated the workflow locally; GitHub will provide the final semantic validation on the first pushed run.

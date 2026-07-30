@@ -44,11 +44,12 @@ jobs:
       - name: Check formatting
         run: yarn format:check
 
+      - name: Typecheck
+        # Project references emit the declarations required by typed E2E linting.
+        run: yarn typecheck
+
       - name: Lint
         run: yarn lint
-
-      - name: Typecheck
-        run: yarn typecheck
 
       - name: Run unit and type tests
         run: yarn test
