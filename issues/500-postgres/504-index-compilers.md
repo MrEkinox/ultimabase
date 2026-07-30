@@ -1,4 +1,4 @@
-# 504: Compile indexes and constraints
+# 504: Compile indexes
 
 - Status: planned
 - Milestone: 5
@@ -8,13 +8,12 @@
 
 ## Goal
 
-Compile unique, composite, ordinary indexes, and supported check constraints.
+Compile unique, composite, and ordinary indexes.
 
 ## Acceptance criteria
 
 - [ ] Names are deterministic and length-safe.
 - [ ] Unique composites can become upsert targets.
-- [ ] Unsupported constraints fail before DDL execution.
 
 ## Tests
 

@@ -49,3 +49,14 @@ application.
 
 Duplicate `className` values fail with `DuplicateSchemaError`; a failed
 registration never replaces the previously registered definition.
+
+## Indexes
+
+Fields use `indexed: true` or `indexed: "unique"` for single-field indexes.
+`defineSchema({ indexes })` adds composite indexes with at least two distinct
+top-level fields. Composite declarations may reference `id`, `createdAt`, and
+`updatedAt` in addition to developer fields.
+
+Schema combines both declaration styles into one immutable ordered
+`schema.indexes` list. It contains no SQL, table names, or Drizzle values;
+database adapters own physical compilation and table naming.

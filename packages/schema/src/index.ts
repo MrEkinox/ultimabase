@@ -85,6 +85,11 @@ export type {
 	SchemaFields,
 	SchemaOptions,
 } from './schema.js'
+export type {
+	SchemaFieldName,
+	SchemaIndexDefinition,
+	SchemaIndexOptions,
+} from './schema-index.js'
 export { DuplicateSchemaError, SchemaRegistry } from './schema-registry.js'
 export { stringField } from './string-field.js'
 export type {

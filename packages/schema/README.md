@@ -8,7 +8,7 @@ Responsibilities:
 - primitive field definitions;
 - system-field metadata;
 - schema and field extension contracts;
-- indexes and declarative constraints;
+- normalized index metadata;
 - TypeScript inference;
 - isolated `SchemaRegistry` instances.
 
@@ -94,6 +94,43 @@ recursively.
 - `FieldDefinition<TKind, TValue, TOptions>` preserves the literal field kind, its base value type, and its exact readonly options for later schema inference.
 
 These contracts are type-only. Concrete field factories will construct and freeze their runtime metadata in their dedicated implementations.
+
+## Indexes
+
+Single-field indexes stay next to their field:
+
+```ts
+slug: stringField({
+	indexed: 'unique',
+})
+```
+
+Schema-level declarations represent composite indexes and require at least two
+distinct top-level fields:
+
+```ts
+const PostSchema = defineSchema({
+	className: 'Post',
+	fields: {
+		authorId: stringField(),
+		slug: stringField({ indexed: 'unique' }),
+	},
+	indexes: [
+		{ fields: ['authorId', 'createdAt'] },
+		{ fields: ['authorId', 'slug'], unique: true },
+	],
+})
+```
+
+Developer and reserved system-field names are checked statically and at
+runtime. Every schema exposes one immutable normalized `indexes` list:
+field-level declarations appear in field order, followed by composite
+declarations in configuration order. Each entry contains a non-empty `fields`
+tuple and an explicit boolean `unique` value.
+
+This contract expresses portable indexing intent only. Adapter plugins decide
+how to compile supported indexes and reject unsupported nested metadata. Table
+naming is likewise owned by the concrete database adapter rather than Schema.
 
 ## Default values
 

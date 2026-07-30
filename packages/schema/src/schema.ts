@@ -3,6 +3,12 @@ import { immutableArray, immutableRecord } from '@ultimabase/shared'
 import { defineExtensions, type SchemaExtension } from './extension.js'
 import type { GenericField } from './field.js'
 import {
+	normalizeSchemaIndexes,
+	type SchemaFieldName,
+	type SchemaIndexDefinition,
+	type SchemaIndexOptions,
+} from './schema-index.js'
+import {
 	reservedSystemFieldNames,
 	systemFields,
 	type ReservedSystemFieldName,
@@ -29,6 +35,9 @@ export type SchemaOptions<
 > = {
 	readonly className: TClassName
 	readonly fields: TFields
+	readonly indexes?: readonly SchemaIndexOptions<
+		SchemaFieldName<NoInfer<TFields>>
+	>[]
 } & (TExtensions extends readonly []
 	? { readonly extensions?: TExtensions }
 	: { readonly extensions: TExtensions })
@@ -43,6 +52,7 @@ export interface SchemaDefinition<
 > {
 	readonly className: TClassName
 	readonly fields: Readonly<TFields> & Readonly<SystemFields>
+	readonly indexes: readonly SchemaIndexDefinition<SchemaFieldName<TFields>>[]
 	readonly extensions: readonly [...TExtensions]
 }
 
@@ -87,6 +97,7 @@ export function defineSchema<
 export function defineSchema(options: {
 	readonly className: string
 	readonly fields: SchemaFields
+	readonly indexes?: readonly SchemaIndexOptions[]
 	readonly extensions?: SchemaExtensions
 }): SchemaDefinition {
 	assertNoReservedFieldCollision(options.fields)
@@ -103,6 +114,7 @@ export function defineSchema(options: {
 			...options.fields,
 			...systemFields,
 		}),
+		indexes: normalizeSchemaIndexes(options.fields, options.indexes),
 		extensions,
 	})
 }
