@@ -37,6 +37,8 @@ String fields add declarative `validation.length.min`, `validation.length.max`, 
 
 Both modes support `validation.range.min`, `validation.range.max`, and `validation.finite`. Integer boundaries must be safe integers, float boundaries must be finite numbers, and `min` cannot exceed `max`. These constraints remain declarative metadata for the runtime validation plan. A future exact decimal field will use a separate value and storage contract.
 
+Integer fields additionally support `autoIncrement: true | false` as declarative database-sequence metadata. Float fields reject this option at both the TypeScript and runtime boundaries.
+
 ## Typed extensions
 
 - `defineSchemaExtension(name, config)` creates plugin-owned schema metadata.

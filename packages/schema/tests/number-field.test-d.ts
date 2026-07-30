@@ -25,6 +25,7 @@ test('preserves integer mode and every option literal', () => {
 		default: 0,
 		immutable: true,
 		indexed: 'unique',
+		autoIncrement: true,
 		description: 'Signed score',
 	})
 
@@ -38,6 +39,7 @@ test('preserves integer mode and every option literal', () => {
 	expectTypeOf(field.options.validation.range.max).toEqualTypeOf<10>()
 	expectTypeOf(field.options.validation.finite).toEqualTypeOf<true>()
 	expectTypeOf(field.options.default).toEqualTypeOf<0>()
+	expectTypeOf(field.options.autoIncrement).toEqualTypeOf<true>()
 })
 
 test('keeps float mode within the JavaScript number contract', () => {
@@ -83,6 +85,10 @@ test('rejects missing, decimal, and incompatible numeric metadata', () => {
 	numberField()
 	// @ts-expect-error -- Decimal precision will use a separate future field contract.
 	numberField({ mode: 'decimal' })
+	// @ts-expect-error -- Database sequences cannot generate floating-point fields.
+	numberField({ mode: 'float', autoIncrement: true })
+	// @ts-expect-error -- Even an explicit false is not an option in float mode.
+	numberField({ mode: 'float', autoIncrement: false })
 	// @ts-expect-error -- Numeric defaults must use the field's base value type.
 	numberField({ mode: 'integer', default: '0' })
 	// @ts-expect-error -- The finite constraint is a boolean literal.

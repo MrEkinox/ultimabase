@@ -34,9 +34,15 @@ export type NumberValidationOptions = FieldValidationOptions & {
  * Requires callers to choose the JavaScript number mode explicitly.
  */
 export type NumberFieldOptions<TMode extends NumberMode = NumberMode> =
-	FieldOptions<number, NumberValidationOptions> & {
-		readonly mode: TMode
-	}
+	TMode extends 'integer'
+		? FieldOptions<number, NumberValidationOptions> & {
+				readonly mode: TMode
+				readonly autoIncrement?: boolean
+			}
+		: FieldOptions<number, NumberValidationOptions> & {
+				readonly mode: TMode
+				readonly autoIncrement?: never
+			}
 
 /**
  * Carries the number value type, mode, and exact options through schema inference.
@@ -96,6 +102,10 @@ export function numberField<const TOptions extends NumberFieldOptions>(
 ): NumberField<TOptions>
 
 export function numberField(options: NumberFieldOptions): NumberField {
+	if (options.mode === 'float' && 'autoIncrement' in options) {
+		throw new TypeError('autoIncrement is only available in integer mode')
+	}
+
 	return immutableRecord({
 		kind: 'number',
 		options: normalizeFieldOptions(options, (validation) =>

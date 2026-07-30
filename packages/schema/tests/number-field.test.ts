@@ -21,6 +21,7 @@ describe('numberField', () => {
 			default: 0,
 			immutable: true,
 			indexed: 'unique',
+			autoIncrement: true,
 			description: 'Signed score',
 		} as const
 		const field = numberField(source)
@@ -59,6 +60,23 @@ describe('numberField', () => {
 				finite: false,
 			},
 		})
+	})
+
+	it('preserves an explicitly disabled integer sequence', () => {
+		const field = numberField({
+			mode: 'integer',
+			autoIncrement: false,
+		})
+
+		expect(field.options.autoIncrement).toBe(false)
+	})
+
+	it('rejects auto-increment metadata in float mode at runtime', () => {
+		expect(() => {
+			// JavaScript callers receive the same invariant enforced by TypeScript.
+			// @ts-expect-error -- Runtime coverage intentionally crosses the public type boundary.
+			numberField({ mode: 'float', autoIncrement: true })
+		}).toThrow(new TypeError('autoIncrement is only available in integer mode'))
 	})
 
 	it('copies caller-owned range metadata', () => {

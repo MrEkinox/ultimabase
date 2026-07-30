@@ -13,6 +13,7 @@ Implement `InferObject`, `InferCreateInput`, and `InferUpdateInput`.
 ## Acceptance criteria
 
 - [ ] Optional, nullable, required, immutable, and defaulted fields infer correctly.
+- [ ] Auto-incremented integer fields do not require a generated value in create inputs.
 - [ ] No public result contains `any`.
 - [ ] Extension metadata can affect inference through typed contracts.
 
