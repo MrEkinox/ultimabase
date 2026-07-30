@@ -4,6 +4,15 @@ export type {
 	BooleanFieldOptions,
 	BooleanValidationOptions,
 } from './boolean-field.js'
+export { arrayField, objectField } from './composite-field.js'
+export type {
+	ArrayField,
+	ArrayFieldOptions,
+	ObjectField,
+	ObjectFieldOptions,
+	ObjectFields,
+	ObjectFieldValue,
+} from './composite-field.js'
 export { dateField } from './date-field.js'
 export type {
 	DateField,
@@ -33,7 +42,17 @@ export type {
 	FieldDefinition,
 	FieldOptions,
 	FieldValidationOptions,
+	FieldValue,
 } from './field.js'
+export { jsonField } from './json-field.js'
+export type {
+	JsonArray,
+	JsonField,
+	JsonFieldOptions,
+	JsonObject,
+	JsonPrimitive,
+	JsonValue,
+} from './json-field.js'
 export { numberField } from './number-field.js'
 export type {
 	NumberField,

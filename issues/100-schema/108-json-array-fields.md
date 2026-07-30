@@ -1,21 +1,25 @@
-# 108: Implement jsonField and arrayField
+# 108: Implement JSON, array, and object fields
 
-- Status: planned
+- Status: completed
 - Milestone: 1
 - Packages: `@ultimabase/schema`
 - Depends on: 102, 104, 105, 106, 107
-- ADR: ADR-0002
+- ADR: ADR-0002, ADR-0017
 
 ## Goal
 
-Add JSON and typed arrays of supported primitive fields.
+Add safe JSON values, typed arrays, and structured objects composed from existing
+field definitions.
 
 ## Acceptance criteria
 
-- [ ] JSON defaults to a safe JSON value type rather than `any`.
-- [ ] Array element inference is preserved.
-- [ ] Nested array support and depth policy are explicit.
+- [x] JSON defaults to a safe JSON value type rather than `any`.
+- [x] Array element inference is preserved.
+- [x] Object fields preserve nested field inference.
+- [x] Nested arrays and objects support arbitrary finite depth.
+- [x] Circular field definitions are rejected.
+- [x] Schema metadata contains no PostgreSQL or Drizzle storage concerns.
 
 ## Tests
 
-- [ ] Invalid JSON and invalid element types are rejected in fixtures.
+- [x] Invalid JSON, object fields, and array element types are rejected in fixtures.

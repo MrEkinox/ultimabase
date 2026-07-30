@@ -20,5 +20,6 @@ Accepted records:
 - [ADR-0014: Data naming and system fields](0014-data-conventions.md)
 - [ADR-0015: Hook order and transaction boundary](0015-hook-order-and-transactions.md)
 - [ADR-0016: Controlled public exports](0016-controlled-public-exports.md)
+- [ADR-0017: Composite fields and PostgreSQL storage](0017-composite-fields-and-postgres-storage.md)
 
 New decisions receive the next number. Do not rewrite history; supersede a record.

@@ -65,6 +65,54 @@ enumField({
 
 Persisted values form the exact inferred string union, while mapping keys remain available to future GraphQL and SDK generators. Sources must be non-empty, persisted values must be unique, and static defaults must belong to the inferred domain. Numeric TypeScript enums are rejected because their runtime reverse mappings do not represent a string domain.
 
+## JSON and composite fields
+
+`jsonField(options)` represents portable JSON values through the recursive
+`JsonValue` type. JSON defaults accept only null, booleans, finite numbers,
+strings, arrays, and plain objects. They are copied and deeply frozen; values
+such as `undefined`, `Date`, `BigInt`, functions, and circular references are
+rejected.
+
+`arrayField({ items })` reuses one existing field definition and preserves its
+value type:
+
+```ts
+arrayField({
+	items: stringField(),
+})
+```
+
+`objectField({ fields })` composes existing fields into one structured value:
+
+```ts
+objectField({
+	fields: {
+		displayName: stringField({
+			validation: {
+				required: true,
+			},
+		}),
+		preferences: objectField({
+			fields: {
+				darkMode: booleanField(),
+			},
+		}),
+		tags: arrayField({
+			items: stringField(),
+		}),
+	},
+})
+```
+
+Arrays and objects may be nested to any finite depth. Field-definition cycles
+are rejected, while child definitions remain reusable immutable values.
+Structured defaults are detached from caller-owned values and recursively
+frozen.
+
+Schema does not select a physical representation. PostgreSQL storage and
+Drizzle compilation remain adapter concerns; ADR-0017 defines JSONB as their
+default mapping without adding database metadata to this package.
+
 ## Typed extensions
 
 - `defineSchemaExtension(name, config)` creates plugin-owned schema metadata.

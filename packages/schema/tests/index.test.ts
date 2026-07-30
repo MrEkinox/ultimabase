@@ -6,13 +6,16 @@ describe('@ultimabase/schema public entry point', () => {
 	it('exports only the current runtime factories', () => {
 		// Type-only field and extension contracts must not leak runtime placeholders.
 		expect(Object.keys(publicApi).sort()).toStrictEqual([
+			'arrayField',
 			'booleanField',
 			'dateField',
 			'defineExtensions',
 			'defineFieldExtension',
 			'defineSchemaExtension',
 			'enumField',
+			'jsonField',
 			'numberField',
+			'objectField',
 			'stringField',
 		])
 	})

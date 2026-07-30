@@ -46,3 +46,12 @@ export interface FieldDefinition<
 	readonly options: Readonly<TOptions>
 	readonly [fieldValueMarker]?: TValue
 }
+
+/**
+ * Extracts the value carried by a field without constraining its exact options.
+ */
+export type FieldValue<TField> = TField extends {
+	readonly [fieldValueMarker]?: infer TValue
+}
+	? TValue
+	: unknown
