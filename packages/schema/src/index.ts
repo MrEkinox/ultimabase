@@ -14,6 +14,14 @@ export type {
 	FieldOptions,
 	FieldValidationOptions,
 } from './field.js'
+export { numberField } from './number-field.js'
+export type {
+	NumberField,
+	NumberFieldOptions,
+	NumberMode,
+	NumberRangeValidationOptions,
+	NumberValidationOptions,
+} from './number-field.js'
 export { stringField } from './string-field.js'
 export type {
 	StringField,

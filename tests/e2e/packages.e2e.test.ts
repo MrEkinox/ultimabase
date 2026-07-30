@@ -16,6 +16,7 @@ describe('cross-package public entry points', () => {
 				'defineExtensions',
 				'defineFieldExtension',
 				'defineSchemaExtension',
+				'numberField',
 				'stringField',
 			],
 			[],

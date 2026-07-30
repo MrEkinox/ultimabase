@@ -66,6 +66,17 @@ describe('stringField', () => {
 		expect(field.options.validation.length.min).toBe(2)
 	})
 
+	it('freezes validation metadata without a length constraint', () => {
+		const field = stringField({
+			validation: {
+				required: true,
+			},
+		})
+
+		// Presence-only validation follows the same immutable boundary.
+		expect(Object.isFrozen(field.options.validation)).toBe(true)
+	})
+
 	it('copies and freezes field extensions', () => {
 		const extension = defineFieldExtension('fixture.visibility', {
 			mode: 'private',

@@ -1,21 +1,19 @@
 import { immutableRecord } from '@ultimabase/shared'
 
-import { defineExtensions } from './extension.js'
+import { normalizeFieldOptions } from './field-options.js'
 import type {
 	FieldDefinition,
 	FieldOptions,
 	FieldValidationOptions,
 } from './field.js'
+import { normalizeNumericRange, type NumericRange } from './numeric-range.js'
 
 type EmptyStringFieldOptions = Readonly<Record<PropertyKey, never>>
 
 /**
  * Defines declarative string length boundaries.
  */
-export interface StringLengthValidationOptions {
-	readonly min?: number
-	readonly max?: number
-}
+export type StringLengthValidationOptions = NumericRange
 
 /**
  * Groups presence and string constraints under one validation boundary.
@@ -58,46 +56,17 @@ const normalizeStringValidation = (
 ): Readonly<StringValidationOptions> => {
 	const { length } = validation
 
-	assertValidLength('min', length?.min)
-	assertValidLength('max', length?.max)
-
-	if (
-		length?.min !== undefined &&
-		length.max !== undefined &&
-		length.min > length.max
-	) {
-		throw new RangeError(
-			'validation.length.min cannot be greater than validation.length.max',
-		)
-	}
-
 	// Nested length metadata is copied before the containing validation object is frozen.
 	return length === undefined
 		? immutableRecord(validation)
-		: immutableRecord({ ...validation, length: immutableRecord(length) })
-}
-
-/**
- * Validates and copies options before they cross the schema boundary.
- */
-const normalizeStringFieldOptions = (
-	options: StringFieldOptions,
-): Readonly<StringFieldOptions> => {
-	const validation =
-		options.validation === undefined
-			? undefined
-			: normalizeStringValidation(options.validation)
-	const extensions =
-		options.extensions === undefined
-			? undefined
-			: defineExtensions(options.extensions)
-
-	// Conditional spreads preserve the distinction between absent and undefined options.
-	return immutableRecord({
-		...options,
-		...(validation === undefined ? {} : { validation }),
-		...(extensions === undefined ? {} : { extensions }),
-	})
+		: immutableRecord({
+				...validation,
+				length: normalizeNumericRange(
+					length,
+					'validation.length',
+					assertValidLength,
+				),
+			})
 }
 
 /**
@@ -117,6 +86,6 @@ export function stringField(
 ): StringField {
 	return immutableRecord({
 		kind: 'string',
-		options: normalizeStringFieldOptions(options),
+		options: normalizeFieldOptions(options, normalizeStringValidation),
 	})
 }

@@ -28,6 +28,15 @@ These contracts are type-only. Concrete field factories will construct and freez
 
 String fields add declarative `validation.length.min`, `validation.length.max`, and `validation.match` constraints. Lengths must be non-negative safe integers, and `min` cannot exceed `max`. Match constraints use native `RegExp` values and are stored as metadata; validation is compiled by the runtime rather than executed by the field factory.
 
+## Number fields
+
+`numberField(options)` requires an explicit `mode`:
+
+- `integer` represents safe JavaScript integers;
+- `float` represents general JavaScript numbers without promising decimal precision.
+
+Both modes support `validation.range.min`, `validation.range.max`, and `validation.finite`. Integer boundaries must be safe integers, float boundaries must be finite numbers, and `min` cannot exceed `max`. These constraints remain declarative metadata for the runtime validation plan. A future exact decimal field will use a separate value and storage contract.
+
 ## Typed extensions
 
 - `defineSchemaExtension(name, config)` creates plugin-owned schema metadata.

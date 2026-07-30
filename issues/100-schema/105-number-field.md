@@ -1,6 +1,6 @@
 # 105: Implement numberField
 
-- Status: planned
+- Status: done
 - Milestone: 1
 - Packages: `@ultimabase/schema`
 - Depends on: 102
@@ -12,10 +12,16 @@ Implement integer and float number modes.
 
 ## Acceptance criteria
 
-- [ ] Mode is explicitly `integer` or `float`.
-- [ ] Min, max, and finite constraints are represented.
-- [ ] A future decimal field is not conflated with JavaScript number.
+- [x] Mode is explicitly `integer` or `float`.
+- [x] Min, max, and finite constraints are represented.
+- [x] A future decimal field is not conflated with JavaScript number.
 
 ## Tests
 
-- [ ] Runtime and type tests cover both modes.
+- [x] Runtime and type tests cover both modes.
+
+## Implementation notes
+
+- Numeric constraints use `validation.range.min`, `validation.range.max`, and `validation.finite`.
+- Integer boundaries must be safe integers, while float boundaries must be finite JavaScript numbers.
+- Shared field-option and numeric-range normalization keep primitive factories consistent without coupling them.
