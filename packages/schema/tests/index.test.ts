@@ -12,6 +12,7 @@ describe('@ultimabase/schema public entry point', () => {
 			'dateField',
 			'defineExtensions',
 			'defineFieldExtension',
+			'defineSchema',
 			'defineSchemaExtension',
 			'enumField',
 			'getDefaultKind',

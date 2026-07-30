@@ -9,12 +9,12 @@ import {
 	normalizeFieldOptions,
 	normalizeFlatValidation,
 } from './field-options.js'
-import type { FieldDefinition, FieldOptions, FieldValue } from './field.js'
-
-interface GenericField {
-	readonly kind: string
-	readonly options: object
-}
+import type {
+	FieldDefinition,
+	FieldOptions,
+	FieldValue,
+	GenericField,
+} from './field.js'
 
 /**
  * Names the child fields of one structured object.

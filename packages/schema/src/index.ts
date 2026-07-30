@@ -71,6 +71,14 @@ export type {
 	NumberRangeValidationOptions,
 	NumberValidationOptions,
 } from './number-field.js'
+export { defineSchema } from './schema.js'
+export type {
+	ReservedSystemFieldName,
+	SchemaDefinition,
+	SchemaExtensions,
+	SchemaFields,
+	SchemaOptions,
+} from './schema.js'
 export { stringField } from './string-field.js'
 export type {
 	StringField,

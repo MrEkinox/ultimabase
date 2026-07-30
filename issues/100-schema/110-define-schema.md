@@ -1,6 +1,6 @@
 # 110: Implement defineSchema
 
-- Status: planned
+- Status: completed
 - Milestone: 1
 - Packages: `@ultimabase/schema`
 - Depends on: 103, 104, 105, 106, 107, 108, 109
@@ -12,11 +12,11 @@ Create immutable schema definitions while preserving class and field literals.
 
 ## Acceptance criteria
 
-- [ ] `className`, field keys, kinds, and extensions remain inferable.
-- [ ] Definitions are immutable from the public API.
-- [ ] Reserved system field collisions fail.
+- [x] `className`, field keys, kinds, and extensions remain inferable.
+- [x] Definitions are immutable from the public API.
+- [x] Reserved system field collisions fail.
 
 ## Tests
 
-- [ ] Mutation attempts fail or have no effect.
-- [ ] Literal inference has compile-time coverage.
+- [x] Mutation attempts fail or have no effect.
+- [x] Literal inference has compile-time coverage.

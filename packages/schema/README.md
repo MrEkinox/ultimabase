@@ -14,6 +14,36 @@ Responsibilities:
 
 This package must not know ACL, CLP, roles, PostgreSQL, Drizzle, Hono, or GraphQL. Optional capabilities contribute opaque, typed extensions that runtime plugins later claim.
 
+## Schema definitions
+
+`defineSchema(options)` combines existing field definitions into immutable
+schema metadata while preserving the exact class name, field keys, field kinds,
+and ordered extension tuple:
+
+```ts
+const PostSchema = defineSchema({
+	className: 'Post',
+	fields: {
+		title: stringField({
+			validation: {
+				required: true,
+			},
+		}),
+		published: booleanField({ default: false }),
+	},
+	extensions: [permissionsExtension],
+})
+```
+
+The input field map and extension list are copied and frozen. Child fields and
+extensions retain their existing immutable identity. Omitted extensions become
+an immutable empty tuple so consumers never need to normalize optional
+metadata.
+
+`id`, `createdAt`, and `updatedAt` are reserved for UltimaBase system fields.
+Developer declarations using those keys fail both TypeScript checking and
+runtime declaration.
+
 ## Generic field contract
 
 - `FieldValidationOptions` represents omission and nullability inside the `validation` option. Fields are optional and non-null by default, and `required: true` cannot be combined with `nullable: true`.

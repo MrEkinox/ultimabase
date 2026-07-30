@@ -49,6 +49,11 @@ export interface FieldDefinition<
 }
 
 /**
+ * Describes a concrete field through one shared reusable boundary.
+ */
+export type GenericField = FieldDefinition<string, unknown, object>
+
+/**
  * Extracts the value carried by a field without constraining its exact options.
  */
 export type FieldValue<TField> = TField extends {
