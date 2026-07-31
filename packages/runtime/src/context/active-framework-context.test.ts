@@ -3,7 +3,6 @@ import { defineSchema, stringField } from '@ultimabase/schema'
 import { describe, expect, it } from 'vitest'
 
 import type { DatabaseOperationExecutor } from '../database/contracts.js'
-import type { RequestTransactionRunner } from '../engine/framework-engine.js'
 import { FrameworkEngine } from '../engine/framework-engine.js'
 import type { RuntimePipelineStages } from '../pipeline/contracts.js'
 import { RuntimePipeline } from '../pipeline/runtime-pipeline.js'
@@ -50,10 +49,6 @@ const createPipeline = (): RuntimePipeline => {
 	return new RuntimePipeline(stages)
 }
 
-/** Retains the request engine until adapter-backed transactions are implemented. */
-const transactionRunner: RequestTransactionRunner = async (engine, handler) =>
-	handler(engine)
-
 /** Creates an isolated application engine for one focused scope test. */
 const createFramework = (): FrameworkEngine<
 	readonly [typeof articleSchema],
@@ -65,7 +60,6 @@ const createFramework = (): FrameworkEngine<
 			plugins: [],
 		}),
 		pipeline: createPipeline(),
-		transactionRunner,
 	})
 
 const expectMissingContext = (readCurrentValue: () => unknown): void => {

@@ -62,8 +62,8 @@ export interface DatabaseAdapter extends DatabaseOperationExecutor {
 }
 
 /**
- * Executes operations on one active transaction and deliberately cannot begin
- * nested transactions without a future explicit Runtime policy.
+ * Executes operations on one active transaction while Runtime explicitly
+ * rejects nesting until adapters gain a portable savepoint contract.
  */
 export interface DatabaseTransactionAdapter extends DatabaseOperationExecutor {
 	readonly kind: 'database-transaction-adapter'

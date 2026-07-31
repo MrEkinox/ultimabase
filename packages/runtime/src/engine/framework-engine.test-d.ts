@@ -15,7 +15,6 @@ import {
 	createTrustedMasterRequestEngine,
 	FrameworkEngine,
 	type RequestEngine,
-	type RequestTransactionRunner,
 } from './framework-engine.js'
 
 const schema = defineSchema({
@@ -29,12 +28,10 @@ const application = new FrameworkApplication({
 
 // The declaration fixture only needs a value with the already verified class type.
 declare const pipeline: RuntimePipeline
-declare const transactionRunner: RequestTransactionRunner
 
 const framework = new FrameworkEngine({
 	application,
 	pipeline,
-	transactionRunner,
 })
 
 test('preserves application, context, query, and operation result types', () => {

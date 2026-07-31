@@ -20,8 +20,14 @@ import {
 	RequestContext,
 	type RequestContextOptions,
 } from '../context/request-context.js'
+import { runWithRequestEngineScope } from '../context/active-framework-storage.js'
 import type { DatabaseOperationResult } from '../database/contracts.js'
 import { RuntimePipeline } from '../pipeline/runtime-pipeline.js'
+import { runRequestTransaction } from '../transactions/run-transaction.js'
+import {
+	createNestedTransactionError,
+	type TransactionLifetime,
+} from '../transactions/transaction-lifetime.js'
 
 const requestEngineConstructionKey: unique symbol = Symbol(
 	'ultimabase.request-engine-construction',
@@ -37,20 +43,6 @@ export type RequestTransactionHandler<
 	engine: RequestEngine<TSchemas, TPlugins, TContext>,
 ) => MaybePromise<TResult>
 
-/**
- * Defers adapter transaction ownership to issue 317 without weakening the
- * public RequestEngine callback or making transactions optional at assembly.
- */
-export type RequestTransactionRunner = <
-	const TSchemas extends readonly SchemaDefinition[],
-	const TPlugins extends readonly PluginDefinition[],
-	TContext extends RequestContext,
-	TResult,
->(
-	engine: RequestEngine<TSchemas, TPlugins, TContext>,
-	handler: RequestTransactionHandler<TSchemas, TPlugins, TContext, TResult>,
-) => Promise<TResult>
-
 /** Captures every application-owned dependency shared by its request engines. */
 export interface FrameworkEngineOptions<
 	TSchemas extends readonly SchemaDefinition[],
@@ -58,7 +50,6 @@ export interface FrameworkEngineOptions<
 > {
 	readonly application: FrameworkApplication<TSchemas, TPlugins>
 	readonly pipeline: RuntimePipeline
-	readonly transactionRunner: RequestTransactionRunner
 }
 
 const createInvalidOperationError = (): FrameworkError<'VALIDATION_ERROR'> =>
@@ -114,10 +105,6 @@ const assertFrameworkEngineOptions = (
 	if (!(untrustedOptions.pipeline instanceof RuntimePipeline)) {
 		throw new TypeError('Framework engine pipeline must be a RuntimePipeline')
 	}
-
-	if (typeof untrustedOptions.transactionRunner !== 'function') {
-		throw new TypeError('Framework engine transactionRunner must be a function')
-	}
 }
 
 /**
@@ -132,13 +119,11 @@ export class FrameworkEngine<
 > {
 	readonly application: FrameworkApplication<TSchemas, TPlugins>
 	readonly #pipeline: RuntimePipeline
-	readonly #transactionRunner: RequestTransactionRunner
 
 	constructor(options: FrameworkEngineOptions<TSchemas, TPlugins>) {
 		assertFrameworkEngineOptions(options)
 		this.application = options.application
 		this.#pipeline = options.pipeline
-		this.#transactionRunner = options.transactionRunner
 
 		// Application ownership and execution dependencies remain stable for its lifetime.
 		Object.freeze(this)
@@ -157,7 +142,6 @@ export class FrameworkEngine<
 			this,
 			context,
 			this.#pipeline,
-			this.#transactionRunner,
 		)
 	}
 
@@ -207,8 +191,8 @@ export class FrameworkEngine<
 }
 
 /**
- * Carries immutable request authority into queries, operations, and a future
- * transaction-scoped engine supplied by the configured transaction runner.
+ * Carries immutable request authority into queries, operations, and an
+ * adapter-backed transaction scope without exposing infrastructure state.
  */
 export class RequestEngine<
 	const TSchemas extends readonly SchemaDefinition[] =
@@ -220,14 +204,14 @@ export class RequestEngine<
 	readonly context: TContext
 	readonly framework: FrameworkEngine<TSchemas, TPlugins>
 	readonly #pipeline: RuntimePipeline
-	readonly #transactionRunner: RequestTransactionRunner
+	readonly #transactionLifetime: TransactionLifetime | undefined
 
 	constructor(
 		constructionKey: typeof requestEngineConstructionKey,
 		framework: FrameworkEngine<TSchemas, TPlugins>,
 		context: TContext,
 		pipeline: RuntimePipeline,
-		transactionRunner: RequestTransactionRunner,
+		transactionLifetime?: TransactionLifetime,
 	) {
 		if (constructionKey !== requestEngineConstructionKey) {
 			throw new TypeError(
@@ -238,7 +222,7 @@ export class RequestEngine<
 		this.framework = framework
 		this.context = context
 		this.#pipeline = pipeline
-		this.#transactionRunner = transactionRunner
+		this.#transactionLifetime = transactionLifetime
 
 		// A request engine cannot change application or authority after binding.
 		Object.freeze(this)
@@ -252,6 +236,7 @@ export class RequestEngine<
 	query<const TSchema extends TSchemas[number]>(
 		schema: TSchema,
 	): BoundQuery<TSchema, never, RequestEngine<TSchemas, TPlugins, TContext>> {
+		this.#transactionLifetime?.assertActive()
 		this.framework.assertOwnsSchema(schema)
 
 		return new Query(schema).bind<RequestEngine<TSchemas, TPlugins, TContext>>(
@@ -263,12 +248,20 @@ export class RequestEngine<
 	execute<const TOperation extends ExecutableOperationAst<TSchemas[number]>>(
 		operation: TOperation,
 	): Promise<DatabaseOperationResult<TOperation>> {
-		this.framework.assertOwnsSchema(getOperationSchema(operation))
+		const executeOperation = (): Promise<
+			DatabaseOperationResult<TOperation>
+		> => {
+			this.framework.assertOwnsSchema(getOperationSchema(operation))
 
-		return this.#pipeline.execute({ context: this.context, operation })
+			return this.#pipeline.execute({ context: this.context, operation })
+		}
+
+		return this.#transactionLifetime === undefined
+			? executeOperation()
+			: this.#transactionLifetime.run(executeOperation)
 	}
 
-	/** Delegates transaction ownership while preserving this context and application. */
+	/** Opens one adapter transaction while preserving this context and application. */
 	transaction<TResult>(
 		handler: RequestTransactionHandler<TSchemas, TPlugins, TContext, TResult>,
 	): Promise<TResult> {
@@ -278,7 +271,29 @@ export class RequestEngine<
 			)
 		}
 
-		return this.#transactionRunner(this, handler)
+		if (this.#transactionLifetime !== undefined) {
+			this.#transactionLifetime.assertActive()
+
+			const error: FrameworkError<'TRANSACTION_ERROR'> =
+				createNestedTransactionError()
+
+			this.#transactionLifetime.markFailed(error)
+			throw error
+		}
+
+		return runRequestTransaction(
+			this.#pipeline,
+			(transactionPipeline, lifetime) =>
+				new RequestEngine(
+					requestEngineConstructionKey,
+					this.framework,
+					this.context,
+					transactionPipeline,
+					lifetime,
+				),
+			(transaction) =>
+				runWithRequestEngineScope(transaction, () => handler(transaction)),
+		)
 	}
 }
 

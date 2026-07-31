@@ -117,6 +117,9 @@ setup export types, including definitions introduced through nested composition.
 - `FrameworkEngine` belongs to one isolated application.
 - `RequestEngine` carries one immutable request context and delegates every
   normalized operation to that application's pipeline.
+- `RequestEngine.transaction()` creates a callback-scoped engine backed by one
+  adapter transaction. It commits once, rolls back on failure, cannot escape
+  its callback, and rejects nested transactions until savepoints are explicit.
 - Exact schema identity prevents a request engine from accepting definitions
   owned by another application, even when class names match.
 - Optional `AsyncLocalStorage` scopes derive every current-context reference

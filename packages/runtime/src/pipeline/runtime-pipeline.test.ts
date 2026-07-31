@@ -5,10 +5,12 @@ import { describe, expect, it } from 'vitest'
 
 import { RequestContext, requestSources } from '../context/request-context.js'
 import type {
+	DatabaseAdapter,
 	DatabaseOperationAst,
 	DatabaseOperationExecutor,
 	DatabaseOperationRequest,
 	DatabaseOperationResult,
+	DatabaseTransactionAdapter,
 } from '../database/contracts.js'
 import type {
 	RuntimeAccessConstraintStage,
@@ -324,5 +326,81 @@ describe('RuntimePipeline', () => {
 			new TypeError('Runtime pipeline context must be a RequestContext'),
 		)
 		expect(trace).toStrictEqual([])
+	})
+
+	it('requires a valid database adapter before opening a transaction', async () => {
+		const trace: string[] = []
+		const executor = new TraceDatabaseExecutor(trace, [])
+		const pipeline = new RuntimePipeline(createStages(trace, executor))
+
+		await expect(pipeline.beginTransaction()).rejects.toMatchObject({
+			code: 'TRANSACTION_ERROR',
+			internalDetails: { reason: 'database-adapter-required' },
+		})
+
+		const invalidAdapter = {
+			kind: 'database-adapter' as const,
+			execute: <const TOperation extends DatabaseOperationAst>(
+				request: DatabaseOperationRequest<TOperation>,
+			): Promise<DatabaseOperationResult<TOperation>> =>
+				executor.execute(request),
+			beginTransaction: (): Promise<null> => Promise.resolve(null),
+		}
+		const invalidTransactionPipeline = new RuntimePipeline(
+			createStages(trace, invalidAdapter),
+		)
+
+		await expect(
+			invalidTransactionPipeline.beginTransaction(),
+		).rejects.toMatchObject({
+			code: 'TRANSACTION_ERROR',
+			internalDetails: { reason: 'invalid-transaction-adapter' },
+		})
+	})
+
+	it('prevents a transaction scope from being finalized twice', async () => {
+		const trace: string[] = []
+		const executor = new TraceDatabaseExecutor(trace, [])
+		const transaction: DatabaseTransactionAdapter = {
+			kind: 'database-transaction-adapter',
+			execute: <const TOperation extends DatabaseOperationAst>(
+				request: DatabaseOperationRequest<TOperation>,
+			): Promise<DatabaseOperationResult<TOperation>> =>
+				executor.execute(request),
+			commit: (): Promise<void> => Promise.resolve(),
+			rollback: (): Promise<void> => Promise.resolve(),
+		}
+		const adapter: DatabaseAdapter = {
+			kind: 'database-adapter',
+			execute: <const TOperation extends DatabaseOperationAst>(
+				request: DatabaseOperationRequest<TOperation>,
+			): Promise<DatabaseOperationResult<TOperation>> =>
+				executor.execute(request),
+			beginTransaction: (): Promise<DatabaseTransactionAdapter> =>
+				Promise.resolve(transaction),
+		}
+		const pipeline = new RuntimePipeline(createStages(trace, adapter))
+		const committedScope = await pipeline.beginTransaction()
+
+		await expect(committedScope.flushPostCommitEvents()).rejects.toThrow(
+			new TypeError(
+				'Runtime transaction events require a committed transaction',
+			),
+		)
+		await committedScope.commit()
+		await committedScope.flushPostCommitEvents()
+		await expect(committedScope.commit()).rejects.toThrow(
+			new TypeError('Runtime transaction scope is already finalized'),
+		)
+		await expect(committedScope.rollback()).rejects.toThrow(
+			new TypeError('Runtime transaction scope is already finalized'),
+		)
+
+		const rolledBackScope = await pipeline.beginTransaction()
+
+		await rolledBackScope.rollback()
+		await expect(rolledBackScope.commit()).rejects.toThrow(
+			new TypeError('Runtime transaction scope is already finalized'),
+		)
 	})
 })

@@ -9,10 +9,7 @@ import type {
 	DatabaseOperationRequest,
 	DatabaseOperationResult,
 } from '../src/database/contracts.js'
-import {
-	FrameworkEngine,
-	type RequestTransactionRunner,
-} from '../src/engine/framework-engine.js'
+import { FrameworkEngine } from '../src/engine/framework-engine.js'
 import type { RuntimePipelineStages } from '../src/pipeline/contracts.js'
 import { RuntimePipeline } from '../src/pipeline/runtime-pipeline.js'
 
@@ -69,10 +66,6 @@ const createPipeline = (
 	return new RuntimePipeline(stages)
 }
 
-/** Retains the current engine until issue 317 binds adapter transactions. */
-const transactionRunner: RequestTransactionRunner = async (engine, handler) =>
-	handler(engine)
-
 describe('singular BoundQuery terminals', () => {
 	it('executes every terminal through the RequestEngine pipeline', async () => {
 		const found = [{ id: 'article-1', title: 'Found' }]
@@ -95,7 +88,6 @@ describe('singular BoundQuery terminals', () => {
 				plugins: [],
 			}),
 			pipeline: createPipeline(executor),
-			transactionRunner,
 		})
 		const request = framework.user('user-1', {
 			requestId: 'terminals-1',

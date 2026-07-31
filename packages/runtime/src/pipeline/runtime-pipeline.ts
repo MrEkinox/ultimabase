@@ -12,6 +12,10 @@ import type {
 	DatabaseOperationAst,
 	DatabaseOperationResult,
 } from '../database/contracts.js'
+import {
+	beginPipelineTransaction,
+	type RuntimePipelineTransactionScope,
+} from '../transactions/pipeline-transaction.js'
 import type {
 	RuntimeAccessStageInput,
 	RuntimeFieldPermissionStageResult,
@@ -130,6 +134,17 @@ export class RuntimePipeline {
 
 		// Pipeline configuration cannot change after application initialization.
 		Object.freeze(this)
+	}
+
+	/**
+	 * Reuses every security and hook stage with one isolated transaction adapter.
+	 * Per-operation post-commit effects remain deferred until the outer commit.
+	 */
+	async beginTransaction(): Promise<RuntimePipelineTransactionScope> {
+		return beginPipelineTransaction(
+			this.#stages,
+			(stages) => new RuntimePipeline(stages),
+		)
 	}
 
 	async execute<const TOperation extends DatabaseOperationAst>(

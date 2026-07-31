@@ -22,15 +22,13 @@ terminal operations.
 
 ## Framework and request engines
 
-`FrameworkEngine` owns one application's pipeline and transaction runner. It
-creates a new immutable request engine for each anonymous or authenticated
-request:
+`FrameworkEngine` owns one application's pipeline. It creates a new immutable
+request engine for each anonymous or authenticated request:
 
 ```ts
 const framework = new FrameworkEngine({
 	application,
 	pipeline,
-	transactionRunner,
 })
 
 const request = framework.user(userId, {
@@ -54,11 +52,33 @@ normalized-operation API. Bound queries expose `find`, `first`, `get`, `count`,
 `exists`, `createOne`/`create`, `updateOne`, and `deleteOne`; bulk operations and
 upserts remain in issue 316.
 
-`request.transaction(callback)` already preserves the exact application and
-context in its callback. Runtime assembly provides the transaction runner;
-issue 317 will bind a real transaction adapter and define commit, rollback, and
-nested-call behavior. Trusted master request construction remains internal
-until issue 319 adds the audited `useMasterKey` API.
+`request.transaction(callback)` begins a transaction through the database
+adapter retained by the pipeline. The callback receives a distinct engine with
+the same application, context, authentication, capabilities, and metadata:
+
+```ts
+const article = await request.transaction(async (transaction) => {
+	const created = await transaction.query(ArticleSchema).create({
+		title: 'Atomic article',
+	})
+
+	await transaction
+		.query(StatsSchema)
+		.equalTo('id', 'global')
+		.updateOne({ increment: { articleCount: 1 } })
+
+	return created
+})
+```
+
+Runtime commits once after every started operation finishes. A callback or
+operation failure rolls back, post-commit effects wait for the successful outer
+commit, and the transaction engine becomes unusable after the callback.
+`getCurrentEngine()` resolves to the transaction engine inside the callback and
+restores the previous asynchronous scope afterward.
+Nested transactions currently fail with `TRANSACTION_ERROR`; UltimaBase does
+not pretend an adapter supports savepoints. Trusted master request construction
+remains internal until issue 319 adds the audited `useMasterKey` API.
 
 ## Scoped contextual access
 
@@ -141,7 +161,8 @@ const articles = await adapter.execute({
 
 `beginTransaction()` returns a distinguishable
 `DatabaseTransactionAdapter`. It can execute operations and then `commit()` or
-`rollback()`, but cannot silently create nested transactions.
+`rollback()`, but cannot begin another transaction. Runtime enforces the same
+no-nesting policy on `RequestEngine`.
 
 ## Deterministic operation pipeline
 
@@ -177,4 +198,7 @@ never omit a predecessor accidentally.
 Stage envelopes and access-constraint collections are immutable. A
 `FrameworkError` thrown by any stage crosses the pipeline unchanged, while
 later stages do not run. In particular, business after-hooks may prevent a
-commit and post-commit events never observe uncommitted work.
+commit and post-commit events never observe uncommitted work. Inside an explicit
+transaction, the pipeline reuses every stage with the transaction adapter,
+commits only after the callback succeeds, and buffers post-commit effects until
+that outer commit.

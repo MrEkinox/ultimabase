@@ -1,48 +1,21 @@
-import { AsyncLocalStorage } from 'node:async_hooks'
-
-import type { FrameworkApplication, PluginDefinition } from '@ultimabase/core'
 import { FrameworkError } from '@ultimabase/core'
+import type { PluginDefinition } from '@ultimabase/core'
 import type { SchemaDefinition } from '@ultimabase/schema'
-import { immutableRecord } from '@ultimabase/shared'
 
+import { RequestEngine } from '../engine/framework-engine.js'
 import type { RequestContext } from './request-context.js'
 import {
-	type FrameworkEngine,
-	RequestEngine,
-} from '../engine/framework-engine.js'
+	getActiveFrameworkContext,
+	runWithRequestEngineScope,
+	type ActiveFrameworkContext,
+} from './active-framework-storage.js'
 
-/** Exposes the consistent application and request references derived from one engine. */
-export interface ActiveFrameworkContext<
-	TSchemas extends readonly SchemaDefinition[] = readonly SchemaDefinition[],
-	TPlugins extends readonly PluginDefinition[] = readonly PluginDefinition[],
-	TRequest extends RequestContext = RequestContext,
-> {
-	readonly application: FrameworkApplication<TSchemas, TPlugins>
-	readonly frameworkEngine: FrameworkEngine<TSchemas, TPlugins>
-	readonly requestEngine: RequestEngine<TSchemas, TPlugins, TRequest>
-	readonly request: TRequest
-}
-
-const activeFrameworkStorage = new AsyncLocalStorage<ActiveFrameworkContext>()
-
-/** Creates one immutable view without accepting independently forgeable references. */
-const createActiveFrameworkContext = <
-	const TSchemas extends readonly SchemaDefinition[],
-	const TPlugins extends readonly PluginDefinition[],
-	TRequest extends RequestContext,
->(
-	requestEngine: RequestEngine<TSchemas, TPlugins, TRequest>,
-): ActiveFrameworkContext<TSchemas, TPlugins, TRequest> =>
-	immutableRecord({
-		application: requestEngine.application,
-		frameworkEngine: requestEngine.framework,
-		requestEngine,
-		request: requestEngine.context,
-	})
+export type { ActiveFrameworkContext } from './active-framework-storage.js'
 
 /** Returns the active scope or fails instead of leaking a previous request. */
 export const getCurrentFrameworkContext = (): ActiveFrameworkContext => {
-	const context = activeFrameworkStorage.getStore()
+	const context: ActiveFrameworkContext | undefined =
+		getActiveFrameworkContext()
 
 	if (context === undefined) {
 		throw new FrameworkError(
@@ -94,8 +67,5 @@ export const runWithRequestEngine = <
 		throw new TypeError('Active context callback must be a function')
 	}
 
-	return activeFrameworkStorage.run(
-		createActiveFrameworkContext(requestEngine),
-		callback,
-	)
+	return runWithRequestEngineScope(requestEngine, callback)
 }

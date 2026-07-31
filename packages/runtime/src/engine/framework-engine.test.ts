@@ -9,10 +9,12 @@ import { describe, expect, it } from 'vitest'
 
 import { RequestContext, requestSources } from '../context/request-context.js'
 import type {
+	DatabaseAdapter,
 	DatabaseOperationAst,
 	DatabaseOperationExecutor,
 	DatabaseOperationRequest,
 	DatabaseOperationResult,
+	DatabaseTransactionAdapter,
 } from '../database/contracts.js'
 import type { RuntimePipelineStages } from '../pipeline/contracts.js'
 import { RuntimePipeline } from '../pipeline/runtime-pipeline.js'
@@ -20,7 +22,6 @@ import {
 	createTrustedMasterRequestEngine,
 	FrameworkEngine,
 	RequestEngine,
-	type RequestTransactionRunner,
 } from './framework-engine.js'
 
 const articleSchema = defineSchema({
@@ -43,8 +44,11 @@ const articleOperation = {
 } satisfies FindOperationAst<typeof articleSchema>
 
 /** Returns deterministic fixture data for every generic adapter call. */
-class FixtureDatabaseExecutor implements DatabaseOperationExecutor {
+class FixtureDatabaseExecutor implements DatabaseAdapter {
+	readonly kind = 'database-adapter' as const
 	readonly operations: DatabaseOperationAst[] = []
+	commits = 0
+	rollbacks = 0
 
 	constructor(private readonly fixtureResult: unknown) {}
 
@@ -57,6 +61,27 @@ class FixtureDatabaseExecutor implements DatabaseOperationExecutor {
 		return Promise.resolve(
 			this.fixtureResult as DatabaseOperationResult<TOperation>,
 		)
+	}
+
+	beginTransaction(): Promise<DatabaseTransactionAdapter> {
+		const transaction: DatabaseTransactionAdapter = {
+			kind: 'database-transaction-adapter',
+			execute: <const TOperation extends DatabaseOperationAst>(
+				request: DatabaseOperationRequest<TOperation>,
+			): Promise<DatabaseOperationResult<TOperation>> => this.execute(request),
+			commit: (): Promise<void> => {
+				this.commits += 1
+
+				return Promise.resolve()
+			},
+			rollback: (): Promise<void> => {
+				this.rollbacks += 1
+
+				return Promise.resolve()
+			},
+		}
+
+		return Promise.resolve(transaction)
 	}
 }
 
@@ -90,12 +115,6 @@ const createPipeline = (
 	return new RuntimePipeline(stages)
 }
 
-/** Preserves the current engine until issue 317 supplies adapter transactions. */
-const passthroughTransactionRunner: RequestTransactionRunner = async (
-	engine,
-	handler,
-) => handler(engine)
-
 const createFixtureFramework = (
 	schema: typeof articleSchema | typeof matchingClassSchema,
 	fixtureResult: unknown = [],
@@ -112,7 +131,6 @@ const createFixtureFramework = (
 			new FixtureDatabaseExecutor(fixtureResult),
 			contexts,
 		),
-		transactionRunner: passthroughTransactionRunner,
 	})
 }
 
@@ -238,7 +256,9 @@ describe('FrameworkEngine', () => {
 
 		await expect(
 			request.transaction((transaction) => {
-				expect(transaction).toBe(request)
+				expect(transaction).not.toBe(request)
+				expect(transaction.context).toBe(request.context)
+				expect(transaction.framework).toBe(request.framework)
 
 				return 'completed' as const
 			}),
@@ -338,13 +358,6 @@ describe('FrameworkEngine', () => {
 		).toThrow(
 			new TypeError('Framework engine pipeline must be a RuntimePipeline'),
 		)
-		expect(
-			() =>
-				// @ts-expect-error -- Runtime validation requires a transaction runner.
-				new FrameworkEngine({ application: framework.application, pipeline }),
-		).toThrow(
-			new TypeError('Framework engine transactionRunner must be a function'),
-		)
 		expect(() =>
 			// @ts-expect-error -- Runtime validation protects JavaScript contexts.
 			framework.withContext(undefined),
@@ -362,7 +375,6 @@ describe('FrameworkEngine', () => {
 						source: requestSources.internal,
 					}),
 					pipeline,
-					passthroughTransactionRunner,
 				),
 		).toThrow(
 			new TypeError('Request engines must be created by their FrameworkEngine'),
