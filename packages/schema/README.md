@@ -16,12 +16,17 @@ Responsibilities:
 
 This package must not know ACL, CLP, roles, PostgreSQL, Drizzle, Hono, or GraphQL. Optional capabilities contribute opaque, typed extensions that runtime plugins later claim.
 
+Practical declarations are available in the package's
+[`examples/`](examples/README.md) directory. They are documentation snippets,
+not executable fixtures or test inputs.
+
 ## Internal layout
 
 Schema implementation files are grouped by domain while `src/index.ts` remains
 the only public manifest:
 
 ```text
+examples/
 src/
 ├── fields/
 │   ├── base/

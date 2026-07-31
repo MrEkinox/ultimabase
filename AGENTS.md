@@ -113,6 +113,9 @@ Create a dedicated commit after an issue is complete, but never push it without 
 ## Documentation and decisions
 
 - Update the package README when its public contract changes.
+- Every change under `packages/schema` must review the package examples. Update
+  `packages/schema/examples` in the same issue whenever field behavior, schema
+  composition, inference, registry behavior, or validation plans change.
 - Add or update an ADR for architectural decisions, dependency-boundary changes, storage formats, public API conventions, or security semantics.
 - Keep issue status and acceptance criteria current.
 - Do not rewrite an accepted ADR to hide history; supersede it with a new ADR.
