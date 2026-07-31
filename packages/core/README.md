@@ -142,3 +142,29 @@ Extensions, operators, hooks, generators, transports, pipelines, events, and
 commands use isolated `ContributionRegistry` instances. Duplicate names within
 one category fail instead of replacing the first owner. Setup contexts only
 collect declarations; infrastructure work begins in later lifecycle phases.
+
+## Plugin lifecycle
+
+`PluginLifecycleManager` executes the resolved graph without merging declaration
+and infrastructure work:
+
+```ts
+const lifecycle = new PluginLifecycleManager(graph, setupRegistries)
+
+await lifecycle.setup()
+// Application validation can run here before any connection is opened.
+await lifecycle.start()
+await lifecycle.stop()
+await lifecycle.dispose()
+```
+
+Setup and forward phases use dependency order. The forward sequence is
+`connect`, `prepareSchema`, `startRuntime`, then `startTransports`. Stop and
+dispose use reverse dependency order. Setup, start, stop, and dispose retain one
+promise while active and do not repeat completed work. A lifecycle cannot start
+again after stop or disposal; calling stop before start is a no-op.
+
+When setup or startup fails, completed plugins are stopped when active, disposed
+in reverse order, and application services are released. Cleanup continues after
+individual teardown failures. An `AggregateError` preserves the original failure
+alongside any additional cleanup errors.

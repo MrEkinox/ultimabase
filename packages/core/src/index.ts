@@ -21,6 +21,7 @@ export type {
 	PluginLifecycleContext,
 	PluginLifecycleHook,
 	PluginLifecycleHooks,
+	PluginLifecyclePhase,
 	PluginSetup,
 	PluginSetupContext,
 	PluginSetupExports,
@@ -28,6 +29,8 @@ export type {
 export { normalizePlugins } from './plugins/normalization.js'
 export type { NormalizedPlugin } from './plugins/normalization.js'
 export { PluginGraph } from './plugins/graph.js'
+export { PluginLifecycleManager } from './plugins/lifecycle-manager.js'
+export type { PluginLifecycleState } from './plugins/lifecycle-manager.js'
 export {
 	ContributionRegistry,
 	PluginSetupRegistries,

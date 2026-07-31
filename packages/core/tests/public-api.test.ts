@@ -9,6 +9,7 @@ describe('@ultimabase/core public entry point', () => {
 			'ContributionRegistry',
 			'FrameworkError',
 			'PluginGraph',
+			'PluginLifecycleManager',
 			'PluginSetupRegistries',
 			'ServiceRegistry',
 			'createServiceToken',

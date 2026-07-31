@@ -42,11 +42,26 @@ export interface PluginLifecycleHooks<TExports> {
 	readonly dispose?: PluginLifecycleHook<TExports>
 }
 
+/** Names every lifecycle boundary that Core may invoke for a plugin. */
+export type PluginLifecyclePhase = keyof PluginLifecycleHooks<unknown>
+
+interface PluginRuntimeDefinition {
+	readonly setup: PluginSetup | undefined
+	runHook(
+		phase: PluginLifecyclePhase,
+		context: PluginLifecycleContext<unknown>,
+	): MaybePromise<void>
+}
+
 declare const pluginDefinitionBrand: unique symbol
+const pluginRuntimeDefinition: unique symbol = Symbol(
+	'ultimabase.plugin-runtime-definition',
+)
 
 /** Identifies definitions whose runtime provenance was validated by Core. */
 export interface PluginDefinition {
 	readonly [pluginDefinitionBrand]: true
+	readonly [pluginRuntimeDefinition]: PluginRuntimeDefinition
 	readonly name: string
 	readonly slot?: string
 	readonly dependencies?: readonly string[] | undefined
@@ -146,6 +161,24 @@ export const assertPluginDefinition: (
 	}
 }
 
+const getPluginRuntimeDefinition = (
+	plugin: PluginDefinition,
+): PluginRuntimeDefinition => plugin[pluginRuntimeDefinition]
+
+/** Runs one setup callback while keeping its exact export type private to the definition. */
+export const runPluginSetup = (
+	plugin: PluginDefinition,
+	context: PluginSetupContext,
+): MaybePromise<unknown> => getPluginRuntimeDefinition(plugin).setup?.(context)
+
+/** Invokes one lifecycle hook paired with the exports created by the same definition. */
+export const runPluginLifecycleHook = (
+	plugin: PluginDefinition,
+	phase: PluginLifecyclePhase,
+	context: PluginLifecycleContext<unknown>,
+): MaybePromise<void> =>
+	getPluginRuntimeDefinition(plugin).runHook(phase, context)
+
 const normalizeNestedPlugins = <
 	const TPlugins extends readonly PluginDefinition[],
 >(
@@ -234,7 +267,24 @@ export const definePlugin = <
 		throw new TypeError('setup must be a function')
 	}
 
+	const runtimeDefinition = immutableRecord({
+		setup: options.setup,
+		runHook: (
+			phase: PluginLifecyclePhase,
+			context: PluginLifecycleContext<unknown>,
+		): MaybePromise<void> => {
+			const hook = options.hooks?.[phase]
+
+			if (hook === undefined) {
+				return undefined
+			}
+
+			// The manager supplies the export produced by this exact setup callback.
+			return hook(context as PluginLifecycleContext<Awaited<TSetupResult>>)
+		},
+	})
 	const plugin = immutableRecord({
+		[pluginRuntimeDefinition]: runtimeDefinition,
 		name: options.name,
 		...(options.slot === undefined ? {} : { slot: options.slot }),
 		...(options.version === undefined ? {} : { version: options.version }),

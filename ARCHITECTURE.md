@@ -97,6 +97,12 @@ current plugin name to services, extension handlers, operators, hooks,
 generators, transports, pipelines, events, and commands without trusting
 plugin code to declare its own owner.
 
+The lifecycle manager first completes every setup callback, leaving a validation
+boundary before infrastructure changes. It then runs connect, schema
+preparation, runtime start, and transport start in graph order. Stop and dispose
+run in reverse order, and a partial failure cleans every completed stage before
+the original failure is reported.
+
 ## Engines
 
 - `FrameworkEngine` belongs to one isolated application.
