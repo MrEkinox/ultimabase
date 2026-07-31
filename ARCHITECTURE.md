@@ -103,6 +103,11 @@ preparation, runtime start, and transport start in graph order. Stop and dispose
 run in reverse order, and a partial failure cleans every completed stage before
 the original failure is reported.
 
+`FrameworkApplication` owns those objects per instance. Its asynchronous factory
+validates schemas and the plugin graph, completes declaration-only setup, and
+returns before transports start. Configured literal plugin names retain their
+setup export types, including definitions introduced through nested composition.
+
 ## Engines
 
 - `FrameworkEngine` belongs to one isolated application.

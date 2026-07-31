@@ -1,10 +1,10 @@
 # 209: Implement FrameworkApplication
 
-- Status: planned
+- Status: done
 - Milestone: 2
 - Packages: `@ultimabase/core`
 - Depends on: 113, 203, 206, 207, 208
-- ADR: ADR-0001, ADR-0003
+- ADR: ADR-0001, ADR-0003, ADR-0050
 
 ## Goal
 
@@ -12,11 +12,11 @@ Create isolated application instances from explicit schemas and plugin definitio
 
 ## Acceptance criteria
 
-- [ ] Creation validates configuration without starting transports.
-- [ ] `start`, `stop`, and `dispose` use lifecycle phases.
-- [ ] Plugin exports are typed by literal name.
-- [ ] No global singleton is introduced.
+- [x] Creation validates configuration without starting transports.
+- [x] `start`, `stop`, and `dispose` use lifecycle phases.
+- [x] Plugin exports are typed by literal name.
+- [x] No global singleton is introduced.
 
 ## Tests
 
-- [ ] Several applications run concurrently without leakage.
+- [x] Several applications run concurrently without leakage.

@@ -2,6 +2,16 @@ export {
 	FrameworkError,
 	frameworkErrorCodes,
 } from './errors/framework-error.js'
+export {
+	createApplication,
+	FrameworkApplication,
+} from './application/framework-application.js'
+export type {
+	ConfiguredPlugin,
+	ConfiguredPluginExports,
+	ConfiguredPluginName,
+	FrameworkApplicationOptions,
+} from './application/framework-application.js'
 export type {
 	FrameworkErrorCode,
 	FrameworkErrorDetails,

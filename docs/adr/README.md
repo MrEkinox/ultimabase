@@ -49,6 +49,7 @@ Accepted records:
 - [ADR-0047: Deterministic plugin graph resolution](0047-deterministic-plugin-graph-resolution.md)
 - [ADR-0048: Owner-scoped plugin setup registries](0048-owner-scoped-plugin-setup-registries.md)
 - [ADR-0049: Deterministic plugin lifecycle](0049-deterministic-plugin-lifecycle.md)
+- [ADR-0050: Isolated FrameworkApplication boundary](0050-isolated-framework-application.md)
 
 Superseded records:
 

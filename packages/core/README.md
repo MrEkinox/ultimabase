@@ -14,6 +14,32 @@ Responsibilities:
 
 Core contains no CRUD implementation and must never import concrete database, server, transport, migration, permission, auth, cache, or jobs packages.
 
+## Framework application
+
+`createApplication(options)` is the normal application boundary. It validates
+the schema registry and complete plugin graph, runs declaration-only plugin
+setup, and returns before infrastructure or transports start:
+
+```ts
+const application = await createApplication({
+	schemas: [UserSchema],
+	plugins: [databasePlugin(), serverPlugin()],
+})
+
+await application.start()
+```
+
+Every application owns its schema registry, services, contribution registries,
+plugin exports, and lifecycle state. No singleton or global mutable registry is
+created. `application.getPlugin('fixture.database')` resolves the setup export
+using the configured literal plugin name; nested plugin definitions participate
+in the same typed lookup.
+
+`new FrameworkApplication(options)` remains available for advanced composition.
+It validates static schema and graph configuration synchronously but leaves setup
+lazy until `initialize()` or `start()` is called. A stopped application cannot be
+restarted; disposal permanently releases its plugin and service resources.
+
 ## Framework errors
 
 `FrameworkError` carries one stable framework code while separating trusted
