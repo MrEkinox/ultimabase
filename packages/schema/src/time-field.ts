@@ -1,7 +1,6 @@
-import { immutableRecord } from '@ultimabase/shared'
-
+import { createFieldDefinition } from './field-definition.js'
 import {
-	assertFieldOptionsObject,
+	assertFieldOptions,
 	emptyFieldOptions,
 	normalizeFieldOptions,
 	type EmptyFieldOptions,
@@ -114,14 +113,14 @@ export function timeField<const TOptions extends TimeFieldOptions>(
 export function timeField(
 	options: TimeFieldOptions = emptyFieldOptions,
 ): TimeField {
-	assertFieldOptionsObject(options)
+	assertFieldOptions(options)
 
 	const timezone = readTemporalTimezone(options.timezone, false)
 	const normalizeTime = createTimeNormalizer(timezone)
 
-	return immutableRecord({
-		kind: 'time',
-		options: normalizeFieldOptions(
+	return createFieldDefinition(
+		'time',
+		normalizeFieldOptions(
 			options,
 			(validation) =>
 				normalizeTemporalValidation(
@@ -131,5 +130,6 @@ export function timeField(
 				),
 			normalizeTime,
 		),
-	})
+		normalizeTime,
+	)
 }

@@ -5,6 +5,7 @@ import type { DateField } from './date-field.js'
 import type { DateTimeField } from './date-time-field.js'
 import type { DecimalField } from './decimal-field.js'
 import type { EnumField } from './enum-field.js'
+import { isBuiltInFieldKind } from './field-kind.js'
 import type { FloatField } from './float-field.js'
 import type { IntField } from './int-field.js'
 import type { JsonField } from './json-field.js'
@@ -39,18 +40,4 @@ export type BuiltInField =
  */
 export const isBuiltInField = (field: {
 	readonly kind: string
-}): field is BuiltInField =>
-	field.kind === 'bigint' ||
-	field.kind === 'binary' ||
-	field.kind === 'boolean' ||
-	field.kind === 'date' ||
-	field.kind === 'dateTime' ||
-	field.kind === 'decimal' ||
-	field.kind === 'enum' ||
-	field.kind === 'float' ||
-	field.kind === 'int' ||
-	field.kind === 'json' ||
-	field.kind === 'object' ||
-	field.kind === 'string' ||
-	field.kind === 'time' ||
-	field.kind === 'uuid'
+}): field is BuiltInField => isBuiltInFieldKind(field.kind)

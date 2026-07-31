@@ -6,6 +6,7 @@ import {
 	type FieldDefinition,
 	type SchemaIndexOptions,
 } from '../src/index.js'
+import { normalizeSchemaIndexes } from '../src/schema-index.js'
 
 describe('schema indexes', () => {
 	it('normalizes field and composite indexes in deterministic order', () => {
@@ -102,6 +103,50 @@ describe('schema indexes', () => {
 	it('rejects malformed composite options at runtime', () => {
 		expect(() =>
 			defineSchema({
+				className: 'InvalidIndexesContainer',
+				fields: {},
+				// @ts-expect-error -- Runtime validation protects JavaScript callers.
+				indexes: {},
+			}),
+		).toThrow(new TypeError('indexes must be a list'))
+
+		expect(() =>
+			defineSchema({
+				className: 'InvalidIndexEntry',
+				fields: {},
+				// @ts-expect-error -- Runtime validation protects JavaScript callers.
+				indexes: [null],
+			}),
+		).toThrow(new TypeError('indexes[0] must be an object'))
+
+		expect(() =>
+			defineSchema({
+				className: 'InvalidIndexFields',
+				fields: { idPart: stringField() },
+				indexes: [
+					{
+						// @ts-expect-error -- Runtime validation protects JavaScript callers.
+						fields: 'idPart',
+					},
+				],
+			}),
+		).toThrow(new TypeError('indexes[0].fields must be a list'))
+
+		expect(() =>
+			defineSchema({
+				className: 'InvalidIndexFieldName',
+				fields: { idPart: stringField(), tenant: stringField() },
+				indexes: [
+					{
+						// @ts-expect-error -- Runtime validation protects JavaScript callers.
+						fields: ['idPart', 42],
+					},
+				],
+			}),
+		).toThrow(new TypeError('indexes[0].fields[1] must be a string'))
+
+		expect(() =>
+			defineSchema({
 				className: 'ShortIndex',
 				fields: {
 					title: stringField(),
@@ -128,7 +173,7 @@ describe('schema indexes', () => {
 					},
 				],
 			}),
-		).toThrow(new TypeError('Index unique must be a boolean'))
+		).toThrow(new TypeError('indexes[0].unique must be a boolean'))
 	})
 
 	it('rejects malformed field-level index metadata at runtime', () => {
@@ -143,6 +188,9 @@ describe('schema indexes', () => {
 				className: 'InvalidFieldIndex',
 				fields: { title: invalidIndexedField },
 			}),
-		).toThrow(new TypeError('Invalid indexed option for field: title'))
+		).toThrow(new TypeError('fields.title must be created by a field factory'))
+		expect(() =>
+			normalizeSchemaIndexes({ title: invalidIndexedField }, undefined),
+		).toThrow(new TypeError('indexed must be a boolean or "unique"'))
 	})
 })

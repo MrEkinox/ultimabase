@@ -12,7 +12,7 @@ const normalizers = {
 	normalizeValidation: (
 		validation: FieldValidationOptions,
 	): Readonly<FieldValidationOptions> => validation,
-	normalizeValue: (value: unknown): string => String(value),
+	snapshotValue: (value: unknown): string => String(value),
 }
 
 test('infers namespaced plugin kinds, values, and exact options', () => {

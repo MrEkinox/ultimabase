@@ -1,5 +1,6 @@
 import { immutableRecord } from '@ultimabase/shared'
 
+import { createFieldDefinition } from './field-definition.js'
 import {
 	emptyFieldOptions,
 	normalizeFieldOptions,
@@ -81,12 +82,13 @@ export function stringField<const TOptions extends StringFieldOptions>(
 export function stringField(
 	options: StringFieldOptions = emptyFieldOptions,
 ): StringField {
-	return immutableRecord({
-		kind: 'string',
-		options: normalizeFieldOptions(
+	return createFieldDefinition(
+		'string',
+		normalizeFieldOptions(
 			options,
 			normalizeStringValidation,
 			normalizeStringValue,
 		),
-	})
+		normalizeStringValue,
+	)
 }

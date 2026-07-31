@@ -19,6 +19,17 @@ export type NumericValidationOptions<
 
 type NumericBoundaryValidator = (value: unknown) => boolean
 
+/** Validates sequence metadata shared by exact integer field kinds. */
+export const assertAutoIncrementOption = (options: object): void => {
+	if (
+		'autoIncrement' in options &&
+		options.autoIncrement !== undefined &&
+		typeof options.autoIncrement !== 'boolean'
+	) {
+		throw new TypeError('autoIncrement must be a boolean')
+	}
+}
+
 /**
  * Copies numeric validation metadata while enforcing one field kind's precision.
  */

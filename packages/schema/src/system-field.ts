@@ -1,6 +1,9 @@
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
+import { createDateTimeNormalizer } from './date-time-field.js'
+import { createFieldDefinition } from './field-definition.js'
 import type { FieldDefinition } from './field.js'
+import { normalizeStringValue } from './scalar-value.js'
 
 /**
  * Identifies the lifecycle event responsible for assigning a system value.
@@ -99,20 +102,25 @@ const createSystemOptions = <
 		validation: requiredSystemValidation,
 	})
 
-const id: IdSystemField = immutableRecord({
-	kind: 'uuid',
-	options: createSystemOptions('create', { uuidVersion: 7 }),
-})
+const id: IdSystemField = createFieldDefinition(
+	'uuid',
+	createSystemOptions('create', { uuidVersion: 7 }),
+	normalizeStringValue,
+)
 
-const createdAt: CreatedAtSystemField = immutableRecord({
-	kind: 'dateTime',
-	options: createSystemOptions('create', {}),
-})
+const normalizeSystemDateTime = createDateTimeNormalizer(true)
 
-const updatedAt: UpdatedAtSystemField = immutableRecord({
-	kind: 'dateTime',
-	options: createSystemOptions('createAndUpdate', {}),
-})
+const createdAt: CreatedAtSystemField = createFieldDefinition(
+	'dateTime',
+	createSystemOptions('create', {}),
+	normalizeSystemDateTime,
+)
+
+const updatedAt: UpdatedAtSystemField = createFieldDefinition(
+	'dateTime',
+	createSystemOptions('createAndUpdate', {}),
+	normalizeSystemDateTime,
+)
 
 /**
  * Reuses one immutable metadata set across every schema definition.

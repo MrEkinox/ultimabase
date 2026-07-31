@@ -1,7 +1,6 @@
-import { immutableRecord } from '@ultimabase/shared'
-
+import { createFieldDefinition } from './field-definition.js'
 import {
-	assertFieldOptionsObject,
+	assertFieldOptions,
 	emptyFieldOptions,
 	normalizeFieldOptions,
 	type EmptyFieldOptions,
@@ -76,18 +75,19 @@ export function floatField<const TOptions extends FloatFieldOptions>(
 export function floatField(
 	options: FloatFieldOptions = emptyFieldOptions,
 ): FloatField {
-	assertFieldOptionsObject(options)
+	assertFieldOptions(options)
 
 	if ('autoIncrement' in options) {
 		throw new TypeError('autoIncrement is only available on integer fields')
 	}
 
-	return immutableRecord({
-		kind: 'float',
-		options: normalizeFieldOptions(
+	return createFieldDefinition(
+		'float',
+		normalizeFieldOptions(
 			options,
 			normalizeFloatValidation,
 			normalizeNumberValue,
 		),
-	})
+		normalizeNumberValue,
+	)
 }

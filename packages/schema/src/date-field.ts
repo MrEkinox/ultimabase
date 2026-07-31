@@ -1,5 +1,4 @@
-import { immutableRecord } from '@ultimabase/shared'
-
+import { createFieldDefinition } from './field-definition.js'
 import {
 	emptyFieldOptions,
 	normalizeFieldOptions,
@@ -96,8 +95,9 @@ export function dateField<const TOptions extends DateFieldOptions>(
 export function dateField(
 	options: DateFieldOptions = emptyFieldOptions,
 ): DateField {
-	return immutableRecord({
-		kind: 'date',
-		options: normalizeDateFieldOptions(options),
-	})
+	return createFieldDefinition(
+		'date',
+		normalizeDateFieldOptions(options),
+		normalizeCalendarDate,
+	)
 }

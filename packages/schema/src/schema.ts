@@ -2,7 +2,7 @@ import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
 import { defineExtensions, type SchemaExtension } from './extension.js'
 import type { GenericField } from './field.js'
-import { assertFieldDefinitionTree } from './field-tree.js'
+import { assertFieldDefinition } from './field-definition.js'
 import {
 	normalizeSchemaIndexes,
 	type SchemaFieldName,
@@ -116,7 +116,7 @@ export function defineSchema(options: {
 
 	for (const [name, field] of Object.entries(options.fields)) {
 		assertNonEmptyString(name, 'schema field name')
-		assertFieldDefinitionTree(field, `fields.${name}`)
+		assertFieldDefinition(field, `fields.${name}`)
 	}
 
 	const extensions =

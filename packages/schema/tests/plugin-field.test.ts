@@ -11,7 +11,7 @@ const normalizeValidation = (
 	validation: FieldValidationOptions,
 ): Readonly<FieldValidationOptions> => immutableRecord(validation)
 
-const normalizeValue = (value: unknown, path: string): string => {
+const snapshotValue = (value: unknown, path: string): string => {
 	if (typeof value !== 'string') {
 		throw new TypeError(`${path} must be a string`)
 	}
@@ -31,7 +31,7 @@ describe('plugin fields', () => {
 				validation: { required: true },
 				extensions: [extension],
 			},
-			{ normalizeValidation, normalizeValue },
+			{ normalizeValidation, snapshotValue },
 		)
 
 		source[0] = 'changed'
@@ -54,7 +54,7 @@ describe('plugin fields', () => {
 		const field = definePluginField(
 			'fixture.default-normalizer',
 			{ validation },
-			{ normalizeValue },
+			{ snapshotValue },
 		)
 
 		validation.required = false
@@ -69,7 +69,7 @@ describe('plugin fields', () => {
 		(kind) => {
 			expect(() => {
 				// @ts-expect-error -- Runtime validation protects untyped plugin packages.
-				definePluginField(kind, {}, { normalizeValidation, normalizeValue })
+				definePluginField(kind, {}, { normalizeValidation, snapshotValue })
 			}).toThrow()
 		},
 	)

@@ -1,6 +1,7 @@
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
 import type { SchemaFields } from './schema.js'
+import { isPlainRecord, isUnknownArray } from './runtime-value.js'
 import {
 	reservedSystemFieldNames,
 	type ReservedSystemFieldName,
@@ -30,10 +31,43 @@ export interface SchemaIndexDefinition<TFieldName extends string = string> {
 
 const emptySchemaIndexes: readonly [] = immutableArray([])
 
-const readFieldIndex = (
-	fieldName: string,
-	options: object,
-): boolean | 'unique' => {
+function assertSchemaIndexes(
+	indexes: unknown,
+): asserts indexes is readonly SchemaIndexOptions[] | undefined {
+	if (indexes === undefined) {
+		return
+	}
+
+	if (!isUnknownArray(indexes)) {
+		throw new TypeError('indexes must be a list')
+	}
+
+	for (const [indexPosition, index] of indexes.entries()) {
+		const indexPath = `indexes[${String(indexPosition)}]`
+
+		if (!isPlainRecord(index)) {
+			throw new TypeError(`${indexPath} must be an object`)
+		}
+
+		if (!isUnknownArray(index.fields)) {
+			throw new TypeError(`${indexPath}.fields must be a list`)
+		}
+
+		for (const [fieldPosition, fieldName] of index.fields.entries()) {
+			if (typeof fieldName !== 'string') {
+				throw new TypeError(
+					`${indexPath}.fields[${String(fieldPosition)}] must be a string`,
+				)
+			}
+		}
+
+		if (index.unique !== undefined && typeof index.unique !== 'boolean') {
+			throw new TypeError(`${indexPath}.unique must be a boolean`)
+		}
+	}
+}
+
+const readFieldIndex = (options: object): boolean | 'unique' => {
 	if (!('indexed' in options) || options.indexed === false) {
 		return false
 	}
@@ -42,7 +76,7 @@ const readFieldIndex = (
 		return options.indexed
 	}
 
-	throw new TypeError(`Invalid indexed option for field: ${fieldName}`)
+	throw new TypeError('indexed must be a boolean or "unique"')
 }
 
 const normalizeCompositeIndex = (
@@ -67,10 +101,6 @@ const normalizeCompositeIndex = (
 		seenFieldNames.add(fieldName)
 	}
 
-	if (index.unique !== undefined && typeof index.unique !== 'boolean') {
-		throw new TypeError('Index unique must be a boolean')
-	}
-
 	return immutableRecord({
 		fields: immutableArray(index.fields),
 		unique: index.unique ?? false,
@@ -84,6 +114,8 @@ export const normalizeSchemaIndexes = (
 	fields: SchemaFields,
 	indexes: readonly SchemaIndexOptions[] | undefined,
 ): readonly SchemaIndexDefinition[] => {
+	assertSchemaIndexes(indexes)
+
 	const definitions: SchemaIndexDefinition[] = []
 	const knownFieldNames = new Set<string>([
 		...Object.keys(fields),
@@ -91,7 +123,7 @@ export const normalizeSchemaIndexes = (
 	])
 
 	for (const [fieldName, field] of Object.entries(fields)) {
-		const indexed = readFieldIndex(fieldName, field.options)
+		const indexed = readFieldIndex(field.options)
 
 		if (indexed !== false) {
 			definitions.push(

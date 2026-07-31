@@ -1,7 +1,6 @@
-import { immutableRecord } from '@ultimabase/shared'
-
+import { createFieldDefinition } from './field-definition.js'
 import {
-	assertFieldOptionsObject,
+	assertFieldOptions,
 	emptyFieldOptions,
 	normalizeFieldOptions,
 	type EmptyFieldOptions,
@@ -12,6 +11,7 @@ import type {
 	ValidatedFieldOptions,
 } from './field.js'
 import {
+	assertAutoIncrementOption,
 	normalizeNumericValidation,
 	type NumericValidationOptions,
 } from './numeric-field.js'
@@ -64,20 +64,16 @@ export function intField<const TOptions extends IntFieldOptions>(
 export function intField(
 	options: IntFieldOptions = emptyFieldOptions,
 ): IntField {
-	assertFieldOptionsObject(options)
+	assertFieldOptions(options)
+	assertAutoIncrementOption(options)
 
-	const autoIncrement: unknown = options.autoIncrement
-
-	if (autoIncrement !== undefined && typeof autoIncrement !== 'boolean') {
-		throw new TypeError('autoIncrement must be a boolean')
-	}
-
-	return immutableRecord({
-		kind: 'int',
-		options: normalizeFieldOptions(
+	return createFieldDefinition(
+		'int',
+		normalizeFieldOptions(
 			options,
 			normalizeIntValidation,
 			normalizeSafeIntegerValue,
 		),
-	})
+		normalizeSafeIntegerValue,
+	)
 }

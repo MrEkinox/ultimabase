@@ -9,6 +9,7 @@ describe('@ultimabase/schema public entry point', () => {
 			'DatabaseDefault',
 			'DuplicateSchemaError',
 			'SchemaRegistry',
+			'assertFieldOptions',
 			'bigintField',
 			'binaryField',
 			'booleanField',

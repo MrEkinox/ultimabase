@@ -10,6 +10,28 @@ import {
 } from '../src/index.js'
 
 describe('pgVectorPlugin field plans', () => {
+	it('rejects malformed field options before reading vector metadata', () => {
+		expect(() => {
+			// @ts-expect-error -- Runtime validation protects JavaScript callers.
+			vectorField(null)
+		}).toThrow(new TypeError('field options must be an object'))
+	})
+
+	it('detaches snapshot dimensions from caller-owned options', () => {
+		const options = { dimensions: 2, default: [1, 2] }
+		const field = vectorField(options)
+
+		options.dimensions = 3
+
+		const schema = defineSchema({
+			className: 'DetachedVectorOptions',
+			fields: { embedding: field },
+		})
+		const plan = compileValidationPlans(schema).create.fields.embedding
+
+		expect(plan?.default).toStrictEqual({ kind: 'static', value: [1, 2] })
+	})
+
 	it('claims and reads a vector plan preserved by Schema', () => {
 		const field = vectorField({
 			dimensions: 3,

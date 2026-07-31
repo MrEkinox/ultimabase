@@ -458,7 +458,7 @@ describe('validation plans', () => {
 			'fixture.custom',
 			{},
 			{
-				normalizeValue: (value: unknown): string => String(value),
+				snapshotValue: (value: unknown): string => String(value),
 			},
 		)
 		const schema = defineSchema({
@@ -477,23 +477,17 @@ describe('validation plans', () => {
 		})
 	})
 
-	it('rejects forged list metadata before producing a validation plan', () => {
+	it('rejects forged field metadata before producing a schema', () => {
 		const malformedListField: FieldDefinition<'string', string, object> = {
 			kind: 'string',
 			options: { list: 'invalid' },
 		}
-		const schema = defineSchema({
-			className: 'MalformedListPlan',
-			fields: {
-				value: malformedListField,
-			},
-		})
-
-		// Validation compilation protects JavaScript callers that bypass field factories.
-		expect(() => compileValidationPlans(schema)).toThrow(
-			new TypeError(
-				'list must be true, false, or a non-empty list of true values',
-			),
-		)
+		// Schema composition rejects JavaScript callers that bypass field factories.
+		expect(() =>
+			defineSchema({
+				className: 'MalformedListPlan',
+				fields: { value: malformedListField },
+			}),
+		).toThrow(new TypeError('fields.value must be created by a field factory'))
 	})
 })

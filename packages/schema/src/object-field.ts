@@ -1,38 +1,25 @@
 import { immutableRecord } from '@ultimabase/shared'
 
-import { snapshotBinaryValue } from './binary-field.js'
-import { isBuiltInField, type BuiltInField } from './built-in-field.js'
-import { normalizeCalendarDate } from './date-field.js'
-import { createDateTimeNormalizer } from './date-time-field.js'
-import { normalizeDecimalValue } from './decimal-field.js'
-import type { EnumValues } from './enum-field.js'
 import {
-	assertFieldOptionsObject,
+	assertFieldDefinition,
+	createFieldDefinition,
+	snapshotDeclaredFieldValue,
+} from './field-definition.js'
+import {
+	assertFieldOptions,
 	assertValidTypeName,
-	getFieldListDepth,
 	normalizeFieldOptions,
 	normalizeFlatValidation,
-	snapshotFieldValue,
 } from './field-options.js'
+import { isRequiredOnCreate } from './field-presence.js'
 import type {
 	FieldDefinition,
 	FieldOptions,
-	FieldValue,
 	GenericField,
 	ValidatedFieldOptions,
 } from './field.js'
-import { assertFieldDefinitionTree } from './field-tree.js'
-import { snapshotJsonValue } from './json-field.js'
-import { snapshotPluginFieldValue } from './plugin-field.js'
+import type { InferFields } from './inference.js'
 import { assertNonEmptyString, isPlainRecord } from './runtime-value.js'
-import {
-	normalizeBigintValue,
-	normalizeBooleanValue,
-	normalizeNumberValue,
-	normalizeSafeIntegerValue,
-	normalizeStringValue,
-} from './scalar-value.js'
-import { createTimeNormalizer } from './time-field.js'
 
 /**
  * Names the child fields of one object definition.
@@ -42,15 +29,22 @@ export type ObjectFields = Readonly<Record<string, GenericField>>
 /**
  * Builds the logical value represented by a structured field tree.
  */
-export type ObjectFieldValue<TFields extends ObjectFields> = {
-	readonly [TKey in keyof TFields]: FieldValue<TFields[TKey]>
-}
+export type ObjectFieldValue<TFields extends ObjectFields> =
+	ObjectFields extends TFields
+		? Readonly<Record<string, unknown>>
+		: InferFields<TFields, 'object'>
+
+type ObjectFieldCreateValue<TFields extends ObjectFields> = InferFields<
+	TFields,
+	'create'
+>
 
 /**
  * Keeps object structure inside neutral schema metadata.
  */
 export type ObjectFieldOptions<TFields extends ObjectFields = ObjectFields> =
-	FieldOptions<ObjectFieldValue<TFields>> & {
+	Omit<FieldOptions<ObjectFieldValue<TFields>>, 'default'> & {
+		readonly default?: FieldOptions<ObjectFieldCreateValue<TFields>>['default']
 		readonly fields: TFields
 		readonly typeName?: string
 	}
@@ -71,7 +65,10 @@ type ValidatedObjectOptions<TOptions extends { readonly fields: object }> =
 				ObjectFieldOptions<TFields>,
 				'default'
 			>
-			? ValidatedFieldOptions<TOptions, ObjectFieldValue<TFields>> extends never
+			? ValidatedFieldOptions<
+					TOptions,
+					ObjectFieldCreateValue<TFields>
+				> extends never
 				? never
 				: TOptions
 			: never
@@ -83,82 +80,6 @@ type FieldsFromOptions<TOptions extends { readonly fields: object }> =
 	}
 		? TFields
 		: ObjectFields
-
-const isEnumValueList = (values: EnumValues): values is readonly string[] =>
-	Array.isArray(values)
-
-const snapshotEnumValue = (
-	field: Extract<BuiltInField, { readonly kind: 'enum' }>,
-	value: unknown,
-	path: string,
-): string => {
-	const values = isEnumValueList(field.options.values)
-		? field.options.values
-		: Object.values(field.options.values)
-
-	if (typeof value !== 'string' || !values.includes(value)) {
-		throw new TypeError(`${path} must be a declared enum value`)
-	}
-
-	return value
-}
-
-const snapshotBuiltInScalarValue = (
-	field: BuiltInField,
-	value: unknown,
-	path: string,
-): unknown => {
-	switch (field.kind) {
-		case 'bigint':
-			return normalizeBigintValue(value, path)
-		case 'binary':
-			return snapshotBinaryValue(value, path)
-		case 'boolean':
-			return normalizeBooleanValue(value, path)
-		case 'date':
-			return normalizeCalendarDate(value, path)
-		case 'dateTime':
-			return createDateTimeNormalizer(field.options.timezone ?? true)(
-				value,
-				path,
-			)
-		case 'decimal':
-			return normalizeDecimalValue(value, path)
-		case 'enum':
-			return snapshotEnumValue(field, value, path)
-		case 'float':
-			return normalizeNumberValue(value, path)
-		case 'int':
-			return normalizeSafeIntegerValue(value, path)
-		case 'json':
-			return snapshotJsonValue(value, path)
-		case 'object':
-			return snapshotObjectValue(value, field.options.fields, path)
-		case 'string':
-		case 'uuid':
-			return normalizeStringValue(value, path)
-		case 'time':
-			return createTimeNormalizer(field.options.timezone ?? false)(value, path)
-	}
-}
-
-/**
- * Reapplies one field's scalar and list contract at every static snapshot boundary.
- */
-export const snapshotFieldStaticValue = (
-	field: GenericField,
-	value: unknown,
-	path: string,
-): unknown =>
-	snapshotFieldValue(
-		value,
-		getFieldListDepth(field.options),
-		(item, itemPath) =>
-			isBuiltInField(field)
-				? snapshotBuiltInScalarValue(field, item, itemPath)
-				: snapshotPluginFieldValue(field, item, itemPath),
-		path,
-	)
 
 function snapshotObjectValue(
 	value: unknown,
@@ -175,18 +96,18 @@ function snapshotObjectValue(
 		}
 	}
 
-	for (const key of Object.keys(fields)) {
-		if (!Object.hasOwn(value, key)) {
+	for (const [key, field] of Object.entries(fields)) {
+		if (!Object.hasOwn(value, key) && isRequiredOnCreate(field)) {
 			throw new TypeError(`${path}.${key} is required in an object default`)
 		}
 	}
 
-	const entries: [string, unknown][] = Object.entries(fields).map(
-		([key, field]) => [
+	const entries: [string, unknown][] = Object.entries(fields)
+		.filter(([key]) => Object.hasOwn(value, key))
+		.map(([key, field]) => [
 			key,
-			snapshotFieldStaticValue(field, value[key], `${path}.${key}`),
-		],
-	)
+			snapshotDeclaredFieldValue(field, value[key], `${path}.${key}`),
+		])
 
 	return immutableRecord(Object.fromEntries(entries))
 }
@@ -206,7 +127,7 @@ export function objectField<
 export function objectField(
 	options: ObjectFieldOptions,
 ): ObjectField<ObjectFields, ObjectFieldOptions> {
-	assertFieldOptionsObject(options)
+	assertFieldOptions(options)
 
 	if (!isPlainRecord(options.fields)) {
 		throw new TypeError('fields must be a field map')
@@ -216,7 +137,7 @@ export function objectField(
 
 	for (const [name, field] of Object.entries(options.fields)) {
 		assertNonEmptyString(name, 'object field name')
-		assertFieldDefinitionTree(field, `fields.${name}`)
+		assertFieldDefinition(field, `fields.${name}`)
 	}
 
 	const normalized = normalizeFieldOptions(
@@ -226,11 +147,12 @@ export function objectField(
 	)
 
 	// The field map is detached while reusable immutable child definitions keep identity.
-	return immutableRecord({
-		kind: 'object',
-		options: immutableRecord({
-			...normalized,
-			fields: immutableRecord(options.fields),
-		}),
+	const fieldOptions = immutableRecord({
+		...normalized,
+		fields: immutableRecord(options.fields),
 	})
+
+	return createFieldDefinition('object', fieldOptions, (value, path) =>
+		snapshotObjectValue(value, fieldOptions.fields, path),
+	)
 }

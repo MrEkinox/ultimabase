@@ -1,5 +1,4 @@
-import { immutableRecord } from '@ultimabase/shared'
-
+import { createFieldDefinition } from './field-definition.js'
 import {
 	emptyFieldOptions,
 	normalizeFieldOptions,
@@ -49,12 +48,13 @@ export function booleanField<const TOptions extends BooleanFieldOptions>(
 export function booleanField(
 	options: BooleanFieldOptions = emptyFieldOptions,
 ): BooleanField {
-	return immutableRecord({
-		kind: 'boolean',
-		options: normalizeFieldOptions(
+	return createFieldDefinition(
+		'boolean',
+		normalizeFieldOptions(
 			options,
 			normalizeFlatValidation,
 			normalizeBooleanValue,
 		),
-	})
+		normalizeBooleanValue,
+	)
 }

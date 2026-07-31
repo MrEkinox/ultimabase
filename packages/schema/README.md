@@ -45,6 +45,8 @@ metadata.
 Public factories also protect JavaScript callers at runtime. Schema names,
 field maps, field definitions, common option flags, extension definitions, and
 static defaults are validated before their immutable snapshots are exposed.
+Field definitions carry private factory provenance, so a structurally similar
+object cannot bypass validation or provide a forged snapshot capability.
 
 `id`, `createdAt`, and `updatedAt` are reserved for UltimaBase system fields.
 Developer declarations using those keys fail both TypeScript checking and
@@ -393,13 +395,14 @@ update-input, filter, or other generated type names.
 only `true` values declares its exact depth, so `list: [true, true]` represents a
 list of lists. The tuple and static list defaults are copied and frozen.
 `validation.nullable` applies to the complete field; list elements are
-non-null. Object definitions may nest to any finite depth, field-definition
-cycles are rejected, and child definitions remain reusable immutable values.
+non-null. Object definitions may nest to any finite depth, and child definitions
+remain reusable immutable values. Factory provenance and immutable construction
+make hand-written or circular field-definition graphs invalid by construction.
 Structured defaults are detached from caller-owned values and normalized
-through their declared child fields. Every declared child must be present and
-unknown properties are rejected. Built-in children reuse their scalar, list,
-binary, JSON, enum, and temporal contracts. Plugin children reuse their owning
-plugin's value normalizer.
+through their declared child fields. They use create-input presence rules:
+required children without a default must be present, while optional, defaulted,
+generated, and auto-incremented children may be omitted. Unknown properties are
+rejected. Every child reuses its factory-owned scalar and list snapshot contract.
 
 Schema does not select a physical representation. PostgreSQL storage and
 Drizzle compilation remain adapter concerns; ADR-0021 defines JSONB as the
@@ -430,9 +433,16 @@ logical field kind without teaching Schema about its database representation.
 Kinds must be non-empty, namespaced strings and cannot shadow framework-owned
 field kinds. The factory reuses common validation, defaults, lists, indexes,
 descriptions, immutability, and field extensions while delegating scalar value
-normalization to the plugin. A custom validation normalizer is optional; common
-presence validation remains available when it is omitted. A plugin normalizer
-must return a detached snapshot when its logical value is mutable.
+snapshots to `snapshotValue`. A custom validation normalizer is optional;
+common presence validation remains available when it is omitted.
+
+`snapshotValue(value, path)` is a declaration-time snapshot boundary, not a
+request validator. It must be pure, deterministic, and idempotent because
+Schema may reapply it when compiling static defaults. Mutable logical values
+must be returned as detached snapshots; plugins should freeze nested data when
+their public immutability contract requires it. `assertFieldOptions` is exposed
+for community factories that need to validate an unknown options container
+before reading plugin-specific properties.
 
 Validation-plan compilation preserves unknown logical fields as an opaque
 `PluginFieldValidationPlan` containing both the namespaced `fieldKind` and the
@@ -443,8 +453,8 @@ Schema remains independently usable and does not own that registry.
 
 Plugin validators report machine-readable failures through
 `PluginValidationIssueCode<TFieldKind>`, which retains field-kind ownership in
-every code. Manually forging plugin field objects bypasses their normalization
-capability and is unsupported; community fields must use `definePluginField`.
+every code. Manually forging plugin field objects has no registered snapshot
+capability and is rejected; community fields must use `definePluginField`.
 
 ## Schema registry
 

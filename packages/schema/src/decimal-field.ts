@@ -1,5 +1,6 @@
 import { immutableRecord } from '@ultimabase/shared'
 
+import { createFieldDefinition } from './field-definition.js'
 import {
 	emptyFieldOptions,
 	normalizeFieldOptions,
@@ -185,8 +186,9 @@ export function decimalField<const TOptions extends DecimalFieldOptions>(
 export function decimalField(
 	options: DecimalFieldOptions = emptyFieldOptions,
 ): DecimalField {
-	return immutableRecord({
-		kind: 'decimal',
-		options: normalizeDecimalFieldOptions(options),
-	})
+	return createFieldDefinition(
+		'decimal',
+		normalizeDecimalFieldOptions(options),
+		normalizeDecimalValue,
+	)
 }

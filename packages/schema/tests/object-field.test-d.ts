@@ -85,10 +85,10 @@ test('infers object list values from reusable fields', () => {
 
 	interface ExpectedItem {
 		readonly name: string
-		readonly active: boolean
-		readonly createdAt: string
-		readonly avatar: Uint8Array
-		readonly tags: readonly string[]
+		readonly active?: boolean
+		readonly createdAt?: string
+		readonly avatar?: Uint8Array
+		readonly tags?: readonly string[]
 	}
 
 	expectTypeOf<FieldValue<typeof field>>().toEqualTypeOf<
@@ -98,7 +98,11 @@ test('infers object list values from reusable fields', () => {
 	expectTypeOf(field.options.typeName).toEqualTypeOf<'Profile'>()
 	expectTypeOf<ObjectFieldValue<typeof fields>>().toEqualTypeOf<ExpectedItem>()
 	expectTypeOf<ObjectField>().toExtend<
-		FieldDefinition<'object', Readonly<Record<string, unknown>>>
+		FieldDefinition<
+			'object',
+			Readonly<Record<string, unknown>>,
+			ObjectField['options']
+		>
 	>()
 })
 
@@ -129,6 +133,14 @@ test('rejects invalid list declarations and structured defaults', () => {
 			name: 'fixture',
 			active: 'yes',
 		},
+	})
+	// @ts-expect-error -- Required create inputs cannot be omitted from defaults.
+	objectField({
+		fields: {
+			optional: stringField(),
+			required: stringField({ validation: { required: true } }),
+		},
+		default: {},
 	})
 	stringField({
 		list: true,

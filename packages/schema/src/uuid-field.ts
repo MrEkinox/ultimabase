@@ -1,5 +1,6 @@
 import { immutableRecord } from '@ultimabase/shared'
 
+import { createFieldDefinition } from './field-definition.js'
 import {
 	emptyFieldOptions,
 	normalizeFieldOptions,
@@ -70,12 +71,13 @@ export function uuidField<const TOptions extends UuidFieldOptions>(
 export function uuidField(
 	options: UuidFieldOptions = emptyFieldOptions,
 ): UuidField {
-	return immutableRecord({
-		kind: 'uuid',
-		options: normalizeFieldOptions(
+	return createFieldDefinition(
+		'uuid',
+		normalizeFieldOptions(
 			options,
 			normalizeUuidValidation,
 			normalizeStringValue,
 		),
-	})
+		normalizeStringValue,
+	)
 }

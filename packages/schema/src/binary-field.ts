@@ -1,5 +1,4 @@
-import { immutableRecord } from '@ultimabase/shared'
-
+import { createFieldDefinition } from './field-definition.js'
 import {
 	emptyFieldOptions,
 	normalizeFieldOptions,
@@ -79,8 +78,9 @@ export function binaryField<const TOptions extends BinaryFieldOptions>(
 export function binaryField(
 	options: BinaryFieldOptions = emptyFieldOptions,
 ): BinaryField {
-	return immutableRecord({
-		kind: 'binary',
-		options: normalizeBinaryFieldOptions(options),
-	})
+	return createFieldDefinition(
+		'binary',
+		normalizeBinaryFieldOptions(options),
+		snapshotBinaryValue,
+	)
 }

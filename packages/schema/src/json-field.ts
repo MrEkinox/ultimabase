@@ -1,5 +1,6 @@
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
+import { createFieldDefinition } from './field-definition.js'
 import {
 	emptyFieldOptions,
 	normalizeFieldOptions,
@@ -123,8 +124,9 @@ export function jsonField<const TOptions extends JsonFieldOptions>(
 export function jsonField(
 	options: JsonFieldOptions = emptyFieldOptions,
 ): JsonField {
-	return immutableRecord({
-		kind: 'json',
-		options: normalizeJsonFieldOptions(options),
-	})
+	return createFieldDefinition(
+		'json',
+		normalizeJsonFieldOptions(options),
+		snapshotJsonValue,
+	)
 }

@@ -10,6 +10,11 @@ The package currently proves the complete custom-field boundary:
   understanding vector configuration;
 - the public value remains an immutable `readonly number[]` snapshot.
 
+The field validates the options container before reading `dimensions` and uses
+Schema's `snapshotValue` contract. Its snapshot is pure, deterministic, and
+idempotent, so static defaults can be safely normalized again during plan
+compilation.
+
 ```ts
 const DocumentSchema = defineSchema({
 	className: 'Document',

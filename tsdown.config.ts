@@ -14,7 +14,10 @@ const config: UserConfig = defineConfig({
 			from: '../../LICENSE',
 		},
 	],
-	dts: true,
+	dts: {
+		// Oxc avoids reusing declarations emitted by a preceding composite typecheck.
+		generator: 'oxc',
+	},
 	entry: ['src/index.ts'],
 	// Package metadata warnings are release blockers rather than advisory output.
 	failOnWarn: true,

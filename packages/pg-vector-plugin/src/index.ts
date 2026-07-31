@@ -1,5 +1,6 @@
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 import {
+	assertFieldOptions,
 	definePluginField,
 	type FieldListOption,
 	type FieldOptions,
@@ -59,10 +60,6 @@ export interface PgVectorPluginDefinition {
 	) => readonly number[]
 }
 
-const normalizeVectorValidation = (
-	validation: VectorValidationOptions,
-): Readonly<VectorValidationOptions> => immutableRecord(validation)
-
 function assertValidDimensions(
 	dimensions: unknown,
 ): asserts dimensions is number {
@@ -112,12 +109,13 @@ export function vectorField<const TOptions extends VectorFieldOptions>(
 ): VectorField<TOptions>
 
 export function vectorField(options: VectorFieldOptions): VectorField {
+	assertFieldOptions(options)
 	assertValidDimensions(options.dimensions)
+	const { dimensions } = options
 
 	return definePluginField(vectorFieldKind, options, {
-		normalizeValidation: normalizeVectorValidation,
-		normalizeValue: (value, path) =>
-			snapshotVector(value, path, options.dimensions),
+		snapshotValue: (value: unknown, path: string) =>
+			snapshotVector(value, path, dimensions),
 	})
 }
 

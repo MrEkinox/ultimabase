@@ -2,7 +2,7 @@ import type { FieldExtension, FieldExtensionInference } from './extension.js'
 import type { FieldOptionsValue, FieldValue, GenericField } from './field.js'
 import type { SchemaFields } from './schema.js'
 
-type InferenceMode = 'object' | 'create' | 'update'
+export type InferenceMode = 'object' | 'create' | 'update'
 
 type Simplify<TValue> = {
 	[TKey in keyof TValue]: TValue[TKey]
@@ -240,7 +240,7 @@ type UpdateFields<TFields extends SchemaFields> = {
 		: never
 }
 
-type InferFields<
+export type InferFields<
 	TFields extends SchemaFields,
 	TMode extends InferenceMode,
 > = TMode extends 'object'

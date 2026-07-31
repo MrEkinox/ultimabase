@@ -35,6 +35,8 @@ Accepted records:
 - [ADR-0030: Runtime schema declaration boundaries](0030-runtime-schema-declaration-boundaries.md)
 - [ADR-0031: Plugin validation issue codes](0031-plugin-validation-issue-codes.md)
 - [ADR-0032: Object list update replacement](0032-object-list-update-replacement.md)
+- [ADR-0033: Field factory provenance and snapshot capabilities](0033-field-factory-provenance.md)
+- [ADR-0034: Object defaults use create-input presence](0034-object-default-create-presence.md)
 
 Superseded records:
 

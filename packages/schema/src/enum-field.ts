@@ -1,7 +1,8 @@
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
+import { createFieldDefinition } from './field-definition.js'
 import {
-	assertFieldOptionsObject,
+	assertFieldOptions,
 	assertValidTypeName,
 	normalizeFieldOptions,
 	normalizeFlatValidation,
@@ -119,25 +120,39 @@ const normalizeEnumValues = (source: unknown): NormalizedEnumSource => {
 	})
 }
 
+/** Reads the persisted enum domain from either supported declaration shape. */
+const isEnumValueList = (values: EnumValues): values is readonly string[] =>
+	Array.isArray(values)
+
+export const readEnumValues = (values: EnumValues): readonly string[] => {
+	return isEnumValueList(values) ? values : Object.values(values)
+}
+
+const snapshotEnumValue = (
+	values: readonly string[],
+	value: unknown,
+	path: string,
+): string => {
+	if (typeof value !== 'string' || !values.includes(value)) {
+		const location = path === 'default' ? '' : ` at ${path}`
+
+		throw new TypeError(`Invalid enum default${location}: ${String(value)}`)
+	}
+
+	return value
+}
+
 const normalizeEnumFieldOptions = (
 	options: EnumFieldOptions,
 ): Readonly<EnumFieldOptions> => {
-	assertFieldOptionsObject(options)
+	assertFieldOptions(options)
 	assertValidTypeName(options.typeName)
 
 	const enumSource = normalizeEnumValues(options.values)
 	const normalized = normalizeFieldOptions(
 		options,
 		normalizeFlatValidation,
-		(value, path) => {
-			if (typeof value !== 'string' || !enumSource.values.includes(value)) {
-				const location = path === 'default' ? '' : ` at ${path}`
-
-				throw new TypeError(`Invalid enum default${location}: ${String(value)}`)
-			}
-
-			return value
-		},
+		(value, path) => snapshotEnumValue(enumSource.values, value, path),
 	)
 
 	return immutableRecord({
@@ -163,8 +178,10 @@ export function enumField<
 ): EnumField<TValues, TOptions>
 
 export function enumField(options: EnumFieldOptions): EnumField {
-	return immutableRecord({
-		kind: 'enum',
-		options: normalizeEnumFieldOptions(options),
-	})
+	const normalized = normalizeEnumFieldOptions(options)
+	const values = readEnumValues(normalized.values)
+
+	return createFieldDefinition('enum', normalized, (value, path) =>
+		snapshotEnumValue(values, value, path),
+	)
 }

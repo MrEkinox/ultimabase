@@ -93,6 +93,7 @@ export type {
 	FieldValue,
 	ValidatedFieldOptions,
 } from './field.js'
+export { assertFieldOptions } from './field-options.js'
 export type {
 	InferCreateInput,
 	InferObject,
@@ -165,7 +166,7 @@ export type {
 	SystemFields,
 	UpdatedAtSystemField,
 } from './system-field.js'
-export { compileValidationPlans } from './validation-plan.js'
+export { compileValidationPlans } from './validation-plan-compiler.js'
 export type {
 	ArrayValidationPlan,
 	AnyValidationIssueCode,

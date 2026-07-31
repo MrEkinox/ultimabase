@@ -145,7 +145,7 @@ describe('object fields and list metadata', () => {
 			'fixture.snapshot',
 			{},
 			{
-				normalizeValue: (value: unknown, path: string) => {
+				snapshotValue: (value: unknown, path: string) => {
 					if (
 						typeof value !== 'object' ||
 						value === null ||
@@ -236,24 +236,46 @@ describe('object fields and list metadata', () => {
 		expect(Object.isFrozen(field.options.default.profile)).toBe(true)
 	})
 
-	it('rejects missing, unknown, and unregistered plugin values in object defaults', () => {
+	it('uses create-input presence rules for object defaults', () => {
 		expect(() => {
 			objectField({
 				fields: { name: stringField() },
 				default: { name: 'Ada', extra: true },
 			})
 		}).toThrow(new TypeError('default.extra is not a declared field'))
+		expect(
+			objectField({ fields: { name: stringField() }, default: {} }).options
+				.default,
+		).toStrictEqual({})
 		expect(() => {
-			// @ts-expect-error -- Runtime coverage protects incomplete object defaults.
-			objectField({ fields: { name: stringField() }, default: {} })
+			// @ts-expect-error -- Runtime coverage protects missing required values.
+			objectField({
+				fields: {
+					name: stringField({ validation: { required: true } }),
+				},
+				default: {},
+			})
 		}).toThrow(new TypeError('default.name is required in an object default'))
+		expect(
+			objectField({
+				fields: {
+					name: stringField({
+						validation: { required: true },
+						default: 'anonymous',
+					}),
+				},
+				default: {},
+			}).options.default,
+		).toStrictEqual({})
 		expect(() => {
 			// @ts-expect-error -- Runtime coverage protects values outside the enum domain.
 			objectField({
 				fields: { status: enumField({ values: ['draft'] }) },
 				default: { status: 'published' },
 			})
-		}).toThrow(new TypeError('default.status must be a declared enum value'))
+		}).toThrow(
+			new TypeError('Invalid enum default at default.status: published'),
+		)
 
 		const forgedPlugin: FieldDefinition<'fixture.forged', string, object> = {
 			kind: 'fixture.forged',
@@ -265,11 +287,7 @@ describe('object fields and list metadata', () => {
 				fields: { custom: forgedPlugin },
 				default: { custom: 'value' },
 			}),
-		).toThrow(
-			new TypeError(
-				'default.custom uses a plugin field not created by definePluginField',
-			),
-		)
+		).toThrow(new TypeError('fields.custom must be created by a field factory'))
 	})
 
 	it('rejects invalid list metadata at runtime', () => {
@@ -323,7 +341,7 @@ describe('object fields and list metadata', () => {
 		}).toThrow(new TypeError('fields.invalidShape must be a field definition'))
 
 		expect(() => objectField({ fields: { missingFields } })).toThrow(
-			new TypeError('fields.missingFields.options.fields must be a field map'),
+			new TypeError('fields.missingFields must be created by a field factory'),
 		)
 	})
 
@@ -362,7 +380,7 @@ describe('object fields and list metadata', () => {
 		)
 	})
 
-	it('rejects circular object field definitions', () => {
+	it('rejects forged circular object field definitions at provenance boundary', () => {
 		const circular: {
 			kind: string
 			options: Record<string, unknown>
@@ -374,12 +392,10 @@ describe('object fields and list metadata', () => {
 		circular.options.fields = { child: circular }
 
 		expect(() => {
-			// Dynamic metadata still receives the same cycle protection as typed fields.
+			// Factory provenance rejects graphs that cannot be produced by immutable factories.
 			objectField({ fields: { circular } })
 		}).toThrow(
-			new TypeError(
-				'fields.circular.options.fields.child must not contain circular field definitions',
-			),
+			new TypeError('fields.circular must be created by a field factory'),
 		)
 	})
 })

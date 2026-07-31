@@ -16,6 +16,7 @@ import {
 	timeField,
 	uuidField,
 } from '../src/index.js'
+import { getFieldListDepth } from '../src/field-options.js'
 
 describe('runtime declaration boundaries', () => {
 	it.each([
@@ -60,6 +61,11 @@ describe('runtime declaration boundaries', () => {
 			// @ts-expect-error -- Validation metadata must retain its named object shape.
 			stringField({ validation: [] })
 		}).toThrow(new TypeError('validation must be an object'))
+		expect(() => getFieldListDepth({ list: 'invalid' })).toThrow(
+			new TypeError(
+				'list must be true, false, or a non-empty list of true values',
+			),
+		)
 	})
 
 	it.each([
@@ -147,6 +153,12 @@ describe('runtime declaration boundaries', () => {
 		}).toThrow(
 			new TypeError('fields.custom.kind must use a namespaced identifier'),
 		)
+		expect(() =>
+			defineSchema({
+				className: 'Forged',
+				fields: { custom: { kind: 'fixture.custom', options: {} } },
+			}),
+		).toThrow(new TypeError('fields.custom must be created by a field factory'))
 	})
 
 	it('rejects malformed extensions and plugin identifiers', () => {
@@ -170,7 +182,7 @@ describe('runtime declaration boundaries', () => {
 				// Runtime validation adds identifier syntax that template literals cannot express.
 				'fixture. invalid',
 				{},
-				{ normalizeValue: (value: unknown): unknown => value },
+				{ snapshotValue: (value: unknown): unknown => value },
 			)
 		}).toThrow(
 			new TypeError('Plugin field kind must use a namespaced identifier'),
@@ -178,13 +190,13 @@ describe('runtime declaration boundaries', () => {
 		expect(() => {
 			// @ts-expect-error -- A plugin field must own its scalar normalizer.
 			definePluginField('fixture.invalid', {}, {})
-		}).toThrow(new TypeError('Plugin field normalizeValue must be a function'))
+		}).toThrow(new TypeError('Plugin field snapshotValue must be a function'))
 		expect(() => {
 			definePluginField(
 				'fixture.invalid',
 				{ validation: {} },
 				{
-					normalizeValue: (value: unknown): unknown => value,
+					snapshotValue: (value: unknown): unknown => value,
 					// @ts-expect-error -- A provided validation normalizer must be callable.
 					normalizeValidation: true,
 				},
@@ -199,7 +211,7 @@ describe('runtime declaration boundaries', () => {
 				'fixture.invalid',
 				{ validation: {} },
 				{
-					normalizeValue: (value: unknown): unknown => value,
+					snapshotValue: (value: unknown): unknown => value,
 					// @ts-expect-error -- Runtime coverage protects malformed normalizer output.
 					normalizeValidation: (): readonly unknown[] => [],
 				},

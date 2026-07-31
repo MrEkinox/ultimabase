@@ -14,8 +14,10 @@ export const emptyFieldOptions: EmptyFieldOptions = immutableRecord({})
 
 type NormalizeStaticValue = (value: unknown, path: string) => unknown
 
-/** Ensures specialized factories can safely read options before normalization. */
-export const assertFieldOptionsObject = (options: unknown): void => {
+/** Ensures field factories and community plugins can safely read options. */
+export function assertFieldOptions(
+	options: unknown,
+): asserts options is Readonly<Record<string, unknown>> {
 	if (!isPlainRecord(options)) {
 		throw new TypeError('field options must be an object')
 	}
@@ -193,7 +195,7 @@ export const normalizeFieldOptions = <
 	normalizeValidation: (validation: TValidation) => Readonly<TValidation>,
 	normalizeStaticValue: NormalizeStaticValue,
 ): Readonly<TOptions> => {
-	assertFieldOptionsObject(options)
+	assertFieldOptions(options)
 
 	assertCommonFieldMetadata(options)
 
