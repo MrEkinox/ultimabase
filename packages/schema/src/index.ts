@@ -32,6 +32,13 @@ export type {
 	DateRangeValidationOptions,
 	DateValidationOptions,
 } from './date-field.js'
+export { decimalField } from './decimal-field.js'
+export type {
+	DecimalField,
+	DecimalFieldOptions,
+	DecimalRangeValidationOptions,
+	DecimalValidationOptions,
+} from './decimal-field.js'
 export { dateTimeField } from './date-time-field.js'
 export type {
 	DateTimeField,
@@ -160,6 +167,7 @@ export type {
 	DatabaseValidationDefaultPlan,
 	DateValidationPlan,
 	DateTimeValidationPlan,
+	DecimalValidationPlan,
 	EnumValidationPlan,
 	FieldValidationPlan,
 	FloatValidationPlan,

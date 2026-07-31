@@ -30,6 +30,7 @@ Accepted records:
 - [ADR-0025: Exact bigint fields](0025-exact-bigint-fields.md)
 - [ADR-0026: Explicit temporal field representations](0026-explicit-temporal-representations.md)
 - [ADR-0027: Native binary values](0027-native-binary-values.md)
+- [ADR-0028: Exact decimal strings](0028-exact-decimal-strings.md)
 
 Superseded records:
 

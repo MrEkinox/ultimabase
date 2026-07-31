@@ -8,6 +8,7 @@ import {
 	compileValidationPlans,
 	dateField,
 	dateTimeField,
+	decimalField,
 	defineSchema,
 	enumField,
 	floatField,
@@ -45,6 +46,15 @@ describe('validation plans', () => {
 					validation: { nullable: true },
 				}),
 				active: booleanField({ default: true }),
+				price: decimalField({
+					default: '19.99',
+					validation: {
+						precision: 12,
+						scale: 2,
+						range: { min: '0.00', max: '9999999999.99' },
+					},
+				}),
+				unrestrictedDecimal: decimalField(),
 				avatar: binaryField({
 					default: avatarDefault,
 					validation: { length: { min: 1, max: 1024 } },
@@ -134,6 +144,18 @@ describe('validation plans', () => {
 			default: { kind: 'static', value: true },
 		})
 		expect(plans.update.fields.active).not.toHaveProperty('default')
+		expect(plans.create.fields.price).toMatchObject({
+			kind: 'decimal',
+			default: { kind: 'static', value: '19.99' },
+			precision: 12,
+			scale: 2,
+			range: { min: '0.00', max: '9999999999.99' },
+		})
+		expect(plans.create.fields.unrestrictedDecimal).toStrictEqual({
+			kind: 'decimal',
+			presence: 'optional',
+			nullable: false,
+		})
 		expect(plans.create.fields.avatar).toMatchObject({
 			kind: 'binary',
 			default: {

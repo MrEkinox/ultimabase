@@ -15,6 +15,10 @@ import type {
 	DateTimeField,
 	DateTimeRangeValidationOptions,
 } from './date-time-field.js'
+import type {
+	DecimalField,
+	DecimalRangeValidationOptions,
+} from './decimal-field.js'
 import {
 	DatabaseDefault,
 	getDefaultKind,
@@ -69,6 +73,11 @@ export type ValidationIssueCode =
 	| 'dateTime.invalid'
 	| 'dateTime.range.max'
 	| 'dateTime.range.min'
+	| 'decimal.invalid'
+	| 'decimal.precision'
+	| 'decimal.range.max'
+	| 'decimal.range.min'
+	| 'decimal.scale'
 	| 'enum.value'
 	| 'field.forbidden'
 	| 'field.null'
@@ -185,6 +194,12 @@ export interface DateTimeValidationPlan extends FieldValidationPlanBase<'dateTim
 	readonly range?: DateTimeRangeValidationOptions
 }
 
+export interface DecimalValidationPlan extends FieldValidationPlanBase<'decimal'> {
+	readonly precision?: number
+	readonly scale?: number
+	readonly range?: DecimalRangeValidationOptions
+}
+
 export interface EnumValidationPlan extends FieldValidationPlanBase<'enum'> {
 	readonly values: readonly string[]
 }
@@ -216,6 +231,7 @@ export type FieldValidationPlan =
 	| BooleanValidationPlan
 	| DateValidationPlan
 	| DateTimeValidationPlan
+	| DecimalValidationPlan
 	| EnumValidationPlan
 	| FloatValidationPlan
 	| IntValidationPlan
@@ -248,6 +264,7 @@ type BuiltInField =
 	| BooleanField
 	| DateField
 	| DateTimeField
+	| DecimalField
 	| EnumField
 	| FloatField
 	| IdSystemField
@@ -270,6 +287,7 @@ const isBuiltInField = (field: GenericField): field is BuiltInField =>
 	field.kind === 'boolean' ||
 	field.kind === 'date' ||
 	field.kind === 'dateTime' ||
+	field.kind === 'decimal' ||
 	field.kind === 'enum' ||
 	field.kind === 'float' ||
 	field.kind === 'int' ||
@@ -483,6 +501,20 @@ const compileScalarField = (
 				...base,
 				kind: field.kind,
 				timezone: field.options.timezone ?? true,
+				...(field.options.validation?.range === undefined
+					? {}
+					: { range: field.options.validation.range }),
+			})
+		case 'decimal':
+			return immutableRecord({
+				...base,
+				kind: field.kind,
+				...(field.options.validation?.precision === undefined
+					? {}
+					: { precision: field.options.validation.precision }),
+				...(field.options.validation?.scale === undefined
+					? {}
+					: { scale: field.options.validation.scale }),
 				...(field.options.validation?.range === undefined
 					? {}
 					: { range: field.options.validation.range }),

@@ -4,6 +4,7 @@ import {
 	bigintField,
 	binaryField,
 	compileValidationPlans,
+	decimalField,
 	dateTimeField,
 	defineSchema,
 	floatField,
@@ -15,6 +16,7 @@ import {
 	type BigintValidationPlan,
 	type BinaryValidationPlan,
 	type DateTimeValidationPlan,
+	type DecimalValidationPlan,
 	type FloatValidationPlan,
 	type IntValidationPlan,
 	type RuntimeClockValidationDefaultPlan,
@@ -60,6 +62,7 @@ test('narrows integer and float plans as distinct kinds', () => {
 			count: intField(),
 			ratio: floatField(),
 			processedAt: dateTimeField(),
+			price: decimalField(),
 			reminderTime: timeField(),
 		},
 	})
@@ -69,6 +72,7 @@ test('narrows integer and float plans as distinct kinds', () => {
 	const avatar = plans.avatar
 	const ratio = plans.ratio
 	const processedAt = plans.processedAt
+	const price = plans.price
 	const reminderTime = plans.reminderTime
 
 	if (largeCount?.kind === 'bigint') {
@@ -89,6 +93,10 @@ test('narrows integer and float plans as distinct kinds', () => {
 
 	if (processedAt?.kind === 'dateTime') {
 		expectTypeOf(processedAt).toEqualTypeOf<DateTimeValidationPlan>()
+	}
+
+	if (price?.kind === 'decimal') {
+		expectTypeOf(price).toEqualTypeOf<DecimalValidationPlan>()
 	}
 
 	if (reminderTime?.kind === 'time') {

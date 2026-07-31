@@ -5,6 +5,7 @@ import {
 	booleanField,
 	dateField,
 	dateTimeField,
+	decimalField,
 	defineFieldExtension,
 	defineSchema,
 	enumField,
@@ -58,6 +59,7 @@ const primitiveSchema = defineSchema({
 		reminderTime: timeField(),
 		payload: jsonField(),
 		attachment: binaryField(),
+		price: decimalField(),
 	},
 })
 
@@ -80,6 +82,7 @@ test('infers the complete primitive output matrix', () => {
 		readonly reminderTime?: string
 		readonly payload?: JsonValue
 		readonly attachment?: Uint8Array
+		readonly price?: string
 	}
 
 	expectTypeOf(primitiveSchema.className).toEqualTypeOf<'PrimitiveMatrix'>()
@@ -104,6 +107,7 @@ test('makes generated and defaulted values optional in create inputs', () => {
 		reminderTime?: string
 		payload?: JsonValue
 		attachment?: Uint8Array
+		price?: string
 	}
 
 	type CreateInput = InferCreateInput<typeof primitiveSchema>
@@ -135,6 +139,7 @@ test('makes mutable developer fields optional in update inputs', () => {
 		reminderTime?: string
 		payload?: JsonValue
 		attachment?: Uint8Array
+		price?: string
 	}
 
 	type UpdateInput = InferUpdateInput<typeof primitiveSchema>

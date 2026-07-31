@@ -220,6 +220,24 @@ the declarative `validation.finite` value constraint. Float fields reject
 auto-increment metadata at both the TypeScript and runtime boundaries. A future
 exact decimal field will use a separate value and storage contract.
 
+## Decimal fields
+
+`decimalField(options)` represents exact base-10 values as strings such as
+`"19.99"` or `"9007199254740993.001"`. JavaScript numbers are rejected because
+they cannot preserve arbitrary decimal precision. Values use plain decimal
+notation without exponent notation, leading zeroes, a leading plus sign, or
+negative zero representations.
+
+`validation.precision` limits the total digit precision and must be a positive
+safe integer. `validation.scale` limits fractional digits, must be a
+non-negative safe integer, and cannot exceed precision when both are supplied.
+`validation.range.min/max` uses exact decimal strings and is ordered without
+floating-point coercion.
+
+PostgreSQL adapters may map this contract to `numeric` or `decimal`. JSON and
+GraphQL transports must preserve the string representation or use an explicit
+decimal scalar rather than converting through `number`.
+
 ## Boolean fields
 
 `booleanField(options)` creates immutable boolean metadata and preserves literal `true` or `false` defaults. It uses the common presence validation and field options without adding boolean-specific constraints.

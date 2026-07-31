@@ -15,6 +15,7 @@ describe('@ultimabase/schema public entry point', () => {
 			'compileValidationPlans',
 			'dateField',
 			'dateTimeField',
+			'decimalField',
 			'defineExtensions',
 			'defineFieldExtension',
 			'defineSchema',
