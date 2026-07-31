@@ -51,6 +51,7 @@ Accepted records:
 - [ADR-0049: Deterministic plugin lifecycle](0049-deterministic-plugin-lifecycle.md)
 - [ADR-0050: Isolated FrameworkApplication boundary](0050-isolated-framework-application.md)
 - [ADR-0051: Plugin-owned extension handlers](0051-plugin-owned-extension-handlers.md)
+- [ADR-0052: Typed transport-neutral Query AST](0052-typed-transport-neutral-query-ast.md)
 
 Superseded records:
 

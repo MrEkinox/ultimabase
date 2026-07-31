@@ -119,6 +119,11 @@ setup export types, including definitions introduced through nested composition.
 - `Query<TSchema>` is an immutable unbound definition.
 - `BoundQuery<TSchema>` is attached to a `RequestEngine` and can execute terminal operations.
 
+The Query AST retains the exact static schema definition and represents
+selection, filtering, ordering, and pagination as immutable discriminated
+nodes. It contains no request, GraphQL, SQL, adapter, or execution state;
+transports normalize into it and adapters compile it behind Runtime contracts.
+
 Access modes are `anonymous`, `user`, and `master`. Request sources such as `rest`, `graphql`, `job`, or `internal` are metadata, not access modes.
 
 ## Access control
