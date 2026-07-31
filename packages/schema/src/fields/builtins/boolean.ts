@@ -1,16 +1,16 @@
-import { createFieldDefinition } from '../base/definition.js'
 import {
-	emptyFieldOptions,
 	normalizeFieldOptions,
 	normalizeFlatValidation,
-	type EmptyFieldOptions,
 } from '../base/options.js'
 import type {
 	FieldDefinition,
 	FieldOptions,
 	FieldValidationOptions,
-	ValidatedFieldOptions,
 } from '../base/contract.js'
+import {
+	createScalarFieldFactory,
+	type ScalarFieldFactory,
+} from '../base/factory.js'
 import { normalizeBooleanValue } from '../base/value.js'
 
 /**
@@ -30,31 +30,20 @@ export type BooleanField<
 	TOptions extends BooleanFieldOptions = BooleanFieldOptions,
 > = FieldDefinition<'boolean', boolean, TOptions>
 
-/**
- * Creates an optional, non-null boolean field with no additional metadata.
- */
-export function booleanField(): BooleanField<EmptyFieldOptions>
+const normalizeBooleanFieldOptions = <
+	const TOptions extends BooleanFieldOptions,
+>(
+	options: TOptions,
+): Readonly<TOptions> =>
+	normalizeFieldOptions(options, normalizeFlatValidation, normalizeBooleanValue)
 
-/**
- * Creates immutable boolean metadata while preserving every option literal.
- */
-export function booleanField<const TOptions extends BooleanFieldOptions>(
-	options: TOptions &
-		(ValidatedFieldOptions<NoInfer<TOptions>, boolean> extends never
-			? never
-			: unknown),
-): BooleanField<TOptions>
-
-export function booleanField(
-	options: BooleanFieldOptions = emptyFieldOptions,
-): BooleanField {
-	return createFieldDefinition(
-		'boolean',
-		normalizeFieldOptions(
-			options,
-			normalizeFlatValidation,
-			normalizeBooleanValue,
-		),
-		normalizeBooleanValue,
-	)
-}
+/** Creates immutable boolean metadata while preserving every option literal. */
+export const booleanField: ScalarFieldFactory<
+	'boolean',
+	boolean,
+	BooleanFieldOptions
+> = createScalarFieldFactory(
+	'boolean',
+	normalizeBooleanFieldOptions,
+	normalizeBooleanValue,
+)

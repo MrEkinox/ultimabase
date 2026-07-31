@@ -1,3 +1,5 @@
+import { assertNonEmptyString } from '@ultimabase/shared'
+
 import type { IdSystemField } from '../../schema/system-fields.js'
 import type { BigintField } from '../builtins/bigint.js'
 import type { BinaryField } from '../builtins/binary.js'
@@ -69,9 +71,7 @@ export const isBuiltInField = (field: {
 
 /** Enforces the collision-resistant identifier shared by every field plugin. */
 export const assertPluginFieldKind = (kind: unknown, path: string): string => {
-	if (typeof kind !== 'string' || kind.length === 0) {
-		throw new TypeError(`${path} must be a non-empty string`)
-	}
+	assertNonEmptyString(kind, path)
 
 	const separator = kind.indexOf('.')
 

@@ -1,15 +1,9 @@
-import { createFieldDefinition } from '../base/definition.js'
+import { assertFieldOptions, normalizeFieldOptions } from '../base/options.js'
+import type { FieldDefinition, FieldOptions } from '../base/contract.js'
 import {
-	assertFieldOptions,
-	emptyFieldOptions,
-	normalizeFieldOptions,
-	type EmptyFieldOptions,
-} from '../base/options.js'
-import type {
-	FieldDefinition,
-	FieldOptions,
-	ValidatedFieldOptions,
-} from '../base/contract.js'
+	createScalarFieldFactory,
+	type ScalarFieldFactory,
+} from '../base/factory.js'
 import {
 	assertAutoIncrementOption,
 	normalizeNumericValidation,
@@ -46,34 +40,23 @@ const normalizeIntValidation = (
 ): Readonly<IntValidationOptions> =>
 	normalizeNumericValidation(validation, 'a safe integer', Number.isSafeInteger)
 
-/**
- * Creates an optional safe-integer field with no additional metadata.
- */
-export function intField(): IntField<EmptyFieldOptions>
-
-/**
- * Creates immutable integer metadata while preserving every option literal.
- */
-export function intField<const TOptions extends IntFieldOptions>(
-	options: TOptions &
-		(ValidatedFieldOptions<NoInfer<TOptions>, number> extends never
-			? never
-			: unknown),
-): IntField<TOptions>
-
-export function intField(
-	options: IntFieldOptions = emptyFieldOptions,
-): IntField {
+const normalizeIntFieldOptions = <const TOptions extends IntFieldOptions>(
+	options: TOptions,
+): Readonly<TOptions> => {
 	assertFieldOptions(options)
 	assertAutoIncrementOption(options)
 
-	return createFieldDefinition(
-		'int',
-		normalizeFieldOptions(
-			options,
-			normalizeIntValidation,
-			normalizeSafeIntegerValue,
-		),
+	return normalizeFieldOptions(
+		options,
+		normalizeIntValidation,
 		normalizeSafeIntegerValue,
 	)
 }
+
+/** Creates immutable safe-integer metadata with optional sequence ownership. */
+export const intField: ScalarFieldFactory<'int', number, IntFieldOptions> =
+	createScalarFieldFactory(
+		'int',
+		normalizeIntFieldOptions,
+		normalizeSafeIntegerValue,
+	)

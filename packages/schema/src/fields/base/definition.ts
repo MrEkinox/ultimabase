@@ -1,13 +1,13 @@
-import { immutableRecord } from '@ultimabase/shared'
+import {
+	assertNonEmptyString,
+	immutableRecord,
+	isPlainRecord,
+} from '@ultimabase/shared'
 
 import { isBuiltInField } from './kinds.js'
 import { assertPluginFieldKind } from './kinds.js'
 import { getFieldListDepth, snapshotFieldValue } from './options.js'
 import type { GenericField } from './contract.js'
-import {
-	assertNonEmptyString,
-	isPlainRecord,
-} from '../../internal/runtime-value.js'
 
 export type ScalarValueSnapshot = (value: unknown, path: string) => unknown
 

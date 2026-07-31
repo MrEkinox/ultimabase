@@ -1,3 +1,5 @@
+import { isPlainRecord } from '@ultimabase/shared'
+
 import { createFieldDefinition } from './base/definition.js'
 import { assertPluginFieldKind, type ReservedFieldKind } from './base/kinds.js'
 import {
@@ -9,7 +11,6 @@ import type {
 	FieldOptions,
 	FieldValidationOptions,
 } from './base/contract.js'
-import { isPlainRecord } from '../internal/runtime-value.js'
 
 export type { ReservedFieldKind } from './base/kinds.js'
 

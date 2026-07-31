@@ -1,14 +1,16 @@
-import { immutableRecord } from '@ultimabase/shared'
+import { assertOptionalBoolean, immutableRecord } from '@ultimabase/shared'
 
 import type { FieldValidationOptions } from '../base/contract.js'
+import {
+	normalizeOrderedRange,
+	type OrderedRange,
+	type RangeValueComparator,
+} from './range.js'
 
 /**
  * Defines ordered string boundaries shared by temporal field kinds.
  */
-export interface TemporalRangeValidationOptions {
-	readonly min?: string
-	readonly max?: string
-}
+export type TemporalRangeValidationOptions = OrderedRange<string>
 
 /**
  * Groups presence rules with an optional ordered temporal range.
@@ -18,7 +20,7 @@ export type TemporalValidationOptions = FieldValidationOptions & {
 }
 
 export type TemporalValueNormalizer = (value: unknown, path: string) => string
-export type TemporalValueComparator = (left: string, right: string) => number
+export type TemporalValueComparator = RangeValueComparator<string>
 
 /**
  * Copies temporal validation metadata while validating and ordering its boundaries.
@@ -36,29 +38,14 @@ export const normalizeTemporalValidation = <
 		return immutableRecord(validation)
 	}
 
-	const min =
-		range.min === undefined
-			? undefined
-			: normalizeValue(range.min, 'validation.range.min')
-	const max =
-		range.max === undefined
-			? undefined
-			: normalizeValue(range.max, 'validation.range.max')
-
-	if (min !== undefined && max !== undefined && compareValues(min, max) > 0) {
-		throw new RangeError(
-			'validation.range.min cannot be greater than validation.range.max',
-		)
-	}
-
-	// Conditional spreads preserve omitted boundaries in the normalized contract.
 	return immutableRecord({
 		...validation,
-		range: immutableRecord({
-			...range,
-			...(min === undefined ? {} : { min }),
-			...(max === undefined ? {} : { max }),
-		}),
+		range: normalizeOrderedRange(
+			range,
+			'validation.range',
+			normalizeValue,
+			compareValues,
+		),
 	})
 }
 
@@ -77,9 +64,7 @@ export const readTemporalTimezone = (
 	timezone: unknown,
 	defaultValue: boolean,
 ): boolean => {
-	if (timezone !== undefined && typeof timezone !== 'boolean') {
-		throw new TypeError('timezone must be a boolean')
-	}
+	assertOptionalBoolean(timezone, 'timezone')
 
 	return timezone ?? defaultValue
 }

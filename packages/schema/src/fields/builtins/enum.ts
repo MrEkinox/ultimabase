@@ -1,4 +1,9 @@
-import { immutableArray, immutableRecord } from '@ultimabase/shared'
+import {
+	immutableArray,
+	immutableRecord,
+	isPlainRecord,
+	isUnknownArray,
+} from '@ultimabase/shared'
 
 import { createFieldDefinition } from '../base/definition.js'
 import {
@@ -12,7 +17,6 @@ import type {
 	FieldOptions,
 	ValidatedFieldOptions,
 } from '../base/contract.js'
-import { isPlainRecord, isUnknownArray } from '../../internal/runtime-value.js'
 
 export type EnumValues = readonly string[] | Readonly<Record<string, string>>
 

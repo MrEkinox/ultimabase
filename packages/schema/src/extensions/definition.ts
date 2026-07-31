@@ -1,10 +1,10 @@
-import { immutableArray, immutableRecord } from '@ultimabase/shared'
-
 import {
 	assertNonEmptyString,
+	immutableArray,
+	immutableRecord,
 	isPlainRecord,
 	isUnknownArray,
-} from '../internal/runtime-value.js'
+} from '@ultimabase/shared'
 
 declare const fieldInferenceMarker: unique symbol
 

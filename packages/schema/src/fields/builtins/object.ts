@@ -1,4 +1,8 @@
-import { immutableRecord } from '@ultimabase/shared'
+import {
+	assertNonEmptyString,
+	immutableRecord,
+	isPlainRecord,
+} from '@ultimabase/shared'
 
 import {
 	assertFieldDefinition,
@@ -19,10 +23,6 @@ import type {
 	ValidatedFieldOptions,
 } from '../base/contract.js'
 import type { InferFields } from '../../inference/types.js'
-import {
-	assertNonEmptyString,
-	isPlainRecord,
-} from '../../internal/runtime-value.js'
 
 /**
  * Names the child fields of one object definition.

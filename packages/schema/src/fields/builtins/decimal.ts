@@ -1,25 +1,24 @@
 import { immutableRecord } from '@ultimabase/shared'
 
-import { createFieldDefinition } from '../base/definition.js'
-import {
-	emptyFieldOptions,
-	normalizeFieldOptions,
-	type EmptyFieldOptions,
-} from '../base/options.js'
+import { normalizeFieldOptions } from '../base/options.js'
 import type {
 	FieldDefinition,
 	FieldOptions,
 	FieldValidationOptions,
-	ValidatedFieldOptions,
 } from '../base/contract.js'
+import {
+	createScalarFieldFactory,
+	type ScalarFieldFactory,
+} from '../base/factory.js'
+import {
+	normalizeOrderedRange,
+	type OrderedRange,
+} from '../constraints/range.js'
 
 /**
  * Defines exact decimal boundaries without floating-point coercion.
  */
-export interface DecimalRangeValidationOptions {
-	readonly min?: string
-	readonly max?: string
-}
+export type DecimalRangeValidationOptions = OrderedRange<string>
 
 /**
  * Groups presence, digit, scale, and exact range constraints.
@@ -134,61 +133,35 @@ const normalizeDecimalValidation = (
 		return immutableRecord(validation)
 	}
 
-	const min =
-		range.min === undefined
-			? undefined
-			: normalizeDecimalValue(range.min, 'validation.range.min')
-	const max =
-		range.max === undefined
-			? undefined
-			: normalizeDecimalValue(range.max, 'validation.range.max')
-
-	if (min !== undefined && max !== undefined && compareDecimals(min, max) > 0) {
-		throw new RangeError(
-			'validation.range.min cannot be greater than validation.range.max',
-		)
-	}
-
 	return immutableRecord({
 		...validation,
-		range: immutableRecord({
-			...range,
-			...(min === undefined ? {} : { min }),
-			...(max === undefined ? {} : { max }),
-		}),
+		range: normalizeOrderedRange(
+			range,
+			'validation.range',
+			normalizeDecimalValue,
+			compareDecimals,
+		),
 	})
 }
 
-const normalizeDecimalFieldOptions = (
-	options: DecimalFieldOptions,
-): Readonly<DecimalFieldOptions> =>
+const normalizeDecimalFieldOptions = <
+	const TOptions extends DecimalFieldOptions,
+>(
+	options: TOptions,
+): Readonly<TOptions> =>
 	normalizeFieldOptions(
 		options,
 		normalizeDecimalValidation,
 		normalizeDecimalValue,
 	)
 
-/**
- * Creates an optional exact decimal field with no additional metadata.
- */
-export function decimalField(): DecimalField<EmptyFieldOptions>
-
-/**
- * Creates exact decimal metadata while preserving every option literal.
- */
-export function decimalField<const TOptions extends DecimalFieldOptions>(
-	options: TOptions &
-		(ValidatedFieldOptions<NoInfer<TOptions>, string> extends never
-			? never
-			: unknown),
-): DecimalField<TOptions>
-
-export function decimalField(
-	options: DecimalFieldOptions = emptyFieldOptions,
-): DecimalField {
-	return createFieldDefinition(
-		'decimal',
-		normalizeDecimalFieldOptions(options),
-		normalizeDecimalValue,
-	)
-}
+/** Creates immutable exact-decimal metadata without numeric coercion. */
+export const decimalField: ScalarFieldFactory<
+	'decimal',
+	string,
+	DecimalFieldOptions
+> = createScalarFieldFactory(
+	'decimal',
+	normalizeDecimalFieldOptions,
+	normalizeDecimalValue,
+)

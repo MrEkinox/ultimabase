@@ -1,14 +1,9 @@
-import { createFieldDefinition } from '../base/definition.js'
+import { normalizeFieldOptions } from '../base/options.js'
+import type { FieldDefinition, FieldOptions } from '../base/contract.js'
 import {
-	emptyFieldOptions,
-	normalizeFieldOptions,
-	type EmptyFieldOptions,
-} from '../base/options.js'
-import type {
-	FieldDefinition,
-	FieldOptions,
-	ValidatedFieldOptions,
-} from '../base/contract.js'
+	createScalarFieldFactory,
+	type ScalarFieldFactory,
+} from '../base/factory.js'
 import {
 	normalizeLengthValidation,
 	type LengthConstrainedValidation,
@@ -55,32 +50,18 @@ export const snapshotBinaryValue = (
 	return value.map((byte) => byte)
 }
 
-const normalizeBinaryFieldOptions = (
-	options: BinaryFieldOptions,
-): Readonly<BinaryFieldOptions> =>
+const normalizeBinaryFieldOptions = <const TOptions extends BinaryFieldOptions>(
+	options: TOptions,
+): Readonly<TOptions> =>
 	normalizeFieldOptions(options, normalizeLengthValidation, snapshotBinaryValue)
 
-/**
- * Creates an optional binary field with no additional metadata.
- */
-export function binaryField(): BinaryField<EmptyFieldOptions>
-
-/**
- * Creates binary metadata while preserving exact options and copying static bytes.
- */
-export function binaryField<const TOptions extends BinaryFieldOptions>(
-	options: TOptions &
-		(ValidatedFieldOptions<NoInfer<TOptions>, Uint8Array> extends never
-			? never
-			: unknown),
-): BinaryField<TOptions>
-
-export function binaryField(
-	options: BinaryFieldOptions = emptyFieldOptions,
-): BinaryField {
-	return createFieldDefinition(
-		'binary',
-		normalizeBinaryFieldOptions(options),
-		snapshotBinaryValue,
-	)
-}
+/** Creates binary metadata while copying caller-owned static byte sequences. */
+export const binaryField: ScalarFieldFactory<
+	'binary',
+	Uint8Array,
+	BinaryFieldOptions
+> = createScalarFieldFactory(
+	'binary',
+	normalizeBinaryFieldOptions,
+	snapshotBinaryValue,
+)

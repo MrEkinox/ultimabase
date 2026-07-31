@@ -38,6 +38,7 @@ Accepted records:
 - [ADR-0033: Field factory provenance and snapshot capabilities](0033-field-factory-provenance.md)
 - [ADR-0034: Object defaults use create-input presence](0034-object-default-create-presence.md)
 - [ADR-0036: Colocated package tests](0036-colocated-package-tests.md)
+- [ADR-0037: Shared guards and Schema normalization primitives](0037-schema-normalization-primitives.md)
 
 Superseded records:
 

@@ -1,18 +1,18 @@
-import { immutableArray, immutableRecord } from '@ultimabase/shared'
-
-import { createFieldDefinition } from '../base/definition.js'
 import {
-	emptyFieldOptions,
+	immutableArray,
+	immutableRecord,
+	isPlainRecord,
+} from '@ultimabase/shared'
+
+import {
 	normalizeFieldOptions,
 	normalizeFlatValidation,
-	type EmptyFieldOptions,
 } from '../base/options.js'
-import type {
-	FieldDefinition,
-	FieldOptions,
-	ValidatedFieldOptions,
-} from '../base/contract.js'
-import { isPlainRecord } from '../../internal/runtime-value.js'
+import type { FieldDefinition, FieldOptions } from '../base/contract.js'
+import {
+	createScalarFieldFactory,
+	type ScalarFieldFactory,
+} from '../base/factory.js'
 
 /**
  * Represents values that have a lossless, portable JSON encoding.
@@ -101,32 +101,18 @@ const normalizeJsonValue = (
 export const snapshotJsonValue = (value: unknown, path: string): JsonValue =>
 	normalizeJsonValue(value, path, new WeakSet<object>())
 
-const normalizeJsonFieldOptions = (
-	options: JsonFieldOptions,
-): Readonly<JsonFieldOptions> =>
+const normalizeJsonFieldOptions = <const TOptions extends JsonFieldOptions>(
+	options: TOptions,
+): Readonly<TOptions> =>
 	normalizeFieldOptions(options, normalizeFlatValidation, snapshotJsonValue)
 
-/**
- * Creates an optional, non-null JSON field with no additional metadata.
- */
-export function jsonField(): JsonField<EmptyFieldOptions>
-
-/**
- * Creates immutable JSON metadata while preserving every option literal.
- */
-export function jsonField<const TOptions extends JsonFieldOptions>(
-	options: TOptions &
-		(ValidatedFieldOptions<NoInfer<TOptions>, JsonValue> extends never
-			? never
-			: unknown),
-): JsonField<TOptions>
-
-export function jsonField(
-	options: JsonFieldOptions = emptyFieldOptions,
-): JsonField {
-	return createFieldDefinition(
-		'json',
-		normalizeJsonFieldOptions(options),
-		snapshotJsonValue,
-	)
-}
+/** Creates immutable JSON metadata with recursively detached static values. */
+export const jsonField: ScalarFieldFactory<
+	'json',
+	JsonValue,
+	JsonFieldOptions
+> = createScalarFieldFactory(
+	'json',
+	normalizeJsonFieldOptions,
+	snapshotJsonValue,
+)

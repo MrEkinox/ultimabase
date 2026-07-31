@@ -1,7 +1,8 @@
 import { immutableRecord } from '@ultimabase/shared'
 
 import type { FieldValidationOptions } from '../base/contract.js'
-import { normalizeNumericRange, type NumericRange } from './numeric.js'
+import type { NumericRange } from './numeric.js'
+import { normalizeOrderedRange } from './range.js'
 
 /**
  * Defines non-negative safe-integer length boundaries.
@@ -15,15 +16,12 @@ export type LengthConstrainedValidation = FieldValidationOptions & {
 	readonly length?: LengthValidationOptions
 }
 
-const assertValidLength = (
-	name: 'min' | 'max',
-	value: number | undefined,
-): void => {
-	if (value !== undefined && (!Number.isSafeInteger(value) || value < 0)) {
-		throw new RangeError(
-			`validation.length.${name} must be a non-negative safe integer`,
-		)
+const normalizeLength = (value: number, path: string): number => {
+	if (!Number.isSafeInteger(value) || value < 0) {
+		throw new RangeError(`${path} must be a non-negative safe integer`)
 	}
+
+	return value
 }
 
 /**
@@ -41,10 +39,11 @@ export const normalizeLengthValidation = <
 		? immutableRecord(validation)
 		: immutableRecord({
 				...validation,
-				length: normalizeNumericRange(
+				length: normalizeOrderedRange(
 					length,
 					'validation.length',
-					assertValidLength,
+					normalizeLength,
+					(left, right) => left - right,
 				),
 			})
 }

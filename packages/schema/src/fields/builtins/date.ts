@@ -1,14 +1,9 @@
-import { createFieldDefinition } from '../base/definition.js'
+import { normalizeFieldOptions } from '../base/options.js'
+import type { FieldDefinition, FieldOptions } from '../base/contract.js'
 import {
-	emptyFieldOptions,
-	normalizeFieldOptions,
-	type EmptyFieldOptions,
-} from '../base/options.js'
-import type {
-	FieldDefinition,
-	FieldOptions,
-	ValidatedFieldOptions,
-} from '../base/contract.js'
+	createScalarFieldFactory,
+	type ScalarFieldFactory,
+} from '../base/factory.js'
 import {
 	compareCanonicalTemporalValues,
 	normalizeTemporalValidation,
@@ -72,32 +67,15 @@ const normalizeDateValidation = (
 		compareCanonicalTemporalValues,
 	)
 
-const normalizeDateFieldOptions = (
-	options: DateFieldOptions,
-): Readonly<DateFieldOptions> =>
+const normalizeDateFieldOptions = <const TOptions extends DateFieldOptions>(
+	options: TOptions,
+): Readonly<TOptions> =>
 	normalizeFieldOptions(options, normalizeDateValidation, normalizeCalendarDate)
 
-/**
- * Creates an optional calendar-day field with no additional metadata.
- */
-export function dateField(): DateField<EmptyFieldOptions>
-
-/**
- * Creates immutable calendar-day metadata while preserving every option literal.
- */
-export function dateField<const TOptions extends DateFieldOptions>(
-	options: TOptions &
-		(ValidatedFieldOptions<NoInfer<TOptions>, string> extends never
-			? never
-			: unknown),
-): DateField<TOptions>
-
-export function dateField(
-	options: DateFieldOptions = emptyFieldOptions,
-): DateField {
-	return createFieldDefinition(
+/** Creates immutable calendar-day metadata with canonical value snapshots. */
+export const dateField: ScalarFieldFactory<'date', string, DateFieldOptions> =
+	createScalarFieldFactory(
 		'date',
-		normalizeDateFieldOptions(options),
+		normalizeDateFieldOptions,
 		normalizeCalendarDate,
 	)
-}

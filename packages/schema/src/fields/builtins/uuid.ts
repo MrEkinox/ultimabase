@@ -1,17 +1,15 @@
 import { immutableRecord } from '@ultimabase/shared'
 
-import { createFieldDefinition } from '../base/definition.js'
-import {
-	emptyFieldOptions,
-	normalizeFieldOptions,
-	type EmptyFieldOptions,
-} from '../base/options.js'
+import { normalizeFieldOptions } from '../base/options.js'
 import type {
 	FieldDefinition,
 	FieldOptions,
 	FieldValidationOptions,
-	ValidatedFieldOptions,
 } from '../base/contract.js'
+import {
+	createScalarFieldFactory,
+	type ScalarFieldFactory,
+} from '../base/factory.js'
 import { normalizeStringValue } from '../base/value.js'
 
 /**
@@ -53,31 +51,15 @@ const normalizeUuidValidation = (
 	return immutableRecord(validation)
 }
 
-/**
- * Creates an optional UUID field that accepts every standard version.
- */
-export function uuidField(): UuidField<EmptyFieldOptions>
+const normalizeUuidFieldOptions = <const TOptions extends UuidFieldOptions>(
+	options: TOptions,
+): Readonly<TOptions> =>
+	normalizeFieldOptions(options, normalizeUuidValidation, normalizeStringValue)
 
-/**
- * Creates immutable UUID metadata while preserving every option literal.
- */
-export function uuidField<const TOptions extends UuidFieldOptions>(
-	options: TOptions &
-		(ValidatedFieldOptions<NoInfer<TOptions>, string> extends never
-			? never
-			: unknown),
-): UuidField<TOptions>
-
-export function uuidField(
-	options: UuidFieldOptions = emptyFieldOptions,
-): UuidField {
-	return createFieldDefinition(
+/** Creates immutable UUID metadata while preserving version constraints. */
+export const uuidField: ScalarFieldFactory<'uuid', string, UuidFieldOptions> =
+	createScalarFieldFactory(
 		'uuid',
-		normalizeFieldOptions(
-			options,
-			normalizeUuidValidation,
-			normalizeStringValue,
-		),
+		normalizeUuidFieldOptions,
 		normalizeStringValue,
 	)
-}

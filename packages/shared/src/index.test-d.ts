@@ -1,12 +1,38 @@
 import { expectTypeOf, test } from 'vitest'
 
 import {
+	assertNonEmptyString,
 	assertNever,
+	assertOptionalBoolean,
 	immutableArray,
 	immutableRecord,
+	isPlainRecord,
+	isUnknownArray,
 	type Brand,
 	type MaybePromise,
-} from '../src/index.js'
+} from './index.js'
+
+test('narrows untrusted runtime values through the public guards', () => {
+	const recordInput: unknown = { enabled: true }
+	const arrayInput: unknown = ['value']
+	const nameInput: unknown = 'User'
+	const flagInput: unknown = false
+
+	if (isPlainRecord(recordInput)) {
+		expectTypeOf(recordInput).toEqualTypeOf<Record<string, unknown>>()
+	}
+
+	if (isUnknownArray(arrayInput)) {
+		expectTypeOf(arrayInput).toEqualTypeOf<readonly unknown[]>()
+	}
+
+	assertNonEmptyString(nameInput, 'name')
+	assertOptionalBoolean(flagInput, 'flag')
+
+	// Assertion functions retain precise values after an unknown boundary.
+	expectTypeOf(nameInput).toEqualTypeOf<string>()
+	expectTypeOf(flagInput).toEqualTypeOf<boolean | undefined>()
+})
 
 test('keeps brands incompatible across typed boundaries', () => {
 	type UserId = Brand<string, 'UserId'>

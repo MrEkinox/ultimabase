@@ -1,15 +1,10 @@
-import { createFieldDefinition } from '../base/definition.js'
+import { assertOptionalBoolean } from '@ultimabase/shared'
+import { assertFieldOptions, normalizeFieldOptions } from '../base/options.js'
+import type { FieldDefinition, FieldOptions } from '../base/contract.js'
 import {
-	assertFieldOptions,
-	emptyFieldOptions,
-	normalizeFieldOptions,
-	type EmptyFieldOptions,
-} from '../base/options.js'
-import type {
-	FieldDefinition,
-	FieldOptions,
-	ValidatedFieldOptions,
-} from '../base/contract.js'
+	createScalarFieldFactory,
+	type ScalarFieldFactory,
+} from '../base/factory.js'
 import {
 	normalizeNumericValidation,
 	type NumericValidationOptions,
@@ -43,12 +38,7 @@ export type FloatField<TOptions extends FloatFieldOptions = FloatFieldOptions> =
 const normalizeFloatValidation = (
 	validation: FloatValidationOptions,
 ): Readonly<FloatValidationOptions> => {
-	if (
-		validation.finite !== undefined &&
-		typeof validation.finite !== 'boolean'
-	) {
-		throw new TypeError('validation.finite must be a boolean')
-	}
+	assertOptionalBoolean(validation.finite, 'validation.finite')
 
 	return normalizeNumericValidation(
 		validation,
@@ -57,37 +47,29 @@ const normalizeFloatValidation = (
 	)
 }
 
-/**
- * Creates an optional floating-point field with no additional metadata.
- */
-export function floatField(): FloatField<EmptyFieldOptions>
-
-/**
- * Creates immutable floating-point metadata while preserving every option literal.
- */
-export function floatField<const TOptions extends FloatFieldOptions>(
-	options: TOptions &
-		(ValidatedFieldOptions<NoInfer<TOptions>, number> extends never
-			? never
-			: unknown),
-): FloatField<TOptions>
-
-export function floatField(
-	options: FloatFieldOptions = emptyFieldOptions,
-): FloatField {
+const normalizeFloatFieldOptions = <const TOptions extends FloatFieldOptions>(
+	options: TOptions,
+): Readonly<TOptions> => {
 	assertFieldOptions(options)
 
 	if ('autoIncrement' in options) {
 		throw new TypeError('autoIncrement is only available on integer fields')
 	}
 
-	return createFieldDefinition(
-		'float',
-		normalizeFieldOptions(
-			options,
-			normalizeFloatValidation,
-			normalizeNumberValue,
-		),
+	return normalizeFieldOptions(
+		options,
+		normalizeFloatValidation,
 		normalizeNumberValue,
 	)
 }
+
+/** Creates immutable floating-point metadata without decimal guarantees. */
+export const floatField: ScalarFieldFactory<
+	'float',
+	number,
+	FloatFieldOptions
+> = createScalarFieldFactory(
+	'float',
+	normalizeFloatFieldOptions,
+	normalizeNumberValue,
+)

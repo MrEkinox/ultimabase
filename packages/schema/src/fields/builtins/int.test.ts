@@ -48,6 +48,13 @@ describe('intField', () => {
 		expect(field.options.autoIncrement).toBe(false)
 	})
 
+	it('accepts an inclusive range with equal boundaries', () => {
+		const field = intField({ validation: { range: { min: 4, max: 4 } } })
+
+		// Equal boundaries describe one valid exact numeric value.
+		expect(field.options.validation.range).toStrictEqual({ min: 4, max: 4 })
+	})
+
 	it('copies caller-owned range metadata', () => {
 		const source = {
 			validation: {

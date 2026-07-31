@@ -1,4 +1,10 @@
-import { immutableArray, immutableRecord } from '@ultimabase/shared'
+import {
+	assertOptionalBoolean,
+	immutableArray,
+	immutableRecord,
+	isPlainRecord,
+	isUnknownArray,
+} from '@ultimabase/shared'
 
 import { isStaticDefault } from './defaults.js'
 import { defineExtensions } from '../../extensions/definition.js'
@@ -7,7 +13,6 @@ import type {
 	FieldValidationOptions,
 	GenericField,
 } from './contract.js'
-import { isPlainRecord, isUnknownArray } from '../../internal/runtime-value.js'
 
 /**
  * Reuses one exact empty option shape across zero-argument field factories.
@@ -130,12 +135,6 @@ export const normalizeFlatValidation = <
 >(
 	validation: TValidation,
 ): Readonly<TValidation> => validation
-
-const assertOptionalBoolean = (value: unknown, path: string): void => {
-	if (value !== undefined && typeof value !== 'boolean') {
-		throw new TypeError(`${path} must be a boolean`)
-	}
-}
 
 const normalizeCommonValidation = <TValidation extends FieldValidationOptions>(
 	validation: TValidation,

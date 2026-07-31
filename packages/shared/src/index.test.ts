@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { assertNever, immutableArray, immutableRecord } from '../src/index.js'
+import { assertNever, immutableArray, immutableRecord } from './index.js'
 
 describe('assertNever', () => {
 	it('reports an unexpected runtime variant', () => {

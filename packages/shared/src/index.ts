@@ -34,3 +34,10 @@ export const immutableArray = <const TValues extends readonly unknown[]>(
 export const immutableRecord = <const TRecord extends object>(
 	value: TRecord,
 ): Readonly<TRecord> => Object.freeze({ ...value })
+
+export {
+	assertNonEmptyString,
+	assertOptionalBoolean,
+	isPlainRecord,
+	isUnknownArray,
+} from './runtime-value.js'

@@ -1,7 +1,12 @@
-import { immutableArray, immutableRecord } from '@ultimabase/shared'
+import {
+	assertOptionalBoolean,
+	immutableArray,
+	immutableRecord,
+	isPlainRecord,
+	isUnknownArray,
+} from '@ultimabase/shared'
 
 import type { SchemaFields } from './definition.js'
-import { isPlainRecord, isUnknownArray } from '../internal/runtime-value.js'
 import {
 	reservedSystemFieldNames,
 	type ReservedSystemFieldName,
@@ -61,9 +66,7 @@ function assertSchemaIndexes(
 			}
 		}
 
-		if (index.unique !== undefined && typeof index.unique !== 'boolean') {
-			throw new TypeError(`${indexPath}.unique must be a boolean`)
-		}
+		assertOptionalBoolean(index.unique, `${indexPath}.unique`)
 	}
 }
 

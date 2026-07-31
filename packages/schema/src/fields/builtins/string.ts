@@ -1,16 +1,11 @@
 import { immutableRecord } from '@ultimabase/shared'
 
-import { createFieldDefinition } from '../base/definition.js'
+import { normalizeFieldOptions } from '../base/options.js'
+import type { FieldDefinition, FieldOptions } from '../base/contract.js'
 import {
-	emptyFieldOptions,
-	normalizeFieldOptions,
-	type EmptyFieldOptions,
-} from '../base/options.js'
-import type {
-	FieldDefinition,
-	FieldOptions,
-	ValidatedFieldOptions,
-} from '../base/contract.js'
+	createScalarFieldFactory,
+	type ScalarFieldFactory,
+} from '../base/factory.js'
 import {
 	normalizeLengthValidation,
 	type LengthConstrainedValidation,
@@ -64,31 +59,22 @@ const normalizeStringValidation = (
 	})
 }
 
-/**
- * Creates an optional, non-null string field with no additional metadata.
- */
-export function stringField(): StringField<EmptyFieldOptions>
-
-/**
- * Creates immutable string field metadata while preserving every option literal.
- */
-export function stringField<const TOptions extends StringFieldOptions>(
-	options: TOptions &
-		(ValidatedFieldOptions<NoInfer<TOptions>, string> extends never
-			? never
-			: unknown),
-): StringField<TOptions>
-
-export function stringField(
-	options: StringFieldOptions = emptyFieldOptions,
-): StringField {
-	return createFieldDefinition(
-		'string',
-		normalizeFieldOptions(
-			options,
-			normalizeStringValidation,
-			normalizeStringValue,
-		),
+const normalizeStringFieldOptions = <const TOptions extends StringFieldOptions>(
+	options: TOptions,
+): Readonly<TOptions> =>
+	normalizeFieldOptions(
+		options,
+		normalizeStringValidation,
 		normalizeStringValue,
 	)
-}
+
+/** Creates immutable string metadata while preserving every option literal. */
+export const stringField: ScalarFieldFactory<
+	'string',
+	string,
+	StringFieldOptions
+> = createScalarFieldFactory(
+	'string',
+	normalizeStringFieldOptions,
+	normalizeStringValue,
+)

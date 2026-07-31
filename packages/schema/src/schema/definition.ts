@@ -1,4 +1,9 @@
-import { immutableArray, immutableRecord } from '@ultimabase/shared'
+import {
+	assertNonEmptyString,
+	immutableArray,
+	immutableRecord,
+	isPlainRecord,
+} from '@ultimabase/shared'
 
 import {
 	defineExtensions,
@@ -18,10 +23,6 @@ import {
 	type ReservedSystemFieldName,
 	type SystemFields,
 } from './system-fields.js'
-import {
-	assertNonEmptyString,
-	isPlainRecord,
-} from '../internal/runtime-value.js'
 
 /**
  * Collects named field definitions without erasing their concrete literals.
