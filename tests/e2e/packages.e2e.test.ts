@@ -7,6 +7,13 @@ describe('cross-package public entry points', () => {
 	it('loads multiple built packages through their export maps', () => {
 		// E2E tests consume built public APIs instead of package source paths.
 		expect(schemaApi.stringField().kind).toBe('string')
-		expect(Object.keys(runtimeApi)).toHaveLength(0)
+
+		const context = runtimeApi.RequestContext.anonymous({
+			requestId: 'e2e-request',
+			source: runtimeApi.requestSources.internal,
+		})
+
+		expect(context.access.mode).toBe('anonymous')
+		expect(runtimeApi.RuntimePipeline).toBeTypeOf('function')
 	})
 })

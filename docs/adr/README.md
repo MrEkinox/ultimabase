@@ -63,6 +63,7 @@ Accepted records:
 - [ADR-0061: Neutral BoundQuery facade](0061-neutral-bound-query-facade.md)
 - [ADR-0062: Request context security boundary](0062-request-context-security-boundary.md)
 - [ADR-0063: Portable database adapter boundary](0063-portable-database-adapter-boundary.md)
+- [ADR-0064: Mandatory deterministic Runtime pipeline](0064-mandatory-runtime-pipeline.md)
 
 Superseded records:
 

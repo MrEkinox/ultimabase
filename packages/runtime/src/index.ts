@@ -19,3 +19,19 @@ export type {
 	DatabaseOperationResult,
 	DatabaseTransactionAdapter,
 } from './database/contracts.js'
+// The engine assembles these neutral stages once and every transport uses them.
+export { RuntimePipeline } from './pipeline/runtime-pipeline.js'
+export type {
+	RuntimeAccessConstraintStage,
+	RuntimeAccessStageInput,
+	RuntimeFieldPermissionStage,
+	RuntimeFieldPermissionStageResult,
+	RuntimeOperationGuardStage,
+	RuntimeOperationStageInput,
+	RuntimeOperationTransformStage,
+	RuntimePipelineRequest,
+	RuntimePipelineStages,
+	RuntimeResultEffectStage,
+	RuntimeResultStageInput,
+	RuntimeResultTransformStage,
+} from './pipeline/contracts.js'

@@ -1,13 +1,7 @@
 import { createServiceToken } from '@ultimabase/core'
 import type { ServiceToken } from '@ultimabase/core'
-import type {
-	OperationAstNode,
-	OperationKind,
-} from '@ultimabase/query'
-import type {
-	InferObject,
-	SchemaDefinition,
-} from '@ultimabase/schema'
+import type { OperationAstNode, OperationKind } from '@ultimabase/query'
+import type { InferObject, SchemaDefinition } from '@ultimabase/schema'
 
 /**
  * Retains the closed operation discriminants while allowing each request to
@@ -28,8 +22,8 @@ export interface DatabaseAccessConstraintNode {
  */
 export interface DatabaseOperationRequest<
 	TOperation extends DatabaseOperationAst = DatabaseOperationAst,
-	TConstraint extends
-		DatabaseAccessConstraintNode = DatabaseAccessConstraintNode,
+	TConstraint extends DatabaseAccessConstraintNode =
+		DatabaseAccessConstraintNode,
 > {
 	readonly accessConstraints: readonly TConstraint[]
 	readonly operation: TOperation
@@ -45,10 +39,10 @@ type DatabaseOperationSchema<TOperation extends OperationAstNode> =
 	}
 		? TSchema
 		: TOperation extends {
-				readonly schema: {
-					readonly definition: infer TSchema extends SchemaDefinition
-				}
-			}
+					readonly schema: {
+						readonly definition: infer TSchema extends SchemaDefinition
+					}
+			  }
 			? TSchema
 			: never
 
@@ -61,27 +55,24 @@ export type DatabaseObjectRecord<TSchema extends SchemaDefinition> = Readonly<
  * Correlates every operation kind with its adapter result semantics. Runtime
  * later validates selected object shapes before exposing developer results.
  */
-export type DatabaseOperationResult<
-	TOperation extends OperationAstNode,
-> = TOperation extends { readonly kind: 'find' }
-	? readonly DatabaseObjectRecord<DatabaseOperationSchema<TOperation>>[]
-	: TOperation extends {
-			readonly kind: 'first' | 'get' | 'update-one' | 'delete-one'
-		}
-		? DatabaseObjectRecord<DatabaseOperationSchema<TOperation>> | null
-		: TOperation extends { readonly kind: 'create-one' | 'upsert-one' }
-			? DatabaseObjectRecord<DatabaseOperationSchema<TOperation>>
-			: TOperation extends { readonly kind: 'create-many' | 'upsert-many' }
-				? readonly DatabaseObjectRecord<
-						DatabaseOperationSchema<TOperation>
-					>[]
-				: TOperation extends {
-						readonly kind: 'count' | 'update-many' | 'delete-many'
-					}
-					? number
-					: TOperation extends { readonly kind: 'exists' }
-						? boolean
-						: never
+export type DatabaseOperationResult<TOperation extends OperationAstNode> =
+	TOperation extends { readonly kind: 'find' }
+		? readonly DatabaseObjectRecord<DatabaseOperationSchema<TOperation>>[]
+		: TOperation extends {
+					readonly kind: 'first' | 'get' | 'update-one' | 'delete-one'
+			  }
+			? DatabaseObjectRecord<DatabaseOperationSchema<TOperation>> | null
+			: TOperation extends { readonly kind: 'create-one' | 'upsert-one' }
+				? DatabaseObjectRecord<DatabaseOperationSchema<TOperation>>
+				: TOperation extends { readonly kind: 'create-many' | 'upsert-many' }
+					? readonly DatabaseObjectRecord<DatabaseOperationSchema<TOperation>>[]
+					: TOperation extends {
+								readonly kind: 'count' | 'update-many' | 'delete-many'
+						  }
+						? number
+						: TOperation extends { readonly kind: 'exists' }
+							? boolean
+							: never
 
 /** Executes one normalized operation while preserving its exact result type. */
 export interface DatabaseOperationExecutor {

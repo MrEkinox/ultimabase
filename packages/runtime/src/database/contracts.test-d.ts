@@ -93,9 +93,7 @@ test('preserves operation and access-constraint inference through execute', () =
 		query: new Query(articleSchema).equalTo('views', 10).ast,
 	} satisfies FindOperationAst<typeof articleSchema>
 	const request = {
-		accessConstraints: [
-			{ kind: 'fixture-tenant', tenantId: 'tenant-1' },
-		],
+		accessConstraints: [{ kind: 'fixture-tenant', tenantId: 'tenant-1' }],
 		operation,
 	} satisfies DatabaseOperationRequest<typeof operation, TenantConstraint>
 	expectTypeOf(adapter.execute(request)).toEqualTypeOf<
@@ -111,7 +109,9 @@ test('preserves operation and access-constraint inference through execute', () =
 
 test('distinguishes root and transaction adapter capabilities', () => {
 	expectTypeOf<DatabaseAdapter['kind']>().toEqualTypeOf<'database-adapter'>()
-	expectTypeOf<DatabaseTransactionAdapter['kind']>().toEqualTypeOf<'database-transaction-adapter'>()
+	expectTypeOf<
+		DatabaseTransactionAdapter['kind']
+	>().toEqualTypeOf<'database-transaction-adapter'>()
 	expectTypeOf<'beginTransaction'>().toExtend<keyof DatabaseAdapter>()
 	expectTypeOf<'beginTransaction'>().not.toExtend<
 		keyof DatabaseTransactionAdapter

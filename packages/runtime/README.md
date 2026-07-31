@@ -70,3 +70,39 @@ const articles = await adapter.execute({
 `beginTransaction()` returns a distinguishable
 `DatabaseTransactionAdapter`. It can execute operations and then `commit()` or
 `rollback()`, but cannot silently create nested transactions.
+
+## Deterministic operation pipeline
+
+`RuntimePipeline` is the low-level assembly boundary used by the future
+`FrameworkEngine`. Application developers will execute a bound query; engine
+and plugin authors provide every named stage explicitly:
+
+```ts
+const pipeline = new RuntimePipeline({
+	normalization,
+	structuralValidation,
+	clp,
+	acl,
+	fieldPermissions,
+	globalBeforeHooks,
+	schemaBeforeHooks,
+	databaseOperation: adapter,
+	schemaAfterHooks,
+	globalAfterHooks,
+	commit,
+	postCommitEvents,
+})
+
+const articles = await pipeline.execute({ context, operation })
+```
+
+The fixed order is normalization, structural validation, CLP, ACL, field
+permissions, global before-hooks, schema before-hooks, database execution,
+schema after-hooks, global after-hooks, commit, then post-commit events. A
+disabled capability still supplies an explicit neutral stage, so assembly can
+never omit a predecessor accidentally.
+
+Stage envelopes and access-constraint collections are immutable. A
+`FrameworkError` thrown by any stage crosses the pipeline unchanged, while
+later stages do not run. In particular, business after-hooks may prevent a
+commit and post-commit events never observe uncommitted work.
