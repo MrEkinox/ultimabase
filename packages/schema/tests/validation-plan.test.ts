@@ -274,4 +274,24 @@ describe('validation plans', () => {
 			new TypeError('Unsupported validation field kind: custom'),
 		)
 	})
+
+	it('rejects forged list metadata before producing a validation plan', () => {
+		const malformedListField: FieldDefinition<'string', string, object> = {
+			kind: 'string',
+			options: { list: 'invalid' },
+		}
+		const schema = defineSchema({
+			className: 'MalformedListPlan',
+			fields: {
+				value: malformedListField,
+			},
+		})
+
+		// Validation compilation protects JavaScript callers that bypass field factories.
+		expect(() => compileValidationPlans(schema)).toThrow(
+			new TypeError(
+				'list must be true, false, or a non-empty list of true values',
+			),
+		)
+	})
 })

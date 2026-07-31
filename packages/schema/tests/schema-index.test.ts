@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
 	defineSchema,
 	stringField,
+	type FieldDefinition,
 	type SchemaIndexOptions,
 } from '../src/index.js'
 
@@ -128,5 +129,20 @@ describe('schema indexes', () => {
 				],
 			}),
 		).toThrow(new TypeError('Index unique must be a boolean'))
+	})
+
+	it('rejects malformed field-level index metadata at runtime', () => {
+		const invalidIndexedField: FieldDefinition<'string', string, object> = {
+			kind: 'string',
+			options: { indexed: 'invalid' },
+		}
+
+		// Forged JavaScript metadata must not silently disable an invalid index.
+		expect(() =>
+			defineSchema({
+				className: 'InvalidFieldIndex',
+				fields: { title: invalidIndexedField },
+			}),
+		).toThrow(new TypeError('Invalid indexed option for field: title'))
 	})
 })

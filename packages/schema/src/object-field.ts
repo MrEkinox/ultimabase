@@ -12,6 +12,7 @@ import type {
 	GenericField,
 	ValidatedFieldOptions,
 } from './field.js'
+import { isPlainRecord } from './runtime-value.js'
 
 /**
  * Names the child fields of one object definition.
@@ -63,9 +64,6 @@ type FieldsFromOptions<TOptions extends { readonly fields: object }> =
 		? TFields
 		: ObjectFields
 
-const isUnknownRecord = (value: unknown): value is Record<string, unknown> =>
-	typeof value === 'object' && value !== null && !Array.isArray(value)
-
 const isUnknownArray = (value: unknown): value is unknown[] =>
 	Array.isArray(value)
 
@@ -112,7 +110,7 @@ const snapshotStructuredValue = (
 			return immutableArray(snapshot)
 		}
 
-		if (!isUnknownRecord(value)) {
+		if (!isPlainRecord(value)) {
 			throw new TypeError(`${path} must contain only plain structured objects`)
 		}
 
@@ -134,7 +132,7 @@ const assertAcyclicFieldTree = (
 	path: string,
 	ancestors: WeakSet<object>,
 ): void => {
-	if (!isUnknownRecord(value)) {
+	if (!isPlainRecord(value)) {
 		throw new TypeError(`${path} must be a field definition`)
 	}
 
@@ -144,7 +142,7 @@ const assertAcyclicFieldTree = (
 
 	const { kind, options } = value
 
-	if (typeof kind !== 'string' || !isUnknownRecord(options)) {
+	if (typeof kind !== 'string' || !isPlainRecord(options)) {
 		throw new TypeError(`${path} must be a field definition`)
 	}
 
@@ -152,7 +150,7 @@ const assertAcyclicFieldTree = (
 
 	try {
 		if (kind === 'object') {
-			if (!isUnknownRecord(options.fields)) {
+			if (!isPlainRecord(options.fields)) {
 				throw new TypeError(`${path}.options.fields must be a field map`)
 			}
 

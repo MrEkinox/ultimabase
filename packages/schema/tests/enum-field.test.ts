@@ -161,6 +161,11 @@ describe('enumField', () => {
 			// @ts-expect-error -- Runtime coverage intentionally crosses the public type boundary.
 			enumField({ values: 'draft' })
 		}).toThrow(new TypeError('Enum values must be a string list or mapping'))
+
+		expect(() => {
+			// @ts-expect-error -- Collection instances are not symbolic mappings.
+			enumField({ values: new Map([['Draft', 'draft']]) })
+		}).toThrow(new TypeError('Enum values must be a string list or mapping'))
 	})
 
 	it('rejects defaults outside the persisted value domain', () => {

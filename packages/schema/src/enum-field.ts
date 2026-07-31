@@ -10,6 +10,7 @@ import type {
 	FieldOptions,
 	ValidatedFieldOptions,
 } from './field.js'
+import { isPlainRecord } from './runtime-value.js'
 
 export type EnumValues = readonly string[] | Readonly<Record<string, string>>
 
@@ -50,9 +51,6 @@ type NonEmptyMapping<TValues extends EnumValues> =
 const isUnknownArray = (value: unknown): value is unknown[] =>
 	Array.isArray(value)
 
-const isUnknownRecord = (value: unknown): value is Record<string, unknown> =>
-	typeof value === 'object' && value !== null && !Array.isArray(value)
-
 const isString = (value: unknown): value is string => typeof value === 'string'
 
 const assertUniqueValues = (values: readonly string[]): void => {
@@ -92,7 +90,7 @@ const normalizeEnumValues = (source: unknown): NormalizedEnumSource => {
 		})
 	}
 
-	if (!isUnknownRecord(source)) {
+	if (!isPlainRecord(source)) {
 		throw new TypeError('Enum values must be a string list or mapping')
 	}
 

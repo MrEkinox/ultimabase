@@ -135,6 +135,15 @@ describe('object fields and list metadata', () => {
 				'list must be true, false, or a non-empty list of true values',
 			),
 		)
+
+		expect(() => {
+			// @ts-expect-error -- Runtime coverage protects each untyped list entry.
+			stringField({ list: [true, false] })
+		}).toThrow(
+			new TypeError(
+				'list must be true, false, or a non-empty list of true values',
+			),
+		)
 	})
 
 	it('rejects scalar defaults for list fields at runtime', () => {
@@ -153,6 +162,46 @@ describe('object fields and list metadata', () => {
 				},
 			})
 		}).toThrow(new TypeError('fields.name must be a field definition'))
+	})
+
+	it('rejects malformed nested object definitions', () => {
+		const invalidShape = { kind: 42, options: {} }
+		const missingFields = { kind: 'object', options: {} } as const
+
+		expect(() => {
+			// @ts-expect-error -- Runtime coverage protects dynamically forged fields.
+			objectField({ fields: { invalidShape } })
+		}).toThrow(new TypeError('fields.invalidShape must be a field definition'))
+
+		expect(() => objectField({ fields: { missingFields } })).toThrow(
+			new TypeError('fields.missingFields.options.fields must be a field map'),
+		)
+	})
+
+	it('rejects unsupported and circular structured defaults', () => {
+		const circular: Record<string, unknown> = {}
+
+		circular.self = circular
+
+		expect(() => {
+			// Runtime normalization rejects symbols that cannot represent field values.
+			objectField({ fields: {}, default: Symbol('invalid') })
+		}).toThrow(new TypeError('default must contain supported field values'))
+
+		expect(() => objectField({ fields: {}, default: circular })).toThrow(
+			new TypeError('default.self must not contain circular references'),
+		)
+
+		expect(() =>
+			objectField({
+				fields: { updatedAt: dateField() },
+				default: { updatedAt: new Date(Number.NaN) },
+			}),
+		).toThrow(new TypeError('default.updatedAt must contain only valid Dates'))
+
+		expect(() => objectField({ fields: {}, default: new Map() })).toThrow(
+			new TypeError('default must contain only plain structured objects'),
+		)
 	})
 
 	it('rejects circular object field definitions', () => {

@@ -291,7 +291,8 @@ list of lists. The tuple and static list defaults are copied and frozen.
 non-null. Object definitions may nest to any finite depth, field-definition
 cycles are rejected, and child definitions remain reusable immutable values.
 Structured defaults are detached from caller-owned values and recursively
-frozen.
+frozen. They accept primitives, valid dates, arrays, and plain objects; class
+instances and collection objects such as `Map` or `Set` are rejected.
 
 Schema does not select a physical representation. PostgreSQL storage and
 Drizzle compilation remain adapter concerns; ADR-0021 defines JSONB as the

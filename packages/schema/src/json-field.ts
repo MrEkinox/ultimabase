@@ -9,6 +9,7 @@ import type {
 	FieldOptions,
 	ValidatedFieldOptions,
 } from './field.js'
+import { isPlainRecord } from './runtime-value.js'
 
 type EmptyJsonFieldOptions = Readonly<Record<PropertyKey, never>>
 
@@ -37,12 +38,6 @@ export type JsonField<TOptions extends JsonFieldOptions = JsonFieldOptions> =
 	FieldDefinition<'json', JsonValue, TOptions>
 
 const emptyJsonFieldOptions: EmptyJsonFieldOptions = immutableRecord({})
-
-const isJsonObject = (value: object): value is Record<string, unknown> => {
-	const prototype: object | null = Reflect.getPrototypeOf(value)
-
-	return prototype === null || prototype === Object.prototype
-}
 
 const normalizeJsonValue = (
 	value: unknown,
@@ -84,7 +79,7 @@ const normalizeJsonValue = (
 			return immutableArray(normalized)
 		}
 
-		if (!isJsonObject(value)) {
+		if (!isPlainRecord(value)) {
 			throw new TypeError(`${path} must contain only plain JSON objects`)
 		}
 
