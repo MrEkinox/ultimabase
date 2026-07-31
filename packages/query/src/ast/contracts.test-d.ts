@@ -40,6 +40,7 @@ const readNodeKind = (
 		case 'ordering':
 		case 'order':
 		case 'offset-pagination':
+		case 'cursor-pagination':
 			return node.kind
 		default:
 			return assertExhaustive(node)

@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
 
-import { normalizeQueryOffsetPagination } from './pagination.js'
+import {
+	normalizeQueryCursorPagination,
+	normalizeQueryOffsetPagination,
+} from './pagination.js'
 
 describe('normalizeQueryOffsetPagination', () => {
 	it('removes absent pagination and zero-only offsets', () => {
@@ -66,5 +69,50 @@ describe('normalizeQueryOffsetPagination', () => {
 		expect(() => normalizeQueryOffsetPagination({ skip: 0.5 })).toThrow(
 			RangeError,
 		)
+	})
+})
+
+describe('normalizeQueryCursorPagination', () => {
+	it('creates immutable first and subsequent forward pages', () => {
+		const firstPage = normalizeQueryCursorPagination({ limit: 25 })
+		const nextPage = normalizeQueryCursorPagination({
+			after: 'opaque.cursor',
+			limit: 25,
+		})
+
+		expect(firstPage).toStrictEqual({
+			kind: 'cursor-pagination',
+			after: undefined,
+			limit: 25,
+		})
+		expect(nextPage).toStrictEqual({
+			kind: 'cursor-pagination',
+			after: 'opaque.cursor',
+			limit: 25,
+		})
+		expect(Object.isFrozen(firstPage)).toBe(true)
+		expect(Object.isFrozen(nextPage)).toBe(true)
+	})
+
+	it('rejects malformed cursor pagination at runtime', () => {
+		expect(() => {
+			// @ts-expect-error -- Runtime normalization protects JavaScript callers.
+			normalizeQueryCursorPagination(null)
+		}).toThrow(new TypeError('cursor pagination must be an object'))
+		expect(() => {
+			// @ts-expect-error -- Cursor pagination always requires a page size.
+			normalizeQueryCursorPagination({})
+		}).toThrow(
+			new RangeError(
+				'pagination.limit must be a safe integer greater than or equal to 1',
+			),
+		)
+		expect(() =>
+			normalizeQueryCursorPagination({ after: '', limit: 25 }),
+		).toThrow(new TypeError('pagination.after must be a non-empty string'))
+		expect(() => {
+			// @ts-expect-error -- Runtime normalization validates cursor strings.
+			normalizeQueryCursorPagination({ after: 42, limit: 25 })
+		}).toThrow(new TypeError('pagination.after must be a non-empty string'))
 	})
 })

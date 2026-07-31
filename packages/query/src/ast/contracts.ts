@@ -1,5 +1,7 @@
 import type { SchemaDefinition } from '@ultimabase/schema'
 
+import type { QueryCursor } from '../cursor/contracts.js'
+
 /** Extracts every developer and framework-owned field name from one schema. */
 export type QueryFieldName<TSchema extends SchemaDefinition> = Extract<
 	keyof TSchema['fields'],
@@ -62,8 +64,16 @@ export interface QueryOffsetPaginationNode {
 	readonly skip: number
 }
 
+/** Represents forward keyset pagination from an optional opaque cursor. */
+export interface QueryCursorPaginationNode {
+	readonly kind: 'cursor-pagination'
+	readonly after: QueryCursor | undefined
+	readonly limit: number
+}
+
 /** Leaves pagination extensible without exposing adapter-specific values. */
-export type QueryPaginationNode = QueryOffsetPaginationNode
+export type QueryPaginationNode =
+	QueryOffsetPaginationNode | QueryCursorPaginationNode
 
 /** Carries the complete transport-neutral state consumed by later operations. */
 export interface QueryAst<

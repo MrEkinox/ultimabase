@@ -150,3 +150,47 @@ The query package deliberately does not impose an application-wide maximum
 limit. That policy belongs to the runtime or transport layer. Relation
 inclusion will be introduced with pointer and relation fields so only fields
 that can actually be included are accepted.
+
+## Opaque cursors
+
+Cursor pagination uses stable keyset ordering rather than offset arithmetic.
+`normalizeQueryCursorOrdering()` always places the framework `id` field last.
+It inherits the last requested direction when `id` was omitted, or preserves
+the explicit `id` direction when the developer supplied one:
+
+```ts
+import {
+	createQueryCursorPayload,
+	normalizeQueryCursorOrdering,
+	normalizeQueryCursorPagination,
+	normalizeQueryOrdering,
+	sealQueryCursor,
+} from '@ultimabase/query'
+
+const requestedOrdering = normalizeQueryOrdering(postSchema, [
+	{ field: 'createdAt', direction: 'descending' },
+])
+const stableOrdering = normalizeQueryCursorOrdering(
+	postSchema,
+	requestedOrdering.orders,
+)
+const page = normalizeQueryCursorPagination({
+	limit: 25,
+	after: previousCursor,
+})
+
+const payload = createQueryCursorPayload(postSchema, stableOrdering, lastPost)
+const nextCursor = await sealQueryCursor(cursorCodec, payload)
+```
+
+The versioned payload records the schema class, exact ordering, and last values.
+Clients only receive the opaque string returned by `sealQueryCursor()`. A
+`QueryCursorCodec` must authenticate its output with a signature, MAC, or
+authenticated encryption and reject modified tokens from `unseal()`; base64 or
+plain JSON encoding alone does not satisfy the contract.
+
+Opening a malformed or modified token throws `QueryCursorError` with
+`CURSOR_INVALID`. A valid token created for another payload version, schema, or
+ordering throws `CURSOR_INCOMPATIBLE`. Runtime can map these Query-owned errors
+to its transport-safe framework error without reversing the package dependency
+graph.

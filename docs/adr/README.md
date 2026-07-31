@@ -55,6 +55,7 @@ Accepted records:
 - [ADR-0053: Field-kind filter capabilities](0053-field-kind-filter-capabilities.md)
 - [ADR-0054: Deterministic logical filter normalization](0054-logical-filter-normalization.md)
 - [ADR-0055: Deterministic query clause normalization](0055-deterministic-query-clause-normalization.md)
+- [ADR-0056: Protected opaque Query cursors](0056-protected-opaque-query-cursors.md)
 
 Superseded records:
 
