@@ -7,6 +7,7 @@ describe('@ultimabase/runtime public entry point', () => {
 		expect(Object.keys(publicApi).sort()).toStrictEqual([
 			'BoundQuery',
 			'RequestContext',
+			'databaseAdapterServiceToken',
 			'requestSources',
 		])
 		expect(publicApi).not.toHaveProperty('createTrustedMasterRequestContext')

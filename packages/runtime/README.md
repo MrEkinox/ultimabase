@@ -45,3 +45,28 @@ There is deliberately no public master-context factory yet. Issue 319 will add
 trusted `RequestEngine` elevation with a mandatory reason and an audit-ready
 event; raw master keys will only be verification inputs and will never be
 retained by `RequestContext`.
+
+## Database adapter boundary
+
+Database plugins implement `DatabaseAdapter`; application developers normally
+receive one from a plugin such as the future `postgresPlugin`. The contract
+receives only a normalized operation and portable access constraints. SQL,
+Drizzle sessions, and transport state remain private to concrete plugins.
+
+Every call keeps the operation-specific result type:
+
+```ts
+const articles = await adapter.execute({
+	operation: {
+		kind: 'find',
+		query: new Query(articleSchema).limit(20).ast,
+	},
+	accessConstraints: [{ kind: 'tenant', tenantId: 'tenant-1' }],
+})
+
+// readonly Partial<Article>[]
+```
+
+`beginTransaction()` returns a distinguishable
+`DatabaseTransactionAdapter`. It can execute operations and then `commit()` or
+`rollback()`, but cannot silently create nested transactions.

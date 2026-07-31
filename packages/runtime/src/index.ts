@@ -7,3 +7,15 @@ export type {
 	RequestContextOptions,
 	RequestMetadata,
 } from './context/request-context.js'
+// Database plugins implement this neutral boundary without leaking their query builders.
+export { databaseAdapterServiceToken } from './database/contracts.js'
+export type {
+	DatabaseAccessConstraintNode,
+	DatabaseAdapter,
+	DatabaseObjectRecord,
+	DatabaseOperationAst,
+	DatabaseOperationExecutor,
+	DatabaseOperationRequest,
+	DatabaseOperationResult,
+	DatabaseTransactionAdapter,
+} from './database/contracts.js'

@@ -62,6 +62,7 @@ Accepted records:
 - [ADR-0060: Typed atomic update expressions](0060-typed-atomic-update-expressions.md)
 - [ADR-0061: Neutral BoundQuery facade](0061-neutral-bound-query-facade.md)
 - [ADR-0062: Request context security boundary](0062-request-context-security-boundary.md)
+- [ADR-0063: Portable database adapter boundary](0063-portable-database-adapter-boundary.md)
 
 Superseded records:
 
