@@ -42,6 +42,10 @@ extensions retain their existing immutable identity. Omitted extensions become
 an immutable empty tuple so consumers never need to normalize optional
 metadata.
 
+Public factories also protect JavaScript callers at runtime. Schema names,
+field maps, field definitions, common option flags, extension definitions, and
+static defaults are validated before their immutable snapshots are exposed.
+
 `id`, `createdAt`, and `updatedAt` are reserved for UltimaBase system fields.
 Developer declarations using those keys fail both TypeScript checking and
 runtime declaration.
@@ -87,7 +91,8 @@ developer fields remain accepted during creation.
 `InferUpdateInput` excludes generated and immutable fields, and makes every
 remaining property optional. In all three modes, `validation.nullable: true`
 adds `null` to the complete field value. Object fields apply the same rules
-recursively, including when they are lists.
+recursively. A listed object uses create-input rules for each complete
+replacement item during update.
 
 ## Generic field contract
 
@@ -95,7 +100,8 @@ recursively, including when they are lists.
 - `FieldOptions<TValue, TValidation>` adds typed defaults, homogeneous lists, field-value immutability, `indexed`, descriptions, and field extensions without introducing database-specific metadata. `list: true` creates one list level, a tuple such as `list: [true, true]` creates nested lists, and `false` disables list wrapping explicitly. `indexed: true` requests a regular index, `indexed: "unique"` requests a unique index, and `false` disables indexing explicitly.
 - `FieldDefinition<TKind, TValue, TOptions>` preserves the literal field kind, its base value type, and its exact readonly options for later schema inference.
 
-These contracts are type-only. Concrete field factories will construct and freeze their runtime metadata in their dedicated implementations.
+Concrete field factories construct, validate, and freeze their runtime metadata
+in their dedicated implementations.
 
 ## Indexes
 
@@ -154,12 +160,17 @@ never invokes a factory or executes a constraint.
 Create plans require only fields without a default or generated value. Update
 plans make mutable fields optional and mark generated or immutable fields as
 forbidden. List items are always required, non-null values rather than optional
-properties, while object children apply the active operation recursively.
+properties. Scalar object updates are deep patches, so their mutable children
+remain optional. Updating a list replaces its complete value, so object items
+inside the replacement use create-input rules and require every child declared
+as required without a default.
 
-`ValidationIssue` defines closed stable codes and paths containing property
-names and array offsets. Runtime will execute these plans before access checks
-and hooks; Schema does not validate request data itself and does not depend on a
-third-party schema language.
+`ValidationIssue` defaults to closed framework codes and paths containing
+property names and array offsets. Plugins derive namespaced codes such as
+`pg-vector.vector.dimension` with `PluginValidationIssueCode`. Applications may
+combine both through `AnyValidationIssueCode`. Runtime will execute these plans
+before access checks and hooks; Schema does not validate request data itself
+and does not depend on a third-party schema language.
 
 ## Default values
 
@@ -194,7 +205,11 @@ executes database expressions.
 
 `stringField(options)` creates immutable string metadata while preserving literal options for later schema inference. Calling `stringField()` defines an optional, non-null string.
 
-String fields add declarative `validation.length.min`, `validation.length.max`, and `validation.match` constraints. Lengths must be non-negative safe integers, and `min` cannot exceed `max`. Match constraints use native `RegExp` values and are stored as metadata; validation is compiled by the runtime rather than executed by the field factory.
+String fields add declarative `validation.length.min`, `validation.length.max`,
+and `validation.match` constraints. Lengths must be non-negative safe integers,
+and `min` cannot exceed `max`. Match constraints use native `RegExp` values.
+The field owns a frozen copy, while validation plans expose only immutable
+`source` and `flags` data so runtime execution cannot share `lastIndex` state.
 
 ## Integer fields
 
@@ -218,8 +233,8 @@ the field directly to the native `bigint` type.
 `floatField(options)` represents general JavaScript numbers without promising
 decimal precision. It supports finite `validation.range.min/max` boundaries and
 the declarative `validation.finite` value constraint. Float fields reject
-auto-increment metadata at both the TypeScript and runtime boundaries. A future
-exact decimal field will use a separate value and storage contract.
+auto-increment metadata at both the TypeScript and runtime boundaries. Exact
+base-10 values use the separate decimal contract below.
 
 ## Decimal fields
 
@@ -380,9 +395,11 @@ list of lists. The tuple and static list defaults are copied and frozen.
 `validation.nullable` applies to the complete field; list elements are
 non-null. Object definitions may nest to any finite depth, field-definition
 cycles are rejected, and child definitions remain reusable immutable values.
-Structured defaults are detached from caller-owned values and recursively
-frozen. They accept primitives, valid dates, arrays, and plain objects; class
-instances and collection objects such as `Map` or `Set` are rejected.
+Structured defaults are detached from caller-owned values and normalized
+through their declared child fields. Every declared child must be present and
+unknown properties are rejected. Built-in children reuse their scalar, list,
+binary, JSON, enum, and temporal contracts. Plugin children reuse their owning
+plugin's value normalizer.
 
 Schema does not select a physical representation. PostgreSQL storage and
 Drizzle compilation remain adapter concerns; ADR-0021 defines JSONB as the
@@ -413,7 +430,9 @@ logical field kind without teaching Schema about its database representation.
 Kinds must be non-empty, namespaced strings and cannot shadow framework-owned
 field kinds. The factory reuses common validation, defaults, lists, indexes,
 descriptions, immutability, and field extensions while delegating scalar value
-normalization to the plugin.
+normalization to the plugin. A custom validation normalizer is optional; common
+presence validation remains available when it is omitted. A plugin normalizer
+must return a detached snapshot when its logical value is mutable.
 
 Validation-plan compilation preserves unknown logical fields as an opaque
 `PluginFieldValidationPlan` containing both the namespaced `fieldKind` and the
@@ -421,6 +440,11 @@ immutable original `field`. The plugin can therefore read its complete typed
 configuration instead of losing it during compilation. A future Core registry
 will reject unclaimed or conflicting plugin kinds during application setup;
 Schema remains independently usable and does not own that registry.
+
+Plugin validators report machine-readable failures through
+`PluginValidationIssueCode<TFieldKind>`, which retains field-kind ownership in
+every code. Manually forging plugin field objects bypasses their normalization
+capability and is unsupported; community fields must use `definePluginField`.
 
 ## Schema registry
 

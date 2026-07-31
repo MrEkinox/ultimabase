@@ -168,6 +168,7 @@ export type {
 export { compileValidationPlans } from './validation-plan.js'
 export type {
 	ArrayValidationPlan,
+	AnyValidationIssueCode,
 	BigintValidationPlan,
 	BinaryValidationPlan,
 	BooleanValidationPlan,
@@ -182,6 +183,8 @@ export type {
 	JsonValidationPlan,
 	ObjectValidationPlan,
 	PluginFieldValidationPlan,
+	PluginValidationIssueCode,
+	RegExpValidationPattern,
 	RuntimeClockValidationDefaultPlan,
 	RuntimeValidationDefaultPlan,
 	SchemaValidationPlan,

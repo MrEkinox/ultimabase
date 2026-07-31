@@ -1,43 +1,26 @@
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
-import {
-	snapshotBinaryValue,
-	type BinaryField,
-	type BinaryLengthValidationOptions,
-} from './binary-field.js'
-import type {
-	BigintField,
-	BigintRangeValidationOptions,
-} from './bigint-field.js'
-import type { BooleanField } from './boolean-field.js'
-import type { DateField, DateRangeValidationOptions } from './date-field.js'
-import type {
-	DateTimeField,
-	DateTimeRangeValidationOptions,
-} from './date-time-field.js'
-import type {
-	DecimalField,
-	DecimalRangeValidationOptions,
-} from './decimal-field.js'
+import type { BinaryLengthValidationOptions } from './binary-field.js'
+import type { BigintRangeValidationOptions } from './bigint-field.js'
+import { isBuiltInField, type BuiltInField } from './built-in-field.js'
+import type { DateRangeValidationOptions } from './date-field.js'
+import type { DateTimeRangeValidationOptions } from './date-time-field.js'
+import type { DecimalRangeValidationOptions } from './decimal-field.js'
 import {
 	DatabaseDefault,
 	getDefaultKind,
 	type DefaultFactory,
 } from './default-value.js'
 import type { EnumField, EnumValues } from './enum-field.js'
-import { getFieldListDepth, snapshotFieldValue } from './field-options.js'
+import { getFieldListDepth } from './field-options.js'
 import type { GenericField } from './field.js'
-import type { FloatField, FloatRangeValidationOptions } from './float-field.js'
-import type { IntField, IntRangeValidationOptions } from './int-field.js'
-import type { JsonField } from './json-field.js'
-import type { ObjectField } from './object-field.js'
+import type { FloatRangeValidationOptions } from './float-field.js'
+import type { IntRangeValidationOptions } from './int-field.js'
+import { snapshotFieldStaticValue } from './object-field.js'
 import type { SchemaDefinition, SchemaFields } from './schema.js'
-import type {
-	StringField,
-	StringLengthValidationOptions,
-} from './string-field.js'
+import type { StringLengthValidationOptions } from './string-field.js'
 import type { IdSystemField } from './system-field.js'
-import type { TimeField, TimeRangeValidationOptions } from './time-field.js'
+import type { TimeRangeValidationOptions } from './time-field.js'
 import type { UuidField, UuidVersion } from './uuid-field.js'
 
 /**
@@ -103,6 +86,16 @@ export type ValidationIssueCode =
 	| 'uuid.version'
 
 /**
+ * Reserves namespaced issue identifiers for plugin-owned validation behavior.
+ */
+export type PluginValidationIssueCode<
+	TFieldKind extends `${string}.${string}` = `${string}.${string}`,
+> = `${TFieldKind}.${string}`
+
+export type AnyValidationIssueCode =
+	PluginValidationIssueCode | ValidationIssueCode
+
+/**
  * Identifies nested object properties and concrete array offsets.
  */
 export type ValidationIssuePath = readonly (number | string)[]
@@ -110,8 +103,10 @@ export type ValidationIssuePath = readonly (number | string)[]
 /**
  * Represents one transport-neutral validation failure.
  */
-export interface ValidationIssue {
-	readonly code: ValidationIssueCode
+export interface ValidationIssue<
+	TCode extends AnyValidationIssueCode = ValidationIssueCode,
+> {
+	readonly code: TCode
 	readonly path: ValidationIssuePath
 	readonly message: string
 }
@@ -161,9 +156,14 @@ interface FieldValidationPlanBase<TKind extends string> {
 	readonly default?: ValidationDefaultPlan
 }
 
+export interface RegExpValidationPattern {
+	readonly source: string
+	readonly flags: string
+}
+
 export interface StringValidationPlan extends FieldValidationPlanBase<'string'> {
 	readonly length?: StringLengthValidationOptions
-	readonly match?: RegExp
+	readonly match?: RegExpValidationPattern
 }
 
 export interface BigintValidationPlan extends FieldValidationPlanBase<'bigint'> {
@@ -270,44 +270,11 @@ export interface SchemaValidationPlans {
 	readonly update: SchemaValidationPlan
 }
 
-type BuiltInField =
-	| BigintField
-	| BinaryField
-	| BooleanField
-	| DateField
-	| DateTimeField
-	| DecimalField
-	| EnumField
-	| FloatField
-	| IdSystemField
-	| IntField
-	| JsonField
-	| ObjectField
-	| StringField
-	| TimeField
-	| UuidField
-
 interface FieldPlanBase {
 	readonly presence: ValidationPresence
 	readonly nullable: boolean
 	readonly default?: ValidationDefaultPlan
 }
-
-const isBuiltInField = (field: GenericField): field is BuiltInField =>
-	field.kind === 'bigint' ||
-	field.kind === 'binary' ||
-	field.kind === 'boolean' ||
-	field.kind === 'date' ||
-	field.kind === 'dateTime' ||
-	field.kind === 'decimal' ||
-	field.kind === 'enum' ||
-	field.kind === 'float' ||
-	field.kind === 'int' ||
-	field.kind === 'json' ||
-	field.kind === 'object' ||
-	field.kind === 'string' ||
-	field.kind === 'time' ||
-	field.kind === 'uuid'
 
 const isDefaultFactory = (value: unknown): value is DefaultFactory<unknown> =>
 	typeof value === 'function'
@@ -363,15 +330,7 @@ const compileDefault = (
 		return immutableRecord({ kind, value })
 	}
 
-	const staticValue =
-		field.kind === 'binary'
-			? snapshotFieldValue(
-					value,
-					getFieldListDepth(field.options),
-					snapshotBinaryValue,
-					'default',
-				)
-			: value
+	const staticValue = snapshotFieldStaticValue(field, value, 'default')
 
 	return immutableRecord({ kind: 'static', value: staticValue })
 }
@@ -468,8 +427,10 @@ const compileField = (
 					presence: 'required',
 					nullable: false,
 				} satisfies FieldPlanBase)
+	const scalarOperation =
+		operation === 'update' && listDepth > 0 ? 'create' : operation
 	const scalarPlan = isBuiltInField(field)
-		? compileScalarField(field, operation, scalarBase)
+		? compileScalarField(field, scalarOperation, scalarBase)
 		: immutableRecord({
 				...scalarBase,
 				kind: 'plugin',
@@ -586,17 +547,25 @@ const compileScalarField = (
 				unknownFields: 'reject',
 				fields: compileFields(field.options.fields, operation),
 			})
-		case 'string':
+		case 'string': {
+			const match = field.options.validation?.match
+
 			return immutableRecord({
 				...base,
 				kind: field.kind,
 				...(field.options.validation?.length === undefined
 					? {}
 					: { length: field.options.validation.length }),
-				...(field.options.validation?.match === undefined
+				...(match === undefined
 					? {}
-					: { match: field.options.validation.match }),
+					: {
+							match: immutableRecord({
+								source: match.source,
+								flags: match.flags,
+							}),
+						}),
 			})
+		}
 		case 'time':
 			return immutableRecord({
 				...base,

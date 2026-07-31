@@ -1,6 +1,7 @@
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
 import {
+	assertFieldOptionsObject,
 	assertValidTypeName,
 	normalizeFieldOptions,
 	normalizeFlatValidation,
@@ -10,7 +11,7 @@ import type {
 	FieldOptions,
 	ValidatedFieldOptions,
 } from './field.js'
-import { isPlainRecord } from './runtime-value.js'
+import { isPlainRecord, isUnknownArray } from './runtime-value.js'
 
 export type EnumValues = readonly string[] | Readonly<Record<string, string>>
 
@@ -47,9 +48,6 @@ type NonEmptyMapping<TValues extends EnumValues> =
 		: keyof TValues extends never
 			? never
 			: TValues
-
-const isUnknownArray = (value: unknown): value is unknown[] =>
-	Array.isArray(value)
 
 const isString = (value: unknown): value is string => typeof value === 'string'
 
@@ -124,6 +122,7 @@ const normalizeEnumValues = (source: unknown): NormalizedEnumSource => {
 const normalizeEnumFieldOptions = (
 	options: EnumFieldOptions,
 ): Readonly<EnumFieldOptions> => {
+	assertFieldOptionsObject(options)
 	assertValidTypeName(options.typeName)
 
 	const enumSource = normalizeEnumValues(options.values)

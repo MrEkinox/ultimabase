@@ -1,6 +1,10 @@
 import { immutableRecord } from '@ultimabase/shared'
 
-import { normalizeFieldOptions } from './field-options.js'
+import {
+	emptyFieldOptions,
+	normalizeFieldOptions,
+	type EmptyFieldOptions,
+} from './field-options.js'
 import type {
 	FieldDefinition,
 	FieldOptions,
@@ -11,8 +15,7 @@ import {
 	type LengthConstrainedValidation,
 	type LengthValidationOptions,
 } from './length-validation.js'
-
-type EmptyStringFieldOptions = Readonly<Record<PropertyKey, never>>
+import { normalizeStringValue } from './scalar-value.js'
 
 /**
  * Defines declarative string length boundaries.
@@ -38,16 +41,32 @@ export type StringField<
 	TOptions extends StringFieldOptions = StringFieldOptions,
 > = FieldDefinition<'string', string, TOptions>
 
-const emptyStringFieldOptions: EmptyStringFieldOptions = immutableRecord({})
-
 const normalizeStringValidation = (
 	validation: StringValidationOptions,
-): Readonly<StringValidationOptions> => normalizeLengthValidation(validation)
+): Readonly<StringValidationOptions> => {
+	const normalized = normalizeLengthValidation(validation)
+
+	if (normalized.match !== undefined && !(normalized.match instanceof RegExp)) {
+		throw new TypeError('validation.match must be a RegExp')
+	}
+
+	if (normalized.match === undefined) {
+		return normalized
+	}
+
+	// A frozen copy prevents caller state and global `lastIndex` mutations from leaking in.
+	return immutableRecord({
+		...normalized,
+		match: Object.freeze(
+			new RegExp(normalized.match.source, normalized.match.flags),
+		),
+	})
+}
 
 /**
  * Creates an optional, non-null string field with no additional metadata.
  */
-export function stringField(): StringField<EmptyStringFieldOptions>
+export function stringField(): StringField<EmptyFieldOptions>
 
 /**
  * Creates immutable string field metadata while preserving every option literal.
@@ -60,10 +79,14 @@ export function stringField<const TOptions extends StringFieldOptions>(
 ): StringField<TOptions>
 
 export function stringField(
-	options: StringFieldOptions = emptyStringFieldOptions,
+	options: StringFieldOptions = emptyFieldOptions,
 ): StringField {
 	return immutableRecord({
 		kind: 'string',
-		options: normalizeFieldOptions(options, normalizeStringValidation),
+		options: normalizeFieldOptions(
+			options,
+			normalizeStringValidation,
+			normalizeStringValue,
+		),
 	})
 }

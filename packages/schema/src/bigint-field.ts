@@ -1,6 +1,11 @@
 import { immutableRecord } from '@ultimabase/shared'
 
-import { normalizeFieldOptions } from './field-options.js'
+import {
+	assertFieldOptionsObject,
+	emptyFieldOptions,
+	normalizeFieldOptions,
+	type EmptyFieldOptions,
+} from './field-options.js'
 import type {
 	FieldDefinition,
 	FieldOptions,
@@ -11,8 +16,7 @@ import {
 	type NumericValidationOptions,
 } from './numeric-field.js'
 import type { NumericRange } from './numeric-range.js'
-
-type EmptyBigintFieldOptions = Readonly<Record<PropertyKey, never>>
+import { normalizeBigintValue } from './scalar-value.js'
 
 /**
  * Defines declarative boundaries for native JavaScript bigint values.
@@ -41,8 +45,6 @@ export type BigintField<
 	TOptions extends BigintFieldOptions = BigintFieldOptions,
 > = FieldDefinition<'bigint', bigint, TOptions>
 
-const emptyBigintFieldOptions: EmptyBigintFieldOptions = immutableRecord({})
-
 const isBigint = (value: unknown): value is bigint => typeof value === 'bigint'
 
 const normalizeBigintValidation = (
@@ -53,7 +55,7 @@ const normalizeBigintValidation = (
 /**
  * Creates an optional exact bigint field with no additional metadata.
  */
-export function bigintField(): BigintField<EmptyBigintFieldOptions>
+export function bigintField(): BigintField<EmptyFieldOptions>
 
 /**
  * Creates immutable bigint metadata while preserving every option literal.
@@ -66,10 +68,22 @@ export function bigintField<const TOptions extends BigintFieldOptions>(
 ): BigintField<TOptions>
 
 export function bigintField(
-	options: BigintFieldOptions = emptyBigintFieldOptions,
+	options: BigintFieldOptions = emptyFieldOptions,
 ): BigintField {
+	assertFieldOptionsObject(options)
+
+	const autoIncrement: unknown = options.autoIncrement
+
+	if (autoIncrement !== undefined && typeof autoIncrement !== 'boolean') {
+		throw new TypeError('autoIncrement must be a boolean')
+	}
+
 	return immutableRecord({
 		kind: 'bigint',
-		options: normalizeFieldOptions(options, normalizeBigintValidation),
+		options: normalizeFieldOptions(
+			options,
+			normalizeBigintValidation,
+			normalizeBigintValue,
+		),
 	})
 }

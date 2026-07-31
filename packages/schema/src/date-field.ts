@@ -1,6 +1,10 @@
 import { immutableRecord } from '@ultimabase/shared'
 
-import { normalizeFieldOptions } from './field-options.js'
+import {
+	emptyFieldOptions,
+	normalizeFieldOptions,
+	type EmptyFieldOptions,
+} from './field-options.js'
 import type {
 	FieldDefinition,
 	FieldOptions,
@@ -12,8 +16,6 @@ import {
 	type TemporalRangeValidationOptions,
 	type TemporalValidationOptions,
 } from './temporal-field.js'
-
-type EmptyDateFieldOptions = Readonly<Record<PropertyKey, never>>
 
 /**
  * Defines declarative calendar-day boundaries.
@@ -36,11 +38,12 @@ export type DateFieldOptions = FieldOptions<string, DateValidationOptions>
 export type DateField<TOptions extends DateFieldOptions = DateFieldOptions> =
 	FieldDefinition<'date', string, TOptions>
 
-const emptyDateFieldOptions: EmptyDateFieldOptions = immutableRecord({})
-
 const calendarDatePattern = /^\d{4}-\d{2}-\d{2}$/u
 
-const normalizeCalendarDate = (value: unknown, path: string): string => {
+/**
+ * Normalizes canonical date defaults and boundaries for direct and structured fields.
+ */
+export const normalizeCalendarDate = (value: unknown, path: string): string => {
 	if (typeof value !== 'string') {
 		throw new TypeError(`${path} must be a calendar date string`)
 	}
@@ -78,7 +81,7 @@ const normalizeDateFieldOptions = (
 /**
  * Creates an optional calendar-day field with no additional metadata.
  */
-export function dateField(): DateField<EmptyDateFieldOptions>
+export function dateField(): DateField<EmptyFieldOptions>
 
 /**
  * Creates immutable calendar-day metadata while preserving every option literal.
@@ -91,7 +94,7 @@ export function dateField<const TOptions extends DateFieldOptions>(
 ): DateField<TOptions>
 
 export function dateField(
-	options: DateFieldOptions = emptyDateFieldOptions,
+	options: DateFieldOptions = emptyFieldOptions,
 ): DateField {
 	return immutableRecord({
 		kind: 'date',

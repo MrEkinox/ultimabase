@@ -1,14 +1,16 @@
 import { immutableRecord } from '@ultimabase/shared'
 
-import { normalizeFieldOptions } from './field-options.js'
+import {
+	emptyFieldOptions,
+	normalizeFieldOptions,
+	type EmptyFieldOptions,
+} from './field-options.js'
 import type {
 	FieldDefinition,
 	FieldOptions,
 	FieldValidationOptions,
 	ValidatedFieldOptions,
 } from './field.js'
-
-type EmptyDecimalFieldOptions = Readonly<Record<PropertyKey, never>>
 
 /**
  * Defines exact decimal boundaries without floating-point coercion.
@@ -44,7 +46,6 @@ interface ParsedDecimal {
 	readonly scale: number
 }
 
-const emptyDecimalFieldOptions: EmptyDecimalFieldOptions = immutableRecord({})
 const decimalPattern = /^-?(?:0|[1-9]\d*)(?:\.\d+)?$/u
 
 const parseDecimal = (value: string): ParsedDecimal => {
@@ -58,7 +59,10 @@ const parseDecimal = (value: string): ParsedDecimal => {
 	}
 }
 
-const normalizeDecimalValue = (value: unknown, path: string): string => {
+/**
+ * Normalizes exact decimal defaults and boundaries without numeric coercion.
+ */
+export const normalizeDecimalValue = (value: unknown, path: string): string => {
 	if (typeof value !== 'string') {
 		throw new TypeError(`${path} must be an exact decimal string`)
 	}
@@ -166,7 +170,7 @@ const normalizeDecimalFieldOptions = (
 /**
  * Creates an optional exact decimal field with no additional metadata.
  */
-export function decimalField(): DecimalField<EmptyDecimalFieldOptions>
+export function decimalField(): DecimalField<EmptyFieldOptions>
 
 /**
  * Creates exact decimal metadata while preserving every option literal.
@@ -179,7 +183,7 @@ export function decimalField<const TOptions extends DecimalFieldOptions>(
 ): DecimalField<TOptions>
 
 export function decimalField(
-	options: DecimalFieldOptions = emptyDecimalFieldOptions,
+	options: DecimalFieldOptions = emptyFieldOptions,
 ): DecimalField {
 	return immutableRecord({
 		kind: 'decimal',

@@ -1,10 +1,18 @@
-import { immutableArray, immutableRecord } from '@ultimabase/shared'
+import { immutableRecord } from '@ultimabase/shared'
 
 import { snapshotBinaryValue } from './binary-field.js'
+import { isBuiltInField, type BuiltInField } from './built-in-field.js'
+import { normalizeCalendarDate } from './date-field.js'
+import { createDateTimeNormalizer } from './date-time-field.js'
+import { normalizeDecimalValue } from './decimal-field.js'
+import type { EnumValues } from './enum-field.js'
 import {
+	assertFieldOptionsObject,
 	assertValidTypeName,
+	getFieldListDepth,
 	normalizeFieldOptions,
 	normalizeFlatValidation,
+	snapshotFieldValue,
 } from './field-options.js'
 import type {
 	FieldDefinition,
@@ -13,7 +21,18 @@ import type {
 	GenericField,
 	ValidatedFieldOptions,
 } from './field.js'
-import { isPlainRecord } from './runtime-value.js'
+import { assertFieldDefinitionTree } from './field-tree.js'
+import { snapshotJsonValue } from './json-field.js'
+import { snapshotPluginFieldValue } from './plugin-field.js'
+import { assertNonEmptyString, isPlainRecord } from './runtime-value.js'
+import {
+	normalizeBigintValue,
+	normalizeBooleanValue,
+	normalizeNumberValue,
+	normalizeSafeIntegerValue,
+	normalizeStringValue,
+} from './scalar-value.js'
+import { createTimeNormalizer } from './time-field.js'
 
 /**
  * Names the child fields of one object definition.
@@ -65,111 +84,111 @@ type FieldsFromOptions<TOptions extends { readonly fields: object }> =
 		? TFields
 		: ObjectFields
 
-const isUnknownArray = (value: unknown): value is unknown[] =>
-	Array.isArray(value)
+const isEnumValueList = (values: EnumValues): values is readonly string[] =>
+	Array.isArray(values)
 
-const snapshotStructuredValue = (
+const snapshotEnumValue = (
+	field: Extract<BuiltInField, { readonly kind: 'enum' }>,
 	value: unknown,
 	path: string,
-	ancestors: WeakSet<object>,
+): string => {
+	const values = isEnumValueList(field.options.values)
+		? field.options.values
+		: Object.values(field.options.values)
+
+	if (typeof value !== 'string' || !values.includes(value)) {
+		throw new TypeError(`${path} must be a declared enum value`)
+	}
+
+	return value
+}
+
+const snapshotBuiltInScalarValue = (
+	field: BuiltInField,
+	value: unknown,
+	path: string,
 ): unknown => {
-	if (
-		value === null ||
-		typeof value === 'boolean' ||
-		typeof value === 'number' ||
-		typeof value === 'string'
-	) {
-		return value
-	}
-
-	if (typeof value !== 'object') {
-		throw new TypeError(`${path} must contain supported field values`)
-	}
-
-	if (ancestors.has(value)) {
-		throw new TypeError(`${path} must not contain circular references`)
-	}
-
-	ancestors.add(value)
-
-	try {
-		if (value instanceof Uint8Array) {
+	switch (field.kind) {
+		case 'bigint':
+			return normalizeBigintValue(value, path)
+		case 'binary':
 			return snapshotBinaryValue(value, path)
-		}
-
-		if (value instanceof Date) {
-			const timestamp = value.getTime()
-
-			if (!Number.isFinite(timestamp)) {
-				throw new TypeError(`${path} must contain only valid Dates`)
-			}
-
-			return Object.freeze(new Date(timestamp))
-		}
-
-		if (isUnknownArray(value)) {
-			const snapshot: unknown[] = value.map((item, index) =>
-				snapshotStructuredValue(item, `${path}[${String(index)}]`, ancestors),
+		case 'boolean':
+			return normalizeBooleanValue(value, path)
+		case 'date':
+			return normalizeCalendarDate(value, path)
+		case 'dateTime':
+			return createDateTimeNormalizer(field.options.timezone ?? true)(
+				value,
+				path,
 			)
-
-			return immutableArray(snapshot)
-		}
-
-		if (!isPlainRecord(value)) {
-			throw new TypeError(`${path} must contain only plain structured objects`)
-		}
-
-		const entries: [string, unknown][] = Object.entries(value).map(
-			([key, item]) => [
-				key,
-				snapshotStructuredValue(item, `${path}.${key}`, ancestors),
-			],
-		)
-
-		return immutableRecord(Object.fromEntries(entries))
-	} finally {
-		ancestors.delete(value)
+		case 'decimal':
+			return normalizeDecimalValue(value, path)
+		case 'enum':
+			return snapshotEnumValue(field, value, path)
+		case 'float':
+			return normalizeNumberValue(value, path)
+		case 'int':
+			return normalizeSafeIntegerValue(value, path)
+		case 'json':
+			return snapshotJsonValue(value, path)
+		case 'object':
+			return snapshotObjectValue(value, field.options.fields, path)
+		case 'string':
+		case 'uuid':
+			return normalizeStringValue(value, path)
+		case 'time':
+			return createTimeNormalizer(field.options.timezone ?? false)(value, path)
 	}
 }
 
-const assertAcyclicFieldTree = (
+/**
+ * Reapplies one field's scalar and list contract at every static snapshot boundary.
+ */
+export const snapshotFieldStaticValue = (
+	field: GenericField,
 	value: unknown,
 	path: string,
-	ancestors: WeakSet<object>,
-): void => {
+): unknown =>
+	snapshotFieldValue(
+		value,
+		getFieldListDepth(field.options),
+		(item, itemPath) =>
+			isBuiltInField(field)
+				? snapshotBuiltInScalarValue(field, item, itemPath)
+				: snapshotPluginFieldValue(field, item, itemPath),
+		path,
+	)
+
+function snapshotObjectValue(
+	value: unknown,
+	fields: ObjectFields,
+	path: string,
+): Readonly<Record<string, unknown>> {
 	if (!isPlainRecord(value)) {
-		throw new TypeError(`${path} must be a field definition`)
+		throw new TypeError(`${path} must be a plain object`)
 	}
 
-	if (ancestors.has(value)) {
-		throw new TypeError(`${path} must not contain circular field definitions`)
-	}
-
-	const { kind, options } = value
-
-	if (typeof kind !== 'string' || !isPlainRecord(options)) {
-		throw new TypeError(`${path} must be a field definition`)
-	}
-
-	ancestors.add(value)
-
-	try {
-		if (kind === 'object') {
-			if (!isPlainRecord(options.fields)) {
-				throw new TypeError(`${path}.options.fields must be a field map`)
-			}
-
-			for (const [name, field] of Object.entries(options.fields)) {
-				assertAcyclicFieldTree(
-					field,
-					`${path}.options.fields.${name}`,
-					ancestors,
-				)
-			}
+	for (const key of Object.keys(value)) {
+		if (!Object.hasOwn(fields, key)) {
+			throw new TypeError(`${path}.${key} is not a declared field`)
 		}
-	} finally {
-		ancestors.delete(value)
 	}
+
+	for (const key of Object.keys(fields)) {
+		if (!Object.hasOwn(value, key)) {
+			throw new TypeError(`${path}.${key} is required in an object default`)
+		}
+	}
+
+	const entries: [string, unknown][] = Object.entries(fields).map(
+		([key, field]) => [
+			key,
+			snapshotFieldStaticValue(field, value[key], `${path}.${key}`),
+		],
+	)
+
+	return immutableRecord(Object.fromEntries(entries))
 }
 
 /**
@@ -187,17 +206,23 @@ export function objectField<
 export function objectField(
 	options: ObjectFieldOptions,
 ): ObjectField<ObjectFields, ObjectFieldOptions> {
+	assertFieldOptionsObject(options)
+
+	if (!isPlainRecord(options.fields)) {
+		throw new TypeError('fields must be a field map')
+	}
+
 	assertValidTypeName(options.typeName)
 
 	for (const [name, field] of Object.entries(options.fields)) {
-		assertAcyclicFieldTree(field, `fields.${name}`, new WeakSet<object>())
+		assertNonEmptyString(name, 'object field name')
+		assertFieldDefinitionTree(field, `fields.${name}`)
 	}
 
 	const normalized = normalizeFieldOptions(
 		options,
 		normalizeFlatValidation,
-		(value, path) =>
-			snapshotStructuredValue(value, path, new WeakSet<object>()),
+		(value, path) => snapshotObjectValue(value, options.fields, path),
 	)
 
 	// The field map is detached while reusable immutable child definitions keep identity.

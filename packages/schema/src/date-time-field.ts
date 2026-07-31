@@ -1,6 +1,11 @@
 import { immutableRecord } from '@ultimabase/shared'
 
-import { normalizeFieldOptions } from './field-options.js'
+import {
+	assertFieldOptionsObject,
+	emptyFieldOptions,
+	normalizeFieldOptions,
+	type EmptyFieldOptions,
+} from './field-options.js'
 import type {
 	FieldDefinition,
 	FieldOptions,
@@ -14,8 +19,6 @@ import {
 	type TemporalValidationOptions,
 	type TemporalValueComparator,
 } from './temporal-field.js'
-
-type EmptyDateTimeFieldOptions = Readonly<Record<PropertyKey, never>>
 
 /**
  * Defines ordered date-time boundaries using the field's timezone policy.
@@ -44,7 +47,6 @@ export type DateTimeField<
 	TOptions extends DateTimeFieldOptions = DateTimeFieldOptions,
 > = FieldDefinition<'dateTime', string, TOptions>
 
-const emptyDateTimeFieldOptions: EmptyDateTimeFieldOptions = immutableRecord({})
 const localDateTimePattern = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}$/u
 const timezoneSuffixPattern = /(?:Z|[+-](?:(?:0\d|1[0-3]):[0-5]\d|14:00))$/u
 
@@ -58,7 +60,10 @@ const hasValidLocalDateTime = (value: string): boolean => {
 	)
 }
 
-const createDateTimeNormalizer = (
+/**
+ * Creates the scalar normalizer shared by direct and structured date-time defaults.
+ */
+export const createDateTimeNormalizer = (
 	timezone: boolean,
 ): ((value: unknown, path: string) => string) => {
 	const expectation = timezone
@@ -98,7 +103,7 @@ const compareZonedDateTimes: TemporalValueComparator = (left, right) =>
 /**
  * Creates an optional date-time field with timezone support enabled.
  */
-export function dateTimeField(): DateTimeField<EmptyDateTimeFieldOptions>
+export function dateTimeField(): DateTimeField<EmptyFieldOptions>
 
 /**
  * Creates immutable date-time metadata while preserving every option literal.
@@ -111,8 +116,10 @@ export function dateTimeField<const TOptions extends DateTimeFieldOptions>(
 ): DateTimeField<TOptions>
 
 export function dateTimeField(
-	options: DateTimeFieldOptions = emptyDateTimeFieldOptions,
+	options: DateTimeFieldOptions = emptyFieldOptions,
 ): DateTimeField {
+	assertFieldOptionsObject(options)
+
 	const timezone = readTemporalTimezone(options.timezone, true)
 	const normalizeDateTime = createDateTimeNormalizer(timezone)
 

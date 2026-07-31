@@ -1,6 +1,10 @@
 import { immutableRecord } from '@ultimabase/shared'
 
-import { normalizeFieldOptions } from './field-options.js'
+import {
+	emptyFieldOptions,
+	normalizeFieldOptions,
+	type EmptyFieldOptions,
+} from './field-options.js'
 import type {
 	FieldDefinition,
 	FieldOptions,
@@ -11,8 +15,6 @@ import {
 	type LengthConstrainedValidation,
 	type LengthValidationOptions,
 } from './length-validation.js'
-
-type EmptyBinaryFieldOptions = Readonly<Record<PropertyKey, never>>
 
 /**
  * Defines byte-length boundaries for binary values.
@@ -39,8 +41,6 @@ export type BinaryField<
 	TOptions extends BinaryFieldOptions = BinaryFieldOptions,
 > = FieldDefinition<'binary', Uint8Array, TOptions>
 
-const emptyBinaryFieldOptions: EmptyBinaryFieldOptions = immutableRecord({})
-
 /**
  * Copies one native byte sequence while preserving Buffer values for precise metadata.
  */
@@ -64,7 +64,7 @@ const normalizeBinaryFieldOptions = (
 /**
  * Creates an optional binary field with no additional metadata.
  */
-export function binaryField(): BinaryField<EmptyBinaryFieldOptions>
+export function binaryField(): BinaryField<EmptyFieldOptions>
 
 /**
  * Creates binary metadata while preserving exact options and copying static bytes.
@@ -77,7 +77,7 @@ export function binaryField<const TOptions extends BinaryFieldOptions>(
 ): BinaryField<TOptions>
 
 export function binaryField(
-	options: BinaryFieldOptions = emptyBinaryFieldOptions,
+	options: BinaryFieldOptions = emptyFieldOptions,
 ): BinaryField {
 	return immutableRecord({
 		kind: 'binary',

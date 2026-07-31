@@ -20,6 +20,7 @@ import {
 	type FloatValidationPlan,
 	type IntValidationPlan,
 	type PluginFieldValidationPlan,
+	type PluginValidationIssueCode,
 	type RuntimeClockValidationDefaultPlan,
 	type RuntimeValidationDefaultPlan,
 	type SchemaValidationPlans,
@@ -179,4 +180,16 @@ test('defines stable issue codes and nested paths', () => {
 	}
 
 	expectTypeOf(invalidIssue).toEqualTypeOf<ValidationIssue>()
+
+	const pluginIssue: ValidationIssue<
+		PluginValidationIssueCode<'fixture.vector'>
+	> = {
+		code: 'fixture.vector.dimension',
+		path: ['embedding'],
+		message: 'Vector dimension is invalid',
+	}
+
+	expectTypeOf(pluginIssue.code).toEqualTypeOf<
+		PluginValidationIssueCode<'fixture.vector'>
+	>()
 })

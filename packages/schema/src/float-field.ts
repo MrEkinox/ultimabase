@@ -1,6 +1,11 @@
 import { immutableRecord } from '@ultimabase/shared'
 
-import { normalizeFieldOptions } from './field-options.js'
+import {
+	assertFieldOptionsObject,
+	emptyFieldOptions,
+	normalizeFieldOptions,
+	type EmptyFieldOptions,
+} from './field-options.js'
 import type {
 	FieldDefinition,
 	FieldOptions,
@@ -11,8 +16,7 @@ import {
 	type NumericValidationOptions,
 } from './numeric-field.js'
 import type { NumericRange } from './numeric-range.js'
-
-type EmptyFloatFieldOptions = Readonly<Record<PropertyKey, never>>
+import { normalizeNumberValue } from './scalar-value.js'
 
 /**
  * Defines declarative boundaries for floating-point values.
@@ -37,17 +41,27 @@ export type FloatFieldOptions = FieldOptions<number, FloatValidationOptions>
 export type FloatField<TOptions extends FloatFieldOptions = FloatFieldOptions> =
 	FieldDefinition<'float', number, TOptions>
 
-const emptyFloatFieldOptions: EmptyFloatFieldOptions = immutableRecord({})
-
 const normalizeFloatValidation = (
 	validation: FloatValidationOptions,
-): Readonly<FloatValidationOptions> =>
-	normalizeNumericValidation(validation, 'a finite number', Number.isFinite)
+): Readonly<FloatValidationOptions> => {
+	if (
+		validation.finite !== undefined &&
+		typeof validation.finite !== 'boolean'
+	) {
+		throw new TypeError('validation.finite must be a boolean')
+	}
+
+	return normalizeNumericValidation(
+		validation,
+		'a finite number',
+		Number.isFinite,
+	)
+}
 
 /**
  * Creates an optional floating-point field with no additional metadata.
  */
-export function floatField(): FloatField<EmptyFloatFieldOptions>
+export function floatField(): FloatField<EmptyFieldOptions>
 
 /**
  * Creates immutable floating-point metadata while preserving every option literal.
@@ -60,14 +74,20 @@ export function floatField<const TOptions extends FloatFieldOptions>(
 ): FloatField<TOptions>
 
 export function floatField(
-	options: FloatFieldOptions = emptyFloatFieldOptions,
+	options: FloatFieldOptions = emptyFieldOptions,
 ): FloatField {
+	assertFieldOptionsObject(options)
+
 	if ('autoIncrement' in options) {
 		throw new TypeError('autoIncrement is only available on integer fields')
 	}
 
 	return immutableRecord({
 		kind: 'float',
-		options: normalizeFieldOptions(options, normalizeFloatValidation),
+		options: normalizeFieldOptions(
+			options,
+			normalizeFloatValidation,
+			normalizeNumberValue,
+		),
 	})
 }

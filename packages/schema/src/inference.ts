@@ -66,6 +66,22 @@ type IsImmutable<TField> =
 		? true
 		: false
 
+type IsListField<TField> =
+	FieldOptionsOf<TField> extends {
+		readonly list: readonly true[] | true
+	}
+		? true
+		: false
+
+type ObjectChildMode<
+	TField,
+	TMode extends InferenceMode,
+> = TMode extends 'update'
+	? IsListField<TField> extends true
+		? 'create'
+		: 'update'
+	: TMode
+
 type IsOutputRequired<TField> =
 	HasRequiredValidation<TField> extends true
 		? true
@@ -119,7 +135,10 @@ type BaseFieldValue<
 		readonly fields: infer TFields extends SchemaFields
 	}
 }
-	? FieldOptionsValue<InferFields<TFields, TMode>, FieldOptionsOf<TField>>
+	? FieldOptionsValue<
+			InferFields<TFields, ObjectChildMode<TField, TMode>>,
+			FieldOptionsOf<TField>
+		>
 	: FieldValue<TField>
 
 type InferNonNullableFieldValue<

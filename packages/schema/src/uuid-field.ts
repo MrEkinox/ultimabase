@@ -1,14 +1,17 @@
 import { immutableRecord } from '@ultimabase/shared'
 
-import { normalizeFieldOptions } from './field-options.js'
+import {
+	emptyFieldOptions,
+	normalizeFieldOptions,
+	type EmptyFieldOptions,
+} from './field-options.js'
 import type {
 	FieldDefinition,
 	FieldOptions,
 	FieldValidationOptions,
 	ValidatedFieldOptions,
 } from './field.js'
-
-type EmptyUuidFieldOptions = Readonly<Record<PropertyKey, never>>
+import { normalizeStringValue } from './scalar-value.js'
 
 /**
  * Lists the UUID versions identifiable through the standard version nibble.
@@ -33,8 +36,6 @@ export type UuidFieldOptions = FieldOptions<string, UuidValidationOptions>
 export type UuidField<TOptions extends UuidFieldOptions = UuidFieldOptions> =
 	FieldDefinition<'uuid', string, TOptions>
 
-const emptyUuidFieldOptions: EmptyUuidFieldOptions = immutableRecord({})
-
 const normalizeUuidValidation = (
 	validation: UuidValidationOptions,
 ): Readonly<UuidValidationOptions> => {
@@ -54,7 +55,7 @@ const normalizeUuidValidation = (
 /**
  * Creates an optional UUID field that accepts every standard version.
  */
-export function uuidField(): UuidField<EmptyUuidFieldOptions>
+export function uuidField(): UuidField<EmptyFieldOptions>
 
 /**
  * Creates immutable UUID metadata while preserving every option literal.
@@ -67,10 +68,14 @@ export function uuidField<const TOptions extends UuidFieldOptions>(
 ): UuidField<TOptions>
 
 export function uuidField(
-	options: UuidFieldOptions = emptyUuidFieldOptions,
+	options: UuidFieldOptions = emptyFieldOptions,
 ): UuidField {
 	return immutableRecord({
 		kind: 'uuid',
-		options: normalizeFieldOptions(options, normalizeUuidValidation),
+		options: normalizeFieldOptions(
+			options,
+			normalizeUuidValidation,
+			normalizeStringValue,
+		),
 	})
 }

@@ -49,6 +49,21 @@ describe('plugin fields', () => {
 		expect(Object.isFrozen(field.options.default)).toBe(true)
 	})
 
+	it('uses flat validation by default and snapshots plugin normalization output', () => {
+		const validation = { required: true }
+		const field = definePluginField(
+			'fixture.default-normalizer',
+			{ validation },
+			{ normalizeValue },
+		)
+
+		validation.required = false
+
+		// Schema owns common metadata even when the plugin omits a custom normalizer.
+		expect(field.options.validation.required).toBe(true)
+		expect(Object.isFrozen(field.options.validation)).toBe(true)
+	})
+
 	it.each(['', 'string', 'plugin'] as const)(
 		'rejects the unavailable kind %s at runtime',
 		(kind) => {

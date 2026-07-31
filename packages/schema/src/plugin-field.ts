@@ -1,11 +1,15 @@
 import { immutableRecord } from '@ultimabase/shared'
 
-import { normalizeFieldOptions } from './field-options.js'
+import {
+	normalizeFieldOptions,
+	normalizeFlatValidation,
+} from './field-options.js'
 import type {
 	FieldDefinition,
 	FieldOptions,
 	FieldValidationOptions,
 } from './field.js'
+import { isPlainRecord } from './runtime-value.js'
 
 /**
  * Reserves framework-owned discriminants so plugin fields cannot shadow built-ins.
@@ -29,7 +33,15 @@ export type ReservedFieldKind =
 	| 'uuid'
 
 type AvailablePluginFieldKind<TKind extends string> =
-	TKind extends ReservedFieldKind ? never : TKind
+	TKind extends ReservedFieldKind
+		? never
+		: TKind extends `${infer TNamespace}.${infer TName}`
+			? TNamespace extends ''
+				? never
+				: TName extends ''
+					? never
+					: TKind
+			: never
 
 /**
  * Carries a namespaced plugin kind while retaining the regular field contract.
@@ -47,30 +59,16 @@ export interface PluginFieldNormalizers<
 	TValue,
 	TValidation extends FieldValidationOptions,
 > {
-	readonly normalizeValidation: (
+	readonly normalizeValidation?: (
 		validation: TValidation,
 	) => Readonly<TValidation>
 	readonly normalizeValue: (value: unknown, path: string) => TValue
 }
 
-const reservedFieldKinds: ReadonlySet<string> = new Set<ReservedFieldKind>([
-	'array',
-	'bigint',
-	'binary',
-	'boolean',
-	'date',
-	'dateTime',
-	'decimal',
-	'enum',
-	'float',
-	'int',
-	'json',
-	'object',
-	'plugin',
-	'string',
-	'time',
-	'uuid',
-])
+type PluginValueNormalizer = (value: unknown, path: string) => unknown
+
+// Weak ownership keeps capabilities tied to field identity without creating app state.
+const pluginValueNormalizers = new WeakMap<object, PluginValueNormalizer>()
 
 /**
  * Creates a plugin-owned field while reusing common defaults, lists, and extensions.
@@ -89,16 +87,62 @@ export const definePluginField = <
 		throw new TypeError('Plugin field kind must be a non-empty string')
 	}
 
-	if (reservedFieldKinds.has(kind)) {
-		throw new TypeError(`Plugin field kind is reserved: ${kind}`)
+	const separator = kind.indexOf('.')
+
+	if (
+		separator <= 0 ||
+		separator === kind.length - 1 ||
+		kind.trim() !== kind ||
+		/\s/u.test(kind)
+	) {
+		throw new TypeError('Plugin field kind must use a namespaced identifier')
 	}
 
-	return immutableRecord({
+	if (
+		!isPlainRecord(normalizers) ||
+		typeof normalizers.normalizeValue !== 'function'
+	) {
+		throw new TypeError('Plugin field normalizeValue must be a function')
+	}
+
+	if (
+		normalizers.normalizeValidation !== undefined &&
+		typeof normalizers.normalizeValidation !== 'function'
+	) {
+		throw new TypeError(
+			'Plugin field normalizeValidation must be a function when provided',
+		)
+	}
+
+	const field = immutableRecord({
 		kind,
 		options: normalizeFieldOptions(
 			options,
-			normalizers.normalizeValidation,
+			normalizers.normalizeValidation ?? normalizeFlatValidation,
 			normalizers.normalizeValue,
 		),
 	})
+
+	pluginValueNormalizers.set(field, normalizers.normalizeValue)
+
+	return field
+}
+
+/**
+ * Reuses a plugin's scalar snapshot contract inside structured static defaults.
+ */
+export const snapshotPluginFieldValue = (
+	field: FieldDefinition<string, unknown, object>,
+	value: unknown,
+	path: string,
+): unknown => {
+	const normalizeValue = pluginValueNormalizers.get(field)
+
+	if (normalizeValue === undefined) {
+		throw new TypeError(
+			`${path} uses a plugin field not created by definePluginField`,
+		)
+	}
+
+	return normalizeValue(value, path)
 }

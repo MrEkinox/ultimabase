@@ -1,5 +1,11 @@
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
+import {
+	assertNonEmptyString,
+	isPlainRecord,
+	isUnknownArray,
+} from './runtime-value.js'
+
 declare const fieldInferenceMarker: unique symbol
 
 /**
@@ -78,12 +84,19 @@ const createExtension = <
 	scope: TScope,
 	name: TName,
 	config: TConfig,
-): ExtensionDefinition<TScope, TName, TConfig> =>
-	immutableRecord({
+): ExtensionDefinition<TScope, TName, TConfig> => {
+	assertNonEmptyString(name, 'extension name')
+
+	if (!isPlainRecord(config)) {
+		throw new TypeError('extension config must be an object')
+	}
+
+	return immutableRecord({
 		scope,
 		name,
 		config: immutableRecord(config),
 	})
+}
 
 /**
  * Creates an immutable schema extension while preserving its literal name and config.
@@ -119,9 +132,27 @@ export const defineExtensions = <
 >(
 	extensions: TExtensions,
 ): readonly [...TExtensions] => {
+	// Keep the generic tuple before runtime narrowing widens the local expression.
+	const declaredExtensions = extensions
+	const runtimeExtensions: unknown = extensions
+
+	if (!isUnknownArray(runtimeExtensions)) {
+		throw new TypeError('extensions must be a list')
+	}
+
 	const identities = new Set<string>()
 
-	for (const extension of extensions) {
+	for (const extension of runtimeExtensions) {
+		if (
+			!isPlainRecord(extension) ||
+			(extension.scope !== 'schema' && extension.scope !== 'field') ||
+			typeof extension.name !== 'string' ||
+			extension.name.length === 0 ||
+			!isPlainRecord(extension.config)
+		) {
+			throw new TypeError('Invalid extension definition')
+		}
+
 		const identity = `${extension.scope}:${extension.name}`
 
 		if (identities.has(identity)) {
@@ -133,5 +164,5 @@ export const defineExtensions = <
 		identities.add(identity)
 	}
 
-	return immutableArray(extensions)
+	return immutableArray(declaredExtensions)
 }

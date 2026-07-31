@@ -1,8 +1,10 @@
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
 import {
+	emptyFieldOptions,
 	normalizeFieldOptions,
 	normalizeFlatValidation,
+	type EmptyFieldOptions,
 } from './field-options.js'
 import type {
 	FieldDefinition,
@@ -10,8 +12,6 @@ import type {
 	ValidatedFieldOptions,
 } from './field.js'
 import { isPlainRecord } from './runtime-value.js'
-
-type EmptyJsonFieldOptions = Readonly<Record<PropertyKey, never>>
 
 /**
  * Represents values that have a lossless, portable JSON encoding.
@@ -36,8 +36,6 @@ export type JsonFieldOptions = FieldOptions<JsonValue>
  */
 export type JsonField<TOptions extends JsonFieldOptions = JsonFieldOptions> =
 	FieldDefinition<'json', JsonValue, TOptions>
-
-const emptyJsonFieldOptions: EmptyJsonFieldOptions = immutableRecord({})
 
 const normalizeJsonValue = (
 	value: unknown,
@@ -96,17 +94,21 @@ const normalizeJsonValue = (
 	}
 }
 
+/**
+ * Exposes the JSON snapshot boundary to structured object defaults.
+ */
+export const snapshotJsonValue = (value: unknown, path: string): JsonValue =>
+	normalizeJsonValue(value, path, new WeakSet<object>())
+
 const normalizeJsonFieldOptions = (
 	options: JsonFieldOptions,
 ): Readonly<JsonFieldOptions> =>
-	normalizeFieldOptions(options, normalizeFlatValidation, (value, path) =>
-		normalizeJsonValue(value, path, new WeakSet<object>()),
-	)
+	normalizeFieldOptions(options, normalizeFlatValidation, snapshotJsonValue)
 
 /**
  * Creates an optional, non-null JSON field with no additional metadata.
  */
-export function jsonField(): JsonField<EmptyJsonFieldOptions>
+export function jsonField(): JsonField<EmptyFieldOptions>
 
 /**
  * Creates immutable JSON metadata while preserving every option literal.
@@ -119,7 +121,7 @@ export function jsonField<const TOptions extends JsonFieldOptions>(
 ): JsonField<TOptions>
 
 export function jsonField(
-	options: JsonFieldOptions = emptyJsonFieldOptions,
+	options: JsonFieldOptions = emptyFieldOptions,
 ): JsonField {
 	return immutableRecord({
 		kind: 'json',

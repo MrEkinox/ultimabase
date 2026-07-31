@@ -54,6 +54,8 @@ describe('stringField', () => {
 		})
 		expect(Object.isFrozen(field.options.validation)).toBe(true)
 		expect(Object.isFrozen(field.options.validation.length)).toBe(true)
+		expect(field.options.validation.match).not.toBe(pattern)
+		expect(Object.isFrozen(field.options.validation.match)).toBe(true)
 	})
 
 	it('copies caller-owned nested validation options', () => {

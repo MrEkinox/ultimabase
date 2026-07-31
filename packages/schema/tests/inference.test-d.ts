@@ -226,7 +226,7 @@ test('recursively infers object list fields for every operation', () => {
 	>()
 	expectTypeOf<NonNullable<UpdateShape['members']>>().toEqualTypeOf<
 		readonly {
-			name?: string
+			name: string
 			verified?: boolean
 		}[]
 	>()

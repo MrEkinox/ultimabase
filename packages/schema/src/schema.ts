@@ -2,6 +2,7 @@ import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
 import { defineExtensions, type SchemaExtension } from './extension.js'
 import type { GenericField } from './field.js'
+import { assertFieldDefinitionTree } from './field-tree.js'
 import {
 	normalizeSchemaIndexes,
 	type SchemaFieldName,
@@ -14,6 +15,7 @@ import {
 	type ReservedSystemFieldName,
 	type SystemFields,
 } from './system-field.js'
+import { assertNonEmptyString, isPlainRecord } from './runtime-value.js'
 
 /**
  * Collects named field definitions without erasing their concrete literals.
@@ -100,7 +102,22 @@ export function defineSchema(options: {
 	readonly indexes?: readonly SchemaIndexOptions[]
 	readonly extensions?: SchemaExtensions
 }): SchemaDefinition {
+	if (!isPlainRecord(options)) {
+		throw new TypeError('schema options must be an object')
+	}
+
+	assertNonEmptyString(options.className, 'className')
+
+	if (!isPlainRecord(options.fields)) {
+		throw new TypeError('fields must be an object')
+	}
+
 	assertNoReservedFieldCollision(options.fields)
+
+	for (const [name, field] of Object.entries(options.fields)) {
+		assertNonEmptyString(name, 'schema field name')
+		assertFieldDefinitionTree(field, `fields.${name}`)
+	}
 
 	const extensions =
 		options.extensions === undefined

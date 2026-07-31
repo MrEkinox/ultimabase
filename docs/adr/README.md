@@ -32,6 +32,9 @@ Accepted records:
 - [ADR-0027: Native binary values](0027-native-binary-values.md)
 - [ADR-0028: Exact decimal strings](0028-exact-decimal-strings.md)
 - [ADR-0029: Plugin-defined logical fields](0029-plugin-defined-logical-fields.md)
+- [ADR-0030: Runtime schema declaration boundaries](0030-runtime-schema-declaration-boundaries.md)
+- [ADR-0031: Plugin validation issue codes](0031-plugin-validation-issue-codes.md)
+- [ADR-0032: Object list update replacement](0032-object-list-update-replacement.md)
 
 Superseded records:
 

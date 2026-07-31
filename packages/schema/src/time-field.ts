@@ -1,6 +1,11 @@
 import { immutableRecord } from '@ultimabase/shared'
 
-import { normalizeFieldOptions } from './field-options.js'
+import {
+	assertFieldOptionsObject,
+	emptyFieldOptions,
+	normalizeFieldOptions,
+	type EmptyFieldOptions,
+} from './field-options.js'
 import type {
 	FieldDefinition,
 	FieldOptions,
@@ -14,8 +19,6 @@ import {
 	type TemporalValidationOptions,
 	type TemporalValueComparator,
 } from './temporal-field.js'
-
-type EmptyTimeFieldOptions = Readonly<Record<PropertyKey, never>>
 
 /**
  * Defines ordered time-of-day boundaries using the field's timezone policy.
@@ -40,12 +43,14 @@ export type TimeFieldOptions = FieldOptions<string, TimeValidationOptions> & {
 export type TimeField<TOptions extends TimeFieldOptions = TimeFieldOptions> =
 	FieldDefinition<'time', string, TOptions>
 
-const emptyTimeFieldOptions: EmptyTimeFieldOptions = immutableRecord({})
 const localTimePattern = /^(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d\.\d{3}$/u
 const zonedTimePattern =
 	/^(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d\.\d{3}(?:Z|[+-](?:(?:0\d|1[0-3]):[0-5]\d|14:00))$/u
 
-const createTimeNormalizer = (
+/**
+ * Creates the scalar normalizer shared by direct and structured time defaults.
+ */
+export const createTimeNormalizer = (
 	timezone: boolean,
 ): ((value: unknown, path: string) => string) => {
 	const expectation = timezone
@@ -94,7 +99,7 @@ const compareZonedTimes: TemporalValueComparator = (left, right) =>
 /**
  * Creates an optional time-of-day field without timezone support.
  */
-export function timeField(): TimeField<EmptyTimeFieldOptions>
+export function timeField(): TimeField<EmptyFieldOptions>
 
 /**
  * Creates immutable time-of-day metadata while preserving every option literal.
@@ -107,8 +112,10 @@ export function timeField<const TOptions extends TimeFieldOptions>(
 ): TimeField<TOptions>
 
 export function timeField(
-	options: TimeFieldOptions = emptyTimeFieldOptions,
+	options: TimeFieldOptions = emptyFieldOptions,
 ): TimeField {
+	assertFieldOptionsObject(options)
+
 	const timezone = readTemporalTimezone(options.timezone, false)
 	const normalizeTime = createTimeNormalizer(timezone)
 

@@ -10,6 +10,7 @@ import {
 	dateTimeField,
 	decimalField,
 	defineSchema,
+	definePluginField,
 	enumField,
 	floatField,
 	intField,
@@ -126,7 +127,7 @@ describe('validation plans', () => {
 			presence: 'required',
 			nullable: false,
 			length: { min: 2, max: 40 },
-			match,
+			match: { source: match.source, flags: match.flags },
 		})
 		expect(plans.update.fields.name).toMatchObject({
 			kind: 'string',
@@ -348,6 +349,27 @@ describe('validation plans', () => {
 				},
 			},
 		})
+
+		const listedObject = objectField({
+			list: true,
+			fields: {
+				name: stringField({ validation: { required: true } }),
+			},
+		})
+		const listSchema = defineSchema({
+			className: 'ListedObjectPlan',
+			fields: { listedObject },
+		})
+
+		expect(
+			compileValidationPlans(listSchema).update.fields.listedObject,
+		).toMatchObject({
+			kind: 'array',
+			items: {
+				kind: 'object',
+				fields: { name: { presence: 'required' } },
+			},
+		})
 	})
 
 	it('compiles optional developer UUID version constraints', () => {
@@ -383,6 +405,11 @@ describe('validation plans', () => {
 	})
 
 	it('freezes every compiled container while retaining immutable metadata', () => {
+		const binaryDefault = new Uint8Array([1, 2, 3])
+		const structuredField = objectField({
+			fields: { payload: binaryField() },
+			default: { payload: binaryDefault },
+		})
 		const schema = defineSchema({
 			className: 'FrozenPlan',
 			fields: {
@@ -392,12 +419,14 @@ describe('validation plans', () => {
 						name: stringField(),
 					},
 				}),
+				structured: structuredField,
 			},
 		})
 
 		const plans = compileValidationPlans(schema)
 		const status = plans.create.fields.status
 		const profile = plans.create.fields.profile
+		const structured = plans.create.fields.structured
 
 		expect(Object.isFrozen(plans)).toBe(true)
 		expect(Object.isFrozen(plans.create)).toBe(true)
@@ -412,13 +441,26 @@ describe('validation plans', () => {
 		if (profile?.kind === 'object') {
 			expect(Object.isFrozen(profile.fields)).toBe(true)
 		}
+
+		if (structured?.default?.kind === 'static') {
+			binaryDefault[0] = 9
+			structuredField.options.default.payload[0] = 8
+
+			// Compiled plans own a recursive snapshot independent from schema storage.
+			expect(structured.default.value).toStrictEqual({
+				payload: new Uint8Array([1, 2, 3]),
+			})
+		}
 	})
 
 	it('preserves plugin field kinds as opaque validation plans', () => {
-		const customField: FieldDefinition<'custom', string, object> = {
-			kind: 'custom',
-			options: {},
-		}
+		const customField = definePluginField(
+			'fixture.custom',
+			{},
+			{
+				normalizeValue: (value: unknown): string => String(value),
+			},
+		)
 		const schema = defineSchema({
 			className: 'UnsupportedPlan',
 			fields: {
@@ -428,7 +470,7 @@ describe('validation plans', () => {
 
 		expect(compileValidationPlans(schema).create.fields.custom).toStrictEqual({
 			kind: 'plugin',
-			fieldKind: 'custom',
+			fieldKind: 'fixture.custom',
 			field: customField,
 			presence: 'optional',
 			nullable: false,

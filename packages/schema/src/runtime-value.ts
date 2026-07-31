@@ -13,3 +13,20 @@ export const isPlainRecord = (
 
 	return prototype === null || prototype === Object.prototype
 }
+
+/**
+ * Narrows arrays without inheriting the standard library's permissive element type.
+ */
+export const isUnknownArray = (value: unknown): value is unknown[] =>
+	Array.isArray(value)
+
+/**
+ * Protects public JavaScript entry points that cannot rely on TypeScript literals.
+ */
+export const assertNonEmptyString = (value: unknown, path: string): string => {
+	if (typeof value !== 'string' || value.length === 0) {
+		throw new TypeError(`${path} must be a non-empty string`)
+	}
+
+	return value
+}
