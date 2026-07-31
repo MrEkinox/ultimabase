@@ -1,7 +1,51 @@
 import type { FieldExtension } from './extension.js'
-import type { FieldDefault } from './default-value.js'
+import type {
+	DatabaseDefault,
+	DefaultFactory,
+	FieldDefault,
+} from './default-value.js'
 
 declare const fieldValueMarker: unique symbol
+
+/**
+ * Describes one or more homogeneous list wrappers around a field value.
+ */
+export type FieldList = true | readonly [true, ...true[]]
+export type FieldListOption = false | FieldList
+
+type ApplyFieldListTuple<
+	TValue,
+	TList extends readonly true[],
+> = TList extends readonly [true, ...infer TRest extends readonly true[]]
+	? readonly ApplyFieldListTuple<TValue, TRest>[]
+	: TValue
+
+/**
+ * Applies declarative list metadata to one field's scalar value.
+ */
+export type FieldListValue<TValue, TList> = TList extends true
+	? readonly TValue[]
+	: TList extends readonly true[]
+		? ApplyFieldListTuple<TValue, TList>
+		: TValue
+
+/**
+ * Derives the complete value from one field's scalar type and exact options.
+ */
+export type FieldOptionsValue<TValue, TOptions> = FieldListValue<
+	TValue,
+	TOptions extends { readonly list: infer TList } ? TList : false
+>
+
+type RecursiveFieldListValue<TValue> =
+	TValue | readonly RecursiveFieldListValue<TValue>[]
+
+type FieldOptionsDefaultValue<
+	TValue,
+	TList extends FieldListOption,
+> = FieldListOption extends TList
+	? RecursiveFieldListValue<TValue>
+	: FieldListValue<TValue, TList>
 
 /**
  * Describes whether a field may be omitted or contain null.
@@ -18,20 +62,48 @@ export type FieldValidationOptions =
 			readonly nullable?: boolean
 	  }
 
-/**
- * Defines metadata shared by every field kind without introducing storage concerns.
- */
-export interface FieldOptions<
-	TValue,
-	TValidation extends FieldValidationOptions = FieldValidationOptions,
-> {
+interface FieldMetadataOptions<TValidation extends FieldValidationOptions> {
 	readonly validation?: TValidation
-	readonly default?: FieldDefault<TValue>
 	readonly immutable?: boolean
 	readonly indexed?: boolean | 'unique'
 	readonly description?: string
 	readonly extensions?: readonly FieldExtension<string, object>[]
 }
+
+/**
+ * Defines metadata shared by every field kind without introducing storage concerns.
+ */
+export type FieldOptions<
+	TValue,
+	TValidation extends FieldValidationOptions = FieldValidationOptions,
+	TList extends FieldListOption = FieldListOption,
+> = FieldMetadataOptions<TValidation> & {
+	readonly list?: TList
+	readonly default?: FieldDefault<FieldOptionsDefaultValue<TValue, TList>>
+}
+
+type DefaultIsCompatible<TOptions, TValue> = TOptions extends {
+	readonly default: infer TDefault
+}
+	? TDefault extends (...args: never[]) => unknown
+		? TDefault extends DefaultFactory<TValue>
+			? true
+			: false
+		: TDefault extends DatabaseDefault<TValue> | TValue
+			? true
+			: false
+	: true
+
+/**
+ * Validates a factory's exact options against its scalar value and validation contract.
+ */
+export type ValidatedFieldOptions<TOptions extends object, TValue> =
+	DefaultIsCompatible<
+		TOptions,
+		FieldOptionsValue<TValue, TOptions>
+	> extends true
+		? TOptions
+		: never
 
 /**
  * Carries immutable field metadata and its value type through schema inference.
@@ -57,7 +129,8 @@ export type GenericField = FieldDefinition<string, unknown, object>
  * Extracts the value carried by a field without constraining its exact options.
  */
 export type FieldValue<TField> = TField extends {
+	readonly options: infer TOptions
 	readonly [fieldValueMarker]?: infer TValue
 }
-	? TValue
+	? FieldOptionsValue<TValue, TOptions>
 	: unknown

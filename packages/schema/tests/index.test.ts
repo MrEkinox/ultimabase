@@ -9,7 +9,6 @@ describe('@ultimabase/schema public entry point', () => {
 			'DatabaseDefault',
 			'DuplicateSchemaError',
 			'SchemaRegistry',
-			'arrayField',
 			'booleanField',
 			'compileValidationPlans',
 			'dateField',

@@ -2,7 +2,6 @@ import { describe, expect, it, vi } from 'vitest'
 
 import {
 	DatabaseDefault,
-	arrayField,
 	booleanField,
 	compileValidationPlans,
 	dateField,
@@ -143,14 +142,17 @@ describe('validation plans', () => {
 						internalCode: stringField({ immutable: true }),
 					},
 				}),
-				tags: arrayField({
-					items: stringField({
-						validation: {
-							nullable: true,
-							length: { min: 1 },
-						},
-						default: 'unused-for-array-items',
-					}),
+				tags: stringField({
+					list: true,
+					validation: {
+						nullable: true,
+						length: { min: 1 },
+					},
+					default: ['generated'],
+				}),
+				matrix: numberField({
+					mode: 'integer',
+					list: [true, true],
 				}),
 			},
 		})
@@ -159,6 +161,7 @@ describe('validation plans', () => {
 		const createProfile = plans.create.fields.profile
 		const updateProfile = plans.update.fields.profile
 		const createTags = plans.create.fields.tags
+		const createMatrix = plans.create.fields.matrix
 
 		expect(plans.create.fields.id).toMatchObject({
 			kind: 'uuid',
@@ -190,18 +193,37 @@ describe('validation plans', () => {
 		})
 		expect(createTags).toMatchObject({
 			kind: 'array',
+			nullable: true,
+			default: {
+				kind: 'static',
+				value: ['generated'],
+			},
 			items: {
 				kind: 'string',
 				presence: 'required',
-				nullable: true,
+				nullable: false,
 				length: { min: 1 },
 			},
 		})
 
 		if (createTags?.kind === 'array') {
-			// Array items are values rather than optional properties, so defaults never apply.
+			// List items are values rather than optional properties, so defaults remain outer.
 			expect(createTags.items).not.toHaveProperty('default')
 		}
+		expect(createMatrix).toMatchObject({
+			kind: 'array',
+			items: {
+				kind: 'array',
+				presence: 'required',
+				nullable: false,
+				items: {
+					kind: 'number',
+					mode: 'integer',
+					presence: 'required',
+					nullable: false,
+				},
+			},
+		})
 	})
 
 	it('freezes every compiled container while retaining immutable metadata', () => {

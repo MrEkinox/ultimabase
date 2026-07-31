@@ -4,15 +4,13 @@ export type {
 	BooleanFieldOptions,
 	BooleanValidationOptions,
 } from './boolean-field.js'
-export { arrayField, objectField } from './composite-field.js'
+export { objectField } from './object-field.js'
 export type {
-	ArrayField,
-	ArrayFieldOptions,
 	ObjectField,
 	ObjectFieldOptions,
 	ObjectFields,
 	ObjectFieldValue,
-} from './composite-field.js'
+} from './object-field.js'
 export { dateField } from './date-field.js'
 export type {
 	DateField,
@@ -52,7 +50,11 @@ export type {
 } from './extension.js'
 export type {
 	FieldDefinition,
+	FieldList,
+	FieldListOption,
+	FieldListValue,
 	FieldOptions,
+	FieldOptionsValue,
 	FieldValidationOptions,
 	FieldValue,
 } from './field.js'

@@ -85,13 +85,13 @@ developer fields remain accepted during creation.
 
 `InferUpdateInput` excludes generated and immutable fields, and makes every
 remaining property optional. In all three modes, `validation.nullable: true`
-adds `null` to the field value. Object and array fields apply the same rules
-recursively.
+adds `null` to the complete field value. Object fields apply the same rules
+recursively, including when they are lists.
 
 ## Generic field contract
 
 - `FieldValidationOptions` represents omission and nullability inside the `validation` option. Fields are optional and non-null by default, and `required: true` cannot be combined with `nullable: true`.
-- `FieldOptions<TValue, TValidation>` adds typed defaults, field-value immutability, `indexed`, descriptions, and field extensions without introducing database-specific metadata. `indexed: true` requests a regular index, `indexed: "unique"` requests a unique index, and `false` disables indexing explicitly.
+- `FieldOptions<TValue, TValidation>` adds typed defaults, homogeneous lists, field-value immutability, `indexed`, descriptions, and field extensions without introducing database-specific metadata. `list: true` creates one list level, a tuple such as `list: [true, true]` creates nested lists, and `false` disables list wrapping explicitly. `indexed: true` requests a regular index, `indexed: "unique"` requests a unique index, and `false` disables indexing explicitly.
 - `FieldDefinition<TKind, TValue, TOptions>` preserves the literal field kind, its base value type, and its exact readonly options for later schema inference.
 
 These contracts are type-only. Concrete field factories will construct and freeze their runtime metadata in their dedicated implementations.
@@ -145,15 +145,15 @@ plans.create.fields.name?.presence // "required", "optional", or "forbidden"
 plans.update.unknownFields // "reject"
 ```
 
-Plans preserve primitive constraints, enum domains, object and array structure,
+Plans preserve primitive constraints, enum domains, object and list structure,
 nullability, and default ownership. Static values, runtime factories, and
 `DatabaseDefault` instances use separate discriminated descriptors. Compilation
 never invokes a factory or executes a constraint.
 
 Create plans require only fields without a default or generated value. Update
 plans make mutable fields optional and mark generated or immutable fields as
-forbidden. Array items are always values rather than optional properties, while
-object children apply the active operation recursively.
+forbidden. List items are always required, non-null values rather than optional
+properties, while object children apply the active operation recursively.
 
 `ValidationIssue` defines closed stable codes and paths containing property
 names and array offsets. Runtime will execute these plans before access checks
@@ -230,7 +230,7 @@ enumField({
 
 Persisted values form the exact inferred string union, while mapping keys remain available to future GraphQL and SDK generators. Sources must be non-empty, persisted values must be unique, and static defaults must belong to the inferred domain. Numeric TypeScript enums are rejected because their runtime reverse mappings do not represent a string domain.
 
-## JSON and composite fields
+## JSON, object, and list fields
 
 `jsonField(options)` represents portable JSON values through the recursive
 `JsonValue` type. JSON defaults accept only null, booleans, finite numbers,
@@ -238,13 +238,12 @@ strings, arrays, and plain objects. They are copied and deeply frozen; values
 such as `undefined`, `Date`, `BigInt`, functions, and circular references are
 rejected.
 
-`arrayField({ items })` reuses one existing field definition and preserves its
-value type:
+Every developer field supports homogeneous lists without changing its field
+kind:
 
 ```ts
-arrayField({
-	items: stringField(),
-})
+stringField({ list: true })
+numberField({ mode: 'integer', list: [true, true] })
 ```
 
 `objectField({ fields })` composes existing fields into one structured value:
@@ -262,21 +261,23 @@ objectField({
 				darkMode: booleanField(),
 			},
 		}),
-		tags: arrayField({
-			items: stringField(),
-		}),
+		tags: stringField({ list: true }),
 	},
 })
 ```
 
-Arrays and objects may be nested to any finite depth. Field-definition cycles
-are rejected, while child definitions remain reusable immutable values.
+`list: true` wraps the scalar or object value once. A non-empty tuple containing
+only `true` values declares its exact depth, so `list: [true, true]` represents a
+list of lists. The tuple and static list defaults are copied and frozen.
+`validation.nullable` applies to the complete field; list elements are
+non-null. Object definitions may nest to any finite depth, field-definition
+cycles are rejected, and child definitions remain reusable immutable values.
 Structured defaults are detached from caller-owned values and recursively
 frozen.
 
 Schema does not select a physical representation. PostgreSQL storage and
-Drizzle compilation remain adapter concerns; ADR-0017 defines JSONB as their
-default mapping without adding database metadata to this package.
+Drizzle compilation remain adapter concerns; ADR-0021 defines JSONB as the
+portable default mapping without adding database metadata to this package.
 
 ## Typed extensions
 

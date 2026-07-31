@@ -1,7 +1,6 @@
 import { expectTypeOf, test } from 'vitest'
 
 import {
-	arrayField,
 	booleanField,
 	dateField,
 	defineFieldExtension,
@@ -156,23 +155,22 @@ const compositeSchema = defineSchema({
 				}),
 			},
 		}),
-		members: arrayField({
+		members: objectField({
+			list: true,
 			validation: { required: true },
-			items: objectField({
-				fields: {
-					name: stringField({
-						validation: { required: true },
-					}),
-					verified: booleanField({
-						default: false,
-					}),
-				},
-			}),
+			fields: {
+				name: stringField({
+					validation: { required: true },
+				}),
+				verified: booleanField({
+					default: false,
+				}),
+			},
 		}),
 	},
 })
 
-test('recursively infers object and array fields for every operation', () => {
+test('recursively infers object list fields for every operation', () => {
 	type ObjectShape = InferObject<typeof compositeSchema>
 	type CreateShape = InferCreateInput<typeof compositeSchema>
 	type UpdateShape = InferUpdateInput<typeof compositeSchema>

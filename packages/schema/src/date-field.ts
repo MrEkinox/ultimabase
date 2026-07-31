@@ -1,11 +1,11 @@
 import { immutableRecord } from '@ultimabase/shared'
 
-import { isStaticDefault } from './default-value.js'
 import { normalizeFieldOptions } from './field-options.js'
 import type {
 	FieldDefinition,
 	FieldOptions,
 	FieldValidationOptions,
+	ValidatedFieldOptions,
 } from './field.js'
 
 type EmptyDateFieldOptions = Readonly<Record<PropertyKey, never>>
@@ -91,18 +91,8 @@ const normalizeDateValidation = (
 
 const normalizeDateFieldOptions = (
 	options: DateFieldOptions,
-): Readonly<DateFieldOptions> => {
-	const normalized = normalizeFieldOptions(options, normalizeDateValidation)
-	const defaultValue =
-		normalized.default === undefined || !isStaticDefault(normalized.default)
-			? undefined
-			: snapshotDate(normalized.default, 'default')
-
-	// Only static Dates need snapshots; runtime and database defaults retain their identity.
-	return defaultValue === undefined
-		? normalized
-		: immutableRecord({ ...normalized, default: defaultValue })
-}
+): Readonly<DateFieldOptions> =>
+	normalizeFieldOptions(options, normalizeDateValidation, snapshotDate)
 
 /**
  * Creates an optional, non-null Date field with no additional metadata.
@@ -113,7 +103,10 @@ export function dateField(): DateField<EmptyDateFieldOptions>
  * Creates immutable Date metadata while preserving every option literal.
  */
 export function dateField<const TOptions extends DateFieldOptions>(
-	options: TOptions,
+	options: TOptions &
+		(ValidatedFieldOptions<NoInfer<TOptions>, Date> extends never
+			? never
+			: unknown),
 ): DateField<TOptions>
 
 export function dateField(

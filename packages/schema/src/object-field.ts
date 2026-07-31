@@ -1,11 +1,6 @@
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
 import {
-	isStaticDefault,
-	type DatabaseDefault,
-	type DefaultFactory,
-} from './default-value.js'
-import {
 	normalizeFieldOptions,
 	normalizeFlatValidation,
 } from './field-options.js'
@@ -14,10 +9,11 @@ import type {
 	FieldOptions,
 	FieldValue,
 	GenericField,
+	ValidatedFieldOptions,
 } from './field.js'
 
 /**
- * Names the child fields of one structured object.
+ * Names the child fields of one object definition.
  */
 export type ObjectFields = Readonly<Record<string, GenericField>>
 
@@ -44,34 +40,6 @@ export type ObjectField<
 	TOptions extends object = ObjectFieldOptions<TFields>,
 > = FieldDefinition<'object', ObjectFieldValue<TFields>, TOptions>
 
-/**
- * Keeps an element definition alongside the common array metadata.
- */
-export type ArrayFieldOptions<TItem extends GenericField = GenericField> =
-	FieldOptions<readonly FieldValue<TItem>[]> & {
-		readonly items: TItem
-	}
-
-/**
- * Preserves the element value across arbitrary finite array nesting.
- */
-export type ArrayField<
-	TItem extends GenericField = GenericField,
-	TOptions extends object = ArrayFieldOptions<TItem>,
-> = FieldDefinition<'array', readonly FieldValue<TItem>[], TOptions>
-
-type DefaultIsCompatible<TOptions, TValue> = TOptions extends {
-	readonly default: infer TDefault
-}
-	? TDefault extends (...args: never[]) => unknown
-		? TDefault extends DefaultFactory<TValue>
-			? true
-			: false
-		: TDefault extends DatabaseDefault<TValue> | TValue
-			? true
-			: false
-	: true
-
 type ValidatedObjectOptions<TOptions extends { readonly fields: object }> =
 	TOptions extends {
 		readonly fields: infer TFields extends ObjectFields
@@ -80,23 +48,9 @@ type ValidatedObjectOptions<TOptions extends { readonly fields: object }> =
 				ObjectFieldOptions<TFields>,
 				'default'
 			>
-			? DefaultIsCompatible<TOptions, ObjectFieldValue<TFields>> extends true
-				? TOptions
-				: never
-			: never
-		: never
-
-type ValidatedArrayOptions<TOptions extends { readonly items: unknown }> =
-	TOptions extends {
-		readonly items: infer TItem extends GenericField
-	}
-		? Omit<TOptions, 'default'> extends Omit<
-				ArrayFieldOptions<TItem>,
-				'default'
-			>
-			? DefaultIsCompatible<TOptions, readonly FieldValue<TItem>[]> extends true
-				? TOptions
-				: never
+			? ValidatedFieldOptions<TOptions, ObjectFieldValue<TFields>> extends never
+				? never
+				: TOptions
 			: never
 		: never
 
@@ -106,13 +60,6 @@ type FieldsFromOptions<TOptions extends { readonly fields: object }> =
 	}
 		? TFields
 		: ObjectFields
-
-type ItemFromOptions<TOptions extends { readonly items: unknown }> =
-	TOptions extends {
-		readonly items: infer TItem extends GenericField
-	}
-		? TItem
-		: GenericField
 
 const isUnknownRecord = (value: unknown): value is Record<string, unknown> =>
 	typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -180,15 +127,6 @@ const snapshotStructuredValue = (
 	}
 }
 
-const snapshotStructuredDefault = <TValue>(value: TValue): TValue => {
-	// The field type proves the recursive snapshot preserves the public value shape.
-	return snapshotStructuredValue(
-		value,
-		'default',
-		new WeakSet<object>(),
-	) as TValue
-}
-
 const assertAcyclicFieldTree = (
 	value: unknown,
 	path: string,
@@ -211,10 +149,6 @@ const assertAcyclicFieldTree = (
 	ancestors.add(value)
 
 	try {
-		if (kind === 'array') {
-			assertAcyclicFieldTree(options.items, `${path}.options.items`, ancestors)
-		}
-
 		if (kind === 'object') {
 			if (!isUnknownRecord(options.fields)) {
 				throw new TypeError(`${path}.options.fields must be a field map`)
@@ -252,51 +186,19 @@ export function objectField(
 		assertAcyclicFieldTree(field, `fields.${name}`, new WeakSet<object>())
 	}
 
-	const normalized = normalizeFieldOptions(options, normalizeFlatValidation)
-	const defaultValue =
-		normalized.default === undefined || !isStaticDefault(normalized.default)
-			? undefined
-			: snapshotStructuredDefault(normalized.default)
+	const normalized = normalizeFieldOptions(
+		options,
+		normalizeFlatValidation,
+		(value, path) =>
+			snapshotStructuredValue(value, path, new WeakSet<object>()),
+	)
 
-	// The map is copied while child definitions retain their immutable identity.
+	// The field map is detached while reusable immutable child definitions keep identity.
 	return immutableRecord({
 		kind: 'object',
 		options: immutableRecord({
 			...normalized,
-			...(defaultValue === undefined ? {} : { default: defaultValue }),
 			fields: immutableRecord(options.fields),
 		}),
-	})
-}
-
-/**
- * Creates immutable array metadata from one reusable field definition.
- */
-export function arrayField<
-	const TOptions extends {
-		readonly items: unknown
-	},
->(
-	options: TOptions &
-		(ValidatedArrayOptions<NoInfer<TOptions>> extends never ? never : unknown),
-): ArrayField<ItemFromOptions<TOptions>, TOptions>
-
-export function arrayField(
-	options: ArrayFieldOptions,
-): ArrayField<GenericField, ArrayFieldOptions> {
-	assertAcyclicFieldTree(options.items, 'items', new WeakSet<object>())
-
-	const normalized = normalizeFieldOptions(options, normalizeFlatValidation)
-	const defaultValue =
-		normalized.default === undefined || !isStaticDefault(normalized.default)
-			? undefined
-			: snapshotStructuredDefault(normalized.default)
-
-	return immutableRecord({
-		kind: 'array',
-		options:
-			defaultValue === undefined
-				? normalized
-				: immutableRecord({ ...normalized, default: defaultValue }),
 	})
 }

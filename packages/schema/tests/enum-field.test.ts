@@ -75,6 +75,30 @@ describe('enumField', () => {
 		})
 	})
 
+	it('validates and freezes every persisted value in a list default', () => {
+		const source: ('draft' | 'published')[] = ['draft']
+		const field = enumField({
+			values: ['draft', 'published'],
+			list: true,
+			default: source,
+		})
+
+		source.push('published')
+
+		expect(field.options.default).toStrictEqual(['draft'])
+		expect(Object.isFrozen(field.options.default)).toBe(true)
+		expect(() => {
+			enumField({
+				values: ['draft', 'published'],
+				list: true,
+				default: [
+					// @ts-expect-error -- Runtime coverage crosses the inferred enum domain.
+					'archived',
+				],
+			})
+		}).toThrow(new TypeError('Invalid enum default at default[0]: archived'))
+	})
+
 	it.each([
 		['list', []],
 		['mapping', {}],

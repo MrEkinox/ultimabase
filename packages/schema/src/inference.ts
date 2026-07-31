@@ -1,5 +1,5 @@
 import type { FieldExtension, FieldExtensionInference } from './extension.js'
-import type { FieldValue, GenericField } from './field.js'
+import type { FieldOptionsValue, FieldValue, GenericField } from './field.js'
 import type { SchemaFields } from './schema.js'
 
 type InferenceMode = 'object' | 'create' | 'update'
@@ -119,15 +119,8 @@ type BaseFieldValue<
 		readonly fields: infer TFields extends SchemaFields
 	}
 }
-	? InferFields<TFields, TMode>
-	: TField extends {
-				readonly kind: 'array'
-				readonly options: {
-					readonly items: infer TItem extends GenericField
-				}
-		  }
-		? readonly InferFieldValue<TItem, TMode>[]
-		: FieldValue<TField>
+	? FieldOptionsValue<InferFields<TFields, TMode>, FieldOptionsOf<TField>>
+	: FieldValue<TField>
 
 type InferNonNullableFieldValue<
 	TField extends GenericField,

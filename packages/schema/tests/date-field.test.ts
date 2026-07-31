@@ -40,6 +40,17 @@ describe('dateField', () => {
 		expect(Object.isFrozen(field.options.validation.range.max)).toBe(true)
 	})
 
+	it('snapshots every Date in a list default', () => {
+		const source = [new Date('2026-06-01T12:00:00.000Z')]
+		const field = dateField({ list: true, default: source })
+
+		source[0]?.setUTCFullYear(2030)
+
+		expect(field.options.default[0]?.getUTCFullYear()).toBe(2026)
+		expect(Object.isFrozen(field.options.default)).toBe(true)
+		expect(Object.isFrozen(field.options.default[0])).toBe(true)
+	})
+
 	it('isolates metadata from caller-owned Date mutations', () => {
 		const defaultValue = new Date('2026-06-01T12:00:00.000Z')
 		const min = new Date('2026-01-01T00:00:00.000Z')

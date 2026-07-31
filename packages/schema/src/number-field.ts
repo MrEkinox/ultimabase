@@ -5,6 +5,7 @@ import type {
 	FieldDefinition,
 	FieldOptions,
 	FieldValidationOptions,
+	ValidatedFieldOptions,
 } from './field.js'
 import {
 	normalizeNumericRange,
@@ -98,7 +99,10 @@ const normalizeNumberValidation = (
  * Creates immutable numeric metadata while preserving the explicit mode and literals.
  */
 export function numberField<const TOptions extends NumberFieldOptions>(
-	options: TOptions,
+	options: TOptions &
+		(ValidatedFieldOptions<NoInfer<TOptions>, number> extends never
+			? never
+			: unknown),
 ): NumberField<TOptions>
 
 export function numberField(options: NumberFieldOptions): NumberField {

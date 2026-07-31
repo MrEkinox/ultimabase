@@ -33,7 +33,12 @@ Persisted outputs contain required, defaulted, auto-incremented, and generated
 values. Create inputs require only values that cannot be supplied by the
 framework or a default. Update inputs contain only mutable,
 developer-controlled values, all optional. Nullable fields accept `null` in
-every applicable shape, and composite fields apply these rules recursively.
+every applicable shape, and object fields apply these rules recursively.
+
+Every developer field accepts `list: true` for one homogeneous list level.
+Non-empty tuples such as `list: [true, true]` preserve nested list depth without
+introducing a separate array field kind. Field nullability applies to the
+complete list; list elements remain non-null.
 
 Plugin field helpers can carry operation-specific type overrides with
 `FieldInferenceExtension` while their runtime extension configuration remains
@@ -65,8 +70,9 @@ database adapters own physical compilation and table naming.
 
 `compileValidationPlans(schema)` derives separate create and update plans.
 Every field plan records its expected kind, nullability, input presence, and
-primitive constraints. Object fields reject unknown properties recursively,
-and array fields carry a reusable item plan.
+primitive constraints. Object fields reject unknown properties recursively.
+List metadata compiles into one or more array plan wrappers around the original
+scalar or object plan.
 
 Defaults remain inert descriptors during compilation: static values are
 retained, runtime factories are never called, and database defaults remain

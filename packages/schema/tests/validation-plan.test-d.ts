@@ -5,6 +5,7 @@ import {
 	defineSchema,
 	stringField,
 	type FieldValidationPlan,
+	type ArrayValidationPlan,
 	type RuntimeValidationDefaultPlan,
 	type SchemaValidationPlans,
 	type StringValidationPlan,
@@ -34,6 +35,21 @@ test('exports discriminated operation and field plans', () => {
 	if (namePlan?.kind === 'string') {
 		expectTypeOf(namePlan).toEqualTypeOf<StringValidationPlan>()
 		expectTypeOf(namePlan.presence).toEqualTypeOf<ValidationPresence>()
+	}
+})
+
+test('narrows list wrappers independently from scalar field kinds', () => {
+	const schema = defineSchema({
+		className: 'TagList',
+		fields: {
+			tags: stringField({ list: [true, true] }),
+		},
+	})
+	const tagsPlan = compileValidationPlans(schema).create.fields.tags
+
+	if (tagsPlan?.kind === 'array') {
+		expectTypeOf(tagsPlan).toEqualTypeOf<ArrayValidationPlan>()
+		expectTypeOf(tagsPlan.items).toEqualTypeOf<FieldValidationPlan>()
 	}
 })
 

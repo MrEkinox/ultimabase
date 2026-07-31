@@ -8,6 +8,7 @@ import type {
 	FieldDefinition,
 	FieldOptions,
 	FieldValidationOptions,
+	ValidatedFieldOptions,
 } from './field.js'
 
 type EmptyBooleanFieldOptions = Readonly<Record<PropertyKey, never>>
@@ -40,7 +41,10 @@ export function booleanField(): BooleanField<EmptyBooleanFieldOptions>
  * Creates immutable boolean metadata while preserving every option literal.
  */
 export function booleanField<const TOptions extends BooleanFieldOptions>(
-	options: TOptions,
+	options: TOptions &
+		(ValidatedFieldOptions<NoInfer<TOptions>, boolean> extends never
+			? never
+			: unknown),
 ): BooleanField<TOptions>
 
 export function booleanField(

@@ -1,11 +1,14 @@
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
-import { isStaticDefault } from './default-value.js'
 import {
 	normalizeFieldOptions,
 	normalizeFlatValidation,
 } from './field-options.js'
-import type { FieldDefinition, FieldOptions } from './field.js'
+import type {
+	FieldDefinition,
+	FieldOptions,
+	ValidatedFieldOptions,
+} from './field.js'
 
 type EmptyJsonFieldOptions = Readonly<Record<PropertyKey, never>>
 
@@ -100,26 +103,10 @@ const normalizeJsonValue = (
 
 const normalizeJsonFieldOptions = (
 	options: JsonFieldOptions,
-): Readonly<JsonFieldOptions> => {
-	const normalized = normalizeFieldOptions(options, normalizeFlatValidation)
-
-	if (
-		normalized.default === undefined ||
-		!isStaticDefault(normalized.default)
-	) {
-		return normalized
-	}
-
-	// JSON defaults cross a serialization boundary, so normalize them eagerly.
-	return immutableRecord({
-		...normalized,
-		default: normalizeJsonValue(
-			normalized.default,
-			'default',
-			new WeakSet<object>(),
-		),
-	})
-}
+): Readonly<JsonFieldOptions> =>
+	normalizeFieldOptions(options, normalizeFlatValidation, (value, path) =>
+		normalizeJsonValue(value, path, new WeakSet<object>()),
+	)
 
 /**
  * Creates an optional, non-null JSON field with no additional metadata.
@@ -130,7 +117,10 @@ export function jsonField(): JsonField<EmptyJsonFieldOptions>
  * Creates immutable JSON metadata while preserving every option literal.
  */
 export function jsonField<const TOptions extends JsonFieldOptions>(
-	options: TOptions,
+	options: TOptions &
+		(ValidatedFieldOptions<NoInfer<TOptions>, JsonValue> extends never
+			? never
+			: unknown),
 ): JsonField<TOptions>
 
 export function jsonField(

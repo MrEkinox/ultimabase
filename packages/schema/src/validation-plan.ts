@@ -1,7 +1,7 @@
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
 import type { BooleanField } from './boolean-field.js'
-import type { ArrayField, ObjectField } from './composite-field.js'
+import type { ObjectField } from './object-field.js'
 import type { DateField, DateRangeValidationOptions } from './date-field.js'
 import {
 	DatabaseDefault,
@@ -9,6 +9,7 @@ import {
 	type DefaultFactory,
 } from './default-value.js'
 import type { EnumField, EnumValues } from './enum-field.js'
+import { getFieldListDepth } from './field-options.js'
 import type { FieldValidationOptions, GenericField } from './field.js'
 import type { JsonField } from './json-field.js'
 import type {
@@ -180,7 +181,6 @@ export interface SchemaValidationPlans {
 }
 
 type BuiltInField =
-	| ArrayField
 	| BooleanField
 	| DateField
 	| EnumField
@@ -197,7 +197,6 @@ interface FieldPlanBase {
 }
 
 const isBuiltInField = (field: GenericField): field is BuiltInField =>
-	field.kind === 'array' ||
 	field.kind === 'boolean' ||
 	field.kind === 'date' ||
 	field.kind === 'enum' ||
@@ -227,12 +226,7 @@ const compileDefault = (value: unknown): ValidationDefaultPlan => {
 const readPresence = (
 	field: BuiltInField,
 	operation: ValidationOperation,
-	arrayItem: boolean,
 ): ValidationPresence => {
-	if (arrayItem) {
-		return 'required'
-	}
-
 	const options = field.options
 	const generated = 'generatedOn' in options
 	const immutable = 'immutable' in options && options.immutable
@@ -257,17 +251,13 @@ const readPresence = (
 const compileFieldPlanBase = (
 	field: BuiltInField,
 	operation: ValidationOperation,
-	arrayItem: boolean,
 ): FieldPlanBase => {
 	const options = field.options
-	const presence = readPresence(field, operation, arrayItem)
+	const presence = readPresence(field, operation)
 	const validation: FieldValidationOptions = options.validation ?? {}
 	const nullable = validation.nullable === true
 	const defaultPlan =
-		operation === 'create' &&
-		!arrayItem &&
-		presence !== 'forbidden' &&
-		'default' in options
+		operation === 'create' && presence !== 'forbidden' && 'default' in options
 			? compileDefault(options.default)
 			: undefined
 
@@ -295,7 +285,7 @@ const compileFields = (
 	operation: ValidationOperation,
 ): Readonly<Record<string, FieldValidationPlan>> => {
 	const entries: [string, FieldValidationPlan][] = Object.entries(fields).map(
-		([name, field]) => [name, compileField(field, operation, false)],
+		([name, field]) => [name, compileField(field, operation)],
 	)
 
 	return immutableRecord(Object.fromEntries(entries))
@@ -304,21 +294,48 @@ const compileFields = (
 const compileField = (
 	field: GenericField,
 	operation: ValidationOperation,
-	arrayItem: boolean,
 ): FieldValidationPlan => {
 	if (!isBuiltInField(field)) {
 		throw new TypeError(`Unsupported validation field kind: ${field.kind}`)
 	}
 
-	const base = compileFieldPlanBase(field, operation, arrayItem)
+	const base = compileFieldPlanBase(field, operation)
+	const listDepth = getFieldListDepth(field.options)
+	const scalarBase =
+		listDepth === 0
+			? base
+			: immutableRecord({
+					presence: 'required',
+					nullable: false,
+				} satisfies FieldPlanBase)
+	const scalarPlan = compileScalarField(field, operation, scalarBase)
 
+	if (listDepth === 0) {
+		return scalarPlan
+	}
+
+	let plan: FieldValidationPlan = scalarPlan
+
+	// Wrappers are built inside-out so only the outer field owns presence and defaults.
+	for (let level = listDepth; level >= 1; level -= 1) {
+		const wrapperBase = level === 1 ? base : scalarBase
+
+		plan = immutableRecord({
+			...wrapperBase,
+			kind: 'array',
+			items: plan,
+		})
+	}
+
+	return plan
+}
+
+const compileScalarField = (
+	field: BuiltInField,
+	operation: ValidationOperation,
+	base: FieldPlanBase,
+): Exclude<FieldValidationPlan, ArrayValidationPlan> => {
 	switch (field.kind) {
-		case 'array':
-			return immutableRecord({
-				...base,
-				kind: field.kind,
-				items: compileField(field.options.items, operation, true),
-			})
 		case 'boolean':
 			return immutableRecord({ ...base, kind: field.kind })
 		case 'date':

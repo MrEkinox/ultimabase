@@ -1,6 +1,6 @@
 # ADR-0017: Composite fields and PostgreSQL storage
 
-- Status: accepted
+- Status: superseded by ADR-0021
 - Date: 2026-07-30
 
 ## Decision

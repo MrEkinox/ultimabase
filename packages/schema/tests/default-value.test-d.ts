@@ -2,7 +2,6 @@ import { expectTypeOf, test } from 'vitest'
 
 import {
 	DatabaseDefault,
-	arrayField,
 	booleanField,
 	dateField,
 	enumField,
@@ -46,8 +45,8 @@ test('checks runtime factory outputs against every field value', () => {
 	jsonField({
 		default: () => ({ generated: true }),
 	})
-	arrayField({
-		items: stringField(),
+	stringField({
+		list: true,
 		default: () => ['generated'],
 	})
 	objectField({
@@ -66,9 +65,9 @@ test('checks runtime factory outputs against every field value', () => {
 		// @ts-expect-error -- Enum factories must return one persisted enum value.
 		default: () => 'archived',
 	})
-	// @ts-expect-error -- Array factories must preserve the item field type.
-	arrayField({
-		items: stringField(),
+	stringField({
+		list: true,
+		// @ts-expect-error -- List factories must preserve the field's scalar type.
 		default: () => [1],
 	})
 	// @ts-expect-error -- Object factories must preserve the nested field shape.

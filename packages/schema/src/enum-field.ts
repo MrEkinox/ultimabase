@@ -1,11 +1,14 @@
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
-import { isStaticDefault } from './default-value.js'
 import {
 	normalizeFieldOptions,
 	normalizeFlatValidation,
 } from './field-options.js'
-import type { FieldDefinition, FieldOptions } from './field.js'
+import type {
+	FieldDefinition,
+	FieldOptions,
+	ValidatedFieldOptions,
+} from './field.js'
 
 export type EnumValues = readonly string[] | Readonly<Record<string, string>>
 
@@ -121,16 +124,20 @@ const normalizeEnumValues = (source: unknown): NormalizedEnumSource => {
 const normalizeEnumFieldOptions = (
 	options: EnumFieldOptions,
 ): Readonly<EnumFieldOptions> => {
-	const normalized = normalizeFieldOptions(options, normalizeFlatValidation)
 	const enumSource = normalizeEnumValues(options.values)
+	const normalized = normalizeFieldOptions(
+		options,
+		normalizeFlatValidation,
+		(value, path) => {
+			if (typeof value !== 'string' || !enumSource.values.includes(value)) {
+				const location = path === 'default' ? '' : ` at ${path}`
 
-	if (
-		normalized.default !== undefined &&
-		isStaticDefault(normalized.default) &&
-		!enumSource.values.includes(normalized.default)
-	) {
-		throw new TypeError(`Invalid enum default: ${normalized.default}`)
-	}
+				throw new TypeError(`Invalid enum default${location}: ${String(value)}`)
+			}
+
+			return value
+		},
+	)
 
 	return immutableRecord({
 		...normalized,
@@ -148,7 +155,10 @@ export function enumField<
 	options: TOptions & { readonly values: NonEmptyMapping<TValues> } & Omit<
 			EnumFieldOptions<NoInfer<TValues>>,
 			'values'
-		>,
+		> &
+		(ValidatedFieldOptions<NoInfer<TOptions>, EnumValue<TValues>> extends never
+			? never
+			: unknown),
 ): EnumField<TValues, TOptions>
 
 export function enumField(options: EnumFieldOptions): EnumField {

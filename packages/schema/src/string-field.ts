@@ -5,6 +5,7 @@ import type {
 	FieldDefinition,
 	FieldOptions,
 	FieldValidationOptions,
+	ValidatedFieldOptions,
 } from './field.js'
 import { normalizeNumericRange, type NumericRange } from './numeric-range.js'
 
@@ -78,7 +79,10 @@ export function stringField(): StringField<EmptyStringFieldOptions>
  * Creates immutable string field metadata while preserving every option literal.
  */
 export function stringField<const TOptions extends StringFieldOptions>(
-	options: TOptions,
+	options: TOptions &
+		(ValidatedFieldOptions<NoInfer<TOptions>, string> extends never
+			? never
+			: unknown),
 ): StringField<TOptions>
 
 export function stringField(
