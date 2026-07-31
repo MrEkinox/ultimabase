@@ -26,10 +26,21 @@ describe('typed extensions', () => {
 		expect(extension).toStrictEqual({
 			scope: 'schema',
 			name: 'fixture.permissions',
+			pluginName: 'fixture.permissions',
 			config: { mode: 'strict' },
 		})
 		expect(Object.isFrozen(extension)).toBe(true)
 		expect(Object.isFrozen(extension.config)).toBe(true)
+	})
+
+	it('records an explicit owner when one plugin handles several extensions', () => {
+		const extension = defineFieldExtension(
+			'fixture.visibility',
+			{ redact: true },
+			'fixture.permissions',
+		)
+
+		expect(extension.pluginName).toBe('fixture.permissions')
 	})
 
 	it('returns a frozen copy of an extension list', () => {
@@ -58,5 +69,22 @@ describe('typed extensions', () => {
 		})
 
 		expect(defineExtensions([schemaExtension, fieldExtension])).toHaveLength(2)
+	})
+
+	it('rejects malformed expected plugin metadata', () => {
+		expect(() => defineSchemaExtension('fixture.permissions', {}, '')).toThrow(
+			new TypeError('extension pluginName must be a non-empty string'),
+		)
+		expect(() =>
+			defineExtensions([
+				{
+					scope: 'schema',
+					name: 'fixture.forged',
+					config: {},
+					// @ts-expect-error -- Runtime validation rejects missing ownership metadata.
+					pluginName: undefined,
+				},
+			]),
+		).toThrow(new TypeError('Invalid extension definition'))
 	})
 })

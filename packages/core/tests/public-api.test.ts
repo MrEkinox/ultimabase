@@ -16,6 +16,7 @@ describe('@ultimabase/core public entry point', () => {
 			'createApplication',
 			'createServiceToken',
 			'definePlugin',
+			'extensionHandlerKey',
 			'frameworkErrorCodes',
 			'normalizePlugins',
 		])

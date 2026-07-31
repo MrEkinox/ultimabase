@@ -38,6 +38,7 @@ test('preserves float options and exact literals', () => {
 			{
 				readonly scope: 'field'
 				readonly name: 'fixture.unit'
+				readonly pluginName: 'fixture.unit'
 				readonly config: Readonly<{ readonly name: 'meters' }>
 			},
 		]

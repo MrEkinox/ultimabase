@@ -8,6 +8,8 @@ TypeScript snippets:
   metadata, defaults, generation, and indexes;
 - [`objects-and-lists.md`](objects-and-lists.md) composes reusable nested fields
   and multidimensional lists;
+- [`extensions.md`](extensions.md) declares opaque schema and field metadata
+  owned by a runtime plugin;
 - [`inference-registry-and-plans.md`](inference-registry-and-plans.md) shows
   operation-specific types, schema registration, and validation plans.
 

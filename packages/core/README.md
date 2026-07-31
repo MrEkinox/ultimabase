@@ -169,6 +169,31 @@ commands use isolated `ContributionRegistry` instances. Duplicate names within
 one category fail instead of replacing the first owner. Setup contexts only
 collect declarations; infrastructure work begins in later lifecycle phases.
 
+Extension handlers use a scope-qualified identity so schema and field names stay
+independent:
+
+```ts
+const permissionsPlugin = definePlugin({
+	name: '@example/permissions',
+	setup: ({ registries }) => {
+		registries.extensions.register(
+			extensionHandlerKey('schema', 'class-permissions'),
+			classPermissionHandler,
+		)
+		registries.extensions.register(
+			extensionHandlerKey('field', 'field-permissions'),
+			fieldPermissionHandler,
+		)
+	},
+})
+```
+
+Application initialization checks every schema and nested field extension after
+all setup callbacks and before `connect`. The setup context supplies the handler
+owner, so a plugin cannot claim another plugin's identity. Missing or wrongly
+owned handlers fail with `PLUGIN_EXTENSION_HANDLER_MISSING`; duplicate handler
+keys retain the shared `PLUGIN_CONFLICT` contribution policy.
+
 ## Plugin lifecycle
 
 `PluginLifecycleManager` executes the resolved graph without merging declaration

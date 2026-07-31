@@ -39,6 +39,8 @@ export type {
 export { normalizePlugins } from './plugins/normalization.js'
 export type { NormalizedPlugin } from './plugins/normalization.js'
 export { PluginGraph } from './plugins/graph.js'
+export { extensionHandlerKey } from './plugins/extension-handlers.js'
+export type { ExtensionHandlerKey } from './plugins/extension-handlers.js'
 export { PluginLifecycleManager } from './plugins/lifecycle-manager.js'
 export type { PluginLifecycleState } from './plugins/lifecycle-manager.js'
 export {

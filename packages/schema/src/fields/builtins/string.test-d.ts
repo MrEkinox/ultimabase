@@ -62,6 +62,7 @@ test('preserves field extension literals', () => {
 			{
 				readonly scope: 'field'
 				readonly name: 'fixture.visibility'
+				readonly pluginName: 'fixture.visibility'
 				readonly config: Readonly<{ readonly mode: 'private' }>
 			},
 		]

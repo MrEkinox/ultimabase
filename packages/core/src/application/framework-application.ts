@@ -5,6 +5,7 @@ import {
 	type PluginDefinition,
 	type PluginExports,
 } from '../plugins/definition.js'
+import { validateExtensionHandlers } from '../plugins/extension-handlers.js'
 import { PluginGraph } from '../plugins/graph.js'
 import {
 	PluginLifecycleManager,
@@ -75,7 +76,10 @@ export class FrameworkApplication<
 	const TPlugins extends readonly PluginDefinition[],
 > {
 	readonly schemas: SchemaRegistry<TSchemas>
+	readonly #setupRegistries: PluginSetupRegistries
 	readonly #lifecycle: PluginLifecycleManager
+	#initializePromise: Promise<this> | undefined
+	#startPromise: Promise<void> | undefined
 
 	constructor(options: FrameworkApplicationOptions<TSchemas, TPlugins>) {
 		const untrustedOptions: unknown = options
@@ -85,9 +89,9 @@ export class FrameworkApplication<
 		this.schemas = new SchemaRegistry(options.schemas)
 
 		const graph = new PluginGraph(normalizePlugins(options.plugins))
-		const setupRegistries = new PluginSetupRegistries(this.schemas)
+		this.#setupRegistries = new PluginSetupRegistries(this.schemas)
 
-		this.#lifecycle = new PluginLifecycleManager(graph, setupRegistries)
+		this.#lifecycle = new PluginLifecycleManager(graph, this.#setupRegistries)
 
 		// Public application identity is stable while private lifecycle state may advance.
 		Object.freeze(this)
@@ -98,15 +102,17 @@ export class FrameworkApplication<
 	}
 
 	/** Completes declaration-only plugin setup before the application is returned. */
-	async initialize(): Promise<this> {
-		await this.#lifecycle.setup()
+	initialize(): Promise<this> {
+		this.#initializePromise ??= this.#performInitialize()
 
-		return this
+		return this.#initializePromise
 	}
 
 	/** Starts infrastructure through the deterministic plugin lifecycle. */
 	start(): Promise<void> {
-		return this.#lifecycle.start()
+		this.#startPromise ??= this.#performStart()
+
+		return this.#startPromise
 	}
 
 	/** Stops active infrastructure without releasing setup-owned state. */
@@ -125,6 +131,37 @@ export class FrameworkApplication<
 	): ConfiguredPluginExports<TPlugins, TName> {
 		// The public return type restores the tuple relationship erased by the lifecycle map.
 		return this.#lifecycle.getPluginExports(pluginName)
+	}
+
+	async #performInitialize(): Promise<this> {
+		try {
+			await this.#lifecycle.setup()
+			validateExtensionHandlers(
+				this.schemas.values(),
+				this.#setupRegistries.extensions,
+			)
+
+			return this
+		} catch (error: unknown) {
+			if (this.#lifecycle.state !== 'disposed') {
+				try {
+					await this.#lifecycle.dispose()
+				} catch (cleanupError: unknown) {
+					throw new AggregateError(
+						[error, cleanupError],
+						'Application validation failed and cleanup reported an additional error.',
+						{ cause: cleanupError },
+					)
+				}
+			}
+
+			throw error
+		}
+	}
+
+	async #performStart(): Promise<void> {
+		await this.initialize()
+		await this.#lifecycle.start()
 	}
 }
 

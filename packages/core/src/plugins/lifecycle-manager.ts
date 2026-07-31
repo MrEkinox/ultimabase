@@ -235,6 +235,11 @@ export class PluginLifecycleManager {
 			await collectFailure(async (): Promise<void> => {
 				await this.#startPromise
 			}, errors)
+		} else if (this.#setupPromise !== undefined) {
+			// Standalone setup must settle before disposal snapshots completed plugins.
+			await collectFailure(async (): Promise<void> => {
+				await this.#setupPromise
+			}, errors)
 		}
 
 		if (!this.#isDisposed()) {

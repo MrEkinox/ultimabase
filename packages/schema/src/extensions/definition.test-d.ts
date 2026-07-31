@@ -13,7 +13,7 @@ interface FixturePluginConfig {
 
 const fixtureSchemaPlugin = <const TConfig extends FixturePluginConfig>(
 	config: TConfig,
-): SchemaExtension<'fixture.permissions', TConfig> =>
+): SchemaExtension<'fixture.permissions', TConfig, 'fixture.permissions'> =>
 	defineSchemaExtension('fixture.permissions', config)
 
 test('preserves fixture plugin names and configuration literals', () => {
@@ -22,7 +22,18 @@ test('preserves fixture plugin names and configuration literals', () => {
 	// Plugins retain their exact configuration without Schema knowing its meaning.
 	expectTypeOf(extension.scope).toEqualTypeOf<'schema'>()
 	expectTypeOf(extension.name).toEqualTypeOf<'fixture.permissions'>()
+	expectTypeOf(extension.pluginName).toEqualTypeOf<'fixture.permissions'>()
 	expectTypeOf(extension.config.mode).toEqualTypeOf<'strict'>()
+})
+
+test('preserves an explicit expected plugin name', () => {
+	const extension = defineFieldExtension(
+		'fixture.visibility',
+		{ redact: true },
+		'fixture.permissions',
+	)
+
+	expectTypeOf(extension.pluginName).toEqualTypeOf<'fixture.permissions'>()
 })
 
 test('shares one discriminated contract across schema and field extensions', () => {

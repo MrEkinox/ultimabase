@@ -64,7 +64,11 @@ defineSchema({
 })
 ```
 
-The application fails during setup when a schema extension has no runtime plugin capable of handling it.
+Each extension records its expected plugin without exposing that plugin's
+configuration contract to Schema. During application initialization, Core
+matches `schema:name` and `field:name` handler identities against the setup
+owner. Missing or wrongly owned handlers fail before any infrastructure phase;
+duplicate handlers follow the regular contribution conflict policy.
 
 Plugins may also contribute new logical field kinds. Structural validation
 plans retain the original immutable field definition by identity; the owning

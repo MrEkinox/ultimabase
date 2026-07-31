@@ -281,6 +281,35 @@ describe('PluginLifecycleManager', () => {
 		expect(lifecycle.state).toBe('disposed')
 	})
 
+	it('waits for standalone setup before disposing its completed work', async () => {
+		let completeSetup: (() => void) | undefined
+		const setupBarrier = new Promise<void>((resolve) => {
+			completeSetup = resolve
+		})
+		const events: string[] = []
+		const plugin = definePlugin({
+			name: 'fixture.concurrent-setup',
+			setup: async () => {
+				await setupBarrier
+				events.push('setup')
+			},
+			hooks: {
+				dispose: () => {
+					events.push('dispose')
+				},
+			},
+		})
+		const lifecycle = createLifecycle([plugin])
+		const setup = lifecycle.setup()
+		const disposal = lifecycle.dispose()
+
+		completeSetup?.()
+		await setup
+		await disposal
+		expect(events).toStrictEqual(['setup', 'dispose'])
+		expect(lifecycle.state).toBe('disposed')
+	})
+
 	it('continues reverse cleanup and reports hook failures', async () => {
 		const first = definePlugin({
 			name: 'fixture.first',
@@ -336,6 +365,13 @@ describe('PluginLifecycleManager', () => {
 		await lifecycle.setup()
 		await lifecycle.dispose()
 		expect(events).toStrictEqual(['dispose'])
+	})
+
+	it('allows disposal before setup without creating plugin state', async () => {
+		const lifecycle = createLifecycle([])
+
+		await lifecycle.dispose()
+		expect(lifecycle.state).toBe('disposed')
 	})
 
 	it('aggregates cleanup failures without hiding the startup failure', async () => {
