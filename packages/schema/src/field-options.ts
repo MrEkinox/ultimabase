@@ -11,6 +11,18 @@ const preserveStaticValue: NormalizeStaticValue = (value) => value
 const isUnknownArray = (value: unknown): value is unknown[] =>
 	Array.isArray(value)
 
+/**
+ * Keeps neutral type identity validation independent from generator naming rules.
+ */
+export const assertValidTypeName = (typeName: unknown): void => {
+	if (
+		typeName !== undefined &&
+		(typeof typeName !== 'string' || typeName.length === 0)
+	) {
+		throw new TypeError('typeName must be a non-empty string')
+	}
+}
+
 const normalizeList = (
 	list: unknown,
 ): false | readonly true[] | true | undefined => {

@@ -76,7 +76,11 @@ test('infers object list values from reusable fields', () => {
 		createdAt: dateField(),
 		tags: stringField({ list: true }),
 	}
-	const field = objectField({ fields, list: true })
+	const field = objectField({
+		typeName: 'Profile',
+		fields,
+		list: true,
+	})
 
 	interface ExpectedItem {
 		readonly name: string
@@ -89,6 +93,7 @@ test('infers object list values from reusable fields', () => {
 		readonly ExpectedItem[]
 	>()
 	expectTypeOf(field.options.fields.name.kind).toEqualTypeOf<'string'>()
+	expectTypeOf(field.options.typeName).toEqualTypeOf<'Profile'>()
 	expectTypeOf<ObjectFieldValue<typeof fields>>().toEqualTypeOf<ExpectedItem>()
 	expectTypeOf<ObjectField>().toExtend<
 		FieldDefinition<'object', Readonly<Record<string, unknown>>>
@@ -110,6 +115,8 @@ test('rejects invalid list declarations and structured defaults', () => {
 			name: 'string',
 		},
 	})
+	// @ts-expect-error -- Neutral type identities must use strings.
+	objectField({ typeName: 42, fields: {} })
 	// @ts-expect-error -- Object defaults must use each child field value type.
 	objectField({
 		fields: {

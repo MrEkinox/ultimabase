@@ -230,6 +230,19 @@ enumField({
 
 Persisted values form the exact inferred string union, while mapping keys remain available to future GraphQL and SDK generators. Sources must be non-empty, persisted values must be unique, and static defaults must belong to the inferred domain. Numeric TypeScript enums are rejected because their runtime reverse mappings do not represent a string domain.
 
+`typeName` optionally gives an enum a stable, generator-neutral identity:
+
+```ts
+enumField({
+	typeName: 'PostStatus',
+	values: ['draft', 'published'],
+})
+```
+
+When omitted, generators derive a deterministic name from the owning schema and
+field path. Schema only requires explicit names to be non-empty; each generator
+owns its naming syntax and collision checks.
+
 ## JSON, object, and list fields
 
 `jsonField(options)` represents portable JSON values through the recursive
@@ -250,6 +263,7 @@ numberField({ mode: 'integer', list: [true, true] })
 
 ```ts
 objectField({
+	typeName: 'Profile',
 	fields: {
 		displayName: stringField({
 			validation: {
@@ -265,6 +279,10 @@ objectField({
 	},
 })
 ```
+
+`typeName` follows the same optional identity contract as enum fields. A
+generator may use it as the base for distinct output, create-input,
+update-input, filter, or other generated type names.
 
 `list: true` wraps the scalar or object value once. A non-empty tuple containing
 only `true` values declares its exact depth, so `list: [true, true]` represents a

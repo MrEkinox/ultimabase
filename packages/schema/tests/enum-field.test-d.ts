@@ -21,6 +21,7 @@ enum NumericStatus {
 
 test('infers a literal union from an inline list without as const', () => {
 	const field = enumField({
+		typeName: 'PublicationStatus',
 		values: ['draft', 'published', 'archived'],
 		validation: {
 			required: true,
@@ -34,6 +35,7 @@ test('infers a literal union from an inline list without as const', () => {
 		FieldDefinition<'enum', 'draft' | 'published' | 'archived'>
 	>()
 	expectTypeOf(field.kind).toEqualTypeOf<'enum'>()
+	expectTypeOf(field.options.typeName).toEqualTypeOf<'PublicationStatus'>()
 	expectTypeOf(field.options.values).toEqualTypeOf<
 		readonly ['draft', 'published', 'archived']
 	>()
@@ -75,6 +77,11 @@ test('rejects invalid enum sources and metadata', () => {
 	enumField({ values: ['draft', 'published'], default: 'archived' })
 	// @ts-expect-error -- Enum values must be strings.
 	enumField({ values: ['draft', 1] })
+	enumField({
+		// @ts-expect-error -- Neutral type identities must use strings.
+		typeName: 42,
+		values: ['draft'],
+	})
 	enumField({
 		values: ['draft'],
 		validation: {

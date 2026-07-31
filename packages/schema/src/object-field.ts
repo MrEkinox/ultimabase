@@ -1,6 +1,7 @@
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
 import {
+	assertValidTypeName,
 	normalizeFieldOptions,
 	normalizeFlatValidation,
 } from './field-options.js'
@@ -30,6 +31,7 @@ export type ObjectFieldValue<TFields extends ObjectFields> = {
 export type ObjectFieldOptions<TFields extends ObjectFields = ObjectFields> =
 	FieldOptions<ObjectFieldValue<TFields>> & {
 		readonly fields: TFields
+		readonly typeName?: string
 	}
 
 /**
@@ -182,6 +184,8 @@ export function objectField<
 export function objectField(
 	options: ObjectFieldOptions,
 ): ObjectField<ObjectFields, ObjectFieldOptions> {
+	assertValidTypeName(options.typeName)
+
 	for (const [name, field] of Object.entries(options.fields)) {
 		assertAcyclicFieldTree(field, `fields.${name}`, new WeakSet<object>())
 	}

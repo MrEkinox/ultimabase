@@ -1,6 +1,7 @@
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
 import {
+	assertValidTypeName,
 	normalizeFieldOptions,
 	normalizeFlatValidation,
 } from './field-options.js'
@@ -25,6 +26,7 @@ export type EnumValue<TValues extends EnumValues> =
  */
 export type EnumFieldOptions<TValues extends EnumValues = EnumValues> =
 	FieldOptions<EnumValue<TValues>> & {
+		readonly typeName?: string
 		readonly values: TValues
 	}
 
@@ -124,6 +126,8 @@ const normalizeEnumValues = (source: unknown): NormalizedEnumSource => {
 const normalizeEnumFieldOptions = (
 	options: EnumFieldOptions,
 ): Readonly<EnumFieldOptions> => {
+	assertValidTypeName(options.typeName)
+
 	const enumSource = normalizeEnumValues(options.values)
 	const normalized = normalizeFieldOptions(
 		options,

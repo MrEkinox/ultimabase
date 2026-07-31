@@ -24,6 +24,7 @@ Accepted records:
 - [ADR-0019: Operation-specific schema inference](0019-operation-specific-schema-inference.md)
 - [ADR-0020: Compiled validation plans](0020-compiled-validation-plans.md)
 - [ADR-0021: Field list metadata](0021-field-list-metadata.md)
+- [ADR-0022: Generator-neutral type identities](0022-generated-type-identities.md)
 
 Superseded records:
 

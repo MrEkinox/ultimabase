@@ -63,6 +63,22 @@ describe('enumField', () => {
 		expect(Object.isFrozen(field.options.values)).toBe(true)
 	})
 
+	it('preserves an explicit neutral type name', () => {
+		const field = enumField({
+			typeName: 'PostStatus',
+			values: ['draft', 'published'],
+		})
+
+		expect(field.options.typeName).toBe('PostStatus')
+		expect(() => enumField({ typeName: '', values: ['draft'] })).toThrow(
+			new TypeError('typeName must be a non-empty string'),
+		)
+		expect(() => {
+			// @ts-expect-error -- Runtime coverage crosses the type-name boundary.
+			enumField({ typeName: 42, values: ['draft'] })
+		}).toThrow(new TypeError('typeName must be a non-empty string'))
+	})
+
 	it('accepts a native string enum as a mapping', () => {
 		const field = enumField({
 			values: NativeStatus,

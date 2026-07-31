@@ -40,6 +40,12 @@ Non-empty tuples such as `list: [true, true]` preserve nested list depth without
 introducing a separate array field kind. Field nullability applies to the
 complete list; list elements remain non-null.
 
+Enum and object fields may declare an optional generator-neutral `typeName`.
+Explicit names provide stable reusable type identity; when omitted, generators
+derive deterministic names from the schema and field path. Schema validates
+only that an explicit name is non-empty. GraphQL and other generators own their
+syntax, derived suffixes, and collision detection.
+
 Plugin field helpers can carry operation-specific type overrides with
 `FieldInferenceExtension` while their runtime extension configuration remains
 opaque to Schema.

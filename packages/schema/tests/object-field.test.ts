@@ -54,6 +54,7 @@ describe('object fields and list metadata', () => {
 			enabled: booleanField({ default: true }),
 		}
 		const field = objectField({
+			typeName: 'Preferences',
 			fields,
 			description: 'Embedded preferences',
 		})
@@ -63,7 +64,18 @@ describe('object fields and list metadata', () => {
 		// The field map is detached while each immutable child remains reusable.
 		expect(field.options.fields.name.options).toStrictEqual({})
 		expect(field.options.fields.enabled.options.default).toBe(true)
+		expect(field.options.typeName).toBe('Preferences')
 		expect(Object.isFrozen(field.options.fields)).toBe(true)
+	})
+
+	it('rejects invalid explicit type names', () => {
+		expect(() => objectField({ typeName: '', fields: {} })).toThrow(
+			new TypeError('typeName must be a non-empty string'),
+		)
+		expect(() => {
+			// @ts-expect-error -- Runtime coverage crosses the type-name boundary.
+			objectField({ typeName: 42, fields: {} })
+		}).toThrow(new TypeError('typeName must be a non-empty string'))
 	})
 
 	it('supports finite list nesting on primitive and object fields', () => {
