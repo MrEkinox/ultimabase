@@ -49,6 +49,7 @@ export {
 } from './plugins/setup-registries.js'
 export type {
 	PluginContribution,
+	PluginContributionCategory,
 	PluginContributionRegistries,
 	PluginContributionRegistry,
 } from './plugins/setup-registries.js'

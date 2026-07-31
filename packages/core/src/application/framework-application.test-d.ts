@@ -7,6 +7,7 @@ import {
 	type ConfiguredPluginExports,
 	type ConfiguredPluginName,
 	type FrameworkApplication,
+	type PluginContribution,
 	type PluginDefinition,
 } from '../index.js'
 
@@ -39,6 +40,9 @@ test('infers schemas and top-level plugin exports from application options', asy
 	expectTypeOf(application.getPlugin('fixture.database')).toEqualTypeOf<{
 		dialect: 'postgres'
 	}>()
+	expectTypeOf(application.getContributions('hooks')).toEqualTypeOf<
+		readonly PluginContribution[]
+	>()
 	// @ts-expect-error -- Only configured literal plugin names are addressable.
 	application.getPlugin('fixture.missing')
 })

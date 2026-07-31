@@ -18,6 +18,17 @@ export interface PluginContribution {
 	readonly value: unknown
 }
 
+/** Names every setup contribution category addressable after initialization. */
+export type PluginContributionCategory =
+	| 'commands'
+	| 'events'
+	| 'extensions'
+	| 'generators'
+	| 'hooks'
+	| 'operators'
+	| 'pipelines'
+	| 'transports'
+
 /** Exposes one contribution category while binding writes to the current plugin. */
 export interface PluginContributionRegistry {
 	readonly size: number
@@ -128,6 +139,9 @@ export class PluginSetupRegistries {
 	readonly pipelines: ContributionRegistry = new ContributionRegistry()
 	readonly events: ContributionRegistry = new ContributionRegistry()
 	readonly commands: ContributionRegistry = new ContributionRegistry()
+	readonly #contributionRegistries: Readonly<
+		Record<PluginContributionCategory, ContributionRegistry>
+	>
 	readonly #contexts = new Map<string, PluginSetupContext>()
 
 	constructor(
@@ -135,6 +149,29 @@ export class PluginSetupRegistries {
 		services: ServiceRegistry = new ServiceRegistry(),
 	) {
 		this.services = services
+		this.#contributionRegistries = immutableRecord({
+			commands: this.commands,
+			events: this.events,
+			extensions: this.extensions,
+			generators: this.generators,
+			hooks: this.hooks,
+			operators: this.operators,
+			pipelines: this.pipelines,
+			transports: this.transports,
+		})
+	}
+
+	/** Returns an immutable insertion-ordered snapshot without exposing scoped writes. */
+	getContributions(
+		category: PluginContributionCategory,
+	): readonly PluginContribution[] {
+		assertNonEmptyString(category, 'contribution category')
+
+		if (!Object.hasOwn(this.#contributionRegistries, category)) {
+			throw new TypeError(`Unknown contribution category: ${category}`)
+		}
+
+		return this.#contributionRegistries[category].values()
 	}
 
 	/** Returns one stable owner-bound setup context for a plugin name. */

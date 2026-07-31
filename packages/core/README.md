@@ -174,6 +174,14 @@ commands use isolated `ContributionRegistry` instances. Duplicate names within
 one category fail instead of replacing the first owner. Setup contexts only
 collect declarations; infrastructure work begins in later lifecycle phases.
 
+After setup completes, framework packages can read immutable contribution
+snapshots through `application.getContributions('hooks')` and the other
+categories. Their insertion order is the resolved plugin graph order: required
+dependencies first, then configuration position. Reading during setup or after
+disposal fails, and the returned values do not expose a writable registry.
+Runtime uses this boundary to compose hook and event declarations without Core
+depending on their concrete contracts.
+
 Extension handlers use a scope-qualified identity so schema and field names stay
 independent:
 

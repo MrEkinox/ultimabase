@@ -127,13 +127,20 @@ setup export types, including definitions introduced through nested composition.
   never share mutable global state.
 - `Query<TSchema>` is an immutable unbound definition.
 - `BoundQuery<TSchema>` is the Query-owned neutral facade attached to a Runtime
-  engine; its singular terminals create Operation AST nodes and execute them
+  engine; its terminals create Operation AST nodes and execute them
   through Runtime's neutral engine contract.
 
 The Query AST retains the exact static schema definition and represents
 selection, filtering, ordering, and pagination as immutable discriminated
 nodes. It contains no request, GraphQL, SQL, adapter, or execution state;
 transports normalize into it and adapters compile it behind Runtime contracts.
+
+Runtime hook factories create typed, immutable declarations that plugins place
+in Core's owner-scoped hook and event registries. Once setup completes, Runtime
+reads their dependency-first contribution snapshots and composes the global and
+schema stages around database execution. Before/after hooks transform values
+explicitly; externally visible event handlers run only after the transaction
+commit succeeds.
 
 Access modes are `anonymous`, `user`, and `master`. Request sources such as `rest`, `graphql`, `job`, or `internal` are metadata, not access modes.
 `RequestContext` correlates the mode with immutable request identity, source,

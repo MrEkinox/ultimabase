@@ -22,6 +22,7 @@ import {
 } from '../context/request-context.js'
 import { runWithRequestEngineScope } from '../context/active-framework-storage.js'
 import type { DatabaseOperationResult } from '../database/contracts.js'
+import { getOperationSchema } from '../operations/schema.js'
 import { RuntimePipeline } from '../pipeline/runtime-pipeline.js'
 import { runRequestTransaction } from '../transactions/run-transaction.js'
 import { requiresAtomicBulkTransaction } from '../transactions/atomic-bulk.js'
@@ -51,37 +52,6 @@ export interface FrameworkEngineOptions<
 > {
 	readonly application: FrameworkApplication<TSchemas, TPlugins>
 	readonly pipeline: RuntimePipeline
-}
-
-const createInvalidOperationError = (): FrameworkError<'VALIDATION_ERROR'> =>
-	new FrameworkError(
-		'VALIDATION_ERROR',
-		'Operation does not contain a normalized schema node.',
-		{ publicMessage: 'The operation is invalid.' },
-	)
-
-/** Reads the schema identity retained by query-backed and schema-backed ASTs. */
-const getOperationSchema = (operation: unknown): unknown => {
-	if (!isPlainRecord(operation)) {
-		throw createInvalidOperationError()
-	}
-
-	const queryOrOperation: Record<string, unknown> = isPlainRecord(
-		operation.query,
-	)
-		? operation.query
-		: operation
-	const schemaNode: unknown = queryOrOperation.schema
-
-	if (
-		!isPlainRecord(schemaNode) ||
-		schemaNode.kind !== 'schema' ||
-		!Object.hasOwn(schemaNode, 'definition')
-	) {
-		throw createInvalidOperationError()
-	}
-
-	return schemaNode.definition
 }
 
 /** Rejects malformed low-level construction before it can bind request state. */

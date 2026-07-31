@@ -88,6 +88,55 @@ Nested transactions currently fail with `TRANSACTION_ERROR`; UltimaBase does
 not pretend an adapter supports savepoints. Trusted master request construction
 remains internal until issue 319 adds the audited `useMasterKey` API.
 
+## Hooks and post-commit events
+
+Plugins register typed hook definitions through the Core setup registries. A
+schema is optional for global behavior, while `operations` narrows the terminal
+kinds handled by a contribution:
+
+```ts
+const articleAutomationPlugin = () =>
+	definePlugin({
+		name: 'example.article-automation',
+		setup: ({ registries }) => {
+			registries.hooks.register(
+				'articles.normalize-title',
+				beforeOperation({
+					schema: ArticleSchema,
+					operations: ['create-one'],
+					handler: ({ operation }) => ({
+						operation: {
+							...operation,
+							input: {
+								...operation.input,
+								title: operation.input.title.trim(),
+							},
+						},
+					}),
+				}),
+			)
+
+			registries.events.register(
+				'articles.search-index',
+				postCommitEvent({
+					schema: ArticleSchema,
+					operations: ['create-one', 'update-one'],
+					handler: ({ result }) => searchIndex.upsert(result),
+				}),
+			)
+		},
+	})
+```
+
+Before-hooks return exactly `{ operation }`; after-hooks return exactly
+`{ result }`. Inputs are immutable, and a before-hook must preserve both the
+operation kind and exact schema identity. `createRuntimeHookStages(application)`
+composes definitions in dependency-first plugin order into the fixed Runtime
+pipeline positions. After-hooks still run before commit and can abort the
+transaction. Post-commit events run only after a successful standalone commit;
+explicit transactions buffer them until the outer commit and discard them on
+rollback.
+
 ## Scoped contextual access
 
 Explicit `RequestEngine` injection remains the primary API for transports and

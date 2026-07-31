@@ -6,7 +6,7 @@ import type {
 import { FrameworkApplication } from '@ultimabase/core'
 import type { BoundQuery, FindOperationAst } from '@ultimabase/query'
 import { Query } from '@ultimabase/query'
-import { defineSchema, stringField } from '@ultimabase/schema'
+import { defineSchema, stringField, type InferObject } from '@ultimabase/schema'
 import { expectTypeOf, test } from 'vitest'
 
 import type { DatabaseObjectRecord } from '../database/contracts.js'
@@ -21,8 +21,17 @@ const schema = defineSchema({
 	className: 'TypedArticle',
 	fields: { title: stringField() },
 })
+const authorSchema = defineSchema({
+	className: 'TypedAuthor',
+	fields: { name: stringField() },
+})
 const application = new FrameworkApplication({
 	schemas: [schema],
+	plugins: [],
+})
+const multiSchemaApplication = new FrameworkApplication({
+	// A multi-schema application exercises the executor capability without widening results.
+	schemas: [schema, authorSchema],
 	plugins: [],
 })
 
@@ -31,6 +40,10 @@ declare const pipeline: RuntimePipeline
 
 const framework = new FrameworkEngine({
 	application,
+	pipeline,
+})
+const multiSchemaFramework = new FrameworkEngine({
+	application: multiSchemaApplication,
 	pipeline,
 })
 
@@ -66,6 +79,17 @@ test('preserves application, context, query, and operation result types', () => 
 			return { completed: true as const }
 		}),
 	).toEqualTypeOf<Promise<{ completed: true }>>()
+})
+
+test('keeps bound terminal types exact in multi-schema applications', () => {
+	const request = multiSchemaFramework.user('user-1', {
+		requestId: 'multi-schema-1',
+		source: 'graphql',
+	})
+
+	expectTypeOf(
+		request.query(schema).create({ title: 'Typed article' }),
+	).toEqualTypeOf<Promise<InferObject<typeof schema>>>()
 })
 
 test('retains the internal trusted master request type', () => {

@@ -13,6 +13,10 @@ import {
 } from '../plugins/lifecycle-manager.js'
 import { normalizePlugins } from '../plugins/normalization.js'
 import { PluginSetupRegistries } from '../plugins/setup-registries.js'
+import type {
+	PluginContribution,
+	PluginContributionCategory,
+} from '../plugins/setup-registries.js'
 
 /** Recursively retains top-level and composition-nested plugin definitions. */
 export type ConfiguredPlugin<TPlugins extends readonly PluginDefinition[]> =
@@ -110,6 +114,29 @@ export class FrameworkApplication<
 		const registeredSchema: unknown = this.schemas.get(schema.className)
 
 		return registeredSchema === schema
+	}
+
+	/** Reads completed plugin declarations without exposing owner-scoped writers. */
+	getContributions(
+		category: PluginContributionCategory,
+	): readonly PluginContribution[] {
+		if (
+			this.#lifecycle.state === 'idle' ||
+			this.#lifecycle.state === 'setting-up'
+		) {
+			throw new TypeError(
+				'Application contributions require completed plugin setup',
+			)
+		}
+
+		if (
+			this.#lifecycle.state === 'disposing' ||
+			this.#lifecycle.state === 'disposed'
+		) {
+			throw new TypeError('Application contributions are no longer available')
+		}
+
+		return this.#setupRegistries.getContributions(category)
 	}
 
 	/** Completes declaration-only plugin setup before the application is returned. */

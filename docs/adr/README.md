@@ -69,6 +69,7 @@ Accepted records:
 - [ADR-0067: Selection-aware singular terminals](0067-selection-aware-singular-terminals.md)
 - [ADR-0068: RequestEngine transaction lifetime](0068-request-engine-transactions.md)
 - [ADR-0069: Atomic bulk writes and unique upsert targets](0069-atomic-bulk-and-unique-upserts.md)
+- [ADR-0070: Plugin hooks and post-commit events](0070-plugin-hooks-and-post-commit-events.md)
 
 Superseded records:
 

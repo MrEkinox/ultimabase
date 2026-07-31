@@ -63,6 +63,11 @@ shape from the accumulated selection: no selection yields the full schema
 object, while the example above yields `{ id: string; title?: string }` when
 `title` is optional in the schema.
 
+Executable binding is capability-based, so one Runtime request engine can own
+several schemas while each bound terminal retains the exact selected schema,
+field projection, input, and result type. The broader application schema union
+never widens a schema-specific query result.
+
 When the binding is a Runtime `RequestEngine`, terminals execute the
 neutral Operation AST through the mandatory Runtime pipeline:
 

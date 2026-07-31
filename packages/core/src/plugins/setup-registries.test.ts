@@ -161,4 +161,27 @@ describe('PluginSetupRegistries', () => {
 			new TypeError('pluginName must be a non-empty string'),
 		)
 	})
+
+	it('exposes immutable ordered snapshots without owner-scoped writes', () => {
+		const setupRegistries = new PluginSetupRegistries(new SchemaRegistry())
+		const first = setupRegistries.forPlugin('fixture.first')
+		const second = setupRegistries.forPlugin('fixture.second')
+
+		first.registries.hooks.register('fixture.first.before', 'first')
+		second.registries.hooks.register('fixture.second.before', 'second')
+
+		const contributions = setupRegistries.getContributions('hooks')
+
+		expect(contributions.map(({ name }) => name)).toStrictEqual([
+			'fixture.first.before',
+			'fixture.second.before',
+		])
+		expect(Object.isFrozen(contributions)).toBe(true)
+		expect(() => setupRegistries.getContributions('unknown' as never)).toThrow(
+			new TypeError('Unknown contribution category: unknown'),
+		)
+		expect(() => setupRegistries.getContributions('' as never)).toThrow(
+			new TypeError('contribution category must be a non-empty string'),
+		)
+	})
 })

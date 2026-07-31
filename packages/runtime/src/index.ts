@@ -35,6 +35,28 @@ export type {
 	DatabaseOperationResult,
 	DatabaseTransactionAdapter,
 } from './database/contracts.js'
+// Hook factories remain functions while Core retains plugin contribution ownership.
+export {
+	afterOperation,
+	beforeOperation,
+	postCommitEvent,
+} from './hooks/definitions.js'
+export type {
+	AfterOperationDefinition,
+	AfterOperationHandler,
+	AfterOperationOptions,
+	AfterOperationResult,
+	BeforeOperationDefinition,
+	BeforeOperationHandler,
+	BeforeOperationOptions,
+	BeforeOperationResult,
+	PostCommitEventDefinition,
+	PostCommitEventHandler,
+	PostCommitEventOptions,
+	RuntimeContributionDefinitionUnion,
+} from './hooks/definitions.js'
+export { createRuntimeHookStages } from './hooks/stages.js'
+export type { RuntimeHookStages } from './hooks/stages.js'
 // The engine assembles these neutral stages once and every transport uses them.
 export { RuntimePipeline } from './pipeline/runtime-pipeline.js'
 export type {

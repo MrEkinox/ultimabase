@@ -184,6 +184,9 @@ describe('FrameworkApplication', () => {
 		})
 
 		expect(application.state).toBe('idle')
+		expect(() => application.getContributions('hooks')).toThrow(
+			new TypeError('Application contributions require completed plugin setup'),
+		)
 		expect(() => application.getPlugin('fixture.lazy')).toThrow(
 			new TypeError('Plugin setup has not completed: fixture.lazy'),
 		)
@@ -192,6 +195,33 @@ describe('FrameworkApplication', () => {
 			initialized: true,
 		})
 		await application.dispose()
+		expect(() => application.getContributions('hooks')).toThrow(
+			new TypeError('Application contributions are no longer available'),
+		)
+	})
+
+	it('retains dependency-first contribution order after setup', async () => {
+		const dependency = definePlugin({
+			name: 'fixture.contribution-dependency',
+			setup: ({ registries }) => {
+				registries.hooks.register('fixture.dependency.before', 'dependency')
+			},
+		})
+		const consumer = definePlugin({
+			name: 'fixture.contribution-consumer',
+			dependencies: ['fixture.contribution-dependency'],
+			setup: ({ registries }) => {
+				registries.hooks.register('fixture.consumer.before', 'consumer')
+			},
+		})
+		const application = await createApplication({
+			schemas: [applicationSchema],
+			plugins: [consumer, dependency],
+		})
+
+		expect(
+			application.getContributions('hooks').map(({ name }) => name),
+		).toStrictEqual(['fixture.dependency.before', 'fixture.consumer.before'])
 	})
 
 	it('protects JavaScript callers from malformed option containers', () => {
