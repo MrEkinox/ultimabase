@@ -1,10 +1,10 @@
 # 201: Define framework error model
 
-- Status: planned
+- Status: done
 - Milestone: 2
 - Packages: `@ultimabase/core`
 - Depends on: 101
-- ADR: ADR-0016
+- ADR: ADR-0042
 
 ## Goal
 
@@ -12,10 +12,10 @@ Create typed framework errors with stable codes, causes, safe details, and trans
 
 ## Acceptance criteria
 
-- [ ] Initial codes from the product specification exist.
-- [ ] Sensitive internal details are separable from public details.
-- [ ] Errors preserve causes.
+- [x] Initial codes from the product specification exist.
+- [x] Sensitive internal details are separable from public details.
+- [x] Errors preserve causes.
 
 ## Tests
 
-- [ ] Serialization and cause-chain tests.
+- [x] Serialization and cause-chain tests.

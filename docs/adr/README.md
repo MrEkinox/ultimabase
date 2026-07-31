@@ -41,6 +41,7 @@ Accepted records:
 - [ADR-0039: Structural validation plans reference declared fields](0039-structural-validation-plans.md)
 - [ADR-0040: Explicit temporal autoNow generation](0040-explicit-temporal-auto-now.md)
 - [ADR-0041: Public field snapshot boundary](0041-public-field-snapshot-boundary.md)
+- [ADR-0042: Framework error boundary](0042-framework-error-boundary.md)
 
 Superseded records:
 
