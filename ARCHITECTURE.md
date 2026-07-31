@@ -124,7 +124,8 @@ setup export types, including definitions introduced through nested composition.
   never share mutable global state.
 - `Query<TSchema>` is an immutable unbound definition.
 - `BoundQuery<TSchema>` is the Query-owned neutral facade attached to a Runtime
-  engine; Runtime supplies its terminal execution.
+  engine; its singular terminals create Operation AST nodes and execute them
+  through Runtime's neutral engine contract.
 
 The Query AST retains the exact static schema definition and represents
 selection, filtering, ordering, and pagination as immutable discriminated

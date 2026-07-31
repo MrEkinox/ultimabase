@@ -1,7 +1,13 @@
 import { createServiceToken } from '@ultimabase/core'
 import type { ServiceToken } from '@ultimabase/core'
-import type { OperationAstNode, OperationKind } from '@ultimabase/query'
-import type { InferObject, SchemaDefinition } from '@ultimabase/schema'
+import type {
+	InferOperationResult,
+	InferQueryResult,
+	OperationAstNode,
+	OperationKind,
+	QueryFieldName,
+} from '@ultimabase/query'
+import type { SchemaDefinition } from '@ultimabase/schema'
 
 /**
  * Retains the closed operation discriminants while allowing each request to
@@ -29,50 +35,18 @@ export interface DatabaseOperationRequest<
 	readonly operation: TOperation
 }
 
-type DatabaseOperationSchema<TOperation extends OperationAstNode> =
-	TOperation extends {
-		readonly query: {
-			readonly schema: {
-				readonly definition: infer TSchema extends SchemaDefinition
-			}
-		}
-	}
-		? TSchema
-		: TOperation extends {
-					readonly schema: {
-						readonly definition: infer TSchema extends SchemaDefinition
-					}
-			  }
-			? TSchema
-			: never
-
-/** Represents the fields returned by one adapter after query selection. */
-export type DatabaseObjectRecord<TSchema extends SchemaDefinition> = Readonly<
-	Partial<InferObject<TSchema>>
->
+/** Represents the exact persisted projection returned after query selection. */
+export type DatabaseObjectRecord<
+	TSchema extends SchemaDefinition,
+	TSelectedField extends QueryFieldName<TSchema> = never,
+> = InferQueryResult<TSchema, TSelectedField>
 
 /**
- * Correlates every operation kind with its adapter result semantics. Runtime
- * later validates selected object shapes before exposing developer results.
+ * Reuses Query's terminal result contract so adapters and public terminals
+ * cannot drift on selection, nullability, or singular versus bulk semantics.
  */
 export type DatabaseOperationResult<TOperation extends OperationAstNode> =
-	TOperation extends { readonly kind: 'find' }
-		? readonly DatabaseObjectRecord<DatabaseOperationSchema<TOperation>>[]
-		: TOperation extends {
-					readonly kind: 'first' | 'get' | 'update-one' | 'delete-one'
-			  }
-			? DatabaseObjectRecord<DatabaseOperationSchema<TOperation>> | null
-			: TOperation extends { readonly kind: 'create-one' | 'upsert-one' }
-				? DatabaseObjectRecord<DatabaseOperationSchema<TOperation>>
-				: TOperation extends { readonly kind: 'create-many' | 'upsert-many' }
-					? readonly DatabaseObjectRecord<DatabaseOperationSchema<TOperation>>[]
-					: TOperation extends {
-								readonly kind: 'count' | 'update-many' | 'delete-many'
-						  }
-						? number
-						: TOperation extends { readonly kind: 'exists' }
-							? boolean
-							: never
+	InferOperationResult<TOperation>
 
 /** Executes one normalized operation while preserving its exact result type. */
 export interface DatabaseOperationExecutor {

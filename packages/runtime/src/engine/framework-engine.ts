@@ -10,7 +10,7 @@ import type {
 	UserRequestAccess,
 } from '@ultimabase/access'
 import { Query } from '@ultimabase/query'
-import type { BoundQuery, OperationAst } from '@ultimabase/query'
+import type { BoundQuery, ExecutableOperationAst } from '@ultimabase/query'
 import type { SchemaDefinition } from '@ultimabase/schema'
 import type { MaybePromise } from '@ultimabase/shared'
 import { isPlainRecord } from '@ultimabase/shared'
@@ -260,7 +260,7 @@ export class RequestEngine<
 	}
 
 	/** Executes a normalized operation through this request's mandatory pipeline. */
-	execute<const TOperation extends OperationAst<TSchemas[number]>>(
+	execute<const TOperation extends ExecutableOperationAst<TSchemas[number]>>(
 		operation: TOperation,
 	): Promise<DatabaseOperationResult<TOperation>> {
 		this.framework.assertOwnsSchema(getOperationSchema(operation))

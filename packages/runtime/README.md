@@ -43,13 +43,16 @@ const publishedArticles = request
 	.equalTo('status', 'published')
 	.descending('createdAt')
 	.limit(20)
+	.find()
 ```
 
 The schema must be the exact definition registered by this application. A
 schema from another application is rejected even if it uses the same
 `className`, so parallel applications cannot leak queries or request contexts.
-Direct `execute(operation)` is the current low-level normalized-operation API;
-issues 315 and 316 add developer-facing query and mutation terminals.
+Direct `execute(operation)` remains available as the low-level
+normalized-operation API. Bound queries expose `find`, `first`, `get`, `count`,
+`exists`, `createOne`/`create`, `updateOne`, and `deleteOne`; bulk operations and
+upserts remain in issue 316.
 
 `request.transaction(callback)` already preserves the exact application and
 context in its callback. Runtime assembly provides the transaction runner;
@@ -133,7 +136,7 @@ const articles = await adapter.execute({
 	accessConstraints: [{ kind: 'tenant', tenantId: 'tenant-1' }],
 })
 
-// readonly Partial<Article>[]
+// readonly Article[]
 ```
 
 `beginTransaction()` returns a distinguishable

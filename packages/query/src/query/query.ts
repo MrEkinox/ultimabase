@@ -370,8 +370,8 @@ export class Query<
 		return this.#with({ where })
 	}
 
-	#combine(
-		query: Query<TSchema, QueryFieldName<TSchema>>,
+	#combine<TOtherSelection extends QueryFieldName<TSchema>>(
+		query: Query<TSchema, TOtherSelection>,
 		logicalKind: 'and' | 'or',
 		negate: boolean,
 	): Query<TSchema, TSelectedField> {

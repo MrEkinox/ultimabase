@@ -5,7 +5,8 @@ Transport-neutral Query and Operation AST contracts, normalization, cursor contr
 The public `Query<TSchema>` class is unbound and reusable. `BoundQuery` retains
 an execution owner across immutable branches; Runtime adds execution later.
 
-This package does not execute operations and must not import Core, Runtime, a database, or a transport.
+This package does not own operation execution and must not import Core, Runtime,
+a database, or a transport.
 
 ## Immutable Query builder
 
@@ -40,9 +41,9 @@ value type, while the runtime boundary repeats the validation for JavaScript
 and transport callers.
 
 An unbound `Query` exposes its immutable `ast` and explicit `bind` method, but
-no `find`, `save`, or other terminal operation. Execution will be added by
-Runtime through the separate bound facade, keeping this package independent
-from concrete engines and adapters.
+no executable terminal. Runtime supplies a neutral execution contract through
+the separate bound facade, keeping this package independent from concrete
+engines and adapters.
 
 ## Immutable Runtime binding
 
@@ -57,14 +58,36 @@ reusable.ast.selection.fields // []
 ```
 
 Every bound builder method returns a new `BoundQuery` with the same engine and
-the same Query validation rules. `InferQueryResult` derives the future result
+the same Query validation rules. `InferQueryResult` derives the terminal result
 shape from the accumulated selection: no selection yields the full schema
 object, while the example above yields `{ id: string; title?: string }` when
 `title` is optional in the schema.
 
-`RequestEngine.query(schema)` and executable methods such as `find()` are later
-Runtime capabilities. The current binding facade deliberately does not execute
-or pretend that an adapter pipeline already exists.
+When the binding is a Runtime `RequestEngine`, singular terminals execute the
+neutral Operation AST through the mandatory Runtime pipeline:
+
+```ts
+const article = await requestEngine
+	.query(articleSchema)
+	.equalTo('published', true)
+	.select('id', 'title')
+	.first()
+
+const created = await requestEngine.query(articleSchema).create({
+	title: 'Typed terminals',
+})
+```
+
+The implemented terminals are `find`, `first`, `get`, `count`, `exists`,
+`createOne`/`create`, `updateOne`, and `deleteOne`. The zero-argument
+`exists()` terminal coexists with the Parse-inspired `exists(fieldName)` filter.
+`first`, `get`, `updateOne`, and `deleteOne` return `null` when no object
+matches. Create results contain the complete persisted shape; query-backed
+object results follow the accumulated selection exactly.
+
+Binding an arbitrary opaque object still supports immutable query composition,
+but its terminals cannot be called unless the object satisfies the neutral
+`QueryOperationExecutor` contract.
 
 ## Query AST
 
@@ -100,7 +123,7 @@ that extend the neutral nodes without adding execution concerns to the package.
 
 ## Terminal Operation AST
 
-Every future terminal method normalizes to one discriminated `OperationAst`.
+Every terminal method normalizes to one discriminated `OperationAst`.
 The union distinguishes all thirteen behaviors explicitly:
 
 ```ts

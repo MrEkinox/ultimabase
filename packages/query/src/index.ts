@@ -80,6 +80,7 @@ export type {
 	CreateOneOperationAst,
 	DeleteManyOperationAst,
 	DeleteOneOperationAst,
+	ExecutableOperationAst,
 	ExistsOperationAst,
 	FindOperationAst,
 	FirstOperationAst,
@@ -94,8 +95,10 @@ export type {
 	UpsertOneOperationAst,
 	UpsertOperationItem,
 } from './operations/contracts.js'
+export type { QueryOperationExecutor } from './operations/executor.js'
+export type { InferOperationResult } from './operations/results.js'
 export { BoundQuery } from './query/bound-query.js'
-export type { InferQueryResult } from './query/bound-query.js'
+export type { InferQueryResult } from './query/result.js'
 export { Query } from './query/query.js'
 export { normalizeUpdateExpression } from './updates/normalize.js'
 export type {

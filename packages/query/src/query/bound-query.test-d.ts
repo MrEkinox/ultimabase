@@ -3,10 +3,12 @@ import {
 	defineSchema,
 	intField,
 	stringField,
+	type InferObject,
 } from '@ultimabase/schema'
 import { expectTypeOf, test } from 'vitest'
 
-import type { InferQueryResult } from './bound-query.js'
+import type { QueryOperationExecutor } from '../operations/executor.js'
+import type { InferQueryResult } from './result.js'
 import { Query } from './query.js'
 
 const articleSchema = defineSchema({
@@ -17,6 +19,8 @@ const articleSchema = defineSchema({
 		views: intField(),
 	},
 })
+
+declare const executor: QueryOperationExecutor<typeof articleSchema>
 
 test('binds exact schema and selection types through an engine', () => {
 	// The opaque fixture models the future RequestEngine without pre-implementing it.
@@ -49,4 +53,46 @@ test('binds exact schema and selection types through an engine', () => {
 	}
 
 	expectTypeOf(invalidProjection).toBeObject()
+})
+
+test('types every executable terminal from schema selection and singularity', () => {
+	const query = new Query(articleSchema).bind(executor).select('id', 'title')
+	const filtered = query.exists('title')
+
+	expectTypeOf(query.find()).toEqualTypeOf<
+		Promise<readonly InferQueryResult<typeof articleSchema, 'id' | 'title'>[]>
+	>()
+	expectTypeOf(query.first()).toEqualTypeOf<
+		Promise<InferQueryResult<typeof articleSchema, 'id' | 'title'> | null>
+	>()
+	expectTypeOf(query.get('article-1')).toEqualTypeOf<
+		Promise<InferQueryResult<typeof articleSchema, 'id' | 'title'> | null>
+	>()
+	expectTypeOf(query.count()).toEqualTypeOf<Promise<number>>()
+	expectTypeOf(query.exists()).toEqualTypeOf<Promise<boolean>>()
+	expectTypeOf(filtered).toEqualTypeOf<typeof query>()
+	expectTypeOf(query.createOne({ title: 'Created' })).toEqualTypeOf<
+		Promise<InferObject<typeof articleSchema>>
+	>()
+	expectTypeOf(query.create({ title: 'Created' })).toEqualTypeOf<
+		Promise<InferObject<typeof articleSchema>>
+	>()
+	expectTypeOf(query.updateOne({ increment: { views: 1 } })).toEqualTypeOf<
+		Promise<InferQueryResult<typeof articleSchema, 'id' | 'title'> | null>
+	>()
+	expectTypeOf(query.deleteOne()).toEqualTypeOf<
+		Promise<InferQueryResult<typeof articleSchema, 'id' | 'title'> | null>
+	>()
+
+	// @ts-expect-error -- Object identifiers preserve their schema-derived type.
+	void query.get(1)
+	// @ts-expect-error -- Required create fields cannot be omitted.
+	void query.create({})
+	// @ts-expect-error -- Update input retains field-specific numeric values.
+	void query.updateOne({ increment: { views: 'one' } })
+
+	const opaque = new Query(articleSchema).bind({ kind: 'opaque' })
+
+	// @ts-expect-error -- An opaque binding does not satisfy the execution contract.
+	void opaque.find()
 })

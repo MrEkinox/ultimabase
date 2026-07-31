@@ -6,6 +6,12 @@ import {
 } from '@ultimabase/schema'
 import { describe, expect, it } from 'vitest'
 
+import type {
+	ExecutableOperationAst,
+	OperationAstNode,
+} from '../operations/contracts.js'
+import type { QueryOperationExecutor } from '../operations/executor.js'
+import type { InferOperationResult } from '../operations/results.js'
 import { BoundQuery } from './bound-query.js'
 import { Query } from './query.js'
 
@@ -17,6 +23,23 @@ const articleSchema = defineSchema({
 		views: intField(),
 	},
 })
+
+const terminalError = new Error('Fixture executor does not return results')
+
+/** Records terminal ASTs while keeping result fabrication out of Query tests. */
+class RecordingQueryExecutor implements QueryOperationExecutor<
+	typeof articleSchema
+> {
+	readonly operations: OperationAstNode[] = []
+
+	execute<
+		const TOperation extends ExecutableOperationAst<typeof articleSchema>,
+	>(operation: TOperation): Promise<InferOperationResult<TOperation>> {
+		this.operations.push(operation)
+
+		return Promise.reject(terminalError)
+	}
+}
 
 describe('BoundQuery', () => {
 	it('preserves one engine across immutable query branches', () => {
@@ -99,5 +122,73 @@ describe('BoundQuery', () => {
 		expect(combined.ast.where?.expression).toBe(reusable.ast.where?.expression)
 		expect(combined.ast.limit).toBe(20)
 		expect(combined.engine).toBe(engine)
+	})
+
+	it('creates every singular terminal AST through one neutral executor', async () => {
+		const executor = new RecordingQueryExecutor()
+		const query = new Query(articleSchema)
+			.equalTo('published', true)
+			.select('id', 'title')
+			.bind(executor)
+		const createInput = { title: 'Created' }
+		const executions: readonly Promise<unknown>[] = [
+			query.find(),
+			query.first(),
+			query.get('article-1'),
+			query.count(),
+			query.exists(),
+			query.createOne(createInput),
+			query.create(createInput),
+			query.updateOne({ increment: { views: 1 } }),
+			query.deleteOne(),
+		]
+
+		for (const execution of executions) {
+			await expect(execution).rejects.toBe(terminalError)
+		}
+
+		expect(
+			executor.operations.map((operation) => operation.kind),
+		).toStrictEqual([
+			'find',
+			'first',
+			'get',
+			'count',
+			'exists',
+			'create-one',
+			'create-one',
+			'update-one',
+			'delete-one',
+		])
+		expect(
+			executor.operations.every((operation) => Object.isFrozen(operation)),
+		).toBe(true)
+		expect(executor.operations[2]).toMatchObject({ id: 'article-1' })
+		expect(executor.operations[5]).toMatchObject({
+			schema: query.ast.schema,
+			input: createInput,
+		})
+		expect(executor.operations[7]).toMatchObject({
+			update: {
+				kind: 'update-expression',
+				operations: [{ kind: 'increment', field: 'views', value: 1 }],
+			},
+		})
+	})
+
+	it('keeps field existence filtering available beside the terminal', () => {
+		const executor = new RecordingQueryExecutor()
+		const filtered = new Query(articleSchema).bind(executor).exists('title')
+		const opaque = new Query(articleSchema).bind({ name: 'opaque' })
+
+		expect(filtered.ast.where?.expression).toStrictEqual({
+			kind: 'exists',
+			field: 'title',
+			exists: true,
+		})
+		expect(() =>
+			// @ts-expect-error -- Opaque bindings cannot execute zero-argument exists.
+			opaque.exists(),
+		).toThrow(new TypeError('bound query engine cannot execute operations'))
 	})
 })

@@ -66,6 +66,7 @@ Accepted records:
 - [ADR-0064: Mandatory deterministic Runtime pipeline](0064-mandatory-runtime-pipeline.md)
 - [ADR-0065: Application-owned request engines](0065-application-owned-request-engines.md)
 - [ADR-0066: Derived asynchronous request scopes](0066-derived-asynchronous-request-scopes.md)
+- [ADR-0067: Selection-aware singular terminals](0067-selection-aware-singular-terminals.md)
 
 Superseded records:
 

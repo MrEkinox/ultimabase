@@ -1,4 +1,9 @@
-import type { InferObject, SchemaDefinition } from '@ultimabase/schema'
+import type {
+	InferCreateInput,
+	InferObject,
+	SchemaDefinition,
+} from '@ultimabase/schema'
+import { immutableRecord } from '@ultimabase/shared'
 import type { QueryAst, QueryFieldName } from '../ast/contracts.js'
 import type { QueryFilterNode } from '../filters/logical.js'
 import type {
@@ -6,7 +11,25 @@ import type {
 	QueryFilterValue,
 	QueryRegexPattern,
 } from '../filters/primitive.js'
+import type {
+	CountOperationAst,
+	CreateOneOperationAst,
+	DeleteOneOperationAst,
+	ExistsOperationAst,
+	FindOperationAst,
+	FirstOperationAst,
+	GetOperationAst,
+	OperationObjectId,
+	UpdateOneOperationAst,
+} from '../operations/contracts.js'
+import type { QueryOperationExecutor } from '../operations/executor.js'
+import type {
+	UpdateExpression,
+	UpdateExpressionInput,
+} from '../updates/contracts.js'
+import { normalizeUpdateExpression } from '../updates/normalize.js'
 import type { Query } from './query.js'
+import type { InferQueryResult } from './result.js'
 
 type QueryComparisonValue<
 	TSchema extends SchemaDefinition,
@@ -18,16 +41,16 @@ type QueryStringValue<
 	TFieldName extends QueryFieldName<TSchema>,
 > = Extract<QueryFilterValue<TSchema, TFieldName>, string>
 
-/** Infers the exact object projection returned by future read terminals. */
-export type InferQueryResult<
+/** Narrows an opaque binding before the overloaded exists terminal executes. */
+const isQueryOperationExecutor = <TSchema extends SchemaDefinition>(
+	engine: object,
+): engine is QueryOperationExecutor<TSchema> =>
+	'execute' in engine && typeof engine.execute === 'function'
+
+type ExecutableBoundQuery<
 	TSchema extends SchemaDefinition,
-	TSelectedField extends QueryFieldName<TSchema> = never,
-> = [TSelectedField] extends [never]
-	? InferObject<TSchema>
-	: Pick<
-			InferObject<TSchema>,
-			Extract<TSelectedField, keyof InferObject<TSchema>>
-		>
+	TSelectedField extends QueryFieldName<TSchema>,
+> = BoundQuery<TSchema, TSelectedField, QueryOperationExecutor<TSchema>>
 
 /** Retains one Runtime-owned execution binding across immutable query branches. */
 export class BoundQuery<
@@ -46,7 +69,7 @@ export class BoundQuery<
 		Object.freeze(this)
 	}
 
-	/** Exposes the exact engine retained for future terminal execution. */
+	/** Exposes the exact engine retained for terminal execution. */
 	get engine(): TEngine {
 		return this.#engine
 	}
@@ -202,11 +225,31 @@ export class BoundQuery<
 		return this.#branch(this.#query.matches(fieldName, pattern))
 	}
 
-	/** Adds a positive field-presence condition on a new bound branch. */
+	/** Adds a field-presence condition or executes the zero-argument terminal. */
 	exists(
 		fieldName: QueryFilterFieldName<TSchema, 'exists'>,
-	): BoundQuery<TSchema, TSelectedField, TEngine> {
-		return this.#branch(this.#query.exists(fieldName))
+	): BoundQuery<TSchema, TSelectedField, TEngine>
+
+	exists(this: ExecutableBoundQuery<TSchema, TSelectedField>): Promise<boolean>
+
+	exists(
+		fieldName?: QueryFilterFieldName<TSchema, 'exists'>,
+	): BoundQuery<TSchema, TSelectedField, TEngine> | Promise<boolean> {
+		if (fieldName !== undefined) {
+			return this.#branch(this.#query.exists(fieldName))
+		}
+
+		if (!isQueryOperationExecutor<TSchema>(this.#engine)) {
+			throw new TypeError('bound query engine cannot execute operations')
+		}
+
+		const operation: ExistsOperationAst<
+			TSchema,
+			QueryFilterNode<TSchema>,
+			TSelectedField
+		> = immutableRecord({ kind: 'exists', query: this.ast })
+
+		return this.#engine.execute(operation)
 	}
 
 	/** Adds a negative field-presence condition on a new bound branch. */
@@ -235,6 +278,111 @@ export class BoundQuery<
 		query: Query<TSchema, TOtherSelection>,
 	): BoundQuery<TSchema, TSelectedField, TEngine> {
 		return this.#branch(this.#query.not(query))
+	}
+
+	/** Executes a collection read through the bound Runtime engine. */
+	find(
+		this: ExecutableBoundQuery<TSchema, TSelectedField>,
+	): Promise<readonly InferQueryResult<TSchema, TSelectedField>[]> {
+		const operation: FindOperationAst<
+			TSchema,
+			QueryFilterNode<TSchema>,
+			TSelectedField
+		> = immutableRecord({ kind: 'find', query: this.ast })
+
+		return this.engine.execute(operation)
+	}
+
+	/** Executes a nullable first-match read through the bound Runtime engine. */
+	first(
+		this: ExecutableBoundQuery<TSchema, TSelectedField>,
+	): Promise<InferQueryResult<TSchema, TSelectedField> | null> {
+		const operation: FirstOperationAst<
+			TSchema,
+			QueryFilterNode<TSchema>,
+			TSelectedField
+		> = immutableRecord({ kind: 'first', query: this.ast })
+
+		return this.engine.execute(operation)
+	}
+
+	/** Reads one identifier while retaining this query's selection and filters. */
+	get(
+		this: ExecutableBoundQuery<TSchema, TSelectedField>,
+		id: OperationObjectId<TSchema>,
+	): Promise<InferQueryResult<TSchema, TSelectedField> | null> {
+		const operation: GetOperationAst<
+			TSchema,
+			QueryFilterNode<TSchema>,
+			TSelectedField
+		> = immutableRecord({ kind: 'get', query: this.ast, id })
+
+		return this.engine.execute(operation)
+	}
+
+	/** Counts matches without loading their persisted object values. */
+	count(this: ExecutableBoundQuery<TSchema, TSelectedField>): Promise<number> {
+		const operation: CountOperationAst<
+			TSchema,
+			QueryFilterNode<TSchema>,
+			TSelectedField
+		> = immutableRecord({ kind: 'count', query: this.ast })
+
+		return this.engine.execute(operation)
+	}
+
+	/** Creates one object from schema-derived input through the bound engine. */
+	createOne(
+		this: ExecutableBoundQuery<TSchema, TSelectedField>,
+		input: InferCreateInput<TSchema>,
+	): Promise<InferObject<TSchema>> {
+		const operation: CreateOneOperationAst<TSchema> = immutableRecord({
+			kind: 'create-one',
+			schema: this.ast.schema,
+			input,
+		})
+
+		return this.engine.execute(operation)
+	}
+
+	/** Provides the concise Parse-inspired alias for singular creation. */
+	create(
+		this: ExecutableBoundQuery<TSchema, TSelectedField>,
+		input: InferCreateInput<TSchema>,
+	): Promise<InferObject<TSchema>> {
+		return this.createOne(input)
+	}
+
+	/** Normalizes and executes one atomic update against the first match. */
+	updateOne(
+		this: ExecutableBoundQuery<TSchema, TSelectedField>,
+		input: UpdateExpressionInput<TSchema>,
+	): Promise<InferQueryResult<TSchema, TSelectedField> | null> {
+		const operation: UpdateOneOperationAst<
+			TSchema,
+			UpdateExpression<TSchema>,
+			QueryFilterNode<TSchema>,
+			TSelectedField
+		> = immutableRecord({
+			kind: 'update-one',
+			query: this.ast,
+			update: normalizeUpdateExpression(this.schema, input),
+		})
+
+		return this.engine.execute(operation)
+	}
+
+	/** Deletes and returns the first match, or null when no object matches. */
+	deleteOne(
+		this: ExecutableBoundQuery<TSchema, TSelectedField>,
+	): Promise<InferQueryResult<TSchema, TSelectedField> | null> {
+		const operation: DeleteOneOperationAst<
+			TSchema,
+			QueryFilterNode<TSchema>,
+			TSelectedField
+		> = immutableRecord({ kind: 'delete-one', query: this.ast })
+
+		return this.engine.execute(operation)
 	}
 
 	#branch<TNextSelection extends QueryFieldName<TSchema>>(
