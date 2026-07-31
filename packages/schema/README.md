@@ -16,6 +16,31 @@ Responsibilities:
 
 This package must not know ACL, CLP, roles, PostgreSQL, Drizzle, Hono, or GraphQL. Optional capabilities contribute opaque, typed extensions that runtime plugins later claim.
 
+## Internal layout
+
+Schema implementation files are grouped by domain while `src/index.ts` remains
+the only public manifest:
+
+```text
+src/
+├── fields/
+│   ├── base/
+│   ├── builtins/
+│   ├── constraints/
+│   └── plugin.ts
+├── schema/
+├── plans/
+├── inference/
+├── extensions/
+└── internal/
+```
+
+Dependencies flow from `internal` and `fields/base`, through constraints and
+built-in fields, into schema composition, inference, and validation plans.
+Internal folders deliberately have no barrel files or published subpath
+exports. Tests mirror these major domains under `tests/` and use the root source
+entry unless they specifically verify an internal invariant.
+
 ## Schema definitions
 
 `defineSchema(options)` combines existing field definitions into immutable

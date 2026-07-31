@@ -37,6 +37,7 @@ Accepted records:
 - [ADR-0032: Object list update replacement](0032-object-list-update-replacement.md)
 - [ADR-0033: Field factory provenance and snapshot capabilities](0033-field-factory-provenance.md)
 - [ADR-0034: Object defaults use create-input presence](0034-object-default-create-presence.md)
+- [ADR-0035: Schema domain-oriented internal layout](0035-schema-domain-layout.md)
 
 Superseded records:
 

@@ -1,79 +1,79 @@
-export { bigintField } from './bigint-field.js'
+export { bigintField } from './fields/builtins/bigint.js'
 export type {
 	BigintField,
 	BigintFieldOptions,
 	BigintRangeValidationOptions,
 	BigintValidationOptions,
-} from './bigint-field.js'
-export { binaryField } from './binary-field.js'
+} from './fields/builtins/bigint.js'
+export { binaryField } from './fields/builtins/binary.js'
 export type {
 	BinaryField,
 	BinaryFieldOptions,
 	BinaryLengthValidationOptions,
 	BinaryValidationOptions,
-} from './binary-field.js'
-export { booleanField } from './boolean-field.js'
+} from './fields/builtins/binary.js'
+export { booleanField } from './fields/builtins/boolean.js'
 export type {
 	BooleanField,
 	BooleanFieldOptions,
 	BooleanValidationOptions,
-} from './boolean-field.js'
-export { objectField } from './object-field.js'
+} from './fields/builtins/boolean.js'
+export { objectField } from './fields/builtins/object.js'
 export type {
 	ObjectField,
 	ObjectFieldOptions,
 	ObjectFields,
 	ObjectFieldValue,
-} from './object-field.js'
-export { definePluginField } from './plugin-field.js'
+} from './fields/builtins/object.js'
+export { definePluginField } from './fields/plugin.js'
 export type {
 	PluginFieldDefinition,
 	PluginFieldNormalizers,
 	ReservedFieldKind,
-} from './plugin-field.js'
-export { dateField } from './date-field.js'
+} from './fields/plugin.js'
+export { dateField } from './fields/builtins/date.js'
 export type {
 	DateField,
 	DateFieldOptions,
 	DateRangeValidationOptions,
 	DateValidationOptions,
-} from './date-field.js'
-export { decimalField } from './decimal-field.js'
+} from './fields/builtins/date.js'
+export { decimalField } from './fields/builtins/decimal.js'
 export type {
 	DecimalField,
 	DecimalFieldOptions,
 	DecimalRangeValidationOptions,
 	DecimalValidationOptions,
-} from './decimal-field.js'
-export { dateTimeField } from './date-time-field.js'
+} from './fields/builtins/decimal.js'
+export { dateTimeField } from './fields/builtins/date-time.js'
 export type {
 	DateTimeField,
 	DateTimeFieldOptions,
 	DateTimeRangeValidationOptions,
 	DateTimeValidationOptions,
-} from './date-time-field.js'
+} from './fields/builtins/date-time.js'
 export {
 	DatabaseDefault,
 	getDefaultKind,
 	isStaticDefault,
-} from './default-value.js'
+} from './fields/base/defaults.js'
 export type {
 	DefaultFactory,
 	DefaultKind,
 	FieldDefault,
-} from './default-value.js'
-export { enumField } from './enum-field.js'
+} from './fields/base/defaults.js'
+export { enumField } from './fields/builtins/enum.js'
 export type {
 	EnumField,
 	EnumFieldOptions,
 	EnumValue,
 	EnumValues,
-} from './enum-field.js'
+} from './fields/builtins/enum.js'
 export {
 	defineExtensions,
 	defineFieldExtension,
 	defineSchemaExtension,
-} from './extension.js'
+} from './extensions/definition.js'
 export type {
 	ExtensionDefinition,
 	ExtensionScope,
@@ -81,7 +81,7 @@ export type {
 	FieldInferenceExtension,
 	FieldInferenceOverride,
 	SchemaExtension,
-} from './extension.js'
+} from './extensions/definition.js'
 export type {
 	FieldDefinition,
 	FieldList,
@@ -92,21 +92,21 @@ export type {
 	FieldValidationOptions,
 	FieldValue,
 	ValidatedFieldOptions,
-} from './field.js'
-export { assertFieldOptions } from './field-options.js'
+} from './fields/base/contract.js'
+export { assertFieldOptions } from './fields/base/options.js'
 export type {
 	InferCreateInput,
 	InferObject,
 	InferUpdateInput,
-} from './inference.js'
-export { intField } from './int-field.js'
+} from './inference/types.js'
+export { intField } from './fields/builtins/int.js'
 export type {
 	IntField,
 	IntFieldOptions,
 	IntRangeValidationOptions,
 	IntValidationOptions,
-} from './int-field.js'
-export { jsonField } from './json-field.js'
+} from './fields/builtins/int.js'
+export { jsonField } from './fields/builtins/json.js'
 export type {
 	JsonArray,
 	JsonField,
@@ -114,48 +114,48 @@ export type {
 	JsonObject,
 	JsonPrimitive,
 	JsonValue,
-} from './json-field.js'
-export { floatField } from './float-field.js'
+} from './fields/builtins/json.js'
+export { floatField } from './fields/builtins/float.js'
 export type {
 	FloatField,
 	FloatFieldOptions,
 	FloatRangeValidationOptions,
 	FloatValidationOptions,
-} from './float-field.js'
-export { defineSchema } from './schema.js'
+} from './fields/builtins/float.js'
+export { defineSchema } from './schema/definition.js'
 export type {
 	SchemaDefinition,
 	SchemaExtensions,
 	SchemaFields,
 	SchemaOptions,
-} from './schema.js'
+} from './schema/definition.js'
 export type {
 	SchemaFieldName,
 	SchemaIndexDefinition,
 	SchemaIndexOptions,
-} from './schema-index.js'
-export { DuplicateSchemaError, SchemaRegistry } from './schema-registry.js'
-export { stringField } from './string-field.js'
+} from './schema/indexes.js'
+export { DuplicateSchemaError, SchemaRegistry } from './schema/registry.js'
+export { stringField } from './fields/builtins/string.js'
 export type {
 	StringField,
 	StringFieldOptions,
 	StringLengthValidationOptions,
 	StringValidationOptions,
-} from './string-field.js'
-export { timeField } from './time-field.js'
+} from './fields/builtins/string.js'
+export { timeField } from './fields/builtins/time.js'
 export type {
 	TimeField,
 	TimeFieldOptions,
 	TimeRangeValidationOptions,
 	TimeValidationOptions,
-} from './time-field.js'
-export { uuidField } from './uuid-field.js'
+} from './fields/builtins/time.js'
+export { uuidField } from './fields/builtins/uuid.js'
 export type {
 	UuidField,
 	UuidFieldOptions,
 	UuidValidationOptions,
 	UuidVersion,
-} from './uuid-field.js'
+} from './fields/builtins/uuid.js'
 export type {
 	CreatedAtSystemField,
 	IdSystemField,
@@ -165,8 +165,8 @@ export type {
 	SystemFieldOptions,
 	SystemFields,
 	UpdatedAtSystemField,
-} from './system-field.js'
-export { compileValidationPlans } from './validation-plan-compiler.js'
+} from './schema/system-fields.js'
+export { compileValidationPlans } from './plans/compiler.js'
 export type {
 	ArrayValidationPlan,
 	AnyValidationIssueCode,
@@ -201,4 +201,4 @@ export type {
 	ValidationIssuePath,
 	ValidationOperation,
 	ValidationPresence,
-} from './validation-plan.js'
+} from './plans/contracts.js'
