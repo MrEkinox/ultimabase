@@ -33,3 +33,24 @@ state. `JSON.stringify(error)` uses the error's immutable public payload and
 includes only its code, retryability, `publicMessage`, and `publicDetails`.
 Transports map that payload to HTTP, GraphQL, or other protocol-specific error
 formats without adding transport metadata to Core.
+
+## Service tokens
+
+`createServiceToken<TService>(debugName)` replaces untyped service names with
+one immutable identity carrying the exact service contract:
+
+```ts
+export interface DatabaseService {
+	query(sql: string): Promise<readonly unknown[]>
+}
+
+export const DatabaseServiceToken = createServiceToken<DatabaseService>(
+	'ultimabase.database',
+)
+```
+
+The debug name exists only for logs and errors. Creating another token with the
+same name produces a different identity; consumers must import and share the
+exported token value. Every token accepts one provider per application, and the
+service registry rejects duplicate provision rather than replacing an existing
+service through plugin order.

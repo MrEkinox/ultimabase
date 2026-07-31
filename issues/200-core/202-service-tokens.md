@@ -1,10 +1,10 @@
 # 202: Implement typed service tokens
 
-- Status: planned
+- Status: done
 - Milestone: 2
 - Packages: `@ultimabase/core`
 - Depends on: 201
-- ADR: ADR-0001
+- ADR: ADR-0043
 
 ## Goal
 
@@ -12,10 +12,10 @@ Replace untyped string service lookup with nominal typed tokens.
 
 ## Acceptance criteria
 
-- [ ] Tokens preserve service type inference.
-- [ ] Debug names do not determine token identity.
-- [ ] Duplicate provision policy is explicit.
+- [x] Tokens preserve service type inference.
+- [x] Debug names do not determine token identity.
+- [x] Duplicate provision policy is explicit.
 
 ## Tests
 
-- [ ] Type tests reject mismatched services.
+- [x] Type tests reject mismatched services.
