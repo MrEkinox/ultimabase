@@ -1,37 +1,10 @@
 import type { SchemaDefinition } from '@ultimabase/schema'
-import {
-	assertNonEmptyString,
-	immutableArray,
-	immutableRecord,
-	isPlainRecord,
-} from '@ultimabase/shared'
+import { immutableRecord } from '@ultimabase/shared'
 
-import type {
-	InitialQueryAst,
-	QueryOrderingNode,
-	QuerySchemaNode,
-	QuerySelectionNode,
-} from './contracts.js'
-
-const emptySelection: QuerySelectionNode<never> = immutableRecord({
-	kind: 'selection',
-	fields: immutableArray([]),
-})
-
-const emptyOrdering: QueryOrderingNode<never> = immutableRecord({
-	kind: 'ordering',
-	orders: immutableArray([]),
-})
-
-const assertSchemaReference: (
-	schema: unknown,
-) => asserts schema is SchemaDefinition = (schema) => {
-	if (!isPlainRecord(schema)) {
-		throw new TypeError('query schema must be a schema definition')
-	}
-
-	assertNonEmptyString(schema.className, 'query schema className')
-}
+import { emptyQueryOrdering } from '../clauses/ordering.js'
+import { emptyQuerySelection } from '../clauses/selection.js'
+import type { InitialQueryAst, QuerySchemaNode } from './contracts.js'
+import { assertQuerySchemaReference } from './schema.js'
 
 /** Creates the immutable neutral state from which Query builders will branch. */
 export const createQueryAst = <const TSchema extends SchemaDefinition>(
@@ -39,7 +12,7 @@ export const createQueryAst = <const TSchema extends SchemaDefinition>(
 ): InitialQueryAst<TSchema> => {
 	const untrustedSchema: unknown = schema
 
-	assertSchemaReference(untrustedSchema)
+	assertQuerySchemaReference(untrustedSchema)
 
 	const schemaNode: QuerySchemaNode<TSchema> = immutableRecord({
 		kind: 'schema',
@@ -50,9 +23,9 @@ export const createQueryAst = <const TSchema extends SchemaDefinition>(
 	return immutableRecord({
 		kind: 'query',
 		schema: schemaNode,
-		selection: emptySelection,
+		selection: emptyQuerySelection,
 		where: undefined,
-		ordering: emptyOrdering,
+		ordering: emptyQueryOrdering,
 		pagination: undefined,
 	})
 }

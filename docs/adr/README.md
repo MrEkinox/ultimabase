@@ -54,6 +54,7 @@ Accepted records:
 - [ADR-0052: Typed transport-neutral Query AST](0052-typed-transport-neutral-query-ast.md)
 - [ADR-0053: Field-kind filter capabilities](0053-field-kind-filter-capabilities.md)
 - [ADR-0054: Deterministic logical filter normalization](0054-logical-filter-normalization.md)
+- [ADR-0055: Deterministic query clause normalization](0055-deterministic-query-clause-normalization.md)
 
 Superseded records:
 

@@ -1,21 +1,23 @@
 # 304: Add selection, ordering, limit, and skip
 
-- Status: planned
+- Status: done
 - Milestone: 3
 - Packages: `@ultimabase/query`
 - Depends on: 301
-- ADR: ADR-0004
+- ADR: ADR-0004, ADR-0055
 
 ## Goal
 
-Represent selected fields, includes, deterministic ordering, limit, and offset.
+Represent selected fields, deterministic ordering, limit, and offset. Relation
+inclusion is deferred to issues 701 and 702 so the schema can restrict it to
+pointer and relation fields.
 
 ## Acceptance criteria
 
-- [ ] Selected and ordered fields are schema-checked.
-- [ ] Limits reject invalid values.
-- [ ] Duplicate selection and ordering normalize predictably.
+- [x] Selected and ordered fields are schema-checked.
+- [x] Limits reject invalid values.
+- [x] Duplicate selection and ordering normalize predictably.
 
 ## Tests
 
-- [ ] Runtime and type tests.
+- [x] Runtime and type tests.

@@ -119,3 +119,34 @@ Neutral constants are removed and decisive constants collapse their group. A
 mixed `and`/`or` structure is preserved because flattening it would change its
 meaning. Caller-owned logical objects and arrays are never mutated. Leaf
 factories remain responsible for snapshotting their own operator values.
+
+## Selection, ordering, and offset pagination
+
+Clause normalizers validate fields against the exact schema and return
+immutable AST nodes:
+
+```ts
+import {
+	normalizeQueryOffsetPagination,
+	normalizeQueryOrdering,
+	normalizeQuerySelection,
+} from '@ultimabase/query'
+
+const selection = normalizeQuerySelection(postSchema, ['title', 'id', 'title'])
+const ordering = normalizeQueryOrdering(postSchema, [
+	{ field: 'createdAt', direction: 'descending' },
+	{ field: 'title', direction: 'ascending' },
+])
+const pagination = normalizeQueryOffsetPagination({ limit: 25, skip: 50 })
+```
+
+Selection keeps the first occurrence of a field. Ordering keeps the first
+position of a field while its last declaration controls direction. A limit is
+a positive safe integer, and skip is a non-negative safe integer. Empty clauses
+are removed or represented by shared immutable nodes without mutating caller
+input.
+
+The query package deliberately does not impose an application-wide maximum
+limit. That policy belongs to the runtime or transport layer. Relation
+inclusion will be introduced with pointer and relation fields so only fields
+that can actually be included are accepted.

@@ -15,6 +15,11 @@ export type {
 	QuerySelectionNode,
 	QueryWhereNode,
 } from './ast/contracts.js'
+export { normalizeQueryOrdering } from './clauses/ordering.js'
+export type { QueryOrderInput } from './clauses/ordering.js'
+export { normalizeQueryOffsetPagination } from './clauses/pagination.js'
+export type { QueryOffsetPaginationInput } from './clauses/pagination.js'
+export { normalizeQuerySelection } from './clauses/selection.js'
 export { normalizeLogicalFilter } from './filters/logical.js'
 export type {
 	QueryAndFilterNode,

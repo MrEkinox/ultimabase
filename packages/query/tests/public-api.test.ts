@@ -8,6 +8,9 @@ describe('@ultimabase/query public entry point', () => {
 		expect(Object.keys(publicApi).sort()).toStrictEqual([
 			'createQueryAst',
 			'normalizeLogicalFilter',
+			'normalizeQueryOffsetPagination',
+			'normalizeQueryOrdering',
+			'normalizeQuerySelection',
 		])
 	})
 })

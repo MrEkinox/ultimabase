@@ -58,5 +58,9 @@ describe('createQueryAst', () => {
 		}).toThrow(
 			new TypeError('query schema className must be a non-empty string'),
 		)
+		expect(() => {
+			// @ts-expect-error -- Runtime validation protects forged schema references.
+			createQueryAst({ className: 'Forged' })
+		}).toThrow(new TypeError('query schema fields must be a field map'))
 	})
 })
