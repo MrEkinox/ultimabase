@@ -94,6 +94,8 @@ export type {
 	UpsertOneOperationAst,
 	UpsertOperationItem,
 } from './operations/contracts.js'
+export { BoundQuery } from './query/bound-query.js'
+export type { InferQueryResult } from './query/bound-query.js'
 export { Query } from './query/query.js'
 export { normalizeUpdateExpression } from './updates/normalize.js'
 export type {

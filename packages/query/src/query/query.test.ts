@@ -228,7 +228,7 @@ describe('Query', () => {
 			value: new Uint8Array([1, 2, 3]),
 		})
 		expect(query.schema).toBe(postSchema)
-		expect(query).not.toHaveProperty('bind')
+		expect(query).toHaveProperty('bind')
 		expect(query).not.toHaveProperty('find')
 		expect(query).not.toHaveProperty('save')
 	})

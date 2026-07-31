@@ -60,6 +60,7 @@ Accepted records:
 - [ADR-0058: Immutable unbound Query builder](0058-immutable-unbound-query-builder.md)
 - [ADR-0059: Terminal Operation AST](0059-terminal-operation-ast.md)
 - [ADR-0060: Typed atomic update expressions](0060-typed-atomic-update-expressions.md)
+- [ADR-0061: Neutral BoundQuery facade](0061-neutral-bound-query-facade.md)
 
 Superseded records:
 

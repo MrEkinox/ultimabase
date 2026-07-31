@@ -117,7 +117,8 @@ setup export types, including definitions introduced through nested composition.
 - `FrameworkEngine` belongs to one isolated application.
 - `RequestEngine` carries request context, access mode, capabilities, and an optional transaction.
 - `Query<TSchema>` is an immutable unbound definition.
-- `BoundQuery<TSchema>` is attached to a `RequestEngine` and can execute terminal operations.
+- `BoundQuery<TSchema>` is the Query-owned neutral facade attached to a Runtime
+  engine; Runtime supplies its terminal execution.
 
 The Query AST retains the exact static schema definition and represents
 selection, filtering, ordering, and pagination as immutable discriminated

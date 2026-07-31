@@ -37,7 +37,7 @@ test('preserves schema, AST, and chain result types', () => {
 		.after('opaque.cursor')
 
 	expect(query.schema.className).toBe('Post')
-	expectTypeOf(query).toEqualTypeOf<Query<typeof postSchema>>()
+	expectTypeOf(query).toEqualTypeOf<Query<typeof postSchema, 'title' | 'id'>>()
 	expectTypeOf(query.ast.schema.definition).toEqualTypeOf<typeof postSchema>()
 	expectTypeOf(query.ast.where?.expression).toEqualTypeOf<
 		QueryFilterNode<typeof postSchema> | undefined
@@ -47,7 +47,7 @@ test('preserves schema, AST, and chain result types', () => {
 	>().toEqualTypeOf<'title' | 'views' | 'score' | 'createdAt' | 'updatedAt'>()
 	expectTypeOf<'find'>().not.toExtend<keyof typeof query>()
 	expectTypeOf<'save'>().not.toExtend<keyof typeof query>()
-	expectTypeOf<'bind'>().not.toExtend<keyof typeof query>()
+	expectTypeOf<'bind'>().toExtend<keyof typeof query>()
 
 	// @ts-expect-error -- Public AST roots remain immutable.
 	query.ast.limit = 50

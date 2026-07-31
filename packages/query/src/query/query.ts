@@ -31,6 +31,7 @@ import type {
 	QueryPrimitiveFilterNode,
 	QueryRegexPattern,
 } from '../filters/primitive.js'
+import { BoundQuery } from './bound-query.js'
 
 type QueryBuilderAst<TSchema extends SchemaDefinition> = QueryAst<
 	TSchema,
@@ -57,7 +58,13 @@ type QueryStringValue<
 /**
  * Builds one immutable transport-neutral query without binding execution state.
  */
-export class Query<const TSchema extends SchemaDefinition> {
+export class Query<
+	const TSchema extends SchemaDefinition,
+	TSelectedField extends QueryFieldName<TSchema> = never,
+> {
+	// This type-only member retains selection inference without duplicating AST state.
+	declare private readonly selectedFieldType: TSelectedField
+
 	#ast: QueryBuilderAst<TSchema>
 
 	constructor(schema: TSchema) {
@@ -78,12 +85,14 @@ export class Query<const TSchema extends SchemaDefinition> {
 	}
 
 	/** Adds selected fields while keeping their first declaration order. */
-	select(...fields: readonly QueryFieldName<TSchema>[]): Query<TSchema> {
+	select<const TField extends readonly QueryFieldName<TSchema>[]>(
+		...fields: TField
+	): Query<TSchema, TSelectedField | TField[number]> {
 		const selectedFields = this.#ast.selection.fields.map(
 			(selection) => selection.field,
 		)
 
-		return this.#with({
+		return this.#with<TSelectedField | TField[number]>({
 			selection: normalizeQuerySelection(this.schema, [
 				...selectedFields,
 				...fields,
@@ -92,22 +101,26 @@ export class Query<const TSchema extends SchemaDefinition> {
 	}
 
 	/** Appends ascending order terms without mutating earlier query branches. */
-	ascending(...fields: readonly QueryFieldName<TSchema>[]): Query<TSchema> {
+	ascending(
+		...fields: readonly QueryFieldName<TSchema>[]
+	): Query<TSchema, TSelectedField> {
 		return this.#order('ascending', fields)
 	}
 
 	/** Appends descending order terms without mutating earlier query branches. */
-	descending(...fields: readonly QueryFieldName<TSchema>[]): Query<TSchema> {
+	descending(
+		...fields: readonly QueryFieldName<TSchema>[]
+	): Query<TSchema, TSelectedField> {
 		return this.#order('descending', fields)
 	}
 
 	/** Defines the single page-size clause shared by all pagination strategies. */
-	limit(value: number): Query<TSchema> {
+	limit(value: number): Query<TSchema, TSelectedField> {
 		return this.#with({ limit: normalizeQueryLimit(value) })
 	}
 
 	/** Selects offset pagination and rejects an existing cursor position. */
-	skip(value: number): Query<TSchema> {
+	skip(value: number): Query<TSchema, TSelectedField> {
 		const pagination = normalizeQueryOffsetPagination({ skip: value })
 
 		if (pagination === undefined) {
@@ -125,7 +138,7 @@ export class Query<const TSchema extends SchemaDefinition> {
 	}
 
 	/** Selects forward cursor pagination and rejects an existing offset. */
-	after(cursor: string): Query<TSchema> {
+	after(cursor: string): Query<TSchema, TSelectedField> {
 		if (this.#ast.pagination?.kind === 'offset-pagination') {
 			throw new TypeError('query cannot combine skip and after pagination')
 		}
@@ -139,7 +152,7 @@ export class Query<const TSchema extends SchemaDefinition> {
 	equalTo<TFieldName extends QueryFilterFieldName<TSchema, 'equal'>>(
 		fieldName: TFieldName,
 		value: QueryFilterValue<TSchema, TFieldName>,
-	): Query<TSchema> {
+	): Query<TSchema, TSelectedField> {
 		return this.#appendFilter(
 			createQueryValueFilter(this.schema, 'equal', fieldName, value),
 		)
@@ -149,7 +162,7 @@ export class Query<const TSchema extends SchemaDefinition> {
 	notEqualTo<TFieldName extends QueryFilterFieldName<TSchema, 'not-equal'>>(
 		fieldName: TFieldName,
 		value: QueryFilterValue<TSchema, TFieldName>,
-	): Query<TSchema> {
+	): Query<TSchema, TSelectedField> {
 		return this.#appendFilter(
 			createQueryValueFilter(this.schema, 'not-equal', fieldName, value),
 		)
@@ -159,7 +172,7 @@ export class Query<const TSchema extends SchemaDefinition> {
 	greaterThan<TFieldName extends QueryFilterFieldName<TSchema, 'greater-than'>>(
 		fieldName: TFieldName,
 		value: QueryComparisonValue<TSchema, TFieldName>,
-	): Query<TSchema> {
+	): Query<TSchema, TSelectedField> {
 		return this.#appendFilter(
 			createQueryValueFilter(this.schema, 'greater-than', fieldName, value),
 		)
@@ -171,7 +184,7 @@ export class Query<const TSchema extends SchemaDefinition> {
 	>(
 		fieldName: TFieldName,
 		value: QueryComparisonValue<TSchema, TFieldName>,
-	): Query<TSchema> {
+	): Query<TSchema, TSelectedField> {
 		return this.#appendFilter(
 			createQueryValueFilter(
 				this.schema,
@@ -186,7 +199,7 @@ export class Query<const TSchema extends SchemaDefinition> {
 	lessThan<TFieldName extends QueryFilterFieldName<TSchema, 'less-than'>>(
 		fieldName: TFieldName,
 		value: QueryComparisonValue<TSchema, TFieldName>,
-	): Query<TSchema> {
+	): Query<TSchema, TSelectedField> {
 		return this.#appendFilter(
 			createQueryValueFilter(this.schema, 'less-than', fieldName, value),
 		)
@@ -198,7 +211,7 @@ export class Query<const TSchema extends SchemaDefinition> {
 	>(
 		fieldName: TFieldName,
 		value: QueryComparisonValue<TSchema, TFieldName>,
-	): Query<TSchema> {
+	): Query<TSchema, TSelectedField> {
 		return this.#appendFilter(
 			createQueryValueFilter(
 				this.schema,
@@ -213,7 +226,7 @@ export class Query<const TSchema extends SchemaDefinition> {
 	containedIn<TFieldName extends QueryFilterFieldName<TSchema, 'in'>>(
 		fieldName: TFieldName,
 		values: readonly QueryFilterValue<TSchema, TFieldName>[],
-	): Query<TSchema> {
+	): Query<TSchema, TSelectedField> {
 		return this.#appendFilter(
 			createQueryMembershipFilter(this.schema, 'in', fieldName, values),
 		)
@@ -223,7 +236,7 @@ export class Query<const TSchema extends SchemaDefinition> {
 	notContainedIn<TFieldName extends QueryFilterFieldName<TSchema, 'not-in'>>(
 		fieldName: TFieldName,
 		values: readonly QueryFilterValue<TSchema, TFieldName>[],
-	): Query<TSchema> {
+	): Query<TSchema, TSelectedField> {
 		return this.#appendFilter(
 			createQueryMembershipFilter(this.schema, 'not-in', fieldName, values),
 		)
@@ -233,7 +246,7 @@ export class Query<const TSchema extends SchemaDefinition> {
 	contains<TFieldName extends QueryFilterFieldName<TSchema, 'contains'>>(
 		fieldName: TFieldName,
 		value: QueryStringValue<TSchema, TFieldName>,
-	): Query<TSchema> {
+	): Query<TSchema, TSelectedField> {
 		return this.#appendFilter(
 			createQueryValueFilter(this.schema, 'contains', fieldName, value),
 		)
@@ -243,7 +256,7 @@ export class Query<const TSchema extends SchemaDefinition> {
 	startsWith<TFieldName extends QueryFilterFieldName<TSchema, 'starts-with'>>(
 		fieldName: TFieldName,
 		value: QueryStringValue<TSchema, TFieldName>,
-	): Query<TSchema> {
+	): Query<TSchema, TSelectedField> {
 		return this.#appendFilter(
 			createQueryValueFilter(this.schema, 'starts-with', fieldName, value),
 		)
@@ -253,7 +266,7 @@ export class Query<const TSchema extends SchemaDefinition> {
 	endsWith<TFieldName extends QueryFilterFieldName<TSchema, 'ends-with'>>(
 		fieldName: TFieldName,
 		value: QueryStringValue<TSchema, TFieldName>,
-	): Query<TSchema> {
+	): Query<TSchema, TSelectedField> {
 		return this.#appendFilter(
 			createQueryValueFilter(this.schema, 'ends-with', fieldName, value),
 		)
@@ -263,14 +276,16 @@ export class Query<const TSchema extends SchemaDefinition> {
 	matches(
 		fieldName: QueryFilterFieldName<TSchema, 'regex'>,
 		pattern: QueryRegexPattern,
-	): Query<TSchema> {
+	): Query<TSchema, TSelectedField> {
 		return this.#appendFilter(
 			createQueryRegexFilter(this.schema, fieldName, pattern),
 		)
 	}
 
 	/** Adds a positive field-presence condition. */
-	exists(fieldName: QueryFilterFieldName<TSchema, 'exists'>): Query<TSchema> {
+	exists(
+		fieldName: QueryFilterFieldName<TSchema, 'exists'>,
+	): Query<TSchema, TSelectedField> {
 		return this.#appendFilter(
 			createQueryExistenceFilter(this.schema, fieldName, true),
 		)
@@ -279,31 +294,44 @@ export class Query<const TSchema extends SchemaDefinition> {
 	/** Adds a negative field-presence condition. */
 	doesNotExist(
 		fieldName: QueryFilterFieldName<TSchema, 'exists'>,
-	): Query<TSchema> {
+	): Query<TSchema, TSelectedField> {
 		return this.#appendFilter(
 			createQueryExistenceFilter(this.schema, fieldName, false),
 		)
 	}
 
 	/** Combines the other query's filter with this query through AND. */
-	and(query: Query<TSchema>): Query<TSchema> {
+	and<TOtherSelection extends QueryFieldName<TSchema>>(
+		query: Query<TSchema, TOtherSelection>,
+	): Query<TSchema, TSelectedField> {
 		return this.#combine(query, 'and', false)
 	}
 
 	/** Combines the other query's filter with this query through OR. */
-	or(query: Query<TSchema>): Query<TSchema> {
+	or<TOtherSelection extends QueryFieldName<TSchema>>(
+		query: Query<TSchema, TOtherSelection>,
+	): Query<TSchema, TSelectedField> {
 		return this.#combine(query, 'or', false)
 	}
 
 	/** Adds the negation of the other query's filter through the implicit AND. */
-	not(query: Query<TSchema>): Query<TSchema> {
+	not<TOtherSelection extends QueryFieldName<TSchema>>(
+		query: Query<TSchema, TOtherSelection>,
+	): Query<TSchema, TSelectedField> {
 		return this.#combine(query, 'and', true)
+	}
+
+	/** Retains an execution owner without importing a concrete Runtime engine. */
+	bind<TEngine extends object>(
+		engine: TEngine,
+	): BoundQuery<TSchema, TSelectedField, TEngine> {
+		return new BoundQuery(this, engine)
 	}
 
 	#order(
 		direction: QueryOrderDirection,
 		fields: readonly QueryFieldName<TSchema>[],
-	): Query<TSchema> {
+	): Query<TSchema, TSelectedField> {
 		const orders = this.#ast.ordering.orders.map((order) => ({
 			field: order.field,
 			direction: order.direction,
@@ -320,7 +348,7 @@ export class Query<const TSchema extends SchemaDefinition> {
 	#appendFilter(
 		filter: QueryFilterNode<TSchema>,
 		logicalKind: 'and' | 'or' = 'and',
-	): Query<TSchema> {
+	): Query<TSchema, TSelectedField> {
 		const currentExpression = this.#ast.where?.expression
 		const expression =
 			currentExpression === undefined
@@ -343,10 +371,10 @@ export class Query<const TSchema extends SchemaDefinition> {
 	}
 
 	#combine(
-		query: Query<TSchema>,
+		query: Query<TSchema, QueryFieldName<TSchema>>,
 		logicalKind: 'and' | 'or',
 		negate: boolean,
-	): Query<TSchema> {
+	): Query<TSchema, TSelectedField> {
 		if (query.schema !== this.schema) {
 			throw new TypeError('logical queries must use the same schema definition')
 		}
@@ -367,14 +395,19 @@ export class Query<const TSchema extends SchemaDefinition> {
 		return this.#appendFilter(expression, logicalKind)
 	}
 
-	#with(patch: QueryAstPatch<TSchema>): Query<TSchema> {
-		return Query.#fromAst(immutableRecord({ ...this.#ast, ...patch }))
+	#with<TNextSelection extends QueryFieldName<TSchema> = TSelectedField>(
+		patch: QueryAstPatch<TSchema>,
+	): Query<TSchema, TNextSelection> {
+		return Query.#fromAst<TSchema, TNextSelection>(
+			immutableRecord({ ...this.#ast, ...patch }),
+		)
 	}
 
-	static #fromAst<const TNextSchema extends SchemaDefinition>(
-		ast: QueryBuilderAst<TNextSchema>,
-	): Query<TNextSchema> {
-		const query = new Query(ast.schema.definition)
+	static #fromAst<
+		const TNextSchema extends SchemaDefinition,
+		TNextSelection extends QueryFieldName<TNextSchema>,
+	>(ast: QueryBuilderAst<TNextSchema>): Query<TNextSchema, TNextSelection> {
+		const query = new Query<TNextSchema, TNextSelection>(ast.schema.definition)
 
 		// Private fields remain assignable internally after the public shell is frozen.
 		query.#ast = ast

@@ -2,7 +2,8 @@
 
 Transport-neutral Query and Operation AST contracts, normalization, cursor contracts, operators, and immutable query definitions.
 
-The public `Query<TSchema>` class is unbound and reusable. Runtime binding produces an executable `BoundQuery<TSchema>`.
+The public `Query<TSchema>` class is unbound and reusable. `BoundQuery` retains
+an execution owner across immutable branches; Runtime adds execution later.
 
 This package does not execute operations and must not import Core, Runtime, a database, or a transport.
 
@@ -38,9 +39,32 @@ query. The compiler correlates each field with its legal operators and exact
 value type, while the runtime boundary repeats the validation for JavaScript
 and transport callers.
 
-An unbound `Query` exposes its immutable `ast` but no `find`, `save`, or other
-terminal operation. Execution will be added by Runtime through a separate
-bound query, keeping this package independent from engines and adapters.
+An unbound `Query` exposes its immutable `ast` and explicit `bind` method, but
+no `find`, `save`, or other terminal operation. Execution will be added by
+Runtime through the separate bound facade, keeping this package independent
+from concrete engines and adapters.
+
+## Immutable Runtime binding
+
+Binding retains an opaque execution owner without importing Runtime:
+
+```ts
+const reusable = new Query(articleSchema).equalTo('published', true)
+const bound = reusable.bind(requestEngine).select('id', 'title').limit(25)
+
+// The original remains reusable and has neither selection nor a limit.
+reusable.ast.selection.fields // []
+```
+
+Every bound builder method returns a new `BoundQuery` with the same engine and
+the same Query validation rules. `InferQueryResult` derives the future result
+shape from the accumulated selection: no selection yields the full schema
+object, while the example above yields `{ id: string; title?: string }` when
+`title` is optional in the schema.
+
+`RequestEngine.query(schema)` and executable methods such as `find()` are later
+Runtime capabilities. The current binding facade deliberately does not execute
+or pretend that an adapter pipeline already exists.
 
 ## Query AST
 
