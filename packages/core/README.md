@@ -71,3 +71,32 @@ Providing the same token twice is an error and never replaces the original
 value. Each registry is isolated and has no global state. Calling `dispose()`
 clears its references and releases services implementing `Symbol.dispose` or
 `Symbol.asyncDispose` once, in reverse registration order.
+
+## Plugin definitions
+
+`definePlugin(options)` creates immutable metadata without executing setup or
+lifecycle work:
+
+```ts
+export const databasePlugin = () =>
+	definePlugin({
+		name: 'fixture.database',
+		dependencies: ['fixture.config'],
+		setup: ({ services }) => {
+			const database = createDatabase()
+
+			services.provide(DatabaseServiceToken, database)
+
+			return { database }
+		},
+		hooks: {
+			connect: ({ pluginExports }) => pluginExports.database.connect(),
+		},
+	})
+```
+
+Names and setup exports retain their exact types for future plugin lookup.
+Required dependencies, optional dependencies, conflicts, hooks, and nested
+definitions are copied and frozen. Nested plugins remain global graph entries;
+their placement under `plugins` is composition syntax resolved by later Core
+stages.

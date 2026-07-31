@@ -1,10 +1,10 @@
 # 204: Implement definePlugin
 
-- Status: planned
+- Status: done
 - Milestone: 2
 - Packages: `@ultimabase/core`
 - Depends on: 201, 202
-- ADR: ADR-0003
+- ADR: ADR-0045
 
 ## Goal
 
@@ -12,10 +12,10 @@ Preserve literal plugin names, typed setup exports, dependencies, conflicts, hoo
 
 ## Acceptance criteria
 
-- [ ] Factory results are static definitions, not initialized instances.
-- [ ] Setup return types flow into plugin lookup.
-- [ ] Plugin definitions are immutable.
+- [x] Factory results are static definitions, not initialized instances.
+- [x] Setup return types flow into plugin lookup.
+- [x] Plugin definitions are immutable.
 
 ## Tests
 
-- [ ] Literal-name and export inference tests.
+- [x] Literal-name and export inference tests.
