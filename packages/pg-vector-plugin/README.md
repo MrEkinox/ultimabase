@@ -5,15 +5,14 @@ Plugin-owned vector fields for PostgreSQL pgvector integrations.
 The package currently proves the complete custom-field boundary:
 
 - `vectorField({ dimensions })` creates a namespaced logical field;
-- `@ultimabase/schema` preserves it as an opaque plugin validation plan;
-- `pgVectorPlugin()` claims, reads, and validates that plan without Schema
-  understanding vector configuration;
+- `@ultimabase/schema` retains it through the common scalar validation plan;
+- `pgVectorPlugin()` narrows `plan.field.kind`, then reads and validates the
+  exact vector field without Schema understanding vector configuration;
 - the public value remains an immutable `readonly number[]` snapshot.
 
 The field validates the options container before reading `dimensions` and uses
 Schema's `snapshotValue` contract. Its snapshot is pure, deterministic, and
-idempotent, so static defaults can be safely normalized again during plan
-compilation.
+idempotent, so declaration-time static defaults own detached vector values.
 
 ```ts
 const DocumentSchema = defineSchema({

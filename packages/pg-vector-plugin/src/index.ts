@@ -7,7 +7,7 @@ import {
 	type FieldValidationOptions,
 	type FieldValidationPlan,
 	type PluginFieldDefinition,
-	type PluginFieldValidationPlan,
+	type ScalarValidationPlan,
 	type ValidatedFieldOptions,
 } from '@ultimabase/schema'
 
@@ -38,12 +38,9 @@ export type VectorField<
 > = PluginFieldDefinition<typeof vectorFieldKind, readonly number[], TOptions>
 
 /**
- * Narrows the opaque Schema plan back to the vector plugin's exact contract.
+ * Narrows the shared scalar plan back to the vector plugin's exact contract.
  */
-export type VectorFieldValidationPlan = PluginFieldValidationPlan<
-	typeof vectorFieldKind,
-	VectorField
->
+export type VectorFieldValidationPlan = ScalarValidationPlan<VectorField>
 
 /**
  * Defines the static field-plan capability that Core will later register globally.
@@ -120,12 +117,12 @@ export function vectorField(options: VectorFieldOptions): VectorField {
 }
 
 /**
- * Identifies plans owned by this plugin without weakening built-in discrimination.
+ * Identifies plans owned by this plugin while retaining exact vector metadata.
  */
 export const isVectorFieldValidationPlan = (
 	plan: FieldValidationPlan,
 ): plan is VectorFieldValidationPlan =>
-	plan.kind === 'plugin' && plan.fieldKind === vectorFieldKind
+	plan.kind === 'scalar' && plan.field.kind === vectorFieldKind
 
 /**
  * Returns the static handler definition consumed by the future global plugin registry.

@@ -1,18 +1,5 @@
-import type { BinaryLengthValidationOptions } from '../fields/builtins/binary.js'
-import type { BigintRangeValidationOptions } from '../fields/builtins/bigint.js'
-import type { DateRangeValidationOptions } from '../fields/builtins/date.js'
-import type { DateTimeRangeValidationOptions } from '../fields/builtins/date-time.js'
-import type { DecimalRangeValidationOptions } from '../fields/builtins/decimal.js'
-import type {
-	DatabaseDefault,
-	DefaultFactory,
-} from '../fields/base/defaults.js'
 import type { GenericField } from '../fields/base/contract.js'
-import type { FloatRangeValidationOptions } from '../fields/builtins/float.js'
-import type { IntRangeValidationOptions } from '../fields/builtins/int.js'
-import type { StringLengthValidationOptions } from '../fields/builtins/string.js'
-import type { TimeRangeValidationOptions } from '../fields/builtins/time.js'
-import type { UuidVersion } from '../fields/builtins/uuid.js'
+import type { ObjectField } from '../fields/builtins/object.js'
 
 /** Separates create-time presence rules from update-time mutation rules. */
 export type ValidationOperation = 'create' | 'update'
@@ -88,137 +75,37 @@ export interface ValidationIssue<
 	readonly message: string
 }
 
-/** Preserves static data without interpreting it during plan compilation. */
-export interface StaticValidationDefaultPlan {
-	readonly kind: 'static'
-	readonly value: unknown
-}
-
-/** Preserves runtime behavior without invoking the developer callback. */
-export interface RuntimeValidationDefaultPlan {
-	readonly kind: 'runtime'
-	readonly factory: DefaultFactory<unknown>
-}
-
-/** Defers a temporal default to the operation-scoped runtime clock. */
-export interface RuntimeClockValidationDefaultPlan {
-	readonly kind: 'runtimeClock'
-	readonly value: 'now' | 'today'
-}
-
-/** Leaves database-owned default expressions available to adapter plugins. */
-export interface DatabaseValidationDefaultPlan {
-	readonly kind: 'database'
-	readonly value: DatabaseDefault<unknown>
-}
-
-export type ValidationDefaultPlan =
-	| DatabaseValidationDefaultPlan
-	| RuntimeClockValidationDefaultPlan
-	| RuntimeValidationDefaultPlan
-	| StaticValidationDefaultPlan
-
-interface FieldValidationPlanBase<TKind extends string> {
+interface FieldValidationPlanBase<
+	TKind extends string,
+	TField extends GenericField,
+> {
 	readonly kind: TKind
+	readonly field: TField
 	readonly presence: ValidationPresence
 	readonly nullable: boolean
-	readonly default?: ValidationDefaultPlan
 }
 
-export interface RegExpValidationPattern {
-	readonly source: string
-	readonly flags: string
-}
+/** Reuses one declared scalar field instead of duplicating its validation metadata. */
+export type ScalarValidationPlan<TField extends GenericField = GenericField> =
+	FieldValidationPlanBase<'scalar', TField>
 
-export interface StringValidationPlan extends FieldValidationPlanBase<'string'> {
-	readonly length?: StringLengthValidationOptions
-	readonly match?: RegExpValidationPattern
-}
-
-export interface BigintValidationPlan extends FieldValidationPlanBase<'bigint'> {
-	readonly range?: BigintRangeValidationOptions
-}
-
-export interface BinaryValidationPlan extends FieldValidationPlanBase<'binary'> {
-	readonly length?: BinaryLengthValidationOptions
-}
-
-export interface IntValidationPlan extends FieldValidationPlanBase<'int'> {
-	readonly range?: IntRangeValidationOptions
-}
-
-export interface FloatValidationPlan extends FieldValidationPlanBase<'float'> {
-	readonly range?: FloatRangeValidationOptions
-	readonly finite?: boolean
-}
-
-export type BooleanValidationPlan = FieldValidationPlanBase<'boolean'>
-
-export interface DateValidationPlan extends FieldValidationPlanBase<'date'> {
-	readonly range?: DateRangeValidationOptions
-}
-
-export interface DateTimeValidationPlan extends FieldValidationPlanBase<'dateTime'> {
-	readonly timezone: boolean
-	readonly range?: DateTimeRangeValidationOptions
-}
-
-export interface DecimalValidationPlan extends FieldValidationPlanBase<'decimal'> {
-	readonly precision?: number
-	readonly scale?: number
-	readonly range?: DecimalRangeValidationOptions
-}
-
-export interface EnumValidationPlan extends FieldValidationPlanBase<'enum'> {
-	readonly values: readonly string[]
-}
-
-export type JsonValidationPlan = FieldValidationPlanBase<'json'>
-
-export interface TimeValidationPlan extends FieldValidationPlanBase<'time'> {
-	readonly timezone: boolean
-	readonly range?: TimeRangeValidationOptions
-}
-
-export interface ObjectValidationPlan extends FieldValidationPlanBase<'object'> {
+/** Adds operation-specific children only where object update semantics require them. */
+export interface ObjectValidationPlan<
+	TField extends ObjectField = ObjectField,
+> extends FieldValidationPlanBase<'object', TField> {
 	readonly unknownFields: UnknownFieldPolicy
 	readonly fields: Readonly<Record<string, FieldValidationPlan>>
 }
 
-/** Preserves an opaque plugin field until its runtime handler claims it. */
-export interface PluginFieldValidationPlan<
-	TFieldKind extends string = string,
+/** Represents one list dimension while retaining the original declared field. */
+export interface ArrayValidationPlan<
 	TField extends GenericField = GenericField,
-> extends FieldValidationPlanBase<'plugin'> {
-	readonly fieldKind: TFieldKind
-	readonly field: TField
-}
-
-export interface ArrayValidationPlan extends FieldValidationPlanBase<'array'> {
+> extends FieldValidationPlanBase<'array', TField> {
 	readonly items: FieldValidationPlan
 }
 
-export interface UuidValidationPlan extends FieldValidationPlanBase<'uuid'> {
-	readonly version?: UuidVersion
-}
-
 export type FieldValidationPlan =
-	| ArrayValidationPlan
-	| BigintValidationPlan
-	| BinaryValidationPlan
-	| BooleanValidationPlan
-	| DateValidationPlan
-	| DateTimeValidationPlan
-	| DecimalValidationPlan
-	| EnumValidationPlan
-	| FloatValidationPlan
-	| IntValidationPlan
-	| JsonValidationPlan
-	| ObjectValidationPlan
-	| PluginFieldValidationPlan
-	| StringValidationPlan
-	| TimeValidationPlan
-	| UuidValidationPlan
+	ArrayValidationPlan | ObjectValidationPlan | ScalarValidationPlan
 
 /** Represents one operation-specific root input contract. */
 export interface SchemaValidationPlan {

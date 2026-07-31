@@ -1,31 +1,19 @@
 import { expectTypeOf, test } from 'vitest'
 
 import {
-	bigintField,
-	binaryField,
 	compileValidationPlans,
-	decimalField,
-	dateTimeField,
+	definePluginField,
 	defineSchema,
-	floatField,
-	intField,
+	objectField,
 	stringField,
-	timeField,
-	type FieldValidationPlan,
 	type ArrayValidationPlan,
-	type BigintValidationPlan,
-	type BinaryValidationPlan,
-	type DateTimeValidationPlan,
-	type DecimalValidationPlan,
-	type FloatValidationPlan,
-	type IntValidationPlan,
-	type PluginFieldValidationPlan,
+	type FieldOptions,
+	type FieldValidationOptions,
+	type FieldValidationPlan,
+	type ObjectValidationPlan,
 	type PluginValidationIssueCode,
-	type RuntimeClockValidationDefaultPlan,
-	type RuntimeValidationDefaultPlan,
+	type ScalarValidationPlan,
 	type SchemaValidationPlans,
-	type StringValidationPlan,
-	type TimeValidationPlan,
 	type ValidationIssue,
 	type ValidationIssueCode,
 	type ValidationIssuePath,
@@ -33,87 +21,35 @@ import {
 	type ValidationPresence,
 } from '../index.js'
 
-test('exports discriminated operation and field plans', () => {
+test('exports structural operation and field plans', () => {
 	const schema = defineSchema({
 		className: 'User',
 		fields: {
-			name: stringField({
-				validation: { required: true },
-			}),
+			name: stringField({ validation: { required: true } }),
+			profile: objectField({ fields: { bio: stringField() } }),
+			tags: stringField({ list: true }),
 		},
 	})
 	const plans = compileValidationPlans(schema)
 	const namePlan = plans.create.fields.name
+	const profilePlan = plans.create.fields.profile
+	const tagsPlan = plans.create.fields.tags
 
 	expectTypeOf(plans).toEqualTypeOf<SchemaValidationPlans>()
 	expectTypeOf(plans.create.operation).toEqualTypeOf<ValidationOperation>()
 	expectTypeOf(namePlan).toEqualTypeOf<FieldValidationPlan | undefined>()
 
-	if (namePlan?.kind === 'string') {
-		expectTypeOf(namePlan).toEqualTypeOf<StringValidationPlan>()
+	if (namePlan?.kind === 'scalar') {
+		expectTypeOf(namePlan).toEqualTypeOf<ScalarValidationPlan>()
 		expectTypeOf(namePlan.presence).toEqualTypeOf<ValidationPresence>()
 	}
-})
 
-test('narrows integer and float plans as distinct kinds', () => {
-	const schema = defineSchema({
-		className: 'NumericPlan',
-		fields: {
-			largeCount: bigintField(),
-			avatar: binaryField(),
-			count: intField(),
-			ratio: floatField(),
-			processedAt: dateTimeField(),
-			price: decimalField(),
-			reminderTime: timeField(),
-		},
-	})
-	const plans = compileValidationPlans(schema).create.fields
-	const count = plans.count
-	const largeCount = plans.largeCount
-	const avatar = plans.avatar
-	const ratio = plans.ratio
-	const processedAt = plans.processedAt
-	const price = plans.price
-	const reminderTime = plans.reminderTime
-
-	if (largeCount?.kind === 'bigint') {
-		expectTypeOf(largeCount).toEqualTypeOf<BigintValidationPlan>()
+	if (profilePlan?.kind === 'object') {
+		expectTypeOf(profilePlan).toEqualTypeOf<ObjectValidationPlan>()
+		expectTypeOf(profilePlan.fields).toEqualTypeOf<
+			Readonly<Record<string, FieldValidationPlan>>
+		>()
 	}
-
-	if (avatar?.kind === 'binary') {
-		expectTypeOf(avatar).toEqualTypeOf<BinaryValidationPlan>()
-	}
-
-	if (count?.kind === 'int') {
-		expectTypeOf(count).toEqualTypeOf<IntValidationPlan>()
-	}
-
-	if (ratio?.kind === 'float') {
-		expectTypeOf(ratio).toEqualTypeOf<FloatValidationPlan>()
-	}
-
-	if (processedAt?.kind === 'dateTime') {
-		expectTypeOf(processedAt).toEqualTypeOf<DateTimeValidationPlan>()
-	}
-
-	if (price?.kind === 'decimal') {
-		expectTypeOf(price).toEqualTypeOf<DecimalValidationPlan>()
-	}
-
-	if (reminderTime?.kind === 'time') {
-		expectTypeOf(reminderTime).toEqualTypeOf<TimeValidationPlan>()
-	}
-})
-
-test('narrows list wrappers independently from scalar field kinds', () => {
-	const schema = defineSchema({
-		className: 'TagList',
-		fields: {
-			tags: stringField({ list: [true, true] }),
-		},
-	})
-	const tagsPlan = compileValidationPlans(schema).create.fields.tags
 
 	if (tagsPlan?.kind === 'array') {
 		expectTypeOf(tagsPlan).toEqualTypeOf<ArrayValidationPlan>()
@@ -121,44 +57,29 @@ test('narrows list wrappers independently from scalar field kinds', () => {
 	}
 })
 
-test('narrows opaque plugin plans without overlapping built-in kinds', () => {
-	const assertPluginNarrowing = (plan: FieldValidationPlan): void => {
-		if (plan.kind === 'plugin') {
-			expectTypeOf(plan).toEqualTypeOf<PluginFieldValidationPlan>()
-			expectTypeOf(plan.fieldKind).toEqualTypeOf<string>()
-		}
-	}
+test('preserves exact plugin fields through scalar plan generics', () => {
+	type FixtureOptions = FieldOptions<string> & { readonly dimensions: 3 }
 
-	// The parameter boundary verifies discrimination from the complete public union.
-	assertPluginNarrowing({
-		kind: 'plugin',
-		fieldKind: 'fixture.custom',
-		field: {
-			kind: 'fixture.custom',
-			options: {},
+	const field = definePluginField<
+		string,
+		'fixture.vector',
+		FieldValidationOptions,
+		FixtureOptions
+	>(
+		'fixture.vector',
+		{ dimensions: 3 },
+		{
+			snapshotValue: (value: unknown): string => String(value),
 		},
+	)
+	const plan: ScalarValidationPlan<typeof field> = {
+		kind: 'scalar',
+		field,
 		presence: 'optional',
 		nullable: false,
-	})
-})
+	}
 
-test('narrows default descriptors without unsafe result types', () => {
-	const plan = {
-		kind: 'runtime',
-		factory: (): string => 'generated',
-	} satisfies RuntimeValidationDefaultPlan
-
-	expectTypeOf(plan.factory()).toEqualTypeOf<string>()
-	expectTypeOf<
-		RuntimeValidationDefaultPlan['factory']
-	>().returns.toEqualTypeOf<unknown>()
-
-	const clockPlan = {
-		kind: 'runtimeClock',
-		value: 'now',
-	} satisfies RuntimeClockValidationDefaultPlan
-
-	expectTypeOf(clockPlan.value).toEqualTypeOf<'now'>()
+	expectTypeOf(plan.field.options.dimensions).toEqualTypeOf<3>()
 })
 
 test('defines stable issue codes and nested paths', () => {

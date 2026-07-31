@@ -15,6 +15,6 @@ an independent plugin package.
 
 - [x] `vectorField` exposes exact dimensions, common metadata, defaults, and lists.
 - [x] Vector snapshots reject invalid dimensions and non-finite components.
-- [x] The plugin claims and reads its opaque Schema validation plan.
+- [x] The plugin claims and reads its shared scalar validation plan.
 - [x] The package remains independent from PostgreSQL and Drizzle infrastructure.
 - [x] Runtime and compile-time tests cover the public API and plan narrowing.

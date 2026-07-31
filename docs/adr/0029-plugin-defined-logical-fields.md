@@ -2,6 +2,7 @@
 
 - Status: accepted
 - Date: 2026-07-31
+- Plan representation refined by: ADR-0039
 
 ## Decision
 

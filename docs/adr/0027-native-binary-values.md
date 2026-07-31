@@ -3,6 +3,7 @@
 - Status: accepted
 - Date: 2026-07-31
 - Extends: ADR-0018, ADR-0020
+- Validation-plan copy behavior superseded by: ADR-0039
 
 ## Decision
 

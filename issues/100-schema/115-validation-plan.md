@@ -8,11 +8,11 @@
 
 ## Goal
 
-Compile primitive field metadata into transport-neutral normalization and validation plans without Zod or another source of truth.
+Compile transport-neutral create and update validation structure without Zod or another source of truth.
 
 ## Acceptance criteria
 
-- [x] Required, nullable, defaults, constraints, and unknown fields are represented.
+- [x] Required, nullable, field references, nested structure, and unknown fields are represented.
 - [x] Plans distinguish create and update behavior.
 - [x] Validation issues carry stable paths and codes.
 

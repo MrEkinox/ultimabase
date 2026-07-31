@@ -75,12 +75,12 @@ database adapters own physical compilation and table naming.
 ## Validation plans
 
 `compileValidationPlans(schema)` derives separate create and update plans.
-Every field plan records its expected kind, nullability, input presence, and
-primitive constraints. Object fields reject unknown properties recursively.
-List metadata compiles into one or more array plan wrappers around the original
-scalar or object plan.
+Every node records input presence and nullability while retaining its original
+declared field. Scalar constraints and defaults stay exclusively in that field
+instead of being reconstructed in a parallel plan model. Compilation never
+invokes runtime default factories.
 
-Defaults remain inert descriptors during compilation: static values are
-retained, runtime factories are never called, and database defaults remain
-adapter-owned. Runtime later executes the plan and returns `ValidationIssue`
-objects with stable codes and nested paths.
+Object fields add recursively compiled children and reject unknown properties.
+List metadata compiles into one or more array wrappers around the original
+scalar or object node. Runtime later executes this structural plan and returns
+`ValidationIssue` objects with stable codes and nested paths.

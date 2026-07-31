@@ -13,7 +13,7 @@ import {
 	type VectorFieldValidationPlan,
 } from '../src/index.js'
 
-test('narrows opaque plans through the plugin handler', () => {
+test('narrows shared scalar plans through the plugin handler', () => {
 	const schema = defineSchema({
 		className: 'Document',
 		fields: { embedding: vectorField({ dimensions: 3 }) },

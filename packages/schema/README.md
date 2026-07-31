@@ -182,15 +182,16 @@ plans.create.fields.name?.presence // "required", "optional", or "forbidden"
 plans.update.unknownFields // "reject"
 ```
 
-Plans preserve primitive constraints, enum domains, object and list structure,
-nullability, and default ownership. Static values, runtime factories, and
-`DatabaseDefault` instances use separate discriminated descriptors. Compilation
-never invokes a factory or executes a constraint.
+Plans retain each original field by identity instead of rebuilding scalar
+constraints, enum domains, defaults, or type-specific options. A scalar node
+therefore contains only `kind: "scalar"`, `field`, `presence`, and `nullable`.
+Object and array nodes add only their operation-specific child structure.
+Compilation never invokes a default factory or executes a constraint.
 
 Create plans require only fields without a default or generated value. Update
 plans make mutable fields optional and mark generated or immutable fields as
 forbidden. List items are always required, non-null values rather than optional
-properties. Scalar object updates are deep patches, so their mutable children
+properties. Direct object updates are deep patches, so their mutable children
 remain optional. Updating a list replaces its complete value, so object items
 inside the replacement use create-input rules and require every child declared
 as required without a default.
@@ -238,8 +239,9 @@ executes database expressions.
 String fields add declarative `validation.length.min`, `validation.length.max`,
 and `validation.match` constraints. Lengths must be non-negative safe integers,
 and `min` cannot exceed `max`. Match constraints use native `RegExp` values.
-The field owns a frozen copy, while validation plans expose only immutable
-`source` and `flags` data so runtime execution cannot share `lastIndex` state.
+The field owns a frozen `RegExp` copy. Runtime validators construct or reset
+their own matching state so repeated validation cannot leak `lastIndex` across
+requests.
 
 ## Integer fields
 
@@ -466,18 +468,18 @@ common presence validation remains available when it is omitted.
 
 `snapshotValue(value, path)` is a declaration-time snapshot boundary, not a
 request validator. It must be pure, deterministic, and idempotent because
-Schema may reapply it when compiling static defaults. Mutable logical values
-must be returned as detached snapshots; plugins should freeze nested data when
-their public immutability contract requires it. `assertFieldOptions` is exposed
-for community factories that need to validate an unknown options container
-before reading plugin-specific properties.
+Schema applies it when declaring static defaults. Mutable logical values must
+be returned as detached snapshots; plugins should freeze nested data when their
+public immutability contract requires it. `assertFieldOptions` is exposed for
+community factories that need to validate an unknown options container before
+reading plugin-specific properties.
 
-Validation-plan compilation preserves unknown logical fields as an opaque
-`PluginFieldValidationPlan` containing both the namespaced `fieldKind` and the
-immutable original `field`. The plugin can therefore read its complete typed
-configuration instead of losing it during compilation. A future Core registry
-will reject unclaimed or conflicting plugin kinds during application setup;
-Schema remains independently usable and does not own that registry.
+Validation-plan compilation preserves every logical field through the shared
+`ScalarValidationPlan`. A plugin type guard checks `plan.field.kind` and narrows
+the generic plan to its exact field definition, retaining the complete typed
+configuration without a parallel plugin-only plan. A future Core registry will
+reject unclaimed or conflicting plugin kinds during application setup; Schema
+remains independently usable and does not own that registry.
 
 Plugin validators report machine-readable failures through
 `PluginValidationIssueCode<TFieldKind>`, which retains field-kind ownership in

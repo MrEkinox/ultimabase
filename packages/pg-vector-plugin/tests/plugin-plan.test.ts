@@ -29,7 +29,11 @@ describe('pgVectorPlugin field plans', () => {
 		})
 		const plan = compileValidationPlans(schema).create.fields.embedding
 
-		expect(plan?.default).toStrictEqual({ kind: 'static', value: [1, 2] })
+		if (plan === undefined || !isVectorFieldValidationPlan(plan)) {
+			throw new TypeError('Expected Schema to preserve the vector scalar plan')
+		}
+
+		expect(plan.field.options.default).toStrictEqual([1, 2])
 	})
 
 	it('claims and reads a vector plan preserved by Schema', () => {
@@ -44,9 +48,9 @@ describe('pgVectorPlugin field plans', () => {
 		const plan = compileValidationPlans(schema).create.fields.embedding
 		const plugin = pgVectorPlugin()
 
+		expect(plugin.fieldKind).toBe(vectorFieldKind)
 		expect(plan).toStrictEqual({
-			kind: 'plugin',
-			fieldKind: vectorFieldKind,
+			kind: 'scalar',
 			field,
 			presence: 'required',
 			nullable: false,
@@ -86,8 +90,7 @@ describe('pgVectorPlugin field plans', () => {
 	it('does not claim another plugin field kind', () => {
 		const plugin = pgVectorPlugin()
 		const foreignPlan = {
-			kind: 'plugin',
-			fieldKind: 'fixture.foreign',
+			kind: 'scalar',
 			field: { kind: 'fixture.foreign', options: {} },
 			presence: 'optional',
 			nullable: false,

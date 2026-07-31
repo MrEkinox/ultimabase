@@ -66,10 +66,10 @@ defineSchema({
 
 The application fails during setup when a schema extension has no runtime plugin capable of handling it.
 
-Plugins may also contribute new logical field kinds. Schema preserves their
-immutable definitions in opaque validation plans; the owning plugin claims the
-kind and contributes its validation and adapter behavior. Logical kinds use
-namespaced identifiers so community packages do not collide with built-ins.
+Plugins may also contribute new logical field kinds. Structural validation
+plans retain the original immutable field definition by identity; the owning
+plugin claims its namespaced kind and contributes validation and adapter
+behavior without a second plugin-only plan representation.
 
 ## Plugins
 

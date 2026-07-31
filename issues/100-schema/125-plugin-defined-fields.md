@@ -16,5 +16,5 @@ survives schema compilation.
 - [x] Schema exposes a typed plugin-field factory without knowing concrete plugins.
 - [x] Framework-owned field kinds cannot be shadowed.
 - [x] Common field metadata and nested lists reuse the built-in normalization rules.
-- [x] Validation plans preserve the immutable plugin field and its logical kind.
+- [x] Shared scalar plans preserve the immutable plugin field and its logical kind.
 - [x] Runtime and compile-time tests cover inference, guards, defaults, and lists.

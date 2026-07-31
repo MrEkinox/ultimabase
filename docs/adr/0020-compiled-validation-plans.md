@@ -1,7 +1,9 @@
 # ADR-0020: Compiled validation plans
 
-- Status: accepted
+- Status: superseded
 - Date: 2026-07-30
+- Superseded by: ADR-0039
+- Default contract superseded in part by: ADR-0038
 
 ## Decision
 
