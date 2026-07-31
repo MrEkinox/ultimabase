@@ -14,3 +14,7 @@ Plan independent money, encrypted, hashed, geo, vector, virtual, and computed fi
 
 - [ ] Each field kind receives its own focused follow-up issue before implementation.
 - [ ] Secrets and precision behavior are explicit.
+
+## Follow-up issues
+
+- [728: Add the pg-vector field plugin contract](728-pg-vector-field-plugin.md)

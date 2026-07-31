@@ -25,6 +25,12 @@ export type {
 	ObjectFields,
 	ObjectFieldValue,
 } from './object-field.js'
+export { definePluginField } from './plugin-field.js'
+export type {
+	PluginFieldDefinition,
+	PluginFieldNormalizers,
+	ReservedFieldKind,
+} from './plugin-field.js'
 export { dateField } from './date-field.js'
 export type {
 	DateField,
@@ -85,6 +91,7 @@ export type {
 	FieldOptionsValue,
 	FieldValidationOptions,
 	FieldValue,
+	ValidatedFieldOptions,
 } from './field.js'
 export type {
 	InferCreateInput,
@@ -174,6 +181,7 @@ export type {
 	IntValidationPlan,
 	JsonValidationPlan,
 	ObjectValidationPlan,
+	PluginFieldValidationPlan,
 	RuntimeClockValidationDefaultPlan,
 	RuntimeValidationDefaultPlan,
 	SchemaValidationPlan,

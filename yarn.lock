@@ -1583,6 +1583,18 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@ultimabase/pg-vector-plugin@workspace:packages/pg-vector-plugin":
+  version: 0.0.0-use.local
+  resolution: "@ultimabase/pg-vector-plugin@workspace:packages/pg-vector-plugin"
+  dependencies:
+    "@ultimabase/schema": "workspace:^"
+    "@ultimabase/shared": "workspace:^"
+    tsdown: "npm:^0.22.14"
+    typescript: "npm:^6.0.3"
+    vitest: "npm:4.1.10"
+  languageName: unknown
+  linkType: soft
+
 "@ultimabase/postgres-migrations@workspace:packages/postgres-migrations":
   version: 0.0.0-use.local
   resolution: "@ultimabase/postgres-migrations@workspace:packages/postgres-migrations"

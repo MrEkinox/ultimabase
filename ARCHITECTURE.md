@@ -31,6 +31,7 @@ An arrow means “imports or depends on” and always points toward a foundation
 
 ```text
 schema ───────────────→ shared
+pg-vector-plugin ─────→ schema, shared
 query ────────────────→ schema, shared
 access ───────────────→ schema, shared
 core ─────────────────→ access, schema, shared
@@ -64,6 +65,11 @@ defineSchema({
 ```
 
 The application fails during setup when a schema extension has no runtime plugin capable of handling it.
+
+Plugins may also contribute new logical field kinds. Schema preserves their
+immutable definitions in opaque validation plans; the owning plugin claims the
+kind and contributes its validation and adapter behavior. Logical kinds use
+namespaced identifiers so community packages do not collide with built-ins.
 
 ## Plugins
 

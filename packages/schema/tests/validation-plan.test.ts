@@ -414,7 +414,7 @@ describe('validation plans', () => {
 		}
 	})
 
-	it('rejects field kinds without a registered built-in validation contract', () => {
+	it('preserves plugin field kinds as opaque validation plans', () => {
 		const customField: FieldDefinition<'custom', string, object> = {
 			kind: 'custom',
 			options: {},
@@ -426,9 +426,13 @@ describe('validation plans', () => {
 			},
 		})
 
-		expect(() => compileValidationPlans(schema)).toThrow(
-			new TypeError('Unsupported validation field kind: custom'),
-		)
+		expect(compileValidationPlans(schema).create.fields.custom).toStrictEqual({
+			kind: 'plugin',
+			fieldKind: 'custom',
+			field: customField,
+			presence: 'optional',
+			nullable: false,
+		})
 	})
 
 	it('rejects forged list metadata before producing a validation plan', () => {

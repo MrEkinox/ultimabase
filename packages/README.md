@@ -17,6 +17,7 @@ Every publishable workspace uses the `@ultimabase/*` scope and exposes only deli
 - `clp-permissions`
 - `acl-permissions`
 - `field-permissions`
+- `pg-vector-plugin`
 - `postgres`
 - `postgres-migrations`
 - `server-hono`

@@ -17,6 +17,7 @@
 	"references": [
 		{ "path": "./packages/shared" },
 		{ "path": "./packages/schema" },
+		{ "path": "./packages/pg-vector-plugin" },
 		{ "path": "./packages/query" },
 		{ "path": "./packages/access" },
 		{ "path": "./packages/core" },

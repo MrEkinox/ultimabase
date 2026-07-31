@@ -8,6 +8,7 @@ Responsibilities:
 - primitive field definitions;
 - system-field metadata;
 - schema and field extension contracts;
+- plugin-defined logical field contracts;
 - normalized index metadata;
 - TypeScript inference;
 - transport-neutral validation plans;
@@ -404,6 +405,22 @@ corresponding inferred value. Returning `never` removes the field from that
 shape. Exact extension tuples compose in declaration order, so a later
 extension may intentionally refine an earlier result without exposing its
 type-only contract at runtime.
+
+## Plugin-defined fields
+
+`definePluginField(kind, options, normalizers)` lets a plugin introduce a
+logical field kind without teaching Schema about its database representation.
+Kinds must be non-empty, namespaced strings and cannot shadow framework-owned
+field kinds. The factory reuses common validation, defaults, lists, indexes,
+descriptions, immutability, and field extensions while delegating scalar value
+normalization to the plugin.
+
+Validation-plan compilation preserves unknown logical fields as an opaque
+`PluginFieldValidationPlan` containing both the namespaced `fieldKind` and the
+immutable original `field`. The plugin can therefore read its complete typed
+configuration instead of losing it during compilation. A future Core registry
+will reject unclaimed or conflicting plugin kinds during application setup;
+Schema remains independently usable and does not own that registry.
 
 ## Schema registry
 

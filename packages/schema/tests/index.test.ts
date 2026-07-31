@@ -18,6 +18,7 @@ describe('@ultimabase/schema public entry point', () => {
 			'decimalField',
 			'defineExtensions',
 			'defineFieldExtension',
+			'definePluginField',
 			'defineSchema',
 			'defineSchemaExtension',
 			'enumField',

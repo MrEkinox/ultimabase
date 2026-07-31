@@ -19,6 +19,7 @@ import {
 	type DecimalValidationPlan,
 	type FloatValidationPlan,
 	type IntValidationPlan,
+	type PluginFieldValidationPlan,
 	type RuntimeClockValidationDefaultPlan,
 	type RuntimeValidationDefaultPlan,
 	type SchemaValidationPlans,
@@ -117,6 +118,27 @@ test('narrows list wrappers independently from scalar field kinds', () => {
 		expectTypeOf(tagsPlan).toEqualTypeOf<ArrayValidationPlan>()
 		expectTypeOf(tagsPlan.items).toEqualTypeOf<FieldValidationPlan>()
 	}
+})
+
+test('narrows opaque plugin plans without overlapping built-in kinds', () => {
+	const assertPluginNarrowing = (plan: FieldValidationPlan): void => {
+		if (plan.kind === 'plugin') {
+			expectTypeOf(plan).toEqualTypeOf<PluginFieldValidationPlan>()
+			expectTypeOf(plan.fieldKind).toEqualTypeOf<string>()
+		}
+	}
+
+	// The parameter boundary verifies discrimination from the complete public union.
+	assertPluginNarrowing({
+		kind: 'plugin',
+		fieldKind: 'fixture.custom',
+		field: {
+			kind: 'fixture.custom',
+			options: {},
+		},
+		presence: 'optional',
+		nullable: false,
+	})
 })
 
 test('narrows default descriptors without unsafe result types', () => {

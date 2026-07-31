@@ -26,7 +26,7 @@ import {
 } from './default-value.js'
 import type { EnumField, EnumValues } from './enum-field.js'
 import { getFieldListDepth, snapshotFieldValue } from './field-options.js'
-import type { FieldValidationOptions, GenericField } from './field.js'
+import type { GenericField } from './field.js'
 import type { FloatField, FloatRangeValidationOptions } from './float-field.js'
 import type { IntField, IntRangeValidationOptions } from './int-field.js'
 import type { JsonField } from './json-field.js'
@@ -216,6 +216,17 @@ export interface ObjectValidationPlan extends FieldValidationPlanBase<'object'> 
 	readonly fields: Readonly<Record<string, FieldValidationPlan>>
 }
 
+/**
+ * Preserves an opaque plugin field until its associated runtime handler claims it.
+ */
+export interface PluginFieldValidationPlan<
+	TFieldKind extends string = string,
+	TField extends GenericField = GenericField,
+> extends FieldValidationPlanBase<'plugin'> {
+	readonly fieldKind: TFieldKind
+	readonly field: TField
+}
+
 export interface ArrayValidationPlan extends FieldValidationPlanBase<'array'> {
 	readonly items: FieldValidationPlan
 }
@@ -237,6 +248,7 @@ export type FieldValidationPlan =
 	| IntValidationPlan
 	| JsonValidationPlan
 	| ObjectValidationPlan
+	| PluginFieldValidationPlan
 	| StringValidationPlan
 	| TimeValidationPlan
 	| UuidValidationPlan
@@ -300,8 +312,26 @@ const isBuiltInField = (field: GenericField): field is BuiltInField =>
 const isDefaultFactory = (value: unknown): value is DefaultFactory<unknown> =>
 	typeof value === 'function'
 
+const isValidationFlagEnabled = (
+	options: object,
+	flag: 'nullable' | 'required',
+): boolean => {
+	if (
+		!('validation' in options) ||
+		typeof options.validation !== 'object' ||
+		options.validation === null
+	) {
+		return false
+	}
+
+	// Explicit branches retain safe property narrowing without a broad record cast.
+	return flag === 'nullable'
+		? 'nullable' in options.validation && options.validation.nullable === true
+		: 'required' in options.validation && options.validation.required === true
+}
+
 const readRuntimeClockDefault = (
-	field: BuiltInField,
+	field: GenericField,
 	value: unknown,
 ): RuntimeClockValidationDefaultPlan | undefined => {
 	const isToday = field.kind === 'date' && value === 'today'
@@ -314,7 +344,7 @@ const readRuntimeClockDefault = (
 }
 
 const compileDefault = (
-	field: BuiltInField,
+	field: GenericField,
 	value: unknown,
 ): ValidationDefaultPlan => {
 	const runtimeClockDefault = readRuntimeClockDefault(field, value)
@@ -347,7 +377,7 @@ const compileDefault = (
 }
 
 const readPresence = (
-	field: BuiltInField,
+	field: GenericField,
 	operation: ValidationOperation,
 ): ValidationPresence => {
 	const options = field.options
@@ -362,23 +392,23 @@ const readPresence = (
 		return 'optional'
 	}
 
-	const validation: FieldValidationOptions | undefined = options.validation
 	const hasDefault = 'default' in options
 	const autoIncremented = 'autoIncrement' in options && options.autoIncrement
 
-	return validation?.required === true && !hasDefault && !autoIncremented
+	return isValidationFlagEnabled(options, 'required') &&
+		!hasDefault &&
+		!autoIncremented
 		? 'required'
 		: 'optional'
 }
 
 const compileFieldPlanBase = (
-	field: BuiltInField,
+	field: GenericField,
 	operation: ValidationOperation,
 ): FieldPlanBase => {
 	const options = field.options
 	const presence = readPresence(field, operation)
-	const validation: FieldValidationOptions = options.validation ?? {}
-	const nullable = validation.nullable === true
+	const nullable = isValidationFlagEnabled(options, 'nullable')
 	const defaultPlan =
 		operation === 'create' && presence !== 'forbidden' && 'default' in options
 			? compileDefault(field, options.default)
@@ -429,10 +459,6 @@ const compileField = (
 	field: GenericField,
 	operation: ValidationOperation,
 ): FieldValidationPlan => {
-	if (!isBuiltInField(field)) {
-		throw new TypeError(`Unsupported validation field kind: ${field.kind}`)
-	}
-
 	const base = compileFieldPlanBase(field, operation)
 	const listDepth = getFieldListDepth(field.options)
 	const scalarBase =
@@ -442,7 +468,14 @@ const compileField = (
 					presence: 'required',
 					nullable: false,
 				} satisfies FieldPlanBase)
-	const scalarPlan = compileScalarField(field, operation, scalarBase)
+	const scalarPlan = isBuiltInField(field)
+		? compileScalarField(field, operation, scalarBase)
+		: immutableRecord({
+				...scalarBase,
+				kind: 'plugin',
+				fieldKind: field.kind,
+				field,
+			})
 
 	if (listDepth === 0) {
 		return scalarPlan
