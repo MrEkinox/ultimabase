@@ -13,6 +13,7 @@ describe('@ultimabase/schema public entry point', () => {
 			'booleanField',
 			'compileValidationPlans',
 			'dateField',
+			'dateTimeField',
 			'defineExtensions',
 			'defineFieldExtension',
 			'defineSchema',
@@ -25,6 +26,7 @@ describe('@ultimabase/schema public entry point', () => {
 			'jsonField',
 			'objectField',
 			'stringField',
+			'timeField',
 			'uuidField',
 		])
 	})

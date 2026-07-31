@@ -3,6 +3,7 @@ import { expectTypeOf, test } from 'vitest'
 import {
 	booleanField,
 	dateField,
+	dateTimeField,
 	defineFieldExtension,
 	defineSchema,
 	enumField,
@@ -11,6 +12,7 @@ import {
 	jsonField,
 	objectField,
 	stringField,
+	timeField,
 	type FieldInferenceExtension,
 	type InferCreateInput,
 	type InferObject,
@@ -51,6 +53,8 @@ const primitiveSchema = defineSchema({
 			validation: { required: true },
 		}),
 		publishedAt: dateField(),
+		processedAt: dateTimeField(),
+		reminderTime: timeField(),
 		payload: jsonField(),
 	},
 })
@@ -58,8 +62,8 @@ const primitiveSchema = defineSchema({
 test('infers the complete primitive output matrix', () => {
 	interface ExpectedObject {
 		readonly id: string
-		readonly createdAt: Date
-		readonly updatedAt: Date
+		readonly createdAt: string
+		readonly updatedAt: string
 		readonly requiredText: string
 		readonly optionalText?: string
 		readonly nullableText?: string | null
@@ -69,7 +73,9 @@ test('infers the complete primitive output matrix', () => {
 		readonly sequence: number
 		readonly ratio?: number
 		readonly status: 'draft' | 'published'
-		readonly publishedAt?: Date
+		readonly publishedAt?: string
+		readonly processedAt?: string
+		readonly reminderTime?: string
 		readonly payload?: JsonValue
 	}
 
@@ -90,7 +96,9 @@ test('makes generated and defaulted values optional in create inputs', () => {
 		sequence?: number
 		ratio?: number
 		status: 'draft' | 'published'
-		publishedAt?: Date
+		publishedAt?: string
+		processedAt?: string
+		reminderTime?: string
 		payload?: JsonValue
 	}
 
@@ -118,7 +126,9 @@ test('makes mutable developer fields optional in update inputs', () => {
 		sequence?: number
 		ratio?: number
 		status?: 'draft' | 'published'
-		publishedAt?: Date
+		publishedAt?: string
+		processedAt?: string
+		reminderTime?: string
 		payload?: JsonValue
 	}
 

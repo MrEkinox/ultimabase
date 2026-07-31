@@ -4,107 +4,88 @@ import { normalizeFieldOptions } from './field-options.js'
 import type {
 	FieldDefinition,
 	FieldOptions,
-	FieldValidationOptions,
 	ValidatedFieldOptions,
 } from './field.js'
+import {
+	compareCanonicalTemporalValues,
+	normalizeTemporalValidation,
+	type TemporalRangeValidationOptions,
+	type TemporalValidationOptions,
+} from './temporal-field.js'
 
 type EmptyDateFieldOptions = Readonly<Record<PropertyKey, never>>
 
 /**
- * Defines declarative server-side Date boundaries.
+ * Defines declarative calendar-day boundaries.
  */
-export interface DateRangeValidationOptions {
-	readonly min?: Date
-	readonly max?: Date
-}
+export type DateRangeValidationOptions = TemporalRangeValidationOptions
 
 /**
- * Groups presence and Date constraints under one validation boundary.
+ * Groups presence and calendar-day constraints under one validation boundary.
  */
-export type DateValidationOptions = FieldValidationOptions & {
-	readonly range?: DateRangeValidationOptions
-}
+export type DateValidationOptions = TemporalValidationOptions
 
 /**
- * Describes Date metadata without introducing transport serialization.
+ * Describes a calendar day using its canonical ISO date representation.
  */
-export type DateFieldOptions = FieldOptions<Date, DateValidationOptions>
+export type DateFieldOptions = FieldOptions<string, DateValidationOptions>
 
 /**
- * Carries the server-side Date type and exact options through schema inference.
+ * Carries a calendar-day string and exact options through schema inference.
  */
 export type DateField<TOptions extends DateFieldOptions = DateFieldOptions> =
-	FieldDefinition<'date', Date, TOptions>
+	FieldDefinition<'date', string, TOptions>
 
 const emptyDateFieldOptions: EmptyDateFieldOptions = immutableRecord({})
 
-const snapshotDate = (value: unknown, path: string): Date => {
-	if (!(value instanceof Date)) {
-		throw new TypeError(`${path} must be a Date`)
+const calendarDatePattern = /^\d{4}-\d{2}-\d{2}$/u
+
+const normalizeCalendarDate = (value: unknown, path: string): string => {
+	if (typeof value !== 'string') {
+		throw new TypeError(`${path} must be a calendar date string`)
 	}
 
-	const timestamp = value.getTime()
-
-	if (!Number.isFinite(timestamp)) {
-		throw new RangeError(`${path} must be a valid Date`)
+	if (path === 'default' && value === 'today') {
+		return value
 	}
 
-	// A snapshot prevents later mutations of the caller-owned Date from changing metadata.
-	return Object.freeze(new Date(timestamp))
-}
-
-const normalizeDateRange = (
-	range: DateRangeValidationOptions,
-): Readonly<DateRangeValidationOptions> => {
-	const min =
-		range.min === undefined
-			? undefined
-			: snapshotDate(range.min, 'validation.range.min')
-	const max =
-		range.max === undefined
-			? undefined
-			: snapshotDate(range.max, 'validation.range.max')
-
-	if (min !== undefined && max !== undefined && min.getTime() > max.getTime()) {
-		throw new RangeError(
-			'validation.range.min cannot be greater than validation.range.max',
-		)
+	const timestamp = Date.parse(`${value}T00:00:00.000Z`)
+	if (
+		!calendarDatePattern.test(value) ||
+		!Number.isFinite(timestamp) ||
+		new Date(timestamp).toISOString().slice(0, 10) !== value
+	) {
+		throw new RangeError(`${path} must be a valid calendar date string`)
 	}
 
-	// Conditional spreads retain absent boundaries while replacing supplied Dates.
-	return immutableRecord({
-		...range,
-		...(min === undefined ? {} : { min }),
-		...(max === undefined ? {} : { max }),
-	})
+	return value
 }
 
 const normalizeDateValidation = (
 	validation: DateValidationOptions,
 ): Readonly<DateValidationOptions> =>
-	validation.range === undefined
-		? immutableRecord(validation)
-		: immutableRecord({
-				...validation,
-				range: normalizeDateRange(validation.range),
-			})
+	normalizeTemporalValidation(
+		validation,
+		normalizeCalendarDate,
+		compareCanonicalTemporalValues,
+	)
 
 const normalizeDateFieldOptions = (
 	options: DateFieldOptions,
 ): Readonly<DateFieldOptions> =>
-	normalizeFieldOptions(options, normalizeDateValidation, snapshotDate)
+	normalizeFieldOptions(options, normalizeDateValidation, normalizeCalendarDate)
 
 /**
- * Creates an optional, non-null Date field with no additional metadata.
+ * Creates an optional calendar-day field with no additional metadata.
  */
 export function dateField(): DateField<EmptyDateFieldOptions>
 
 /**
- * Creates immutable Date metadata while preserving every option literal.
+ * Creates immutable calendar-day metadata while preserving every option literal.
  */
 export function dateField<const TOptions extends DateFieldOptions>(
 	options: TOptions &
-		(ValidatedFieldOptions<NoInfer<TOptions>, Date> extends never
+		(ValidatedFieldOptions<NoInfer<TOptions>, string> extends never
 			? never
 			: unknown),
 ): DateField<TOptions>

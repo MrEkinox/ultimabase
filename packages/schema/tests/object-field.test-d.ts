@@ -40,7 +40,7 @@ test('infers list values through finite nesting', () => {
 	>()
 	expectTypeOf<FieldValue<typeof strings>>().toEqualTypeOf<readonly string[]>()
 	expectTypeOf(scalar).toExtend<FieldDefinition<'boolean', boolean>>()
-	expectTypeOf(dates).toExtend<FieldDefinition<'date', Date>>()
+	expectTypeOf(dates).toExtend<FieldDefinition<'date', string>>()
 	expectTypeOf(statuses).toExtend<
 		FieldDefinition<'enum', 'draft' | 'published'>
 	>()
@@ -52,7 +52,7 @@ test('infers list values through finite nesting', () => {
 		readonly [readonly [1, 2]]
 	>()
 	expectTypeOf<FieldValue<typeof scalar>>().toEqualTypeOf<boolean>()
-	expectTypeOf<FieldValue<typeof dates>>().toEqualTypeOf<readonly Date[]>()
+	expectTypeOf<FieldValue<typeof dates>>().toEqualTypeOf<readonly string[]>()
 	expectTypeOf<FieldValue<typeof statuses>>().toEqualTypeOf<
 		readonly ('draft' | 'published')[]
 	>()
@@ -84,7 +84,7 @@ test('infers object list values from reusable fields', () => {
 	interface ExpectedItem {
 		readonly name: string
 		readonly active: boolean
-		readonly createdAt: Date
+		readonly createdAt: string
 		readonly tags: readonly string[]
 	}
 

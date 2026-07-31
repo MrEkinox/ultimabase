@@ -28,6 +28,7 @@ Accepted records:
 - [ADR-0023: Portable UUID fields](0023-portable-uuid-fields.md)
 - [ADR-0024: Separate integer and float fields](0024-separate-numeric-fields.md)
 - [ADR-0025: Exact bigint fields](0025-exact-bigint-fields.md)
+- [ADR-0026: Explicit temporal field representations](0026-explicit-temporal-representations.md)
 
 Superseded records:
 

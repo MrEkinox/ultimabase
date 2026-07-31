@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import {
 	DatabaseDefault,
-	dateField,
+	dateTimeField,
 	getDefaultKind,
 	isStaticDefault,
 	stringField,
@@ -31,12 +31,12 @@ describe('field defaults', () => {
 
 	it('preserves a runtime factory without executing it during declaration', () => {
 		let calls = 0
-		const factory = (): Date => {
+		const factory = (): string => {
 			calls += 1
 
-			return new Date('2026-07-30T12:00:00.000Z')
+			return '2026-07-30T12:00:00.000Z'
 		}
-		const field = dateField({ default: factory })
+		const field = dateTimeField({ default: factory })
 
 		expect(field.options.default).toBe(factory)
 		expect(getDefaultKind(field.options.default)).toBe('runtime')
@@ -47,11 +47,11 @@ describe('field defaults', () => {
 		const config = {
 			expression: 'CURRENT_TIMESTAMP',
 		}
-		const database = new DatabaseDefault<Date, { readonly expression: string }>(
-			'postgres.currentTimestamp',
-			config,
-		)
-		const field = dateField({ default: database })
+		const database = new DatabaseDefault<
+			string,
+			{ readonly expression: string }
+		>('postgres.currentTimestamp', config)
+		const field = dateTimeField({ default: database })
 
 		config.expression = 'changed'
 

@@ -5,8 +5,11 @@ import type {
 	BigintRangeValidationOptions,
 } from './bigint-field.js'
 import type { BooleanField } from './boolean-field.js'
-import type { ObjectField } from './object-field.js'
 import type { DateField, DateRangeValidationOptions } from './date-field.js'
+import type {
+	DateTimeField,
+	DateTimeRangeValidationOptions,
+} from './date-time-field.js'
 import {
 	DatabaseDefault,
 	getDefaultKind,
@@ -18,12 +21,14 @@ import type { FieldValidationOptions, GenericField } from './field.js'
 import type { FloatField, FloatRangeValidationOptions } from './float-field.js'
 import type { IntField, IntRangeValidationOptions } from './int-field.js'
 import type { JsonField } from './json-field.js'
+import type { ObjectField } from './object-field.js'
 import type { SchemaDefinition, SchemaFields } from './schema.js'
 import type {
 	StringField,
 	StringLengthValidationOptions,
 } from './string-field.js'
 import type { IdSystemField } from './system-field.js'
+import type { TimeField, TimeRangeValidationOptions } from './time-field.js'
 import type { UuidField, UuidVersion } from './uuid-field.js'
 
 /**
@@ -53,6 +58,9 @@ export type ValidationIssueCode =
 	| 'date.invalid'
 	| 'date.range.max'
 	| 'date.range.min'
+	| 'dateTime.invalid'
+	| 'dateTime.range.max'
+	| 'dateTime.range.min'
 	| 'enum.value'
 	| 'field.forbidden'
 	| 'field.null'
@@ -71,6 +79,9 @@ export type ValidationIssueCode =
 	| 'string.length.min'
 	| 'string.match'
 	| 'string.type'
+	| 'time.invalid'
+	| 'time.range.max'
+	| 'time.range.min'
 	| 'uuid.type'
 	| 'uuid.version'
 
@@ -105,6 +116,14 @@ export interface RuntimeValidationDefaultPlan {
 }
 
 /**
+ * Defers a temporal default to the operation-scoped runtime clock.
+ */
+export interface RuntimeClockValidationDefaultPlan {
+	readonly kind: 'runtimeClock'
+	readonly value: 'now' | 'today'
+}
+
+/**
  * Leaves database-owned default expressions available to adapter plugins.
  */
 export interface DatabaseValidationDefaultPlan {
@@ -114,6 +133,7 @@ export interface DatabaseValidationDefaultPlan {
 
 export type ValidationDefaultPlan =
 	| DatabaseValidationDefaultPlan
+	| RuntimeClockValidationDefaultPlan
 	| RuntimeValidationDefaultPlan
 	| StaticValidationDefaultPlan
 
@@ -148,11 +168,21 @@ export interface DateValidationPlan extends FieldValidationPlanBase<'date'> {
 	readonly range?: DateRangeValidationOptions
 }
 
+export interface DateTimeValidationPlan extends FieldValidationPlanBase<'dateTime'> {
+	readonly timezone: boolean
+	readonly range?: DateTimeRangeValidationOptions
+}
+
 export interface EnumValidationPlan extends FieldValidationPlanBase<'enum'> {
 	readonly values: readonly string[]
 }
 
 export type JsonValidationPlan = FieldValidationPlanBase<'json'>
+
+export interface TimeValidationPlan extends FieldValidationPlanBase<'time'> {
+	readonly timezone: boolean
+	readonly range?: TimeRangeValidationOptions
+}
 
 export interface ObjectValidationPlan extends FieldValidationPlanBase<'object'> {
 	readonly unknownFields: UnknownFieldPolicy
@@ -172,12 +202,14 @@ export type FieldValidationPlan =
 	| BigintValidationPlan
 	| BooleanValidationPlan
 	| DateValidationPlan
+	| DateTimeValidationPlan
 	| EnumValidationPlan
 	| FloatValidationPlan
 	| IntValidationPlan
 	| JsonValidationPlan
 	| ObjectValidationPlan
 	| StringValidationPlan
+	| TimeValidationPlan
 	| UuidValidationPlan
 
 /**
@@ -201,6 +233,7 @@ type BuiltInField =
 	| BigintField
 	| BooleanField
 	| DateField
+	| DateTimeField
 	| EnumField
 	| FloatField
 	| IdSystemField
@@ -208,6 +241,7 @@ type BuiltInField =
 	| JsonField
 	| ObjectField
 	| StringField
+	| TimeField
 	| UuidField
 
 interface FieldPlanBase {
@@ -220,18 +254,42 @@ const isBuiltInField = (field: GenericField): field is BuiltInField =>
 	field.kind === 'bigint' ||
 	field.kind === 'boolean' ||
 	field.kind === 'date' ||
+	field.kind === 'dateTime' ||
 	field.kind === 'enum' ||
 	field.kind === 'float' ||
 	field.kind === 'int' ||
 	field.kind === 'json' ||
 	field.kind === 'object' ||
 	field.kind === 'string' ||
+	field.kind === 'time' ||
 	field.kind === 'uuid'
 
 const isDefaultFactory = (value: unknown): value is DefaultFactory<unknown> =>
 	typeof value === 'function'
 
-const compileDefault = (value: unknown): ValidationDefaultPlan => {
+const readRuntimeClockDefault = (
+	field: BuiltInField,
+	value: unknown,
+): RuntimeClockValidationDefaultPlan | undefined => {
+	const isToday = field.kind === 'date' && value === 'today'
+	const isNow =
+		(field.kind === 'dateTime' || field.kind === 'time') && value === 'now'
+
+	return isToday || isNow
+		? immutableRecord({ kind: 'runtimeClock', value })
+		: undefined
+}
+
+const compileDefault = (
+	field: BuiltInField,
+	value: unknown,
+): ValidationDefaultPlan => {
+	const runtimeClockDefault = readRuntimeClockDefault(field, value)
+
+	if (runtimeClockDefault !== undefined) {
+		return runtimeClockDefault
+	}
+
 	const kind = getDefaultKind(value)
 
 	if (kind === 'runtime' && isDefaultFactory(value)) {
@@ -280,7 +338,7 @@ const compileFieldPlanBase = (
 	const nullable = validation.nullable === true
 	const defaultPlan =
 		operation === 'create' && presence !== 'forbidden' && 'default' in options
-			? compileDefault(options.default)
+			? compileDefault(field, options.default)
 			: undefined
 
 	return immutableRecord({
@@ -387,6 +445,15 @@ const compileScalarField = (
 					? {}
 					: { range: field.options.validation.range }),
 			})
+		case 'dateTime':
+			return immutableRecord({
+				...base,
+				kind: field.kind,
+				timezone: field.options.timezone ?? true,
+				...(field.options.validation?.range === undefined
+					? {}
+					: { range: field.options.validation.range }),
+			})
 		case 'enum':
 			return immutableRecord({
 				...base,
@@ -431,6 +498,15 @@ const compileScalarField = (
 				...(field.options.validation?.match === undefined
 					? {}
 					: { match: field.options.validation.match }),
+			})
+		case 'time':
+			return immutableRecord({
+				...base,
+				kind: field.kind,
+				timezone: field.options.timezone ?? false,
+				...(field.options.validation?.range === undefined
+					? {}
+					: { range: field.options.validation.range }),
 			})
 		case 'uuid': {
 			const version = readUuidVersion(field)

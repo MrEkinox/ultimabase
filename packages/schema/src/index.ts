@@ -25,6 +25,13 @@ export type {
 	DateRangeValidationOptions,
 	DateValidationOptions,
 } from './date-field.js'
+export { dateTimeField } from './date-time-field.js'
+export type {
+	DateTimeField,
+	DateTimeFieldOptions,
+	DateTimeRangeValidationOptions,
+	DateTimeValidationOptions,
+} from './date-time-field.js'
 export {
 	DatabaseDefault,
 	getDefaultKind,
@@ -113,6 +120,13 @@ export type {
 	StringLengthValidationOptions,
 	StringValidationOptions,
 } from './string-field.js'
+export { timeField } from './time-field.js'
+export type {
+	TimeField,
+	TimeFieldOptions,
+	TimeRangeValidationOptions,
+	TimeValidationOptions,
+} from './time-field.js'
 export { uuidField } from './uuid-field.js'
 export type {
 	UuidField,
@@ -137,17 +151,20 @@ export type {
 	BooleanValidationPlan,
 	DatabaseValidationDefaultPlan,
 	DateValidationPlan,
+	DateTimeValidationPlan,
 	EnumValidationPlan,
 	FieldValidationPlan,
 	FloatValidationPlan,
 	IntValidationPlan,
 	JsonValidationPlan,
 	ObjectValidationPlan,
+	RuntimeClockValidationDefaultPlan,
 	RuntimeValidationDefaultPlan,
 	SchemaValidationPlan,
 	SchemaValidationPlans,
 	StaticValidationDefaultPlan,
 	StringValidationPlan,
+	TimeValidationPlan,
 	UnknownFieldPolicy,
 	UuidValidationPlan,
 	ValidationDefaultPlan,

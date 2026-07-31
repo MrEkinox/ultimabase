@@ -29,10 +29,10 @@ test('exposes system values in every schema field map', () => {
 	expectTypeOf<FieldValue<typeof schema.fields.id>>().toEqualTypeOf<string>()
 	expectTypeOf<
 		FieldValue<typeof schema.fields.createdAt>
-	>().toEqualTypeOf<Date>()
+	>().toEqualTypeOf<string>()
 	expectTypeOf<
 		FieldValue<typeof schema.fields.updatedAt>
-	>().toEqualTypeOf<Date>()
+	>().toEqualTypeOf<string>()
 	expectTypeOf(schema.fields.id).toEqualTypeOf<IdSystemField>()
 	expectTypeOf(schema.fields).toExtend<SystemFields>()
 })

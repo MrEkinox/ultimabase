@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { dateField } from '../src/index.js'
 
 describe('dateField', () => {
-	it('creates frozen default metadata', () => {
+	it('creates frozen calendar-day metadata', () => {
 		const field = dateField()
 
 		expect(field).toStrictEqual({
@@ -14,62 +14,49 @@ describe('dateField', () => {
 		expect(Object.isFrozen(field.options)).toBe(true)
 	})
 
-	it('snapshots a static default and Date range', () => {
-		const defaultValue = new Date('2026-06-01T12:00:00.000Z')
-		const min = new Date('2026-01-01T00:00:00.000Z')
-		const max = new Date('2026-12-31T23:59:59.999Z')
+	it('preserves a calendar-day default and range', () => {
 		const field = dateField({
 			validation: {
 				required: true,
-				range: { min, max },
+				range: {
+					min: '2026-01-01',
+					max: '2026-12-31',
+				},
 			},
-			default: defaultValue,
+			default: '2026-06-01',
 			indexed: true,
 		})
 
-		expect(field.options.default).toEqual(defaultValue)
-		expect(field.options.default).not.toBe(defaultValue)
-		expect(field.options.validation.range.min).toEqual(min)
-		expect(field.options.validation.range.min).not.toBe(min)
-		expect(field.options.validation.range.max).toEqual(max)
-		expect(field.options.validation.range.max).not.toBe(max)
-		expect(Object.isFrozen(field.options.default)).toBe(true)
+		expect(field.options).toStrictEqual({
+			validation: {
+				required: true,
+				range: {
+					min: '2026-01-01',
+					max: '2026-12-31',
+				},
+			},
+			default: '2026-06-01',
+			indexed: true,
+		})
 		expect(Object.isFrozen(field.options.validation)).toBe(true)
 		expect(Object.isFrozen(field.options.validation.range)).toBe(true)
-		expect(Object.isFrozen(field.options.validation.range.min)).toBe(true)
-		expect(Object.isFrozen(field.options.validation.range.max)).toBe(true)
 	})
 
-	it('snapshots every Date in a list default', () => {
-		const source = [new Date('2026-06-01T12:00:00.000Z')]
+	it('preserves the operation-clock today default', () => {
+		expect(dateField({ default: 'today' }).options.default).toBe('today')
+	})
+
+	it('copies calendar-day list defaults', () => {
+		const source = ['2026-06-01']
 		const field = dateField({ list: true, default: source })
 
-		source[0]?.setUTCFullYear(2030)
+		source[0] = '2030-06-01'
 
-		expect(field.options.default[0]?.getUTCFullYear()).toBe(2026)
+		expect(field.options.default).toStrictEqual(['2026-06-01'])
 		expect(Object.isFrozen(field.options.default)).toBe(true)
-		expect(Object.isFrozen(field.options.default[0])).toBe(true)
 	})
 
-	it('isolates metadata from caller-owned Date mutations', () => {
-		const defaultValue = new Date('2026-06-01T12:00:00.000Z')
-		const min = new Date('2026-01-01T00:00:00.000Z')
-		const field = dateField({
-			validation: {
-				range: { min },
-			},
-			default: defaultValue,
-		})
-
-		defaultValue.setUTCFullYear(2030)
-		min.setUTCFullYear(2030)
-
-		// Date snapshots retain their original instants after caller mutation.
-		expect(field.options.default.getUTCFullYear()).toBe(2026)
-		expect(field.options.validation.range.min.getUTCFullYear()).toBe(2026)
-	})
-
-	it('freezes presence validation without a Date range', () => {
+	it('freezes presence validation without a date range', () => {
 		const field = dateField({
 			validation: {
 				nullable: true,
@@ -80,51 +67,50 @@ describe('dateField', () => {
 		expect(Object.isFrozen(field.options.validation)).toBe(true)
 	})
 
-	it('supports a one-sided maximum Date range', () => {
-		const max = new Date('2026-12-31T23:59:59.999Z')
-		const field = dateField({
-			validation: {
-				range: { max },
-			},
-		})
+	it.each([
+		['maximum', { max: '2026-12-31' }],
+		['minimum', { min: '2026-01-01' }],
+	] as const)('supports a one-sided %s date range', (_name, range) => {
+		const field = dateField({ validation: { range } })
 
-		// Either boundary may be declared independently.
-		expect(field.options.validation.range).toEqual({ max })
+		// Either calendar-day boundary may be declared independently.
+		expect(field.options.validation.range).toEqual(range)
 	})
 
-	it('rejects non-Date values at the runtime boundary', () => {
+	it('rejects non-string values at the runtime boundary', () => {
 		expect(() => {
-			// JavaScript callers receive the same invariant enforced by TypeScript.
-			// @ts-expect-error -- Runtime coverage intentionally crosses the public type boundary.
-			dateField({ default: '2026-01-01T00:00:00.000Z' })
-		}).toThrow(new TypeError('default must be a Date'))
+			// @ts-expect-error -- Runtime validation protects untyped callers.
+			dateField({ default: new Date('2026-01-01T00:00:00.000Z') })
+		}).toThrow(new TypeError('default must be a calendar date string'))
 	})
 
 	it.each([
-		['default', { default: new Date(Number.NaN) }, 'default'],
+		['invalid default', { default: 'not-a-date' }, 'default'],
+		['date-time default', { default: '2026-01-01T00:00:00.000Z' }, 'default'],
+		['impossible day', { default: '2026-02-30' }, 'default'],
 		[
-			'minimum',
-			{ validation: { range: { min: new Date(Number.NaN) } } },
+			'invalid minimum',
+			{ validation: { range: { min: 'not-a-date' } } },
 			'validation.range.min',
 		],
 		[
-			'maximum',
-			{ validation: { range: { max: new Date(Number.NaN) } } },
+			'invalid maximum',
+			{ validation: { range: { max: 'not-a-date' } } },
 			'validation.range.max',
 		],
-	] as const)('rejects an invalid %s Date', (_name, options, path) => {
+	] as const)('rejects an %s', (_name, options, path) => {
 		expect(() => dateField(options)).toThrow(
-			new RangeError(`${path} must be a valid Date`),
+			new RangeError(`${path} must be a valid calendar date string`),
 		)
 	})
 
-	it('rejects an inverted Date range', () => {
+	it('rejects an inverted calendar-day range', () => {
 		expect(() =>
 			dateField({
 				validation: {
 					range: {
-						min: new Date('2026-12-31T00:00:00.000Z'),
-						max: new Date('2026-01-01T00:00:00.000Z'),
+						min: '2026-12-31',
+						max: '2026-01-01',
 					},
 				},
 			}),

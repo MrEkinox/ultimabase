@@ -6,6 +6,7 @@ import {
 	booleanField,
 	compileValidationPlans,
 	dateField,
+	dateTimeField,
 	defineSchema,
 	enumField,
 	floatField,
@@ -13,20 +14,21 @@ import {
 	jsonField,
 	objectField,
 	stringField,
+	timeField,
 	uuidField,
 	type FieldDefinition,
 } from '../src/index.js'
 
 describe('validation plans', () => {
 	it('compiles primitive create and update rules without executing defaults', () => {
-		const runtimeDefault = vi.fn(() => new Date('2026-07-30T12:00:00.000Z'))
-		const databaseDefault = new DatabaseDefault<Date>(
+		const runtimeDefault = vi.fn(() => '2026-07-30T12:00:00.000Z')
+		const databaseDefault = new DatabaseDefault<string>(
 			'postgres.currentTimestamp',
 			{},
 		)
 		const match = /^[a-z]+$/u
-		const minDate = new Date('2026-01-01T00:00:00.000Z')
-		const maxDate = new Date('2026-12-31T23:59:59.999Z')
+		const minDate = '2026-01-01'
+		const maxDate = '2026-12-31'
 		const schema = defineSchema({
 			className: 'PrimitivePlan',
 			fields: {
@@ -42,10 +44,32 @@ describe('validation plans', () => {
 				}),
 				active: booleanField({ default: true }),
 				publishedAt: dateField({
-					default: runtimeDefault,
+					default: 'today',
 					validation: { range: { min: minDate, max: maxDate } },
 				}),
 				importedAt: dateField({ default: databaseDefault }),
+				processedAt: dateTimeField({
+					default: runtimeDefault,
+					validation: {
+						range: {
+							min: '2026-01-01T00:00:00.000Z',
+							max: '2026-12-31T23:59:59.999Z',
+						},
+					},
+				}),
+				generatedAt: dateTimeField({ default: 'now' }),
+				unrestrictedDateTime: dateTimeField({ timezone: false }),
+				reminderTime: timeField({
+					timezone: true,
+					default: 'now',
+					validation: {
+						range: {
+							min: '08:00:00.000Z',
+							max: '18:00:00.000Z',
+						},
+					},
+				}),
+				unrestrictedTime: timeField(),
 				sequence: intField({
 					autoIncrement: true,
 					validation: { required: true, range: { min: 1 } },
@@ -105,12 +129,47 @@ describe('validation plans', () => {
 		expect(plans.update.fields.active).not.toHaveProperty('default')
 		expect(plans.create.fields.publishedAt).toMatchObject({
 			kind: 'date',
-			default: { kind: 'runtime', factory: runtimeDefault },
+			default: { kind: 'runtimeClock', value: 'today' },
 			range: { min: minDate, max: maxDate },
 		})
 		expect(plans.create.fields.importedAt).toMatchObject({
 			kind: 'date',
 			default: { kind: 'database', value: databaseDefault },
+		})
+		expect(plans.create.fields.processedAt).toMatchObject({
+			kind: 'dateTime',
+			timezone: true,
+			default: { kind: 'runtime', factory: runtimeDefault },
+			range: {
+				min: '2026-01-01T00:00:00.000Z',
+				max: '2026-12-31T23:59:59.999Z',
+			},
+		})
+		expect(plans.create.fields.generatedAt).toMatchObject({
+			kind: 'dateTime',
+			timezone: true,
+			default: { kind: 'runtimeClock', value: 'now' },
+		})
+		expect(plans.create.fields.unrestrictedDateTime).toStrictEqual({
+			kind: 'dateTime',
+			timezone: false,
+			presence: 'optional',
+			nullable: false,
+		})
+		expect(plans.create.fields.reminderTime).toMatchObject({
+			kind: 'time',
+			timezone: true,
+			default: { kind: 'runtimeClock', value: 'now' },
+			range: {
+				min: '08:00:00.000Z',
+				max: '18:00:00.000Z',
+			},
+		})
+		expect(plans.create.fields.unrestrictedTime).toStrictEqual({
+			kind: 'time',
+			timezone: false,
+			presence: 'optional',
+			nullable: false,
 		})
 		expect(plans.create.fields.sequence).toMatchObject({
 			kind: 'int',

@@ -3,18 +3,23 @@ import { expectTypeOf, test } from 'vitest'
 import {
 	bigintField,
 	compileValidationPlans,
+	dateTimeField,
 	defineSchema,
 	floatField,
 	intField,
 	stringField,
+	timeField,
 	type FieldValidationPlan,
 	type ArrayValidationPlan,
 	type BigintValidationPlan,
+	type DateTimeValidationPlan,
 	type FloatValidationPlan,
 	type IntValidationPlan,
+	type RuntimeClockValidationDefaultPlan,
 	type RuntimeValidationDefaultPlan,
 	type SchemaValidationPlans,
 	type StringValidationPlan,
+	type TimeValidationPlan,
 	type ValidationIssue,
 	type ValidationIssueCode,
 	type ValidationIssuePath,
@@ -51,12 +56,16 @@ test('narrows integer and float plans as distinct kinds', () => {
 			largeCount: bigintField(),
 			count: intField(),
 			ratio: floatField(),
+			processedAt: dateTimeField(),
+			reminderTime: timeField(),
 		},
 	})
 	const plans = compileValidationPlans(schema).create.fields
 	const count = plans.count
 	const largeCount = plans.largeCount
 	const ratio = plans.ratio
+	const processedAt = plans.processedAt
+	const reminderTime = plans.reminderTime
 
 	if (largeCount?.kind === 'bigint') {
 		expectTypeOf(largeCount).toEqualTypeOf<BigintValidationPlan>()
@@ -68,6 +77,14 @@ test('narrows integer and float plans as distinct kinds', () => {
 
 	if (ratio?.kind === 'float') {
 		expectTypeOf(ratio).toEqualTypeOf<FloatValidationPlan>()
+	}
+
+	if (processedAt?.kind === 'dateTime') {
+		expectTypeOf(processedAt).toEqualTypeOf<DateTimeValidationPlan>()
+	}
+
+	if (reminderTime?.kind === 'time') {
+		expectTypeOf(reminderTime).toEqualTypeOf<TimeValidationPlan>()
 	}
 })
 
@@ -96,6 +113,13 @@ test('narrows default descriptors without unsafe result types', () => {
 	expectTypeOf<
 		RuntimeValidationDefaultPlan['factory']
 	>().returns.toEqualTypeOf<unknown>()
+
+	const clockPlan = {
+		kind: 'runtimeClock',
+		value: 'now',
+	} satisfies RuntimeClockValidationDefaultPlan
+
+	expectTypeOf(clockPlan.value).toEqualTypeOf<'now'>()
 })
 
 test('defines stable issue codes and nested paths', () => {

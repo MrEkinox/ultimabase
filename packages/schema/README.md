@@ -51,8 +51,8 @@ Every schema field map includes three immutable framework-owned definitions:
 
 - `id` is a `string` value represented by the `uuid` field kind with
   `uuidVersion: 7`;
-- `createdAt` and `updatedAt` are server-side `Date` values represented by the
-  `date` field kind.
+- `createdAt` and `updatedAt` are zoned ISO date-time strings represented by the
+  `dateTime` field kind.
 
 System options expose `system: true`, `generatedOn`, `immutable: true`, and
 `validation.required: true`. The identifier and both timestamps are generated
@@ -61,7 +61,7 @@ updates. These markers let input inference exclude generated fields from
 creates and immutable fields from developer updates without checking reserved
 names.
 
-Schema only declares this contract. UUID and timestamp generation belongs to
+Schema only declares this contract. UUID and date-time generation belongs to
 Runtime, while database-native compilation belongs to adapter plugins.
 
 ## Inferred data shapes
@@ -173,8 +173,8 @@ stringField({
 Runtime defaults use a simple arrow function:
 
 ```ts
-dateField({
-	default: () => new Date(),
+dateTimeField({
+	default: () => new Date().toISOString(),
 })
 ```
 
@@ -226,7 +226,33 @@ exact decimal field will use a separate value and storage contract.
 
 ## Date fields
 
-`dateField(options)` represents server-side JavaScript `Date` values. Static defaults and `validation.range.min/max` boundaries accept only valid `Date` objects; Schema snapshots supplied dates and rejects inverted ranges. ISO string serialization belongs to transport packages and is deliberately absent here.
+`dateField(options)` represents a calendar day as a canonical `YYYY-MM-DD`
+string such as `2026-07-31`. It contains no time or timezone. Static defaults
+and `validation.range.min/max` boundaries use the same format.
+
+`default: "today"` asks Runtime to derive the current calendar day from the
+operation-scoped clock and application timezone. It is compiled as a runtime
+clock default rather than persisted as a literal string.
+
+## Time fields
+
+`timeField(options)` represents a complete time of day. It defaults to
+`timezone: false` and uses `HH:mm:ss.sss`, for example `14:30:00.000`. With
+`timezone: true`, values include `Z` or an ISO offset such as
+`14:30:00.000+02:00`.
+
+## Date-time fields
+
+`dateTimeField(options)` represents a complete date and time. It defaults to
+`timezone: true`, accepting `YYYY-MM-DDTHH:mm:ss.sssZ` or an ISO offset.
+`timezone: false` uses the local `YYYY-MM-DDTHH:mm:ss.sss` form.
+
+Both time-bearing fields support ordered `validation.range.min/max` boundaries.
+`default: "now"` asks Runtime to derive the value once from the
+operation-scoped clock. The same captured instant is shared by every temporal
+default and system field in one operation. Application timezone configuration,
+defaulting to UTC, controls calendar and zone-less projections without relying
+on the host machine timezone.
 
 ## UUID fields
 

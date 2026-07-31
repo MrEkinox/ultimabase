@@ -44,16 +44,20 @@ export type IdSystemField = SystemFieldDefinition<
 >
 
 /**
- * Represents the timestamp assigned once during insertion.
+ * Represents the zoned date and time assigned once during insertion.
  */
-export type CreatedAtSystemField = SystemFieldDefinition<'date', Date, 'create'>
+export type CreatedAtSystemField = SystemFieldDefinition<
+	'dateTime',
+	string,
+	'create'
+>
 
 /**
- * Represents the timestamp refreshed by the runtime for every persisted update.
+ * Represents the zoned date and time refreshed for every persisted update.
  */
 export type UpdatedAtSystemField = SystemFieldDefinition<
-	'date',
-	Date,
+	'dateTime',
+	string,
 	'createAndUpdate'
 >
 
@@ -101,12 +105,12 @@ const id: IdSystemField = immutableRecord({
 })
 
 const createdAt: CreatedAtSystemField = immutableRecord({
-	kind: 'date',
+	kind: 'dateTime',
 	options: createSystemOptions('create', {}),
 })
 
 const updatedAt: UpdatedAtSystemField = immutableRecord({
-	kind: 'date',
+	kind: 'dateTime',
 	options: createSystemOptions('createAndUpdate', {}),
 })
 

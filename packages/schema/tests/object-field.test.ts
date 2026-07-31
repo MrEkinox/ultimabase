@@ -3,8 +3,10 @@ import { describe, expect, it } from 'vitest'
 import {
 	booleanField,
 	dateField,
+	dateTimeField,
 	objectField,
 	stringField,
+	type FieldDefinition,
 } from '../src/index.js'
 
 describe('object fields and list metadata', () => {
@@ -97,7 +99,7 @@ describe('object fields and list metadata', () => {
 		const listDefault = [{ label: 'first' }]
 		const objectDefault = {
 			flags: [true],
-			updatedAt: new Date('2026-07-30T12:00:00.000Z'),
+			updatedAt: '2026-07-30T12:00:00.000Z',
 		}
 		const list = objectField({
 			list: true,
@@ -109,21 +111,43 @@ describe('object fields and list metadata', () => {
 		const object = objectField({
 			fields: {
 				flags: booleanField({ list: true }),
-				updatedAt: dateField(),
+				updatedAt: dateTimeField(),
 			},
 			default: objectDefault,
 		})
 
 		listDefault[0] = { label: 'changed' }
 		objectDefault.flags.push(false)
-		objectDefault.updatedAt.setUTCFullYear(2030)
+		objectDefault.updatedAt = '2030-07-30T12:00:00.000Z'
 
 		expect(list.options.default.at(0)?.label).toBe('first')
 		expect(Object.isFrozen(list.options.default)).toBe(true)
 		expect(Object.isFrozen(list.options.default[0])).toBe(true)
 		expect(object.options.default.flags).toStrictEqual([true])
-		expect(object.options.default.updatedAt.getUTCFullYear()).toBe(2026)
+		expect(object.options.default.updatedAt).toBe('2026-07-30T12:00:00.000Z')
 		expect(Object.isFrozen(object.options.default.flags)).toBe(true)
+	})
+
+	it('snapshots Date values contributed by custom fields', () => {
+		const source = new Date('2026-07-30T12:00:00.000Z')
+		const customDateField: FieldDefinition<'custom-date', Date, object> = {
+			kind: 'custom-date',
+			options: {},
+		}
+		const field = objectField({
+			fields: {
+				legacyDate: customDateField,
+			},
+			default: {
+				legacyDate: source,
+			},
+		})
+
+		source.setUTCFullYear(2030)
+
+		// Custom field values retain the structured default snapshot boundary.
+		expect(field.options.default.legacyDate.getUTCFullYear()).toBe(2026)
+		expect(field.options.default.legacyDate).not.toBe(source)
 	})
 
 	it('rejects invalid list metadata at runtime', () => {
@@ -193,6 +217,7 @@ describe('object fields and list metadata', () => {
 		)
 
 		expect(() =>
+			// @ts-expect-error -- Runtime coverage protects forged structured defaults.
 			objectField({
 				fields: { updatedAt: dateField() },
 				default: { updatedAt: new Date(Number.NaN) },

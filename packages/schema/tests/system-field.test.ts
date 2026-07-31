@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { defineSchema } from '../src/index.js'
 
 describe('system fields', () => {
-	it('adds immutable UUID v7 and timestamp metadata to every schema', () => {
+	it('adds immutable UUID v7 and date-time metadata to every schema', () => {
 		const schema = defineSchema({
 			className: 'Post',
 			fields: {},
@@ -21,7 +21,7 @@ describe('system fields', () => {
 				},
 			},
 			createdAt: {
-				kind: 'date',
+				kind: 'dateTime',
 				options: {
 					system: true,
 					generatedOn: 'create',
@@ -30,7 +30,7 @@ describe('system fields', () => {
 				},
 			},
 			updatedAt: {
-				kind: 'date',
+				kind: 'dateTime',
 				options: {
 					system: true,
 					generatedOn: 'createAndUpdate',

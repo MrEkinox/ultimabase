@@ -4,6 +4,7 @@ import {
 	DatabaseDefault,
 	booleanField,
 	dateField,
+	dateTimeField,
 	enumField,
 	jsonField,
 	objectField,
@@ -14,18 +15,18 @@ import {
 
 test('preserves exact static, runtime, and database default types', () => {
 	const staticField = stringField({ default: 'anonymous' })
-	const runtimeFactory = (): Date => new Date()
-	const runtimeField = dateField({ default: runtimeFactory })
+	const runtimeFactory = (): string => '2026-07-30T12:00:00.000Z'
+	const runtimeField = dateTimeField({ default: runtimeFactory })
 	const databaseDefault = new DatabaseDefault<
-		Date,
+		string,
 		{ readonly precision: number }
 	>('postgres.currentTimestamp', { precision: 3 })
-	const databaseField = dateField({ default: databaseDefault })
+	const databaseField = dateTimeField({ default: databaseDefault })
 
 	expectTypeOf(staticField.options.default).toEqualTypeOf<'anonymous'>()
-	expectTypeOf(runtimeField.options.default).toEqualTypeOf<() => Date>()
+	expectTypeOf(runtimeField.options.default).toEqualTypeOf<() => string>()
 	expectTypeOf(databaseField.options.default).toEqualTypeOf<
-		DatabaseDefault<Date, { readonly precision: number }>
+		DatabaseDefault<string, { readonly precision: number }>
 	>()
 	expectTypeOf(databaseDefault.config.precision).toEqualTypeOf<number>()
 	expectTypeOf<DefaultFactory<boolean>>().toEqualTypeOf<() => boolean>()
@@ -37,7 +38,8 @@ test('preserves exact static, runtime, and database default types', () => {
 test('checks runtime factory outputs against every field value', () => {
 	stringField({ default: () => 'generated' })
 	booleanField({ default: () => true })
-	dateField({ default: () => new Date() })
+	dateField({ default: () => '2026-07-30' })
+	dateTimeField({ default: () => '2026-07-30T12:00:00.000Z' })
 	enumField({
 		values: ['draft', 'published'],
 		default: () => 'draft',
@@ -58,8 +60,8 @@ test('checks runtime factory outputs against every field value', () => {
 
 	// @ts-expect-error -- A string factory cannot provide boolean values.
 	booleanField({ default: () => 'true' })
-	// @ts-expect-error -- Date factories must return Date objects.
-	dateField({ default: () => '2026-07-30' })
+	// @ts-expect-error -- Date-time factories cannot return Date objects.
+	dateTimeField({ default: () => new Date() })
 	enumField({
 		values: ['draft', 'published'],
 		// @ts-expect-error -- Enum factories must return one persisted enum value.
@@ -80,9 +82,10 @@ test('checks runtime factory outputs against every field value', () => {
 })
 
 test('rejects database defaults for incompatible field values', () => {
-	const dateDefault = new DatabaseDefault<Date>('fixture.date', {})
+	const dateDefault = new DatabaseDefault<string>('fixture.date', {})
 
 	dateField({ default: dateDefault })
-	// @ts-expect-error -- A Date database default cannot provide strings.
 	stringField({ default: dateDefault })
+	// @ts-expect-error -- A string database default cannot provide booleans.
+	booleanField({ default: dateDefault })
 })
