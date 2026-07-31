@@ -30,6 +30,12 @@ test('infers schemas and top-level plugin exports from application options', asy
 	expectTypeOf(application.schemas.get('TypedApplication')).toEqualTypeOf<
 		typeof schema | undefined
 	>()
+	expectTypeOf(application.ownsSchema(schema)).toBeBoolean()
+	const unknownSchema: unknown = schema
+
+	if (application.ownsSchema(unknownSchema)) {
+		expectTypeOf(unknownSchema).toEqualTypeOf<typeof schema>()
+	}
 	expectTypeOf(application.getPlugin('fixture.database')).toEqualTypeOf<{
 		dialect: 'postgres'
 	}>()

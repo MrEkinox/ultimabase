@@ -6,11 +6,14 @@ describe('@ultimabase/runtime public entry point', () => {
 		// Master context construction stays inside Runtime until authority is audited.
 		expect(Object.keys(publicApi).sort()).toStrictEqual([
 			'BoundQuery',
+			'FrameworkEngine',
 			'RequestContext',
+			'RequestEngine',
 			'RuntimePipeline',
 			'databaseAdapterServiceToken',
 			'requestSources',
 		])
 		expect(publicApi).not.toHaveProperty('createTrustedMasterRequestContext')
+		expect(publicApi).not.toHaveProperty('createTrustedMasterRequestEngine')
 	})
 })

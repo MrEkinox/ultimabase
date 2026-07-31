@@ -7,6 +7,13 @@ export type {
 	RequestContextOptions,
 	RequestMetadata,
 } from './context/request-context.js'
+// Applications create request-bound engines; trusted master construction stays internal.
+export { FrameworkEngine, RequestEngine } from './engine/framework-engine.js'
+export type {
+	FrameworkEngineOptions,
+	RequestTransactionHandler,
+	RequestTransactionRunner,
+} from './engine/framework-engine.js'
 // Database plugins implement this neutral boundary without leaking their query builders.
 export { databaseAdapterServiceToken } from './database/contracts.js'
 export type {

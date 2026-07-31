@@ -16,8 +16,46 @@ Responsibilities:
 Runtime does not import Drizzle, PostgreSQL, Hono, GraphQL, Yoga, or concrete permission plugins.
 
 Runtime re-exports the neutral `BoundQuery` facade from `@ultimabase/query`.
-The future `RequestEngine` will create those bound instances and execute their
-terminal operations through the single Runtime pipeline.
+`RequestEngine.query(schema)` creates those bound instances while retaining the
+exact application, request context, and pipeline that will execute future
+terminal operations.
+
+## Framework and request engines
+
+`FrameworkEngine` owns one application's pipeline and transaction runner. It
+creates a new immutable request engine for each anonymous or authenticated
+request:
+
+```ts
+const framework = new FrameworkEngine({
+	application,
+	pipeline,
+	transactionRunner,
+})
+
+const request = framework.user(userId, {
+	requestId: 'request-01',
+	source: requestSources.graphql,
+})
+
+const publishedArticles = request
+	.query(ArticleSchema)
+	.equalTo('status', 'published')
+	.descending('createdAt')
+	.limit(20)
+```
+
+The schema must be the exact definition registered by this application. A
+schema from another application is rejected even if it uses the same
+`className`, so parallel applications cannot leak queries or request contexts.
+Direct `execute(operation)` is the current low-level normalized-operation API;
+issues 315 and 316 add developer-facing query and mutation terminals.
+
+`request.transaction(callback)` already preserves the exact application and
+context in its callback. Runtime assembly provides the transaction runner;
+issue 317 will bind a real transaction adapter and define commit, rollback, and
+nested-call behavior. Trusted master request construction remains internal
+until issue 319 adds the audited `useMasterKey` API.
 
 ## Request contexts
 
@@ -73,7 +111,7 @@ const articles = await adapter.execute({
 
 ## Deterministic operation pipeline
 
-`RuntimePipeline` is the low-level assembly boundary used by the future
+`RuntimePipeline` is the low-level assembly boundary used by
 `FrameworkEngine`. Application developers will execute a bound query; engine
 and plugin authors provide every named stage explicitly:
 

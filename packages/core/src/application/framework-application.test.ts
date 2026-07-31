@@ -122,6 +122,26 @@ describe('FrameworkApplication', () => {
 		},
 	)
 
+	it('checks schema ownership by exact application identity', () => {
+		const matchingClassSchema = defineSchema({
+			className: 'ApplicationFixture',
+			fields: { name: stringField() },
+		})
+		const unknownClassSchema = defineSchema({
+			className: 'UnknownFixture',
+			fields: { name: stringField() },
+		})
+		const application = new FrameworkApplication({
+			schemas: [applicationSchema],
+			plugins: [],
+		})
+
+		expect(application.ownsSchema(applicationSchema)).toBe(true)
+		expect(application.ownsSchema(matchingClassSchema)).toBe(false)
+		expect(application.ownsSchema(unknownClassSchema)).toBe(false)
+		expect(application.ownsSchema(undefined)).toBe(false)
+	})
+
 	it('validates graph configuration before plugin setup or transports', async () => {
 		const events: string[] = []
 		const plugin = definePlugin({

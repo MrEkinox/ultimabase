@@ -35,6 +35,11 @@ created. `application.getPlugin('fixture.database')` resolves the setup export
 using the configured literal plugin name; nested plugin definitions participate
 in the same typed lookup.
 
+Runtime also uses `application.ownsSchema(schema)` to verify exact object
+identity. A separately declared schema with the same `className` is not owned by
+the application, which prevents request engines from crossing application
+boundaries accidentally.
+
 `new FrameworkApplication(options)` remains available for advanced composition.
 It validates static schema and graph configuration synchronously but leaves setup
 lazy until `initialize()` or `start()` is called. A stopped application cannot be

@@ -101,6 +101,17 @@ export class FrameworkApplication<
 		return this.#lifecycle.state
 	}
 
+	/** Checks exact schema identity so Runtime engines cannot cross applications. */
+	ownsSchema(schema: unknown): schema is TSchemas[number] {
+		if (!isPlainRecord(schema) || typeof schema.className !== 'string') {
+			return false
+		}
+
+		const registeredSchema: unknown = this.schemas.get(schema.className)
+
+		return registeredSchema === schema
+	}
+
 	/** Completes declaration-only plugin setup before the application is returned. */
 	initialize(): Promise<this> {
 		this.#initializePromise ??= this.#performInitialize()

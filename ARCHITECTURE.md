@@ -115,7 +115,10 @@ setup export types, including definitions introduced through nested composition.
 ## Engines
 
 - `FrameworkEngine` belongs to one isolated application.
-- `RequestEngine` carries request context, access mode, capabilities, and an optional transaction.
+- `RequestEngine` carries one immutable request context and delegates every
+  normalized operation to that application's pipeline.
+- Exact schema identity prevents a request engine from accepting definitions
+  owned by another application, even when class names match.
 - `Query<TSchema>` is an immutable unbound definition.
 - `BoundQuery<TSchema>` is the Query-owned neutral facade attached to a Runtime
   engine; Runtime supplies its terminal execution.
