@@ -74,6 +74,44 @@ the same representation while adapters compile it later.
 Query builders, query normalization, and cursors remain separate capabilities
 that extend the neutral nodes without adding execution concerns to the package.
 
+## Terminal Operation AST
+
+Every future terminal method normalizes to one discriminated `OperationAst`.
+The union distinguishes all thirteen behaviors explicitly:
+
+```ts
+type ArticleOperation = OperationAst<
+	typeof articleSchema,
+	ArticleUpdateExpression
+>
+
+const operation = {
+	kind: 'upsert-one',
+	query: articleQuery.ast,
+	create: { title: 'UltimaBase' },
+	update: updateExpression,
+} satisfies ArticleOperation
+```
+
+Reads use `find`, `first`, `get`, `count`, and `exists`. Writes distinguish
+`create-one` from `create-many`, `update-one` from `update-many`, `upsert-one`
+from `upsert-many`, and `delete-one` from `delete-many`. This makes Runtime,
+hooks, permissions, and adapters handle additions through exhaustive matching.
+
+Create values retain `InferCreateInput<TSchema>`. Updates carry a separate
+`UpdateExpressionNode`; they never overload a create or replacement input.
+Upserts similarly keep their target query, create values, and update expression
+independent. The dedicated update operators are added by the next capability.
+
+Only bulk create and bulk upsert carry `AtomicBulkOperationOptions`. Its sole
+property is `atomic`; master authority is deliberately absent from every
+operation. Trusted authority belongs to the future Runtime request context, so
+transport input cannot manufacture it by adding an operation option.
+
+These contracts do not validate or snapshot untrusted write values. Runtime
+structural validation remains the single boundary for REST, GraphQL, jobs, and
+direct TypeScript terminals.
+
 ## Primitive filters
 
 Filter nodes keep fields and operands correlated with the exact schema:

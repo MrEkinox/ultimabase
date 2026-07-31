@@ -18,3 +18,8 @@ await activeUsers.bind(requestEngine).limit(25).find()
 Transports produce the same AST as the class API. Runtime executes one pipeline for every source.
 
 Bulk creates and upserts are atomic by default. Bulk updates and deletes return counts rather than loading all affected objects.
+
+Terminal operations use distinct AST kinds for singular and bulk behavior.
+Create inputs, update expressions, and upsert target queries remain separate.
+Operation options never carry master authority; that authority can only come
+from a trusted Runtime request context.

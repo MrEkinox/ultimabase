@@ -73,4 +73,26 @@ export type {
 	QueryStringFilterNode,
 	QueryStringFilterOperator,
 } from './filters/primitive.js'
+export type {
+	AtomicBulkOperationOptions,
+	CountOperationAst,
+	CreateManyOperationAst,
+	CreateOneOperationAst,
+	DeleteManyOperationAst,
+	DeleteOneOperationAst,
+	ExistsOperationAst,
+	FindOperationAst,
+	FirstOperationAst,
+	GetOperationAst,
+	OperationAst,
+	OperationAstNode,
+	OperationKind,
+	OperationObjectId,
+	UpdateExpressionNode,
+	UpdateManyOperationAst,
+	UpdateOneOperationAst,
+	UpsertManyOperationAst,
+	UpsertOneOperationAst,
+	UpsertOperationItem,
+} from './operations/contracts.js'
 export { Query } from './query/query.js'

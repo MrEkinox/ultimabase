@@ -1,10 +1,10 @@
 # 307: Define terminal Operation AST
 
-- Status: planned
+- Status: done
 - Milestone: 3
 - Packages: `@ultimabase/query`
-- Depends on: 301
-- ADR: ADR-0004
+- Depends on: 301, 302, 303
+- ADR: ADR-0004, ADR-0059
 
 ## Goal
 
@@ -12,10 +12,10 @@ Represent reads, creates, updates, upserts, deletes, counts, and existence check
 
 ## Acceptance criteria
 
-- [ ] Singular and bulk operations are distinct.
-- [ ] Operation options cannot create master authority.
-- [ ] Update expressions are separated from input objects.
+- [x] Singular and bulk operations are distinct.
+- [x] Operation options cannot create master authority.
+- [x] Update expressions are separated from input objects.
 
 ## Tests
 
-- [ ] Exhaustive operation matching tests.
+- [x] Exhaustive operation matching tests.
