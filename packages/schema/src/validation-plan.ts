@@ -23,6 +23,7 @@ import type {
 	StringLengthValidationOptions,
 } from './string-field.js'
 import type { IdSystemField } from './system-field.js'
+import type { UuidField, UuidVersion } from './uuid-field.js'
 
 /**
  * Separates create-time presence rules from update-time mutation rules.
@@ -65,6 +66,7 @@ export type ValidationIssueCode =
 	| 'string.match'
 	| 'string.type'
 	| 'uuid.type'
+	| 'uuid.version'
 
 /**
  * Identifies nested object properties and concrete array offsets.
@@ -149,7 +151,7 @@ export interface ArrayValidationPlan extends FieldValidationPlanBase<'array'> {
 }
 
 export interface UuidValidationPlan extends FieldValidationPlanBase<'uuid'> {
-	readonly version: 7
+	readonly version?: UuidVersion
 }
 
 export type FieldValidationPlan =
@@ -189,6 +191,7 @@ type BuiltInField =
 	| NumberField
 	| ObjectField
 	| StringField
+	| UuidField
 
 interface FieldPlanBase {
 	readonly presence: ValidationPresence
@@ -278,6 +281,17 @@ const compileEnumValues = (field: EnumField): readonly string[] => {
 		: Object.values(values)
 
 	return immutableArray(normalizedValues)
+}
+
+const readUuidVersion = (
+	field: IdSystemField | UuidField,
+): UuidVersion | undefined => {
+	const { options } = field
+
+	// System generation metadata and developer validation share one plan shape.
+	return 'uuidVersion' in options
+		? options.uuidVersion
+		: options.validation?.version
 }
 
 const compileFields = (
@@ -384,12 +398,15 @@ const compileScalarField = (
 					? {}
 					: { match: field.options.validation.match }),
 			})
-		case 'uuid':
+		case 'uuid': {
+			const version = readUuidVersion(field)
+
 			return immutableRecord({
 				...base,
 				kind: field.kind,
-				version: field.options.uuidVersion,
+				...(version === undefined ? {} : { version }),
 			})
+		}
 	}
 }
 

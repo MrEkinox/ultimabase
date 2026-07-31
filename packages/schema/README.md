@@ -214,6 +214,19 @@ Integer fields additionally support `autoIncrement: true | false` as declarative
 
 `dateField(options)` represents server-side JavaScript `Date` values. Static defaults and `validation.range.min/max` boundaries accept only valid `Date` objects; Schema snapshots supplied dates and rejects inverted ranges. ISO string serialization belongs to transport packages and is deliberately absent here.
 
+## UUID fields
+
+`uuidField(options)` represents a UUID through its canonical string value.
+`validation.version` may restrict accepted values to one UUID version from 1
+through 8; omitting it accepts every standard version. The field factory
+validates and freezes this metadata while actual UUID value validation belongs
+to the compiled runtime plan.
+
+UUID generation uses the common default contract rather than a field-specific
+flag. The framework-owned `id` remains a separately generated UUID v7 system
+field. PostgreSQL adapters may map both forms to the native `uuid` type without
+exposing storage configuration through Schema.
+
 ## Enum fields
 
 `enumField(options)` accepts an inline string list, a native TypeScript string enum, or a symbolic key-value mapping:

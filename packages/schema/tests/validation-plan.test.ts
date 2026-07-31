@@ -11,6 +11,7 @@ import {
 	numberField,
 	objectField,
 	stringField,
+	uuidField,
 	type FieldDefinition,
 } from '../src/index.js'
 
@@ -223,6 +224,38 @@ describe('validation plans', () => {
 					nullable: false,
 				},
 			},
+		})
+	})
+
+	it('compiles optional developer UUID version constraints', () => {
+		const schema = defineSchema({
+			className: 'UuidPlan',
+			fields: {
+				unrestricted: uuidField(),
+				versioned: uuidField({
+					validation: {
+						required: true,
+						version: 4,
+					},
+				}),
+			},
+		})
+
+		const unrestricted =
+			compileValidationPlans(schema).create.fields.unrestricted
+		const versioned = compileValidationPlans(schema).create.fields.versioned
+
+		expect(unrestricted).toStrictEqual({
+			kind: 'uuid',
+			presence: 'optional',
+			nullable: false,
+		})
+		expect(unrestricted).not.toHaveProperty('version')
+		expect(versioned).toStrictEqual({
+			kind: 'uuid',
+			presence: 'required',
+			nullable: false,
+			version: 4,
 		})
 	})
 

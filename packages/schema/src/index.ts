@@ -100,6 +100,13 @@ export type {
 	StringLengthValidationOptions,
 	StringValidationOptions,
 } from './string-field.js'
+export { uuidField } from './uuid-field.js'
+export type {
+	UuidField,
+	UuidFieldOptions,
+	UuidValidationOptions,
+	UuidVersion,
+} from './uuid-field.js'
 export type {
 	CreatedAtSystemField,
 	IdSystemField,

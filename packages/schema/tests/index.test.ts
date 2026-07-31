@@ -23,6 +23,7 @@ describe('@ultimabase/schema public entry point', () => {
 			'numberField',
 			'objectField',
 			'stringField',
+			'uuidField',
 		])
 	})
 })
