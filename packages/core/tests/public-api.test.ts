@@ -11,6 +11,7 @@ describe('@ultimabase/core public entry point', () => {
 			'createServiceToken',
 			'definePlugin',
 			'frameworkErrorCodes',
+			'normalizePlugins',
 		])
 	})
 })

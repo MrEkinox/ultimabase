@@ -9,6 +9,7 @@ import {
 test('preserves literal names and synchronous setup exports', () => {
 	const plugin = definePlugin({
 		name: 'fixture.database',
+		slot: 'database-adapter',
 		setup: ({ services, schemas }) => {
 			expectTypeOf(services.size).toEqualTypeOf<number>()
 			expectTypeOf(schemas.size).toEqualTypeOf<number>()
@@ -25,6 +26,7 @@ test('preserves literal names and synchronous setup exports', () => {
 	})
 
 	expectTypeOf(plugin.name).toEqualTypeOf<'fixture.database'>()
+	expectTypeOf(plugin.slot).toEqualTypeOf<'database-adapter' | undefined>()
 	expectTypeOf<PluginExports<typeof plugin>>().toEqualTypeOf<{
 		readonly dialect: 'postgres'
 	}>()

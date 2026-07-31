@@ -47,8 +47,15 @@ export interface PluginLifecycleHooks<TExports> {
 	readonly dispose?: PluginLifecycleHook<TExports>
 }
 
-interface PluginDefinitionIdentity {
+declare const pluginDefinitionBrand: unique symbol
+
+/** Identifies definitions whose runtime provenance was validated by Core. */
+export interface PluginDefinition {
+	readonly [pluginDefinitionBrand]: true
 	readonly name: string
+	readonly slot?: string
+	readonly dependencies?: readonly string[] | undefined
+	readonly plugins?: readonly PluginDefinition[] | undefined
 }
 
 /** Carries every exact declaration type into later graph and lookup stages. */
@@ -61,10 +68,12 @@ export interface FrameworkPlugin<
 		readonly string[] | undefined,
 	TConflicts extends readonly string[] | undefined =
 		readonly string[] | undefined,
-	TPlugins extends readonly PluginDefinitionIdentity[] | undefined =
-		readonly PluginDefinitionIdentity[] | undefined,
-> extends PluginDefinitionIdentity {
+	TPlugins extends readonly PluginDefinition[] | undefined =
+		readonly PluginDefinition[] | undefined,
+	TSlot extends string = string,
+> extends PluginDefinition {
 	readonly name: TName
+	readonly slot?: TSlot
 	readonly version?: string
 	readonly dependencies?: TDependencies
 	readonly optionalDependencies?: TOptionalDependencies
@@ -86,9 +95,11 @@ export interface DefinePluginOptions<
 	TDependencies extends readonly string[] | undefined,
 	TOptionalDependencies extends readonly string[] | undefined,
 	TConflicts extends readonly string[] | undefined,
-	TPlugins extends readonly PluginDefinitionIdentity[] | undefined,
+	TPlugins extends readonly PluginDefinition[] | undefined,
+	TSlot extends string,
 > {
 	readonly name: TName
+	readonly slot?: TSlot
 	readonly version?: string
 	readonly dependencies?: TDependencies
 	readonly optionalDependencies?: TOptionalDependencies
@@ -129,17 +140,17 @@ const normalizePluginNames = <const TNames extends readonly string[]>(
 	return immutableArray(names)
 }
 
-const assertDeclaredPlugin: (
+export const assertPluginDefinition: (
 	value: unknown,
 	path: string,
-) => asserts value is PluginDefinitionIdentity = (value, path) => {
+) => asserts value is PluginDefinition = (value, path) => {
 	if (!isPlainRecord(value) || !declaredPlugins.has(value)) {
 		throw new TypeError(`${path} must be created by definePlugin`)
 	}
 }
 
 const normalizeNestedPlugins = <
-	const TPlugins extends readonly PluginDefinitionIdentity[],
+	const TPlugins extends readonly PluginDefinition[],
 >(
 	plugins: TPlugins,
 ): readonly [...TPlugins] => {
@@ -150,7 +161,7 @@ const normalizeNestedPlugins = <
 	}
 
 	for (const [index, plugin] of untrustedPlugins.entries()) {
-		assertDeclaredPlugin(plugin, `plugins[${String(index)}]`)
+		assertPluginDefinition(plugin, `plugins[${String(index)}]`)
 	}
 
 	return immutableArray(plugins)
@@ -185,8 +196,8 @@ export const definePlugin = <
 	const TDependencies extends readonly string[] | undefined = undefined,
 	const TOptionalDependencies extends readonly string[] | undefined = undefined,
 	const TConflicts extends readonly string[] | undefined = undefined,
-	const TPlugins extends readonly PluginDefinitionIdentity[] | undefined =
-		undefined,
+	const TPlugins extends readonly PluginDefinition[] | undefined = undefined,
+	const TSlot extends string = never,
 >(
 	options: DefinePluginOptions<
 		TName,
@@ -194,7 +205,8 @@ export const definePlugin = <
 		TDependencies,
 		TOptionalDependencies,
 		TConflicts,
-		TPlugins
+		TPlugins,
+		TSlot
 	>,
 ): FrameworkPlugin<
 	TName,
@@ -202,7 +214,8 @@ export const definePlugin = <
 	TDependencies,
 	TOptionalDependencies,
 	TConflicts,
-	TPlugins
+	TPlugins,
+	TSlot
 > => {
 	const untrustedOptions: unknown = options
 
@@ -211,6 +224,10 @@ export const definePlugin = <
 	}
 
 	assertNonEmptyString(options.name, 'name')
+
+	if (options.slot !== undefined) {
+		assertNonEmptyString(options.slot, 'slot')
+	}
 
 	if (options.version !== undefined) {
 		assertNonEmptyString(options.version, 'version')
@@ -222,6 +239,7 @@ export const definePlugin = <
 
 	const plugin = immutableRecord({
 		name: options.name,
+		...(options.slot === undefined ? {} : { slot: options.slot }),
 		...(options.version === undefined ? {} : { version: options.version }),
 		...(options.dependencies === undefined
 			? {}
@@ -262,6 +280,7 @@ export const definePlugin = <
 		TDependencies,
 		TOptionalDependencies,
 		TConflicts,
-		TPlugins
+		TPlugins,
+		TSlot
 	>
 }

@@ -83,6 +83,10 @@ graphqlYogaPlugin({
 
 The child is still registered globally. Dependencies determine setup order, then configuration position breaks ties. Teardown uses the reverse order.
 
+Plugins occupying mutually exclusive architectural roles declare the same
+`slot`. Normalization rejects multiple definitions for slots such as
+`database-adapter` before any plugin is initialized.
+
 ## Engines
 
 - `FrameworkEngine` belongs to one isolated application.

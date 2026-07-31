@@ -45,6 +45,7 @@ Accepted records:
 - [ADR-0043: Typed service token identity](0043-typed-service-token-identity.md)
 - [ADR-0044: Isolated service registries](0044-isolated-service-registry.md)
 - [ADR-0045: Static typed plugin definitions](0045-static-typed-plugin-definitions.md)
+- [ADR-0046: Plugin normalization and exclusive slots](0046-plugin-normalization-and-exclusive-slots.md)
 
 Superseded records:
 

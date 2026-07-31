@@ -1,10 +1,10 @@
 # 205: Normalize nested plugins
 
-- Status: planned
+- Status: done
 - Milestone: 2
 - Packages: `@ultimabase/core`
 - Depends on: 204
-- ADR: ADR-0003
+- ADR: ADR-0046
 
 ## Goal
 
@@ -12,11 +12,12 @@ Flatten nested configuration into one graph while retaining parent relationships
 
 ## Acceptance criteria
 
-- [ ] Children gain an implicit parent dependency.
-- [ ] Nested and top-level duplicates are detected.
-- [ ] Conflicting duplicate options fail.
-- [ ] Normalization does not initialize plugins.
+- [x] Children gain an implicit parent dependency.
+- [x] Nested and top-level duplicates are detected.
+- [x] Conflicting duplicate options fail.
+- [x] Distinct plugins occupying the same exclusive slot fail.
+- [x] Normalization does not initialize plugins.
 
 ## Tests
 
-- [ ] Deep nesting and duplicate fixtures.
+- [x] Deep nesting, duplicate, and exclusive-slot fixtures.

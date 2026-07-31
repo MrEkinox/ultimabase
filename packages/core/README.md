@@ -81,6 +81,7 @@ lifecycle work:
 export const databasePlugin = () =>
 	definePlugin({
 		name: 'fixture.database',
+		slot: 'database-adapter',
 		dependencies: ['fixture.config'],
 		setup: ({ services }) => {
 			const database = createDatabase()
@@ -96,7 +97,13 @@ export const databasePlugin = () =>
 ```
 
 Names and setup exports retain their exact types for future plugin lookup.
-Required dependencies, optional dependencies, conflicts, hooks, and nested
-definitions are copied and frozen. Nested plugins remain global graph entries;
-their placement under `plugins` is composition syntax resolved by later Core
-stages.
+The optional `slot` reserves one exclusive architectural role. Required
+dependencies, optional dependencies, conflicts, hooks, and nested definitions
+are copied and frozen. Nested plugins remain global graph entries; their
+placement under `plugins` is composition syntax.
+
+`normalizePlugins(definitions)` resolves that syntax into immutable flat
+metadata without running plugin code. Children receive implicit parent
+dependencies, source order is retained, and the exact same definition can be
+reused safely. Separate definitions with the same name or two plugins sharing
+one exclusive slot fail with `PLUGIN_CONFLICT`.

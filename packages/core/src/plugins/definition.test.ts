@@ -14,6 +14,7 @@ describe('definePlugin', () => {
 		}
 		const plugin = definePlugin({
 			name: 'fixture.database',
+			slot: 'database-adapter',
 			version: '1.0.0',
 			dependencies,
 			optionalDependencies: ['cache'],
@@ -32,6 +33,7 @@ describe('definePlugin', () => {
 		expect(hookCalls).toBe(0)
 		expect(plugin).toMatchObject({
 			name: 'fixture.database',
+			slot: 'database-adapter',
 			version: '1.0.0',
 			dependencies: ['services'],
 			optionalDependencies: ['cache'],
@@ -68,6 +70,9 @@ describe('definePlugin', () => {
 		}).toThrow(new TypeError('plugin options must be a plain object'))
 		expect(() => definePlugin({ name: '' })).toThrow(
 			new TypeError('name must be a non-empty string'),
+		)
+		expect(() => definePlugin({ name: 'fixture', slot: '' })).toThrow(
+			new TypeError('slot must be a non-empty string'),
 		)
 		expect(() => definePlugin({ name: 'fixture', version: '' })).toThrow(
 			new TypeError('version must be a non-empty string'),
@@ -133,7 +138,7 @@ describe('definePlugin', () => {
 		expect(() => {
 			definePlugin({
 				name: 'fixture',
-				// Structural typing cannot prove runtime provenance for nested definitions.
+				// @ts-expect-error -- Nested definitions require Core provenance.
 				plugins: [{ name: 'forged' }],
 			})
 		}).toThrow(new TypeError('plugins[0] must be created by definePlugin'))

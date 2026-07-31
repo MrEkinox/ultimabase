@@ -15,6 +15,7 @@ export { definePlugin } from './plugins/definition.js'
 export type {
 	DefinePluginOptions,
 	FrameworkPlugin,
+	PluginDefinition,
 	PluginExports,
 	PluginLifecycleContext,
 	PluginLifecycleHook,
@@ -23,3 +24,5 @@ export type {
 	PluginSetupContext,
 	PluginSetupExports,
 } from './plugins/definition.js'
+export { normalizePlugins } from './plugins/normalization.js'
+export type { NormalizedPlugin } from './plugins/normalization.js'
