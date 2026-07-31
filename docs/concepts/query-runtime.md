@@ -24,6 +24,11 @@ Create inputs, update expressions, and upsert target queries remain separate.
 Operation options never carry master authority; that authority can only come
 from a trusted Runtime request context.
 
+Request contexts distinguish source from authority. A REST, GraphQL, job, or
+custom transport may create anonymous or authenticated user state, but its
+source never grants master access. Capability tokens are checked by identity,
+and raw credentials are not retained as context metadata.
+
 Update inputs group `set`, `unset`, `increment`, and `decrement` operations.
 They normalize to immutable field-operation nodes, reject cross-operator field
 conflicts, and keep partial set values pending the shared Runtime validation

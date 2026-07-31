@@ -126,6 +126,9 @@ nodes. It contains no request, GraphQL, SQL, adapter, or execution state;
 transports normalize into it and adapters compile it behind Runtime contracts.
 
 Access modes are `anonymous`, `user`, and `master`. Request sources such as `rest`, `graphql`, `job`, or `internal` are metadata, not access modes.
+`RequestContext` correlates the mode with immutable request identity, source,
+safe metadata, and identity-based capability tokens. Public construction cannot
+select master mode; Runtime authority adds that audited path separately.
 
 ## Access control
 
