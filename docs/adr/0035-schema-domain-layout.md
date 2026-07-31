@@ -1,6 +1,6 @@
 # ADR-0035: Schema domain-oriented internal layout
 
-- Status: accepted
+- Status: superseded by ADR-0036
 - Date: 2026-07-31
 
 ## Decision

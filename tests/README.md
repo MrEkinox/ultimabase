@@ -4,12 +4,15 @@
 - `fixtures`: schemas and application configurations shared by tests.
 - `performance`: guarded performance regression suites.
 
-Package-local unit and compile-time tests live under each package's `tests` directory.
+Focused package unit and compile-time tests live beside their source. A package's
+`tests` directory contains only public-export and cross-domain behavior.
 
 ## File conventions
 
-- `packages/*/tests/**/*.test.ts`: package-local unit tests.
-- `packages/*/tests/**/*.test-d.ts`: package-local public API and inference tests.
+- `packages/*/src/**/*.test.ts`: focused package runtime tests.
+- `packages/*/src/**/*.test-d.ts`: focused package compile-time tests.
+- `packages/*/tests/**/*.test.ts`: package-level integration and public-export tests.
+- `packages/*/tests/**/*.test-d.ts`: package-level compile-time integration tests.
 - `tests/e2e/**/*.e2e.test.ts`: cross-package end-to-end tests.
 
 Vitest runs these conventions as distinct projects named `unit`, `e2e`, and `types`. Runtime files use isolated fork workers and may execute in parallel.

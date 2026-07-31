@@ -38,6 +38,8 @@ export default defineConfig(
 	},
 	{
 		files: [
+			'packages/*/src/**/*.test.ts',
+			'packages/*/src/**/*.test-d.ts',
 			'packages/*/tests/**/*.test.ts',
 			'packages/*/tests/**/*.test-d.ts',
 			'tests/e2e/**/*.e2e.test.ts',

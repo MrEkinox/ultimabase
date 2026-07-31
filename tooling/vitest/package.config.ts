@@ -6,12 +6,12 @@ const config: ViteUserConfig = defineConfig({
 	root: process.cwd(),
 	test: {
 		fileParallelism: true,
-		// Each workspace discovers only the tests owned by that package.
-		include: ['tests/**/*.test.ts'],
+		// Each workspace discovers colocated units and package-level behavior only.
+		include: ['src/**/*.test.ts', 'tests/**/*.test.ts'],
 		pool: 'forks',
 		typecheck: {
 			enabled: true,
-			include: ['tests/**/*.test-d.ts'],
+			include: ['src/**/*.test-d.ts', 'tests/**/*.test-d.ts'],
 			only: false,
 			tsconfig: '../../tooling/tsconfig/test.json',
 		},

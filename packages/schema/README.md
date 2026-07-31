@@ -38,8 +38,10 @@ src/
 Dependencies flow from `internal` and `fields/base`, through constraints and
 built-in fields, into schema composition, inference, and validation plans.
 Internal folders deliberately have no barrel files or published subpath
-exports. Tests mirror these major domains under `tests/` and use the root source
-entry unless they specifically verify an internal invariant.
+exports. Focused runtime and compile-time tests are colocated with the source
+they protect and use the root source entry unless they specifically verify an
+internal invariant. The package-level `tests/` directory is reserved for
+cross-domain behavior and public-export checks.
 
 ## Schema definitions
 

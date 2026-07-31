@@ -8,7 +8,7 @@ const testProjects: TestProjectConfiguration[] = [
 	{
 		extends: true,
 		test: {
-			include: ['packages/*/tests/**/*.test.ts'],
+			include: ['packages/*/src/**/*.test.ts', 'packages/*/tests/**/*.test.ts'],
 			name: 'unit',
 		},
 	},
@@ -26,7 +26,10 @@ const testProjects: TestProjectConfiguration[] = [
 			name: 'types',
 			typecheck: {
 				enabled: true,
-				include: ['packages/*/tests/**/*.test-d.ts'],
+				include: [
+					'packages/*/src/**/*.test-d.ts',
+					'packages/*/tests/**/*.test-d.ts',
+				],
 				only: true,
 				tsconfig: './tooling/tsconfig/test.json',
 			},
@@ -37,7 +40,14 @@ const testProjects: TestProjectConfiguration[] = [
 const config: ViteUserConfig = defineConfig({
 	test: {
 		coverage: {
-			exclude: ['**/dist/**', '**/*.d.ts', '**/*.generated.ts'],
+			// Test modules live beside sources but must not inflate production coverage.
+			exclude: [
+				'**/dist/**',
+				'**/*.d.ts',
+				'**/*.generated.ts',
+				'**/*.test-d.ts',
+				'**/*.test.ts',
+			],
 			include: ['packages/*/src/**/*.ts'],
 			provider: 'v8',
 			reporter: ['text', 'json', 'html'],

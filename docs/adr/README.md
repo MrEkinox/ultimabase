@@ -37,10 +37,11 @@ Accepted records:
 - [ADR-0032: Object list update replacement](0032-object-list-update-replacement.md)
 - [ADR-0033: Field factory provenance and snapshot capabilities](0033-field-factory-provenance.md)
 - [ADR-0034: Object defaults use create-input presence](0034-object-default-create-presence.md)
-- [ADR-0035: Schema domain-oriented internal layout](0035-schema-domain-layout.md)
+- [ADR-0036: Colocated package tests](0036-colocated-package-tests.md)
 
 Superseded records:
 
 - [ADR-0017: Composite fields and PostgreSQL storage](0017-composite-fields-and-postgres-storage.md), superseded by ADR-0021.
+- [ADR-0035: Schema domain-oriented internal layout](0035-schema-domain-layout.md), superseded by ADR-0036.
 
 New decisions receive the next number. Do not rewrite history; supersede a record.
