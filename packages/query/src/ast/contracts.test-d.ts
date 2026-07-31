@@ -53,6 +53,7 @@ test('types the initial AST from the exact schema definition', () => {
 	expectTypeOf(ast.kind).toEqualTypeOf<'query'>()
 	expectTypeOf(ast.schema.definition).toEqualTypeOf<typeof postSchema>()
 	expectTypeOf(ast.where).toEqualTypeOf<undefined>()
+	expectTypeOf(ast.limit).toEqualTypeOf<undefined>()
 	expectTypeOf(ast.pagination).toEqualTypeOf<undefined>()
 	expectTypeOf<QueryFieldName<typeof postSchema>>().toEqualTypeOf<
 		'title' | 'published' | 'id' | 'createdAt' | 'updatedAt'

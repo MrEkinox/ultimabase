@@ -2,6 +2,7 @@ import { expect, expectTypeOf, test } from 'vitest'
 
 import {
 	normalizeQueryCursorPagination,
+	normalizeQueryLimit,
 	normalizeQueryOffsetPagination,
 	type QueryCursor,
 	type QueryCursorPaginationNode,
@@ -9,24 +10,23 @@ import {
 } from '../index.js'
 
 test('keeps offset pagination input and output precise and readonly', () => {
-	const input = {
-		limit: 25,
-		skip: 50,
-	} as const satisfies QueryOffsetPaginationInput
+	const input = { skip: 50 } as const satisfies QueryOffsetPaginationInput
 	const pagination = normalizeQueryOffsetPagination(input)
 
-	expect(input.limit).toBe(25)
+	expect(input.skip).toBe(50)
+	expectTypeOf(normalizeQueryLimit(25)).toEqualTypeOf<number | undefined>()
 	expectTypeOf(pagination).toEqualTypeOf<
 		| {
 				readonly kind: 'offset-pagination'
-				readonly limit: number | undefined
 				readonly skip: number
 		  }
 		| undefined
 	>()
 
-	// @ts-expect-error -- Pagination values must be numeric before normalization.
-	normalizeQueryOffsetPagination({ limit: '25' })
+	// @ts-expect-error -- The limit remains an independent numeric clause.
+	normalizeQueryLimit('25')
+	// @ts-expect-error -- Offset pagination cannot redefine the query limit.
+	normalizeQueryOffsetPagination({ limit: 25 })
 	if (pagination !== undefined) {
 		// @ts-expect-error -- Normalized pagination nodes are immutable.
 		pagination.skip = 0
@@ -36,7 +36,6 @@ test('keeps offset pagination input and output precise and readonly', () => {
 test('brands normalized cursor tokens without burdening caller input', () => {
 	const pagination = normalizeQueryCursorPagination({
 		after: 'opaque.cursor',
-		limit: 25,
 	})
 
 	expect(pagination.kind).toBe('cursor-pagination')
@@ -44,8 +43,8 @@ test('brands normalized cursor tokens without burdening caller input', () => {
 	expectTypeOf(pagination.after).toEqualTypeOf<QueryCursor | undefined>()
 	expectTypeOf<'plain cursor'>().not.toExtend<QueryCursor>()
 
-	// @ts-expect-error -- Cursor pagination requires an explicit positive limit.
-	normalizeQueryCursorPagination({ after: 'opaque.cursor' })
-	// @ts-expect-error -- Normalized cursor pages are immutable.
-	pagination.limit = 50
+	// @ts-expect-error -- Cursor position cannot redefine the query limit.
+	normalizeQueryCursorPagination({ after: 'opaque.cursor', limit: 25 })
+	// @ts-expect-error -- Normalized cursor positions are immutable.
+	pagination.after = undefined
 })

@@ -28,11 +28,12 @@ const ast = createQueryAst(postSchema)
 // The initial AST has no clauses and contains no HTTP, GraphQL, or SQL data.
 ast.selection.fields // readonly []
 ast.where // undefined
+ast.limit // undefined
 ```
 
-The root separates schema, selection, filtering, ordering, and pagination into
-discriminated nodes. This lets REST, GraphQL, and direct TypeScript callers
-normalize into the same representation while adapters compile it later.
+The root separates schema, selection, filtering, ordering, limit, and pagination
+position. This lets REST, GraphQL, and direct TypeScript callers normalize into
+the same representation while adapters compile it later.
 
 Mutable builders, query normalization, and cursors remain separate capabilities
 that extend the neutral nodes without adding execution concerns to the package.
@@ -127,6 +128,7 @@ immutable AST nodes:
 
 ```ts
 import {
+	normalizeQueryLimit,
 	normalizeQueryOffsetPagination,
 	normalizeQueryOrdering,
 	normalizeQuerySelection,
@@ -137,14 +139,15 @@ const ordering = normalizeQueryOrdering(postSchema, [
 	{ field: 'createdAt', direction: 'descending' },
 	{ field: 'title', direction: 'ascending' },
 ])
-const pagination = normalizeQueryOffsetPagination({ limit: 25, skip: 50 })
+const limit = normalizeQueryLimit(25)
+const pagination = normalizeQueryOffsetPagination({ skip: 50 })
 ```
 
 Selection keeps the first occurrence of a field. Ordering keeps the first
-position of a field while its last declaration controls direction. A limit is
-a positive safe integer, and skip is a non-negative safe integer. Empty clauses
-are removed or represented by shared immutable nodes without mutating caller
-input.
+position of a field while its last declaration controls direction. The single
+query limit is a positive safe integer shared by every pagination strategy, and
+skip is a non-negative safe integer. Empty clauses are removed or represented
+by shared immutable nodes without mutating caller input.
 
 The query package deliberately does not impose an application-wide maximum
 limit. That policy belongs to the runtime or transport layer. Relation
@@ -163,6 +166,7 @@ import {
 	createQueryCursorPayload,
 	normalizeQueryCursorOrdering,
 	normalizeQueryCursorPagination,
+	normalizeQueryLimit,
 	normalizeQueryOrdering,
 	sealQueryCursor,
 } from '@ultimabase/query'
@@ -174,10 +178,8 @@ const stableOrdering = normalizeQueryCursorOrdering(
 	postSchema,
 	requestedOrdering.orders,
 )
-const page = normalizeQueryCursorPagination({
-	limit: 25,
-	after: previousCursor,
-})
+const limit = normalizeQueryLimit(25)
+const page = normalizeQueryCursorPagination({ after: previousCursor })
 
 const payload = createQueryCursorPayload(postSchema, stableOrdering, lastPost)
 const nextCursor = await sealQueryCursor(cursorCodec, payload)
@@ -194,3 +196,7 @@ Opening a malformed or modified token throws `QueryCursorError` with
 ordering throws `CURSOR_INCOMPATIBLE`. Runtime can map these Query-owned errors
 to its transport-safe framework error without reversing the package dependency
 graph.
+
+`limit` is deliberately not part of the cursor or offset position. This keeps
+one page-size clause for the future `.limit()` builder method, while `.skip()`
+and `.after()` select mutually exclusive pagination positions.

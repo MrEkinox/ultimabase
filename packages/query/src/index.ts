@@ -36,6 +36,7 @@ export { normalizeQueryOrdering } from './clauses/ordering.js'
 export type { QueryOrderInput } from './clauses/ordering.js'
 export {
 	normalizeQueryCursorPagination,
+	normalizeQueryLimit,
 	normalizeQueryOffsetPagination,
 } from './clauses/pagination.js'
 export type {

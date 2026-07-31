@@ -57,10 +57,9 @@ export interface QueryOrderingNode<TFieldName extends string = string> {
 	readonly orders: readonly QueryOrderNode<TFieldName>[]
 }
 
-/** Represents portable offset pagination before cursor nodes are introduced. */
+/** Represents an optional offset independently from the shared query limit. */
 export interface QueryOffsetPaginationNode {
 	readonly kind: 'offset-pagination'
-	readonly limit: number | undefined
 	readonly skip: number
 }
 
@@ -68,7 +67,6 @@ export interface QueryOffsetPaginationNode {
 export interface QueryCursorPaginationNode {
 	readonly kind: 'cursor-pagination'
 	readonly after: QueryCursor | undefined
-	readonly limit: number
 }
 
 /** Leaves pagination extensible without exposing adapter-specific values. */
@@ -85,6 +83,7 @@ export interface QueryAst<
 	readonly selection: QuerySelectionNode<QueryFieldName<TSchema>>
 	readonly where: QueryWhereNode<TExpression> | undefined
 	readonly ordering: QueryOrderingNode<QueryFieldName<TSchema>>
+	readonly limit: number | undefined
 	readonly pagination: QueryPaginationNode | undefined
 }
 
@@ -95,6 +94,7 @@ export interface InitialQueryAst<
 	readonly selection: QuerySelectionNode<never>
 	readonly where: undefined
 	readonly ordering: QueryOrderingNode<never>
+	readonly limit: undefined
 	readonly pagination: undefined
 }
 

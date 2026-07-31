@@ -21,6 +21,7 @@ describe('createQueryAst', () => {
 			selection: { kind: 'selection', fields: [] },
 			where: undefined,
 			ordering: { kind: 'ordering', orders: [] },
+			limit: undefined,
 			pagination: undefined,
 		})
 		expect(ast.schema.definition).toBe(postSchema)

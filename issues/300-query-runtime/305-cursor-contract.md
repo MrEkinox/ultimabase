@@ -4,7 +4,7 @@
 - Milestone: 3
 - Packages: `@ultimabase/query`
 - Depends on: 304
-- ADR: ADR-0004, ADR-0056
+- ADR: ADR-0004, ADR-0056, ADR-0057
 
 ## Goal
 

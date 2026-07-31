@@ -12,6 +12,7 @@ describe('@ultimabase/query public entry point', () => {
 			'normalizeLogicalFilter',
 			'normalizeQueryCursorOrdering',
 			'normalizeQueryCursorPagination',
+			'normalizeQueryLimit',
 			'normalizeQueryOffsetPagination',
 			'normalizeQueryOrdering',
 			'normalizeQuerySelection',

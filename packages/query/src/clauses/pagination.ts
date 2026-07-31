@@ -1,18 +1,18 @@
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 
-import type { QueryOffsetPaginationNode } from '../ast/contracts.js'
-import type { QueryCursorPaginationNode } from '../ast/contracts.js'
+import type {
+	QueryCursorPaginationNode,
+	QueryOffsetPaginationNode,
+} from '../ast/contracts.js'
 import type { QueryCursor } from '../cursor/contracts.js'
 
 /** Describes forward keyset pagination before its token is authenticated. */
 export interface QueryCursorPaginationInput {
 	readonly after?: string
-	readonly limit: number
 }
 
-/** Describes explicit offset pagination before cursor normalization is added. */
+/** Describes an optional offset without duplicating the independent limit. */
 export interface QueryOffsetPaginationInput {
-	readonly limit?: number
 	readonly skip?: number
 }
 
@@ -41,6 +41,10 @@ const parseOptionalPaginationInteger = (
 ): number | undefined =>
 	value === undefined ? undefined : parsePaginationInteger(value, path, minimum)
 
+/** Validates the only page-size value shared by offset and cursor strategies. */
+export const normalizeQueryLimit = (limit?: number): number | undefined =>
+	parseOptionalPaginationInteger(limit, 'query.limit', 1)
+
 /** Removes no-op offsets and freezes every explicit pagination value. */
 export const normalizeQueryOffsetPagination = (
 	input?: QueryOffsetPaginationInput,
@@ -55,11 +59,6 @@ export const normalizeQueryOffsetPagination = (
 		throw new TypeError('offset pagination must be an object')
 	}
 
-	const limit = parseOptionalPaginationInteger(
-		untrustedInput.limit,
-		'pagination.limit',
-		1,
-	)
 	const skip = parseOptionalPaginationInteger(
 		untrustedInput.skip,
 		'pagination.skip',
@@ -68,20 +67,19 @@ export const normalizeQueryOffsetPagination = (
 
 	const normalizedSkip = skip ?? 0
 
-	if (limit === undefined && normalizedSkip === 0) {
+	if (normalizedSkip === 0) {
 		return undefined
 	}
 
 	return immutableRecord({
 		kind: 'offset-pagination',
-		limit,
 		skip: normalizedSkip,
 	})
 }
 
 /** Validates a forward cursor page while keeping the token opaque to the AST. */
 export const normalizeQueryCursorPagination = (
-	input: QueryCursorPaginationInput,
+	input: QueryCursorPaginationInput = {},
 ): QueryCursorPaginationNode => {
 	const untrustedInput: unknown = input
 
@@ -89,11 +87,6 @@ export const normalizeQueryCursorPagination = (
 		throw new TypeError('cursor pagination must be an object')
 	}
 
-	const limit = parsePaginationInteger(
-		untrustedInput.limit,
-		'pagination.limit',
-		1,
-	)
 	const after = untrustedInput.after
 
 	if (
@@ -106,6 +99,5 @@ export const normalizeQueryCursorPagination = (
 	return immutableRecord({
 		kind: 'cursor-pagination',
 		after: after as QueryCursor | undefined,
-		limit,
 	})
 }
