@@ -22,6 +22,7 @@ test('infers provided, required, and optional service values', () => {
 	}
 
 	registry.provide(DatabaseServiceToken, database)
+	const pluginServices = registry.forPlugin('fixture.database')
 
 	expectTypeOf(registry.size).toEqualTypeOf<number>()
 	expectTypeOf(registry.has(DatabaseServiceToken)).toEqualTypeOf<boolean>()
@@ -31,6 +32,12 @@ test('infers provided, required, and optional service values', () => {
 	expectTypeOf(registry.getOptional(DatabaseServiceToken)).toEqualTypeOf<
 		DatabaseService | undefined
 	>()
+	expectTypeOf(registry.ownerOf(DatabaseServiceToken)).toEqualTypeOf<
+		string | undefined
+	>()
+	expectTypeOf(
+		pluginServices.get(DatabaseServiceToken),
+	).toEqualTypeOf<DatabaseService>()
 	expectTypeOf(registry.dispose()).toEqualTypeOf<Promise<void>>()
 })
 

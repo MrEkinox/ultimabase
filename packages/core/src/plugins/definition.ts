@@ -1,4 +1,3 @@
-import type { SchemaRegistry } from '@ultimabase/schema'
 import {
 	assertNonEmptyString,
 	immutableArray,
@@ -8,13 +7,9 @@ import {
 	type MaybePromise,
 } from '@ultimabase/shared'
 
-import type { ServiceRegistry } from '../services/service-registry.js'
+import type { PluginSetupContext } from './setup-registries.js'
 
-/** Exposes only application-owned registries implemented before plugin setup. */
-export interface PluginSetupContext {
-	readonly schemas: SchemaRegistry
-	readonly services: ServiceRegistry
-}
+export type { PluginSetupContext } from './setup-registries.js'
 
 /** Creates the runtime exports later consumed through typed plugin lookup. */
 export type PluginSetup<TExports = unknown> = (

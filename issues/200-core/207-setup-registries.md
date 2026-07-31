@@ -1,10 +1,10 @@
 # 207: Add plugin setup registries
 
-- Status: planned
+- Status: done
 - Milestone: 2
 - Packages: `@ultimabase/core`
 - Depends on: 203, 206, 113
-- ADR: ADR-0003
+- ADR: ADR-0048
 
 ## Goal
 
@@ -12,10 +12,10 @@ Expose scoped registries for services, extensions, operators, hooks, generators,
 
 ## Acceptance criteria
 
-- [ ] Registries are application-owned.
-- [ ] Contributions record their owning plugin.
-- [ ] Unsupported schema extensions can be detected after setup.
+- [x] Registries are application-owned.
+- [x] Contributions record their owning plugin.
+- [x] Unsupported schema extensions can be detected after setup.
 
 ## Tests
 
-- [ ] Contributions from two applications do not leak.
+- [x] Contributions from two applications do not leak.

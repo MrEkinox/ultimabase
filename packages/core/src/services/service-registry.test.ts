@@ -25,6 +25,22 @@ describe('ServiceRegistry', () => {
 		expect(registry.has(DatabaseServiceToken)).toBe(true)
 		expect(registry.get(DatabaseServiceToken)).toBe(database)
 		expect(registry.getOptional(DatabaseServiceToken)).toBe(database)
+		expect(registry.ownerOf(DatabaseServiceToken)).toBeUndefined()
+	})
+
+	it('records the owner of services provided through plugin scope', () => {
+		const registry = new ServiceRegistry()
+		const pluginServices = registry.forPlugin('fixture.database')
+		const database = { application: 'plugin-owned' }
+
+		pluginServices.provide(DatabaseServiceToken, database)
+
+		expect(pluginServices.size).toBe(1)
+		expect(pluginServices.has(DatabaseServiceToken)).toBe(true)
+		expect(pluginServices.get(DatabaseServiceToken)).toBe(database)
+		expect(pluginServices.getOptional(DatabaseServiceToken)).toBe(database)
+		expect(registry.ownerOf(DatabaseServiceToken)).toBe('fixture.database')
+		expect(Object.isFrozen(pluginServices)).toBe(true)
 	})
 
 	it('distinguishes optional absence from required lookup failures', () => {
@@ -151,5 +167,8 @@ describe('ServiceRegistry', () => {
 			// @ts-expect-error -- Private token markers prevent structural provision.
 			registry.provide({ debugName: 'forged' }, { application: 'forged' })
 		}).toThrow(new TypeError('token must be created by createServiceToken'))
+		expect(() => registry.forPlugin('')).toThrow(
+			new TypeError('pluginName must be a non-empty string'),
+		)
 	})
 })

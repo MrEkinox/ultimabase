@@ -92,6 +92,11 @@ required and present optional dependencies, rejects explicit conflicts and
 cycles, and exposes one stable dependency-first order without initializing
 plugins.
 
+Each application owns its setup registries. Plugin-scoped views attach the
+current plugin name to services, extension handlers, operators, hooks,
+generators, transports, pipelines, events, and commands without trusting
+plugin code to declare its own owner.
+
 ## Engines
 
 - `FrameworkEngine` belongs to one isolated application.

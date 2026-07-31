@@ -6,8 +6,10 @@ describe('@ultimabase/core public entry point', () => {
 	it('exports only the implemented framework error surface', () => {
 		// Type-only contracts must not create runtime export placeholders.
 		expect(Object.keys(publicApi).sort()).toStrictEqual([
+			'ContributionRegistry',
 			'FrameworkError',
 			'PluginGraph',
+			'PluginSetupRegistries',
 			'ServiceRegistry',
 			'createServiceToken',
 			'definePlugin',

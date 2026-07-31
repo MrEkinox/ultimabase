@@ -124,3 +124,21 @@ for (const plugin of graph) {
 Configuration position breaks ties between plugins that are ready together.
 Missing optional dependencies are ignored. Graph construction remains static
 and never executes setup or lifecycle hooks.
+
+## Plugin setup registries
+
+`PluginSetupRegistries` groups every application-owned setup boundary. A
+plugin receives a stable context whose writes automatically record its name:
+
+```ts
+const setupRegistries = new PluginSetupRegistries(schemaRegistry)
+const context = setupRegistries.forPlugin('fixture.database')
+
+context.services.provide(DatabaseServiceToken, database)
+context.registries.commands.register('fixture.reindex', reindexCommand)
+```
+
+Extensions, operators, hooks, generators, transports, pipelines, events, and
+commands use isolated `ContributionRegistry` instances. Duplicate names within
+one category fail instead of replacing the first owner. Setup contexts only
+collect declarations; infrastructure work begins in later lifecycle phases.

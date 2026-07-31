@@ -1,3 +1,5 @@
+import { assertNonEmptyString } from '@ultimabase/shared'
+
 import { FrameworkError } from '../errors/framework-error.js'
 import {
 	assertServiceToken,
@@ -6,6 +8,18 @@ import {
 } from './service-token.js'
 
 type DisposableService = AsyncDisposable | Disposable
+
+/** Restricts plugin setup to one owner-aware view of application services. */
+export interface PluginServiceRegistry {
+	readonly size: number
+	provide<TService>(
+		token: ServiceToken<TService>,
+		service: NoInfer<TService>,
+	): void
+	has<TService>(token: ServiceToken<TService>): boolean
+	get<TService>(token: ServiceToken<TService>): TService
+	getOptional<TService>(token: ServiceToken<TService>): TService | undefined
+}
 
 const isObjectLike = (value: unknown): value is object =>
 	(typeof value === 'object' && value !== null) || typeof value === 'function'
@@ -25,6 +39,7 @@ const isDisposableService = (value: unknown): value is DisposableService => {
 /** Stores application-scoped service instances by nominal token identity. */
 export class ServiceRegistry {
 	readonly #services = new Map<ServiceTokenIdentity, unknown>()
+	readonly #owners = new Map<ServiceTokenIdentity, string | undefined>()
 	readonly #disposables = new AsyncDisposableStack()
 	readonly #ownedDisposables = new WeakSet<DisposableService>()
 	#disposed = false
@@ -36,6 +51,46 @@ export class ServiceRegistry {
 
 	/** Registers one typed service without allowing configuration-order replacement. */
 	provide<TService>(
+		token: ServiceToken<TService>,
+		service: NoInfer<TService>,
+	): void {
+		this.#provideOwnedService(undefined, token, service)
+	}
+
+	/** Creates a plugin-owned facade without exposing owner selection to plugin code. */
+	forPlugin(pluginName: string): PluginServiceRegistry {
+		assertNonEmptyString(pluginName, 'pluginName')
+		const getSize = (): number => this.size
+
+		return Object.freeze({
+			get size(): number {
+				return getSize()
+			},
+			provide: <TService>(
+				token: ServiceToken<TService>,
+				service: NoInfer<TService>,
+			): void => {
+				this.#provideOwnedService(pluginName, token, service)
+			},
+			has: <TService>(token: ServiceToken<TService>): boolean =>
+				this.has(token),
+			get: <TService>(token: ServiceToken<TService>): TService =>
+				this.get(token),
+			getOptional: <TService>(
+				token: ServiceToken<TService>,
+			): TService | undefined => this.getOptional(token),
+		})
+	}
+
+	/** Returns the plugin that provided a service, or undefined for application-owned values. */
+	ownerOf<TService>(token: ServiceToken<TService>): string | undefined {
+		this.#assertToken(token)
+
+		return this.#owners.get(token)
+	}
+
+	#provideOwnedService<TService>(
+		ownerPlugin: string | undefined,
 		token: ServiceToken<TService>,
 		service: NoInfer<TService>,
 	): void {
@@ -59,6 +114,7 @@ export class ServiceRegistry {
 
 		this.#trackDisposable(service)
 		this.#services.set(token, service)
+		this.#owners.set(token, ownerPlugin)
 	}
 
 	/** Checks one token without changing registry state. */
@@ -104,6 +160,7 @@ export class ServiceRegistry {
 
 		this.#disposed = true
 		this.#services.clear()
+		this.#owners.clear()
 
 		await this.#disposables.disposeAsync()
 	}
