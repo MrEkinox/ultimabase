@@ -1,6 +1,8 @@
 import { assertOptionalBoolean, immutableRecord } from '@ultimabase/shared'
 
-import type { FieldValidationOptions } from '../base/contract.js'
+import type { FieldOptions, FieldValidationOptions } from '../base/contract.js'
+import type { ScalarFieldConfigurationResolver } from '../base/factory.js'
+import { assertFieldOptions, normalizeFieldOptions } from '../base/options.js'
 import {
 	normalizeOrderedRange,
 	type OrderedRange,
@@ -17,6 +19,14 @@ export type TemporalRangeValidationOptions = OrderedRange<string>
  */
 export type TemporalValidationOptions = FieldValidationOptions & {
 	readonly range?: TemporalRangeValidationOptions
+}
+
+/** Describes options shared by time-bearing scalar fields. */
+export type TemporalFieldOptions = FieldOptions<
+	string,
+	TemporalValidationOptions
+> & {
+	readonly timezone?: boolean
 }
 
 export type TemporalValueNormalizer = (value: unknown, path: string) => string
@@ -68,3 +78,38 @@ export const readTemporalTimezone = (
 
 	return timezone ?? defaultValue
 }
+
+/**
+ * Builds the common option-dependent configuration used by time-bearing fields.
+ */
+export const createTemporalFieldConfigurationResolver =
+	<TOptions extends TemporalFieldOptions>(
+		defaultTimezone: boolean,
+		createNormalizer: (timezone: boolean) => TemporalValueNormalizer,
+		compareZonedValues: TemporalValueComparator,
+	): ScalarFieldConfigurationResolver<TOptions> =>
+	(options) => {
+		assertFieldOptions(options)
+
+		const timezone = readTemporalTimezone(
+			'timezone' in options ? options.timezone : undefined,
+			defaultTimezone,
+		)
+		const snapshotValue = createNormalizer(timezone)
+		const normalizeOptions = <const TDeclaredOptions extends TOptions>(
+			declaredOptions: TDeclaredOptions,
+		): Readonly<TDeclaredOptions> =>
+			normalizeFieldOptions(
+				declaredOptions,
+				(validation) =>
+					normalizeTemporalValidation(
+						validation,
+						snapshotValue,
+						timezone ? compareZonedValues : compareCanonicalTemporalValues,
+					),
+				snapshotValue,
+			)
+
+		// The same normalizer governs defaults, ranges, and later snapshots.
+		return { normalizeOptions, snapshotValue }
+	}

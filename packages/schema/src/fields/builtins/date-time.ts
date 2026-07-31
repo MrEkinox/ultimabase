@@ -1,19 +1,11 @@
-import { createFieldDefinition } from '../base/definition.js'
+import type { FieldDefinition } from '../base/contract.js'
 import {
-	assertFieldOptions,
-	emptyFieldOptions,
-	normalizeFieldOptions,
-	type EmptyFieldOptions,
-} from '../base/options.js'
-import type {
-	FieldDefinition,
-	FieldOptions,
-	ValidatedFieldOptions,
-} from '../base/contract.js'
+	createConfiguredScalarFieldFactory,
+	type ScalarFieldFactory,
+} from '../base/factory.js'
 import {
-	compareCanonicalTemporalValues,
-	normalizeTemporalValidation,
-	readTemporalTimezone,
+	createTemporalFieldConfigurationResolver,
+	type TemporalFieldOptions,
 	type TemporalRangeValidationOptions,
 	type TemporalValidationOptions,
 	type TemporalValueComparator,
@@ -32,12 +24,7 @@ export type DateTimeValidationOptions = TemporalValidationOptions
 /**
  * Describes a date and time with timezone support enabled by default.
  */
-export type DateTimeFieldOptions = FieldOptions<
-	string,
-	DateTimeValidationOptions
-> & {
-	readonly timezone?: boolean
-}
+export type DateTimeFieldOptions = TemporalFieldOptions
 
 /**
  * Carries a date-time string and exact options through schema inference.
@@ -99,41 +86,19 @@ export const createDateTimeNormalizer = (
 const compareZonedDateTimes: TemporalValueComparator = (left, right) =>
 	Date.parse(left) - Date.parse(right)
 
-/**
- * Creates an optional date-time field with timezone support enabled.
- */
-export function dateTimeField(): DateTimeField<EmptyFieldOptions>
-
-/**
- * Creates immutable date-time metadata while preserving every option literal.
- */
-export function dateTimeField<const TOptions extends DateTimeFieldOptions>(
-	options: TOptions &
-		(ValidatedFieldOptions<NoInfer<TOptions>, string> extends never
-			? never
-			: unknown),
-): DateTimeField<TOptions>
-
-export function dateTimeField(
-	options: DateTimeFieldOptions = emptyFieldOptions,
-): DateTimeField {
-	assertFieldOptions(options)
-
-	const timezone = readTemporalTimezone(options.timezone, true)
-	const normalizeDateTime = createDateTimeNormalizer(timezone)
-
-	return createFieldDefinition(
-		'dateTime',
-		normalizeFieldOptions(
-			options,
-			(validation) =>
-				normalizeTemporalValidation(
-					validation,
-					normalizeDateTime,
-					timezone ? compareZonedDateTimes : compareCanonicalTemporalValues,
-				),
-			normalizeDateTime,
-		),
-		normalizeDateTime,
+const resolveDateTimeFieldConfiguration =
+	createTemporalFieldConfigurationResolver<DateTimeFieldOptions>(
+		true,
+		createDateTimeNormalizer,
+		compareZonedDateTimes,
 	)
-}
+
+/** Creates immutable date-time metadata with option-dependent timezone semantics. */
+export const dateTimeField: ScalarFieldFactory<
+	'dateTime',
+	string,
+	DateTimeFieldOptions
+> = createConfiguredScalarFieldFactory(
+	'dateTime',
+	resolveDateTimeFieldConfiguration,
+)

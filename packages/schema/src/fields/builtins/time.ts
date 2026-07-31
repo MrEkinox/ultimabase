@@ -1,19 +1,11 @@
-import { createFieldDefinition } from '../base/definition.js'
+import type { FieldDefinition } from '../base/contract.js'
 import {
-	assertFieldOptions,
-	emptyFieldOptions,
-	normalizeFieldOptions,
-	type EmptyFieldOptions,
-} from '../base/options.js'
-import type {
-	FieldDefinition,
-	FieldOptions,
-	ValidatedFieldOptions,
-} from '../base/contract.js'
+	createConfiguredScalarFieldFactory,
+	type ScalarFieldFactory,
+} from '../base/factory.js'
 import {
-	compareCanonicalTemporalValues,
-	normalizeTemporalValidation,
-	readTemporalTimezone,
+	createTemporalFieldConfigurationResolver,
+	type TemporalFieldOptions,
 	type TemporalRangeValidationOptions,
 	type TemporalValidationOptions,
 	type TemporalValueComparator,
@@ -32,9 +24,7 @@ export type TimeValidationOptions = TemporalValidationOptions
 /**
  * Describes a time of day without timezone support by default.
  */
-export type TimeFieldOptions = FieldOptions<string, TimeValidationOptions> & {
-	readonly timezone?: boolean
-}
+export type TimeFieldOptions = TemporalFieldOptions
 
 /**
  * Carries a time-of-day string and exact options through schema inference.
@@ -95,41 +85,13 @@ const readZonedTimeOffset = (value: string): number => {
 const compareZonedTimes: TemporalValueComparator = (left, right) =>
 	readZonedTimeOffset(left) - readZonedTimeOffset(right)
 
-/**
- * Creates an optional time-of-day field without timezone support.
- */
-export function timeField(): TimeField<EmptyFieldOptions>
-
-/**
- * Creates immutable time-of-day metadata while preserving every option literal.
- */
-export function timeField<const TOptions extends TimeFieldOptions>(
-	options: TOptions &
-		(ValidatedFieldOptions<NoInfer<TOptions>, string> extends never
-			? never
-			: unknown),
-): TimeField<TOptions>
-
-export function timeField(
-	options: TimeFieldOptions = emptyFieldOptions,
-): TimeField {
-	assertFieldOptions(options)
-
-	const timezone = readTemporalTimezone(options.timezone, false)
-	const normalizeTime = createTimeNormalizer(timezone)
-
-	return createFieldDefinition(
-		'time',
-		normalizeFieldOptions(
-			options,
-			(validation) =>
-				normalizeTemporalValidation(
-					validation,
-					normalizeTime,
-					timezone ? compareZonedTimes : compareCanonicalTemporalValues,
-				),
-			normalizeTime,
-		),
-		normalizeTime,
+const resolveTimeFieldConfiguration =
+	createTemporalFieldConfigurationResolver<TimeFieldOptions>(
+		false,
+		createTimeNormalizer,
+		compareZonedTimes,
 	)
-}
+
+/** Creates immutable time metadata with option-dependent timezone semantics. */
+export const timeField: ScalarFieldFactory<'time', string, TimeFieldOptions> =
+	createConfiguredScalarFieldFactory('time', resolveTimeFieldConfiguration)

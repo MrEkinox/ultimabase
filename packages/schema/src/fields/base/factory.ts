@@ -11,6 +11,16 @@ type ScalarFieldOptionsNormalizer<TOptions extends object> = <
 	options: TDeclaredOptions,
 ) => Readonly<TDeclaredOptions>
 
+/** Carries option-dependent construction behavior without exposing capabilities. */
+export interface ScalarFieldConfiguration<TOptions extends object> {
+	readonly normalizeOptions: ScalarFieldOptionsNormalizer<TOptions>
+	readonly snapshotValue: ScalarValueSnapshot
+}
+
+export type ScalarFieldConfigurationResolver<TOptions extends object> = (
+	options: TOptions | EmptyFieldOptions,
+) => ScalarFieldConfiguration<TOptions>
+
 /**
  * Preserves the common zero-argument and exact-option call contract shared by
  * scalar field factories.
@@ -30,17 +40,16 @@ export interface ScalarFieldFactory<
 }
 
 /**
- * Centralizes immutable field construction while each field retains ownership
- * of its specialized option and scalar-value normalization.
+ * Resolves construction behavior from declared options for scalar fields whose
+ * snapshots depend on metadata such as timezone handling.
  */
-export const createScalarFieldFactory = <
+export const createConfiguredScalarFieldFactory = <
 	const TKind extends string,
 	TValue,
 	TOptions extends object,
 >(
 	kind: TKind,
-	normalizeOptions: ScalarFieldOptionsNormalizer<TOptions>,
-	snapshotValue: ScalarValueSnapshot,
+	resolveConfiguration: ScalarFieldConfigurationResolver<TOptions>,
 ): ScalarFieldFactory<TKind, TValue, TOptions> => {
 	function scalarField(): FieldDefinition<TKind, TValue, EmptyFieldOptions>
 	function scalarField<const TDeclaredOptions extends TOptions>(
@@ -52,6 +61,10 @@ export const createScalarFieldFactory = <
 	function scalarField(
 		options?: TOptions,
 	): FieldDefinition<TKind, TValue, EmptyFieldOptions | TOptions> {
+		const declaredOptions = options ?? emptyFieldOptions
+		const { normalizeOptions, snapshotValue } =
+			resolveConfiguration(declaredOptions)
+
 		if (options === undefined) {
 			return createFieldDefinition(kind, emptyFieldOptions, snapshotValue)
 		}
@@ -61,3 +74,21 @@ export const createScalarFieldFactory = <
 
 	return scalarField
 }
+
+/**
+ * Centralizes immutable field construction while each field retains ownership
+ * of its specialized option and scalar-value normalization.
+ */
+export const createScalarFieldFactory = <
+	const TKind extends string,
+	TValue,
+	TOptions extends object,
+>(
+	kind: TKind,
+	normalizeOptions: ScalarFieldOptionsNormalizer<TOptions>,
+	snapshotValue: ScalarValueSnapshot,
+): ScalarFieldFactory<TKind, TValue, TOptions> =>
+	createConfiguredScalarFieldFactory(kind, () => ({
+		normalizeOptions,
+		snapshotValue,
+	}))

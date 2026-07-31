@@ -44,58 +44,45 @@ export const assertValidTypeName = (typeName: unknown): void => {
 	}
 }
 
-const normalizeList = (
-	list: unknown,
-): false | readonly true[] | true | undefined => {
+type NormalizedFieldList = false | readonly true[] | true | undefined
+
+const invalidListMessage =
+	'list must be true, false, or a non-empty list of true values'
+
+/** Keeps list validation identical for declaration and later depth reads. */
+const readFieldList = (list: unknown): NormalizedFieldList => {
 	if (list === undefined || list === false || list === true) {
 		return list
 	}
 
-	if (!isUnknownArray(list) || list.length === 0) {
-		throw new TypeError(
-			'list must be true, false, or a non-empty list of true values',
-		)
+	if (
+		!isUnknownArray(list) ||
+		list.length === 0 ||
+		!list.every((entry): entry is true => entry === true)
+	) {
+		throw new TypeError(invalidListMessage)
 	}
 
-	const depth: true[] = []
+	return list
+}
 
-	for (const entry of list) {
-		if (entry !== true) {
-			throw new TypeError(
-				'list must be true, false, or a non-empty list of true values',
-			)
-		}
-
-		depth.push(entry)
-	}
+const normalizeList = (list: unknown): NormalizedFieldList => {
+	const normalized = readFieldList(list)
 
 	// A copied tuple prevents caller mutations from changing the declared list depth.
-	return immutableArray(depth)
+	return isUnknownArray(normalized) ? immutableArray(normalized) : normalized
 }
+
+const readListDepth = (list: NormalizedFieldList): number =>
+	list === true ? 1 : isUnknownArray(list) ? list.length : 0
 
 /**
  * Returns the number of homogeneous list wrappers declared by field metadata.
  */
 export const getFieldListDepth = (options: object): number => {
-	if (
-		!('list' in options) ||
-		options.list === undefined ||
-		options.list === false
-	) {
-		return 0
-	}
+	const list = readFieldList('list' in options ? options.list : undefined)
 
-	if (options.list === true) {
-		return 1
-	}
-
-	if (isUnknownArray(options.list)) {
-		return options.list.length
-	}
-
-	throw new TypeError(
-		'list must be true, false, or a non-empty list of true values',
-	)
+	return readListDepth(list)
 }
 
 /**
@@ -216,7 +203,7 @@ export const normalizeFieldOptions = <
 	const normalizedDefault = hasNormalizedDefault
 		? snapshotFieldValue(
 				options.default,
-				getFieldListDepth({ list }),
+				readListDepth(list),
 				normalizeStaticValue,
 				'default',
 			)
