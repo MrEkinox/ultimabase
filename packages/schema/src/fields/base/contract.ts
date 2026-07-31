@@ -1,9 +1,5 @@
 import type { FieldExtension } from '../../extensions/definition.js'
-import type {
-	DatabaseDefault,
-	DefaultFactory,
-	FieldDefault,
-} from './defaults.js'
+import type { DefaultFactory, FieldDefault } from './defaults.js'
 
 declare const fieldValueMarker: unique symbol
 
@@ -89,7 +85,7 @@ type DefaultIsCompatible<TOptions, TValue> = TOptions extends {
 		? TDefault extends DefaultFactory<TValue>
 			? true
 			: false
-		: TDefault extends DatabaseDefault<TValue> | TValue
+		: TDefault extends TValue
 			? true
 			: false
 	: true

@@ -20,9 +20,7 @@ Accepted records:
 - [ADR-0014: Data naming and system fields](0014-data-conventions.md)
 - [ADR-0015: Hook order and transaction boundary](0015-hook-order-and-transactions.md)
 - [ADR-0016: Controlled public exports](0016-controlled-public-exports.md)
-- [ADR-0018: Default value boundaries](0018-default-value-boundaries.md)
 - [ADR-0019: Operation-specific schema inference](0019-operation-specific-schema-inference.md)
-- [ADR-0020: Compiled validation plans](0020-compiled-validation-plans.md)
 - [ADR-0021: Field list metadata](0021-field-list-metadata.md)
 - [ADR-0022: Generator-neutral type identities](0022-generated-type-identities.md)
 - [ADR-0023: Portable UUID fields](0023-portable-uuid-fields.md)
@@ -39,10 +37,14 @@ Accepted records:
 - [ADR-0034: Object defaults use create-input presence](0034-object-default-create-presence.md)
 - [ADR-0036: Colocated package tests](0036-colocated-package-tests.md)
 - [ADR-0037: Shared guards and Schema normalization primitives](0037-schema-normalization-primitives.md)
+- [ADR-0038: Static and runtime field defaults](0038-static-and-runtime-field-defaults.md)
+- [ADR-0039: Structural validation plans reference declared fields](0039-structural-validation-plans.md)
 
 Superseded records:
 
 - [ADR-0017: Composite fields and PostgreSQL storage](0017-composite-fields-and-postgres-storage.md), superseded by ADR-0021.
+- [ADR-0018: Default value boundaries](0018-default-value-boundaries.md), superseded by ADR-0038.
+- [ADR-0020: Compiled validation plans](0020-compiled-validation-plans.md), superseded by ADR-0039.
 - [ADR-0035: Schema domain-oriented internal layout](0035-schema-domain-layout.md), superseded by ADR-0036.
 
 New decisions receive the next number. Do not rewrite history; supersede a record.

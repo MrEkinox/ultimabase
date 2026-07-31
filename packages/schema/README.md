@@ -225,12 +225,8 @@ The callback is stored without being executed during schema declaration. Every
 function supplied as `default` is interpreted as a runtime factory;
 function-valued static defaults are therefore unsupported. Composite fields
 validate the factory return type before considering static object shapes.
-
-`DatabaseDefault<TValue, TConfig>` is the neutral low-level contract used by
-adapter plugins for database-generated values. Its name and copied
-configuration are immutable. Schema can classify metadata as `static`,
-`runtime`, or `database` with `getDefaultKind`, but it never interprets or
-executes database expressions.
+Database-specific expressions belong to typed adapter extensions rather than
+the portable `default` option.
 
 ## String fields
 

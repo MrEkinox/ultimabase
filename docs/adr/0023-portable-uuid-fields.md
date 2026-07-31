@@ -2,6 +2,7 @@
 
 - Status: accepted
 - Date: 2026-07-31
+- Default contract superseded in part by: ADR-0038
 
 ## Decision
 

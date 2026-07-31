@@ -1,7 +1,6 @@
 import { expectTypeOf, test } from 'vitest'
 
 import {
-	DatabaseDefault,
 	booleanField,
 	dateField,
 	dateTimeField,
@@ -13,26 +12,15 @@ import {
 	type FieldDefault,
 } from '../../index.js'
 
-test('preserves exact static, runtime, and database default types', () => {
+test('preserves exact static and runtime default types', () => {
 	const staticField = stringField({ default: 'anonymous' })
 	const runtimeFactory = (): string => '2026-07-30T12:00:00.000Z'
 	const runtimeField = dateTimeField({ default: runtimeFactory })
-	const databaseDefault = new DatabaseDefault<
-		string,
-		{ readonly precision: number }
-	>('postgres.currentTimestamp', { precision: 3 })
-	const databaseField = dateTimeField({ default: databaseDefault })
 
 	expectTypeOf(staticField.options.default).toEqualTypeOf<'anonymous'>()
 	expectTypeOf(runtimeField.options.default).toEqualTypeOf<() => string>()
-	expectTypeOf(databaseField.options.default).toEqualTypeOf<
-		DatabaseDefault<string, { readonly precision: number }>
-	>()
-	expectTypeOf(databaseDefault.config.precision).toEqualTypeOf<number>()
 	expectTypeOf<DefaultFactory<boolean>>().toEqualTypeOf<() => boolean>()
-	expectTypeOf<FieldDefault<string>>().toEqualTypeOf<
-		string | (() => string) | DatabaseDefault<string>
-	>()
+	expectTypeOf<FieldDefault<string>>().toEqualTypeOf<string | (() => string)>()
 })
 
 test('checks runtime factory outputs against every field value', () => {
@@ -81,11 +69,9 @@ test('checks runtime factory outputs against every field value', () => {
 	})
 })
 
-test('rejects database defaults for incompatible field values', () => {
-	const dateDefault = new DatabaseDefault<string>('fixture.date', {})
-
-	dateField({ default: dateDefault })
-	stringField({ default: dateDefault })
-	// @ts-expect-error -- A string database default cannot provide booleans.
-	booleanField({ default: dateDefault })
+test('rejects adapter-specific descriptors as portable field defaults', () => {
+	dateTimeField({
+		// @ts-expect-error -- Database expressions belong to adapter extensions.
+		default: { kind: 'database', expression: 'CURRENT_TIMESTAMP' },
+	})
 })

@@ -52,16 +52,8 @@ export type {
 	DateTimeRangeValidationOptions,
 	DateTimeValidationOptions,
 } from './fields/builtins/date-time.js'
-export {
-	DatabaseDefault,
-	getDefaultKind,
-	isStaticDefault,
-} from './fields/base/defaults.js'
-export type {
-	DefaultFactory,
-	DefaultKind,
-	FieldDefault,
-} from './fields/base/defaults.js'
+export { isStaticDefault } from './fields/base/defaults.js'
+export type { DefaultFactory, FieldDefault } from './fields/base/defaults.js'
 export { enumField } from './fields/builtins/enum.js'
 export type {
 	EnumField,
