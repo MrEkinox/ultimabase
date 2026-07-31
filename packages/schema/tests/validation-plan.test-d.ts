@@ -3,9 +3,13 @@ import { expectTypeOf, test } from 'vitest'
 import {
 	compileValidationPlans,
 	defineSchema,
+	floatField,
+	intField,
 	stringField,
 	type FieldValidationPlan,
 	type ArrayValidationPlan,
+	type FloatValidationPlan,
+	type IntValidationPlan,
 	type RuntimeValidationDefaultPlan,
 	type SchemaValidationPlans,
 	type StringValidationPlan,
@@ -35,6 +39,27 @@ test('exports discriminated operation and field plans', () => {
 	if (namePlan?.kind === 'string') {
 		expectTypeOf(namePlan).toEqualTypeOf<StringValidationPlan>()
 		expectTypeOf(namePlan.presence).toEqualTypeOf<ValidationPresence>()
+	}
+})
+
+test('narrows integer and float plans as distinct kinds', () => {
+	const schema = defineSchema({
+		className: 'NumericPlan',
+		fields: {
+			count: intField(),
+			ratio: floatField(),
+		},
+	})
+	const plans = compileValidationPlans(schema).create.fields
+	const count = plans.count
+	const ratio = plans.ratio
+
+	if (count?.kind === 'int') {
+		expectTypeOf(count).toEqualTypeOf<IntValidationPlan>()
+	}
+
+	if (ratio?.kind === 'float') {
+		expectTypeOf(ratio).toEqualTypeOf<FloatValidationPlan>()
 	}
 })
 

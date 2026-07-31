@@ -195,16 +195,19 @@ executes database expressions.
 
 String fields add declarative `validation.length.min`, `validation.length.max`, and `validation.match` constraints. Lengths must be non-negative safe integers, and `min` cannot exceed `max`. Match constraints use native `RegExp` values and are stored as metadata; validation is compiled by the runtime rather than executed by the field factory.
 
-## Number fields
+## Integer fields
 
-`numberField(options)` requires an explicit `mode`:
+`intField(options)` represents safe JavaScript integers. It supports
+`validation.range.min/max` with safe-integer boundaries and
+`autoIncrement: true | false` as declarative database-sequence metadata.
 
-- `integer` represents safe JavaScript integers;
-- `float` represents general JavaScript numbers without promising decimal precision.
+## Float fields
 
-Both modes support `validation.range.min`, `validation.range.max`, and `validation.finite`. Integer boundaries must be safe integers, float boundaries must be finite numbers, and `min` cannot exceed `max`. These constraints remain declarative metadata for the runtime validation plan. A future exact decimal field will use a separate value and storage contract.
-
-Integer fields additionally support `autoIncrement: true | false` as declarative database-sequence metadata. Float fields reject this option at both the TypeScript and runtime boundaries.
+`floatField(options)` represents general JavaScript numbers without promising
+decimal precision. It supports finite `validation.range.min/max` boundaries and
+the declarative `validation.finite` value constraint. Float fields reject
+auto-increment metadata at both the TypeScript and runtime boundaries. A future
+exact decimal field will use a separate value and storage contract.
 
 ## Boolean fields
 
@@ -269,7 +272,7 @@ kind:
 
 ```ts
 stringField({ list: true })
-numberField({ mode: 'integer', list: [true, true] })
+intField({ list: [true, true] })
 ```
 
 `objectField({ fields })` composes existing fields into one structured value:

@@ -11,12 +11,9 @@ import {
 import type { EnumField, EnumValues } from './enum-field.js'
 import { getFieldListDepth } from './field-options.js'
 import type { FieldValidationOptions, GenericField } from './field.js'
+import type { FloatField, FloatRangeValidationOptions } from './float-field.js'
+import type { IntField, IntRangeValidationOptions } from './int-field.js'
 import type { JsonField } from './json-field.js'
-import type {
-	NumberField,
-	NumberMode,
-	NumberRangeValidationOptions,
-} from './number-field.js'
 import type { SchemaDefinition, SchemaFields } from './schema.js'
 import type {
 	StringField,
@@ -55,11 +52,13 @@ export type ValidationIssueCode =
 	| 'field.required'
 	| 'field.unknown'
 	| 'json.type'
-	| 'number.finite'
-	| 'number.integer'
-	| 'number.range.max'
-	| 'number.range.min'
-	| 'number.type'
+	| 'float.finite'
+	| 'float.range.max'
+	| 'float.range.min'
+	| 'float.type'
+	| 'int.range.max'
+	| 'int.range.min'
+	| 'int.type'
 	| 'object.type'
 	| 'string.length.max'
 	| 'string.length.min'
@@ -123,9 +122,12 @@ export interface StringValidationPlan extends FieldValidationPlanBase<'string'> 
 	readonly match?: RegExp
 }
 
-export interface NumberValidationPlan extends FieldValidationPlanBase<'number'> {
-	readonly mode: NumberMode
-	readonly range?: NumberRangeValidationOptions
+export interface IntValidationPlan extends FieldValidationPlanBase<'int'> {
+	readonly range?: IntRangeValidationOptions
+}
+
+export interface FloatValidationPlan extends FieldValidationPlanBase<'float'> {
+	readonly range?: FloatRangeValidationOptions
 	readonly finite?: boolean
 }
 
@@ -159,8 +161,9 @@ export type FieldValidationPlan =
 	| BooleanValidationPlan
 	| DateValidationPlan
 	| EnumValidationPlan
+	| FloatValidationPlan
+	| IntValidationPlan
 	| JsonValidationPlan
-	| NumberValidationPlan
 	| ObjectValidationPlan
 	| StringValidationPlan
 	| UuidValidationPlan
@@ -186,9 +189,10 @@ type BuiltInField =
 	| BooleanField
 	| DateField
 	| EnumField
+	| FloatField
 	| IdSystemField
+	| IntField
 	| JsonField
-	| NumberField
 	| ObjectField
 	| StringField
 	| UuidField
@@ -203,8 +207,9 @@ const isBuiltInField = (field: GenericField): field is BuiltInField =>
 	field.kind === 'boolean' ||
 	field.kind === 'date' ||
 	field.kind === 'enum' ||
+	field.kind === 'float' ||
+	field.kind === 'int' ||
 	field.kind === 'json' ||
-	field.kind === 'number' ||
 	field.kind === 'object' ||
 	field.kind === 'string' ||
 	field.kind === 'uuid'
@@ -366,13 +371,10 @@ const compileScalarField = (
 				kind: field.kind,
 				values: compileEnumValues(field),
 			})
-		case 'json':
-			return immutableRecord({ ...base, kind: field.kind })
-		case 'number':
+		case 'float':
 			return immutableRecord({
 				...base,
 				kind: field.kind,
-				mode: field.options.mode,
 				...(field.options.validation?.range === undefined
 					? {}
 					: { range: field.options.validation.range }),
@@ -380,6 +382,16 @@ const compileScalarField = (
 					? {}
 					: { finite: field.options.validation.finite }),
 			})
+		case 'int':
+			return immutableRecord({
+				...base,
+				kind: field.kind,
+				...(field.options.validation?.range === undefined
+					? {}
+					: { range: field.options.validation.range }),
+			})
+		case 'json':
+			return immutableRecord({ ...base, kind: field.kind })
 		case 'object':
 			return immutableRecord({
 				...base,

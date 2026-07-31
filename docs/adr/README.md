@@ -26,6 +26,7 @@ Accepted records:
 - [ADR-0021: Field list metadata](0021-field-list-metadata.md)
 - [ADR-0022: Generator-neutral type identities](0022-generated-type-identities.md)
 - [ADR-0023: Portable UUID fields](0023-portable-uuid-fields.md)
+- [ADR-0024: Separate integer and float fields](0024-separate-numeric-fields.md)
 
 Superseded records:
 

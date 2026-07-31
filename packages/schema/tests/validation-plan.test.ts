@@ -7,8 +7,9 @@ import {
 	dateField,
 	defineSchema,
 	enumField,
+	floatField,
+	intField,
 	jsonField,
-	numberField,
 	objectField,
 	stringField,
 	uuidField,
@@ -44,15 +45,14 @@ describe('validation plans', () => {
 					validation: { range: { min: minDate, max: maxDate } },
 				}),
 				importedAt: dateField({ default: databaseDefault }),
-				sequence: numberField({
-					mode: 'integer',
+				sequence: intField({
 					autoIncrement: true,
-					validation: { required: true, range: { min: 1 }, finite: true },
+					validation: { required: true, range: { min: 1 } },
 				}),
-				ratio: numberField({
-					mode: 'float',
+				ratio: floatField({
 					validation: { range: { min: 0, max: 1 }, finite: true },
 				}),
+				unrestrictedRatio: floatField(),
 				status: enumField({
 					values: {
 						Draft: 'draft',
@@ -106,17 +106,19 @@ describe('validation plans', () => {
 			default: { kind: 'database', value: databaseDefault },
 		})
 		expect(plans.create.fields.sequence).toMatchObject({
-			kind: 'number',
-			mode: 'integer',
+			kind: 'int',
 			presence: 'optional',
 			range: { min: 1 },
-			finite: true,
 		})
 		expect(plans.create.fields.ratio).toMatchObject({
-			kind: 'number',
-			mode: 'float',
+			kind: 'float',
 			range: { min: 0, max: 1 },
 			finite: true,
+		})
+		expect(plans.create.fields.unrestrictedRatio).toStrictEqual({
+			kind: 'float',
+			presence: 'optional',
+			nullable: false,
 		})
 		expect(plans.create.fields.status).toMatchObject({
 			kind: 'enum',
@@ -151,8 +153,7 @@ describe('validation plans', () => {
 					},
 					default: ['generated'],
 				}),
-				matrix: numberField({
-					mode: 'integer',
+				matrix: intField({
 					list: [true, true],
 				}),
 			},
@@ -218,8 +219,7 @@ describe('validation plans', () => {
 				presence: 'required',
 				nullable: false,
 				items: {
-					kind: 'number',
-					mode: 'integer',
+					kind: 'int',
 					presence: 'required',
 					nullable: false,
 				},

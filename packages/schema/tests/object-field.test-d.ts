@@ -5,8 +5,8 @@ import {
 	dateField,
 	defineSchemaExtension,
 	enumField,
+	intField,
 	jsonField,
-	numberField,
 	objectField,
 	stringField,
 	type FieldDefinition,
@@ -22,8 +22,7 @@ test('infers list values through finite nesting', () => {
 		list: true,
 		default: ['first', 'second'],
 	})
-	const matrix = numberField({
-		mode: 'integer',
+	const matrix = intField({
 		list: [true, true],
 		default: [[1, 2]],
 	})

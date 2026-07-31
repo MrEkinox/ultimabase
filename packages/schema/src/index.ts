@@ -63,6 +63,13 @@ export type {
 	InferObject,
 	InferUpdateInput,
 } from './inference.js'
+export { intField } from './int-field.js'
+export type {
+	IntField,
+	IntFieldOptions,
+	IntRangeValidationOptions,
+	IntValidationOptions,
+} from './int-field.js'
 export { jsonField } from './json-field.js'
 export type {
 	JsonArray,
@@ -72,14 +79,13 @@ export type {
 	JsonPrimitive,
 	JsonValue,
 } from './json-field.js'
-export { numberField } from './number-field.js'
+export { floatField } from './float-field.js'
 export type {
-	NumberField,
-	NumberFieldOptions,
-	NumberMode,
-	NumberRangeValidationOptions,
-	NumberValidationOptions,
-} from './number-field.js'
+	FloatField,
+	FloatFieldOptions,
+	FloatRangeValidationOptions,
+	FloatValidationOptions,
+} from './float-field.js'
 export { defineSchema } from './schema.js'
 export type {
 	SchemaDefinition,
@@ -125,8 +131,9 @@ export type {
 	DateValidationPlan,
 	EnumValidationPlan,
 	FieldValidationPlan,
+	FloatValidationPlan,
+	IntValidationPlan,
 	JsonValidationPlan,
-	NumberValidationPlan,
 	ObjectValidationPlan,
 	RuntimeValidationDefaultPlan,
 	SchemaValidationPlan,

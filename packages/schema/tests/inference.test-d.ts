@@ -6,8 +6,9 @@ import {
 	defineFieldExtension,
 	defineSchema,
 	enumField,
+	floatField,
+	intField,
 	jsonField,
-	numberField,
 	objectField,
 	stringField,
 	type FieldInferenceExtension,
@@ -38,13 +39,10 @@ const primitiveSchema = defineSchema({
 			validation: { required: true },
 			immutable: true,
 		}),
-		sequence: numberField({
-			mode: 'integer',
+		sequence: intField({
 			autoIncrement: true,
 		}),
-		ratio: numberField({
-			mode: 'float',
-		}),
+		ratio: floatField(),
 		status: enumField({
 			values: {
 				Draft: 'draft',
