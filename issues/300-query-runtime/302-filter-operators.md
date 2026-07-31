@@ -1,10 +1,10 @@
 # 302: Add primitive filter operators
 
-- Status: planned
+- Status: done
 - Milestone: 3
 - Packages: `@ultimabase/query`
 - Depends on: 301
-- ADR: ADR-0004
+- ADR: ADR-0004, ADR-0053
 
 ## Goal
 
@@ -12,10 +12,10 @@ Add equality, comparisons, membership, string matching, regex, and existence nod
 
 ## Acceptance criteria
 
-- [ ] Operators are restricted by field kind.
-- [ ] Values match inferred field types.
-- [ ] Regex remains data, not executable code.
+- [x] Operators are restricted by field kind.
+- [x] Values match inferred field types.
+- [x] Regex remains data, not executable code.
 
 ## Tests
 
-- [ ] Type matrix covers allowed and forbidden operator/field pairs.
+- [x] Type matrix covers allowed and forbidden operator/field pairs.

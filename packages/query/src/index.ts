@@ -15,3 +15,20 @@ export type {
 	QuerySelectionNode,
 	QueryWhereNode,
 } from './ast/contracts.js'
+export type {
+	QueryComparisonFilterNode,
+	QueryComparisonFilterOperator,
+	QueryEqualityFilterNode,
+	QueryEqualityFilterOperator,
+	QueryExistenceFilterNode,
+	QueryFilterValue,
+	QueryMembershipFilterNode,
+	QueryMembershipFilterOperator,
+	QueryPrimitiveFilterNode,
+	QueryPrimitiveFilterOperator,
+	QueryRegexFilterNode,
+	QueryRegexFlag,
+	QueryRegexPattern,
+	QueryStringFilterNode,
+	QueryStringFilterOperator,
+} from './filters/primitive.js'

@@ -34,6 +34,45 @@ The root separates schema, selection, filtering, ordering, and pagination into
 discriminated nodes. This lets REST, GraphQL, and direct TypeScript callers
 normalize into the same representation while adapters compile it later.
 
-This first contract intentionally does not define filter operators, mutable
-builders, query normalization, or cursors. Those capabilities extend the
-neutral nodes without adding execution concerns to the package.
+Mutable builders, query normalization, and cursors remain separate capabilities
+that extend the neutral nodes without adding execution concerns to the package.
+
+## Primitive filters
+
+Filter nodes keep fields and operands correlated with the exact schema:
+
+```ts
+import type { QueryPrimitiveFilterNode } from '@ultimabase/query'
+
+const filter = {
+	kind: 'greater-than',
+	field: 'createdAt',
+	value: '2026-07-31T12:00:00.000Z',
+} as const satisfies QueryPrimitiveFilterNode<typeof postSchema>
+```
+
+The built-in capability matrix is deliberately explicit:
+
+| Operators                                       | Supported scalar field kinds                                                                      |
+| ----------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| `equal`, `not-equal`, `in`, `not-in`            | bigint, binary, boolean, date, date-time, decimal, enum, float, integer, JSON, string, time, UUID |
+| ordered comparisons                             | bigint, date, date-time, decimal, float, integer, string, time                                    |
+| `contains`, `starts-with`, `ends-with`, `regex` | string                                                                                            |
+| `exists`                                        | every field                                                                                       |
+
+Value operators apply only to non-list fields. Structured objects, lists, and
+plugin field kinds expose `exists` until their owning capability defines
+storage-independent operators. Nullable fields accept `null` for equality and
+membership, but never for ordered comparisons.
+
+Regex patterns remain inert data instead of executable `RegExp` instances:
+
+```ts
+const pattern = {
+	source: '^ultima',
+	flags: ['case-insensitive'],
+} as const
+```
+
+Adapters map the semantic flags and always parameterize the source during
+compilation.
