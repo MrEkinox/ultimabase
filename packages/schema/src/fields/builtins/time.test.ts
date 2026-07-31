@@ -39,15 +39,15 @@ describe('timeField', () => {
 		expect(Object.isFrozen(field.options.validation.range)).toBe(true)
 	})
 
-	it('supports zoned times and the operation-clock default', () => {
+	it('supports zoned times and operation-clock generation', () => {
 		const zoned = timeField({
 			timezone: true,
 			default: '09:30:00.000+02:00',
 		})
-		const generated = timeField({ default: 'now' })
+		const generated = timeField({ autoNow: true })
 
 		expect(zoned.options.default).toBe('09:30:00.000+02:00')
-		expect(generated.options.default).toBe('now')
+		expect(generated.options.autoNow).toBe(true)
 	})
 
 	it('copies time list defaults', () => {
@@ -94,7 +94,19 @@ describe('timeField', () => {
 		}).toThrow(new TypeError('timezone must be a boolean'))
 	})
 
+	it('rejects invalid operation-clock metadata at the runtime boundary', () => {
+		expect(() => {
+			// @ts-expect-error -- Runtime validation protects untyped callers.
+			timeField({ autoNow: 'yes' })
+		}).toThrow(new TypeError('autoNow must be a boolean'))
+		expect(() => {
+			// @ts-expect-error -- autoNow is mutually exclusive with default.
+			timeField({ autoNow: true, default: '09:30:00.000' })
+		}).toThrow(new TypeError('autoNow and default cannot both be configured'))
+	})
+
 	it.each([
+		['former magic default', 'now'],
 		['incomplete value', '09:30'],
 		['invalid hour', '24:00:00.000'],
 		['unexpected timezone', '09:30:00.000Z'],

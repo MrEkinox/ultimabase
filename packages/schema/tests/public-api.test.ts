@@ -27,6 +27,7 @@ describe('@ultimabase/schema public entry point', () => {
 			'isStaticDefault',
 			'jsonField',
 			'objectField',
+			'snapshotScalarFieldValue',
 			'stringField',
 			'timeField',
 			'uuidField',

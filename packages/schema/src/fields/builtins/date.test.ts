@@ -42,8 +42,13 @@ describe('dateField', () => {
 		expect(Object.isFrozen(field.options.validation.range)).toBe(true)
 	})
 
-	it('preserves the operation-clock today default', () => {
-		expect(dateField({ default: 'today' }).options.default).toBe('today')
+	it('preserves operation-clock generation metadata', () => {
+		const field = dateField({ autoNow: true })
+		const disabled = dateField({ autoNow: false })
+
+		expect(field.options).toStrictEqual({ autoNow: true })
+		expect(disabled.options).toStrictEqual({ autoNow: false })
+		expect(Object.isFrozen(field.options)).toBe(true)
 	})
 
 	it('copies calendar-day list defaults', () => {
@@ -84,7 +89,19 @@ describe('dateField', () => {
 		}).toThrow(new TypeError('default must be a calendar date string'))
 	})
 
+	it('rejects ambiguous or listed operation-clock generation', () => {
+		expect(() => {
+			// @ts-expect-error -- autoNow is mutually exclusive with default.
+			dateField({ autoNow: true, default: '2026-01-01' })
+		}).toThrow(new TypeError('autoNow and default cannot both be configured'))
+		expect(() => {
+			// @ts-expect-error -- One operation clock cannot generate a list value.
+			dateField({ autoNow: true, list: true })
+		}).toThrow(new TypeError('autoNow cannot be used with list fields'))
+	})
+
 	it.each([
+		['former magic default', { default: 'today' }, 'default'],
 		['invalid default', { default: 'not-a-date' }, 'default'],
 		['date-time default', { default: '2026-01-01T00:00:00.000Z' }, 'default'],
 		['impossible day', { default: '2026-02-30' }, 'default'],

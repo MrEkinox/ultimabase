@@ -19,7 +19,7 @@ test('infers calendar-day values and range boundaries', () => {
 				max: '2026-12-31',
 			},
 		},
-		default: 'today',
+		autoNow: true,
 		indexed: true,
 	})
 
@@ -27,7 +27,7 @@ test('infers calendar-day values and range boundaries', () => {
 		FieldDefinition<'date', string, DateFieldOptions>
 	>()
 	expectTypeOf(field.kind).toEqualTypeOf<'date'>()
-	expectTypeOf(field.options.default).toEqualTypeOf<'today'>()
+	expectTypeOf(field.options.autoNow).toEqualTypeOf<true>()
 	expectTypeOf(field.options.validation.range.min).toEqualTypeOf<'2026-01-01'>()
 	expectTypeOf(field.options.validation.range.max).toEqualTypeOf<'2026-12-31'>()
 })
@@ -50,6 +50,12 @@ test('rejects non-string values and invalid default factories', () => {
 
 	// @ts-expect-error -- Runtime factories must produce calendar-day strings.
 	dateField({ default: () => new Date() })
+
+	// @ts-expect-error -- Clock generation and developer defaults are exclusive.
+	dateField({ autoNow: true, default: '2026-01-01' })
+
+	// @ts-expect-error -- Clock generation produces one scalar value.
+	dateField({ autoNow: true, list: true })
 
 	// @ts-expect-error -- Required fields cannot also be nullable.
 	dateField({ validation: { required: true, nullable: true } })

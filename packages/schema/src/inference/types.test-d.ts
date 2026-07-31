@@ -56,6 +56,10 @@ const primitiveSchema = defineSchema({
 		}),
 		publishedAt: dateField(),
 		processedAt: dateTimeField(),
+		automaticDate: dateField({
+			autoNow: true,
+			validation: { required: true },
+		}),
 		reminderTime: timeField(),
 		payload: jsonField(),
 		attachment: binaryField(),
@@ -79,6 +83,7 @@ test('infers the complete primitive output matrix', () => {
 		readonly status: 'draft' | 'published'
 		readonly publishedAt?: string
 		readonly processedAt?: string
+		readonly automaticDate: string
 		readonly reminderTime?: string
 		readonly payload?: JsonValue
 		readonly attachment?: Uint8Array
@@ -104,6 +109,7 @@ test('makes generated and defaulted values optional in create inputs', () => {
 		status: 'draft' | 'published'
 		publishedAt?: string
 		processedAt?: string
+		automaticDate?: string
 		reminderTime?: string
 		payload?: JsonValue
 		attachment?: Uint8Array
@@ -136,6 +142,7 @@ test('makes mutable developer fields optional in update inputs', () => {
 		status?: 'draft' | 'published'
 		publishedAt?: string
 		processedAt?: string
+		automaticDate?: string
 		reminderTime?: string
 		payload?: JsonValue
 		attachment?: Uint8Array

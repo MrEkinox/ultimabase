@@ -19,7 +19,7 @@ test('preserves date-time options and exact literals', () => {
 				max: '2026-12-31T23:59:59.999',
 			},
 		},
-		default: 'now',
+		autoNow: true,
 	})
 
 	expectTypeOf(field).toExtend<
@@ -28,7 +28,7 @@ test('preserves date-time options and exact literals', () => {
 	expectTypeOf(field).toExtend<DateTimeField>()
 	expectTypeOf(field.kind).toEqualTypeOf<'dateTime'>()
 	expectTypeOf(field.options.timezone).toEqualTypeOf<false>()
-	expectTypeOf(field.options.default).toEqualTypeOf<'now'>()
+	expectTypeOf(field.options.autoNow).toEqualTypeOf<true>()
 })
 
 test('creates an exact empty option contract by default', () => {
@@ -48,6 +48,12 @@ test('rejects incompatible date-time metadata', () => {
 
 	// @ts-expect-error -- Runtime factories must produce date-time strings.
 	dateTimeField({ default: () => new Date() })
+
+	// @ts-expect-error -- Clock generation and developer defaults are exclusive.
+	dateTimeField({ autoNow: true, default: '2026-01-01T00:00:00.000' })
+
+	// @ts-expect-error -- Clock generation produces one scalar value.
+	dateTimeField({ autoNow: true, list: true })
 
 	// @ts-expect-error -- Required fields cannot also be nullable.
 	dateTimeField({ validation: { required: true, nullable: true } })

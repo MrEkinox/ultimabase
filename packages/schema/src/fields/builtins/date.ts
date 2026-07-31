@@ -1,5 +1,5 @@
 import { normalizeFieldOptions } from '../base/options.js'
-import type { FieldDefinition, FieldOptions } from '../base/contract.js'
+import type { FieldDefinition } from '../base/contract.js'
 import {
 	createScalarFieldFactory,
 	type ScalarFieldFactory,
@@ -7,6 +7,8 @@ import {
 import {
 	compareCanonicalTemporalValues,
 	normalizeTemporalValidation,
+	assertTemporalAutoNow,
+	type TemporalFieldOptions,
 	type TemporalRangeValidationOptions,
 	type TemporalValidationOptions,
 } from '../constraints/temporal.js'
@@ -24,7 +26,7 @@ export type DateValidationOptions = TemporalValidationOptions
 /**
  * Describes a calendar day using its canonical ISO date representation.
  */
-export type DateFieldOptions = FieldOptions<string, DateValidationOptions>
+export type DateFieldOptions = TemporalFieldOptions
 
 /**
  * Carries a calendar-day string and exact options through schema inference.
@@ -40,10 +42,6 @@ const calendarDatePattern = /^\d{4}-\d{2}-\d{2}$/u
 export const normalizeCalendarDate = (value: unknown, path: string): string => {
 	if (typeof value !== 'string') {
 		throw new TypeError(`${path} must be a calendar date string`)
-	}
-
-	if (path === 'default' && value === 'today') {
-		return value
 	}
 
 	const timestamp = Date.parse(`${value}T00:00:00.000Z`)
@@ -69,8 +67,15 @@ const normalizeDateValidation = (
 
 const normalizeDateFieldOptions = <const TOptions extends DateFieldOptions>(
 	options: TOptions,
-): Readonly<TOptions> =>
-	normalizeFieldOptions(options, normalizeDateValidation, normalizeCalendarDate)
+): Readonly<TOptions> => {
+	assertTemporalAutoNow(options)
+
+	return normalizeFieldOptions(
+		options,
+		normalizeDateValidation,
+		normalizeCalendarDate,
+	)
+}
 
 /** Creates immutable calendar-day metadata with canonical value snapshots. */
 export const dateField: ScalarFieldFactory<'date', string, DateFieldOptions> =

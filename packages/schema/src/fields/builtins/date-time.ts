@@ -5,10 +5,10 @@ import {
 } from '../base/factory.js'
 import {
 	createTemporalFieldConfigurationResolver,
-	type TemporalFieldOptions,
 	type TemporalRangeValidationOptions,
 	type TemporalValidationOptions,
 	type TemporalValueComparator,
+	type TimezoneTemporalFieldOptions,
 } from '../constraints/temporal.js'
 
 /**
@@ -24,7 +24,7 @@ export type DateTimeValidationOptions = TemporalValidationOptions
 /**
  * Describes a date and time with timezone support enabled by default.
  */
-export type DateTimeFieldOptions = TemporalFieldOptions
+export type DateTimeFieldOptions = TimezoneTemporalFieldOptions
 
 /**
  * Carries a date-time string and exact options through schema inference.
@@ -59,10 +59,6 @@ export const createDateTimeNormalizer = (
 	return (value, path) => {
 		if (typeof value !== 'string') {
 			throw new TypeError(`${path} must be ${expectation}`)
-		}
-
-		if (path === 'default' && value === 'now') {
-			return value
 		}
 
 		const localValue = timezone

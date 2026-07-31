@@ -84,3 +84,9 @@ Object fields add recursively compiled children and reject unknown properties.
 List metadata compiles into one or more array wrappers around the original
 scalar or object node. Runtime later executes this structural plan and returns
 `ValidationIssue` objects with stable codes and nested paths.
+
+Runtime reads defaults or framework generation metadata from the retained field,
+traverses object and array plan nodes, then passes each unknown leaf through the
+public `snapshotScalarFieldValue(field, value, path)` boundary. Schema reuses
+the field's private registered capability without exposing it or duplicating
+scalar normalization in Runtime.

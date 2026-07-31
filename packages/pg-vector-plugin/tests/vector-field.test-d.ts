@@ -6,7 +6,11 @@ import {
 	type VectorField,
 	type VectorFieldOptions,
 } from '../src/index.js'
-import { type FieldDefinition, type FieldValue } from '@ultimabase/schema'
+import {
+	snapshotScalarFieldValue,
+	type FieldDefinition,
+	type FieldValue,
+} from '@ultimabase/schema'
 
 test('infers vector kinds, dimensions, and values', () => {
 	const field = vectorField({
@@ -45,6 +49,15 @@ test('infers vector lists without confusing vector components with list wrappers
 		readonly (readonly number[])[]
 	>()
 })
+
+test('retains vector values through the public snapshot boundary', () => {
+	const field = vectorField({ dimensions: 2 })
+	const value = snapshotScalarFieldValue(field, unknownValue, 'embedding')
+
+	expectTypeOf(value).toEqualTypeOf<readonly number[]>()
+})
+
+declare const unknownValue: unknown
 
 test('rejects incompatible vector options', () => {
 	// @ts-expect-error -- Dimensions are numeric logical metadata.

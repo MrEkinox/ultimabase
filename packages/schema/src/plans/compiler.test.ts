@@ -4,6 +4,7 @@ import {
 	binaryField,
 	booleanField,
 	compileValidationPlans,
+	dateField,
 	definePluginField,
 	defineSchema,
 	intField,
@@ -28,6 +29,10 @@ describe('validation plans', () => {
 				nickname: stringField({ validation: { nullable: true } }),
 				active: booleanField({ default: true }),
 				generated: stringField({ default: runtimeDefault }),
+				automaticDate: dateField({
+					autoNow: true,
+					validation: { required: true },
+				}),
 				immutableCode: stringField({
 					validation: { required: true },
 					immutable: true,
@@ -56,6 +61,11 @@ describe('validation plans', () => {
 		expect(plans.create.fields.nickname?.nullable).toBe(true)
 		expect(plans.create.fields.active?.field).toBe(schema.fields.active)
 		expect(plans.create.fields.generated?.field).toBe(schema.fields.generated)
+		expect(plans.create.fields.automaticDate).toMatchObject({
+			kind: 'scalar',
+			field: schema.fields.automaticDate,
+			presence: 'optional',
+		})
 		expect(plans.create.fields.immutableCode?.presence).toBe('required')
 		expect(plans.update.fields.immutableCode?.presence).toBe('forbidden')
 

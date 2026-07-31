@@ -3,6 +3,7 @@
 - Status: accepted
 - Date: 2026-07-31
 - Validation-plan snapshot behavior superseded by: ADR-0039
+- Runtime capability access refined by: ADR-0041
 
 ## Decision
 

@@ -4,6 +4,7 @@
 - Date: 2026-07-31
 - Refines: ADR-0014
 - Default contract superseded in part by: ADR-0038
+- Magic temporal defaults superseded by: ADR-0040
 
 ## Decision
 

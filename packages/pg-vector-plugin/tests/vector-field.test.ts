@@ -1,8 +1,20 @@
 import { describe, expect, it } from 'vitest'
+import { snapshotScalarFieldValue } from '@ultimabase/schema'
 
 import { vectorField, vectorFieldKind } from '../src/index.js'
 
 describe('vectorField', () => {
+	it('snapshots values through the public Schema field boundary', () => {
+		const field = vectorField({ dimensions: 2 })
+		const source = [1, 2]
+		const snapshot = snapshotScalarFieldValue(field, source, 'embedding')
+
+		source[0] = 9
+
+		expect(snapshot).toStrictEqual([1, 2])
+		expect(Object.isFrozen(snapshot)).toBe(true)
+	})
+
 	it('creates frozen vector metadata with a fixed dimension', () => {
 		const source = [1, 2, 3]
 		const field = vectorField({

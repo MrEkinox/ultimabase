@@ -54,6 +54,7 @@ export type {
 } from './fields/builtins/date-time.js'
 export { isStaticDefault } from './fields/base/defaults.js'
 export type { DefaultFactory, FieldDefault } from './fields/base/defaults.js'
+export { snapshotScalarFieldValue } from './fields/base/definition.js'
 export { enumField } from './fields/builtins/enum.js'
 export type {
 	EnumField,
@@ -81,6 +82,7 @@ export type {
 	FieldListValue,
 	FieldOptions,
 	FieldOptionsValue,
+	FieldScalarValue,
 	FieldValidationOptions,
 	FieldValue,
 	ValidatedFieldOptions,

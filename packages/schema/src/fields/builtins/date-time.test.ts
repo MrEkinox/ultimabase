@@ -41,15 +41,15 @@ describe('dateTimeField', () => {
 		expect(Object.isFrozen(field.options.validation.range)).toBe(true)
 	})
 
-	it('supports local date-times and the operation-clock default', () => {
+	it('supports local date-times and operation-clock generation', () => {
 		const local = dateTimeField({
 			timezone: false,
 			default: '2026-06-01T12:00:00.000',
 		})
-		const generated = dateTimeField({ default: 'now' })
+		const generated = dateTimeField({ autoNow: true })
 
 		expect(local.options.default).toBe('2026-06-01T12:00:00.000')
-		expect(generated.options.default).toBe('now')
+		expect(generated.options.autoNow).toBe(true)
 	})
 
 	it('copies date-time list defaults', () => {
@@ -100,6 +100,7 @@ describe('dateTimeField', () => {
 	})
 
 	it.each([
+		['former magic default', { default: 'now' }],
 		['missing timezone', { default: '2026-01-01T00:00:00.000' }],
 		['incomplete value', { default: '2026-01-01T00:00Z' }],
 		['impossible day', { default: '2026-02-30T00:00:00.000Z' }],

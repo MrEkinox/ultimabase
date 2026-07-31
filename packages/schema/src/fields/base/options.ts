@@ -88,7 +88,7 @@ export const getFieldListDepth = (options: object): number => {
 /**
  * Copies one scalar or nested list value through a field-specific snapshot function.
  */
-export const snapshotFieldValue = (
+export const snapshotListedFieldValue = (
 	value: unknown,
 	depth: number,
 	normalizeStaticValue: NormalizeStaticValue,
@@ -104,7 +104,7 @@ export const snapshotFieldValue = (
 
 	return immutableArray(
 		value.map((item, index) =>
-			snapshotFieldValue(
+			snapshotListedFieldValue(
 				item,
 				depth - 1,
 				normalizeStaticValue,
@@ -201,7 +201,7 @@ export const normalizeFieldOptions = <
 	const hasNormalizedDefault =
 		'default' in options && isStaticDefault(options.default)
 	const normalizedDefault = hasNormalizedDefault
-		? snapshotFieldValue(
+		? snapshotListedFieldValue(
 				options.default,
 				readListDepth(list),
 				normalizeStaticValue,
@@ -242,5 +242,6 @@ export const hasValidationFlag = (
 export const isRequiredOnCreate = (field: GenericField): boolean =>
 	hasValidationFlag(field.options, 'required') &&
 	!('default' in field.options) &&
+	!('autoNow' in field.options && field.options.autoNow === true) &&
 	!('autoIncrement' in field.options && field.options.autoIncrement === true) &&
 	!('generatedOn' in field.options)

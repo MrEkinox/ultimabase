@@ -15,6 +15,8 @@ Apply schema validation plans before access checks and hooks.
 - [ ] Create, update, bulk, and upsert inputs use the correct plan.
 - [ ] Defaults are applied without mutating caller input.
 - [ ] Scalar constraints and defaults are read from each plan's declared field.
+- [ ] `autoNow` fields share the operation clock and application timezone.
+- [ ] Scalar leaves pass through Schema's public `snapshotScalarFieldValue` boundary.
 - [ ] Runtime default factories execute once per created object.
 - [ ] Database defaults remain owned by the database adapter.
 - [ ] Master does not bypass validation by default.

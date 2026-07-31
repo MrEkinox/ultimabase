@@ -19,7 +19,7 @@ test('preserves time options and exact literals', () => {
 				max: '18:00:00.000Z',
 			},
 		},
-		default: 'now',
+		autoNow: true,
 	})
 
 	expectTypeOf(field).toExtend<
@@ -28,7 +28,7 @@ test('preserves time options and exact literals', () => {
 	expectTypeOf(field).toExtend<TimeField>()
 	expectTypeOf(field.kind).toEqualTypeOf<'time'>()
 	expectTypeOf(field.options.timezone).toEqualTypeOf<true>()
-	expectTypeOf(field.options.default).toEqualTypeOf<'now'>()
+	expectTypeOf(field.options.autoNow).toEqualTypeOf<true>()
 })
 
 test('creates an exact empty option contract by default', () => {
@@ -48,6 +48,12 @@ test('rejects incompatible time metadata', () => {
 
 	// @ts-expect-error -- Runtime factories must produce time strings.
 	timeField({ default: () => new Date() })
+
+	// @ts-expect-error -- Clock generation and developer defaults are exclusive.
+	timeField({ autoNow: true, default: '09:30:00.000' })
+
+	// @ts-expect-error -- Clock generation produces one scalar value.
+	timeField({ autoNow: true, list: true })
 
 	// @ts-expect-error -- Required fields cannot also be nullable.
 	timeField({ validation: { required: true, nullable: true } })

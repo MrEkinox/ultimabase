@@ -122,11 +122,17 @@ export interface FieldDefinition<
 export type GenericField = FieldDefinition<string, unknown, object>
 
 /**
- * Extracts the value carried by a field without constraining its exact options.
+ * Extracts the logical scalar carried by a field before list metadata applies.
  */
-export type FieldValue<TField> = TField extends {
-	readonly options: infer TOptions
+export type FieldScalarValue<TField> = TField extends {
 	readonly [fieldValueMarker]?: infer TValue
 }
-	? FieldOptionsValue<TValue, TOptions>
+	? TValue
+	: unknown
+
+/** Extracts the complete value carried by a field and its list metadata. */
+export type FieldValue<TField> = TField extends {
+	readonly options: infer TOptions
+}
+	? FieldOptionsValue<FieldScalarValue<TField>, TOptions>
 	: unknown

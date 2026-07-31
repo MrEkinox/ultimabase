@@ -110,12 +110,12 @@ type UpdatePostInput = InferUpdateInput<typeof PostSchema>
 ```
 
 `InferObject` describes persisted values returned by UltimaBase. Required,
-defaulted, auto-incremented, and system-generated fields are always present;
+defaulted, `autoNow`, auto-incremented, and system-generated fields are always present;
 other fields remain optional. Its properties are readonly because persisted
 objects are immutable snapshots.
 
 `InferCreateInput` excludes server-generated fields. Required fields must be
-provided unless a default or auto-increment supplies their value. Immutable
+provided unless a default, `autoNow`, or auto-increment supplies their value. Immutable
 developer fields remain accepted during creation.
 
 `InferUpdateInput` excludes generated and immutable fields, and makes every
@@ -228,6 +228,18 @@ validate the factory return type before considering static object shapes.
 Database-specific expressions belong to typed adapter extensions rather than
 the portable `default` option.
 
+## Runtime value snapshots
+
+`snapshotScalarFieldValue(field, value, path)` applies the field's registered
+logical-scalar capability to unknown input. It preserves exact scalar return
+inference while copying mutable binary values and delegating plugin scalars to
+their own snapshot behavior. Forged structural fields are rejected.
+
+The function never reads or executes `field.options.default`. Runtime first
+traverses object and array plan nodes, then calls this boundary at scalar leaves.
+This keeps declaration and Runtime scalar normalization on one field-owned
+implementation without confusing object patches with complete values.
+
 ## String fields
 
 `stringField(options)` creates immutable string metadata while preserving literal options for later schema inference. Calling `stringField()` defines an optional, non-null string.
@@ -310,9 +322,9 @@ claiming deep object freezing.
 string such as `2026-07-31`. It contains no time or timezone. Static defaults
 and `validation.range.min/max` boundaries use the same format.
 
-`default: "today"` asks Runtime to derive the current calendar day from the
-operation-scoped clock and application timezone. It is compiled as a runtime
-clock default rather than persisted as a literal string.
+`autoNow: true` asks Runtime to derive the current calendar day from the
+operation-scoped clock and application timezone when create input omits the
+field.
 
 ## Time fields
 
@@ -327,12 +339,12 @@ clock default rather than persisted as a literal string.
 `timezone: true`, accepting `YYYY-MM-DDTHH:mm:ss.sssZ` or an ISO offset.
 `timezone: false` uses the local `YYYY-MM-DDTHH:mm:ss.sss` form.
 
-Both time-bearing fields support ordered `validation.range.min/max` boundaries.
-`default: "now"` asks Runtime to derive the value once from the
-operation-scoped clock. The same captured instant is shared by every temporal
-default and system field in one operation. Application timezone configuration,
-defaulting to UTC, controls calendar and zone-less projections without relying
-on the host machine timezone.
+All temporal fields support `autoNow: true` only for scalar values and never
+alongside `default`. Time-bearing fields also support ordered
+`validation.range.min/max` boundaries. Runtime derives automatic values from
+one operation-scoped instant shared with system fields. Application timezone
+configuration, defaulting to UTC, controls calendar and zone-less projections
+without relying on the host machine timezone.
 
 ## UUID fields
 

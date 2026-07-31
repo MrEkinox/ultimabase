@@ -52,6 +52,13 @@ type HasDefault<TField> =
 		? true
 		: false
 
+type HasAutoNow<TField> =
+	FieldOptionsOf<TField> extends {
+		readonly autoNow: true
+	}
+		? true
+		: false
+
 type IsAutoIncremented<TField> =
 	FieldOptionsOf<TField> extends {
 		readonly autoIncrement: true
@@ -94,19 +101,23 @@ type IsOutputRequired<TField> =
 		? true
 		: HasDefault<TField> extends true
 			? true
-			: IsAutoIncremented<TField> extends true
+			: HasAutoNow<TField> extends true
 				? true
-				: IsGenerated<TField> extends true
+				: IsAutoIncremented<TField> extends true
 					? true
-					: false
+					: IsGenerated<TField> extends true
+						? true
+						: false
 
 type IsCreateRequired<TField> =
 	HasRequiredValidation<TField> extends true
 		? HasDefault<TField> extends true
 			? false
-			: IsAutoIncremented<TField> extends true
+			: HasAutoNow<TField> extends true
 				? false
-				: true
+				: IsAutoIncremented<TField> extends true
+					? false
+					: true
 		: false
 
 type ApplyInferenceOverride<TValue, TInference, TMode extends InferenceMode> =

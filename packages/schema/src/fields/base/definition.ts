@@ -6,8 +6,8 @@ import {
 
 import { isBuiltInField } from './kinds.js'
 import { assertPluginFieldKind } from './kinds.js'
-import { getFieldListDepth, snapshotFieldValue } from './options.js'
-import type { GenericField } from './contract.js'
+import { getFieldListDepth, snapshotListedFieldValue } from './options.js'
+import type { FieldScalarValue, GenericField } from './contract.js'
 
 export type ScalarValueSnapshot = (value: unknown, path: string) => unknown
 
@@ -71,9 +71,28 @@ export function assertFieldDefinition(
 	}
 }
 
-/**
- * Reapplies one declared field's scalar and list contract at static boundaries.
- */
+/** Applies one declared field's logical scalar capability without list wrapping. */
+export function snapshotScalarFieldValue<TField extends GenericField>(
+	field: TField,
+	value: unknown,
+	path: string,
+): FieldScalarValue<TField>
+
+export function snapshotScalarFieldValue(
+	field: GenericField,
+	value: unknown,
+	path: string,
+): unknown {
+	const capabilities = fieldCapabilities.get(field)
+
+	if (capabilities === undefined) {
+		throw new TypeError(`${path} uses a field not created by a field factory`)
+	}
+
+	return capabilities.snapshotValue(value, path)
+}
+
+/** Reapplies one declared field's scalar and list contract at static boundaries. */
 export const snapshotDeclaredFieldValue = (
 	field: GenericField,
 	value: unknown,
@@ -85,7 +104,7 @@ export const snapshotDeclaredFieldValue = (
 		throw new TypeError(`${path} uses a field not created by a field factory`)
 	}
 
-	return snapshotFieldValue(
+	return snapshotListedFieldValue(
 		value,
 		getFieldListDepth(field.options),
 		capabilities.snapshotValue,

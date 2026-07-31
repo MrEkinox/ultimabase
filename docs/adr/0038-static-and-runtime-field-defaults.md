@@ -3,6 +3,7 @@
 - Status: accepted
 - Date: 2026-07-31
 - Validation-plan representation refined by: ADR-0039
+- Temporal magic defaults superseded by: ADR-0040
 - Supersedes: ADR-0018 and the database-default portions of ADR-0020,
   ADR-0023, ADR-0026, and ADR-0028
 
