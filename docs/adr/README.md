@@ -59,6 +59,7 @@ Accepted records:
 - [ADR-0057: Independent Query limit and pagination position](0057-independent-query-limit.md)
 - [ADR-0058: Immutable unbound Query builder](0058-immutable-unbound-query-builder.md)
 - [ADR-0059: Terminal Operation AST](0059-terminal-operation-ast.md)
+- [ADR-0060: Typed atomic update expressions](0060-typed-atomic-update-expressions.md)
 
 Superseded records:
 

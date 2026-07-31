@@ -1,8 +1,11 @@
 import { defineSchema, intField, stringField } from '@ultimabase/schema'
 import { describe, expect, it } from 'vitest'
 
-import { Query } from '../query/query.js'
-import type { OperationAst, UpdateExpressionNode } from './contracts.js'
+import {
+	Query,
+	type OperationAst,
+	type UpdateExpressionNode,
+} from '../index.js'
 
 const articleSchema = defineSchema({
 	className: 'Article',

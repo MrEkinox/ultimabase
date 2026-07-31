@@ -99,9 +99,9 @@ from `upsert-many`, and `delete-one` from `delete-many`. This makes Runtime,
 hooks, permissions, and adapters handle additions through exhaustive matching.
 
 Create values retain `InferCreateInput<TSchema>`. Updates carry a separate
-`UpdateExpressionNode`; they never overload a create or replacement input.
+`UpdateExpression<TSchema>`; they never overload a create or replacement input.
 Upserts similarly keep their target query, create values, and update expression
-independent. The dedicated update operators are added by the next capability.
+independent.
 
 Only bulk create and bulk upsert carry `AtomicBulkOperationOptions`. Its sole
 property is `atomic`; master authority is deliberately absent from every
@@ -111,6 +111,43 @@ transport input cannot manufacture it by adding an operation option.
 These contracts do not validate or snapshot untrusted write values. Runtime
 structural validation remains the single boundary for REST, GraphQL, jobs, and
 direct TypeScript terminals.
+
+## Atomic update expressions
+
+`normalizeUpdateExpression()` accepts a compact schema-typed input and produces
+one deterministic list of atomic field operations:
+
+```ts
+const update = normalizeUpdateExpression(articleSchema, {
+	set: {
+		title: 'Typed updates',
+	},
+	unset: ['summary'],
+	increment: {
+		views: 1,
+	},
+	decrement: {
+		credits: 5,
+	},
+})
+```
+
+`set` accepts every mutable field with its exact `InferUpdateInput` value.
+`unset` accepts only mutable fields whose persisted output may be absent, so it
+cannot remove required, defaulted, auto-generated, or auto-incremented values.
+`increment` and `decrement` accept only scalar `int`, `float`, `bigint`, and
+`decimal` fields. Their deltas retain the field's exact non-null scalar type.
+
+The same field cannot appear in more than one group, including twice in
+`unset`. Normalization rejects conflicts, unknown groups, unknown fields,
+immutable fields, system fields, malformed groups, and empty expressions. It
+emits operations in `set`, `unset`, `increment`, then `decrement` order while
+preserving caller declaration order inside each group.
+
+The normalized topology is immutable. Numeric deltas pass through their
+field-owned scalar snapshot boundary. Set values intentionally remain pending
+Runtime structural validation because object updates are partial rather than
+complete create values.
 
 ## Primitive filters
 

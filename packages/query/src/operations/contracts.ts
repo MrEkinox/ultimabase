@@ -10,14 +10,13 @@ import type {
 	QuerySchemaNode,
 } from '../ast/contracts.js'
 import type { QueryFilterNode } from '../filters/logical.js'
+import type {
+	UpdateExpression,
+	UpdateExpressionNode,
+} from '../updates/contracts.js'
 
 /** Marks every terminal operation with one exhaustively matchable discriminant. */
 export interface OperationAstNode {
-	readonly kind: string
-}
-
-/** Leaves concrete atomic update operators to their dedicated AST capability. */
-export interface UpdateExpressionNode {
 	readonly kind: string
 }
 
@@ -109,7 +108,7 @@ export interface CreateManyOperationAst<
 /** Applies one atomic update expression to at most one selected object. */
 export interface UpdateOneOperationAst<
 	TSchema extends SchemaDefinition,
-	TUpdate extends UpdateExpressionNode = UpdateExpressionNode,
+	TUpdate extends UpdateExpressionNode = UpdateExpression<TSchema>,
 	TFilter extends QueryExpressionNode = QueryFilterNode<TSchema>,
 > extends QueryOperationAst<TSchema, TFilter> {
 	readonly kind: 'update-one'
@@ -119,7 +118,7 @@ export interface UpdateOneOperationAst<
 /** Applies one atomic update expression to every selected object. */
 export interface UpdateManyOperationAst<
 	TSchema extends SchemaDefinition,
-	TUpdate extends UpdateExpressionNode = UpdateExpressionNode,
+	TUpdate extends UpdateExpressionNode = UpdateExpression<TSchema>,
 	TFilter extends QueryExpressionNode = QueryFilterNode<TSchema>,
 > extends QueryOperationAst<TSchema, TFilter> {
 	readonly kind: 'update-many'
@@ -129,7 +128,7 @@ export interface UpdateManyOperationAst<
 /** Keeps the unique target, create input, and update expression independent. */
 export interface UpsertOneOperationAst<
 	TSchema extends SchemaDefinition,
-	TUpdate extends UpdateExpressionNode = UpdateExpressionNode,
+	TUpdate extends UpdateExpressionNode = UpdateExpression<TSchema>,
 	TFilter extends QueryExpressionNode = QueryFilterNode<TSchema>,
 > extends QueryOperationAst<TSchema, TFilter> {
 	readonly kind: 'upsert-one'
@@ -140,7 +139,7 @@ export interface UpsertOneOperationAst<
 /** Represents one ordered item inside a bulk upsert operation. */
 export interface UpsertOperationItem<
 	TSchema extends SchemaDefinition,
-	TUpdate extends UpdateExpressionNode = UpdateExpressionNode,
+	TUpdate extends UpdateExpressionNode = UpdateExpression<TSchema>,
 	TFilter extends QueryExpressionNode = QueryFilterNode<TSchema>,
 > {
 	readonly query: OperationQuery<TSchema, TFilter>
@@ -151,7 +150,7 @@ export interface UpsertOperationItem<
 /** Upserts an ordered collection with explicit normalized atomic behavior. */
 export interface UpsertManyOperationAst<
 	TSchema extends SchemaDefinition,
-	TUpdate extends UpdateExpressionNode = UpdateExpressionNode,
+	TUpdate extends UpdateExpressionNode = UpdateExpression<TSchema>,
 	TFilter extends QueryExpressionNode = QueryFilterNode<TSchema>,
 > extends SchemaOperationAst<TSchema> {
 	readonly kind: 'upsert-many'
@@ -178,7 +177,7 @@ export interface DeleteManyOperationAst<
 /** Enumerates every terminal operation accepted by the single Runtime pipeline. */
 export type OperationAst<
 	TSchema extends SchemaDefinition,
-	TUpdate extends UpdateExpressionNode = UpdateExpressionNode,
+	TUpdate extends UpdateExpressionNode = UpdateExpression<TSchema>,
 	TFilter extends QueryExpressionNode = QueryFilterNode<TSchema>,
 > =
 	| FindOperationAst<TSchema, TFilter>

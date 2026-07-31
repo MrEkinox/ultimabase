@@ -23,3 +23,8 @@ Terminal operations use distinct AST kinds for singular and bulk behavior.
 Create inputs, update expressions, and upsert target queries remain separate.
 Operation options never carry master authority; that authority can only come
 from a trusted Runtime request context.
+
+Update inputs group `set`, `unset`, `increment`, and `decrement` operations.
+They normalize to immutable field-operation nodes, reject cross-operator field
+conflicts, and keep partial set values pending the shared Runtime validation
+pipeline.

@@ -88,7 +88,6 @@ export type {
 	OperationAstNode,
 	OperationKind,
 	OperationObjectId,
-	UpdateExpressionNode,
 	UpdateManyOperationAst,
 	UpdateOneOperationAst,
 	UpsertManyOperationAst,
@@ -96,3 +95,19 @@ export type {
 	UpsertOperationItem,
 } from './operations/contracts.js'
 export { Query } from './query/query.js'
+export { normalizeUpdateExpression } from './updates/normalize.js'
+export type {
+	DecrementUpdateOperationNode,
+	IncrementUpdateOperationNode,
+	NumericUpdateFieldName,
+	NumericUpdateInput,
+	SetUpdateOperationNode,
+	UnsetUpdateFieldName,
+	UnsetUpdateOperationNode,
+	UpdateExpression,
+	UpdateExpressionInput,
+	UpdateExpressionNode,
+	UpdateFieldName,
+	UpdateOperationNode,
+	UpdateSetInput,
+} from './updates/contracts.js'

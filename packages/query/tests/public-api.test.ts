@@ -17,6 +17,7 @@ describe('@ultimabase/query public entry point', () => {
 			'normalizeQueryOffsetPagination',
 			'normalizeQueryOrdering',
 			'normalizeQuerySelection',
+			'normalizeUpdateExpression',
 			'queryCursorVersion',
 			'sealQueryCursor',
 			'unsealQueryCursor',
