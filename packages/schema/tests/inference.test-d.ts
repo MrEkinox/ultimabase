@@ -1,6 +1,7 @@
 import { expectTypeOf, test } from 'vitest'
 
 import {
+	binaryField,
 	booleanField,
 	dateField,
 	dateTimeField,
@@ -56,6 +57,7 @@ const primitiveSchema = defineSchema({
 		processedAt: dateTimeField(),
 		reminderTime: timeField(),
 		payload: jsonField(),
+		attachment: binaryField(),
 	},
 })
 
@@ -77,6 +79,7 @@ test('infers the complete primitive output matrix', () => {
 		readonly processedAt?: string
 		readonly reminderTime?: string
 		readonly payload?: JsonValue
+		readonly attachment?: Uint8Array
 	}
 
 	expectTypeOf(primitiveSchema.className).toEqualTypeOf<'PrimitiveMatrix'>()
@@ -100,6 +103,7 @@ test('makes generated and defaulted values optional in create inputs', () => {
 		processedAt?: string
 		reminderTime?: string
 		payload?: JsonValue
+		attachment?: Uint8Array
 	}
 
 	type CreateInput = InferCreateInput<typeof primitiveSchema>
@@ -130,6 +134,7 @@ test('makes mutable developer fields optional in update inputs', () => {
 		processedAt?: string
 		reminderTime?: string
 		payload?: JsonValue
+		attachment?: Uint8Array
 	}
 
 	type UpdateInput = InferUpdateInput<typeof primitiveSchema>

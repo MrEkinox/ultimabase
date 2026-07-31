@@ -5,6 +5,13 @@ export type {
 	BigintRangeValidationOptions,
 	BigintValidationOptions,
 } from './bigint-field.js'
+export { binaryField } from './binary-field.js'
+export type {
+	BinaryField,
+	BinaryFieldOptions,
+	BinaryLengthValidationOptions,
+	BinaryValidationOptions,
+} from './binary-field.js'
 export { booleanField } from './boolean-field.js'
 export type {
 	BooleanField,
@@ -148,6 +155,7 @@ export { compileValidationPlans } from './validation-plan.js'
 export type {
 	ArrayValidationPlan,
 	BigintValidationPlan,
+	BinaryValidationPlan,
 	BooleanValidationPlan,
 	DatabaseValidationDefaultPlan,
 	DateValidationPlan,

@@ -4,23 +4,25 @@ import { normalizeFieldOptions } from './field-options.js'
 import type {
 	FieldDefinition,
 	FieldOptions,
-	FieldValidationOptions,
 	ValidatedFieldOptions,
 } from './field.js'
-import { normalizeNumericRange, type NumericRange } from './numeric-range.js'
+import {
+	normalizeLengthValidation,
+	type LengthConstrainedValidation,
+	type LengthValidationOptions,
+} from './length-validation.js'
 
 type EmptyStringFieldOptions = Readonly<Record<PropertyKey, never>>
 
 /**
  * Defines declarative string length boundaries.
  */
-export type StringLengthValidationOptions = NumericRange
+export type StringLengthValidationOptions = LengthValidationOptions
 
 /**
  * Groups presence and string constraints under one validation boundary.
  */
-export type StringValidationOptions = FieldValidationOptions & {
-	readonly length?: StringLengthValidationOptions
+export type StringValidationOptions = LengthConstrainedValidation & {
 	readonly match?: RegExp
 }
 
@@ -38,37 +40,9 @@ export type StringField<
 
 const emptyStringFieldOptions: EmptyStringFieldOptions = immutableRecord({})
 
-/**
- * Keeps length metadata portable across JavaScript and database validators.
- */
-const assertValidLength = (
-	name: 'min' | 'max',
-	value: number | undefined,
-): void => {
-	if (value !== undefined && (!Number.isSafeInteger(value) || value < 0)) {
-		throw new RangeError(
-			`validation.length.${name} must be a non-negative safe integer`,
-		)
-	}
-}
-
 const normalizeStringValidation = (
 	validation: StringValidationOptions,
-): Readonly<StringValidationOptions> => {
-	const { length } = validation
-
-	// Nested length metadata is copied before the containing validation object is frozen.
-	return length === undefined
-		? immutableRecord(validation)
-		: immutableRecord({
-				...validation,
-				length: normalizeNumericRange(
-					length,
-					'validation.length',
-					assertValidLength,
-				),
-			})
-}
+): Readonly<StringValidationOptions> => normalizeLengthValidation(validation)
 
 /**
  * Creates an optional, non-null string field with no additional metadata.

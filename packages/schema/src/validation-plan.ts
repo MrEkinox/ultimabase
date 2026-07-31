@@ -1,5 +1,10 @@
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
+import {
+	snapshotBinaryValue,
+	type BinaryField,
+	type BinaryLengthValidationOptions,
+} from './binary-field.js'
 import type {
 	BigintField,
 	BigintRangeValidationOptions,
@@ -16,7 +21,7 @@ import {
 	type DefaultFactory,
 } from './default-value.js'
 import type { EnumField, EnumValues } from './enum-field.js'
-import { getFieldListDepth } from './field-options.js'
+import { getFieldListDepth, snapshotFieldValue } from './field-options.js'
 import type { FieldValidationOptions, GenericField } from './field.js'
 import type { FloatField, FloatRangeValidationOptions } from './float-field.js'
 import type { IntField, IntRangeValidationOptions } from './int-field.js'
@@ -54,6 +59,9 @@ export type ValidationIssueCode =
 	| 'bigint.range.max'
 	| 'bigint.range.min'
 	| 'bigint.type'
+	| 'binary.length.max'
+	| 'binary.length.min'
+	| 'binary.type'
 	| 'boolean.type'
 	| 'date.invalid'
 	| 'date.range.max'
@@ -153,6 +161,10 @@ export interface BigintValidationPlan extends FieldValidationPlanBase<'bigint'> 
 	readonly range?: BigintRangeValidationOptions
 }
 
+export interface BinaryValidationPlan extends FieldValidationPlanBase<'binary'> {
+	readonly length?: BinaryLengthValidationOptions
+}
+
 export interface IntValidationPlan extends FieldValidationPlanBase<'int'> {
 	readonly range?: IntRangeValidationOptions
 }
@@ -200,6 +212,7 @@ export interface UuidValidationPlan extends FieldValidationPlanBase<'uuid'> {
 export type FieldValidationPlan =
 	| ArrayValidationPlan
 	| BigintValidationPlan
+	| BinaryValidationPlan
 	| BooleanValidationPlan
 	| DateValidationPlan
 	| DateTimeValidationPlan
@@ -231,6 +244,7 @@ export interface SchemaValidationPlans {
 
 type BuiltInField =
 	| BigintField
+	| BinaryField
 	| BooleanField
 	| DateField
 	| DateTimeField
@@ -252,6 +266,7 @@ interface FieldPlanBase {
 
 const isBuiltInField = (field: GenericField): field is BuiltInField =>
 	field.kind === 'bigint' ||
+	field.kind === 'binary' ||
 	field.kind === 'boolean' ||
 	field.kind === 'date' ||
 	field.kind === 'dateTime' ||
@@ -300,7 +315,17 @@ const compileDefault = (
 		return immutableRecord({ kind, value })
 	}
 
-	return immutableRecord({ kind: 'static', value })
+	const staticValue =
+		field.kind === 'binary'
+			? snapshotFieldValue(
+					value,
+					getFieldListDepth(field.options),
+					snapshotBinaryValue,
+					'default',
+				)
+			: value
+
+	return immutableRecord({ kind: 'static', value: staticValue })
 }
 
 const readPresence = (
@@ -434,6 +459,14 @@ const compileScalarField = (
 				...(field.options.validation?.range === undefined
 					? {}
 					: { range: field.options.validation.range }),
+			})
+		case 'binary':
+			return immutableRecord({
+				...base,
+				kind: field.kind,
+				...(field.options.validation?.length === undefined
+					? {}
+					: { length: field.options.validation.length }),
 			})
 		case 'boolean':
 			return immutableRecord({ ...base, kind: field.kind })

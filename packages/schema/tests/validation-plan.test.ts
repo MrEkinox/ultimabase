@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest'
 import {
 	DatabaseDefault,
 	bigintField,
+	binaryField,
 	booleanField,
 	compileValidationPlans,
 	dateField,
@@ -29,6 +30,7 @@ describe('validation plans', () => {
 		const match = /^[a-z]+$/u
 		const minDate = '2026-01-01'
 		const maxDate = '2026-12-31'
+		const avatarDefault = new Uint8Array([1, 2, 3])
 		const schema = defineSchema({
 			className: 'PrimitivePlan',
 			fields: {
@@ -43,6 +45,11 @@ describe('validation plans', () => {
 					validation: { nullable: true },
 				}),
 				active: booleanField({ default: true }),
+				avatar: binaryField({
+					default: avatarDefault,
+					validation: { length: { min: 1, max: 1024 } },
+				}),
+				unrestrictedBinary: binaryField(),
 				publishedAt: dateField({
 					default: 'today',
 					validation: { range: { min: minDate, max: maxDate } },
@@ -127,6 +134,25 @@ describe('validation plans', () => {
 			default: { kind: 'static', value: true },
 		})
 		expect(plans.update.fields.active).not.toHaveProperty('default')
+		expect(plans.create.fields.avatar).toMatchObject({
+			kind: 'binary',
+			default: {
+				kind: 'static',
+				value: new Uint8Array([1, 2, 3]),
+			},
+			length: { min: 1, max: 1024 },
+		})
+		if (plans.create.fields.avatar?.default?.kind === 'static') {
+			// Plans own a second byte snapshot instead of sharing mutable schema storage.
+			expect(plans.create.fields.avatar.default.value).not.toBe(
+				schema.fields.avatar.options.default,
+			)
+		}
+		expect(plans.create.fields.unrestrictedBinary).toStrictEqual({
+			kind: 'binary',
+			presence: 'optional',
+			nullable: false,
+		})
 		expect(plans.create.fields.publishedAt).toMatchObject({
 			kind: 'date',
 			default: { kind: 'runtimeClock', value: 'today' },

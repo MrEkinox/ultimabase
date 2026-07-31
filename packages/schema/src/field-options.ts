@@ -77,7 +77,10 @@ export const getFieldListDepth = (options: object): number => {
 	)
 }
 
-const normalizeStaticListValue = (
+/**
+ * Copies one scalar or nested list value through a field-specific snapshot function.
+ */
+export const snapshotFieldValue = (
 	value: unknown,
 	depth: number,
 	normalizeStaticValue: NormalizeStaticValue,
@@ -93,7 +96,7 @@ const normalizeStaticListValue = (
 
 	return immutableArray(
 		value.map((item, index) =>
-			normalizeStaticListValue(
+			snapshotFieldValue(
 				item,
 				depth - 1,
 				normalizeStaticValue,
@@ -135,7 +138,7 @@ export const normalizeFieldOptions = <
 			: defineExtensions(options.extensions)
 	const normalizedDefault =
 		'default' in options && isStaticDefault(options.default)
-			? normalizeStaticListValue(
+			? snapshotFieldValue(
 					options.default,
 					getFieldListDepth({ list }),
 					normalizeStaticValue,

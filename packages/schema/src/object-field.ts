@@ -1,5 +1,6 @@
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
+import { snapshotBinaryValue } from './binary-field.js'
 import {
 	assertValidTypeName,
 	normalizeFieldOptions,
@@ -92,6 +93,10 @@ const snapshotStructuredValue = (
 	ancestors.add(value)
 
 	try {
+		if (value instanceof Uint8Array) {
+			return snapshotBinaryValue(value, path)
+		}
+
 		if (value instanceof Date) {
 			const timestamp = value.getTime()
 

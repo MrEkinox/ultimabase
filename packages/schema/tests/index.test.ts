@@ -10,6 +10,7 @@ describe('@ultimabase/schema public entry point', () => {
 			'DuplicateSchemaError',
 			'SchemaRegistry',
 			'bigintField',
+			'binaryField',
 			'booleanField',
 			'compileValidationPlans',
 			'dateField',

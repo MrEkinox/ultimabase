@@ -224,6 +224,24 @@ exact decimal field will use a separate value and storage contract.
 
 `booleanField(options)` creates immutable boolean metadata and preserves literal `true` or `false` defaults. It uses the common presence validation and field options without adding boolean-specific constraints.
 
+## Binary fields
+
+`binaryField(options)` represents raw bytes as a native `Uint8Array`. Node.js
+`Buffer` values are accepted because they extend `Uint8Array`, and defensive
+copies preserve their runtime subclass. Static scalar, list, and structured
+defaults are copied so later mutations of caller-owned storage cannot change
+schema metadata.
+
+`validation.length.min/max` constrains the number of bytes with non-negative
+safe-integer boundaries. Transport encodings such as Base64, hexadecimal, and
+multipart data remain transport concerns. Database adapters own physical
+storage decisions such as PostgreSQL `bytea`.
+
+JavaScript cannot freeze the indexed contents of a non-empty typed array.
+UltimaBase therefore guarantees binary snapshot isolation by copying byte
+sequences at declaration and future Runtime input/output boundaries rather than
+claiming deep object freezing.
+
 ## Date fields
 
 `dateField(options)` represents a calendar day as a canonical `YYYY-MM-DD`

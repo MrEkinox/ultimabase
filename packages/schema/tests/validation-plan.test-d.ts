@@ -2,6 +2,7 @@ import { expectTypeOf, test } from 'vitest'
 
 import {
 	bigintField,
+	binaryField,
 	compileValidationPlans,
 	dateTimeField,
 	defineSchema,
@@ -12,6 +13,7 @@ import {
 	type FieldValidationPlan,
 	type ArrayValidationPlan,
 	type BigintValidationPlan,
+	type BinaryValidationPlan,
 	type DateTimeValidationPlan,
 	type FloatValidationPlan,
 	type IntValidationPlan,
@@ -54,6 +56,7 @@ test('narrows integer and float plans as distinct kinds', () => {
 		className: 'NumericPlan',
 		fields: {
 			largeCount: bigintField(),
+			avatar: binaryField(),
 			count: intField(),
 			ratio: floatField(),
 			processedAt: dateTimeField(),
@@ -63,12 +66,17 @@ test('narrows integer and float plans as distinct kinds', () => {
 	const plans = compileValidationPlans(schema).create.fields
 	const count = plans.count
 	const largeCount = plans.largeCount
+	const avatar = plans.avatar
 	const ratio = plans.ratio
 	const processedAt = plans.processedAt
 	const reminderTime = plans.reminderTime
 
 	if (largeCount?.kind === 'bigint') {
 		expectTypeOf(largeCount).toEqualTypeOf<BigintValidationPlan>()
+	}
+
+	if (avatar?.kind === 'binary') {
+		expectTypeOf(avatar).toEqualTypeOf<BinaryValidationPlan>()
 	}
 
 	if (count?.kind === 'int') {

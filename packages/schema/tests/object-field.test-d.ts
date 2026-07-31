@@ -1,6 +1,7 @@
 import { expectTypeOf, test } from 'vitest'
 
 import {
+	binaryField,
 	booleanField,
 	dateField,
 	defineSchemaExtension,
@@ -73,6 +74,7 @@ test('infers object list values from reusable fields', () => {
 		}),
 		active: booleanField(),
 		createdAt: dateField(),
+		avatar: binaryField(),
 		tags: stringField({ list: true }),
 	}
 	const field = objectField({
@@ -85,6 +87,7 @@ test('infers object list values from reusable fields', () => {
 		readonly name: string
 		readonly active: boolean
 		readonly createdAt: string
+		readonly avatar: Uint8Array
 		readonly tags: readonly string[]
 	}
 

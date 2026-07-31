@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+	binaryField,
 	booleanField,
 	dateField,
 	dateTimeField,
@@ -148,6 +149,26 @@ describe('object fields and list metadata', () => {
 		// Custom field values retain the structured default snapshot boundary.
 		expect(field.options.default.legacyDate.getUTCFullYear()).toBe(2026)
 		expect(field.options.default.legacyDate).not.toBe(source)
+	})
+
+	it('copies binary values nested inside structured defaults', () => {
+		const source = new Uint8Array([1, 2, 3])
+		const field = objectField({
+			fields: {
+				payload: binaryField(),
+			},
+			default: {
+				payload: source,
+			},
+		})
+
+		source[0] = 9
+
+		// Nested binary defaults retain the same defensive-copy boundary as direct fields.
+		expect(field.options.default.payload).toStrictEqual(
+			new Uint8Array([1, 2, 3]),
+		)
+		expect(field.options.default.payload).not.toBe(source)
 	})
 
 	it('rejects invalid list metadata at runtime', () => {
