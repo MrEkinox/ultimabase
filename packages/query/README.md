@@ -6,6 +6,42 @@ The public `Query<TSchema>` class is unbound and reusable. Runtime binding produ
 
 This package does not execute operations and must not import Core, Runtime, a database, or a transport.
 
+## Immutable Query builder
+
+`Query` exposes the Parse-inspired developer API while preserving one typed,
+transport-neutral AST:
+
+```ts
+import { Query } from '@ultimabase/query'
+
+const published = new Query(postSchema).equalTo('published', true)
+const popular = new Query(postSchema).greaterThan('views', 1_000)
+
+const feed = published
+	.or(popular)
+	.select('id', 'title', 'createdAt')
+	.descending('createdAt')
+	.limit(25)
+
+const nextPage = feed.after(cursor)
+const adminPage = feed.skip(50)
+```
+
+Every call creates a new `Query`, so `feed`, `nextPage`, and `adminPage` are safe
+independent branches. Their unchanged immutable AST nodes are shared. `limit`
+defines the page size; `skip` and `after` choose mutually exclusive positions.
+
+Direct filter calls form an implicit `and`. The `and`, `or`, and `not` methods
+combine only the filter of another query built from the exact same schema
+definition; selection, ordering, limit, and pagination stay on the receiving
+query. The compiler correlates each field with its legal operators and exact
+value type, while the runtime boundary repeats the validation for JavaScript
+and transport callers.
+
+An unbound `Query` exposes its immutable `ast` but no `find`, `save`, or other
+terminal operation. Execution will be added by Runtime through a separate
+bound query, keeping this package independent from engines and adapters.
+
 ## Query AST
 
 `createQueryAst()` creates the immutable neutral state used by future query
@@ -35,7 +71,7 @@ The root separates schema, selection, filtering, ordering, limit, and pagination
 position. This lets REST, GraphQL, and direct TypeScript callers normalize into
 the same representation while adapters compile it later.
 
-Mutable builders, query normalization, and cursors remain separate capabilities
+Query builders, query normalization, and cursors remain separate capabilities
 that extend the neutral nodes without adding execution concerns to the package.
 
 ## Primitive filters

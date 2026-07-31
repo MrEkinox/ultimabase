@@ -57,6 +57,7 @@ Accepted records:
 - [ADR-0055: Deterministic query clause normalization](0055-deterministic-query-clause-normalization.md)
 - [ADR-0056: Protected opaque Query cursors](0056-protected-opaque-query-cursors.md)
 - [ADR-0057: Independent Query limit and pagination position](0057-independent-query-limit.md)
+- [ADR-0058: Immutable unbound Query builder](0058-immutable-unbound-query-builder.md)
 
 Superseded records:
 

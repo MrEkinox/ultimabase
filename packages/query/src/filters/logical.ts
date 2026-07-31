@@ -52,12 +52,9 @@ export type QueryLogicalFilterNode<
 	| QueryOrFilterNode<TLeaf>
 	| QueryNotFilterNode<TLeaf>
 
-type QueryFilterLeaf<TLeaf extends QueryExpressionNode> =
-	TLeaf extends QueryExpressionNode
-		? TLeaf['kind'] extends QueryLogicalFilterKind
-			? never
-			: TLeaf
-		: never
+type QueryFilterLeaf<TLeaf extends QueryExpressionNode> = TLeaf & {
+	readonly kind: Exclude<TLeaf['kind'], QueryLogicalFilterKind>
+}
 
 /** Recursively composes an immutable logical tree around one leaf union. */
 export type QueryFilterExpression<

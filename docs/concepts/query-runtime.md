@@ -8,7 +8,8 @@ const activeUsers = new Query(UserSchema)
 	.descending('createdAt')
 ```
 
-Binding creates an executable query:
+The Query package itself exposes no executable terminal. Runtime binding will
+create a separate executable query:
 
 ```ts
 await activeUsers.bind(requestEngine).limit(25).find()

@@ -6,32 +6,38 @@ import type {
 
 import type { QueryExpressionNode, QueryFieldName } from '../ast/contracts.js'
 
-/** Lists scalar kinds whose complete values have portable equality semantics. */
-type QueryEqualityFieldKind =
-	| 'bigint'
-	| 'binary'
-	| 'boolean'
-	| 'date'
-	| 'dateTime'
-	| 'decimal'
-	| 'enum'
-	| 'float'
-	| 'int'
-	| 'json'
-	| 'string'
-	| 'time'
-	| 'uuid'
+/** Keeps runtime checks and type-level equality capabilities from drifting apart. */
+export const queryEqualityFieldKinds = [
+	'bigint',
+	'binary',
+	'boolean',
+	'date',
+	'dateTime',
+	'decimal',
+	'enum',
+	'float',
+	'int',
+	'json',
+	'string',
+	'time',
+	'uuid',
+] as const
 
-/** Lists scalar kinds with a storage-neutral total ordering. */
-type QueryOrderedFieldKind =
-	| 'bigint'
-	| 'date'
-	| 'dateTime'
-	| 'decimal'
-	| 'float'
-	| 'int'
-	| 'string'
-	| 'time'
+type QueryEqualityFieldKind = (typeof queryEqualityFieldKinds)[number]
+
+/** Keeps runtime checks and type-level ordering capabilities from drifting apart. */
+export const queryOrderedFieldKinds = [
+	'bigint',
+	'date',
+	'dateTime',
+	'decimal',
+	'float',
+	'int',
+	'string',
+	'time',
+] as const
+
+type QueryOrderedFieldKind = (typeof queryOrderedFieldKinds)[number]
 
 export type QueryEqualityFilterOperator = 'equal' | 'not-equal'
 
@@ -213,3 +219,15 @@ export type QueryPrimitiveFilterOperator<
 	TSchema extends SchemaDefinition,
 	TFieldName extends QueryFieldName<TSchema>,
 > = QueryPrimitiveFilterNode<TSchema, TFieldName>['kind']
+
+/** Selects schema fields that support one exact primitive filter operator. */
+export type QueryFilterFieldName<
+	TSchema extends SchemaDefinition,
+	TOperator extends QueryPrimitiveFilterNode<TSchema>['kind'],
+> = {
+	[
+		TFieldName in QueryFieldName<TSchema>
+	]: TOperator extends QueryPrimitiveFilterOperator<TSchema, TFieldName>
+		? TFieldName
+		: never
+}[QueryFieldName<TSchema>]

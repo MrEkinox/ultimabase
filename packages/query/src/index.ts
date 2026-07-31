@@ -62,6 +62,7 @@ export type {
 	QueryEqualityFilterOperator,
 	QueryExistenceFilterNode,
 	QueryFilterValue,
+	QueryFilterFieldName,
 	QueryMembershipFilterNode,
 	QueryMembershipFilterOperator,
 	QueryPrimitiveFilterNode,
@@ -72,3 +73,4 @@ export type {
 	QueryStringFilterNode,
 	QueryStringFilterOperator,
 } from './filters/primitive.js'
+export { Query } from './query/query.js'
