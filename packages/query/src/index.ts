@@ -15,6 +15,17 @@ export type {
 	QuerySelectionNode,
 	QueryWhereNode,
 } from './ast/contracts.js'
+export { normalizeLogicalFilter } from './filters/logical.js'
+export type {
+	QueryAndFilterNode,
+	QueryConstantFilterNode,
+	QueryFilterExpression,
+	QueryFilterNode,
+	QueryLogicalFilterKind,
+	QueryLogicalFilterNode,
+	QueryNotFilterNode,
+	QueryOrFilterNode,
+} from './filters/logical.js'
 export type {
 	QueryComparisonFilterNode,
 	QueryComparisonFilterOperator,

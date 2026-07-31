@@ -1,10 +1,10 @@
 # 303: Add and, or, and not filters
 
-- Status: planned
+- Status: done
 - Milestone: 3
 - Packages: `@ultimabase/query`
 - Depends on: 302
-- ADR: ADR-0004
+- ADR: ADR-0004, ADR-0054
 
 ## Goal
 
@@ -12,10 +12,10 @@ Compose nested filter nodes deterministically.
 
 ## Acceptance criteria
 
-- [ ] Empty logical groups have defined behavior.
-- [ ] Normalization flattens safe redundant nesting.
-- [ ] Input queries are never mutated.
+- [x] Empty logical groups have defined behavior.
+- [x] Normalization flattens safe redundant nesting.
+- [x] Input queries are never mutated.
 
 ## Tests
 
-- [ ] Nested normalization and immutability tests.
+- [x] Nested normalization and immutability tests.

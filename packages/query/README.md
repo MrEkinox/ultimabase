@@ -76,3 +76,46 @@ const pattern = {
 
 Adapters map the semantic flags and always parameterize the source during
 compilation.
+
+## Logical filters
+
+`and`, `or`, and `not` recursively compose primitive or plugin-owned leaf
+filters. The normalizer produces one deterministic immutable structure:
+
+```ts
+import {
+	normalizeLogicalFilter,
+	type QueryPrimitiveFilterNode,
+} from '@ultimabase/query'
+
+const filter = normalizeLogicalFilter<
+	QueryPrimitiveFilterNode<typeof postSchema>
+>({
+	kind: 'and',
+	expressions: [
+		{ kind: 'exists', field: 'title', exists: true },
+		{
+			kind: 'or',
+			expressions: [
+				{ kind: 'starts-with', field: 'title', value: 'Ultima' },
+				{ kind: 'starts-with', field: 'title', value: 'Parse' },
+			],
+		},
+	],
+})
+```
+
+Normalization follows boolean identities:
+
+| Input                          | Normalized result                |
+| ------------------------------ | -------------------------------- |
+| empty `and`                    | constant `true`                  |
+| empty `or`                     | constant `false`                 |
+| one-child group                | its child                        |
+| nested groups of the same kind | one flat group in original order |
+| `not(not(expression))`         | `expression`                     |
+
+Neutral constants are removed and decisive constants collapse their group. A
+mixed `and`/`or` structure is preserved because flattening it would change its
+meaning. Caller-owned logical objects and arrays are never mutated. Leaf
+factories remain responsible for snapshotting their own operator values.
