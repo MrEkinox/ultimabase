@@ -16,6 +16,9 @@ const declaredFrameworkErrorCodes = [
 	'PLUGIN_CONFLICT',
 	'TRANSACTION_ERROR',
 	'INTERNAL_ERROR',
+	'SERVICE_NOT_FOUND',
+	'SERVICE_ALREADY_PROVIDED',
+	'SERVICE_REGISTRY_DISPOSED',
 ] as const
 
 /** Restricts framework-owned failures to codes transports can map exhaustively. */

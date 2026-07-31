@@ -1,0 +1,125 @@
+import { FrameworkError } from '../errors/framework-error.js'
+import {
+	assertServiceToken,
+	type ServiceToken,
+	type ServiceTokenIdentity,
+} from './service-token.js'
+
+type DisposableService = AsyncDisposable | Disposable
+
+const isObjectLike = (value: unknown): value is object =>
+	(typeof value === 'object' && value !== null) || typeof value === 'function'
+
+const isDisposableService = (value: unknown): value is DisposableService => {
+	if (!isObjectLike(value)) {
+		return false
+	}
+
+	return (
+		(Symbol.asyncDispose in value &&
+			typeof value[Symbol.asyncDispose] === 'function') ||
+		(Symbol.dispose in value && typeof value[Symbol.dispose] === 'function')
+	)
+}
+
+/** Stores application-scoped service instances by nominal token identity. */
+export class ServiceRegistry {
+	readonly #services = new Map<ServiceTokenIdentity, unknown>()
+	readonly #disposables = new AsyncDisposableStack()
+	readonly #ownedDisposables = new WeakSet<DisposableService>()
+	#disposed = false
+
+	/** Returns the number of currently available service identities. */
+	get size(): number {
+		return this.#services.size
+	}
+
+	/** Registers one typed service without allowing configuration-order replacement. */
+	provide<TService>(
+		token: ServiceToken<TService>,
+		service: NoInfer<TService>,
+	): void {
+		this.#assertToken(token)
+
+		if (this.#disposed) {
+			throw new FrameworkError(
+				'SERVICE_REGISTRY_DISPOSED',
+				`Cannot provide service after registry disposal: ${token.debugName}`,
+				{ internalDetails: { service: token.debugName } },
+			)
+		}
+
+		if (this.#services.has(token)) {
+			throw new FrameworkError(
+				'SERVICE_ALREADY_PROVIDED',
+				`Service already provided: ${token.debugName}`,
+				{ internalDetails: { service: token.debugName } },
+			)
+		}
+
+		this.#trackDisposable(service)
+		this.#services.set(token, service)
+	}
+
+	/** Checks one token without changing registry state. */
+	has<TService>(token: ServiceToken<TService>): boolean {
+		this.#assertToken(token)
+
+		return this.#services.has(token)
+	}
+
+	/** Retrieves one required service or reports a typed configuration failure. */
+	get<TService>(token: ServiceToken<TService>): TService {
+		this.#assertToken(token)
+
+		if (!this.#services.has(token)) {
+			throw new FrameworkError(
+				'SERVICE_NOT_FOUND',
+				`Service not found: ${token.debugName}`,
+				{ internalDetails: { service: token.debugName } },
+			)
+		}
+
+		// The token and value relationship is established only through provide().
+		return this.#services.get(token) as TService
+	}
+
+	/** Retrieves one optional service without converting absence into an error. */
+	getOptional<TService>(token: ServiceToken<TService>): TService | undefined {
+		this.#assertToken(token)
+
+		if (!this.#services.has(token)) {
+			return undefined
+		}
+
+		// The preceding identity check also supports services whose value is undefined.
+		return this.#services.get(token) as TService
+	}
+
+	/** Releases references before disposing owned resources in reverse order. */
+	async dispose(): Promise<void> {
+		if (this.#disposed) {
+			return
+		}
+
+		this.#disposed = true
+		this.#services.clear()
+
+		await this.#disposables.disposeAsync()
+	}
+
+	#assertToken<TService>(token: ServiceToken<TService>): void {
+		const untrustedToken: unknown = token
+
+		assertServiceToken(untrustedToken)
+	}
+
+	#trackDisposable(service: unknown): void {
+		if (!isDisposableService(service) || this.#ownedDisposables.has(service)) {
+			return
+		}
+
+		this.#ownedDisposables.add(service)
+		this.#disposables.use(service)
+	}
+}

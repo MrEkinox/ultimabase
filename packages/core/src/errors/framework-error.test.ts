@@ -14,6 +14,9 @@ describe('FrameworkError', () => {
 			'PLUGIN_CONFLICT',
 			'TRANSACTION_ERROR',
 			'INTERNAL_ERROR',
+			'SERVICE_NOT_FOUND',
+			'SERVICE_ALREADY_PROVIDED',
+			'SERVICE_REGISTRY_DISPOSED',
 		])
 		expect(Object.isFrozen(frameworkErrorCodes)).toBe(true)
 	})

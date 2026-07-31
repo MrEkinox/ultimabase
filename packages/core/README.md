@@ -54,3 +54,20 @@ same name produces a different identity; consumers must import and share the
 exported token value. Every token accepts one provider per application, and the
 service registry rejects duplicate provision rather than replacing an existing
 service through plugin order.
+
+`ServiceRegistry` stores those values per application and distinguishes required
+from optional lookup:
+
+```ts
+const services = new ServiceRegistry()
+
+services.provide(DatabaseServiceToken, database)
+
+const requiredDatabase = services.get(DatabaseServiceToken)
+const optionalCache = services.getOptional(CacheServiceToken)
+```
+
+Providing the same token twice is an error and never replaces the original
+value. Each registry is isolated and has no global state. Calling `dispose()`
+clears its references and releases services implementing `Symbol.dispose` or
+`Symbol.asyncDispose` once, in reverse registration order.

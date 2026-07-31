@@ -7,6 +7,7 @@ describe('@ultimabase/core public entry point', () => {
 		// Type-only contracts must not create runtime export placeholders.
 		expect(Object.keys(publicApi).sort()).toStrictEqual([
 			'FrameworkError',
+			'ServiceRegistry',
 			'createServiceToken',
 			'frameworkErrorCodes',
 		])
