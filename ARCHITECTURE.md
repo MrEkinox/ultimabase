@@ -119,6 +119,9 @@ setup export types, including definitions introduced through nested composition.
   normalized operation to that application's pipeline.
 - Exact schema identity prevents a request engine from accepting definitions
   owned by another application, even when class names match.
+- Optional `AsyncLocalStorage` scopes derive every current-context reference
+  from one explicitly injected `RequestEngine`; nested and concurrent requests
+  never share mutable global state.
 - `Query<TSchema>` is an immutable unbound definition.
 - `BoundQuery<TSchema>` is the Query-owned neutral facade attached to a Runtime
   engine; Runtime supplies its terminal execution.

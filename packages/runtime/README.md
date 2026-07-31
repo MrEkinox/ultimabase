@@ -57,6 +57,37 @@ issue 317 will bind a real transaction adapter and define commit, rollback, and
 nested-call behavior. Trusted master request construction remains internal
 until issue 319 adds the audited `useMasterKey` API.
 
+## Scoped contextual access
+
+Explicit `RequestEngine` injection remains the primary API for transports and
+services. When forwarding the same engine through several internal layers would
+only add noise, a transport can open one Node.js asynchronous scope:
+
+```ts
+const publishArticle = async () => {
+	const engine = getCurrentEngine()
+
+	return engine.execute(operation)
+}
+
+await runWithRequestEngine(requestEngine, async () => {
+	await publishArticle()
+})
+```
+
+`getCurrentFrameworkContext()` returns an immutable, consistent view containing
+`application`, `frameworkEngine`, `requestEngine`, and `request`. The focused
+helpers `getCurrentApplication()`, `getCurrentApplicationEngine()`,
+`getCurrentEngine()`, and `getCurrentRequest()` read those same references.
+Calling any helper outside a scope throws `MISSING_EXECUTION_CONTEXT` rather
+than returning `undefined` or retaining an earlier request.
+
+Only the explicit request engine is accepted when opening a scope. The other
+references are derived from it, preventing a transport from combining an
+application, framework engine, and request context that do not belong together.
+Nested scopes restore their parent, parallel promise chains remain isolated,
+and synchronous or asynchronous callback results keep their exact type.
+
 ## Request contexts
 
 Public code can create immutable anonymous or authenticated user contexts:

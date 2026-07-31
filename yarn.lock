@@ -1670,6 +1670,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@ultimabase/runtime@workspace:packages/runtime"
   dependencies:
+    "@types/node": "npm:^24.0.0"
     "@ultimabase/access": "workspace:^"
     "@ultimabase/core": "workspace:^"
     "@ultimabase/query": "workspace:^"

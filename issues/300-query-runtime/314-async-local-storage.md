@@ -1,10 +1,10 @@
 # 314: Add AsyncLocalStorage context
 
-- Status: planned
+- Status: done
 - Milestone: 3
 - Packages: `@ultimabase/runtime`
 - Depends on: 313
-- ADR: ADR-0013
+- ADR: ADR-0013, ADR-0066
 
 ## Goal
 
@@ -12,10 +12,10 @@ Provide scoped contextual access without mutable singleton state.
 
 ## Acceptance criteria
 
-- [ ] Helpers fail with `MISSING_EXECUTION_CONTEXT` outside a scope.
-- [ ] Nested and concurrent scopes restore correctly.
-- [ ] Explicit injection remains the primary transport API.
+- [x] Helpers fail with `MISSING_EXECUTION_CONTEXT` outside a scope.
+- [x] Nested and concurrent scopes restore correctly.
+- [x] Explicit injection remains the primary transport API.
 
 ## Tests
 
-- [ ] Concurrent async chains never leak engines.
+- [x] Concurrent async chains never leak engines.

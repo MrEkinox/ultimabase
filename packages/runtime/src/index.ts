@@ -7,6 +7,16 @@ export type {
 	RequestContextOptions,
 	RequestMetadata,
 } from './context/request-context.js'
+// Contextual access is optional; transports should still inject request engines explicitly.
+export {
+	getCurrentApplication,
+	getCurrentApplicationEngine,
+	getCurrentEngine,
+	getCurrentFrameworkContext,
+	getCurrentRequest,
+	runWithRequestEngine,
+} from './context/active-framework-context.js'
+export type { ActiveFrameworkContext } from './context/active-framework-context.js'
 // Applications create request-bound engines; trusted master construction stays internal.
 export { FrameworkEngine, RequestEngine } from './engine/framework-engine.js'
 export type {
