@@ -13,16 +13,33 @@ import type {
 } from '../filters/primitive.js'
 import type {
 	CountOperationAst,
+	CreateManyOperationAst,
 	CreateOneOperationAst,
+	DeleteManyOperationAst,
 	DeleteOneOperationAst,
 	ExistsOperationAst,
 	FindOperationAst,
 	FirstOperationAst,
 	GetOperationAst,
 	OperationObjectId,
+	UpdateManyOperationAst,
 	UpdateOneOperationAst,
+	UpsertManyOperationAst,
+	UpsertOneOperationAst,
 } from '../operations/contracts.js'
+import {
+	normalizeBulkOperationOptions,
+	snapshotCreateInputs,
+	type BulkOperationOptions,
+} from '../operations/bulk.js'
 import type { QueryOperationExecutor } from '../operations/executor.js'
+import {
+	normalizeUniqueUpsertTarget,
+	normalizeUpsertInput,
+	normalizeUpsertItems,
+	type UpsertInput,
+	type UpsertManyItemInput,
+} from '../operations/upsert.js'
 import type {
 	UpdateExpression,
 	UpdateExpressionInput,
@@ -353,6 +370,22 @@ export class BoundQuery<
 		return this.createOne(input)
 	}
 
+	/** Creates objects in input order and uses one transaction unless opted out. */
+	createMany(
+		this: ExecutableBoundQuery<TSchema, TSelectedField>,
+		inputs: readonly InferCreateInput<TSchema>[],
+		options?: BulkOperationOptions,
+	): Promise<readonly InferObject<TSchema>[]> {
+		const operation: CreateManyOperationAst<TSchema> = immutableRecord({
+			kind: 'create-many',
+			schema: this.ast.schema,
+			inputs: snapshotCreateInputs(inputs),
+			options: normalizeBulkOperationOptions(options),
+		})
+
+		return this.engine.execute(operation)
+	}
+
 	/** Normalizes and executes one atomic update against the first match. */
 	updateOne(
 		this: ExecutableBoundQuery<TSchema, TSelectedField>,
@@ -372,6 +405,74 @@ export class BoundQuery<
 		return this.engine.execute(operation)
 	}
 
+	/** Applies one normalized expression to every match and returns its count. */
+	updateMany(
+		this: ExecutableBoundQuery<TSchema, TSelectedField>,
+		input: UpdateExpressionInput<TSchema>,
+	): Promise<number> {
+		const operation: UpdateManyOperationAst<
+			TSchema,
+			UpdateExpression<TSchema>,
+			QueryFilterNode<TSchema>,
+			TSelectedField
+		> = immutableRecord({
+			kind: 'update-many',
+			query: this.ast,
+			update: normalizeUpdateExpression(this.schema, input),
+		})
+
+		return this.engine.execute(operation)
+	}
+
+	/** Updates one unique match or creates it while retaining query selection. */
+	upsertOne(
+		this: ExecutableBoundQuery<TSchema, TSelectedField>,
+		input: UpsertInput<TSchema>,
+	): Promise<InferQueryResult<TSchema, TSelectedField>> {
+		const normalizedInput = normalizeUpsertInput(this.schema, input)
+		const operation: UpsertOneOperationAst<
+			TSchema,
+			UpdateExpression<TSchema>,
+			QueryFilterNode<TSchema>,
+			TSelectedField
+		> = immutableRecord({
+			kind: 'upsert-one',
+			query: this.ast,
+			target: normalizeUniqueUpsertTarget(this.schema, this.ast),
+			...normalizedInput,
+		})
+
+		return this.engine.execute(operation)
+	}
+
+	/** Provides the concise alias for the singular unique-target operation. */
+	upsert(
+		this: ExecutableBoundQuery<TSchema, TSelectedField>,
+		input: UpsertInput<TSchema>,
+	): Promise<InferQueryResult<TSchema, TSelectedField>> {
+		return this.upsertOne(input)
+	}
+
+	/** Upserts independently targeted items in input order, atomically by default. */
+	upsertMany(
+		this: ExecutableBoundQuery<TSchema, TSelectedField>,
+		inputs: readonly UpsertManyItemInput<TSchema>[],
+		options?: BulkOperationOptions,
+	): Promise<readonly InferObject<TSchema>[]> {
+		const operation: UpsertManyOperationAst<
+			TSchema,
+			UpdateExpression<TSchema>,
+			QueryFilterNode<TSchema>
+		> = immutableRecord({
+			kind: 'upsert-many',
+			schema: this.ast.schema,
+			items: normalizeUpsertItems(this.schema, inputs),
+			options: normalizeBulkOperationOptions(options),
+		})
+
+		return this.engine.execute(operation)
+	}
+
 	/** Deletes and returns the first match, or null when no object matches. */
 	deleteOne(
 		this: ExecutableBoundQuery<TSchema, TSelectedField>,
@@ -381,6 +482,19 @@ export class BoundQuery<
 			QueryFilterNode<TSchema>,
 			TSelectedField
 		> = immutableRecord({ kind: 'delete-one', query: this.ast })
+
+		return this.engine.execute(operation)
+	}
+
+	/** Deletes every match without loading objects and returns its count. */
+	deleteMany(
+		this: ExecutableBoundQuery<TSchema, TSelectedField>,
+	): Promise<number> {
+		const operation: DeleteManyOperationAst<
+			TSchema,
+			QueryFilterNode<TSchema>,
+			TSelectedField
+		> = immutableRecord({ kind: 'delete-many', query: this.ast })
 
 		return this.engine.execute(operation)
 	}

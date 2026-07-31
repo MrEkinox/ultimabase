@@ -24,6 +24,7 @@ import { runWithRequestEngineScope } from '../context/active-framework-storage.j
 import type { DatabaseOperationResult } from '../database/contracts.js'
 import { RuntimePipeline } from '../pipeline/runtime-pipeline.js'
 import { runRequestTransaction } from '../transactions/run-transaction.js'
+import { requiresAtomicBulkTransaction } from '../transactions/atomic-bulk.js'
 import {
 	createNestedTransactionError,
 	type TransactionLifetime,
@@ -248,13 +249,18 @@ export class RequestEngine<
 	execute<const TOperation extends ExecutableOperationAst<TSchemas[number]>>(
 		operation: TOperation,
 	): Promise<DatabaseOperationResult<TOperation>> {
-		const executeOperation = (): Promise<
-			DatabaseOperationResult<TOperation>
-		> => {
-			this.framework.assertOwnsSchema(getOperationSchema(operation))
+		this.framework.assertOwnsSchema(getOperationSchema(operation))
 
-			return this.#pipeline.execute({ context: this.context, operation })
+		if (
+			this.#transactionLifetime === undefined &&
+			requiresAtomicBulkTransaction(operation)
+		) {
+			// Automatic bulk transactions reuse the exact public transaction lifecycle.
+			return this.transaction((transaction) => transaction.execute(operation))
 		}
+
+		const executeOperation = (): Promise<DatabaseOperationResult<TOperation>> =>
+			this.#pipeline.execute({ context: this.context, operation })
 
 		return this.#transactionLifetime === undefined
 			? executeOperation()

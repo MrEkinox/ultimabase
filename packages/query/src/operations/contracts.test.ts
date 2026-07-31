@@ -54,7 +54,11 @@ describe('OperationAst', () => {
 		const schema = query.schema
 		const update: FixtureUpdateExpression = { kind: 'fixture-update' }
 		const create = { title: 'UltimaBase' }
-		const upsertItem = { query, create, update }
+		const target = {
+			kind: 'unique-upsert-target',
+			fields: ['id'],
+		} as const
+		const upsertItem = { query, target, create, update }
 		const operations = [
 			{ kind: 'find', query },
 			{ kind: 'first', query },
@@ -70,7 +74,7 @@ describe('OperationAst', () => {
 			},
 			{ kind: 'update-one', query, update },
 			{ kind: 'update-many', query, update },
-			{ kind: 'upsert-one', query, create, update },
+			{ kind: 'upsert-one', query, target, create, update },
 			{
 				kind: 'upsert-many',
 				schema,

@@ -49,8 +49,16 @@ schema from another application is rejected even if it uses the same
 `className`, so parallel applications cannot leak queries or request contexts.
 Direct `execute(operation)` remains available as the low-level
 normalized-operation API. Bound queries expose `find`, `first`, `get`, `count`,
-`exists`, `createOne`/`create`, `updateOne`, and `deleteOne`; bulk operations and
-upserts remain in issue 316.
+`exists`, `createOne`/`create`, `createMany`, `updateOne`, `updateMany`,
+`upsertOne`/`upsert`, `upsertMany`, `deleteOne`, and `deleteMany`.
+
+Ordered bulk create and upsert automatically use the same transaction lifecycle
+as `request.transaction()` unless the developer passes `{ atomic: false }`.
+They therefore commit once, roll back as a unit, and expose post-commit effects
+only after the adapter confirms the commit. If already inside an explicit
+transaction, they reuse it without attempting a nested transaction. Bulk
+update and delete return affected-object counts and do not open an implicit
+transaction because each is already one adapter operation.
 
 `request.transaction(callback)` begins a transaction through the database
 adapter retained by the pipeline. The callback receives a distinct engine with

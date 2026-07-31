@@ -28,6 +28,17 @@ export interface AtomicBulkOperationOptions {
 	readonly atomic: boolean
 }
 
+/** Identifies the declared key an adapter must use for conflict detection. */
+export interface UniqueUpsertTargetNode<
+	TSchema extends SchemaDefinition = SchemaDefinition,
+> {
+	readonly kind: 'unique-upsert-target'
+	readonly fields: readonly [
+		QueryFieldName<TSchema>,
+		...QueryFieldName<TSchema>[],
+	]
+}
+
 /** Infers the framework identifier type retained by the exact schema. */
 export type OperationObjectId<TSchema extends SchemaDefinition> =
 	InferObject<TSchema> extends { readonly id: infer TId } ? TId : never
@@ -146,6 +157,7 @@ export interface UpsertOneOperationAst<
 	TSelectedField extends QueryFieldName<TSchema> = never,
 > extends QueryOperationAst<TSchema, TFilter, TSelectedField> {
 	readonly kind: 'upsert-one'
+	readonly target: UniqueUpsertTargetNode<TSchema>
 	readonly create: InferCreateInput<TSchema>
 	readonly update: TUpdate
 }
@@ -157,6 +169,7 @@ export interface UpsertOperationItem<
 	TFilter extends QueryExpressionNode = QueryFilterNode<TSchema>,
 > {
 	readonly query: OperationQuery<TSchema, TFilter>
+	readonly target: UniqueUpsertTargetNode<TSchema>
 	readonly create: InferCreateInput<TSchema>
 	readonly update: TUpdate
 }

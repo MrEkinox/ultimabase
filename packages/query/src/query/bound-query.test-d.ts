@@ -15,6 +15,7 @@ const articleSchema = defineSchema({
 	className: 'Article',
 	fields: {
 		title: stringField({ validation: { required: true } }),
+		slug: stringField({ indexed: 'unique' }),
 		published: booleanField(),
 		views: intField(),
 	},
@@ -77,12 +78,42 @@ test('types every executable terminal from schema selection and singularity', ()
 	expectTypeOf(query.create({ title: 'Created' })).toEqualTypeOf<
 		Promise<InferObject<typeof articleSchema>>
 	>()
+	expectTypeOf(query.createMany([{ title: 'Created' }])).toEqualTypeOf<
+		Promise<readonly InferObject<typeof articleSchema>[]>
+	>()
 	expectTypeOf(query.updateOne({ increment: { views: 1 } })).toEqualTypeOf<
 		Promise<InferQueryResult<typeof articleSchema, 'id' | 'title'> | null>
 	>()
+	expectTypeOf(query.updateMany({ increment: { views: 1 } })).toEqualTypeOf<
+		Promise<number>
+	>()
+	const unique = new Query(articleSchema)
+		.equalTo('slug', 'created')
+		.select('id', 'title')
+		.bind(executor)
+	const upsertInput = {
+		create: { title: 'Created' },
+		update: { increment: { views: 1 } },
+	} as const
+
+	expectTypeOf(unique.upsertOne(upsertInput)).toEqualTypeOf<
+		Promise<InferQueryResult<typeof articleSchema, 'id' | 'title'>>
+	>()
+	expectTypeOf(unique.upsert(upsertInput)).toEqualTypeOf<
+		Promise<InferQueryResult<typeof articleSchema, 'id' | 'title'>>
+	>()
+	expectTypeOf(
+		query.upsertMany([
+			{
+				query: new Query(articleSchema).equalTo('slug', 'created'),
+				...upsertInput,
+			},
+		]),
+	).toEqualTypeOf<Promise<readonly InferObject<typeof articleSchema>[]>>()
 	expectTypeOf(query.deleteOne()).toEqualTypeOf<
 		Promise<InferQueryResult<typeof articleSchema, 'id' | 'title'> | null>
 	>()
+	expectTypeOf(query.deleteMany()).toEqualTypeOf<Promise<number>>()
 
 	// @ts-expect-error -- Object identifiers preserve their schema-derived type.
 	void query.get(1)
@@ -90,6 +121,16 @@ test('types every executable terminal from schema selection and singularity', ()
 	void query.create({})
 	// @ts-expect-error -- Update input retains field-specific numeric values.
 	void query.updateOne({ increment: { views: 'one' } })
+	// @ts-expect-error -- Bulk create retains required schema fields.
+	void query.createMany([{}])
+	void query.upsertMany([
+		{
+			query: new Query(articleSchema).equalTo('slug', 'created'),
+			// @ts-expect-error -- Bulk upsert create input retains required schema fields.
+			create: {},
+			update: { increment: { views: 1 } },
+		},
+	])
 
 	const opaque = new Query(articleSchema).bind({ kind: 'opaque' })
 

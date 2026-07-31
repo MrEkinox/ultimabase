@@ -19,6 +19,7 @@ const articleSchema = defineSchema({
 	className: 'Article',
 	fields: {
 		title: stringField(),
+		slug: stringField({ indexed: 'unique' }),
 		published: booleanField(),
 		views: intField(),
 	},
@@ -124,13 +125,22 @@ describe('BoundQuery', () => {
 		expect(combined.engine).toBe(engine)
 	})
 
-	it('creates every singular terminal AST through one neutral executor', async () => {
+	it('creates every terminal AST through one neutral executor', async () => {
 		const executor = new RecordingQueryExecutor()
 		const query = new Query(articleSchema)
 			.equalTo('published', true)
 			.select('id', 'title')
 			.bind(executor)
 		const createInput = { title: 'Created' }
+		const unique = new Query(articleSchema)
+			.equalTo('slug', 'created')
+			.select('id', 'title')
+			.bind(executor)
+		const bulkUpsertQuery = new Query(articleSchema).equalTo('slug', 'created')
+		const upsertInput = {
+			create: createInput,
+			update: { increment: { views: 1 } },
+		} as const
 		const executions: readonly Promise<unknown>[] = [
 			query.find(),
 			query.first(),
@@ -139,8 +149,14 @@ describe('BoundQuery', () => {
 			query.exists(),
 			query.createOne(createInput),
 			query.create(createInput),
+			query.createMany([createInput]),
 			query.updateOne({ increment: { views: 1 } }),
+			query.updateMany({ increment: { views: 1 } }),
+			unique.upsertOne(upsertInput),
+			unique.upsert(upsertInput),
+			query.upsertMany([{ query: bulkUpsertQuery, ...upsertInput }]),
 			query.deleteOne(),
+			query.deleteMany(),
 		]
 
 		for (const execution of executions) {
@@ -157,8 +173,14 @@ describe('BoundQuery', () => {
 			'exists',
 			'create-one',
 			'create-one',
+			'create-many',
 			'update-one',
+			'update-many',
+			'upsert-one',
+			'upsert-one',
+			'upsert-many',
 			'delete-one',
+			'delete-many',
 		])
 		expect(
 			executor.operations.every((operation) => Object.isFrozen(operation)),
@@ -169,10 +191,25 @@ describe('BoundQuery', () => {
 			input: createInput,
 		})
 		expect(executor.operations[7]).toMatchObject({
+			inputs: [createInput],
+			options: { atomic: true },
+		})
+		expect(executor.operations[8]).toMatchObject({
 			update: {
 				kind: 'update-expression',
 				operations: [{ kind: 'increment', field: 'views', value: 1 }],
 			},
+		})
+		expect(executor.operations[10]).toMatchObject({
+			target: { kind: 'unique-upsert-target', fields: ['slug'] },
+		})
+		expect(executor.operations[12]).toMatchObject({
+			options: { atomic: true },
+			items: [
+				{
+					target: { kind: 'unique-upsert-target', fields: ['slug'] },
+				},
+			],
 		})
 	})
 

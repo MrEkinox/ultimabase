@@ -68,6 +68,7 @@ Accepted records:
 - [ADR-0066: Derived asynchronous request scopes](0066-derived-asynchronous-request-scopes.md)
 - [ADR-0067: Selection-aware singular terminals](0067-selection-aware-singular-terminals.md)
 - [ADR-0068: RequestEngine transaction lifetime](0068-request-engine-transactions.md)
+- [ADR-0069: Atomic bulk writes and unique upsert targets](0069-atomic-bulk-and-unique-upserts.md)
 
 Superseded records:
 

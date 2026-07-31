@@ -40,8 +40,8 @@ export default defineConfig(
 		files: [
 			'packages/*/src/**/*.test.ts',
 			'packages/*/src/**/*.test-d.ts',
-			'packages/*/tests/**/*.test.ts',
-			'packages/*/tests/**/*.test-d.ts',
+			// Package test helpers share the same strict project as executable tests.
+			'packages/*/tests/**/*.ts',
 			'tests/e2e/**/*.e2e.test.ts',
 		],
 		languageOptions: {

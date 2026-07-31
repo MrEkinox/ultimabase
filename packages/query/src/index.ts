@@ -94,9 +94,18 @@ export type {
 	UpsertManyOperationAst,
 	UpsertOneOperationAst,
 	UpsertOperationItem,
+	UniqueUpsertTargetNode,
 } from './operations/contracts.js'
+export { normalizeBulkOperationOptions } from './operations/bulk.js'
+export type { BulkOperationOptions } from './operations/bulk.js'
 export type { QueryOperationExecutor } from './operations/executor.js'
 export type { InferOperationResult } from './operations/results.js'
+export { normalizeUniqueUpsertTarget } from './operations/upsert.js'
+export type {
+	UpsertInput,
+	UpsertManyItemInput,
+	UpsertTargetQuery,
+} from './operations/upsert.js'
 export { BoundQuery } from './query/bound-query.js'
 export type { InferQueryResult } from './query/result.js'
 export { Query } from './query/query.js'

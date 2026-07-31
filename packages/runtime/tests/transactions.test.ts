@@ -9,14 +9,13 @@ import {
 	getCurrentRequest,
 	requestSources,
 	runWithRequestEngine,
-	RuntimePipeline,
-	type DatabaseAdapter,
-	type DatabaseOperationAst,
-	type DatabaseOperationRequest,
-	type DatabaseOperationResult,
-	type DatabaseTransactionAdapter,
-	type RuntimePipelineStages,
 } from '../src/index.js'
+import {
+	createRecordingPipeline,
+	RecordingDatabaseAdapter,
+	type QueuedAdapterResult,
+	type TransactionFailureOptions,
+} from './fixtures/recording-database-adapter.js'
 
 const articleSchema = defineSchema({
 	className: 'TransactionArticle',
@@ -25,150 +24,6 @@ const articleSchema = defineSchema({
 		views: intField({ default: 0 }),
 	},
 })
-
-interface FulfilledAdapterResult {
-	readonly status: 'fulfilled'
-	readonly value: unknown
-}
-
-interface RejectedAdapterResult {
-	readonly status: 'rejected'
-	readonly error: Error
-}
-
-type QueuedAdapterResult = FulfilledAdapterResult | RejectedAdapterResult
-
-interface TransactionFailureOptions {
-	readonly commit?: Error
-	readonly rollback?: Error
-}
-
-/** Models one plugin-owned transaction and records every lifecycle boundary. */
-class RecordingTransactionAdapter implements DatabaseTransactionAdapter {
-	readonly kind = 'database-transaction-adapter' as const
-	readonly requests: DatabaseOperationRequest[] = []
-	readonly #results: QueuedAdapterResult[]
-	readonly #trace: string[]
-	readonly #failures: TransactionFailureOptions
-
-	constructor(
-		results: readonly QueuedAdapterResult[],
-		trace: string[],
-		failures: TransactionFailureOptions = {},
-	) {
-		this.#results = [...results]
-		this.#trace = trace
-		this.#failures = failures
-	}
-
-	execute<const TOperation extends DatabaseOperationAst>(
-		request: DatabaseOperationRequest<TOperation>,
-	): Promise<DatabaseOperationResult<TOperation>> {
-		this.requests.push(request)
-		this.#trace.push(`execute:${request.operation.kind}`)
-
-		const result: QueuedAdapterResult | undefined = this.#results.shift()
-
-		if (result === undefined) {
-			return Promise.reject(new Error('Missing transaction fixture result'))
-		}
-
-		if (result.status === 'rejected') {
-			return Promise.reject(result.error)
-		}
-
-		// The fixture value is paired with the exact operation at its call site.
-		return Promise.resolve(result.value as DatabaseOperationResult<TOperation>)
-	}
-
-	commit(): Promise<void> {
-		this.#trace.push('adapter:commit')
-
-		return this.#failures.commit === undefined
-			? Promise.resolve()
-			: Promise.reject(this.#failures.commit)
-	}
-
-	rollback(): Promise<void> {
-		this.#trace.push('adapter:rollback')
-
-		return this.#failures.rollback === undefined
-			? Promise.resolve()
-			: Promise.reject(this.#failures.rollback)
-	}
-}
-
-/** Starts a fresh transaction adapter for every independent request callback. */
-class RecordingDatabaseAdapter implements DatabaseAdapter {
-	readonly kind = 'database-adapter' as const
-	readonly rootRequests: DatabaseOperationRequest[] = []
-	readonly transactions: RecordingTransactionAdapter[] = []
-	readonly #results: readonly QueuedAdapterResult[]
-	readonly #trace: string[]
-	readonly #failures: TransactionFailureOptions
-
-	constructor(
-		results: readonly QueuedAdapterResult[],
-		trace: string[],
-		failures: TransactionFailureOptions = {},
-	) {
-		this.#results = results
-		this.#trace = trace
-		this.#failures = failures
-	}
-
-	execute<const TOperation extends DatabaseOperationAst>(
-		request: DatabaseOperationRequest<TOperation>,
-	): Promise<DatabaseOperationResult<TOperation>> {
-		this.rootRequests.push(request)
-
-		return Promise.reject(new Error('Transaction bypassed its scoped adapter'))
-	}
-
-	beginTransaction(): Promise<DatabaseTransactionAdapter> {
-		this.#trace.push('adapter:begin')
-
-		const transaction = new RecordingTransactionAdapter(
-			this.#results,
-			this.#trace,
-			this.#failures,
-		)
-
-		this.transactions.push(transaction)
-
-		return Promise.resolve(transaction)
-	}
-}
-
-/** Creates the real pipeline while leaving unrelated capabilities neutral. */
-const createPipeline = (
-	databaseOperation: DatabaseAdapter,
-	trace: string[],
-): RuntimePipeline => {
-	const stages: RuntimePipelineStages = {
-		normalization: (input) => input.operation,
-		structuralValidation: (input) => input.operation,
-		clp: () => undefined,
-		acl: (input) => input.accessConstraints,
-		fieldPermissions: (input) => ({
-			operation: input.operation,
-			accessConstraints: input.accessConstraints,
-		}),
-		globalBeforeHooks: (input) => input.operation,
-		schemaBeforeHooks: (input) => input.operation,
-		databaseOperation,
-		schemaAfterHooks: (input) => input.result,
-		globalAfterHooks: (input) => input.result,
-		commit: (input) => {
-			trace.push(`pipeline:commit:${input.operation.kind}`)
-		},
-		postCommitEvents: (input) => {
-			trace.push(`event:${input.operation.kind}`)
-		},
-	}
-
-	return new RuntimePipeline(stages)
-}
 
 /** Binds one user request to an adapter-backed application fixture. */
 const createRequest = (
@@ -182,7 +37,7 @@ const createRequest = (
 			schemas: [articleSchema],
 			plugins: [],
 		}),
-		pipeline: createPipeline(adapter, trace),
+		pipeline: createRecordingPipeline(adapter, trace),
 	})
 	const capability = new RequestCapability('article:write')
 	const request = framework.user('user-1', {

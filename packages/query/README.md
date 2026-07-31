@@ -63,7 +63,7 @@ shape from the accumulated selection: no selection yields the full schema
 object, while the example above yields `{ id: string; title?: string }` when
 `title` is optional in the schema.
 
-When the binding is a Runtime `RequestEngine`, singular terminals execute the
+When the binding is a Runtime `RequestEngine`, terminals execute the
 neutral Operation AST through the mandatory Runtime pipeline:
 
 ```ts
@@ -76,14 +76,63 @@ const article = await requestEngine
 const created = await requestEngine.query(articleSchema).create({
 	title: 'Typed terminals',
 })
+
+const updatedCount = await requestEngine
+	.query(articleSchema)
+	.equalTo('published', true)
+	.updateMany({ increment: { views: 1 } })
 ```
 
 The implemented terminals are `find`, `first`, `get`, `count`, `exists`,
-`createOne`/`create`, `updateOne`, and `deleteOne`. The zero-argument
-`exists()` terminal coexists with the Parse-inspired `exists(fieldName)` filter.
-`first`, `get`, `updateOne`, and `deleteOne` return `null` when no object
-matches. Create results contain the complete persisted shape; query-backed
+`createOne`/`create`, `createMany`, `updateOne`, `updateMany`,
+`upsertOne`/`upsert`, `upsertMany`, `deleteOne`, and `deleteMany`. The
+zero-argument `exists()` terminal coexists with the Parse-inspired
+`exists(fieldName)` filter. `first`, `get`, `updateOne`, and `deleteOne` return
+`null` when no object matches. Bulk update and delete return affected-object
+counts. Create and upsert results retain input order; query-backed singular
 object results follow the accumulated selection exactly.
+
+## Bulk writes and unique upserts
+
+Bulk create and upsert are atomic by default. Callers can explicitly opt out
+when an adapter supports useful partial-success behavior:
+
+```ts
+const accounts = await requestEngine
+	.query(accountSchema)
+	.createMany([{ email: 'first@example.com' }, { email: 'second@example.com' }])
+
+await requestEngine.query(accountSchema).createMany(importRows, {
+	atomic: false,
+})
+```
+
+`upsertOne` uses the bound query as its conflict target. It must contain only
+distinct, non-null equality filters that exactly match `id`, one unique field,
+or one declared unique composite index. Ordering, limit, and pagination are
+rejected because they do not contribute to identity:
+
+```ts
+const account = await requestEngine
+	.query(accountSchema)
+	.equalTo('email', 'dev@ultimabase.dev')
+	.upsert({
+		create: { email: 'dev@ultimabase.dev' },
+		update: { increment: { signInCount: 1 } },
+	})
+
+const imported = await requestEngine.query(accountSchema).upsertMany([
+	{
+		query: new Query(accountSchema).equalTo('email', row.email),
+		create: row,
+		update: { set: { displayName: row.displayName } },
+	},
+])
+```
+
+Each bulk upsert item supplies its own reusable unbound `Query`. The normalized
+operation records the matching unique fields in schema declaration order, so
+every adapter receives the same conflict target without inferring it again.
 
 Binding an arbitrary opaque object still supports immutable query composition,
 but its terminals cannot be called unless the object satisfies the neutral
@@ -135,6 +184,7 @@ type ArticleOperation = OperationAst<
 const operation = {
 	kind: 'upsert-one',
 	query: articleQuery.ast,
+	target: { kind: 'unique-upsert-target', fields: ['id'] },
 	create: { title: 'UltimaBase' },
 	update: updateExpression,
 } satisfies ArticleOperation
