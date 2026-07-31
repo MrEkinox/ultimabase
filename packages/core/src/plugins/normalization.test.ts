@@ -14,7 +14,7 @@ const captureFrameworkError = (operation: () => unknown): unknown => {
 	throw new Error('Expected the operation to throw a FrameworkError')
 }
 
-const expectPluginConflict = (
+const expectFrameworkError = (
 	error: unknown,
 ): { readonly code: unknown; readonly internalDetails: unknown } => {
 	expect(error).toBeInstanceOf(FrameworkError)
@@ -109,14 +109,14 @@ describe('normalizePlugins', () => {
 			setup: () => ({ dialect: 'other' }),
 		})
 
-		const error = expectPluginConflict(
+		const error = expectFrameworkError(
 			captureFrameworkError(() => normalizePlugins([first, second])),
 		)
 
-		expect(error.code).toBe('PLUGIN_CONFLICT')
+		expect(error.code).toBe('PLUGIN_DUPLICATE')
 		expect(error.internalDetails).toStrictEqual({
-			kind: 'duplicate-name',
 			pluginName: 'fixture.database',
+			source: 'definition',
 		})
 	})
 
@@ -130,7 +130,7 @@ describe('normalizePlugins', () => {
 			slot: 'database-adapter',
 		})
 
-		const error = expectPluginConflict(
+		const error = expectFrameworkError(
 			captureFrameworkError(() => normalizePlugins([postgres, sql])),
 		)
 

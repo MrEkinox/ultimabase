@@ -1,14 +1,21 @@
 import {
 	immutableArray,
 	immutableRecord,
+	isPlainRecord,
 	isUnknownArray,
 } from '@ultimabase/shared'
 
-import { FrameworkError } from '../errors/framework-error.js'
 import { assertPluginDefinition, type PluginDefinition } from './definition.js'
+import {
+	createDuplicatePluginError,
+	createExclusiveSlotConflictError,
+} from './plugin-errors.js'
+
+declare const normalizedPluginBrand: unique symbol
 
 /** Represents one unique definition and its normalized configuration metadata. */
 export interface NormalizedPlugin {
+	readonly [normalizedPluginBrand]: true
 	readonly definition: PluginDefinition
 	readonly configurationIndex: number
 	readonly parentNames: readonly string[]
@@ -22,6 +29,17 @@ interface MutableNormalizedPlugin {
 	readonly dependencies: string[]
 }
 
+const declaredNormalizedPlugins = new WeakSet<object>()
+
+export const assertNormalizedPlugin: (
+	value: unknown,
+	path: string,
+) => asserts value is NormalizedPlugin = (value, path) => {
+	if (!isPlainRecord(value) || !declaredNormalizedPlugins.has(value)) {
+		throw new TypeError(`${path} must be created by normalizePlugins`)
+	}
+}
+
 const addUniqueName = (names: string[], name: string): void => {
 	if (!names.includes(name)) {
 		names.push(name)
@@ -29,16 +47,7 @@ const addUniqueName = (names: string[], name: string): void => {
 }
 
 const throwDuplicateDefinition = (name: string): never => {
-	throw new FrameworkError(
-		'PLUGIN_CONFLICT',
-		`Plugin "${name}" has multiple distinct definitions.`,
-		{
-			internalDetails: {
-				kind: 'duplicate-name',
-				pluginName: name,
-			},
-		},
-	)
+	throw createDuplicatePluginError(name, 'definition')
 }
 
 const throwExclusiveSlotConflict = (
@@ -46,28 +55,28 @@ const throwExclusiveSlotConflict = (
 	firstPluginName: string,
 	secondPluginName: string,
 ): never => {
-	throw new FrameworkError(
-		'PLUGIN_CONFLICT',
-		`Plugins "${firstPluginName}" and "${secondPluginName}" both occupy exclusive slot "${slot}".`,
-		{
-			internalDetails: {
-				kind: 'exclusive-slot',
-				slot,
-				pluginNames: immutableArray([firstPluginName, secondPluginName]),
-			},
-		},
+	throw createExclusiveSlotConflictError(
+		slot,
+		firstPluginName,
+		secondPluginName,
 	)
 }
 
 const snapshotNormalizedPlugin = (
 	plugin: MutableNormalizedPlugin,
-): NormalizedPlugin =>
-	immutableRecord({
+): NormalizedPlugin => {
+	const snapshot = immutableRecord({
 		definition: plugin.definition,
 		configurationIndex: plugin.configurationIndex,
 		parentNames: immutableArray(plugin.parentNames),
 		dependencies: immutableArray(plugin.dependencies),
 	})
+
+	declaredNormalizedPlugins.add(snapshot)
+
+	// The private brand mirrors the provenance recorded above without leaking runtime metadata.
+	return snapshot as NormalizedPlugin
+}
 
 /** Flattens nested composition into immutable metadata without initializing plugins. */
 export const normalizePlugins = (

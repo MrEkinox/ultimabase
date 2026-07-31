@@ -46,6 +46,7 @@ Accepted records:
 - [ADR-0044: Isolated service registries](0044-isolated-service-registry.md)
 - [ADR-0045: Static typed plugin definitions](0045-static-typed-plugin-definitions.md)
 - [ADR-0046: Plugin normalization and exclusive slots](0046-plugin-normalization-and-exclusive-slots.md)
+- [ADR-0047: Deterministic plugin graph resolution](0047-deterministic-plugin-graph-resolution.md)
 
 Superseded records:
 

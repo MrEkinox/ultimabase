@@ -55,6 +55,8 @@ export interface PluginDefinition {
 	readonly name: string
 	readonly slot?: string
 	readonly dependencies?: readonly string[] | undefined
+	readonly optionalDependencies?: readonly string[] | undefined
+	readonly conflicts?: readonly string[] | undefined
 	readonly plugins?: readonly PluginDefinition[] | undefined
 }
 

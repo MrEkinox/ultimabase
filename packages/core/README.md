@@ -107,3 +107,20 @@ metadata without running plugin code. Children receive implicit parent
 dependencies, source order is retained, and the exact same definition can be
 reused safely. Separate definitions with the same name or two plugins sharing
 one exclusive slot fail with `PLUGIN_CONFLICT`.
+
+`new PluginGraph(normalizedPlugins)` validates required and optional
+dependencies, explicit conflicts, duplicate entries, exclusive slots, and
+cycles. It exposes the deterministic dependency-first order through
+`graph.plugins` and iteration:
+
+```ts
+const graph = new PluginGraph(normalizePlugins(configuredPlugins))
+
+for (const plugin of graph) {
+	console.log(plugin.definition.name)
+}
+```
+
+Configuration position breaks ties between plugins that are ready together.
+Missing optional dependencies are ignored. Graph construction remains static
+and never executes setup or lifecycle hooks.

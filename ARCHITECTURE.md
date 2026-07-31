@@ -87,6 +87,11 @@ Plugins occupying mutually exclusive architectural roles declare the same
 `slot`. Normalization rejects multiple definitions for slots such as
 `database-adapter` before any plugin is initialized.
 
+`PluginGraph` validates the combined normalized configuration again, resolves
+required and present optional dependencies, rejects explicit conflicts and
+cycles, and exposes one stable dependency-first order without initializing
+plugins.
+
 ## Engines
 
 - `FrameworkEngine` belongs to one isolated application.
