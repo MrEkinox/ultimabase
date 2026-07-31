@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 
 import {
 	DatabaseDefault,
+	bigintField,
 	booleanField,
 	compileValidationPlans,
 	dateField,
@@ -49,6 +50,12 @@ describe('validation plans', () => {
 					autoIncrement: true,
 					validation: { required: true, range: { min: 1 } },
 				}),
+				largeSequence: bigintField({
+					validation: {
+						range: { min: 0n, max: 9_000_000_000_000_000_000n },
+					},
+				}),
+				unrestrictedLargeSequence: bigintField(),
 				ratio: floatField({
 					validation: { range: { min: 0, max: 1 }, finite: true },
 				}),
@@ -109,6 +116,15 @@ describe('validation plans', () => {
 			kind: 'int',
 			presence: 'optional',
 			range: { min: 1 },
+		})
+		expect(plans.create.fields.largeSequence).toMatchObject({
+			kind: 'bigint',
+			range: { min: 0n, max: 9_000_000_000_000_000_000n },
+		})
+		expect(plans.create.fields.unrestrictedLargeSequence).toStrictEqual({
+			kind: 'bigint',
+			presence: 'optional',
+			nullable: false,
 		})
 		expect(plans.create.fields.ratio).toMatchObject({
 			kind: 'float',

@@ -1,5 +1,9 @@
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
+import type {
+	BigintField,
+	BigintRangeValidationOptions,
+} from './bigint-field.js'
 import type { BooleanField } from './boolean-field.js'
 import type { ObjectField } from './object-field.js'
 import type { DateField, DateRangeValidationOptions } from './date-field.js'
@@ -42,6 +46,9 @@ export type UnknownFieldPolicy = 'reject'
  */
 export type ValidationIssueCode =
 	| 'array.type'
+	| 'bigint.range.max'
+	| 'bigint.range.min'
+	| 'bigint.type'
 	| 'boolean.type'
 	| 'date.invalid'
 	| 'date.range.max'
@@ -122,6 +129,10 @@ export interface StringValidationPlan extends FieldValidationPlanBase<'string'> 
 	readonly match?: RegExp
 }
 
+export interface BigintValidationPlan extends FieldValidationPlanBase<'bigint'> {
+	readonly range?: BigintRangeValidationOptions
+}
+
 export interface IntValidationPlan extends FieldValidationPlanBase<'int'> {
 	readonly range?: IntRangeValidationOptions
 }
@@ -158,6 +169,7 @@ export interface UuidValidationPlan extends FieldValidationPlanBase<'uuid'> {
 
 export type FieldValidationPlan =
 	| ArrayValidationPlan
+	| BigintValidationPlan
 	| BooleanValidationPlan
 	| DateValidationPlan
 	| EnumValidationPlan
@@ -186,6 +198,7 @@ export interface SchemaValidationPlans {
 }
 
 type BuiltInField =
+	| BigintField
 	| BooleanField
 	| DateField
 	| EnumField
@@ -204,6 +217,7 @@ interface FieldPlanBase {
 }
 
 const isBuiltInField = (field: GenericField): field is BuiltInField =>
+	field.kind === 'bigint' ||
 	field.kind === 'boolean' ||
 	field.kind === 'date' ||
 	field.kind === 'enum' ||
@@ -355,6 +369,14 @@ const compileScalarField = (
 	base: FieldPlanBase,
 ): Exclude<FieldValidationPlan, ArrayValidationPlan> => {
 	switch (field.kind) {
+		case 'bigint':
+			return immutableRecord({
+				...base,
+				kind: field.kind,
+				...(field.options.validation?.range === undefined
+					? {}
+					: { range: field.options.validation.range }),
+			})
 		case 'boolean':
 			return immutableRecord({ ...base, kind: field.kind })
 		case 'date':

@@ -5,22 +5,26 @@ import {
 	normalizeNumericRange,
 	type NumericRange,
 	type NumericRangeBoundary,
+	type NumericRangeValue,
 } from './numeric-range.js'
 
 /**
  * Provides the common range contract reused by exact numeric field kinds.
  */
-export type NumericValidationOptions = FieldValidationOptions & {
-	readonly range?: NumericRange
+export type NumericValidationOptions<
+	TValue extends NumericRangeValue = number,
+> = FieldValidationOptions & {
+	readonly range?: NumericRange<TValue>
 }
 
-type NumericBoundaryValidator = (value: number) => boolean
+type NumericBoundaryValidator = (value: unknown) => boolean
 
 /**
  * Copies numeric validation metadata while enforcing one field kind's precision.
  */
 export const normalizeNumericValidation = <
-	const TValidation extends NumericValidationOptions,
+	TValue extends NumericRangeValue,
+	const TValidation extends NumericValidationOptions<TValue>,
 >(
 	validation: TValidation,
 	expectation: string,
@@ -34,7 +38,7 @@ export const normalizeNumericValidation = <
 
 	const assertValidBoundary = (
 		name: NumericRangeBoundary,
-		value: number | undefined,
+		value: TValue | undefined,
 	): void => {
 		if (value !== undefined && !isValidBoundary(value)) {
 			throw new RangeError(`validation.range.${name} must be ${expectation}`)

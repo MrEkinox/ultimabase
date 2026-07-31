@@ -201,6 +201,17 @@ String fields add declarative `validation.length.min`, `validation.length.max`, 
 `validation.range.min/max` with safe-integer boundaries and
 `autoIncrement: true | false` as declarative database-sequence metadata.
 
+## Bigint fields
+
+`bigintField(options)` represents exact native JavaScript `bigint` values. Its
+defaults and `validation.range.min/max` boundaries use bigint literals such as
+`0n`, and it supports the same declarative `autoIncrement` metadata as integer
+fields.
+
+Schema does not serialize bigint values. JSON and GraphQL transports must apply
+an explicit string or custom-scalar codec, while PostgreSQL adapters may map
+the field directly to the native `bigint` type.
+
 ## Float fields
 
 `floatField(options)` represents general JavaScript numbers without promising

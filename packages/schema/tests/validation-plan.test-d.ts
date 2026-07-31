@@ -1,6 +1,7 @@
 import { expectTypeOf, test } from 'vitest'
 
 import {
+	bigintField,
 	compileValidationPlans,
 	defineSchema,
 	floatField,
@@ -8,6 +9,7 @@ import {
 	stringField,
 	type FieldValidationPlan,
 	type ArrayValidationPlan,
+	type BigintValidationPlan,
 	type FloatValidationPlan,
 	type IntValidationPlan,
 	type RuntimeValidationDefaultPlan,
@@ -46,13 +48,19 @@ test('narrows integer and float plans as distinct kinds', () => {
 	const schema = defineSchema({
 		className: 'NumericPlan',
 		fields: {
+			largeCount: bigintField(),
 			count: intField(),
 			ratio: floatField(),
 		},
 	})
 	const plans = compileValidationPlans(schema).create.fields
 	const count = plans.count
+	const largeCount = plans.largeCount
 	const ratio = plans.ratio
+
+	if (largeCount?.kind === 'bigint') {
+		expectTypeOf(largeCount).toEqualTypeOf<BigintValidationPlan>()
+	}
 
 	if (count?.kind === 'int') {
 		expectTypeOf(count).toEqualTypeOf<IntValidationPlan>()
