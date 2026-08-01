@@ -203,6 +203,11 @@ disposal fails, and the returned values do not expose a writable registry.
 Runtime uses this boundary to compose hook and event declarations without Core
 depending on their concrete contracts.
 
+The active [native-hook plan](../../CURRENT_PLAN.md) keeps Core in this storage
+and ownership role. Native developer hooks require no plugin, while plugin hooks
+use typed global, schema, field-path, extension, or field-kind targets. Runtime,
+not Core, remains responsible for interpreting and executing every hook phase.
+
 Extension handlers use a scope-qualified identity so schema and field names stay
 independent:
 

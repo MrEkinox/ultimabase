@@ -27,7 +27,8 @@ The first complete vertical includes:
 - generated REST;
 - generated GraphQL through Yoga;
 - custom `GraphQLSchema` merging;
-- transactions, deterministic hooks, and post-commit events;
+- automatic mutation transactions, native typed schema and field hooks,
+  deterministic plugin hook contributions, and post-commit events;
 - parallel Vitest integration tests through Testcontainers.
 
 ## Naming and data conventions
@@ -52,6 +53,19 @@ Classes are preferred for discoverable public domain objects and immutable build
 - application and engine objects.
 
 Factories, plugin definitions, hooks, scopes, and rule combinators remain functions.
+
+## Native lifecycle hooks
+
+Business hooks are a framework primitive and require no plugin. A schema may
+declare operation-family hooks without repeating singular and bulk handlers,
+and a field may declare hooks that infer its exact logical value. Plugins append
+global, schema, typed field-path, extension, or field-kind hooks through the
+same application-owned dispatcher.
+
+Every mutation and every database write started by its business hooks shares an
+automatic transaction. Business after-hooks may still abort before commit;
+external side effects run after commit or through an outbox. Reads remain
+non-transactional unless the developer explicitly opens a transaction.
 
 ## Access semantics
 

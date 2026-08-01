@@ -4,10 +4,15 @@ The issue backlog is the executable roadmap. This document only describes milest
 
 ## Current execution priority
 
-Before starting milestone 4 access plugins, complete the access-free
-Runtime-to-PostgreSQL vertical described in [`CURRENT_PLAN.md`](CURRENT_PLAN.md).
-This validates the application, plugin, Query, Runtime, schema-compilation, and
-real database boundaries together before access constraints are added.
+The access-free Runtime-to-PostgreSQL vertical is complete. Before starting
+milestone 4 access plugins, implement the native schema and field hook lifecycle
+described in [`CURRENT_PLAN.md`](CURRENT_PLAN.md). This establishes the typed
+business lifecycle, automatic mutation transaction boundary, and plugin hook
+targets that CLP, ACL, and field-permission plugins must compose around.
+
+Completed cross-milestone plans are retained under
+[`docs/plans/completed/`](docs/plans/completed/) so their decisions remain
+available without competing with the active resume point.
 
 Milestone numbers continue to describe architectural ownership rather than a
 strict implementation sequence.
@@ -26,7 +31,9 @@ Service tokens, plugin graph, nested plugins, lifecycle, isolated applications, 
 
 ## Milestone 3 — Query and runtime
 
-Operation AST, immutable `Query`, CRUD including bulk and upsert, RequestEngine, transactions, hooks, cursor pagination, and master access.
+Operation AST, immutable `Query`, CRUD including bulk and upsert, RequestEngine,
+automatic mutation transactions, native schema and field hooks, plugin hook
+targets, cursor pagination, and master access.
 
 ## Milestone 4 — Access plugins
 
@@ -46,4 +53,6 @@ Pointers, relations, object fields, authentication, realtime, jobs, cache, gRPC,
 
 ## First usable release
 
-The first release must support full primitive-field CRUD, bulk operations, upserts, REST, GraphQL, PostgreSQL, cursor pagination, transactions, and parallel integration tests.
+The first release must support full primitive-field CRUD, bulk operations,
+upserts, REST, GraphQL, PostgreSQL, cursor pagination, native typed hooks,
+automatic mutation transactions, and parallel integration tests.

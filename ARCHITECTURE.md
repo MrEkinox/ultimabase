@@ -120,6 +120,10 @@ setup export types, including definitions introduced through nested composition.
 - `RequestEngine.transaction()` creates a callback-scoped engine backed by one
   adapter transaction. It commits once, rolls back on failure, cannot escape
   its callback, and rejects nested transactions until savepoints are explicit.
+- Every root mutation will automatically enter that adapter boundary before
+  business hooks execute. Hook-started writes through the supplied engine share
+  the primary mutation's commit or rollback. Reads remain non-transactional
+  unless the developer opens an explicit transaction.
 - Exact schema identity prevents a request engine from accepting definitions
   owned by another application, even when class names match.
 - Optional `AsyncLocalStorage` scopes derive every current-context reference
@@ -136,12 +140,26 @@ selection, filtering, ordering, and pagination as immutable discriminated
 nodes. It contains no request, GraphQL, SQL, adapter, or execution state;
 transports normalize into it and adapters compile it behind Runtime contracts.
 
-Runtime hook factories create typed, immutable declarations that plugins place
-in Core's owner-scoped hook and event registries. Once setup completes, Runtime
-reads their dependency-first contribution snapshots and composes the global and
-schema stages around database execution. Before/after hooks transform values
-explicitly; externally visible event handlers run only after the transaction
-commit succeeds.
+Hooks are a native Runtime lifecycle, not a plugin or schema extension. Schemas
+declare precisely typed operation-family hooks, fields declare hooks over their
+exact logical values, and plugins append contributions through the same
+application-owned dispatcher. Plugin targets may be global, an exact schema, a
+typed field path, an extension, or a namespaced field kind. Contributions never
+replace developer hooks or the reserved CLP, ACL, and field-permission stages.
+
+The existing Runtime hook factories remain the low-level implementation
+foundation while issues 324–335 add the native declarations. Core stores
+owner-scoped contributions without executing them. Runtime reads immutable
+dependency-first snapshots and composes them with developer hooks. Before/after
+hooks transform values explicitly; business after-hooks may still abort before
+commit, while externally visible event handlers run only after commit succeeds.
+
+One handler may cover a full create, update, upsert, delete, save, or find
+family; the exact terminal kind remains a discriminant. Handler lists execute
+sequentially. Create-many and upsert-many preserve stable input order, while
+set-based update-many and delete-many never materialize every row merely to run
+item callbacks. Runtime rejects dangerous same-hook recursion and offers no
+general `skipHooks` bypass.
 
 Runtime's structural validation stage caches Schema's compact create/update
 plans, traverses structured values, and delegates scalar snapshots and

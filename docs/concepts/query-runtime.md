@@ -25,6 +25,12 @@ Transports produce the same AST as the class API. Runtime executes one pipeline 
 
 Bulk creates and upserts are atomic by default. Bulk updates and deletes return counts rather than loading all affected objects.
 
+Every mutation eventually executes inside an automatic adapter transaction.
+Database work started by a native hook through its supplied `RequestEngine`
+shares that boundary and rolls back with the primary write. Reads do not open a
+transaction automatically; developers can still use an explicit transaction
+for a read-modify-write workflow.
+
 Terminal operations use distinct AST kinds for singular and bulk behavior.
 Create inputs, update expressions, and upsert target queries remain separate.
 Operation options never carry master authority; that authority can only come
@@ -73,3 +79,35 @@ execution. Distinct millisecond timestamps preserve UUID v7 lexical ordering;
 IDs from one millisecond remain collision-resistant but do not promise a strict
 creation order. Tests may inject a deterministic `uuidV7Generator` through the
 same validation-stage options.
+
+## Planned native hook lifecycle
+
+ADR-0089 and issues 324–335 replace the low-level plugin-only developer
+experience with native schema and inline field declarations. A direct family
+handler covers singular and bulk variants, while the exact terminal `kind`
+remains available when behavior must differ:
+
+```ts
+const UserSchema = defineSchema({
+	className: 'User',
+	fields: {
+		email: stringField({
+			hooks: {
+				resolveInput: ({ value }) => value.trim().toLowerCase(),
+			},
+		}),
+	},
+	hooks: {
+		beforeSave: ({ operation }) => {
+			// This runs for create, update, and upsert variants.
+		},
+		beforeFind: ({ query }) => query.limit(100),
+	},
+})
+```
+
+Inline field callbacks infer the exact logical value. Cross-field behavior uses
+schema hooks. Plugins append to the same dispatcher with deterministic targets;
+they cannot replace developer hooks or reserved permission stages. Set-based
+`updateMany` and `deleteMany` stay set-based instead of loading every row for
+item callbacks.

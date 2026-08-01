@@ -221,6 +221,12 @@ commit, and post-commit events. Tenant isolation is explicitly non-bypassable.
 
 ## Hooks and post-commit events
 
+The currently implemented API in this section is the low-level plugin
+foundation. The active [native-hook plan](../../CURRENT_PLAN.md) will add direct
+schema and inline field hooks without requiring a plugin, while retaining this
+registry for plugin contributions. The target contract is governed by
+[ADR-0089](../../docs/adr/0089-native-schema-and-field-hooks.md).
+
 Plugins register typed hook definitions through the Core setup registries. A
 schema is optional for global behavior, while `operations` narrows the terminal
 kinds handled by a contribution:

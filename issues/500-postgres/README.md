@@ -2,10 +2,10 @@
 
 Implement the first concrete database vertical and database-specific migrations.
 
-## Access-free vertical priority
+## Completed access-free vertical
 
-Before milestone 4 access plugins, implement the first real persistence path in
-the order recorded by [`CURRENT_PLAN.md`](../../CURRENT_PLAN.md):
+The first real persistence path was implemented in the order retained by the
+[completed Runtime-to-PostgreSQL plan](../../docs/plans/completed/runtime-postgres-e2e.md):
 
 ```text
 application service lookup and Runtime assembly
@@ -21,5 +21,6 @@ This scheduling decision does not make PostgreSQL a dependency of access
 contracts. It supplies a real adapter vertical against which later CLP, ACL,
 role, and field-permission plugins can be tested.
 
-ACL-specific SQL issues 509 and 510, bulk/transaction issue 508, and migration
-issues 513–515 remain outside the first E2E objective.
+ACL-specific SQL issues 509 and 510 and migration issues 513–515 remain outside
+that completed E2E objective. Transaction issue 508 is now a dependency of the
+active native-hook PostgreSQL verification in issue 335.

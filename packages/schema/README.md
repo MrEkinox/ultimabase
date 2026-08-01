@@ -549,3 +549,13 @@ Each registry owns an independent native `Map`, whose insertion order defines
 iteration order. Registering an existing class name throws
 `DuplicateSchemaError` with the stable `SCHEMA_DUPLICATE_CLASS_NAME` code and
 does not replace the original schema.
+
+## Planned native hook declarations
+
+Schema does not currently expose native hooks. The active
+[native-hook plan](../../CURRENT_PLAN.md) will add schema hooks and inline field
+hooks as framework primitives rather than extensions. The dependency boundary
+must preserve exact field-value inference, compact field hovers, and documented
+autocomplete without making Schema depend on Runtime or concrete plugins. See
+[ADR-0089](../../docs/adr/0089-native-schema-and-field-hooks.md) for the frozen
+lifecycle semantics.

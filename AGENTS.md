@@ -67,6 +67,7 @@ Run or update `yarn constraints` when dependency constraints exist. If a request
 - Dependencies and configuration order determine deterministic plugin and hook ordering.
 - Duplicate plugins with conflicting options are errors unless a future ADR introduces explicit instances.
 - Schema and field plugins contribute typed extensions. `@ultimabase/schema` must not know concrete ACL, CLP, role, or field-permission configuration.
+- Hooks are a native framework capability, not a plugin or schema extension. Plugins append hook contributions through the application dispatcher; they never replace developer hooks.
 
 ## Runtime order
 
@@ -78,16 +79,29 @@ normalization
 → CLP
 → ACL / object filtering
 → field permissions
-→ global before hooks
+→ field resolveInput
+→ schema resolveInput
+→ structural revalidation
+→ field validation hooks
+→ schema validation hooks
+→ plugin/global before hooks
 → schema before hooks
+→ affected field before hooks
 → database operation
+→ affected field after hooks
 → schema after hooks
-→ global after hooks
+→ plugin/global after hooks
+→ beforeCommit
 → commit
-→ post-commit events
+→ afterCommit and post-commit events
 ```
 
-Hooks are ordered by plugin dependencies, then plugin position in configuration. Business after-hooks run before commit and may abort the transaction. Realtime and asynchronous audit delivery happen after commit.
+Every mutation and its hook-started database work use one automatic transaction;
+reads do not unless the developer opens one explicitly. Hooks are ordered by
+plugin dependencies, then plugin position, then registration order. Business
+after-hooks run before commit and may abort the transaction. Realtime and
+asynchronous audit delivery happen after commit. Do not add a general
+`skipHooks` escape hatch or materialize set-based updates/deletes for item hooks.
 
 ## Testing requirements
 

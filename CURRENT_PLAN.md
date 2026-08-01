@@ -1,149 +1,125 @@
-# Current plan: first real PostgreSQL E2E vertical
+# Current plan: native schema and field hooks
 
-- Status: complete
+- Status: active
 - Started: 2026-08-01
-- Objective owner: project-wide
-- Completed by: `issues/500-postgres/518-runtime-postgres-e2e.md`
+- Objective owner: `@ultimabase/schema`, `@ultimabase/query`, `@ultimabase/core`, `@ultimabase/runtime`, `@ultimabase/postgres`, `@ultimabase/testing`
+- Governing decision: [ADR-0089](docs/adr/0089-native-schema-and-field-hooks.md)
+- Previous completed objective: [Runtime-to-PostgreSQL E2E](docs/plans/completed/runtime-postgres-e2e.md)
 
 ## Objective
 
-Deliver one real, access-free end-to-end path from a static UltimaBase schema to
-a live PostgreSQL database before implementing roles, CLP, ACL, or field
-permissions.
+Turn the existing low-level Runtime hook registry into a native, typed schema
+and inline field lifecycle before access plugins or transports build business
+behavior on top of it.
 
-The finished path must exercise public package exports through:
+The finished vertical must prove this developer contract:
 
-```text
-Schema
-→ FrameworkApplication and plugins
-→ assembled FrameworkEngine
-→ RequestEngine and Query
-→ Runtime validation and hooks
-→ PostgreSQL adapter
-→ live PostgreSQL rows
+```ts
+const UserSchema = defineSchema({
+	className: 'User',
+	fields: {
+		email: stringField({
+			hooks: {
+				resolveInput: ({ value }) => value.trim().toLowerCase(),
+			},
+		}),
+	},
+	hooks: {
+		beforeSave: ({ operation }) => {
+			// One handler covers create, update, and upsert families.
+		},
+		beforeFind: ({ query }) => query.limit(100),
+	},
+})
 ```
+
+Native hooks require no plugin. Plugins may add global, exact-schema,
+exact-field, extension, or field-kind hooks through the same fundamental
+application dispatcher.
 
 ## Definition of done
 
-The objective is complete only when a root E2E test:
+The objective is complete only when:
 
-- starts a real PostgreSQL Testcontainer;
-- creates an isolated PostgreSQL schema for its Vitest worker;
-- starts an application configured with `postgresPlugin`;
-- derives database structures from the static schema without handwritten table DDL;
-- creates, reads, filters, selects, updates, and deletes a row through a bound `Query`;
-- verifies generated UUID v7, `createdAt`, and `updatedAt` values;
-- disposes the application and PostgreSQL resources cleanly;
-- imports only public built package exports;
-- runs reliably through `yarn test:e2e` and the GitHub CI Docker runner.
-
-Bulk operations, upserts, explicit transactions, access plugins, migrations,
-REST, and GraphQL are not required for this first vertical.
+- schema and inline field hooks have precise autocomplete, hover documentation, and packed declaration behavior;
+- one handler can cover an operation family without repeating `one` and `many` variants;
+- plugin hooks append to developer hooks with exact target typing and deterministic ownership;
+- every mutation automatically includes business-hook database work in one rollback boundary;
+- `beforeFind` and `afterFind` cover every read terminal without weakening access constraints;
+- post-commit, rollback, cancellation, error, and recursion behavior is explicit;
+- true set-based update/delete operations do not materialize rows for item hooks;
+- a root PostgreSQL E2E proves hook writes roll back with a failed primary mutation;
+- package documentation distinguishes implemented native APIs from the retained low-level plugin API.
 
 ## Frozen decisions
 
-- Static schemas remain the source of truth; the E2E test must not create its application tables manually.
-- Missing permission plugins install explicit neutral Runtime stages only when no permission extension requests them.
-- PostgreSQL introspection is independent from ACL table compilation. ACL tables remain owned by issue 510.
-- Runtime resolves the database adapter through Core's typed application service boundary, not a second adapter registry.
-- Drizzle remains private to `@ultimabase/postgres`.
-- The first E2E uses direct TypeScript queries. HTTP, REST, and GraphQL are later verticals.
+- Hooks are a fundamental framework capability, not a plugin or schema extension.
+- Native hooks are declared with schemas and inline fields.
+- Inline field hooks infer their own exact value; cross-field logic uses schema hooks.
+- Direct phase handlers cover all compatible operations; optional family maps specialize behavior.
+- `create`, `update`, `upsert`, `delete`, `save`, and `find` families include singular and bulk terminals.
+- Hook lists run sequentially; numeric priorities and implicit parallelism are forbidden.
+- Plugin hooks use the same dispatcher and can target global, schema, typed field path, extension, or field-kind scopes.
+- Every mutation is transactional. `{ atomic: false }` may change batch grouping but never separates an item's hooks from its write.
+- Reads are not automatically transactional; explicit transactions remain available.
+- Business after-hooks run before commit and may roll back. External effects run after commit or through an outbox.
+- Set-based `updateMany` and `deleteMany` remain set-based.
+- Access stages remain reserved and cannot be replaced or removed by business hooks.
+- A general `skipHooks` escape hatch is forbidden.
 
 ## Execution order
 
-Complete one issue at a time in this order and publish it only after user
-approval. Do not start an issue whose dependencies are incomplete.
+Complete one issue at a time in this order. Do not start an issue whose
+dependencies are incomplete.
 
-1. [x] [211 — Expose application service lookup](issues/200-core/211-application-service-access.md)
-2. [x] [323 — Assemble the application Runtime engine](issues/300-query-runtime/323-application-runtime-assembly.md)
-3. [x] [501 — Implement PostgreSQL connection lifecycle](issues/500-postgres/501-pg-pool-plugin.md)
-4. [x] [502 — Add the internal Drizzle adapter](issues/500-postgres/502-drizzle-internal-adapter.md)
-5. [x] [517 — Add PostgreSQL table naming](issues/500-postgres/517-table-naming.md)
-6. [x] [503 — Compile primitive schemas](issues/500-postgres/503-primitive-schema-compilers.md)
-7. [x] [504 — Compile indexes](issues/500-postgres/504-index-compilers.md)
-8. [x] [511 — Introspect PostgreSQL schema state](issues/500-postgres/511-postgres-introspection.md)
-9. [x] [512 — Apply direct schema policies](issues/500-postgres/512-direct-schema-policy.md)
-10. [x] [505 — Compile Query filters](issues/500-postgres/505-query-filter-compiler.md)
-11. [x] [506 — Compile selection, ordering, and pagination](issues/500-postgres/506-selection-order-pagination.md)
-12. [x] [507 — Implement singular PostgreSQL CRUD](issues/500-postgres/507-crud-adapter.md)
-13. [x] [516 — Add Testcontainers worker isolation](issues/500-postgres/516-testcontainers-worker-isolation.md)
-14. [x] [518 — Verify the first Runtime-to-PostgreSQL E2E](issues/500-postgres/518-runtime-postgres-e2e.md)
+1. [ ] [324 — Prove the native hook contract boundary](issues/300-query-runtime/324-native-hook-contract-boundary.md)
+2. [ ] [325 — Declare native schema hooks](issues/300-query-runtime/325-native-schema-hooks.md)
+3. [ ] [326 — Declare inline field hooks](issues/300-query-runtime/326-inline-field-hooks.md)
+4. [ ] [327 — Compose hook families and handler lists](issues/300-query-runtime/327-hook-families-and-composition.md)
+5. [ ] [328 — Add typed plugin hook targets](issues/300-query-runtime/328-plugin-hook-targets.md)
+6. [ ] [329 — Make every mutation automatically transactional](issues/300-query-runtime/329-automatic-mutation-transactions.md)
+7. [ ] [330 — Execute the native hook lifecycle](issues/300-query-runtime/330-native-hook-dispatcher.md)
+8. [ ] [331 — Add find and output hooks](issues/300-query-runtime/331-find-and-output-hooks.md)
+9. [ ] [332 — Add transaction finalization hooks](issues/300-query-runtime/332-transaction-hook-lifecycle.md)
+10. [ ] [333 — Protect hook execution and expose diagnostics](issues/300-query-runtime/333-hook-safety-and-observability.md)
+11. [ ] [334 — Define bulk hook and non-atomic grouping semantics](issues/300-query-runtime/334-bulk-hook-semantics.md)
+12. [ ] [508 — Implement PostgreSQL transactions, bulk, and upsert](issues/500-postgres/508-transactions-bulk-upsert.md)
+13. [ ] [335 — Verify native hooks against PostgreSQL](issues/300-query-runtime/335-native-hooks-postgres-e2e.md)
 
-Issues 505 and 506 are independent after their shared prerequisites and may be
-reordered without changing the objective. The numbered list otherwise records
-the preferred resume order.
+Issues 328, 329, and 508 become independently implementable after their own
+dependencies complete, but the numbered order remains the preferred
+single-agent sequence. Issue 508 is included explicitly because issue 335 cannot
+prove live rollback and bulk behavior without it.
 
 ## Resume protocol
 
 When resuming after context loss:
 
-1. Read `AGENTS.md` and this file completely.
+1. Read `AGENTS.md`, ADR-0089, and this file completely.
 2. Inspect `git status` and preserve unrelated changes.
-3. Read the current issue, its package READMEs, and referenced ADRs.
-4. Confirm the current issue's dependencies are `done`.
-5. If the current issue is already `done`, move `Current issue` above to the first incomplete entry in the execution order.
-6. Implement only that issue, including colocated runtime and type tests, documentation, and a Changeset.
+3. Read the current issue, every package README in scope, and its referenced ADRs.
+4. Confirm every dependency issue is `done`.
+5. If the current issue is already `done`, move to the first incomplete entry above.
+6. Implement only that issue, including source-colocated runtime/type tests, public IntelliSense tests, documentation, and a Changeset when the public API changes.
 7. Run targeted checks, then the broader checks justified by the change.
-8. Show the implemented developer-facing API before asking whether to push.
+8. Show the resulting developer-facing API before asking whether to push.
 
-Do not begin any file under `issues/400-access/` until issue 518 is done unless
-the user explicitly changes this objective.
+Do not begin access hooks in milestone 4 until the native lifecycle makes their
+ordering and transaction interaction explicit.
 
-## Current developer experience
+## Current issue
 
-Issue 518 implements this public flow without manually constructing a
-`RuntimePipeline` or writing SQL:
+[324 — Prove the native hook contract boundary](issues/300-query-runtime/324-native-hook-contract-boundary.md)
 
-```ts
-const application = await createApplication({
-	schemas: [PostSchema],
-	plugins: [
-		postgresPlugin({
-			url: databaseUrl,
-			schemaPolicy: 'override',
-		}),
-	],
-})
-
-await application.start()
-
-const framework = createFrameworkEngine(application)
-const request = framework.anonymous({
-	requestId: 'postgres-e2e',
-	source: requestSources.internal,
-})
-
-const created = await request.query(PostSchema).create({
-	title: 'First real E2E',
-})
-
-const rows = await request
-	.query(PostSchema)
-	.equalTo('id', created.id)
-	.select('id', 'title')
-	.find()
-
-await application.dispose()
-```
-
-This example is the implemented and Docker-verified DX for the plan.
+The issue must settle the dependency-safe declaration shape before production
+hook APIs are added. It must not trade away direct autocomplete, compact hovers,
+or exact field values to make the package graph easier.
 
 ## Progress log
 
 Update this list after every completed issue so the next agent can resume
 without reconstructing repository history.
 
-- 211 — `done` — commit: `4d24000` — Read-only typed service lookup implemented.
-- 323 — `done` — commit: `2635caa` — Application Runtime assembly implemented.
-- 501 — `done` — commit: `68c466d` — Typed pool ownership and lifecycle implemented.
-- 502 — `done` — commit: `4f72629` — Internal Drizzle adapter registered.
-- 517 — `done` — commit: `96207e7` — PostgreSQL table naming implemented.
-- 503 — `done` — commit: `8e14070` — Primitive fields and JSONB codecs compiled.
-- 504 — `done` — commit: `3b621cb` — Deterministic ordinary and unique indexes compiled.
-- 511 — `done` — commit: `35c83e7` — Deterministic live catalog snapshots implemented.
-- 512 — `done` — commit: `749f558` — Transactional direct schema policies implemented.
-- 505 — `done` — commit: `f8b65e4` — Parameterized primitive and logical filters compiled.
-- 506 — `done` — commit: `9f70dbf` — Stable projections, ordering, offsets, and cursor predicates compiled.
-- 507 — `done` — commit: `6bca47a` — Singular reads and mutations execute through private Drizzle queries.
-- 516 — `done` — commit: `d53bd75` — One shared container feeds deterministic worker-isolated schemas.
-- 518 — `done` — commits: `e923c6b`, `4f6f264` — Public singular CRUD and worker isolation pass GitHub CI run 148 against a live PostgreSQL Testcontainer.
+- 324 — `ready` — Native hook contract boundary not started.
+- 329 — `ready` — Automatic mutation transactions are dependency-ready but follow issues 324–328 in the preferred sequence.
+- 508 — `ready` — PostgreSQL transaction, bulk, and upsert support remains required before issue 335 but follows the native lifecycle work in this plan.
