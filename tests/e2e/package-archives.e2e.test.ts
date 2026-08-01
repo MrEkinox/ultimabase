@@ -130,7 +130,10 @@ describe('@ultimabase/schema declaration artifact', () => {
 			'validation: { required: true }',
 		)
 
-		expect(validation.display).toContain('validation: StringValidationOptions')
+		// Compiled declarations expose only the booleans needed by field inference.
+		expect(validation.display).toContain('StringValidationOptions & {')
+		expect(validation.display).toContain('readonly required?: true')
+		expect(validation.display).toContain('readonly nullable?: false')
 		expect(validation.display).not.toContain(
 			'FieldValidationOptions & StringValidationOptions',
 		)
