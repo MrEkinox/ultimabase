@@ -17,6 +17,10 @@ Focused package unit and compile-time tests live beside their source. A package'
 
 Vitest runs these conventions as distinct projects named `unit`, `e2e`, and `types`. Runtime files use isolated fork workers and may execute in parallel.
 
+PostgreSQL E2E suites start real Testcontainers and therefore require a working
+Docker-compatible container runtime. Package unit and type tests never require
+Docker.
+
 ## Commands
 
 - `yarn test`: run package unit tests and compile-time type tests.

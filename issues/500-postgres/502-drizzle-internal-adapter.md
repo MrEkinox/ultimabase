@@ -1,6 +1,6 @@
 # 502: Add internal Drizzle adapter
 
-- Status: planned
+- Status: ready
 - Milestone: 5
 - Packages: `@ultimabase/postgres`
 - Depends on: 501

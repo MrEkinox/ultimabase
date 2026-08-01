@@ -5255,6 +5255,7 @@ __metadata:
     "@changesets/cli": "npm:^2.29.7"
     "@eslint/js": "npm:^10.0.1"
     "@publint/pack": "npm:^0.1.6"
+    "@testcontainers/postgresql": "npm:^12.0.4"
     "@types/node": "npm:^24.0.0"
     "@vitest/coverage-v8": "npm:4.1.10"
     eslint: "npm:^10.7.0"

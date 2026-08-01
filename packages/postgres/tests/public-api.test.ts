@@ -1,0 +1,14 @@
+import * as publicApi from '@ultimabase/postgres'
+import { describe, expect, it } from 'vitest'
+
+describe('@ultimabase/postgres public entry point', () => {
+	it('exports only the connection lifecycle surface implemented so far', () => {
+		// Driver and Drizzle internals must remain absent from runtime exports.
+		expect(Object.keys(publicApi).sort()).toStrictEqual([
+			'postgresConnectionServiceToken',
+			'postgresPlugin',
+		])
+		expect(publicApi).not.toHaveProperty('Pool')
+		expect(publicApi).not.toHaveProperty('drizzle')
+	})
+})

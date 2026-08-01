@@ -1,1 +1,15 @@
-export {}
+export { postgresConnectionServiceToken } from './connection/contracts.js'
+export type {
+	PostgresConnectionService,
+	PostgresConnectionState,
+	PostgresPool,
+	PostgresPoolClient,
+} from './connection/contracts.js'
+export { postgresPlugin } from './plugin/postgres-plugin.js'
+export type {
+	PostgresExistingPoolOptions,
+	PostgresPlugin,
+	PostgresPluginExports,
+	PostgresPluginOptions,
+	PostgresUrlOptions,
+} from './plugin/postgres-plugin.js'

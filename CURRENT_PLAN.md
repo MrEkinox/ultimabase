@@ -3,7 +3,7 @@
 - Status: active
 - Started: 2026-08-01
 - Objective owner: project-wide
-- Current issue: `issues/500-postgres/501-pg-pool-plugin.md`
+- Current issue: `issues/500-postgres/502-drizzle-internal-adapter.md`
 
 ## Objective
 
@@ -134,10 +134,10 @@ be documented elsewhere as already implemented.
 Update this list after every completed issue so the next agent can resume
 without reconstructing repository history.
 
-- 211 — `done` — commit: `this commit` — Read-only typed service lookup implemented.
-- 323 — `done` — commit: `this commit` — Application Runtime assembly implemented.
-- 501 — `ready` — commit: `—` — Scheduled after Runtime assembly.
-- 502 — `planned` — commit: `—` — Waits for 501.
+- 211 — `done` — commit: `4d24000` — Read-only typed service lookup implemented.
+- 323 — `done` — commit: `2635caa` — Application Runtime assembly implemented.
+- 501 — `done` — commit: `this commit` — Typed pool ownership and lifecycle implemented.
+- 502 — `ready` — commit: `—` — Connection lifecycle dependency is complete.
 - 517 — `planned` — commit: `—` — Waits for 502.
 - 503 — `planned` — commit: `—` — Waits for 502 and 517.
 - 504 — `planned` — commit: `—` — Waits for 503.
