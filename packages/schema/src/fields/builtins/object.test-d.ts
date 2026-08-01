@@ -115,31 +115,31 @@ test('rejects invalid list declarations and structured defaults', () => {
 	booleanField({ list: true, default: [true, 'false'] })
 	// @ts-expect-error -- Nested list defaults must preserve every dimension.
 	stringField({ list: [true, true], default: ['flat'] })
-	// @ts-expect-error -- Object properties must be field definitions.
 	objectField({
 		fields: {
+			// @ts-expect-error -- Object properties must be field definitions.
 			name: 'string',
 		},
 	})
 	// @ts-expect-error -- Neutral type identities must use strings.
 	objectField({ typeName: 42, fields: {} })
-	// @ts-expect-error -- Object defaults must use each child field value type.
 	objectField({
 		fields: {
 			name: stringField(),
 			active: booleanField(),
 		},
+		// @ts-expect-error -- Object defaults must use each child field value type.
 		default: {
 			name: 'fixture',
 			active: 'yes',
 		},
 	})
-	// @ts-expect-error -- Required create inputs cannot be omitted from defaults.
 	objectField({
 		fields: {
 			optional: stringField(),
 			required: stringField({ validation: { required: true } }),
 		},
+		// @ts-expect-error -- Required create inputs cannot be omitted from defaults.
 		default: {},
 	})
 	stringField({

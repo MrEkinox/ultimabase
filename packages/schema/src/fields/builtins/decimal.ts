@@ -23,9 +23,24 @@ export type DecimalRangeValidationOptions = OrderedRange<string>
 /**
  * Groups presence, digit, scale, and exact range constraints.
  */
-export type DecimalValidationOptions = FieldValidationOptions & {
+export interface DecimalValidationOptions extends FieldValidationOptions {
+	/**
+	 * Limits the total number of integer and fractional digits.
+	 *
+	 * @example `precision: 12`
+	 */
 	readonly precision?: number
+	/**
+	 * Limits the number of digits after the decimal separator.
+	 *
+	 * @example `scale: 2`
+	 */
 	readonly scale?: number
+	/**
+	 * Restricts exact decimal strings with inclusive boundaries.
+	 *
+	 * @example `range: { min: "0.00", max: "999.99" }`
+	 */
 	readonly range?: DecimalRangeValidationOptions
 }
 
@@ -156,7 +171,14 @@ const normalizeDecimalFieldOptions = <
 		normalizeDecimalValue,
 	)
 
-/** Creates immutable exact-decimal metadata without numeric coercion. */
+/**
+ * Declares an exact base-10 decimal represented as a string to avoid floating-point loss.
+ *
+ * @example
+ * ```ts
+ * decimalField({ validation: { precision: 12, scale: 2 }, default: "0.00" })
+ * ```
+ */
 export const decimalField: ScalarFieldFactory<
 	'decimal',
 	string,

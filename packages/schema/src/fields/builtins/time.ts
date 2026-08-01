@@ -89,6 +89,13 @@ const resolveTimeFieldConfiguration =
 		compareZonedTimeValues,
 	)
 
-/** Creates immutable time metadata with option-dependent timezone semantics. */
+/**
+ * Declares a millisecond-precision time of day, without a timezone by default.
+ *
+ * @example
+ * ```ts
+ * timeField({ timezone: true, default: "08:30:00.000+02:00" })
+ * ```
+ */
 export const timeField: ScalarFieldFactory<'time', string, TimeFieldOptions> =
 	createConfiguredScalarFieldFactory('time', resolveTimeFieldConfiguration)

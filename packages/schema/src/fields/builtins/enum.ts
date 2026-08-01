@@ -15,6 +15,7 @@ import {
 import type {
 	FieldDefinition,
 	FieldOptions,
+	InvalidOptionsArguments,
 	ValidatedFieldOptions,
 } from '../base/contract.js'
 
@@ -28,14 +29,28 @@ export type EnumValue<TValues extends EnumValues> =
 		? TValues[number]
 		: TValues[keyof TValues] & string
 
+interface EnumValuesOption<TValues extends EnumValues> {
+	/**
+	 * Declares persisted values as a non-empty string tuple or a symbolic key-value mapping.
+	 *
+	 * @example `values: ["draft", "published"]`
+	 * @example `values: { Draft: "draft", Published: "published" }`
+	 */
+	readonly values: TValues
+}
+
 /**
  * Combines the exact enum source with field options constrained to its values.
  */
-export type EnumFieldOptions<TValues extends EnumValues = EnumValues> =
-	FieldOptions<EnumValue<TValues>> & {
-		readonly typeName?: string
-		readonly values: TValues
-	}
+export interface EnumFieldOptions<TValues extends EnumValues = EnumValues>
+	extends FieldOptions<EnumValue<TValues>>, EnumValuesOption<TValues> {
+	/**
+	 * Overrides the stable generated type name used by GraphQL and other schema generators.
+	 *
+	 * @example `typeName: "ProductStatus"`
+	 */
+	readonly typeName?: string
+}
 
 /**
  * Carries the inferred string union and exact options through schema inference.
@@ -53,6 +68,14 @@ type NonEmptyMapping<TValues extends EnumValues> =
 		: keyof TValues extends never
 			? never
 			: TValues
+
+type ValidatedEnumFieldOptions<
+	TValues extends EnumValues,
+	TOptions extends object,
+> =
+	NonEmptyMapping<TValues> extends never
+		? never
+		: ValidatedFieldOptions<TOptions, EnumValue<TValues>>
 
 const isString = (value: unknown): value is string => typeof value === 'string'
 
@@ -166,22 +189,33 @@ const normalizeEnumFieldOptions = (
 }
 
 /**
- * Creates immutable enum metadata from a tuple, string enum, or key-value mapping.
+ * Declares a closed string domain from a tuple, string enum, or key-value mapping.
+ *
+ * @example
+ * ```ts
+ * enumField({
+ *   typeName: "ProductStatus",
+ *   values: { Draft: "draft", Published: "published" },
+ *   default: "draft",
+ * })
+ * ```
  */
 export function enumField<
 	const TValues extends EnumValues,
 	const TOptions extends EnumFieldOptions<TValues>,
 >(
-	options: TOptions & { readonly values: NonEmptyMapping<TValues> } & Omit<
-			EnumFieldOptions<NoInfer<TValues>>,
-			'values'
-		> &
-		(ValidatedFieldOptions<NoInfer<TOptions>, EnumValue<TValues>> extends never
-			? never
-			: unknown),
+	options: EnumFieldOptions<TValues> & TOptions,
+	...invalidOptions: InvalidOptionsArguments<
+		ValidatedEnumFieldOptions<TValues, NoInfer<TOptions>>
+	>
 ): EnumField<TValues, TOptions>
 
-export function enumField(options: EnumFieldOptions): EnumField {
+export function enumField(
+	options: EnumFieldOptions,
+	...invalidOptions: readonly never[]
+): EnumField {
+	// The rest parameter exists only to keep invalid generic calls uncallable.
+	void invalidOptions
 	const normalized = normalizeEnumFieldOptions(options)
 	const values = readEnumValues(normalized.values)
 

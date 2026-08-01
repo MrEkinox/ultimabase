@@ -106,7 +106,14 @@ const normalizeJsonFieldOptions = <const TOptions extends JsonFieldOptions>(
 ): Readonly<TOptions> =>
 	normalizeFieldOptions(options, normalizeFlatValidation, snapshotJsonValue)
 
-/** Creates immutable JSON metadata with recursively detached static values. */
+/**
+ * Declares unstructured, portable JSON containing only objects, arrays, and JSON primitives.
+ *
+ * @example
+ * ```ts
+ * jsonField({ default: { theme: "dark", notifications: true } })
+ * ```
+ */
 export const jsonField: ScalarFieldFactory<
 	'json',
 	JsonValue,

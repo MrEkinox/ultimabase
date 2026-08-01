@@ -12,7 +12,12 @@ export type LengthValidationOptions = NumericRange
 /**
  * Extends presence rules with an optional length range.
  */
-export type LengthConstrainedValidation = FieldValidationOptions & {
+export interface LengthConstrainedValidation extends FieldValidationOptions {
+	/**
+	 * Restricts string characters or binary bytes with inclusive `min` and `max` boundaries.
+	 *
+	 * @example `length: { min: 2, max: 120 }`
+	 */
 	readonly length?: LengthValidationOptions
 }
 

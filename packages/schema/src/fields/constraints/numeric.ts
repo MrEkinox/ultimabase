@@ -12,9 +12,14 @@ export type NumericRange<TValue extends NumericRangeValue = number> =
 /**
  * Provides the common range contract reused by exact numeric field kinds.
  */
-export type NumericValidationOptions<
+export interface NumericValidationOptions<
 	TValue extends NumericRangeValue = number,
-> = FieldValidationOptions & {
+> extends FieldValidationOptions {
+	/**
+	 * Restricts numeric values with inclusive `min` and `max` boundaries.
+	 *
+	 * @example `range: { min: lowerBoundary, max: upperBoundary }`
+	 */
 	readonly range?: NumericRange<TValue>
 }
 

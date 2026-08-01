@@ -55,7 +55,14 @@ const normalizeBinaryFieldOptions = <const TOptions extends BinaryFieldOptions>(
 ): Readonly<TOptions> =>
 	normalizeFieldOptions(options, normalizeLengthValidation, snapshotBinaryValue)
 
-/** Creates binary metadata while copying caller-owned static byte sequences. */
+/**
+ * Declares native binary data as a `Uint8Array`; adapters choose its transport and storage encoding.
+ *
+ * @example
+ * ```ts
+ * binaryField({ validation: { length: { max: 5_000_000 } } })
+ * ```
+ */
 export const binaryField: ScalarFieldFactory<
 	'binary',
 	Uint8Array,

@@ -2,7 +2,17 @@ import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 
 /** Describes one optional ordered interval without assigning value semantics. */
 export interface OrderedRange<TValue> {
+	/**
+	 * Accepts values greater than or equal to this inclusive lower boundary.
+	 *
+	 * @example `min: lowerBoundary`
+	 */
 	readonly min?: TValue
+	/**
+	 * Accepts values less than or equal to this inclusive upper boundary.
+	 *
+	 * @example `max: upperBoundary`
+	 */
 	readonly max?: TValue
 }
 

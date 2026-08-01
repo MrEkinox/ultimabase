@@ -19,7 +19,9 @@ import { isRequiredOnCreate } from '../base/options.js'
 import type {
 	FieldDefinition,
 	FieldOptions,
+	FieldOptionsBase,
 	GenericField,
+	InvalidOptionsArguments,
 	ValidatedFieldOptions,
 } from '../base/contract.js'
 import type { InferFields } from '../../inference/types.js'
@@ -45,12 +47,28 @@ type ObjectFieldCreateValue<TFields extends ObjectFields> = InferFields<
 /**
  * Keeps object structure inside neutral schema metadata.
  */
-export type ObjectFieldOptions<TFields extends ObjectFields = ObjectFields> =
-	Omit<FieldOptions<ObjectFieldValue<TFields>>, 'default'> & {
-		readonly default?: FieldOptions<ObjectFieldCreateValue<TFields>>['default']
-		readonly fields: TFields
-		readonly typeName?: string
-	}
+export interface ObjectFieldOptions<
+	TFields extends ObjectFields = ObjectFields,
+> extends FieldOptionsBase {
+	/**
+	 * Provides a static structured value or a factory using the nested create-input shape.
+	 *
+	 * @example `default: { name: "Anonymous" }`
+	 */
+	readonly default?: FieldOptions<ObjectFieldCreateValue<TFields>>['default']
+	/**
+	 * Maps each object property to an existing UltimaBase field declaration.
+	 *
+	 * @example `fields: { name: stringField(), active: booleanField() }`
+	 */
+	readonly fields: TFields
+	/**
+	 * Overrides the stable generated type name used by GraphQL and other schema generators.
+	 *
+	 * @example `typeName: "Profile"`
+	 */
+	readonly typeName?: string
+}
 
 /**
  * Carries a structured object value while leaving physical storage to adapters.
@@ -76,13 +94,6 @@ type ValidatedObjectOptions<TOptions extends { readonly fields: object }> =
 				: TOptions
 			: never
 		: never
-
-type FieldsFromOptions<TOptions extends { readonly fields: object }> =
-	TOptions extends {
-		readonly fields: infer TFields extends ObjectFields
-	}
-		? TFields
-		: ObjectFields
 
 function snapshotObjectValue(
 	value: unknown,
@@ -116,20 +127,35 @@ function snapshotObjectValue(
 }
 
 /**
- * Creates immutable structured object metadata from existing field definitions.
+ * Declares a typed structured value by composing existing field definitions.
+ *
+ * @example
+ * ```ts
+ * objectField({
+ *   typeName: "Profile",
+ *   fields: {
+ *     displayName: stringField({ validation: { required: true } }),
+ *     active: booleanField({ default: true }),
+ *   },
+ * })
+ * ```
  */
 export function objectField<
-	const TOptions extends {
-		readonly fields: object
-	},
+	const TFields extends ObjectFields,
+	const TOptions extends ObjectFieldOptions<TFields>,
 >(
-	options: TOptions &
-		(ValidatedObjectOptions<NoInfer<TOptions>> extends never ? never : unknown),
-): ObjectField<FieldsFromOptions<TOptions>, TOptions>
+	options: ObjectFieldOptions<TFields> & TOptions,
+	...invalidOptions: InvalidOptionsArguments<
+		ValidatedObjectOptions<NoInfer<TOptions>>
+	>
+): ObjectField<TFields, TOptions>
 
 export function objectField(
 	options: ObjectFieldOptions,
+	...invalidOptions: readonly never[]
 ): ObjectField<ObjectFields, ObjectFieldOptions> {
+	// The rest parameter exists only to keep invalid generic calls uncallable.
+	void invalidOptions
 	assertFieldOptions(options)
 
 	if (!isPlainRecord(options.fields)) {

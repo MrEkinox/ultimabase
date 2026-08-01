@@ -22,6 +22,14 @@ An issue is complete only when:
 - architectural decisions are recorded or linked;
 - no unrelated changes are bundled into the work.
 
+## Editor setup
+
+The repository configures VS Code and Cursor to use the TypeScript version
+installed by the workspace. After `yarn install`, accept the workspace
+TypeScript prompt or run `TypeScript: Select TypeScript Version` and choose
+`Use Workspace Version`. This keeps autocomplete and hover behavior aligned
+with CI and the generated package declarations.
+
 ## Commit guidance
 
 Prefer small commits that explain intent. Conventional Commit prefixes are encouraged:

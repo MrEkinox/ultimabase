@@ -41,3 +41,12 @@ test('rejects framework-owned plugin kinds', () => {
 	// @ts-expect-error -- The opaque plan discriminant is framework-owned.
 	definePluginField('plugin', {}, normalizers)
 })
+
+test('rejects contradictory presence metadata for plugin fields', () => {
+	// @ts-expect-error -- Plugin fields share the required and nullable invariant.
+	definePluginField(
+		'fixture.custom',
+		{ validation: { required: true, nullable: true } },
+		normalizers,
+	)
+})

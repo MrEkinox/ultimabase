@@ -48,33 +48,82 @@ type FieldOptionsDefaultValue<
  *
  * Optional fields remain non-null by default, while required fields can never be nullable.
  */
-export type FieldValidationOptions =
-	| {
-			readonly required: true
-			readonly nullable?: false
-	  }
-	| {
-			readonly required?: false
-			readonly nullable?: boolean
-	  }
+export interface FieldValidationOptions {
+	/**
+	 * Requires the field to receive a value during creation when enabled.
+	 *
+	 * @example `validation: { required: true }`
+	 */
+	readonly required?: boolean
+	/**
+	 * Allows an explicit `null` value. It cannot be enabled together with `required`.
+	 *
+	 * @example `validation: { nullable: true }`
+	 */
+	readonly nullable?: boolean
+}
 
 interface FieldMetadataOptions<TValidation extends FieldValidationOptions> {
+	/**
+	 * Groups presence rules and field-specific constraints validated by Runtime.
+	 *
+	 * @example `validation: { required: true }`
+	 */
 	readonly validation?: TValidation
+	/**
+	 * Prevents the field from appearing in update inputs after it is created.
+	 *
+	 * @example `immutable: true`
+	 */
 	readonly immutable?: boolean
+	/**
+	 * Requests a regular index with `true`, a unique index with `"unique"`, or no index with `false`.
+	 *
+	 * @example `indexed: "unique"`
+	 */
 	readonly indexed?: boolean | 'unique'
+	/**
+	 * Supplies human-readable field documentation for generators and developer tooling.
+	 *
+	 * @example `description: "Public display name"`
+	 */
 	readonly description?: string
+	/**
+	 * Attaches immutable metadata owned and interpreted by installed field plugins.
+	 *
+	 * @example `extensions: [myFieldExtension]`
+	 */
 	readonly extensions?: readonly FieldExtension<string, object>[]
+}
+
+/** Defines shared field metadata without assigning a default-value contract. */
+export interface FieldOptionsBase<
+	TValidation extends FieldValidationOptions = FieldValidationOptions,
+	TList extends FieldListOption = FieldListOption,
+> extends FieldMetadataOptions<TValidation> {
+	/**
+	 * Wraps the scalar in one or more list dimensions. `true` creates one dimension.
+	 *
+	 * @example `list: true`
+	 * @example `list: [true, true]` creates a two-dimensional list.
+	 */
+	readonly list?: TList
 }
 
 /**
  * Defines metadata shared by every field kind without introducing storage concerns.
  */
-export type FieldOptions<
+export interface FieldOptions<
 	TValue,
 	TValidation extends FieldValidationOptions = FieldValidationOptions,
 	TList extends FieldListOption = FieldListOption,
-> = FieldMetadataOptions<TValidation> & {
-	readonly list?: TList
+> extends FieldOptionsBase<TValidation, TList> {
+	/**
+	 * Provides a static value or a zero-argument factory evaluated for each created object.
+	 *
+	 * @example `default: initialValue`
+	 * @example `default: () => createInitialValue()`
+	 */
 	readonly default?: FieldDefault<FieldOptionsDefaultValue<TValue, TList>>
 }
 
@@ -90,16 +139,46 @@ type DefaultIsCompatible<TOptions, TValue> = TOptions extends {
 			: false
 	: true
 
+type PresenceIsCompatible<TOptions> = TOptions extends {
+	readonly validation: infer TValidation
+}
+	? TValidation extends { readonly required: true; readonly nullable: true }
+		? false
+		: true
+	: true
+
+type GeneratedValueIsCompatible<TOptions> = TOptions extends {
+	readonly autoNow: true
+}
+	? TOptions extends { readonly default: unknown }
+		? false
+		: TOptions extends { readonly list: FieldList }
+			? false
+			: true
+	: true
+
 /**
  * Validates a factory's exact options against its scalar value and validation contract.
  */
-export type ValidatedFieldOptions<TOptions extends object, TValue> =
+type FieldOptionsAreCompatible<TOptions extends object, TValue> =
 	DefaultIsCompatible<
 		TOptions,
 		FieldOptionsValue<TValue, TOptions>
 	> extends true
-		? TOptions
-		: never
+		? PresenceIsCompatible<TOptions> extends true
+			? GeneratedValueIsCompatible<TOptions>
+			: false
+		: false
+
+export type ValidatedFieldOptions<TOptions extends object, TValue> =
+	FieldOptionsAreCompatible<TOptions, TValue> extends true ? TOptions : never
+
+/** Converts a failed type-level validation into an impossible call argument. */
+export type InvalidOptionsArguments<TValidatedOptions> = [
+	TValidatedOptions,
+] extends [never]
+	? [invalidOptions: never]
+	: []
 
 /**
  * Carries immutable field metadata and its value type through schema inference.

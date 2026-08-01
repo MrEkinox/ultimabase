@@ -25,7 +25,15 @@ export type IntValidationOptions = NumericValidationOptions
 /**
  * Adds integer-only sequence metadata to the common field contract.
  */
-export type IntFieldOptions = FieldOptions<number, IntValidationOptions> & {
+export interface IntFieldOptions extends FieldOptions<
+	number,
+	IntValidationOptions
+> {
+	/**
+	 * Requests a database-generated sequence value from adapters that support it.
+	 *
+	 * @example `autoIncrement: true`
+	 */
 	readonly autoIncrement?: boolean
 }
 
@@ -53,7 +61,14 @@ const normalizeIntFieldOptions = <const TOptions extends IntFieldOptions>(
 	)
 }
 
-/** Creates immutable safe-integer metadata with optional sequence ownership. */
+/**
+ * Declares a safe JavaScript integer between `Number.MIN_SAFE_INTEGER` and `Number.MAX_SAFE_INTEGER`.
+ *
+ * @example
+ * ```ts
+ * intField({ default: 0, validation: { range: { min: 0 } } })
+ * ```
+ */
 export const intField: ScalarFieldFactory<'int', number, IntFieldOptions> =
 	createScalarFieldFactory(
 		'int',

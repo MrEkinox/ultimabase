@@ -66,9 +66,9 @@ test('rejects incompatible vector options', () => {
 	// @ts-expect-error -- Scalar vector defaults must contain numbers.
 	vectorField({ dimensions: 2, default: ['1', '2'] })
 
+	// @ts-expect-error -- Required fields cannot also be nullable.
 	vectorField({
 		dimensions: 2,
-		// @ts-expect-error -- Required fields cannot also be nullable.
 		validation: { required: true, nullable: true },
 	})
 })

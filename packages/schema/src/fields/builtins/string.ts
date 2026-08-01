@@ -21,7 +21,12 @@ export type StringLengthValidationOptions = LengthValidationOptions
 /**
  * Groups presence and string constraints under one validation boundary.
  */
-export type StringValidationOptions = LengthConstrainedValidation & {
+export interface StringValidationOptions extends LengthConstrainedValidation {
+	/**
+	 * Requires the complete value to satisfy a native regular expression.
+	 *
+	 * @example `match: /^[a-z0-9-]+$/u`
+	 */
 	readonly match?: RegExp
 }
 
@@ -68,7 +73,16 @@ const normalizeStringFieldOptions = <const TOptions extends StringFieldOptions>(
 		normalizeStringValue,
 	)
 
-/** Creates immutable string metadata while preserving every option literal. */
+/**
+ * Declares a UTF-16 JavaScript string with optional length and pattern validation.
+ *
+ * @example
+ * ```ts
+ * stringField({
+ *   validation: { required: true, length: { min: 2 }, match: /^[a-z]+$/u },
+ * })
+ * ```
+ */
 export const stringField: ScalarFieldFactory<
 	'string',
 	string,

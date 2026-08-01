@@ -92,7 +92,14 @@ const resolveDateTimeFieldConfiguration =
 		compareZonedDateTimeValues,
 	)
 
-/** Creates immutable date-time metadata with option-dependent timezone semantics. */
+/**
+ * Declares a complete millisecond-precision date and time, with a timezone by default.
+ *
+ * @example
+ * ```ts
+ * dateTimeField({ autoNow: true })
+ * ```
+ */
 export const dateTimeField: ScalarFieldFactory<
 	'dateTime',
 	string,

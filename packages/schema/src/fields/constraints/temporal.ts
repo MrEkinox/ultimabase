@@ -17,34 +17,39 @@ export type TemporalRangeValidationOptions = OrderedRange<string>
 /**
  * Groups presence rules with an optional ordered temporal range.
  */
-export type TemporalValidationOptions = FieldValidationOptions & {
+export interface TemporalValidationOptions extends FieldValidationOptions {
+	/**
+	 * Restricts temporal strings with inclusive boundaries in the field's representation.
+	 *
+	 * @example `range: { min: earliestAllowed, max: latestAllowed }`
+	 */
 	readonly range?: TemporalRangeValidationOptions
 }
 
-type AutoNowTemporalFieldOptions<
-	TValidation extends TemporalValidationOptions,
-> = Omit<FieldOptions<string, TValidation, false>, 'default'> & {
-	readonly autoNow: true
-	readonly default?: never
-}
-
-type DeclaredDefaultTemporalFieldOptions<
-	TValidation extends TemporalValidationOptions,
-> = FieldOptions<string, TValidation> & {
-	readonly autoNow?: false
+interface TemporalAutoNowOption {
+	/**
+	 * Enables operation-clock generation when `true`; it cannot be combined with `default` or `list`.
+	 *
+	 * @example `autoNow: true`
+	 */
+	readonly autoNow?: boolean
 }
 
 /** Keeps operation-clock generation distinct from developer-owned defaults. */
-export type TemporalFieldOptions<
+export interface TemporalFieldOptions<
 	TValidation extends TemporalValidationOptions = TemporalValidationOptions,
-> =
-	| AutoNowTemporalFieldOptions<TValidation>
-	| DeclaredDefaultTemporalFieldOptions<TValidation>
+>
+	extends FieldOptions<string, TValidation>, TemporalAutoNowOption {}
 
 /** Adds timezone policy only to time-bearing temporal fields. */
-export type TimezoneTemporalFieldOptions<
+export interface TimezoneTemporalFieldOptions<
 	TValidation extends TemporalValidationOptions = TemporalValidationOptions,
-> = TemporalFieldOptions<TValidation> & {
+> extends TemporalFieldOptions<TValidation> {
+	/**
+	 * Chooses whether values include a timezone offset. `timeField` defaults to `false`; `dateTimeField` defaults to `true`.
+	 *
+	 * @example `timezone: false`
+	 */
 	readonly timezone?: boolean
 }
 

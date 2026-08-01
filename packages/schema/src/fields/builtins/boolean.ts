@@ -37,7 +37,14 @@ const normalizeBooleanFieldOptions = <
 ): Readonly<TOptions> =>
 	normalizeFieldOptions(options, normalizeFlatValidation, normalizeBooleanValue)
 
-/** Creates immutable boolean metadata while preserving every option literal. */
+/**
+ * Declares a `true` or `false` value.
+ *
+ * @example
+ * ```ts
+ * booleanField({ default: false, indexed: true })
+ * ```
+ */
 export const booleanField: ScalarFieldFactory<
 	'boolean',
 	boolean,

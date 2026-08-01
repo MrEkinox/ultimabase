@@ -65,10 +65,10 @@ test('rejects incompatible bigint metadata', () => {
 	// @ts-expect-error -- Bigint ranges cannot mix JavaScript numbers.
 	bigintField({ validation: { range: { min: 0 } } })
 
+	// @ts-expect-error -- Required fields cannot also be nullable.
 	bigintField({
 		validation: {
 			required: true,
-			// @ts-expect-error -- Required fields cannot also be nullable.
 			nullable: true,
 		},
 	})

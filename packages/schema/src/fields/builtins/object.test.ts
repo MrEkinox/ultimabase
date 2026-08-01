@@ -248,11 +248,11 @@ describe('object fields and list metadata', () => {
 				.default,
 		).toStrictEqual({})
 		expect(() => {
-			// @ts-expect-error -- Runtime coverage protects missing required values.
 			objectField({
 				fields: {
 					name: stringField({ validation: { required: true } }),
 				},
+				// @ts-expect-error -- Runtime coverage protects missing required values.
 				default: {},
 			})
 		}).toThrow(new TypeError('default.name is required in an object default'))
@@ -268,9 +268,9 @@ describe('object fields and list metadata', () => {
 			}).options.default,
 		).toStrictEqual({})
 		expect(() => {
-			// @ts-expect-error -- Runtime coverage protects values outside the enum domain.
 			objectField({
 				fields: { status: enumField({ values: ['draft'] }) },
+				// @ts-expect-error -- Runtime coverage protects values outside the enum domain.
 				default: { status: 'published' },
 			})
 		}).toThrow(
@@ -322,9 +322,9 @@ describe('object fields and list metadata', () => {
 			new TypeError('object field name must be a non-empty string'),
 		)
 		expect(() => {
-			// @ts-expect-error -- Runtime coverage intentionally crosses the field boundary.
 			objectField({
 				fields: {
+					// @ts-expect-error -- Runtime coverage intentionally crosses the field boundary.
 					name: 'string',
 				},
 			})
@@ -356,9 +356,9 @@ describe('object fields and list metadata', () => {
 		}).toThrow(new TypeError('default must be a plain object'))
 
 		expect(() =>
-			// @ts-expect-error -- Runtime coverage protects circular untyped JSON input.
 			objectField({
 				fields: { payload: jsonField() },
+				// @ts-expect-error -- Runtime coverage protects circular untyped JSON input.
 				default: { payload: circular },
 			}),
 		).toThrow(
@@ -368,9 +368,9 @@ describe('object fields and list metadata', () => {
 		)
 
 		expect(() =>
-			// @ts-expect-error -- Runtime coverage protects forged structured defaults.
 			objectField({
 				fields: { updatedAt: dateField() },
+				// @ts-expect-error -- Runtime coverage protects forged structured defaults.
 				default: { updatedAt: new Date(Number.NaN) },
 			}),
 		).toThrow(new TypeError('default.updatedAt must be a calendar date string'))

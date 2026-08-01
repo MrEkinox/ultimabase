@@ -77,7 +77,14 @@ const normalizeDateFieldOptions = <const TOptions extends DateFieldOptions>(
 	)
 }
 
-/** Creates immutable calendar-day metadata with canonical value snapshots. */
+/**
+ * Declares a calendar day in canonical `YYYY-MM-DD` form without a time of day.
+ *
+ * @example
+ * ```ts
+ * dateField({ default: "2026-08-01" })
+ * ```
+ */
 export const dateField: ScalarFieldFactory<'date', string, DateFieldOptions> =
 	createScalarFieldFactory(
 		'date',

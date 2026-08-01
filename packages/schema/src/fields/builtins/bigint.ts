@@ -25,10 +25,15 @@ export type BigintValidationOptions = NumericValidationOptions<bigint>
 /**
  * Adds sequence metadata to the exact bigint field contract.
  */
-export type BigintFieldOptions = FieldOptions<
+export interface BigintFieldOptions extends FieldOptions<
 	bigint,
 	BigintValidationOptions
-> & {
+> {
+	/**
+	 * Requests a database-generated sequence value from adapters that support it.
+	 *
+	 * @example `autoIncrement: true`
+	 */
 	readonly autoIncrement?: boolean
 }
 
@@ -59,7 +64,14 @@ const normalizeBigintFieldOptions = <const TOptions extends BigintFieldOptions>(
 	)
 }
 
-/** Creates immutable bigint metadata with optional sequence ownership. */
+/**
+ * Declares an exact native `bigint` for integer values outside JavaScript's safe-number range.
+ *
+ * @example
+ * ```ts
+ * bigintField({ default: 9_007_199_254_740_993n })
+ * ```
+ */
 export const bigintField: ScalarFieldFactory<
 	'bigint',
 	bigint,

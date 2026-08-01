@@ -60,11 +60,11 @@ test('checks runtime factory outputs against every field value', () => {
 		// @ts-expect-error -- List factories must preserve the field's scalar type.
 		default: () => [1],
 	})
-	// @ts-expect-error -- Object factories must preserve the nested field shape.
 	objectField({
 		fields: {
 			name: stringField(),
 		},
+		// @ts-expect-error -- Object factories must preserve the nested field shape.
 		default: () => ({ name: false }),
 	})
 })

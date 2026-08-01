@@ -2,7 +2,10 @@
 
 A schema can combine portable field metadata without choosing a database
 representation. Database plugins later translate these declarations for their
-own adapter.
+own adapter. Every inline field declaration is contextually typed, so the
+editor suggests both common options and kind-specific options such as
+`autoIncrement`, `autoNow`, or `timezone`. Hovering a factory or option shows
+its value semantics, important restrictions, and a focused example.
 
 ```ts
 import {

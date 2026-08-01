@@ -51,10 +51,10 @@ test('rejects incompatible integer metadata', () => {
 	// @ts-expect-error -- Range boundaries must be JavaScript numbers.
 	intField({ validation: { range: { min: '0' } } })
 
+	// @ts-expect-error -- Required fields cannot also be nullable.
 	intField({
 		validation: {
 			required: true,
-			// @ts-expect-error -- Required fields cannot also be nullable.
 			nullable: true,
 		},
 	})

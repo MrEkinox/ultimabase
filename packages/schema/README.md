@@ -136,7 +136,14 @@ replacement item during update.
 - `FieldDefinition<TKind, TValue, TOptions>` preserves the literal field kind, its base value type, and its exact readonly options for later schema inference.
 
 Concrete field factories construct, validate, and freeze their runtime metadata
-in their dedicated implementations.
+in their dedicated implementations. Named option and validation interfaces keep
+the public declarations readable and make future documentation local to the
+property it describes. Inline options remain contextually typed through one
+exact-options generic, so editors suggest the complete option set while
+TypeScript preserves literal values and nested object-field inference.
+Dependent rules such as `required` with `nullable` and `autoNow` with a default
+or list are checked outside the contextual option object. Hover information
+documents every built-in factory and option with a focused declaration example.
 
 ## Indexes
 

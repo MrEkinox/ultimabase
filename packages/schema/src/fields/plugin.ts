@@ -10,6 +10,8 @@ import type {
 	FieldDefinition,
 	FieldOptions,
 	FieldValidationOptions,
+	InvalidOptionsArguments,
+	ValidatedFieldOptions,
 } from './base/contract.js'
 
 export type { ReservedFieldKind } from './base/kinds.js'
@@ -59,7 +61,12 @@ export const definePluginField = <
 	kind: AvailablePluginFieldKind<TKind>,
 	options: TOptions,
 	normalizers: PluginFieldNormalizers<TValue, TValidation>,
+	...invalidOptions: InvalidOptionsArguments<
+		ValidatedFieldOptions<NoInfer<TOptions>, TValue>
+	>
 ): PluginFieldDefinition<TKind, TValue, TOptions> => {
+	// The rest parameter keeps invalid plugin metadata out of the public call contract.
+	void invalidOptions
 	assertPluginFieldKind(kind, 'Plugin field kind')
 
 	if (

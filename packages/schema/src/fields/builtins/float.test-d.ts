@@ -61,10 +61,10 @@ test('rejects incompatible float metadata', () => {
 	// @ts-expect-error -- Range boundaries must be JavaScript numbers.
 	floatField({ validation: { range: { min: '0' } } })
 
+	// @ts-expect-error -- Required fields cannot also be nullable.
 	floatField({
 		validation: {
 			required: true,
-			// @ts-expect-error -- Required fields cannot also be nullable.
 			nullable: true,
 		},
 	})

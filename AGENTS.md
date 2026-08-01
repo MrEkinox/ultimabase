@@ -53,6 +53,7 @@ Run or update `yarn constraints` when dependency constraints exist. If a request
 - Do not implement Active Record APIs such as `role.save()`. Persistence always passes through a `RequestEngine`.
 - Never use `any`, whether explicit, implicit, hidden behind an assertion, or exposed through a public API. Use `unknown` plus validation at untrusted boundaries.
 - Type variables and boundaries as precisely as possible. Keep inference when it already produces a precise, verifiable type.
+- Treat autocomplete and hover documentation as part of every public TypeScript API. Prefer named option interfaces, add English JSDoc with focused examples, and protect important editor behavior through TypeScript language-service tests against source and compiled package exports.
 - Every code contribution must include comments written in English. Explain intent, invariants, security boundaries, and non-obvious decisions rather than restating the implementation.
 - Avoid code duplication whenever practical. Reuse focused functions, variables, types, and modules for shared behavior or invariants without abstracting coincidental similarities.
 - Prefer a suitable standard, native, or established-library solution over custom code. Add code only when existing alternatives cannot correctly satisfy the requirement.

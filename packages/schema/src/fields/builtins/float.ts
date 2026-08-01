@@ -20,7 +20,12 @@ export type FloatRangeValidationOptions = NumericRange
 /**
  * Adds finite-value control to the common numeric validation contract.
  */
-export type FloatValidationOptions = NumericValidationOptions & {
+export interface FloatValidationOptions extends NumericValidationOptions {
+	/**
+	 * Rejects `NaN`, `Infinity`, and `-Infinity` when enabled.
+	 *
+	 * @example `finite: true`
+	 */
 	readonly finite?: boolean
 }
 
@@ -63,7 +68,14 @@ const normalizeFloatFieldOptions = <const TOptions extends FloatFieldOptions>(
 	)
 }
 
-/** Creates immutable floating-point metadata without decimal guarantees. */
+/**
+ * Declares a JavaScript floating-point number for approximate numeric values.
+ *
+ * @example
+ * ```ts
+ * floatField({ validation: { finite: true, range: { min: 0, max: 5 } } })
+ * ```
+ */
 export const floatField: ScalarFieldFactory<
 	'float',
 	number,

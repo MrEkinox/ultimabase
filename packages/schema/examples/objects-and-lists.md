@@ -2,6 +2,9 @@
 
 Object fields compose existing field declarations. Reusing one field map keeps
 nested contracts consistent without sharing mutable schema state.
+Inline `objectField` options remain contextually typed, so editors suggest
+`fields`, `typeName`, `list`, `validation`, defaults, indexes, and extensions
+without widening the nested field map.
 
 ```ts
 import {

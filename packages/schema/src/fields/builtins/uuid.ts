@@ -20,7 +20,12 @@ export type UuidVersion = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8
 /**
  * Combines presence rules with an optional accepted UUID version.
  */
-export type UuidValidationOptions = FieldValidationOptions & {
+export interface UuidValidationOptions extends FieldValidationOptions {
+	/**
+	 * Accepts only UUIDs carrying this standard version nibble.
+	 *
+	 * @example `version: 7`
+	 */
 	readonly version?: UuidVersion
 }
 
@@ -56,7 +61,14 @@ const normalizeUuidFieldOptions = <const TOptions extends UuidFieldOptions>(
 ): Readonly<TOptions> =>
 	normalizeFieldOptions(options, normalizeUuidValidation, normalizeStringValue)
 
-/** Creates immutable UUID metadata while preserving version constraints. */
+/**
+ * Declares a canonical UUID string with optional version validation.
+ *
+ * @example
+ * ```ts
+ * uuidField({ indexed: "unique", validation: { required: true, version: 7 } })
+ * ```
+ */
 export const uuidField: ScalarFieldFactory<'uuid', string, UuidFieldOptions> =
 	createScalarFieldFactory(
 		'uuid',

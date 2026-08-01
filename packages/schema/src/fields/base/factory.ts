@@ -1,4 +1,8 @@
-import type { FieldDefinition, ValidatedFieldOptions } from './contract.js'
+import type {
+	FieldDefinition,
+	InvalidOptionsArguments,
+	ValidatedFieldOptions,
+} from './contract.js'
 import {
 	createFieldDefinition,
 	type ScalarValueSnapshot,
@@ -10,6 +14,11 @@ type ScalarFieldOptionsNormalizer<TOptions extends object> = <
 >(
 	options: TDeclaredOptions,
 ) => Readonly<TDeclaredOptions>
+
+type ContextualScalarFieldOptions<
+	TOptions extends object,
+	TDeclaredOptions extends TOptions,
+> = TOptions & TDeclaredOptions
 
 /** Carries option-dependent construction behavior without exposing capabilities. */
 export interface ScalarFieldConfiguration<TOptions extends object> {
@@ -32,10 +41,10 @@ export interface ScalarFieldFactory<
 > {
 	(): FieldDefinition<TKind, TValue, EmptyFieldOptions>
 	<const TDeclaredOptions extends TOptions>(
-		options: TDeclaredOptions &
-			(ValidatedFieldOptions<NoInfer<TDeclaredOptions>, TValue> extends never
-				? never
-				: unknown),
+		options: ContextualScalarFieldOptions<TOptions, TDeclaredOptions>,
+		...invalidOptions: InvalidOptionsArguments<
+			ValidatedFieldOptions<NoInfer<TDeclaredOptions>, TValue>
+		>
 	): FieldDefinition<TKind, TValue, TDeclaredOptions>
 }
 
@@ -53,14 +62,17 @@ export const createConfiguredScalarFieldFactory = <
 ): ScalarFieldFactory<TKind, TValue, TOptions> => {
 	function scalarField(): FieldDefinition<TKind, TValue, EmptyFieldOptions>
 	function scalarField<const TDeclaredOptions extends TOptions>(
-		options: TDeclaredOptions &
-			(ValidatedFieldOptions<NoInfer<TDeclaredOptions>, TValue> extends never
-				? never
-				: unknown),
+		options: ContextualScalarFieldOptions<TOptions, TDeclaredOptions>,
+		...invalidOptions: InvalidOptionsArguments<
+			ValidatedFieldOptions<NoInfer<TDeclaredOptions>, TValue>
+		>
 	): FieldDefinition<TKind, TValue, TDeclaredOptions>
 	function scalarField(
 		options?: TOptions,
+		...invalidOptions: readonly never[]
 	): FieldDefinition<TKind, TValue, EmptyFieldOptions | TOptions> {
+		// The rest parameter exists only to keep invalid generic calls uncallable.
+		void invalidOptions
 		const declaredOptions = options ?? emptyFieldOptions
 		const { normalizeOptions, snapshotValue } =
 			resolveConfiguration(declaredOptions)

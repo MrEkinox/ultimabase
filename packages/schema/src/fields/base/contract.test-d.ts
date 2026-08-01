@@ -4,6 +4,7 @@ import type {
 	FieldDefinition,
 	FieldOptions,
 	FieldValidationOptions,
+	ValidatedFieldOptions,
 } from '../../index.js'
 
 test('represents every common field option without widening literals', () => {
@@ -56,21 +57,23 @@ test('distinguishes regular, unique, and disabled indexing', () => {
 })
 
 test('rejects contradictory presence and invalid metadata values', () => {
-	// A required field cannot accept null according to the schema data conventions.
-	const invalidPresence: FieldOptions<string> = {
+	const invalidPresence = {
 		validation: {
 			required: true,
-			// @ts-expect-error -- Required and nullable cannot both be true.
 			nullable: true,
 		},
-	}
+	} as const satisfies FieldOptions<string>
 	// Static defaults must match the field's base value type.
 	// @ts-expect-error -- A string field cannot use a numeric default.
 	const invalidDefault: FieldOptions<string> = { default: 42 }
 	// @ts-expect-error -- Unique indexing uses one explicit literal.
 	const invalidIndex: FieldOptions<string> = { indexed: 'non-unique' }
 
-	expectTypeOf(invalidPresence).toEqualTypeOf<FieldOptions<string>>()
+	// Exact factory validation rejects the dependent presence combination.
+	expectTypeOf<
+		ValidatedFieldOptions<typeof invalidPresence, string>
+	>().toBeNever()
+	expectTypeOf(invalidPresence).toExtend<FieldOptions<string>>()
 	expectTypeOf(invalidDefault).toEqualTypeOf<FieldOptions<string>>()
 	expectTypeOf(invalidIndex).toEqualTypeOf<FieldOptions<string>>()
 })
