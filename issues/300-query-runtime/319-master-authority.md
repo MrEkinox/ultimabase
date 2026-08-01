@@ -1,10 +1,10 @@
 # 319: Implement trusted master authority
 
-- Status: planned
+- Status: done
 - Milestone: 3
 - Packages: `@ultimabase/access`, `@ultimabase/runtime`
 - Depends on: 310, 313, 318
-- ADR: ADR-0013
+- ADR: ADR-0013, ADR-0071
 
 ## Goal
 
@@ -12,10 +12,10 @@ Allow trusted server code to execute master operations with a reason while preve
 
 ## Acceptance criteria
 
-- [ ] `useMasterKey` works only through trusted engine authority.
-- [ ] Master usage emits an audit-ready event.
-- [ ] Default bypass excludes validation, SQL constraints, transactions, business hooks, and tenant isolation.
+- [x] `useMasterKey` works only through trusted engine authority.
+- [x] Master usage emits an audit-ready event.
+- [x] Default bypass excludes validation, SQL constraints, transactions, business hooks, and tenant isolation.
 
 ## Tests
 
-- [ ] Forged input and trusted server paths.
+- [x] Forged input and trusted server paths.

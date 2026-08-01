@@ -7,6 +7,8 @@ describe('@ultimabase/access public entry point', () => {
 		expect(Object.keys(publicApi).sort()).toStrictEqual([
 			'RequestCapability',
 			'accessModes',
+			'defaultMasterBypassPolicy',
+			'shouldBypassAccessBoundary',
 		])
 	})
 })

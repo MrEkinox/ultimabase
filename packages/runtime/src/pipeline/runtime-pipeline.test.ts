@@ -3,7 +3,11 @@ import { Query, type FindOperationAst } from '@ultimabase/query'
 import { defineSchema, stringField } from '@ultimabase/schema'
 import { describe, expect, it } from 'vitest'
 
-import { RequestContext, requestSources } from '../context/request-context.js'
+import {
+	createTrustedMasterRequestContext,
+	RequestContext,
+	requestSources,
+} from '../context/request-context.js'
 import type {
 	DatabaseAdapter,
 	DatabaseOperationAst,
@@ -181,6 +185,41 @@ describe('RuntimePipeline', () => {
 			{ kind: 'fixture-field' },
 		])
 		expect(Object.isFrozen(executor.requests[0]?.accessConstraints)).toBe(true)
+	})
+
+	it('keeps validation, business hooks, adapter work, and effects for master', async () => {
+		const trace: string[] = []
+		const executor = new TraceDatabaseExecutor(trace, [])
+		const pipeline = new RuntimePipeline(createStages(trace, executor))
+		const masterContext = createTrustedMasterRequestContext(
+			'audited maintenance',
+			'maintenance',
+			{
+				requestId: 'pipeline-master',
+				source: requestSources.internal,
+			},
+		)
+
+		await pipeline.execute({
+			context: masterContext,
+			operation: articleOperation,
+		})
+
+		// Permission plugins apply the shared bypass policy; Runtime never skips stages.
+		expect(trace).toStrictEqual([
+			'normalization',
+			'structuralValidation',
+			'clp',
+			'acl',
+			'fieldPermissions',
+			'globalBeforeHooks',
+			'schemaBeforeHooks',
+			'databaseOperation',
+			'schemaAfterHooks',
+			'globalAfterHooks',
+			'commit',
+			'postCommitEvents',
+		])
 	})
 
 	it('preserves framework errors and stops every later phase', async () => {

@@ -145,7 +145,9 @@ commit succeeds.
 Access modes are `anonymous`, `user`, and `master`. Request sources such as `rest`, `graphql`, `job`, or `internal` are metadata, not access modes.
 `RequestContext` correlates the mode with immutable request identity, source,
 safe metadata, and identity-based capability tokens. Public construction cannot
-select master mode; Runtime authority adds that audited path separately.
+select master mode. Runtime verifies raw credentials into framework-owned
+opaque grants, audits their use, and creates master engines without retaining
+the credential in request state.
 
 ## Access control
 

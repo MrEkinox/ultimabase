@@ -53,6 +53,7 @@ const emptyMetadata: RequestMetadata = immutableRecord({})
 
 type TrustedMasterContextFactory = <const TSource extends string>(
 	reason: string,
+	keyId: string,
 	options: RequestContextOptions<TSource>,
 ) => RequestContext<MasterRequestAccess, TSource>
 
@@ -139,10 +140,14 @@ const createUserAccess = <const TUserId extends string>(
 	return immutableRecord({ mode: 'user', userId })
 }
 
-const createMasterAccess = (reason: string): MasterRequestAccess => {
+const createMasterAccess = (
+	reason: string,
+	keyId: string,
+): MasterRequestAccess => {
 	assertNonEmptyString(reason, 'Master access reason')
+	assertNonEmptyString(keyId, 'Master access keyId')
 
-	return immutableRecord({ mode: 'master', reason })
+	return immutableRecord({ keyId, mode: 'master', reason })
 }
 
 /**
@@ -201,9 +206,10 @@ export class RequestContext<
 		// The closure can call the private constructor without exposing a public master API.
 		trustedMasterContextFactory = <const TSource extends string>(
 			reason: string,
+			keyId: string,
 			options: RequestContextOptions<TSource>,
 		): RequestContext<MasterRequestAccess, TSource> =>
-			new RequestContext(createMasterAccess(reason), options)
+			new RequestContext(createMasterAccess(reason, keyId), options)
 	}
 }
 
@@ -213,6 +219,7 @@ export class RequestContext<
  */
 export const createTrustedMasterRequestContext = <const TSource extends string>(
 	reason: string,
+	keyId: string,
 	options: RequestContextOptions<TSource>,
 ): RequestContext<MasterRequestAccess, TSource> =>
-	trustedMasterContextFactory(reason, options)
+	trustedMasterContextFactory(reason, keyId, options)

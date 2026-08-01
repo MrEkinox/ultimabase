@@ -17,7 +17,7 @@ export {
 	runWithRequestEngine,
 } from './context/active-framework-context.js'
 export type { ActiveFrameworkContext } from './context/active-framework-context.js'
-// Applications create request-bound engines; trusted master construction stays internal.
+// Applications create request-bound engines; opaque grants protect master construction.
 export { FrameworkEngine, RequestEngine } from './engine/framework-engine.js'
 export type {
 	FrameworkEngineOptions,
@@ -57,6 +57,13 @@ export type {
 } from './hooks/definitions.js'
 export { createRuntimeHookStages } from './hooks/stages.js'
 export type { RuntimeHookStages } from './hooks/stages.js'
+// Raw keys become framework-owned opaque grants before request elevation.
+export { MasterAuthority, MasterKeyGrant } from './master/master-authority.js'
+export type {
+	MasterAccessEvent,
+	MasterAuthorityOptions,
+	MasterKeyDefinition,
+} from './master/master-authority.js'
 // The engine assembles these neutral stages once and every transport uses them.
 export { RuntimePipeline } from './pipeline/runtime-pipeline.js'
 export type {

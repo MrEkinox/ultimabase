@@ -85,8 +85,42 @@ commit, and the transaction engine becomes unusable after the callback.
 `getCurrentEngine()` resolves to the transaction engine inside the callback and
 restores the previous asynchronous scope afterward.
 Nested transactions currently fail with `TRANSACTION_ERROR`; UltimaBase does
-not pretend an adapter supports savepoints. Trusted master request construction
-remains internal until issue 319 adds the audited `useMasterKey` API.
+not pretend an adapter supports savepoints.
+
+## Trusted master authority
+
+Master access starts from a configured `MasterAuthority`. It hashes configured
+keys immediately, requires an audit handler, and turns a matching raw key into
+an opaque grant owned by that exact framework:
+
+```ts
+const masterAuthority = new MasterAuthority({
+	keys: [{ id: 'maintenance-cli', value: env.MASTER_KEY }],
+	onUse: (event) => audit.write(event),
+})
+
+const framework = new FrameworkEngine({
+	application,
+	masterAuthority,
+	pipeline,
+})
+
+const grant = framework.authorizeMasterKey(receivedMasterKey)
+const master = await request.useMasterKey(grant, 'Rebuild article search index')
+
+await master.query(ArticleSchema).find()
+```
+
+The raw key is only a verification input: neither the grant, `RequestContext`,
+nor the audit event retains it. A grant cannot be constructed publicly, cannot
+be shared across framework instances, and must produce a successful audit event
+before `useMasterKey` returns. Master retains the request ID, source, metadata,
+capabilities, transaction lifetime, and application identity.
+
+Master permission plugins bypass CLP, ACL, and field permissions through
+`shouldBypassAccessBoundary` from `@ultimabase/access`. Runtime still executes
+structural validation, business hooks, adapter constraints, transactions,
+commit, and post-commit events. Tenant isolation is explicitly non-bypassable.
 
 ## Hooks and post-commit events
 
@@ -190,10 +224,9 @@ Custom transport plugins may use their own non-empty source literal, such as
 `grpc`. Options, metadata records, access state, capability collections, and
 the context instance are copied or frozen at their boundary.
 
-There is deliberately no public master-context factory yet. Issue 319 will add
-trusted `RequestEngine` elevation with a mandatory reason and an audit-ready
-event; raw master keys will only be verification inputs and will never be
-retained by `RequestContext`.
+There is deliberately no public master-context factory. Master contexts can
+only be produced by `RequestEngine.useMasterKey` after verification through the
+framework-owned authority described above.
 
 ## Database adapter boundary
 

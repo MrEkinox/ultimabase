@@ -16,6 +16,7 @@ test('keeps access modes closed and their authentication data correlated', () =>
 		userId: 'user-1',
 	} satisfies UserRequestAccess<'user-1'>
 	const master = {
+		keyId: 'maintenance',
 		mode: 'master',
 		reason: 'repair tenant data',
 	} satisfies MasterRequestAccess
@@ -27,6 +28,7 @@ test('keeps access modes closed and their authentication data correlated', () =>
 	expectTypeOf(anonymous).not.toHaveProperty('userId')
 	expectTypeOf(user.userId).toEqualTypeOf<'user-1'>()
 	expectTypeOf(master.reason).toBeString()
+	expectTypeOf(master.keyId).toBeString()
 
 	// @ts-expect-error -- There is deliberately no hidden system access mode.
 	const systemMode: AccessMode = 'system'

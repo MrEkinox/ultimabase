@@ -16,12 +16,15 @@ import type { MaybePromise } from '@ultimabase/shared'
 import { isPlainRecord } from '@ultimabase/shared'
 
 import {
-	createTrustedMasterRequestContext,
 	RequestContext,
 	type RequestContextOptions,
 } from '../context/request-context.js'
 import { runWithRequestEngineScope } from '../context/active-framework-storage.js'
 import type { DatabaseOperationResult } from '../database/contracts.js'
+import {
+	MasterAuthority,
+	type MasterKeyGrant,
+} from '../master/master-authority.js'
 import { getOperationSchema } from '../operations/schema.js'
 import { RuntimePipeline } from '../pipeline/runtime-pipeline.js'
 import { runRequestTransaction } from '../transactions/run-transaction.js'
@@ -51,7 +54,29 @@ export interface FrameworkEngineOptions<
 	TPlugins extends readonly PluginDefinition[],
 > {
 	readonly application: FrameworkApplication<TSchemas, TPlugins>
+	readonly masterAuthority?: MasterAuthority
 	readonly pipeline: RuntimePipeline
+}
+
+const frameworkMasterAuthorities = new WeakMap<
+	FrameworkEngine,
+	MasterAuthority
+>()
+
+const getFrameworkMasterAuthority = (
+	framework: FrameworkEngine,
+): MasterAuthority => {
+	const authority = frameworkMasterAuthorities.get(framework)
+
+	if (authority === undefined) {
+		throw new FrameworkError(
+			'PERMISSION_DENIED',
+			'Master authority is not configured for this framework engine.',
+			{ publicMessage: 'Master authority is not available.' },
+		)
+	}
+
+	return authority
 }
 
 /** Rejects malformed low-level construction before it can bind request state. */
@@ -76,6 +101,15 @@ const assertFrameworkEngineOptions = (
 	if (!(untrustedOptions.pipeline instanceof RuntimePipeline)) {
 		throw new TypeError('Framework engine pipeline must be a RuntimePipeline')
 	}
+
+	if (
+		untrustedOptions.masterAuthority !== undefined &&
+		!(untrustedOptions.masterAuthority instanceof MasterAuthority)
+	) {
+		throw new TypeError(
+			'Framework engine masterAuthority must be a MasterAuthority',
+		)
+	}
 }
 
 /**
@@ -96,8 +130,17 @@ export class FrameworkEngine<
 		this.application = options.application
 		this.#pipeline = options.pipeline
 
+		if (options.masterAuthority !== undefined) {
+			frameworkMasterAuthorities.set(this, options.masterAuthority)
+		}
+
 		// Application ownership and execution dependencies remain stable for its lifetime.
 		Object.freeze(this)
+	}
+
+	/** Verifies one raw credential without retaining it in framework state. */
+	authorizeMasterKey(rawKey: string): MasterKeyGrant {
+		return getFrameworkMasterAuthority(this).authorize(rawKey)
 	}
 
 	/** Binds one already validated transport or internal request context. */
@@ -237,6 +280,32 @@ export class RequestEngine<
 			: this.#transactionLifetime.run(executeOperation)
 	}
 
+	/** Produces an audited master engine from an authority-owned opaque grant. */
+	async useMasterKey(
+		grant: MasterKeyGrant,
+		reason: string,
+	): Promise<
+		RequestEngine<
+			TSchemas,
+			TPlugins,
+			RequestContext<MasterRequestAccess, TContext['source']>
+		>
+	> {
+		this.#transactionLifetime?.assertActive()
+
+		const masterContext = await getFrameworkMasterAuthority(
+			this.framework,
+		).elevate(grant, this.context, reason)
+
+		return new RequestEngine(
+			requestEngineConstructionKey,
+			this.framework,
+			masterContext,
+			this.#pipeline,
+			this.#transactionLifetime,
+		)
+	}
+
 	/** Opens one adapter transaction while preserving this context and application. */
 	transaction<TResult>(
 		handler: RequestTransactionHandler<TSchemas, TPlugins, TContext, TResult>,
@@ -272,21 +341,3 @@ export class RequestEngine<
 		)
 	}
 }
-
-/**
- * Gives issue 319 an internal audited elevation path without exporting master
- * engine construction from the package entry point today.
- */
-export const createTrustedMasterRequestEngine = <
-	const TSchemas extends readonly SchemaDefinition[],
-	const TPlugins extends readonly PluginDefinition[],
-	const TSource extends string,
->(
-	framework: FrameworkEngine<TSchemas, TPlugins>,
-	reason: string,
-	options: RequestContextOptions<TSource>,
-): RequestEngine<
-	TSchemas,
-	TPlugins,
-	RequestContext<MasterRequestAccess, TSource>
-> => framework.withContext(createTrustedMasterRequestContext(reason, options))

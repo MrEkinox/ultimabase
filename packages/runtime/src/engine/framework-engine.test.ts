@@ -16,13 +16,10 @@ import type {
 	DatabaseOperationResult,
 	DatabaseTransactionAdapter,
 } from '../database/contracts.js'
+import { MasterAuthority } from '../master/master-authority.js'
 import type { RuntimePipelineStages } from '../pipeline/contracts.js'
 import { RuntimePipeline } from '../pipeline/runtime-pipeline.js'
-import {
-	createTrustedMasterRequestEngine,
-	FrameworkEngine,
-	RequestEngine,
-} from './framework-engine.js'
+import { FrameworkEngine, RequestEngine } from './framework-engine.js'
 
 const articleSchema = defineSchema({
 	className: 'Article',
@@ -119,6 +116,7 @@ const createFixtureFramework = (
 	schema: typeof articleSchema | typeof matchingClassSchema,
 	fixtureResult: unknown = [],
 	contexts: RequestContext[] = [],
+	masterAuthority?: MasterAuthority,
 ): FrameworkEngine<readonly [typeof schema], readonly []> => {
 	const application = new FrameworkApplication({
 		schemas: [schema],
@@ -127,6 +125,7 @@ const createFixtureFramework = (
 
 	return new FrameworkEngine({
 		application,
+		...(masterAuthority === undefined ? {} : { masterAuthority }),
 		pipeline: createPipeline(
 			new FixtureDatabaseExecutor(fixtureResult),
 			contexts,
@@ -272,21 +271,100 @@ describe('FrameworkEngine', () => {
 		)
 	})
 
-	it('keeps trusted master construction internal and reason-bound', () => {
-		const framework = createFixtureFramework(articleSchema)
-		const request = createTrustedMasterRequestEngine(
-			framework,
-			'backfill verified articles',
-			{
-				requestId: 'master-1',
-				source: requestSources.internal,
+	it('elevates only authority-owned grants after emitting an audit event', async () => {
+		const events: unknown[] = []
+		const contexts: RequestContext[] = []
+		const authority = new MasterAuthority({
+			clock: () => new Date('2026-08-01T03:00:00.000Z'),
+			keys: [{ id: 'maintenance', value: 'verified-secret' }],
+			onUse: (event) => {
+				events.push(event)
 			},
+		})
+		const framework = createFixtureFramework(
+			articleSchema,
+			[],
+			contexts,
+			authority,
+		)
+		const request = framework.user('operator-1', {
+			requestId: 'master-1',
+			source: requestSources.internal,
+		})
+		const grant = framework.authorizeMasterKey('verified-secret')
+		const master = await request.useMasterKey(
+			grant,
+			'backfill verified articles',
 		)
 
-		expect(request.context.access).toStrictEqual({
+		expect(master.context.access).toStrictEqual({
+			keyId: 'maintenance',
 			mode: 'master',
 			reason: 'backfill verified articles',
 		})
+		expect(master.context.metadata).toStrictEqual(request.context.metadata)
+		expect(events).toStrictEqual([
+			{
+				keyId: 'maintenance',
+				kind: 'master-access',
+				occurredAt: '2026-08-01T03:00:00.000Z',
+				previousAccess: { mode: 'user', userId: 'operator-1' },
+				reason: 'backfill verified articles',
+				requestId: 'master-1',
+				source: 'internal',
+			},
+		])
+
+		await master.execute(articleOperation)
+		expect(contexts).toStrictEqual([master.context])
+		await master.transaction(async (transaction) => {
+			expect(transaction.context.access.mode).toBe('master')
+			await transaction.execute(articleOperation)
+		})
+	})
+
+	it('rejects raw, forged, and foreign authority input', async () => {
+		const unconfiguredFramework = createFixtureFramework(articleSchema)
+		const firstAuthority = new MasterAuthority({
+			keys: [{ id: 'first', value: 'first-secret' }],
+			onUse: () => undefined,
+		})
+		const secondAuthority = new MasterAuthority({
+			keys: [{ id: 'second', value: 'second-secret' }],
+			onUse: () => undefined,
+		})
+		const firstFramework = createFixtureFramework(
+			articleSchema,
+			[],
+			[],
+			firstAuthority,
+		)
+		const secondFramework = createFixtureFramework(
+			articleSchema,
+			[],
+			[],
+			secondAuthority,
+		)
+		const request = secondFramework.anonymous({
+			requestId: 'master-forgery',
+			source: requestSources.rest,
+		})
+
+		expect(() => unconfiguredFramework.authorizeMasterKey('raw-input')).toThrow(
+			expect.objectContaining({ code: 'PERMISSION_DENIED' }),
+		)
+		expect(() => secondFramework.authorizeMasterKey('first-secret')).toThrow(
+			expect.objectContaining({ code: 'PERMISSION_DENIED' }),
+		)
+		await expect(
+			request.useMasterKey(
+				firstFramework.authorizeMasterKey('first-secret'),
+				'foreign grant',
+			),
+		).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
+		await expect(
+			request.useMasterKey({ keyId: 'second' } as never, 'forged grant'),
+		).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
 	})
 
 	it.concurrent(
@@ -357,6 +435,19 @@ describe('FrameworkEngine', () => {
 				new FrameworkEngine({ application: framework.application }),
 		).toThrow(
 			new TypeError('Framework engine pipeline must be a RuntimePipeline'),
+		)
+		expect(
+			() =>
+				new FrameworkEngine({
+					application: framework.application,
+					// @ts-expect-error -- Runtime validation rejects forged authority objects.
+					masterAuthority: {},
+					pipeline,
+				}),
+		).toThrow(
+			new TypeError(
+				'Framework engine masterAuthority must be a MasterAuthority',
+			),
 		)
 		expect(() =>
 			// @ts-expect-error -- Runtime validation protects JavaScript contexts.

@@ -14,11 +14,15 @@ Keeping neutral contracts here prevents concrete permission plugins from dependi
 type RequestAccess =
 	| { readonly mode: 'anonymous' }
 	| { readonly mode: 'user'; readonly userId: string }
-	| { readonly mode: 'master'; readonly reason: string }
+	| { readonly mode: 'master'; readonly keyId: string; readonly reason: string }
 ```
 
 There is no `system` mode. Authentication credentials remain outside this
 contract; successful authentication contributes only the stable user identity.
+Master authority also identifies the verified key without retaining its raw
+value. `shouldBypassAccessBoundary` gives permission plugins one shared default:
+master bypasses CLP, ACL, and field permissions, but not structural validation,
+SQL constraints, transactions, business hooks, or tenant isolation.
 
 ## Request capabilities
 

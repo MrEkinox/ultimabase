@@ -51,12 +51,17 @@ describe('RequestContext', () => {
 	})
 
 	it('keeps master construction behind the internal trusted boundary', () => {
-		const context = createTrustedMasterRequestContext('repair tenant data', {
-			requestId: 'request-master',
-			source: requestSources.internal,
-		})
+		const context = createTrustedMasterRequestContext(
+			'repair tenant data',
+			'maintenance',
+			{
+				requestId: 'request-master',
+				source: requestSources.internal,
+			},
+		)
 
 		expect(context.access).toStrictEqual({
+			keyId: 'maintenance',
 			mode: 'master',
 			reason: 'repair tenant data',
 		})
@@ -144,10 +149,16 @@ describe('RequestContext', () => {
 			),
 		)
 		expect(() =>
-			createTrustedMasterRequestContext('', {
+			createTrustedMasterRequestContext('', 'maintenance', {
 				requestId: 'request-master',
 				source: requestSources.internal,
 			}),
 		).toThrow(new TypeError('Master access reason must be a non-empty string'))
+		expect(() =>
+			createTrustedMasterRequestContext('repair tenant data', '', {
+				requestId: 'request-master',
+				source: requestSources.internal,
+			}),
+		).toThrow(new TypeError('Master access keyId must be a non-empty string'))
 	})
 })

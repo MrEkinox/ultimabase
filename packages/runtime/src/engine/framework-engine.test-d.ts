@@ -10,12 +10,9 @@ import { defineSchema, stringField, type InferObject } from '@ultimabase/schema'
 import { expectTypeOf, test } from 'vitest'
 
 import type { DatabaseObjectRecord } from '../database/contracts.js'
+import { MasterAuthority } from '../master/master-authority.js'
 import type { RuntimePipeline } from '../pipeline/runtime-pipeline.js'
-import {
-	createTrustedMasterRequestEngine,
-	FrameworkEngine,
-	type RequestEngine,
-} from './framework-engine.js'
+import { FrameworkEngine, type RequestEngine } from './framework-engine.js'
 
 const schema = defineSchema({
 	className: 'TypedArticle',
@@ -40,6 +37,14 @@ declare const pipeline: RuntimePipeline
 
 const framework = new FrameworkEngine({
 	application,
+	pipeline,
+})
+const masterFramework = new FrameworkEngine({
+	application,
+	masterAuthority: new MasterAuthority({
+		keys: [{ id: 'typed', value: 'typed-secret' }],
+		onUse: () => undefined,
+	}),
 	pipeline,
 })
 const multiSchemaFramework = new FrameworkEngine({
@@ -92,12 +97,13 @@ test('keeps bound terminal types exact in multi-schema applications', () => {
 	).toEqualTypeOf<Promise<InferObject<typeof schema>>>()
 })
 
-test('retains the internal trusted master request type', () => {
-	const master = createTrustedMasterRequestEngine(
-		framework,
-		'typed maintenance',
-		{ requestId: 'master-1', source: 'internal' },
-	)
+test('retains trusted master request types through opaque grants', async () => {
+	const request = masterFramework.anonymous({
+		requestId: 'master-1',
+		source: 'internal',
+	})
+	const grant = masterFramework.authorizeMasterKey('typed-secret')
+	const master = await request.useMasterKey(grant, 'typed maintenance')
 
 	expectTypeOf(master.context.access).toEqualTypeOf<MasterRequestAccess>()
 	expectTypeOf(master.context.source).toEqualTypeOf<'internal'>()
