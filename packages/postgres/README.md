@@ -217,6 +217,39 @@ An official migration plugin claims `postgresSchemaPreparationClaimName`
 during setup. This suppresses direct synchronization so exactly one
 database-specific implementation owns the preparation phase.
 
+## Query filter compilation
+
+The internal adapter compiles the normalized `Query` filter tree through
+Drizzle. Equality, ordered comparisons, membership, string matching, regular
+expressions, existence, and nested `and`/`or`/`not` expressions share the same
+parameterized boundary:
+
+```ts
+const query = new Query(ArticleSchema)
+	.equalTo('status', 'published')
+	.greaterThan('views', 1_000)
+	.contains('title', 'Ultima_100%')
+	.matches('slug', {
+		flags: ['case-insensitive'],
+		source: '^release-[0-9]+$',
+	})
+```
+
+Developer values and regex sources never become SQL text. `contains`,
+`startsWith`, and `endsWith` escape PostgreSQL `LIKE` wildcards (`%`, `_`) and
+the escape character, so they retain literal substring semantics.
+
+Regex uses PostgreSQL advanced regular expressions. `case-insensitive` selects
+`~*`; the compiler maps the independent JavaScript-style `multiline` and
+`dot-matches-newline` flags to PostgreSQL newline modes `n`, `s`, `w`, or `p`.
+Invalid regex syntax is reported by PostgreSQL when the query executes. String
+ordering comparisons use the database column's configured collation. See the
+[PostgreSQL pattern-matching reference](https://www.postgresql.org/docs/current/functions-matching.html)
+for the underlying ARE syntax.
+
+This compiler remains internal until the CRUD adapter issue consumes it;
+developers continue to build filters only through `Query`.
+
 ## Table names
 
 PostgreSQL owns physical naming. Without an override, class names use standard

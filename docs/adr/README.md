@@ -82,6 +82,7 @@ Accepted records:
 - [ADR-0080: PostgreSQL index compilation and naming](0080-postgres-index-compilation.md)
 - [ADR-0081: PostgreSQL catalog introspection](0081-postgres-catalog-introspection.md)
 - [ADR-0082: Direct PostgreSQL schema policies](0082-direct-postgres-schema-policies.md)
+- [ADR-0083: Parameterized PostgreSQL filter compilation](0083-parameterized-postgres-filter-compilation.md)
 
 Superseded records:
 
