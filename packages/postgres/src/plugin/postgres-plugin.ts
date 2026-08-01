@@ -1,4 +1,5 @@
 import { definePlugin, type FrameworkPlugin } from '@ultimabase/core'
+import { databaseAdapterServiceToken } from '@ultimabase/runtime'
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 import { Pool } from 'pg'
 
@@ -8,6 +9,8 @@ import {
 	type PostgresPool,
 } from '../connection/contracts.js'
 import { createManagedPostgresConnection } from '../connection/managed-connection.js'
+import { createPostgresDatabaseAdapter } from '../drizzle/adapter.js'
+import { createPostgresDrizzleClient } from '../drizzle/client.js'
 
 /** Creates an application-owned pool from a private connection URL. */
 export interface PostgresUrlOptions {
@@ -52,9 +55,13 @@ const assertPostgresPool: (value: unknown) => asserts value is PostgresPool = (
 		!('connect' in value) ||
 		typeof value.connect !== 'function' ||
 		!('end' in value) ||
-		typeof value.end !== 'function'
+		typeof value.end !== 'function' ||
+		!('query' in value) ||
+		typeof value.query !== 'function'
 	) {
-		throw new TypeError('postgres pool must provide connect() and end()')
+		throw new TypeError(
+			'postgres pool must provide connect(), end(), and query()',
+		)
 	}
 }
 
@@ -126,10 +133,14 @@ export const postgresPlugin = (
 		slot: 'database-adapter',
 		setup: ({ services }) => {
 			const { ownsPool, pool } = createConnectionSource()
-			const connection: PostgresConnectionService =
-				createManagedPostgresConnection(pool, ownsPool)
+			const managedConnection = createManagedPostgresConnection(pool, ownsPool)
+			const adapter = createPostgresDatabaseAdapter(
+				createPostgresDrizzleClient(managedConnection.getPool()),
+			)
+			const connection: PostgresConnectionService = managedConnection
 
 			services.provide(postgresConnectionServiceToken, connection)
+			services.provide(databaseAdapterServiceToken, adapter)
 
 			// Setup exports safe lifecycle control; credentials and driver objects remain private.
 			return immutableRecord({ connection })

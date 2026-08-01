@@ -1,4 +1,8 @@
 import { createApplication } from '@ultimabase/core'
+import {
+	createFrameworkEngine,
+	databaseAdapterServiceToken,
+} from '@ultimabase/runtime'
 import { Pool } from 'pg'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
@@ -30,6 +34,10 @@ class FixturePool implements PostgresPool {
 
 		return Promise.resolve()
 	}
+
+	query(): never {
+		throw new TypeError('Fixture plugin tests do not execute queries')
+	}
 }
 
 afterEach(() => {
@@ -44,9 +52,13 @@ describe('postgresPlugin', () => {
 			plugins: [postgresPlugin({ pool })],
 		})
 		const connection = application.getService(postgresConnectionServiceToken)
+		const adapter = application.getService(databaseAdapterServiceToken)
 
 		expect(application.state).toBe('ready')
 		expect(connection.state).toBe('idle')
+		expect(adapter.kind).toBe('database-adapter')
+		expect(adapter).not.toHaveProperty('getClient')
+		expect(() => createFrameworkEngine(application)).not.toThrow()
 		expect(pool.connectCalls).toBe(0)
 
 		await application.start()
@@ -145,7 +157,7 @@ describe('postgresPlugin', () => {
 			},
 			{
 				create: () => postgresPlugin({ pool: {} } as never),
-				message: 'postgres pool must provide connect() and end()',
+				message: 'postgres pool must provide connect(), end(), and query()',
 			},
 			{
 				create: () =>

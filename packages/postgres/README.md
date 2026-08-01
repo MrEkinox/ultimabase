@@ -60,5 +60,24 @@ Connection URLs, driver messages, and raw pools are excluded from plugin
 metadata and framework errors. Drizzle and concrete `pg` runtime objects are
 not re-exported by this package.
 
-The database adapter and CRUD behavior are implemented by the following
-PostgreSQL issues; this connection contract alone does not persist objects yet.
+## Internal database adapter
+
+Plugin setup wraps the configured query client with Drizzle and registers
+Runtime's `databaseAdapterServiceToken`. This means an application using
+`postgresPlugin` can already assemble its framework engine without manually
+providing an adapter:
+
+```ts
+import { createFrameworkEngine } from '@ultimabase/runtime'
+
+const framework = createFrameworkEngine(application)
+```
+
+The Drizzle client remains inside `@ultimabase/postgres`; neither plugin exports
+nor public declarations expose it. Pool clients borrowed for future
+transactions use the same internal wrapper.
+
+Operation compilers, CRUD execution, and Runtime transactions are implemented
+by the following PostgreSQL issues. Until then, calling an operation reports an
+explicit not-yet-implemented framework error rather than pretending that data
+was persisted.

@@ -1,6 +1,6 @@
 # 502: Add internal Drizzle adapter
 
-- Status: ready
+- Status: done
 - Milestone: 5
 - Packages: `@ultimabase/postgres`
 - Depends on: 501
@@ -12,10 +12,21 @@ Wrap Drizzle around the `pg` pool without exposing Drizzle publicly.
 
 ## Acceptance criteria
 
-- [ ] Drizzle imports remain inside the package.
-- [ ] Public exports contain no Drizzle types.
-- [ ] Existing and transactional clients satisfy internal contracts.
+- [x] Drizzle imports remain inside the package.
+- [x] Public exports contain no Drizzle types.
+- [x] Existing and transactional clients satisfy internal contracts.
 
 ## Tests
 
-- [ ] Public declaration inspection and query smoke test.
+- [x] Public declaration inspection and query smoke test.
+
+## Validation
+
+- A parameterized Drizzle query executes through the package's narrow internal
+  query-client contract.
+- Compile-time tests prove both `pg.Pool` and `pg.PoolClient` satisfy that
+  contract.
+- The built public declaration contains no Drizzle or concrete `pg` imports,
+  while plugin setup registers Runtime's portable database-adapter service.
+- CRUD and Runtime transaction methods fail explicitly until issues 507 and 508
+  implement them.

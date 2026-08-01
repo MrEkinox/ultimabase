@@ -43,6 +43,10 @@ class FixturePool implements PostgresPool {
 			? Promise.resolve()
 			: Promise.reject(this.#options.disposalError)
 	}
+
+	query(): never {
+		throw new TypeError('Fixture connection tests do not execute queries')
+	}
 }
 
 const createDriverError = (message: string, code: string): Error =>

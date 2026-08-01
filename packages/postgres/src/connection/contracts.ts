@@ -12,6 +12,8 @@ export interface PostgresPoolClient {
 export interface PostgresPool {
 	connect(): Promise<PostgresPoolClient>
 	end(): Promise<void>
+	// The opaque signature proves query capability without exposing driver overloads.
+	query(...arguments_: never[]): unknown
 }
 
 /** Exposes lifecycle control while keeping credentials and the driver pool private. */

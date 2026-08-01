@@ -1,6 +1,6 @@
 # 517: Add PostgreSQL table naming
 
-- Status: planned
+- Status: ready
 - Milestone: 5
 - Packages: `@ultimabase/postgres`
 - Depends on: 103, 502

@@ -6,6 +6,8 @@
 		"declarationMap": false,
 		"isolatedDeclarations": false,
 		"noEmit": true,
+		// Tests still check project source while ignoring declarations from optional third-party drivers.
+		"skipLibCheck": true,
 		"types": ["node", "vitest"]
 	},
 	"include": [
