@@ -81,3 +81,34 @@ Operation compilers, CRUD execution, and Runtime transactions are implemented
 by the following PostgreSQL issues. Until then, calling an operation reports an
 explicit not-yet-implemented framework error rather than pretending that data
 was persisted.
+
+## Table names
+
+PostgreSQL owns physical naming. Without an override, class names use standard
+English inflection and plural `snake_case`:
+
+```text
+BlogPost → blog_posts
+Person   → people
+Category → categories
+```
+
+Use `postgresTable` when the database needs an exact identifier:
+
+```ts
+import { postgresTable } from '@ultimabase/postgres'
+import { defineSchema, stringField } from '@ultimabase/schema'
+
+const ArticleSchema = defineSchema({
+	className: 'Article',
+	fields: {
+		title: stringField(),
+	},
+	extensions: [postgresTable({ name: 'ContentItems-v2' })],
+})
+```
+
+The explicit name is preserved verbatim. It is passed to Drizzle as an
+identifier and escaped there, never interpolated into raw SQL. The generic
+extension keeps `@ultimabase/schema` independent from PostgreSQL; configuring
+it without `postgresPlugin` fails application setup.

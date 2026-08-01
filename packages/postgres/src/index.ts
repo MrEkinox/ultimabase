@@ -13,3 +13,8 @@ export type {
 	PostgresPluginOptions,
 	PostgresUrlOptions,
 } from './plugin/postgres-plugin.js'
+export { postgresTable } from './naming/table.js'
+export type {
+	PostgresTableExtension,
+	PostgresTableOptions,
+} from './naming/table.js'

@@ -77,6 +77,7 @@ Accepted records:
 - [ADR-0075: Read-only application service lookup](0075-read-only-application-service-lookup.md)
 - [ADR-0076: Application-owned Runtime assembly](0076-application-runtime-assembly.md)
 - [ADR-0077: PostgreSQL connection ownership and sanitization](0077-postgres-connection-lifecycle.md)
+- [ADR-0078: PostgreSQL-owned physical table naming](0078-postgres-table-naming.md)
 
 Superseded records:
 

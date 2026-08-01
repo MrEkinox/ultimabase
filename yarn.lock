@@ -1619,6 +1619,7 @@ __metadata:
     "@ultimabase/runtime": "workspace:^"
     "@ultimabase/schema": "workspace:^"
     drizzle-orm: "npm:^0.45.2"
+    inflection: "npm:^3.0.2"
     pg: "npm:^8.16.3"
     tsdown: "npm:^0.22.14"
     typescript: "npm:^6.0.3"
@@ -3407,6 +3408,13 @@ __metadata:
   version: 0.1.4
   resolution: "imurmurhash@npm:0.1.4"
   checksum: 10c0/8b51313850dd33605c6c9d3fd9638b714f4c4c40250cff658209f30d40da60f78992fb2df5dabee4acf589a6a82bbc79ad5486550754bd9ec4e3fc0d4a57d6a6
+  languageName: node
+  linkType: hard
+
+"inflection@npm:^3.0.2":
+  version: 3.0.2
+  resolution: "inflection@npm:3.0.2"
+  checksum: 10c0/ac6b635f029b27834313ce30188d74607fe9751c729bf91698675b2fd82489e0195e884d8a9455676064a74b2db77b407d35b56ada0978d0e8194e72202bf7af
   languageName: node
   linkType: hard
 

@@ -3,6 +3,7 @@ import {
 	createFrameworkEngine,
 	databaseAdapterServiceToken,
 } from '@ultimabase/runtime'
+import { defineSchema, stringField } from '@ultimabase/schema'
 import { Pool } from 'pg'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
@@ -11,6 +12,7 @@ import type {
 	PostgresPoolClient,
 } from '../connection/contracts.js'
 import { postgresConnectionServiceToken } from '../connection/contracts.js'
+import { postgresTable } from '../naming/table.js'
 import { postgresPlugin } from './postgres-plugin.js'
 
 /** Supplies a pg-compatible boundary so lifecycle behavior stays focused. */
@@ -131,6 +133,22 @@ describe('postgresPlugin', () => {
 
 		expect(originalPool.connectCalls).toBe(1)
 		expect(replacementPool.connectCalls).toBe(0)
+	})
+
+	it('claims PostgreSQL table-name extensions during application setup', async () => {
+		const schema = defineSchema({
+			className: 'Article',
+			fields: { title: stringField() },
+			extensions: [postgresTable({ name: 'content.Articles' })],
+		})
+		const application = await createApplication({
+			schemas: [schema],
+			plugins: [postgresPlugin({ pool: new FixturePool() })],
+		})
+
+		expect(application.state).toBe('ready')
+
+		await application.dispose()
 	})
 
 	it('rejects ambiguous and malformed JavaScript configuration', () => {

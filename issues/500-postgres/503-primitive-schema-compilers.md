@@ -1,6 +1,6 @@
 # 503: Compile primitive fields to PostgreSQL
 
-- Status: planned
+- Status: ready
 - Milestone: 5
 - Packages: `@ultimabase/postgres`
 - Depends on: 104, 105, 106, 107, 108, 502, 517

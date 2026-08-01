@@ -3,7 +3,7 @@
 - Status: active
 - Started: 2026-08-01
 - Objective owner: project-wide
-- Current issue: `issues/500-postgres/517-table-naming.md`
+- Current issue: `issues/500-postgres/503-primitive-schema-compilers.md`
 
 ## Objective
 
@@ -137,9 +137,9 @@ without reconstructing repository history.
 - 211 — `done` — commit: `4d24000` — Read-only typed service lookup implemented.
 - 323 — `done` — commit: `2635caa` — Application Runtime assembly implemented.
 - 501 — `done` — commit: `68c466d` — Typed pool ownership and lifecycle implemented.
-- 502 — `done` — commit: `this commit` — Internal Drizzle adapter registered.
-- 517 — `ready` — commit: `—` — Drizzle adapter dependency is complete.
-- 503 — `planned` — commit: `—` — Waits for 502 and 517.
+- 502 — `done` — commit: `4f72629` — Internal Drizzle adapter registered.
+- 517 — `done` — commit: `this commit` — PostgreSQL table naming implemented.
+- 503 — `ready` — commit: `—` — Naming and Drizzle dependencies are complete.
 - 504 — `planned` — commit: `—` — Waits for 503.
 - 511 — `planned` — commit: `—` — No longer waits for ACL issue 510.
 - 512 — `planned` — commit: `—` — Waits for 511.

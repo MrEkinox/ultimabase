@@ -1,4 +1,8 @@
-import { definePlugin, type FrameworkPlugin } from '@ultimabase/core'
+import {
+	definePlugin,
+	extensionHandlerKey,
+	type FrameworkPlugin,
+} from '@ultimabase/core'
 import { databaseAdapterServiceToken } from '@ultimabase/runtime'
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 import { Pool } from 'pg'
@@ -9,8 +13,10 @@ import {
 	type PostgresPool,
 } from '../connection/contracts.js'
 import { createManagedPostgresConnection } from '../connection/managed-connection.js'
+import { postgresPluginName, postgresTableExtensionName } from '../constants.js'
 import { createPostgresDatabaseAdapter } from '../drizzle/adapter.js'
 import { createPostgresDrizzleClient } from '../drizzle/client.js'
+import { resolvePostgresTableName } from '../naming/table.js'
 
 /** Creates an application-owned pool from a private connection URL. */
 export interface PostgresUrlOptions {
@@ -33,7 +39,7 @@ export interface PostgresPluginExports {
 }
 
 export type PostgresPlugin = FrameworkPlugin<
-	'@ultimabase/postgres',
+	typeof postgresPluginName,
 	Readonly<PostgresPluginExports>,
 	undefined,
 	undefined,
@@ -129,9 +135,13 @@ export const postgresPlugin = (
 	const createConnectionSource = createConnectionSourceFactory(untrustedOptions)
 
 	return definePlugin({
-		name: '@ultimabase/postgres',
+		name: postgresPluginName,
 		slot: 'database-adapter',
-		setup: ({ services }) => {
+		setup: ({ registries, services }) => {
+			registries.extensions.register(
+				extensionHandlerKey('schema', postgresTableExtensionName),
+				resolvePostgresTableName,
+			)
 			const { ownsPool, pool } = createConnectionSource()
 			const managedConnection = createManagedPostgresConnection(pool, ownsPool)
 			const adapter = createPostgresDatabaseAdapter(
