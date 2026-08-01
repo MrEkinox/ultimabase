@@ -2,6 +2,16 @@
 
 The issue backlog is the executable roadmap. This document only describes milestone intent.
 
+## Current execution priority
+
+Before starting milestone 4 access plugins, complete the access-free
+Runtime-to-PostgreSQL vertical described in [`CURRENT_PLAN.md`](CURRENT_PLAN.md).
+This validates the application, plugin, Query, Runtime, schema-compilation, and
+real database boundaries together before access constraints are added.
+
+Milestone numbers continue to describe architectural ownership rather than a
+strict implementation sequence.
+
 ## Milestone 0 — Repository foundations
 
 Toolchain, package boundaries, CI, public export validation, release workflow, and contribution documentation.

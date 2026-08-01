@@ -3,12 +3,12 @@
 - Status: planned
 - Milestone: 5
 - Packages: `@ultimabase/postgres`
-- Depends on: 501, 503, 504, 510
+- Depends on: 501, 503, 504
 - ADR: ADR-0008
 
 ## Goal
 
-Read normalized tables, columns, defaults, indexes, constraints, and ACL tables from PostgreSQL catalogs.
+Read normalized tables, columns, defaults, indexes, and constraints from PostgreSQL catalogs.
 
 ## Acceptance criteria
 
@@ -19,3 +19,7 @@ Read normalized tables, columns, defaults, indexes, constraints, and ACL tables 
 ## Tests
 
 - [ ] Catalog fixture matrix.
+
+## Out of scope
+
+- ACL table metadata and compilation remain owned by issue 510 and are inspected only when that optional capability is installed.

@@ -3,7 +3,7 @@
 - Status: planned
 - Milestone: 6
 - Packages: all first-release packages
-- Depends on: 415, 508, 509, 515, 516, 602, 606, 607, 615
+- Depends on: 415, 508, 509, 515, 518, 602, 606, 607, 615
 - ADR: all accepted ADRs
 
 ## Goal

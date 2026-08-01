@@ -7,10 +7,11 @@ This file is the operational contract for any coding agent working in this repos
 Before changing code:
 
 1. Read `README.md`, `ARCHITECTURE.md`, and the README of every package in scope.
-2. Read the relevant ADRs under `docs/adr/`.
-3. Pick one issue from `issues/` unless the user explicitly defines a narrower task.
-4. Check the issue dependencies and do not silently implement blocked work.
-5. Inspect the working tree and preserve unrelated user changes.
+2. Read `CURRENT_PLAN.md` when it exists; it records the active multi-issue objective and resume point.
+3. Read the relevant ADRs under `docs/adr/`.
+4. Pick one issue from `issues/` unless the user explicitly defines a narrower task.
+5. Check the issue dependencies and do not silently implement blocked work.
+6. Inspect the working tree and preserve unrelated user changes.
 
 ## Product rules
 

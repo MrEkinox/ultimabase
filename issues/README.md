@@ -2,6 +2,11 @@
 
 This directory is the implementation backlog. Each Markdown file is intentionally small enough to assign to one agent.
 
+The active cross-milestone objective and exact resume order live in
+[`CURRENT_PLAN.md`](../CURRENT_PLAN.md). Milestone numbers describe architectural
+areas; an explicit vertical plan may schedule independent areas in a different
+order without changing package dependency direction.
+
 ## Status
 
 - `ready`: dependencies are satisfied and work may start.
