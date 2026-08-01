@@ -81,4 +81,5 @@ export type {
 	RuntimeResultTransformStage,
 } from './pipeline/contracts.js'
 export { createRuntimeValidationStage } from './validation/runtime-validation.js'
+export type { UuidV7Generator } from './validation/identifier-generator.js'
 export type { RuntimeValidationOptions } from './validation/runtime-validation.js'

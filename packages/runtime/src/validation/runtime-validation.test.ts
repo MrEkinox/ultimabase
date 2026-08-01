@@ -28,6 +28,7 @@ import {
 	uuidField,
 } from '@ultimabase/schema'
 import { isPlainRecord, isUnknownArray } from '@ultimabase/shared'
+import { validate as validateUuid, version as readUuidVersion } from 'uuid'
 import { describe, expect, it, vi } from 'vitest'
 
 import {
@@ -103,9 +104,11 @@ describe('runtime validation', () => {
 	it('applies immutable defaults and one timezone-aware operation clock', async () => {
 		runtimeDefault.mockClear()
 		const clock = vi.fn(() => new Date('2026-07-14T10:11:12.345Z'))
+		const uuidV7Generator = vi.fn(() => '0198a43e-2431-7000-8000-000000000001')
 		const stage = createRuntimeValidationStage({
 			clock,
 			timezone: 'Europe/Paris',
+			uuidV7Generator,
 		})
 		const input = validCreateInput()
 		const operation: CreateOneOperationAst<typeof validationSchema> = {
@@ -120,6 +123,7 @@ describe('runtime validation', () => {
 		expect(normalized.input).toMatchObject({
 			title: 'Valid title',
 			immutableCode: 'public-code',
+			id: '0198a43e-2431-7000-8000-000000000001',
 			sequence: 42,
 			state: 'draft',
 			day: '2026-07-14',
@@ -140,6 +144,9 @@ describe('runtime validation', () => {
 		expect(Object.isFrozen(normalized.input.items)).toBe(true)
 		expect(runtimeDefault).toHaveBeenCalledTimes(1)
 		expect(clock).toHaveBeenCalledTimes(1)
+		expect(uuidV7Generator).toHaveBeenCalledExactlyOnceWith(
+			Date.parse('2026-07-14T10:11:12.345Z'),
+		)
 	})
 
 	it('runs runtime factories per bulk object while sharing one clock instant', async () => {
@@ -166,6 +173,22 @@ describe('runtime validation', () => {
 		)
 		expect(runtimeDefault).toHaveBeenCalledTimes(2)
 		expect(clock).toHaveBeenCalledTimes(1)
+		const identifiers = normalized.inputs.flatMap((input) => {
+			const candidate: unknown = input
+
+			return isPlainRecord(candidate) && typeof candidate.id === 'string'
+				? [candidate.id]
+				: []
+		})
+
+		expect(identifiers).toHaveLength(2)
+		expect(new Set(identifiers)).toHaveLength(2)
+		expect(
+			identifiers.every(
+				(identifier) =>
+					validateUuid(identifier) && readUuidVersion(identifier) === 7,
+			),
+		).toBe(true)
 	})
 
 	it('validates update replacements and appends the trusted update timestamp', async () => {
@@ -245,6 +268,10 @@ describe('runtime validation', () => {
 		const normalizedBulk = await executeStage(stage, bulk)
 
 		expect(normalizedSingular.create).toHaveProperty(
+			'id',
+			expect.stringMatching(/^[0-9a-f-]+$/u),
+		)
+		expect(normalizedSingular.create).toHaveProperty(
 			'createdAt',
 			'2026-01-01T00:00:00.000Z',
 		)
@@ -252,6 +279,10 @@ describe('runtime validation', () => {
 			field: 'updatedAt',
 		})
 		expect(normalizedBulk.items[0]?.create).toHaveProperty('sequence', 42)
+		expect(normalizedBulk.items[0]?.create).toHaveProperty(
+			'id',
+			expect.stringMatching(/^[0-9a-f-]+$/u),
+		)
 		expect(normalizedBulk.items[0]?.update.operations.at(-1)).toMatchObject({
 			field: 'updatedAt',
 		})
@@ -488,6 +519,26 @@ describe('runtime validation', () => {
 		).rejects.toMatchObject({ code: 'VALIDATION_ERROR' })
 	})
 
+	it('validates output from an injected UUID v7 generator', async () => {
+		const operation: CreateOneOperationAst<typeof validationSchema> = {
+			kind: 'create-one',
+			schema: schemaNode,
+			input: validCreateInput(),
+		}
+		const stage = createRuntimeValidationStage({
+			uuidV7Generator: () => 'not-a-uuid',
+		})
+
+		await expect(executeStage(stage, operation)).rejects.toMatchObject({
+			code: 'VALIDATION_ERROR',
+			publicDetails: {
+				issues: [
+					expect.objectContaining({ code: 'uuid.type', path: ['input', 'id'] }),
+				],
+			},
+		})
+	})
+
 	it('rejects malformed JavaScript options at the application boundary', () => {
 		expect(() => createRuntimeValidationStage(null as never)).toThrow(
 			new TypeError('Runtime validation options must be a plain object'),
@@ -500,6 +551,9 @@ describe('runtime validation', () => {
 		expect(() =>
 			createRuntimeValidationStage({ clock: true } as never),
 		).toThrow(new TypeError('Runtime validation clock must be a function'))
+		expect(() =>
+			createRuntimeValidationStage({ uuidV7Generator: true } as never),
+		).toThrow(new TypeError('Runtime UUID v7 generator must be a function'))
 		expect(() => createRuntimeValidationStage({ timezone: '' })).toThrow(
 			new TypeError('Runtime validation timezone must be a non-empty string'),
 		)

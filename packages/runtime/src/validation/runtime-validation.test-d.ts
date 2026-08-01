@@ -4,11 +4,12 @@ import type { MaybePromise } from '@ultimabase/shared'
 import { expectTypeOf } from 'vitest'
 
 import { RequestContext, requestSources } from '../context/request-context.js'
-import type { RuntimeOperationTransformStage } from '../pipeline/contracts.js'
 import {
 	createRuntimeValidationStage,
 	type RuntimeValidationOptions,
-} from './runtime-validation.js'
+	type UuidV7Generator,
+} from '../index.js'
+import type { RuntimeOperationTransformStage } from '../pipeline/contracts.js'
 
 const schema = defineSchema({
 	className: 'TypedRuntimeValidation',
@@ -28,6 +29,8 @@ const context = RequestContext.anonymous({
 const options = {
 	clock: () => new Date(),
 	timezone: 'UTC',
+	uuidV7Generator: (() =>
+		'0198a43e-2431-7000-8000-000000000001') satisfies UuidV7Generator,
 } satisfies RuntimeValidationOptions
 const stage = createRuntimeValidationStage(options)
 

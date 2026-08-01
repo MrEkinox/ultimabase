@@ -55,3 +55,9 @@ Static and runtime defaults, nested object/list rules, scalar constraints,
 clock instant is reused across an entire bulk operation. Validation failures
 use `VALIDATION_ERROR` and expose immutable issue paths such as
 `["inputs", 2, "profile", "name"]`; master authority does not skip them.
+
+Every create branch also receives its reserved UUID v7 `id` before database
+execution. Distinct millisecond timestamps preserve UUID v7 lexical ordering;
+IDs from one millisecond remain collision-resistant but do not promise a strict
+creation order. Tests may inject a deterministic `uuidV7Generator` through the
+same validation-stage options.

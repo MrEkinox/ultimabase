@@ -41,6 +41,21 @@ default factories execute once per created object. Auto-increment values and
 adapter-specific default expressions stay database-owned. Master authority
 does not bypass this phase.
 
+The same stage generates the reserved `id` from Schema's framework-owned
+`uuidVersion: 7` metadata. Production uses the maintained `uuid` package's
+cryptographic UUID v7 generator. Tests can provide a deterministic fixture
+without changing application code:
+
+```ts
+const structuralValidation = createRuntimeValidationStage({
+	uuidV7Generator: () => '0198a43e-2431-7000-8000-000000000001',
+})
+```
+
+Injected output is still validated as the system UUID field. Distinct
+millisecond timestamps retain UUID v7 ordering, while values generated inside
+one millisecond intentionally carry no strict ordering promise.
+
 ## Framework and request engines
 
 `FrameworkEngine` owns one application's pipeline. It creates a new immutable

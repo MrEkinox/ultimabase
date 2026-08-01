@@ -30,16 +30,20 @@ import {
 	projectOperationTemporalValues,
 	type OperationTemporalValues,
 } from './operation-clock.js'
+import { generateUuidV7, type UuidV7Generator } from './identifier-generator.js'
 
 /** Configures one application-scoped validation stage and operation clock. */
 export interface RuntimeValidationOptions {
 	readonly clock?: () => Date
 	readonly timezone?: string
+	readonly uuidV7Generator?: UuidV7Generator
 }
 
 interface ValidationExecution {
 	readonly issues: ValidationIssue<AnyValidationIssueCode>[]
 	readonly temporal: OperationTemporalValues
+	readonly timestamp: number
+	readonly uuidV7Generator: UuidV7Generator
 }
 
 interface ValidValue {
@@ -73,7 +77,7 @@ const mutationKinds = new Set<OperationKind>([
 	'upsert-many',
 ])
 const updateKinds = new Set(['decrement', 'increment', 'set', 'unset'])
-const validationOptionKeys = new Set(['clock', 'timezone'])
+const validationOptionKeys = new Set(['clock', 'timezone', 'uuidV7Generator'])
 const emptyValidationOptions: RuntimeValidationOptions = immutableRecord({})
 
 const createIssue = (
@@ -163,7 +167,7 @@ const snapshotScalarValue = (
 
 const resolveMissingValue = (
 	field: GenericField,
-	temporal: OperationTemporalValues,
+	execution: ValidationExecution,
 ): MissingValueResolution => {
 	if ('default' in field.options) {
 		const declaredDefault: unknown = field.options.default
@@ -179,6 +183,7 @@ const resolveMissingValue = (
 
 	if ('autoNow' in field.options && field.options.autoNow === true) {
 		const timezone = fieldUsesTemporalTimezone(field)
+		const { temporal } = execution
 
 		return {
 			found: true,
@@ -196,7 +201,20 @@ const resolveMissingValue = (
 	}
 
 	if ('generatedOn' in field.options && field.kind === 'dateTime') {
-		return { found: true, value: temporal.dateTimeWithTimezone }
+		return { found: true, value: execution.temporal.dateTimeWithTimezone }
+	}
+
+	if (
+		'generatedOn' in field.options &&
+		field.options.generatedOn === 'create' &&
+		field.kind === 'uuid' &&
+		'uuidVersion' in field.options &&
+		field.options.uuidVersion === 7
+	) {
+		return {
+			found: true,
+			value: execution.uuidV7Generator(execution.timestamp),
+		}
 	}
 
 	// Auto-increment and future database extensions intentionally remain adapter-owned.
@@ -326,7 +344,7 @@ const validateObjectValue = (
 		}
 
 		const resolved = allowDefaults
-			? resolveMissingValue(plan.field, execution.temporal)
+			? resolveMissingValue(plan.field, execution)
 			: { found: false as const }
 
 		if (resolved.found) {
@@ -711,11 +729,19 @@ export const createRuntimeValidationStage = (
 		throw new TypeError('Runtime validation clock must be a function')
 	}
 
+	if (
+		options.uuidV7Generator !== undefined &&
+		typeof options.uuidV7Generator !== 'function'
+	) {
+		throw new TypeError('Runtime UUID v7 generator must be a function')
+	}
+
 	const timezone = options.timezone ?? 'UTC'
 	assertNonEmptyString(timezone, 'Runtime validation timezone')
 
 	const formatter = createApplicationTimezoneFormatter(timezone)
 	const clock = options.clock ?? (() => new Date())
+	const uuidV7Generator = options.uuidV7Generator ?? generateUuidV7
 	const plansBySchema = new WeakMap<object, SchemaValidationPlans>()
 
 	return <const TOperation extends DatabaseOperationAst>(
@@ -735,9 +761,12 @@ export const createRuntimeValidationStage = (
 			plansBySchema.set(schema, plans)
 		}
 
+		const instant = clock()
 		const execution: ValidationExecution = {
 			issues: [],
-			temporal: projectOperationTemporalValues(clock(), formatter),
+			temporal: projectOperationTemporalValues(instant, formatter),
+			timestamp: instant.getTime(),
+			uuidV7Generator,
 		}
 
 		return normalizeMutationOperation(operation, plans, execution)

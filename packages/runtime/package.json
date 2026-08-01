@@ -28,7 +28,8 @@
 		"@ultimabase/core": "workspace:^",
 		"@ultimabase/query": "workspace:^",
 		"@ultimabase/schema": "workspace:^",
-		"@ultimabase/shared": "workspace:^"
+		"@ultimabase/shared": "workspace:^",
+		"uuid": "^14.0.1"
 	},
 	"devDependencies": {
 		"@types/node": "^24.0.0",

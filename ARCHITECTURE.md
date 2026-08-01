@@ -147,7 +147,8 @@ plans, traverses structured values, and delegates scalar snapshots and
 constraints back to the declared field contract. Every mutation receives one
 application-timezone clock instant for defaults and automatic timestamps.
 Validation remains mandatory for master requests and precedes permissions and
-business hooks.
+business hooks. The framework-owned `id` is generated there as a UUID v7 from
+the same instant before an adapter receives a create branch.
 
 Access modes are `anonymous`, `user`, and `master`. Request sources such as `rest`, `graphql`, `job`, or `internal` are metadata, not access modes.
 `RequestContext` correlates the mode with immutable request identity, source,
