@@ -26,6 +26,10 @@ import type {
 	CompiledPostgresField,
 	CompiledPostgresSchema,
 } from '../schema/contracts.js'
+import {
+	compilePostgresSelection,
+	resolveCompiledPostgresField,
+} from '../schema/field.js'
 import { compilePostgresFilter } from './filter-compiler.js'
 
 /** Collects query fragments reused later by read, update, and delete builders. */
@@ -37,21 +41,6 @@ export interface CompiledPostgresQueryClauses {
 	readonly where?: SQL
 }
 
-const resolveField = (
-	schema: CompiledPostgresSchema,
-	fieldName: string,
-): CompiledPostgresField => {
-	const field = schema.fields[fieldName]
-
-	if (field === undefined) {
-		throw new TypeError(
-			`PostgreSQL query references missing field: ${fieldName}`,
-		)
-	}
-
-	return field
-}
-
 const compileSelection = <TSchema extends SchemaDefinition>(
 	query: QueryAst<TSchema, QueryFilterNode<TSchema>>,
 	schema: CompiledPostgresSchema,
@@ -60,13 +49,7 @@ const compileSelection = <TSchema extends SchemaDefinition>(
 		query.selection.fields.length === 0
 			? Object.keys(schema.fields)
 			: query.selection.fields.map(({ field }) => field)
-	const selection: Record<string, PgColumn> = {}
-
-	for (const name of names) {
-		selection[name] = resolveField(schema, name).column
-	}
-
-	return immutableRecord(selection)
+	return compilePostgresSelection(schema, names)
 }
 
 const compileOrderBy = (
@@ -75,7 +58,7 @@ const compileOrderBy = (
 ): readonly SQL[] =>
 	immutableArray(
 		orders.map((order) => {
-			const column = resolveField(schema, order.field).column
+			const column = resolveCompiledPostgresField(schema, order.field).column
 
 			// Explicit null placement makes cursor predicates independent from defaults.
 			return order.direction === 'ascending'
@@ -173,7 +156,7 @@ const compileCursorPredicate = (
 			throw new TypeError('PostgreSQL cursor payload is missing an order value')
 		}
 
-		const field = resolveField(schema, order.field)
+		const field = resolveCompiledPostgresField(schema, order.field)
 		const comparison = compileAfterCursorValue(
 			field,
 			order.direction,

@@ -77,10 +77,56 @@ The Drizzle client remains inside `@ultimabase/postgres`; neither plugin exports
 nor public declarations expose it. Pool clients borrowed for future
 transactions use the same internal wrapper.
 
-Operation compilers, CRUD execution, and Runtime transactions are implemented
-by the following PostgreSQL issues. Until then, calling an operation reports an
-explicit not-yet-implemented framework error rather than pretending that data
-was persisted.
+Singular CRUD operations now execute through this adapter. Bulk operations,
+upserts, and explicit Runtime transactions remain separate work; calling one of
+those paths reports an explicit not-yet-implemented framework error rather than
+pretending that data was persisted.
+
+## Singular CRUD
+
+After `application.start()` prepares the static schemas, a Runtime request can
+create, read, filter, project, update, and delete PostgreSQL rows without SQL or
+Drizzle in developer code:
+
+```ts
+import { createFrameworkEngine, requestSources } from '@ultimabase/runtime'
+
+const framework = createFrameworkEngine(application)
+const request = framework.anonymous({
+	requestId: 'article-crud',
+	source: requestSources.internal,
+})
+
+const created = await request.query(ArticleSchema).create({
+	title: 'Runtime to PostgreSQL',
+})
+
+const found = await request
+	.query(ArticleSchema)
+	.equalTo('id', created.id)
+	.select('id', 'title')
+	.first()
+
+const updated = await request
+	.query(ArticleSchema)
+	.equalTo('id', created.id)
+	.updateOne({ set: { title: 'Updated' } })
+
+const deleted = await request
+	.query(ArticleSchema)
+	.equalTo('id', created.id)
+	.deleteOne()
+```
+
+Runtime generates UUID v7 identifiers and automatic timestamps once; the
+adapter persists those exact normalized values. `first`, `get`, `updateOne`,
+and `deleteOne` return `null` when no row matches. Update and delete select their
+deterministic first target inside the mutation statement, avoiding a separate
+read race.
+
+This public flow is implemented. Its live Testcontainers proof is owned by the
+worker-isolation and E2E issues that follow. Bulk operations, upserts, explicit
+transactions, and resumed opaque cursor tokens are not yet executable.
 
 ## Primitive schema compilation
 

@@ -1,4 +1,5 @@
 import { FrameworkError } from '@ultimabase/core'
+import type { ExecutableOperationAst } from '@ultimabase/query'
 import type {
 	DatabaseAdapter,
 	DatabaseOperationAst,
@@ -9,7 +10,7 @@ import type {
 import { isPlainRecord } from '@ultimabase/shared'
 
 import type { PostgresDrizzleClient } from './client.js'
-import type { CompiledPostgresSchema } from '../schema/contracts.js'
+import { executePostgresOperation } from './operation-executor.js'
 import type { PostgresSchemaCatalog } from '../schema/catalog.js'
 
 const readOperationSchema = (operation: DatabaseOperationAst): unknown => {
@@ -33,27 +34,22 @@ const readOperationSchema = (operation: DatabaseOperationAst): unknown => {
 	return undefined
 }
 
-/** Marks the explicit boundary that later operation compilers will implement. */
-const executePendingOperation = <const TOperation extends DatabaseOperationAst>(
-	_client: PostgresDrizzleClient,
-	_schema: CompiledPostgresSchema,
-	request: DatabaseOperationRequest<TOperation>,
-): Promise<DatabaseOperationResult<TOperation>> =>
-	Promise.reject(
-		new FrameworkError(
+const assertNoAccessConstraints = (request: DatabaseOperationRequest): void => {
+	if (request.accessConstraints.length > 0) {
+		throw new FrameworkError(
 			'INTERNAL_ERROR',
-			`PostgreSQL operation is not implemented yet: ${request.operation.kind}`,
+			'PostgreSQL cannot compile the requested access constraints.',
 			{
 				publicMessage: 'The database operation is not available.',
 				internalDetails: {
-					kind: 'postgres-operation-not-implemented',
-					operation: request.operation.kind,
+					kind: 'postgres-access-constraint-unsupported',
 				},
 			},
-		),
-	)
+		)
+	}
+}
 
-/** Retains the Drizzle client until operation compilers populate execution. */
+/** Binds one private Drizzle client to the application's compiled schemas. */
 class DrizzlePostgresDatabaseAdapter implements DatabaseAdapter {
 	readonly kind = 'database-adapter' as const
 	readonly #client: PostgresDrizzleClient
@@ -64,12 +60,21 @@ class DrizzlePostgresDatabaseAdapter implements DatabaseAdapter {
 		this.#schemas = schemas
 	}
 
-	execute<const TOperation extends DatabaseOperationAst>(
+	async execute<const TOperation extends DatabaseOperationAst>(
 		request: DatabaseOperationRequest<TOperation>,
 	): Promise<DatabaseOperationResult<TOperation>> {
+		assertNoAccessConstraints(request)
 		const schema = this.#schemas.get(readOperationSchema(request.operation))
+		// Runtime guarantees the closed Operation AST union before the adapter boundary.
+		const operation = request.operation as unknown as ExecutableOperationAst
+		const result: unknown = await executePostgresOperation(
+			this.#client,
+			schema,
+			operation,
+		)
 
-		return executePendingOperation(this.#client, schema, request)
+		// Exhaustive operation dispatch preserves Runtime's discriminant-to-result contract.
+		return result as DatabaseOperationResult<TOperation>
 	}
 
 	beginTransaction(): Promise<DatabaseTransactionAdapter> {

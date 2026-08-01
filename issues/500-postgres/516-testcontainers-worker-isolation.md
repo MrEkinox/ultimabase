@@ -1,6 +1,6 @@
 # 516: Add PostgreSQL Testcontainers worker isolation
 
-- Status: planned
+- Status: ready
 - Milestone: 5
 - Packages: `@ultimabase/testing`, `@ultimabase/postgres`
 - Depends on: 004, 501, 507

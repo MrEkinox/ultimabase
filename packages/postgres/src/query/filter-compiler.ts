@@ -32,6 +32,7 @@ import type {
 	CompiledPostgresField,
 	CompiledPostgresSchema,
 } from '../schema/contracts.js'
+import { resolveCompiledPostgresField } from '../schema/field.js'
 
 type RuntimePrimitiveFilter =
 	| QueryComparisonFilterNode
@@ -45,21 +46,6 @@ type RuntimeFilter = QueryFilterExpression<RuntimePrimitiveFilter>
 
 const trueExpression = sql<boolean>`true`
 const falseExpression = sql<boolean>`false`
-
-const resolveField = (
-	schema: CompiledPostgresSchema,
-	fieldName: string,
-): CompiledPostgresField => {
-	const field = schema.fields[fieldName]
-
-	if (field === undefined) {
-		throw new TypeError(
-			`PostgreSQL query references missing field: ${fieldName}`,
-		)
-	}
-
-	return field
-}
 
 const encodeValue = (field: CompiledPostgresField, value: unknown): unknown =>
 	value === null ? null : field.codec.encode(value)
@@ -179,7 +165,7 @@ const compilePrimitive = (
 	filter: RuntimePrimitiveFilter,
 	schema: CompiledPostgresSchema,
 ): SQL => {
-	const field = resolveField(schema, filter.field)
+	const field = resolveCompiledPostgresField(schema, filter.field)
 
 	switch (filter.kind) {
 		case 'equal':
