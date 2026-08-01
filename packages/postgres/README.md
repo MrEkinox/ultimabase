@@ -134,6 +134,31 @@ membership validation, which keeps enum-value changes independent from native
 PostgreSQL enum migrations. Structured JSONB codecs preserve nested bigints,
 binary values, and canonical temporal strings losslessly.
 
+## Index compilation
+
+Field and composite indexes use the storage-neutral Schema API:
+
+```ts
+const ArticleSchema = defineSchema({
+	className: 'Article',
+	fields: {
+		authorId: stringField(),
+		slug: stringField({ indexed: 'unique' }),
+	},
+	indexes: [
+		{ fields: ['authorId', 'createdAt'] },
+		{ fields: ['authorId', 'slug'], unique: true },
+	],
+})
+```
+
+PostgreSQL compiles these declarations into ordinary or unique Drizzle index
+metadata during `createApplication()`. Physical names are deterministic,
+collision-resistant, and limited to PostgreSQL's 63-byte identifier boundary.
+The field tuple of every unique index remains available inside the adapter for
+future upsert conflict targets; developers never import or name a Drizzle
+index.
+
 ## Table names
 
 PostgreSQL owns physical naming. Without an override, class names use standard

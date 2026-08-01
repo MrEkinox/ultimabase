@@ -1,6 +1,5 @@
 import type { FieldValidationPlan } from '@ultimabase/schema'
-import type { PgColumn } from 'drizzle-orm/pg-core'
-import type { PgTable } from 'drizzle-orm/pg-core'
+import type { Index, PgColumn, PgTable } from 'drizzle-orm/pg-core'
 
 import type { PostgresValueCodec } from './value-codec.js'
 
@@ -33,8 +32,17 @@ export interface CompiledPostgresField {
 	readonly storage: PostgresStorageKind
 }
 
+/** Retains normalized index fields for later conflict-target compilation. */
+export interface CompiledPostgresIndex {
+	readonly fields: readonly [string, ...string[]]
+	readonly index: Index
+	readonly name: string
+	readonly unique: boolean
+}
+
 /** Keeps one schema's internal Drizzle table and field lookup together. */
 export interface CompiledPostgresSchema {
 	readonly fields: Readonly<Record<string, CompiledPostgresField>>
+	readonly indexes: readonly CompiledPostgresIndex[]
 	readonly table: PgTable
 }

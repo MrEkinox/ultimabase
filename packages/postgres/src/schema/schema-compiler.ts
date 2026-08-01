@@ -3,7 +3,7 @@ import {
 	type FieldValidationPlan,
 	type SchemaDefinition,
 } from '@ultimabase/schema'
-import { immutableRecord } from '@ultimabase/shared'
+import { immutableArray, immutableRecord } from '@ultimabase/shared'
 import {
 	getTableConfig,
 	pgTable,
@@ -14,9 +14,11 @@ import {
 import { resolvePostgresTableName } from '../naming/table.js'
 import type {
 	CompiledPostgresField,
+	CompiledPostgresIndex,
 	CompiledPostgresSchema,
 } from './contracts.js'
 import { compilePostgresFieldBuilder } from './field-compiler.js'
+import { compilePostgresIndexBuilders } from './index-compiler.js'
 
 const hasIndex = (plan: FieldValidationPlan): boolean =>
 	'indexed' in plan.field.options &&
@@ -88,8 +90,12 @@ export const compilePostgresSchema = (
 		string,
 		PgColumnBuilderBase
 	>
-	const table = pgTable(resolvePostgresTableName(schema), builders)
-	const columns = indexColumnsByName(getTableConfig(table).columns)
+	const tableName = resolvePostgresTableName(schema)
+	const table = pgTable(tableName, builders, (columns) =>
+		compilePostgresIndexBuilders(tableName, schema.indexes, columns),
+	)
+	const tableConfig = getTableConfig(table)
+	const columns = indexColumnsByName(tableConfig.columns)
 	const fields = immutableRecord(
 		Object.fromEntries(
 			pendingFields.map(([fieldName, pending]) => {
@@ -104,5 +110,25 @@ export const compilePostgresSchema = (
 		) as Record<string, CompiledPostgresField>,
 	)
 
-	return immutableRecord({ fields, table })
+	const indexes = immutableArray(
+		schema.indexes.map((definition, position): CompiledPostgresIndex => {
+			const compiledIndex = tableConfig.indexes[position]
+			const name = compiledIndex?.config.name
+
+			if (compiledIndex === undefined || name === undefined) {
+				throw new TypeError(
+					`Drizzle omitted PostgreSQL index at position: ${String(position)}`,
+				)
+			}
+
+			return immutableRecord({
+				fields: definition.fields,
+				index: compiledIndex,
+				name,
+				unique: definition.unique,
+			})
+		}),
+	)
+
+	return immutableRecord({ fields, indexes, table })
 }
