@@ -29,6 +29,7 @@
 		"@ultimabase/query": "workspace:^",
 		"@ultimabase/runtime": "workspace:^",
 		"@ultimabase/schema": "workspace:^",
+		"@ultimabase/shared": "workspace:^",
 		"drizzle-orm": "^0.45.2",
 		"inflection": "^3.0.2",
 		"pg": "^8.16.3"

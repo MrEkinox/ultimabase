@@ -3,7 +3,7 @@ import {
 	createFrameworkEngine,
 	databaseAdapterServiceToken,
 } from '@ultimabase/runtime'
-import { defineSchema, stringField } from '@ultimabase/schema'
+import { defineSchema, objectField, stringField } from '@ultimabase/schema'
 import { Pool } from 'pg'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
@@ -149,6 +149,28 @@ describe('postgresPlugin', () => {
 		expect(application.state).toBe('ready')
 
 		await application.dispose()
+	})
+
+	it('fails setup when PostgreSQL cannot compile nested index metadata', async () => {
+		const schema = defineSchema({
+			className: 'NestedIndex',
+			fields: {
+				profile: objectField({
+					fields: { email: stringField({ indexed: true }) },
+				}),
+			},
+		})
+
+		await expect(
+			createApplication({
+				schemas: [schema],
+				plugins: [postgresPlugin({ pool: new FixturePool() })],
+			}),
+		).rejects.toThrow(
+			new TypeError(
+				'PostgreSQL cannot compile nested index without an extension: profile.email',
+			),
+		)
 	})
 
 	it('rejects ambiguous and malformed JavaScript configuration', () => {

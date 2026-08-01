@@ -82,6 +82,58 @@ by the following PostgreSQL issues. Until then, calling an operation reports an
 explicit not-yet-implemented framework error rather than pretending that data
 was persisted.
 
+## Primitive schema compilation
+
+Plugin setup now compiles every application schema into one private Drizzle
+table catalog. Primitive scalars use their corresponding PostgreSQL types;
+objects, JSON values, and lists of any depth use JSONB. Static defaults become
+column metadata, while developer functions and framework timestamps remain
+Runtime-owned and are never executed by the compiler.
+
+```ts
+import { createApplication } from '@ultimabase/core'
+import { postgresPlugin } from '@ultimabase/postgres'
+import {
+	bigintField,
+	dateTimeField,
+	defineSchema,
+	objectField,
+	stringField,
+} from '@ultimabase/schema'
+
+const EventSchema = defineSchema({
+	className: 'Event',
+	fields: {
+		title: stringField({ validation: { required: true } }),
+		attendees: bigintField({ list: true }),
+		metadata: objectField({
+			fields: { publishedAt: dateTimeField() },
+		}),
+	},
+})
+
+const databaseUrl = process.env.DATABASE_URL
+
+if (databaseUrl === undefined) {
+	throw new TypeError('DATABASE_URL is required')
+}
+
+const application = await createApplication({
+	schemas: [EventSchema],
+	plugins: [postgresPlugin({ url: databaseUrl })],
+})
+```
+
+At this stage `createApplication()` validates and compiles the schema without
+opening the URL connection. The direct schema-policy issue will consume this
+same catalog to create or synchronize real tables; developers will not write
+Drizzle or SQL themselves.
+
+Portable enums currently use `text` plus explicit enum metadata. Runtime owns
+membership validation, which keeps enum-value changes independent from native
+PostgreSQL enum migrations. Structured JSONB codecs preserve nested bigints,
+binary values, and canonical temporal strings losslessly.
+
 ## Table names
 
 PostgreSQL owns physical naming. Without an override, class names use standard

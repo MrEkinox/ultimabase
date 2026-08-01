@@ -17,6 +17,7 @@ import { postgresPluginName, postgresTableExtensionName } from '../constants.js'
 import { createPostgresDatabaseAdapter } from '../drizzle/adapter.js'
 import { createPostgresDrizzleClient } from '../drizzle/client.js'
 import { resolvePostgresTableName } from '../naming/table.js'
+import { PostgresSchemaCatalog } from '../schema/catalog.js'
 
 /** Creates an application-owned pool from a private connection URL. */
 export interface PostgresUrlOptions {
@@ -137,15 +138,18 @@ export const postgresPlugin = (
 	return definePlugin({
 		name: postgresPluginName,
 		slot: 'database-adapter',
-		setup: ({ registries, services }) => {
+		setup: ({ registries, schemas, services }) => {
 			registries.extensions.register(
 				extensionHandlerKey('schema', postgresTableExtensionName),
 				resolvePostgresTableName,
 			)
+			// Compile declaration-only metadata before allocating an owned connection pool.
+			const schemaCatalog = new PostgresSchemaCatalog(schemas.values())
 			const { ownsPool, pool } = createConnectionSource()
 			const managedConnection = createManagedPostgresConnection(pool, ownsPool)
 			const adapter = createPostgresDatabaseAdapter(
 				createPostgresDrizzleClient(managedConnection.getPool()),
+				schemaCatalog,
 			)
 			const connection: PostgresConnectionService = managedConnection
 

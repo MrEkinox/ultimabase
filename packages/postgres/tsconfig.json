@@ -8,6 +8,7 @@
 	},
 	"include": ["src/**/*.ts"],
 	"references": [
+		{ "path": "../shared" },
 		{ "path": "../schema" },
 		{ "path": "../query" },
 		{ "path": "../access" },

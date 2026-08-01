@@ -1618,6 +1618,7 @@ __metadata:
     "@ultimabase/query": "workspace:^"
     "@ultimabase/runtime": "workspace:^"
     "@ultimabase/schema": "workspace:^"
+    "@ultimabase/shared": "workspace:^"
     drizzle-orm: "npm:^0.45.2"
     inflection: "npm:^3.0.2"
     pg: "npm:^8.16.3"

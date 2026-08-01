@@ -1,6 +1,6 @@
 # 504: Compile indexes
 
-- Status: planned
+- Status: ready
 - Milestone: 5
 - Packages: `@ultimabase/postgres`
 - Depends on: 114, 503

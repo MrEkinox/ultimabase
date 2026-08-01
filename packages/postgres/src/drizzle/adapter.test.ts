@@ -4,6 +4,7 @@ import { drizzle } from 'drizzle-orm/node-postgres'
 import { describe, expect, it } from 'vitest'
 
 import { createPostgresDatabaseAdapter } from './adapter.js'
+import { PostgresSchemaCatalog } from '../schema/catalog.js'
 
 const articleSchema = defineSchema({
 	className: 'Article',
@@ -15,7 +16,10 @@ const articleSchema = defineSchema({
 describe('internal PostgreSQL database adapter', () => {
 	it('retains Drizzle privately and reports pending operation compilers', async () => {
 		const client = drizzle.mock()
-		const adapter = createPostgresDatabaseAdapter(client)
+		const adapter = createPostgresDatabaseAdapter(
+			client,
+			new PostgresSchemaCatalog([articleSchema]),
+		)
 		const operation = {
 			kind: 'find',
 			query: new Query(articleSchema).ast,
@@ -35,7 +39,10 @@ describe('internal PostgreSQL database adapter', () => {
 	})
 
 	it('reports that Runtime transactions belong to their dedicated issue', async () => {
-		const adapter = createPostgresDatabaseAdapter(drizzle.mock())
+		const adapter = createPostgresDatabaseAdapter(
+			drizzle.mock(),
+			new PostgresSchemaCatalog([articleSchema]),
+		)
 
 		await expect(adapter.beginTransaction()).rejects.toMatchObject({
 			code: 'TRANSACTION_ERROR',

@@ -3,7 +3,7 @@
 - Status: active
 - Started: 2026-08-01
 - Objective owner: project-wide
-- Current issue: `issues/500-postgres/503-primitive-schema-compilers.md`
+- Current issue: `issues/500-postgres/504-index-compilers.md`
 
 ## Objective
 
@@ -59,7 +59,7 @@ approval. Do not start an issue whose dependencies are incomplete.
 3. [501 — Implement PostgreSQL connection lifecycle](issues/500-postgres/501-pg-pool-plugin.md)
 4. [502 — Add the internal Drizzle adapter](issues/500-postgres/502-drizzle-internal-adapter.md)
 5. [517 — Add PostgreSQL table naming](issues/500-postgres/517-table-naming.md)
-6. [503 — Compile primitive schemas](issues/500-postgres/503-primitive-schema-compilers.md)
+6. [x] [503 — Compile primitive schemas](issues/500-postgres/503-primitive-schema-compilers.md)
 7. [504 — Compile indexes](issues/500-postgres/504-index-compilers.md)
 8. [511 — Introspect PostgreSQL schema state](issues/500-postgres/511-postgres-introspection.md)
 9. [512 — Apply direct schema policies](issues/500-postgres/512-direct-schema-policy.md)
@@ -138,9 +138,9 @@ without reconstructing repository history.
 - 323 — `done` — commit: `2635caa` — Application Runtime assembly implemented.
 - 501 — `done` — commit: `68c466d` — Typed pool ownership and lifecycle implemented.
 - 502 — `done` — commit: `4f72629` — Internal Drizzle adapter registered.
-- 517 — `done` — commit: `this commit` — PostgreSQL table naming implemented.
-- 503 — `ready` — commit: `—` — Naming and Drizzle dependencies are complete.
-- 504 — `planned` — commit: `—` — Waits for 503.
+- 517 — `done` — commit: `96207e7` — PostgreSQL table naming implemented.
+- 503 — `done` — commit: `this commit` — Primitive fields and JSONB codecs compiled.
+- 504 — `ready` — commit: `—` — Primitive column metadata is complete.
 - 511 — `planned` — commit: `—` — No longer waits for ACL issue 510.
 - 512 — `planned` — commit: `—` — Waits for 511.
 - 505 — `planned` — commit: `—` — Waits for 502 and 503.
