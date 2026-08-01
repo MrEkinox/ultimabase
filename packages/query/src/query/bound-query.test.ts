@@ -14,6 +14,7 @@ import type { QueryOperationExecutor } from '../operations/executor.js'
 import type { InferOperationResult } from '../operations/results.js'
 import { BoundQuery } from './bound-query.js'
 import { Query } from './query.js'
+import type { QueryScope } from './scope.js'
 
 const articleSchema = defineSchema({
 	className: 'Article',
@@ -123,6 +124,24 @@ describe('BoundQuery', () => {
 		expect(combined.ast.where?.expression).toBe(reusable.ast.where?.expression)
 		expect(combined.ast.limit).toBe(20)
 		expect(combined.engine).toBe(engine)
+	})
+
+	it('applies unbound scopes while preserving the execution owner', () => {
+		const engine = { name: 'request-engine' } as const
+		const published: QueryScope<typeof articleSchema> = (query) =>
+			query.equalTo('published', true).descending('createdAt')
+		const base = new Query(articleSchema).bind(engine).select('id', 'title')
+		const scoped = base.use(published)
+
+		expect(scoped.engine).toBe(engine)
+		expect(scoped.unbound).not.toBe(base.unbound)
+		expect(scoped.ast.selection).toBe(base.ast.selection)
+		expect(scoped.ast.where?.expression).toStrictEqual({
+			kind: 'equal',
+			field: 'published',
+			value: true,
+		})
+		expect(base.ast.where).toBeUndefined()
 	})
 
 	it('creates every terminal AST through one neutral executor', async () => {

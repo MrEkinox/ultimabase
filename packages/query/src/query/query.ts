@@ -32,6 +32,7 @@ import type {
 	QueryRegexPattern,
 } from '../filters/primitive.js'
 import { BoundQuery } from './bound-query.js'
+import type { QueryScope } from './scope.js'
 
 type QueryBuilderAst<TSchema extends SchemaDefinition> = QueryAst<
 	TSchema,
@@ -319,6 +320,21 @@ export class Query<
 		query: Query<TSchema, TOtherSelection>,
 	): Query<TSchema, TSelectedField> {
 		return this.#combine(query, 'and', true)
+	}
+
+	/** Applies one reusable transformation without exposing execution state. */
+	use(scope: QueryScope<TSchema>): Query<TSchema, TSelectedField> {
+		const scopedQuery = scope(this)
+
+		if (!(scopedQuery instanceof Query)) {
+			throw new TypeError('query scope must return a Query instance')
+		}
+
+		if (scopedQuery.schema !== this.schema) {
+			throw new TypeError('query scope must return the same schema definition')
+		}
+
+		return scopedQuery
 	}
 
 	/** Retains an execution owner without importing a concrete Runtime engine. */

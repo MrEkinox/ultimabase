@@ -1,10 +1,10 @@
 # 322: Add reusable query scopes
 
-- Status: planned
+- Status: done
 - Milestone: 3
 - Packages: `@ultimabase/query`
 - Depends on: 306
-- ADR: ADR-0005
+- ADR: ADR-0005, ADR-0074
 
 ## Goal
 
@@ -12,10 +12,10 @@ Compose typed query transformations through `.use(scope)` without capturing an e
 
 ## Acceptance criteria
 
-- [ ] Scope input and output preserve schema inference.
-- [ ] Scope application remains immutable.
-- [ ] Scopes can be composed and reused.
+- [x] Scope input and output preserve schema inference.
+- [x] Scope application remains immutable.
+- [x] Scopes can be composed and reused.
 
 ## Tests
 
-- [ ] Branching, composition, and invalid-schema type tests.
+- [x] Branching, composition, and invalid-schema type tests.

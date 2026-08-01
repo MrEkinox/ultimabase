@@ -126,6 +126,7 @@ setup export types, including definitions introduced through nested composition.
   from one explicitly injected `RequestEngine`; nested and concurrent requests
   never share mutable global state.
 - `Query<TSchema>` is an immutable unbound definition.
+- `QueryScope<TSchema>` composes selection-preserving unbound transformations.
 - `BoundQuery<TSchema>` is the Query-owned neutral facade attached to a Runtime
   engine; its terminals create Operation AST nodes and execute them
   through Runtime's neutral engine contract.

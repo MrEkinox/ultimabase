@@ -49,6 +49,7 @@ import type {
 import { normalizeUpdateExpression } from '../updates/normalize.js'
 import type { Query } from './query.js'
 import type { InferQueryResult } from './result.js'
+import type { QueryScope } from './scope.js'
 
 type QueryComparisonValue<
 	TSchema extends SchemaDefinition,
@@ -302,6 +303,13 @@ export class BoundQuery<
 		query: Query<TSchema, TOtherSelection>,
 	): BoundQuery<TSchema, TSelectedField, TEngine> {
 		return this.#branch(this.#query.not(query))
+	}
+
+	/** Applies an unbound scope and restores this branch's execution owner. */
+	use(
+		scope: QueryScope<TSchema>,
+	): BoundQuery<TSchema, TSelectedField, TEngine> {
+		return this.#branch(this.#query.use(scope))
 	}
 
 	/** Executes a collection read through the bound Runtime engine. */

@@ -10,6 +10,7 @@ import { expectTypeOf, test } from 'vitest'
 import type { QueryOperationExecutor } from '../operations/executor.js'
 import type { InferQueryResult } from './result.js'
 import { Query } from './query.js'
+import type { QueryScope } from './scope.js'
 
 const articleSchema = defineSchema({
 	className: 'Article',
@@ -54,6 +55,22 @@ test('binds exact schema and selection types through an engine', () => {
 	}
 
 	expectTypeOf(invalidProjection).toBeObject()
+})
+
+test('retains schema, selection, and engine types through scopes', () => {
+	const engine = { kind: 'fake-request-engine' } as const
+	const published: QueryScope<typeof articleSchema> = (query) =>
+		query.equalTo('published', true)
+	const scoped = new Query(articleSchema)
+		.bind(engine)
+		.select('id', 'title')
+		.use(published)
+
+	expectTypeOf(scoped.schema).toEqualTypeOf<typeof articleSchema>()
+	expectTypeOf(scoped.engine).toEqualTypeOf<typeof engine>()
+	expectTypeOf(scoped.unbound).toEqualTypeOf<
+		Query<typeof articleSchema, 'id' | 'title'>
+	>()
 })
 
 test('types every executable terminal from schema selection and singularity', () => {

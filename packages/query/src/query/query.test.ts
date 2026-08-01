@@ -10,6 +10,7 @@ import {
 import { describe, expect, it } from 'vitest'
 
 import { Query } from './query.js'
+import type { QueryScope } from './scope.js'
 
 const postFields = {
 	title: stringField(),
@@ -164,6 +165,56 @@ describe('Query', () => {
 		expect(noFilterChange.ast.where).toBe(base.ast.where)
 	})
 
+	it('composes reusable scopes across immutable query branches', () => {
+		const published: QueryScope<typeof postSchema> = (query) =>
+			query.equalTo('published', true)
+		const popular: QueryScope<typeof postSchema> = (query) =>
+			query.greaterThan('views', 100)
+		const discoverable: QueryScope<typeof postSchema> = (query) =>
+			query.use(published).use(popular).descending('createdAt')
+		const base = new Query(postSchema).select('id', 'title')
+		const publishedBranch = base.use(published)
+		const discoverableBranch = base.use(discoverable)
+
+		expect(base.ast.where).toBeUndefined()
+		expect(base.ast.ordering.orders).toStrictEqual([])
+		expect(publishedBranch.ast.where?.expression).toStrictEqual({
+			kind: 'equal',
+			field: 'published',
+			value: true,
+		})
+		expect(discoverableBranch.ast.where?.expression).toMatchObject({
+			kind: 'and',
+		})
+		expect(discoverableBranch.ast.ordering.orders).toStrictEqual([
+			{ kind: 'order', field: 'createdAt', direction: 'descending' },
+		])
+		expect(discoverableBranch.ast.selection).toBe(base.ast.selection)
+		expect(discoverableBranch).not.toBe(base)
+	})
+
+	it('rejects malformed scope results at the JavaScript boundary', () => {
+		const commentSchema = defineSchema({
+			className: 'Comment',
+			fields: { body: stringField() },
+		})
+
+		expect(() =>
+			new Query(postSchema).use(
+				// @ts-expect-error -- Runtime validation rejects non-Query scope results.
+				() => immutableScopeFixture,
+			),
+		).toThrow(new TypeError('query scope must return a Query instance'))
+		expect(() =>
+			new Query(postSchema).use(
+				// @ts-expect-error -- Runtime validation repeats exact-schema enforcement.
+				() => new Query(commentSchema),
+			),
+		).toThrow(
+			new TypeError('query scope must return the same schema definition'),
+		)
+	})
+
 	it('rejects incompatible pagination, schemas, fields, operators, and values', () => {
 		// The same shape but a different definition proves that identity is enforced.
 		const otherPostSchema = defineSchema({
@@ -233,3 +284,6 @@ describe('Query', () => {
 		expect(query).not.toHaveProperty('save')
 	})
 })
+
+// This frozen fixture models an arbitrary object returned by untyped JavaScript.
+const immutableScopeFixture = Object.freeze({ kind: 'not-a-query' })

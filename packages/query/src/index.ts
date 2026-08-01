@@ -109,6 +109,7 @@ export type {
 export { BoundQuery } from './query/bound-query.js'
 export type { InferQueryResult } from './query/result.js'
 export { Query } from './query/query.js'
+export type { QueryScope } from './query/scope.js'
 export { normalizeUpdateExpression } from './updates/normalize.js'
 export type {
 	DecrementUpdateOperationNode,

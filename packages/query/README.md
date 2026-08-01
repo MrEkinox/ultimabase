@@ -33,6 +33,33 @@ Every call creates a new `Query`, so `feed`, `nextPage`, and `adminPage` are saf
 independent branches. Their unchanged immutable AST nodes are shared. `limit`
 defines the page size; `skip` and `after` choose mutually exclusive positions.
 
+## Reusable Query scopes
+
+A typed scope names a reusable transformation without capturing a Runtime
+engine. It preserves the current selection, so applying it never silently
+changes the result shape:
+
+```ts
+import { type QueryScope } from '@ultimabase/query'
+
+const published: QueryScope<typeof postSchema> = (query) =>
+	query.equalTo('published', true)
+
+const recentPublished: QueryScope<typeof postSchema> = (query) =>
+	query.use(published).descending('createdAt').limit(25)
+
+const feed = requestEngine
+	.query(postSchema)
+	.select('id', 'title')
+	.use(recentPublished)
+```
+
+`Query.use()` returns the unbound scope result. `BoundQuery.use()` gives the
+scope only the underlying unbound Query and restores the same engine on a new
+bound branch. Exact schema identity is checked both statically and at the
+JavaScript boundary. A factory may close over request-specific filter values,
+but a scope never receives the engine, request authority, or transport state.
+
 Direct filter calls form an implicit `and`. The `and`, `or`, and `not` methods
 combine only the filter of another query built from the exact same schema
 definition; selection, ordering, limit, and pagination stay on the receiving

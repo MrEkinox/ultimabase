@@ -15,6 +15,12 @@ creates a separate executable query:
 await activeUsers.bind(requestEngine).limit(25).find()
 ```
 
+Reusable `QueryScope<TSchema>` arrow functions compose filters, ordering,
+limits, and pagination through `.use(scope)`. They retain the exact schema and
+selection type. A bound query gives a scope only its unbound Query and restores
+the same engine afterward, so reusable query behavior cannot capture execution
+or authority implicitly.
+
 Transports produce the same AST as the class API. Runtime executes one pipeline for every source.
 
 Bulk creates and upserts are atomic by default. Bulk updates and deletes return counts rather than loading all affected objects.
