@@ -1,6 +1,6 @@
 # 128: Type plugin validation issue codes
 
-- Status: completed
+- Status: done
 - Milestone: 1
 - Packages: schema
 - Depends on: 125

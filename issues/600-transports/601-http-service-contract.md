@@ -1,6 +1,6 @@
 # 601: Define HTTP server service contract
 
-- Status: planned
+- Status: ready
 - Milestone: 6
 - Packages: `@ultimabase/core`
 - Depends on: 202, 207, 208

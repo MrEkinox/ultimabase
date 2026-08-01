@@ -1,6 +1,6 @@
 # 729: Define derived field contracts
 
-- Status: planned
+- Status: ready
 - Milestone: 7+
 - Packages: schema, core
 - Depends on: 125, 207, 210

@@ -3,7 +3,7 @@
 - Status: planned
 - Milestone: 3
 - Packages: `@ultimabase/schema`, `@ultimabase/core`, `@ultimabase/runtime`, `@ultimabase/postgres`, `@ultimabase/testing`
-- Depends on: 508, 518, 331, 332, 333, 334, 337
+- Depends on: 508, 518, 331, 332, 333, 334, 337, 338
 - ADR: ADR-0087, ADR-0089, ADR-0090
 
 ## Goal
@@ -15,11 +15,11 @@ automatic rollback behavior against a live PostgreSQL database.
 
 - [ ] One schema declares schema and inline field hooks through public exports.
 - [ ] One plugin targets an exact schema, an exact field path, and a field kind without replacing developer hooks.
-- [ ] One fixture policy plugin contributes a deny-only guard and an opaque adapter constraint without Runtime knowing the policy name.
+- [ ] One fixture policy plugin contributes a deny-only guard and registers a compiler for its opaque adapter constraint without Runtime knowing the policy name.
 - [ ] Create, update, delete, save, find, output, and post-commit families execute in documented order.
 - [ ] A before-hook writes a related row and a later failure rolls back both the hook write and primary mutation.
 - [ ] A successful mutation commits once and releases buffered post-commit work afterward.
-- [ ] `beforeFind` transforms a query while monotonic adapter constraints and field restrictions remain intact.
+- [ ] `beforeFind` transforms a query while monotonic adapter constraints and field restrictions remain intact and the final result remains restricted after every result transform.
 - [ ] Set-based bulk operations do not load rows merely to emulate item hooks.
 - [ ] Tests use public built package exports and worker-isolated Testcontainers schemas.
 - [ ] Package documentation shows the verified developer-facing API.

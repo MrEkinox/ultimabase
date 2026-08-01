@@ -1,6 +1,6 @@
 # 136: Colocate Schema tests with their sources
 
-- Status: completed
+- Status: done
 - Milestone: 1
 - Packages: schema, tooling
 - Depends on: 135

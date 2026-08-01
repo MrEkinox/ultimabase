@@ -21,16 +21,18 @@ plugin.
 - [ ] Permission-specific `DatabaseAccessConstraintNode` and `accessConstraints` names become policy-neutral without weakening adapter type inference.
 - [ ] Generic input, selection, and output restrictions compose by intersection and cannot broaden a previous restriction.
 - [ ] Later native or plugin hooks cannot clear, replace, or inspect another plugin's private enforcement payload.
+- [ ] Guards, adapter constraints, and input or selection restrictions run before effectful business hooks, so denied operations cannot trigger business writes.
+- [ ] Output restrictions run after every result transform and immediately before the result crosses Runtime's enforcement boundary.
 - [ ] Runtime transports `anonymous`, `user`, and `master` authority without deciding which policy hooks master bypasses.
 - [ ] Neutral request-authority types may remain in `@ultimabase/access`; no new package is created merely to relocate them.
 - [ ] An application with no policy plugin registers no policy hooks and executes without neutral permission placeholders.
 - [ ] A declared schema or field extension still requires its owning plugin handler during Core setup.
-- [ ] Database adapters reject constraint kinds for which no compiler is registered.
+- [ ] Runtime forwards opaque constraints to the selected adapter without compiling or interpreting their policy payload.
 - [ ] Public names and documentation remain policy-neutral so a community tenant or soft-delete plugin receives the same guarantees.
 
 ## Tests
 
-- [ ] Runtime tests cover deny-only guards, constraint accumulation, field-set intersection, invalid effects, and non-removable enforcement state.
+- [ ] Runtime tests cover deny-only guards, constraint accumulation, field-set intersection, final output restriction, invalid effects, and non-removable enforcement state.
 - [ ] Assembly tests cover no-policy applications, multiple independent policy plugins, deterministic diagnostics, and missing extension handlers.
 - [ ] Compile-time tests remove named permission stage completions and preserve exact schema, operation, and field types for generic enforcement hooks.
 - [ ] Dependency checks prove Runtime imports no concrete permission plugin.

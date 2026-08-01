@@ -1,6 +1,6 @@
 # 109: Implement schema default-value contracts
 
-- Status: completed
+- Status: done
 - Milestone: 1
 - Packages: `@ultimabase/schema`
 - Depends on: 104, 105, 106, 107, 108

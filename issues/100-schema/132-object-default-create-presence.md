@@ -1,6 +1,6 @@
 # 132: Align object defaults with create inputs
 
-- Status: completed
+- Status: done
 - Milestone: 1
 - Packages: schema
 - Depends on: 131

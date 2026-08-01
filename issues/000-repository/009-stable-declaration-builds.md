@@ -1,6 +1,6 @@
 # 009: Keep declaration builds stable after typecheck
 
-- Status: completed
+- Status: done
 - Milestone: 0
 - Packages: tooling
 - Depends on: 002, 003

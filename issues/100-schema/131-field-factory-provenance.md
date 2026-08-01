@@ -1,6 +1,6 @@
 # 131: Authenticate field factory definitions
 
-- Status: completed
+- Status: done
 - Milestone: 1
 - Packages: schema
 - Depends on: 130

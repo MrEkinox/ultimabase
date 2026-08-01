@@ -1,6 +1,6 @@
 # 122: Add explicit temporal fields
 
-- Status: completed
+- Status: done
 - Milestone: 1
 - Packages: `@ultimabase/schema`
 - Depends on: 106, 115

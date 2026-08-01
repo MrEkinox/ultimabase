@@ -1,6 +1,6 @@
 # 608: Implement graphqlCorePlugin lifecycle
 
-- Status: planned
+- Status: ready
 - Milestone: 6
 - Packages: `@ultimabase/graphql`
 - Depends on: 204, 207, 208, 113

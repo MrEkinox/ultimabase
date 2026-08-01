@@ -1,6 +1,6 @@
 # 115: Compile primitive validation plans
 
-- Status: completed
+- Status: done
 - Milestone: 1
 - Packages: `@ultimabase/schema`
 - Depends on: 104, 105, 106, 107, 108, 109, 112

@@ -58,8 +58,14 @@ schema extension, an exact field path, a field extension, or a field kind.
   restrictions, and opaque row constraints for the relevant operations;
 - `fieldPermissionPlugin` contributes field-input guards and monotonic
   selection/output restrictions;
-- `rolePermissionPlugin` supplies role-resolution services consumed by policy
-  hooks without becoming a Runtime dependency.
+- `@ultimabase/access` defines a neutral typed role-resolution capability;
+  `rolePermissionPlugin` is its official provider, while policy hooks consume
+  only the capability and never import or identify that plugin directly.
+
+The role capability is conditionally required. Installing CLP or ACL without a
+provider is valid while the normalized policy contains no role reference. A
+configured CLP role rule, ACL role subject, or default ACL role subject without
+a provider fails application setup before infrastructure starts.
 
 An application that installs none of these plugins registers none of their
 hooks. Runtime does not manufacture neutral permission stages. A schema that
@@ -92,18 +98,21 @@ not their policy meaning.
 
 ### Hook order
 
-The native lifecycle keeps deterministic transform phases, then establishes a
-non-removable enforcement boundary closest to database execution:
+Amendment on 2026-08-01: the original ordering placed monotonic enforcement
+after business before-hooks and output restrictions before result transforms.
+That would allow denied work to trigger business effects and would require
+trusting later result transforms not to restore restricted fields. The
+enforcement boundaries therefore wrap the effectful business lifecycle:
 
 ```text
 normalization and structural validation
 → native and plugin input transforms
 → structural revalidation and business validation
-→ native and plugin before hooks
 → monotonic guards, adapter constraints, and field restrictions
+→ native and plugin before hooks
 → database operation
-→ monotonic output restrictions
 → native and plugin after hooks
+→ final monotonic output restrictions
 → beforeCommit
 → commit
 → afterCommit and post-commit events
@@ -116,8 +125,9 @@ cannot broaden access.
 
 ## Consequences
 
-- Installing CLP, ACL, or field permissions adds behavior exclusively through
-  plugin hook contributions.
+- Installing CLP, ACL, or field permissions adds Runtime enforcement
+  exclusively through plugin hook contributions. A policy plugin may also
+  contribute its own schema, storage, migration, or adapter-compiler behavior.
 - Runtime no longer changes when a new policy plugin is introduced.
 - Missing permission plugins have no placeholder execution cost or public
   Runtime configuration.

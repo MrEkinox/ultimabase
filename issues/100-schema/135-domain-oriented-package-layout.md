@@ -1,6 +1,6 @@
 # 135: Organize Schema internals by domain
 
-- Status: completed
+- Status: done
 - Milestone: 1
 - Packages: schema
 - Depends on: 134

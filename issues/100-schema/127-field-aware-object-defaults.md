@@ -1,6 +1,6 @@
 # 127: Normalize object defaults by declared fields
 
-- Status: completed
+- Status: done
 - Milestone: 1
 - Packages: schema
 - Depends on: 126

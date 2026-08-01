@@ -1,6 +1,6 @@
 # 138: Consolidate list and temporal field construction
 
-- Status: completed
+- Status: done
 - Milestone: 1
 - Packages: schema
 - Depends on: 137

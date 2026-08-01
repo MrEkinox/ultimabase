@@ -22,5 +22,7 @@ contracts. It supplies a real adapter vertical against which later CLP, ACL,
 role, and field-permission plugins can be tested.
 
 ACL-specific SQL issues 509 and 510 and migration issues 513–515 remain outside
-that completed E2E objective. Transaction issue 508 is now a dependency of the
-active native-hook PostgreSQL verification in issue 335.
+that completed E2E objective. Generic constraint compilers are introduced by
+issue 338 before issue 509 registers the ACL-specific PostgreSQL compiler.
+Transaction issue 508 is now a dependency of the active native-hook PostgreSQL
+verification in issue 335.

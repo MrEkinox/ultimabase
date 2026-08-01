@@ -1,6 +1,6 @@
 # 513: Add PostgreSQL migration snapshots and history
 
-- Status: planned
+- Status: ready
 - Milestone: 5
 - Packages: `@ultimabase/postgres-migrations`
 - Depends on: 204, 208, 511

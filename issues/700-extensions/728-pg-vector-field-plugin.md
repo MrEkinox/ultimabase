@@ -1,9 +1,9 @@
 # 728: Add the pg-vector field plugin contract
 
-- Status: completed
+- Status: done
 - Milestone: 7+
 - Packages: pg-vector-plugin, schema
-- Depends on: 125, 725
+- Depends on: 125
 - ADR: 0029
 
 ## Goal

@@ -1,6 +1,6 @@
 # 140: Reference fields in validation plans
 
-- Status: completed
+- Status: done
 - Milestone: 1
 - Packages: `@ultimabase/schema`, `@ultimabase/pg-vector-plugin`
 - Depends on: 125, 129, 134, 139

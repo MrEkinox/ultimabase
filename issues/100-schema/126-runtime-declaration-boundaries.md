@@ -1,6 +1,6 @@
 # 126: Harden runtime schema declarations
 
-- Status: completed
+- Status: done
 - Milestone: 1
 - Packages: schema
 - Depends on: 125

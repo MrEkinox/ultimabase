@@ -1,6 +1,6 @@
 # 137: Consolidate Schema construction primitives
 
-- Status: completed
+- Status: done
 - Milestone: 1
 - Packages: shared, schema
 - Depends on: 136

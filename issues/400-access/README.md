@@ -8,3 +8,11 @@ keeping Runtime unaware of CLP, ACL, roles, and field permissions. Permission
 plugins attach guards, adapter constraints, and field restrictions through the
 native hook dispatcher from ADR-0090. It is an execution priority, not a package
 dependency: access contracts remain database-neutral.
+
+CLP and ACL are independent permission plugins: neither imports, installs, nor
+depends on the other. Both may use the typed role contract because their public
+configuration accepts role rules or subjects. That contract and its typed
+service token live in `@ultimabase/access`; neither plugin imports or identifies
+`rolePermissionPlugin`. A role-resolution provider becomes a conditional setup
+requirement only when the normalized CLP or ACL configuration actually
+references a role. Missing capability then fails before infrastructure starts.

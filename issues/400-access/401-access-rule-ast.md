@@ -1,6 +1,6 @@
 # 401: Define declarative access-rule AST
 
-- Status: planned
+- Status: ready
 - Milestone: 4
 - Packages: `@ultimabase/access`
 - Depends on: 103, 310

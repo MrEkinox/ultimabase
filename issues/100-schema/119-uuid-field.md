@@ -1,6 +1,6 @@
 # 119: Add portable UUID fields
 
-- Status: completed
+- Status: done
 - Milestone: 1
 - Packages: `@ultimabase/schema`
 - Depends on: 102, 111, 115

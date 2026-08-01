@@ -1,6 +1,6 @@
 # 112: Export object, create, and update inference
 
-- Status: completed
+- Status: done
 - Milestone: 1
 - Packages: `@ultimabase/schema`
 - Depends on: 110, 111

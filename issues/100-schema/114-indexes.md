@@ -1,6 +1,6 @@
 # 114: Add schema indexes
 
-- Status: completed
+- Status: done
 - Milestone: 1
 - Packages: `@ultimabase/schema`
 - Depends on: 110

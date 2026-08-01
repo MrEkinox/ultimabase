@@ -1,6 +1,6 @@
 # 111: Add reserved system fields
 
-- Status: completed
+- Status: done
 - Milestone: 1
 - Packages: `@ultimabase/schema`
 - Depends on: 110
