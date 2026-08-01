@@ -54,11 +54,11 @@ REST, and GraphQL are not required for this first vertical.
 Complete one issue at a time in this order and publish it only after user
 approval. Do not start an issue whose dependencies are incomplete.
 
-1. [211 — Expose application service lookup](issues/200-core/211-application-service-access.md)
-2. [323 — Assemble the application Runtime engine](issues/300-query-runtime/323-application-runtime-assembly.md)
-3. [501 — Implement PostgreSQL connection lifecycle](issues/500-postgres/501-pg-pool-plugin.md)
-4. [502 — Add the internal Drizzle adapter](issues/500-postgres/502-drizzle-internal-adapter.md)
-5. [517 — Add PostgreSQL table naming](issues/500-postgres/517-table-naming.md)
+1. [x] [211 — Expose application service lookup](issues/200-core/211-application-service-access.md)
+2. [x] [323 — Assemble the application Runtime engine](issues/300-query-runtime/323-application-runtime-assembly.md)
+3. [x] [501 — Implement PostgreSQL connection lifecycle](issues/500-postgres/501-pg-pool-plugin.md)
+4. [x] [502 — Add the internal Drizzle adapter](issues/500-postgres/502-drizzle-internal-adapter.md)
+5. [x] [517 — Add PostgreSQL table naming](issues/500-postgres/517-table-naming.md)
 6. [x] [503 — Compile primitive schemas](issues/500-postgres/503-primitive-schema-compilers.md)
 7. [x] [504 — Compile indexes](issues/500-postgres/504-index-compilers.md)
 8. [x] [511 — Introspect PostgreSQL schema state](issues/500-postgres/511-postgres-introspection.md)
@@ -89,10 +89,10 @@ When resuming after context loss:
 Do not begin any file under `issues/400-access/` until issue 518 is done unless
 the user explicitly changes this objective.
 
-## Target developer experience
+## Current developer experience
 
-The final issue should make this public flow executable without manually
-constructing a `RuntimePipeline` or writing SQL:
+Issue 518 implements this public flow without manually constructing a
+`RuntimePipeline` or writing SQL:
 
 ```ts
 const application = await createApplication({
@@ -126,8 +126,8 @@ const rows = await request
 await application.dispose()
 ```
 
-This example is the target DX for the plan; APIs that do not exist yet must not
-be documented elsewhere as already implemented.
+This example is the implemented DX for the plan. Its live PostgreSQL behavior
+remains subject to the Docker-backed acceptance gate above.
 
 ## Progress log
 
@@ -147,4 +147,4 @@ without reconstructing repository history.
 - 506 — `done` — commit: `9f70dbf` — Stable projections, ordering, offsets, and cursor predicates compiled.
 - 507 — `done` — commit: `6bca47a` — Singular reads and mutations execute through private Drizzle queries.
 - 516 — `done` — commit: `d53bd75` — One shared container feeds deterministic worker-isolated schemas.
-- 518 — `implemented` — commit: `this commit` — Public singular CRUD E2E is ready; the CI Docker run remains the live gate.
+- 518 — `implemented` — commit: `e923c6b` — Public singular CRUD E2E is ready; the CI Docker run remains the live gate.
