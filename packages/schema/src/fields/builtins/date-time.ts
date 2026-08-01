@@ -1,7 +1,16 @@
-import type { FieldDefinition } from '../base/contract.js'
+import type {
+	FieldDefinition,
+	FieldInferenceState,
+	FieldListOption,
+	InvalidOptionsArguments,
+} from '../base/contract.js'
 import {
-	createConfiguredScalarFieldFactory,
-	type ScalarFieldFactory,
+	type CompactScalarFieldDefinition,
+	type CompatibleGeneratedScalarOptions,
+	createConfiguredGeneratedCompactScalarFieldFactory,
+	type DefaultedCompactScalarFieldOptions,
+	type GeneratedScalarOption,
+	type NonDefaultedCompactScalarFieldOptions,
 } from '../base/factory.js'
 import {
 	createTemporalFieldConfigurationResolver,
@@ -30,8 +39,148 @@ export type DateTimeFieldOptions = TimezoneTemporalFieldOptions
  * Carries a date-time string and exact options through schema inference.
  */
 export type DateTimeField<
-	TOptions extends DateTimeFieldOptions = DateTimeFieldOptions,
-> = FieldDefinition<'dateTime', string, TOptions>
+	TInference extends FieldInferenceState = FieldInferenceState,
+> = FieldDefinition<'dateTime', string, DateTimeFieldOptions, TInference>
+
+/** Provides date-time-specific names for compact auto-now inference. */
+type DefaultedDateTimeFieldOptions<
+	TRequired extends boolean,
+	TNullable extends boolean,
+	TList extends FieldListOption,
+	TImmutable extends boolean,
+	TAutoNow extends boolean,
+> = DefaultedCompactScalarFieldOptions<
+	DateTimeFieldOptions,
+	string,
+	TRequired,
+	TNullable,
+	TList,
+	TImmutable,
+	GeneratedScalarOption<'autoNow', TAutoNow>
+>
+
+type NonDefaultedDateTimeFieldOptions<
+	TRequired extends boolean,
+	TNullable extends boolean,
+	TList extends FieldListOption,
+	TImmutable extends boolean,
+	TAutoNow extends boolean,
+> = NonDefaultedCompactScalarFieldOptions<
+	DateTimeFieldOptions,
+	TRequired,
+	TNullable,
+	TList,
+	TImmutable,
+	GeneratedScalarOption<'autoNow', TAutoNow>
+>
+
+type ResolvedDateTimeField<
+	TRequired extends boolean,
+	TNullable extends boolean,
+	TList extends FieldListOption,
+	TImmutable extends boolean,
+	THasDefault extends boolean,
+	TAutoNow extends boolean,
+> = CompactScalarFieldDefinition<
+	'dateTime',
+	string,
+	DateTimeFieldOptions,
+	TRequired,
+	TNullable,
+	TList,
+	TImmutable,
+	THasDefault,
+	TAutoNow
+>
+
+type DefaultedDateTimeField<
+	TRequired extends boolean,
+	TNullable extends boolean,
+	TList extends FieldListOption,
+	TImmutable extends boolean,
+	TAutoNow extends boolean,
+> = ResolvedDateTimeField<
+	TRequired,
+	TNullable,
+	TList,
+	TImmutable,
+	true,
+	TAutoNow
+>
+
+type NonDefaultedDateTimeField<
+	TRequired extends boolean,
+	TNullable extends boolean,
+	TList extends FieldListOption,
+	TImmutable extends boolean,
+	TAutoNow extends boolean,
+> = ResolvedDateTimeField<
+	TRequired,
+	TNullable,
+	TList,
+	TImmutable,
+	false,
+	TAutoNow
+>
+
+interface DateTimeFieldFactory {
+	<
+		const TRequired extends boolean = false,
+		const TNullable extends boolean = false,
+		const TList extends FieldListOption = false,
+		const TImmutable extends boolean = false,
+		const TAutoNow extends boolean = false,
+	>(
+		options: DefaultedDateTimeFieldOptions<
+			TRequired,
+			TNullable,
+			TList,
+			TImmutable,
+			TAutoNow
+		>,
+		...invalidOptions: InvalidOptionsArguments<
+			CompatibleGeneratedScalarOptions<
+				TRequired,
+				TNullable,
+				TAutoNow,
+				TList,
+				true,
+				true
+			>
+		>
+	): DefaultedDateTimeField<TRequired, TNullable, TList, TImmutable, TAutoNow>
+	<
+		const TRequired extends boolean = false,
+		const TNullable extends boolean = false,
+		const TList extends FieldListOption = false,
+		const TImmutable extends boolean = false,
+		const TAutoNow extends boolean = false,
+	>(
+		options?: NonDefaultedDateTimeFieldOptions<
+			TRequired,
+			TNullable,
+			TList,
+			TImmutable,
+			TAutoNow
+		>,
+		...invalidOptions: InvalidOptionsArguments<
+			CompatibleGeneratedScalarOptions<
+				TRequired,
+				TNullable,
+				TAutoNow,
+				TList,
+				false,
+				true
+			>
+		>
+	): NonDefaultedDateTimeField<
+		TRequired,
+		TNullable,
+		TList,
+		TImmutable,
+		TAutoNow
+	>
+}
 
 const localDateTimePattern = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}$/u
 const timezoneSuffixPattern = /(?:Z|[+-](?:(?:0\d|1[0-3]):[0-5]\d|14:00))$/u
@@ -100,11 +249,11 @@ const resolveDateTimeFieldConfiguration =
  * dateTimeField({ autoNow: true })
  * ```
  */
-export const dateTimeField: ScalarFieldFactory<
-	'dateTime',
-	string,
-	DateTimeFieldOptions
-> = createConfiguredScalarFieldFactory(
-	'dateTime',
-	resolveDateTimeFieldConfiguration,
-)
+export const dateTimeField: DateTimeFieldFactory =
+	createConfiguredGeneratedCompactScalarFieldFactory<
+		'dateTime',
+		string,
+		DateTimeFieldOptions,
+		'autoNow',
+		true
+	>('dateTime', resolveDateTimeFieldConfiguration)

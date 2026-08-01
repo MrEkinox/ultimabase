@@ -3,6 +3,7 @@ import { Buffer } from 'node:buffer'
 import { describe, expect, it, vi } from 'vitest'
 
 import { binaryField } from '../../index.js'
+import { requireDefined } from '../../../tests/test-assertions.js'
 
 describe('binaryField', () => {
 	it('creates frozen default metadata', () => {
@@ -28,6 +29,10 @@ describe('binaryField', () => {
 			immutable: true,
 			indexed: false,
 		})
+		const validation = requireDefined(
+			field.options.validation,
+			'field.options.validation',
+		)
 
 		expect(field.options).toStrictEqual({
 			validation: {
@@ -40,8 +45,10 @@ describe('binaryField', () => {
 			immutable: true,
 			indexed: false,
 		})
-		expect(Object.isFrozen(field.options.validation)).toBe(true)
-		expect(Object.isFrozen(field.options.validation.length)).toBe(true)
+		expect(Object.isFrozen(validation)).toBe(true)
+		expect(
+			Object.isFrozen(requireDefined(validation.length, 'validation.length')),
+		).toBe(true)
 	})
 
 	it('copies Uint8Array defaults', () => {
@@ -90,7 +97,7 @@ describe('binaryField', () => {
 		length.min = 4
 		length.max = 8
 
-		expect(field.options.validation.length).toStrictEqual({ min: 1 })
+		expect(field.options.validation?.length).toStrictEqual({ min: 1 })
 	})
 
 	it('preserves runtime factories without executing them', () => {
@@ -109,7 +116,7 @@ describe('binaryField', () => {
 		(_name, length) => {
 			const field = binaryField({ validation: { length } })
 
-			expect(field.options.validation.length).toStrictEqual(length)
+			expect(field.options.validation?.length).toStrictEqual(length)
 		},
 	)
 

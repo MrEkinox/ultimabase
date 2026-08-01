@@ -11,6 +11,7 @@ import {
 	objectField,
 	stringField,
 	type FieldDefinition,
+	type FieldInferenceState,
 	type FieldListValue,
 	type FieldValue,
 	type JsonValue,
@@ -35,22 +36,27 @@ test('infers list values through finite nesting', () => {
 	})
 	const payloads = jsonField({ list: true })
 
-	expectTypeOf(strings).toExtend<FieldDefinition<'string', string>>()
-	expectTypeOf(strings.options.default).toEqualTypeOf<
-		readonly ['first', 'second']
+	expectTypeOf(strings).toExtend<
+		FieldDefinition<'string', string, object, FieldInferenceState>
+	>()
+	expectTypeOf(matrix).toExtend<
+		FieldDefinition<'int', number, object, FieldInferenceState>
 	>()
 	expectTypeOf<FieldValue<typeof strings>>().toEqualTypeOf<readonly string[]>()
-	expectTypeOf(scalar).toExtend<FieldDefinition<'boolean', boolean>>()
-	expectTypeOf(dates).toExtend<FieldDefinition<'date', string>>()
-	expectTypeOf(statuses).toExtend<
-		FieldDefinition<'enum', 'draft' | 'published'>
+	expectTypeOf(scalar).toExtend<
+		FieldDefinition<'boolean', boolean, object, FieldInferenceState>
 	>()
-	expectTypeOf(payloads).toExtend<FieldDefinition<'json', JsonValue>>()
+	expectTypeOf(dates).toExtend<
+		FieldDefinition<'date', string, object, FieldInferenceState>
+	>()
+	expectTypeOf(statuses).toExtend<
+		FieldDefinition<'enum', 'draft' | 'published', object, FieldInferenceState>
+	>()
+	expectTypeOf(payloads).toExtend<
+		FieldDefinition<'json', JsonValue, object, FieldInferenceState>
+	>()
 	expectTypeOf<FieldValue<typeof matrix>>().toEqualTypeOf<
 		readonly (readonly number[])[]
-	>()
-	expectTypeOf(matrix.options.default).toEqualTypeOf<
-		readonly [readonly [1, 2]]
 	>()
 	expectTypeOf<FieldValue<typeof scalar>>().toEqualTypeOf<boolean>()
 	expectTypeOf<FieldValue<typeof dates>>().toEqualTypeOf<readonly string[]>()
@@ -95,13 +101,14 @@ test('infers object list values from reusable fields', () => {
 		readonly ExpectedItem[]
 	>()
 	expectTypeOf(field.options.fields.name.kind).toEqualTypeOf<'string'>()
-	expectTypeOf(field.options.typeName).toEqualTypeOf<'Profile'>()
+	expectTypeOf(field.options.typeName).toEqualTypeOf<string | undefined>()
 	expectTypeOf<ObjectFieldValue<typeof fields>>().toEqualTypeOf<ExpectedItem>()
 	expectTypeOf<ObjectField>().toExtend<
 		FieldDefinition<
 			'object',
 			Readonly<Record<string, unknown>>,
-			ObjectField['options']
+			ObjectField['options'],
+			FieldInferenceState
 		>
 	>()
 })
@@ -123,12 +130,12 @@ test('rejects invalid list declarations and structured defaults', () => {
 	})
 	// @ts-expect-error -- Neutral type identities must use strings.
 	objectField({ typeName: 42, fields: {} })
+	// @ts-expect-error -- Object defaults must use each child field value type.
 	objectField({
 		fields: {
 			name: stringField(),
 			active: booleanField(),
 		},
-		// @ts-expect-error -- Object defaults must use each child field value type.
 		default: {
 			name: 'fixture',
 			active: 'yes',

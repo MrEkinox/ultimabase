@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { timeField } from '../../index.js'
+import { requireDefined } from '../../../tests/test-assertions.js'
 
 describe('timeField', () => {
 	it('creates frozen metadata without an implicit timezone option', () => {
@@ -36,7 +37,14 @@ describe('timeField', () => {
 			},
 			default: '09:30:00.000',
 		})
-		expect(Object.isFrozen(field.options.validation.range)).toBe(true)
+		expect(
+			Object.isFrozen(
+				requireDefined(
+					field.options.validation?.range,
+					'field.options.validation.range',
+				),
+			),
+		).toBe(true)
 	})
 
 	it('supports zoned times and operation-clock generation', () => {
@@ -66,7 +74,7 @@ describe('timeField', () => {
 	] as const)('supports a one-sided %s time range', (_name, range) => {
 		const field = timeField({ validation: { range } })
 
-		expect(field.options.validation.range).toStrictEqual(range)
+		expect(field.options.validation?.range).toStrictEqual(range)
 	})
 
 	it('freezes presence validation without a time range', () => {
@@ -140,7 +148,7 @@ describe('timeField', () => {
 			},
 		})
 
-		expect(field.options.validation.range).toStrictEqual({
+		expect(field.options.validation?.range).toStrictEqual({
 			min: '12:00:00.000+02:00',
 			max: '10:30:00.000Z',
 		})

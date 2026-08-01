@@ -1,4 +1,5 @@
 import type {
+	FieldInferenceStateOf,
 	FieldList,
 	InferObject,
 	SchemaDefinition,
@@ -132,12 +133,11 @@ type QueryFieldKind<
 type IsScalarQueryField<
 	TSchema extends SchemaDefinition,
 	TFieldName extends QueryFieldName<TSchema>,
-> =
-	QueryFieldDefinition<TSchema, TFieldName> extends {
-		readonly options: { readonly list: FieldList }
-	}
-		? false
-		: true
+> = FieldInferenceStateOf<
+	QueryFieldDefinition<TSchema, TFieldName>
+>['list'] extends FieldList
+	? false
+	: true
 
 /** Infers the persisted field value while excluding optional-property absence. */
 export type QueryFilterValue<

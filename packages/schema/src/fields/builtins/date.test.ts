@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { dateField } from '../../index.js'
+import { requireDefined } from '../../../tests/test-assertions.js'
 
 describe('dateField', () => {
 	it('creates frozen calendar-day metadata', () => {
@@ -39,7 +40,14 @@ describe('dateField', () => {
 			indexed: true,
 		})
 		expect(Object.isFrozen(field.options.validation)).toBe(true)
-		expect(Object.isFrozen(field.options.validation.range)).toBe(true)
+		expect(
+			Object.isFrozen(
+				requireDefined(
+					field.options.validation?.range,
+					'field.options.validation.range',
+				),
+			),
+		).toBe(true)
 	})
 
 	it('preserves operation-clock generation metadata', () => {
@@ -79,7 +87,7 @@ describe('dateField', () => {
 		const field = dateField({ validation: { range } })
 
 		// Either calendar-day boundary may be declared independently.
-		expect(field.options.validation.range).toEqual(range)
+		expect(field.options.validation?.range).toEqual(range)
 	})
 
 	it('rejects non-string values at the runtime boundary', () => {
@@ -116,9 +124,10 @@ describe('dateField', () => {
 			'validation.range.max',
 		],
 	] as const)('rejects an %s', (_name, options, path) => {
-		expect(() => dateField(options)).toThrow(
-			new RangeError(`${path} must be a valid calendar date string`),
-		)
+		expect(() => {
+			// @ts-expect-error -- Runtime coverage intentionally combines heterogeneous invalid options.
+			dateField(options)
+		}).toThrow(new RangeError(`${path} must be a valid calendar date string`))
 	})
 
 	it('rejects an inverted calendar-day range', () => {

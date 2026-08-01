@@ -7,6 +7,8 @@ import {
 	type DateFieldOptions,
 	type DateValidationOptions,
 	type FieldDefinition,
+	type FieldInferenceState,
+	type FieldInferenceStateOf,
 } from '../../index.js'
 
 test('infers calendar-day values and range boundaries', () => {
@@ -24,21 +26,20 @@ test('infers calendar-day values and range boundaries', () => {
 	})
 
 	expectTypeOf(field).toExtend<
-		FieldDefinition<'date', string, DateFieldOptions>
+		FieldDefinition<'date', string, DateFieldOptions, FieldInferenceState>
 	>()
 	expectTypeOf(field.kind).toEqualTypeOf<'date'>()
-	expectTypeOf(field.options.autoNow).toEqualTypeOf<true>()
-	expectTypeOf(field.options.validation.range.min).toEqualTypeOf<'2026-01-01'>()
-	expectTypeOf(field.options.validation.range.max).toEqualTypeOf<'2026-12-31'>()
+	expectTypeOf(field.options).toEqualTypeOf<Readonly<DateFieldOptions>>()
+	expectTypeOf<
+		FieldInferenceStateOf<typeof field>['object']
+	>().toEqualTypeOf<'required'>()
 })
 
 test('creates an exact empty option contract by default', () => {
 	const field = dateField()
 
 	expectTypeOf(field).toExtend<DateField>()
-	expectTypeOf(field.options).toEqualTypeOf<
-		Readonly<Record<PropertyKey, never>>
-	>()
+	expectTypeOf(field.options).toEqualTypeOf<Readonly<DateFieldOptions>>()
 })
 
 test('rejects non-string values and invalid default factories', () => {

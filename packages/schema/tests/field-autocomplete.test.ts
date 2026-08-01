@@ -44,6 +44,13 @@ interface FieldOptionHoverCase {
 	readonly source: string
 }
 
+interface CompactFieldSignatureCase {
+	readonly factoryName: FieldFactoryName
+	readonly imports?: readonly FieldFactoryName[]
+	readonly expression: string
+	readonly expectedReturn: string
+}
+
 interface FieldIntelliSenseReader {
 	readonly readCompletions: (factoryName: FieldFactoryName) => readonly string[]
 	readonly readFactoryDocumentation: (
@@ -278,6 +285,97 @@ const boundaryHoverCases = createHoverCases(
 	boundaryOptionExpressions,
 )
 
+/** Exercises every built-in factory with metadata that must stay runtime-only. */
+const compactFieldSignatureCases: readonly CompactFieldSignatureCase[] = [
+	{
+		factoryName: 'bigintField',
+		expression:
+			"bigintField({ autoIncrement: true, validation: { required: true, range: { min: 1n } }, description: 'runtime-only-hover-marker' })",
+		expectedReturn: 'NonDefaultedBigintField<true, false, false, false, true>',
+	},
+	{
+		factoryName: 'binaryField',
+		expression:
+			"binaryField({ default: new Uint8Array([1]), validation: { required: true, length: { max: 8 } }, description: 'runtime-only-hover-marker' })",
+		expectedReturn: 'DefaultedBinaryField<true, false, false, false>',
+	},
+	{
+		factoryName: 'booleanField',
+		expression:
+			"booleanField({ default: true, validation: { required: true }, description: 'runtime-only-hover-marker' })",
+		expectedReturn: 'DefaultedBooleanField<true, false, false, false>',
+	},
+	{
+		factoryName: 'dateField',
+		expression:
+			"dateField({ autoNow: true, validation: { required: true, range: { min: '2026-01-01' } }, description: 'runtime-only-hover-marker' })",
+		expectedReturn: 'NonDefaultedDateField<true, false, false, false, true>',
+	},
+	{
+		factoryName: 'dateTimeField',
+		expression:
+			"dateTimeField({ autoNow: true, timezone: true, validation: { required: true, range: { min: '2026-01-01T00:00:00.000Z' } }, description: 'runtime-only-hover-marker' })",
+		expectedReturn:
+			'NonDefaultedDateTimeField<true, false, false, false, true>',
+	},
+	{
+		factoryName: 'decimalField',
+		expression:
+			"decimalField({ default: '19.99', validation: { required: true, precision: 12, scale: 2, range: { min: '-9999999999.99' } }, indexed: true, description: 'runtime-only-hover-marker' })",
+		expectedReturn: 'DefaultedDecimalField<true, false, false, false>',
+	},
+	{
+		factoryName: 'enumField',
+		expression:
+			"enumField({ values: ['draft', 'published'] as const, default: 'draft', validation: { required: true }, typeName: 'StatusHoverMarker', description: 'runtime-only-hover-marker' })",
+		expectedReturn:
+			'DefaultedEnumField<readonly ["draft", "published"], true, false, false, false>',
+	},
+	{
+		factoryName: 'floatField',
+		expression:
+			"floatField({ default: 1.5, validation: { required: true, finite: true, range: { min: 0 } }, description: 'runtime-only-hover-marker' })",
+		expectedReturn: 'DefaultedFloatField<true, false, false, false>',
+	},
+	{
+		factoryName: 'intField',
+		expression:
+			"intField({ autoIncrement: true, validation: { required: true, range: { min: 1 } }, description: 'runtime-only-hover-marker' })",
+		expectedReturn: 'NonDefaultedIntField<true, false, false, false, true>',
+	},
+	{
+		factoryName: 'jsonField',
+		expression:
+			"jsonField({ default: { active: true }, validation: { required: true }, description: 'runtime-only-hover-marker' })",
+		expectedReturn: 'DefaultedJsonField<true, false, false, false>',
+	},
+	{
+		factoryName: 'objectField',
+		imports: ['stringField'],
+		expression:
+			"objectField({ fields: { name: stringField() }, default: { name: 'Ada' }, validation: { required: true }, typeName: 'ProfileHoverMarker', description: 'runtime-only-hover-marker' })",
+		expectedReturn: 'DefaultedObjectField<',
+	},
+	{
+		factoryName: 'stringField',
+		expression:
+			"stringField({ default: 'Ada', validation: { required: true, length: { min: 2 }, match: /^[a-z]+$/u }, description: 'runtime-only-hover-marker' })",
+		expectedReturn: 'DefaultedStringField<true, false, false, false>',
+	},
+	{
+		factoryName: 'timeField',
+		expression:
+			"timeField({ autoNow: true, timezone: true, validation: { required: true, range: { min: '08:00:00.000Z' } }, description: 'runtime-only-hover-marker' })",
+		expectedReturn: 'NonDefaultedTimeField<true, false, false, false, true>',
+	},
+	{
+		factoryName: 'uuidField',
+		expression:
+			"uuidField({ default: '018f3f35-a4b2-7cc1-9dd5-3f706ef18a34', validation: { required: true, version: 7 }, description: 'runtime-only-hover-marker' })",
+		expectedReturn: 'DefaultedUuidField<true, false, false, false>',
+	},
+]
+
 /** Creates a TypeScript service with the same module settings used by editors. */
 const createLanguageService = (
 	fileName: string,
@@ -309,6 +407,32 @@ const createLanguageService = (
 	}
 
 	return ts.createLanguageService(host)
+}
+
+/** Reads the editor signature at one marker without persisting a fixture file. */
+const readMarkedQuickInfoDisplay = (
+	fileName: string,
+	sourceWithMarker: string,
+	marker: string,
+): string => {
+	const markerPosition = sourceWithMarker.indexOf(marker)
+
+	if (markerPosition < 0) {
+		throw new TypeError(`Missing QuickInfo marker: ${marker}`)
+	}
+
+	const source = sourceWithMarker.replace(marker, ' '.repeat(marker.length))
+	const service = createLanguageService(fileName, source)
+	const quickInfo = service.getQuickInfoAtPosition(
+		fileName,
+		markerPosition + marker.length,
+	)
+
+	if (quickInfo === undefined) {
+		throw new TypeError('Expected marked QuickInfo')
+	}
+
+	return ts.displayPartsToString(quickInfo.displayParts)
 }
 
 /** Creates the same contextual completion requests used by TypeScript editors. */
@@ -524,6 +648,36 @@ describe('field factory IntelliSense', () => {
 					reader.readOptionDocumentation(factoryName, optionName),
 				)
 			}
+		},
+	)
+
+	it.each(compactFieldSignatureCases)(
+		'keeps the $factoryName signature compact without leaking runtime literals',
+		({ factoryName, imports = [], expression, expectedReturn }) => {
+			const marker = '/* hover */'
+			const importedFactories = [factoryName, ...imports].join(', ')
+			const display = readMarkedQuickInfoDisplay(
+				`${import.meta.dirname}/${factoryName}-hover.fixture.ts`,
+				`
+import { ${importedFactories} } from '../src/index.js'
+
+const field = ${marker}${expression}
+`,
+				marker,
+			)
+
+			expect(display).toContain(expectedReturn)
+			expect(display).not.toContain('DefaultedCompactScalarFieldOptions<')
+			expect(display).not.toContain('NonDefaultedCompactScalarFieldOptions<')
+			expect(display).not.toContain('ScalarFieldInferenceState<')
+			expect(display).toContain('(+1 overload)')
+			expect(display).not.toContain('(+2 overloads)')
+			expect(display).not.toContain('runtime-only-hover-marker')
+			expect(display).not.toContain('StatusHoverMarker')
+			expect(display).not.toContain('ProfileHoverMarker')
+			expect(display).not.toContain('readonly []')
+			expect(display).not.toContain('readonly validation?:')
+			expect(display).not.toContain('readonly default:')
 		},
 	)
 })

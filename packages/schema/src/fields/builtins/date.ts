@@ -1,8 +1,17 @@
 import { normalizeFieldOptions } from '../base/options.js'
-import type { FieldDefinition } from '../base/contract.js'
+import type {
+	FieldDefinition,
+	FieldInferenceState,
+	FieldListOption,
+	InvalidOptionsArguments,
+} from '../base/contract.js'
 import {
-	createScalarFieldFactory,
-	type ScalarFieldFactory,
+	type CompactScalarFieldDefinition,
+	type CompatibleGeneratedScalarOptions,
+	createGeneratedCompactScalarFieldFactory,
+	type DefaultedCompactScalarFieldOptions,
+	type GeneratedScalarOption,
+	type NonDefaultedCompactScalarFieldOptions,
 } from '../base/factory.js'
 import {
 	compareCanonicalTemporalValues,
@@ -31,8 +40,129 @@ export type DateFieldOptions = TemporalFieldOptions
 /**
  * Carries a calendar-day string and exact options through schema inference.
  */
-export type DateField<TOptions extends DateFieldOptions = DateFieldOptions> =
-	FieldDefinition<'date', string, TOptions>
+export type DateField<
+	TInference extends FieldInferenceState = FieldInferenceState,
+> = FieldDefinition<'date', string, DateFieldOptions, TInference>
+
+/** Provides date-specific names for compact auto-now inference. */
+type DefaultedDateFieldOptions<
+	TRequired extends boolean,
+	TNullable extends boolean,
+	TList extends FieldListOption,
+	TImmutable extends boolean,
+	TAutoNow extends boolean,
+> = DefaultedCompactScalarFieldOptions<
+	DateFieldOptions,
+	string,
+	TRequired,
+	TNullable,
+	TList,
+	TImmutable,
+	GeneratedScalarOption<'autoNow', TAutoNow>
+>
+
+type NonDefaultedDateFieldOptions<
+	TRequired extends boolean,
+	TNullable extends boolean,
+	TList extends FieldListOption,
+	TImmutable extends boolean,
+	TAutoNow extends boolean,
+> = NonDefaultedCompactScalarFieldOptions<
+	DateFieldOptions,
+	TRequired,
+	TNullable,
+	TList,
+	TImmutable,
+	GeneratedScalarOption<'autoNow', TAutoNow>
+>
+
+type ResolvedDateField<
+	TRequired extends boolean,
+	TNullable extends boolean,
+	TList extends FieldListOption,
+	TImmutable extends boolean,
+	THasDefault extends boolean,
+	TAutoNow extends boolean,
+> = CompactScalarFieldDefinition<
+	'date',
+	string,
+	DateFieldOptions,
+	TRequired,
+	TNullable,
+	TList,
+	TImmutable,
+	THasDefault,
+	TAutoNow
+>
+
+type DefaultedDateField<
+	TRequired extends boolean,
+	TNullable extends boolean,
+	TList extends FieldListOption,
+	TImmutable extends boolean,
+	TAutoNow extends boolean,
+> = ResolvedDateField<TRequired, TNullable, TList, TImmutable, true, TAutoNow>
+
+type NonDefaultedDateField<
+	TRequired extends boolean,
+	TNullable extends boolean,
+	TList extends FieldListOption,
+	TImmutable extends boolean,
+	TAutoNow extends boolean,
+> = ResolvedDateField<TRequired, TNullable, TList, TImmutable, false, TAutoNow>
+
+interface DateFieldFactory {
+	<
+		const TRequired extends boolean = false,
+		const TNullable extends boolean = false,
+		const TList extends FieldListOption = false,
+		const TImmutable extends boolean = false,
+		const TAutoNow extends boolean = false,
+	>(
+		options: DefaultedDateFieldOptions<
+			TRequired,
+			TNullable,
+			TList,
+			TImmutable,
+			TAutoNow
+		>,
+		...invalidOptions: InvalidOptionsArguments<
+			CompatibleGeneratedScalarOptions<
+				TRequired,
+				TNullable,
+				TAutoNow,
+				TList,
+				true,
+				true
+			>
+		>
+	): DefaultedDateField<TRequired, TNullable, TList, TImmutable, TAutoNow>
+	<
+		const TRequired extends boolean = false,
+		const TNullable extends boolean = false,
+		const TList extends FieldListOption = false,
+		const TImmutable extends boolean = false,
+		const TAutoNow extends boolean = false,
+	>(
+		options?: NonDefaultedDateFieldOptions<
+			TRequired,
+			TNullable,
+			TList,
+			TImmutable,
+			TAutoNow
+		>,
+		...invalidOptions: InvalidOptionsArguments<
+			CompatibleGeneratedScalarOptions<
+				TRequired,
+				TNullable,
+				TAutoNow,
+				TList,
+				false,
+				true
+			>
+		>
+	): NonDefaultedDateField<TRequired, TNullable, TList, TImmutable, TAutoNow>
+}
 
 const calendarDatePattern = /^\d{4}-\d{2}-\d{2}$/u
 
@@ -85,9 +215,11 @@ const normalizeDateFieldOptions = <const TOptions extends DateFieldOptions>(
  * dateField({ default: "2026-08-01" })
  * ```
  */
-export const dateField: ScalarFieldFactory<'date', string, DateFieldOptions> =
-	createScalarFieldFactory(
+export const dateField: DateFieldFactory =
+	createGeneratedCompactScalarFieldFactory<
 		'date',
-		normalizeDateFieldOptions,
-		normalizeCalendarDate,
-	)
+		string,
+		DateFieldOptions,
+		'autoNow',
+		true
+	>('date', normalizeDateFieldOptions, normalizeCalendarDate)

@@ -3,12 +3,18 @@ import { immutableRecord } from '@ultimabase/shared'
 import { normalizeFieldOptions } from '../base/options.js'
 import type {
 	FieldDefinition,
+	FieldInferenceState,
+	FieldListOption,
 	FieldOptions,
 	FieldValidationOptions,
+	InvalidOptionsArguments,
 } from '../base/contract.js'
 import {
-	createScalarFieldFactory,
-	type ScalarFieldFactory,
+	type CompatibleScalarPresence,
+	type CompactScalarFieldDefinition,
+	createCompactScalarFieldFactory,
+	type DefaultedCompactScalarFieldOptions,
+	type NonDefaultedCompactScalarFieldOptions,
 } from '../base/factory.js'
 import { normalizeStringValue } from '../base/value.js'
 
@@ -37,8 +43,98 @@ export type UuidFieldOptions = FieldOptions<string, UuidValidationOptions>
 /**
  * Carries the UUID value and exact options through schema inference.
  */
-export type UuidField<TOptions extends UuidFieldOptions = UuidFieldOptions> =
-	FieldDefinition<'uuid', string, TOptions>
+export type UuidField<
+	TInference extends FieldInferenceState = FieldInferenceState,
+> = FieldDefinition<'uuid', string, UuidFieldOptions, TInference>
+
+/** Provides UUID-specific names for the shared compact scalar contract. */
+type DefaultedUuidFieldOptions<
+	TRequired extends boolean,
+	TNullable extends boolean,
+	TList extends FieldListOption,
+	TImmutable extends boolean,
+> = DefaultedCompactScalarFieldOptions<
+	UuidFieldOptions,
+	string,
+	TRequired,
+	TNullable,
+	TList,
+	TImmutable
+>
+
+type NonDefaultedUuidFieldOptions<
+	TRequired extends boolean,
+	TNullable extends boolean,
+	TList extends FieldListOption,
+	TImmutable extends boolean,
+> = NonDefaultedCompactScalarFieldOptions<
+	UuidFieldOptions,
+	TRequired,
+	TNullable,
+	TList,
+	TImmutable
+>
+
+type ResolvedUuidField<
+	TRequired extends boolean,
+	TNullable extends boolean,
+	TList extends FieldListOption,
+	TImmutable extends boolean,
+	THasDefault extends boolean,
+> = CompactScalarFieldDefinition<
+	'uuid',
+	string,
+	UuidFieldOptions,
+	TRequired,
+	TNullable,
+	TList,
+	TImmutable,
+	THasDefault
+>
+
+type DefaultedUuidField<
+	TRequired extends boolean,
+	TNullable extends boolean,
+	TList extends FieldListOption,
+	TImmutable extends boolean,
+> = ResolvedUuidField<TRequired, TNullable, TList, TImmutable, true>
+
+type NonDefaultedUuidField<
+	TRequired extends boolean,
+	TNullable extends boolean,
+	TList extends FieldListOption,
+	TImmutable extends boolean,
+> = ResolvedUuidField<TRequired, TNullable, TList, TImmutable, false>
+
+interface UuidFieldFactory {
+	<
+		const TRequired extends boolean = false,
+		const TNullable extends boolean = false,
+		const TList extends FieldListOption = false,
+		const TImmutable extends boolean = false,
+	>(
+		options: DefaultedUuidFieldOptions<TRequired, TNullable, TList, TImmutable>,
+		...invalidOptions: InvalidOptionsArguments<
+			CompatibleScalarPresence<TRequired, TNullable>
+		>
+	): DefaultedUuidField<TRequired, TNullable, TList, TImmutable>
+	<
+		const TRequired extends boolean = false,
+		const TNullable extends boolean = false,
+		const TList extends FieldListOption = false,
+		const TImmutable extends boolean = false,
+	>(
+		options?: NonDefaultedUuidFieldOptions<
+			TRequired,
+			TNullable,
+			TList,
+			TImmutable
+		>,
+		...invalidOptions: InvalidOptionsArguments<
+			CompatibleScalarPresence<TRequired, TNullable>
+		>
+	): NonDefaultedUuidField<TRequired, TNullable, TList, TImmutable>
+}
 
 const normalizeUuidValidation = (
 	validation: UuidValidationOptions,
@@ -69,9 +165,8 @@ const normalizeUuidFieldOptions = <const TOptions extends UuidFieldOptions>(
  * uuidField({ indexed: "unique", validation: { required: true, version: 7 } })
  * ```
  */
-export const uuidField: ScalarFieldFactory<'uuid', string, UuidFieldOptions> =
-	createScalarFieldFactory(
-		'uuid',
-		normalizeUuidFieldOptions,
-		normalizeStringValue,
-	)
+export const uuidField: UuidFieldFactory = createCompactScalarFieldFactory<
+	'uuid',
+	string,
+	UuidFieldOptions
+>('uuid', normalizeUuidFieldOptions, normalizeStringValue)

@@ -5,6 +5,7 @@ import {
 	floatField,
 	type FieldExtension,
 } from '../../index.js'
+import { requireDefined } from '../../../tests/test-assertions.js'
 
 describe('floatField', () => {
 	it('creates frozen default metadata', () => {
@@ -39,7 +40,14 @@ describe('floatField', () => {
 				finite: false,
 			},
 		})
-		expect(Object.isFrozen(field.options.validation.range)).toBe(true)
+		expect(
+			Object.isFrozen(
+				requireDefined(
+					field.options.validation?.range,
+					'field.options.validation.range',
+				),
+			),
+		).toBe(true)
 	})
 
 	it('freezes validation metadata without a range constraint', () => {

@@ -9,6 +9,8 @@ import {
 	type BinaryFieldOptions,
 	type BinaryValidationOptions,
 	type FieldDefinition,
+	type FieldInferenceState,
+	type FieldInferenceStateOf,
 	type FieldValue,
 } from '../../index.js'
 
@@ -27,11 +29,23 @@ test('preserves binary options and native byte values', () => {
 	})
 
 	expectTypeOf(field).toExtend<
-		FieldDefinition<'binary', Uint8Array, BinaryFieldOptions>
+		FieldDefinition<
+			'binary',
+			Uint8Array,
+			BinaryFieldOptions,
+			FieldInferenceState
+		>
 	>()
 	expectTypeOf(field).toExtend<BinaryField>()
 	expectTypeOf(field.kind).toEqualTypeOf<'binary'>()
-	expectTypeOf(field.options.default).toEqualTypeOf<typeof bytes>()
+	expectTypeOf(field.options).toEqualTypeOf<Readonly<BinaryFieldOptions>>()
+	expectTypeOf<FieldInferenceStateOf<typeof field>>().toEqualTypeOf<{
+		readonly create: 'optional'
+		readonly object: 'required'
+		readonly update: 'optional'
+		readonly nullable: false
+		readonly list: false
+	}>()
 	expectTypeOf<FieldValue<typeof field>>().toEqualTypeOf<Uint8Array>()
 })
 
@@ -42,7 +56,7 @@ test('accepts Buffer values and homogeneous binary lists', () => {
 		default: [new Uint8Array([1]), Buffer.from([2])],
 	})
 
-	expectTypeOf(buffer.options.default).toExtend<Uint8Array>()
+	expectTypeOf(buffer.options).toEqualTypeOf<Readonly<BinaryFieldOptions>>()
 	expectTypeOf(list).toExtend<BinaryField>()
 	expectTypeOf<FieldValue<typeof list>>().toEqualTypeOf<readonly Uint8Array[]>()
 })
@@ -50,9 +64,7 @@ test('accepts Buffer values and homogeneous binary lists', () => {
 test('creates an exact empty option contract by default', () => {
 	const field = binaryField()
 
-	expectTypeOf(field.options).toEqualTypeOf<
-		Readonly<Record<PropertyKey, never>>
-	>()
+	expectTypeOf(field.options).toEqualTypeOf<Readonly<BinaryFieldOptions>>()
 })
 
 test('rejects incompatible binary metadata', () => {

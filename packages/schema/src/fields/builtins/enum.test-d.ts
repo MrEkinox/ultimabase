@@ -7,6 +7,8 @@ import {
 	type EnumFieldOptions,
 	type EnumValue,
 	type FieldDefinition,
+	type FieldInferenceState,
+	type FieldInferenceStateOf,
 } from '../../index.js'
 
 enum NativeStatus {
@@ -32,14 +34,20 @@ test('infers a literal union from an inline list without as const', () => {
 
 	// The field value is the exact union of persisted list values.
 	expectTypeOf(field).toExtend<
-		FieldDefinition<'enum', 'draft' | 'published' | 'archived'>
+		FieldDefinition<
+			'enum',
+			'draft' | 'published' | 'archived',
+			EnumFieldOptions<readonly ['draft', 'published', 'archived']>,
+			FieldInferenceState
+		>
 	>()
 	expectTypeOf(field.kind).toEqualTypeOf<'enum'>()
-	expectTypeOf(field.options.typeName).toEqualTypeOf<'PublicationStatus'>()
 	expectTypeOf(field.options.values).toEqualTypeOf<
 		readonly ['draft', 'published', 'archived']
 	>()
-	expectTypeOf(field.options.default).toEqualTypeOf<'draft'>()
+	expectTypeOf<
+		FieldInferenceStateOf<typeof field>['object']
+	>().toEqualTypeOf<'required'>()
 })
 
 test('infers persisted values from a symbolic mapping', () => {
@@ -51,9 +59,17 @@ test('infers persisted values from a symbolic mapping', () => {
 		default: 'published',
 	})
 
-	expectTypeOf(field).toExtend<FieldDefinition<'enum', 'draft' | 'published'>>()
+	expectTypeOf(field).toExtend<
+		FieldDefinition<
+			'enum',
+			'draft' | 'published',
+			EnumFieldOptions<
+				Readonly<{ readonly Draft: 'draft'; readonly Published: 'published' }>
+			>,
+			FieldInferenceState
+		>
+	>()
 	expectTypeOf(field.options.values.Draft).toEqualTypeOf<'draft'>()
-	expectTypeOf(field.options.default).toEqualTypeOf<'published'>()
 })
 
 test('accepts native string enums without numeric reverse mappings', () => {
@@ -62,8 +78,14 @@ test('accepts native string enums without numeric reverse mappings', () => {
 		default: NativeStatus.Draft,
 	})
 
-	expectTypeOf(field).toExtend<FieldDefinition<'enum', NativeStatus>>()
-	expectTypeOf(field.options.default).toEqualTypeOf<NativeStatus.Draft>()
+	expectTypeOf(field).toExtend<
+		FieldDefinition<
+			'enum',
+			NativeStatus,
+			EnumFieldOptions<typeof NativeStatus>,
+			FieldInferenceState
+		>
+	>()
 })
 
 test('rejects invalid enum sources and metadata', () => {
@@ -102,5 +124,7 @@ test('rejects invalid enum sources and metadata', () => {
 	expectTypeOf<EnumFieldOptions<readonly ['first', 'second']>>().toExtend<
 		FieldDefinition<'enum', string>['options']
 	>()
-	expectTypeOf<EnumField>().toExtend<FieldDefinition<'enum', string>>()
+	expectTypeOf<EnumField>().toExtend<
+		FieldDefinition<'enum', string, EnumFieldOptions, FieldInferenceState>
+	>()
 })

@@ -19,6 +19,11 @@ import {
 	uuidField,
 	type FieldDefinition,
 } from '../../index.js'
+import {
+	requireArray,
+	requireDefined,
+	requireRecord,
+} from '../../../tests/test-assertions.js'
 
 describe('object fields and list metadata', () => {
 	it('adds immutable list metadata without changing the field kind', () => {
@@ -126,17 +131,27 @@ describe('object fields and list metadata', () => {
 			},
 			default: objectDefault,
 		})
+		const listSnapshot = requireArray(
+			requireDefined(list.options.default, 'list.options.default'),
+			'list.options.default',
+		)
+		const firstListItem = requireRecord(listSnapshot[0], 'list default item')
+		const objectSnapshot = requireRecord(
+			requireDefined(object.options.default, 'object.options.default'),
+			'object.options.default',
+		)
+		const flags = requireArray(objectSnapshot.flags, 'object default flags')
 
 		listDefault[0] = { label: 'changed' }
 		objectDefault.flags.push(false)
 		objectDefault.updatedAt = '2030-07-30T12:00:00.000Z'
 
-		expect(list.options.default.at(0)?.label).toBe('first')
-		expect(Object.isFrozen(list.options.default)).toBe(true)
-		expect(Object.isFrozen(list.options.default[0])).toBe(true)
-		expect(object.options.default.flags).toStrictEqual([true])
-		expect(object.options.default.updatedAt).toBe('2026-07-30T12:00:00.000Z')
-		expect(Object.isFrozen(object.options.default.flags)).toBe(true)
+		expect(firstListItem.label).toBe('first')
+		expect(Object.isFrozen(listSnapshot)).toBe(true)
+		expect(Object.isFrozen(firstListItem)).toBe(true)
+		expect(flags).toStrictEqual([true])
+		expect(objectSnapshot.updatedAt).toBe('2026-07-30T12:00:00.000Z')
+		expect(Object.isFrozen(flags)).toBe(true)
 	})
 
 	it('delegates structured default snapshots to plugin fields', () => {
@@ -168,12 +183,17 @@ describe('object fields and list metadata', () => {
 				custom: source,
 			},
 		})
+		const defaultValue = requireRecord(
+			requireDefined(field.options.default, 'field.options.default'),
+			'field.options.default',
+		)
+		const custom = requireRecord(defaultValue.custom, 'default.custom')
 
 		source.label = 'changed'
 
-		expect(field.options.default.custom.label).toBe('initial')
-		expect(field.options.default.custom).not.toBe(source)
-		expect(Object.isFrozen(field.options.default.custom)).toBe(true)
+		expect(custom.label).toBe('initial')
+		expect(custom).not.toBe(source)
+		expect(Object.isFrozen(custom)).toBe(true)
 	})
 
 	it('copies binary values nested inside structured defaults', () => {
@@ -186,14 +206,16 @@ describe('object fields and list metadata', () => {
 				payload: source,
 			},
 		})
+		const defaultValue = requireRecord(
+			requireDefined(field.options.default, 'field.options.default'),
+			'field.options.default',
+		)
 
 		source[0] = 9
 
 		// Nested binary defaults retain the same defensive-copy boundary as direct fields.
-		expect(field.options.default.payload).toStrictEqual(
-			new Uint8Array([1, 2, 3]),
-		)
-		expect(field.options.default.payload).not.toBe(source)
+		expect(defaultValue.payload).toStrictEqual(new Uint8Array([1, 2, 3]))
+		expect(defaultValue.payload).not.toBe(source)
 	})
 
 	it('normalizes every built-in value inside structured defaults', () => {
@@ -223,6 +245,11 @@ describe('object fields and list metadata', () => {
 				profile: { name: 'Ada' },
 			},
 		})
+		const defaultValue = requireRecord(
+			requireDefined(field.options.default, 'field.options.default'),
+			'field.options.default',
+		)
+		const profile = requireRecord(defaultValue.profile, 'default.profile')
 
 		expect(field.options.default).toMatchObject({
 			largeCount: 9_000_000_000_000_000_000n,
@@ -233,11 +260,12 @@ describe('object fields and list metadata', () => {
 			count: 2,
 			profile: { name: 'Ada' },
 		})
-		expect(Object.isFrozen(field.options.default.profile)).toBe(true)
+		expect(Object.isFrozen(profile)).toBe(true)
 	})
 
 	it('uses create-input presence rules for object defaults', () => {
 		expect(() => {
+			// @ts-expect-error -- Runtime coverage protects undeclared object keys.
 			objectField({
 				fields: { name: stringField() },
 				default: { name: 'Ada', extra: true },
@@ -268,9 +296,9 @@ describe('object fields and list metadata', () => {
 			}).options.default,
 		).toStrictEqual({})
 		expect(() => {
+			// @ts-expect-error -- Runtime coverage protects values outside the enum domain.
 			objectField({
 				fields: { status: enumField({ values: ['draft'] }) },
-				// @ts-expect-error -- Runtime coverage protects values outside the enum domain.
 				default: { status: 'published' },
 			})
 		}).toThrow(
@@ -355,25 +383,27 @@ describe('object fields and list metadata', () => {
 			objectField({ fields: {}, default: Symbol('invalid') })
 		}).toThrow(new TypeError('default must be a plain object'))
 
-		expect(() =>
+		expect(() => {
+			// @ts-expect-error -- Runtime coverage protects circular untyped JSON input.
 			objectField({
 				fields: { payload: jsonField() },
-				// @ts-expect-error -- Runtime coverage protects circular untyped JSON input.
 				default: { payload: circular },
-			}),
-		).toThrow(
+			})
+		}).toThrow(
 			new TypeError(
 				'default.payload.self must not contain circular references',
 			),
 		)
 
-		expect(() =>
+		expect(() => {
+			// @ts-expect-error -- Runtime coverage protects forged structured defaults.
 			objectField({
 				fields: { updatedAt: dateField() },
-				// @ts-expect-error -- Runtime coverage protects forged structured defaults.
 				default: { updatedAt: new Date(Number.NaN) },
-			}),
-		).toThrow(new TypeError('default.updatedAt must be a calendar date string'))
+			})
+		}).toThrow(
+			new TypeError('default.updatedAt must be a calendar date string'),
+		)
 
 		expect(() => objectField({ fields: {}, default: new Map() })).toThrow(
 			new TypeError('default must be a plain object'),

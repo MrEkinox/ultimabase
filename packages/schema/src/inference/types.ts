@@ -1,9 +1,7 @@
 import type {
-	FieldExtension,
-	FieldExtensionInference,
-} from '../extensions/definition.js'
-import type {
-	FieldOptionsValue,
+	FieldInferenceStateOf,
+	FieldList,
+	FieldListValue,
 	FieldValue,
 	GenericField,
 } from '../fields/base/contract.js'
@@ -15,77 +13,10 @@ type Simplify<TValue> = {
 	[TKey in keyof TValue]: TValue[TKey]
 }
 
-type FieldOptionsOf<TField> = TField extends {
-	readonly options: infer TOptions extends object
-}
-	? TOptions
-	: object
-
-type FieldExtensionsOf<TField> =
-	FieldOptionsOf<TField> extends {
-		readonly extensions: infer TExtensions extends readonly FieldExtension<
-			string,
-			object
-		>[]
-	}
-		? TExtensions
-		: readonly []
-
-type HasRequiredValidation<TField> =
-	FieldOptionsOf<TField> extends {
-		readonly validation: { readonly required: true }
-	}
-		? true
-		: false
-
-type HasNullableValidation<TField> =
-	FieldOptionsOf<TField> extends {
-		readonly validation: { readonly nullable: true }
-	}
-		? true
-		: false
-
-type HasDefault<TField> =
-	FieldOptionsOf<TField> extends {
-		readonly default: unknown
-	}
-		? true
-		: false
-
-type HasAutoNow<TField> =
-	FieldOptionsOf<TField> extends {
-		readonly autoNow: true
-	}
-		? true
-		: false
-
-type IsAutoIncremented<TField> =
-	FieldOptionsOf<TField> extends {
-		readonly autoIncrement: true
-	}
-		? true
-		: false
-
-type IsGenerated<TField> =
-	FieldOptionsOf<TField> extends {
-		readonly generatedOn: unknown
-	}
-		? true
-		: false
-
-type IsImmutable<TField> =
-	FieldOptionsOf<TField> extends {
-		readonly immutable: true
-	}
-		? true
-		: false
+type HasNullableValidation<TField> = FieldInferenceStateOf<TField>['nullable']
 
 type IsListField<TField> =
-	FieldOptionsOf<TField> extends {
-		readonly list: readonly true[] | true
-	}
-		? true
-		: false
+	FieldInferenceStateOf<TField>['list'] extends FieldList ? true : false
 
 type ObjectChildMode<
 	TField,
@@ -97,52 +28,10 @@ type ObjectChildMode<
 	: TMode
 
 type IsOutputRequired<TField> =
-	HasRequiredValidation<TField> extends true
-		? true
-		: HasDefault<TField> extends true
-			? true
-			: HasAutoNow<TField> extends true
-				? true
-				: IsAutoIncremented<TField> extends true
-					? true
-					: IsGenerated<TField> extends true
-						? true
-						: false
+	FieldInferenceStateOf<TField>['object'] extends 'required' ? true : false
 
 type IsCreateRequired<TField> =
-	HasRequiredValidation<TField> extends true
-		? HasDefault<TField> extends true
-			? false
-			: HasAutoNow<TField> extends true
-				? false
-				: IsAutoIncremented<TField> extends true
-					? false
-					: true
-		: false
-
-type ApplyInferenceOverride<TValue, TInference, TMode extends InferenceMode> =
-	TInference extends Readonly<Record<TMode, infer TOverride>>
-		? TOverride
-		: TValue
-
-type ApplyFieldExtensions<
-	TValue,
-	TExtensions,
-	TMode extends InferenceMode,
-> = TExtensions extends readonly [
-	infer TExtension,
-	...infer TRest extends readonly unknown[],
-]
-	? ApplyFieldExtensions<
-			ApplyInferenceOverride<
-				TValue,
-				FieldExtensionInference<TExtension>,
-				TMode
-			>,
-			TRest,
-			TMode
-		>
-	: TValue
+	FieldInferenceStateOf<TField>['create'] extends 'required' ? true : false
 
 type BaseFieldValue<
 	TField extends GenericField,
@@ -153,42 +42,21 @@ type BaseFieldValue<
 		readonly fields: infer TFields extends SchemaFields
 	}
 }
-	? FieldOptionsValue<
+	? FieldListValue<
 			InferFields<TFields, ObjectChildMode<TField, TMode>>,
-			FieldOptionsOf<TField>
+			FieldInferenceStateOf<TField>['list']
 		>
 	: FieldValue<TField>
 
-type InferNonNullableFieldValue<
-	TField extends GenericField,
-	TMode extends InferenceMode,
-> = ApplyFieldExtensions<
-	BaseFieldValue<TField, TMode>,
-	FieldExtensionsOf<TField>,
-	TMode
->
-
-type InferFieldValue<
-	TField extends GenericField,
-	TMode extends InferenceMode,
-> = [InferNonNullableFieldValue<TField, TMode>] extends [never]
-	? never
-	: HasNullableValidation<TField> extends true
-		? InferNonNullableFieldValue<TField, TMode> | null
-		: InferNonNullableFieldValue<TField, TMode>
+type InferFieldValue<TField extends GenericField, TMode extends InferenceMode> =
+	HasNullableValidation<TField> extends true
+		? BaseFieldValue<TField, TMode> | null
+		: BaseFieldValue<TField, TMode>
 
 type IsOmittedField<
 	TField extends GenericField,
 	TMode extends InferenceMode,
-> = [InferFieldValue<TField, TMode>] extends [never]
-	? true
-	: TMode extends 'create'
-		? IsGenerated<TField>
-		: TMode extends 'update'
-			? IsGenerated<TField> extends true
-				? true
-				: IsImmutable<TField>
-			: false
+> = FieldInferenceStateOf<TField>[TMode] extends 'forbidden' ? true : false
 
 type ObjectRequiredFields<TFields extends SchemaFields> = {
 	readonly [

@@ -1,9 +1,18 @@
 import { assertOptionalBoolean } from '@ultimabase/shared'
 import { assertFieldOptions, normalizeFieldOptions } from '../base/options.js'
-import type { FieldDefinition, FieldOptions } from '../base/contract.js'
+import type {
+	FieldDefinition,
+	FieldInferenceState,
+	FieldListOption,
+	FieldOptions,
+	InvalidOptionsArguments,
+} from '../base/contract.js'
 import {
-	createScalarFieldFactory,
-	type ScalarFieldFactory,
+	type CompatibleScalarPresence,
+	type CompactScalarFieldDefinition,
+	createCompactScalarFieldFactory,
+	type DefaultedCompactScalarFieldOptions,
+	type NonDefaultedCompactScalarFieldOptions,
 } from '../base/factory.js'
 import {
 	normalizeNumericValidation,
@@ -37,8 +46,103 @@ export type FloatFieldOptions = FieldOptions<number, FloatValidationOptions>
 /**
  * Carries a floating-point number and exact options through schema inference.
  */
-export type FloatField<TOptions extends FloatFieldOptions = FloatFieldOptions> =
-	FieldDefinition<'float', number, TOptions>
+export type FloatField<
+	TInference extends FieldInferenceState = FieldInferenceState,
+> = FieldDefinition<'float', number, FloatFieldOptions, TInference>
+
+/** Provides float-specific names for the shared compact scalar contract. */
+type DefaultedFloatFieldOptions<
+	TRequired extends boolean,
+	TNullable extends boolean,
+	TList extends FieldListOption,
+	TImmutable extends boolean,
+> = DefaultedCompactScalarFieldOptions<
+	FloatFieldOptions,
+	number,
+	TRequired,
+	TNullable,
+	TList,
+	TImmutable
+>
+
+type NonDefaultedFloatFieldOptions<
+	TRequired extends boolean,
+	TNullable extends boolean,
+	TList extends FieldListOption,
+	TImmutable extends boolean,
+> = NonDefaultedCompactScalarFieldOptions<
+	FloatFieldOptions,
+	TRequired,
+	TNullable,
+	TList,
+	TImmutable
+>
+
+type ResolvedFloatField<
+	TRequired extends boolean,
+	TNullable extends boolean,
+	TList extends FieldListOption,
+	TImmutable extends boolean,
+	THasDefault extends boolean,
+> = CompactScalarFieldDefinition<
+	'float',
+	number,
+	FloatFieldOptions,
+	TRequired,
+	TNullable,
+	TList,
+	TImmutable,
+	THasDefault
+>
+
+type DefaultedFloatField<
+	TRequired extends boolean,
+	TNullable extends boolean,
+	TList extends FieldListOption,
+	TImmutable extends boolean,
+> = ResolvedFloatField<TRequired, TNullable, TList, TImmutable, true>
+
+type NonDefaultedFloatField<
+	TRequired extends boolean,
+	TNullable extends boolean,
+	TList extends FieldListOption,
+	TImmutable extends boolean,
+> = ResolvedFloatField<TRequired, TNullable, TList, TImmutable, false>
+
+interface FloatFieldFactory {
+	<
+		const TRequired extends boolean = false,
+		const TNullable extends boolean = false,
+		const TList extends FieldListOption = false,
+		const TImmutable extends boolean = false,
+	>(
+		options: DefaultedFloatFieldOptions<
+			TRequired,
+			TNullable,
+			TList,
+			TImmutable
+		>,
+		...invalidOptions: InvalidOptionsArguments<
+			CompatibleScalarPresence<TRequired, TNullable>
+		>
+	): DefaultedFloatField<TRequired, TNullable, TList, TImmutable>
+	<
+		const TRequired extends boolean = false,
+		const TNullable extends boolean = false,
+		const TList extends FieldListOption = false,
+		const TImmutable extends boolean = false,
+	>(
+		options?: NonDefaultedFloatFieldOptions<
+			TRequired,
+			TNullable,
+			TList,
+			TImmutable
+		>,
+		...invalidOptions: InvalidOptionsArguments<
+			CompatibleScalarPresence<TRequired, TNullable>
+		>
+	): NonDefaultedFloatField<TRequired, TNullable, TList, TImmutable>
+}
 
 const normalizeFloatValidation = (
 	validation: FloatValidationOptions,
@@ -76,12 +180,8 @@ const normalizeFloatFieldOptions = <const TOptions extends FloatFieldOptions>(
  * floatField({ validation: { finite: true, range: { min: 0, max: 5 } } })
  * ```
  */
-export const floatField: ScalarFieldFactory<
+export const floatField: FloatFieldFactory = createCompactScalarFieldFactory<
 	'float',
 	number,
 	FloatFieldOptions
-> = createScalarFieldFactory(
-	'float',
-	normalizeFloatFieldOptions,
-	normalizeNumberValue,
-)
+>('float', normalizeFloatFieldOptions, normalizeNumberValue)

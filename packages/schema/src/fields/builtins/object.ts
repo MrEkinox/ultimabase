@@ -18,12 +18,17 @@ import {
 import { isRequiredOnCreate } from '../base/options.js'
 import type {
 	FieldDefinition,
+	FieldInferenceState,
+	FieldListOption,
+	FieldListValue,
 	FieldOptions,
 	FieldOptionsBase,
 	GenericField,
 	InvalidOptionsArguments,
-	ValidatedFieldOptions,
+	ScalarFieldInferenceState,
 } from '../base/contract.js'
+import type { FieldDefault } from '../base/defaults.js'
+import { type CompatibleScalarPresence } from '../base/factory.js'
 import type { InferFields } from '../../inference/types.js'
 
 /**
@@ -75,25 +80,97 @@ export interface ObjectFieldOptions<
  */
 export type ObjectField<
 	TFields extends ObjectFields = ObjectFields,
-	TOptions extends object = ObjectFieldOptions<TFields>,
-> = FieldDefinition<'object', ObjectFieldValue<TFields>, TOptions>
+	TInference extends FieldInferenceState = FieldInferenceState,
+> = FieldDefinition<
+	'object',
+	ObjectFieldValue<TFields>,
+	ObjectFieldOptions<TFields>,
+	TInference
+>
 
-type ValidatedObjectOptions<TOptions extends { readonly fields: object }> =
-	TOptions extends {
-		readonly fields: infer TFields extends ObjectFields
+/** Keeps nested fields exact while widening runtime-only object metadata. */
+type CompactObjectFieldOptions<
+	TFields extends ObjectFields,
+	TRequired extends boolean,
+	TNullable extends boolean,
+	TList extends FieldListOption,
+	TImmutable extends boolean,
+> = ObjectFieldOptions<TFields> & {
+	readonly validation?: {
+		readonly required?: TRequired
+		readonly nullable?: TNullable
 	}
-		? Omit<TOptions, 'default'> extends Omit<
-				ObjectFieldOptions<TFields>,
-				'default'
-			>
-			? ValidatedFieldOptions<
-					TOptions,
-					ObjectFieldCreateValue<TFields>
-				> extends never
-				? never
-				: TOptions
-			: never
-		: never
+	readonly list?: TList
+	readonly immutable?: TImmutable
+}
+
+type DefaultedObjectFieldOptions<
+	TFields extends ObjectFields,
+	TRequired extends boolean,
+	TNullable extends boolean,
+	TList extends FieldListOption,
+	TImmutable extends boolean,
+> = CompactObjectFieldOptions<
+	TFields,
+	TRequired,
+	TNullable,
+	TList,
+	TImmutable
+> & {
+	readonly default: FieldDefault<
+		FieldListValue<ObjectFieldCreateValue<TFields>, TList>
+	>
+}
+
+type NonDefaultedObjectFieldOptions<
+	TFields extends ObjectFields,
+	TRequired extends boolean,
+	TNullable extends boolean,
+	TList extends FieldListOption,
+	TImmutable extends boolean,
+> = CompactObjectFieldOptions<
+	TFields,
+	TRequired,
+	TNullable,
+	TList,
+	TImmutable
+> & { readonly default?: never }
+
+type ResolvedObjectField<
+	TFields extends ObjectFields,
+	TRequired extends boolean,
+	TNullable extends boolean,
+	TList extends FieldListOption,
+	TImmutable extends boolean,
+	THasDefault extends boolean,
+> = FieldDefinition<
+	'object',
+	ObjectFieldValue<TFields>,
+	ObjectFieldOptions<TFields>,
+	ScalarFieldInferenceState<
+		TRequired,
+		TNullable,
+		TList,
+		TImmutable,
+		THasDefault
+	>
+>
+
+type DefaultedObjectField<
+	TFields extends ObjectFields,
+	TRequired extends boolean,
+	TNullable extends boolean,
+	TList extends FieldListOption,
+	TImmutable extends boolean,
+> = ResolvedObjectField<TFields, TRequired, TNullable, TList, TImmutable, true>
+
+type NonDefaultedObjectField<
+	TFields extends ObjectFields,
+	TRequired extends boolean,
+	TNullable extends boolean,
+	TList extends FieldListOption,
+	TImmutable extends boolean,
+> = ResolvedObjectField<TFields, TRequired, TNullable, TList, TImmutable, false>
 
 function snapshotObjectValue(
 	value: unknown,
@@ -142,18 +219,46 @@ function snapshotObjectValue(
  */
 export function objectField<
 	const TFields extends ObjectFields,
-	const TOptions extends ObjectFieldOptions<TFields>,
+	const TRequired extends boolean = false,
+	const TNullable extends boolean = false,
+	const TList extends FieldListOption = false,
+	const TImmutable extends boolean = false,
 >(
-	options: ObjectFieldOptions<TFields> & TOptions,
+	options: DefaultedObjectFieldOptions<
+		TFields,
+		TRequired,
+		TNullable,
+		TList,
+		TImmutable
+	>,
 	...invalidOptions: InvalidOptionsArguments<
-		ValidatedObjectOptions<NoInfer<TOptions>>
+		CompatibleScalarPresence<TRequired, TNullable>
 	>
-): ObjectField<TFields, TOptions>
+): DefaultedObjectField<TFields, TRequired, TNullable, TList, TImmutable>
+
+export function objectField<
+	const TFields extends ObjectFields,
+	const TRequired extends boolean = false,
+	const TNullable extends boolean = false,
+	const TList extends FieldListOption = false,
+	const TImmutable extends boolean = false,
+>(
+	options: NonDefaultedObjectFieldOptions<
+		TFields,
+		TRequired,
+		TNullable,
+		TList,
+		TImmutable
+	>,
+	...invalidOptions: InvalidOptionsArguments<
+		CompatibleScalarPresence<TRequired, TNullable>
+	>
+): NonDefaultedObjectField<TFields, TRequired, TNullable, TList, TImmutable>
 
 export function objectField(
 	options: ObjectFieldOptions,
 	...invalidOptions: readonly never[]
-): ObjectField<ObjectFields, ObjectFieldOptions> {
+): ObjectField {
 	// The rest parameter exists only to keep invalid generic calls uncallable.
 	void invalidOptions
 	assertFieldOptions(options)

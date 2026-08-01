@@ -5,6 +5,7 @@ import {
 	stringField,
 	type FieldExtension,
 } from '../../index.js'
+import { requireDefined } from '../../../tests/test-assertions.js'
 
 describe('stringField', () => {
 	it('creates frozen default metadata', () => {
@@ -35,6 +36,10 @@ describe('stringField', () => {
 			description: 'Public display name',
 		} as const
 		const field = stringField(source)
+		const validation = requireDefined(
+			field.options.validation,
+			'field.options.validation',
+		)
 
 		// Constraints remain metadata so runtime plugins can compile one validation plan.
 		expect(field.options).not.toBe(source)
@@ -52,10 +57,14 @@ describe('stringField', () => {
 			indexed: 'unique',
 			description: 'Public display name',
 		})
-		expect(Object.isFrozen(field.options.validation)).toBe(true)
-		expect(Object.isFrozen(field.options.validation.length)).toBe(true)
-		expect(field.options.validation.match).not.toBe(pattern)
-		expect(Object.isFrozen(field.options.validation.match)).toBe(true)
+		expect(Object.isFrozen(validation)).toBe(true)
+		expect(
+			Object.isFrozen(requireDefined(validation.length, 'validation.length')),
+		).toBe(true)
+		expect(validation.match).not.toBe(pattern)
+		expect(
+			Object.isFrozen(requireDefined(validation.match, 'validation.match')),
+		).toBe(true)
 	})
 
 	it('copies caller-owned nested validation options', () => {
@@ -65,7 +74,7 @@ describe('stringField', () => {
 		source.validation.length.min = 3
 
 		// Later caller mutations cannot change registered schema metadata.
-		expect(field.options.validation.length.min).toBe(2)
+		expect(field.options.validation?.length?.min).toBe(2)
 	})
 
 	it('freezes validation metadata without a length constraint', () => {

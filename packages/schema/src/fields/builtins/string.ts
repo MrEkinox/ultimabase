@@ -1,10 +1,19 @@
 import { immutableRecord } from '@ultimabase/shared'
 
 import { normalizeFieldOptions } from '../base/options.js'
-import type { FieldDefinition, FieldOptions } from '../base/contract.js'
+import type {
+	FieldDefinition,
+	FieldInferenceState,
+	FieldListOption,
+	FieldOptions,
+	InvalidOptionsArguments,
+} from '../base/contract.js'
 import {
-	createScalarFieldFactory,
-	type ScalarFieldFactory,
+	type CompatibleScalarPresence,
+	type CompactScalarFieldDefinition,
+	createCompactScalarFieldFactory,
+	type DefaultedCompactScalarFieldOptions,
+	type NonDefaultedCompactScalarFieldOptions,
 } from '../base/factory.js'
 import {
 	normalizeLengthValidation,
@@ -39,8 +48,102 @@ export type StringFieldOptions = FieldOptions<string, StringValidationOptions>
  * Carries the string value type and exact options through later schema inference.
  */
 export type StringField<
-	TOptions extends StringFieldOptions = StringFieldOptions,
-> = FieldDefinition<'string', string, TOptions>
+	TInference extends FieldInferenceState = FieldInferenceState,
+> = FieldDefinition<'string', string, StringFieldOptions, TInference>
+
+/** Provides string-specific names for the shared compact scalar contract. */
+type DefaultedStringFieldOptions<
+	TRequired extends boolean,
+	TNullable extends boolean,
+	TList extends FieldListOption,
+	TImmutable extends boolean,
+> = DefaultedCompactScalarFieldOptions<
+	StringFieldOptions,
+	string,
+	TRequired,
+	TNullable,
+	TList,
+	TImmutable
+>
+
+type NonDefaultedStringFieldOptions<
+	TRequired extends boolean,
+	TNullable extends boolean,
+	TList extends FieldListOption,
+	TImmutable extends boolean,
+> = NonDefaultedCompactScalarFieldOptions<
+	StringFieldOptions,
+	TRequired,
+	TNullable,
+	TList,
+	TImmutable
+>
+
+type ResolvedStringField<
+	TRequired extends boolean,
+	TNullable extends boolean,
+	TList extends FieldListOption,
+	TImmutable extends boolean,
+	THasDefault extends boolean,
+> = CompactScalarFieldDefinition<
+	'string',
+	string,
+	StringFieldOptions,
+	TRequired,
+	TNullable,
+	TList,
+	TImmutable,
+	THasDefault
+>
+
+type DefaultedStringField<
+	TRequired extends boolean,
+	TNullable extends boolean,
+	TList extends FieldListOption,
+	TImmutable extends boolean,
+> = ResolvedStringField<TRequired, TNullable, TList, TImmutable, true>
+
+type NonDefaultedStringField<
+	TRequired extends boolean,
+	TNullable extends boolean,
+	TList extends FieldListOption,
+	TImmutable extends boolean,
+> = ResolvedStringField<TRequired, TNullable, TList, TImmutable, false>
+
+interface StringFieldFactory {
+	<
+		const TRequired extends boolean = false,
+		const TNullable extends boolean = false,
+		const TList extends FieldListOption = false,
+		const TImmutable extends boolean = false,
+	>(
+		options: DefaultedStringFieldOptions<
+			TRequired,
+			TNullable,
+			TList,
+			TImmutable
+		>,
+		...invalidOptions: InvalidOptionsArguments<
+			CompatibleScalarPresence<TRequired, TNullable>
+		>
+	): DefaultedStringField<TRequired, TNullable, TList, TImmutable>
+	<
+		const TRequired extends boolean = false,
+		const TNullable extends boolean = false,
+		const TList extends FieldListOption = false,
+		const TImmutable extends boolean = false,
+	>(
+		options?: NonDefaultedStringFieldOptions<
+			TRequired,
+			TNullable,
+			TList,
+			TImmutable
+		>,
+		...invalidOptions: InvalidOptionsArguments<
+			CompatibleScalarPresence<TRequired, TNullable>
+		>
+	): NonDefaultedStringField<TRequired, TNullable, TList, TImmutable>
+}
 
 const normalizeStringValidation = (
 	validation: StringValidationOptions,
@@ -83,12 +186,8 @@ const normalizeStringFieldOptions = <const TOptions extends StringFieldOptions>(
  * })
  * ```
  */
-export const stringField: ScalarFieldFactory<
+export const stringField: StringFieldFactory = createCompactScalarFieldFactory<
 	'string',
 	string,
 	StringFieldOptions
-> = createScalarFieldFactory(
-	'string',
-	normalizeStringFieldOptions,
-	normalizeStringValue,
-)
+>('string', normalizeStringFieldOptions, normalizeStringValue)

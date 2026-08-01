@@ -6,6 +6,7 @@ import {
 	type InferCreateInput,
 	type InferObject,
 	type InferUpdateInput,
+	type FieldInferenceStateOf,
 	type UuidField,
 	type UuidVersion,
 } from '../../index.js'
@@ -32,9 +33,9 @@ test('preserves UUID literals and operation-specific inference', () => {
 	type UpdateShape = InferUpdateInput<typeof uuidSchema>
 
 	expectTypeOf(uuidSchema.fields.ownerId).toExtend<UuidField>()
-	expectTypeOf(
-		uuidSchema.fields.ownerId.options.validation.version,
-	).toEqualTypeOf<7>()
+	expectTypeOf<
+		FieldInferenceStateOf<typeof uuidSchema.fields.ownerId>['create']
+	>().toEqualTypeOf<'required'>()
 	expectTypeOf<UuidVersion>().toEqualTypeOf<1 | 2 | 3 | 4 | 5 | 6 | 7 | 8>()
 	expectTypeOf<ObjectShape['ownerId']>().toEqualTypeOf<string>()
 	expectTypeOf<ObjectShape['externalId']>().toEqualTypeOf<string>()

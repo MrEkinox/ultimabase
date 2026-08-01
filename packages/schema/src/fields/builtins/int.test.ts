@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { intField } from '../../index.js'
+import { requireDefined } from '../../../tests/test-assertions.js'
 
 describe('intField', () => {
 	it('creates frozen default metadata', () => {
@@ -30,6 +31,10 @@ describe('intField', () => {
 			description: 'Signed score',
 		} as const
 		const field = intField(source)
+		const validation = requireDefined(
+			field.options.validation,
+			'field.options.validation',
+		)
 
 		expect(field).toStrictEqual({
 			kind: 'int',
@@ -38,8 +43,10 @@ describe('intField', () => {
 		expect(field.options).not.toBe(source)
 		expect(Object.isFrozen(field)).toBe(true)
 		expect(Object.isFrozen(field.options)).toBe(true)
-		expect(Object.isFrozen(field.options.validation)).toBe(true)
-		expect(Object.isFrozen(field.options.validation.range)).toBe(true)
+		expect(Object.isFrozen(validation)).toBe(true)
+		expect(
+			Object.isFrozen(requireDefined(validation.range, 'validation.range')),
+		).toBe(true)
 	})
 
 	it('preserves an explicitly disabled integer sequence', () => {
@@ -52,7 +59,7 @@ describe('intField', () => {
 		const field = intField({ validation: { range: { min: 4, max: 4 } } })
 
 		// Equal boundaries describe one valid exact numeric value.
-		expect(field.options.validation.range).toStrictEqual({ min: 4, max: 4 })
+		expect(field.options.validation?.range).toStrictEqual({ min: 4, max: 4 })
 	})
 
 	it('copies caller-owned range metadata', () => {
@@ -68,7 +75,7 @@ describe('intField', () => {
 		source.validation.range.min = 2
 
 		// Registered integer constraints cannot change with caller-owned objects.
-		expect(field.options.validation.range.min).toBe(1)
+		expect(field.options.validation?.range?.min).toBe(1)
 	})
 
 	it('freezes validation metadata without a range constraint', () => {

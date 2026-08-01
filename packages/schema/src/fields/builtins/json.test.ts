@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
 import { jsonField } from '../../index.js'
+import {
+	requireDefined,
+	requireRecord,
+} from '../../../tests/test-assertions.js'
 
 describe('jsonField', () => {
 	it('creates frozen empty metadata', () => {
@@ -28,6 +32,11 @@ describe('jsonField', () => {
 				required: true,
 			},
 		})
+		const defaultValue = requireRecord(
+			requireDefined(field.options.default, 'field.options.default'),
+			'field.options.default',
+		)
+		const profile = requireRecord(defaultValue.profile, 'default.profile')
 
 		source.profile.tags.push('changed')
 		source.profile.score = 20
@@ -40,9 +49,9 @@ describe('jsonField', () => {
 				score: 10,
 			},
 		})
-		expect(Object.isFrozen(field.options.default)).toBe(true)
-		expect(Object.isFrozen(field.options.default.profile)).toBe(true)
-		expect(Object.isFrozen(field.options.default.profile.tags)).toBe(true)
+		expect(Object.isFrozen(defaultValue)).toBe(true)
+		expect(Object.isFrozen(profile)).toBe(true)
+		expect(Object.isFrozen(profile.tags)).toBe(true)
 	})
 
 	it('allows repeated references when the value is not circular', () => {

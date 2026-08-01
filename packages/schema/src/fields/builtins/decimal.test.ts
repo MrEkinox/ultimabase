@@ -1,6 +1,23 @@
 import { describe, expect, it } from 'vitest'
 
-import { decimalField } from '../../index.js'
+import {
+	decimalField,
+	type DecimalField,
+	type DecimalValidationOptions,
+} from '../../index.js'
+
+/** Narrows intentionally widened runtime metadata for focused assertions. */
+const requireValidation = (
+	field: DecimalField,
+): Readonly<DecimalValidationOptions> => {
+	const { validation } = field.options
+
+	if (validation === undefined) {
+		throw new TypeError('Expected decimal validation metadata')
+	}
+
+	return validation
+}
 
 describe('decimalField', () => {
 	it('creates frozen default metadata', () => {
@@ -42,8 +59,10 @@ describe('decimalField', () => {
 			default: '19.99',
 			indexed: true,
 		})
+		const validation = requireValidation(field)
+
 		expect(Object.isFrozen(field.options.validation)).toBe(true)
-		expect(Object.isFrozen(field.options.validation.range)).toBe(true)
+		expect(Object.isFrozen(validation.range)).toBe(true)
 	})
 
 	it('copies exact decimal list defaults', () => {
@@ -62,7 +81,7 @@ describe('decimalField', () => {
 	] as const)('supports a one-sided %s range', (_name, range) => {
 		const field = decimalField({ validation: { range } })
 
-		expect(field.options.validation.range).toStrictEqual(range)
+		expect(requireValidation(field).range).toStrictEqual(range)
 	})
 
 	it('freezes digit validation without a decimal range', () => {
@@ -90,7 +109,7 @@ describe('decimalField', () => {
 			},
 		})
 
-		expect(field.options.validation.range).toStrictEqual({
+		expect(requireValidation(field).range).toStrictEqual({
 			min: '9007199254740993.001',
 			max: '9007199254740993.01',
 		})
@@ -106,7 +125,7 @@ describe('decimalField', () => {
 			},
 		})
 
-		expect(field.options.validation.range).toStrictEqual({
+		expect(requireValidation(field).range).toStrictEqual({
 			min: '1.0',
 			max: '1.000',
 		})

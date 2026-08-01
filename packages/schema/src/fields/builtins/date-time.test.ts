@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { dateTimeField } from '../../index.js'
+import { requireDefined } from '../../../tests/test-assertions.js'
 
 describe('dateTimeField', () => {
 	it('creates frozen metadata with an implicit timezone', () => {
@@ -38,7 +39,14 @@ describe('dateTimeField', () => {
 			},
 			default: '2026-06-01T12:00:00.000+02:00',
 		})
-		expect(Object.isFrozen(field.options.validation.range)).toBe(true)
+		expect(
+			Object.isFrozen(
+				requireDefined(
+					field.options.validation?.range,
+					'field.options.validation.range',
+				),
+			),
+		).toBe(true)
 	})
 
 	it('supports local date-times and operation-clock generation', () => {
@@ -71,7 +79,7 @@ describe('dateTimeField', () => {
 			validation: { range },
 		})
 
-		expect(field.options.validation.range).toStrictEqual(range)
+		expect(field.options.validation?.range).toStrictEqual(range)
 	})
 
 	it('freezes presence validation without a date-time range', () => {
@@ -136,7 +144,7 @@ describe('dateTimeField', () => {
 			},
 		})
 
-		expect(field.options.validation.range).toStrictEqual({
+		expect(field.options.validation?.range).toStrictEqual({
 			min: '2026-01-01T12:00:00.000+02:00',
 			max: '2026-01-01T10:30:00.000Z',
 		})

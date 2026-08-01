@@ -6,6 +6,8 @@ import {
 	type BooleanField,
 	type BooleanFieldOptions,
 	type FieldDefinition,
+	type FieldInferenceState,
+	type FieldInferenceStateOf,
 } from '../../index.js'
 
 test('preserves boolean defaults and common option literals', () => {
@@ -19,21 +21,30 @@ test('preserves boolean defaults and common option literals', () => {
 		indexed: true,
 	})
 
-	// Boolean literals remain available to later create-input inference.
-	expectTypeOf(field).toExtend<FieldDefinition<'boolean', boolean>>()
+	expectTypeOf(field).toExtend<
+		FieldDefinition<
+			'boolean',
+			boolean,
+			BooleanFieldOptions,
+			FieldInferenceState
+		>
+	>()
 	expectTypeOf(field.kind).toEqualTypeOf<'boolean'>()
-	expectTypeOf(field.options.validation.required).toEqualTypeOf<true>()
-	expectTypeOf(field.options.default).toEqualTypeOf<false>()
-	expectTypeOf(field.options.indexed).toEqualTypeOf<true>()
+	expectTypeOf(field.options).toEqualTypeOf<Readonly<BooleanFieldOptions>>()
+	expectTypeOf<FieldInferenceStateOf<typeof field>>().toEqualTypeOf<{
+		readonly create: 'optional'
+		readonly object: 'required'
+		readonly update: 'forbidden'
+		readonly nullable: false
+		readonly list: false
+	}>()
 })
 
 test('creates an exact empty option contract by default', () => {
 	const field = booleanField()
 
 	expectTypeOf(field).toExtend<BooleanField>()
-	expectTypeOf(field.options).toEqualTypeOf<
-		Readonly<Record<PropertyKey, never>>
-	>()
+	expectTypeOf(field.options).toEqualTypeOf<Readonly<BooleanFieldOptions>>()
 })
 
 test('rejects incompatible boolean metadata', () => {

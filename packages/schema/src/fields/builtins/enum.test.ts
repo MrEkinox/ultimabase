@@ -104,13 +104,11 @@ describe('enumField', () => {
 		expect(field.options.default).toStrictEqual(['draft'])
 		expect(Object.isFrozen(field.options.default)).toBe(true)
 		expect(() => {
+			// @ts-expect-error -- Runtime coverage crosses the inferred enum domain.
 			enumField({
 				values: ['draft', 'published'],
 				list: true,
-				default: [
-					// @ts-expect-error -- Runtime coverage crosses the inferred enum domain.
-					'archived',
-				],
+				default: ['archived'],
 			})
 		}).toThrow(new TypeError('Invalid enum default at default[0]: archived'))
 	})

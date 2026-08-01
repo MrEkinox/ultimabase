@@ -4,6 +4,8 @@ import {
 	defineSchemaExtension,
 	intField,
 	type FieldDefinition,
+	type FieldInferenceState,
+	type FieldInferenceStateOf,
 	type IntField,
 	type IntFieldOptions,
 	type IntValidationOptions,
@@ -27,17 +29,19 @@ test('preserves integer options and exact literals', () => {
 	})
 
 	expectTypeOf(field).toExtend<
-		FieldDefinition<'int', number, IntFieldOptions>
+		FieldDefinition<'int', number, IntFieldOptions, FieldInferenceState>
 	>()
 	expectTypeOf(field.kind).toEqualTypeOf<'int'>()
-	expectTypeOf(field.options.validation.required).toEqualTypeOf<true>()
-	expectTypeOf(field.options.validation.nullable).toEqualTypeOf<false>()
-	expectTypeOf(field.options.validation.range.min).toEqualTypeOf<-10>()
-	expectTypeOf(field.options.validation.range.max).toEqualTypeOf<10>()
-	expectTypeOf(field.options.default).toEqualTypeOf<0>()
-	expectTypeOf(field.options.autoIncrement).toEqualTypeOf<true>()
+	expectTypeOf(field.options).toEqualTypeOf<Readonly<IntFieldOptions>>()
+	expectTypeOf<FieldInferenceStateOf<typeof field>>().toEqualTypeOf<{
+		readonly create: 'optional'
+		readonly object: 'required'
+		readonly update: 'forbidden'
+		readonly nullable: false
+		readonly list: false
+	}>()
 	expectTypeOf<IntField>().toExtend<
-		FieldDefinition<'int', number, IntFieldOptions>
+		FieldDefinition<'int', number, IntFieldOptions, FieldInferenceState>
 	>()
 })
 

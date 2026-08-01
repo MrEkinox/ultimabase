@@ -1,4 +1,6 @@
 import type {
+	FieldInferenceStateOf,
+	FieldList,
 	InferObject,
 	InferUpdateInput,
 	SchemaDefinition,
@@ -35,12 +37,11 @@ type UpdateFieldDefinition<
 type IsScalarUpdateField<
 	TSchema extends SchemaDefinition,
 	TFieldName extends UpdateFieldName<TSchema>,
-> =
-	UpdateFieldDefinition<TSchema, TFieldName> extends {
-		readonly options: { readonly list: readonly true[] | true }
-	}
-		? false
-		: true
+> = FieldInferenceStateOf<
+	UpdateFieldDefinition<TSchema, TFieldName>
+>['list'] extends FieldList
+	? false
+	: true
 
 /** Lists built-in scalar kinds with portable addition and subtraction semantics. */
 export const numericUpdateFieldKinds = [

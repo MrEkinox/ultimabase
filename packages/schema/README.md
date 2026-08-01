@@ -133,7 +133,7 @@ replacement item during update.
 
 - `FieldValidationOptions` represents omission and nullability inside the `validation` option. Fields are optional and non-null by default, and `required: true` cannot be combined with `nullable: true`.
 - `FieldOptions<TValue, TValidation>` adds typed defaults, homogeneous lists, field-value immutability, `indexed`, descriptions, and field extensions without introducing database-specific metadata. `list: true` creates one list level, a tuple such as `list: [true, true]` creates nested lists, and `false` disables list wrapping explicitly. `indexed: true` requests a regular index, `indexed: "unique"` requests a unique index, and `false` disables indexing explicitly.
-- `FieldDefinition<TKind, TValue, TOptions>` preserves the literal field kind, its base value type, and its exact readonly options for later schema inference.
+- `FieldDefinition<TKind, TValue, TOptions, TInference>` preserves the literal field kind, its base value type, immutable runtime options, and a type-only operation state for later schema inference.
 
 Concrete field factories construct, validate, and freeze their runtime metadata
 in their dedicated implementations. Named option and validation interfaces keep
@@ -144,6 +144,18 @@ TypeScript preserves literal values and nested object-field inference.
 Dependent rules such as `required` with `nullable` and `autoNow` with a default
 or list are checked outside the contextual option object. Hover information
 documents every built-in factory and option with a focused declaration example.
+
+Every built-in field uses compact field inference. Return types keep only
+effective create, object, update, nullability, and list state. Default presence
+and automatic value generation are represented as booleans rather than their
+runtime values. Constraints, indexes, descriptions, literal defaults, and
+runtime extensions remain available through each widened field-options
+interface without appearing as expanded literals in editor hovers.
+
+Enums still retain their exact value domain and objects retain their exact child
+field map because those structures determine the resulting JavaScript type.
+Field-specific aliases keep shared option and definition internals out of
+factory hovers while preserving these operation-relevant facts.
 
 ## Indexes
 
@@ -478,13 +490,10 @@ handler before infrastructure starts.
 
 Schema and field names use separate namespaces. The same name may therefore exist once in each scope, while two schema extensions or two field extensions with the same name produce a `TypeError`. Extension values and their configuration objects are shallowly copied and frozen.
 
-Plugins that transform field values may expose a
-`FieldInferenceExtension<Name, Config, Inference>` from their own field helper.
-The optional `object`, `create`, and `update` entries override only the
-corresponding inferred value. Returning `never` removes the field from that
-shape. Exact extension tuples compose in declaration order, so a later
-extension may intentionally refine an earlier result without exposing its
-type-only contract at runtime.
+Field extensions are runtime-only metadata. They never alter inferred object,
+create-input, or update-input shapes. A plugin that introduces a distinct
+logical value must expose a plugin-defined field so its factory owns the value
+type explicitly.
 
 ## Plugin-defined fields
 

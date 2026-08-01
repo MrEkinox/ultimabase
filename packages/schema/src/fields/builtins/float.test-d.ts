@@ -5,6 +5,8 @@ import {
 	defineSchemaExtension,
 	floatField,
 	type FieldDefinition,
+	type FieldInferenceState,
+	type FieldInferenceStateOf,
 	type FloatField,
 	type FloatFieldOptions,
 	type FloatValidationOptions,
@@ -26,23 +28,18 @@ test('preserves float options and exact literals', () => {
 	})
 
 	expectTypeOf(field).toExtend<
-		FieldDefinition<'float', number, FloatFieldOptions>
+		FieldDefinition<'float', number, FloatFieldOptions, FieldInferenceState>
 	>()
 	expectTypeOf(field).toExtend<FloatField>()
 	expectTypeOf(field.kind).toEqualTypeOf<'float'>()
-	expectTypeOf(field.options.validation.range.min).toEqualTypeOf<-1.5>()
-	expectTypeOf(field.options.validation.range.max).toEqualTypeOf<4.25>()
-	expectTypeOf(field.options.validation.finite).toEqualTypeOf<false>()
-	expectTypeOf(field.options.extensions).toEqualTypeOf<
-		readonly [
-			{
-				readonly scope: 'field'
-				readonly name: 'fixture.unit'
-				readonly pluginName: 'fixture.unit'
-				readonly config: Readonly<{ readonly name: 'meters' }>
-			},
-		]
-	>()
+	expectTypeOf(field.options).toEqualTypeOf<Readonly<FloatFieldOptions>>()
+	expectTypeOf<FieldInferenceStateOf<typeof field>>().toEqualTypeOf<{
+		readonly create: 'optional'
+		readonly object: 'optional'
+		readonly update: 'optional'
+		readonly nullable: false
+		readonly list: false
+	}>()
 })
 
 test('rejects incompatible float metadata', () => {

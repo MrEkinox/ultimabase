@@ -1,7 +1,16 @@
-import type { FieldDefinition } from '../base/contract.js'
+import type {
+	FieldDefinition,
+	FieldInferenceState,
+	FieldListOption,
+	InvalidOptionsArguments,
+} from '../base/contract.js'
 import {
-	createConfiguredScalarFieldFactory,
-	type ScalarFieldFactory,
+	type CompactScalarFieldDefinition,
+	type CompatibleGeneratedScalarOptions,
+	createConfiguredGeneratedCompactScalarFieldFactory,
+	type DefaultedCompactScalarFieldOptions,
+	type GeneratedScalarOption,
+	type NonDefaultedCompactScalarFieldOptions,
 } from '../base/factory.js'
 import {
 	createTemporalFieldConfigurationResolver,
@@ -29,8 +38,129 @@ export type TimeFieldOptions = TimezoneTemporalFieldOptions
 /**
  * Carries a time-of-day string and exact options through schema inference.
  */
-export type TimeField<TOptions extends TimeFieldOptions = TimeFieldOptions> =
-	FieldDefinition<'time', string, TOptions>
+export type TimeField<
+	TInference extends FieldInferenceState = FieldInferenceState,
+> = FieldDefinition<'time', string, TimeFieldOptions, TInference>
+
+/** Provides time-specific names for compact auto-now inference. */
+type DefaultedTimeFieldOptions<
+	TRequired extends boolean,
+	TNullable extends boolean,
+	TList extends FieldListOption,
+	TImmutable extends boolean,
+	TAutoNow extends boolean,
+> = DefaultedCompactScalarFieldOptions<
+	TimeFieldOptions,
+	string,
+	TRequired,
+	TNullable,
+	TList,
+	TImmutable,
+	GeneratedScalarOption<'autoNow', TAutoNow>
+>
+
+type NonDefaultedTimeFieldOptions<
+	TRequired extends boolean,
+	TNullable extends boolean,
+	TList extends FieldListOption,
+	TImmutable extends boolean,
+	TAutoNow extends boolean,
+> = NonDefaultedCompactScalarFieldOptions<
+	TimeFieldOptions,
+	TRequired,
+	TNullable,
+	TList,
+	TImmutable,
+	GeneratedScalarOption<'autoNow', TAutoNow>
+>
+
+type ResolvedTimeField<
+	TRequired extends boolean,
+	TNullable extends boolean,
+	TList extends FieldListOption,
+	TImmutable extends boolean,
+	THasDefault extends boolean,
+	TAutoNow extends boolean,
+> = CompactScalarFieldDefinition<
+	'time',
+	string,
+	TimeFieldOptions,
+	TRequired,
+	TNullable,
+	TList,
+	TImmutable,
+	THasDefault,
+	TAutoNow
+>
+
+type DefaultedTimeField<
+	TRequired extends boolean,
+	TNullable extends boolean,
+	TList extends FieldListOption,
+	TImmutable extends boolean,
+	TAutoNow extends boolean,
+> = ResolvedTimeField<TRequired, TNullable, TList, TImmutable, true, TAutoNow>
+
+type NonDefaultedTimeField<
+	TRequired extends boolean,
+	TNullable extends boolean,
+	TList extends FieldListOption,
+	TImmutable extends boolean,
+	TAutoNow extends boolean,
+> = ResolvedTimeField<TRequired, TNullable, TList, TImmutable, false, TAutoNow>
+
+interface TimeFieldFactory {
+	<
+		const TRequired extends boolean = false,
+		const TNullable extends boolean = false,
+		const TList extends FieldListOption = false,
+		const TImmutable extends boolean = false,
+		const TAutoNow extends boolean = false,
+	>(
+		options: DefaultedTimeFieldOptions<
+			TRequired,
+			TNullable,
+			TList,
+			TImmutable,
+			TAutoNow
+		>,
+		...invalidOptions: InvalidOptionsArguments<
+			CompatibleGeneratedScalarOptions<
+				TRequired,
+				TNullable,
+				TAutoNow,
+				TList,
+				true,
+				true
+			>
+		>
+	): DefaultedTimeField<TRequired, TNullable, TList, TImmutable, TAutoNow>
+	<
+		const TRequired extends boolean = false,
+		const TNullable extends boolean = false,
+		const TList extends FieldListOption = false,
+		const TImmutable extends boolean = false,
+		const TAutoNow extends boolean = false,
+	>(
+		options?: NonDefaultedTimeFieldOptions<
+			TRequired,
+			TNullable,
+			TList,
+			TImmutable,
+			TAutoNow
+		>,
+		...invalidOptions: InvalidOptionsArguments<
+			CompatibleGeneratedScalarOptions<
+				TRequired,
+				TNullable,
+				TAutoNow,
+				TList,
+				false,
+				true
+			>
+		>
+	): NonDefaultedTimeField<TRequired, TNullable, TList, TImmutable, TAutoNow>
+}
 
 const localTimePattern = /^(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d\.\d{3}$/u
 const zonedTimePattern =
@@ -97,5 +227,11 @@ const resolveTimeFieldConfiguration =
  * timeField({ timezone: true, default: "08:30:00.000+02:00" })
  * ```
  */
-export const timeField: ScalarFieldFactory<'time', string, TimeFieldOptions> =
-	createConfiguredScalarFieldFactory('time', resolveTimeFieldConfiguration)
+export const timeField: TimeFieldFactory =
+	createConfiguredGeneratedCompactScalarFieldFactory<
+		'time',
+		string,
+		TimeFieldOptions,
+		'autoNow',
+		true
+	>('time', resolveTimeFieldConfiguration)

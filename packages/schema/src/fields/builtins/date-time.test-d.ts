@@ -7,6 +7,8 @@ import {
 	type DateTimeFieldOptions,
 	type DateTimeValidationOptions,
 	type FieldDefinition,
+	type FieldInferenceState,
+	type FieldInferenceStateOf,
 } from '../../index.js'
 
 test('preserves date-time options and exact literals', () => {
@@ -23,20 +25,25 @@ test('preserves date-time options and exact literals', () => {
 	})
 
 	expectTypeOf(field).toExtend<
-		FieldDefinition<'dateTime', string, DateTimeFieldOptions>
+		FieldDefinition<
+			'dateTime',
+			string,
+			DateTimeFieldOptions,
+			FieldInferenceState
+		>
 	>()
 	expectTypeOf(field).toExtend<DateTimeField>()
 	expectTypeOf(field.kind).toEqualTypeOf<'dateTime'>()
-	expectTypeOf(field.options.timezone).toEqualTypeOf<false>()
-	expectTypeOf(field.options.autoNow).toEqualTypeOf<true>()
+	expectTypeOf(field.options).toEqualTypeOf<Readonly<DateTimeFieldOptions>>()
+	expectTypeOf<
+		FieldInferenceStateOf<typeof field>['object']
+	>().toEqualTypeOf<'required'>()
 })
 
 test('creates an exact empty option contract by default', () => {
 	const field = dateTimeField()
 
-	expectTypeOf(field.options).toEqualTypeOf<
-		Readonly<Record<PropertyKey, never>>
-	>()
+	expectTypeOf(field.options).toEqualTypeOf<Readonly<DateTimeFieldOptions>>()
 })
 
 test('rejects incompatible date-time metadata', () => {

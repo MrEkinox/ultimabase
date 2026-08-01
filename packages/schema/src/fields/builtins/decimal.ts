@@ -3,12 +3,18 @@ import { immutableRecord } from '@ultimabase/shared'
 import { normalizeFieldOptions } from '../base/options.js'
 import type {
 	FieldDefinition,
+	FieldInferenceState,
+	FieldListOption,
 	FieldOptions,
 	FieldValidationOptions,
+	InvalidOptionsArguments,
 } from '../base/contract.js'
 import {
-	createScalarFieldFactory,
-	type ScalarFieldFactory,
+	type CompatibleScalarPresence,
+	type CompactScalarFieldDefinition,
+	createCompactScalarFieldFactory,
+	type DefaultedCompactScalarFieldOptions,
+	type NonDefaultedCompactScalarFieldOptions,
 } from '../base/factory.js'
 import {
 	normalizeOrderedRange,
@@ -50,11 +56,110 @@ export interface DecimalValidationOptions extends FieldValidationOptions {
 export type DecimalFieldOptions = FieldOptions<string, DecimalValidationOptions>
 
 /**
- * Carries exact decimal strings and options through schema inference.
+ * Carries exact decimal strings and their compact operation state.
  */
 export type DecimalField<
-	TOptions extends DecimalFieldOptions = DecimalFieldOptions,
-> = FieldDefinition<'decimal', string, TOptions>
+	TInference extends FieldInferenceState = FieldInferenceState,
+> = FieldDefinition<'decimal', string, DecimalFieldOptions, TInference>
+
+/** Keeps the defaulted decimal input readable in editor signatures. */
+type DefaultedDecimalFieldOptions<
+	TRequired extends boolean,
+	TNullable extends boolean,
+	TList extends FieldListOption,
+	TImmutable extends boolean,
+> = DefaultedCompactScalarFieldOptions<
+	DecimalFieldOptions,
+	string,
+	TRequired,
+	TNullable,
+	TList,
+	TImmutable
+>
+
+/** Keeps the default-free decimal input readable in editor signatures. */
+type NonDefaultedDecimalFieldOptions<
+	TRequired extends boolean,
+	TNullable extends boolean,
+	TList extends FieldListOption,
+	TImmutable extends boolean,
+> = NonDefaultedCompactScalarFieldOptions<
+	DecimalFieldOptions,
+	TRequired,
+	TNullable,
+	TList,
+	TImmutable
+>
+
+/** Resolves the common decimal inference state once for both overload branches. */
+type ResolvedDecimalField<
+	TRequired extends boolean,
+	TNullable extends boolean,
+	TList extends FieldListOption,
+	TImmutable extends boolean,
+	THasDefault extends boolean,
+> = CompactScalarFieldDefinition<
+	'decimal',
+	string,
+	DecimalFieldOptions,
+	TRequired,
+	TNullable,
+	TList,
+	TImmutable,
+	THasDefault
+>
+
+/** Names a decimal field whose value is supplied by a declared default. */
+type DefaultedDecimalField<
+	TRequired extends boolean,
+	TNullable extends boolean,
+	TList extends FieldListOption,
+	TImmutable extends boolean,
+> = ResolvedDecimalField<TRequired, TNullable, TList, TImmutable, true>
+
+/** Names a decimal field without a declared default value. */
+type NonDefaultedDecimalField<
+	TRequired extends boolean,
+	TNullable extends boolean,
+	TList extends FieldListOption,
+	TImmutable extends boolean,
+> = ResolvedDecimalField<TRequired, TNullable, TList, TImmutable, false>
+
+/** Exposes concise overloads while the shared factory owns runtime behavior. */
+interface DecimalFieldFactory {
+	<
+		const TRequired extends boolean = false,
+		const TNullable extends boolean = false,
+		const TList extends FieldListOption = false,
+		const TImmutable extends boolean = false,
+	>(
+		options: DefaultedDecimalFieldOptions<
+			TRequired,
+			TNullable,
+			TList,
+			TImmutable
+		>,
+		...invalidOptions: InvalidOptionsArguments<
+			CompatibleScalarPresence<TRequired, TNullable>
+		>
+	): DefaultedDecimalField<TRequired, TNullable, TList, TImmutable>
+	<
+		const TRequired extends boolean = false,
+		const TNullable extends boolean = false,
+		const TList extends FieldListOption = false,
+		const TImmutable extends boolean = false,
+	>(
+		options?: NonDefaultedDecimalFieldOptions<
+			TRequired,
+			TNullable,
+			TList,
+			TImmutable
+		>,
+		...invalidOptions: InvalidOptionsArguments<
+			CompatibleScalarPresence<TRequired, TNullable>
+		>
+	): NonDefaultedDecimalField<TRequired, TNullable, TList, TImmutable>
+}
 
 interface ParsedDecimal {
 	readonly coefficient: bigint
@@ -179,12 +284,9 @@ const normalizeDecimalFieldOptions = <
  * decimalField({ validation: { precision: 12, scale: 2 }, default: "0.00" })
  * ```
  */
-export const decimalField: ScalarFieldFactory<
-	'decimal',
-	string,
-	DecimalFieldOptions
-> = createScalarFieldFactory(
-	'decimal',
-	normalizeDecimalFieldOptions,
-	normalizeDecimalValue,
-)
+export const decimalField: DecimalFieldFactory =
+	createCompactScalarFieldFactory<'decimal', string, DecimalFieldOptions>(
+		'decimal',
+		normalizeDecimalFieldOptions,
+		normalizeDecimalValue,
+	)

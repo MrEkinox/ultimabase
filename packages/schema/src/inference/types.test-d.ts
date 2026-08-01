@@ -6,7 +6,6 @@ import {
 	dateField,
 	dateTimeField,
 	decimalField,
-	defineFieldExtension,
 	defineSchema,
 	enumField,
 	floatField,
@@ -15,7 +14,6 @@ import {
 	objectField,
 	stringField,
 	timeField,
-	type FieldInferenceExtension,
 	type InferCreateInput,
 	type InferObject,
 	type InferUpdateInput,
@@ -237,50 +235,4 @@ test('recursively infers object list fields for every operation', () => {
 			verified?: boolean
 		}[]
 	>()
-})
-
-interface StoredSecret {
-	readonly encrypted: string
-}
-
-const secretCodec = (): FieldInferenceExtension<
-	'fixture.secret-codec',
-	{ readonly algorithm: 'aes-256-gcm' },
-	{
-		readonly object: StoredSecret
-		readonly create: string
-		readonly update: string
-	}
-> =>
-	defineFieldExtension('fixture.secret-codec', {
-		algorithm: 'aes-256-gcm',
-	})
-
-const redactUpdates = (): FieldInferenceExtension<
-	'fixture.redact-updates',
-	object,
-	{ readonly update: never }
-> => defineFieldExtension('fixture.redact-updates', {})
-
-test('composes plugin-owned inference contracts in declaration order', () => {
-	const schema = defineSchema({
-		className: 'Secret',
-		fields: {
-			value: stringField({
-				validation: { required: true },
-				extensions: [secretCodec(), redactUpdates()],
-			}),
-		},
-	})
-
-	type ObjectShape = InferObject<typeof schema>
-	type CreateShape = InferCreateInput<typeof schema>
-	type UpdateShape = InferUpdateInput<typeof schema>
-
-	expectTypeOf(schema.className).toEqualTypeOf<'Secret'>()
-	expectTypeOf<ObjectShape['value']>().toEqualTypeOf<StoredSecret>()
-	expectTypeOf<CreateShape['value']>().toEqualTypeOf<string>()
-	expectTypeOf<
-		'value' extends keyof UpdateShape ? true : false
-	>().toEqualTypeOf<false>()
 })

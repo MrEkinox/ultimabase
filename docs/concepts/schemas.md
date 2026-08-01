@@ -46,9 +46,14 @@ derive deterministic names from the schema and field path. Schema validates
 only that an explicit name is non-empty. GraphQL and other generators own their
 syntax, derived suffixes, and collision detection.
 
-Plugin field helpers can carry operation-specific type overrides with
-`FieldInferenceExtension` while their runtime extension configuration remains
-opaque to Schema.
+Field extensions remain opaque runtime metadata and never alter inferred
+object, create-input, or update-input shapes. Plugins that introduce a distinct
+logical value expose a plugin-defined field with that value type instead.
+
+Built-in field factories retain only the normalized booleans and list depth
+needed for operation inference. Runtime constraints and literal defaults remain
+available in immutable field options without being repeated in editor hovers;
+enum domains and object child maps stay exact because they define value shapes.
 
 ## Registration
 

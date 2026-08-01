@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { bigintField } from '../../index.js'
+import { requireDefined } from '../../../tests/test-assertions.js'
 
 describe('bigintField', () => {
 	it('creates frozen default metadata', () => {
@@ -30,6 +31,11 @@ describe('bigintField', () => {
 			description: 'Exact ledger sequence',
 		} as const
 		const field = bigintField(source)
+		const validation = requireDefined(
+			field.options.validation,
+			'field.options.validation',
+		)
+		const range = requireDefined(validation.range, 'validation.range')
 
 		expect(field).toStrictEqual({
 			kind: 'bigint',
@@ -37,8 +43,8 @@ describe('bigintField', () => {
 		})
 		expect(field.options).not.toBe(source)
 		expect(Object.isFrozen(field.options)).toBe(true)
-		expect(Object.isFrozen(field.options.validation)).toBe(true)
-		expect(Object.isFrozen(field.options.validation.range)).toBe(true)
+		expect(Object.isFrozen(validation)).toBe(true)
+		expect(Object.isFrozen(range)).toBe(true)
 	})
 
 	it('preserves an explicitly disabled bigint sequence', () => {
@@ -56,11 +62,16 @@ describe('bigintField', () => {
 			},
 		}
 		const field = bigintField(source)
+		const range = requireDefined(
+			requireDefined(field.options.validation, 'field.options.validation')
+				.range,
+			'validation.range',
+		)
 
 		source.validation.range.min = 2n
 
 		// Registered bigint constraints cannot change with caller-owned objects.
-		expect(field.options.validation.range.min).toBe(1n)
+		expect(range.min).toBe(1n)
 	})
 
 	it('freezes validation metadata without a range constraint', () => {

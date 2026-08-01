@@ -48,6 +48,6 @@ describe('booleanField', () => {
 		source.validation.nullable = false
 
 		// Presence metadata remains stable after schema registration.
-		expect(field.options.validation.nullable).toBe(true)
+		expect(field.options.validation?.nullable).toBe(true)
 	})
 })

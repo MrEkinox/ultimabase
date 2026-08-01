@@ -8,10 +8,19 @@ import {
 	normalizeFieldOptions,
 	normalizeFlatValidation,
 } from '../base/options.js'
-import type { FieldDefinition, FieldOptions } from '../base/contract.js'
+import type {
+	FieldDefinition,
+	FieldInferenceState,
+	FieldListOption,
+	FieldOptions,
+	InvalidOptionsArguments,
+} from '../base/contract.js'
 import {
-	createScalarFieldFactory,
-	type ScalarFieldFactory,
+	type CompatibleScalarPresence,
+	type CompactScalarFieldDefinition,
+	createCompactScalarFieldFactory,
+	type DefaultedCompactScalarFieldOptions,
+	type NonDefaultedCompactScalarFieldOptions,
 } from '../base/factory.js'
 
 /**
@@ -35,8 +44,98 @@ export type JsonFieldOptions = FieldOptions<JsonValue>
 /**
  * Carries the portable JSON value contract through schema inference.
  */
-export type JsonField<TOptions extends JsonFieldOptions = JsonFieldOptions> =
-	FieldDefinition<'json', JsonValue, TOptions>
+export type JsonField<
+	TInference extends FieldInferenceState = FieldInferenceState,
+> = FieldDefinition<'json', JsonValue, JsonFieldOptions, TInference>
+
+/** Provides JSON-specific names for the shared compact scalar contract. */
+type DefaultedJsonFieldOptions<
+	TRequired extends boolean,
+	TNullable extends boolean,
+	TList extends FieldListOption,
+	TImmutable extends boolean,
+> = DefaultedCompactScalarFieldOptions<
+	JsonFieldOptions,
+	JsonValue,
+	TRequired,
+	TNullable,
+	TList,
+	TImmutable
+>
+
+type NonDefaultedJsonFieldOptions<
+	TRequired extends boolean,
+	TNullable extends boolean,
+	TList extends FieldListOption,
+	TImmutable extends boolean,
+> = NonDefaultedCompactScalarFieldOptions<
+	JsonFieldOptions,
+	TRequired,
+	TNullable,
+	TList,
+	TImmutable
+>
+
+type ResolvedJsonField<
+	TRequired extends boolean,
+	TNullable extends boolean,
+	TList extends FieldListOption,
+	TImmutable extends boolean,
+	THasDefault extends boolean,
+> = CompactScalarFieldDefinition<
+	'json',
+	JsonValue,
+	JsonFieldOptions,
+	TRequired,
+	TNullable,
+	TList,
+	TImmutable,
+	THasDefault
+>
+
+type DefaultedJsonField<
+	TRequired extends boolean,
+	TNullable extends boolean,
+	TList extends FieldListOption,
+	TImmutable extends boolean,
+> = ResolvedJsonField<TRequired, TNullable, TList, TImmutable, true>
+
+type NonDefaultedJsonField<
+	TRequired extends boolean,
+	TNullable extends boolean,
+	TList extends FieldListOption,
+	TImmutable extends boolean,
+> = ResolvedJsonField<TRequired, TNullable, TList, TImmutable, false>
+
+interface JsonFieldFactory {
+	<
+		const TRequired extends boolean = false,
+		const TNullable extends boolean = false,
+		const TList extends FieldListOption = false,
+		const TImmutable extends boolean = false,
+	>(
+		options: DefaultedJsonFieldOptions<TRequired, TNullable, TList, TImmutable>,
+		...invalidOptions: InvalidOptionsArguments<
+			CompatibleScalarPresence<TRequired, TNullable>
+		>
+	): DefaultedJsonField<TRequired, TNullable, TList, TImmutable>
+	<
+		const TRequired extends boolean = false,
+		const TNullable extends boolean = false,
+		const TList extends FieldListOption = false,
+		const TImmutable extends boolean = false,
+	>(
+		options?: NonDefaultedJsonFieldOptions<
+			TRequired,
+			TNullable,
+			TList,
+			TImmutable
+		>,
+		...invalidOptions: InvalidOptionsArguments<
+			CompatibleScalarPresence<TRequired, TNullable>
+		>
+	): NonDefaultedJsonField<TRequired, TNullable, TList, TImmutable>
+}
 
 const normalizeJsonValue = (
 	value: unknown,
@@ -114,12 +213,8 @@ const normalizeJsonFieldOptions = <const TOptions extends JsonFieldOptions>(
  * jsonField({ default: { theme: "dark", notifications: true } })
  * ```
  */
-export const jsonField: ScalarFieldFactory<
+export const jsonField: JsonFieldFactory = createCompactScalarFieldFactory<
 	'json',
 	JsonValue,
 	JsonFieldOptions
-> = createScalarFieldFactory(
-	'json',
-	normalizeJsonFieldOptions,
-	snapshotJsonValue,
-)
+>('json', normalizeJsonFieldOptions, snapshotJsonValue)

@@ -71,12 +71,13 @@ export type {
 	ExtensionDefinition,
 	ExtensionScope,
 	FieldExtension,
-	FieldInferenceExtension,
-	FieldInferenceOverride,
 	SchemaExtension,
 } from './extensions/definition.js'
 export type {
 	FieldDefinition,
+	FieldInferencePresence,
+	FieldInferenceState,
+	FieldInferenceStateOf,
 	GenericField,
 	FieldList,
 	FieldListOption,
@@ -86,6 +87,8 @@ export type {
 	FieldScalarValue,
 	FieldValidationOptions,
 	FieldValue,
+	ResolveFieldInferenceState,
+	ScalarFieldInferenceState,
 	ValidatedFieldOptions,
 } from './fields/base/contract.js'
 export { assertFieldOptions } from './fields/base/options.js'

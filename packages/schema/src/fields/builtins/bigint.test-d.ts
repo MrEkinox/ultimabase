@@ -8,6 +8,8 @@ import {
 	type BigintFieldOptions,
 	type BigintValidationOptions,
 	type FieldDefinition,
+	type FieldInferenceState,
+	type FieldInferenceStateOf,
 	type InferCreateInput,
 	type InferObject,
 	type InferUpdateInput,
@@ -36,15 +38,12 @@ test('preserves bigint literals and operation-specific inference', () => {
 	type UpdateShape = InferUpdateInput<typeof bigintSchema>
 
 	expectTypeOf(bigintSchema.fields.sequence).toExtend<
-		FieldDefinition<'bigint', bigint, BigintFieldOptions>
+		FieldDefinition<'bigint', bigint, BigintFieldOptions, FieldInferenceState>
 	>()
 	expectTypeOf(bigintSchema.fields.sequence).toExtend<BigintField>()
-	expectTypeOf(
-		bigintSchema.fields.sequence.options.validation.range.min,
-	).toEqualTypeOf<0n>()
-	expectTypeOf(
-		bigintSchema.fields.sequence.options.autoIncrement,
-	).toEqualTypeOf<true>()
+	expectTypeOf<
+		FieldInferenceStateOf<typeof bigintSchema.fields.sequence>['object']
+	>().toEqualTypeOf<'required'>()
 	expectTypeOf<ObjectShape['sequence']>().toEqualTypeOf<bigint>()
 	expectTypeOf<ObjectShape['balance']>().toEqualTypeOf<bigint>()
 	expectTypeOf<ObjectShape['relatedIds']>().toEqualTypeOf<

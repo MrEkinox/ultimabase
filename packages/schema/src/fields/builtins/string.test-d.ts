@@ -5,12 +5,14 @@ import {
 	defineSchemaExtension,
 	stringField,
 	type FieldDefinition,
+	type FieldInferenceState,
+	type FieldInferenceStateOf,
 	type StringField,
 	type StringFieldOptions,
 	type StringValidationOptions,
 } from '../../index.js'
 
-test('preserves every string option literal', () => {
+test('retains only string metadata that affects inference', () => {
 	const field = stringField({
 		validation: {
 			required: true,
@@ -27,15 +29,18 @@ test('preserves every string option literal', () => {
 		description: 'Public display name',
 	})
 
-	// Exact metadata remains available to object and input inference implemented later.
-	expectTypeOf(field).toExtend<FieldDefinition<'string', string>>()
+	expectTypeOf(field).toExtend<
+		FieldDefinition<'string', string, StringFieldOptions, FieldInferenceState>
+	>()
 	expectTypeOf(field.kind).toEqualTypeOf<'string'>()
-	expectTypeOf(field.options.validation.required).toEqualTypeOf<true>()
-	expectTypeOf(field.options.validation.nullable).toEqualTypeOf<false>()
-	expectTypeOf(field.options.validation.length.min).toEqualTypeOf<2>()
-	expectTypeOf(field.options.validation.length.max).toEqualTypeOf<40>()
-	expectTypeOf(field.options.default).toEqualTypeOf<'anonymous'>()
-	expectTypeOf(field.options.indexed).toEqualTypeOf<'unique'>()
+	expectTypeOf(field.options).toEqualTypeOf<Readonly<StringFieldOptions>>()
+	expectTypeOf<FieldInferenceStateOf<typeof field>>().toEqualTypeOf<{
+		readonly create: 'optional'
+		readonly object: 'required'
+		readonly update: 'forbidden'
+		readonly nullable: false
+		readonly list: false
+	}>()
 })
 
 test('represents optional, nullable, and defaulted variants independently', () => {
@@ -44,11 +49,15 @@ test('represents optional, nullable, and defaulted variants independently', () =
 	const defaulted = stringField({ default: 'pending' })
 
 	expectTypeOf(optional).toExtend<StringField>()
-	expectTypeOf(optional.options).toEqualTypeOf<
-		Readonly<Record<PropertyKey, never>>
-	>()
-	expectTypeOf(nullable.options.validation.nullable).toEqualTypeOf<true>()
-	expectTypeOf(defaulted.options.default).toEqualTypeOf<'pending'>()
+	expectTypeOf(nullable).toExtend<StringField>()
+	expectTypeOf(defaulted).toExtend<StringField>()
+	expectTypeOf(optional.options).toEqualTypeOf<Readonly<StringFieldOptions>>()
+	expectTypeOf<
+		FieldInferenceStateOf<typeof nullable>['nullable']
+	>().toEqualTypeOf<true>()
+	expectTypeOf<
+		FieldInferenceStateOf<typeof defaulted>['object']
+	>().toEqualTypeOf<'required'>()
 })
 
 test('preserves field extension literals', () => {
@@ -57,16 +66,7 @@ test('preserves field extension literals', () => {
 	})
 	const field = stringField({ extensions: [extension] })
 
-	expectTypeOf(field.options.extensions).toEqualTypeOf<
-		readonly [
-			{
-				readonly scope: 'field'
-				readonly name: 'fixture.visibility'
-				readonly pluginName: 'fixture.visibility'
-				readonly config: Readonly<{ readonly mode: 'private' }>
-			},
-		]
-	>()
+	expectTypeOf(field.options).toEqualTypeOf<Readonly<StringFieldOptions>>()
 })
 
 test('rejects incompatible string metadata', () => {

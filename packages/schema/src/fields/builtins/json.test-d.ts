@@ -4,6 +4,8 @@ import {
 	defineSchemaExtension,
 	jsonField,
 	type FieldDefinition,
+	type FieldInferenceState,
+	type JsonFieldOptions,
 	type JsonField,
 	type JsonValue,
 } from '../../index.js'
@@ -19,9 +21,13 @@ test('exposes a safe recursive JSON value', () => {
 	})
 
 	// JSON inference remains safe without widening to an unsafe catch-all type.
-	expectTypeOf(field).toExtend<FieldDefinition<'json', JsonValue>>()
-	expectTypeOf(field.options.default).toExtend<JsonValue>()
-	expectTypeOf<JsonField>().toExtend<FieldDefinition<'json', JsonValue>>()
+	expectTypeOf(field).toExtend<
+		FieldDefinition<'json', JsonValue, JsonFieldOptions, FieldInferenceState>
+	>()
+	expectTypeOf(field.options).toEqualTypeOf<Readonly<JsonFieldOptions>>()
+	expectTypeOf<JsonField>().toExtend<
+		FieldDefinition<'json', JsonValue, JsonFieldOptions, FieldInferenceState>
+	>()
 })
 
 test('rejects values that do not have a portable JSON representation', () => {

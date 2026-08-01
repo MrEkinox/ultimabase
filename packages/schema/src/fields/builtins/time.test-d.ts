@@ -4,6 +4,8 @@ import {
 	defineSchemaExtension,
 	timeField,
 	type FieldDefinition,
+	type FieldInferenceState,
+	type FieldInferenceStateOf,
 	type TimeField,
 	type TimeFieldOptions,
 	type TimeValidationOptions,
@@ -23,20 +25,20 @@ test('preserves time options and exact literals', () => {
 	})
 
 	expectTypeOf(field).toExtend<
-		FieldDefinition<'time', string, TimeFieldOptions>
+		FieldDefinition<'time', string, TimeFieldOptions, FieldInferenceState>
 	>()
 	expectTypeOf(field).toExtend<TimeField>()
 	expectTypeOf(field.kind).toEqualTypeOf<'time'>()
-	expectTypeOf(field.options.timezone).toEqualTypeOf<true>()
-	expectTypeOf(field.options.autoNow).toEqualTypeOf<true>()
+	expectTypeOf(field.options).toEqualTypeOf<Readonly<TimeFieldOptions>>()
+	expectTypeOf<
+		FieldInferenceStateOf<typeof field>['object']
+	>().toEqualTypeOf<'required'>()
 })
 
 test('creates an exact empty option contract by default', () => {
 	const field = timeField()
 
-	expectTypeOf(field.options).toEqualTypeOf<
-		Readonly<Record<PropertyKey, never>>
-	>()
+	expectTypeOf(field.options).toEqualTypeOf<Readonly<TimeFieldOptions>>()
 })
 
 test('rejects incompatible time metadata', () => {
