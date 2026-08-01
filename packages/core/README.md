@@ -207,6 +207,8 @@ The active [native-hook plan](../../CURRENT_PLAN.md) keeps Core in this storage
 and ownership role. Native developer hooks require no plugin, while plugin hooks
 use typed global, schema, field-path, extension, or field-kind targets. Runtime,
 not Core, remains responsible for interpreting and executing every hook phase.
+Policy plugins use those targets too; Core stores their opaque monotonic effects
+without naming CLP, ACL, roles, or field permissions.
 
 Extension handlers use a scope-qualified identity so schema and field names stay
 independent:

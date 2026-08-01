@@ -1,8 +1,9 @@
 # ADR-0064: Mandatory deterministic Runtime pipeline
 
-- Status: accepted
+- Status: superseded
 - Date: 2026-07-31
 - Refines: ADR-0004, ADR-0015, ADR-0063
+- Superseded by: ADR-0090
 
 ## Decision
 

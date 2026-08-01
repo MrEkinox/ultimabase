@@ -23,7 +23,7 @@ terminal operations.
 ## Application assembly
 
 `createFrameworkEngine(application)` is the regular bridge from Core plugin
-setup to Runtime execution. It resolves the application-scoped
+setup to Runtime execution. The currently implemented ADR-0076 assembly resolves the application-scoped
 `databaseAdapterServiceToken`, installs structural validation, composes hooks
 and events, and fills every unclaimed pipeline position with an explicit neutral
 stage:
@@ -49,7 +49,7 @@ const articles = await request.query(ArticleSchema).limit(20).find()
 
 The factory accepts an application in `ready` or `started` state and preserves
 its exact schema and plugin tuples. A missing or malformed database adapter,
-invalid pipeline contribution, conflicting access-stage owner, or unusable
+invalid pipeline contribution, currently conflicting access-stage owner, or unusable
 application state fails during assembly, before any operation can execute.
 
 Plugins declare supported pipeline positions through `runtimePipelineStage()`:
@@ -79,6 +79,11 @@ one owning plugin and reject competing owners. Plugins omit handlers from their
 public contribution metadata; only Runtime can resolve definitions created by
 the factory. An optional `MasterAuthority` may be supplied to
 `createFrameworkEngine` without changing the trusted master boundary.
+
+These named security positions are legacy behavior documented for current
+users. ADR-0090 and issue 337 replace them with schema- and field-targeted
+monotonic hook contributions; new integrations must not build on the named
+stage API.
 
 ## Structural validation
 
@@ -225,7 +230,9 @@ The currently implemented API in this section is the low-level plugin
 foundation. The active [native-hook plan](../../CURRENT_PLAN.md) will add direct
 schema and inline field hooks without requiring a plugin, while retaining this
 registry for plugin contributions. The target contract is governed by
-[ADR-0089](../../docs/adr/0089-native-schema-and-field-hooks.md).
+[ADR-0089](../../docs/adr/0089-native-schema-and-field-hooks.md) and
+[ADR-0090](../../docs/adr/0090-permission-plugins-through-hooks.md). Runtime will
+not retain named CLP, ACL, or field-permission stages after issue 337.
 
 Plugins register typed hook definitions through the Core setup registries. A
 schema is optional for global behavior, while `operations` narrows the terminal
@@ -362,6 +369,10 @@ no-nesting policy on `RequestEngine`.
 `RuntimePipeline` is the low-level assembly boundary used by
 `FrameworkEngine`. Application developers will execute a bound query; engine
 and plugin authors provide every named stage explicitly:
+
+The example below documents the currently implemented ADR-0064 API. It is
+scheduled for replacement by issue 337: policy plugins will contribute generic
+monotonic hooks, and these three permission-specific properties will disappear.
 
 ```ts
 const pipeline = new RuntimePipeline({

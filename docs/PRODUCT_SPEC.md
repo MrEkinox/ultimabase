@@ -62,6 +62,11 @@ and a field may declare hooks that infer its exact logical value. Plugins append
 global, schema, typed field-path, extension, or field-kind hooks through the
 same application-owned dispatcher.
 
+CLP, ACL, and field permissions use that dispatcher rather than named Runtime
+stages. Their generic hook effects are monotonic: guards only deny, database
+constraints only accumulate, and field restrictions only narrow. Applications
+that omit those plugins do not execute placeholder permission behavior.
+
 Every mutation and every database write started by its business hooks shares an
 automatic transaction. Business after-hooks may still abort before commit;
 external side effects run after commit or through an outbox. Reads remain

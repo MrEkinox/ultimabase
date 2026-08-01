@@ -21,6 +21,7 @@ Before changing code:
 - Concrete capabilities are plugins. The Core must not depend on PostgreSQL, Drizzle, Hono, GraphQL, Yoga, authentication providers, Redis, or job systems.
 - REST and GraphQL normalize into the same operation/query AST and execute through the same runtime pipeline.
 - CLP controls class operations. ACL controls individual objects. Field permissions control field selection and mutation.
+- CLP, ACL, roles, and field permissions are optional plugins that contribute through native hooks. Runtime must not name, configure, bypass, or install neutral stages for them.
 - Access modes are `anonymous`, `user`, and `master`. There is no `system` mode.
 - Master access is trusted server-side authority and must never be forgeable from transport input.
 
@@ -68,6 +69,7 @@ Run or update `yarn constraints` when dependency constraints exist. If a request
 - Duplicate plugins with conflicting options are errors unless a future ADR introduces explicit instances.
 - Schema and field plugins contribute typed extensions. `@ultimabase/schema` must not know concrete ACL, CLP, role, or field-permission configuration.
 - Hooks are a native framework capability, not a plugin or schema extension. Plugins append hook contributions through the application dispatcher; they never replace developer hooks.
+- Policy plugins use generic deny-only guards, append-only adapter constraints, and narrowing field restrictions. Later hooks must never broaden accumulated enforcement.
 
 ## Runtime order
 
@@ -76,9 +78,6 @@ Preserve this pipeline unless an ADR changes it:
 ```text
 normalization
 → structural validation
-→ CLP
-→ ACL / object filtering
-→ field permissions
 → field resolveInput
 → schema resolveInput
 → structural revalidation
@@ -87,7 +86,9 @@ normalization
 → plugin/global before hooks
 → schema before hooks
 → affected field before hooks
+→ monotonic guards, adapter constraints, and field restrictions
 → database operation
+→ monotonic output restrictions
 → affected field after hooks
 → schema after hooks
 → plugin/global after hooks
@@ -102,6 +103,8 @@ plugin dependencies, then plugin position, then registration order. Business
 after-hooks run before commit and may abort the transaction. Realtime and
 asynchronous audit delivery happen after commit. Do not add a general
 `skipHooks` escape hatch or materialize set-based updates/deletes for item hooks.
+Do not add permission-specific stage names or neutral permission handlers to
+Runtime; an absent policy plugin contributes nothing.
 
 ## Testing requirements
 

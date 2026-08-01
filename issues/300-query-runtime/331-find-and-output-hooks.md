@@ -3,8 +3,8 @@
 - Status: planned
 - Milestone: 3
 - Packages: `@ultimabase/query`, `@ultimabase/schema`, `@ultimabase/runtime`
-- Depends on: 306, 315, 326, 330
-- ADR: ADR-0058, ADR-0089
+- Depends on: 306, 315, 326, 330, 337
+- ADR: ADR-0058, ADR-0089, ADR-0090
 
 ## Goal
 
@@ -16,7 +16,7 @@ field output resolution for every read transport.
 - [ ] One `beforeFind` declaration covers `find`, `first`, `get`, `count`, and `exists` with an exact terminal discriminant.
 - [ ] `beforeFind` returns a new immutable query or leaves it unchanged without mutating the original `Query`.
 - [ ] One `afterFind` declaration observes or replaces the operation-specific result with the same inferred result type.
-- [ ] Access constraints cannot be removed by a query transform and final output cannot restore unreadable fields.
+- [ ] Generic adapter constraints cannot be removed by a query transform and final output cannot restore fields removed by a monotonic restriction.
 - [ ] Inline field `resolveOutput` runs only for selected readable values and preserves the field's logical type.
 - [ ] Read hooks do not open an automatic transaction; an existing explicit transaction is preserved.
 - [ ] Count and exists results retain number and boolean types rather than being coerced into object collections.
@@ -24,7 +24,7 @@ field output resolution for every read transport.
 
 ## Tests
 
-- [ ] Runtime tests cover every read terminal, transformed filters, projections, access constraints, null, and empty results.
+- [ ] Runtime tests cover every read terminal, transformed filters, projections, generic adapter constraints, null, and empty results.
 - [ ] Compile-time tests cover terminal result narrowing and field output values.
 - [ ] Immutability tests prove original Query and adapter results are not mutated.
 

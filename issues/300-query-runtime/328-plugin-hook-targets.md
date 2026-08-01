@@ -4,7 +4,7 @@
 - Milestone: 3
 - Packages: `@ultimabase/core`, `@ultimabase/runtime`, `@ultimabase/schema`
 - Depends on: 207, 318, 327
-- ADR: ADR-0048, ADR-0070, ADR-0089
+- ADR: ADR-0048, ADR-0070, ADR-0089, ADR-0090
 
 ## Goal
 
@@ -21,7 +21,8 @@ the fundamental application-owned dispatcher.
 - [ ] Plugin hooks append to rather than replace developer hooks.
 - [ ] Ordering uses plugin dependencies, configuration position, and registration order without numeric priorities.
 - [ ] Application instances retain isolated immutable contribution snapshots.
-- [ ] Permission plugins continue to use reserved security stages rather than ordinary hooks.
+- [ ] Extension-targeted contributions let an installed policy plugin attach hooks only to schemas or fields carrying its opaque extension.
+- [ ] Target APIs contain no CLP, ACL, role, or field-permission discriminant.
 
 ## Tests
 
@@ -31,4 +32,4 @@ the fundamental application-owned dispatcher.
 
 ## Out of scope
 
-- Implementing CLP, ACL, or field permissions as business hooks.
+- Implementing a concrete CLP, ACL, role, or field-permission policy.

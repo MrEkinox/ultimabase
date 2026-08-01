@@ -22,7 +22,7 @@ UltimaBase separates contracts, orchestration, and implementations:
 
 - `schema`, `query`, and `access` define data and policy contracts.
 - `core` owns application, plugins, services, lifecycle, and errors.
-- `runtime` executes CRUD, transactions, hooks, and access checks.
+- `runtime` executes CRUD, transactions, hooks, and policy-neutral enforcement effects.
 - official plugins provide database, transport, HTTP server, migrations, and permission implementations.
 
 ## Package dependency graph
@@ -51,6 +51,10 @@ testing ──────────────→ runtime, core, schema, sha
 ```
 
 Concrete plugins may depend on Runtime and foundational contracts. Core and Runtime never depend back on concrete plugins.
+
+`@ultimabase/access` remains a neutral home for request-authority and shared
+policy contracts. A Runtime dependency on those contracts does not install or
+name CLP, ACL, roles, or field-permission behavior.
 
 ## Schema extensions
 
@@ -145,10 +149,18 @@ declare precisely typed operation-family hooks, fields declare hooks over their
 exact logical values, and plugins append contributions through the same
 application-owned dispatcher. Plugin targets may be global, an exact schema, a
 typed field path, an extension, or a namespaced field kind. Contributions never
-replace developer hooks or the reserved CLP, ACL, and field-permission stages.
+replace developer hooks.
+
+Runtime does not name CLP, ACL, roles, or field permissions. Optional policy
+plugins attach to schema or field hooks and contribute policy-neutral effects:
+guards may only deny, adapter constraints may only accumulate with logical
+`AND`, and field restrictions may only narrow. Enforcement state remains
+separate from transformable operations so later hooks cannot broaden it. An
+absent policy plugin contributes no hook and requires no neutral stage.
 
 The existing Runtime hook factories remain the low-level implementation
-foundation while issues 324–335 add the native declarations. Core stores
+foundation while the active hook plan adds native declarations and removes the
+legacy named permission stages. Core stores
 owner-scoped contributions without executing them. Runtime reads immutable
 dependency-first snapshots and composes them with developer hooks. Before/after
 hooks transform values explicitly; business after-hooks may still abort before
@@ -189,6 +201,11 @@ AND field access
 - field access removes unreadable columns from selection and rejects forbidden writes.
 - roles provide reusable principals for CLP and ACL.
 - master bypass is explicit, audited, and never forgeable from request input.
+
+These layers are implemented by independent plugins through the native hook
+dispatcher. Runtime only transports trusted request authority and generic
+monotonic enforcement effects. Each plugin decides whether master bypasses its
+own checks; Runtime has no permission-specific bypass branch.
 
 ## Database and migrations
 

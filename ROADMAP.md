@@ -8,7 +8,8 @@ The access-free Runtime-to-PostgreSQL vertical is complete. Before starting
 milestone 4 access plugins, implement the native schema and field hook lifecycle
 described in [`CURRENT_PLAN.md`](CURRENT_PLAN.md). This establishes the typed
 business lifecycle, automatic mutation transaction boundary, and plugin hook
-targets that CLP, ACL, and field-permission plugins must compose around.
+targets through which optional CLP, ACL, and field-permission plugins contribute
+without becoming Runtime concepts.
 
 Completed cross-milestone plans are retained under
 [`docs/plans/completed/`](docs/plans/completed/) so their decisions remain
@@ -33,7 +34,8 @@ Service tokens, plugin graph, nested plugins, lifecycle, isolated applications, 
 
 Operation AST, immutable `Query`, CRUD including bulk and upsert, RequestEngine,
 automatic mutation transactions, native schema and field hooks, plugin hook
-targets, cursor pagination, and master access.
+targets, policy-neutral monotonic enforcement, cursor pagination, and master
+access.
 
 ## Milestone 4 — Access plugins
 

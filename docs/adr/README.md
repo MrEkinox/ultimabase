@@ -63,7 +63,6 @@ Accepted records:
 - [ADR-0061: Neutral BoundQuery facade](0061-neutral-bound-query-facade.md)
 - [ADR-0062: Request context security boundary](0062-request-context-security-boundary.md)
 - [ADR-0063: Portable database adapter boundary](0063-portable-database-adapter-boundary.md)
-- [ADR-0064: Mandatory deterministic Runtime pipeline](0064-mandatory-runtime-pipeline.md)
 - [ADR-0065: Application-owned request engines](0065-application-owned-request-engines.md)
 - [ADR-0066: Derived asynchronous request scopes](0066-derived-asynchronous-request-scopes.md)
 - [ADR-0067: Selection-aware singular terminals](0067-selection-aware-singular-terminals.md)
@@ -89,6 +88,7 @@ Accepted records:
 - [ADR-0087: Runtime-to-PostgreSQL E2E boundary](0087-runtime-postgres-e2e-boundary.md)
 - [ADR-0088: Compact field inference state](0088-compact-field-inference-state.md)
 - [ADR-0089: Native schema and field hook lifecycle](0089-native-schema-and-field-hooks.md)
+- [ADR-0090: Permission plugins contribute monotonic hooks](0090-permission-plugins-through-hooks.md)
 
 Superseded records:
 
@@ -96,5 +96,6 @@ Superseded records:
 - [ADR-0018: Default value boundaries](0018-default-value-boundaries.md), superseded by ADR-0038.
 - [ADR-0020: Compiled validation plans](0020-compiled-validation-plans.md), superseded by ADR-0039.
 - [ADR-0035: Schema domain-oriented internal layout](0035-schema-domain-layout.md), superseded by ADR-0036.
+- [ADR-0064: Mandatory deterministic Runtime pipeline](0064-mandatory-runtime-pipeline.md), superseded by ADR-0090.
 
 New decisions receive the next number. Do not rewrite history; supersede a record.

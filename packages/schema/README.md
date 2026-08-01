@@ -558,4 +558,6 @@ hooks as framework primitives rather than extensions. The dependency boundary
 must preserve exact field-value inference, compact field hovers, and documented
 autocomplete without making Schema depend on Runtime or concrete plugins. See
 [ADR-0089](../../docs/adr/0089-native-schema-and-field-hooks.md) for the frozen
-lifecycle semantics.
+lifecycle semantics. Permission extensions remain opaque configuration: their
+installed plugins attach hooks through the policy-neutral boundary from
+[ADR-0090](../../docs/adr/0090-permission-plugins-through-hooks.md).

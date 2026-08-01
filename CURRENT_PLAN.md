@@ -3,14 +3,15 @@
 - Status: active
 - Started: 2026-08-01
 - Objective owner: `@ultimabase/schema`, `@ultimabase/query`, `@ultimabase/core`, `@ultimabase/runtime`, `@ultimabase/postgres`, `@ultimabase/testing`
-- Governing decision: [ADR-0089](docs/adr/0089-native-schema-and-field-hooks.md)
+- Governing decisions: [ADR-0089](docs/adr/0089-native-schema-and-field-hooks.md), [ADR-0090](docs/adr/0090-permission-plugins-through-hooks.md)
 - Previous completed objective: [Runtime-to-PostgreSQL E2E](docs/plans/completed/runtime-postgres-e2e.md)
 
 ## Objective
 
 Turn the existing low-level Runtime hook registry into a native, typed schema
 and inline field lifecycle before access plugins or transports build business
-behavior on top of it.
+behavior on top of it. Remove the existing CLP, ACL, and field-permission stage
+names so optional policy plugins contribute through that same hook system.
 
 The finished vertical must prove this developer contract:
 
@@ -44,8 +45,9 @@ The objective is complete only when:
 - schema and inline field hooks have precise autocomplete, hover documentation, and packed declaration behavior;
 - one handler can cover an operation family without repeating `one` and `many` variants;
 - plugin hooks append to developer hooks with exact target typing and deterministic ownership;
+- Runtime contains no CLP, ACL, role, or field-permission stage and applies generic plugin enforcement monotonically;
 - every mutation automatically includes business-hook database work in one rollback boundary;
-- `beforeFind` and `afterFind` cover every read terminal without weakening access constraints;
+- `beforeFind` and `afterFind` cover every read terminal without weakening accumulated adapter constraints or field restrictions;
 - post-commit, rollback, cancellation, error, and recursion behavior is explicit;
 - true set-based update/delete operations do not materialize rows for item hooks;
 - a root PostgreSQL E2E proves hook writes roll back with a failed primary mutation;
@@ -64,7 +66,8 @@ The objective is complete only when:
 - Reads are not automatically transactional; explicit transactions remain available.
 - Business after-hooks run before commit and may roll back. External effects run after commit or through an outbox.
 - Set-based `updateMany` and `deleteMany` remain set-based.
-- Access stages remain reserved and cannot be replaced or removed by business hooks.
+- Runtime knows only policy-neutral guards, adapter constraints, and field restrictions; CLP, ACL, and field permissions are optional hook contributors.
+- Enforcement hooks can only deny, append constraints, or narrow fields, so later hooks cannot broaden access.
 - A general `skipHooks` escape hatch is forbidden.
 
 ## Execution order
@@ -79,12 +82,13 @@ dependencies are incomplete.
 5. [ ] [328 — Add typed plugin hook targets](issues/300-query-runtime/328-plugin-hook-targets.md)
 6. [ ] [329 — Make every mutation automatically transactional](issues/300-query-runtime/329-automatic-mutation-transactions.md)
 7. [ ] [330 — Execute the native hook lifecycle](issues/300-query-runtime/330-native-hook-dispatcher.md)
-8. [ ] [331 — Add find and output hooks](issues/300-query-runtime/331-find-and-output-hooks.md)
-9. [ ] [332 — Add transaction finalization hooks](issues/300-query-runtime/332-transaction-hook-lifecycle.md)
-10. [ ] [333 — Protect hook execution and expose diagnostics](issues/300-query-runtime/333-hook-safety-and-observability.md)
-11. [ ] [334 — Define bulk hook and non-atomic grouping semantics](issues/300-query-runtime/334-bulk-hook-semantics.md)
-12. [ ] [508 — Implement PostgreSQL transactions, bulk, and upsert](issues/500-postgres/508-transactions-bulk-upsert.md)
-13. [ ] [335 — Verify native hooks against PostgreSQL](issues/300-query-runtime/335-native-hooks-postgres-e2e.md)
+8. [ ] [337 — Replace named permission stages with hook enforcement](issues/300-query-runtime/337-policy-neutral-hook-enforcement.md)
+9. [ ] [331 — Add find and output hooks](issues/300-query-runtime/331-find-and-output-hooks.md)
+10. [ ] [332 — Add transaction finalization hooks](issues/300-query-runtime/332-transaction-hook-lifecycle.md)
+11. [ ] [333 — Protect hook execution and expose diagnostics](issues/300-query-runtime/333-hook-safety-and-observability.md)
+12. [ ] [334 — Define bulk hook and non-atomic grouping semantics](issues/300-query-runtime/334-bulk-hook-semantics.md)
+13. [ ] [508 — Implement PostgreSQL transactions, bulk, and upsert](issues/500-postgres/508-transactions-bulk-upsert.md)
+14. [ ] [335 — Verify native hooks against PostgreSQL](issues/300-query-runtime/335-native-hooks-postgres-e2e.md)
 
 Issues 328, 329, and 508 become independently implementable after their own
 dependencies complete, but the numbered order remains the preferred
@@ -95,7 +99,7 @@ prove live rollback and bulk behavior without it.
 
 When resuming after context loss:
 
-1. Read `AGENTS.md`, ADR-0089, and this file completely.
+1. Read `AGENTS.md`, ADR-0089, ADR-0090, and this file completely.
 2. Inspect `git status` and preserve unrelated changes.
 3. Read the current issue, every package README in scope, and its referenced ADRs.
 4. Confirm every dependency issue is `done`.
@@ -104,8 +108,8 @@ When resuming after context loss:
 7. Run targeted checks, then the broader checks justified by the change.
 8. Show the resulting developer-facing API before asking whether to push.
 
-Do not begin access hooks in milestone 4 until the native lifecycle makes their
-ordering and transaction interaction explicit.
+Do not begin milestone 4 permission implementations until issue 337 has removed
+the named Runtime stages and proven monotonic hook enforcement.
 
 ## Current issue
 
@@ -122,4 +126,5 @@ without reconstructing repository history.
 
 - 324 — `ready` — Native hook contract boundary not started.
 - 329 — `ready` — Automatic mutation transactions are dependency-ready but follow issues 324–328 in the preferred sequence.
+- 337 — `planned` — Policy-neutral enforcement waits for the typed plugin targets and native dispatcher.
 - 508 — `ready` — PostgreSQL transaction, bulk, and upsert support remains required before issue 335 but follows the native lifecycle work in this plan.

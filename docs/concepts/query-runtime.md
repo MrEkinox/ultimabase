@@ -56,8 +56,8 @@ pipeline.
 application's database service and plugin contributions. It automatically
 installs `createRuntimeValidationStage()` as the structural validation phase and
 composes the application's hooks and post-commit events. Unclaimed access
-positions remain explicit neutral stages instead of disappearing from the
-execution order.
+plugins contribute nothing: issue 337 removes their legacy named neutral stages
+in favor of policy-neutral monotonic hook effects.
 
 The validation stage applies create or update plans, including both branches of
 an upsert, without changing caller input:
@@ -82,7 +82,7 @@ same validation-stage options.
 
 ## Planned native hook lifecycle
 
-ADR-0089 and issues 324–335 replace the low-level plugin-only developer
+ADR-0089, ADR-0090, and the active hook issues replace the low-level plugin-only developer
 experience with native schema and inline field declarations. A direct family
 handler covers singular and bulk variants, while the exact terminal `kind`
 remains available when behavior must differ:
@@ -108,6 +108,8 @@ const UserSchema = defineSchema({
 
 Inline field callbacks infer the exact logical value. Cross-field behavior uses
 schema hooks. Plugins append to the same dispatcher with deterministic targets;
-they cannot replace developer hooks or reserved permission stages. Set-based
-`updateMany` and `deleteMany` stay set-based instead of loading every row for
-item callbacks.
+they cannot replace developer hooks. Policy plugins use a final monotonic hook
+boundary: they may deny, append opaque adapter constraints, or narrow fields,
+but later hooks cannot reverse those decisions. Runtime never names CLP, ACL,
+roles, or field permissions. Set-based `updateMany` and `deleteMany` stay
+set-based instead of loading every row for item callbacks.

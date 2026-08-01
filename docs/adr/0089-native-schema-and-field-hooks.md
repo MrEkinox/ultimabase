@@ -3,6 +3,11 @@
 - Status: accepted
 - Date: 2026-08-01
 - Refines: ADR-0015, ADR-0068, ADR-0069, ADR-0070, ADR-0076, ADR-0088
+- Refined by: ADR-0090
+
+ADR-0090 replaces the permission-specific named stages and ordering references
+in this record with policy-neutral monotonic hook effects. The remaining native
+schema, field, transaction, bulk, and lifecycle decisions stay accepted.
 
 ## Context
 

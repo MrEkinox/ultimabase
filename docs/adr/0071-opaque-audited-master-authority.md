@@ -3,6 +3,7 @@
 - Status: accepted
 - Date: 2026-08-01
 - Refines: ADR-0013, ADR-0062, ADR-0065
+- Refined by: ADR-0090
 
 ## Context
 
@@ -33,8 +34,9 @@ the original source, request identity, safe metadata, and capabilities.
 `@ultimabase/access` owns the shared default bypass matrix. Master bypasses CLP,
 ACL, and field permissions. Structural validation, SQL constraints,
 transactions, business hooks, and tenant isolation are not bypassed. Runtime
-continues to execute every pipeline stage; concrete permission plugins consult
-the matrix instead of changing pipeline orchestration.
+continues to execute its policy-neutral lifecycle; installed permission plugins
+consult the matrix inside their own hook contributions. Runtime never performs
+the permission-specific bypass.
 
 ## Consequences
 
