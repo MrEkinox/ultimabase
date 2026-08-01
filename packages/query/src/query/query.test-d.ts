@@ -101,6 +101,7 @@ test('restricts fields, pagination values, and logical schemas', () => {
 	query.limit(25)
 	query.skip(50)
 	query.after('opaque.cursor')
+	query.after()
 	query.and(new Query(postSchema).equalTo('published', true))
 	query.or(new Query(postSchema).equalTo('published', false))
 	query.not(new Query(postSchema).exists('title'))

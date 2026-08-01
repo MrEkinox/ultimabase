@@ -3,7 +3,7 @@
 - Status: active
 - Started: 2026-08-01
 - Objective owner: project-wide
-- Current issue: `issues/500-postgres/506-selection-order-pagination.md`
+- Current issue: `issues/500-postgres/507-crud-adapter.md`
 
 ## Objective
 
@@ -64,7 +64,7 @@ approval. Do not start an issue whose dependencies are incomplete.
 8. [x] [511 — Introspect PostgreSQL schema state](issues/500-postgres/511-postgres-introspection.md)
 9. [x] [512 — Apply direct schema policies](issues/500-postgres/512-direct-schema-policy.md)
 10. [x] [505 — Compile Query filters](issues/500-postgres/505-query-filter-compiler.md)
-11. [506 — Compile selection, ordering, and pagination](issues/500-postgres/506-selection-order-pagination.md)
+11. [x] [506 — Compile selection, ordering, and pagination](issues/500-postgres/506-selection-order-pagination.md)
 12. [507 — Implement singular PostgreSQL CRUD](issues/500-postgres/507-crud-adapter.md)
 13. [516 — Add Testcontainers worker isolation](issues/500-postgres/516-testcontainers-worker-isolation.md)
 14. [518 — Verify the first Runtime-to-PostgreSQL E2E](issues/500-postgres/518-runtime-postgres-e2e.md)
@@ -143,8 +143,8 @@ without reconstructing repository history.
 - 504 — `done` — commit: `3b621cb` — Deterministic ordinary and unique indexes compiled.
 - 511 — `done` — commit: `35c83e7` — Deterministic live catalog snapshots implemented.
 - 512 — `done` — commit: `749f558` — Transactional direct schema policies implemented.
-- 505 — `done` — commit: `this commit` — Parameterized primitive and logical filters compiled.
-- 506 — `ready` — commit: `—` — Waits for 502 and 503.
-- 507 — `planned` — commit: `—` — Waits for 505 and 506.
+- 505 — `done` — commit: `f8b65e4` — Parameterized primitive and logical filters compiled.
+- 506 — `done` — commit: `this commit` — Stable projections, ordering, offsets, and cursor predicates compiled.
+- 507 — `ready` — commit: `—` — Singular CRUD can now consume both query compilers.
 - 516 — `planned` — commit: `—` — Waits for 501 and 507.
 - 518 — `planned` — commit: `—` — Final E2E acceptance issue.

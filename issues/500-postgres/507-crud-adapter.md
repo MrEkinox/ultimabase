@@ -1,6 +1,6 @@
 # 507: Implement singular PostgreSQL CRUD
 
-- Status: planned
+- Status: ready
 - Milestone: 5
 - Packages: `@ultimabase/postgres`
 - Depends on: 315, 505, 506

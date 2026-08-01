@@ -83,6 +83,7 @@ Accepted records:
 - [ADR-0081: PostgreSQL catalog introspection](0081-postgres-catalog-introspection.md)
 - [ADR-0082: Direct PostgreSQL schema policies](0082-direct-postgres-schema-policies.md)
 - [ADR-0083: Parameterized PostgreSQL filter compilation](0083-parameterized-postgres-filter-compilation.md)
+- [ADR-0084: Stable PostgreSQL query clause compilation](0084-postgres-query-clause-compilation.md)
 
 Superseded records:
 

@@ -147,8 +147,8 @@ export class BoundQuery<
 		return this.#branch(this.#query.skip(value))
 	}
 
-	/** Selects cursor pagination on a new bound branch. */
-	after(cursor: string): BoundQuery<TSchema, TSelectedField, TEngine> {
+	/** Selects the first or a resumed cursor page on a new bound branch. */
+	after(cursor?: string): BoundQuery<TSchema, TSelectedField, TEngine> {
 		return this.#branch(this.#query.after(cursor))
 	}
 

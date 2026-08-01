@@ -26,6 +26,7 @@ const feed = published
 	.limit(25)
 
 const nextPage = feed.after(cursor)
+const firstCursorPage = feed.after()
 const adminPage = feed.skip(50)
 ```
 
@@ -437,6 +438,8 @@ ordering throws `CURSOR_INCOMPATIBLE`. Runtime can map these Query-owned errors
 to its transport-safe framework error without reversing the package dependency
 graph.
 
-`limit` is deliberately not part of the cursor or offset position. This keeps
+Call `.after()` without a token for the first cursor page, then pass the sealed
+token to `.after(cursor)` for every following page. `limit` is deliberately not
+part of the cursor or offset position. This keeps
 one page-size clause for the future `.limit()` builder method, while `.skip()`
 and `.after()` select mutually exclusive pagination positions.

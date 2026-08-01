@@ -250,6 +250,33 @@ for the underlying ARE syntax.
 This compiler remains internal until the CRUD adapter issue consumes it;
 developers continue to build filters only through `Query`.
 
+## Query selection and pagination compilation
+
+The internal adapter also compiles projections, ordering, limits, offsets, and
+forward cursor positions. Explicit selections load only their columns. Cursor
+pages always append `id` as a deterministic UUID tie-breaker and use explicit
+null placement, so equal developer sort values remain stable:
+
+```ts
+const firstPage = new Query(ArticleSchema)
+	.select('id', 'title', 'createdAt')
+	.descending('createdAt')
+	.limit(25)
+	.after()
+
+const nextPage = firstPage.after(cursor)
+```
+
+`.after()` selects cursor pagination for the first page; `.after(cursor)`
+resumes a later page. The opaque token is authenticated and checked through
+Query's cursor contract before PostgreSQL receives its payload. Ordered values
+then pass through the compiled field codecs and Drizzle parameters rather than
+being interpolated into SQL.
+
+This compiler is internal until the singular CRUD issue consumes it. Today the
+example describes the implemented Query and compilation contract, not yet a
+database-executable terminal.
+
 ## Table names
 
 PostgreSQL owns physical naming. Without an override, class names use standard

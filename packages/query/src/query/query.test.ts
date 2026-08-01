@@ -34,6 +34,7 @@ describe('Query', () => {
 		const offset = limited.skip(50)
 		const clearedOffset = offset.skip(0)
 		const cursor = limited.after('opaque.cursor')
+		const firstCursorPage = limited.after()
 		const unchangedCursor = cursor.skip(0)
 
 		expect(base.ast.selection.fields).toStrictEqual([])
@@ -54,6 +55,10 @@ describe('Query', () => {
 		expect(cursor.ast.pagination).toStrictEqual({
 			kind: 'cursor-pagination',
 			after: 'opaque.cursor',
+		})
+		expect(firstCursorPage.ast.pagination).toStrictEqual({
+			after: undefined,
+			kind: 'cursor-pagination',
 		})
 		expect(unchangedCursor.ast.pagination).toBe(cursor.ast.pagination)
 		expect(base).not.toBe(selected)

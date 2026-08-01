@@ -97,6 +97,7 @@ describe('BoundQuery', () => {
 			.ascending('title')
 			.skip(5)
 		const cursor = new Query(articleSchema).bind(engine).after('cursor')
+		const firstCursorPage = new Query(articleSchema).bind(engine).after()
 
 		expect(query.ast.where?.expression.kind).toBe('and')
 		expect(query.ast.ordering.orders).toStrictEqual([
@@ -109,6 +110,10 @@ describe('BoundQuery', () => {
 		expect(cursor.ast.pagination).toStrictEqual({
 			kind: 'cursor-pagination',
 			after: 'cursor',
+		})
+		expect(firstCursorPage.ast.pagination).toStrictEqual({
+			after: undefined,
+			kind: 'cursor-pagination',
 		})
 		expect(query.engine).toBe(engine)
 	})

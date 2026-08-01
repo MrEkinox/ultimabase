@@ -138,14 +138,16 @@ export class Query<
 		return this.#with({ pagination })
 	}
 
-	/** Selects forward cursor pagination and rejects an existing offset. */
-	after(cursor: string): Query<TSchema, TSelectedField> {
+	/** Selects the first or a resumed cursor page and rejects an existing offset. */
+	after(cursor?: string): Query<TSchema, TSelectedField> {
 		if (this.#ast.pagination?.kind === 'offset-pagination') {
 			throw new TypeError('query cannot combine skip and after pagination')
 		}
 
 		return this.#with({
-			pagination: normalizeQueryCursorPagination({ after: cursor }),
+			pagination: normalizeQueryCursorPagination(
+				cursor === undefined ? {} : { after: cursor },
+			),
 		})
 	}
 
