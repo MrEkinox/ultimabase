@@ -14,6 +14,7 @@ describe('@ultimabase/runtime public entry point', () => {
 			'RuntimePipeline',
 			'afterOperation',
 			'beforeOperation',
+			'createFrameworkEngine',
 			'createRuntimeHookStages',
 			'createRuntimeValidationStage',
 			'databaseAdapterServiceToken',
@@ -25,6 +26,7 @@ describe('@ultimabase/runtime public entry point', () => {
 			'postCommitEvent',
 			'requestSources',
 			'runWithRequestEngine',
+			'runtimePipelineStage',
 		])
 		expect(publicApi).not.toHaveProperty('createTrustedMasterRequestContext')
 		expect(publicApi).not.toHaveProperty('createTrustedMasterRequestEngine')

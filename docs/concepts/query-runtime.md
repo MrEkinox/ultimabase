@@ -46,9 +46,15 @@ They normalize to immutable field-operation nodes, reject cross-operator field
 conflicts, and keep partial set values pending the shared Runtime validation
 pipeline.
 
-Application assembly installs `createRuntimeValidationStage()` as the
-pipeline's structural validation phase. It applies create or update plans,
-including both branches of an upsert, without changing caller input:
+`createFrameworkEngine(application)` assembles the mandatory pipeline from the
+application's database service and plugin contributions. It automatically
+installs `createRuntimeValidationStage()` as the structural validation phase and
+composes the application's hooks and post-commit events. Unclaimed access
+positions remain explicit neutral stages instead of disappearing from the
+execution order.
+
+The validation stage applies create or update plans, including both branches of
+an upsert, without changing caller input:
 
 ```ts
 const structuralValidation = createRuntimeValidationStage({

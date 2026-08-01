@@ -17,6 +17,9 @@ export {
 	runWithRequestEngine,
 } from './context/active-framework-context.js'
 export type { ActiveFrameworkContext } from './context/active-framework-context.js'
+// Application assembly installs every mandatory stage from plugin-owned declarations.
+export { createFrameworkEngine } from './application/create-framework-engine.js'
+export type { CreateFrameworkEngineOptions } from './application/create-framework-engine.js'
 // Applications create request-bound engines; opaque grants protect master construction.
 export { FrameworkEngine, RequestEngine } from './engine/framework-engine.js'
 export type {
@@ -66,6 +69,13 @@ export type {
 } from './master/master-authority.js'
 // The engine assembles these neutral stages once and every transport uses them.
 export { RuntimePipeline } from './pipeline/runtime-pipeline.js'
+export { runtimePipelineStage } from './pipeline/definitions.js'
+export type {
+	RuntimePipelineStageDefinition,
+	RuntimePipelineStageHandler,
+	RuntimePipelineStageName,
+	RuntimePipelineStageOptions,
+} from './pipeline/definitions.js'
 export type {
 	RuntimeAccessConstraintStage,
 	RuntimeAccessStageInput,

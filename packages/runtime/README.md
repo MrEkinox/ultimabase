@@ -20,6 +20,66 @@ Runtime re-exports the neutral `BoundQuery` facade from `@ultimabase/query`.
 exact application, request context, and pipeline that will execute future
 terminal operations.
 
+## Application assembly
+
+`createFrameworkEngine(application)` is the regular bridge from Core plugin
+setup to Runtime execution. It resolves the application-scoped
+`databaseAdapterServiceToken`, installs structural validation, composes hooks
+and events, and fills every unclaimed pipeline position with an explicit neutral
+stage:
+
+```ts
+const application = await createApplication({
+	schemas: [ArticleSchema],
+	plugins: [databasePlugin()],
+})
+
+await application.start()
+
+const framework = createFrameworkEngine(application, {
+	validation: { timezone: 'Europe/Paris' },
+})
+const request = framework.anonymous({
+	requestId: 'article-list',
+	source: requestSources.internal,
+})
+
+const articles = await request.query(ArticleSchema).limit(20).find()
+```
+
+The factory accepts an application in `ready` or `started` state and preserves
+its exact schema and plugin tuples. A missing or malformed database adapter,
+invalid pipeline contribution, conflicting access-stage owner, or unusable
+application state fails during assembly, before any operation can execute.
+
+Plugins declare supported pipeline positions through `runtimePipelineStage()`:
+
+```ts
+const tenantPlugin = (tenantId: string) =>
+	definePlugin({
+		name: 'example.tenant-access',
+		setup: ({ registries }) => {
+			registries.pipelines.register(
+				'example.tenant-acl',
+				runtimePipelineStage({
+					stage: 'acl',
+					handler: ({ accessConstraints }) => [
+						...accessConstraints,
+						{ kind: 'tenant', tenantId },
+					],
+				}),
+			)
+		},
+	})
+```
+
+`normalization` and `commit` contributions compose in dependency-first plugin
+order. The security positions `clp`, `acl`, and `fieldPermissions` each accept
+one owning plugin and reject competing owners. Plugins omit handlers from their
+public contribution metadata; only Runtime can resolve definitions created by
+the factory. An optional `MasterAuthority` may be supplied to
+`createFrameworkEngine` without changing the trusted master boundary.
+
 ## Structural validation
 
 `createRuntimeValidationStage()` executes Schema's create and update plans in
@@ -59,7 +119,8 @@ one millisecond intentionally carry no strict ordering promise.
 ## Framework and request engines
 
 `FrameworkEngine` owns one application's pipeline. It creates a new immutable
-request engine for each anonymous or authenticated request:
+request engine for each anonymous or authenticated request. Direct construction
+remains the low-level boundary for Runtime internals and focused engine tests:
 
 ```ts
 const framework = new FrameworkEngine({

@@ -3,7 +3,7 @@
 - Status: active
 - Started: 2026-08-01
 - Objective owner: project-wide
-- Current issue: `issues/300-query-runtime/323-application-runtime-assembly.md`
+- Current issue: `issues/500-postgres/501-pg-pool-plugin.md`
 
 ## Objective
 
@@ -135,7 +135,7 @@ Update this list after every completed issue so the next agent can resume
 without reconstructing repository history.
 
 - 211 — `done` — commit: `this commit` — Read-only typed service lookup implemented.
-- 323 — `ready` — commit: `—` — Next issue in the vertical.
+- 323 — `done` — commit: `this commit` — Application Runtime assembly implemented.
 - 501 — `ready` — commit: `—` — Scheduled after Runtime assembly.
 - 502 — `planned` — commit: `—` — Waits for 501.
 - 517 — `planned` — commit: `—` — Waits for 502.
