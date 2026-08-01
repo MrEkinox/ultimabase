@@ -105,6 +105,8 @@ describe('FrameworkApplication', () => {
 
 			expect(first.schemas).not.toBe(second.schemas)
 			expect(firstExports.marker).not.toBe(secondExports.marker)
+			expect(first.getService(MarkerServiceToken)).toBe(firstExports.marker)
+			expect(second.getService(MarkerServiceToken)).toBe(secondExports.marker)
 			expect(firstExports.services.get(MarkerServiceToken)).toBe(
 				firstExports.marker,
 			)
@@ -121,6 +123,58 @@ describe('FrameworkApplication', () => {
 			await Promise.all([first.dispose(), second.dispose()])
 		},
 	)
+
+	it('exposes required and optional service lookup only after setup', async () => {
+		interface MarkerService {
+			readonly value: string
+		}
+
+		const MarkerServiceToken = createServiceToken<MarkerService>(
+			'fixture.application-service',
+		)
+		const MissingServiceToken = createServiceToken<MarkerService>(
+			'fixture.missing-service',
+		)
+		const marker = { value: 'available' }
+		const plugin = definePlugin({
+			name: 'fixture.application-service',
+			setup: ({ services }) => {
+				services.provide(MarkerServiceToken, marker)
+			},
+		})
+		const application = new FrameworkApplication({
+			schemas: [applicationSchema],
+			plugins: [plugin],
+		})
+
+		expect(() => application.getService(MarkerServiceToken)).toThrow(
+			new TypeError('Application services require completed plugin setup'),
+		)
+		expect(() => application.getOptionalService(MarkerServiceToken)).toThrow(
+			new TypeError('Application services require completed plugin setup'),
+		)
+
+		await application.initialize()
+
+		expect(application.getService(MarkerServiceToken)).toBe(marker)
+		expect(application.getOptionalService(MarkerServiceToken)).toBe(marker)
+		expect(application.getOptionalService(MissingServiceToken)).toBeUndefined()
+		expect(() => application.getService(MissingServiceToken)).toThrow(
+			expect.objectContaining({
+				code: 'SERVICE_NOT_FOUND',
+				message: 'Service not found: fixture.missing-service',
+			}),
+		)
+
+		await application.dispose()
+
+		expect(() => application.getService(MarkerServiceToken)).toThrow(
+			new TypeError('Application services are no longer available'),
+		)
+		expect(() => application.getOptionalService(MarkerServiceToken)).toThrow(
+			new TypeError('Application services are no longer available'),
+		)
+	})
 
 	it('checks schema ownership by exact application identity', () => {
 		const matchingClassSchema = defineSchema({

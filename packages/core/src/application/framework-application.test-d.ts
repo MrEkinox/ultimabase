@@ -3,6 +3,7 @@ import { expectTypeOf, test } from 'vitest'
 
 import {
 	createApplication,
+	createServiceToken,
 	definePlugin,
 	type ConfiguredPluginExports,
 	type ConfiguredPluginName,
@@ -80,4 +81,35 @@ test('keeps widened plugin collections safe at runtime boundaries', () => {
 
 	expectTypeOf<ConfiguredPluginName<WidenedPlugins>>().toEqualTypeOf<string>()
 	expectTypeOf<ConfiguredPluginExports<WidenedPlugins, string>>().toBeUnknown()
+})
+
+test('infers exact required and optional application service contracts', async () => {
+	interface DatabaseService {
+		readonly dialect: 'postgres'
+	}
+
+	const DatabaseServiceToken = createServiceToken<DatabaseService>(
+		'fixture.database-service',
+	)
+	const plugin = definePlugin({
+		name: 'fixture.database-service',
+		setup: ({ services }) => {
+			services.provide(DatabaseServiceToken, { dialect: 'postgres' })
+		},
+	})
+	const application = await createApplication({
+		schemas: [],
+		plugins: [plugin],
+	})
+
+	expectTypeOf(
+		application.getService(DatabaseServiceToken),
+	).toEqualTypeOf<DatabaseService>()
+	expectTypeOf(
+		application.getOptionalService(DatabaseServiceToken),
+	).toEqualTypeOf<DatabaseService | undefined>()
+	// Application consumers receive no writable or disposable registry surface.
+	expectTypeOf(application).not.toHaveProperty('services')
+	expectTypeOf(application).not.toHaveProperty('provide')
+	expectTypeOf(application).not.toHaveProperty('disposeServices')
 })

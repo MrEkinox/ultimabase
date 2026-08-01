@@ -3,7 +3,7 @@
 - Status: active
 - Started: 2026-08-01
 - Objective owner: project-wide
-- Current issue: `issues/200-core/211-application-service-access.md`
+- Current issue: `issues/300-query-runtime/323-application-runtime-assembly.md`
 
 ## Objective
 
@@ -131,11 +131,11 @@ be documented elsewhere as already implemented.
 
 ## Progress log
 
-Update this table after every completed issue so the next agent can resume
+Update this list after every completed issue so the next agent can resume
 without reconstructing repository history.
 
-- 211 — `ready` — commit: `—` — First issue to implement.
-- 323 — `planned` — commit: `—` — Waits for 211.
+- 211 — `done` — commit: `this commit` — Read-only typed service lookup implemented.
+- 323 — `ready` — commit: `—` — Next issue in the vertical.
 - 501 — `ready` — commit: `—` — Scheduled after Runtime assembly.
 - 502 — `planned` — commit: `—` — Waits for 501.
 - 517 — `planned` — commit: `—` — Waits for 502.

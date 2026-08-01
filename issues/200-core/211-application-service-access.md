@@ -1,10 +1,10 @@
 # 211: Expose application service lookup
 
-- Status: ready
+- Status: done
 - Milestone: 2
 - Packages: `@ultimabase/core`
 - Depends on: 203, 209
-- ADR: ADR-0044, ADR-0050
+- ADR: ADR-0044, ADR-0050, ADR-0075
 
 ## Goal
 
@@ -13,16 +13,16 @@ application without exposing its mutable `ServiceRegistry`.
 
 ## Acceptance criteria
 
-- [ ] `FrameworkApplication` exposes required and optional lookup through typed `ServiceToken` identities.
-- [ ] Lookup is unavailable before plugin setup completes and after disposal.
-- [ ] Callers cannot provide, replace, enumerate, or dispose application services through this boundary.
-- [ ] Service ownership, isolation, and disposal semantics remain unchanged.
-- [ ] Public documentation distinguishes application service consumption from plugin-owned registration.
+- [x] `FrameworkApplication` exposes required and optional lookup through typed `ServiceToken` identities.
+- [x] Lookup is unavailable before plugin setup completes and after disposal.
+- [x] Callers cannot provide, replace, enumerate, or dispose application services through this boundary.
+- [x] Service ownership, isolation, and disposal semantics remain unchanged.
+- [x] Public documentation distinguishes application service consumption from plugin-owned registration.
 
 ## Tests
 
-- [ ] Runtime and compile-time tests preserve exact service inference.
-- [ ] Missing, pre-initialization, post-disposal, and cross-application lookups are covered.
+- [x] Runtime and compile-time tests preserve exact service inference.
+- [x] Missing, pre-initialization, post-disposal, and cross-application lookups are covered.
 
 ## Out of scope
 

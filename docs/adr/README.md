@@ -74,6 +74,7 @@ Accepted records:
 - [ADR-0072: Runtime executes declared schema validation](0072-runtime-schema-validation.md)
 - [ADR-0073: Runtime-generated UUID v7 identifiers](0073-runtime-uuid-v7-generation.md)
 - [ADR-0074: Selection-preserving Query scopes](0074-selection-preserving-query-scopes.md)
+- [ADR-0075: Read-only application service lookup](0075-read-only-application-service-lookup.md)
 
 Superseded records:
 

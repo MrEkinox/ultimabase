@@ -35,6 +35,21 @@ created. `application.getPlugin('fixture.database')` resolves the setup export
 using the configured literal plugin name; nested plugin definitions participate
 in the same typed lookup.
 
+Framework packages consume plugin-provided services through the application's
+read-only lookup boundary:
+
+```ts
+const database = application.getService(DatabaseServiceToken)
+const optionalCache = application.getOptionalService(CacheServiceToken)
+```
+
+The token determines the exact return type. Required lookup reports a
+`SERVICE_NOT_FOUND` framework error when no plugin provided the token, while
+optional lookup returns `undefined`. Both methods become available after plugin
+setup and remain usable while the application is stopped, but fail before setup
+or after disposal. They do not expose registration, replacement, enumeration,
+ownership, or service disposal.
+
 Runtime also uses `application.ownsSchema(schema)` to verify exact object
 identity. A separately declared schema with the same `className` is not owned by
 the application, which prevents request engines from crossing application
@@ -97,6 +112,12 @@ services.provide(DatabaseServiceToken, database)
 const requiredDatabase = services.get(DatabaseServiceToken)
 const optionalCache = services.getOptional(CacheServiceToken)
 ```
+
+Direct registry access is intended for application internals and plugin setup.
+Plugin authors register through the owner-scoped `services` value supplied to
+their setup callback. Application consumers use `application.getService(...)`
+or `application.getOptionalService(...)` instead, so they cannot mutate or
+dispose the application-owned registry.
 
 Providing the same token twice is an error and never replaces the original
 value. Each registry is isolated and has no global state. Calling `dispose()`

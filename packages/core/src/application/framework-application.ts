@@ -17,6 +17,7 @@ import type {
 	PluginContribution,
 	PluginContributionCategory,
 } from '../plugins/setup-registries.js'
+import type { ServiceToken } from '../services/service-token.js'
 
 /** Recursively retains top-level and composition-nested plugin definitions. */
 export type ConfiguredPlugin<TPlugins extends readonly PluginDefinition[]> =
@@ -116,16 +117,39 @@ export class FrameworkApplication<
 		return registeredSchema === schema
 	}
 
+	/** Resolves one required setup-provided service without exposing registry mutation. */
+	getService<TService>(token: ServiceToken<TService>): TService {
+		this.#assertSetupResourceAvailable('services')
+
+		return this.#setupRegistries.services.get(token)
+	}
+
+	/** Resolves one optional setup-provided service without exposing registry mutation. */
+	getOptionalService<TService>(
+		token: ServiceToken<TService>,
+	): TService | undefined {
+		this.#assertSetupResourceAvailable('services')
+
+		return this.#setupRegistries.services.getOptional(token)
+	}
+
 	/** Reads completed plugin declarations without exposing owner-scoped writers. */
 	getContributions(
 		category: PluginContributionCategory,
 	): readonly PluginContribution[] {
+		this.#assertSetupResourceAvailable('contributions')
+
+		return this.#setupRegistries.getContributions(category)
+	}
+
+	/** Keeps every setup-owned read boundary aligned with application lifecycle state. */
+	#assertSetupResourceAvailable(resource: 'contributions' | 'services'): void {
 		if (
 			this.#lifecycle.state === 'idle' ||
 			this.#lifecycle.state === 'setting-up'
 		) {
 			throw new TypeError(
-				'Application contributions require completed plugin setup',
+				`Application ${resource} require completed plugin setup`,
 			)
 		}
 
@@ -133,10 +157,8 @@ export class FrameworkApplication<
 			this.#lifecycle.state === 'disposing' ||
 			this.#lifecycle.state === 'disposed'
 		) {
-			throw new TypeError('Application contributions are no longer available')
+			throw new TypeError(`Application ${resource} are no longer available`)
 		}
-
-		return this.#setupRegistries.getContributions(category)
 	}
 
 	/** Completes declaration-only plugin setup before the application is returned. */
