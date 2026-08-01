@@ -144,6 +144,8 @@ TypeScript preserves literal values and nested object-field inference.
 Dependent rules such as `required` with `nullable` and `autoNow` with a default
 or list are checked outside the contextual option object. Hover information
 documents every built-in factory and option with a focused declaration example.
+`defineSchema`, its top-level options, and nested composite-index options expose
+the same contextual documentation through completion and hover popups.
 
 Every built-in field uses compact field inference. Return types keep only
 effective create, object, update, nullability, and list state. Default presence

@@ -1,6 +1,8 @@
 import * as ts from 'typescript'
 import { describe, expect, it } from 'vitest'
 
+import { createLanguageService } from './typescript-language-service.js'
+
 const fieldFactoryNames = [
 	'bigintField',
 	'binaryField',
@@ -375,39 +377,6 @@ const compactFieldSignatureCases: readonly CompactFieldSignatureCase[] = [
 		expectedReturn: 'DefaultedUuidField<true, false, false, false>',
 	},
 ]
-
-/** Creates a TypeScript service with the same module settings used by editors. */
-const createLanguageService = (
-	fileName: string,
-	source: string,
-): ts.LanguageService => {
-	const host: ts.LanguageServiceHost = {
-		fileExists: (requestedFileName) => ts.sys.fileExists(requestedFileName),
-		getCompilationSettings: () => ({
-			module: ts.ModuleKind.NodeNext,
-			moduleResolution: ts.ModuleResolutionKind.NodeNext,
-			strict: true,
-			target: ts.ScriptTarget.ESNext,
-		}),
-		getCurrentDirectory: () => process.cwd(),
-		getDefaultLibFileName: (options) => ts.getDefaultLibFilePath(options),
-		getScriptFileNames: () => [fileName],
-		getScriptSnapshot: (requestedFileName) => {
-			const contents =
-				requestedFileName === fileName
-					? source
-					: ts.sys.readFile(requestedFileName)
-
-			return contents === undefined
-				? undefined
-				: ts.ScriptSnapshot.fromString(contents)
-		},
-		getScriptVersion: () => '0',
-		readFile: (requestedFileName) => ts.sys.readFile(requestedFileName),
-	}
-
-	return ts.createLanguageService(host)
-}
 
 /** Reads the editor signature at one marker without persisting a fixture file. */
 const readMarkedQuickInfoDisplay = (

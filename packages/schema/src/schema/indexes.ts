@@ -22,7 +22,18 @@ export type SchemaFieldName<TFields extends object> =
  * Requires schema-level indexes to combine at least two fields.
  */
 export interface SchemaIndexOptions<TFieldName extends string = string> {
+	/**
+	 * Lists at least two distinct top-level fields in index-column order.
+	 * Developer fields and framework-owned system fields are accepted.
+	 *
+	 * @example `fields: ["authorId", "createdAt"]`
+	 */
 	readonly fields: readonly [TFieldName, TFieldName, ...TFieldName[]]
+	/**
+	 * Requests uniqueness across the complete field combination. Defaults to `false`.
+	 *
+	 * @example `unique: true`
+	 */
 	readonly unique?: boolean
 }
 
@@ -30,7 +41,9 @@ export interface SchemaIndexOptions<TFieldName extends string = string> {
  * Normalizes field and schema declarations into one adapter-neutral contract.
  */
 export interface SchemaIndexDefinition<TFieldName extends string = string> {
+	/** The normalized non-empty field sequence consumed by adapters. */
 	readonly fields: readonly [TFieldName, ...TFieldName[]]
+	/** Whether the complete field combination must be unique. */
 	readonly unique: boolean
 }
 
