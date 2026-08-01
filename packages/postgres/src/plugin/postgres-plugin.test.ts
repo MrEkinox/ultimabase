@@ -1,4 +1,4 @@
-import { createApplication } from '@ultimabase/core'
+import { createApplication, definePlugin } from '@ultimabase/core'
 import {
 	createFrameworkEngine,
 	databaseAdapterServiceToken,
@@ -12,6 +12,7 @@ import type {
 	PostgresPoolClient,
 } from '../connection/contracts.js'
 import { postgresConnectionServiceToken } from '../connection/contracts.js'
+import { postgresSchemaPreparationClaimName } from '../constants.js'
 import { postgresTable } from '../naming/table.js'
 import { postgresPlugin } from './postgres-plugin.js'
 
@@ -20,11 +21,15 @@ class FixturePool implements PostgresPool {
 	connectCalls = 0
 	endCalls = 0
 	releaseCalls = 0
+	queryCalls = 0
 
 	connect(): Promise<PostgresPoolClient> {
 		this.connectCalls += 1
 
 		return Promise.resolve({
+			query: (): never => {
+				throw new TypeError('Fixture client does not execute transactions')
+			},
 			release: () => {
 				this.releaseCalls += 1
 			},
@@ -37,8 +42,14 @@ class FixturePool implements PostgresPool {
 		return Promise.resolve()
 	}
 
-	query(): never {
-		throw new TypeError('Fixture plugin tests do not execute queries')
+	query(queryText: string): Promise<{ readonly rows: readonly unknown[] }> {
+		this.queryCalls += 1
+
+		return Promise.resolve({
+			rows: queryText.includes('current_schema')
+				? [{ namespace: 'public' }]
+				: [],
+		})
 	}
 }
 
@@ -68,6 +79,7 @@ describe('postgresPlugin', () => {
 		expect(connection.state).toBe('connected')
 		expect(pool.connectCalls).toBe(1)
 		expect(pool.releaseCalls).toBe(1)
+		expect(pool.queryCalls).toBe(4)
 
 		await application.stop()
 
@@ -133,6 +145,69 @@ describe('postgresPlugin', () => {
 
 		expect(originalPool.connectCalls).toBe(1)
 		expect(replacementPool.connectCalls).toBe(0)
+	})
+
+	it('skips structural queries when schemaPolicy is ignore', async () => {
+		const pool = new FixturePool()
+		const application = await createApplication({
+			schemas: [
+				defineSchema({
+					className: 'IgnoredArticle',
+					fields: { title: stringField() },
+				}),
+			],
+			plugins: [postgresPlugin({ pool, schemaPolicy: 'ignore' })],
+		})
+
+		await application.start()
+		await application.dispose()
+
+		expect(pool.queryCalls).toBe(0)
+	})
+
+	it('captures schemaPolicy before caller mutation', async () => {
+		const pool = new FixturePool()
+		const mutableOptions: {
+			pool: PostgresPool
+			schemaPolicy: 'ignore' | 'override'
+		} = { pool, schemaPolicy: 'ignore' }
+		const plugin = postgresPlugin(mutableOptions)
+
+		mutableOptions.schemaPolicy = 'override'
+
+		const application = await createApplication({
+			schemas: [],
+			plugins: [plugin],
+		})
+
+		await application.start()
+		await application.dispose()
+
+		expect(pool.queryCalls).toBe(0)
+	})
+
+	it('defers to a plugin that claims PostgreSQL schema preparation', async () => {
+		const pool = new FixturePool()
+		const migrationPlugin = definePlugin({
+			name: 'fixture.postgres-migrations',
+			setup: ({ registries }) => {
+				registries.pipelines.register(postgresSchemaPreparationClaimName, true)
+			},
+		})
+		const application = await createApplication({
+			schemas: [
+				defineSchema({
+					className: 'MigratedArticle',
+					fields: { title: stringField() },
+				}),
+			],
+			plugins: [postgresPlugin({ pool }), migrationPlugin],
+		})
+
+		await application.start()
+		await application.dispose()
+
+		expect(pool.queryCalls).toBe(0)
 	})
 
 	it('claims PostgreSQL table-name extensions during application setup', async () => {
@@ -203,6 +278,10 @@ describe('postgresPlugin', () => {
 				create: () =>
 					postgresPlugin({ url: 'postgresql://fixture', extra: true } as never),
 				message: 'postgres plugin contains unknown key: extra',
+			},
+			{
+				create: () => postgresPlugin({ pool, schemaPolicy: 'unsafe' } as never),
+				message: 'postgres schemaPolicy must be override, fail, or ignore',
 			},
 		]
 

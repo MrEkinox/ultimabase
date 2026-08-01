@@ -11,7 +11,10 @@ import {
 } from './postgres-plugin.js'
 
 test('accepts URL and pg-compatible existing-pool configuration', async () => {
-	const urlPlugin = postgresPlugin({ url: 'postgresql://localhost/fixture' })
+	const urlPlugin = postgresPlugin({
+		url: 'postgresql://localhost/fixture',
+		schemaPolicy: 'fail',
+	})
 	const poolPlugin = postgresPlugin({ pool: new Pool() })
 	const application = await createApplication({
 		schemas: [],
@@ -34,4 +37,9 @@ test('requires exactly one typed connection source', () => {
 	postgresPlugin({})
 	// @ts-expect-error -- Connection ownership is ambiguous when both are present.
 	postgresPlugin({ url: 'postgresql://localhost/fixture', pool: new Pool() })
+	postgresPlugin({
+		url: 'postgresql://localhost/fixture',
+		// @ts-expect-error -- Schema policies are a closed safety contract.
+		schemaPolicy: 'unsafe',
+	})
 })

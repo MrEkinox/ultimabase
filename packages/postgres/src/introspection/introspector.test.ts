@@ -18,7 +18,12 @@ class FixtureCatalogPool implements PostgresPool {
 	constructor(private readonly fixtures: CatalogFixtures) {}
 
 	connect(): Promise<PostgresPoolClient> {
-		return Promise.resolve({ release: () => undefined })
+		return Promise.resolve({
+			query: (): never => {
+				throw new TypeError('Catalog fixture does not execute transactions')
+			},
+			release: () => undefined,
+		})
 	}
 
 	end(): Promise<void> {

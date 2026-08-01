@@ -13,20 +13,33 @@ import {
 	type PostgresPool,
 } from '../connection/contracts.js'
 import { createManagedPostgresConnection } from '../connection/managed-connection.js'
-import { postgresPluginName, postgresTableExtensionName } from '../constants.js'
+import {
+	postgresColumnExtensionName,
+	postgresPluginName,
+	postgresSchemaPreparationClaimName,
+	postgresTableExtensionName,
+} from '../constants.js'
 import { createPostgresDatabaseAdapter } from '../drizzle/adapter.js'
 import { createPostgresDrizzleClient } from '../drizzle/client.js'
+import { resolvePostgresRenamedFrom } from '../naming/column.js'
 import { resolvePostgresTableName } from '../naming/table.js'
 import { PostgresSchemaCatalog } from '../schema/catalog.js'
+import type { PostgresSchemaPolicy } from '../synchronization/contracts.js'
+import { prepareDirectPostgresSchema } from '../synchronization/preparer.js'
+
+/** Configures direct schema behavior when no migration plugin claims preparation. */
+export interface PostgresSchemaPolicyOptions {
+	readonly schemaPolicy?: PostgresSchemaPolicy
+}
 
 /** Creates an application-owned pool from a private connection URL. */
-export interface PostgresUrlOptions {
+export interface PostgresUrlOptions extends PostgresSchemaPolicyOptions {
 	readonly pool?: never
 	readonly url: string
 }
 
 /** Uses a developer-owned pg-compatible pool without taking disposal ownership. */
-export interface PostgresExistingPoolOptions {
+export interface PostgresExistingPoolOptions extends PostgresSchemaPolicyOptions {
 	readonly pool: PostgresPool
 	readonly url?: never
 }
@@ -49,7 +62,23 @@ export type PostgresPlugin = FrameworkPlugin<
 	'database-adapter'
 >
 
-const postgresPluginOptionKeys = new Set(['pool', 'url'])
+const postgresPluginOptionKeys = new Set(['pool', 'schemaPolicy', 'url'])
+const postgresSchemaPolicies = [
+	'fail',
+	'ignore',
+	'override',
+] as const satisfies readonly PostgresSchemaPolicy[]
+const isPostgresSchemaPolicy = (
+	value: unknown,
+): value is PostgresSchemaPolicy =>
+	typeof value === 'string' &&
+	postgresSchemaPolicies.some((policy) => policy === value)
+
+type PrepareSchema = () => Promise<void>
+const prepareSchemaByExports = new WeakMap<
+	Readonly<PostgresPluginExports>,
+	PrepareSchema
+>()
 
 const isObjectLike = (value: unknown): value is object =>
 	(typeof value === 'object' && value !== null) || typeof value === 'function'
@@ -83,6 +112,15 @@ const assertPostgresPluginOptions: (
 		if (!postgresPluginOptionKeys.has(key)) {
 			throw new TypeError(`postgres plugin contains unknown key: ${key}`)
 		}
+	}
+
+	if (
+		options.schemaPolicy !== undefined &&
+		!isPostgresSchemaPolicy(options.schemaPolicy)
+	) {
+		throw new TypeError(
+			'postgres schemaPolicy must be override, fail, or ignore',
+		)
 	}
 
 	const hasUrl = Object.hasOwn(options, 'url')
@@ -134,11 +172,16 @@ export const postgresPlugin = (
 
 	assertPostgresPluginOptions(untrustedOptions)
 	const createConnectionSource = createConnectionSourceFactory(untrustedOptions)
+	const schemaPolicy = untrustedOptions.schemaPolicy ?? 'override'
 
 	return definePlugin({
 		name: postgresPluginName,
 		slot: 'database-adapter',
 		setup: ({ registries, schemas, services }) => {
+			registries.extensions.register(
+				extensionHandlerKey('field', postgresColumnExtensionName),
+				resolvePostgresRenamedFrom,
+			)
 			registries.extensions.register(
 				extensionHandlerKey('schema', postgresTableExtensionName),
 				resolvePostgresTableName,
@@ -156,11 +199,31 @@ export const postgresPlugin = (
 			services.provide(postgresConnectionServiceToken, connection)
 			services.provide(databaseAdapterServiceToken, adapter)
 
+			// Runtime-only preparation stays keyed by this application's public export object.
+			const pluginExports = immutableRecord({ connection })
+
+			prepareSchemaByExports.set(pluginExports, () =>
+				prepareDirectPostgresSchema(pool, schemaCatalog, schemaPolicy),
+			)
+
 			// Setup exports safe lifecycle control; credentials and driver objects remain private.
-			return immutableRecord({ connection })
+			return pluginExports
 		},
 		hooks: {
 			connect: ({ pluginExports }) => pluginExports.connection.connect(),
+			prepareSchema: ({ pluginExports, registries }) => {
+				if (registries.pipelines.has(postgresSchemaPreparationClaimName)) {
+					return
+				}
+
+				const prepareSchema = prepareSchemaByExports.get(pluginExports)
+
+				if (prepareSchema === undefined) {
+					throw new TypeError('PostgreSQL schema preparer is unavailable')
+				}
+
+				return prepareSchema()
+			},
 			stop: ({ pluginExports }) => pluginExports.connection.close(),
 		},
 	})

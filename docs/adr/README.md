@@ -78,6 +78,10 @@ Accepted records:
 - [ADR-0076: Application-owned Runtime assembly](0076-application-runtime-assembly.md)
 - [ADR-0077: PostgreSQL connection ownership and sanitization](0077-postgres-connection-lifecycle.md)
 - [ADR-0078: PostgreSQL-owned physical table naming](0078-postgres-table-naming.md)
+- [ADR-0079: PostgreSQL primitive schema compilation](0079-postgres-primitive-schema-compilation.md)
+- [ADR-0080: PostgreSQL index compilation and naming](0080-postgres-index-compilation.md)
+- [ADR-0081: PostgreSQL catalog introspection](0081-postgres-catalog-introspection.md)
+- [ADR-0082: Direct PostgreSQL schema policies](0082-direct-postgres-schema-policies.md)
 
 Superseded records:
 

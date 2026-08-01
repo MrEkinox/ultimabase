@@ -40,4 +40,9 @@ export class PostgresSchemaCatalog {
 			[...this.#schemas.values()].map(({ tableName }) => tableName),
 		)
 	}
+
+	/** Returns compiled schemas in declaration order for deterministic preparation. */
+	values(): readonly CompiledPostgresSchema[] {
+		return immutableArray([...this.#schemas.values()])
+	}
 }

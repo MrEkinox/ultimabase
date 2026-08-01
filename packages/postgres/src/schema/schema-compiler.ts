@@ -11,6 +11,7 @@ import {
 	type PgColumnBuilderBase,
 } from 'drizzle-orm/pg-core'
 
+import { resolvePostgresRenamedFrom } from '../naming/column.js'
 import { resolvePostgresTableName } from '../naming/table.js'
 import type {
 	CompiledPostgresField,
@@ -47,6 +48,12 @@ const assertNoNestedIndexes = (
 			)
 		}
 
+		if (resolvePostgresRenamedFrom(child.field) !== undefined) {
+			throw new TypeError(
+				`PostgreSQL renamedFrom requires a top-level column: ${childPath}`,
+			)
+		}
+
 		assertNoNestedIndexes(child, childPath)
 	}
 }
@@ -67,10 +74,29 @@ export const compilePostgresSchema = (
 	const validationPlan = compileValidationPlans(schema).create
 	const builderEntries: [string, PgColumnBuilderBase][] = []
 	const pendingFields: [string, Omit<CompiledPostgresField, 'column'>][] = []
+	const fieldNames = new Set(Object.keys(validationPlan.fields))
+	const renameSources = new Set<string>()
 
 	for (const [fieldName, plan] of Object.entries(validationPlan.fields)) {
 		assertNoNestedIndexes(plan, fieldName)
 		const compiled = compilePostgresFieldBuilder(fieldName, plan)
+		const renamedFrom = resolvePostgresRenamedFrom(plan.field)
+
+		if (renamedFrom !== undefined) {
+			if (renamedFrom === fieldName || fieldNames.has(renamedFrom)) {
+				throw new TypeError(
+					`PostgreSQL renamedFrom must not be a declared field: ${renamedFrom}`,
+				)
+			}
+
+			if (renameSources.has(renamedFrom)) {
+				throw new TypeError(
+					`Duplicate PostgreSQL renamedFrom source: ${renamedFrom}`,
+				)
+			}
+
+			renameSources.add(renamedFrom)
+		}
 
 		builderEntries.push([fieldName, compiled.builder])
 		pendingFields.push([
@@ -81,6 +107,7 @@ export const compilePostgresSchema = (
 					? {}
 					: { generation: compiled.generation }),
 				plan,
+				...(renamedFrom === undefined ? {} : { renamedFrom }),
 				storage: compiled.storage,
 			},
 		])

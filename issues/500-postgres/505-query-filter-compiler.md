@@ -1,6 +1,6 @@
 # 505: Compile Query AST filters
 
-- Status: planned
+- Status: ready
 - Milestone: 5
 - Packages: `@ultimabase/postgres`
 - Depends on: 302, 303, 502, 503

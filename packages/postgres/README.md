@@ -171,9 +171,51 @@ policy instead of being approximated. This includes views, foreign or
 partitioned tables, unknown column types, generated columns, specialized
 indexes, and unsupported constraint kinds.
 
-There is intentionally no public introspection or Drizzle API. In the target
-developer flow, the next direct schema-policy step consumes this snapshot
-automatically when `application.start()` prepares the configured schemas.
+There is intentionally no public introspection or Drizzle API. Direct schema
+policies consume this snapshot automatically when `application.start()`
+prepares the configured schemas.
+
+## Direct schema policies
+
+Without a migration plugin, `postgresPlugin` synchronizes registered schemas
+through the `prepareSchema` lifecycle phase. The default `override` policy
+creates missing tables and transactionally applies supported column, primary
+key, default, identity, nullability, and index changes:
+
+```ts
+const application = await createApplication({
+	schemas: [ArticleSchema],
+	plugins: [
+		postgresPlugin({
+			url: databaseUrl,
+			schemaPolicy: 'override',
+		}),
+	],
+})
+
+await application.start()
+```
+
+Use `fail` to inspect and reject any drift without mutation, or `ignore` to
+skip structural inspection entirely. Direct synchronization preserves tables
+outside the current application catalog because it has no migration history
+with which to prove ownership. Unsupported structures on a managed table stop
+`override` before its transaction rather than being approximated.
+
+Renames are explicit and preserve the existing column data:
+
+```ts
+import { postgresColumn } from '@ultimabase/postgres'
+import { stringField } from '@ultimabase/schema'
+
+const title = stringField({
+	extensions: [postgresColumn({ renamedFrom: 'headline' })],
+})
+```
+
+An official migration plugin claims `postgresSchemaPreparationClaimName`
+during setup. This suppresses direct synchronization so exactly one
+database-specific implementation owns the preparation phase.
 
 ## Table names
 

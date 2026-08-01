@@ -29,6 +29,7 @@ export interface CompiledPostgresField {
 	readonly column: PgColumn
 	readonly generation?: PostgresFieldGeneration
 	readonly plan: FieldValidationPlan
+	readonly renamedFrom?: string
 	readonly storage: PostgresStorageKind
 }
 

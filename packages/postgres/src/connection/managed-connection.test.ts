@@ -30,6 +30,9 @@ class FixturePool implements PostgresPool {
 		}
 
 		return {
+			query: (): never => {
+				throw new TypeError('Connection fixture does not execute queries')
+			},
 			release: () => {
 				this.releaseCalls += 1
 			},

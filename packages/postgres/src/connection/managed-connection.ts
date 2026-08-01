@@ -7,26 +7,13 @@ import type {
 	PostgresPoolClient,
 } from './contracts.js'
 
+import { readPostgresDriverCode } from './driver-error.js'
+
 /** Supplies the internal resource ownership needed by the plugin lifecycle. */
 export interface ManagedPostgresConnection extends PostgresConnectionService {
 	connect(): Promise<void>
 	close(): Promise<void>
 	getPool(): PostgresPool
-}
-
-const readDriverCode = (error: unknown): string | undefined => {
-	if (
-		(typeof error !== 'object' || error === null) &&
-		typeof error !== 'function'
-	) {
-		return undefined
-	}
-
-	if (!('code' in error) || typeof error.code !== 'string') {
-		return undefined
-	}
-
-	return error.code
 }
 
 /** Removes driver messages and causes because either may contain credentials. */
@@ -37,7 +24,7 @@ const createSanitizedPostgresError = (
 	error: unknown,
 	retryable: boolean,
 ): FrameworkError<'INTERNAL_ERROR'> => {
-	const driverCode = readDriverCode(error)
+	const driverCode = readPostgresDriverCode(error)
 
 	return new FrameworkError('INTERNAL_ERROR', message, {
 		publicMessage,

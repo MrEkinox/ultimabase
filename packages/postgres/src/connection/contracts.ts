@@ -3,8 +3,9 @@ import { createServiceToken, type ServiceToken } from '@ultimabase/core'
 /** Describes the lifecycle state visible without exposing the driver pool. */
 export type PostgresConnectionState = 'closed' | 'connected' | 'idle'
 
-/** Represents the only client capability needed for connection verification. */
+/** Represents the client capabilities needed for verification and transactional DDL. */
 export interface PostgresPoolClient {
+	query(queryText: string, values?: unknown[]): PromiseLike<PostgresQueryResult>
 	release(): void
 }
 

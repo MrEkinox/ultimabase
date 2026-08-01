@@ -19,6 +19,7 @@ import {
 import { getTableConfig, type PgColumn } from 'drizzle-orm/pg-core'
 import { describe, expect, it, vi } from 'vitest'
 
+import { postgresColumn } from '../naming/column.js'
 import { compilePostgresSchema } from './schema-compiler.js'
 
 const indexColumns = (
@@ -206,6 +207,55 @@ describe('PostgreSQL primitive schema compiler', () => {
 		expect(() => compilePostgresSchema(invalidSequenceSchema)).toThrow(
 			new TypeError(
 				'PostgreSQL autoIncrement cannot be combined with default: sequence',
+			),
+		)
+	})
+
+	it('rejects ambiguous or nested PostgreSQL rename metadata', () => {
+		const duplicateSource = defineSchema({
+			className: 'DuplicateRenameFixture',
+			fields: {
+				first: stringField({
+					extensions: [postgresColumn({ renamedFrom: 'legacy' })],
+				}),
+				second: stringField({
+					extensions: [postgresColumn({ renamedFrom: 'legacy' })],
+				}),
+			},
+		})
+		const declaredSource = defineSchema({
+			className: 'DeclaredRenameFixture',
+			fields: {
+				legacy: stringField(),
+				title: stringField({
+					extensions: [postgresColumn({ renamedFrom: 'legacy' })],
+				}),
+			},
+		})
+		const nestedRename = defineSchema({
+			className: 'NestedRenameFixture',
+			fields: {
+				profile: objectField({
+					fields: {
+						title: stringField({
+							extensions: [postgresColumn({ renamedFrom: 'headline' })],
+						}),
+					},
+				}),
+			},
+		})
+
+		expect(() => compilePostgresSchema(duplicateSource)).toThrow(
+			new TypeError('Duplicate PostgreSQL renamedFrom source: legacy'),
+		)
+		expect(() => compilePostgresSchema(declaredSource)).toThrow(
+			new TypeError(
+				'PostgreSQL renamedFrom must not be a declared field: legacy',
+			),
+		)
+		expect(() => compilePostgresSchema(nestedRename)).toThrow(
+			new TypeError(
+				'PostgreSQL renamedFrom requires a top-level column: profile.title',
 			),
 		)
 	})
