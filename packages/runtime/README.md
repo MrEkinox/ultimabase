@@ -20,6 +20,27 @@ Runtime re-exports the neutral `BoundQuery` facade from `@ultimabase/query`.
 exact application, request context, and pipeline that will execute future
 terminal operations.
 
+## Structural validation
+
+`createRuntimeValidationStage()` executes Schema's create and update plans in
+the pipeline's mandatory `structuralValidation` position. Creates, bulk
+creates, updates, and both upsert branches therefore share defaults, nested
+object/list rules, scalar snapshots, and path-aware `VALIDATION_ERROR` issues:
+
+```ts
+const structuralValidation = createRuntimeValidationStage({
+	timezone: 'Europe/Paris',
+	clock: () => new Date(),
+})
+```
+
+The clock is optional and primarily injectable for tests; production defaults
+to the current time. One instant is shared by every `autoNow` and system
+timestamp in an operation, including all items in a bulk mutation. Runtime
+default factories execute once per created object. Auto-increment values and
+adapter-specific default expressions stay database-owned. Master authority
+does not bypass this phase.
+
 ## Framework and request engines
 
 `FrameworkEngine` owns one application's pipeline. It creates a new immutable

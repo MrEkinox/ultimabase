@@ -15,6 +15,7 @@ describe('@ultimabase/runtime public entry point', () => {
 			'afterOperation',
 			'beforeOperation',
 			'createRuntimeHookStages',
+			'createRuntimeValidationStage',
 			'databaseAdapterServiceToken',
 			'getCurrentApplication',
 			'getCurrentApplicationEngine',

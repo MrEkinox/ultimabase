@@ -80,7 +80,8 @@ export const normalizeDecimalValue = (value: unknown, path: string): string => {
 	return value
 }
 
-const compareDecimals = (left: string, right: string): number => {
+/** Compares two already normalized exact decimals without numeric coercion. */
+export const compareDecimalValues = (left: string, right: string): number => {
 	const leftDecimal = parseDecimal(left)
 	const rightDecimal = parseDecimal(right)
 	const commonScale = Math.max(leftDecimal.scale, rightDecimal.scale)
@@ -139,7 +140,7 @@ const normalizeDecimalValidation = (
 			range,
 			'validation.range',
 			normalizeDecimalValue,
-			compareDecimals,
+			compareDecimalValues,
 		),
 	})
 }

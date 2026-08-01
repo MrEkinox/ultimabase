@@ -142,6 +142,13 @@ schema stages around database execution. Before/after hooks transform values
 explicitly; externally visible event handlers run only after the transaction
 commit succeeds.
 
+Runtime's structural validation stage caches Schema's compact create/update
+plans, traverses structured values, and delegates scalar snapshots and
+constraints back to the declared field contract. Every mutation receives one
+application-timezone clock instant for defaults and automatic timestamps.
+Validation remains mandatory for master requests and precedes permissions and
+business hooks.
+
 Access modes are `anonymous`, `user`, and `master`. Request sources such as `rest`, `graphql`, `job`, or `internal` are metadata, not access modes.
 `RequestContext` correlates the mode with immutable request identity, source,
 safe metadata, and identity-based capability tokens. Public construction cannot

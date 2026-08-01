@@ -22,6 +22,7 @@ describe('@ultimabase/schema public entry point', () => {
 			'defineSchema',
 			'defineSchemaExtension',
 			'enumField',
+			'fieldUsesTemporalTimezone',
 			'floatField',
 			'intField',
 			'isStaticDefault',
@@ -31,6 +32,7 @@ describe('@ultimabase/schema public entry point', () => {
 			'stringField',
 			'timeField',
 			'uuidField',
+			'validateScalarFieldConstraints',
 		])
 	})
 })

@@ -80,3 +80,5 @@ export type {
 	RuntimeResultStageInput,
 	RuntimeResultTransformStage,
 } from './pipeline/contracts.js'
+export { createRuntimeValidationStage } from './validation/runtime-validation.js'
+export type { RuntimeValidationOptions } from './validation/runtime-validation.js'

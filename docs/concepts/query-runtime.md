@@ -39,3 +39,19 @@ Update inputs group `set`, `unset`, `increment`, and `decrement` operations.
 They normalize to immutable field-operation nodes, reject cross-operator field
 conflicts, and keep partial set values pending the shared Runtime validation
 pipeline.
+
+Application assembly installs `createRuntimeValidationStage()` as the
+pipeline's structural validation phase. It applies create or update plans,
+including both branches of an upsert, without changing caller input:
+
+```ts
+const structuralValidation = createRuntimeValidationStage({
+	timezone: 'Europe/Paris',
+})
+```
+
+Static and runtime defaults, nested object/list rules, scalar constraints,
+`autoNow`, and system timestamps all pass through this shared boundary. One
+clock instant is reused across an entire bulk operation. Validation failures
+use `VALIDATION_ERROR` and expose immutable issue paths such as
+`["inputs", 2, "profile", "name"]`; master authority does not skip them.

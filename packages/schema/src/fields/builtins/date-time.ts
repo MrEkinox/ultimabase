@@ -79,14 +79,17 @@ export const createDateTimeNormalizer = (
 	}
 }
 
-const compareZonedDateTimes: TemporalValueComparator = (left, right) =>
-	Date.parse(left) - Date.parse(right)
+/** Compares normalized zoned date-times by their represented instants. */
+export const compareZonedDateTimeValues: TemporalValueComparator = (
+	left,
+	right,
+) => Date.parse(left) - Date.parse(right)
 
 const resolveDateTimeFieldConfiguration =
 	createTemporalFieldConfigurationResolver<DateTimeFieldOptions>(
 		true,
 		createDateTimeNormalizer,
-		compareZonedDateTimes,
+		compareZonedDateTimeValues,
 	)
 
 /** Creates immutable date-time metadata with option-dependent timezone semantics. */

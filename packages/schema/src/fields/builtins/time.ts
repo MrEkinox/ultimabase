@@ -78,14 +78,15 @@ const readZonedTimeOffset = (value: string): number => {
 	return localMilliseconds - offsetMilliseconds
 }
 
-const compareZonedTimes: TemporalValueComparator = (left, right) =>
+/** Compares normalized zoned time values by their UTC-adjusted time of day. */
+export const compareZonedTimeValues: TemporalValueComparator = (left, right) =>
 	readZonedTimeOffset(left) - readZonedTimeOffset(right)
 
 const resolveTimeFieldConfiguration =
 	createTemporalFieldConfigurationResolver<TimeFieldOptions>(
 		false,
 		createTimeNormalizer,
-		compareZonedTimes,
+		compareZonedTimeValues,
 	)
 
 /** Creates immutable time metadata with option-dependent timezone semantics. */

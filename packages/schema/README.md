@@ -208,6 +208,11 @@ combine both through `AnyValidationIssueCode`. Runtime will execute these plans
 before access checks and hooks; Schema does not validate request data itself
 and does not depend on a third-party schema language.
 
+Runtime consumers call `validateScalarFieldConstraints(field, value, path)`
+after the scalar snapshot boundary. The evaluator reads normalized constraints
+from the retained declared field and returns immutable issues; it does not
+rebuild a second scalar schema or apply structural object/list rules.
+
 ## Default values
 
 Static defaults keep the direct syntax and exact literal inference:

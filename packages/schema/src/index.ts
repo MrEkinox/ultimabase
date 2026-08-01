@@ -77,6 +77,7 @@ export type {
 } from './extensions/definition.js'
 export type {
 	FieldDefinition,
+	GenericField,
 	FieldList,
 	FieldListOption,
 	FieldListValue,
@@ -161,6 +162,10 @@ export type {
 	UpdatedAtSystemField,
 } from './schema/system-fields.js'
 export { compileValidationPlans } from './plans/compiler.js'
+export {
+	fieldUsesTemporalTimezone,
+	validateScalarFieldConstraints,
+} from './plans/scalar-validation.js'
 export type {
 	ArrayValidationPlan,
 	AnyValidationIssueCode,
