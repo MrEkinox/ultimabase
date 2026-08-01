@@ -1,9 +1,9 @@
 # Current plan: first real PostgreSQL E2E vertical
 
-- Status: awaiting live verification
+- Status: complete
 - Started: 2026-08-01
 - Objective owner: project-wide
-- Current issue: `issues/500-postgres/518-runtime-postgres-e2e.md`
+- Completed by: `issues/500-postgres/518-runtime-postgres-e2e.md`
 
 ## Objective
 
@@ -67,7 +67,7 @@ approval. Do not start an issue whose dependencies are incomplete.
 11. [x] [506 — Compile selection, ordering, and pagination](issues/500-postgres/506-selection-order-pagination.md)
 12. [x] [507 — Implement singular PostgreSQL CRUD](issues/500-postgres/507-crud-adapter.md)
 13. [x] [516 — Add Testcontainers worker isolation](issues/500-postgres/516-testcontainers-worker-isolation.md)
-14. [518 — Verify the first Runtime-to-PostgreSQL E2E](issues/500-postgres/518-runtime-postgres-e2e.md)
+14. [x] [518 — Verify the first Runtime-to-PostgreSQL E2E](issues/500-postgres/518-runtime-postgres-e2e.md)
 
 Issues 505 and 506 are independent after their shared prerequisites and may be
 reordered without changing the objective. The numbered list otherwise records
@@ -126,8 +126,7 @@ const rows = await request
 await application.dispose()
 ```
 
-This example is the implemented DX for the plan. Its live PostgreSQL behavior
-remains subject to the Docker-backed acceptance gate above.
+This example is the implemented and Docker-verified DX for the plan.
 
 ## Progress log
 
@@ -147,4 +146,4 @@ without reconstructing repository history.
 - 506 — `done` — commit: `9f70dbf` — Stable projections, ordering, offsets, and cursor predicates compiled.
 - 507 — `done` — commit: `6bca47a` — Singular reads and mutations execute through private Drizzle queries.
 - 516 — `done` — commit: `d53bd75` — One shared container feeds deterministic worker-isolated schemas.
-- 518 — `implemented` — commit: `e923c6b` — Public singular CRUD E2E is ready; the CI Docker run remains the live gate.
+- 518 — `done` — commits: `e923c6b`, `4f6f264` — Public singular CRUD and worker isolation pass GitHub CI run 148 against a live PostgreSQL Testcontainer.
