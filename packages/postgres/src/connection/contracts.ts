@@ -8,12 +8,17 @@ export interface PostgresPoolClient {
 	release(): void
 }
 
+/** Describes the only result shape consumed across the structural pool boundary. */
+export interface PostgresQueryResult {
+	readonly rows: readonly unknown[]
+}
+
 /** Accepts a pg-compatible pool without publishing pg types from this package. */
 export interface PostgresPool {
 	connect(): Promise<PostgresPoolClient>
 	end(): Promise<void>
-	// The opaque signature proves query capability without exposing driver overloads.
-	query(...arguments_: never[]): unknown
+	// Unknown row values are narrowed by each database boundary before use.
+	query(queryText: string, values?: unknown[]): PromiseLike<PostgresQueryResult>
 }
 
 /** Exposes lifecycle control while keeping credentials and the driver pool private. */

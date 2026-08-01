@@ -1,4 +1,5 @@
 import type { SchemaDefinition } from '@ultimabase/schema'
+import { immutableArray } from '@ultimabase/shared'
 
 import type { CompiledPostgresSchema } from './contracts.js'
 import { compilePostgresSchema } from './schema-compiler.js'
@@ -31,5 +32,12 @@ export class PostgresSchemaCatalog {
 		}
 
 		return compiled
+	}
+
+	/** Lists exact managed table identifiers for catalog ownership classification. */
+	tableNames(): readonly string[] {
+		return immutableArray(
+			[...this.#schemas.values()].map(({ tableName }) => tableName),
+		)
 	}
 }

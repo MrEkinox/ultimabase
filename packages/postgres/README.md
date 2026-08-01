@@ -159,6 +159,22 @@ The field tuple of every unique index remains available inside the adapter for
 future upsert conflict targets; developers never import or name a Drizzle
 index.
 
+## Catalog introspection
+
+The PostgreSQL package can now read a deterministic internal snapshot of live
+tables, columns, defaults, identities, indexes, and constraints. Exact table
+names from the compiled application catalog distinguish managed tables from
+unrelated database structures.
+
+Unsupported live features are reported explicitly to the upcoming schema
+policy instead of being approximated. This includes views, foreign or
+partitioned tables, unknown column types, generated columns, specialized
+indexes, and unsupported constraint kinds.
+
+There is intentionally no public introspection or Drizzle API. In the target
+developer flow, the next direct schema-policy step consumes this snapshot
+automatically when `application.start()` prepares the configured schemas.
+
 ## Table names
 
 PostgreSQL owns physical naming. Without an override, class names use standard

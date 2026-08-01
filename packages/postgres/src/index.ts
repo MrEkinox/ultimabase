@@ -4,6 +4,7 @@ export type {
 	PostgresConnectionState,
 	PostgresPool,
 	PostgresPoolClient,
+	PostgresQueryResult,
 } from './connection/contracts.js'
 export { postgresPlugin } from './plugin/postgres-plugin.js'
 export type {

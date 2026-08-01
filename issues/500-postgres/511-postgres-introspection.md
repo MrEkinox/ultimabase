@@ -1,6 +1,6 @@
 # 511: Introspect PostgreSQL schema state
 
-- Status: ready
+- Status: done
 - Milestone: 5
 - Packages: `@ultimabase/postgres`
 - Depends on: 501, 503, 504
@@ -12,13 +12,16 @@ Read normalized tables, columns, defaults, indexes, and constraints from Postgre
 
 ## Acceptance criteria
 
-- [ ] Output is deterministic and comparable to desired metadata.
-- [ ] UltimaBase-managed and unrelated structures are distinguishable.
-- [ ] Unsupported live structures are reported, not guessed.
+- [x] Output is deterministic and comparable to desired metadata.
+- [x] UltimaBase-managed and unrelated structures are distinguishable.
+- [x] Unsupported live structures are reported, not guessed.
 
 ## Tests
 
-- [ ] Catalog fixture matrix.
+- [x] Catalog row fixture matrix.
+
+Live catalog mutation and comparison fixtures belong to issue 512, where the
+direct policy creates and changes real structures through this snapshot.
 
 ## Out of scope
 

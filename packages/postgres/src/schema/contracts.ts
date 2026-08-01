@@ -45,4 +45,5 @@ export interface CompiledPostgresSchema {
 	readonly fields: Readonly<Record<string, CompiledPostgresField>>
 	readonly indexes: readonly CompiledPostgresIndex[]
 	readonly table: PgTable
+	readonly tableName: string
 }

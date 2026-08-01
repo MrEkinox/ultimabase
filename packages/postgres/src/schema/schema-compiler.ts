@@ -130,5 +130,5 @@ export const compilePostgresSchema = (
 		}),
 	)
 
-	return immutableRecord({ fields, indexes, table })
+	return immutableRecord({ fields, indexes, table, tableName })
 }
