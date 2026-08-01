@@ -3,7 +3,7 @@
 - Status: active
 - Started: 2026-08-01
 - Objective owner: project-wide
-- Current issue: `issues/500-postgres/516-testcontainers-worker-isolation.md`
+- Current issue: `issues/500-postgres/518-runtime-postgres-e2e.md`
 
 ## Objective
 
@@ -66,7 +66,7 @@ approval. Do not start an issue whose dependencies are incomplete.
 10. [x] [505 — Compile Query filters](issues/500-postgres/505-query-filter-compiler.md)
 11. [x] [506 — Compile selection, ordering, and pagination](issues/500-postgres/506-selection-order-pagination.md)
 12. [x] [507 — Implement singular PostgreSQL CRUD](issues/500-postgres/507-crud-adapter.md)
-13. [516 — Add Testcontainers worker isolation](issues/500-postgres/516-testcontainers-worker-isolation.md)
+13. [x] [516 — Add Testcontainers worker isolation](issues/500-postgres/516-testcontainers-worker-isolation.md)
 14. [518 — Verify the first Runtime-to-PostgreSQL E2E](issues/500-postgres/518-runtime-postgres-e2e.md)
 
 Issues 505 and 506 are independent after their shared prerequisites and may be
@@ -145,6 +145,6 @@ without reconstructing repository history.
 - 512 — `done` — commit: `749f558` — Transactional direct schema policies implemented.
 - 505 — `done` — commit: `f8b65e4` — Parameterized primitive and logical filters compiled.
 - 506 — `done` — commit: `9f70dbf` — Stable projections, ordering, offsets, and cursor predicates compiled.
-- 507 — `done` — commit: `this commit` — Singular reads and mutations execute through private Drizzle queries.
-- 516 — `ready` — commit: `—` — Worker-isolated live PostgreSQL fixtures can now exercise CRUD.
-- 518 — `planned` — commit: `—` — Final E2E acceptance issue.
+- 507 — `done` — commit: `6bca47a` — Singular reads and mutations execute through private Drizzle queries.
+- 516 — `done` — commit: `this commit` — One shared container feeds deterministic worker-isolated schemas.
+- 518 — `ready` — commit: `—` — The public Runtime-to-PostgreSQL flow can now be verified.

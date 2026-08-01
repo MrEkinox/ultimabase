@@ -85,6 +85,7 @@ Accepted records:
 - [ADR-0083: Parameterized PostgreSQL filter compilation](0083-parameterized-postgres-filter-compilation.md)
 - [ADR-0084: Stable PostgreSQL query clause compilation](0084-postgres-query-clause-compilation.md)
 - [ADR-0085: Singular PostgreSQL CRUD execution](0085-singular-postgres-crud.md)
+- [ADR-0086: PostgreSQL E2E worker isolation](0086-postgres-e2e-worker-isolation.md)
 
 Superseded records:
 

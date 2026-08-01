@@ -1,39 +1,39 @@
-import {
-	PostgreSqlContainer,
-	type StartedPostgreSqlContainer,
-} from '@testcontainers/postgresql'
 import { createApplication } from '@ultimabase/core'
 import {
 	postgresConnectionServiceToken,
 	postgresPlugin,
 } from '@ultimabase/postgres'
-import { Pool } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
-let container: StartedPostgreSqlContainer | undefined
+import {
+	createPostgresWorkerFixture,
+	type PostgresWorkerFixture,
+} from './postgres-worker-fixture.js'
 
-const getContainer = (): StartedPostgreSqlContainer => {
-	if (container === undefined) {
-		throw new TypeError('PostgreSQL Testcontainer has not started')
+let fixture: PostgresWorkerFixture | undefined
+
+const getFixture = (): PostgresWorkerFixture => {
+	if (fixture === undefined) {
+		throw new TypeError('PostgreSQL worker fixture has not started')
 	}
 
-	return container
+	return fixture
 }
 
-// One container is shared only inside this sequential connection contract suite.
+// Every E2E file receives a reset namespace while the global setup shares its container.
 beforeAll(async () => {
-	container = await new PostgreSqlContainer('postgres:17-alpine').start()
-}, 120_000)
+	fixture = await createPostgresWorkerFixture()
+}, 30_000)
 
 afterAll(async () => {
-	await container?.stop()
+	await fixture?.dispose()
 })
 
 describe('PostgreSQL connection lifecycle', { concurrent: false }, () => {
 	it('connects and disposes an application-owned URL pool', async () => {
 		const application = await createApplication({
 			schemas: [],
-			plugins: [postgresPlugin({ url: getContainer().getConnectionUri() })],
+			plugins: [postgresPlugin({ url: getFixture().connectionUri })],
 		})
 		const connection = application.getService(postgresConnectionServiceToken)
 
@@ -51,9 +51,7 @@ describe('PostgreSQL connection lifecycle', { concurrent: false }, () => {
 	})
 
 	it('verifies but does not dispose an existing developer-owned pool', async () => {
-		const pool = new Pool({
-			connectionString: getContainer().getConnectionUri(),
-		})
+		const pool = getFixture().pool
 		const application = await createApplication({
 			schemas: [],
 			plugins: [postgresPlugin({ pool })],
@@ -71,7 +69,6 @@ describe('PostgreSQL connection lifecycle', { concurrent: false }, () => {
 			expect(result.rows).toStrictEqual([{ value: 1 }])
 		} finally {
 			await application.dispose()
-			await pool.end()
 		}
 	})
 

@@ -5,7 +5,9 @@
 		"rootDir": "src"
 	},
 	"include": ["src/**/*.ts"],
+	"exclude": ["src/**/*.test.ts", "src/**/*.test-d.ts"],
 	"references": [
+		{ "path": "../shared" },
 		{ "path": "../schema" },
 		{ "path": "../core" },
 		{ "path": "../runtime" }

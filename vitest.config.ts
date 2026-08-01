@@ -15,8 +15,17 @@ const testProjects: TestProjectConfiguration[] = [
 	{
 		extends: true,
 		test: {
+			exclude: ['tests/e2e/**/*.postgres.e2e.test.ts'],
 			include: ['tests/e2e/**/*.e2e.test.ts'],
 			name: 'e2e',
+		},
+	},
+	{
+		extends: true,
+		test: {
+			globalSetup: ['./tests/e2e/postgres.global-setup.ts'],
+			include: ['tests/e2e/**/*.postgres.e2e.test.ts'],
+			name: 'postgres-e2e',
 		},
 	},
 	{

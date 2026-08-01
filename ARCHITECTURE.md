@@ -47,7 +47,7 @@ server-hono ──────────→ runtime, core
 rest ─────────────────→ runtime, core, query, schema
 graphql ──────────────→ runtime, core, query, schema
 graphql-yoga ─────────→ graphql, runtime, core
-testing ──────────────→ runtime, core, schema
+testing ──────────────→ runtime, core, schema, shared
 ```
 
 Concrete plugins may depend on Runtime and foundational contracts. Core and Runtime never depend back on concrete plugins.
