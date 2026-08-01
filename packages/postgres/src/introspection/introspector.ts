@@ -7,6 +7,7 @@ import {
 } from '@ultimabase/shared'
 
 import type { PostgresPool } from '../connection/contracts.js'
+import { readPostgresQueryRows } from '../connection/query-result.js'
 import type {
 	PostgresColumnSnapshot,
 	PostgresConstraintSnapshot,
@@ -159,13 +160,10 @@ const queryRows = async (
 	namespace: string,
 ): Promise<readonly Readonly<Record<string, unknown>>[]> => {
 	const result: unknown = await pool.query(query, [namespace])
-
-	if (!isPlainRecord(result) || !isUnknownArray(result.rows)) {
-		throw new TypeError('PostgreSQL catalog query returned an invalid result')
-	}
+	const rows = readPostgresQueryRows(result, 'PostgreSQL catalog query')
 
 	return immutableArray(
-		result.rows.map((row) => {
+		rows.map((row) => {
 			if (!isPlainRecord(row)) {
 				throw new TypeError('PostgreSQL catalog row must be a plain object')
 			}

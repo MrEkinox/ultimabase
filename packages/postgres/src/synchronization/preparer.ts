@@ -1,15 +1,12 @@
 import { FrameworkError } from '@ultimabase/core'
-import {
-	immutableArray,
-	isPlainRecord,
-	isUnknownArray,
-} from '@ultimabase/shared'
+import { immutableArray, isPlainRecord } from '@ultimabase/shared'
 
 import type {
 	PostgresPool,
 	PostgresPoolClient,
 } from '../connection/contracts.js'
 import { readPostgresDriverCode } from '../connection/driver-error.js'
+import { readPostgresQueryRows } from '../connection/query-result.js'
 import { introspectPostgresDatabase } from '../introspection/introspector.js'
 import type { PostgresSchemaCatalog } from '../schema/catalog.js'
 import type { PostgresSchemaChange, PostgresSchemaPolicy } from './contracts.js'
@@ -21,12 +18,7 @@ const currentNamespaceQuery = 'SELECT current_schema() AS namespace'
 
 const readCurrentNamespace = async (pool: PostgresPool): Promise<string> => {
 	const result: unknown = await pool.query(currentNamespaceQuery)
-
-	if (!isPlainRecord(result) || !isUnknownArray(result.rows)) {
-		throw new TypeError('PostgreSQL namespace query returned an invalid result')
-	}
-
-	const row = result.rows[0]
+	const row = readPostgresQueryRows(result, 'PostgreSQL namespace query')[0]
 
 	if (
 		!isPlainRecord(row) ||
