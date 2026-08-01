@@ -5,6 +5,7 @@ import {
 	defineSchema,
 	objectField,
 	stringField,
+	timeField,
 } from '@ultimabase/schema'
 import { describe, expect, it } from 'vitest'
 
@@ -80,6 +81,51 @@ describe('PostgreSQL value codecs', () => {
 		expect(decoded).toStrictEqual(source)
 		expect(encoded).not.toBe(source)
 		expect(decoded).not.toBe(source)
+	})
+
+	it('normalizes PostgreSQL temporal text into Schema values', () => {
+		const schema = defineSchema({
+			className: 'TemporalCodecFixture',
+			fields: {
+				localDateTime: dateTimeField({ timezone: false }),
+				localTime: timeField(),
+				zonedDateTime: dateTimeField(),
+				zonedTime: timeField({ timezone: true }),
+			},
+		})
+		const fields = compilePostgresSchema(schema).fields
+
+		expect(fields.localDateTime?.codec.decode('2026-08-01 12:30:45.1')).toBe(
+			'2026-08-01T12:30:45.100',
+		)
+		expect(fields.localTime?.codec.decode('12:30:45')).toBe('12:30:45.000')
+		expect(fields.zonedDateTime?.codec.decode('2026-08-01 12:30:45+02')).toBe(
+			'2026-08-01T10:30:45.000Z',
+		)
+		expect(fields.zonedTime?.codec.decode('12:30:45.12+0230')).toBe(
+			'12:30:45.120+02:30',
+		)
+	})
+
+	it('rejects malformed PostgreSQL temporal text', () => {
+		const schema = defineSchema({
+			className: 'InvalidTemporalCodecFixture',
+			fields: {
+				local: dateTimeField({ timezone: false }),
+				zoned: dateTimeField(),
+			},
+		})
+		const fields = compilePostgresSchema(schema).fields
+
+		expect(() => fields.local?.codec.decode('2026-08-01 12:30:45+00')).toThrow(
+			new TypeError('PostgreSQL returned an invalid time value'),
+		)
+		expect(() => fields.zoned?.codec.decode('not-a-date')).toThrow(
+			new TypeError('PostgreSQL returned an invalid date-time value'),
+		)
+		expect(() => fields.zoned?.codec.decode(new Date())).toThrow(
+			new TypeError('PostgreSQL temporal value must be a string'),
+		)
 	})
 
 	it('rejects corrupted JSONB structures instead of returning partial values', () => {

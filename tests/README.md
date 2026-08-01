@@ -23,6 +23,10 @@ shares only its connection URI, and assigns a reset schema to every worker
 slot. The ordinary E2E project remains Docker-free for focused package archive
 checks.
 
+`runtime-postgres.postgres.e2e.test.ts` is the first complete persistence
+vertical. It uses only built public package exports and verifies schema
+preparation plus singular CRUD without access or transport plugins.
+
 PostgreSQL E2E suites start real Testcontainers and therefore require a working
 Docker-compatible container runtime. Package unit and type tests never require
 Docker.

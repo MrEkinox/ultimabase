@@ -86,6 +86,7 @@ Accepted records:
 - [ADR-0084: Stable PostgreSQL query clause compilation](0084-postgres-query-clause-compilation.md)
 - [ADR-0085: Singular PostgreSQL CRUD execution](0085-singular-postgres-crud.md)
 - [ADR-0086: PostgreSQL E2E worker isolation](0086-postgres-e2e-worker-isolation.md)
+- [ADR-0087: Runtime-to-PostgreSQL E2E boundary](0087-runtime-postgres-e2e-boundary.md)
 
 Superseded records:
 

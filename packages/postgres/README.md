@@ -124,9 +124,11 @@ and `deleteOne` return `null` when no row matches. Update and delete select thei
 deterministic first target inside the mutation statement, avoiding a separate
 read race.
 
-This public flow is implemented. Its live Testcontainers proof is owned by the
-worker-isolation and E2E issues that follow. Bulk operations, upserts, explicit
-transactions, and resumed opaque cursor tokens are not yet executable.
+This public flow is implemented and covered by the root worker-isolated
+Testcontainers scenario. PostgreSQL temporal text is normalized back to
+Schema's canonical ISO representation before a result reaches developer code.
+Bulk operations, upserts, explicit transactions, and resumed opaque cursor
+tokens are not yet executable.
 
 ## Primitive schema compilation
 

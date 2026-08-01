@@ -1,6 +1,10 @@
 import { Buffer } from 'node:buffer'
 
-import type { FieldValidationPlan } from '@ultimabase/schema'
+import {
+	fieldUsesTemporalTimezone,
+	snapshotScalarFieldValue,
+	type FieldValidationPlan,
+} from '@ultimabase/schema'
 import {
 	immutableArray,
 	immutableRecord,
@@ -67,6 +71,96 @@ const jsonbBinaryCodec: PostgresValueCodec = immutableRecord({
 	encode: (value: unknown): string =>
 		Buffer.from(copyBinary(value, 'binary value')).toString('base64'),
 })
+
+const postgresTimePattern =
+	/^(?<clock>\d{2}:\d{2}:\d{2})(?:\.(?<fraction>\d{1,3}))?(?<timezone>Z|[+-]\d{2}(?::?\d{2})?)?$/u
+const postgresDateTimePattern = /^(?<date>\d{4}-\d{2}-\d{2})[ T](?<time>.+)$/u
+
+const normalizePostgresTimezone = (timezone: string | undefined): string => {
+	if (timezone === undefined || timezone === 'Z') {
+		return timezone ?? ''
+	}
+
+	if (/^[+-]\d{2}$/u.test(timezone)) {
+		return timezone === '+00' ? 'Z' : `${timezone}:00`
+	}
+
+	if (/^[+-]\d{4}$/u.test(timezone)) {
+		return `${timezone.slice(0, 3)}:${timezone.slice(3)}`
+	}
+
+	return timezone === '+00:00' ? 'Z' : timezone
+}
+
+const normalizePostgresTime = (value: string, timezone: boolean): string => {
+	const match = postgresTimePattern.exec(value)
+	const groups = match?.groups
+	const clock = groups?.clock
+	const suffix = normalizePostgresTimezone(groups?.timezone)
+
+	if (
+		clock === undefined ||
+		(timezone && suffix.length === 0) ||
+		(!timezone && suffix.length > 0)
+	) {
+		throw new TypeError('PostgreSQL returned an invalid time value')
+	}
+
+	// PostgreSQL omits trailing fractional zeroes, while Schema requires millisecond precision.
+	const fraction = (groups?.fraction ?? '').padEnd(3, '0')
+
+	return `${clock}.${fraction}${suffix}`
+}
+
+const normalizePostgresDateTime = (
+	value: string,
+	timezone: boolean,
+): string => {
+	const match = postgresDateTimePattern.exec(value)
+	const date = match?.groups?.date
+	const time = match?.groups?.time
+
+	if (date === undefined || time === undefined) {
+		throw new TypeError('PostgreSQL returned an invalid date-time value')
+	}
+
+	const canonical = `${date}T${normalizePostgresTime(time, timezone)}`
+
+	if (!timezone) return canonical
+
+	const timestamp = Date.parse(canonical)
+
+	if (!Number.isFinite(timestamp)) {
+		throw new TypeError('PostgreSQL returned an invalid date-time value')
+	}
+
+	// Zoned PostgreSQL timestamps represent instants, so reads use canonical UTC.
+	return new Date(timestamp).toISOString()
+}
+
+const createTemporalCodec = (
+	plan: FieldValidationPlan & { readonly kind: 'scalar' },
+): PostgresValueCodec => {
+	const timezone = fieldUsesTemporalTimezone(plan.field)
+	const decode = (value: unknown): unknown => {
+		if (typeof value !== 'string') {
+			throw new TypeError('PostgreSQL temporal value must be a string')
+		}
+
+		const normalized =
+			plan.field.kind === 'time'
+				? normalizePostgresTime(value, timezone)
+				: normalizePostgresDateTime(value, timezone)
+
+		return snapshotScalarFieldValue(
+			plan.field,
+			normalized,
+			'PostgreSQL temporal value',
+		)
+	}
+
+	return immutableRecord({ decode, encode: identityCodec.encode })
+}
 
 const applyCodec = (
 	plan: FieldValidationPlan,
@@ -164,6 +258,13 @@ const createScalarCodec = (
 
 	if (plan.field.kind === 'binary') {
 		return jsonb ? jsonbBinaryCodec : binaryCodec
+	}
+
+	if (
+		!jsonb &&
+		(plan.field.kind === 'dateTime' || plan.field.kind === 'time')
+	) {
+		return createTemporalCodec(plan)
 	}
 
 	return identityCodec

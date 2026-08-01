@@ -1,6 +1,6 @@
 # Current plan: first real PostgreSQL E2E vertical
 
-- Status: active
+- Status: awaiting live verification
 - Started: 2026-08-01
 - Objective owner: project-wide
 - Current issue: `issues/500-postgres/518-runtime-postgres-e2e.md`
@@ -146,5 +146,5 @@ without reconstructing repository history.
 - 505 — `done` — commit: `f8b65e4` — Parameterized primitive and logical filters compiled.
 - 506 — `done` — commit: `9f70dbf` — Stable projections, ordering, offsets, and cursor predicates compiled.
 - 507 — `done` — commit: `6bca47a` — Singular reads and mutations execute through private Drizzle queries.
-- 516 — `done` — commit: `this commit` — One shared container feeds deterministic worker-isolated schemas.
-- 518 — `ready` — commit: `—` — The public Runtime-to-PostgreSQL flow can now be verified.
+- 516 — `done` — commit: `d53bd75` — One shared container feeds deterministic worker-isolated schemas.
+- 518 — `implemented` — commit: `this commit` — Public singular CRUD E2E is ready; the CI Docker run remains the live gate.
