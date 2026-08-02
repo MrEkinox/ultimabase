@@ -422,6 +422,184 @@ describe('internal PostgreSQL database adapter', () => {
 		await expect(transaction.rollback()).rejects.toThrow(/no longer active/u)
 	})
 
+	it('prepares singular mutations with full private materializations', async () => {
+		const fixture = createFixture()
+		const driver = getTransactionDriver(fixture)
+		const transaction = await fixture.adapter.beginTransaction()
+		const createOperation: CreateOneOperationAst<typeof articleSchema> = {
+			input: { title: 'Created' },
+			kind: 'create-one',
+			schema: new Query(articleSchema).ast.schema,
+		}
+		const preparedCreate = await transaction.prepare({
+			accessConstraints: [],
+			operation: createOperation,
+		})
+
+		// Create preparation has no physical target to resolve before execution.
+		expect(driver.calls).toStrictEqual([])
+		driver.respond([[null, 'Created', null, firstId, timestamp, timestamp]])
+		await expect(preparedCreate.execute()).resolves.toStrictEqual({
+			materializations: [
+				{
+					current: {
+						createdAt: timestamp,
+						id: firstId,
+						title: 'Created',
+						updatedAt: timestamp,
+					},
+					kind: 'create',
+				},
+			],
+			result: {
+				createdAt: timestamp,
+				id: firstId,
+				title: 'Created',
+				updatedAt: timestamp,
+			},
+		})
+
+		const query = new Query(articleSchema)
+			.equalTo('title', 'Old')
+			.select('id', 'title')
+		const update = normalizeUpdateExpression(articleSchema, {
+			set: { title: 'Updated' },
+			increment: { views: 1 },
+		})
+		const updateOperation = {
+			kind: 'update-one',
+			query: query.ast,
+			update,
+		} satisfies UpdateOneOperationAst<typeof articleSchema, typeof update>
+		const previous = {
+			createdAt: timestamp,
+			id: firstId,
+			title: 'Old',
+			updatedAt: timestamp,
+			views: 1,
+		}
+		const current = {
+			...previous,
+			title: 'Updated',
+			views: 2,
+		}
+
+		driver.respond([[null, 'Old', 1, firstId, timestamp, timestamp]])
+		const preparedUpdate = await transaction.prepare({
+			accessConstraints: [],
+			operation: updateOperation,
+		})
+
+		expect(driver.calls.at(-1)?.text).toMatch(/for update/u)
+		expect(preparedUpdate.target).toStrictEqual(previous)
+		driver.respond([[null, 'Updated', 2, firstId, timestamp, timestamp]])
+		const updateOutcome = await preparedUpdate.execute()
+
+		expect(updateOutcome).toStrictEqual({
+			materializations: [{ current, kind: 'update', previous }],
+			result: { id: firstId, title: 'Updated' },
+		})
+		expect(Object.isFrozen(updateOutcome)).toBe(true)
+		expect(Object.isFrozen(updateOutcome.materializations)).toBe(true)
+		expect(Object.isFrozen(updateOutcome.materializations[0])).toBe(true)
+		expect(Object.isFrozen(previous)).toBe(false)
+		expect(Object.isFrozen(updateOutcome.materializations[0]?.previous)).toBe(
+			true,
+		)
+		expect(Object.isFrozen(updateOutcome.materializations[0]?.current)).toBe(
+			true,
+		)
+		expect(driver.calls.at(-1)?.params).toContain(firstId)
+		expect(driver.calls.at(-1)?.text).not.toContain(' in (select ')
+		await expect(preparedUpdate.execute()).rejects.toThrow(
+			/already been executed/u,
+		)
+
+		const deleteOperation = {
+			kind: 'delete-one',
+			query: query.ast,
+		} satisfies DeleteOneOperationAst<typeof articleSchema>
+
+		driver.respond([[null, 'Updated', 2, firstId, timestamp, timestamp]])
+		const preparedDelete = await transaction.prepare({
+			accessConstraints: [],
+			operation: deleteOperation,
+		})
+
+		expect(preparedDelete.target).toStrictEqual(current)
+		driver.respond([[null, 'Updated', 2, firstId, timestamp, timestamp]])
+		await expect(preparedDelete.execute()).resolves.toStrictEqual({
+			materializations: [{ kind: 'delete', previous: current }],
+			result: { id: firstId, title: 'Updated' },
+		})
+		expect(driver.calls.at(-1)?.params).toContain(firstId)
+		expect(driver.calls.at(-1)?.text).not.toContain(' in (select ')
+
+		await transaction.rollback()
+	})
+
+	it('keeps prepared handles transaction-bound and represents no match explicitly', async () => {
+		const fixture = createFixture(2)
+		const firstDriver = getTransactionDriver(fixture)
+		const firstTransaction = await fixture.adapter.beginTransaction()
+		const deleteOperation = {
+			kind: 'delete-one',
+			query: new Query(articleSchema).select('id').ast,
+		} satisfies DeleteOneOperationAst<typeof articleSchema>
+
+		firstDriver.respond([])
+		const missing = await firstTransaction.prepare({
+			accessConstraints: [],
+			operation: deleteOperation,
+		})
+
+		expect(missing.target).toBeNull()
+		await expect(missing.execute()).resolves.toStrictEqual({
+			materializations: [],
+			result: null,
+		})
+
+		const missingUpdateOperation = {
+			kind: 'update-one',
+			query: deleteOperation.query,
+			update: normalizeUpdateExpression(articleSchema, {
+				set: { title: 'Never written' },
+			}),
+		} satisfies UpdateOneOperationAst<typeof articleSchema>
+
+		firstDriver.respond([])
+		const missingUpdate = await firstTransaction.prepare({
+			accessConstraints: [],
+			operation: missingUpdateOperation,
+		})
+		const callCountBeforeExecution = firstDriver.calls.length
+
+		expect(missingUpdate.target).toBeNull()
+		await expect(missingUpdate.execute()).resolves.toStrictEqual({
+			materializations: [],
+			result: null,
+		})
+		expect(firstDriver.calls).toHaveLength(callCountBeforeExecution)
+		await firstTransaction.rollback()
+
+		const secondDriver = getTransactionDriver(fixture, 1)
+		const secondTransaction = await fixture.adapter.beginTransaction()
+
+		secondDriver.respond([
+			[null, 'Delete later', 1, firstId, timestamp, timestamp],
+		])
+		const escaped = await secondTransaction.prepare({
+			accessConstraints: [],
+			operation: deleteOperation,
+		})
+
+		await secondTransaction.rollback()
+		await expect(escaped.execute()).rejects.toMatchObject({
+			code: 'TRANSACTION_ERROR',
+			internalDetails: { kind: 'postgres-transaction-closed' },
+		})
+	})
+
 	it('rolls back and releases one borrowed transaction client', async () => {
 		const fixture = createFixture()
 		const { adapter } = fixture

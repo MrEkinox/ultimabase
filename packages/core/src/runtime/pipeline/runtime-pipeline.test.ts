@@ -10,11 +10,13 @@ import {
 } from '../context/request-context.js'
 import type {
 	DatabaseAdapter,
+	DatabaseMutationOperationAst,
 	DatabaseOperationAst,
 	DatabaseOperationExecutor,
 	DatabaseOperationRequest,
 	DatabaseOperationResult,
 	DatabaseTransactionAdapter,
+	PreparedDatabaseOperation,
 } from '../database/contracts.js'
 import type {
 	RuntimeAccessConstraintStage,
@@ -27,6 +29,7 @@ import type {
 	RuntimeResultTransformStage,
 } from './contracts.js'
 import { RuntimePipeline } from './runtime-pipeline.js'
+import { createPreparedOperationFixture } from '../../../tests/runtime/fixtures/recording-database-adapter.js'
 
 const articleSchema = new Schema({
 	className: 'Article',
@@ -402,6 +405,14 @@ describe('RuntimePipeline', () => {
 		const executor = new TraceDatabaseExecutor(trace, [])
 		const transaction: DatabaseTransactionAdapter = {
 			kind: 'database-transaction-adapter',
+			prepare: <const TOperation extends DatabaseMutationOperationAst>(
+				request: DatabaseOperationRequest<TOperation>,
+			): Promise<PreparedDatabaseOperation<TOperation>> =>
+				Promise.resolve(
+					createPreparedOperationFixture({
+						execute: () => executor.execute(request),
+					}),
+				),
 			execute: <const TOperation extends DatabaseOperationAst>(
 				request: DatabaseOperationRequest<TOperation>,
 			): Promise<DatabaseOperationResult<TOperation>> =>

@@ -2,9 +2,13 @@ import { ServiceRegistry } from '../../foundation.js'
 import {
 	Query,
 	type CountOperationAst,
+	type CreateOneOperationAst,
 	type ExistsOperationAst,
 	type FindOperationAst,
 	type OperationKind,
+	type QueryFilterNode,
+	type UpdateExpression,
+	type UpdateOneOperationAst,
 } from '../../query/index.js'
 import { Schema, intField, stringField } from '../../schema/index.js'
 import { immutableRecord } from '@ultimabase/shared'
@@ -13,11 +17,14 @@ import { describe, expect, it } from 'vitest'
 import {
 	databaseAdapterServiceToken,
 	type DatabaseAdapter,
+	type DatabaseMutationOperationAst,
 	type DatabaseOperationAst,
 	type DatabaseOperationExecutor,
+	type DatabaseOperationOutcome,
 	type DatabaseOperationRequest,
 	type DatabaseOperationResult,
 	type DatabaseTransactionAdapter,
+	type PreparedDatabaseOperation,
 } from './contracts.js'
 
 const articleSchema = new Schema({
@@ -58,6 +65,43 @@ class InMemoryTransactionFake
 	readonly kind = 'database-transaction-adapter' as const
 	committed = false
 	rolledBack = false
+
+	prepare<const TOperation extends DatabaseMutationOperationAst>(
+		request: DatabaseOperationRequest<TOperation>,
+	): Promise<PreparedDatabaseOperation<TOperation>> {
+		let attempted = false
+
+		const prepared = {
+			...(request.operation.kind === 'delete-one' ||
+			request.operation.kind === 'update-one'
+				? { target: null }
+				: {}),
+			execute: async (): Promise<DatabaseOperationOutcome<TOperation>> => {
+				if (attempted) {
+					throw new TypeError('Prepared database operation is already executed')
+				}
+
+				// Failed executions consume the handle so adapters cannot retarget retries.
+				attempted = true
+
+				const result = await this.execute(request)
+				const outcome = {
+					materializations:
+						request.operation.kind === 'create-one'
+							? [{ current: result, kind: 'create' as const }]
+							: [],
+					result,
+				}
+
+				// This generic fixture narrows its discriminant at runtime like an adapter.
+				return outcome as unknown as DatabaseOperationOutcome<TOperation>
+			},
+		}
+
+		return Promise.resolve(
+			prepared as unknown as PreparedDatabaseOperation<TOperation>,
+		)
+	}
 
 	commit(): Promise<void> {
 		this.committed = true
@@ -147,6 +191,66 @@ describe('database adapter contracts', () => {
 
 		await rollbackTransaction.rollback()
 		expect(rollbackAdapter.transaction?.rolledBack).toBe(true)
+	})
+
+	it('prepares one single-use transaction outcome independently from its result', async () => {
+		const createdArticle = {
+			createdAt: '2026-08-02T00:00:00.000Z',
+			id: 'article-1',
+			title: 'Prepared',
+			updatedAt: '2026-08-02T00:00:00.000Z',
+		}
+		const transaction = new InMemoryTransactionFake({
+			'create-one': createdArticle,
+		})
+		const operation = {
+			input: { title: 'Prepared' },
+			kind: 'create-one',
+			schema: new Query(articleSchema).ast.schema,
+		} satisfies CreateOneOperationAst<typeof articleSchema>
+		const prepared = await transaction.prepare({
+			accessConstraints: [],
+			operation,
+		})
+		const outcome = await prepared.execute()
+
+		expect(outcome).toStrictEqual({
+			materializations: [{ current: createdArticle, kind: 'create' }],
+			result: createdArticle,
+		})
+		await expect(prepared.execute()).rejects.toThrow(
+			'Prepared database operation is already executed',
+		)
+	})
+
+	it('keeps logical materializations separate from a selected public result', () => {
+		const previous = Object.freeze({
+			createdAt: '2026-08-02T00:00:00.000Z',
+			id: 'article-1',
+			title: 'Before',
+			updatedAt: '2026-08-02T00:00:00.000Z',
+		})
+		const current = Object.freeze({
+			...previous,
+			title: 'After',
+		})
+		type SelectedUpdate = UpdateOneOperationAst<
+			typeof articleSchema,
+			UpdateExpression<typeof articleSchema>,
+			QueryFilterNode<typeof articleSchema>,
+			'id'
+		>
+		const outcome: DatabaseOperationOutcome<SelectedUpdate> = Object.freeze({
+			result: Object.freeze({ id: 'article-1' }),
+			materializations: Object.freeze([
+				Object.freeze({ kind: 'update', previous, current }),
+			] as const),
+		})
+
+		expect(outcome.result).toStrictEqual({ id: 'article-1' })
+		expect(outcome.materializations).toStrictEqual([
+			{ kind: 'update', previous, current },
+		])
 	})
 
 	it('registers one adapter through the application service token', () => {

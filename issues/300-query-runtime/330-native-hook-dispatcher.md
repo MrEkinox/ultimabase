@@ -3,8 +3,8 @@
 - Status: ready
 - Milestone: 3
 - Packages: `@ultimabase/core`
-- Depends on: 320, 327, 328, 329
-- ADR: ADR-0015, ADR-0070, ADR-0089, ADR-0090, ADR-0096, ADR-0097, ADR-0099
+- Depends on: 320, 327, 328, 329, 344
+- ADR: ADR-0015, ADR-0070, ADR-0089, ADR-0090, ADR-0096, ADR-0097, ADR-0099, ADR-0100
 
 ## Goal
 
@@ -16,6 +16,9 @@ transaction-aware Runtime hook lifecycle.
 - [ ] Native schema and field hooks are installed automatically without a hook plugin or schema extension handler.
 - [ ] Field resolution precedes schema resolution, transformed data is structurally revalidated, and field validation precedes schema validation.
 - [ ] Plugin/global, schema, and affected-field before/after phases follow the fixed wrapping order from ADR-0089.
+- [ ] Operation transforms finish before `prepare()`; matched affected-field before hooks run before the handle is consumed exactly once, and after/onChange hooks consume complete materializations rather than selected public results.
+- [ ] Singular `update-one` and `delete-one` with `target: null` execute without affected-field hooks; set-based `update-many` and `delete-many` never synthesize item hooks.
+- [ ] Upsert field hooks visit each present branch-neutral candidate in deterministic create-then-update order; only after hooks observe the materialized database branch.
 - [ ] Fields run sequentially in declaration order with deterministic nested-object traversal.
 - [ ] Hook inputs and results are immutable snapshots with explicit transformation return contracts.
 - [ ] Replacement operations and results are validated against the exact input terminal and selected fields, with path-aware errors for cross-terminal or incompatible runtime returns.

@@ -10,16 +10,19 @@ import { describe, expect, it } from 'vitest'
 import { RequestContext, requestSources } from '../context/request-context.js'
 import type {
 	DatabaseAdapter,
+	DatabaseMutationOperationAst,
 	DatabaseOperationAst,
 	DatabaseOperationExecutor,
 	DatabaseOperationRequest,
 	DatabaseOperationResult,
 	DatabaseTransactionAdapter,
+	PreparedDatabaseOperation,
 } from '../database/contracts.js'
 import { MasterAuthority } from '../master/master-authority.js'
 import type { RuntimePipelineStages } from '../pipeline/contracts.js'
 import { RuntimePipeline } from '../pipeline/runtime-pipeline.js'
 import { FrameworkEngine, RequestEngine } from './framework-engine.js'
+import { createPreparedOperationFixture } from '../../../tests/runtime/fixtures/recording-database-adapter.js'
 
 const articleSchema = new Schema({
 	className: 'Article',
@@ -63,6 +66,14 @@ class FixtureDatabaseExecutor implements DatabaseAdapter {
 	beginTransaction(): Promise<DatabaseTransactionAdapter> {
 		const transaction: DatabaseTransactionAdapter = {
 			kind: 'database-transaction-adapter',
+			prepare: <const TOperation extends DatabaseMutationOperationAst>(
+				request: DatabaseOperationRequest<TOperation>,
+			): Promise<PreparedDatabaseOperation<TOperation>> =>
+				Promise.resolve(
+					createPreparedOperationFixture({
+						execute: () => this.execute(request),
+					}),
+				),
 			execute: <const TOperation extends DatabaseOperationAst>(
 				request: DatabaseOperationRequest<TOperation>,
 			): Promise<DatabaseOperationResult<TOperation>> => this.execute(request),

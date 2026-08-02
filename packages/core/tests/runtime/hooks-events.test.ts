@@ -298,6 +298,7 @@ describe('Runtime hooks and post-commit events', () => {
 			'global-before:consumer',
 			'schema-before:dependency',
 			'schema-before:consumer:input:dependency',
+			'prepare:create-one',
 			'execute:create-one',
 			'schema-after:dependency',
 			'schema-after:consumer:stored:dependency',
@@ -368,6 +369,7 @@ describe('Runtime hooks and post-commit events', () => {
 		).rejects.toBe(hookError)
 		expect(trace).toStrictEqual([
 			'adapter:begin',
+			'prepare:create-one',
 			'execute:create-one',
 			'after:abort',
 			'adapter:rollback',

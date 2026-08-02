@@ -6,6 +6,8 @@ import {
 	bigintField,
 	binaryField,
 	booleanField,
+	databaseAdapterServiceToken,
+	type DatabaseTransactionAdapter,
 	dateField,
 	dateTimeField,
 	decimalField,
@@ -14,7 +16,9 @@ import {
 	floatField,
 	intField,
 	jsonField,
+	normalizeUpdateExpression,
 	objectField,
+	Query,
 	requestSources,
 	stringField,
 	timeField,
@@ -82,6 +86,27 @@ const getFixture = (): PostgresWorkerFixture => {
 	}
 
 	return fixture
+}
+
+/** Proves that a competing preparation remains blocked by the retained row lock. */
+const expectPreparationPending = async (
+	preparation: Promise<unknown>,
+): Promise<void> => {
+	let timer: ReturnType<typeof setTimeout> | undefined
+	const state = await Promise.race([
+		preparation.then(
+			() => 'settled' as const,
+			() => 'settled' as const,
+		),
+		new Promise<'pending'>((resolve) => {
+			timer = setTimeout(() => {
+				resolve('pending')
+			}, 50)
+		}),
+	])
+
+	if (timer !== undefined) clearTimeout(timer)
+	expect(state).toBe('pending')
 }
 
 // The global Testcontainer is shared, but this file owns one reset worker namespace.
@@ -246,6 +271,112 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 
 			await request.query(PostSchema).equalTo('id', committed.id).deleteOne()
 		} finally {
+			await ultimabase.dispose()
+		}
+	})
+
+	it('keeps prepared update and delete targets stable across concurrent transactions', async () => {
+		const ultimabase = new UltimaBase({
+			schemas: [PostSchema],
+			plugins: [
+				postgresPlugin({
+					schemaPolicy: 'override',
+					url: getFixture().connectionUri,
+				}),
+			],
+			validation: { clock: () => new Date(createInstant), timezone: 'UTC' },
+		})
+		await ultimabase.start()
+		const adapter = ultimabase.application.getService(
+			databaseAdapterServiceToken,
+		)
+		const transactions: DatabaseTransactionAdapter[] = []
+
+		try {
+			const updatedTarget = await ultimabase
+				.query(PostSchema)
+				.create({ title: 'Original update target' })
+			const updateQuery = new Query(PostSchema)
+				.equalTo('id', updatedTarget.id)
+				.select('id', 'title')
+			const firstUpdate = normalizeUpdateExpression(PostSchema, {
+				set: { title: 'First committed update' },
+			})
+			const secondUpdate = normalizeUpdateExpression(PostSchema, {
+				set: { title: 'Second committed update' },
+			})
+			const firstTransaction = await adapter.beginTransaction()
+			const secondTransaction = await adapter.beginTransaction()
+			transactions.push(firstTransaction, secondTransaction)
+			const firstPrepared = await firstTransaction.prepare({
+				accessConstraints: [],
+				operation: {
+					kind: 'update-one',
+					query: updateQuery.ast,
+					update: firstUpdate,
+				},
+			})
+			const secondPreparation = secondTransaction.prepare({
+				accessConstraints: [],
+				operation: {
+					kind: 'update-one',
+					query: updateQuery.ast,
+					update: secondUpdate,
+				},
+			})
+
+			await expectPreparationPending(secondPreparation)
+			await firstPrepared.execute()
+			await firstTransaction.commit()
+
+			const secondPrepared = await secondPreparation
+			const secondOutcome = await secondPrepared.execute()
+			await secondTransaction.commit()
+			expect(secondOutcome.materializations).toMatchObject([
+				{
+					current: { title: 'Second committed update' },
+					kind: 'update',
+					previous: { title: 'First committed update' },
+				},
+			])
+
+			const deletedTarget = await ultimabase
+				.query(PostSchema)
+				.create({ title: 'Stable delete target' })
+			const deleteQuery = new Query(PostSchema)
+				.equalTo('id', deletedTarget.id)
+				.select('id', 'title')
+			const deleteTransaction = await adapter.beginTransaction()
+			const competingTransaction = await adapter.beginTransaction()
+			transactions.push(deleteTransaction, competingTransaction)
+			const preparedDelete = await deleteTransaction.prepare({
+				accessConstraints: [],
+				operation: { kind: 'delete-one', query: deleteQuery.ast },
+			})
+			const competingPreparation = competingTransaction.prepare({
+				accessConstraints: [],
+				operation: {
+					kind: 'update-one',
+					query: deleteQuery.ast,
+					update: firstUpdate,
+				},
+			})
+
+			await expectPreparationPending(competingPreparation)
+			await preparedDelete.execute()
+			await deleteTransaction.commit()
+
+			const missingTarget = await competingPreparation
+			await expect(missingTarget.execute()).resolves.toStrictEqual({
+				materializations: [],
+				result: null,
+			})
+			await competingTransaction.commit()
+		} finally {
+			// Active transactions must release their borrowed clients on failed assertions.
+			await Promise.allSettled(
+				transactions.map((transaction) => transaction.rollback()),
+			)
 			await ultimabase.dispose()
 		}
 	})

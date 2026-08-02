@@ -60,6 +60,8 @@ const assertDatabaseTransactionAdapter: (
 		transaction.kind !== 'database-transaction-adapter' ||
 		!('execute' in transaction) ||
 		typeof transaction.execute !== 'function' ||
+		!('prepare' in transaction) ||
+		typeof transaction.prepare !== 'function' ||
 		!('commit' in transaction) ||
 		typeof transaction.commit !== 'function' ||
 		!('rollback' in transaction) ||

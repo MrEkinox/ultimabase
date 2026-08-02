@@ -33,7 +33,7 @@ interface SelectOverrides {
 	readonly where?: SQL
 }
 
-const readBuiltInQuery = (query: QueryAst): RuntimeQuery => {
+export const readBuiltInQuery = (query: QueryAst): RuntimeQuery => {
 	// Runtime currently normalizes built-in Query nodes; plugin expressions need an owning compiler later.
 	return query as RuntimeQuery
 }
@@ -146,7 +146,7 @@ const executeExists = async (
 	return rows.length > 0
 }
 
-const executeCreateOne = async (
+export const executeCreateOne = async (
 	client: PostgresDrizzleClient,
 	schema: CompiledPostgresSchema,
 	operation: Extract<RuntimeOperation, { readonly kind: 'create-one' }>,
@@ -206,6 +206,28 @@ const executeDeleteOne = async (
 		.delete(schema.table)
 		.where(inArray(id, target))
 		.returning(clauses.selection)
+
+	return row === undefined ? null : decodePostgresRecord(schema, row)
+}
+
+/** Locks one full deterministic target without exposing a physical row token. */
+export const lockPostgresSingularMutationTarget = async (
+	client: PostgresDrizzleClient,
+	schema: CompiledPostgresSchema,
+	operation: Extract<
+		RuntimeOperation,
+		{ readonly kind: 'delete-one' | 'update-one' }
+	>,
+): Promise<Readonly<Record<string, unknown>> | null> => {
+	const query = readBuiltInQuery(operation.query)
+	const clauses = compilePostgresQueryClauses(query, schema)
+	const [row] = await buildSelect(
+		client,
+		schema,
+		compilePostgresSelection(schema),
+		clauses,
+		{ limit: 1 },
+	).for('update')
 
 	return row === undefined ? null : decodePostgresRecord(schema, row)
 }

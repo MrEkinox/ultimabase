@@ -101,7 +101,9 @@ describe('RequestEngine transactions', () => {
 		expect(adapter.transactions[0]?.requests).toHaveLength(2)
 		expect(trace).toStrictEqual([
 			'adapter:begin',
+			'prepare:create-one',
 			'execute:create-one',
+			'prepare:update-one',
 			'execute:update-one',
 			'adapter:commit',
 			'event:create-one',
@@ -145,6 +147,7 @@ describe('RequestEngine transactions', () => {
 		await expect(transactionPromise).resolves.toBe('completed')
 		expect(trace).toStrictEqual([
 			'adapter:begin',
+			'prepare:create-one',
 			'execute:create-one',
 			'adapter:commit',
 			'event:create-one',
@@ -172,6 +175,7 @@ describe('RequestEngine transactions', () => {
 		await expect(transactionPromise).rejects.toBe(operationError)
 		expect(trace).toStrictEqual([
 			'adapter:begin',
+			'prepare:create-one',
 			'execute:create-one',
 			'adapter:rollback',
 		])
@@ -192,6 +196,7 @@ describe('RequestEngine transactions', () => {
 		await expect(transactionPromise).rejects.toBe(operationError)
 		expect(trace).toStrictEqual([
 			'adapter:begin',
+			'prepare:create-one',
 			'execute:create-one',
 			'adapter:rollback',
 		])

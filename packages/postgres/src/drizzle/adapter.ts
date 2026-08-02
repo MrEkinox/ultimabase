@@ -2,10 +2,12 @@ import { FrameworkError } from '@ultimabase/core'
 import type { ExecutableOperationAst } from '@ultimabase/core'
 import type {
 	DatabaseAdapter,
+	DatabaseMutationOperationAst,
 	DatabaseOperationAst,
 	DatabaseOperationRequest,
 	DatabaseOperationResult,
 	DatabaseTransactionAdapter,
+	PreparedDatabaseOperation,
 } from '@ultimabase/core'
 import { isPlainRecord } from '@ultimabase/shared'
 
@@ -14,6 +16,7 @@ import {
 	type PostgresDrizzleClient,
 } from './client.js'
 import { executePostgresOperation } from './operation-executor.js'
+import { preparePostgresMutation } from './prepared-operation.js'
 import type {
 	PostgresPool,
 	PostgresPoolClient,
@@ -166,6 +169,23 @@ class DrizzlePostgresTransactionAdapter implements DatabaseTransactionAdapter {
 		this.#assertActive()
 
 		return executePostgresRequest(this.#drizzle, this.#schemas, request)
+	}
+
+	async prepare<const TOperation extends DatabaseMutationOperationAst>(
+		request: DatabaseOperationRequest<TOperation>,
+	): Promise<PreparedDatabaseOperation<TOperation>> {
+		this.#assertActive()
+		assertNoAccessConstraints(request)
+		const schema = this.#schemas.get(readOperationSchema(request.operation))
+
+		return preparePostgresMutation(
+			this.#drizzle,
+			schema,
+			request.operation,
+			() => {
+				this.#assertActive()
+			},
+		)
 	}
 
 	async commit(): Promise<void> {

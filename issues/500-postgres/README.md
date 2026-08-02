@@ -25,8 +25,10 @@ ACL-specific SQL issues 509 and 510 and migration issues 513–515 remain outsid
 that completed E2E objective. Generic constraint compilers are introduced by
 issue 338 before issue 509 registers the ACL-specific PostgreSQL compiler.
 Issue 519 supplies the transaction adapter required by automatic mutation
-transactions. Issue 508 retains bulk and upsert execution required by the final
-native-hook PostgreSQL verification in issue 335.
+transactions. Issue 344 adds its mandatory prepared-mutation protocol and the
+singular PostgreSQL create, update, and delete outcomes. Issue 508 then adds
+bulk and concurrency-resolved upsert execution through the same protocol before
+the final native-hook PostgreSQL verification in issue 335.
 
 Issue 514 represents generated differences with an immutable `MigrationPlan`
 class. The plan is inspectable and deterministic, while connection ownership,

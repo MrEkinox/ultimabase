@@ -9,8 +9,11 @@ import {
 import { RequestContext } from '../context/request-context.js'
 import type {
 	DatabaseAccessConstraintNode,
+	DatabaseMutationOperationAst,
 	DatabaseOperationAst,
+	DatabaseOperationExecutor,
 	DatabaseOperationResult,
+	DatabaseTransactionAdapter,
 } from '../database/contracts.js'
 import {
 	beginPipelineTransaction,
@@ -41,6 +44,75 @@ const functionStageNames = [
 
 const emptyAccessConstraints: readonly DatabaseAccessConstraintNode[] =
 	immutableArray([])
+
+/** Narrows the closed terminal union before selecting the adapter protocol. */
+const isMutationOperation = (
+	operation: DatabaseOperationAst,
+): operation is DatabaseMutationOperationAst => {
+	switch (operation.kind) {
+		case 'count':
+		case 'exists':
+		case 'find':
+		case 'first':
+		case 'get':
+			return false
+		case 'create-many':
+		case 'create-one':
+		case 'delete-many':
+		case 'delete-one':
+		case 'update-many':
+		case 'update-one':
+		case 'upsert-many':
+		case 'upsert-one':
+			return true
+	}
+}
+
+/** Rejects mutation execution that escaped the mandatory transaction scope. */
+const assertPreparedMutationExecutor: (
+	executor: DatabaseOperationExecutor,
+) => asserts executor is DatabaseTransactionAdapter = (executor) => {
+	const untrustedExecutor: unknown = executor
+
+	if (
+		typeof untrustedExecutor !== 'object' ||
+		untrustedExecutor === null ||
+		!('kind' in untrustedExecutor) ||
+		untrustedExecutor.kind !== 'database-transaction-adapter' ||
+		!('prepare' in untrustedExecutor) ||
+		typeof untrustedExecutor.prepare !== 'function'
+	) {
+		throw new TypeError(
+			'Runtime mutation requires a prepared database transaction adapter',
+		)
+	}
+}
+
+/** Keeps prepared internal materializations behind the Runtime result boundary. */
+const executeDatabaseOperation = async <
+	const TOperation extends DatabaseOperationAst,
+>(
+	executor: DatabaseOperationExecutor,
+	request: {
+		readonly accessConstraints: readonly DatabaseAccessConstraintNode[]
+		readonly operation: TOperation
+	},
+): Promise<DatabaseOperationResult<TOperation>> => {
+	if (!isMutationOperation(request.operation)) {
+		return executor.execute(request)
+	}
+
+	assertPreparedMutationExecutor(executor)
+	const prepared = await executor.prepare(
+		immutableRecord({
+			accessConstraints: request.accessConstraints,
+			operation: request.operation,
+		}),
+	)
+	const outcome = await prepared.execute()
+
+	return outcome.result
+}
 
 /** Rejects incomplete JavaScript assembly before an operation can start. */
 const assertRuntimePipelineStages = (stages: RuntimePipelineStages): void => {
@@ -196,7 +268,8 @@ export class RuntimePipeline {
 		)
 
 		let result: DatabaseOperationResult<TOperation> =
-			await this.#stages.databaseOperation.execute(
+			await executeDatabaseOperation(
+				this.#stages.databaseOperation,
 				immutableRecord({
 					accessConstraints,
 					operation,

@@ -56,6 +56,7 @@ const expectCommittedTransaction = (
 	expect(adapter.transactions[0]?.requests[0]?.operation.kind).toBe(kind)
 	expect(trace).toStrictEqual([
 		'adapter:begin',
+		`prepare:${kind}`,
 		`execute:${kind}`,
 		'adapter:commit',
 		`event:${kind}`,
@@ -144,6 +145,7 @@ describe('bulk and upsert terminals', () => {
 		)
 		expect(trace).toStrictEqual([
 			'adapter:begin',
+			'prepare:create-many',
 			'execute:create-many',
 			'adapter:rollback',
 		])

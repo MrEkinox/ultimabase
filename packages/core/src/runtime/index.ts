@@ -34,12 +34,22 @@ export { databaseAdapterServiceToken } from './database/contracts.js'
 export type {
 	DatabaseAccessConstraintNode,
 	DatabaseAdapter,
+	DatabaseCreateMaterialization,
+	DatabaseDeleteMaterialization,
+	DatabaseLogicalRecord,
+	DatabaseMutationLogicalRecord,
+	DatabaseMutationMaterialization,
+	DatabaseMutationOperationAst,
+	DatabaseMutationOperationKind,
 	DatabaseObjectRecord,
 	DatabaseOperationAst,
 	DatabaseOperationExecutor,
+	DatabaseOperationOutcome,
 	DatabaseOperationRequest,
 	DatabaseOperationResult,
 	DatabaseTransactionAdapter,
+	DatabaseUpdateMaterialization,
+	PreparedDatabaseOperation,
 } from './database/contracts.js'
 // Hook factories remain functions while Core retains plugin contribution ownership.
 export {

@@ -4,6 +4,7 @@
 - Date: 2026-08-02
 - Refines: ADR-0015, ADR-0068, ADR-0069, ADR-0089
 - Extends: ADR-0098
+- Refined by: ADR-0100
 
 ## Context
 

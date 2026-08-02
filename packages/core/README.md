@@ -52,6 +52,26 @@ plugin hooks inside this already active boundary. An explicit
 remain non-transactional. Bulk `{ atomic: false }` may later change collection
 grouping, but it never disables the transaction boundary.
 
+Database plugins prepare each transaction-bound mutation through one opaque,
+single-use handle. Its execution keeps the exact public result separate from
+complete logical materializations used by native field hooks. A narrow
+selection therefore stays narrow without depriving hooks of the values needed
+to enforce business invariants:
+
+```ts
+const updated = await ultimabase
+	.query(PostSchema)
+	.select('id')
+	.updateOne({ set: { title: 'Visible only to the hook outcome' } })
+
+// The developer result remains exactly `{ readonly id: string } | null`.
+```
+
+This protocol belongs to database-adapter authors rather than application code.
+The root adapter starts the transaction; its transaction adapter stabilizes the
+target and exposes the gap where issue 330 installs affected-field before hooks
+before Runtime consumes the prepared mutation exactly once.
+
 ```ts
 import { Schema, UltimaBase, booleanField, stringField } from '@ultimabase/core'
 

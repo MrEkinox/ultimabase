@@ -105,6 +105,17 @@ Nested explicit transactions remain unsupported because the portable Runtime
 contract does not imply PostgreSQL savepoints. Automatic transaction ownership
 for every mutation is introduced separately by Core issue 329.
 
+Inside that transaction, singular mutations use Core's prepared-mutation
+protocol. Creates defer their write until the prepared handle executes. Updates
+and deletes first lock one deterministic full target, then write by its retained
+identifier and return two separate views: the developer's exact selection and a
+private complete logical materialization for native field hooks. Handles are
+single-use and expire with their borrowed transaction client.
+
+Bulk and upsert preparation remains part of the dedicated bulk/upsert issue;
+their public methods continue to fail explicitly until that implementation is
+available.
+
 ## Singular CRUD
 
 After `ultimabase.start()` prepares the static schemas, a direct query can

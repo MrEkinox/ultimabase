@@ -175,6 +175,7 @@ describe('createFrameworkEngine', () => {
 			'normalization:dependency',
 			'normalization:consumer',
 			'hook:before',
+			'prepare:create-one',
 			'execute:create-one',
 			'adapter:commit',
 			'event:post-commit',

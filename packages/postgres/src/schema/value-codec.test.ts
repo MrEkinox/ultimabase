@@ -2,6 +2,7 @@ import {
 	bigintField,
 	binaryField,
 	dateTimeField,
+	jsonField,
 	Schema,
 	objectField,
 	stringField,
@@ -81,6 +82,31 @@ describe('PostgreSQL value codecs', () => {
 		expect(decoded).toStrictEqual(source)
 		expect(encoded).not.toBe(source)
 		expect(decoded).not.toBe(source)
+	})
+
+	it('snapshots top-level JSON values before exposing driver data', () => {
+		const schema = new Schema({
+			className: 'JsonCodecFixture',
+			fields: { metadata: jsonField() },
+		})
+		const codec = compilePostgresSchema(schema).fields.metadata?.codec
+
+		if (codec === undefined) {
+			throw new TypeError('Expected the metadata codec')
+		}
+
+		const source = { nested: { enabled: true }, tags: ['stable'] }
+		const decoded = codec.decode(source)
+
+		expect(decoded).toStrictEqual(source)
+		expect(decoded).not.toBe(source)
+		expect(Object.isFrozen(decoded)).toBe(true)
+		if (typeof decoded !== 'object' || decoded === null) {
+			throw new TypeError('Expected decoded JSON object')
+		}
+
+		expect(Object.isFrozen(Reflect.get(decoded, 'nested'))).toBe(true)
+		expect(Object.isFrozen(Reflect.get(decoded, 'tags'))).toBe(true)
 	})
 
 	it('normalizes PostgreSQL temporal text into Schema values', () => {

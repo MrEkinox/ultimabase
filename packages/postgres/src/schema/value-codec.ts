@@ -23,6 +23,16 @@ const identityCodec: PostgresValueCodec = immutableRecord({
 	encode: (value: unknown): unknown => value,
 })
 
+/** Reapplies the field's logical snapshot contract to driver scalar values. */
+const createLogicalScalarCodec = (
+	plan: FieldValidationPlan & { readonly kind: 'scalar' },
+): PostgresValueCodec => {
+	const snapshot = (value: unknown): unknown =>
+		snapshotScalarFieldValue(plan.field, value, 'PostgreSQL scalar value')
+
+	return immutableRecord({ decode: snapshot, encode: snapshot })
+}
+
 const copyBinary = (value: unknown, path: string): Uint8Array => {
 	if (!(value instanceof Uint8Array)) {
 		throw new TypeError(`${path} must be a Uint8Array`)
@@ -267,7 +277,7 @@ const createScalarCodec = (
 		return createTemporalCodec(plan)
 	}
 
-	return identityCodec
+	return createLogicalScalarCodec(plan)
 }
 
 /** Builds a schema-guided codec without relying on JSON's lossy fallback rules. */

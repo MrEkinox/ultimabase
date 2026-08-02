@@ -9,10 +9,16 @@ database E2E. Its original context is retained in the
 The active hook issues refine the completed low-level hook and transaction
 foundation into native schema and inline field hooks. They preserve issue 318
 as the plugin-contribution foundation, remove permission-specific Runtime
-stages, add automatic mutation transactions, and end with a PostgreSQL rollback
-E2E. Their dependency-first execution order is recorded in
-[`CURRENT_PLAN.md`](../../CURRENT_PLAN.md), including PostgreSQL transaction
+stages, add automatic mutation transactions, prepare stable mutation outcomes,
+and end with a PostgreSQL rollback E2E. Their dependency-first execution order is recorded in
+[`CURRENT_PLAN.md`](../../CURRENT_PLAN.md), including PostgreSQL bulk and upsert
 issue 508 before the final E2E.
+
+Issue 344 is the adapter prerequisite for the native dispatcher. It requires
+every transaction adapter to prepare one opaque mutation handle and keeps
+complete previous/current hook snapshots separate from selected public results.
+Its PostgreSQL work covers singular create, update, and delete; issue 508 owns
+the remaining bulk and concurrency-resolved upsert execution.
 
 Issue 336 retains the explicit future itemized update/delete work without
 placing it on the active hook-lifecycle critical path.

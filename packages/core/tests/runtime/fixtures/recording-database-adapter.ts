@@ -1,19 +1,49 @@
 import type {
 	DatabaseAdapter,
+	DatabaseCreateMaterialization,
+	DatabaseDeleteMaterialization,
+	DatabaseLogicalRecord,
+	DatabaseMutationMaterialization,
+	DatabaseMutationOperationAst,
 	DatabaseOperationAst,
+	DatabaseOperationOutcome,
 	DatabaseOperationRequest,
 	DatabaseOperationResult,
 	DatabaseTransactionAdapter,
+	DatabaseUpdateMaterialization,
+	PreparedDatabaseOperation,
 	RuntimePipelineStages,
 } from '../../../src/runtime/index.js'
 import { RuntimePipeline } from '../../../src/runtime/index.js'
+import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
-export interface FulfilledAdapterResult {
+type QueuedMutationMaterialization =
+	| DatabaseCreateMaterialization
+	| DatabaseDeleteMaterialization
+	| DatabaseUpdateMaterialization
+
+/** Supplies optional mutation-only snapshots without changing existing result fixtures. */
+export interface AdapterMutationFixture {
+	readonly target?: DatabaseLogicalRecord | null
+	readonly materializations?: readonly QueuedMutationMaterialization[]
+}
+
+/** Configures one reusable single-use handle without coupling tests to a queue. */
+export interface PreparedOperationFixtureOptions<
+	TOperation extends DatabaseMutationOperationAst,
+> {
+	readonly target?: DatabaseLogicalRecord | null
+	readonly execute: () => Promise<DatabaseOperationResult<TOperation>>
+	readonly materializations?: readonly DatabaseMutationMaterialization<TOperation>[]
+	readonly onExecute?: () => void
+}
+
+export interface FulfilledAdapterResult extends AdapterMutationFixture {
 	readonly status: 'fulfilled'
 	readonly value: unknown
 }
 
-export interface RejectedAdapterResult {
+export interface RejectedAdapterResult extends AdapterMutationFixture {
 	readonly status: 'rejected'
 	readonly error: Error
 }
@@ -36,21 +66,64 @@ export type RecordingPipelineHookStages = Partial<
 	>
 >
 
-/** Resolves fixture values only at the operation boundary that supplies their exact type. */
-const executeQueuedResult = <const TOperation extends DatabaseOperationAst>(
+/** Removes exactly one result so prepare and execute cannot consume different fixtures. */
+const takeQueuedResult = (
 	results: QueuedAdapterResult[],
-): Promise<DatabaseOperationResult<TOperation>> => {
+): Promise<QueuedAdapterResult> => {
 	const result: QueuedAdapterResult | undefined = results.shift()
 
 	if (result === undefined) {
 		return Promise.reject(new Error('Missing adapter fixture result'))
 	}
 
+	return Promise.resolve(result)
+}
+
+/** Resolves fixture values only at the operation boundary that supplies their exact type. */
+const resolveQueuedResult = async <
+	const TOperation extends DatabaseOperationAst,
+>(
+	result: QueuedAdapterResult,
+): Promise<DatabaseOperationResult<TOperation>> => {
 	if (result.status === 'rejected') {
-		return Promise.reject(result.error)
+		throw result.error
 	}
 
-	return Promise.resolve(result.value as DatabaseOperationResult<TOperation>)
+	// Awaiting lets transaction tests deliberately control an in-flight fixture.
+	return (await result.value) as DatabaseOperationResult<TOperation>
+}
+
+/** Builds one immutable handle that consumes both successful and failed attempts. */
+export const createPreparedOperationFixture = <
+	const TOperation extends DatabaseMutationOperationAst,
+>(
+	options: PreparedOperationFixtureOptions<TOperation>,
+): PreparedDatabaseOperation<TOperation> => {
+	let attempted = false
+	const execute = async (): Promise<DatabaseOperationOutcome<TOperation>> => {
+		if (attempted) {
+			throw new TypeError('Prepared database operation is already executed')
+		}
+
+		// A failed attempt consumes the retained target just like a successful write.
+		attempted = true
+		options.onExecute?.()
+
+		const outcome = immutableRecord({
+			materializations: immutableArray(options.materializations ?? []),
+			result: await options.execute(),
+		})
+
+		// The fixture queue is intentionally operation-erased until this boundary.
+		return outcome as unknown as DatabaseOperationOutcome<TOperation>
+	}
+
+	const prepared = immutableRecord({
+		...(options.target === undefined ? {} : { target: options.target }),
+		execute,
+	})
+
+	return prepared as unknown as PreparedDatabaseOperation<TOperation>
 }
 
 /** Models one plugin-owned transaction and records every lifecycle boundary. */
@@ -72,13 +145,33 @@ export class RecordingTransactionAdapter implements DatabaseTransactionAdapter {
 		this.#failures = failures
 	}
 
-	execute<const TOperation extends DatabaseOperationAst>(
+	async execute<const TOperation extends DatabaseOperationAst>(
 		request: DatabaseOperationRequest<TOperation>,
 	): Promise<DatabaseOperationResult<TOperation>> {
 		this.requests.push(request)
 		this.#trace.push(`execute:${request.operation.kind}`)
 
-		return executeQueuedResult<TOperation>(this.#results)
+		return resolveQueuedResult<TOperation>(
+			await takeQueuedResult(this.#results),
+		)
+	}
+
+	async prepare<const TOperation extends DatabaseMutationOperationAst>(
+		request: DatabaseOperationRequest<TOperation>,
+	): Promise<PreparedDatabaseOperation<TOperation>> {
+		this.requests.push(request)
+		this.#trace.push(`prepare:${request.operation.kind}`)
+		const result: QueuedAdapterResult = await takeQueuedResult(this.#results)
+
+		return createPreparedOperationFixture({
+			...(result.target === undefined ? {} : { target: result.target }),
+			execute: () => resolveQueuedResult<TOperation>(result),
+			materializations: (result.materializations ??
+				[]) as readonly DatabaseMutationMaterialization<TOperation>[],
+			onExecute: () => {
+				this.#trace.push(`execute:${request.operation.kind}`)
+			},
+		})
 	}
 
 	commit(): Promise<void> {
@@ -117,16 +210,18 @@ export class RecordingDatabaseAdapter implements DatabaseAdapter {
 		this.#failures = failures
 	}
 
-	execute<const TOperation extends DatabaseOperationAst>(
+	async execute<const TOperation extends DatabaseOperationAst>(
 		request: DatabaseOperationRequest<TOperation>,
 	): Promise<DatabaseOperationResult<TOperation>> {
 		this.rootRequests.push(request)
 		this.#trace.push(`execute:${request.operation.kind}`)
 
-		return executeQueuedResult<TOperation>(this.#results)
+		return resolveQueuedResult<TOperation>(
+			await takeQueuedResult(this.#results),
+		)
 	}
 
-	beginTransaction(): Promise<DatabaseTransactionAdapter> {
+	beginTransaction(): Promise<RecordingTransactionAdapter> {
 		this.#trace.push('adapter:begin')
 
 		const transaction = new RecordingTransactionAdapter(

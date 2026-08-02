@@ -164,6 +164,7 @@ describe('automatic mutation transaction scope', () => {
 			expect(adapter.transactions[0]?.requests[0]?.operation.kind).toBe(kind)
 			expect(trace).toStrictEqual([
 				'adapter:begin',
+				`prepare:${kind}`,
 				`execute:${kind}`,
 				'adapter:commit',
 				`event:${kind}`,
@@ -188,6 +189,7 @@ describe('automatic mutation transaction scope', () => {
 			expect(adapter.transactions[0]?.requests[0]?.operation.kind).toBe(kind)
 			expect(trace).toStrictEqual([
 				'adapter:begin',
+				`prepare:${kind}`,
 				`execute:${kind}`,
 				'adapter:rollback',
 			])
@@ -234,7 +236,9 @@ describe('automatic mutation transaction scope', () => {
 		expect(adapter.transactions[0]?.requests).toHaveLength(2)
 		expect(trace).toStrictEqual([
 			'adapter:begin',
+			'prepare:create-one',
 			'execute:create-one',
+			'prepare:create-one',
 			'execute:create-one',
 			'adapter:rollback',
 		])
@@ -274,7 +278,9 @@ describe('automatic mutation transaction scope', () => {
 		).rejects.toBe(primaryError)
 		expect(trace).toStrictEqual([
 			'adapter:begin',
+			'prepare:create-one',
 			'execute:create-one',
+			'prepare:create-one',
 			'execute:create-one',
 			'adapter:rollback',
 		])
@@ -315,7 +321,9 @@ describe('automatic mutation transaction scope', () => {
 		).rejects.toBe(afterError)
 		expect(trace).toStrictEqual([
 			'adapter:begin',
+			'prepare:create-one',
 			'execute:create-one',
+			'prepare:create-one',
 			'execute:create-one',
 			'adapter:rollback',
 		])
@@ -386,7 +394,9 @@ describe('automatic mutation transaction scope', () => {
 		expect(adapter.transactions[0]?.requests).toHaveLength(2)
 		expect(trace).toStrictEqual([
 			'adapter:begin',
+			'prepare:create-one',
 			'execute:create-one',
+			'prepare:create-one',
 			'execute:create-one',
 			'adapter:commit',
 			'event:create-one',
