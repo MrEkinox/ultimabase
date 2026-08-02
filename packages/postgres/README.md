@@ -76,10 +76,34 @@ The Drizzle client remains inside `@ultimabase/postgres`; neither plugin exports
 nor public declarations expose it. Pool clients borrowed for future
 transactions use the same internal wrapper.
 
-Singular CRUD operations now execute through this adapter. Bulk operations,
-upserts, and explicit Runtime transactions remain separate work; calling one of
-those paths reports an explicit not-yet-implemented framework error rather than
+Singular CRUD operations and explicit Runtime transactions execute through this
+adapter. Bulk operations and upserts remain separate work; calling one of those
+paths reports an explicit not-yet-implemented framework error rather than
 pretending that data was persisted.
+
+## Transactions
+
+An explicit Runtime transaction borrows one PostgreSQL client for its complete
+lifetime. Every query issued through the callback engine uses that client;
+successful callbacks commit, rejected callbacks roll back, and the client is
+always returned or destroyed before the transaction completes:
+
+```ts
+import { requestSources } from '@ultimabase/core'
+
+const request = ultimabase.engine.anonymous({
+	requestId: 'publish-post',
+	source: requestSources.internal,
+})
+
+const post = await request.transaction(async (transaction) => {
+	return transaction.query(PostSchema).create({ title: 'Atomic post' })
+})
+```
+
+Nested explicit transactions remain unsupported because the portable Runtime
+contract does not imply PostgreSQL savepoints. Automatic transaction ownership
+for every mutation is introduced separately by Core issue 329.
 
 ## Singular CRUD
 
@@ -118,8 +142,9 @@ read race.
 This public flow is implemented and covered by the root worker-isolated
 Testcontainers scenario. PostgreSQL temporal text is normalized back to
 Schema's canonical ISO representation before a result reaches developer code.
-Bulk operations, upserts, explicit transactions, and resumed opaque cursor
-tokens are not yet executable.
+Bulk operations, upserts, and resumed opaque cursor tokens are not yet
+executable. Explicit transactions are available for the implemented singular
+operations.
 
 ## Primitive schema compilation
 

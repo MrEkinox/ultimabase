@@ -96,6 +96,7 @@ Accepted records:
 - [ADR-0095: Consolidated foundational Core package](0095-consolidated-foundational-core.md)
 - [ADR-0096: Native hook declaration capabilities](0096-native-hook-declaration-capabilities.md)
 - [ADR-0097: Owner-scoped typed plugin hook targets](0097-owner-scoped-typed-plugin-hook-targets.md)
+- [ADR-0098: PostgreSQL transaction adapter lifecycle](0098-postgres-transaction-adapter-lifecycle.md)
 
 Superseded records:
 

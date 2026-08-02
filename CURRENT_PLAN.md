@@ -82,21 +82,23 @@ dependencies are incomplete.
 4. [x] [326 — Declare inline field hooks](issues/300-query-runtime/326-inline-field-hooks.md)
 5. [x] [327 — Compose hook families and handler lists](issues/300-query-runtime/327-hook-families-and-composition.md)
 6. [x] [328 — Add typed plugin hook targets](issues/300-query-runtime/328-plugin-hook-targets.md)
-7. [ ] [329 — Make every mutation automatically transactional](issues/300-query-runtime/329-automatic-mutation-transactions.md)
-8. [ ] [330 — Execute the native hook lifecycle](issues/300-query-runtime/330-native-hook-dispatcher.md)
-9. [ ] [337 — Replace named permission stages with hook enforcement](issues/300-query-runtime/337-policy-neutral-hook-enforcement.md)
-10. [ ] [338 — Add the adapter constraint compiler registry](issues/300-query-runtime/338-adapter-constraint-compiler-registry.md)
-11. [ ] [331 — Add find and output hooks](issues/300-query-runtime/331-find-and-output-hooks.md)
-12. [ ] [332 — Add transaction finalization hooks](issues/300-query-runtime/332-transaction-hook-lifecycle.md)
-13. [ ] [333 — Protect hook execution and expose diagnostics](issues/300-query-runtime/333-hook-safety-and-observability.md)
-14. [ ] [334 — Define bulk hook and non-atomic grouping semantics](issues/300-query-runtime/334-bulk-hook-semantics.md)
-15. [ ] [508 — Implement PostgreSQL transactions, bulk, and upsert](issues/500-postgres/508-transactions-bulk-upsert.md)
-16. [ ] [335 — Verify native hooks against PostgreSQL](issues/300-query-runtime/335-native-hooks-postgres-e2e.md)
+7. [x] [519 — Implement the PostgreSQL transaction adapter lifecycle](issues/500-postgres/519-transaction-adapter-lifecycle.md)
+8. [ ] [329 — Make every mutation automatically transactional](issues/300-query-runtime/329-automatic-mutation-transactions.md)
+9. [ ] [330 — Execute the native hook lifecycle](issues/300-query-runtime/330-native-hook-dispatcher.md)
+10. [ ] [337 — Replace named permission stages with hook enforcement](issues/300-query-runtime/337-policy-neutral-hook-enforcement.md)
+11. [ ] [338 — Add the adapter constraint compiler registry](issues/300-query-runtime/338-adapter-constraint-compiler-registry.md)
+12. [ ] [331 — Add find and output hooks](issues/300-query-runtime/331-find-and-output-hooks.md)
+13. [ ] [332 — Add transaction finalization hooks](issues/300-query-runtime/332-transaction-hook-lifecycle.md)
+14. [ ] [333 — Protect hook execution and expose diagnostics](issues/300-query-runtime/333-hook-safety-and-observability.md)
+15. [ ] [340 — Expose the native HookContext class](issues/300-query-runtime/340-hook-context-class.md)
+16. [ ] [334 — Define bulk hook and non-atomic grouping semantics](issues/300-query-runtime/334-bulk-hook-semantics.md)
+17. [ ] [508 — Implement PostgreSQL bulk and upsert execution](issues/500-postgres/508-transactions-bulk-upsert.md)
+18. [ ] [335 — Verify native hooks against PostgreSQL](issues/300-query-runtime/335-native-hooks-postgres-e2e.md)
 
-Issues 328, 329, and 508 become independently implementable after their own
-dependencies complete, but the numbered order remains the preferred
-single-agent sequence. Issue 508 is included explicitly because issue 335 cannot
-prove live rollback and bulk behavior without it.
+Issue 519 is a strict prerequisite of issue 329 because mandatory Core mutation
+transactions must not break the existing PostgreSQL CRUD vertical. Issue 508
+then completes bulk and upsert execution before issue 335 proves the full live
+hook lifecycle.
 
 ## Resume protocol
 
@@ -118,10 +120,9 @@ the named Runtime stages and proven monotonic hook enforcement.
 
 [329 — Make every mutation automatically transactional](issues/300-query-runtime/329-automatic-mutation-transactions.md)
 
-Plugins now register owner-bound native declarations against global, exact,
-extension, and typed field-kind targets. The next issue installs one automatic
-adapter transaction around every root mutation before native hook execution is
-connected by issue 330.
+PostgreSQL now binds Runtime transactions to one borrowed client. Issue 329 can
+install one automatic adapter transaction around every root mutation before
+native hook execution is connected by issue 330.
 
 ## Progress log
 
@@ -134,7 +135,8 @@ without reconstructing repository history.
 - 326 — `done` — Every built-in and plugin field now declares exact value hooks through private immutable capabilities without changing metadata or compact hovers.
 - 327 — `done` — Direct handlers, non-empty ordered lists, typed family maps, immutable normalization, and sequential composition helpers now share one contract.
 - 328 — `done` — Owner-bound plugin setup now resolves six typed hook target scopes into isolated immutable snapshots with source and packed IntelliSense coverage.
-- 329 — `ready` — Automatic mutation transactions are dependency-ready but follow issues 324–328 in the preferred sequence.
+- 519 — `done` — PostgreSQL transactions borrow one client, share the private Drizzle executor, sanitize lifecycle failures, and release or destroy exactly once.
+- 329 — `ready` — Automatic mutation transactions follow the PostgreSQL transaction adapter prerequisite.
 - 337 — `planned` — Policy-neutral enforcement waits for the typed plugin targets and native dispatcher.
 - 338 — `planned` — The generic constraint compiler registry waits for policy-neutral constraint contracts from issue 337.
-- 508 — `ready` — PostgreSQL transaction, bulk, and upsert support remains required before issue 335 but follows the native lifecycle work in this plan.
+- 508 — `ready` — PostgreSQL bulk and upsert support remains required before issue 335.

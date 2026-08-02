@@ -17,10 +17,11 @@ import {
 import { describe, expect, it } from 'vitest'
 
 import { createPostgresDatabaseAdapter } from './adapter.js'
-import {
-	createPostgresDrizzleClient,
-	type PostgresDriverQueryClient,
-} from './client.js'
+import type { PostgresDriverQueryClient } from './client.js'
+import type {
+	PostgresPool,
+	PostgresPoolClient,
+} from '../connection/contracts.js'
 import { PostgresSchemaCatalog } from '../schema/catalog.js'
 
 const articleSchema = new Schema({
@@ -41,10 +42,17 @@ interface FixtureDriverResult {
 	readonly rows: readonly (readonly unknown[])[]
 }
 
+type TransactionStatement = 'BEGIN' | 'COMMIT' | 'ROLLBACK'
+
 /** Emulates only node-postgres' query boundary while Drizzle builds and maps real SQL. */
-class FixtureDriver implements PostgresDriverQueryClient {
+class FixtureDriver implements PostgresDriverQueryClient, PostgresPoolClient {
 	readonly #responses: (Error | FixtureDriverResult)[] = []
+	readonly #transactionFailures = new Map<TransactionStatement, Error>()
 	readonly calls: RecordedDriverQuery[] = []
+	readonly transactionCalls: TransactionStatement[] = []
+	readonly releaseArguments: (Error | boolean | undefined)[] = []
+	releaseCalls = 0
+	#releaseFailure: Error | undefined
 
 	respond(rows: readonly (readonly unknown[])[]): void {
 		this.#responses.push({ rows })
@@ -54,10 +62,31 @@ class FixtureDriver implements PostgresDriverQueryClient {
 		this.#responses.push(error)
 	}
 
-	query(...arguments_: never[]): unknown {
+	failTransaction(statement: TransactionStatement, error: Error): void {
+		this.#transactionFailures.set(statement, error)
+	}
+
+	failRelease(error: Error): void {
+		this.#releaseFailure = error
+	}
+
+	query(...arguments_: unknown[]): Promise<FixtureDriverResult> {
 		const values: readonly unknown[] = arguments_
 		const configuration = values[0]
 		const parameters = values[1]
+
+		if (
+			configuration === 'BEGIN' ||
+			configuration === 'COMMIT' ||
+			configuration === 'ROLLBACK'
+		) {
+			this.transactionCalls.push(configuration)
+			const failure = this.#transactionFailures.get(configuration)
+
+			return failure === undefined
+				? Promise.resolve({ rows: [] })
+				: Promise.reject(failure)
+		}
 
 		if (
 			!isPlainRecord(configuration) ||
@@ -79,16 +108,87 @@ class FixtureDriver implements PostgresDriverQueryClient {
 			? Promise.reject(response)
 			: Promise.resolve(response)
 	}
+
+	release(error?: Error | boolean): void {
+		this.releaseCalls += 1
+		this.releaseArguments.push(error)
+
+		if (this.#releaseFailure !== undefined) {
+			throw this.#releaseFailure
+		}
+	}
 }
 
-const createFixture = () => {
+/** Borrows the exact fixture driver used by each transaction adapter. */
+class FixturePool implements PostgresPool {
+	readonly #connectError: Error | undefined
+	readonly #rootDriver: FixtureDriver
+	readonly #transactionDrivers: readonly FixtureDriver[]
+	connectCalls = 0
+
+	constructor(
+		rootDriver: FixtureDriver,
+		transactionDrivers: readonly FixtureDriver[],
+		connectError?: Error,
+	) {
+		this.#connectError = connectError
+		this.#rootDriver = rootDriver
+		this.#transactionDrivers = transactionDrivers
+	}
+
+	connect(): Promise<PostgresPoolClient> {
+		this.connectCalls += 1
+		const client = this.#transactionDrivers[this.connectCalls - 1]
+
+		if (this.#connectError !== undefined) {
+			return Promise.reject(this.#connectError)
+		}
+
+		if (client === undefined) {
+			return Promise.reject(
+				new TypeError('Missing PostgreSQL transaction fixture client'),
+			)
+		}
+
+		return Promise.resolve(client)
+	}
+
+	end(): Promise<void> {
+		return Promise.resolve()
+	}
+
+	query(...arguments_: unknown[]): Promise<FixtureDriverResult> {
+		return this.#rootDriver.query(...arguments_)
+	}
+}
+
+const createFixture = (transactionCount = 1, connectError?: Error) => {
 	const driver = new FixtureDriver()
+	const transactionDrivers = Array.from(
+		{ length: transactionCount },
+		() => new FixtureDriver(),
+	)
+	const pool = new FixturePool(driver, transactionDrivers, connectError)
 	const adapter = createPostgresDatabaseAdapter(
-		createPostgresDrizzleClient(driver),
+		pool,
 		new PostgresSchemaCatalog([articleSchema]),
 	)
 
-	return { adapter, driver }
+	return { adapter, driver, pool, transactionDrivers }
+}
+
+/** Reads one deliberately separate borrowed client without weakening test types. */
+const getTransactionDriver = (
+	fixture: ReturnType<typeof createFixture>,
+	index = 0,
+): FixtureDriver => {
+	const driver = fixture.transactionDrivers[index]
+
+	if (driver === undefined) {
+		throw new TypeError('Missing transaction fixture driver')
+	}
+
+	return driver
 }
 
 const firstId = '0198c3d4-1000-7000-8000-000000000001'
@@ -242,7 +342,7 @@ describe('internal PostgreSQL database adapter', () => {
 		).resolves.toBeNull()
 	})
 
-	it('fails closed for unsupported access, bulk, transactions, and driver errors', async () => {
+	it('fails closed for unsupported access, bulk, and driver errors', async () => {
 		const { adapter, driver } = createFixture()
 		const operation = {
 			kind: 'find',
@@ -290,12 +390,180 @@ describe('internal PostgreSQL database adapter', () => {
 				},
 			}),
 		).rejects.toMatchObject({ code: 'VALIDATION_ERROR' })
+	})
 
-		await expect(adapter.beginTransaction()).rejects.toMatchObject({
+	it('binds transaction operations to one borrowed client and releases after commit', async () => {
+		const fixture = createFixture()
+		const { adapter, driver: rootDriver, pool } = fixture
+		const driver = getTransactionDriver(fixture)
+		const transaction = await adapter.beginTransaction()
+		const operation = {
+			kind: 'find',
+			query: new Query(articleSchema).select('id', 'title').ast,
+		} satisfies FindOperationAst<
+			typeof articleSchema,
+			QueryFilterNode<typeof articleSchema>,
+			'id' | 'title'
+		>
+
+		driver.respond([[firstId, 'Transactional']])
+		await expect(
+			transaction.execute({ accessConstraints: [], operation }),
+		).resolves.toStrictEqual([{ id: firstId, title: 'Transactional' }])
+		await transaction.commit()
+
+		expect(pool.connectCalls).toBe(1)
+		expect(rootDriver.calls).toStrictEqual([])
+		expect(driver.transactionCalls).toStrictEqual(['BEGIN', 'COMMIT'])
+		expect(driver.releaseCalls).toBe(1)
+		expect(() =>
+			transaction.execute({ accessConstraints: [], operation }),
+		).toThrow(/no longer active/u)
+		await expect(transaction.rollback()).rejects.toThrow(/no longer active/u)
+	})
+
+	it('rolls back and releases one borrowed transaction client', async () => {
+		const fixture = createFixture()
+		const { adapter } = fixture
+		const driver = getTransactionDriver(fixture)
+		const transaction = await adapter.beginTransaction()
+
+		await transaction.rollback()
+
+		expect(driver.transactionCalls).toStrictEqual(['BEGIN', 'ROLLBACK'])
+		expect(driver.releaseCalls).toBe(1)
+		expect(driver.releaseArguments).toStrictEqual([undefined])
+	})
+
+	it('sanitizes lifecycle failures and never leaks a borrowed client', async () => {
+		const beginFixture = createFixture()
+		const beginDriver = getTransactionDriver(beginFixture)
+		const beginSecret = 'begin-secret'
+
+		beginDriver.failTransaction(
+			'BEGIN',
+			Object.assign(new Error(beginSecret), { code: '08006' }),
+		)
+		await expect(beginFixture.adapter.beginTransaction()).rejects.toMatchObject(
+			{
+				code: 'TRANSACTION_ERROR',
+				cause: undefined,
+				internalDetails: {
+					driverCode: '08006',
+					kind: 'postgres-transaction-failed',
+					phase: 'begin',
+				},
+			},
+		)
+		expect(beginDriver.releaseCalls).toBe(1)
+		expect(beginDriver.releaseArguments).toStrictEqual([true])
+
+		const commitFixture = createFixture()
+		const commitDriver = getTransactionDriver(commitFixture)
+		const commitError = Object.assign(new Error('commit-secret'), {
+			code: '40001',
+		})
+
+		const commitTransaction = await commitFixture.adapter.beginTransaction()
+
+		commitDriver.failTransaction('COMMIT', commitError)
+		await expect(commitTransaction.commit()).rejects.toMatchObject({
 			code: 'TRANSACTION_ERROR',
+			retryable: false,
+			internalDetails: { phase: 'commit' },
+		})
+		expect(commitDriver.releaseCalls).toBe(0)
+		expect(() =>
+			commitTransaction.execute({
+				accessConstraints: [],
+				operation: {
+					kind: 'find',
+					query: new Query(articleSchema).ast,
+				},
+			}),
+		).toThrow(/no longer active/u)
+		await commitTransaction.rollback()
+		expect(commitDriver.releaseCalls).toBe(1)
+
+		const rollbackFixture = createFixture()
+		const rollbackDriver = getTransactionDriver(rollbackFixture)
+
+		const rollbackTransaction = await rollbackFixture.adapter.beginTransaction()
+
+		rollbackDriver.failTransaction('ROLLBACK', new Error('rollback-secret'))
+		await expect(rollbackTransaction.rollback()).rejects.toMatchObject({
+			code: 'TRANSACTION_ERROR',
+			cause: undefined,
+			internalDetails: { phase: 'rollback' },
+		})
+		expect(rollbackDriver.releaseCalls).toBe(1)
+		expect(rollbackDriver.releaseArguments).toStrictEqual([true])
+	})
+
+	it('rejects concurrent finalization without issuing duplicate statements', async () => {
+		const commitFixture = createFixture()
+		const commitDriver = getTransactionDriver(commitFixture)
+
+		const commitTransaction = await commitFixture.adapter.beginTransaction()
+		const firstCommit = commitTransaction.commit()
+		const secondCommit = commitTransaction.commit()
+
+		await expect(firstCommit).resolves.toBeUndefined()
+		await expect(secondCommit).rejects.toMatchObject({
+			code: 'TRANSACTION_ERROR',
+			internalDetails: { kind: 'postgres-transaction-closed' },
+		})
+		expect(commitDriver.transactionCalls).toStrictEqual(['BEGIN', 'COMMIT'])
+		expect(commitDriver.releaseCalls).toBe(1)
+	})
+
+	it('sanitizes pool acquisition failures before a client can leak', async () => {
+		const secret = 'postgresql://user:password@private-host/database'
+		const connectError = Object.assign(new Error(secret), { code: '08006' })
+		const fixture = createFixture(0, connectError)
+		let failure: unknown
+
+		try {
+			await fixture.adapter.beginTransaction()
+		} catch (error: unknown) {
+			failure = error
+		}
+
+		expect(failure).toMatchObject({
+			code: 'TRANSACTION_ERROR',
+			cause: undefined,
+			retryable: true,
 			internalDetails: {
-				reason: 'postgres-transactions-not-implemented',
+				driverCode: '08006',
+				phase: 'begin',
 			},
 		})
+		expect(String(failure)).not.toContain(secret)
+		expect(JSON.stringify(failure)).not.toContain(secret)
+		expect(fixture.pool.connectCalls).toBe(1)
+	})
+
+	it('never reports a false rollback or false commit when custom release fails', async () => {
+		const commitFixture = createFixture()
+		const commitDriver = getTransactionDriver(commitFixture)
+
+		const commitTransaction = await commitFixture.adapter.beginTransaction()
+
+		commitDriver.failRelease(new Error('release after confirmed commit'))
+		await expect(commitTransaction.commit()).resolves.toBeUndefined()
+		expect(commitDriver.transactionCalls).toStrictEqual(['BEGIN', 'COMMIT'])
+
+		const rollbackFixture = createFixture()
+		const rollbackDriver = getTransactionDriver(rollbackFixture)
+
+		const rollbackTransaction = await rollbackFixture.adapter.beginTransaction()
+
+		rollbackDriver.failRelease(new Error('private release failure'))
+		await expect(rollbackTransaction.rollback()).rejects.toMatchObject({
+			code: 'TRANSACTION_ERROR',
+			cause: undefined,
+			internalDetails: { phase: 'rollback' },
+		})
+		expect(rollbackDriver.transactionCalls).toStrictEqual(['BEGIN', 'ROLLBACK'])
 	})
 })

@@ -6,7 +6,8 @@ export type PostgresConnectionState = 'closed' | 'connected' | 'idle'
 /** Represents the client capabilities needed for verification and transactional DDL. */
 export interface PostgresPoolClient {
 	query(queryText: string, values?: unknown[]): PromiseLike<PostgresQueryResult>
-	release(): void
+	/** Returns a healthy client or destroys one that may no longer be reusable. */
+	release(error?: Error | boolean): void
 }
 
 /** Describes the only result shape consumed across the structural pool boundary. */

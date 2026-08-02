@@ -15,6 +15,7 @@ import {
 	intField,
 	jsonField,
 	objectField,
+	requestSources,
 	stringField,
 	timeField,
 	uuidField,
@@ -176,5 +177,76 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 		}
 
 		expect(connection.state).toBe('closed')
+	})
+
+	it('commits and rolls back explicit Runtime transactions on one PostgreSQL client', async () => {
+		const instants = [createInstant, updateInstant]
+		const ultimabase = new UltimaBase({
+			schemas: [PostSchema],
+			plugins: [
+				postgresPlugin({
+					schemaPolicy: 'override',
+					url: getFixture().connectionUri,
+				}),
+			],
+			validation: {
+				clock: () => {
+					const instant = instants.shift()
+
+					if (instant === undefined) {
+						throw new TypeError(
+							'Runtime transaction E2E clock received an unexpected mutation',
+						)
+					}
+
+					return new Date(instant)
+				},
+				timezone: 'UTC',
+			},
+		})
+		await ultimabase.start()
+		const request = ultimabase.engine.anonymous({
+			requestId: 'postgres-transaction-e2e',
+			source: requestSources.internal,
+		})
+		const rollbackError = new Error('rollback transaction fixture')
+
+		try {
+			const committed = await request.transaction((transaction) =>
+				transaction
+					.query(PostSchema)
+					.create({ title: 'Committed transaction' }),
+			)
+
+			await expect(
+				request
+					.query(PostSchema)
+					.equalTo('id', committed.id)
+					.select('id', 'title')
+					.first(),
+			).resolves.toStrictEqual({
+				id: committed.id,
+				title: 'Committed transaction',
+			})
+
+			await expect(
+				request.transaction(async (transaction) => {
+					await transaction
+						.query(PostSchema)
+						.create({ title: 'Rolled back transaction' })
+					throw rollbackError
+				}),
+			).rejects.toBe(rollbackError)
+			await expect(
+				request
+					.query(PostSchema)
+					.equalTo('title', 'Rolled back transaction')
+					.exists(),
+			).resolves.toBe(false)
+
+			await request.query(PostSchema).equalTo('id', committed.id).deleteOne()
+		} finally {
+			await ultimabase.dispose()
+		}
 	})
 })

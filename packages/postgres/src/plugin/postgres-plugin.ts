@@ -20,7 +20,6 @@ import {
 	postgresTableExtensionName,
 } from '../constants.js'
 import { createPostgresDatabaseAdapter } from '../drizzle/adapter.js'
-import { createPostgresDrizzleClient } from '../drizzle/client.js'
 import { resolvePostgresRenamedFrom } from '../naming/column.js'
 import { resolvePostgresTableName } from '../naming/table.js'
 import { PostgresSchemaCatalog } from '../schema/catalog.js'
@@ -191,7 +190,7 @@ export const postgresPlugin = (
 			const { ownsPool, pool } = createConnectionSource()
 			const managedConnection = createManagedPostgresConnection(pool, ownsPool)
 			const adapter = createPostgresDatabaseAdapter(
-				createPostgresDrizzleClient(managedConnection.getPool()),
+				managedConnection.getPool(),
 				schemaCatalog,
 			)
 			const connection: PostgresConnectionService = managedConnection
