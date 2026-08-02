@@ -28,8 +28,7 @@ const Post = Schema.define({
 	},
 })
 
-const loadAuthor = (authorId: string) =>
-	User.query().byId(authorId).findOne()
+const loadAuthor = (authorId: string) => User.query().byId(authorId).findOne()
 ```
 
 Outside a request or hook scope, execution ownership is explicit on the

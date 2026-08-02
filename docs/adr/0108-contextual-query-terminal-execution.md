@@ -39,10 +39,9 @@ options last:
 ```ts
 await new Query(PostSchema).equalTo('published', true).find()
 
-await new Query(PostSchema).byId(postId).update(
-	{ set: { published: true } },
-	{ useMasterKey: true },
-)
+await new Query(PostSchema)
+	.byId(postId)
+	.update({ set: { published: true } }, { useMasterKey: true })
 ```
 
 Selection, input, cardinality, and result inference remain derived solely from

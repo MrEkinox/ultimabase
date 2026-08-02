@@ -19,9 +19,7 @@ const updated = await Post.query()
 	.byId(post.id)
 	.update({ set: { title: 'Updated' } }, { ultimabase })
 
-const deleted = await Post.query()
-	.byId(post.id)
-	.delete({ ultimabase })
+const deleted = await Post.query().byId(post.id).delete({ ultimabase })
 ```
 
 ## Acceptance criteria

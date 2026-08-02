@@ -59,9 +59,7 @@ fresh `new Query(Post)` branch and retains no application, request, authority,
 transaction, or adapter:
 
 ```ts
-const posts = await Post.query()
-	.equalTo('published', true)
-	.find()
+const posts = await Post.query().equalTo('published', true).find()
 ```
 
 `new Query(Post)` remains the lower-level equivalent for dynamic framework and
