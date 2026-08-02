@@ -45,3 +45,11 @@ beforeCreate(async ({ context, input }) => {
 - A second authority model beside `RequestContext`.
 - Direct database or transport access.
 - Skipping hooks or committing a transaction from inside a hook.
+
+## Follow-up
+
+Issue 347 replaces the public `context.query(schema)` entry point with direct
+ambient `new Query(schema)` terminals. It must preserve this issue's transaction,
+lease, cancellation, tracking, and application-isolation guarantees while
+leaving `HookContext` responsible for hook identity, capability checks, and
+named events.

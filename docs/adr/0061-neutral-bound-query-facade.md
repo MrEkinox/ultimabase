@@ -1,9 +1,10 @@
 # ADR-0061: Neutral BoundQuery facade
 
-- Status: accepted
+- Status: superseded
 - Date: 2026-07-31
 - Refines: ADR-0005, ADR-0058, ADR-0059
 - Refined by: ADR-0092
+- Superseded by: ADR-0108
 
 ## Decision
 

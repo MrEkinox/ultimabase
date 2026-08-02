@@ -44,3 +44,17 @@ public contract.
 
 Issue 343 adds the small `byId(id)` builder alias without introducing terminal
 variants or another adapter operation.
+
+After issue 347 consolidates execution on `Query`, issue 345 completes the
+concise singular terminal vocabulary with `update()` and `delete()` while
+retaining explicit `*Many` methods for collection and set-based behavior. Issue
+346 then protects the cardinality-neutral hook contract across the bulk and
+itemized implementations: terminal kinds remain exact discriminants, but
+developers never declare separate `One` and `Many` hook phases.
+
+Issues 347–348 consolidate builder and execution DX around one immutable
+`Query` class. Terminals first resolve the active Runtime scope or an explicitly
+supplied `UltimaBase`, then apply trusted backend-only session or master options.
+This removes `BoundQuery`, `context.query`, and repeated context plumbing while
+preserving hook transactions, revocable leases, application isolation, and the
+transport authority boundary.

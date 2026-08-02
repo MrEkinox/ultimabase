@@ -140,6 +140,12 @@ setup export types, including definitions introduced through nested composition.
   engine; its terminals create Operation AST nodes and execute them
   through Runtime's neutral engine contract.
 
+ADR-0108 and issues 347–348 replace that current two-class execution facade with
+terminals directly on the immutable `Query`. Until those issues are implemented,
+`BoundQuery`, `context.query(schema)`, and `ultimabase.query(schema)` remain the
+working API. The target terminals resolve the active Runtime scope or accept an
+explicit application and trusted backend authority options only at execution.
+
 The Query AST retains the exact static schema definition and represents
 selection, filtering, ordering, and pagination as immutable discriminated
 nodes. It contains no request, GraphQL, SQL, adapter, or execution state;

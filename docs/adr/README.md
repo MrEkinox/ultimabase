@@ -60,7 +60,6 @@ Accepted records:
 - [ADR-0058: Immutable unbound Query builder](0058-immutable-unbound-query-builder.md)
 - [ADR-0059: Terminal Operation AST](0059-terminal-operation-ast.md)
 - [ADR-0060: Typed atomic update expressions](0060-typed-atomic-update-expressions.md)
-- [ADR-0061: Neutral BoundQuery facade](0061-neutral-bound-query-facade.md)
 - [ADR-0062: Request context security boundary](0062-request-context-security-boundary.md)
 - [ADR-0063: Portable database adapter boundary](0063-portable-database-adapter-boundary.md)
 - [ADR-0065: Application-owned request engines](0065-application-owned-request-engines.md)
@@ -90,7 +89,6 @@ Accepted records:
 - [ADR-0089: Native schema and field hook lifecycle](0089-native-schema-and-field-hooks.md)
 - [ADR-0090: Permission plugins contribute monotonic hooks](0090-permission-plugins-through-hooks.md)
 - [ADR-0091: JSON fields require document roots](0091-json-document-root-values.md)
-- [ADR-0092: Bound queries require executors](0092-bound-queries-require-executors.md)
 - [ADR-0093: Immutable Schema constructor API](0093-schema-constructor-api.md)
 - [ADR-0094: UltimaBase public facade](0094-ultimabase-public-facade.md)
 - [ADR-0095: Consolidated foundational Core package](0095-consolidated-foundational-core.md)
@@ -106,6 +104,7 @@ Accepted records:
 - [ADR-0105: Transaction hook finalization journal](0105-transaction-hook-journal.md)
 - [ADR-0106: Hook execution safety and diagnostics](0106-hook-execution-safety-and-diagnostics.md)
 - [ADR-0107: HookContext capabilities and named events](0107-hook-context-capabilities-and-events.md)
+- [ADR-0108: Contextual Query terminal execution](0108-contextual-query-terminal-execution.md)
 
 Superseded records:
 
@@ -113,6 +112,8 @@ Superseded records:
 - [ADR-0018: Default value boundaries](0018-default-value-boundaries.md), superseded by ADR-0038.
 - [ADR-0020: Compiled validation plans](0020-compiled-validation-plans.md), superseded by ADR-0039.
 - [ADR-0035: Schema domain-oriented internal layout](0035-schema-domain-layout.md), superseded by ADR-0036.
+- [ADR-0061: Neutral BoundQuery facade](0061-neutral-bound-query-facade.md), superseded by ADR-0108.
 - [ADR-0064: Mandatory deterministic Runtime pipeline](0064-mandatory-runtime-pipeline.md), superseded by ADR-0090.
+- [ADR-0092: Bound queries require executors](0092-bound-queries-require-executors.md), superseded by ADR-0108.
 
 New decisions receive the next number. Do not rewrite history; supersede a record.

@@ -1,8 +1,9 @@
 # ADR-0092: Bound queries require executors
 
-- Status: accepted
+- Status: superseded
 - Date: 2026-08-02
 - Refines: ADR-0061, ADR-0067
+- Superseded by: ADR-0108
 
 ## Decision
 

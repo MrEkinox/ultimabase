@@ -3,8 +3,8 @@
 - Status: planned
 - Milestone: 3
 - Packages: `@ultimabase/core`
-- Depends on: 306, 309
-- ADR: ADR-0052, ADR-0058, ADR-0061
+- Depends on: 306, 347
+- ADR: ADR-0052, ADR-0058, ADR-0108
 
 ## Goal
 
@@ -15,17 +15,15 @@ reimplementing every builder operation.
 ## Target developer experience
 
 ```ts
-const posts = await ultimabase
-	.query(PostSchema)
+const posts = await new Query(PostSchema)
 	.fromJson({
 		select: ['id'],
 		equalTo: { published: true },
 		greaterThan: { views: 100 },
 	})
-	.find()
+	.find({ ultimabase })
 
-const json = ultimabase
-	.query(PostSchema)
+const json = new Query(PostSchema)
 	.equalTo('published', true)
 	.select('id')
 	.toJson()
@@ -33,7 +31,7 @@ const json = ultimabase
 
 ## Acceptance criteria
 
-- [ ] `Query` and `BoundQuery` expose immutable `fromJson()` and `toJson()` boundaries without adding execution state to serialized data.
+- [ ] `Query` exposes immutable `fromJson()` and `toJson()` boundaries without adding terminal execution state to serialized data.
 - [ ] The JSON contract covers selection, primitive filters, ordering, limit, offset, and cursor position with concise schema-field autocomplete.
 - [ ] Short filter records such as `equalTo: { published: true }` preserve exact field-to-value typing.
 - [ ] A statically declared `select` preserves exact terminal result inference, while dynamic transport input returns a safe result type that never promises unselected fields.

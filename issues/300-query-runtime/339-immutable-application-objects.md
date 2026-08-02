@@ -14,7 +14,9 @@ class without introducing Active Record persistence.
 ## Target developer experience
 
 ```ts
-const post = await ultimabase.query(PostSchema).select('id', 'title').first()
+const post = await new Query(PostSchema)
+	.select('id', 'title')
+	.first({ ultimabase })
 
 if (post !== null) {
 	post.title
