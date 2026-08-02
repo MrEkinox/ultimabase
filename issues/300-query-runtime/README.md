@@ -30,3 +30,8 @@ hook critical path: immutable `UltimaObject` results, a transaction-bound
 `HookContext`, and a server-side `QueryCursor` value object. They must preserve
 plain adapter boundaries, transport-safe opaque cursor strings, and the ban on
 Active Record persistence.
+
+Issue 342 retains the deferred schema-aware Query JSON round trip for transport
+plugins. Its concise input must remain validation-only builder state, preserve
+safe selection inference, and settle lossless value codecs before becoming a
+public contract.
