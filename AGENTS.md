@@ -13,6 +13,13 @@ Before changing code:
 5. Check the issue dependencies and do not silently implement blocked work.
 6. Inspect the working tree and preserve unrelated user changes.
 
+## Agent coordination
+
+- Use sub-agents only when the task divides into independent workstreams that can make useful progress in parallel.
+- Give each sub-agent a bounded, non-overlapping scope and avoid concurrent edits to the same files.
+- Keep small changes, central architectural decisions, and tightly coupled implementation work with the primary agent.
+- The primary agent owns integration, resolves inconsistencies, verifies the complete result, and remains accountable for every delivered change.
+
 ## Product rules
 
 - UltimaBase is a modern TypeScript backend framework inspired by Parse Server DX, not a compatible clone.
