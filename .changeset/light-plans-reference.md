@@ -1,5 +1,5 @@
 ---
-'@ultimabase/schema': major
+'@ultimabase/core': major
 '@ultimabase/pg-vector-plugin': major
 ---
 

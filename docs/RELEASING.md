@@ -8,14 +8,12 @@ Run `yarn changeset`, select every affected package, choose the smallest correct
 
 The foundational packages form one fixed version group:
 
-- `@ultimabase/access`
 - `@ultimabase/core`
-- `@ultimabase/query`
-- `@ultimabase/runtime`
-- `@ultimabase/schema`
 - `@ultimabase/shared`
 
-A bump to one member bumps the whole group to the same version. Official plugins remain independently versioned.
+A bump to one member bumps the pair to the same version. Schema, Query, Access,
+application, and Runtime changes are all recorded against Core. Official
+plugins remain independently versioned.
 
 ## One-time GitHub setup
 

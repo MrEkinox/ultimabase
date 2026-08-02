@@ -1,5 +1,5 @@
 ---
-'@ultimabase/runtime': minor
+'@ultimabase/core': minor
 ---
 
 Add the class-based `UltimaBase` facade for isolated application lifecycle,

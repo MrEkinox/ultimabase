@@ -2,13 +2,8 @@ import {
 	Query,
 	queryCursorVersion,
 	type QueryCursorPayload,
-} from '@ultimabase/query'
-import {
-	dateTimeField,
-	Schema,
-	intField,
-	stringField,
-} from '@ultimabase/schema'
+} from '@ultimabase/core'
+import { dateTimeField, Schema, intField, stringField } from '@ultimabase/core'
 import { PgDialect } from 'drizzle-orm/pg-core'
 import { describe, expect, it } from 'vitest'
 

@@ -30,16 +30,18 @@ Before changing code:
 Dependencies point toward foundations. In the diagram, `A -> B` means that A may import B:
 
 ```text
-schema/query/access -> shared
-core -> schema/access/shared
-runtime -> core/query/schema/access/shared
-official plugins -> runtime/core/foundational contracts
+core -> shared
+official plugins -> core/shared
 ```
+
+Schema, Query, Access, application orchestration, and Runtime are internal Core
+domains rather than separate packages. Their source folders preserve the same
+logical direction without creating published-package cycles.
 
 Key prohibitions:
 
 - `core` must not import a concrete plugin or infrastructure library.
-- `runtime` must not import Drizzle, PostgreSQL, Hono, Yoga, or GraphQL.
+- Core's Runtime domain must not import Drizzle, PostgreSQL, Hono, Yoga, or GraphQL.
 - transport packages must not issue SQL or bypass the runtime.
 - database-specific migration logic stays in a database-specific migration plugin.
 - packages must import another package through its public export, never through `src/`.
@@ -67,7 +69,7 @@ Run or update `yarn constraints` when dependency constraints exist. If a request
 - Parent setup precedes child setup; child teardown precedes parent teardown.
 - Dependencies and configuration order determine deterministic plugin and hook ordering.
 - Duplicate plugins with conflicting options are errors unless a future ADR introduces explicit instances.
-- Schema and field plugins contribute typed extensions. `@ultimabase/schema` must not know concrete ACL, CLP, role, or field-permission configuration.
+- Schema and field plugins contribute typed extensions. Core's Schema domain must not know concrete ACL, CLP, role, or field-permission configuration.
 - Hooks are a native framework capability, not a plugin or schema extension. Plugins append hook contributions through the application dispatcher; they never replace developer hooks.
 - Policy plugins use generic deny-only guards, append-only adapter constraints, and narrowing field restrictions. Later hooks must never broaden accumulated enforcement.
 
@@ -132,8 +134,8 @@ Create a dedicated commit after an issue is complete, but never push it without 
 ## Documentation and decisions
 
 - Update the package README when its public contract changes.
-- Every change under `packages/schema` must review the package examples. Update
-  `packages/schema/examples` in the same issue whenever field behavior, schema
+- Every change under `packages/core/src/schema` must review the schema examples. Update
+  `packages/core/examples/schema` in the same issue whenever field behavior, schema
   composition, inference, registry behavior, or validation plans change.
 - Add or update an ADR for architectural decisions, dependency-boundary changes, storage formats, public API conventions, or security semantics.
 - Keep issue status and acceptance criteria current.

@@ -2,7 +2,7 @@
 
 - Status: planned
 - Milestone: 4
-- Packages: `@ultimabase/access`, `@ultimabase/roles`
+- Packages: `@ultimabase/core`, `@ultimabase/roles`
 - Depends on: 204, 207, 405
 - ADR: ADR-0003, ADR-0006
 
@@ -13,7 +13,7 @@ Define the neutral typed role-resolution capability and let
 
 ## Acceptance criteria
 
-- [ ] `@ultimabase/access` exports the role-reference types and nominal typed role-resolution service token without importing `@ultimabase/roles`.
+- [ ] `@ultimabase/core` exports the role-reference types and nominal typed role-resolution service token without importing `@ultimabase/roles`.
 - [ ] `rolePermissionPlugin` provides the neutral service without requiring consumers to import its factory, plugin definition, or implementation types.
 - [ ] CLP and ACL consume only the neutral types and service token and never import or identify `rolePermissionPlugin` directly.
 - [ ] Role APIs are hidden unless exposure is enabled.

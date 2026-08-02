@@ -1,4 +1,4 @@
-import type { SchemaIndexDefinition } from '@ultimabase/schema'
+import type { SchemaIndexDefinition } from '@ultimabase/core'
 import {
 	index,
 	uniqueIndex,

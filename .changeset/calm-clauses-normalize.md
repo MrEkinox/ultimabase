@@ -1,5 +1,5 @@
 ---
-'@ultimabase/query': minor
+'@ultimabase/core': minor
 ---
 
 Add schema-checked selection and ordering normalization with validated offset

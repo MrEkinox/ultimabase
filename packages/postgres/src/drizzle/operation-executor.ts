@@ -3,8 +3,8 @@ import type {
 	ExecutableOperationAst,
 	QueryAst,
 	QueryFilterNode,
-} from '@ultimabase/query'
-import type { SchemaDefinition } from '@ultimabase/schema'
+} from '@ultimabase/core'
+import type { SchemaDefinition } from '@ultimabase/core'
 import { and, count, eq, inArray, type SQL } from 'drizzle-orm'
 import type { PgColumn } from 'drizzle-orm/pg-core'
 

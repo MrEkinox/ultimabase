@@ -26,7 +26,6 @@
 	"dependencies": {
 		"@hono/node-server": "^2.0.12",
 		"@ultimabase/core": "workspace:^",
-		"@ultimabase/runtime": "workspace:^",
 		"hono": "^4.9.6"
 	},
 	"devDependencies": {

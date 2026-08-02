@@ -1,4 +1,4 @@
-import type { SchemaDefinition } from '@ultimabase/schema'
+import type { SchemaDefinition } from '@ultimabase/core'
 import { immutableArray } from '@ultimabase/shared'
 
 import type { CompiledPostgresSchema } from './contracts.js'

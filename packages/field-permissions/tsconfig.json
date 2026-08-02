@@ -5,11 +5,5 @@
 		"rootDir": "src"
 	},
 	"include": ["src/**/*.ts"],
-	"references": [
-		{ "path": "../schema" },
-		{ "path": "../query" },
-		{ "path": "../access" },
-		{ "path": "../core" },
-		{ "path": "../runtime" }
-	]
+	"references": [{ "path": "../core" }]
 }

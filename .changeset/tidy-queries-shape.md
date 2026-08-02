@@ -1,5 +1,5 @@
 ---
-'@ultimabase/query': minor
+'@ultimabase/core': minor
 ---
 
 Add immutable transport-neutral Query AST contracts and typed initial

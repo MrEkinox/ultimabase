@@ -2,8 +2,8 @@ import { createApplication, definePlugin } from '@ultimabase/core'
 import {
 	createFrameworkEngine,
 	databaseAdapterServiceToken,
-} from '@ultimabase/runtime'
-import { Schema, objectField, stringField } from '@ultimabase/schema'
+} from '@ultimabase/core'
+import { Schema, objectField, stringField } from '@ultimabase/core'
 import { Pool } from 'pg'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 

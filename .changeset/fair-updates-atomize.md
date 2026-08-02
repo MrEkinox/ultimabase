@@ -1,5 +1,5 @@
 ---
-'@ultimabase/query': minor
+'@ultimabase/core': minor
 ---
 
 Add schema-typed set, unset, increment, and decrement update expressions with

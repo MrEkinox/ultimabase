@@ -2,14 +2,15 @@
 
 - Status: ready
 - Milestone: 3
-- Packages: `@ultimabase/schema`, `@ultimabase/query`, `@ultimabase/core`, `@ultimabase/runtime`
-- Depends on: 318, 320, 323
-- ADR: ADR-0089, ADR-0090
+- Packages: `@ultimabase/core`
+- Depends on: 213, 318, 320, 323
+- ADR: ADR-0089, ADR-0090, ADR-0095
 
 ## Goal
 
-Prove how native hooks can be declared with schemas and inline fields without
-creating a package cycle or weakening TypeScript editor inference.
+Prove how native hooks can be declared with schemas and inline fields inside
+the consolidated Core without creating an internal dependency cycle or
+weakening TypeScript editor inference.
 
 ## Acceptance criteria
 

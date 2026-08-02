@@ -2,7 +2,7 @@
 
 - Status: planned
 - Milestone: 3
-- Packages: `@ultimabase/runtime`, `@ultimabase/core`, `@ultimabase/access`
+- Packages: `@ultimabase/core`
 - Depends on: 328, 330
 - ADR: ADR-0064, ADR-0076, ADR-0089, ADR-0090
 
@@ -24,7 +24,7 @@ plugin.
 - [ ] Guards, adapter constraints, and input or selection restrictions run before effectful business hooks, so denied operations cannot trigger business writes.
 - [ ] Output restrictions run after every result transform and immediately before the result crosses Runtime's enforcement boundary.
 - [ ] Runtime transports `anonymous`, `user`, and `master` authority without deciding which policy hooks master bypasses.
-- [ ] Neutral request-authority types may remain in `@ultimabase/access`; no new package is created merely to relocate them.
+- [ ] Neutral request-authority types may remain in `@ultimabase/core`; no new package is created merely to relocate them.
 - [ ] An application with no policy plugin registers no policy hooks and executes without neutral permission placeholders.
 - [ ] A declared schema or field extension still requires its owning plugin handler during Core setup.
 - [ ] Runtime forwards opaque constraints to the selected adapter without compiling or interpreting their policy payload.

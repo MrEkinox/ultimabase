@@ -1,5 +1,5 @@
 ---
-'@ultimabase/schema': major
+'@ultimabase/core': major
 ---
 
 Replace magic temporal default strings with explicit scalar `autoNow` generation

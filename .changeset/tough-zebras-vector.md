@@ -1,5 +1,5 @@
 ---
-'@ultimabase/schema': minor
+'@ultimabase/core': minor
 '@ultimabase/pg-vector-plugin': minor
 ---
 

@@ -1,5 +1,5 @@
 import { FrameworkError } from '@ultimabase/core'
-import type { OperationKind } from '@ultimabase/query'
+import type { OperationKind } from '@ultimabase/core'
 
 import { readPostgresDriverCode } from '../connection/driver-error.js'
 

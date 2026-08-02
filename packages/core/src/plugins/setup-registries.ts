@@ -1,4 +1,4 @@
-import type { SchemaRegistry } from '@ultimabase/schema'
+import type { SchemaRegistry } from '../schema/index.js'
 import {
 	assertNonEmptyString,
 	immutableArray,

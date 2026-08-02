@@ -1,5 +1,5 @@
-import { normalizeUpdateExpression } from '@ultimabase/query'
-import { decimalField, Schema, intField, stringField } from '@ultimabase/schema'
+import { normalizeUpdateExpression } from '@ultimabase/core'
+import { decimalField, Schema, intField, stringField } from '@ultimabase/core'
 import { SQL } from 'drizzle-orm'
 import { PgDialect } from 'drizzle-orm/pg-core'
 import { describe, expect, it } from 'vitest'

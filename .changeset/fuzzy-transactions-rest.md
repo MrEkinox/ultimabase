@@ -1,5 +1,5 @@
 ---
-'@ultimabase/runtime': minor
+'@ultimabase/core': minor
 ---
 
 Add adapter-backed RequestEngine transactions with deterministic commit,

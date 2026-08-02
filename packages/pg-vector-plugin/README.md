@@ -5,7 +5,7 @@ Plugin-owned vector fields for PostgreSQL pgvector integrations.
 The package currently proves the complete custom-field boundary:
 
 - `vectorField({ dimensions })` creates a namespaced logical field;
-- `@ultimabase/schema` retains it through the common scalar validation plan;
+- `@ultimabase/core` retains it through the common scalar validation plan;
 - `pgVectorPlugin()` narrows `plan.field.kind`, then reads and validates the
   exact vector field without Schema understanding vector configuration;
 - the public value remains an immutable `readonly number[]` snapshot.

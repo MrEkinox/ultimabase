@@ -1,5 +1,5 @@
 ---
-'@ultimabase/query': minor
+'@ultimabase/core': minor
 ---
 
 Add schema-typed terminal Operation AST contracts for singular reads and writes,

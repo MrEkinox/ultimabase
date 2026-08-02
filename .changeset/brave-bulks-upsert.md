@@ -1,6 +1,5 @@
 ---
-'@ultimabase/query': minor
-'@ultimabase/runtime': minor
+'@ultimabase/core': minor
 ---
 
 Add typed bulk and unique-target upsert terminals with ordered results and

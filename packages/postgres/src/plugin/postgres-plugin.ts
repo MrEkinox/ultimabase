@@ -3,7 +3,7 @@ import {
 	extensionHandlerKey,
 	type FrameworkPlugin,
 } from '@ultimabase/core'
-import { databaseAdapterServiceToken } from '@ultimabase/runtime'
+import { databaseAdapterServiceToken } from '@ultimabase/core'
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 import { Pool } from 'pg'
 

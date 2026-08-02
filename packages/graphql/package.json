@@ -26,9 +26,6 @@
 	"dependencies": {
 		"@graphql-tools/schema": "^10.0.25",
 		"@ultimabase/core": "workspace:^",
-		"@ultimabase/query": "workspace:^",
-		"@ultimabase/runtime": "workspace:^",
-		"@ultimabase/schema": "workspace:^",
 		"dataloader": "^2.2.3",
 		"graphql": "^16.14.2"
 	},

@@ -1,4 +1,4 @@
-import { SchemaRegistry } from '@ultimabase/schema'
+import { SchemaRegistry } from '../schema/index.js'
 import { describe, expect, it } from 'vitest'
 
 import { definePlugin, type PluginDefinition } from './definition.js'

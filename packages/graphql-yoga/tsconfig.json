@@ -5,9 +5,5 @@
 		"rootDir": "src"
 	},
 	"include": ["src/**/*.ts"],
-	"references": [
-		{ "path": "../core" },
-		{ "path": "../runtime" },
-		{ "path": "../graphql" }
-	]
+	"references": [{ "path": "../core" }, { "path": "../graphql" }]
 }

@@ -1,12 +1,12 @@
 import { FrameworkError } from '@ultimabase/core'
-import type { ExecutableOperationAst } from '@ultimabase/query'
+import type { ExecutableOperationAst } from '@ultimabase/core'
 import type {
 	DatabaseAdapter,
 	DatabaseOperationAst,
 	DatabaseOperationRequest,
 	DatabaseOperationResult,
 	DatabaseTransactionAdapter,
-} from '@ultimabase/runtime'
+} from '@ultimabase/core'
 import { isPlainRecord } from '@ultimabase/shared'
 
 import type { PostgresDrizzleClient } from './client.js'

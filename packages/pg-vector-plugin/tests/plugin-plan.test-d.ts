@@ -4,7 +4,7 @@ import {
 	compileValidationPlans,
 	Schema,
 	type FieldValidationPlan,
-} from '@ultimabase/schema'
+} from '@ultimabase/core'
 
 import {
 	pgVectorPlugin,

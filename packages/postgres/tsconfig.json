@@ -7,12 +7,5 @@
 		"skipLibCheck": true
 	},
 	"include": ["src/**/*.ts"],
-	"references": [
-		{ "path": "../shared" },
-		{ "path": "../schema" },
-		{ "path": "../query" },
-		{ "path": "../access" },
-		{ "path": "../core" },
-		{ "path": "../runtime" }
-	]
+	"references": [{ "path": "../shared" }, { "path": "../core" }]
 }

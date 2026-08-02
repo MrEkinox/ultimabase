@@ -1,5 +1,5 @@
 ---
-'@ultimabase/schema': minor
+'@ultimabase/core': minor
 ---
 
 Add portable developer UUID fields with version constraints, defaults, lists,

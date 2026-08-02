@@ -2,7 +2,7 @@ import {
 	defineSchemaExtension,
 	type SchemaDefinition,
 	type SchemaExtension,
-} from '@ultimabase/schema'
+} from '@ultimabase/core'
 import { assertNonEmptyString, isPlainRecord } from '@ultimabase/shared'
 import { tableize } from 'inflection'
 

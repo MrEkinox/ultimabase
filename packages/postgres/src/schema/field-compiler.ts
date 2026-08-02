@@ -1,6 +1,6 @@
 import { Buffer } from 'node:buffer'
 
-import type { FieldValidationPlan, GenericField } from '@ultimabase/schema'
+import type { FieldValidationPlan, GenericField } from '@ultimabase/core'
 import {
 	immutableRecord,
 	isPlainRecord,

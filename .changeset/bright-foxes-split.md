@@ -1,5 +1,5 @@
 ---
-'@ultimabase/schema': minor
+'@ultimabase/core': minor
 ---
 
 Replace mode-based number fields with dedicated integer and float factories,

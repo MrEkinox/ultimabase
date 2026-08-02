@@ -4,7 +4,7 @@ import {
 	type FieldExtension,
 	type FieldDefinition,
 	type SchemaDefinition,
-} from '@ultimabase/schema'
+} from '../schema/index.js'
 import {
 	assertNonEmptyString,
 	isPlainRecord,

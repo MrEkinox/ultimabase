@@ -1,5 +1,5 @@
 ---
-'@ultimabase/schema': minor
+'@ultimabase/core': minor
 ---
 
 Harden runtime schema declarations, add field-aware structured default

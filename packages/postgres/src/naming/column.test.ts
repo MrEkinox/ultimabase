@@ -1,4 +1,4 @@
-import { stringField } from '@ultimabase/schema'
+import { stringField } from '@ultimabase/core'
 import { describe, expect, it } from 'vitest'
 
 import { postgresColumn, resolvePostgresRenamedFrom } from './column.js'

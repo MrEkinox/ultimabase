@@ -1,4 +1,4 @@
-import { Schema, stringField } from '@ultimabase/schema'
+import { Schema, stringField } from '@ultimabase/core'
 import { getTableConfig } from 'drizzle-orm/pg-core'
 import { describe, expect, it } from 'vitest'
 

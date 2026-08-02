@@ -24,11 +24,11 @@
 		"typecheck": "tsc --build"
 	},
 	"dependencies": {
-		"@ultimabase/access": "workspace:^",
-		"@ultimabase/schema": "workspace:^",
-		"@ultimabase/shared": "workspace:^"
+		"@ultimabase/shared": "workspace:^",
+		"uuid": "^14.0.1"
 	},
 	"devDependencies": {
+		"@types/node": "^24.0.0",
 		"tsdown": "^0.22.14",
 		"typescript": "^6.0.3",
 		"vitest": "4.1.10"

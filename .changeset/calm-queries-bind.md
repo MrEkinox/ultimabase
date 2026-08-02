@@ -1,6 +1,5 @@
 ---
-'@ultimabase/query': minor
-'@ultimabase/runtime': minor
+'@ultimabase/core': minor
 ---
 
 Add immutable selection-aware BoundQuery branches, explicit Query binding, and

@@ -2,7 +2,7 @@
 
 - Status: planned
 - Milestone: 3
-- Packages: `@ultimabase/schema`, `@ultimabase/core`, `@ultimabase/runtime`, `@ultimabase/postgres`, `@ultimabase/testing`
+- Packages: `@ultimabase/core`, `@ultimabase/postgres`, `@ultimabase/testing`
 - Depends on: 508, 518, 331, 332, 333, 334, 337, 338
 - ADR: ADR-0087, ADR-0089, ADR-0090
 

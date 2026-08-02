@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { snapshotScalarFieldValue } from '@ultimabase/schema'
+import { snapshotScalarFieldValue } from '@ultimabase/core'
 
 import { vectorField, vectorFieldKind } from '../src/index.js'
 

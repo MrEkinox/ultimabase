@@ -4,7 +4,7 @@ import {
 	defineSchemaExtension,
 	objectField,
 	stringField,
-} from '@ultimabase/schema'
+} from '../schema/index.js'
 import { describe, expect, it } from 'vitest'
 
 import { createApplication } from '../application/framework-application.js'

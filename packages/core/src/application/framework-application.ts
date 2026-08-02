@@ -2,7 +2,7 @@ import {
 	Schema,
 	SchemaRegistry,
 	type SchemaDefinition,
-} from '@ultimabase/schema'
+} from '../schema/index.js'
 import { isPlainRecord, isUnknownArray } from '@ultimabase/shared'
 
 import {

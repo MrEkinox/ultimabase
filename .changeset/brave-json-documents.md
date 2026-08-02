@@ -1,5 +1,5 @@
 ---
-'@ultimabase/schema': major
+'@ultimabase/core': major
 ---
 
 Restrict `jsonField` roots to `JsonObject | JsonArray` while retaining every

@@ -6,14 +6,14 @@ import {
 	type FindOperationAst,
 	type QueryFilterNode,
 	type UpdateOneOperationAst,
-} from '@ultimabase/query'
-import { Schema, intField, stringField } from '@ultimabase/schema'
+} from '@ultimabase/core'
+import { Schema, intField, stringField } from '@ultimabase/core'
 import { isPlainRecord, isUnknownArray } from '@ultimabase/shared'
 import {
 	createRuntimeValidationStage,
 	RequestContext,
 	requestSources,
-} from '@ultimabase/runtime'
+} from '@ultimabase/core'
 import { describe, expect, it } from 'vitest'
 
 import { createPostgresDatabaseAdapter } from './adapter.js'

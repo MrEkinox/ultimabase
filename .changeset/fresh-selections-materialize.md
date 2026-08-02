@@ -1,5 +1,5 @@
 ---
-'@ultimabase/query': patch
+'@ultimabase/core': patch
 ---
 
 Materialize selected query results so editor hovers display only projected

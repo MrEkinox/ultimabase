@@ -16,7 +16,7 @@ derived fields backed by native UltimaBase field kinds.
 - [ ] The package registers derived-field validation handlers through the global plugin graph.
 - [ ] `validator` is integrated through focused imports for supported string formats.
 - [ ] UltimaBase owns stable public option types instead of exposing dependency-specific options.
-- [ ] Validation dependencies remain outside `@ultimabase/schema`, Core, and Runtime.
+- [ ] Validation dependencies remain outside `@ultimabase/core`, Core, and Runtime.
 - [ ] Nested plugin configuration and public exports follow repository conventions.
 - [ ] The package README documents validation versus normalization behavior.
 

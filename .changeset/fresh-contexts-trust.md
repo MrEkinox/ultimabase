@@ -1,6 +1,5 @@
 ---
-'@ultimabase/access': minor
-'@ultimabase/runtime': minor
+'@ultimabase/core': minor
 ---
 
 Add closed request access modes, identity-based capability tokens, and immutable

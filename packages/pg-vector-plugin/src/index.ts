@@ -9,7 +9,7 @@ import {
 	type PluginFieldDefinition,
 	type ScalarValidationPlan,
 	type ValidatedFieldOptions,
-} from '@ultimabase/schema'
+} from '@ultimabase/core'
 
 /**
  * Namespaces the logical kind so independent community packages cannot collide.

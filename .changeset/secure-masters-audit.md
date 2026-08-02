@@ -1,6 +1,5 @@
 ---
-'@ultimabase/access': minor
-'@ultimabase/runtime': minor
+'@ultimabase/core': minor
 ---
 
 Add framework-owned opaque master-key grants, mandatory elevation auditing, and

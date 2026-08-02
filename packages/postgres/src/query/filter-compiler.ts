@@ -8,8 +8,8 @@ import type {
 	QueryRegexFilterNode,
 	QueryRegexFlag,
 	QueryStringFilterNode,
-} from '@ultimabase/query'
-import type { SchemaDefinition } from '@ultimabase/schema'
+} from '@ultimabase/core'
+import type { SchemaDefinition } from '@ultimabase/core'
 import {
 	and,
 	eq,

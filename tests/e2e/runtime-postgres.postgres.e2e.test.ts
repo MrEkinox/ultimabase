@@ -18,8 +18,8 @@ import {
 	stringField,
 	timeField,
 	uuidField,
-} from '@ultimabase/schema'
-import { UltimaBase } from '@ultimabase/runtime'
+} from '@ultimabase/core'
+import { UltimaBase } from '@ultimabase/core'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import {

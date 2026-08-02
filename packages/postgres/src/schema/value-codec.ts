@@ -4,7 +4,7 @@ import {
 	fieldUsesTemporalTimezone,
 	snapshotScalarFieldValue,
 	type FieldValidationPlan,
-} from '@ultimabase/schema'
+} from '@ultimabase/core'
 import {
 	immutableArray,
 	immutableRecord,

@@ -1,4 +1,4 @@
-import { Query, type QueryFilterNode } from '@ultimabase/query'
+import { Query, type QueryFilterNode } from '@ultimabase/core'
 import {
 	bigintField,
 	binaryField,
@@ -14,7 +14,7 @@ import {
 	stringField,
 	timeField,
 	uuidField,
-} from '@ultimabase/schema'
+} from '@ultimabase/core'
 import { PgDialect } from 'drizzle-orm/pg-core'
 import { describe, expect, it } from 'vitest'
 

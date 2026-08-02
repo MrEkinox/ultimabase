@@ -3,13 +3,10 @@
 	"compilerOptions": {
 		"lib": ["ES2024", "ESNext.Disposable"],
 		"outDir": "dist",
-		"rootDir": "src"
+		"rootDir": "src",
+		"types": ["node"]
 	},
 	"include": ["src/**/*.ts"],
 	"exclude": ["src/**/*.test.ts", "src/**/*.test-d.ts"],
-	"references": [
-		{ "path": "../shared" },
-		{ "path": "../schema" },
-		{ "path": "../access" }
-	]
+	"references": [{ "path": "../shared" }]
 }

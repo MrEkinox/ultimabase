@@ -1,5 +1,5 @@
 ---
-'@ultimabase/runtime': minor
+'@ultimabase/core': minor
 ---
 
 Add the mandatory typed Runtime pipeline with deterministic access, hook,

@@ -1,4 +1,4 @@
-import { SchemaRegistry, Schema, stringField } from '@ultimabase/schema'
+import { SchemaRegistry, Schema, stringField } from '../schema/index.js'
 import { describe, expect, it } from 'vitest'
 
 import { createServiceToken } from '../services/service-token.js'

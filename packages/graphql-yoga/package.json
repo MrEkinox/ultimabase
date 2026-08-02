@@ -26,7 +26,6 @@
 	"dependencies": {
 		"@ultimabase/core": "workspace:^",
 		"@ultimabase/graphql": "workspace:^",
-		"@ultimabase/runtime": "workspace:^",
 		"graphql": "^16.14.2",
 		"graphql-yoga": "^5.21.2"
 	},

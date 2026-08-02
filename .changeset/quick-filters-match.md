@@ -1,5 +1,5 @@
 ---
-'@ultimabase/query': minor
+'@ultimabase/core': minor
 ---
 
 Add schema-correlated primitive filter nodes with field-specific operators,

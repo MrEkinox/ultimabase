@@ -2,8 +2,8 @@
 
 - Status: active
 - Started: 2026-08-01
-- Objective owner: `@ultimabase/schema`, `@ultimabase/query`, `@ultimabase/core`, `@ultimabase/runtime`, `@ultimabase/postgres`, `@ultimabase/testing`
-- Governing decisions: [ADR-0089](docs/adr/0089-native-schema-and-field-hooks.md), [ADR-0090](docs/adr/0090-permission-plugins-through-hooks.md)
+- Objective owner: `@ultimabase/core`, `@ultimabase/postgres`, `@ultimabase/testing`
+- Governing decisions: [ADR-0089](docs/adr/0089-native-schema-and-field-hooks.md), [ADR-0090](docs/adr/0090-permission-plugins-through-hooks.md), [ADR-0095](docs/adr/0095-consolidated-foundational-core.md)
 - Previous completed objective: [Runtime-to-PostgreSQL E2E](docs/plans/completed/runtime-postgres-e2e.md)
 
 ## Objective
@@ -76,21 +76,22 @@ The objective is complete only when:
 Complete one issue at a time in this order. Do not start an issue whose
 dependencies are incomplete.
 
-1. [ ] [324 — Prove the native hook contract boundary](issues/300-query-runtime/324-native-hook-contract-boundary.md)
-2. [ ] [325 — Declare native schema hooks](issues/300-query-runtime/325-native-schema-hooks.md)
-3. [ ] [326 — Declare inline field hooks](issues/300-query-runtime/326-inline-field-hooks.md)
-4. [ ] [327 — Compose hook families and handler lists](issues/300-query-runtime/327-hook-families-and-composition.md)
-5. [ ] [328 — Add typed plugin hook targets](issues/300-query-runtime/328-plugin-hook-targets.md)
-6. [ ] [329 — Make every mutation automatically transactional](issues/300-query-runtime/329-automatic-mutation-transactions.md)
-7. [ ] [330 — Execute the native hook lifecycle](issues/300-query-runtime/330-native-hook-dispatcher.md)
-8. [ ] [337 — Replace named permission stages with hook enforcement](issues/300-query-runtime/337-policy-neutral-hook-enforcement.md)
-9. [ ] [338 — Add the adapter constraint compiler registry](issues/300-query-runtime/338-adapter-constraint-compiler-registry.md)
-10. [ ] [331 — Add find and output hooks](issues/300-query-runtime/331-find-and-output-hooks.md)
-11. [ ] [332 — Add transaction finalization hooks](issues/300-query-runtime/332-transaction-hook-lifecycle.md)
-12. [ ] [333 — Protect hook execution and expose diagnostics](issues/300-query-runtime/333-hook-safety-and-observability.md)
-13. [ ] [334 — Define bulk hook and non-atomic grouping semantics](issues/300-query-runtime/334-bulk-hook-semantics.md)
-14. [ ] [508 — Implement PostgreSQL transactions, bulk, and upsert](issues/500-postgres/508-transactions-bulk-upsert.md)
-15. [ ] [335 — Verify native hooks against PostgreSQL](issues/300-query-runtime/335-native-hooks-postgres-e2e.md)
+1. [x] [213 — Consolidate the foundational Core package](issues/200-core/213-consolidate-foundational-core.md)
+2. [ ] [324 — Prove the native hook contract boundary](issues/300-query-runtime/324-native-hook-contract-boundary.md)
+3. [ ] [325 — Declare native schema hooks](issues/300-query-runtime/325-native-schema-hooks.md)
+4. [ ] [326 — Declare inline field hooks](issues/300-query-runtime/326-inline-field-hooks.md)
+5. [ ] [327 — Compose hook families and handler lists](issues/300-query-runtime/327-hook-families-and-composition.md)
+6. [ ] [328 — Add typed plugin hook targets](issues/300-query-runtime/328-plugin-hook-targets.md)
+7. [ ] [329 — Make every mutation automatically transactional](issues/300-query-runtime/329-automatic-mutation-transactions.md)
+8. [ ] [330 — Execute the native hook lifecycle](issues/300-query-runtime/330-native-hook-dispatcher.md)
+9. [ ] [337 — Replace named permission stages with hook enforcement](issues/300-query-runtime/337-policy-neutral-hook-enforcement.md)
+10. [ ] [338 — Add the adapter constraint compiler registry](issues/300-query-runtime/338-adapter-constraint-compiler-registry.md)
+11. [ ] [331 — Add find and output hooks](issues/300-query-runtime/331-find-and-output-hooks.md)
+12. [ ] [332 — Add transaction finalization hooks](issues/300-query-runtime/332-transaction-hook-lifecycle.md)
+13. [ ] [333 — Protect hook execution and expose diagnostics](issues/300-query-runtime/333-hook-safety-and-observability.md)
+14. [ ] [334 — Define bulk hook and non-atomic grouping semantics](issues/300-query-runtime/334-bulk-hook-semantics.md)
+15. [ ] [508 — Implement PostgreSQL transactions, bulk, and upsert](issues/500-postgres/508-transactions-bulk-upsert.md)
+16. [ ] [335 — Verify native hooks against PostgreSQL](issues/300-query-runtime/335-native-hooks-postgres-e2e.md)
 
 Issues 328, 329, and 508 become independently implementable after their own
 dependencies complete, but the numbered order remains the preferred
@@ -117,16 +118,17 @@ the named Runtime stages and proven monotonic hook enforcement.
 
 [324 — Prove the native hook contract boundary](issues/300-query-runtime/324-native-hook-contract-boundary.md)
 
-The issue must settle the dependency-safe declaration shape before production
-hook APIs are added. It must not trade away direct autocomplete, compact hovers,
-or exact field values to make the package graph easier.
+The consolidated Core now removes the physical package cycle. This issue must
+prove the direct schema and field hook declaration types before production hook
+storage or dispatch is implemented.
 
 ## Progress log
 
 Update this list after every completed issue so the next agent can resume
 without reconstructing repository history.
 
-- 324 — `ready` — Native hook contract boundary not started.
+- 213 — `done` — Schema, Query, Access, application orchestration, and Runtime now share one cohesive Core package under ADR-0095.
+- 324 — `ready` — Native hook contract proof is the current issue against the consolidated Core.
 - 329 — `ready` — Automatic mutation transactions are dependency-ready but follow issues 324–328 in the preferred sequence.
 - 337 — `planned` — Policy-neutral enforcement waits for the typed plugin targets and native dispatcher.
 - 338 — `planned` — The generic constraint compiler registry waits for policy-neutral constraint contracts from issue 337.

@@ -2,7 +2,7 @@ import {
 	compileValidationPlans,
 	type FieldValidationPlan,
 	type SchemaDefinition,
-} from '@ultimabase/schema'
+} from '@ultimabase/core'
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 import {
 	getTableConfig,

@@ -1,4 +1,4 @@
-import { Schema, stringField } from '@ultimabase/schema'
+import { Schema, stringField } from '../schema/index.js'
 import { expectTypeOf, test } from 'vitest'
 
 import {

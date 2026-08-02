@@ -2,16 +2,7 @@
 	"$schema": "https://unpkg.com/@changesets/config@3.1.4/schema.json",
 	"changelog": "@changesets/cli/changelog",
 	"commit": false,
-	"fixed": [
-		[
-			"@ultimabase/access",
-			"@ultimabase/core",
-			"@ultimabase/query",
-			"@ultimabase/runtime",
-			"@ultimabase/schema",
-			"@ultimabase/shared"
-		]
-	],
+	"fixed": [["@ultimabase/core", "@ultimabase/shared"]],
 	"linked": [],
 	"access": "public",
 	"baseBranch": "main",

@@ -4,11 +4,14 @@ UltimaBase is an open-source, Node.js-first backend framework for building typed
 
 It takes inspiration from the simplicity of Parse Server while deliberately replacing its limitations with stronger inference, explicit plugin boundaries, a single operation engine, immutable class-based builders, and first-class PostgreSQL support.
 
-> Status: architecture and repository scaffold. The implementation is intentionally tracked as small issues under [`issues/`](issues/README.md).
+> Status: active pre-release development. The implementation is tracked as small issues under [`issues/`](issues/README.md).
 
 ## Intended developer experience
 
 ```ts
+import { Schema, UltimaBase, booleanField, stringField } from '@ultimabase/core'
+import { postgresPlugin } from '@ultimabase/postgres'
+
 export const UserSchema = new Schema({
 	className: 'User',
 	fields: {
@@ -54,7 +57,7 @@ const users = await ultimabase
 
 - Static schemas are the source of truth.
 - Concrete capabilities are plugins.
-- Core and Runtime do not know infrastructure implementations.
+- Core contains the inseparable Schema, Query, Access, application, and Runtime domains while remaining independent from infrastructure implementations.
 - REST and GraphQL use one operation AST and one runtime pipeline.
 - UltimaBase, Schema, Query, ACL, and Role domain objects use immutable classes.
 - CLP, ACL, roles, and field access are independent plugins.

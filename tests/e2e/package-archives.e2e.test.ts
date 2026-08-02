@@ -1,4 +1,5 @@
 import { packAsList } from '@publint/pack'
+import { existsSync } from 'node:fs'
 import { readFile, readdir } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import path from 'node:path'
@@ -19,7 +20,11 @@ const repositoryRoot = path.resolve(import.meta.dirname, '../..')
 const packagesDirectory = path.join(repositoryRoot, 'packages')
 const packageEntries = await readdir(packagesDirectory, { withFileTypes: true })
 const packageFixtures: PackageFixture[] = packageEntries
-	.filter((entry): boolean => entry.isDirectory())
+	.filter(
+		(entry): boolean =>
+			entry.isDirectory() &&
+			existsSync(path.join(packagesDirectory, entry.name, 'package.json')),
+	)
 	.map((entry): PackageFixture => ({
 		directory: path.join(packagesDirectory, entry.name),
 		name: `@ultimabase/${entry.name}`,
@@ -123,7 +128,7 @@ describe.each(packageFixtures)('$name archive', ({ directory, name }) => {
 	})
 })
 
-describe('@ultimabase/schema declaration artifact', () => {
+describe('@ultimabase/core Schema and Query declarations', () => {
 	it('exposes the documented Schema constructor', () => {
 		const schema = readFixtureQuickInfo('Schema({')
 
@@ -212,7 +217,7 @@ describe('@ultimabase/schema declaration artifact', () => {
 	})
 })
 
-describe('@ultimabase/runtime declaration artifact', () => {
+describe('@ultimabase/core Runtime declarations', () => {
 	it('exposes the documented UltimaBase facade and compact direct query', () => {
 		const facade = readFixtureQuickInfo('UltimaBase({')
 		const query = readFixtureQuickInfo('query(PostSchema)')

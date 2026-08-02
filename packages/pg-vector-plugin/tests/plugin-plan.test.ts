@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { compileValidationPlans, Schema } from '@ultimabase/schema'
+import { compileValidationPlans, Schema } from '@ultimabase/core'
 
 import {
 	isVectorFieldValidationPlan,

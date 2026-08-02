@@ -2,7 +2,7 @@
 
 - Status: ready
 - Milestone: 4
-- Packages: `@ultimabase/access`
+- Packages: `@ultimabase/core`
 - Depends on: 103, 310
 - ADR: ADR-0006
 

@@ -1,4 +1,4 @@
-import { Schema, stringField } from '@ultimabase/schema'
+import { Schema, stringField } from '@ultimabase/core'
 import { describe, expect, it } from 'vitest'
 
 import { postgresTable } from '../naming/table.js'

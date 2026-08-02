@@ -1,5 +1,5 @@
 ---
-'@ultimabase/schema': minor
+'@ultimabase/core': minor
 '@ultimabase/shared': patch
 ---
 

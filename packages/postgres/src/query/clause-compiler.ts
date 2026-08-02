@@ -4,8 +4,8 @@ import {
 	type QueryCursorPayload,
 	type QueryFilterNode,
 	type QueryOrderNode,
-} from '@ultimabase/query'
-import type { SchemaDefinition } from '@ultimabase/schema'
+} from '@ultimabase/core'
+import type { SchemaDefinition } from '@ultimabase/core'
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 import {
 	and,

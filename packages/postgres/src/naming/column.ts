@@ -2,7 +2,7 @@ import {
 	defineFieldExtension,
 	type FieldExtension,
 	type GenericField,
-} from '@ultimabase/schema'
+} from '@ultimabase/core'
 import {
 	assertNonEmptyString,
 	isPlainRecord,

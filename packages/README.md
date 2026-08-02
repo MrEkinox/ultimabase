@@ -5,11 +5,12 @@ Every publishable workspace uses the `@ultimabase/*` scope and exposes only deli
 ## Foundations
 
 - `shared`: dependency-light primitives.
-- `schema`: static schema and field definitions.
-- `query`: operation/query AST and immutable query classes.
-- `access`: shared access-rule contracts without policy implementations.
-- `core`: application, plugins, services, lifecycle, and errors.
-- `runtime`: CRUD orchestration, contexts, hooks, and transactions.
+- `core`: static schemas, immutable queries, request authority, application and
+  plugin orchestration, CRUD Runtime, hooks, and transactions.
+
+Core keeps those responsibilities in separate internal domains while exposing
+one cohesive public package. This avoids cycles between inseparable contracts;
+optional infrastructure and policy behavior remains in plugins.
 
 ## Official plugins
 

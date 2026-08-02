@@ -1,5 +1,5 @@
 ---
-'@ultimabase/schema': major
+'@ultimabase/core': major
 ---
 
 Limit field defaults to static values and zero-argument runtime factories, and

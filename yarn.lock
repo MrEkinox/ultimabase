@@ -1472,27 +1472,11 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@ultimabase/access@workspace:^, @ultimabase/access@workspace:packages/access":
-  version: 0.0.0-use.local
-  resolution: "@ultimabase/access@workspace:packages/access"
-  dependencies:
-    "@ultimabase/schema": "workspace:^"
-    "@ultimabase/shared": "workspace:^"
-    tsdown: "npm:^0.22.14"
-    typescript: "npm:^6.0.3"
-    vitest: "npm:4.1.10"
-  languageName: unknown
-  linkType: soft
-
 "@ultimabase/acl-permissions@workspace:packages/acl-permissions":
   version: 0.0.0-use.local
   resolution: "@ultimabase/acl-permissions@workspace:packages/acl-permissions"
   dependencies:
-    "@ultimabase/access": "workspace:^"
     "@ultimabase/core": "workspace:^"
-    "@ultimabase/query": "workspace:^"
-    "@ultimabase/runtime": "workspace:^"
-    "@ultimabase/schema": "workspace:^"
     tsdown: "npm:^0.22.14"
     typescript: "npm:^6.0.3"
     vitest: "npm:4.1.10"
@@ -1508,10 +1492,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@ultimabase/clp-permissions@workspace:packages/clp-permissions"
   dependencies:
-    "@ultimabase/access": "workspace:^"
     "@ultimabase/core": "workspace:^"
-    "@ultimabase/runtime": "workspace:^"
-    "@ultimabase/schema": "workspace:^"
     tsdown: "npm:^0.22.14"
     typescript: "npm:^6.0.3"
     vitest: "npm:4.1.10"
@@ -1527,11 +1508,11 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@ultimabase/core@workspace:packages/core"
   dependencies:
-    "@ultimabase/access": "workspace:^"
-    "@ultimabase/schema": "workspace:^"
+    "@types/node": "npm:^24.0.0"
     "@ultimabase/shared": "workspace:^"
     tsdown: "npm:^0.22.14"
     typescript: "npm:^6.0.3"
+    uuid: "npm:^14.0.1"
     vitest: "npm:4.1.10"
   languageName: unknown
   linkType: soft
@@ -1540,11 +1521,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@ultimabase/field-permissions@workspace:packages/field-permissions"
   dependencies:
-    "@ultimabase/access": "workspace:^"
     "@ultimabase/core": "workspace:^"
-    "@ultimabase/query": "workspace:^"
-    "@ultimabase/runtime": "workspace:^"
-    "@ultimabase/schema": "workspace:^"
     tsdown: "npm:^0.22.14"
     typescript: "npm:^6.0.3"
     vitest: "npm:4.1.10"
@@ -1557,7 +1534,6 @@ __metadata:
   dependencies:
     "@ultimabase/core": "workspace:^"
     "@ultimabase/graphql": "workspace:^"
-    "@ultimabase/runtime": "workspace:^"
     graphql: "npm:^16.14.2"
     graphql-yoga: "npm:^5.21.2"
     tsdown: "npm:^0.22.14"
@@ -1572,9 +1548,6 @@ __metadata:
   dependencies:
     "@graphql-tools/schema": "npm:^10.0.25"
     "@ultimabase/core": "workspace:^"
-    "@ultimabase/query": "workspace:^"
-    "@ultimabase/runtime": "workspace:^"
-    "@ultimabase/schema": "workspace:^"
     dataloader: "npm:^2.2.3"
     graphql: "npm:^16.14.2"
     tsdown: "npm:^0.22.14"
@@ -1587,7 +1560,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@ultimabase/pg-vector-plugin@workspace:packages/pg-vector-plugin"
   dependencies:
-    "@ultimabase/schema": "workspace:^"
+    "@ultimabase/core": "workspace:^"
     "@ultimabase/shared": "workspace:^"
     tsdown: "npm:^0.22.14"
     typescript: "npm:^6.0.3"
@@ -1601,7 +1574,6 @@ __metadata:
   dependencies:
     "@ultimabase/core": "workspace:^"
     "@ultimabase/postgres": "workspace:^"
-    "@ultimabase/schema": "workspace:^"
     tsdown: "npm:^0.22.14"
     typescript: "npm:^6.0.3"
     vitest: "npm:4.1.10"
@@ -1613,27 +1585,11 @@ __metadata:
   resolution: "@ultimabase/postgres@workspace:packages/postgres"
   dependencies:
     "@types/pg": "npm:^8.15.5"
-    "@ultimabase/access": "workspace:^"
     "@ultimabase/core": "workspace:^"
-    "@ultimabase/query": "workspace:^"
-    "@ultimabase/runtime": "workspace:^"
-    "@ultimabase/schema": "workspace:^"
     "@ultimabase/shared": "workspace:^"
     drizzle-orm: "npm:^0.45.2"
     inflection: "npm:^3.0.2"
     pg: "npm:^8.16.3"
-    tsdown: "npm:^0.22.14"
-    typescript: "npm:^6.0.3"
-    vitest: "npm:4.1.10"
-  languageName: unknown
-  linkType: soft
-
-"@ultimabase/query@workspace:^, @ultimabase/query@workspace:packages/query":
-  version: 0.0.0-use.local
-  resolution: "@ultimabase/query@workspace:packages/query"
-  dependencies:
-    "@ultimabase/schema": "workspace:^"
-    "@ultimabase/shared": "workspace:^"
     tsdown: "npm:^0.22.14"
     typescript: "npm:^6.0.3"
     vitest: "npm:4.1.10"
@@ -1645,9 +1601,6 @@ __metadata:
   resolution: "@ultimabase/rest@workspace:packages/rest"
   dependencies:
     "@ultimabase/core": "workspace:^"
-    "@ultimabase/query": "workspace:^"
-    "@ultimabase/runtime": "workspace:^"
-    "@ultimabase/schema": "workspace:^"
     tsdown: "npm:^0.22.14"
     typescript: "npm:^6.0.3"
     vitest: "npm:4.1.10"
@@ -1658,38 +1611,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@ultimabase/roles@workspace:packages/roles"
   dependencies:
-    "@ultimabase/access": "workspace:^"
     "@ultimabase/core": "workspace:^"
-    "@ultimabase/runtime": "workspace:^"
-    "@ultimabase/schema": "workspace:^"
-    tsdown: "npm:^0.22.14"
-    typescript: "npm:^6.0.3"
-    vitest: "npm:4.1.10"
-  languageName: unknown
-  linkType: soft
-
-"@ultimabase/runtime@workspace:^, @ultimabase/runtime@workspace:packages/runtime":
-  version: 0.0.0-use.local
-  resolution: "@ultimabase/runtime@workspace:packages/runtime"
-  dependencies:
-    "@types/node": "npm:^24.0.0"
-    "@ultimabase/access": "workspace:^"
-    "@ultimabase/core": "workspace:^"
-    "@ultimabase/query": "workspace:^"
-    "@ultimabase/schema": "workspace:^"
-    "@ultimabase/shared": "workspace:^"
-    tsdown: "npm:^0.22.14"
-    typescript: "npm:^6.0.3"
-    uuid: "npm:^14.0.1"
-    vitest: "npm:4.1.10"
-  languageName: unknown
-  linkType: soft
-
-"@ultimabase/schema@workspace:^, @ultimabase/schema@workspace:packages/schema":
-  version: 0.0.0-use.local
-  resolution: "@ultimabase/schema@workspace:packages/schema"
-  dependencies:
-    "@ultimabase/shared": "workspace:^"
     tsdown: "npm:^0.22.14"
     typescript: "npm:^6.0.3"
     vitest: "npm:4.1.10"
@@ -1702,7 +1624,6 @@ __metadata:
   dependencies:
     "@hono/node-server": "npm:^2.0.12"
     "@ultimabase/core": "workspace:^"
-    "@ultimabase/runtime": "workspace:^"
     hono: "npm:^4.9.6"
     tsdown: "npm:^0.22.14"
     typescript: "npm:^6.0.3"
@@ -1726,8 +1647,6 @@ __metadata:
   dependencies:
     "@testcontainers/postgresql": "npm:^12.0.4"
     "@ultimabase/core": "workspace:^"
-    "@ultimabase/runtime": "workspace:^"
-    "@ultimabase/schema": "workspace:^"
     "@ultimabase/shared": "workspace:^"
     tsdown: "npm:^0.22.14"
     typescript: "npm:^6.0.3"

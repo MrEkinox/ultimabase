@@ -1,5 +1,5 @@
 ---
-'@ultimabase/schema': patch
+'@ultimabase/core': patch
 ---
 
 Restore complete editor autocomplete for every built-in field factory while

@@ -6,7 +6,7 @@ import {
 	objectField,
 	stringField,
 	timeField,
-} from '@ultimabase/schema'
+} from '@ultimabase/core'
 import { describe, expect, it } from 'vitest'
 
 import { compilePostgresSchema } from './schema-compiler.js'

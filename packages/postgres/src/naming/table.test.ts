@@ -1,4 +1,4 @@
-import { Schema, defineSchemaExtension } from '@ultimabase/schema'
+import { Schema, defineSchemaExtension } from '@ultimabase/core'
 import { pgTable, text } from 'drizzle-orm/pg-core'
 import { drizzle } from 'drizzle-orm/node-postgres'
 import { describe, expect, it } from 'vitest'

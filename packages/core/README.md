@@ -1,24 +1,60 @@
 # @ultimabase/core
 
-Infrastructure-neutral application contracts.
+The complete foundational UltimaBase framework for Node.js.
 
 Responsibilities:
 
+- immutable schemas, built-in and plugin-defined fields, and type inference;
+- immutable Query and Operation AST builders;
+- anonymous, user, and trusted master request authority;
 - isolated `FrameworkApplication` instances;
 - plugin definitions and global plugin graph;
 - nested plugin normalization;
 - typed service tokens and registries;
 - lifecycle phases;
-- shared contexts and framework errors;
-- registries used during plugin setup.
+- request engines, validation, transactions, hooks, and database contracts;
+- the public `UltimaBase` application facade.
 
-Core contains no CRUD implementation and must never import concrete database, server, transport, migration, permission, auth, cache, or jobs packages.
+Core must never import a concrete database, server, transport, migration,
+permission, authentication, cache, or jobs package. Those optional capabilities
+remain plugins above this package.
+
+## Internal domains
+
+One package does not mean one monolithic source folder. The implementation keeps
+explicit `schema`, `query`, `access`, and `runtime` domains alongside application
+orchestration, plugins, services, and errors. Internal folders are not exported
+as package subpaths; every supported API comes from `@ultimabase/core`.
+
+Detailed guides remain focused by domain:
+
+- [Schema and fields](docs/schema.md), with practical [schema examples](examples/schema/README.md);
+- [Query and Operation AST](docs/query.md);
+- [request authority](docs/access.md);
+- [Runtime, engines, transactions, and hooks](docs/runtime.md).
+
+```ts
+import { Schema, UltimaBase, booleanField, stringField } from '@ultimabase/core'
+
+const PostSchema = new Schema({
+	className: 'Post',
+	fields: {
+		title: stringField({ validation: { required: true } }),
+		published: booleanField({ default: false }),
+	},
+})
+
+const ultimabase = new UltimaBase({
+	schemas: [PostSchema],
+	plugins: [databasePlugin()],
+})
+```
 
 ## Framework application
 
 The regular developer entry point is `new UltimaBase(options)` from
-`@ultimabase/runtime`. Core exposes `createApplication(options)` as the
-lower-level composition boundary used by Runtime and advanced integrations. It
+`@ultimabase/core`. `createApplication(options)` remains the lower-level
+composition boundary used by advanced integrations. It
 validates the schema registry and complete plugin graph, runs declaration-only
 plugin setup, and returns before infrastructure or transports start:
 

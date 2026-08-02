@@ -5,9 +5,5 @@
 		"rootDir": "src"
 	},
 	"include": ["src/**/*.ts"],
-	"references": [
-		{ "path": "../schema" },
-		{ "path": "../core" },
-		{ "path": "../postgres" }
-	]
+	"references": [{ "path": "../core" }, { "path": "../postgres" }]
 }

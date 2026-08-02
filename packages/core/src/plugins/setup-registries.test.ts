@@ -3,7 +3,7 @@ import {
 	Schema,
 	defineSchemaExtension,
 	stringField,
-} from '@ultimabase/schema'
+} from '../schema/index.js'
 import { describe, expect, it } from 'vitest'
 
 import { createServiceToken } from '../services/service-token.js'

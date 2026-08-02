@@ -1,4 +1,4 @@
-import { SchemaRegistry } from '@ultimabase/schema'
+import { SchemaRegistry } from '../schema/index.js'
 import { expectTypeOf, test } from 'vitest'
 
 import {

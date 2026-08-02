@@ -1,4 +1,4 @@
-import type { FieldValidationPlan } from '@ultimabase/schema'
+import type { FieldValidationPlan } from '@ultimabase/core'
 import type { Index, PgColumn, PgTable } from 'drizzle-orm/pg-core'
 
 import type { PostgresValueCodec } from './value-codec.js'

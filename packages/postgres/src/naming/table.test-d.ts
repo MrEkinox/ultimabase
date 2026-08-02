@@ -1,4 +1,4 @@
-import { type SchemaExtension } from '@ultimabase/schema'
+import { type SchemaExtension } from '@ultimabase/core'
 import { expectTypeOf, test } from 'vitest'
 
 import { postgresTable, type PostgresTableExtension } from './table.js'

@@ -18,7 +18,7 @@ import {
 	postgresConnectionServiceToken,
 	postgresPlugin,
 } from '@ultimabase/postgres'
-import { UltimaBase } from '@ultimabase/runtime'
+import { UltimaBase } from '@ultimabase/core'
 
 const databaseUrl = process.env.DATABASE_URL
 
@@ -138,7 +138,7 @@ import {
 	Schema,
 	objectField,
 	stringField,
-} from '@ultimabase/schema'
+} from '@ultimabase/core'
 
 const EventSchema = new Schema({
 	className: 'Event',
@@ -245,7 +245,7 @@ Renames are explicit and preserve the existing column data:
 
 ```ts
 import { postgresColumn } from '@ultimabase/postgres'
-import { stringField } from '@ultimabase/schema'
+import { stringField } from '@ultimabase/core'
 
 const title = stringField({
 	extensions: [postgresColumn({ renamedFrom: 'headline' })],
@@ -331,7 +331,7 @@ Use `postgresTable` when the database needs an exact identifier:
 
 ```ts
 import { postgresTable } from '@ultimabase/postgres'
-import { Schema, stringField } from '@ultimabase/schema'
+import { Schema, stringField } from '@ultimabase/core'
 
 const ArticleSchema = new Schema({
 	className: 'Article',
@@ -344,5 +344,5 @@ const ArticleSchema = new Schema({
 
 The explicit name is preserved verbatim. It is passed to Drizzle as an
 identifier and escaped there, never interpolated into raw SQL. The generic
-extension keeps `@ultimabase/schema` independent from PostgreSQL; configuring
+extension keeps `@ultimabase/core` independent from PostgreSQL; configuring
 it without `postgresPlugin` fails application setup.

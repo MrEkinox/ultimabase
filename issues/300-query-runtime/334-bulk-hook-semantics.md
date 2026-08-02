@@ -2,7 +2,7 @@
 
 - Status: planned
 - Milestone: 3
-- Packages: `@ultimabase/query`, `@ultimabase/runtime`
+- Packages: `@ultimabase/core`
 - Depends on: 316, 329, 330
 - ADR: ADR-0069, ADR-0089
 

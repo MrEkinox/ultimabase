@@ -15,7 +15,7 @@ import {
 	stringField,
 	timeField,
 	uuidField,
-} from '@ultimabase/schema'
+} from '@ultimabase/core'
 import { getTableConfig, type PgColumn } from 'drizzle-orm/pg-core'
 import { describe, expect, it, vi } from 'vitest'
 

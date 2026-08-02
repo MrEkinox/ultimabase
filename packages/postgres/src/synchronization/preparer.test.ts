@@ -1,5 +1,5 @@
 import { FrameworkError } from '@ultimabase/core'
-import { Schema, stringField } from '@ultimabase/schema'
+import { Schema, stringField } from '@ultimabase/core'
 import { describe, expect, it } from 'vitest'
 
 import type {

@@ -18,11 +18,12 @@ database adapter
 transport serialization and post-commit events
 ```
 
-UltimaBase separates contracts, orchestration, and implementations:
+UltimaBase separates contracts, orchestration, and implementations inside one
+foundational package:
 
-- `schema`, `query`, and `access` define data and policy contracts.
-- `core` owns application, plugins, services, lifecycle, and errors.
-- `runtime` executes CRUD, transactions, hooks, and policy-neutral enforcement effects.
+- Core's `schema`, `query`, and `access` domains define data and authority contracts.
+- Core's application domain owns plugins, services, lifecycle, and errors.
+- Core's `runtime` domain executes CRUD, transactions, hooks, and policy-neutral enforcement effects.
 - official plugins provide database, transport, HTTP server, migrations, and permission implementations.
 
 ## Package dependency graph
@@ -30,35 +31,32 @@ UltimaBase separates contracts, orchestration, and implementations:
 An arrow means “imports or depends on” and always points toward a foundation.
 
 ```text
-schema ───────────────→ shared
-pg-vector-plugin ─────→ schema, shared
-query ────────────────→ schema, shared
-access ───────────────→ schema, shared
-core ─────────────────→ access, schema, shared
-runtime ──────────────→ core, access, query, schema, shared
-
-roles ────────────────→ runtime, core, access, schema
-clp-permissions ──────→ runtime, core, access, schema
-acl-permissions ──────→ runtime, core, access, query, schema
-field-permissions ────→ runtime, core, access, query, schema
-postgres ─────────────→ runtime, core, access, query, schema
-postgres-migrations ──→ postgres, core, schema
-server-hono ──────────→ runtime, core
-rest ─────────────────→ runtime, core, query, schema
-graphql ──────────────→ runtime, core, query, schema
-graphql-yoga ─────────→ graphql, runtime, core
-testing ──────────────→ runtime, core, schema, shared
+core ─────────────────→ shared
+pg-vector-plugin ─────→ core, shared
+roles ────────────────→ core
+clp-permissions ──────→ core
+acl-permissions ──────→ core
+field-permissions ────→ core
+postgres ─────────────→ core
+postgres-migrations ──→ postgres, core
+server-hono ──────────→ core
+rest ─────────────────→ core
+graphql ──────────────→ core
+graphql-yoga ─────────→ graphql, core
+testing ──────────────→ core, shared
 ```
 
-Concrete plugins may depend on Runtime and foundational contracts. Core and Runtime never depend back on concrete plugins.
+Concrete plugins depend on Core's public contracts. Core never depends back on
+concrete plugins.
 
-`@ultimabase/access` remains a neutral home for request-authority and shared
-policy contracts. A Runtime dependency on those contracts does not install or
+The internal Access domain remains a neutral home for request-authority and
+shared policy contracts. Runtime using those contracts does not install or
 name CLP, ACL, roles, or field-permission behavior.
 
 ## Schema extensions
 
-`@ultimabase/schema` only knows the generic `SchemaExtension` and `FieldExtension` contracts. Plugins contribute typed extension objects:
+Core's Schema domain only knows the generic `SchemaExtension` and
+`FieldExtension` contracts. Plugins contribute typed extension objects:
 
 ```ts
 new Schema({
@@ -112,7 +110,7 @@ run in reverse order, and a partial failure cleans every completed stage before
 the original failure is reported.
 
 `FrameworkApplication` owns those Core objects per instance.
-`@ultimabase/runtime` composes it behind the primary `UltimaBase` facade, whose
+Core's Runtime domain composes it behind the primary `UltimaBase` facade, whose
 constructor performs no I/O and whose `start()` assembles Runtime before
 starting infrastructure. The lower-level asynchronous factory remains
 available to framework packages. Configured literal plugin names retain their

@@ -10,7 +10,7 @@ import {
 	snapshotScalarFieldValue,
 	type FieldDefinition,
 	type FieldValue,
-} from '@ultimabase/schema'
+} from '@ultimabase/core'
 
 test('infers vector kinds, dimensions, and values', () => {
 	const field = vectorField({

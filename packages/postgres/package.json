@@ -24,11 +24,7 @@
 		"typecheck": "tsc --build"
 	},
 	"dependencies": {
-		"@ultimabase/access": "workspace:^",
 		"@ultimabase/core": "workspace:^",
-		"@ultimabase/query": "workspace:^",
-		"@ultimabase/runtime": "workspace:^",
-		"@ultimabase/schema": "workspace:^",
 		"@ultimabase/shared": "workspace:^",
 		"drizzle-orm": "^0.45.2",
 		"inflection": "^3.0.2",

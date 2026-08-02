@@ -1,0 +1,231 @@
+import {
+	FrameworkApplication,
+	createApplication,
+	definePlugin,
+} from '../../foundation.js'
+import { Query } from '../../query/index.js'
+import { Schema, stringField } from '../../schema/index.js'
+import { describe, expect, it } from 'vitest'
+
+import { RequestContext, requestSources } from '../context/request-context.js'
+import type { CreateOneOperationAst } from '../../query/index.js'
+import type {
+	RuntimeOperationStageInput,
+	RuntimeResultStageInput,
+} from '../pipeline/contracts.js'
+import {
+	afterOperation,
+	beforeOperation,
+	postCommitEvent,
+} from './definitions.js'
+import { createRuntimeHookStages } from './stages.js'
+
+const articleSchema = new Schema({
+	className: 'HookStageArticle',
+	fields: { title: stringField({ validation: { required: true } }) },
+})
+
+const foreignSchema = new Schema({
+	className: 'HookStageForeign',
+	fields: { title: stringField({ validation: { required: true } }) },
+})
+
+const context = RequestContext.anonymous({
+	requestId: 'hook-stage-1',
+	source: requestSources.internal,
+})
+
+const operation: CreateOneOperationAst<typeof articleSchema> = {
+	kind: 'create-one',
+	schema: new Query(articleSchema).ast.schema,
+	input: { title: 'input' },
+}
+
+describe('createRuntimeHookStages', () => {
+	it('requires an initialized FrameworkApplication', async () => {
+		expect(() => createRuntimeHookStages({} as never)).toThrow(
+			new TypeError('Runtime hook stages require a FrameworkApplication'),
+		)
+
+		const application = new FrameworkApplication({
+			schemas: [articleSchema],
+			plugins: [],
+		})
+
+		expect(() => createRuntimeHookStages(application)).toThrow(
+			new TypeError('Application contributions require completed plugin setup'),
+		)
+		await application.dispose()
+	})
+
+	it('rejects values not created by Runtime contribution factories', async () => {
+		const plugin = definePlugin({
+			name: 'fixture.invalid-hook',
+			setup: ({ registries }) => {
+				registries.hooks.register('fixture.invalid', () => undefined)
+			},
+		})
+		const application = await createApplication({
+			schemas: [articleSchema],
+			plugins: [plugin],
+		})
+
+		expect(() => createRuntimeHookStages(application)).toThrow(
+			new TypeError(
+				'Plugin "fixture.invalid-hook" registered invalid runtime hooks contribution "fixture.invalid"',
+			),
+		)
+	})
+
+	it('rejects contribution kinds registered in the wrong Core category', async () => {
+		const eventInHooks = definePlugin({
+			name: 'fixture.event-in-hooks',
+			setup: ({ registries }) => {
+				registries.hooks.register(
+					'fixture.wrong-event',
+					postCommitEvent({ handler: () => undefined }),
+				)
+			},
+		})
+		const hookInEvents = definePlugin({
+			name: 'fixture.hook-in-events',
+			setup: ({ registries }) => {
+				registries.events.register(
+					'fixture.wrong-hook',
+					beforeOperation({
+						handler: (input) => ({ operation: input.operation }),
+					}),
+				)
+			},
+		})
+
+		for (const plugin of [eventInHooks, hookInEvents]) {
+			const application = await createApplication({
+				schemas: [articleSchema],
+				plugins: [plugin],
+			})
+
+			expect(() => createRuntimeHookStages(application)).toThrow(
+				/wrong registry/u,
+			)
+		}
+	})
+
+	it('rejects schema scopes outside the owning application', async () => {
+		const plugin = definePlugin({
+			name: 'fixture.foreign-hook',
+			setup: ({ registries }) => {
+				registries.hooks.register(
+					'fixture.foreign',
+					beforeOperation({
+						schema: foreignSchema,
+						handler: (input) => ({ operation: input.operation }),
+					}),
+				)
+			},
+		})
+		const application = await createApplication({
+			schemas: [articleSchema],
+			plugins: [plugin],
+		})
+
+		expect(() => createRuntimeHookStages(application)).toThrow(
+			new TypeError(
+				'Runtime contribution "fixture.foreign" references a schema outside its application',
+			),
+		)
+	})
+
+	it('requires explicit before and after transformation wrappers', async () => {
+		const plugin = definePlugin({
+			name: 'fixture.invalid-output',
+			setup: ({ registries }) => {
+				registries.hooks.register(
+					'fixture.invalid-before-output',
+					beforeOperation({
+						operations: ['create-one'],
+						handler: ((input: RuntimeOperationStageInput<typeof operation>) =>
+							input.operation) as never,
+					}),
+				)
+				registries.hooks.register(
+					'fixture.invalid-after-output',
+					afterOperation({
+						operations: ['create-one'],
+						handler: ((input: RuntimeResultStageInput<typeof operation>) => ({
+							result: input.result,
+							extra: true,
+						})) as never,
+					}),
+				)
+			},
+		})
+		const application = await createApplication({
+			schemas: [articleSchema],
+			plugins: [plugin],
+		})
+		const stages = createRuntimeHookStages(application)
+
+		await expect(
+			stages.globalBeforeHooks({ context, operation }),
+		).rejects.toThrow(
+			new TypeError('runtime hook must return exactly { operation }'),
+		)
+		await expect(
+			stages.globalAfterHooks({
+				context,
+				operation,
+				result: {
+					id: 'article-1',
+					title: 'stored',
+					createdAt: '2026-08-01T00:00:00.000Z',
+					updatedAt: '2026-08-01T00:00:00.000Z',
+				},
+			}),
+		).rejects.toThrow(
+			new TypeError('runtime hook must return exactly { result }'),
+		)
+	})
+
+	it('prevents before-hooks from changing terminal kind or schema identity', async () => {
+		const createStages = async (
+			replacement: CreateOneOperationAst<typeof articleSchema> | object,
+		) => {
+			const plugin = definePlugin({
+				name: 'fixture.replacement',
+				setup: ({ registries }) => {
+					registries.hooks.register(
+						'fixture.replacement',
+						beforeOperation({
+							operations: ['create-one'],
+							handler: (() => ({ operation: replacement })) as never,
+						}),
+					)
+				},
+			})
+			const application = await createApplication({
+				schemas: [articleSchema, foreignSchema],
+				plugins: [plugin],
+			})
+
+			return createRuntimeHookStages(application)
+		}
+		const kindStages = await createStages({ ...operation, kind: 'count' })
+		const foreignOperation: CreateOneOperationAst<typeof articleSchema> = {
+			...operation,
+			schema: new Query(foreignSchema).ast.schema as never,
+		}
+		const schemaStages = await createStages(foreignOperation)
+
+		await expect(
+			kindStages.globalBeforeHooks({ context, operation }),
+		).rejects.toThrow(
+			new TypeError('before-operation hook must preserve operation kind'),
+		)
+		await expect(
+			schemaStages.globalBeforeHooks({ context, operation }),
+		).rejects.toThrow(
+			new TypeError('before-operation hook must preserve schema identity'),
+		)
+	})
+})

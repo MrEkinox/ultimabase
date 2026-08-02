@@ -2,7 +2,7 @@
 
 - Status: ready
 - Milestone: 3
-- Packages: `@ultimabase/query`
+- Packages: `@ultimabase/core`
 - Depends on: 305
 - ADR: ADR-0056, ADR-0057, ADR-0084
 

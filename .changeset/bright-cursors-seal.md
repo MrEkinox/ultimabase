@@ -1,5 +1,5 @@
 ---
-'@ultimabase/query': minor
+'@ultimabase/core': minor
 ---
 
 Add versioned opaque cursor payloads, mandatory UUID tie-breaking, protected
