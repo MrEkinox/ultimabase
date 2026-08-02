@@ -8,11 +8,14 @@ import {
 } from '../../schema/index.js'
 import { expect, expectTypeOf, test } from 'vitest'
 
+import type * as publicQuery from '../index.js'
+
 import {
 	Query,
 	type QueryFilterFieldName,
 	type QueryFilterNode,
 } from '../index.js'
+import { hydrateQueryFromAst } from './query.js'
 
 const postSchema = new Schema({
 	className: 'Post',
@@ -52,6 +55,30 @@ test('preserves schema, AST, and chain result types', () => {
 
 	// @ts-expect-error -- Public AST roots remain immutable.
 	query.ast.limit = 50
+})
+
+test('hydrates exact selections internally without widening the public API', () => {
+	const source = new Query(postSchema).select('title', 'id')
+	const unselected = new Query(postSchema)
+	const hydrated = hydrateQueryFromAst<typeof postSchema, 'title' | 'id'>(
+		source.ast,
+	)
+	const requireSelected = (
+		query: Query<typeof postSchema, 'title' | 'id'>,
+	): Query<typeof postSchema, 'title' | 'id'> => query
+
+	expectTypeOf(hydrated).toEqualTypeOf<
+		Query<typeof postSchema, 'title' | 'id'>
+	>()
+	requireSelected(hydrated)
+
+	// @ts-expect-error -- Select-all cannot satisfy a concrete projection contract.
+	requireSelected(unselected)
+	// @ts-expect-error -- A concrete projection cannot masquerade as select-all either.
+	const selectAll: Query<typeof postSchema> = hydrated
+
+	void selectAll
+	expectTypeOf<'hydrateQueryFromAst'>().not.toExtend<keyof typeof publicQuery>()
 })
 
 test('correlates every filter field with its exact operand type', () => {

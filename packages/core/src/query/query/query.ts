@@ -41,6 +41,30 @@ type QueryBuilderAst<TSchema extends SchemaDefinition> = QueryAst<
 	QueryFilterNode<TSchema>
 >
 
+// Query state stays outside the frozen public shell so internal hydration does
+// not need a public constructor overload or an externally callable static API.
+const queryAsts = new WeakMap<object, unknown>()
+
+const readQueryAst = <const TSchema extends SchemaDefinition>(
+	query: object,
+): QueryBuilderAst<TSchema> => {
+	const ast: unknown = queryAsts.get(query)
+
+	if (ast === undefined) {
+		throw new TypeError('Query instance has no internal AST')
+	}
+
+	// Only this module stores ASTs, always beside the matching Query schema type.
+	return ast as QueryBuilderAst<TSchema>
+}
+
+const storeQueryAst = <const TSchema extends SchemaDefinition>(
+	query: object,
+	ast: QueryBuilderAst<TSchema>,
+): void => {
+	queryAsts.set(query, ast)
+}
+
 type QueryAstPatch<TSchema extends SchemaDefinition> = Partial<
 	Pick<
 		QueryBuilderAst<TSchema>,
@@ -65,13 +89,16 @@ export class Query<
 	const TSchema extends SchemaDefinition,
 	TSelectedField extends QueryFieldName<TSchema> = never,
 > {
-	// This type-only member retains selection inference without duplicating AST state.
-	declare private readonly selectedFieldType: TSelectedField
-
-	#ast: QueryBuilderAst<TSchema>
+	// The explicit mode separates `never` (implicit select-all) from every concrete
+	// projection, while input and output positions keep selected unions invariant.
+	declare private readonly selectedFieldType: {
+		readonly mode: [TSelectedField] extends [never] ? 'all' : 'selected'
+		readonly read: TSelectedField
+		readonly write: (field: TSelectedField) => void
+	}
 
 	constructor(schema: TSchema) {
-		this.#ast = createQueryAst(schema)
+		storeQueryAst(this, createQueryAst(schema))
 
 		// Public instances cannot acquire mutable ad-hoc state between branches.
 		Object.freeze(this)
@@ -79,19 +106,19 @@ export class Query<
 
 	/** Exposes the immutable representation consumed by transports and Runtime. */
 	get ast(): QueryBuilderAst<TSchema> {
-		return this.#ast
+		return readQueryAst<TSchema>(this)
 	}
 
 	/** Returns the exact schema retained by the Query AST. */
 	get schema(): TSchema {
-		return this.#ast.schema.definition
+		return this.ast.schema.definition
 	}
 
 	/** Adds selected fields while keeping their first declaration order. */
 	select<const TField extends QueryFieldName<TSchema>>(
 		...fields: readonly TField[]
 	): Query<TSchema, TSelectedField | TField> {
-		const selectedFields = this.#ast.selection.fields.map(
+		const selectedFields = this.ast.selection.fields.map(
 			(selection) => selection.field,
 		)
 
@@ -128,12 +155,12 @@ export class Query<
 
 		if (pagination === undefined) {
 			// Zero removes an existing offset while leaving an unrelated cursor branch intact.
-			return this.#ast.pagination?.kind === 'offset-pagination'
+			return this.ast.pagination?.kind === 'offset-pagination'
 				? this.#with({ pagination: undefined })
 				: this.#with({})
 		}
 
-		if (this.#ast.pagination?.kind === 'cursor-pagination') {
+		if (this.ast.pagination?.kind === 'cursor-pagination') {
 			throw new TypeError('query cannot combine skip and after pagination')
 		}
 
@@ -142,7 +169,7 @@ export class Query<
 
 	/** Selects the first or a resumed cursor page and rejects an existing offset. */
 	after(cursor?: string): Query<TSchema, TSelectedField> {
-		if (this.#ast.pagination?.kind === 'offset-pagination') {
+		if (this.ast.pagination?.kind === 'offset-pagination') {
 			throw new TypeError('query cannot combine skip and after pagination')
 		}
 
@@ -370,7 +397,7 @@ export class Query<
 		direction: QueryOrderDirection,
 		fields: readonly QueryFieldName<TSchema>[],
 	): Query<TSchema, TSelectedField> {
-		const orders = this.#ast.ordering.orders.map((order) => ({
+		const orders = this.ast.ordering.orders.map((order) => ({
 			field: order.field,
 			direction: order.direction,
 		}))
@@ -387,7 +414,7 @@ export class Query<
 		filter: QueryFilterNode<TSchema>,
 		logicalKind: 'and' | 'or' = 'and',
 	): Query<TSchema, TSelectedField> {
-		const currentExpression = this.#ast.where?.expression
+		const currentExpression = this.ast.where?.expression
 		const expression =
 			currentExpression === undefined
 				? filter
@@ -436,20 +463,30 @@ export class Query<
 	#with<TNextSelection extends QueryFieldName<TSchema> = TSelectedField>(
 		patch: QueryAstPatch<TSchema>,
 	): Query<TSchema, TNextSelection> {
-		return Query.#fromAst<TSchema, TNextSelection>(
-			immutableRecord({ ...this.#ast, ...patch }),
+		return hydrateQueryFromAst<TSchema, TNextSelection>(
+			immutableRecord({ ...this.ast, ...patch }),
 		)
 	}
+}
 
-	static #fromAst<
-		const TNextSchema extends SchemaDefinition,
-		TNextSelection extends QueryFieldName<TNextSchema>,
-	>(ast: QueryBuilderAst<TNextSchema>): Query<TNextSchema, TNextSelection> {
-		const query = new Query<TNextSchema, TNextSelection>(ast.schema.definition)
+/**
+ * Restores a frozen unbound Query from one already normalized immutable AST.
+ *
+ * This module-level export is intentionally omitted from Core's public export
+ * surface. Runtime uses it to expose `beforeFind` without adding execution state
+ * or a low-level AST constructor to the developer-facing Query API.
+ *
+ * @internal
+ */
+export const hydrateQueryFromAst = <
+	const TSchema extends SchemaDefinition,
+	TSelectedField extends QueryFieldName<TSchema>,
+>(
+	ast: QueryBuilderAst<TSchema>,
+): Query<TSchema, TSelectedField> => {
+	const query = new Query<TSchema, TSelectedField>(ast.schema.definition)
 
-		// Private fields remain assignable internally after the public shell is frozen.
-		query.#ast = ast
+	storeQueryAst(query, ast)
 
-		return query
-	}
+	return query
 }

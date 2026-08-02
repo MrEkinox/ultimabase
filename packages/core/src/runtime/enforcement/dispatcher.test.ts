@@ -214,6 +214,18 @@ describe('createEnforcementStages', () => {
 			enforcement,
 			operation,
 		})
+		const selectionResult = await stages.enforceSelectionResult({
+			context,
+			enforcement,
+			operation,
+			result: {
+				createdAt: '2026-08-02T00:00:00.000Z',
+				id: 'article-1',
+				secret: 'hidden',
+				title: 'Allowed',
+				updatedAt: '2026-08-02T00:00:00.000Z',
+			},
+		})
 		const result = await stages.enforceResult({
 			context,
 			enforcement,
@@ -231,6 +243,7 @@ describe('createEnforcementStages', () => {
 			{ kind: 'fixture.tenant', version: 1, payload: { tenantId: 'tenant-1' } },
 			{ kind: 'fixture.visibility', version: 1, payload: { published: true } },
 		])
+		expect(selectionResult).toStrictEqual({ id: 'article-1', title: 'Allowed' })
 		expect(result).toStrictEqual({ title: 'Allowed' })
 		expect(trace).toStrictEqual([
 			'guard',

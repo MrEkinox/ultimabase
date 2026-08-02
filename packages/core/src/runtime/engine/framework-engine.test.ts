@@ -43,6 +43,14 @@ const articleOperation = {
 	query: new Query(articleSchema).limit(10).ast,
 } satisfies FindOperationAst<typeof articleSchema>
 
+/** Produces complete records for the strict public result boundary. */
+const articleRecord = (title: string) => ({
+	createdAt: '2026-08-02T00:00:00.000Z',
+	id: '0198f090-2a50-7000-8000-000000000032',
+	title,
+	updatedAt: '2026-08-02T00:00:00.000Z',
+})
+
 /** Returns deterministic fixture data for every generic adapter call. */
 class FixtureDatabaseExecutor implements DatabaseAdapter {
 	readonly kind = 'database-adapter' as const
@@ -200,14 +208,16 @@ describe('FrameworkEngine', () => {
 
 	it('executes normalized operations with the exact request context', async () => {
 		const contexts: RequestContext[] = []
-		const articles = [{ title: 'UltimaBase' }]
+		const articles = [articleRecord('UltimaBase')]
 		const framework = createFixtureFramework(articleSchema, articles, contexts)
 		const request = framework.user('user-1', {
 			requestId: 'execute-1',
 			source: requestSources.internal,
 		})
 
-		await expect(request.execute(articleOperation)).resolves.toBe(articles)
+		await expect(request.execute(articleOperation)).resolves.toStrictEqual(
+			articles,
+		)
 		expect(contexts).toStrictEqual([request.context])
 
 		const foreignOperation = {
@@ -236,7 +246,7 @@ describe('FrameworkEngine', () => {
 	})
 
 	it('executes schema-backed operations through the same owned pipeline', async () => {
-		const createdArticle = { title: 'Created' }
+		const createdArticle = articleRecord('Created')
 		const framework = createFixtureFramework(articleSchema, createdArticle)
 		const request = framework.user('user-1', {
 			requestId: 'create-1',
@@ -248,7 +258,9 @@ describe('FrameworkEngine', () => {
 			input: { title: 'Created' },
 		} satisfies CreateOneOperationAst<typeof articleSchema>
 
-		await expect(request.execute(operation)).resolves.toBe(createdArticle)
+		await expect(request.execute(operation)).resolves.toStrictEqual(
+			createdArticle,
+		)
 	})
 
 	it('requires adapter transaction support before a mutation pipeline can begin', async () => {
@@ -421,12 +433,12 @@ describe('FrameworkEngine', () => {
 			const secondContexts: RequestContext[] = []
 			const firstFramework = createFixtureFramework(
 				articleSchema,
-				[{ title: 'first' }],
+				[articleRecord('first')],
 				firstContexts,
 			)
 			const secondFramework = createFixtureFramework(
 				matchingClassSchema,
-				[{ title: 'second' }],
+				[articleRecord('second')],
 				secondContexts,
 			)
 			const firstRequest = firstFramework.anonymous({
@@ -447,8 +459,8 @@ describe('FrameworkEngine', () => {
 				secondRequest.execute(secondOperation),
 			])
 
-			expect(firstResult).toStrictEqual([{ title: 'first' }])
-			expect(secondResult).toStrictEqual([{ title: 'second' }])
+			expect(firstResult).toStrictEqual([articleRecord('first')])
+			expect(secondResult).toStrictEqual([articleRecord('second')])
 			expect(firstContexts).toStrictEqual([firstRequest.context])
 			expect(secondContexts).toStrictEqual([secondRequest.context])
 			expect(() => firstRequest.query(matchingClassSchema)).toThrow(

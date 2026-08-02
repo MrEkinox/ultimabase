@@ -69,7 +69,7 @@ export const getRuntimeOperationFields = (
 	const schema = getOperationSchema(operation)
 
 	if (!Schema.is(schema)) {
-		throw new TypeError('Runtime field inputs require a declared schema')
+		throw new TypeError('Runtime field traversal requires a declared schema')
 	}
 
 	return schema.fields
@@ -444,7 +444,8 @@ interface PresentPathValue {
 
 type PathValue = MissingPathValue | PresentPathValue
 
-const readPathValue = (
+/** Reads a present value through the segmented paths shared by field lifecycles. */
+export const readRuntimeFieldValuePath = (
 	root: unknown,
 	path: readonly RuntimeFieldValuePathSegment[],
 ): PathValue => {
@@ -468,7 +469,8 @@ const readPathValue = (
 	return { found: true, value }
 }
 
-const replacePathValue = (
+/** Replaces one field value through immutable record and array copies. */
+export const replaceRuntimeFieldValuePath = (
 	root: unknown,
 	path: readonly RuntimeFieldValuePathSegment[],
 	replacement: unknown,
@@ -481,11 +483,11 @@ const replacePathValue = (
 
 	if (typeof segment === 'number') {
 		if (!isUnknownArray(root) || segment >= root.length) {
-			throw new TypeError('Runtime field input replacement path is unavailable')
+			throw new TypeError('Runtime field value replacement path is unavailable')
 		}
 
 		const values = [...root]
-		values[segment] = replacePathValue(
+		values[segment] = replaceRuntimeFieldValuePath(
 			values[segment],
 			remainingPath,
 			replacement,
@@ -494,12 +496,16 @@ const replacePathValue = (
 	}
 
 	if (!isPlainRecord(root) || !Object.hasOwn(root, segment)) {
-		throw new TypeError('Runtime field input replacement path is unavailable')
+		throw new TypeError('Runtime field value replacement path is unavailable')
 	}
 
 	return immutableRecord({
 		...root,
-		[segment]: replacePathValue(root[segment], remainingPath, replacement),
+		[segment]: replaceRuntimeFieldValuePath(
+			root[segment],
+			remainingPath,
+			replacement,
+		),
 	})
 }
 
@@ -514,7 +520,7 @@ export const transformOperationFieldInputs = async <
 	const inputs = collectOperationFieldInputs(operation, 'children-first')
 
 	for (const input of inputs) {
-		const current = readPathValue(transformed, input.valuePath)
+		const current = readRuntimeFieldValuePath(transformed, input.valuePath)
 
 		if (!current.found) {
 			throw new TypeError(
@@ -528,7 +534,11 @@ export const transformOperationFieldInputs = async <
 
 		// Undefined means observation only; logical field values never use it as data.
 		if (replacement !== undefined) {
-			transformed = replacePathValue(transformed, input.valuePath, replacement)
+			transformed = replaceRuntimeFieldValuePath(
+				transformed,
+				input.valuePath,
+				replacement,
+			)
 		}
 	}
 

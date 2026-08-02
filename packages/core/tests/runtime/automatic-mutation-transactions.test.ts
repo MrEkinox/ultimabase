@@ -31,6 +31,16 @@ const articleSchema = new Schema({
 	},
 })
 
+const fixtureInstant = '2026-08-02T00:00:00.000Z'
+
+/** Produces complete logical records accepted by the adapter and hook boundaries. */
+const articleRecord = (id: string, title: string) => ({
+	createdAt: fixtureInstant,
+	id,
+	title,
+	updatedAt: fixtureInstant,
+})
+
 /** Narrows the generic pipeline operation before a fixture reads create input. */
 const readCreatedTitle = (operation: unknown): string | undefined => {
 	if (
@@ -81,19 +91,19 @@ interface MutationFixture {
 const mutationFixtures: readonly MutationFixture[] = [
 	{
 		kind: 'create-one',
-		result: { id: 'created-1', title: 'Created' },
+		result: articleRecord('0198f090-2a50-7000-8000-000000000001', 'Created'),
 		execute: (request) =>
 			request.query(articleSchema).create({ title: 'Created' }),
 	},
 	{
 		kind: 'create-many',
-		result: [{ id: 'created-1', title: 'Created' }],
+		result: [articleRecord('0198f090-2a50-7000-8000-000000000002', 'Created')],
 		execute: (request) =>
 			request.query(articleSchema).createMany([{ title: 'Created' }]),
 	},
 	{
 		kind: 'update-one',
-		result: { id: 'updated-1', title: 'After' },
+		result: articleRecord('0198f090-2a50-7000-8000-000000000003', 'After'),
 		execute: (request) =>
 			request
 				.query(articleSchema)
@@ -111,7 +121,7 @@ const mutationFixtures: readonly MutationFixture[] = [
 	},
 	{
 		kind: 'upsert-one',
-		result: { id: 'upserted-1', title: 'Upserted' },
+		result: articleRecord('0198f090-2a50-7000-8000-000000000004', 'Upserted'),
 		execute: (request) =>
 			request
 				.query(articleSchema)
@@ -123,7 +133,7 @@ const mutationFixtures: readonly MutationFixture[] = [
 	},
 	{
 		kind: 'upsert-many',
-		result: [{ id: 'upserted-1', title: 'Upserted' }],
+		result: [articleRecord('0198f090-2a50-7000-8000-000000000005', 'Upserted')],
 		execute: (request) =>
 			request.query(articleSchema).upsertMany([
 				{
@@ -135,7 +145,7 @@ const mutationFixtures: readonly MutationFixture[] = [
 	},
 	{
 		kind: 'delete-one',
-		result: { id: 'deleted-1', title: 'Deleted' },
+		result: articleRecord('0198f090-2a50-7000-8000-000000000006', 'Deleted'),
 		execute: (request) =>
 			request.query(articleSchema).equalTo('title', 'Deleted').deleteOne(),
 	},
@@ -158,7 +168,7 @@ describe('automatic mutation transaction scope', () => {
 				{},
 			)
 
-			await expect(execute(request)).resolves.toBe(result)
+			await expect(execute(request)).resolves.toStrictEqual(result)
 			expect(adapter.rootRequests).toStrictEqual([])
 			expect(adapter.transactions).toHaveLength(1)
 			expect(adapter.transactions[0]?.requests[0]?.operation.kind).toBe(kind)
@@ -199,7 +209,10 @@ describe('automatic mutation transaction scope', () => {
 	it('makes a caught nested before-stage failure roll back the primary mutation', async () => {
 		const trace: string[] = []
 		const nestedError = new Error('nested hook write failed')
-		const storedPrimary = { id: 'article-primary', title: 'Primary' }
+		const storedPrimary = articleRecord(
+			'0198f090-2a50-7000-8000-000000000007',
+			'Primary',
+		)
 		let observedEngine: ReturnType<typeof getCurrentEngine> | undefined
 		const hookStages: RecordingPipelineHookStages = {
 			globalBeforeHooks: async (input) => {
@@ -265,7 +278,10 @@ describe('automatic mutation transaction scope', () => {
 			[
 				{
 					status: 'fulfilled',
-					value: { id: 'article-nested', title: 'Nested' },
+					value: articleRecord(
+						'0198f090-2a50-7000-8000-000000000008',
+						'Nested',
+					),
 				},
 				{ status: 'rejected', error: primaryError },
 			],
@@ -305,11 +321,17 @@ describe('automatic mutation transaction scope', () => {
 			[
 				{
 					status: 'fulfilled',
-					value: { id: 'article-primary', title: 'Primary' },
+					value: articleRecord(
+						'0198f090-2a50-7000-8000-000000000009',
+						'Primary',
+					),
 				},
 				{
 					status: 'fulfilled',
-					value: { id: 'article-nested', title: 'Nested after' },
+					value: articleRecord(
+						'0198f090-2a50-7000-8000-000000000010',
+						'Nested after',
+					),
 				},
 			],
 			trace,
@@ -373,11 +395,17 @@ describe('automatic mutation transaction scope', () => {
 			[
 				{
 					status: 'fulfilled',
-					value: { id: 'article-master', title: 'Master nested' },
+					value: articleRecord(
+						'0198f090-2a50-7000-8000-000000000011',
+						'Master nested',
+					),
 				},
 				{
 					status: 'fulfilled',
-					value: { id: 'article-primary', title: 'Primary' },
+					value: articleRecord(
+						'0198f090-2a50-7000-8000-000000000012',
+						'Primary',
+					),
 				},
 			],
 			trace,

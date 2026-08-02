@@ -102,6 +102,7 @@ Accepted records:
 - [ADR-0101: Compiled native hook dispatcher](0101-compiled-native-hook-dispatcher.md)
 - [ADR-0102: Policy-neutral monotonic enforcement plan](0102-policy-neutral-monotonic-enforcement.md)
 - [ADR-0103: Versioned adapter constraint compilers](0103-versioned-adapter-constraint-compilers.md)
+- [ADR-0104: Read hook execution and safe output resolution](0104-read-hook-execution-and-output-resolution.md)
 
 Superseded records:
 

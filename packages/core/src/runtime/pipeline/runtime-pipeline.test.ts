@@ -104,6 +104,13 @@ const createEnforcementStages = (trace: string[]): RuntimeEnforcementStages => {
 				operation: input.operation,
 			}
 		},
+		enforceSelectionResult: (input) => {
+			trace.push('enforcement:selection-result')
+			expect(Object.isFrozen(input)).toBe(true)
+			expect(input.enforcement).toBe(state)
+
+			return input.result
+		},
 		enforceResult: (input) => {
 			trace.push('enforcement:result')
 			expect(Object.isFrozen(input)).toBe(true)
@@ -146,6 +153,7 @@ const createNativeHookStages = (trace: string[]): RuntimeNativeHookStages => ({
 
 		return input.outcome
 	},
+	resolveOutput: createResultTransform('native:resolveOutput', trace),
 	schemaAfter: createResultTransform('native:schemaAfter', trace),
 })
 
@@ -193,7 +201,14 @@ const createStages = (
 describe('RuntimePipeline', () => {
 	it('executes without policy placeholders when no enforcement was contributed', async () => {
 		const trace: string[] = []
-		const articles = [{ id: 'article-1', title: 'UltimaBase' }]
+		const articles = [
+			{
+				createdAt: '2026-08-02T00:00:00.000Z',
+				id: '0198f090-2a50-7000-8000-000000000001',
+				title: 'UltimaBase',
+				updatedAt: '2026-08-02T00:00:00.000Z',
+			},
+		]
 		const executor = new TraceDatabaseExecutor(trace, articles)
 		const pipeline = new RuntimePipeline(createStages(trace, executor))
 
@@ -202,7 +217,8 @@ describe('RuntimePipeline', () => {
 			operation: articleOperation,
 		})
 
-		expect(result).toBe(articles)
+		expect(result).toStrictEqual(articles)
+		expect(Object.isFrozen(result)).toBe(true)
 		expect(trace).toStrictEqual([
 			'normalization',
 			'structuralValidation',
@@ -280,6 +296,8 @@ describe('RuntimePipeline', () => {
 			'enforcement:reevaluate',
 			'enforcement:operation',
 			'databaseOperation',
+			'enforcement:selection-result',
+			'native:resolveOutput',
 			'native:schemaAfter',
 			'schemaAfterHooks',
 			'globalAfterHooks',
@@ -333,6 +351,36 @@ describe('RuntimePipeline', () => {
 			'enforcement:deny',
 		])
 		expect(executor.requests).toStrictEqual([])
+	})
+
+	it('rejects an invalid replacement from the retained low-level after hooks', async () => {
+		const trace: string[] = []
+		const executor = new TraceDatabaseExecutor(trace, [
+			{
+				createdAt: '2026-08-02T00:00:00.000Z',
+				id: '0198f090-2a50-7000-8000-000000000040',
+				title: 'Valid adapter result',
+				updatedAt: '2026-08-02T00:00:00.000Z',
+			},
+		])
+		const pipeline = new RuntimePipeline(
+			createStages(trace, executor, {
+				globalAfterHooks: () =>
+					[
+						// The final shared boundary protects malformed JavaScript hook output.
+						{},
+					] as never,
+			}),
+		)
+
+		await expect(
+			pipeline.execute({
+				context: requestContext,
+				operation: articleOperation,
+			}),
+		).rejects.toMatchObject({ code: 'VALIDATION_ERROR' })
+		expect(trace).not.toContain('commit')
+		expect(trace).not.toContain('postCommitEvents')
 	})
 
 	it('rejects an omitted mandatory stage during JavaScript assembly', () => {

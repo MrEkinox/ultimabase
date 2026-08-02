@@ -96,6 +96,8 @@ export interface RuntimeEnforcementStages {
 	readonly evaluate: RuntimeEnforcementEvaluationStage
 	readonly reevaluate: RuntimeEnforcementReevaluationStage
 	readonly enforceOperation: RuntimeEnforcementOperationStage
+	/** Applies retained selection restrictions before business output hooks run. */
+	readonly enforceSelectionResult: RuntimeEnforcementResultStage
 	readonly enforceResult: RuntimeEnforcementResultStage
 }
 
@@ -104,6 +106,20 @@ export type RuntimeResultTransformStage = <
 	const TOperation extends DatabaseOperationAst,
 >(
 	input: RuntimeResultStageInput<TOperation>,
+) => MaybePromise<DatabaseOperationResult<TOperation>>
+
+/** Carries an exact policy projection when an empty Query selection means no fields. */
+export interface RuntimeNativeResultStageInput<
+	TOperation extends DatabaseOperationAst,
+> extends RuntimeResultStageInput<TOperation> {
+	readonly selectedFieldsOverride?: readonly string[]
+}
+
+/** Transforms one native result without losing its effective projection boundary. */
+export type RuntimeNativeResultTransformStage = <
+	const TOperation extends DatabaseOperationAst,
+>(
+	input: RuntimeNativeResultStageInput<TOperation>,
 ) => MaybePromise<DatabaseOperationResult<TOperation>>
 
 /** Performs commit or post-commit work without replacing the developer result. */
@@ -149,7 +165,8 @@ export interface RuntimeNativeHookStages {
 	readonly schemaBefore: RuntimeOperationTransformStage
 	readonly fieldBefore: RuntimePreparedMutationEffectStage
 	readonly fieldAfter: RuntimeMutationOutcomeTransformStage
-	readonly schemaAfter: RuntimeResultTransformStage
+	readonly resolveOutput: RuntimeNativeResultTransformStage
+	readonly schemaAfter: RuntimeNativeResultTransformStage
 }
 
 /**

@@ -20,17 +20,22 @@ import {
 	beginPipelineTransaction,
 	type RuntimePipelineTransactionScope,
 } from '../transactions/pipeline-transaction.js'
+import { createRuntimeHookBoundaries } from '../hooks/boundaries.js'
 import type {
 	RuntimeEnforcementOperationResult,
 	RuntimeEnforcementStageInput,
 	RuntimeEnforcementStages,
 	RuntimeOperationStageInput,
 	RuntimeNativeHookStages,
+	RuntimeNativeResultStageInput,
 	RuntimePipelineRequest,
 	RuntimePipelineStages,
 	RuntimeResultStageInput,
 } from './contracts.js'
-import type { EnforcementState } from '../enforcement/state.js'
+import {
+	getEnforcementStateSnapshot,
+	type EnforcementState,
+} from '../enforcement/state.js'
 
 const functionStageNames = [
 	'normalization',
@@ -46,6 +51,7 @@ const functionStageNames = [
 const enforcementStageNames = [
 	'enforceOperation',
 	'enforceResult',
+	'enforceSelectionResult',
 	'evaluate',
 	'reevaluate',
 ] as const satisfies readonly (keyof RuntimeEnforcementStages)[]
@@ -54,6 +60,7 @@ const nativeHookStageNames = [
 	'fieldAfter',
 	'fieldBefore',
 	'resolveInput',
+	'resolveOutput',
 	'revalidate',
 	'schemaAfter',
 	'schemaBefore',
@@ -257,12 +264,64 @@ const createResultInput = <const TOperation extends DatabaseOperationAst>(
 ): RuntimeResultStageInput<TOperation> =>
 	immutableRecord({ context, operation, result })
 
+/** Reads the effective projection after enforcement materializes implicit select-all. */
+const readSelectedFieldsOverride = (
+	operation: DatabaseOperationAst,
+	enforcement: EnforcementState | undefined,
+): readonly string[] | undefined => {
+	if (enforcement === undefined) {
+		return undefined
+	}
+
+	const permittedFields =
+		getEnforcementStateSnapshot(enforcement).selectionFields
+
+	if (permittedFields === undefined) {
+		return undefined
+	}
+
+	const candidate: unknown = operation
+
+	if (
+		!isPlainRecord(candidate) ||
+		!isPlainRecord(candidate.query) ||
+		!isPlainRecord(candidate.query.selection) ||
+		!isUnknownArray(candidate.query.selection.fields)
+	) {
+		return permittedFields
+	}
+
+	const selectedFields: string[] = []
+
+	for (const selected of candidate.query.selection.fields) {
+		if (isPlainRecord(selected) && typeof selected.field === 'string') {
+			selectedFields.push(selected.field)
+		}
+	}
+
+	return immutableArray(selectedFields)
+}
+
+const createNativeResultInput = <const TOperation extends DatabaseOperationAst>(
+	context: RequestContext,
+	operation: TOperation,
+	result: DatabaseOperationResult<TOperation>,
+	selectedFieldsOverride: readonly string[] | undefined,
+): RuntimeNativeResultStageInput<TOperation> =>
+	immutableRecord({
+		context,
+		operation,
+		result,
+		...(selectedFieldsOverride === undefined ? {} : { selectedFieldsOverride }),
+	})
+
 /**
  * Executes every operation through one fixed security and transaction order.
  * Framework errors intentionally cross this boundary unchanged for transports.
  */
 export class RuntimePipeline {
 	readonly #stages: Readonly<RuntimePipelineStages>
+	readonly #resultBoundaries = createRuntimeHookBoundaries()
 
 	constructor(stages: RuntimePipelineStages) {
 		assertRuntimePipelineStages(stages)
@@ -387,10 +446,44 @@ export class RuntimePipeline {
 					operation,
 				}),
 			)
+		const selectedFieldsOverride = readSelectedFieldsOverride(
+			operation,
+			enforcement,
+		)
+		if (this.#stages.enforcement !== undefined && enforcement !== undefined) {
+			result = await this.#stages.enforcement.enforceSelectionResult(
+				immutableRecord({
+					context,
+					enforcement,
+					operation,
+					result,
+				}),
+			)
+		}
+		// Policy projection precedes validation so over-fetching adapters cannot
+		// expose or invalidate fields that business output hooks may not observe.
+		result = this.#resultBoundaries.snapshotResultReplacement(
+			operation,
+			result,
+			selectedFieldsOverride,
+		)
 
 		if (this.#stages.nativeHooks !== undefined) {
+			result = await this.#stages.nativeHooks.resolveOutput(
+				createNativeResultInput(
+					context,
+					operation,
+					result,
+					selectedFieldsOverride,
+				),
+			)
 			result = await this.#stages.nativeHooks.schemaAfter(
-				createResultInput(context, operation, result),
+				createNativeResultInput(
+					context,
+					operation,
+					result,
+					selectedFieldsOverride,
+				),
 			)
 		}
 
@@ -399,6 +492,12 @@ export class RuntimePipeline {
 		)
 		result = await this.#stages.globalAfterHooks(
 			createResultInput(context, operation, result),
+		)
+		// Legacy low-level result hooks share the same strict boundary as native hooks.
+		result = this.#resultBoundaries.snapshotResultReplacement(
+			operation,
+			result,
+			selectedFieldsOverride,
 		)
 
 		if (this.#stages.enforcement !== undefined && enforcement !== undefined) {

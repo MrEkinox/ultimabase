@@ -506,6 +506,7 @@ export interface RuntimeHookBoundaries {
 	snapshotResultReplacement<const TOperation extends DatabaseOperationAst>(
 		operation: TOperation,
 		replacement: unknown,
+		selectedFieldsOverride?: readonly string[],
 	): DatabaseOperationResult<TOperation>
 
 	/** Validates the selected result and complete materializations returned by an adapter. */
@@ -529,6 +530,7 @@ export const createRuntimeHookBoundaries = (): RuntimeHookBoundaries => {
 
 	const readBoundaryContext = (
 		operation: DatabaseOperationAst,
+		selectedFieldsOverride?: readonly string[],
 	): Readonly<{
 		readonly plans: SchemaValidationPlans
 		readonly schema: SchemaDefinition
@@ -545,7 +547,8 @@ export const createRuntimeHookBoundaries = (): RuntimeHookBoundaries => {
 		return immutableRecord({
 			plans,
 			schema,
-			selectedFields: readSelectedFields(operation, schema),
+			selectedFields:
+				selectedFieldsOverride ?? readSelectedFields(operation, schema),
 		})
 	}
 
@@ -663,8 +666,12 @@ export const createRuntimeHookBoundaries = (): RuntimeHookBoundaries => {
 		snapshotResultReplacement: <const TOperation extends DatabaseOperationAst>(
 			operation: TOperation,
 			replacement: unknown,
+			selectedFieldsOverride?: readonly string[],
 		): DatabaseOperationResult<TOperation> => {
-			const { plans, selectedFields } = readBoundaryContext(operation)
+			const { plans, selectedFields } = readBoundaryContext(
+				operation,
+				selectedFieldsOverride,
+			)
 
 			return snapshotOperationResult(
 				operation,

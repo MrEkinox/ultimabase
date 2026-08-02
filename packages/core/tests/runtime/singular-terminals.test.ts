@@ -23,10 +23,27 @@ const articleSchema = new Schema({
 
 describe('singular BoundQuery terminals', () => {
 	it('executes every terminal through the RequestEngine pipeline', async () => {
-		const found = [{ id: 'article-1', title: 'Found' }]
-		const createdOne = { id: 'article-2', title: 'Created one' }
-		const createdAlias = { id: 'article-3', title: 'Created alias' }
-		const upserted = { id: 'article-4', title: 'Upserted' }
+		const found = [
+			{ id: '0198f090-2a50-7000-8000-000000000021', title: 'Found' },
+		]
+		const createdOne = {
+			createdAt: '2026-08-02T00:00:00.000Z',
+			id: '0198f090-2a50-7000-8000-000000000022',
+			title: 'Created one',
+			updatedAt: '2026-08-02T00:00:00.000Z',
+		}
+		const createdAlias = {
+			createdAt: '2026-08-02T00:00:00.000Z',
+			id: '0198f090-2a50-7000-8000-000000000023',
+			title: 'Created alias',
+			updatedAt: '2026-08-02T00:00:00.000Z',
+		}
+		const upserted = {
+			createdAt: '2026-08-02T00:00:00.000Z',
+			id: '0198f090-2a50-7000-8000-000000000024',
+			title: 'Upserted',
+			updatedAt: '2026-08-02T00:00:00.000Z',
+		}
 		const results: readonly QueuedAdapterResult[] = [
 			{ status: 'fulfilled', value: found },
 			{ status: 'fulfilled', value: null },
@@ -58,13 +75,17 @@ describe('singular BoundQuery terminals', () => {
 		const createOneInput = { title: 'Created one' }
 		const createAliasInput = { title: 'Created alias' }
 
-		await expect(query.find()).resolves.toBe(found)
+		await expect(query.find()).resolves.toStrictEqual(found)
 		await expect(query.first()).resolves.toBeNull()
 		await expect(query.get('missing')).resolves.toBeNull()
 		await expect(query.count()).resolves.toBe(1)
 		await expect(query.exists()).resolves.toBe(true)
-		await expect(query.createOne(createOneInput)).resolves.toBe(createdOne)
-		await expect(query.create(createAliasInput)).resolves.toBe(createdAlias)
+		await expect(query.createOne(createOneInput)).resolves.toStrictEqual(
+			createdOne,
+		)
+		await expect(query.create(createAliasInput)).resolves.toStrictEqual(
+			createdAlias,
+		)
 		await expect(
 			query.updateOne({ increment: { views: 1 } }),
 		).resolves.toBeNull()
@@ -76,7 +97,7 @@ describe('singular BoundQuery terminals', () => {
 					create: { title: 'Upserted' },
 					update: { set: { title: 'Upserted' } },
 				}),
-		).resolves.toBe(upserted)
+		).resolves.toStrictEqual(upserted)
 		await expect(query.deleteOne()).resolves.toBeNull()
 
 		const requests = [

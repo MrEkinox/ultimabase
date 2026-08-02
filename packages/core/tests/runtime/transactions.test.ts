@@ -25,6 +25,17 @@ const articleSchema = new Schema({
 	},
 })
 
+const fixtureInstant = '2026-08-02T00:00:00.000Z'
+
+/** Produces complete persisted records for transaction boundary fixtures. */
+const articleRecord = (views: number, title: string) => ({
+	createdAt: fixtureInstant,
+	id: '0198f090-2a50-7000-8000-000000000020',
+	title,
+	updatedAt: fixtureInstant,
+	views,
+})
+
 /** Binds one user request to an adapter-backed application fixture. */
 const createRequest = (
 	results: readonly QueuedAdapterResult[],
@@ -53,8 +64,8 @@ const createRequest = (
 describe('RequestEngine transactions', () => {
 	it('commits once and exposes post-commit effects only after the adapter commit', async () => {
 		const trace: string[] = []
-		const created = { id: 'article-1', title: 'Created', views: 0 }
-		const updated = { id: 'article-1', title: 'Created', views: 1 }
+		const created = articleRecord(0, 'Created')
+		const updated = articleRecord(1, 'Created')
 		const { adapter, request } = createRequest(
 			[
 				{ status: 'fulfilled', value: created },
@@ -96,7 +107,7 @@ describe('RequestEngine transactions', () => {
 			return transactionResult
 		})
 
-		expect(result).toBe(created)
+		expect(result).toStrictEqual(created)
 		expect(adapter.rootRequests).toStrictEqual([])
 		expect(adapter.transactions[0]?.requests).toHaveLength(2)
 		expect(trace).toStrictEqual([
@@ -126,7 +137,7 @@ describe('RequestEngine transactions', () => {
 
 	it('waits for operations started inside the callback before committing', async () => {
 		const trace: string[] = []
-		const created = { id: 'article-1', title: 'Deferred', views: 0 }
+		const created = articleRecord(0, 'Deferred')
 		const deferred = Promise.withResolvers<typeof created>()
 		const { request } = createRequest(
 			[{ status: 'fulfilled', value: deferred.promise }],

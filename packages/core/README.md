@@ -137,9 +137,45 @@ validation plans, indexes, migrations, or physical diffs.
 The lifecycle nests broad phases around exact phases. Saves use
 `beforeOperation → beforeSave → beforeCreate|beforeUpdate|beforeUpsert`, then
 unwind through the exact after phase, `afterSave`, and `afterOperation`. Generic
-`beforeOperation` and `afterOperation` hooks also cover reads; the query-focused
-`beforeFind`, `afterFind`, and field `resolveOutput` phases are declared now and
-become executable in issue 331.
+`beforeOperation` and `afterOperation` hooks also cover reads. Read phases nest
+as `beforeOperation → beforeFind`, then unwind through field `resolveOutput`,
+`afterFind`, and `afterOperation`:
+
+```ts
+const ArticleSchema = new Schema({
+	className: 'Article',
+	fields: {
+		title: stringField({
+			validation: { required: true },
+			hooks: {
+				// Output resolution sees only selected, readable values.
+				resolveOutput: ({ value }) => value.trim(),
+			},
+		}),
+		published: booleanField({ default: false }),
+	},
+	hooks: {
+		beforeFind: ({ query }) => query.equalTo('published', true),
+		afterFind: ({ result }) => result,
+	},
+})
+
+const articles = await ultimabase
+	.query(ArticleSchema)
+	.select('id', 'title')
+	.find()
+
+// The exact result is readonly { id: string; title: string }[].
+```
+
+`beforeFind` may add filters, ordering, pagination, or a limit, but it must
+preserve the exact schema and selected-field union. Opaque adapter constraints
+remain outside the developer Query. Runtime projects the adapter result before
+field output resolution, validates every native and low-level result transform,
+then applies monotonic output restrictions as the final public boundary.
+`count` and `exists` retain `number` and `boolean` results and skip value
+resolution. Root reads do not open an automatic transaction; reads inside an
+explicit transaction reuse it.
 
 Runtime compiles declarations once per application. Input resolution runs from
 nested children to parents, transformed input is structurally revalidated

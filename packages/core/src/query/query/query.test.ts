@@ -9,7 +9,7 @@ import {
 } from '../../schema/index.js'
 import { describe, expect, it } from 'vitest'
 
-import { Query } from './query.js'
+import { hydrateQueryFromAst, Query } from './query.js'
 import type { QueryScope } from './scope.js'
 
 const postFields = {
@@ -26,6 +26,28 @@ const postFields = {
 const postSchema = new Schema({ className: 'Post', fields: postFields })
 
 describe('Query', () => {
+	it('hydrates one internal immutable shell without rebuilding its normalized AST', () => {
+		const source = new Query(postSchema)
+			.select('id', 'title')
+			.equalTo('published', true)
+			.limit(25)
+		const hydrated = hydrateQueryFromAst<typeof postSchema, 'id' | 'title'>(
+			source.ast,
+		)
+		const branch = hydrated.limit(10)
+
+		expect(hydrated).toBeInstanceOf(Query)
+		expect(hydrated).not.toBe(source)
+		expect(hydrated.ast).toBe(source.ast)
+		expect(hydrated.schema).toBe(postSchema)
+		expect(Object.isFrozen(hydrated)).toBe(true)
+		expect(branch.ast.limit).toBe(10)
+		expect(hydrated.ast.limit).toBe(25)
+		expect(source.ast.limit).toBe(25)
+		expect(branch.ast.selection).toBe(source.ast.selection)
+		expect(branch.ast.where).toBe(source.ast.where)
+	})
+
 	it('builds immutable selection, ordering, limit, and pagination branches', () => {
 		const base = new Query(postSchema)
 		const selected = base.select('title', 'id', 'title')

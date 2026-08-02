@@ -53,13 +53,13 @@ describe('native hook phase order', () => {
 		})
 	})
 
-	it('runs only generic operation phases until read-specific hooks are installed', () => {
+	it('nests read-specific phases inside generic operation hooks', () => {
 		expect(getNativeHookPhaseOrder('find')).toStrictEqual({
 			family: 'find',
 			fieldAfter: [],
 			fieldBefore: [],
-			schemaAfter: ['afterOperation'],
-			schemaBefore: ['beforeOperation'],
+			schemaAfter: ['afterFind', 'afterOperation'],
+			schemaBefore: ['beforeOperation', 'beforeFind'],
 		})
 	})
 

@@ -186,6 +186,69 @@ receive accumulated state or another plugin's opaque constraint payload. A
 master request remains trusted authority, but only the contributing policy
 decides whether its own handler treats that authority differently.
 
+## Read hooks and output resolution
+
+Every read transport shares the same native Runtime path. `beforeFind` covers
+`find`, `first`, `get`, `count`, and `exists` while preserving the exact terminal
+through `kind`. It returns a new immutable Query or `undefined` to retain the
+current one:
+
+```ts
+const ArticleSchema = new Schema({
+	className: 'Article',
+	fields: {
+		title: stringField({
+			validation: { required: true },
+			hooks: {
+				resolveOutput: ({ value }) => value.trim(),
+			},
+		}),
+		published: booleanField({ default: false }),
+	},
+	hooks: {
+		beforeFind: ({ query }) =>
+			query.equalTo('published', true).descending('createdAt'),
+		afterFind: (input) => {
+			if (input.kind === 'count') {
+				// Terminal narrowing keeps this value as a number.
+				return Math.max(input.result, 0)
+			}
+
+			return input.result
+		},
+	},
+})
+
+const articles = await request.query(ArticleSchema).select('id', 'title').find()
+
+// The exact result is readonly { id: string; title: string }[].
+```
+
+Runtime rejects a `beforeFind` replacement that changes schema identity or the
+selected-field union. The hook may add filters, ordering, pagination, or a
+limit. Opaque adapter constraints remain in the private enforcement envelope
+and reach the database separately from Query, so no business transform can see
+or remove them.
+
+For object-producing reads, Runtime validates and projects the adapter result
+to its effective selection before executing `resolveOutput`. Only present,
+selected, readable field values execute. Nested children resolve before their
+parent, and every resolver preserves the field's logical type. Schema
+`afterFind` then receives the already projected and resolved exact result;
+`afterOperation` unwinds after it. `count` and `exists` contain no field values,
+so they skip resolution and retain exact `number` and `boolean` results.
+
+Native replacements are validated at their phase boundary. The completed
+low-level schema and global after-hook chain also crosses final terminal-and-
+selection validation. Runtime evaluates and applies monotonic output
+restrictions only after every transform, immediately before returning the
+public result, so no later hook can restore a removed field.
+
+Root reads do not open an automatic transaction. A read inside
+`request.transaction()` reuses that explicit transaction and its request
+engine; otherwise, hooks must not assume read-started database work can roll
+back with the read.
+
 ## Structural validation
 
 `createRuntimeValidationStage()` executes Schema's create and update plans in

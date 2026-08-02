@@ -3,7 +3,16 @@ import {
 	definePlugin,
 	FrameworkError,
 } from '../../foundation.js'
-import { Query, type CreateOneOperationAst } from '../../query/index.js'
+import {
+	Query,
+	type CountOperationAst,
+	type CreateOneOperationAst,
+	type ExistsOperationAst,
+	type FindOperationAst,
+	type FirstOperationAst,
+	type GetOperationAst,
+	type QueryFilterNode,
+} from '../../query/index.js'
 import {
 	objectField,
 	Schema,
@@ -19,7 +28,10 @@ import {
 import { describe, expect, it } from 'vitest'
 
 import { RequestContext, requestSources } from '../context/request-context.js'
-import type { DatabaseOperationOutcome } from '../database/contracts.js'
+import type {
+	DatabaseOperationOutcome,
+	DatabaseOperationResult,
+} from '../database/contracts.js'
 import { createRuntimeValidationStage } from '../validation/runtime-validation.js'
 import { createNativeHookStages } from './dispatcher.js'
 
@@ -385,6 +397,182 @@ describe('native hook dispatcher', () => {
 		])
 
 		await application.dispose()
+	})
+
+	it('executes read hooks for every terminal and resolves only present selected fields', async () => {
+		const trace: string[] = []
+		const schema = new Schema({
+			className: 'NativeHookRead',
+			fields: {
+				hidden: stringField({
+					hooks: {
+						resolveOutput: () => {
+							trace.push('field:hidden')
+
+							return 'unexpected'
+						},
+					},
+				}),
+				title: stringField({
+					hooks: {
+						resolveOutput: ({ kind, value }) => {
+							trace.push(`field:title:${kind}`)
+
+							return value.toUpperCase()
+						},
+					},
+				}),
+			},
+			hooks: {
+				afterFind: ({ kind, result }) => {
+					trace.push(`schema:after:${kind}`)
+
+					return result
+				},
+				beforeFind: ({ kind, query }) => {
+					trace.push(`schema:before:${kind}`)
+
+					return query.equalTo('title', 'visible')
+				},
+			},
+		})
+		const application = await createApplication({
+			plugins: [],
+			schemas: [schema],
+		})
+		const stages = createNativeHookStages(application)
+		const selectedQuery = new Query(schema).select('title')
+		const findOperation: FindOperationAst<
+			typeof schema,
+			QueryFilterNode<typeof schema>,
+			'title'
+		> = immutableRecord({ kind: 'find', query: selectedQuery.ast })
+		const firstOperation: FirstOperationAst<
+			typeof schema,
+			QueryFilterNode<typeof schema>,
+			'title'
+		> = immutableRecord({ kind: 'first', query: selectedQuery.ast })
+		const getOperation: GetOperationAst<
+			typeof schema,
+			QueryFilterNode<typeof schema>,
+			'title'
+		> = immutableRecord({
+			id: generatedId,
+			kind: 'get',
+			query: selectedQuery.ast,
+		})
+		const countOperation: CountOperationAst<
+			typeof schema,
+			QueryFilterNode<typeof schema>,
+			'title'
+		> = immutableRecord({ kind: 'count', query: selectedQuery.ast })
+		const existsOperation: ExistsOperationAst<
+			typeof schema,
+			QueryFilterNode<typeof schema>,
+			'title'
+		> = immutableRecord({ kind: 'exists', query: selectedQuery.ast })
+		const operations = [
+			findOperation,
+			firstOperation,
+			getOperation,
+			countOperation,
+			existsOperation,
+		] as const
+
+		const executeRead = async <
+			const TOperation extends (typeof operations)[number],
+		>(
+			operation: TOperation,
+			sourceResult: DatabaseOperationResult<TOperation>,
+			expectedResult: unknown,
+		): Promise<void> => {
+			const transformed = await stages.schemaBefore({ context, operation })
+			const resolved = await stages.resolveOutput({
+				context,
+				operation: transformed,
+				result: sourceResult,
+			})
+			const result = await stages.schemaAfter({
+				context,
+				operation: transformed,
+				result: resolved,
+			})
+
+			expect(result).toStrictEqual(expectedResult)
+			expect(transformed.query.where).toMatchObject({
+				expression: { field: 'title', kind: 'equal', value: 'visible' },
+			})
+			expect(transformed.query.selection).toStrictEqual(
+				selectedQuery.ast.selection,
+			)
+		}
+
+		await executeRead(
+			operations[0],
+			immutableArray([immutableRecord({ title: 'visible' })]),
+			[{ title: 'VISIBLE' }],
+		)
+		await executeRead(operations[1], immutableRecord({ title: 'visible' }), {
+			title: 'VISIBLE',
+		})
+		await executeRead(operations[2], null, null)
+		await executeRead(operations[3], 2, 2)
+		await executeRead(operations[4], true, true)
+
+		expect(selectedQuery.ast.where).toBeUndefined()
+		expect(trace).toStrictEqual([
+			'schema:before:find',
+			'field:title:find',
+			'schema:after:find',
+			'schema:before:first',
+			'field:title:first',
+			'schema:after:first',
+			'schema:before:get',
+			'schema:after:get',
+			'schema:before:count',
+			'schema:after:count',
+			'schema:before:exists',
+			'schema:after:exists',
+		])
+
+		await application.dispose()
+	})
+
+	it('rejects beforeFind replacements that change schema or selection', async () => {
+		const otherSchema = new Schema({
+			className: 'NativeHookReadOther',
+			fields: { title: stringField() },
+		})
+		const invalidHooks = [
+			() => new Query(otherSchema),
+			({ query }: { readonly query: Query<typeof otherSchema> }) =>
+				query.select('title'),
+		] as const
+
+		for (const invalidHook of invalidHooks) {
+			const schema = new Schema({
+				className: 'NativeHookReadInvalid',
+				fields: { title: stringField() },
+				hooks: {
+					// The assertion models malformed JavaScript callbacks at Runtime's boundary.
+					beforeFind: invalidHook as never,
+				},
+			})
+			const application = await createApplication({
+				plugins: [],
+				schemas: [schema, otherSchema],
+			})
+			const stages = createNativeHookStages(application)
+			const operation = immutableRecord({
+				kind: 'find',
+				query: new Query(schema).ast,
+			}) satisfies FindOperationAst<typeof schema>
+
+			await expect(
+				stages.schemaBefore({ context, operation }),
+			).rejects.toBeInstanceOf(TypeError)
+			await application.dispose()
+		}
 	})
 
 	it('rejects values that are not initialized framework applications', () => {

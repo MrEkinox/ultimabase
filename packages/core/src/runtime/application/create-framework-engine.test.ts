@@ -14,6 +14,7 @@ import {
 	constraint,
 	databaseConstraint,
 	guard,
+	restrictSelection,
 } from '../enforcement/definitions.js'
 import { beforeOperation, postCommitEvent } from '../hooks/definitions.js'
 import { MasterAuthority } from '../master/master-authority.js'
@@ -238,6 +239,120 @@ describe('createFrameworkEngine', () => {
 			'execute:create-one',
 			'adapter:commit',
 			'event:post-commit',
+		])
+
+		await application.dispose()
+	})
+
+	it('shares one protected read lifecycle without opening an automatic transaction', async () => {
+		const trace: string[] = []
+		const schema = new Schema({
+			className: 'AssembledReadArticle',
+			fields: {
+				secret: stringField({
+					hooks: {
+						resolveOutput: () => {
+							trace.push('field:secret')
+
+							return 'leaked'
+						},
+					},
+				}),
+				title: stringField({
+					hooks: {
+						resolveOutput: ({ value }) => {
+							trace.push('field:title')
+
+							return value.toUpperCase()
+						},
+					},
+				}),
+			},
+			hooks: {
+				afterFind: ({ kind, result }) => {
+					trace.push('schema:afterFind')
+					// The exact terminal remains available even when this hook only observes.
+					expect(kind).toBe('find')
+
+					return result
+				},
+				beforeFind: ({ query }) => {
+					trace.push('schema:beforeFind')
+
+					return query.equalTo('title', 'visible')
+				},
+			},
+		})
+		const adapter = new RecordingDatabaseAdapter(
+			[
+				{
+					status: 'fulfilled',
+					value: [{ secret: 'hidden', title: 'visible' }],
+				},
+			],
+			trace,
+		)
+		const policy = definePlugin({
+			name: 'fixture.assembled-read-policy',
+			setup: ({ registries }) => {
+				registries.hooks.register(
+					'fixture.read-constraint',
+					constraint({
+						handler: () =>
+							databaseConstraint('fixture.read-tenant', 1, {
+								tenantId: 'tenant-1',
+							}),
+						operations: ['find'],
+						schema,
+					}),
+				)
+				registries.hooks.register(
+					'fixture.read-selection',
+					restrictSelection({
+						handler: () => ['title'],
+						operations: ['find'],
+						schema,
+					}),
+				)
+			},
+		})
+		const application = await createApplication({
+			plugins: [policy, databasePlugin(adapter)],
+			schemas: [schema],
+		})
+		const framework = createFrameworkEngine(application)
+		const result = await framework
+			.anonymous({ requestId: 'assembled-find', source: 'internal' })
+			.query(schema)
+			.select('title', 'secret')
+			.find()
+
+		expect(result).toStrictEqual([{ title: 'VISIBLE' }])
+		expect(adapter.transactions).toStrictEqual([])
+		expect(adapter.rootRequests).toHaveLength(1)
+		expect(adapter.rootRequests[0]?.constraints).toStrictEqual([
+			{
+				kind: 'fixture.read-tenant',
+				payload: { tenantId: 'tenant-1' },
+				version: 1,
+			},
+		])
+		expect(adapter.rootRequests[0]?.operation).toMatchObject({
+			kind: 'find',
+			query: {
+				selection: {
+					fields: [{ field: 'title', kind: 'selected-field' }],
+				},
+				where: {
+					expression: { field: 'title', kind: 'equal', value: 'visible' },
+				},
+			},
+		})
+		expect(trace).toStrictEqual([
+			'schema:beforeFind',
+			'execute:find',
+			'field:title',
+			'schema:afterFind',
 		])
 
 		await application.dispose()

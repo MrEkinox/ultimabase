@@ -9,6 +9,13 @@ import {
 	type ErasedHookHandler,
 	type NormalizedHookDeclarations,
 } from '../../schema/hooks/normalization.js'
+import { hydrateQueryFromAst, Query } from '../../query/query/query.js'
+import type {
+	ExecutableOperationAst,
+	QueryAst,
+	QueryFilterNode,
+	QueryFieldName,
+} from '../../query/index.js'
 import type { FieldHookPhase } from '../../schema/hooks/field-declarations.js'
 import type { SchemaHookPhase } from '../../schema/hooks/declarations.js'
 import { Schema, type SchemaDefinition } from '../../schema/index.js'
@@ -23,8 +30,8 @@ import type {
 import { getOperationSchema } from '../operations/schema.js'
 import type {
 	RuntimeNativeHookStages,
+	RuntimeNativeResultStageInput,
 	RuntimeOperationStageInput,
-	RuntimeResultStageInput,
 } from '../pipeline/contracts.js'
 import {
 	createRuntimeHookBoundaries,
@@ -40,6 +47,7 @@ import {
 	collectOperationFieldInputs,
 	transformOperationFieldInputs,
 } from './field-inputs.js'
+import { transformOperationFieldOutputs } from './field-outputs.js'
 import {
 	collectMutationAfterFieldValues,
 	collectMutationBeforeFieldValues,
@@ -113,6 +121,161 @@ const createSchemaResultInput = <const TOperation extends DatabaseOperationAst>(
 	readonly operation: TOperation
 	readonly result: DatabaseOperationResult<TOperation>
 }> => immutableRecord({ kind: operation.kind, operation, result })
+
+type RuntimeReadOperation = Extract<
+	ExecutableOperationAst,
+	{ readonly kind: 'count' | 'exists' | 'find' | 'first' | 'get' }
+>
+
+const readQueryAst = (operation: DatabaseOperationAst): QueryAst => {
+	const executable = operation as unknown as ExecutableOperationAst
+
+	switch (executable.kind) {
+		case 'count':
+		case 'exists':
+		case 'find':
+		case 'first':
+		case 'get':
+			return executable.query
+		case 'create-many':
+		case 'create-one':
+		case 'delete-many':
+		case 'delete-one':
+		case 'update-many':
+		case 'update-one':
+		case 'upsert-many':
+		case 'upsert-one':
+			throw new TypeError('beforeFind requires a read operation')
+	}
+}
+
+const hasSameSelection = (left: QueryAst, right: QueryAst): boolean =>
+	left.selection.fields.length === right.selection.fields.length &&
+	left.selection.fields.every(
+		(selected, index) =>
+			selected.field === right.selection.fields[index]?.field,
+	)
+
+/** Recovers the builder's normalized filter specialization at the Runtime seam. */
+const hydrateRuntimeQuery = (
+	ast: QueryAst,
+): Query<SchemaDefinition, QueryFieldName<SchemaDefinition>> =>
+	// Executable operations can erase their schema-specific filter union, but the
+	// pipeline accepts only Query-produced and structurally normalized AST nodes.
+	hydrateQueryFromAst(
+		ast as QueryAst<SchemaDefinition, QueryFilterNode<SchemaDefinition>>,
+	)
+
+/** Narrows an erased callback result without leaking Query's constructor defaults. */
+const isRuntimeQuery = (
+	value: unknown,
+): value is Query<SchemaDefinition, QueryFieldName<SchemaDefinition>> =>
+	value instanceof Query
+
+/** Lets read hooks replace builder state without changing schema or projection. */
+const runBeforeFind = async <const TOperation extends DatabaseOperationAst>(
+	boundaries: RuntimeHookBoundaries,
+	plan: NativeHookContributionPlan,
+	input: RuntimeOperationStageInput<TOperation>,
+): Promise<TOperation> => {
+	const schemaPlan = plan.getSchema(requireOperationSchema(input.operation))
+
+	if (schemaPlan === undefined) {
+		throw new TypeError('Native hook plan does not own the operation schema')
+	}
+
+	const handlers = collectNestedHandlers(
+		schemaPlan.contributions,
+		'before',
+		'beforeFind',
+		'find',
+	)
+
+	return runHookTransformChain(
+		handlers,
+		input.operation,
+		async (handler, current) => {
+			const currentAst = readQueryAst(current)
+			const query = hydrateRuntimeQuery(currentAst)
+			const replacement = await invokeErasedHook(
+				handler,
+				immutableRecord({
+					kind: current.kind,
+					operation: current,
+					query,
+				}),
+			)
+
+			if (replacement === undefined) {
+				return undefined
+			}
+
+			if (!isRuntimeQuery(replacement)) {
+				throw new TypeError('beforeFind must return an immutable Query')
+			}
+
+			if (replacement.schema !== query.schema) {
+				throw new TypeError('beforeFind must retain the exact schema')
+			}
+
+			if (!hasSameSelection(currentAst, replacement.ast)) {
+				throw new TypeError('beforeFind must retain the exact query selection')
+			}
+
+			const readOperation = current as unknown as RuntimeReadOperation
+			const nextOperation = immutableRecord({
+				...readOperation,
+				query: replacement.ast,
+			})
+
+			return boundaries.snapshotOperationReplacement(current, nextOperation)
+		},
+	)
+}
+
+/** Resolves each readable present output through its field contribution chain. */
+const resolveFieldOutputs = async <
+	const TOperation extends DatabaseOperationAst,
+>(
+	plan: NativeHookContributionPlan,
+	input: RuntimeNativeResultStageInput<TOperation>,
+): Promise<DatabaseOperationResult<TOperation>> => {
+	const schema = requireOperationSchema(input.operation)
+	const family = getNativeHookPhaseOrder(input.operation.kind).family
+
+	return transformOperationFieldOutputs(
+		input.operation,
+		input.result,
+		async (fieldOutput) => {
+			const fieldPlan = plan.getField(schema, fieldOutput.fieldPath)
+
+			if (fieldPlan === undefined) {
+				return undefined
+			}
+
+			const handlers = collectNestedHandlers(
+				fieldPlan.contributions,
+				'after',
+				'resolveOutput',
+				family,
+			)
+
+			return runHookTransformChain(
+				handlers,
+				fieldOutput.value,
+				(handler, value) =>
+					invokeErasedHook(
+						handler,
+						immutableRecord({
+							kind: fieldOutput.kind,
+							mode: fieldOutput.mode,
+							value,
+						}),
+					),
+			)
+		},
+	)
+}
 
 const resolveFieldInputs = async <
 	const TOperation extends DatabaseOperationAst,
@@ -190,6 +353,36 @@ const runSchemaTransformPhases = async <
 					: boundaries.snapshotOperationReplacement(current, replacement)
 			},
 		)
+	}
+
+	return operation
+}
+
+const runSchemaBeforePhases = async <
+	const TOperation extends DatabaseOperationAst,
+>(
+	boundaries: RuntimeHookBoundaries,
+	plan: NativeHookContributionPlan,
+	input: RuntimeOperationStageInput<TOperation>,
+): Promise<TOperation> => {
+	const order = getNativeHookPhaseOrder(input.operation.kind)
+	let operation = input.operation
+
+	for (const phase of order.schemaBefore) {
+		operation =
+			phase === 'beforeFind'
+				? await runBeforeFind(
+						boundaries,
+						plan,
+						immutableRecord({ ...input, operation }),
+					)
+				: await runSchemaTransformPhases(
+						boundaries,
+						plan,
+						immutableRecord({ ...input, operation }),
+						immutableArray([phase]),
+						'before',
+					)
 	}
 
 	return operation
@@ -378,7 +571,7 @@ const runSchemaResultPhases = async <
 >(
 	boundaries: RuntimeHookBoundaries,
 	plan: NativeHookContributionPlan,
-	input: RuntimeResultStageInput<TOperation>,
+	input: RuntimeNativeResultStageInput<TOperation>,
 ): Promise<DatabaseOperationResult<TOperation>> => {
 	const schemaPlan = plan.getSchema(requireOperationSchema(input.operation))
 
@@ -390,6 +583,7 @@ const runSchemaResultPhases = async <
 	let result = boundaries.snapshotResultReplacement(
 		input.operation,
 		input.result,
+		input.selectedFieldsOverride,
 	)
 
 	for (const phase of order.schemaAfter) {
@@ -411,7 +605,11 @@ const runSchemaResultPhases = async <
 
 				return replacement === undefined
 					? undefined
-					: boundaries.snapshotResultReplacement(input.operation, replacement)
+					: boundaries.snapshotResultReplacement(
+							input.operation,
+							replacement,
+							input.selectedFieldsOverride,
+						)
 			},
 		)
 	}
@@ -464,19 +662,12 @@ export const createNativeHookStages = <
 			)
 		},
 		resolveInput: (input) => resolveInput(boundaries, plan, input),
+		resolveOutput: (input) => resolveFieldOutputs(plan, input),
 		revalidate: (input) =>
 			boundaries.snapshotOperationReplacement(input.operation, input.operation),
 		schemaAfter: (input) => runSchemaResultPhases(boundaries, plan, input),
 		schemaBefore: (input) => {
-			const order = getNativeHookPhaseOrder(input.operation.kind)
-
-			return runSchemaTransformPhases(
-				boundaries,
-				plan,
-				input,
-				order.schemaBefore,
-				'before',
-			)
+			return runSchemaBeforePhases(boundaries, plan, input)
 		},
 		validate: (input) => validateInput(boundaries, plan, input),
 	})

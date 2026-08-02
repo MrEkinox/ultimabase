@@ -35,7 +35,7 @@ const foreignSchema = new Schema({
 
 /** Produces the complete persisted shape expected by create-operation hooks. */
 const createStoredArticle = (title: string) => ({
-	id: 'article-1',
+	id: '0198f090-2a50-7000-8000-000000000031',
 	title,
 	createdAt: '2026-08-01T00:00:00.000Z',
 	updatedAt: '2026-08-01T00:00:00.000Z',

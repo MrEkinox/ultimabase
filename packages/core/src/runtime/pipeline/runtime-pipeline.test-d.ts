@@ -46,6 +46,7 @@ const enforcedStages = {
 			constraints: [],
 			operation: input.operation,
 		}),
+		enforceSelectionResult: (input) => input.result,
 		enforceResult: (input) => input.result,
 	},
 } satisfies RuntimePipelineStages

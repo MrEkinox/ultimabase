@@ -402,6 +402,17 @@ const restrictResult = <const TOperation extends DatabaseOperationAst>(
 	) as DatabaseOperationResult<TOperation>
 }
 
+/** Hides selection-restricted fields before any business output hook can observe them. */
+const enforceSelectionResult = <const TOperation extends DatabaseOperationAst>(
+	input: RuntimeResultStageInput<TOperation> & {
+		readonly enforcement: EnforcementState
+	},
+): DatabaseOperationResult<TOperation> => {
+	const snapshot = getEnforcementStateSnapshot(input.enforcement)
+
+	return restrictResult(input.result, snapshot.selectionFields)
+}
+
 /** Evaluates final output restrictions after business result replacement. */
 const enforceResult = async <const TOperation extends DatabaseOperationAst>(
 	contributions: readonly OwnedEnforcementContribution[],
@@ -467,6 +478,7 @@ export const createEnforcementStages = <
 	return immutableRecord({
 		evaluate: (input) => evaluateContributions(contributions, input),
 		enforceOperation: (input) => enforceOperation(input),
+		enforceSelectionResult: (input) => enforceSelectionResult(input),
 		enforceResult: (input) => enforceResult(contributions, input),
 		reevaluate: (input) =>
 			evaluateContributions(contributions, input, input.enforcement),

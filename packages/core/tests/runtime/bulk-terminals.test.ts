@@ -24,6 +24,17 @@ const accountSchema = new Schema({
 	},
 })
 
+const fixtureInstant = '2026-08-02T00:00:00.000Z'
+
+/** Creates complete account rows for strict adapter result validation. */
+const accountRecord = (id: string, email: string, visits: number) => ({
+	createdAt: fixtureInstant,
+	email,
+	id,
+	updatedAt: fixtureInstant,
+	visits,
+})
+
 /** Binds bulk terminals to the real request engine and transaction pipeline. */
 const createRequest = (
 	results: readonly QueuedAdapterResult[],
@@ -67,8 +78,16 @@ describe('bulk and upsert terminals', () => {
 	it('creates ordered objects in an automatic transaction by default', async () => {
 		const trace: string[] = []
 		const created = [
-			{ id: 'account-1', email: 'first@example.com', visits: 0 },
-			{ id: 'account-2', email: 'second@example.com', visits: 0 },
+			accountRecord(
+				'0198f090-2a50-7000-8000-000000000025',
+				'first@example.com',
+				0,
+			),
+			accountRecord(
+				'0198f090-2a50-7000-8000-000000000026',
+				'second@example.com',
+				0,
+			),
 		] as const
 		const { adapter, request } = createRequest(
 			[{ status: 'fulfilled', value: created }],
@@ -82,7 +101,7 @@ describe('bulk and upsert terminals', () => {
 				{ email: 'second@example.com' },
 			])
 
-		expect(result).toBe(created)
+		expect(result).toStrictEqual(created)
 		expect(adapter.transactions[0]?.requests[0]?.operation).toMatchObject({
 			kind: 'create-many',
 			inputs: [{ email: 'first@example.com' }, { email: 'second@example.com' }],
@@ -94,8 +113,16 @@ describe('bulk and upsert terminals', () => {
 	it('upserts ordered independent unique targets in one automatic transaction', async () => {
 		const trace: string[] = []
 		const upserted = [
-			{ id: 'account-1', email: 'first@example.com', visits: 1 },
-			{ id: 'account-2', email: 'second@example.com', visits: 1 },
+			accountRecord(
+				'0198f090-2a50-7000-8000-000000000027',
+				'first@example.com',
+				1,
+			),
+			accountRecord(
+				'0198f090-2a50-7000-8000-000000000028',
+				'second@example.com',
+				1,
+			),
 		] as const
 		const { adapter, request } = createRequest(
 			[{ status: 'fulfilled', value: upserted }],
@@ -115,7 +142,7 @@ describe('bulk and upsert terminals', () => {
 			},
 		])
 
-		expect(result).toBe(upserted)
+		expect(result).toStrictEqual(upserted)
 		expect(adapter.transactions[0]?.requests[0]?.operation).toMatchObject({
 			kind: 'upsert-many',
 			items: [
@@ -154,7 +181,11 @@ describe('bulk and upsert terminals', () => {
 	it('keeps explicit non-atomic grouping inside one mutation transaction', async () => {
 		const trace: string[] = []
 		const created = [
-			{ id: 'account-1', email: 'first@example.com', visits: 0 },
+			accountRecord(
+				'0198f090-2a50-7000-8000-000000000029',
+				'first@example.com',
+				0,
+			),
 		] as const
 		const { adapter, request } = createRequest(
 			[{ status: 'fulfilled', value: created }],
@@ -165,7 +196,7 @@ describe('bulk and upsert terminals', () => {
 			request
 				.query(accountSchema)
 				.createMany([{ email: 'first@example.com' }], { atomic: false }),
-		).resolves.toBe(created)
+		).resolves.toStrictEqual(created)
 		expect(adapter.transactions[0]?.requests[0]?.operation).toMatchObject({
 			kind: 'create-many',
 			options: { atomic: false },
@@ -203,7 +234,11 @@ describe('bulk and upsert terminals', () => {
 	it('reuses an explicit outer transaction instead of nesting automatic bulk work', async () => {
 		const trace: string[] = []
 		const created = [
-			{ id: 'account-1', email: 'first@example.com', visits: 0 },
+			accountRecord(
+				'0198f090-2a50-7000-8000-000000000030',
+				'first@example.com',
+				0,
+			),
 		] as const
 		const { adapter, request } = createRequest(
 			[{ status: 'fulfilled', value: created }],

@@ -3,7 +3,7 @@
 - Status: active
 - Started: 2026-08-01
 - Objective owner: `@ultimabase/core`, `@ultimabase/postgres`, `@ultimabase/testing`
-- Governing decisions: [ADR-0089](docs/adr/0089-native-schema-and-field-hooks.md), [ADR-0090](docs/adr/0090-permission-plugins-through-hooks.md), [ADR-0095](docs/adr/0095-consolidated-foundational-core.md), [ADR-0096](docs/adr/0096-native-hook-declaration-capabilities.md), [ADR-0099](docs/adr/0099-automatic-mutation-transactions.md), [ADR-0100](docs/adr/0100-prepared-mutation-outcomes.md), [ADR-0102](docs/adr/0102-policy-neutral-monotonic-enforcement.md), [ADR-0103](docs/adr/0103-versioned-adapter-constraint-compilers.md)
+- Governing decisions: [ADR-0089](docs/adr/0089-native-schema-and-field-hooks.md), [ADR-0090](docs/adr/0090-permission-plugins-through-hooks.md), [ADR-0095](docs/adr/0095-consolidated-foundational-core.md), [ADR-0096](docs/adr/0096-native-hook-declaration-capabilities.md), [ADR-0099](docs/adr/0099-automatic-mutation-transactions.md), [ADR-0100](docs/adr/0100-prepared-mutation-outcomes.md), [ADR-0102](docs/adr/0102-policy-neutral-monotonic-enforcement.md), [ADR-0103](docs/adr/0103-versioned-adapter-constraint-compilers.md), [ADR-0104](docs/adr/0104-read-hook-execution-and-output-resolution.md)
 - Previous completed objective: [Runtime-to-PostgreSQL E2E](docs/plans/completed/runtime-postgres-e2e.md)
 
 ## Objective
@@ -92,7 +92,7 @@ dependencies are incomplete.
 10. [x] [330 — Execute the native hook lifecycle](issues/300-query-runtime/330-native-hook-dispatcher.md)
 11. [x] [337 — Replace named permission stages with hook enforcement](issues/300-query-runtime/337-policy-neutral-hook-enforcement.md)
 12. [x] [338 — Add the adapter constraint compiler registry](issues/300-query-runtime/338-adapter-constraint-compiler-registry.md)
-13. [ ] [331 — Add find and output hooks](issues/300-query-runtime/331-find-and-output-hooks.md)
+13. [x] [331 — Add find and output hooks](issues/300-query-runtime/331-find-and-output-hooks.md)
 14. [ ] [332 — Add transaction finalization hooks](issues/300-query-runtime/332-transaction-hook-lifecycle.md)
 15. [ ] [333 — Protect hook execution and expose diagnostics](issues/300-query-runtime/333-hook-safety-and-observability.md)
 16. [ ] [340 — Expose the native HookContext class](issues/300-query-runtime/340-hook-context-class.md)
@@ -124,12 +124,12 @@ the named Runtime stages and proven monotonic hook enforcement.
 
 ## Current issue
 
-[331 — Add find and output hooks](issues/300-query-runtime/331-find-and-output-hooks.md)
+[332 — Add transaction finalization hooks](issues/300-query-runtime/332-transaction-hook-lifecycle.md)
 
-Versioned policy-neutral constraints now compile through application-owned
-adapter registries. Issue 331 completes the read lifecycle with typed
-`beforeFind`, `afterFind`, and selected-field output resolution while retaining
-monotonic restrictions and the non-transactional default for reads.
+The complete read lifecycle now preserves Query selection, private constraints,
+and readable-field boundaries through `beforeFind`, `resolveOutput`, and
+`afterFind`. Issue 332 adds transaction finalization callbacks around the same
+automatic mutation scope.
 
 ## Progress log
 
@@ -148,4 +148,5 @@ without reconstructing repository history.
 - 330 — `done` — Compiled schema, field, and plugin hooks now resolve, validate, wrap prepared mutations, consume complete materializations, emit semantic changes, and roll back atomically.
 - 337 — `done` — Five protected policy-neutral factories now deny, append immutable adapter constraints, intersect fields, reevaluate transformed operations monotonically, and leave absent policies without placeholders.
 - 338 — `done` — Application-owned versioned compiler definitions retain plugin ownership; PostgreSQL safely parameterizes and combines every claimed constraint across reads, locked targets, and final singular writes.
+- 331 — `done` — Every read terminal now shares selection-preserving `beforeFind`, exact `afterFind`, readable child-first field output resolution, pre-hook projection, and final monotonic restriction without opening an automatic transaction.
 - 508 — `planned` — PostgreSQL bulk and upsert support follows the prepared-mutation protocol from issue 344 and remains required before issue 335.
