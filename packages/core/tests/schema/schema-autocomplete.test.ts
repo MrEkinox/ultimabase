@@ -17,6 +17,7 @@ const schemaOptionNames = [
 	'className',
 	'extensions',
 	'fields',
+	'hooks',
 	'indexes',
 ] as const
 const schemaIndexOptionNames = ['fields', 'unique'] as const
@@ -105,6 +106,11 @@ const schemaHoverCases: readonly SchemaHoverCase[] = [
 		label: 'extensions',
 		source:
 			"new Schema({ className: 'Post', fields: {}, /* hover */extensions: [defineSchemaExtension('fixture.schema', {})] })",
+	},
+	{
+		label: 'hooks',
+		source:
+			"new Schema({ className: 'Post', fields: {}, /* hover */hooks: { beforeFind: ({ query }) => query } })",
 	},
 	{
 		label: 'indexes.fields',

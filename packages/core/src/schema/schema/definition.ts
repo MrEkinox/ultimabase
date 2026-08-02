@@ -23,6 +23,8 @@ import {
 	type ReservedSystemFieldName,
 	type SystemFields,
 } from './system-fields.js'
+import type { SchemaHooks } from '../hooks/contracts.js'
+import { declareSchemaHooks } from '../hooks/declarations.js'
 
 /**
  * Collects named field definitions without erasing their concrete literals.
@@ -71,6 +73,19 @@ export interface SchemaOptions<
 	 * @example `extensions: [permissionsExtension]`
 	 */
 	readonly extensions?: TExtensions
+	/**
+	 * Declares immutable schema lifecycle behavior without requiring a plugin.
+	 * Hook functions stay outside physical schema metadata and migration plans.
+	 *
+	 * @example `hooks: { beforeFind: ({ query }) => query.limit(100) }`
+	 */
+	readonly hooks?: SchemaHooks<
+		SchemaDefinition<
+			NoInfer<TClassName>,
+			NoInfer<TFields>,
+			NoInfer<TExtensions>
+		>
+	>
 }
 
 /**
@@ -201,6 +216,8 @@ export class Schema<
 				? emptySchemaExtensions
 				: defineExtensions(options.extensions)
 		) as readonly [...TExtensions]
+		// Hook capabilities follow Schema identity without entering enumerable metadata.
+		declareSchemaHooks(this, options.hooks)
 
 		// A class instance needs its prototype, so freeze it directly instead of copying it.
 		Object.freeze(this)

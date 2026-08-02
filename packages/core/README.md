@@ -50,6 +50,53 @@ const ultimabase = new UltimaBase({
 })
 ```
 
+## Native schema hooks
+
+Schemas can colocate typed business lifecycle declarations without installing a
+plugin. One handler covers the complete compatible operation family, and the
+terminal `kind` narrows its exact operation and result:
+
+```ts
+const PostSchema = new Schema({
+	className: 'Post',
+	fields: {
+		title: stringField({ validation: { required: true } }),
+	},
+	hooks: {
+		resolveInput: ({ operation }) => operation,
+		beforeSave: ({ operation }) => {
+			// This handler covers create, update, and upsert terminals.
+			return operation
+		},
+		beforeFind: ({ query }) => query.limit(100),
+		afterOperation: (input) => {
+			if (input.kind === 'count') {
+				// The result is narrowed to number in this branch.
+				return Math.max(input.result, 0)
+			}
+
+			return input.result
+		},
+	},
+})
+```
+
+The constructor validates every phase, snapshots the handler record, and keeps
+it in private identity-owned storage. Hooks never appear on `SchemaDefinition`,
+never affect input or object inference, and never enter validation plans,
+indexes, migrations, or physical diffs. Ordered handler lists and family maps
+arrive in issue 327.
+
+The lifecycle nests broad phases around exact phases. Saves use
+`beforeOperation → beforeSave → beforeCreate|beforeUpdate|beforeUpsert`, then
+unwind through the exact after phase, `afterSave`, and `afterOperation`. Reads
+use `beforeOperation → beforeFind`, then `afterFind → afterOperation`.
+
+Declaration is the implemented boundary in issue 325; the Runtime dispatcher
+does not invoke these callbacks until issue 330. This distinction lets plugins
+and adapters compile against a stable public contract without pretending that a
+partial lifecycle already executes.
+
 ## Framework application
 
 The regular developer entry point is `new UltimaBase(options)` from

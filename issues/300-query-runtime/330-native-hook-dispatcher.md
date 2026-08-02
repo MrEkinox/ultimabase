@@ -18,6 +18,7 @@ transaction-aware Runtime hook lifecycle.
 - [ ] Plugin/global, schema, and affected-field before/after phases follow the fixed wrapping order from ADR-0089.
 - [ ] Fields run sequentially in declaration order with deterministic nested-object traversal.
 - [ ] Hook inputs and results are immutable snapshots with explicit transformation return contracts.
+- [ ] Replacement operations and results are validated against the exact input terminal and selected fields, with path-aware errors for cross-terminal or incompatible runtime returns.
 - [ ] The dispatcher can carry policy-neutral enforcement effects separately from hook-transformable operations without interpreting their payloads.
 - [ ] Master authority still executes validation, business hooks, transactions, and post-commit work.
 - [ ] Missing hook phases require no placeholder contribution and cannot remove the transaction boundary.

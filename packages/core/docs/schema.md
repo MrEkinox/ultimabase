@@ -34,6 +34,7 @@ src/
 │   ├── constraints/
 │   └── plugin.ts
 ├── schema/
+├── hooks/
 ├── plans/
 ├── inference/
 └── extensions/
@@ -84,6 +85,38 @@ Registries and cross-package runtime boundaries use `Schema.is(value)` to reject
 objects that only imitate the public metadata shape.
 Field definitions carry private factory provenance, so a structurally similar
 object cannot bypass validation or provide a forged snapshot capability.
+
+## Native schema hook declarations
+
+`new Schema({ hooks })` accepts the complete typed schema lifecycle directly.
+Create, update, upsert, delete, save, find, and general operation handlers cover
+their singular and bulk terminals through one callback. `operation.kind`
+narrows the exact operation, while result handlers preserve its corresponding
+result type.
+
+```ts
+const ArticleSchema = new Schema({
+	className: 'Article',
+	fields: {
+		title: stringField({ validation: { required: true } }),
+	},
+	hooks: {
+		beforeFind: ({ query }) => query.limit(100),
+		afterFind: (input) => {
+			if (input.kind === 'count') {
+				return Math.max(input.result, 0)
+			}
+
+			return input.result
+		},
+	},
+})
+```
+
+The declaration record is copied and frozen outside enumerable schema metadata.
+Changing only hooks cannot alter validation plans, adapter schemas, or
+migrations. Issue 325 declares and retains these callbacks; issue 330 connects
+them to Runtime execution.
 
 `id`, `createdAt`, and `updatedAt` are reserved for UltimaBase system fields.
 Developer declarations using those keys fail both TypeScript checking and

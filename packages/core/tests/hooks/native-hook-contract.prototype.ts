@@ -105,7 +105,7 @@ type PrototypeSchemaOptions<
 	TClassName extends string,
 	TFields extends SchemaFields,
 	TExtensions extends SchemaExtensions,
-> = SchemaOptions<TClassName, TFields, TExtensions> & {
+> = Omit<SchemaOptions<TClassName, TFields, TExtensions>, 'hooks'> & {
 	readonly hooks?: PrototypeSchemaHooks<
 		PrototypeSchemaDefinition<
 			NoInfer<TClassName>,
