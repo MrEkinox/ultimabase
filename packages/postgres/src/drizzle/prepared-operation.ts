@@ -7,7 +7,7 @@ import type {
 	PreparedDatabaseOperation,
 } from '@ultimabase/core'
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
-import { eq } from 'drizzle-orm'
+import { and, eq, type SQL } from 'drizzle-orm'
 
 import type { CompiledPostgresSchema } from '../schema/contracts.js'
 import {
@@ -143,6 +143,7 @@ const executeLockedMutation = async (
 	schema: CompiledPostgresSchema,
 	operation: RuntimeLockedOperation,
 	previous: DatabaseLogicalRecord,
+	constraint: SQL | undefined,
 ): Promise<
 	Readonly<{
 		materialization: DatabaseMutationMaterialization
@@ -150,7 +151,14 @@ const executeLockedMutation = async (
 	}>
 > => {
 	const id = resolveCompiledPostgresField(schema, 'id').column
-	const target = eq(id, readPreparedRecordId(schema, previous))
+	const retainedId = eq(id, readPreparedRecordId(schema, previous))
+	const target = and(retainedId, constraint)
+
+	if (target === undefined) {
+		throw new TypeError(
+			'PostgreSQL prepared mutation predicate could not be combined',
+		)
+	}
 	const selection = compilePostgresSelection(schema)
 
 	if (operation.kind === 'update-one') {
@@ -223,10 +231,11 @@ const prepareLockedSingular = async (
 	client: PostgresDrizzleClient,
 	schema: CompiledPostgresSchema,
 	operation: RuntimeLockedOperation,
+	constraint: SQL | undefined,
 	assertActive: () => void,
 ): Promise<PreparedDatabaseOperation<DatabaseMutationOperationAst>> => {
 	const previous = await runPreparedMutationStep(operation.kind, () =>
-		lockPostgresSingularMutationTarget(client, schema, operation),
+		lockPostgresSingularMutationTarget(client, schema, operation, constraint),
 	)
 
 	return createPreparedMutationHandle({
@@ -239,7 +248,14 @@ const prepareLockedSingular = async (
 
 			const { materialization, record } = await runPreparedMutationStep(
 				operation.kind,
-				() => executeLockedMutation(client, schema, operation, previous),
+				() =>
+					executeLockedMutation(
+						client,
+						schema,
+						operation,
+						previous,
+						constraint,
+					),
 			)
 
 			return createPostgresMutationOutcome(
@@ -262,6 +278,7 @@ export const preparePostgresMutation = async <
 	client: PostgresDrizzleClient,
 	schema: CompiledPostgresSchema,
 	operation: TOperation,
+	constraint: SQL | undefined,
 	assertActive: () => void,
 ): Promise<PreparedDatabaseOperation<TOperation>> => {
 	const runtimeOperation = operation as unknown as RuntimeMutationOperation
@@ -282,6 +299,7 @@ export const preparePostgresMutation = async <
 				client,
 				schema,
 				runtimeOperation,
+				constraint,
 				assertActive,
 			)
 			break
@@ -297,6 +315,7 @@ export const preparePostgresMutation = async <
 						client,
 						schema,
 						runtimeOperation,
+						constraint,
 					)
 
 					return createPostgresMutationOutcome(result, [])

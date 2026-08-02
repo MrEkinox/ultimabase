@@ -100,6 +100,7 @@ test('maps every operation kind to its database result semantics', () => {
 test('preserves operation and constraint inference through execute', () => {
 	type TenantConstraint = DatabaseConstraintNode<
 		'fixture.tenant',
+		1,
 		Readonly<{ readonly tenantId: string }>
 	>
 
@@ -109,7 +110,7 @@ test('preserves operation and constraint inference through execute', () => {
 	} satisfies FindOperationAst<typeof articleSchema>
 	const request = {
 		constraints: [
-			{ kind: 'fixture.tenant', payload: { tenantId: 'tenant-1' } },
+			{ kind: 'fixture.tenant', version: 1, payload: { tenantId: 'tenant-1' } },
 		],
 		operation,
 	} satisfies DatabaseOperationRequest<typeof operation, TenantConstraint>

@@ -3,6 +3,7 @@
 - Status: accepted
 - Date: 2026-08-01
 - Extends: ADR-0004, ADR-0007, ADR-0053, ADR-0054
+- Refined by: ADR-0103
 
 ## Decision
 

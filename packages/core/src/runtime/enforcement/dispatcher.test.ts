@@ -82,7 +82,7 @@ describe('createEnforcementStages', () => {
 						`${name}.constraint`,
 						constraint({
 							handler: () =>
-								databaseConstraint('fixture.ordered-policy', {
+								databaseConstraint('fixture.ordered-policy', 1, {
 									value,
 								}),
 						}),
@@ -108,8 +108,16 @@ describe('createEnforcementStages', () => {
 		})
 
 		expect(result.constraints).toStrictEqual([
-			{ kind: 'fixture.ordered-policy', payload: { value: 'first' } },
-			{ kind: 'fixture.ordered-policy', payload: { value: 'second' } },
+			{
+				kind: 'fixture.ordered-policy',
+				version: 1,
+				payload: { value: 'first' },
+			},
+			{
+				kind: 'fixture.ordered-policy',
+				version: 1,
+				payload: { value: 'second' },
+			},
 		])
 
 		await application.dispose()
@@ -140,7 +148,7 @@ describe('createEnforcementStages', () => {
 						handler: () => {
 							trace.push('constraint:tenant')
 
-							return databaseConstraint('fixture.tenant', {
+							return databaseConstraint('fixture.tenant', 1, {
 								tenantId: 'tenant-1',
 							})
 						},
@@ -152,7 +160,7 @@ describe('createEnforcementStages', () => {
 						handler: () => {
 							trace.push('constraint:visibility')
 
-							return databaseConstraint('fixture.visibility', {
+							return databaseConstraint('fixture.visibility', 1, {
 								published: true,
 							})
 						},
@@ -220,8 +228,8 @@ describe('createEnforcementStages', () => {
 		})
 
 		expect(enforced.constraints).toStrictEqual([
-			{ kind: 'fixture.tenant', payload: { tenantId: 'tenant-1' } },
-			{ kind: 'fixture.visibility', payload: { published: true } },
+			{ kind: 'fixture.tenant', version: 1, payload: { tenantId: 'tenant-1' } },
+			{ kind: 'fixture.visibility', version: 1, payload: { published: true } },
 		])
 		expect(result).toStrictEqual({ title: 'Allowed' })
 		expect(trace).toStrictEqual([
@@ -386,7 +394,7 @@ describe('createEnforcementStages', () => {
 						schema: articleSchema,
 						operations: ['create-one'],
 						handler: ({ operation }) =>
-							databaseConstraint('fixture.input-title', {
+							databaseConstraint('fixture.input-title', 1, {
 								title: operation.input.title,
 							}),
 					}),
@@ -418,8 +426,16 @@ describe('createEnforcementStages', () => {
 		})
 
 		expect(enforced.constraints).toStrictEqual([
-			{ kind: 'fixture.input-title', payload: { title: 'Initial' } },
-			{ kind: 'fixture.input-title', payload: { title: 'Transformed' } },
+			{
+				kind: 'fixture.input-title',
+				version: 1,
+				payload: { title: 'Initial' },
+			},
+			{
+				kind: 'fixture.input-title',
+				version: 1,
+				payload: { title: 'Transformed' },
+			},
 		])
 
 		await application.dispose()
@@ -503,6 +519,7 @@ describe('createEnforcementStages', () => {
 			constraint({
 				handler: () => ({
 					kind: 'fixture.forged',
+					version: 1,
 					payload: null,
 				}),
 			}),

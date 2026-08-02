@@ -1,5 +1,4 @@
 import {
-	assertNonEmptyString,
 	immutableArray,
 	immutableRecord,
 	isPlainRecord,
@@ -7,6 +6,10 @@ import {
 	type MaybePromise,
 } from '@ultimabase/shared'
 
+import {
+	assertDatabaseConstraintKind,
+	assertDatabaseConstraintVersion,
+} from '../../plugins/constraint-compilers.js'
 import type { OperationKind } from '../../query/index.js'
 import { Schema, type SchemaDefinition } from '../../schema/index.js'
 import type {
@@ -211,7 +214,6 @@ const implementations = new WeakMap<
 >()
 const databaseConstraintNodes = new WeakSet<object>()
 const optionKeys = new Set(['handler', 'operations', 'schema'])
-const databaseConstraintKindPattern = /^[a-z][a-z0-9-]*(?:\.[a-z][a-z0-9-]*)+$/u
 
 /** Detaches portable payload data so retained caller references cannot alter a plan. */
 const snapshotDatabaseConstraintPayload = (
@@ -371,7 +373,7 @@ export const guard = <
 /**
  * Declares opaque adapter constraints that Runtime can only append.
  *
- * @example `constraint({ schema: PostSchema, handler: () => databaseConstraint('tenant.rows', { tenantId }) })`
+ * @example `constraint({ schema: PostSchema, handler: () => databaseConstraint('tenant.rows', 1, { tenantId }) })`
  */
 export const constraint = <
 	const TSchema extends SchemaDefinition = SchemaDefinition,
@@ -445,31 +447,32 @@ export const matchesEnforcementContribution = (
  * Kinds use lowercase dot-separated namespace segments. Payloads accept only
  * portable scalar, array, and plain-object values.
  *
- * @example `databaseConstraint('tenant.rows', { tenantId: 'tenant-1' })`
+ * @param kind - Names the adapter compiler contract, for example `tenant.rows`.
+ * @param version - Selects the compiler's positive integer payload version.
+ * @param payload - Supplies portable data interpreted only by the owning plugin.
+ * @example `databaseConstraint('tenant.rows', 1, { tenantId: 'tenant-1' })`
  */
 export const databaseConstraint = <
 	const TKind extends string,
+	const TVersion extends number,
 	const TPayload extends DatabaseConstraintPayload,
 >(
 	kind: TKind,
+	version: TVersion,
 	payload: TPayload,
 ): DatabaseConstraintNode<
 	TKind,
+	TVersion,
 	ImmutableDatabaseConstraintPayload<TPayload>
 > => {
-	assertNonEmptyString(kind, 'database constraint kind')
-
-	if (!databaseConstraintKindPattern.test(kind)) {
-		throw new TypeError(
-			'database constraint kind must use lowercase dot-separated namespace segments',
-		)
-	}
+	assertDatabaseConstraintKind(kind, 'database constraint kind')
+	assertDatabaseConstraintVersion(version, 'database constraint version')
 
 	const detachedPayload = snapshotDatabaseConstraintPayload(
 		payload,
 		'database constraint payload',
 	) as ImmutableDatabaseConstraintPayload<TPayload>
-	const node = immutableRecord({ kind, payload: detachedPayload })
+	const node = immutableRecord({ kind, version, payload: detachedPayload })
 	databaseConstraintNodes.add(node)
 
 	return node

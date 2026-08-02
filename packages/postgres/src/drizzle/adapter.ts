@@ -12,6 +12,11 @@ import type {
 import { isPlainRecord } from '@ultimabase/shared'
 
 import {
+	compilePostgresConstraints,
+	emptyPostgresConstraintCompilerRegistry,
+	type PostgresConstraintCompilerRegistry,
+} from '../constraints/compiler.js'
+import {
 	createPostgresDrizzleClient,
 	type PostgresDrizzleClient,
 } from './client.js'
@@ -45,15 +50,23 @@ const readOperationSchema = (operation: DatabaseOperationAst): unknown => {
 	return undefined
 }
 
-const assertNoConstraints = (request: DatabaseOperationRequest): void => {
-	if (request.constraints.length > 0) {
+/** Prevents a row predicate from being silently ignored by an INSERT path. */
+const assertConstraintOperationSupported = (
+	operation: DatabaseOperationAst,
+	constraintCount: number,
+): void => {
+	if (
+		constraintCount > 0 &&
+		(operation.kind === 'create-one' || operation.kind === 'create-many')
+	) {
 		throw new FrameworkError(
 			'INTERNAL_ERROR',
-			'PostgreSQL cannot compile the requested constraints.',
+			'PostgreSQL row constraints cannot guard a create operation.',
 			{
 				publicMessage: 'The database operation is not available.',
 				internalDetails: {
-					kind: 'postgres-constraint-unsupported',
+					kind: 'postgres-constraint-operation-unsupported',
+					operation: operation.kind,
 				},
 			},
 		)
@@ -108,16 +121,26 @@ const executePostgresRequest = async <
 >(
 	client: PostgresDrizzleClient,
 	schemas: PostgresSchemaCatalog,
+	constraintCompilers: PostgresConstraintCompilerRegistry,
 	request: DatabaseOperationRequest<TOperation>,
 ): Promise<DatabaseOperationResult<TOperation>> => {
-	assertNoConstraints(request)
 	const schema = schemas.get(readOperationSchema(request.operation))
+	const constraintPredicate = compilePostgresConstraints(
+		constraintCompilers,
+		schema,
+		request.constraints,
+	)
+	assertConstraintOperationSupported(
+		request.operation,
+		request.constraints.length,
+	)
 	// Runtime guarantees the closed Operation AST union before the adapter boundary.
 	const operation = request.operation as unknown as ExecutableOperationAst
 	const result: unknown = await executePostgresOperation(
 		client,
 		schema,
 		operation,
+		constraintPredicate,
 	)
 
 	// Exhaustive operation dispatch preserves Runtime's discriminant-to-result contract.
@@ -130,14 +153,20 @@ class DrizzlePostgresTransactionAdapter implements DatabaseTransactionAdapter {
 	readonly #client: PostgresPoolClient
 	readonly #drizzle: PostgresDrizzleClient
 	readonly #schemas: PostgresSchemaCatalog
+	readonly #constraintCompilers: PostgresConstraintCompilerRegistry
 	#state:
 		'active' | 'committing' | 'rollback-required' | 'rolling-back' | 'closed' =
 		'active'
 
-	constructor(client: PostgresPoolClient, schemas: PostgresSchemaCatalog) {
+	constructor(
+		client: PostgresPoolClient,
+		schemas: PostgresSchemaCatalog,
+		constraintCompilers: PostgresConstraintCompilerRegistry,
+	) {
 		this.#client = client
 		this.#drizzle = createPostgresDrizzleClient(client)
 		this.#schemas = schemas
+		this.#constraintCompilers = constraintCompilers
 	}
 
 	/** Prevents an escaped adapter from issuing work after commit or rollback. */
@@ -168,20 +197,34 @@ class DrizzlePostgresTransactionAdapter implements DatabaseTransactionAdapter {
 	): Promise<DatabaseOperationResult<TOperation>> {
 		this.#assertActive()
 
-		return executePostgresRequest(this.#drizzle, this.#schemas, request)
+		return executePostgresRequest(
+			this.#drizzle,
+			this.#schemas,
+			this.#constraintCompilers,
+			request,
+		)
 	}
 
 	async prepare<const TOperation extends DatabaseMutationOperationAst>(
 		request: DatabaseOperationRequest<TOperation>,
 	): Promise<PreparedDatabaseOperation<TOperation>> {
 		this.#assertActive()
-		assertNoConstraints(request)
 		const schema = this.#schemas.get(readOperationSchema(request.operation))
+		const constraintPredicate = compilePostgresConstraints(
+			this.#constraintCompilers,
+			schema,
+			request.constraints,
+		)
+		assertConstraintOperationSupported(
+			request.operation,
+			request.constraints.length,
+		)
 
 		return preparePostgresMutation(
 			this.#drizzle,
 			schema,
 			request.operation,
+			constraintPredicate,
 			() => {
 				this.#assertActive()
 			},
@@ -239,17 +282,28 @@ class DrizzlePostgresDatabaseAdapter implements DatabaseAdapter {
 	readonly #client: PostgresDrizzleClient
 	readonly #pool: PostgresPool
 	readonly #schemas: PostgresSchemaCatalog
+	readonly #constraintCompilers: PostgresConstraintCompilerRegistry
 
-	constructor(pool: PostgresPool, schemas: PostgresSchemaCatalog) {
+	constructor(
+		pool: PostgresPool,
+		schemas: PostgresSchemaCatalog,
+		constraintCompilers: PostgresConstraintCompilerRegistry,
+	) {
 		this.#client = createPostgresDrizzleClient(pool)
 		this.#pool = pool
 		this.#schemas = schemas
+		this.#constraintCompilers = constraintCompilers
 	}
 
 	execute<const TOperation extends DatabaseOperationAst>(
 		request: DatabaseOperationRequest<TOperation>,
 	): Promise<DatabaseOperationResult<TOperation>> {
-		return executePostgresRequest(this.#client, this.#schemas, request)
+		return executePostgresRequest(
+			this.#client,
+			this.#schemas,
+			this.#constraintCompilers,
+			request,
+		)
 	}
 
 	async beginTransaction(): Promise<DatabaseTransactionAdapter> {
@@ -269,7 +323,11 @@ class DrizzlePostgresDatabaseAdapter implements DatabaseAdapter {
 			throw createPostgresTransactionError('begin', error)
 		}
 
-		return new DrizzlePostgresTransactionAdapter(client, this.#schemas)
+		return new DrizzlePostgresTransactionAdapter(
+			client,
+			this.#schemas,
+			this.#constraintCompilers,
+		)
 	}
 }
 
@@ -277,4 +335,6 @@ class DrizzlePostgresDatabaseAdapter implements DatabaseAdapter {
 export const createPostgresDatabaseAdapter = (
 	pool: PostgresPool,
 	schemas: PostgresSchemaCatalog,
-): DatabaseAdapter => new DrizzlePostgresDatabaseAdapter(pool, schemas)
+	constraintCompilers: PostgresConstraintCompilerRegistry = emptyPostgresConstraintCompilerRegistry,
+): DatabaseAdapter =>
+	new DrizzlePostgresDatabaseAdapter(pool, schemas, constraintCompilers)

@@ -96,7 +96,7 @@ const tenantPlugin = (tenantId: string) =>
 				constraint({
 					schema: ArticleSchema,
 					operations: ['find', 'first', 'get'],
-					handler: () => databaseConstraint('example.tenant', { tenantId }),
+					handler: () => databaseConstraint('example.tenant', 1, { tenantId }),
 				}),
 			)
 			registries.hooks.register(
@@ -162,8 +162,9 @@ setup: ({ registries }) => {
 
 `guard` allows by returning nothing and denies by throwing; it has no
 grant-shaped return. `constraint` returns one protected
-`databaseConstraint('namespace.kind', payload)` node or an array of nodes; an
-empty array lets that policy deliberately contribute nothing. `restrictInput`,
+`databaseConstraint('namespace.kind', version, payload)` node or an array of
+nodes. The positive integer version selects the exact adapter compiler payload
+contract; an empty array lets that policy deliberately contribute nothing. `restrictInput`,
 `restrictSelection`, and `restrictOutput` return allowed top-level schema field
 names, and Runtime intersects every matching list instead of letting a later
 plugin replace an earlier decision. Restricted mutation input is rejected;
@@ -518,7 +519,9 @@ const articles = await adapter.execute({
 		kind: 'find',
 		query: new Query(articleSchema).limit(20).ast,
 	},
-	constraints: [databaseConstraint('example.tenant', { tenantId: 'tenant-1' })],
+	constraints: [
+		databaseConstraint('example.tenant', 1, { tenantId: 'tenant-1' }),
+	],
 })
 
 // readonly Article[]

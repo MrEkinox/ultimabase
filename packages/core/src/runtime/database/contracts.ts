@@ -62,9 +62,14 @@ export type ImmutableDatabaseConstraintPayload<
 /** Keeps one plugin-owned constraint opaque until an adapter compiler claims it. */
 export interface DatabaseConstraintNode<
 	TKind extends string = string,
+	TVersion extends number = number,
 	TPayload extends DatabaseConstraintPayload = DatabaseConstraintPayload,
 > {
+	/** Names the opaque compiler contract without revealing policy semantics. */
 	readonly kind: TKind
+	/** Selects the exact payload contract understood by the adapter compiler. */
+	readonly version: TVersion
+	/** Carries detached portable data that Runtime transports without interpreting. */
 	readonly payload: TPayload
 }
 

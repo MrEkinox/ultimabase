@@ -7,6 +7,10 @@ import {
 
 import { FrameworkError } from '../errors/framework-error.js'
 import {
+	createPluginConstraintCompilerRegistry,
+	type PluginConstraintCompilerRegistry,
+} from './constraint-compilers.js'
+import {
 	createPluginHookRegistry,
 	resolvePluginHookTargets,
 	type PluginHookRegistry,
@@ -218,6 +222,8 @@ export interface PluginSetupContext {
 	readonly registries: PluginContributionRegistries
 	/** Registers native hooks with ownership fixed to the current setup plugin. */
 	readonly hooks: PluginHookRegistry
+	/** Registers adapter constraint compilers with owner-derived provenance. */
+	readonly constraintCompilers: PluginConstraintCompilerRegistry
 }
 
 /** Owns all mutable setup registries for one isolated application instance. */
@@ -231,6 +237,9 @@ export class PluginSetupRegistries {
 	readonly pipelines: ContributionRegistry = new ContributionRegistry()
 	readonly events: ContributionRegistry = new ContributionRegistry()
 	readonly commands: ContributionRegistry = new ContributionRegistry()
+	// Compiler identities reuse contribution storage behind a narrower typed facade.
+	readonly constraintCompilers: ContributionRegistry =
+		new ContributionRegistry()
 	readonly #contributionRegistries: Readonly<
 		Record<PluginContributionCategory, ContributionRegistry>
 	>
@@ -300,6 +309,19 @@ export class PluginSetupRegistries {
 		const context = immutableRecord({
 			schemas: this.schemas,
 			services: this.services.forPlugin(pluginName),
+			constraintCompilers: createPluginConstraintCompilerRegistry({
+				isOpen: (): boolean => this.#setupOpen,
+				ownerPlugin: pluginName,
+				register: (name: string, value: unknown): void => {
+					registerPluginLocalContribution(
+						this.constraintCompilers,
+						pluginName,
+						name,
+						value,
+					)
+				},
+				values: () => this.constraintCompilers.values(),
+			}),
 			hooks: createPluginHookRegistry({
 				isOpen: (): boolean => this.#setupOpen,
 				ownerPlugin: pluginName,

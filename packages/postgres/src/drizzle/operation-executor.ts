@@ -29,6 +29,7 @@ type RuntimeQuery = QueryAst<
 >
 
 interface SelectOverrides {
+	readonly constraint?: SQL | undefined
 	readonly limit?: number
 	readonly where?: SQL
 }
@@ -45,7 +46,7 @@ const buildSelect = (
 	clauses: CompiledPostgresQueryClauses,
 	overrides: SelectOverrides = {},
 ) => {
-	const where = and(clauses.where, overrides.where)
+	const where = and(clauses.where, overrides.constraint, overrides.where)
 	const limit = overrides.limit ?? clauses.limit
 	let statement = client.select(selection).from(schema.table).$dynamic()
 
@@ -75,10 +76,13 @@ const executeFind = async (
 	client: PostgresDrizzleClient,
 	schema: CompiledPostgresSchema,
 	operation: Extract<RuntimeOperation, { readonly kind: 'find' }>,
+	constraint: SQL | undefined,
 ): Promise<readonly Readonly<Record<string, unknown>>[]> => {
 	const query = readBuiltInQuery(operation.query)
 	const clauses = compilePostgresQueryClauses(query, schema)
-	const rows = await buildSelect(client, schema, clauses.selection, clauses)
+	const rows = await buildSelect(client, schema, clauses.selection, clauses, {
+		constraint,
+	})
 
 	return decodeRows(schema, rows)
 }
@@ -87,10 +91,12 @@ const executeFirst = async (
 	client: PostgresDrizzleClient,
 	schema: CompiledPostgresSchema,
 	operation: Extract<RuntimeOperation, { readonly kind: 'first' }>,
+	constraint: SQL | undefined,
 ): Promise<Readonly<Record<string, unknown>> | null> => {
 	const query = readBuiltInQuery(operation.query)
 	const clauses = compilePostgresQueryClauses(query, schema)
 	const [row] = await buildSelect(client, schema, clauses.selection, clauses, {
+		constraint,
 		limit: 1,
 	})
 
@@ -101,11 +107,13 @@ const executeGet = async (
 	client: PostgresDrizzleClient,
 	schema: CompiledPostgresSchema,
 	operation: Extract<RuntimeOperation, { readonly kind: 'get' }>,
+	constraint: SQL | undefined,
 ): Promise<Readonly<Record<string, unknown>> | null> => {
 	const query = readBuiltInQuery(operation.query)
 	const clauses = compilePostgresQueryClauses(query, schema)
 	const id = resolveCompiledPostgresField(schema, 'id')
 	const [row] = await buildSelect(client, schema, clauses.selection, clauses, {
+		constraint,
 		limit: 1,
 		where: eq(id.column, id.codec.encode(operation.id)),
 	})
@@ -117,13 +125,14 @@ const executeCount = async (
 	client: PostgresDrizzleClient,
 	schema: CompiledPostgresSchema,
 	operation: Extract<RuntimeOperation, { readonly kind: 'count' }>,
+	constraint: SQL | undefined,
 ): Promise<number> => {
 	const query = readBuiltInQuery(operation.query)
 	const id = resolveCompiledPostgresField(schema, 'id').column
 	const clauses = compilePostgresQueryClauses(query, schema)
-	const target = buildSelect(client, schema, { id }, clauses).as(
-		'ultimabase_count_target',
-	)
+	const target = buildSelect(client, schema, { id }, clauses, {
+		constraint,
+	}).as('ultimabase_count_target')
 	const [row] = await client.select({ value: count() }).from(target)
 
 	if (row === undefined) {
@@ -137,11 +146,15 @@ const executeExists = async (
 	client: PostgresDrizzleClient,
 	schema: CompiledPostgresSchema,
 	operation: Extract<RuntimeOperation, { readonly kind: 'exists' }>,
+	constraint: SQL | undefined,
 ): Promise<boolean> => {
 	const query = readBuiltInQuery(operation.query)
 	const id = resolveCompiledPostgresField(schema, 'id').column
 	const clauses = compilePostgresQueryClauses(query, schema)
-	const rows = await buildSelect(client, schema, { id }, clauses, { limit: 1 })
+	const rows = await buildSelect(client, schema, { id }, clauses, {
+		constraint,
+		limit: 1,
+	})
 
 	return rows.length > 0
 }
@@ -169,21 +182,26 @@ const buildSingularTarget = (
 	client: PostgresDrizzleClient,
 	schema: CompiledPostgresSchema,
 	clauses: CompiledPostgresQueryClauses,
+	constraint: SQL | undefined,
 ) => {
 	const id = resolveCompiledPostgresField(schema, 'id').column
 
-	return buildSelect(client, schema, { id }, clauses, { limit: 1 })
+	return buildSelect(client, schema, { id }, clauses, {
+		constraint,
+		limit: 1,
+	})
 }
 
 const executeUpdateOne = async (
 	client: PostgresDrizzleClient,
 	schema: CompiledPostgresSchema,
 	operation: Extract<RuntimeOperation, { readonly kind: 'update-one' }>,
+	constraint: SQL | undefined,
 ): Promise<Readonly<Record<string, unknown>> | null> => {
 	const query = readBuiltInQuery(operation.query)
 	const clauses = compilePostgresQueryClauses(query, schema)
 	const id = resolveCompiledPostgresField(schema, 'id').column
-	const target = buildSingularTarget(client, schema, clauses)
+	const target = buildSingularTarget(client, schema, clauses, constraint)
 	const [row] = await client
 		.update(schema.table)
 		.set(compilePostgresUpdate(schema, operation.update))
@@ -197,11 +215,12 @@ const executeDeleteOne = async (
 	client: PostgresDrizzleClient,
 	schema: CompiledPostgresSchema,
 	operation: Extract<RuntimeOperation, { readonly kind: 'delete-one' }>,
+	constraint: SQL | undefined,
 ): Promise<Readonly<Record<string, unknown>> | null> => {
 	const query = readBuiltInQuery(operation.query)
 	const clauses = compilePostgresQueryClauses(query, schema)
 	const id = resolveCompiledPostgresField(schema, 'id').column
-	const target = buildSingularTarget(client, schema, clauses)
+	const target = buildSingularTarget(client, schema, clauses, constraint)
 	const [row] = await client
 		.delete(schema.table)
 		.where(inArray(id, target))
@@ -218,6 +237,7 @@ export const lockPostgresSingularMutationTarget = async (
 		RuntimeOperation,
 		{ readonly kind: 'delete-one' | 'update-one' }
 	>,
+	constraint: SQL | undefined,
 ): Promise<Readonly<Record<string, unknown>> | null> => {
 	const query = readBuiltInQuery(operation.query)
 	const clauses = compilePostgresQueryClauses(query, schema)
@@ -226,7 +246,7 @@ export const lockPostgresSingularMutationTarget = async (
 		schema,
 		compilePostgresSelection(schema),
 		clauses,
-		{ limit: 1 },
+		{ constraint, limit: 1 },
 	).for('update')
 
 	return row === undefined ? null : decodePostgresRecord(schema, row)
@@ -252,25 +272,26 @@ export const executePostgresOperation = async (
 	client: PostgresDrizzleClient,
 	schema: CompiledPostgresSchema,
 	operation: RuntimeOperation,
+	constraint?: SQL,
 ): Promise<unknown> => {
 	try {
 		switch (operation.kind) {
 			case 'find':
-				return await executeFind(client, schema, operation)
+				return await executeFind(client, schema, operation, constraint)
 			case 'first':
-				return await executeFirst(client, schema, operation)
+				return await executeFirst(client, schema, operation, constraint)
 			case 'get':
-				return await executeGet(client, schema, operation)
+				return await executeGet(client, schema, operation, constraint)
 			case 'count':
-				return await executeCount(client, schema, operation)
+				return await executeCount(client, schema, operation, constraint)
 			case 'exists':
-				return await executeExists(client, schema, operation)
+				return await executeExists(client, schema, operation, constraint)
 			case 'create-one':
 				return await executeCreateOne(client, schema, operation)
 			case 'update-one':
-				return await executeUpdateOne(client, schema, operation)
+				return await executeUpdateOne(client, schema, operation, constraint)
 			case 'delete-one':
-				return await executeDeleteOne(client, schema, operation)
+				return await executeDeleteOne(client, schema, operation, constraint)
 			case 'create-many':
 			case 'update-many':
 			case 'upsert-one':

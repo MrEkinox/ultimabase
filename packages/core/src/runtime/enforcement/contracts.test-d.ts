@@ -43,7 +43,7 @@ test('preserves exact schemas, operation kinds, constraints, and results', () =>
 				EnforcementOperation<typeof postSchema, 'find'>
 			>()
 
-			return databaseConstraint('fixture.tenant', { tenantId: 'tenant-1' })
+			return databaseConstraint('fixture.tenant', 1, { tenantId: 'tenant-1' })
 		},
 	})
 
@@ -81,8 +81,12 @@ test('rejects grants, invalid fields, and non-namespaced constraint kinds', () =
 		handler: () => ['id', 'published'],
 	})
 
-	const node = databaseConstraint('fixture.tenant', { tenantId: 'tenant-1' })
+	const node = databaseConstraint('fixture.tenant', 1, { tenantId: 'tenant-1' })
 	expectTypeOf(node).toEqualTypeOf<
-		DatabaseConstraintNode<'fixture.tenant', { readonly tenantId: 'tenant-1' }>
+		DatabaseConstraintNode<
+			'fixture.tenant',
+			1,
+			{ readonly tenantId: 'tenant-1' }
+		>
 	>()
 })

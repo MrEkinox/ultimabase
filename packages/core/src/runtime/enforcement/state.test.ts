@@ -25,8 +25,10 @@ describe('monotonic enforcement state', () => {
 	})
 
 	it('appends independent opaque constraints without changing prior states', () => {
-		const tenant = databaseConstraint('fixture.tenant', { tenantId: 'one' })
-		const visible = databaseConstraint('fixture.visibility', { public: true })
+		const tenant = databaseConstraint('fixture.tenant', 1, { tenantId: 'one' })
+		const visible = databaseConstraint('fixture.visibility', 1, {
+			public: true,
+		})
 		const empty = createEnforcementState()
 		const withTenant = appendEnforcementConstraints(empty, tenant)
 		const complete = appendEnforcementConstraints(withTenant, [visible])
@@ -45,18 +47,25 @@ describe('monotonic enforcement state', () => {
 	})
 
 	it('deduplicates structurally identical constraints across reevaluation', () => {
-		const first = databaseConstraint('fixture.tenant', { tenantId: 'one' })
-		const repeated = databaseConstraint('fixture.tenant', { tenantId: 'one' })
-		const changed = databaseConstraint('fixture.tenant', { tenantId: 'two' })
+		const first = databaseConstraint('fixture.tenant', 1, { tenantId: 'one' })
+		const repeated = databaseConstraint('fixture.tenant', 1, {
+			tenantId: 'one',
+		})
+		const changed = databaseConstraint('fixture.tenant', 1, { tenantId: 'two' })
+		const newVersion = databaseConstraint('fixture.tenant', 2, {
+			tenantId: 'one',
+		})
 		const state = appendEnforcementConstraints(createEnforcementState(), [
 			first,
 			repeated,
 			changed,
+			newVersion,
 		])
 
 		expect(getEnforcementStateSnapshot(state).constraints).toStrictEqual([
 			first,
 			changed,
+			newVersion,
 		])
 	})
 
@@ -97,6 +106,7 @@ describe('monotonic enforcement state', () => {
 		expect(() =>
 			appendEnforcementConstraints(state, {
 				kind: 'fixture.forged',
+				version: 1,
 				payload: null,
 			}),
 		).toThrow('enforcement constraint[0] must be a database constraint node')

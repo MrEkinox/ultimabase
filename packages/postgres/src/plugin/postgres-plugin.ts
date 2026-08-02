@@ -176,7 +176,7 @@ export const postgresPlugin = (
 	return definePlugin({
 		name: postgresPluginName,
 		slot: 'database-adapter',
-		setup: ({ registries, schemas, services }) => {
+		setup: ({ constraintCompilers, registries, schemas, services }) => {
 			registries.extensions.register(
 				extensionHandlerKey('field', postgresColumnExtensionName),
 				resolvePostgresRenamedFrom,
@@ -192,6 +192,7 @@ export const postgresPlugin = (
 			const adapter = createPostgresDatabaseAdapter(
 				managedConnection.getPool(),
 				schemaCatalog,
+				constraintCompilers,
 			)
 			const connection: PostgresConnectionService = managedConnection
 

@@ -7,6 +7,7 @@ describe('@ultimabase/postgres public entry point', () => {
 		expect(Object.keys(publicApi).sort()).toStrictEqual([
 			'postgresColumn',
 			'postgresConnectionServiceToken',
+			'postgresConstraintCompiler',
 			'postgresPlugin',
 			'postgresSchemaPreparationClaimName',
 			'postgresTable',

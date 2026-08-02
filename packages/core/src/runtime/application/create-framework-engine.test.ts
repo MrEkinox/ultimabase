@@ -173,7 +173,7 @@ describe('createFrameworkEngine', () => {
 						handler: () => {
 							trace.push('enforcement:constraint')
 
-							return databaseConstraint('fixture.tenant', {
+							return databaseConstraint('fixture.tenant', 1, {
 								tenantId: 'tenant-1',
 							})
 						},
@@ -212,6 +212,7 @@ describe('createFrameworkEngine', () => {
 		expect(adapter.transactions[0]?.requests[0]?.constraints).toStrictEqual([
 			{
 				kind: 'fixture.tenant',
+				version: 1,
 				payload: { tenantId: 'tenant-1' },
 			},
 		])

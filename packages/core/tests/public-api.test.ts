@@ -48,6 +48,7 @@ describe('@ultimabase/core public entry point', () => {
 			'dateField',
 			'dateTimeField',
 			'decimalField',
+			'defineDatabaseConstraintCompiler',
 			'defineExtensions',
 			'defineFieldExtension',
 			'defineFieldKindHookTarget',

@@ -3,7 +3,7 @@
 - Status: active
 - Started: 2026-08-01
 - Objective owner: `@ultimabase/core`, `@ultimabase/postgres`, `@ultimabase/testing`
-- Governing decisions: [ADR-0089](docs/adr/0089-native-schema-and-field-hooks.md), [ADR-0090](docs/adr/0090-permission-plugins-through-hooks.md), [ADR-0095](docs/adr/0095-consolidated-foundational-core.md), [ADR-0096](docs/adr/0096-native-hook-declaration-capabilities.md), [ADR-0099](docs/adr/0099-automatic-mutation-transactions.md), [ADR-0100](docs/adr/0100-prepared-mutation-outcomes.md)
+- Governing decisions: [ADR-0089](docs/adr/0089-native-schema-and-field-hooks.md), [ADR-0090](docs/adr/0090-permission-plugins-through-hooks.md), [ADR-0095](docs/adr/0095-consolidated-foundational-core.md), [ADR-0096](docs/adr/0096-native-hook-declaration-capabilities.md), [ADR-0099](docs/adr/0099-automatic-mutation-transactions.md), [ADR-0100](docs/adr/0100-prepared-mutation-outcomes.md), [ADR-0102](docs/adr/0102-policy-neutral-monotonic-enforcement.md), [ADR-0103](docs/adr/0103-versioned-adapter-constraint-compilers.md)
 - Previous completed objective: [Runtime-to-PostgreSQL E2E](docs/plans/completed/runtime-postgres-e2e.md)
 
 ## Objective
@@ -72,6 +72,7 @@ The objective is complete only when:
 - Enforcement hooks can only deny, append constraints, or narrow fields, so later hooks cannot broaden access.
 - Guards, constraints, and input or selection restrictions run before effectful business hooks; final output restrictions run after every result transform.
 - Guards, constraints, and field restrictions are reevaluated into the existing monotonic state after business operation transforms, so value-derived decisions cannot become stale.
+- Constraint payloads use explicit positive integer versions, while compiler ownership and database-specific output stay behind an application-owned adapter target.
 - A general `skipHooks` escape hatch is forbidden.
 
 ## Execution order
@@ -90,7 +91,7 @@ dependencies are incomplete.
 9. [x] [344 — Define the prepared mutation adapter protocol](issues/300-query-runtime/344-prepared-mutation-adapter-protocol.md)
 10. [x] [330 — Execute the native hook lifecycle](issues/300-query-runtime/330-native-hook-dispatcher.md)
 11. [x] [337 — Replace named permission stages with hook enforcement](issues/300-query-runtime/337-policy-neutral-hook-enforcement.md)
-12. [ ] [338 — Add the adapter constraint compiler registry](issues/300-query-runtime/338-adapter-constraint-compiler-registry.md)
+12. [x] [338 — Add the adapter constraint compiler registry](issues/300-query-runtime/338-adapter-constraint-compiler-registry.md)
 13. [ ] [331 — Add find and output hooks](issues/300-query-runtime/331-find-and-output-hooks.md)
 14. [ ] [332 — Add transaction finalization hooks](issues/300-query-runtime/332-transaction-hook-lifecycle.md)
 15. [ ] [333 — Protect hook execution and expose diagnostics](issues/300-query-runtime/333-hook-safety-and-observability.md)
@@ -123,12 +124,12 @@ the named Runtime stages and proven monotonic hook enforcement.
 
 ## Current issue
 
-[338 — Add the adapter constraint compiler registry](issues/300-query-runtime/338-adapter-constraint-compiler-registry.md)
+[331 — Add find and output hooks](issues/300-query-runtime/331-find-and-output-hooks.md)
 
-Runtime now accumulates policy-neutral constraints without interpreting their
-payloads. Issue 338 adds the application-owned compiler registry that lets the
-selected database adapter claim those namespaced nodes and reject unknown
-constraints before execution.
+Versioned policy-neutral constraints now compile through application-owned
+adapter registries. Issue 331 completes the read lifecycle with typed
+`beforeFind`, `afterFind`, and selected-field output resolution while retaining
+monotonic restrictions and the non-transactional default for reads.
 
 ## Progress log
 
@@ -146,5 +147,5 @@ without reconstructing repository history.
 - 344 — `done` — Runtime now prepares every mutation; typed immutable outcomes isolate selected public results from stable singular PostgreSQL targets and complete logical materializations.
 - 330 — `done` — Compiled schema, field, and plugin hooks now resolve, validate, wrap prepared mutations, consume complete materializations, emit semantic changes, and roll back atomically.
 - 337 — `done` — Five protected policy-neutral factories now deny, append immutable adapter constraints, intersect fields, reevaluate transformed operations monotonically, and leave absent policies without placeholders.
-- 338 — `planned` — The generic constraint compiler registry waits for policy-neutral constraint contracts from issue 337.
+- 338 — `done` — Application-owned versioned compiler definitions retain plugin ownership; PostgreSQL safely parameterizes and combines every claimed constraint across reads, locked targets, and final singular writes.
 - 508 — `planned` — PostgreSQL bulk and upsert support follows the prepared-mutation protocol from issue 344 and remains required before issue 335.

@@ -143,6 +143,7 @@ describe('database adapter contracts', () => {
 		} satisfies FindOperationAst<typeof articleSchema>
 		const tenantConstraint = immutableRecord({
 			kind: 'fixture.tenant',
+			version: 1,
 			payload: immutableRecord({ tenantId: 'tenant-1' }),
 		})
 

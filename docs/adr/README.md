@@ -101,6 +101,7 @@ Accepted records:
 - [ADR-0100: Prepared mutation outcomes](0100-prepared-mutation-outcomes.md)
 - [ADR-0101: Compiled native hook dispatcher](0101-compiled-native-hook-dispatcher.md)
 - [ADR-0102: Policy-neutral monotonic enforcement plan](0102-policy-neutral-monotonic-enforcement.md)
+- [ADR-0103: Versioned adapter constraint compilers](0103-versioned-adapter-constraint-compilers.md)
 
 Superseded records:
 

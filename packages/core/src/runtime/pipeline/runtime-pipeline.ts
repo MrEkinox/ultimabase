@@ -7,6 +7,7 @@ import {
 } from '@ultimabase/shared'
 
 import { RequestContext } from '../context/request-context.js'
+import { assertDatabaseConstraintVersion } from '../../plugins/constraint-compilers.js'
 import type {
 	DatabaseConstraintNode,
 	DatabaseMutationOperationAst,
@@ -221,6 +222,10 @@ const snapshotConstraints = (
 		}
 
 		assertNonEmptyString(constraint.kind, 'Runtime enforcement constraint kind')
+		assertDatabaseConstraintVersion(
+			constraint.version,
+			'Runtime enforcement constraint version',
+		)
 
 		if (!Object.hasOwn(constraint, 'payload')) {
 			throw new TypeError(

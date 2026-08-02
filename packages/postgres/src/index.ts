@@ -6,6 +6,16 @@ export type {
 	PostgresPoolClient,
 	PostgresQueryResult,
 } from './connection/contracts.js'
+export { postgresConstraintCompiler } from './constraints/definition.js'
+export type {
+	PostgresConstraintCompileContext,
+	PostgresConstraintCompilerDefinition,
+	PostgresConstraintCompilerOptions,
+	PostgresConstraintField,
+	PostgresConstraintInterpolation,
+	PostgresConstraintPredicate,
+	PostgresConstraintSqlTag,
+} from './constraints/definition.js'
 export { postgresPlugin } from './plugin/postgres-plugin.js'
 export { postgresSchemaPreparationClaimName } from './constants.js'
 

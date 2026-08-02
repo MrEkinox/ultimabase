@@ -1,5 +1,6 @@
 import {
 	Query,
+	databaseConstraint,
 	normalizeUpdateExpression,
 	type CreateOneOperationAst,
 	type DeleteOneOperationAst,
@@ -18,6 +19,11 @@ import { describe, expect, it } from 'vitest'
 
 import { createPostgresDatabaseAdapter } from './adapter.js'
 import type { PostgresDriverQueryClient } from './client.js'
+import type { PostgresConstraintCompilerRegistry } from '../constraints/compiler.js'
+import {
+	postgresConstraintCompiler,
+	type PostgresConstraintCompilerDefinition,
+} from '../constraints/definition.js'
 import type {
 	PostgresPool,
 	PostgresPoolClient,
@@ -32,6 +38,48 @@ const articleSchema = new Schema({
 		views: intField(),
 	},
 })
+
+const decodeTenantPayload = (
+	payload: unknown,
+): { readonly tenantId: string } => {
+	if (!isPlainRecord(payload) || typeof payload.tenantId !== 'string') {
+		throw new TypeError('invalid tenant payload')
+	}
+
+	return { tenantId: payload.tenantId }
+}
+
+const tenantCompiler = postgresConstraintCompiler({
+	kind: 'fixture.tenant',
+	version: 1,
+	decode: decodeTenantPayload,
+	compile: ({ field, payload, sql }) =>
+		sql`${field('note')} = ${payload.tenantId}`,
+})
+const visibilityCompiler = postgresConstraintCompiler({
+	kind: 'fixture.visibility',
+	version: 1,
+	decode: (payload) => {
+		if (typeof payload !== 'string') {
+			throw new TypeError('invalid visibility payload')
+		}
+
+		return payload
+	},
+	compile: ({ field, payload, sql }) => sql`${field('title')} = ${payload}`,
+})
+
+/** Creates one live-looking read view without duplicating Core registry behavior. */
+const createConstraintCompilerRegistry = (
+	...definitions: readonly PostgresConstraintCompilerDefinition[]
+): PostgresConstraintCompilerRegistry => {
+	const contributions = definitions.map((definition) => ({
+		definition,
+		ownerPlugin: 'fixture.constraint-owner',
+	}))
+
+	return Object.freeze({ values: () => contributions })
+}
 
 interface RecordedDriverQuery {
 	readonly params: readonly unknown[]
@@ -162,7 +210,11 @@ class FixturePool implements PostgresPool {
 	}
 }
 
-const createFixture = (transactionCount = 1, connectError?: Error) => {
+const createFixture = (
+	transactionCount = 1,
+	connectError?: Error,
+	constraintCompilers?: PostgresConstraintCompilerRegistry,
+) => {
 	const driver = new FixtureDriver()
 	const transactionDrivers = Array.from(
 		{ length: transactionCount },
@@ -172,6 +224,7 @@ const createFixture = (transactionCount = 1, connectError?: Error) => {
 	const adapter = createPostgresDatabaseAdapter(
 		pool,
 		new PostgresSchemaCatalog([articleSchema]),
+		constraintCompilers,
 	)
 
 	return { adapter, driver, pool, transactionDrivers }
@@ -264,6 +317,38 @@ describe('internal PostgreSQL database adapter', () => {
 		).resolves.toBe(true)
 	})
 
+	it('combines registered constraints with query predicates using parameterized AND', async () => {
+		const compilerRegistry = createConstraintCompilerRegistry(
+			tenantCompiler,
+			visibilityCompiler,
+		)
+		const { adapter, driver } = createFixture(1, undefined, compilerRegistry)
+		const injectedTenant = "tenant' OR true --"
+		const operation = {
+			kind: 'find',
+			query: new Query(articleSchema).greaterThan('views', 10).ast,
+		} satisfies FindOperationAst<typeof articleSchema>
+
+		driver.respond([])
+		await adapter.execute({
+			constraints: [
+				databaseConstraint('fixture.tenant', 1, {
+					tenantId: injectedTenant,
+				}),
+				databaseConstraint('fixture.visibility', 1, 'Visible'),
+			],
+			operation,
+		})
+
+		const call = driver.calls[0]
+
+		expect(call?.params).toStrictEqual([10, injectedTenant, 'Visible'])
+		expect(call?.text).toMatch(
+			/where \("articles"\."views" > \$1 and \("articles"\."note" = \$2 and "articles"\."title" = \$3\)\)/u,
+		)
+		expect(call?.text).not.toContain(injectedTenant)
+	})
+
 	it('persists Runtime-generated identity and timestamps without regenerating them', async () => {
 		const { adapter, driver } = createFixture()
 		const validation = createRuntimeValidationStage({
@@ -352,16 +437,20 @@ describe('internal PostgreSQL database adapter', () => {
 		await expect(
 			adapter.execute({
 				constraints: [
-					{ kind: 'fixture.future-row', payload: { tenantId: 'tenant-1' } },
+					databaseConstraint('fixture.future-row', 1, {
+						tenantId: 'tenant-1',
+					}),
 				],
 				operation,
 			}),
 		).rejects.toMatchObject({
 			code: 'INTERNAL_ERROR',
 			internalDetails: {
-				kind: 'postgres-constraint-unsupported',
+				kind: 'postgres-constraint-compilation-failed',
+				reason: 'compiler-missing',
 			},
 		})
+		expect(driver.calls).toStrictEqual([])
 
 		await expect(
 			adapter.execute({
@@ -392,6 +481,78 @@ describe('internal PostgreSQL database adapter', () => {
 				},
 			}),
 		).rejects.toMatchObject({ code: 'VALIDATION_ERROR' })
+	})
+
+	it('fails before SQL for unsupported versions, invalid payloads, outputs, and creates', async () => {
+		const invalidOutputCompiler = postgresConstraintCompiler({
+			kind: 'fixture.invalid-output',
+			version: 1,
+			decode: (payload) => payload,
+			compile: () => ({}) as never,
+		})
+		const { adapter, driver } = createFixture(
+			1,
+			undefined,
+			createConstraintCompilerRegistry(tenantCompiler, invalidOutputCompiler),
+		)
+		const query = new Query(articleSchema).ast
+		const operation = {
+			kind: 'find',
+			query,
+		} satisfies FindOperationAst<typeof articleSchema>
+		const invalidCases = [
+			{
+				constraint: databaseConstraint('fixture.tenant', 2, {
+					tenantId: 'tenant-1',
+				}),
+				reason: 'version-unsupported',
+			},
+			{
+				constraint: databaseConstraint('fixture.tenant', 1, null),
+				reason: 'compiler-failed',
+			},
+			{
+				constraint: databaseConstraint('fixture.invalid-output', 1, null),
+				reason: 'compiler-failed',
+			},
+		] as const
+
+		for (const invalidCase of invalidCases) {
+			await expect(
+				adapter.execute({
+					constraints: [invalidCase.constraint],
+					operation,
+				}),
+			).rejects.toMatchObject({
+				code: 'INTERNAL_ERROR',
+				internalDetails: {
+					kind: 'postgres-constraint-compilation-failed',
+					reason: invalidCase.reason,
+				},
+			})
+		}
+
+		await expect(
+			adapter.execute({
+				constraints: [
+					databaseConstraint('fixture.tenant', 1, {
+						tenantId: 'tenant-1',
+					}),
+				],
+				operation: {
+					input: { title: 'Never inserted' },
+					kind: 'create-one',
+					schema: query.schema,
+				},
+			}),
+		).rejects.toMatchObject({
+			code: 'INTERNAL_ERROR',
+			internalDetails: {
+				kind: 'postgres-constraint-operation-unsupported',
+				operation: 'create-one',
+			},
+		})
+		expect(driver.calls).toStrictEqual([])
 	})
 
 	it('binds transaction operations to one borrowed client and releases after commit', async () => {
@@ -537,6 +698,68 @@ describe('internal PostgreSQL database adapter', () => {
 		expect(driver.calls.at(-1)?.params).toContain(firstId)
 		expect(driver.calls.at(-1)?.text).not.toContain(' in (select ')
 
+		await transaction.rollback()
+	})
+
+	it('reapplies constraints to prepared locks and final update or delete writes', async () => {
+		const fixture = createFixture(
+			1,
+			undefined,
+			createConstraintCompilerRegistry(tenantCompiler),
+		)
+		const driver = getTransactionDriver(fixture)
+		const transaction = await fixture.adapter.beginTransaction()
+		const constraints = [
+			databaseConstraint('fixture.tenant', 1, { tenantId: 'tenant-1' }),
+		]
+		const query = new Query(articleSchema).equalTo('title', 'Old').ast
+		const updateOperation = {
+			kind: 'update-one',
+			query,
+			update: normalizeUpdateExpression(articleSchema, {
+				set: { title: 'Updated' },
+			}),
+		} satisfies UpdateOneOperationAst<typeof articleSchema>
+
+		driver.respond([['tenant-1', 'Old', 1, firstId, timestamp, timestamp]])
+		const preparedUpdate = await transaction.prepare({
+			constraints,
+			operation: updateOperation,
+		})
+		const lockCall = driver.calls.at(-1)
+
+		expect(lockCall?.text).toMatch(/where .* and .*note.*for update/u)
+		expect(lockCall?.params).toContain('tenant-1')
+
+		driver.respond([['tenant-1', 'Updated', 1, firstId, timestamp, timestamp]])
+		await preparedUpdate.execute()
+		const updateCall = driver.calls.at(-1)
+
+		expect(updateCall?.text).toMatch(/update .* where \(.*id.* and .*note/u)
+		expect(updateCall?.params).toContain(firstId)
+		expect(updateCall?.params).toContain('tenant-1')
+
+		const deleteOperation = {
+			kind: 'delete-one',
+			query: new Query(articleSchema).equalTo('title', 'Updated').ast,
+		} satisfies DeleteOneOperationAst<typeof articleSchema>
+
+		driver.respond([['tenant-1', 'Updated', 1, firstId, timestamp, timestamp]])
+		const preparedDelete = await transaction.prepare({
+			constraints,
+			operation: deleteOperation,
+		})
+
+		expect(driver.calls.at(-1)?.text).toMatch(
+			/where .* and .*note.*for update/u,
+		)
+		driver.respond([['tenant-1', 'Updated', 1, firstId, timestamp, timestamp]])
+		await preparedDelete.execute()
+		const deleteCall = driver.calls.at(-1)
+
+		expect(deleteCall?.text).toMatch(/delete .* where \(.*id.* and .*note/u)
+		expect(deleteCall?.params).toContain(firstId)
+		expect(deleteCall?.params).toContain('tenant-1')
 		await transaction.rollback()
 	})
 

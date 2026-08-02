@@ -213,7 +213,7 @@ const tenantPlugin = (tenantId: string) =>
 				'tenant-row-filter',
 				constraint({
 					schema: PostSchema,
-					handler: () => databaseConstraint('example.tenant', { tenantId }),
+					handler: () => databaseConstraint('example.tenant', 1, { tenantId }),
 				}),
 			)
 			registries.hooks.register(
@@ -227,8 +227,9 @@ const tenantPlugin = (tenantId: string) =>
 	})
 ```
 
-`guard` only allows or throws. `constraint` returns protected namespaced
-`databaseConstraint` nodes that Runtime appends for the adapter.
+`guard` only allows or throws. `constraint` returns protected namespaced,
+versioned `databaseConstraint` nodes that Runtime appends for the adapter. The
+version selects the exact payload contract registered by its compiler.
 `restrictInput`, `restrictSelection`, and `restrictOutput` return allowed field
 names that compose by intersection. Restricted mutation input is rejected,
 while selection and output restrictions project excluded fields away. Runtime

@@ -85,10 +85,50 @@ paths reports an explicit not-yet-implemented framework error rather than
 pretending that data was persisted.
 
 Every adapter request carries Core's policy-neutral `constraints` array.
-PostgreSQL currently accepts only an empty array and fails closed before SQL
-execution when a policy contributes an opaque node. Issue 338 adds the
-application-owned compiler registry that will combine claimed constraints with
-the query predicate using parameterized logical `AND`.
+Adapter integration plugins register exact kind-and-version compilers during
+application setup. PostgreSQL combines every resulting predicate with the
+developer query using parameterized logical `AND`:
+
+```ts
+import { definePlugin } from '@ultimabase/core'
+import { postgresConstraintCompiler } from '@ultimabase/postgres'
+
+const tenantRows = postgresConstraintCompiler({
+	kind: 'tenant.rows',
+	version: 1,
+	decode: (payload) => {
+		if (
+			typeof payload !== 'object' ||
+			payload === null ||
+			!('tenantId' in payload) ||
+			typeof payload.tenantId !== 'string'
+		) {
+			throw new TypeError('Invalid tenant constraint payload')
+		}
+
+		return { tenantId: payload.tenantId }
+	},
+	compile: ({ field, payload, sql }) =>
+		sql`${field('tenantId')} = ${payload.tenantId}`,
+})
+
+const tenantPostgresPlugin = definePlugin({
+	name: 'example.tenant-postgres',
+	setup: ({ constraintCompilers }) => {
+		constraintCompilers.register(tenantRows)
+	},
+})
+```
+
+The callback cannot access Drizzle or return or interpolate raw SQL objects.
+The safe tag accepts code-owned static SQL fragments, `field()` resolves one
+logical schema field, and every portable dynamic interpolation becomes a driver
+parameter. SQL-like objects and class instances fail closed before Drizzle can
+interpret them. Unknown kinds, unsupported versions, invalid payloads, and
+invalid compiler results fail before database execution.
+Constraints are applied to reads, mutation targets, `FOR UPDATE` locks, and the
+final prepared update or delete statement. Row constraints on create operations
+fail closed because an insert has no existing target row to restrict.
 
 ## Transactions
 

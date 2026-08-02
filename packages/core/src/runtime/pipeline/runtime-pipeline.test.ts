@@ -76,6 +76,7 @@ const createEnforcementStages = (trace: string[]): RuntimeEnforcementStages => {
 	const state = createEnforcementState()
 	const constraint: DatabaseConstraintNode = databaseConstraint(
 		'fixture.tenant',
+		1,
 		{ tenantId: 'tenant-1' },
 	)
 
@@ -289,6 +290,7 @@ describe('RuntimePipeline', () => {
 		expect(executor.requests[0]?.constraints).toStrictEqual([
 			{
 				kind: 'fixture.tenant',
+				version: 1,
 				payload: { tenantId: 'tenant-1' },
 			},
 		])
@@ -396,7 +398,14 @@ describe('RuntimePipeline', () => {
 					'Runtime enforcement constraint kind must be a non-empty string',
 			},
 			{
-				output: [{ kind: 'fixture.missing-payload' }],
+				output: [
+					{ kind: 'fixture.invalid-version', version: 0, payload: null },
+				],
+				message:
+					'Runtime enforcement constraint version must be a positive safe integer',
+			},
+			{
+				output: [{ kind: 'fixture.missing-payload', version: 1 }],
 				message:
 					'Runtime enforcement constraint must contain an opaque payload',
 			},

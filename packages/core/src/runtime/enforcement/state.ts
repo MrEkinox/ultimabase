@@ -88,6 +88,7 @@ export const appendEnforcementConstraints = (
 			![...current.constraints, ...additions.slice(0, index)].some(
 				(existing) =>
 					existing.kind === addition.kind &&
+					existing.version === addition.version &&
 					isDeepStrictEqual(existing.payload, addition.payload),
 			),
 	)
