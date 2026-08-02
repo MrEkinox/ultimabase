@@ -1,0 +1,405 @@
+import {
+	defineSchemaExtension,
+	intField as coreIntField,
+	stringField as coreStringField,
+} from '../../src/index.js'
+import type {
+	EnumFieldOptions,
+	EnumValue,
+	EnumValues,
+	FieldDefinition,
+	FieldListOption,
+	FieldListValue,
+	FieldOptions,
+	FieldValidationOptions,
+	InferCreateInput,
+	InferObject,
+	InferOperationResult,
+	InferUpdateInput,
+	ObjectFieldOptions,
+	ObjectFields,
+	ObjectFieldValue,
+	OperationAst,
+	OperationAstNode,
+	Query,
+	QueryFieldName,
+	ScalarFieldInferenceState,
+	SchemaDefinition,
+	SchemaExtensions,
+	SchemaFields,
+	SchemaIndexDefinition,
+	SchemaOptions,
+	SchemaFieldName,
+} from '../../src/index.js'
+
+type MaybePromise<TValue> = TValue | Promise<TValue>
+
+type PrototypeSchemaDefinition<
+	TClassName extends string,
+	TFields extends SchemaFields,
+	TExtensions extends SchemaExtensions,
+> = SchemaDefinition<TClassName, TFields, TExtensions>
+
+type SchemaResolveInputContext<TSchema extends SchemaDefinition> =
+	| {
+			readonly kind: 'create'
+			readonly input: InferCreateInput<TSchema>
+	  }
+	| {
+			readonly kind: 'update'
+			readonly input: InferUpdateInput<TSchema>
+	  }
+
+type SaveOperation<TSchema extends SchemaDefinition> = Extract<
+	OperationAst<TSchema>,
+	{
+		readonly kind:
+			| 'create-many'
+			| 'create-one'
+			| 'update-many'
+			| 'update-one'
+			| 'upsert-many'
+			| 'upsert-one'
+	}
+>
+
+type ReadOperation<TSchema extends SchemaDefinition> = Extract<
+	OperationAst<TSchema>,
+	{ readonly kind: 'count' | 'exists' | 'find' | 'first' | 'get' }
+>
+
+type SchemaOperationResultContext<
+	TSchema extends SchemaDefinition,
+	TOperation extends OperationAst<TSchema> = OperationAst<TSchema>,
+> = TOperation extends OperationAstNode
+	? {
+			readonly kind: TOperation['kind']
+			readonly operation: TOperation
+			readonly result: InferOperationResult<TOperation>
+		}
+	: never
+
+interface PrototypeSchemaHooks<TSchema extends SchemaDefinition> {
+	readonly resolveInput?: (
+		context: SchemaResolveInputContext<TSchema>,
+	) => MaybePromise<void>
+	readonly beforeSave?: (context: {
+		readonly object: InferObject<TSchema>
+		readonly operation: SaveOperation<TSchema>
+	}) => MaybePromise<void>
+	readonly beforeFind?: PrototypeBeforeFindHook<TSchema>
+	readonly afterOperation?: (
+		context: SchemaOperationResultContext<TSchema>,
+	) => MaybePromise<void>
+}
+
+/** Preserves a terminal's accumulated selection through immutable query transforms. */
+export type PrototypeBeforeFindHook<TSchema extends SchemaDefinition> = <
+	const TSelectedField extends QueryFieldName<TSchema>,
+>(context: {
+	readonly operation: ReadOperation<TSchema>
+	readonly query: Query<TSchema, TSelectedField>
+}) => MaybePromise<Query<TSchema, TSelectedField> | undefined>
+
+type PrototypeSchemaOptions<
+	TClassName extends string,
+	TFields extends SchemaFields,
+	TExtensions extends SchemaExtensions,
+> = SchemaOptions<TClassName, TFields, TExtensions> & {
+	readonly hooks?: PrototypeSchemaHooks<
+		PrototypeSchemaDefinition<
+			NoInfer<TClassName>,
+			NoInfer<TFields>,
+			NoInfer<TExtensions>
+		>
+	>
+}
+
+/**
+ * Models the future constructor boundary without adding production storage in issue 324.
+ */
+declare class Schema<
+	const TClassName extends string,
+	const TFields extends SchemaFields,
+	const TExtensions extends SchemaExtensions = readonly [],
+> implements SchemaDefinition<TClassName, TFields, TExtensions> {
+	readonly className: TClassName
+	readonly fields: SchemaDefinition<TClassName, TFields, TExtensions>['fields']
+	readonly indexes: readonly SchemaIndexDefinition<SchemaFieldName<TFields>>[]
+	readonly extensions: readonly [...TExtensions]
+
+	constructor(options: PrototypeSchemaOptions<TClassName, TFields, TExtensions>)
+}
+
+interface PrototypeFieldHooks<TValue> {
+	readonly resolveInput?: (context: {
+		readonly value: TValue
+	}) => MaybePromise<TValue>
+}
+
+type PrototypePresenceOptions<
+	TValue,
+	TRequired extends boolean,
+	TNullable extends boolean,
+	TList extends FieldListOption,
+> = Omit<
+	FieldOptions<TValue, FieldValidationOptions, TList>,
+	'default' | 'list' | 'validation'
+> & {
+	readonly hooks?: PrototypeFieldHooks<
+		TNullable extends true
+			? FieldListValue<TValue, TList> | null
+			: FieldListValue<TValue, TList>
+	>
+	readonly list?: TList
+	readonly validation?: {
+		readonly nullable?: TNullable
+		readonly required?: TRequired
+	}
+}
+
+type PrototypeField<
+	TKind extends string,
+	TValue,
+	TOptions extends object,
+	TRequired extends boolean,
+	TNullable extends boolean,
+	TList extends FieldListOption,
+> = FieldDefinition<
+	TKind,
+	TValue,
+	TOptions,
+	ScalarFieldInferenceState<TRequired, TNullable, TList, false, false>
+>
+
+/** Models a scalar factory whose callback declarations never enter field metadata. */
+declare function stringField<
+	const TRequired extends boolean = false,
+	const TNullable extends boolean = false,
+	const TList extends FieldListOption = false,
+>(
+	options?: PrototypePresenceOptions<string, TRequired, TNullable, TList>,
+): PrototypeField<
+	'string',
+	string,
+	FieldOptions<string>,
+	TRequired,
+	TNullable,
+	TList
+>
+
+type PrototypeEnumOptions<
+	TValues extends EnumValues,
+	TRequired extends boolean,
+	TNullable extends boolean,
+	TList extends FieldListOption,
+> = Omit<EnumFieldOptions<TValues>, 'default' | 'list' | 'validation'> &
+	PrototypePresenceOptions<EnumValue<TValues>, TRequired, TNullable, TList>
+
+/** Models exact enum value inference before native field hooks are implemented. */
+declare function enumField<
+	const TValues extends EnumValues,
+	const TRequired extends boolean = false,
+	const TNullable extends boolean = false,
+	const TList extends FieldListOption = false,
+>(
+	options: PrototypeEnumOptions<TValues, TRequired, TNullable, TList>,
+): PrototypeField<
+	'enum',
+	EnumValue<TValues>,
+	EnumFieldOptions<TValues>,
+	TRequired,
+	TNullable,
+	TList
+>
+
+type PrototypeObjectOptions<
+	TFields extends ObjectFields,
+	TRequired extends boolean,
+	TNullable extends boolean,
+	TList extends FieldListOption,
+> = Omit<ObjectFieldOptions<TFields>, 'default' | 'list' | 'validation'> &
+	PrototypePresenceOptions<
+		ObjectFieldValue<TFields>,
+		TRequired,
+		TNullable,
+		TList
+	>
+
+/** Models exact structured values without exposing sibling schema fields. */
+declare function objectField<
+	const TFields extends ObjectFields,
+	const TRequired extends boolean = false,
+	const TNullable extends boolean = false,
+	const TList extends FieldListOption = false,
+>(
+	options: PrototypeObjectOptions<TFields, TRequired, TNullable, TList>,
+): PrototypeField<
+	'object',
+	ObjectFieldValue<TFields>,
+	ObjectFieldOptions<TFields>,
+	TRequired,
+	TNullable,
+	TList
+>
+
+type VectorValue = readonly [number, number, number]
+
+/** Models a community field whose plugin fixes its logical value before hooks run. */
+declare function vectorField<
+	const TRequired extends boolean = false,
+	const TNullable extends boolean = false,
+	const TList extends FieldListOption = false,
+>(
+	options?: PrototypePresenceOptions<VectorValue, TRequired, TNullable, TList>,
+): PrototypeField<
+	'fixture.vector',
+	VectorValue,
+	FieldOptions<VectorValue>,
+	TRequired,
+	TNullable,
+	TList
+>
+
+export const emailField = /* hover:field-definition */ stringField({
+	hooks: {
+		resolveInput: ({ value }) => {
+			// @ts-expect-error -- Inline field hooks never expose sibling schema fields.
+			void value.title
+			const normalized = /* hover:string-value */ value.trim()
+
+			return normalized
+		},
+	},
+})
+
+export const statusField = enumField({
+	values: ['draft', 'published'] as const,
+	hooks: {
+		resolveInput: ({ value }) => {
+			const status = /* hover:enum-value */ value
+
+			return status
+		},
+	},
+})
+
+export const profileField = objectField({
+	fields: {
+		displayName: coreStringField({ validation: { required: true } }),
+	},
+	hooks: {
+		resolveInput: ({ value }) => {
+			const profile = /* hover:object-value */ value
+
+			return { displayName: profile.displayName.trim() }
+		},
+	},
+})
+
+export const matrixField = stringField({
+	list: [true, true],
+	hooks: {
+		resolveInput: ({ value }) => {
+			const matrix = /* hover:list-value */ value
+
+			return matrix
+		},
+	},
+})
+
+export const nullableField = stringField({
+	validation: { nullable: true },
+	hooks: {
+		resolveInput: ({ value }) => {
+			const nullable = /* hover:nullable-value */ value
+
+			return nullable === null ? null : nullable.trim()
+		},
+	},
+})
+
+export const embeddingField = vectorField({
+	hooks: {
+		resolveInput: ({ value }) => {
+			const embedding = /* hover:custom-value */ value
+
+			return embedding
+		},
+	},
+})
+
+const permissionsExtension = defineSchemaExtension('fixture.permissions', {
+	marker: 'OPAQUE_PERMISSION_CONFIG_MUST_NOT_LEAK',
+})
+
+export const PostSchema = new Schema({
+	className: 'Post',
+	fields: {
+		email: emailField,
+		status: statusField,
+		title: coreStringField({ validation: { required: true } }),
+		views: coreIntField(),
+	},
+	extensions: [permissionsExtension],
+	hooks: {
+		resolveInput: (context) => {
+			if (context.kind === 'create') {
+				const /* hover:create-input */ createInput = context.input
+
+				createInput.title.toUpperCase()
+			} else {
+				const /* hover:update-input */ updateInput = context.input
+
+				updateInput.title?.toUpperCase()
+			}
+		},
+		beforeSave: ({ object }) => {
+			const /* hover:object */ savedObject = object
+
+			savedObject.id.toUpperCase()
+			savedObject.title.toUpperCase()
+		},
+		beforeFind: ({ operation, query }) => {
+			const /* hover:query */ typedQuery = query
+
+			if (operation.kind === 'get') {
+				operation.id.toUpperCase()
+			}
+
+			return typedQuery.limit(25)
+		},
+		afterOperation: (context) => {
+			if (context.kind === 'count') {
+				const /* hover:count-result */ count = context.result
+
+				count.toFixed()
+			}
+
+			if (context.kind === 'find') {
+				const /* hover:find-result */ posts = context.result
+
+				posts.at(0)?.title.toUpperCase()
+			}
+		},
+	},
+})
+
+// Completion-only declarations exercise the contextual option surfaces.
+new Schema({
+	/* completion:schema-options */ className: 'CompletionOptions',
+	fields: {},
+})
+new Schema({
+	className: 'Completion',
+	fields: {},
+	hooks: {/* completion:schema-hooks */},
+})
+stringField({/* completion:field-options */})
+
+stringField({
+	hooks: {
+		// @ts-expect-error -- A field transform must preserve its logical value type.
+		resolveInput: () => 42,
+	},
+})

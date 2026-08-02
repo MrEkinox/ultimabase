@@ -92,15 +92,15 @@ normalization
 → structural revalidation
 → field validation hooks
 → schema validation hooks
+→ monotonic guards, adapter constraints, and input or selection restrictions
 → plugin/global before hooks
 → schema before hooks
 → affected field before hooks
-→ monotonic guards, adapter constraints, and field restrictions
 → database operation
-→ monotonic output restrictions
 → affected field after hooks
 → schema after hooks
 → plugin/global after hooks
+→ final monotonic output restrictions
 → beforeCommit
 → commit
 → afterCommit and post-commit events

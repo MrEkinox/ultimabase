@@ -94,6 +94,7 @@ Accepted records:
 - [ADR-0093: Immutable Schema constructor API](0093-schema-constructor-api.md)
 - [ADR-0094: UltimaBase public facade](0094-ultimabase-public-facade.md)
 - [ADR-0095: Consolidated foundational Core package](0095-consolidated-foundational-core.md)
+- [ADR-0096: Native hook declaration capabilities](0096-native-hook-declaration-capabilities.md)
 
 Superseded records:
 

@@ -3,7 +3,7 @@
 - Status: active
 - Started: 2026-08-01
 - Objective owner: `@ultimabase/core`, `@ultimabase/postgres`, `@ultimabase/testing`
-- Governing decisions: [ADR-0089](docs/adr/0089-native-schema-and-field-hooks.md), [ADR-0090](docs/adr/0090-permission-plugins-through-hooks.md), [ADR-0095](docs/adr/0095-consolidated-foundational-core.md)
+- Governing decisions: [ADR-0089](docs/adr/0089-native-schema-and-field-hooks.md), [ADR-0090](docs/adr/0090-permission-plugins-through-hooks.md), [ADR-0095](docs/adr/0095-consolidated-foundational-core.md), [ADR-0096](docs/adr/0096-native-hook-declaration-capabilities.md)
 - Previous completed objective: [Runtime-to-PostgreSQL E2E](docs/plans/completed/runtime-postgres-e2e.md)
 
 ## Objective
@@ -77,7 +77,7 @@ Complete one issue at a time in this order. Do not start an issue whose
 dependencies are incomplete.
 
 1. [x] [213 — Consolidate the foundational Core package](issues/200-core/213-consolidate-foundational-core.md)
-2. [ ] [324 — Prove the native hook contract boundary](issues/300-query-runtime/324-native-hook-contract-boundary.md)
+2. [x] [324 — Prove the native hook contract boundary](issues/300-query-runtime/324-native-hook-contract-boundary.md)
 3. [ ] [325 — Declare native schema hooks](issues/300-query-runtime/325-native-schema-hooks.md)
 4. [ ] [326 — Declare inline field hooks](issues/300-query-runtime/326-inline-field-hooks.md)
 5. [ ] [327 — Compose hook families and handler lists](issues/300-query-runtime/327-hook-families-and-composition.md)
@@ -116,11 +116,11 @@ the named Runtime stages and proven monotonic hook enforcement.
 
 ## Current issue
 
-[324 — Prove the native hook contract boundary](issues/300-query-runtime/324-native-hook-contract-boundary.md)
+[325 — Declare native schema hooks](issues/300-query-runtime/325-native-schema-hooks.md)
 
-The consolidated Core now removes the physical package cycle. This issue must
-prove the direct schema and field hook declaration types before production hook
-storage or dispatch is implemented.
+The declaration boundary is proven by ADR-0096 and source plus packed-package
+language-service tests. The next issue adds the production schema hook types
+and hidden immutable storage without executing them yet.
 
 ## Progress log
 
@@ -128,7 +128,8 @@ Update this list after every completed issue so the next agent can resume
 without reconstructing repository history.
 
 - 213 — `done` — Schema, Query, Access, application orchestration, and Runtime now share one cohesive Core package under ADR-0095.
-- 324 — `ready` — Native hook contract proof is the current issue against the consolidated Core.
+- 324 — `done` — ADR-0096 and source plus packed-package fixtures prove precise schema and field declaration inference without exposing hook data in structural definitions.
+- 325 — `ready` — Production schema hook declarations and hidden immutable storage are the current issue.
 - 329 — `ready` — Automatic mutation transactions are dependency-ready but follow issues 324–328 in the preferred sequence.
 - 337 — `planned` — Policy-neutral enforcement waits for the typed plugin targets and native dispatcher.
 - 338 — `planned` — The generic constraint compiler registry waits for policy-neutral constraint contracts from issue 337.

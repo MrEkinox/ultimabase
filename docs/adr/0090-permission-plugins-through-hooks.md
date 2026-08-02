@@ -5,6 +5,10 @@
 - Supersedes: the named permission-stage structure from ADR-0064 and ADR-0076
 - Refines: ADR-0006, ADR-0015, ADR-0068, ADR-0070, ADR-0089
 
+ADR-0095 later consolidated the neutral Access contracts and Runtime into
+`@ultimabase/core`. References below to the former `@ultimabase/access` package
+describe the same internal Access domain and its current Core exports.
+
 ## Context
 
 Runtime currently names `clp`, `acl`, and `fieldPermissions` as mandatory

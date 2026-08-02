@@ -152,6 +152,11 @@ application-owned dispatcher. Plugin targets may be global, an exact schema, a
 typed field path, an extension, or a namespaced field kind. Contributions never
 replace developer hooks.
 
+Hook callbacks are retained through private Schema-domain capabilities keyed by
+exact declaration identity. They never enter field options, extensions,
+validation plans, schema hashes, or migration metadata. Core's Runtime domain
+reads those declarations internally; absent hooks create no neutral stage.
+
 Runtime does not name CLP, ACL, roles, or field permissions. Optional policy
 plugins attach to schema or field hooks and contribute policy-neutral effects:
 guards may only deny, adapter constraints may only accumulate with logical

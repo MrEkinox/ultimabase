@@ -3,11 +3,13 @@
 - Status: accepted
 - Date: 2026-08-01
 - Refines: ADR-0015, ADR-0068, ADR-0069, ADR-0070, ADR-0076, ADR-0088
-- Refined by: ADR-0090, ADR-0093
+- Refined by: ADR-0090, ADR-0093, ADR-0095, ADR-0096
 
 ADR-0090 replaces the permission-specific named stages and ordering references
 in this record with policy-neutral monotonic hook effects. The remaining native
 schema, field, transaction, bulk, and lifecycle decisions stay accepted.
+ADR-0095 consolidates the foundational packages, and ADR-0096 fixes the native
+declaration, inference, and identity-owned storage boundary.
 
 ## Context
 

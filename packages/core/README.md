@@ -238,15 +238,21 @@ snapshots through `application.getContributions('hooks')` and the other
 categories. Their insertion order is the resolved plugin graph order: required
 dependencies first, then configuration position. Reading during setup or after
 disposal fails, and the returned values do not expose a writable registry.
-Runtime uses this boundary to compose hook and event declarations without Core
-depending on their concrete contracts.
+Core's Runtime domain uses this boundary to compose hook and event declarations
+without application orchestration depending on their concrete contracts.
 
-The active [native-hook plan](../../CURRENT_PLAN.md) keeps Core in this storage
-and ownership role. Native developer hooks require no plugin, while plugin hooks
-use typed global, schema, field-path, extension, or field-kind targets. Runtime,
-not Core, remains responsible for interpreting and executing every hook phase.
-Policy plugins use those targets too; Core stores their opaque monotonic effects
-without naming CLP, ACL, roles, or field permissions.
+The active [native-hook plan](../../CURRENT_PLAN.md) gives Core's Schema domain
+identity-owned declaration storage and gives its Runtime domain interpretation
+and execution. Native developer hooks require no plugin, while plugin hooks use
+typed global, schema, field-path, extension, or field-kind targets. Policy
+plugins use those targets too; application orchestration stores their opaque
+monotonic effects without naming CLP, ACL, roles, or field permissions.
+
+[ADR-0096](../../docs/adr/0096-native-hook-declaration-capabilities.md)
+keeps callbacks outside `SchemaDefinition`, `FieldDefinition`, field options,
+validation plans, and migration metadata. Private Schema capabilities retain
+immutable declarations by exact identity; Runtime reads them internally and
+creates no neutral handler when a phase is absent.
 
 Extension handlers use a scope-qualified identity so schema and field names stay
 independent:
