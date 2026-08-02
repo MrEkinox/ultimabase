@@ -60,6 +60,27 @@ const readHoverDisplay = (name: string): string => {
 	return ts.displayPartsToString(quickInfo.displayParts)
 }
 
+/** Reads contextual member names from emitted declaration completions. */
+const readMemberCompletionNames = (name: string): string[] => {
+	const position = readMarkerPosition(`/* completion:${name} */`)
+	const completions = service.getCompletionsAtPosition(
+		packedFixtureFile,
+		position,
+		{ includeCompletionsWithInsertText: true },
+	)
+
+	if (completions === undefined) {
+		throw new TypeError(`Missing packed field completions: ${name}`)
+	}
+
+	return completions.entries
+		.filter(
+			(entry) => entry.kind === ts.ScriptElementKind.memberVariableElement,
+		)
+		.map(({ name: entryName }) => entryName)
+		.sort()
+}
+
 describe('packed @ultimabase/core native field hooks', () => {
 	it('type-checks through public package declarations', () => {
 		expect(service.getSemanticDiagnostics(packedFixtureFile)).toStrictEqual([])
@@ -104,5 +125,22 @@ describe('packed @ultimabase/core native field hooks', () => {
 		)
 		expect(fieldDisplay).not.toContain('FieldHooks')
 		expect(fieldDisplay).not.toContain('HOOK_BODY_MUST_NOT_LEAK')
+	})
+
+	it('preserves field family composition and concise aliases after emission', () => {
+		expect(readMemberCompletionNames('field-save-families')).toStrictEqual([
+			'all',
+			'create',
+			'update',
+			'upsert',
+		])
+		expect(readHoverDisplay('field-create-family-kind')).toContain(
+			'FieldCreateHookKind',
+		)
+		const display = readHoverDisplay('field-family-declaration')
+
+		expect(display).toContain('FieldBeforeSaveHookDeclaration<')
+		expect(display).not.toContain('FieldValueHookInput<')
+		expect(display).not.toContain('HookHandlerDeclaration<')
 	})
 })

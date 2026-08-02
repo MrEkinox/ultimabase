@@ -69,6 +69,18 @@ const readCompletions = (name: string) => {
 	return { entries: completions.entries, position }
 }
 
+/** Keeps family-map assertions focused on contextual object members. */
+const readMemberCompletions = (name: string) => {
+	const completion = readCompletions(name)
+
+	return {
+		entries: completion.entries.filter(
+			(entry) => entry.kind === ts.ScriptElementKind.memberVariableElement,
+		),
+		position: completion.position,
+	}
+}
+
 const schemaHookPhaseNames = [
 	'afterCommit',
 	'afterCreate',
@@ -154,5 +166,64 @@ describe('native schema hook IntelliSense', () => {
 			'readonly title: string;',
 		)
 		expect(readHoverDisplay('error')).toContain('unknown')
+	})
+
+	it('suggests and documents only compatible family branches', () => {
+		const operation = readMemberCompletions('schema-operation-families')
+		const save = readMemberCompletions('schema-save-families')
+
+		expect(operation.entries.map(({ name }) => name).sort()).toStrictEqual([
+			'all',
+			'create',
+			'delete',
+			'find',
+			'update',
+			'upsert',
+		])
+		expect(save.entries.map(({ name }) => name).sort()).toStrictEqual([
+			'all',
+			'create',
+			'update',
+			'upsert',
+		])
+
+		for (const entry of operation.entries) {
+			const details = service.getCompletionEntryDetails(
+				fixtureFile,
+				operation.position,
+				entry.name,
+				undefined,
+				entry.source,
+				undefined,
+				entry.data,
+			)
+
+			if (details === undefined) {
+				throw new TypeError(`Missing schema family details: ${entry.name}`)
+			}
+
+			expect(ts.displayPartsToString(details.documentation).trim()).not.toBe('')
+		}
+	})
+
+	it('contextually types list and family callbacks', () => {
+		const listInput = readMemberCompletions('schema-list-input')
+
+		expect(listInput.entries.map(({ name }) => name).sort()).toStrictEqual([
+			'kind',
+			'operation',
+		])
+		expect(readHoverDisplay('create-family-kind')).toContain(
+			'"create-many" | "create-one"',
+		)
+		expect(readHoverDisplay('schema-list-operation')).toContain('OperationAst<')
+	})
+
+	it('keeps family declaration hovers behind concise aliases', () => {
+		const display = readHoverDisplay('schema-family-declaration')
+
+		expect(display).toContain('SchemaBeforeSaveHookDeclaration<')
+		expect(display).not.toContain('ExecutableOperationAst<')
+		expect(display).not.toContain('InferOperationResult<')
 	})
 })

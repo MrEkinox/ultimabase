@@ -113,9 +113,11 @@ from specific to broad afterward. A save mutation therefore uses
 `beforeOperation`, `beforeSave`, then its exact CRUD phase; after persistence it
 uses the exact CRUD phase, `afterSave`, then `afterOperation`. Reads use
 `beforeOperation` then `beforeFind`, followed by `afterFind` then
-`afterOperation`. Issue 327 selects the most readable declaration shape for
-combining a shared handler with a family-specific handler without changing this
-order.
+`afterOperation`. Issue 327 selected `{ all, create, update, upsert, delete,
+find }` family maps for combining shared and compatible family-specific
+handlers without changing this order. Each branch also accepts a non-empty
+ordered list; a family retains singular and bulk terminals through its exact
+`kind` discriminant rather than duplicating `one` and `many` branches.
 
 Transforms return new values. Runtime never relies on mutation to detect hook
 intent. Validation returns immutable structured issues rather than mutating an

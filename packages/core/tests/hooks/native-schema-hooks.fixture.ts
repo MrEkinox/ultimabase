@@ -17,26 +17,45 @@ export const ArticleSchema = new Schema({
 	},
 	extensions: [permissionsExtension],
 	hooks: {
-		resolveInput: (input) => {
-			if (input.kind === 'create-one') {
-				const /* hover:create-input */ createInput = input.operation.input
+		resolveInput: [
+			(input) => {
+				if (input.kind === 'create-one') {
+					const /* hover:create-input */ createInput = input.operation.input
 
-				createInput.title.toUpperCase()
-			}
+					createInput.title.toUpperCase()
+				}
 
-			if (input.kind === 'update-one') {
-				const /* hover:update-expression */ update = input.operation.update
+				if (input.kind === 'update-one') {
+					const /* hover:update-expression */ update = input.operation.update
 
-				void update.operations
-			}
+					void update.operations
+				}
 
-			return input.operation
+				return input.operation
+			},
+			({ operation }) => {
+				const /* hover:schema-list-operation */ listedOperation = operation
+
+				return listedOperation
+			},
+		],
+		/* hover:schema-family-declaration */ beforeSave: {
+			all: ({ operation }) => operation,
+			create: ({ operation }) => {
+				const /* hover:create-family-kind */ kind = operation.kind
+
+				void kind
+				return operation
+			},
 		},
-		beforeFind: ({ query }) => {
-			const /* hover:query */ selectedQuery = query
+		beforeFind: [
+			({ query }) => {
+				const /* hover:query */ selectedQuery = query
 
-			return selectedQuery.limit(100)
-		},
+				return selectedQuery.limit(100)
+			},
+			({ query }) => query,
+		],
 		afterOperation: (input) => {
 			if (input.kind === 'count') {
 				const /* hover:count-result */ count = input.result
@@ -70,4 +89,52 @@ new Schema({
 	className: 'HookCompletionSchema',
 	fields: {},
 	hooks: {/* completion:schema-hooks */},
+})
+
+new Schema({
+	className: 'OperationFamilyCompletionSchema',
+	fields: {},
+	hooks: {
+		// @ts-expect-error -- The incomplete map exists only to request completions.
+		beforeOperation: {/* completion:schema-operation-families */},
+	},
+})
+
+new Schema({
+	className: 'SaveFamilyCompletionSchema',
+	fields: {},
+	hooks: {
+		// @ts-expect-error -- The incomplete map exists only to request completions.
+		beforeSave: {/* completion:schema-save-families */},
+	},
+})
+
+new Schema({
+	className: 'ListCompletionSchema',
+	fields: {},
+	hooks: {
+		beforeCreate: [
+			({ /* completion:schema-list-input */ ...input }) => input.operation,
+		],
+	},
+})
+
+new Schema({
+	className: 'InvalidFamilySchema',
+	fields: {},
+	hooks: {
+		// @ts-expect-error -- Read families are unavailable to save-only phases.
+		beforeSave: {
+			find: () => undefined,
+		},
+	},
+})
+
+new Schema({
+	className: 'InvalidEmptyListSchema',
+	fields: {},
+	hooks: {
+		// @ts-expect-error -- Ordered hook declarations must never be empty.
+		beforeCreate: [],
+	},
 })

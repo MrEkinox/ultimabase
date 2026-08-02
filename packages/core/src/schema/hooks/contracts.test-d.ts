@@ -7,6 +7,8 @@ import {
 	type InferCreateInput,
 	type InferObject,
 	type InferUpdateInput,
+	type HookValidationIssue,
+	type HookValidationIssueCode,
 	type SchemaHookOperation,
 	type SchemaOperationOutcome,
 	type SchemaHookResult,
@@ -186,6 +188,18 @@ test('keeps finalization results honest about selected fields', () => {
 	>()
 })
 
+test('namespaces application-owned hook validation issues', () => {
+	const issue: HookValidationIssue = {
+		code: 'hook.article-title',
+		message: 'The title is invalid.',
+		path: ['title'],
+	}
+
+	expectTypeOf(issue.code).toEqualTypeOf<HookValidationIssueCode>()
+	expectTypeOf<'hook.article-title'>().toExtend<HookValidationIssueCode>()
+	expectTypeOf<'custom'>().not.toExtend<HookValidationIssueCode>()
+})
+
 test('keeps schema metadata and inferred values independent from hooks', () => {
 	expectTypeOf<keyof typeof ArticleSchema>().toEqualTypeOf<
 		'className' | 'extensions' | 'fields' | 'indexes'
@@ -200,6 +214,60 @@ test('keeps schema metadata and inferred values independent from hooks', () => {
 	}>()
 })
 
+test('types ordered handler lists and broad operation families', () => {
+	const hooks: SchemaHooks<typeof ArticleSchema> = {
+		beforeCreate: [
+			({ operation }) => operation,
+			({ operation }) => {
+				expectTypeOf(operation.kind).toEqualTypeOf<
+					'create-many' | 'create-one'
+				>()
+
+				return operation
+			},
+		],
+		beforeOperation: {
+			all: ({ operation }) => operation,
+			create: [
+				({ operation }) => {
+					expectTypeOf(operation.kind).toEqualTypeOf<
+						'create-many' | 'create-one'
+					>()
+
+					return operation
+				},
+			],
+			find: ({ operation }) => {
+				expectTypeOf(operation.kind).toEqualTypeOf<
+					'count' | 'exists' | 'find' | 'first' | 'get'
+				>()
+
+				return operation
+			},
+		},
+		beforeSave: {
+			all: ({ operation }) => operation,
+			update: ({ operation }) => {
+				expectTypeOf(operation.kind).toEqualTypeOf<
+					'update-many' | 'update-one'
+				>()
+
+				return operation
+			},
+		},
+		afterSave: {
+			all: ({ result }) => result,
+			upsert: ({ kind, result }) => {
+				expectTypeOf(kind).toEqualTypeOf<'upsert-many' | 'upsert-one'>()
+
+				return result
+			},
+		},
+	}
+
+	expectTypeOf(hooks).toEqualTypeOf<SchemaHooks<typeof ArticleSchema>>()
+})
+
 test('rejects incompatible hook declarations and return values', () => {
 	new Schema({
 		className: 'InvalidHooks',
@@ -209,15 +277,6 @@ test('rejects incompatible hook declarations and return values', () => {
 			beforeUnknown: () => undefined,
 		},
 	})
-	new Schema({
-		className: 'InvalidHookList',
-		fields: { title: stringField() },
-		hooks: {
-			// @ts-expect-error -- Hook declarations must be functions until issue 327.
-			beforeSave: [() => undefined],
-		},
-	})
-
 	const hooks: SchemaHooks<typeof ArticleSchema> = {
 		// @ts-expect-error -- Input resolution cannot replace an operation with a number.
 		resolveInput: () => 42,
@@ -234,7 +293,29 @@ test('rejects incompatible hook declarations and return values', () => {
 			void operation
 		},
 	}
+	const invalidFamilyHooks: SchemaHooks<typeof ArticleSchema> = {
+		// @ts-expect-error -- Save families never accept read-specific handlers.
+		beforeSave: { find: () => undefined },
+	}
+	const invalidEmptyList: SchemaHooks<typeof ArticleSchema> = {
+		// @ts-expect-error -- Ordered hook lists must contain at least one handler.
+		beforeCreate: [],
+	}
+	const invalidEmptyFamily: SchemaHooks<typeof ArticleSchema> = {
+		// @ts-expect-error -- Family maps must declare at least one branch.
+		beforeSave: {},
+	}
+	const invalidFamilyReturn: SchemaHooks<typeof ArticleSchema> = {
+		// @ts-expect-error -- A create transform must retain its operation family.
+		beforeOperation: {
+			create: () => 42,
+		},
+	}
 
 	expectTypeOf(hooks).toBeObject()
 	expectTypeOf(effectOnlyHooks).toBeObject()
+	expectTypeOf(invalidFamilyHooks).toBeObject()
+	expectTypeOf(invalidEmptyList).toBeObject()
+	expectTypeOf(invalidEmptyFamily).toBeObject()
+	expectTypeOf(invalidFamilyReturn).toBeObject()
 })

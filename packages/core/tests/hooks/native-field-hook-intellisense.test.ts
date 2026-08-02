@@ -94,6 +94,18 @@ const readCompletions = (name: string) => {
 	}
 }
 
+/** Keeps family-map assertions focused on contextual object members. */
+const readMemberCompletions = (name: string) => {
+	const completion = readCompletions(name)
+
+	return {
+		entries: completion.entries.filter(
+			(entry) => entry.kind === ts.ScriptElementKind.memberVariableElement,
+		),
+		position: completion.position,
+	}
+}
+
 describe('native field hook IntelliSense', () => {
 	it('has no semantic diagnostics', () => {
 		expect(service.getSemanticDiagnostics(fixtureFile)).toStrictEqual([])
@@ -139,6 +151,67 @@ describe('native field hook IntelliSense', () => {
 				.entries.map(({ name }) => name)
 				.sort(),
 		).toStrictEqual(['change', 'kind', 'timing'])
+	})
+
+	it('suggests and documents only compatible family branches', () => {
+		const operation = readMemberCompletions('field-operation-families')
+		const save = readMemberCompletions('field-save-families')
+
+		expect(operation.entries.map(({ name }) => name).sort()).toStrictEqual([
+			'all',
+			'create',
+			'delete',
+			'find',
+			'update',
+			'upsert',
+		])
+		expect(save.entries.map(({ name }) => name).sort()).toStrictEqual([
+			'all',
+			'create',
+			'update',
+			'upsert',
+		])
+
+		for (const entry of operation.entries) {
+			const details = service.getCompletionEntryDetails(
+				fixtureFile,
+				operation.position,
+				entry.name,
+				undefined,
+				entry.source,
+				undefined,
+				entry.data,
+			)
+
+			if (details === undefined) {
+				throw new TypeError(`Missing field family details: ${entry.name}`)
+			}
+
+			expect(ts.displayPartsToString(details.documentation).trim()).not.toBe('')
+		}
+	})
+
+	it('contextually types list and family callbacks', () => {
+		const listInput = readMemberCompletions('field-list-input')
+
+		expect(listInput.entries.map(({ name }) => name).sort()).toStrictEqual([
+			'kind',
+			'mode',
+			'value',
+		])
+		expect(readHoverDisplay('field-create-family-kind')).toContain(
+			'FieldCreateHookKind',
+		)
+		expect(readHoverDisplay('field-list-value')).toContain('string | null')
+	})
+
+	it('keeps family declaration hovers behind concise aliases', () => {
+		const display = readHoverDisplay('field-family-declaration')
+
+		expect(display).toContain('FieldBeforeSaveHookDeclaration<')
+		expect(display).not.toContain('FieldValueHookInput<')
+		expect(display).not.toContain('HookHandlerDeclaration<')
+		expect(display).not.toContain('HOOK_BODY_MUST_NOT_LEAK')
 	})
 
 	it('shows exact values and explicit change state', () => {

@@ -1,7 +1,13 @@
 import type { SchemaDefinition } from '../schema/definition.js'
 import type { SchemaHooks } from './contracts.js'
 import {
+	mutationHookFamilies,
+	operationHookFamilies,
+	saveHookFamilies,
+} from './family-keys.js'
+import {
 	normalizeHookDeclarations,
+	type HookPhaseDescriptor,
 	type NormalizedHookDeclarations,
 } from './normalization.js'
 
@@ -32,6 +38,20 @@ export const schemaHookPhases = [
 /** Identifies every schema phase accepted at the declaration boundary. */
 export type SchemaHookPhase = (typeof schemaHookPhases)[number]
 
+// Only broad phases accept family maps; exact CRUD and find phases use direct lists.
+const schemaHookPhaseDescriptors = {
+	resolveInput: { order: 'broad-first', variants: saveHookFamilies },
+	validate: { order: 'broad-first', variants: saveHookFamilies },
+	beforeOperation: { order: 'broad-first', variants: operationHookFamilies },
+	afterOperation: { order: 'specific-first', variants: operationHookFamilies },
+	beforeSave: { order: 'broad-first', variants: saveHookFamilies },
+	afterSave: { order: 'specific-first', variants: saveHookFamilies },
+	afterCommit: { order: 'specific-first', variants: mutationHookFamilies },
+	onError: { order: 'specific-first', variants: operationHookFamilies },
+} as const satisfies Readonly<
+	Partial<Record<SchemaHookPhase, HookPhaseDescriptor>>
+>
+
 /** Retains only validated handlers for later internal Runtime composition. */
 export type SchemaHookDeclarations = NormalizedHookDeclarations<SchemaHookPhase>
 
@@ -43,6 +63,7 @@ export const declareSchemaHooks = <TSchema extends SchemaDefinition>(
 	hooks: SchemaHooks<TSchema> | undefined,
 ): void => {
 	const declarations = normalizeHookDeclarations({
+		descriptors: schemaHookPhaseDescriptors,
 		hooks,
 		phases: schemaHookPhases,
 		scope: 'schema',

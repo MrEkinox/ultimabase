@@ -80,7 +80,7 @@ dependencies are incomplete.
 2. [x] [324 — Prove the native hook contract boundary](issues/300-query-runtime/324-native-hook-contract-boundary.md)
 3. [x] [325 — Declare native schema hooks](issues/300-query-runtime/325-native-schema-hooks.md)
 4. [x] [326 — Declare inline field hooks](issues/300-query-runtime/326-inline-field-hooks.md)
-5. [ ] [327 — Compose hook families and handler lists](issues/300-query-runtime/327-hook-families-and-composition.md)
+5. [x] [327 — Compose hook families and handler lists](issues/300-query-runtime/327-hook-families-and-composition.md)
 6. [ ] [328 — Add typed plugin hook targets](issues/300-query-runtime/328-plugin-hook-targets.md)
 7. [ ] [329 — Make every mutation automatically transactional](issues/300-query-runtime/329-automatic-mutation-transactions.md)
 8. [ ] [330 — Execute the native hook lifecycle](issues/300-query-runtime/330-native-hook-dispatcher.md)
@@ -116,11 +116,11 @@ the named Runtime stages and proven monotonic hook enforcement.
 
 ## Current issue
 
-[327 — Compose hook families and handler lists](issues/300-query-runtime/327-hook-families-and-composition.md)
+[328 — Add typed plugin hook targets](issues/300-query-runtime/328-plugin-hook-targets.md)
 
-Native schema and inline field declarations now retain exact callback inference,
-documented IntelliSense, compact hovers, and private identity-owned storage. The
-next issue lets one phase compose shared handlers, ordered lists, and family maps.
+Native declarations now compose direct callbacks, ordered lists, and logical
+family maps into immutable Runtime-ready sequences. The next issue lets plugins
+append precisely targeted hooks without replacing developer declarations.
 
 ## Progress log
 
@@ -131,7 +131,8 @@ without reconstructing repository history.
 - 324 — `done` — ADR-0096 and source plus packed-package fixtures prove precise schema and field declaration inference without exposing hook data in structural definitions.
 - 325 — `done` — `new Schema({ hooks })` now validates and retains typed immutable lifecycle declarations without exposing them as structural schema metadata.
 - 326 — `done` — Every built-in and plugin field now declares exact value hooks through private immutable capabilities without changing metadata or compact hovers.
-- 327 — `ready` — Hook family maps and ordered handler lists are the current issue.
+- 327 — `done` — Direct handlers, non-empty ordered lists, typed family maps, immutable normalization, and sequential composition helpers now share one contract.
+- 328 — `ready` — Typed plugin hook targets can now build on normalized native declarations and existing owner-scoped registries.
 - 329 — `ready` — Automatic mutation transactions are dependency-ready but follow issues 324–328 in the preferred sequence.
 - 337 — `planned` — Policy-neutral enforcement waits for the typed plugin targets and native dispatcher.
 - 338 — `planned` — The generic constraint compiler registry waits for policy-neutral constraint contracts from issue 337.

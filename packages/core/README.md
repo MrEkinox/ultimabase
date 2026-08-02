@@ -64,11 +64,14 @@ const PostSchema = new Schema({
 	},
 	hooks: {
 		resolveInput: ({ operation }) => operation,
-		beforeSave: ({ operation }) => {
-			// This handler covers create, update, and upsert terminals.
-			return operation
+		beforeSave: {
+			all: ({ operation }) => operation,
+			create: ({ operation }) => {
+				// The exact family still covers createOne and createMany.
+				return operation
+			},
 		},
-		beforeFind: ({ query }) => query.limit(100),
+		beforeFind: [({ query }) => query.limit(100), ({ query }) => query],
 		afterOperation: (input) => {
 			if (input.kind === 'count') {
 				// The result is narrowed to number in this branch.
@@ -81,11 +84,17 @@ const PostSchema = new Schema({
 })
 ```
 
-The constructor validates every phase, snapshots the handler record, and keeps
-it in private identity-owned storage. Hooks never appear on `SchemaDefinition`,
-never affect input or object inference, and never enter validation plans,
-indexes, migrations, or physical diffs. Ordered handler lists and family maps
-arrive in issue 327.
+Every phase accepts one handler or a non-empty ordered handler list. Broad
+phases also accept a family map: `all` runs shared behavior while `create`,
+`update`, `upsert`, `delete`, and `find` narrow callbacks to compatible
+operation families. A family callback still covers singular and bulk terminals;
+use `kind` when their behavior differs instead of duplicating `one` and `many`
+declarations.
+
+The constructor validates every phase, snapshots every list and family map, and
+keeps them in private identity-owned storage. Hooks never appear on
+`SchemaDefinition`, never affect input or object inference, and never enter
+validation plans, indexes, migrations, or physical diffs.
 
 The lifecycle nests broad phases around exact phases. Saves use
 `beforeOperation → beforeSave → beforeCreate|beforeUpdate|beforeUpsert`, then
@@ -110,11 +119,20 @@ const UserSchema = new Schema({
 	fields: {
 		email: stringField({
 			hooks: {
-				resolveInput: ({ value }) => value.trim().toLowerCase(),
+				resolveInput: [
+					({ value }) => value.trim(),
+					({ value }) => value.toLowerCase(),
+				],
 				validate: ({ value }) =>
 					value.includes('@')
 						? []
-						: [{ code: 'custom', path: [], message: 'Invalid email' }],
+						: [
+								{
+									code: 'hook.invalid-email',
+									path: [],
+									message: 'Invalid email',
+								},
+							],
 			},
 		}),
 	},

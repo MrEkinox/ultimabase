@@ -13,7 +13,10 @@ export const AccountSchema = new Schema({
 		email: stringField({
 			validation: { required: true },
 			hooks: {
-				resolveInput: ({ value }) => value.trim().toLowerCase(),
+				resolveInput: [
+					({ value }) => value.trim(),
+					({ value }) => value.toLowerCase(),
+				],
 				resolveOutput: ({ value }) => value,
 				onChange: ({ change }) => {
 					// Absence is explicit; `undefined` is never a field value.
@@ -36,10 +39,23 @@ export const AccountSchema = new Schema({
 	},
 	// Cross-field rules use the complete schema-level operation.
 	hooks: {
-		beforeSave: ({ operation }) => operation,
+		beforeSave: {
+			all: ({ operation }) => operation,
+			create: ({ operation }) => {
+				// One family handler covers createOne and createMany.
+				return operation
+			},
+		},
+		beforeFind: [({ query }) => query.limit(100), ({ query }) => query],
 	},
 })
 ```
+
+Direct handlers remain the shortest form. Lists run sequentially in declaration
+order. Broad family maps use `all` for shared behavior and only offer compatible
+`create`, `update`, `upsert`, `delete`, or `find` keys. The terminal `kind`
+distinguishes singular and bulk operations when necessary; there are no
+duplicated `one` and `many` declarations.
 
 The hook declarations are copied and frozen privately. They do not appear in
 `AccountSchema.fields.email.options`, validation plans, adapter metadata, or

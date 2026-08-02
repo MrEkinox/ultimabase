@@ -118,6 +118,29 @@ Changing only hooks cannot alter validation plans, adapter schemas, or
 migrations. Issue 325 declares and retains these callbacks; issue 330 connects
 them to Runtime execution.
 
+Each phase accepts one callback or a non-empty ordered callback list. Phases
+covering several logical operation families also accept an `all` plus family
+map:
+
+```ts
+hooks: {
+	beforeOperation: {
+		all: ({ operation }) => operation,
+		create: [
+			({ operation }) => operation,
+			({ operation }) => operation,
+		],
+		find: ({ operation }) => operation,
+	},
+}
+```
+
+Only compatible family keys are suggested for a phase. Family handlers cover
+both singular and bulk terminals and retain the exact `kind` discriminant.
+Before phases run shared handlers before the matching family; after phases run
+the matching family before shared handlers. Configuration property order never
+changes this nesting.
+
 ## Inline field hook declarations
 
 Common field options accept `hooks` as a declaration-only capability. Each
@@ -130,7 +153,10 @@ const ProfileSchema = new Schema({
 	fields: {
 		displayName: stringField({
 			hooks: {
-				resolveInput: ({ value }) => value.trim(),
+				resolveInput: [
+					({ value }) => value.trim(),
+					({ value }) => value.toLocaleLowerCase(),
+				],
 				onChange: ({ change, timing }) => {
 					// `timing` is exactly "before-commit" here.
 					if (change.current.present) {
@@ -144,11 +170,13 @@ const ProfileSchema = new Schema({
 ```
 
 `resolveInput` and `resolveOutput` are the explicit same-type transformation
-boundaries. Validation returns structured immutable issues, while CRUD/save,
-change, commit, rollback, and error phases are effect handlers. An omitted
-optional field runs no value hook. Actual absence is represented by
-`FieldValueState` with `present: false`, never by fabricating an `undefined`
-logical value.
+boundaries. Every transform output becomes the following transform input.
+Validation lists aggregate structured immutable issues, while CRUD/save,
+change, commit, rollback, and error phases execute sequentially. Field phases
+support the same direct, non-empty list, and compatible family-map syntax as
+schema phases without widening the field's logical value. An omitted optional
+field runs no value hook. Actual absence is represented by `FieldValueState`
+with `present: false`, never by fabricating an `undefined` logical value.
 
 Set-based `updateMany` can run input resolution and validation over its supplied
 update values, but it does not run materialized update or change hooks per row.

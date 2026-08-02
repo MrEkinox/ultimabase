@@ -23,6 +23,7 @@ import {
 } from '../index.js'
 import type { GenericField } from '../fields/base/contract.js'
 import { getFieldHookDeclarations } from '../fields/base/definition.js'
+import { getHookHandlers } from './normalization.js'
 
 const onError: FieldErrorHook = () => undefined
 
@@ -55,8 +56,8 @@ const builtInFields = [
 	['uuid', uuidField({ hooks: { onError } })],
 ] as const satisfies readonly (readonly [string, GenericField])[]
 
-const declareStringFieldFromUnknown = (options: unknown): unknown =>
-	Reflect.apply(stringField, undefined, [options])
+const declareStringFieldFromUnknown = (options: unknown): GenericField =>
+	Reflect.apply(stringField, undefined, [options]) as GenericField
 
 describe('field hook declarations', () => {
 	it.each(builtInFields)(
@@ -64,7 +65,9 @@ describe('field hook declarations', () => {
 		(_kind, field) => {
 			const declarations = getFieldHookDeclarations(field)
 
-			expect(declarations).toStrictEqual({ onError })
+			expect(declarations).toStrictEqual({
+				onError: { all: [onError], variants: {} },
+			})
 			expect(Object.isFrozen(declarations)).toBe(true)
 			expect(field.options).not.toHaveProperty('hooks')
 			expect(Object.keys(field)).toStrictEqual(['kind', 'options'])
@@ -97,7 +100,9 @@ describe('field hook declarations', () => {
 
 		expect(normalizedValidation).toStrictEqual({ required: true })
 		expect(normalizedValidation).not.toHaveProperty('hooks')
-		expect(getFieldHookDeclarations(field)).toStrictEqual({ onError })
+		expect(getFieldHookDeclarations(field)).toStrictEqual({
+			onError: { all: [onError], variants: {} },
+		})
 		expect(Object.isFrozen(getFieldHookDeclarations(field))).toBe(true)
 		expect(field.options).not.toHaveProperty('hooks')
 		expect(Object.keys(field)).toStrictEqual(['kind', 'options'])
@@ -111,7 +116,7 @@ describe('field hook declarations', () => {
 
 		hooks.onError = replacement
 
-		expect(declarations?.onError).toBe(onError)
+		expect(getHookHandlers(declarations, 'onError')[0]).toBe(onError)
 		expect(Object.isFrozen(declarations)).toBe(true)
 		expect(Reflect.set(declarations ?? {}, 'onError', replacement)).toBe(false)
 	})
@@ -125,8 +130,34 @@ describe('field hook declarations', () => {
 		const secondDeclarations = getFieldHookDeclarations(second)
 
 		expect(firstDeclarations).not.toBe(secondDeclarations)
-		expect(firstDeclarations?.onError).toBe(firstHandler)
-		expect(secondDeclarations?.onError).toBe(secondHandler)
+		expect(getHookHandlers(firstDeclarations, 'onError')[0]).toBe(firstHandler)
+		expect(getHookHandlers(secondDeclarations, 'onError')[0]).toBe(
+			secondHandler,
+		)
+	})
+
+	it('precomposes every broad field lifecycle according to its timing', () => {
+		const broad = () => undefined
+		const specific = () => undefined
+		const field = declareStringFieldFromUnknown({
+			hooks: {
+				afterRollback: { all: broad, delete: specific },
+				onChange: { all: broad, delete: specific },
+				resolveOutput: { all: broad, find: specific },
+			},
+		})
+		const declarations = getFieldHookDeclarations(field)
+
+		expect(getHookHandlers(declarations, 'onChange', 'delete')).toStrictEqual([
+			broad,
+			specific,
+		])
+		expect(
+			getHookHandlers(declarations, 'resolveOutput', 'find'),
+		).toStrictEqual([specific, broad])
+		expect(
+			getHookHandlers(declarations, 'afterRollback', 'delete'),
+		).toStrictEqual([specific, broad])
 	})
 
 	it('does not retain empty declarations', () => {
@@ -201,7 +232,13 @@ describe('field hook declarations', () => {
 		(_name, handler) => {
 			expect(() =>
 				declareStringFieldFromUnknown({ hooks: { onError: handler } }),
-			).toThrow(new TypeError('hooks.onError must be a function'))
+			).toThrow(
+				new TypeError(
+					_name === 'an object'
+						? 'hooks.onError family map must not be empty'
+						: 'hooks.onError must be a function or non-empty handler list',
+				),
+			)
 		},
 	)
 })

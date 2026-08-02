@@ -13,6 +13,7 @@ import {
 	type FieldChangeHookInput,
 	type FieldErrorHook,
 	type FieldHookTypes,
+	type FieldHooks,
 	type FieldInputHookInput,
 	type FieldOnChangeHook,
 	type FieldValueChange,
@@ -254,4 +255,70 @@ test('keeps set-based terminals out of materialized field hooks', () => {
 	expectTypeOf<'find'>().toExtend<ErrorKind>()
 	expectTypeOf<'first'>().toExtend<ErrorKind>()
 	expectTypeOf<'get'>().toExtend<ErrorKind>()
+})
+
+test('types ordered field handler lists and compatible family maps', () => {
+	const hooks: FieldHooks<typeof titleField> = {
+		beforeCreate: [
+			({ value }) => {
+				expectTypeOf(value).toEqualTypeOf<string>()
+			},
+			({ kind }) => {
+				expectTypeOf(kind).toEqualTypeOf<'create-many' | 'create-one'>()
+			},
+		],
+		resolveInput: {
+			all: ({ value }) => value,
+			update: ({ kind, value }) => {
+				expectTypeOf(kind).toEqualTypeOf<'update-many' | 'update-one'>()
+
+				return value.trim()
+			},
+		},
+		beforeSave: {
+			all: ({ value }) => {
+				expectTypeOf(value).toEqualTypeOf<string>()
+			},
+			upsert: ({ kind, mode }) => {
+				expectTypeOf(kind).toEqualTypeOf<'upsert-many' | 'upsert-one'>()
+				expectTypeOf(mode).toEqualTypeOf<'create' | 'update'>()
+			},
+		},
+		resolveOutput: {
+			all: ({ value }) => value,
+			find: ({ kind, value }) => {
+				expectTypeOf(kind).toEqualTypeOf<'find' | 'first' | 'get'>()
+
+				return value
+			},
+		},
+	}
+
+	expectTypeOf(hooks).toEqualTypeOf<FieldHooks<typeof titleField>>()
+})
+
+test('rejects invalid field families, empty lists, and incompatible returns', () => {
+	const invalidFamilyHooks: FieldHooks<typeof titleField> = {
+		// @ts-expect-error -- Save families never accept read-specific handlers.
+		beforeSave: { find: () => undefined },
+	}
+	const invalidEmptyList: FieldHooks<typeof titleField> = {
+		// @ts-expect-error -- Ordered hook lists must contain at least one handler.
+		beforeCreate: [],
+	}
+	const invalidEmptyFamily: FieldHooks<typeof titleField> = {
+		// @ts-expect-error -- Family maps must declare at least one branch.
+		beforeSave: {},
+	}
+	const invalidReturn: FieldHooks<typeof titleField> = {
+		// @ts-expect-error -- Input transforms preserve the field's logical type.
+		resolveInput: {
+			create: () => 42,
+		},
+	}
+
+	expectTypeOf(invalidFamilyHooks).toBeObject()
+	expectTypeOf(invalidEmptyList).toBeObject()
+	expectTypeOf(invalidEmptyFamily).toBeObject()
+	expectTypeOf(invalidReturn).toBeObject()
 })

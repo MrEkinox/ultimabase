@@ -4,9 +4,12 @@ import type { OperationKind } from '../../query/index.js'
 import type { GenericField } from '../fields/base/contract.js'
 import type { InferFields } from '../inference/types.js'
 import type {
-	AnyValidationIssueCode,
-	ValidationIssue,
-} from '../plans/contracts.js'
+	HookHandlerDeclaration,
+	HookValidationIssue,
+	MutationHookFamily,
+	OperationHookFamily,
+	SaveHookFamily,
+} from './contracts.js'
 
 /** Identifies the schema inference shape used by one field hook value. */
 export type FieldHookMode = 'create' | 'object' | 'update'
@@ -81,6 +84,12 @@ export type FieldInputHookKind =
 	| 'upsert-many'
 	| 'upsert-one'
 
+/** Groups supplied update values, including one set-based update expression. */
+export type FieldUpdateInputHookKind = Extract<
+	FieldInputHookKind,
+	'update-many' | 'update-one'
+>
+
 /** Groups create terminals that run affected-field hooks in stable item order. */
 export type FieldCreateHookKind = 'create-many' | 'create-one'
 
@@ -108,6 +117,15 @@ export type FieldOutputHookKind =
 	| 'update-one'
 	| 'upsert-many'
 	| 'upsert-one'
+
+/** Groups read terminals that can resolve one selected field value. */
+export type FieldFindHookKind = Extract<
+	FieldOutputHookKind,
+	'find' | 'first' | 'get'
+>
+
+/** Groups materialized mutations that can execute value-focused field hooks. */
+export type FieldMutationHookKind = FieldDeleteHookKind | FieldSaveHookKind
 
 /** Supplies one present logical value without exposing sibling schema fields. */
 export interface FieldValueHookInput<
@@ -152,20 +170,37 @@ export type FieldInputHookInput<TField extends GenericField> =
 			'update'
 	  >
 
-/** Transforms a present input value before business validation. */
-export type FieldResolveInputHook<TField extends GenericField> = <
-	const TInput extends FieldInputHookInput<TField>,
->(
+type FieldInputForKind<
+	TField extends GenericField,
+	TKind extends FieldInputHookKind,
+> = Extract<FieldInputHookInput<TField>, { readonly kind: TKind }>
+
+/** Transforms one compatible input family before business validation. */
+export type FieldResolveInputFamilyHook<
+	TField extends GenericField,
+	TKind extends FieldInputHookKind,
+> = <const TInput extends FieldInputForKind<TField, TKind>>(
 	input: TInput,
 ) => MaybePromise<TInput['value'] | undefined>
 
+/** Transforms a present input value before business validation. */
+export type FieldResolveInputHook<TField extends GenericField> =
+	FieldResolveInputFamilyHook<TField, FieldInputHookKind>
+
 /** Uses the same structured validation issue format as schema validation. */
-export type FieldHookValidationIssue = ValidationIssue<AnyValidationIssueCode>
+export type FieldHookValidationIssue = HookValidationIssue
 
 /** Reports business issues for one present field value. */
-export type FieldValidateHook<TField extends GenericField> = (
-	input: FieldInputHookInput<TField>,
+export type FieldValidateFamilyHook<
+	TField extends GenericField,
+	TKind extends FieldInputHookKind,
+> = (
+	input: FieldInputForKind<TField, TKind>,
 ) => MaybePromise<readonly FieldHookValidationIssue[] | undefined>
+
+/** Reports business issues for one present field value. */
+export type FieldValidateHook<TField extends GenericField> =
+	FieldValidateFamilyHook<TField, FieldInputHookKind>
 
 type FieldEffectHook<TInput> = [TInput] extends [never]
 	? never
@@ -249,15 +284,25 @@ export type FieldAfterSaveHook<TField extends GenericField> = FieldEffectHook<
 	| FieldPersistedInput<TField, FieldUpsertHookKind, 'create' | 'update'>
 >
 
-/** Transforms a permitted output without changing stored data or its logical type. */
-export type FieldResolveOutputHook<TField extends GenericField> = (
-	input: FieldPersistedInput<TField, FieldOutputHookKind, 'object'>,
+/** Transforms one compatible output family without changing stored data. */
+export type FieldResolveOutputFamilyHook<
+	TField extends GenericField,
+	TKind extends FieldOutputHookKind,
+> = (
+	input: FieldPersistedInput<TField, TKind, 'object'>,
 ) => MaybePromise<FieldHookTypes<TField>['object'] | undefined>
 
+/** Transforms a permitted output without changing stored data or its logical type. */
+export type FieldResolveOutputHook<TField extends GenericField> =
+	FieldResolveOutputFamilyHook<TField, FieldOutputHookKind>
+
 /** Describes one semantic persisted-value change before the outer commit. */
-export interface FieldChangeHookInput<TField extends GenericField> {
+export interface FieldChangeHookInput<
+	TField extends GenericField,
+	TKind extends FieldMutationHookKind = FieldMutationHookKind,
+> {
 	/** Excludes set-based update and delete because they do not materialize rows. */
-	readonly kind: FieldSaveHookKind | FieldDeleteHookKind
+	readonly kind: TKind
 	/** Makes the rollback-capable timing explicit to hook implementations. */
 	readonly timing: 'before-commit'
 	/** Distinguishes create, replacement, and a real unset without `undefined`. */
@@ -269,9 +314,18 @@ export type FieldOnChangeHook<TField extends GenericField> = FieldEffectHook<
 	FieldChangeHookInput<TField>
 >
 
+/** Observes semantic changes for one compatible mutation family. */
+export type FieldOnChangeFamilyHook<
+	TField extends GenericField,
+	TKind extends FieldMutationHookKind,
+> = FieldEffectHook<FieldChangeHookInput<TField, TKind>>
+
 /** Describes one successful change after its outer transaction commits. */
-export interface FieldAfterCommitInput<TField extends GenericField> {
-	readonly kind: FieldSaveHookKind | FieldDeleteHookKind
+export interface FieldAfterCommitInput<
+	TField extends GenericField,
+	TKind extends FieldMutationHookKind = FieldMutationHookKind,
+> {
+	readonly kind: TKind
 	readonly timing: 'after-commit'
 	readonly change: FieldValueChange<FieldHookTypes<TField>['object']>
 }
@@ -281,73 +335,204 @@ export type FieldAfterCommitHook<TField extends GenericField> = FieldEffectHook<
 	FieldAfterCommitInput<TField>
 >
 
+/** Observes committed changes for one compatible mutation family. */
+export type FieldAfterCommitFamilyHook<
+	TField extends GenericField,
+	TKind extends FieldMutationHookKind,
+> = FieldEffectHook<FieldAfterCommitInput<TField, TKind>>
+
 /** Describes a confirmed rollback without inventing a persisted field value. */
-export interface FieldAfterRollbackInput {
+export interface FieldAfterRollbackInput<
+	TKind extends FieldMutationHookKind = FieldMutationHookKind,
+> {
 	readonly error: unknown
-	readonly kind: FieldSaveHookKind | FieldDeleteHookKind
+	readonly kind: TKind
 	readonly timing: 'after-rollback'
 }
 
 /** Observes a confirmed rollback without replacing its original error. */
 export type FieldAfterRollbackHook = FieldEffectHook<FieldAfterRollbackInput>
 
+/** Observes rollbacks for one compatible mutation family. */
+export type FieldAfterRollbackFamilyHook<TKind extends FieldMutationHookKind> =
+	FieldEffectHook<FieldAfterRollbackInput<TKind>>
+
 /** Describes one failed field-participating operation. */
-export interface FieldErrorHookInput {
+export interface FieldErrorHookInput<
+	TKind extends FieldInputHookKind | FieldOutputHookKind =
+		FieldInputHookKind | FieldOutputHookKind,
+> {
 	readonly error: unknown
-	readonly kind: FieldInputHookKind | FieldOutputHookKind
+	readonly kind: TKind
 }
 
 /** Observes a failure without replacing or suppressing it. */
-export type FieldErrorHook = FieldEffectHook<FieldErrorHookInput>
+export type FieldErrorHook<
+	TKind extends FieldInputHookKind | FieldOutputHookKind =
+		FieldInputHookKind | FieldOutputHookKind,
+> = FieldEffectHook<FieldErrorHookInput<TKind>>
 
-/** Adds inline behavior while keeping callback declarations out of field metadata. */
+/** Declares field input resolution directly, as a list, or by save family. */
+export type FieldResolveInputHookDeclaration<TField extends GenericField> =
+	| HookHandlerDeclaration<FieldResolveInputHook<TField>>
+	| SaveHookFamily<
+			FieldResolveInputHook<TField>,
+			FieldResolveInputFamilyHook<TField, FieldCreateHookKind>,
+			FieldResolveInputFamilyHook<TField, FieldUpdateInputHookKind>,
+			FieldResolveInputFamilyHook<TField, FieldUpsertHookKind>
+	  >
+
+/** Declares field validation directly, as a list, or by save family. */
+export type FieldValidateHookDeclaration<TField extends GenericField> =
+	| HookHandlerDeclaration<FieldValidateHook<TField>>
+	| SaveHookFamily<
+			FieldValidateHook<TField>,
+			FieldValidateFamilyHook<TField, FieldCreateHookKind>,
+			FieldValidateFamilyHook<TField, FieldUpdateInputHookKind>,
+			FieldValidateFamilyHook<TField, FieldUpsertHookKind>
+	  >
+
+/** Declares before-save effects directly, as a list, or by save family. */
+export type FieldBeforeSaveHookDeclaration<TField extends GenericField> =
+	| HookHandlerDeclaration<FieldBeforeSaveHook<TField>>
+	| SaveHookFamily<
+			FieldBeforeSaveHook<TField>,
+			FieldBeforeCreateHook<TField>,
+			FieldBeforeUpdateHook<TField>,
+			FieldBeforeUpsertHook<TField>
+	  >
+
+/** Declares after-save effects directly, as a list, or by save family. */
+export type FieldAfterSaveHookDeclaration<TField extends GenericField> =
+	| HookHandlerDeclaration<FieldAfterSaveHook<TField>>
+	| SaveHookFamily<
+			FieldAfterSaveHook<TField>,
+			FieldAfterCreateHook<TField>,
+			FieldAfterUpdateHook<TField>,
+			FieldAfterUpsertHook<TField>
+	  >
+
+/** Declares output resolution directly, as a list, or by operation family. */
+export type FieldResolveOutputHookDeclaration<TField extends GenericField> =
+	| HookHandlerDeclaration<FieldResolveOutputHook<TField>>
+	| OperationHookFamily<
+			FieldResolveOutputHook<TField>,
+			FieldResolveOutputFamilyHook<TField, FieldCreateHookKind>,
+			FieldResolveOutputFamilyHook<TField, FieldUpdateHookKind>,
+			FieldResolveOutputFamilyHook<TField, FieldUpsertHookKind>,
+			FieldResolveOutputFamilyHook<TField, FieldDeleteHookKind>,
+			FieldResolveOutputFamilyHook<TField, FieldFindHookKind>
+	  >
+
+/** Declares change effects directly, as a list, or by mutation family. */
+export type FieldOnChangeHookDeclaration<TField extends GenericField> =
+	| HookHandlerDeclaration<FieldOnChangeHook<TField>>
+	| MutationHookFamily<
+			FieldOnChangeHook<TField>,
+			FieldOnChangeFamilyHook<TField, FieldCreateHookKind>,
+			FieldOnChangeFamilyHook<TField, FieldUpdateHookKind>,
+			FieldOnChangeFamilyHook<TField, FieldUpsertHookKind>,
+			FieldOnChangeFamilyHook<TField, FieldDeleteHookKind>
+	  >
+
+/** Declares post-commit effects directly, as a list, or by mutation family. */
+export type FieldAfterCommitHookDeclaration<TField extends GenericField> =
+	| HookHandlerDeclaration<FieldAfterCommitHook<TField>>
+	| MutationHookFamily<
+			FieldAfterCommitHook<TField>,
+			FieldAfterCommitFamilyHook<TField, FieldCreateHookKind>,
+			FieldAfterCommitFamilyHook<TField, FieldUpdateHookKind>,
+			FieldAfterCommitFamilyHook<TField, FieldUpsertHookKind>,
+			FieldAfterCommitFamilyHook<TField, FieldDeleteHookKind>
+	  >
+
+/** Declares rollback effects directly, as a list, or by mutation family. */
+export type FieldAfterRollbackHookDeclaration =
+	| HookHandlerDeclaration<FieldAfterRollbackHook>
+	| MutationHookFamily<
+			FieldAfterRollbackHook,
+			FieldAfterRollbackFamilyHook<FieldCreateHookKind>,
+			FieldAfterRollbackFamilyHook<FieldUpdateHookKind>,
+			FieldAfterRollbackFamilyHook<FieldUpsertHookKind>,
+			FieldAfterRollbackFamilyHook<FieldDeleteHookKind>
+	  >
+
+/** Declares error effects directly, as a list, or by operation family. */
+export type FieldErrorHookDeclaration =
+	| HookHandlerDeclaration<FieldErrorHook>
+	| OperationHookFamily<
+			FieldErrorHook,
+			FieldErrorHook<FieldCreateHookKind>,
+			FieldErrorHook<FieldUpdateInputHookKind>,
+			FieldErrorHook<FieldUpsertHookKind>,
+			FieldErrorHook<FieldDeleteHookKind>,
+			FieldErrorHook<FieldFindHookKind>
+	  >
+
+/** Declares one exact field phase handler or a non-empty ordered list. */
+type FieldExactHookDeclaration<THandler> = HookHandlerDeclaration<THandler>
+
+/**
+ * Adds composable inline behavior while keeping callbacks out of field metadata.
+ *
+ * Direct handlers and non-empty lists work for every phase. Broad phases also
+ * accept compatible family maps without widening this field's logical value.
+ */
 export interface FieldHooks<TField extends GenericField> {
 	/**
 	 * Transforms a present create, update, or upsert value before validation.
 	 *
 	 * @example `resolveInput: ({ value }) => value.trim()`
 	 */
-	readonly resolveInput?: FieldResolveInputHook<TField>
+	readonly resolveInput?: FieldResolveInputHookDeclaration<TField>
 	/**
 	 * Returns immutable business issues for one present input value.
 	 *
-	 * @example `validate: ({ value }) => value.length === 0 ? [{ code: "custom", path: [], message: "Required" }] : []`
+	 * @example `validate: ({ value }) => value.length === 0 ? [{ code: "hook.required", path: [], message: "Required" }] : []`
 	 */
-	readonly validate?: FieldValidateHook<TField>
+	readonly validate?: FieldValidateHookDeclaration<TField>
 	/** Runs before each present create value is persisted. */
-	readonly beforeCreate?: FieldBeforeCreateHook<TField>
+	readonly beforeCreate?: FieldExactHookDeclaration<
+		FieldBeforeCreateHook<TField>
+	>
 	/** Runs after each create value is materialized but before commit. */
-	readonly afterCreate?: FieldAfterCreateHook<TField>
+	readonly afterCreate?: FieldExactHookDeclaration<FieldAfterCreateHook<TField>>
 	/** Runs before a materialized singular update, never set-based update-many. */
-	readonly beforeUpdate?: FieldBeforeUpdateHook<TField>
+	readonly beforeUpdate?: FieldExactHookDeclaration<
+		FieldBeforeUpdateHook<TField>
+	>
 	/** Runs after a materialized singular update but before commit. */
-	readonly afterUpdate?: FieldAfterUpdateHook<TField>
+	readonly afterUpdate?: FieldExactHookDeclaration<FieldAfterUpdateHook<TField>>
 	/** Runs before each upsert item using its candidate create or update value. */
-	readonly beforeUpsert?: FieldBeforeUpsertHook<TField>
+	readonly beforeUpsert?: FieldExactHookDeclaration<
+		FieldBeforeUpsertHook<TField>
+	>
 	/** Runs after an upsert atomically resolves its create or update branch. */
-	readonly afterUpsert?: FieldAfterUpsertHook<TField>
+	readonly afterUpsert?: FieldExactHookDeclaration<FieldAfterUpsertHook<TField>>
 	/** Runs before a materialized singular delete, never set-based delete-many. */
-	readonly beforeDelete?: FieldBeforeDeleteHook<TField>
+	readonly beforeDelete?: FieldExactHookDeclaration<
+		FieldBeforeDeleteHook<TField>
+	>
 	/** Runs after a materialized singular delete but before commit. */
-	readonly afterDelete?: FieldAfterDeleteHook<TField>
+	readonly afterDelete?: FieldExactHookDeclaration<FieldAfterDeleteHook<TField>>
 	/** Reuses one handler before create, update, and upsert persistence. */
-	readonly beforeSave?: FieldBeforeSaveHook<TField>
+	readonly beforeSave?: FieldBeforeSaveHookDeclaration<TField>
 	/** Reuses one handler after create, update, and upsert persistence. */
-	readonly afterSave?: FieldAfterSaveHook<TField>
+	readonly afterSave?: FieldAfterSaveHookDeclaration<TField>
 	/**
 	 * Transforms an access-approved output without changing stored data.
 	 *
 	 * @example `resolveOutput: ({ value }) => value.trim()`
 	 */
-	readonly resolveOutput?: FieldResolveOutputHook<TField>
+	readonly resolveOutput?: FieldResolveOutputHookDeclaration<TField>
 	/** Runs before commit only when the persisted value changes semantically. */
-	readonly onChange?: FieldOnChangeHook<TField>
+	readonly onChange?: FieldOnChangeHookDeclaration<TField>
 	/** Runs after commit for a successfully persisted semantic change. */
-	readonly afterCommit?: FieldAfterCommitHook<TField>
+	readonly afterCommit?: FieldAfterCommitHookDeclaration<TField>
 	/** Runs only after the adapter confirms rollback. */
-	readonly afterRollback?: FieldAfterRollbackHook
+	readonly afterRollback?: FieldAfterRollbackHookDeclaration
 	/** Observes a field-participating failure without suppressing it. */
-	readonly onError?: FieldErrorHook
+	readonly onError?: FieldErrorHookDeclaration
 }
 
 /** Contextually types hooks from the completed field without exposing them in metadata. */

@@ -60,6 +60,27 @@ const readHoverDisplay = (name: string): string => {
 	return ts.displayPartsToString(quickInfo.displayParts)
 }
 
+/** Reads contextual member names from emitted declaration completions. */
+const readMemberCompletionNames = (name: string): string[] => {
+	const position = readMarkerPosition(`/* completion:${name} */`)
+	const completions = service.getCompletionsAtPosition(
+		packedFixtureFile,
+		position,
+		{ includeCompletionsWithInsertText: true },
+	)
+
+	if (completions === undefined) {
+		throw new TypeError(`Missing packed schema completions: ${name}`)
+	}
+
+	return completions.entries
+		.filter(
+			(entry) => entry.kind === ts.ScriptElementKind.memberVariableElement,
+		)
+		.map(({ name: entryName }) => entryName)
+		.sort()
+}
+
 describe('packed @ultimabase/core native schema hooks', () => {
 	it('type-checks through public package declarations', () => {
 		expect(service.getSemanticDiagnostics(packedFixtureFile)).toStrictEqual([])
@@ -110,5 +131,21 @@ describe('packed @ultimabase/core native schema hooks', () => {
 			'readonly title: string;',
 		)
 		expect(readHoverDisplay('error')).toContain('unknown')
+	})
+
+	it('preserves family composition and concise aliases after emission', () => {
+		expect(readMemberCompletionNames('schema-save-families')).toStrictEqual([
+			'all',
+			'create',
+			'update',
+			'upsert',
+		])
+		expect(readHoverDisplay('create-family-kind')).toContain(
+			'"create-many" | "create-one"',
+		)
+		const display = readHoverDisplay('schema-family-declaration')
+
+		expect(display).toContain('SchemaBeforeSaveHookDeclaration<')
+		expect(display).not.toContain('ExecutableOperationAst<')
 	})
 })

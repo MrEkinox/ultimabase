@@ -6,6 +6,7 @@ import {
 	schemaHookPhases,
 	type SchemaHookDeclarations,
 } from './declarations.js'
+import { getHookHandlers } from './normalization.js'
 
 const createSchema = (hooks?: object) =>
 	new Schema({
@@ -26,9 +27,13 @@ describe('schema hook declarations', () => {
 
 		source.beforeSave = () => undefined
 
-		expect(declarations).toStrictEqual({ beforeSave })
-		expect(declarations?.beforeSave).toBe(beforeSave)
+		expect(declarations).toStrictEqual({
+			beforeSave: { all: [beforeSave], variants: {} },
+		})
+		expect(getHookHandlers(declarations, 'beforeSave')[0]).toBe(beforeSave)
 		expect(Object.isFrozen(declarations)).toBe(true)
+		expect(Object.isFrozen(declarations?.beforeSave)).toBe(true)
+		expect(Object.isFrozen(declarations?.beforeSave?.all)).toBe(true)
 		expect(Reflect.set(declarations ?? {}, 'beforeSave', () => undefined)).toBe(
 			false,
 		)
@@ -47,8 +52,12 @@ describe('schema hook declarations', () => {
 		const first = createSchema({ beforeSave: firstHandler })
 		const second = createSchema({ beforeSave: secondHandler })
 
-		expect(getSchemaHookDeclarations(first)?.beforeSave).toBe(firstHandler)
-		expect(getSchemaHookDeclarations(second)?.beforeSave).toBe(secondHandler)
+		expect(
+			getHookHandlers(getSchemaHookDeclarations(first), 'beforeSave')[0],
+		).toBe(firstHandler)
+		expect(
+			getHookHandlers(getSchemaHookDeclarations(second), 'beforeSave')[0],
+		).toBe(secondHandler)
 	})
 
 	it('retains asynchronous handler identity without invoking it', () => {
@@ -60,7 +69,9 @@ describe('schema hook declarations', () => {
 		}
 		const schema = createSchema({ afterCommit })
 
-		expect(getSchemaHookDeclarations(schema)?.afterCommit).toBe(afterCommit)
+		expect(
+			getHookHandlers(getSchemaHookDeclarations(schema), 'afterCommit')[0],
+		).toBe(afterCommit)
 		expect(calls).toBe(0)
 	})
 
@@ -78,6 +89,24 @@ describe('schema hook declarations', () => {
 
 		expect(Object.keys(declarations ?? {})).toStrictEqual(schemaHookPhases)
 		expect(calls).toBe(0)
+	})
+
+	it('precomposes broad schema family branches in lifecycle order', () => {
+		const broad = () => undefined
+		const specific = () => undefined
+		const declarations = getSchemaHookDeclarations(
+			createSchema({
+				beforeOperation: { all: broad, delete: specific },
+				afterOperation: { all: broad, delete: specific },
+			}),
+		)
+
+		expect(
+			getHookHandlers(declarations, 'beforeOperation', 'delete'),
+		).toStrictEqual([broad, specific])
+		expect(
+			getHookHandlers(declarations, 'afterOperation', 'delete'),
+		).toStrictEqual([specific, broad])
 	})
 
 	it('does not allocate neutral declarations for absent or empty hooks', () => {
@@ -103,7 +132,7 @@ describe('schema hook declarations', () => {
 		)
 		const declarations = getSchemaHookDeclarations(createSchema(hooks))
 
-		expect(declarations?.beforeSave).toBe(beforeSave)
+		expect(getHookHandlers(declarations, 'beforeSave')[0]).toBe(beforeSave)
 	})
 
 	it.each([
@@ -117,15 +146,19 @@ describe('schema hook declarations', () => {
 		},
 		{
 			hooks: { beforeSave: undefined },
-			message: 'hooks.beforeSave must be a function',
+			message: 'hooks.beforeSave must be a function or non-empty handler list',
 		},
 		{
 			hooks: { beforeSave: [] },
-			message: 'hooks.beforeSave must be a function',
+			message: 'hooks.beforeSave must be a function or non-empty handler list',
 		},
 		{
 			hooks: { beforeSave: {} },
-			message: 'hooks.beforeSave must be a function',
+			message: 'hooks.beforeSave family map must not be empty',
+		},
+		{
+			hooks: { beforeSave: [() => undefined, false] },
+			message: 'hooks.beforeSave[1] must be a function',
 		},
 	] as const)('rejects malformed hook declarations', ({ hooks, message }) => {
 		expect(() => createSchema(hooks as object)).toThrow(new TypeError(message))
@@ -140,8 +173,9 @@ describe('schema hook declarations', () => {
 	})
 
 	it('exposes an immutable internal declaration type', () => {
+		const beforeSave = () => undefined
 		const declarations: SchemaHookDeclarations = {
-			beforeSave: () => undefined,
+			beforeSave: { all: [beforeSave], variants: {} },
 		}
 
 		// The public Runtime reader receives readonly capabilities.
