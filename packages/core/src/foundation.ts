@@ -23,6 +23,18 @@ export type { ServiceToken } from './services/service-token.js'
 export { ServiceRegistry } from './services/service-registry.js'
 export type { PluginServiceRegistry } from './services/service-registry.js'
 export { definePlugin } from './plugins/definition.js'
+export { defineFieldKindHookTarget } from './plugins/hook-targets.js'
+export type {
+	FieldExtensionHookFactory,
+	FieldExtensionHookTargetContext,
+	FieldKindHookFactory,
+	FieldKindHookTarget,
+	FieldKindHookTargetContext,
+	PluginHookRegistry,
+	PluginHookTargetKind,
+	SchemaExtensionHookFactory,
+	SchemaExtensionHookTargetContext,
+} from './plugins/hook-targets.js'
 export type {
 	DefinePluginOptions,
 	FrameworkPlugin,

@@ -40,6 +40,18 @@ export type BuiltInFieldKind = (typeof builtInFieldKinds)[number]
 
 export type ReservedFieldKind = BuiltInFieldKind | 'array' | 'plugin'
 
+/** Rejects framework-reserved or non-namespaced kinds at public type boundaries. */
+export type AvailablePluginFieldKind<TKind extends string> =
+	TKind extends ReservedFieldKind
+		? never
+		: TKind extends `${infer TNamespace}.${infer TName}`
+			? TNamespace extends ''
+				? never
+				: TName extends ''
+					? never
+					: TKind
+			: never
+
 /** Keeps the framework-owned field union consistent across planners and snapshots. */
 export type BuiltInField =
 	| BigintField

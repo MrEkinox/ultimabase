@@ -91,6 +91,7 @@ export type {
 	ScalarFieldInferenceState,
 	ValidatedFieldOptions,
 } from './fields/base/contract.js'
+export type { FieldAtPath, SchemaFieldPath } from './hooks/field-paths.js'
 export { assertFieldOptions } from './fields/base/options.js'
 export type {
 	InferCreateInput,

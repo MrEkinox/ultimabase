@@ -27,6 +27,7 @@ import {
 	createBeforeHookInput,
 	getRuntimeContributionImplementation,
 } from './definitions.js'
+import { isPluginHookTargetDefinition } from '../../plugins/hook-targets.js'
 
 type RuntimeContributionImplementation = NonNullable<
 	ReturnType<typeof getRuntimeContributionImplementation>
@@ -114,40 +115,51 @@ const readContributions = (
 		readonly PluginDefinition[]
 	>,
 	category: 'events' | 'hooks',
-): readonly OwnedRuntimeContribution[] =>
-	immutableArray(
-		application.getContributions(category).map((contribution) => {
-			const implementation = getRuntimeContributionImplementation(
-				contribution.value,
+): readonly OwnedRuntimeContribution[] => {
+	const ownedContributions: OwnedRuntimeContribution[] = []
+
+	for (const contribution of application.getContributions(category)) {
+		// Issue 330 executes native targets; low-level ADR-0070 stages ignore them meanwhile.
+		if (
+			category === 'hooks' &&
+			isPluginHookTargetDefinition(contribution.value)
+		) {
+			continue
+		}
+
+		const implementation = getRuntimeContributionImplementation(
+			contribution.value,
+		)
+
+		if (implementation === undefined) {
+			throw new TypeError(
+				`Plugin "${contribution.ownerPlugin}" registered invalid runtime ${category} contribution "${contribution.name}"`,
 			)
+		}
 
-			if (implementation === undefined) {
-				throw new TypeError(
-					`Plugin "${contribution.ownerPlugin}" registered invalid runtime ${category} contribution "${contribution.name}"`,
-				)
-			}
+		if (
+			(category === 'hooks' && implementation.kind === 'post-commit-event') ||
+			(category === 'events' && implementation.kind !== 'post-commit-event')
+		) {
+			throw new TypeError(
+				`Runtime contribution "${contribution.name}" uses the wrong registry`,
+			)
+		}
 
-			if (
-				(category === 'hooks' && implementation.kind === 'post-commit-event') ||
-				(category === 'events' && implementation.kind !== 'post-commit-event')
-			) {
-				throw new TypeError(
-					`Runtime contribution "${contribution.name}" uses the wrong registry`,
-				)
-			}
+		if (
+			implementation.schema !== undefined &&
+			!application.ownsSchema(implementation.schema)
+		) {
+			throw new TypeError(
+				`Runtime contribution "${contribution.name}" references a schema outside its application`,
+			)
+		}
 
-			if (
-				implementation.schema !== undefined &&
-				!application.ownsSchema(implementation.schema)
-			) {
-				throw new TypeError(
-					`Runtime contribution "${contribution.name}" references a schema outside its application`,
-				)
-			}
+		ownedContributions.push(immutableRecord({ contribution, implementation }))
+	}
 
-			return immutableRecord({ contribution, implementation })
-		}),
-	)
+	return immutableArray(ownedContributions)
+}
 
 const runBeforeContributions = async <
 	const TOperation extends DatabaseOperationAst,

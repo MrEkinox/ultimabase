@@ -256,17 +256,71 @@ commit, and post-commit events. Tenant isolation is explicitly non-bypassable.
 
 ## Hooks and post-commit events
 
-The currently implemented API in this section is the low-level plugin
-foundation. The active [native-hook plan](../../../CURRENT_PLAN.md) will add direct
-schema and inline field hooks without requiring a plugin, while retaining this
-registry for plugin contributions. The target contract is governed by
-[ADR-0089](../../../docs/adr/0089-native-schema-and-field-hooks.md) and
-[ADR-0090](../../../docs/adr/0090-permission-plugins-through-hooks.md). Runtime will
-not retain named CLP, ACL, or field-permission stages after issue 337.
+Native schema and inline field declarations require no plugin. Plugin setup uses
+the same declaration contracts through an owner-bound `hooks` facade:
 
-Plugins register typed hook definitions through the Core setup registries. A
-schema is optional for global behavior, while `operations` narrows the terminal
-kinds handled by a contribution:
+```ts
+const auditPlugin = () =>
+	definePlugin({
+		name: 'example.audit',
+		setup: ({ hooks }) => {
+			hooks.global('measure-all', {
+				afterOperation: ({ result }) => result,
+			})
+			hooks.schema('audit-articles', ArticleSchema, {
+				beforeSave: ({ operation }) => operation,
+			})
+			hooks.field('normalize-title', ArticleSchema, ['title'], {
+				resolveInput: ({ value }) => value.trim(),
+			})
+		},
+	})
+```
+
+The other target methods are `schemaExtension`, `fieldExtension`, and
+`fieldKind`. Extension and field-kind selectors accept initialization
+factories rather than declarations directly. Core invokes a factory once for
+each deterministic match after plugin setup, and the returned hook may close
+over the matched configuration. That configuration never becomes a property of
+the Runtime hook input:
+
+```ts
+hooks.schemaExtension('retention', retentionExtension, ({ extension }) => ({
+	beforeOperation: ({ operation }) => {
+		retention.observe(extension.config.policy)
+		return operation
+	},
+}))
+```
+
+Exact field targets use typed non-empty segment tuples, including nested object
+paths. Community field packages expose a reusable selector with
+`defineFieldKindHookTarget<TField>(kind)`, preserving the field's exact logical
+value in the factory and returned field declarations.
+
+Every target contribution records the setup plugin automatically. Its public
+name is local to that owner, so separate plugins may use the same name while a
+same-owner duplicate fails. Registration closes when setup finishes, target
+resolution completes before `connect`, and the immutable match snapshots remain
+isolated per application. Order follows plugin dependencies, configuration
+position, registration order, schema order, and deterministic field traversal;
+there is no numeric priority.
+
+Issue 328 provides this registration and initialization boundary. The Runtime
+dispatcher in issue 330 appends resolved plugin declarations to developer hooks
+and invokes them. No plugin can replace developer declarations. The contract is
+governed by
+[ADR-0089](../../../docs/adr/0089-native-schema-and-field-hooks.md),
+[ADR-0097](../../../docs/adr/0097-owner-scoped-typed-plugin-hook-targets.md), and
+[ADR-0090](../../../docs/adr/0090-permission-plugins-through-hooks.md).
+
+### Legacy low-level definitions
+
+ADR-0070's opaque before/after factories remain the existing low-level plugin
+foundation while the native dispatcher is completed. Plugins register those
+definitions through the generic Core setup registries. A schema is optional for
+global behavior, while `operations` narrows the terminal kinds handled by a
+contribution:
 
 ```ts
 const articleAutomationPlugin = () =>

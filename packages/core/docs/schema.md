@@ -669,14 +669,22 @@ iteration order. Registering an existing class name throws
 `DuplicateSchemaError` with the stable `SCHEMA_DUPLICATE_CLASS_NAME` code and
 does not replace the original schema.
 
-## Planned native hook declarations
+## Native hook declarations
 
-Schema does not currently expose native hooks. The active
-[native-hook plan](../../../CURRENT_PLAN.md) will add schema hooks and inline field
-hooks as framework primitives rather than extensions. The dependency boundary
-must preserve exact field-value inference, compact field hovers, and documented
-autocomplete without making Schema depend on Runtime or concrete plugins. See
-[ADR-0089](../../../docs/adr/0089-native-schema-and-field-hooks.md) for the frozen
-lifecycle semantics. Permission extensions remain opaque configuration: their
-installed plugins attach hooks through the policy-neutral boundary from
+`new Schema({ hooks })` and every built-in or plugin-defined field's `hooks`
+option expose native lifecycle declarations as framework primitives rather than
+extensions. Private identity-owned capabilities retain the normalized callbacks
+without placing them in schema definitions, field options, validation plans, or
+physical metadata. Exact field-value inference, compact field hovers, and
+documented autocomplete therefore remain independent from hook literals.
+
+Plugins attach the same declarations through the owner-bound targets documented
+in the [Runtime guide](runtime.md#hooks-and-post-commit-events). Extension
+configuration remains an initialization selector and never enters a native hook
+input. See
+[ADR-0089](../../../docs/adr/0089-native-schema-and-field-hooks.md) and
+[ADR-0097](../../../docs/adr/0097-owner-scoped-typed-plugin-hook-targets.md) for
+the lifecycle and target semantics. Permission extensions remain opaque
+configuration whose installed plugins contribute policy-neutral monotonic
+hooks under
 [ADR-0090](../../../docs/adr/0090-permission-plugins-through-hooks.md).

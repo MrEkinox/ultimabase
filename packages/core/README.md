@@ -344,12 +344,96 @@ disposal fails, and the returned values do not expose a writable registry.
 Core's Runtime domain uses this boundary to compose hook and event declarations
 without application orchestration depending on their concrete contracts.
 
+## Typed plugin hook targets
+
+A plugin registers native declarations through the owner-bound `hooks` setup
+facade. Direct targets retain an exact schema or nested field type, while
+extension and field-kind targets expand over every matching declaration during
+application initialization:
+
+```ts
+import {
+	defineFieldExtension,
+	defineFieldKindHookTarget,
+	definePlugin,
+	defineSchemaExtension,
+} from '@ultimabase/core'
+import { type VectorField, vectorFieldKind } from '@ultimabase/pg-vector-plugin'
+
+const audited = defineSchemaExtension(
+	'audited',
+	{ stream: 'security' },
+	'example.behavior',
+)
+const redacted = defineFieldExtension(
+	'redacted',
+	{ replacement: '[redacted]' },
+	'example.behavior',
+)
+const vectorHookTarget = defineFieldKindHookTarget<VectorField>(vectorFieldKind)
+
+const behaviorPlugin = () =>
+	definePlugin({
+		name: 'example.behavior',
+		setup: ({ hooks }) => {
+			hooks.global('measure-operations', {
+				afterOperation: ({ result }) => result,
+			})
+			hooks.schema('normalize-posts', PostSchema, {
+				beforeSave: ({ operation }) => operation,
+			})
+			hooks.field('normalize-title', PostSchema, ['title'], {
+				resolveInput: ({ value }) => value.trim(),
+			})
+
+			hooks.schemaExtension('audit', audited, ({ extension }) => ({
+				beforeOperation: ({ operation }) => {
+					audit.route(extension.config.stream)
+					return operation
+				},
+			}))
+			hooks.fieldExtension('redact', redacted, ({ extension }) => ({
+				beforeSave: () => {
+					redactor.use(extension.config.replacement)
+				},
+			}))
+			hooks.fieldKind('validate-vectors', vectorHookTarget, ({ field }) => ({
+				validate: ({ value }) =>
+					value.length === field.options.dimensions
+						? []
+						: [vectorDimensionIssue(field.options.dimensions)],
+			}))
+		},
+	})
+```
+
+The six scopes are `global`, `schema`, `field`, `schemaExtension`,
+`fieldExtension`, and `fieldKind`. Field paths are non-empty segment tuples, so
+`['profile', 'email']` infers the terminal field without parsing a dot string.
+`defineFieldKindHookTarget<TField>(kind)` creates a reusable typed token for a
+namespaced community field kind.
+
+Indirect target factories run during initialization, once per deterministic
+match. They can read extension configuration or matched field metadata and
+close over it, but that configuration is never added to Runtime hook inputs.
+Application initialization rejects foreign schemas, invalid paths, foreign
+extensions, forged field-kind targets, and registration attempted after setup.
+
+Names are local to their setup owner. Two plugins may both register `audit`,
+while registering it twice from the same plugin fails. Contributions follow
+plugin dependency order, configuration position, registration order, then
+schema and nested-field declaration order. Resolved snapshots are immutable and
+isolated per application.
+
+Issue 328 implements registration and target resolution. Issue 330 composes the
+resolved declarations with developer hooks and starts invoking them; registering
+a target therefore does not claim execution before that dispatcher exists.
+
 The active [native-hook plan](../../CURRENT_PLAN.md) gives Core's Schema domain
 identity-owned declaration storage and gives its Runtime domain interpretation
-and execution. Native developer hooks require no plugin, while plugin hooks use
-typed global, schema, field-path, extension, or field-kind targets. Policy
-plugins use those targets too; application orchestration stores their opaque
-monotonic effects without naming CLP, ACL, roles, or field permissions.
+and execution. Native developer hooks require no plugin. Policy plugins use the
+same typed targets; application orchestration stores their opaque monotonic
+effects without naming CLP, ACL, roles, or field permissions.
 
 [ADR-0096](../../docs/adr/0096-native-hook-declaration-capabilities.md)
 keeps callbacks outside `SchemaDefinition`, `FieldDefinition`, field options,

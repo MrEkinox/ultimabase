@@ -57,17 +57,23 @@ export type SchemaHookDeclarations = NormalizedHookDeclarations<SchemaHookPhase>
 
 const schemaHookDeclarations = new WeakMap<object, SchemaHookDeclarations>()
 
-/** Attaches one normalized declaration to the exact Schema identity. */
-export const declareSchemaHooks = <TSchema extends SchemaDefinition>(
-	schema: TSchema,
-	hooks: SchemaHooks<TSchema> | undefined,
-): void => {
-	const declarations = normalizeHookDeclarations({
+/** Copies and validates one schema hook declaration without attaching it. */
+export const normalizeSchemaHookDeclarations = (
+	hooks: unknown,
+): SchemaHookDeclarations | undefined =>
+	normalizeHookDeclarations({
 		descriptors: schemaHookPhaseDescriptors,
 		hooks,
 		phases: schemaHookPhases,
 		scope: 'schema',
 	})
+
+/** Attaches one normalized declaration to the exact Schema identity. */
+export const declareSchemaHooks = <TSchema extends SchemaDefinition>(
+	schema: TSchema,
+	hooks: SchemaHooks<TSchema> | undefined,
+): void => {
+	const declarations = normalizeSchemaHookDeclarations(hooks)
 
 	if (declarations !== undefined) {
 		schemaHookDeclarations.set(schema, declarations)

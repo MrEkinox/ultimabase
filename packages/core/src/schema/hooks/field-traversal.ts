@@ -1,14 +1,8 @@
-import {
-	immutableArray,
-	immutableRecord,
-	isPlainRecord,
-} from '@ultimabase/shared'
+import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
 import type { GenericField } from '../fields/base/contract.js'
-import {
-	assertFieldDefinition,
-	getFieldHookDeclarations,
-} from '../fields/base/definition.js'
+import { getFieldHookDeclarations } from '../fields/base/definition.js'
+import { collectFieldTraversalEntries } from '../fields/traversal.js'
 import type { FieldHookDeclarations } from './field-declarations.js'
 
 /** Identifies one exact declared field and its stable nested path. */
@@ -20,36 +14,18 @@ export interface FieldHookDeclarationEntry {
 
 const collectDeclaredHooks = (
 	fields: Readonly<Record<string, GenericField>>,
-	parentPath: readonly string[],
-	entries: FieldHookDeclarationEntry[],
-): void => {
-	for (const [name, field] of Object.entries(fields)) {
-		const path = immutableArray([...parentPath, name])
+): readonly FieldHookDeclarationEntry[] => {
+	const entries: FieldHookDeclarationEntry[] = []
+
+	for (const { field, path } of collectFieldTraversalEntries(fields)) {
 		const hooks = getFieldHookDeclarations(field)
 
 		if (hooks !== undefined) {
 			entries.push(immutableRecord({ field, hooks, path }))
 		}
-
-		if (field.kind !== 'object' || !('fields' in field.options)) {
-			continue
-		}
-
-		const nestedFields: unknown = field.options.fields
-
-		if (!isPlainRecord(nestedFields)) {
-			throw new TypeError(`${path.join('.')} must contain a field map`)
-		}
-
-		const declaredNestedFields: Record<string, GenericField> = {}
-
-		for (const [nestedName, nestedField] of Object.entries(nestedFields)) {
-			assertFieldDefinition(nestedField, [...path, nestedName].join('.'))
-			declaredNestedFields[nestedName] = nestedField
-		}
-
-		collectDeclaredHooks(declaredNestedFields, path, entries)
 	}
+
+	return immutableArray(entries)
 }
 
 /**
@@ -60,10 +36,4 @@ const collectDeclaredHooks = (
  */
 export const collectFieldHookDeclarations = (
 	fields: Readonly<Record<string, GenericField>>,
-): readonly FieldHookDeclarationEntry[] => {
-	const entries: FieldHookDeclarationEntry[] = []
-
-	collectDeclaredHooks(fields, immutableArray([]), entries)
-
-	return immutableArray(entries)
-}
+): readonly FieldHookDeclarationEntry[] => collectDeclaredHooks(fields)

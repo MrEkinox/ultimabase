@@ -2,22 +2,17 @@ import {
 	type ExtensionDefinition,
 	type ExtensionScope,
 	type FieldExtension,
-	type FieldDefinition,
 	type SchemaDefinition,
 } from '../schema/index.js'
-import {
-	assertNonEmptyString,
-	isPlainRecord,
-	isUnknownArray,
-} from '@ultimabase/shared'
+import { assertNonEmptyString, isUnknownArray } from '@ultimabase/shared'
 
 import { FrameworkError } from '../errors/framework-error.js'
+import type { GenericField } from '../schema/fields/base/contract.js'
+import { collectFieldTraversalEntries } from '../schema/fields/traversal.js'
 import type {
 	ContributionRegistry,
 	PluginContribution,
 } from './setup-registries.js'
-
-type GenericField = FieldDefinition<string, unknown, object>
 
 /** Names one schema or field extension handler without merging their scopes. */
 export type ExtensionHandlerKey = `${ExtensionScope}:${string}`
@@ -43,22 +38,8 @@ interface FieldWithExtensions {
 	readonly extensions: readonly FieldExtension<string, object>[]
 }
 
-interface ObjectFieldOptions {
-	readonly fields: Readonly<Record<string, GenericField>>
-}
-
 const hasFieldExtensions = (options: object): options is FieldWithExtensions =>
 	'extensions' in options && isUnknownArray(options.extensions)
-
-const hasObjectFields = (
-	field: GenericField,
-): field is GenericField & {
-	readonly kind: 'object'
-	readonly options: ObjectFieldOptions
-} =>
-	field.kind === 'object' &&
-	'fields' in field.options &&
-	isPlainRecord(field.options.fields)
 
 const getHandler = (
 	handlers: ContributionRegistry,
@@ -115,26 +96,20 @@ const validateExtension = (
 const validateField = (
 	handlers: ContributionRegistry,
 	schemaClassName: string,
-	fieldPath: string,
+	fieldPath: readonly string[],
 	field: GenericField,
 ): void => {
+	const serializedFieldPath = fieldPath.join('.')
+
 	if (hasFieldExtensions(field.options)) {
 		for (const extension of field.options.extensions) {
-			validateExtension(handlers, schemaClassName, extension, fieldPath)
+			validateExtension(
+				handlers,
+				schemaClassName,
+				extension,
+				serializedFieldPath,
+			)
 		}
-	}
-
-	if (!hasObjectFields(field)) {
-		return
-	}
-
-	for (const [childName, childField] of Object.entries(field.options.fields)) {
-		validateField(
-			handlers,
-			schemaClassName,
-			`${fieldPath}.${childName}`,
-			childField,
-		)
 	}
 }
 
@@ -148,8 +123,8 @@ export const validateExtensionHandlers = (
 			validateExtension(handlers, schema.className, extension)
 		}
 
-		for (const [fieldName, field] of Object.entries(schema.fields)) {
-			validateField(handlers, schema.className, fieldName, field)
+		for (const { field, path } of collectFieldTraversalEntries(schema.fields)) {
+			validateField(handlers, schema.className, path, field)
 		}
 	}
 }

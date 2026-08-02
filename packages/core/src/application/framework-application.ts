@@ -214,6 +214,7 @@ export class FrameworkApplication<
 				this.schemas.values(),
 				this.#setupRegistries.extensions,
 			)
+			this.#setupRegistries.resolveHookTargets()
 
 			return this
 		} catch (error: unknown) {

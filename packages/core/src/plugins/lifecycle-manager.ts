@@ -176,8 +176,11 @@ export class PluginLifecycleManager {
 				this.#initializedPlugins.push({ plugin, context })
 			}
 
+			// Setup-only typed registries close before any infrastructure hook can run.
+			this.#registries.closeSetup()
 			this.#state = 'ready'
 		} catch (error: unknown) {
+			this.#registries.closeSetup()
 			const cleanupErrors = await this.#cleanupAfterFailure()
 
 			throwLifecycleFailure(error, cleanupErrors)

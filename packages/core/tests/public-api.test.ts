@@ -49,6 +49,7 @@ describe('@ultimabase/core public entry point', () => {
 			'defaultMasterBypassPolicy',
 			'defineExtensions',
 			'defineFieldExtension',
+			'defineFieldKindHookTarget',
 			'definePlugin',
 			'definePluginField',
 			'defineSchemaExtension',

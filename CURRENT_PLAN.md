@@ -81,7 +81,7 @@ dependencies are incomplete.
 3. [x] [325 — Declare native schema hooks](issues/300-query-runtime/325-native-schema-hooks.md)
 4. [x] [326 — Declare inline field hooks](issues/300-query-runtime/326-inline-field-hooks.md)
 5. [x] [327 — Compose hook families and handler lists](issues/300-query-runtime/327-hook-families-and-composition.md)
-6. [ ] [328 — Add typed plugin hook targets](issues/300-query-runtime/328-plugin-hook-targets.md)
+6. [x] [328 — Add typed plugin hook targets](issues/300-query-runtime/328-plugin-hook-targets.md)
 7. [ ] [329 — Make every mutation automatically transactional](issues/300-query-runtime/329-automatic-mutation-transactions.md)
 8. [ ] [330 — Execute the native hook lifecycle](issues/300-query-runtime/330-native-hook-dispatcher.md)
 9. [ ] [337 — Replace named permission stages with hook enforcement](issues/300-query-runtime/337-policy-neutral-hook-enforcement.md)
@@ -116,11 +116,12 @@ the named Runtime stages and proven monotonic hook enforcement.
 
 ## Current issue
 
-[328 — Add typed plugin hook targets](issues/300-query-runtime/328-plugin-hook-targets.md)
+[329 — Make every mutation automatically transactional](issues/300-query-runtime/329-automatic-mutation-transactions.md)
 
-Native declarations now compose direct callbacks, ordered lists, and logical
-family maps into immutable Runtime-ready sequences. The next issue lets plugins
-append precisely targeted hooks without replacing developer declarations.
+Plugins now register owner-bound native declarations against global, exact,
+extension, and typed field-kind targets. The next issue installs one automatic
+adapter transaction around every root mutation before native hook execution is
+connected by issue 330.
 
 ## Progress log
 
@@ -132,7 +133,7 @@ without reconstructing repository history.
 - 325 — `done` — `new Schema({ hooks })` now validates and retains typed immutable lifecycle declarations without exposing them as structural schema metadata.
 - 326 — `done` — Every built-in and plugin field now declares exact value hooks through private immutable capabilities without changing metadata or compact hovers.
 - 327 — `done` — Direct handlers, non-empty ordered lists, typed family maps, immutable normalization, and sequential composition helpers now share one contract.
-- 328 — `ready` — Typed plugin hook targets can now build on normalized native declarations and existing owner-scoped registries.
+- 328 — `done` — Owner-bound plugin setup now resolves six typed hook target scopes into isolated immutable snapshots with source and packed IntelliSense coverage.
 - 329 — `ready` — Automatic mutation transactions are dependency-ready but follow issues 324–328 in the preferred sequence.
 - 337 — `planned` — Policy-neutral enforcement waits for the typed plugin targets and native dispatcher.
 - 338 — `planned` — The generic constraint compiler registry waits for policy-neutral constraint contracts from issue 337.

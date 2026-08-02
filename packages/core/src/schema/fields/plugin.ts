@@ -1,7 +1,10 @@
 import { isPlainRecord } from '@ultimabase/shared'
 
 import { createFieldDefinition } from './base/definition.js'
-import { assertPluginFieldKind, type ReservedFieldKind } from './base/kinds.js'
+import {
+	assertPluginFieldKind,
+	type AvailablePluginFieldKind,
+} from './base/kinds.js'
 import {
 	normalizeFieldOptions,
 	normalizeFlatValidation,
@@ -17,17 +20,6 @@ import type { FieldHookDeclaration } from '../hooks/field-contracts.js'
 import { splitFieldDeclarationOptions } from '../hooks/field-declarations.js'
 
 export type { ReservedFieldKind } from './base/kinds.js'
-
-type AvailablePluginFieldKind<TKind extends string> =
-	TKind extends ReservedFieldKind
-		? never
-		: TKind extends `${infer TNamespace}.${infer TName}`
-			? TNamespace extends ''
-				? never
-				: TName extends ''
-					? never
-					: TKind
-			: never
 
 /** Removes declaration-only callbacks while retaining plugin-owned metadata. */
 type PluginFieldMetadata<TOptions extends object> = Omit<TOptions, 'hooks'>

@@ -14,7 +14,7 @@ describe('field hook declaration traversal', () => {
 					}),
 					contact: objectField({
 						fields: {
-							email: stringField({
+							'email.address': stringField({
 								hooks: {
 									resolveInput: ({ value }) => value.trim(),
 								},
@@ -29,11 +29,11 @@ describe('field hook declaration traversal', () => {
 
 		const entries = collectFieldHookDeclarations(fields)
 
-		expect(entries.map(({ path }) => path.join('.'))).toStrictEqual([
-			'profile',
-			'profile.displayName',
-			'profile.contact',
-			'profile.contact.email',
+		expect(entries.map(({ path }) => path)).toStrictEqual([
+			['profile'],
+			['profile', 'displayName'],
+			['profile', 'contact'],
+			['profile', 'contact', 'email.address'],
 		])
 		expect(entries.every(Object.isFrozen)).toBe(true)
 		expect(entries.every(({ path }) => Object.isFrozen(path))).toBe(true)

@@ -3,7 +3,7 @@
 - Status: accepted
 - Date: 2026-08-01
 - Refines: ADR-0015, ADR-0068, ADR-0069, ADR-0070, ADR-0076, ADR-0088
-- Refined by: ADR-0090, ADR-0093, ADR-0095, ADR-0096
+- Refined by: ADR-0090, ADR-0093, ADR-0095, ADR-0096, ADR-0097
 
 ADR-0090 replaces the permission-specific named stages and ordering references
 in this record with policy-neutral monotonic hook effects. The remaining native
@@ -143,10 +143,11 @@ paths, incompatible definitions, and late registration fail during application
 initialization. Registry snapshots remain isolated per application.
 
 Plugin contributions use dependency order, then configuration position, then
-registration order. Pre-operation plugin contributions wrap developer hooks;
-post-operation contributions unwind around them. Security plugins continue to
-own the reserved CLP, ACL, and field-permission stages and must not reimplement
-authorization as ordinary business hooks.
+registration order. ADR-0097 specifies the owner-scoped target facade,
+initialization factories, and plugin-local identities. Pre-operation plugin
+contributions wrap developer hooks; post-operation contributions unwind around
+them. Permission plugins contribute monotonic enforcement hooks through the
+same dispatcher and do not create permission-specific Runtime stages.
 
 ### Automatic mutation transactions
 
