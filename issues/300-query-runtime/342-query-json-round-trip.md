@@ -4,7 +4,7 @@
 - Milestone: 3
 - Packages: `@ultimabase/core`
 - Depends on: 306, 347
-- ADR: ADR-0052, ADR-0058, ADR-0108
+- ADR: ADR-0052, ADR-0058, ADR-0108, ADR-0109
 
 ## Goal
 
@@ -15,7 +15,7 @@ reimplementing every builder operation.
 ## Target developer experience
 
 ```ts
-const posts = await new Query(PostSchema)
+const posts = await Post.query()
 	.fromJson({
 		select: ['id'],
 		equalTo: { published: true },
@@ -23,7 +23,7 @@ const posts = await new Query(PostSchema)
 	})
 	.find({ ultimabase })
 
-const json = new Query(PostSchema)
+const json = Post.query()
 	.equalTo('published', true)
 	.select('id')
 	.toJson()

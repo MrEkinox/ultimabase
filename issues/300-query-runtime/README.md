@@ -31,11 +31,13 @@ Issue 338 adds the generic adapter compiler registry required to execute opaque
 constraints against PostgreSQL. The registry remains policy-neutral: concrete
 ACL, tenancy, or soft-delete constraint kinds belong to their owning plugins.
 
-Issues 339–341 retain future class-oriented DX work outside the active native
-hook critical path: immutable `UltimaObject` results, a transaction-bound
-`HookContext`, and a server-side `QueryCursor` value object. They must preserve
-plain adapter boundaries, transport-safe opaque cursor strings, and the ban on
-Active Record persistence.
+Issue 339 replaces the generic `UltimaObject` proposal with constructible
+schema-specific classes from `Schema.define()`. Issue 349 adds immutable
+instance persistence commands only after contextual Query terminals and
+authority options exist. `HookContext` and the future server-side `QueryCursor`
+remain Runtime-owned capabilities. All model commands preserve plain adapter
+boundaries and delegate through Query rather than implementing mutable Active
+Record state.
 
 Issue 342 retains the deferred schema-aware Query JSON round trip for transport
 plugins. Its concise input must remain validation-only builder state, preserve
@@ -58,3 +60,8 @@ supplied `UltimaBase`, then apply trusted backend-only session or master options
 This removes `BoundQuery`, `context.query`, and repeated context plumbing while
 preserving hook transactions, revocable leases, application isolation, and the
 transport authority boundary.
+
+Issue 349 completes the object-level DX with immutable `create`, `upsert`,
+`update`, and `delete` commands on the schema-specific draft or persisted
+instance. Collection operations remain on `Post.query()` and every instance
+command reaches the same Query and Runtime pipeline.

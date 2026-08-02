@@ -3,7 +3,7 @@
 - Status: active
 - Started: 2026-08-01
 - Objective owner: `@ultimabase/core`, `@ultimabase/postgres`, `@ultimabase/testing`
-- Governing decisions: [ADR-0089](docs/adr/0089-native-schema-and-field-hooks.md), [ADR-0090](docs/adr/0090-permission-plugins-through-hooks.md), [ADR-0095](docs/adr/0095-consolidated-foundational-core.md), [ADR-0096](docs/adr/0096-native-hook-declaration-capabilities.md), [ADR-0099](docs/adr/0099-automatic-mutation-transactions.md), [ADR-0100](docs/adr/0100-prepared-mutation-outcomes.md), [ADR-0102](docs/adr/0102-policy-neutral-monotonic-enforcement.md), [ADR-0103](docs/adr/0103-versioned-adapter-constraint-compilers.md), [ADR-0104](docs/adr/0104-read-hook-execution-and-output-resolution.md), [ADR-0105](docs/adr/0105-transaction-hook-journal.md), [ADR-0106](docs/adr/0106-hook-execution-safety-and-diagnostics.md), [ADR-0107](docs/adr/0107-hook-context-capabilities-and-events.md), [ADR-0108](docs/adr/0108-contextual-query-terminal-execution.md)
+- Governing decisions: [ADR-0089](docs/adr/0089-native-schema-and-field-hooks.md), [ADR-0090](docs/adr/0090-permission-plugins-through-hooks.md), [ADR-0095](docs/adr/0095-consolidated-foundational-core.md), [ADR-0096](docs/adr/0096-native-hook-declaration-capabilities.md), [ADR-0099](docs/adr/0099-automatic-mutation-transactions.md), [ADR-0100](docs/adr/0100-prepared-mutation-outcomes.md), [ADR-0102](docs/adr/0102-policy-neutral-monotonic-enforcement.md), [ADR-0103](docs/adr/0103-versioned-adapter-constraint-compilers.md), [ADR-0104](docs/adr/0104-read-hook-execution-and-output-resolution.md), [ADR-0105](docs/adr/0105-transaction-hook-journal.md), [ADR-0106](docs/adr/0106-hook-execution-safety-and-diagnostics.md), [ADR-0107](docs/adr/0107-hook-context-capabilities-and-events.md), [ADR-0108](docs/adr/0108-contextual-query-terminal-execution.md), [ADR-0109](docs/adr/0109-constructible-schema-models.md)
 - Previous completed objective: [Runtime-to-PostgreSQL E2E](docs/plans/completed/runtime-postgres-e2e.md)
 
 ## Objective
@@ -16,7 +16,7 @@ names so optional policy plugins contribute through that same hook system.
 The finished vertical must prove this developer contract:
 
 ```ts
-const UserSchema = new Schema({
+const User = Schema.define({
 	className: 'User',
 	fields: {
 		email: stringField({
@@ -74,6 +74,7 @@ The objective is complete only when:
 - Guards, constraints, and field restrictions are reevaluated into the existing monotonic state after business operation transforms, so value-derived decisions cannot become stale.
 - Constraint payloads use explicit positive integer versions, while compiler ownership and database-specific output stay behind an application-owned adapter target.
 - A general `skipHooks` escape hatch is forbidden.
+- `Schema.define()` returns the schema-specific draft and result class; mutable dirty tracking and direct model-to-adapter persistence remain forbidden.
 
 ## Execution order
 
@@ -96,12 +97,14 @@ dependencies are incomplete.
 14. [x] [332 — Add transaction finalization hooks](issues/300-query-runtime/332-transaction-hook-lifecycle.md)
 15. [x] [333 — Protect hook execution and expose diagnostics](issues/300-query-runtime/333-hook-safety-and-observability.md)
 16. [x] [340 — Expose the native HookContext class](issues/300-query-runtime/340-hook-context-class.md)
-17. [ ] [347 — Execute Query terminals through the current context](issues/300-query-runtime/347-contextual-query-terminals.md)
-18. [ ] [345 — Add concise singular terminal aliases](issues/300-query-runtime/345-singular-terminal-aliases.md)
-19. [ ] [348 — Add terminal-only Query authority options](issues/300-query-runtime/348-query-terminal-authority.md)
-20. [ ] [334 — Define bulk hook and non-atomic grouping semantics](issues/300-query-runtime/334-bulk-hook-semantics.md)
-21. [ ] [508 — Implement PostgreSQL bulk and upsert execution](issues/500-postgres/508-transactions-bulk-upsert.md)
-22. [ ] [335 — Verify native hooks against PostgreSQL](issues/300-query-runtime/335-native-hooks-postgres-e2e.md)
+17. [ ] [339 — Define constructible schema model classes](issues/300-query-runtime/339-constructible-schema-models.md)
+18. [ ] [347 — Execute Query terminals through the current context](issues/300-query-runtime/347-contextual-query-terminals.md)
+19. [ ] [345 — Add concise singular terminal aliases](issues/300-query-runtime/345-singular-terminal-aliases.md)
+20. [ ] [348 — Add terminal-only Query authority options](issues/300-query-runtime/348-query-terminal-authority.md)
+21. [ ] [349 — Add immutable model persistence commands](issues/300-query-runtime/349-immutable-model-persistence.md)
+22. [ ] [334 — Define bulk hook and non-atomic grouping semantics](issues/300-query-runtime/334-bulk-hook-semantics.md)
+23. [ ] [508 — Implement PostgreSQL bulk and upsert execution](issues/500-postgres/508-transactions-bulk-upsert.md)
+24. [ ] [335 — Verify native hooks against PostgreSQL](issues/300-query-runtime/335-native-hooks-postgres-e2e.md)
 
 Issue 519 is a strict prerequisite of issue 329 because mandatory Core mutation
 transactions must not break the existing PostgreSQL CRUD vertical. Issue 344
@@ -127,12 +130,12 @@ the named Runtime stages and proven monotonic hook enforcement.
 
 ## Current issue
 
-[347 — Execute Query terminals through the current context](issues/300-query-runtime/347-contextual-query-terminals.md)
+[339 — Define constructible schema model classes](issues/300-query-runtime/339-constructible-schema-models.md)
 
-Issue 347 moves every terminal onto the immutable `Query` class and removes
-context plumbing. Issue 345 then adds concise singular aliases directly to that
-final surface, before issue 348 adds trusted backend-only session and master
-execution options.
+Issue 339 replaces `new Schema()` and generic result wrappers with one class
+returned by `Schema.define()`. Issue 347 then moves every terminal onto Query,
+issue 345 adds concise aliases, issue 348 adds authority options, and issue 349
+finally exposes immutable instance persistence commands.
 
 ## Progress log
 
@@ -155,8 +158,10 @@ without reconstructing repository history.
 - 332 — `done` — One transaction journal now preserves operation order, immutable per-schema commit summaries, semantic field changes, confirmed rollback truth, and best-effort post-finalization observers across automatic and explicit transactions.
 - 333 — `done` — One application-owned executor now gives every native, low-level, enforcement, and finalization hook stable structural recursion protection, cooperative cancellation, immutable correlation context, and isolated redacted diagnostics.
 - 340 — `done` — Runtime-owned HookContext now exposes exact revocable nested queries, immutable request and hook identity, capability checks, and named JSON events buffered on the outer transaction for ordered post-commit delivery.
+- 339 — `planned` — Schema.define will produce the registered schema identity, immutable draft constructor, static Query entry point, and exact Runtime result class.
 - 347 — `planned` — Direct Query terminals will resolve ambient or explicit application ownership while preserving every hook safety guarantee.
 - 345 — `planned` — Concise singular aliases complete the terminal vocabulary directly on the consolidated Query API.
 - 348 — `planned` — Terminal-only session and master options will give trusted backend code explicit authority without exposing it to transports.
+- 349 — `planned` — Immutable model commands will delegate create, upsert, update, and delete through the same contextual Query pipeline.
 - 334 — `planned` — Bulk hook grouping and partial-success semantics build on the complete transaction and HookContext lifecycle.
 - 508 — `planned` — PostgreSQL bulk and upsert support follows the prepared-mutation protocol from issue 344 and remains required before issue 335.

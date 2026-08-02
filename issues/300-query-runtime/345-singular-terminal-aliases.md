@@ -4,7 +4,7 @@
 - Milestone: 3
 - Packages: `@ultimabase/core`
 - Depends on: 315, 343, 347
-- ADR: ADR-0059, ADR-0067, ADR-0108
+- ADR: ADR-0059, ADR-0067, ADR-0108, ADR-0109
 
 ## Goal
 
@@ -15,11 +15,11 @@ cardinality, result, and database behavior differ.
 ## Target developer experience
 
 ```ts
-const updated = await new Query(PostSchema)
+const updated = await Post.query()
 	.byId(post.id)
 	.update({ set: { title: 'Updated' } }, { ultimabase })
 
-const deleted = await new Query(PostSchema)
+const deleted = await Post.query()
 	.byId(post.id)
 	.delete({ ultimabase })
 ```

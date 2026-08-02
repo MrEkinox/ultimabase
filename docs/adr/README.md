@@ -89,7 +89,6 @@ Accepted records:
 - [ADR-0089: Native schema and field hook lifecycle](0089-native-schema-and-field-hooks.md)
 - [ADR-0090: Permission plugins contribute monotonic hooks](0090-permission-plugins-through-hooks.md)
 - [ADR-0091: JSON fields require document roots](0091-json-document-root-values.md)
-- [ADR-0093: Immutable Schema constructor API](0093-schema-constructor-api.md)
 - [ADR-0094: UltimaBase public facade](0094-ultimabase-public-facade.md)
 - [ADR-0095: Consolidated foundational Core package](0095-consolidated-foundational-core.md)
 - [ADR-0096: Native hook declaration capabilities](0096-native-hook-declaration-capabilities.md)
@@ -105,6 +104,7 @@ Accepted records:
 - [ADR-0106: Hook execution safety and diagnostics](0106-hook-execution-safety-and-diagnostics.md)
 - [ADR-0107: HookContext capabilities and named events](0107-hook-context-capabilities-and-events.md)
 - [ADR-0108: Contextual Query terminal execution](0108-contextual-query-terminal-execution.md)
+- [ADR-0109: Constructible schema model classes](0109-constructible-schema-models.md)
 
 Superseded records:
 
@@ -115,5 +115,6 @@ Superseded records:
 - [ADR-0061: Neutral BoundQuery facade](0061-neutral-bound-query-facade.md), superseded by ADR-0108.
 - [ADR-0064: Mandatory deterministic Runtime pipeline](0064-mandatory-runtime-pipeline.md), superseded by ADR-0090.
 - [ADR-0092: Bound queries require executors](0092-bound-queries-require-executors.md), superseded by ADR-0108.
+- [ADR-0093: Immutable Schema constructor API](0093-schema-constructor-api.md), superseded by ADR-0109.
 
 New decisions receive the next number. Do not rewrite history; supersede a record.

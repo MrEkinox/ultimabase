@@ -4,7 +4,7 @@
 - Milestone: 3
 - Packages: `@ultimabase/core`
 - Depends on: 319, 347
-- ADR: ADR-0013, ADR-0062, ADR-0071, ADR-0090, ADR-0108
+- ADR: ADR-0013, ADR-0062, ADR-0071, ADR-0090, ADR-0108, ADR-0109
 
 ## Goal
 
@@ -15,11 +15,11 @@ in the immutable builder.
 ## Target developer experience
 
 ```ts
-const visiblePosts = await new Query(PostSchema).find({ sessionToken })
+const visiblePosts = await Post.query().find({ sessionToken })
 
-const allPosts = await new Query(PostSchema).find({ useMasterKey: true })
+const allPosts = await Post.query().find({ useMasterKey: true })
 
-const imported = await new Query(PostSchema).createMany(rows, {
+const imported = await Post.query().createMany(rows, {
 	ultimabase,
 	useMasterKey: true,
 })

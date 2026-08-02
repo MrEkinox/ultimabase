@@ -4,7 +4,7 @@
 - Milestone: 3
 - Packages: `@ultimabase/core`
 - Depends on: 327, 334, 336
-- ADR: ADR-0089
+- ADR: ADR-0089, ADR-0109
 
 ## Goal
 
@@ -15,7 +15,7 @@ singular and collection variants.
 ## Target developer experience
 
 ```ts
-const PostSchema = new Schema({
+const Post = Schema.define({
 	className: 'Post',
 	fields: {},
 	hooks: {

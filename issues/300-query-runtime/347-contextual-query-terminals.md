@@ -3,8 +3,8 @@
 - Status: planned
 - Milestone: 3
 - Packages: `@ultimabase/core`
-- Depends on: 333, 340, 343
-- ADR: ADR-0058, ADR-0066, ADR-0094, ADR-0107, ADR-0108
+- Depends on: 333, 339, 340, 343
+- ADR: ADR-0058, ADR-0066, ADR-0094, ADR-0107, ADR-0108, ADR-0109
 
 ## Goal
 
@@ -16,10 +16,7 @@ builder surface.
 ## Target developer experience
 
 ```ts
-const loadAuthor = (authorId: string) =>
-	new Query(UserSchema).byId(authorId).findOne()
-
-const PostSchema = new Schema({
+const Post = Schema.define({
 	className: 'Post',
 	fields: {},
 	hooks: {
@@ -30,18 +27,22 @@ const PostSchema = new Schema({
 		},
 	},
 })
+
+const loadAuthor = (authorId: string) =>
+	User.query().byId(authorId).findOne()
 ```
 
 Outside a request or hook scope, execution ownership is explicit on the
 terminal rather than retained by the builder:
 
 ```ts
-const posts = await new Query(PostSchema).find({ ultimabase })
+const posts = await Post.query().find({ ultimabase })
 ```
 
 ## Acceptance criteria
 
 - [ ] `Query` exposes every existing read and mutation terminal with unchanged schema, selection, input, cardinality, and result inference.
+- [ ] Every schema model class exposes one static `query()` entry point equivalent to `new Query(SchemaClass)` without duplicating builder or terminal methods.
 - [ ] Builder methods remain immutable and retain no application, request, authority, transaction, adapter, or execution option in the Query AST.
 - [ ] A terminal without explicit ownership uses the exact active Runtime scope.
 - [ ] Hook terminals reuse the active application, transaction, cancellation signal, recursion state, revocable lease, and nested-operation tracking.
@@ -52,7 +53,7 @@ const posts = await new Query(PostSchema).find({ ultimabase })
 - [ ] `BoundQuery`, `Query.bind`, `HookContext.query`, and `UltimaBase.query` are removed from the public API and internal call sites.
 - [ ] Runtime retains one neutral execution bridge without a process-wide application singleton or a Query-to-adapter dependency.
 - [ ] Public JSDoc explains ambient resolution, the explicit root fallback, transaction reuse, and the missing-context error with short examples.
-- [ ] Package documentation and examples migrate to the single `new Query(schema)` vocabulary.
+- [ ] Package documentation presents `Post.query()` as regular DX and `new Query(Post)` as the equivalent lower-level primitive.
 
 ## Tests
 
@@ -66,6 +67,7 @@ const posts = await new Query(PostSchema).find({ ultimabase })
 ## Out of scope
 
 - Session-token and master authority overrides, owned by issue 348.
+- Model instance persistence commands, owned by issue 349.
 - Query JSON round trips, owned by issue 342.
 - Relations, pointers, roles, ACL, or CLP behavior.
 - A process-wide default `UltimaBase` instance.

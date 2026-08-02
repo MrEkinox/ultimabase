@@ -60,7 +60,7 @@ Run or update `yarn constraints` when dependency constraints exist. If a request
 - Prefer classes for public domain objects and immutable builders: `Query`, `ACL`, `Role`, framework errors, and application objects.
 - Every builder method returns a new instance. Never mutate a previous `Query` or `ACL`.
 - Prefer arrow functions for stateless factories, hooks, scopes, permission rules, and utilities.
-- Do not implement Active Record APIs such as `role.save()`. Persistence always passes through a `RequestEngine`.
+- Do not implement mutable Active Record, dirty tracking, or direct adapter persistence. Schema model instance commands accepted by ADR-0109 remain immutable and must delegate through Query and `RequestEngine`; `Role`, `ACL`, and other non-schema values do not gain persistence methods.
 - Never use `any`, whether explicit, implicit, hidden behind an assertion, or exposed through a public API. Use `unknown` plus validation at untrusted boundaries.
 - Type variables and boundaries as precisely as possible. Keep inference when it already produces a precise, verifiable type.
 - Treat autocomplete and hover documentation as part of every public TypeScript API. Prefer named option interfaces, add English JSDoc with focused examples, and protect important editor behavior through TypeScript language-service tests against source and compiled package exports.

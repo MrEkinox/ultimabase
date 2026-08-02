@@ -59,7 +59,7 @@ Core's Schema domain only knows the generic `SchemaExtension` and
 `FieldExtension` contracts. Plugins contribute typed extension objects:
 
 ```ts
-new Schema({
+Schema.define({
 	className: 'Post',
 	fields: {},
 	extensions: [clpPermissions({}), aclPermissions({})],
@@ -145,6 +145,13 @@ terminals directly on the immutable `Query`. Until those issues are implemented,
 `BoundQuery`, `context.query(schema)`, and `ultimabase.query(schema)` remain the
 working API. The target terminals resolve the active Runtime scope or accept an
 explicit application and trusted backend authority options only at execution.
+
+ADR-0109 and issues 339 and 349 then replace the current schema instance plus
+plain-result split with one class returned by `Schema.define()`. The class is the
+registered schema identity, exposes `Post.query()`, constructs immutable drafts,
+and materializes immutable persisted results. Its instance commands delegate to
+Query and Runtime; they never retain adapters, mutate records, or track dirty
+state.
 
 The Query AST retains the exact static schema definition and represents
 selection, filtering, ordering, and pagination as immutable discriminated

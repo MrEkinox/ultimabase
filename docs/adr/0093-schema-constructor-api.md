@@ -1,8 +1,9 @@
 # ADR-0093: Immutable Schema constructor API
 
-- Status: accepted
+- Status: superseded
 - Date: 2026-08-02
 - Refines: ADR-0002, ADR-0005, ADR-0030
+- Superseded by: ADR-0109
 
 ## Context
 
