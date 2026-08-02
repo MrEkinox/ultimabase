@@ -33,3 +33,29 @@ export const createLanguageService = (
 
 	return ts.createLanguageService(host)
 }
+
+/** Reads QuickInfo at a source marker without coupling tests to line offsets. */
+export const readMarkedQuickInfo = (
+	fileName: string,
+	sourceWithMarker: string,
+	marker = '/* hover */',
+): ts.QuickInfo => {
+	const markerPosition = sourceWithMarker.indexOf(marker)
+
+	if (markerPosition < 0) {
+		throw new TypeError(`Missing TypeScript QuickInfo marker: ${marker}`)
+	}
+
+	const source = sourceWithMarker.replace(marker, ' '.repeat(marker.length))
+	const service = createLanguageService(fileName, source)
+	const quickInfo = service.getQuickInfoAtPosition(
+		fileName,
+		markerPosition + marker.length,
+	)
+
+	if (quickInfo === undefined) {
+		throw new TypeError('Expected TypeScript QuickInfo at the marked position')
+	}
+
+	return quickInfo
+}

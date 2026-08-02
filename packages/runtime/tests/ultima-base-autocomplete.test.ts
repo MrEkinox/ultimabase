@@ -1,7 +1,10 @@
 import * as ts from 'typescript'
 import { describe, expect, it } from 'vitest'
 
-import { createLanguageService } from '../../../tooling/vitest/typescript-language-service.js'
+import {
+	createLanguageService,
+	readMarkedQuickInfo,
+} from '../../../tooling/vitest/typescript-language-service.js'
 
 interface IntelliSenseDocumentation {
 	readonly documentation: string
@@ -23,30 +26,6 @@ const readDocumentation = (
 	documentation: documentation?.map(({ text }) => text).join('') ?? '',
 	hasExample: tags?.some(({ name }) => name === 'example') ?? false,
 })
-
-/** Reads one marked QuickInfo payload without coupling positions to source layout. */
-const readMarkedQuickInfo = (sourceWithMarker: string): ts.QuickInfo => {
-	const marker = '/* hover */'
-	const markerPosition = sourceWithMarker.indexOf(marker)
-
-	if (markerPosition < 0) {
-		throw new TypeError('Missing UltimaBase hover marker')
-	}
-
-	const source = sourceWithMarker.replace(marker, ' '.repeat(marker.length))
-	const fileName = `${import.meta.dirname}/ultima-base-hover.fixture.ts`
-	const service = createLanguageService(fileName, source)
-	const quickInfo = service.getQuickInfoAtPosition(
-		fileName,
-		markerPosition + marker.length,
-	)
-
-	if (quickInfo === undefined) {
-		throw new TypeError('Expected UltimaBase hover information')
-	}
-
-	return quickInfo
-}
 
 describe('UltimaBase IntelliSense', () => {
 	it('suggests and documents every constructor option', () => {
@@ -105,19 +84,26 @@ new UltimaBase({ ${marker} })
 	})
 
 	it('documents the facade and keeps direct query hovers compact', () => {
-		const facade = readMarkedQuickInfo(`
+		const fileName = `${import.meta.dirname}/ultima-base-hover.fixture.ts`
+		const facade = readMarkedQuickInfo(
+			fileName,
+			`
 import { UltimaBase } from '../src/index.js'
 
 const ultimabase = /* hover */new UltimaBase({ schemas: [], plugins: [] })
-`)
-		const query = readMarkedQuickInfo(`
+`,
+		)
+		const query = readMarkedQuickInfo(
+			fileName,
+			`
 import { Schema, stringField } from '@ultimabase/schema'
 import { UltimaBase } from '../src/index.js'
 
 const PostSchema = new Schema({ className: 'Post', fields: { title: stringField() } })
 const ultimabase = new UltimaBase({ schemas: [PostSchema], plugins: [] })
 const posts = ultimabase./* hover */query(PostSchema)
-`)
+`,
+		)
 		const facadeDocumentation = readDocumentation(
 			facade.documentation,
 			facade.tags,

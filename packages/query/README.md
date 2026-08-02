@@ -34,6 +34,20 @@ Every call creates a new `Query`, so `feed`, `nextPage`, and `adminPage` are saf
 independent branches. Their unchanged immutable AST nodes are shared. `limit`
 defines the page size; `skip` and `after` choose mutually exclusive positions.
 
+The framework-owned identifier has a concise builder alias that remains
+composable with every other filter and terminal:
+
+```ts
+const updated = await requestEngine
+	.query(postSchema)
+	.byId(created.id)
+	.updateOne({ set: { title: 'Updated' } })
+```
+
+`byId(id)` is the typed equivalent of `equalTo('id', id)`. It returns a new
+branch, preserves existing filters and selections, and introduces no special
+operation or adapter path.
+
 ## Reusable Query scopes
 
 A typed scope names a reusable transformation without capturing a Runtime

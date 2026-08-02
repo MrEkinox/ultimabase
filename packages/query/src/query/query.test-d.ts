@@ -30,6 +30,7 @@ const postSchema = new Schema({
 test('preserves schema, AST, and chain result types', () => {
 	const query = new Query(postSchema)
 		.equalTo('published', true)
+		.byId('0194f292-0dd9-7c2d-a0a3-a2f755a3d90a')
 		.greaterThan('views', 10)
 		.select('title', 'id')
 		.descending('createdAt')
@@ -116,6 +117,8 @@ test('restricts fields, pagination values, and logical schemas', () => {
 	query.skip('50')
 	// @ts-expect-error -- Cursors require opaque strings at the input boundary.
 	query.after(42)
+	// @ts-expect-error -- Framework identifiers retain their schema-derived type.
+	query.byId(42)
 	// @ts-expect-error -- Logical combinations retain the exact schema type.
 	query.and(new Query(commentSchema).equalTo('body', 'Comment'))
 

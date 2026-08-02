@@ -45,6 +45,7 @@ describe('BoundQuery', () => {
 		const base = unbound.bind(engine)
 		const selected = base
 			.equalTo('published', true)
+			.byId('0194f292-0dd9-7c2d-a0a3-a2f755a3d90a')
 			.select('id', 'title')
 			.descending('createdAt')
 			.limit(10)
@@ -57,10 +58,16 @@ describe('BoundQuery', () => {
 			{ kind: 'selected-field', field: 'id' },
 			{ kind: 'selected-field', field: 'title' },
 		])
-		expect(selected.ast.where?.expression).toStrictEqual({
-			kind: 'equal',
-			field: 'published',
-			value: true,
+		expect(selected.ast.where?.expression).toMatchObject({
+			kind: 'and',
+			expressions: [
+				{ kind: 'equal', field: 'published', value: true },
+				{
+					kind: 'equal',
+					field: 'id',
+					value: '0194f292-0dd9-7c2d-a0a3-a2f755a3d90a',
+				},
+			],
 		})
 		expect(base.ast.selection.fields).toStrictEqual([])
 		expect(unbound.ast.where).toBeUndefined()
@@ -124,6 +131,32 @@ describe('BoundQuery', () => {
 		expect(combined.ast.where?.expression).toBe(reusable.ast.where?.expression)
 		expect(combined.ast.limit).toBe(20)
 		expect(combined.engine).toBe(engine)
+	})
+
+	it('updates one identifier through the regular update operation', async () => {
+		const executor = new RecordingQueryExecutor()
+		const execution = new Query(articleSchema)
+			.bind(executor)
+			.byId('0194f292-0dd9-7c2d-a0a3-a2f755a3d90a')
+			.updateOne({ set: { title: 'Updated' } })
+
+		await expect(execution).rejects.toBe(terminalError)
+		expect(executor.operations).toHaveLength(1)
+		expect(executor.operations[0]).toMatchObject({
+			kind: 'update-one',
+			query: {
+				where: {
+					expression: {
+						kind: 'equal',
+						field: 'id',
+						value: '0194f292-0dd9-7c2d-a0a3-a2f755a3d90a',
+					},
+				},
+			},
+			update: {
+				operations: [{ kind: 'set', field: 'title', value: 'Updated' }],
+			},
+		})
 	})
 
 	it('applies unbound scopes while preserving the execution owner', () => {

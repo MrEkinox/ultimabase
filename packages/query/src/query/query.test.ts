@@ -140,6 +140,35 @@ describe('Query', () => {
 		}
 	})
 
+	it('adds the framework identifier without mutating existing filters', () => {
+		const objectId = '0194f292-0dd9-7c2d-a0a3-a2f755a3d90a'
+		const expected = new Query(postSchema).equalTo('id', objectId)
+		const base = new Query(postSchema).equalTo('published', true)
+		const identified = base.byId(objectId)
+
+		expect(new Query(postSchema).byId(objectId).ast.where).toStrictEqual(
+			expected.ast.where,
+		)
+
+		expect(base.ast.where?.expression).toStrictEqual({
+			kind: 'equal',
+			field: 'published',
+			value: true,
+		})
+		expect(identified.ast.where?.expression).toStrictEqual({
+			kind: 'and',
+			expressions: [
+				{ kind: 'equal', field: 'published', value: true },
+				{
+					kind: 'equal',
+					field: 'id',
+					value: '0194f292-0dd9-7c2d-a0a3-a2f755a3d90a',
+				},
+			],
+		})
+		expect(identified).not.toBe(base)
+	})
+
 	it('combines filters from independent branches without copying other clauses', () => {
 		const base = new Query(postSchema).limit(25).descending('createdAt')
 		const published = new Query(postSchema).equalTo('published', true)
@@ -270,6 +299,10 @@ describe('Query', () => {
 			// @ts-expect-error -- Runtime field normalizers reject invalid operands.
 			new Query(postSchema).equalTo('published', 'true')
 		}).toThrow(TypeError)
+		expect(() => {
+			// @ts-expect-error -- Runtime validation rejects non-string identifiers.
+			new Query(postSchema).byId(42)
+		}).toThrow(new TypeError('query filter value must be a string'))
 	})
 
 	it('snapshots mutable scalar operands and exposes no terminal operations', () => {

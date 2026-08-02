@@ -143,6 +143,17 @@ export class BoundQuery<
 		return this.#branch(this.#query.after(cursor))
 	}
 
+	/**
+	 * Adds the exact object identifier while preserving this execution binding.
+	 *
+	 * @example `query.byId(post.id).deleteOne()`
+	 */
+	byId(
+		id: OperationObjectId<TSchema>,
+	): BoundQuery<TSchema, TSelectedField, TEngine> {
+		return this.#branch(this.#query.byId(id))
+	}
+
 	/** Adds an equality condition on a new bound branch. */
 	equalTo<TFieldName extends QueryFilterFieldName<TSchema, 'equal'>>(
 		fieldName: TFieldName,

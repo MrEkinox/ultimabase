@@ -35,3 +35,6 @@ Issue 342 retains the deferred schema-aware Query JSON round trip for transport
 plugins. Its concise input must remain validation-only builder state, preserve
 safe selection inference, and settle lossless value codecs before becoming a
 public contract.
+
+Issue 343 adds the small `byId(id)` builder alias without introducing terminal
+variants or another adapter operation.

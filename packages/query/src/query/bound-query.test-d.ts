@@ -27,6 +27,7 @@ declare const executor: QueryOperationExecutor<typeof articleSchema>
 test('binds exact schema and selection types through an engine', () => {
 	const reusable = new Query(articleSchema).equalTo('published', true)
 	const bound = reusable.bind(executor).select('id', 'title').limit(10)
+	const identified = bound.byId('0194f292-0dd9-7c2d-a0a3-a2f755a3d90a')
 	const projection: InferQueryResult<typeof articleSchema, 'id' | 'title'> = {
 		id: 'article-id',
 		title: 'Title',
@@ -34,6 +35,7 @@ test('binds exact schema and selection types through an engine', () => {
 
 	expectTypeOf(bound.schema).toEqualTypeOf<typeof articleSchema>()
 	expectTypeOf(bound.engine).toEqualTypeOf<typeof executor>()
+	expectTypeOf(identified).toEqualTypeOf<typeof bound>()
 	expectTypeOf(projection.id).toBeString()
 	expectTypeOf(projection.title).toBeString()
 	expectTypeOf<InferQueryResult<typeof articleSchema>>().toHaveProperty('views')
@@ -42,6 +44,8 @@ test('binds exact schema and selection types through an engine', () => {
 	bound.select('missing')
 	// @ts-expect-error -- Bound filters retain field-specific value types.
 	bound.equalTo('published', 'true')
+	// @ts-expect-error -- Bound identifiers retain their schema-derived type.
+	bound.byId(42)
 	const invalidProjection: InferQueryResult<
 		typeof articleSchema,
 		'id' | 'title'

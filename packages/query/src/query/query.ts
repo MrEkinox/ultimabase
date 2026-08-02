@@ -32,6 +32,7 @@ import type {
 	QueryRegexPattern,
 } from '../filters/primitive.js'
 import type { QueryExecutorBinding } from '../operations/executor.js'
+import type { OperationObjectId } from '../operations/contracts.js'
 import { BoundQuery } from './bound-query.js'
 import type { QueryScope } from './scope.js'
 
@@ -150,6 +151,24 @@ export class Query<
 				cursor === undefined ? {} : { after: cursor },
 			),
 		})
+	}
+
+	/**
+	 * Adds an equality filter for the framework-owned object identifier.
+	 *
+	 * Existing filters and selections are preserved, so the resulting branch can
+	 * execute any singular or collection terminal without repeating the `id` field.
+	 *
+	 * @example `query.byId(post.id).updateOne({ set: { title: "Updated" } })`
+	 */
+	byId(id: OperationObjectId<TSchema>): Query<TSchema, TSelectedField> {
+		// Every Schema includes the framework-owned UUID field, although TypeScript
+		// cannot reduce that intersection through an arbitrary schema generic here.
+		const idField = 'id' as QueryFilterFieldName<TSchema, 'equal'>
+
+		return this.#appendFilter(
+			createQueryValueFilter(this.schema, 'equal', idField, id),
+		)
 	}
 
 	/** Adds an equality condition to the implicit AND filter chain. */
