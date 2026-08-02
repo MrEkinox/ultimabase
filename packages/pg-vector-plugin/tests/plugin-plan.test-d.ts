@@ -2,7 +2,7 @@ import { expectTypeOf, test } from 'vitest'
 
 import {
 	compileValidationPlans,
-	defineSchema,
+	Schema,
 	type FieldValidationPlan,
 } from '@ultimabase/schema'
 
@@ -14,7 +14,7 @@ import {
 } from '../src/index.js'
 
 test('narrows shared scalar plans through the plugin handler', () => {
-	const schema = defineSchema({
+	const schema = new Schema({
 		className: 'Document',
 		fields: { embedding: vectorField({ dimensions: 3 }) },
 	})

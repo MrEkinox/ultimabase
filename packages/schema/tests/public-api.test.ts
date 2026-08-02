@@ -3,10 +3,11 @@ import { describe, expect, it } from 'vitest'
 import * as publicApi from '../src/index.js'
 
 describe('@ultimabase/schema public entry point', () => {
-	it('exports only the current runtime factories', () => {
+	it('exports only the current runtime declarations', () => {
 		// Type-only field and extension contracts must not leak runtime placeholders.
 		expect(Object.keys(publicApi).sort()).toStrictEqual([
 			'DuplicateSchemaError',
+			'Schema',
 			'SchemaRegistry',
 			'assertFieldOptions',
 			'bigintField',
@@ -19,7 +20,6 @@ describe('@ultimabase/schema public entry point', () => {
 			'defineExtensions',
 			'defineFieldExtension',
 			'definePluginField',
-			'defineSchema',
 			'defineSchemaExtension',
 			'enumField',
 			'fieldUsesTemporalTimezone',

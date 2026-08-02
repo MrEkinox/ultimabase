@@ -1,6 +1,6 @@
 import { FrameworkError } from '@ultimabase/core'
 import { Query, type FindOperationAst } from '@ultimabase/query'
-import { defineSchema, stringField } from '@ultimabase/schema'
+import { Schema, stringField } from '@ultimabase/schema'
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -28,7 +28,7 @@ import type {
 } from './contracts.js'
 import { RuntimePipeline } from './runtime-pipeline.js'
 
-const articleSchema = defineSchema({
+const articleSchema = new Schema({
 	className: 'Article',
 	fields: {
 		title: stringField({ validation: { required: true } }),

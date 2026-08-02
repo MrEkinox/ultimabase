@@ -2,7 +2,7 @@ import { expectTypeOf, test } from 'vitest'
 
 import {
 	bigintField,
-	defineSchema,
+	Schema,
 	defineSchemaExtension,
 	type BigintField,
 	type BigintFieldOptions,
@@ -15,7 +15,7 @@ import {
 	type InferUpdateInput,
 } from '../../index.js'
 
-const bigintSchema = defineSchema({
+const bigintSchema = new Schema({
 	className: 'BigintRecord',
 	fields: {
 		sequence: bigintField({

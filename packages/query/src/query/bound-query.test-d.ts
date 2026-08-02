@@ -1,6 +1,6 @@
 import {
 	booleanField,
-	defineSchema,
+	Schema,
 	intField,
 	stringField,
 	type InferObject,
@@ -12,7 +12,7 @@ import type { InferQueryResult } from './result.js'
 import { Query } from './query.js'
 import type { QueryScope } from './scope.js'
 
-const articleSchema = defineSchema({
+const articleSchema = new Schema({
 	className: 'Article',
 	fields: {
 		title: stringField({ validation: { required: true } }),

@@ -4,7 +4,7 @@ Static schema declarations are the source of truth for UltimaBase.
 
 Responsibilities:
 
-- `defineSchema`;
+- `Schema`;
 - primitive field definitions;
 - system-field metadata;
 - schema and field extension contracts;
@@ -51,12 +51,12 @@ cross-domain behavior and public-export checks.
 
 ## Schema definitions
 
-`defineSchema(options)` combines existing field definitions into immutable
-schema metadata while preserving the exact class name, field keys, field kinds,
+`new Schema(options)` combines existing field definitions into immutable schema
+metadata while preserving the exact class name, field keys, field kinds,
 and ordered extension tuple:
 
 ```ts
-const PostSchema = defineSchema({
+const PostSchema = new Schema({
 	className: 'Post',
 	fields: {
 		title: stringField({
@@ -75,9 +75,13 @@ extensions retain their existing immutable identity. Omitted extensions become
 an immutable empty tuple so consumers never need to normalize optional
 metadata.
 
-Public factories also protect JavaScript callers at runtime. Schema names,
-field maps, field definitions, common option flags, extension definitions, and
-static defaults are validated before their immutable snapshots are exposed.
+The public constructor and field factories also protect JavaScript callers at
+runtime. Schema names, field maps, field definitions, common option flags,
+extension definitions, and static defaults are validated before their
+immutable snapshots are exposed. Each result is an actual frozen `Schema`
+instance, so class identity is available without introducing mutable metadata.
+Registries and cross-package runtime boundaries use `Schema.is(value)` to reject
+objects that only imitate the public metadata shape.
 Field definitions carry private factory provenance, so a structurally similar
 object cannot bypass validation or provide a forged snapshot capability.
 
@@ -150,8 +154,9 @@ TypeScript preserves literal values and nested object-field inference.
 Dependent rules such as `required` with `nullable` and `autoNow` with a default
 or list are checked outside the contextual option object. Hover information
 documents every built-in factory and option with a focused declaration example.
-`defineSchema`, its top-level options, and nested composite-index options expose
-the same contextual documentation through completion and hover popups.
+The `Schema` constructor, its top-level options, and nested composite-index
+options expose the same contextual documentation through completion and hover
+popups.
 
 Every built-in field uses compact field inference. Return types keep only
 effective create, object, update, nullability, and list state. Default presence
@@ -179,7 +184,7 @@ Schema-level declarations represent composite indexes and require at least two
 distinct top-level fields:
 
 ```ts
-const PostSchema = defineSchema({
+const PostSchema = new Schema({
 	className: 'Post',
 	fields: {
 		authorId: stringField(),

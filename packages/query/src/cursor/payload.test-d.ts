@@ -1,4 +1,4 @@
-import { defineSchema, stringField } from '@ultimabase/schema'
+import { Schema, stringField } from '@ultimabase/schema'
 import { expect, expectTypeOf, test } from 'vitest'
 
 import {
@@ -11,7 +11,7 @@ import {
 	type QueryCursorValues,
 } from '../index.js'
 
-const postSchema = defineSchema({
+const postSchema = new Schema({
 	className: 'Post',
 	fields: {
 		title: stringField(),

@@ -1,7 +1,7 @@
 import { expectTypeOf, test } from 'vitest'
 
 import {
-	defineSchema,
+	Schema,
 	defineSchemaExtension,
 	jsonField,
 	type FieldDefinition,
@@ -33,7 +33,7 @@ test('exposes a safe recursive JSON value', () => {
 })
 
 test('reserves root null for explicit field nullability', () => {
-	const schema = defineSchema({
+	const schema = new Schema({
 		className: 'JsonDocuments',
 		fields: {
 			document: jsonField(),

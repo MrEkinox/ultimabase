@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
-import { defineSchema } from '../index.js'
+import { Schema } from '../index.js'
 
 describe('system fields', () => {
 	it('adds immutable UUID v7 and date-time metadata to every schema', () => {
-		const schema = defineSchema({
+		const schema = new Schema({
 			className: 'Post',
 			fields: {},
 		})
@@ -48,8 +48,8 @@ describe('system fields', () => {
 	})
 
 	it('reuses stable system metadata without sharing schema field maps', () => {
-		const first = defineSchema({ className: 'First', fields: {} })
-		const second = defineSchema({ className: 'Second', fields: {} })
+		const first = new Schema({ className: 'First', fields: {} })
+		const second = new Schema({ className: 'Second', fields: {} })
 
 		// System definitions are safe shared values, while each schema owns its field map.
 		expect(first.fields).not.toBe(second.fields)

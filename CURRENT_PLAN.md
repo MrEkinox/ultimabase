@@ -16,7 +16,7 @@ names so optional policy plugins contribute through that same hook system.
 The finished vertical must prove this developer contract:
 
 ```ts
-const UserSchema = defineSchema({
+const UserSchema = new Schema({
 	className: 'User',
 	fields: {
 		email: stringField({

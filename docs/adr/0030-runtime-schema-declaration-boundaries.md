@@ -2,16 +2,18 @@
 
 - Status: accepted
 - Date: 2026-07-31
+- Refined by: ADR-0093
 
 ## Decision
 
-Every public schema factory validates untyped JavaScript input before creating
-immutable metadata. Common field options validate their container, presence
-flags, nullability, indexing, descriptions, immutability, lists, extensions,
-and static defaults. Built-in factories additionally validate their own scalar
-defaults and specialized flags.
+Every public schema declaration boundary validates untyped JavaScript input
+before creating immutable metadata. Common field options validate their
+container, presence flags, nullability, indexing, descriptions, immutability,
+lists, extensions, and static defaults. Built-in factories additionally
+validate their own scalar defaults and specialized flags.
 
-`defineSchema` and `objectField` validate complete field-definition trees,
+The schema declaration boundary and `objectField` validate complete
+field-definition trees,
 including non-empty names, structural field metadata, namespaced plugin kinds,
 and cycles. This is a declaration boundary rather than request validation.
 

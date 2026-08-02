@@ -4,7 +4,7 @@ import {
 	definePlugin,
 } from '@ultimabase/core'
 import { Query } from '@ultimabase/query'
-import { defineSchema, stringField } from '@ultimabase/schema'
+import { Schema, stringField } from '@ultimabase/schema'
 import { describe, expect, it } from 'vitest'
 
 import { RequestContext, requestSources } from '../context/request-context.js'
@@ -20,12 +20,12 @@ import {
 } from './definitions.js'
 import { createRuntimeHookStages } from './stages.js'
 
-const articleSchema = defineSchema({
+const articleSchema = new Schema({
 	className: 'HookStageArticle',
 	fields: { title: stringField({ validation: { required: true } }) },
 })
 
-const foreignSchema = defineSchema({
+const foreignSchema = new Schema({
 	className: 'HookStageForeign',
 	fields: { title: stringField({ validation: { required: true } }) },
 })

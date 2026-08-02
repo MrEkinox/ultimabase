@@ -1,5 +1,5 @@
 import { FrameworkApplication } from '@ultimabase/core'
-import { defineSchema, intField, stringField } from '@ultimabase/schema'
+import { Schema, intField, stringField } from '@ultimabase/schema'
 import { describe, expect, it } from 'vitest'
 
 import { requestSources } from '../src/context/request-context.js'
@@ -13,7 +13,7 @@ import { FrameworkEngine } from '../src/engine/framework-engine.js'
 import type { RuntimePipelineStages } from '../src/pipeline/contracts.js'
 import { RuntimePipeline } from '../src/pipeline/runtime-pipeline.js'
 
-const articleSchema = defineSchema({
+const articleSchema = new Schema({
 	className: 'TerminalArticle',
 	fields: {
 		title: stringField({ validation: { required: true } }),

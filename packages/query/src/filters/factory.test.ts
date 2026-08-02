@@ -1,9 +1,4 @@
-import {
-	defineSchema,
-	intField,
-	objectField,
-	stringField,
-} from '@ultimabase/schema'
+import { Schema, intField, objectField, stringField } from '@ultimabase/schema'
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -13,7 +8,7 @@ import {
 	createQueryValueFilter,
 } from './factory.js'
 
-const fixtureSchema = defineSchema({
+const fixtureSchema = new Schema({
 	className: 'Fixture',
 	fields: {
 		title: stringField(),

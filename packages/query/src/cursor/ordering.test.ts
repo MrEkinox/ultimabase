@@ -1,9 +1,9 @@
-import { defineSchema, stringField } from '@ultimabase/schema'
+import { Schema, stringField } from '@ultimabase/schema'
 import { describe, expect, it } from 'vitest'
 
 import { normalizeQueryCursorOrdering } from './ordering.js'
 
-const postSchema = defineSchema({
+const postSchema = new Schema({
 	className: 'Post',
 	fields: {
 		title: stringField(),

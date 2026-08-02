@@ -4,11 +4,7 @@ import {
 	type FrameworkApplication,
 	type PluginDefinition,
 } from '@ultimabase/core'
-import {
-	defineSchema,
-	stringField,
-	type SchemaDefinition,
-} from '@ultimabase/schema'
+import { Schema, stringField, type SchemaDefinition } from '@ultimabase/schema'
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -27,12 +23,12 @@ import {
 	type QueuedAdapterResult,
 } from './fixtures/recording-database-adapter.js'
 
-const articleSchema = defineSchema({
+const articleSchema = new Schema({
 	className: 'HookArticle',
 	fields: { title: stringField({ validation: { required: true } }) },
 })
 
-const foreignSchema = defineSchema({
+const foreignSchema = new Schema({
 	className: 'HookForeign',
 	fields: { title: stringField({ validation: { required: true } }) },
 })

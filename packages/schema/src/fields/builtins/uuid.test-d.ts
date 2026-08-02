@@ -1,7 +1,7 @@
 import { expectTypeOf, test } from 'vitest'
 
 import {
-	defineSchema,
+	Schema,
 	uuidField,
 	type InferCreateInput,
 	type InferObject,
@@ -11,7 +11,7 @@ import {
 	type UuidVersion,
 } from '../../index.js'
 
-const uuidSchema = defineSchema({
+const uuidSchema = new Schema({
 	className: 'UuidRecord',
 	fields: {
 		ownerId: uuidField({

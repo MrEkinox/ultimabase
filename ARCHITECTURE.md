@@ -61,7 +61,7 @@ name CLP, ACL, roles, or field-permission behavior.
 `@ultimabase/schema` only knows the generic `SchemaExtension` and `FieldExtension` contracts. Plugins contribute typed extension objects:
 
 ```ts
-defineSchema({
+new Schema({
 	className: 'Post',
 	fields: {},
 	extensions: [clpPermissions({}), aclPermissions({})],

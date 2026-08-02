@@ -6,7 +6,7 @@ import {
 	dateTimeField,
 	decimalField,
 	definePluginField,
-	defineSchema,
+	Schema,
 	enumField,
 	floatField,
 	intField,
@@ -37,7 +37,7 @@ const vectorField = definePluginField(
 	},
 )
 
-const filterSchema = defineSchema({
+const filterSchema = new Schema({
 	className: 'FilterMatrix',
 	fields: {
 		exactInteger: bigintField(),

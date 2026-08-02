@@ -1,7 +1,7 @@
 import { expectTypeOf, test } from 'vitest'
 
 import {
-	defineSchema,
+	Schema,
 	type FieldValue,
 	type IdSystemField,
 	type ReservedSystemFieldName,
@@ -18,7 +18,7 @@ type FieldsWithOption<TFields, TOption extends PropertyKey, TValue> = {
 }[keyof TFields]
 
 test('exposes system values in every schema field map', () => {
-	const schema = defineSchema({
+	const schema = new Schema({
 		className: 'Post',
 		fields: {},
 	})
@@ -38,7 +38,7 @@ test('exposes system values in every schema field map', () => {
 })
 
 test('marks generated and immutable fields for create and update inference', () => {
-	const schema = defineSchema({
+	const schema = new Schema({
 		className: 'Post',
 		fields: {},
 	})

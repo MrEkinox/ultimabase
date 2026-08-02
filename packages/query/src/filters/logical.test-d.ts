@@ -1,4 +1,4 @@
-import { booleanField, defineSchema, intField } from '@ultimabase/schema'
+import { booleanField, Schema, intField } from '@ultimabase/schema'
 import { assertNever } from '@ultimabase/shared'
 import { expect, expectTypeOf, test } from 'vitest'
 
@@ -9,7 +9,7 @@ import type {
 	QueryLogicalFilterNode,
 } from '../index.js'
 
-const accountSchema = defineSchema({
+const accountSchema = new Schema({
 	className: 'Account',
 	fields: {
 		active: booleanField(),

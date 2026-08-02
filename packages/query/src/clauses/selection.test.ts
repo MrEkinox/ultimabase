@@ -1,9 +1,9 @@
-import { booleanField, defineSchema, stringField } from '@ultimabase/schema'
+import { booleanField, Schema, stringField } from '@ultimabase/schema'
 import { describe, expect, it } from 'vitest'
 
 import { normalizeQuerySelection } from './selection.js'
 
-const postSchema = defineSchema({
+const postSchema = new Schema({
 	className: 'Post',
 	fields: {
 		title: stringField(),

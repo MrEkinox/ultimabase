@@ -1,10 +1,5 @@
 import { normalizeUpdateExpression } from '@ultimabase/query'
-import {
-	decimalField,
-	defineSchema,
-	intField,
-	stringField,
-} from '@ultimabase/schema'
+import { decimalField, Schema, intField, stringField } from '@ultimabase/schema'
 import { SQL } from 'drizzle-orm'
 import { PgDialect } from 'drizzle-orm/pg-core'
 import { describe, expect, it } from 'vitest'
@@ -12,7 +7,7 @@ import { describe, expect, it } from 'vitest'
 import { compilePostgresSchema } from '../schema/schema-compiler.js'
 import { compilePostgresUpdate } from './update-compiler.js'
 
-const updateSchemaDefinition = defineSchema({
+const updateSchemaDefinition = new Schema({
 	className: 'UpdateFixture',
 	fields: {
 		balance: decimalField(),

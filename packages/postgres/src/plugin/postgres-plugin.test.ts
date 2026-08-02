@@ -3,7 +3,7 @@ import {
 	createFrameworkEngine,
 	databaseAdapterServiceToken,
 } from '@ultimabase/runtime'
-import { defineSchema, objectField, stringField } from '@ultimabase/schema'
+import { Schema, objectField, stringField } from '@ultimabase/schema'
 import { Pool } from 'pg'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
@@ -151,7 +151,7 @@ describe('postgresPlugin', () => {
 		const pool = new FixturePool()
 		const application = await createApplication({
 			schemas: [
-				defineSchema({
+				new Schema({
 					className: 'IgnoredArticle',
 					fields: { title: stringField() },
 				}),
@@ -196,7 +196,7 @@ describe('postgresPlugin', () => {
 		})
 		const application = await createApplication({
 			schemas: [
-				defineSchema({
+				new Schema({
 					className: 'MigratedArticle',
 					fields: { title: stringField() },
 				}),
@@ -211,7 +211,7 @@ describe('postgresPlugin', () => {
 	})
 
 	it('claims PostgreSQL table-name extensions during application setup', async () => {
-		const schema = defineSchema({
+		const schema = new Schema({
 			className: 'Article',
 			fields: { title: stringField() },
 			extensions: [postgresTable({ name: 'content.Articles' })],
@@ -227,7 +227,7 @@ describe('postgresPlugin', () => {
 	})
 
 	it('fails setup when PostgreSQL cannot compile nested index metadata', async () => {
-		const schema = defineSchema({
+		const schema = new Schema({
 			className: 'NestedIndex',
 			fields: {
 				profile: objectField({

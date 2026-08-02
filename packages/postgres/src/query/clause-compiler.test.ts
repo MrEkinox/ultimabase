@@ -5,7 +5,7 @@ import {
 } from '@ultimabase/query'
 import {
 	dateTimeField,
-	defineSchema,
+	Schema,
 	intField,
 	stringField,
 } from '@ultimabase/schema'
@@ -15,7 +15,7 @@ import { describe, expect, it } from 'vitest'
 import { compilePostgresSchema } from '../schema/schema-compiler.js'
 import { compilePostgresQueryClauses } from './clause-compiler.js'
 
-const ArticleSchema = defineSchema({
+const ArticleSchema = new Schema({
 	className: 'Article',
 	fields: {
 		created: dateTimeField(),

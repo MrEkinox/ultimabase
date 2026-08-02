@@ -3,12 +3,12 @@ import { describe, expect, it } from 'vitest'
 import {
 	DuplicateSchemaError,
 	SchemaRegistry,
-	defineSchema,
+	Schema,
 	stringField,
 } from '../index.js'
 
 const createFixtureSchema = (className: string, fieldName: string) =>
-	defineSchema({
+	new Schema({
 		className,
 		fields: {
 			[fieldName]: stringField(),
@@ -59,6 +59,16 @@ describe('SchemaRegistry', () => {
 		// A rejected registration must leave the original owner unchanged.
 		expect(registry.size).toBe(1)
 		expect(registry.get('Post')).toBe(firstSchema)
+	})
+
+	it('rejects schema-shaped objects that bypassed the constructor', () => {
+		const registry = new SchemaRegistry()
+
+		expect(() => {
+			// @ts-expect-error -- Runtime registration requires constructor provenance.
+			registry.register({ className: 'Forged', fields: {} })
+		}).toThrow(new TypeError('schema must be a Schema instance'))
+		expect(registry.size).toBe(0)
 	})
 
 	it('retrieves known and dynamically registered schemas', () => {

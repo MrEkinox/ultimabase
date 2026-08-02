@@ -1,6 +1,6 @@
 import {
 	SchemaRegistry,
-	defineSchema,
+	Schema,
 	defineSchemaExtension,
 	stringField,
 } from '@ultimabase/schema'
@@ -116,7 +116,7 @@ describe('PluginSetupRegistries', () => {
 
 	it('makes unsupported schema extensions observable after setup', () => {
 		const permissions = defineSchemaExtension('fixture.permissions', {})
-		const schema = defineSchema({
+		const schema = new Schema({
 			className: 'Post',
 			fields: { title: stringField() },
 			extensions: [permissions],

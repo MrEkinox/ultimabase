@@ -1,6 +1,6 @@
 import { immutableArray } from '@ultimabase/shared'
 
-import type { SchemaDefinition } from './definition.js'
+import { Schema, type SchemaDefinition } from './definition.js'
 
 type SchemaMatchingClassName<
 	TSchemas extends readonly SchemaDefinition[],
@@ -57,6 +57,10 @@ export class SchemaRegistry<
 	 * Registers one schema and rejects ambiguous class-name ownership.
 	 */
 	register(schema: SchemaDefinition): void {
+		if (!Schema.is(schema)) {
+			throw new TypeError('schema must be a Schema instance')
+		}
+
 		if (this.#schemasByClassName.has(schema.className)) {
 			throw new DuplicateSchemaError(schema.className)
 		}

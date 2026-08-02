@@ -3,7 +3,7 @@ import { expectTypeOf, test } from 'vitest'
 import {
 	compileValidationPlans,
 	definePluginField,
-	defineSchema,
+	Schema,
 	objectField,
 	stringField,
 	type ArrayValidationPlan,
@@ -22,7 +22,7 @@ import {
 } from '../index.js'
 
 test('exports structural operation and field plans', () => {
-	const schema = defineSchema({
+	const schema = new Schema({
 		className: 'User',
 		fields: {
 			name: stringField({ validation: { required: true } }),

@@ -1,4 +1,8 @@
-import { SchemaRegistry, type SchemaDefinition } from '@ultimabase/schema'
+import {
+	Schema,
+	SchemaRegistry,
+	type SchemaDefinition,
+} from '@ultimabase/schema'
 import { isPlainRecord, isUnknownArray } from '@ultimabase/shared'
 
 import {
@@ -108,7 +112,7 @@ export class FrameworkApplication<
 
 	/** Checks exact schema identity so Runtime engines cannot cross applications. */
 	ownsSchema(schema: unknown): schema is TSchemas[number] {
-		if (!isPlainRecord(schema) || typeof schema.className !== 'string') {
+		if (!Schema.is(schema)) {
 			return false
 		}
 

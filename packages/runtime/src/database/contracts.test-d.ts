@@ -15,7 +15,7 @@ import {
 	type UpsertManyOperationAst,
 	type UpsertOneOperationAst,
 } from '@ultimabase/query'
-import { defineSchema, intField, stringField } from '@ultimabase/schema'
+import { Schema, intField, stringField } from '@ultimabase/schema'
 import { expectTypeOf, test } from 'vitest'
 
 import {
@@ -28,7 +28,7 @@ import {
 	type DatabaseTransactionAdapter,
 } from './contracts.js'
 
-const articleSchema = defineSchema({
+const articleSchema = new Schema({
 	className: 'Article',
 	fields: {
 		title: stringField({ validation: { required: true } }),

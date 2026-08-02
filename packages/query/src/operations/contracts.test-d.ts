@@ -1,5 +1,5 @@
 import {
-	defineSchema,
+	Schema,
 	intField,
 	stringField,
 	type InferCreateInput,
@@ -21,7 +21,7 @@ import {
 	type UpsertOneOperationAst,
 } from '../index.js'
 
-const articleSchema = defineSchema({
+const articleSchema = new Schema({
 	className: 'Article',
 	fields: {
 		title: stringField({ validation: { required: true } }),

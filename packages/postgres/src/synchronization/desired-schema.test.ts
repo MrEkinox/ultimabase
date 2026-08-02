@@ -1,4 +1,4 @@
-import { defineSchema, intField, stringField } from '@ultimabase/schema'
+import { Schema, intField, stringField } from '@ultimabase/schema'
 import { describe, expect, it } from 'vitest'
 
 import { postgresColumn } from '../naming/column.js'
@@ -8,7 +8,7 @@ import { compileDesiredPostgresTables } from './desired-schema.js'
 describe('desired PostgreSQL schema', () => {
 	it('detaches columns, defaults, identities, renames, and indexes', () => {
 		const schema = compilePostgresSchema(
-			defineSchema({
+			new Schema({
 				className: 'Article',
 				fields: {
 					sequence: intField({ autoIncrement: true }),

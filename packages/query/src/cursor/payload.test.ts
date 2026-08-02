@@ -1,6 +1,6 @@
 import { createHmac, timingSafeEqual } from 'node:crypto'
 
-import { defineSchema, stringField } from '@ultimabase/schema'
+import { Schema, stringField } from '@ultimabase/schema'
 import { describe, expect, it } from 'vitest'
 
 import type { QueryCursorCodec, QueryCursorPayload } from './contracts.js'
@@ -13,7 +13,7 @@ import {
 } from './payload.js'
 import { normalizeQueryOrdering } from '../clauses/ordering.js'
 
-const postSchema = defineSchema({
+const postSchema = new Schema({
 	className: 'Post',
 	fields: {
 		title: stringField(),

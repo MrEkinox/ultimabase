@@ -1,4 +1,4 @@
-import { defineSchema, stringField } from '@ultimabase/schema'
+import { Schema, stringField } from '@ultimabase/schema'
 import { getTableConfig } from 'drizzle-orm/pg-core'
 import { describe, expect, it } from 'vitest'
 
@@ -19,7 +19,7 @@ const readIndexColumnName = (column: unknown): string => {
 
 describe('PostgreSQL index compiler', () => {
 	it('compiles ordinary, unique, and composite indexes in normalized order', () => {
-		const schema = defineSchema({
+		const schema = new Schema({
 			className: 'Article',
 			fields: {
 				authorId: stringField(),
@@ -61,7 +61,7 @@ describe('PostgreSQL index compiler', () => {
 	})
 
 	it('retains unique composite columns as a future upsert conflict target', () => {
-		const schema = defineSchema({
+		const schema = new Schema({
 			className: 'Membership',
 			fields: {
 				organizationId: stringField(),
@@ -84,7 +84,7 @@ describe('PostgreSQL index compiler', () => {
 	})
 
 	it('rejects duplicate normalized definitions instead of creating duplicate DDL', () => {
-		const schema = defineSchema({
+		const schema = new Schema({
 			className: 'DuplicateIndex',
 			fields: {
 				organizationId: stringField(),

@@ -5,10 +5,14 @@
 - Packages: `@ultimabase/schema`
 - Depends on: 103, 104, 105, 106, 107, 108, 109
 - ADR: ADR-0002, ADR-0014
+- Replaced by: 143
 
 ## Goal
 
 Create immutable schema definitions while preserving class and field literals.
+
+The factory delivered by this historical issue was later replaced by the
+immutable `Schema` constructor in issue 143 and ADR-0093.
 
 ## Acceptance criteria
 

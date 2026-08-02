@@ -124,6 +124,14 @@ describe.each(packageFixtures)('$name archive', ({ directory, name }) => {
 })
 
 describe('@ultimabase/schema declaration artifact', () => {
+	it('exposes the documented Schema constructor', () => {
+		const schema = readFixtureQuickInfo('Schema({')
+
+		// The packed declaration must retain the class-level help shown by editors.
+		expect(schema.display).toContain('new Schema<')
+		expect(schema.documentation).toContain('Declares an immutable schema')
+	})
+
 	it('preserves field option documentation through package exports', () => {
 		const validation = readFixtureQuickInfo('validation: { required: true }')
 

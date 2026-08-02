@@ -6,7 +6,7 @@ import {
 	dateTimeField,
 	decimalField,
 	definePluginField,
-	defineSchema,
+	Schema,
 	enumField,
 	floatField,
 	intField,
@@ -30,7 +30,7 @@ const indexColumns = (
 describe('PostgreSQL primitive schema compiler', () => {
 	it('maps every built-in scalar and structured value to explicit metadata', () => {
 		const runtimeDefault = vi.fn(() => 'runtime')
-		const schema = defineSchema({
+		const schema = new Schema({
 			className: 'PrimitiveFixture',
 			fields: {
 				active: booleanField({ default: true }),
@@ -114,7 +114,7 @@ describe('PostgreSQL primitive schema compiler', () => {
 	})
 
 	it('keeps optional nullable fields physically nullable', () => {
-		const schema = defineSchema({
+		const schema = new Schema({
 			className: 'NullableFixture',
 			fields: {
 				nullable: stringField({
@@ -135,7 +135,7 @@ describe('PostgreSQL primitive schema compiler', () => {
 	})
 
 	it('encodes structured static defaults before Drizzle stores JSONB metadata', () => {
-		const schema = defineSchema({
+		const schema = new Schema({
 			className: 'StructuredDefaultFixture',
 			fields: {
 				profile: objectField({
@@ -164,7 +164,7 @@ describe('PostgreSQL primitive schema compiler', () => {
 	})
 
 	it('rejects nested indexes, unsupported plugin fields, and invalid sequence combinations', () => {
-		const nestedIndexSchema = defineSchema({
+		const nestedIndexSchema = new Schema({
 			className: 'NestedIndexFixture',
 			fields: {
 				profile: objectField({
@@ -185,11 +185,11 @@ describe('PostgreSQL primitive schema compiler', () => {
 				},
 			},
 		)
-		const pluginSchema = defineSchema({
+		const pluginSchema = new Schema({
 			className: 'PluginFieldFixture',
 			fields: { custom: pluginField },
 		})
-		const invalidSequenceSchema = defineSchema({
+		const invalidSequenceSchema = new Schema({
 			className: 'InvalidSequenceFixture',
 			fields: { sequence: intField({ autoIncrement: true, default: 1 }) },
 		})
@@ -212,7 +212,7 @@ describe('PostgreSQL primitive schema compiler', () => {
 	})
 
 	it('rejects ambiguous or nested PostgreSQL rename metadata', () => {
-		const duplicateSource = defineSchema({
+		const duplicateSource = new Schema({
 			className: 'DuplicateRenameFixture',
 			fields: {
 				first: stringField({
@@ -223,7 +223,7 @@ describe('PostgreSQL primitive schema compiler', () => {
 				}),
 			},
 		})
-		const declaredSource = defineSchema({
+		const declaredSource = new Schema({
 			className: 'DeclaredRenameFixture',
 			fields: {
 				legacy: stringField(),
@@ -232,7 +232,7 @@ describe('PostgreSQL primitive schema compiler', () => {
 				}),
 			},
 		})
-		const nestedRename = defineSchema({
+		const nestedRename = new Schema({
 			className: 'NestedRenameFixture',
 			fields: {
 				profile: objectField({

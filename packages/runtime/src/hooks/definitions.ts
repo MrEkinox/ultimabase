@@ -1,5 +1,5 @@
 import type { ExecutableOperationAst, OperationKind } from '@ultimabase/query'
-import type { SchemaDefinition } from '@ultimabase/schema'
+import { Schema, type SchemaDefinition } from '@ultimabase/schema'
 import {
 	immutableArray,
 	immutableRecord,
@@ -245,12 +245,7 @@ const assertContributionOptions = (options: unknown): void => {
 		throw new TypeError('runtime contribution handler must be a function')
 	}
 
-	if (
-		options.schema !== undefined &&
-		(!isPlainRecord(options.schema) ||
-			typeof options.schema.className !== 'string' ||
-			!isPlainRecord(options.schema.fields))
-	) {
+	if (options.schema !== undefined && !Schema.is(options.schema)) {
 		throw new TypeError(
 			'runtime contribution schema must be a schema definition',
 		)

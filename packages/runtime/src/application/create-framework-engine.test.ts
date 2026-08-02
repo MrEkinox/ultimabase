@@ -3,7 +3,7 @@ import {
 	definePlugin,
 	FrameworkApplication,
 } from '@ultimabase/core'
-import { defineSchema, stringField } from '@ultimabase/schema'
+import { Schema, stringField } from '@ultimabase/schema'
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -16,7 +16,7 @@ import { runtimePipelineStage } from '../pipeline/definitions.js'
 import { RecordingDatabaseAdapter } from '../../tests/fixtures/recording-database-adapter.js'
 import { createFrameworkEngine } from './create-framework-engine.js'
 
-const articleSchema = defineSchema({
+const articleSchema = new Schema({
 	className: 'AssembledArticle',
 	fields: {
 		title: stringField({ validation: { required: true } }),

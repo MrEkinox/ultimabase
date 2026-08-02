@@ -7,7 +7,7 @@ import {
 	type QueryFilterNode,
 	type UpdateOneOperationAst,
 } from '@ultimabase/query'
-import { defineSchema, intField, stringField } from '@ultimabase/schema'
+import { Schema, intField, stringField } from '@ultimabase/schema'
 import { isPlainRecord, isUnknownArray } from '@ultimabase/shared'
 import {
 	createRuntimeValidationStage,
@@ -23,7 +23,7 @@ import {
 } from './client.js'
 import { PostgresSchemaCatalog } from '../schema/catalog.js'
 
-const articleSchema = defineSchema({
+const articleSchema = new Schema({
 	className: 'Article',
 	fields: {
 		note: stringField(),

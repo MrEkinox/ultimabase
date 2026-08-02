@@ -1,9 +1,9 @@
-import { defineSchema, intField, stringField } from '@ultimabase/schema'
+import { Schema, intField, stringField } from '@ultimabase/schema'
 import { expect, expectTypeOf, test } from 'vitest'
 
 import { Query, type QueryScope } from '../index.js'
 
-const postSchema = defineSchema({
+const postSchema = new Schema({
 	className: 'Post',
 	fields: {
 		title: stringField(),
@@ -24,7 +24,7 @@ test('preserves exact schema and projection through reusable scopes', () => {
 		Query<typeof postSchema, 'id' | 'title'>
 	>()
 
-	const commentSchema = defineSchema({
+	const commentSchema = new Schema({
 		className: 'Comment',
 		fields: { body: stringField() },
 	})

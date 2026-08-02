@@ -3,7 +3,7 @@
 Schemas are explicit TypeScript values registered in application configuration. There is no file discovery.
 
 ```ts
-const UserSchema = defineSchema({
+const UserSchema = new Schema({
 	className: 'User',
 	fields: {
 		name: stringField({
@@ -69,7 +69,7 @@ registration never replaces the previously registered definition.
 ## Indexes
 
 Fields use `indexed: true` or `indexed: "unique"` for single-field indexes.
-`defineSchema({ indexes })` adds composite indexes with at least two distinct
+`new Schema({ indexes })` adds composite indexes with at least two distinct
 top-level fields. Composite declarations may reference `id`, `createdAt`, and
 `updatedAt` in addition to developer fields.
 

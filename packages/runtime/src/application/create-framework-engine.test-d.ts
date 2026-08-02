@@ -1,5 +1,5 @@
 import { definePlugin, type FrameworkApplication } from '@ultimabase/core'
-import { defineSchema, stringField } from '@ultimabase/schema'
+import { Schema, stringField } from '@ultimabase/schema'
 import { expectTypeOf, test } from 'vitest'
 
 import {
@@ -9,7 +9,7 @@ import {
 import type { FrameworkEngine } from '../engine/framework-engine.js'
 import { createFrameworkEngine } from './create-framework-engine.js'
 
-const schema = defineSchema({
+const schema = new Schema({
 	className: 'AssembledTypedArticle',
 	fields: { title: stringField() },
 })

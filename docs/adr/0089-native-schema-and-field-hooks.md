@@ -3,7 +3,7 @@
 - Status: accepted
 - Date: 2026-08-01
 - Refines: ADR-0015, ADR-0068, ADR-0069, ADR-0070, ADR-0076, ADR-0088
-- Refined by: ADR-0090
+- Refined by: ADR-0090, ADR-0093
 
 ADR-0090 replaces the permission-specific named stages and ordering references
 in this record with policy-neutral monotonic hook effects. The remaining native
@@ -45,7 +45,7 @@ inference and must not expand compact field factory hovers.
 The target developer syntax keeps hooks with their declaration:
 
 ```ts
-const UserSchema = defineSchema({
+const UserSchema = new Schema({
 	className: 'User',
 	fields: {
 		email: stringField({

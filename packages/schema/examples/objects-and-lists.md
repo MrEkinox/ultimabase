@@ -8,7 +8,7 @@ without widening the nested field map.
 
 ```ts
 import {
-	defineSchema,
+	Schema,
 	floatField,
 	objectField,
 	stringField,
@@ -28,7 +28,7 @@ const addressFields = {
 	}),
 }
 
-export const CustomerSchema = defineSchema({
+export const CustomerSchema = new Schema({
 	className: 'Customer',
 	fields: {
 		name: stringField({ validation: { required: true } }),

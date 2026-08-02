@@ -1,7 +1,7 @@
 import {
 	binaryField,
 	booleanField,
-	defineSchema,
+	Schema,
 	enumField,
 	intField,
 	objectField,
@@ -23,7 +23,7 @@ const postFields = {
 	attachment: binaryField(),
 }
 
-const postSchema = defineSchema({ className: 'Post', fields: postFields })
+const postSchema = new Schema({ className: 'Post', fields: postFields })
 
 describe('Query', () => {
 	it('builds immutable selection, ordering, limit, and pagination branches', () => {
@@ -199,7 +199,7 @@ describe('Query', () => {
 	})
 
 	it('rejects malformed scope results at the JavaScript boundary', () => {
-		const commentSchema = defineSchema({
+		const commentSchema = new Schema({
 			className: 'Comment',
 			fields: { body: stringField() },
 		})
@@ -222,7 +222,7 @@ describe('Query', () => {
 
 	it('rejects incompatible pagination, schemas, fields, operators, and values', () => {
 		// The same shape but a different definition proves that identity is enforced.
-		const otherPostSchema = defineSchema({
+		const otherPostSchema = new Schema({
 			className: 'Post',
 			fields: postFields,
 		})

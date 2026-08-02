@@ -1,4 +1,4 @@
-import { defineSchema, stringField } from '@ultimabase/schema'
+import { Schema, stringField } from '@ultimabase/schema'
 import { expectTypeOf, test } from 'vitest'
 
 import type { CreateOneOperationAst } from '@ultimabase/query'
@@ -11,7 +11,7 @@ import {
 	type PostCommitEventDefinition,
 } from './definitions.js'
 
-const articleSchema = defineSchema({
+const articleSchema = new Schema({
 	className: 'TypedHookArticle',
 	fields: { title: stringField({ validation: { required: true } }) },
 })

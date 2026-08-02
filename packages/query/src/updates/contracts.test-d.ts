@@ -2,7 +2,7 @@ import {
 	bigintField,
 	dateTimeField,
 	decimalField,
-	defineSchema,
+	Schema,
 	floatField,
 	intField,
 	objectField,
@@ -20,7 +20,7 @@ import {
 	type UpdateOneOperationAst,
 } from '../index.js'
 
-const articleSchema = defineSchema({
+const articleSchema = new Schema({
 	className: 'Article',
 	fields: {
 		title: stringField({ validation: { required: true } }),

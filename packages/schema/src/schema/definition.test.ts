@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { defineSchema, defineSchemaExtension, stringField } from '../index.js'
+import { Schema, defineSchemaExtension, stringField } from '../index.js'
 
 describe('schema definitions', () => {
 	it('copies and freezes developer-owned declaration containers', () => {
@@ -10,7 +10,7 @@ describe('schema definitions', () => {
 			mode: 'strict',
 		})
 		const extensions = [extension]
-		const schema = defineSchema({
+		const schema = new Schema({
 			className: 'Post',
 			fields,
 			extensions,
@@ -20,9 +20,18 @@ describe('schema definitions', () => {
 		extensions.push(extension)
 
 		expect(schema.className).toBe('Post')
+		expect(schema).toBeInstanceOf(Schema)
+		expect(Schema.is(schema)).toBe(true)
+		expect(Schema.is({ className: 'Post', fields: schema.fields })).toBe(false)
 		expect(schema.fields.title).toBe(title)
 		expect(schema.fields).not.toHaveProperty('summary')
 		expect(schema.extensions).toStrictEqual([extension])
+		expect(Object.keys(schema)).toStrictEqual([
+			'className',
+			'fields',
+			'indexes',
+			'extensions',
+		])
 		expect(Object.isFrozen(schema)).toBe(true)
 		expect(Object.isFrozen(schema.fields)).toBe(true)
 		expect(Object.isFrozen(schema.extensions)).toBe(true)
@@ -31,7 +40,7 @@ describe('schema definitions', () => {
 	})
 
 	it('normalizes omitted extensions to one immutable empty list', () => {
-		const schema = defineSchema({
+		const schema = new Schema({
 			className: 'Post',
 			fields: {
 				title: stringField(),
@@ -51,11 +60,12 @@ describe('schema definitions', () => {
 				[name]: field,
 			}
 
-			expect(() =>
-				defineSchema({
-					className: 'Invalid',
-					fields,
-				}),
+			expect(
+				() =>
+					new Schema({
+						className: 'Invalid',
+						fields,
+					}),
 			).toThrow(new TypeError(`Reserved schema field: ${name}`))
 		},
 	)

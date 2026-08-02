@@ -6,7 +6,7 @@ import {
 	type FindOperationAst,
 	type OperationKind,
 } from '@ultimabase/query'
-import { defineSchema, intField, stringField } from '@ultimabase/schema'
+import { Schema, intField, stringField } from '@ultimabase/schema'
 import { immutableRecord } from '@ultimabase/shared'
 import { describe, expect, it } from 'vitest'
 
@@ -20,7 +20,7 @@ import {
 	type DatabaseTransactionAdapter,
 } from './contracts.js'
 
-const articleSchema = defineSchema({
+const articleSchema = new Schema({
 	className: 'Article',
 	fields: {
 		title: stringField({ validation: { required: true } }),

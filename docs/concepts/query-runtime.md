@@ -88,7 +88,7 @@ handler covers singular and bulk variants, while the exact terminal `kind`
 remains available when behavior must differ:
 
 ```ts
-const UserSchema = defineSchema({
+const UserSchema = new Schema({
 	className: 'User',
 	fields: {
 		email: stringField({

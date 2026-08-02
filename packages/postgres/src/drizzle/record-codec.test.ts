@@ -1,11 +1,11 @@
-import { binaryField, defineSchema, stringField } from '@ultimabase/schema'
+import { binaryField, Schema, stringField } from '@ultimabase/schema'
 import { describe, expect, it } from 'vitest'
 
 import { compilePostgresSchema } from '../schema/schema-compiler.js'
 import { decodePostgresRecord, encodePostgresRecord } from './record-codec.js'
 
 const codecSchema = compilePostgresSchema(
-	defineSchema({
+	new Schema({
 		className: 'CodecFixture',
 		fields: {
 			alias: stringField({ validation: { nullable: true } }),

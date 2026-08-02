@@ -13,7 +13,7 @@ creating a package cycle or weakening TypeScript editor inference.
 
 ## Acceptance criteria
 
-- [ ] A compile-time prototype supports the target `defineSchema({ hooks })` and inline `field({ hooks })` DX, or records a dependency-safe equivalent in a refining ADR before implementation proceeds.
+- [ ] A compile-time prototype supports the target `new Schema({ hooks })` and inline `field({ hooks })` DX, or records a dependency-safe equivalent in a refining ADR before implementation proceeds.
 - [ ] Schema callbacks infer complete create, update, object, operation, query, and result shapes relevant to their phase.
 - [ ] Inline field callbacks infer exact scalar, enum, object, list, nullability, and custom-field values without pretending to infer sibling fields.
 - [ ] Hook callback literals do not enter `FieldDefinition` inference state or expand compact factory hovers.

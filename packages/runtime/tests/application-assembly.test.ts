@@ -1,5 +1,5 @@
 import { createApplication, definePlugin } from '@ultimabase/core'
-import { defineSchema, stringField } from '@ultimabase/schema'
+import { Schema, stringField } from '@ultimabase/schema'
 import {
 	createFrameworkEngine,
 	databaseAdapterServiceToken,
@@ -9,7 +9,7 @@ import { describe, expect, it } from 'vitest'
 
 import { RecordingDatabaseAdapter } from './fixtures/recording-database-adapter.js'
 
-const publicArticleSchema = defineSchema({
+const publicArticleSchema = new Schema({
 	className: 'PublicAssembledArticle',
 	fields: { title: stringField() },
 })

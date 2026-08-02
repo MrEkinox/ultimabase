@@ -89,41 +89,41 @@ const schemaHoverCases: readonly SchemaHoverCase[] = [
 	{
 		label: 'className',
 		source:
-			"defineSchema({ /* hover */className: 'Post', fields: { title: stringField() } })",
+			"new Schema({ /* hover */className: 'Post', fields: { title: stringField() } })",
 	},
 	{
 		label: 'fields',
 		source:
-			"defineSchema({ className: 'Post', /* hover */fields: { title: stringField() } })",
+			"new Schema({ className: 'Post', /* hover */fields: { title: stringField() } })",
 	},
 	{
 		label: 'indexes',
 		source:
-			"defineSchema({ className: 'Post', fields: { title: stringField() }, /* hover */indexes: [{ fields: ['title', 'createdAt'] }] })",
+			"new Schema({ className: 'Post', fields: { title: stringField() }, /* hover */indexes: [{ fields: ['title', 'createdAt'] }] })",
 	},
 	{
 		label: 'extensions',
 		source:
-			"defineSchema({ className: 'Post', fields: {}, /* hover */extensions: [defineSchemaExtension('fixture.schema', {})] })",
+			"new Schema({ className: 'Post', fields: {}, /* hover */extensions: [defineSchemaExtension('fixture.schema', {})] })",
 	},
 	{
 		label: 'indexes.fields',
 		source:
-			"defineSchema({ className: 'Post', fields: { title: stringField() }, indexes: [{ /* hover */fields: ['title', 'createdAt'] }] })",
+			"new Schema({ className: 'Post', fields: { title: stringField() }, indexes: [{ /* hover */fields: ['title', 'createdAt'] }] })",
 	},
 	{
 		label: 'indexes.unique',
 		source:
-			"defineSchema({ className: 'Post', fields: { title: stringField() }, indexes: [{ fields: ['title', 'createdAt'], /* hover */unique: true }] })",
+			"new Schema({ className: 'Post', fields: { title: stringField() }, indexes: [{ fields: ['title', 'createdAt'], /* hover */unique: true }] })",
 	},
 ]
 
-describe('defineSchema IntelliSense', () => {
+describe('Schema IntelliSense', () => {
 	it('suggests and documents every schema option', () => {
 		const fixture = createCompletionFixture(`
-import { defineSchema, stringField } from '../src/index.js'
+import { Schema, stringField } from '../src/index.js'
 
-defineSchema({ /* completion */ })
+new Schema({ /* completion */ })
 `)
 		const entries = fixture.completions.filter(
 			(entry) => entry.kind === ts.ScriptElementKind.memberVariableElement,
@@ -154,9 +154,9 @@ defineSchema({ /* completion */ })
 
 	it('suggests and documents composite-index options', () => {
 		const fixture = createCompletionFixture(`
-import { defineSchema, stringField } from '../src/index.js'
+import { Schema, stringField } from '../src/index.js'
 
-defineSchema({
+new Schema({
 	className: 'Post',
 	fields: { title: stringField() },
 	indexes: [{ /* completion */ }],
@@ -189,15 +189,25 @@ defineSchema({
 		}
 	})
 
-	it('documents the defineSchema factory itself', () => {
+	it('documents the Schema constructor itself', () => {
 		expectDocumented(
 			readMarkedHover(`
-import { defineSchema, stringField } from '../src/index.js'
+import { Schema, stringField } from '../src/index.js'
 
-const PostSchema = /* hover */defineSchema({
+const PostSchema = /* hover */new Schema({
 	className: 'Post',
 	fields: { title: stringField() },
 })
+`),
+		)
+	})
+
+	it('documents the Schema runtime guard', () => {
+		expectDocumented(
+			readMarkedHover(`
+import { Schema } from '../src/index.js'
+
+/* hover */Schema.is({})
 `),
 		)
 	})
@@ -207,7 +217,7 @@ const PostSchema = /* hover */defineSchema({
 		({ source }) => {
 			expectDocumented(
 				readMarkedHover(`
-import { defineSchema, defineSchemaExtension, stringField } from '../src/index.js'
+import { Schema, defineSchemaExtension, stringField } from '../src/index.js'
 
 ${source}
 `),

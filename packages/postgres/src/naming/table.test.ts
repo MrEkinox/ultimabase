@@ -1,4 +1,4 @@
-import { defineSchema, defineSchemaExtension } from '@ultimabase/schema'
+import { Schema, defineSchemaExtension } from '@ultimabase/schema'
 import { pgTable, text } from 'drizzle-orm/pg-core'
 import { drizzle } from 'drizzle-orm/node-postgres'
 import { describe, expect, it } from 'vitest'
@@ -6,8 +6,7 @@ import { describe, expect, it } from 'vitest'
 import { postgresPluginName, postgresTableExtensionName } from '../constants.js'
 import { postgresTable, resolvePostgresTableName } from './table.js'
 
-const schemaNamed = (className: string) =>
-	defineSchema({ className, fields: {} })
+const schemaNamed = (className: string) => new Schema({ className, fields: {} })
 
 describe('PostgreSQL table naming', () => {
 	it.each([
@@ -22,7 +21,7 @@ describe('PostgreSQL table naming', () => {
 	it('preserves an unrestricted non-empty override exactly', () => {
 		const name = 'Tenant.Posts-v2 "archive"'
 		const extension = postgresTable({ name })
-		const schema = defineSchema({
+		const schema = new Schema({
 			className: 'IgnoredClassName',
 			fields: {},
 			extensions: [extension],
@@ -35,7 +34,7 @@ describe('PostgreSQL table naming', () => {
 	})
 
 	it('lets Drizzle escape an unrestricted override as one identifier', () => {
-		const schema = defineSchema({
+		const schema = new Schema({
 			className: 'AuditLog',
 			fields: {},
 			extensions: [postgresTable({ name: 'Tenant.Logs "archive"' })],
@@ -84,7 +83,7 @@ describe('PostgreSQL table naming', () => {
 			{ name: '' },
 			postgresPluginName,
 		)
-		const schema = defineSchema({
+		const schema = new Schema({
 			className: 'Post',
 			fields: {},
 			extensions: [forgedExtension],

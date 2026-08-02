@@ -1,5 +1,5 @@
 import {
-	defineSchema,
+	Schema,
 	intField,
 	stringField,
 	type InferObject,
@@ -25,7 +25,7 @@ import type {
 } from './contracts.js'
 import type { InferOperationResult } from './results.js'
 
-const schema = defineSchema({
+const schema = new Schema({
 	className: 'ResultArticle',
 	fields: {
 		title: stringField({ validation: { required: true } }),

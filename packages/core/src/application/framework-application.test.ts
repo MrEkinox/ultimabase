@@ -1,4 +1,4 @@
-import { SchemaRegistry, defineSchema, stringField } from '@ultimabase/schema'
+import { SchemaRegistry, Schema, stringField } from '@ultimabase/schema'
 import { describe, expect, it } from 'vitest'
 
 import { createServiceToken } from '../services/service-token.js'
@@ -8,7 +8,7 @@ import {
 	FrameworkApplication,
 } from './framework-application.js'
 
-const applicationSchema = defineSchema({
+const applicationSchema = new Schema({
 	className: 'ApplicationFixture',
 	fields: { name: stringField() },
 })
@@ -177,11 +177,11 @@ describe('FrameworkApplication', () => {
 	})
 
 	it('checks schema ownership by exact application identity', () => {
-		const matchingClassSchema = defineSchema({
+		const matchingClassSchema = new Schema({
 			className: 'ApplicationFixture',
 			fields: { name: stringField() },
 		})
-		const unknownClassSchema = defineSchema({
+		const unknownClassSchema = new Schema({
 			className: 'UnknownFixture',
 			fields: { name: stringField() },
 		})

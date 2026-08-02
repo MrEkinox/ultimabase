@@ -15,7 +15,7 @@ import {
 	dateField,
 	dateTimeField,
 	decimalField,
-	defineSchema,
+	Schema,
 	enumField,
 	floatField,
 	intField,
@@ -25,7 +25,7 @@ import {
 	uuidField,
 } from '@ultimabase/schema'
 
-export const ProductSchema = defineSchema({
+export const ProductSchema = new Schema({
 	className: 'Product',
 	fields: {
 		externalId: uuidField({

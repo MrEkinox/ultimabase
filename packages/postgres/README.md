@@ -144,12 +144,12 @@ import { postgresPlugin } from '@ultimabase/postgres'
 import {
 	bigintField,
 	dateTimeField,
-	defineSchema,
+	Schema,
 	objectField,
 	stringField,
 } from '@ultimabase/schema'
 
-const EventSchema = defineSchema({
+const EventSchema = new Schema({
 	className: 'Event',
 	fields: {
 		title: stringField({ validation: { required: true } }),
@@ -187,7 +187,7 @@ binary values, and canonical temporal strings losslessly.
 Field and composite indexes use the storage-neutral Schema API:
 
 ```ts
-const ArticleSchema = defineSchema({
+const ArticleSchema = new Schema({
 	className: 'Article',
 	fields: {
 		authorId: stringField(),
@@ -340,9 +340,9 @@ Use `postgresTable` when the database needs an exact identifier:
 
 ```ts
 import { postgresTable } from '@ultimabase/postgres'
-import { defineSchema, stringField } from '@ultimabase/schema'
+import { Schema, stringField } from '@ultimabase/schema'
 
-const ArticleSchema = defineSchema({
+const ArticleSchema = new Schema({
 	className: 'Article',
 	fields: {
 		title: stringField(),

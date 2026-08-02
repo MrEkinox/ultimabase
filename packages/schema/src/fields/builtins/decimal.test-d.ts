@@ -3,7 +3,7 @@ import { expectTypeOf, test } from 'vitest'
 import {
 	decimalField,
 	defineFieldExtension,
-	defineSchema,
+	Schema,
 	defineSchemaExtension,
 	type DecimalField,
 	type DecimalFieldOptions,
@@ -75,7 +75,7 @@ test('uses a compact optional scalar state by default', () => {
 
 test('derives decimal create, object, and update shapes from compact state', () => {
 	const extension = defineFieldExtension('fixture.decimal', {})
-	const schema = defineSchema({
+	const schema = new Schema({
 		className: 'DecimalState',
 		fields: {
 			required: decimalField({ validation: { required: true } }),

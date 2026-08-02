@@ -1,6 +1,6 @@
 import { FrameworkApplication } from '@ultimabase/core'
 import { Query } from '@ultimabase/query'
-import { defineSchema, intField, stringField } from '@ultimabase/schema'
+import { Schema, intField, stringField } from '@ultimabase/schema'
 import { describe, expect, it } from 'vitest'
 
 import { FrameworkEngine, requestSources } from '../src/index.js'
@@ -10,7 +10,7 @@ import {
 	type QueuedAdapterResult,
 } from './fixtures/recording-database-adapter.js'
 
-const accountSchema = defineSchema({
+const accountSchema = new Schema({
 	className: 'BulkAccount',
 	fields: {
 		email: stringField({

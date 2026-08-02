@@ -4,7 +4,7 @@ import {
 	type CreateOneOperationAst,
 	type FindOperationAst,
 } from '@ultimabase/query'
-import { defineSchema, stringField } from '@ultimabase/schema'
+import { Schema, stringField } from '@ultimabase/schema'
 import { describe, expect, it } from 'vitest'
 
 import { RequestContext, requestSources } from '../context/request-context.js'
@@ -21,14 +21,14 @@ import type { RuntimePipelineStages } from '../pipeline/contracts.js'
 import { RuntimePipeline } from '../pipeline/runtime-pipeline.js'
 import { FrameworkEngine, RequestEngine } from './framework-engine.js'
 
-const articleSchema = defineSchema({
+const articleSchema = new Schema({
 	className: 'Article',
 	fields: {
 		title: stringField({ validation: { required: true } }),
 	},
 })
 
-const matchingClassSchema = defineSchema({
+const matchingClassSchema = new Schema({
 	className: 'Article',
 	fields: {
 		title: stringField({ validation: { required: true } }),

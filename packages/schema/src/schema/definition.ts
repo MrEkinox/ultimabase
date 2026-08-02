@@ -35,13 +35,13 @@ export type SchemaFields = Readonly<Record<string, GenericField>>
 export type SchemaExtensions = readonly SchemaExtension<string, object>[]
 
 /**
- * Describes the developer input accepted by defineSchema.
+ * Describes the developer input accepted by the `Schema` constructor.
  */
-export type SchemaOptions<
+export interface SchemaOptions<
 	TClassName extends string = string,
 	TFields extends SchemaFields = SchemaFields,
 	TExtensions extends SchemaExtensions = readonly [],
-> = {
+> {
 	/**
 	 * Declares the stable logical name used by queries, transports, and adapters.
 	 *
@@ -64,25 +64,14 @@ export type SchemaOptions<
 	readonly indexes?: readonly SchemaIndexOptions<
 		SchemaFieldName<NoInfer<TFields>>
 	>[]
-} & (TExtensions extends readonly []
-	? {
-			/**
-			 * Attaches immutable schema metadata interpreted by installed plugins.
-			 * Extension order is preserved and duplicate identities are rejected.
-			 *
-			 * @example `extensions: [permissionsExtension]`
-			 */
-			readonly extensions?: TExtensions
-		}
-	: {
-			/**
-			 * Attaches immutable schema metadata interpreted by installed plugins.
-			 * Extension order is preserved and duplicate identities are rejected.
-			 *
-			 * @example `extensions: [permissionsExtension]`
-			 */
-			readonly extensions: TExtensions
-		})
+	/**
+	 * Attaches immutable schema metadata interpreted by installed plugins.
+	 * Extension order is preserved and duplicate identities are rejected.
+	 *
+	 * @example `extensions: [permissionsExtension]`
+	 */
+	readonly extensions?: TExtensions
+}
 
 /**
  * Carries immutable schema metadata while retaining every declaration literal.
@@ -92,7 +81,7 @@ export interface SchemaDefinition<
 	TFields extends SchemaFields = SchemaFields,
 	TExtensions extends SchemaExtensions = SchemaExtensions,
 > {
-	/** The exact logical class name supplied to `defineSchema`. */
+	/** The exact logical class name supplied to `new Schema()`. */
 	readonly className: TClassName
 	/** The immutable developer and framework-owned field map. */
 	readonly fields: Readonly<TFields> & Readonly<SystemFields>
@@ -107,6 +96,10 @@ type ReservedFieldCollision<TFields extends SchemaFields> =
 		? unknown
 		: never
 
+// A versioned global symbol preserves constructor provenance across package copies.
+const schemaDefinitionMarker = Symbol.for(
+	'@ultimabase/schema/schema-definition/v1',
+)
 const emptySchemaExtensions: readonly [] = immutableArray([])
 
 const assertNoReservedFieldCollision = (fields: SchemaFields): void => {
@@ -119,11 +112,14 @@ const assertNoReservedFieldCollision = (fields: SchemaFields): void => {
 
 /**
  * Declares an immutable schema that becomes UltimaBase's source of truth.
- * The exact class name and field map remain available to query and input inference.
+ *
+ * The exact class name, field map, indexes, and extensions remain available to
+ * query and input inference. Constructing a schema validates and snapshots all
+ * caller-owned declaration containers immediately.
  *
  * @example
  * ```ts
- * const PostSchema = defineSchema({
+ * const PostSchema = new Schema({
  *   className: "Post",
  *   fields: {
  *     title: stringField({ validation: { required: true } }),
@@ -132,71 +128,81 @@ const assertNoReservedFieldCollision = (fields: SchemaFields): void => {
  * })
  * ```
  */
-export function defineSchema<
-	const TClassName extends string,
-	const TFields extends SchemaFields,
->(
-	options: SchemaOptions<TClassName, TFields> &
-		ReservedFieldCollision<NoInfer<TFields>>,
-): SchemaDefinition<TClassName, TFields, readonly []>
-
-/**
- * Declares an immutable schema while preserving its ordered plugin metadata.
- *
- * @example
- * ```ts
- * const PostSchema = defineSchema({
- *   className: "Post",
- *   fields: { title: stringField() },
- *   extensions: [permissionsExtension],
- * })
- * ```
- */
-export function defineSchema<
-	const TClassName extends string,
-	const TFields extends SchemaFields,
-	const TExtensions extends SchemaExtensions,
->(
-	options: SchemaOptions<TClassName, TFields, TExtensions> &
-		ReservedFieldCollision<NoInfer<TFields>>,
-): SchemaDefinition<TClassName, TFields, TExtensions>
-
-export function defineSchema(options: {
-	readonly className: string
-	readonly fields: SchemaFields
-	readonly indexes?: readonly SchemaIndexOptions[]
-	readonly extensions?: SchemaExtensions
-}): SchemaDefinition {
-	if (!isPlainRecord(options)) {
-		throw new TypeError('schema options must be an object')
+export class Schema<
+	const TClassName extends string = string,
+	const TFields extends SchemaFields = SchemaFields,
+	const TExtensions extends SchemaExtensions = readonly [],
+> implements SchemaDefinition<TClassName, TFields, TExtensions> {
+	/**
+	 * Checks whether an untrusted value was constructed through `new Schema()`.
+	 *
+	 * @example `if (Schema.is(value)) console.log(value.className)`
+	 */
+	static is(value: unknown): value is SchemaDefinition {
+		return (
+			typeof value === 'object' &&
+			value !== null &&
+			schemaDefinitionMarker in value &&
+			value[schemaDefinitionMarker] === true
+		)
 	}
 
-	assertNonEmptyString(options.className, 'className')
+	/** The exact logical class name supplied to the constructor. */
+	readonly className: TClassName
+	/** The immutable developer and framework-owned field map. */
+	readonly fields: Readonly<TFields> & Readonly<SystemFields>
+	/** The immutable normalized field-level and composite index declarations. */
+	readonly indexes: readonly SchemaIndexDefinition<SchemaFieldName<TFields>>[]
+	/** The immutable ordered schema-extension tuple. */
+	readonly extensions: readonly [...TExtensions]
 
-	if (!isPlainRecord(options.fields)) {
-		throw new TypeError('fields must be an object')
-	}
+	constructor(
+		options: SchemaOptions<TClassName, TFields, TExtensions> &
+			ReservedFieldCollision<NoInfer<TFields>>,
+	) {
+		if (!isPlainRecord(options)) {
+			throw new TypeError('schema options must be an object')
+		}
 
-	assertNoReservedFieldCollision(options.fields)
+		assertNonEmptyString(options.className, 'className')
 
-	for (const [name, field] of Object.entries(options.fields)) {
-		assertNonEmptyString(name, 'schema field name')
-		assertFieldDefinition(field, `fields.${name}`)
-	}
+		if (!isPlainRecord(options.fields)) {
+			throw new TypeError('fields must be an object')
+		}
 
-	const extensions =
-		options.extensions === undefined
-			? emptySchemaExtensions
-			: defineExtensions(options.extensions)
+		assertNoReservedFieldCollision(options.fields)
 
-	// Field definitions are already immutable, so only the caller-owned map needs copying.
-	return immutableRecord({
-		className: options.className,
-		fields: immutableRecord({
+		for (const [name, field] of Object.entries(options.fields)) {
+			assertNonEmptyString(name, 'schema field name')
+			assertFieldDefinition(field, `fields.${name}`)
+		}
+
+		// Keep the marker out of public enumeration while sharing it across module copies.
+		Object.defineProperty(this, schemaDefinitionMarker, {
+			configurable: false,
+			enumerable: false,
+			value: true,
+			writable: false,
+		})
+		this.className = options.className
+		// Field definitions are already immutable, so only the caller-owned map is copied.
+		this.fields = immutableRecord({
 			...options.fields,
 			...systemFields,
-		}),
-		indexes: normalizeSchemaIndexes(options.fields, options.indexes),
-		extensions,
-	})
+		})
+		// Runtime validation proves these generic names originate from the exact field map.
+		this.indexes = normalizeSchemaIndexes(
+			options.fields,
+			options.indexes,
+		) as readonly SchemaIndexDefinition<SchemaFieldName<TFields>>[]
+		// The assertion restores the constructor's exact tuple after the optional branch.
+		this.extensions = (
+			options.extensions === undefined
+				? emptySchemaExtensions
+				: defineExtensions(options.extensions)
+		) as readonly [...TExtensions]
+
+		// A class instance needs its prototype, so freeze it directly instead of copying it.
+		Object.freeze(this)
+	}
 }

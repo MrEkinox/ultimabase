@@ -1,9 +1,4 @@
-import {
-	booleanField,
-	defineSchema,
-	intField,
-	stringField,
-} from '@ultimabase/schema'
+import { booleanField, Schema, intField, stringField } from '@ultimabase/schema'
 import { describe, expect, it } from 'vitest'
 
 import type {
@@ -16,7 +11,7 @@ import { BoundQuery } from './bound-query.js'
 import { Query } from './query.js'
 import type { QueryScope } from './scope.js'
 
-const articleSchema = defineSchema({
+const articleSchema = new Schema({
 	className: 'Article',
 	fields: {
 		title: stringField(),

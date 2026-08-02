@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { compileValidationPlans, defineSchema } from '@ultimabase/schema'
+import { compileValidationPlans, Schema } from '@ultimabase/schema'
 
 import {
 	isVectorFieldValidationPlan,
@@ -23,7 +23,7 @@ describe('pgVectorPlugin field plans', () => {
 
 		options.dimensions = 3
 
-		const schema = defineSchema({
+		const schema = new Schema({
 			className: 'DetachedVectorOptions',
 			fields: { embedding: field },
 		})
@@ -41,7 +41,7 @@ describe('pgVectorPlugin field plans', () => {
 			dimensions: 3,
 			validation: { required: true },
 		})
-		const schema = defineSchema({
+		const schema = new Schema({
 			className: 'Document',
 			fields: { embedding: field },
 		})
@@ -62,7 +62,7 @@ describe('pgVectorPlugin field plans', () => {
 	})
 
 	it('validates runtime values through the associated plugin definition', () => {
-		const schema = defineSchema({
+		const schema = new Schema({
 			className: 'Document',
 			fields: {
 				embedding: vectorField({ dimensions: 2 }),

@@ -11,7 +11,7 @@ import type {
 } from '@ultimabase/access'
 import { Query } from '@ultimabase/query'
 import type { BoundQuery, ExecutableOperationAst } from '@ultimabase/query'
-import type { SchemaDefinition } from '@ultimabase/schema'
+import { Schema, type SchemaDefinition } from '@ultimabase/schema'
 import type { MaybePromise } from '@ultimabase/shared'
 import { isPlainRecord } from '@ultimabase/shared'
 
@@ -188,10 +188,7 @@ export class FrameworkEngine<
 			return
 		}
 
-		const className: string =
-			isPlainRecord(schema) && typeof schema.className === 'string'
-				? schema.className
-				: 'unknown'
+		const className: string = Schema.is(schema) ? schema.className : 'unknown'
 
 		throw new FrameworkError(
 			'VALIDATION_ERROR',

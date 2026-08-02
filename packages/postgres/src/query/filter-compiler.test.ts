@@ -6,7 +6,7 @@ import {
 	dateField,
 	dateTimeField,
 	decimalField,
-	defineSchema,
+	Schema,
 	enumField,
 	floatField,
 	intField,
@@ -21,7 +21,7 @@ import { describe, expect, it } from 'vitest'
 import { compilePostgresSchema } from '../schema/schema-compiler.js'
 import { compilePostgresFilter } from './filter-compiler.js'
 
-const FilterSchema = defineSchema({
+const FilterSchema = new Schema({
 	className: 'FilterFixture',
 	fields: {
 		active: booleanField(),

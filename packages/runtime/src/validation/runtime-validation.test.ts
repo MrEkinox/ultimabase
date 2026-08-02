@@ -17,7 +17,7 @@ import {
 	dateTimeField,
 	decimalField,
 	definePluginField,
-	defineSchema,
+	Schema,
 	enumField,
 	floatField,
 	intField,
@@ -41,7 +41,7 @@ import { createRuntimeValidationStage } from './runtime-validation.js'
 
 const runtimeDefault = vi.fn(() => 42)
 const binaryDefault = new Uint8Array([1, 2, 3])
-const validationSchema = defineSchema({
+const validationSchema = new Schema({
 	className: 'RuntimeValidation',
 	fields: {
 		title: stringField({
@@ -364,7 +364,7 @@ describe('runtime validation', () => {
 				},
 			},
 		)
-		const scalarSchema = defineSchema({
+		const scalarSchema = new Schema({
 			className: 'InvalidScalars',
 			fields: {
 				bigint: bigintField(),

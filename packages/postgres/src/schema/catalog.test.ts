@@ -1,4 +1,4 @@
-import { defineSchema, stringField } from '@ultimabase/schema'
+import { Schema, stringField } from '@ultimabase/schema'
 import { describe, expect, it } from 'vitest'
 
 import { postgresTable } from '../naming/table.js'
@@ -6,11 +6,11 @@ import { PostgresSchemaCatalog } from './catalog.js'
 
 describe('PostgreSQL schema catalog', () => {
 	it('returns an immutable managed table-name snapshot in schema order', () => {
-		const article = defineSchema({
+		const article = new Schema({
 			className: 'Article',
 			fields: { title: stringField() },
 		})
-		const audit = defineSchema({
+		const audit = new Schema({
 			className: 'Audit',
 			fields: {},
 			extensions: [postgresTable({ name: 'Exact-Audit' })],

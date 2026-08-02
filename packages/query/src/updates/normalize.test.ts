@@ -2,7 +2,7 @@ import {
 	bigintField,
 	dateTimeField,
 	decimalField,
-	defineSchema,
+	Schema,
 	floatField,
 	intField,
 	stringField,
@@ -11,7 +11,7 @@ import { describe, expect, it } from 'vitest'
 
 import { normalizeUpdateExpression } from './normalize.js'
 
-const accountSchema = defineSchema({
+const accountSchema = new Schema({
 	className: 'Account',
 	fields: {
 		name: stringField({ validation: { required: true } }),
@@ -226,9 +226,12 @@ describe('normalizeUpdateExpression', () => {
 	})
 
 	it('rejects malformed field definitions after resolving an owned key', () => {
+		// Build the malformed boundary explicitly because spreading a class loses its prototype.
 		const malformedSchema = {
-			...accountSchema,
+			className: accountSchema.className,
+			extensions: accountSchema.extensions,
 			fields: { ...accountSchema.fields, visits: undefined },
+			indexes: accountSchema.indexes,
 		} as unknown as typeof accountSchema
 
 		expect(() =>

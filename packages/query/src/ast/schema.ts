@@ -1,5 +1,5 @@
-import type { SchemaDefinition } from '@ultimabase/schema'
-import { assertNonEmptyString, isPlainRecord } from '@ultimabase/shared'
+import { Schema, type SchemaDefinition } from '@ultimabase/schema'
+import { assertNonEmptyString } from '@ultimabase/shared'
 
 import type { QueryFieldName } from './contracts.js'
 
@@ -7,14 +7,8 @@ import type { QueryFieldName } from './contracts.js'
 export const assertQuerySchemaReference: (
 	schema: unknown,
 ) => asserts schema is SchemaDefinition = (schema) => {
-	if (!isPlainRecord(schema)) {
+	if (!Schema.is(schema)) {
 		throw new TypeError('query schema must be a schema definition')
-	}
-
-	assertNonEmptyString(schema.className, 'query schema className')
-
-	if (!isPlainRecord(schema.fields)) {
-		throw new TypeError('query schema fields must be a field map')
 	}
 }
 

@@ -1,4 +1,4 @@
-import { defineSchema, stringField } from '@ultimabase/schema'
+import { Schema, stringField } from '@ultimabase/schema'
 import { expectTypeOf, test } from 'vitest'
 
 import {
@@ -13,7 +13,7 @@ import {
 } from '../index.js'
 
 test('infers schemas and top-level plugin exports from application options', async () => {
-	const schema = defineSchema({
+	const schema = new Schema({
 		className: 'TypedApplication',
 		fields: { name: stringField() },
 	})

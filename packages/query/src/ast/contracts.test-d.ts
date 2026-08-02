@@ -1,4 +1,4 @@
-import { booleanField, defineSchema, stringField } from '@ultimabase/schema'
+import { booleanField, Schema, stringField } from '@ultimabase/schema'
 import { expectTypeOf, test } from 'vitest'
 
 import {
@@ -10,7 +10,7 @@ import {
 	type QuerySelectionNode,
 } from '../index.js'
 
-const postSchema = defineSchema({
+const postSchema = new Schema({
 	className: 'Post',
 	fields: {
 		title: stringField(),

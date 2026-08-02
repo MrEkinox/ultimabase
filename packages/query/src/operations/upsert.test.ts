@@ -1,4 +1,4 @@
-import { defineSchema, intField, stringField } from '@ultimabase/schema'
+import { Schema, intField, stringField } from '@ultimabase/schema'
 import { describe, expect, it } from 'vitest'
 
 import { Query } from '../query/query.js'
@@ -9,7 +9,7 @@ import {
 	normalizeUpsertItems,
 } from './upsert.js'
 
-const accountSchema = defineSchema({
+const accountSchema = new Schema({
 	className: 'UpsertAccount',
 	fields: {
 		email: stringField({ indexed: 'unique' }),
@@ -20,7 +20,7 @@ const accountSchema = defineSchema({
 	indexes: [{ fields: ['tenantId', 'handle'], unique: true }],
 })
 
-const foreignSchema = defineSchema({
+const foreignSchema = new Schema({
 	className: 'ForeignAccount',
 	fields: { email: stringField({ indexed: 'unique' }) },
 })

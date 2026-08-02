@@ -187,9 +187,9 @@ names stay typed through every later stage:
 
 ```ts
 import { createQueryAst } from '@ultimabase/query'
-import { defineSchema, stringField } from '@ultimabase/schema'
+import { Schema, stringField } from '@ultimabase/schema'
 
-const postSchema = defineSchema({
+const postSchema = new Schema({
 	className: 'Post',
 	fields: {
 		title: stringField(),

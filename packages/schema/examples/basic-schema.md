@@ -1,19 +1,19 @@
 # Basic schema
 
-`defineSchema` combines typed field declarations and automatically adds the
+`new Schema()` combines typed field declarations and automatically adds the
 framework-owned `id`, `createdAt`, and `updatedAt` fields.
 
 ```ts
 import {
 	booleanField,
-	defineSchema,
+	Schema,
 	stringField,
 	type InferCreateInput,
 	type InferObject,
 	type InferUpdateInput,
 } from '@ultimabase/schema'
 
-export const UserSchema = defineSchema({
+export const UserSchema = new Schema({
 	className: 'User',
 	fields: {
 		username: stringField({

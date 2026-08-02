@@ -2,7 +2,7 @@ import type { UserRequestAccess } from '@ultimabase/access'
 import {
 	intField,
 	stringField,
-	defineSchema,
+	Schema,
 	type InferObject,
 } from '@ultimabase/schema'
 import { expectTypeOf, test } from 'vitest'
@@ -10,7 +10,7 @@ import { expectTypeOf, test } from 'vitest'
 import type { RequestContext } from '../src/context/request-context.js'
 import type { RequestEngine } from '../src/engine/framework-engine.js'
 
-const articleSchema = defineSchema({
+const articleSchema = new Schema({
 	className: 'TypedTerminalArticle',
 	fields: {
 		title: stringField({ validation: { required: true } }),

@@ -1,5 +1,5 @@
 import { Query, type FindOperationAst } from '@ultimabase/query'
-import { defineSchema, stringField } from '@ultimabase/schema'
+import { Schema, stringField } from '@ultimabase/schema'
 import { expectTypeOf, test } from 'vitest'
 
 import { RequestContext, requestSources } from '../context/request-context.js'
@@ -10,7 +10,7 @@ import {
 import type { RuntimePipelineStages } from './contracts.js'
 import { RuntimePipeline } from './runtime-pipeline.js'
 
-const articleSchema = defineSchema({
+const articleSchema = new Schema({
 	className: 'Article',
 	fields: {
 		title: stringField({ validation: { required: true } }),

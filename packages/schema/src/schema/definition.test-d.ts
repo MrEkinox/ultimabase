@@ -3,7 +3,7 @@ import { expectTypeOf, test } from 'vitest'
 import {
 	booleanField,
 	defineFieldExtension,
-	defineSchema,
+	Schema,
 	defineSchemaExtension,
 	stringField,
 	type SchemaDefinition,
@@ -13,7 +13,7 @@ test('preserves schema, field, and extension literals', () => {
 	const permissions = defineSchemaExtension('fixture.permissions', {
 		mode: 'strict',
 	})
-	const schema = defineSchema({
+	const schema = new Schema({
 		className: 'Post',
 		fields: {
 			title: stringField({
@@ -45,7 +45,7 @@ test('preserves schema, field, and extension literals', () => {
 })
 
 test('normalizes absent extensions to an empty tuple', () => {
-	const schema = defineSchema({
+	const schema = new Schema({
 		className: 'Post',
 		fields: {},
 	})
@@ -53,36 +53,46 @@ test('normalizes absent extensions to an empty tuple', () => {
 	expectTypeOf(schema.extensions).toEqualTypeOf<readonly []>()
 })
 
+test('narrows untrusted values through Schema constructor identity', () => {
+	const value: unknown = new Schema({ className: 'Post', fields: {} })
+
+	if (Schema.is(value)) {
+		expectTypeOf(value).toExtend<SchemaDefinition>()
+	}
+})
+
 test('rejects reserved fields and incompatible metadata', () => {
+	// @ts-expect-error -- Schema declarations require class construction.
+	Schema({ className: 'InvalidCall', fields: {} })
 	// @ts-expect-error -- UltimaBase owns the id field.
-	defineSchema({
+	new Schema({
 		className: 'InvalidId',
 		fields: {
 			id: stringField(),
 		},
 	})
 	// @ts-expect-error -- UltimaBase owns the createdAt field.
-	defineSchema({
+	new Schema({
 		className: 'InvalidCreatedAt',
 		fields: {
 			createdAt: stringField(),
 		},
 	})
 	// @ts-expect-error -- UltimaBase owns the updatedAt field.
-	defineSchema({
+	new Schema({
 		className: 'InvalidUpdatedAt',
 		fields: {
 			updatedAt: stringField(),
 		},
 	})
-	defineSchema({
+	new Schema({
 		className: 'InvalidField',
 		fields: {
 			// @ts-expect-error -- Schema properties must use field definitions.
 			title: 'string',
 		},
 	})
-	defineSchema({
+	new Schema({
 		className: 'InvalidExtension',
 		fields: {},
 		extensions: [

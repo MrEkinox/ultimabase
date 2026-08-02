@@ -1,5 +1,5 @@
 import { FrameworkApplication, FrameworkError } from '@ultimabase/core'
-import { defineSchema, stringField } from '@ultimabase/schema'
+import { Schema, stringField } from '@ultimabase/schema'
 import { describe, expect, it } from 'vitest'
 
 import type { DatabaseOperationExecutor } from '../database/contracts.js'
@@ -16,7 +16,7 @@ import {
 } from './active-framework-context.js'
 import { requestSources } from './request-context.js'
 
-const articleSchema = defineSchema({
+const articleSchema = new Schema({
 	className: 'ScopedArticle',
 	fields: { title: stringField() },
 })

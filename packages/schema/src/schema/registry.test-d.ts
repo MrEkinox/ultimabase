@@ -3,19 +3,19 @@ import { expectTypeOf, test } from 'vitest'
 import {
 	DuplicateSchemaError,
 	SchemaRegistry,
-	defineSchema,
+	Schema,
 	stringField,
 	type SchemaDefinition,
 } from '../index.js'
 
-const userSchema = defineSchema({
+const userSchema = new Schema({
 	className: 'User',
 	fields: {
 		name: stringField(),
 	},
 })
 
-const postSchema = defineSchema({
+const postSchema = new Schema({
 	className: 'Post',
 	fields: {
 		title: stringField(),

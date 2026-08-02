@@ -2,6 +2,7 @@ import type { OperationKind, UpdateExpressionNode } from '@ultimabase/query'
 import {
 	compileValidationPlans,
 	fieldUsesTemporalTimezone,
+	Schema,
 	snapshotScalarFieldValue,
 	validateScalarFieldConstraints,
 	type AnyValidationIssueCode,
@@ -532,11 +533,7 @@ const validateUpdateExpression = (
 }
 
 const assertSchemaDefinition = (value: unknown): SchemaDefinition => {
-	if (
-		!isPlainRecord(value) ||
-		typeof value.className !== 'string' ||
-		!isPlainRecord(value.fields)
-	) {
+	if (!Schema.is(value)) {
 		throw new FrameworkError(
 			'VALIDATION_ERROR',
 			'Operation schema is not a schema definition.',
@@ -544,7 +541,7 @@ const assertSchemaDefinition = (value: unknown): SchemaDefinition => {
 		)
 	}
 
-	return value as unknown as SchemaDefinition
+	return value
 }
 
 const throwValidationIssues = (

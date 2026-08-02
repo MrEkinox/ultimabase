@@ -10,7 +10,7 @@ import {
 	dateField,
 	dateTimeField,
 	decimalField,
-	defineSchema,
+	Schema,
 	enumField,
 	floatField,
 	intField,
@@ -28,7 +28,7 @@ import {
 	type PostgresWorkerFixture,
 } from './postgres-worker-fixture.js'
 
-const PostSchema = defineSchema({
+const PostSchema = new Schema({
 	className: 'RuntimePost',
 	fields: {
 		attachment: binaryField(),

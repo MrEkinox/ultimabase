@@ -1,14 +1,14 @@
 import { expectTypeOf, test } from 'vitest'
 
 import {
-	defineSchema,
+	Schema,
 	stringField,
 	type SchemaIndexDefinition,
 	type SchemaIndexOptions,
 } from '../index.js'
 
 test('checks composite fields and exposes one normalized index type', () => {
-	const schema = defineSchema({
+	const schema = new Schema({
 		className: 'Post',
 		fields: {
 			authorId: stringField(),
@@ -33,7 +33,7 @@ test('checks composite fields and exposes one normalized index type', () => {
 })
 
 test('rejects invalid composite declarations statically', () => {
-	defineSchema({
+	new Schema({
 		className: 'UnknownField',
 		fields: {
 			title: stringField(),
@@ -44,7 +44,7 @@ test('rejects invalid composite declarations statically', () => {
 		],
 	})
 
-	defineSchema({
+	new Schema({
 		className: 'ShortIndex',
 		fields: {
 			title: stringField(),
@@ -55,7 +55,7 @@ test('rejects invalid composite declarations statically', () => {
 		],
 	})
 
-	defineSchema({
+	new Schema({
 		className: 'InvalidUnique',
 		fields: {
 			slug: stringField(),

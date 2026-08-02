@@ -1,9 +1,9 @@
-import { booleanField, defineSchema, stringField } from '@ultimabase/schema'
+import { booleanField, Schema, stringField } from '@ultimabase/schema'
 import { describe, expect, it } from 'vitest'
 
 import { createQueryAst } from './factory.js'
 
-const postSchema = defineSchema({
+const postSchema = new Schema({
 	className: 'Post',
 	fields: {
 		title: stringField(),
@@ -52,16 +52,14 @@ describe('createQueryAst', () => {
 			createQueryAst(null)
 		}).toThrow(new TypeError('query schema must be a schema definition'))
 		expect(() => {
-			// @ts-expect-error -- Runtime validation protects incomplete definitions.
+			// @ts-expect-error -- Runtime validation protects forged schema references.
 			createQueryAst({
 				className: '',
 			})
-		}).toThrow(
-			new TypeError('query schema className must be a non-empty string'),
-		)
+		}).toThrow(new TypeError('query schema must be a schema definition'))
 		expect(() => {
 			// @ts-expect-error -- Runtime validation protects forged schema references.
 			createQueryAst({ className: 'Forged' })
-		}).toThrow(new TypeError('query schema fields must be a field map'))
+		}).toThrow(new TypeError('query schema must be a schema definition'))
 	})
 })

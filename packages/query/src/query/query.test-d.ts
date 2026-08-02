@@ -1,6 +1,6 @@
 import {
 	booleanField,
-	defineSchema,
+	Schema,
 	enumField,
 	intField,
 	objectField,
@@ -14,7 +14,7 @@ import {
 	type QueryFilterNode,
 } from '../index.js'
 
-const postSchema = defineSchema({
+const postSchema = new Schema({
 	className: 'Post',
 	fields: {
 		title: stringField(),
@@ -92,7 +92,7 @@ test('correlates every filter field with its exact operand type', () => {
 
 test('restricts fields, pagination values, and logical schemas', () => {
 	const query = new Query(postSchema)
-	const commentSchema = defineSchema({
+	const commentSchema = new Schema({
 		className: 'Comment',
 		fields: { body: stringField() },
 	})

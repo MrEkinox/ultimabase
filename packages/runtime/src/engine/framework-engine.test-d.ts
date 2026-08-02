@@ -6,7 +6,7 @@ import type {
 import { FrameworkApplication } from '@ultimabase/core'
 import type { BoundQuery, FindOperationAst } from '@ultimabase/query'
 import { Query } from '@ultimabase/query'
-import { defineSchema, stringField, type InferObject } from '@ultimabase/schema'
+import { Schema, stringField, type InferObject } from '@ultimabase/schema'
 import { expectTypeOf, test } from 'vitest'
 
 import type { DatabaseObjectRecord } from '../database/contracts.js'
@@ -14,11 +14,11 @@ import { MasterAuthority } from '../master/master-authority.js'
 import type { RuntimePipeline } from '../pipeline/runtime-pipeline.js'
 import { FrameworkEngine, type RequestEngine } from './framework-engine.js'
 
-const schema = defineSchema({
+const schema = new Schema({
 	className: 'TypedArticle',
 	fields: { title: stringField() },
 })
-const authorSchema = defineSchema({
+const authorSchema = new Schema({
 	className: 'TypedAuthor',
 	fields: { name: stringField() },
 })

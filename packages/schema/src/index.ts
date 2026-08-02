@@ -121,7 +121,7 @@ export type {
 	FloatRangeValidationOptions,
 	FloatValidationOptions,
 } from './fields/builtins/float.js'
-export { defineSchema } from './schema/definition.js'
+export { Schema } from './schema/definition.js'
 export type {
 	SchemaDefinition,
 	SchemaExtensions,

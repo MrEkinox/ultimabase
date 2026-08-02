@@ -1,6 +1,6 @@
 import { RequestCapability } from '@ultimabase/access'
 import { FrameworkApplication, FrameworkError } from '@ultimabase/core'
-import { defineSchema, intField, stringField } from '@ultimabase/schema'
+import { Schema, intField, stringField } from '@ultimabase/schema'
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -17,7 +17,7 @@ import {
 	type TransactionFailureOptions,
 } from './fixtures/recording-database-adapter.js'
 
-const articleSchema = defineSchema({
+const articleSchema = new Schema({
 	className: 'TransactionArticle',
 	fields: {
 		title: stringField({ validation: { required: true } }),

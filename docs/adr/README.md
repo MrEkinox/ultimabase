@@ -91,6 +91,7 @@ Accepted records:
 - [ADR-0090: Permission plugins contribute monotonic hooks](0090-permission-plugins-through-hooks.md)
 - [ADR-0091: JSON fields require document roots](0091-json-document-root-values.md)
 - [ADR-0092: Bound queries require executors](0092-bound-queries-require-executors.md)
+- [ADR-0093: Immutable Schema constructor API](0093-schema-constructor-api.md)
 
 Superseded records:
 

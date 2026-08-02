@@ -15,7 +15,7 @@ Schema's `snapshotValue` contract. Its snapshot is pure, deterministic, and
 idempotent, so declaration-time static defaults own detached vector values.
 
 ```ts
-const DocumentSchema = defineSchema({
+const DocumentSchema = new Schema({
 	className: 'Document',
 	fields: {
 		embedding: vectorField({

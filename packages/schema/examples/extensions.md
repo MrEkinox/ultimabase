@@ -8,7 +8,7 @@ extension identities.
 ```ts
 import {
 	defineFieldExtension,
-	defineSchema,
+	Schema,
 	defineSchemaExtension,
 	stringField,
 } from '@ultimabase/schema'
@@ -27,7 +27,7 @@ const fieldPermissions = defineFieldExtension(
 	permissionPluginName,
 )
 
-export const PostSchema = defineSchema({
+export const PostSchema = new Schema({
 	className: 'Post',
 	fields: {
 		title: stringField(),

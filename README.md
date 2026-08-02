@@ -9,7 +9,7 @@ It takes inspiration from the simplicity of Parse Server while deliberately repl
 ## Intended developer experience
 
 ```ts
-export const UserSchema = defineSchema({
+export const UserSchema = new Schema({
 	className: 'User',
 	fields: {
 		name: stringField({
@@ -54,7 +54,7 @@ const users = await requestEngine
 - Concrete capabilities are plugins.
 - Core and Runtime do not know infrastructure implementations.
 - REST and GraphQL use one operation AST and one runtime pipeline.
-- Query and ACL builders are immutable classes.
+- Schema, Query, ACL, and Role domain objects use immutable classes.
 - CLP, ACL, roles, and field access are independent plugins.
 - PostgreSQL synchronization and PostgreSQL migrations are separate capabilities.
 - The framework targets Node.js 24+, ESM, TypeScript, and an Apache-2.0 license.
