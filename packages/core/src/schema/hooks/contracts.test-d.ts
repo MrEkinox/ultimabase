@@ -9,6 +9,8 @@ import {
 	type InferUpdateInput,
 	type HookValidationIssue,
 	type HookValidationIssueCode,
+	type HookErrorPhase,
+	type HookErrorTransactionState,
 	type SchemaHookOperation,
 	type SchemaOperationOutcome,
 	type SchemaHookResult,
@@ -130,12 +132,18 @@ const ArticleSchema = new Schema({
 			expectTypeOf(error).toBeUnknown()
 			expectTypeOf(operations).toExtend<readonly unknown[]>()
 		},
-		onError: ({ error, kind, operation }) => {
+		onError: ({ error, kind, operation, phase, transaction }) => {
 			expectTypeOf(error).toBeUnknown()
 			expectTypeOf(kind).toEqualTypeOf<typeof operation.kind>()
 			expectTypeOf(operation.kind).toEqualTypeOf<
 				SchemaHookOperation<typeof ArticleSchema>['kind']
 			>()
+			expectTypeOf(phase).toEqualTypeOf<HookErrorPhase>()
+			expectTypeOf(transaction).toEqualTypeOf<HookErrorTransactionState>()
+
+			if (transaction.status === 'rolled-back') {
+				expectTypeOf(transaction.rollback).toEqualTypeOf<'succeeded'>()
+			}
 		},
 	},
 })
@@ -167,6 +175,32 @@ test('exports compact schema hook inference contracts', () => {
 		SchemaHookResult<SchemaHookOperation<typeof ArticleSchema, 'count'>>
 	>().toEqualTypeOf<number>()
 	expectTypeOf<SchemaHooks<typeof ArticleSchema>>().toBeObject()
+})
+
+test('keeps error transaction outcomes internally consistent', () => {
+	expectTypeOf<HookErrorTransactionState>().toEqualTypeOf<
+		| Readonly<{
+				status: 'not-started'
+				rollback: 'not-applicable'
+		  }>
+		| Readonly<{ status: 'rolled-back'; rollback: 'succeeded' }>
+		| Readonly<{ status: 'rollback-failed'; rollback: 'failed' }>
+		| Readonly<{ status: 'committed'; rollback: 'not-applicable' }>
+	>()
+	expectTypeOf<HookErrorPhase>().toEqualTypeOf<
+		| 'transaction-start'
+		| 'operation'
+		| 'before-commit'
+		| 'commit'
+		| 'rollback'
+		| 'after-rollback'
+		| 'after-commit'
+		| 'post-commit'
+	>()
+	expectTypeOf<{
+		status: 'committed'
+		rollback: 'succeeded'
+	}>().not.toExtend<HookErrorTransactionState>()
 })
 
 test('keeps finalization results honest about selected fields', () => {

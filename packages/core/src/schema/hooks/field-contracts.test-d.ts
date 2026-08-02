@@ -18,6 +18,8 @@ import {
 	type FieldOnChangeHook,
 	type FieldValueChange,
 	type FieldValueState,
+	type HookErrorPhase,
+	type HookErrorTransactionState,
 	type InferCreateInput,
 	type InferObject,
 	type InferUpdateInput,
@@ -255,6 +257,19 @@ test('keeps set-based terminals out of materialized field hooks', () => {
 	expectTypeOf<'find'>().toExtend<ErrorKind>()
 	expectTypeOf<'first'>().toExtend<ErrorKind>()
 	expectTypeOf<'get'>().toExtend<ErrorKind>()
+})
+
+test('exposes precise error lifecycle metadata to field hooks', () => {
+	const observeError: FieldErrorHook = ({ phase, transaction }) => {
+		expectTypeOf(phase).toEqualTypeOf<HookErrorPhase>()
+		expectTypeOf(transaction).toEqualTypeOf<HookErrorTransactionState>()
+
+		if (transaction.status === 'rollback-failed') {
+			expectTypeOf(transaction.rollback).toEqualTypeOf<'failed'>()
+		}
+	}
+
+	expectTypeOf(observeError).toEqualTypeOf<FieldErrorHook>()
 })
 
 test('types ordered field handler lists and compatible family maps', () => {

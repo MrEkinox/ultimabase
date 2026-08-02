@@ -165,6 +165,11 @@ export type DatabaseMutationMaterialization<
 					: never
 	: never
 
+/** Exposes only validated materializations to Runtime lifecycle bookkeeping. */
+export interface DatabaseMutationMaterializationSource {
+	readonly materializations: readonly DatabaseMutationMaterialization[]
+}
+
 interface DatabaseMaterializedOutcome<
 	TOperation extends DatabaseMutationOperationAst,
 	TResult,

@@ -406,6 +406,49 @@ export type SchemaAfterRollbackHook<TSchema extends SchemaDefinition> = (
 	input: SchemaAfterRollbackInput<TSchema>,
 ) => MaybePromise<void>
 
+/** Identifies the stable public boundary at which an observed failure began. */
+export type HookErrorPhase =
+	| 'transaction-start'
+	| 'operation'
+	| 'before-commit'
+	| 'commit'
+	| 'rollback'
+	| 'after-rollback'
+	| 'after-commit'
+	| 'post-commit'
+
+/**
+ * Describes the final transaction outcome known when an error hook runs.
+ *
+ * The discriminated union prevents consumers from observing impossible pairs,
+ * such as a committed transaction that also reports a successful rollback.
+ */
+export type HookErrorTransactionState =
+	| Readonly<{
+			/** No adapter transaction existed for this operation failure. */
+			status: 'not-started'
+			/** Rollback cannot apply when no transaction was opened. */
+			rollback: 'not-applicable'
+	  }>
+	| Readonly<{
+			/** The adapter confirmed that the transaction was discarded. */
+			status: 'rolled-back'
+			/** Confirms that rollback completed successfully. */
+			rollback: 'succeeded'
+	  }>
+	| Readonly<{
+			/** The transaction failed and its adapter rollback also failed. */
+			status: 'rollback-failed'
+			/** Reports the failed rollback without implying that data was discarded. */
+			rollback: 'failed'
+	  }>
+	| Readonly<{
+			/** Persistence committed before a finalization observer failed. */
+			status: 'committed'
+			/** A committed transaction must never be reported as rolled back. */
+			rollback: 'not-applicable'
+	  }>
+
 /** Describes one failed operation before or during transactional execution. */
 export type SchemaErrorHookInput<
 	TSchema extends SchemaDefinition,
@@ -421,6 +464,10 @@ export type SchemaErrorHookInput<
 					kind: TOperation['kind']
 					/** The immutable operation that failed. */
 					operation: TOperation
+					/** The stable lifecycle boundary where the original failure began. */
+					phase: HookErrorPhase
+					/** The final transaction and rollback outcome known to this observer. */
+					transaction: HookErrorTransactionState
 				}>
 			: never
 		: never

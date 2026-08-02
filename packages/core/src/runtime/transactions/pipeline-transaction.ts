@@ -2,6 +2,10 @@ import { FrameworkError } from '../../foundation.js'
 import { immutableRecord, type MaybePromise } from '@ultimabase/shared'
 
 import type {
+	HookErrorPhase,
+	HookErrorTransactionState,
+} from '../../schema/hooks/contracts.js'
+import type {
 	DatabaseAdapter,
 	DatabaseOperationExecutor,
 	DatabaseTransactionAdapter,
@@ -19,9 +23,19 @@ type RuntimePipelineFactory = (stages: RuntimePipelineStages) => RuntimePipeline
 /** Exposes only the lifecycle operations needed by the RequestEngine runner. */
 export interface RuntimePipelineTransactionScope {
 	readonly pipeline: RuntimePipeline
+	beforeCommit(): Promise<void>
 	commit(): Promise<void>
 	rollback(): Promise<void>
+	afterCommit(): Promise<void>
+	afterRollback(error: unknown): Promise<void>
 	flushPostCommitEvents(): Promise<void>
+	onError(
+		input: Readonly<{
+			readonly error: unknown
+			readonly phase: HookErrorPhase
+			readonly transaction: HookErrorTransactionState
+		}>,
+	): Promise<void>
 }
 
 /** Narrows the root executor before asking an infrastructure plugin for a transaction. */
@@ -89,6 +103,8 @@ export const beginPipelineTransaction = async (
 	const databaseAdapter: DatabaseOperationExecutor = stages.databaseOperation
 
 	assertDatabaseAdapter(databaseAdapter)
+	const transactionLifecycle =
+		stages.nativeHooks?.createTransactionLifecycle?.()
 
 	const transaction: unknown = await databaseAdapter.beginTransaction()
 
@@ -98,17 +114,36 @@ export const beginPipelineTransaction = async (
 	const deferPostCommitEvents: RuntimeResultEffectStage = (input) => {
 		postCommitEffects.push(() => stages.postCommitEvents(input))
 	}
+	const transactionNativeHooks =
+		stages.nativeHooks === undefined
+			? undefined
+			: immutableRecord({
+					...stages.nativeHooks,
+					...(transactionLifecycle === undefined
+						? {}
+						: { transactionLifecycle }),
+				})
 	const transactionPipeline: RuntimePipeline = createPipeline({
 		...stages,
 		databaseOperation: transaction,
 		// The outer scope commits the adapter exactly once after the callback.
 		commit: () => undefined,
 		postCommitEvents: deferPostCommitEvents,
+		...(transactionNativeHooks === undefined
+			? {}
+			: { nativeHooks: transactionNativeHooks }),
 	})
 	let state: TransactionScopeState = 'active'
 
 	return immutableRecord({
 		pipeline: transactionPipeline,
+		beforeCommit: async (): Promise<void> => {
+			if (state !== 'active') {
+				throw new TypeError('Runtime transaction scope is already finalized')
+			}
+
+			await transactionLifecycle?.beforeCommit()
+		},
 		commit: async (): Promise<void> => {
 			if (state !== 'active') {
 				throw new TypeError('Runtime transaction scope is already finalized')
@@ -124,11 +159,26 @@ export const beginPipelineTransaction = async (
 
 			postCommitEffects.length = 0
 
-			try {
-				await transaction.rollback()
-			} finally {
-				state = 'rolled-back'
+			await transaction.rollback()
+			state = 'rolled-back'
+		},
+		afterCommit: async (): Promise<void> => {
+			if (state !== 'committed') {
+				throw new TypeError(
+					'Runtime transaction hooks require a committed transaction',
+				)
 			}
+
+			await transactionLifecycle?.afterCommit()
+		},
+		afterRollback: async (error): Promise<void> => {
+			if (state !== 'rolled-back') {
+				throw new TypeError(
+					'Runtime rollback hooks require a rolled-back transaction',
+				)
+			}
+
+			await transactionLifecycle?.afterRollback(error)
 		},
 		flushPostCommitEvents: async (): Promise<void> => {
 			if (state !== 'committed') {
@@ -143,6 +193,9 @@ export const beginPipelineTransaction = async (
 			for (const effect of effects) {
 				await effect()
 			}
+		},
+		onError: async (input): Promise<void> => {
+			await transactionLifecycle?.onError(input)
 		},
 	})
 }

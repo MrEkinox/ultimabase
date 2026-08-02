@@ -10,6 +10,7 @@ import type {
 import type { GenericField } from '../../schema/index.js'
 import type {
 	DatabaseLogicalRecord,
+	DatabaseMutationMaterializationSource,
 	DatabaseMutationOperationAst,
 	DatabaseOperationOutcome,
 } from '../database/contracts.js'
@@ -204,11 +205,9 @@ const collectAffectedValues = (
 }
 
 /** Produces child-first after-hook values without exposing selected public results. */
-export const collectMutationAfterFieldValues = <
-	const TOperation extends DatabaseMutationOperationAst,
->(
-	operation: TOperation,
-	outcome: DatabaseOperationOutcome<TOperation>,
+export const collectMutationAfterFieldValues = (
+	operation: DatabaseMutationOperationAst,
+	outcome: DatabaseMutationMaterializationSource,
 ): readonly RuntimeMutationFieldValue[] => {
 	if (operation.kind === 'delete-many' || operation.kind === 'update-many') {
 		return emptyMutationValues
@@ -373,11 +372,9 @@ const collectMaterializationChanges = (
 }
 
 /** Produces only real child-first semantic changes for materialized mutations. */
-export const collectMutationFieldChanges = <
-	const TOperation extends DatabaseMutationOperationAst,
->(
-	operation: TOperation,
-	outcome: DatabaseOperationOutcome<TOperation>,
+export const collectMutationFieldChanges = (
+	operation: DatabaseMutationOperationAst,
+	outcome: DatabaseMutationMaterializationSource,
 ): readonly RuntimeMutationFieldChange[] => {
 	if (operation.kind === 'delete-many' || operation.kind === 'update-many') {
 		return emptyMutationChanges

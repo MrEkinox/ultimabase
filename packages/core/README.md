@@ -184,6 +184,15 @@ issues are reported together before policy or database work begins. Business
 before hooks run inside the automatic mutation transaction, so throwing from a
 hook rolls back database work performed earlier in the same request.
 
+Transaction finalization is explicit and ordered. `beforeCommit` receives one
+immutable per-schema summary before the adapter commits. Field and schema
+`afterCommit` handlers run in operation order after the outer commit;
+`afterRollback` runs only after a confirmed rollback. `onError` distinguishes
+an operation failure, commit failure, rollback failure, and already committed
+post-commit failure without exposing adapter controls. See the
+[Runtime guide](docs/runtime.md#transaction-finalization-hooks) for the public
+contract and example.
+
 ## Inline field hooks
 
 Every built-in and plugin-defined field accepts value-focused hooks without

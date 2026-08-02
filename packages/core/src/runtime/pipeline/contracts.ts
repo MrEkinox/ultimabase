@@ -2,8 +2,13 @@ import type { MaybePromise } from '@ultimabase/shared'
 
 import type { RequestContext } from '../context/request-context.js'
 import type {
+	HookErrorPhase,
+	HookErrorTransactionState,
+} from '../../schema/hooks/contracts.js'
+import type {
 	DatabaseConstraintNode,
 	DatabaseMutationLogicalRecord,
+	DatabaseMutationMaterializationSource,
 	DatabaseMutationOperationAst,
 	DatabaseOperationAst,
 	DatabaseOperationOutcome,
@@ -143,6 +148,47 @@ export interface RuntimeMutationOutcomeStageInput<
 	readonly outcome: DatabaseOperationOutcome<TOperation>
 }
 
+/** Retains mutable journal state behind an operation-local internal handle. */
+export interface RuntimeNativeTransactionOperation {
+	succeed(
+		operation: DatabaseOperationAst,
+		result: unknown,
+		outcome?: DatabaseMutationMaterializationSource,
+	): void
+	fail(
+		operation: DatabaseOperationAst,
+		error: unknown,
+		phase: HookErrorPhase,
+	): void
+}
+
+/** Owns native hook finalization for exactly one outer adapter transaction. */
+export interface RuntimeNativeTransactionLifecycle {
+	start(
+		input: RuntimeOperationStageInput<DatabaseOperationAst>,
+	): RuntimeNativeTransactionOperation
+	beforeCommit(): Promise<void>
+	afterCommit(): Promise<void>
+	afterRollback(error: unknown): Promise<void>
+	onError(
+		input: Readonly<{
+			readonly error: unknown
+			readonly phase: HookErrorPhase
+			readonly transaction: HookErrorTransactionState
+		}>,
+	): Promise<void>
+}
+
+/** Observes one non-transactional failure after its final state is known. */
+export type RuntimeNativeErrorEffectStage = (
+	input: RuntimeOperationStageInput<DatabaseOperationAst> &
+		Readonly<{
+			readonly error: unknown
+			readonly phase: HookErrorPhase
+			readonly transaction: HookErrorTransactionState
+		}>,
+) => MaybePromise<void>
+
 /** Executes affected-field before hooks without granting handle ownership. */
 export type RuntimePreparedMutationEffectStage = <
 	const TOperation extends DatabaseMutationOperationAst,
@@ -167,6 +213,12 @@ export interface RuntimeNativeHookStages {
 	readonly fieldAfter: RuntimeMutationOutcomeTransformStage
 	readonly resolveOutput: RuntimeNativeResultTransformStage
 	readonly schemaAfter: RuntimeNativeResultTransformStage
+	/** Creates isolated finalization state only when an outer transaction begins. */
+	readonly createTransactionLifecycle?: () => RuntimeNativeTransactionLifecycle
+	/** Observes failures for operations that do not own a transaction journal. */
+	readonly onError?: RuntimeNativeErrorEffectStage
+	/** Installed only on the pipeline derived for one active transaction. */
+	readonly transactionLifecycle?: RuntimeNativeTransactionLifecycle
 }
 
 /**

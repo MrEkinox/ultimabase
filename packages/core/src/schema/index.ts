@@ -231,6 +231,8 @@ export type {
 	SchemaHookValidationIssue,
 	HookValidationIssue,
 	HookValidationIssueCode,
+	HookErrorPhase,
+	HookErrorTransactionState,
 	SchemaMutationHookKind,
 	SchemaOperationHookInput,
 	SchemaOperationOutcome,

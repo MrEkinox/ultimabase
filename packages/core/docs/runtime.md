@@ -249,6 +249,57 @@ Root reads do not open an automatic transaction. A read inside
 engine; otherwise, hooks must not assume read-started database work can roll
 back with the read.
 
+## Transaction finalization hooks
+
+Every automatic mutation and explicit transaction shares one finalization
+lifecycle. `beforeCommit` receives the successful mutations accumulated for its
+schema and may still abort the transaction. `afterCommit` runs once per
+successful mutation only after the adapter confirms the outer commit:
+
+```ts
+const ArticleSchema = new Schema({
+	className: 'Article',
+	fields: {
+		title: stringField({ validation: { required: true } }),
+	},
+	hooks: {
+		beforeCommit: ({ changes }) => {
+			// One immutable summary contains this schema's transaction changes.
+			console.log(changes.length)
+		},
+		afterCommit: ({ kind, result }) => {
+			// External work now observes committed database state.
+			console.log(kind, result)
+		},
+		afterRollback: ({ error, operations }) => {
+			console.error(error, operations.length)
+		},
+		onError: ({ error, phase, transaction }) => {
+			console.error(error, phase, transaction.status)
+		},
+	},
+})
+```
+
+An explicit transaction may touch several schemas. Each participating schema's
+`beforeCommit` runs at most once with only its changes, while per-operation
+`afterCommit` handlers retain operation start order. Inline field
+`afterCommit` runs only for real materialized value changes. Set-based
+`updateMany` and `deleteMany` remain schema-only and never load rows merely to
+manufacture field callbacks.
+
+If commit fails, Runtime attempts rollback and reports whether the adapter
+confirmed or rejected it. `afterRollback` never runs after a failed rollback.
+Failures from `afterCommit` or post-commit events report an already committed
+state and never attempt rollback. An `onError` observer receives the initiating
+error as `unknown`, a stable phase, and a discriminated transaction state; its
+input exposes no adapter or lifecycle controls.
+
+The transaction-scoped request engine expires before finalization observers
+run. A hook may not retain an earlier engine and use it from `afterCommit` or
+`afterRollback`. The dedicated `HookContext` issue will add the supported
+transaction-bound query and event capabilities to earlier hook phases.
+
 ## Structural validation
 
 `createRuntimeValidationStage()` executes Schema's create and update plans in

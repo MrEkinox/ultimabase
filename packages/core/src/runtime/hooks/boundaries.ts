@@ -496,6 +496,9 @@ const assertOutcomeCardinality = (
 
 /** Owns immutable validation boundaries shared by every native hook phase. */
 export interface RuntimeHookBoundaries {
+	/** Deeply snapshots trusted Runtime data without applying operation semantics. */
+	snapshotValue<const TValue>(value: TValue): TValue
+
 	/** Snapshots a replacement while preserving its exact terminal and schema identity. */
 	snapshotOperationReplacement<const TOperation extends DatabaseOperationAst>(
 		operation: TOperation,
@@ -553,6 +556,8 @@ export const createRuntimeHookBoundaries = (): RuntimeHookBoundaries => {
 	}
 
 	return immutableRecord({
+		snapshotValue: <const TValue>(value: TValue): TValue =>
+			snapshotBoundaryValue(value, [], new WeakSet<object>()) as TValue,
 		snapshotMutationOutcome: <
 			const TOperation extends DatabaseMutationOperationAst,
 		>(

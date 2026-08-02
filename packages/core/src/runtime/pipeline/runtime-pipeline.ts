@@ -13,9 +13,11 @@ import type {
 	DatabaseMutationOperationAst,
 	DatabaseOperationAst,
 	DatabaseOperationExecutor,
+	DatabaseOperationOutcome,
 	DatabaseOperationResult,
 	DatabaseTransactionAdapter,
 } from '../database/contracts.js'
+import type { HookErrorPhase } from '../../schema/hooks/contracts.js'
 import {
 	beginPipelineTransaction,
 	type RuntimePipelineTransactionScope,
@@ -27,6 +29,7 @@ import type {
 	RuntimeEnforcementStages,
 	RuntimeOperationStageInput,
 	RuntimeNativeHookStages,
+	RuntimeNativeTransactionOperation,
 	RuntimeNativeResultStageInput,
 	RuntimePipelineRequest,
 	RuntimePipelineStages,
@@ -68,6 +71,29 @@ const nativeHookStageNames = [
 ] as const satisfies readonly (keyof RuntimeNativeHookStages)[]
 
 const emptyConstraints: readonly DatabaseConstraintNode[] = immutableArray([])
+
+interface RuntimeDatabaseExecution<TOperation extends DatabaseOperationAst> {
+	readonly outcome?: DatabaseOperationOutcome<DatabaseMutationOperationAst>
+	readonly result: DatabaseOperationResult<TOperation>
+}
+
+/** Carries only mutable orchestration state that never crosses a hook boundary. */
+interface RuntimePipelineExecutionState {
+	operation: DatabaseOperationAst
+	readonly phase: HookErrorPhase
+	transactionOperation?: RuntimeNativeTransactionOperation
+}
+
+/** Preserves an operation failure when its error observer independently fails. */
+const combineExecutionErrors = (
+	error: unknown,
+	observerError: unknown,
+): AggregateError =>
+	new AggregateError(
+		[error, observerError],
+		'Runtime operation and its error observer both failed.',
+		{ cause: error },
+	)
 
 /** Narrows the closed terminal union before selecting the adapter protocol. */
 const isMutationOperation = (
@@ -123,9 +149,9 @@ const executeDatabaseOperation = async <
 		readonly constraints: readonly DatabaseConstraintNode[]
 		readonly operation: TOperation
 	},
-): Promise<DatabaseOperationResult<TOperation>> => {
+): Promise<RuntimeDatabaseExecution<TOperation>> => {
 	if (!isMutationOperation(request.operation)) {
-		return executor.execute(request)
+		return immutableRecord({ result: await executor.execute(request) })
 	}
 
 	assertPreparedMutationExecutor(executor)
@@ -148,7 +174,10 @@ const executeDatabaseOperation = async <
 		)
 	}
 
-	return outcome.result
+	return immutableRecord({
+		outcome,
+		result: outcome.result,
+	})
 }
 
 /** Rejects incomplete JavaScript assembly before an operation can start. */
@@ -249,6 +278,18 @@ const createOperationInput = <const TOperation extends DatabaseOperationAst>(
 	operation: TOperation,
 ): RuntimeOperationStageInput<TOperation> =>
 	immutableRecord({ context, operation })
+
+/** Retains the latest immutable AST for transaction error attribution. */
+const retainExecutionOperation = <
+	const TOperation extends DatabaseOperationAst,
+>(
+	execution: RuntimePipelineExecutionState,
+	operation: TOperation,
+): TOperation => {
+	execution.operation = operation
+
+	return operation
+}
 
 const createEnforcementInput = <const TOperation extends DatabaseOperationAst>(
 	context: RequestContext,
@@ -370,21 +411,84 @@ export class RuntimePipeline {
 		}
 
 		const context: RequestContext = request.context
+		const execution: RuntimePipelineExecutionState = {
+			operation: request.operation,
+			phase: 'operation',
+		}
+		const transactionLifecycle = this.#stages.nativeHooks?.transactionLifecycle
+
+		if (transactionLifecycle !== undefined) {
+			execution.transactionOperation = transactionLifecycle.start({
+				context,
+				operation: request.operation,
+			})
+		}
+
+		try {
+			return await this.#executeOperation(request, execution)
+		} catch (error: unknown) {
+			execution.transactionOperation?.fail(
+				execution.operation,
+				error,
+				execution.phase,
+			)
+
+			if (
+				transactionLifecycle === undefined &&
+				this.#stages.nativeHooks?.onError !== undefined
+			) {
+				try {
+					await this.#stages.nativeHooks.onError(
+						immutableRecord({
+							context,
+							error,
+							operation: execution.operation,
+							phase: execution.phase,
+							transaction: immutableRecord({
+								rollback: 'not-applicable' as const,
+								status: 'not-started' as const,
+							}),
+						}),
+					)
+				} catch (observerError: unknown) {
+					throw combineExecutionErrors(error, observerError)
+				}
+			}
+
+			throw error
+		}
+	}
+
+	/** Executes a structurally trusted request while the public method owns failures. */
+	async #executeOperation<const TOperation extends DatabaseOperationAst>(
+		request: RuntimePipelineRequest<TOperation>,
+		execution: RuntimePipelineExecutionState,
+	): Promise<DatabaseOperationResult<TOperation>> {
+		const context: RequestContext = request.context
 		let operation: TOperation = request.operation
 
 		operation = await this.#stages.normalization(
 			createOperationInput(context, operation),
 		)
-		operation = await this.#stages.structuralValidation(
-			createOperationInput(context, operation),
+		operation = retainExecutionOperation(
+			execution,
+			await this.#stages.structuralValidation(
+				createOperationInput(context, operation),
+			),
 		)
 
 		if (this.#stages.nativeHooks !== undefined) {
-			operation = await this.#stages.nativeHooks.resolveInput(
-				createOperationInput(context, operation),
+			operation = retainExecutionOperation(
+				execution,
+				await this.#stages.nativeHooks.resolveInput(
+					createOperationInput(context, operation),
+				),
 			)
-			operation = await this.#stages.nativeHooks.revalidate(
-				createOperationInput(context, operation),
+			operation = retainExecutionOperation(
+				execution,
+				await this.#stages.nativeHooks.revalidate(
+					createOperationInput(context, operation),
+				),
 			)
 			await this.#stages.nativeHooks.validate(
 				createOperationInput(context, operation),
@@ -403,23 +507,35 @@ export class RuntimePipeline {
 					createEnforcementInput(context, operation, enforcement),
 				)
 
-			operation = enforced.operation
+			operation = retainExecutionOperation(execution, enforced.operation)
 			constraints = snapshotConstraints(enforced.constraints)
 		}
 
-		operation = await this.#stages.globalBeforeHooks(
-			createOperationInput(context, operation),
+		operation = retainExecutionOperation(
+			execution,
+			await this.#stages.globalBeforeHooks(
+				createOperationInput(context, operation),
+			),
 		)
-		operation = await this.#stages.schemaBeforeHooks(
-			createOperationInput(context, operation),
+		operation = retainExecutionOperation(
+			execution,
+			await this.#stages.schemaBeforeHooks(
+				createOperationInput(context, operation),
+			),
 		)
 
 		if (this.#stages.nativeHooks !== undefined) {
-			operation = await this.#stages.nativeHooks.schemaBefore(
-				createOperationInput(context, operation),
+			operation = retainExecutionOperation(
+				execution,
+				await this.#stages.nativeHooks.schemaBefore(
+					createOperationInput(context, operation),
+				),
 			)
-			operation = await this.#stages.nativeHooks.revalidate(
-				createOperationInput(context, operation),
+			operation = retainExecutionOperation(
+				execution,
+				await this.#stages.nativeHooks.revalidate(
+					createOperationInput(context, operation),
+				),
 			)
 		}
 
@@ -432,20 +548,20 @@ export class RuntimePipeline {
 					createEnforcementInput(context, operation, enforcement),
 				)
 
-			operation = enforced.operation
+			operation = retainExecutionOperation(execution, enforced.operation)
 			constraints = snapshotConstraints(enforced.constraints)
 		}
 
-		let result: DatabaseOperationResult<TOperation> =
-			await executeDatabaseOperation(
-				this.#stages.databaseOperation,
-				context,
-				this.#stages.nativeHooks,
-				immutableRecord({
-					constraints,
-					operation,
-				}),
-			)
+		const databaseExecution = await executeDatabaseOperation(
+			this.#stages.databaseOperation,
+			context,
+			this.#stages.nativeHooks,
+			immutableRecord({
+				constraints,
+				operation,
+			}),
+		)
+		let result: DatabaseOperationResult<TOperation> = databaseExecution.result
 		const selectedFieldsOverride = readSelectedFieldsOverride(
 			operation,
 			enforcement,
@@ -516,6 +632,12 @@ export class RuntimePipeline {
 
 		await this.#stages.commit(completedOperation)
 		await this.#stages.postCommitEvents(completedOperation)
+		execution.operation = operation
+		execution.transactionOperation?.succeed(
+			operation,
+			result,
+			databaseExecution.outcome,
+		)
 
 		return result
 	}

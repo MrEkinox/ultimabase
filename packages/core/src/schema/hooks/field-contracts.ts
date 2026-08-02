@@ -4,6 +4,8 @@ import type { OperationKind } from '../../query/index.js'
 import type { GenericField } from '../fields/base/contract.js'
 import type { InferFields } from '../inference/types.js'
 import type {
+	HookErrorPhase,
+	HookErrorTransactionState,
 	HookHandlerDeclaration,
 	HookValidationIssue,
 	MutationHookFamily,
@@ -362,8 +364,14 @@ export interface FieldErrorHookInput<
 	TKind extends FieldInputHookKind | FieldOutputHookKind =
 		FieldInputHookKind | FieldOutputHookKind,
 > {
+	/** The original failure retained as an unknown boundary value. */
 	readonly error: unknown
+	/** The exact terminal discriminant for the field-participating operation. */
 	readonly kind: TKind
+	/** The stable lifecycle boundary where the original failure began. */
+	readonly phase: HookErrorPhase
+	/** The final transaction and rollback outcome known to this observer. */
+	readonly transaction: HookErrorTransactionState
 }
 
 /** Observes a failure without replacing or suppressing it. */

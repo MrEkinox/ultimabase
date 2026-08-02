@@ -1,15 +1,7 @@
-import {
-	immutableArray,
-	immutableRecord,
-	type MaybePromise,
-} from '@ultimabase/shared'
+import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
-import {
-	getHookHandlers,
-	type ErasedHookHandler,
-	type NormalizedHookDeclarations,
-} from '../../schema/hooks/normalization.js'
 import { hydrateQueryFromAst, Query } from '../../query/query/query.js'
+import type { ErasedHookHandler } from '../../schema/hooks/normalization.js'
 import type {
 	ExecutableOperationAst,
 	QueryAst,
@@ -18,7 +10,7 @@ import type {
 } from '../../query/index.js'
 import type { FieldHookPhase } from '../../schema/hooks/field-declarations.js'
 import type { SchemaHookPhase } from '../../schema/hooks/declarations.js'
-import { Schema, type SchemaDefinition } from '../../schema/index.js'
+import type { SchemaDefinition } from '../../schema/index.js'
 import type { PluginDefinition } from '../../foundation.js'
 import { FrameworkApplication } from '../../foundation.js'
 import type {
@@ -27,7 +19,6 @@ import type {
 	DatabaseOperationOutcome,
 	DatabaseOperationResult,
 } from '../database/contracts.js'
-import { getOperationSchema } from '../operations/schema.js'
 import type {
 	RuntimeNativeHookStages,
 	RuntimeNativeResultStageInput,
@@ -39,10 +30,14 @@ import {
 } from './boundaries.js'
 import {
 	compileNativeHookContributionPlan,
-	type HookContribution,
-	type HookContributionNesting,
 	type NativeHookContributionPlan,
 } from './contribution-plan.js'
+import {
+	collectNestedHookHandlers,
+	createSchemaOperationHookInput,
+	invokeErasedHook,
+	requireDeclaredOperationSchema,
+} from './contribution-execution.js'
 import {
 	collectOperationFieldInputs,
 	transformOperationFieldInputs,
@@ -59,59 +54,10 @@ import {
 	runHookTransformChain,
 	runHookValidations,
 } from './composition.js'
-
-/** Reads one exact application schema before dispatching identity-owned hooks. */
-const requireOperationSchema = (
-	operation: DatabaseOperationAst,
-): SchemaDefinition => {
-	const schema = getOperationSchema(operation)
-
-	if (!Schema.is(schema)) {
-		throw new TypeError('Native hook dispatch requires a declared schema')
-	}
-
-	return schema
-}
-
-/** Flattens only the current phase while retaining compiled contribution order. */
-const collectContributionHandlers = <TPhase extends string>(
-	contributions: readonly HookContribution<
-		NormalizedHookDeclarations<TPhase>
-	>[],
-	phase: TPhase,
-	family: string,
-): readonly ErasedHookHandler[] => {
-	const handlers: ErasedHookHandler[] = []
-
-	for (const contribution of contributions) {
-		handlers.push(...getHookHandlers(contribution.declarations, phase, family))
-	}
-
-	return immutableArray(handlers)
-}
-
-const collectNestedHandlers = <TPhase extends string>(
-	nesting: HookContributionNesting<NormalizedHookDeclarations<TPhase>>,
-	direction: 'after' | 'before',
-	phase: TPhase,
-	family: string,
-): readonly ErasedHookHandler[] =>
-	collectContributionHandlers(nesting[direction], phase, family)
-
-/** Invokes a callback only after its public declaration was type-checked. */
-const invokeErasedHook = (
-	handler: ErasedHookHandler,
-	input: unknown,
-): MaybePromise<unknown> => handler(input as never)
-
-const createSchemaOperationInput = <
-	const TOperation extends DatabaseOperationAst,
->(
-	operation: TOperation,
-): Readonly<{
-	readonly kind: TOperation['kind']
-	readonly operation: TOperation
-}> => immutableRecord({ kind: operation.kind, operation })
+import {
+	createTransactionHookLifecycle,
+	runNonTransactionalErrorHooks,
+} from './transaction-dispatcher.js'
 
 const createSchemaResultInput = <const TOperation extends DatabaseOperationAst>(
 	operation: TOperation,
@@ -178,13 +124,15 @@ const runBeforeFind = async <const TOperation extends DatabaseOperationAst>(
 	plan: NativeHookContributionPlan,
 	input: RuntimeOperationStageInput<TOperation>,
 ): Promise<TOperation> => {
-	const schemaPlan = plan.getSchema(requireOperationSchema(input.operation))
+	const schemaPlan = plan.getSchema(
+		requireDeclaredOperationSchema(input.operation),
+	)
 
 	if (schemaPlan === undefined) {
 		throw new TypeError('Native hook plan does not own the operation schema')
 	}
 
-	const handlers = collectNestedHandlers(
+	const handlers = collectNestedHookHandlers(
 		schemaPlan.contributions,
 		'before',
 		'beforeFind',
@@ -240,7 +188,7 @@ const resolveFieldOutputs = async <
 	plan: NativeHookContributionPlan,
 	input: RuntimeNativeResultStageInput<TOperation>,
 ): Promise<DatabaseOperationResult<TOperation>> => {
-	const schema = requireOperationSchema(input.operation)
+	const schema = requireDeclaredOperationSchema(input.operation)
 	const family = getNativeHookPhaseOrder(input.operation.kind).family
 
 	return transformOperationFieldOutputs(
@@ -253,7 +201,7 @@ const resolveFieldOutputs = async <
 				return undefined
 			}
 
-			const handlers = collectNestedHandlers(
+			const handlers = collectNestedHookHandlers(
 				fieldPlan.contributions,
 				'after',
 				'resolveOutput',
@@ -284,7 +232,7 @@ const resolveFieldInputs = async <
 	operation: TOperation,
 ): Promise<TOperation> => {
 	const order = getNativeHookPhaseOrder(operation.kind)
-	const schema = requireOperationSchema(operation)
+	const schema = requireDeclaredOperationSchema(operation)
 
 	return transformOperationFieldInputs(operation, async (fieldInput) => {
 		const fieldPlan = plan.getField(schema, fieldInput.fieldPath)
@@ -293,7 +241,7 @@ const resolveFieldInputs = async <
 			return undefined
 		}
 
-		const handlers = collectNestedHandlers(
+		const handlers = collectNestedHookHandlers(
 			fieldPlan.contributions,
 			'before',
 			'resolveInput',
@@ -322,7 +270,9 @@ const runSchemaTransformPhases = async <
 	phases: readonly SchemaHookPhase[],
 	direction: 'after' | 'before',
 ): Promise<TOperation> => {
-	const schemaPlan = plan.getSchema(requireOperationSchema(input.operation))
+	const schemaPlan = plan.getSchema(
+		requireDeclaredOperationSchema(input.operation),
+	)
 
 	if (schemaPlan === undefined) {
 		throw new TypeError('Native hook plan does not own the operation schema')
@@ -332,7 +282,7 @@ const runSchemaTransformPhases = async <
 	let operation: TOperation = input.operation
 
 	for (const phase of phases) {
-		const handlers = collectNestedHandlers(
+		const handlers = collectNestedHookHandlers(
 			schemaPlan.contributions,
 			direction,
 			phase,
@@ -345,7 +295,7 @@ const runSchemaTransformPhases = async <
 			async (handler, current) => {
 				const replacement = await invokeErasedHook(
 					handler,
-					createSchemaOperationInput(current),
+					createSchemaOperationHookInput(current),
 				)
 
 				return replacement === undefined
@@ -421,7 +371,7 @@ const validateInput = async <const TOperation extends DatabaseOperationAst>(
 		return
 	}
 
-	const schema = requireOperationSchema(input.operation)
+	const schema = requireDeclaredOperationSchema(input.operation)
 	const issues = []
 
 	for (const fieldInput of collectOperationFieldInputs(
@@ -434,7 +384,7 @@ const validateInput = async <const TOperation extends DatabaseOperationAst>(
 			continue
 		}
 
-		const handlers = collectNestedHandlers(
+		const handlers = collectNestedHookHandlers(
 			fieldPlan.contributions,
 			'before',
 			'validate',
@@ -467,7 +417,7 @@ const validateInput = async <const TOperation extends DatabaseOperationAst>(
 		throw new TypeError('Native hook plan does not own the operation schema')
 	}
 
-	const schemaHandlers = collectNestedHandlers(
+	const schemaHandlers = collectNestedHookHandlers(
 		schemaPlan.contributions,
 		'before',
 		'validate',
@@ -475,7 +425,10 @@ const validateInput = async <const TOperation extends DatabaseOperationAst>(
 	)
 	issues.push(
 		...(await runHookValidations(schemaHandlers, (handler) =>
-			invokeErasedHook(handler, createSchemaOperationInput(input.operation)),
+			invokeErasedHook(
+				handler,
+				createSchemaOperationHookInput(input.operation),
+			),
 		)),
 	)
 
@@ -497,7 +450,7 @@ const runMutationFieldEffects = async (
 	phases: readonly FieldHookPhase[],
 	direction: 'after' | 'before',
 ): Promise<void> => {
-	const schema = requireOperationSchema(operation)
+	const schema = requireDeclaredOperationSchema(operation)
 	const family = getNativeHookPhaseOrder(operation.kind).family
 
 	for (const value of values) {
@@ -508,7 +461,7 @@ const runMutationFieldEffects = async (
 		}
 
 		for (const phase of phases) {
-			const handlers = collectNestedHandlers(
+			const handlers = collectNestedHookHandlers(
 				fieldPlan.contributions,
 				direction,
 				phase,
@@ -536,7 +489,7 @@ const runChangeEffects = async <
 	operation: TOperation,
 	outcome: DatabaseOperationOutcome<TOperation>,
 ): Promise<void> => {
-	const schema = requireOperationSchema(operation)
+	const schema = requireDeclaredOperationSchema(operation)
 	const family = getNativeHookPhaseOrder(operation.kind).family
 
 	for (const change of collectMutationFieldChanges(operation, outcome)) {
@@ -546,7 +499,7 @@ const runChangeEffects = async <
 			continue
 		}
 
-		const handlers = collectNestedHandlers(
+		const handlers = collectNestedHookHandlers(
 			fieldPlan.contributions,
 			'after',
 			'onChange',
@@ -573,7 +526,9 @@ const runSchemaResultPhases = async <
 	plan: NativeHookContributionPlan,
 	input: RuntimeNativeResultStageInput<TOperation>,
 ): Promise<DatabaseOperationResult<TOperation>> => {
-	const schemaPlan = plan.getSchema(requireOperationSchema(input.operation))
+	const schemaPlan = plan.getSchema(
+		requireDeclaredOperationSchema(input.operation),
+	)
 
 	if (schemaPlan === undefined) {
 		throw new TypeError('Native hook plan does not own the operation schema')
@@ -587,7 +542,7 @@ const runSchemaResultPhases = async <
 	)
 
 	for (const phase of order.schemaAfter) {
-		const handlers = collectNestedHandlers(
+		const handlers = collectNestedHookHandlers(
 			schemaPlan.contributions,
 			'after',
 			phase,
@@ -632,6 +587,7 @@ export const createNativeHookStages = <
 	const boundaries = createRuntimeHookBoundaries()
 
 	return immutableRecord({
+		createTransactionLifecycle: () => createTransactionHookLifecycle(plan),
 		fieldAfter: async (input) => {
 			const outcome = boundaries.snapshotMutationOutcome(
 				input.operation,
@@ -661,6 +617,7 @@ export const createNativeHookStages = <
 				'before',
 			)
 		},
+		onError: (input) => runNonTransactionalErrorHooks(plan, input),
 		resolveInput: (input) => resolveInput(boundaries, plan, input),
 		resolveOutput: (input) => resolveFieldOutputs(plan, input),
 		revalidate: (input) =>
