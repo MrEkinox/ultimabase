@@ -39,6 +39,7 @@ import {
 	getEnforcementStateSnapshot,
 	type EnforcementState,
 } from '../enforcement/state.js'
+import { throwIfOperationCancelled } from '../hooks/cancellation.js'
 
 const functionStageNames = [
 	'normalization',
@@ -411,6 +412,10 @@ export class RuntimePipeline {
 		}
 
 		const context: RequestContext = request.context
+		throwIfOperationCancelled(context.signal, {
+			operationKind: request.operation.kind,
+			phase: 'pipeline-start',
+		})
 		const execution: RuntimePipelineExecutionState = {
 			operation: request.operation,
 			phase: 'operation',
@@ -552,6 +557,11 @@ export class RuntimePipeline {
 			constraints = snapshotConstraints(enforced.constraints)
 		}
 
+		throwIfOperationCancelled(context.signal, {
+			operationKind: operation.kind,
+			phase: 'database-operation',
+		})
+
 		const databaseExecution = await executeDatabaseOperation(
 			this.#stages.databaseOperation,
 			context,
@@ -561,6 +571,10 @@ export class RuntimePipeline {
 				operation,
 			}),
 		)
+		throwIfOperationCancelled(context.signal, {
+			operationKind: operation.kind,
+			phase: 'database-operation',
+		})
 		let result: DatabaseOperationResult<TOperation> = databaseExecution.result
 		const selectedFieldsOverride = readSelectedFieldsOverride(
 			operation,
@@ -630,6 +644,10 @@ export class RuntimePipeline {
 		const completedOperation: RuntimeResultStageInput<TOperation> =
 			createResultInput(context, operation, result)
 
+		throwIfOperationCancelled(context.signal, {
+			operationKind: operation.kind,
+			phase: 'commit',
+		})
 		await this.#stages.commit(completedOperation)
 		await this.#stages.postCommitEvents(completedOperation)
 		execution.operation = operation

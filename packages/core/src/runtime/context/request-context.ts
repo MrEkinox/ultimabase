@@ -37,6 +37,8 @@ export type RequestMetadata = Readonly<Record<string, unknown>> & {
 export interface RequestContextOptions<TSource extends string = string> {
 	readonly requestId: string
 	readonly source: TSource
+	/** Propagates transport or internal cancellation without exposing its controller. */
+	readonly signal?: AbortSignal
 	readonly capabilities?: readonly RequestCapability[]
 	readonly metadata?: RequestMetadata
 }
@@ -45,11 +47,13 @@ const requestContextOptionKeys = new Set([
 	'capabilities',
 	'metadata',
 	'requestId',
+	'signal',
 	'source',
 ])
 
 const emptyCapabilities: readonly RequestCapability[] = immutableArray([])
 const emptyMetadata: RequestMetadata = immutableRecord({})
+const persistentRequestSignal: AbortSignal = new AbortController().signal
 
 type TrustedMasterContextFactory = <const TSource extends string>(
 	reason: string,
@@ -74,6 +78,13 @@ function assertRequestContextOptions(
 
 	assertNonEmptyString(options.requestId, 'Request context requestId')
 	assertNonEmptyString(options.source, 'Request context source')
+
+	if (
+		options.signal !== undefined &&
+		!(options.signal instanceof AbortSignal)
+	) {
+		throw new TypeError('Request context signal must be an AbortSignal')
+	}
 }
 
 const normalizeSensitiveMetadataKey = (key: string): string =>
@@ -162,6 +173,7 @@ export class RequestContext<
 	readonly capabilities: readonly RequestCapability[]
 	readonly metadata: RequestMetadata
 	readonly requestId: string
+	readonly signal: AbortSignal
 	readonly source: TSource
 
 	private constructor(
@@ -176,6 +188,7 @@ export class RequestContext<
 		this.capabilities = snapshotCapabilities(options.capabilities)
 		this.metadata = snapshotMetadata(options.metadata)
 		this.requestId = options.requestId
+		this.signal = options.signal ?? persistentRequestSignal
 		this.source = options.source
 
 		// Context identity and authority cannot change during asynchronous execution.

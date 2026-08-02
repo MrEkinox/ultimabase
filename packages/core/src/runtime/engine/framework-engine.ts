@@ -33,6 +33,7 @@ import {
 	createNestedTransactionError,
 	type TransactionLifetime,
 } from '../transactions/transaction-lifetime.js'
+import { throwIfOperationCancelled } from '../hooks/cancellation.js'
 
 const requestEngineConstructionKey: unique symbol = Symbol(
 	'ultimabase.request-engine-construction',
@@ -285,6 +286,10 @@ export class RequestEngine<
 		operation: TOperation,
 	): Promise<DatabaseOperationResult<TOperation>> {
 		this.framework.assertOwnsSchema(getOperationSchema(operation))
+		throwIfOperationCancelled(this.context.signal, {
+			operationKind: operation.kind,
+			phase: 'request-engine',
+		})
 
 		if (
 			this.#transactionLifetime === undefined &&
@@ -343,6 +348,10 @@ export class RequestEngine<
 			)
 		}
 
+		throwIfOperationCancelled(this.context.signal, {
+			phase: 'transaction-start',
+		})
+
 		if (this.#transactionLifetime !== undefined) {
 			this.#transactionLifetime.assertActive()
 
@@ -365,6 +374,7 @@ export class RequestEngine<
 				),
 			(transaction) =>
 				runWithRequestEngineScope(transaction, () => handler(transaction)),
+			this.context.signal,
 		)
 	}
 }

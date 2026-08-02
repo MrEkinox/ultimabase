@@ -1,6 +1,6 @@
 import { createApplication, definePlugin } from '../../foundation.js'
 import { beforeOperation } from './definitions.js'
-import { getHookHandlers } from '../../schema/hooks/normalization.js'
+import { getHookHandlerEntries } from '../../schema/hooks/normalization.js'
 import {
 	objectField,
 	Schema,
@@ -146,7 +146,9 @@ describe('native hook contribution plan', () => {
 		const developer = schemaPlan?.contributions.before.at(-1)
 		expect(developer?.kind).toBe('developer')
 		expect(
-			getHookHandlers(developer?.declarations, 'beforeOperation'),
+			getHookHandlerEntries(developer?.declarations, 'beforeOperation').map(
+				({ handler }) => handler,
+			),
 		).toStrictEqual([developerSchemaHandler])
 	})
 

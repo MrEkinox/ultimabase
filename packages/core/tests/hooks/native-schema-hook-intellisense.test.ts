@@ -210,6 +210,7 @@ describe('native schema hook IntelliSense', () => {
 		const listInput = readMemberCompletions('schema-list-input')
 
 		expect(listInput.entries.map(({ name }) => name).sort()).toStrictEqual([
+			'context',
 			'kind',
 			'operation',
 		])

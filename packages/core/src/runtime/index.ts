@@ -107,7 +107,17 @@ export type {
 	PostCommitEventHandler,
 	PostCommitEventOptions,
 	RuntimeContributionDefinitionUnion,
+	RuntimeHookOperationInput,
+	RuntimeHookResultInput,
 } from './hooks/definitions.js'
+export { hookDiagnosticsObserverServiceToken } from './hooks/diagnostics.js'
+export type {
+	HookDiagnosticEvent,
+	HookDiagnosticOwner,
+	HookDiagnosticPhase,
+	HookDiagnosticsObserver,
+	HookDiagnosticTarget,
+} from './hooks/diagnostics.js'
 export { createRuntimeHookStages } from './hooks/stages.js'
 export type { RuntimeHookStages } from './hooks/stages.js'
 // Raw keys become framework-owned opaque grants before request elevation.

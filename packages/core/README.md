@@ -193,6 +193,58 @@ post-commit failure without exposing adapter controls. See the
 [Runtime guide](docs/runtime.md#transaction-finalization-hooks) for the public
 contract and example.
 
+Every native and low-level business hook receives a safe execution `context`:
+
+```ts
+const PostSchema = new Schema({
+	className: 'Post',
+	fields: { title: stringField() },
+	hooks: {
+		beforeCreate: async ({ context, operation }) => {
+			if (operation.kind === 'create-one') {
+				await validateTitle(operation.input.title, {
+					signal: context.signal,
+				})
+			}
+
+			console.log(context.requestId, context.transactionId)
+			return operation
+		},
+	},
+})
+```
+
+`requestId` correlates the originating request. `transactionId` is defined for
+automatic mutations and explicit transactions and remains identical across
+nested operations. `signal` carries cooperative request cancellation and native
+deadlines such as `AbortSignal.timeout()`. The context intentionally omits
+request metadata, credentials, adapters, commit/rollback controls, and hook
+bypasses. Issue 340 will provide the richer `HookContext` class through the same
+property, adding transaction-bound queries and post-commit events without
+changing existing handler syntax.
+
+Runtime rejects direct and indirect re-entry into the same active hook with
+`HOOK_RECURSION`. Other phases, fields, and schemas remain available for finite
+nested work and retain the active transaction. Cancellation produces
+`OPERATION_CANCELLED`, waits for the currently running callback to settle, stops
+later pre-commit hooks, and rolls an active transaction back.
+
+One optional plugin may provide `hookDiagnosticsObserverServiceToken` to receive
+redacted immutable timing events:
+
+```ts
+setup: ({ services }) => {
+	services.provide(hookDiagnosticsObserverServiceToken, (event) => {
+		metrics.observe(event.phase, event.durationMs, event.status)
+	})
+}
+```
+
+The observer runs outside request-engine scope and receives no operation input,
+result, raw error, metadata, credential, or adapter value. Its synchronous or
+asynchronous failure never changes hook order, the business result, rollback,
+or the original error identity.
+
 ## Inline field hooks
 
 Every built-in and plugin-defined field accepts value-focused hooks without

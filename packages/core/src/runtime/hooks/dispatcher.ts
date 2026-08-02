@@ -1,7 +1,6 @@
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
 import { hydrateQueryFromAst, Query } from '../../query/query/query.js'
-import type { ErasedHookHandler } from '../../schema/hooks/normalization.js'
 import type {
 	ExecutableOperationAst,
 	QueryAst,
@@ -10,6 +9,7 @@ import type {
 } from '../../query/index.js'
 import type { FieldHookPhase } from '../../schema/hooks/field-declarations.js'
 import type { SchemaHookPhase } from '../../schema/hooks/declarations.js'
+import type { HookExecutionContext } from '../../schema/hooks/execution-context.js'
 import type { SchemaDefinition } from '../../schema/index.js'
 import type { PluginDefinition } from '../../foundation.js'
 import { FrameworkApplication } from '../../foundation.js'
@@ -58,15 +58,26 @@ import {
 	createTransactionHookLifecycle,
 	runNonTransactionalErrorHooks,
 } from './transaction-dispatcher.js'
+import {
+	createFieldHookTarget,
+	createSchemaHookTarget,
+	type HookExecutionDescriptor,
+} from './execution-descriptor.js'
+import {
+	getApplicationHookExecutionRuntime,
+	type HookExecutionRuntime,
+} from './execution-runtime.js'
 
 const createSchemaResultInput = <const TOperation extends DatabaseOperationAst>(
 	operation: TOperation,
 	result: DatabaseOperationResult<TOperation>,
+	context: HookExecutionContext,
 ): Readonly<{
+	readonly context: HookExecutionContext
 	readonly kind: TOperation['kind']
 	readonly operation: TOperation
 	readonly result: DatabaseOperationResult<TOperation>
-}> => immutableRecord({ kind: operation.kind, operation, result })
+}> => immutableRecord({ context, kind: operation.kind, operation, result })
 
 type RuntimeReadOperation = Extract<
 	ExecutableOperationAst,
@@ -122,6 +133,7 @@ const isRuntimeQuery = (
 const runBeforeFind = async <const TOperation extends DatabaseOperationAst>(
 	boundaries: RuntimeHookBoundaries,
 	plan: NativeHookContributionPlan,
+	runtime: HookExecutionRuntime,
 	input: RuntimeOperationStageInput<TOperation>,
 ): Promise<TOperation> => {
 	const schemaPlan = plan.getSchema(
@@ -136,6 +148,8 @@ const runBeforeFind = async <const TOperation extends DatabaseOperationAst>(
 		schemaPlan.contributions,
 		'before',
 		'beforeFind',
+		input.operation.kind,
+		createSchemaHookTarget(schemaPlan.schema.className),
 		'find',
 	)
 
@@ -145,13 +159,17 @@ const runBeforeFind = async <const TOperation extends DatabaseOperationAst>(
 		async (handler, current) => {
 			const currentAst = readQueryAst(current)
 			const query = hydrateRuntimeQuery(currentAst)
-			const replacement = await invokeErasedHook(
+			const replacement = await invokeErasedHook<unknown>(
+				runtime,
 				handler,
-				immutableRecord({
-					kind: current.kind,
-					operation: current,
-					query,
-				}),
+				input.context,
+				(context) =>
+					immutableRecord({
+						context,
+						kind: current.kind,
+						operation: current,
+						query,
+					}),
 			)
 
 			if (replacement === undefined) {
@@ -186,6 +204,7 @@ const resolveFieldOutputs = async <
 	const TOperation extends DatabaseOperationAst,
 >(
 	plan: NativeHookContributionPlan,
+	runtime: HookExecutionRuntime,
 	input: RuntimeNativeResultStageInput<TOperation>,
 ): Promise<DatabaseOperationResult<TOperation>> => {
 	const schema = requireDeclaredOperationSchema(input.operation)
@@ -205,6 +224,8 @@ const resolveFieldOutputs = async <
 				fieldPlan.contributions,
 				'after',
 				'resolveOutput',
+				input.operation.kind,
+				createFieldHookTarget(schema.className, fieldOutput.fieldPath),
 				family,
 			)
 
@@ -212,9 +233,9 @@ const resolveFieldOutputs = async <
 				handlers,
 				fieldOutput.value,
 				(handler, value) =>
-					invokeErasedHook(
-						handler,
+					invokeErasedHook(runtime, handler, input.context, (context) =>
 						immutableRecord({
+							context,
 							kind: fieldOutput.kind,
 							mode: fieldOutput.mode,
 							value,
@@ -229,8 +250,10 @@ const resolveFieldInputs = async <
 	const TOperation extends DatabaseOperationAst,
 >(
 	plan: NativeHookContributionPlan,
-	operation: TOperation,
+	runtime: HookExecutionRuntime,
+	input: RuntimeOperationStageInput<TOperation>,
 ): Promise<TOperation> => {
+	const { operation } = input
 	const order = getNativeHookPhaseOrder(operation.kind)
 	const schema = requireDeclaredOperationSchema(operation)
 
@@ -245,13 +268,15 @@ const resolveFieldInputs = async <
 			fieldPlan.contributions,
 			'before',
 			'resolveInput',
+			operation.kind,
+			createFieldHookTarget(schema.className, fieldInput.fieldPath),
 			order.family,
 		)
 
 		return runHookTransformChain(handlers, fieldInput.value, (handler, value) =>
-			invokeErasedHook(
-				handler,
+			invokeErasedHook(runtime, handler, input.context, (context) =>
 				immutableRecord({
+					context,
 					kind: fieldInput.kind,
 					mode: fieldInput.mode,
 					value,
@@ -266,6 +291,7 @@ const runSchemaTransformPhases = async <
 >(
 	boundaries: RuntimeHookBoundaries,
 	plan: NativeHookContributionPlan,
+	runtime: HookExecutionRuntime,
 	input: RuntimeOperationStageInput<TOperation>,
 	phases: readonly SchemaHookPhase[],
 	direction: 'after' | 'before',
@@ -286,6 +312,8 @@ const runSchemaTransformPhases = async <
 			schemaPlan.contributions,
 			direction,
 			phase,
+			input.operation.kind,
+			createSchemaHookTarget(schemaPlan.schema.className),
 			family,
 		)
 
@@ -293,9 +321,11 @@ const runSchemaTransformPhases = async <
 			handlers,
 			operation,
 			async (handler, current) => {
-				const replacement = await invokeErasedHook(
+				const replacement = await invokeErasedHook<unknown>(
+					runtime,
 					handler,
-					createSchemaOperationHookInput(current),
+					input.context,
+					(context) => createSchemaOperationHookInput(current, context),
 				)
 
 				return replacement === undefined
@@ -313,6 +343,7 @@ const runSchemaBeforePhases = async <
 >(
 	boundaries: RuntimeHookBoundaries,
 	plan: NativeHookContributionPlan,
+	runtime: HookExecutionRuntime,
 	input: RuntimeOperationStageInput<TOperation>,
 ): Promise<TOperation> => {
 	const order = getNativeHookPhaseOrder(input.operation.kind)
@@ -324,11 +355,13 @@ const runSchemaBeforePhases = async <
 				? await runBeforeFind(
 						boundaries,
 						plan,
+						runtime,
 						immutableRecord({ ...input, operation }),
 					)
 				: await runSchemaTransformPhases(
 						boundaries,
 						plan,
+						runtime,
 						immutableRecord({ ...input, operation }),
 						immutableArray([phase]),
 						'before',
@@ -341,6 +374,7 @@ const runSchemaBeforePhases = async <
 const resolveInput = async <const TOperation extends DatabaseOperationAst>(
 	boundaries: RuntimeHookBoundaries,
 	plan: NativeHookContributionPlan,
+	runtime: HookExecutionRuntime,
 	input: RuntimeOperationStageInput<TOperation>,
 ): Promise<TOperation> => {
 	const order = getNativeHookPhaseOrder(input.operation.kind)
@@ -349,11 +383,12 @@ const resolveInput = async <const TOperation extends DatabaseOperationAst>(
 		return input.operation
 	}
 
-	const fieldResolved = await resolveFieldInputs(plan, input.operation)
+	const fieldResolved = await resolveFieldInputs(plan, runtime, input)
 
 	return runSchemaTransformPhases(
 		boundaries,
 		plan,
+		runtime,
 		immutableRecord({ ...input, operation: fieldResolved }),
 		immutableArray(['resolveInput']),
 		'before',
@@ -363,6 +398,7 @@ const resolveInput = async <const TOperation extends DatabaseOperationAst>(
 const validateInput = async <const TOperation extends DatabaseOperationAst>(
 	boundaries: RuntimeHookBoundaries,
 	plan: NativeHookContributionPlan,
+	runtime: HookExecutionRuntime,
 	input: RuntimeOperationStageInput<TOperation>,
 ): Promise<void> => {
 	const order = getNativeHookPhaseOrder(input.operation.kind)
@@ -388,12 +424,14 @@ const validateInput = async <const TOperation extends DatabaseOperationAst>(
 			fieldPlan.contributions,
 			'before',
 			'validate',
+			input.operation.kind,
+			createFieldHookTarget(schema.className, fieldInput.fieldPath),
 			order.family,
 		)
 		const fieldIssues = await runHookValidations(handlers, (handler) =>
-			invokeErasedHook(
-				handler,
+			invokeErasedHook(runtime, handler, input.context, (context) =>
 				immutableRecord({
+					context,
 					kind: fieldInput.kind,
 					mode: fieldInput.mode,
 					value: fieldInput.value,
@@ -421,13 +459,14 @@ const validateInput = async <const TOperation extends DatabaseOperationAst>(
 		schemaPlan.contributions,
 		'before',
 		'validate',
+		input.operation.kind,
+		createSchemaHookTarget(schema.className),
 		order.family,
 	)
 	issues.push(
 		...(await runHookValidations(schemaHandlers, (handler) =>
-			invokeErasedHook(
-				handler,
-				createSchemaOperationHookInput(input.operation),
+			invokeErasedHook(runtime, handler, input.context, (context) =>
+				createSchemaOperationHookInput(input.operation, context),
 			),
 		)),
 	)
@@ -437,14 +476,18 @@ const validateInput = async <const TOperation extends DatabaseOperationAst>(
 
 /** Executes one erased effect while preserving both sync and async handlers. */
 const invokeErasedEffect = async (
-	handler: ErasedHookHandler,
-	input: unknown,
+	runtime: HookExecutionRuntime,
+	handler: HookExecutionDescriptor,
+	request: RuntimeOperationStageInput<DatabaseOperationAst>['context'],
+	createInput: (context: HookExecutionContext) => unknown,
 ): Promise<void> => {
-	await invokeErasedHook(handler, input)
+	await invokeErasedHook(runtime, handler, request, createInput)
 }
 
 const runMutationFieldEffects = async (
 	plan: NativeHookContributionPlan,
+	runtime: HookExecutionRuntime,
+	context: RuntimeOperationStageInput<DatabaseOperationAst>['context'],
 	operation: DatabaseMutationOperationAst,
 	values: ReturnType<typeof collectMutationBeforeFieldValues>,
 	phases: readonly FieldHookPhase[],
@@ -465,13 +508,15 @@ const runMutationFieldEffects = async (
 				fieldPlan.contributions,
 				direction,
 				phase,
+				operation.kind,
+				createFieldHookTarget(schema.className, value.fieldPath),
 				family,
 			)
 
 			await runHookEffects(handlers, (handler) =>
-				invokeErasedEffect(
-					handler,
+				invokeErasedEffect(runtime, handler, context, (hookContext) =>
 					immutableRecord({
+						context: hookContext,
 						kind: value.kind,
 						mode: value.mode,
 						value: value.value,
@@ -486,6 +531,8 @@ const runChangeEffects = async <
 	const TOperation extends DatabaseMutationOperationAst,
 >(
 	plan: NativeHookContributionPlan,
+	runtime: HookExecutionRuntime,
+	context: RuntimeOperationStageInput<DatabaseOperationAst>['context'],
 	operation: TOperation,
 	outcome: DatabaseOperationOutcome<TOperation>,
 ): Promise<void> => {
@@ -503,13 +550,15 @@ const runChangeEffects = async <
 			fieldPlan.contributions,
 			'after',
 			'onChange',
+			operation.kind,
+			createFieldHookTarget(schema.className, change.fieldPath),
 			family,
 		)
 
 		await runHookEffects(handlers, (handler) =>
-			invokeErasedEffect(
-				handler,
+			invokeErasedEffect(runtime, handler, context, (hookContext) =>
 				immutableRecord({
+					context: hookContext,
 					change: change.change,
 					kind: change.kind,
 					timing: change.timing,
@@ -524,6 +573,7 @@ const runSchemaResultPhases = async <
 >(
 	boundaries: RuntimeHookBoundaries,
 	plan: NativeHookContributionPlan,
+	runtime: HookExecutionRuntime,
 	input: RuntimeNativeResultStageInput<TOperation>,
 ): Promise<DatabaseOperationResult<TOperation>> => {
 	const schemaPlan = plan.getSchema(
@@ -546,6 +596,8 @@ const runSchemaResultPhases = async <
 			schemaPlan.contributions,
 			'after',
 			phase,
+			input.operation.kind,
+			createSchemaHookTarget(schemaPlan.schema.className),
 			order.family,
 		)
 
@@ -553,9 +605,12 @@ const runSchemaResultPhases = async <
 			handlers,
 			result,
 			async (handler, current) => {
-				const replacement = await invokeErasedHook(
+				const replacement = await invokeErasedHook<unknown>(
+					runtime,
 					handler,
-					createSchemaResultInput(input.operation, current),
+					input.context,
+					(context) =>
+						createSchemaResultInput(input.operation, current, context),
 				)
 
 				return replacement === undefined
@@ -585,9 +640,11 @@ export const createNativeHookStages = <
 
 	const plan = compileNativeHookContributionPlan(application)
 	const boundaries = createRuntimeHookBoundaries()
+	const runtime = getApplicationHookExecutionRuntime(application)
 
 	return immutableRecord({
-		createTransactionLifecycle: () => createTransactionHookLifecycle(plan),
+		createTransactionLifecycle: () =>
+			createTransactionHookLifecycle(plan, runtime),
 		fieldAfter: async (input) => {
 			const outcome = boundaries.snapshotMutationOutcome(
 				input.operation,
@@ -597,12 +654,20 @@ export const createNativeHookStages = <
 
 			await runMutationFieldEffects(
 				plan,
+				runtime,
+				input.context,
 				input.operation,
 				collectMutationAfterFieldValues(input.operation, outcome),
 				order.fieldAfter,
 				'after',
 			)
-			await runChangeEffects(plan, input.operation, outcome)
+			await runChangeEffects(
+				plan,
+				runtime,
+				input.context,
+				input.operation,
+				outcome,
+			)
 
 			return outcome
 		},
@@ -611,21 +676,24 @@ export const createNativeHookStages = <
 
 			await runMutationFieldEffects(
 				plan,
+				runtime,
+				input.context,
 				input.operation,
 				collectMutationBeforeFieldValues(input.operation, input.target),
 				order.fieldBefore,
 				'before',
 			)
 		},
-		onError: (input) => runNonTransactionalErrorHooks(plan, input),
-		resolveInput: (input) => resolveInput(boundaries, plan, input),
-		resolveOutput: (input) => resolveFieldOutputs(plan, input),
+		onError: (input) => runNonTransactionalErrorHooks(plan, runtime, input),
+		resolveInput: (input) => resolveInput(boundaries, plan, runtime, input),
+		resolveOutput: (input) => resolveFieldOutputs(plan, runtime, input),
 		revalidate: (input) =>
 			boundaries.snapshotOperationReplacement(input.operation, input.operation),
-		schemaAfter: (input) => runSchemaResultPhases(boundaries, plan, input),
+		schemaAfter: (input) =>
+			runSchemaResultPhases(boundaries, plan, runtime, input),
 		schemaBefore: (input) => {
-			return runSchemaBeforePhases(boundaries, plan, input)
+			return runSchemaBeforePhases(boundaries, plan, runtime, input)
 		},
-		validate: (input) => validateInput(boundaries, plan, input),
+		validate: (input) => validateInput(boundaries, plan, runtime, input),
 	})
 }

@@ -11,15 +11,28 @@ import {
 	type MaybePromise,
 } from '@ultimabase/shared'
 
-import type { RequestContext } from '../context/request-context.js'
+import type { HookExecutionContext } from '../../schema/hooks/execution-context.js'
 import type {
 	DatabaseOperationAst,
 	DatabaseOperationResult,
 } from '../database/contracts.js'
-import type {
-	RuntimeOperationStageInput,
-	RuntimeResultStageInput,
-} from '../pipeline/contracts.js'
+/** Supplies low-level hooks with safe execution identity and one operation. */
+export interface RuntimeHookOperationInput<
+	TOperation extends DatabaseOperationAst,
+> {
+	/** Exposes cancellation and correlation without request authority. */
+	readonly context: HookExecutionContext
+	/** Contains the immutable operation observed by the low-level hook. */
+	readonly operation: TOperation
+}
+
+/** Supplies low-level after hooks without exposing request authority. */
+export interface RuntimeHookResultInput<
+	TOperation extends DatabaseOperationAst,
+> extends RuntimeHookOperationInput<TOperation> {
+	/** Contains the immutable adapter result paired with the observed operation. */
+	readonly result: DatabaseOperationResult<TOperation>
+}
 
 const runtimeOperationKinds = new Set<OperationKind>([
 	'find',
@@ -58,7 +71,7 @@ export type BeforeOperationHandler<
 	TSchema extends SchemaDefinition,
 	TOperationKind extends OperationKind,
 > = (
-	input: RuntimeOperationStageInput<
+	input: RuntimeHookOperationInput<
 		RuntimeHookOperation<TSchema, TOperationKind>
 	>,
 ) => MaybePromise<
@@ -69,7 +82,7 @@ export type AfterOperationHandler<
 	TSchema extends SchemaDefinition,
 	TOperationKind extends OperationKind,
 > = (
-	input: RuntimeResultStageInput<RuntimeHookOperation<TSchema, TOperationKind>>,
+	input: RuntimeHookResultInput<RuntimeHookOperation<TSchema, TOperationKind>>,
 ) => MaybePromise<
 	AfterOperationResult<RuntimeHookOperation<TSchema, TOperationKind>>
 >
@@ -78,7 +91,7 @@ export type PostCommitEventHandler<
 	TSchema extends SchemaDefinition,
 	TOperationKind extends OperationKind,
 > = (
-	input: RuntimeResultStageInput<RuntimeHookOperation<TSchema, TOperationKind>>,
+	input: RuntimeHookResultInput<RuntimeHookOperation<TSchema, TOperationKind>>,
 ) => MaybePromise<void>
 
 interface RuntimeContributionOptions<
@@ -181,8 +194,8 @@ interface RuntimeContributionImplementation {
 }
 
 type RuntimeContributionInput =
-	| RuntimeOperationStageInput<DatabaseOperationAst>
-	| RuntimeResultStageInput<DatabaseOperationAst>
+	| RuntimeHookOperationInput<DatabaseOperationAst>
+	| RuntimeHookResultInput<DatabaseOperationAst>
 
 type ErasedRuntimeContributionHandler = (
 	input: RuntimeContributionInput,
@@ -333,17 +346,17 @@ export const getRuntimeContributionImplementation = (
 export const createBeforeHookInput = <
 	const TOperation extends DatabaseOperationAst,
 >(
-	context: RequestContext,
+	context: HookExecutionContext,
 	operation: TOperation,
-): RuntimeOperationStageInput<TOperation> =>
+): RuntimeHookOperationInput<TOperation> =>
 	immutableRecord({ context, operation })
 
 /** Creates a fresh immutable envelope for after-hooks and external events. */
 export const createAfterHookInput = <
 	const TOperation extends DatabaseOperationAst,
 >(
-	context: RequestContext,
+	context: HookExecutionContext,
 	operation: TOperation,
 	result: DatabaseOperationResult<TOperation>,
-): RuntimeResultStageInput<TOperation> =>
+): RuntimeHookResultInput<TOperation> =>
 	immutableRecord({ context, operation, result })

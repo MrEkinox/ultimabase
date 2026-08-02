@@ -1,5 +1,6 @@
 import type { MaybePromise } from '@ultimabase/shared'
 import { immutableRecord } from '@ultimabase/shared'
+import { randomUUID } from 'node:crypto'
 import type {
 	HookErrorPhase,
 	HookErrorTransactionState,
@@ -8,6 +9,8 @@ import type {
 import type { RuntimePipeline } from '../pipeline/runtime-pipeline.js'
 import type { RuntimePipelineTransactionScope } from './pipeline-transaction.js'
 import { TransactionLifetime } from './transaction-lifetime.js'
+import { runWithTransactionId } from './transaction-execution-storage.js'
+import { throwIfOperationCancelled } from '../hooks/cancellation.js'
 
 /** Retains a successful callback value or its exact thrown failure. */
 type TransactionOutcome<TResult> =
@@ -143,13 +146,14 @@ const throwCommittedFailure = async (
  * Owns the adapter-neutral callback lifecycle while the engine module decides
  * the exact typed RequestEngine instance exposed to the developer.
  */
-export const runRequestTransaction = async <TEngine, TResult>(
+const executeRequestTransaction = async <TEngine, TResult>(
 	pipeline: RuntimePipeline,
 	createEngine: (
 		pipeline: RuntimePipeline,
 		lifetime: TransactionLifetime,
 	) => TEngine,
 	handler: (engine: TEngine) => MaybePromise<TResult>,
+	signal: AbortSignal,
 ): Promise<TResult> => {
 	const scope: RuntimePipelineTransactionScope =
 		await pipeline.beginTransaction()
@@ -185,7 +189,14 @@ export const runRequestTransaction = async <TEngine, TResult>(
 	}
 
 	try {
+		throwIfOperationCancelled(signal, { phase: 'before-commit' })
+	} catch (cancellationError: unknown) {
+		return rollbackAndThrow(scope, cancellationError, 'before-commit')
+	}
+
+	try {
 		await scope.beforeCommit()
+		throwIfOperationCancelled(signal, { phase: 'before-commit' })
 	} catch (beforeCommitError: unknown) {
 		return rollbackAndThrow(scope, beforeCommitError, 'before-commit')
 	}
@@ -242,3 +253,17 @@ export const runRequestTransaction = async <TEngine, TResult>(
 
 	return outcome.value
 }
+
+/** Assigns one opaque identity before adapter work so all nested hooks share it. */
+export const runRequestTransaction = <TEngine, TResult>(
+	pipeline: RuntimePipeline,
+	createEngine: (
+		pipeline: RuntimePipeline,
+		lifetime: TransactionLifetime,
+	) => TEngine,
+	handler: (engine: TEngine) => MaybePromise<TResult>,
+	signal: AbortSignal,
+): Promise<TResult> =>
+	runWithTransactionId(randomUUID(), () =>
+		executeRequestTransaction(pipeline, createEngine, handler, signal),
+	)

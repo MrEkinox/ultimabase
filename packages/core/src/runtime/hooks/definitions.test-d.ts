@@ -21,6 +21,13 @@ test('infers schema and operation discriminants inside contribution handlers', (
 		schema: articleSchema,
 		operations: ['create-one'] as const,
 		handler: (input) => {
+			expectTypeOf(input.context.requestId).toBeString()
+			expectTypeOf(input.context.transactionId).toEqualTypeOf<
+				string | undefined
+			>()
+			expectTypeOf(input.context.signal).toEqualTypeOf<AbortSignal>()
+			// @ts-expect-error -- Low-level hooks do not receive request authority.
+			void input.context.access
 			expectTypeOf(input.operation).toEqualTypeOf<
 				CreateOneOperationAst<typeof articleSchema>
 			>()

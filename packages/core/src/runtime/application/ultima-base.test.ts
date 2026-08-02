@@ -2,7 +2,7 @@ import { definePlugin } from '../../foundation.js'
 import { Schema, stringField } from '../../schema/index.js'
 import { describe, expect, it } from 'vitest'
 
-import type { RequestContext } from '../context/request-context.js'
+import type { HookExecutionContext } from '../../schema/index.js'
 import {
 	databaseAdapterServiceToken,
 	type DatabaseAdapter,
@@ -21,7 +21,7 @@ const articleSchema = new Schema({
 const createDatabasePlugin = (
 	adapter: DatabaseAdapter,
 	options: {
-		readonly onContext?: (context: RequestContext) => void
+		readonly onContext?: (context: HookExecutionContext) => void
 		readonly trace?: string[]
 	} = {},
 ) =>
@@ -75,7 +75,7 @@ describe('UltimaBase', () => {
 			[],
 		)
 		const trace: string[] = []
-		let observedContext: RequestContext | undefined
+		let observedContext: HookExecutionContext | undefined
 		const validation = { timezone: 'UTC' }
 		const ultimabase = new UltimaBase({
 			schemas: [articleSchema],
@@ -113,8 +113,8 @@ describe('UltimaBase', () => {
 		expect(result).toStrictEqual(rows)
 		expect(result).not.toBe(rows)
 		expect(Object.isFrozen(result)).toBe(true)
-		expect(observedContext?.access).toStrictEqual({ mode: 'anonymous' })
-		expect(observedContext?.source).toBe('internal')
+		expect(observedContext?.transactionId).toBeUndefined()
+		expect(observedContext?.signal).toBeInstanceOf(AbortSignal)
 		expect(observedContext?.requestId).toMatch(
 			/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u,
 		)

@@ -6,7 +6,7 @@ import {
 	schemaHookPhases,
 	type SchemaHookDeclarations,
 } from './declarations.js'
-import { getHookHandlers } from './normalization.js'
+import { getHookHandlerEntries } from './normalization.js'
 
 const createSchema = (hooks?: object) =>
 	new Schema({
@@ -27,10 +27,9 @@ describe('schema hook declarations', () => {
 
 		source.beforeSave = () => undefined
 
-		expect(declarations).toStrictEqual({
-			beforeSave: { all: [beforeSave], variants: {} },
-		})
-		expect(getHookHandlers(declarations, 'beforeSave')[0]).toBe(beforeSave)
+		expect(getHookHandlerEntries(declarations, 'beforeSave')[0]?.handler).toBe(
+			beforeSave,
+		)
 		expect(Object.isFrozen(declarations)).toBe(true)
 		expect(Object.isFrozen(declarations?.beforeSave)).toBe(true)
 		expect(Object.isFrozen(declarations?.beforeSave?.all)).toBe(true)
@@ -53,10 +52,12 @@ describe('schema hook declarations', () => {
 		const second = createSchema({ beforeSave: secondHandler })
 
 		expect(
-			getHookHandlers(getSchemaHookDeclarations(first), 'beforeSave')[0],
+			getHookHandlerEntries(getSchemaHookDeclarations(first), 'beforeSave')[0]
+				?.handler,
 		).toBe(firstHandler)
 		expect(
-			getHookHandlers(getSchemaHookDeclarations(second), 'beforeSave')[0],
+			getHookHandlerEntries(getSchemaHookDeclarations(second), 'beforeSave')[0]
+				?.handler,
 		).toBe(secondHandler)
 	})
 
@@ -70,7 +71,8 @@ describe('schema hook declarations', () => {
 		const schema = createSchema({ afterCommit })
 
 		expect(
-			getHookHandlers(getSchemaHookDeclarations(schema), 'afterCommit')[0],
+			getHookHandlerEntries(getSchemaHookDeclarations(schema), 'afterCommit')[0]
+				?.handler,
 		).toBe(afterCommit)
 		expect(calls).toBe(0)
 	})
@@ -102,10 +104,14 @@ describe('schema hook declarations', () => {
 		)
 
 		expect(
-			getHookHandlers(declarations, 'beforeOperation', 'delete'),
+			getHookHandlerEntries(declarations, 'beforeOperation', 'delete').map(
+				({ handler }) => handler,
+			),
 		).toStrictEqual([broad, specific])
 		expect(
-			getHookHandlers(declarations, 'afterOperation', 'delete'),
+			getHookHandlerEntries(declarations, 'afterOperation', 'delete').map(
+				({ handler }) => handler,
+			),
 		).toStrictEqual([specific, broad])
 	})
 
@@ -132,7 +138,9 @@ describe('schema hook declarations', () => {
 		)
 		const declarations = getSchemaHookDeclarations(createSchema(hooks))
 
-		expect(getHookHandlers(declarations, 'beforeSave')[0]).toBe(beforeSave)
+		expect(getHookHandlerEntries(declarations, 'beforeSave')[0]?.handler).toBe(
+			beforeSave,
+		)
 	})
 
 	it.each([
@@ -175,7 +183,12 @@ describe('schema hook declarations', () => {
 	it('exposes an immutable internal declaration type', () => {
 		const beforeSave = () => undefined
 		const declarations: SchemaHookDeclarations = {
-			beforeSave: { all: [beforeSave], variants: {} },
+			beforeSave: {
+				all: [
+					{ declarationBranch: 'direct', handler: beforeSave, handlerIndex: 0 },
+				],
+				variants: {},
+			},
 		}
 
 		// The public Runtime reader receives readonly capabilities.

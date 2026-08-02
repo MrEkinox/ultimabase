@@ -145,12 +145,12 @@ describe('native field hook IntelliSense', () => {
 			readCompletions('resolve-input')
 				.entries.map(({ name }) => name)
 				.sort(),
-		).toStrictEqual(['kind', 'mode', 'value'])
+		).toStrictEqual(['context', 'kind', 'mode', 'value'])
 		expect(
 			readCompletions('on-change')
 				.entries.map(({ name }) => name)
 				.sort(),
-		).toStrictEqual(['change', 'kind', 'timing'])
+		).toStrictEqual(['change', 'context', 'kind', 'timing'])
 	})
 
 	it('suggests and documents only compatible family branches', () => {
@@ -195,6 +195,7 @@ describe('native field hook IntelliSense', () => {
 		const listInput = readMemberCompletions('field-list-input')
 
 		expect(listInput.entries.map(({ name }) => name).sort()).toStrictEqual([
+			'context',
 			'kind',
 			'mode',
 			'value',

@@ -397,6 +397,89 @@ describe('createEnforcementStages', () => {
 		await application.dispose()
 	})
 
+	it('stops later enforcement hooks when request cancellation is observed', async () => {
+		const controller = new AbortController()
+		const laterHandler = vi.fn()
+		const plugin = definePlugin({
+			name: 'fixture.cancelled-enforcement',
+			setup: ({ registries }) => {
+				registries.hooks.register(
+					'fixture.cancel-request',
+					guard({
+						handler: () => {
+							controller.abort()
+						},
+					}),
+				)
+				registries.hooks.register(
+					'fixture.not-reached-after-cancellation',
+					guard({ handler: laterHandler }),
+				)
+			},
+		})
+		const application = await createApplication({
+			plugins: [plugin],
+			schemas: [articleSchema],
+		})
+		const stages = requireEnforcementStages(
+			createEnforcementStages(application),
+		)
+		const cancelledContext = RequestContext.anonymous({
+			requestId: 'cancelled-enforcement',
+			signal: controller.signal,
+			source: requestSources.internal,
+		})
+
+		await expect(
+			stages.evaluate({
+				context: cancelledContext,
+				operation: createOperation(),
+			}),
+		).rejects.toMatchObject({ code: 'OPERATION_CANCELLED' })
+		expect(laterHandler).not.toHaveBeenCalled()
+
+		await application.dispose()
+	})
+
+	it('rejects recursive enforcement reached through the shared executor', async () => {
+		const stagesReference: { current: RuntimeEnforcementStages | undefined } = {
+			current: undefined,
+		}
+		const plugin = definePlugin({
+			name: 'fixture.recursive-enforcement',
+			setup: ({ registries }) => {
+				registries.hooks.register(
+					'fixture.recursive-guard',
+					guard({
+						handler: async (input) => {
+							if (stagesReference.current === undefined) {
+								throw new TypeError('Expected active enforcement stages')
+							}
+
+							await stagesReference.current.evaluate(input)
+						},
+					}),
+				)
+			},
+		})
+		const application = await createApplication({
+			plugins: [plugin],
+			schemas: [articleSchema],
+		})
+
+		stagesReference.current = requireEnforcementStages(
+			createEnforcementStages(application),
+		)
+		await expect(
+			stagesReference.current.evaluate({
+				context,
+				operation: createOperation(),
+			}),
+		).rejects.toMatchObject({ code: 'HOOK_RECURSION' })
+
+		await application.dispose()
+	})
+
 	it('retains pre-transform constraints when reevaluating transformed values', async () => {
 		const plugin = definePlugin({
 			name: 'fixture.value-derived-enforcement',

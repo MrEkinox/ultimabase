@@ -46,6 +46,11 @@ const createActiveFrameworkContext = <
 export const getActiveFrameworkContext = ():
 	ActiveFrameworkContext | undefined => activeFrameworkStorage.getStore()
 
+/** Runs telemetry without granting contextual access to the active request engine. */
+export const runOutsideRequestEngineScope = <TResult>(
+	callback: () => TResult,
+): TResult => activeFrameworkStorage.exit(callback)
+
 /**
  * Opens a derived scope after the public boundary has validated or internally
  * constructed the exact RequestEngine identity.

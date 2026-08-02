@@ -224,6 +224,7 @@ export class MasterAuthority {
 			capabilities: context.capabilities,
 			metadata: context.metadata,
 			requestId: context.requestId,
+			signal: context.signal,
 			source: context.source,
 		}
 

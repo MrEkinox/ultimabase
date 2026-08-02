@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
 import {
-	getHookHandlers,
+	getHookHandlerEntries,
 	normalizeHookDeclarations,
 	type HookPhaseDescriptor,
+	type NormalizedHookHandler,
 } from './normalization.js'
 
 const phases = ['beforeSave', 'afterSave', 'beforeCreate'] as const
@@ -28,20 +29,36 @@ const normalize = (hooks: unknown) =>
 		scope: 'fixture',
 	})
 
+/** Keeps behavior assertions focused on callback order rather than slot metadata. */
+const readHandlers = (
+	entries: readonly NormalizedHookHandler[],
+): readonly NormalizedHookHandler['handler'][] =>
+	entries.map(({ handler }) => handler)
+
 describe('hook declaration normalization', () => {
 	it('normalizes a direct handler into one immutable sequence', () => {
 		const handler = () => undefined
 		const declarations = normalize({ beforeCreate: handler })
 		const phase = declarations?.beforeCreate
 
-		expect(phase).toStrictEqual({ all: [handler], variants: {} })
+		expect(phase).toStrictEqual({
+			all: [
+				{
+					declarationBranch: 'direct',
+					handler,
+					handlerIndex: 0,
+				},
+			],
+			variants: {},
+		})
 		expect(Object.isFrozen(declarations)).toBe(true)
 		expect(Object.isFrozen(phase)).toBe(true)
 		expect(Object.isFrozen(phase?.all)).toBe(true)
 		expect(Object.isFrozen(phase?.variants)).toBe(true)
-		expect(getHookHandlers(declarations, 'beforeCreate')).toStrictEqual([
-			handler,
-		])
+		expect(
+			readHandlers(getHookHandlerEntries(declarations, 'beforeCreate')),
+		).toStrictEqual([handler])
+		expect(Object.isFrozen(phase?.all[0])).toBe(true)
 	})
 
 	it('copies ordered lists without deduplicating callback identity', () => {
@@ -52,11 +69,9 @@ describe('hook declaration normalization', () => {
 
 		source.splice(0, source.length, second)
 
-		expect(getHookHandlers(declarations, 'beforeCreate')).toStrictEqual([
-			first,
-			second,
-			first,
-		])
+		expect(
+			readHandlers(getHookHandlerEntries(declarations, 'beforeCreate')),
+		).toStrictEqual([first, second, first])
 		expect(Object.isFrozen(declarations?.beforeCreate?.all)).toBe(true)
 	})
 
@@ -69,17 +84,27 @@ describe('hook declaration normalization', () => {
 			afterSave: { all: [broad, shared], create: specific },
 		})
 
-		expect(getHookHandlers(declarations, 'beforeSave', 'create')).toStrictEqual(
-			[broad, shared, specific],
-		)
-		expect(getHookHandlers(declarations, 'afterSave', 'create')).toStrictEqual([
-			specific,
-			broad,
-			shared,
+		expect(
+			readHandlers(getHookHandlerEntries(declarations, 'beforeSave', 'create')),
+		).toStrictEqual([broad, shared, specific])
+		expect(
+			readHandlers(getHookHandlerEntries(declarations, 'afterSave', 'create')),
+		).toStrictEqual([specific, broad, shared])
+		expect(
+			readHandlers(getHookHandlerEntries(declarations, 'beforeSave', 'update')),
+		).toStrictEqual([broad, shared])
+		expect(
+			getHookHandlerEntries(declarations, 'beforeSave', 'create').map(
+				({ declarationBranch, handlerIndex }) => ({
+					declarationBranch,
+					handlerIndex,
+				}),
+			),
+		).toStrictEqual([
+			{ declarationBranch: 'all', handlerIndex: 0 },
+			{ declarationBranch: 'all', handlerIndex: 1 },
+			{ declarationBranch: 'create', handlerIndex: 0 },
 		])
-		expect(getHookHandlers(declarations, 'beforeSave', 'update')).toStrictEqual(
-			[broad, shared],
-		)
 		expect(Object.isFrozen(declarations?.beforeSave?.variants.create)).toBe(
 			true,
 		)
@@ -89,17 +114,17 @@ describe('hook declaration normalization', () => {
 		const specific = () => undefined
 		const declarations = normalize({ beforeSave: { update: specific } })
 
-		expect(getHookHandlers(declarations, 'beforeSave', 'create')).toStrictEqual(
-			[],
-		)
-		expect(getHookHandlers(declarations, 'beforeSave', 'update')).toStrictEqual(
-			[specific],
-		)
+		expect(
+			getHookHandlerEntries(declarations, 'beforeSave', 'create'),
+		).toStrictEqual([])
+		expect(
+			readHandlers(getHookHandlerEntries(declarations, 'beforeSave', 'update')),
+		).toStrictEqual([specific])
 	})
 
 	it('reuses one frozen empty sequence for absent phases', () => {
-		const first = getHookHandlers(normalize({}), 'beforeCreate')
-		const second = getHookHandlers(undefined, 'afterSave', 'create')
+		const first = getHookHandlerEntries(normalize({}), 'beforeCreate')
+		const second = getHookHandlerEntries(undefined, 'afterSave', 'create')
 
 		expect(first).toBe(second)
 		expect(Object.isFrozen(first)).toBe(true)

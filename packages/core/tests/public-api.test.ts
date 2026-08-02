@@ -66,6 +66,7 @@ describe('@ultimabase/core public entry point', () => {
 			'getCurrentFrameworkContext',
 			'getCurrentRequest',
 			'guard',
+			'hookDiagnosticsObserverServiceToken',
 			'intField',
 			'isStaticDefault',
 			'jsonField',

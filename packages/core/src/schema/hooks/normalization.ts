@@ -9,6 +9,13 @@ import {
 /** Erases callback variance only after the public declaration has been type-checked. */
 export type ErasedHookHandler = (input: never) => MaybePromise<unknown>
 
+/** Retains the stable source location of one normalized declaration occurrence. */
+export interface NormalizedHookHandler {
+	readonly declarationBranch: string
+	readonly handler: ErasedHookHandler
+	readonly handlerIndex: number
+}
+
 export type HookSpecificityOrder = 'broad-first' | 'specific-first'
 
 /** Describes the optional family branches accepted by one broad hook phase. */
@@ -19,8 +26,8 @@ export interface HookPhaseDescriptor<TVariant extends string = string> {
 
 /** Stores precomposed handler sequences so execution never rebuilds family order. */
 export interface NormalizedHookPhase {
-	readonly all: readonly ErasedHookHandler[]
-	readonly variants: Readonly<Record<string, readonly ErasedHookHandler[]>>
+	readonly all: readonly NormalizedHookHandler[]
+	readonly variants: Readonly<Record<string, readonly NormalizedHookHandler[]>>
 }
 
 /** Retains a sparse immutable phase map for Runtime-owned composition. */
@@ -35,9 +42,9 @@ interface HookDeclarationNormalizationOptions<TPhase extends string> {
 	readonly scope: string
 }
 
-const emptyHookHandlers: readonly ErasedHookHandler[] = immutableArray([])
+const emptyHookHandlers: readonly NormalizedHookHandler[] = immutableArray([])
 const emptyHookVariants: Readonly<
-	Record<string, readonly ErasedHookHandler[]>
+	Record<string, readonly NormalizedHookHandler[]>
 > = immutableRecord({})
 
 const isErasedHookHandler = (value: unknown): value is ErasedHookHandler =>
@@ -47,33 +54,42 @@ const isErasedHookHandler = (value: unknown): value is ErasedHookHandler =>
 const normalizeHookHandlerList = (
 	value: unknown,
 	path: string,
-): readonly ErasedHookHandler[] => {
+	declarationBranch: string,
+): readonly NormalizedHookHandler[] => {
 	if (isErasedHookHandler(value)) {
-		return immutableArray([value])
+		return immutableArray([
+			immutableRecord({
+				declarationBranch,
+				handler: value,
+				handlerIndex: 0,
+			}),
+		])
 	}
 
 	if (!isUnknownArray(value) || value.length === 0) {
 		throw new TypeError(`${path} must be a function or non-empty handler list`)
 	}
 
-	const handlers: ErasedHookHandler[] = []
+	const handlers: NormalizedHookHandler[] = []
 
 	for (const [index, handler] of value.entries()) {
 		if (!isErasedHookHandler(handler)) {
 			throw new TypeError(`${path}[${String(index)}] must be a function`)
 		}
 
-		handlers.push(handler)
+		handlers.push(
+			immutableRecord({ declarationBranch, handler, handlerIndex: index }),
+		)
 	}
 
 	return immutableArray(handlers)
 }
 
 const combineHandlerLists = (
-	all: readonly ErasedHookHandler[],
-	specific: readonly ErasedHookHandler[],
+	all: readonly NormalizedHookHandler[],
+	specific: readonly NormalizedHookHandler[],
 	order: HookSpecificityOrder,
-): readonly ErasedHookHandler[] =>
+): readonly NormalizedHookHandler[] =>
 	order === 'broad-first'
 		? immutableArray([...all, ...specific])
 		: immutableArray([...specific, ...all])
@@ -101,9 +117,9 @@ const normalizeFamilyHookPhase = (
 	}
 
 	const all = Object.hasOwn(value, 'all')
-		? normalizeHookHandlerList(value.all, `${path}.all`)
+		? normalizeHookHandlerList(value.all, `${path}.all`, 'all')
 		: emptyHookHandlers
-	const variants: Record<string, readonly ErasedHookHandler[]> = {}
+	const variants: Record<string, readonly NormalizedHookHandler[]> = {}
 
 	for (const variant of descriptor.variants) {
 		if (!Object.hasOwn(value, variant)) {
@@ -113,6 +129,7 @@ const normalizeFamilyHookPhase = (
 		const specific = normalizeHookHandlerList(
 			value[variant],
 			`${path}.${variant}`,
+			variant,
 		)
 		variants[variant] = combineHandlerLists(all, specific, descriptor.order)
 	}
@@ -133,7 +150,7 @@ const normalizeHookPhase = (
 	}
 
 	return immutableRecord({
-		all: normalizeHookHandlerList(value, path),
+		all: normalizeHookHandlerList(value, path, 'direct'),
 		variants: emptyHookVariants,
 	})
 }
@@ -184,12 +201,12 @@ export const normalizeHookDeclarations = <TPhase extends string>({
 	return declarationCount === 0 ? undefined : immutableRecord(declarations)
 }
 
-/** Resolves one already composed immutable sequence without allocating per operation. */
-export const getHookHandlers = <TPhase extends string>(
+/** Resolves one composed sequence with stable declaration identities. */
+export const getHookHandlerEntries = <TPhase extends string>(
 	declarations: NormalizedHookDeclarations<TPhase> | undefined,
 	phase: TPhase,
 	variant?: string,
-): readonly ErasedHookHandler[] => {
+): readonly NormalizedHookHandler[] => {
 	const declaration = declarations?.[phase]
 
 	if (declaration === undefined) {

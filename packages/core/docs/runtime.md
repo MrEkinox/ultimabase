@@ -244,6 +244,48 @@ selection validation. Runtime evaluates and applies monotonic output
 restrictions only after every transform, immediately before returning the
 public result, so no later hook can restore a removed field.
 
+## Hook execution safety and diagnostics
+
+Every business hook input includes one immutable `context` with only the
+currently implemented safe execution identity:
+
+```ts
+beforeCreate: async ({ context, operation }) => {
+	if (operation.kind === 'create-one') {
+		await validateRemotely(operation.input, { signal: context.signal })
+	}
+	logger.debug({
+		requestId: context.requestId,
+		transactionId: context.transactionId,
+	})
+
+	return operation
+}
+```
+
+Root reads have no `transactionId`. Automatic mutations, explicit transactions,
+nested operations, and master elevation retain one framework-generated opaque
+identifier. Transport cancellation and `AbortSignal.timeout()` use the same
+cooperative path. Runtime checks the signal between sequential pre-commit hooks,
+waits for an active callback to settle rather than detaching it, then rolls an
+active transaction back. Post-commit and confirmed-rollback observers still run
+after the final database outcome is known.
+
+An immutable asynchronous-local stack detects `A -> A` and `A -> B -> A`
+re-entry by exact declaration, owner, target, phase, and handler position.
+`HOOK_RECURSION` includes only redacted structural details. A nested operation
+that reaches another phase, field, or schema remains supported and shares the
+current transaction engine.
+
+Plugins may provide one application-wide `hookDiagnosticsObserverServiceToken`.
+Events contain static owner and target identity, phase, operation kind,
+request/transaction identifiers, duration, status, and an optional stable
+framework error code. Delivery runs outside both hook-stack and active-engine
+scope. Runtime deliberately ignores observer throws and rejected promises, so
+telemetry cannot affect ordering, results, transactions, or business errors.
+Operations, field values, results, request metadata, access credentials, raw
+errors, and adapter state never enter these events.
+
 Root reads do not open an automatic transaction. A read inside
 `request.transaction()` reuses that explicit transaction and its request
 engine; otherwise, hooks must not assume read-started database work can roll

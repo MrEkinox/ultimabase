@@ -3,7 +3,7 @@
 - Status: active
 - Started: 2026-08-01
 - Objective owner: `@ultimabase/core`, `@ultimabase/postgres`, `@ultimabase/testing`
-- Governing decisions: [ADR-0089](docs/adr/0089-native-schema-and-field-hooks.md), [ADR-0090](docs/adr/0090-permission-plugins-through-hooks.md), [ADR-0095](docs/adr/0095-consolidated-foundational-core.md), [ADR-0096](docs/adr/0096-native-hook-declaration-capabilities.md), [ADR-0099](docs/adr/0099-automatic-mutation-transactions.md), [ADR-0100](docs/adr/0100-prepared-mutation-outcomes.md), [ADR-0102](docs/adr/0102-policy-neutral-monotonic-enforcement.md), [ADR-0103](docs/adr/0103-versioned-adapter-constraint-compilers.md), [ADR-0104](docs/adr/0104-read-hook-execution-and-output-resolution.md), [ADR-0105](docs/adr/0105-transaction-hook-journal.md)
+- Governing decisions: [ADR-0089](docs/adr/0089-native-schema-and-field-hooks.md), [ADR-0090](docs/adr/0090-permission-plugins-through-hooks.md), [ADR-0095](docs/adr/0095-consolidated-foundational-core.md), [ADR-0096](docs/adr/0096-native-hook-declaration-capabilities.md), [ADR-0099](docs/adr/0099-automatic-mutation-transactions.md), [ADR-0100](docs/adr/0100-prepared-mutation-outcomes.md), [ADR-0102](docs/adr/0102-policy-neutral-monotonic-enforcement.md), [ADR-0103](docs/adr/0103-versioned-adapter-constraint-compilers.md), [ADR-0104](docs/adr/0104-read-hook-execution-and-output-resolution.md), [ADR-0105](docs/adr/0105-transaction-hook-journal.md), [ADR-0106](docs/adr/0106-hook-execution-safety-and-diagnostics.md)
 - Previous completed objective: [Runtime-to-PostgreSQL E2E](docs/plans/completed/runtime-postgres-e2e.md)
 
 ## Objective
@@ -94,7 +94,7 @@ dependencies are incomplete.
 12. [x] [338 — Add the adapter constraint compiler registry](issues/300-query-runtime/338-adapter-constraint-compiler-registry.md)
 13. [x] [331 — Add find and output hooks](issues/300-query-runtime/331-find-and-output-hooks.md)
 14. [x] [332 — Add transaction finalization hooks](issues/300-query-runtime/332-transaction-hook-lifecycle.md)
-15. [ ] [333 — Protect hook execution and expose diagnostics](issues/300-query-runtime/333-hook-safety-and-observability.md)
+15. [x] [333 — Protect hook execution and expose diagnostics](issues/300-query-runtime/333-hook-safety-and-observability.md)
 16. [ ] [340 — Expose the native HookContext class](issues/300-query-runtime/340-hook-context-class.md)
 17. [ ] [334 — Define bulk hook and non-atomic grouping semantics](issues/300-query-runtime/334-bulk-hook-semantics.md)
 18. [ ] [508 — Implement PostgreSQL bulk and upsert execution](issues/500-postgres/508-transactions-bulk-upsert.md)
@@ -124,12 +124,12 @@ the named Runtime stages and proven monotonic hook enforcement.
 
 ## Current issue
 
-[333 — Protect hook execution and expose diagnostics](issues/300-query-runtime/333-hook-safety-and-observability.md)
+[340 — Expose the native HookContext class](issues/300-query-runtime/340-hook-context-class.md)
 
-Transaction finalization now buffers immutable per-operation outcomes, executes
-one per-schema `beforeCommit`, releases ordered `afterCommit` effects only after
-adapter commit, and reports confirmed rollback state. Issue 333 adds recursive
-execution protection, cancellation, and safe diagnostics around every hook.
+Hook execution now rejects structural recursion, honors request cancellation,
+retains request and transaction correlation, and reports isolated redacted
+diagnostics. Issue 340 replaces the minimal execution context with the native
+capability class used for transaction-bound queries and post-commit events.
 
 ## Progress log
 
@@ -150,4 +150,5 @@ without reconstructing repository history.
 - 338 — `done` — Application-owned versioned compiler definitions retain plugin ownership; PostgreSQL safely parameterizes and combines every claimed constraint across reads, locked targets, and final singular writes.
 - 331 — `done` — Every read terminal now shares selection-preserving `beforeFind`, exact `afterFind`, readable child-first field output resolution, pre-hook projection, and final monotonic restriction without opening an automatic transaction.
 - 332 — `done` — One transaction journal now preserves operation order, immutable per-schema commit summaries, semantic field changes, confirmed rollback truth, and best-effort post-finalization observers across automatic and explicit transactions.
+- 333 — `done` — One application-owned executor now gives every native, low-level, enforcement, and finalization hook stable structural recursion protection, cooperative cancellation, immutable correlation context, and isolated redacted diagnostics.
 - 508 — `planned` — PostgreSQL bulk and upsert support follows the prepared-mutation protocol from issue 344 and remains required before issue 335.

@@ -29,6 +29,15 @@ import {
 } from './definitions.js'
 import { isPluginHookTargetDefinition } from '../../plugins/hook-targets.js'
 import { getEnforcementContributionImplementation } from '../enforcement/definitions.js'
+import {
+	createHookExecutionDescriptor,
+	createPluginHookOwner,
+	globalHookTarget,
+	createSchemaHookTarget,
+} from './execution-descriptor.js'
+import type { HookExecutionDescriptor } from './execution-descriptor.js'
+import { getApplicationHookExecutionRuntime } from './execution-runtime.js'
+import type { HookExecutionRuntime } from './execution-runtime.js'
 
 type RuntimeContributionImplementation = NonNullable<
 	ReturnType<typeof getRuntimeContributionImplementation>
@@ -37,6 +46,25 @@ type RuntimeContributionImplementation = NonNullable<
 interface OwnedRuntimeContribution {
 	readonly contribution: PluginContribution
 	readonly implementation: RuntimeContributionImplementation
+}
+
+/** Builds one redacted identity without retaining operation inputs or results. */
+const createRuntimeContributionDescriptor = (
+	owned: OwnedRuntimeContribution,
+	operation: DatabaseOperationAst,
+): HookExecutionDescriptor => {
+	const { contribution, implementation } = owned
+	return createHookExecutionDescriptor({
+		handler: (input) => implementation.run(input),
+		handlerIndex: 0,
+		operationKind: operation.kind,
+		owner: createPluginHookOwner(contribution.ownerPlugin, contribution.name),
+		phase: implementation.kind,
+		target:
+			implementation.schema === undefined
+				? globalHookTarget
+				: createSchemaHookTarget(implementation.schema.className),
+	})
 }
 
 /** Supplies exactly the five hook and event stages owned by the Runtime pipeline. */
@@ -168,17 +196,22 @@ const runBeforeContributions = async <
 	const TOperation extends DatabaseOperationAst,
 >(
 	contributions: readonly OwnedRuntimeContribution[],
+	runtime: HookExecutionRuntime,
 	input: RuntimeOperationStageInput<TOperation>,
 ): Promise<TOperation> => {
 	let operation: TOperation = input.operation
 
-	for (const { implementation } of contributions) {
+	for (const owned of contributions) {
+		const { implementation } = owned
 		if (!matchesContribution(implementation, operation)) {
 			continue
 		}
 
-		const output: unknown = await implementation.run(
-			createBeforeHookInput(input.context, operation),
+		const output: unknown = await runtime.invoke(
+			createRuntimeContributionDescriptor(owned, operation),
+			input.context,
+			(context) =>
+				implementation.run(createBeforeHookInput(context, operation)),
 		)
 
 		operation = normalizeBeforeHookOutput(operation, output)
@@ -191,17 +224,24 @@ const runAfterContributions = async <
 	const TOperation extends DatabaseOperationAst,
 >(
 	contributions: readonly OwnedRuntimeContribution[],
+	runtime: HookExecutionRuntime,
 	input: RuntimeResultStageInput<TOperation>,
 ): Promise<DatabaseOperationResult<TOperation>> => {
 	let result: DatabaseOperationResult<TOperation> = input.result
 
-	for (const { implementation } of contributions) {
+	for (const owned of contributions) {
+		const { implementation } = owned
 		if (!matchesContribution(implementation, input.operation)) {
 			continue
 		}
 
-		const output: unknown = await implementation.run(
-			createAfterHookInput(input.context, input.operation, result),
+		const output: unknown = await runtime.invoke(
+			createRuntimeContributionDescriptor(owned, input.operation),
+			input.context,
+			(context) =>
+				implementation.run(
+					createAfterHookInput(context, input.operation, result),
+				),
 		)
 
 		result = normalizeAfterHookOutput<TOperation>(output)
@@ -214,11 +254,21 @@ const runPostCommitContributions = async <
 	const TOperation extends DatabaseOperationAst,
 >(
 	contributions: readonly OwnedRuntimeContribution[],
+	runtime: HookExecutionRuntime,
 	input: RuntimeResultStageInput<TOperation>,
 ): Promise<void> => {
-	for (const { implementation } of contributions) {
+	for (const owned of contributions) {
+		const { implementation } = owned
 		if (matchesContribution(implementation, input.operation)) {
-			await implementation.run(input)
+			await runtime.invoke(
+				createRuntimeContributionDescriptor(owned, input.operation),
+				input.context,
+				(context) =>
+					implementation.run(
+						createAfterHookInput(context, input.operation, input.result),
+					),
+				{ cancellable: false },
+			)
 		}
 	}
 }
@@ -236,6 +286,7 @@ export const createRuntimeHookStages = <
 
 	const hooks = readContributions(application, 'hooks')
 	const events = readContributions(application, 'events')
+	const runtime = getApplicationHookExecutionRuntime(application)
 	const globalBefore = immutableArray(
 		hooks.filter(
 			({ implementation }) =>
@@ -266,10 +317,15 @@ export const createRuntimeHookStages = <
 	)
 
 	return immutableRecord({
-		globalBeforeHooks: (input) => runBeforeContributions(globalBefore, input),
-		schemaBeforeHooks: (input) => runBeforeContributions(schemaBefore, input),
-		schemaAfterHooks: (input) => runAfterContributions(schemaAfter, input),
-		globalAfterHooks: (input) => runAfterContributions(globalAfter, input),
-		postCommitEvents: (input) => runPostCommitContributions(events, input),
+		globalBeforeHooks: (input) =>
+			runBeforeContributions(globalBefore, runtime, input),
+		schemaBeforeHooks: (input) =>
+			runBeforeContributions(schemaBefore, runtime, input),
+		schemaAfterHooks: (input) =>
+			runAfterContributions(schemaAfter, runtime, input),
+		globalAfterHooks: (input) =>
+			runAfterContributions(globalAfter, runtime, input),
+		postCommitEvents: (input) =>
+			runPostCommitContributions(events, runtime, input),
 	})
 }

@@ -41,13 +41,19 @@ describe('RequestContext', () => {
 	})
 
 	it('retains custom source literals without changing access semantics', () => {
+		const controller = new AbortController()
 		const context = RequestContext.anonymous({
 			requestId: 'request-grpc',
+			signal: controller.signal,
 			source: 'grpc',
 		})
 
 		expect(context.source).toBe('grpc')
 		expect(context.access.mode).toBe('anonymous')
+		expect(context.signal).toBe(controller.signal)
+
+		controller.abort()
+		expect(context.signal.aborted).toBe(true)
 	})
 
 	it('keeps master construction behind the internal trusted boundary', () => {
@@ -107,6 +113,14 @@ describe('RequestContext', () => {
 				masterKey: 'secret',
 			}),
 		).toThrow(new TypeError('Unknown request context option: masterKey'))
+		expect(() =>
+			RequestContext.anonymous({
+				// @ts-expect-error -- Runtime validation rejects forged cancellation values.
+				signal: {},
+				requestId: 'request-1',
+				source: requestSources.rest,
+			}),
+		).toThrow(new TypeError('Request context signal must be an AbortSignal'))
 		expect(() =>
 			RequestContext.anonymous({
 				// @ts-expect-error -- Runtime validation rejects non-record metadata.

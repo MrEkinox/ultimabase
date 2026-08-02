@@ -41,10 +41,40 @@ import {
 	narrowEnforcementFields,
 	type EnforcementState,
 } from './state.js'
+import {
+	createSchemaHookTarget,
+	createHookExecutionDescriptor,
+	createPluginHookOwner,
+	globalHookTarget,
+	type HookExecutionDescriptor,
+} from '../hooks/execution-descriptor.js'
+import {
+	getApplicationHookExecutionRuntime,
+	type HookExecutionRuntime,
+} from '../hooks/execution-runtime.js'
 
 interface OwnedEnforcementContribution {
 	readonly contribution: PluginContribution
 	readonly implementation: EnforcementContributionImplementation
+}
+
+/** Gives policy hooks the same recursion and diagnostic identity as business hooks. */
+const createEnforcementExecutionDescriptor = (
+	owned: OwnedEnforcementContribution,
+	operation: DatabaseOperationAst,
+): HookExecutionDescriptor => {
+	const { contribution, implementation } = owned
+	return createHookExecutionDescriptor({
+		handler: (input) => implementation.run(input),
+		handlerIndex: 0,
+		operationKind: operation.kind,
+		owner: createPluginHookOwner(contribution.ownerPlugin, contribution.name),
+		phase: implementation.kind,
+		target:
+			implementation.schema === undefined
+				? globalHookTarget
+				: createSchemaHookTarget(implementation.schema.className),
+	})
 }
 
 /** Returns a trusted schema only after preserving the normalized AST invariant. */
@@ -127,13 +157,15 @@ const evaluateContributions = async <
 	const TOperation extends DatabaseOperationAst,
 >(
 	contributions: readonly OwnedEnforcementContribution[],
+	runtime: HookExecutionRuntime,
 	input: RuntimeOperationStageInput<TOperation>,
 	initialState: EnforcementState = createEnforcementState(),
 ): Promise<EnforcementState> => {
 	const schema = readOperationSchema(input.operation)
 	let state = initialState
 
-	for (const { contribution, implementation } of contributions) {
+	for (const owned of contributions) {
+		const { contribution, implementation } = owned
 		if (
 			implementation.kind === 'restrictOutput' ||
 			!matchesEnforcementContribution(implementation, input.operation, schema)
@@ -141,11 +173,16 @@ const evaluateContributions = async <
 			continue
 		}
 
-		const output: unknown = await implementation.run(
-			immutableRecord({
-				context: input.context,
-				operation: input.operation,
-			}) as never,
+		const output: unknown = await runtime.invoke(
+			createEnforcementExecutionDescriptor(owned, input.operation),
+			input.context,
+			() =>
+				implementation.run(
+					immutableRecord({
+						context: input.context,
+						operation: input.operation,
+					}) as never,
+				),
 		)
 
 		switch (implementation.kind) {
@@ -416,6 +453,7 @@ const enforceSelectionResult = <const TOperation extends DatabaseOperationAst>(
 /** Evaluates final output restrictions after business result replacement. */
 const enforceResult = async <const TOperation extends DatabaseOperationAst>(
 	contributions: readonly OwnedEnforcementContribution[],
+	runtime: HookExecutionRuntime,
 	input: RuntimeResultStageInput<TOperation> & {
 		readonly enforcement: EnforcementState
 	},
@@ -423,7 +461,8 @@ const enforceResult = async <const TOperation extends DatabaseOperationAst>(
 	const schema = readOperationSchema(input.operation)
 	let state = input.enforcement
 
-	for (const { contribution, implementation } of contributions) {
+	for (const owned of contributions) {
+		const { contribution, implementation } = owned
 		if (
 			implementation.kind !== 'restrictOutput' ||
 			!matchesEnforcementContribution(implementation, input.operation, schema)
@@ -431,12 +470,17 @@ const enforceResult = async <const TOperation extends DatabaseOperationAst>(
 			continue
 		}
 
-		const output: unknown = await implementation.run(
-			immutableRecord({
-				context: input.context,
-				operation: input.operation,
-				result: input.result,
-			}) as never,
+		const output: unknown = await runtime.invoke(
+			createEnforcementExecutionDescriptor(owned, input.operation),
+			input.context,
+			() =>
+				implementation.run(
+					immutableRecord({
+						context: input.context,
+						operation: input.operation,
+						result: input.result,
+					}) as never,
+				),
 		)
 		state = narrowEnforcementFields(
 			state,
@@ -475,12 +519,14 @@ export const createEnforcementStages = <
 		return undefined
 	}
 
+	const runtime = getApplicationHookExecutionRuntime(application)
+
 	return immutableRecord({
-		evaluate: (input) => evaluateContributions(contributions, input),
+		evaluate: (input) => evaluateContributions(contributions, runtime, input),
 		enforceOperation: (input) => enforceOperation(input),
 		enforceSelectionResult: (input) => enforceSelectionResult(input),
-		enforceResult: (input) => enforceResult(contributions, input),
+		enforceResult: (input) => enforceResult(contributions, runtime, input),
 		reevaluate: (input) =>
-			evaluateContributions(contributions, input, input.enforcement),
+			evaluateContributions(contributions, runtime, input, input.enforcement),
 	})
 }

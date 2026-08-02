@@ -23,9 +23,15 @@ import {
 } from '../index.js'
 import type { GenericField } from '../fields/base/contract.js'
 import { getFieldHookDeclarations } from '../fields/base/definition.js'
-import { getHookHandlers } from './normalization.js'
+import { getHookHandlerEntries } from './normalization.js'
 
 const onError: FieldErrorHook = () => undefined
+const expectedOnErrorDeclarations = {
+	onError: {
+		all: [{ declarationBranch: 'direct', handler: onError, handlerIndex: 0 }],
+		variants: {},
+	},
+}
 
 const builtInFields = [
 	['bigint', bigintField({ hooks: { onError } })],
@@ -65,9 +71,7 @@ describe('field hook declarations', () => {
 		(_kind, field) => {
 			const declarations = getFieldHookDeclarations(field)
 
-			expect(declarations).toStrictEqual({
-				onError: { all: [onError], variants: {} },
-			})
+			expect(declarations).toStrictEqual(expectedOnErrorDeclarations)
 			expect(Object.isFrozen(declarations)).toBe(true)
 			expect(field.options).not.toHaveProperty('hooks')
 			expect(Object.keys(field)).toStrictEqual(['kind', 'options'])
@@ -100,9 +104,9 @@ describe('field hook declarations', () => {
 
 		expect(normalizedValidation).toStrictEqual({ required: true })
 		expect(normalizedValidation).not.toHaveProperty('hooks')
-		expect(getFieldHookDeclarations(field)).toStrictEqual({
-			onError: { all: [onError], variants: {} },
-		})
+		expect(getFieldHookDeclarations(field)).toStrictEqual(
+			expectedOnErrorDeclarations,
+		)
 		expect(Object.isFrozen(getFieldHookDeclarations(field))).toBe(true)
 		expect(field.options).not.toHaveProperty('hooks')
 		expect(Object.keys(field)).toStrictEqual(['kind', 'options'])
@@ -116,7 +120,9 @@ describe('field hook declarations', () => {
 
 		hooks.onError = replacement
 
-		expect(getHookHandlers(declarations, 'onError')[0]).toBe(onError)
+		expect(getHookHandlerEntries(declarations, 'onError')[0]?.handler).toBe(
+			onError,
+		)
 		expect(Object.isFrozen(declarations)).toBe(true)
 		expect(Reflect.set(declarations ?? {}, 'onError', replacement)).toBe(false)
 	})
@@ -130,10 +136,12 @@ describe('field hook declarations', () => {
 		const secondDeclarations = getFieldHookDeclarations(second)
 
 		expect(firstDeclarations).not.toBe(secondDeclarations)
-		expect(getHookHandlers(firstDeclarations, 'onError')[0]).toBe(firstHandler)
-		expect(getHookHandlers(secondDeclarations, 'onError')[0]).toBe(
-			secondHandler,
-		)
+		expect(
+			getHookHandlerEntries(firstDeclarations, 'onError')[0]?.handler,
+		).toBe(firstHandler)
+		expect(
+			getHookHandlerEntries(secondDeclarations, 'onError')[0]?.handler,
+		).toBe(secondHandler)
 	})
 
 	it('precomposes every broad field lifecycle according to its timing', () => {
@@ -148,15 +156,20 @@ describe('field hook declarations', () => {
 		})
 		const declarations = getFieldHookDeclarations(field)
 
-		expect(getHookHandlers(declarations, 'onChange', 'delete')).toStrictEqual([
-			broad,
-			specific,
-		])
 		expect(
-			getHookHandlers(declarations, 'resolveOutput', 'find'),
+			getHookHandlerEntries(declarations, 'onChange', 'delete').map(
+				({ handler }) => handler,
+			),
+		).toStrictEqual([broad, specific])
+		expect(
+			getHookHandlerEntries(declarations, 'resolveOutput', 'find').map(
+				({ handler }) => handler,
+			),
 		).toStrictEqual([specific, broad])
 		expect(
-			getHookHandlers(declarations, 'afterRollback', 'delete'),
+			getHookHandlerEntries(declarations, 'afterRollback', 'delete').map(
+				({ handler }) => handler,
+			),
 		).toStrictEqual([specific, broad])
 	})
 

@@ -4,6 +4,7 @@ import type {
 	HookErrorPhase,
 	HookErrorTransactionState,
 } from '../../schema/hooks/contracts.js'
+import type { HookExecutionContext } from '../../schema/hooks/execution-context.js'
 import type { RequestContext } from '../context/request-context.js'
 import type { DatabaseMutationOperationAst } from '../database/contracts.js'
 import type {
@@ -24,6 +25,11 @@ import type {
 } from './contribution-plan.js'
 import { collectOperationFieldInputs } from './field-inputs.js'
 import { getNativeHookPhaseOrder } from './phase-order.js'
+import {
+	createFieldHookTarget,
+	createSchemaHookTarget,
+} from './execution-descriptor.js'
+import type { HookExecutionRuntime } from './execution-runtime.js'
 import {
 	TransactionHookJournal,
 	type TransactionHookFailedEntry,
@@ -80,6 +86,23 @@ const throwObserverFailures = (
 }
 
 const createSchemaOutcomeInput = (
+	entry: TransactionHookSuccessfulMutationEntry,
+	context: HookExecutionContext,
+): Readonly<{
+	readonly context: HookExecutionContext
+	readonly kind: DatabaseMutationOperationAst['kind']
+	readonly operation: DatabaseMutationOperationAst
+	readonly result: unknown
+}> =>
+	immutableRecord({
+		context,
+		kind: entry.operation.kind,
+		operation: entry.operation,
+		result: entry.result,
+	})
+
+/** Keeps before-commit changes independent from the surrounding hook context. */
+const createSchemaCommitChange = (
 	entry: TransactionHookSuccessfulMutationEntry,
 ): Readonly<{
 	readonly kind: DatabaseMutationOperationAst['kind']
@@ -182,27 +205,40 @@ const collectParticipatingFields = (
 
 const runBeforeCommit = async (
 	plan: NativeHookContributionPlan,
+	runtime: HookExecutionRuntime,
 	entries: readonly TransactionHookJournalEntry[],
 ): Promise<void> => {
 	for (const [schemaPlan, schemaEntries] of groupSuccessfulMutations(
 		plan,
 		entries,
 	)) {
+		const firstEntry = schemaEntries[0]
+
+		if (firstEntry === undefined) {
+			continue
+		}
+
 		const handlers = collectNestedHookHandlers(
 			schemaPlan.contributions,
 			'before',
 			'beforeCommit',
+			firstEntry.operation.kind,
+			createSchemaHookTarget(schemaPlan.schema.className),
 		)
-		const changes = immutableArray(schemaEntries.map(createSchemaOutcomeInput))
+		const changes = immutableArray(schemaEntries.map(createSchemaCommitChange))
+		const request = firstEntry.context
 
 		await runHookEffects(handlers, async (handler) => {
-			await invokeErasedHook(handler, immutableRecord({ changes }))
+			await invokeErasedHook(runtime, handler, request, (context) =>
+				immutableRecord({ changes, context }),
+			)
 		})
 	}
 }
 
 const runAfterCommit = async (
 	plan: NativeHookContributionPlan,
+	runtime: HookExecutionRuntime,
 	entries: readonly TransactionHookJournalEntry[],
 ): Promise<void> => {
 	const failures: unknown[] = []
@@ -226,15 +262,22 @@ const runAfterCommit = async (
 				fieldPlan.contributions,
 				'after',
 				'afterCommit',
+				entry.operation.kind,
+				createFieldHookTarget(schema.className, fieldChange.fieldPath),
 				family,
 			)
 			failures.push(
-				...(await runHookObservers(handlers, () =>
-					immutableRecord({
-						change: fieldChange.change,
-						kind: entry.operation.kind,
-						timing: 'after-commit' as const,
-					}),
+				...(await runHookObservers(
+					runtime,
+					handlers,
+					entry.context,
+					(context) =>
+						immutableRecord({
+							context,
+							change: fieldChange.change,
+							kind: entry.operation.kind,
+							timing: 'after-commit' as const,
+						}),
 				)),
 			)
 		}
@@ -249,11 +292,13 @@ const runAfterCommit = async (
 			schemaPlan.contributions,
 			'after',
 			'afterCommit',
+			entry.operation.kind,
+			createSchemaHookTarget(schema.className),
 			family,
 		)
 		failures.push(
-			...(await runHookObservers(handlers, () =>
-				createSchemaOutcomeInput(entry),
+			...(await runHookObservers(runtime, handlers, entry.context, (context) =>
+				createSchemaOutcomeInput(entry, context),
 			)),
 		)
 	}
@@ -263,6 +308,7 @@ const runAfterCommit = async (
 
 const runAfterRollback = async (
 	plan: NativeHookContributionPlan,
+	runtime: HookExecutionRuntime,
 	entries: readonly TransactionHookJournalEntry[],
 	error: unknown,
 ): Promise<void> => {
@@ -296,29 +342,56 @@ const runAfterRollback = async (
 				fieldPlan.contributions,
 				'after',
 				'afterRollback',
+				entry.operation.kind,
+				createFieldHookTarget(schemaPlan.schema.className, fieldPlan.path),
 				family,
 			)
 			failures.push(
-				...(await runHookObservers(handlers, () =>
-					immutableRecord({
-						error,
-						kind: entry.operation.kind,
-						timing: 'after-rollback' as const,
-					}),
+				...(await runHookObservers(
+					runtime,
+					handlers,
+					entry.context,
+					(context) =>
+						immutableRecord({
+							context,
+							error,
+							kind: entry.operation.kind,
+							timing: 'after-rollback' as const,
+						}),
 				)),
 			)
 		}
 	}
 
 	for (const [schemaPlan, operations] of schemaOperations) {
+		const firstOperation = operations[0]
+
+		if (firstOperation === undefined) {
+			continue
+		}
+
+		const request = entries.find(
+			(entry) =>
+				isMutationOperation(entry) &&
+				plan.getSchema(requireDeclaredOperationSchema(entry.operation)) ===
+					schemaPlan,
+		)?.context
+
+		if (request === undefined) {
+			continue
+		}
+
 		const handlers = collectNestedHookHandlers(
 			schemaPlan.contributions,
 			'after',
 			'afterRollback',
+			firstOperation.kind,
+			createSchemaHookTarget(schemaPlan.schema.className),
 		)
 		failures.push(
-			...(await runHookObservers(handlers, () =>
+			...(await runHookObservers(runtime, handlers, request, (context) =>
 				immutableRecord({
+					context,
 					error,
 					operations: immutableArray(operations),
 				}),
@@ -358,6 +431,7 @@ const collectErrorObservations = (
 
 const runOnError = async (
 	plan: NativeHookContributionPlan,
+	runtime: HookExecutionRuntime,
 	entries: readonly TransactionHookJournalEntry[],
 	input: Readonly<{
 		readonly error: unknown
@@ -387,16 +461,23 @@ const runOnError = async (
 				fieldPlan.contributions,
 				'after',
 				'onError',
+				entry.operation.kind,
+				createFieldHookTarget(schemaPlan.schema.className, fieldPlan.path),
 				family,
 			)
 			failures.push(
-				...(await runHookObservers(fieldHandlers, () =>
-					immutableRecord({
-						error: observation.error,
-						kind: entry.operation.kind,
-						phase: observation.phase,
-						transaction: input.transaction,
-					}),
+				...(await runHookObservers(
+					runtime,
+					fieldHandlers,
+					entry.context,
+					(context) =>
+						immutableRecord({
+							context,
+							error: observation.error,
+							kind: entry.operation.kind,
+							phase: observation.phase,
+							transaction: input.transaction,
+						}),
 				)),
 			)
 		}
@@ -405,18 +486,25 @@ const runOnError = async (
 			schemaPlan.contributions,
 			'after',
 			'onError',
+			entry.operation.kind,
+			createSchemaHookTarget(schemaPlan.schema.className),
 			family,
 		)
 
 		failures.push(
-			...(await runHookObservers(schemaHandlers, () =>
-				immutableRecord({
-					error: observation.error,
-					kind: entry.operation.kind,
-					operation: entry.operation,
-					phase: observation.phase,
-					transaction: input.transaction,
-				}),
+			...(await runHookObservers(
+				runtime,
+				schemaHandlers,
+				entry.context,
+				(context) =>
+					immutableRecord({
+						context,
+						error: observation.error,
+						kind: entry.operation.kind,
+						operation: entry.operation,
+						phase: observation.phase,
+						transaction: input.transaction,
+					}),
 			)),
 		)
 	}
@@ -427,16 +515,18 @@ const runOnError = async (
 /** Creates isolated finalization behavior from one already compiled hook plan. */
 export const createTransactionHookLifecycle = (
 	plan: NativeHookContributionPlan,
+	runtime: HookExecutionRuntime,
 ): RuntimeNativeTransactionLifecycle => {
 	const journal = new TransactionHookJournal()
 	const readEntries = (): readonly TransactionHookJournalEntry[] =>
 		journal.snapshot()
 
 	return immutableRecord({
-		afterCommit: () => runAfterCommit(plan, readEntries()),
-		afterRollback: (error) => runAfterRollback(plan, readEntries(), error),
-		beforeCommit: () => runBeforeCommit(plan, readEntries()),
-		onError: (input) => runOnError(plan, readEntries(), input),
+		afterCommit: () => runAfterCommit(plan, runtime, readEntries()),
+		afterRollback: (error) =>
+			runAfterRollback(plan, runtime, readEntries(), error),
+		beforeCommit: () => runBeforeCommit(plan, runtime, readEntries()),
+		onError: (input) => runOnError(plan, runtime, readEntries(), input),
 		start: ({ context }): RuntimeNativeTransactionOperation => {
 			const token = journal.reserve(context)
 
@@ -455,6 +545,7 @@ export const createTransactionHookLifecycle = (
 /** Executes root read error hooks without manufacturing transaction state. */
 export const runNonTransactionalErrorHooks = async (
 	plan: NativeHookContributionPlan,
+	runtime: HookExecutionRuntime,
 	input: Readonly<{
 		readonly context: RequestContext
 		readonly error: unknown
@@ -472,5 +563,5 @@ export const runNonTransactionalErrorHooks = async (
 		status: 'failed' as const,
 	}) satisfies TransactionHookFailedEntry
 
-	await runOnError(plan, immutableArray([failedEntry]), input)
+	await runOnError(plan, runtime, immutableArray([failedEntry]), input)
 }
