@@ -93,7 +93,7 @@ class FixtureDatabaseExecutor implements DatabaseAdapter {
 	}
 }
 
-/** Creates explicit neutral stages so engine tests still use the real pipeline. */
+/** Creates the policy-free stages needed to exercise the real pipeline. */
 const createPipeline = (
 	databaseOperation: DatabaseOperationExecutor,
 	contexts: RequestContext[] = [],
@@ -105,12 +105,6 @@ const createPipeline = (
 			return input.operation
 		},
 		structuralValidation: (input) => input.operation,
-		clp: () => undefined,
-		acl: (input) => input.accessConstraints,
-		fieldPermissions: (input) => ({
-			operation: input.operation,
-			accessConstraints: input.accessConstraints,
-		}),
 		globalBeforeHooks: (input) => input.operation,
 		schemaBeforeHooks: (input) => input.operation,
 		databaseOperation,

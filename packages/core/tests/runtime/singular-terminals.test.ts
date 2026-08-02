@@ -129,7 +129,7 @@ describe('singular BoundQuery terminals', () => {
 				(requestEnvelope) =>
 					Object.isFrozen(requestEnvelope) &&
 					Object.isFrozen(requestEnvelope.operation) &&
-					Object.isFrozen(requestEnvelope.accessConstraints),
+					Object.isFrozen(requestEnvelope.constraints),
 			),
 		).toBe(true)
 	})

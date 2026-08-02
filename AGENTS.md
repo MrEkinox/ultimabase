@@ -28,7 +28,7 @@ Before changing code:
 - Concrete capabilities are plugins. The Core must not depend on PostgreSQL, Drizzle, Hono, GraphQL, Yoga, authentication providers, Redis, or job systems.
 - REST and GraphQL normalize into the same operation/query AST and execute through the same runtime pipeline.
 - CLP controls class operations. ACL controls individual objects. Field permissions control field selection and mutation.
-- CLP, ACL, roles, and field permissions are optional plugins that contribute through native hooks. Runtime must not name, configure, bypass, or install neutral stages for them.
+- CLP, ACL, roles, and field permissions are optional plugins that register policy-neutral guards, constraints, and field restrictions through the hook registry. Runtime must not name, configure, bypass, or install neutral stages for them.
 - Access modes are `anonymous`, `user`, and `master`. There is no `system` mode.
 - Master access is trusted server-side authority and must never be forgeable from transport input.
 

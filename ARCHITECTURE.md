@@ -158,19 +158,20 @@ validation plans, schema hashes, or migration metadata. Core's Runtime domain
 reads those declarations internally; absent hooks create no neutral stage.
 
 Runtime does not name CLP, ACL, roles, or field permissions. Optional policy
-plugins attach to schema or field hooks and contribute policy-neutral effects:
-guards may only deny, adapter constraints may only accumulate with logical
-`AND`, and field restrictions may only narrow. Enforcement state remains
-separate from transformable operations so later hooks cannot broaden it. An
-absent policy plugin contributes no hook and requires no neutral stage.
+plugins register `guard`, `constraint`, `restrictInput`, `restrictSelection`,
+or `restrictOutput` definitions in the shared hook registry. Guards may only
+deny, adapter constraints may only accumulate with logical `AND`, and field
+restrictions may only narrow. Enforcement state remains separate from
+transformable operations so later hooks cannot broaden it. An absent policy
+plugin contributes no hook and requires no neutral stage.
 
 The existing Runtime hook factories remain the low-level implementation
-foundation while the active hook plan adds native declarations and removes the
-legacy named permission stages. Core stores
-owner-scoped contributions without executing them. Runtime reads immutable
-dependency-first snapshots and composes them with developer hooks. Before/after
-hooks transform values explicitly; business after-hooks may still abort before
-commit, while externally visible event handlers run only after commit succeeds.
+foundation beside native declarations and policy-neutral enforcement. Core has
+removed the legacy named permission stages and stores owner-scoped
+contributions without executing them. Runtime reads immutable dependency-first
+snapshots and composes them with developer hooks. Before/after hooks transform
+values explicitly; business after-hooks may still abort before commit, while
+externally visible event handlers run only after commit succeeds.
 
 One handler may cover a full create, update, upsert, delete, save, or find
 family; the exact terminal kind remains a discriminant. Handler lists execute

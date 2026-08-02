@@ -309,7 +309,7 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 			const secondTransaction = await adapter.beginTransaction()
 			transactions.push(firstTransaction, secondTransaction)
 			const firstPrepared = await firstTransaction.prepare({
-				accessConstraints: [],
+				constraints: [],
 				operation: {
 					kind: 'update-one',
 					query: updateQuery.ast,
@@ -317,7 +317,7 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 				},
 			})
 			const secondPreparation = secondTransaction.prepare({
-				accessConstraints: [],
+				constraints: [],
 				operation: {
 					kind: 'update-one',
 					query: updateQuery.ast,
@@ -350,11 +350,11 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 			const competingTransaction = await adapter.beginTransaction()
 			transactions.push(deleteTransaction, competingTransaction)
 			const preparedDelete = await deleteTransaction.prepare({
-				accessConstraints: [],
+				constraints: [],
 				operation: { kind: 'delete-one', query: deleteQuery.ast },
 			})
 			const competingPreparation = competingTransaction.prepare({
-				accessConstraints: [],
+				constraints: [],
 				operation: {
 					kind: 'update-one',
 					query: deleteQuery.ast,

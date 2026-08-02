@@ -10,15 +10,15 @@ test('selects the exact handler contract from the pipeline stage name', () => {
 		stage: 'normalization',
 		handler: (input) => input.operation,
 	})
-	const acl = runtimePipelineStage({
-		stage: 'acl',
-		handler: (input) => input.accessConstraints,
+	const commit = runtimePipelineStage({
+		stage: 'commit',
+		handler: () => undefined,
 	})
 
 	expectTypeOf(normalization).toEqualTypeOf<
 		RuntimePipelineStageDefinition<'normalization'>
 	>()
-	expectTypeOf(acl).toEqualTypeOf<RuntimePipelineStageDefinition<'acl'>>()
+	expectTypeOf(commit).toEqualTypeOf<RuntimePipelineStageDefinition<'commit'>>()
 })
 
 test('rejects unknown stages and incompatible handler results', () => {
@@ -29,8 +29,14 @@ test('rejects unknown stages and incompatible handler results', () => {
 	})
 
 	runtimePipelineStage({
-		stage: 'acl',
-		// @ts-expect-error -- ACL stages must return portable constraint collections.
+		stage: 'normalization',
+		// @ts-expect-error -- Normalization must preserve the exact operation type.
+		handler: () => undefined,
+	})
+
+	runtimePipelineStage({
+		// @ts-expect-error -- Policy plugins contribute hook effects, not named stages.
+		stage: 'clp',
 		handler: () => undefined,
 	})
 })

@@ -60,7 +60,8 @@ const users = await ultimabase
 - Core contains the inseparable Schema, Query, Access, application, and Runtime domains while remaining independent from infrastructure implementations.
 - REST and GraphQL use one operation AST and one runtime pipeline.
 - UltimaBase, Schema, Query, ACL, and Role domain objects use immutable classes.
-- CLP, ACL, roles, and field access are independent plugins.
+- CLP, ACL, roles, and field access are independent plugins that contribute
+  through Core's policy-neutral hook enforcement.
 - PostgreSQL synchronization and PostgreSQL migrations are separate capabilities.
 - The framework targets Node.js 24+, ESM, TypeScript, and an Apache-2.0 license.
 

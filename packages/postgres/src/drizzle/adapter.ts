@@ -45,15 +45,15 @@ const readOperationSchema = (operation: DatabaseOperationAst): unknown => {
 	return undefined
 }
 
-const assertNoAccessConstraints = (request: DatabaseOperationRequest): void => {
-	if (request.accessConstraints.length > 0) {
+const assertNoConstraints = (request: DatabaseOperationRequest): void => {
+	if (request.constraints.length > 0) {
 		throw new FrameworkError(
 			'INTERNAL_ERROR',
-			'PostgreSQL cannot compile the requested access constraints.',
+			'PostgreSQL cannot compile the requested constraints.',
 			{
 				publicMessage: 'The database operation is not available.',
 				internalDetails: {
-					kind: 'postgres-access-constraint-unsupported',
+					kind: 'postgres-constraint-unsupported',
 				},
 			},
 		)
@@ -110,7 +110,7 @@ const executePostgresRequest = async <
 	schemas: PostgresSchemaCatalog,
 	request: DatabaseOperationRequest<TOperation>,
 ): Promise<DatabaseOperationResult<TOperation>> => {
-	assertNoAccessConstraints(request)
+	assertNoConstraints(request)
 	const schema = schemas.get(readOperationSchema(request.operation))
 	// Runtime guarantees the closed Operation AST union before the adapter boundary.
 	const operation = request.operation as unknown as ExecutableOperationAst
@@ -175,7 +175,7 @@ class DrizzlePostgresTransactionAdapter implements DatabaseTransactionAdapter {
 		request: DatabaseOperationRequest<TOperation>,
 	): Promise<PreparedDatabaseOperation<TOperation>> {
 		this.#assertActive()
-		assertNoAccessConstraints(request)
+		assertNoConstraints(request)
 		const schema = this.#schemas.get(readOperationSchema(request.operation))
 
 		return preparePostgresMutation(

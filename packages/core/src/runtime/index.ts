@@ -32,7 +32,9 @@ export type {
 // Database plugins implement this neutral boundary without leaking their query builders.
 export { databaseAdapterServiceToken } from './database/contracts.js'
 export type {
-	DatabaseAccessConstraintNode,
+	DatabaseConstraintNode,
+	DatabaseConstraintPayload,
+	DatabaseConstraintPayloadObject,
 	DatabaseAdapter,
 	DatabaseCreateMaterialization,
 	DatabaseDeleteMaterialization,
@@ -49,8 +51,43 @@ export type {
 	DatabaseOperationResult,
 	DatabaseTransactionAdapter,
 	DatabaseUpdateMaterialization,
+	ImmutableDatabaseConstraintPayload,
 	PreparedDatabaseOperation,
 } from './database/contracts.js'
+// Enforcement factories let permission and community plugins share one monotonic boundary.
+export {
+	constraint,
+	databaseConstraint,
+	guard,
+	restrictInput,
+	restrictOutput,
+	restrictSelection,
+} from './enforcement/definitions.js'
+export type {
+	ConstraintDefinition,
+	ConstraintOptions,
+	EnforcementDefinition,
+	EnforcementDefinitionUnion,
+	GuardDefinition,
+	GuardOptions,
+	InputRestrictionDefinition,
+	InputRestrictionOptions,
+	OutputRestrictionDefinition,
+	OutputRestrictionOptions,
+	SelectionRestrictionDefinition,
+	SelectionRestrictionOptions,
+} from './enforcement/definitions.js'
+export type {
+	EnforcementContributionKind,
+	EnforcementConstraintHandler,
+	EnforcementFieldBoundary,
+	EnforcementFieldRestrictionHandler,
+	EnforcementGuardHandler,
+	EnforcementOperation,
+	EnforcementOperationInput,
+	EnforcementOutputInput,
+	EnforcementOutputRestrictionHandler,
+} from './enforcement/contracts.js'
 // Hook factories remain functions while Core retains plugin contribution ownership.
 export {
 	afterOperation,
@@ -90,10 +127,13 @@ export type {
 	RuntimePipelineStageOptions,
 } from './pipeline/definitions.js'
 export type {
-	RuntimeAccessConstraintStage,
-	RuntimeAccessStageInput,
-	RuntimeFieldPermissionStage,
-	RuntimeFieldPermissionStageResult,
+	RuntimeEnforcementEvaluationStage,
+	RuntimeEnforcementOperationResult,
+	RuntimeEnforcementOperationStage,
+	RuntimeEnforcementReevaluationStage,
+	RuntimeEnforcementResultStage,
+	RuntimeEnforcementStageInput,
+	RuntimeEnforcementStages,
 	RuntimeMutationOutcomeTransformStage,
 	RuntimeMutationOutcomeStageInput,
 	RuntimeNativeHookStages,

@@ -132,7 +132,7 @@ class InMemoryAdapterFake
 }
 
 describe('database adapter contracts', () => {
-	it('passes normalized operations and explicit access constraints to an adapter', async () => {
+	it('passes normalized operations and explicit constraints to an adapter', async () => {
 		const returnedArticles = [
 			{ id: 'article-1', title: 'UltimaBase', views: 10 },
 		]
@@ -142,19 +142,19 @@ describe('database adapter contracts', () => {
 			query: new Query(articleSchema).equalTo('views', 10).ast,
 		} satisfies FindOperationAst<typeof articleSchema>
 		const tenantConstraint = immutableRecord({
-			kind: 'fixture-tenant',
-			tenantId: 'tenant-1',
+			kind: 'fixture.tenant',
+			payload: immutableRecord({ tenantId: 'tenant-1' }),
 		})
 
 		const result = await adapter.execute({
-			accessConstraints: [tenantConstraint],
+			constraints: [tenantConstraint],
 			operation,
 		})
 
 		expect(result).toBe(returnedArticles)
 		expect(adapter.requests).toStrictEqual([
 			{
-				accessConstraints: [tenantConstraint],
+				constraints: [tenantConstraint],
 				operation,
 			},
 		])
@@ -173,10 +173,10 @@ describe('database adapter contracts', () => {
 		} satisfies ExistsOperationAst<typeof articleSchema>
 
 		await expect(
-			adapter.execute({ accessConstraints: [], operation: countOperation }),
+			adapter.execute({ constraints: [], operation: countOperation }),
 		).resolves.toBe(3)
 		await expect(
-			adapter.execute({ accessConstraints: [], operation: existsOperation }),
+			adapter.execute({ constraints: [], operation: existsOperation }),
 		).resolves.toBe(true)
 
 		const transaction = await adapter.beginTransaction()
@@ -209,7 +209,7 @@ describe('database adapter contracts', () => {
 			schema: new Query(articleSchema).ast.schema,
 		} satisfies CreateOneOperationAst<typeof articleSchema>
 		const prepared = await transaction.prepare({
-			accessConstraints: [],
+			constraints: [],
 			operation,
 		})
 		const outcome = await prepared.execute()

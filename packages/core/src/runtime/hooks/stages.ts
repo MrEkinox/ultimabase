@@ -28,6 +28,7 @@ import {
 	getRuntimeContributionImplementation,
 } from './definitions.js'
 import { isPluginHookTargetDefinition } from '../../plugins/hook-targets.js'
+import { getEnforcementContributionImplementation } from '../enforcement/definitions.js'
 
 type RuntimeContributionImplementation = NonNullable<
 	ReturnType<typeof getRuntimeContributionImplementation>
@@ -119,10 +120,12 @@ const readContributions = (
 	const ownedContributions: OwnedRuntimeContribution[] = []
 
 	for (const contribution of application.getContributions(category)) {
-		// Issue 330 executes native targets; low-level ADR-0070 stages ignore them meanwhile.
+		// Native targets and monotonic enforcement use dedicated dispatchers.
 		if (
 			category === 'hooks' &&
-			isPluginHookTargetDefinition(contribution.value)
+			(isPluginHookTargetDefinition(contribution.value) ||
+				getEnforcementContributionImplementation(contribution.value) !==
+					undefined)
 		) {
 			continue
 		}

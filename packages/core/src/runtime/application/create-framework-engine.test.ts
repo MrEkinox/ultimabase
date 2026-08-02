@@ -10,6 +10,11 @@ import {
 	databaseAdapterServiceToken,
 	type DatabaseAdapter,
 } from '../database/contracts.js'
+import {
+	constraint,
+	databaseConstraint,
+	guard,
+} from '../enforcement/definitions.js'
 import { beforeOperation, postCommitEvent } from '../hooks/definitions.js'
 import { MasterAuthority } from '../master/master-authority.js'
 import { runtimePipelineStage } from '../pipeline/definitions.js'
@@ -33,7 +38,7 @@ const databasePlugin = (adapter: DatabaseAdapter) =>
 	})
 
 describe('createFrameworkEngine', () => {
-	it('assembles validation, ordered plugin stages, hooks, events, and neutral access', async () => {
+	it('assembles validation, ordered plugin stages, hooks, and events', async () => {
 		const trace: string[] = []
 		const generatedId = '0198a43e-2431-7000-8000-000000000001'
 		const adapter = new RecordingDatabaseAdapter(
@@ -147,10 +152,45 @@ describe('createFrameworkEngine', () => {
 				)
 			},
 		})
+		const enforcement = definePlugin({
+			name: 'fixture.assembled-enforcement',
+			setup: ({ registries }) => {
+				registries.hooks.register(
+					'fixture.create-guard',
+					guard({
+						schema: articleSchema,
+						operations: ['create-one'],
+						handler: () => {
+							trace.push('enforcement:guard')
+						},
+					}),
+				)
+				registries.hooks.register(
+					'fixture.tenant-constraint',
+					constraint({
+						schema: articleSchema,
+						operations: ['create-one'],
+						handler: () => {
+							trace.push('enforcement:constraint')
+
+							return databaseConstraint('fixture.tenant', {
+								tenantId: 'tenant-1',
+							})
+						},
+					}),
+				)
+			},
+		})
 		const application = await createApplication({
 			schemas: [articleSchema],
 			// Dependency ordering must win even when configuration lists the consumer first.
-			plugins: [consumer, dependency, automation, databasePlugin(adapter)],
+			plugins: [
+				consumer,
+				dependency,
+				automation,
+				enforcement,
+				databasePlugin(adapter),
+			],
 		})
 		const framework = createFrameworkEngine(application, {
 			validation: {
@@ -169,9 +209,12 @@ describe('createFrameworkEngine', () => {
 		// Application assembly must route root mutations through the transaction adapter.
 		expect(adapter.rootRequests).toStrictEqual([])
 		expect(adapter.transactions).toHaveLength(1)
-		expect(
-			adapter.transactions[0]?.requests[0]?.accessConstraints,
-		).toStrictEqual([])
+		expect(adapter.transactions[0]?.requests[0]?.constraints).toStrictEqual([
+			{
+				kind: 'fixture.tenant',
+				payload: { tenantId: 'tenant-1' },
+			},
+		])
 		expect(adapter.transactions[0]?.requests[0]?.operation).toMatchObject({
 			kind: 'create-one',
 			input: {
@@ -185,7 +228,11 @@ describe('createFrameworkEngine', () => {
 			'adapter:begin',
 			'normalization:dependency',
 			'normalization:consumer',
+			'enforcement:guard',
+			'enforcement:constraint',
 			'hook:before',
+			'enforcement:guard',
+			'enforcement:constraint',
 			'prepare:create-one',
 			'execute:create-one',
 			'adapter:commit',
@@ -253,6 +300,73 @@ describe('createFrameworkEngine', () => {
 		await application.dispose()
 	})
 
+	it('reevaluates guards monotonically after business operation transforms', async () => {
+		const denial = new Error('Transformed title is not permitted')
+		const trace: string[] = []
+		const adapter = new RecordingDatabaseAdapter([], trace)
+		const transformPlugin = definePlugin({
+			name: 'fixture.security-sensitive-transform',
+			setup: ({ registries }) => {
+				registries.hooks.register(
+					'fixture.transform-title',
+					beforeOperation({
+						schema: articleSchema,
+						operations: ['create-one'],
+						handler: ({ operation }) => ({
+							operation: {
+								...operation,
+								input: { ...operation.input, title: 'blocked' },
+							},
+						}),
+					}),
+				)
+			},
+		})
+		const enforcementPlugin = definePlugin({
+			name: 'fixture.security-sensitive-guard',
+			setup: ({ registries }) => {
+				registries.hooks.register(
+					'fixture.guard-title',
+					guard({
+						schema: articleSchema,
+						operations: ['create-one'],
+						handler: ({ operation }) => {
+							trace.push(`guard:${operation.input.title}`)
+
+							if (operation.input.title === 'blocked') {
+								throw denial
+							}
+						},
+					}),
+				)
+			},
+		})
+		const application = await createApplication({
+			schemas: [articleSchema],
+			plugins: [transformPlugin, enforcementPlugin, databasePlugin(adapter)],
+		})
+		const framework = createFrameworkEngine(application)
+
+		await expect(
+			framework
+				.anonymous({
+					requestId: 'reevaluated-enforcement',
+					source: 'internal',
+				})
+				.query(articleSchema)
+				.create({ title: 'initial' }),
+		).rejects.toBe(denial)
+		expect(trace).toStrictEqual([
+			'adapter:begin',
+			'guard:initial',
+			'guard:blocked',
+			'adapter:rollback',
+		])
+		expect(adapter.transactions[0]?.requests).toStrictEqual([])
+
+		await application.dispose()
+	})
+
 	it('rejects missing, malformed, and conflicting plugin assembly eagerly', async () => {
 		const missingAdapterApplication = await createApplication({
 			schemas: [articleSchema],
@@ -285,7 +399,9 @@ describe('createFrameworkEngine', () => {
 		const invalidPipelinePlugin = definePlugin({
 			name: 'fixture.invalid-pipeline',
 			setup: ({ registries }) => {
-				registries.pipelines.register('fixture.forged-stage', { stage: 'clp' })
+				registries.pipelines.register('fixture.forged-stage', {
+					stage: 'unknown',
+				})
 			},
 		})
 		const invalidPipelineApplication = await createApplication({
@@ -299,42 +415,10 @@ describe('createFrameworkEngine', () => {
 			),
 		)
 
-		const firstClp = definePlugin({
-			name: 'fixture.first-clp',
-			setup: ({ registries }) => {
-				registries.pipelines.register(
-					'fixture.first-clp-stage',
-					runtimePipelineStage({ stage: 'clp', handler: () => undefined }),
-				)
-			},
-		})
-		const secondClp = definePlugin({
-			name: 'fixture.second-clp',
-			setup: ({ registries }) => {
-				registries.pipelines.register(
-					'fixture.second-clp-stage',
-					runtimePipelineStage({ stage: 'clp', handler: () => undefined }),
-				)
-			},
-		})
-		const conflictingApplication = await createApplication({
-			schemas: [articleSchema],
-			plugins: [firstClp, secondClp, databasePlugin(adapter)],
-		})
-
-		expect(() => createFrameworkEngine(conflictingApplication)).toThrow(
-			expect.objectContaining({
-				code: 'PLUGIN_CONFLICT',
-				message:
-					'Runtime pipeline stage "clp" is already owned by plugin "fixture.first-clp".',
-			}),
-		)
-
 		await Promise.all([
 			missingAdapterApplication.dispose(),
 			invalidAdapterApplication.dispose(),
 			invalidPipelineApplication.dispose(),
-			conflictingApplication.dispose(),
 		])
 	})
 

@@ -2,7 +2,7 @@ import type { MaybePromise } from '@ultimabase/shared'
 
 import type { RequestContext } from '../context/request-context.js'
 import type {
-	DatabaseAccessConstraintNode,
+	DatabaseConstraintNode,
 	DatabaseMutationLogicalRecord,
 	DatabaseMutationOperationAst,
 	DatabaseOperationAst,
@@ -10,6 +10,7 @@ import type {
 	DatabaseOperationExecutor,
 	DatabaseOperationResult,
 } from '../database/contracts.js'
+import type { EnforcementState } from '../enforcement/state.js'
 
 /** Starts one pipeline execution with trusted request identity and one Operation AST. */
 export interface RuntimePipelineRequest<
@@ -24,19 +25,19 @@ export type RuntimeOperationStageInput<
 	TOperation extends DatabaseOperationAst,
 > = RuntimePipelineRequest<TOperation>
 
-/** Adds accumulated portable constraints for row and field access stages. */
-export interface RuntimeAccessStageInput<
+/** Carries private monotonic state without exposing it to plugin handlers. */
+export interface RuntimeEnforcementStageInput<
 	TOperation extends DatabaseOperationAst,
 > extends RuntimeOperationStageInput<TOperation> {
-	readonly accessConstraints: readonly DatabaseAccessConstraintNode[]
+	readonly enforcement: EnforcementState
 }
 
-/** Lets field access narrow an operation and append portable adapter constraints. */
-export interface RuntimeFieldPermissionStageResult<
+/** Reapplies every retained restriction and forwards accumulated constraints. */
+export interface RuntimeEnforcementOperationResult<
 	TOperation extends DatabaseOperationAst,
 > {
 	readonly operation: TOperation
-	readonly accessConstraints: readonly DatabaseAccessConstraintNode[]
+	readonly constraints: readonly DatabaseConstraintNode[]
 }
 
 /** Supplies business after-hooks, commit, and events with the current result. */
@@ -53,26 +54,50 @@ export type RuntimeOperationTransformStage = <
 	input: RuntimeOperationStageInput<TOperation>,
 ) => MaybePromise<TOperation>
 
-/** Allows or rejects one operation without producing adapter-specific state. */
+/** Observes or rejects one operation without replacing its trusted context. */
 export type RuntimeOperationGuardStage = <
 	const TOperation extends DatabaseOperationAst,
 >(
 	input: RuntimeOperationStageInput<TOperation>,
 ) => MaybePromise<void>
 
-/** Produces portable row constraints while retaining all previous decisions. */
-export type RuntimeAccessConstraintStage = <
+/** Evaluates deny-only and monotonic contributions before business effects. */
+export type RuntimeEnforcementEvaluationStage = <
 	const TOperation extends DatabaseOperationAst,
 >(
-	input: RuntimeAccessStageInput<TOperation>,
-) => MaybePromise<readonly DatabaseAccessConstraintNode[]>
+	input: RuntimeOperationStageInput<TOperation>,
+) => MaybePromise<EnforcementState>
 
-/** Applies field selection and mutation policy before trusted business hooks. */
-export type RuntimeFieldPermissionStage = <
+/** Rechecks transformed values while retaining the existing monotonic state. */
+export type RuntimeEnforcementReevaluationStage = <
 	const TOperation extends DatabaseOperationAst,
 >(
-	input: RuntimeAccessStageInput<TOperation>,
-) => MaybePromise<RuntimeFieldPermissionStageResult<TOperation>>
+	input: RuntimeEnforcementStageInput<TOperation>,
+) => MaybePromise<EnforcementState>
+
+/** Applies retained input and selection intersections to one exact operation. */
+export type RuntimeEnforcementOperationStage = <
+	const TOperation extends DatabaseOperationAst,
+>(
+	input: RuntimeEnforcementStageInput<TOperation>,
+) => MaybePromise<RuntimeEnforcementOperationResult<TOperation>>
+
+/** Applies the final output intersection after every result transform. */
+export type RuntimeEnforcementResultStage = <
+	const TOperation extends DatabaseOperationAst,
+>(
+	input: RuntimeResultStageInput<TOperation> & {
+		readonly enforcement: EnforcementState
+	},
+) => MaybePromise<DatabaseOperationResult<TOperation>>
+
+/** Groups policy-neutral effects without manufacturing absent policy stages. */
+export interface RuntimeEnforcementStages {
+	readonly evaluate: RuntimeEnforcementEvaluationStage
+	readonly reevaluate: RuntimeEnforcementReevaluationStage
+	readonly enforceOperation: RuntimeEnforcementOperationStage
+	readonly enforceResult: RuntimeEnforcementResultStage
+}
 
 /** Transforms one adapter result while preserving operation result semantics. */
 export type RuntimeResultTransformStage = <
@@ -134,9 +159,6 @@ export interface RuntimeNativeHookStages {
 export interface RuntimePipelineStages {
 	readonly normalization: RuntimeOperationTransformStage
 	readonly structuralValidation: RuntimeOperationTransformStage
-	readonly clp: RuntimeOperationGuardStage
-	readonly acl: RuntimeAccessConstraintStage
-	readonly fieldPermissions: RuntimeFieldPermissionStage
 	readonly globalBeforeHooks: RuntimeOperationTransformStage
 	readonly schemaBeforeHooks: RuntimeOperationTransformStage
 	readonly databaseOperation: DatabaseOperationExecutor
@@ -146,4 +168,6 @@ export interface RuntimePipelineStages {
 	readonly postCommitEvents: RuntimeResultEffectStage
 	/** Installed by application assembly when native declarations are compiled. */
 	readonly nativeHooks?: RuntimeNativeHookStages
+	/** Present only when at least one plugin contributed monotonic enforcement. */
+	readonly enforcement?: RuntimeEnforcementStages
 }

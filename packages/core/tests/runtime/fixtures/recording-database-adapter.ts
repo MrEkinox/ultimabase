@@ -236,7 +236,7 @@ export class RecordingDatabaseAdapter implements DatabaseAdapter {
 	}
 }
 
-/** Creates the real pipeline while leaving unrelated capabilities neutral. */
+/** Creates the real pipeline without manufacturing absent policy capabilities. */
 export const createRecordingPipeline = (
 	databaseOperation: DatabaseAdapter,
 	trace: string[],
@@ -245,12 +245,6 @@ export const createRecordingPipeline = (
 	const stages: RuntimePipelineStages = {
 		normalization: (input) => input.operation,
 		structuralValidation: (input) => input.operation,
-		clp: () => undefined,
-		acl: (input) => input.accessConstraints,
-		fieldPermissions: (input) => ({
-			operation: input.operation,
-			accessConstraints: input.accessConstraints,
-		}),
 		globalBeforeHooks: (input) => input.operation,
 		schemaBeforeHooks: (input) => input.operation,
 		databaseOperation,

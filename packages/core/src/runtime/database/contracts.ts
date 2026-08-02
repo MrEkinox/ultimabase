@@ -29,21 +29,54 @@ export interface DatabaseMutationOperationAst extends DatabaseOperationAst {
 	readonly kind: DatabaseMutationOperationKind
 }
 
-/** Lets access plugins contribute portable row constraints without SQL nodes. */
-export interface DatabaseAccessConstraintNode {
-	readonly kind: string
+/** Recursively lists portable object payloads without retaining class instances. */
+export interface DatabaseConstraintPayloadObject {
+	readonly [key: string]: DatabaseConstraintPayload
+}
+
+/** Lists the portable immutable values accepted inside opaque constraint nodes. */
+export type DatabaseConstraintPayload =
+	| bigint
+	| boolean
+	| null
+	| number
+	| string
+	| readonly DatabaseConstraintPayload[]
+	| DatabaseConstraintPayloadObject
+
+/** Recursively exposes the detached payload snapshot as immutable data. */
+export type ImmutableDatabaseConstraintPayload<
+	TPayload extends DatabaseConstraintPayload,
+> = TPayload extends bigint | boolean | null | number | string
+	? TPayload
+	: TPayload extends readonly (infer TItem extends DatabaseConstraintPayload)[]
+		? readonly ImmutableDatabaseConstraintPayload<TItem>[]
+		: TPayload extends DatabaseConstraintPayloadObject
+			? {
+					readonly [TKey in keyof TPayload]: ImmutableDatabaseConstraintPayload<
+						TPayload[TKey]
+					>
+				}
+			: never
+
+/** Keeps one plugin-owned constraint opaque until an adapter compiler claims it. */
+export interface DatabaseConstraintNode<
+	TKind extends string = string,
+	TPayload extends DatabaseConstraintPayload = DatabaseConstraintPayload,
+> {
+	readonly kind: TKind
+	readonly payload: TPayload
 }
 
 /**
- * Keeps the normalized operation and mandatory access constraints together so
- * adapters cannot receive an operation without an explicit access decision.
+ * Keeps the normalized operation and accumulated constraints together so an
+ * adapter never receives one without the other.
  */
 export interface DatabaseOperationRequest<
 	TOperation extends DatabaseOperationAst = DatabaseOperationAst,
-	TConstraint extends DatabaseAccessConstraintNode =
-		DatabaseAccessConstraintNode,
+	TConstraint extends DatabaseConstraintNode = DatabaseConstraintNode,
 > {
-	readonly accessConstraints: readonly TConstraint[]
+	readonly constraints: readonly TConstraint[]
 	readonly operation: TOperation
 }
 

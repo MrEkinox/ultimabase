@@ -100,6 +100,7 @@ Accepted records:
 - [ADR-0099: Automatic transactions for every mutation](0099-automatic-mutation-transactions.md)
 - [ADR-0100: Prepared mutation outcomes](0100-prepared-mutation-outcomes.md)
 - [ADR-0101: Compiled native hook dispatcher](0101-compiled-native-hook-dispatcher.md)
+- [ADR-0102: Policy-neutral monotonic enforcement plan](0102-policy-neutral-monotonic-enforcement.md)
 
 Superseded records:
 

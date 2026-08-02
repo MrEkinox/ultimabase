@@ -1,10 +1,5 @@
-export {
-	accessModes,
-	defaultMasterBypassPolicy,
-	shouldBypassAccessBoundary,
-} from './request/access.js'
+export { accessModes } from './request/access.js'
 export type {
-	AccessBoundary,
 	AccessMode,
 	AnonymousRequestAccess,
 	MasterRequestAccess,

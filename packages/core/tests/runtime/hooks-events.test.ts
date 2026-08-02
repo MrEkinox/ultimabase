@@ -231,12 +231,6 @@ const createPipeline = <
 	const stages: RuntimePipelineStages = {
 		normalization: (input) => input.operation,
 		structuralValidation: (input) => input.operation,
-		clp: () => undefined,
-		acl: (input) => input.accessConstraints,
-		fieldPermissions: (input) => ({
-			operation: input.operation,
-			accessConstraints: input.accessConstraints,
-		}),
 		...hookStages,
 		databaseOperation,
 		commit: () => {

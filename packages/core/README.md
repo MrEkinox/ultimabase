@@ -46,8 +46,8 @@ const post = await ultimabase.query(PostSchema).create({
 ```
 
 The complete current Runtime mutation pipeline and database work started inside
-it commit or roll back together. Issue 330 connects native schema, field, and
-plugin hooks inside this already active boundary. An explicit
+it commit or roll back together. Native schema, field, and plugin hooks execute
+inside this same active boundary. An explicit
 `RequestEngine.transaction()` is reused without nesting, while root reads
 remain non-transactional. Bulk `{ atomic: false }` may later change collection
 grouping, but it never disables the transaction boundary.
@@ -69,8 +69,8 @@ const updated = await ultimabase
 
 This protocol belongs to database-adapter authors rather than application code.
 The root adapter starts the transaction; its transaction adapter stabilizes the
-target and exposes the gap where issue 330 installs affected-field before hooks
-before Runtime consumes the prepared mutation exactly once.
+target so the native dispatcher can run affected-field before hooks before
+Runtime consumes the prepared mutation exactly once.
 
 ```ts
 import { Schema, UltimaBase, booleanField, stringField } from '@ultimabase/core'
@@ -197,6 +197,47 @@ private field capabilities and compiled with plugin field targets. Before hooks
 receive complete prepared values, after hooks and `onChange` receive complete
 private materializations, and the public result still honors the developer's
 `.select(...)` projection.
+
+## Policy-neutral enforcement hooks
+
+Permission packages and community policy plugins use five protected factories
+without adding policy names to Runtime. Definitions are registered in the same
+owner-scoped hook registry as other plugin contributions:
+
+```ts
+const tenantPlugin = (tenantId: string) =>
+	definePlugin({
+		name: 'example.tenant',
+		setup: ({ registries }) => {
+			registries.hooks.register(
+				'tenant-row-filter',
+				constraint({
+					schema: PostSchema,
+					handler: () => databaseConstraint('example.tenant', { tenantId }),
+				}),
+			)
+			registries.hooks.register(
+				'tenant-visible-fields',
+				restrictSelection({
+					schema: PostSchema,
+					handler: () => ['id', 'title'],
+				}),
+			)
+		},
+	})
+```
+
+`guard` only allows or throws. `constraint` returns protected namespaced
+`databaseConstraint` nodes that Runtime appends for the adapter.
+`restrictInput`, `restrictSelection`, and `restrictOutput` return allowed field
+names that compose by intersection. Restricted mutation input is rejected,
+while selection and output restrictions project excluded fields away. Runtime
+evaluates guards, constraints, input restrictions, and selection restrictions
+before business effects, keeps the accumulated state private, then reevaluates
+monotonically and reapplies input and selection limits after operation
+transforms. It evaluates output restrictions once against the fully transformed
+result. No policy
+contribution means no enforcement stage or permission placeholder.
 
 ## Framework application
 
@@ -477,9 +518,10 @@ then unwind plugins in reverse order.
 
 The active [native-hook plan](../../CURRENT_PLAN.md) gives Core's Schema domain
 identity-owned declaration storage and gives its Runtime domain interpretation
-and execution. Native developer hooks require no plugin. Policy plugins use the
-same typed targets; application orchestration stores their opaque monotonic
-effects without naming CLP, ACL, roles, or field permissions.
+and execution. Native developer hooks require no plugin. Policy plugins
+register protected monotonic definitions in the shared hook registry;
+application orchestration stores them without naming CLP, ACL, roles, or field
+permissions.
 
 [ADR-0096](../../docs/adr/0096-native-hook-declaration-capabilities.md)
 keeps callbacks outside `SchemaDefinition`, `FieldDefinition`, field options,

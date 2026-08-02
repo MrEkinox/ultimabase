@@ -10,6 +10,7 @@ import {
 } from '../context/request-context.js'
 import type {
 	DatabaseAdapter,
+	DatabaseConstraintNode,
 	DatabaseMutationOperationAst,
 	DatabaseOperationAst,
 	DatabaseOperationExecutor,
@@ -18,9 +19,10 @@ import type {
 	DatabaseTransactionAdapter,
 	PreparedDatabaseOperation,
 } from '../database/contracts.js'
+import { databaseConstraint } from '../enforcement/definitions.js'
+import { createEnforcementState } from '../enforcement/state.js'
 import type {
-	RuntimeAccessConstraintStage,
-	RuntimeFieldPermissionStage,
+	RuntimeEnforcementStages,
 	RuntimeNativeHookStages,
 	RuntimeOperationGuardStage,
 	RuntimeOperationStageInput,
@@ -61,7 +63,7 @@ const createOperationTransform =
 		return input.operation
 	}
 
-/** Records the CLP guard without inventing permission behavior for this issue. */
+/** Records a policy-neutral guard or validation boundary. */
 const createGuard =
 	(stageName: string, trace: string[]): RuntimeOperationGuardStage =>
 	(input): void => {
@@ -69,31 +71,47 @@ const createGuard =
 		expect(Object.isFrozen(input)).toBe(true)
 	}
 
-/** Appends an ACL constraint so the trace also proves state propagation. */
-const createAclStage =
-	(trace: string[]): RuntimeAccessConstraintStage =>
-	(input) => {
-		trace.push('acl')
-		expect(input.accessConstraints).toStrictEqual([])
-		expect(Object.isFrozen(input.accessConstraints)).toBe(true)
+/** Records one opaque enforcement envelope without exposing accumulated state. */
+const createEnforcementStages = (trace: string[]): RuntimeEnforcementStages => {
+	const state = createEnforcementState()
+	const constraint: DatabaseConstraintNode = databaseConstraint(
+		'fixture.tenant',
+		{ tenantId: 'tenant-1' },
+	)
 
-		return [{ kind: 'fixture-acl' }]
+	return {
+		evaluate: (input) => {
+			trace.push('enforcement:evaluate')
+			expect(Object.isFrozen(input)).toBe(true)
+
+			return state
+		},
+		reevaluate: (input) => {
+			trace.push('enforcement:reevaluate')
+			expect(Object.isFrozen(input)).toBe(true)
+			expect(input.enforcement).toBe(state)
+
+			return state
+		},
+		enforceOperation: (input) => {
+			trace.push('enforcement:operation')
+			expect(Object.isFrozen(input)).toBe(true)
+			expect(input.enforcement).toBe(state)
+
+			return {
+				constraints: [constraint],
+				operation: input.operation,
+			}
+		},
+		enforceResult: (input) => {
+			trace.push('enforcement:result')
+			expect(Object.isFrozen(input)).toBe(true)
+			expect(input.enforcement).toBe(state)
+
+			return input.result
+		},
 	}
-
-/** Appends a field constraint without replacing the normalized operation. */
-const createFieldPermissionStage =
-	(trace: string[]): RuntimeFieldPermissionStage =>
-	(input) => {
-		trace.push('fieldPermissions')
-
-		return {
-			operation: input.operation,
-			accessConstraints: [
-				...input.accessConstraints,
-				{ kind: 'fixture-field' },
-			],
-		}
-	}
+}
 
 /** Records an after-hook phase while retaining the operation-specific result. */
 const createResultTransform =
@@ -161,9 +179,6 @@ const createStages = (
 ): RuntimePipelineStages => ({
 	normalization: createOperationTransform('normalization', trace),
 	structuralValidation: createOperationTransform('structuralValidation', trace),
-	clp: createGuard('clp', trace),
-	acl: createAclStage(trace),
-	fieldPermissions: createFieldPermissionStage(trace),
 	globalBeforeHooks: createOperationTransform('globalBeforeHooks', trace),
 	schemaBeforeHooks: createOperationTransform('schemaBeforeHooks', trace),
 	databaseOperation,
@@ -175,7 +190,7 @@ const createStages = (
 })
 
 describe('RuntimePipeline', () => {
-	it('executes every mandatory stage in its exact deterministic order', async () => {
+	it('executes without policy placeholders when no enforcement was contributed', async () => {
 		const trace: string[] = []
 		const articles = [{ id: 'article-1', title: 'UltimaBase' }]
 		const executor = new TraceDatabaseExecutor(trace, articles)
@@ -190,9 +205,6 @@ describe('RuntimePipeline', () => {
 		expect(trace).toStrictEqual([
 			'normalization',
 			'structuralValidation',
-			'clp',
-			'acl',
-			'fieldPermissions',
 			'globalBeforeHooks',
 			'schemaBeforeHooks',
 			'databaseOperation',
@@ -201,11 +213,8 @@ describe('RuntimePipeline', () => {
 			'commit',
 			'postCommitEvents',
 		])
-		expect(executor.requests[0]?.accessConstraints).toStrictEqual([
-			{ kind: 'fixture-acl' },
-			{ kind: 'fixture-field' },
-		])
-		expect(Object.isFrozen(executor.requests[0]?.accessConstraints)).toBe(true)
+		expect(executor.requests[0]?.constraints).toStrictEqual([])
+		expect(Object.isFrozen(executor.requests[0]?.constraints)).toBe(true)
 	})
 
 	it('keeps validation, business hooks, adapter work, and effects for master', async () => {
@@ -226,13 +235,10 @@ describe('RuntimePipeline', () => {
 			operation: articleOperation,
 		})
 
-		// Permission plugins apply the shared bypass policy; Runtime never skips stages.
+		// Runtime transports master authority without manufacturing policy behavior.
 		expect(trace).toStrictEqual([
 			'normalization',
 			'structuralValidation',
-			'clp',
-			'acl',
-			'fieldPermissions',
 			'globalBeforeHooks',
 			'schemaBeforeHooks',
 			'databaseOperation',
@@ -243,11 +249,12 @@ describe('RuntimePipeline', () => {
 		])
 	})
 
-	it('wraps enforcement and database execution with the native dispatcher', async () => {
+	it('reapplies operation enforcement after hooks and restricts the final result', async () => {
 		const trace: string[] = []
 		const executor = new TraceDatabaseExecutor(trace, [])
 		const pipeline = new RuntimePipeline(
 			createStages(trace, executor, {
+				enforcement: createEnforcementStages(trace),
 				nativeHooks: createNativeHookStages(trace),
 			}),
 		)
@@ -263,19 +270,27 @@ describe('RuntimePipeline', () => {
 			'native:resolveInput',
 			'native:revalidate',
 			'native:validate',
-			'clp',
-			'acl',
-			'fieldPermissions',
+			'enforcement:evaluate',
+			'enforcement:operation',
 			'globalBeforeHooks',
 			'schemaBeforeHooks',
 			'native:schemaBefore',
 			'native:revalidate',
+			'enforcement:reevaluate',
+			'enforcement:operation',
 			'databaseOperation',
 			'native:schemaAfter',
 			'schemaAfterHooks',
 			'globalAfterHooks',
+			'enforcement:result',
 			'commit',
 			'postCommitEvents',
+		])
+		expect(executor.requests[0]?.constraints).toStrictEqual([
+			{
+				kind: 'fixture.tenant',
+				payload: { tenantId: 'tenant-1' },
+			},
 		])
 	})
 
@@ -284,15 +299,19 @@ describe('RuntimePipeline', () => {
 		const executor = new TraceDatabaseExecutor(trace, [])
 		const denial = new FrameworkError(
 			'PERMISSION_DENIED',
-			'Fixture CLP rejected the operation',
+			'Fixture guard rejected the operation',
 		)
+		const enforcement = createEnforcementStages(trace)
 		const pipeline = new RuntimePipeline(
 			createStages(trace, executor, {
-				clp: (input): void => {
-					trace.push('clp')
-					expect(input.operation).toBe(articleOperation)
+				enforcement: {
+					...enforcement,
+					evaluate: (input) => {
+						trace.push('enforcement:deny')
+						expect(input.operation).toBe(articleOperation)
 
-					throw denial
+						throw denial
+					},
 				},
 			}),
 		)
@@ -309,7 +328,7 @@ describe('RuntimePipeline', () => {
 		expect(trace).toStrictEqual([
 			'normalization',
 			'structuralValidation',
-			'clp',
+			'enforcement:deny',
 		])
 		expect(executor.requests).toStrictEqual([])
 	})
@@ -358,35 +377,45 @@ describe('RuntimePipeline', () => {
 		}
 	})
 
-	it('rejects malformed access constraints at the plugin boundary', async () => {
+	it('rejects malformed constraint envelopes at the enforcement boundary', async () => {
 		const invalidCases: readonly {
 			readonly output: readonly unknown[] | string
 			readonly message: string
 		}[] = [
 			{
 				output: 'not-an-array',
-				message:
-					'Runtime pipeline stage acl must return access constraints as an array',
+				message: 'Runtime enforcement constraints must be an array',
 			},
 			{
 				output: [null],
-				message:
-					'Runtime pipeline stage acl returned an invalid access constraint',
+				message: 'Runtime enforcement returned an invalid constraint',
 			},
 			{
-				output: [{ kind: '' }],
+				output: [{ kind: '', payload: null }],
 				message:
-					'Runtime pipeline stage acl access constraint kind must be a non-empty string',
+					'Runtime enforcement constraint kind must be a non-empty string',
+			},
+			{
+				output: [{ kind: 'fixture.missing-payload' }],
+				message:
+					'Runtime enforcement constraint must contain an opaque payload',
 			},
 		]
 
 		for (const invalidCase of invalidCases) {
 			const trace: string[] = []
 			const executor = new TraceDatabaseExecutor(trace, [])
+			const enforcement = createEnforcementStages(trace)
 			const pipeline = new RuntimePipeline(
 				createStages(trace, executor, {
-					// @ts-expect-error -- Runtime validation protects plugin boundaries.
-					acl: () => invalidCase.output,
+					enforcement: {
+						...enforcement,
+						enforceOperation: (input) => ({
+							// Runtime validation protects JavaScript plugin boundaries.
+							constraints: invalidCase.output as never,
+							operation: input.operation,
+						}),
+					},
 				}),
 			)
 

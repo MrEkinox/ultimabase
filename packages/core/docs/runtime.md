@@ -55,8 +55,8 @@ owned resource.
 `createFrameworkEngine(application)` remains the lower-level bridge from Core
 plugin setup to Runtime execution. The ADR-0076 assembly resolves the application-scoped
 `databaseAdapterServiceToken`, installs structural validation, composes hooks
-and events, and fills every unclaimed pipeline position with an explicit neutral
-stage:
+and events, and compiles monotonic enforcement only when a plugin contributed
+it:
 
 ```ts
 const application = await createApplication({
@@ -79,24 +79,31 @@ const articles = await request.query(ArticleSchema).limit(20).find()
 
 The factory accepts an application in `ready` or `started` state and preserves
 its exact schema and plugin tuples. A missing or malformed database adapter,
-invalid pipeline contribution, currently conflicting access-stage owner, or unusable
-application state fails during assembly, before any operation can execute.
+invalid pipeline or hook contribution, or unusable application state fails
+during assembly, before any operation can execute.
 
-Plugins declare supported pipeline positions through `runtimePipelineStage()`:
+Plugins use `runtimePipelineStage()` only for the general `normalization` and
+`commit` positions. Policies instead register protected enforcement definitions
+in the shared hook registry:
 
 ```ts
 const tenantPlugin = (tenantId: string) =>
 	definePlugin({
 		name: 'example.tenant-access',
 		setup: ({ registries }) => {
-			registries.pipelines.register(
-				'example.tenant-acl',
-				runtimePipelineStage({
-					stage: 'acl',
-					handler: ({ accessConstraints }) => [
-						...accessConstraints,
-						{ kind: 'tenant', tenantId },
-					],
+			registries.hooks.register(
+				'example.tenant-constraint',
+				constraint({
+					schema: ArticleSchema,
+					operations: ['find', 'first', 'get'],
+					handler: () => databaseConstraint('example.tenant', { tenantId }),
+				}),
+			)
+			registries.hooks.register(
+				'example.tenant-selection',
+				restrictSelection({
+					schema: ArticleSchema,
+					handler: () => ['id', 'title'],
 				}),
 			)
 		},
@@ -104,16 +111,79 @@ const tenantPlugin = (tenantId: string) =>
 ```
 
 `normalization` and `commit` contributions compose in dependency-first plugin
-order. The security positions `clp`, `acl`, and `fieldPermissions` each accept
-one owning plugin and reject competing owners. Plugins omit handlers from their
-public contribution metadata; only Runtime can resolve definitions created by
-the factory. An optional `MasterAuthority` may be supplied to
-`createFrameworkEngine` without changing the trusted master boundary.
+order. Enforcement factories are `guard`, `constraint`, `restrictInput`,
+`restrictSelection`, and `restrictOutput`. Their handlers never receive another
+plugin's accumulated state. Runtime appends constraints for adapter-side
+logical `AND`, intersects field restrictions, and creates no enforcement stage
+when the hook registry contains none. An optional `MasterAuthority` may be
+supplied to `createFrameworkEngine` without changing the trusted master
+boundary.
 
-These named security positions are legacy behavior documented for current
-users. ADR-0090 and issue 337 replace them with schema- and field-targeted
-monotonic hook contributions; new integrations must not build on the named
-stage API.
+## Policy-neutral monotonic enforcement
+
+Policy plugins register the same five public factories as any community tenant,
+ownership, moderation, or soft-delete capability. A definition may omit
+`schema` and `operations` to match every terminal, or retain an exact schema and
+terminal union for concise callback inference:
+
+```ts
+setup: ({ registries }) => {
+	registries.hooks.register(
+		'articles.guard-create',
+		guard({
+			schema: ArticleSchema,
+			operations: ['create-one', 'create-many'],
+			handler: ({ context }) => {
+				if (context.access.mode === 'anonymous') {
+					throw new FrameworkError(
+						'PERMISSION_DENIED',
+						'Authentication required',
+					)
+				}
+			},
+		}),
+	)
+	registries.hooks.register(
+		'articles.visible-fields',
+		restrictSelection({
+			schema: ArticleSchema,
+			handler: () => ['id', 'title', 'published'],
+		}),
+	)
+	registries.hooks.register(
+		'articles.safe-output',
+		restrictOutput({
+			schema: ArticleSchema,
+			handler: () => ['id', 'title'],
+		}),
+	)
+}
+```
+
+`guard` allows by returning nothing and denies by throwing; it has no
+grant-shaped return. `constraint` returns one protected
+`databaseConstraint('namespace.kind', payload)` node or an array of nodes; an
+empty array lets that policy deliberately contribute nothing. `restrictInput`,
+`restrictSelection`, and `restrictOutput` return allowed top-level schema field
+names, and Runtime intersects every matching list instead of letting a later
+plugin replace an earlier decision. Restricted mutation input is rejected;
+selection and output restrictions project excluded fields away.
+
+Constraint kinds use lowercase dot-separated namespace segments such as
+`tenant.rows`. Payloads contain portable scalar, array, and plain-object values;
+the factory detaches and deeply freezes them so a retained caller reference
+cannot alter the accumulated plan.
+
+Runtime evaluates guards, constraints, input restrictions, and selection
+restrictions before effectful business hooks and retains the result in private
+immutable state. After operation transforms, it reevaluates those contributions
+into the same monotonic state before reapplying input and selection limits. An
+earlier constraint is never replaced; a transformed value therefore cannot use
+a stale guard decision. Output restriction handlers run once against the fully
+transformed result immediately before the final projection. Handlers never
+receive accumulated state or another plugin's opaque constraint payload. A
+master request remains trusted authority, but only the contributing policy
+decides whether its own handler treats that authority differently.
 
 ## Structural validation
 
@@ -259,10 +329,11 @@ be shared across framework instances, and must produce a successful audit event
 before `useMasterKey` returns. Master retains the request ID, source, metadata,
 capabilities, transaction lifetime, and application identity.
 
-Master permission plugins bypass CLP, ACL, and field permissions through
-`shouldBypassAccessBoundary` from `@ultimabase/core`. Runtime still executes
-structural validation, business hooks, adapter constraints, transactions,
-commit, and post-commit events. Tenant isolation is explicitly non-bypassable.
+Runtime never bypasses enforcement merely because the context is `master`.
+Each installed policy reads the trusted access mode and decides whether its own
+guard, constraint, or restriction applies. Structural validation, business
+hooks, adapter constraints, transactions, commit, and post-commit events remain
+part of the same pipeline.
 
 ## Hooks and post-commit events
 
@@ -436,7 +507,7 @@ framework-owned authority described above.
 
 Database plugins implement `DatabaseAdapter`; application developers normally
 receive one from a plugin such as the future `postgresPlugin`. The contract
-receives only a normalized operation and portable access constraints. SQL,
+receives only a normalized operation and portable opaque constraints. SQL,
 Drizzle sessions, and transport state remain private to concrete plugins.
 
 Every call keeps the operation-specific result type:
@@ -447,7 +518,7 @@ const articles = await adapter.execute({
 		kind: 'find',
 		query: new Query(articleSchema).limit(20).ast,
 	},
-	accessConstraints: [{ kind: 'tenant', tenantId: 'tenant-1' }],
+	constraints: [databaseConstraint('example.tenant', { tenantId: 'tenant-1' })],
 })
 
 // readonly Article[]
@@ -461,20 +532,14 @@ no-nesting policy on `RequestEngine`.
 ## Deterministic operation pipeline
 
 `RuntimePipeline` is the low-level assembly boundary used by
-`FrameworkEngine`. Application developers will execute a bound query; engine
-and plugin authors provide every named stage explicitly:
-
-The example below documents the currently implemented ADR-0064 API. It is
-scheduled for replacement by issue 337: policy plugins will contribute generic
-monotonic hooks, and these three permission-specific properties will disappear.
+`FrameworkEngine`. Application developers execute a bound query; advanced
+engine authors provide the general stages explicitly and may install the native
+or enforcement stage groups compiled by application assembly:
 
 ```ts
 const pipeline = new RuntimePipeline({
 	normalization,
 	structuralValidation,
-	clp,
-	acl,
-	fieldPermissions,
 	globalBeforeHooks,
 	schemaBeforeHooks,
 	databaseOperation: adapter,
@@ -482,18 +547,21 @@ const pipeline = new RuntimePipeline({
 	globalAfterHooks,
 	commit,
 	postCommitEvents,
+	nativeHooks,
+	enforcement,
 })
 
 const articles = await pipeline.execute({ context, operation })
 ```
 
-The fixed order is normalization, structural validation, CLP, ACL, field
-permissions, global before-hooks, schema before-hooks, database execution,
-schema after-hooks, global after-hooks, commit, then post-commit events. A
-disabled capability still supplies an explicit neutral stage, so assembly can
-never omit a predecessor accidentally.
+The fixed order validates and resolves input, evaluates optional enforcement,
+applies input and selection restrictions, runs business before-hooks, reapplies
+the retained restrictions, executes the adapter with `constraints`, runs every
+business result transform, applies final output restrictions, then finalizes
+the transaction and post-commit events. The enforcement group is absent when no
+plugin contributed one; Runtime does not manufacture permission placeholders.
 
-Stage envelopes and access-constraint collections are immutable. A
+Stage envelopes and constraint collections are immutable. A
 `FrameworkError` thrown by any stage crosses the pipeline unchanged, while
 later stages do not run. In particular, business after-hooks may prevent a
 commit and post-commit events never observe uncommitted work. Inside an explicit

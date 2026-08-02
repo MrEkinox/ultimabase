@@ -41,7 +41,7 @@ describe('public application Runtime assembly', () => {
 		const result = await ultimabase.query(publicArticleSchema).find()
 
 		expect(result).toStrictEqual(rows)
-		expect(adapter.rootRequests[0]?.accessConstraints).toStrictEqual([])
+		expect(adapter.rootRequests[0]?.constraints).toStrictEqual([])
 
 		await ultimabase.dispose()
 	})

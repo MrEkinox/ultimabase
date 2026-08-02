@@ -2,7 +2,10 @@
 
 Official PostgreSQL database plugin using Drizzle internally and `pg` as the driver.
 
-Responsibilities include schema, field, query, and access-rule compilation; CRUD; transactions; introspection; direct schema synchronization; indexes; constraints; and ACL storage support.
+Responsibilities include schema, field, and query compilation; CRUD;
+transactions; introspection; direct schema synchronization; indexes; and
+database constraints. Permission behavior and ACL storage remain independent
+plugins rather than PostgreSQL Runtime stages.
 
 Without a migration plugin, `schemaPolicy` is `override`, `fail`, or `ignore`. No Drizzle type or builder is exported publicly.
 
@@ -80,6 +83,12 @@ Singular CRUD operations and explicit Runtime transactions execute through this
 adapter. Bulk operations and upserts remain separate work; calling one of those
 paths reports an explicit not-yet-implemented framework error rather than
 pretending that data was persisted.
+
+Every adapter request carries Core's policy-neutral `constraints` array.
+PostgreSQL currently accepts only an empty array and fails closed before SQL
+execution when a policy contributes an opaque node. Issue 338 adds the
+application-owned compiler registry that will combine claimed constraints with
+the query predicate using parameterized logical `AND`.
 
 ## Transactions
 

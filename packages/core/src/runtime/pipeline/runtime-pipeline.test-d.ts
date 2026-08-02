@@ -7,6 +7,7 @@ import {
 	type DatabaseAdapter,
 	type DatabaseObjectRecord,
 } from '../database/contracts.js'
+import { createEnforcementState } from '../enforcement/state.js'
 import type { RuntimePipelineStages } from './contracts.js'
 import { RuntimePipeline } from './runtime-pipeline.js'
 
@@ -27,12 +28,6 @@ declare const databaseOperation: DatabaseAdapter
 const stages = {
 	normalization: (input) => input.operation,
 	structuralValidation: (input) => input.operation,
-	clp: () => undefined,
-	acl: (input) => input.accessConstraints,
-	fieldPermissions: (input) => ({
-		operation: input.operation,
-		accessConstraints: input.accessConstraints,
-	}),
 	globalBeforeHooks: (input) => input.operation,
 	schemaBeforeHooks: (input) => input.operation,
 	databaseOperation,
@@ -40,6 +35,19 @@ const stages = {
 	globalAfterHooks: (input) => input.result,
 	commit: () => undefined,
 	postCommitEvents: () => undefined,
+} satisfies RuntimePipelineStages
+
+const enforcedStages = {
+	...stages,
+	enforcement: {
+		evaluate: () => createEnforcementState(),
+		reevaluate: (input) => input.enforcement,
+		enforceOperation: (input) => ({
+			constraints: [],
+			operation: input.operation,
+		}),
+		enforceResult: (input) => input.result,
+	},
 } satisfies RuntimePipelineStages
 
 test('preserves the exact operation result through every stage', () => {
@@ -50,6 +58,11 @@ test('preserves the exact operation result through every stage', () => {
 	})
 
 	expectTypeOf(pipeline.execute({ context, operation })).toEqualTypeOf<
+		Promise<readonly DatabaseObjectRecord<typeof articleSchema>[]>
+	>()
+	expectTypeOf(
+		new RuntimePipeline(enforcedStages).execute({ context, operation }),
+	).toEqualTypeOf<
 		Promise<readonly DatabaseObjectRecord<typeof articleSchema>[]>
 	>()
 })

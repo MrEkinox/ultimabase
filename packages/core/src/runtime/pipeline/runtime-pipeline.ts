@@ -8,7 +8,7 @@ import {
 
 import { RequestContext } from '../context/request-context.js'
 import type {
-	DatabaseAccessConstraintNode,
+	DatabaseConstraintNode,
 	DatabaseMutationOperationAst,
 	DatabaseOperationAst,
 	DatabaseOperationExecutor,
@@ -20,21 +20,20 @@ import {
 	type RuntimePipelineTransactionScope,
 } from '../transactions/pipeline-transaction.js'
 import type {
-	RuntimeAccessStageInput,
-	RuntimeFieldPermissionStageResult,
+	RuntimeEnforcementOperationResult,
+	RuntimeEnforcementStageInput,
+	RuntimeEnforcementStages,
 	RuntimeOperationStageInput,
 	RuntimeNativeHookStages,
 	RuntimePipelineRequest,
 	RuntimePipelineStages,
 	RuntimeResultStageInput,
 } from './contracts.js'
+import type { EnforcementState } from '../enforcement/state.js'
 
 const functionStageNames = [
 	'normalization',
 	'structuralValidation',
-	'clp',
-	'acl',
-	'fieldPermissions',
 	'globalBeforeHooks',
 	'schemaBeforeHooks',
 	'schemaAfterHooks',
@@ -42,6 +41,13 @@ const functionStageNames = [
 	'commit',
 	'postCommitEvents',
 ] as const satisfies readonly (keyof RuntimePipelineStages)[]
+
+const enforcementStageNames = [
+	'enforceOperation',
+	'enforceResult',
+	'evaluate',
+	'reevaluate',
+] as const satisfies readonly (keyof RuntimeEnforcementStages)[]
 
 const nativeHookStageNames = [
 	'fieldAfter',
@@ -53,8 +59,7 @@ const nativeHookStageNames = [
 	'validate',
 ] as const satisfies readonly (keyof RuntimeNativeHookStages)[]
 
-const emptyAccessConstraints: readonly DatabaseAccessConstraintNode[] =
-	immutableArray([])
+const emptyConstraints: readonly DatabaseConstraintNode[] = immutableArray([])
 
 /** Narrows the closed terminal union before selecting the adapter protocol. */
 const isMutationOperation = (
@@ -107,7 +112,7 @@ const executeDatabaseOperation = async <
 	context: RequestContext,
 	nativeHooks: RuntimeNativeHookStages | undefined,
 	request: {
-		readonly accessConstraints: readonly DatabaseAccessConstraintNode[]
+		readonly constraints: readonly DatabaseConstraintNode[]
 		readonly operation: TOperation
 	},
 ): Promise<DatabaseOperationResult<TOperation>> => {
@@ -118,7 +123,7 @@ const executeDatabaseOperation = async <
 	assertPreparedMutationExecutor(executor)
 	const prepared = await executor.prepare(
 		immutableRecord({
-			accessConstraints: request.accessConstraints,
+			constraints: request.constraints,
 			operation: request.operation,
 		}),
 	)
@@ -170,6 +175,22 @@ const assertRuntimePipelineStages = (stages: RuntimePipelineStages): void => {
 		}
 	}
 
+	const enforcement: unknown = untrustedStages.enforcement
+
+	if (enforcement !== undefined) {
+		if (!isPlainRecord(enforcement)) {
+			throw new TypeError('Runtime pipeline enforcement must be a plain object')
+		}
+
+		for (const stageName of enforcementStageNames) {
+			if (typeof enforcement[stageName] !== 'function') {
+				throw new TypeError(
+					`Runtime enforcement stage ${stageName} must be a function`,
+				)
+			}
+		}
+	}
+
 	const databaseOperation: unknown = untrustedStages.databaseOperation
 
 	if (
@@ -185,29 +206,27 @@ const assertRuntimePipelineStages = (stages: RuntimePipelineStages): void => {
 }
 
 /** Copies constraint collections so plugins cannot mutate later adapter input. */
-const snapshotAccessConstraints = (
-	constraints: readonly DatabaseAccessConstraintNode[],
-	stageName: string,
-): readonly DatabaseAccessConstraintNode[] => {
+const snapshotConstraints = (
+	constraints: readonly DatabaseConstraintNode[],
+): readonly DatabaseConstraintNode[] => {
 	const untrustedConstraints: unknown = constraints
 
 	if (!isUnknownArray(untrustedConstraints)) {
-		throw new TypeError(
-			`Runtime pipeline stage ${stageName} must return access constraints as an array`,
-		)
+		throw new TypeError('Runtime enforcement constraints must be an array')
 	}
 
 	for (const constraint of untrustedConstraints) {
 		if (!isPlainRecord(constraint)) {
-			throw new TypeError(
-				`Runtime pipeline stage ${stageName} returned an invalid access constraint`,
-			)
+			throw new TypeError('Runtime enforcement returned an invalid constraint')
 		}
 
-		assertNonEmptyString(
-			constraint.kind,
-			`Runtime pipeline stage ${stageName} access constraint kind`,
-		)
+		assertNonEmptyString(constraint.kind, 'Runtime enforcement constraint kind')
+
+		if (!Object.hasOwn(constraint, 'payload')) {
+			throw new TypeError(
+				'Runtime enforcement constraint must contain an opaque payload',
+			)
+		}
 	}
 
 	return immutableArray(constraints)
@@ -219,12 +238,12 @@ const createOperationInput = <const TOperation extends DatabaseOperationAst>(
 ): RuntimeOperationStageInput<TOperation> =>
 	immutableRecord({ context, operation })
 
-const createAccessInput = <const TOperation extends DatabaseOperationAst>(
+const createEnforcementInput = <const TOperation extends DatabaseOperationAst>(
 	context: RequestContext,
 	operation: TOperation,
-	accessConstraints: readonly DatabaseAccessConstraintNode[],
-): RuntimeAccessStageInput<TOperation> =>
-	immutableRecord({ context, operation, accessConstraints })
+	enforcement: EnforcementState,
+): RuntimeEnforcementStageInput<TOperation> =>
+	immutableRecord({ context, enforcement, operation })
 
 const createResultInput = <const TOperation extends DatabaseOperationAst>(
 	context: RequestContext,
@@ -247,9 +266,15 @@ export class RuntimePipeline {
 				? undefined
 				: immutableRecord(stages.nativeHooks)
 
+		const enforcement =
+			stages.enforcement === undefined
+				? undefined
+				: immutableRecord(stages.enforcement)
+
 		this.#stages = immutableRecord({
 			...stages,
 			...(nativeHooks === undefined ? {} : { nativeHooks }),
+			...(enforcement === undefined ? {} : { enforcement }),
 		})
 
 		// Pipeline configuration cannot change after application initialization.
@@ -302,25 +327,22 @@ export class RuntimePipeline {
 			)
 		}
 
-		await this.#stages.clp(createOperationInput(context, operation))
+		let enforcement: EnforcementState | undefined
+		let constraints: readonly DatabaseConstraintNode[] = emptyConstraints
 
-		let accessConstraints: readonly DatabaseAccessConstraintNode[] =
-			snapshotAccessConstraints(
-				await this.#stages.acl(
-					createAccessInput(context, operation, emptyAccessConstraints),
-				),
-				'acl',
+		if (this.#stages.enforcement !== undefined) {
+			enforcement = await this.#stages.enforcement.evaluate(
+				createOperationInput(context, operation),
 			)
-		const fieldPermissionResult: RuntimeFieldPermissionStageResult<TOperation> =
-			await this.#stages.fieldPermissions(
-				createAccessInput(context, operation, accessConstraints),
-			)
+			const enforced: RuntimeEnforcementOperationResult<TOperation> =
+				await this.#stages.enforcement.enforceOperation(
+					createEnforcementInput(context, operation, enforcement),
+				)
 
-		operation = fieldPermissionResult.operation
-		accessConstraints = snapshotAccessConstraints(
-			fieldPermissionResult.accessConstraints,
-			'fieldPermissions',
-		)
+			operation = enforced.operation
+			constraints = snapshotConstraints(enforced.constraints)
+		}
+
 		operation = await this.#stages.globalBeforeHooks(
 			createOperationInput(context, operation),
 		)
@@ -337,13 +359,26 @@ export class RuntimePipeline {
 			)
 		}
 
+		if (this.#stages.enforcement !== undefined && enforcement !== undefined) {
+			enforcement = await this.#stages.enforcement.reevaluate(
+				createEnforcementInput(context, operation, enforcement),
+			)
+			const enforced: RuntimeEnforcementOperationResult<TOperation> =
+				await this.#stages.enforcement.enforceOperation(
+					createEnforcementInput(context, operation, enforcement),
+				)
+
+			operation = enforced.operation
+			constraints = snapshotConstraints(enforced.constraints)
+		}
+
 		let result: DatabaseOperationResult<TOperation> =
 			await executeDatabaseOperation(
 				this.#stages.databaseOperation,
 				context,
 				this.#stages.nativeHooks,
 				immutableRecord({
-					accessConstraints,
+					constraints,
 					operation,
 				}),
 			)
@@ -360,6 +395,17 @@ export class RuntimePipeline {
 		result = await this.#stages.globalAfterHooks(
 			createResultInput(context, operation, result),
 		)
+
+		if (this.#stages.enforcement !== undefined && enforcement !== undefined) {
+			result = await this.#stages.enforcement.enforceResult(
+				immutableRecord({
+					context,
+					enforcement,
+					operation,
+					result,
+				}),
+			)
+		}
 
 		const completedOperation: RuntimeResultStageInput<TOperation> =
 			createResultInput(context, operation, result)

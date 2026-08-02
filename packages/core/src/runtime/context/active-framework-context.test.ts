@@ -26,17 +26,11 @@ const unusedDatabaseOperation: DatabaseOperationExecutor = {
 	execute: () => Promise.reject(new Error('Unexpected fixture execution')),
 }
 
-/** Builds explicit neutral stages without hiding the real Runtime pipeline. */
+/** Builds only the stages required by a policy-free Runtime pipeline. */
 const createPipeline = (): RuntimePipeline => {
 	const stages: RuntimePipelineStages = {
 		normalization: (input) => input.operation,
 		structuralValidation: (input) => input.operation,
-		clp: () => undefined,
-		acl: (input) => input.accessConstraints,
-		fieldPermissions: (input) => ({
-			operation: input.operation,
-			accessConstraints: input.accessConstraints,
-		}),
 		globalBeforeHooks: (input) => input.operation,
 		schemaBeforeHooks: (input) => input.operation,
 		databaseOperation: unusedDatabaseOperation,

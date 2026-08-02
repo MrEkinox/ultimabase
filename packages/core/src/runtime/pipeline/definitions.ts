@@ -2,9 +2,13 @@ import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 
 import type { RuntimePipelineStages } from './contracts.js'
 
-/** Names the plugin-owned pipeline positions supported by application assembly. */
-export type RuntimePipelineStageName =
-	'acl' | 'clp' | 'commit' | 'fieldPermissions' | 'normalization'
+/**
+ * Names the general low-level pipeline positions that plugins may replace.
+ *
+ * Policy plugins contribute monotonic hook effects instead of claiming a
+ * permission-specific pipeline position.
+ */
+export type RuntimePipelineStageName = 'commit' | 'normalization'
 
 /** Selects the exact handler contract associated with one pipeline position. */
 export type RuntimePipelineStageHandler<
@@ -37,10 +41,7 @@ type RuntimePipelineStageImplementation = {
 }[RuntimePipelineStageName]
 
 const runtimePipelineStageNames = new Set<RuntimePipelineStageName>([
-	'acl',
-	'clp',
 	'commit',
-	'fieldPermissions',
 	'normalization',
 ])
 const runtimePipelineStageOptionKeys = new Set(['handler', 'stage'])

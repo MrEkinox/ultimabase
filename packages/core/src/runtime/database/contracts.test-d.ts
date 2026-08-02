@@ -25,7 +25,7 @@ import { expectTypeOf, test } from 'vitest'
 
 import {
 	databaseAdapterServiceToken,
-	type DatabaseAccessConstraintNode,
+	type DatabaseConstraintNode,
 	type DatabaseAdapter,
 	type DatabaseCreateMaterialization,
 	type DatabaseDeleteMaterialization,
@@ -97,25 +97,27 @@ test('maps every operation kind to its database result semantics', () => {
 	>().toEqualTypeOf<number>()
 })
 
-test('preserves operation and access-constraint inference through execute', () => {
-	interface TenantConstraint extends DatabaseAccessConstraintNode {
-		readonly kind: 'fixture-tenant'
-		readonly tenantId: string
-	}
+test('preserves operation and constraint inference through execute', () => {
+	type TenantConstraint = DatabaseConstraintNode<
+		'fixture.tenant',
+		Readonly<{ readonly tenantId: string }>
+	>
 
 	const operation = {
 		kind: 'find',
 		query: new Query(articleSchema).equalTo('views', 10).ast,
 	} satisfies FindOperationAst<typeof articleSchema>
 	const request = {
-		accessConstraints: [{ kind: 'fixture-tenant', tenantId: 'tenant-1' }],
+		constraints: [
+			{ kind: 'fixture.tenant', payload: { tenantId: 'tenant-1' } },
+		],
 		operation,
 	} satisfies DatabaseOperationRequest<typeof operation, TenantConstraint>
 	expectTypeOf(adapter.execute(request)).toEqualTypeOf<
 		Promise<readonly ArticleRecord[]>
 	>()
 	expectTypeOf<
-		(typeof request.accessConstraints)[number]['tenantId']
+		(typeof request.constraints)[number]['payload']['tenantId']
 	>().toBeString()
 	expectTypeOf(databaseAdapterServiceToken).toEqualTypeOf<
 		ServiceToken<DatabaseAdapter>
@@ -146,7 +148,7 @@ test('keeps prepared outcomes correlated with their exact operation result', () 
 	const transaction = null as unknown as DatabaseTransactionAdapter
 
 	expectTypeOf(
-		transaction.prepare({ accessConstraints: [], operation }),
+		transaction.prepare({ constraints: [], operation }),
 	).toEqualTypeOf<Promise<PreparedDatabaseOperation<typeof operation>>>()
 	expectTypeOf<
 		DatabaseOperationOutcome<typeof operation>['result']
@@ -253,7 +255,7 @@ test('narrows preparation and materializations by mutation terminal', () => {
 	} satisfies CountOperationAst<typeof articleSchema>
 
 	// @ts-expect-error -- Reads execute directly and cannot create mutation handles.
-	void transaction.prepare({ accessConstraints: [], operation: read })
+	void transaction.prepare({ constraints: [], operation: read })
 	// @ts-expect-error -- Scalar reads cannot create mutation handles either.
-	void transaction.prepare({ accessConstraints: [], operation: count })
+	void transaction.prepare({ constraints: [], operation: count })
 })

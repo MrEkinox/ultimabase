@@ -40,7 +40,7 @@ describe('runtimePipelineStage', () => {
 			{
 				create: () =>
 					runtimePipelineStage({
-						stage: 'clp',
+						stage: 'normalization',
 						handler: () => undefined,
 						extra: true,
 					} as never),
@@ -56,7 +56,10 @@ describe('runtimePipelineStage', () => {
 			},
 			{
 				create: () =>
-					runtimePipelineStage({ stage: 'clp', handler: true } as never),
+					runtimePipelineStage({
+						stage: 'normalization',
+						handler: true,
+					} as never),
 				message: 'runtime pipeline stage handler must be a function',
 			},
 		]

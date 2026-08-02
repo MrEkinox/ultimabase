@@ -25,11 +25,9 @@ type RequestAccess =
 There is no `system` mode. Authentication credentials remain outside this
 contract; successful authentication contributes only the stable user identity.
 Master authority also identifies the verified key without retaining its raw
-value. `shouldBypassAccessBoundary` gives permission plugins one shared default:
-master bypasses CLP, ACL, and field permissions, but not structural validation,
-SQL constraints, transactions, business hooks, or tenant isolation.
-Runtime never calls this helper; each installed policy plugin owns its bypass
-decision.
+value. Core does not define a policy-specific bypass table. Each installed
+policy plugin observes the trusted mode and owns its own master-bypass decision
+without changing the authority seen by another plugin.
 
 ## Request capabilities
 

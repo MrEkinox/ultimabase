@@ -71,6 +71,7 @@ The objective is complete only when:
 - Runtime knows only policy-neutral guards, adapter constraints, and field restrictions; CLP, ACL, and field permissions are optional hook contributors.
 - Enforcement hooks can only deny, append constraints, or narrow fields, so later hooks cannot broaden access.
 - Guards, constraints, and input or selection restrictions run before effectful business hooks; final output restrictions run after every result transform.
+- Guards, constraints, and field restrictions are reevaluated into the existing monotonic state after business operation transforms, so value-derived decisions cannot become stale.
 - A general `skipHooks` escape hatch is forbidden.
 
 ## Execution order
@@ -88,7 +89,7 @@ dependencies are incomplete.
 8. [x] [329 — Make every mutation automatically transactional](issues/300-query-runtime/329-automatic-mutation-transactions.md)
 9. [x] [344 — Define the prepared mutation adapter protocol](issues/300-query-runtime/344-prepared-mutation-adapter-protocol.md)
 10. [x] [330 — Execute the native hook lifecycle](issues/300-query-runtime/330-native-hook-dispatcher.md)
-11. [ ] [337 — Replace named permission stages with hook enforcement](issues/300-query-runtime/337-policy-neutral-hook-enforcement.md)
+11. [x] [337 — Replace named permission stages with hook enforcement](issues/300-query-runtime/337-policy-neutral-hook-enforcement.md)
 12. [ ] [338 — Add the adapter constraint compiler registry](issues/300-query-runtime/338-adapter-constraint-compiler-registry.md)
 13. [ ] [331 — Add find and output hooks](issues/300-query-runtime/331-find-and-output-hooks.md)
 14. [ ] [332 — Add transaction finalization hooks](issues/300-query-runtime/332-transaction-hook-lifecycle.md)
@@ -122,12 +123,12 @@ the named Runtime stages and proven monotonic hook enforcement.
 
 ## Current issue
 
-[337 — Replace named permission stages with hook enforcement](issues/300-query-runtime/337-policy-neutral-hook-enforcement.md)
+[338 — Add the adapter constraint compiler registry](issues/300-query-runtime/338-adapter-constraint-compiler-registry.md)
 
-Native schema, field, and plugin declarations now execute through one compiled
-transaction-aware dispatcher. Issue 337 replaces the remaining CLP, ACL, and
-field-permission stage names with generic monotonic enforcement effects before
-optional permission plugins build on this lifecycle.
+Runtime now accumulates policy-neutral constraints without interpreting their
+payloads. Issue 338 adds the application-owned compiler registry that lets the
+selected database adapter claim those namespaced nodes and reject unknown
+constraints before execution.
 
 ## Progress log
 
@@ -144,6 +145,6 @@ without reconstructing repository history.
 - 329 — `done` — All eight mutation kinds reuse one automatic or explicit transaction, nested hook-stage work is rollback-only, reads remain direct, and master elevation retains the active scope.
 - 344 — `done` — Runtime now prepares every mutation; typed immutable outcomes isolate selected public results from stable singular PostgreSQL targets and complete logical materializations.
 - 330 — `done` — Compiled schema, field, and plugin hooks now resolve, validate, wrap prepared mutations, consume complete materializations, emit semantic changes, and roll back atomically.
-- 337 — `planned` — Policy-neutral enforcement waits for the typed plugin targets and native dispatcher.
+- 337 — `done` — Five protected policy-neutral factories now deny, append immutable adapter constraints, intersect fields, reevaluate transformed operations monotonically, and leave absent policies without placeholders.
 - 338 — `planned` — The generic constraint compiler registry waits for policy-neutral constraint contracts from issue 337.
 - 508 — `planned` — PostgreSQL bulk and upsert support follows the prepared-mutation protocol from issue 344 and remains required before issue 335.

@@ -1,7 +1,5 @@
 import {
 	FrameworkApplication,
-	FrameworkError,
-	type PluginContribution,
 	type PluginDefinition,
 } from '../../foundation.js'
 import type { SchemaDefinition } from '../../schema/index.js'
@@ -16,12 +14,10 @@ import {
 	type DatabaseAdapter,
 } from '../database/contracts.js'
 import { FrameworkEngine } from '../engine/framework-engine.js'
+import { createEnforcementStages } from '../enforcement/dispatcher.js'
 import { createRuntimeHookStages } from '../hooks/stages.js'
 import { createNativeHookStages } from '../hooks/dispatcher.js'
 import type {
-	RuntimeAccessConstraintStage,
-	RuntimeFieldPermissionStage,
-	RuntimeOperationGuardStage,
 	RuntimeOperationTransformStage,
 	RuntimePipelineStages,
 	RuntimeResultEffectStage,
@@ -51,14 +47,9 @@ export interface CreateFrameworkEngineOptions {
 	readonly validation?: RuntimeValidationOptions
 }
 
-type ExclusiveRuntimePipelineStageName = 'acl' | 'clp' | 'fieldPermissions'
-
 interface CollectedRuntimePipelineStages {
 	readonly normalization: readonly RuntimeOperationTransformStage[]
 	readonly commit: readonly RuntimeResultEffectStage[]
-	readonly acl: RuntimeAccessConstraintStage | undefined
-	readonly clp: RuntimeOperationGuardStage | undefined
-	readonly fieldPermissions: RuntimeFieldPermissionStage | undefined
 }
 
 const createFrameworkEngineOptionKeys = new Set([
@@ -70,14 +61,6 @@ const emptyCreateFrameworkEngineOptions: CreateFrameworkEngineOptions =
 
 const neutralNormalization: RuntimeOperationTransformStage = (input) =>
 	input.operation
-const neutralClp: RuntimeOperationGuardStage = () => undefined
-const neutralAcl: RuntimeAccessConstraintStage = (input) =>
-	input.accessConstraints
-const neutralFieldPermissions: RuntimeFieldPermissionStage = (input) =>
-	immutableRecord({
-		operation: input.operation,
-		accessConstraints: input.accessConstraints,
-	})
 const neutralCommit: RuntimeResultEffectStage = () => undefined
 
 const isObjectLike = (value: unknown): value is object =>
@@ -154,33 +137,6 @@ const assertDatabaseAdapter: (
 	}
 }
 
-const claimExclusiveStage = (
-	stage: ExclusiveRuntimePipelineStageName,
-	contribution: PluginContribution,
-	owners: Map<ExclusiveRuntimePipelineStageName, PluginContribution>,
-): void => {
-	const existingOwner = owners.get(stage)
-
-	if (existingOwner !== undefined) {
-		throw new FrameworkError(
-			'PLUGIN_CONFLICT',
-			`Runtime pipeline stage "${stage}" is already owned by plugin "${existingOwner.ownerPlugin}".`,
-			{
-				internalDetails: {
-					kind: 'duplicate-runtime-pipeline-stage',
-					stage,
-					pluginNames: immutableArray([
-						existingOwner.ownerPlugin,
-						contribution.ownerPlugin,
-					]),
-				},
-			},
-		)
-	}
-
-	owners.set(stage, contribution)
-}
-
 /** Validates and groups plugin stages while retaining contribution order. */
 const collectRuntimePipelineStages = (
 	application: FrameworkApplication<
@@ -190,13 +146,6 @@ const collectRuntimePipelineStages = (
 ): CollectedRuntimePipelineStages => {
 	const normalization: RuntimeOperationTransformStage[] = []
 	const commit: RuntimeResultEffectStage[] = []
-	const exclusiveOwners = new Map<
-		ExclusiveRuntimePipelineStageName,
-		PluginContribution
-	>()
-	let acl: RuntimeAccessConstraintStage | undefined
-	let clp: RuntimeOperationGuardStage | undefined
-	let fieldPermissions: RuntimeFieldPermissionStage | undefined
 
 	for (const contribution of application.getContributions('pipelines')) {
 		const implementation = getRuntimePipelineStageImplementation(
@@ -216,27 +165,12 @@ const collectRuntimePipelineStages = (
 			case 'commit':
 				commit.push(implementation.handler)
 				break
-			case 'acl':
-				claimExclusiveStage('acl', contribution, exclusiveOwners)
-				acl = implementation.handler
-				break
-			case 'clp':
-				claimExclusiveStage('clp', contribution, exclusiveOwners)
-				clp = implementation.handler
-				break
-			case 'fieldPermissions':
-				claimExclusiveStage('fieldPermissions', contribution, exclusiveOwners)
-				fieldPermissions = implementation.handler
-				break
 		}
 	}
 
 	return immutableRecord({
 		normalization: immutableArray(normalization),
 		commit: immutableArray(commit),
-		acl,
-		clp,
-		fieldPermissions,
 	})
 }
 
@@ -302,6 +236,7 @@ export const createFrameworkEngine = <
 	const contributedStages = collectRuntimePipelineStages(application)
 	const hookStages = createRuntimeHookStages(application)
 	const nativeHooks = createNativeHookStages(application)
+	const enforcement = createEnforcementStages(application)
 	const structuralValidation =
 		normalizedOptions.validation === undefined
 			? createRuntimeValidationStage()
@@ -309,10 +244,6 @@ export const createFrameworkEngine = <
 	const stages: RuntimePipelineStages = {
 		normalization: composeNormalizationStage(contributedStages.normalization),
 		structuralValidation,
-		clp: contributedStages.clp ?? neutralClp,
-		acl: contributedStages.acl ?? neutralAcl,
-		fieldPermissions:
-			contributedStages.fieldPermissions ?? neutralFieldPermissions,
 		globalBeforeHooks: hookStages.globalBeforeHooks,
 		schemaBeforeHooks: hookStages.schemaBeforeHooks,
 		databaseOperation: databaseAdapter,
@@ -321,6 +252,7 @@ export const createFrameworkEngine = <
 		commit: composeCommitStage(contributedStages.commit),
 		postCommitEvents: hookStages.postCommitEvents,
 		nativeHooks,
+		...(enforcement === undefined ? {} : { enforcement }),
 	}
 	const pipeline = new RuntimePipeline(stages)
 	const engineOptions =
