@@ -39,6 +39,17 @@ describe('createFrameworkEngine', () => {
 		const adapter = new RecordingDatabaseAdapter(
 			[
 				{
+					materializations: [
+						{
+							kind: 'create',
+							current: {
+								id: generatedId,
+								title: 'assembled',
+								createdAt: '2026-08-01T08:00:00.000Z',
+								updatedAt: '2026-08-01T08:00:00.000Z',
+							},
+						},
+					],
 					status: 'fulfilled',
 					value: {
 						id: generatedId,
@@ -199,6 +210,45 @@ describe('createFrameworkEngine', () => {
 		})
 
 		expect(framework.authorizeMasterKey('fixture-master-secret')).toBeDefined()
+
+		await application.dispose()
+	})
+
+	it('rolls back the automatic transaction when a native business hook fails', async () => {
+		const failure = new Error('Native hook rejected the mutation')
+		const trace: string[] = []
+		const schema = new Schema({
+			className: 'RejectedNativeHookArticle',
+			fields: {
+				title: stringField({ validation: { required: true } }),
+			},
+			hooks: {
+				beforeCreate: () => {
+					trace.push('hook:beforeCreate')
+
+					throw failure
+				},
+			},
+		})
+		const adapter = new RecordingDatabaseAdapter([], trace)
+		const application = await createApplication({
+			schemas: [schema],
+			plugins: [databasePlugin(adapter)],
+		})
+		const framework = createFrameworkEngine(application)
+
+		await expect(
+			framework
+				.anonymous({ requestId: 'native-hook-rollback', source: 'internal' })
+				.query(schema)
+				.create({ title: 'Rejected' }),
+		).rejects.toBe(failure)
+		expect(trace).toStrictEqual([
+			'adapter:begin',
+			'hook:beforeCreate',
+			'adapter:rollback',
+		])
+		expect(adapter.transactions[0]?.requests).toStrictEqual([])
 
 		await application.dispose()
 	})

@@ -108,7 +108,11 @@ describe('UltimaBase', () => {
 		expect(ultimabase.state).toBe('started')
 		expect(trace).toStrictEqual(['setup', 'connect'])
 
-		await expect(ultimabase.query(articleSchema).find()).resolves.toBe(rows)
+		const result = await ultimabase.query(articleSchema).find()
+
+		expect(result).toStrictEqual(rows)
+		expect(result).not.toBe(rows)
+		expect(Object.isFrozen(result)).toBe(true)
 		expect(observedContext?.access).toStrictEqual({ mode: 'anonymous' })
 		expect(observedContext?.source).toBe('internal')
 		expect(observedContext?.requestId).toMatch(
@@ -138,6 +142,17 @@ describe('UltimaBase', () => {
 		const firstAdapter = new RecordingDatabaseAdapter(
 			[
 				{
+					materializations: [
+						{
+							kind: 'create',
+							current: {
+								id: '0198a43e-2431-7000-8000-000000000002',
+								title: 'Transactional',
+								createdAt: '2026-08-02T08:00:00.000Z',
+								updatedAt: '2026-08-02T08:00:00.000Z',
+							},
+						},
+					],
 					status: 'fulfilled',
 					value: {
 						id: '0198a43e-2431-7000-8000-000000000002',

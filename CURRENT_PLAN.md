@@ -87,7 +87,7 @@ dependencies are incomplete.
 7. [x] [519 — Implement the PostgreSQL transaction adapter lifecycle](issues/500-postgres/519-transaction-adapter-lifecycle.md)
 8. [x] [329 — Make every mutation automatically transactional](issues/300-query-runtime/329-automatic-mutation-transactions.md)
 9. [x] [344 — Define the prepared mutation adapter protocol](issues/300-query-runtime/344-prepared-mutation-adapter-protocol.md)
-10. [ ] [330 — Execute the native hook lifecycle](issues/300-query-runtime/330-native-hook-dispatcher.md)
+10. [x] [330 — Execute the native hook lifecycle](issues/300-query-runtime/330-native-hook-dispatcher.md)
 11. [ ] [337 — Replace named permission stages with hook enforcement](issues/300-query-runtime/337-policy-neutral-hook-enforcement.md)
 12. [ ] [338 — Add the adapter constraint compiler registry](issues/300-query-runtime/338-adapter-constraint-compiler-registry.md)
 13. [ ] [331 — Add find and output hooks](issues/300-query-runtime/331-find-and-output-hooks.md)
@@ -122,12 +122,12 @@ the named Runtime stages and proven monotonic hook enforcement.
 
 ## Current issue
 
-[330 — Execute the native hook lifecycle](issues/300-query-runtime/330-native-hook-dispatcher.md)
+[337 — Replace named permission stages with hook enforcement](issues/300-query-runtime/337-policy-neutral-hook-enforcement.md)
 
-Every root mutation now owns one adapter transaction and consumes one prepared
-operation whose internal complete materializations remain separate from the
-developer's selected result. Issue 330 installs the native schema, field, and
-plugin dispatcher around that stable execution gap.
+Native schema, field, and plugin declarations now execute through one compiled
+transaction-aware dispatcher. Issue 337 replaces the remaining CLP, ACL, and
+field-permission stage names with generic monotonic enforcement effects before
+optional permission plugins build on this lifecycle.
 
 ## Progress log
 
@@ -143,7 +143,7 @@ without reconstructing repository history.
 - 519 — `done` — PostgreSQL transactions borrow one client, share the private Drizzle executor, sanitize lifecycle failures, and release or destroy exactly once.
 - 329 — `done` — All eight mutation kinds reuse one automatic or explicit transaction, nested hook-stage work is rollback-only, reads remain direct, and master elevation retains the active scope.
 - 344 — `done` — Runtime now prepares every mutation; typed immutable outcomes isolate selected public results from stable singular PostgreSQL targets and complete logical materializations.
-- 330 — `ready` — Native dispatch can now wrap the prepared mutation boundary with schema, field, and plugin hooks.
+- 330 — `done` — Compiled schema, field, and plugin hooks now resolve, validate, wrap prepared mutations, consume complete materializations, emit semantic changes, and roll back atomically.
 - 337 — `planned` — Policy-neutral enforcement waits for the typed plugin targets and native dispatcher.
 - 338 — `planned` — The generic constraint compiler registry waits for policy-neutral constraint contracts from issue 337.
 - 508 — `planned` — PostgreSQL bulk and upsert support follows the prepared-mutation protocol from issue 344 and remains required before issue 335.

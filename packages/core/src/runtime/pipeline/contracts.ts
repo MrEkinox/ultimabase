@@ -3,7 +3,10 @@ import type { MaybePromise } from '@ultimabase/shared'
 import type { RequestContext } from '../context/request-context.js'
 import type {
 	DatabaseAccessConstraintNode,
+	DatabaseMutationLogicalRecord,
+	DatabaseMutationOperationAst,
 	DatabaseOperationAst,
+	DatabaseOperationOutcome,
 	DatabaseOperationExecutor,
 	DatabaseOperationResult,
 } from '../database/contracts.js'
@@ -85,6 +88,45 @@ export type RuntimeResultEffectStage = <
 	input: RuntimeResultStageInput<TOperation>,
 ) => MaybePromise<void>
 
+/** Supplies the prepared singular target without exposing the executable handle. */
+export interface RuntimePreparedMutationStageInput<
+	TOperation extends DatabaseMutationOperationAst,
+> extends RuntimeOperationStageInput<TOperation> {
+	readonly target: DatabaseMutationLogicalRecord<TOperation> | null | undefined
+}
+
+/** Supplies complete private materializations separately from the public result. */
+export interface RuntimeMutationOutcomeStageInput<
+	TOperation extends DatabaseMutationOperationAst,
+> extends RuntimeOperationStageInput<TOperation> {
+	readonly outcome: DatabaseOperationOutcome<TOperation>
+}
+
+/** Executes affected-field before hooks without granting handle ownership. */
+export type RuntimePreparedMutationEffectStage = <
+	const TOperation extends DatabaseMutationOperationAst,
+>(
+	input: RuntimePreparedMutationStageInput<TOperation>,
+) => MaybePromise<void>
+
+/** Validates private materializations while executing their field effects. */
+export type RuntimeMutationOutcomeTransformStage = <
+	const TOperation extends DatabaseMutationOperationAst,
+>(
+	input: RuntimeMutationOutcomeStageInput<TOperation>,
+) => MaybePromise<DatabaseOperationOutcome<TOperation>>
+
+/** Groups the native dispatcher without changing low-level ADR-0070 stages. */
+export interface RuntimeNativeHookStages {
+	readonly resolveInput: RuntimeOperationTransformStage
+	readonly revalidate: RuntimeOperationTransformStage
+	readonly validate: RuntimeOperationGuardStage
+	readonly schemaBefore: RuntimeOperationTransformStage
+	readonly fieldBefore: RuntimePreparedMutationEffectStage
+	readonly fieldAfter: RuntimeMutationOutcomeTransformStage
+	readonly schemaAfter: RuntimeResultTransformStage
+}
+
 /**
  * Requires every semantic phase explicitly so application assembly cannot omit
  * a security, transaction, or event boundary by leaving a callback undefined.
@@ -102,4 +144,6 @@ export interface RuntimePipelineStages {
 	readonly globalAfterHooks: RuntimeResultTransformStage
 	readonly commit: RuntimeResultEffectStage
 	readonly postCommitEvents: RuntimeResultEffectStage
+	/** Installed by application assembly when native declarations are compiled. */
+	readonly nativeHooks?: RuntimeNativeHookStages
 }

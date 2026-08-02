@@ -1,4 +1,5 @@
 import type { OperationKind, UpdateExpressionNode } from '../../query/index.js'
+import { isDeepStrictEqual } from 'node:util'
 import {
 	compileValidationPlans,
 	fieldUsesTemporalTimezone,
@@ -68,6 +69,19 @@ interface ResolvedValue {
 }
 
 type MissingValueResolution = MissingValue | ResolvedValue
+
+/** Keeps Runtime validation errors compatible with schema and hook issue codes. */
+export interface RuntimeValidationIssue {
+	readonly code: string
+	readonly message: string
+	readonly path: ValidationIssuePath
+}
+
+/** Describes the trusted diagnostic and safe public message for one boundary. */
+export interface RuntimeValidationErrorDescription {
+	readonly internalMessage: string
+	readonly publicMessage: string
+}
 
 const mutationKinds = new Set<OperationKind>([
 	'create-one',
@@ -298,7 +312,7 @@ const validateFieldValue = (
 					item,
 					[...path, index],
 					execution,
-					true,
+					allowDefaults,
 				)
 
 				valid = valid && itemResult.valid
@@ -451,6 +465,8 @@ const validateUpdateExpression = (
 	value: unknown,
 	path: ValidationIssuePath,
 	execution: ValidationExecution,
+	appendGeneratedValues: boolean,
+	previousValue?: unknown,
 ): UpdateExpressionNode | undefined => {
 	if (
 		!isPlainRecord(value) ||
@@ -468,6 +484,26 @@ const validateUpdateExpression = (
 	}
 
 	const operations: Readonly<Record<string, unknown>>[] = []
+	const retainedForbiddenOperations = new Map<
+		string,
+		Readonly<Record<string, unknown>>
+	>()
+	const observedForbiddenFields = new Set<string>()
+
+	if (
+		isPlainRecord(previousValue) &&
+		isUnknownArray(previousValue.operations)
+	) {
+		for (const candidate of previousValue.operations) {
+			if (
+				isPlainRecord(candidate) &&
+				typeof candidate.field === 'string' &&
+				plan.fields[candidate.field]?.presence === 'forbidden'
+			) {
+				retainedForbiddenOperations.set(candidate.field, candidate)
+			}
+		}
+	}
 
 	for (const [index, candidate] of value.operations.entries()) {
 		const operationPath: ValidationIssuePath = [...path, index]
@@ -487,6 +523,24 @@ const validateUpdateExpression = (
 			continue
 		}
 
+		const expectedKeys =
+			candidate.kind === 'unset'
+				? new Set(['field', 'kind'])
+				: new Set(['field', 'kind', 'value'])
+
+		if (
+			Object.keys(candidate).some((key) => !expectedKeys.has(key)) ||
+			[...expectedKeys].some((key) => !Object.hasOwn(candidate, key))
+		) {
+			appendIssue(
+				execution,
+				'object.type',
+				operationPath,
+				'Update operation contains incompatible properties',
+			)
+			continue
+		}
+
 		const fieldPlan = plan.fields[candidate.field]
 		const fieldPath: ValidationIssuePath = [...operationPath, candidate.field]
 
@@ -501,13 +555,20 @@ const validateUpdateExpression = (
 		}
 
 		if (fieldPlan.presence === 'forbidden') {
-			appendIssue(
-				execution,
-				'field.forbidden',
-				fieldPath,
-				'Update field is immutable or generated',
-			)
-			continue
+			const retained = retainedForbiddenOperations.get(candidate.field)
+
+			if (retained === undefined || !isDeepStrictEqual(candidate, retained)) {
+				appendIssue(
+					execution,
+					'field.forbidden',
+					fieldPath,
+					'Update field is immutable or generated',
+				)
+				continue
+			}
+
+			// A hook may retain framework-generated work but cannot remove or replace it.
+			observedForbiddenFields.add(candidate.field)
 		}
 
 		if (candidate.kind === 'unset') {
@@ -550,9 +611,21 @@ const validateUpdateExpression = (
 		}
 	}
 
+	for (const fieldName of retainedForbiddenOperations.keys()) {
+		if (!observedForbiddenFields.has(fieldName)) {
+			appendIssue(
+				execution,
+				'field.required',
+				[...path, 'operations', fieldName],
+				'Generated update operation must be retained',
+			)
+		}
+	}
+
 	const updatedAtPlan = plan.fields.updatedAt
 
 	if (
+		appendGeneratedValues &&
 		updatedAtPlan !== undefined &&
 		'generatedOn' in updatedAtPlan.field.options &&
 		updatedAtPlan.field.options.generatedOn === 'createAndUpdate'
@@ -584,42 +657,55 @@ const assertSchemaDefinition = (value: unknown): SchemaDefinition => {
 	return value
 }
 
-const throwValidationIssues = (
-	issues: readonly ValidationIssue<AnyValidationIssueCode>[],
+/** Raises one consistent transport-neutral error for structural and hook issues. */
+export const throwRuntimeValidationIssues = (
+	issues: readonly RuntimeValidationIssue[],
+	description: Readonly<RuntimeValidationErrorDescription> = {
+		internalMessage: 'Operation input validation failed.',
+		publicMessage: 'The operation input is invalid.',
+	},
 ): never => {
 	const immutableIssues = immutableArray(issues)
 
-	throw new FrameworkError(
-		'VALIDATION_ERROR',
-		'Operation input validation failed.',
-		{
-			publicMessage: 'The operation input is invalid.',
-			publicDetails: { issues: immutableIssues },
-			internalDetails: { issues: immutableIssues },
-		},
-	)
+	throw new FrameworkError('VALIDATION_ERROR', description.internalMessage, {
+		publicMessage: description.publicMessage,
+		publicDetails: { issues: immutableIssues },
+		internalDetails: { issues: immutableIssues },
+	})
+}
+
+interface MutationNormalizationOptions {
+	readonly allowDefaults: boolean
+	readonly appendGeneratedValues: boolean
+	readonly createPlan: SchemaValidationPlan
+	readonly previousOperation?: DatabaseOperationAst
+	readonly updatePlan: SchemaValidationPlan
 }
 
 const normalizeMutationOperation = <
 	const TOperation extends DatabaseOperationAst,
 >(
 	operation: TOperation,
-	plans: SchemaValidationPlans,
 	execution: ValidationExecution,
+	options: MutationNormalizationOptions,
 ): TOperation => {
 	const untrustedOperation = operation as unknown as Readonly<
 		Record<string, unknown>
 	>
+	const previousOperation: Readonly<Record<string, unknown>> | undefined =
+		isPlainRecord(options.previousOperation)
+			? options.previousOperation
+			: undefined
 	let normalized: Readonly<Record<string, unknown>> = untrustedOperation
 
 	switch (untrustedOperation.kind) {
 		case 'create-one': {
 			const input = validateSchemaInput(
-				plans.create,
+				options.createPlan,
 				untrustedOperation.input,
 				['input'],
 				execution,
-				true,
+				options.allowDefaults,
 			)
 
 			if (input !== undefined) {
@@ -640,11 +726,11 @@ const normalizeMutationOperation = <
 
 			const inputs = untrustedOperation.inputs.map((input, index) =>
 				validateSchemaInput(
-					plans.create,
+					options.createPlan,
 					input,
 					['inputs', index],
 					execution,
-					true,
+					options.allowDefaults,
 				),
 			)
 
@@ -657,10 +743,12 @@ const normalizeMutationOperation = <
 		case 'update-one':
 		case 'update-many': {
 			const update = validateUpdateExpression(
-				plans.update,
+				options.updatePlan,
 				untrustedOperation.update,
 				['update'],
 				execution,
+				options.appendGeneratedValues,
+				previousOperation?.update,
 			)
 
 			if (update !== undefined) {
@@ -670,17 +758,19 @@ const normalizeMutationOperation = <
 		}
 		case 'upsert-one': {
 			const create = validateSchemaInput(
-				plans.create,
+				options.createPlan,
 				untrustedOperation.create,
 				['create'],
 				execution,
-				true,
+				options.allowDefaults,
 			)
 			const update = validateUpdateExpression(
-				plans.update,
+				options.updatePlan,
 				untrustedOperation.update,
 				['update'],
 				execution,
+				options.appendGeneratedValues,
+				previousOperation?.update,
 			)
 
 			if (create !== undefined && update !== undefined) {
@@ -699,6 +789,9 @@ const normalizeMutationOperation = <
 				break
 			}
 
+			const previousItems = isUnknownArray(previousOperation?.items)
+				? previousOperation.items
+				: []
 			const items = untrustedOperation.items.map((item, index) => {
 				if (!isPlainRecord(item)) {
 					appendIssue(
@@ -712,17 +805,21 @@ const normalizeMutationOperation = <
 				}
 
 				const create = validateSchemaInput(
-					plans.create,
+					options.createPlan,
 					item.create,
 					['items', index, 'create'],
 					execution,
-					true,
+					options.allowDefaults,
 				)
 				const update = validateUpdateExpression(
-					plans.update,
+					options.updatePlan,
 					item.update,
 					['items', index, 'update'],
 					execution,
+					options.appendGeneratedValues,
+					isPlainRecord(previousItems[index])
+						? previousItems[index].update
+						: undefined,
 				)
 
 				return create === undefined || update === undefined
@@ -739,11 +836,136 @@ const normalizeMutationOperation = <
 	}
 
 	if (execution.issues.length > 0) {
-		throwValidationIssues(execution.issues)
+		throwRuntimeValidationIssues(execution.issues)
 	}
 
 	// Every operation discriminant and schema identity is preserved by reconstruction.
 	return normalized as unknown as TOperation
+}
+
+const snapshotOutputFieldPlan = (
+	plan: FieldValidationPlan,
+	isProperty: boolean,
+): FieldValidationPlan => {
+	const presence = isProperty
+		? isRequiredOutput(plan.field)
+			? ('required' as const)
+			: ('optional' as const)
+		: plan.presence
+
+	switch (plan.kind) {
+		case 'array':
+			return immutableRecord({
+				...plan,
+				presence,
+				items: snapshotOutputFieldPlan(plan.items, false),
+			})
+		case 'object':
+			return immutableRecord({
+				...plan,
+				presence,
+				fields: immutableRecord(
+					Object.fromEntries(
+						Object.entries(plan.fields).map(([name, child]) => [
+							name,
+							snapshotOutputFieldPlan(child, true),
+						]),
+					),
+				),
+			})
+		case 'scalar':
+			return immutableRecord({ ...plan, presence })
+	}
+}
+
+const createOutputValidationPlan = (
+	plan: SchemaValidationPlan,
+	selectedFields?: readonly string[],
+): SchemaValidationPlan => {
+	const selected =
+		selectedFields === undefined ? undefined : new Set(selectedFields)
+	const entries: [string, FieldValidationPlan][] = []
+
+	for (const [name, fieldPlan] of Object.entries(plan.fields)) {
+		if (selected === undefined || selected.has(name)) {
+			entries.push([name, snapshotOutputFieldPlan(fieldPlan, true)])
+		}
+	}
+
+	return immutableRecord({
+		...plan,
+		fields: immutableRecord(Object.fromEntries(entries)),
+	})
+}
+
+const unavailableGeneratedValue = (): never => {
+	throw new TypeError('Structural revalidation cannot generate field values')
+}
+
+const createStructuralValidationExecution = (): ValidationExecution => ({
+	issues: [],
+	// These values are deliberately unusable: structural boundaries never resolve omissions.
+	temporal: immutableRecord({
+		date: '',
+		dateTime: '',
+		dateTimeWithTimezone: '',
+		time: '',
+		timeWithTimezone: '',
+	}),
+	timestamp: Number.NaN,
+	uuidV7Generator: unavailableGeneratedValue,
+})
+
+/**
+ * Revalidates a hook-transformed mutation without replaying defaults or generators.
+ */
+export const revalidateRuntimeMutationOperation = <
+	const TOperation extends DatabaseOperationAst,
+>(
+	previousOperation: TOperation,
+	operation: TOperation,
+	plans: SchemaValidationPlans,
+): TOperation => {
+	const execution = createStructuralValidationExecution()
+
+	return normalizeMutationOperation(operation, execution, {
+		allowDefaults: false,
+		appendGeneratedValues: false,
+		createPlan: createOutputValidationPlan(plans.create),
+		previousOperation,
+		updatePlan: plans.update,
+	})
+}
+
+/** Validates and snapshots one complete or selected logical database record. */
+export const snapshotRuntimeResultRecord = (
+	plans: SchemaValidationPlans,
+	value: unknown,
+	path: ValidationIssuePath,
+	selectedFields?: readonly string[],
+	description?: Readonly<RuntimeValidationErrorDescription>,
+): Readonly<Record<string, unknown>> => {
+	const execution = createStructuralValidationExecution()
+	const result = validateSchemaInput(
+		createOutputValidationPlan(plans.create, selectedFields),
+		value,
+		path,
+		execution,
+		false,
+	)
+
+	if (execution.issues.length > 0) {
+		throwRuntimeValidationIssues(execution.issues, description)
+	}
+
+	if (result === undefined) {
+		// The validator always records at least one issue when it cannot produce a record.
+		throw new FrameworkError('VALIDATION_ERROR', 'Result validation failed.', {
+			publicMessage: 'The operation result is invalid.',
+		})
+	}
+
+	return result
 }
 
 /** Creates the structural validation stage shared by every transport and access mode. */
@@ -783,6 +1005,11 @@ export const createRuntimeValidationStage = (
 			uuidV7Generator,
 		}
 
-		return normalizeMutationOperation(operation, plans, execution)
+		return normalizeMutationOperation(operation, execution, {
+			allowDefaults: true,
+			appendGeneratedValues: true,
+			createPlan: plans.create,
+			updatePlan: plans.update,
+		})
 	}
 }

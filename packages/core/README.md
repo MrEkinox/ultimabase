@@ -110,7 +110,6 @@ const PostSchema = new Schema({
 				return operation
 			},
 		},
-		beforeFind: [({ query }) => query.limit(100), ({ query }) => query],
 		afterOperation: (input) => {
 			if (input.kind === 'count') {
 				// The result is narrowed to number in this branch.
@@ -137,13 +136,17 @@ validation plans, indexes, migrations, or physical diffs.
 
 The lifecycle nests broad phases around exact phases. Saves use
 `beforeOperation → beforeSave → beforeCreate|beforeUpdate|beforeUpsert`, then
-unwind through the exact after phase, `afterSave`, and `afterOperation`. Reads
-use `beforeOperation → beforeFind`, then `afterFind → afterOperation`.
+unwind through the exact after phase, `afterSave`, and `afterOperation`. Generic
+`beforeOperation` and `afterOperation` hooks also cover reads; the query-focused
+`beforeFind`, `afterFind`, and field `resolveOutput` phases are declared now and
+become executable in issue 331.
 
-Declaration is the implemented boundary in issue 325; the Runtime dispatcher
-does not invoke these callbacks until issue 330. This distinction lets plugins
-and adapters compile against a stable public contract without pretending that a
-partial lifecycle already executes.
+Runtime compiles declarations once per application. Input resolution runs from
+nested children to parents, transformed input is structurally revalidated
+without replaying defaults or generators, and all field and schema validation
+issues are reported together before policy or database work begins. Business
+before hooks run inside the automatic mutation transaction, so throwing from a
+hook rolls back database work performed earlier in the same request.
 
 ## Inline field hooks
 
@@ -190,7 +193,10 @@ For nested objects, siblings retain declaration order. Input resolution,
 validation, and output resolution visit children before their parent; before
 CRUD/save phases enter the parent before its descendants, and after phases
 unwind descendants before their parent. These declarations are retained by
-private field capabilities in issue 326 and start executing in issue 330.
+private field capabilities and compiled with plugin field targets. Before hooks
+receive complete prepared values, after hooks and `onChange` receive complete
+private materializations, and the public result still honors the developer's
+`.select(...)` projection.
 
 ## Framework application
 
@@ -464,9 +470,10 @@ plugin dependency order, configuration position, registration order, then
 schema and nested-field declaration order. Resolved snapshots are immutable and
 isolated per application.
 
-Issue 328 implements registration and target resolution. Issue 330 composes the
-resolved declarations with developer hooks and starts invoking them; registering
-a target therefore does not claim execution before that dispatcher exists.
+Runtime composes resolved plugin declarations with developer hooks once during
+application assembly. Before phases run plugins in dependency and configuration
+order before the developer declaration; after phases run the developer first and
+then unwind plugins in reverse order.
 
 The active [native-hook plan](../../CURRENT_PLAN.md) gives Core's Schema domain
 identity-owned declaration storage and gives its Runtime domain interpretation

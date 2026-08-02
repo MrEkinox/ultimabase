@@ -21,6 +21,7 @@ import type {
 import type {
 	RuntimeAccessConstraintStage,
 	RuntimeFieldPermissionStage,
+	RuntimeNativeHookStages,
 	RuntimeOperationGuardStage,
 	RuntimeOperationStageInput,
 	RuntimeOperationTransformStage,
@@ -111,6 +112,23 @@ const createResultEffect =
 		trace.push(stageName)
 		expect(Object.isFrozen(input)).toBe(true)
 	}
+
+/** Records the native dispatcher boundary independently from its hook contents. */
+const createNativeHookStages = (trace: string[]): RuntimeNativeHookStages => ({
+	resolveInput: createOperationTransform('native:resolveInput', trace),
+	revalidate: createOperationTransform('native:revalidate', trace),
+	validate: createGuard('native:validate', trace),
+	schemaBefore: createOperationTransform('native:schemaBefore', trace),
+	fieldBefore: (): void => {
+		trace.push('native:fieldBefore')
+	},
+	fieldAfter: (input) => {
+		trace.push('native:fieldAfter')
+
+		return input.outcome
+	},
+	schemaAfter: createResultTransform('native:schemaAfter', trace),
+})
 
 /** Supplies deterministic adapter output for every generic operation call. */
 class TraceDatabaseExecutor implements DatabaseOperationExecutor {
@@ -218,6 +236,42 @@ describe('RuntimePipeline', () => {
 			'globalBeforeHooks',
 			'schemaBeforeHooks',
 			'databaseOperation',
+			'schemaAfterHooks',
+			'globalAfterHooks',
+			'commit',
+			'postCommitEvents',
+		])
+	})
+
+	it('wraps enforcement and database execution with the native dispatcher', async () => {
+		const trace: string[] = []
+		const executor = new TraceDatabaseExecutor(trace, [])
+		const pipeline = new RuntimePipeline(
+			createStages(trace, executor, {
+				nativeHooks: createNativeHookStages(trace),
+			}),
+		)
+
+		await pipeline.execute({
+			context: requestContext,
+			operation: articleOperation,
+		})
+
+		expect(trace).toStrictEqual([
+			'normalization',
+			'structuralValidation',
+			'native:resolveInput',
+			'native:revalidate',
+			'native:validate',
+			'clp',
+			'acl',
+			'fieldPermissions',
+			'globalBeforeHooks',
+			'schemaBeforeHooks',
+			'native:schemaBefore',
+			'native:revalidate',
+			'databaseOperation',
+			'native:schemaAfter',
 			'schemaAfterHooks',
 			'globalAfterHooks',
 			'commit',

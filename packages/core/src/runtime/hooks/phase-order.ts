@@ -86,8 +86,8 @@ const deleteManyOrder = createPhaseOrder(
 )
 const findOrder = createPhaseOrder(
 	'find',
-	immutableArray(['beforeOperation', 'beforeFind']),
-	immutableArray(['afterFind', 'afterOperation']),
+	immutableArray(['beforeOperation']),
+	immutableArray(['afterOperation']),
 	noFieldPhases,
 	noFieldPhases,
 )

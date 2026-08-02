@@ -23,6 +23,7 @@ import type {
 	RuntimeAccessStageInput,
 	RuntimeFieldPermissionStageResult,
 	RuntimeOperationStageInput,
+	RuntimeNativeHookStages,
 	RuntimePipelineRequest,
 	RuntimePipelineStages,
 	RuntimeResultStageInput,
@@ -41,6 +42,16 @@ const functionStageNames = [
 	'commit',
 	'postCommitEvents',
 ] as const satisfies readonly (keyof RuntimePipelineStages)[]
+
+const nativeHookStageNames = [
+	'fieldAfter',
+	'fieldBefore',
+	'resolveInput',
+	'revalidate',
+	'schemaAfter',
+	'schemaBefore',
+	'validate',
+] as const satisfies readonly (keyof RuntimeNativeHookStages)[]
 
 const emptyAccessConstraints: readonly DatabaseAccessConstraintNode[] =
 	immutableArray([])
@@ -93,6 +104,8 @@ const executeDatabaseOperation = async <
 	const TOperation extends DatabaseOperationAst,
 >(
 	executor: DatabaseOperationExecutor,
+	context: RequestContext,
+	nativeHooks: RuntimeNativeHookStages | undefined,
 	request: {
 		readonly accessConstraints: readonly DatabaseAccessConstraintNode[]
 		readonly operation: TOperation
@@ -109,7 +122,18 @@ const executeDatabaseOperation = async <
 			operation: request.operation,
 		}),
 	)
-	const outcome = await prepared.execute()
+	const target = 'target' in prepared ? prepared.target : undefined
+
+	await nativeHooks?.fieldBefore(
+		immutableRecord({ context, operation: request.operation, target }),
+	)
+	let outcome = await prepared.execute()
+
+	if (nativeHooks !== undefined) {
+		outcome = await nativeHooks.fieldAfter(
+			immutableRecord({ context, operation: request.operation, outcome }),
+		)
+	}
 
 	return outcome.result
 }
@@ -127,6 +151,22 @@ const assertRuntimePipelineStages = (stages: RuntimePipelineStages): void => {
 			throw new TypeError(
 				`Runtime pipeline stage ${stageName} must be a function`,
 			)
+		}
+	}
+
+	const nativeHooks: unknown = untrustedStages.nativeHooks
+
+	if (nativeHooks !== undefined) {
+		if (!isPlainRecord(nativeHooks)) {
+			throw new TypeError('Runtime pipeline nativeHooks must be a plain object')
+		}
+
+		for (const stageName of nativeHookStageNames) {
+			if (typeof nativeHooks[stageName] !== 'function') {
+				throw new TypeError(
+					`Runtime native hook stage ${stageName} must be a function`,
+				)
+			}
 		}
 	}
 
@@ -202,7 +242,15 @@ export class RuntimePipeline {
 
 	constructor(stages: RuntimePipelineStages) {
 		assertRuntimePipelineStages(stages)
-		this.#stages = immutableRecord(stages)
+		const nativeHooks =
+			stages.nativeHooks === undefined
+				? undefined
+				: immutableRecord(stages.nativeHooks)
+
+		this.#stages = immutableRecord({
+			...stages,
+			...(nativeHooks === undefined ? {} : { nativeHooks }),
+		})
 
 		// Pipeline configuration cannot change after application initialization.
 		Object.freeze(this)
@@ -241,6 +289,19 @@ export class RuntimePipeline {
 		operation = await this.#stages.structuralValidation(
 			createOperationInput(context, operation),
 		)
+
+		if (this.#stages.nativeHooks !== undefined) {
+			operation = await this.#stages.nativeHooks.resolveInput(
+				createOperationInput(context, operation),
+			)
+			operation = await this.#stages.nativeHooks.revalidate(
+				createOperationInput(context, operation),
+			)
+			await this.#stages.nativeHooks.validate(
+				createOperationInput(context, operation),
+			)
+		}
+
 		await this.#stages.clp(createOperationInput(context, operation))
 
 		let accessConstraints: readonly DatabaseAccessConstraintNode[] =
@@ -267,14 +328,31 @@ export class RuntimePipeline {
 			createOperationInput(context, operation),
 		)
 
+		if (this.#stages.nativeHooks !== undefined) {
+			operation = await this.#stages.nativeHooks.schemaBefore(
+				createOperationInput(context, operation),
+			)
+			operation = await this.#stages.nativeHooks.revalidate(
+				createOperationInput(context, operation),
+			)
+		}
+
 		let result: DatabaseOperationResult<TOperation> =
 			await executeDatabaseOperation(
 				this.#stages.databaseOperation,
+				context,
+				this.#stages.nativeHooks,
 				immutableRecord({
 					accessConstraints,
 					operation,
 				}),
 			)
+
+		if (this.#stages.nativeHooks !== undefined) {
+			result = await this.#stages.nativeHooks.schemaAfter(
+				createResultInput(context, operation, result),
+			)
+		}
 
 		result = await this.#stages.schemaAfterHooks(
 			createResultInput(context, operation, result),

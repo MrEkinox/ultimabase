@@ -17,6 +17,7 @@ import {
 } from '../database/contracts.js'
 import { FrameworkEngine } from '../engine/framework-engine.js'
 import { createRuntimeHookStages } from '../hooks/stages.js'
+import { createNativeHookStages } from '../hooks/dispatcher.js'
 import type {
 	RuntimeAccessConstraintStage,
 	RuntimeFieldPermissionStage,
@@ -300,6 +301,7 @@ export const createFrameworkEngine = <
 
 	const contributedStages = collectRuntimePipelineStages(application)
 	const hookStages = createRuntimeHookStages(application)
+	const nativeHooks = createNativeHookStages(application)
 	const structuralValidation =
 		normalizedOptions.validation === undefined
 			? createRuntimeValidationStage()
@@ -318,6 +320,7 @@ export const createFrameworkEngine = <
 		globalAfterHooks: hookStages.globalAfterHooks,
 		commit: composeCommitStage(contributedStages.commit),
 		postCommitEvents: hookStages.postCommitEvents,
+		nativeHooks,
 	}
 	const pipeline = new RuntimePipeline(stages)
 	const engineOptions =
