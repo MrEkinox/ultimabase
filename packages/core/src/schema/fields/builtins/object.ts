@@ -30,6 +30,8 @@ import type {
 import type { FieldDefault } from '../base/defaults.js'
 import { type CompatibleScalarPresence } from '../base/factory.js'
 import type { InferFields } from '../../inference/types.js'
+import type { FieldHookDeclaration } from '../../hooks/field-contracts.js'
+import { splitFieldDeclarationOptions } from '../../hooks/field-declarations.js'
 
 /**
  * Names the child fields of one object definition.
@@ -102,7 +104,9 @@ type CompactObjectFieldOptions<
 	}
 	readonly list?: TList
 	readonly immutable?: TImmutable
-}
+} & FieldHookDeclaration<
+		ResolvedObjectField<TFields, TRequired, TNullable, TList, TImmutable, false>
+	>
 
 type DefaultedObjectFieldOptions<
 	TFields extends ObjectFields,
@@ -261,32 +265,36 @@ export function objectField(
 ): ObjectField {
 	// The rest parameter exists only to keep invalid generic calls uncallable.
 	void invalidOptions
-	assertFieldOptions(options)
+	const { hooks, metadataOptions } = splitFieldDeclarationOptions(options)
+	assertFieldOptions(metadataOptions)
 
-	if (!isPlainRecord(options.fields)) {
+	if (!isPlainRecord(metadataOptions.fields)) {
 		throw new TypeError('fields must be a field map')
 	}
 
-	assertValidTypeName(options.typeName)
+	assertValidTypeName(metadataOptions.typeName)
 
-	for (const [name, field] of Object.entries(options.fields)) {
+	for (const [name, field] of Object.entries(metadataOptions.fields)) {
 		assertNonEmptyString(name, 'object field name')
 		assertFieldDefinition(field, `fields.${name}`)
 	}
 
 	const normalized = normalizeFieldOptions(
-		options,
+		metadataOptions,
 		normalizeFlatValidation,
-		(value, path) => snapshotObjectValue(value, options.fields, path),
+		(value, path) => snapshotObjectValue(value, metadataOptions.fields, path),
 	)
 
 	// The field map is detached while reusable immutable child definitions keep identity.
 	const fieldOptions = immutableRecord({
 		...normalized,
-		fields: immutableRecord(options.fields),
+		fields: immutableRecord(metadataOptions.fields),
 	})
 
-	return createFieldDefinition('object', fieldOptions, (value, path) =>
-		snapshotObjectValue(value, fieldOptions.fields, path),
+	return createFieldDefinition(
+		'object',
+		fieldOptions,
+		(value, path) => snapshotObjectValue(value, fieldOptions.fields, path),
+		hooks,
 	)
 }

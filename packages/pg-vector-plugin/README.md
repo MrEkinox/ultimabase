@@ -21,6 +21,10 @@ const DocumentSchema = new Schema({
 		embedding: vectorField({
 			dimensions: 1536,
 			validation: { required: true },
+			hooks: {
+				// The value is inferred as readonly number[].
+				resolveInput: ({ value }) => value,
+			},
 		}),
 	},
 })

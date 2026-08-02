@@ -72,6 +72,7 @@ type NonDefaultedFloatFieldOptions<
 	TImmutable extends boolean,
 > = NonDefaultedCompactScalarFieldOptions<
 	FloatFieldOptions,
+	number,
 	TRequired,
 	TNullable,
 	TList,

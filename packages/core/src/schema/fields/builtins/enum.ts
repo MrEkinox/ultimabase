@@ -25,6 +25,7 @@ import {
 	type DefaultedCompactScalarFieldOptions,
 	type NonDefaultedCompactScalarFieldOptions,
 } from '../base/factory.js'
+import { splitFieldDeclarationOptions } from '../../hooks/field-declarations.js'
 
 export type EnumValues = readonly string[] | Readonly<Record<string, string>>
 
@@ -114,6 +115,7 @@ type NonDefaultedEnumFieldOptions<
 	TImmutable extends boolean,
 > = NonDefaultedCompactScalarFieldOptions<
 	EnumFieldOptions<TValues>,
+	EnumValue<TValues>,
 	TRequired,
 	TNullable,
 	TList,
@@ -321,10 +323,14 @@ export function enumField(
 ): EnumField {
 	// The rest parameter exists only to keep invalid generic calls uncallable.
 	void invalidOptions
-	const normalized = normalizeEnumFieldOptions(options)
+	const { hooks, metadataOptions } = splitFieldDeclarationOptions(options)
+	const normalized = normalizeEnumFieldOptions(metadataOptions)
 	const values = readEnumValues(normalized.values)
 
-	return createFieldDefinition('enum', normalized, (value, path) =>
-		snapshotEnumValue(values, value, path),
+	return createFieldDefinition(
+		'enum',
+		normalized,
+		(value, path) => snapshotEnumValue(values, value, path),
+		hooks,
 	)
 }

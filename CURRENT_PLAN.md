@@ -79,7 +79,7 @@ dependencies are incomplete.
 1. [x] [213 — Consolidate the foundational Core package](issues/200-core/213-consolidate-foundational-core.md)
 2. [x] [324 — Prove the native hook contract boundary](issues/300-query-runtime/324-native-hook-contract-boundary.md)
 3. [x] [325 — Declare native schema hooks](issues/300-query-runtime/325-native-schema-hooks.md)
-4. [ ] [326 — Declare inline field hooks](issues/300-query-runtime/326-inline-field-hooks.md)
+4. [x] [326 — Declare inline field hooks](issues/300-query-runtime/326-inline-field-hooks.md)
 5. [ ] [327 — Compose hook families and handler lists](issues/300-query-runtime/327-hook-families-and-composition.md)
 6. [ ] [328 — Add typed plugin hook targets](issues/300-query-runtime/328-plugin-hook-targets.md)
 7. [ ] [329 — Make every mutation automatically transactional](issues/300-query-runtime/329-automatic-mutation-transactions.md)
@@ -116,11 +116,11 @@ the named Runtime stages and proven monotonic hook enforcement.
 
 ## Current issue
 
-[326 — Declare inline field hooks](issues/300-query-runtime/326-inline-field-hooks.md)
+[327 — Compose hook families and handler lists](issues/300-query-runtime/327-hook-families-and-composition.md)
 
-Native schema hook declarations now have exact operation-family inference,
-documented IntelliSense, and private identity-owned storage. The next issue
-applies the same proven boundary to every built-in and plugin-defined field.
+Native schema and inline field declarations now retain exact callback inference,
+documented IntelliSense, compact hovers, and private identity-owned storage. The
+next issue lets one phase compose shared handlers, ordered lists, and family maps.
 
 ## Progress log
 
@@ -130,7 +130,8 @@ without reconstructing repository history.
 - 213 — `done` — Schema, Query, Access, application orchestration, and Runtime now share one cohesive Core package under ADR-0095.
 - 324 — `done` — ADR-0096 and source plus packed-package fixtures prove precise schema and field declaration inference without exposing hook data in structural definitions.
 - 325 — `done` — `new Schema({ hooks })` now validates and retains typed immutable lifecycle declarations without exposing them as structural schema metadata.
-- 326 — `ready` — Inline field hook declarations are the current issue.
+- 326 — `done` — Every built-in and plugin field now declares exact value hooks through private immutable capabilities without changing metadata or compact hovers.
+- 327 — `ready` — Hook family maps and ordered handler lists are the current issue.
 - 329 — `ready` — Automatic mutation transactions are dependency-ready but follow issues 324–328 in the preferred sequence.
 - 337 — `planned` — Policy-neutral enforcement waits for the typed plugin targets and native dispatcher.
 - 338 — `planned` — The generic constraint compiler registry waits for policy-neutral constraint contracts from issue 337.

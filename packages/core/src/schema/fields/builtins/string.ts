@@ -73,6 +73,7 @@ type NonDefaultedStringFieldOptions<
 	TImmutable extends boolean,
 > = NonDefaultedCompactScalarFieldOptions<
 	StringFieldOptions,
+	string,
 	TRequired,
 	TNullable,
 	TList,

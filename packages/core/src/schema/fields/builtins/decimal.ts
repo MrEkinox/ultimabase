@@ -85,6 +85,7 @@ type NonDefaultedDecimalFieldOptions<
 	TImmutable extends boolean,
 > = NonDefaultedCompactScalarFieldOptions<
 	DecimalFieldOptions,
+	string,
 	TRequired,
 	TNullable,
 	TList,

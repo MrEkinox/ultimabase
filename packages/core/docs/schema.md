@@ -118,6 +118,51 @@ Changing only hooks cannot alter validation plans, adapter schemas, or
 migrations. Issue 325 declares and retains these callbacks; issue 330 connects
 them to Runtime execution.
 
+## Inline field hook declarations
+
+Common field options accept `hooks` as a declaration-only capability. Each
+handler receives this field's exact logical type without access to sibling
+schema values:
+
+```ts
+const ProfileSchema = new Schema({
+	className: 'Profile',
+	fields: {
+		displayName: stringField({
+			hooks: {
+				resolveInput: ({ value }) => value.trim(),
+				onChange: ({ change, timing }) => {
+					// `timing` is exactly "before-commit" here.
+					if (change.current.present) {
+						change.current.value.toUpperCase()
+					}
+				},
+			},
+		}),
+	},
+})
+```
+
+`resolveInput` and `resolveOutput` are the explicit same-type transformation
+boundaries. Validation returns structured immutable issues, while CRUD/save,
+change, commit, rollback, and error phases are effect handlers. An omitted
+optional field runs no value hook. Actual absence is represented by
+`FieldValueState` with `present: false`, never by fabricating an `undefined`
+logical value.
+
+Set-based `updateMany` can run input resolution and validation over its supplied
+update values, but it does not run materialized update or change hooks per row.
+Set-based `deleteMany` runs no field CRUD hooks. Cross-field behavior belongs to
+schema hooks.
+
+Nested fields use one deterministic depth-first order. Siblings retain field
+declaration order; input resolution, validation, and output resolution visit
+children before their parent; before CRUD/save handlers enter parent then
+children; after handlers unwind children then parent. Callback declarations are
+stored in private field capabilities and never appear in field metadata,
+validation plans, indexes, migrations, or physical schema diffs. Issue 326
+declares this contract; issue 330 executes it.
+
 `id`, `createdAt`, and `updatedAt` are reserved for UltimaBase system fields.
 Developer declarations using those keys fail both TypeScript checking and
 runtime declaration.

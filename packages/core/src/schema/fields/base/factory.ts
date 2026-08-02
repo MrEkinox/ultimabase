@@ -12,6 +12,8 @@ import {
 	type ScalarValueSnapshot,
 } from './definition.js'
 import { emptyFieldOptions, type EmptyFieldOptions } from './options.js'
+import type { FieldHookDeclaration } from '../../hooks/field-contracts.js'
+import { splitFieldDeclarationOptions } from '../../hooks/field-declarations.js'
 
 type ScalarFieldOptionsNormalizer<TOptions extends object> = <
 	const TDeclaredOptions extends TOptions,
@@ -52,11 +54,19 @@ export type DefaultedCompactScalarFieldOptions<
 > &
 	TInferredOptions & {
 		readonly default: FieldDefault<FieldListValue<TValue, TList>>
-	}
+	} & FieldHookDeclaration<
+		FieldDefinition<
+			'field',
+			TValue,
+			TOptions,
+			ScalarFieldInferenceState<TRequired, TNullable, TList, TImmutable, true>
+		>
+	>
 
 /** Names the default-free input independently from the inferred field state. */
 export type NonDefaultedCompactScalarFieldOptions<
 	TOptions extends object,
+	TValue,
 	TRequired extends boolean,
 	TNullable extends boolean,
 	TList extends FieldListOption,
@@ -69,7 +79,14 @@ export type NonDefaultedCompactScalarFieldOptions<
 	TList,
 	TImmutable
 > &
-	TInferredOptions & { readonly default?: never }
+	TInferredOptions & { readonly default?: never } & FieldHookDeclaration<
+		FieldDefinition<
+			'field',
+			TValue,
+			TOptions,
+			ScalarFieldInferenceState<TRequired, TNullable, TList, TImmutable, false>
+		>
+	>
 
 export type CompatibleScalarPresence<
 	TRequired extends boolean,
@@ -186,6 +203,7 @@ export interface CompactScalarFieldFactory<
 	>(
 		options?: NonDefaultedCompactScalarFieldOptions<
 			TOptions,
+			TValue,
 			TRequired,
 			TNullable,
 			TList,
@@ -256,6 +274,7 @@ export interface GeneratedCompactScalarFieldFactory<
 	>(
 		options?: NonDefaultedCompactScalarFieldOptions<
 			TOptions,
+			TValue,
 			TRequired,
 			TNullable,
 			TList,
@@ -297,15 +316,23 @@ const createCompactScalarFieldImplementation =
 	(options?: TOptions, ...invalidOptions: readonly never[]) => {
 		// Invalid-option rest arguments exist only at the compile-time boundary.
 		void invalidOptions
-		const declaredOptions = options ?? emptyFieldOptions
-		const { normalizeOptions, snapshotValue } =
-			resolveConfiguration(declaredOptions)
 
 		if (options === undefined) {
+			const { snapshotValue } = resolveConfiguration(emptyFieldOptions)
+
 			return createFieldDefinition(kind, emptyFieldOptions, snapshotValue)
 		}
+		const { hooks, metadataOptions } =
+			splitFieldDeclarationOptions<TOptions>(options)
+		const { normalizeOptions, snapshotValue } =
+			resolveConfiguration(metadataOptions)
 
-		return createFieldDefinition(kind, normalizeOptions(options), snapshotValue)
+		return createFieldDefinition(
+			kind,
+			normalizeOptions(metadataOptions),
+			snapshotValue,
+			hooks,
+		)
 	}
 
 /** Creates the compact scalar contract without changing runtime field metadata. */

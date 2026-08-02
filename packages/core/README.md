@@ -97,6 +97,44 @@ does not invoke these callbacks until issue 330. This distinction lets plugins
 and adapters compile against a stable public contract without pretending that a
 partial lifecycle already executes.
 
+## Inline field hooks
+
+Every built-in and plugin-defined field accepts value-focused hooks without
+placing callbacks in `field.options` or widening its compact return type. The
+callback sees the exact logical value, including enum literals, nullability,
+list dimensions, nested objects, and community field values:
+
+```ts
+const UserSchema = new Schema({
+	className: 'User',
+	fields: {
+		email: stringField({
+			hooks: {
+				resolveInput: ({ value }) => value.trim().toLowerCase(),
+				validate: ({ value }) =>
+					value.includes('@')
+						? []
+						: [{ code: 'custom', path: [], message: 'Invalid email' }],
+			},
+		}),
+	},
+})
+```
+
+Inline hooks deliberately cannot access sibling fields. A rule comparing
+`email` with another property belongs in `UserSchema` hooks, where the complete
+operation is available. Omitted input properties do not produce fake
+`undefined` executions. `onChange` instead receives explicit `present` states
+for a real create, replacement, or unset. Set-based `updateMany` may transform
+the supplied update value once, but it and `deleteMany` never load matching rows
+to simulate per-object CRUD or change hooks.
+
+For nested objects, siblings retain declaration order. Input resolution,
+validation, and output resolution visit children before their parent; before
+CRUD/save phases enter the parent before its descendants, and after phases
+unwind descendants before their parent. These declarations are retained by
+private field capabilities in issue 326 and start executing in issue 330.
+
 ## Framework application
 
 The regular developer entry point is `new UltimaBase(options)` from

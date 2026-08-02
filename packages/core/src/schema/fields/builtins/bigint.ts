@@ -79,6 +79,7 @@ type NonDefaultedBigintFieldOptions<
 	TAutoIncrement extends boolean,
 > = NonDefaultedCompactScalarFieldOptions<
 	BigintFieldOptions,
+	bigint,
 	TRequired,
 	TNullable,
 	TList,

@@ -69,6 +69,7 @@ type NonDefaultedDateFieldOptions<
 	TAutoNow extends boolean,
 > = NonDefaultedCompactScalarFieldOptions<
 	DateFieldOptions,
+	string,
 	TRequired,
 	TNullable,
 	TList,

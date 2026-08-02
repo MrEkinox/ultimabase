@@ -1,0 +1,257 @@
+import { expectTypeOf, test } from 'vitest'
+
+import {
+	definePluginField,
+	enumField,
+	intField,
+	objectField,
+	Schema,
+	stringField,
+	type FieldBeforeDeleteHook,
+	type FieldBeforeSaveHook,
+	type FieldBeforeUpdateHook,
+	type FieldChangeHookInput,
+	type FieldErrorHook,
+	type FieldHookTypes,
+	type FieldInputHookInput,
+	type FieldOnChangeHook,
+	type FieldValueChange,
+	type FieldValueState,
+	type InferCreateInput,
+	type InferObject,
+	type InferUpdateInput,
+} from '../index.js'
+
+const titleField = stringField({
+	hooks: {
+		resolveInput: ({ value }) => value.trim(),
+		resolveOutput: ({ value }) => value,
+	},
+})
+
+const statusField = enumField({
+	values: ['draft', 'published'],
+	hooks: {
+		resolveInput: ({ value }) => value,
+	},
+})
+
+const nullableField = stringField({
+	validation: { nullable: true },
+	hooks: {
+		resolveInput: ({ value }) => value,
+	},
+})
+
+const matrixField = intField({
+	list: [true, true],
+	hooks: {
+		resolveInput: ({ value }) => value,
+	},
+})
+
+const immutableField = stringField({
+	immutable: true,
+	hooks: {
+		beforeCreate: ({ value }) => {
+			value.toUpperCase()
+		},
+	},
+})
+
+const profileField = objectField({
+	fields: {
+		displayName: stringField({ validation: { required: true } }),
+		biography: stringField(),
+		visits: intField({ default: 0 }),
+	},
+	hooks: {
+		resolveInput: (input) => input.value,
+		resolveOutput: ({ value }) => value,
+	},
+})
+
+const vectorNormalizers = {
+	snapshotValue: (value: unknown): readonly number[] => {
+		// The declaration test only needs a precise plugin-owned logical value.
+		void value
+		return []
+	},
+}
+
+const vectorField = definePluginField(
+	'fixture.vector',
+	{
+		hooks: {
+			resolveInput: ({ value }) => value,
+			resolveOutput: ({ value }) => value,
+		},
+	},
+	vectorNormalizers,
+)
+
+const HookedSchema = new Schema({
+	className: 'HookedFieldInference',
+	fields: {
+		title: stringField({
+			validation: { required: true },
+			hooks: { resolveInput: ({ value }) => value.trim() },
+		}),
+	},
+})
+
+const PlainSchema = new Schema({
+	className: 'PlainFieldInference',
+	fields: {
+		title: stringField({ validation: { required: true } }),
+	},
+})
+
+// Runtime declarations are retained only to exercise their inferred compile-time types.
+void [
+	titleField,
+	statusField,
+	nullableField,
+	matrixField,
+	immutableField,
+	profileField,
+	vectorField,
+	HookedSchema,
+	PlainSchema,
+]
+
+test('infers exact scalar, enum, nullable, and listed hook values', () => {
+	expectTypeOf<FieldHookTypes<typeof titleField>>().toEqualTypeOf<{
+		readonly create: string
+		readonly object: string
+		readonly update: string
+	}>()
+	expectTypeOf<FieldHookTypes<typeof statusField>>().toEqualTypeOf<{
+		readonly create: 'draft' | 'published'
+		readonly object: 'draft' | 'published'
+		readonly update: 'draft' | 'published'
+	}>()
+	expectTypeOf<FieldHookTypes<typeof nullableField>>().toEqualTypeOf<{
+		readonly create: string | null
+		readonly object: string | null
+		readonly update: string | null
+	}>()
+	expectTypeOf<FieldHookTypes<typeof matrixField>>().toEqualTypeOf<{
+		readonly create: readonly (readonly number[])[]
+		readonly object: readonly (readonly number[])[]
+		readonly update: readonly (readonly number[])[]
+	}>()
+})
+
+test('keeps object create, update, and persisted values distinct', () => {
+	type ProfileHooks = FieldHookTypes<typeof profileField>
+
+	expectTypeOf<ProfileHooks['create']>().toEqualTypeOf<{
+		displayName: string
+		biography?: string
+		visits?: number
+	}>()
+	expectTypeOf<ProfileHooks['update']>().toEqualTypeOf<{
+		displayName?: string
+		biography?: string
+		visits?: number
+	}>()
+	expectTypeOf<ProfileHooks['object']>().toEqualTypeOf<{
+		readonly displayName: string
+		readonly biography?: string
+		readonly visits: number
+	}>()
+})
+
+test('removes impossible immutable updates without changing other modes', () => {
+	type ImmutableHooks = FieldHookTypes<typeof immutableField>
+
+	expectTypeOf<ImmutableHooks['create']>().toEqualTypeOf<string>()
+	expectTypeOf<ImmutableHooks['object']>().toEqualTypeOf<string>()
+	expectTypeOf<ImmutableHooks['update']>().toBeNever()
+	expectTypeOf<
+		Extract<
+			FieldInputHookInput<typeof immutableField>,
+			{
+				readonly mode: 'update'
+			}
+		>
+	>().toBeNever()
+})
+
+test('preserves a plugin field logical value without retaining hook metadata', () => {
+	expectTypeOf<FieldHookTypes<typeof vectorField>>().toEqualTypeOf<{
+		readonly create: readonly number[]
+		readonly object: readonly number[]
+		readonly update: readonly number[]
+	}>()
+	expectTypeOf<'hooks'>().not.toExtend<keyof typeof vectorField.options>()
+})
+
+test('keeps hook declarations out of field metadata and schema inference', () => {
+	expectTypeOf<'hooks'>().not.toExtend<keyof typeof titleField.options>()
+	expectTypeOf<InferCreateInput<typeof HookedSchema>>().toEqualTypeOf<
+		InferCreateInput<typeof PlainSchema>
+	>()
+	expectTypeOf<InferUpdateInput<typeof HookedSchema>>().toEqualTypeOf<
+		InferUpdateInput<typeof PlainSchema>
+	>()
+	expectTypeOf<InferObject<typeof HookedSchema>>().toEqualTypeOf<
+		InferObject<typeof PlainSchema>
+	>()
+})
+
+test('narrows present values and excludes absent-to-absent changes', () => {
+	const inspectState = (state: FieldValueState<string | null>): void => {
+		if (state.present) {
+			expectTypeOf(state.value).toEqualTypeOf<string | null>()
+			return
+		}
+
+		expectTypeOf(state).toEqualTypeOf<Readonly<{ present: false }>>()
+	}
+
+	type AbsentToAbsent = Readonly<{
+		previous: Readonly<{ present: false }>
+		current: Readonly<{ present: false }>
+	}>
+
+	// Keeping the narrowing function unused avoids fabricating a runtime field state.
+	void inspectState
+	expectTypeOf<AbsentToAbsent>().not.toExtend<FieldValueChange<string>>()
+	expectTypeOf<{
+		readonly previous: { readonly present: false }
+		readonly current: { readonly present: true; readonly value: string }
+	}>().toExtend<FieldValueChange<string>>()
+})
+
+test('keeps set-based terminals out of materialized field hooks', () => {
+	type InputKind = FieldInputHookInput<typeof titleField>['kind']
+	type BeforeUpdateKind = Parameters<
+		FieldBeforeUpdateHook<typeof titleField>
+	>[0]['kind']
+	type BeforeDeleteKind = Parameters<
+		FieldBeforeDeleteHook<typeof titleField>
+	>[0]['kind']
+	type BeforeSaveKind = Parameters<
+		FieldBeforeSaveHook<typeof titleField>
+	>[0]['kind']
+	type ChangeKind = FieldChangeHookInput<typeof titleField>['kind']
+	type OnChangeKind = Parameters<
+		FieldOnChangeHook<typeof titleField>
+	>[0]['kind']
+	type ErrorKind = Parameters<FieldErrorHook>[0]['kind']
+
+	// Input transforms may normalize one supplied update expression without loading rows.
+	expectTypeOf<'update-many'>().toExtend<InputKind>()
+	expectTypeOf<'update-many'>().not.toExtend<BeforeUpdateKind>()
+	expectTypeOf<'update-many'>().not.toExtend<BeforeSaveKind>()
+	expectTypeOf<'update-many'>().not.toExtend<ChangeKind>()
+	expectTypeOf<'update-many'>().not.toExtend<OnChangeKind>()
+	expectTypeOf<'delete-many'>().not.toExtend<BeforeDeleteKind>()
+	expectTypeOf<'delete-many'>().not.toExtend<ChangeKind>()
+	// Output failures remain observable for materialized read terminals.
+	expectTypeOf<'find'>().toExtend<ErrorKind>()
+	expectTypeOf<'first'>().toExtend<ErrorKind>()
+	expectTypeOf<'get'>().toExtend<ErrorKind>()
+})

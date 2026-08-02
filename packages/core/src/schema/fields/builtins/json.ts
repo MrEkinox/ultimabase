@@ -74,6 +74,7 @@ type NonDefaultedJsonFieldOptions<
 	TImmutable extends boolean,
 > = NonDefaultedCompactScalarFieldOptions<
 	JsonFieldOptions,
+	JsonDocument,
 	TRequired,
 	TNullable,
 	TList,

@@ -68,6 +68,7 @@ const commonFieldOptions = [
 	'default',
 	'description',
 	'extensions',
+	'hooks',
 	'immutable',
 	'indexed',
 	'list',
@@ -198,6 +199,7 @@ const topLevelOptionExpressions: Readonly<Record<string, string>> = {
 	description: "'Developer-facing description'",
 	extensions: '[]',
 	fields: '{ name: stringField() }',
+	hooks: '{}',
 	immutable: 'true',
 	indexed: "'unique'",
 	list: 'true',
@@ -377,6 +379,20 @@ const compactFieldSignatureCases: readonly CompactFieldSignatureCase[] = [
 		expectedReturn: 'DefaultedUuidField<true, false, false, false>',
 	},
 ]
+
+const passThroughHookSource =
+	"hooks: { resolveInput: ({ value }) => { void 'HOOK_BODY_MUST_NOT_LEAK'; return value } }"
+
+/** Adds the same declaration-only callback to every compact field signature case. */
+const withPassThroughHook = (expression: string): string => {
+	if (!expression.endsWith('})')) {
+		throw new TypeError(
+			'Compact field expression must end with an option object',
+		)
+	}
+
+	return `${expression.slice(0, -2)}, ${passThroughHookSource} })`
+}
 
 /** Reads the editor signature at one marker without persisting a fixture file. */
 const readMarkedQuickInfoDisplay = (
@@ -630,7 +646,7 @@ describe('field factory IntelliSense', () => {
 				`
 import { ${importedFactories} } from '../../src/schema/index.js'
 
-const field = ${marker}${expression}
+const field = ${marker}${withPassThroughHook(expression)}
 `,
 				marker,
 			)
@@ -647,6 +663,9 @@ const field = ${marker}${expression}
 			expect(display).not.toContain('readonly []')
 			expect(display).not.toContain('readonly validation?:')
 			expect(display).not.toContain('readonly default:')
+			expect(display).not.toContain('FieldHooks')
+			expect(display).not.toContain('resolveInput')
+			expect(display).not.toContain('HOOK_BODY_MUST_NOT_LEAK')
 		},
 	)
 })

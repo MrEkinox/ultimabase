@@ -79,6 +79,7 @@ type NonDefaultedIntFieldOptions<
 	TAutoIncrement extends boolean,
 > = NonDefaultedCompactScalarFieldOptions<
 	IntFieldOptions,
+	number,
 	TRequired,
 	TNullable,
 	TList,

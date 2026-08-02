@@ -66,6 +66,7 @@ type NonDefaultedBinaryFieldOptions<
 	TImmutable extends boolean,
 > = NonDefaultedCompactScalarFieldOptions<
 	BinaryFieldOptions,
+	Uint8Array,
 	TRequired,
 	TNullable,
 	TList,

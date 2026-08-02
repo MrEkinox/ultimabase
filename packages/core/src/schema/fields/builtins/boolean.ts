@@ -58,6 +58,7 @@ type NonDefaultedBooleanFieldOptions<
 	TImmutable extends boolean,
 > = NonDefaultedCompactScalarFieldOptions<
 	BooleanFieldOptions,
+	boolean,
 	TRequired,
 	TNullable,
 	TList,

@@ -8,6 +8,7 @@ import { isBuiltInField } from './kinds.js'
 import { assertPluginFieldKind } from './kinds.js'
 import { getFieldListDepth, snapshotListedFieldValue } from './options.js'
 import type { FieldScalarValue, GenericField } from './contract.js'
+import type { FieldHookDeclarations } from '../../hooks/field-declarations.js'
 
 export type ScalarValueSnapshot = (value: unknown, path: string) => unknown
 
@@ -17,6 +18,7 @@ interface FieldMetadata<TKind extends string, TOptions extends object> {
 }
 
 interface FieldCapabilities {
+	readonly hooks: FieldHookDeclarations | undefined
 	readonly snapshotValue: ScalarValueSnapshot
 }
 
@@ -33,13 +35,19 @@ export const createFieldDefinition = <
 	kind: TKind,
 	options: Readonly<TOptions>,
 	snapshotValue: ScalarValueSnapshot,
+	hooks?: FieldHookDeclarations,
 ): FieldMetadata<TKind, TOptions> => {
 	const field = immutableRecord({ kind, options })
 
-	fieldCapabilities.set(field, immutableRecord({ snapshotValue }))
+	fieldCapabilities.set(field, immutableRecord({ hooks, snapshotValue }))
 
 	return field
 }
+
+/** Resolves declaration-only callbacks for Core Runtime without public metadata leaks. */
+export const getFieldHookDeclarations = (
+	field: GenericField,
+): FieldHookDeclarations | undefined => fieldCapabilities.get(field)?.hooks
 
 /** Distinguishes official factories from structurally forged field objects. */
 export const isDeclaredFieldDefinition = (value: object): boolean =>

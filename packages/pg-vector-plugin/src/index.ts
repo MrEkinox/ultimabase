@@ -2,6 +2,7 @@ import { immutableArray, immutableRecord } from '@ultimabase/shared'
 import {
 	assertFieldOptions,
 	definePluginField,
+	type FieldHookDeclaration,
 	type FieldListOption,
 	type FieldOptions,
 	type FieldValidationOptions,
@@ -36,6 +37,22 @@ export type VectorFieldOptions<
 export type VectorField<
 	TOptions extends VectorFieldOptions = VectorFieldOptions,
 > = PluginFieldDefinition<typeof vectorFieldKind, readonly number[], TOptions>
+
+type VectorFieldMetadata<
+	TOptions extends VectorFieldOptions,
+	TDimensions extends number,
+> = Omit<TOptions, 'dimensions' | 'hooks'> & {
+	readonly dimensions: TDimensions
+}
+
+type ResolvedVectorField<
+	TOptions extends VectorFieldOptions,
+	TDimensions extends number,
+> = PluginFieldDefinition<
+	typeof vectorFieldKind,
+	readonly number[],
+	VectorFieldMetadata<TOptions, TDimensions>
+>
 
 /**
  * Narrows the shared scalar plan back to the vector plugin's exact contract.
@@ -98,19 +115,31 @@ const snapshotVector = (
 /**
  * Creates vector metadata while preserving dimensions, lists, and exact options.
  */
-export function vectorField<const TOptions extends VectorFieldOptions>(
-	options: TOptions &
+export function vectorField<
+	const TDimensions extends number,
+	const TOptions extends VectorFieldOptions,
+>(
+	options: TOptions & {
+		readonly dimensions: TDimensions
+	} & FieldHookDeclaration<
+			ResolvedVectorField<NoInfer<TOptions>, TDimensions>
+		> &
 		(ValidatedFieldOptions<NoInfer<TOptions>, readonly number[]> extends never
 			? never
 			: unknown),
-): VectorField<TOptions>
+): ResolvedVectorField<TOptions, TDimensions>
 
-export function vectorField(options: VectorFieldOptions): VectorField {
+export function vectorField(
+	options: VectorFieldOptions & FieldHookDeclaration<VectorField>,
+): VectorField {
 	assertFieldOptions(options)
-	assertValidDimensions(options.dimensions)
-	const { dimensions } = options
+	// Restore the declared plugin metadata shape after the runtime guard narrows unknown callers.
+	const fieldOptions: VectorFieldOptions & FieldHookDeclaration<VectorField> =
+		options
+	assertValidDimensions(fieldOptions.dimensions)
+	const { dimensions } = fieldOptions
 
-	return definePluginField(vectorFieldKind, options, {
+	return definePluginField(vectorFieldKind, fieldOptions, {
 		snapshotValue: (value: unknown, path: string) =>
 			snapshotVector(value, path, dimensions),
 	})

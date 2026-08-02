@@ -69,6 +69,7 @@ type NonDefaultedUuidFieldOptions<
 	TImmutable extends boolean,
 > = NonDefaultedCompactScalarFieldOptions<
 	UuidFieldOptions,
+	string,
 	TRequired,
 	TNullable,
 	TList,

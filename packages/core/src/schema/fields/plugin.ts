@@ -13,6 +13,8 @@ import type {
 	InvalidOptionsArguments,
 	ValidatedFieldOptions,
 } from './base/contract.js'
+import type { FieldHookDeclaration } from '../hooks/field-contracts.js'
+import { splitFieldDeclarationOptions } from '../hooks/field-declarations.js'
 
 export type { ReservedFieldKind } from './base/kinds.js'
 
@@ -26,6 +28,9 @@ type AvailablePluginFieldKind<TKind extends string> =
 					? never
 					: TKind
 			: never
+
+/** Removes declaration-only callbacks while retaining plugin-owned metadata. */
+type PluginFieldMetadata<TOptions extends object> = Omit<TOptions, 'hooks'>
 
 /**
  * Carries a namespaced plugin kind while retaining the regular field contract.
@@ -59,12 +64,19 @@ export const definePluginField = <
 	const TOptions extends FieldOptions<TValue, TValidation>,
 >(
 	kind: AvailablePluginFieldKind<TKind>,
-	options: TOptions,
+	options: TOptions &
+		FieldHookDeclaration<
+			PluginFieldDefinition<
+				TKind,
+				TValue,
+				PluginFieldMetadata<NoInfer<TOptions>>
+			>
+		>,
 	normalizers: PluginFieldNormalizers<TValue, TValidation>,
 	...invalidOptions: InvalidOptionsArguments<
 		ValidatedFieldOptions<NoInfer<TOptions>, TValue>
 	>
-): PluginFieldDefinition<TKind, TValue, TOptions> => {
+): PluginFieldDefinition<TKind, TValue, PluginFieldMetadata<TOptions>> => {
 	// The rest parameter keeps invalid plugin metadata out of the public call contract.
 	void invalidOptions
 	assertPluginFieldKind(kind, 'Plugin field kind')
@@ -84,14 +96,19 @@ export const definePluginField = <
 			'Plugin field normalizeValidation must be a function when provided',
 		)
 	}
+	const { hooks, metadataOptions } = splitFieldDeclarationOptions<
+		PluginFieldMetadata<TOptions> & FieldOptions<TValue, TValidation>
+	>(options)
+	const normalizedOptions = normalizeFieldOptions(
+		metadataOptions,
+		normalizers.normalizeValidation ?? normalizeFlatValidation,
+		normalizers.snapshotValue,
+	)
 
 	return createFieldDefinition(
 		kind,
-		normalizeFieldOptions(
-			options,
-			normalizers.normalizeValidation ?? normalizeFlatValidation,
-			normalizers.snapshotValue,
-		),
+		normalizedOptions,
 		normalizers.snapshotValue,
+		hooks,
 	)
 }
