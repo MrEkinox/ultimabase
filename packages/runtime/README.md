@@ -20,10 +20,40 @@ Runtime re-exports the neutral `BoundQuery` facade from `@ultimabase/query`.
 exact application, request context, and pipeline that will execute future
 terminal operations.
 
-## Application assembly
+## UltimaBase facade
 
-`createFrameworkEngine(application)` is the regular bridge from Core plugin
-setup to Runtime execution. The currently implemented ADR-0076 assembly resolves the application-scoped
+`UltimaBase` is the regular application boundary. Construction validates static
+configuration without running plugin setup or opening infrastructure. `start()`
+assembles Runtime and completes the deterministic plugin lifecycle:
+
+```ts
+const ultimabase = new UltimaBase({
+	schemas: [ArticleSchema],
+	plugins: [databasePlugin()],
+	validation: { timezone: 'Europe/Paris' },
+})
+
+await ultimabase.start()
+
+const articles = await ultimabase.query(ArticleSchema).limit(20).find()
+```
+
+Outside an active request scope, `query()` uses a fresh anonymous internal
+request. Inside a same-application request or transaction, it reuses that exact
+engine and authority. Source `internal` never grants master access. The public
+return is the compact `UltimaBaseQuery<TSchema>` alias while schema, selection,
+input, and result inference remain exact.
+
+`ultimabase.application` exposes advanced Core service and plugin lookup.
+`ultimabase.engine` exposes explicit anonymous, user, master, and transport
+request composition after startup. `stop()` closes existing queries and cannot
+be restarted; `dispose()` or `Symbol.asyncDispose` permanently releases every
+owned resource.
+
+## Low-level application assembly
+
+`createFrameworkEngine(application)` remains the lower-level bridge from Core
+plugin setup to Runtime execution. The ADR-0076 assembly resolves the application-scoped
 `databaseAdapterServiceToken`, installs structural validation, composes hooks
 and events, and fills every unclaimed pipeline position with an explicit neutral
 stage:

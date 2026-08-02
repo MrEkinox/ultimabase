@@ -12,6 +12,7 @@ describe('@ultimabase/runtime public entry point', () => {
 			'RequestContext',
 			'RequestEngine',
 			'RuntimePipeline',
+			'UltimaBase',
 			'afterOperation',
 			'beforeOperation',
 			'createFrameworkEngine',

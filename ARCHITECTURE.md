@@ -111,13 +111,16 @@ preparation, runtime start, and transport start in graph order. Stop and dispose
 run in reverse order, and a partial failure cleans every completed stage before
 the original failure is reported.
 
-`FrameworkApplication` owns those objects per instance. Its asynchronous factory
-validates schemas and the plugin graph, completes declaration-only setup, and
-returns before transports start. Configured literal plugin names retain their
+`FrameworkApplication` owns those Core objects per instance.
+`@ultimabase/runtime` composes it behind the primary `UltimaBase` facade, whose
+constructor performs no I/O and whose `start()` assembles Runtime before
+starting infrastructure. The lower-level asynchronous factory remains
+available to framework packages. Configured literal plugin names retain their
 setup export types, including definitions introduced through nested composition.
 
 ## Engines
 
+- `UltimaBase` is the regular application lifecycle and direct-query facade.
 - `FrameworkEngine` belongs to one isolated application.
 - `RequestEngine` carries one immutable request context and delegates every
   normalized operation to that application's pipeline.

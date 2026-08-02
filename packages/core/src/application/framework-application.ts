@@ -56,7 +56,17 @@ export interface FrameworkApplicationOptions<
 	TSchemas extends readonly SchemaDefinition[],
 	TPlugins extends readonly PluginDefinition[],
 > {
+	/**
+	 * Registers the exact immutable schemas owned by this application.
+	 *
+	 * @example `schemas: [UserSchema, PostSchema]`
+	 */
 	readonly schemas: TSchemas
+	/**
+	 * Declares top-level plugins; nested plugins join the same global graph.
+	 *
+	 * @example `plugins: [postgresPlugin(), graphqlYogaPlugin()]`
+	 */
 	readonly plugins: TPlugins
 }
 

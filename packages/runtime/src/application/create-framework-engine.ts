@@ -29,13 +29,24 @@ import { getRuntimePipelineStageImplementation } from '../pipeline/definitions.j
 import { RuntimePipeline } from '../pipeline/runtime-pipeline.js'
 import {
 	createRuntimeValidationStage,
+	normalizeRuntimeValidationOptions,
 	type RuntimeValidationOptions,
 } from '../validation/runtime-validation.js'
 import { MasterAuthority } from '../master/master-authority.js'
 
 /** Configures framework-owned assembly without exposing low-level pipeline slots. */
 export interface CreateFrameworkEngineOptions {
+	/**
+	 * Supplies the optional audited authority used for explicit master access.
+	 *
+	 * @example `masterAuthority: new MasterAuthority({ keys, onUse })`
+	 */
 	readonly masterAuthority?: MasterAuthority
+	/**
+	 * Configures structural validation, application time, and UUID generation.
+	 *
+	 * @example `validation: { timezone: "Europe/Paris" }`
+	 */
 	readonly validation?: RuntimeValidationOptions
 }
 
@@ -71,7 +82,10 @@ const neutralCommit: RuntimeResultEffectStage = () => undefined
 const isObjectLike = (value: unknown): value is object =>
 	(typeof value === 'object' && value !== null) || typeof value === 'function'
 
-const assertCreateFrameworkEngineOptions = (options: unknown): void => {
+/** Validates and snapshots Runtime assembly options for deferred application start. */
+export const normalizeCreateFrameworkEngineOptions = (
+	options: unknown,
+): Readonly<CreateFrameworkEngineOptions> => {
 	if (!isPlainRecord(options)) {
 		throw new TypeError(
 			'framework engine factory options must be a plain object',
@@ -94,6 +108,18 @@ const assertCreateFrameworkEngineOptions = (options: unknown): void => {
 			'framework engine factory masterAuthority must be a MasterAuthority',
 		)
 	}
+
+	const validation =
+		options.validation === undefined
+			? undefined
+			: normalizeRuntimeValidationOptions(options.validation)
+
+	return immutableRecord({
+		...(options.masterAuthority === undefined
+			? {}
+			: { masterAuthority: options.masterAuthority }),
+		...(validation === undefined ? {} : { validation }),
+	})
 }
 
 const assertApplicationIsUsable = (
@@ -256,7 +282,6 @@ export const createFrameworkEngine = <
 	options: CreateFrameworkEngineOptions = emptyCreateFrameworkEngineOptions,
 ): FrameworkEngine<TSchemas, TPlugins> => {
 	const untrustedApplication: unknown = application
-	const untrustedOptions: unknown = options
 
 	if (!(untrustedApplication instanceof FrameworkApplication)) {
 		throw new TypeError(
@@ -264,7 +289,7 @@ export const createFrameworkEngine = <
 		)
 	}
 
-	assertCreateFrameworkEngineOptions(untrustedOptions)
+	const normalizedOptions = normalizeCreateFrameworkEngineOptions(options)
 	assertApplicationIsUsable(application)
 
 	const databaseAdapter: unknown = application.getService(
@@ -276,9 +301,9 @@ export const createFrameworkEngine = <
 	const contributedStages = collectRuntimePipelineStages(application)
 	const hookStages = createRuntimeHookStages(application)
 	const structuralValidation =
-		options.validation === undefined
+		normalizedOptions.validation === undefined
 			? createRuntimeValidationStage()
-			: createRuntimeValidationStage(options.validation)
+			: createRuntimeValidationStage(normalizedOptions.validation)
 	const stages: RuntimePipelineStages = {
 		normalization: composeNormalizationStage(contributedStages.normalization),
 		structuralValidation,
@@ -296,9 +321,13 @@ export const createFrameworkEngine = <
 	}
 	const pipeline = new RuntimePipeline(stages)
 	const engineOptions =
-		options.masterAuthority === undefined
+		normalizedOptions.masterAuthority === undefined
 			? { application, pipeline }
-			: { application, pipeline, masterAuthority: options.masterAuthority }
+			: {
+					application,
+					pipeline,
+					masterAuthority: normalizedOptions.masterAuthority,
+				}
 
 	return new FrameworkEngine(engineOptions)
 }

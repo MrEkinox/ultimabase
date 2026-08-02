@@ -9,16 +9,16 @@ Without a migration plugin, `schemaPolicy` is `override`, `fail`, or `ignore`. N
 ## Connection lifecycle
 
 The current implementation accepts either a connection URL or an existing
-`pg`-compatible pool. Creating the application does not contact PostgreSQL;
-`application.start()` verifies the connection and immediately returns the
+`pg`-compatible pool. Creating `UltimaBase` does not contact PostgreSQL;
+`ultimabase.start()` verifies the connection and immediately returns the
 borrowed client to the pool.
 
 ```ts
-import { createApplication } from '@ultimabase/core'
 import {
 	postgresConnectionServiceToken,
 	postgresPlugin,
 } from '@ultimabase/postgres'
+import { UltimaBase } from '@ultimabase/runtime'
 
 const databaseUrl = process.env.DATABASE_URL
 
@@ -26,16 +26,17 @@ if (databaseUrl === undefined) {
 	throw new TypeError('DATABASE_URL is required')
 }
 
-const application = await createApplication({
+const ultimabase = new UltimaBase({
 	schemas: [],
 	plugins: [postgresPlugin({ url: databaseUrl })],
 })
-const connection = application.getService(postgresConnectionServiceToken)
 
-console.log(connection.state) // 'idle'
-await application.start()
+await ultimabase.start()
+const connection = ultimabase.application.getService(
+	postgresConnectionServiceToken,
+)
 console.log(connection.state) // 'connected'
-await application.dispose()
+await ultimabase.dispose()
 console.log(connection.state) // 'closed'
 ```
 
@@ -46,13 +47,13 @@ shutdown. An injected pool remains owned by the developer:
 import { Pool } from 'pg'
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL })
-const application = await createApplication({
+const ultimabase = new UltimaBase({
 	schemas: [],
 	plugins: [postgresPlugin({ pool })],
 })
 
-await application.start()
-await application.dispose()
+await ultimabase.start()
+await ultimabase.dispose()
 await pool.end()
 ```
 
@@ -64,13 +65,11 @@ not re-exported by this package.
 
 Plugin setup wraps the configured query client with Drizzle and registers
 Runtime's `databaseAdapterServiceToken`. This means an application using
-`postgresPlugin` can already assemble its framework engine without manually
-providing an adapter:
+`postgresPlugin` is assembled automatically by the `UltimaBase` facade. The
+lower-level engine remains available for transports and advanced composition:
 
 ```ts
-import { createFrameworkEngine } from '@ultimabase/runtime'
-
-const framework = createFrameworkEngine(application)
+const framework = ultimabase.engine
 ```
 
 The Drizzle client remains inside `@ultimabase/postgres`; neither plugin exports
@@ -84,35 +83,27 @@ pretending that data was persisted.
 
 ## Singular CRUD
 
-After `application.start()` prepares the static schemas, a Runtime request can
+After `ultimabase.start()` prepares the static schemas, a direct query can
 create, read, filter, project, update, and delete PostgreSQL rows without SQL or
 Drizzle in developer code:
 
 ```ts
-import { createFrameworkEngine, requestSources } from '@ultimabase/runtime'
-
-const framework = createFrameworkEngine(application)
-const request = framework.anonymous({
-	requestId: 'article-crud',
-	source: requestSources.internal,
-})
-
-const created = await request.query(ArticleSchema).create({
+const created = await ultimabase.query(ArticleSchema).create({
 	title: 'Runtime to PostgreSQL',
 })
 
-const found = await request
+const found = await ultimabase
 	.query(ArticleSchema)
 	.equalTo('id', created.id)
 	.select('id', 'title')
 	.first()
 
-const updated = await request
+const updated = await ultimabase
 	.query(ArticleSchema)
 	.equalTo('id', created.id)
 	.updateOne({ set: { title: 'Updated' } })
 
-const deleted = await request
+const deleted = await ultimabase
 	.query(ArticleSchema)
 	.equalTo('id', created.id)
 	.deleteOne()
@@ -172,10 +163,10 @@ const application = await createApplication({
 })
 ```
 
-At this stage `createApplication()` validates and compiles the schema without
-opening the URL connection. The direct schema-policy issue will consume this
-same catalog to create or synchronize real tables; developers will not write
-Drizzle or SQL themselves.
+This lower-level Core example deliberately runs declaration-only setup without
+opening the URL connection. Regular applications use `new UltimaBase(...)` and
+let `start()` compile, prepare, and connect through one lifecycle; developers
+never write Drizzle or SQL themselves.
 
 Portable enums currently use `text` plus explicit enum metadata. Runtime owns
 membership validation, which keeps enum-value changes independent from native
@@ -231,7 +222,7 @@ creates missing tables and transactionally applies supported column, primary
 key, default, identity, nullability, and index changes:
 
 ```ts
-const application = await createApplication({
+const ultimabase = new UltimaBase({
 	schemas: [ArticleSchema],
 	plugins: [
 		postgresPlugin({
@@ -241,7 +232,7 @@ const application = await createApplication({
 	],
 })
 
-await application.start()
+await ultimabase.start()
 ```
 
 Use `fail` to inspect and reject any drift without mutation, or `ignore` to

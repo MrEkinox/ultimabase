@@ -52,12 +52,18 @@ They normalize to immutable field-operation nodes, reject cross-operator field
 conflicts, and keep partial set values pending the shared Runtime validation
 pipeline.
 
-`createFrameworkEngine(application)` assembles the mandatory pipeline from the
-application's database service and plugin contributions. It automatically
-installs `createRuntimeValidationStage()` as the structural validation phase and
-composes the application's hooks and post-commit events. Unclaimed access
-plugins contribute nothing: issue 337 removes their legacy named neutral stages
-in favor of policy-neutral monotonic hook effects.
+`new UltimaBase(options)` is the regular application boundary. Its `start()`
+method assembles the mandatory pipeline from the application's database service
+and plugin contributions, while `query(schema)` binds a concise query to the
+active same-application request or a new anonymous internal request. The
+lower-level `createFrameworkEngine(application)` factory remains available to
+framework packages and explicit transport composition.
+
+Assembly automatically installs `createRuntimeValidationStage()` as the
+structural validation phase and composes the application's hooks and
+post-commit events. Unclaimed access plugins contribute nothing: issue 337
+removes their legacy named neutral stages in favor of policy-neutral monotonic
+hook effects.
 
 The validation stage applies create or update plans, including both branches of
 an upsert, without changing caller input:

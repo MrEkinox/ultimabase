@@ -20,6 +20,12 @@ export type { ActiveFrameworkContext } from './context/active-framework-context.
 // Application assembly installs every mandatory stage from plugin-owned declarations.
 export { createFrameworkEngine } from './application/create-framework-engine.js'
 export type { CreateFrameworkEngineOptions } from './application/create-framework-engine.js'
+// UltimaBase is the regular class-based facade over Core composition and Runtime execution.
+export { UltimaBase } from './application/ultima-base.js'
+export type {
+	UltimaBaseOptions,
+	UltimaBaseQuery,
+} from './application/ultima-base.js'
 // Applications create request-bound engines; opaque grants protect master construction.
 export { FrameworkEngine, RequestEngine } from './engine/framework-engine.js'
 export type {

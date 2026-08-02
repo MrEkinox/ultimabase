@@ -38,6 +38,25 @@ const requestEngineConstructionKey: unique symbol = Symbol(
 	'ultimabase.request-engine-construction',
 )
 
+/** Closes every escaped execution object when its application starts teardown. */
+const assertApplicationEngineAvailable = (
+	application: FrameworkApplication<
+		readonly SchemaDefinition[],
+		readonly PluginDefinition[]
+	>,
+): void => {
+	if (
+		application.state === 'stopping' ||
+		application.state === 'stopped' ||
+		application.state === 'disposing' ||
+		application.state === 'disposed'
+	) {
+		throw new TypeError(
+			`Framework engine cannot be used while application is ${application.state}`,
+		)
+	}
+}
+
 /** Receives one transaction-scoped engine while preserving its exact context type. */
 export type RequestTransactionHandler<
 	TSchemas extends readonly SchemaDefinition[],
@@ -140,6 +159,8 @@ export class FrameworkEngine<
 
 	/** Verifies one raw credential without retaining it in framework state. */
 	authorizeMasterKey(rawKey: string): MasterKeyGrant {
+		assertApplicationEngineAvailable(this.application)
+
 		return getFrameworkMasterAuthority(this).authorize(rawKey)
 	}
 
@@ -147,6 +168,8 @@ export class FrameworkEngine<
 	withContext<TAccess extends RequestAccess, const TSource extends string>(
 		context: RequestContext<TAccess, TSource>,
 	): RequestEngine<TSchemas, TPlugins, RequestContext<TAccess, TSource>> {
+		assertApplicationEngineAvailable(this.application)
+
 		if (!(context instanceof RequestContext)) {
 			throw new TypeError('Framework engine context must be a RequestContext')
 		}
@@ -184,6 +207,8 @@ export class FrameworkEngine<
 
 	/** Keeps schema identity checks centralized for queries and direct operations. */
 	assertOwnsSchema(schema: unknown): asserts schema is TSchemas[number] {
+		assertApplicationEngineAvailable(this.application)
+
 		if (this.application.ownsSchema(schema)) {
 			return
 		}
@@ -288,6 +313,7 @@ export class RequestEngine<
 			RequestContext<MasterRequestAccess, TContext['source']>
 		>
 	> {
+		assertApplicationEngineAvailable(this.application)
 		this.#transactionLifetime?.assertActive()
 
 		const masterContext = await getFrameworkMasterAuthority(
@@ -307,6 +333,8 @@ export class RequestEngine<
 	transaction<TResult>(
 		handler: RequestTransactionHandler<TSchemas, TPlugins, TContext, TResult>,
 	): Promise<TResult> {
+		assertApplicationEngineAvailable(this.application)
+
 		if (typeof handler !== 'function') {
 			throw new TypeError(
 				'Request engine transaction handler must be a function',

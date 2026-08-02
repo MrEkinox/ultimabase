@@ -149,7 +149,7 @@ describe('@ultimabase/schema declaration artifact', () => {
 	})
 
 	it('materializes create result properties in editor hovers', () => {
-		const created = readFixtureQuickInfo('created = await request')
+		const created = readFixtureQuickInfo('created = await ultimabase')
 		const create = readFixtureQuickInfo('create(allFieldValues)')
 
 		// This guards the declaration experience seen through Query and Runtime exports.
@@ -185,7 +185,7 @@ describe('@ultimabase/schema declaration artifact', () => {
 	})
 
 	it('materializes only selected fields in editor hovers', () => {
-		const found = readFixtureQuickInfo('found = await request')
+		const found = readFixtureQuickInfo('found = await ultimabase')
 
 		// Selected terminals must not expose the complete schema behind a Pick alias.
 		expect(found.display).toContain('readonly id: string;')
@@ -209,5 +209,20 @@ describe('@ultimabase/schema declaration artifact', () => {
 		expect(inputDisplay).not.toContain('UpdateExpressionInput<')
 		expect(inputDisplay).not.toContain('SchemaDefinition<')
 		expect(inputDisplay).not.toContain('NonDefaultedIntField<')
+	})
+})
+
+describe('@ultimabase/runtime declaration artifact', () => {
+	it('exposes the documented UltimaBase facade and compact direct query', () => {
+		const facade = readFixtureQuickInfo('UltimaBase({')
+		const query = readFixtureQuickInfo('query(PostSchema)')
+
+		expect(facade.display).toContain('new UltimaBase<')
+		expect(facade.documentation).toContain(
+			'Owns one isolated UltimaBase application',
+		)
+		expect(query.display).toContain('UltimaBaseQuery<')
+		expect(query.display).not.toContain('RequestEngine<')
+		expect(query.display).not.toContain('SchemaDefinition<')
 	})
 })

@@ -81,6 +81,46 @@ const updateKinds = new Set(['decrement', 'increment', 'set', 'unset'])
 const validationOptionKeys = new Set(['clock', 'timezone', 'uuidV7Generator'])
 const emptyValidationOptions: RuntimeValidationOptions = immutableRecord({})
 
+/** Validates and snapshots caller-owned validation configuration once. */
+export const normalizeRuntimeValidationOptions = (
+	options: unknown,
+): Readonly<RuntimeValidationOptions> => {
+	if (!isPlainRecord(options)) {
+		throw new TypeError('Runtime validation options must be a plain object')
+	}
+
+	for (const key of Object.keys(options)) {
+		if (!validationOptionKeys.has(key)) {
+			throw new TypeError(`Runtime validation contains unknown option: ${key}`)
+		}
+	}
+
+	const clock: unknown = options.clock
+	const timezone: unknown = options.timezone
+	const uuidV7Generator: unknown = options.uuidV7Generator
+
+	if (clock !== undefined && typeof clock !== 'function') {
+		throw new TypeError('Runtime validation clock must be a function')
+	}
+
+	if (uuidV7Generator !== undefined && typeof uuidV7Generator !== 'function') {
+		throw new TypeError('Runtime UUID v7 generator must be a function')
+	}
+
+	if (timezone !== undefined) {
+		assertNonEmptyString(timezone, 'Runtime validation timezone')
+	}
+
+	// Callable return values remain validated when Runtime invokes their contracts.
+	return immutableRecord({
+		...(clock === undefined ? {} : { clock: clock as () => Date }),
+		...(timezone === undefined ? {} : { timezone }),
+		...(uuidV7Generator === undefined
+			? {}
+			: { uuidV7Generator: uuidV7Generator as UuidV7Generator }),
+	})
+}
+
 const createIssue = (
 	code: AnyValidationIssueCode,
 	path: ValidationIssuePath,
@@ -710,35 +750,12 @@ const normalizeMutationOperation = <
 export const createRuntimeValidationStage = (
 	options: RuntimeValidationOptions = emptyValidationOptions,
 ): RuntimeOperationTransformStage => {
-	const untrustedOptions: unknown = options
-
-	if (!isPlainRecord(untrustedOptions)) {
-		throw new TypeError('Runtime validation options must be a plain object')
-	}
-
-	for (const key of Object.keys(untrustedOptions)) {
-		if (!validationOptionKeys.has(key)) {
-			throw new TypeError(`Runtime validation contains unknown option: ${key}`)
-		}
-	}
-
-	if (options.clock !== undefined && typeof options.clock !== 'function') {
-		throw new TypeError('Runtime validation clock must be a function')
-	}
-
-	if (
-		options.uuidV7Generator !== undefined &&
-		typeof options.uuidV7Generator !== 'function'
-	) {
-		throw new TypeError('Runtime UUID v7 generator must be a function')
-	}
-
-	const timezone = options.timezone ?? 'UTC'
-	assertNonEmptyString(timezone, 'Runtime validation timezone')
+	const normalizedOptions = normalizeRuntimeValidationOptions(options)
+	const timezone = normalizedOptions.timezone ?? 'UTC'
 
 	const formatter = createApplicationTimezoneFormatter(timezone)
-	const clock = options.clock ?? (() => new Date())
-	const uuidV7Generator = options.uuidV7Generator ?? generateUuidV7
+	const clock = normalizedOptions.clock ?? (() => new Date())
+	const uuidV7Generator = normalizedOptions.uuidV7Generator ?? generateUuidV7
 	const plansBySchema = new WeakMap<object, SchemaValidationPlans>()
 
 	return <const TOperation extends DatabaseOperationAst>(

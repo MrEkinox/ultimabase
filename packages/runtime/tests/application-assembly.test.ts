@@ -1,10 +1,6 @@
-import { createApplication, definePlugin } from '@ultimabase/core'
+import { definePlugin } from '@ultimabase/core'
 import { Schema, stringField } from '@ultimabase/schema'
-import {
-	createFrameworkEngine,
-	databaseAdapterServiceToken,
-	requestSources,
-} from '@ultimabase/runtime'
+import { databaseAdapterServiceToken, UltimaBase } from '@ultimabase/runtime'
 import { describe, expect, it } from 'vitest'
 
 import { RecordingDatabaseAdapter } from './fixtures/recording-database-adapter.js'
@@ -36,21 +32,17 @@ describe('public application Runtime assembly', () => {
 				services.provide(databaseAdapterServiceToken, adapter)
 			},
 		})
-		const application = await createApplication({
+		const ultimabase = new UltimaBase({
 			schemas: [publicArticleSchema],
 			plugins: [plugin],
 		})
-		const framework = createFrameworkEngine(application)
-		const request = framework.anonymous({
-			requestId: 'public-assembly',
-			source: requestSources.internal,
-		})
+		await ultimabase.start()
 
-		const result = await request.query(publicArticleSchema).find()
+		const result = await ultimabase.query(publicArticleSchema).find()
 
 		expect(result).toStrictEqual(rows)
 		expect(adapter.rootRequests[0]?.accessConstraints).toStrictEqual([])
 
-		await application.dispose()
+		await ultimabase.dispose()
 	})
 })

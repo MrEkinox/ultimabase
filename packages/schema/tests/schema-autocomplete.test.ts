@@ -1,7 +1,7 @@
 import * as ts from 'typescript'
 import { describe, expect, it } from 'vitest'
 
-import { createLanguageService } from './typescript-language-service.js'
+import { createLanguageService } from '../../../tooling/vitest/typescript-language-service.js'
 
 interface IntelliSenseDocumentation {
 	readonly documentation: string

@@ -1,4 +1,3 @@
-import { createApplication } from '@ultimabase/core'
 import {
 	postgresConnectionServiceToken,
 	postgresPlugin,
@@ -20,7 +19,7 @@ import {
 	timeField,
 	uuidField,
 } from '@ultimabase/schema'
-import { createFrameworkEngine, requestSources } from '@ultimabase/runtime'
+import { UltimaBase } from '@ultimabase/runtime'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import {
@@ -95,16 +94,6 @@ afterAll(async () => {
 
 describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 	it('executes the complete public singular CRUD flow against live rows', async () => {
-		const application = await createApplication({
-			schemas: [PostSchema],
-			plugins: [
-				postgresPlugin({
-					schemaPolicy: 'override',
-					url: getFixture().connectionUri,
-				}),
-			],
-		})
-		const connection = application.getService(postgresConnectionServiceToken)
 		const instants = [createInstant, updateInstant]
 		const clock = (): Date => {
 			const instant = instants.shift()
@@ -115,19 +104,24 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 
 			return new Date(instant)
 		}
+		const ultimabase = new UltimaBase({
+			schemas: [PostSchema],
+			plugins: [
+				postgresPlugin({
+					schemaPolicy: 'override',
+					url: getFixture().connectionUri,
+				}),
+			],
+			validation: { clock, timezone: 'UTC' },
+		})
+		await ultimabase.start()
+		const connection = ultimabase.application.getService(
+			postgresConnectionServiceToken,
+		)
 
 		try {
-			await application.start()
-
-			const framework = createFrameworkEngine(application, {
-				validation: { clock, timezone: 'UTC' },
-			})
-			const request = framework.anonymous({
-				requestId: 'runtime-postgres-e2e',
-				source: requestSources.internal,
-			})
 			// One live row exercises every built-in field kind across the public boundary.
-			const created = await request.query(PostSchema).create(allFieldValues)
+			const created = await ultimabase.query(PostSchema).create(allFieldValues)
 
 			expect(created).toMatchObject({
 				...allFieldValues,
@@ -139,7 +133,7 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 			expect(created.id).toMatch(uuidV7Pattern)
 			expect(created.attachment).not.toBe(allFieldValues.attachment)
 
-			const found = await request
+			const found = await ultimabase
 				.query(PostSchema)
 				.equalTo('published', false)
 				.greaterThanOrEqualTo('views', 0)
@@ -148,7 +142,7 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 
 			expect(found).toStrictEqual([{ id: created.id, title: 'First real E2E' }])
 
-			const updated = await request
+			const updated = await ultimabase
 				.query(PostSchema)
 				.equalTo('id', created.id)
 				.select('id', 'published', 'title', 'updatedAt', 'views')
@@ -166,19 +160,19 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 			})
 
 			await expect(
-				request
+				ultimabase
 					.query(PostSchema)
 					.equalTo('id', created.id)
 					.select('id', 'title')
 					.deleteOne(),
 			).resolves.toStrictEqual({ id: created.id, title: 'Persisted E2E' })
 			await expect(
-				request.query(PostSchema).equalTo('id', created.id).find(),
+				ultimabase.query(PostSchema).equalTo('id', created.id).find(),
 			).resolves.toStrictEqual([])
-			await expect(request.query(PostSchema).count()).resolves.toBe(0)
-			await expect(request.query(PostSchema).exists()).resolves.toBe(false)
+			await expect(ultimabase.query(PostSchema).count()).resolves.toBe(0)
+			await expect(ultimabase.query(PostSchema).exists()).resolves.toBe(false)
 		} finally {
-			await application.dispose()
+			await ultimabase.dispose()
 		}
 
 		expect(connection.state).toBe('closed')

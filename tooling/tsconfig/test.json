@@ -14,6 +14,7 @@
 		"../../packages/*/src/**/*.test.ts",
 		"../../packages/*/src/**/*.test-d.ts",
 		"../../packages/*/tests/**/*.ts",
-		"../../tests/e2e/**/*.ts"
+		"../../tests/e2e/**/*.ts",
+		"../vitest/typescript-language-service.ts"
 	]
 }

@@ -25,7 +25,7 @@ export const UserSchema = new Schema({
 ```
 
 ```ts
-const app = await createApplication({
+const ultimabase = new UltimaBase({
 	schemas: [UserSchema],
 	plugins: [
 		postgresPlugin({
@@ -38,10 +38,12 @@ const app = await createApplication({
 		graphqlYogaPlugin(),
 	],
 })
+
+await ultimabase.start()
 ```
 
 ```ts
-const users = await requestEngine
+const users = await ultimabase
 	.query(UserSchema)
 	.equalTo('isActive', true)
 	.limit(25)
@@ -54,7 +56,7 @@ const users = await requestEngine
 - Concrete capabilities are plugins.
 - Core and Runtime do not know infrastructure implementations.
 - REST and GraphQL use one operation AST and one runtime pipeline.
-- Schema, Query, ACL, and Role domain objects use immutable classes.
+- UltimaBase, Schema, Query, ACL, and Role domain objects use immutable classes.
 - CLP, ACL, roles, and field access are independent plugins.
 - PostgreSQL synchronization and PostgreSQL migrations are separate capabilities.
 - The framework targets Node.js 24+, ESM, TypeScript, and an Apache-2.0 license.

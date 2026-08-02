@@ -16,9 +16,11 @@ Core contains no CRUD implementation and must never import concrete database, se
 
 ## Framework application
 
-`createApplication(options)` is the normal application boundary. It validates
-the schema registry and complete plugin graph, runs declaration-only plugin
-setup, and returns before infrastructure or transports start:
+The regular developer entry point is `new UltimaBase(options)` from
+`@ultimabase/runtime`. Core exposes `createApplication(options)` as the
+lower-level composition boundary used by Runtime and advanced integrations. It
+validates the schema registry and complete plugin graph, runs declaration-only
+plugin setup, and returns before infrastructure or transports start:
 
 ```ts
 const application = await createApplication({
