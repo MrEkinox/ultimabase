@@ -4,7 +4,7 @@
 - Milestone: 1
 - Packages: `@ultimabase/schema`
 - Depends on: 102, 104, 105, 106, 107
-- ADR: ADR-0002, ADR-0021
+- ADR: ADR-0002, ADR-0021, ADR-0091
 
 ## Goal
 
@@ -13,7 +13,7 @@ field definitions.
 
 ## Acceptance criteria
 
-- [x] JSON defaults to a safe JSON value type rather than `any`.
+- [x] JSON roots use safe object-or-array documents while nested values retain every portable JSON primitive without `any`.
 - [x] Every developer field can preserve homogeneous list inference.
 - [x] Object fields preserve nested field inference.
 - [x] Nested lists and objects support arbitrary finite depth.

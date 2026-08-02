@@ -45,7 +45,7 @@ class RecordingQueryExecutor implements QueryOperationExecutor<
 
 describe('BoundQuery', () => {
 	it('preserves one engine across immutable query branches', () => {
-		const engine = { name: 'request-engine' } as const
+		const engine = new RecordingQueryExecutor()
 		const unbound = new Query(articleSchema)
 		const base = unbound.bind(engine)
 		const selected = base
@@ -74,7 +74,7 @@ describe('BoundQuery', () => {
 	})
 
 	it('delegates the complete Query builder surface to bound branches', () => {
-		const engine = { name: 'request-engine' } as const
+		const engine = new RecordingQueryExecutor()
 		const reusable = new Query(articleSchema).equalTo('published', true)
 		const query = new Query(articleSchema)
 			.bind(engine)
@@ -119,7 +119,7 @@ describe('BoundQuery', () => {
 	})
 
 	it('retains reusable logical filters without adopting their clauses', () => {
-		const engine = { name: 'request-engine' } as const
+		const engine = new RecordingQueryExecutor()
 		const reusable = new Query(articleSchema)
 			.equalTo('published', true)
 			.limit(5)
@@ -132,7 +132,7 @@ describe('BoundQuery', () => {
 	})
 
 	it('applies unbound scopes while preserving the execution owner', () => {
-		const engine = { name: 'request-engine' } as const
+		const engine = new RecordingQueryExecutor()
 		const published: QueryScope<typeof articleSchema> = (query) =>
 			query.equalTo('published', true).descending('createdAt')
 		const base = new Query(articleSchema).bind(engine).select('id', 'title')
@@ -240,16 +240,18 @@ describe('BoundQuery', () => {
 	it('keeps field existence filtering available beside the terminal', () => {
 		const executor = new RecordingQueryExecutor()
 		const filtered = new Query(articleSchema).bind(executor).exists('title')
-		const opaque = new Query(articleSchema).bind({ name: 'opaque' })
+		// A forced JavaScript-style boundary still receives the runtime executor check.
+		const malformed = new BoundQuery(new Query(articleSchema), {
+			name: 'malformed',
+		} as never)
 
 		expect(filtered.ast.where?.expression).toStrictEqual({
 			kind: 'exists',
 			field: 'title',
 			exists: true,
 		})
-		expect(() =>
-			// @ts-expect-error -- Opaque bindings cannot execute zero-argument exists.
-			opaque.exists(),
-		).toThrow(new TypeError('bound query engine cannot execute operations'))
+		expect(() => malformed.exists()).toThrow(
+			new TypeError('bound query engine cannot execute operations'),
+		)
 	})
 })

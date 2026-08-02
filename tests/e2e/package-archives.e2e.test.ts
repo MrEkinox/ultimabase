@@ -10,7 +10,7 @@ interface PackageFixture {
 	name: `@ultimabase/${string}`
 }
 
-interface SchemaOptionQuickInfo {
+interface DeclarationQuickInfo {
 	readonly display: string
 	readonly documentation: string
 }
@@ -35,6 +35,7 @@ const schemaFixtureSource = await readFile(schemaFixtureFile, 'utf8')
 const schemaLanguageServiceHost: ts.LanguageServiceHost = {
 	fileExists: (fileName) => ts.sys.fileExists(fileName),
 	getCompilationSettings: () => ({
+		exactOptionalPropertyTypes: true,
 		module: ts.ModuleKind.NodeNext,
 		moduleResolution: ts.ModuleResolutionKind.NodeNext,
 		strict: true,
@@ -71,9 +72,7 @@ const getResolutionError = (specifier: string): unknown => {
 }
 
 /** Reads editor QuickInfo through the same compiled package exports consumers use. */
-const readSchemaOptionQuickInfo = (
-	propertySource: string,
-): SchemaOptionQuickInfo => {
+const readFixtureQuickInfo = (propertySource: string): DeclarationQuickInfo => {
 	const position = schemaFixtureSource.indexOf(propertySource)
 
 	if (position < 0) {
@@ -126,9 +125,7 @@ describe.each(packageFixtures)('$name archive', ({ directory, name }) => {
 
 describe('@ultimabase/schema declaration artifact', () => {
 	it('preserves field option documentation through package exports', () => {
-		const validation = readSchemaOptionQuickInfo(
-			'validation: { required: true }',
-		)
+		const validation = readFixtureQuickInfo('validation: { required: true }')
 
 		// Compiled declarations expose only the booleans needed by field inference.
 		expect(validation.display).toContain('StringValidationOptions & {')
@@ -138,8 +135,71 @@ describe('@ultimabase/schema declaration artifact', () => {
 			'FieldValidationOptions & StringValidationOptions',
 		)
 		expect(validation.documentation).toContain('Groups presence rules')
-		expect(
-			readSchemaOptionQuickInfo('required: true }').documentation,
-		).toContain('Requires the field')
+		expect(readFixtureQuickInfo('required: true }').documentation).toContain(
+			'Requires the field',
+		)
+	})
+
+	it('materializes create result properties in editor hovers', () => {
+		const created = readFixtureQuickInfo('created = await request')
+		const create = readFixtureQuickInfo('create(allFieldValues)')
+
+		// This guards the declaration experience seen through Query and Runtime exports.
+		expect(created.display).toContain('readonly externalId?: string;')
+		expect(created.display).toContain('readonly id: string;')
+		expect(created.display).toContain('readonly metadata?: JsonDocument;')
+		expect(created.display).not.toContain('Simplify<')
+		expect(created.display).not.toContain('ObjectRequiredFields<')
+		expect(created.display).not.toContain('ObjectOptionalFields<')
+		// Every bound query is executable, so no terminal exposes a capability guard.
+		expect(create.display).toContain('create(input: {')
+		expect(create.display).not.toContain('create(this:')
+	})
+
+	it('keeps bound builder and terminal hovers focused', () => {
+		const select = readFixtureQuickInfo("select('id', 'title')")
+		const find = readFixtureQuickInfo('find()')
+		const deleteOne = readFixtureQuickInfo('deleteOne()')
+		const count = readFixtureQuickInfo('count()')
+		const exists = readFixtureQuickInfo('exists()')
+
+		// Selection inference needs only the accumulated field union, not a tuple copy.
+		expect(select.display).toContain('select<"id" | "title">')
+		expect(select.display).not.toContain('readonly ["id", "title"]')
+		// Parameterless terminals must not repeat the complete bound query as `this`.
+		expect(find.display).toContain('.find(): Promise<')
+		expect(deleteOne.display).toContain('.deleteOne(): Promise<')
+		expect(count.display).toContain('.count(): Promise<number>')
+		expect(exists.display).toContain('.exists(): Promise<boolean>')
+		for (const terminal of [find, deleteOne, count, exists]) {
+			expect(terminal.display).not.toContain('(this:')
+		}
+	})
+
+	it('materializes only selected fields in editor hovers', () => {
+		const found = readFixtureQuickInfo('found = await request')
+
+		// Selected terminals must not expose the complete schema behind a Pick alias.
+		expect(found.display).toContain('readonly id: string;')
+		expect(found.display).toContain('readonly title: string;')
+		expect(found.display).not.toContain('readonly published: boolean;')
+		expect(found.display).not.toContain('readonly views: number;')
+		expect(found.display).not.toContain('Pick<')
+	})
+
+	it('materializes update operator groups in editor hovers', () => {
+		const update = readFixtureQuickInfo('updateOne({')
+		const inputDisplay = update.display.slice(
+			update.display.indexOf('.updateOne(input:'),
+		)
+
+		// Developers should see usable operators instead of the complete field schema.
+		expect(inputDisplay).toContain('readonly set: {')
+		expect(inputDisplay).toContain('readonly views?: number;')
+		expect(inputDisplay).toContain('readonly unset?: readonly (')
+		expect(inputDisplay).toContain('readonly increment?: {')
+		expect(inputDisplay).not.toContain('UpdateExpressionInput<')
+		expect(inputDisplay).not.toContain('SchemaDefinition<')
+		expect(inputDisplay).not.toContain('NonDefaultedIntField<')
 	})
 })

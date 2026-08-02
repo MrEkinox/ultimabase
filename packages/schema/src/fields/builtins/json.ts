@@ -34,19 +34,23 @@ export interface JsonObject {
 	readonly [key: string]: JsonValue
 }
 
-export type JsonValue = JsonArray | JsonObject | JsonPrimitive
+/** Represents the object or array container accepted at a JSON field root. */
+export type JsonDocument = JsonArray | JsonObject
+
+/** Represents every value accepted recursively inside a JSON document. */
+export type JsonValue = JsonDocument | JsonPrimitive
 
 /**
  * Describes unstructured JSON metadata without exposing an unsafe value type.
  */
-export type JsonFieldOptions = FieldOptions<JsonValue>
+export type JsonFieldOptions = FieldOptions<JsonDocument>
 
 /**
- * Carries the portable JSON value contract through schema inference.
+ * Carries the portable root JSON document contract through schema inference.
  */
 export type JsonField<
 	TInference extends FieldInferenceState = FieldInferenceState,
-> = FieldDefinition<'json', JsonValue, JsonFieldOptions, TInference>
+> = FieldDefinition<'json', JsonDocument, JsonFieldOptions, TInference>
 
 /** Provides JSON-specific names for the shared compact scalar contract. */
 type DefaultedJsonFieldOptions<
@@ -56,7 +60,7 @@ type DefaultedJsonFieldOptions<
 	TImmutable extends boolean,
 > = DefaultedCompactScalarFieldOptions<
 	JsonFieldOptions,
-	JsonValue,
+	JsonDocument,
 	TRequired,
 	TNullable,
 	TList,
@@ -84,7 +88,7 @@ type ResolvedJsonField<
 	THasDefault extends boolean,
 > = CompactScalarFieldDefinition<
 	'json',
-	JsonValue,
+	JsonDocument,
 	JsonFieldOptions,
 	TRequired,
 	TNullable,
@@ -194,19 +198,24 @@ const normalizeJsonValue = (
 	}
 }
 
-/**
- * Exposes the JSON snapshot boundary to structured object defaults.
- */
-export const snapshotJsonValue = (value: unknown, path: string): JsonValue =>
-	normalizeJsonValue(value, path, new WeakSet<object>())
+/** Copies one root JSON document while reserving scalar nullability for field metadata. */
+const snapshotJsonDocument = (value: unknown, path: string): JsonDocument => {
+	const normalized = normalizeJsonValue(value, path, new WeakSet<object>())
+
+	if (normalized !== null && typeof normalized === 'object') {
+		return normalized
+	}
+
+	throw new TypeError(`${path} must be a JSON object or array`)
+}
 
 const normalizeJsonFieldOptions = <const TOptions extends JsonFieldOptions>(
 	options: TOptions,
 ): Readonly<TOptions> =>
-	normalizeFieldOptions(options, normalizeFlatValidation, snapshotJsonValue)
+	normalizeFieldOptions(options, normalizeFlatValidation, snapshotJsonDocument)
 
 /**
- * Declares unstructured, portable JSON containing only objects, arrays, and JSON primitives.
+ * Declares an unstructured JSON object or array containing portable JSON values.
  *
  * @example
  * ```ts
@@ -215,6 +224,6 @@ const normalizeJsonFieldOptions = <const TOptions extends JsonFieldOptions>(
  */
 export const jsonField: JsonFieldFactory = createCompactScalarFieldFactory<
 	'json',
-	JsonValue,
+	JsonDocument,
 	JsonFieldOptions
->('json', normalizeJsonFieldOptions, snapshotJsonValue)
+>('json', normalizeJsonFieldOptions, snapshotJsonDocument)

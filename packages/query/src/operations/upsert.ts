@@ -24,17 +24,16 @@ export interface UpsertTargetQuery<TSchema extends SchemaDefinition> {
 }
 
 /** Keeps create and update behavior explicit when the unique target is absent or present. */
-export interface UpsertInput<TSchema extends SchemaDefinition> {
+export type UpsertInput<TSchema extends SchemaDefinition> = {
 	readonly create: InferCreateInput<TSchema>
-	readonly update: UpdateExpressionInput<TSchema>
-}
+	readonly update: UpdateExpressionInput<TSchema> & {}
+} & {}
 
 /** Describes one independently targeted item inside an ordered bulk upsert. */
-export interface UpsertManyItemInput<
-	TSchema extends SchemaDefinition,
-> extends UpsertInput<TSchema> {
-	readonly query: UpsertTargetQuery<TSchema>
-}
+export type UpsertManyItemInput<TSchema extends SchemaDefinition> =
+	UpsertInput<TSchema> & {
+		readonly query: UpsertTargetQuery<TSchema>
+	}
 
 interface NormalizedUpsertInput<TSchema extends SchemaDefinition> {
 	readonly create: InferCreateInput<TSchema>

@@ -75,7 +75,7 @@ engines and adapters.
 
 ## Immutable Runtime binding
 
-Binding retains an opaque execution owner without importing Runtime:
+Binding requires a neutral operation executor without importing Runtime:
 
 ```ts
 const reusable = new Query(articleSchema).equalTo('published', true)
@@ -89,12 +89,17 @@ Every bound builder method returns a new `BoundQuery` with the same engine and
 the same Query validation rules. `InferQueryResult` derives the terminal result
 shape from the accumulated selection: no selection yields the full schema
 object, while the example above yields `{ id: string; title?: string }` when
-`title` is optional in the schema.
+`title` is optional in the schema. The projected result is materialized before
+it reaches public declarations, so editor hovers show only the selected
+properties instead of expanding the complete object behind a `Pick` helper.
 
-Executable binding is capability-based, so one Runtime request engine can own
-several schemas while each bound terminal retains the exact selected schema,
-field projection, input, and result type. The broader application schema union
-never widens a schema-specific query result.
+Every `BoundQuery` is executable, so one Runtime request engine can own several
+schemas while each bound terminal retains the exact selected schema, field
+projection, input, and result type. The broader application schema union never
+widens a schema-specific query result. Terminal hovers therefore contain no
+conditional execution guard or expanded `this` parameter. Update terminals
+also materialize their `set`, `unset`, `increment`, and `decrement` groups, so
+editor hovers expose legal fields and values instead of schema field internals.
 
 When the binding is a Runtime `RequestEngine`, terminals execute the
 neutral Operation AST through the mandatory Runtime pipeline:
@@ -167,9 +172,12 @@ Each bulk upsert item supplies its own reusable unbound `Query`. The normalized
 operation records the matching unique fields in schema declaration order, so
 every adapter receives the same conflict target without inferring it again.
 
-Binding an arbitrary opaque object still supports immutable query composition,
-but its terminals cannot be called unless the object satisfies the neutral
-`QueryOperationExecutor` contract.
+`Query.bind()` rejects arbitrary context objects at compile time. Reusable
+composition stays on the unbound `Query`; binding means that the neutral
+`QueryOperationExecutor` contract is present and every terminal can execute.
+`QueryExecutorBinding` is the minimal capability used to accommodate Runtime
+engines that own several schemas; custom single-schema executors should expose
+the stricter `QueryOperationExecutor<TSchema>` contract.
 
 ## Query AST
 

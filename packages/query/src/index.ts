@@ -98,7 +98,10 @@ export type {
 } from './operations/contracts.js'
 export { normalizeBulkOperationOptions } from './operations/bulk.js'
 export type { BulkOperationOptions } from './operations/bulk.js'
-export type { QueryOperationExecutor } from './operations/executor.js'
+export type {
+	QueryExecutorBinding,
+	QueryOperationExecutor,
+} from './operations/executor.js'
 export type { InferOperationResult } from './operations/results.js'
 export { normalizeUniqueUpsertTarget } from './operations/upsert.js'
 export type {

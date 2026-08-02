@@ -17,7 +17,7 @@ import {
 	type InferCreateInput,
 	type InferObject,
 	type InferUpdateInput,
-	type JsonValue,
+	type JsonDocument,
 } from '../index.js'
 
 const primitiveSchema = defineSchema({
@@ -83,7 +83,7 @@ test('infers the complete primitive output matrix', () => {
 		readonly processedAt?: string
 		readonly automaticDate: string
 		readonly reminderTime?: string
-		readonly payload?: JsonValue
+		readonly payload?: JsonDocument
 		readonly attachment?: Uint8Array
 		readonly price?: string
 	}
@@ -109,7 +109,7 @@ test('makes generated and defaulted values optional in create inputs', () => {
 		processedAt?: string
 		automaticDate?: string
 		reminderTime?: string
-		payload?: JsonValue
+		payload?: JsonDocument
 		attachment?: Uint8Array
 		price?: string
 	}
@@ -142,7 +142,7 @@ test('makes mutable developer fields optional in update inputs', () => {
 		processedAt?: string
 		automaticDate?: string
 		reminderTime?: string
-		payload?: JsonValue
+		payload?: JsonDocument
 		attachment?: Uint8Array
 		price?: string
 	}

@@ -25,17 +25,15 @@ const articleSchema = defineSchema({
 declare const executor: QueryOperationExecutor<typeof articleSchema>
 
 test('binds exact schema and selection types through an engine', () => {
-	// The opaque fixture models the future RequestEngine without pre-implementing it.
-	const engine = { kind: 'fake-request-engine' } as const
 	const reusable = new Query(articleSchema).equalTo('published', true)
-	const bound = reusable.bind(engine).select('id', 'title').limit(10)
+	const bound = reusable.bind(executor).select('id', 'title').limit(10)
 	const projection: InferQueryResult<typeof articleSchema, 'id' | 'title'> = {
 		id: 'article-id',
 		title: 'Title',
 	}
 
 	expectTypeOf(bound.schema).toEqualTypeOf<typeof articleSchema>()
-	expectTypeOf(bound.engine).toEqualTypeOf<typeof engine>()
+	expectTypeOf(bound.engine).toEqualTypeOf<typeof executor>()
 	expectTypeOf(projection.id).toBeString()
 	expectTypeOf(projection.title).toBeString()
 	expectTypeOf<InferQueryResult<typeof articleSchema>>().toHaveProperty('views')
@@ -58,16 +56,15 @@ test('binds exact schema and selection types through an engine', () => {
 })
 
 test('retains schema, selection, and engine types through scopes', () => {
-	const engine = { kind: 'fake-request-engine' } as const
 	const published: QueryScope<typeof articleSchema> = (query) =>
 		query.equalTo('published', true)
 	const scoped = new Query(articleSchema)
-		.bind(engine)
+		.bind(executor)
 		.select('id', 'title')
 		.use(published)
 
 	expectTypeOf(scoped.schema).toEqualTypeOf<typeof articleSchema>()
-	expectTypeOf(scoped.engine).toEqualTypeOf<typeof engine>()
+	expectTypeOf(scoped.engine).toEqualTypeOf<typeof executor>()
 	expectTypeOf(scoped.unbound).toEqualTypeOf<
 		Query<typeof articleSchema, 'id' | 'title'>
 	>()
@@ -138,6 +135,15 @@ test('types every executable terminal from schema selection and singularity', ()
 	void query.create({})
 	// @ts-expect-error -- Update input retains field-specific numeric values.
 	void query.updateOne({ increment: { views: 'one' } })
+	// @ts-expect-error -- Update groups reject unknown top-level operators.
+	void query.updateOne({ increment: { views: 1 }, unknown: true })
+	void query.updateOne({
+		set: {
+			title: 'Updated',
+			// @ts-expect-error -- Set retains the exact mutable schema fields.
+			missing: 'value',
+		},
+	})
 	// @ts-expect-error -- Bulk create retains required schema fields.
 	void query.createMany([{}])
 	void query.upsertMany([
@@ -149,8 +155,6 @@ test('types every executable terminal from schema selection and singularity', ()
 		},
 	])
 
-	const opaque = new Query(articleSchema).bind({ kind: 'opaque' })
-
-	// @ts-expect-error -- An opaque binding does not satisfy the execution contract.
-	void opaque.find()
+	// @ts-expect-error -- Binding requires a real neutral operation executor.
+	new Query(articleSchema).bind({ kind: 'opaque' })
 })

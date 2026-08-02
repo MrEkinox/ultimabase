@@ -33,7 +33,10 @@ import {
 	snapshotCreateInputs,
 	type BulkOperationOptions,
 } from '../operations/bulk.js'
-import type { QueryOperationExecutor } from '../operations/executor.js'
+import type {
+	QueryExecutorBinding,
+	QueryOperationExecutor,
+} from '../operations/executor.js'
 import type { InferOperationResult } from '../operations/results.js'
 import {
 	normalizeUniqueUpsertTarget,
@@ -61,29 +64,17 @@ type QueryStringValue<
 	TFieldName extends QueryFieldName<TSchema>,
 > = Extract<QueryFilterValue<TSchema, TFieldName>, string>
 
-/** Narrows an opaque binding before the overloaded exists terminal executes. */
+/** Revalidates the executor at the JavaScript boundary before dispatch. */
 const isQueryOperationExecutor = <TSchema extends SchemaDefinition>(
 	engine: object,
 ): engine is QueryOperationExecutor<TSchema> =>
 	'execute' in engine && typeof engine.execute === 'function'
 
-interface QueryOperationExecutorBinding {
-	execute(operation: never): Promise<unknown>
-}
-
-type ExecutableBoundQuery<
-	TSchema extends SchemaDefinition,
-	TSelectedField extends QueryFieldName<TSchema>,
-	TEngine extends object,
-> = TEngine extends QueryOperationExecutorBinding
-	? BoundQuery<TSchema, TSelectedField, TEngine>
-	: never
-
 /** Retains one Runtime-owned execution binding across immutable query branches. */
 export class BoundQuery<
 	const TSchema extends SchemaDefinition,
 	TSelectedField extends QueryFieldName<TSchema> = never,
-	TEngine extends object = object,
+	TEngine extends QueryExecutorBinding = QueryOperationExecutor<TSchema>,
 > {
 	readonly #engine: TEngine
 	readonly #query: Query<TSchema, TSelectedField>
@@ -117,9 +108,9 @@ export class BoundQuery<
 	}
 
 	/** Adds selected fields while preserving the Runtime binding. */
-	select<const TField extends readonly QueryFieldName<TSchema>[]>(
-		...fields: TField
-	): BoundQuery<TSchema, TSelectedField | TField[number], TEngine> {
+	select<const TField extends QueryFieldName<TSchema>>(
+		...fields: readonly TField[]
+	): BoundQuery<TSchema, TSelectedField | TField, TEngine> {
 		return this.#branch(this.#query.select(...fields))
 	}
 
@@ -257,9 +248,7 @@ export class BoundQuery<
 		fieldName: QueryFilterFieldName<TSchema, 'exists'>,
 	): BoundQuery<TSchema, TSelectedField, TEngine>
 
-	exists(
-		this: ExecutableBoundQuery<TSchema, TSelectedField, TEngine>,
-	): Promise<boolean>
+	exists(): Promise<boolean>
 
 	exists(
 		fieldName?: QueryFilterFieldName<TSchema, 'exists'>,
@@ -313,9 +302,7 @@ export class BoundQuery<
 	}
 
 	/** Executes a collection read through the bound Runtime engine. */
-	find(
-		this: ExecutableBoundQuery<TSchema, TSelectedField, TEngine>,
-	): Promise<readonly InferQueryResult<TSchema, TSelectedField>[]> {
+	find(): Promise<readonly InferQueryResult<TSchema, TSelectedField>[]> {
 		const operation: FindOperationAst<
 			TSchema,
 			QueryFilterNode<TSchema>,
@@ -326,9 +313,7 @@ export class BoundQuery<
 	}
 
 	/** Executes a nullable first-match read through the bound Runtime engine. */
-	first(
-		this: ExecutableBoundQuery<TSchema, TSelectedField, TEngine>,
-	): Promise<InferQueryResult<TSchema, TSelectedField> | null> {
+	first(): Promise<InferQueryResult<TSchema, TSelectedField> | null> {
 		const operation: FirstOperationAst<
 			TSchema,
 			QueryFilterNode<TSchema>,
@@ -340,7 +325,6 @@ export class BoundQuery<
 
 	/** Reads one identifier while retaining this query's selection and filters. */
 	get(
-		this: ExecutableBoundQuery<TSchema, TSelectedField, TEngine>,
 		id: OperationObjectId<TSchema>,
 	): Promise<InferQueryResult<TSchema, TSelectedField> | null> {
 		const operation: GetOperationAst<
@@ -353,9 +337,7 @@ export class BoundQuery<
 	}
 
 	/** Counts matches without loading their persisted object values. */
-	count(
-		this: ExecutableBoundQuery<TSchema, TSelectedField, TEngine>,
-	): Promise<number> {
+	count(): Promise<number> {
 		const operation: CountOperationAst<
 			TSchema,
 			QueryFilterNode<TSchema>,
@@ -366,10 +348,7 @@ export class BoundQuery<
 	}
 
 	/** Creates one object from schema-derived input through the bound engine. */
-	createOne(
-		this: ExecutableBoundQuery<TSchema, TSelectedField, TEngine>,
-		input: InferCreateInput<TSchema>,
-	): Promise<InferObject<TSchema>> {
+	createOne(input: InferCreateInput<TSchema>): Promise<InferObject<TSchema>> {
 		const operation: CreateOneOperationAst<TSchema> = immutableRecord({
 			kind: 'create-one',
 			schema: this.ast.schema,
@@ -380,16 +359,12 @@ export class BoundQuery<
 	}
 
 	/** Provides the concise Parse-inspired alias for singular creation. */
-	create(
-		this: ExecutableBoundQuery<TSchema, TSelectedField, TEngine>,
-		input: InferCreateInput<TSchema>,
-	): Promise<InferObject<TSchema>> {
+	create(input: InferCreateInput<TSchema>): Promise<InferObject<TSchema>> {
 		return this.createOne(input)
 	}
 
 	/** Creates objects in input order and uses one transaction unless opted out. */
 	createMany(
-		this: ExecutableBoundQuery<TSchema, TSelectedField, TEngine>,
 		inputs: readonly InferCreateInput<TSchema>[],
 		options?: BulkOperationOptions,
 	): Promise<readonly InferObject<TSchema>[]> {
@@ -405,8 +380,7 @@ export class BoundQuery<
 
 	/** Normalizes and executes one atomic update against the first match. */
 	updateOne(
-		this: ExecutableBoundQuery<TSchema, TSelectedField, TEngine>,
-		input: UpdateExpressionInput<TSchema>,
+		input: UpdateExpressionInput<TSchema> & {},
 	): Promise<InferQueryResult<TSchema, TSelectedField> | null> {
 		const operation: UpdateOneOperationAst<
 			TSchema,
@@ -423,10 +397,7 @@ export class BoundQuery<
 	}
 
 	/** Applies one normalized expression to every match and returns its count. */
-	updateMany(
-		this: ExecutableBoundQuery<TSchema, TSelectedField, TEngine>,
-		input: UpdateExpressionInput<TSchema>,
-	): Promise<number> {
+	updateMany(input: UpdateExpressionInput<TSchema> & {}): Promise<number> {
 		const operation: UpdateManyOperationAst<
 			TSchema,
 			UpdateExpression<TSchema>,
@@ -443,8 +414,7 @@ export class BoundQuery<
 
 	/** Updates one unique match or creates it while retaining query selection. */
 	upsertOne(
-		this: ExecutableBoundQuery<TSchema, TSelectedField, TEngine>,
-		input: UpsertInput<TSchema>,
+		input: UpsertInput<TSchema> & {},
 	): Promise<InferQueryResult<TSchema, TSelectedField>> {
 		const normalizedInput = normalizeUpsertInput(this.schema, input)
 		const operation: UpsertOneOperationAst<
@@ -464,15 +434,13 @@ export class BoundQuery<
 
 	/** Provides the concise alias for the singular unique-target operation. */
 	upsert(
-		this: ExecutableBoundQuery<TSchema, TSelectedField, TEngine>,
-		input: UpsertInput<TSchema>,
+		input: UpsertInput<TSchema> & {},
 	): Promise<InferQueryResult<TSchema, TSelectedField>> {
 		return this.upsertOne(input)
 	}
 
 	/** Upserts independently targeted items in input order, atomically by default. */
 	upsertMany(
-		this: ExecutableBoundQuery<TSchema, TSelectedField, TEngine>,
 		inputs: readonly UpsertManyItemInput<TSchema>[],
 		options?: BulkOperationOptions,
 	): Promise<readonly InferObject<TSchema>[]> {
@@ -491,9 +459,7 @@ export class BoundQuery<
 	}
 
 	/** Deletes and returns the first match, or null when no object matches. */
-	deleteOne(
-		this: ExecutableBoundQuery<TSchema, TSelectedField, TEngine>,
-	): Promise<InferQueryResult<TSchema, TSelectedField> | null> {
+	deleteOne(): Promise<InferQueryResult<TSchema, TSelectedField> | null> {
 		const operation: DeleteOneOperationAst<
 			TSchema,
 			QueryFilterNode<TSchema>,
@@ -504,9 +470,7 @@ export class BoundQuery<
 	}
 
 	/** Deletes every match without loading objects and returns its count. */
-	deleteMany(
-		this: ExecutableBoundQuery<TSchema, TSelectedField, TEngine>,
-	): Promise<number> {
+	deleteMany(): Promise<number> {
 		const operation: DeleteManyOperationAst<
 			TSchema,
 			QueryFilterNode<TSchema>,

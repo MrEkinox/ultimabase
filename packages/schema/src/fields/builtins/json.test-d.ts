@@ -1,13 +1,15 @@
 import { expectTypeOf, test } from 'vitest'
 
 import {
+	defineSchema,
 	defineSchemaExtension,
 	jsonField,
 	type FieldDefinition,
 	type FieldInferenceState,
+	type InferObject,
+	type JsonDocument,
 	type JsonFieldOptions,
 	type JsonField,
-	type JsonValue,
 } from '../../index.js'
 
 test('exposes a safe recursive JSON value', () => {
@@ -22,30 +24,65 @@ test('exposes a safe recursive JSON value', () => {
 
 	// JSON inference remains safe without widening to an unsafe catch-all type.
 	expectTypeOf(field).toExtend<
-		FieldDefinition<'json', JsonValue, JsonFieldOptions, FieldInferenceState>
+		FieldDefinition<'json', JsonDocument, JsonFieldOptions, FieldInferenceState>
 	>()
 	expectTypeOf(field.options).toEqualTypeOf<Readonly<JsonFieldOptions>>()
 	expectTypeOf<JsonField>().toExtend<
-		FieldDefinition<'json', JsonValue, JsonFieldOptions, FieldInferenceState>
+		FieldDefinition<'json', JsonDocument, JsonFieldOptions, FieldInferenceState>
 	>()
 })
 
+test('reserves root null for explicit field nullability', () => {
+	const schema = defineSchema({
+		className: 'JsonDocuments',
+		fields: {
+			document: jsonField(),
+			nullableDocument: jsonField({ validation: { nullable: true } }),
+		},
+	})
+
+	expectTypeOf(schema.className).toEqualTypeOf<'JsonDocuments'>()
+	expectTypeOf<InferObject<typeof schema>>().toEqualTypeOf<{
+		readonly id: string
+		readonly createdAt: string
+		readonly updatedAt: string
+		readonly document?: JsonDocument
+		readonly nullableDocument?: JsonDocument | null
+	}>()
+})
+
 test('rejects values that do not have a portable JSON representation', () => {
+	// @ts-expect-error -- Undefined has no JSON value representation.
 	jsonField({
-		// @ts-expect-error -- Undefined has no JSON value representation.
 		default: { missing: undefined },
 	})
+	// @ts-expect-error -- Dates require an explicit field and adapter codec.
 	jsonField({
-		// @ts-expect-error -- Dates require an explicit field and adapter codec.
 		default: { createdAt: new Date() },
 	})
+	// @ts-expect-error -- BigInt cannot be serialized as JSON.
 	jsonField({
-		// @ts-expect-error -- BigInt cannot be serialized as JSON.
 		default: { identifier: 1n },
 	})
+	// @ts-expect-error -- Functions are not JSON values.
 	jsonField({
-		// @ts-expect-error -- Functions are not JSON values.
 		default: { resolve: () => 'value' },
+	})
+	jsonField({
+		// @ts-expect-error -- Root strings require a dedicated scalar field.
+		default: 'value',
+	})
+	jsonField({
+		// @ts-expect-error -- Root numbers require a dedicated scalar field.
+		default: 1,
+	})
+	jsonField({
+		// @ts-expect-error -- Root booleans require a dedicated scalar field.
+		default: true,
+	})
+	jsonField({
+		// @ts-expect-error -- Root null is controlled by field nullability.
+		default: null,
 	})
 	jsonField({
 		// @ts-expect-error -- Schema extensions cannot attach to individual fields.

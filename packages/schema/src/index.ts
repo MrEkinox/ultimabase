@@ -107,6 +107,7 @@ export type {
 export { jsonField } from './fields/builtins/json.js'
 export type {
 	JsonArray,
+	JsonDocument,
 	JsonField,
 	JsonFieldOptions,
 	JsonObject,

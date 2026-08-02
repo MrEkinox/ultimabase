@@ -8,6 +8,7 @@ export const createLanguageService = (
 	const host: ts.LanguageServiceHost = {
 		fileExists: (requestedFileName) => ts.sys.fileExists(requestedFileName),
 		getCompilationSettings: () => ({
+			exactOptionalPropertyTypes: true,
 			module: ts.ModuleKind.NodeNext,
 			moduleResolution: ts.ModuleResolutionKind.NodeNext,
 			strict: true,

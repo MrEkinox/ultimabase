@@ -129,6 +129,12 @@ adds `null` to the complete field value. Object fields apply the same rules
 recursively. A listed object uses create-input rules for each complete
 replacement item during update.
 
+The final mapped shapes are materialized at the public inference boundary.
+Editor hovers therefore show concrete properties such as
+`readonly externalId?: string` instead of internal required/optional mapped
+type intersections. This presentation change does not widen values or alter
+operation-specific presence rules.
+
 ## Generic field contract
 
 - `FieldValidationOptions` represents omission and nullability inside the `validation` option. Fields are optional and non-null by default, and `required: true` cannot be combined with `nullable: true`.
@@ -421,11 +427,13 @@ owns its naming syntax and collision checks.
 
 ## JSON, object, and list fields
 
-`jsonField(options)` represents portable JSON values through the recursive
-`JsonValue` type. JSON defaults accept only null, booleans, finite numbers,
-strings, arrays, and plain objects. They are copied and deeply frozen; values
-such as `undefined`, `Date`, `BigInt`, functions, and circular references are
-rejected.
+`jsonField(options)` represents a root `JsonObject` or `JsonArray` through the
+`JsonDocument` type. Nested values use recursive `JsonValue`, so they may still
+contain null, booleans, finite numbers, strings, arrays, and plain objects. A
+root scalar is rejected; root `null` is reserved for
+`validation.nullable: true`. Documents are copied and deeply frozen, while
+values such as `undefined`, `Date`, `BigInt`, functions, and circular
+references are rejected.
 
 Every developer field supports homogeneous lists without changing its field
 kind:

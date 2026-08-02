@@ -81,6 +81,10 @@ export const ProductSchema = defineSchema({
 })
 ```
 
+`jsonField` accepts an object or array at its root. Nested values may contain
+every portable JSON primitive, including `null`; root `null` requires
+`validation.nullable: true` so field nullability remains explicit.
+
 `decimalField` uses strings to preserve exact base-10 values. Temporal fields
 also use explicit strings: `dateField` stores a calendar day, `timeField` a
 time of day, and `dateTimeField` a complete date and time.

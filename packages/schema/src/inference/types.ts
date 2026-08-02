@@ -9,9 +9,10 @@ import type { SchemaFields } from '../schema/definition.js'
 
 export type InferenceMode = 'object' | 'create' | 'update'
 
+/** Materializes mapped intersections so editor QuickInfo exposes final properties. */
 type Simplify<TValue> = {
 	[TKey in keyof TValue]: TValue[TKey]
-}
+} & {}
 
 type HasNullableValidation<TField> = FieldInferenceStateOf<TField>['nullable']
 

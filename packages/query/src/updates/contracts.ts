@@ -90,11 +90,24 @@ export type NumericUpdateInput<TSchema extends SchemaDefinition> = {
 	>
 }
 
+/** Materializes mapped values so public hovers expose their concrete fields. */
+type SimplifyUpdateInput<TInput> = TInput extends object
+	? { [TKey in keyof TInput]: TInput[TKey] } & {}
+	: TInput
+
+/** Converts unsettable names through a record so QuickInfo prints their union. */
+type UnsetUpdateFieldMap<TSchema extends SchemaDefinition> = Readonly<
+	Record<UnsetUpdateFieldName<TSchema>, true>
+>
+
 interface UpdateExpressionGroups<TSchema extends SchemaDefinition> {
-	readonly set?: UpdateSetInput<TSchema>
-	readonly unset?: readonly UnsetUpdateFieldName<TSchema>[]
-	readonly increment?: NumericUpdateInput<TSchema>
-	readonly decrement?: NumericUpdateInput<TSchema>
+	readonly set?: SimplifyUpdateInput<UpdateSetInput<TSchema>>
+	readonly unset?: readonly (keyof SimplifyUpdateInput<
+		UnsetUpdateFieldMap<TSchema>
+	> &
+		string)[]
+	readonly increment?: SimplifyUpdateInput<NumericUpdateInput<TSchema>>
+	readonly decrement?: SimplifyUpdateInput<NumericUpdateInput<TSchema>>
 }
 
 type RequireOneGroup<TGroups extends object> = {
@@ -105,7 +118,7 @@ type RequireOneGroup<TGroups extends object> = {
 
 /** Requires callers to declare at least one update operator group. */
 export type UpdateExpressionInput<TSchema extends SchemaDefinition> =
-	RequireOneGroup<UpdateExpressionGroups<TSchema>>
+	SimplifyUpdateInput<RequireOneGroup<UpdateExpressionGroups<TSchema>>>
 
 interface UpdateFieldOperationNode<
 	TKind extends string,

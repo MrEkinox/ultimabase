@@ -14,7 +14,7 @@ import {
 	type FieldInferenceState,
 	type FieldListValue,
 	type FieldValue,
-	type JsonValue,
+	type JsonDocument,
 	type ObjectField,
 	type ObjectFieldValue,
 } from '../../index.js'
@@ -53,7 +53,7 @@ test('infers list values through finite nesting', () => {
 		FieldDefinition<'enum', 'draft' | 'published', object, FieldInferenceState>
 	>()
 	expectTypeOf(payloads).toExtend<
-		FieldDefinition<'json', JsonValue, object, FieldInferenceState>
+		FieldDefinition<'json', JsonDocument, object, FieldInferenceState>
 	>()
 	expectTypeOf<FieldValue<typeof matrix>>().toEqualTypeOf<
 		readonly (readonly number[])[]
@@ -64,7 +64,7 @@ test('infers list values through finite nesting', () => {
 		readonly ('draft' | 'published')[]
 	>()
 	expectTypeOf<FieldValue<typeof payloads>>().toEqualTypeOf<
-		readonly JsonValue[]
+		readonly JsonDocument[]
 	>()
 	expectTypeOf<
 		FieldListValue<string, readonly [true, true, true]>

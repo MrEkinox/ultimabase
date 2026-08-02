@@ -89,6 +89,8 @@ Accepted records:
 - [ADR-0088: Compact field inference state](0088-compact-field-inference-state.md)
 - [ADR-0089: Native schema and field hook lifecycle](0089-native-schema-and-field-hooks.md)
 - [ADR-0090: Permission plugins contribute monotonic hooks](0090-permission-plugins-through-hooks.md)
+- [ADR-0091: JSON fields require document roots](0091-json-document-root-values.md)
+- [ADR-0092: Bound queries require executors](0092-bound-queries-require-executors.md)
 
 Superseded records:
 

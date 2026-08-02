@@ -401,7 +401,7 @@ describe('runtime validation', () => {
 				enum: 'denied',
 				float: 'float',
 				int: 'int',
-				json: undefined,
+				json: 'root-scalars-are-not-json-documents',
 				string: 1,
 				time: 'not-time',
 				uuid: 1,

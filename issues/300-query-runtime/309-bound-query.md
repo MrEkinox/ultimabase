@@ -4,7 +4,7 @@
 - Milestone: 3
 - Packages: `@ultimabase/query`, `@ultimabase/runtime`
 - Depends on: 306, 307
-- ADR: ADR-0005, ADR-0061
+- ADR: ADR-0005, ADR-0061, ADR-0092
 
 ## Goal
 
@@ -13,7 +13,8 @@ future typed terminal methods.
 
 ## Acceptance criteria
 
-- [x] `Query.bind(engine)` returns `BoundQuery` without a Runtime import.
+- [x] `Query.bind(executor)` returns `BoundQuery` without a Runtime import.
+- [x] Binding rejects objects that do not implement `QueryExecutorBinding`.
 - [x] Bound builder methods preserve the engine and return new instances.
 - [x] Selection changes result inference.
 - [x] Binding does not mutate the reusable query.

@@ -71,6 +71,18 @@ describe('jsonField', () => {
 	})
 
 	it.each([
+		['string', 'value'],
+		['number', 1],
+		['boolean', true],
+		['null', null],
+	] as const)('rejects a root JSON %s', (_name, value) => {
+		expect(() => {
+			// @ts-expect-error -- Runtime coverage intentionally crosses the root document boundary.
+			jsonField({ default: value })
+		}).toThrow(new TypeError('default must be a JSON object or array'))
+	})
+
+	it.each([
 		['undefined', { value: undefined }, 'default.value must be a JSON value'],
 		[
 			'NaN',

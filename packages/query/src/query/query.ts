@@ -31,6 +31,7 @@ import type {
 	QueryPrimitiveFilterNode,
 	QueryRegexPattern,
 } from '../filters/primitive.js'
+import type { QueryExecutorBinding } from '../operations/executor.js'
 import { BoundQuery } from './bound-query.js'
 import type { QueryScope } from './scope.js'
 
@@ -86,14 +87,14 @@ export class Query<
 	}
 
 	/** Adds selected fields while keeping their first declaration order. */
-	select<const TField extends readonly QueryFieldName<TSchema>[]>(
-		...fields: TField
-	): Query<TSchema, TSelectedField | TField[number]> {
+	select<const TField extends QueryFieldName<TSchema>>(
+		...fields: readonly TField[]
+	): Query<TSchema, TSelectedField | TField> {
 		const selectedFields = this.#ast.selection.fields.map(
 			(selection) => selection.field,
 		)
 
-		return this.#with<TSelectedField | TField[number]>({
+		return this.#with<TSelectedField | TField>({
 			selection: normalizeQuerySelection(this.schema, [
 				...selectedFields,
 				...fields,
@@ -339,8 +340,8 @@ export class Query<
 		return scopedQuery
 	}
 
-	/** Retains an execution owner without importing a concrete Runtime engine. */
-	bind<TEngine extends object>(
+	/** Binds a neutral executor while keeping this reusable Query unchanged. */
+	bind<TEngine extends QueryExecutorBinding>(
 		engine: TEngine,
 	): BoundQuery<TSchema, TSelectedField, TEngine> {
 		return new BoundQuery(this, engine)
