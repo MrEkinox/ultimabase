@@ -21,7 +21,8 @@
 		"noUnusedParameters": true,
 		"strict": true,
 		"target": "ES2024",
-		"types": [],
+		// UltimaBase supports Node.js only, including its public AbortSignal contracts.
+		"types": ["node"],
 		"verbatimModuleSyntax": true
 	}
 }

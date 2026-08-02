@@ -11,7 +11,7 @@ import {
 	type MaybePromise,
 } from '@ultimabase/shared'
 
-import type { HookExecutionContext } from '../../schema/hooks/execution-context.js'
+import type { HookContext } from '../../schema/hooks/hook-context.js'
 import type {
 	DatabaseOperationAst,
 	DatabaseOperationResult,
@@ -20,8 +20,8 @@ import type {
 export interface RuntimeHookOperationInput<
 	TOperation extends DatabaseOperationAst,
 > {
-	/** Exposes cancellation and correlation without request authority. */
-	readonly context: HookExecutionContext
+	/** Exposes immutable request identity and revocable hook capabilities. */
+	readonly context: HookContext
 	/** Contains the immutable operation observed by the low-level hook. */
 	readonly operation: TOperation
 }
@@ -346,7 +346,7 @@ export const getRuntimeContributionImplementation = (
 export const createBeforeHookInput = <
 	const TOperation extends DatabaseOperationAst,
 >(
-	context: HookExecutionContext,
+	context: HookContext,
 	operation: TOperation,
 ): RuntimeHookOperationInput<TOperation> =>
 	immutableRecord({ context, operation })
@@ -355,7 +355,7 @@ export const createBeforeHookInput = <
 export const createAfterHookInput = <
 	const TOperation extends DatabaseOperationAst,
 >(
-	context: HookExecutionContext,
+	context: HookContext,
 	operation: TOperation,
 	result: DatabaseOperationResult<TOperation>,
 ): RuntimeHookResultInput<TOperation> =>

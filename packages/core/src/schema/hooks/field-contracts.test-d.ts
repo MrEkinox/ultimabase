@@ -20,7 +20,7 @@ import {
 	type FieldValueState,
 	type HookErrorPhase,
 	type HookErrorTransactionState,
-	type HookExecutionContext,
+	type HookContext,
 	type InferCreateInput,
 	type InferObject,
 	type InferUpdateInput,
@@ -29,7 +29,7 @@ import {
 const titleField = stringField({
 	hooks: {
 		resolveInput: ({ context, value }) => {
-			expectTypeOf(context).toEqualTypeOf<HookExecutionContext>()
+			expectTypeOf(context).toEqualTypeOf<HookContext>()
 			// @ts-expect-error -- Field hooks cannot inspect request credentials.
 			void context.metadata
 			// @ts-expect-error -- Field hooks cannot mutate transaction state.

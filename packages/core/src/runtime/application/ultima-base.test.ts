@@ -2,7 +2,7 @@ import { definePlugin } from '../../foundation.js'
 import { Schema, stringField } from '../../schema/index.js'
 import { describe, expect, it } from 'vitest'
 
-import type { HookExecutionContext } from '../../schema/index.js'
+import type { HookContext } from '../../schema/index.js'
 import {
 	databaseAdapterServiceToken,
 	type DatabaseAdapter,
@@ -21,7 +21,7 @@ const articleSchema = new Schema({
 const createDatabasePlugin = (
 	adapter: DatabaseAdapter,
 	options: {
-		readonly onContext?: (context: HookExecutionContext) => void
+		readonly onContext?: (context: HookContext) => void
 		readonly trace?: string[]
 	} = {},
 ) =>
@@ -75,7 +75,7 @@ describe('UltimaBase', () => {
 			[],
 		)
 		const trace: string[] = []
-		let observedContext: HookExecutionContext | undefined
+		let observedContext: HookContext | undefined
 		const validation = { timezone: 'UTC' }
 		const ultimabase = new UltimaBase({
 			schemas: [articleSchema],

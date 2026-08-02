@@ -6,31 +6,17 @@ import {
 import type { OperationKind } from '../../query/index.js'
 import type { FieldHookPhase } from '../../schema/hooks/field-declarations.js'
 import type { SchemaHookPhase } from '../../schema/hooks/declarations.js'
+import type {
+	HookContextOwner,
+	HookContextTarget,
+} from '../../schema/hooks/hook-context.js'
 import type { MaybePromise } from '@ultimabase/shared'
 
 /** Identifies application declarations separately from plugin-owned hooks. */
-export type HookDiagnosticOwner =
-	| Readonly<{ readonly kind: 'application' }>
-	| Readonly<{
-			readonly kind: 'plugin'
-			readonly pluginName: string
-			readonly contributionName: string
-	  }>
+export type HookDiagnosticOwner = HookContextOwner
 
 /** Identifies only static schema structure and never includes business values. */
-export type HookDiagnosticTarget =
-	| Readonly<{
-			readonly kind: 'schema'
-			readonly className: string
-	  }>
-	| Readonly<{
-			readonly kind: 'field'
-			readonly className: string
-			readonly path: readonly string[]
-	  }>
-	| Readonly<{
-			readonly kind: 'global'
-	  }>
+export type HookDiagnosticTarget = HookContextTarget
 
 /** Covers native phases and the low-level contribution boundaries they wrap. */
 export type HookDiagnosticPhase =
@@ -40,6 +26,7 @@ export type HookDiagnosticPhase =
 	| 'before-operation'
 	| 'constraint'
 	| 'guard'
+	| 'event'
 	| 'post-commit-event'
 	| 'restrictInput'
 	| 'restrictOutput'

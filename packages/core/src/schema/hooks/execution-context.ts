@@ -1,9 +1,8 @@
 /**
- * Exposes safe execution identity to every hook without revealing request
- * authority, credentials, adapters, or transaction lifecycle controls.
+ * Defines the durable minimal execution identity implemented by HookContext.
  *
- * Issue 340 will provide the richer `HookContext` class through this same
- * `context` property, so hook declarations do not need a transitional API.
+ * Consumers needing only correlation and cancellation may depend on this
+ * interface without acquiring query or event capabilities.
  */
 export interface HookExecutionContext {
 	/** Stable identifier shared by every operation in the originating request. */

@@ -103,6 +103,9 @@ Accepted records:
 - [ADR-0102: Policy-neutral monotonic enforcement plan](0102-policy-neutral-monotonic-enforcement.md)
 - [ADR-0103: Versioned adapter constraint compilers](0103-versioned-adapter-constraint-compilers.md)
 - [ADR-0104: Read hook execution and safe output resolution](0104-read-hook-execution-and-output-resolution.md)
+- [ADR-0105: Transaction hook finalization journal](0105-transaction-hook-journal.md)
+- [ADR-0106: Hook execution safety and diagnostics](0106-hook-execution-safety-and-diagnostics.md)
+- [ADR-0107: HookContext capabilities and named events](0107-hook-context-capabilities-and-events.md)
 
 Superseded records:
 

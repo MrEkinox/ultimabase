@@ -110,6 +110,14 @@ export type {
 	RuntimeHookOperationInput,
 	RuntimeHookResultInput,
 } from './hooks/definitions.js'
+export { onEvent } from './hooks/events.js'
+export type {
+	HookEvent,
+	HookEventDefinition,
+	HookEventHandler,
+	HookEventHandlerInput,
+	OnEventOptions,
+} from './hooks/events.js'
 export { hookDiagnosticsObserverServiceToken } from './hooks/diagnostics.js'
 export type {
 	HookDiagnosticEvent,

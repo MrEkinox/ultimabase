@@ -17,7 +17,7 @@ import type {
 } from '../inference/types.js'
 import type { ValidationIssuePath } from '../plans/contracts.js'
 import type { SchemaDefinition } from '../schema/definition.js'
-import type { HookExecutionContext } from './execution-context.js'
+import type { HookContext } from './hook-context.js'
 
 /** Groups the terminal kinds that create persisted objects. */
 export type SchemaCreateHookKind = 'create-many' | 'create-one'
@@ -165,8 +165,8 @@ export interface SchemaHookTypes<
 export type SchemaOperationHookInput<TOperation extends OperationAstNode> =
 	TOperation extends OperationAstNode
 		? Readonly<{
-				/** Carries safe request, transaction, and cancellation identity. */
-				context: HookExecutionContext
+				/** Carries immutable request identity and revocable hook capabilities. */
+				context: HookContext
 				/** The exact terminal discriminant used for concise narrowing. */
 				kind: TOperation['kind']
 				/** The immutable normalized operation being processed. */
@@ -178,8 +178,8 @@ export type SchemaOperationHookInput<TOperation extends OperationAstNode> =
 export type SchemaResultHookInput<TOperation extends OperationAstNode> =
 	TOperation extends OperationAstNode
 		? Readonly<{
-				/** Carries safe request, transaction, and cancellation identity. */
-				context: HookExecutionContext
+				/** Carries immutable request identity and revocable hook capabilities. */
+				context: HookContext
 				/** The exact terminal discriminant used for concise narrowing. */
 				kind: TOperation['kind']
 				/** The immutable normalized operation that produced the result. */
@@ -193,8 +193,8 @@ export type SchemaResultHookInput<TOperation extends OperationAstNode> =
 export type SchemaOperationOutcome<TOperation extends OperationAstNode> =
 	TOperation extends OperationAstNode
 		? Readonly<{
-				/** Carries safe request, transaction, and cancellation identity. */
-				context: HookExecutionContext
+				/** Carries immutable request identity and revocable hook capabilities. */
+				context: HookContext
 				/** The exact terminal discriminant used for result narrowing. */
 				kind: TOperation['kind']
 				/** The completed immutable operation. */
@@ -326,8 +326,8 @@ export type SchemaBeforeFindInput<
 	> extends infer TOperation extends OperationAstNode
 		? TOperation extends OperationAstNode
 			? Readonly<{
-					/** Carries safe request, transaction, and cancellation identity. */
-					context: HookExecutionContext
+					/** Carries immutable request identity and revocable hook capabilities. */
+					context: HookContext
 					/** The exact read terminal discriminant. */
 					kind: TOperation['kind']
 					/** The immutable read operation associated with the query. */
@@ -376,8 +376,8 @@ export type SchemaBeforeCommitChange<TSchema extends SchemaDefinition> =
 
 /** Supplies all successful schema mutations before the outer commit. */
 export interface SchemaBeforeCommitInput<TSchema extends SchemaDefinition> {
-	/** Carries safe request, transaction, and cancellation identity. */
-	readonly context: HookExecutionContext
+	/** Carries immutable request identity and revocable hook capabilities. */
+	readonly context: HookContext
 	/** Every mutation outcome buffered for this schema in execution order. */
 	readonly changes: readonly SchemaBeforeCommitChange<TSchema>[]
 }
@@ -403,8 +403,8 @@ export type SchemaAfterCommitHook<TSchema extends SchemaDefinition> =
 
 /** Describes the schema mutations discarded by one confirmed rollback. */
 export interface SchemaAfterRollbackInput<TSchema extends SchemaDefinition> {
-	/** Carries safe request, transaction, and cancellation identity. */
-	readonly context: HookExecutionContext
+	/** Carries immutable request identity and revocable hook capabilities. */
+	readonly context: HookContext
 	/** The original failure retained as an unknown boundary value. */
 	readonly error: unknown
 	/** Every discarded mutation for this schema in execution order. */
@@ -471,8 +471,8 @@ export type SchemaErrorHookInput<
 		OperationAstNode
 		? TOperation extends OperationAstNode
 			? Readonly<{
-					/** Carries safe request, transaction, and cancellation identity. */
-					context: HookExecutionContext
+					/** Carries immutable request identity and revocable hook capabilities. */
+					context: HookContext
 					/** The original failure retained as an unknown boundary value. */
 					error: unknown
 					/** The exact terminal discriminant that failed. */

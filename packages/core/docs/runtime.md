@@ -244,15 +244,15 @@ selection validation. Runtime evaluates and applies monotonic output
 restrictions only after every transform, immediately before returning the
 public result, so no later hook can restore a removed field.
 
-## Hook execution safety and diagnostics
+## HookContext capabilities, safety, and diagnostics
 
-Every business hook input includes one immutable `context` with only the
-currently implemented safe execution identity:
+Every business hook input includes one immutable Runtime-owned `HookContext`:
 
 ```ts
 beforeCreate: async ({ context, operation }) => {
 	if (operation.kind === 'create-one') {
-		await validateRemotely(operation.input, { signal: context.signal })
+		await context.query(AuditSchema).create({ action: 'article.create' })
+		context.emit('article.creating', { title: operation.input.title })
 	}
 	logger.debug({
 		requestId: context.requestId,
@@ -270,6 +270,19 @@ cooperative path. Runtime checks the signal between sequential pre-commit hooks,
 waits for an active callback to settle rather than detaching it, then rolls an
 active transaction back. Post-commit and confirmed-rollback observers still run
 after the final database outcome is known.
+
+`context.query(schema)` returns the ordinary exact typed `BoundQuery`, but its
+minimal executor reuses only the current application's request engine and
+transaction. Runtime waits for nested work even when the hook did not await it.
+The first nested failure keeps the transaction rollback-only even if hook code
+catches that rejection. A context or bound query retained after its callback
+fails with `HOOK_CONTEXT_CLOSED`; it never switches to a later ambient request.
+Schema identity is checked against the exact application instance.
+
+The class also exposes immutable `access`, `source`, `hook`, request and
+transaction identifiers, the cancellation signal, and identity-based
+`hasCapability(token)`. It exposes no request metadata, raw credentials, master
+elevation, adapter, commit, rollback, hook bypass, or mutable pipeline state.
 
 An immutable asynchronous-local stack detects `A -> A` and `A -> B -> A`
 re-entry by exact declaration, owner, target, phase, and handler position.
@@ -338,9 +351,12 @@ error as `unknown`, a stable phase, and a discriminated transaction state; its
 input exposes no adapter or lifecycle controls.
 
 The transaction-scoped request engine expires before finalization observers
-run. A hook may not retain an earlier engine and use it from `afterCommit` or
-`afterRollback`. The dedicated `HookContext` issue will add the supported
-transaction-bound query and event capabilities to earlier hook phases.
+run. `beforeCommit`, `afterCommit`, `afterRollback`, `onError`, low-level
+post-commit observers, and named-event consumers are explicitly non-queryable.
+They retain correlation, access, capability checks, and event emission where
+the transaction state still permits it. `beforeCommit` and `afterCommit` may
+queue named events before post-commit delivery begins; rollback and error
+observers cannot queue work for a transaction that will not commit.
 
 ## Structural validation
 
@@ -424,10 +440,9 @@ Issue 334 owns partial-success, stopping, and per-item grouping semantics;
 until then, one normalized bulk operation uses one automatic transaction.
 
 Automatic mutation transactions install their derived request engine in the
-active asynchronous scope before the operation pipeline runs. Internal code and
-future native hooks therefore resolve that engine through `getCurrentEngine()`.
-Native hook inputs do not expose a temporary engine property: issue 340 adds the
-explicit immutable `HookContext` and its transaction-bound query capability.
+active asynchronous scope before the operation pipeline runs. Runtime captures
+that exact engine behind each operation hook's revocable `HookContext`; hook
+inputs never expose a raw or temporary request engine property.
 
 `request.transaction(callback)` begins a transaction through the database
 adapter retained by the pipeline. The callback receives a distinct engine with
@@ -551,6 +566,51 @@ governed by
 [ADR-0089](../../../docs/adr/0089-native-schema-and-field-hooks.md),
 [ADR-0097](../../../docs/adr/0097-owner-scoped-typed-plugin-hook-targets.md), and
 [ADR-0090](../../../docs/adr/0090-permission-plugins-through-hooks.md).
+
+### Named post-commit events
+
+Operation hooks may emit one explicit portable event through their current
+transaction:
+
+```ts
+const ArticleSchema = new Schema({
+	className: 'Article',
+	fields: { title: stringField({ validation: { required: true } }) },
+	hooks: {
+		beforeCreate: ({ context, operation }) => {
+			if (operation.kind === 'create-one') {
+				context.emit('article.created', { title: operation.input.title })
+			}
+
+			return operation
+		},
+	},
+})
+
+const searchPlugin = definePlugin({
+	name: 'example.search',
+	setup: ({ registries }) => {
+		registries.events.register(
+			'articles.created',
+			onEvent({
+				name: 'article.created',
+				handler: ({ context, event }) => {
+					searchIndex.add(event.payload)
+					console.log(context.requestId, event.transactionId)
+				},
+			}),
+		)
+	},
+})
+```
+
+The payload root must be a JSON object or array. Runtime copies and deeply
+freezes it at emission, requires a matching consumer, buffers it on the exact
+outer transaction, discards it on rollback, and delivers it after commit in
+plugin graph plus registration order. Consumers are non-queryable committed
+observers. Every matching consumer still runs if a sibling fails; failures are
+reported after commit and never trigger rollback. A root read may emit only
+inside an explicit transaction.
 
 ### Legacy low-level definitions
 

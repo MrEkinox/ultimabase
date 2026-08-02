@@ -38,6 +38,7 @@ import {
 import type { HookExecutionDescriptor } from './execution-descriptor.js'
 import { getApplicationHookExecutionRuntime } from './execution-runtime.js'
 import type { HookExecutionRuntime } from './execution-runtime.js'
+import { getHookEventImplementation } from './events.js'
 
 type RuntimeContributionImplementation = NonNullable<
 	ReturnType<typeof getRuntimeContributionImplementation>
@@ -148,6 +149,14 @@ const readContributions = (
 	const ownedContributions: OwnedRuntimeContribution[] = []
 
 	for (const contribution of application.getContributions(category)) {
+		if (
+			category === 'events' &&
+			getHookEventImplementation(contribution.value) !== undefined
+		) {
+			// Named HookContext events have a dedicated post-commit dispatcher.
+			continue
+		}
+
 		// Native targets and monotonic enforcement use dedicated dispatchers.
 		if (
 			category === 'hooks' &&

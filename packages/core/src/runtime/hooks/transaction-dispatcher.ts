@@ -4,7 +4,7 @@ import type {
 	HookErrorPhase,
 	HookErrorTransactionState,
 } from '../../schema/hooks/contracts.js'
-import type { HookExecutionContext } from '../../schema/hooks/execution-context.js'
+import type { HookContext } from '../../schema/hooks/hook-context.js'
 import type { RequestContext } from '../context/request-context.js'
 import type { DatabaseMutationOperationAst } from '../database/contracts.js'
 import type {
@@ -87,9 +87,9 @@ const throwObserverFailures = (
 
 const createSchemaOutcomeInput = (
 	entry: TransactionHookSuccessfulMutationEntry,
-	context: HookExecutionContext,
+	context: HookContext,
 ): Readonly<{
-	readonly context: HookExecutionContext
+	readonly context: HookContext
 	readonly kind: DatabaseMutationOperationAst['kind']
 	readonly operation: DatabaseMutationOperationAst
 	readonly result: unknown

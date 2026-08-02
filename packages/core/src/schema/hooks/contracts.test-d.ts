@@ -11,7 +11,7 @@ import {
 	type HookValidationIssueCode,
 	type HookErrorPhase,
 	type HookErrorTransactionState,
-	type HookExecutionContext,
+	type HookContext,
 	type SchemaHookOperation,
 	type SchemaOperationOutcome,
 	type SchemaHookResult,
@@ -51,12 +51,15 @@ const ArticleSchema = new Schema({
 			return []
 		},
 		beforeCreate: ({ context, operation }) => {
-			expectTypeOf(context).toEqualTypeOf<HookExecutionContext>()
+			expectTypeOf(context).toEqualTypeOf<HookContext>()
 			expectTypeOf(context.requestId).toBeString()
 			expectTypeOf(context.transactionId).toEqualTypeOf<string | undefined>()
 			expectTypeOf(context.signal).toEqualTypeOf<AbortSignal>()
-			// @ts-expect-error -- Hook execution identity never exposes request authority.
-			void context.access
+			expectTypeOf(context.access.mode).toEqualTypeOf<
+				'anonymous' | 'master' | 'user'
+			>()
+			// @ts-expect-error -- Hook execution identity never exposes private metadata.
+			void context.metadata
 			// @ts-expect-error -- Hooks cannot own transaction finalization.
 			void context.commit
 			// @ts-expect-error -- Business invariants cannot be bypassed.

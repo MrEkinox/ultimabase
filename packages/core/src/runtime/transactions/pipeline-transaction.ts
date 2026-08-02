@@ -16,7 +16,8 @@ import type {
 } from '../pipeline/contracts.js'
 import type { RuntimePipeline } from '../pipeline/runtime-pipeline.js'
 
-type TransactionScopeState = 'active' | 'committed' | 'rolled-back'
+type TransactionScopeState =
+	'active' | 'committed' | 'flushed' | 'flushing' | 'rolled-back'
 type DeferredPostCommitEffect = () => MaybePromise<void>
 type RuntimePipelineFactory = (stages: RuntimePipelineStages) => RuntimePipeline
 
@@ -26,6 +27,7 @@ export interface RuntimePipelineTransactionScope {
 	beforeCommit(): Promise<void>
 	commit(): Promise<void>
 	rollback(): Promise<void>
+	deferPostCommitEffect(effect: DeferredPostCommitEffect): void
 	afterCommit(): Promise<void>
 	afterRollback(error: unknown): Promise<void>
 	flushPostCommitEvents(): Promise<void>
@@ -162,6 +164,19 @@ export const beginPipelineTransaction = async (
 			await transaction.rollback()
 			state = 'rolled-back'
 		},
+		deferPostCommitEffect: (effect): void => {
+			if (state !== 'active' && state !== 'committed') {
+				throw new TypeError(
+					'Runtime transaction effects require an active transaction',
+				)
+			}
+
+			if (typeof effect !== 'function') {
+				throw new TypeError('Runtime transaction effect must be a function')
+			}
+
+			postCommitEffects.push(effect)
+		},
 		afterCommit: async (): Promise<void> => {
 			if (state !== 'committed') {
 				throw new TypeError(
@@ -189,9 +204,31 @@ export const beginPipelineTransaction = async (
 
 			const effects: readonly DeferredPostCommitEffect[] =
 				postCommitEffects.splice(0)
+			const failures: unknown[] = []
+
+			state = 'flushing'
 
 			for (const effect of effects) {
-				await effect()
+				try {
+					await effect()
+				} catch (error: unknown) {
+					// One committed observer cannot suppress independent sibling delivery.
+					failures.push(error)
+				}
+			}
+
+			state = 'flushed'
+
+			if (failures.length === 1) {
+				throw failures[0]
+			}
+
+			if (failures.length > 1) {
+				throw new AggregateError(
+					failures,
+					'Multiple post-commit effects failed.',
+					{ cause: failures[0] },
+				)
 			}
 		},
 		onError: async (input): Promise<void> => {

@@ -230,4 +230,15 @@ describe('@ultimabase/core Runtime declarations', () => {
 		expect(query.display).not.toContain('RequestEngine<')
 		expect(query.display).not.toContain('SchemaDefinition<')
 	})
+
+	it('preserves HookContext query typing and documentation', () => {
+		const query = readFixtureQuickInfo('query(HookAuditSchema)')
+		const result = readFixtureQuickInfo('context.query(HookAuditSchema).create')
+
+		expect(query.display).toContain('query<')
+		expect(query.display).toContain('BoundQuery<')
+		expect(query.documentation).toContain('active transaction')
+		expect(query.display.length).toBeLessThan(900)
+		expect(result.display).not.toContain('RequestEngine<')
+	})
 })

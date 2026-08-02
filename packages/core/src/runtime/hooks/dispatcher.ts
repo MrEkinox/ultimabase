@@ -9,7 +9,7 @@ import type {
 } from '../../query/index.js'
 import type { FieldHookPhase } from '../../schema/hooks/field-declarations.js'
 import type { SchemaHookPhase } from '../../schema/hooks/declarations.js'
-import type { HookExecutionContext } from '../../schema/hooks/execution-context.js'
+import type { HookContext } from '../../schema/hooks/hook-context.js'
 import type { SchemaDefinition } from '../../schema/index.js'
 import type { PluginDefinition } from '../../foundation.js'
 import { FrameworkApplication } from '../../foundation.js'
@@ -71,9 +71,9 @@ import {
 const createSchemaResultInput = <const TOperation extends DatabaseOperationAst>(
 	operation: TOperation,
 	result: DatabaseOperationResult<TOperation>,
-	context: HookExecutionContext,
+	context: HookContext,
 ): Readonly<{
-	readonly context: HookExecutionContext
+	readonly context: HookContext
 	readonly kind: TOperation['kind']
 	readonly operation: TOperation
 	readonly result: DatabaseOperationResult<TOperation>
@@ -479,7 +479,7 @@ const invokeErasedEffect = async (
 	runtime: HookExecutionRuntime,
 	handler: HookExecutionDescriptor,
 	request: RuntimeOperationStageInput<DatabaseOperationAst>['context'],
-	createInput: (context: HookExecutionContext) => unknown,
+	createInput: (context: HookContext) => unknown,
 ): Promise<void> => {
 	await invokeErasedHook(runtime, handler, request, createInput)
 }

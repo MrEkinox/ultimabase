@@ -6,7 +6,7 @@ import {
 } from '../../schema/hooks/normalization.js'
 import { Schema, type SchemaDefinition } from '../../schema/index.js'
 import type { DatabaseOperationAst } from '../database/contracts.js'
-import type { HookExecutionContext } from '../../schema/hooks/execution-context.js'
+import type { HookContext } from '../../schema/hooks/hook-context.js'
 import type { OperationKind } from '../../query/index.js'
 import type { RequestContext } from '../context/request-context.js'
 import { getOperationSchema } from '../operations/schema.js'
@@ -109,7 +109,7 @@ export const invokeErasedHook = <TResult>(
 	runtime: HookExecutionRuntime,
 	descriptor: HookExecutionDescriptor,
 	request: RequestContext,
-	createInput: (context: HookExecutionContext) => unknown,
+	createInput: (context: HookContext) => unknown,
 	options?: Readonly<{ readonly cancellable?: boolean }>,
 ): Promise<TResult> =>
 	runtime.invoke(
@@ -124,7 +124,7 @@ export const runHookObservers = async (
 	runtime: HookExecutionRuntime,
 	handlers: readonly HookExecutionDescriptor[],
 	request: RequestContext,
-	createInput: (context: HookExecutionContext) => unknown,
+	createInput: (context: HookContext) => unknown,
 ): Promise<readonly unknown[]> => {
 	const failures: unknown[] = []
 
@@ -147,9 +147,9 @@ export const createSchemaOperationHookInput = <
 	const TOperation extends { readonly kind: string },
 >(
 	operation: TOperation,
-	context: HookExecutionContext,
+	context: HookContext,
 ): Readonly<{
-	readonly context: HookExecutionContext
+	readonly context: HookContext
 	readonly kind: TOperation['kind']
 	readonly operation: TOperation
 }> => immutableRecord({ context, kind: operation.kind, operation })

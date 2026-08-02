@@ -58,6 +58,38 @@ const PostSchema = new Schema({
 	},
 })
 
+const HookAuditSchema = new Schema({
+	className: 'RuntimeHookAudit',
+	fields: {
+		action: stringField({ validation: { required: true } }),
+	},
+})
+
+const hookRollbackError = new Error('rollback HookContext nested write')
+const HookPostSchema = new Schema({
+	className: 'RuntimeHookPost',
+	fields: {
+		title: stringField({ validation: { required: true } }),
+	},
+	hooks: {
+		beforeCreate: async ({ context, operation }) => {
+			if (operation.kind !== 'create-one') {
+				return operation
+			}
+
+			await context.query(HookAuditSchema).create({
+				action: `create:${operation.input.title}`,
+			})
+
+			if (operation.input.title === 'rollback') {
+				throw hookRollbackError
+			}
+
+			return operation
+		},
+	},
+})
+
 const createInstant = '2026-08-01T08:00:00.000Z'
 const updateInstant = '2026-08-01T09:30:00.000Z'
 const uuidV7Pattern =
@@ -119,6 +151,48 @@ afterAll(async () => {
 })
 
 describe('Runtime to PostgreSQL', { concurrent: false }, () => {
+	it('keeps HookContext nested writes in the primary PostgreSQL transaction', async () => {
+		const ultimabase = new UltimaBase({
+			schemas: [HookPostSchema, HookAuditSchema],
+			plugins: [
+				postgresPlugin({
+					schemaPolicy: 'override',
+					url: getFixture().connectionUri,
+				}),
+			],
+			validation: {
+				clock: () => new Date(createInstant),
+				timezone: 'UTC',
+			},
+		})
+
+		await ultimabase.start()
+
+		try {
+			await expect(
+				ultimabase.query(HookPostSchema).create({ title: 'commit' }),
+			).resolves.toMatchObject({ title: 'commit' })
+			await expect(
+				ultimabase.query(HookAuditSchema).select('action').find(),
+			).resolves.toStrictEqual([{ action: 'create:commit' }])
+
+			await expect(
+				ultimabase.query(HookPostSchema).create({ title: 'rollback' }),
+			).rejects.toBe(hookRollbackError)
+			await expect(
+				ultimabase.query(HookPostSchema).equalTo('title', 'rollback').exists(),
+			).resolves.toBe(false)
+			await expect(
+				ultimabase
+					.query(HookAuditSchema)
+					.equalTo('action', 'create:rollback')
+					.exists(),
+			).resolves.toBe(false)
+		} finally {
+			await ultimabase.dispose()
+		}
+	})
+
 	it('executes the complete public singular CRUD flow against live rows', async () => {
 		const instants = [createInstant, updateInstant]
 		const clock = (): Date => {

@@ -3,7 +3,7 @@ import type { MaybePromise } from '@ultimabase/shared'
 import type { OperationKind } from '../../query/index.js'
 import type { GenericField } from '../fields/base/contract.js'
 import type { InferFields } from '../inference/types.js'
-import type { HookExecutionContext } from './execution-context.js'
+import type { HookContext } from './hook-context.js'
 import type {
 	HookErrorPhase,
 	HookErrorTransactionState,
@@ -136,8 +136,8 @@ export interface FieldValueHookInput<
 	TKind extends OperationKind,
 	TMode extends FieldHookMode,
 > {
-	/** Carries safe request, transaction, and cancellation identity. */
-	readonly context: HookExecutionContext
+	/** Carries immutable request identity and revocable hook capabilities. */
+	readonly context: HookContext
 	/** Retains the normalized terminal as a concise discriminant. */
 	readonly kind: TKind
 	/** Distinguishes create and update branches, especially for an upsert. */
@@ -306,8 +306,8 @@ export interface FieldChangeHookInput<
 	TField extends GenericField,
 	TKind extends FieldMutationHookKind = FieldMutationHookKind,
 > {
-	/** Carries safe request, transaction, and cancellation identity. */
-	readonly context: HookExecutionContext
+	/** Carries immutable request identity and revocable hook capabilities. */
+	readonly context: HookContext
 	/** Excludes set-based update and delete because they do not materialize rows. */
 	readonly kind: TKind
 	/** Makes the rollback-capable timing explicit to hook implementations. */
@@ -332,8 +332,8 @@ export interface FieldAfterCommitInput<
 	TField extends GenericField,
 	TKind extends FieldMutationHookKind = FieldMutationHookKind,
 > {
-	/** Carries safe request, transaction, and cancellation identity. */
-	readonly context: HookExecutionContext
+	/** Carries immutable request identity and revocable hook capabilities. */
+	readonly context: HookContext
 	readonly kind: TKind
 	readonly timing: 'after-commit'
 	readonly change: FieldValueChange<FieldHookTypes<TField>['object']>
@@ -354,8 +354,8 @@ export type FieldAfterCommitFamilyHook<
 export interface FieldAfterRollbackInput<
 	TKind extends FieldMutationHookKind = FieldMutationHookKind,
 > {
-	/** Carries safe request, transaction, and cancellation identity. */
-	readonly context: HookExecutionContext
+	/** Carries immutable request identity and revocable hook capabilities. */
+	readonly context: HookContext
 	readonly error: unknown
 	readonly kind: TKind
 	readonly timing: 'after-rollback'
@@ -373,8 +373,8 @@ export interface FieldErrorHookInput<
 	TKind extends FieldInputHookKind | FieldOutputHookKind =
 		FieldInputHookKind | FieldOutputHookKind,
 > {
-	/** Carries safe request, transaction, and cancellation identity. */
-	readonly context: HookExecutionContext
+	/** Carries immutable request identity and revocable hook capabilities. */
+	readonly context: HookContext
 	/** The original failure retained as an unknown boundary value. */
 	readonly error: unknown
 	/** The exact terminal discriminant for the field-participating operation. */

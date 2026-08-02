@@ -1,0 +1,128 @@
+import * as ts from 'typescript'
+import { describe, expect, it } from 'vitest'
+
+import { createLanguageService } from '../../../../tooling/vitest/typescript-language-service.js'
+
+const fileName = `${import.meta.dirname}/hook-context-intellisense.fixture.ts`
+const completionMarker = '/* completion:hook-context */'
+const sourceWithMarkers = `
+import { Schema, stringField, type HookContext } from '../../src/index.js'
+
+const AuditSchema = new Schema({
+  className: 'HookContextIntelliSenseAudit',
+  fields: {
+    action: stringField({ validation: { required: true } }),
+    secret: stringField(),
+  },
+})
+
+declare const context: HookContext
+
+context.${completionMarker}query(AuditSchema)
+const query = context./* hover:query-method */query(AuditSchema)
+const event = context./* hover:emit-method */emit('audit.created', { id: 'audit-1' })
+const selected = await query.select('id', 'action').find()
+const /* hover:selected-result */ first = selected[0]
+void event
+void first
+`
+const completionPosition = sourceWithMarkers.indexOf(completionMarker)
+const source = sourceWithMarkers.replace(
+	completionMarker,
+	' '.repeat(completionMarker.length),
+)
+const service = createLanguageService(fileName, source)
+
+/** Reads QuickInfo after one marker without coupling assertions to line offsets. */
+const readQuickInfo = (marker: string): ts.QuickInfo => {
+	let position = source.indexOf(marker)
+
+	if (position < 0) {
+		throw new TypeError(`Missing HookContext hover marker: ${marker}`)
+	}
+
+	position += marker.length
+
+	while (/\s/u.test(source[position] ?? '')) {
+		position += 1
+	}
+
+	const quickInfo = service.getQuickInfoAtPosition(fileName, position)
+
+	if (quickInfo === undefined) {
+		throw new TypeError(`Missing HookContext QuickInfo: ${marker}`)
+	}
+
+	return quickInfo
+}
+
+/** Renders the exact editor text used by compact hover assertions. */
+const displayQuickInfo = (marker: string): string => {
+	const quickInfo = readQuickInfo(marker)
+
+	return ts.displayPartsToString(quickInfo.displayParts)
+}
+
+describe('HookContext IntelliSense', () => {
+	it('exposes only documented safe capabilities through completion', () => {
+		const completions = service.getCompletionsAtPosition(
+			fileName,
+			completionPosition,
+			{},
+		)
+		const names = completions?.entries.map(({ name }) => name) ?? []
+
+		expect(names).toEqual(
+			expect.arrayContaining([
+				'access',
+				'emit',
+				'hasCapability',
+				'hook',
+				'query',
+				'requestId',
+				'signal',
+				'source',
+				'transactionId',
+			]),
+		)
+		expect(names).not.toEqual(
+			expect.arrayContaining([
+				'adapter',
+				'commit',
+				'metadata',
+				'rollback',
+				'skipHooks',
+				'useMasterKey',
+			]),
+		)
+	})
+
+	it('keeps method and selected-result hovers concise', () => {
+		const query = displayQuickInfo('/* hover:query-method */')
+		const emit = displayQuickInfo('/* hover:emit-method */')
+		const selected = displayQuickInfo('/* hover:selected-result */')
+
+		expect(query).toContain('BoundQuery<')
+		expect(query.length).toBeLessThan(900)
+		expect(emit).toContain('void')
+		expect(emit.length).toBeLessThan(700)
+		expect(selected).toContain('readonly action: string;')
+		expect(selected).toContain('readonly id: string;')
+		expect(selected).not.toContain('secret')
+		expect(selected.length).toBeLessThan(300)
+	})
+
+	it('documents query and event capabilities in editor hovers', () => {
+		const query = readQuickInfo('/* hover:query-method */')
+		const emit = readQuickInfo('/* hover:emit-method */')
+
+		expect(ts.displayPartsToString(query.documentation)).toContain(
+			'active transaction',
+		)
+		expect(ts.displayPartsToString(emit.documentation)).toContain(
+			'after the transaction commits',
+		)
+		expect(query.tags?.some(({ name }) => name === 'example')).toBe(true)
+		expect(emit.tags?.some(({ name }) => name === 'example')).toBe(true)
+	})
+})

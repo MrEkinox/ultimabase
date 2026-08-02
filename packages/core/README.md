@@ -202,9 +202,10 @@ const PostSchema = new Schema({
 	hooks: {
 		beforeCreate: async ({ context, operation }) => {
 			if (operation.kind === 'create-one') {
-				await validateTitle(operation.input.title, {
-					signal: context.signal,
+				await context.query(AuditSchema).create({
+					action: 'post.create',
 				})
+				context.emit('post.created', { title: operation.input.title })
 			}
 
 			console.log(context.requestId, context.transactionId)
@@ -217,11 +218,31 @@ const PostSchema = new Schema({
 `requestId` correlates the originating request. `transactionId` is defined for
 automatic mutations and explicit transactions and remains identical across
 nested operations. `signal` carries cooperative request cancellation and native
-deadlines such as `AbortSignal.timeout()`. The context intentionally omits
-request metadata, credentials, adapters, commit/rollback controls, and hook
-bypasses. Issue 340 will provide the richer `HookContext` class through the same
-property, adding transaction-bound queries and post-commit events without
-changing existing handler syntax.
+deadlines such as `AbortSignal.timeout()`. `context.query(schema)` keeps exact
+Query inference and reuses the current transaction. Unawaited nested work is
+drained before finalization, and a caught nested failure still makes the
+transaction rollback-only. The context intentionally omits request metadata,
+credentials, adapters, commit/rollback controls, and hook bypasses.
+
+`context.emit(name, payload)` snapshots one JSON object or array and queues it
+for delivery only after commit. A plugin registers an explicit consumer:
+
+```ts
+setup: ({ registries }) => {
+	registries.events.register(
+		'posts.created',
+		onEvent({
+			name: 'post.created',
+			handler: ({ event }) => searchIndex.add(event.payload),
+		}),
+	)
+}
+```
+
+Emission requires an active transaction and a matching consumer. Rollback
+discards the event. Finalization hooks and event consumers receive the same
+class for correlation and capability checks, but cannot start queries after the
+operation journal has closed.
 
 Runtime rejects direct and indirect re-entry into the same active hook with
 `HOOK_RECURSION`. Other phases, fields, and schemas remain available for finite

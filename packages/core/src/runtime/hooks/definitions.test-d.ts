@@ -26,8 +26,11 @@ test('infers schema and operation discriminants inside contribution handlers', (
 				string | undefined
 			>()
 			expectTypeOf(input.context.signal).toEqualTypeOf<AbortSignal>()
-			// @ts-expect-error -- Low-level hooks do not receive request authority.
-			void input.context.access
+			expectTypeOf(input.context.access.mode).toEqualTypeOf<
+				'anonymous' | 'master' | 'user'
+			>()
+			// @ts-expect-error -- Low-level hooks never receive private request metadata.
+			void input.context.metadata
 			expectTypeOf(input.operation).toEqualTypeOf<
 				CreateOneOperationAst<typeof articleSchema>
 			>()

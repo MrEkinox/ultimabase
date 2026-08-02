@@ -9,7 +9,7 @@ import type {
 import type { RuntimePipeline } from '../pipeline/runtime-pipeline.js'
 import type { RuntimePipelineTransactionScope } from './pipeline-transaction.js'
 import { TransactionLifetime } from './transaction-lifetime.js'
-import { runWithTransactionId } from './transaction-execution-storage.js'
+import { runWithTransactionExecution } from './transaction-execution-storage.js'
 import { throwIfOperationCancelled } from '../hooks/cancellation.js'
 
 /** Retains a successful callback value or its exact thrown failure. */
@@ -146,8 +146,8 @@ const throwCommittedFailure = async (
  * Owns the adapter-neutral callback lifecycle while the engine module decides
  * the exact typed RequestEngine instance exposed to the developer.
  */
-const executeRequestTransaction = async <TEngine, TResult>(
-	pipeline: RuntimePipeline,
+const executeActiveRequestTransaction = async <TEngine, TResult>(
+	scope: RuntimePipelineTransactionScope,
 	createEngine: (
 		pipeline: RuntimePipeline,
 		lifetime: TransactionLifetime,
@@ -155,8 +155,6 @@ const executeRequestTransaction = async <TEngine, TResult>(
 	handler: (engine: TEngine) => MaybePromise<TResult>,
 	signal: AbortSignal,
 ): Promise<TResult> => {
-	const scope: RuntimePipelineTransactionScope =
-		await pipeline.beginTransaction()
 	const lifetime = new TransactionLifetime()
 	const engine: TEngine = createEngine(scope.pipeline, lifetime)
 	let outcome: TransactionOutcome<TResult>
@@ -254,6 +252,30 @@ const executeRequestTransaction = async <TEngine, TResult>(
 	return outcome.value
 }
 
+/** Installs transaction identity and post-commit deferral after begin succeeds. */
+const executeRequestTransaction = async <TEngine, TResult>(
+	pipeline: RuntimePipeline,
+	createEngine: (
+		pipeline: RuntimePipeline,
+		lifetime: TransactionLifetime,
+	) => TEngine,
+	handler: (engine: TEngine) => MaybePromise<TResult>,
+	signal: AbortSignal,
+): Promise<TResult> => {
+	const scope: RuntimePipelineTransactionScope =
+		await pipeline.beginTransaction()
+
+	return runWithTransactionExecution(
+		{
+			deferPostCommitEffect: (effect) => {
+				scope.deferPostCommitEffect(effect)
+			},
+			transactionId: randomUUID(),
+		},
+		() => executeActiveRequestTransaction(scope, createEngine, handler, signal),
+	)
+}
+
 /** Assigns one opaque identity before adapter work so all nested hooks share it. */
 export const runRequestTransaction = <TEngine, TResult>(
 	pipeline: RuntimePipeline,
@@ -264,6 +286,4 @@ export const runRequestTransaction = <TEngine, TResult>(
 	handler: (engine: TEngine) => MaybePromise<TResult>,
 	signal: AbortSignal,
 ): Promise<TResult> =>
-	runWithTransactionId(randomUUID(), () =>
-		executeRequestTransaction(pipeline, createEngine, handler, signal),
-	)
+	executeRequestTransaction(pipeline, createEngine, handler, signal)
