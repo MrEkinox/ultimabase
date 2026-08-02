@@ -26,3 +26,7 @@ that completed E2E objective. Generic constraint compilers are introduced by
 issue 338 before issue 509 registers the ACL-specific PostgreSQL compiler.
 Transaction issue 508 is now a dependency of the active native-hook PostgreSQL
 verification in issue 335.
+
+Issue 514 represents generated differences with an immutable `MigrationPlan`
+class. The plan is inspectable and deterministic, while connection ownership,
+application, locking, and destructive policy remain plugin responsibilities.

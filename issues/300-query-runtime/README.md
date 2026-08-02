@@ -24,3 +24,9 @@ the same monotonic plugin-hook enforcement boundary.
 Issue 338 adds the generic adapter compiler registry required to execute opaque
 constraints against PostgreSQL. The registry remains policy-neutral: concrete
 ACL, tenancy, or soft-delete constraint kinds belong to their owning plugins.
+
+Issues 339–341 retain future class-oriented DX work outside the active native
+hook critical path: immutable `UltimaObject` results, a transaction-bound
+`HookContext`, and a server-side `QueryCursor` value object. They must preserve
+plain adapter boundaries, transport-safe opaque cursor strings, and the ban on
+Active Record persistence.
