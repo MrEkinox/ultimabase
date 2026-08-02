@@ -281,7 +281,10 @@ describe('Runtime hooks and post-commit events', () => {
 
 		const result = await request.query(articleSchema).create({ title: 'input' })
 
-		expect(adapter.rootRequests[0]?.operation).toMatchObject({
+		// Root mutations must use the transaction executor rather than the root adapter.
+		expect(adapter.rootRequests).toStrictEqual([])
+		expect(adapter.transactions).toHaveLength(1)
+		expect(adapter.transactions[0]?.requests[0]?.operation).toMatchObject({
 			kind: 'create-one',
 			input: { title: 'input:dependency' },
 		})
@@ -290,6 +293,7 @@ describe('Runtime hooks and post-commit events', () => {
 			title: 'stored:dependency',
 		})
 		expect(trace).toStrictEqual([
+			'adapter:begin',
 			'global-before:dependency',
 			'global-before:consumer',
 			'schema-before:dependency',
@@ -299,7 +303,7 @@ describe('Runtime hooks and post-commit events', () => {
 			'schema-after:consumer:stored:dependency',
 			'global-after:dependency',
 			'global-after:consumer',
-			'pipeline:commit',
+			'adapter:commit',
 			'event:dependency:stored:dependency',
 			'event:consumer:stored:dependency',
 		])
@@ -358,10 +362,9 @@ describe('Runtime hooks and post-commit events', () => {
 			trace,
 		)
 
+		// The root mutation owns the rollback boundary without an explicit callback.
 		await expect(
-			request.transaction((transaction) =>
-				transaction.query(articleSchema).create({ title: 'input' }),
-			),
+			request.query(articleSchema).create({ title: 'input' }),
 		).rejects.toBe(hookError)
 		expect(trace).toStrictEqual([
 			'adapter:begin',

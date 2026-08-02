@@ -1,4 +1,7 @@
-import { FrameworkApplication } from '../../src/index.js'
+import {
+	FrameworkApplication,
+	type SchemaMutationHookKind,
+} from '../../src/index.js'
 import { Query } from '../../src/index.js'
 import { Schema, intField, stringField } from '../../src/index.js'
 import { describe, expect, it } from 'vitest'
@@ -42,6 +45,23 @@ const createRequest = (
 	return { adapter, request }
 }
 
+/** Verifies the common lifecycle shared by every committed root mutation. */
+const expectCommittedTransaction = (
+	adapter: RecordingDatabaseAdapter,
+	trace: readonly string[],
+	kind: SchemaMutationHookKind,
+): void => {
+	expect(adapter.rootRequests).toStrictEqual([])
+	expect(adapter.transactions).toHaveLength(1)
+	expect(adapter.transactions[0]?.requests[0]?.operation.kind).toBe(kind)
+	expect(trace).toStrictEqual([
+		'adapter:begin',
+		`execute:${kind}`,
+		'adapter:commit',
+		`event:${kind}`,
+	])
+}
+
 describe('bulk and upsert terminals', () => {
 	it('creates ordered objects in an automatic transaction by default', async () => {
 		const trace: string[] = []
@@ -62,18 +82,12 @@ describe('bulk and upsert terminals', () => {
 			])
 
 		expect(result).toBe(created)
-		expect(adapter.rootRequests).toStrictEqual([])
 		expect(adapter.transactions[0]?.requests[0]?.operation).toMatchObject({
 			kind: 'create-many',
 			inputs: [{ email: 'first@example.com' }, { email: 'second@example.com' }],
 			options: { atomic: true },
 		})
-		expect(trace).toStrictEqual([
-			'adapter:begin',
-			'execute:create-many',
-			'adapter:commit',
-			'event:create-many',
-		])
+		expectCommittedTransaction(adapter, trace, 'create-many')
 	})
 
 	it('upserts ordered independent unique targets in one automatic transaction', async () => {
@@ -109,18 +123,13 @@ describe('bulk and upsert terminals', () => {
 			],
 			options: { atomic: true },
 		})
-		expect(trace).toStrictEqual([
-			'adapter:begin',
-			'execute:upsert-many',
-			'adapter:commit',
-			'event:upsert-many',
-		])
+		expectCommittedTransaction(adapter, trace, 'upsert-many')
 	})
 
 	it('rolls back the complete atomic bulk operation when its adapter rejects', async () => {
 		const trace: string[] = []
 		const writeError = new Error('second object conflicts')
-		const { request } = createRequest(
+		const { adapter, request } = createRequest(
 			[{ status: 'rejected', error: writeError }],
 			trace,
 		)
@@ -128,6 +137,11 @@ describe('bulk and upsert terminals', () => {
 		await expect(
 			request.query(accountSchema).createMany([{ email: 'first@example.com' }]),
 		).rejects.toBe(writeError)
+		expect(adapter.rootRequests).toStrictEqual([])
+		expect(adapter.transactions).toHaveLength(1)
+		expect(adapter.transactions[0]?.requests[0]?.operation.kind).toBe(
+			'create-many',
+		)
 		expect(trace).toStrictEqual([
 			'adapter:begin',
 			'execute:create-many',
@@ -135,7 +149,7 @@ describe('bulk and upsert terminals', () => {
 		])
 	})
 
-	it('supports explicit non-atomic bulk execution on the root adapter', async () => {
+	it('keeps explicit non-atomic grouping inside one mutation transaction', async () => {
 		const trace: string[] = []
 		const created = [
 			{ id: 'account-1', email: 'first@example.com', visits: 0 },
@@ -150,43 +164,38 @@ describe('bulk and upsert terminals', () => {
 				.query(accountSchema)
 				.createMany([{ email: 'first@example.com' }], { atomic: false }),
 		).resolves.toBe(created)
-		expect(adapter.transactions).toStrictEqual([])
-		expect(adapter.rootRequests[0]?.operation).toMatchObject({
+		expect(adapter.transactions[0]?.requests[0]?.operation).toMatchObject({
 			kind: 'create-many',
 			options: { atomic: false },
 		})
-		expect(trace).toStrictEqual([
-			'execute:create-many',
-			'pipeline:commit:create-many',
-			'event:create-many',
-		])
+		expectCommittedTransaction(adapter, trace, 'create-many')
 	})
 
-	it('returns counts for multi-row update and delete without implicit transactions', async () => {
-		const trace: string[] = []
-		const { adapter, request } = createRequest(
-			[
-				{ status: 'fulfilled', value: 3 },
-				{ status: 'fulfilled', value: 2 },
-			],
-			trace,
+	it('returns counts for transactional set-based update and delete', async () => {
+		const updateTrace: string[] = []
+		const deleteTrace: string[] = []
+		const { adapter: updateAdapter, request: updateRequest } = createRequest(
+			[{ status: 'fulfilled', value: 3 }],
+			updateTrace,
+		)
+		const { adapter: deleteAdapter, request: deleteRequest } = createRequest(
+			[{ status: 'fulfilled', value: 2 }],
+			deleteTrace,
 		)
 
-		const updated = await request
+		const updated = await updateRequest
 			.query(accountSchema)
 			.greaterThan('visits', 0)
 			.updateMany({ increment: { visits: 1 } })
-		const deleted = await request
+		const deleted = await deleteRequest
 			.query(accountSchema)
 			.equalTo('visits', 0)
 			.deleteMany()
 
 		expect(updated).toBe(3)
 		expect(deleted).toBe(2)
-		expect(adapter.transactions).toStrictEqual([])
-		expect(
-			adapter.rootRequests.map(({ operation }) => operation.kind),
-		).toStrictEqual(['update-many', 'delete-many'])
+		expectCommittedTransaction(updateAdapter, updateTrace, 'update-many')
+		expectCommittedTransaction(deleteAdapter, deleteTrace, 'delete-many')
 	})
 
 	it('reuses an explicit outer transaction instead of nesting automatic bulk work', async () => {
@@ -205,12 +214,6 @@ describe('bulk and upsert terminals', () => {
 				.createMany([{ email: 'first@example.com' }]),
 		)
 
-		expect(adapter.transactions).toHaveLength(1)
-		expect(trace).toStrictEqual([
-			'adapter:begin',
-			'execute:create-many',
-			'adapter:commit',
-			'event:create-many',
-		])
+		expectCommittedTransaction(adapter, trace, 'create-many')
 	})
 })

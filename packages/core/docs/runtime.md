@@ -184,13 +184,23 @@ normalized-operation API. Bound queries expose `find`, `first`, `get`, `count`,
 `exists`, `createOne`/`create`, `createMany`, `updateOne`, `updateMany`,
 `upsertOne`/`upsert`, `upsertMany`, `deleteOne`, and `deleteMany`.
 
-Ordered bulk create and upsert automatically use the same transaction lifecycle
-as `request.transaction()` unless the developer passes `{ atomic: false }`.
-They therefore commit once, roll back as a unit, and expose post-commit effects
-only after the adapter confirms the commit. If already inside an explicit
-transaction, they reuse it without attempting a nested transaction. Bulk
-update and delete return affected-object counts and do not open an implicit
-transaction because each is already one adapter operation.
+Every root mutation automatically uses the same adapter transaction lifecycle
+as `request.transaction()`. This includes singular and bulk create, update,
+upsert, and delete operations, including the set-based `updateMany` and
+`deleteMany` terminals. An operation already inside an explicit transaction
+reuses that exact scope without attempting a nested transaction. Root reads do
+not open a transaction.
+
+The bulk `{ atomic: false }` option never bypasses this boundary. It may control
+future collection grouping, but every resulting group remains transactional.
+Issue 334 owns partial-success, stopping, and per-item grouping semantics;
+until then, one normalized bulk operation uses one automatic transaction.
+
+Automatic mutation transactions install their derived request engine in the
+active asynchronous scope before the operation pipeline runs. Internal code and
+future native hooks therefore resolve that engine through `getCurrentEngine()`.
+Native hook inputs do not expose a temporary engine property: issue 340 adds the
+explicit immutable `HookContext` and its transaction-bound query capability.
 
 `request.transaction(callback)` begins a transaction through the database
 adapter retained by the pipeline. The callback receives a distinct engine with

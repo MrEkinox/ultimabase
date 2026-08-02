@@ -25,6 +25,17 @@ export interface TransactionFailureOptions {
 	readonly rollback?: Error
 }
 
+/** Allows focused transaction tests to replace only effectful pipeline stages. */
+export type RecordingPipelineHookStages = Partial<
+	Pick<
+		RuntimePipelineStages,
+		| 'globalBeforeHooks'
+		| 'schemaBeforeHooks'
+		| 'schemaAfterHooks'
+		| 'globalAfterHooks'
+	>
+>
+
 /** Resolves fixture values only at the operation boundary that supplies their exact type. */
 const executeQueuedResult = <const TOperation extends DatabaseOperationAst>(
 	results: QueuedAdapterResult[],
@@ -51,11 +62,12 @@ export class RecordingTransactionAdapter implements DatabaseTransactionAdapter {
 	readonly #failures: TransactionFailureOptions
 
 	constructor(
-		results: readonly QueuedAdapterResult[],
+		results: QueuedAdapterResult[],
 		trace: string[],
 		failures: TransactionFailureOptions = {},
 	) {
-		this.#results = [...results]
+		// Every transaction consumes the adapter's one ordered response queue.
+		this.#results = results
 		this.#trace = trace
 		this.#failures = failures
 	}
@@ -86,7 +98,7 @@ export class RecordingTransactionAdapter implements DatabaseTransactionAdapter {
 	}
 }
 
-/** Starts a fresh transaction adapter and can also serve explicit non-atomic writes. */
+/** Starts fresh transaction adapters while retaining root read execution. */
 export class RecordingDatabaseAdapter implements DatabaseAdapter {
 	readonly kind = 'database-adapter' as const
 	readonly rootRequests: DatabaseOperationRequest[] = []
@@ -133,6 +145,7 @@ export class RecordingDatabaseAdapter implements DatabaseAdapter {
 export const createRecordingPipeline = (
 	databaseOperation: DatabaseAdapter,
 	trace: string[],
+	hookStages: RecordingPipelineHookStages = {},
 ): RuntimePipeline => {
 	const stages: RuntimePipelineStages = {
 		normalization: (input) => input.operation,
@@ -148,6 +161,7 @@ export const createRecordingPipeline = (
 		databaseOperation,
 		schemaAfterHooks: (input) => input.result,
 		globalAfterHooks: (input) => input.result,
+		...hookStages,
 		commit: (input) => {
 			trace.push(`pipeline:commit:${input.operation.kind}`)
 		},

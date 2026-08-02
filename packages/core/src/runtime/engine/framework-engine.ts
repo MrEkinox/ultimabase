@@ -28,7 +28,7 @@ import {
 import { getOperationSchema } from '../operations/schema.js'
 import { RuntimePipeline } from '../pipeline/runtime-pipeline.js'
 import { runRequestTransaction } from '../transactions/run-transaction.js'
-import { requiresAtomicBulkTransaction } from '../transactions/atomic-bulk.js'
+import { requiresAutomaticMutationTransaction } from '../transactions/automatic-mutation.js'
 import {
 	createNestedTransactionError,
 	type TransactionLifetime,
@@ -288,14 +288,16 @@ export class RequestEngine<
 
 		if (
 			this.#transactionLifetime === undefined &&
-			requiresAtomicBulkTransaction(operation)
+			requiresAutomaticMutationTransaction(operation)
 		) {
-			// Automatic bulk transactions reuse the exact public transaction lifecycle.
+			// Every root mutation reuses the exact public transaction lifecycle.
 			return this.transaction((transaction) => transaction.execute(operation))
 		}
 
 		const executeOperation = (): Promise<DatabaseOperationResult<TOperation>> =>
-			this.#pipeline.execute({ context: this.context, operation })
+			runWithRequestEngineScope(this, () =>
+				this.#pipeline.execute({ context: this.context, operation }),
+			)
 
 		return this.#transactionLifetime === undefined
 			? executeOperation()

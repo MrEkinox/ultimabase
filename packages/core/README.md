@@ -33,6 +33,25 @@ Detailed guides remain focused by domain:
 - [request authority](docs/access.md);
 - [Runtime, engines, transactions, and hooks](docs/runtime.md).
 
+## Automatic mutation transactions
+
+Every root create, update, upsert, and delete terminal automatically uses the
+configured database adapter's transaction lifecycle. Developer code keeps the
+same concise API:
+
+```ts
+const post = await ultimabase.query(PostSchema).create({
+	title: 'Atomic by default',
+})
+```
+
+The complete current Runtime mutation pipeline and database work started inside
+it commit or roll back together. Issue 330 connects native schema, field, and
+plugin hooks inside this already active boundary. An explicit
+`RequestEngine.transaction()` is reused without nesting, while root reads
+remain non-transactional. Bulk `{ atomic: false }` may later change collection
+grouping, but it never disables the transaction boundary.
+
 ```ts
 import { Schema, UltimaBase, booleanField, stringField } from '@ultimabase/core'
 

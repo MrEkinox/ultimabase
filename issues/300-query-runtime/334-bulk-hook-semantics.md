@@ -3,7 +3,7 @@
 - Status: planned
 - Milestone: 3
 - Packages: `@ultimabase/core`
-- Depends on: 316, 329, 330
+- Depends on: 316, 329, 330, 332, 340
 - ADR: ADR-0069, ADR-0089
 
 ## Goal

@@ -146,8 +146,9 @@ object results follow the accumulated selection exactly.
 
 ## Bulk writes and unique upserts
 
-Bulk create and upsert are atomic by default. Callers can explicitly opt out
-when an adapter supports useful partial-success behavior:
+Bulk create and upsert request one collection group by default. Setting
+`atomic: false` may opt into a future finer-grained grouping strategy, but it
+never disables Runtime's mandatory mutation transaction:
 
 ```ts
 const accounts = await requestEngine
@@ -158,6 +159,12 @@ await requestEngine.query(accountSchema).createMany(importRows, {
 	atomic: false,
 })
 ```
+
+Issue 334 owns the exact partial-success, stopping, result, and per-item
+grouping contract. Until that issue introduces another documented strategy,
+one normalized bulk operation remains one automatic transaction. Transports and
+adapters must not interpret `atomic: false` as permission to execute a mutation
+directly on the root database adapter.
 
 `upsertOne` uses the bound query as its conflict target. It must contain only
 distinct, non-null equality filters that exactly match `id`, one unique field,
@@ -256,9 +263,11 @@ Upserts similarly keep their target query, create values, and update expression
 independent.
 
 Only bulk create and bulk upsert carry `AtomicBulkOperationOptions`. Its sole
-property is `atomic`; master authority is deliberately absent from every
-operation. Trusted authority belongs to the future Runtime request context, so
-transport input cannot manufacture it by adding an operation option.
+property is `atomic`, which describes collection grouping rather than whether a
+transaction exists. Master authority is deliberately absent from every
+operation. Trusted authority belongs to Runtime's separately constructed
+request context, so transport input cannot manufacture it by adding an
+operation option.
 
 These contracts do not validate or snapshot untrusted write values. Runtime
 structural validation remains the single boundary for REST, GraphQL, jobs, and

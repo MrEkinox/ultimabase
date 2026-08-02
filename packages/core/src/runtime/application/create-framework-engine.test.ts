@@ -155,9 +155,13 @@ describe('createFrameworkEngine', () => {
 			.create({ title: '  assembled  ' })
 
 		expect(result.title).toBe('assembled')
-		expect(adapter.rootRequests).toHaveLength(1)
-		expect(adapter.rootRequests[0]?.accessConstraints).toStrictEqual([])
-		expect(adapter.rootRequests[0]?.operation).toMatchObject({
+		// Application assembly must route root mutations through the transaction adapter.
+		expect(adapter.rootRequests).toStrictEqual([])
+		expect(adapter.transactions).toHaveLength(1)
+		expect(
+			adapter.transactions[0]?.requests[0]?.accessConstraints,
+		).toStrictEqual([])
+		expect(adapter.transactions[0]?.requests[0]?.operation).toMatchObject({
 			kind: 'create-one',
 			input: {
 				id: generatedId,
@@ -167,12 +171,12 @@ describe('createFrameworkEngine', () => {
 			},
 		})
 		expect(trace).toStrictEqual([
+			'adapter:begin',
 			'normalization:dependency',
 			'normalization:consumer',
 			'hook:before',
 			'execute:create-one',
-			'commit:dependency',
-			'commit:consumer',
+			'adapter:commit',
 			'event:post-commit',
 		])
 

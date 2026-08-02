@@ -1,10 +1,10 @@
 # 330: Execute the native hook lifecycle
 
-- Status: planned
+- Status: ready
 - Milestone: 3
 - Packages: `@ultimabase/core`
 - Depends on: 320, 327, 328, 329
-- ADR: ADR-0015, ADR-0070, ADR-0089, ADR-0090
+- ADR: ADR-0015, ADR-0070, ADR-0089, ADR-0090, ADR-0096, ADR-0097, ADR-0099
 
 ## Goal
 

@@ -3,7 +3,7 @@
 - Status: active
 - Started: 2026-08-01
 - Objective owner: `@ultimabase/core`, `@ultimabase/postgres`, `@ultimabase/testing`
-- Governing decisions: [ADR-0089](docs/adr/0089-native-schema-and-field-hooks.md), [ADR-0090](docs/adr/0090-permission-plugins-through-hooks.md), [ADR-0095](docs/adr/0095-consolidated-foundational-core.md), [ADR-0096](docs/adr/0096-native-hook-declaration-capabilities.md)
+- Governing decisions: [ADR-0089](docs/adr/0089-native-schema-and-field-hooks.md), [ADR-0090](docs/adr/0090-permission-plugins-through-hooks.md), [ADR-0095](docs/adr/0095-consolidated-foundational-core.md), [ADR-0096](docs/adr/0096-native-hook-declaration-capabilities.md), [ADR-0099](docs/adr/0099-automatic-mutation-transactions.md)
 - Previous completed objective: [Runtime-to-PostgreSQL E2E](docs/plans/completed/runtime-postgres-e2e.md)
 
 ## Objective
@@ -62,7 +62,7 @@ The objective is complete only when:
 - `create`, `update`, `upsert`, `delete`, `save`, and `find` families include singular and bulk terminals.
 - Hook lists run sequentially; numeric priorities and implicit parallelism are forbidden.
 - Plugin hooks use the same dispatcher and can target global, schema, typed field path, extension, or field-kind scopes.
-- Every mutation is transactional. `{ atomic: false }` may change batch grouping but never separates an item's hooks from its write.
+- Every mutation is transactional. `{ atomic: false }` never bypasses that boundary; issue 334 may change batch grouping but never separates an item's hooks from its write.
 - Reads are not automatically transactional; explicit transactions remain available.
 - Business after-hooks run before commit and may roll back. External effects run after commit or through an outbox.
 - Set-based `updateMany` and `deleteMany` remain set-based.
@@ -83,7 +83,7 @@ dependencies are incomplete.
 5. [x] [327 — Compose hook families and handler lists](issues/300-query-runtime/327-hook-families-and-composition.md)
 6. [x] [328 — Add typed plugin hook targets](issues/300-query-runtime/328-plugin-hook-targets.md)
 7. [x] [519 — Implement the PostgreSQL transaction adapter lifecycle](issues/500-postgres/519-transaction-adapter-lifecycle.md)
-8. [ ] [329 — Make every mutation automatically transactional](issues/300-query-runtime/329-automatic-mutation-transactions.md)
+8. [x] [329 — Make every mutation automatically transactional](issues/300-query-runtime/329-automatic-mutation-transactions.md)
 9. [ ] [330 — Execute the native hook lifecycle](issues/300-query-runtime/330-native-hook-dispatcher.md)
 10. [ ] [337 — Replace named permission stages with hook enforcement](issues/300-query-runtime/337-policy-neutral-hook-enforcement.md)
 11. [ ] [338 — Add the adapter constraint compiler registry](issues/300-query-runtime/338-adapter-constraint-compiler-registry.md)
@@ -118,11 +118,12 @@ the named Runtime stages and proven monotonic hook enforcement.
 
 ## Current issue
 
-[329 — Make every mutation automatically transactional](issues/300-query-runtime/329-automatic-mutation-transactions.md)
+[330 — Execute the native hook lifecycle](issues/300-query-runtime/330-native-hook-dispatcher.md)
 
-PostgreSQL now binds Runtime transactions to one borrowed client. Issue 329 can
-install one automatic adapter transaction around every root mutation before
-native hook execution is connected by issue 330.
+Every root mutation now owns one adapter transaction and installs its exact
+transaction-bound engine before the operation pipeline executes. Issue 330 can
+therefore dispatch native schema, field, and plugin hooks without owning a
+second transaction mechanism.
 
 ## Progress log
 
@@ -136,7 +137,8 @@ without reconstructing repository history.
 - 327 — `done` — Direct handlers, non-empty ordered lists, typed family maps, immutable normalization, and sequential composition helpers now share one contract.
 - 328 — `done` — Owner-bound plugin setup now resolves six typed hook target scopes into isolated immutable snapshots with source and packed IntelliSense coverage.
 - 519 — `done` — PostgreSQL transactions borrow one client, share the private Drizzle executor, sanitize lifecycle failures, and release or destroy exactly once.
-- 329 — `ready` — Automatic mutation transactions follow the PostgreSQL transaction adapter prerequisite.
+- 329 — `done` — All eight mutation kinds reuse one automatic or explicit transaction, nested hook-stage work is rollback-only, reads remain direct, and master elevation retains the active scope.
+- 330 — `ready` — The native dispatcher can now execute every business phase inside the mandatory mutation transaction.
 - 337 — `planned` — Policy-neutral enforcement waits for the typed plugin targets and native dispatcher.
 - 338 — `planned` — The generic constraint compiler registry waits for policy-neutral constraint contracts from issue 337.
 - 508 — `ready` — PostgreSQL bulk and upsert support remains required before issue 335.

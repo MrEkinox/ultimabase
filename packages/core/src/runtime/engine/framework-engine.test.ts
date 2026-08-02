@@ -246,6 +246,48 @@ describe('FrameworkEngine', () => {
 		await expect(request.execute(operation)).resolves.toBe(createdArticle)
 	})
 
+	it('requires adapter transaction support before a mutation pipeline can begin', async () => {
+		const contexts: RequestContext[] = []
+		const operations: DatabaseOperationAst[] = []
+		const executor: DatabaseOperationExecutor = {
+			execute: <const TOperation extends DatabaseOperationAst>(
+				request: DatabaseOperationRequest<TOperation>,
+			): Promise<DatabaseOperationResult<TOperation>> => {
+				operations.push(request.operation)
+				const emptyReadResult: unknown = []
+
+				// This executor is reached only by the known read operation below.
+				return Promise.resolve(
+					emptyReadResult as DatabaseOperationResult<TOperation>,
+				)
+			},
+		}
+		const framework = new FrameworkEngine({
+			application: new FrameworkApplication({
+				schemas: [articleSchema],
+				plugins: [],
+			}),
+			pipeline: createPipeline(executor, contexts),
+		})
+		const request = framework.anonymous({
+			requestId: 'missing-transaction-adapter',
+			source: requestSources.internal,
+		})
+		const mutation = {
+			kind: 'create-one',
+			schema: new Query(articleSchema).ast.schema,
+			input: { title: 'Must not execute' },
+		} satisfies CreateOneOperationAst<typeof articleSchema>
+
+		await expect(request.execute(articleOperation)).resolves.toStrictEqual([])
+		await expect(request.execute(mutation)).rejects.toMatchObject({
+			code: 'TRANSACTION_ERROR',
+			internalDetails: { reason: 'database-adapter-required' },
+		})
+		expect(operations).toStrictEqual([articleOperation])
+		expect(contexts).toStrictEqual([request.context])
+	})
+
 	it('delegates transaction callbacks without losing request identity', async () => {
 		const framework = createFixtureFramework(articleSchema)
 		const request = framework.user('user-1', {

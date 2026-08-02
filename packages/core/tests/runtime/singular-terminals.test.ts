@@ -3,91 +3,49 @@ import { Schema, intField, stringField } from '../../src/index.js'
 import { describe, expect, it } from 'vitest'
 
 import { requestSources } from '../../src/runtime/context/request-context.js'
-import type {
-	DatabaseOperationAst,
-	DatabaseOperationExecutor,
-	DatabaseOperationRequest,
-	DatabaseOperationResult,
-} from '../../src/runtime/database/contracts.js'
 import { FrameworkEngine } from '../../src/runtime/engine/framework-engine.js'
-import type { RuntimePipelineStages } from '../../src/runtime/pipeline/contracts.js'
-import { RuntimePipeline } from '../../src/runtime/pipeline/runtime-pipeline.js'
+import {
+	createRecordingPipeline,
+	RecordingDatabaseAdapter,
+	type QueuedAdapterResult,
+} from './fixtures/recording-database-adapter.js'
 
 const articleSchema = new Schema({
 	className: 'TerminalArticle',
 	fields: {
-		title: stringField({ validation: { required: true } }),
+		title: stringField({
+			indexed: 'unique',
+			validation: { required: true },
+		}),
 		views: intField(),
 	},
 })
-
-/** Returns operation-correlated fixture values while recording adapter requests. */
-class QueuedDatabaseExecutor implements DatabaseOperationExecutor {
-	readonly requests: DatabaseOperationRequest[] = []
-	readonly #results: unknown[]
-
-	constructor(results: readonly unknown[]) {
-		this.#results = [...results]
-	}
-
-	execute<const TOperation extends DatabaseOperationAst>(
-		request: DatabaseOperationRequest<TOperation>,
-	): Promise<DatabaseOperationResult<TOperation>> {
-		this.requests.push(request)
-		const result: unknown = this.#results.shift()
-
-		// Each queued value is paired with the exact terminal invoked by this test.
-		return Promise.resolve(result as DatabaseOperationResult<TOperation>)
-	}
-}
-
-/** Builds the real mandatory pipeline with explicit neutral capability stages. */
-const createPipeline = (
-	databaseOperation: DatabaseOperationExecutor,
-): RuntimePipeline => {
-	const stages: RuntimePipelineStages = {
-		normalization: (input) => input.operation,
-		structuralValidation: (input) => input.operation,
-		clp: () => undefined,
-		acl: (input) => input.accessConstraints,
-		fieldPermissions: (input) => ({
-			operation: input.operation,
-			accessConstraints: input.accessConstraints,
-		}),
-		globalBeforeHooks: (input) => input.operation,
-		schemaBeforeHooks: (input) => input.operation,
-		databaseOperation,
-		schemaAfterHooks: (input) => input.result,
-		globalAfterHooks: (input) => input.result,
-		commit: () => undefined,
-		postCommitEvents: () => undefined,
-	}
-
-	return new RuntimePipeline(stages)
-}
 
 describe('singular BoundQuery terminals', () => {
 	it('executes every terminal through the RequestEngine pipeline', async () => {
 		const found = [{ id: 'article-1', title: 'Found' }]
 		const createdOne = { id: 'article-2', title: 'Created one' }
 		const createdAlias = { id: 'article-3', title: 'Created alias' }
-		const executor = new QueuedDatabaseExecutor([
-			found,
-			null,
-			null,
-			1,
-			true,
-			createdOne,
-			createdAlias,
-			null,
-			null,
-		])
+		const upserted = { id: 'article-4', title: 'Upserted' }
+		const results: readonly QueuedAdapterResult[] = [
+			{ status: 'fulfilled', value: found },
+			{ status: 'fulfilled', value: null },
+			{ status: 'fulfilled', value: null },
+			{ status: 'fulfilled', value: 1 },
+			{ status: 'fulfilled', value: true },
+			{ status: 'fulfilled', value: createdOne },
+			{ status: 'fulfilled', value: createdAlias },
+			{ status: 'fulfilled', value: null },
+			{ status: 'fulfilled', value: upserted },
+			{ status: 'fulfilled', value: null },
+		]
+		const adapter = new RecordingDatabaseAdapter(results, [])
 		const framework = new FrameworkEngine({
 			application: new FrameworkApplication({
 				schemas: [articleSchema],
 				plugins: [],
 			}),
-			pipeline: createPipeline(executor),
+			pipeline: createRecordingPipeline(adapter, []),
 		})
 		const request = framework.user('user-1', {
 			requestId: 'terminals-1',
@@ -110,11 +68,27 @@ describe('singular BoundQuery terminals', () => {
 		await expect(
 			query.updateOne({ increment: { views: 1 } }),
 		).resolves.toBeNull()
+		await expect(
+			request
+				.query(articleSchema)
+				.equalTo('title', 'Upserted')
+				.upsertOne({
+					create: { title: 'Upserted' },
+					update: { set: { title: 'Upserted' } },
+				}),
+		).resolves.toBe(upserted)
 		await expect(query.deleteOne()).resolves.toBeNull()
 
+		const requests = [
+			...adapter.rootRequests,
+			...adapter.transactions.flatMap((transaction) => transaction.requests),
+		]
+
 		expect(
-			executor.requests.map(({ operation }) => operation.kind),
-		).toStrictEqual([
+			adapter.rootRequests.map(({ operation }) => operation.kind),
+		).toStrictEqual(['find', 'first', 'get', 'count', 'exists'])
+		expect(adapter.transactions).toHaveLength(5)
+		expect(requests.map(({ operation }) => operation.kind)).toStrictEqual([
 			'find',
 			'first',
 			'get',
@@ -123,30 +97,35 @@ describe('singular BoundQuery terminals', () => {
 			'create-one',
 			'create-one',
 			'update-one',
+			'upsert-one',
 			'delete-one',
 		])
-		expect(executor.requests[0]?.operation).toMatchObject({
+		expect(requests[0]?.operation).toMatchObject({
 			kind: 'find',
 			query: query.ast,
 		})
-		expect(executor.requests[2]?.operation).toMatchObject({
+		expect(requests[2]?.operation).toMatchObject({
 			kind: 'get',
 			id: 'missing',
 		})
-		expect(executor.requests[5]?.operation).toMatchObject({
+		expect(requests[5]?.operation).toMatchObject({
 			kind: 'create-one',
 			schema: query.ast.schema,
 			input: createOneInput,
 		})
-		expect(executor.requests[7]?.operation).toMatchObject({
+		expect(requests[7]?.operation).toMatchObject({
 			kind: 'update-one',
 			update: {
 				kind: 'update-expression',
 				operations: [{ kind: 'increment', field: 'views', value: 1 }],
 			},
 		})
+		expect(requests[8]?.operation).toMatchObject({
+			kind: 'upsert-one',
+			target: { fields: ['title'] },
+		})
 		expect(
-			executor.requests.every(
+			requests.every(
 				(requestEnvelope) =>
 					Object.isFrozen(requestEnvelope) &&
 					Object.isFrozen(requestEnvelope.operation) &&
