@@ -172,10 +172,9 @@ describe('HookContext Runtime capabilities', () => {
 					expect(Object.isFrozen(context)).toBe(true)
 					transactionIds.push(context.transactionId)
 
-					void AuditSchema.query().create(
-						{ title: 'nested audit' },
-						{ useMasterKey: true },
-					)
+					void new AuditSchema({ title: 'nested audit' }).create({
+						useMasterKey: true,
+					})
 					return operation
 				},
 			},
@@ -325,7 +324,7 @@ describe('HookContext Runtime capabilities', () => {
 					// starts its query only after the hook callback has completed.
 					delayedQuery = (async () => {
 						await branchGate
-						return PostSchema.query().find()
+						return new PostSchema({ title: 'delayed' }).create()
 					})()
 
 					return operation

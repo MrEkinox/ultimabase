@@ -138,7 +138,17 @@ export type {
 	SchemaMetadata,
 	SchemaOptions,
 } from './schema/definition.js'
-export type { SchemaDraft, SchemaResult } from './schema/model.js'
+export type {
+	CompactSchemaModelUpdateInput,
+	PersistedSchemaModel,
+	SchemaDraft,
+	SchemaDraftCommands,
+	SchemaDraftUpsertInput,
+	SchemaDraftUpsertWhere,
+	SchemaModelUpdateInput,
+	SchemaResult,
+	SchemaResultCommands,
+} from './schema/model.js'
 export type {
 	FieldAfterCommitHook,
 	FieldAfterCommitFamilyHook,

@@ -304,6 +304,30 @@ describe('internal PostgreSQL database adapter', () => {
 			/select .* from "articles" where .* > \$1 order by .* desc NULLS FIRST limit \$2/u,
 		)
 
+		const titleOnly = {
+			kind: 'find',
+			query: new Query(articleSchema).select('title').ast,
+		} satisfies FindOperationAst<
+			typeof articleSchema,
+			QueryFilterNode<typeof articleSchema>,
+			'title'
+		>
+
+		driver.respond([['Private identity', firstId]])
+		const projected = await adapter.execute({
+			constraints: [],
+			operation: titleOnly,
+		})
+
+		expect(projected).toStrictEqual([{ title: 'Private identity' }])
+		const projectedRecord = projected[0]
+
+		if (projectedRecord === undefined) {
+			throw new TypeError('PostgreSQL projection fixture returned no record')
+		}
+
+		expect(adapter.readObjectIdentity?.(projectedRecord)).toBe(firstId)
+
 		driver.respond([])
 		await expect(
 			adapter.execute({

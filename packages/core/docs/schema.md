@@ -117,9 +117,37 @@ if (post !== null) {
 
 Direct properties, `get()`, enumeration, inspection, and `toJSON()` all share
 the same visible snapshot. Omitted fields are absent at runtime and from the
-inferred result type. Model instances are immutable and deliberately have no
-`save()`, `update()`, or `delete()` commands yet; issue 349 owns persistence
-commands without introducing mutable Active Record state.
+inferred result type. Runtime retains the protected object identity separately,
+so an instance selected with only `title` can still target itself without
+revealing `id` through properties or serialization.
+
+Drafts expose only `create` and `upsert`; persisted or queried models expose only
+`update` and `delete`:
+
+```ts
+const draft = new PostSchema({ title: 'Hello' })
+const created = await draft.create({ ultimabase })
+
+const imported = await new PostSchema({ title: 'Imported' }).upsert(
+	{
+		where: { slug: 'imported' },
+		update: { increment: { imports: 1 } },
+	},
+	{ ultimabase },
+)
+
+const updated = await created.update(
+	{ set: { title: 'Updated' } },
+	{ ultimabase },
+)
+await updated?.delete({ ultimabase })
+```
+
+`where` must contain distinct non-null equalities matching `id`, one unique
+field, or one composite unique index. Every command returns a new model and
+delegates to Query validation, hooks, policies, cancellation, and transactions.
+There is no dirty tracking, implicit batching, `save()`, or instance collection
+operation.
 
 ## Native schema hook declarations
 

@@ -1,9 +1,9 @@
 # Current plan: native hooks and contextual execution
 
-- Status: active
+- Status: completed
 - Started: 2026-08-01
 - Objective owner: `@ultimabase/core`, `@ultimabase/postgres`, `@ultimabase/testing`
-- Governing decisions: [ADR-0089](docs/adr/0089-native-schema-and-field-hooks.md), [ADR-0090](docs/adr/0090-permission-plugins-through-hooks.md), [ADR-0095](docs/adr/0095-consolidated-foundational-core.md), [ADR-0096](docs/adr/0096-native-hook-declaration-capabilities.md), [ADR-0099](docs/adr/0099-automatic-mutation-transactions.md), [ADR-0100](docs/adr/0100-prepared-mutation-outcomes.md), [ADR-0102](docs/adr/0102-policy-neutral-monotonic-enforcement.md), [ADR-0103](docs/adr/0103-versioned-adapter-constraint-compilers.md), [ADR-0104](docs/adr/0104-read-hook-execution-and-output-resolution.md), [ADR-0105](docs/adr/0105-transaction-hook-journal.md), [ADR-0106](docs/adr/0106-hook-execution-safety-and-diagnostics.md), [ADR-0107](docs/adr/0107-hook-context-capabilities-and-events.md), [ADR-0108](docs/adr/0108-contextual-query-terminal-execution.md), [ADR-0109](docs/adr/0109-constructible-schema-models.md), [ADR-0110](docs/adr/0110-concise-singular-query-terminals.md), [ADR-0111](docs/adr/0111-non-atomic-bulk-hook-semantics.md), [ADR-0113](docs/adr/0113-plugin-owned-authentication-context.md)
+- Governing decisions: [ADR-0089](docs/adr/0089-native-schema-and-field-hooks.md), [ADR-0090](docs/adr/0090-permission-plugins-through-hooks.md), [ADR-0095](docs/adr/0095-consolidated-foundational-core.md), [ADR-0096](docs/adr/0096-native-hook-declaration-capabilities.md), [ADR-0099](docs/adr/0099-automatic-mutation-transactions.md), [ADR-0100](docs/adr/0100-prepared-mutation-outcomes.md), [ADR-0102](docs/adr/0102-policy-neutral-monotonic-enforcement.md), [ADR-0103](docs/adr/0103-versioned-adapter-constraint-compilers.md), [ADR-0104](docs/adr/0104-read-hook-execution-and-output-resolution.md), [ADR-0105](docs/adr/0105-transaction-hook-journal.md), [ADR-0106](docs/adr/0106-hook-execution-safety-and-diagnostics.md), [ADR-0107](docs/adr/0107-hook-context-capabilities-and-events.md), [ADR-0108](docs/adr/0108-contextual-query-terminal-execution.md), [ADR-0109](docs/adr/0109-constructible-schema-models.md), [ADR-0110](docs/adr/0110-concise-singular-query-terminals.md), [ADR-0111](docs/adr/0111-non-atomic-bulk-hook-semantics.md), [ADR-0113](docs/adr/0113-plugin-owned-authentication-context.md), [ADR-0115](docs/adr/0115-immutable-model-commands.md)
 - Previous completed objective: [Runtime-to-PostgreSQL E2E](docs/plans/completed/runtime-postgres-e2e.md)
 
 ## Objective
@@ -107,7 +107,7 @@ dependencies are incomplete.
 22. [x] [335 — Verify native hooks against PostgreSQL](issues/300-query-runtime/335-native-hooks-postgres-e2e.md)
 23. [x] [350 — Make request identity plugin-owned](issues/300-query-runtime/350-plugin-owned-request-identity.md)
 24. [x] [348 — Add terminal-only Query authority options](issues/300-query-runtime/348-query-terminal-authority.md)
-25. [ ] [349 — Add immutable model persistence commands](issues/300-query-runtime/349-immutable-model-persistence.md)
+25. [x] [349 — Add immutable model persistence commands](issues/300-query-runtime/349-immutable-model-persistence.md)
 
 Issue 519 is a strict prerequisite of issue 329 because mandatory Core mutation
 transactions must not break the existing PostgreSQL CRUD vertical. Issue 344
@@ -133,12 +133,8 @@ the named Runtime stages and proven monotonic hook enforcement.
 
 ## Current issue
 
-[349 — Add immutable model persistence commands](issues/300-query-runtime/349-immutable-model-persistence.md)
-
-Issue 348 now gives every Query terminal one credential-neutral server options
-surface for inherited, plugin-derived, and audited-master execution while
-retaining the active hook and transaction boundaries. Issue 349 can reuse this
-exact terminal contract from immutable model persistence commands.
+None. The native hooks and contextual execution objective is complete through
+[349 — Add immutable model persistence commands](issues/300-query-runtime/349-immutable-model-persistence.md).
 
 ## Progress log
 
@@ -168,5 +164,5 @@ without reconstructing repository history.
 - 335 — `done` — A public-export PostgreSQL E2E now proves schema, field, plugin, policy-neutral, transaction, finalization, read, and set-based bulk hook behavior against a worker-isolated live database.
 - 350 — `done` — Core retains only anonymous and audited master authority; nominal plugin-owned tokens now validate and expose immutable typed request values through RequestContext and HookContext.
 - 348 — `done` — Every Query terminal now inherits, accepts one application-owned plugin context, or requests audited master authority through one documented server-only options interface outside the AST.
-- 349 — `planned` — Immutable model commands will delegate create, upsert, update, and delete through the same contextual Query pipeline.
+- 349 — `done` — Immutable draft and persisted commands now delegate create, upsert, update, and delete through the contextual Query pipeline while retaining protected identity and exact public projections.
 - 508 — `done` — PostgreSQL now executes ordered create/upsert collections, set-based update/delete statements, exact upsert branches, and recoverable non-atomic prefixes through one prepared transaction adapter.

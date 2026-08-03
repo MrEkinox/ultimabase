@@ -43,6 +43,16 @@ describe('PostgreSQL query clause compiler', () => {
 		])
 	})
 
+	it('adds private object identity when an explicit selection omits id', () => {
+		const clauses = compilePostgresQueryClauses(
+			new Query(ArticleSchema).select('title').ast,
+			compiledSchema,
+		)
+
+		// The adapter removes this additional id before returning public values.
+		expect(Object.keys(clauses.selection)).toStrictEqual(['title', 'id'])
+	})
+
 	it('loads every compiled field when no selection is declared', () => {
 		const clauses = compilePostgresQueryClauses(
 			new Query(ArticleSchema).ast,

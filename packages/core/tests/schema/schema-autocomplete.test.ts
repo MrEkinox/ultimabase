@@ -248,15 +248,75 @@ void query
 `)
 		const draftDisplay = ts.displayPartsToString(draft.displayParts)
 		const queryDisplay = ts.displayPartsToString(query.displayParts)
+		const draftValueDisplay = draftDisplay.split('readonly create:')[0] ?? ''
 
 		expect(draftDisplay).toContain('const Post: SchemaClass')
 		expect(draftDisplay).toContain('title: string;')
-		expect(draftDisplay).not.toContain('id: string;')
+		expect(draftValueDisplay).not.toContain('id: string;')
 		expect(draftDisplay).not.toContain('NonDefaultedStringField<')
 		expect(queryDisplay).toContain('query(): Query<')
 		expect(ts.displayPartsToString(query.documentation)).toContain(
 			'fresh immutable Query',
 		)
+	})
+
+	it('keeps draft and persisted model commands distinct and documented', () => {
+		const draftFixture = createCompletionFixture(`
+import { Schema, stringField } from '../../src/schema/index.js'
+const Post = Schema.define({
+	className: 'Post',
+	fields: { title: stringField({ validation: { required: true } }) },
+})
+new Post({ title: 'Hello' })./* completion */
+`)
+		const draftNames = new Set(draftFixture.completions.map(({ name }) => name))
+		const persistedFixture = createCompletionFixture(`
+import { Schema, stringField, type SchemaResult } from '../../src/schema/index.js'
+const Post = Schema.define({
+	className: 'Post',
+	fields: { title: stringField({ validation: { required: true } }) },
+})
+declare const post: SchemaResult<typeof Post, { readonly title: string }>
+post./* completion */
+`)
+		const persistedNames = new Set(
+			persistedFixture.completions.map(({ name }) => name),
+		)
+
+		expect(draftNames.has('create')).toBe(true)
+		expect(draftNames.has('upsert')).toBe(true)
+		expect(draftNames.has('update')).toBe(false)
+		expect(draftNames.has('delete')).toBe(false)
+		expect(persistedNames.has('update')).toBe(true)
+		expect(persistedNames.has('delete')).toBe(true)
+		expect(persistedNames.has('create')).toBe(false)
+		expect(persistedNames.has('upsert')).toBe(false)
+
+		const create = readMarkedQuickInfo(`
+import { Schema, stringField } from '../../src/schema/index.js'
+const Post = Schema.define({ className: 'Post', fields: { title: stringField() } })
+new Post({ title: 'Hello' })./* hover */create()
+`)
+		const update = readMarkedQuickInfo(`
+import { Schema, stringField, type SchemaResult } from '../../src/schema/index.js'
+const Post = Schema.define({ className: 'Post', fields: { title: stringField() } })
+declare const post: SchemaResult<typeof Post, { readonly title: string }>
+post./* hover */update({ set: { title: 'Updated' } })
+`)
+		const createDisplay = ts.displayPartsToString(create.displayParts)
+		const updateDisplay = ts.displayPartsToString(update.displayParts)
+
+		expect(createDisplay).toContain(
+			'create(options?: QueryTerminalOptions): Promise<PersistedSchemaModel<',
+		)
+		expect(updateDisplay).toContain('update(input:')
+		expect(updateDisplay).toContain('Promise<PersistedSchemaModel<')
+		expect(createDisplay).not.toContain('NonDefaultedStringField<')
+		expect(updateDisplay).not.toContain('NonDefaultedStringField<')
+		expect(createDisplay.length).toBeLessThan(900)
+		expect(updateDisplay.length).toBeLessThan(900)
+		expectDocumented(readDocumentation(create.documentation, create.tags))
+		expectDocumented(readDocumentation(update.documentation, update.tags))
 	})
 
 	it.each(schemaHoverCases)(

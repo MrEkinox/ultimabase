@@ -18,7 +18,10 @@ import { UltimaBase } from './ultima-base.js'
 const articleSchema = Schema.define({
 	className: 'UltimaBaseArticle',
 	fields: {
-		title: stringField({ validation: { required: true } }),
+		title: stringField({
+			indexed: 'unique',
+			validation: { required: true },
+		}),
 	},
 })
 
@@ -221,6 +224,120 @@ describe('UltimaBase', () => {
 				},
 			])
 			expect(adapter.rootRequests).toHaveLength(2)
+		} finally {
+			await ultimabase.dispose()
+		}
+	})
+
+	it('delegates immutable model commands through exact Query terminals', async () => {
+		const createdRecord = {
+			createdAt: '2026-08-03T12:00:00.000Z',
+			id: '0198a43e-2431-7000-8000-000000000011',
+			title: 'Created',
+			updatedAt: '2026-08-03T12:00:00.000Z',
+		}
+		const upsertedRecord = {
+			...createdRecord,
+			id: '0198a43e-2431-7000-8000-000000000012',
+			title: 'Upserted',
+		}
+		const updatedRecord = { ...createdRecord, title: 'Updated' }
+		const adapter = new RecordingDatabaseAdapter(
+			[
+				{
+					materializations: [{ current: createdRecord, kind: 'create' }],
+					status: 'fulfilled',
+					value: createdRecord,
+				},
+				{
+					materializations: [
+						{
+							current: upsertedRecord,
+							kind: 'update',
+							previous: { ...upsertedRecord, title: 'Imported' },
+						},
+					],
+					status: 'fulfilled',
+					value: upsertedRecord,
+				},
+				{
+					materializations: [
+						{
+							current: updatedRecord,
+							kind: 'update',
+							previous: createdRecord,
+						},
+					],
+					status: 'fulfilled',
+					target: createdRecord,
+					value: updatedRecord,
+				},
+				{
+					materializations: [{ kind: 'delete', previous: updatedRecord }],
+					status: 'fulfilled',
+					target: updatedRecord,
+					value: updatedRecord,
+				},
+			],
+			[],
+		)
+		const ultimabase = new UltimaBase({
+			plugins: [createDatabasePlugin(adapter)],
+			schemas: [articleSchema],
+		})
+		const draft = new articleSchema({ title: 'Created' })
+		const importedDraft = new articleSchema({ title: 'Imported' })
+
+		try {
+			await ultimabase.start()
+			const created = await draft.create({ ultimabase })
+			const upserted = await importedDraft.upsert(
+				{
+					update: { set: { title: 'Upserted' } },
+					where: { title: 'Imported' },
+				},
+				{ ultimabase },
+			)
+			const updated = await created.update(
+				{ set: { title: 'Updated' } },
+				{ ultimabase },
+			)
+			const deleted = await updated?.delete({ ultimabase })
+
+			expect(draft.toJSON()).toStrictEqual({ title: 'Created' })
+			expect(importedDraft.toJSON()).toStrictEqual({ title: 'Imported' })
+			expect(created).not.toBe(draft)
+			expect(upserted).not.toBe(importedDraft)
+			expect(updated).not.toBe(created)
+			expect(deleted).not.toBe(updated)
+			expect(created.toJSON()).toStrictEqual(createdRecord)
+			expect(upserted.toJSON()).toStrictEqual(upsertedRecord)
+			expect(updated?.toJSON()).toStrictEqual(updatedRecord)
+			expect(deleted?.toJSON()).toStrictEqual(updatedRecord)
+			expect(
+				adapter.transactions.flatMap((transaction) =>
+					transaction.requests.map((request) => request.operation.kind),
+				),
+			).toStrictEqual(['create-one', 'upsert-one', 'update-one', 'delete-one'])
+			const updateOperation = adapter.transactions[2]?.requests[0]?.operation
+			const deleteOperation = adapter.transactions[3]?.requests[0]?.operation
+
+			expect(updateOperation).toMatchObject({
+				kind: 'update-one',
+				query: {
+					where: {
+						expression: { field: 'id', kind: 'equal', value: createdRecord.id },
+					},
+				},
+			})
+			expect(deleteOperation).toMatchObject({
+				kind: 'delete-one',
+				query: {
+					where: {
+						expression: { field: 'id', kind: 'equal', value: createdRecord.id },
+					},
+				},
+			})
 		} finally {
 			await ultimabase.dispose()
 		}

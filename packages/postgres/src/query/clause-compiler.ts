@@ -45,10 +45,15 @@ const compileSelection = <TSchema extends SchemaDefinition>(
 	query: QueryAst<TSchema, QueryFilterNode<TSchema>>,
 	schema: CompiledPostgresSchema,
 ): Readonly<Record<string, PgColumn>> => {
-	const names =
+	const requestedNames =
 		query.selection.fields.length === 0
 			? Object.keys(schema.fields)
 			: query.selection.fields.map(({ field }) => field)
+	// Object identity is retained privately by Runtime and removed from public
+	// projections when the developer did not explicitly select it.
+	const names = requestedNames.includes('id')
+		? requestedNames
+		: [...requestedNames, 'id']
 	return compilePostgresSelection(schema, names)
 }
 

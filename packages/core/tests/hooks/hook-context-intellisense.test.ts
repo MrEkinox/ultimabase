@@ -109,6 +109,9 @@ describe('HookContext IntelliSense', () => {
 		const emit = displayQuickInfo('/* hover:emit-method */')
 		const getValue = displayQuickInfo('/* hover:get-value-method */')
 		const selected = displayQuickInfo('/* hover:selected-result */')
+		// Persistence commands may mention writable fields without making those
+		// fields visible on the selected model value itself.
+		const selectedValues = selected.split('get:')[0] ?? ''
 
 		expect(query).toContain('Query<')
 		expect(query.length).toBeLessThan(900)
@@ -116,10 +119,11 @@ describe('HookContext IntelliSense', () => {
 		expect(emit.length).toBeLessThan(700)
 		expect(getValue).toContain('string | undefined')
 		expect(getValue.length).toBeLessThan(700)
-		expect(selected).toContain('readonly action: string;')
-		expect(selected).toContain('readonly id: string;')
-		expect(selected).not.toContain('secret')
-		expect(selected.length).toBeLessThan(600)
+		expect(selectedValues).toContain('readonly action: string;')
+		expect(selectedValues).toContain('readonly id: string;')
+		expect(selectedValues).not.toContain('secret')
+		expect(selected).toContain('readonly secret?: string;')
+		expect(selected.length).toBeLessThan(900)
 	})
 
 	it('documents query and event capabilities in editor hovers', () => {

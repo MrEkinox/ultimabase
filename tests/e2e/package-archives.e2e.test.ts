@@ -149,6 +149,23 @@ describe('@ultimabase/core Schema and Query declarations', () => {
 		expect(query.display).toContain('"id" | "title"')
 	})
 
+	it('preserves compact immutable model persistence commands', () => {
+		const create = readFixtureQuickInfo('create({ useMasterKey: true })')
+		const update = readFixtureQuickInfo(
+			"update({ set: { title: 'Packed update' } })",
+		)
+
+		expect(create.display).toContain(
+			'create(options?: QueryTerminalOptions): Promise<PersistedSchemaModel<',
+		)
+		expect(create.documentation).toContain('same Query and Runtime pipeline')
+		expect(update.display).toContain('update(input:')
+		expect(update.display).toContain('Promise<PersistedSchemaModel<')
+		expect(update.documentation).toContain('protected object identity')
+		expect(create.display).not.toContain('NonDefaultedStringField<')
+		expect(update.display).not.toContain('NonDefaultedStringField<')
+	})
+
 	it('preserves the discriminated non-atomic bulk result', () => {
 		const bulk = readFixtureQuickInfo('packedNonAtomicCreate = () =>')
 
@@ -192,7 +209,7 @@ describe('@ultimabase/core Schema and Query declarations', () => {
 	it('keeps immutable builder and contextual terminal hovers focused', () => {
 		const select = readFixtureQuickInfo("select('id', 'title')")
 		const find = readFixtureQuickInfo('find({ ultimabase })')
-		const deletion = readFixtureQuickInfo('delete({ ultimabase })')
+		const deletion = readFixtureQuickInfo('delete({ context: packedContext })')
 		const count = readFixtureQuickInfo('count({ ultimabase })')
 		const exists = readFixtureQuickInfo('exists({ ultimabase })')
 
@@ -243,7 +260,9 @@ describe('@ultimabase/core Schema and Query declarations', () => {
 	})
 
 	it('materializes update operator groups in editor hovers', () => {
-		const update = readFixtureQuickInfo('update(\n')
+		const update = readFixtureQuickInfo(
+			"update({ set: { title: 'Packed query update' } })",
+		)
 		const inputDisplay = update.display.slice(
 			update.display.indexOf('.update(input:'),
 		)
@@ -276,12 +295,12 @@ describe('@ultimabase/core Runtime declarations', () => {
 		expect(query.display).not.toContain('SchemaDefinition<')
 	})
 
-	it('preserves ambient hook Query typing without context plumbing', () => {
-		const query = readFixtureQuickInfo('query().create({')
-		const result = readFixtureQuickInfo('create({\n\t\t\t\taction:')
+	it('preserves ambient hook model typing without context plumbing', () => {
+		const result = readFixtureQuickInfo(
+			'create()\n\n\t\t\tif (operation.input.title',
+		)
 
-		expect(query.display).toContain('Query<')
-		expect(query.display.length).toBeLessThan(900)
+		expect(result.display).toContain('create(options?: QueryTerminalOptions)')
 		expect(result.display).not.toContain('RequestEngine<')
 	})
 })

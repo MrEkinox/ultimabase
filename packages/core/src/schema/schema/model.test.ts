@@ -144,6 +144,70 @@ describe('schema model classes', () => {
 		)
 	})
 
+	it('keeps lifecycle commands behind trusted draft and persisted state', async () => {
+		const draft = new Post({ title: 'Draft' })
+		const persisted = materializeSchemaModel(Post, {
+			id: '0198f090-2a50-7000-8000-000000000033',
+			title: 'Persisted',
+		})
+		const selected = materializeSchemaModel(
+			Post,
+			{ title: 'Selected' },
+			{
+				objectId: '0198f090-2a50-7000-8000-000000000034',
+				selectedFields: ['title'],
+			},
+		)
+		const missingIdentity = materializeSchemaModel(Post, { title: 'Missing' })
+
+		await expect(
+			Reflect.apply(Reflect.get(draft, 'update') as () => unknown, draft, [
+				{ set: { title: 'Forged' } },
+			]),
+		).rejects.toThrow(
+			new TypeError('Schema model update requires persisted model state'),
+		)
+		await expect(
+			Reflect.apply(Reflect.get(draft, 'delete') as () => unknown, draft, []),
+		).rejects.toThrow(
+			new TypeError('Schema model delete requires persisted model state'),
+		)
+		expect((): void => {
+			Reflect.apply(
+				Reflect.get(persisted, 'create') as () => unknown,
+				persisted,
+				[],
+			)
+		}).toThrow(new TypeError('Schema model create requires draft model state'))
+		expect((): void => {
+			Reflect.apply(
+				Reflect.get(persisted, 'upsert') as () => unknown,
+				persisted,
+				[
+					{
+						update: { set: { title: 'Forged' } },
+						where: { title: 'Persisted' },
+					},
+				],
+			)
+		}).toThrow(new TypeError('Schema model upsert requires draft model state'))
+		await expect(
+			Reflect.apply(
+				Reflect.get(missingIdentity, 'delete') as () => unknown,
+				missingIdentity,
+				[],
+			),
+		).rejects.toThrow(
+			new TypeError(
+				'Schema model delete requires protected persisted identity',
+			),
+		)
+		expect(selected.toJSON()).toStrictEqual({ title: 'Selected' })
+		await expect(selected.delete()).rejects.toMatchObject({
+			code: 'MISSING_EXECUTION_CONTEXT',
+		})
+	})
+
 	it('creates independent Query branches from the static entry point', () => {
 		const first = Post.query().select('id', 'title')
 		const second = Post.query().equalTo('title', 'Second')

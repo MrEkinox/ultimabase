@@ -22,6 +22,7 @@ import {
 	RequestContext,
 	RequestContextValue,
 	requestSources,
+	type SchemaResult,
 	runWithRequestEngine,
 	stringField,
 	timeField,
@@ -127,9 +128,9 @@ const HookPostSchema = Schema.define({
 				return operation
 			}
 
-			await HookAuditSchema.query().create({
+			await new HookAuditSchema({
 				action: `create:${operation.input.title}`,
-			})
+			}).create()
 
 			if (operation.input.title === 'rollback') {
 				throw hookRollbackError
@@ -162,6 +163,11 @@ const allFieldValues = {
 
 // These side-effect-free values also exercise packed constructor and static Query declarations.
 const packedDraft = new PostSchema({ title: 'Packed draft' })
+const PackedModelSchema = Schema.define({
+	className: 'PackedModel',
+	fields: { title: stringField() },
+})
+const packedModelDraft = new PackedModelSchema({ title: 'Packed model draft' })
 const packedQuery = PostSchema.query().select('id', 'title')
 const packedNonAtomicCreate = () =>
 	PostSchema.query().createMany([{ title: 'Packed bulk draft' }], {
@@ -171,11 +177,27 @@ declare const packedContext: RequestContext
 const packedMasterFind = () => PostSchema.query().find({ useMasterKey: true })
 const packedContextFind = () =>
 	PostSchema.query().find({ context: packedContext })
+const packedDraftCreate = () => packedModelDraft.create({ useMasterKey: true })
+declare const packedResult: SchemaResult<
+	typeof PackedModelSchema,
+	{ readonly title: string }
+>
+const packedModelUpdate = () =>
+	packedResult.update({ set: { title: 'Packed update' } })
+const packedQueryUpdate = () =>
+	PostSchema.query().update({ set: { title: 'Packed query update' } })
+const packedQueryDelete = () =>
+	PostSchema.query().delete({ context: packedContext })
 void packedDraft
+void packedModelDraft
 void packedQuery
 void packedNonAtomicCreate
 void packedMasterFind
 void packedContextFind
+void packedDraftCreate
+void packedModelUpdate
+void packedQueryUpdate
+void packedQueryDelete
 
 let fixture: PostgresWorkerFixture | undefined
 
@@ -420,6 +442,106 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 					.equalTo('tenantId', 'tenant-d')
 					.deleteMany({ ultimabase }),
 			).resolves.toBe(1)
+		} finally {
+			await ultimabase.dispose()
+		}
+	})
+
+	it('executes immutable model commands while keeping selected identity private', async () => {
+		const auditReasons: string[] = []
+		const ultimabase = new UltimaBase({
+			masterAuthority: new MasterAuthority({
+				keys: [{ id: 'model-command-master', value: 'unused-by-terminal' }],
+				onUse: ({ reason }) => {
+					auditReasons.push(reason)
+				},
+			}),
+			schemas: [BulkAccountSchema],
+			plugins: [
+				postgresPlugin({
+					schemaPolicy: 'override',
+					url: getFixture().connectionUri,
+				}),
+			],
+			validation: {
+				clock: () => new Date(createInstant),
+				timezone: 'UTC',
+			},
+		})
+		await ultimabase.start()
+
+		try {
+			const draft = new BulkAccountSchema({
+				email: 'model-create@example.com',
+				handle: 'model-create',
+				tenantId: 'model-commands',
+			})
+			const created = await draft.create({ ultimabase })
+			const upserted = await new BulkAccountSchema({
+				email: 'model-upsert@example.com',
+				handle: 'model-upsert',
+				tenantId: 'model-commands',
+			}).upsert(
+				{
+					update: { increment: { visits: 1 } },
+					where: { email: 'model-upsert@example.com' },
+				},
+				{ ultimabase },
+			)
+			const selected = await BulkAccountSchema.query()
+				.byId(created.id)
+				.select('email')
+				.first({ ultimabase })
+
+			if (selected === null) {
+				throw new TypeError(
+					'Model command E2E could not reload its selected row',
+				)
+			}
+
+			const updated = await selected.update(
+				{ increment: { visits: 2 } },
+				{ ultimabase, useMasterKey: true },
+			)
+			const deleted = await updated?.delete({
+				ultimabase,
+				useMasterKey: true,
+			})
+
+			expect(draft.toJSON()).toStrictEqual({
+				email: 'model-create@example.com',
+				handle: 'model-create',
+				tenantId: 'model-commands',
+			})
+			expect(created).toBeInstanceOf(BulkAccountSchema)
+			expect(upserted).toMatchObject({
+				email: 'model-upsert@example.com',
+				visits: 0,
+			})
+			expect(selected.toJSON()).toStrictEqual({
+				email: 'model-create@example.com',
+			})
+			expect(updated?.toJSON()).toStrictEqual({
+				email: 'model-create@example.com',
+			})
+			expect(deleted?.toJSON()).toStrictEqual({
+				email: 'model-create@example.com',
+			})
+			expect(selected).not.toHaveProperty('id')
+			expect(updated).not.toHaveProperty('id')
+			expect(deleted).not.toHaveProperty('id')
+			expect(auditReasons).toStrictEqual([
+				'Query terminal update-one on RuntimeBulkAccount',
+				'Query terminal delete-one on RuntimeBulkAccount',
+			])
+			await expect(
+				BulkAccountSchema.query().byId(created.id).exists({ ultimabase }),
+			).resolves.toBe(false)
+			await expect(
+				BulkAccountSchema.query()
+					.equalTo('email', upserted.email)
+					.exists({ ultimabase }),
+			).resolves.toBe(true)
 		} finally {
 			await ultimabase.dispose()
 		}

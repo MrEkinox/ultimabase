@@ -40,6 +40,10 @@ import {
 	type EnforcementState,
 } from '../enforcement/state.js'
 import { throwIfOperationCancelled } from '../hooks/cancellation.js'
+import {
+	collectDatabaseObjectIdentities,
+	retainRuntimeSchemaModelMetadata,
+} from '../operations/model-metadata.js'
 
 const functionStageNames = [
 	'normalization',
@@ -74,6 +78,7 @@ const nativeHookStageNames = [
 const emptyConstraints: readonly DatabaseConstraintNode[] = immutableArray([])
 
 interface RuntimeDatabaseExecution<TOperation extends DatabaseOperationAst> {
+	readonly objectIdentities: readonly unknown[]
 	readonly outcome?: DatabaseOperationOutcome<DatabaseMutationOperationAst>
 	readonly result: DatabaseOperationResult<TOperation>
 }
@@ -152,7 +157,16 @@ const executeDatabaseOperation = async <
 	},
 ): Promise<RuntimeDatabaseExecution<TOperation>> => {
 	if (!isMutationOperation(request.operation)) {
-		return immutableRecord({ result: await executor.execute(request) })
+		const result = await executor.execute(request)
+
+		return immutableRecord({
+			objectIdentities: collectDatabaseObjectIdentities(
+				executor,
+				request.operation,
+				result,
+			),
+			result,
+		})
 	}
 
 	assertPreparedMutationExecutor(executor)
@@ -176,6 +190,12 @@ const executeDatabaseOperation = async <
 	}
 
 	return immutableRecord({
+		objectIdentities: collectDatabaseObjectIdentities(
+			executor,
+			request.operation,
+			outcome.result,
+			outcome,
+		),
 		outcome,
 		result: outcome.result,
 	})
@@ -331,6 +351,38 @@ const readSelectedFieldsOverride = (
 		!isUnknownArray(candidate.query.selection.fields)
 	) {
 		return permittedFields
+	}
+
+	const selectedFields: string[] = []
+
+	for (const selected of candidate.query.selection.fields) {
+		if (isPlainRecord(selected) && typeof selected.field === 'string') {
+			selectedFields.push(selected.field)
+		}
+	}
+
+	return immutableArray(selectedFields)
+}
+
+/** Retains the effective public projection for later immutable model commands. */
+const readSchemaModelSelectedFields = (
+	operation: DatabaseOperationAst,
+	selectedFieldsOverride: readonly string[] | undefined,
+): readonly string[] | undefined => {
+	if (selectedFieldsOverride !== undefined) {
+		return selectedFieldsOverride
+	}
+
+	const candidate: unknown = operation
+
+	if (
+		!isPlainRecord(candidate) ||
+		!isPlainRecord(candidate.query) ||
+		!isPlainRecord(candidate.query.selection) ||
+		!isUnknownArray(candidate.query.selection.fields) ||
+		candidate.query.selection.fields.length === 0
+	) {
+		return undefined
 	}
 
 	const selectedFields: string[] = []
@@ -655,6 +707,12 @@ export class RuntimePipeline {
 		})
 		await this.#stages.commit(completedOperation)
 		await this.#stages.postCommitEvents(completedOperation)
+		retainRuntimeSchemaModelMetadata(
+			operation,
+			databaseExecution.objectIdentities,
+			result,
+			readSchemaModelSelectedFields(operation, selectedFieldsOverride),
+		)
 		execution.operation = operation
 		execution.transactionOperation?.succeed(
 			operation,

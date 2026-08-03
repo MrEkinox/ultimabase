@@ -16,6 +16,7 @@ import {
 	isNonAtomicBulkOperation,
 	mapNonAtomicBulkResult,
 } from './non-atomic-result.js'
+import { readRuntimeSchemaModelMetadata } from './model-metadata.js'
 import { getOperationSchema } from './schema.js'
 
 const readOperationSchema = (operation: OperationAstNode): SchemaDefinition => {
@@ -39,7 +40,11 @@ const materializeRecord = (
 		throw new TypeError(`${path} must be a plain logical record`)
 	}
 
-	return materializeSchemaModel(schema, value)
+	return materializeSchemaModel(
+		schema,
+		value,
+		readRuntimeSchemaModelMetadata(value),
+	)
 }
 
 /** Materializes public model instances only after Runtime finishes every result hook. */

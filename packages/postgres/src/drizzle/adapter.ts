@@ -9,7 +9,12 @@ import type {
 	DatabaseTransactionAdapter,
 	PreparedDatabaseOperation,
 } from '@ultimabase/core'
-import { isPlainRecord } from '@ultimabase/shared'
+import {
+	immutableArray,
+	immutableRecord,
+	isPlainRecord,
+	isUnknownArray,
+} from '@ultimabase/shared'
 
 import {
 	compilePostgresConstraints,
@@ -32,6 +37,111 @@ import {
 	type PostgresItemRecovery,
 } from './item-recovery.js'
 import { createPostgresTransactionError } from './transaction-error.js'
+
+const postgresObjectIdentities = new WeakMap<object, unknown>()
+
+/** Reads explicit public fields from object-returning read terminals only. */
+const readPostgresPublicSelection = (
+	operation: DatabaseOperationAst,
+): readonly string[] | undefined => {
+	if (
+		operation.kind !== 'find' &&
+		operation.kind !== 'first' &&
+		operation.kind !== 'get'
+	) {
+		return undefined
+	}
+
+	const candidate: unknown = operation
+
+	if (
+		!isPlainRecord(candidate) ||
+		!isPlainRecord(candidate.query) ||
+		!isPlainRecord(candidate.query.selection) ||
+		!isUnknownArray(candidate.query.selection.fields)
+	) {
+		throw new TypeError('PostgreSQL read operation selection is invalid')
+	}
+
+	const fields: string[] = []
+
+	for (const selected of candidate.query.selection.fields) {
+		if (!isPlainRecord(selected) || typeof selected.field !== 'string') {
+			throw new TypeError('PostgreSQL selected field is invalid')
+		}
+
+		fields.push(selected.field)
+	}
+
+	return fields.length === 0 ? undefined : immutableArray(fields)
+}
+
+/** Removes the privately fetched id while retaining it beside the public record. */
+const projectPostgresReadRecord = (
+	record: unknown,
+	selectedFields: readonly string[] | undefined,
+): Readonly<Record<string, unknown>> => {
+	if (!isPlainRecord(record)) {
+		throw new TypeError('PostgreSQL read result must be a logical record')
+	}
+
+	if (!Object.hasOwn(record, 'id')) {
+		throw new TypeError('PostgreSQL read result is missing its object identity')
+	}
+
+	if (selectedFields === undefined) {
+		postgresObjectIdentities.set(record, record.id)
+
+		return record
+	}
+
+	const projection: Record<string, unknown> = {}
+
+	for (const field of selectedFields) {
+		if (!Object.hasOwn(record, field)) {
+			throw new TypeError(
+				`PostgreSQL read result is missing selected field: ${field}`,
+			)
+		}
+
+		projection[field] = record[field]
+	}
+
+	const result = immutableRecord(projection)
+	postgresObjectIdentities.set(result, record.id)
+
+	return result
+}
+
+/** Projects read results only after the adapter captures every decoded identity. */
+const projectPostgresReadResult = (
+	operation: DatabaseOperationAst,
+	result: unknown,
+): unknown => {
+	const selectedFields = readPostgresPublicSelection(operation)
+
+	if (operation.kind === 'find') {
+		if (!isUnknownArray(result)) {
+			throw new TypeError('PostgreSQL find result must be an array')
+		}
+
+		return immutableArray(
+			result.map((record) => projectPostgresReadRecord(record, selectedFields)),
+		)
+	}
+
+	if (operation.kind === 'first' || operation.kind === 'get') {
+		return result === null
+			? null
+			: projectPostgresReadRecord(result, selectedFields)
+	}
+
+	return result
+}
+
+const readPostgresObjectIdentity = (
+	record: Readonly<Record<string, unknown>>,
+): unknown => postgresObjectIdentities.get(record)
 
 const readOperationSchema = (operation: DatabaseOperationAst): unknown => {
 	if (
@@ -119,7 +229,10 @@ const executePostgresRequest = async <
 	)
 
 	// Exhaustive operation dispatch preserves Runtime's discriminant-to-result contract.
-	return result as DatabaseOperationResult<TOperation>
+	return projectPostgresReadResult(
+		request.operation,
+		result,
+	) as DatabaseOperationResult<TOperation>
 }
 
 /** Owns one borrowed client until exactly one finalization path releases it. */
@@ -144,6 +257,11 @@ class DrizzlePostgresTransactionAdapter implements DatabaseTransactionAdapter {
 		this.#schemas = schemas
 		this.#constraintCompilers = constraintCompilers
 		this.#itemRecovery = createPostgresItemRecovery(client)
+	}
+
+	/** Exposes only identity retained for the exact projected adapter record. */
+	readObjectIdentity(record: Readonly<Record<string, unknown>>): unknown {
+		return readPostgresObjectIdentity(record)
 	}
 
 	/** Prevents an escaped adapter from issuing work after commit or rollback. */
@@ -271,6 +389,11 @@ class DrizzlePostgresDatabaseAdapter implements DatabaseAdapter {
 		this.#pool = pool
 		this.#schemas = schemas
 		this.#constraintCompilers = constraintCompilers
+	}
+
+	/** Exposes only identity retained for the exact projected adapter record. */
+	readObjectIdentity(record: Readonly<Record<string, unknown>>): unknown {
+		return readPostgresObjectIdentity(record)
 	}
 
 	execute<const TOperation extends DatabaseOperationAst>(

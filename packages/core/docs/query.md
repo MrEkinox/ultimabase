@@ -100,6 +100,21 @@ const updatedCount = await articleSchema
 	.updateMany({ increment: { views: 1 } })
 ```
 
+Schema model commands are concise immutable aliases over these same terminals:
+
+```ts
+const created = await new ArticleSchema({ title: 'Typed model' }).create()
+const updated = await created.update({
+	set: { title: 'Updated model' },
+})
+await updated?.delete()
+```
+
+Draft `upsert({ where, update }, options?)` builds the same unique equality
+target as `Query.upsert({ create, update }, options?)`. Instance commands keep
+the model's visible selection and protected identity; they never place either
+execution authority or hidden fields in the Query AST.
+
 Outside a request scope, the final terminal argument identifies the exact
 started application. Runtime creates one anonymous internal root request; it
 never falls back to a process-wide default:

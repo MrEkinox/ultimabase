@@ -180,12 +180,22 @@ const ultimabase = new UltimaBase({
 
 const draft = new PostSchema({ title: 'Preview' })
 const query = PostSchema.query().select('id', 'title')
+
+const created = await draft.create({ ultimabase })
+const updated = await created.update(
+	{ set: { title: 'Published' } },
+	{ ultimabase },
+)
+await updated?.delete({ ultimabase })
 ```
 
 `new PostSchema(input)` creates a typed immutable draft and never performs I/O.
 Runtime queries and mutations return immutable `PostSchema` instances only after
 hooks and field restrictions finish. `get(field)` and `toJSON()` expose only the
 fields visible in that result, so a selected result cannot recover omitted data.
+Draft `create` and `upsert` plus persisted `update` and `delete` are immutable
+convenience commands over the same Query pipeline. Collection writes remain on
+`PostSchema.query()`, and models deliberately expose no mutable `save()` method.
 
 ## Native schema hooks
 

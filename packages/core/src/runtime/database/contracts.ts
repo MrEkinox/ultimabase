@@ -250,6 +250,8 @@ export interface DatabaseOperationExecutor {
 	execute<const TOperation extends DatabaseOperationAst>(
 		request: DatabaseOperationRequest<TOperation>,
 	): Promise<DatabaseOperationResult<TOperation>>
+	/** Reads adapter-retained identity without placing it in a public projection. */
+	readObjectIdentity?(record: Readonly<Record<string, unknown>>): unknown
 }
 
 /** Owns regular operations and starts isolated adapter transactions. */

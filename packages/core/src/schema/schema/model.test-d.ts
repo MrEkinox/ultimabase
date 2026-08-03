@@ -1,5 +1,6 @@
 import { expectTypeOf, test } from 'vitest'
 
+import { RequestContext } from '../../runtime/context/request-context.js'
 import type { Query } from '../../query/query/query.js'
 import type { InferQueryResult } from '../../query/query/result.js'
 import { booleanField } from '../fields/builtins/boolean.js'
@@ -53,6 +54,15 @@ test('infers exact immutable drafts from the generated constructor', () => {
 	expectTypeOf(draft.toJSON()).toEqualTypeOf<
 		Readonly<InferCreateInput<typeof Post>>
 	>()
+	expectTypeOf(draft.create()).toEqualTypeOf<
+		Promise<SchemaResult<typeof Post>>
+	>()
+	expectTypeOf(
+		draft.upsert({
+			update: { set: { title: 'Updated' } },
+			where: { title: 'Hello' },
+		}),
+	).toEqualTypeOf<Promise<SchemaResult<typeof Post>>>()
 
 	// @ts-expect-error -- Required create fields cannot be omitted.
 	new Post({})
@@ -62,6 +72,15 @@ test('infers exact immutable drafts from the generated constructor', () => {
 	draft.title = 'Changed'
 	// @ts-expect-error -- get accepts only fields visible on this draft shape.
 	draft.get('missing')
+	expectTypeOf(draft).not.toHaveProperty('update')
+	expectTypeOf(draft).not.toHaveProperty('delete')
+	// @ts-expect-error -- Upsert targets require at least one exact field value.
+	void draft.upsert({ update: { set: { title: 'Updated' } }, where: {} })
+	void draft.upsert({
+		update: { set: { title: 'Updated' } },
+		// @ts-expect-error -- Upsert equality values retain their exact field types.
+		where: { title: 1 },
+	})
 })
 
 test('distinguishes draft and persisted states for the same visible fields', () => {
@@ -94,7 +113,31 @@ test('retains exact schema and selection types through static Query access', () 
 	expectTypeOf(selected.toJSON()).toEqualTypeOf<
 		Readonly<{ readonly id: string; readonly title: string }>
 	>()
+	expectTypeOf(selected.update({ set: { title: 'Updated' } })).toEqualTypeOf<
+		Promise<SchemaResult<
+			typeof Post,
+			Readonly<{ readonly id: string; readonly title: string }>
+		> | null>
+	>()
+	expectTypeOf(selected.delete()).toEqualTypeOf<
+		Promise<SchemaResult<
+			typeof Post,
+			Readonly<{ readonly id: string; readonly title: string }>
+		> | null>
+	>()
 	expectTypeOf<SchemaResult<typeof Post>>().toHaveProperty('updatedAt')
+	const context = RequestContext.anonymous({
+		requestId: 'model-type-test',
+		source: 'type-test',
+	})
+
+	void selected.update(
+		{ set: { title: 'Master update' } },
+		{ context, useMasterKey: true },
+	)
+	void selected.delete({ useMasterKey: true })
+	expectTypeOf(selected).not.toHaveProperty('create')
+	expectTypeOf(selected).not.toHaveProperty('upsert')
 	// @ts-expect-error -- Selected models never expose omitted schema fields.
 	selected.get('profile')
 })

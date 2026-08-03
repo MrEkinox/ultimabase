@@ -108,6 +108,7 @@ Accepted records:
 - [ADR-0112: Unique upsert targets seed create candidates](0112-upsert-target-seeds-create.md)
 - [ADR-0113: Plugin-owned authentication context](0113-plugin-owned-authentication-context.md)
 - [ADR-0114: Terminal-only Query authority resolution](0114-terminal-only-query-authority-resolution.md)
+- [ADR-0115: Immutable model commands and protected identity](0115-immutable-model-commands.md)
 
 Superseded records:
 

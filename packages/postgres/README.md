@@ -83,6 +83,12 @@ Singular CRUD, bulk operations, upserts, and explicit Runtime transactions
 execute through this adapter. Every mutation uses Runtime's transaction-bound
 prepared-operation protocol; no bulk item opens a side transaction.
 
+For an object selection that omits `id`, PostgreSQL fetches the identifier into
+an adapter-private side channel and returns only the developer's requested
+fields. Core uses that protected identity for immutable model `update` and
+`delete` commands without exposing it through hooks, properties, `get()`, or
+`toJSON()`.
+
 Every adapter request carries Core's policy-neutral `constraints` array.
 Adapter integration plugins register exact kind-and-version compilers during
 application setup. PostgreSQL combines every resulting predicate with the
