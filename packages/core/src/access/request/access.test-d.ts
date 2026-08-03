@@ -6,15 +6,10 @@ import type {
 	AnonymousRequestAccess,
 	MasterRequestAccess,
 	RequestAccess,
-	UserRequestAccess,
 } from './access.js'
 
-test('keeps access modes closed and their authentication data correlated', () => {
+test('keeps foundational authority closed without authentication data', () => {
 	const anonymous = { mode: 'anonymous' } satisfies AnonymousRequestAccess
-	const user = {
-		mode: 'user',
-		userId: 'user-1',
-	} satisfies UserRequestAccess<'user-1'>
 	const master = {
 		keyId: 'maintenance',
 		mode: 'master',
@@ -23,10 +18,9 @@ test('keeps access modes closed and their authentication data correlated', () =>
 
 	expectTypeOf<(typeof accessModes)[number]>().toEqualTypeOf<AccessMode>()
 	expectTypeOf<RequestAccess>().toEqualTypeOf<
-		AnonymousRequestAccess | UserRequestAccess | MasterRequestAccess
+		AnonymousRequestAccess | MasterRequestAccess
 	>()
 	expectTypeOf(anonymous).not.toHaveProperty('userId')
-	expectTypeOf(user.userId).toEqualTypeOf<'user-1'>()
 	expectTypeOf(master.reason).toBeString()
 	expectTypeOf(master.keyId).toBeString()
 
@@ -37,10 +31,10 @@ test('keeps access modes closed and their authentication data correlated', () =>
 		// @ts-expect-error -- Anonymous requests cannot carry authenticated user state.
 		userId: 'user-1',
 	}
-	// @ts-expect-error -- User access always carries its authenticated identity.
-	const missingUser: UserRequestAccess = { mode: 'user' }
+	// @ts-expect-error -- Authentication is not a foundational authority mode.
+	const userMode: AccessMode = 'user'
 
 	expectTypeOf(systemMode).toBeString()
 	expectTypeOf(forgedAnonymous).toBeObject()
-	expectTypeOf(missingUser).toBeObject()
+	expectTypeOf(userMode).toBeString()
 })

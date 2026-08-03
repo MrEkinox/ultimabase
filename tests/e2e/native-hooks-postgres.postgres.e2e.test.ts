@@ -440,7 +440,7 @@ const runWithScope = <TResult>(
 	callback: () => TResult,
 ): TResult => {
 	requestSequence += 1
-	const request = getUltimaBase().engine.user(`user:${scopeId}`, {
+	const request = getUltimaBase().engine.anonymous({
 		metadata: { scopeId },
 		requestId: `native-hooks-postgres:${String(requestSequence)}`,
 		source: requestSources.internal,

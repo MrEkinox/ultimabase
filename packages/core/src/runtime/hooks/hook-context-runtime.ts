@@ -101,6 +101,10 @@ export const createRuntimeHookContext = ({
 					request,
 				})
 			},
+			getValue: (token) => {
+				lifetime.assertActive()
+				return request.getValue(token)
+			},
 			hasCapability: (capability) => {
 				lifetime.assertActive()
 				return request.hasCapability(capability)

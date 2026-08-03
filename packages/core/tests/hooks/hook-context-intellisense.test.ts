@@ -6,7 +6,12 @@ import { createLanguageService } from '../../../../tooling/vitest/typescript-lan
 const fileName = `${import.meta.dirname}/hook-context-intellisense.fixture.ts`
 const completionMarker = '/* completion:hook-context */'
 const sourceWithMarkers = `
-import { Schema, stringField, type HookContext } from '../../src/index.js'
+import { RequestContextValue, Schema, stringField, type HookContext } from '../../src/index.js'
+
+const principal = new RequestContextValue<string>('fixture.principal', (value) => {
+  if (typeof value !== 'string') throw new TypeError('Expected a string')
+  return value
+})
 
 const AuditSchema = Schema.define({
   className: 'HookContextIntelliSenseAudit',
@@ -21,9 +26,11 @@ declare const context: HookContext
 context.${completionMarker}emit('audit.checked', { id: 'audit-1' })
 const query = AuditSchema./* hover:query-builder */query()
 const event = context./* hover:emit-method */emit('audit.created', { id: 'audit-1' })
+const principalId = context./* hover:get-value-method */getValue(principal)
 const selected = await query.select('id', 'action')./* hover:query-terminal */find()
 const /* hover:selected-result */ first = selected[0]
 void event
+void principalId
 void first
 `
 const completionPosition = sourceWithMarkers.indexOf(completionMarker)
@@ -76,6 +83,7 @@ describe('HookContext IntelliSense', () => {
 			expect.arrayContaining([
 				'access',
 				'emit',
+				'getValue',
 				'hasCapability',
 				'hook',
 				'requestId',
@@ -99,12 +107,15 @@ describe('HookContext IntelliSense', () => {
 	it('keeps method and selected-result hovers concise', () => {
 		const query = displayQuickInfo('/* hover:query-builder */')
 		const emit = displayQuickInfo('/* hover:emit-method */')
+		const getValue = displayQuickInfo('/* hover:get-value-method */')
 		const selected = displayQuickInfo('/* hover:selected-result */')
 
 		expect(query).toContain('Query<')
 		expect(query.length).toBeLessThan(900)
 		expect(emit).toContain('void')
 		expect(emit.length).toBeLessThan(700)
+		expect(getValue).toContain('string | undefined')
+		expect(getValue.length).toBeLessThan(700)
 		expect(selected).toContain('readonly action: string;')
 		expect(selected).toContain('readonly id: string;')
 		expect(selected).not.toContain('secret')
@@ -114,6 +125,7 @@ describe('HookContext IntelliSense', () => {
 	it('documents query and event capabilities in editor hovers', () => {
 		const query = readQuickInfo('/* hover:query-terminal */')
 		const emit = readQuickInfo('/* hover:emit-method */')
+		const getValue = readQuickInfo('/* hover:get-value-method */')
 
 		expect(ts.displayPartsToString(query.documentation)).toContain(
 			'active request',
@@ -121,7 +133,11 @@ describe('HookContext IntelliSense', () => {
 		expect(ts.displayPartsToString(emit.documentation)).toContain(
 			'after the transaction commits',
 		)
+		expect(ts.displayPartsToString(getValue.documentation)).toContain(
+			'plugin-owned request value',
+		)
 		expect(query.tags?.some(({ name }) => name === 'example')).toBe(true)
 		expect(emit.tags?.some(({ name }) => name === 'example')).toBe(true)
+		expect(getValue.tags?.some(({ name }) => name === 'example')).toBe(true)
 	})
 })

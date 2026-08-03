@@ -67,7 +67,7 @@ describe('singular Query terminals', () => {
 			}),
 			pipeline: createRecordingPipeline(adapter, []),
 		})
-		const request = framework.user('user-1', {
+		const request = framework.anonymous({
 			requestId: 'terminals-1',
 			source: requestSources.internal,
 		})

@@ -437,7 +437,10 @@ describe('runtime validation', () => {
 		const master = createTrustedMasterRequestContext(
 			'audited validation test',
 			'test-key',
-			{ requestId: 'master-validation', source: requestSources.internal },
+			RequestContext.anonymous({
+				requestId: 'master-validation',
+				source: requestSources.internal,
+			}),
 		)
 
 		await executeStage(stage, operation, master).catch((error: unknown) => {

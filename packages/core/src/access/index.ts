@@ -4,6 +4,10 @@ export type {
 	AnonymousRequestAccess,
 	MasterRequestAccess,
 	RequestAccess,
-	UserRequestAccess,
 } from './request/access.js'
 export { RequestCapability } from './request/capability.js'
+export { RequestContextValue } from './request/context-value.js'
+export type {
+	InferRequestContextValue,
+	RequestContextValueSnapshot,
+} from './request/context-value.js'

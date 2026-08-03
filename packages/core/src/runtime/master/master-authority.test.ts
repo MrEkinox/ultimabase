@@ -1,4 +1,5 @@
 import { FrameworkError } from '../../foundation.js'
+import { RequestContextValue } from '../../access/index.js'
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -10,6 +11,17 @@ import {
 	MasterAuthority,
 	type MasterAuthorityOptions,
 } from './master-authority.js'
+
+const principalValue = new RequestContextValue<string>(
+	'fixture.principal',
+	(value: unknown): string => {
+		if (typeof value !== 'string') {
+			throw new TypeError('Fixture principal must be a string')
+		}
+
+		return value
+	},
+)
 
 const createAuthority = (
 	overrides: Partial<MasterAuthorityOptions> = {},
@@ -70,11 +82,11 @@ describe('MasterAuthority', () => {
 				events.push(event)
 			},
 		})
-		const context = RequestContext.user('operator-1', {
+		const context = RequestContext.anonymous({
 			metadata: { traceId: 'trace-1' },
 			requestId: 'master-request-1',
 			source: requestSources.job,
-		})
+		}).withValue(principalValue, 'operator-1')
 		const grant = authority.authorize('primary-secret')
 		const master = await authority.elevate(grant, context, 'repair indexes')
 
@@ -84,12 +96,13 @@ describe('MasterAuthority', () => {
 			reason: 'repair indexes',
 		})
 		expect(master.metadata).toStrictEqual({ traceId: 'trace-1' })
+		expect(master.getValue(principalValue)).toBe('operator-1')
 		expect(events).toStrictEqual([
 			{
 				keyId: 'primary',
 				kind: 'master-access',
 				occurredAt: '2026-08-01T04:00:00.000Z',
-				previousAccess: { mode: 'user', userId: 'operator-1' },
+				previousAccess: { mode: 'anonymous' },
 				reason: 'repair indexes',
 				requestId: 'master-request-1',
 				source: 'job',
@@ -127,10 +140,10 @@ describe('MasterAuthority', () => {
 		const context = createTrustedMasterRequestContext(
 			'existing authority',
 			'primary',
-			{
+			RequestContext.anonymous({
 				requestId: 'master-request-3',
 				source: requestSources.internal,
-			},
+			}),
 		)
 		const auditError = new Error('audit unavailable')
 		const failingAuthority = createAuthority({

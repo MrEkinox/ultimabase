@@ -86,4 +86,11 @@ describe('packed @ultimabase/core native hook contract', () => {
 		expect(display).not.toContain('resolveInput')
 		expect(display).not.toContain('OPAQUE_PERMISSION_CONFIG_MUST_NOT_LEAK')
 	})
+
+	it('preserves plugin-owned request value inference through package exports', () => {
+		const display = readHoverDisplay('request-context-value')
+
+		expect(display).toContain('FixturePrincipal | undefined')
+		expect(display).not.toContain('unknown')
+	})
 })

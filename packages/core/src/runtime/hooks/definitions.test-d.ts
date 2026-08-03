@@ -27,7 +27,7 @@ test('infers schema and operation discriminants inside contribution handlers', (
 			>()
 			expectTypeOf(input.context.signal).toEqualTypeOf<AbortSignal>()
 			expectTypeOf(input.context.access.mode).toEqualTypeOf<
-				'anonymous' | 'master' | 'user'
+				'anonymous' | 'master'
 			>()
 			// @ts-expect-error -- Low-level hooks never receive private request metadata.
 			void input.context.metadata

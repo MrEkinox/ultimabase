@@ -1,6 +1,7 @@
 import {
 	defineSchemaExtension,
 	intField as coreIntField,
+	RequestContextValue,
 	stringField as coreStringField,
 } from '../../src/index.js'
 import type {
@@ -16,6 +17,7 @@ import type {
 	InferObject,
 	InferOperationResult,
 	InferUpdateInput,
+	HookContext,
 	ObjectFieldOptions,
 	ObjectFields,
 	ObjectFieldValue,
@@ -31,6 +33,30 @@ import type {
 	SchemaOptions,
 	SchemaFieldName,
 } from '../../src/index.js'
+
+interface FixturePrincipal {
+	readonly id: string
+}
+
+const principalValue = new RequestContextValue<FixturePrincipal>(
+	'fixture.principal',
+	(value: unknown): FixturePrincipal => {
+		if (
+			typeof value !== 'object' ||
+			value === null ||
+			!('id' in value) ||
+			typeof value.id !== 'string'
+		) {
+			throw new TypeError('Fixture principal must contain a string id')
+		}
+
+		return Object.freeze({ id: value.id })
+	},
+)
+declare const hookContext: HookContext
+
+export const /* hover:request-context-value */ packedPrincipal =
+		hookContext.getValue(principalValue)
 
 type MaybePromise<TValue> = TValue | Promise<TValue>
 

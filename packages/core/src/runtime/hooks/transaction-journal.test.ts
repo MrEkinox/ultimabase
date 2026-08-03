@@ -23,7 +23,7 @@ const articleSchema = Schema.define({
 	},
 })
 
-const context = RequestContext.user('journal-user', {
+const context = RequestContext.anonymous({
 	requestId: 'transaction-journal-1',
 	source: requestSources.internal,
 })

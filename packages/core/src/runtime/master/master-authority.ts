@@ -13,7 +13,6 @@ import { createHash, timingSafeEqual } from 'node:crypto'
 import {
 	createTrustedMasterRequestContext,
 	type RequestContext,
-	type RequestContextOptions,
 } from '../context/request-context.js'
 
 /** Configures one raw credential while retaining only its digest at runtime. */
@@ -220,14 +219,7 @@ export class MasterAuthority {
 
 		await this.#onUse(event)
 
-		const options: RequestContextOptions<TSource> = {
-			capabilities: context.capabilities,
-			metadata: context.metadata,
-			requestId: context.requestId,
-			signal: context.signal,
-			source: context.source,
-		}
-
-		return createTrustedMasterRequestContext(reason, grant.keyId, options)
+		// The trusted factory changes only authority and retains plugin-owned values.
+		return createTrustedMasterRequestContext(reason, grant.keyId, context)
 	}
 }

@@ -21,6 +21,7 @@ describe('@ultimabase/core public entry point', () => {
 			'QueryCursorError',
 			'RequestCapability',
 			'RequestContext',
+			'RequestContextValue',
 			'RequestEngine',
 			'RuntimePipeline',
 			'Schema',

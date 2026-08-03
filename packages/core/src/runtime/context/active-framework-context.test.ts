@@ -81,7 +81,7 @@ describe('active framework context', () => {
 
 	it('derives one consistent immutable context from the explicit request engine', () => {
 		const framework = createFramework()
-		const requestEngine = framework.user('user-1', {
+		const requestEngine = framework.anonymous({
 			requestId: 'scope-1',
 			source: requestSources.internal,
 		})
@@ -112,7 +112,7 @@ describe('active framework context', () => {
 			requestId: 'parent-1',
 			source: requestSources.rest,
 		})
-		const child = framework.user('user-2', {
+		const child = framework.anonymous({
 			requestId: 'child-1',
 			source: requestSources.graphql,
 		})
@@ -142,11 +142,11 @@ describe('active framework context', () => {
 		async () => {
 			const firstFramework = createFramework()
 			const secondFramework = createFramework()
-			const firstEngine = firstFramework.user('user-1', {
+			const firstEngine = firstFramework.anonymous({
 				requestId: 'parallel-1',
 				source: requestSources.rest,
 			})
-			const secondEngine = secondFramework.user('user-2', {
+			const secondEngine = secondFramework.anonymous({
 				requestId: 'parallel-2',
 				source: requestSources.graphql,
 			})

@@ -1,9 +1,9 @@
 import {
 	RequestCapability,
+	RequestContextValue,
 	type AnonymousRequestAccess,
 	type MasterRequestAccess,
 	type RequestAccess,
-	type UserRequestAccess,
 } from '../../access/index.js'
 import {
 	assertNonEmptyString,
@@ -30,7 +30,15 @@ export type BuiltInRequestSource =
 
 /** Prevents known credential fields from entering diagnostic request metadata. */
 export type RequestMetadata = Readonly<Record<string, unknown>> & {
+	readonly accessToken?: never
+	readonly apiKey?: never
+	readonly authorization?: never
+	readonly clientSecret?: never
+	readonly cookie?: never
 	readonly masterKey?: never
+	readonly password?: never
+	readonly refreshToken?: never
+	readonly sessionToken?: never
 }
 
 /** Carries source-specific values that are safe to retain for one operation. */
@@ -54,11 +62,36 @@ const requestContextOptionKeys = new Set([
 const emptyCapabilities: readonly RequestCapability[] = immutableArray([])
 const emptyMetadata: RequestMetadata = immutableRecord({})
 const persistentRequestSignal: AbortSignal = new AbortController().signal
+const sensitiveMetadataKeys = new Set([
+	'accesstoken',
+	'apikey',
+	'authorization',
+	'clientsecret',
+	'cookie',
+	'password',
+	'refreshtoken',
+	'sessiontoken',
+])
 
-type TrustedMasterContextFactory = <const TSource extends string>(
+type StoredRequestContextValue = RequestContextValue<unknown>
+type StoredRequestContextValues = ReadonlyMap<
+	StoredRequestContextValue,
+	unknown
+>
+
+const emptyRequestContextValues: StoredRequestContextValues = new Map()
+const requestContextValues = new WeakMap<
+	RequestContext,
+	StoredRequestContextValues
+>()
+
+type TrustedMasterContextFactory = <
+	TAccess extends RequestAccess,
+	const TSource extends string,
+>(
 	reason: string,
 	keyId: string,
-	options: RequestContextOptions<TSource>,
+	context: RequestContext<TAccess, TSource>,
 ) => RequestContext<MasterRequestAccess, TSource>
 
 let trustedMasterContextFactory: TrustedMasterContextFactory
@@ -103,9 +136,17 @@ const snapshotMetadata = (metadata: unknown): RequestMetadata => {
 	}
 
 	for (const key of Object.keys(metadata)) {
-		if (normalizeSensitiveMetadataKey(key) === 'masterkey') {
+		const normalizedKey = normalizeSensitiveMetadataKey(key)
+
+		if (normalizedKey === 'masterkey') {
 			throw new TypeError(
 				'Request context metadata cannot contain a master key',
+			)
+		}
+
+		if (sensitiveMetadataKeys.has(normalizedKey)) {
+			throw new TypeError(
+				`Request context metadata cannot contain credential field: ${key}`,
 			)
 		}
 	}
@@ -143,14 +184,6 @@ const snapshotCapabilities = (
 const createAnonymousAccess = (): AnonymousRequestAccess =>
 	immutableRecord({ mode: 'anonymous' })
 
-const createUserAccess = <const TUserId extends string>(
-	userId: TUserId,
-): UserRequestAccess<TUserId> => {
-	assertNonEmptyString(userId, 'Request context userId')
-
-	return immutableRecord({ mode: 'user', userId })
-}
-
 const createMasterAccess = (
 	reason: string,
 	keyId: string,
@@ -179,6 +212,7 @@ export class RequestContext<
 	private constructor(
 		access: TAccess,
 		options: RequestContextOptions<TSource>,
+		values: StoredRequestContextValues = emptyRequestContextValues,
 	) {
 		const untrustedOptions: unknown = options
 
@@ -190,6 +224,7 @@ export class RequestContext<
 		this.requestId = options.requestId
 		this.signal = options.signal ?? persistentRequestSignal
 		this.source = options.source
+		requestContextValues.set(this, values)
 
 		// Context identity and authority cannot change during asynchronous execution.
 		Object.freeze(this)
@@ -202,27 +237,93 @@ export class RequestContext<
 		return new RequestContext(createAnonymousAccess(), options)
 	}
 
-	/** Creates one authenticated user context from a stable user identifier. */
-	static user<const TUserId extends string, const TSource extends string>(
-		userId: TUserId,
-		options: RequestContextOptions<TSource>,
-	): RequestContext<UserRequestAccess<TUserId>, TSource> {
-		return new RequestContext(createUserAccess(userId), options)
-	}
-
 	/** Checks token identity so matching transport strings never grant capability. */
 	hasCapability(capability: RequestCapability): boolean {
 		return this.capabilities.some((candidate) => candidate === capability)
 	}
 
+	/**
+	 * Reads one optional plugin-owned value with the exact type carried by its token.
+	 *
+	 * @example `context.getValue(authenticatedPrincipal)?.id`
+	 */
+	getValue<TValue>(token: RequestContextValue<TValue>): TValue | undefined {
+		const untrustedToken: unknown = token
+
+		if (!(untrustedToken instanceof RequestContextValue)) {
+			throw new TypeError(
+				'Request context value token must be a RequestContextValue',
+			)
+		}
+
+		// Only the same token can store and recover its validated value type.
+		return requestContextValues.get(this)?.get(token) as TValue | undefined
+	}
+
+	/**
+	 * Returns a new context containing one validated plugin-owned value.
+	 *
+	 * Existing contexts and values remain unchanged. Adding the same token twice
+	 * fails instead of allowing plugin order to replace trusted request state.
+	 *
+	 * @example `const authenticated = context.withValue(principal, { id })`
+	 */
+	withValue<TValue>(
+		token: RequestContextValue<TValue>,
+		value: NoInfer<TValue>,
+	): RequestContext<TAccess, TSource> {
+		const untrustedToken: unknown = token
+
+		if (!(untrustedToken instanceof RequestContextValue)) {
+			throw new TypeError(
+				'Request context value token must be a RequestContextValue',
+			)
+		}
+
+		const currentValues =
+			requestContextValues.get(this) ?? emptyRequestContextValues
+
+		if (currentValues.has(token)) {
+			throw new TypeError(`Request context value already exists: ${token.name}`)
+		}
+
+		const nextValues = new Map(currentValues)
+		nextValues.set(token, token.snapshot(value))
+
+		return new RequestContext(
+			this.access,
+			{
+				capabilities: this.capabilities,
+				metadata: this.metadata,
+				requestId: this.requestId,
+				signal: this.signal,
+				source: this.source,
+			},
+			nextValues,
+		)
+	}
+
 	static {
 		// The closure can call the private constructor without exposing a public master API.
-		trustedMasterContextFactory = <const TSource extends string>(
+		trustedMasterContextFactory = <
+			TAccess extends RequestAccess,
+			const TSource extends string,
+		>(
 			reason: string,
 			keyId: string,
-			options: RequestContextOptions<TSource>,
+			context: RequestContext<TAccess, TSource>,
 		): RequestContext<MasterRequestAccess, TSource> =>
-			new RequestContext(createMasterAccess(reason, keyId), options)
+			new RequestContext(
+				createMasterAccess(reason, keyId),
+				{
+					capabilities: context.capabilities,
+					metadata: context.metadata,
+					requestId: context.requestId,
+					signal: context.signal,
+					source: context.source,
+				},
+				requestContextValues.get(context) ?? emptyRequestContextValues,
+			)
 	}
 }
 
@@ -230,9 +331,12 @@ export class RequestContext<
  * Gives future Runtime authority code a non-public construction path. This
  * function is intentionally omitted from the package entry point.
  */
-export const createTrustedMasterRequestContext = <const TSource extends string>(
+export const createTrustedMasterRequestContext = <
+	TAccess extends RequestAccess,
+	const TSource extends string,
+>(
 	reason: string,
 	keyId: string,
-	options: RequestContextOptions<TSource>,
+	context: RequestContext<TAccess, TSource>,
 ): RequestContext<MasterRequestAccess, TSource> =>
-	trustedMasterContextFactory(reason, keyId, options)
+	trustedMasterContextFactory(reason, keyId, context)

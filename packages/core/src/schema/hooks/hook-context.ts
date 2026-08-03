@@ -1,4 +1,8 @@
-import type { RequestAccess, RequestCapability } from '../../access/index.js'
+import type {
+	RequestAccess,
+	RequestCapability,
+	RequestContextValue,
+} from '../../access/index.js'
 import type { OperationKind } from '../../query/index.js'
 import type { JsonDocument } from '../fields/builtins/json.js'
 import type { HookExecutionContext } from './execution-context.js'
@@ -41,6 +45,7 @@ export interface HookContextIdentity {
 /** @internal Supplies revocable behavior without exposing Runtime dependencies. */
 export interface HookContextCapabilities {
 	emit(name: string, payload: JsonDocument): void
+	getValue<TValue>(token: RequestContextValue<TValue>): TValue | undefined
 	hasCapability(capability: RequestCapability): boolean
 }
 
@@ -87,7 +92,7 @@ const requireHookContextCapabilities = (
  * request metadata, credentials, adapters, commit controls, or hook bypasses.
  */
 export class HookContext implements HookExecutionContext {
-	/** Exposes anonymous, authenticated-user, or audited-master request identity. */
+	/** Exposes ordinary anonymous or audited-master Core authority. */
 	readonly access: RequestAccess
 	/** Identifies the exact hook declaration currently being executed. */
 	readonly hook: HookContextIdentity
@@ -128,6 +133,15 @@ export class HookContext implements HookExecutionContext {
 	 */
 	emit(name: string, payload: JsonDocument): void {
 		requireHookContextCapabilities(this).emit(name, payload)
+	}
+
+	/**
+	 * Reads one optional plugin-owned request value without exposing derivation.
+	 *
+	 * @example `context.getValue(authenticatedPrincipal)?.id`
+	 */
+	getValue<TValue>(token: RequestContextValue<TValue>): TValue | undefined {
+		return requireHookContextCapabilities(this).getValue(token)
 	}
 
 	/** Checks one framework capability token without exposing request metadata. */

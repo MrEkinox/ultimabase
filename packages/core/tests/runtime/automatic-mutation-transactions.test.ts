@@ -72,7 +72,7 @@ const createRequest = (
 		...(masterAuthority === undefined ? {} : { masterAuthority }),
 		pipeline: createRecordingPipeline(adapter, trace, hookStages),
 	})
-	const request = framework.user('author-1', {
+	const request = framework.anonymous({
 		requestId: 'automatic-transaction-1',
 		source: requestSources.internal,
 	})

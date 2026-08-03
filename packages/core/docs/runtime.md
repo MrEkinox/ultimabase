@@ -5,7 +5,7 @@ The single business-operation engine used by every transport.
 Responsibilities:
 
 - `FrameworkEngine` and request-bound engines;
-- anonymous, user, and master contexts;
+- anonymous and master authority with plugin-owned typed context values;
 - CRUD, bulk operations, and upserts;
 - deterministic operation pipeline;
 - hooks and post-commit events;
@@ -43,8 +43,8 @@ and reuse the exact engine and authority. Source `internal` never grants master
 access. Schema, selection, input, and result inference remain exact.
 
 `ultimabase.application` exposes advanced Core service and plugin lookup.
-`ultimabase.engine` exposes explicit anonymous, user, master, and transport
-request composition after startup. `stop()` closes existing queries and cannot
+`ultimabase.engine` exposes explicit anonymous, plugin-derived, master, and
+transport request composition after startup. `stop()` closes existing queries and cannot
 be restarted; `dispose()` or `Symbol.asyncDispose` permanently releases every
 owned resource.
 
@@ -124,7 +124,9 @@ boundary.
 Policy plugins register the same five public factories as any community tenant,
 ownership, moderation, or soft-delete capability. A definition may omit
 `schema` and `operations` to match every terminal, or retain an exact schema and
-terminal union for concise callback inference:
+terminal union for concise callback inference. In this example,
+`authenticatedPrincipal` is the nominal value token exported by the installed
+authentication plugin:
 
 ```ts
 setup: ({ registries }) => {
@@ -134,7 +136,7 @@ setup: ({ registries }) => {
 			schema: ArticleSchema,
 			operations: ['create-one', 'create-many'],
 			handler: ({ context }) => {
-				if (context.access.mode === 'anonymous') {
+				if (context.getValue(authenticatedPrincipal) === undefined) {
 					throw new FrameworkError(
 						'PERMISSION_DENIED',
 						'Authentication required',
@@ -283,9 +285,10 @@ requires another ambient request or `{ ultimabase }`. Schema identity is checked
 against the exact application instance.
 
 The class also exposes immutable `access`, `source`, `hook`, request and
-transaction identifiers, the cancellation signal, and identity-based
-`hasCapability(token)`. It exposes no request metadata, raw credentials, master
-elevation, adapter, commit, rollback, hook bypass, or mutable pipeline state.
+transaction identifiers, the cancellation signal, identity-based
+`hasCapability(token)`, and typed `getValue(token)` lookup. It exposes no value
+derivation, request metadata, raw credentials, master elevation, adapter,
+commit, rollback, hook bypass, or mutable pipeline state.
 
 An immutable asynchronous-local stack detects `A -> A` and `A -> B -> A`
 re-entry by exact declaration, owner, target, phase, and handler position.
@@ -425,8 +428,9 @@ one millisecond intentionally carry no strict ordering promise.
 ## Framework and request engines
 
 `FrameworkEngine` owns one application's pipeline. It creates a new immutable
-request engine for each anonymous or authenticated request. Direct construction
-remains the low-level boundary for Runtime internals and focused engine tests:
+request engine for each anonymous or plugin-derived request context. Direct
+construction remains the low-level boundary for Runtime internals and focused
+engine tests:
 
 ```ts
 const framework = new FrameworkEngine({
@@ -434,10 +438,12 @@ const framework = new FrameworkEngine({
 	pipeline,
 })
 
-const request = framework.user(userId, {
+const context = RequestContext.anonymous({
 	requestId: 'request-01',
 	source: requestSources.graphql,
-})
+}).withValue(authenticatedPrincipal, { id: 'user-1' })
+
+const request = framework.withContext(context)
 
 const publishedArticles = ArticleSchema.query()
 	.equalTo('status', 'published')
@@ -478,7 +484,8 @@ inputs never expose a raw or temporary request engine property.
 
 `request.transaction(callback)` begins a transaction through the database
 adapter retained by the pipeline. The callback receives a distinct engine with
-the same application, context, authentication, capabilities, and metadata:
+the same application, context, authority, capabilities, typed values, and
+metadata:
 
 ```ts
 const article = await request.transaction(async () => {
@@ -530,7 +537,8 @@ The raw key is only a verification input: neither the grant, `RequestContext`,
 nor the audit event retains it. A grant cannot be constructed publicly, cannot
 be shared across framework instances, and must produce a successful audit event
 before `useMasterKey` returns. Master retains the request ID, source, metadata,
-capabilities, transaction lifetime, and application identity.
+capabilities, plugin-owned typed values, transaction lifetime, and application
+identity.
 
 Runtime never bypasses enforcement merely because the context is `master`.
 Each installed policy reads the trusted access mode and decides whether its own
@@ -727,25 +735,41 @@ and synchronous or asynchronous callback results keep their exact type.
 
 ## Request contexts
 
-Public code can create immutable anonymous or authenticated user contexts:
+Public code creates an anonymous Core context. An optional plugin may validate
+its own credentials and derive typed values without creating another authority
+mode:
 
 ```ts
 const tenantRead = new RequestCapability('tenant:read')
+const authenticatedPrincipal = new RequestContextValue<
+	Readonly<{ id: string }>
+>('auth.principal', (value: unknown) => validatePrincipal(value))
 
-const context = RequestContext.user(userId, {
+const anonymous = RequestContext.anonymous({
 	requestId: 'request-01',
 	source: requestSources.graphql,
 	capabilities: [tenantRead],
 	metadata: { traceId: 'trace-01' },
 })
+const authenticated = anonymous.withValue(authenticatedPrincipal, {
+	id: 'user-1',
+})
 
-context.access // { mode: 'user', userId }
-context.hasCapability(tenantRead) // true
+authenticated.access // { mode: 'anonymous' }
+authenticated.getValue(authenticatedPrincipal)?.id // string | undefined
+authenticated.hasCapability(tenantRead) // true
 ```
 
 Custom transport plugins may use their own non-empty source literal, such as
-`grpc`. Options, metadata records, access state, capability collections, and
-the context instance are copied or frozen at their boundary.
+`grpc`. Options, metadata records, access state, capability collections, typed
+values, and the context instance are copied or frozen at their owning boundary.
+Matching value-token names remain different identities, and adding the same
+token twice fails instead of letting plugin order replace trusted state.
+
+Metadata is diagnostic and untyped. Credential-shaped keys such as
+`authorization`, `sessionToken`, `accessToken`, `refreshToken`, `password`, and
+`apiKey` are rejected; an authentication plugin validates those inputs before
+deriving safe typed values.
 
 There is deliberately no public master-context factory. Master contexts can
 only be produced by `RequestEngine.useMasterKey` after verification through the

@@ -7,7 +7,6 @@ import type {
 	AnonymousRequestAccess,
 	MasterRequestAccess,
 	RequestAccess,
-	UserRequestAccess,
 } from '../../access/index.js'
 import type {
 	ExecutableOperationAst,
@@ -195,18 +194,6 @@ export class FrameworkEngine<
 		RequestContext<AnonymousRequestAccess, TSource>
 	> {
 		return this.withContext(RequestContext.anonymous(options))
-	}
-
-	/** Creates one authenticated request engine from its stable user identifier. */
-	user<const TUserId extends string, const TSource extends string>(
-		userId: TUserId,
-		options: RequestContextOptions<TSource>,
-	): RequestEngine<
-		TSchemas,
-		TPlugins,
-		RequestContext<UserRequestAccess<TUserId>, TSource>
-	> {
-		return this.withContext(RequestContext.user(userId, options))
 	}
 
 	/** Keeps schema identity checks centralized for queries and direct operations. */

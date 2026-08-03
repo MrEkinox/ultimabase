@@ -1,8 +1,8 @@
 import type {
 	AnonymousRequestAccess,
 	MasterRequestAccess,
-	UserRequestAccess,
 } from '../../access/index.js'
+import { RequestContextValue } from '../../access/index.js'
 import { FrameworkApplication } from '../../foundation.js'
 import type { FindOperationAst, InferQueryResult } from '../../query/index.js'
 import { Query } from '../../query/index.js'
@@ -11,6 +11,7 @@ import { expectTypeOf, test } from 'vitest'
 
 import { MasterAuthority } from '../master/master-authority.js'
 import { runWithRequestEngine } from '../context/active-framework-context.js'
+import { RequestContext } from '../context/request-context.js'
 import type { RuntimePipeline } from '../pipeline/runtime-pipeline.js'
 import { FrameworkEngine, type RequestEngine } from './framework-engine.js'
 
@@ -51,16 +52,27 @@ const multiSchemaFramework = new FrameworkEngine({
 	application: multiSchemaApplication,
 	pipeline,
 })
+const principalValue = new RequestContextValue<string>(
+	'fixture.principal',
+	(value: unknown): string => {
+		if (typeof value !== 'string') {
+			throw new TypeError('Fixture principal must be a string')
+		}
+
+		return value
+	},
+)
 
 test('preserves application, context, query, and operation result types', () => {
 	const anonymous = framework.anonymous({
 		requestId: 'anonymous-1',
 		source: 'rest',
 	})
-	const user = framework.user('user-1', {
+	const scopedContext = RequestContext.anonymous({
 		requestId: 'user-1',
 		source: 'graphql',
-	})
+	}).withValue(principalValue, 'user-1')
+	const scoped = framework.withContext(scopedContext)
 	const query = schema.query()
 	const operation = {
 		kind: 'find',
@@ -70,14 +82,17 @@ test('preserves application, context, query, and operation result types', () => 
 	expectTypeOf(framework.application).toEqualTypeOf<typeof application>()
 	expectTypeOf(anonymous.context.access).toEqualTypeOf<AnonymousRequestAccess>()
 	expectTypeOf(anonymous.context.source).toEqualTypeOf<'rest'>()
-	expectTypeOf(user.context.access).toEqualTypeOf<UserRequestAccess<'user-1'>>()
+	expectTypeOf(scoped.context.access).toEqualTypeOf<AnonymousRequestAccess>()
+	expectTypeOf(scoped.context.getValue(principalValue)).toEqualTypeOf<
+		string | undefined
+	>()
 	expectTypeOf(query).toEqualTypeOf<Query<typeof schema>>()
-	expectTypeOf(user.execute(operation)).toEqualTypeOf<
+	expectTypeOf(scoped.execute(operation)).toEqualTypeOf<
 		Promise<readonly InferQueryResult<typeof schema>[]>
 	>()
 	expectTypeOf(
-		user.transaction((transaction) => {
-			expectTypeOf(transaction).toEqualTypeOf<typeof user>()
+		scoped.transaction((transaction) => {
+			expectTypeOf(transaction).toEqualTypeOf<typeof scoped>()
 
 			return { completed: true as const }
 		}),
@@ -85,7 +100,7 @@ test('preserves application, context, query, and operation result types', () => 
 })
 
 test('keeps bound terminal types exact in multi-schema applications', () => {
-	const request = multiSchemaFramework.user('user-1', {
+	const request = multiSchemaFramework.anonymous({
 		requestId: 'multi-schema-1',
 		source: 'graphql',
 	})

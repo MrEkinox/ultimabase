@@ -51,7 +51,7 @@ const createRequest = (
 		pipeline: createRecordingPipeline(adapter, trace),
 	})
 	const capability = new RequestCapability('article:write')
-	const request = framework.user('user-1', {
+	const request = framework.anonymous({
 		requestId: 'transaction-1',
 		source: requestSources.internal,
 		capabilities: [capability],

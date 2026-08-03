@@ -107,7 +107,7 @@ const createRequest = async <const TSchema extends SchemaDefinition>(
 		pipeline: new RuntimePipeline(stages),
 	})
 	const request = framework.withContext(
-		RequestContext.user('hook-user', {
+		RequestContext.anonymous({
 			requestId: 'transaction-finalization',
 			source: requestSources.internal,
 		}),

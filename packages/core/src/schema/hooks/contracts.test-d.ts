@@ -55,9 +55,7 @@ const ArticleSchema = Schema.define({
 			expectTypeOf(context.requestId).toBeString()
 			expectTypeOf(context.transactionId).toEqualTypeOf<string | undefined>()
 			expectTypeOf(context.signal).toEqualTypeOf<AbortSignal>()
-			expectTypeOf(context.access.mode).toEqualTypeOf<
-				'anonymous' | 'master' | 'user'
-			>()
+			expectTypeOf(context.access.mode).toEqualTypeOf<'anonymous' | 'master'>()
 			// @ts-expect-error -- Hook execution identity never exposes private metadata.
 			void context.metadata
 			// @ts-expect-error -- Hooks cannot own transaction finalization.

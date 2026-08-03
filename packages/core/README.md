@@ -6,7 +6,7 @@ Responsibilities:
 
 - immutable schemas, built-in and plugin-defined fields, and type inference;
 - immutable Query and Operation AST builders;
-- anonymous, user, and trusted master request authority;
+- anonymous and trusted master request authority with plugin-owned typed values;
 - isolated `FrameworkApplication` instances;
 - plugin definitions and global plugin graph;
 - nested plugin normalization;
@@ -32,6 +32,47 @@ Detailed guides remain focused by domain:
 - [Query and Operation AST](docs/query.md);
 - [request authority](docs/access.md);
 - [Runtime, engines, transactions, and hooks](docs/runtime.md).
+
+## Plugin-owned request identity
+
+Core has no User schema, session resolver, or authenticated-user authority
+mode. Applications work with anonymous and audited master authority until an
+optional plugin derives typed values on an immutable request context:
+
+```ts
+interface AuthenticatedPrincipal {
+	readonly id: string
+}
+
+const authenticatedPrincipal = new RequestContextValue<AuthenticatedPrincipal>(
+	'auth.principal',
+	(value: unknown): AuthenticatedPrincipal => {
+		if (
+			typeof value !== 'object' ||
+			value === null ||
+			!('id' in value) ||
+			typeof value.id !== 'string'
+		) {
+			throw new TypeError('Invalid authenticated principal')
+		}
+
+		return Object.freeze({ id: value.id })
+	},
+)
+
+const request = RequestContext.anonymous({
+	requestId: 'request-01',
+	source: requestSources.internal,
+}).withValue(authenticatedPrincipal, { id: 'user-1' })
+
+request.access.mode // 'anonymous'
+request.getValue(authenticatedPrincipal)?.id // string | undefined
+```
+
+The token owns validation and snapshotting. Matching token names do not share
+identity, adding the same token twice fails, and neither context derivation nor
+transport data can manufacture master authority. `HookContext.getValue()`
+provides the same typed read boundary without exposing `withValue()`.
 
 ## Automatic mutation transactions
 

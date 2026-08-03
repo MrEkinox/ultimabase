@@ -1,4 +1,5 @@
 import { FrameworkApplication, FrameworkError } from '../../foundation.js'
+import { RequestContextValue } from '../../access/index.js'
 import {
 	Query,
 	type CreateOneOperationAst,
@@ -37,6 +38,17 @@ const matchingClassSchema = Schema.define({
 		title: stringField({ validation: { required: true } }),
 	},
 })
+
+const principalValue = new RequestContextValue<string>(
+	'fixture.principal',
+	(value: unknown): string => {
+		if (typeof value !== 'string') {
+			throw new TypeError('Fixture principal must be a string')
+		}
+
+		return value
+	},
+)
 
 const articleOperation = {
 	kind: 'find',
@@ -147,32 +159,31 @@ const createFixtureFramework = (
 }
 
 describe('FrameworkEngine', () => {
-	it('creates immutable anonymous and authenticated request engines', () => {
+	it('binds immutable anonymous and plugin-derived request contexts', () => {
 		const framework = createFixtureFramework(articleSchema)
 		const anonymous = framework.anonymous({
 			requestId: 'anonymous-1',
 			source: requestSources.rest,
 		})
-		const user = framework.user('user-1', {
+		const scopedContext = RequestContext.anonymous({
 			requestId: 'user-1',
 			source: requestSources.graphql,
-		})
+		}).withValue(principalValue, 'user-1')
+		const scoped = framework.withContext(scopedContext)
 
 		expect(anonymous).toBeInstanceOf(RequestEngine)
 		expect(anonymous.application).toBe(framework.application)
 		expect(anonymous.framework).toBe(framework)
 		expect(anonymous.context.access).toStrictEqual({ mode: 'anonymous' })
-		expect(user.context.access).toStrictEqual({
-			mode: 'user',
-			userId: 'user-1',
-		})
+		expect(scoped.context.access).toStrictEqual({ mode: 'anonymous' })
+		expect(scoped.context.getValue(principalValue)).toBe('user-1')
 		expect(Object.isFrozen(framework)).toBe(true)
-		expect(Object.isFrozen(user)).toBe(true)
+		expect(Object.isFrozen(scoped)).toBe(true)
 	})
 
 	it('validates immutable query ownership only when a terminal executes', async () => {
 		const framework = createFixtureFramework(articleSchema)
-		const request = framework.user('user-1', {
+		const request = framework.anonymous({
 			requestId: 'query-1',
 			source: requestSources.internal,
 		})
@@ -201,7 +212,7 @@ describe('FrameworkEngine', () => {
 		const contexts: RequestContext[] = []
 		const articles = [articleRecord('UltimaBase')]
 		const framework = createFixtureFramework(articleSchema, articles, contexts)
-		const request = framework.user('user-1', {
+		const request = framework.anonymous({
 			requestId: 'execute-1',
 			source: requestSources.internal,
 		})
@@ -243,7 +254,7 @@ describe('FrameworkEngine', () => {
 	it('executes schema-backed operations through the same owned pipeline', async () => {
 		const createdArticle = articleRecord('Created')
 		const framework = createFixtureFramework(articleSchema, createdArticle)
-		const request = framework.user('user-1', {
+		const request = framework.anonymous({
 			requestId: 'create-1',
 			source: requestSources.internal,
 		})
@@ -303,15 +314,18 @@ describe('FrameworkEngine', () => {
 
 	it('delegates transaction callbacks without losing request identity', async () => {
 		const framework = createFixtureFramework(articleSchema)
-		const request = framework.user('user-1', {
-			requestId: 'transaction-1',
-			source: requestSources.internal,
-		})
+		const request = framework.withContext(
+			RequestContext.anonymous({
+				requestId: 'transaction-1',
+				source: requestSources.internal,
+			}).withValue(principalValue, 'user-1'),
+		)
 
 		await expect(
 			request.transaction((transaction) => {
 				expect(transaction).not.toBe(request)
 				expect(transaction.context).toBe(request.context)
+				expect(transaction.context.getValue(principalValue)).toBe('user-1')
 				expect(transaction.framework).toBe(request.framework)
 
 				return 'completed' as const
@@ -342,10 +356,11 @@ describe('FrameworkEngine', () => {
 			contexts,
 			authority,
 		)
-		const request = framework.user('operator-1', {
+		const requestContext = RequestContext.anonymous({
 			requestId: 'master-1',
 			source: requestSources.internal,
-		})
+		}).withValue(principalValue, 'operator-1')
+		const request = framework.withContext(requestContext)
 		const grant = framework.authorizeMasterKey('verified-secret')
 		const master = await request.useMasterKey(
 			grant,
@@ -358,12 +373,13 @@ describe('FrameworkEngine', () => {
 			reason: 'backfill verified articles',
 		})
 		expect(master.context.metadata).toStrictEqual(request.context.metadata)
+		expect(master.context.getValue(principalValue)).toBe('operator-1')
 		expect(events).toStrictEqual([
 			{
 				keyId: 'maintenance',
 				kind: 'master-access',
 				occurredAt: '2026-08-01T03:00:00.000Z',
-				previousAccess: { mode: 'user', userId: 'operator-1' },
+				previousAccess: { mode: 'anonymous' },
 				reason: 'backfill verified articles',
 				requestId: 'master-1',
 				source: 'internal',
@@ -441,7 +457,7 @@ describe('FrameworkEngine', () => {
 				requestId: 'parallel-1',
 				source: requestSources.rest,
 			})
-			const secondRequest = secondFramework.user('user-2', {
+			const secondRequest = secondFramework.anonymous({
 				requestId: 'parallel-2',
 				source: requestSources.graphql,
 			})

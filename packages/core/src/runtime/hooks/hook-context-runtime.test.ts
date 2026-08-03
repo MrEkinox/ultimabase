@@ -1,4 +1,4 @@
-import { RequestCapability } from '../../access/index.js'
+import { RequestCapability, RequestContextValue } from '../../access/index.js'
 import { definePlugin } from '../../foundation.js'
 import {
 	HookContext,
@@ -9,6 +9,8 @@ import {
 import { describe, expect, it } from 'vitest'
 
 import { UltimaBase } from '../application/ultima-base.js'
+import { RequestContext, requestSources } from '../context/request-context.js'
+import { runWithRequestEngine } from '../context/active-framework-context.js'
 import {
 	databaseAdapterServiceToken,
 	type DatabaseAdapter,
@@ -83,6 +85,62 @@ describe('HookContext Runtime capabilities', () => {
 		expect(useForgedContext).toThrow(
 			new TypeError('Hook context capabilities are unavailable'),
 		)
+	})
+
+	it('reads plugin-owned request values without exposing context derivation', async () => {
+		let escapedContext: HookContext | undefined
+		const principal = new RequestContextValue<string>(
+			'fixture.principal',
+			(value: unknown): string => {
+				if (typeof value !== 'string') {
+					throw new TypeError('Fixture principal must be a string')
+				}
+
+				return value
+			},
+		)
+		const PostSchema = Schema.define({
+			className: 'HookContextPrincipalPost',
+			fields: { title: stringField({ validation: { required: true } }) },
+			hooks: {
+				beforeCreate: ({ context, operation }) => {
+					escapedContext = context
+					expect(context.getValue(principal)).toBe('user-1')
+
+					return operation
+				},
+			},
+		})
+		const adapter = new RecordingDatabaseAdapter(
+			[
+				createMutationResult(
+					'0198a43e-2431-7000-8000-000000000209',
+					'plugin identity',
+				),
+			],
+			[],
+		)
+		const ultimabase = new UltimaBase({
+			plugins: [createDatabasePlugin(adapter)],
+			schemas: [PostSchema],
+		})
+
+		await ultimabase.start()
+		const request = ultimabase.engine.withContext(
+			RequestContext.anonymous({
+				requestId: 'hook-context-principal',
+				source: requestSources.internal,
+			}).withValue(principal, 'user-1'),
+		)
+
+		await runWithRequestEngine(request, () =>
+			PostSchema.query().create({ title: 'plugin identity' }),
+		)
+		expect(() => escapedContext?.getValue(principal)).toThrow(
+			expect.objectContaining({ code: 'HOOK_CONTEXT_CLOSED' }),
+		)
+
+		await ultimabase.dispose()
 	})
 
 	it('runs and drains unawaited nested queries in the originating transaction', async () => {

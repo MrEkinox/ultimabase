@@ -1,6 +1,6 @@
 import { immutableArray } from '@ultimabase/shared'
 
-const declaredAccessModes = ['anonymous', 'user', 'master'] as const
+const declaredAccessModes = ['anonymous', 'master'] as const
 
 /** Enumerates the only authority levels understood by UltimaBase. */
 export type AccessMode = (typeof declaredAccessModes)[number]
@@ -14,12 +14,6 @@ export interface AnonymousRequestAccess {
 	readonly mode: 'anonymous'
 }
 
-/** Retains only the stable authenticated user identity needed by access plugins. */
-export interface UserRequestAccess<TUserId extends string = string> {
-	readonly mode: 'user'
-	readonly userId: TUserId
-}
-
 /** Records why trusted server code elevated one request to master authority. */
 export interface MasterRequestAccess {
 	readonly keyId: string
@@ -27,6 +21,5 @@ export interface MasterRequestAccess {
 	readonly reason: string
 }
 
-/** Correlates authentication data with the three supported access modes. */
-export type RequestAccess<TUserId extends string = string> =
-	AnonymousRequestAccess | UserRequestAccess<TUserId> | MasterRequestAccess
+/** Correlates ordinary and trusted authority without defining authentication. */
+export type RequestAccess = AnonymousRequestAccess | MasterRequestAccess

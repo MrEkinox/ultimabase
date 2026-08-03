@@ -105,7 +105,7 @@ dependencies are incomplete.
 20. [x] [334 — Define bulk hook and non-atomic grouping semantics](issues/300-query-runtime/334-bulk-hook-semantics.md)
 21. [x] [508 — Implement PostgreSQL bulk and upsert execution](issues/500-postgres/508-transactions-bulk-upsert.md)
 22. [x] [335 — Verify native hooks against PostgreSQL](issues/300-query-runtime/335-native-hooks-postgres-e2e.md)
-23. [ ] [350 — Make request identity plugin-owned](issues/300-query-runtime/350-plugin-owned-request-identity.md)
+23. [x] [350 — Make request identity plugin-owned](issues/300-query-runtime/350-plugin-owned-request-identity.md)
 24. [ ] [348 — Add terminal-only Query authority options](issues/300-query-runtime/348-query-terminal-authority.md)
 25. [ ] [349 — Add immutable model persistence commands](issues/300-query-runtime/349-immutable-model-persistence.md)
 
@@ -133,12 +133,12 @@ the named Runtime stages and proven monotonic hook enforcement.
 
 ## Current issue
 
-[350 — Make request identity plugin-owned](issues/300-query-runtime/350-plugin-owned-request-identity.md)
+[348 — Add terminal-only Query authority options](issues/300-query-runtime/348-query-terminal-authority.md)
 
-Issue 335 now proves the complete native hook lifecycle against live PostgreSQL
-adapter outcomes. ADR-0113 now requires Core to remove native user authority and
-introduce plugin-owned typed request values before issue 348 adds explicit
-context and master terminal options.
+Issue 350 now leaves Core with anonymous and audited master authority while
+optional plugins attach validated typed values to immutable request contexts.
+Issue 348 can therefore add explicit execution context and master options to
+Query terminals without accepting authentication credentials.
 
 ## Progress log
 
@@ -166,7 +166,7 @@ without reconstructing repository history.
 - 345 — `done` — Query now exposes selection-aware `update()` and `delete()` aliases while retaining explicit `*One` and unambiguous `*Many` methods under ADR-0110.
 - 334 — `done` — Atomic collections remain all-or-nothing, non-atomic create/upsert now return an immutable completed-or-stopped prefix result, hooks retain one transaction and operation cycle, and set-based update/delete never load rows.
 - 335 — `done` — A public-export PostgreSQL E2E now proves schema, field, plugin, policy-neutral, transaction, finalization, read, and set-based bulk hook behavior against a worker-isolated live database.
-- 350 — `ready` — Core will retain only anonymous and master authority while optional plugins attach immutable typed identity values to request contexts.
+- 350 — `done` — Core retains only anonymous and audited master authority; nominal plugin-owned tokens now validate and expose immutable typed request values through RequestContext and HookContext.
 - 348 — `planned` — Terminal-only explicit-context and master options will give trusted backend code execution control without accepting credentials.
 - 349 — `planned` — Immutable model commands will delegate create, upsert, update, and delete through the same contextual Query pipeline.
 - 508 — `done` — PostgreSQL now executes ordered create/upsert collections, set-based update/delete statements, exact upsert branches, and recoverable non-atomic prefixes through one prepared transaction adapter.

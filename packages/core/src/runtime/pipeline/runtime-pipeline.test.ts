@@ -46,7 +46,7 @@ const articleOperation = {
 	query: new Query(articleSchema).limit(10).ast,
 } satisfies FindOperationAst<typeof articleSchema>
 
-const requestContext = RequestContext.user('user-1', {
+const requestContext = RequestContext.anonymous({
 	requestId: 'request-1',
 	source: requestSources.internal,
 })
@@ -241,10 +241,10 @@ describe('RuntimePipeline', () => {
 		const masterContext = createTrustedMasterRequestContext(
 			'audited maintenance',
 			'maintenance',
-			{
+			RequestContext.anonymous({
 				requestId: 'pipeline-master',
 				source: requestSources.internal,
-			},
+			}),
 		)
 
 		await pipeline.execute({
