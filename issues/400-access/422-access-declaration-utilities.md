@@ -1,6 +1,6 @@
 # 422: Add Access declaration utilities
 
-- Status: planned
+- Status: ready
 - Milestone: 4
 - Packages: `@ultimabase/core`
 - Depends on: 421

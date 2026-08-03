@@ -365,7 +365,7 @@ const compactFieldSignatureCases: readonly CompactFieldSignatureCase[] = [
 	{
 		factoryName: 'stringField',
 		expression:
-			"stringField({ default: 'Ada', validation: { required: true, length: { min: 2 }, match: /^[a-z]+$/u }, access: { read: ({ value }) => { void value; void 'ACCESS_BODY_MUST_NOT_LEAK'; return true } }, description: 'runtime-only-hover-marker' })",
+			"stringField({ default: 'Ada', validation: { required: true, length: { min: 2 }, match: /^[a-z]+$/u }, access: { read: { item: ({ value }) => { void value; void 'ACCESS_BODY_MUST_NOT_LEAK'; return true }, filter: false, order: false } }, description: 'runtime-only-hover-marker' })",
 		expectedReturn: 'DefaultedStringField<true, false, false, false>',
 	},
 	{

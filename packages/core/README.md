@@ -214,7 +214,7 @@ const PostSchema = Schema.define({
 	className: 'Post',
 	access: {
 		operation: {
-			read: true,
+			read: { one: true, many: true, count: false, exists: true },
 			delete: ({ context }) => context.access.mode === 'master',
 		},
 		filter: {
@@ -228,7 +228,11 @@ const PostSchema = Schema.define({
 	fields: {
 		authorId: stringField({ validation: { required: true } }),
 		published: booleanField({
-			access: { create: true, read: true, update: false },
+			access: {
+				create: true,
+				read: { item: true, filter: false, order: false },
+				update: false,
+			},
 		}),
 		title: stringField({ validation: { required: true } }),
 	},
@@ -237,7 +241,10 @@ const PostSchema = Schema.define({
 
 These declarations are validated and retained privately; they do not enter
 schema metadata, validation plans, migrations, or inferred model values. An
-omitted rule does not create an implicit allow or deny callback: application
+operation read may instead use one shared rule, and a field `read: false`
+denies item output, filtering, and ordering together. Every grouped form is
+complete so indirect disclosure cannot inherit an accidentally broader rule.
+An omitted rule does not create an implicit allow or deny callback: application
 Access defaults will be applied by the compiler. Issue 416 supplies the full
 immutable row-filter builder, and issues 417–419 compile and execute these
 declarations. Until then, declaring a rule does not enforce it at Runtime.

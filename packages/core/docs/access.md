@@ -23,17 +23,18 @@ concrete provider configuration.
 
 ## Native declarations
 
-Schema rules are grouped by `operation`, `filter`, and `item`. Inline field
-rules cover `read`, `filter`, `order`, `create`, and `update`; deletion remains
-a schema or prepared-item decision. A rule is either a direct boolean or a
-synchronous or asynchronous callback:
+Schema rules are grouped by `operation`, `filter`, and `item`. Schema reads may
+use one shared rule or explicit `one`, `many`, `count`, and `exists` branches.
+Inline field reads similarly group `item`, `filter`, and `order` disclosure;
+`create` and `update` remain direct mutation decisions. A rule is either a
+direct boolean or a synchronous or asynchronous callback:
 
 ```ts
 const Article = Schema.define({
 	className: 'Article',
 	access: {
 		operation: {
-			read: true,
+			read: { one: true, many: true, count: false, exists: true },
 			delete: ({ context }) => context.access.mode === 'master',
 		},
 		item: {
@@ -44,11 +45,15 @@ const Article = Schema.define({
 	fields: {
 		authorId: stringField({ validation: { required: true } }),
 		secret: stringField({
-			access: { read: false, filter: false, order: false },
+			access: { read: { item: false, filter: false, order: false } },
 		}),
 	},
 })
 ```
+
+Using `read: true` or `read: false` applies the same decision to every schema
+read branch or field disclosure channel. The grouped forms require every branch
+so an omitted count, filter, or ordering path cannot inherit a broader default.
 
 Callbacks receive an effect-free `AccessContext`: ordinary authority,
 cancellation, request identity, unforgeable capabilities, and typed context

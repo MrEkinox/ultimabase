@@ -32,6 +32,14 @@ Core defines four neutral access levels:
 - `field` controls reading, filtering, ordering, creation, and updating for an
   exact schema field.
 
+Schema operation reads accept one shared decision or complete `one`, `many`,
+`count`, and `exists` branches. Field reads accept one shared decision or
+complete `item`, `filter`, and `order` branches. The concise form applies to
+every branch; the grouped form requires every branch so an indirect disclosure
+path never inherits a broader application default accidentally. Mutation
+operation families remain direct decisions and retain their exact terminal in
+`kind`.
+
 Schemas and fields may declare these rules natively. Applications with no
 declaration and no provider follow the configured global default policy. Access
 callbacks are precisely typed, may return directly or asynchronously, and

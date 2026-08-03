@@ -15,22 +15,40 @@ export type NormalizedAccessRuleMap<TKey extends string> = Readonly<
 	Partial<Record<TKey, NormalizedAccessRule>>
 >
 
+/** Retains a complete immutable grouped declaration. */
+export type NormalizedRequiredAccessRuleMap<TKey extends string> = Readonly<
+	Record<TKey, NormalizedAccessRule>
+>
+
 const isAccessRule = (value: unknown): value is NormalizedAccessRule =>
 	typeof value === 'boolean' || typeof value === 'function'
 
-/** Copies one declaration map while rejecting unsupported policy vocabulary. */
-export const normalizeAccessRuleMap = <TKey extends string>(
+/** Validates one direct decision without invoking developer code. */
+export const normalizeAccessRule = (
+	value: unknown,
+	path: string,
+): NormalizedAccessRule => {
+	if (!isAccessRule(value)) {
+		throw new TypeError(`${path} must be a boolean or function`)
+	}
+
+	return value
+}
+
+/** Copies one declaration map through a caller-owned value normalizer. */
+const normalizeAccessValueMap = <TKey extends string, TValue>(
 	value: unknown,
 	keys: readonly TKey[],
 	path: string,
-): NormalizedAccessRuleMap<TKey> | undefined => {
+	normalizeValue: (value: unknown, path: string, key: TKey) => TValue,
+): Readonly<Partial<Record<TKey, TValue>>> | undefined => {
 	if (!isPlainRecord(value)) {
 		throw new TypeError(`${path} must be a plain object`)
 	}
 
 	const allowedKeys = new Set<string>(keys)
-	const rules: Partial<Record<TKey, NormalizedAccessRule>> = {}
-	let ruleCount = 0
+	const values: Partial<Record<TKey, TValue>> = {}
+	let valueCount = 0
 
 	for (const key of Reflect.ownKeys(value)) {
 		if (typeof key !== 'string') {
@@ -41,15 +59,46 @@ export const normalizeAccessRuleMap = <TKey extends string>(
 			throw new TypeError(`Unknown Access rule: ${path}.${key}`)
 		}
 
-		const rule = value[key]
-
-		if (!isAccessRule(rule)) {
-			throw new TypeError(`${path}.${key} must be a boolean or function`)
-		}
-
-		rules[key as TKey] = rule
-		ruleCount += 1
+		const typedKey = key as TKey
+		values[typedKey] = normalizeValue(value[key], `${path}.${key}`, typedKey)
+		valueCount += 1
 	}
 
-	return ruleCount === 0 ? undefined : immutableRecord(rules)
+	return valueCount === 0 ? undefined : immutableRecord(values)
 }
+
+/** Copies one declaration map while rejecting unsupported policy vocabulary. */
+export const normalizeAccessRuleMap = <TKey extends string>(
+	value: unknown,
+	keys: readonly TKey[],
+	path: string,
+): NormalizedAccessRuleMap<TKey> | undefined =>
+	normalizeAccessValueMap(value, keys, path, normalizeAccessRule)
+
+/** Copies one grouped rule map and rejects every omitted branch. */
+export const normalizeRequiredAccessRuleMap = <TKey extends string>(
+	value: unknown,
+	keys: readonly TKey[],
+	path: string,
+): NormalizedRequiredAccessRuleMap<TKey> => {
+	const rules = normalizeAccessRuleMap(value, keys, path)
+
+	for (const key of keys) {
+		if (rules === undefined || !Object.hasOwn(rules, key)) {
+			throw new TypeError(`${path}.${key} is required`)
+		}
+	}
+
+	// Every key was proven present above before the private type is strengthened.
+	return rules as NormalizedRequiredAccessRuleMap<TKey>
+}
+
+/** Normalizes one concise rule or one complete grouped declaration. */
+export const normalizeAccessRuleOrRequiredMap = <TKey extends string>(
+	value: unknown,
+	keys: readonly TKey[],
+	path: string,
+): NormalizedAccessRule | NormalizedRequiredAccessRuleMap<TKey> =>
+	isAccessRule(value)
+		? value
+		: normalizeRequiredAccessRuleMap(value, keys, path)

@@ -92,7 +92,7 @@ The objective is complete only when:
 Complete one issue at a time in this dependency order:
 
 1. [x] [401 — Define native Access declarations](issues/400-access/401-native-access-declarations.md)
-2. [ ] [421 — Group schema and field read Access](issues/400-access/421-group-read-access.md)
+2. [x] [421 — Group schema and field read Access](issues/400-access/421-group-read-access.md)
 3. [ ] [422 — Add Access declaration utilities](issues/400-access/422-access-declaration-utilities.md)
 4. [ ] [416 — Define typed Access filters](issues/400-access/416-typed-access-filters.md)
 5. [ ] [417 — Compile Access plans and plugin contributions](issues/400-access/417-compiled-access-plans.md)
@@ -130,13 +130,13 @@ When resuming after context loss:
 
 ## Current issue
 
-[421 — Group schema and field read Access](issues/400-access/421-group-read-access.md)
+[422 — Add Access declaration utilities](issues/400-access/422-access-declaration-utilities.md)
 
 ## Progress log
 
 - 401 — `done` — Schema and field Access declarations are typed, normalized, and retained privately without changing structural metadata.
-- 421 — `ready` — Schema cardinalities and field disclosure channels must be grouped before the Access filter and compiler contracts stabilize.
-- 422 — `planned` — Neutral declaration constants and family helpers follow the stable grouped read contract.
+- 421 — `done` — Schema cardinalities and field disclosure channels share concise rules or complete immutable grouped declarations.
+- 422 — `ready` — Neutral declaration constants and family helpers now build on the stable grouped read contract.
 - 416 — `planned` — The restricted typed Access filter builder follows the grouped field-read contract.
 - 417 — `planned` — Compiled native and plugin Access plans depend on declarations and filters.
 - 418 — `planned` — Runtime Access execution depends on the compiled plan.

@@ -25,22 +25,37 @@ const Article = Schema.define({
 	className: 'AccessArticle',
 	access: {
 		operation: {
-			read: ({ context, kind }) => {
-				expectTypeOf(context).toEqualTypeOf<AccessContext>()
-				expectTypeOf(kind).toEqualTypeOf<
-					'count' | 'exists' | 'find' | 'first' | 'get'
-				>()
-				expectTypeOf(context.getValue(principalId)).toEqualTypeOf<
-					string | undefined
-				>()
-				// @ts-expect-error -- Access does not expose diagnostic metadata.
-				void context.metadata
-				// @ts-expect-error -- Access decisions cannot enqueue side effects.
-				void context.emit
-				// @ts-expect-error -- Access decisions cannot own transactions.
-				void context.commit
+			read: {
+				one: ({ context, kind }) => {
+					expectTypeOf(context).toEqualTypeOf<AccessContext>()
+					expectTypeOf(kind).toEqualTypeOf<'first' | 'get'>()
+					expectTypeOf(context.getValue(principalId)).toEqualTypeOf<
+						string | undefined
+					>()
+					// @ts-expect-error -- Access does not expose diagnostic metadata.
+					void context.metadata
+					// @ts-expect-error -- Access decisions cannot enqueue side effects.
+					void context.emit
+					// @ts-expect-error -- Access decisions cannot own transactions.
+					void context.commit
 
-				return context.access.mode === 'master'
+					return context.access.mode === 'master'
+				},
+				many: ({ kind }) => {
+					expectTypeOf(kind).toEqualTypeOf<'find'>()
+
+					return true
+				},
+				count: ({ kind }) => {
+					expectTypeOf(kind).toEqualTypeOf<'count'>()
+
+					return false
+				},
+				exists: ({ kind }) => {
+					expectTypeOf(kind).toEqualTypeOf<'exists'>()
+
+					return true
+				},
 			},
 			create: ({ kind }): Promise<boolean> => {
 				expectTypeOf(kind).toEqualTypeOf<'create-many' | 'create-one'>()
@@ -121,12 +136,36 @@ const Article = Schema.define({
 
 					return true
 				},
-				filter: false,
-				order: true,
-				read: ({ value }) => {
-					expectTypeOf(value).toEqualTypeOf<boolean>()
+				read: {
+					item: ({ channel, value }) => {
+						expectTypeOf(channel).toEqualTypeOf<'item'>()
+						expectTypeOf(value).toEqualTypeOf<boolean>()
 
-					return true
+						return true
+					},
+					filter: ({ channel, kind }) => {
+						expectTypeOf(channel).toEqualTypeOf<'filter'>()
+						expectTypeOf(kind).toEqualTypeOf<
+							| 'count'
+							| 'delete-many'
+							| 'delete-one'
+							| 'exists'
+							| 'find'
+							| 'first'
+							| 'get'
+							| 'update-many'
+							| 'update-one'
+							| 'upsert-many'
+							| 'upsert-one'
+						>()
+
+						return false
+					},
+					order: ({ channel }) => {
+						expectTypeOf(channel).toEqualTypeOf<'order'>()
+
+						return true
+					},
 				},
 				update: ({ value }): Promise<boolean> => {
 					expectTypeOf(value).toEqualTypeOf<boolean>()
@@ -191,6 +230,22 @@ test('rejects unsupported families and invalid callback results', () => {
 		access: {
 			// @ts-expect-error -- field decisions return booleans.
 			read: () => ({ allow: true }),
+		},
+	})
+	stringField({
+		access: {
+			// @ts-expect-error -- grouped field reads require every disclosure channel.
+			read: { item: true, filter: false },
+		},
+	})
+	Schema.define({
+		className: 'IncompleteReadAccess',
+		fields: {},
+		access: {
+			operation: {
+				// @ts-expect-error -- grouped schema reads require every cardinality branch.
+				read: { one: true, many: true, count: false },
+			},
 		},
 	})
 })

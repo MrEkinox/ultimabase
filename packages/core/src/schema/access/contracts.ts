@@ -94,14 +94,41 @@ export type SchemaItemAccessInput<
 			: SchemaItemAccessBase<TSchema, TKind>
 
 /** Declares early allow-or-deny decisions by logical operation family. */
+export interface SchemaReadOperationAccess {
+	/**
+	 * Controls singular object reads through `get` and `first`.
+	 * @example `one: ({ kind }) => kind === "get"`
+	 */
+	readonly one: AccessDecisionRule<SchemaOperationAccessInput<'get' | 'first'>>
+	/**
+	 * Controls collection reads through `find`.
+	 * @example `many: true`
+	 */
+	readonly many: AccessDecisionRule<SchemaOperationAccessInput<'find'>>
+	/**
+	 * Controls exact row counts without implicitly enabling other reads.
+	 * @example `count: false`
+	 */
+	readonly count: AccessDecisionRule<SchemaOperationAccessInput<'count'>>
+	/**
+	 * Controls existence checks without implicitly enabling object output.
+	 * @example `exists: true`
+	 */
+	readonly exists: AccessDecisionRule<SchemaOperationAccessInput<'exists'>>
+}
+
+/** Allows one shared read decision or one complete cardinality declaration. */
+export type SchemaReadOperationAccessDeclaration =
+	| AccessDecisionRule<SchemaOperationAccessInput<SchemaFindHookKind>>
+	| SchemaReadOperationAccess
+
+/** Declares early allow-or-deny decisions by logical operation family. */
 export interface SchemaOperationAccess {
 	/**
-	 * Controls `find`, `first`, `get`, `count`, and `exists`.
-	 * @example `read: true`
+	 * Controls every read through one rule or explicit cardinality branches.
+	 * @example `read: { one: true, many: true, count: false, exists: true }`
 	 */
-	readonly read?: AccessDecisionRule<
-		SchemaOperationAccessInput<SchemaFindHookKind>
-	>
+	readonly read?: SchemaReadOperationAccessDeclaration
 	/**
 	 * Controls singular and bulk creates through one reusable rule.
 	 * @example `create: ({ context }) => context.access.mode === "master"`
@@ -242,27 +269,66 @@ export interface FieldValueAccessInput<
 	readonly value: TValue
 }
 
-/** Controls one field independently from schema operation and item decisions. */
-export interface FieldAccess<TField extends GenericField> {
+/** Supplies one field disclosure channel while retaining the exact terminal. */
+export interface FieldReadAccessBaseInput<
+	TChannel extends 'filter' | 'order',
+	TKind extends OperationKind,
+> extends FieldAccessBaseInput<TKind> {
+	/** Distinguishes direct output from indirect filter or ordering disclosure. */
+	readonly channel: TChannel
+}
+
+/** Supplies the exact logical value for one materialized field output. */
+export interface FieldReadItemAccessInput<
+	TValue,
+	TKind extends OperationKind = FieldOutputHookKind,
+> extends FieldValueAccessInput<TValue, TKind> {
+	/** Identifies materialized field output within one shared read callback. */
+	readonly channel: 'item'
+}
+
+/** Describes every way one field can disclose information during a read. */
+export type FieldReadAccessInput<TField extends GenericField> =
+	| FieldReadItemAccessInput<FieldHookTypes<TField>['object']>
+	| FieldReadAccessBaseInput<'filter', FieldFilterAccessKind>
+	| FieldReadAccessBaseInput<'order', SchemaFindHookKind>
+
+/** Allows independent output, filter, and ordering disclosure decisions. */
+export interface FieldReadAccess<TField extends GenericField> {
 	/**
-	 * Controls whether selected output may expose one present field value.
-	 * @example `read: ({ context }) => context.access.mode === "master"`
+	 * Controls whether one materialized output may expose this field value.
+	 * @example `item: ({ value }) => value.length > 0`
 	 */
-	readonly read?: AccessDecisionRule<
-		FieldValueAccessInput<FieldHookTypes<TField>['object'], FieldOutputHookKind>
+	readonly item: AccessDecisionRule<
+		FieldReadItemAccessInput<FieldHookTypes<TField>['object']>
 	>
 	/**
 	 * Controls whether callers may reference this field in a row predicate.
 	 * @example `filter: false`
 	 */
-	readonly filter?: AccessDecisionRule<
-		FieldAccessBaseInput<FieldFilterAccessKind>
+	readonly filter: AccessDecisionRule<
+		FieldReadAccessBaseInput<'filter', FieldFilterAccessKind>
 	>
 	/**
 	 * Controls whether callers may order read results by this field.
 	 * @example `order: false`
 	 */
-	readonly order?: AccessDecisionRule<FieldAccessBaseInput<SchemaFindHookKind>>
+	readonly order: AccessDecisionRule<
+		FieldReadAccessBaseInput<'order', SchemaFindHookKind>
+	>
+}
+
+/** Allows one shared disclosure rule or one complete channel declaration. */
+export type FieldReadAccessDeclaration<TField extends GenericField> =
+	AccessDecisionRule<FieldReadAccessInput<TField>> | FieldReadAccess<TField>
+
+/** Controls one field independently from schema operation and item decisions. */
+export interface FieldAccess<TField extends GenericField> {
+	/**
+	 * Controls output, filtering, and ordering through one rule or three channels.
+	 * @example `read: { item: true, filter: false, order: false }`
+	 */
+	readonly read?: FieldReadAccessDeclaration<TField>
 	/**
 	 * Controls whether a present create input may set this field.
 	 * @example `create: true`
@@ -288,9 +354,9 @@ export interface FieldAccess<TField extends GenericField> {
 /** Contextually types inline field rules without retaining them in metadata. */
 export interface FieldAccessDeclaration<TField extends GenericField> {
 	/**
-	 * Declares access for this field's read, filter, order, create, and update uses.
+	 * Declares grouped read disclosure plus create and update decisions.
 	 *
-	 * @example `access: { read: ({ context }) => context.access.mode === "master" }`
+	 * @example `access: { read: { item: true, filter: false, order: false } }`
 	 */
 	readonly access?: FieldAccess<NoInfer<TField>>
 }

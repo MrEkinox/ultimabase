@@ -29,10 +29,17 @@ export const AccessPost = Schema.define({
 	className: 'AccessPost',
 	access: {
 		operation: {
-			read: ({ context, /* hover:operation-kind */ kind }) => {
-				const /* hover:context-value */ current = context.getValue(principal)
+			read: {
+				one: true,
+				many: ({ context, /* hover:operation-kind */ kind }) => {
+					const /* hover:context-value */ current = context.getValue(principal)
+					// The literal terminal is intentionally consumed for packed hover coverage.
+					void kind
 
-				return kind === 'find' && current !== undefined
+					return current !== undefined
+				},
+				count: false,
+				exists: true,
 			},
 		},
 		filter: {
@@ -48,7 +55,7 @@ export const AccessPost = Schema.define({
 		published: booleanField({
 			access: {
 				create: ({ /* hover:field-value */ value }) => value,
-				read: true,
+				read: { filter: false, item: true, order: false },
 				update: false,
 			},
 		}),

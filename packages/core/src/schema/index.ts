@@ -98,6 +98,11 @@ export type {
 	FieldAccess,
 	FieldAccessDeclaration,
 	FieldFilterAccessKind,
+	FieldReadAccess,
+	FieldReadAccessBaseInput,
+	FieldReadAccessDeclaration,
+	FieldReadAccessInput,
+	FieldReadItemAccessInput,
 	FieldValueAccessInput,
 	SchemaAccess,
 	SchemaFilterAccess,
@@ -106,6 +111,8 @@ export type {
 	SchemaItemAccessInput,
 	SchemaOperationAccess,
 	SchemaOperationAccessInput,
+	SchemaReadOperationAccess,
+	SchemaReadOperationAccessDeclaration,
 } from './access/contracts.js'
 export type { FieldAtPath, SchemaFieldPath } from './hooks/field-paths.js'
 export { HookContext } from './hooks/hook-context.js'

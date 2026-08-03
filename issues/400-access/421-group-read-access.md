@@ -1,6 +1,6 @@
 # 421: Group schema and field read Access
 
-- Status: ready
+- Status: done
 - Milestone: 4
 - Packages: `@ultimabase/core`
 - Depends on: 401
@@ -104,27 +104,27 @@ read: ({ channel, context }) => {
 
 ## Acceptance criteria
 
-- [ ] Replace schema `operation.read` with `rule | { one, many, count, exists }` while preserving the current direct boolean and synchronous or asynchronous callback forms.
-- [ ] The schema read object requires all four branches: `one` covers `get | first`, `many` covers `find`, and `count` and `exists` each cover their exact terminal.
-- [ ] Every schema read branch accepts a boolean or a precisely typed synchronous or asynchronous callback and preserves the exact terminal in `kind`.
-- [ ] `operation.create`, `update`, `upsert`, and `delete` remain direct family rules; their existing `kind` already distinguishes singular and bulk terminals without another public object layer.
-- [ ] Replace the flat field `read`, `filter`, and `order` declarations with `read: rule | { item, filter, order }`; `create` and `update` remain top-level mutation decisions.
-- [ ] A direct boolean applies to all three read channels, so `read: false` denies returning, filtering, and ordering by the field.
-- [ ] A direct synchronous or asynchronous callback applies to all three channels and receives a precise `channel: 'item' | 'filter' | 'order'` discriminant alongside the exact terminal `kind`.
-- [ ] The object form requires explicit `item`, `filter`, and `order` rules; each entry accepts a boolean or a precisely typed synchronous or asynchronous callback.
-- [ ] `item` receives the field's exact logical output value, while `filter` and `order` expose no row value because they execute before row materialization.
-- [ ] Schema and field read objects are normalized, snapshotted, and retained through private capabilities without entering metadata, schema hashes, migrations, or compact field hovers.
-- [ ] Legacy flat `filter` and `order` properties fail structural normalization rather than being silently accepted or ambiguously merged.
-- [ ] Public JSDoc explains schema read cardinalities, warns that field filtering and ordering can disclose unreadable information, and documents every shared and grouped form.
-- [ ] ADR-0116, the Core README, the Access milestone README, and the current plan reflect the grouped disclosure model.
-- [ ] Add a Changeset for the pre-release public contract change.
+- [x] Replace schema `operation.read` with `rule | { one, many, count, exists }` while preserving the current direct boolean and synchronous or asynchronous callback forms.
+- [x] The schema read object requires all four branches: `one` covers `get | first`, `many` covers `find`, and `count` and `exists` each cover their exact terminal.
+- [x] Every schema read branch accepts a boolean or a precisely typed synchronous or asynchronous callback and preserves the exact terminal in `kind`.
+- [x] `operation.create`, `update`, `upsert`, and `delete` remain direct family rules; their existing `kind` already distinguishes singular and bulk terminals without another public object layer.
+- [x] Replace the flat field `read`, `filter`, and `order` declarations with `read: rule | { item, filter, order }`; `create` and `update` remain top-level mutation decisions.
+- [x] A direct boolean applies to all three read channels, so `read: false` denies returning, filtering, and ordering by the field.
+- [x] A direct synchronous or asynchronous callback applies to all three channels and receives a precise `channel: 'item' | 'filter' | 'order'` discriminant alongside the exact terminal `kind`.
+- [x] The object form requires explicit `item`, `filter`, and `order` rules; each entry accepts a boolean or a precisely typed synchronous or asynchronous callback.
+- [x] `item` receives the field's exact logical output value, while `filter` and `order` expose no row value because they execute before row materialization.
+- [x] Schema and field read objects are normalized, snapshotted, and retained through private capabilities without entering metadata, schema hashes, migrations, or compact field hovers.
+- [x] Legacy flat `filter` and `order` properties fail structural normalization rather than being silently accepted or ambiguously merged.
+- [x] Public JSDoc explains schema read cardinalities, warns that field filtering and ordering can disclose unreadable information, and documents every shared and grouped form.
+- [x] ADR-0116, the Core README, the Access milestone README, and the current plan reflect the grouped disclosure model.
+- [x] Add a Changeset for the pre-release public contract change.
 
 ## Tests
 
-- [ ] Runtime normalization tests cover schema and field shared booleans, shared sync and async callbacks, complete grouped objects, immutability, unknown properties, missing branches, and legacy flat field declarations.
-- [ ] Compile-time tests prove schema branch terminal unions, field channel narrowing, terminal kinds, item values, callback results, and rejection of invalid or incomplete objects.
-- [ ] TypeScript language-service tests verify schema and field autocomplete, hover documentation, compact QuickInfo, and that field `filter` and `order` are no longer offered beside `read`.
-- [ ] Packed-package tests verify the same public contract through `@ultimabase/core` exports.
+- [x] Runtime normalization tests cover schema and field shared booleans, shared sync and async callbacks, complete grouped objects, immutability, unknown properties, missing branches, and legacy flat field declarations.
+- [x] Compile-time tests prove schema branch terminal unions, field channel narrowing, terminal kinds, item values, callback results, and rejection of invalid or incomplete objects.
+- [x] TypeScript language-service tests verify schema and field autocomplete, hover documentation, compact QuickInfo, and that field `filter` and `order` are no longer offered beside `read`.
+- [x] Packed-package tests verify the same public contract through `@ultimabase/core` exports.
 
 ## Implementation notes
 

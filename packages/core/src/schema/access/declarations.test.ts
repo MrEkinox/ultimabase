@@ -40,6 +40,29 @@ describe('schema Access declarations', () => {
 		expect(schema).not.toHaveProperty('access')
 	})
 
+	it('copies complete schema read branches without executing callbacks', () => {
+		let calls = 0
+		const one = () => {
+			calls += 1
+
+			return true
+		}
+		const read = { count: false, exists: true, many: true, one }
+		const schema = createSchema({ operation: { read } })
+		const declarations = getSchemaAccessDeclarations(schema)
+
+		read.one = () => false
+
+		expect(declarations?.operation?.read).toStrictEqual({
+			count: false,
+			exists: true,
+			many: true,
+			one,
+		})
+		expect(Object.isFrozen(declarations?.operation?.read)).toBe(true)
+		expect(calls).toBe(0)
+	})
+
 	it('retains booleans and synchronous or asynchronous callbacks verbatim', () => {
 		let calls = 0
 		const read = () => true
@@ -106,11 +129,34 @@ describe('schema Access declarations', () => {
 		[{ item: { read: true } }, 'Unknown Access rule: access.item.read'],
 		[
 			{ operation: { read: 'allow' } },
-			'access.operation.read must be a boolean or function',
+			'access.operation.read must be a plain object',
 		],
 		[
 			{ operation: { read: undefined } },
-			'access.operation.read must be a boolean or function',
+			'access.operation.read must be a plain object',
+		],
+		[{ operation: { read: {} } }, 'access.operation.read.one is required'],
+		[
+			{
+				operation: {
+					read: { count: true, exists: true, many: true, one: 'allow' },
+				},
+			},
+			'access.operation.read.one must be a boolean or function',
+		],
+		[
+			{
+				operation: {
+					read: {
+						count: true,
+						exists: true,
+						many: true,
+						one: true,
+						unknown: true,
+					},
+				},
+			},
+			'Unknown Access rule: access.operation.read.unknown',
 		],
 	] as const)('rejects malformed schema declarations %#', (access, message) => {
 		expect(() => normalizeSchemaAccessDeclarations(access)).toThrow(

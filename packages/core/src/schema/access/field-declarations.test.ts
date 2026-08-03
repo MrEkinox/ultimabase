@@ -19,12 +19,15 @@ describe('field Access declarations', () => {
 		['scalar', stringField({ access: { read: false } })],
 		[
 			'enum',
-			enumField({ access: { filter: true }, values: ['draft', 'published'] }),
+			enumField({
+				access: { read: { filter: true, item: true, order: false } },
+				values: ['draft', 'published'],
+			}),
 		],
 		[
 			'object',
 			objectField({
-				access: { order: false },
+				access: { read: { filter: true, item: true, order: false } },
 				fields: { label: stringField() },
 			}),
 		],
@@ -55,6 +58,27 @@ describe('field Access declarations', () => {
 
 		expect(getFieldAccessDeclarations(field)).toStrictEqual({ create: true })
 		expect(field.options).not.toHaveProperty('access')
+	})
+
+	it('copies complete read channels while preserving callback identity', () => {
+		const item = () => true
+		const read: {
+			filter: boolean
+			item: typeof item
+			order: boolean
+		} = { filter: false, item, order: false }
+		const access = { read }
+		const field = stringField({ access })
+		const declarations = getFieldAccessDeclarations(field)
+
+		read.item = () => false
+
+		expect(declarations?.read).toStrictEqual({
+			filter: false,
+			item,
+			order: false,
+		})
+		expect(Object.isFrozen(declarations?.read)).toBe(true)
 	})
 
 	it('copies callbacks while preserving their identity', () => {
@@ -100,7 +124,15 @@ describe('field Access declarations', () => {
 		[null, 'access must be a plain object'],
 		[[], 'access must be a plain object'],
 		[{ delete: true }, 'Unknown Access rule: access.delete'],
-		[{ read: 'allow' }, 'access.read must be a boolean or function'],
+		[{ filter: true }, 'Unknown Access rule: access.filter'],
+		[{ order: false }, 'Unknown Access rule: access.order'],
+		[{ read: 'allow' }, 'access.read must be a plain object'],
+		[{ read: {} }, 'access.read.item is required'],
+		[{ read: { filter: true, item: true } }, 'access.read.order is required'],
+		[
+			{ read: { filter: true, item: true, order: false, unknown: true } },
+			'Unknown Access rule: access.read.unknown',
+		],
 	] as const)('rejects malformed inline declarations %#', (access, message) => {
 		expect(() => declareStringFieldFromUnknown({ access })).toThrow(
 			new TypeError(message),

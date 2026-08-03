@@ -3,8 +3,12 @@ import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 import type { SchemaDefinition } from '../schema/definition.js'
 import type { SchemaAccess } from './contracts.js'
 import {
+	normalizeAccessRule,
+	normalizeAccessRuleOrRequiredMap,
 	normalizeAccessRuleMap,
+	type NormalizedAccessRule,
 	type NormalizedAccessRuleMap,
+	type NormalizedRequiredAccessRuleMap,
 } from './normalization.js'
 
 /** Lists schema levels once so validation and diagnostics cannot drift. */
@@ -19,6 +23,12 @@ export const schemaOperationAccessFamilies = [
 	'update',
 	'upsert',
 	'delete',
+] as const
+export const schemaReadAccessBranches = [
+	'one',
+	'many',
+	'count',
+	'exists',
 ] as const
 export const schemaFilterAccessFamilies = [
 	'read',
@@ -35,18 +45,74 @@ export const schemaItemAccessFamilies = [
 
 export type SchemaOperationAccessFamily =
 	(typeof schemaOperationAccessFamilies)[number]
+export type SchemaReadAccessBranch = (typeof schemaReadAccessBranches)[number]
 export type SchemaFilterAccessFamily =
 	(typeof schemaFilterAccessFamilies)[number]
 export type SchemaItemAccessFamily = (typeof schemaItemAccessFamilies)[number]
 
 /** Stores only declared schema rules for later application-level compilation. */
+export interface SchemaOperationAccessDeclarations {
+	readonly read?:
+		| NormalizedAccessRule
+		| NormalizedRequiredAccessRuleMap<SchemaReadAccessBranch>
+	readonly create?: NormalizedAccessRule
+	readonly update?: NormalizedAccessRule
+	readonly upsert?: NormalizedAccessRule
+	readonly delete?: NormalizedAccessRule
+}
+
 export interface SchemaAccessDeclarations {
-	readonly operation?: NormalizedAccessRuleMap<SchemaOperationAccessFamily>
+	readonly operation?: SchemaOperationAccessDeclarations
 	readonly filter?: NormalizedAccessRuleMap<SchemaFilterAccessFamily>
 	readonly item?: NormalizedAccessRuleMap<SchemaItemAccessFamily>
 }
 
 const schemaAccessDeclarations = new WeakMap<object, SchemaAccessDeclarations>()
+
+/** Normalizes the one grouped schema-operation family without weakening others. */
+const normalizeSchemaOperationAccess = (
+	value: unknown,
+): SchemaOperationAccessDeclarations | undefined => {
+	if (!isPlainRecord(value)) {
+		throw new TypeError('access.operation must be a plain object')
+	}
+
+	const allowedFamilies = new Set<string>(schemaOperationAccessFamilies)
+	const declarations: {
+		-readonly [
+			TKey in keyof SchemaOperationAccessDeclarations
+		]?: SchemaOperationAccessDeclarations[TKey]
+	} = {}
+
+	for (const key of Reflect.ownKeys(value)) {
+		if (typeof key !== 'string') {
+			throw new TypeError('access.operation contains an unsupported symbol key')
+		}
+
+		if (!allowedFamilies.has(key)) {
+			throw new TypeError(`Unknown Access rule: access.operation.${key}`)
+		}
+
+		if (key === 'read') {
+			declarations.read = normalizeAccessRuleOrRequiredMap(
+				value[key],
+				schemaReadAccessBranches,
+				'access.operation.read',
+			)
+			continue
+		}
+
+		const family = key as Exclude<SchemaOperationAccessFamily, 'read'>
+		declarations[family] = normalizeAccessRule(
+			value[key],
+			`access.operation.${key}`,
+		)
+	}
+
+	return Reflect.ownKeys(declarations).length === 0
+		? undefined
+		: immutableRecord(declarations)
+}
 
 /** Copies and validates one native schema declaration without executing rules. */
 export const normalizeSchemaAccessDeclarations = (
@@ -73,11 +139,7 @@ export const normalizeSchemaAccessDeclarations = (
 	}
 
 	const operation = Object.hasOwn(access, 'operation')
-		? normalizeAccessRuleMap(
-				access.operation,
-				schemaOperationAccessFamilies,
-				'access.operation',
-			)
+		? normalizeSchemaOperationAccess(access.operation)
 		: undefined
 	const filter = Object.hasOwn(access, 'filter')
 		? normalizeAccessRuleMap(
