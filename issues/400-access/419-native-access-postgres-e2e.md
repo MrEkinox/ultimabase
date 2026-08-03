@@ -14,6 +14,7 @@ Runtime-to-PostgreSQL pipeline before implementing concrete permission plugins.
 ## Acceptance criteria
 
 - [ ] A native schema policy and a fixture plugin policy compose through one Access plan.
+- [ ] Shared and grouped schema read rules cover `one`, `many`, `count`, and `exists`, while grouped field read rules cover item output, filtering, and ordering through public declarations.
 - [ ] Read, first, get, count, exists, update, delete, upsert, model commands, and bulk terminals execute filters in SQL with developer predicates combined through `AND`.
 - [ ] `beforeFind` cannot remove Access predicates and counts or cursor pages never include inaccessible rows.
 - [ ] Item checks run on prepared singular targets inside the automatic mutation transaction and roll back nested writes on denial.

@@ -19,10 +19,10 @@ forbidden field use.
 - [ ] Create and update never silently discard forbidden input.
 - [ ] Master bypass is configurable.
 - [ ] Field output hooks cannot restore unreadable fields or run for values removed by field permissions.
-- [ ] Field permissions register field-extension Access contributions and only narrow input, selection, filter, order, and output capabilities.
+- [ ] Field permissions register grouped field-read Access contributions and only narrow input, item output, filter, order, and final output capabilities.
 - [ ] The plugin installs no business hook for enforcement.
 - [ ] Runtime receives no field-permission configuration, stage name, neutral handler, or bypass decision.
 
 ## Tests
 
-- [ ] Read/filter/order/create/update matrices, native-Access composition, and selected-column traces.
+- [ ] Grouped item/filter/order read plus create/update matrices, native-Access composition, and selected-column traces.

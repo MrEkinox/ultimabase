@@ -1,9 +1,9 @@
 # 416: Define typed Access filters
 
-- Status: ready
+- Status: planned
 - Milestone: 4
 - Packages: `@ultimabase/core`
-- Depends on: 304, 401
+- Depends on: 304, 401, 421
 - ADR: ADR-0053, ADR-0054, ADR-0102, ADR-0116
 
 ## Goal

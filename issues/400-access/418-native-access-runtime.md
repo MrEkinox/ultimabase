@@ -15,6 +15,7 @@ data.
 ## Acceptance criteria
 
 - [ ] Operation rules run after structural validation and before effectful business hooks for every compatible terminal.
+- [ ] Schema read dispatch selects `one`, `many`, `count`, or `exists` deterministically while preserving the exact terminal kind supplied to its rule.
 - [ ] Synchronous and asynchronous decisions run sequentially with cancellation, recursion protection, sanitized diagnostics, and no post-denial business effect.
 - [ ] Access filters constrain reads, counts, update targets, delete targets, and upsert conflict targets in the database request without entering the transformable Query AST.
 - [ ] `beforeFind` may add business predicates but cannot inspect, replace, or remove an Access filter.
@@ -22,6 +23,7 @@ data.
 - [ ] Set-based update and delete never materialize rows silently for item rules and fail with a typed capability error when operation and filter access cannot fully protect the terminal.
 - [ ] Explicit future itemized terminals run item access once per object inside their documented transaction grouping.
 - [ ] Forbidden mutation fields reject the whole operation; default reads omit forbidden fields before output hooks; explicit selection, filtering, or ordering of a forbidden field fails clearly.
+- [ ] Field read dispatch selects `item`, `filter`, or `order`; a shared declaration applies to all three without allowing an indirect disclosure path to bypass it.
 - [ ] Final field restrictions run after business result transforms and cannot be restored by a hook.
 - [ ] Row denial is indistinguishable from non-existence for reads and target-filtered mutations, while operation denial produces a typed access error.
 - [ ] Access remains active for every currently implemented direct Query, model command, nested-hook, and internal execution path; future transports, relations, and jobs must enter through the same engine contract.

@@ -66,6 +66,10 @@ const Post = Schema.define({
 
 ## Implementation notes
 
+- Issue 421 is the explicit follow-up that groups schema read cardinalities and
+  field disclosure channels. This completed issue records the original flat
+  declaration foundation rather than rewriting its historical acceptance
+  criteria after the public contract was reconsidered.
 - Operation rules receive only `context` and `kind`. Inputs belong to
   `item` rules, which avoids rebuilding the complete Query and Operation AST in
   every Access callback and keeps editor response times stable.

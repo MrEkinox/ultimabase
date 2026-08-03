@@ -10,13 +10,20 @@ The four neutral levels are:
 - `operation` for an early allow or deny decision;
 - `filter` for database-enforced row restrictions;
 - `item` for create input or one prepared mutation target;
-- `field` for read, filter, order, create, and update decisions.
+- `field` for grouped item/filter/order disclosure plus create and update decisions.
 
 Access filters reuse the typed Core filter AST but remain separate from the
 developer Query. They combine with Query and `beforeFind` predicates through
 logical `AND` and cannot be inspected, replaced, or removed by business hooks.
 Access executes before effectful business hooks, while final field restrictions
 run after result transforms.
+
+Schema operation reads accept one shared rule or explicit `one`, `many`,
+`count`, and `exists` branches. Field reads accept one shared rule or explicit
+`item`, `filter`, and `order` disclosure branches. Mutation operation families
+remain direct rules and retain their exact singular or bulk terminal in `kind`.
+Neutral `allowAll`, `denyAll`, `allOperations`, and `allMutations` utilities
+reduce repetitive declarations without installing callbacks or policy concepts.
 
 Runtime knows this generic lifecycle and its monotonic enforcement effects. It
 never names CLP, ACL, roles, authenticated users, ownership, or field
@@ -31,11 +38,13 @@ actually references the corresponding subject.
 ## Foundation execution order
 
 1. [401 — Define native Access declarations](401-native-access-declarations.md)
-2. [416 — Define typed Access filters](416-typed-access-filters.md)
-3. [417 — Compile Access plans and plugin contributions](417-compiled-access-plans.md)
-4. [418 — Execute the native Access lifecycle](418-native-access-runtime.md)
-5. [419 — Verify native Access against PostgreSQL](419-native-access-postgres-e2e.md)
-6. [420 — Define optional Access subject capabilities](420-optional-access-capabilities.md)
+2. [421 — Group schema and field read Access](421-group-read-access.md)
+3. [422 — Add Access declaration utilities](422-access-declaration-utilities.md)
+4. [416 — Define typed Access filters](416-typed-access-filters.md)
+5. [417 — Compile Access plans and plugin contributions](417-compiled-access-plans.md)
+6. [418 — Execute the native Access lifecycle](418-native-access-runtime.md)
+7. [419 — Verify native Access against PostgreSQL](419-native-access-postgres-e2e.md)
+8. [420 — Define optional Access subject capabilities](420-optional-access-capabilities.md)
 
 Concrete provider tracks may then proceed independently:
 

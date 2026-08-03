@@ -21,7 +21,12 @@ const Post = Schema.define({
 	className: 'Post',
 	access: {
 		operation: {
-			read: true,
+			read: {
+				one: true,
+				many: true,
+				count: false,
+				exists: true,
+			},
 			delete: ({ context }) => context.access.mode === 'master',
 		},
 		filter: {
@@ -34,9 +39,11 @@ const Post = Schema.define({
 	fields: {
 		secret: stringField({
 			access: {
-				read: false,
-				filter: false,
-				order: false,
+				read: {
+					item: false,
+					filter: false,
+					order: false,
+				},
 				create: true,
 				update: false,
 			},
@@ -50,6 +57,7 @@ const Post = Schema.define({
 The objective is complete only when:
 
 - schemas and fields expose native, precisely typed Access declarations with concise IntelliSense;
+- neutral `allowAll`, `denyAll`, `allOperations`, and `allMutations` utilities keep common declarations explicit without runtime behavior;
 - `AccessFilter` reuses Core filter contracts without exposing Query terminals or a second filter AST;
 - application setup compiles native declarations and owner-scoped plugin contributions once into immutable per-schema plans;
 - operation denial, row filters, item decisions, and field restrictions execute before unsafe business effects or data exposure;
@@ -65,7 +73,9 @@ The objective is complete only when:
 - Access is fundamental Core behavior, not a plugin.
 - CLP, ACL, field permissions, tenancy, soft deletion, and community policies are Access providers.
 - Access has four neutral levels: `operation`, `filter`, `item`, and `field`.
-- Field decisions distinguish `read`, `filter`, `order`, `create`, and `update`.
+- Schema read decisions accept one shared rule or explicit `one`, `many`, `count`, and `exists` branches; mutation families remain direct rules with exact `kind` narrowing.
+- Field decisions group item output, filtering, and ordering under `read`, while `create` and `update` remain mutation decisions.
+- Access declaration utilities remain static neutral sugar; they add no authenticated, permission-provider, or runtime concept.
 - `filter` is retained as the public name even though it reuses Query predicate contracts internally.
 - Access filters are private monotonic constraints; `beforeFind` remains a business Query transform.
 - Denial composes by logical `AND`, row predicates append with `AND`, and field capabilities only intersect.
@@ -82,11 +92,13 @@ The objective is complete only when:
 Complete one issue at a time in this dependency order:
 
 1. [x] [401 — Define native Access declarations](issues/400-access/401-native-access-declarations.md)
-2. [ ] [416 — Define typed Access filters](issues/400-access/416-typed-access-filters.md)
-3. [ ] [417 — Compile Access plans and plugin contributions](issues/400-access/417-compiled-access-plans.md)
-4. [ ] [418 — Execute the native Access lifecycle](issues/400-access/418-native-access-runtime.md)
-5. [ ] [419 — Verify native Access against PostgreSQL](issues/400-access/419-native-access-postgres-e2e.md)
-6. [ ] [420 — Define optional Access subject capabilities](issues/400-access/420-optional-access-capabilities.md)
+2. [ ] [421 — Group schema and field read Access](issues/400-access/421-group-read-access.md)
+3. [ ] [422 — Add Access declaration utilities](issues/400-access/422-access-declaration-utilities.md)
+4. [ ] [416 — Define typed Access filters](issues/400-access/416-typed-access-filters.md)
+5. [ ] [417 — Compile Access plans and plugin contributions](issues/400-access/417-compiled-access-plans.md)
+6. [ ] [418 — Execute the native Access lifecycle](issues/400-access/418-native-access-runtime.md)
+7. [ ] [419 — Verify native Access against PostgreSQL](issues/400-access/419-native-access-postgres-e2e.md)
+8. [ ] [420 — Define optional Access subject capabilities](issues/400-access/420-optional-access-capabilities.md)
 
 Do not implement concrete CLP, ACL, or field-permission providers before issue
 419 proves the neutral system against PostgreSQL. Issue 420 then supplies the
@@ -118,12 +130,14 @@ When resuming after context loss:
 
 ## Current issue
 
-[416 — Define typed Access filters](issues/400-access/416-typed-access-filters.md)
+[421 — Group schema and field read Access](issues/400-access/421-group-read-access.md)
 
 ## Progress log
 
 - 401 — `done` — Schema and field Access declarations are typed, normalized, and retained privately without changing structural metadata.
-- 416 — `ready` — The restricted typed Access filter builder can now build on issue 401 declarations.
+- 421 — `ready` — Schema cardinalities and field disclosure channels must be grouped before the Access filter and compiler contracts stabilize.
+- 422 — `planned` — Neutral declaration constants and family helpers follow the stable grouped read contract.
+- 416 — `planned` — The restricted typed Access filter builder follows the grouped field-read contract.
 - 417 — `planned` — Compiled native and plugin Access plans depend on declarations and filters.
 - 418 — `planned` — Runtime Access execution depends on the compiled plan.
 - 419 — `planned` — The PostgreSQL proof depends on the complete neutral Runtime lifecycle.

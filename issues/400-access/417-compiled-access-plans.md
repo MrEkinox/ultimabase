@@ -3,7 +3,7 @@
 - Status: planned
 - Milestone: 4
 - Packages: `@ultimabase/core`
-- Depends on: 328, 401, 416
+- Depends on: 328, 401, 416, 421
 - ADR: ADR-0097, ADR-0102, ADR-0116
 
 ## Goal
@@ -14,6 +14,8 @@ application-owned `AccessPlan` for each schema.
 ## Acceptance criteria
 
 - [ ] Application setup compiles schema and field declarations once without creating per-request placeholder handlers.
+- [ ] Shared schema read rules and explicit `one`, `many`, `count`, and `exists` branches compile to the same normalized operation decisions without per-request public-shape branching.
+- [ ] Shared field read rules and explicit `item`, `filter`, and `order` branches compile to the same internal field capabilities without losing their disclosure channel.
 - [ ] Plugins contribute Access rules through an owner-scoped registry rather than installing permission behavior as arbitrary business hooks.
 - [ ] Contributions may target all schemas, one exact schema, one exact field path, a schema extension, a field extension, or a field kind.
 - [ ] Developer declarations and plugin contributions preserve dependency-first plugin order, configuration position, registration order, and readable provenance diagnostics.
