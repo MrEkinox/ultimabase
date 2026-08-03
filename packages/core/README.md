@@ -75,6 +75,15 @@ identity, adding the same token twice fails, and neither context derivation nor
 transport data can manufacture master authority. `HookContext.getValue()`
 provides the same typed read boundary without exposing `withValue()`.
 
+Permission providers may also consume optional subject capabilities without
+importing a concrete authentication or role plugin. Dynamic principals use
+nominal `RequestContextValue<T>` identities. Role-aware configuration may
+conditionally call `services.require(accessRoleResolverServiceToken)` and
+capture the returned typed reference in an Access rule. Core validates that
+requirement after all plugin setup callbacks and before infrastructure starts,
+so provider configuration order is irrelevant. Applications with no role-aware
+policy require no resolver at all.
+
 ## Terminal execution authority
 
 Every `Query` terminal resolves authority only when it executes. Inside an

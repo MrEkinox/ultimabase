@@ -291,6 +291,16 @@ export class PluginSetupRegistries {
 
 	/** Closes typed setup-only facades before any infrastructure lifecycle phase. */
 	closeSetup(): void {
+		if (!this.#setupOpen) {
+			return
+		}
+
+		this.#setupOpen = false
+		this.services.validateRequirements()
+	}
+
+	/** Closes setup after a plugin failure without masking the original error. */
+	abortSetup(): void {
 		this.#setupOpen = false
 	}
 

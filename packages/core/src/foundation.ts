@@ -22,8 +22,11 @@ export type {
 } from './errors/framework-error.js'
 export { createServiceToken } from './services/service-token.js'
 export type { ServiceToken } from './services/service-token.js'
+export type {
+	PluginServiceRegistry,
+	RequiredPluginService,
+} from './services/service-registry.js'
 export { ServiceRegistry } from './services/service-registry.js'
-export type { PluginServiceRegistry } from './services/service-registry.js'
 export { definePlugin } from './plugins/definition.js'
 export { defineDatabaseConstraintCompiler } from './plugins/constraint-compilers.js'
 export type {

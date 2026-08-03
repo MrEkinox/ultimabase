@@ -1,6 +1,6 @@
 # Current plan: fundamental Access system
 
-- Status: active
+- Status: completed
 - Started: 2026-08-03
 - Objective owner: `@ultimabase/core`, `@ultimabase/postgres`
 - Governing decisions: [ADR-0090](docs/adr/0090-permission-plugins-through-hooks.md), [ADR-0102](docs/adr/0102-policy-neutral-monotonic-enforcement.md), [ADR-0103](docs/adr/0103-versioned-adapter-constraint-compilers.md), [ADR-0113](docs/adr/0113-plugin-owned-authentication-context.md), [ADR-0116](docs/adr/0116-fundamental-access-system.md)
@@ -94,11 +94,11 @@ Complete one issue at a time in this dependency order:
 1. [x] [401 — Define native Access declarations](issues/400-access/401-native-access-declarations.md)
 2. [x] [421 — Group schema and field read Access](issues/400-access/421-group-read-access.md)
 3. [x] [422 — Add Access declaration utilities](issues/400-access/422-access-declaration-utilities.md)
-4. [ ] [416 — Define typed Access filters](issues/400-access/416-typed-access-filters.md)
-5. [ ] [417 — Compile Access plans and plugin contributions](issues/400-access/417-compiled-access-plans.md)
-6. [ ] [418 — Execute the native Access lifecycle](issues/400-access/418-native-access-runtime.md)
-7. [ ] [419 — Verify native Access against PostgreSQL](issues/400-access/419-native-access-postgres-e2e.md)
-8. [ ] [420 — Define optional Access subject capabilities](issues/400-access/420-optional-access-capabilities.md)
+4. [x] [416 — Define typed Access filters](issues/400-access/416-typed-access-filters.md)
+5. [x] [417 — Compile Access plans and plugin contributions](issues/400-access/417-compiled-access-plans.md)
+6. [x] [418 — Execute the native Access lifecycle](issues/400-access/418-native-access-runtime.md)
+7. [x] [419 — Verify native Access against PostgreSQL](issues/400-access/419-native-access-postgres-e2e.md)
+8. [x] [420 — Define optional Access subject capabilities](issues/400-access/420-optional-access-capabilities.md)
 
 Do not implement concrete CLP, ACL, or field-permission providers before issue
 419 proves the neutral system against PostgreSQL. Issue 420 then supplies the
@@ -130,15 +130,16 @@ When resuming after context loss:
 
 ## Current issue
 
-[416 — Define typed Access filters](issues/400-access/416-typed-access-filters.md)
+The native Access foundation is complete. Concrete permission providers may
+now proceed in the dependency order above.
 
 ## Progress log
 
 - 401 — `done` — Schema and field Access declarations are typed, normalized, and retained privately without changing structural metadata.
 - 421 — `done` — Schema cardinalities and field disclosure channels share concise rules or complete immutable grouped declarations.
 - 422 — `done` — Neutral literal decisions and immutable family helpers reduce repetitive declarations without Runtime behavior.
-- 416 — `ready` — The restricted typed Access filter builder now follows the stable declaration contract.
-- 417 — `planned` — Compiled native and plugin Access plans depend on declarations and filters.
-- 418 — `planned` — Runtime Access execution depends on the compiled plan.
-- 419 — `planned` — The PostgreSQL proof depends on the complete neutral Runtime lifecycle.
-- 420 — `planned` — Optional subject capability contracts follow the stable contribution registry.
+- 416 — `done` — Restricted typed Access filters reuse portable Query predicate contracts without exposing terminals.
+- 417 — `done` — Native and plugin policies compile into immutable application-local plans with stable provenance.
+- 418 — `done` — Runtime executes operation, filter, item, and field policies through monotonic enforcement boundaries.
+- 419 — `done` — PostgreSQL E2E proves private row filters, field restrictions, rollback, master behavior, and set-based terminals.
+- 420 — `done` — Optional principals and neutral role resolvers remain provider-owned, typed, conditional, and application-isolated.

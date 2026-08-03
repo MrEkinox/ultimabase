@@ -200,3 +200,55 @@ retained by the derived context. Tokens compare by identity, duplicate writes
 fail, and the original context remains unchanged. Diagnostic metadata remains
 untyped and rejects credential-shaped fields; plugins must never place session
 tokens, passwords, authorization headers, or provider secrets there.
+
+## Optional subject providers
+
+Access policies can consume authentication and roles without making either one
+a Core feature. A dynamic principal uses the existing nominal context token;
+its absence remains an ordinary fail-closed policy result:
+
+```ts
+const principal = new RequestContextValue<Readonly<{ id: string }>>(
+	'auth.principal',
+	validatePrincipal,
+)
+
+const Post = Schema.define({
+	className: 'Post',
+	access: {
+		operation: {
+			read: ({ context }) => context.getValue(principal) !== undefined,
+		},
+	},
+	fields: { title: stringField() },
+})
+```
+
+Static resolver capabilities use a neutral service token. `require()` records
+the dependency without requiring the provider to appear earlier in plugin
+configuration:
+
+```ts
+const rolePolicy = definePlugin({
+	name: 'example.role-policy',
+	setup: ({ access, services }) => {
+		const roles = services.require(accessRoleResolverServiceToken)
+
+		access.schema('editors', Post, {
+			operation: {
+				update: ({ context }) =>
+					roles.get().hasRole({
+						context,
+						role: new AccessSubjectReference('role', 'editor'),
+					}),
+			},
+		})
+	},
+})
+```
+
+The requirement is validated after all plugin setup callbacks and before any
+database connection, migration, runtime, or transport starts. CLP and ACL only
+declare it when their normalized configuration actually contains a role. An
+official role plugin and a community provider are interchangeable when they
+provide the exported neutral token; duplicate providers still fail.

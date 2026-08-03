@@ -43,6 +43,42 @@ describe('ServiceRegistry', () => {
 		expect(Object.isFrozen(pluginServices)).toBe(true)
 	})
 
+	it('resolves a provider-order-independent plugin requirement', () => {
+		const registry = new ServiceRegistry()
+		const requiredDatabase = registry
+			.forPlugin('fixture.consumer')
+			.require(DatabaseServiceToken)
+		const database = { application: 'deferred' }
+
+		registry
+			.forPlugin('fixture.provider')
+			.provide(DatabaseServiceToken, database)
+		registry.validateRequirements()
+
+		expect(requiredDatabase.debugName).toBe('ultimabase.database')
+		expect(requiredDatabase.get()).toBe(database)
+		expect(Object.isFrozen(requiredDatabase)).toBe(true)
+	})
+
+	it('reports the consumer when a required service remains absent', () => {
+		const registry = new ServiceRegistry()
+
+		registry.forPlugin('fixture.consumer').require(DatabaseServiceToken)
+
+		expect(() => {
+			registry.validateRequirements()
+		}).toThrow(
+			expect.objectContaining({
+				code: 'SERVICE_NOT_FOUND',
+				message: 'Required service not found: ultimabase.database',
+				internalDetails: {
+					requiredBy: 'fixture.consumer',
+					service: 'ultimabase.database',
+				},
+			}),
+		)
+	})
+
 	it('distinguishes optional absence from required lookup failures', () => {
 		const registry = new ServiceRegistry()
 		let thrown: unknown
@@ -100,6 +136,23 @@ describe('ServiceRegistry', () => {
 
 		expect(firstRegistry.get(DatabaseServiceToken).application).toBe('first')
 		expect(secondRegistry.get(DatabaseServiceToken).application).toBe('second')
+	})
+
+	it('does not resolve a required-service reference from another registry', () => {
+		const firstRegistry = new ServiceRegistry()
+		const secondRegistry = new ServiceRegistry()
+		const requiredDatabase = firstRegistry
+			.forPlugin('fixture.consumer')
+			.require(DatabaseServiceToken)
+
+		secondRegistry.provide(DatabaseServiceToken, { application: 'second' })
+
+		expect(() => {
+			firstRegistry.validateRequirements()
+		}).toThrow(expect.objectContaining({ code: 'SERVICE_NOT_FOUND' }))
+		expect(() => requiredDatabase.get()).toThrow(
+			expect.objectContaining({ code: 'SERVICE_NOT_FOUND' }),
+		)
 	})
 
 	it('disposes standard resources once in reverse registration order', async () => {

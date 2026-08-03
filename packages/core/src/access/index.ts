@@ -12,3 +12,17 @@ export type {
 	InferRequestContextValue,
 	RequestContextValueSnapshot,
 } from './request/context-value.js'
+export {
+	AccessSubjectReference,
+	accessRoleResolverServiceToken,
+} from './subject/contracts.js'
+export type {
+	AccessRoleReference,
+	AccessRoleResolutionInput,
+	AccessRoleResolver,
+	AccessSubjectResolutionInput,
+	AccessSubjectResolver,
+	AccessSubjectValue,
+	InferAccessSubjectValue,
+	InferResolvedAccessSubject,
+} from './subject/contracts.js'

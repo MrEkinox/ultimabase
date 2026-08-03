@@ -9,6 +9,23 @@ import {
 
 type DisposableService = AsyncDisposable | Disposable
 
+const requiredPluginServiceIdentity: unique symbol = Symbol(
+	'UltimaBaseRequiredPluginService',
+)
+
+/**
+ * Resolves one service that a plugin declared as mandatory during setup.
+ *
+ * The reference may be captured before its provider runs. Application setup
+ * validates every requirement after all plugins have contributed services.
+ */
+export interface RequiredPluginService<TService> {
+	readonly debugName: string
+	readonly [requiredPluginServiceIdentity]: (service: TService) => TService
+	/** Returns the application-local service after successful setup validation. */
+	get(): TService
+}
+
 /** Restricts plugin setup to one owner-aware view of application services. */
 export interface PluginServiceRegistry {
 	readonly size: number
@@ -19,6 +36,15 @@ export interface PluginServiceRegistry {
 	has<TService>(token: ServiceToken<TService>): boolean
 	get<TService>(token: ServiceToken<TService>): TService
 	getOptional<TService>(token: ServiceToken<TService>): TService | undefined
+	/** Declares a deferred setup requirement without depending on provider order. */
+	require<TService>(
+		token: ServiceToken<TService>,
+	): RequiredPluginService<TService>
+}
+
+interface ServiceRequirement {
+	readonly ownerPlugin: string
+	readonly token: ServiceTokenIdentity
 }
 
 const isObjectLike = (value: unknown): value is object =>
@@ -40,6 +66,7 @@ const isDisposableService = (value: unknown): value is DisposableService => {
 export class ServiceRegistry {
 	readonly #services = new Map<ServiceTokenIdentity, unknown>()
 	readonly #owners = new Map<ServiceTokenIdentity, string | undefined>()
+	readonly #requirements: ServiceRequirement[] = []
 	readonly #disposables = new AsyncDisposableStack()
 	readonly #ownedDisposables = new WeakSet<DisposableService>()
 	#disposed = false
@@ -79,7 +106,31 @@ export class ServiceRegistry {
 			getOptional: <TService>(
 				token: ServiceToken<TService>,
 			): TService | undefined => this.getOptional(token),
+			require: <TService>(
+				token: ServiceToken<TService>,
+			): RequiredPluginService<TService> =>
+				this.#requireOwnedService(pluginName, token),
 		})
+	}
+
+	/** Fails setup when one plugin-declared service requirement is unresolved. */
+	validateRequirements(): void {
+		for (const requirement of this.#requirements) {
+			if (this.#services.has(requirement.token)) {
+				continue
+			}
+
+			throw new FrameworkError(
+				'SERVICE_NOT_FOUND',
+				`Required service not found: ${requirement.token.debugName}`,
+				{
+					internalDetails: {
+						requiredBy: requirement.ownerPlugin,
+						service: requirement.token.debugName,
+					},
+				},
+			)
+		}
 	}
 
 	/** Returns the plugin that provided a service, or undefined for application-owned values. */
@@ -161,8 +212,32 @@ export class ServiceRegistry {
 		this.#disposed = true
 		this.#services.clear()
 		this.#owners.clear()
+		this.#requirements.length = 0
 
 		await this.#disposables.disposeAsync()
+	}
+
+	#requireOwnedService<TService>(
+		ownerPlugin: string,
+		token: ServiceToken<TService>,
+	): RequiredPluginService<TService> {
+		this.#assertToken(token)
+
+		if (this.#disposed) {
+			throw new FrameworkError(
+				'SERVICE_REGISTRY_DISPOSED',
+				`Cannot require service after registry disposal: ${token.debugName}`,
+				{ internalDetails: { service: token.debugName } },
+			)
+		}
+
+		this.#requirements.push({ ownerPlugin, token })
+
+		return Object.freeze({
+			debugName: token.debugName,
+			[requiredPluginServiceIdentity]: (service: TService): TService => service,
+			get: (): TService => this.get(token),
+		})
 	}
 
 	#assertToken<TService>(token: ServiceToken<TService>): void {

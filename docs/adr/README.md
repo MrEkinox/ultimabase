@@ -110,6 +110,7 @@ Accepted records:
 - [ADR-0114: Terminal-only Query authority resolution](0114-terminal-only-query-authority-resolution.md)
 - [ADR-0115: Immutable model commands and protected identity](0115-immutable-model-commands.md)
 - [ADR-0116: Fundamental Access system and policy providers](0116-fundamental-access-system.md)
+- [ADR-0117: Optional Access subject capabilities](0117-optional-access-subject-capabilities.md)
 
 Superseded records:
 

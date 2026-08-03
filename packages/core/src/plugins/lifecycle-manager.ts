@@ -180,7 +180,8 @@ export class PluginLifecycleManager {
 			this.#registries.closeSetup()
 			this.#state = 'ready'
 		} catch (error: unknown) {
-			this.#registries.closeSetup()
+			// Missing requirements must not replace the plugin error that prevented setup.
+			this.#registries.abortSetup()
 			const cleanupErrors = await this.#cleanupAfterFailure()
 
 			throwLifecycleFailure(error, cleanupErrors)
