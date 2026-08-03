@@ -277,7 +277,8 @@ const readUpdateOperationValue = (
 	}
 
 	if (
-		(operation.kind !== 'decrement' &&
+		(operation.kind !== 'relation' &&
+			operation.kind !== 'decrement' &&
 			operation.kind !== 'increment' &&
 			operation.kind !== 'set') ||
 		typeof operation.field !== 'string' ||

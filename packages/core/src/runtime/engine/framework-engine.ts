@@ -50,6 +50,10 @@ import {
 } from '../transactions/transaction-lifetime.js'
 import { throwIfOperationCancelled } from '../hooks/cancellation.js'
 import { resolvePointerInclusions } from '../relations/pointer-inclusion.js'
+import {
+	createRelationNotFoundError,
+	executeRuntimeRelationMutation,
+} from '../relations/relation-mutation.js'
 
 const requestEngineConstructionKey: unique symbol = Symbol(
 	'ultimabase.request-engine-construction',
@@ -145,6 +149,12 @@ const createTerminalMasterReason = (
 	operation: OperationAstNode,
 	schema: SchemaDefinition,
 ): string => `Query terminal ${operation.kind} on ${schema.className}`
+
+/** Recognizes only Runtime's own Access denial marker at a protected boundary. */
+const isNativeAccessDenied = (error: unknown): boolean =>
+	error instanceof FrameworkError &&
+	error.code === 'PERMISSION_DENIED' &&
+	error.internalDetails?.kind === 'native-access-denied'
 
 /** Rejects malformed low-level construction before it can bind request state. */
 const assertFrameworkEngineOptions = (
@@ -375,7 +385,14 @@ export class RequestEngine<
 					)
 
 		// Query terminal construction guarantees an executable operation for this schema.
-		return engine.#executeOperation(normalizedOperation, scope?.rowFilter)
+		return engine.#executeOperation(
+			normalizedOperation,
+			scope?.kind === 'row-filter' ? scope.rowFilter : undefined,
+			scope?.kind === 'row-filter'
+				? scope.nativeAccessDeniedAsMissing
+				: undefined,
+			scope?.kind === 'row-filter' ? scope.objectId : undefined,
+		)
 	}
 
 	get application(): FrameworkApplication<TSchemas, TPlugins> {
@@ -396,6 +413,7 @@ export class RequestEngine<
 		operation: TOperation,
 		rowFilter?: DatabaseRowFilterNode,
 		nativeAccessDeniedAsMissing?: true,
+		privateObjectId?: string,
 	): Promise<InferOperationResult<TOperation>> {
 		this.framework.assertOwnsSchema(getOperationSchema(operation))
 		throwIfOperationCancelled(this.context.signal, {
@@ -408,14 +426,55 @@ export class RequestEngine<
 			requiresAutomaticMutationTransaction(operation)
 		) {
 			// Every root mutation reuses the exact public transaction lifecycle.
-			return this.transaction((transaction) =>
-				transaction.#executeOperation(
-					operation,
-					rowFilter,
-					nativeAccessDeniedAsMissing,
-				),
-			)
+			return this.transaction(async (transaction) => {
+				let result: InferOperationResult<TOperation>
+
+				try {
+					result = await transaction.#executeOperation(
+						operation,
+						rowFilter,
+						nativeAccessDeniedAsMissing,
+						privateObjectId,
+					)
+				} catch (error: unknown) {
+					if (
+						nativeAccessDeniedAsMissing === true &&
+						operation.kind === 'update-one' &&
+						isNativeAccessDenied(error)
+					) {
+						throw createRelationNotFoundError()
+					}
+
+					throw error
+				}
+
+				if (
+					nativeAccessDeniedAsMissing === true &&
+					operation.kind === 'update-one' &&
+					result === null
+				) {
+					throw createRelationNotFoundError()
+				}
+
+				return result
+			})
 		}
+
+		await executeRuntimeRelationMutation(operation, privateObjectId, {
+			assertOwnsSchema: (schema) => {
+				this.framework.assertOwnsSchema(schema)
+			},
+			execute: (nestedOperation, nestedRowFilter, deniedAsMissing, objectId) =>
+				this.#executeOperation(
+					nestedOperation as unknown as ExecutableOperationAst<
+						TSchemas[number]
+					>,
+					nestedRowFilter,
+					deniedAsMissing,
+					objectId,
+				),
+			getSchemaTargets: () => this.framework.application.schemaTargets,
+		})
 
 		const executeOperation = (): Promise<DatabaseOperationResult<TOperation>> =>
 			runWithRequestEngineScope(this, () =>
@@ -429,9 +488,23 @@ export class RequestEngine<
 				}),
 			)
 
-		let result = await (this.#transactionLifetime === undefined
-			? executeOperation()
-			: this.#transactionLifetime.run(executeOperation))
+		let result: DatabaseOperationResult<TOperation>
+
+		try {
+			result = await (this.#transactionLifetime === undefined
+				? executeOperation()
+				: this.#transactionLifetime.run(executeOperation))
+		} catch (error: unknown) {
+			if (
+				nativeAccessDeniedAsMissing === true &&
+				operation.kind === 'update-one' &&
+				isNativeAccessDenied(error)
+			) {
+				throw createRelationNotFoundError()
+			}
+
+			throw error
+		}
 
 		result = await resolvePointerInclusions(operation, result, {
 			execute: async (targetOperation, targetRowFilter) =>

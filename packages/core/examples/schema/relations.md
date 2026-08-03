@@ -60,6 +60,19 @@ const recentPosts = user
 	.after()
 ```
 
-The handle and its complete target Query surface are implemented. Relation
-mutation and PostgreSQL execution examples will be added with their dedicated
-issues; until then Runtime refuses to lose the private relationship scope.
+The same handle owns atomic mutation intent without exposing join rows:
+
+```ts
+const post = PostSchema.pointer('0198f090-2a50-7000-8000-000000000101')
+
+await user.relation('posts').connect(post)
+await user.relation('posts').disconnect(post)
+await user.relation('posts').set([post])
+await user.relation('posts').clear()
+```
+
+Every call inherits the active request or accepts the same terminal options as
+a Query. It runs source update Access and hooks inside one transaction; inverse
+pointer relations also run the target pointer update lifecycle. A database
+adapter must advertise relation support. Core's contract is implemented here,
+while PostgreSQL storage and scoped relation-query execution arrive in issue 744.

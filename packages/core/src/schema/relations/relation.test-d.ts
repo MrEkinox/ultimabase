@@ -1,13 +1,15 @@
 import { expectTypeOf, test } from 'vitest'
 
 import type { Query } from '../../query/query/query.js'
-import type {
+import type { QueryTerminalOptions } from '../../query/operations/execution.js'
+import {
 	RelationArticle,
-	RelationAuthor,
-	RelationPost,
-	RelationTag,
+	type RelationAuthor,
+	type RelationPost,
+	type RelationTag,
 } from '../fields/builtins/relation-fixture.test-support.js'
 import type { SchemaResult } from '../schema/model.js'
+import type { Pointer } from './pointer.js'
 import type {
 	Relation,
 	SchemaRelationFieldName,
@@ -38,11 +40,33 @@ test('infers exact owning and inverse relation handles from persisted models', (
 	expectTypeOf(article.relation('tags').query()).toEqualTypeOf<
 		Query<typeof RelationTag>
 	>()
+	type ArticleRelation = Relation<typeof RelationArticle, typeof RelationTag>
+	type Connect = ArticleRelation['connect']
+	type Set = ArticleRelation['set']
+	type Clear = ArticleRelation['clear']
+
+	expectTypeOf<Parameters<Connect>[0]>().toEqualTypeOf<
+		| Pointer<typeof RelationTag>
+		| readonly [Pointer<typeof RelationTag>, ...Pointer<typeof RelationTag>[]]
+	>()
+	expectTypeOf<Parameters<Connect>[1]>().toEqualTypeOf<
+		QueryTerminalOptions | undefined
+	>()
+	expectTypeOf<ReturnType<Connect>>().toEqualTypeOf<Promise<void>>()
+	expectTypeOf<Parameters<Set>[0]>().toEqualTypeOf<
+		readonly Pointer<typeof RelationTag>[]
+	>()
+	expectTypeOf<ReturnType<Clear>>().toEqualTypeOf<Promise<void>>()
 	expectTypeOf(article.toJSON()).not.toHaveProperty('tags')
 
 	// @ts-expect-error -- Only declared relation fields are accepted.
 	article.relation('missing')
 	const post = null as unknown as SchemaResult<typeof RelationPost>
+	const articlePointer = RelationArticle.pointer('article-id')
+	// @ts-expect-error -- Relation targets retain exact schema identity.
+	void article.relation('tags').connect(articlePointer)
+	// @ts-expect-error -- Additive mutations require at least one target.
+	void article.relation('tags').connect([])
 	expectTypeOf(post).not.toHaveProperty('relation')
 	expectTypeOf<InstanceType<typeof RelationArticle>>().not.toHaveProperty(
 		'relation',

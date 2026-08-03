@@ -1,9 +1,27 @@
 import { assertNonEmptyString, immutableRecord } from '@ultimabase/shared'
 
-import { Query, scopeQueryToRelation } from '../../query/query/query.js'
+import { FrameworkError } from '../../foundation.js'
+import type {
+	OperationObjectId,
+	UpdateOneOperationAst,
+} from '../../query/operations/contracts.js'
+import {
+	executeQueryWithPrivateScope,
+	Query,
+	scopeQueryToObjectId,
+	scopeQueryToRelation,
+} from '../../query/query/query.js'
 import type { RelationField } from '../fields/builtins/relation.js'
 import { getFieldSchemaTarget } from '../fields/base/definition.js'
 import { Schema, type SchemaDefinition } from '../schema/definition.js'
+import {
+	createRelationUpdateExpression,
+	type RelationMutationAction,
+	type RelationMutationOptions,
+	type RelationMutationTargets,
+	type RelationUpdateExpression,
+} from './mutation.js'
+import type { Pointer } from './pointer.js'
 
 /** Selects only top-level to-many fields declared by one exact schema. */
 export type SchemaRelationFieldName<TSchema extends SchemaDefinition> = {
@@ -29,6 +47,56 @@ interface RelationState<
 	readonly source: TSource
 	readonly sourceObjectId: string
 	readonly target: TTarget
+}
+
+/** Executes one logical source update while keeping its object ID private. */
+const executeRelationMutation = async <
+	const TSource extends SchemaDefinition,
+	const TTarget extends SchemaDefinition,
+>(
+	state: RelationState<TSource, TTarget>,
+	action: RelationMutationAction,
+	targets: Pointer<TTarget> | readonly Pointer<TTarget>[],
+	options: RelationMutationOptions | undefined,
+): Promise<void> => {
+	const sourceQuery = scopeQueryToObjectId(
+		new Query(state.source),
+		state.sourceObjectId as OperationObjectId<TSource>,
+		{ nativeAccessDeniedAsMissing: true },
+	)
+	const update = createRelationUpdateExpression(
+		state.source,
+		state.fieldName as SchemaRelationFieldName<TSource>,
+		state.target,
+		action,
+		targets,
+	)
+	const operation: UpdateOneOperationAst<
+		TSource,
+		RelationUpdateExpression<
+			TSource,
+			SchemaRelationFieldName<TSource>,
+			RelationMutationAction,
+			TTarget
+		>
+	> = immutableRecord({
+		kind: 'update-one',
+		query: sourceQuery.ast,
+		update,
+	})
+	const result = await executeQueryWithPrivateScope(
+		sourceQuery,
+		operation,
+		options,
+	)
+
+	if (result === null) {
+		throw new FrameworkError(
+			'NOT_FOUND',
+			`Relation source ${state.source.className} object was missing or inaccessible.`,
+			{ publicMessage: 'The requested object was not found.' },
+		)
+	}
 }
 
 const relationStates = new WeakMap<
@@ -89,16 +157,74 @@ export class Relation<
 	 * @example `await post.relation('tags').query().select('id', 'label').find()`
 	 */
 	query(): Query<TTarget> {
+		const exactState = this.getState()
+
+		return scopeQueryToRelation(new Query(exactState.target), exactState)
+	}
+
+	/**
+	 * Adds one or more exact target pointers in a single transaction.
+	 *
+	 * Existing edges remain unchanged. Duplicate pointers in the same call are
+	 * rejected before Runtime starts.
+	 *
+	 * @example `await post.relation('tags').connect(tag.pointer())`
+	 */
+	connect(
+		targets: RelationMutationTargets<TTarget>,
+		options?: RelationMutationOptions,
+	): Promise<void> {
+		return executeRelationMutation(this.getState(), 'connect', targets, options)
+	}
+
+	/**
+	 * Removes one or more exact target pointers in a single transaction.
+	 *
+	 * @example `await post.relation('tags').disconnect(tag.pointer())`
+	 */
+	disconnect(
+		targets: RelationMutationTargets<TTarget>,
+		options?: RelationMutationOptions,
+	): Promise<void> {
+		return executeRelationMutation(
+			this.getState(),
+			'disconnect',
+			targets,
+			options,
+		)
+	}
+
+	/**
+	 * Replaces the complete target set atomically, including with an empty set.
+	 *
+	 * @example `await post.relation('tags').set([featured.pointer(), news.pointer()])`
+	 */
+	set(
+		targets: readonly Pointer<TTarget>[],
+		options?: RelationMutationOptions,
+	): Promise<void> {
+		return executeRelationMutation(this.getState(), 'set', targets, options)
+	}
+
+	/**
+	 * Removes every edge atomically without requiring a synthetic empty target list.
+	 *
+	 * @example `await post.relation('tags').clear()`
+	 */
+	clear(options?: RelationMutationOptions): Promise<void> {
+		return executeRelationMutation(this.getState(), 'clear', [], options)
+	}
+
+	/** Recovers the trusted state retained only by framework-created handles. */
+	private getState(): RelationState<TSource, TTarget> {
 		const state = relationStates.get(this)
 
 		if (state === undefined) {
 			throw new TypeError('Relation instance has no trusted relation state')
 		}
 
-		// The record originates only from createRelationHandle with matching generics.
-		const exactState = state as RelationState<TSource, TTarget>
-
-		return scopeQueryToRelation(new Query(exactState.target), exactState)
+		// Only createRelationHandle stores one state beside its exact generic handle.
+		return state as RelationState<TSource, TTarget>
 	}
 }
 

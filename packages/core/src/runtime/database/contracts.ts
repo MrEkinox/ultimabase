@@ -15,15 +15,25 @@ import { immutableRecord } from '@ultimabase/shared'
 /** Selects the portable pointer protocol currently understood by Core Runtime. */
 export const databasePointerCapabilityVersion = 1 as const
 
+/** Selects the portable relation protocol currently understood by Core Runtime. */
+export const databaseRelationCapabilityVersion = 1 as const
+
 /** Advertises logical pointer storage, predicates, and inclusion source values. */
 export interface DatabasePointerCapability {
 	readonly kind: 'pointers'
 	readonly version: typeof databasePointerCapabilityVersion
 }
 
+/** Advertises scoped relation reads and atomic logical edge mutations. */
+export interface DatabaseRelationCapability {
+	readonly kind: 'relations'
+	readonly version: typeof databaseRelationCapabilityVersion
+}
+
 /** Lets adapters opt into portable features without coupling Core to a database. */
 export interface DatabaseAdapterCapabilities {
 	readonly pointers?: DatabasePointerCapability
+	readonly relations?: DatabaseRelationCapability
 }
 
 /** Reuses one frozen capability declaration across root and transaction adapters. */
@@ -31,6 +41,13 @@ export const databasePointerCapability: DatabasePointerCapability =
 	immutableRecord({
 		kind: 'pointers',
 		version: databasePointerCapabilityVersion,
+	})
+
+/** Reuses one frozen relation declaration across root and transaction adapters. */
+export const databaseRelationCapability: DatabaseRelationCapability =
+	immutableRecord({
+		kind: 'relations',
+		version: databaseRelationCapabilityVersion,
 	})
 
 /**

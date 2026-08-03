@@ -188,9 +188,11 @@ reused owners, and nested relation declarations fail before infrastructure
 connects. The logical graph exposes ownership and mapping paths without SQL,
 join-table, REST, or GraphQL names.
 
-Relations accept documentation and field extensions, but no scalar validation,
-default, list, index, or immutable options. They are omitted from
-`InferObject`, `InferCreateInput`, and `InferUpdateInput`.
+Relations accept documentation, field extensions, and `access.read` plus
+`access.update` rules, but no scalar validation, default, list, index, immutable,
+or value-hook options. Update Access receives the exact immutable relation delta.
+Relations remain omitted from `InferObject`, `InferCreateInput`, and
+`InferUpdateInput`.
 
 ## Relation handles and scoped queries
 
@@ -227,6 +229,29 @@ reusable scope, and business hook preserves it monotonically.
 Issue 744 adds database execution for this private scope. Until then, Runtime
 validates the logical edge and fails closed instead of letting an adapter run
 the public target AST without its relationship restriction.
+
+The handle also exposes transactional edge mutations:
+
+```ts
+await user.relation('posts').connect(PostSchema.pointer(postId))
+await user.relation('posts').disconnect([oldPost, archivedPost])
+await user.relation('posts').set([firstPost, secondPost])
+await user.relation('posts').clear()
+```
+
+`connect` and `disconnect` require one pointer or a non-empty pointer tuple;
+`set` replaces the complete set and accepts an empty array; `clear` expresses
+that empty replacement directly. Duplicate or foreign pointers fail before a
+transaction starts. Once execution begins, source field update Access, schema
+update hooks, target visibility, nested writes, and adapter execution share one
+automatic or inherited transaction. Missing and inaccessible sources or targets
+both surface as `NOT_FOUND`.
+
+Schema update hooks can narrow `candidate.kind === "relation"` to inspect the
+typed `{ action, targets }` delta. Inverse pointer relations execute ordinary
+target pointer updates, so target validation, Access, and hooks remain active.
+Owning storage stays adapter-owned and requires the versioned relation
+capability; PostgreSQL implements it in issue 744.
 
 ## Drafts, static queries, and persisted models
 

@@ -18,6 +18,8 @@ import {
 	databaseAdapterServiceToken,
 	databasePointerCapability,
 	databasePointerCapabilityVersion,
+	databaseRelationCapability,
+	databaseRelationCapabilityVersion,
 	type DatabaseAdapter,
 	type DatabaseMutationOperationAst,
 	type DatabaseOperationAst,
@@ -140,6 +142,14 @@ describe('database adapter contracts', () => {
 			version: databasePointerCapabilityVersion,
 		})
 		expect(Object.isFrozen(databasePointerCapability)).toBe(true)
+	})
+
+	it('publishes one frozen versioned relation capability for adapter reuse', () => {
+		expect(databaseRelationCapability).toStrictEqual({
+			kind: 'relations',
+			version: databaseRelationCapabilityVersion,
+		})
+		expect(Object.isFrozen(databaseRelationCapability)).toBe(true)
 	})
 
 	it('passes normalized operations and explicit constraints to an adapter', async () => {

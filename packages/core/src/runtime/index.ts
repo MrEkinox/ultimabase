@@ -31,6 +31,8 @@ export {
 	databaseAdapterServiceToken,
 	databasePointerCapability,
 	databasePointerCapabilityVersion,
+	databaseRelationCapability,
+	databaseRelationCapabilityVersion,
 } from './database/contracts.js'
 export type {
 	DatabaseAdapterCapabilities,
@@ -52,6 +54,7 @@ export type {
 	DatabaseOperationRequest,
 	DatabaseOperationResult,
 	DatabasePointerCapability,
+	DatabaseRelationCapability,
 	DatabaseRowFilterNode,
 	DatabaseTransactionAdapter,
 	DatabaseUpdateMaterialization,

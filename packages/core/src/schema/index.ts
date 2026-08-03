@@ -35,9 +35,11 @@ export type {
 export { relationField } from './fields/builtins/relation.js'
 export type {
 	RelationField,
+	RelationFieldAccess,
 	RelationFieldInferenceState,
 	RelationFieldMetadataOptions,
 	RelationFieldOptions,
+	RelationFieldReadAccessInput,
 	RelationMappedFieldName,
 } from './fields/builtins/relation.js'
 export { Pointer, snapshotPointerValue } from './relations/pointer.js'
@@ -47,6 +49,14 @@ export type {
 	SchemaRelationFieldName,
 	SchemaRelationTarget,
 } from './relations/relation.js'
+export type {
+	RelationMutationAction,
+	RelationMutationDelta,
+	RelationMutationOptions,
+	RelationMutationTargets,
+	RelationUpdateExpression,
+	RelationUpdateOperationNode,
+} from './relations/mutation.js'
 export { definePluginField } from './fields/plugin.js'
 export type {
 	PluginFieldDefinition,

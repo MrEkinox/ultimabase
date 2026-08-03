@@ -57,6 +57,8 @@ describe('@ultimabase/core public entry point', () => {
 			'databaseConstraint',
 			'databasePointerCapability',
 			'databasePointerCapabilityVersion',
+			'databaseRelationCapability',
+			'databaseRelationCapabilityVersion',
 			'dateField',
 			'dateTimeField',
 			'decimalField',

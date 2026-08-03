@@ -1,11 +1,22 @@
 import { assertNonEmptyString, immutableRecord } from '@ultimabase/shared'
 
+import type { AccessContext } from '../../../access/index.js'
+import type {
+	AccessDecisionRule,
+	FieldValueAccessInput,
+} from '../../access/contracts.js'
 import {
 	defineExtensions,
 	type FieldExtension,
 } from '../../extensions/definition.js'
 import { createFieldDefinition } from '../base/definition.js'
 import { assertFieldOptions } from '../base/options.js'
+import { splitFieldDeclarationOptions } from '../../hooks/field-declarations.js'
+import type {
+	SchemaFindHookKind,
+	SchemaUpdateHookKind,
+} from '../../hooks/contracts.js'
+import type { RelationMutationDelta } from '../../relations/mutation.js'
 import type {
 	FieldDefinition,
 	FieldInferenceState,
@@ -59,12 +70,33 @@ export interface RelationFieldMetadataOptions<
 	readonly mappedBy?: TMappedBy
 }
 
+/** Supplies the protected source-field decision used by related reads. */
+export interface RelationFieldReadAccessInput {
+	readonly context: AccessContext
+	readonly kind: SchemaFindHookKind
+}
+
+/** Controls relation traversal and logical edge mutation independently. */
+export interface RelationFieldAccess<TTarget extends SchemaDefinition> {
+	/** Controls whether callers may traverse this related collection. */
+	readonly read?: AccessDecisionRule<RelationFieldReadAccessInput>
+	/** Controls one immutable connect, disconnect, set, or clear delta. */
+	readonly update?: AccessDecisionRule<
+		FieldValueAccessInput<RelationMutationDelta<TTarget>, SchemaUpdateHookKind>
+	>
+}
+
 /** Declares one transport-neutral to-many relationship. */
 export interface RelationFieldOptions<
 	TTarget extends SchemaDefinition = SchemaDefinition,
 	TMappedBy extends RelationMappedFieldName<TTarget> | undefined =
 		RelationMappedFieldName<TTarget> | undefined,
 > extends RelationFieldMetadataOptions<TMappedBy> {
+	/**
+	 * Declares relation traversal and mutation rules without exposing row values.
+	 * @example `access: { read: true, update: ({ context }) => context.access.mode === "master" }`
+	 */
+	readonly access?: RelationFieldAccess<TTarget>
 	/**
 	 * Lazily returns the exact target schema after module declarations exist.
 	 * @example `target: () => Post`
@@ -86,7 +118,6 @@ export interface RelationField<
 }
 
 const unsupportedRelationOptionKeys = [
-	'access',
 	'default',
 	'hooks',
 	'immutable',
@@ -95,6 +126,7 @@ const unsupportedRelationOptionKeys = [
 	'validation',
 ] as const
 const relationOptionKeys = new Set([
+	'access',
 	'description',
 	'extensions',
 	'mappedBy',
@@ -168,18 +200,23 @@ export const relationField = <
 		}
 	}
 
-	const { target, ...metadataOptions } = options
+	const { target, ...declarationOptions } = options
 
 	if (typeof target !== 'function') {
 		throw new TypeError('relationField target must be a function')
 	}
+
+	const { access, metadataOptions } =
+		splitFieldDeclarationOptions<RelationFieldMetadataOptions<TMappedBy>>(
+			declarationOptions,
+		)
 
 	return createFieldDefinition(
 		'relation',
 		normalizeRelationMetadata(metadataOptions),
 		snapshotRelationValue,
 		undefined,
-		undefined,
+		access,
 		{ schemaTarget: target },
 	)
 }

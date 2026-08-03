@@ -71,6 +71,7 @@ describe('relationField IntelliSense', () => {
 		)
 
 		expect(entries.map(({ name }) => name).sort()).toStrictEqual([
+			'access',
 			'description',
 			'extensions',
 			'mappedBy',

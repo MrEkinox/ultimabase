@@ -150,9 +150,23 @@ never serializes a related collection. Its `query()` is an ordinary target
 `Query`, including filters, ordering, cursors, `find`, `count`, and `exists`.
 The source edge stays in private Runtime state across every public builder and
 hook transformation; it never appears in `query.ast` and cannot be replaced by
-`Query.use()`. PostgreSQL execution and relation mutations remain in the next
-relation issues, so Core currently fails closed instead of executing an
-unscoped target query.
+`Query.use()`.
+
+Relation handles expose atomic logical mutations without join-row commands:
+
+```ts
+await post.relation('tags').connect(Tag.pointer(tagId))
+await post.relation('tags').disconnect([oldTag, archivedTag])
+await post.relation('tags').set([featuredTag, newsTag])
+await post.relation('tags').clear()
+```
+
+Each call uses the source schema's update Access and hook lifecycle, validates
+target visibility, and joins the active or automatic transaction. Inverse
+pointer relations execute ordinary target pointer updates through the same
+Runtime. Adapters must advertise the versioned relation capability; PostgreSQL
+storage and scoped relation-query execution arrive in issue 744, so unsupported
+adapters still fail closed.
 
 Invalid, throwing, unregistered, and foreign targets fail before infrastructure
 connects with the source class and field path. The graph contains logical class

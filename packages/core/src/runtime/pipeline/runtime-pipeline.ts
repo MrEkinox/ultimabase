@@ -7,8 +7,10 @@ import {
 } from '@ultimabase/shared'
 
 import { FrameworkError } from '../../foundation.js'
+import { isRelationUpdateExpression } from '../../schema/relations/mutation.js'
 import { RequestContext } from '../context/request-context.js'
 import { assertDatabaseConstraintVersion } from '../../plugins/constraint-compilers.js'
+import { databaseRelationCapabilityVersion } from '../database/contracts.js'
 import type {
 	DatabaseConstraintNode,
 	DatabaseMutationOperationAst,
@@ -166,6 +168,34 @@ const assertPreparedMutationExecutor: (
 	}
 }
 
+/** Rejects relation work unless the active transaction adapter claims its protocol. */
+const assertRelationMutationCapability = (
+	executor: DatabaseOperationExecutor,
+	operation: DatabaseOperationAst,
+): void => {
+	if (
+		operation.kind !== 'update-one' ||
+		!('update' in operation) ||
+		!isRelationUpdateExpression(operation.update)
+	) {
+		return
+	}
+
+	const capability: unknown = executor.capabilities?.relations
+
+	if (
+		!isPlainRecord(capability) ||
+		capability.kind !== 'relations' ||
+		capability.version !== databaseRelationCapabilityVersion
+	) {
+		throw new FrameworkError(
+			'INTERNAL_ERROR',
+			`Database adapter must implement relation capability version ${String(databaseRelationCapabilityVersion)}.`,
+			{ publicMessage: 'Relation mutations are not available.' },
+		)
+	}
+}
+
 /** Keeps prepared internal materializations behind the Runtime result boundary. */
 const executeDatabaseOperation = async <
 	const TOperation extends DatabaseOperationAst,
@@ -181,6 +211,8 @@ const executeDatabaseOperation = async <
 	enforcement: RuntimeEnforcementStages | undefined,
 	enforcementState: EnforcementState | undefined,
 ): Promise<RuntimeDatabaseExecution<TOperation>> => {
+	assertRelationMutationCapability(executor, request.operation)
+
 	if (!isMutationOperation(request.operation)) {
 		const result = await executor.execute(request)
 
@@ -525,10 +557,11 @@ export class RuntimePipeline {
 
 		if (
 			request.nativeAccessDeniedAsMissing === true &&
-			request.operation.kind !== 'first'
+			request.operation.kind !== 'first' &&
+			request.operation.kind !== 'update-one'
 		) {
 			throw new TypeError(
-				'Runtime nativeAccessDeniedAsMissing requires a first operation',
+				'Runtime nativeAccessDeniedAsMissing requires a singular protected operation',
 			)
 		}
 
@@ -559,6 +592,22 @@ export class RuntimePipeline {
 				error.code === 'PERMISSION_DENIED' &&
 				error.internalDetails?.kind === 'native-access-denied'
 			) {
+				if (request.operation.kind === 'update-one') {
+					const hiddenError = new FrameworkError(
+						'NOT_FOUND',
+						'Protected singular mutation target was missing or inaccessible.',
+						{ publicMessage: 'The requested object was not found.' },
+					)
+
+					execution.transactionOperation?.fail(
+						execution.operation,
+						hiddenError,
+						execution.phase,
+					)
+
+					throw hiddenError
+				}
+
 				// Expected target invisibility completes as an empty singular read,
 				// so the surrounding mutation transaction remains committable.
 				execution.transactionOperation?.succeed(execution.operation, null)

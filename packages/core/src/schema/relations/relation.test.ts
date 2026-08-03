@@ -17,6 +17,7 @@ import { Relation } from './relation.js'
 
 interface ScopedExecution {
 	readonly kind: string
+	readonly operation: Readonly<Record<string, unknown>>
 	readonly options: NormalizedQueryTerminalOptions
 	readonly scope: QueryTerminalPrivateScope | undefined
 }
@@ -36,7 +37,7 @@ class RelationScopeDispatcher implements QueryExecutionDispatcher {
 				throw new TypeError('Expected one normalized Query terminal operation')
 			}
 
-			this.executions.push({ kind: operation.kind, options, scope })
+			this.executions.push({ kind: operation.kind, operation, options, scope })
 
 			switch (operation.kind) {
 				case 'count':
@@ -45,6 +46,8 @@ class RelationScopeDispatcher implements QueryExecutionDispatcher {
 					return Promise.resolve(false)
 				case 'find':
 					return Promise.resolve([])
+				case 'update-one':
+					return Promise.resolve({ id: articleId })
 				default:
 					return Promise.resolve(null)
 			}
@@ -184,5 +187,69 @@ describe('Relation handles', () => {
 			kind: 'relation',
 			sourceObjectId: articleId,
 		})
+	})
+
+	it('emits immutable relation deltas through protected source updates', async () => {
+		const article = materializeSchemaModel(RelationArticle, { id: articleId })
+		const firstTag = RelationTag.pointer('0198f090-2a50-7000-8000-000000000083')
+		const secondTag = RelationTag.pointer(
+			'0198f090-2a50-7000-8000-000000000084',
+		)
+		const relation = article.relation('tags')
+		const dispatcher = new RelationScopeDispatcher()
+
+		await runWithQueryExecution({}, dispatcher, async () => {
+			await relation.connect(firstTag)
+			await relation.disconnect([firstTag, secondTag], { useMasterKey: true })
+			await relation.set([])
+			await relation.clear()
+		})
+
+		expect(dispatcher.executions.map(({ kind }) => kind)).toStrictEqual([
+			'update-one',
+			'update-one',
+			'update-one',
+			'update-one',
+		])
+		expect(dispatcher.executions[0]?.operation).toMatchObject({
+			kind: 'update-one',
+			update: {
+				kind: 'update-expression',
+				operations: [
+					{
+						field: 'tags',
+						kind: 'relation',
+						value: { action: 'connect', targets: [firstTag] },
+					},
+				],
+			},
+		})
+		expect(dispatcher.executions[1]?.options.useMasterKey).toBe(true)
+
+		for (const execution of dispatcher.executions) {
+			expect(execution.scope).toMatchObject({
+				kind: 'row-filter',
+				nativeAccessDeniedAsMissing: true,
+			})
+			expect(JSON.stringify(execution.operation)).not.toContain(articleId)
+			expect(Object.isFrozen(execution.operation)).toBe(true)
+		}
+	})
+
+	it('rejects empty, duplicate, and incompatible mutation targets', async () => {
+		const article = materializeSchemaModel(RelationArticle, { id: articleId })
+		const relation = article.relation('tags')
+		const tag = RelationTag.pointer('0198f090-2a50-7000-8000-000000000085')
+		const incompatible = RelationArticle.pointer(articleId)
+
+		await expect(
+			relation.connect([] as unknown as [typeof tag]),
+		).rejects.toThrow('Relation mutation targets must contain a Pointer')
+		await expect(relation.connect([tag, tag])).rejects.toThrow(
+			'Relation mutation contains duplicate target',
+		)
+		await expect(
+			relation.connect(incompatible as unknown as typeof tag),
+		).rejects.toThrow('Relation mutation target must point to RelationTag')
 	})
 })

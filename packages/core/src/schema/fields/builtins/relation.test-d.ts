@@ -9,6 +9,7 @@ import {
 	type InferObject,
 	type InferUpdateInput,
 	type RelationField,
+	type Pointer,
 	type ResolvedSchemaRelation,
 } from '../../index.js'
 import {
@@ -66,6 +67,32 @@ test('restricts mappedBy to compatible target relationship fields', () => {
 	relationField({ target: () => Target, list: true })
 	// @ts-expect-error -- Relation collections do not accept scalar defaults.
 	relationField({ target: () => Target, default: [] })
+})
+
+test('types relation traversal and mutation Access without exposing row values', () => {
+	relationField({
+		access: {
+			read: ({ kind }) => {
+				expectTypeOf(kind).toEqualTypeOf<
+					'count' | 'exists' | 'find' | 'first' | 'get'
+				>()
+
+				return true
+			},
+			update: ({ kind, value }) => {
+				expectTypeOf(kind).toEqualTypeOf<'update-many' | 'update-one'>()
+				expectTypeOf(value.action).toEqualTypeOf<
+					'clear' | 'connect' | 'disconnect' | 'set'
+				>()
+				expectTypeOf(value.targets).items.toEqualTypeOf<
+					Pointer<typeof RelationTag>
+				>()
+
+				return true
+			},
+		},
+		target: () => RelationTag,
+	})
 })
 
 test('exports stable relation mapping diagnostics', () => {

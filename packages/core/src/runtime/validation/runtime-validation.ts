@@ -9,6 +9,7 @@ import { isDeepStrictEqual } from 'node:util'
 import {
 	compileValidationPlans,
 	fieldUsesTemporalTimezone,
+	Pointer,
 	Schema,
 	snapshotScalarFieldValue,
 	validateScalarFieldConstraints,
@@ -21,6 +22,7 @@ import {
 	type ValidationIssue,
 	type ValidationIssuePath,
 } from '../../schema/index.js'
+import { getFieldSchemaTarget } from '../../schema/fields/base/definition.js'
 import { FrameworkError } from '../../foundation.js'
 import {
 	assertNonEmptyString,
@@ -98,6 +100,12 @@ const mutationKinds = new Set<OperationKind>([
 	'upsert-many',
 ])
 const updateKinds = new Set(['decrement', 'increment', 'set', 'unset'])
+const relationMutationActions = new Set([
+	'clear',
+	'connect',
+	'disconnect',
+	'set',
+])
 const validationOptionKeys = new Set(['clock', 'timezone', 'uuidV7Generator'])
 const emptyValidationOptions: RuntimeValidationOptions = immutableRecord({})
 
@@ -468,6 +476,116 @@ const isRequiredOutput = (field: GenericField): boolean =>
 	('autoIncrement' in field.options && field.options.autoIncrement === true) ||
 	'generatedOn' in field.options
 
+/** Validates one relation delta without routing it through scalar snapshots. */
+const validateRelationUpdateOperation = (
+	candidate: Readonly<Record<string, unknown>>,
+	fieldPlan: FieldValidationPlan,
+	path: ValidationIssuePath,
+	execution: ValidationExecution,
+): Readonly<Record<string, unknown>> | undefined => {
+	if (
+		fieldPlan.field.kind !== 'relation' ||
+		Object.keys(candidate).some(
+			(key) => key !== 'field' && key !== 'kind' && key !== 'value',
+		) ||
+		!Object.hasOwn(candidate, 'value') ||
+		!isPlainRecord(candidate.value) ||
+		Object.keys(candidate.value).some(
+			(key) => key !== 'action' && key !== 'targets',
+		) ||
+		typeof candidate.value.action !== 'string' ||
+		!relationMutationActions.has(candidate.value.action) ||
+		!isUnknownArray(candidate.value.targets)
+	) {
+		appendIssue(
+			execution,
+			'object.type',
+			path,
+			'Relation update operation is invalid',
+		)
+
+		return undefined
+	}
+
+	const action = candidate.value.action
+	const suppliedTargets = candidate.value.targets
+
+	if (
+		(action === 'clear' && suppliedTargets.length !== 0) ||
+		((action === 'connect' || action === 'disconnect') &&
+			suppliedTargets.length === 0)
+	) {
+		appendIssue(
+			execution,
+			'object.type',
+			[...path, 'value', 'targets'],
+			'Relation mutation target count is incompatible with its action',
+		)
+
+		return undefined
+	}
+
+	const target = getFieldSchemaTarget(fieldPlan.field)?.()
+	const ids = new Set<string>()
+	const targets: Pointer[] = []
+
+	for (const [index, pointer] of suppliedTargets.entries()) {
+		if (
+			!Pointer.is(pointer) ||
+			pointer.schema !== target ||
+			ids.has(pointer.id)
+		) {
+			appendIssue(
+				execution,
+				'object.type',
+				[...path, 'value', 'targets', index],
+				'Relation mutation target is invalid or duplicated',
+			)
+			continue
+		}
+
+		ids.add(pointer.id)
+		targets.push(pointer)
+	}
+
+	if (targets.length !== suppliedTargets.length) {
+		return undefined
+	}
+
+	return immutableRecord({
+		field: candidate.field,
+		kind: 'relation' as const,
+		value: immutableRecord({ action, targets: immutableArray(targets) }),
+	})
+}
+
+/** Compares relation identities explicitly because private Pointer state is opaque to deep equality. */
+const isSameRelationUpdateOperation = (
+	left: Readonly<Record<string, unknown>>,
+	right: Readonly<Record<string, unknown>>,
+): boolean => {
+	if (
+		left.kind !== 'relation' ||
+		right.kind !== 'relation' ||
+		left.field !== right.field ||
+		!isPlainRecord(left.value) ||
+		!isPlainRecord(right.value) ||
+		left.value.action !== right.value.action ||
+		!isUnknownArray(left.value.targets) ||
+		!isUnknownArray(right.value.targets) ||
+		left.value.targets.length !== right.value.targets.length
+	) {
+		return false
+	}
+	const previousTargets = right.value.targets
+
+	return left.value.targets.every((pointer, index) => {
+		const previousPointer: unknown = previousTargets[index]
+
+		return Pointer.is(pointer) && pointer.equals(previousPointer)
+	})
+}
+
 const validateUpdateExpression = (
 	plan: SchemaValidationPlan,
 	value: unknown,
@@ -519,7 +637,7 @@ const validateUpdateExpression = (
 		if (
 			!isPlainRecord(candidate) ||
 			typeof candidate.kind !== 'string' ||
-			!updateKinds.has(candidate.kind) ||
+			(!updateKinds.has(candidate.kind) && candidate.kind !== 'relation') ||
 			typeof candidate.field !== 'string'
 		) {
 			appendIssue(
@@ -559,6 +677,38 @@ const validateUpdateExpression = (
 				fieldPath,
 				'Update field is not declared by the schema',
 			)
+			continue
+		}
+
+		if (candidate.kind === 'relation') {
+			if (previousValue !== undefined) {
+				const retained = retainedForbiddenOperations.get(candidate.field)
+				observedForbiddenFields.add(candidate.field)
+
+				if (
+					retained === undefined ||
+					!isSameRelationUpdateOperation(candidate, retained)
+				) {
+					appendIssue(
+						execution,
+						'field.forbidden',
+						fieldPath,
+						'Relation mutation delta cannot be replaced by a hook',
+					)
+					continue
+				}
+			}
+
+			const relationOperation = validateRelationUpdateOperation(
+				candidate,
+				fieldPlan,
+				operationPath,
+				execution,
+			)
+
+			if (relationOperation !== undefined) {
+				operations.push(relationOperation)
+			}
 			continue
 		}
 

@@ -1,5 +1,6 @@
 import type {
 	DatabaseAdapter,
+	DatabaseAdapterCapabilities,
 	DatabaseCreateMaterialization,
 	DatabaseDeleteMaterialization,
 	DatabaseLogicalRecord,
@@ -16,6 +17,7 @@ import type {
 } from '../../../src/runtime/index.js'
 import {
 	databasePointerCapability,
+	databaseRelationCapability,
 	RuntimePipeline,
 } from '../../../src/runtime/index.js'
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
@@ -57,6 +59,22 @@ export interface TransactionFailureOptions {
 	readonly commit?: Error
 	readonly rollback?: Error
 }
+
+/** Lets capability-boundary tests model an older adapter deliberately. */
+export interface RecordingAdapterCapabilityOptions {
+	readonly relations?: boolean
+}
+
+/** Snapshots the portable protocols one fixture adapter truthfully advertises. */
+const createRecordingCapabilities = (
+	options: RecordingAdapterCapabilityOptions,
+): DatabaseAdapterCapabilities =>
+	immutableRecord({
+		pointers: databasePointerCapability,
+		...(options.relations === false
+			? {}
+			: { relations: databaseRelationCapability }),
+	})
 
 /** Allows focused transaction tests to replace only effectful pipeline stages. */
 export type RecordingPipelineHookStages = Partial<
@@ -132,9 +150,7 @@ export const createPreparedOperationFixture = <
 /** Models one plugin-owned transaction and records every lifecycle boundary. */
 export class RecordingTransactionAdapter implements DatabaseTransactionAdapter {
 	readonly kind = 'database-transaction-adapter' as const
-	readonly capabilities = immutableRecord({
-		pointers: databasePointerCapability,
-	})
+	readonly capabilities: DatabaseAdapterCapabilities
 	readonly requests: DatabaseOperationRequest[] = []
 	readonly #results: QueuedAdapterResult[]
 	readonly #trace: string[]
@@ -144,11 +160,13 @@ export class RecordingTransactionAdapter implements DatabaseTransactionAdapter {
 		results: QueuedAdapterResult[],
 		trace: string[],
 		failures: TransactionFailureOptions = {},
+		capabilities: RecordingAdapterCapabilityOptions = {},
 	) {
 		// Every transaction consumes the adapter's one ordered response queue.
 		this.#results = results
 		this.#trace = trace
 		this.#failures = failures
+		this.capabilities = createRecordingCapabilities(capabilities)
 	}
 
 	async execute<const TOperation extends DatabaseOperationAst>(
@@ -200,23 +218,25 @@ export class RecordingTransactionAdapter implements DatabaseTransactionAdapter {
 /** Starts fresh transaction adapters while retaining root read execution. */
 export class RecordingDatabaseAdapter implements DatabaseAdapter {
 	readonly kind = 'database-adapter' as const
-	readonly capabilities = immutableRecord({
-		pointers: databasePointerCapability,
-	})
+	readonly capabilities: DatabaseAdapterCapabilities
 	readonly rootRequests: DatabaseOperationRequest[] = []
 	readonly transactions: RecordingTransactionAdapter[] = []
 	readonly #results: QueuedAdapterResult[]
 	readonly #trace: string[]
 	readonly #failures: TransactionFailureOptions
+	readonly #capabilityOptions: RecordingAdapterCapabilityOptions
 
 	constructor(
 		results: readonly QueuedAdapterResult[],
 		trace: string[],
 		failures: TransactionFailureOptions = {},
+		capabilities: RecordingAdapterCapabilityOptions = {},
 	) {
 		this.#results = [...results]
 		this.#trace = trace
 		this.#failures = failures
+		this.#capabilityOptions = capabilities
+		this.capabilities = createRecordingCapabilities(capabilities)
 	}
 
 	async execute<const TOperation extends DatabaseOperationAst>(
@@ -237,6 +257,7 @@ export class RecordingDatabaseAdapter implements DatabaseAdapter {
 			this.#results,
 			this.#trace,
 			this.#failures,
+			this.#capabilityOptions,
 		)
 
 		this.transactions.push(transaction)

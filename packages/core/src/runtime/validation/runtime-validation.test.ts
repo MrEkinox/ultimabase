@@ -25,10 +25,12 @@ import {
 	jsonField,
 	objectField,
 	pointerField,
+	relationField,
 	stringField,
 	timeField,
 	uuidField,
 } from '../../schema/index.js'
+import { createRelationUpdateExpression } from '../../schema/relations/mutation.js'
 import { isPlainRecord, isUnknownArray } from '@ultimabase/shared'
 import { validate as validateUuid, version as readUuidVersion } from 'uuid'
 import { describe, expect, it, vi } from 'vitest'
@@ -88,6 +90,16 @@ const validationSchema = Schema.define({
 })
 
 const schemaNode = new Query(validationSchema).ast.schema
+const relationValidationTarget = Schema.define({
+	className: 'RuntimeRelationValidationTarget',
+	fields: {},
+})
+const relationValidationSource = Schema.define({
+	className: 'RuntimeRelationValidationSource',
+	fields: {
+		targets: relationField({ target: () => relationValidationTarget }),
+	},
+})
 const requestContext = RequestContext.anonymous({
 	requestId: 'runtime-validation',
 	source: requestSources.internal,
@@ -416,6 +428,73 @@ describe('runtime validation', () => {
 					{
 						code: 'upsert.target',
 						path: ['create', 'immutableCode'],
+					},
+				],
+			})
+		}
+	})
+
+	it('prevents hooks from replacing an already authorized relation delta', async () => {
+		const stage = createRuntimeValidationStage()
+		const originalPointer = relationValidationTarget.pointer(
+			'0198f090-2a50-7000-8000-000000000111',
+		)
+		const replacementPointer = relationValidationTarget.pointer(
+			'0198f090-2a50-7000-8000-000000000112',
+		)
+		const update = createRelationUpdateExpression(
+			relationValidationSource,
+			'targets',
+			relationValidationTarget,
+			'connect',
+			originalPointer,
+		)
+		const operation: UpdateOneOperationAst<
+			typeof relationValidationSource,
+			typeof update
+		> = {
+			kind: 'update-one',
+			query: new Query(relationValidationSource).ast,
+			update,
+		}
+		const normalized = await executeStage(stage, operation)
+		const replacement = createRelationUpdateExpression(
+			relationValidationSource,
+			'targets',
+			relationValidationTarget,
+			'connect',
+			replacementPointer,
+		)
+		const [, ...generatedOperations] = normalized.update.operations
+		// Replacing the normalized expression models a hook changing its authorized target.
+		const transformed: typeof normalized = {
+			...normalized,
+			update: {
+				...replacement,
+				operations: [replacement.operations[0], ...generatedOperations],
+			},
+		}
+
+		let failure: unknown
+
+		try {
+			revalidateRuntimeMutationOperation(
+				normalized,
+				transformed,
+				compileValidationPlans(relationValidationSource),
+			)
+		} catch (error: unknown) {
+			failure = error
+		}
+
+		expect(failure).toBeInstanceOf(FrameworkError)
+		if (failure instanceof FrameworkError) {
+			expect(failure.code).toBe('VALIDATION_ERROR')
+			expect(failure.publicDetails).toMatchObject({
+				issues: [
+					{
+						code: 'field.forbidden',
+						path: ['update', 0, 'targets'],
 					},
 				],
 			})

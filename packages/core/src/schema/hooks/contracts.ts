@@ -18,6 +18,7 @@ import type {
 } from '../inference/types.js'
 import type { ValidationIssuePath } from '../plans/contracts.js'
 import type { SchemaDefinition } from '../schema/definition.js'
+import type { RelationUpdateExpression } from '../relations/mutation.js'
 import type { HookContext } from './hook-context.js'
 
 /** Groups the terminal kinds that create persisted objects. */
@@ -127,7 +128,7 @@ export type SchemaHookOperation<
 > = Extract<
 	OperationAst<
 		TSchema,
-		UpdateExpression<TSchema>,
+		UpdateExpression<TSchema> | RelationUpdateExpression<TSchema>,
 		QueryFilterNode<TSchema>,
 		TSelectedField
 	>,

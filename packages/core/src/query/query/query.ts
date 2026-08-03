@@ -56,6 +56,7 @@ import type {
 	FindOperationAst,
 	FirstOperationAst,
 	GetOperationAst,
+	OperationAstNode,
 	OperationObjectId,
 	UpdateManyOperationAst,
 	UpdateOneOperationAst,
@@ -1043,6 +1044,7 @@ export const hydrateQueryFromAst = <
 export const scopeQueryToObjectId = <const TSchema extends SchemaDefinition>(
 	query: Query<TSchema>,
 	id: OperationObjectId<TSchema>,
+	options: Readonly<{ readonly nativeAccessDeniedAsMissing?: true }> = {},
 ): Query<TSchema> => {
 	const rowFilter = createQueryValueFilter(
 		query.schema,
@@ -1052,6 +1054,10 @@ export const scopeQueryToObjectId = <const TSchema extends SchemaDefinition>(
 	)
 	const scope: QueryTerminalPrivateScope = immutableRecord({
 		kind: 'row-filter',
+		...(options.nativeAccessDeniedAsMissing === undefined
+			? {}
+			: { nativeAccessDeniedAsMissing: true as const }),
+		objectId: String(id),
 		rowFilter,
 	})
 
@@ -1095,3 +1101,23 @@ export const scopeQueryToRelation = <
 
 	return hydrateQueryFromAst(query.ast, scope)
 }
+
+/**
+ * Executes an internal operation with the protected scope retained by a Query.
+ *
+ * @internal Relation mutations use this bridge so their source identity never
+ * enters the transformable operation AST.
+ */
+export const executeQueryWithPrivateScope = <
+	const TSchema extends SchemaDefinition,
+	const TOperation extends OperationAstNode,
+>(
+	query: Query<TSchema>,
+	operation: TOperation,
+	options?: QueryTerminalOptions,
+): Promise<InferOperationResult<TOperation>> =>
+	executeQueryTerminal(
+		operation,
+		normalizeQueryTerminalOptions(options),
+		readQueryPrivateScope(query),
+	)
