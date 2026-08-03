@@ -28,6 +28,8 @@ import {
 } from './system-fields.js'
 import type { SchemaHooks } from '../hooks/contracts.js'
 import { declareSchemaHooks } from '../hooks/declarations.js'
+import type { SchemaAccess } from '../access/contracts.js'
+import { declareSchemaAccess } from '../access/declarations.js'
 
 /**
  * Collects named field definitions without erasing their concrete literals.
@@ -76,6 +78,15 @@ export interface SchemaOptions<
 	 * @example `extensions: [permissionsExtension]`
 	 */
 	readonly extensions?: TExtensions
+	/**
+	 * Declares native operation, row-filter, and prepared-item access policies.
+	 * Rules stay private to Runtime and never alter physical schema metadata.
+	 *
+	 * @example `access: { operation: { delete: ({ context }) => context.access.mode === "master" } }`
+	 */
+	readonly access?: SchemaAccess<
+		SchemaClass<NoInfer<TClassName>, NoInfer<TFields>, NoInfer<TExtensions>>
+	>
 	/**
 	 * Declares immutable schema lifecycle behavior without requiring a plugin.
 	 * Hook functions stay outside physical schema metadata and migration plans.
@@ -269,7 +280,8 @@ export class Schema {
 			value: true,
 			writable: false,
 		})
-		// Hook capabilities follow Schema identity without entering enumerable metadata.
+		// Behavioral capabilities follow Schema identity without entering metadata.
+		declareSchemaAccess(schema, options.access)
 		declareSchemaHooks(schema, options.hooks)
 		Object.freeze(schema)
 

@@ -6,7 +6,7 @@ Responsibilities:
 
 - immutable schemas, built-in and plugin-defined fields, and type inference;
 - immutable Query and Operation AST builders;
-- native schema and field Access declarations, typed row filters, and compiled policy plans;
+- native schema and field Access declarations plus policy-neutral enforcement foundations;
 - anonymous and trusted master request authority with plugin-owned typed values;
 - isolated `FrameworkApplication` instances;
 - plugin definitions and global plugin graph;
@@ -205,15 +205,48 @@ boundaries through `operation`, `filter`, `item`, and `field` policies. Hooks
 express business transformations and effects only after Access has restricted
 the operation.
 
-An Access filter may reuse the same typed field predicates as Query, but it
-remains in private monotonic state. `beforeFind` can add application defaults
-such as ordering or limits and cannot inspect, replace, or remove Access
-filters. CLP, ACL, and field-permission plugins register policy contributions
-to this native system rather than business hooks.
+Schemas now accept native declaration-only policies, and every built-in or
+plugin field accepts its own inline policy. One logical family covers singular
+and bulk terminals while `kind` remains available for exact narrowing:
 
-The native Access API is tracked by issues 401 and 416–419. Until those issues
-land, the existing policy-neutral enforcement factories remain the implemented
-low-level foundation.
+```ts
+const PostSchema = Schema.define({
+	className: 'Post',
+	access: {
+		operation: {
+			read: true,
+			delete: ({ context }) => context.access.mode === 'master',
+		},
+		filter: {
+			read: ({ filter }) => filter.equalTo('published', true),
+		},
+		item: {
+			update: ({ input, item }) =>
+				input.authorId === undefined || input.authorId === item.authorId,
+		},
+	},
+	fields: {
+		authorId: stringField({ validation: { required: true } }),
+		published: booleanField({
+			access: { create: true, read: true, update: false },
+		}),
+		title: stringField({ validation: { required: true } }),
+	},
+})
+```
+
+These declarations are validated and retained privately; they do not enter
+schema metadata, validation plans, migrations, or inferred model values. An
+omitted rule does not create an implicit allow or deny callback: application
+Access defaults will be applied by the compiler. Issue 416 supplies the full
+immutable row-filter builder, and issues 417–419 compile and execute these
+declarations. Until then, declaring a rule does not enforce it at Runtime.
+
+An Access filter reuses the same typed field predicates as Query, but remains
+in private monotonic state. `beforeFind` can add application defaults such as
+ordering or limits and cannot inspect, replace, or remove Access filters. CLP,
+ACL, and field-permission plugins register policy contributions to this native
+system rather than business hooks.
 
 ### Schema hooks
 

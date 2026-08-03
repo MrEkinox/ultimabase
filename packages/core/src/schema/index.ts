@@ -91,6 +91,22 @@ export type {
 	ScalarFieldInferenceState,
 	ValidatedFieldOptions,
 } from './fields/base/contract.js'
+export type {
+	AccessDecisionRule,
+	AccessFilter,
+	AccessFilterRule,
+	FieldAccess,
+	FieldAccessDeclaration,
+	FieldFilterAccessKind,
+	FieldValueAccessInput,
+	SchemaAccess,
+	SchemaFilterAccess,
+	SchemaFilterAccessInput,
+	SchemaItemAccess,
+	SchemaItemAccessInput,
+	SchemaOperationAccess,
+	SchemaOperationAccessInput,
+} from './access/contracts.js'
 export type { FieldAtPath, SchemaFieldPath } from './hooks/field-paths.js'
 export { HookContext } from './hooks/hook-context.js'
 export type { HookExecutionContext } from './hooks/execution-context.js'

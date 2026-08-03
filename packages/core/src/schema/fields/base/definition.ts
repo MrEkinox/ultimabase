@@ -9,6 +9,7 @@ import { assertPluginFieldKind } from './kinds.js'
 import { getFieldListDepth, snapshotListedFieldValue } from './options.js'
 import type { FieldScalarValue, GenericField } from './contract.js'
 import type { FieldHookDeclarations } from '../../hooks/field-declarations.js'
+import type { FieldAccessDeclarations } from '../../access/field-declarations.js'
 
 export type ScalarValueSnapshot = (value: unknown, path: string) => unknown
 
@@ -18,6 +19,7 @@ interface FieldMetadata<TKind extends string, TOptions extends object> {
 }
 
 interface FieldCapabilities {
+	readonly access: FieldAccessDeclarations | undefined
 	readonly hooks: FieldHookDeclarations | undefined
 	readonly snapshotValue: ScalarValueSnapshot
 }
@@ -36,10 +38,14 @@ export const createFieldDefinition = <
 	options: Readonly<TOptions>,
 	snapshotValue: ScalarValueSnapshot,
 	hooks?: FieldHookDeclarations,
+	access?: FieldAccessDeclarations,
 ): FieldMetadata<TKind, TOptions> => {
 	const field = immutableRecord({ kind, options })
 
-	fieldCapabilities.set(field, immutableRecord({ hooks, snapshotValue }))
+	fieldCapabilities.set(
+		field,
+		immutableRecord({ access, hooks, snapshotValue }),
+	)
 
 	return field
 }
@@ -48,6 +54,11 @@ export const createFieldDefinition = <
 export const getFieldHookDeclarations = (
 	field: GenericField,
 ): FieldHookDeclarations | undefined => fieldCapabilities.get(field)?.hooks
+
+/** Resolves private Access rules without exposing them as physical metadata. */
+export const getFieldAccessDeclarations = (
+	field: GenericField,
+): FieldAccessDeclarations | undefined => fieldCapabilities.get(field)?.access
 
 /** Distinguishes official factories from structurally forged field objects. */
 export const isDeclaredFieldDefinition = (value: object): boolean =>

@@ -323,7 +323,8 @@ export function enumField(
 ): EnumField {
 	// The rest parameter exists only to keep invalid generic calls uncallable.
 	void invalidOptions
-	const { hooks, metadataOptions } = splitFieldDeclarationOptions(options)
+	const { access, hooks, metadataOptions } =
+		splitFieldDeclarationOptions(options)
 	const normalized = normalizeEnumFieldOptions(metadataOptions)
 	const values = readEnumValues(normalized.values)
 
@@ -332,5 +333,6 @@ export function enumField(
 		normalized,
 		(value, path) => snapshotEnumValue(values, value, path),
 		hooks,
+		access,
 	)
 }

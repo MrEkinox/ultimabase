@@ -5,6 +5,7 @@ export type {
 	MasterRequestAccess,
 	RequestAccess,
 } from './request/access.js'
+export type { AccessContext } from './request/context.js'
 export { RequestCapability } from './request/capability.js'
 export { RequestContextValue } from './request/context-value.js'
 export type {

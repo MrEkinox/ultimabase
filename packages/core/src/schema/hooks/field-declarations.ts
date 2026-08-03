@@ -10,6 +10,10 @@ import {
 	operationHookFamilies,
 	saveHookFamilies,
 } from './family-keys.js'
+import {
+	normalizeFieldAccessDeclarations,
+	type FieldAccessDeclarations,
+} from '../access/field-declarations.js'
 
 /** Lists accepted inline phases once so declaration validation cannot drift. */
 export const fieldHookPhases = [
@@ -69,8 +73,12 @@ export const normalizeFieldHookDeclarations = (
 
 /** Separates declaration-only callbacks from stable physical field metadata. */
 export const splitFieldDeclarationOptions = <TMetadata extends object>(
-	options: TMetadata & { readonly hooks?: unknown },
+	options: TMetadata & {
+		readonly access?: unknown
+		readonly hooks?: unknown
+	},
 ): Readonly<{
+	access: FieldAccessDeclarations | undefined
 	hooks: FieldHookDeclarations | undefined
 	metadataOptions: TMetadata
 }> => {
@@ -78,18 +86,20 @@ export const splitFieldDeclarationOptions = <TMetadata extends object>(
 		throw new TypeError('field options must be an object')
 	}
 
-	if (!Object.hasOwn(options, 'hooks')) {
+	if (!Object.hasOwn(options, 'hooks') && !Object.hasOwn(options, 'access')) {
 		return {
+			access: undefined,
 			hooks: undefined,
 			metadataOptions: options,
 		}
 	}
 
-	const { hooks, ...metadataOptions } = options
+	const { access, hooks, ...metadataOptions } = options
 
 	return {
+		access: normalizeFieldAccessDeclarations(access),
 		hooks: normalizeFieldHookDeclarations(hooks),
-		// The single omitted declaration key is not part of physical metadata.
+		// Declaration-only keys never enter physical field metadata.
 		metadataOptions: metadataOptions as TMetadata,
 	}
 }

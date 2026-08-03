@@ -14,6 +14,7 @@ interface SchemaHoverCase {
 }
 
 const schemaOptionNames = [
+	'access',
 	'className',
 	'extensions',
 	'fields',
@@ -94,6 +95,11 @@ const expectDocumented = (value: IntelliSenseDocumentation): void => {
 }
 
 const schemaHoverCases: readonly SchemaHoverCase[] = [
+	{
+		label: 'access',
+		source:
+			"Schema.define({ className: 'Post', /* hover */access: { operation: { read: true } }, fields: { title: stringField() } })",
+	},
 	{
 		label: 'className',
 		source:

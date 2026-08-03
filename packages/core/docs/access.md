@@ -3,22 +3,63 @@
 Foundational request authority, typed context, and policy-neutral enforcement
 contracts.
 
-Core currently implements anonymous and master authority, typed plugin-owned
-request values, and the monotonic enforcement primitives used by Runtime. It
-does not implement CLP, ACL, roles, authenticated users, ownership, or field
-permissions.
+Core implements anonymous and master authority, typed plugin-owned request
+values, native schema and field Access declarations, and the monotonic
+enforcement primitives used by Runtime. It does not implement CLP, ACL, roles,
+authenticated users, ownership, or field permissions.
 
-ADR-0116 makes Access itself a fundamental Core lifecycle. Issues 401 and
-416–419 will add native schema and field declarations, typed row filters,
-compiled `AccessPlan` instances, Runtime execution, and a PostgreSQL proof. The
-official permission packages will then provide policies to that lifecycle
-instead of constructing parallel permission pipelines.
+ADR-0116 makes Access itself a fundamental Core lifecycle. Native declarations
+are retained privately by schema and field identity. Issues 416–419 add the
+complete typed row-filter builder, compiled `AccessPlan` instances, Runtime
+execution, and a PostgreSQL proof. The official permission packages then
+provide policies to that lifecycle instead of constructing parallel permission
+pipelines.
 
 The implemented low-level guard, opaque adapter constraint, and field
 restriction factories remain the monotonic execution foundation. Access plans
 will lower native and provider policies into those primitives while keeping
 their state separate from Query and business hooks. Runtime never interprets
 concrete provider configuration.
+
+## Native declarations
+
+Schema rules are grouped by `operation`, `filter`, and `item`. Inline field
+rules cover `read`, `filter`, `order`, `create`, and `update`; deletion remains
+a schema or prepared-item decision. A rule is either a direct boolean or a
+synchronous or asynchronous callback:
+
+```ts
+const Article = Schema.define({
+	className: 'Article',
+	access: {
+		operation: {
+			read: true,
+			delete: ({ context }) => context.access.mode === 'master',
+		},
+		item: {
+			update: ({ input, item }) =>
+				input.authorId === undefined || input.authorId === item.authorId,
+		},
+	},
+	fields: {
+		authorId: stringField({ validation: { required: true } }),
+		secret: stringField({
+			access: { read: false, filter: false, order: false },
+		}),
+	},
+})
+```
+
+Callbacks receive an effect-free `AccessContext`: ordinary authority,
+cancellation, request identity, unforgeable capabilities, and typed context
+values. They cannot emit events, query a database, finalize transactions, or
+inspect transport metadata. The terminal `kind` remains available when a
+single family rule needs to distinguish singular and bulk behavior.
+
+Declarations are validated and snapshotted without executing callbacks. They
+never appear in enumerable schema or field metadata and do not alter inferred
+create, update, or persisted object shapes. Runtime enforcement starts with
+issue 418; declaration alone is intentionally not enforcement yet.
 
 ## Request access
 

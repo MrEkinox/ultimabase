@@ -18,11 +18,15 @@ import type {
 } from './base/contract.js'
 import type { FieldHookDeclaration } from '../hooks/field-contracts.js'
 import { splitFieldDeclarationOptions } from '../hooks/field-declarations.js'
+import type { FieldAccessDeclaration } from '../access/contracts.js'
 
 export type { ReservedFieldKind } from './base/kinds.js'
 
 /** Removes declaration-only callbacks while retaining plugin-owned metadata. */
-type PluginFieldMetadata<TOptions extends object> = Omit<TOptions, 'hooks'>
+type PluginFieldMetadata<TOptions extends object> = Omit<
+	TOptions,
+	'access' | 'hooks'
+>
 
 /**
  * Carries a namespaced plugin kind while retaining the regular field contract.
@@ -63,6 +67,13 @@ export const definePluginField = <
 				TValue,
 				PluginFieldMetadata<NoInfer<TOptions>>
 			>
+		> &
+		FieldAccessDeclaration<
+			PluginFieldDefinition<
+				TKind,
+				TValue,
+				PluginFieldMetadata<NoInfer<TOptions>>
+			>
 		>,
 	normalizers: PluginFieldNormalizers<TValue, TValidation>,
 	...invalidOptions: InvalidOptionsArguments<
@@ -88,7 +99,7 @@ export const definePluginField = <
 			'Plugin field normalizeValidation must be a function when provided',
 		)
 	}
-	const { hooks, metadataOptions } = splitFieldDeclarationOptions<
+	const { access, hooks, metadataOptions } = splitFieldDeclarationOptions<
 		PluginFieldMetadata<TOptions> & FieldOptions<TValue, TValidation>
 	>(options)
 	const normalizedOptions = normalizeFieldOptions(
@@ -102,5 +113,6 @@ export const definePluginField = <
 		normalizedOptions,
 		normalizers.snapshotValue,
 		hooks,
+		access,
 	)
 }

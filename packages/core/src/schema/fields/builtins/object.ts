@@ -32,6 +32,7 @@ import { type CompatibleScalarPresence } from '../base/factory.js'
 import type { InferFields } from '../../inference/types.js'
 import type { FieldHookDeclaration } from '../../hooks/field-contracts.js'
 import { splitFieldDeclarationOptions } from '../../hooks/field-declarations.js'
+import type { FieldAccessDeclaration } from '../../access/contracts.js'
 
 /**
  * Names the child fields of one object definition.
@@ -105,6 +106,9 @@ type CompactObjectFieldOptions<
 	readonly list?: TList
 	readonly immutable?: TImmutable
 } & FieldHookDeclaration<
+		ResolvedObjectField<TFields, TRequired, TNullable, TList, TImmutable, false>
+	> &
+	FieldAccessDeclaration<
 		ResolvedObjectField<TFields, TRequired, TNullable, TList, TImmutable, false>
 	>
 
@@ -265,7 +269,8 @@ export function objectField(
 ): ObjectField {
 	// The rest parameter exists only to keep invalid generic calls uncallable.
 	void invalidOptions
-	const { hooks, metadataOptions } = splitFieldDeclarationOptions(options)
+	const { access, hooks, metadataOptions } =
+		splitFieldDeclarationOptions(options)
 	assertFieldOptions(metadataOptions)
 
 	if (!isPlainRecord(metadataOptions.fields)) {
@@ -296,5 +301,6 @@ export function objectField(
 		fieldOptions,
 		(value, path) => snapshotObjectValue(value, fieldOptions.fields, path),
 		hooks,
+		access,
 	)
 }

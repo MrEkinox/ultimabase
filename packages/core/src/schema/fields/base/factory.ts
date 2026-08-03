@@ -14,6 +14,7 @@ import {
 import { emptyFieldOptions, type EmptyFieldOptions } from './options.js'
 import type { FieldHookDeclaration } from '../../hooks/field-contracts.js'
 import { splitFieldDeclarationOptions } from '../../hooks/field-declarations.js'
+import type { FieldAccessDeclaration } from '../../access/contracts.js'
 
 type ScalarFieldOptionsNormalizer<TOptions extends object> = <
 	const TDeclaredOptions extends TOptions,
@@ -61,6 +62,14 @@ export type DefaultedCompactScalarFieldOptions<
 			TOptions,
 			ScalarFieldInferenceState<TRequired, TNullable, TList, TImmutable, true>
 		>
+	> &
+	FieldAccessDeclaration<
+		FieldDefinition<
+			'field',
+			TValue,
+			TOptions,
+			ScalarFieldInferenceState<TRequired, TNullable, TList, TImmutable, true>
+		>
 	>
 
 /** Names the default-free input independently from the inferred field state. */
@@ -80,6 +89,14 @@ export type NonDefaultedCompactScalarFieldOptions<
 	TImmutable
 > &
 	TInferredOptions & { readonly default?: never } & FieldHookDeclaration<
+		FieldDefinition<
+			'field',
+			TValue,
+			TOptions,
+			ScalarFieldInferenceState<TRequired, TNullable, TList, TImmutable, false>
+		>
+	> &
+	FieldAccessDeclaration<
 		FieldDefinition<
 			'field',
 			TValue,
@@ -322,7 +339,7 @@ const createCompactScalarFieldImplementation =
 
 			return createFieldDefinition(kind, emptyFieldOptions, snapshotValue)
 		}
-		const { hooks, metadataOptions } =
+		const { access, hooks, metadataOptions } =
 			splitFieldDeclarationOptions<TOptions>(options)
 		const { normalizeOptions, snapshotValue } =
 			resolveConfiguration(metadataOptions)
@@ -332,6 +349,7 @@ const createCompactScalarFieldImplementation =
 			normalizeOptions(metadataOptions),
 			snapshotValue,
 			hooks,
+			access,
 		)
 	}
 

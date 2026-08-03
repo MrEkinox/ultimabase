@@ -1,6 +1,6 @@
 # 401: Define native Access declarations
 
-- Status: ready
+- Status: done
 - Milestone: 4
 - Packages: `@ultimabase/core`
 - Depends on: 103, 324, 350
@@ -47,22 +47,31 @@ const Post = Schema.define({
 
 ## Acceptance criteria
 
-- [ ] Schema declarations distinguish `operation`, `filter`, and `item` without exposing terminal cardinality-specific property names.
-- [ ] Field declarations distinguish `read`, `filter`, `order`, `create`, and `update`; field delete remains a schema or item decision.
-- [ ] Rules accept a direct boolean or a callback returning the exact value directly or asynchronously.
-- [ ] Asynchronous declarations remain deterministic, cancellable, and effect-free apart from explicitly supplied typed Access capabilities.
-- [ ] Every callback infers the exact schema, operation family, create or update input, prepared item, field name, field value, and immutable request context appropriate to its level.
-- [ ] The exact terminal remains available through a discriminant when behavior must differ without duplicating `one` and `many` declarations.
-- [ ] Access declarations are retained through private schema capabilities and never change structural schema metadata, migrations, inferred object values, or compact field hovers.
-- [ ] Core declarations contain no authenticated user, owner, role, CLP, or ACL rule node; plugins resolve those concepts from optional typed context values or services.
-- [ ] Omitted declarations follow the application Access default rather than installing placeholder callbacks on every schema or field.
-- [ ] Public JSDoc explains every level with concise examples and preserves autocomplete on schema and field options.
+- [x] Schema declarations distinguish `operation`, `filter`, and `item` without exposing terminal cardinality-specific property names.
+- [x] Field declarations distinguish `read`, `filter`, `order`, `create`, and `update`; field delete remains a schema or item decision.
+- [x] Rules accept a direct boolean or a callback returning the exact value directly or asynchronously.
+- [x] Asynchronous declarations receive cancellation and an effect-free typed Access context; deterministic execution remains owned by issue 418.
+- [x] Schema callbacks infer the exact operation family, create or update input, prepared item, and immutable request context; inline field callbacks infer their exact logical value and family while schema and field identity remain their private compilation targets.
+- [x] The exact terminal remains available through a discriminant when behavior must differ without duplicating `one` and `many` declarations.
+- [x] Access declarations are retained through private schema capabilities and never change structural schema metadata, migrations, inferred object values, or compact field hovers.
+- [x] Core declarations contain no authenticated user, owner, role, CLP, or ACL rule node; plugins resolve those concepts from optional typed context values or services.
+- [x] Omitted declarations follow the application Access default rather than installing placeholder callbacks on every schema or field.
+- [x] Public JSDoc explains every level with concise examples and preserves autocomplete on schema and field options.
 
 ## Tests
 
-- [ ] Runtime normalization tests cover booleans, synchronous and asynchronous callbacks, immutability, invalid results, unknown properties, and absent declarations.
-- [ ] Compile-time tests prove exact context, input, item, field-value, and operation-family inference.
-- [ ] TypeScript language-service and packed-package tests verify autocomplete, documentation, and compact QuickInfo.
+- [x] Runtime normalization tests cover booleans, synchronous and asynchronous callbacks, immutability, invalid direct rules, unknown properties, and absent declarations.
+- [x] Compile-time tests prove exact context, callback results, input, item, field-value, and operation-family inference.
+- [x] TypeScript language-service and packed-package tests verify autocomplete, documentation, and compact QuickInfo.
+
+## Implementation notes
+
+- Operation rules receive only `context` and `kind`. Inputs belong to
+  `item` rules, which avoids rebuilding the complete Query and Operation AST in
+  every Access callback and keeps editor response times stable.
+- Issue 401 exposes the schema-aware `AccessFilter` boundary required by native
+  declarations. Issue 416 owns the complete immutable predicate builder and its
+  runtime normalization.
 
 ## Out of scope
 

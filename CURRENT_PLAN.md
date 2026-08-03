@@ -81,7 +81,7 @@ The objective is complete only when:
 
 Complete one issue at a time in this dependency order:
 
-1. [ ] [401 — Define native Access declarations](issues/400-access/401-native-access-declarations.md)
+1. [x] [401 — Define native Access declarations](issues/400-access/401-native-access-declarations.md)
 2. [ ] [416 — Define typed Access filters](issues/400-access/416-typed-access-filters.md)
 3. [ ] [417 — Compile Access plans and plugin contributions](issues/400-access/417-compiled-access-plans.md)
 4. [ ] [418 — Execute the native Access lifecycle](issues/400-access/418-native-access-runtime.md)
@@ -118,12 +118,12 @@ When resuming after context loss:
 
 ## Current issue
 
-[401 — Define native Access declarations](issues/400-access/401-native-access-declarations.md)
+[416 — Define typed Access filters](issues/400-access/416-typed-access-filters.md)
 
 ## Progress log
 
-- 401 — `ready` — Native schema and field Access declarations are specified but not implemented.
-- 416 — `planned` — The restricted typed Access filter builder depends on issue 401.
+- 401 — `done` — Schema and field Access declarations are typed, normalized, and retained privately without changing structural metadata.
+- 416 — `ready` — The restricted typed Access filter builder can now build on issue 401 declarations.
 - 417 — `planned` — Compiled native and plugin Access plans depend on declarations and filters.
 - 418 — `planned` — Runtime Access execution depends on the compiled plan.
 - 419 — `planned` — The PostgreSQL proof depends on the complete neutral Runtime lifecycle.

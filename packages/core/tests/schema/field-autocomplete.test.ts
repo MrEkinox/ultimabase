@@ -65,6 +65,7 @@ interface FieldIntelliSenseReader {
 }
 
 const commonFieldOptions = [
+	'access',
 	'default',
 	'description',
 	'extensions',
@@ -194,6 +195,7 @@ const fieldDefaultExpressions: Readonly<Record<FieldFactoryName, string>> = {
 }
 
 const topLevelOptionExpressions: Readonly<Record<string, string>> = {
+	access: '{ read: true }',
 	autoIncrement: 'true',
 	autoNow: 'true',
 	description: "'Developer-facing description'",
@@ -363,7 +365,7 @@ const compactFieldSignatureCases: readonly CompactFieldSignatureCase[] = [
 	{
 		factoryName: 'stringField',
 		expression:
-			"stringField({ default: 'Ada', validation: { required: true, length: { min: 2 }, match: /^[a-z]+$/u }, description: 'runtime-only-hover-marker' })",
+			"stringField({ default: 'Ada', validation: { required: true, length: { min: 2 }, match: /^[a-z]+$/u }, access: { read: ({ value }) => { void value; void 'ACCESS_BODY_MUST_NOT_LEAK'; return true } }, description: 'runtime-only-hover-marker' })",
 		expectedReturn: 'DefaultedStringField<true, false, false, false>',
 	},
 	{
@@ -664,8 +666,10 @@ const field = ${marker}${withPassThroughHook(expression)}
 			expect(display).not.toContain('readonly validation?:')
 			expect(display).not.toContain('readonly default:')
 			expect(display).not.toContain('FieldHooks')
+			expect(display).not.toContain('FieldAccess')
 			expect(display).not.toContain('resolveInput')
 			expect(display).not.toContain('HOOK_BODY_MUST_NOT_LEAK')
+			expect(display).not.toContain('ACCESS_BODY_MUST_NOT_LEAK')
 		},
 	)
 })
