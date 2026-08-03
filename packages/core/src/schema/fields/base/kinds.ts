@@ -12,6 +12,7 @@ import type { FloatField } from '../builtins/float.js'
 import type { IntField } from '../builtins/int.js'
 import type { JsonField } from '../builtins/json.js'
 import type { ObjectField } from '../builtins/object.js'
+import type { PointerField } from '../builtins/pointer.js'
 import type { StringField } from '../builtins/string.js'
 import type { TimeField } from '../builtins/time.js'
 import type { UuidField } from '../builtins/uuid.js'
@@ -31,6 +32,7 @@ export const builtInFieldKinds = [
 	'int',
 	'json',
 	'object',
+	'pointer',
 	'string',
 	'time',
 	'uuid',
@@ -66,6 +68,7 @@ export type BuiltInField =
 	| IntField
 	| JsonField
 	| ObjectField
+	| PointerField
 	| StringField
 	| TimeField
 	| UuidField

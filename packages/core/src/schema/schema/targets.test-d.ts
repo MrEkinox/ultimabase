@@ -2,17 +2,18 @@ import { expectTypeOf, test } from 'vitest'
 
 import {
 	FrameworkApplication,
+	pointerField,
 	Schema,
 	SchemaRegistry,
 	SchemaTargetResolutionError,
 	stringField,
-	type FieldDefinition,
+	type PointerField,
 	type SchemaClass,
 	type SchemaDefinition,
 	type SchemaTarget,
 	type SchemaTargetGraph,
+	type ScalarFieldInferenceState,
 } from '../../index.js'
-import { createFieldDefinition } from '../fields/base/definition.js'
 
 const userSchema = Schema.define({
 	className: 'User',
@@ -23,37 +24,23 @@ const postSchema = Schema.define({
 	fields: { title: stringField() },
 })
 
-declare const relationshipTargetMarker: unique symbol
-
-type FixtureRelationshipField<TTarget extends SchemaDefinition> =
-	FieldDefinition<'fixture.relationship', string, Readonly<object>> & {
-		readonly [relationshipTargetMarker]?: TTarget
-	}
-
-/** Mirrors the private capability seam consumed by pointerField in issue 702. */
-const fixtureRelationshipField = <TTarget extends SchemaDefinition>(
-	target: SchemaTarget<TTarget>,
-): FixtureRelationshipField<TTarget> =>
-	createFieldDefinition(
-		'fixture.relationship',
-		{},
-		(value: unknown): string => String(value),
-		undefined,
-		undefined,
-		{ schemaTarget: target },
-	)
-
 type RecursiveUserSchema = SchemaClass<
 	'RecursiveUser',
 	Readonly<{
-		readonly posts: FixtureRelationshipField<RecursivePostSchema>
+		readonly posts: PointerField<
+			RecursivePostSchema,
+			ScalarFieldInferenceState<false, false, false, false, false>
+		>
 	}>
 >
 
 type RecursivePostSchema = SchemaClass<
 	'RecursivePost',
 	Readonly<{
-		readonly author: FixtureRelationshipField<RecursiveUserSchema>
+		readonly author: PointerField<
+			RecursiveUserSchema,
+			ScalarFieldInferenceState<false, false, false, false, false>
+		>
 	}>
 >
 
@@ -78,23 +65,29 @@ test('supports exact mutually recursive target contracts', () => {
 	const recursiveUser: RecursiveUserSchema = Schema.define({
 		className: 'RecursiveUser',
 		fields: {
-			posts: fixtureRelationshipField(resolveRecursivePost),
+			posts: pointerField({ target: resolveRecursivePost }),
 		},
 	})
 	const recursivePost: RecursivePostSchema = Schema.define({
 		className: 'RecursivePost',
 		fields: {
-			author: fixtureRelationshipField(
-				(): RecursiveUserSchema => recursiveUser,
-			),
+			author: pointerField({
+				target: (): RecursiveUserSchema => recursiveUser,
+			}),
 		},
 	})
 
 	expectTypeOf(recursiveUser.fields.posts).toEqualTypeOf<
-		FixtureRelationshipField<RecursivePostSchema>
+		PointerField<
+			RecursivePostSchema,
+			ScalarFieldInferenceState<false, false, false, false, false>
+		>
 	>()
 	expectTypeOf(recursivePost.fields.author).toEqualTypeOf<
-		FixtureRelationshipField<RecursiveUserSchema>
+		PointerField<
+			RecursiveUserSchema,
+			ScalarFieldInferenceState<false, false, false, false, false>
+		>
 	>()
 })
 

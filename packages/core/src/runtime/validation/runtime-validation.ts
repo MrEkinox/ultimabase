@@ -179,6 +179,8 @@ const readScalarFailureCode = (field: GenericField): AnyValidationIssueCode => {
 			return 'int.type'
 		case 'json':
 			return 'json.type'
+		case 'pointer':
+			return 'pointer.type'
 		case 'string':
 			return 'string.type'
 		case 'time':

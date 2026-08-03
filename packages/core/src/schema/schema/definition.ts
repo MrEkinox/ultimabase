@@ -13,6 +13,7 @@ import type { GenericField } from '../fields/base/contract.js'
 import { assertFieldDefinition } from '../fields/base/definition.js'
 import type { Query } from '../../query/query/query.js'
 import type { InferCreateInput } from '../inference/types.js'
+import type { Pointer } from '../relations/pointer.js'
 import { createSchemaModelClass, type SchemaDraft } from './model.js'
 import {
 	normalizeSchemaIndexes,
@@ -138,6 +139,8 @@ export interface SchemaClass<
 	): SchemaDraft<SchemaClass<TClassName, TFields, TExtensions>>
 	/** Starts one fresh immutable Query without retaining execution state. */
 	query(): Query<SchemaClass<TClassName, TFields, TExtensions>>
+	/** Creates one immutable pointer to an object of this exact schema. */
+	pointer(id: string): Pointer<SchemaClass<TClassName, TFields, TExtensions>>
 }
 
 type ReservedFieldCollision<TFields extends SchemaFields> =

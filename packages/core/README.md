@@ -34,7 +34,7 @@ Detailed guides remain focused by domain:
 - [request authority](docs/access.md);
 - [Runtime, engines, transactions, and hooks](docs/runtime.md).
 
-## Lazy relationship target foundation
+## Pointers and lazy relationship targets
 
 Core resolves relationship targets only after declaration-only plugin setup has
 finished. A plugin may therefore register a schema during setup, while a lazy
@@ -51,19 +51,40 @@ const application = await createApplication({
 application.schemaTargets.values()
 ```
 
-`SchemaTarget<TSchema>` is the public callback type retained by future
-relationship fields. It preserves the exact target class without invoking it:
+`pointerField` declares one object reference while preserving the exact target
+class in every inferred model:
 
 ```ts
-const userTarget: SchemaTarget<typeof UserSchema> = () => UserSchema
+const PostSchema = Schema.define({
+	className: 'Post',
+	fields: {
+		author: pointerField({
+			target: () => UserSchema,
+			validation: { required: true },
+		}),
+	},
+})
+
+const author = UserSchema.pointer('0198f090-2a50-7000-8000-000000000034')
+const draft = new PostSchema({ author })
 ```
 
-Issue 701 implements only this resolution boundary. `pointerField` and
-`relationField` are introduced by later issues; developers do not register
-target callbacks separately. Invalid, throwing, unregistered, and foreign
-targets fail before infrastructure connects with the source class and field
-path. The graph contains logical class identities only and no PostgreSQL,
-REST, or GraphQL metadata.
+`Pointer<TSchema>` contains only immutable logical schema identity and an object
+ID. It never loads the target. `new Pointer(UserSchema, id)` provides the
+general constructor, while `UserSchema.pointer(id)` is the concise typed form.
+Pointers serialize to `{ type: "pointer", className, id }` and compare by exact
+schema identity plus ID.
+
+`onDelete` defaults to `restrict`; `cascade` and nullable-only `setNull` are
+explicit alternatives. `indexed: "unique"` declares a one-to-one pointer.
+Pointer lists and defaults are rejected so relationship writes stay explicit;
+to-many collections belong to the later `relationField` contract. Physical
+foreign keys, pointer Query inclusion, and database execution are implemented
+by subsequent vertical issues.
+
+Invalid, throwing, unregistered, and foreign targets fail before infrastructure
+connects with the source class and field path. The graph contains logical class
+identities only and no PostgreSQL, REST, or GraphQL metadata.
 
 ## Plugin-owned request identity
 

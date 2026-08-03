@@ -1,10 +1,11 @@
-import { immutableRecord } from '@ultimabase/shared'
 import { describe, expect, it } from 'vitest'
 
-import { createApplication, FrameworkApplication } from '../../index.js'
+import {
+	createApplication,
+	FrameworkApplication,
+	pointerField,
+} from '../../index.js'
 import { definePlugin } from '../../plugins/definition.js'
-import type { GenericField } from '../fields/base/contract.js'
-import { createFieldDefinition } from '../fields/base/definition.js'
 import { objectField } from '../fields/builtins/object.js'
 import { stringField } from '../fields/builtins/string.js'
 import { Schema } from './definition.js'
@@ -13,22 +14,8 @@ import { SchemaRegistry } from './registry.js'
 import { SchemaTargetResolutionError } from './targets.js'
 import type { SchemaTarget } from './targets.js'
 
-/** Creates a private relationship-field fixture until issue 702 adds pointerField. */
-const targetField = (target: SchemaTarget): GenericField =>
-	createFieldDefinition(
-		'fixture.relationship',
-		immutableRecord({}),
-		(value: unknown, path: string): string => {
-			if (typeof value !== 'string') {
-				throw new TypeError(`${path} must be a string`)
-			}
-
-			return value
-		},
-		undefined,
-		undefined,
-		{ schemaTarget: target },
-	)
+/** Keeps graph fixtures focused on target behavior through the public field API. */
+const targetField = (target: SchemaTarget) => pointerField({ target })
 
 describe('lazy schema targets', () => {
 	it('resolves direct targets lazily into one immutable graph', () => {
@@ -343,7 +330,9 @@ describe('lazy schema targets', () => {
 			expect(secondApplication.schemaTargets.get(source, ['target'])).toBe(
 				secondTarget,
 			)
-			expect(source.fields.target.options).toStrictEqual({})
+			expect(source.fields.target.options).toStrictEqual({
+				onDelete: 'restrict',
+			})
 
 			await Promise.all([
 				firstApplication.dispose(),

@@ -25,6 +25,15 @@ export type {
 	ObjectFields,
 	ObjectFieldValue,
 } from './fields/builtins/object.js'
+export { pointerField } from './fields/builtins/pointer.js'
+export type {
+	PointerField,
+	PointerFieldMetadataOptions,
+	PointerFieldOptions,
+	PointerReferentialAction,
+} from './fields/builtins/pointer.js'
+export { Pointer, snapshotPointerValue } from './relations/pointer.js'
+export type { PointerJSON } from './relations/pointer.js'
 export { definePluginField } from './fields/plugin.js'
 export type {
 	PluginFieldDefinition,

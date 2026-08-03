@@ -24,6 +24,7 @@ import {
 	intField,
 	jsonField,
 	objectField,
+	pointerField,
 	stringField,
 	timeField,
 	uuidField,
@@ -490,6 +491,10 @@ describe('runtime validation', () => {
 	})
 
 	it('reports every scalar, null, list, and object shape through stable codes', async () => {
+		const pointerTarget = Schema.define({
+			className: 'InvalidScalarPointerTarget',
+			fields: {},
+		})
 		const customField = definePluginField(
 			'fixture.rejecting',
 			{},
@@ -520,6 +525,7 @@ describe('runtime validation', () => {
 				nonNullable: stringField(),
 				list: stringField({ list: true }),
 				object: objectField({ fields: { child: stringField() } }),
+				pointer: pointerField({ target: () => pointerTarget }),
 				badDefault: stringField({ default: () => 1 as never }),
 			},
 		})
@@ -545,6 +551,7 @@ describe('runtime validation', () => {
 				nonNullable: null,
 				list: 'not-list',
 				object: 'not-object',
+				pointer: { className: pointerTarget.className, id: 'target-1' },
 			},
 		} as unknown as CreateOneOperationAst<typeof scalarSchema>
 
@@ -585,6 +592,7 @@ describe('runtime validation', () => {
 						'field.null',
 						'array.type',
 						'object.type',
+						'pointer.type',
 					]),
 				)
 			},

@@ -1,6 +1,6 @@
 # 737: Add pointer Query contracts and inclusion
 
-- Status: planned
+- Status: ready
 - Milestone: 7+
 - Packages: `@ultimabase/core`
 - Depends on: 702

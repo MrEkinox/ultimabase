@@ -64,7 +64,7 @@ describe('plugin fields', () => {
 		expect(Object.isFrozen(field.options.validation)).toBe(true)
 	})
 
-	it.each(['', 'string', 'plugin'] as const)(
+	it.each(['', 'string', 'pointer', 'plugin'] as const)(
 		'rejects the unavailable kind %s at runtime',
 		(kind) => {
 			expect(() => {

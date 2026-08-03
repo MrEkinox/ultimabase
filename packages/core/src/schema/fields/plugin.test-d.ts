@@ -37,6 +37,8 @@ test('infers namespaced plugin kinds, values, and exact options', () => {
 test('rejects framework-owned plugin kinds', () => {
 	// @ts-expect-error -- Plugins cannot shadow a built-in field kind.
 	definePluginField('string', {}, normalizers)
+	// @ts-expect-error -- Pointer identity belongs to Core relationship fields.
+	definePluginField('pointer', {}, normalizers)
 
 	// @ts-expect-error -- The opaque plan discriminant is framework-owned.
 	definePluginField('plugin', {}, normalizers)

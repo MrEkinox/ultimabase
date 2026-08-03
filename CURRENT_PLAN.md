@@ -113,7 +113,7 @@ incomplete.
 ### Phase 1 — Relationship identity
 
 1. [x] [701 — Resolve lazy relationship schema targets](issues/700-extensions/701-lazy-relationship-targets.md)
-2. [ ] [702 — Add pointer fields and immutable Pointer values](issues/700-extensions/702-pointer-field.md)
+2. [x] [702 — Add pointer fields and immutable Pointer values](issues/700-extensions/702-pointer-field.md)
 
 ### Phase 2 — Complete pointer vertical
 
@@ -151,8 +151,9 @@ When resuming after context loss:
 
 ## Current issue
 
-[702 — Add pointer fields and immutable Pointer values](issues/700-extensions/702-pointer-field.md) is `ready`.
+[737 — Add pointer Query contracts and inclusion](issues/700-extensions/737-pointer-query-contracts.md) is `ready`.
 
 ## Progress log
 
 - 701 established lazy, application-local schema target resolution before plugin infrastructure starts.
+- 702 added exact pointer fields, immutable logical Pointer values, referential metadata, and schema pointer conveniences.

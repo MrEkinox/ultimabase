@@ -95,6 +95,12 @@ shape, or execution state. Database plugins consume this same graph when they
 later compile physical relationships, while transports remain downstream
 consumers of Core Query and Runtime contracts.
 
+`pointerField` is the first producer of this graph. Its ordinary value is the
+nominal immutable `Pointer<TSchema>` class, which carries exact schema identity
+and a string object ID without loading a target. Pointer metadata defines only
+logical presence, uniqueness, and referential action; Query inclusion and
+physical foreign keys remain later Runtime and adapter capabilities.
+
 ## Plugins
 
 Plugins form one deterministic graph. Nesting is configuration sugar:

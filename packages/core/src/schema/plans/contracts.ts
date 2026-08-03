@@ -45,6 +45,7 @@ export type ValidationIssueCode =
 	| 'int.range.min'
 	| 'int.type'
 	| 'object.type'
+	| 'pointer.type'
 	| 'string.length.max'
 	| 'string.length.min'
 	| 'string.match'

@@ -8,6 +8,8 @@ TypeScript snippets:
   metadata, defaults, generation, and indexes;
 - [`objects-and-lists.md`](objects-and-lists.md) composes reusable nested fields
   and multidimensional lists;
+- [`pointers.md`](pointers.md) declares exact single-object references and
+  immutable logical pointer values;
 - [`hooks.md`](hooks.md) colocates exact-value field behavior and cross-field
   schema behavior;
 - [`extensions.md`](extensions.md) declares opaque schema and field metadata

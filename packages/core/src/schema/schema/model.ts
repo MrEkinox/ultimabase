@@ -22,6 +22,7 @@ import {
 	isRequiredOnCreate,
 } from '../fields/base/options.js'
 import type { InferCreateInput, InferObject } from '../inference/types.js'
+import { Pointer } from '../relations/pointer.js'
 import type {
 	SchemaClass,
 	SchemaDefinition,
@@ -611,6 +612,11 @@ export const createSchemaModelClass = <
 
 		static query(): Query<SchemaClass> {
 			return new Query(DefinedSchemaModel as unknown as SchemaClass)
+		}
+
+		/** Creates a pointer without binding Query or Runtime execution state. */
+		static pointer(id: string): Pointer<SchemaClass> {
+			return new Pointer(DefinedSchemaModel as unknown as SchemaClass, id)
 		}
 	}
 

@@ -88,10 +88,10 @@ object cannot bypass validation or provide a forged snapshot capability.
 
 ## Lazy relationship targets
 
-`SchemaTarget<TSchema>` represents the zero-argument callback later consumed by
-`pointerField` and `relationField`. The callback keeps the exact target class in
-TypeScript while deferring its value until every application schema declaration
-is available:
+`SchemaTarget<TSchema>` represents the zero-argument callback consumed by
+`pointerField` and the later `relationField`. The callback keeps the exact
+target class in TypeScript while deferring its value until every application
+schema declaration is available:
 
 ```ts
 const targetUser: SchemaTarget<typeof UserSchema> = () => UserSchema
@@ -112,9 +112,9 @@ const application = await createApplication({
 application.schemaTargets.get(PostSchema, ['author'])
 ```
 
-The field factories that populate this graph are intentionally deferred to
-issues 702 and 741. Application developers never call
-`SchemaRegistry.resolveSchemaTargets()` during normal UltimaBase setup; the
+`pointerField({ target: () => UserSchema })` now populates this graph while
+keeping its callback out of public field metadata. Application developers never
+call `SchemaRegistry.resolveSchemaTargets()` during normal UltimaBase setup; the
 framework owns that lifecycle. Adapter and framework plugin authors may read
 the completed graph through the application or the captured schema registry
 after setup. Target callbacks must be pure declarations and are invoked once
@@ -124,6 +124,44 @@ Resolution rejects callbacks that throw or return a non-schema, unregistered,
 or foreign schema identity. Duplicate class names remain the registry's
 existing ambiguous-ownership error. Every target error includes the logical
 source class and field path without exposing physical storage names.
+
+## Pointer fields and values
+
+A pointer is one immutable logical object identity. It contains an exact target
+schema and a framework-owned string ID, performs no I/O, and never hides an
+automatic target load:
+
+```ts
+const PostSchema = Schema.define({
+	className: 'Post',
+	fields: {
+		author: pointerField({
+			target: () => UserSchema,
+			validation: { required: true },
+			indexed: true,
+			onDelete: 'restrict',
+		}),
+	},
+})
+
+const author = UserSchema.pointer('0198f090-2a50-7000-8000-000000000034')
+const post = new PostSchema({ author })
+```
+
+The general form is `new Pointer(UserSchema, id)`. Both forms produce
+`Pointer<typeof UserSchema>`, and create, update, persisted, and selected model
+types preserve that target. `pointer.equals(other)` compares exact schema
+identity and ID. `pointer.toJSON()` returns the frozen logical shape
+`{ type: "pointer", className, id }`; it is not a database foreign-key or a
+transport-specific Parse object.
+
+`onDelete` defaults to `restrict`. `cascade` deletes the source when its target
+is deleted, while `setNull` requires `validation.nullable: true`. Use
+`indexed: "unique"` for a one-to-one pointer. Pointer defaults and `list: true`
+are deliberately unsupported: callers provide relationship identity explicitly,
+and to-many values use the independently queryable `relationField` introduced
+later. This issue does not add pointer predicates, inclusion, physical storage,
+or execution.
 
 ## Drafts, static queries, and persisted models
 
