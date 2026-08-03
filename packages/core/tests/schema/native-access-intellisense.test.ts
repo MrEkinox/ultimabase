@@ -64,7 +64,9 @@ const readMemberCompletions = (
 
 	return completions.entries
 		.filter(
-			(entry) => entry.kind === ts.ScriptElementKind.memberVariableElement,
+			(entry) =>
+				entry.kind === ts.ScriptElementKind.memberVariableElement ||
+				entry.kind === ts.ScriptElementKind.memberFunctionElement,
 		)
 		.map((entry): CompletionResult => {
 			const details = service.getCompletionEntryDetails(
@@ -139,6 +141,50 @@ stringField({ access: { read: { /* completion */ } } })
 `)
 
 		expectDocumentedNames(completions, ['item', 'filter', 'order'])
+	})
+
+	it('offers only documented predicates and logic on schema Access filters', () => {
+		const completions = readMemberCompletions(`
+import { Schema, booleanField, intField, stringField } from '../../src/schema/index.js'
+
+Schema.define({
+	className: 'Article',
+	access: {
+		filter: {
+			read: ({ filter }) => {
+				filter./* completion */
+
+				return true
+			},
+		},
+	},
+	fields: {
+		published: booleanField(),
+		title: stringField(),
+		views: intField(),
+	},
+})
+`)
+
+		expectDocumentedNames(completions, [
+			'and',
+			'containedIn',
+			'contains',
+			'doesNotExist',
+			'endsWith',
+			'equalTo',
+			'exists',
+			'greaterThan',
+			'greaterThanOrEqualTo',
+			'lessThan',
+			'lessThanOrEqualTo',
+			'matches',
+			'not',
+			'notContainedIn',
+			'notEqualTo',
+			'or',
+			'startsWith',
+		])
 	})
 
 	it.each(['allowAll', 'denyAll', 'allOperations', 'allMutations'])(

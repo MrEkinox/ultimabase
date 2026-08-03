@@ -1,6 +1,6 @@
 # 416: Define typed Access filters
 
-- Status: ready
+- Status: completed
 - Milestone: 4
 - Packages: `@ultimabase/core`
 - Depends on: 304, 401, 421
@@ -31,20 +31,21 @@ access: {
 
 ## Acceptance criteria
 
-- [ ] `AccessFilter<TSchema>` reuses the existing typed filter field/operator/value contracts and logical normalization rather than creating a second Query AST.
-- [ ] The builder exposes only predicates and logical composition; selection, ordering, pagination, limits, terminals, and execution are impossible.
-- [ ] A callback may synchronously or asynchronously return the supplied filter, `true` for every row, or `false` for no rows.
-- [ ] Filters exist for read, update, delete, and upsert target resolution; create uses operation or item access because no row exists yet.
-- [ ] Access predicates remain separate from the public Query and Operation AST even when they use the same normalized filter node representation internally.
-- [ ] Multiple filters compose exclusively through logical `AND` and cannot remove a predicate contributed earlier.
-- [ ] Undefined plugin-owned context values require an explicit policy decision and never broaden a filter accidentally.
-- [ ] Public methods provide exact autocomplete, English JSDoc, immutable branching, and compact hovers.
+- [x] `AccessFilter<TSchema>` reuses the existing typed filter field/operator/value contracts and logical normalization rather than creating a second Query AST.
+- [x] The builder exposes only predicates and logical composition; selection, ordering, pagination, limits, terminals, and execution are impossible.
+- [x] A callback may synchronously or asynchronously return the supplied filter, `true` for every row, or `false` for no rows.
+- [x] Filters exist for read, update, delete, and upsert target resolution; create uses operation or item access because no row exists yet.
+- [x] Filter callbacks receive `context` and the typed builder but no terminal `kind`; one row universe applies consistently to every terminal in that operation family.
+- [x] Access predicates remain separate from the public Query and Operation AST even when they use the same normalized filter node representation internally.
+- [x] Multiple filters compose exclusively through logical `AND` and cannot remove a predicate contributed earlier.
+- [x] Undefined plugin-owned context values require an explicit policy decision and never broaden a filter accidentally.
+- [x] Public methods provide exact autocomplete, English JSDoc, immutable branching, and compact hovers.
 
 ## Tests
 
-- [ ] Runtime tests cover all built-in field operators, nested logical groups, `true`, `false`, branching immutability, and malformed callback results.
-- [ ] Compile-time tests cover exact field names, operator capabilities, values, and incompatible schemas.
-- [ ] Language-service and packed-package tests verify the restricted builder surface and documentation.
+- [x] Runtime tests cover all built-in field operators, nested logical groups, `true`, `false`, branching immutability, and malformed callback results.
+- [x] Compile-time tests cover exact field names, operator capabilities, values, and incompatible schemas.
+- [x] Language-service and packed-package tests verify the restricted builder surface and documentation.
 
 ## Out of scope
 

@@ -255,6 +255,30 @@ ordering or limits and cannot inspect, replace, or remove Access filters. CLP,
 ACL, and field-permission plugins register policy contributions to this native
 system rather than business hooks.
 
+The callback receives one immutable schema-aware builder and no terminal
+`kind`, so `get`, `find`, `count`, and `exists` always observe the same protected
+row universe. It may return `true`, `false`, or one predicate branch. Every
+independent native or plugin contribution is later combined through `AND`:
+
+```ts
+filter: {
+	read: ({ context, filter }) => {
+		const principal = context.getValue(authenticatedPrincipal)
+
+		return principal === undefined
+			? filter.equalTo('published', true)
+			: filter
+					.equalTo('published', true)
+					.or(filter.equalTo('authorId', principal.id))
+	},
+}
+```
+
+The builder deliberately has no selection, ordering, pagination, terminal, or
+execution method. Its equality, comparison, membership, string, regex,
+existence, and logical methods share Query's field capabilities and normalized
+predicate nodes without exposing the developer Query or its AST.
+
 Neutral declaration helpers keep common policies explicit without creating
 Runtime behavior. A read-only schema can deny every mutation concisely:
 

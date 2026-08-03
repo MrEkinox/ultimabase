@@ -79,15 +79,18 @@ const Article = Schema.define({
 			},
 		},
 		filter: {
-			read: ({ filter, kind }) => {
-				expectTypeOf(filter).toEqualTypeOf<AccessFilter<typeof Article>>()
+			read: (input) => {
+				const { context, filter } = input
 
-				if (kind === 'get') {
-					expectTypeOf(kind).toEqualTypeOf<'get'>()
-				}
+				expectTypeOf(filter).toEqualTypeOf<AccessFilter<typeof Article>>()
+				expectTypeOf(context).toEqualTypeOf<AccessContext>()
+				// @ts-expect-error -- One filter defines every read terminal's row universe.
+				void input.kind
 
 				return filter.equalTo('published', true)
 			},
+			update: async ({ filter }) =>
+				Promise.resolve(filter.equalTo('published', false)),
 			delete: false,
 		},
 		item: {

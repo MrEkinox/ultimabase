@@ -52,7 +52,9 @@ a second Query engine. Its predicates remain in private Access state, combine
 with developer and `beforeFind` predicates through logical `AND`, and cannot be
 read, replaced, or removed by business hooks. Unlike `beforeFind`, Access
 filters also constrain counts, singular reads, updates, deletes, upserts, and
-future relation traversal.
+future relation traversal. One family callback receives `context` and its
+schema-aware filter builder but no terminal `kind`; every terminal in that
+family must observe the same protected row universe.
 
 ### Access compiles to monotonic enforcement
 

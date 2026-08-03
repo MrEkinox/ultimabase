@@ -5,6 +5,7 @@ import type {
 	OperationKind,
 	QueryFilterFieldName,
 	QueryFilterValue,
+	QueryRegexPattern,
 } from '../../query/index.js'
 import type { GenericField } from '../fields/base/contract.js'
 import type {
@@ -27,11 +28,135 @@ import type { SchemaDefinition } from '../schema/definition.js'
 
 /** Represents one immutable row predicate owned by the Access lifecycle. */
 export interface AccessFilter<TSchema extends SchemaDefinition> {
-	/** Adds one schema-aware equality predicate without exposing Query terminals. */
+	/**
+	 * Adds one schema-aware equality predicate.
+	 * @example `filter.equalTo("authorId", principal.id)`
+	 */
 	equalTo<TFieldName extends QueryFilterFieldName<TSchema, 'equal'>>(
 		fieldName: TFieldName,
 		value: QueryFilterValue<TSchema, TFieldName>,
 	): AccessFilter<TSchema>
+	/**
+	 * Adds one schema-aware inequality predicate.
+	 * @example `filter.notEqualTo("status", "archived")`
+	 */
+	notEqualTo<TFieldName extends QueryFilterFieldName<TSchema, 'not-equal'>>(
+		fieldName: TFieldName,
+		value: QueryFilterValue<TSchema, TFieldName>,
+	): AccessFilter<TSchema>
+	/**
+	 * Adds one strict lower-bound predicate.
+	 * @example `filter.greaterThan("views", 100)`
+	 */
+	greaterThan<TFieldName extends QueryFilterFieldName<TSchema, 'greater-than'>>(
+		fieldName: TFieldName,
+		value: Exclude<QueryFilterValue<TSchema, TFieldName>, null>,
+	): AccessFilter<TSchema>
+	/**
+	 * Adds one inclusive lower-bound predicate.
+	 * @example `filter.greaterThanOrEqualTo("score", 10)`
+	 */
+	greaterThanOrEqualTo<
+		TFieldName extends QueryFilterFieldName<TSchema, 'greater-than-or-equal'>,
+	>(
+		fieldName: TFieldName,
+		value: Exclude<QueryFilterValue<TSchema, TFieldName>, null>,
+	): AccessFilter<TSchema>
+	/**
+	 * Adds one strict upper-bound predicate.
+	 * @example `filter.lessThan("price", 100)`
+	 */
+	lessThan<TFieldName extends QueryFilterFieldName<TSchema, 'less-than'>>(
+		fieldName: TFieldName,
+		value: Exclude<QueryFilterValue<TSchema, TFieldName>, null>,
+	): AccessFilter<TSchema>
+	/**
+	 * Adds one inclusive upper-bound predicate.
+	 * @example `filter.lessThanOrEqualTo("priority", 3)`
+	 */
+	lessThanOrEqualTo<
+		TFieldName extends QueryFilterFieldName<TSchema, 'less-than-or-equal'>,
+	>(
+		fieldName: TFieldName,
+		value: Exclude<QueryFilterValue<TSchema, TFieldName>, null>,
+	): AccessFilter<TSchema>
+	/**
+	 * Matches one field against an immutable candidate collection.
+	 * @example `filter.containedIn("status", ["draft", "published"])`
+	 */
+	containedIn<TFieldName extends QueryFilterFieldName<TSchema, 'in'>>(
+		fieldName: TFieldName,
+		values: readonly QueryFilterValue<TSchema, TFieldName>[],
+	): AccessFilter<TSchema>
+	/**
+	 * Excludes one immutable candidate collection.
+	 * @example `filter.notContainedIn("status", ["archived"])`
+	 */
+	notContainedIn<TFieldName extends QueryFilterFieldName<TSchema, 'not-in'>>(
+		fieldName: TFieldName,
+		values: readonly QueryFilterValue<TSchema, TFieldName>[],
+	): AccessFilter<TSchema>
+	/**
+	 * Adds one portable substring predicate for a string field.
+	 * @example `filter.contains("title", "Ultima")`
+	 */
+	contains<TFieldName extends QueryFilterFieldName<TSchema, 'contains'>>(
+		fieldName: TFieldName,
+		value: Extract<QueryFilterValue<TSchema, TFieldName>, string>,
+	): AccessFilter<TSchema>
+	/**
+	 * Adds one portable prefix predicate for a string field.
+	 * @example `filter.startsWith("slug", "docs-")`
+	 */
+	startsWith<TFieldName extends QueryFilterFieldName<TSchema, 'starts-with'>>(
+		fieldName: TFieldName,
+		value: Extract<QueryFilterValue<TSchema, TFieldName>, string>,
+	): AccessFilter<TSchema>
+	/**
+	 * Adds one portable suffix predicate for a string field.
+	 * @example `filter.endsWith("email", "@example.com")`
+	 */
+	endsWith<TFieldName extends QueryFilterFieldName<TSchema, 'ends-with'>>(
+		fieldName: TFieldName,
+		value: Extract<QueryFilterValue<TSchema, TFieldName>, string>,
+	): AccessFilter<TSchema>
+	/**
+	 * Adds one inert regular-expression predicate without executable RegExp state.
+	 * @example `filter.matches("slug", { source: "^public-", flags: [] })`
+	 */
+	matches(
+		fieldName: QueryFilterFieldName<TSchema, 'regex'>,
+		pattern: QueryRegexPattern,
+	): AccessFilter<TSchema>
+	/**
+	 * Requires one declared field to be present.
+	 * @example `filter.exists("publishedAt")`
+	 */
+	exists(
+		fieldName: QueryFilterFieldName<TSchema, 'exists'>,
+	): AccessFilter<TSchema>
+	/**
+	 * Requires one declared field to be absent.
+	 * @example `filter.doesNotExist("deletedAt")`
+	 */
+	doesNotExist(
+		fieldName: QueryFilterFieldName<TSchema, 'exists'>,
+	): AccessFilter<TSchema>
+	/**
+	 * Requires this branch and another branch to match.
+	 * @example `published.and(filter.equalTo("authorId", principal.id))`
+	 */
+	and(filter: AccessFilter<TSchema>): AccessFilter<TSchema>
+	/**
+	 * Requires this branch or another branch to match.
+	 * @example `published.or(filter.equalTo("authorId", principal.id))`
+	 */
+	or(filter: AccessFilter<TSchema>): AccessFilter<TSchema>
+	/**
+	 * Requires this branch and the negation of another branch to match.
+	 * @example `visible.not(filter.equalTo("status", "archived"))`
+	 */
+	not(filter: AccessFilter<TSchema>): AccessFilter<TSchema>
 }
 
 /** Allows one direct decision or one cancellable request-aware decision. */
@@ -51,14 +176,12 @@ export interface SchemaOperationAccessInput<TKind extends OperationKind> {
 }
 
 /** Supplies an isolated typed predicate builder for one row-restricted family. */
-export type SchemaFilterAccessInput<
-	TSchema extends SchemaDefinition,
-	TKind extends OperationKind,
-> = SchemaOperationAccessInput<TKind> &
-	Readonly<{
-		/** Starts one private predicate branch for this schema. */
-		filter: AccessFilter<TSchema>
-	}>
+export interface SchemaFilterAccessInput<TSchema extends SchemaDefinition> {
+	/** Carries immutable authority and explicitly typed request capabilities. */
+	readonly context: AccessContext
+	/** Starts one private predicate branch shared by every family terminal. */
+	readonly filter: AccessFilter<TSchema>
+}
 
 interface SchemaItemAccessBase<
 	TSchema extends SchemaDefinition,
@@ -165,34 +288,22 @@ export interface SchemaFilterAccess<TSchema extends SchemaDefinition> {
 	 * Restricts every read terminal without mutating its public Query.
 	 * @example `read: ({ filter }) => filter.equalTo("published", true)`
 	 */
-	readonly read?: AccessFilterRule<
-		TSchema,
-		SchemaFilterAccessInput<TSchema, SchemaFindHookKind>
-	>
+	readonly read?: AccessFilterRule<TSchema, SchemaFilterAccessInput<TSchema>>
 	/**
 	 * Restricts rows eligible for singular or set-based updates.
 	 * @example `update: ({ filter }) => filter.equalTo("locked", false)`
 	 */
-	readonly update?: AccessFilterRule<
-		TSchema,
-		SchemaFilterAccessInput<TSchema, SchemaUpdateHookKind>
-	>
+	readonly update?: AccessFilterRule<TSchema, SchemaFilterAccessInput<TSchema>>
 	/**
 	 * Restricts rows considered by upsert target resolution.
 	 * @example `upsert: true`
 	 */
-	readonly upsert?: AccessFilterRule<
-		TSchema,
-		SchemaFilterAccessInput<TSchema, SchemaUpsertHookKind>
-	>
+	readonly upsert?: AccessFilterRule<TSchema, SchemaFilterAccessInput<TSchema>>
 	/**
 	 * Restricts rows eligible for singular or set-based deletion.
 	 * @example `delete: false`
 	 */
-	readonly delete?: AccessFilterRule<
-		TSchema,
-		SchemaFilterAccessInput<TSchema, SchemaDeleteHookKind>
-	>
+	readonly delete?: AccessFilterRule<TSchema, SchemaFilterAccessInput<TSchema>>
 }
 
 /** Declares checks requiring one prepared input or materialized object. */

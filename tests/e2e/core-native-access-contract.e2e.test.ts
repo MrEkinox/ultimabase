@@ -70,6 +70,10 @@ describe('packed @ultimabase/core native Access contract', () => {
 		expect(readHoverDisplay('context-value')).toContain('Principal | undefined')
 		expect(readHoverDisplay('update-input')).toContain('authorId?: string')
 		expect(readHoverDisplay('field-value')).toContain('boolean')
+		const filterDisplay = readHoverDisplay('access-filter')
+
+		expect(filterDisplay).toContain('AccessFilter<SchemaClass<"AccessPost"')
+		expect(filterDisplay).not.toContain('Query<')
 	})
 
 	it('exposes concise documented Access helpers from the package root', () => {

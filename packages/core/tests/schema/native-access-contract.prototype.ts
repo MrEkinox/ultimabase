@@ -51,7 +51,8 @@ export const AccessPost = Schema.define({
 			},
 		},
 		filter: {
-			read: ({ filter }) => filter.equalTo('published', true),
+			read: ({ /* hover:access-filter */ filter }) =>
+				filter.equalTo('published', true),
 		},
 		item: {
 			update: ({ /* hover:update-input */ input, item }) =>
