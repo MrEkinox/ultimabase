@@ -9,6 +9,7 @@ import type {
 } from '../introspection/contracts.js'
 import type {
 	DesiredPostgresColumn,
+	DesiredPostgresForeignKey,
 	DesiredPostgresIndex,
 	DesiredPostgresTable,
 	PostgresSchemaChange,
@@ -35,6 +36,76 @@ const indexMatches = (
 	live.method === 'btree' &&
 	live.unique === desired.unique &&
 	arraysEqual(live.columns, desired.columns)
+
+const foreignKeyMatches = (
+	desired: DesiredPostgresForeignKey,
+	live: PostgresTableSnapshot['constraints'][number],
+): boolean =>
+	live.kind === 'f' &&
+	live.columns.length === 1 &&
+	live.columns[0] === desired.column &&
+	live.targetTable === desired.targetTable &&
+	live.targetColumns?.length === 1 &&
+	live.targetColumns[0] === desired.targetColumn &&
+	live.onDelete === desired.onDelete
+
+/** Removes obsolete edges before columns or target tables can change. */
+const planForeignKeyDrops = (
+	desired: DesiredPostgresTable,
+	live: PostgresTableSnapshot,
+): PostgresSchemaChange[] => {
+	const desiredByName = new Map(
+		desired.foreignKeys.map((foreignKey) => [foreignKey.name, foreignKey]),
+	)
+	const changes: PostgresSchemaChange[] = []
+
+	for (const constraint of live.constraints) {
+		if (constraint.kind !== 'f') continue
+
+		const expected = desiredByName.get(constraint.name)
+
+		if (expected !== undefined && foreignKeyMatches(expected, constraint)) {
+			continue
+		}
+
+		changes.push({
+			constraint: constraint.name,
+			kind: 'drop-constraint',
+			table: desired.name,
+		})
+	}
+
+	return changes
+}
+
+const planForeignKeyAdds = (
+	desiredTables: readonly DesiredPostgresTable[],
+	liveByName: ReadonlyMap<string, PostgresTableSnapshot>,
+): PostgresSchemaChange[] => {
+	const changes: PostgresSchemaChange[] = []
+
+	for (const desired of desiredTables) {
+		const liveConstraints = liveByName.get(desired.name)?.constraints ?? []
+
+		for (const foreignKey of desired.foreignKeys) {
+			const current = liveConstraints.find(
+				(constraint) => constraint.name === foreignKey.name,
+			)
+
+			if (current !== undefined && foreignKeyMatches(foreignKey, current)) {
+				continue
+			}
+
+			changes.push({
+				foreignKey,
+				kind: 'add-foreign-key',
+				table: desired.name,
+			})
+		}
+	}
+
+	return changes
+}
 
 const planColumnChanges = (
 	table: string,
@@ -199,6 +270,8 @@ const planExistingTable = (
 	)
 	const consumedNames = new Set<string>()
 
+	changes.push(...planForeignKeyDrops(desired, live))
+
 	for (const column of desired.columns) {
 		let current = liveColumns.get(column.name)
 
@@ -270,6 +343,9 @@ export const planPostgresSchemaChanges = (
 			),
 		)
 	}
+
+	// Every table exists before any edge is added, including circular pointers.
+	changes.push(...planForeignKeyAdds(desiredTables, liveByName))
 
 	return immutableArray(changes.map((change) => immutableRecord(change)))
 }

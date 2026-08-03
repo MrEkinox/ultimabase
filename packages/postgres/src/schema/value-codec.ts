@@ -2,8 +2,10 @@ import { Buffer } from 'node:buffer'
 
 import {
 	fieldUsesTemporalTimezone,
+	Pointer,
 	snapshotScalarFieldValue,
 	type FieldValidationPlan,
+	type SchemaDefinition,
 } from '@ultimabase/core'
 import {
 	immutableArray,
@@ -31,6 +33,42 @@ const createLogicalScalarCodec = (
 		snapshotScalarFieldValue(plan.field, value, 'PostgreSQL scalar value')
 
 	return immutableRecord({ decode: snapshot, encode: snapshot })
+}
+
+/** Stores only the target UUID while restoring the exact logical schema identity. */
+export const createPostgresPointerValueCodec = (
+	plan: FieldValidationPlan & { readonly kind: 'scalar' },
+	target: SchemaDefinition,
+): PostgresValueCodec => {
+	const codec: PostgresValueCodec = immutableRecord({
+		decode: (value: unknown): Pointer => {
+			if (typeof value !== 'string') {
+				throw new TypeError('PostgreSQL pointer value must be a UUID string')
+			}
+
+			return new Pointer(target, value)
+		},
+		encode: (value: unknown): string => {
+			const pointer = snapshotScalarFieldValue(
+				plan.field,
+				value,
+				'PostgreSQL pointer value',
+			)
+
+			if (!Pointer.is(pointer)) {
+				throw new TypeError('PostgreSQL pointer value must be a Pointer')
+			}
+
+			return pointer.id
+		},
+	})
+
+	return immutableRecord({
+		decode: (value: unknown): unknown =>
+			applyCodec(plan, codec, 'decode', value),
+		encode: (value: unknown): unknown =>
+			applyCodec(plan, codec, 'encode', value),
+	})
 }
 
 const copyBinary = (value: unknown, path: string): Uint8Array => {

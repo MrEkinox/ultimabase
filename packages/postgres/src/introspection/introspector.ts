@@ -12,6 +12,7 @@ import type {
 	PostgresColumnSnapshot,
 	PostgresConstraintSnapshot,
 	PostgresDatabaseSnapshot,
+	PostgresForeignKeyAction,
 	PostgresIdentityKind,
 	PostgresIndexSnapshot,
 	PostgresTableSnapshot,
@@ -82,7 +83,9 @@ SELECT
   table_class.relname AS table_name,
   constraint_metadata.conname AS constraint_name,
   constraint_metadata.contype AS constraint_kind,
+  constraint_metadata.confdeltype AS delete_action,
   pg_get_constraintdef(constraint_metadata.oid, true) AS definition,
+  referenced_class.relname AS target_table,
   ARRAY(
     SELECT attribute.attname::text
     FROM unnest(constraint_metadata.conkey) WITH ORDINALITY AS key(attnum, position)
@@ -90,12 +93,22 @@ SELECT
       ON attribute.attrelid = table_class.oid
       AND attribute.attnum = key.attnum
     ORDER BY key.position
-  ) AS columns
+  ) AS columns,
+  ARRAY(
+    SELECT attribute.attname::text
+    FROM unnest(constraint_metadata.confkey) WITH ORDINALITY AS key(attnum, position)
+    JOIN pg_catalog.pg_attribute AS attribute
+      ON attribute.attrelid = constraint_metadata.confrelid
+      AND attribute.attnum = key.attnum
+    ORDER BY key.position
+  ) AS target_columns
 FROM pg_catalog.pg_constraint AS constraint_metadata
 JOIN pg_catalog.pg_class AS table_class
   ON table_class.oid = constraint_metadata.conrelid
 JOIN pg_catalog.pg_namespace AS namespace
   ON namespace.oid = table_class.relnamespace
+LEFT JOIN pg_catalog.pg_class AS referenced_class
+  ON referenced_class.oid = constraint_metadata.confrelid
 WHERE namespace.nspname = $1
 ORDER BY table_class.relname, constraint_metadata.conname
 `
@@ -321,7 +334,28 @@ const appendIndexes = (
 	}
 }
 
-const supportedConstraintKinds = new Set(['p', 'u'])
+const supportedConstraintKinds = new Set(['f', 'p', 'u'])
+
+const foreignKeyActions: Readonly<Record<string, PostgresForeignKeyAction>> = {
+	a: 'noAction',
+	c: 'cascade',
+	d: 'setDefault',
+	n: 'setNull',
+	r: 'restrict',
+}
+
+const readForeignKeyAction = (
+	record: Readonly<Record<string, unknown>>,
+): PostgresForeignKeyAction => {
+	const code = readString(record, 'delete_action')
+	const action = foreignKeyActions[code]
+
+	if (action === undefined) {
+		throw new TypeError(`Unknown PostgreSQL foreign-key action: ${code}`)
+	}
+
+	return action
+}
 
 const appendConstraints = (
 	rows: readonly Readonly<Record<string, unknown>>[],
@@ -333,6 +367,11 @@ const appendConstraints = (
 		const tableName = readString(row, 'table_name')
 		const name = readString(row, 'constraint_name')
 		const kind = readString(row, 'constraint_kind')
+		const onDelete = kind === 'f' ? readForeignKeyAction(row) : undefined
+		const targetColumns =
+			kind === 'f' ? readStringArray(row, 'target_columns') : undefined
+		const targetTable =
+			kind === 'f' ? readString(row, 'target_table') : undefined
 
 		getTable(tables, tableName, managedNames).constraints.push(
 			immutableRecord({
@@ -340,6 +379,9 @@ const appendConstraints = (
 				definition: readString(row, 'definition'),
 				kind,
 				name,
+				...(onDelete === undefined ? {} : { onDelete }),
+				...(targetColumns === undefined ? {} : { targetColumns }),
+				...(targetTable === undefined ? {} : { targetTable }),
 			}),
 		)
 

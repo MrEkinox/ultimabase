@@ -3,9 +3,25 @@ import { describe, expect, it } from 'vitest'
 
 import { postgresColumn } from '../naming/column.js'
 import { compilePostgresSchema } from '../schema/schema-compiler.js'
+import { createPostgresPointerFixture } from '../schema/pointer-fixture.test-support.js'
 import { compileDesiredPostgresTables } from './desired-schema.js'
 
 describe('desired PostgreSQL schema', () => {
+	it('detaches managed pointer foreign keys from Drizzle metadata', () => {
+		const { catalog, Post } = createPostgresPointerFixture()
+		const [table] = compileDesiredPostgresTables([catalog.get(Post)])
+
+		expect(table?.foreignKeys).toStrictEqual([
+			{
+				column: 'author',
+				name: catalog.get(Post).fields.author?.pointer?.constraintName,
+				onDelete: 'cascade',
+				targetColumn: 'id',
+				targetTable: 'pointer_users',
+			},
+		])
+	})
+
 	it('detaches columns, defaults, identities, renames, and indexes', () => {
 		const schema = compilePostgresSchema(
 			Schema.define({

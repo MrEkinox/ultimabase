@@ -2,6 +2,7 @@ import { immutableArray } from '@ultimabase/shared'
 
 import type {
 	DesiredPostgresColumn,
+	DesiredPostgresForeignKey,
 	DesiredPostgresIndex,
 	DesiredPostgresTable,
 	PostgresSchemaChange,
@@ -47,6 +48,17 @@ const renderCreateIndex = (
 ): string =>
 	`CREATE ${index.unique ? 'UNIQUE ' : ''}INDEX ${quoteIdentifier(index.name)} ON ${qualify(namespace, table)} (${index.columns.map(quoteIdentifier).join(', ')})`
 
+const renderForeignKeyAction = (
+	action: DesiredPostgresForeignKey['onDelete'],
+): string => (action === 'setNull' ? 'SET NULL' : action.toUpperCase())
+
+const renderAddForeignKey = (
+	namespace: string,
+	table: string,
+	foreignKey: DesiredPostgresForeignKey,
+): string =>
+	`ALTER TABLE ${qualify(namespace, table)} ADD CONSTRAINT ${quoteIdentifier(foreignKey.name)} FOREIGN KEY (${quoteIdentifier(foreignKey.column)}) REFERENCES ${qualify(namespace, foreignKey.targetTable)} (${quoteIdentifier(foreignKey.targetColumn)}) ON DELETE ${renderForeignKeyAction(foreignKey.onDelete)}`
+
 /** Renders one validated plan without interpolating unescaped identifiers. */
 export const renderPostgresSchemaChange = (
 	namespace: string,
@@ -63,6 +75,10 @@ export const renderPostgresSchemaChange = (
 		case 'add-column':
 			return immutableArray([
 				`ALTER TABLE ${qualify(namespace, change.table)} ADD COLUMN ${renderColumn(change.column)}`,
+			])
+		case 'add-foreign-key':
+			return immutableArray([
+				renderAddForeignKey(namespace, change.table, change.foreignKey),
 			])
 		case 'rename-column':
 			return immutableArray([

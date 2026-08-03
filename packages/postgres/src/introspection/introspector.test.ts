@@ -148,8 +148,11 @@ const fixtures: CatalogFixtures = {
 			columns: ['owner_id'],
 			constraint_kind: 'f',
 			constraint_name: 'legacy_owner_fk',
+			delete_action: 'r',
 			definition: 'FOREIGN KEY (owner_id) REFERENCES owners(id)',
 			table_name: 'legacy_records',
+			target_columns: ['id'],
+			target_table: 'owners',
 		},
 	],
 }
@@ -198,6 +201,15 @@ describe('PostgreSQL catalog introspection', () => {
 				},
 			],
 		})
+		expect(snapshot.tables[1]?.constraints).toContainEqual({
+			columns: ['owner_id'],
+			definition: 'FOREIGN KEY (owner_id) REFERENCES owners(id)',
+			kind: 'f',
+			name: 'legacy_owner_fk',
+			onDelete: 'restrict',
+			targetColumns: ['id'],
+			targetTable: 'owners',
+		})
 		expect(snapshot.unsupported).toStrictEqual([
 			{
 				kind: 'partitioned-table',
@@ -231,11 +243,6 @@ describe('PostgreSQL catalog introspection', () => {
 				name: 'legacy_lower_idx',
 				table: 'legacy_records',
 			},
-			{
-				kind: 'constraint-kind',
-				name: 'legacy_owner_fk',
-				table: 'legacy_records',
-			},
 		])
 		expect(Object.isFrozen(snapshot)).toBe(true)
 		expect(Object.isFrozen(snapshot.tables)).toBe(true)
@@ -249,6 +256,9 @@ describe('PostgreSQL catalog introspection', () => {
 			collectionQueries.every((query) =>
 				query.includes('SELECT attribute.attname::text'),
 			),
+		).toBe(true)
+		expect(
+			pool.queries.some((query) => query.includes('AS target_columns')),
 		).toBe(true)
 	})
 

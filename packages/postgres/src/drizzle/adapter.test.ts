@@ -1,5 +1,6 @@
 import {
 	Query,
+	Pointer,
 	databaseConstraint,
 	normalizeUpdateExpression,
 	type CreateOneOperationAst,
@@ -9,7 +10,13 @@ import {
 	type UpdateOneOperationAst,
 	type UpsertOneOperationAst,
 } from '@ultimabase/core'
-import { Schema, intField, stringField } from '@ultimabase/core'
+import {
+	Schema,
+	SchemaRegistry,
+	intField,
+	pointerField,
+	stringField,
+} from '@ultimabase/core'
 import { isPlainRecord, isUnknownArray } from '@ultimabase/shared'
 import {
 	createRuntimeValidationStage,
@@ -39,6 +46,23 @@ const articleSchema = Schema.define({
 		views: intField(),
 	},
 })
+
+const pointerUserSchema = Schema.define({
+	className: 'AdapterPointerUser',
+	fields: { name: stringField() },
+})
+const pointerPostSchema = Schema.define({
+	className: 'AdapterPointerPost',
+	fields: { author: pointerField({ target: () => pointerUserSchema }) },
+})
+const pointerRegistry = new SchemaRegistry([
+	pointerUserSchema,
+	pointerPostSchema,
+])
+const pointerCatalog = new PostgresSchemaCatalog(
+	pointerRegistry.values(),
+	pointerRegistry.resolveSchemaTargets(),
+)
 
 const decodeTenantPayload = (
 	payload: unknown,
@@ -271,6 +295,52 @@ const articleRow = (
 ): readonly unknown[] => [note, title, views, id, timestamp, timestamp]
 
 describe('internal PostgreSQL database adapter', () => {
+	it('executes pointer create and predicate boundaries as UUID parameters', async () => {
+		const driver = new FixtureDriver()
+		const pool = new FixturePool(driver, [])
+		const adapter = createPostgresDatabaseAdapter(pool, pointerCatalog)
+		const author = pointerUserSchema.pointer(secondId)
+		const validation = createRuntimeValidationStage({
+			clock: () => new Date(timestamp),
+			uuidV7Generator: () => firstId,
+		})
+		const create: CreateOneOperationAst<typeof pointerPostSchema> = {
+			input: { author },
+			kind: 'create-one',
+			schema: new Query(pointerPostSchema).ast.schema,
+		}
+		const normalized = await validation({
+			context: RequestContext.anonymous({
+				requestId: 'postgres-pointer-create-fixture',
+				source: requestSources.internal,
+			}),
+			operation: create,
+		})
+
+		driver.respond([[secondId, firstId, timestamp, timestamp]])
+		const created = await adapter.execute({
+			constraints: [],
+			operation: normalized,
+		})
+
+		expect(Pointer.is(created.author)).toBe(true)
+		expect(author.equals(created.author)).toBe(true)
+		expect(driver.calls[0]?.params).toContain(secondId)
+
+		const query = new Query(pointerPostSchema).equalTo('author', author)
+
+		driver.respond([[secondId, firstId, timestamp, timestamp]])
+		const [found] = await adapter.execute({
+			constraints: [],
+			operation: { kind: 'find', query: query.ast },
+		})
+
+		expect(found).toBeDefined()
+		expect(author.equals(found?.author)).toBe(true)
+		expect(driver.calls[1]?.params).toContain(secondId)
+		expect(driver.calls[1]?.text).not.toContain(secondId)
+	})
+
 	it('executes every singular read contract through parameterized Drizzle SQL', async () => {
 		const { adapter, driver } = createFixture()
 		const query = new Query(articleSchema)

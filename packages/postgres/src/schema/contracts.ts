@@ -1,4 +1,8 @@
-import type { FieldValidationPlan } from '@ultimabase/core'
+import type {
+	FieldValidationPlan,
+	PointerReferentialAction,
+	SchemaDefinition,
+} from '@ultimabase/core'
 import type { Index, PgColumn, PgTable } from 'drizzle-orm/pg-core'
 
 import type { PostgresValueCodec } from './value-codec.js'
@@ -23,12 +27,22 @@ export interface PostgresFieldGeneration {
 	readonly uuidVersion?: 7
 }
 
+/** Retains the logical pointer edge needed by synchronization and codecs. */
+export interface CompiledPostgresPointer {
+	readonly constraintName: string
+	readonly onDelete: PointerReferentialAction
+	readonly targetColumn: 'id'
+	readonly targetSchema: SchemaDefinition
+	readonly targetTable: string
+}
+
 /** Connects one logical field to its built Drizzle column and value boundary. */
 export interface CompiledPostgresField {
 	readonly codec: PostgresValueCodec
 	readonly column: PgColumn
 	readonly generation?: PostgresFieldGeneration
 	readonly plan: FieldValidationPlan
+	readonly pointer?: CompiledPostgresPointer
 	readonly renamedFrom?: string
 	readonly storage: PostgresStorageKind
 }

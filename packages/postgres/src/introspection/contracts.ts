@@ -23,7 +23,14 @@ export interface PostgresConstraintSnapshot {
 	readonly definition: string
 	readonly kind: string
 	readonly name: string
+	readonly onDelete?: PostgresForeignKeyAction
+	readonly targetColumns?: readonly string[]
+	readonly targetTable?: string
 }
+
+/** Normalizes PostgreSQL catalog action codes into stable planner values. */
+export type PostgresForeignKeyAction =
+	'cascade' | 'noAction' | 'restrict' | 'setDefault' | 'setNull'
 
 export interface PostgresTableSnapshot {
 	readonly columns: readonly PostgresColumnSnapshot[]

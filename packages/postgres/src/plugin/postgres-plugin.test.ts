@@ -70,6 +70,9 @@ describe('postgresPlugin', () => {
 		expect(application.state).toBe('ready')
 		expect(connection.state).toBe('idle')
 		expect(adapter.kind).toBe('database-adapter')
+		expect(adapter.capabilities).toStrictEqual({
+			pointers: { kind: 'pointers', version: 1 },
+		})
 		expect(adapter).not.toHaveProperty('getClient')
 		expect(() => createFrameworkEngine(application)).not.toThrow()
 		expect(pool.connectCalls).toBe(0)

@@ -9,6 +9,7 @@ import {
 import type { CompiledPostgresSchema } from '../schema/contracts.js'
 import type {
 	DesiredPostgresColumn,
+	DesiredPostgresForeignKey,
 	DesiredPostgresIndex,
 	DesiredPostgresTable,
 } from './contracts.js'
@@ -116,6 +117,25 @@ const compileDesiredIndexes = (
 		),
 	)
 
+const compileDesiredForeignKeys = (
+	schema: CompiledPostgresSchema,
+): readonly DesiredPostgresForeignKey[] =>
+	immutableArray(
+		Object.entries(schema.fields).flatMap(([fieldName, field]) =>
+			field.pointer === undefined
+				? []
+				: [
+						immutableRecord({
+							column: fieldName,
+							name: field.pointer.constraintName,
+							onDelete: field.pointer.onDelete,
+							targetColumn: field.pointer.targetColumn,
+							targetTable: field.pointer.targetTable,
+						}),
+					],
+		),
+	)
+
 /** Compiles private Drizzle tables into a small comparable synchronization model. */
 export const compileDesiredPostgresTables = (
 	schemas: readonly CompiledPostgresSchema[],
@@ -124,6 +144,7 @@ export const compileDesiredPostgresTables = (
 		schemas.map((schema) =>
 			immutableRecord({
 				columns: compileDesiredColumns(schema),
+				foreignKeys: compileDesiredForeignKeys(schema),
 				indexes: compileDesiredIndexes(schema),
 				name: schema.tableName,
 			}),

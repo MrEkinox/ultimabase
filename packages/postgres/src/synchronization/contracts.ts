@@ -1,4 +1,5 @@
 import type { PostgresIdentityKind } from '../introspection/contracts.js'
+import type { PointerReferentialAction } from '@ultimabase/core'
 
 /** Describes one desired physical column without exposing its Drizzle builder. */
 export interface DesiredPostgresColumn {
@@ -18,9 +19,19 @@ export interface DesiredPostgresIndex {
 	readonly unique: boolean
 }
 
+/** Describes one managed pointer foreign key independently from Drizzle. */
+export interface DesiredPostgresForeignKey {
+	readonly column: string
+	readonly name: string
+	readonly onDelete: PointerReferentialAction
+	readonly targetColumn: string
+	readonly targetTable: string
+}
+
 /** Detaches desired synchronization metadata from Drizzle runtime objects. */
 export interface DesiredPostgresTable {
 	readonly columns: readonly DesiredPostgresColumn[]
+	readonly foreignKeys: readonly DesiredPostgresForeignKey[]
 	readonly indexes: readonly DesiredPostgresIndex[]
 	readonly name: string
 }
@@ -34,6 +45,11 @@ export type PostgresSchemaChange =
 	| {
 			readonly kind: 'add-column'
 			readonly column: DesiredPostgresColumn
+			readonly table: string
+	  }
+	| {
+			readonly foreignKey: DesiredPostgresForeignKey
+			readonly kind: 'add-foreign-key'
 			readonly table: string
 	  }
 	| {

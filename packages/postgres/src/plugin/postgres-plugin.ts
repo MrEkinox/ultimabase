@@ -177,6 +177,9 @@ export const postgresPlugin = (
 		name: postgresPluginName,
 		slot: 'database-adapter',
 		setup: ({ constraintCompilers, registries, schemas, services }) => {
+			// PostgreSQL needs the closed logical graph before compiling circular foreign keys.
+			const schemaTargets = schemas.resolveSchemaTargets()
+
 			registries.extensions.register(
 				extensionHandlerKey('field', postgresColumnExtensionName),
 				resolvePostgresRenamedFrom,
@@ -186,7 +189,10 @@ export const postgresPlugin = (
 				resolvePostgresTableName,
 			)
 			// Compile declaration-only metadata before allocating an owned connection pool.
-			const schemaCatalog = new PostgresSchemaCatalog(schemas.values())
+			const schemaCatalog = new PostgresSchemaCatalog(
+				schemas.values(),
+				schemaTargets,
+			)
 			const { ownsPool, pool } = createConnectionSource()
 			const managedConnection = createManagedPostgresConnection(pool, ownsPool)
 			const adapter = createPostgresDatabaseAdapter(

@@ -27,6 +27,7 @@ const desired: DesiredPostgresTable = {
 			type: 'bigint',
 		},
 	],
+	foreignKeys: [],
 	indexes: [
 		{
 			columns: ['title'],
@@ -87,6 +88,95 @@ const live: PostgresDatabaseSnapshot = {
 }
 
 describe('PostgreSQL schema change planner', () => {
+	it('creates tables before adding circular-safe foreign keys', () => {
+		const users: DesiredPostgresTable = {
+			columns: [{ name: 'id', nullable: false, primary: true, type: 'uuid' }],
+			foreignKeys: [],
+			indexes: [],
+			name: 'users',
+		}
+		const posts: DesiredPostgresTable = {
+			columns: [
+				{ name: 'id', nullable: false, primary: true, type: 'uuid' },
+				{ name: 'author', nullable: false, primary: false, type: 'uuid' },
+			],
+			foreignKeys: [
+				{
+					column: 'author',
+					name: 'posts_author_fk',
+					onDelete: 'cascade',
+					targetColumn: 'id',
+					targetTable: 'users',
+				},
+			],
+			indexes: [],
+			name: 'posts',
+		}
+		const changes = planPostgresSchemaChanges([posts, users], {
+			namespace: 'public',
+			tables: [],
+			unsupported: [],
+		})
+
+		expect(changes.map(({ kind }) => kind)).toStrictEqual([
+			'create-table',
+			'create-table',
+			'add-foreign-key',
+		])
+	})
+
+	it('replaces foreign keys when their target action drifts', () => {
+		const [articleTable, ...otherTables] = live.tables
+
+		if (articleTable === undefined) {
+			throw new TypeError('Planner fixture requires the articles table')
+		}
+
+		const pointerDesired: DesiredPostgresTable = {
+			columns: desired.columns,
+			foreignKeys: [
+				{
+					column: 'title',
+					name: 'articles_title_fk',
+					onDelete: 'cascade',
+					targetColumn: 'id',
+					targetTable: 'owners',
+				},
+			],
+			indexes: desired.indexes,
+			name: desired.name,
+		}
+		const changes = planPostgresSchemaChanges([pointerDesired], {
+			...live,
+			tables: [
+				{
+					...articleTable,
+					constraints: [
+						...articleTable.constraints,
+						{
+							columns: ['title'],
+							definition: 'FOREIGN KEY (title) REFERENCES owners(id)',
+							kind: 'f',
+							name: 'articles_title_fk',
+							onDelete: 'restrict',
+							targetColumns: ['id'],
+							targetTable: 'owners',
+						},
+					],
+				},
+				...otherTables,
+			],
+		})
+
+		expect(changes[0]).toMatchObject({
+			constraint: 'articles_title_fk',
+			kind: 'drop-constraint',
+		})
+		expect(changes.at(-1)).toMatchObject({
+			kind: 'add-foreign-key',
+		})
+	})
+
 	it('plans add, change, rename, and drop operations deterministically', () => {
 		const changes = planPostgresSchemaChanges([desired], live)
 

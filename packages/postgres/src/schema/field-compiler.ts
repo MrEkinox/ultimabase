@@ -1,6 +1,10 @@
 import { Buffer } from 'node:buffer'
 
-import type { FieldValidationPlan, GenericField } from '@ultimabase/core'
+import type {
+	FieldValidationPlan,
+	GenericField,
+	SchemaDefinition,
+} from '@ultimabase/core'
 import {
 	immutableRecord,
 	isPlainRecord,
@@ -27,6 +31,7 @@ import type {
 } from './contracts.js'
 import {
 	createPostgresValueCodec,
+	createPostgresPointerValueCodec,
 	type PostgresValueCodec,
 } from './value-codec.js'
 
@@ -39,6 +44,11 @@ interface CompiledPostgresFieldBuilder {
 	readonly codec: PostgresValueCodec
 	readonly generation: PostgresFieldGeneration | undefined
 	readonly storage: PostgresStorageKind
+}
+
+/** Supplies a resolved target only for a top-level pointer field. */
+export interface PostgresPointerCompilerContext {
+	readonly target: SchemaDefinition
 }
 
 interface ConfigurableColumnBuilder extends PgColumnBuilderBase {
@@ -283,6 +293,7 @@ const assertScalarAutoIncrement = (
 export const compilePostgresFieldBuilder = (
 	fieldName: string,
 	plan: FieldValidationPlan,
+	pointerContext?: PostgresPointerCompilerContext,
 ): CompiledPostgresFieldBuilder => {
 	const field = plan.field
 	const declaredDefault = readStaticDefault(field)
@@ -297,7 +308,18 @@ export const compilePostgresFieldBuilder = (
 		return compileJsonbBuilder(fieldName, plan, declaredDefault)
 	}
 
-	const codec = createPostgresValueCodec(plan, false)
+	const codec =
+		field.kind === 'pointer'
+			? pointerContext === undefined
+				? undefined
+				: createPostgresPointerValueCodec(plan, pointerContext.target)
+			: createPostgresValueCodec(plan, false)
+
+	if (codec === undefined) {
+		throw new TypeError(
+			`PostgreSQL pointer target is unavailable: ${fieldName}`,
+		)
+	}
 	const generation = readGeneration(field)
 	const finish = (
 		builder: ConfigurableColumnBuilder,
@@ -386,6 +408,9 @@ export const compilePostgresFieldBuilder = (
 
 			return finish(configured, 'uuid')
 		}
+		case 'pointer':
+			// Referential metadata is attached at table level after every circular target exists.
+			return finish(uuid(fieldName), 'uuid')
 		case 'date': {
 			const fallback = requireDefault(declaredDefault, isString, fieldName)
 			const builder = date(fieldName, { mode: 'string' })

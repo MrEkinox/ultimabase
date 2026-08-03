@@ -401,6 +401,49 @@ An official migration plugin claims `postgresSchemaPreparationClaimName`
 during setup. This suppresses direct synchronization so exactly one
 database-specific implementation owns the preparation phase.
 
+## Pointer storage
+
+Portable Core pointers compile to PostgreSQL UUID columns and named foreign
+keys. The logical field name remains the physical column name, while the
+constraint name is deterministic and safe within PostgreSQL's identifier
+limit. `required`, `nullable`, `indexed`, and `indexed: "unique"` retain their
+normal Schema meaning. `onDelete` becomes `RESTRICT`, `CASCADE`, or `SET NULL`.
+
+```ts
+import { pointerField, Schema, stringField } from '@ultimabase/core'
+
+const User = Schema.define({
+	className: 'User',
+	fields: { name: stringField() },
+})
+
+const Post = Schema.define({
+	className: 'Post',
+	fields: {
+		author: pointerField({
+			target: () => User,
+			validation: { required: true },
+			indexed: true,
+			onDelete: 'cascade',
+		}),
+	},
+})
+
+const author = User.pointer('0198f090-2a50-7000-8000-000000000034')
+const created = await Post.query().create({ author }, { ultimabase })
+const found = await Post.query()
+	.equalTo('author', author)
+	.include('author', (query) => query.select('id', 'name'))
+	.first({ ultimabase })
+```
+
+Writes and predicates send only the target UUID as a parameter. Reads restore
+an immutable `Pointer` bound to the exact registered target schema. Inclusion
+then executes through Core's nested operation pipeline, so target Access,
+hooks, request authority, and the current transaction remain enforced. Direct
+schema synchronization creates every table before foreign keys, which also
+supports circular schema graphs.
+
 ## Query filter compilation
 
 The internal adapter compiles the normalized `Query` filter tree through

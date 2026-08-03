@@ -11,7 +11,9 @@ import {
 	floatField,
 	intField,
 	jsonField,
+	pointerField,
 	stringField,
+	SchemaRegistry,
 	timeField,
 	uuidField,
 } from '@ultimabase/core'
@@ -20,6 +22,7 @@ import { describe, expect, it } from 'vitest'
 
 import { compilePostgresSchema } from '../schema/schema-compiler.js'
 import { compilePostgresFilter } from './filter-compiler.js'
+import { PostgresSchemaCatalog } from '../schema/catalog.js'
 
 const FilterSchema = Schema.define({
 	className: 'FilterFixture',
@@ -57,6 +60,34 @@ const renderQuery = (query: Query<typeof FilterSchema>) => {
 }
 
 describe('PostgreSQL filter compiler', () => {
+	it('parameterizes pointer predicates as target UUIDs', () => {
+		const User = Schema.define({ className: 'FilterPointerUser', fields: {} })
+		const Post = Schema.define({
+			className: 'FilterPointerPost',
+			fields: { author: pointerField({ target: () => User }) },
+		})
+		const registry = new SchemaRegistry([User, Post])
+		const catalog = new PostgresSchemaCatalog(
+			registry.values(),
+			registry.resolveSchemaTargets(),
+		)
+		const pointer = User.pointer('018f0f8c-7b5a-7cc9-98db-123456789abc')
+		const expression = new Query(Post).equalTo('author', pointer).ast.where
+			?.expression
+
+		if (expression === undefined) {
+			throw new TypeError('Pointer filter fixture requires an expression')
+		}
+
+		const rendered = dialect.sqlToQuery(
+			compilePostgresFilter(expression, catalog.get(Post)),
+		)
+
+		expect(rendered.sql).toContain(' = $1')
+		expect(rendered.sql).not.toContain(pointer.id)
+		expect(rendered.params).toStrictEqual([pointer.id])
+	})
+
 	it('compiles every primitive operator through Drizzle parameters', () => {
 		const cases: readonly {
 			readonly fragment: string

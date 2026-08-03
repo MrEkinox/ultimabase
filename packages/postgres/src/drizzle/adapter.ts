@@ -1,4 +1,4 @@
-import { FrameworkError } from '@ultimabase/core'
+import { databasePointerCapability, FrameworkError } from '@ultimabase/core'
 import type { ExecutableOperationAst } from '@ultimabase/core'
 import type {
 	DatabaseAdapter,
@@ -41,6 +41,9 @@ import { createPostgresTransactionError } from './transaction-error.js'
 import { compilePostgresRowFilter } from '../query/filter-compiler.js'
 
 const postgresObjectIdentities = new WeakMap<object, unknown>()
+const postgresDatabaseCapabilities = immutableRecord({
+	pointers: databasePointerCapability,
+})
 
 /** Reads explicit public fields from object-returning read terminals only. */
 const readPostgresPublicSelection = (
@@ -259,6 +262,7 @@ const executePostgresRequest = async <
 /** Owns one borrowed client until exactly one finalization path releases it. */
 class DrizzlePostgresTransactionAdapter implements DatabaseTransactionAdapter {
 	readonly kind = 'database-transaction-adapter' as const
+	readonly capabilities = postgresDatabaseCapabilities
 	readonly #client: PostgresPoolClient
 	readonly #drizzle: PostgresDrizzleClient
 	readonly #schemas: PostgresSchemaCatalog
@@ -396,6 +400,7 @@ class DrizzlePostgresTransactionAdapter implements DatabaseTransactionAdapter {
 /** Binds one private Drizzle client and transaction pool to compiled schemas. */
 class DrizzlePostgresDatabaseAdapter implements DatabaseAdapter {
 	readonly kind = 'database-adapter' as const
+	readonly capabilities = postgresDatabaseCapabilities
 	readonly #client: PostgresDrizzleClient
 	readonly #pool: PostgresPool
 	readonly #schemas: PostgresSchemaCatalog

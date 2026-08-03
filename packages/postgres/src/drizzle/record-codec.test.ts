@@ -1,8 +1,9 @@
-import { binaryField, Schema, stringField } from '@ultimabase/core'
+import { binaryField, Pointer, Schema, stringField } from '@ultimabase/core'
 import { describe, expect, it } from 'vitest'
 
 import { compilePostgresSchema } from '../schema/schema-compiler.js'
 import { decodePostgresRecord, encodePostgresRecord } from './record-codec.js'
+import { createPostgresPointerFixture } from '../schema/pointer-fixture.test-support.js'
 
 const codecSchema = compilePostgresSchema(
 	Schema.define({
@@ -17,6 +18,25 @@ const codecSchema = compilePostgresSchema(
 )
 
 describe('PostgreSQL record codec', () => {
+	it('stores pointer identities and restores exact target schema instances', () => {
+		const { catalog, Post, User } = createPostgresPointerFixture()
+		const schema = catalog.get(Post)
+		const pointer = new Pointer(User, '018f0f8c-7b5a-7cc9-98db-123456789abc')
+		const encoded = encodePostgresRecord(schema, { author: pointer })
+		const decoded = decodePostgresRecord(schema, encoded)
+
+		expect(encoded).toStrictEqual({ author: pointer.id })
+		expect(decoded.author).not.toBe(pointer)
+		expect(decoded.author).toSatisfy((value: unknown) => pointer.equals(value))
+		expect(() =>
+			encodePostgresRecord(schema, {
+				author: new Pointer(Post, '018f0f8c-7b5a-7cc9-98db-123456789abc'),
+			}),
+		).toThrow(
+			new TypeError('PostgreSQL pointer value must point to PointerUser'),
+		)
+	})
+
 	it('round-trips declared values through independent immutable records', () => {
 		const payload = new Uint8Array([1, 2, 3])
 		const encoded = encodePostgresRecord(codecSchema, {

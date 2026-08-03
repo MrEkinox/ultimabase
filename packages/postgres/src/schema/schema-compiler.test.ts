@@ -12,15 +12,20 @@ import {
 	intField,
 	jsonField,
 	objectField,
+	pointerField,
 	stringField,
 	timeField,
 	uuidField,
+	SchemaRegistry,
+	type SchemaDefinition,
 } from '@ultimabase/core'
 import { getTableConfig, type PgColumn } from 'drizzle-orm/pg-core'
 import { describe, expect, it, vi } from 'vitest'
 
 import { postgresColumn } from '../naming/column.js'
+import { PostgresSchemaCatalog } from './catalog.js'
 import { compilePostgresSchema } from './schema-compiler.js'
+import { createPostgresPointerFixture } from './pointer-fixture.test-support.js'
 
 const indexColumns = (
 	columns: readonly PgColumn[],
@@ -28,6 +33,84 @@ const indexColumns = (
 	Object.fromEntries(columns.map((column) => [column.name, column]))
 
 describe('PostgreSQL primitive schema compiler', () => {
+	it('compiles pointers to UUID columns, indexes, and named foreign keys', () => {
+		const { catalog, Post, User } = createPostgresPointerFixture()
+		const compiled = catalog.get(Post)
+		const table = getTableConfig(compiled.table)
+		const [foreignKey] = table.foreignKeys
+		const reference = foreignKey?.reference()
+
+		expect(compiled.fields.author).toMatchObject({
+			column: { notNull: true },
+			pointer: {
+				onDelete: 'cascade',
+				targetColumn: 'id',
+				targetSchema: User,
+				targetTable: 'pointer_users',
+			},
+			storage: 'uuid',
+		})
+		expect(compiled.indexes).toHaveLength(1)
+		expect(foreignKey?.onDelete).toBe('cascade')
+		expect(foreignKey?.getName()).toBe(
+			compiled.fields.author?.pointer?.constraintName,
+		)
+		expect(reference?.columns.map(({ name }) => name)).toStrictEqual(['author'])
+		expect(reference?.foreignColumns.map(({ name }) => name)).toStrictEqual([
+			'id',
+		])
+		expect(reference?.foreignTable).toBe(catalog.get(User).table)
+	})
+
+	it('rejects pointer compilation without a closed application graph', () => {
+		const User = Schema.define({ className: 'DetachedUser', fields: {} })
+		const Post = Schema.define({
+			className: 'DetachedPost',
+			fields: { author: pointerField({ target: () => User }) },
+		})
+
+		expect(() => compilePostgresSchema(Post)).toThrow(
+			new TypeError(
+				'PostgreSQL pointer target is unavailable: DetachedPost.author',
+			),
+		)
+	})
+
+	it('resolves circular pointer tables before Drizzle evaluates foreign keys', () => {
+		const rightReference: { current?: SchemaDefinition } = {}
+		const Left = Schema.define({
+			className: 'CircularLeft',
+			fields: {
+				right: pointerField({
+					target: () => {
+						if (rightReference.current === undefined) {
+							throw new TypeError('Circular right schema is unavailable')
+						}
+
+						return rightReference.current
+					},
+				}),
+			},
+		})
+
+		const Right = Schema.define({
+			className: 'CircularRight',
+			fields: { left: pointerField({ target: () => Left }) },
+		})
+
+		// The lazy target closes the cycle only after both declarations exist.
+		rightReference.current = Right
+
+		const registry = new SchemaRegistry([Left, Right])
+		const catalog = new PostgresSchemaCatalog(
+			registry.values(),
+			registry.resolveSchemaTargets(),
+		)
+
+		expect(getTableConfig(catalog.get(Left).table).foreignKeys).toHaveLength(1)
+		expect(getTableConfig(catalog.get(Right).table).foreignKeys).toHaveLength(1)
+	})
+
 	it('maps every built-in scalar and structured value to explicit metadata', () => {
 		const runtimeDefault = vi.fn(() => 'runtime')
 		const schema = Schema.define({
