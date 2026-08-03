@@ -4,9 +4,10 @@ Transport-neutral Query and Operation AST contracts, normalization, cursor contr
 
 The public `Query<TSchema>` class is context-free, reusable, and directly
 executable. Its builder retains only the transport-neutral AST. A terminal
-resolves the active Runtime request at call time or accepts `{ ultimabase }`
-when no request scope exists. Query never retains a database, adapter,
-transaction, request, authority, or transport.
+resolves the active Runtime request at call time, accepts an already-derived
+plugin context, or accepts `{ ultimabase }` when no request scope exists. Query
+never retains a database, adapter, transaction, request, authority, or
+transport.
 
 ## Immutable Query builder
 
@@ -117,6 +118,32 @@ scope is rejected instead of changing the operation's transaction. The same
 immutable Query branch may safely execute in different sequential or concurrent
 request scopes because no execution owner enters its AST.
 
+The same final options position selects one plugin-derived context or audited
+master authority. Core never validates an authentication credential here:
+
+```ts
+const scoped = await ArticleSchema.query().find({
+	context: contextCreatedByAPlugin,
+	ultimabase,
+})
+
+const allArticles = await ArticleSchema.query().find({ useMasterKey: true })
+
+const auditedImport = await ArticleSchema.query().createMany(rows, {
+	context: contextCreatedByAPlugin,
+	ultimabase,
+	useMasterKey: true,
+})
+```
+
+Omitting `ultimabase` inherits the active application. Outside an active scope,
+an explicit context requires its exact `ultimabase`. Contexts are claimed by
+their first application binding and cannot cross isolated applications.
+`useMasterKey: true` elevates the inherited or explicit context through that
+application's `MasterAuthority`; audit failure or missing authority prevents the
+operation. Inside hooks and transactions the derived engine keeps the same
+transaction, cancellation boundary, recursion protection, and revocable lease.
+
 `InferQueryResult` derives the terminal result shape from the accumulated
 selection. The projected result is materialized before it reaches public
 declarations, so editor hovers show only selected properties instead of an
@@ -216,7 +243,7 @@ create identifier.
 
 Terminal options are never serialized into Query or Operation ASTs. Transports
 continue executing normalized operations through explicit request engines and
-cannot manufacture `{ ultimabase }` from client input.
+cannot manufacture `ultimabase`, `context`, or `useMasterKey` from client input.
 
 ## Query AST
 

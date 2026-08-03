@@ -11,18 +11,27 @@ import type {
 import type {
 	ExecutableOperationAst,
 	InferOperationResult,
+	OperationAstNode,
 } from '../../query/index.js'
+import {
+	registerQueryTerminalExecutionHandler,
+	type NormalizedQueryTerminalOptions,
+} from '../../query/operations/execution.js'
 import { Schema, type SchemaDefinition } from '../../schema/index.js'
 import type { MaybePromise } from '@ultimabase/shared'
 import { isPlainRecord } from '@ultimabase/shared'
 
 import {
+	getRequestContextOwner,
+	isRequestContext,
 	RequestContext,
+	setRequestContextOwner,
 	type RequestContextOptions,
 } from '../context/request-context.js'
 import { runWithRequestEngineScope } from '../context/active-framework-storage.js'
 import type { DatabaseOperationResult } from '../database/contracts.js'
 import {
+	elevateTrustedMasterRequest,
 	MasterAuthority,
 	type MasterKeyGrant,
 } from '../master/master-authority.js'
@@ -101,6 +110,37 @@ const getFrameworkMasterAuthority = (
 	return authority
 }
 
+/** Claims an unbound context or rejects reuse across isolated applications. */
+const bindRequestContextToFramework = (
+	framework: FrameworkEngine,
+	context: RequestContext,
+): void => {
+	const owner = getRequestContextOwner(context)
+
+	if (owner !== undefined && owner !== framework.application) {
+		throw new FrameworkError(
+			'VALIDATION_ERROR',
+			'Explicit request context belongs to another application.',
+			{
+				publicMessage: 'The request context is not available.',
+				internalDetails: {
+					reason: 'query-terminal-context-application-mismatch',
+				},
+			},
+		)
+	}
+
+	if (owner === undefined) {
+		setRequestContextOwner(context, framework.application)
+	}
+}
+
+/** Builds a stable audit reason without retaining terminal options in the AST. */
+const createTerminalMasterReason = (
+	operation: OperationAstNode,
+	schema: SchemaDefinition,
+): string => `Query terminal ${operation.kind} on ${schema.className}`
+
 /** Rejects malformed low-level construction before it can bind request state. */
 const assertFrameworkEngineOptions = (
 	options: FrameworkEngineOptions<
@@ -177,6 +217,8 @@ export class FrameworkEngine<
 			throw new TypeError('Framework engine context must be a RequestContext')
 		}
 
+		bindRequestContextToFramework(this, context)
+
 		return new RequestEngine(
 			requestEngineConstructionKey,
 			this,
@@ -250,9 +292,60 @@ export class RequestEngine<
 		this.context = context
 		this.#pipeline = pipeline
 		this.#transactionLifetime = transactionLifetime
+		registerQueryTerminalExecutionHandler(this, (operation, options) =>
+			this.#executeTerminal(operation, options),
+		)
 
 		// A request engine cannot change application or authority after binding.
 		Object.freeze(this)
+	}
+
+	/** Resolves trusted terminal authority while retaining this engine's lifetime. */
+	async #executeTerminal(
+		operation: unknown,
+		options: NormalizedQueryTerminalOptions,
+	): Promise<unknown> {
+		const normalizedOperation = operation as ExecutableOperationAst<
+			TSchemas[number]
+		>
+		const schema = getOperationSchema(normalizedOperation)
+
+		this.framework.assertOwnsSchema(schema)
+
+		let context: RequestContext = this.context
+
+		if (options.context !== undefined) {
+			if (!isRequestContext(options.context)) {
+				throw new TypeError(
+					'query terminal context must be a RequestContext instance',
+				)
+			}
+
+			bindRequestContextToFramework(this.framework, options.context)
+			context = options.context
+		}
+
+		if (options.useMasterKey) {
+			context = await elevateTrustedMasterRequest(
+				getFrameworkMasterAuthority(this.framework),
+				context,
+				createTerminalMasterReason(normalizedOperation, schema),
+			)
+		}
+
+		const engine =
+			context === this.context
+				? this
+				: new RequestEngine(
+						requestEngineConstructionKey,
+						this.framework,
+						context,
+						this.#pipeline,
+						this.#transactionLifetime,
+					)
+
+		// Query terminal construction guarantees an executable operation for this schema.
+		return engine.execute(normalizedOperation)
 	}
 
 	get application(): FrameworkApplication<TSchemas, TPlugins> {

@@ -19,11 +19,14 @@ import {
 	normalizeUpdateExpression,
 	objectField,
 	Query,
+	RequestContext,
+	RequestContextValue,
 	requestSources,
 	runWithRequestEngine,
 	stringField,
 	timeField,
 	uuidField,
+	MasterAuthority,
 } from '@ultimabase/core'
 import { UltimaBase } from '@ultimabase/core'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
@@ -80,6 +83,38 @@ const BulkAccountSchema = Schema.define({
 	indexes: [{ fields: ['tenantId', 'handle'], unique: true }],
 })
 
+const authorityPrincipal = new RequestContextValue<string>(
+	'fixture.postgres.principal',
+	(value: unknown): string => {
+		if (typeof value !== 'string') {
+			throw new TypeError('PostgreSQL fixture principal must be a string')
+		}
+
+		return value
+	},
+)
+const authorityObservations: Readonly<{
+	mode: string
+	principal: string | undefined
+}>[] = []
+const AuthorityRecordSchema = Schema.define({
+	className: 'RuntimeAuthorityRecord',
+	fields: {
+		title: stringField({ validation: { required: true } }),
+	},
+	hooks: {
+		beforeCreate: ({ context, operation }) => {
+			// Snapshot revocable hook capabilities before the callback completes.
+			authorityObservations.push({
+				mode: context.access.mode,
+				principal: context.getValue(authorityPrincipal),
+			})
+
+			return operation
+		},
+	},
+})
+
 const hookRollbackError = new Error('rollback HookContext nested write')
 const HookPostSchema = Schema.define({
 	className: 'RuntimeHookPost',
@@ -132,9 +167,15 @@ const packedNonAtomicCreate = () =>
 	PostSchema.query().createMany([{ title: 'Packed bulk draft' }], {
 		atomic: false,
 	})
+declare const packedContext: RequestContext
+const packedMasterFind = () => PostSchema.query().find({ useMasterKey: true })
+const packedContextFind = () =>
+	PostSchema.query().find({ context: packedContext })
 void packedDraft
 void packedQuery
 void packedNonAtomicCreate
+void packedMasterFind
+void packedContextFind
 
 let fixture: PostgresWorkerFixture | undefined
 
@@ -379,6 +420,62 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 					.equalTo('tenantId', 'tenant-d')
 					.deleteMany({ ultimabase }),
 			).resolves.toBe(1)
+		} finally {
+			await ultimabase.dispose()
+		}
+	})
+
+	it('executes plugin-derived and audited-master terminals against PostgreSQL', async () => {
+		authorityObservations.length = 0
+		const auditReasons: string[] = []
+		const ultimabase = new UltimaBase({
+			masterAuthority: new MasterAuthority({
+				keys: [{ id: 'postgres-server', value: 'unused-by-terminal' }],
+				onUse: ({ reason }) => {
+					auditReasons.push(reason)
+				},
+			}),
+			schemas: [AuthorityRecordSchema],
+			plugins: [
+				postgresPlugin({
+					schemaPolicy: 'override',
+					url: getFixture().connectionUri,
+				}),
+			],
+			validation: {
+				clock: () => new Date(createInstant),
+				timezone: 'UTC',
+			},
+		})
+		const context = RequestContext.anonymous({
+			requestId: 'postgres-authority-context',
+			source: requestSources.internal,
+		}).withValue(authorityPrincipal, 'postgres-user')
+
+		await ultimabase.start()
+
+		try {
+			const ordinary = await AuthorityRecordSchema.query().create(
+				{ title: 'plugin context' },
+				{ context, ultimabase },
+			)
+			const master = await AuthorityRecordSchema.query().create(
+				{ title: 'master context' },
+				{ context, ultimabase, useMasterKey: true },
+			)
+
+			expect(ordinary.title).toBe('plugin context')
+			expect(master.title).toBe('master context')
+			expect(authorityObservations).toStrictEqual([
+				{ mode: 'anonymous', principal: 'postgres-user' },
+				{ mode: 'master', principal: 'postgres-user' },
+			])
+			expect(auditReasons).toStrictEqual([
+				'Query terminal create-one on RuntimeAuthorityRecord',
+			])
+			await expect(
+				AuthorityRecordSchema.query().count({ ultimabase }),
+			).resolves.toBe(2)
 		} finally {
 			await ultimabase.dispose()
 		}

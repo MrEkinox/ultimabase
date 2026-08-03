@@ -11,6 +11,7 @@ import { describe, expect, it } from 'vitest'
 import { UltimaBase } from '../application/ultima-base.js'
 import { RequestContext, requestSources } from '../context/request-context.js'
 import { runWithRequestEngine } from '../context/active-framework-context.js'
+import { MasterAuthority } from '../master/master-authority.js'
 import {
 	databaseAdapterServiceToken,
 	type DatabaseAdapter,
@@ -143,12 +144,22 @@ describe('HookContext Runtime capabilities', () => {
 		await ultimabase.dispose()
 	})
 
-	it('runs and drains unawaited nested queries in the originating transaction', async () => {
+	it('keeps nested master terminals inside the hook lease and transaction', async () => {
 		const trace: string[] = []
 		const transactionIds: (string | undefined)[] = []
+		const nestedAccessModes: string[] = []
+		const auditReasons: string[] = []
 		const AuditSchema = Schema.define({
 			className: 'HookContextAudit',
 			fields: { title: stringField({ validation: { required: true } }) },
+			hooks: {
+				beforeCreate: ({ context, operation }) => {
+					nestedAccessModes.push(context.access.mode)
+					transactionIds.push(context.transactionId)
+
+					return operation
+				},
+			},
 		})
 		const PostSchema = Schema.define({
 			className: 'HookContextPost',
@@ -161,7 +172,10 @@ describe('HookContext Runtime capabilities', () => {
 					expect(Object.isFrozen(context)).toBe(true)
 					transactionIds.push(context.transactionId)
 
-					void AuditSchema.query().create({ title: 'nested audit' })
+					void AuditSchema.query().create(
+						{ title: 'nested audit' },
+						{ useMasterKey: true },
+					)
 					return operation
 				},
 			},
@@ -177,6 +191,12 @@ describe('HookContext Runtime capabilities', () => {
 			trace,
 		)
 		const ultimabase = new UltimaBase({
+			masterAuthority: new MasterAuthority({
+				keys: [{ id: 'hook-server', value: 'unused-by-terminal' }],
+				onUse: ({ reason }) => {
+					auditReasons.push(reason)
+				},
+			}),
 			plugins: [createDatabasePlugin(adapter)],
 			schemas: [PostSchema, AuditSchema],
 		})
@@ -189,6 +209,11 @@ describe('HookContext Runtime capabilities', () => {
 		expect(adapter.transactions).toHaveLength(1)
 		expect(adapter.transactions[0]?.requests).toHaveLength(2)
 		expect(transactionIds[0]).toMatch(/^[0-9a-f-]{36}$/u)
+		expect(transactionIds[1]).toBe(transactionIds[0])
+		expect(nestedAccessModes).toStrictEqual(['master'])
+		expect(auditReasons).toStrictEqual([
+			'Query terminal create-one on HookContextAudit',
+		])
 		expect(trace).toStrictEqual([
 			'adapter:begin',
 			'prepare:create-one',

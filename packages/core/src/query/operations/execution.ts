@@ -3,6 +3,7 @@ import { AsyncLocalStorage } from 'node:async_hooks'
 import { FrameworkError, type PluginDefinition } from '../../foundation.js'
 import type { SchemaDefinition } from '../../schema/index.js'
 import type { UltimaBase } from '../../runtime/application/ultima-base.js'
+import type { RequestContext } from '../../runtime/context/request-context.js'
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 
 import type {
@@ -19,15 +20,36 @@ type QueryUltimaBase = UltimaBase<
 	readonly PluginDefinition[]
 >
 
-/** Supplies execution ownership only when no request or hook scope is active. */
+/**
+ * Selects inherited, plugin-derived, or audited-master terminal execution.
+ * Omitting `context` and `useMasterKey` inherits the active request.
+ *
+ * @example `await Post.query().find()`
+ * @example `await Post.query().find({ ultimabase })`
+ */
 export interface QueryTerminalOptions {
 	/**
+	 * Selects an immutable plugin-derived context without accepting credentials.
+	 * Combine it with `useMasterKey: true` to elevate that exact context.
+	 *
+	 * @example `await Post.query().find({ context, ultimabase })`
+	 */
+	readonly context?: RequestContext
+	/**
 	 * Selects the exact started application used to create an anonymous root request.
-	 * Omit this property inside an active request, transaction, or queryable hook.
+	 * It is required with an explicit context outside an active request scope.
 	 *
 	 * @example `await Post.query().find({ ultimabase })`
 	 */
 	readonly ultimabase?: QueryUltimaBase
+	/**
+	 * Requests audited master authority from trusted backend code only.
+	 * Transport input and serialized Query data must never supply this option.
+	 *
+	 * @example `await Post.query().find({ useMasterKey: true })`
+	 * @example `await Post.query().find({ context, ultimabase, useMasterKey: true })`
+	 */
+	readonly useMasterKey?: true
 }
 
 /** Keeps the default all-or-nothing collection contract. */
@@ -65,8 +87,11 @@ export type QueryBulkAtomic<
 			? true
 			: boolean
 
-interface NormalizedQueryTerminalOptions {
+/** @internal Carries validated server-only choices outside every Query and operation AST. */
+export interface NormalizedQueryTerminalOptions {
+	readonly context: object | undefined
 	readonly ultimabase: object | undefined
+	readonly useMasterKey: boolean
 }
 
 interface NormalizedQueryBulkTerminalOptions<
@@ -90,6 +115,12 @@ export interface QueryExecutionDispatcher {
 	execute(operation: unknown): Promise<unknown>
 }
 
+/** @internal Resolves authority without adding execution state to a Query instance. */
+export type QueryTerminalExecutionHandler = (
+	operation: unknown,
+	options: NormalizedQueryTerminalOptions,
+) => Promise<unknown>
+
 /** Lets Runtime add one revocable boundary without exposing hook internals here. */
 export interface QueryExecutionGuard {
 	run<TResult>(operation: () => Promise<TResult>): Promise<TResult>
@@ -100,8 +131,14 @@ const queryExecutionOwners = new WeakMap<
 	object,
 	QueryExecutionOwnerRegistration
 >()
+const queryTerminalExecutionHandlers = new WeakMap<
+	QueryExecutionDispatcher,
+	QueryTerminalExecutionHandler
+>()
 const emptyTerminalOptions: NormalizedQueryTerminalOptions = immutableRecord({
+	context: undefined,
 	ultimabase: undefined,
+	useMasterKey: false,
 })
 
 const assertKnownOptionKeys = (
@@ -109,10 +146,52 @@ const assertKnownOptionKeys = (
 	bulk: boolean,
 ): void => {
 	for (const key of Object.keys(options)) {
-		if (key !== 'ultimabase' && (!bulk || key !== 'atomic')) {
+		if (
+			key !== 'context' &&
+			key !== 'ultimabase' &&
+			key !== 'useMasterKey' &&
+			(!bulk || key !== 'atomic')
+		) {
 			throw new TypeError(`query terminal options contain unknown key: ${key}`)
 		}
 	}
+}
+
+/** Validates authority values after the caller-specific key set is checked. */
+const normalizeQueryAuthorityOptions = (
+	options: Readonly<Record<string, unknown>>,
+): NormalizedQueryTerminalOptions => {
+	const context: unknown = options.context
+	const ultimabase: unknown = options.ultimabase
+	const useMasterKey: unknown = options.useMasterKey
+
+	if (
+		context !== undefined &&
+		(typeof context !== 'object' || context === null)
+	) {
+		throw new TypeError(
+			'query terminal context must be a RequestContext instance',
+		)
+	}
+
+	if (
+		ultimabase !== undefined &&
+		(typeof ultimabase !== 'object' || ultimabase === null)
+	) {
+		throw new TypeError(
+			'query terminal ultimabase must be an UltimaBase instance',
+		)
+	}
+
+	if (useMasterKey !== undefined && useMasterKey !== true) {
+		throw new TypeError('query terminal useMasterKey must be true when present')
+	}
+
+	return immutableRecord({
+		context,
+		ultimabase,
+		useMasterKey: useMasterKey === true,
+	})
 }
 
 /** Snapshots the public terminal boundary before asynchronous execution starts. */
@@ -131,18 +210,7 @@ export const normalizeQueryTerminalOptions = (
 
 	assertKnownOptionKeys(untrustedOptions, false)
 
-	const ultimabase: unknown = untrustedOptions.ultimabase
-
-	if (
-		ultimabase !== undefined &&
-		(typeof ultimabase !== 'object' || ultimabase === null)
-	) {
-		throw new TypeError(
-			'query terminal ultimabase must be an UltimaBase instance',
-		)
-	}
-
-	return immutableRecord({ ultimabase })
+	return normalizeQueryAuthorityOptions(untrustedOptions)
 }
 
 /** Normalizes bulk behavior and ownership through one shared public options object. */
@@ -165,11 +233,7 @@ export const normalizeQueryBulkTerminalOptions = <
 	}
 
 	assertKnownOptionKeys(untrustedOptions, true)
-	const terminal = normalizeQueryTerminalOptions(
-		untrustedOptions.ultimabase === undefined
-			? undefined
-			: { ultimabase: untrustedOptions.ultimabase as QueryUltimaBase },
-	)
+	const terminal = normalizeQueryAuthorityOptions(untrustedOptions)
 	const atomic: unknown = untrustedOptions.atomic
 
 	return immutableRecord({
@@ -192,6 +256,48 @@ export const registerQueryExecutionOwner = (
 	queryExecutionOwners.set(owner, immutableRecord(registration))
 }
 
+/** Registers one Runtime-owned authority resolver for an erased executor. */
+export const registerQueryTerminalExecutionHandler = (
+	executor: QueryExecutionDispatcher,
+	handler: QueryTerminalExecutionHandler,
+): void => {
+	if (queryTerminalExecutionHandlers.has(executor)) {
+		throw new TypeError(
+			'query terminal execution handler is already registered',
+		)
+	}
+
+	queryTerminalExecutionHandlers.set(executor, handler)
+}
+
+/** Applies server-only options through Runtime while leaving the operation untouched. */
+const dispatchQueryTerminal = (
+	executor: QueryExecutionDispatcher,
+	operation: unknown,
+	options: NormalizedQueryTerminalOptions,
+): Promise<unknown> => {
+	if (options.context === undefined && !options.useMasterKey) {
+		return executor.execute(operation)
+	}
+
+	const handler = queryTerminalExecutionHandlers.get(executor)
+
+	if (handler === undefined) {
+		throw new FrameworkError(
+			'MISSING_EXECUTION_CONTEXT',
+			'The active query executor cannot apply terminal authority options.',
+			{
+				publicMessage: 'No request execution context is available.',
+				internalDetails: {
+					reason: 'query-terminal-authority-unavailable',
+				},
+			},
+		)
+	}
+
+	return handler(operation, options)
+}
+
 /** Runs ordinary terminals through one exact request engine in this async branch. */
 export const runWithQueryExecution = <TResult>(
 	application: object,
@@ -207,26 +313,31 @@ export const runWithQueryExecutionGuard = <TResult>(
 ): TResult => {
 	const parent: ActiveQueryExecution | undefined =
 		activeQueryExecution.getStore()
+	const requireParent = (): ActiveQueryExecution => {
+		if (parent === undefined) {
+			throw new FrameworkError(
+				'MISSING_EXECUTION_CONTEXT',
+				'Hook queries require an active operation engine.',
+				{
+					publicMessage: 'Queries are not available during this hook phase.',
+					internalDetails: { reason: 'hook-query-engine-unavailable' },
+				},
+			)
+		}
+
+		return parent
+	}
 	const executor: QueryExecutionDispatcher = immutableRecord({
 		execute: (operation) =>
-			guard.run(() => {
-				if (parent === undefined) {
-					throw new FrameworkError(
-						'MISSING_EXECUTION_CONTEXT',
-						'Hook queries require an active operation engine.',
-						{
-							publicMessage:
-								'Queries are not available during this hook phase.',
-							internalDetails: {
-								reason: 'hook-query-engine-unavailable',
-							},
-						},
-					)
-				}
-
-				return parent.executor.execute(operation)
-			}),
+			guard.run(() => requireParent().executor.execute(operation)),
 	})
+
+	// Authority resolution stays behind the same revocable hook lease.
+	registerQueryTerminalExecutionHandler(executor, (operation, options) =>
+		guard.run(() =>
+			dispatchQueryTerminal(requireParent().executor, operation, options),
+		),
+	)
 
 	return activeQueryExecution.run(
 		immutableRecord({ application: parent?.application, executor }),
@@ -264,9 +375,11 @@ export const executeQueryTerminal = <const TOperation extends OperationAstNode>(
 			)
 		}
 
-		return active.executor.execute(operation) as Promise<
-			InferOperationResult<TOperation>
-		>
+		return dispatchQueryTerminal(
+			active.executor,
+			operation,
+			options,
+		) as Promise<InferOperationResult<TOperation>>
 	}
 
 	if (registration === undefined) {
@@ -280,7 +393,9 @@ export const executeQueryTerminal = <const TOperation extends OperationAstNode>(
 		)
 	}
 
-	return registration.createRootExecutor().execute(operation) as Promise<
-		InferOperationResult<TOperation>
-	>
+	return dispatchQueryTerminal(
+		registration.createRootExecutor(),
+		operation,
+		options,
+	) as Promise<InferOperationResult<TOperation>>
 }

@@ -4,6 +4,8 @@ import {
 	Schema,
 	type InferQueryResult,
 	type NonAtomicBulkResult,
+	type QueryTerminalOptions,
+	type RequestContext,
 	type UltimaBase,
 } from '../../src/index.js'
 import { expectTypeOf, test } from 'vitest'
@@ -20,6 +22,7 @@ declare const ultimabase: UltimaBase<
 	readonly [typeof articleSchema],
 	readonly []
 >
+declare const context: RequestContext
 
 test('preserves Query schema selection across every singular terminal', () => {
 	const query = articleSchema.query().select('id', 'title')
@@ -130,8 +133,63 @@ test('preserves Query schema selection across every singular terminal', () => {
 		Promise<number>
 	>()
 
+	const masterOptions = { useMasterKey: true } as const
+	const contextOptions = { context, ultimabase } as const
+	const contextualMasterOptions = {
+		context,
+		ultimabase,
+		useMasterKey: true,
+	} as const satisfies QueryTerminalOptions
+
+	// Every terminal shares the same final trusted-backend authority boundary.
+	void query.find(masterOptions)
+	void query.first(contextOptions)
+	void query.get('article-1', contextualMasterOptions)
+	void query.count(masterOptions)
+	void query.exists(contextOptions)
+	void query.createOne({ title: 'Created' }, contextualMasterOptions)
+	void query.create({ title: 'Created' }, masterOptions)
+	void query.createMany([{ title: 'Created' }], {
+		atomic: false,
+		...contextualMasterOptions,
+	})
+	void query.updateOne({ increment: { views: 1 } }, masterOptions)
+	void query.update({ increment: { views: 1 } }, contextOptions)
+	void query.updateMany({ increment: { views: 1 } }, contextualMasterOptions)
+	void query.upsertOne(
+		{
+			create: { title: 'Unique' },
+			update: { increment: { views: 1 } },
+		},
+		masterOptions,
+	)
+	void query.upsert(
+		{
+			create: { title: 'Unique' },
+			update: { increment: { views: 1 } },
+		},
+		contextOptions,
+	)
+	void articleSchema.query().upsertMany(
+		[
+			{
+				create: { title: 'Unique' },
+				query: articleSchema.query().equalTo('title', 'Unique'),
+				update: { increment: { views: 1 } },
+			},
+		],
+		{ atomic: true, ...contextualMasterOptions },
+	)
+	void query.deleteOne(masterOptions)
+	void query.delete(contextOptions)
+	void query.deleteMany(contextualMasterOptions)
+
 	// @ts-expect-error -- Read terminals accept only their final execution options.
 	void query.find({ atomic: false })
+	// @ts-expect-error -- Master selection is a positive trusted-code flag, not transport data.
+	void query.find({ useMasterKey: false })
+	// @ts-expect-error -- Query terminals remain credential-neutral.
+	void query.find({ sessionToken: 'transport-secret' })
 	// @ts-expect-error -- Mutation execution options follow the mutation input.
 	void query.create({ ultimabase }, { title: 'Created' })
 	// @ts-expect-error -- Singular update aliases never accept a collection input.

@@ -37,6 +37,12 @@ describe('contextual Query execution', () => {
 				internalDetails: { reason: 'query-terminal-owner-missing' },
 			}),
 		)
+		expect(() => PostSchema.query().find({ context: {} as never })).toThrow(
+			expect.objectContaining({
+				code: 'MISSING_EXECUTION_CONTEXT',
+				internalDetails: { reason: 'query-terminal-owner-missing' },
+			}),
+		)
 	})
 
 	it('routes one immutable branch independently across concurrent scopes', async () => {
@@ -73,27 +79,45 @@ describe('contextual Query execution', () => {
 	})
 
 	it('normalizes terminal ownership and bulk grouping without entering the AST', () => {
+		const context = {}
 		const owner = {}
 		const terminal = normalizeQueryTerminalOptions({
+			context: context as never,
 			ultimabase: owner as never,
+			useMasterKey: true,
 		})
 		const bulk = normalizeQueryBulkTerminalOptions({
 			atomic: false,
 			ultimabase: owner as never,
 		})
 
-		expect(terminal).toStrictEqual({ ultimabase: owner })
+		expect(terminal).toStrictEqual({
+			context,
+			ultimabase: owner,
+			useMasterKey: true,
+		})
 		expect(bulk).toStrictEqual({
 			bulk: { atomic: false },
+			context: undefined,
 			ultimabase: owner,
+			useMasterKey: false,
 		})
 		expect(Object.isFrozen(terminal)).toBe(true)
 		expect(Object.isFrozen(bulk)).toBe(true)
+		expect('context' in PostSchema.query().ast).toBe(false)
+		expect('ultimabase' in PostSchema.query().ast).toBe(false)
+		expect('useMasterKey' in PostSchema.query().ast).toBe(false)
 		expect(() =>
 			normalizeQueryTerminalOptions({ unknown: true } as never),
 		).toThrow('query terminal options contain unknown key: unknown')
 		expect(() =>
 			normalizeQueryBulkTerminalOptions({ atomic: 'no' } as never),
 		).toThrow('bulk operation atomic option must be a boolean')
+		expect(() =>
+			normalizeQueryTerminalOptions({ context: 'forged' } as never),
+		).toThrow('query terminal context must be a RequestContext instance')
+		expect(() =>
+			normalizeQueryTerminalOptions({ useMasterKey: false } as never),
+		).toThrow('query terminal useMasterKey must be true when present')
 	})
 })

@@ -74,6 +74,40 @@ identity, adding the same token twice fails, and neither context derivation nor
 transport data can manufacture master authority. `HookContext.getValue()`
 provides the same typed read boundary without exposing `withValue()`.
 
+## Terminal execution authority
+
+Every `Query` terminal resolves authority only when it executes. Inside an
+active request, transaction, or hook it inherits that exact engine. Root jobs
+identify one application explicitly, while an authentication or tenant plugin
+may supply an already-derived context:
+
+```ts
+const inherited = await PostSchema.query().find()
+const root = await PostSchema.query().find({ ultimabase })
+const authenticated = await PostSchema.query().find({
+	context: contextCreatedByAuthPlugin,
+	ultimabase,
+})
+```
+
+Trusted backend code may request audited master authority in the same final
+option position. Combining both elevates the supplied context and preserves its
+typed values:
+
+```ts
+const allPosts = await PostSchema.query().find({ useMasterKey: true })
+const imported = await PostSchema.query().createMany(rows, {
+	context: contextCreatedByAuthPlugin,
+	ultimabase,
+	useMasterKey: true,
+})
+```
+
+The application-owned `MasterAuthority` audits the operation before it runs;
+the first configured key ID labels trusted terminal elevations. Contexts and
+authority flags never enter Query or Operation ASTs, and transports must not
+map client input into these server-only options.
+
 ## Automatic mutation transactions
 
 Every root create, update, upsert, and delete terminal automatically uses the

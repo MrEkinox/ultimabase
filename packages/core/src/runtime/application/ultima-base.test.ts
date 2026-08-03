@@ -1,4 +1,5 @@
 import { definePlugin } from '../../foundation.js'
+import { RequestContextValue } from '../../access/index.js'
 import { Schema, stringField } from '../../schema/index.js'
 import { describe, expect, it } from 'vitest'
 
@@ -8,6 +9,9 @@ import {
 	type DatabaseAdapter,
 } from '../database/contracts.js'
 import { beforeOperation } from '../hooks/definitions.js'
+import { RequestContext, requestSources } from '../context/request-context.js'
+import { runWithRequestEngine } from '../context/active-framework-context.js'
+import { MasterAuthority } from '../master/master-authority.js'
 import { RecordingDatabaseAdapter } from '../../../tests/runtime/fixtures/recording-database-adapter.js'
 import { UltimaBase } from './ultima-base.js'
 
@@ -17,6 +21,17 @@ const articleSchema = Schema.define({
 		title: stringField({ validation: { required: true } }),
 	},
 })
+
+const principalValue = new RequestContextValue<string>(
+	'fixture.auth.principal',
+	(value: unknown): string => {
+		if (typeof value !== 'string') {
+			throw new TypeError('Fixture principal must be a string')
+		}
+
+		return value
+	},
+)
 
 const createDatabasePlugin = (
 	adapter: DatabaseAdapter,
@@ -140,6 +155,118 @@ describe('UltimaBase', () => {
 		expect(trace).toStrictEqual(['setup', 'connect', 'stop', 'dispose'])
 	})
 
+	it('executes explicit plugin contexts and audited master terminal options', async () => {
+		const adapter = new RecordingDatabaseAdapter(
+			[
+				{ status: 'fulfilled', value: [] },
+				{ status: 'fulfilled', value: [] },
+			],
+			[],
+		)
+		const observedAccesses: HookContext['access'][] = []
+		const observedPrincipals: (string | undefined)[] = []
+		const auditEvents: unknown[] = []
+		const authority = new MasterAuthority({
+			clock: () => new Date('2026-08-03T12:00:00.000Z'),
+			keys: [{ id: 'server-default', value: 'unused-by-terminal' }],
+			onUse: (event) => {
+				auditEvents.push(event)
+			},
+		})
+		const ultimabase = new UltimaBase({
+			masterAuthority: authority,
+			schemas: [articleSchema],
+			plugins: [
+				createDatabasePlugin(adapter, {
+					onContext: (context) => {
+						// Hook capabilities are read before their lifecycle lease closes.
+						observedAccesses.push(context.access)
+						observedPrincipals.push(context.getValue(principalValue))
+					},
+				}),
+			],
+		})
+		const context = RequestContext.anonymous({
+			requestId: 'plugin-context-1',
+			source: requestSources.internal,
+		}).withValue(principalValue, 'user-1')
+
+		try {
+			await ultimabase.start()
+			await articleSchema.query().find({ context, ultimabase })
+			await articleSchema.query().find({
+				context,
+				ultimabase,
+				useMasterKey: true,
+			})
+
+			expect(observedAccesses).toHaveLength(2)
+			expect(observedAccesses[0]).toStrictEqual({ mode: 'anonymous' })
+			expect(observedPrincipals[0]).toBe('user-1')
+			expect(observedAccesses[1]).toStrictEqual({
+				keyId: 'server-default',
+				mode: 'master',
+				reason: 'Query terminal find on UltimaBaseArticle',
+			})
+			expect(observedPrincipals[1]).toBe('user-1')
+			expect(auditEvents).toStrictEqual([
+				{
+					keyId: 'server-default',
+					kind: 'master-access',
+					occurredAt: '2026-08-03T12:00:00.000Z',
+					previousAccess: { mode: 'anonymous' },
+					reason: 'Query terminal find on UltimaBaseArticle',
+					requestId: 'plugin-context-1',
+					source: 'internal',
+				},
+			])
+			expect(adapter.rootRequests).toHaveLength(2)
+		} finally {
+			await ultimabase.dispose()
+		}
+	})
+
+	it('fails before execution when terminal master authority is unavailable', async () => {
+		const missingAdapter = new RecordingDatabaseAdapter([], [])
+		const missing = new UltimaBase({
+			schemas: [articleSchema],
+			plugins: [createDatabasePlugin(missingAdapter)],
+		})
+		const auditFailure = new Error('master audit unavailable')
+		const failingAdapter = new RecordingDatabaseAdapter([], [])
+		const failing = new UltimaBase({
+			masterAuthority: new MasterAuthority({
+				keys: [{ id: 'failing-default', value: 'unused-by-terminal' }],
+				onUse: () => {
+					throw auditFailure
+				},
+			}),
+			schemas: [articleSchema],
+			plugins: [createDatabasePlugin(failingAdapter)],
+		})
+
+		try {
+			await Promise.all([missing.start(), failing.start()])
+
+			await expect(
+				articleSchema.query().find({
+					ultimabase: missing,
+					useMasterKey: true,
+				}),
+			).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
+			await expect(
+				articleSchema.query().find({
+					ultimabase: failing,
+					useMasterKey: true,
+				}),
+			).rejects.toBe(auditFailure)
+			expect(missingAdapter.rootRequests).toStrictEqual([])
+			expect(failingAdapter.rootRequests).toStrictEqual([])
+		} finally {
+			await Promise.all([missing.dispose(), failing.dispose()])
+		}
+	})
+
 	it('reuses an active same-application transaction and isolates other applications', async () => {
 		const firstAdapter = new RecordingDatabaseAdapter(
 			[
@@ -182,6 +309,12 @@ describe('UltimaBase', () => {
 
 		try {
 			await Promise.all([first.start(), second.start()])
+			const foreignContext = RequestContext.anonymous({
+				requestId: 'foreign-context',
+				source: requestSources.internal,
+			})
+
+			first.engine.withContext(foreignContext)
 
 			await first.engine
 				.anonymous({ requestId: 'transaction-owner', source: 'internal' })
@@ -195,6 +328,28 @@ describe('UltimaBase', () => {
 			await expect(
 				otherSchema.query().find({ ultimabase: first }),
 			).rejects.toMatchObject({ code: 'VALIDATION_ERROR' })
+			await expect(
+				otherSchema.query().find({
+					context: foreignContext,
+					ultimabase: second,
+				}),
+			).rejects.toMatchObject({
+				code: 'VALIDATION_ERROR',
+				internalDetails: {
+					reason: 'query-terminal-context-application-mismatch',
+				},
+			})
+			runWithRequestEngine(
+				first.engine.anonymous({
+					requestId: 'active-first',
+					source: requestSources.internal,
+				}),
+				() => {
+					expect(() =>
+						otherSchema.query().find({ ultimabase: second }),
+					).toThrow(expect.objectContaining({ code: 'VALIDATION_ERROR' }))
+				},
+			)
 			expect(second.application.ownsSchema(articleSchema)).toBe(false)
 		} finally {
 			await Promise.all([first.dispose(), second.dispose()])

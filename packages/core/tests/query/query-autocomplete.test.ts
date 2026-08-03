@@ -33,7 +33,7 @@ const identified = new Query(PostSchema)./* hover */byId('0194f292-0dd9-7c2d-a0a
 		expect(quickInfo.tags?.some(({ name }) => name === 'example')).toBe(true)
 	})
 
-	it('documents compact contextual terminals and their explicit owner option', () => {
+	it('documents compact contextual terminals and every trusted authority option', () => {
 		const marker = '/* completion */'
 		const sourceWithMarker = `
 import { Schema, UltimaBase, stringField } from '../../src/index.js'
@@ -48,25 +48,42 @@ void ultimabase
 		const fileName = `${import.meta.dirname}/query-terminal-options.fixture.ts`
 		const service = createLanguageService(fileName, source)
 		const completions = service.getCompletionsAtPosition(fileName, position, {})
-		const owner = completions?.entries.find(({ name }) => name === 'ultimabase')
+		const readOptionDetails = (name: string) => {
+			const completion = completions?.entries.find(
+				(entry) => entry.name === name,
+			)
 
-		if (owner === undefined) {
-			throw new TypeError('Missing Query terminal owner completion')
+			if (completion === undefined) {
+				throw new TypeError(`Missing Query terminal option completion: ${name}`)
+			}
+
+			return service.getCompletionEntryDetails(
+				fileName,
+				position,
+				completion.name,
+				undefined,
+				completion.source,
+				undefined,
+				completion.data,
+			)
 		}
+		const owner = readOptionDetails('ultimabase')
+		const context = readOptionDetails('context')
+		const master = readOptionDetails('useMasterKey')
 
-		const details = service.getCompletionEntryDetails(
-			fileName,
-			position,
-			owner.name,
-			undefined,
-			owner.source,
-			undefined,
-			owner.data,
+		expect(readDisplay(owner?.documentation)).toContain(
+			'exact started application',
 		)
-		const documentation = readDisplay(details?.documentation)
-
-		expect(documentation).toContain('exact started application')
-		expect(details?.tags?.some(({ name }) => name === 'example')).toBe(true)
+		expect(readDisplay(context?.documentation)).toContain(
+			'immutable plugin-derived context',
+		)
+		expect(readDisplay(master?.documentation)).toContain(
+			'trusted backend code only',
+		)
+		expect(readDisplay(master?.documentation)).toContain('Transport input')
+		for (const details of [owner, context, master]) {
+			expect(details?.tags?.some(({ name }) => name === 'example')).toBe(true)
+		}
 
 		const terminal = readMarkedQuickInfo(
 			`${import.meta.dirname}/query-terminal-hover.fixture.ts`,

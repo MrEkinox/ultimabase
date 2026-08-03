@@ -40,7 +40,10 @@ const articles = await ArticleSchema.query().limit(20).find({ ultimabase })
 Outside an active request scope, `{ ultimabase }` creates a fresh anonymous
 internal request. Inside a request or transaction, terminals omit that option
 and reuse the exact engine and authority. Source `internal` never grants master
-access. Schema, selection, input, and result inference remain exact.
+access. A terminal may also receive one already-derived `context`, or trusted
+backend code may request audited `{ useMasterKey: true }`. These server-only
+options never enter the Query or Operation AST. Schema, selection, input, and
+result inference remain exact.
 
 `ultimabase.application` exposes advanced Core service and plugin lookup.
 `ultimabase.engine` exposes explicit anonymous, plugin-derived, master, and
@@ -533,6 +536,23 @@ const master = await request.useMasterKey(grant, 'Rebuild article search index')
 await runWithRequestEngine(master, () => ArticleSchema.query().find())
 ```
 
+Ordinary trusted backend code normally uses the concise terminal option. The
+first configured key ID identifies this path in the audit event, while no raw
+key is retained or verified again:
+
+```ts
+const allArticles = await ArticleSchema.query().find({
+	ultimabase,
+	useMasterKey: true,
+})
+
+const scopedMaster = await ArticleSchema.query().find({
+	context: contextCreatedByAPlugin,
+	ultimabase,
+	useMasterKey: true,
+})
+```
+
 The raw key is only a verification input: neither the grant, `RequestContext`,
 nor the audit event retains it. A grant cannot be constructed publicly, cannot
 be shared across framework instances, and must produce a successful audit event
@@ -772,8 +792,9 @@ Metadata is diagnostic and untyped. Credential-shaped keys such as
 deriving safe typed values.
 
 There is deliberately no public master-context factory. Master contexts can
-only be produced by `RequestEngine.useMasterKey` after verification through the
-framework-owned authority described above.
+only be produced by `RequestEngine.useMasterKey` after grant verification or by
+a trusted Query terminal after auditing through the framework-owned authority
+described above.
 
 ## Database adapter boundary
 

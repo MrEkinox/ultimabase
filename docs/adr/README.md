@@ -107,6 +107,7 @@ Accepted records:
 - [ADR-0111: Non-atomic bulk hook semantics](0111-non-atomic-bulk-hook-semantics.md)
 - [ADR-0112: Unique upsert targets seed create candidates](0112-upsert-target-seeds-create.md)
 - [ADR-0113: Plugin-owned authentication context](0113-plugin-owned-authentication-context.md)
+- [ADR-0114: Terminal-only Query authority resolution](0114-terminal-only-query-authority-resolution.md)
 
 Superseded records:
 

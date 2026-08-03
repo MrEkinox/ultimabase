@@ -11,7 +11,6 @@ import {
 	FrameworkEngine,
 	getCurrentEngine,
 	MasterAuthority,
-	type MasterKeyGrant,
 	requestSources,
 	runWithRequestEngine,
 } from '../../src/runtime/index.js'
@@ -379,11 +378,13 @@ describe('automatic mutation transaction scope', () => {
 
 	it('keeps master elevation inside the active automatic transaction', async () => {
 		const trace: string[] = []
+		const auditReasons: string[] = []
 		const authority = new MasterAuthority({
 			keys: [{ id: 'maintenance', value: 'verified-secret' }],
-			onUse: () => undefined,
+			onUse: ({ reason }) => {
+				auditReasons.push(reason)
+			},
 		})
-		const grants = new WeakMap<object, MasterKeyGrant>()
 		let nestedAccessMode: string | undefined
 		const hookStages: RecordingPipelineHookStages = {
 			globalBeforeHooks: async (input) => {
@@ -399,27 +400,15 @@ describe('automatic mutation transaction scope', () => {
 				}
 
 				if (title === 'Primary') {
-					const currentEngine = getCurrentEngine()
-					const grant = grants.get(currentEngine.framework)
-
-					if (grant === undefined) {
-						throw new TypeError('Master grant fixture is unavailable')
-					}
-
-					const master = await currentEngine.useMasterKey(
-						grant,
-						'write automatic transaction audit',
-					)
-
-					await runWithRequestEngine(master, () =>
-						articleSchema.query().create({ title: 'Master nested' }),
-					)
+					await articleSchema
+						.query()
+						.create({ title: 'Master nested' }, { useMasterKey: true })
 				}
 
 				return input.operation
 			},
 		}
-		const { adapter, framework, request } = createRequest(
+		const { adapter, request } = createRequest(
 			[
 				{
 					status: 'fulfilled',
@@ -440,7 +429,6 @@ describe('automatic mutation transaction scope', () => {
 			hookStages,
 			authority,
 		)
-		grants.set(framework, framework.authorizeMasterKey('verified-secret'))
 
 		await expect(
 			runWithRequestEngine(request, () =>
@@ -448,6 +436,9 @@ describe('automatic mutation transaction scope', () => {
 			),
 		).resolves.toMatchObject({ title: 'Primary' })
 		expect(nestedAccessMode).toBe('master')
+		expect(auditReasons).toStrictEqual([
+			'Query terminal create-one on AutomaticTransactionArticle',
+		])
 		expect(adapter.transactions).toHaveLength(1)
 		expect(adapter.transactions[0]?.requests).toHaveLength(2)
 		expect(trace).toStrictEqual([

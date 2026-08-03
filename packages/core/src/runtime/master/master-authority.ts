@@ -34,6 +34,10 @@ export interface MasterAccessEvent {
 
 /** Requires an audit sink whenever master authority is configured. */
 export interface MasterAuthorityOptions {
+	/**
+	 * Configures verification keys; the first key ID also labels trusted backend
+	 * terminal elevations that do not retain or verify a raw credential.
+	 */
 	readonly keys: readonly MasterKeyDefinition[]
 	readonly onUse: (event: MasterAccessEvent) => MaybePromise<void>
 	readonly clock?: () => Date
@@ -47,6 +51,7 @@ interface NormalizedMasterKey {
 type MasterKeyGrantFactory = (keyId: string) => MasterKeyGrant
 
 let createMasterKeyGrant: MasterKeyGrantFactory
+const trustedTerminalGrants = new WeakMap<MasterAuthority, MasterKeyGrant>()
 
 /** Represents one verified key without exposing a forgeable constructor. */
 export class MasterKeyGrant {
@@ -162,6 +167,17 @@ export class MasterAuthority {
 		this.#keys = normalizeMasterKeys(untrustedOptions.keys)
 		this.#onUse = options.onUse
 		this.#clock = options.clock ?? (() => new Date())
+
+		const defaultKey = this.#keys[0]
+
+		if (defaultKey === undefined) {
+			// Normalization already rejects this state; the guard keeps the invariant explicit.
+			throw new TypeError('Master authority requires a default key')
+		}
+
+		const trustedGrant = createMasterKeyGrant(defaultKey.id)
+		this.#grants.add(trustedGrant)
+		trustedTerminalGrants.set(this, trustedGrant)
 		Object.freeze(this)
 	}
 
@@ -222,4 +238,27 @@ export class MasterAuthority {
 		// The trusted factory changes only authority and retains plugin-owned values.
 		return createTrustedMasterRequestContext(reason, grant.keyId, context)
 	}
+}
+
+/**
+ * Elevates trusted backend terminal code through the authority's default audit
+ * identity without exposing a forgeable grant or retaining a raw credential.
+ *
+ * @internal
+ */
+export const elevateTrustedMasterRequest = <
+	TAccess extends RequestAccess,
+	const TSource extends string,
+>(
+	authority: MasterAuthority,
+	context: RequestContext<TAccess, TSource>,
+	reason: string,
+): Promise<RequestContext<MasterRequestAccess, TSource>> => {
+	const grant = trustedTerminalGrants.get(authority)
+
+	if (grant === undefined) {
+		throw createPermissionDeniedError()
+	}
+
+	return authority.elevate(grant, context, reason)
 }

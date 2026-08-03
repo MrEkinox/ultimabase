@@ -124,9 +124,9 @@ type QueryStringValue<
  * Builds one immutable, transport-neutral query without retaining execution state.
  *
  * Builder methods return reusable branches. Terminal methods use the exact active
- * request or hook transaction; outside that scope, pass `{ ultimabase }` to create
- * an anonymous internal request. Calling a terminal without either source throws
- * `MISSING_EXECUTION_CONTEXT`.
+ * request or hook transaction. Trusted backend terminals may instead select one
+ * plugin-derived `context`, request audited `useMasterKey`, or pass `ultimabase`
+ * to create an anonymous root request. None of those options enters the AST.
  *
  * @example
  * ```ts

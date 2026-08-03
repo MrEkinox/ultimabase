@@ -220,6 +220,17 @@ describe('@ultimabase/core Schema and Query declarations', () => {
 		}
 	})
 
+	it('preserves trusted terminal authority documentation through the package', () => {
+		const master = readFixtureQuickInfo('useMasterKey: true')
+		const context = readFixtureQuickInfo('context: packedContext')
+
+		expect(master.display).toContain('useMasterKey?: true')
+		expect(master.documentation).toContain('trusted backend code only')
+		expect(master.documentation).toContain('Transport input')
+		expect(context.display).toContain('context?: RequestContext')
+		expect(context.documentation).toContain('plugin-derived context')
+	})
+
 	it('materializes only selected fields in editor hovers', () => {
 		const found = readFixtureQuickInfo('found = await PostSchema')
 

@@ -84,6 +84,19 @@ const requestContextValues = new WeakMap<
 	RequestContext,
 	StoredRequestContextValues
 >()
+const requestContextOwners = new WeakMap<RequestContext, object>()
+
+/** Keeps application ownership private while derived contexts retain isolation. */
+const inheritRequestContextOwner = (
+	source: RequestContext,
+	target: RequestContext,
+): void => {
+	const owner = requestContextOwners.get(source)
+
+	if (owner !== undefined) {
+		requestContextOwners.set(target, owner)
+	}
+}
 
 type TrustedMasterContextFactory = <
 	TAccess extends RequestAccess,
@@ -290,7 +303,7 @@ export class RequestContext<
 		const nextValues = new Map(currentValues)
 		nextValues.set(token, token.snapshot(value))
 
-		return new RequestContext(
+		const derived = new RequestContext(
 			this.access,
 			{
 				capabilities: this.capabilities,
@@ -301,6 +314,10 @@ export class RequestContext<
 			},
 			nextValues,
 		)
+
+		inheritRequestContextOwner(this, derived)
+
+		return derived
 	}
 
 	static {
@@ -312,8 +329,8 @@ export class RequestContext<
 			reason: string,
 			keyId: string,
 			context: RequestContext<TAccess, TSource>,
-		): RequestContext<MasterRequestAccess, TSource> =>
-			new RequestContext(
+		): RequestContext<MasterRequestAccess, TSource> => {
+			const master = new RequestContext(
 				createMasterAccess(reason, keyId),
 				{
 					capabilities: context.capabilities,
@@ -324,8 +341,30 @@ export class RequestContext<
 				},
 				requestContextValues.get(context) ?? emptyRequestContextValues,
 			)
+
+			inheritRequestContextOwner(context, master)
+
+			return master
+		}
 	}
 }
+
+/** @internal Reads the application identity claimed at the first engine binding. */
+export const getRequestContextOwner = (
+	context: RequestContext,
+): object | undefined => requestContextOwners.get(context)
+
+/** @internal Claims an unbound context after Runtime validates exact ownership. */
+export const setRequestContextOwner = (
+	context: RequestContext,
+	owner: object,
+): void => {
+	requestContextOwners.set(context, owner)
+}
+
+/** @internal Narrows opaque terminal input to the framework's precise context type. */
+export const isRequestContext = (value: unknown): value is RequestContext =>
+	value instanceof RequestContext
 
 /**
  * Gives future Runtime authority code a non-public construction path. This
