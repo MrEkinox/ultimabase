@@ -26,8 +26,10 @@ checks.
 `runtime-postgres.postgres.e2e.test.ts` verifies CRUD, transactions, bulk, and
 upsert persistence. `native-hooks-postgres.postgres.e2e.test.ts` adds the live
 native schema, field, plugin, policy, rollback, output, and post-commit vertical.
-Both use only built public package exports and worker-isolated schemas without
-transport plugins.
+`pointer-postgres.postgres.e2e.test.ts` proves pointer CRUD, inclusion, Access,
+hooks, atomicity, circular targets, and referential actions against PostgreSQL.
+These suites use only built public package exports and worker-isolated schemas
+without transport plugins.
 
 PostgreSQL E2E suites start real Testcontainers and therefore require a working
 Docker-compatible container runtime. Package unit and type tests never require
