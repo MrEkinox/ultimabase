@@ -1,7 +1,10 @@
 import {
 	RequestContextValue,
 	Schema,
+	allMutations,
+	allowAll,
 	booleanField,
+	denyAll,
 	stringField,
 } from '../../src/index.js'
 
@@ -24,6 +27,11 @@ const principal = new RequestContextValue<Principal>(
 		return Object.freeze({ id: value.id })
 	},
 )
+
+export const readOnlyOperations = {
+	read: /* hover:allow-all */ allowAll,
+	.../* hover:all-mutations */ allMutations(denyAll),
+}
 
 export const AccessPost = Schema.define({
 	className: 'AccessPost',

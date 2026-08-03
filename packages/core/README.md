@@ -255,6 +255,32 @@ ordering or limits and cannot inspect, replace, or remove Access filters. CLP,
 ACL, and field-permission plugins register policy contributions to this native
 system rather than business hooks.
 
+Neutral declaration helpers keep common policies explicit without creating
+Runtime behavior. A read-only schema can deny every mutation concisely:
+
+```ts
+import {
+	allMutations,
+	allOperations,
+	allowAll,
+	denyAll,
+} from '@ultimabase/core'
+
+const readOnly = {
+	read: allowAll,
+	...allMutations(denyAll),
+}
+
+const explicitDefaultDeny = {
+	...allOperations(denyAll),
+	read: { one: allowAll, many: allowAll, count: denyAll, exists: allowAll },
+}
+```
+
+Each helper returns a fresh frozen record and retains a supplied callback by
+identity. Ordinary object-spread order controls overrides; the helpers add no
+custom merge semantics or permission-provider concepts.
+
 ### Schema hooks
 
 Schemas can colocate typed business lifecycle declarations without installing a

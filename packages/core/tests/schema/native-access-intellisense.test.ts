@@ -9,6 +9,37 @@ interface CompletionResult {
 	readonly name: string
 }
 
+/** Reads one public helper hover without depending on its rendered signature. */
+const readHelperDocumentation = (helperName: string): CompletionResult => {
+	const marker = '/* hover */'
+	const source = `
+import { ${helperName} } from '../../src/index.js'
+
+void ${marker}${helperName}
+`
+	const markerPosition = source.indexOf(marker)
+	const fileName = `${import.meta.dirname}/native-access-helper-hover.fixture.ts`
+	const service = createLanguageService(
+		fileName,
+		source.replace(marker, ' '.repeat(marker.length)),
+	)
+	const quickInfo = service.getQuickInfoAtPosition(
+		fileName,
+		markerPosition + marker.length,
+	)
+
+	if (quickInfo === undefined) {
+		throw new TypeError(`Missing Access helper hover: ${helperName}`)
+	}
+
+	return {
+		documentation:
+			quickInfo.documentation?.map(({ text }) => text).join('') ?? '',
+		hasExample: quickInfo.tags?.some(({ name }) => name === 'example') ?? false,
+		name: helperName,
+	}
+}
+
 /** Reads member completions through the same language-service path as editors. */
 const readMemberCompletions = (
 	sourceWithMarker: string,
@@ -109,4 +140,14 @@ stringField({ access: { read: { /* completion */ } } })
 
 		expectDocumentedNames(completions, ['item', 'filter', 'order'])
 	})
+
+	it.each(['allowAll', 'denyAll', 'allOperations', 'allMutations'])(
+		'documents the %s helper from the package root',
+		(helperName) => {
+			const documentation = readHelperDocumentation(helperName)
+
+			expect(documentation.documentation.trim()).not.toHaveLength(0)
+			expect(documentation.hasExample).toBe(true)
+		},
+	)
 })

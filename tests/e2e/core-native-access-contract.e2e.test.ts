@@ -72,6 +72,11 @@ describe('packed @ultimabase/core native Access contract', () => {
 		expect(readHoverDisplay('field-value')).toContain('boolean')
 	})
 
+	it('exposes concise documented Access helpers from the package root', () => {
+		expect(readHoverDisplay('allow-all')).toContain('true')
+		expect(readHoverDisplay('all-mutations')).toContain('allMutations')
+	})
+
 	it('keeps native declarations outside the public Schema shape', () => {
 		const display = readHoverDisplay('schema-definition')
 

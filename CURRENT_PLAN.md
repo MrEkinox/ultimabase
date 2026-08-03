@@ -93,7 +93,7 @@ Complete one issue at a time in this dependency order:
 
 1. [x] [401 — Define native Access declarations](issues/400-access/401-native-access-declarations.md)
 2. [x] [421 — Group schema and field read Access](issues/400-access/421-group-read-access.md)
-3. [ ] [422 — Add Access declaration utilities](issues/400-access/422-access-declaration-utilities.md)
+3. [x] [422 — Add Access declaration utilities](issues/400-access/422-access-declaration-utilities.md)
 4. [ ] [416 — Define typed Access filters](issues/400-access/416-typed-access-filters.md)
 5. [ ] [417 — Compile Access plans and plugin contributions](issues/400-access/417-compiled-access-plans.md)
 6. [ ] [418 — Execute the native Access lifecycle](issues/400-access/418-native-access-runtime.md)
@@ -130,14 +130,14 @@ When resuming after context loss:
 
 ## Current issue
 
-[422 — Add Access declaration utilities](issues/400-access/422-access-declaration-utilities.md)
+[416 — Define typed Access filters](issues/400-access/416-typed-access-filters.md)
 
 ## Progress log
 
 - 401 — `done` — Schema and field Access declarations are typed, normalized, and retained privately without changing structural metadata.
 - 421 — `done` — Schema cardinalities and field disclosure channels share concise rules or complete immutable grouped declarations.
-- 422 — `ready` — Neutral declaration constants and family helpers now build on the stable grouped read contract.
-- 416 — `planned` — The restricted typed Access filter builder follows the grouped field-read contract.
+- 422 — `done` — Neutral literal decisions and immutable family helpers reduce repetitive declarations without Runtime behavior.
+- 416 — `ready` — The restricted typed Access filter builder now follows the stable declaration contract.
 - 417 — `planned` — Compiled native and plugin Access plans depend on declarations and filters.
 - 418 — `planned` — Runtime Access execution depends on the compiled plan.
 - 419 — `planned` — The PostgreSQL proof depends on the complete neutral Runtime lifecycle.

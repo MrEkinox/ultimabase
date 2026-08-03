@@ -1,6 +1,6 @@
 # 422: Add Access declaration utilities
 
-- Status: ready
+- Status: done
 - Milestone: 4
 - Packages: `@ultimabase/core`
 - Depends on: 421
@@ -71,24 +71,24 @@ operation: {
 
 ## Acceptance criteria
 
-- [ ] Export `allowAll` as the literal `true` and `denyAll` as the literal `false` from the root `@ultimabase/core` public API.
-- [ ] `allOperations(rule)` returns an immutable complete declaration containing `read`, `create`, `update`, `upsert`, and `delete`.
-- [ ] `allMutations(rule)` returns an immutable complete declaration containing `create`, `update`, `upsert`, and `delete` without a `read` property.
-- [ ] Both helpers accept a direct boolean or a synchronous or asynchronous operation callback and preserve precise `context` and terminal `kind` inference for the complete family union they cover.
-- [ ] Helpers retain the supplied callback identity in every returned property rather than allocating wrappers or installing per-request neutral handlers.
-- [ ] Returned objects are fresh immutable snapshots, so separate declarations cannot mutate or share writable state.
-- [ ] Native object spread may override an individual family after either helper without special merge behavior.
-- [ ] Direct `read: allowAll | denyAll` remains the only helper needed for every schema read branch or field read channel; no redundant read-channel helper is added.
-- [ ] Public JSDoc describes the exact covered families, literal semantics, immutability, override order, and focused examples.
-- [ ] The Core README documents explicit deny-by-default and read-only configurations.
-- [ ] Add a Changeset for the new public exports.
+- [x] Export `allowAll` as the literal `true` and `denyAll` as the literal `false` from the root `@ultimabase/core` public API.
+- [x] `allOperations(rule)` returns an immutable complete declaration containing `read`, `create`, `update`, `upsert`, and `delete`.
+- [x] `allMutations(rule)` returns an immutable complete declaration containing `create`, `update`, `upsert`, and `delete` without a `read` property.
+- [x] Both helpers accept a direct boolean or a synchronous or asynchronous operation callback and preserve precise `context` and terminal `kind` inference for the complete family union they cover.
+- [x] Helpers retain the supplied callback identity in every returned property rather than allocating wrappers or installing per-request neutral handlers.
+- [x] Returned objects are fresh immutable snapshots, so separate declarations cannot mutate or share writable state.
+- [x] Native object spread may override an individual family after either helper without special merge behavior.
+- [x] Direct `read: allowAll | denyAll` remains the only helper needed for every schema read branch or field read channel; no redundant read-channel helper is added.
+- [x] Public JSDoc describes the exact covered families, literal semantics, immutability, override order, and focused examples.
+- [x] The Core README documents explicit deny-by-default and read-only configurations.
+- [x] Add a Changeset for the new public exports.
 
 ## Tests
 
-- [ ] Runtime tests cover exact returned keys, literal values, callback identity, frozen snapshots, fresh object identity, and object-spread overrides.
-- [ ] Compile-time tests prove exact callback context and terminal unions, mutation-only narrowing, return shapes, invalid callback results, and absence of `read` from `allMutations`.
-- [ ] TypeScript language-service tests verify autocomplete, concise QuickInfo, hover documentation, and root-import discoverability.
-- [ ] Packed-package tests verify the helpers through `@ultimabase/core` without a deep import.
+- [x] Runtime tests cover exact returned keys, literal values, callback identity, frozen snapshots, fresh object identity, and object-spread overrides.
+- [x] Compile-time tests prove exact callback context and terminal unions, mutation-only narrowing, return shapes, invalid callback results, and absence of `read` from `allMutations`.
+- [x] TypeScript language-service tests verify autocomplete, concise QuickInfo, hover documentation, and root-import discoverability.
+- [x] Packed-package tests verify the helpers through `@ultimabase/core` without a deep import.
 
 ## Implementation notes
 

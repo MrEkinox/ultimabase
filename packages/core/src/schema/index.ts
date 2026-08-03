@@ -114,6 +114,17 @@ export type {
 	SchemaReadOperationAccess,
 	SchemaReadOperationAccessDeclaration,
 } from './access/contracts.js'
+export {
+	allMutations,
+	allOperations,
+	allowAll,
+	denyAll,
+} from './access/utilities.js'
+export type {
+	AllMutationAccess,
+	AllOperationAccess,
+	OperationAccessRule,
+} from './access/utilities.js'
 export type { FieldAtPath, SchemaFieldPath } from './hooks/field-paths.js'
 export { HookContext } from './hooks/hook-context.js'
 export type { HookExecutionContext } from './hooks/execution-context.js'
