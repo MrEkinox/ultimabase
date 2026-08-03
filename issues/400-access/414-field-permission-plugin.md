@@ -3,23 +3,26 @@
 - Status: planned
 - Milestone: 4
 - Packages: `@ultimabase/field-permissions`
-- Depends on: 210, 304, 328, 331, 337, 413
-- ADR: ADR-0006, ADR-0089, ADR-0090
+- Depends on: 210, 304, 413, 417, 418
+- ADR: ADR-0006, ADR-0090, ADR-0116
 
 ## Goal
 
-Remove forbidden columns from selection and reject forbidden writes.
+Provide native Access field policies that remove forbidden columns and reject
+forbidden field use.
 
 ## Acceptance criteria
 
 - [ ] Default selections silently omit unreadable fields.
 - [ ] Explicit forbidden selection returns FIELD_PERMISSION_DENIED.
+- [ ] Explicit forbidden filtering or ordering returns FIELD_PERMISSION_DENIED before adapter execution.
 - [ ] Create and update never silently discard forbidden input.
 - [ ] Master bypass is configurable.
 - [ ] Field output hooks cannot restore unreadable fields or run for values removed by field permissions.
-- [ ] Field permissions attach through field-extension hooks and only narrow input, selection, and output field sets.
+- [ ] Field permissions register field-extension Access contributions and only narrow input, selection, filter, order, and output capabilities.
+- [ ] The plugin installs no business hook for enforcement.
 - [ ] Runtime receives no field-permission configuration, stage name, neutral handler, or bypass decision.
 
 ## Tests
 
-- [ ] Read/create/update matrices and selected-column traces.
+- [ ] Read/filter/order/create/update matrices, native-Access composition, and selected-column traces.

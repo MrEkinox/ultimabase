@@ -11,6 +11,8 @@ typed extensions + plugin graph
       ↓
 Query / Operation AST
       ↓
+compiled AccessPlan
+      ↓
 Runtime pipeline
       ↓
 database adapter
@@ -142,12 +144,12 @@ setup export types, including definitions introduced through nested composition.
   `{ ultimabase }` outside a scope. No process-wide application singleton,
   request, authority, transaction, or adapter enters the Query AST.
 
-ADR-0109 and issue 339 replace the former schema instance plus plain-result split
-with one class returned by `Schema.define()`. The class is the registered schema
-identity, exposes `Post.query()`, constructs immutable drafts, and materializes
-immutable persisted results after Runtime restrictions. Issue 349 will add
-instance commands that delegate to Query and Runtime; instances never retain
-adapters, mutate records, or track dirty state.
+ADR-0109 and issue 339 replace the former schema instance plus plain-result
+split with one class returned by `Schema.define()`. The class is the registered
+schema identity, exposes `Post.query()`, constructs immutable drafts, and
+materializes immutable persisted results after Runtime restrictions. Issue 349
+adds instance commands that delegate to Query and Runtime; instances never
+retain adapters, mutate records, or track dirty state.
 
 The Query AST retains the exact static schema definition and represents
 selection, filtering, ordering, and pagination as immutable discriminated
@@ -166,13 +168,17 @@ exact declaration identity. They never enter field options, extensions,
 validation plans, schema hashes, or migration metadata. Core's Runtime domain
 reads those declarations internally; absent hooks create no neutral stage.
 
-Runtime does not name CLP, ACL, roles, or field permissions. Optional policy
-plugins register `guard`, `constraint`, `restrictInput`, `restrictSelection`,
-or `restrictOutput` definitions in the shared hook registry. Guards may only
-deny, adapter constraints may only accumulate with logical `AND`, and field
-restrictions may only narrow. Enforcement state remains separate from
-transformable operations so later hooks cannot broaden it. An absent policy
-plugin contributes no hook and requires no neutral stage.
+Runtime does not name CLP, ACL, roles, authenticated users, ownership, or field
+permissions. Core's fundamental Access domain compiles native schema and field
+declarations plus plugin-provided policies into `operation`, `filter`, `item`,
+and `field` decisions. The compiler lowers those decisions into the existing
+policy-neutral `guard`, `constraint`, `restrictInput`, `restrictSelection`, and
+`restrictOutput` enforcement primitives. Guards may only deny, adapter
+constraints accumulate with logical `AND`, and field restrictions only narrow.
+Enforcement state remains separate from transformable operations so later
+business hooks cannot broaden it. An application with no Access declaration or
+provider follows its configured global default without installing placeholder
+callbacks.
 
 The existing Runtime hook factories remain the low-level implementation
 foundation beside native declarations and policy-neutral enforcement. Core has
@@ -212,22 +218,30 @@ the credential in request state.
 
 ## Access control
 
+Access is a fundamental Core lifecycle with four neutral levels:
+
 ```text
-CLP for the operation
-AND object ACL
-AND field access
+operation decision
+AND row filters
+AND item decision
+AND field decisions
 ```
 
-- CLP grants or rejects operations on an entire schema.
-- ACL filters or protects individual objects.
-- field access removes unreadable columns from selection and rejects forbidden writes.
-- roles provide reusable principals for CLP and ACL.
-- master bypass is explicit, audited, and never forgeable from request input.
+- `operation` grants or rejects an operation family before business hooks;
+- `filter` constrains reads and mutation targets in the database;
+- `item` validates create input or one prepared mutation target;
+- `field` controls read, filter, order, create, and update use.
 
-These layers are implemented by independent plugins through the native hook
-dispatcher. Runtime only transports trusted request authority and generic
-monotonic enforcement effects. Each plugin decides whether master bypasses its
-own checks; Runtime has no permission-specific bypass branch.
+Access filters reuse Core's typed filter AST but remain outside the developer
+Query. Query predicates, `beforeFind` predicates, and every Access provider
+constraint combine through logical `AND`; a business hook cannot inspect or
+remove the private Access state.
+
+CLP, ACL, and field permissions are independent plugin providers for this
+system. Roles and authentication supply optional typed subject capabilities.
+Core Access contains no built-in CLP, ACL, user, owner, or role rule. Each
+native declaration or provider decides whether audited master authority
+bypasses its own policy; Runtime has no permission-specific bypass branch.
 
 ## Database and migrations
 

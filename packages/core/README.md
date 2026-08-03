@@ -6,6 +6,7 @@ Responsibilities:
 
 - immutable schemas, built-in and plugin-defined fields, and type inference;
 - immutable Query and Operation AST builders;
+- native schema and field Access declarations, typed row filters, and compiled policy plans;
 - anonymous and trusted master request authority with plugin-owned typed values;
 - isolated `FrameworkApplication` instances;
 - plugin definitions and global plugin graph;
@@ -197,7 +198,24 @@ Draft `create` and `upsert` plus persisted `update` and `delete` are immutable
 convenience commands over the same Query pipeline. Collection writes remain on
 `PostSchema.query()`, and models deliberately expose no mutable `save()` method.
 
-## Native schema hooks
+## Native Access and schema hooks
+
+Access and hooks are complementary Core capabilities. Access declares security
+boundaries through `operation`, `filter`, `item`, and `field` policies. Hooks
+express business transformations and effects only after Access has restricted
+the operation.
+
+An Access filter may reuse the same typed field predicates as Query, but it
+remains in private monotonic state. `beforeFind` can add application defaults
+such as ordering or limits and cannot inspect, replace, or remove Access
+filters. CLP, ACL, and field-permission plugins register policy contributions
+to this native system rather than business hooks.
+
+The native Access API is tracked by issues 401 and 416–419. Until those issues
+land, the existing policy-neutral enforcement factories remain the implemented
+low-level foundation.
+
+### Schema hooks
 
 Schemas can colocate typed business lifecycle declarations without installing a
 plugin. One handler covers the complete compatible operation family, and the
@@ -423,11 +441,11 @@ receive complete prepared values, after hooks and `onChange` receive complete
 private materializations, and the public result still honors the developer's
 `.select(...)` projection.
 
-## Policy-neutral enforcement hooks
+## Policy-neutral enforcement primitives
 
-Permission packages and community policy plugins use five protected factories
-without adding policy names to Runtime. Definitions are registered in the same
-owner-scoped hook registry as other plugin contributions:
+Core currently exposes five protected factories without adding policy names to
+Runtime. Definitions are registered in the same owner-scoped hook registry as
+other plugin contributions:
 
 ```ts
 const tenantPlugin = (tenantId: string) =>
@@ -464,6 +482,13 @@ monotonically and reapplies input and selection limits after operation
 transforms. It evaluates output restrictions once against the fully transformed
 result. No policy
 contribution means no enforcement stage or permission placeholder.
+
+ADR-0116 retains these guarantees as Access's low-level implementation layer.
+After issues 401 and 416–419, official permission providers register native
+Access contributions and the application compiler lowers them into these
+primitives. Advanced framework plugins may continue using the low-level
+factories when they require a policy-neutral capability outside the public
+Access vocabulary.
 
 ## Framework application
 
@@ -742,12 +767,13 @@ application assembly. Before phases run plugins in dependency and configuration
 order before the developer declaration; after phases run the developer first and
 then unwind plugins in reverse order.
 
-The active [native-hook plan](../../CURRENT_PLAN.md) gives Core's Schema domain
-identity-owned declaration storage and gives its Runtime domain interpretation
-and execution. Native developer hooks require no plugin. Policy plugins
-register protected monotonic definitions in the shared hook registry;
-application orchestration stores them without naming CLP, ACL, roles, or field
-permissions.
+The completed
+[native-hook plan](../../docs/plans/completed/native-hooks-and-contextual-execution.md)
+gives Core's Schema domain identity-owned declaration storage and gives its
+Runtime domain interpretation and execution. Native developer hooks require no
+plugin. The active [Access plan](../../CURRENT_PLAN.md) reuses the same private
+declaration and application-compilation principles while keeping Access
+decisions separate from business hooks.
 
 [ADR-0096](../../docs/adr/0096-native-hook-declaration-capabilities.md)
 keeps callbacks outside `SchemaDefinition`, `FieldDefinition`, field options,

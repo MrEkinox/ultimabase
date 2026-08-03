@@ -1,15 +1,24 @@
 # Core Access domain
 
-Foundational contracts shared by access-control plugins.
+Foundational request authority, typed context, and policy-neutral enforcement
+contracts.
 
-This package defines access modes, declarative rule AST contracts, subjects, and compiler boundaries. It does not enforce CLP, ACL, roles, or field permissions by itself.
+Core currently implements anonymous and master authority, typed plugin-owned
+request values, and the monotonic enforcement primitives used by Runtime. It
+does not implement CLP, ACL, roles, authenticated users, ownership, or field
+permissions.
 
-Keeping neutral contracts here prevents concrete permission plugins from depending on one another or on infrastructure.
+ADR-0116 makes Access itself a fundamental Core lifecycle. Issues 401 and
+416–419 will add native schema and field declarations, typed row filters,
+compiled `AccessPlan` instances, Runtime execution, and a PostgreSQL proof. The
+official permission packages will then provide policies to that lifecycle
+instead of constructing parallel permission pipelines.
 
-Permission enforcement is not a named Runtime stage. Installed permission
-plugins attach guards, opaque adapter constraints, and field restrictions to
-schema or field hooks. Runtime transports the neutral contracts but never
-interprets CLP, ACL, role, or field-permission configuration.
+The implemented low-level guard, opaque adapter constraint, and field
+restriction factories remain the monotonic execution foundation. Access plans
+will lower native and provider policies into those primitives while keeping
+their state separate from Query and business hooks. Runtime never interprets
+concrete provider configuration.
 
 ## Request access
 

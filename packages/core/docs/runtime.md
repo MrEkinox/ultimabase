@@ -124,6 +124,12 @@ boundary.
 
 ## Policy-neutral monotonic enforcement
 
+These factories are the currently implemented low-level security foundation.
+ADR-0116 and issues 401 plus 416–419 add the native Access declarations and
+provider registry that compile into the same monotonic machinery. Official CLP,
+ACL, and field-permission providers will use that Access registry instead of
+registering business hooks directly.
+
 Policy plugins register the same five public factories as any community tenant,
 ownership, moderation, or soft-delete capability. A definition may omit
 `schema` and `operations` to match every terminal, or retain an exact schema and
@@ -561,10 +567,10 @@ capabilities, plugin-owned typed values, transaction lifetime, and application
 identity.
 
 Runtime never bypasses enforcement merely because the context is `master`.
-Each installed policy reads the trusted access mode and decides whether its own
-guard, constraint, or restriction applies. Structural validation, business
-hooks, adapter constraints, transactions, commit, and post-commit events remain
-part of the same pipeline.
+Each native Access declaration, provider contribution, or advanced low-level
+policy reads the trusted access mode and decides whether its own decision
+applies. Structural validation, business hooks, adapter constraints,
+transactions, commit, and post-commit events remain part of the same pipeline.
 
 ## Hooks and post-commit events
 

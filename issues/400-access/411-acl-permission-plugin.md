@@ -3,21 +3,23 @@
 - Status: planned
 - Milestone: 4
 - Packages: `@ultimabase/acl-permissions`
-- Depends on: 210, 328, 331, 337, 406, 410
-- ADR: ADR-0006, ADR-0089, ADR-0090, ADR-0113
+- Depends on: 210, 410, 417, 418, 420
+- ADR: ADR-0006, ADR-0090, ADR-0113, ADR-0116
 
 ## Goal
 
-Compile object access constraints into adapter requests and protect ACL mutation.
+Provide object filters, item checks, and ACL-field restrictions through the
+native Access lifecycle.
 
 ## Acceptance criteria
 
 - [ ] Reads, counts, updates, and deletes are filtered before execution.
 - [ ] ACL update requires manageAcl.
-- [ ] Parent visibility survives inaccessible relations.
 - [ ] ACL is visible only with manageAcl.
 - [ ] ACL constraints remain separate from hook-transformable queries and cannot be removed by `beforeFind`.
-- [ ] ACL installs schema-extension hooks that append opaque namespaced constraints without exposing ACL nodes to Runtime.
+- [ ] ACL registers schema-extension Access contributions that append opaque namespaced row constraints without exposing ACL nodes to Runtime or the developer Query.
+- [ ] ACL uses item access for create and ACL mutations that cannot be expressed entirely as row filters.
+- [ ] ACL never makes a set-based terminal materialize rows implicitly; unsupported item-level bulk work requires an explicit itemized operation.
 - [ ] Master bypass is decided inside the ACL plugin from trusted request authority.
 - [ ] ACL has no import, setup dependency, or execution dependency on `clpPermissionPlugin`.
 - [ ] ACL imports only neutral role-reference and service-token types and never imports or identifies `rolePermissionPlugin`.
@@ -27,4 +29,9 @@ Compile object access constraints into adapter requests and protect ACL mutation
 
 ## Tests
 
-- [ ] Subject, operation, bulk, and relation matrices plus role-free, missing-provider, and compatible-provider setup fixtures.
+- [ ] Subject, operation, bulk, native-Access composition, role-free, missing-provider, and compatible-provider matrices.
+
+## Out of scope
+
+- Pointer and relation traversal, which issues 701 and 702 must route through
+  the same compiled Access plan without existence leakage.

@@ -4,12 +4,11 @@ The issue backlog is the executable roadmap. This document only describes milest
 
 ## Current execution priority
 
-The access-free Runtime-to-PostgreSQL vertical is complete. Before starting
-milestone 4 access plugins, implement the native schema and field hook lifecycle
-described in [`CURRENT_PLAN.md`](CURRENT_PLAN.md). This establishes the typed
-business lifecycle, automatic mutation transaction boundary, and plugin hook
-targets through which optional CLP, ACL, and field-permission plugins contribute
-without becoming Runtime concepts.
+The access-free Runtime-to-PostgreSQL vertical and native hook lifecycle are
+complete. The current priority is the fundamental Access system described in
+[`CURRENT_PLAN.md`](CURRENT_PLAN.md): native schema and field policies, typed
+row filters, compiled plugin contributions, monotonic Runtime execution, and a
+PostgreSQL proof before concrete permission providers are implemented.
 
 Completed cross-milestone plans are retained under
 [`docs/plans/completed/`](docs/plans/completed/) so their decisions remain
@@ -37,9 +36,11 @@ automatic mutation transactions, native schema and field hooks, plugin hook
 targets, policy-neutral monotonic enforcement, cursor pagination, and master
 access.
 
-## Milestone 4 — Access plugins
+## Milestone 4 — Fundamental Access and permission providers
 
-Roles and role hierarchy, CLP, object ACL, per-schema ACL tables, field access, SQL compilation, and audit events.
+Native operation, filter, item, and field access; compiled provider
+contributions; roles and role hierarchy; CLP; object ACL; per-schema ACL tables;
+field permissions; SQL compilation; and audit events.
 
 ## Milestone 5 — PostgreSQL vertical
 

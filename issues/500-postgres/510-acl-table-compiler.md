@@ -4,7 +4,7 @@
 - Milestone: 5
 - Packages: `@ultimabase/postgres`, `@ultimabase/acl-permissions`
 - Depends on: 410, 503
-- ADR: ADR-0006, ADR-0007, ADR-0113
+- ADR: ADR-0006, ADR-0007, ADR-0113, ADR-0116
 
 ## Goal
 

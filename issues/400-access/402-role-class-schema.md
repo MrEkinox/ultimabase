@@ -3,18 +3,21 @@
 - Status: planned
 - Milestone: 4
 - Packages: `@ultimabase/roles`
-- Depends on: 112, 204, 401
-- ADR: ADR-0005, ADR-0006
+- Depends on: 112, 204, 420, 702
+- ADR: ADR-0005, ADR-0006, ADR-0116
 
 ## Goal
 
-Define immutable Role values with UUID, unique name, and display name plus internal persistence metadata.
+Define immutable Role values and an internal schema built on the completed
+relation contracts, without making roles a Core Access concept.
 
 ## Acceptance criteria
 
 - [ ] Names are unique case-insensitively.
 - [ ] Role persistence uses RequestEngine, not Active Record.
 - [ ] Generated transport exposure is off by default.
+- [ ] Role and membership relations use the same public relation primitives available to application schemas.
+- [ ] The package implements the neutral provider contracts from issue 420 without Core importing `@ultimabase/roles`.
 
 ## Tests
 

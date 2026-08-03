@@ -748,6 +748,8 @@ input. See
 [ADR-0089](../../../docs/adr/0089-native-schema-and-field-hooks.md) and
 [ADR-0097](../../../docs/adr/0097-owner-scoped-typed-plugin-hook-targets.md) for
 the lifecycle and target semantics. Permission extensions remain opaque
-configuration whose installed plugins contribute policy-neutral monotonic
-hooks under
-[ADR-0090](../../../docs/adr/0090-permission-plugins-through-hooks.md).
+configuration. Under
+[ADR-0116](../../../docs/adr/0116-fundamental-access-system.md), their owning
+plugins will contribute policies to Core's native Access registry rather than
+business hooks; the Access compiler will lower those policies into the existing
+monotonic enforcement primitives.

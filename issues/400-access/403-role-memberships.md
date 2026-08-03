@@ -3,13 +3,13 @@
 - Status: planned
 - Milestone: 4
 - Packages: `@ultimabase/roles`
-- Depends on: 402, 317
-- ADR: ADR-0006, ADR-0113
+- Depends on: 317, 402, 702
+- ADR: ADR-0006, ADR-0113, ADR-0116
 
 ## Goal
 
 Add stable plugin-resolved principal identities and roles as members through
-transaction-safe services without requiring a Core user mode.
+transaction-safe relation services without requiring a Core user mode.
 
 ## Acceptance criteria
 

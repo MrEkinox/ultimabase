@@ -4,11 +4,11 @@
 - Milestone: 5
 - Packages: `@ultimabase/postgres`, `@ultimabase/acl-permissions`
 - Depends on: 338, 411, 505, 506, 510
-- ADR: ADR-0006, ADR-0007, ADR-0090, ADR-0113
+- ADR: ADR-0006, ADR-0007, ADR-0090, ADR-0113, ADR-0116
 
 ## Goal
 
-Compile the ACL plugin's opaque constraint through the generic PostgreSQL
+Compile the ACL provider's opaque Access filter through the generic PostgreSQL
 constraint registry and into the same SQL operation as the developer query.
 
 ## Acceptance criteria
@@ -18,6 +18,7 @@ constraint registry and into the same SQL operation as the developer query.
 - [ ] Resolved public, authenticated, user, and role subjects compile consistently.
 - [ ] PostgreSQL receives already-resolved subject identifiers and never reads Core authority as an authenticated user identity.
 - [ ] Find, count, update, delete, and bulk operations combine ACL filtering with every query predicate using logical `AND`.
+- [ ] ACL filters compose with native Access filters and other provider constraints without `beforeFind` being able to inspect or remove them.
 - [ ] A missing compiler, unsupported payload version, or malformed ACL payload fails closed.
 - [ ] The compiler contains no CLP or field-permission behavior.
 

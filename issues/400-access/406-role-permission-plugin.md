@@ -2,18 +2,17 @@
 
 - Status: planned
 - Milestone: 4
-- Packages: `@ultimabase/core`, `@ultimabase/roles`
-- Depends on: 204, 207, 405
-- ADR: ADR-0003, ADR-0006
+- Packages: `@ultimabase/roles`
+- Depends on: 204, 207, 405, 420
+- ADR: ADR-0003, ADR-0006, ADR-0116
 
 ## Goal
 
-Define the neutral typed role-resolution capability and let
-`rolePermissionPlugin` provide it together with optional transport metadata.
+Let `rolePermissionPlugin` provide the neutral role-resolution capability from
+issue 420 together with optional transport metadata.
 
 ## Acceptance criteria
 
-- [ ] `@ultimabase/core` exports the role-reference types and nominal typed role-resolution service token without importing `@ultimabase/roles`.
 - [ ] `rolePermissionPlugin` provides the neutral service without requiring consumers to import its factory, plugin definition, or implementation types.
 - [ ] CLP and ACL consume only the neutral types and service token and never import or identify `rolePermissionPlugin` directly.
 - [ ] Role APIs are hidden unless exposure is enabled.
@@ -21,5 +20,5 @@ Define the neutral typed role-resolution capability and let
 
 ## Tests
 
-- [ ] Service-contract tests accept the official provider and a compatible fixture provider.
+- [ ] Service-contract tests prove the official provider satisfies issue 420's public contract.
 - [ ] Missing/installed optional-role integration fixtures prove that absence alone is valid until a role-aware policy requires the service.
