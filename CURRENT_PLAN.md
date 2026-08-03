@@ -101,7 +101,7 @@ dependencies are incomplete.
 18. [x] [347 — Execute Query terminals through the current context](issues/300-query-runtime/347-contextual-query-terminals.md)
 19. [x] [345 — Add concise singular terminal aliases](issues/300-query-runtime/345-singular-terminal-aliases.md)
 20. [x] [334 — Define bulk hook and non-atomic grouping semantics](issues/300-query-runtime/334-bulk-hook-semantics.md)
-21. [ ] [508 — Implement PostgreSQL bulk and upsert execution](issues/500-postgres/508-transactions-bulk-upsert.md)
+21. [x] [508 — Implement PostgreSQL bulk and upsert execution](issues/500-postgres/508-transactions-bulk-upsert.md)
 22. [ ] [335 — Verify native hooks against PostgreSQL](issues/300-query-runtime/335-native-hooks-postgres-e2e.md)
 23. [ ] [348 — Add terminal-only Query authority options](issues/300-query-runtime/348-query-terminal-authority.md)
 24. [ ] [349 — Add immutable model persistence commands](issues/300-query-runtime/349-immutable-model-persistence.md)
@@ -109,7 +109,7 @@ dependencies are incomplete.
 Issue 519 is a strict prerequisite of issue 329 because mandatory Core mutation
 transactions must not break the existing PostgreSQL CRUD vertical. Issue 344
 then gives issue 330 stable mutation snapshots and implements the singular
-PostgreSQL path. Issue 508 completes bulk and upsert execution before issue 335
+PostgreSQL path. Issue 508 completes bulk and upsert execution; issue 335 now
 proves the full live hook lifecycle.
 
 ## Resume protocol
@@ -130,12 +130,11 @@ the named Runtime stages and proven monotonic hook enforcement.
 
 ## Current issue
 
-[508 — Implement PostgreSQL bulk and upsert execution](issues/500-postgres/508-transactions-bulk-upsert.md)
+[335 — Verify native hooks against PostgreSQL](issues/300-query-runtime/335-native-hooks-postgres-e2e.md)
 
-Issue 334 has fixed the complete Core bulk-hook and stopped-prefix contract.
-Issue 508 now implements that contract, including PostgreSQL savepoint recovery,
-before issue 335 proves the complete hook lifecycle against the live adapter.
-Authority options and immutable model commands resume after this hook vertical.
+Issue 508 now implements the complete PostgreSQL bulk, upsert, and savepoint
+contract. Issue 335 proves the complete native hook lifecycle against those live
+adapter outcomes before authority options and immutable model commands resume.
 
 ## Progress log
 
@@ -164,4 +163,4 @@ without reconstructing repository history.
 - 334 — `done` — Atomic collections remain all-or-nothing, non-atomic create/upsert now return an immutable completed-or-stopped prefix result, hooks retain one transaction and operation cycle, and set-based update/delete never load rows.
 - 348 — `planned` — Terminal-only session and master options will give trusted backend code explicit authority without exposing it to transports.
 - 349 — `planned` — Immutable model commands will delegate create, upsert, update, and delete through the same contextual Query pipeline.
-- 508 — `planned` — PostgreSQL bulk and upsert support follows the prepared-mutation protocol from issue 344 and remains required before issue 335.
+- 508 — `done` — PostgreSQL now executes ordered create/upsert collections, set-based update/delete statements, exact upsert branches, and recoverable non-atomic prefixes through one prepared transaction adapter.

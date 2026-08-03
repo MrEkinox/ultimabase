@@ -66,6 +66,20 @@ const HookAuditSchema = Schema.define({
 	},
 })
 
+const BulkAccountSchema = Schema.define({
+	className: 'RuntimeBulkAccount',
+	fields: {
+		email: stringField({
+			indexed: 'unique',
+			validation: { required: true },
+		}),
+		handle: stringField({ validation: { required: true } }),
+		tenantId: stringField({ validation: { required: true } }),
+		visits: intField({ default: 0 }),
+	},
+	indexes: [{ fields: ['tenantId', 'handle'], unique: true }],
+})
+
 const hookRollbackError = new Error('rollback HookContext nested write')
 const HookPostSchema = Schema.define({
 	className: 'RuntimeHookPost',
@@ -163,6 +177,213 @@ afterAll(async () => {
 })
 
 describe('Runtime to PostgreSQL', { concurrent: false }, () => {
+	it('executes ordered bulk, recoverable prefixes, set writes, and unique upserts', async () => {
+		const ultimabase = new UltimaBase({
+			schemas: [BulkAccountSchema],
+			plugins: [
+				postgresPlugin({
+					schemaPolicy: 'override',
+					url: getFixture().connectionUri,
+				}),
+			],
+			validation: {
+				clock: () => new Date(createInstant),
+				timezone: 'UTC',
+			},
+		})
+		await ultimabase.start()
+
+		try {
+			const ordered = await BulkAccountSchema.query().createMany(
+				[
+					{
+						email: 'second@example.com',
+						handle: 'second',
+						tenantId: 'tenant-a',
+					},
+					{
+						email: 'first@example.com',
+						handle: 'first',
+						tenantId: 'tenant-a',
+					},
+				],
+				{ ultimabase },
+			)
+
+			expect(ordered.map(({ email }) => email)).toStrictEqual([
+				'second@example.com',
+				'first@example.com',
+			])
+			await expect(
+				BulkAccountSchema.query()
+					.equalTo('tenantId', 'tenant-a')
+					.ascending('email')
+					.limit(1)
+					.updateMany({ increment: { visits: 2 } }, { ultimabase }),
+			).resolves.toBe(1)
+
+			const createdUpsert = await BulkAccountSchema.query()
+				.equalTo('email', 'upsert@example.com')
+				.select('email', 'visits')
+				.upsert(
+					{
+						create: {
+							email: 'upsert@example.com',
+							handle: 'upsert',
+							tenantId: 'tenant-b',
+						},
+						update: { increment: { visits: 1 } },
+					},
+					{ ultimabase },
+				)
+			expect(createdUpsert.toJSON()).toStrictEqual({
+				email: 'upsert@example.com',
+				visits: 0,
+			})
+
+			const updatedUpsert = await BulkAccountSchema.query()
+				.equalTo('email', 'upsert@example.com')
+				.select('email', 'visits')
+				.upsert(
+					{
+						create: {
+							email: 'upsert@example.com',
+							handle: 'upsert',
+							tenantId: 'tenant-b',
+						},
+						update: { increment: { visits: 1 } },
+					},
+					{ ultimabase },
+				)
+			expect(updatedUpsert.toJSON()).toStrictEqual({
+				email: 'upsert@example.com',
+				visits: 1,
+			})
+
+			const composite = await BulkAccountSchema.query()
+				.equalTo('handle', 'composite')
+				.equalTo('tenantId', 'tenant-c')
+				.upsert(
+					{
+						create: {
+							email: 'composite@example.com',
+							handle: 'composite',
+							tenantId: 'tenant-c',
+						},
+						update: { increment: { visits: 1 } },
+					},
+					{ ultimabase },
+				)
+			expect(composite).toMatchObject({
+				handle: 'composite',
+				tenantId: 'tenant-c',
+				visits: 0,
+			})
+
+			const partial = await BulkAccountSchema.query().createMany(
+				[
+					{
+						email: 'prefix@example.com',
+						handle: 'prefix',
+						tenantId: 'tenant-d',
+					},
+					{
+						email: 'upsert@example.com',
+						handle: 'duplicate',
+						tenantId: 'tenant-d',
+					},
+					{
+						email: 'suffix@example.com',
+						handle: 'suffix',
+						tenantId: 'tenant-d',
+					},
+				],
+				{ atomic: false, ultimabase },
+			)
+
+			expect(partial.status).toBe('stopped')
+			if (partial.status === 'stopped') {
+				expect(partial.failedIndex).toBe(1)
+				expect(partial.results.map(({ email }) => email)).toStrictEqual([
+					'prefix@example.com',
+				])
+				expect(partial.error).toMatchObject({ code: 'VALIDATION_ERROR' })
+			}
+			await expect(
+				BulkAccountSchema.query()
+					.equalTo('email', 'prefix@example.com')
+					.exists({ ultimabase }),
+			).resolves.toBe(true)
+			await expect(
+				BulkAccountSchema.query()
+					.equalTo('email', 'suffix@example.com')
+					.exists({ ultimabase }),
+			).resolves.toBe(false)
+
+			await expect(
+				BulkAccountSchema.query().createMany(
+					[
+						{
+							email: 'atomic-duplicate@example.com',
+							handle: 'atomic-first',
+							tenantId: 'tenant-atomic',
+						},
+						{
+							email: 'atomic-duplicate@example.com',
+							handle: 'atomic-second',
+							tenantId: 'tenant-atomic',
+						},
+					],
+					{ ultimabase },
+				),
+			).rejects.toMatchObject({ code: 'VALIDATION_ERROR' })
+			await expect(
+				BulkAccountSchema.query()
+					.equalTo('tenantId', 'tenant-atomic')
+					.exists({ ultimabase }),
+			).resolves.toBe(false)
+
+			const concurrent = await Promise.all([
+				BulkAccountSchema.query()
+					.equalTo('email', 'concurrent@example.com')
+					.upsert(
+						{
+							create: {
+								email: 'concurrent@example.com',
+								handle: 'concurrent',
+								tenantId: 'tenant-e',
+							},
+							update: { increment: { visits: 1 } },
+						},
+						{ ultimabase },
+					),
+				BulkAccountSchema.query()
+					.equalTo('email', 'concurrent@example.com')
+					.upsert(
+						{
+							create: {
+								email: 'concurrent@example.com',
+								handle: 'concurrent',
+								tenantId: 'tenant-e',
+							},
+							update: { increment: { visits: 1 } },
+						},
+						{ ultimabase },
+					),
+			])
+			expect(concurrent.map(({ visits }) => visits).sort()).toStrictEqual([
+				0, 1,
+			])
+			await expect(
+				BulkAccountSchema.query()
+					.equalTo('tenantId', 'tenant-d')
+					.deleteMany({ ultimabase }),
+			).resolves.toBe(1)
+		} finally {
+			await ultimabase.dispose()
+		}
+	})
+
 	it('keeps HookContext nested writes in the primary PostgreSQL transaction', async () => {
 		const ultimabase = new UltimaBase({
 			schemas: [HookPostSchema, HookAuditSchema],

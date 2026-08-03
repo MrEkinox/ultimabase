@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest'
 import { Query } from '../query/query.js'
 import {
 	normalizeUniqueUpsertTarget,
+	readUniqueUpsertTargetValues,
 	normalizeUpsertInput,
 	normalizeUpsertItem,
 	normalizeUpsertItems,
@@ -143,6 +144,29 @@ describe('unique upsert targets', () => {
 		expect(() =>
 			normalizeUniqueUpsertTarget(accountSchema, foreign as never),
 		).toThrow(new TypeError('upsert query must reference the operation schema'))
+	})
+
+	it('recovers target values in declared unique-index order', () => {
+		const query = new Query(accountSchema)
+			.equalTo('handle', 'dev')
+			.equalTo('tenantId', 'tenant-1').ast
+		const target = normalizeUniqueUpsertTarget(accountSchema, query)
+
+		expect(readUniqueUpsertTargetValues(query, target)).toStrictEqual({
+			handle: 'dev',
+			tenantId: 'tenant-1',
+		})
+		expect(Object.isFrozen(readUniqueUpsertTargetValues(query, target))).toBe(
+			true,
+		)
+		expect(() =>
+			readUniqueUpsertTargetValues(query, {
+				kind: 'unique-upsert-target',
+				fields: ['handle'],
+			}),
+		).toThrow(
+			new TypeError('upsert target query contains incompatible equalities'),
+		)
 	})
 })
 

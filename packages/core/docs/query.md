@@ -209,6 +209,10 @@ const imported = await accountSchema.query().upsertMany(
 Each bulk upsert item supplies its own reusable unbound `Query`. The normalized
 operation records the matching unique fields in schema declaration order, so
 every adapter receives the same conflict target without inferring it again.
+The target equality values seed the create candidate before hooks run. Supplying
+a contradictory value in `create` fails validation instead of targeting one
+object and inserting another; an `id` target also replaces Runtime's generated
+create identifier.
 
 Terminal options are never serialized into Query or Operation ASTs. Transports
 continue executing normalized operations through explicit request engines and

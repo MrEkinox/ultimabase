@@ -17,6 +17,7 @@ import {
 	dateTimeField,
 	decimalField,
 	definePluginField,
+	compileValidationPlans,
 	Schema,
 	enumField,
 	floatField,
@@ -37,7 +38,10 @@ import {
 	requestSources,
 } from '../context/request-context.js'
 import type { DatabaseOperationAst } from '../database/contracts.js'
-import { createRuntimeValidationStage } from './runtime-validation.js'
+import {
+	createRuntimeValidationStage,
+	revalidateRuntimeMutationOperation,
+} from './runtime-validation.js'
 
 const runtimeDefault = vi.fn(() => 42)
 const binaryDefault = new Uint8Array([1, 2, 3])
@@ -48,6 +52,7 @@ const validationSchema = Schema.define({
 			validation: { required: true, length: { min: 2 } },
 		}),
 		immutableCode: stringField({
+			indexed: 'unique',
 			immutable: true,
 			validation: { required: true },
 		}),
@@ -287,6 +292,133 @@ describe('runtime validation', () => {
 			field: 'updatedAt',
 		})
 		expect(runtimeDefault).toHaveBeenCalledTimes(2)
+	})
+
+	it('seeds create candidates from unique targets and rejects conflicting values', async () => {
+		const targetedId = '0198a43e-2431-7000-8000-000000000099'
+		const generatedId = '0198a43e-2431-7000-8000-000000000001'
+		const stage = createRuntimeValidationStage({
+			clock: () => new Date('2026-01-01T00:00:00.000Z'),
+			uuidV7Generator: () => generatedId,
+		})
+		const update = normalizeUpdateExpression(validationSchema, {
+			set: { title: 'updated' },
+		})
+		const byId: UpsertOneOperationAst<typeof validationSchema, typeof update> =
+			{
+				kind: 'upsert-one',
+				query: new Query(validationSchema).equalTo('id', targetedId).ast,
+				target: { kind: 'unique-upsert-target', fields: ['id'] },
+				create: validCreateInput(),
+				update,
+			}
+
+		const normalized = await executeStage(stage, byId)
+
+		expect(normalized.create).toHaveProperty('id', targetedId)
+		expect(normalized.create).not.toHaveProperty('id', generatedId)
+
+		const { immutableCode: omittedCode, ...withoutUniqueTarget } =
+			validCreateInput()
+		void omittedCode
+		const seededRequired = await executeStage(stage, {
+			...byId,
+			create: withoutUniqueTarget as never,
+			query: new Query(validationSchema).equalTo('immutableCode', 'public-code')
+				.ast,
+			target: {
+				kind: 'unique-upsert-target',
+				fields: ['immutableCode'],
+			},
+		})
+
+		expect(seededRequired.create).toHaveProperty('immutableCode', 'public-code')
+
+		await expect(
+			executeStage(stage, {
+				...byId,
+				query: new Query(validationSchema).equalTo(
+					'immutableCode',
+					'target-code',
+				).ast,
+				target: {
+					kind: 'unique-upsert-target',
+					fields: ['immutableCode'],
+				},
+			}),
+		).rejects.toMatchObject({
+			code: 'VALIDATION_ERROR',
+			publicDetails: {
+				issues: [
+					{
+						code: 'upsert.target',
+						path: ['create', 'immutableCode'],
+					},
+				],
+			},
+		})
+		await expect(
+			executeStage(stage, { ...byId, create: null as never }),
+		).rejects.toMatchObject({
+			code: 'VALIDATION_ERROR',
+			publicDetails: {
+				issues: [{ code: 'object.type', path: ['create'] }],
+			},
+		})
+	})
+
+	it('revalidates unique upsert targets after hook transformations', async () => {
+		const stage = createRuntimeValidationStage({
+			clock: () => new Date('2026-01-01T00:00:00.000Z'),
+		})
+		const update = normalizeUpdateExpression(validationSchema, {
+			set: { title: 'updated' },
+		})
+		const operation: UpsertOneOperationAst<
+			typeof validationSchema,
+			typeof update
+		> = {
+			kind: 'upsert-one',
+			query: new Query(validationSchema).equalTo('immutableCode', 'public-code')
+				.ast,
+			target: {
+				kind: 'unique-upsert-target',
+				fields: ['immutableCode'],
+			},
+			create: validCreateInput(),
+			update,
+		}
+		const normalized = await executeStage(stage, operation)
+		const transformed = {
+			...normalized,
+			// The target query remains authoritative after hook transformations.
+			create: { ...normalized.create, immutableCode: 'hook-replaced-code' },
+		}
+
+		let failure: unknown
+
+		try {
+			revalidateRuntimeMutationOperation(
+				normalized,
+				transformed,
+				compileValidationPlans(validationSchema),
+			)
+		} catch (error: unknown) {
+			failure = error
+		}
+
+		expect(failure).toBeInstanceOf(FrameworkError)
+		if (failure instanceof FrameworkError) {
+			expect(failure.code).toBe('VALIDATION_ERROR')
+			expect(failure.publicDetails).toMatchObject({
+				issues: [
+					{
+						code: 'upsert.target',
+						path: ['create', 'immutableCode'],
+					},
+				],
+			})
+		}
 	})
 
 	it('returns immutable path-aware failures even for trusted master requests', async () => {

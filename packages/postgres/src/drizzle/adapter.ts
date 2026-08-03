@@ -26,8 +26,12 @@ import type {
 	PostgresPool,
 	PostgresPoolClient,
 } from '../connection/contracts.js'
-import { readPostgresDriverCode } from '../connection/driver-error.js'
 import type { PostgresSchemaCatalog } from '../schema/catalog.js'
+import {
+	createPostgresItemRecovery,
+	type PostgresItemRecovery,
+} from './item-recovery.js'
+import { createPostgresTransactionError } from './transaction-error.js'
 
 const readOperationSchema = (operation: DatabaseOperationAst): unknown => {
 	if (
@@ -71,35 +75,6 @@ const assertConstraintOperationSupported = (
 			},
 		)
 	}
-}
-
-type PostgresTransactionPhase = 'begin' | 'commit' | 'rollback'
-
-/** Removes SQL and connection diagnostics from transaction lifecycle failures. */
-const createPostgresTransactionError = (
-	phase: PostgresTransactionPhase,
-	error: unknown,
-): FrameworkError<'TRANSACTION_ERROR'> => {
-	const driverCode = readPostgresDriverCode(error)
-
-	return new FrameworkError(
-		'TRANSACTION_ERROR',
-		`PostgreSQL transaction ${phase} failed.`,
-		{
-			publicMessage: 'The database transaction failed.',
-			// Only a failed BEGIN is known not to have committed developer work.
-			retryable:
-				phase === 'begin' &&
-				(driverCode?.startsWith('08') === true ||
-					driverCode === '40001' ||
-					driverCode === '40P01'),
-			internalDetails: {
-				kind: 'postgres-transaction-failed',
-				phase,
-				...(driverCode === undefined ? {} : { driverCode }),
-			},
-		},
-	)
 }
 
 /** Prevents structural pool cleanup failures from replacing a known SQL outcome. */
@@ -154,6 +129,7 @@ class DrizzlePostgresTransactionAdapter implements DatabaseTransactionAdapter {
 	readonly #drizzle: PostgresDrizzleClient
 	readonly #schemas: PostgresSchemaCatalog
 	readonly #constraintCompilers: PostgresConstraintCompilerRegistry
+	readonly #itemRecovery: PostgresItemRecovery
 	#state:
 		'active' | 'committing' | 'rollback-required' | 'rolling-back' | 'closed' =
 		'active'
@@ -167,6 +143,7 @@ class DrizzlePostgresTransactionAdapter implements DatabaseTransactionAdapter {
 		this.#drizzle = createPostgresDrizzleClient(client)
 		this.#schemas = schemas
 		this.#constraintCompilers = constraintCompilers
+		this.#itemRecovery = createPostgresItemRecovery(client)
 	}
 
 	/** Prevents an escaped adapter from issuing work after commit or rollback. */
@@ -225,6 +202,7 @@ class DrizzlePostgresTransactionAdapter implements DatabaseTransactionAdapter {
 			schema,
 			request.operation,
 			constraintPredicate,
+			this.#itemRecovery,
 			() => {
 				this.#assertActive()
 			},

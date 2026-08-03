@@ -3,8 +3,10 @@ import type {
 	ExecutableOperationAst,
 	QueryAst,
 	QueryFilterNode,
+	UniqueUpsertTargetNode,
 } from '@ultimabase/core'
 import type { SchemaDefinition } from '@ultimabase/core'
+import { isPlainRecord } from '@ultimabase/shared'
 import { and, count, eq, inArray, type SQL } from 'drizzle-orm'
 import type { PgColumn } from 'drizzle-orm/pg-core'
 
@@ -159,12 +161,13 @@ const executeExists = async (
 	return rows.length > 0
 }
 
-export const executeCreateOne = async (
+/** Persists one already normalized create candidate and decodes the complete row. */
+export const executeCreateInput = async (
 	client: PostgresDrizzleClient,
 	schema: CompiledPostgresSchema,
-	operation: Extract<RuntimeOperation, { readonly kind: 'create-one' }>,
+	input: unknown,
 ): Promise<Readonly<Record<string, unknown>>> => {
-	const values = encodePostgresRecord(schema, operation.input)
+	const values = encodePostgresRecord(schema, input)
 	const selection = compilePostgresSelection(schema)
 	const [row] = await client
 		.insert(schema.table)
@@ -176,6 +179,64 @@ export const executeCreateOne = async (
 	}
 
 	return decodePostgresRecord(schema, row)
+}
+
+export const executeCreateOne = async (
+	client: PostgresDrizzleClient,
+	schema: CompiledPostgresSchema,
+	operation: Extract<RuntimeOperation, { readonly kind: 'create-one' }>,
+): Promise<Readonly<Record<string, unknown>>> =>
+	executeCreateInput(client, schema, operation.input)
+
+/** Inserts one validated collection in one statement and preserves RETURNING order. */
+export const executeCreateMany = async (
+	client: PostgresDrizzleClient,
+	schema: CompiledPostgresSchema,
+	operation: Extract<RuntimeOperation, { readonly kind: 'create-many' }>,
+): Promise<readonly Readonly<Record<string, unknown>>[]> => {
+	if (operation.inputs.length === 0) {
+		return []
+	}
+
+	const inputIds = operation.inputs.map((input) => {
+		if (!isPlainRecord(input) || !Object.hasOwn(input, 'id')) {
+			throw new TypeError('PostgreSQL create-many input is missing its id')
+		}
+
+		return input.id
+	})
+	const encodedInputs = operation.inputs.map((input) =>
+		encodePostgresRecord(schema, input),
+	)
+	const rows = await client
+		.insert(schema.table)
+		.values(encodedInputs)
+		.returning(compilePostgresSelection(schema))
+	const decoded = decodeRows(schema, rows)
+
+	if (decoded.length !== inputIds.length) {
+		throw new TypeError('PostgreSQL create-many returned an invalid row count')
+	}
+
+	const recordsById = new Map<unknown, Readonly<Record<string, unknown>>>()
+
+	for (const record of decoded) {
+		if (!Object.hasOwn(record, 'id') || recordsById.has(record.id)) {
+			throw new TypeError('PostgreSQL create-many returned invalid identities')
+		}
+
+		recordsById.set(record.id, record)
+	}
+
+	return inputIds.map((id) => {
+		const record = recordsById.get(id)
+
+		if (record === undefined) {
+			throw new TypeError('PostgreSQL create-many returned an unknown identity')
+		}
+
+		return record
+	})
 }
 
 const buildSingularTarget = (
@@ -190,6 +251,25 @@ const buildSingularTarget = (
 		constraint,
 		limit: 1,
 	})
+}
+
+/** Builds the exact id subquery shared by set-based updates and deletions. */
+const buildManyTarget = (
+	client: PostgresDrizzleClient,
+	schema: CompiledPostgresSchema,
+	query: QueryAst,
+	constraint: SQL | undefined,
+) => {
+	const runtimeQuery = readBuiltInQuery(query)
+	const clauses = compilePostgresQueryClauses(runtimeQuery, schema)
+
+	return buildSelect(
+		client,
+		schema,
+		{ id: resolveCompiledPostgresField(schema, 'id').column },
+		clauses,
+		{ constraint },
+	)
 }
 
 const executeUpdateOne = async (
@@ -225,6 +305,127 @@ const executeDeleteOne = async (
 		.delete(schema.table)
 		.where(inArray(id, target))
 		.returning(clauses.selection)
+
+	return row === undefined ? null : decodePostgresRecord(schema, row)
+}
+
+/** Updates every selected id in one set-based statement without loading objects. */
+export const executeUpdateMany = async (
+	client: PostgresDrizzleClient,
+	schema: CompiledPostgresSchema,
+	operation: Extract<RuntimeOperation, { readonly kind: 'update-many' }>,
+	constraint: SQL | undefined,
+): Promise<number> => {
+	const id = resolveCompiledPostgresField(schema, 'id').column
+	const target = buildManyTarget(client, schema, operation.query, constraint)
+	const where = and(inArray(id, target), constraint)
+
+	if (where === undefined) {
+		throw new TypeError('PostgreSQL update-many target could not be combined')
+	}
+
+	const result = await client
+		.update(schema.table)
+		.set(compilePostgresUpdate(schema, operation.update))
+		.where(where)
+
+	if (
+		typeof result.rowCount !== 'number' ||
+		!Number.isSafeInteger(result.rowCount) ||
+		result.rowCount < 0
+	) {
+		throw new TypeError('PostgreSQL update-many returned an invalid row count')
+	}
+
+	return result.rowCount
+}
+
+/** Deletes every selected id in one set-based statement without loading objects. */
+export const executeDeleteMany = async (
+	client: PostgresDrizzleClient,
+	schema: CompiledPostgresSchema,
+	operation: Extract<RuntimeOperation, { readonly kind: 'delete-many' }>,
+	constraint: SQL | undefined,
+): Promise<number> => {
+	const id = resolveCompiledPostgresField(schema, 'id').column
+	const target = buildManyTarget(client, schema, operation.query, constraint)
+	const where = and(inArray(id, target), constraint)
+
+	if (where === undefined) {
+		throw new TypeError('PostgreSQL delete-many target could not be combined')
+	}
+
+	const result = await client.delete(schema.table).where(where)
+
+	if (
+		typeof result.rowCount !== 'number' ||
+		!Number.isSafeInteger(result.rowCount) ||
+		result.rowCount < 0
+	) {
+		throw new TypeError('PostgreSQL delete-many returned an invalid row count')
+	}
+
+	return result.rowCount
+}
+
+/** Locks one complete unique target so upsert hooks can observe an exact branch. */
+export const lockPostgresUpsertTarget = async (
+	client: PostgresDrizzleClient,
+	schema: CompiledPostgresSchema,
+	query: QueryAst,
+	constraint: SQL | undefined,
+): Promise<Readonly<Record<string, unknown>> | null> => {
+	const clauses = compilePostgresQueryClauses(readBuiltInQuery(query), schema)
+	const [row] = await buildSelect(
+		client,
+		schema,
+		compilePostgresSelection(schema),
+		clauses,
+		{ constraint, limit: 1 },
+	).for('update')
+
+	return row === undefined ? null : decodePostgresRecord(schema, row)
+}
+
+/** Attempts the create branch while restricting conflict handling to the declared key. */
+export const tryCreatePostgresUpsert = async (
+	client: PostgresDrizzleClient,
+	schema: CompiledPostgresSchema,
+	create: unknown,
+	target: UniqueUpsertTargetNode,
+): Promise<Readonly<Record<string, unknown>> | null> => {
+	const targetFields = target.fields
+	const targetsId = targetFields.length === 1 && targetFields[0] === 'id'
+	const targetsUniqueIndex = schema.indexes.some(
+		(index) =>
+			index.unique &&
+			index.fields.length === targetFields.length &&
+			index.fields.every(
+				(fieldName, index) => fieldName === targetFields[index],
+			),
+	)
+
+	if (!targetsId && !targetsUniqueIndex) {
+		throw new TypeError(
+			'PostgreSQL upsert target must match id or one compiled unique index',
+		)
+	}
+
+	const targetColumns = target.fields.map(
+		(fieldName) => resolveCompiledPostgresField(schema, fieldName).column,
+	)
+	const conflictTarget =
+		targetColumns.length === 1 ? targetColumns[0] : targetColumns
+
+	if (conflictTarget === undefined) {
+		throw new TypeError('PostgreSQL upsert target has no fields')
+	}
+
+	const [row] = await client
+		.insert(schema.table)
+		.values(encodePostgresRecord(schema, create))
+		.onConflictDoNothing({ target: conflictTarget })
+		.returning(compilePostgresSelection(schema))
 
 	return row === undefined ? null : decodePostgresRecord(schema, row)
 }
@@ -288,15 +489,18 @@ export const executePostgresOperation = async (
 				return await executeExists(client, schema, operation, constraint)
 			case 'create-one':
 				return await executeCreateOne(client, schema, operation)
+			case 'create-many':
+				return await executeCreateMany(client, schema, operation)
 			case 'update-one':
 				return await executeUpdateOne(client, schema, operation, constraint)
+			case 'update-many':
+				return await executeUpdateMany(client, schema, operation, constraint)
 			case 'delete-one':
 				return await executeDeleteOne(client, schema, operation, constraint)
-			case 'create-many':
-			case 'update-many':
+			case 'delete-many':
+				return await executeDeleteMany(client, schema, operation, constraint)
 			case 'upsert-one':
 			case 'upsert-many':
-			case 'delete-many':
 				throw createPendingOperationError(operation.kind)
 		}
 	} catch (error: unknown) {

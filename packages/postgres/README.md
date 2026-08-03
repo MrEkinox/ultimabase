@@ -79,10 +79,9 @@ The Drizzle client remains inside `@ultimabase/postgres`; neither plugin exports
 nor public declarations expose it. Pool clients borrowed for future
 transactions use the same internal wrapper.
 
-Singular CRUD operations and explicit Runtime transactions execute through this
-adapter. Bulk operations and upserts remain separate work; calling one of those
-paths reports an explicit not-yet-implemented framework error rather than
-pretending that data was persisted.
+Singular CRUD, bulk operations, upserts, and explicit Runtime transactions
+execute through this adapter. Every mutation uses Runtime's transaction-bound
+prepared-operation protocol; no bulk item opens a side transaction.
 
 Every adapter request carries Core's policy-neutral `constraints` array.
 Adapter integration plugins register exact kind-and-version compilers during
@@ -161,11 +160,13 @@ identifier and return two separate views: the developer's exact selection and a
 private complete logical materialization for native field hooks. Handles are
 single-use and expire with their borrowed transaction client.
 
-Bulk and upsert preparation remains part of the dedicated bulk/upsert issue;
-their public methods continue to fail explicitly until that implementation is
-available.
+Atomic create-many uses one ordered multi-row insert. Non-atomic create-many and
+upsert-many isolate each item with a PostgreSQL savepoint, stop at the first
+persistence failure, and leave the successful prefix available to the outer
+Runtime transaction. A hook or finalization failure can still roll that prefix
+back before commit.
 
-## Singular CRUD
+## CRUD, bulk, and upsert execution
 
 After `ultimabase.start()` prepares the static schemas, a direct query can
 create, read, filter, project, update, and delete PostgreSQL rows without SQL or
@@ -202,9 +203,31 @@ read race.
 This public flow is implemented and covered by the root worker-isolated
 Testcontainers scenario. PostgreSQL temporal text is normalized back to
 Schema's canonical ISO representation before a result reaches developer code.
-Bulk operations, upserts, and resumed opaque cursor tokens are not yet
-executable. Explicit transactions are available for the implemented singular
-operations.
+Bulk operations and unique-target upserts are executable. Create and upsert
+results preserve developer input order, while update-many and delete-many remain
+single set-based statements returning only their affected counts. Resumed
+opaque cursor tokens are not yet executable.
+
+```ts
+const imported = await ArticleSchema.query().createMany(rows, {
+	atomic: false,
+	ultimabase,
+})
+
+if (imported.status === 'stopped') {
+	console.log(imported.failedIndex, imported.results)
+}
+
+const article = await ArticleSchema.query()
+	.equalTo('slug', 'runtime-postgres')
+	.upsert(
+		{
+			create: { slug: 'runtime-postgres', title: 'Runtime + PostgreSQL' },
+			update: { set: { title: 'Runtime + PostgreSQL' } },
+		},
+		{ ultimabase },
+	)
+```
 
 ## Primitive schema compilation
 
@@ -279,9 +302,8 @@ const ArticleSchema = Schema.define({
 PostgreSQL compiles these declarations into ordinary or unique Drizzle index
 metadata during `createApplication()`. Physical names are deterministic,
 collision-resistant, and limited to PostgreSQL's 63-byte identifier boundary.
-The field tuple of every unique index remains available inside the adapter for
-future upsert conflict targets; developers never import or name a Drizzle
-index.
+The field tuple of every unique index becomes the exact upsert conflict target;
+developers never import or name a Drizzle index.
 
 ## Catalog introspection
 

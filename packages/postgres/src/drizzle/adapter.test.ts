@@ -7,6 +7,7 @@ import {
 	type FindOperationAst,
 	type QueryFilterNode,
 	type UpdateOneOperationAst,
+	type UpsertOneOperationAst,
 } from '@ultimabase/core'
 import { Schema, intField, stringField } from '@ultimabase/core'
 import { isPlainRecord, isUnknownArray } from '@ultimabase/shared'
@@ -87,6 +88,7 @@ interface RecordedDriverQuery {
 }
 
 interface FixtureDriverResult {
+	readonly rowCount: number
 	readonly rows: readonly (readonly unknown[])[]
 }
 
@@ -97,13 +99,14 @@ class FixtureDriver implements PostgresDriverQueryClient, PostgresPoolClient {
 	readonly #responses: (Error | FixtureDriverResult)[] = []
 	readonly #transactionFailures = new Map<TransactionStatement, Error>()
 	readonly calls: RecordedDriverQuery[] = []
+	readonly savepointCalls: string[] = []
 	readonly transactionCalls: TransactionStatement[] = []
 	readonly releaseArguments: (Error | boolean | undefined)[] = []
 	releaseCalls = 0
 	#releaseFailure: Error | undefined
 
-	respond(rows: readonly (readonly unknown[])[]): void {
-		this.#responses.push({ rows })
+	respond(rows: readonly (readonly unknown[])[], rowCount = rows.length): void {
+		this.#responses.push({ rowCount, rows })
 	}
 
 	fail(error: Error): void {
@@ -132,8 +135,19 @@ class FixtureDriver implements PostgresDriverQueryClient, PostgresPoolClient {
 			const failure = this.#transactionFailures.get(configuration)
 
 			return failure === undefined
-				? Promise.resolve({ rows: [] })
+				? Promise.resolve({ rowCount: 0, rows: [] })
 				: Promise.reject(failure)
+		}
+
+		if (
+			typeof configuration === 'string' &&
+			(configuration.startsWith('SAVEPOINT ') ||
+				configuration.startsWith('ROLLBACK TO SAVEPOINT ') ||
+				configuration.startsWith('RELEASE SAVEPOINT '))
+		) {
+			this.savepointCalls.push(configuration)
+
+			return Promise.resolve({ rowCount: 0, rows: [] })
 		}
 
 		if (
@@ -247,6 +261,14 @@ const getTransactionDriver = (
 const firstId = '0198c3d4-1000-7000-8000-000000000001'
 const secondId = '0198c3d4-1000-7000-8000-000000000002'
 const timestamp = '2026-08-01T10:00:00.000Z'
+
+/** Matches the compiled Article column order used by fixture RETURNING clauses. */
+const articleRow = (
+	note: string | null,
+	title: string,
+	views: number,
+	id: string,
+): readonly unknown[] => [note, title, views, id, timestamp, timestamp]
 
 describe('internal PostgreSQL database adapter', () => {
 	it('executes every singular read contract through parameterized Drizzle SQL', async () => {
@@ -427,7 +449,7 @@ describe('internal PostgreSQL database adapter', () => {
 		).resolves.toBeNull()
 	})
 
-	it('fails closed for unsupported constraints, bulk, and driver errors', async () => {
+	it('fails closed for unsupported constraints, root upserts, and driver errors', async () => {
 		const { adapter, driver } = createFixture()
 		const operation = {
 			kind: 'find',
@@ -456,17 +478,20 @@ describe('internal PostgreSQL database adapter', () => {
 			adapter.execute({
 				constraints: [],
 				operation: {
-					inputs: [],
-					kind: 'create-many',
-					options: { atomic: true },
-					schema: operation.query.schema,
+					create: { title: 'Pending' },
+					kind: 'upsert-one',
+					query: new Query(articleSchema).equalTo('id', firstId).ast,
+					target: { fields: ['id'], kind: 'unique-upsert-target' },
+					update: normalizeUpdateExpression(articleSchema, {
+						set: { title: 'Pending' },
+					}),
 				},
 			}),
 		).rejects.toMatchObject({
 			code: 'INTERNAL_ERROR',
 			internalDetails: {
 				kind: 'postgres-operation-not-implemented',
-				operation: 'create-many',
+				operation: 'upsert-one',
 			},
 		})
 
@@ -701,6 +726,333 @@ describe('internal PostgreSQL database adapter', () => {
 		await transaction.rollback()
 	})
 
+	it('creates atomic collections in one statement and restores input order by id', async () => {
+		const fixture = createFixture()
+		const driver = getTransactionDriver(fixture)
+		const transaction = await fixture.adapter.beginTransaction()
+		const first = {
+			createdAt: timestamp,
+			id: firstId,
+			title: 'First',
+			updatedAt: timestamp,
+			views: 1,
+		}
+		const second = {
+			createdAt: timestamp,
+			id: secondId,
+			title: 'Second',
+			updatedAt: timestamp,
+			views: 2,
+		}
+		const prepared = await transaction.prepare({
+			constraints: [],
+			operation: {
+				inputs: [first, second],
+				kind: 'create-many',
+				options: { atomic: true },
+				schema: new Query(articleSchema).ast.schema,
+			},
+		})
+
+		// PostgreSQL does not promise RETURNING order, so the fixture reverses it.
+		driver.respond([
+			articleRow(null, 'Second', 2, secondId),
+			articleRow(null, 'First', 1, firstId),
+		])
+		await expect(prepared.execute()).resolves.toStrictEqual({
+			materializations: [
+				{ current: first, kind: 'create' },
+				{ current: second, kind: 'create' },
+			],
+			result: [first, second],
+		})
+		expect(driver.calls).toHaveLength(1)
+		expect(driver.calls[0]?.text).toMatch(/insert into "articles"/u)
+
+		const empty = await transaction.prepare({
+			constraints: [],
+			operation: {
+				inputs: [],
+				kind: 'create-many',
+				options: { atomic: true },
+				schema: new Query(articleSchema).ast.schema,
+			},
+		})
+		await expect(empty.execute()).resolves.toStrictEqual({
+			materializations: [],
+			result: [],
+		})
+		expect(driver.calls).toHaveLength(1)
+		await transaction.rollback()
+	})
+
+	it('returns a recovered non-atomic prefix and never attempts later inputs', async () => {
+		const fixture = createFixture()
+		const driver = getTransactionDriver(fixture)
+		const transaction = await fixture.adapter.beginTransaction()
+		const first = {
+			createdAt: timestamp,
+			id: firstId,
+			title: 'First',
+			updatedAt: timestamp,
+			views: 1,
+		}
+		const prepared = await transaction.prepare({
+			constraints: [],
+			operation: {
+				inputs: [
+					first,
+					{ ...first, id: secondId, title: 'Duplicate' },
+					{ ...first, id: '0198c3d4-1000-7000-8000-000000000003' },
+				],
+				kind: 'create-many',
+				options: { atomic: false },
+				schema: new Query(articleSchema).ast.schema,
+			},
+		})
+
+		driver.respond([articleRow(null, 'First', 1, firstId)])
+		driver.fail(
+			Object.assign(new Error('private unique detail'), { code: '23505' }),
+		)
+		const outcome = await prepared.execute()
+
+		expect(outcome).toMatchObject({
+			materializations: [{ current: first, kind: 'create' }],
+			result: {
+				failedIndex: 1,
+				results: [first],
+				status: 'stopped',
+			},
+		})
+		expect(outcome.result).toMatchObject({
+			error: { code: 'VALIDATION_ERROR' },
+		})
+		expect(driver.calls).toHaveLength(2)
+		expect(driver.savepointCalls).toStrictEqual([
+			'SAVEPOINT ultimabase_bulk_0',
+			'RELEASE SAVEPOINT ultimabase_bulk_0',
+			'SAVEPOINT ultimabase_bulk_1',
+			'ROLLBACK TO SAVEPOINT ultimabase_bulk_1',
+			'RELEASE SAVEPOINT ultimabase_bulk_1',
+		])
+		await transaction.commit()
+	})
+
+	it('executes set-based update and delete once without materializations', async () => {
+		const fixture = createFixture()
+		const driver = getTransactionDriver(fixture)
+		const transaction = await fixture.adapter.beginTransaction()
+		const query = new Query(articleSchema).greaterThan('views', 0).limit(10)
+		const update = normalizeUpdateExpression(articleSchema, {
+			increment: { views: 1 },
+		})
+		const preparedUpdate = await transaction.prepare({
+			constraints: [],
+			operation: { kind: 'update-many', query: query.ast, update },
+		})
+
+		driver.respond([], 3)
+		await expect(preparedUpdate.execute()).resolves.toStrictEqual({
+			materializations: [],
+			result: 3,
+		})
+		expect(driver.calls).toHaveLength(1)
+		expect(driver.calls[0]?.text).toMatch(/update "articles" set/u)
+
+		const preparedDelete = await transaction.prepare({
+			constraints: [],
+			operation: { kind: 'delete-many', query: query.ast },
+		})
+		driver.respond([], 2)
+		await expect(preparedDelete.execute()).resolves.toStrictEqual({
+			materializations: [],
+			result: 2,
+		})
+		expect(driver.calls).toHaveLength(2)
+		expect(driver.calls[1]?.text).toMatch(/delete from "articles"/u)
+		await transaction.rollback()
+	})
+
+	it('reports exact create and update branches for selection-aware upserts', async () => {
+		const fixture = createFixture()
+		const driver = getTransactionDriver(fixture)
+		const transaction = await fixture.adapter.beginTransaction()
+		const create = {
+			createdAt: timestamp,
+			id: firstId,
+			title: 'Created',
+			updatedAt: timestamp,
+			views: 0,
+		}
+		const query = new Query(articleSchema)
+			.equalTo('id', firstId)
+			.select('id', 'title')
+		const update = normalizeUpdateExpression(articleSchema, {
+			set: { title: 'Updated' },
+		})
+		const operation = {
+			create,
+			kind: 'upsert-one' as const,
+			query: query.ast,
+			target: {
+				fields: ['id'] as const,
+				kind: 'unique-upsert-target' as const,
+			},
+			update,
+		}
+
+		driver.respond([])
+		driver.respond([articleRow(null, 'Created', 0, firstId)])
+		const preparedCreate = await transaction.prepare({
+			constraints: [],
+			operation,
+		})
+		await expect(preparedCreate.execute()).resolves.toStrictEqual({
+			materializations: [{ current: create, kind: 'create' }],
+			result: { id: firstId, title: 'Created' },
+		})
+
+		const current = { ...create, title: 'Updated' }
+		driver.respond([articleRow(null, 'Created', 0, firstId)])
+		driver.respond([articleRow(null, 'Updated', 0, firstId)])
+		const preparedUpdate = await transaction.prepare({
+			constraints: [],
+			operation,
+		})
+		await expect(preparedUpdate.execute()).resolves.toStrictEqual({
+			materializations: [{ current, kind: 'update', previous: create }],
+			result: { id: firstId, title: 'Updated' },
+		})
+		await transaction.rollback()
+	})
+
+	it('preserves ordered create and update materializations for atomic upsert-many', async () => {
+		const fixture = createFixture()
+		const driver = getTransactionDriver(fixture)
+		const transaction = await fixture.adapter.beginTransaction()
+		const first = {
+			createdAt: timestamp,
+			id: firstId,
+			title: 'First created',
+			updatedAt: timestamp,
+			views: 0,
+		}
+		const secondPrevious = {
+			createdAt: timestamp,
+			id: secondId,
+			title: 'Second previous',
+			updatedAt: timestamp,
+			views: 1,
+		}
+		const secondCurrent = { ...secondPrevious, title: 'Second updated' }
+		const update = normalizeUpdateExpression(articleSchema, {
+			set: { title: 'Second updated' },
+		})
+		const item = (id: string, create: typeof first) => ({
+			create,
+			query: new Query(articleSchema).equalTo('id', id).ast,
+			target: {
+				fields: ['id'] as const,
+				kind: 'unique-upsert-target' as const,
+			},
+			update,
+		})
+		const prepared = await transaction.prepare({
+			constraints: [],
+			operation: {
+				items: [
+					item(firstId, first),
+					item(secondId, { ...first, id: secondId }),
+				],
+				kind: 'upsert-many',
+				options: { atomic: true },
+				schema: new Query(articleSchema).ast.schema,
+			},
+		})
+
+		driver.respond([])
+		driver.respond([articleRow(null, 'First created', 0, firstId)])
+		driver.respond([articleRow(null, 'Second previous', 1, secondId)])
+		driver.respond([articleRow(null, 'Second updated', 1, secondId)])
+		await expect(prepared.execute()).resolves.toStrictEqual({
+			materializations: [
+				{ current: first, kind: 'create' },
+				{
+					current: secondCurrent,
+					kind: 'update',
+					previous: secondPrevious,
+				},
+			],
+			result: [first, secondCurrent],
+		})
+		expect(driver.savepointCalls).toStrictEqual([])
+		await transaction.rollback()
+	})
+
+	it('stops non-atomic upsert-many after recovering its first failed item', async () => {
+		const fixture = createFixture()
+		const driver = getTransactionDriver(fixture)
+		const transaction = await fixture.adapter.beginTransaction()
+		const first = {
+			createdAt: timestamp,
+			id: firstId,
+			title: 'First',
+			updatedAt: timestamp,
+			views: 0,
+		}
+		const update = normalizeUpdateExpression(articleSchema, {
+			set: { title: 'Updated' },
+		})
+		const item = (id: string) => ({
+			create: { ...first, id },
+			query: new Query(articleSchema).equalTo('id', id).ast,
+			target: {
+				fields: ['id'] as const,
+				kind: 'unique-upsert-target' as const,
+			},
+			update,
+		})
+		const prepared = await transaction.prepare({
+			constraints: [],
+			operation: {
+				items: [
+					item(firstId),
+					item(secondId),
+					item('0198c3d4-1000-7000-8000-000000000003'),
+				],
+				kind: 'upsert-many',
+				options: { atomic: false },
+				schema: new Query(articleSchema).ast.schema,
+			},
+		})
+
+		driver.respond([])
+		driver.respond([articleRow(null, 'First', 0, firstId)])
+		driver.fail(
+			Object.assign(new Error('private connection detail'), { code: '08006' }),
+		)
+		const outcome = await prepared.execute()
+
+		expect(outcome).toMatchObject({
+			materializations: [{ current: first, kind: 'create' }],
+			result: {
+				failedIndex: 1,
+				results: [first],
+				status: 'stopped',
+			},
+		})
+		expect(driver.calls).toHaveLength(3)
+		expect(driver.savepointCalls).toStrictEqual([
+			'SAVEPOINT ultimabase_bulk_0',
+			'RELEASE SAVEPOINT ultimabase_bulk_0',
+			'SAVEPOINT ultimabase_bulk_1',
+			'ROLLBACK TO SAVEPOINT ultimabase_bulk_1',
+			'RELEASE SAVEPOINT ultimabase_bulk_1',
+		])
+		await transaction.commit()
+	})
+
 	it('reapplies constraints to prepared locks and final update or delete writes', async () => {
 		const fixture = createFixture(
 			1,
@@ -760,6 +1112,69 @@ describe('internal PostgreSQL database adapter', () => {
 		expect(deleteCall?.text).toMatch(/delete .* where \(.*id.* and .*note/u)
 		expect(deleteCall?.params).toContain(firstId)
 		expect(deleteCall?.params).toContain('tenant-1')
+
+		const preparedMany = await transaction.prepare({
+			constraints,
+			operation: {
+				kind: 'update-many',
+				query,
+				update: updateOperation.update,
+			},
+		})
+		driver.respond([], 4)
+		await expect(preparedMany.execute()).resolves.toMatchObject({ result: 4 })
+		const manyCall = driver.calls.at(-1)
+
+		expect(manyCall?.text).toMatch(
+			/update .*where \(.*id.*select.*note.* and .*note/u,
+		)
+		expect(
+			manyCall?.params.filter((value) => value === 'tenant-1'),
+		).toHaveLength(2)
+
+		const upsertCreate = {
+			createdAt: timestamp,
+			id: firstId,
+			note: 'tenant-1',
+			title: 'Created candidate',
+			updatedAt: timestamp,
+			views: 0,
+		}
+		const upsertOperation = {
+			create: upsertCreate,
+			kind: 'upsert-one',
+			query: new Query(articleSchema).equalTo('id', firstId).ast,
+			target: {
+				fields: ['id'],
+				kind: 'unique-upsert-target',
+			},
+			update: normalizeUpdateExpression(articleSchema, {
+				set: { title: 'Upsert updated' },
+			}),
+		} as const satisfies UpsertOneOperationAst<typeof articleSchema>
+		const preparedUpsert = await transaction.prepare({
+			constraints,
+			operation: upsertOperation,
+		})
+		const upsertCallOffset = driver.calls.length
+
+		// The empty insert models a concurrent winner between the two target locks.
+		driver.respond([])
+		driver.respond([])
+		driver.respond([articleRow('tenant-1', 'Concurrent winner', 1, firstId)])
+		driver.respond([articleRow('tenant-1', 'Upsert updated', 1, firstId)])
+		await preparedUpsert.execute()
+
+		const firstUpsertLock = driver.calls[upsertCallOffset]
+		const secondUpsertLock = driver.calls[upsertCallOffset + 2]
+		const upsertUpdate = driver.calls[upsertCallOffset + 3]
+
+		for (const lockCall of [firstUpsertLock, secondUpsertLock]) {
+			expect(lockCall?.text).toMatch(/where .* and .*note.*for update/u)
+			expect(lockCall?.params).toContain('tenant-1')
+		}
+		expect(upsertUpdate?.text).toMatch(/update .*where \(.*id.* and .*note/u)
+		expect(upsertUpdate?.params).toContain('tenant-1')
 		await transaction.rollback()
 	})
 

@@ -52,6 +52,7 @@ export type ValidationIssueCode =
 	| 'time.invalid'
 	| 'time.range.max'
 	| 'time.range.min'
+	| 'upsert.target'
 	| 'uuid.type'
 	| 'uuid.version'
 

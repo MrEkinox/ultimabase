@@ -74,6 +74,50 @@ const readEqualityExpressions = (filter: unknown): readonly unknown[] => {
 	return filter.expressions
 }
 
+/** Recovers the exact equality values carried by one normalized unique target. */
+export const readUniqueUpsertTargetValues = <
+	const TSchema extends SchemaDefinition,
+>(
+	query: QueryAst<TSchema>,
+	target: UniqueUpsertTargetNode<TSchema>,
+): Readonly<Record<string, unknown>> => {
+	if (query.where === undefined) {
+		throw new TypeError('upsert target query must contain equality values')
+	}
+
+	const expressions = readEqualityExpressions(query.where.expression)
+	const values: Record<string, unknown> = {}
+
+	if (expressions.length !== target.fields.length) {
+		throw new TypeError('upsert target query contains incompatible equalities')
+	}
+
+	for (const fieldName of target.fields) {
+		const expression = expressions.find(
+			(candidate) =>
+				isPlainRecord(candidate) &&
+				candidate.kind === 'equal' &&
+				candidate.field === fieldName &&
+				Object.hasOwn(candidate, 'value'),
+		)
+
+		if (!isPlainRecord(expression)) {
+			throw new TypeError(
+				`upsert target query is missing equality field: ${fieldName}`,
+			)
+		}
+		if (expression.value === null || expression.value === undefined) {
+			throw new TypeError(
+				`upsert target equality must be non-null: ${fieldName}`,
+			)
+		}
+
+		values[fieldName] = expression.value
+	}
+
+	return immutableRecord(values)
+}
+
 function assertExactUpsertKeys(
 	input: unknown,
 	allowedKeys: ReadonlySet<string>,
