@@ -10,6 +10,8 @@ export type {
 	ConfiguredPlugin,
 	ConfiguredPluginExports,
 	ConfiguredPluginName,
+	FrameworkAccessDefaultPolicy,
+	FrameworkAccessOptions,
 	FrameworkApplicationOptions,
 } from './application/framework-application.js'
 export type {
@@ -31,6 +33,20 @@ export type {
 	PluginConstraintCompilerRegistry,
 } from './plugins/constraint-compilers.js'
 export { defineFieldKindHookTarget } from './plugins/hook-targets.js'
+export { defineFieldKindAccessTarget } from './plugins/access-targets.js'
+export type {
+	FieldExtensionAccessFactory,
+	FieldExtensionAccessTargetContext,
+	FieldKindAccessFactory,
+	FieldKindAccessTarget,
+	FieldKindAccessTargetContext,
+	PluginAccessContributionOptions,
+	PluginAccessMasterBehavior,
+	PluginAccessRegistry,
+	PluginAccessTargetKind,
+	SchemaExtensionAccessFactory,
+	SchemaExtensionAccessTargetContext,
+} from './plugins/access-targets.js'
 export type {
 	FieldExtensionHookFactory,
 	FieldExtensionHookTargetContext,

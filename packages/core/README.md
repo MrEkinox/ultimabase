@@ -279,6 +279,24 @@ execution method. Its equality, comparison, membership, string, regex,
 existence, and logical methods share Query's field capabilities and normalized
 predicate nodes without exposing the developer Query or its AST.
 
+Application initialization compiles native declarations and owner-bound plugin
+policies once, before infrastructure connects. Plugins contribute through the
+typed `access` setup facade, select exact schema or field targets, and state
+whether audited master requests bypass or enforce their contribution. Omitted
+decisions use the configurable application fallback; it allows both operation
+and field access by default for applications that declare no policy:
+
+```ts
+const ultimabase = new UltimaBase({
+	access: { default: { operation: false, field: true } },
+	schemas: [PostSchema],
+	plugins: [visibilityPlugin],
+})
+```
+
+See [Core Access](docs/access.md) for plugin target examples and compilation
+semantics. Runtime begins evaluating the compiled rules in issue 418.
+
 Neutral declaration helpers keep common policies explicit without creating
 Runtime behavior. A read-only schema can deny every mutation concisely:
 

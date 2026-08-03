@@ -66,6 +66,63 @@ never appear in enumerable schema or field metadata and do not alter inferred
 create, update, or persisted object shapes. Runtime enforcement starts with
 issue 418; declaration alone is intentionally not enforcement yet.
 
+## Compiled plans and plugin policies
+
+Application initialization now compiles one immutable Access plan for every
+schema. Concise schema reads are expanded to `one`, `many`, `count`, and
+`exists` terminals, concise field reads are expanded to `item`, `filter`, and
+`order`, and callbacks remain dormant until Runtime execution. Plugin policies
+are ordered by dependencies, configuration, and registration before native
+developer declarations; denial and row-filter composition remain monotonic.
+
+Plugins use the owner-bound `access` setup facade rather than business hooks or
+untyped contribution registries:
+
+```ts
+const visibilityPlugin = definePlugin({
+	name: 'example.visibility',
+	setup: ({ access }) => {
+		access.schema(
+			'published-posts',
+			Post,
+			{
+				filter: {
+					read: ({ filter }) => filter.equalTo('published', true),
+				},
+			},
+			{ master: 'enforce' },
+		)
+	},
+})
+```
+
+Every contribution explicitly selects `master: 'bypass'` or
+`master: 'enforce'`; Core never applies a permission-plugin-specific bypass.
+The same registry can target every schema, an exact schema, an exact nested
+field path, a schema or field extension, or a typed community field kind.
+Targets are resolved before infrastructure connects, preserve plugin ownership
+for diagnostics, and reject foreign schemas, forged definitions, and duplicate
+plugin-local names.
+
+An application with no matching rule uses its configured fallback. The concise
+boolean applies to operation and field decisions together, while the complete
+form distinguishes them. Omission preserves the framework's permissive
+compatibility default:
+
+```ts
+const ultimabase = new UltimaBase({
+	access: {
+		default: { operation: false, field: true },
+	},
+	schemas: [Post],
+	plugins: [visibilityPlugin],
+})
+```
+
+The plan is private Runtime state: it contains normalized rule references and
+provenance, never request data, filter results, Query AST mutations, or
+per-request placeholder handlers.
+
 ## Request access
 
 `RequestAccess` is a closed discriminated union with exactly two modes:

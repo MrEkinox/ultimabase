@@ -78,7 +78,11 @@ prepared target inside the existing transaction.
 
 Plugins register typed Access contributions through an application-owned
 registry. The registry supports global, schema, field, extension, and field-kind
-targets and preserves dependency-first deterministic ordering.
+targets and preserves dependency-first deterministic ordering. Every
+contribution declares `master: 'bypass'` or `master: 'enforce'`, and target
+resolution plus Access-plan compilation finish before infrastructure connects.
+A concise application default applies to both operation and field decisions,
+while a complete default may distinguish those two levels.
 
 - CLP contributes operation policies.
 - ACL contributes row filters, item checks, and ACL-field restrictions.

@@ -18,6 +18,7 @@ import {
 } from './create-framework-engine.js'
 
 const ultimaBaseOptionKeys = new Set([
+	'access',
 	'masterAuthority',
 	'plugins',
 	'schemas',
@@ -44,6 +45,13 @@ export interface UltimaBaseOptions<
 	 * @example `plugins: [postgresPlugin(), graphqlYogaPlugin()]`
 	 */
 	readonly plugins: TPlugins
+	/**
+	 * Configures the fallback for undeclared native Access decisions.
+	 * @example `access: { default: { operation: false, field: true } }`
+	 */
+	readonly access?: NonNullable<
+		FrameworkApplicationOptions<TSchemas, TPlugins>['access']
+	>
 	/**
 	 * Supplies the optional audited authority used for explicit master access.
 	 *
@@ -125,6 +133,7 @@ export class UltimaBase<
 		assertUltimaBaseOptions(untrustedOptions)
 
 		this.application = new FrameworkApplication({
+			...(options.access === undefined ? {} : { access: options.access }),
 			schemas: options.schemas,
 			plugins: options.plugins,
 		})

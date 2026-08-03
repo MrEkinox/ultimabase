@@ -2,13 +2,9 @@ import {
 	assertNonEmptyString,
 	immutableArray,
 	immutableRecord,
-	isPlainRecord,
-	isUnknownArray,
 } from '@ultimabase/shared'
 
-import { FrameworkError } from '../errors/framework-error.js'
 import {
-	Schema,
 	type ExtensionDefinition,
 	type FieldExtension,
 	type GenericField,
@@ -24,19 +20,28 @@ import type {
 	FieldAtPath,
 	SchemaFieldPath,
 } from '../schema/hooks/field-paths.js'
-import { resolveSchemaFieldPath } from '../schema/hooks/field-paths.js'
 import type { SchemaHooks } from '../schema/hooks/contracts.js'
 import {
 	normalizeSchemaHookDeclarations,
 	type SchemaHookDeclarations,
 } from '../schema/hooks/declarations.js'
-import {
-	assertPluginFieldKind,
-	type AvailablePluginFieldKind,
-} from '../schema/fields/base/kinds.js'
 import { collectFieldTraversalEntries } from '../schema/fields/traversal.js'
+import type { AvailablePluginFieldKind } from '../schema/fields/base/kinds.js'
 import type { SchemaRegistry } from '../schema/schema/registry.js'
 import type { PluginContribution } from './setup-registries.js'
+import {
+	assertOwnedPluginExtension,
+	createPluginFieldKindTarget,
+	getPluginTargetFieldExtensions,
+	pluginExtensionMatches,
+	normalizePluginFieldPath,
+	readPluginFieldKindTarget,
+	resolvePluginTargetField,
+	resolvePluginTargetSchema,
+	runPluginDeclarationFactory,
+	type ErasedPluginDeclarationFactory,
+	type PluginFieldKindTarget,
+} from './declaration-targets.js'
 
 /** Identifies the six declaration scopes available to plugin-owned native hooks. */
 export type PluginHookTargetKind =
@@ -48,12 +53,8 @@ export type PluginHookTargetKind =
 	| 'schema-extension'
 
 /** Retains one exact custom field contract behind a reusable kind selector. */
-export interface FieldKindHookTarget<TField extends GenericField> {
-	/** The namespaced field kind exported by its owning plugin package. */
-	readonly kind: TField['kind']
-}
-
-const fieldKindTargets = new WeakSet<object>()
+export type FieldKindHookTarget<TField extends GenericField> =
+	PluginFieldKindTarget<TField>
 
 /**
  * Creates a typed selector for every field carrying one community field kind.
@@ -69,13 +70,7 @@ const fieldKindTargets = new WeakSet<object>()
  */
 export const defineFieldKindHookTarget = <TField extends GenericField>(
 	kind: AvailablePluginFieldKind<TField['kind']>,
-): FieldKindHookTarget<TField> => {
-	assertPluginFieldKind(kind, 'field hook target kind')
-	const target = immutableRecord({ kind })
-	fieldKindTargets.add(target)
-
-	return target
-}
+): FieldKindHookTarget<TField> => createPluginFieldKindTarget<TField>(kind)
 
 /** Supplies the schema and exact matched extension to a hook factory. */
 export interface SchemaExtensionHookTargetContext<
@@ -165,10 +160,10 @@ interface BaseHookRegistration {
 }
 
 // Public factories are type-checked before this private execution-only erasure.
-type ErasedHookFactory = (context: never) => unknown
+type ErasedHookFactory = ErasedPluginDeclarationFactory
 
 const runHookFactory = (factory: ErasedHookFactory, context: object): unknown =>
-	factory(context as never)
+	runPluginDeclarationFactory(factory, context)
 
 interface GlobalHookRegistration extends BaseHookRegistration {
 	readonly declarations: SchemaHookDeclarations
@@ -263,25 +258,7 @@ const assertDeclarations = <TDeclarations extends object>(
 }
 
 const normalizeFieldPath = (path: unknown): readonly [string, ...string[]] => {
-	if (!isUnknownArray(path) || path.length === 0) {
-		throw new TypeError(
-			'Plugin hook field path must be a non-empty segment list',
-		)
-	}
-
-	const [firstSegment, ...remainingSegments] = path
-	assertNonEmptyString(firstSegment, 'plugin hook field path[0]')
-	const normalizedPath: [string, ...string[]] = [firstSegment]
-
-	for (const [index, segment] of remainingSegments.entries()) {
-		assertNonEmptyString(
-			segment,
-			`plugin hook field path[${String(index + 1)}]`,
-		)
-		normalizedPath.push(segment)
-	}
-
-	return immutableArray(normalizedPath)
+	return normalizePluginFieldPath(path, 'hook')
 }
 
 const createRegistrationDefinition = (
@@ -302,34 +279,7 @@ const assertExtensionTarget: (
 	string,
 	object
 > = (ownerPlugin, extension, scope) => {
-	if (
-		!isPlainRecord(extension) ||
-		extension.scope !== scope ||
-		typeof extension.name !== 'string' ||
-		typeof extension.pluginName !== 'string' ||
-		!isPlainRecord(extension.config)
-	) {
-		throw new TypeError(`Plugin hook target must be a ${scope} extension`)
-	}
-
-	assertNonEmptyString(extension.name, 'plugin hook extension name')
-	assertNonEmptyString(extension.pluginName, 'plugin hook extension pluginName')
-
-	if (extension.pluginName !== ownerPlugin) {
-		throw new FrameworkError(
-			'PLUGIN_CONFLICT',
-			`Plugin "${ownerPlugin}" cannot target extension "${extension.name}" owned by plugin "${extension.pluginName}".`,
-			{
-				internalDetails: {
-					kind: 'foreign-hook-extension',
-					extensionName: extension.name,
-					extensionScope: scope,
-					ownerPlugin,
-					targetPlugin: extension.pluginName,
-				},
-			},
-		)
-	}
+	assertOwnedPluginExtension(ownerPlugin, extension, scope, 'hook')
 }
 
 interface CreatePluginHookRegistryOptions {
@@ -423,9 +373,14 @@ export const createPluginHookRegistry = ({
 			})
 		},
 		fieldKind: (name, target, factory): void => {
-			if (!isPlainRecord(target) || !fieldKindTargets.has(target)) {
+			let kind: string
+
+			try {
+				kind = readPluginFieldKindTarget(target)
+			} catch (cause: unknown) {
 				throw new TypeError(
 					'Field-kind hook target must be created by defineFieldKindHookTarget',
+					{ cause },
 				)
 			}
 
@@ -435,7 +390,7 @@ export const createPluginHookRegistry = ({
 
 			registerHook(name, {
 				factory,
-				kind: target.kind,
+				kind,
 				targetKind: 'field-kind',
 			})
 		},
@@ -447,35 +402,14 @@ export const createPluginHookRegistry = ({
 const extensionMatches = (
 	actual: ExtensionDefinition<'field' | 'schema', string, object>,
 	target: ExtensionDefinition<'field' | 'schema', string, object>,
-): boolean =>
-	actual.scope === target.scope &&
-	actual.name === target.name &&
-	actual.pluginName === target.pluginName
+): boolean => pluginExtensionMatches(actual, target)
 
 const resolveOwnedSchema = (
 	schemas: SchemaRegistry,
 	schema: SchemaDefinition,
 	registration: BaseHookRegistration,
 ): SchemaDefinition => {
-	const isSchema = Schema.is(schema)
-	const schemaClassName = isSchema ? schema.className : '<invalid-schema>'
-
-	if (!isSchema || schemas.get(schemaClassName) !== schema) {
-		throw new FrameworkError(
-			'PLUGIN_CONFLICT',
-			`Plugin hook "${registration.localName}" references a schema outside this application.`,
-			{
-				internalDetails: {
-					kind: 'foreign-hook-schema',
-					localName: registration.localName,
-					ownerPlugin: registration.ownerPlugin,
-					schemaClassName,
-				},
-			},
-		)
-	}
-
-	return schema
+	return resolvePluginTargetSchema(schemas, schema, registration, 'hook')
 }
 
 const resolveExactField = (
@@ -483,24 +417,7 @@ const resolveExactField = (
 	path: readonly [string, ...string[]],
 	registration: BaseHookRegistration,
 ): GenericField => {
-	try {
-		return resolveSchemaFieldPath(schema, path)
-	} catch (cause: unknown) {
-		throw new FrameworkError(
-			'PLUGIN_CONFLICT',
-			`Plugin hook "${registration.localName}" references an invalid field path in schema "${schema.className}".`,
-			{
-				cause,
-				internalDetails: {
-					kind: 'invalid-hook-field-path',
-					localName: registration.localName,
-					ownerPlugin: registration.ownerPlugin,
-					path: immutableArray(path),
-					schemaClassName: schema.className,
-				},
-			},
-		)
-	}
+	return resolvePluginTargetField(schema, path, registration, 'hook')
 }
 
 const createSchemaMatch = (
@@ -521,42 +438,10 @@ const createFieldMatch = (
 		schema,
 	})
 
-const emptyFieldExtensions: readonly FieldExtension<string, object>[] =
-	immutableArray([])
-
-const isFieldExtension = (
-	value: unknown,
-): value is FieldExtension<string, object> =>
-	isPlainRecord(value) &&
-	value.scope === 'field' &&
-	typeof value.name === 'string' &&
-	value.name.length > 0 &&
-	typeof value.pluginName === 'string' &&
-	value.pluginName.length > 0 &&
-	isPlainRecord(value.config)
-
 const getFieldExtensions = (
 	field: GenericField,
-): readonly FieldExtension<string, object>[] => {
-	const extensions: unknown =
-		'extensions' in field.options ? field.options.extensions : undefined
-
-	if (!isUnknownArray(extensions)) {
-		return emptyFieldExtensions
-	}
-
-	const normalizedExtensions: FieldExtension<string, object>[] = []
-
-	for (const extension of extensions) {
-		if (!isFieldExtension(extension)) {
-			throw new TypeError('Invalid field extension in plugin hook target')
-		}
-
-		normalizedExtensions.push(extension)
-	}
-
-	return immutableArray(normalizedExtensions)
-}
+): readonly FieldExtension<string, object>[] =>
+	getPluginTargetFieldExtensions(field, 'hook')
 
 /** Resolves every opaque native target after setup but before infrastructure starts. */
 export const resolvePluginHookTargets = (

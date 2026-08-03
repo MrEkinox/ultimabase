@@ -16,6 +16,11 @@ import {
 	type PluginHookRegistry,
 } from './hook-targets.js'
 import {
+	createPluginAccessRegistry,
+	resolvePluginAccessTargets,
+	type PluginAccessRegistry,
+} from './access-targets.js'
+import {
 	ServiceRegistry,
 	type PluginServiceRegistry,
 } from '../services/service-registry.js'
@@ -29,6 +34,7 @@ export interface PluginContribution {
 
 /** Names every setup contribution category addressable after initialization. */
 export type PluginContributionCategory =
+	| 'access'
 	| 'commands'
 	| 'events'
 	| 'extensions'
@@ -220,6 +226,8 @@ export interface PluginSetupContext {
 	readonly schemas: SchemaRegistry
 	readonly services: PluginServiceRegistry
 	readonly registries: PluginContributionRegistries
+	/** Registers native Access policies with ownership fixed to this plugin. */
+	readonly access: PluginAccessRegistry
 	/** Registers native hooks with ownership fixed to the current setup plugin. */
 	readonly hooks: PluginHookRegistry
 	/** Registers adapter constraint compilers with owner-derived provenance. */
@@ -237,6 +245,8 @@ export class PluginSetupRegistries {
 	readonly pipelines: ContributionRegistry = new ContributionRegistry()
 	readonly events: ContributionRegistry = new ContributionRegistry()
 	readonly commands: ContributionRegistry = new ContributionRegistry()
+	// Access definitions stay behind their typed facade and cannot be forged through registries.
+	readonly access: ContributionRegistry = new ContributionRegistry()
 	// Compiler identities reuse contribution storage behind a narrower typed facade.
 	readonly constraintCompilers: ContributionRegistry =
 		new ContributionRegistry()
@@ -246,6 +256,7 @@ export class PluginSetupRegistries {
 	readonly #contexts = new Map<string, PluginSetupContext>()
 	#setupOpen = true
 	#hookTargetsResolved = false
+	#accessTargetsResolved = false
 
 	constructor(
 		readonly schemas: SchemaRegistry,
@@ -253,6 +264,7 @@ export class PluginSetupRegistries {
 	) {
 		this.services = services
 		this.#contributionRegistries = immutableRecord({
+			access: this.access,
 			commands: this.commands,
 			events: this.events,
 			extensions: this.extensions,
@@ -296,6 +308,20 @@ export class PluginSetupRegistries {
 		this.#hookTargetsResolved = true
 	}
 
+	/** Resolves native Access selectors after every setup declaration is available. */
+	resolveAccessTargets(): void {
+		if (this.#setupOpen) {
+			throw new TypeError('Plugin Access targets require completed setup')
+		}
+
+		if (this.#accessTargetsResolved) {
+			return
+		}
+
+		resolvePluginAccessTargets(this.schemas, this.access.values())
+		this.#accessTargetsResolved = true
+	}
+
 	/** Returns one stable owner-bound setup context for a plugin name. */
 	forPlugin(pluginName: string): PluginSetupContext {
 		assertNonEmptyString(pluginName, 'pluginName')
@@ -309,6 +335,13 @@ export class PluginSetupRegistries {
 		const context = immutableRecord({
 			schemas: this.schemas,
 			services: this.services.forPlugin(pluginName),
+			access: createPluginAccessRegistry({
+				isOpen: (): boolean => this.#setupOpen,
+				ownerPlugin: pluginName,
+				register: (name: string, value: unknown): void => {
+					registerPluginLocalContribution(this.access, pluginName, name, value)
+				},
+			}),
 			constraintCompilers: createPluginConstraintCompilerRegistry({
 				isOpen: (): boolean => this.#setupOpen,
 				ownerPlugin: pluginName,

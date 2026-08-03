@@ -79,6 +79,7 @@ describe('packed @ultimabase/core native Access contract', () => {
 	it('exposes concise documented Access helpers from the package root', () => {
 		expect(readHoverDisplay('allow-all')).toContain('true')
 		expect(readHoverDisplay('all-mutations')).toContain('allMutations')
+		expect(readHoverDisplay('plugin-access')).toContain('PluginAccessRegistry')
 	})
 
 	it('keeps native declarations outside the public Schema shape', () => {

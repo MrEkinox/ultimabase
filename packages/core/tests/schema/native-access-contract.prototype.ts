@@ -4,6 +4,7 @@ import {
 	allMutations,
 	allowAll,
 	booleanField,
+	definePlugin,
 	denyAll,
 	stringField,
 } from '../../src/index.js'
@@ -73,3 +74,15 @@ export const AccessPost = Schema.define({
 })
 
 export const /* hover:schema-definition */ accessPostSchema = AccessPost
+
+export const fixtureAccessProvider = definePlugin({
+	name: 'fixture.access-provider',
+	setup: ({ /* hover:plugin-access */ access }) => {
+		access.schema(
+			'published-posts',
+			AccessPost,
+			{ filter: { read: ({ filter }) => filter.equalTo('published', true) } },
+			{ master: 'enforce' },
+		)
+	},
+})

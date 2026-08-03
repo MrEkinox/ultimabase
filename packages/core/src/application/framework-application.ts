@@ -3,7 +3,11 @@ import {
 	SchemaRegistry,
 	type SchemaDefinition,
 } from '../schema/index.js'
-import { isPlainRecord, isUnknownArray } from '@ultimabase/shared'
+import {
+	immutableRecord,
+	isPlainRecord,
+	isUnknownArray,
+} from '@ultimabase/shared'
 
 import {
 	type PluginDefinition,
@@ -22,6 +26,7 @@ import type {
 	PluginContributionCategory,
 } from '../plugins/setup-registries.js'
 import type { ServiceToken } from '../services/service-token.js'
+import { compileApplicationAccessPlan } from '../schema/access/plan.js'
 
 /** Recursively retains top-level and composition-nested plugin definitions. */
 export type ConfiguredPlugin<TPlugins extends readonly PluginDefinition[]> =
@@ -68,6 +73,90 @@ export interface FrameworkApplicationOptions<
 	 * @example `plugins: [postgresPlugin(), graphqlYogaPlugin()]`
 	 */
 	readonly plugins: TPlugins
+	/**
+	 * Configures the fallback used only when no matching Access rule exists.
+	 * @example `access: { default: { operation: false, field: true } }`
+	 */
+	readonly access?: FrameworkAccessOptions
+}
+
+/** Distinguishes undeclared operation and field decisions when required. */
+export interface FrameworkAccessDefaultPolicy {
+	readonly field: boolean
+	readonly operation: boolean
+}
+
+/** Accepts one concise fallback or one complete level-specific policy. */
+export interface FrameworkAccessOptions {
+	/**
+	 * Applies one fallback to both levels or requires both explicit branches.
+	 * @default true
+	 * @example `default: false`
+	 */
+	readonly default?: boolean | FrameworkAccessDefaultPolicy
+}
+
+const allowAllAccessDefaults: FrameworkAccessDefaultPolicy = immutableRecord({
+	field: true,
+	operation: true,
+})
+
+const normalizeAccessDefaults = (
+	access: unknown,
+): FrameworkAccessDefaultPolicy => {
+	if (access === undefined) {
+		return allowAllAccessDefaults
+	}
+
+	if (!isPlainRecord(access)) {
+		throw new TypeError('application access must be a plain object')
+	}
+
+	for (const key of Reflect.ownKeys(access)) {
+		if (key !== 'default') {
+			throw new TypeError(`Unknown application Access option: ${String(key)}`)
+		}
+	}
+
+	const defaultPolicy: unknown = access.default
+
+	if (defaultPolicy === undefined) {
+		return allowAllAccessDefaults
+	}
+
+	if (typeof defaultPolicy === 'boolean') {
+		return immutableRecord({
+			field: defaultPolicy,
+			operation: defaultPolicy,
+		})
+	}
+
+	if (!isPlainRecord(defaultPolicy)) {
+		throw new TypeError(
+			'application access.default must be a boolean or plain object',
+		)
+	}
+
+	for (const key of Reflect.ownKeys(defaultPolicy)) {
+		if (key !== 'field' && key !== 'operation') {
+			throw new TypeError(`Unknown application Access default: ${String(key)}`)
+		}
+	}
+
+	if (typeof defaultPolicy.operation !== 'boolean') {
+		throw new TypeError(
+			'application access.default.operation must be a boolean',
+		)
+	}
+
+	if (typeof defaultPolicy.field !== 'boolean') {
+		throw new TypeError('application access.default.field must be a boolean')
+	}
+
+	return immutableRecord({
+		field: defaultPolicy.field,
+		operation: defaultPolicy.operation,
+	})
 }
 
 const assertApplicationOptions: (
@@ -95,6 +184,7 @@ export class FrameworkApplication<
 	const TPlugins extends readonly PluginDefinition[],
 > {
 	readonly schemas: SchemaRegistry<TSchemas>
+	readonly accessDefaults: FrameworkAccessDefaultPolicy
 	readonly #setupRegistries: PluginSetupRegistries
 	readonly #lifecycle: PluginLifecycleManager
 	#initializePromise: Promise<this> | undefined
@@ -106,6 +196,7 @@ export class FrameworkApplication<
 		assertApplicationOptions(untrustedOptions)
 
 		this.schemas = new SchemaRegistry(options.schemas)
+		this.accessDefaults = normalizeAccessDefaults(options.access)
 
 		const graph = new PluginGraph(normalizePlugins(options.plugins))
 		this.#setupRegistries = new PluginSetupRegistries(this.schemas)
@@ -215,6 +306,8 @@ export class FrameworkApplication<
 				this.#setupRegistries.extensions,
 			)
 			this.#setupRegistries.resolveHookTargets()
+			this.#setupRegistries.resolveAccessTargets()
+			compileApplicationAccessPlan(this)
 
 			return this
 		} catch (error: unknown) {

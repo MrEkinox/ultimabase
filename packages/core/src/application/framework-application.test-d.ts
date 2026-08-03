@@ -22,6 +22,7 @@ test('infers schemas and top-level plugin exports from application options', asy
 		setup: () => Promise.resolve({ dialect: 'postgres' as const }),
 	})
 	const application = await createApplication({
+		access: { default: { field: true, operation: false } },
 		schemas: [schema],
 		plugins: [plugin],
 	})
@@ -33,6 +34,10 @@ test('infers schemas and top-level plugin exports from application options', asy
 		typeof schema | undefined
 	>()
 	expectTypeOf(application.ownsSchema(schema)).toBeBoolean()
+	expectTypeOf(application.accessDefaults).toEqualTypeOf<{
+		readonly field: boolean
+		readonly operation: boolean
+	}>()
 	const unknownSchema: unknown = schema
 
 	if (application.ownsSchema(unknownSchema)) {

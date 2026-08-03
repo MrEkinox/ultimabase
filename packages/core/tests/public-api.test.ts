@@ -55,6 +55,7 @@ describe('@ultimabase/core public entry point', () => {
 			'defineDatabaseConstraintCompiler',
 			'defineExtensions',
 			'defineFieldExtension',
+			'defineFieldKindAccessTarget',
 			'defineFieldKindHookTarget',
 			'definePlugin',
 			'definePluginField',

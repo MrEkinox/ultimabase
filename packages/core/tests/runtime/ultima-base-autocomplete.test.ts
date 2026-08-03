@@ -12,6 +12,7 @@ interface IntelliSenseDocumentation {
 }
 
 const ultimaBaseOptionNames = [
+	'access',
 	'masterAuthority',
 	'plugins',
 	'schemas',

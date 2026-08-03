@@ -187,6 +187,28 @@ Schema.define({
 		])
 	})
 
+	it('documents every plugin Access target from the setup facade', () => {
+		const completions = readMemberCompletions(`
+import { definePlugin } from '../../src/index.js'
+
+definePlugin({
+	name: 'fixture.access',
+	setup: ({ access }) => {
+		access./* completion */
+	},
+})
+`)
+
+		expectDocumentedNames(completions, [
+			'field',
+			'fieldExtension',
+			'fieldKind',
+			'global',
+			'schema',
+			'schemaExtension',
+		])
+	})
+
 	it.each(['allowAll', 'denyAll', 'allOperations', 'allMutations'])(
 		'documents the %s helper from the package root',
 		(helperName) => {
