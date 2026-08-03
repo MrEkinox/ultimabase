@@ -98,7 +98,7 @@ dependencies are incomplete.
 15. [x] [333 — Protect hook execution and expose diagnostics](issues/300-query-runtime/333-hook-safety-and-observability.md)
 16. [x] [340 — Expose the native HookContext class](issues/300-query-runtime/340-hook-context-class.md)
 17. [x] [339 — Define constructible schema model classes](issues/300-query-runtime/339-constructible-schema-models.md)
-18. [ ] [347 — Execute Query terminals through the current context](issues/300-query-runtime/347-contextual-query-terminals.md)
+18. [x] [347 — Execute Query terminals through the current context](issues/300-query-runtime/347-contextual-query-terminals.md)
 19. [ ] [345 — Add concise singular terminal aliases](issues/300-query-runtime/345-singular-terminal-aliases.md)
 20. [ ] [348 — Add terminal-only Query authority options](issues/300-query-runtime/348-query-terminal-authority.md)
 21. [ ] [349 — Add immutable model persistence commands](issues/300-query-runtime/349-immutable-model-persistence.md)
@@ -130,12 +130,13 @@ the named Runtime stages and proven monotonic hook enforcement.
 
 ## Current issue
 
-[347 — Execute Query terminals through the current context](issues/300-query-runtime/347-contextual-query-terminals.md)
+[345 — Add concise singular terminal aliases](issues/300-query-runtime/345-singular-terminal-aliases.md)
 
-Issue 347 moves every terminal onto Query, issue 345 adds concise aliases, issue
-348 adds authority options, and issue 349 finally exposes immutable instance
-persistence commands. Issue 339 has already established constructible schema
-classes, static Query access, typed drafts, and exact persisted result identity.
+Issue 347 has moved every terminal onto Query. Issue 345 now adds concise
+singular aliases, issue 348 adds authority options, and issue 349 finally
+exposes immutable instance persistence commands. Issue 339 has already
+established constructible schema classes, static Query access, typed drafts,
+and exact persisted result identity.
 
 ## Progress log
 
@@ -159,7 +160,7 @@ without reconstructing repository history.
 - 333 — `done` — One application-owned executor now gives every native, low-level, enforcement, and finalization hook stable structural recursion protection, cooperative cancellation, immutable correlation context, and isolated redacted diagnostics.
 - 340 — `done` — Runtime-owned HookContext now exposes exact revocable nested queries, immutable request and hook identity, capability checks, and named JSON events buffered on the outer transaction for ordered post-commit delivery.
 - 339 — `done` — Schema.define now produces the registered schema class, immutable typed drafts, fresh static Query branches, neutral infrastructure metadata, and exact selection-aware Runtime model results.
-- 347 — `planned` — Direct Query terminals will resolve ambient or explicit application ownership while preserving every hook safety guarantee.
+- 347 — `done` — Every immutable Query now owns exact terminals that resolve the active request or an explicit UltimaBase instance while preserving hook transaction safety and application isolation.
 - 345 — `planned` — Concise singular aliases complete the terminal vocabulary directly on the consolidated Query API.
 - 348 — `planned` — Terminal-only session and master options will give trusted backend code explicit authority without exposing it to transports.
 - 349 — `planned` — Immutable model commands will delegate create, upsert, update, and delete through the same contextual Query pipeline.

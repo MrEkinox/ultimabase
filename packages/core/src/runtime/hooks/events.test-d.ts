@@ -10,7 +10,7 @@ test('onEvent preserves exact event names and payload contracts', () => {
 			expectTypeOf(event.payload).toEqualTypeOf<{
 				readonly postId: string
 			}>()
-			expectTypeOf(context).toHaveProperty('query')
+			expectTypeOf(context).not.toHaveProperty('query')
 		},
 	})
 

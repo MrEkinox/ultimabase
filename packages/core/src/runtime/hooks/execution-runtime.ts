@@ -13,6 +13,7 @@ import type {
 	HookExecutionContext,
 	SchemaDefinition,
 } from '../../schema/index.js'
+import { runWithQueryExecutionGuard } from '../../query/operations/execution.js'
 import {
 	immutableArray,
 	immutableRecord,
@@ -207,12 +208,6 @@ const createRecursionError = (
 
 /** Owns one application's immutable hook stack and safe diagnostic observer. */
 export class HookExecutionRuntime {
-	readonly #application:
-		| FrameworkApplication<
-				readonly SchemaDefinition[],
-				readonly PluginDefinition[]
-		  >
-		| undefined
 	readonly #eventHandlers: readonly OwnedHookEventHandler[]
 	readonly #observer: HookDiagnosticsObserver | undefined
 	readonly #storage = new AsyncLocalStorage<HookExecutionState>()
@@ -228,7 +223,6 @@ export class HookExecutionRuntime {
 			throw new TypeError('Hook diagnostics observer must be a function')
 		}
 
-		this.#application = application
 		this.#eventHandlers = collectHookEventHandlers(application)
 		this.#observer = observer
 		Object.freeze(this)
@@ -274,7 +268,6 @@ export class HookExecutionRuntime {
 		])
 		const startedAt = this.#observer === undefined ? 0 : performance.now()
 		const contextScope = createRuntimeHookContext({
-			application: this.#application,
 			emit: (emission) => {
 				this.#emit(emission)
 			},
@@ -284,51 +277,65 @@ export class HookExecutionRuntime {
 			transactionId: correlation.transactionId,
 		})
 
-		return this.#storage.run({ stack: nextStack }, async () => {
-			let outcome: HookInvocationOutcome<TResult>
+		return this.#storage.run({ stack: nextStack }, () =>
+			runWithQueryExecutionGuard(contextScope.queryGuard, async () => {
+				let outcome: HookInvocationOutcome<TResult>
 
-			try {
-				outcome = immutableRecord({
-					status: 'fulfilled' as const,
-					value: await callback(contextScope.context),
-				})
-			} catch (error: unknown) {
-				outcome = immutableRecord({ error, status: 'rejected' as const })
-			}
-
-			try {
-				await contextScope.lifetime.close()
-			} catch (closeError: unknown) {
-				outcome =
-					outcome.status === 'rejected'
-						? immutableRecord({
-								error: combineHookFailures(outcome.error, closeError),
-								status: 'rejected' as const,
-							})
-						: immutableRecord({
-								error: closeError,
-								status: 'rejected' as const,
-							})
-			}
-
-			if (outcome.status === 'fulfilled' && cancellable) {
 				try {
-					throwIfOperationCancelled(contextScope.context.signal, {
-						operationKind: descriptor.identity.operationKind,
-						phase: descriptor.identity.phase,
+					outcome = immutableRecord({
+						status: 'fulfilled' as const,
+						value: await callback(contextScope.context),
 					})
 				} catch (error: unknown) {
 					outcome = immutableRecord({ error, status: 'rejected' as const })
 				}
-			}
 
-			if (outcome.status === 'rejected') {
-				const { error } = outcome
-				const status =
-					error instanceof FrameworkError &&
-					error.code === 'OPERATION_CANCELLED'
-						? 'cancelled'
-						: 'failed'
+				try {
+					await contextScope.lifetime.close()
+				} catch (closeError: unknown) {
+					outcome =
+						outcome.status === 'rejected'
+							? immutableRecord({
+									error: combineHookFailures(outcome.error, closeError),
+									status: 'rejected' as const,
+								})
+							: immutableRecord({
+									error: closeError,
+									status: 'rejected' as const,
+								})
+				}
+
+				if (outcome.status === 'fulfilled' && cancellable) {
+					try {
+						throwIfOperationCancelled(contextScope.context.signal, {
+							operationKind: descriptor.identity.operationKind,
+							phase: descriptor.identity.phase,
+						})
+					} catch (error: unknown) {
+						outcome = immutableRecord({ error, status: 'rejected' as const })
+					}
+				}
+
+				if (outcome.status === 'rejected') {
+					const { error } = outcome
+					const status =
+						error instanceof FrameworkError &&
+						error.code === 'OPERATION_CANCELLED'
+							? 'cancelled'
+							: 'failed'
+
+					this.#notify(
+						this.#createDiagnosticEvent(
+							descriptor,
+							contextScope.context,
+							parentStack.length,
+							startedAt,
+							status,
+							error,
+						),
+					)
+					throw error
+				}
 
 				this.#notify(
 					this.#createDiagnosticEvent(
@@ -336,25 +343,13 @@ export class HookExecutionRuntime {
 						contextScope.context,
 						parentStack.length,
 						startedAt,
-						status,
-						error,
+						'succeeded',
 					),
 				)
-				throw error
-			}
 
-			this.#notify(
-				this.#createDiagnosticEvent(
-					descriptor,
-					contextScope.context,
-					parentStack.length,
-					startedAt,
-					'succeeded',
-				),
-			)
-
-			return outcome.value
-		})
+				return outcome.value
+			}),
+		)
 	}
 
 	/** Queues one named event on the exact transaction inherited by this hook. */

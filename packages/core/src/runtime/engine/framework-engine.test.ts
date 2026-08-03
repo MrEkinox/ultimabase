@@ -170,37 +170,28 @@ describe('FrameworkEngine', () => {
 		expect(Object.isFrozen(user)).toBe(true)
 	})
 
-	it('binds immutable queries only to schemas owned by the application', () => {
+	it('validates immutable query ownership only when a terminal executes', async () => {
 		const framework = createFixtureFramework(articleSchema)
 		const request = framework.user('user-1', {
 			requestId: 'query-1',
 			source: requestSources.internal,
 		})
-		const query = request.query(articleSchema).equalTo('title', 'UltimaBase')
+		const query = articleSchema.query().equalTo('title', 'UltimaBase')
+		const foreignOperation = {
+			kind: 'find',
+			query: matchingClassSchema.query().ast,
+		} satisfies FindOperationAst<typeof matchingClassSchema>
 
-		expect(query.engine).toBe(request)
+		expect('engine' in query).toBe(false)
 		expect(query.schema).toBe(articleSchema)
 		expect(query.ast.where).toBeDefined()
-		expect(() => request.query(matchingClassSchema)).toThrow(
+		await expect(request.execute(foreignOperation)).rejects.toStrictEqual(
 			new FrameworkError(
 				'VALIDATION_ERROR',
 				'Schema does not belong to this application: Article',
 				{
 					publicMessage: 'The requested schema is not available.',
 					internalDetails: { className: 'Article' },
-				},
-			),
-		)
-		expect(() =>
-			// @ts-expect-error -- Runtime validation protects JavaScript callers.
-			request.query(undefined),
-		).toThrow(
-			new FrameworkError(
-				'VALIDATION_ERROR',
-				'Schema does not belong to this application: unknown',
-				{
-					publicMessage: 'The requested schema is not available.',
-					internalDetails: { className: 'unknown' },
 				},
 			),
 		)
@@ -470,10 +461,12 @@ describe('FrameworkEngine', () => {
 			expect(secondResult[0]?.toJSON()).toStrictEqual(articleRecord('second'))
 			expect(firstContexts).toStrictEqual([firstRequest.context])
 			expect(secondContexts).toStrictEqual([secondRequest.context])
-			expect(() => firstRequest.query(matchingClassSchema)).toThrow(
-				FrameworkError,
-			)
-			expect(() => secondRequest.query(articleSchema)).toThrow(FrameworkError)
+			await expect(
+				firstRequest.execute(secondOperation),
+			).rejects.toBeInstanceOf(FrameworkError)
+			await expect(
+				secondRequest.execute(articleOperation),
+			).rejects.toBeInstanceOf(FrameworkError)
 		},
 	)
 

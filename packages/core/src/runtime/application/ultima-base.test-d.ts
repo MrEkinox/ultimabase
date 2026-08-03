@@ -6,8 +6,8 @@ import {
 	databaseAdapterServiceToken,
 	type DatabaseAdapter,
 	UltimaBase,
-	type UltimaBaseQuery,
 } from '../index.js'
+import type { InferQueryResult, Query } from '../../query/index.js'
 
 const articleSchema = Schema.define({
 	className: 'TypedUltimaBaseArticle',
@@ -40,8 +40,11 @@ test('preserves exact schema and plugin tuples behind the concise facade', () =>
 			readonly [typeof databasePlugin]
 		>
 	>()
-	expectTypeOf(ultimabase.query(articleSchema)).toEqualTypeOf<
-		UltimaBaseQuery<typeof articleSchema>
+	expectTypeOf(articleSchema.query()).toEqualTypeOf<
+		Query<typeof articleSchema>
+	>()
+	expectTypeOf(articleSchema.query().find({ ultimabase })).toEqualTypeOf<
+		Promise<readonly InferQueryResult<typeof articleSchema>[]>
 	>()
 	expectTypeOf(
 		ultimabase.application.getPlugin(databasePlugin.name),
@@ -52,8 +55,8 @@ test('preserves exact schema and plugin tuples behind the concise facade', () =>
 	expectTypeOf(ultimabase.stop()).toEqualTypeOf<Promise<void>>()
 	expectTypeOf(ultimabase.dispose()).toEqualTypeOf<Promise<void>>()
 
-	// @ts-expect-error -- Only exact schemas configured by this facade are queryable.
-	ultimabase.query(otherSchema)
+	// Ownership remains a Runtime identity check because Query stays application-free.
+	void otherSchema.query().find({ ultimabase })
 	new UltimaBase({
 		schemas: [articleSchema],
 		plugins: [databasePlugin],

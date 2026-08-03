@@ -20,6 +20,7 @@ import {
 	objectField,
 	Query,
 	requestSources,
+	runWithRequestEngine,
 	stringField,
 	timeField,
 	uuidField,
@@ -72,12 +73,12 @@ const HookPostSchema = Schema.define({
 		title: stringField({ validation: { required: true } }),
 	},
 	hooks: {
-		beforeCreate: async ({ context, operation }) => {
+		beforeCreate: async ({ operation }) => {
 			if (operation.kind !== 'create-one') {
 				return operation
 			}
 
-			await context.query(HookAuditSchema).create({
+			await HookAuditSchema.query().create({
 				action: `create:${operation.input.title}`,
 			})
 
@@ -175,13 +176,13 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 		await ultimabase.start()
 
 		try {
-			const committed = await ultimabase
-				.query(HookPostSchema)
-				.create({ title: 'commit' })
-			const audits = await ultimabase
-				.query(HookAuditSchema)
+			const committed = await HookPostSchema.query().create(
+				{ title: 'commit' },
+				{ ultimabase },
+			)
+			const audits = await HookAuditSchema.query()
 				.select('action')
-				.find()
+				.find({ ultimabase })
 
 			expect(committed).toBeInstanceOf(HookPostSchema)
 			expect(committed.toJSON()).toMatchObject({ title: 'commit' })
@@ -193,16 +194,17 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 			])
 
 			await expect(
-				ultimabase.query(HookPostSchema).create({ title: 'rollback' }),
+				HookPostSchema.query().create({ title: 'rollback' }, { ultimabase }),
 			).rejects.toBe(hookRollbackError)
 			await expect(
-				ultimabase.query(HookPostSchema).equalTo('title', 'rollback').exists(),
+				HookPostSchema.query()
+					.equalTo('title', 'rollback')
+					.exists({ ultimabase }),
 			).resolves.toBe(false)
 			await expect(
-				ultimabase
-					.query(HookAuditSchema)
+				HookAuditSchema.query()
 					.equalTo('action', 'create:rollback')
-					.exists(),
+					.exists({ ultimabase }),
 			).resolves.toBe(false)
 		} finally {
 			await ultimabase.dispose()
@@ -237,7 +239,9 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 
 		try {
 			// One live row exercises every built-in field kind across the public boundary.
-			const created = await ultimabase.query(PostSchema).create(allFieldValues)
+			const created = await PostSchema.query().create(allFieldValues, {
+				ultimabase,
+			})
 
 			expect(created).toBeInstanceOf(PostSchema)
 			expect(created).toMatchObject({
@@ -250,26 +254,27 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 			expect(created.id).toMatch(uuidV7Pattern)
 			expect(created.attachment).not.toBe(allFieldValues.attachment)
 
-			const found = await ultimabase
-				.query(PostSchema)
+			const found = await PostSchema.query()
 				.equalTo('published', false)
 				.greaterThanOrEqualTo('views', 0)
 				.select('id', 'title')
-				.find()
+				.find({ ultimabase })
 
 			expect(found.every((post) => post instanceof PostSchema)).toBe(true)
 			expect(found.map((post) => post.toJSON())).toStrictEqual([
 				{ id: created.id, title: 'First real E2E' },
 			])
 
-			const updated = await ultimabase
-				.query(PostSchema)
+			const updated = await PostSchema.query()
 				.equalTo('id', created.id)
 				.select('id', 'published', 'title', 'updatedAt', 'views')
-				.updateOne({
-					increment: { views: 2 },
-					set: { published: true, title: 'Persisted E2E' },
-				})
+				.updateOne(
+					{
+						increment: { views: 2 },
+						set: { published: true, title: 'Persisted E2E' },
+					},
+					{ ultimabase },
+				)
 
 			expect(updated).toBeInstanceOf(PostSchema)
 			expect(updated?.toJSON()).toStrictEqual({
@@ -280,11 +285,10 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 				views: 2,
 			})
 
-			const deleted = await ultimabase
-				.query(PostSchema)
+			const deleted = await PostSchema.query()
 				.equalTo('id', created.id)
 				.select('id', 'title')
-				.deleteOne()
+				.deleteOne({ ultimabase })
 
 			expect(deleted).toBeInstanceOf(PostSchema)
 			expect(deleted?.toJSON()).toStrictEqual({
@@ -292,10 +296,12 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 				title: 'Persisted E2E',
 			})
 			await expect(
-				ultimabase.query(PostSchema).equalTo('id', created.id).find(),
+				PostSchema.query().equalTo('id', created.id).find({ ultimabase }),
 			).resolves.toStrictEqual([])
-			await expect(ultimabase.query(PostSchema).count()).resolves.toBe(0)
-			await expect(ultimabase.query(PostSchema).exists()).resolves.toBe(false)
+			await expect(PostSchema.query().count({ ultimabase })).resolves.toBe(0)
+			await expect(PostSchema.query().exists({ ultimabase })).resolves.toBe(
+				false,
+			)
 		} finally {
 			await ultimabase.dispose()
 		}
@@ -336,18 +342,17 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 		const rollbackError = new Error('rollback transaction fixture')
 
 		try {
-			const committed = await request.transaction((transaction) =>
-				transaction
-					.query(PostSchema)
-					.create({ title: 'Committed transaction' }),
+			const committed = await request.transaction(() =>
+				PostSchema.query().create({ title: 'Committed transaction' }),
 			)
 			expect(committed).toBeInstanceOf(PostSchema)
 
-			const found = await request
-				.query(PostSchema)
-				.equalTo('id', committed.id)
-				.select('id', 'title')
-				.first()
+			const found = await runWithRequestEngine(request, () =>
+				PostSchema.query()
+					.equalTo('id', committed.id)
+					.select('id', 'title')
+					.first(),
+			)
 
 			expect(found).toBeInstanceOf(PostSchema)
 			expect(found?.toJSON()).toStrictEqual({
@@ -356,21 +361,24 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 			})
 
 			await expect(
-				request.transaction(async (transaction) => {
-					await transaction
-						.query(PostSchema)
-						.create({ title: 'Rolled back transaction' })
+				request.transaction(async () => {
+					await PostSchema.query().create({
+						title: 'Rolled back transaction',
+					})
 					throw rollbackError
 				}),
 			).rejects.toBe(rollbackError)
 			await expect(
-				request
-					.query(PostSchema)
-					.equalTo('title', 'Rolled back transaction')
-					.exists(),
+				runWithRequestEngine(request, () =>
+					PostSchema.query()
+						.equalTo('title', 'Rolled back transaction')
+						.exists(),
+				),
 			).resolves.toBe(false)
 
-			await request.query(PostSchema).equalTo('id', committed.id).deleteOne()
+			await runWithRequestEngine(request, () =>
+				PostSchema.query().equalTo('id', committed.id).deleteOne(),
+			)
 		} finally {
 			await ultimabase.dispose()
 		}
@@ -394,9 +402,10 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 		const transactions: DatabaseTransactionAdapter[] = []
 
 		try {
-			const updatedTarget = await ultimabase
-				.query(PostSchema)
-				.create({ title: 'Original update target' })
+			const updatedTarget = await PostSchema.query().create(
+				{ title: 'Original update target' },
+				{ ultimabase },
+			)
 			const updateQuery = new Query(PostSchema)
 				.equalTo('id', updatedTarget.id)
 				.select('id', 'title')
@@ -441,9 +450,10 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 				},
 			])
 
-			const deletedTarget = await ultimabase
-				.query(PostSchema)
-				.create({ title: 'Stable delete target' })
+			const deletedTarget = await PostSchema.query().create(
+				{ title: 'Stable delete target' },
+				{ ultimabase },
+			)
 			const deleteQuery = new Query(PostSchema)
 				.equalTo('id', deletedTarget.id)
 				.select('id', 'title')

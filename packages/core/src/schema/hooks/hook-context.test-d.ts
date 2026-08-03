@@ -15,14 +15,9 @@ const AuditSchema = Schema.define({
 
 declare const context: HookContext
 
-test('HookContext exposes exact query typing without privileged controls', async () => {
-	const created = await context
-		.query(AuditSchema)
-		.create({ action: 'post.create' })
-	const selected = await context
-		.query(AuditSchema)
-		.select('id', 'action')
-		.find()
+test('ambient Query keeps exact typing without adding controls to HookContext', async () => {
+	const created = await AuditSchema.query().create({ action: 'post.create' })
+	const selected = await AuditSchema.query().select('id', 'action').find()
 
 	expectTypeOf(created.action).toEqualTypeOf<string>()
 	expectTypeOf(created.secret).toEqualTypeOf<string | undefined>()
@@ -34,6 +29,8 @@ test('HookContext exposes exact query typing without privileged controls', async
 	>()
 	expectTypeOf(context.source).toEqualTypeOf<string>()
 
+	// @ts-expect-error -- Query execution is ambient instead of context plumbing.
+	void context.query
 	// @ts-expect-error -- Private request metadata never enters HookContext.
 	void context.metadata
 	// @ts-expect-error -- HookContext never exposes master elevation.

@@ -89,12 +89,12 @@ describe('RequestEngine transactions', () => {
 					expect(getCurrentEngine()).toBe(transaction)
 					expect(getCurrentRequest()).toBe(request.context)
 
-					const article = await transaction.query(articleSchema).create({
+					const article = await articleSchema.query().create({
 						title: 'Created',
 					})
 
-					await transaction
-						.query(articleSchema)
+					await articleSchema
+						.query()
 						.equalTo('id', article.id)
 						.updateOne({ increment: { views: 1 } })
 
@@ -145,8 +145,8 @@ describe('RequestEngine transactions', () => {
 			trace,
 		)
 
-		const transactionPromise = request.transaction((transaction) => {
-			void transaction.query(articleSchema).create({ title: 'Deferred' })
+		const transactionPromise = request.transaction(() => {
+			void articleSchema.query().create({ title: 'Deferred' })
 
 			return 'completed'
 		})
@@ -174,9 +174,9 @@ describe('RequestEngine transactions', () => {
 			trace,
 		)
 
-		const transactionPromise = request.transaction(async (transaction) => {
+		const transactionPromise = request.transaction(async () => {
 			try {
-				await transaction.query(articleSchema).create({ title: 'Rejected' })
+				await articleSchema.query().create({ title: 'Rejected' })
 			} catch (error: unknown) {
 				expect(error).toBe(operationError)
 			}
@@ -201,8 +201,8 @@ describe('RequestEngine transactions', () => {
 			trace,
 		)
 
-		const transactionPromise = request.transaction((transaction) =>
-			transaction.query(articleSchema).create({ title: 'Rejected' }),
+		const transactionPromise = request.transaction(() =>
+			articleSchema.query().create({ title: 'Rejected' }),
 		)
 
 		await expect(transactionPromise).rejects.toBe(operationError)
@@ -235,32 +235,30 @@ describe('RequestEngine transactions', () => {
 		expect(trace).toStrictEqual(['adapter:begin', 'adapter:rollback'])
 	})
 
-	it('closes escaped engines and queries after their callback completes', async () => {
+	it('closes escaped engines while keeping Query branches context-free', async () => {
 		const trace: string[] = []
 		const { request } = createRequest([], trace)
 		let escapedEngine: typeof request | undefined
-		let escapedQuery: ReturnType<typeof request.query> | undefined
+		let escapedQuery: ReturnType<typeof articleSchema.query> | undefined
 
 		await request.transaction((transaction) => {
 			escapedEngine = transaction
-			escapedQuery = transaction.query(articleSchema)
+			escapedQuery = articleSchema.query()
 		})
 
-		expect(() => escapedEngine?.query(articleSchema)).toThrow(
-			new FrameworkError(
-				'TRANSACTION_ERROR',
-				'Transaction engine cannot be used after its callback has completed.',
-				{
-					publicMessage: 'The transaction is no longer active.',
-					internalDetails: { reason: 'transaction-engine-closed' },
-				},
-			),
-		)
-		await expect(escapedQuery?.count()).rejects.toStrictEqual(
+		await expect(
+			escapedEngine?.execute({
+				kind: 'count',
+				query: articleSchema.query().ast,
+			}),
+		).rejects.toStrictEqual(
 			expect.objectContaining({
 				code: 'TRANSACTION_ERROR',
 				internalDetails: { reason: 'transaction-engine-closed' },
 			}),
+		)
+		expect(() => escapedQuery?.count()).toThrow(
+			expect.objectContaining({ code: 'MISSING_EXECUTION_CONTEXT' }),
 		)
 		expect(trace).toStrictEqual(['adapter:begin', 'adapter:commit'])
 	})

@@ -9,8 +9,8 @@ import {
 	RequestContext,
 	RuntimePipeline,
 	createRuntimeValidationStage,
-	getCurrentEngine,
 	requestSources,
+	runWithRequestEngine,
 	type RuntimePipelineStages,
 } from '../../src/runtime/index.js'
 import { createNativeHookStages } from '../../src/runtime/hooks/dispatcher.js'
@@ -127,7 +127,9 @@ describe('native transaction hook finalization', () => {
 			trace,
 		)
 
-		await expect(request.query(schema).find()).rejects.toBe(readError)
+		await expect(
+			runWithRequestEngine(request, () => schema.query().find()),
+		).rejects.toBe(readError)
 		expect(trace).toStrictEqual([
 			'execute:find',
 			'error:operation:not-started:not-applicable',
@@ -139,7 +141,6 @@ describe('native transaction hook finalization', () => {
 	it('runs mutation finalizers only around a confirmed automatic commit', async () => {
 		const trace: string[] = []
 		const record = createRecord(generatedIds[0], 'Created')
-		let capturedEngine: ReturnType<typeof getCurrentEngine> | undefined
 		const schema = Schema.define({
 			className: 'TransactionFinalizationSuccess',
 			fields: {
@@ -154,13 +155,10 @@ describe('native transaction hook finalization', () => {
 			},
 			hooks: {
 				afterCommit: ({ result }) => {
-					expect(() => capturedEngine?.query(schema)).toThrow(
-						expect.objectContaining({ code: 'TRANSACTION_ERROR' }),
+					expect(() => schema.query().find()).toThrow(
+						expect.objectContaining({ code: 'MISSING_EXECUTION_CONTEXT' }),
 					)
 					trace.push(`schema:afterCommit:${readResultTitle(result)}`)
-				},
-				beforeCreate: () => {
-					capturedEngine = getCurrentEngine()
 				},
 				beforeCommit: ({ changes }) => {
 					expect(Object.isFrozen(changes)).toBe(true)
@@ -183,7 +181,9 @@ describe('native transaction hook finalization', () => {
 			trace,
 		)
 
-		const result = await request.query(schema).create({ title: 'Created' })
+		const result = await runWithRequestEngine(request, () =>
+			schema.query().create({ title: 'Created' }),
+		)
 
 		expect(result).toBeInstanceOf(schema)
 		expect(result.toJSON()).toStrictEqual(record)
@@ -237,7 +237,9 @@ describe('native transaction hook finalization', () => {
 		)
 
 		await expect(
-			request.query(schema).create({ title: 'Committed' }),
+			runWithRequestEngine(request, () =>
+				schema.query().create({ title: 'Committed' }),
+			),
 		).rejects.toBe(afterCommitError)
 		expect(trace).toContain('adapter:commit')
 		expect(trace).toContain('event:create-one')
@@ -285,9 +287,9 @@ describe('native transaction hook finalization', () => {
 			trace,
 		)
 
-		await request.transaction(async (transaction) => {
-			await transaction.query(schema).create({ title: 'First' })
-			await transaction.query(schema).create({ title: 'Second' })
+		await request.transaction(async () => {
+			await schema.query().create({ title: 'First' })
+			await schema.query().create({ title: 'Second' })
 		})
 		expect(trace).toContain('summary:First,Second')
 		expect(trace.indexOf('summary:First,Second')).toBeLessThan(
@@ -351,7 +353,9 @@ describe('native transaction hook finalization', () => {
 		)
 
 		await expect(
-			request.query(schema).create({ title: 'Rejected' }),
+			runWithRequestEngine(request, () =>
+				schema.query().create({ title: 'Rejected' }),
+			),
 		).rejects.toBe(beforeCommitError)
 		expect(trace.slice(-5)).toStrictEqual([
 			'adapter:rollback',
@@ -400,7 +404,9 @@ describe('native transaction hook finalization', () => {
 		)
 
 		await expect(
-			request.query(schema).create({ title: 'Commit failure' }),
+			runWithRequestEngine(request, () =>
+				schema.query().create({ title: 'Commit failure' }),
+			),
 		).rejects.toEqual(
 			new AggregateError(
 				[commitError, rollbackError],

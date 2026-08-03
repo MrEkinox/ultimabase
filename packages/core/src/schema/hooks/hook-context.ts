@@ -1,7 +1,6 @@
 import type { RequestAccess, RequestCapability } from '../../access/index.js'
-import type { BoundQuery, OperationKind } from '../../query/index.js'
+import type { OperationKind } from '../../query/index.js'
 import type { JsonDocument } from '../fields/builtins/json.js'
-import type { SchemaDefinition } from '../schema/definition.js'
 import type { HookExecutionContext } from './execution-context.js'
 
 /** Identifies application or plugin ownership without exposing callback state. */
@@ -43,9 +42,6 @@ export interface HookContextIdentity {
 export interface HookContextCapabilities {
 	emit(name: string, payload: JsonDocument): void
 	hasCapability(capability: RequestCapability): boolean
-	query<const TSchema extends SchemaDefinition>(
-		schema: TSchema,
-	): BoundQuery<TSchema>
 }
 
 /** @internal Supplies already validated immutable state to the trusted factory. */
@@ -137,17 +133,6 @@ export class HookContext implements HookExecutionContext {
 	/** Checks one framework capability token without exposing request metadata. */
 	hasCapability(capability: RequestCapability): boolean {
 		return requireHookContextCapabilities(this).hasCapability(capability)
-	}
-
-	/**
-	 * Creates an exact typed query that reuses the hook's active transaction.
-	 *
-	 * @example `await context.query(AuditSchema).create({ action: 'post.create' })`
-	 */
-	query<const TSchema extends SchemaDefinition>(
-		schema: TSchema,
-	): BoundQuery<TSchema> {
-		return requireHookContextCapabilities(this).query(schema)
 	}
 
 	static {

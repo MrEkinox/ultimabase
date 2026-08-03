@@ -166,8 +166,8 @@ describe('@ultimabase/core Schema and Query declarations', () => {
 	})
 
 	it('materializes create result properties in editor hovers', () => {
-		const created = readFixtureQuickInfo('created = await ultimabase')
-		const create = readFixtureQuickInfo('create(allFieldValues)')
+		const created = readFixtureQuickInfo('created = await PostSchema')
+		const create = readFixtureQuickInfo('create(allFieldValues,')
 
 		// This guards the declaration experience seen through Query and Runtime exports.
 		expect(created.display).toContain('readonly externalId?: string;')
@@ -176,33 +176,42 @@ describe('@ultimabase/core Schema and Query declarations', () => {
 		expect(created.display).not.toContain('Simplify<')
 		expect(created.display).not.toContain('ObjectRequiredFields<')
 		expect(created.display).not.toContain('ObjectOptionalFields<')
-		// Every bound query is executable, so no terminal exposes a capability guard.
+		// Contextual execution stays in the optional final argument.
 		expect(create.display).toContain('create(input: {')
+		expect(create.display).toContain('options?: QueryTerminalOptions')
 		expect(create.display).not.toContain('create(this:')
 	})
 
-	it('keeps bound builder and terminal hovers focused', () => {
+	it('keeps immutable builder and contextual terminal hovers focused', () => {
 		const select = readFixtureQuickInfo("select('id', 'title')")
-		const find = readFixtureQuickInfo('find()')
-		const deleteOne = readFixtureQuickInfo('deleteOne()')
-		const count = readFixtureQuickInfo('count()')
-		const exists = readFixtureQuickInfo('exists()')
+		const find = readFixtureQuickInfo('find({ ultimabase })')
+		const deleteOne = readFixtureQuickInfo('deleteOne({ ultimabase })')
+		const count = readFixtureQuickInfo('count({ ultimabase })')
+		const exists = readFixtureQuickInfo('exists({ ultimabase })')
 
 		// Selection inference needs only the accumulated field union, not a tuple copy.
 		expect(select.display).toContain('select<"id" | "title">')
 		expect(select.display).not.toContain('readonly ["id", "title"]')
 		// Parameterless terminals must not repeat the complete bound query as `this`.
-		expect(find.display).toContain('.find(): Promise<')
-		expect(deleteOne.display).toContain('.deleteOne(): Promise<')
-		expect(count.display).toContain('.count(): Promise<number>')
-		expect(exists.display).toContain('.exists(): Promise<boolean>')
+		expect(find.display).toContain(
+			'.find(options?: QueryTerminalOptions): Promise<',
+		)
+		expect(deleteOne.display).toContain(
+			'.deleteOne(options?: QueryTerminalOptions): Promise<',
+		)
+		expect(count.display).toContain(
+			'.count(options?: QueryTerminalOptions): Promise<number>',
+		)
+		expect(exists.display).toContain(
+			'.exists(options?: QueryTerminalOptions): Promise<boolean>',
+		)
 		for (const terminal of [find, deleteOne, count, exists]) {
 			expect(terminal.display).not.toContain('(this:')
 		}
 	})
 
 	it('materializes only selected fields in editor hovers', () => {
-		const found = readFixtureQuickInfo('found = await ultimabase')
+		const found = readFixtureQuickInfo('found = await PostSchema')
 
 		// Selected terminals must not expose the complete schema behind a Pick alias.
 		expect(found.display).toContain('readonly id: string;')
@@ -213,7 +222,7 @@ describe('@ultimabase/core Schema and Query declarations', () => {
 	})
 
 	it('materializes update operator groups in editor hovers', () => {
-		const update = readFixtureQuickInfo('updateOne({')
+		const update = readFixtureQuickInfo('updateOne(\n')
 		const inputDisplay = update.display.slice(
 			update.display.indexOf('.updateOne(input:'),
 		)
@@ -230,26 +239,24 @@ describe('@ultimabase/core Schema and Query declarations', () => {
 })
 
 describe('@ultimabase/core Runtime declarations', () => {
-	it('exposes the documented UltimaBase facade and compact direct query', () => {
+	it('exposes the documented UltimaBase facade and compact contextual Query', () => {
 		const facade = readFixtureQuickInfo('UltimaBase({')
-		const query = readFixtureQuickInfo('query(PostSchema)')
+		const query = readFixtureQuickInfo('packedQuery = PostSchema.query()')
 
 		expect(facade.display).toContain('new UltimaBase<')
 		expect(facade.documentation).toContain(
 			'Owns one isolated UltimaBase application',
 		)
-		expect(query.display).toContain('UltimaBaseQuery<')
+		expect(query.display).toContain('Query<')
 		expect(query.display).not.toContain('RequestEngine<')
 		expect(query.display).not.toContain('SchemaDefinition<')
 	})
 
-	it('preserves HookContext query typing and documentation', () => {
-		const query = readFixtureQuickInfo('query(HookAuditSchema)')
-		const result = readFixtureQuickInfo('context.query(HookAuditSchema).create')
+	it('preserves ambient hook Query typing without context plumbing', () => {
+		const query = readFixtureQuickInfo('query().create({')
+		const result = readFixtureQuickInfo('create({\n\t\t\t\taction:')
 
-		expect(query.display).toContain('query<')
-		expect(query.display).toContain('BoundQuery<')
-		expect(query.documentation).toContain('active transaction')
+		expect(query.display).toContain('Query<')
 		expect(query.display.length).toBeLessThan(900)
 		expect(result.display).not.toContain('RequestEngine<')
 	})

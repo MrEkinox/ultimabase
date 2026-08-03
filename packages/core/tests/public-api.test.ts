@@ -6,7 +6,6 @@ describe('@ultimabase/core public entry point', () => {
 	it('exports the complete implemented framework surface', () => {
 		// One explicit manifest prevents internal helpers and type-only contracts from leaking.
 		expect(Object.keys(publicApi).sort()).toStrictEqual([
-			'BoundQuery',
 			'ContributionRegistry',
 			'DuplicateSchemaError',
 			'FrameworkApplication',

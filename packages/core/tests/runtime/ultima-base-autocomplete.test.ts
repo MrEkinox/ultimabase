@@ -83,7 +83,7 @@ new UltimaBase({ ${marker} })
 		}
 	})
 
-	it('documents the facade and keeps direct query hovers compact', () => {
+	it('documents the facade and keeps schema query hovers compact', () => {
 		const fileName = `${import.meta.dirname}/ultima-base-hover.fixture.ts`
 		const facade = readMarkedQuickInfo(
 			fileName,
@@ -101,7 +101,8 @@ import { UltimaBase } from '../../src/runtime/index.js'
 
 const PostSchema = Schema.define({ className: 'Post', fields: { title: stringField() } })
 const ultimabase = new UltimaBase({ schemas: [PostSchema], plugins: [] })
-const posts = ultimabase./* hover */query(PostSchema)
+const posts = PostSchema./* hover */query()
+void ultimabase
 `,
 		)
 		const facadeDocumentation = readDocumentation(
@@ -114,7 +115,7 @@ const posts = ultimabase./* hover */query(PostSchema)
 			'Owns one isolated UltimaBase application',
 		)
 		expect(facadeDocumentation.hasExample).toBe(true)
-		expect(queryDisplay).toContain('UltimaBaseQuery<')
+		expect(queryDisplay).toContain('Query<')
 		expect(queryDisplay).not.toContain('RequestEngine<')
 		expect(queryDisplay).not.toContain('SchemaDefinition<')
 	})

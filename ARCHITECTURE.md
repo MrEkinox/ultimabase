@@ -134,17 +134,13 @@ setup export types, including definitions introduced through nested composition.
 - Optional `AsyncLocalStorage` scopes derive every current-context reference
   from one explicitly injected `RequestEngine`; nested and concurrent requests
   never share mutable global state.
-- `Query<TSchema>` is an immutable unbound definition.
+- `Query<TSchema>` is an immutable context-free definition whose terminals
+  resolve execution only when called.
 - `QueryScope<TSchema>` composes selection-preserving unbound transformations.
-- `BoundQuery<TSchema>` is the Query-owned neutral facade attached to a Runtime
-  engine; its terminals create Operation AST nodes and execute them
-  through Runtime's neutral engine contract.
-
-ADR-0108 and issues 347–348 replace that current two-class execution facade with
-terminals directly on the immutable `Query`. Until those issues are implemented,
-`BoundQuery`, `context.query(schema)`, and `ultimabase.query(schema)` remain the
-working API. The target terminals resolve the active Runtime scope or accept an
-explicit application and trusted backend authority options only at execution.
+- Query terminals create Operation AST nodes and execute through one neutral
+  Runtime bridge. They reuse the exact active request and hook lease, or accept
+  `{ ultimabase }` outside a scope. No process-wide application singleton,
+  request, authority, transaction, or adapter enters the Query AST.
 
 ADR-0109 and issue 339 replace the former schema instance plus plain-result split
 with one class returned by `Schema.define()`. The class is the registered schema

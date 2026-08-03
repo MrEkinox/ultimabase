@@ -4,16 +4,13 @@ import type {
 	UserRequestAccess,
 } from '../../access/index.js'
 import { FrameworkApplication } from '../../foundation.js'
-import type {
-	BoundQuery,
-	FindOperationAst,
-	InferQueryResult,
-} from '../../query/index.js'
+import type { FindOperationAst, InferQueryResult } from '../../query/index.js'
 import { Query } from '../../query/index.js'
 import { Schema, stringField } from '../../schema/index.js'
 import { expectTypeOf, test } from 'vitest'
 
 import { MasterAuthority } from '../master/master-authority.js'
+import { runWithRequestEngine } from '../context/active-framework-context.js'
 import type { RuntimePipeline } from '../pipeline/runtime-pipeline.js'
 import { FrameworkEngine, type RequestEngine } from './framework-engine.js'
 
@@ -64,7 +61,7 @@ test('preserves application, context, query, and operation result types', () => 
 		requestId: 'user-1',
 		source: 'graphql',
 	})
-	const query = user.query(schema)
+	const query = schema.query()
 	const operation = {
 		kind: 'find',
 		query: new Query(schema).ast,
@@ -74,9 +71,7 @@ test('preserves application, context, query, and operation result types', () => 
 	expectTypeOf(anonymous.context.access).toEqualTypeOf<AnonymousRequestAccess>()
 	expectTypeOf(anonymous.context.source).toEqualTypeOf<'rest'>()
 	expectTypeOf(user.context.access).toEqualTypeOf<UserRequestAccess<'user-1'>>()
-	expectTypeOf(query).toEqualTypeOf<
-		BoundQuery<typeof schema, never, typeof user>
-	>()
+	expectTypeOf(query).toEqualTypeOf<Query<typeof schema>>()
 	expectTypeOf(user.execute(operation)).toEqualTypeOf<
 		Promise<readonly InferQueryResult<typeof schema>[]>
 	>()
@@ -96,7 +91,9 @@ test('keeps bound terminal types exact in multi-schema applications', () => {
 	})
 
 	expectTypeOf(
-		request.query(schema).create({ title: 'Typed article' }),
+		runWithRequestEngine(request, () =>
+			schema.query().create({ title: 'Typed article' }),
+		),
 	).toEqualTypeOf<Promise<InferQueryResult<typeof schema>>>()
 })
 

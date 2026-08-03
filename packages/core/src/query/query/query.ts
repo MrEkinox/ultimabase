@@ -1,4 +1,4 @@
-import type { SchemaDefinition } from '../../schema/index.js'
+import type { InferCreateInput, SchemaDefinition } from '../../schema/index.js'
 import { immutableRecord } from '@ultimabase/shared'
 
 import type {
@@ -31,9 +31,45 @@ import type {
 	QueryPrimitiveFilterNode,
 	QueryRegexPattern,
 } from '../filters/primitive.js'
-import type { QueryExecutorBinding } from '../operations/executor.js'
-import type { OperationObjectId } from '../operations/contracts.js'
-import { BoundQuery } from './bound-query.js'
+import type {
+	CountOperationAst,
+	CreateManyOperationAst,
+	CreateOneOperationAst,
+	DeleteManyOperationAst,
+	DeleteOneOperationAst,
+	ExecutableOperationAst,
+	ExistsOperationAst,
+	FindOperationAst,
+	FirstOperationAst,
+	GetOperationAst,
+	OperationObjectId,
+	UpdateManyOperationAst,
+	UpdateOneOperationAst,
+	UpsertManyOperationAst,
+	UpsertOneOperationAst,
+} from '../operations/contracts.js'
+import {
+	executeQueryTerminal,
+	normalizeQueryBulkTerminalOptions,
+	normalizeQueryTerminalOptions,
+	type QueryBulkTerminalOptions,
+	type QueryTerminalOptions,
+} from '../operations/execution.js'
+import type { InferOperationResult } from '../operations/results.js'
+import { snapshotCreateInputs } from '../operations/bulk.js'
+import {
+	normalizeUniqueUpsertTarget,
+	normalizeUpsertInput,
+	normalizeUpsertItems,
+	type UpsertInput,
+	type UpsertManyItemInput,
+} from '../operations/upsert.js'
+import type {
+	UpdateExpression,
+	UpdateExpressionInput,
+} from '../updates/contracts.js'
+import { normalizeUpdateExpression } from '../updates/normalize.js'
+import type { InferQueryResult } from './result.js'
 import type { QueryScope } from './scope.js'
 
 type QueryBuilderAst<TSchema extends SchemaDefinition> = QueryAst<
@@ -83,7 +119,19 @@ type QueryStringValue<
 > = Extract<QueryFilterValue<TSchema, TFieldName>, string>
 
 /**
- * Builds one immutable transport-neutral query without binding execution state.
+ * Builds one immutable, transport-neutral query without retaining execution state.
+ *
+ * Builder methods return reusable branches. Terminal methods use the exact active
+ * request or hook transaction; outside that scope, pass `{ ultimabase }` to create
+ * an anonymous internal request. Calling a terminal without either source throws
+ * `MISSING_EXECUTION_CONTEXT`.
+ *
+ * @example
+ * ```ts
+ * const published = await Post.query()
+ *   .equalTo('published', true)
+ *   .find({ ultimabase })
+ * ```
  */
 export class Query<
 	const TSchema extends SchemaDefinition,
@@ -332,15 +380,6 @@ export class Query<
 		)
 	}
 
-	/** Adds a positive field-presence condition. */
-	exists(
-		fieldName: QueryFilterFieldName<TSchema, 'exists'>,
-	): Query<TSchema, TSelectedField> {
-		return this.#appendFilter(
-			createQueryExistenceFilter(this.schema, fieldName, true),
-		)
-	}
-
 	/** Adds a negative field-presence condition. */
 	doesNotExist(
 		fieldName: QueryFilterFieldName<TSchema, 'exists'>,
@@ -386,11 +425,236 @@ export class Query<
 		return scopedQuery
 	}
 
-	/** Binds a neutral executor while keeping this reusable Query unchanged. */
-	bind<TEngine extends QueryExecutorBinding>(
-		engine: TEngine,
-	): BoundQuery<TSchema, TSelectedField, TEngine> {
-		return new BoundQuery(this, engine)
+	/**
+	 * Reads every matching object through the active request or an explicit app.
+	 * Hook calls reuse the exact request transaction and execution safeguards.
+	 *
+	 * @example `await Post.query().find({ ultimabase })`
+	 */
+	find(
+		options?: QueryTerminalOptions,
+	): Promise<readonly InferQueryResult<TSchema, TSelectedField>[]> {
+		const operation: FindOperationAst<
+			TSchema,
+			QueryFilterNode<TSchema>,
+			TSelectedField
+		> = immutableRecord({ kind: 'find', query: this.ast })
+
+		return this.#execute(operation, options)
+	}
+
+	/** Reads the first matching object, or `null` when no object matches. */
+	first(
+		options?: QueryTerminalOptions,
+	): Promise<InferQueryResult<TSchema, TSelectedField> | null> {
+		const operation: FirstOperationAst<
+			TSchema,
+			QueryFilterNode<TSchema>,
+			TSelectedField
+		> = immutableRecord({ kind: 'first', query: this.ast })
+
+		return this.#execute(operation, options)
+	}
+
+	/** Reads one identifier while retaining this query's filters and selection. */
+	get(
+		id: OperationObjectId<TSchema>,
+		options?: QueryTerminalOptions,
+	): Promise<InferQueryResult<TSchema, TSelectedField> | null> {
+		const operation: GetOperationAst<
+			TSchema,
+			QueryFilterNode<TSchema>,
+			TSelectedField
+		> = immutableRecord({ kind: 'get', query: this.ast, id })
+
+		return this.#execute(operation, options)
+	}
+
+	/** Counts matches without loading persisted object values. */
+	count(options?: QueryTerminalOptions): Promise<number> {
+		const operation: CountOperationAst<
+			TSchema,
+			QueryFilterNode<TSchema>,
+			TSelectedField
+		> = immutableRecord({ kind: 'count', query: this.ast })
+
+		return this.#execute(operation, options)
+	}
+
+	/** Tests whether at least one object matches this query. */
+	exists(options?: QueryTerminalOptions): Promise<boolean>
+
+	/** Adds a positive field-presence condition without executing the query. */
+	exists(
+		fieldName: QueryFilterFieldName<TSchema, 'exists'>,
+	): Query<TSchema, TSelectedField>
+
+	exists(
+		fieldNameOrOptions?:
+			QueryFilterFieldName<TSchema, 'exists'> | QueryTerminalOptions,
+	): Query<TSchema, TSelectedField> | Promise<boolean> {
+		if (typeof fieldNameOrOptions === 'string') {
+			return this.#appendFilter(
+				createQueryExistenceFilter(this.schema, fieldNameOrOptions, true),
+			)
+		}
+
+		const operation: ExistsOperationAst<
+			TSchema,
+			QueryFilterNode<TSchema>,
+			TSelectedField
+		> = immutableRecord({ kind: 'exists', query: this.ast })
+
+		return this.#execute(operation, fieldNameOrOptions)
+	}
+
+	/** Creates one object from its schema-derived input. */
+	createOne(
+		input: InferCreateInput<TSchema>,
+		options?: QueryTerminalOptions,
+	): Promise<InferQueryResult<TSchema>> {
+		const operation: CreateOneOperationAst<TSchema> = immutableRecord({
+			kind: 'create-one',
+			schema: this.ast.schema,
+			input,
+		})
+
+		return this.#execute(operation, options)
+	}
+
+	/** Provides the concise Parse-inspired alias for singular creation. */
+	create(
+		input: InferCreateInput<TSchema>,
+		options?: QueryTerminalOptions,
+	): Promise<InferQueryResult<TSchema>> {
+		return this.createOne(input, options)
+	}
+
+	/** Creates objects in input order and keeps them atomic by default. */
+	createMany(
+		inputs: readonly InferCreateInput<TSchema>[],
+		options?: QueryBulkTerminalOptions,
+	): Promise<readonly InferQueryResult<TSchema>[]> {
+		const normalizedOptions = normalizeQueryBulkTerminalOptions(options)
+		const operation: CreateManyOperationAst<TSchema> = immutableRecord({
+			kind: 'create-many',
+			schema: this.ast.schema,
+			inputs: snapshotCreateInputs(inputs),
+			options: normalizedOptions.bulk,
+		})
+
+		return executeQueryTerminal(operation, normalizedOptions)
+	}
+
+	/** Updates the first match through one normalized atomic expression. */
+	updateOne(
+		input: UpdateExpressionInput<TSchema> & {},
+		options?: QueryTerminalOptions,
+	): Promise<InferQueryResult<TSchema, TSelectedField> | null> {
+		const operation: UpdateOneOperationAst<
+			TSchema,
+			UpdateExpression<TSchema>,
+			QueryFilterNode<TSchema>,
+			TSelectedField
+		> = immutableRecord({
+			kind: 'update-one',
+			query: this.ast,
+			update: normalizeUpdateExpression(this.schema, input),
+		})
+
+		return this.#execute(operation, options)
+	}
+
+	/** Updates every match and returns the affected count. */
+	updateMany(
+		input: UpdateExpressionInput<TSchema> & {},
+		options?: QueryTerminalOptions,
+	): Promise<number> {
+		const operation: UpdateManyOperationAst<
+			TSchema,
+			UpdateExpression<TSchema>,
+			QueryFilterNode<TSchema>,
+			TSelectedField
+		> = immutableRecord({
+			kind: 'update-many',
+			query: this.ast,
+			update: normalizeUpdateExpression(this.schema, input),
+		})
+
+		return this.#execute(operation, options)
+	}
+
+	/** Upserts one unique match while retaining this query's selection. */
+	upsertOne(
+		input: UpsertInput<TSchema> & {},
+		options?: QueryTerminalOptions,
+	): Promise<InferQueryResult<TSchema, TSelectedField>> {
+		const normalizedInput = normalizeUpsertInput(this.schema, input)
+		const operation: UpsertOneOperationAst<
+			TSchema,
+			UpdateExpression<TSchema>,
+			QueryFilterNode<TSchema>,
+			TSelectedField
+		> = immutableRecord({
+			kind: 'upsert-one',
+			query: this.ast,
+			target: normalizeUniqueUpsertTarget(this.schema, this.ast),
+			...normalizedInput,
+		})
+
+		return this.#execute(operation, options)
+	}
+
+	/** Provides the concise alias for the singular unique-target operation. */
+	upsert(
+		input: UpsertInput<TSchema> & {},
+		options?: QueryTerminalOptions,
+	): Promise<InferQueryResult<TSchema, TSelectedField>> {
+		return this.upsertOne(input, options)
+	}
+
+	/** Upserts independently targeted items in input order. */
+	upsertMany(
+		inputs: readonly UpsertManyItemInput<TSchema>[],
+		options?: QueryBulkTerminalOptions,
+	): Promise<readonly InferQueryResult<TSchema>[]> {
+		const normalizedOptions = normalizeQueryBulkTerminalOptions(options)
+		const operation: UpsertManyOperationAst<
+			TSchema,
+			UpdateExpression<TSchema>,
+			QueryFilterNode<TSchema>
+		> = immutableRecord({
+			kind: 'upsert-many',
+			schema: this.ast.schema,
+			items: normalizeUpsertItems(this.schema, inputs),
+			options: normalizedOptions.bulk,
+		})
+
+		return executeQueryTerminal(operation, normalizedOptions)
+	}
+
+	/** Deletes and returns the first match, or `null` when absent. */
+	deleteOne(
+		options?: QueryTerminalOptions,
+	): Promise<InferQueryResult<TSchema, TSelectedField> | null> {
+		const operation: DeleteOneOperationAst<
+			TSchema,
+			QueryFilterNode<TSchema>,
+			TSelectedField
+		> = immutableRecord({ kind: 'delete-one', query: this.ast })
+
+		return this.#execute(operation, options)
+	}
+
+	/** Deletes every match without loading objects and returns its count. */
+	deleteMany(options?: QueryTerminalOptions): Promise<number> {
+		const operation: DeleteManyOperationAst<
+			TSchema,
+			QueryFilterNode<TSchema>,
+			TSelectedField
+		> = immutableRecord({ kind: 'delete-many', query: this.ast })
+
+		return this.#execute(operation, options)
 	}
 
 	#order(
@@ -458,6 +722,16 @@ export class Query<
 			: otherExpression
 
 		return this.#appendFilter(expression, logicalKind)
+	}
+
+	#execute<const TOperation extends ExecutableOperationAst<TSchema>>(
+		operation: TOperation,
+		options: QueryTerminalOptions | undefined,
+	): Promise<InferOperationResult<TOperation>> {
+		return executeQueryTerminal(
+			operation,
+			normalizeQueryTerminalOptions(options),
+		)
 	}
 
 	#with<TNextSelection extends QueryFieldName<TSchema> = TSelectedField>(

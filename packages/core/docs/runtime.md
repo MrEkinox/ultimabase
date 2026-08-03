@@ -15,10 +15,9 @@ Responsibilities:
 
 Runtime does not import Drizzle, PostgreSQL, Hono, GraphQL, Yoga, or concrete permission plugins.
 
-The Core entry point exports the neutral `BoundQuery` facade.
-`RequestEngine.query(schema)` creates bound instances while retaining the
-exact application, request context, and pipeline that will execute future
-terminal operations.
+Core exports one immutable `Query` class. Its terminals resolve the exact active
+request context at call time through a neutral bridge; the Query itself never
+retains an application, request, transaction, authority, or adapter.
 
 ## UltimaBase facade
 
@@ -35,14 +34,13 @@ const ultimabase = new UltimaBase({
 
 await ultimabase.start()
 
-const articles = await ultimabase.query(ArticleSchema).limit(20).find()
+const articles = await ArticleSchema.query().limit(20).find({ ultimabase })
 ```
 
-Outside an active request scope, `query()` uses a fresh anonymous internal
-request. Inside a same-application request or transaction, it reuses that exact
-engine and authority. Source `internal` never grants master access. The public
-return is the compact `UltimaBaseQuery<TSchema>` alias while schema, selection,
-input, and result inference remain exact.
+Outside an active request scope, `{ ultimabase }` creates a fresh anonymous
+internal request. Inside a request or transaction, terminals omit that option
+and reuse the exact engine and authority. Source `internal` never grants master
+access. Schema, selection, input, and result inference remain exact.
 
 `ultimabase.application` exposes advanced Core service and plugin lookup.
 `ultimabase.engine` exposes explicit anonymous, user, master, and transport
@@ -74,7 +72,9 @@ const request = framework.anonymous({
 	source: requestSources.internal,
 })
 
-const articles = await request.query(ArticleSchema).limit(20).find()
+const articles = await runWithRequestEngine(request, () =>
+	ArticleSchema.query().limit(20).find(),
+)
 ```
 
 The factory accepts an application in `ready` or `started` state and preserves
@@ -219,7 +219,9 @@ const ArticleSchema = Schema.define({
 	},
 })
 
-const articles = await request.query(ArticleSchema).select('id', 'title').find()
+const articles = await runWithRequestEngine(request, () =>
+	ArticleSchema.query().select('id', 'title').find(),
+)
 
 // The exact result is readonly { id: string; title: string }[].
 ```
@@ -251,7 +253,7 @@ Every business hook input includes one immutable Runtime-owned `HookContext`:
 ```ts
 beforeCreate: async ({ context, operation }) => {
 	if (operation.kind === 'create-one') {
-		await context.query(AuditSchema).create({ action: 'article.create' })
+		await AuditSchema.query().create({ action: 'article.create' })
 		context.emit('article.creating', { title: operation.input.title })
 	}
 	logger.debug({
@@ -271,13 +273,14 @@ waits for an active callback to settle rather than detaching it, then rolls an
 active transaction back. Post-commit and confirmed-rollback observers still run
 after the final database outcome is known.
 
-`context.query(schema)` returns the ordinary exact typed `BoundQuery`, but its
-minimal executor reuses only the current application's request engine and
-transaction. Runtime waits for nested work even when the hook did not await it.
-The first nested failure keeps the transaction rollback-only even if hook code
-catches that rejection. A context or bound query retained after its callback
-fails with `HOOK_CONTEXT_CLOSED`; it never switches to a later ambient request.
-Schema identity is checked against the exact application instance.
+A regular `Schema.query()` terminal reuses the current application's request
+engine and transaction without forwarding `HookContext`. Runtime waits for
+nested work even when the hook did not await it. The first nested failure keeps
+the transaction rollback-only even if hook code catches that rejection. An
+asynchronous branch that retains the hook's closed scope fails with
+`HOOK_CONTEXT_CLOSED`; a detached Query object retains no scope and therefore
+requires another ambient request or `{ ultimabase }`. Schema identity is checked
+against the exact application instance.
 
 The class also exposes immutable `access`, `source`, `hook`, request and
 transaction identifiers, the cancellation signal, and identity-based
@@ -411,8 +414,7 @@ const request = framework.user(userId, {
 	source: requestSources.graphql,
 })
 
-const publishedArticles = request
-	.query(ArticleSchema)
+const publishedArticles = ArticleSchema.query()
 	.equalTo('status', 'published')
 	.descending('createdAt')
 	.limit(20)
@@ -449,13 +451,12 @@ adapter retained by the pipeline. The callback receives a distinct engine with
 the same application, context, authentication, capabilities, and metadata:
 
 ```ts
-const article = await request.transaction(async (transaction) => {
-	const created = await transaction.query(ArticleSchema).create({
+const article = await request.transaction(async () => {
+	const created = await ArticleSchema.query().create({
 		title: 'Atomic article',
 	})
 
-	await transaction
-		.query(StatsSchema)
+	await StatsSchema.query()
 		.equalTo('id', 'global')
 		.updateOne({ increment: { articleCount: 1 } })
 
@@ -492,7 +493,7 @@ const framework = new FrameworkEngine({
 const grant = framework.authorizeMasterKey(receivedMasterKey)
 const master = await request.useMasterKey(grant, 'Rebuild article search index')
 
-await master.query(ArticleSchema).find()
+await runWithRequestEngine(master, () => ArticleSchema.query().find())
 ```
 
 The raw key is only a verification input: neither the grant, `RequestContext`,

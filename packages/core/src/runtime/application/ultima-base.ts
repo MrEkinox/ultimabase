@@ -5,16 +5,12 @@ import {
 	type FrameworkApplicationOptions,
 	type PluginDefinition,
 } from '../../foundation.js'
-import type { BoundQuery } from '../../query/index.js'
+import { registerQueryExecutionOwner } from '../../query/operations/execution.js'
 import type { SchemaDefinition } from '../../schema/index.js'
 import { isPlainRecord } from '@ultimabase/shared'
 
-import { getActiveFrameworkContext } from '../context/active-framework-storage.js'
 import { requestSources } from '../context/request-context.js'
-import type {
-	FrameworkEngine,
-	RequestEngine,
-} from '../engine/framework-engine.js'
+import type { FrameworkEngine } from '../engine/framework-engine.js'
 import {
 	createFrameworkEngine,
 	normalizeCreateFrameworkEngineOptions,
@@ -64,10 +60,6 @@ export interface UltimaBaseOptions<
 	readonly validation?: NonNullable<CreateFrameworkEngineOptions['validation']>
 }
 
-/** Keeps the common direct-query hover independent from internal engine generics. */
-export type UltimaBaseQuery<TSchema extends SchemaDefinition> =
-	BoundQuery<TSchema>
-
 const assertUltimaBaseOptions: (
 	options: unknown,
 ) => asserts options is UltimaBaseOptions<
@@ -100,22 +92,6 @@ const readEngineOptions = (
 			: { validation: options.validation }),
 	})
 
-/** Restores exact application generics only after an identity comparison proves ownership. */
-const getOwnedActiveRequestEngine = <
-	TSchemas extends readonly SchemaDefinition[],
-	TPlugins extends readonly PluginDefinition[],
->(
-	application: FrameworkApplication<TSchemas, TPlugins>,
-): RequestEngine<TSchemas, TPlugins> | undefined => {
-	const activeContext = getActiveFrameworkContext()
-
-	if (activeContext?.application !== application) {
-		return undefined
-	}
-
-	return activeContext.requestEngine as RequestEngine<TSchemas, TPlugins>
-}
-
 /**
  * Owns one isolated UltimaBase application and its Runtime engine.
  *
@@ -130,7 +106,7 @@ const getOwnedActiveRequestEngine = <
  * })
  *
  * await ultimabase.start()
- * const posts = await ultimabase.query(PostSchema).find()
+ * const posts = await PostSchema.query().find({ ultimabase })
  * ```
  */
 export class UltimaBase<
@@ -153,6 +129,19 @@ export class UltimaBase<
 			plugins: options.plugins,
 		})
 		this.#engineOptions = readEngineOptions(options)
+		registerQueryExecutionOwner(this, {
+			application: this.application,
+			createRootExecutor: () => {
+				const frameworkEngine = this.#frameworkEngine ?? this.engine
+				const requestEngine = frameworkEngine.anonymous({
+					requestId: randomUUID(),
+					source: requestSources.internal,
+				})
+
+				// The facade-owned anonymous engine validates exact schema ownership.
+				return requestEngine
+			},
+		})
 
 		// Public facade identity is stable while private lifecycle state may advance.
 		Object.freeze(this)
@@ -208,25 +197,6 @@ export class UltimaBase<
 	/** Integrates the facade with explicit resource-management scopes. */
 	async [Symbol.asyncDispose](): Promise<void> {
 		await this.dispose()
-	}
-
-	/**
-	 * Creates a query bound to the active same-application request or a fresh
-	 * anonymous internal request when called outside an execution scope.
-	 */
-	query<const TSchema extends TSchemas[number]>(
-		schema: TSchema,
-	): UltimaBaseQuery<TSchema> {
-		const requestEngine =
-			getOwnedActiveRequestEngine(this.application) ??
-			this.engine.anonymous({
-				requestId: randomUUID(),
-				source: requestSources.internal,
-			})
-
-		// The application-wide engine accepts this exact owned schema and therefore
-		// safely fulfills the narrower single-schema executor exposed by the facade.
-		return requestEngine.query(schema) as UltimaBaseQuery<TSchema>
 	}
 
 	async #performStart(): Promise<void> {

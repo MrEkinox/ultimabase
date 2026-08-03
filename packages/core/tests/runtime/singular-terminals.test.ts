@@ -3,6 +3,7 @@ import { Schema, intField, stringField } from '../../src/index.js'
 import { describe, expect, it } from 'vitest'
 
 import { requestSources } from '../../src/runtime/context/request-context.js'
+import { runWithRequestEngine } from '../../src/runtime/context/active-framework-context.js'
 import { FrameworkEngine } from '../../src/runtime/engine/framework-engine.js'
 import {
 	createRecordingPipeline,
@@ -21,7 +22,7 @@ const articleSchema = Schema.define({
 	},
 })
 
-describe('singular BoundQuery terminals', () => {
+describe('singular Query terminals', () => {
 	it('executes every terminal through the RequestEngine pipeline', async () => {
 		const found = [
 			{ id: '0198f090-2a50-7000-8000-000000000021', title: 'Found' },
@@ -68,43 +69,47 @@ describe('singular BoundQuery terminals', () => {
 			requestId: 'terminals-1',
 			source: requestSources.internal,
 		})
-		const query = request
-			.query(articleSchema)
+		const query = articleSchema
+			.query()
 			.equalTo('views', 1)
 			.select('id', 'title')
 		const createOneInput = { title: 'Created one' }
 		const createAliasInput = { title: 'Created alias' }
 
-		const foundResult = await query.find()
+		await runWithRequestEngine(request, async () => {
+			const foundResult = await query.find()
 
-		expect(foundResult).toHaveLength(1)
-		expect(foundResult[0]).toBeInstanceOf(articleSchema)
-		expect(foundResult.map((article) => article.toJSON())).toStrictEqual(found)
-		await expect(query.first()).resolves.toBeNull()
-		await expect(query.get('missing')).resolves.toBeNull()
-		await expect(query.count()).resolves.toBe(1)
-		await expect(query.exists()).resolves.toBe(true)
-		const createdOneResult = await query.createOne(createOneInput)
-		const createdAliasResult = await query.create(createAliasInput)
+			expect(foundResult).toHaveLength(1)
+			expect(foundResult[0]).toBeInstanceOf(articleSchema)
+			expect(foundResult.map((article) => article.toJSON())).toStrictEqual(
+				found,
+			)
+			await expect(query.first()).resolves.toBeNull()
+			await expect(query.get('missing')).resolves.toBeNull()
+			await expect(query.count()).resolves.toBe(1)
+			await expect(query.exists()).resolves.toBe(true)
+			const createdOneResult = await query.createOne(createOneInput)
+			const createdAliasResult = await query.create(createAliasInput)
 
-		expect(createdOneResult).toBeInstanceOf(articleSchema)
-		expect(createdOneResult.toJSON()).toStrictEqual(createdOne)
-		expect(createdAliasResult).toBeInstanceOf(articleSchema)
-		expect(createdAliasResult.toJSON()).toStrictEqual(createdAlias)
-		await expect(
-			query.updateOne({ increment: { views: 1 } }),
-		).resolves.toBeNull()
-		const upsertedResult = await request
-			.query(articleSchema)
-			.equalTo('title', 'Upserted')
-			.upsertOne({
-				create: { title: 'Upserted' },
-				update: { set: { title: 'Upserted' } },
-			})
+			expect(createdOneResult).toBeInstanceOf(articleSchema)
+			expect(createdOneResult.toJSON()).toStrictEqual(createdOne)
+			expect(createdAliasResult).toBeInstanceOf(articleSchema)
+			expect(createdAliasResult.toJSON()).toStrictEqual(createdAlias)
+			await expect(
+				query.updateOne({ increment: { views: 1 } }),
+			).resolves.toBeNull()
+			const upsertedResult = await articleSchema
+				.query()
+				.equalTo('title', 'Upserted')
+				.upsertOne({
+					create: { title: 'Upserted' },
+					update: { set: { title: 'Upserted' } },
+				})
 
-		expect(upsertedResult).toBeInstanceOf(articleSchema)
-		expect(upsertedResult.toJSON()).toStrictEqual(upserted)
-		await expect(query.deleteOne()).resolves.toBeNull()
+			expect(upsertedResult).toBeInstanceOf(articleSchema)
+			expect(upsertedResult.toJSON()).toStrictEqual(upserted)
+			await expect(query.deleteOne()).resolves.toBeNull()
+		})
 
 		const requests = [
 			...adapter.rootRequests,

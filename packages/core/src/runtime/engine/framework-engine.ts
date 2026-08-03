@@ -9,9 +9,7 @@ import type {
 	RequestAccess,
 	UserRequestAccess,
 } from '../../access/index.js'
-import { Query } from '../../query/index.js'
 import type {
-	BoundQuery,
 	ExecutableOperationAst,
 	InferOperationResult,
 } from '../../query/index.js'
@@ -272,18 +270,6 @@ export class RequestEngine<
 
 	get application(): FrameworkApplication<TSchemas, TPlugins> {
 		return this.framework.application
-	}
-
-	/** Creates an immutable query already bound to this exact request engine. */
-	query<const TSchema extends TSchemas[number]>(
-		schema: TSchema,
-	): BoundQuery<TSchema, never, RequestEngine<TSchemas, TPlugins, TContext>> {
-		this.#transactionLifetime?.assertActive()
-		this.framework.assertOwnsSchema(schema)
-
-		return new Query(schema).bind<RequestEngine<TSchemas, TPlugins, TContext>>(
-			this,
-		)
 	}
 
 	/** Executes a normalized operation through this request's mandatory pipeline. */

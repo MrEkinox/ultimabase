@@ -6,6 +6,7 @@ import {
 import { Schema, stringField } from '../../schema/index.js'
 import { describe, expect, it } from 'vitest'
 
+import { runWithRequestEngine } from '../context/active-framework-context.js'
 import {
 	databaseAdapterServiceToken,
 	type DatabaseAdapter,
@@ -201,10 +202,13 @@ describe('createFrameworkEngine', () => {
 			},
 		})
 
-		const result = await framework
-			.anonymous({ requestId: 'assembled-create', source: 'internal' })
-			.query(articleSchema)
-			.create({ title: '  assembled  ' })
+		const request = framework.anonymous({
+			requestId: 'assembled-create',
+			source: 'internal',
+		})
+		const result = await runWithRequestEngine(request, () =>
+			articleSchema.query().create({ title: '  assembled  ' }),
+		)
 
 		expect(result.title).toBe('assembled')
 		// Application assembly must route root mutations through the transaction adapter.
@@ -321,11 +325,13 @@ describe('createFrameworkEngine', () => {
 			schemas: [schema],
 		})
 		const framework = createFrameworkEngine(application)
-		const result = await framework
-			.anonymous({ requestId: 'assembled-find', source: 'internal' })
-			.query(schema)
-			.select('title', 'secret')
-			.find()
+		const request = framework.anonymous({
+			requestId: 'assembled-find',
+			source: 'internal',
+		})
+		const result = await runWithRequestEngine(request, () =>
+			schema.query().select('title', 'secret').find(),
+		)
 
 		expect(result).toHaveLength(1)
 		expect(result[0]).toBeInstanceOf(schema)
@@ -404,11 +410,14 @@ describe('createFrameworkEngine', () => {
 		})
 		const framework = createFrameworkEngine(application)
 
+		const request = framework.anonymous({
+			requestId: 'native-hook-rollback',
+			source: 'internal',
+		})
 		await expect(
-			framework
-				.anonymous({ requestId: 'native-hook-rollback', source: 'internal' })
-				.query(schema)
-				.create({ title: 'Rejected' }),
+			runWithRequestEngine(request, () =>
+				schema.query().create({ title: 'Rejected' }),
+			),
 		).rejects.toBe(failure)
 		expect(trace).toStrictEqual([
 			'adapter:begin',
@@ -467,14 +476,14 @@ describe('createFrameworkEngine', () => {
 		})
 		const framework = createFrameworkEngine(application)
 
+		const request = framework.anonymous({
+			requestId: 'reevaluated-enforcement',
+			source: 'internal',
+		})
 		await expect(
-			framework
-				.anonymous({
-					requestId: 'reevaluated-enforcement',
-					source: 'internal',
-				})
-				.query(articleSchema)
-				.create({ title: 'initial' }),
+			runWithRequestEngine(request, () =>
+				articleSchema.query().create({ title: 'initial' }),
+			),
 		).rejects.toBe(denial)
 		expect(trace).toStrictEqual([
 			'adapter:begin',

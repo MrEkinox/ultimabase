@@ -40,9 +40,10 @@ configured database adapter's transaction lifecycle. Developer code keeps the
 same concise API:
 
 ```ts
-const post = await ultimabase.query(PostSchema).create({
-	title: 'Atomic by default',
-})
+const post = await PostSchema.query().create(
+	{ title: 'Atomic by default' },
+	{ ultimabase },
+)
 ```
 
 The complete current Runtime mutation pipeline and database work started inside
@@ -59,10 +60,12 @@ selection therefore stays narrow without depriving hooks of the values needed
 to enforce business invariants:
 
 ```ts
-const updated = await ultimabase
-	.query(PostSchema)
+const updated = await PostSchema.query()
 	.select('id')
-	.updateOne({ set: { title: 'Visible only to the hook outcome' } })
+	.updateOne(
+		{ set: { title: 'Visible only to the hook outcome' } },
+		{ ultimabase },
+	)
 
 // The developer result remains exactly `{ readonly id: string } | null`.
 ```
@@ -168,10 +171,9 @@ const ArticleSchema = Schema.define({
 	},
 })
 
-const articles = await ultimabase
-	.query(ArticleSchema)
+const articles = await ArticleSchema.query()
 	.select('id', 'title')
-	.find()
+	.find({ ultimabase })
 
 // The exact result is readonly { id: string; title: string }[].
 ```
@@ -210,7 +212,7 @@ const PostSchema = Schema.define({
 	hooks: {
 		beforeCreate: async ({ context, operation }) => {
 			if (operation.kind === 'create-one') {
-				await context.query(AuditSchema).create({
+				await AuditSchema.query().create({
 					action: 'post.create',
 				})
 				context.emit('post.created', { title: operation.input.title })
@@ -226,8 +228,8 @@ const PostSchema = Schema.define({
 `requestId` correlates the originating request. `transactionId` is defined for
 automatic mutations and explicit transactions and remains identical across
 nested operations. `signal` carries cooperative request cancellation and native
-deadlines such as `AbortSignal.timeout()`. `context.query(schema)` keeps exact
-Query inference and reuses the current transaction. Unawaited nested work is
+deadlines such as `AbortSignal.timeout()`. A regular `Schema.query()` terminal
+keeps exact inference and reuses the current transaction. Unawaited nested work is
 drained before finalization, and a caught nested failure still makes the
 transaction rollback-only. The context intentionally omits request metadata,
 credentials, adapters, commit/rollback controls, and hook bypasses.

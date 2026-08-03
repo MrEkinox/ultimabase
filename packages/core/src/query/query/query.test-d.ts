@@ -49,9 +49,9 @@ test('preserves schema, AST, and chain result types', () => {
 	expectTypeOf<
 		QueryFilterFieldName<typeof postSchema, 'greater-than'>
 	>().toEqualTypeOf<'title' | 'views' | 'score' | 'createdAt' | 'updatedAt'>()
-	expectTypeOf<'find'>().not.toExtend<keyof typeof query>()
+	expectTypeOf<'find'>().toExtend<keyof typeof query>()
 	expectTypeOf<'save'>().not.toExtend<keyof typeof query>()
-	expectTypeOf<'bind'>().toExtend<keyof typeof query>()
+	expectTypeOf<'bind'>().not.toExtend<keyof typeof query>()
 
 	// @ts-expect-error -- Public AST roots remain immutable.
 	query.ast.limit = 50

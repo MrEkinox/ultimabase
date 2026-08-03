@@ -7,7 +7,10 @@ import {
 	databaseAdapterServiceToken,
 	type DatabaseAdapter,
 } from '../database/contracts.js'
-import { getCurrentEngine } from '../context/active-framework-context.js'
+import {
+	getCurrentEngine,
+	runWithRequestEngine,
+} from '../context/active-framework-context.js'
 import { UltimaBase } from '../application/ultima-base.js'
 import {
 	RecordingDatabaseAdapter,
@@ -112,7 +115,9 @@ describe('hook execution safety', () => {
 		)
 
 		await expect(
-			engine.query(schema).create({ title: 'cancel me' }),
+			runWithRequestEngine(engine, () =>
+				schema.query().create({ title: 'cancel me' }),
+			),
 		).rejects.toMatchObject({ code: 'OPERATION_CANCELLED' })
 
 		expect(trace).toStrictEqual([
@@ -174,8 +179,8 @@ describe('hook execution safety', () => {
 		)
 
 		await expect(
-			Promise.resolve().then(() =>
-				engine.query(schema).create({ title: 'never starts' }),
+			runWithRequestEngine(engine, () =>
+				schema.query().create({ title: 'never starts' }),
 			),
 		).rejects.toMatchObject({ code: 'OPERATION_CANCELLED' })
 		expect(adapter.transactions).toStrictEqual([])
@@ -187,11 +192,6 @@ describe('hook execution safety', () => {
 	it('allows cross-schema nested hooks and retains one transaction identity', async () => {
 		const trace: string[] = []
 		const transactionIds: (string | undefined)[] = []
-		type NestedUltimaBase = UltimaBase<
-			readonly [typeof parentSchema, typeof childSchema],
-			readonly [ReturnType<typeof createDatabasePlugin>]
-		>
-		const getUltimaBase = (): NestedUltimaBase => ultimabase
 		const childSchema = Schema.define({
 			className: 'NestedHookChild',
 			fields: { title: stringField({ validation: { required: true } }) },
@@ -215,7 +215,7 @@ describe('hook execution safety', () => {
 				beforeCreate: async ({ context, operation }) => {
 					trace.push('hook:parent')
 					transactionIds.push(context.transactionId)
-					await getUltimaBase().query(childSchema).create({ title: 'child' })
+					await childSchema.query().create({ title: 'child' })
 
 					return operation
 				},
@@ -237,7 +237,7 @@ describe('hook execution safety', () => {
 		await ultimabase.start()
 
 		await expect(
-			ultimabase.query(parentSchema).create({ title: 'parent' }),
+			parentSchema.query().create({ title: 'parent' }, { ultimabase }),
 		).resolves.toMatchObject({ title: 'parent' })
 
 		expect(transactionIds).toHaveLength(3)
@@ -252,18 +252,13 @@ describe('hook execution safety', () => {
 
 	it('rejects recursion reached through a nested engine operation', async () => {
 		const trace: string[] = []
-		type RecursiveUltimaBase = UltimaBase<
-			readonly [typeof schema],
-			readonly [ReturnType<typeof createDatabasePlugin>]
-		>
-		const getUltimaBase = (): RecursiveUltimaBase => ultimabase
 		const schema = Schema.define({
 			className: 'RecursiveHookArticle',
 			fields: { title: stringField({ validation: { required: true } }) },
 			hooks: {
 				beforeCreate: async ({ operation }) => {
 					trace.push('hook:beforeCreate')
-					await getUltimaBase().query(schema).create({ title: 'nested' })
+					await schema.query().create({ title: 'nested' })
 
 					return operation
 				},
@@ -279,7 +274,7 @@ describe('hook execution safety', () => {
 		await ultimabase.start()
 
 		await expect(
-			ultimabase.query(schema).create({ title: 'root' }),
+			schema.query().create({ title: 'root' }, { ultimabase }),
 		).rejects.toMatchObject({ code: 'HOOK_RECURSION' })
 		expect(trace).toStrictEqual([
 			'adapter:begin',
@@ -296,14 +291,6 @@ describe('hook execution safety', () => {
 			className: 'RecursiveLowLevelArticle',
 			fields: { title: stringField({ validation: { required: true } }) },
 		})
-		type RecursiveUltimaBase = UltimaBase<
-			readonly [typeof schema],
-			readonly [
-				ReturnType<typeof createDatabasePlugin>,
-				ReturnType<typeof defineRecursivePlugin>,
-			]
-		>
-		const getUltimaBase = (): RecursiveUltimaBase => ultimabase
 		const defineRecursivePlugin = () =>
 			definePlugin({
 				name: 'fixture.recursive-low-level-hook',
@@ -313,7 +300,7 @@ describe('hook execution safety', () => {
 						beforeOperation({
 							handler: async ({ operation }) => {
 								trace.push('hook:before-operation')
-								await getUltimaBase().query(schema).create({ title: 'nested' })
+								await schema.query().create({ title: 'nested' })
 
 								return { operation }
 							},
@@ -331,7 +318,7 @@ describe('hook execution safety', () => {
 
 		await ultimabase.start()
 		await expect(
-			ultimabase.query(schema).create({ title: 'root' }),
+			schema.query().create({ title: 'root' }, { ultimabase }),
 		).rejects.toMatchObject({ code: 'HOOK_RECURSION' })
 		expect(trace).toStrictEqual([
 			'adapter:begin',
@@ -399,7 +386,9 @@ describe('hook execution safety', () => {
 			}),
 		)
 
-		await expect(engine.query(schema).find()).resolves.toStrictEqual([])
+		await expect(
+			runWithRequestEngine(engine, () => schema.query().find()),
+		).resolves.toStrictEqual([])
 		expect(events.map(({ phase }) => phase)).toStrictEqual([
 			'before-operation',
 			'beforeFind',

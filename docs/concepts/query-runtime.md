@@ -1,6 +1,7 @@
 # Query and Runtime
 
-`Query<TSchema>` is immutable and may be created without an engine:
+`Query<TSchema>` is immutable and never retains an application, request,
+transaction, adapter, or authority:
 
 ```ts
 const activeUsers = new Query(UserSchema)
@@ -8,28 +9,39 @@ const activeUsers = new Query(UserSchema)
 	.descending('createdAt')
 ```
 
-The unbound Query itself exposes no executable terminal. Runtime binding
-creates a separate executable query:
+Every terminal resolves execution only when called. Inside a request,
+transaction, or queryable hook, it uses that exact active Runtime scope:
 
 ```ts
-await activeUsers.bind(requestEngine).limit(25).find()
+const users = await runWithRequestEngine(requestEngine, () =>
+	activeUsers.limit(25).find(),
+)
+```
+
+Outside an active scope, the terminal accepts the exact started application and
+creates one anonymous internal request. Omitting both sources fails with
+`MISSING_EXECUTION_CONTEXT` instead of selecting a process-wide default:
+
+```ts
+const users = await activeUsers.limit(25).find({ ultimabase })
 ```
 
 Reusable `QueryScope<TSchema>` arrow functions compose filters, ordering,
 limits, and pagination through `.use(scope)`. They retain the exact schema and
-selection type. A bound query gives a scope only its unbound Query and restores
-the same engine afterward, so reusable query behavior cannot capture execution
-or authority implicitly.
+selection type. Scopes receive only a Query, so reusable query behavior cannot
+capture execution or authority implicitly.
 
 Transports produce the same AST as the class API. Runtime executes one pipeline for every source.
 
 Bulk creates and upserts are atomic by default. Bulk updates and deletes return counts rather than loading all affected objects.
 
 Every mutation eventually executes inside an automatic adapter transaction.
-Database work started by a native hook through its supplied `RequestEngine`
-shares that boundary and rolls back with the primary write. Reads do not open a
-transaction automatically; developers can still use an explicit transaction
-for a read-modify-write workflow.
+Database work started by a native hook through an ordinary `Schema.query()`
+terminal shares that boundary and rolls back with the primary write. Runtime
+tracks unawaited nested terminals, preserves caught failures as rollback-only,
+and rejects asynchronous branches whose hook lease has closed. Reads do not
+open a transaction automatically; developers can still use an explicit
+transaction for a read-modify-write workflow.
 
 Terminal operations use distinct AST kinds for singular and bulk behavior.
 Create inputs, update expressions, and upsert target queries remain separate.
@@ -54,8 +66,8 @@ pipeline.
 
 `new UltimaBase(options)` is the regular application boundary. Its `start()`
 method assembles the mandatory pipeline from the application's database service
-and plugin contributions, while `query(schema)` binds a concise query to the
-active same-application request or a new anonymous internal request. The
+and plugin contributions. Schema classes expose `Post.query()` as the regular
+entry point; `new Query(Post)` is the equivalent lower-level primitive. The
 lower-level `createFrameworkEngine(application)` factory remains available to
 framework packages and explicit transport composition.
 
@@ -86,12 +98,11 @@ IDs from one millisecond remain collision-resistant but do not promise a strict
 creation order. Tests may inject a deterministic `uuidV7Generator` through the
 same validation-stage options.
 
-## Planned native hook lifecycle
+## Native hook lifecycle
 
-ADR-0089, ADR-0090, and the active hook issues replace the low-level plugin-only developer
-experience with native schema and inline field declarations. A direct family
-handler covers singular and bulk variants, while the exact terminal `kind`
-remains available when behavior must differ:
+Native schema and inline field declarations complement the low-level plugin
+hook API. A direct family handler covers singular and bulk variants, while the
+exact terminal `kind` remains available when behavior must differ:
 
 ```ts
 const UserSchema = Schema.define({

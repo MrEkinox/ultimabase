@@ -327,7 +327,7 @@ describe('Query', () => {
 		}).toThrow(new TypeError('query filter value must be a string'))
 	})
 
-	it('snapshots mutable scalar operands and exposes no terminal operations', () => {
+	it('snapshots mutable scalar operands and exposes contextual terminals', () => {
 		const attachment = new Uint8Array([1, 2, 3])
 		const query = new Query(postSchema).equalTo('attachment', attachment)
 
@@ -339,8 +339,8 @@ describe('Query', () => {
 			value: new Uint8Array([1, 2, 3]),
 		})
 		expect(query.schema).toBe(postSchema)
-		expect(query).toHaveProperty('bind')
-		expect(query).not.toHaveProperty('find')
+		expect(query).not.toHaveProperty('bind')
+		expect(query).toHaveProperty('find')
 		expect(query).not.toHaveProperty('save')
 	})
 })

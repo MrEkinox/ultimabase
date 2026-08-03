@@ -2,11 +2,11 @@
 
 Transport-neutral Query and Operation AST contracts, normalization, cursor contracts, operators, and immutable query definitions.
 
-The public `Query<TSchema>` class is unbound and reusable. `BoundQuery` retains
-an execution owner across immutable branches; Runtime adds execution later.
-
-This domain does not own operation execution and must not import Runtime,
-a database, or a transport.
+The public `Query<TSchema>` class is context-free, reusable, and directly
+executable. Its builder retains only the transport-neutral AST. A terminal
+resolves the active Runtime request at call time or accepts `{ ultimabase }`
+when no request scope exists. Query never retains a database, adapter,
+transaction, request, authority, or transport.
 
 ## Immutable Query builder
 
@@ -38,10 +38,10 @@ The framework-owned identifier has a concise builder alias that remains
 composable with every other filter and terminal:
 
 ```ts
-const updated = await requestEngine
-	.query(postSchema)
+const updated = await postSchema
+	.query()
 	.byId(created.id)
-	.updateOne({ set: { title: 'Updated' } })
+	.updateOne({ set: { title: 'Updated' } }, { ultimabase })
 ```
 
 `byId(id)` is the typed equivalent of `equalTo('id', id)`. It returns a new
@@ -63,17 +63,13 @@ const published: QueryScope<typeof postSchema> = (query) =>
 const recentPublished: QueryScope<typeof postSchema> = (query) =>
 	query.use(published).descending('createdAt').limit(25)
 
-const feed = requestEngine
-	.query(postSchema)
-	.select('id', 'title')
-	.use(recentPublished)
+const feed = postSchema.query().select('id', 'title').use(recentPublished)
 ```
 
-`Query.use()` returns the unbound scope result. `BoundQuery.use()` gives the
-scope only the underlying unbound Query and restores the same engine on a new
-bound branch. Exact schema identity is checked both statically and at the
-JavaScript boundary. A factory may close over request-specific filter values,
-but a scope never receives the engine, request authority, or transport state.
+`Query.use()` returns another context-free branch. Exact schema identity is
+checked both statically and at the JavaScript boundary. A factory may close over
+request-specific filter values, but a scope never receives the application,
+request authority, transaction, or transport state.
 
 Direct filter calls form an implicit `and`. The `and`, `or`, and `not` methods
 combine only the filter of another query built from the exact same schema
@@ -82,58 +78,50 @@ query. The compiler correlates each field with its legal operators and exact
 value type, while the runtime boundary repeats the validation for JavaScript
 and transport callers.
 
-An unbound `Query` exposes its immutable `ast` and explicit `bind` method, but
-no executable terminal. Runtime supplies a neutral execution contract through
-the separate bound facade, keeping this package independent from concrete
-engines and adapters.
+## Contextual Runtime execution
 
-## Immutable Runtime binding
-
-Binding requires a neutral operation executor without importing Runtime:
+Every terminal resolves execution only when called. Inside an active request,
+transaction, or queryable hook, it reuses that exact request authority,
+transaction, cancellation signal, recursion state, and revocable hook lease:
 
 ```ts
-const reusable = new Query(articleSchema).equalTo('published', true)
-const bound = reusable.bind(requestEngine).select('id', 'title').limit(25)
-
-// The original remains reusable and has neither selection nor a limit.
-reusable.ast.selection.fields // []
-```
-
-Every bound builder method returns a new `BoundQuery` with the same engine and
-the same Query validation rules. `InferQueryResult` derives the terminal result
-shape from the accumulated selection: no selection yields the full schema
-object, while the example above yields `{ id: string; title?: string }` when
-`title` is optional in the schema. The projected result is materialized before
-it reaches public declarations, so editor hovers show only the selected
-properties instead of expanding the complete object behind a `Pick` helper.
-
-Every `BoundQuery` is executable, so one Runtime request engine can own several
-schemas while each bound terminal retains the exact selected schema, field
-projection, input, and result type. The broader application schema union never
-widens a schema-specific query result. Terminal hovers therefore contain no
-conditional execution guard or expanded `this` parameter. Update terminals
-also materialize their `set`, `unset`, `increment`, and `decrement` groups, so
-editor hovers expose legal fields and values instead of schema field internals.
-
-When the binding is a Runtime `RequestEngine`, terminals execute the
-neutral Operation AST through the mandatory Runtime pipeline:
-
-```ts
-const article = await requestEngine
-	.query(articleSchema)
+const article = await articleSchema
+	.query()
 	.equalTo('published', true)
 	.select('id', 'title')
 	.first()
 
-const created = await requestEngine.query(articleSchema).create({
-	title: 'Typed terminals',
-})
+const created = await articleSchema.query().create({ title: 'Typed terminals' })
 
-const updatedCount = await requestEngine
-	.query(articleSchema)
+const updatedCount = await articleSchema
+	.query()
 	.equalTo('published', true)
 	.updateMany({ increment: { views: 1 } })
 ```
+
+Outside a request scope, the final terminal argument identifies the exact
+started application. Runtime creates one anonymous internal root request; it
+never falls back to a process-wide default:
+
+```ts
+const articles = await ArticleSchema.query().find({ ultimabase })
+const created = await ArticleSchema.query().create(
+	{ title: 'From a job' },
+	{ ultimabase },
+)
+```
+
+Calling a terminal without ambient or explicit ownership throws
+`MISSING_EXECUTION_CONTEXT`. Supplying a different application inside an active
+scope is rejected instead of changing the operation's transaction. The same
+immutable Query branch may safely execute in different sequential or concurrent
+request scopes because no execution owner enters its AST.
+
+`InferQueryResult` derives the terminal result shape from the accumulated
+selection. The projected result is materialized before it reaches public
+declarations, so editor hovers show only selected properties instead of an
+expanded schema or `Pick` helper. Update terminal hovers similarly materialize
+legal `set`, `unset`, `increment`, and `decrement` groups.
 
 The implemented terminals are `find`, `first`, `get`, `count`, `exists`,
 `createOne`/`create`, `createMany`, `updateOne`, `updateMany`,
@@ -151,12 +139,16 @@ Bulk create and upsert request one collection group by default. Setting
 never disables Runtime's mandatory mutation transaction:
 
 ```ts
-const accounts = await requestEngine
-	.query(accountSchema)
-	.createMany([{ email: 'first@example.com' }, { email: 'second@example.com' }])
+const accounts = await accountSchema
+	.query()
+	.createMany(
+		[{ email: 'first@example.com' }, { email: 'second@example.com' }],
+		{ ultimabase },
+	)
 
-await requestEngine.query(accountSchema).createMany(importRows, {
+await accountSchema.query().createMany(importRows, {
 	atomic: false,
+	ultimabase,
 })
 ```
 
@@ -172,33 +164,36 @@ or one declared unique composite index. Ordering, limit, and pagination are
 rejected because they do not contribute to identity:
 
 ```ts
-const account = await requestEngine
-	.query(accountSchema)
+const account = await accountSchema
+	.query()
 	.equalTo('email', 'dev@ultimabase.dev')
-	.upsert({
-		create: { email: 'dev@ultimabase.dev' },
-		update: { increment: { signInCount: 1 } },
-	})
+	.upsert(
+		{
+			create: { email: 'dev@ultimabase.dev' },
+			update: { increment: { signInCount: 1 } },
+		},
+		{ ultimabase },
+	)
 
-const imported = await requestEngine.query(accountSchema).upsertMany([
-	{
-		query: new Query(accountSchema).equalTo('email', row.email),
-		create: row,
-		update: { set: { displayName: row.displayName } },
-	},
-])
+const imported = await accountSchema.query().upsertMany(
+	[
+		{
+			query: new Query(accountSchema).equalTo('email', row.email),
+			create: row,
+			update: { set: { displayName: row.displayName } },
+		},
+	],
+	{ ultimabase },
+)
 ```
 
 Each bulk upsert item supplies its own reusable unbound `Query`. The normalized
 operation records the matching unique fields in schema declaration order, so
 every adapter receives the same conflict target without inferring it again.
 
-`Query.bind()` rejects arbitrary context objects at compile time. Reusable
-composition stays on the unbound `Query`; binding means that the neutral
-`QueryOperationExecutor` contract is present and every terminal can execute.
-`QueryExecutorBinding` is the minimal capability used to accommodate Runtime
-engines that own several schemas; custom single-schema executors should expose
-the stricter `QueryOperationExecutor<TSchema>` contract.
+Terminal options are never serialized into Query or Operation ASTs. Transports
+continue executing normalized operations through explicit request engines and
+cannot manufacture `{ ultimabase }` from client input.
 
 ## Query AST
 

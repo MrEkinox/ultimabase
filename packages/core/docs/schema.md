@@ -105,7 +105,9 @@ output restrictions complete, Runtime converts neutral adapter records into the
 exact registered class:
 
 ```ts
-const post = await ultimabase.query(PostSchema).select('id', 'title').first()
+const post = await PostSchema.query()
+	.select('id', 'title')
+	.first({ ultimabase })
 
 if (post !== null) {
 	post instanceof PostSchema // true

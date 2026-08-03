@@ -4,6 +4,10 @@ import type {
 	FrameworkApplication,
 	PluginDefinition,
 } from '../../foundation.js'
+import {
+	runWithQueryExecution,
+	type QueryExecutionDispatcher,
+} from '../../query/operations/execution.js'
 import type { SchemaDefinition } from '../../schema/index.js'
 import { immutableRecord } from '@ultimabase/shared'
 
@@ -64,7 +68,13 @@ export const runWithRequestEngineScope = <
 	requestEngine: RequestEngine<TSchemas, TPlugins, TRequest>,
 	callback: () => TResult,
 ): TResult =>
-	activeFrameworkStorage.run(
-		createActiveFrameworkContext(requestEngine),
-		callback,
+	runWithQueryExecution(
+		requestEngine.application,
+		// Application ownership is checked by RequestEngine before the erased bridge executes.
+		requestEngine as unknown as QueryExecutionDispatcher,
+		() =>
+			activeFrameworkStorage.run(
+				createActiveFrameworkContext(requestEngine),
+				callback,
+			),
 	)

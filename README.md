@@ -49,11 +49,10 @@ await ultimabase.start()
 ```
 
 ```ts
-const users = await ultimabase
-	.query(UserSchema)
+const users = await UserSchema.query()
 	.equalTo('isActive', true)
 	.limit(25)
-	.find()
+	.find({ ultimabase })
 
 users[0] instanceof UserSchema // true
 users[0]?.toJSON() // A detached immutable object.

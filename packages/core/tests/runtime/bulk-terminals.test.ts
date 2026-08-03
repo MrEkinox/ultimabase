@@ -6,7 +6,11 @@ import { Query } from '../../src/index.js'
 import { Schema, intField, stringField } from '../../src/index.js'
 import { describe, expect, it } from 'vitest'
 
-import { FrameworkEngine, requestSources } from '../../src/runtime/index.js'
+import {
+	FrameworkEngine,
+	requestSources,
+	runWithRequestEngine,
+} from '../../src/runtime/index.js'
 import {
 	createRecordingPipeline,
 	RecordingDatabaseAdapter,
@@ -94,12 +98,14 @@ describe('bulk and upsert terminals', () => {
 			trace,
 		)
 
-		const result = await request
-			.query(accountSchema)
-			.createMany([
-				{ email: 'first@example.com' },
-				{ email: 'second@example.com' },
-			])
+		const result = await runWithRequestEngine(request, () =>
+			accountSchema
+				.query()
+				.createMany([
+					{ email: 'first@example.com' },
+					{ email: 'second@example.com' },
+				]),
+		)
 
 		expect(result.every((account) => account instanceof accountSchema)).toBe(
 			true,
@@ -132,18 +138,23 @@ describe('bulk and upsert terminals', () => {
 			trace,
 		)
 
-		const result = await request.query(accountSchema).upsertMany([
-			{
-				query: new Query(accountSchema).equalTo('email', 'first@example.com'),
-				create: { email: 'first@example.com' },
-				update: { increment: { visits: 1 } },
-			},
-			{
-				query: new Query(accountSchema).equalTo('email', 'second@example.com'),
-				create: { email: 'second@example.com' },
-				update: { increment: { visits: 1 } },
-			},
-		])
+		const result = await runWithRequestEngine(request, () =>
+			accountSchema.query().upsertMany([
+				{
+					query: new Query(accountSchema).equalTo('email', 'first@example.com'),
+					create: { email: 'first@example.com' },
+					update: { increment: { visits: 1 } },
+				},
+				{
+					query: new Query(accountSchema).equalTo(
+						'email',
+						'second@example.com',
+					),
+					create: { email: 'second@example.com' },
+					update: { increment: { visits: 1 } },
+				},
+			]),
+		)
 
 		expect(result.every((account) => account instanceof accountSchema)).toBe(
 			true,
@@ -169,7 +180,9 @@ describe('bulk and upsert terminals', () => {
 		)
 
 		await expect(
-			request.query(accountSchema).createMany([{ email: 'first@example.com' }]),
+			runWithRequestEngine(request, () =>
+				accountSchema.query().createMany([{ email: 'first@example.com' }]),
+			),
 		).rejects.toBe(writeError)
 		expect(adapter.rootRequests).toStrictEqual([])
 		expect(adapter.transactions).toHaveLength(1)
@@ -198,9 +211,11 @@ describe('bulk and upsert terminals', () => {
 			trace,
 		)
 
-		const result = await request
-			.query(accountSchema)
-			.createMany([{ email: 'first@example.com' }], { atomic: false })
+		const result = await runWithRequestEngine(request, () =>
+			accountSchema
+				.query()
+				.createMany([{ email: 'first@example.com' }], { atomic: false }),
+		)
 
 		expect(result.every((account) => account instanceof accountSchema)).toBe(
 			true,
@@ -225,14 +240,15 @@ describe('bulk and upsert terminals', () => {
 			deleteTrace,
 		)
 
-		const updated = await updateRequest
-			.query(accountSchema)
-			.greaterThan('visits', 0)
-			.updateMany({ increment: { visits: 1 } })
-		const deleted = await deleteRequest
-			.query(accountSchema)
-			.equalTo('visits', 0)
-			.deleteMany()
+		const updated = await runWithRequestEngine(updateRequest, () =>
+			accountSchema
+				.query()
+				.greaterThan('visits', 0)
+				.updateMany({ increment: { visits: 1 } }),
+		)
+		const deleted = await runWithRequestEngine(deleteRequest, () =>
+			accountSchema.query().equalTo('visits', 0).deleteMany(),
+		)
 
 		expect(updated).toBe(3)
 		expect(deleted).toBe(2)
@@ -254,10 +270,8 @@ describe('bulk and upsert terminals', () => {
 			trace,
 		)
 
-		await request.transaction((transaction) =>
-			transaction
-				.query(accountSchema)
-				.createMany([{ email: 'first@example.com' }]),
+		await request.transaction(() =>
+			accountSchema.query().createMany([{ email: 'first@example.com' }]),
 		)
 
 		expectCommittedTransaction(adapter, trace, 'create-many')

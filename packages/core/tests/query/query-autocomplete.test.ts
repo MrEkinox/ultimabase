@@ -1,7 +1,10 @@
 import type { SymbolDisplayPart } from 'typescript'
 import { describe, expect, it } from 'vitest'
 
-import { readMarkedQuickInfo } from '../../../../tooling/vitest/typescript-language-service.js'
+import {
+	createLanguageService,
+	readMarkedQuickInfo,
+} from '../../../../tooling/vitest/typescript-language-service.js'
 
 /** Joins TypeScript display parts exactly as an editor presents them. */
 const readDisplay = (parts: readonly SymbolDisplayPart[] | undefined): string =>
@@ -28,5 +31,55 @@ const identified = new Query(PostSchema)./* hover */byId('0194f292-0dd9-7c2d-a0a
 			'Adds an equality filter for the framework-owned object identifier',
 		)
 		expect(quickInfo.tags?.some(({ name }) => name === 'example')).toBe(true)
+	})
+
+	it('documents compact contextual terminals and their explicit owner option', () => {
+		const marker = '/* completion */'
+		const sourceWithMarker = `
+import { Schema, UltimaBase, stringField } from '../../src/index.js'
+
+const Post = Schema.define({ className: 'Post', fields: { title: stringField() } })
+const ultimabase = new UltimaBase({ schemas: [Post], plugins: [] })
+Post.query().find({ ${marker} })
+void ultimabase
+`
+		const position = sourceWithMarker.indexOf(marker)
+		const source = sourceWithMarker.replace(marker, ' '.repeat(marker.length))
+		const fileName = `${import.meta.dirname}/query-terminal-options.fixture.ts`
+		const service = createLanguageService(fileName, source)
+		const completions = service.getCompletionsAtPosition(fileName, position, {})
+		const owner = completions?.entries.find(({ name }) => name === 'ultimabase')
+
+		if (owner === undefined) {
+			throw new TypeError('Missing Query terminal owner completion')
+		}
+
+		const details = service.getCompletionEntryDetails(
+			fileName,
+			position,
+			owner.name,
+			undefined,
+			owner.source,
+			undefined,
+			owner.data,
+		)
+		const documentation = readDisplay(details?.documentation)
+
+		expect(documentation).toContain('exact started application')
+		expect(details?.tags?.some(({ name }) => name === 'example')).toBe(true)
+
+		const terminal = readMarkedQuickInfo(
+			`${import.meta.dirname}/query-terminal-hover.fixture.ts`,
+			`
+import { Schema, stringField } from '../../src/index.js'
+const Post = Schema.define({ className: 'Post', fields: { title: stringField() } })
+Post.query()./* hover */find()
+`,
+		)
+		const display = readDisplay(terminal.displayParts)
+
+		expect(display).toContain('find(options?: QueryTerminalOptions)')
+		expect(display).not.toContain('SchemaDefinition<')
+		expect(display.length).toBeLessThan(900)
 	})
 })

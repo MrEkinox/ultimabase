@@ -103,7 +103,7 @@ describe('HookContext Runtime capabilities', () => {
 					expect(Object.isFrozen(context)).toBe(true)
 					transactionIds.push(context.transactionId)
 
-					void context.query(AuditSchema).create({ title: 'nested audit' })
+					void AuditSchema.query().create({ title: 'nested audit' })
 					return operation
 				},
 			},
@@ -125,7 +125,7 @@ describe('HookContext Runtime capabilities', () => {
 
 		await ultimabase.start()
 		await expect(
-			ultimabase.query(PostSchema).create({ title: 'parent' }),
+			PostSchema.query().create({ title: 'parent' }, { ultimabase }),
 		).resolves.toMatchObject({ title: 'parent' })
 
 		expect(adapter.transactions).toHaveLength(1)
@@ -154,9 +154,9 @@ describe('HookContext Runtime capabilities', () => {
 			className: 'HookContextFailedPost',
 			fields: { title: stringField({ validation: { required: true } }) },
 			hooks: {
-				beforeCreate: async ({ context, operation }) => {
+				beforeCreate: async ({ operation }) => {
 					try {
-						await context.query(AuditSchema).create({ title: 'fails' })
+						await AuditSchema.query().create({ title: 'fails' })
 					} catch {
 						// Catching nested work cannot make a failed transaction committable.
 					}
@@ -176,7 +176,7 @@ describe('HookContext Runtime capabilities', () => {
 
 		await ultimabase.start()
 		await expect(
-			ultimabase.query(PostSchema).create({ title: 'parent' }),
+			PostSchema.query().create({ title: 'parent' }, { ultimabase }),
 		).rejects.toBe(nestedFailure)
 		expect(trace).toStrictEqual([
 			'adapter:begin',
@@ -188,7 +188,7 @@ describe('HookContext Runtime capabilities', () => {
 		await ultimabase.dispose()
 	})
 
-	it('revokes escaped contexts and bound queries after their hook completes', async () => {
+	it('revokes escaped contexts and leaves detached queries context-free', async () => {
 		let escapedContext: HookContext | undefined
 		let runEscapedQuery: (() => unknown) | undefined
 		const capability = new RequestCapability('fixture.escaped-context')
@@ -198,7 +198,7 @@ describe('HookContext Runtime capabilities', () => {
 			hooks: {
 				beforeCreate: ({ context, operation }) => {
 					escapedContext = context
-					const query = context.query(PostSchema)
+					const query = PostSchema.query()
 					runEscapedQuery = () => query.find()
 
 					return operation
@@ -215,46 +215,81 @@ describe('HookContext Runtime capabilities', () => {
 		})
 
 		await ultimabase.start()
-		await ultimabase.query(PostSchema).create({ title: 'stored' })
+		await PostSchema.query().create({ title: 'stored' }, { ultimabase })
 
 		expect(() => escapedContext?.hasCapability(capability)).toThrow(
 			expect.objectContaining({ code: 'HOOK_CONTEXT_CLOSED' }),
 		)
-		expect(() => escapedContext?.query(PostSchema)).toThrow(
-			expect.objectContaining({ code: 'HOOK_CONTEXT_CLOSED' }),
-		)
 		expect(() => runEscapedQuery?.()).toThrow(
-			expect.objectContaining({ code: 'HOOK_CONTEXT_CLOSED' }),
+			expect.objectContaining({ code: 'MISSING_EXECUTION_CONTEXT' }),
 		)
 
 		await ultimabase.dispose()
 	})
 
-	it('rejects cross-application schemas and queries during finalization', async () => {
-		const ForeignSchema = Schema.define({
-			className: 'HookContextForeign',
+	it('rejects a delayed asynchronous branch after its hook scope closes', async () => {
+		let releaseBranch: (() => void) | undefined
+		let delayedQuery: Promise<unknown> | undefined
+		const branchGate = new Promise<void>((resolve) => {
+			releaseBranch = resolve
+		})
+		const PostSchema = Schema.define({
+			className: 'HookContextDelayedBranchPost',
+			fields: { title: stringField({ validation: { required: true } }) },
+			hooks: {
+				beforeCreate: ({ operation }) => {
+					// AsyncLocalStorage retains the hook guard even though this branch
+					// starts its query only after the hook callback has completed.
+					delayedQuery = (async () => {
+						await branchGate
+						return PostSchema.query().find()
+					})()
+
+					return operation
+				},
+			},
+		})
+		const adapter = new RecordingDatabaseAdapter(
+			[createMutationResult('0198a43e-2431-7000-8000-000000000207', 'stored')],
+			[],
+		)
+		const ultimabase = new UltimaBase({
+			plugins: [createDatabasePlugin(adapter)],
+			schemas: [PostSchema],
+		})
+
+		await ultimabase.start()
+		await PostSchema.query().create({ title: 'stored' }, { ultimabase })
+
+		if (delayedQuery === undefined || releaseBranch === undefined) {
+			throw new TypeError('Hook did not create the delayed query branch')
+		}
+
+		const observedQuery = delayedQuery.then(
+			() => undefined,
+			(error: unknown) => error,
+		)
+		releaseBranch()
+
+		await expect(observedQuery).resolves.toMatchObject({
+			code: 'HOOK_CONTEXT_CLOSED',
+		})
+		expect(adapter.transactions[0]?.requests).toHaveLength(1)
+
+		await ultimabase.dispose()
+	})
+
+	it('rejects ambient queries during transaction finalization', async () => {
+		const FinalizationReadSchema = Schema.define({
+			className: 'HookContextFinalizationRead',
 			fields: { title: stringField() },
 		})
-		const foreignUltimaBase = new UltimaBase({
-			plugins: [createDatabasePlugin(new RecordingDatabaseAdapter([], []))],
-			schemas: [ForeignSchema],
-		})
-		let foreignError: unknown
 		const PostSchema = Schema.define({
 			className: 'HookContextFinalizationPost',
 			fields: { title: stringField({ validation: { required: true } }) },
 			hooks: {
-				beforeCommit: ({ context }) => {
-					context.query(PostSchema)
-				},
-				beforeCreate: ({ context, operation }) => {
-					try {
-						context.query(ForeignSchema)
-					} catch (error: unknown) {
-						foreignError = error
-					}
-
-					return operation
+				beforeCommit: () => {
+					void FinalizationReadSchema.query().find()
 				},
 			},
 		})
@@ -273,19 +308,53 @@ describe('HookContext Runtime capabilities', () => {
 					),
 				),
 			],
+			schemas: [PostSchema, FinalizationReadSchema],
+		})
+
+		await ultimabase.start()
+		await expect(
+			PostSchema.query().create({ title: 'stored' }, { ultimabase }),
+		).rejects.toMatchObject({ code: 'MISSING_EXECUTION_CONTEXT' })
+		expect(trace.at(-1)).toBe('adapter:rollback')
+
+		await ultimabase.dispose()
+	})
+
+	it('keeps caught cross-application hook failures rollback-only', async () => {
+		const ForeignSchema = Schema.define({
+			className: 'HookContextForeign',
+			fields: { title: stringField() },
+		})
+		let foreignError: unknown
+		const PostSchema = Schema.define({
+			className: 'HookContextCrossApplicationPost',
+			fields: { title: stringField({ validation: { required: true } }) },
+			hooks: {
+				beforeCreate: async ({ operation }) => {
+					try {
+						await ForeignSchema.query().find()
+					} catch (error: unknown) {
+						foreignError = error
+					}
+
+					return operation
+				},
+			},
+		})
+		const trace: string[] = []
+		const ultimabase = new UltimaBase({
+			plugins: [createDatabasePlugin(new RecordingDatabaseAdapter([], trace))],
 			schemas: [PostSchema],
 		})
 
-		await foreignUltimaBase.start()
 		await ultimabase.start()
 		await expect(
-			ultimabase.query(PostSchema).create({ title: 'stored' }),
-		).rejects.toMatchObject({ code: 'MISSING_EXECUTION_CONTEXT' })
+			PostSchema.query().create({ title: 'stored' }, { ultimabase }),
+		).rejects.toMatchObject({ code: 'VALIDATION_ERROR' })
 		expect(foreignError).toMatchObject({ code: 'VALIDATION_ERROR' })
 		expect(trace.at(-1)).toBe('adapter:rollback')
 
 		await ultimabase.dispose()
-		await foreignUltimaBase.dispose()
 	})
 
 	it('delivers detached named events after commit in plugin order', async () => {
@@ -340,7 +409,7 @@ describe('HookContext Runtime capabilities', () => {
 		})
 
 		await ultimabase.start()
-		await ultimabase.query(PostSchema).create({ title: 'stored' })
+		await PostSchema.query().create({ title: 'stored' }, { ultimabase })
 
 		expect(trace.indexOf('adapter:commit')).toBeLessThan(
 			trace.indexOf('event:first'),
@@ -415,7 +484,7 @@ describe('HookContext Runtime capabilities', () => {
 
 		await ultimabase.start()
 		await expect(
-			ultimabase.query(PostSchema).create({ title: 'stored' }),
+			PostSchema.query().create({ title: 'stored' }, { ultimabase }),
 		).rejects.toMatchObject({
 			code: 'TRANSACTION_ERROR',
 			internalDetails: { reason: 'hook-event-queue-closed' },
@@ -469,7 +538,7 @@ describe('HookContext Runtime capabilities', () => {
 
 		await ultimabase.start()
 		await expect(
-			ultimabase.query(PostSchema).create({ title: 'discarded' }),
+			PostSchema.query().create({ title: 'discarded' }, { ultimabase }),
 		).rejects.toBe(failure)
 		expect(deliveries).toBe(0)
 		expect(trace.at(-1)).toBe('adapter:rollback')
@@ -492,9 +561,10 @@ describe('HookContext Runtime capabilities', () => {
 
 		await missingConsumerApp.start()
 		await expect(
-			missingConsumerApp
-				.query(MissingConsumerSchema)
-				.create({ title: 'rejected' }),
+			MissingConsumerSchema.query().create(
+				{ title: 'rejected' },
+				{ ultimabase: missingConsumerApp },
+			),
 		).rejects.toMatchObject({ code: 'SERVICE_NOT_FOUND' })
 		await missingConsumerApp.dispose()
 	})
@@ -522,10 +592,12 @@ describe('HookContext Runtime capabilities', () => {
 		})
 
 		await ultimabase.start()
-		await expect(ultimabase.query(ReadSchema).find()).rejects.toMatchObject({
-			code: 'TRANSACTION_ERROR',
-			internalDetails: { reason: 'hook-event-transaction-required' },
-		})
+		await expect(ReadSchema.query().find({ ultimabase })).rejects.toMatchObject(
+			{
+				code: 'TRANSACTION_ERROR',
+				internalDetails: { reason: 'hook-event-transaction-required' },
+			},
+		)
 		await ultimabase.dispose()
 	})
 })

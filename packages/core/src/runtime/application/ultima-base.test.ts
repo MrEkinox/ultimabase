@@ -97,7 +97,7 @@ describe('UltimaBase', () => {
 		expect(() => ultimabase.engine).toThrow(
 			new TypeError('UltimaBase must be started before accessing its engine'),
 		)
-		expect(() => ultimabase.query(articleSchema)).toThrow(
+		expect(() => articleSchema.query().find({ ultimabase })).toThrow(
 			new TypeError('UltimaBase must be started before accessing its engine'),
 		)
 
@@ -108,7 +108,7 @@ describe('UltimaBase', () => {
 		expect(ultimabase.state).toBe('started')
 		expect(trace).toStrictEqual(['setup', 'connect'])
 
-		const result = await ultimabase.query(articleSchema).find()
+		const result = await articleSchema.query().find({ ultimabase })
 
 		expect(result).toHaveLength(1)
 		expect(result[0]).toBeInstanceOf(articleSchema)
@@ -121,12 +121,12 @@ describe('UltimaBase', () => {
 			/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u,
 		)
 
-		const escapedQuery = ultimabase.query(articleSchema)
+		const escapedQuery = articleSchema.query()
 
 		await ultimabase.stop()
 		expect(ultimabase.state).toBe('stopped')
 		expect(trace).toStrictEqual(['setup', 'connect', 'stop'])
-		await expect(escapedQuery.find()).rejects.toStrictEqual(
+		expect(() => escapedQuery.find({ ultimabase })).toThrow(
 			new TypeError(
 				'Framework engine cannot be used while application is stopped',
 			),
@@ -186,16 +186,15 @@ describe('UltimaBase', () => {
 			await first.engine
 				.anonymous({ requestId: 'transaction-owner', source: 'internal' })
 				.transaction(async () =>
-					first.query(articleSchema).create({ title: 'Transactional' }),
+					articleSchema.query().create({ title: 'Transactional' }),
 				)
 
 			expect(firstAdapter.rootRequests).toStrictEqual([])
 			expect(firstAdapter.transactions).toHaveLength(1)
 			expect(firstAdapter.transactions[0]?.requests).toHaveLength(1)
-			expect(() =>
-				// @ts-expect-error -- Runtime ownership rejects another facade's schema.
-				first.query(otherSchema),
-			).toThrow(expect.objectContaining({ code: 'VALIDATION_ERROR' }))
+			await expect(
+				otherSchema.query().find({ ultimabase: first }),
+			).rejects.toMatchObject({ code: 'VALIDATION_ERROR' })
 			expect(second.application.ownsSchema(articleSchema)).toBe(false)
 		} finally {
 			await Promise.all([first.dispose(), second.dispose()])

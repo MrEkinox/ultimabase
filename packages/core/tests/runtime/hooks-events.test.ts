@@ -14,6 +14,7 @@ import {
 	FrameworkEngine,
 	postCommitEvent,
 	requestSources,
+	runWithRequestEngine,
 	RuntimePipeline,
 	type DatabaseAdapter,
 	type RuntimePipelineStages,
@@ -273,7 +274,9 @@ describe('Runtime hooks and post-commit events', () => {
 			trace,
 		)
 
-		const result = await request.query(articleSchema).create({ title: 'input' })
+		const result = await runWithRequestEngine(request, () =>
+			articleSchema.query().create({ title: 'input' }),
+		)
 
 		// Root mutations must use the transaction executor rather than the root adapter.
 		expect(adapter.rootRequests).toStrictEqual([])
@@ -313,8 +316,8 @@ describe('Runtime hooks and post-commit events', () => {
 			trace,
 		)
 
-		await request.transaction(async (transaction) => {
-			await transaction.query(articleSchema).create({ title: 'input' })
+		await request.transaction(async () => {
+			await articleSchema.query().create({ title: 'input' })
 			expect(trace.some((entry) => entry.startsWith('event:'))).toBe(false)
 			trace.push('transaction:callback-complete')
 		})
@@ -360,7 +363,9 @@ describe('Runtime hooks and post-commit events', () => {
 
 		// The root mutation owns the rollback boundary without an explicit callback.
 		await expect(
-			request.query(articleSchema).create({ title: 'input' }),
+			runWithRequestEngine(request, () =>
+				articleSchema.query().create({ title: 'input' }),
+			),
 		).rejects.toBe(hookError)
 		expect(trace).toStrictEqual([
 			'adapter:begin',

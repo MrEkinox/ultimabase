@@ -46,7 +46,6 @@ The first complete vertical includes:
 Classes are preferred for discoverable public domain objects and immutable builders:
 
 - `Query`;
-- `BoundQuery`;
 - `ACL`;
 - `Role`;
 - framework errors;

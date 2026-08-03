@@ -18,10 +18,10 @@ const AuditSchema = Schema.define({
 
 declare const context: HookContext
 
-context.${completionMarker}query(AuditSchema)
-const query = context./* hover:query-method */query(AuditSchema)
+context.${completionMarker}emit('audit.checked', { id: 'audit-1' })
+const query = AuditSchema./* hover:query-builder */query()
 const event = context./* hover:emit-method */emit('audit.created', { id: 'audit-1' })
-const selected = await query.select('id', 'action').find()
+const selected = await query.select('id', 'action')./* hover:query-terminal */find()
 const /* hover:selected-result */ first = selected[0]
 void event
 void first
@@ -78,7 +78,6 @@ describe('HookContext IntelliSense', () => {
 				'emit',
 				'hasCapability',
 				'hook',
-				'query',
 				'requestId',
 				'signal',
 				'source',
@@ -98,11 +97,11 @@ describe('HookContext IntelliSense', () => {
 	})
 
 	it('keeps method and selected-result hovers concise', () => {
-		const query = displayQuickInfo('/* hover:query-method */')
+		const query = displayQuickInfo('/* hover:query-builder */')
 		const emit = displayQuickInfo('/* hover:emit-method */')
 		const selected = displayQuickInfo('/* hover:selected-result */')
 
-		expect(query).toContain('BoundQuery<')
+		expect(query).toContain('Query<')
 		expect(query.length).toBeLessThan(900)
 		expect(emit).toContain('void')
 		expect(emit.length).toBeLessThan(700)
@@ -113,11 +112,11 @@ describe('HookContext IntelliSense', () => {
 	})
 
 	it('documents query and event capabilities in editor hovers', () => {
-		const query = readQuickInfo('/* hover:query-method */')
+		const query = readQuickInfo('/* hover:query-terminal */')
 		const emit = readQuickInfo('/* hover:emit-method */')
 
 		expect(ts.displayPartsToString(query.documentation)).toContain(
-			'active transaction',
+			'active request',
 		)
 		expect(ts.displayPartsToString(emit.documentation)).toContain(
 			'after the transaction commits',

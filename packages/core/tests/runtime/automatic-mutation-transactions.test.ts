@@ -13,6 +13,7 @@ import {
 	MasterAuthority,
 	type MasterKeyGrant,
 	requestSources,
+	runWithRequestEngine,
 } from '../../src/runtime/index.js'
 import {
 	createRecordingPipeline,
@@ -93,67 +94,83 @@ const mutationFixtures: readonly MutationFixture[] = [
 		kind: 'create-one',
 		result: articleRecord('0198f090-2a50-7000-8000-000000000001', 'Created'),
 		execute: (request) =>
-			request.query(articleSchema).create({ title: 'Created' }),
+			runWithRequestEngine(request, () =>
+				articleSchema.query().create({ title: 'Created' }),
+			),
 	},
 	{
 		kind: 'create-many',
 		result: [articleRecord('0198f090-2a50-7000-8000-000000000002', 'Created')],
 		execute: (request) =>
-			request.query(articleSchema).createMany([{ title: 'Created' }]),
+			runWithRequestEngine(request, () =>
+				articleSchema.query().createMany([{ title: 'Created' }]),
+			),
 	},
 	{
 		kind: 'update-one',
 		result: articleRecord('0198f090-2a50-7000-8000-000000000003', 'After'),
 		execute: (request) =>
-			request
-				.query(articleSchema)
-				.equalTo('title', 'Before')
-				.updateOne({ set: { title: 'After' } }),
+			runWithRequestEngine(request, () =>
+				articleSchema
+					.query()
+					.equalTo('title', 'Before')
+					.updateOne({ set: { title: 'After' } }),
+			),
 	},
 	{
 		kind: 'update-many',
 		result: 2,
 		execute: (request) =>
-			request
-				.query(articleSchema)
-				.equalTo('title', 'Before')
-				.updateMany({ set: { title: 'After' } }),
+			runWithRequestEngine(request, () =>
+				articleSchema
+					.query()
+					.equalTo('title', 'Before')
+					.updateMany({ set: { title: 'After' } }),
+			),
 	},
 	{
 		kind: 'upsert-one',
 		result: articleRecord('0198f090-2a50-7000-8000-000000000004', 'Upserted'),
 		execute: (request) =>
-			request
-				.query(articleSchema)
-				.equalTo('title', 'Upserted')
-				.upsertOne({
-					create: { title: 'Upserted' },
-					update: { set: { title: 'Upserted' } },
-				}),
+			runWithRequestEngine(request, () =>
+				articleSchema
+					.query()
+					.equalTo('title', 'Upserted')
+					.upsertOne({
+						create: { title: 'Upserted' },
+						update: { set: { title: 'Upserted' } },
+					}),
+			),
 	},
 	{
 		kind: 'upsert-many',
 		result: [articleRecord('0198f090-2a50-7000-8000-000000000005', 'Upserted')],
 		execute: (request) =>
-			request.query(articleSchema).upsertMany([
-				{
-					query: new Query(articleSchema).equalTo('title', 'Upserted'),
-					create: { title: 'Upserted' },
-					update: { set: { title: 'Upserted' } },
-				},
-			]),
+			runWithRequestEngine(request, () =>
+				articleSchema.query().upsertMany([
+					{
+						query: new Query(articleSchema).equalTo('title', 'Upserted'),
+						create: { title: 'Upserted' },
+						update: { set: { title: 'Upserted' } },
+					},
+				]),
+			),
 	},
 	{
 		kind: 'delete-one',
 		result: articleRecord('0198f090-2a50-7000-8000-000000000006', 'Deleted'),
 		execute: (request) =>
-			request.query(articleSchema).equalTo('title', 'Deleted').deleteOne(),
+			runWithRequestEngine(request, () =>
+				articleSchema.query().equalTo('title', 'Deleted').deleteOne(),
+			),
 	},
 	{
 		kind: 'delete-many',
 		result: 2,
 		execute: (request) =>
-			request.query(articleSchema).equalTo('title', 'Deleted').deleteMany(),
+			runWithRequestEngine(request, () =>
+				articleSchema.query().equalTo('title', 'Deleted').deleteMany(),
+			),
 	},
 ]
 
@@ -229,9 +246,7 @@ describe('automatic mutation transaction scope', () => {
 					observedEngine = getCurrentEngine()
 
 					try {
-						await observedEngine
-							.query(articleSchema)
-							.create({ title: 'Nested' })
+						await articleSchema.query().create({ title: 'Nested' })
 					} catch (error: unknown) {
 						expect(error).toBe(nestedError)
 					}
@@ -250,7 +265,9 @@ describe('automatic mutation transaction scope', () => {
 		)
 
 		await expect(
-			request.query(articleSchema).create({ title: 'Primary' }),
+			runWithRequestEngine(request, () =>
+				articleSchema.query().create({ title: 'Primary' }),
+			),
 		).rejects.toBe(nestedError)
 		expect(observedEngine).toBeDefined()
 		expect(observedEngine).not.toBe(request)
@@ -275,9 +292,7 @@ describe('automatic mutation transaction scope', () => {
 		const hookStages: RecordingPipelineHookStages = {
 			globalBeforeHooks: async (input) => {
 				if (readCreatedTitle(input.operation) === 'Primary') {
-					await getCurrentEngine()
-						.query(articleSchema)
-						.create({ title: 'Nested' })
+					await articleSchema.query().create({ title: 'Nested' })
 				}
 
 				return input.operation
@@ -299,7 +314,9 @@ describe('automatic mutation transaction scope', () => {
 		)
 
 		await expect(
-			request.query(articleSchema).create({ title: 'Primary' }),
+			runWithRequestEngine(request, () =>
+				articleSchema.query().create({ title: 'Primary' }),
+			),
 		).rejects.toBe(primaryError)
 		expect(trace).toStrictEqual([
 			'adapter:begin',
@@ -317,9 +334,7 @@ describe('automatic mutation transaction scope', () => {
 		const hookStages: RecordingPipelineHookStages = {
 			globalAfterHooks: async (input) => {
 				if (readCreatedTitle(input.operation) === 'Primary') {
-					await getCurrentEngine()
-						.query(articleSchema)
-						.create({ title: 'Nested after' })
+					await articleSchema.query().create({ title: 'Nested after' })
 					throw afterError
 				}
 
@@ -348,7 +363,9 @@ describe('automatic mutation transaction scope', () => {
 		)
 
 		await expect(
-			request.query(articleSchema).create({ title: 'Primary' }),
+			runWithRequestEngine(request, () =>
+				articleSchema.query().create({ title: 'Primary' }),
+			),
 		).rejects.toBe(afterError)
 		expect(trace).toStrictEqual([
 			'adapter:begin',
@@ -394,7 +411,9 @@ describe('automatic mutation transaction scope', () => {
 						'write automatic transaction audit',
 					)
 
-					await master.query(articleSchema).create({ title: 'Master nested' })
+					await runWithRequestEngine(master, () =>
+						articleSchema.query().create({ title: 'Master nested' }),
+					)
 				}
 
 				return input.operation
@@ -424,7 +443,9 @@ describe('automatic mutation transaction scope', () => {
 		grants.set(framework, framework.authorizeMasterKey('verified-secret'))
 
 		await expect(
-			request.query(articleSchema).create({ title: 'Primary' }),
+			runWithRequestEngine(request, () =>
+				articleSchema.query().create({ title: 'Primary' }),
+			),
 		).resolves.toMatchObject({ title: 'Primary' })
 		expect(nestedAccessMode).toBe('master')
 		expect(adapter.transactions).toHaveLength(1)

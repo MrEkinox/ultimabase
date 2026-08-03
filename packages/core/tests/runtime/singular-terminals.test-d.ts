@@ -1,14 +1,11 @@
-import type { UserRequestAccess } from '../../src/index.js'
 import {
 	intField,
 	stringField,
 	Schema,
 	type InferQueryResult,
+	type UltimaBase,
 } from '../../src/index.js'
 import { expectTypeOf, test } from 'vitest'
-
-import type { RequestContext } from '../../src/runtime/context/request-context.js'
-import type { RequestEngine } from '../../src/runtime/engine/framework-engine.js'
 
 const articleSchema = Schema.define({
 	className: 'TypedTerminalArticle',
@@ -18,14 +15,13 @@ const articleSchema = Schema.define({
 	},
 })
 
-declare const request: RequestEngine<
+declare const ultimabase: UltimaBase<
 	readonly [typeof articleSchema],
-	readonly [],
-	RequestContext<UserRequestAccess<'user-1'>, 'internal'>
+	readonly []
 >
 
-test('preserves RequestEngine schema selection across every singular terminal', () => {
-	const query = request.query(articleSchema).select('id', 'title')
+test('preserves Query schema selection across every singular terminal', () => {
+	const query = articleSchema.query().select('id', 'title')
 
 	expectTypeOf(query.find()).toEqualTypeOf<
 		Promise<readonly InferQueryResult<typeof articleSchema, 'id' | 'title'>[]>
@@ -50,4 +46,41 @@ test('preserves RequestEngine schema selection across every singular terminal', 
 	expectTypeOf(query.deleteOne()).toEqualTypeOf<
 		Promise<InferQueryResult<typeof articleSchema, 'id' | 'title'> | null>
 	>()
+	expectTypeOf(query.find({ ultimabase })).toEqualTypeOf<
+		Promise<readonly InferQueryResult<typeof articleSchema, 'id' | 'title'>[]>
+	>()
+	expectTypeOf(
+		query.create({ title: 'Created' }, { ultimabase }),
+	).toEqualTypeOf<Promise<InferQueryResult<typeof articleSchema>>>()
+	expectTypeOf(
+		query.createMany([{ title: 'Created' }], {
+			atomic: false,
+			ultimabase,
+		}),
+	).toEqualTypeOf<Promise<readonly InferQueryResult<typeof articleSchema>[]>>()
+	expectTypeOf(
+		query.updateMany({ increment: { views: 1 } }, { ultimabase }),
+	).toEqualTypeOf<Promise<number>>()
+	expectTypeOf(
+		articleSchema
+			.query()
+			.equalTo('title', 'Unique')
+			.upsert(
+				{
+					create: { title: 'Unique' },
+					update: { increment: { views: 1 } },
+				},
+				{ ultimabase },
+			),
+	).toEqualTypeOf<Promise<InferQueryResult<typeof articleSchema>>>()
+	expectTypeOf(query.deleteMany({ ultimabase })).toEqualTypeOf<
+		Promise<number>
+	>()
+
+	// @ts-expect-error -- Read terminals accept only their final execution options.
+	void query.find({ atomic: false })
+	// @ts-expect-error -- Mutation execution options follow the mutation input.
+	void query.create({ ultimabase }, { title: 'Created' })
+	// @ts-expect-error -- Terminal ownership never becomes a Query builder option.
+	articleSchema.query({ ultimabase })
 })
