@@ -3,7 +3,7 @@ import { expect, expectTypeOf, test } from 'vitest'
 
 import { normalizeQueryOrdering } from './ordering.js'
 
-const postSchema = new Schema({
+const postSchema = Schema.define({
 	className: 'Post',
 	fields: {
 		title: stringField(),

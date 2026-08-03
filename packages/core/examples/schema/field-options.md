@@ -25,7 +25,7 @@ import {
 	uuidField,
 } from '@ultimabase/core'
 
-export const ProductSchema = new Schema({
+export const ProductSchema = Schema.define({
 	className: 'Product',
 	fields: {
 		externalId: uuidField({

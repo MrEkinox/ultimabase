@@ -9,7 +9,7 @@ import type {
 	QueryLogicalFilterNode,
 } from '../index.js'
 
-const accountSchema = new Schema({
+const accountSchema = Schema.define({
 	className: 'Account',
 	fields: {
 		active: booleanField(),

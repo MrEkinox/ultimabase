@@ -53,7 +53,7 @@ class PolicyFixturePool implements PostgresPool {
 	}
 }
 
-const ArticleSchema = new Schema({
+const ArticleSchema = Schema.define({
 	className: 'Article',
 	fields: { title: stringField() },
 })

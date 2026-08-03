@@ -19,7 +19,7 @@ const readIndexColumnName = (column: unknown): string => {
 
 describe('PostgreSQL index compiler', () => {
 	it('compiles ordinary, unique, and composite indexes in normalized order', () => {
-		const schema = new Schema({
+		const schema = Schema.define({
 			className: 'Article',
 			fields: {
 				authorId: stringField(),
@@ -61,7 +61,7 @@ describe('PostgreSQL index compiler', () => {
 	})
 
 	it('retains unique composite columns as a future upsert conflict target', () => {
-		const schema = new Schema({
+		const schema = Schema.define({
 			className: 'Membership',
 			fields: {
 				organizationId: stringField(),
@@ -84,7 +84,7 @@ describe('PostgreSQL index compiler', () => {
 	})
 
 	it('rejects duplicate normalized definitions instead of creating duplicate DDL', () => {
-		const schema = new Schema({
+		const schema = Schema.define({
 			className: 'DuplicateIndex',
 			fields: {
 				organizationId: stringField(),

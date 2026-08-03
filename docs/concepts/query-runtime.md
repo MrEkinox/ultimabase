@@ -94,7 +94,7 @@ handler covers singular and bulk variants, while the exact terminal `kind`
 remains available when behavior must differ:
 
 ```ts
-const UserSchema = new Schema({
+const UserSchema = Schema.define({
 	className: 'User',
 	fields: {
 		email: stringField({

@@ -30,7 +30,7 @@ const indexColumns = (
 describe('PostgreSQL primitive schema compiler', () => {
 	it('maps every built-in scalar and structured value to explicit metadata', () => {
 		const runtimeDefault = vi.fn(() => 'runtime')
-		const schema = new Schema({
+		const schema = Schema.define({
 			className: 'PrimitiveFixture',
 			fields: {
 				active: booleanField({ default: true }),
@@ -114,7 +114,7 @@ describe('PostgreSQL primitive schema compiler', () => {
 	})
 
 	it('keeps optional nullable fields physically nullable', () => {
-		const schema = new Schema({
+		const schema = Schema.define({
 			className: 'NullableFixture',
 			fields: {
 				nullable: stringField({
@@ -135,7 +135,7 @@ describe('PostgreSQL primitive schema compiler', () => {
 	})
 
 	it('encodes structured static defaults before Drizzle stores JSONB metadata', () => {
-		const schema = new Schema({
+		const schema = Schema.define({
 			className: 'StructuredDefaultFixture',
 			fields: {
 				profile: objectField({
@@ -164,7 +164,7 @@ describe('PostgreSQL primitive schema compiler', () => {
 	})
 
 	it('rejects nested indexes, unsupported plugin fields, and invalid sequence combinations', () => {
-		const nestedIndexSchema = new Schema({
+		const nestedIndexSchema = Schema.define({
 			className: 'NestedIndexFixture',
 			fields: {
 				profile: objectField({
@@ -185,11 +185,11 @@ describe('PostgreSQL primitive schema compiler', () => {
 				},
 			},
 		)
-		const pluginSchema = new Schema({
+		const pluginSchema = Schema.define({
 			className: 'PluginFieldFixture',
 			fields: { custom: pluginField },
 		})
-		const invalidSequenceSchema = new Schema({
+		const invalidSequenceSchema = Schema.define({
 			className: 'InvalidSequenceFixture',
 			fields: { sequence: intField({ autoIncrement: true, default: 1 }) },
 		})
@@ -212,7 +212,7 @@ describe('PostgreSQL primitive schema compiler', () => {
 	})
 
 	it('rejects ambiguous or nested PostgreSQL rename metadata', () => {
-		const duplicateSource = new Schema({
+		const duplicateSource = Schema.define({
 			className: 'DuplicateRenameFixture',
 			fields: {
 				first: stringField({
@@ -223,7 +223,7 @@ describe('PostgreSQL primitive schema compiler', () => {
 				}),
 			},
 		})
-		const declaredSource = new Schema({
+		const declaredSource = Schema.define({
 			className: 'DeclaredRenameFixture',
 			fields: {
 				legacy: stringField(),
@@ -232,7 +232,7 @@ describe('PostgreSQL primitive schema compiler', () => {
 				}),
 			},
 		})
-		const nestedRename = new Schema({
+		const nestedRename = Schema.define({
 			className: 'NestedRenameFixture',
 			fields: {
 				profile: objectField({

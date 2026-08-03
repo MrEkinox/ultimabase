@@ -5,7 +5,7 @@ import { collectFieldTraversalEntries } from './traversal.js'
 
 describe('field traversal', () => {
 	it('collects immutable paths in parent-first depth-first declaration order', () => {
-		const schema = new Schema({
+		const schema = Schema.define({
 			className: 'TraversalFixture',
 			fields: {
 				'display.name': stringField(),

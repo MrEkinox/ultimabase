@@ -4,21 +4,24 @@ import type {
 	UserRequestAccess,
 } from '../../access/index.js'
 import { FrameworkApplication } from '../../foundation.js'
-import type { BoundQuery, FindOperationAst } from '../../query/index.js'
+import type {
+	BoundQuery,
+	FindOperationAst,
+	InferQueryResult,
+} from '../../query/index.js'
 import { Query } from '../../query/index.js'
-import { Schema, stringField, type InferObject } from '../../schema/index.js'
+import { Schema, stringField } from '../../schema/index.js'
 import { expectTypeOf, test } from 'vitest'
 
-import type { DatabaseObjectRecord } from '../database/contracts.js'
 import { MasterAuthority } from '../master/master-authority.js'
 import type { RuntimePipeline } from '../pipeline/runtime-pipeline.js'
 import { FrameworkEngine, type RequestEngine } from './framework-engine.js'
 
-const schema = new Schema({
+const schema = Schema.define({
 	className: 'TypedArticle',
 	fields: { title: stringField() },
 })
-const authorSchema = new Schema({
+const authorSchema = Schema.define({
 	className: 'TypedAuthor',
 	fields: { name: stringField() },
 })
@@ -75,7 +78,7 @@ test('preserves application, context, query, and operation result types', () => 
 		BoundQuery<typeof schema, never, typeof user>
 	>()
 	expectTypeOf(user.execute(operation)).toEqualTypeOf<
-		Promise<readonly DatabaseObjectRecord<typeof schema>[]>
+		Promise<readonly InferQueryResult<typeof schema>[]>
 	>()
 	expectTypeOf(
 		user.transaction((transaction) => {
@@ -94,7 +97,7 @@ test('keeps bound terminal types exact in multi-schema applications', () => {
 
 	expectTypeOf(
 		request.query(schema).create({ title: 'Typed article' }),
-	).toEqualTypeOf<Promise<InferObject<typeof schema>>>()
+	).toEqualTypeOf<Promise<InferQueryResult<typeof schema>>>()
 })
 
 test('retains trusted master request types through opaque grants', async () => {

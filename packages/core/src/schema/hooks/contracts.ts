@@ -1,7 +1,7 @@
 import type { MaybePromise } from '@ultimabase/shared'
 
 import type {
-	InferOperationResult,
+	InferOperationRecordResult,
 	OperationAst,
 	OperationAstNode,
 	OperationKind,
@@ -135,7 +135,7 @@ export type SchemaHookOperation<
 
 /** Infers the exact public result produced by one hook operation. */
 export type SchemaHookResult<TOperation extends OperationAstNode> =
-	InferOperationResult<TOperation>
+	InferOperationRecordResult<TOperation>
 
 /** Provides compact aliases for the schema values most hooks consume. */
 export interface SchemaHookTypes<

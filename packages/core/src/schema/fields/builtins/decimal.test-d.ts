@@ -75,7 +75,7 @@ test('uses a compact optional scalar state by default', () => {
 
 test('derives decimal create, object, and update shapes from compact state', () => {
 	const extension = defineFieldExtension('fixture.decimal', {})
-	const schema = new Schema({
+	const schema = Schema.define({
 		className: 'DecimalState',
 		fields: {
 			required: decimalField({ validation: { required: true } }),

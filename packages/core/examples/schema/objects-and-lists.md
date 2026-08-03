@@ -23,7 +23,7 @@ const addressFields = {
 	}),
 }
 
-export const CustomerSchema = new Schema({
+export const CustomerSchema = Schema.define({
 	className: 'Customer',
 	fields: {
 		name: stringField({ validation: { required: true } }),

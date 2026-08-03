@@ -10,7 +10,7 @@ import {
 	type QueuedAdapterResult,
 } from './fixtures/recording-database-adapter.js'
 
-const articleSchema = new Schema({
+const articleSchema = Schema.define({
 	className: 'TerminalArticle',
 	fields: {
 		title: stringField({
@@ -75,29 +75,35 @@ describe('singular BoundQuery terminals', () => {
 		const createOneInput = { title: 'Created one' }
 		const createAliasInput = { title: 'Created alias' }
 
-		await expect(query.find()).resolves.toStrictEqual(found)
+		const foundResult = await query.find()
+
+		expect(foundResult).toHaveLength(1)
+		expect(foundResult[0]).toBeInstanceOf(articleSchema)
+		expect(foundResult.map((article) => article.toJSON())).toStrictEqual(found)
 		await expect(query.first()).resolves.toBeNull()
 		await expect(query.get('missing')).resolves.toBeNull()
 		await expect(query.count()).resolves.toBe(1)
 		await expect(query.exists()).resolves.toBe(true)
-		await expect(query.createOne(createOneInput)).resolves.toStrictEqual(
-			createdOne,
-		)
-		await expect(query.create(createAliasInput)).resolves.toStrictEqual(
-			createdAlias,
-		)
+		const createdOneResult = await query.createOne(createOneInput)
+		const createdAliasResult = await query.create(createAliasInput)
+
+		expect(createdOneResult).toBeInstanceOf(articleSchema)
+		expect(createdOneResult.toJSON()).toStrictEqual(createdOne)
+		expect(createdAliasResult).toBeInstanceOf(articleSchema)
+		expect(createdAliasResult.toJSON()).toStrictEqual(createdAlias)
 		await expect(
 			query.updateOne({ increment: { views: 1 } }),
 		).resolves.toBeNull()
-		await expect(
-			request
-				.query(articleSchema)
-				.equalTo('title', 'Upserted')
-				.upsertOne({
-					create: { title: 'Upserted' },
-					update: { set: { title: 'Upserted' } },
-				}),
-		).resolves.toStrictEqual(upserted)
+		const upsertedResult = await request
+			.query(articleSchema)
+			.equalTo('title', 'Upserted')
+			.upsertOne({
+				create: { title: 'Upserted' },
+				update: { set: { title: 'Upserted' } },
+			})
+
+		expect(upsertedResult).toBeInstanceOf(articleSchema)
+		expect(upsertedResult.toJSON()).toStrictEqual(upserted)
 		await expect(query.deleteOne()).resolves.toBeNull()
 
 		const requests = [

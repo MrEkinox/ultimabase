@@ -26,7 +26,7 @@ import {
 	collectMutationFieldChanges,
 } from './materializations.js'
 
-const materializationSchema = new Schema({
+const materializationSchema = Schema.define({
 	className: 'FieldMaterialization',
 	fields: {
 		'literal.name': stringField(),

@@ -2,11 +2,12 @@ import {
 	Schema,
 	intField,
 	stringField,
-	type InferObject,
+	type SchemaResult,
 } from '../../schema/index.js'
 import { expectTypeOf, test } from 'vitest'
 
 import type { QueryFilterNode } from '../filters/logical.js'
+import type { InferQueryResult } from '../query/result.js'
 import type { UpdateExpression } from '../updates/contracts.js'
 import type {
 	CountOperationAst,
@@ -25,7 +26,7 @@ import type {
 } from './contracts.js'
 import type { InferOperationResult } from './results.js'
 
-const schema = new Schema({
+const schema = Schema.define({
 	className: 'ResultArticle',
 	fields: {
 		title: stringField({ validation: { required: true } }),
@@ -33,10 +34,7 @@ const schema = new Schema({
 	},
 })
 
-interface SelectedResult {
-	readonly id: string
-	readonly title: string
-}
+type SelectedResult = InferQueryResult<typeof schema, 'id' | 'title'>
 type SelectedFilter = QueryFilterNode<typeof schema>
 
 test('maps every terminal AST to selection-aware singular and bulk results', () => {
@@ -64,10 +62,10 @@ test('maps every terminal AST to selection-aware singular and bulk results', () 
 	>().toEqualTypeOf<boolean>()
 	expectTypeOf<
 		InferOperationResult<CreateOneOperationAst<typeof schema>>
-	>().toEqualTypeOf<InferObject<typeof schema>>()
+	>().toEqualTypeOf<SchemaResult<typeof schema>>()
 	expectTypeOf<
 		InferOperationResult<CreateManyOperationAst<typeof schema>>
-	>().toEqualTypeOf<readonly InferObject<typeof schema>[]>()
+	>().toEqualTypeOf<readonly SchemaResult<typeof schema>[]>()
 	expectTypeOf<
 		InferOperationResult<
 			UpdateOneOperationAst<
@@ -93,7 +91,7 @@ test('maps every terminal AST to selection-aware singular and bulk results', () 
 	>().toEqualTypeOf<SelectedResult>()
 	expectTypeOf<
 		InferOperationResult<UpsertManyOperationAst<typeof schema>>
-	>().toEqualTypeOf<readonly InferObject<typeof schema>[]>()
+	>().toEqualTypeOf<readonly SchemaResult<typeof schema>[]>()
 	expectTypeOf<
 		InferOperationResult<
 			DeleteOneOperationAst<typeof schema, SelectedFilter, 'id' | 'title'>

@@ -36,7 +36,7 @@ const requestContext = RequestContext.anonymous({
 })
 
 const createFixtureSchema = (defaultTitle: () => string) =>
-	new Schema({
+	Schema.define({
 		className: 'BoundaryArticle',
 		fields: {
 			metadata: jsonField(),

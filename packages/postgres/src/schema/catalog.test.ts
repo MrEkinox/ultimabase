@@ -6,11 +6,11 @@ import { PostgresSchemaCatalog } from './catalog.js'
 
 describe('PostgreSQL schema catalog', () => {
 	it('returns an immutable managed table-name snapshot in schema order', () => {
-		const article = new Schema({
+		const article = Schema.define({
 			className: 'Article',
 			fields: { title: stringField() },
 		})
-		const audit = new Schema({
+		const audit = Schema.define({
 			className: 'Audit',
 			fields: {},
 			extensions: [postgresTable({ name: 'Exact-Audit' })],

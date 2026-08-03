@@ -11,7 +11,7 @@ import { createEnforcementState } from '../enforcement/state.js'
 import type { RuntimePipelineStages } from './contracts.js'
 import { RuntimePipeline } from './runtime-pipeline.js'
 
-const articleSchema = new Schema({
+const articleSchema = Schema.define({
 	className: 'Article',
 	fields: {
 		title: stringField({ validation: { required: true } }),

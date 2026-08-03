@@ -27,7 +27,7 @@ import {
 	type PreparedDatabaseOperation,
 } from './contracts.js'
 
-const articleSchema = new Schema({
+const articleSchema = Schema.define({
 	className: 'Article',
 	fields: {
 		title: stringField({ validation: { required: true } }),

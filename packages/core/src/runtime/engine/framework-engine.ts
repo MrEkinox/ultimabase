@@ -10,7 +10,11 @@ import type {
 	UserRequestAccess,
 } from '../../access/index.js'
 import { Query } from '../../query/index.js'
-import type { BoundQuery, ExecutableOperationAst } from '../../query/index.js'
+import type {
+	BoundQuery,
+	ExecutableOperationAst,
+	InferOperationResult,
+} from '../../query/index.js'
 import { Schema, type SchemaDefinition } from '../../schema/index.js'
 import type { MaybePromise } from '@ultimabase/shared'
 import { isPlainRecord } from '@ultimabase/shared'
@@ -26,6 +30,7 @@ import {
 	type MasterKeyGrant,
 } from '../master/master-authority.js'
 import { getOperationSchema } from '../operations/schema.js'
+import { materializeOperationResult } from '../operations/materialize-result.js'
 import { RuntimePipeline } from '../pipeline/runtime-pipeline.js'
 import { runRequestTransaction } from '../transactions/run-transaction.js'
 import { requiresAutomaticMutationTransaction } from '../transactions/automatic-mutation.js'
@@ -282,9 +287,9 @@ export class RequestEngine<
 	}
 
 	/** Executes a normalized operation through this request's mandatory pipeline. */
-	execute<const TOperation extends ExecutableOperationAst<TSchemas[number]>>(
-		operation: TOperation,
-	): Promise<DatabaseOperationResult<TOperation>> {
+	async execute<
+		const TOperation extends ExecutableOperationAst<TSchemas[number]>,
+	>(operation: TOperation): Promise<InferOperationResult<TOperation>> {
 		this.framework.assertOwnsSchema(getOperationSchema(operation))
 		throwIfOperationCancelled(this.context.signal, {
 			operationKind: operation.kind,
@@ -304,9 +309,11 @@ export class RequestEngine<
 				this.#pipeline.execute({ context: this.context, operation }),
 			)
 
-		return this.#transactionLifetime === undefined
+		const result = await (this.#transactionLifetime === undefined
 			? executeOperation()
-			: this.#transactionLifetime.run(executeOperation)
+			: this.#transactionLifetime.run(executeOperation))
+
+		return materializeOperationResult(operation, result)
 	}
 
 	/** Produces an audited master engine from an authority-owned opaque grant. */

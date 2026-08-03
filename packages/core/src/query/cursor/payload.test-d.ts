@@ -11,7 +11,7 @@ import {
 	type QueryCursorValues,
 } from '../index.js'
 
-const postSchema = new Schema({
+const postSchema = Schema.define({
 	className: 'Post',
 	fields: {
 		title: stringField(),

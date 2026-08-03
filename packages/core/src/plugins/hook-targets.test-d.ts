@@ -24,7 +24,7 @@ const fieldExtension = defineFieldExtension(
 const urlNormalizers = {
 	snapshotValue: (value: unknown): URL => new URL(String(value)),
 }
-const schema = new Schema({
+const schema = Schema.define({
 	className: 'PluginHookTarget',
 	fields: {
 		endpoint: definePluginField('fixture.url', {}, urlNormalizers),

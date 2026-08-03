@@ -9,7 +9,7 @@ import {
 	normalizeUpsertItems,
 } from './upsert.js'
 
-const accountSchema = new Schema({
+const accountSchema = Schema.define({
 	className: 'UpsertAccount',
 	fields: {
 		email: stringField({ indexed: 'unique' }),
@@ -20,7 +20,7 @@ const accountSchema = new Schema({
 	indexes: [{ fields: ['tenantId', 'handle'], unique: true }],
 })
 
-const foreignSchema = new Schema({
+const foreignSchema = Schema.define({
 	className: 'ForeignAccount',
 	fields: { email: stringField({ indexed: 'unique' }) },
 })

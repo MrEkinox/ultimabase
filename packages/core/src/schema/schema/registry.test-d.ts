@@ -8,14 +8,14 @@ import {
 	type SchemaDefinition,
 } from '../index.js'
 
-const userSchema = new Schema({
+const userSchema = Schema.define({
 	className: 'User',
 	fields: {
 		name: stringField(),
 	},
 })
 
-const postSchema = new Schema({
+const postSchema = Schema.define({
 	className: 'Post',
 	fields: {
 		title: stringField(),

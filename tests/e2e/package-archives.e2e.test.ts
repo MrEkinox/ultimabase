@@ -129,12 +129,24 @@ describe.each(packageFixtures)('$name archive', ({ directory, name }) => {
 })
 
 describe('@ultimabase/core Schema and Query declarations', () => {
-	it('exposes the documented Schema constructor', () => {
-		const schema = readFixtureQuickInfo('Schema({')
+	it('exposes the documented Schema definition factory', () => {
+		const schema = readFixtureQuickInfo('define({')
 
 		// The packed declaration must retain the class-level help shown by editors.
-		expect(schema.display).toContain('new Schema<')
-		expect(schema.documentation).toContain('Declares an immutable schema')
+		expect(schema.display).toContain('Schema.define<')
+		expect(schema.documentation).toContain(
+			'Defines one final schema-specific class',
+		)
+	})
+
+	it('preserves constructible drafts and static Query access', () => {
+		const draft = readFixtureQuickInfo('packedDraft = new PostSchema')
+		const query = readFixtureQuickInfo('packedQuery = PostSchema.query()')
+
+		expect(draft.display).toContain('readonly title: string;')
+		expect(draft.display).not.toContain('readonly id: string;')
+		expect(query.display).toContain('Query<')
+		expect(query.display).toContain('"id" | "title"')
 	})
 
 	it('preserves field option documentation through package exports', () => {

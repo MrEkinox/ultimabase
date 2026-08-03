@@ -16,7 +16,7 @@ import {
 describe('validation plans', () => {
 	it('compiles operation rules while retaining scalar field identity', () => {
 		const runtimeDefault = vi.fn(() => 'generated')
-		const schema = new Schema({
+		const schema = Schema.define({
 			className: 'ScalarPlan',
 			fields: {
 				name: stringField({
@@ -79,7 +79,7 @@ describe('validation plans', () => {
 	})
 
 	it('compiles system fields and structured children recursively', () => {
-		const schema = new Schema({
+		const schema = Schema.define({
 			className: 'StructuredPlan',
 			fields: {
 				profile: objectField({
@@ -162,7 +162,7 @@ describe('validation plans', () => {
 				name: stringField({ validation: { required: true } }),
 			},
 		})
-		const schema = new Schema({
+		const schema = Schema.define({
 			className: 'ListedObjectPlan',
 			fields: { listedObject },
 		})
@@ -185,7 +185,7 @@ describe('validation plans', () => {
 			fields: { payload: binaryField() },
 			default: { payload: binaryDefault },
 		})
-		const schema = new Schema({
+		const schema = Schema.define({
 			className: 'FrozenPlan',
 			fields: { structured: structuredField },
 		})
@@ -214,7 +214,7 @@ describe('validation plans', () => {
 				snapshotValue: (value: unknown): string => String(value),
 			},
 		)
-		const schema = new Schema({
+		const schema = Schema.define({
 			className: 'PluginPlan',
 			fields: { custom: customField },
 		})
@@ -234,12 +234,11 @@ describe('validation plans', () => {
 		}
 
 		// Schema composition rejects JavaScript callers that bypass field factories.
-		expect(
-			() =>
-				new Schema({
-					className: 'MalformedListPlan',
-					fields: { value: malformedListField },
-				}),
+		expect(() =>
+			Schema.define({
+				className: 'MalformedListPlan',
+				fields: { value: malformedListField },
+			}),
 		).toThrow(new TypeError('fields.value must be created by a field factory'))
 	})
 })

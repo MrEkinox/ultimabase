@@ -11,7 +11,7 @@ import type {
 } from '../database/contracts.js'
 import { createNativeHookStages } from './dispatcher.js'
 
-const schema = new Schema({
+const schema = Schema.define({
 	className: 'TypedNativeHook',
 	fields: {
 		title: stringField({ validation: { required: true } }),

@@ -15,7 +15,7 @@ describe('Query IntelliSense', () => {
 import { Schema, stringField } from '../../src/index.js'
 import { Query } from '../../src/query/index.js'
 
-const PostSchema = new Schema({ className: 'Post', fields: { title: stringField() } })
+const PostSchema = Schema.define({ className: 'Post', fields: { title: stringField() } })
 const identified = new Query(PostSchema)./* hover */byId('0194f292-0dd9-7c2d-a0a3-a2f755a3d90a')
 `,
 		)

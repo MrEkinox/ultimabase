@@ -22,7 +22,7 @@ import { runtimePipelineStage } from '../pipeline/definitions.js'
 import { RecordingDatabaseAdapter } from '../../../tests/runtime/fixtures/recording-database-adapter.js'
 import { createFrameworkEngine } from './create-framework-engine.js'
 
-const articleSchema = new Schema({
+const articleSchema = Schema.define({
 	className: 'AssembledArticle',
 	fields: {
 		title: stringField({ validation: { required: true } }),
@@ -246,7 +246,7 @@ describe('createFrameworkEngine', () => {
 
 	it('shares one protected read lifecycle without opening an automatic transaction', async () => {
 		const trace: string[] = []
-		const schema = new Schema({
+		const schema = Schema.define({
 			className: 'AssembledReadArticle',
 			fields: {
 				secret: stringField({
@@ -327,7 +327,11 @@ describe('createFrameworkEngine', () => {
 			.select('title', 'secret')
 			.find()
 
-		expect(result).toStrictEqual([{ title: 'VISIBLE' }])
+		expect(result).toHaveLength(1)
+		expect(result[0]).toBeInstanceOf(schema)
+		expect(result.map((article) => article.toJSON())).toStrictEqual([
+			{ title: 'VISIBLE' },
+		])
 		expect(adapter.transactions).toStrictEqual([])
 		expect(adapter.rootRequests).toHaveLength(1)
 		expect(adapter.rootRequests[0]?.constraints).toStrictEqual([
@@ -380,7 +384,7 @@ describe('createFrameworkEngine', () => {
 	it('rolls back the automatic transaction when a native business hook fails', async () => {
 		const failure = new Error('Native hook rejected the mutation')
 		const trace: string[] = []
-		const schema = new Schema({
+		const schema = Schema.define({
 			className: 'RejectedNativeHookArticle',
 			fields: {
 				title: stringField({ validation: { required: true } }),

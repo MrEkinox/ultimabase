@@ -210,7 +210,7 @@ names stay typed through every later stage:
 import { createQueryAst } from '@ultimabase/core'
 import { Schema, stringField } from '@ultimabase/core'
 
-const postSchema = new Schema({
+const postSchema = Schema.define({
 	className: 'Post',
 	fields: {
 		title: stringField(),

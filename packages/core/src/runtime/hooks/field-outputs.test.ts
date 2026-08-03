@@ -16,7 +16,7 @@ import {
 	type RuntimeFieldOutputValue,
 } from './field-outputs.js'
 
-const outputSchema = new Schema({
+const outputSchema = Schema.define({
 	className: 'FieldOutputTraversal',
 	fields: {
 		title: stringField(),

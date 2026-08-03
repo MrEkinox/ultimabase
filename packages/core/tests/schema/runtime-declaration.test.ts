@@ -132,33 +132,32 @@ describe('runtime declaration boundaries', () => {
 	it('rejects malformed schemas before copying their metadata', () => {
 		expect(() => {
 			// @ts-expect-error -- Runtime coverage protects null schema options.
-			new Schema(null)
+			Schema.define(null)
 		}).toThrow(new TypeError('schema options must be an object'))
-		expect(() => new Schema({ className: '', fields: {} })).toThrow(
+		expect(() => Schema.define({ className: '', fields: {} })).toThrow(
 			new TypeError('className must be a non-empty string'),
 		)
 		expect(() => {
 			// @ts-expect-error -- Runtime coverage protects non-record field maps.
-			new Schema({ className: 'Invalid', fields: [] })
+			Schema.define({ className: 'Invalid', fields: [] })
 		}).toThrow(new TypeError('fields must be an object'))
-		expect(
-			() => new Schema({ className: 'Invalid', fields: { '': stringField() } }),
+		expect(() =>
+			Schema.define({ className: 'Invalid', fields: { '': stringField() } }),
 		).toThrow(new TypeError('schema field name must be a non-empty string'))
 		expect(() => {
 			// Runtime validation rejects structural definitions without a namespace.
-			new Schema({
+			Schema.define({
 				className: 'Invalid',
 				fields: { custom: { kind: 'custom', options: {} } },
 			})
 		}).toThrow(
 			new TypeError('fields.custom.kind must use a namespaced identifier'),
 		)
-		expect(
-			() =>
-				new Schema({
-					className: 'Forged',
-					fields: { custom: { kind: 'fixture.custom', options: {} } },
-				}),
+		expect(() =>
+			Schema.define({
+				className: 'Forged',
+				fields: { custom: { kind: 'fixture.custom', options: {} } },
+			}),
 		).toThrow(new TypeError('fields.custom must be created by a field factory'))
 	})
 

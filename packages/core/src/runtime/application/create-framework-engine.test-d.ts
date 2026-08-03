@@ -9,7 +9,7 @@ import {
 import type { FrameworkEngine } from '../engine/framework-engine.js'
 import { createFrameworkEngine } from './create-framework-engine.js'
 
-const schema = new Schema({
+const schema = Schema.define({
 	className: 'AssembledTypedArticle',
 	fields: { title: stringField() },
 })

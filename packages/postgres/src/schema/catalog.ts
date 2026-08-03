@@ -16,7 +16,10 @@ export class PostgresSchemaCatalog {
 
 	/** Resolves the exact static schema identity retained by each Query AST. */
 	get(schema: unknown): CompiledPostgresSchema {
-		if (typeof schema !== 'object' || schema === null) {
+		if (
+			(typeof schema !== 'object' || schema === null) &&
+			typeof schema !== 'function'
+		) {
 			throw new TypeError('PostgreSQL operation does not reference a schema')
 		}
 

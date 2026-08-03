@@ -146,12 +146,12 @@ terminals directly on the immutable `Query`. Until those issues are implemented,
 working API. The target terminals resolve the active Runtime scope or accept an
 explicit application and trusted backend authority options only at execution.
 
-ADR-0109 and issues 339 and 349 then replace the current schema instance plus
-plain-result split with one class returned by `Schema.define()`. The class is the
-registered schema identity, exposes `Post.query()`, constructs immutable drafts,
-and materializes immutable persisted results. Its instance commands delegate to
-Query and Runtime; they never retain adapters, mutate records, or track dirty
-state.
+ADR-0109 and issue 339 replace the former schema instance plus plain-result split
+with one class returned by `Schema.define()`. The class is the registered schema
+identity, exposes `Post.query()`, constructs immutable drafts, and materializes
+immutable persisted results after Runtime restrictions. Issue 349 will add
+instance commands that delegate to Query and Runtime; instances never retain
+adapters, mutate records, or track dirty state.
 
 The Query AST retains the exact static schema definition and represents
 selection, filtering, ordering, and pagination as immutable discriminated

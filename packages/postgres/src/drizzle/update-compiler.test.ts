@@ -7,7 +7,7 @@ import { describe, expect, it } from 'vitest'
 import { compilePostgresSchema } from '../schema/schema-compiler.js'
 import { compilePostgresUpdate } from './update-compiler.js'
 
-const updateSchemaDefinition = new Schema({
+const updateSchemaDefinition = Schema.define({
 	className: 'UpdateFixture',
 	fields: {
 		balance: decimalField(),

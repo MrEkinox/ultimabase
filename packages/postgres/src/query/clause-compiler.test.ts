@@ -10,7 +10,7 @@ import { describe, expect, it } from 'vitest'
 import { compilePostgresSchema } from '../schema/schema-compiler.js'
 import { compilePostgresQueryClauses } from './clause-compiler.js'
 
-const ArticleSchema = new Schema({
+const ArticleSchema = Schema.define({
 	className: 'Article',
 	fields: {
 		created: dateTimeField(),

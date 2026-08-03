@@ -17,7 +17,7 @@ import {
 	type TransactionFailureOptions,
 } from './fixtures/recording-database-adapter.js'
 
-const articleSchema = new Schema({
+const articleSchema = Schema.define({
 	className: 'TransactionArticle',
 	fields: {
 		title: stringField({ validation: { required: true } }),
@@ -107,7 +107,8 @@ describe('RequestEngine transactions', () => {
 			return transactionResult
 		})
 
-		expect(result).toStrictEqual(created)
+		expect(result).toBeInstanceOf(articleSchema)
+		expect(result.toJSON()).toStrictEqual(created)
 		expect(adapter.rootRequests).toStrictEqual([])
 		expect(adapter.transactions[0]?.requests).toHaveLength(2)
 		expect(trace).toStrictEqual([
@@ -255,7 +256,7 @@ describe('RequestEngine transactions', () => {
 				},
 			),
 		)
-		expect(() => escapedQuery?.count()).toThrow(
+		await expect(escapedQuery?.count()).rejects.toStrictEqual(
 			expect.objectContaining({
 				code: 'TRANSACTION_ERROR',
 				internalDetails: { reason: 'transaction-engine-closed' },

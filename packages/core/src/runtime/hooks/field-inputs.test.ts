@@ -22,7 +22,7 @@ import {
 	type RuntimeFieldInputValue,
 } from './field-inputs.js'
 
-const traversalSchema = new Schema({
+const traversalSchema = Schema.define({
 	className: 'FieldInputTraversal',
 	fields: {
 		'literal.name': stringField(),

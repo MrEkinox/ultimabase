@@ -14,7 +14,7 @@ import {
 } from '../src/index.js'
 
 test('narrows shared scalar plans through the plugin handler', () => {
-	const schema = new Schema({
+	const schema = Schema.define({
 		className: 'Document',
 		fields: { embedding: vectorField({ dimensions: 3 }) },
 	})

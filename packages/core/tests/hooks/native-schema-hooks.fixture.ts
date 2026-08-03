@@ -9,7 +9,7 @@ const permissionsExtension = defineSchemaExtension('fixture.permissions', {
 	marker: 'OPAQUE_PERMISSION_CONFIG_MUST_NOT_LEAK',
 })
 
-export const ArticleSchema = new Schema({
+export const ArticleSchema = Schema.define({
 	className: 'HookedArticle',
 	fields: {
 		title: stringField({ validation: { required: true } }),
@@ -79,19 +79,19 @@ export const ArticleSchema = new Schema({
 	},
 })
 
-new Schema({
+Schema.define({
 	/* completion:schema-options */
 	className: 'CompletionSchema',
 	fields: {},
 })
 
-new Schema({
+Schema.define({
 	className: 'HookCompletionSchema',
 	fields: {},
 	hooks: {/* completion:schema-hooks */},
 })
 
-new Schema({
+Schema.define({
 	className: 'OperationFamilyCompletionSchema',
 	fields: {},
 	hooks: {
@@ -100,7 +100,7 @@ new Schema({
 	},
 })
 
-new Schema({
+Schema.define({
 	className: 'SaveFamilyCompletionSchema',
 	fields: {},
 	hooks: {
@@ -109,7 +109,7 @@ new Schema({
 	},
 })
 
-new Schema({
+Schema.define({
 	className: 'ListCompletionSchema',
 	fields: {},
 	hooks: {
@@ -119,7 +119,7 @@ new Schema({
 	},
 })
 
-new Schema({
+Schema.define({
 	className: 'InvalidFamilySchema',
 	fields: {},
 	hooks: {
@@ -130,7 +130,7 @@ new Schema({
 	},
 })
 
-new Schema({
+Schema.define({
 	className: 'InvalidEmptyListSchema',
 	fields: {},
 	hooks: {

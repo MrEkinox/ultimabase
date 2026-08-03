@@ -33,7 +33,7 @@ test('exposes a safe recursive JSON value', () => {
 })
 
 test('reserves root null for explicit field nullability', () => {
-	const schema = new Schema({
+	const schema = Schema.define({
 		className: 'JsonDocuments',
 		fields: {
 			document: jsonField(),

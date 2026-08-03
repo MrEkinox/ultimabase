@@ -1,8 +1,4 @@
-import type {
-	InferCreateInput,
-	InferObject,
-	SchemaDefinition,
-} from '../../schema/index.js'
+import type { InferCreateInput, SchemaDefinition } from '../../schema/index.js'
 import { immutableRecord } from '@ultimabase/shared'
 import type { QueryAst, QueryFieldName } from '../ast/contracts.js'
 import type { QueryFilterNode } from '../filters/logical.js'
@@ -359,7 +355,9 @@ export class BoundQuery<
 	}
 
 	/** Creates one object from schema-derived input through the bound engine. */
-	createOne(input: InferCreateInput<TSchema>): Promise<InferObject<TSchema>> {
+	createOne(
+		input: InferCreateInput<TSchema>,
+	): Promise<InferQueryResult<TSchema>> {
 		const operation: CreateOneOperationAst<TSchema> = immutableRecord({
 			kind: 'create-one',
 			schema: this.ast.schema,
@@ -370,7 +368,7 @@ export class BoundQuery<
 	}
 
 	/** Provides the concise Parse-inspired alias for singular creation. */
-	create(input: InferCreateInput<TSchema>): Promise<InferObject<TSchema>> {
+	create(input: InferCreateInput<TSchema>): Promise<InferQueryResult<TSchema>> {
 		return this.createOne(input)
 	}
 
@@ -378,7 +376,7 @@ export class BoundQuery<
 	createMany(
 		inputs: readonly InferCreateInput<TSchema>[],
 		options?: BulkOperationOptions,
-	): Promise<readonly InferObject<TSchema>[]> {
+	): Promise<readonly InferQueryResult<TSchema>[]> {
 		const operation: CreateManyOperationAst<TSchema> = immutableRecord({
 			kind: 'create-many',
 			schema: this.ast.schema,
@@ -454,7 +452,7 @@ export class BoundQuery<
 	upsertMany(
 		inputs: readonly UpsertManyItemInput<TSchema>[],
 		options?: BulkOperationOptions,
-	): Promise<readonly InferObject<TSchema>[]> {
+	): Promise<readonly InferQueryResult<TSchema>[]> {
 		const operation: UpsertManyOperationAst<
 			TSchema,
 			UpdateExpression<TSchema>,

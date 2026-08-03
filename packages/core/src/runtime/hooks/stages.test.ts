@@ -20,12 +20,12 @@ import {
 } from './definitions.js'
 import { createRuntimeHookStages } from './stages.js'
 
-const articleSchema = new Schema({
+const articleSchema = Schema.define({
 	className: 'HookStageArticle',
 	fields: { title: stringField({ validation: { required: true } }) },
 })
 
-const foreignSchema = new Schema({
+const foreignSchema = Schema.define({
 	className: 'HookStageForeign',
 	fields: { title: stringField({ validation: { required: true } }) },
 })

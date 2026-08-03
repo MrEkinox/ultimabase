@@ -22,7 +22,7 @@ import {
 } from '../index.js'
 
 test('exports structural operation and field plans', () => {
-	const schema = new Schema({
+	const schema = Schema.define({
 		className: 'User',
 		fields: {
 			name: stringField({ validation: { required: true } }),

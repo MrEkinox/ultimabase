@@ -23,7 +23,7 @@ describe('pgVectorPlugin field plans', () => {
 
 		options.dimensions = 3
 
-		const schema = new Schema({
+		const schema = Schema.define({
 			className: 'DetachedVectorOptions',
 			fields: { embedding: field },
 		})
@@ -41,7 +41,7 @@ describe('pgVectorPlugin field plans', () => {
 			dimensions: 3,
 			validation: { required: true },
 		})
-		const schema = new Schema({
+		const schema = Schema.define({
 			className: 'Document',
 			fields: { embedding: field },
 		})
@@ -62,7 +62,7 @@ describe('pgVectorPlugin field plans', () => {
 	})
 
 	it('validates runtime values through the associated plugin definition', () => {
-		const schema = new Schema({
+		const schema = Schema.define({
 			className: 'Document',
 			fields: {
 				embedding: vectorField({ dimensions: 2 }),

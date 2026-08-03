@@ -12,7 +12,7 @@ import {
 	restrictSelection,
 } from './definitions.js'
 
-const postSchema = new Schema({
+const postSchema = Schema.define({
 	className: 'EnforcementPost',
 	fields: {
 		title: stringField(),

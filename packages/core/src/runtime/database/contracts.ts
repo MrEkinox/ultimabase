@@ -1,8 +1,8 @@
 import { createServiceToken } from '../../foundation.js'
 import type { ServiceToken } from '../../foundation.js'
 import type {
-	InferOperationResult,
-	InferQueryResult,
+	InferOperationRecordResult,
+	InferQueryRecord,
 	OperationAstNode,
 	OperationKind,
 	QueryFieldName,
@@ -89,14 +89,14 @@ export interface DatabaseOperationRequest<
 export type DatabaseObjectRecord<
 	TSchema extends SchemaDefinition,
 	TSelectedField extends QueryFieldName<TSchema> = never,
-> = InferQueryResult<TSchema, TSelectedField>
+> = InferQueryRecord<TSchema, TSelectedField>
 
 /**
  * Reuses Query's terminal result contract so adapters and public terminals
  * cannot drift on selection, nullability, or singular versus bulk semantics.
  */
 export type DatabaseOperationResult<TOperation extends OperationAstNode> =
-	InferOperationResult<TOperation>
+	InferOperationRecordResult<TOperation>
 
 /** Carries one complete adapter-decoded object without exposing physical rows. */
 export type DatabaseLogicalRecord = Readonly<Record<string, unknown>>

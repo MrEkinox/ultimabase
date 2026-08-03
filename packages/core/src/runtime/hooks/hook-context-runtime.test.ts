@@ -88,11 +88,11 @@ describe('HookContext Runtime capabilities', () => {
 	it('runs and drains unawaited nested queries in the originating transaction', async () => {
 		const trace: string[] = []
 		const transactionIds: (string | undefined)[] = []
-		const AuditSchema = new Schema({
+		const AuditSchema = Schema.define({
 			className: 'HookContextAudit',
 			fields: { title: stringField({ validation: { required: true } }) },
 		})
-		const PostSchema = new Schema({
+		const PostSchema = Schema.define({
 			className: 'HookContextPost',
 			fields: { title: stringField({ validation: { required: true } }) },
 			hooks: {
@@ -146,11 +146,11 @@ describe('HookContext Runtime capabilities', () => {
 	it('keeps caught nested failures rollback-only', async () => {
 		const nestedFailure = new Error('nested hook query failed')
 		const trace: string[] = []
-		const AuditSchema = new Schema({
+		const AuditSchema = Schema.define({
 			className: 'HookContextFailedAudit',
 			fields: { title: stringField({ validation: { required: true } }) },
 		})
-		const PostSchema = new Schema({
+		const PostSchema = Schema.define({
 			className: 'HookContextFailedPost',
 			fields: { title: stringField({ validation: { required: true } }) },
 			hooks: {
@@ -192,7 +192,7 @@ describe('HookContext Runtime capabilities', () => {
 		let escapedContext: HookContext | undefined
 		let runEscapedQuery: (() => unknown) | undefined
 		const capability = new RequestCapability('fixture.escaped-context')
-		const PostSchema = new Schema({
+		const PostSchema = Schema.define({
 			className: 'HookContextEscapedPost',
 			fields: { title: stringField({ validation: { required: true } }) },
 			hooks: {
@@ -231,7 +231,7 @@ describe('HookContext Runtime capabilities', () => {
 	})
 
 	it('rejects cross-application schemas and queries during finalization', async () => {
-		const ForeignSchema = new Schema({
+		const ForeignSchema = Schema.define({
 			className: 'HookContextForeign',
 			fields: { title: stringField() },
 		})
@@ -240,7 +240,7 @@ describe('HookContext Runtime capabilities', () => {
 			schemas: [ForeignSchema],
 		})
 		let foreignError: unknown
-		const PostSchema = new Schema({
+		const PostSchema = Schema.define({
 			className: 'HookContextFinalizationPost',
 			fields: { title: stringField({ validation: { required: true } }) },
 			hooks: {
@@ -292,7 +292,7 @@ describe('HookContext Runtime capabilities', () => {
 		const trace: string[] = []
 		const deliveries: JsonObject[] = []
 		const mutablePayload = { nested: { title: 'captured' } }
-		const PostSchema = new Schema({
+		const PostSchema = Schema.define({
 			className: 'HookContextEventPost',
 			fields: { title: stringField({ validation: { required: true } }) },
 			hooks: {
@@ -357,7 +357,7 @@ describe('HookContext Runtime capabilities', () => {
 		const trace: string[] = []
 		let observedCommittedFailure = false
 		let nestedDeliveries = 0
-		const PostSchema = new Schema({
+		const PostSchema = Schema.define({
 			className: 'HookContextAfterCommitEventPost',
 			fields: { title: stringField({ validation: { required: true } }) },
 			hooks: {
@@ -436,7 +436,7 @@ describe('HookContext Runtime capabilities', () => {
 		const failure = new Error('fail after emit')
 		const trace: string[] = []
 		let deliveries = 0
-		const PostSchema = new Schema({
+		const PostSchema = Schema.define({
 			className: 'HookContextDiscardedEventPost',
 			fields: { title: stringField({ validation: { required: true } }) },
 			hooks: {
@@ -475,7 +475,7 @@ describe('HookContext Runtime capabilities', () => {
 		expect(trace.at(-1)).toBe('adapter:rollback')
 		await ultimabase.dispose()
 
-		const MissingConsumerSchema = new Schema({
+		const MissingConsumerSchema = Schema.define({
 			className: 'HookContextMissingConsumer',
 			fields: { title: stringField() },
 			hooks: {
@@ -500,7 +500,7 @@ describe('HookContext Runtime capabilities', () => {
 	})
 
 	it('rejects named events from non-transactional reads', async () => {
-		const ReadSchema = new Schema({
+		const ReadSchema = Schema.define({
 			className: 'HookContextReadEvent',
 			fields: { title: stringField() },
 			hooks: {

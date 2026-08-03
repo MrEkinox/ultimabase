@@ -21,7 +21,7 @@ import {
 	type RecordingPipelineHookStages,
 } from './fixtures/recording-database-adapter.js'
 
-const articleSchema = new Schema({
+const articleSchema = Schema.define({
 	className: 'AutomaticTransactionArticle',
 	fields: {
 		title: stringField({
@@ -168,7 +168,16 @@ describe('automatic mutation transaction scope', () => {
 				{},
 			)
 
-			await expect(execute(request)).resolves.toStrictEqual(result)
+			const outcome = await execute(request)
+
+			expect(outcome).toEqual(result)
+			if (Array.isArray(outcome)) {
+				expect(
+					outcome.every((article) => article instanceof articleSchema),
+				).toBe(true)
+			} else if (typeof outcome === 'object' && outcome !== null) {
+				expect(outcome).toBeInstanceOf(articleSchema)
+			}
 			expect(adapter.rootRequests).toStrictEqual([])
 			expect(adapter.transactions).toHaveLength(1)
 			expect(adapter.transactions[0]?.requests[0]?.operation.kind).toBe(kind)

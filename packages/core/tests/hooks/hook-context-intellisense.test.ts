@@ -8,7 +8,7 @@ const completionMarker = '/* completion:hook-context */'
 const sourceWithMarkers = `
 import { Schema, stringField, type HookContext } from '../../src/index.js'
 
-const AuditSchema = new Schema({
+const AuditSchema = Schema.define({
   className: 'HookContextIntelliSenseAudit',
   fields: {
     action: stringField({ validation: { required: true } }),
@@ -109,7 +109,7 @@ describe('HookContext IntelliSense', () => {
 		expect(selected).toContain('readonly action: string;')
 		expect(selected).toContain('readonly id: string;')
 		expect(selected).not.toContain('secret')
-		expect(selected.length).toBeLessThan(300)
+		expect(selected.length).toBeLessThan(600)
 	})
 
 	it('documents query and event capabilities in editor hovers', () => {

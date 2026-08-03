@@ -9,7 +9,7 @@ import {
 import { getHookHandlerEntries } from './normalization.js'
 
 const createSchema = (hooks?: object) =>
-	new Schema({
+	Schema.define({
 		className: 'HookedArticle',
 		fields: {
 			title: stringField({ validation: { required: true } }),
@@ -37,6 +37,7 @@ describe('schema hook declarations', () => {
 			false,
 		)
 		expect(Object.keys(schema)).toStrictEqual([
+			'definition',
 			'className',
 			'fields',
 			'indexes',

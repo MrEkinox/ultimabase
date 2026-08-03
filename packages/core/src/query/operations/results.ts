@@ -1,6 +1,10 @@
-import type { InferObject } from '../../schema/index.js'
+import type {
+	InferObject,
+	SchemaDefinition,
+	SchemaResult,
+} from '../../schema/index.js'
 
-import type { QueryExpressionNode } from '../ast/contracts.js'
+import type { QueryExpressionNode, QueryFieldName } from '../ast/contracts.js'
 import type { UpdateExpressionNode } from '../updates/contracts.js'
 import type {
 	CreateManyOperationAst,
@@ -14,28 +18,46 @@ import type {
 	UpsertManyOperationAst,
 	UpsertOneOperationAst,
 } from './contracts.js'
-import type { InferQueryResult } from '../query/result.js'
+import type { InferQueryRecord, InferQueryResult } from '../query/result.js'
 
-/** Maps every normalized terminal intent to its exact public result shape. */
-export type InferOperationResult<TOperation extends OperationAstNode> =
+type OperationResultMode = 'model' | 'record'
+
+type QueryObjectResult<
+	TSchema extends SchemaDefinition,
+	TSelectedField extends QueryFieldName<TSchema>,
+	TMode extends OperationResultMode,
+> = TMode extends 'model'
+	? InferQueryResult<TSchema, TSelectedField>
+	: InferQueryRecord<TSchema, TSelectedField>
+
+type CompleteObjectResult<
+	TSchema extends SchemaDefinition,
+	TMode extends OperationResultMode,
+> = TMode extends 'model' ? SchemaResult<TSchema> : InferObject<TSchema>
+
+/** Maps every terminal to either its neutral Runtime record or public model result. */
+type InferOperationResultFor<
+	TOperation extends OperationAstNode,
+	TMode extends OperationResultMode,
+> =
 	TOperation extends FindOperationAst<
 		infer TSchema,
 		QueryExpressionNode,
 		infer TSelectedField
 	>
-		? readonly InferQueryResult<TSchema, TSelectedField>[]
+		? readonly QueryObjectResult<TSchema, TSelectedField, TMode>[]
 		: TOperation extends FirstOperationAst<
 					infer TSchema,
 					QueryExpressionNode,
 					infer TSelectedField
 			  >
-			? InferQueryResult<TSchema, TSelectedField> | null
+			? QueryObjectResult<TSchema, TSelectedField, TMode> | null
 			: TOperation extends GetOperationAst<
 						infer TSchema,
 						QueryExpressionNode,
 						infer TSelectedField
 				  >
-				? InferQueryResult<TSchema, TSelectedField> | null
+				? QueryObjectResult<TSchema, TSelectedField, TMode> | null
 				: TOperation extends {
 							readonly kind: 'count' | 'update-many' | 'delete-many'
 					  }
@@ -43,29 +65,41 @@ export type InferOperationResult<TOperation extends OperationAstNode> =
 					: TOperation extends { readonly kind: 'exists' }
 						? boolean
 						: TOperation extends CreateOneOperationAst<infer TSchema>
-							? InferObject<TSchema>
+							? CompleteObjectResult<TSchema, TMode>
 							: TOperation extends CreateManyOperationAst<infer TSchema>
-								? readonly InferObject<TSchema>[]
+								? readonly CompleteObjectResult<TSchema, TMode>[]
 								: TOperation extends UpdateOneOperationAst<
 											infer TSchema,
 											UpdateExpressionNode,
 											QueryExpressionNode,
 											infer TSelectedField
 									  >
-									? InferQueryResult<TSchema, TSelectedField> | null
+									? QueryObjectResult<TSchema, TSelectedField, TMode> | null
 									: TOperation extends UpsertOneOperationAst<
 												infer TSchema,
 												UpdateExpressionNode,
 												QueryExpressionNode,
 												infer TSelectedField
 										  >
-										? InferQueryResult<TSchema, TSelectedField>
+										? QueryObjectResult<TSchema, TSelectedField, TMode>
 										: TOperation extends UpsertManyOperationAst<infer TSchema>
-											? readonly InferObject<TSchema>[]
+											? readonly CompleteObjectResult<TSchema, TMode>[]
 											: TOperation extends DeleteOneOperationAst<
 														infer TSchema,
 														QueryExpressionNode,
 														infer TSelectedField
 												  >
-												? InferQueryResult<TSchema, TSelectedField> | null
+												? QueryObjectResult<
+														TSchema,
+														TSelectedField,
+														TMode
+													> | null
 												: never
+
+/** Maps every normalized terminal intent to its exact public model result. */
+export type InferOperationResult<TOperation extends OperationAstNode> =
+	InferOperationResultFor<TOperation, 'model'>
+
+/** Maps every normalized terminal to the plain record used inside Runtime. */
+export type InferOperationRecordResult<TOperation extends OperationAstNode> =
+	InferOperationResultFor<TOperation, 'record'>

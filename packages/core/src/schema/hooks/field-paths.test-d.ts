@@ -16,7 +16,7 @@ const customNormalizers = {
 	snapshotValue: (value: unknown): URL => new URL(String(value)),
 }
 
-const schema = new Schema({
+const schema = Schema.define({
 	className: 'TypedFieldPath',
 	fields: {
 		'dotted.name': stringField(),

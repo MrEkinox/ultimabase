@@ -74,7 +74,7 @@ const invokeMethod = (
 	return Reflect.apply(method, target, arguments_)
 }
 
-const primarySchema = new Schema({
+const primarySchema = Schema.define({
 	className: 'PluginHookTarget',
 	fields: {
 		'dotted.name': stringField({ extensions: [fieldExtension] }),
@@ -89,7 +89,7 @@ const primarySchema = new Schema({
 	extensions: [schemaExtension],
 })
 
-const secondarySchema = new Schema({
+const secondarySchema = Schema.define({
 	className: 'SecondaryPluginHookTarget',
 	fields: { title: stringField() },
 })
@@ -186,7 +186,7 @@ describe('plugin hook targets', () => {
 	})
 
 	it('requires exact application schema identity', () => {
-		const foreignSchema = new Schema({
+		const foreignSchema = Schema.define({
 			className: primarySchema.className,
 			fields: { title: stringField() },
 		})

@@ -54,10 +54,8 @@ const createCompletionFixture = (sourceWithMarker: string) => {
 	return { completions: completions.entries, fileName, position, service }
 }
 
-/** Reads the hover payload at one inserted schema property. */
-const readMarkedHover = (
-	sourceWithMarker: string,
-): IntelliSenseDocumentation => {
+/** Reads one marker through the same language-service path used by editor hovers. */
+const readMarkedQuickInfo = (sourceWithMarker: string): ts.QuickInfo => {
 	const marker = '/* hover */'
 	const markerPosition = sourceWithMarker.indexOf(marker)
 
@@ -77,6 +75,15 @@ const readMarkedHover = (
 		throw new TypeError('Expected schema hover information')
 	}
 
+	return quickInfo
+}
+
+/** Reads the documentation payload at one inserted schema property. */
+const readMarkedHover = (
+	sourceWithMarker: string,
+): IntelliSenseDocumentation => {
+	const quickInfo = readMarkedQuickInfo(sourceWithMarker)
+
 	return readDocumentation(quickInfo.documentation, quickInfo.tags)
 }
 
@@ -90,37 +97,37 @@ const schemaHoverCases: readonly SchemaHoverCase[] = [
 	{
 		label: 'className',
 		source:
-			"new Schema({ /* hover */className: 'Post', fields: { title: stringField() } })",
+			"Schema.define({ /* hover */className: 'Post', fields: { title: stringField() } })",
 	},
 	{
 		label: 'fields',
 		source:
-			"new Schema({ className: 'Post', /* hover */fields: { title: stringField() } })",
+			"Schema.define({ className: 'Post', /* hover */fields: { title: stringField() } })",
 	},
 	{
 		label: 'indexes',
 		source:
-			"new Schema({ className: 'Post', fields: { title: stringField() }, /* hover */indexes: [{ fields: ['title', 'createdAt'] }] })",
+			"Schema.define({ className: 'Post', fields: { title: stringField() }, /* hover */indexes: [{ fields: ['title', 'createdAt'] }] })",
 	},
 	{
 		label: 'extensions',
 		source:
-			"new Schema({ className: 'Post', fields: {}, /* hover */extensions: [defineSchemaExtension('fixture.schema', {})] })",
+			"Schema.define({ className: 'Post', fields: {}, /* hover */extensions: [defineSchemaExtension('fixture.schema', {})] })",
 	},
 	{
 		label: 'hooks',
 		source:
-			"new Schema({ className: 'Post', fields: {}, /* hover */hooks: { beforeFind: ({ query }) => query } })",
+			"Schema.define({ className: 'Post', fields: {}, /* hover */hooks: { beforeFind: ({ query }) => query } })",
 	},
 	{
 		label: 'indexes.fields',
 		source:
-			"new Schema({ className: 'Post', fields: { title: stringField() }, indexes: [{ /* hover */fields: ['title', 'createdAt'] }] })",
+			"Schema.define({ className: 'Post', fields: { title: stringField() }, indexes: [{ /* hover */fields: ['title', 'createdAt'] }] })",
 	},
 	{
 		label: 'indexes.unique',
 		source:
-			"new Schema({ className: 'Post', fields: { title: stringField() }, indexes: [{ fields: ['title', 'createdAt'], /* hover */unique: true }] })",
+			"Schema.define({ className: 'Post', fields: { title: stringField() }, indexes: [{ fields: ['title', 'createdAt'], /* hover */unique: true }] })",
 	},
 ]
 
@@ -129,7 +136,7 @@ describe('Schema IntelliSense', () => {
 		const fixture = createCompletionFixture(`
 import { Schema, stringField } from '../../src/schema/index.js'
 
-new Schema({ /* completion */ })
+Schema.define({ /* completion */ })
 `)
 		const entries = fixture.completions.filter(
 			(entry) => entry.kind === ts.ScriptElementKind.memberVariableElement,
@@ -162,7 +169,7 @@ new Schema({ /* completion */ })
 		const fixture = createCompletionFixture(`
 import { Schema, stringField } from '../../src/schema/index.js'
 
-new Schema({
+Schema.define({
 	className: 'Post',
 	fields: { title: stringField() },
 	indexes: [{ /* completion */ }],
@@ -200,7 +207,7 @@ new Schema({
 			readMarkedHover(`
 import { Schema, stringField } from '../../src/schema/index.js'
 
-const PostSchema = /* hover */new Schema({
+const PostSchema = /* hover */Schema.define({
 	className: 'Post',
 	fields: { title: stringField() },
 })
@@ -215,6 +222,40 @@ import { Schema } from '../../src/schema/index.js'
 
 /* hover */Schema.is({})
 `),
+		)
+	})
+
+	it('keeps generated drafts and static Query access recognizable', () => {
+		const draft = readMarkedQuickInfo(`
+import { Schema, stringField } from '../../src/schema/index.js'
+
+const Post = Schema.define({
+	className: 'Post',
+	fields: { title: stringField({ validation: { required: true } }) },
+})
+const draft = /* hover */new Post({ title: 'Hello' })
+void draft
+`)
+		const query = readMarkedQuickInfo(`
+import { Schema, stringField } from '../../src/schema/index.js'
+
+const Post = Schema.define({
+	className: 'Post',
+	fields: { title: stringField({ validation: { required: true } }) },
+})
+const query = Post./* hover */query().select('id', 'title')
+void query
+`)
+		const draftDisplay = ts.displayPartsToString(draft.displayParts)
+		const queryDisplay = ts.displayPartsToString(query.displayParts)
+
+		expect(draftDisplay).toContain('const Post: SchemaClass')
+		expect(draftDisplay).toContain('title: string;')
+		expect(draftDisplay).not.toContain('id: string;')
+		expect(draftDisplay).not.toContain('NonDefaultedStringField<')
+		expect(queryDisplay).toContain('query(): Query<')
+		expect(ts.displayPartsToString(query.documentation)).toContain(
+			'fresh immutable Query',
 		)
 	})
 

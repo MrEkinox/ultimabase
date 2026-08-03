@@ -131,11 +131,14 @@ export type {
 } from './fields/builtins/float.js'
 export { Schema } from './schema/definition.js'
 export type {
+	SchemaClass,
 	SchemaDefinition,
 	SchemaExtensions,
 	SchemaFields,
+	SchemaMetadata,
 	SchemaOptions,
 } from './schema/definition.js'
+export type { SchemaDraft, SchemaResult } from './schema/model.js'
 export type {
 	FieldAfterCommitHook,
 	FieldAfterCommitFamilyHook,

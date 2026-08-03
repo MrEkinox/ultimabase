@@ -13,7 +13,7 @@ import {
 } from '../index.js'
 
 test('infers schemas and top-level plugin exports from application options', async () => {
-	const schema = new Schema({
+	const schema = Schema.define({
 		className: 'TypedApplication',
 		fields: { name: stringField() },
 	})

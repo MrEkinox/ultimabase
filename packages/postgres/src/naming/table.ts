@@ -1,6 +1,6 @@
 import {
 	defineSchemaExtension,
-	type SchemaDefinition,
+	type SchemaMetadata,
 	type SchemaExtension,
 } from '@ultimabase/core'
 import { assertNonEmptyString, isPlainRecord } from '@ultimabase/shared'
@@ -55,7 +55,7 @@ export const postgresTable = <const TName extends string>(
 }
 
 /** Finds and validates the optional PostgreSQL-owned override on one schema. */
-const getExplicitTableName = (schema: SchemaDefinition): string | undefined => {
+const getExplicitTableName = (schema: SchemaMetadata): string | undefined => {
 	const extension = schema.extensions.find(
 		(candidate) => candidate.name === postgresTableExtensionName,
 	)
@@ -70,5 +70,5 @@ const getExplicitTableName = (schema: SchemaDefinition): string | undefined => {
 }
 
 /** Resolves one safely escapable physical identifier from static schema metadata. */
-export const resolvePostgresTableName = (schema: SchemaDefinition): string =>
+export const resolvePostgresTableName = (schema: SchemaMetadata): string =>
 	getExplicitTableName(schema) ?? tableize(schema.className)

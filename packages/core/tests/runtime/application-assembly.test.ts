@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest'
 
 import { RecordingDatabaseAdapter } from './fixtures/recording-database-adapter.js'
 
-const publicArticleSchema = new Schema({
+const publicArticleSchema = Schema.define({
 	className: 'PublicAssembledArticle',
 	fields: { title: stringField() },
 })
@@ -40,7 +40,9 @@ describe('public application Runtime assembly', () => {
 
 		const result = await ultimabase.query(publicArticleSchema).find()
 
-		expect(result).toStrictEqual(rows)
+		expect(result).toHaveLength(1)
+		expect(result[0]).toBeInstanceOf(publicArticleSchema)
+		expect(result.map((article) => article.toJSON())).toStrictEqual(rows)
 		expect(adapter.rootRequests[0]?.constraints).toStrictEqual([])
 
 		await ultimabase.dispose()

@@ -16,7 +16,7 @@ import {
 } from './active-framework-context.js'
 import { requestSources } from './request-context.js'
 
-const articleSchema = new Schema({
+const articleSchema = Schema.define({
 	className: 'ScopedArticle',
 	fields: { title: stringField() },
 })

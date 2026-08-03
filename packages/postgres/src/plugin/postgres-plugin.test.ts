@@ -151,7 +151,7 @@ describe('postgresPlugin', () => {
 		const pool = new FixturePool()
 		const application = await createApplication({
 			schemas: [
-				new Schema({
+				Schema.define({
 					className: 'IgnoredArticle',
 					fields: { title: stringField() },
 				}),
@@ -196,7 +196,7 @@ describe('postgresPlugin', () => {
 		})
 		const application = await createApplication({
 			schemas: [
-				new Schema({
+				Schema.define({
 					className: 'MigratedArticle',
 					fields: { title: stringField() },
 				}),
@@ -211,7 +211,7 @@ describe('postgresPlugin', () => {
 	})
 
 	it('claims PostgreSQL table-name extensions during application setup', async () => {
-		const schema = new Schema({
+		const schema = Schema.define({
 			className: 'Article',
 			fields: { title: stringField() },
 			extensions: [postgresTable({ name: 'content.Articles' })],
@@ -227,7 +227,7 @@ describe('postgresPlugin', () => {
 	})
 
 	it('fails setup when PostgreSQL cannot compile nested index metadata', async () => {
-		const schema = new Schema({
+		const schema = Schema.define({
 			className: 'NestedIndex',
 			fields: {
 				profile: objectField({

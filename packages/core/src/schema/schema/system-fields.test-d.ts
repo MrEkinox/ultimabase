@@ -18,7 +18,7 @@ type FieldsWithOption<TFields, TOption extends PropertyKey, TValue> = {
 }[keyof TFields]
 
 test('exposes system values in every schema field map', () => {
-	const schema = new Schema({
+	const schema = Schema.define({
 		className: 'Post',
 		fields: {},
 	})
@@ -38,7 +38,7 @@ test('exposes system values in every schema field map', () => {
 })
 
 test('marks generated and immutable fields for create and update inference', () => {
-	const schema = new Schema({
+	const schema = Schema.define({
 		className: 'Post',
 		fields: {},
 	})

@@ -15,7 +15,7 @@ import {
 	type RuntimeFieldOutputValue,
 } from './field-outputs.js'
 
-const schema = new Schema({
+const schema = Schema.define({
 	className: 'FieldOutputTypes',
 	fields: {
 		title: stringField(),

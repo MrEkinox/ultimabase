@@ -10,7 +10,7 @@ import { normalizeSchemaIndexes } from './indexes.js'
 
 describe('schema indexes', () => {
 	it('normalizes field and composite indexes in deterministic order', () => {
-		const schema = new Schema({
+		const schema = Schema.define({
 			className: 'Post',
 			fields: {
 				title: stringField({ indexed: true }),
@@ -46,7 +46,7 @@ describe('schema indexes', () => {
 		const indexes: SchemaIndexOptions<'category' | 'createdAt' | 'title'>[] = [
 			{ fields },
 		]
-		const schema = new Schema({
+		const schema = Schema.define({
 			className: 'Post',
 			fields: {
 				category: stringField(),
@@ -64,7 +64,7 @@ describe('schema indexes', () => {
 	})
 
 	it('normalizes omitted declarations to one immutable empty list', () => {
-		const schema = new Schema({
+		const schema = Schema.define({
 			className: 'Post',
 			fields: {
 				title: stringField(),
@@ -76,111 +76,103 @@ describe('schema indexes', () => {
 	})
 
 	it('rejects unknown and repeated composite fields', () => {
-		expect(
-			() =>
-				new Schema({
-					className: 'UnknownIndexField',
-					fields: {
-						title: stringField(),
-					},
-					indexes: [
-						// @ts-expect-error -- Runtime validation also protects JavaScript callers.
-						{ fields: ['title', 'missing'] },
-					],
-				}),
+		expect(() =>
+			Schema.define({
+				className: 'UnknownIndexField',
+				fields: {
+					title: stringField(),
+				},
+				indexes: [
+					// @ts-expect-error -- Runtime validation also protects JavaScript callers.
+					{ fields: ['title', 'missing'] },
+				],
+			}),
 		).toThrow(new TypeError('Unknown index field: missing'))
 
-		expect(
-			() =>
-				new Schema({
-					className: 'RepeatedIndexField',
-					fields: {
-						title: stringField(),
-					},
-					indexes: [{ fields: ['title', 'title'] }],
-				}),
+		expect(() =>
+			Schema.define({
+				className: 'RepeatedIndexField',
+				fields: {
+					title: stringField(),
+				},
+				indexes: [{ fields: ['title', 'title'] }],
+			}),
 		).toThrow(new TypeError('Duplicate index field: title'))
 	})
 
 	it('rejects malformed composite options at runtime', () => {
-		expect(
-			() =>
-				new Schema({
-					className: 'InvalidIndexesContainer',
-					fields: {},
-					// @ts-expect-error -- Runtime validation protects JavaScript callers.
-					indexes: {},
-				}),
+		expect(() =>
+			Schema.define({
+				className: 'InvalidIndexesContainer',
+				fields: {},
+				// @ts-expect-error -- Runtime validation protects JavaScript callers.
+				indexes: {},
+			}),
 		).toThrow(new TypeError('indexes must be a list'))
 
-		expect(
-			() =>
-				new Schema({
-					className: 'InvalidIndexEntry',
-					fields: {},
-					// @ts-expect-error -- Runtime validation protects JavaScript callers.
-					indexes: [null],
-				}),
+		expect(() =>
+			Schema.define({
+				className: 'InvalidIndexEntry',
+				fields: {},
+				// @ts-expect-error -- Runtime validation protects JavaScript callers.
+				indexes: [null],
+			}),
 		).toThrow(new TypeError('indexes[0] must be an object'))
 
-		expect(
-			() =>
-				new Schema({
-					className: 'InvalidIndexFields',
-					fields: { idPart: stringField() },
-					indexes: [
-						{
-							// @ts-expect-error -- Runtime validation protects JavaScript callers.
-							fields: 'idPart',
-						},
-					],
-				}),
+		expect(() =>
+			Schema.define({
+				className: 'InvalidIndexFields',
+				fields: { idPart: stringField() },
+				indexes: [
+					{
+						// @ts-expect-error -- Runtime validation protects JavaScript callers.
+						fields: 'idPart',
+					},
+				],
+			}),
 		).toThrow(new TypeError('indexes[0].fields must be a list'))
 
-		expect(
-			() =>
-				new Schema({
-					className: 'InvalidIndexFieldName',
-					fields: { idPart: stringField(), tenant: stringField() },
-					indexes: [
-						{
-							// @ts-expect-error -- Runtime validation protects JavaScript callers.
-							fields: ['idPart', 42],
-						},
-					],
-				}),
+		expect(() =>
+			Schema.define({
+				className: 'InvalidIndexFieldName',
+				fields: { idPart: stringField(), tenant: stringField() },
+				indexes: [
+					{
+						// @ts-expect-error -- Runtime validation protects JavaScript callers.
+						fields: ['idPart', 42],
+					},
+				],
+			}),
 		).toThrow(new TypeError('indexes[0].fields[1] must be a string'))
 
-		expect(
-			() =>
-				new Schema({
-					className: 'ShortIndex',
-					fields: {
-						title: stringField(),
-					},
-					indexes: [
-						// @ts-expect-error -- Composite indexes require two fields statically.
-						{ fields: ['title'] },
-					],
-				}),
+		expect(() =>
+			Schema.define({
+				className: 'ShortIndex',
+				fields: {
+					title: stringField(),
+				},
+				indexes: [
+					// @ts-expect-error -- Composite indexes require two fields statically.
+					{ fields: ['title'] },
+				],
+			}),
 		).toThrow(new TypeError('Composite index must contain at least two fields'))
 
-		expect(
-			() =>
-				new Schema({
-					className: 'InvalidUnique',
-					fields: {
-						slug: stringField(),
-						title: stringField(),
+		expect(() =>
+			Schema.define({
+				className: 'InvalidUnique',
+				fields: {
+					slug: stringField(),
+					title: stringField(),
+				},
+				indexes: [
+					{
+						fields: ['slug', 'title'],
+						// @ts-expect-error -- Runtime validation protects untyped callers.
+						unique: 'yes',
 					},
-					indexes: [
-						{
-							fields: ['slug', 'title'],
-							// @ts-expect-error -- Runtime validation protects untyped callers.
-							unique: 'yes',
-						},
-					],
-				}),
+				],
+			}),
 		).toThrow(new TypeError('indexes[0].unique must be a boolean'))
 	})
 
@@ -191,12 +183,11 @@ describe('schema indexes', () => {
 		}
 
 		// Forged JavaScript metadata must not silently disable an invalid index.
-		expect(
-			() =>
-				new Schema({
-					className: 'InvalidFieldIndex',
-					fields: { title: invalidIndexedField },
-				}),
+		expect(() =>
+			Schema.define({
+				className: 'InvalidFieldIndex',
+				fields: { title: invalidIndexedField },
+			}),
 		).toThrow(new TypeError('fields.title must be created by a field factory'))
 		expect(() =>
 			normalizeSchemaIndexes({ title: invalidIndexedField }, undefined),

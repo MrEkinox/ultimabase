@@ -62,7 +62,7 @@ describe('hook execution safety', () => {
 		const events: HookDiagnosticEvent[] = []
 		const trace: string[] = []
 		const transactionIds: (string | undefined)[] = []
-		const schema = new Schema({
+		const schema = Schema.define({
 			className: 'CancelledHookArticle',
 			fields: {
 				title: stringField({ validation: { required: true } }),
@@ -153,7 +153,7 @@ describe('hook execution safety', () => {
 	it('rejects a pre-aborted mutation before opening its transaction', async () => {
 		const controller = new AbortController()
 		const trace: string[] = []
-		const schema = new Schema({
+		const schema = Schema.define({
 			className: 'PreCancelledHookArticle',
 			fields: { title: stringField() },
 		})
@@ -192,7 +192,7 @@ describe('hook execution safety', () => {
 			readonly [ReturnType<typeof createDatabasePlugin>]
 		>
 		const getUltimaBase = (): NestedUltimaBase => ultimabase
-		const childSchema = new Schema({
+		const childSchema = Schema.define({
 			className: 'NestedHookChild',
 			fields: { title: stringField({ validation: { required: true } }) },
 			hooks: {
@@ -204,7 +204,7 @@ describe('hook execution safety', () => {
 				},
 			},
 		})
-		const parentSchema = new Schema({
+		const parentSchema = Schema.define({
 			className: 'NestedHookParent',
 			fields: { title: stringField({ validation: { required: true } }) },
 			hooks: {
@@ -257,7 +257,7 @@ describe('hook execution safety', () => {
 			readonly [ReturnType<typeof createDatabasePlugin>]
 		>
 		const getUltimaBase = (): RecursiveUltimaBase => ultimabase
-		const schema = new Schema({
+		const schema = Schema.define({
 			className: 'RecursiveHookArticle',
 			fields: { title: stringField({ validation: { required: true } }) },
 			hooks: {
@@ -292,7 +292,7 @@ describe('hook execution safety', () => {
 
 	it('protects low-level plugin hooks from nested operation recursion', async () => {
 		const trace: string[] = []
-		const schema = new Schema({
+		const schema = Schema.define({
 			className: 'RecursiveLowLevelArticle',
 			fields: { title: stringField({ validation: { required: true } }) },
 		})
@@ -345,7 +345,7 @@ describe('hook execution safety', () => {
 	it('emits redacted diagnostics outside request scope without trusting observers', async () => {
 		const events: HookDiagnosticEvent[] = []
 		let observerHadRequestAuthority = false
-		const schema = new Schema({
+		const schema = Schema.define({
 			className: 'ObservedHookArticle',
 			fields: { title: stringField() },
 			hooks: {

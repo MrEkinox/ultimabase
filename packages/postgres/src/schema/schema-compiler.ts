@@ -71,6 +71,8 @@ const indexColumnsByName = (
 export const compilePostgresSchema = (
 	schema: SchemaDefinition,
 ): CompiledPostgresSchema => {
+	// PostgreSQL compiles immutable metadata and never depends on model behavior.
+	const definition = schema.definition
 	const validationPlan = compileValidationPlans(schema).create
 	const builderEntries: [string, PgColumnBuilderBase][] = []
 	const pendingFields: [string, Omit<CompiledPostgresField, 'column'>][] = []
@@ -117,9 +119,9 @@ export const compilePostgresSchema = (
 		string,
 		PgColumnBuilderBase
 	>
-	const tableName = resolvePostgresTableName(schema)
+	const tableName = resolvePostgresTableName(definition)
 	const table = pgTable(tableName, builders, (columns) =>
-		compilePostgresIndexBuilders(tableName, schema.indexes, columns),
+		compilePostgresIndexBuilders(tableName, definition.indexes, columns),
 	)
 	const tableConfig = getTableConfig(table)
 	const columns = indexColumnsByName(tableConfig.columns)
@@ -138,23 +140,25 @@ export const compilePostgresSchema = (
 	)
 
 	const indexes = immutableArray(
-		schema.indexes.map((definition, position): CompiledPostgresIndex => {
-			const compiledIndex = tableConfig.indexes[position]
-			const name = compiledIndex?.config.name
+		definition.indexes.map(
+			(indexDefinition, position): CompiledPostgresIndex => {
+				const compiledIndex = tableConfig.indexes[position]
+				const name = compiledIndex?.config.name
 
-			if (compiledIndex === undefined || name === undefined) {
-				throw new TypeError(
-					`Drizzle omitted PostgreSQL index at position: ${String(position)}`,
-				)
-			}
+				if (compiledIndex === undefined || name === undefined) {
+					throw new TypeError(
+						`Drizzle omitted PostgreSQL index at position: ${String(position)}`,
+					)
+				}
 
-			return immutableRecord({
-				fields: definition.fields,
-				index: compiledIndex,
-				name,
-				unique: definition.unique,
-			})
-		}),
+				return immutableRecord({
+					fields: indexDefinition.fields,
+					index: compiledIndex,
+					name,
+					unique: indexDefinition.unique,
+				})
+			},
+		),
 	)
 
 	return immutableRecord({ fields, indexes, table, tableName })

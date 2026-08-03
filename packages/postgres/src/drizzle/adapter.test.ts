@@ -30,7 +30,7 @@ import type {
 } from '../connection/contracts.js'
 import { PostgresSchemaCatalog } from '../schema/catalog.js'
 
-const articleSchema = new Schema({
+const articleSchema = Schema.define({
 	className: 'Article',
 	fields: {
 		note: stringField(),

@@ -194,7 +194,7 @@ through `kind`. It returns a new immutable Query or `undefined` to retain the
 current one:
 
 ```ts
-const ArticleSchema = new Schema({
+const ArticleSchema = Schema.define({
 	className: 'Article',
 	fields: {
 		title: stringField({
@@ -312,7 +312,7 @@ schema and may still abort the transaction. `afterCommit` runs once per
 successful mutation only after the adapter confirms the outer commit:
 
 ```ts
-const ArticleSchema = new Schema({
+const ArticleSchema = Schema.define({
 	className: 'Article',
 	fields: {
 		title: stringField({ validation: { required: true } }),
@@ -573,7 +573,7 @@ Operation hooks may emit one explicit portable event through their current
 transaction:
 
 ```ts
-const ArticleSchema = new Schema({
+const ArticleSchema = Schema.define({
 	className: 'Article',
 	fields: { title: stringField({ validation: { required: true } }) },
 	hooks: {

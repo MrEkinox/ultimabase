@@ -23,7 +23,7 @@ const fieldVisibility = defineFieldExtension(
 	permissionsPluginName,
 )
 
-const protectedSchema = new Schema({
+const protectedSchema = Schema.define({
 	className: 'ProtectedPost',
 	fields: {
 		title: stringField({ extensions: [fieldVisibility] }),
@@ -101,7 +101,7 @@ describe('extension handler validation', () => {
 				)
 			},
 		})
-		const fieldOnlySchema = new Schema({
+		const fieldOnlySchema = Schema.define({
 			className: 'NestedPost',
 			fields: {
 				metadata: objectField({

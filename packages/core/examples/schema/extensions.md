@@ -27,7 +27,7 @@ const fieldPermissions = defineFieldExtension(
 	permissionPluginName,
 )
 
-export const PostSchema = new Schema({
+export const PostSchema = Schema.define({
 	className: 'Post',
 	fields: {
 		title: stringField(),

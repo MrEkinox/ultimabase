@@ -37,7 +37,7 @@ const vectorField = definePluginField(
 	},
 )
 
-const filterSchema = new Schema({
+const filterSchema = Schema.define({
 	className: 'FilterMatrix',
 	fields: {
 		exactInteger: bigintField(),

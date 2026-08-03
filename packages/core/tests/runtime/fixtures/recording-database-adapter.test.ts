@@ -7,7 +7,7 @@ import {
 	type QueuedAdapterResult,
 } from './recording-database-adapter.js'
 
-const articleSchema = new Schema({
+const articleSchema = Schema.define({
 	className: 'RecordingAdapterArticle',
 	fields: { title: stringField() },
 })

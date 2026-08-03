@@ -11,7 +11,7 @@ import { describe, expect, it } from 'vitest'
 
 import { normalizeUpdateExpression } from './normalize.js'
 
-const accountSchema = new Schema({
+const accountSchema = Schema.define({
 	className: 'Account',
 	fields: {
 		name: stringField({ validation: { required: true } }),

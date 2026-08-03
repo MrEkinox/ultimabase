@@ -75,7 +75,7 @@ Runtime consumes the prepared mutation exactly once.
 ```ts
 import { Schema, UltimaBase, booleanField, stringField } from '@ultimabase/core'
 
-const PostSchema = new Schema({
+const PostSchema = Schema.define({
 	className: 'Post',
 	fields: {
 		title: stringField({ validation: { required: true } }),
@@ -87,7 +87,15 @@ const ultimabase = new UltimaBase({
 	schemas: [PostSchema],
 	plugins: [databasePlugin()],
 })
+
+const draft = new PostSchema({ title: 'Preview' })
+const query = PostSchema.query().select('id', 'title')
 ```
+
+`new PostSchema(input)` creates a typed immutable draft and never performs I/O.
+Runtime queries and mutations return immutable `PostSchema` instances only after
+hooks and field restrictions finish. `get(field)` and `toJSON()` expose only the
+fields visible in that result, so a selected result cannot recover omitted data.
 
 ## Native schema hooks
 
@@ -96,7 +104,7 @@ plugin. One handler covers the complete compatible operation family, and the
 terminal `kind` narrows its exact operation and result:
 
 ```ts
-const PostSchema = new Schema({
+const PostSchema = Schema.define({
 	className: 'Post',
 	fields: {
 		title: stringField({ validation: { required: true } }),
@@ -142,7 +150,7 @@ as `beforeOperation → beforeFind`, then unwind through field `resolveOutput`,
 `afterFind`, and `afterOperation`:
 
 ```ts
-const ArticleSchema = new Schema({
+const ArticleSchema = Schema.define({
 	className: 'Article',
 	fields: {
 		title: stringField({
@@ -196,7 +204,7 @@ contract and example.
 Every native and low-level business hook receives a safe execution `context`:
 
 ```ts
-const PostSchema = new Schema({
+const PostSchema = Schema.define({
 	className: 'Post',
 	fields: { title: stringField() },
 	hooks: {
@@ -274,7 +282,7 @@ callback sees the exact logical value, including enum literals, nullability,
 list dimensions, nested objects, and community field values:
 
 ```ts
-const UserSchema = new Schema({
+const UserSchema = Schema.define({
 	className: 'User',
 	fields: {
 		email: stringField({

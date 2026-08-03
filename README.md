@@ -12,7 +12,7 @@ It takes inspiration from the simplicity of Parse Server while deliberately repl
 import { Schema, UltimaBase, booleanField, stringField } from '@ultimabase/core'
 import { postgresPlugin } from '@ultimabase/postgres'
 
-export const UserSchema = new Schema({
+export const UserSchema = Schema.define({
 	className: 'User',
 	fields: {
 		name: stringField({
@@ -25,6 +25,9 @@ export const UserSchema = new Schema({
 		}),
 	},
 })
+
+const draft = new UserSchema({ name: 'Ada' })
+const activeUsers = UserSchema.query().equalTo('isActive', true)
 ```
 
 ```ts
@@ -51,6 +54,9 @@ const users = await ultimabase
 	.equalTo('isActive', true)
 	.limit(25)
 	.find()
+
+users[0] instanceof UserSchema // true
+users[0]?.toJSON() // A detached immutable object.
 ```
 
 ## Principles

@@ -2,9 +2,10 @@ import { expectTypeOf, test } from 'vitest'
 
 import { Schema } from '../schema/definition.js'
 import { stringField } from '../fields/builtins/string.js'
+import type { InferQueryResult } from '../../query/query/result.js'
 import type { HookContext } from './hook-context.js'
 
-const AuditSchema = new Schema({
+const AuditSchema = Schema.define({
 	className: 'TypedHookContextAudit',
 	fields: {
 		action: stringField({ validation: { required: true } }),
@@ -26,7 +27,7 @@ test('HookContext exposes exact query typing without privileged controls', async
 	expectTypeOf(created.action).toEqualTypeOf<string>()
 	expectTypeOf(created.secret).toEqualTypeOf<string | undefined>()
 	expectTypeOf(selected).toEqualTypeOf<
-		readonly Readonly<{ readonly action: string; readonly id: string }>[]
+		readonly InferQueryResult<typeof AuditSchema, 'action' | 'id'>[]
 	>()
 	expectTypeOf(context.access.mode).toEqualTypeOf<
 		'anonymous' | 'master' | 'user'

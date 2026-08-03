@@ -32,7 +32,7 @@ import {
 	type PostgresWorkerFixture,
 } from './postgres-worker-fixture.js'
 
-const PostSchema = new Schema({
+const PostSchema = Schema.define({
 	className: 'RuntimePost',
 	fields: {
 		attachment: binaryField(),
@@ -58,7 +58,7 @@ const PostSchema = new Schema({
 	},
 })
 
-const HookAuditSchema = new Schema({
+const HookAuditSchema = Schema.define({
 	className: 'RuntimeHookAudit',
 	fields: {
 		action: stringField({ validation: { required: true } }),
@@ -66,7 +66,7 @@ const HookAuditSchema = new Schema({
 })
 
 const hookRollbackError = new Error('rollback HookContext nested write')
-const HookPostSchema = new Schema({
+const HookPostSchema = Schema.define({
 	className: 'RuntimeHookPost',
 	fields: {
 		title: stringField({ validation: { required: true } }),
@@ -109,6 +109,12 @@ const allFieldValues = {
 	title: 'First real E2E',
 	wakeAt: '08:30:00.456',
 } as const
+
+// These side-effect-free values also exercise packed constructor and static Query declarations.
+const packedDraft = new PostSchema({ title: 'Packed draft' })
+const packedQuery = PostSchema.query().select('id', 'title')
+void packedDraft
+void packedQuery
 
 let fixture: PostgresWorkerFixture | undefined
 
@@ -169,12 +175,22 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 		await ultimabase.start()
 
 		try {
-			await expect(
-				ultimabase.query(HookPostSchema).create({ title: 'commit' }),
-			).resolves.toMatchObject({ title: 'commit' })
-			await expect(
-				ultimabase.query(HookAuditSchema).select('action').find(),
-			).resolves.toStrictEqual([{ action: 'create:commit' }])
+			const committed = await ultimabase
+				.query(HookPostSchema)
+				.create({ title: 'commit' })
+			const audits = await ultimabase
+				.query(HookAuditSchema)
+				.select('action')
+				.find()
+
+			expect(committed).toBeInstanceOf(HookPostSchema)
+			expect(committed.toJSON()).toMatchObject({ title: 'commit' })
+			expect(audits.every((audit) => audit instanceof HookAuditSchema)).toBe(
+				true,
+			)
+			expect(audits.map((audit) => audit.toJSON())).toStrictEqual([
+				{ action: 'create:commit' },
+			])
 
 			await expect(
 				ultimabase.query(HookPostSchema).create({ title: 'rollback' }),
@@ -223,6 +239,7 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 			// One live row exercises every built-in field kind across the public boundary.
 			const created = await ultimabase.query(PostSchema).create(allFieldValues)
 
+			expect(created).toBeInstanceOf(PostSchema)
 			expect(created).toMatchObject({
 				...allFieldValues,
 				createdAt: createInstant,
@@ -240,7 +257,10 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 				.select('id', 'title')
 				.find()
 
-			expect(found).toStrictEqual([{ id: created.id, title: 'First real E2E' }])
+			expect(found.every((post) => post instanceof PostSchema)).toBe(true)
+			expect(found.map((post) => post.toJSON())).toStrictEqual([
+				{ id: created.id, title: 'First real E2E' },
+			])
 
 			const updated = await ultimabase
 				.query(PostSchema)
@@ -251,7 +271,8 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 					set: { published: true, title: 'Persisted E2E' },
 				})
 
-			expect(updated).toStrictEqual({
+			expect(updated).toBeInstanceOf(PostSchema)
+			expect(updated?.toJSON()).toStrictEqual({
 				id: created.id,
 				published: true,
 				title: 'Persisted E2E',
@@ -259,13 +280,17 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 				views: 2,
 			})
 
-			await expect(
-				ultimabase
-					.query(PostSchema)
-					.equalTo('id', created.id)
-					.select('id', 'title')
-					.deleteOne(),
-			).resolves.toStrictEqual({ id: created.id, title: 'Persisted E2E' })
+			const deleted = await ultimabase
+				.query(PostSchema)
+				.equalTo('id', created.id)
+				.select('id', 'title')
+				.deleteOne()
+
+			expect(deleted).toBeInstanceOf(PostSchema)
+			expect(deleted?.toJSON()).toStrictEqual({
+				id: created.id,
+				title: 'Persisted E2E',
+			})
 			await expect(
 				ultimabase.query(PostSchema).equalTo('id', created.id).find(),
 			).resolves.toStrictEqual([])
@@ -316,14 +341,16 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 					.query(PostSchema)
 					.create({ title: 'Committed transaction' }),
 			)
+			expect(committed).toBeInstanceOf(PostSchema)
 
-			await expect(
-				request
-					.query(PostSchema)
-					.equalTo('id', committed.id)
-					.select('id', 'title')
-					.first(),
-			).resolves.toStrictEqual({
+			const found = await request
+				.query(PostSchema)
+				.equalTo('id', committed.id)
+				.select('id', 'title')
+				.first()
+
+			expect(found).toBeInstanceOf(PostSchema)
+			expect(found?.toJSON()).toStrictEqual({
 				id: committed.id,
 				title: 'Committed transaction',
 			})

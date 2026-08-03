@@ -11,7 +11,7 @@ import { beforeOperation } from '../hooks/definitions.js'
 import { RecordingDatabaseAdapter } from '../../../tests/runtime/fixtures/recording-database-adapter.js'
 import { UltimaBase } from './ultima-base.js'
 
-const articleSchema = new Schema({
+const articleSchema = Schema.define({
 	className: 'UltimaBaseArticle',
 	fields: {
 		title: stringField({ validation: { required: true } }),
@@ -110,7 +110,9 @@ describe('UltimaBase', () => {
 
 		const result = await ultimabase.query(articleSchema).find()
 
-		expect(result).toStrictEqual(rows)
+		expect(result).toHaveLength(1)
+		expect(result[0]).toBeInstanceOf(articleSchema)
+		expect(result.map((article) => article.toJSON())).toStrictEqual(rows)
 		expect(result).not.toBe(rows)
 		expect(Object.isFrozen(result)).toBe(true)
 		expect(observedContext?.transactionId).toBeUndefined()
@@ -124,7 +126,7 @@ describe('UltimaBase', () => {
 		await ultimabase.stop()
 		expect(ultimabase.state).toBe('stopped')
 		expect(trace).toStrictEqual(['setup', 'connect', 'stop'])
-		expect(() => escapedQuery.find()).toThrow(
+		await expect(escapedQuery.find()).rejects.toStrictEqual(
 			new TypeError(
 				'Framework engine cannot be used while application is stopped',
 			),
@@ -164,7 +166,7 @@ describe('UltimaBase', () => {
 			],
 			[],
 		)
-		const otherSchema = new Schema({
+		const otherSchema = Schema.define({
 			className: 'OtherUltimaBaseArticle',
 			fields: { title: stringField() },
 		})

@@ -1,4 +1,8 @@
-import type { InferObject, SchemaDefinition } from '../../schema/index.js'
+import type {
+	InferObject,
+	SchemaDefinition,
+	SchemaResult,
+} from '../../schema/index.js'
 
 import type { QueryFieldName } from '../ast/contracts.js'
 
@@ -7,8 +11,8 @@ type Simplify<TValue> = {
 	[TKey in keyof TValue]: TValue[TKey]
 } & {}
 
-/** Infers one persisted object or its exact selected projection. */
-export type InferQueryResult<
+/** Infers one neutral persisted record or its exact selected projection. */
+export type InferQueryRecord<
 	TSchema extends SchemaDefinition,
 	TSelectedField extends QueryFieldName<TSchema> = never,
 > = [TSelectedField] extends [never]
@@ -19,3 +23,9 @@ export type InferQueryResult<
 				Extract<TSelectedField, keyof InferObject<TSchema>>
 			>
 		>
+
+/** Infers one schema-class result with only its statically visible fields. */
+export type InferQueryResult<
+	TSchema extends SchemaDefinition,
+	TSelectedField extends QueryFieldName<TSchema> = never,
+> = Simplify<SchemaResult<TSchema, InferQueryRecord<TSchema, TSelectedField>>>

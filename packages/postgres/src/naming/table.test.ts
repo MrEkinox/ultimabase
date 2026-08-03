@@ -6,7 +6,8 @@ import { describe, expect, it } from 'vitest'
 import { postgresPluginName, postgresTableExtensionName } from '../constants.js'
 import { postgresTable, resolvePostgresTableName } from './table.js'
 
-const schemaNamed = (className: string) => new Schema({ className, fields: {} })
+const schemaNamed = (className: string) =>
+	Schema.define({ className, fields: {} })
 
 describe('PostgreSQL table naming', () => {
 	it.each([
@@ -21,7 +22,7 @@ describe('PostgreSQL table naming', () => {
 	it('preserves an unrestricted non-empty override exactly', () => {
 		const name = 'Tenant.Posts-v2 "archive"'
 		const extension = postgresTable({ name })
-		const schema = new Schema({
+		const schema = Schema.define({
 			className: 'IgnoredClassName',
 			fields: {},
 			extensions: [extension],
@@ -34,7 +35,7 @@ describe('PostgreSQL table naming', () => {
 	})
 
 	it('lets Drizzle escape an unrestricted override as one identifier', () => {
-		const schema = new Schema({
+		const schema = Schema.define({
 			className: 'AuditLog',
 			fields: {},
 			extensions: [postgresTable({ name: 'Tenant.Logs "archive"' })],
@@ -83,7 +84,7 @@ describe('PostgreSQL table naming', () => {
 			{ name: '' },
 			postgresPluginName,
 		)
-		const schema = new Schema({
+		const schema = Schema.define({
 			className: 'Post',
 			fields: {},
 			extensions: [forgedExtension],

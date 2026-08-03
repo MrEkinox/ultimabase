@@ -21,7 +21,7 @@ import {
 } from '../index.js'
 import type { Query } from '../../query/index.js'
 
-const ArticleSchema = new Schema({
+const ArticleSchema = Schema.define({
 	className: 'HookedArticle',
 	fields: {
 		title: stringField({ validation: { required: true } }),
@@ -250,7 +250,7 @@ test('namespaces application-owned hook validation issues', () => {
 
 test('keeps schema metadata and inferred values independent from hooks', () => {
 	expectTypeOf<keyof typeof ArticleSchema>().toEqualTypeOf<
-		'className' | 'extensions' | 'fields' | 'indexes'
+		'className' | 'definition' | 'extensions' | 'fields' | 'indexes' | 'query'
 	>()
 	expectTypeOf<InferCreateInput<typeof ArticleSchema>>().toEqualTypeOf<{
 		title: string
@@ -317,7 +317,7 @@ test('types ordered handler lists and broad operation families', () => {
 })
 
 test('rejects incompatible hook declarations and return values', () => {
-	new Schema({
+	Schema.define({
 		className: 'InvalidHooks',
 		fields: { title: stringField() },
 		hooks: {

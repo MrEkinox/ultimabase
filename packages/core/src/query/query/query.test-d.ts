@@ -17,7 +17,7 @@ import {
 } from '../index.js'
 import { hydrateQueryFromAst } from './query.js'
 
-const postSchema = new Schema({
+const postSchema = Schema.define({
 	className: 'Post',
 	fields: {
 		title: stringField(),
@@ -120,7 +120,7 @@ test('correlates every filter field with its exact operand type', () => {
 
 test('restricts fields, pagination values, and logical schemas', () => {
 	const query = new Query(postSchema)
-	const commentSchema = new Schema({
+	const commentSchema = Schema.define({
 		className: 'Comment',
 		fields: { body: stringField() },
 	})

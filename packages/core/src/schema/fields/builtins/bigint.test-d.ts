@@ -15,7 +15,7 @@ import {
 	type InferUpdateInput,
 } from '../../index.js'
 
-const bigintSchema = new Schema({
+const bigintSchema = Schema.define({
 	className: 'BigintRecord',
 	fields: {
 		sequence: bigintField({

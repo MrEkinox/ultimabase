@@ -23,12 +23,12 @@ import {
 	type QueuedAdapterResult,
 } from './fixtures/recording-database-adapter.js'
 
-const articleSchema = new Schema({
+const articleSchema = Schema.define({
 	className: 'HookArticle',
 	fields: { title: stringField({ validation: { required: true } }) },
 })
 
-const foreignSchema = new Schema({
+const foreignSchema = Schema.define({
 	className: 'HookForeign',
 	fields: { title: stringField({ validation: { required: true } }) },
 })
@@ -282,7 +282,8 @@ describe('Runtime hooks and post-commit events', () => {
 			kind: 'create-one',
 			input: { title: 'input:dependency' },
 		})
-		expect(result).toStrictEqual({
+		expect(result).toBeInstanceOf(articleSchema)
+		expect(result.toJSON()).toStrictEqual({
 			...stored,
 			title: 'stored:dependency',
 		})

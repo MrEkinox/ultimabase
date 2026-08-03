@@ -7,7 +7,11 @@ import {
 	isRequiredOnCreate,
 } from '../fields/base/options.js'
 import type { ObjectField } from '../fields/builtins/object.js'
-import type { SchemaDefinition, SchemaFields } from '../schema/definition.js'
+import type {
+	SchemaDefinition,
+	SchemaFields,
+	SchemaMetadata,
+} from '../schema/definition.js'
 
 import type {
 	FieldValidationPlan,
@@ -123,7 +127,7 @@ const compileField = (
 }
 
 const compileOperationPlan = (
-	schema: SchemaDefinition,
+	schema: SchemaMetadata,
 	operation: ValidationOperation,
 ): SchemaValidationPlan =>
 	immutableRecord({
@@ -137,8 +141,12 @@ const compileOperationPlan = (
  */
 export const compileValidationPlans = (
 	schema: SchemaDefinition,
-): SchemaValidationPlans =>
-	immutableRecord({
-		create: compileOperationPlan(schema, 'create'),
-		update: compileOperationPlan(schema, 'update'),
+): SchemaValidationPlans => {
+	// Compilation deliberately crosses from class identity to neutral metadata once.
+	const definition = schema.definition
+
+	return immutableRecord({
+		create: compileOperationPlan(definition, 'create'),
+		update: compileOperationPlan(definition, 'update'),
 	})
+}

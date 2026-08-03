@@ -3,7 +3,7 @@ import { expect, expectTypeOf, test } from 'vitest'
 
 import { Query, type QueryScope } from '../index.js'
 
-const postSchema = new Schema({
+const postSchema = Schema.define({
 	className: 'Post',
 	fields: {
 		title: stringField(),
@@ -24,7 +24,7 @@ test('preserves exact schema and projection through reusable scopes', () => {
 		Query<typeof postSchema, 'id' | 'title'>
 	>()
 
-	const commentSchema = new Schema({
+	const commentSchema = Schema.define({
 		className: 'Comment',
 		fields: { body: stringField() },
 	})

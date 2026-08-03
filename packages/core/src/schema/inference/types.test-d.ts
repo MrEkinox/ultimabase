@@ -20,7 +20,7 @@ import {
 	type JsonDocument,
 } from '../index.js'
 
-const primitiveSchema = new Schema({
+const primitiveSchema = Schema.define({
 	className: 'PrimitiveMatrix',
 	fields: {
 		requiredText: stringField({
@@ -158,7 +158,7 @@ test('makes mutable developer fields optional in update inputs', () => {
 	>().toEqualTypeOf<false>()
 })
 
-const compositeSchema = new Schema({
+const compositeSchema = Schema.define({
 	className: 'CompositeMatrix',
 	fields: {
 		profile: objectField({

@@ -8,7 +8,7 @@ import {
 	FrameworkApplication,
 } from './framework-application.js'
 
-const applicationSchema = new Schema({
+const applicationSchema = Schema.define({
 	className: 'ApplicationFixture',
 	fields: { name: stringField() },
 })
@@ -177,11 +177,11 @@ describe('FrameworkApplication', () => {
 	})
 
 	it('checks schema ownership by exact application identity', () => {
-		const matchingClassSchema = new Schema({
+		const matchingClassSchema = Schema.define({
 			className: 'ApplicationFixture',
 			fields: { name: stringField() },
 		})
-		const unknownClassSchema = new Schema({
+		const unknownClassSchema = Schema.define({
 			className: 'UnknownFixture',
 			fields: { name: stringField() },
 		})

@@ -41,7 +41,7 @@ import { createRuntimeValidationStage } from './runtime-validation.js'
 
 const runtimeDefault = vi.fn(() => 42)
 const binaryDefault = new Uint8Array([1, 2, 3])
-const validationSchema = new Schema({
+const validationSchema = Schema.define({
 	className: 'RuntimeValidation',
 	fields: {
 		title: stringField({
@@ -364,7 +364,7 @@ describe('runtime validation', () => {
 				},
 			},
 		)
-		const scalarSchema = new Schema({
+		const scalarSchema = Schema.define({
 			className: 'InvalidScalars',
 			fields: {
 				bigint: bigintField(),

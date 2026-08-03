@@ -11,7 +11,7 @@ import { Schema, stringField } from '@ultimabase/core'
 import { compilePostgresSchema } from '../schema/schema-compiler.js'
 
 const schema = compilePostgresSchema(
-	new Schema({
+	Schema.define({
 		className: 'ConstraintArticle',
 		fields: { tenantId: stringField() },
 	}),

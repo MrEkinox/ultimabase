@@ -13,7 +13,7 @@ import {
 	type QueuedAdapterResult,
 } from './fixtures/recording-database-adapter.js'
 
-const accountSchema = new Schema({
+const accountSchema = Schema.define({
 	className: 'BulkAccount',
 	fields: {
 		email: stringField({
@@ -101,7 +101,10 @@ describe('bulk and upsert terminals', () => {
 				{ email: 'second@example.com' },
 			])
 
-		expect(result).toStrictEqual(created)
+		expect(result.every((account) => account instanceof accountSchema)).toBe(
+			true,
+		)
+		expect(result.map((account) => account.toJSON())).toStrictEqual(created)
 		expect(adapter.transactions[0]?.requests[0]?.operation).toMatchObject({
 			kind: 'create-many',
 			inputs: [{ email: 'first@example.com' }, { email: 'second@example.com' }],
@@ -142,7 +145,10 @@ describe('bulk and upsert terminals', () => {
 			},
 		])
 
-		expect(result).toStrictEqual(upserted)
+		expect(result.every((account) => account instanceof accountSchema)).toBe(
+			true,
+		)
+		expect(result.map((account) => account.toJSON())).toStrictEqual(upserted)
 		expect(adapter.transactions[0]?.requests[0]?.operation).toMatchObject({
 			kind: 'upsert-many',
 			items: [
@@ -192,11 +198,14 @@ describe('bulk and upsert terminals', () => {
 			trace,
 		)
 
-		await expect(
-			request
-				.query(accountSchema)
-				.createMany([{ email: 'first@example.com' }], { atomic: false }),
-		).resolves.toStrictEqual(created)
+		const result = await request
+			.query(accountSchema)
+			.createMany([{ email: 'first@example.com' }], { atomic: false })
+
+		expect(result.every((account) => account instanceof accountSchema)).toBe(
+			true,
+		)
+		expect(result.map((account) => account.toJSON())).toStrictEqual(created)
 		expect(adapter.transactions[0]?.requests[0]?.operation).toMatchObject({
 			kind: 'create-many',
 			options: { atomic: false },

@@ -11,7 +11,7 @@ import {
 	type PostCommitEventDefinition,
 } from './definitions.js'
 
-const articleSchema = new Schema({
+const articleSchema = Schema.define({
 	className: 'TypedHookArticle',
 	fields: { title: stringField({ validation: { required: true } }) },
 })

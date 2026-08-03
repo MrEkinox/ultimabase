@@ -7,13 +7,14 @@ import {
 	defineSchemaExtension,
 	stringField,
 	type SchemaDefinition,
+	type SchemaDraft,
 } from '../index.js'
 
 test('preserves schema, field, and extension literals', () => {
 	const permissions = defineSchemaExtension('fixture.permissions', {
 		mode: 'strict',
 	})
-	const schema = new Schema({
+	const schema = Schema.define({
 		className: 'Post',
 		fields: {
 			title: stringField({
@@ -34,9 +35,13 @@ test('preserves schema, field, and extension literals', () => {
 	expectTypeOf(schema.fields.published.kind).toEqualTypeOf<'boolean'>()
 	expectTypeOf(schema.extensions).toEqualTypeOf<readonly [typeof permissions]>()
 	expectTypeOf(schema.extensions[0].config.mode).toEqualTypeOf<'strict'>()
-	expectTypeOf(schema).toExtend<
-		SchemaDefinition<'Post', typeof schema.fields, typeof schema.extensions>
-	>()
+	expectTypeOf(schema).toExtend<SchemaDefinition<'Post'>>()
+	const draft = new schema({ title: 'Hello' })
+	expectTypeOf(draft).toEqualTypeOf<SchemaDraft<typeof schema>>()
+	expectTypeOf(draft.title).toBeString()
+	expectTypeOf(draft.published).toEqualTypeOf<boolean | undefined>()
+	expectTypeOf(draft.get('title')).toBeString()
+	expectTypeOf(draft.toJSON().title).toBeString()
 
 	// @ts-expect-error -- Schema metadata remains readonly after declaration.
 	schema.className = 'Article'
@@ -45,7 +50,7 @@ test('preserves schema, field, and extension literals', () => {
 })
 
 test('normalizes absent extensions to an empty tuple', () => {
-	const schema = new Schema({
+	const schema = Schema.define({
 		className: 'Post',
 		fields: {},
 	})
@@ -53,8 +58,8 @@ test('normalizes absent extensions to an empty tuple', () => {
 	expectTypeOf(schema.extensions).toEqualTypeOf<readonly []>()
 })
 
-test('narrows untrusted values through Schema constructor identity', () => {
-	const value: unknown = new Schema({ className: 'Post', fields: {} })
+test('narrows untrusted values through Schema.define identity', () => {
+	const value: unknown = Schema.define({ className: 'Post', fields: {} })
 
 	if (Schema.is(value)) {
 		expectTypeOf(value).toExtend<SchemaDefinition>()
@@ -62,37 +67,39 @@ test('narrows untrusted values through Schema constructor identity', () => {
 })
 
 test('rejects reserved fields and incompatible metadata', () => {
-	// @ts-expect-error -- Schema declarations require class construction.
+	// @ts-expect-error -- Schema is a static declaration facade, not a function.
 	Schema({ className: 'InvalidCall', fields: {} })
+	// @ts-expect-error -- Schema is a static declaration facade, not a constructor.
+	new Schema()
 	// @ts-expect-error -- UltimaBase owns the id field.
-	new Schema({
+	Schema.define({
 		className: 'InvalidId',
 		fields: {
 			id: stringField(),
 		},
 	})
 	// @ts-expect-error -- UltimaBase owns the createdAt field.
-	new Schema({
+	Schema.define({
 		className: 'InvalidCreatedAt',
 		fields: {
 			createdAt: stringField(),
 		},
 	})
 	// @ts-expect-error -- UltimaBase owns the updatedAt field.
-	new Schema({
+	Schema.define({
 		className: 'InvalidUpdatedAt',
 		fields: {
 			updatedAt: stringField(),
 		},
 	})
-	new Schema({
+	Schema.define({
 		className: 'InvalidField',
 		fields: {
 			// @ts-expect-error -- Schema properties must use field definitions.
 			title: 'string',
 		},
 	})
-	new Schema({
+	Schema.define({
 		className: 'InvalidExtension',
 		fields: {},
 		extensions: [

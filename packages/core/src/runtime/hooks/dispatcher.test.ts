@@ -48,7 +48,7 @@ describe('native hook dispatcher', () => {
 		const record = (label: string): void => {
 			trace.push(label)
 		}
-		const schema = new Schema({
+		const schema = Schema.define({
 			className: 'NativeHookArticle',
 			fields: {
 				profile: objectField({
@@ -239,7 +239,7 @@ describe('native hook dispatcher', () => {
 			message: string,
 		): HookValidationIssue =>
 			immutableRecord({ code, message, path: immutableArray([]) })
-		const schema = new Schema({
+		const schema = Schema.define({
 			className: 'NativeHookValidation',
 			fields: {
 				title: stringField({
@@ -308,7 +308,7 @@ describe('native hook dispatcher', () => {
 				},
 			},
 		})
-		const schema = new Schema({
+		const schema = Schema.define({
 			className: 'NativeHookPluginOrder',
 			fields: { title },
 			hooks: {
@@ -401,7 +401,7 @@ describe('native hook dispatcher', () => {
 
 	it('executes read hooks for every terminal and resolves only present selected fields', async () => {
 		const trace: string[] = []
-		const schema = new Schema({
+		const schema = Schema.define({
 			className: 'NativeHookRead',
 			fields: {
 				hidden: stringField({
@@ -539,7 +539,7 @@ describe('native hook dispatcher', () => {
 	})
 
 	it('rejects beforeFind replacements that change schema or selection', async () => {
-		const otherSchema = new Schema({
+		const otherSchema = Schema.define({
 			className: 'NativeHookReadOther',
 			fields: { title: stringField() },
 		})
@@ -550,7 +550,7 @@ describe('native hook dispatcher', () => {
 		] as const
 
 		for (const invalidHook of invalidHooks) {
-			const schema = new Schema({
+			const schema = Schema.define({
 				className: 'NativeHookReadInvalid',
 				fields: { title: stringField() },
 				hooks: {

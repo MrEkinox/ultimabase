@@ -13,7 +13,7 @@ import {
 	createQueryValueFilter,
 } from './factory.js'
 
-const fixtureSchema = new Schema({
+const fixtureSchema = Schema.define({
 	className: 'Fixture',
 	fields: {
 		title: stringField(),

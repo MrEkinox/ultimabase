@@ -107,7 +107,7 @@ describe('native transaction hook finalization', () => {
 	it('observes a read failure without manufacturing transaction state', async () => {
 		const trace: string[] = []
 		const readError = new Error('read failed')
-		const schema = new Schema({
+		const schema = Schema.define({
 			className: 'TransactionFinalizationReadFailure',
 			fields: {
 				title: stringField({ validation: { required: true } }),
@@ -140,7 +140,7 @@ describe('native transaction hook finalization', () => {
 		const trace: string[] = []
 		const record = createRecord(generatedIds[0], 'Created')
 		let capturedEngine: ReturnType<typeof getCurrentEngine> | undefined
-		const schema = new Schema({
+		const schema = Schema.define({
 			className: 'TransactionFinalizationSuccess',
 			fields: {
 				title: stringField({
@@ -183,9 +183,10 @@ describe('native transaction hook finalization', () => {
 			trace,
 		)
 
-		await expect(
-			request.query(schema).create({ title: 'Created' }),
-		).resolves.toStrictEqual(record)
+		const result = await request.query(schema).create({ title: 'Created' })
+
+		expect(result).toBeInstanceOf(schema)
+		expect(result.toJSON()).toStrictEqual(record)
 		expect(trace).toStrictEqual([
 			'adapter:begin',
 			'prepare:create-one',
@@ -204,7 +205,7 @@ describe('native transaction hook finalization', () => {
 		const trace: string[] = []
 		const afterCommitError = new Error('after commit failed')
 		const record = createRecord(generatedIds[0], 'Committed')
-		const schema = new Schema({
+		const schema = Schema.define({
 			className: 'TransactionFinalizationAfterCommitFailure',
 			fields: {
 				title: stringField({ validation: { required: true } }),
@@ -251,7 +252,7 @@ describe('native transaction hook finalization', () => {
 		const trace: string[] = []
 		const first = createRecord(generatedIds[0], 'First')
 		const second = createRecord(generatedIds[1], 'Second')
-		const schema = new Schema({
+		const schema = Schema.define({
 			className: 'TransactionFinalizationSummary',
 			fields: {
 				title: stringField({ validation: { required: true } }),
@@ -306,7 +307,7 @@ describe('native transaction hook finalization', () => {
 		const trace: string[] = []
 		const beforeCommitError = new Error('before commit failed')
 		const record = createRecord(generatedIds[0], 'Rejected')
-		const schema = new Schema({
+		const schema = Schema.define({
 			className: 'TransactionFinalizationRollback',
 			fields: {
 				title: stringField({
@@ -368,7 +369,7 @@ describe('native transaction hook finalization', () => {
 		const commitError = new Error('commit failed')
 		const rollbackError = new Error('rollback failed')
 		const record = createRecord(generatedIds[0], 'Commit failure')
-		const schema = new Schema({
+		const schema = Schema.define({
 			className: 'TransactionFinalizationCommitFailure',
 			fields: {
 				title: stringField({ validation: { required: true } }),

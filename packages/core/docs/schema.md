@@ -52,12 +52,12 @@ cross-domain behavior and public-export checks.
 
 ## Schema definitions
 
-`new Schema(options)` combines existing field definitions into immutable schema
+`Schema.define(options)` combines existing field definitions into immutable schema
 metadata while preserving the exact class name, field keys, field kinds,
 and ordered extension tuple:
 
 ```ts
-const PostSchema = new Schema({
+const PostSchema = Schema.define({
 	className: 'Post',
 	fields: {
 		title: stringField({
@@ -71,31 +71,64 @@ const PostSchema = new Schema({
 })
 ```
 
-The input field map and extension list are copied and frozen. Child fields and
-extensions retain their existing immutable identity. Omitted extensions become
-an immutable empty tuple so consumers never need to normalize optional
-metadata.
+The returned value is the final schema-specific class. Its `definition`,
+`className`, `fields`, `indexes`, and `extensions` static properties are frozen.
+Infrastructure reads `definition`, while Query and Runtime retain the exact
+class identity registered by the application.
 
 The public constructor and field factories also protect JavaScript callers at
 runtime. Schema names, field maps, field definitions, common option flags,
 extension definitions, and static defaults are validated before their
-immutable snapshots are exposed. Each result is an actual frozen `Schema`
-instance, so class identity is available without introducing mutable metadata.
+immutable snapshots are exposed. Each generated class has trusted provenance,
+so class identity is available without introducing mutable metadata.
 Registries and cross-package runtime boundaries use `Schema.is(value)` to reject
 objects that only imitate the public metadata shape.
 Field definitions carry private factory provenance, so a structurally similar
 object cannot bypass validation or provide a forged snapshot capability.
 
+## Drafts, static queries, and persisted models
+
+The generated class is constructible and starts fresh immutable Query branches:
+
+```ts
+const draft = new PostSchema({ title: 'Preview' })
+const query = PostSchema.query().select('id', 'title')
+
+draft.title // string
+draft.get('title') // string
+draft.toJSON() // { readonly title: string }
+```
+
+Draft construction validates declared fields, snapshots mutable values, and
+performs no I/O. Persistence always passes through Runtime. After hooks and
+output restrictions complete, Runtime converts neutral adapter records into the
+exact registered class:
+
+```ts
+const post = await ultimabase.query(PostSchema).select('id', 'title').first()
+
+if (post !== null) {
+	post instanceof PostSchema // true
+	post.toJSON() // Only id and title are present.
+}
+```
+
+Direct properties, `get()`, enumeration, inspection, and `toJSON()` all share
+the same visible snapshot. Omitted fields are absent at runtime and from the
+inferred result type. Model instances are immutable and deliberately have no
+`save()`, `update()`, or `delete()` commands yet; issue 349 owns persistence
+commands without introducing mutable Active Record state.
+
 ## Native schema hook declarations
 
-`new Schema({ hooks })` accepts the complete typed schema lifecycle directly.
+`Schema.define({ hooks })` accepts the complete typed schema lifecycle directly.
 Create, update, upsert, delete, save, find, and general operation handlers cover
 their singular and bulk terminals through one callback. `operation.kind`
 narrows the exact operation, while result handlers preserve its corresponding
 result type.
 
 ```ts
-const ArticleSchema = new Schema({
+const ArticleSchema = Schema.define({
 	className: 'Article',
 	fields: {
 		title: stringField({ validation: { required: true } }),
@@ -148,7 +181,7 @@ handler receives this field's exact logical type without access to sibling
 schema values:
 
 ```ts
-const ProfileSchema = new Schema({
+const ProfileSchema = Schema.define({
 	className: 'Profile',
 	fields: {
 		displayName: stringField({
@@ -260,7 +293,7 @@ TypeScript preserves literal values and nested object-field inference.
 Dependent rules such as `required` with `nullable` and `autoNow` with a default
 or list are checked outside the contextual option object. Hover information
 documents every built-in factory and option with a focused declaration example.
-The `Schema` constructor, its top-level options, and nested composite-index
+`Schema.define()`, its top-level options, and nested composite-index
 options expose the same contextual documentation through completion and hover
 popups.
 
@@ -290,7 +323,7 @@ Schema-level declarations represent composite indexes and require at least two
 distinct top-level fields:
 
 ```ts
-const PostSchema = new Schema({
+const PostSchema = Schema.define({
 	className: 'Post',
 	fields: {
 		authorId: stringField(),
@@ -671,7 +704,7 @@ does not replace the original schema.
 
 ## Native hook declarations
 
-`new Schema({ hooks })` and every built-in or plugin-defined field's `hooks`
+`Schema.define({ hooks })` and every built-in or plugin-defined field's `hooks`
 option expose native lifecycle declarations as framework primitives rather than
 extensions. Private identity-owned capabilities retain the normalized callbacks
 without placing them in schema definitions, field options, validation plans, or

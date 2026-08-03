@@ -5,7 +5,7 @@ import { compilePostgresSchema } from '../schema/schema-compiler.js'
 import { decodePostgresRecord, encodePostgresRecord } from './record-codec.js'
 
 const codecSchema = compilePostgresSchema(
-	new Schema({
+	Schema.define({
 		className: 'CodecFixture',
 		fields: {
 			alias: stringField({ validation: { nullable: true } }),

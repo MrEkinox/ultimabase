@@ -9,11 +9,11 @@ import {
 	type UltimaBaseQuery,
 } from '../index.js'
 
-const articleSchema = new Schema({
+const articleSchema = Schema.define({
 	className: 'TypedUltimaBaseArticle',
 	fields: { title: stringField() },
 })
-const otherSchema = new Schema({
+const otherSchema = Schema.define({
 	className: 'TypedOtherUltimaBaseArticle',
 	fields: { name: stringField() },
 })

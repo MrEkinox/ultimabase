@@ -8,7 +8,7 @@ import {
 } from '../index.js'
 
 test('checks composite fields and exposes one normalized index type', () => {
-	const schema = new Schema({
+	const schema = Schema.define({
 		className: 'Post',
 		fields: {
 			authorId: stringField(),
@@ -33,7 +33,7 @@ test('checks composite fields and exposes one normalized index type', () => {
 })
 
 test('rejects invalid composite declarations statically', () => {
-	new Schema({
+	Schema.define({
 		className: 'UnknownField',
 		fields: {
 			title: stringField(),
@@ -44,7 +44,7 @@ test('rejects invalid composite declarations statically', () => {
 		],
 	})
 
-	new Schema({
+	Schema.define({
 		className: 'ShortIndex',
 		fields: {
 			title: stringField(),
@@ -55,7 +55,7 @@ test('rejects invalid composite declarations statically', () => {
 		],
 	})
 
-	new Schema({
+	Schema.define({
 		className: 'InvalidUnique',
 		fields: {
 			slug: stringField(),

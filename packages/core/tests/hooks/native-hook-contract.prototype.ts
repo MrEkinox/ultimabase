@@ -118,11 +118,17 @@ type PrototypeSchemaOptions<
 /**
  * Models the future constructor boundary without adding production storage in issue 324.
  */
-declare class Schema<
+declare class PrototypeSchema<
 	const TClassName extends string,
 	const TFields extends SchemaFields,
 	const TExtensions extends SchemaExtensions = readonly [],
 > implements SchemaDefinition<TClassName, TFields, TExtensions> {
+	/** Mirrors the neutral metadata boundary introduced by the production schema class. */
+	readonly definition: SchemaDefinition<
+		TClassName,
+		TFields,
+		TExtensions
+	>['definition']
 	readonly className: TClassName
 	readonly fields: SchemaDefinition<TClassName, TFields, TExtensions>['fields']
 	readonly indexes: readonly SchemaIndexDefinition<SchemaFieldName<TFields>>[]
@@ -333,7 +339,7 @@ const permissionsExtension = defineSchemaExtension('fixture.permissions', {
 	marker: 'OPAQUE_PERMISSION_CONFIG_MUST_NOT_LEAK',
 })
 
-export const PostSchema = new Schema({
+export const PostSchema = new PrototypeSchema({
 	className: 'Post',
 	fields: {
 		email: emailField,
@@ -386,11 +392,11 @@ export const PostSchema = new Schema({
 })
 
 // Completion-only declarations exercise the contextual option surfaces.
-new Schema({
+new PrototypeSchema({
 	/* completion:schema-options */ className: 'CompletionOptions',
 	fields: {},
 })
-new Schema({
+new PrototypeSchema({
 	className: 'Completion',
 	fields: {},
 	hooks: {/* completion:schema-hooks */},

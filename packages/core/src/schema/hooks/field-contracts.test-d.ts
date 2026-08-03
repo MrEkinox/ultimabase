@@ -102,7 +102,7 @@ const vectorField = definePluginField(
 	vectorNormalizers,
 )
 
-const HookedSchema = new Schema({
+const HookedSchema = Schema.define({
 	className: 'HookedFieldInference',
 	fields: {
 		title: stringField({
@@ -112,7 +112,7 @@ const HookedSchema = new Schema({
 	},
 })
 
-const PlainSchema = new Schema({
+const PlainSchema = Schema.define({
 	className: 'PlainFieldInference',
 	fields: {
 		title: stringField({ validation: { required: true } }),

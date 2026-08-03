@@ -24,14 +24,14 @@ import { RuntimePipeline } from '../pipeline/runtime-pipeline.js'
 import { FrameworkEngine, RequestEngine } from './framework-engine.js'
 import { createPreparedOperationFixture } from '../../../tests/runtime/fixtures/recording-database-adapter.js'
 
-const articleSchema = new Schema({
+const articleSchema = Schema.define({
 	className: 'Article',
 	fields: {
 		title: stringField({ validation: { required: true } }),
 	},
 })
 
-const matchingClassSchema = new Schema({
+const matchingClassSchema = Schema.define({
 	className: 'Article',
 	fields: {
 		title: stringField({ validation: { required: true } }),
@@ -215,9 +215,11 @@ describe('FrameworkEngine', () => {
 			source: requestSources.internal,
 		})
 
-		await expect(request.execute(articleOperation)).resolves.toStrictEqual(
-			articles,
-		)
+		const result = await request.execute(articleOperation)
+
+		expect(result).toHaveLength(1)
+		expect(result[0]).toBeInstanceOf(articleSchema)
+		expect(result[0]?.toJSON()).toStrictEqual(articles[0])
 		expect(contexts).toStrictEqual([request.context])
 
 		const foreignOperation = {
@@ -225,17 +227,19 @@ describe('FrameworkEngine', () => {
 			query: new Query(matchingClassSchema).ast,
 		} satisfies FindOperationAst<typeof matchingClassSchema>
 
-		expect(() => request.execute(foreignOperation)).toThrow(FrameworkError)
+		await expect(request.execute(foreignOperation)).rejects.toBeInstanceOf(
+			FrameworkError,
+		)
 		for (const invalidOperation of [
 			null,
 			{},
 			{ schema: { kind: 'invalid', definition: articleSchema } },
 			{ schema: { kind: 'schema' } },
 		]) {
-			expect(() =>
+			await expect(
 				// @ts-expect-error -- Runtime validation protects malformed operations.
 				request.execute(invalidOperation),
-			).toThrow(
+			).rejects.toStrictEqual(
 				new FrameworkError(
 					'VALIDATION_ERROR',
 					'Operation does not contain a normalized schema node.',
@@ -258,9 +262,10 @@ describe('FrameworkEngine', () => {
 			input: { title: 'Created' },
 		} satisfies CreateOneOperationAst<typeof articleSchema>
 
-		await expect(request.execute(operation)).resolves.toStrictEqual(
-			createdArticle,
-		)
+		const result = await request.execute(operation)
+
+		expect(result).toBeInstanceOf(articleSchema)
+		expect(result.toJSON()).toStrictEqual(createdArticle)
 	})
 
 	it('requires adapter transaction support before a mutation pipeline can begin', async () => {
@@ -459,8 +464,10 @@ describe('FrameworkEngine', () => {
 				secondRequest.execute(secondOperation),
 			])
 
-			expect(firstResult).toStrictEqual([articleRecord('first')])
-			expect(secondResult).toStrictEqual([articleRecord('second')])
+			expect(firstResult[0]).toBeInstanceOf(articleSchema)
+			expect(secondResult[0]).toBeInstanceOf(matchingClassSchema)
+			expect(firstResult[0]?.toJSON()).toStrictEqual(articleRecord('first'))
+			expect(secondResult[0]?.toJSON()).toStrictEqual(articleRecord('second'))
 			expect(firstContexts).toStrictEqual([firstRequest.context])
 			expect(secondContexts).toStrictEqual([secondRequest.context])
 			expect(() => firstRequest.query(matchingClassSchema)).toThrow(

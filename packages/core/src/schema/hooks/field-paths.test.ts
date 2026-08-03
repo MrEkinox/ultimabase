@@ -10,7 +10,7 @@ const listedProfile = objectField({
 	list: true,
 	fields: { email: nestedEmail },
 })
-const schema = new Schema({
+const schema = Schema.define({
 	className: 'RuntimeFieldPath',
 	fields: {
 		'profile.email': dottedEmail,

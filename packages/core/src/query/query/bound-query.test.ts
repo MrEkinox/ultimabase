@@ -16,7 +16,7 @@ import { BoundQuery } from './bound-query.js'
 import { Query } from './query.js'
 import type { QueryScope } from './scope.js'
 
-const articleSchema = new Schema({
+const articleSchema = Schema.define({
 	className: 'Article',
 	fields: {
 		title: stringField(),

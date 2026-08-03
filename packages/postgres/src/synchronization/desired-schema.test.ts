@@ -8,7 +8,7 @@ import { compileDesiredPostgresTables } from './desired-schema.js'
 describe('desired PostgreSQL schema', () => {
 	it('detaches columns, defaults, identities, renames, and indexes', () => {
 		const schema = compilePostgresSchema(
-			new Schema({
+			Schema.define({
 				className: 'Article',
 				fields: {
 					sequence: intField({ autoIncrement: true }),

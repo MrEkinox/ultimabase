@@ -6,7 +6,7 @@ import {
 	Schema,
 	stringField,
 	type SchemaBeforeOperationHook,
-	type SchemaDefinition,
+	type SchemaClass,
 } from '../../schema/index.js'
 import { describe, expect, it } from 'vitest'
 
@@ -42,7 +42,7 @@ const planFields = {
 	}),
 	'dotted.name': stringField(),
 }
-type PlanSchemaDefinition = SchemaDefinition<
+type PlanSchemaDefinition = SchemaClass<
 	'HookContributionPlan',
 	typeof planFields,
 	readonly []
@@ -62,7 +62,7 @@ const baseSchemaHandler = createSchemaHandler()
 const baseSecondSchemaHandler = createSchemaHandler()
 const dependentSchemaHandler = createSchemaHandler()
 
-const planSchema = new Schema({
+const planSchema = Schema.define({
 	className: 'HookContributionPlan',
 	fields: planFields,
 	hooks: { beforeOperation: developerSchemaHandler },
@@ -201,7 +201,7 @@ describe('native hook contribution plan', () => {
 		const plan = compileNativeHookContributionPlan(application)
 		const schemaPlan = plan.getSchema(planSchema)
 		const fieldPlan = plan.getField(planSchema, ['profile', 'email'])
-		const foreignSchema = new Schema({
+		const foreignSchema = Schema.define({
 			className: 'ForeignContributionPlan',
 			fields: { title: stringField() },
 		})

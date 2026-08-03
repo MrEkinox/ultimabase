@@ -14,7 +14,7 @@ import { compilePostgresSchema } from './schema-compiler.js'
 
 describe('PostgreSQL value codecs', () => {
 	it('round-trips schema-guided JSONB values without losing native scalars', () => {
-		const schema = new Schema({
+		const schema = Schema.define({
 			className: 'CodecFixture',
 			fields: {
 				profile: objectField({
@@ -64,7 +64,7 @@ describe('PostgreSQL value codecs', () => {
 	})
 
 	it('copies top-level binary values in both directions', () => {
-		const schema = new Schema({
+		const schema = Schema.define({
 			className: 'BinaryCodecFixture',
 			fields: { payload: binaryField() },
 		})
@@ -85,7 +85,7 @@ describe('PostgreSQL value codecs', () => {
 	})
 
 	it('snapshots top-level JSON values before exposing driver data', () => {
-		const schema = new Schema({
+		const schema = Schema.define({
 			className: 'JsonCodecFixture',
 			fields: { metadata: jsonField() },
 		})
@@ -110,7 +110,7 @@ describe('PostgreSQL value codecs', () => {
 	})
 
 	it('normalizes PostgreSQL temporal text into Schema values', () => {
-		const schema = new Schema({
+		const schema = Schema.define({
 			className: 'TemporalCodecFixture',
 			fields: {
 				localDateTime: dateTimeField({ timezone: false }),
@@ -134,7 +134,7 @@ describe('PostgreSQL value codecs', () => {
 	})
 
 	it('rejects malformed PostgreSQL temporal text', () => {
-		const schema = new Schema({
+		const schema = Schema.define({
 			className: 'InvalidTemporalCodecFixture',
 			fields: {
 				local: dateTimeField({ timezone: false }),
@@ -155,7 +155,7 @@ describe('PostgreSQL value codecs', () => {
 	})
 
 	it('rejects corrupted JSONB structures instead of returning partial values', () => {
-		const schema = new Schema({
+		const schema = Schema.define({
 			className: 'CorruptCodecFixture',
 			fields: {
 				profile: objectField({ fields: { count: bigintField() } }),

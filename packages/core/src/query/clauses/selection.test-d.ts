@@ -3,7 +3,7 @@ import { expect, expectTypeOf, test } from 'vitest'
 
 import { normalizeQuerySelection } from './selection.js'
 
-const postSchema = new Schema({
+const postSchema = Schema.define({
 	className: 'Post',
 	fields: {
 		title: stringField(),

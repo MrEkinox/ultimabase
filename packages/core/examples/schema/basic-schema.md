@@ -1,6 +1,6 @@
 # Basic schema
 
-`new Schema()` combines typed field declarations and automatically adds the
+`Schema.define()` combines typed field declarations and automatically adds the
 framework-owned `id`, `createdAt`, and `updatedAt` fields.
 
 ```ts
@@ -13,7 +13,7 @@ import {
 	type InferUpdateInput,
 } from '@ultimabase/core'
 
-export const UserSchema = new Schema({
+export const UserSchema = Schema.define({
 	className: 'User',
 	fields: {
 		username: stringField({

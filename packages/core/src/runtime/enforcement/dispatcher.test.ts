@@ -24,7 +24,7 @@ import {
 } from './definitions.js'
 import { createEnforcementStages } from './dispatcher.js'
 
-const articleSchema = new Schema({
+const articleSchema = Schema.define({
 	className: 'EnforcedArticle',
 	fields: {
 		secret: stringField(),
@@ -32,7 +32,7 @@ const articleSchema = new Schema({
 	},
 })
 
-const foreignSchema = new Schema({
+const foreignSchema = Schema.define({
 	className: 'ForeignEnforcedArticle',
 	fields: { title: stringField() },
 })

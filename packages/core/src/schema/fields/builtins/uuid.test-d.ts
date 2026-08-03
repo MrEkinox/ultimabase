@@ -11,7 +11,7 @@ import {
 	type UuidVersion,
 } from '../../index.js'
 
-const uuidSchema = new Schema({
+const uuidSchema = Schema.define({
 	className: 'UuidRecord',
 	fields: {
 		ownerId: uuidField({

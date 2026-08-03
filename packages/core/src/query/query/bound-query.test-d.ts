@@ -3,7 +3,6 @@ import {
 	Schema,
 	intField,
 	stringField,
-	type InferObject,
 } from '../../schema/index.js'
 import { expectTypeOf, test } from 'vitest'
 
@@ -12,7 +11,7 @@ import type { InferQueryResult } from './result.js'
 import { Query } from './query.js'
 import type { QueryScope } from './scope.js'
 
-const articleSchema = new Schema({
+const articleSchema = Schema.define({
 	className: 'Article',
 	fields: {
 		title: stringField({ validation: { required: true } }),
@@ -28,10 +27,10 @@ test('binds exact schema and selection types through an engine', () => {
 	const reusable = new Query(articleSchema).equalTo('published', true)
 	const bound = reusable.bind(executor).select('id', 'title').limit(10)
 	const identified = bound.byId('0194f292-0dd9-7c2d-a0a3-a2f755a3d90a')
-	const projection: InferQueryResult<typeof articleSchema, 'id' | 'title'> = {
-		id: 'article-id',
-		title: 'Title',
-	}
+	const projection = null as unknown as InferQueryResult<
+		typeof articleSchema,
+		'id' | 'title'
+	>
 
 	expectTypeOf(bound.schema).toEqualTypeOf<typeof articleSchema>()
 	expectTypeOf(bound.engine).toEqualTypeOf<typeof executor>()
@@ -46,17 +45,8 @@ test('binds exact schema and selection types through an engine', () => {
 	bound.equalTo('published', 'true')
 	// @ts-expect-error -- Bound identifiers retain their schema-derived type.
 	bound.byId(42)
-	const invalidProjection: InferQueryResult<
-		typeof articleSchema,
-		'id' | 'title'
-	> = {
-		id: 'article-id',
-		title: 'Title',
-		// @ts-expect-error -- Future projected results cannot expose omitted fields.
-		views: 1,
-	}
-
-	expectTypeOf(invalidProjection).toBeObject()
+	// @ts-expect-error -- Projected results cannot expose omitted fields.
+	void projection.views
 })
 
 test('retains schema, selection, and engine types through scopes', () => {
@@ -91,13 +81,13 @@ test('types every executable terminal from schema selection and singularity', ()
 	expectTypeOf(query.exists()).toEqualTypeOf<Promise<boolean>>()
 	expectTypeOf(filtered).toEqualTypeOf<typeof query>()
 	expectTypeOf(query.createOne({ title: 'Created' })).toEqualTypeOf<
-		Promise<InferObject<typeof articleSchema>>
+		Promise<InferQueryResult<typeof articleSchema>>
 	>()
 	expectTypeOf(query.create({ title: 'Created' })).toEqualTypeOf<
-		Promise<InferObject<typeof articleSchema>>
+		Promise<InferQueryResult<typeof articleSchema>>
 	>()
 	expectTypeOf(query.createMany([{ title: 'Created' }])).toEqualTypeOf<
-		Promise<readonly InferObject<typeof articleSchema>[]>
+		Promise<readonly InferQueryResult<typeof articleSchema>[]>
 	>()
 	expectTypeOf(query.updateOne({ increment: { views: 1 } })).toEqualTypeOf<
 		Promise<InferQueryResult<typeof articleSchema, 'id' | 'title'> | null>
@@ -127,7 +117,7 @@ test('types every executable terminal from schema selection and singularity', ()
 				...upsertInput,
 			},
 		]),
-	).toEqualTypeOf<Promise<readonly InferObject<typeof articleSchema>[]>>()
+	).toEqualTypeOf<Promise<readonly InferQueryResult<typeof articleSchema>[]>>()
 	expectTypeOf(query.deleteOne()).toEqualTypeOf<
 		Promise<InferQueryResult<typeof articleSchema, 'id' | 'title'> | null>
 	>()

@@ -58,7 +58,7 @@ export class SchemaRegistry<
 	 */
 	register(schema: SchemaDefinition): void {
 		if (!Schema.is(schema)) {
-			throw new TypeError('schema must be a Schema instance')
+			throw new TypeError('schema must be a class created by Schema.define')
 		}
 
 		if (this.#schemasByClassName.has(schema.className)) {

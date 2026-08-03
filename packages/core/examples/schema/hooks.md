@@ -7,7 +7,7 @@ operation.
 ```ts
 import { Schema, enumField, stringField } from '@ultimabase/core'
 
-export const AccountSchema = new Schema({
+export const AccountSchema = Schema.define({
 	className: 'Account',
 	fields: {
 		email: stringField({

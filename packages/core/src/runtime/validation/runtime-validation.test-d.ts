@@ -11,7 +11,7 @@ import {
 } from '../index.js'
 import type { RuntimeOperationTransformStage } from '../pipeline/contracts.js'
 
-const schema = new Schema({
+const schema = Schema.define({
 	className: 'TypedRuntimeValidation',
 	fields: {
 		title: stringField({ validation: { required: true } }),

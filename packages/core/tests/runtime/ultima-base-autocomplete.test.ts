@@ -99,7 +99,7 @@ const ultimabase = /* hover */new UltimaBase({ schemas: [], plugins: [] })
 import { Schema, stringField } from '../../src/index.js'
 import { UltimaBase } from '../../src/runtime/index.js'
 
-const PostSchema = new Schema({ className: 'Post', fields: { title: stringField() } })
+const PostSchema = Schema.define({ className: 'Post', fields: { title: stringField() } })
 const ultimabase = new UltimaBase({ schemas: [PostSchema], plugins: [] })
 const posts = ultimabase./* hover */query(PostSchema)
 `,

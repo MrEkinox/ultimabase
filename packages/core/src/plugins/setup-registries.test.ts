@@ -116,7 +116,7 @@ describe('PluginSetupRegistries', () => {
 
 	it('makes unsupported schema extensions observable after setup', () => {
 		const permissions = defineSchemaExtension('fixture.permissions', {})
-		const schema = new Schema({
+		const schema = Schema.define({
 			className: 'Post',
 			fields: { title: stringField() },
 			extensions: [permissions],

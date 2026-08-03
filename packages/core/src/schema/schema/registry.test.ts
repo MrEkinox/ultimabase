@@ -8,7 +8,7 @@ import {
 } from '../index.js'
 
 const createFixtureSchema = (className: string, fieldName: string) =>
-	new Schema({
+	Schema.define({
 		className,
 		fields: {
 			[fieldName]: stringField(),
@@ -67,7 +67,7 @@ describe('SchemaRegistry', () => {
 		expect(() => {
 			// @ts-expect-error -- Runtime registration requires constructor provenance.
 			registry.register({ className: 'Forged', fields: {} })
-		}).toThrow(new TypeError('schema must be a Schema instance'))
+		}).toThrow(new TypeError('schema must be a class created by Schema.define'))
 		expect(registry.size).toBe(0)
 	})
 

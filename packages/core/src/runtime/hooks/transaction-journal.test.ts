@@ -15,7 +15,7 @@ import { TransactionHookJournal } from './transaction-journal.js'
 const fixedInstant = '2026-08-02T00:00:00.000Z'
 const generatedId = '0198f090-2a50-7000-8000-000000000099'
 
-const articleSchema = new Schema({
+const articleSchema = Schema.define({
 	className: 'TransactionJournalArticle',
 	fields: {
 		metadata: jsonField(),

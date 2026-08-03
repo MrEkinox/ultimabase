@@ -16,7 +16,7 @@ import {
 	restrictSelection,
 } from './definitions.js'
 
-const postSchema = new Schema({
+const postSchema = Schema.define({
 	className: 'EnforcementTypePost',
 	fields: {
 		published: booleanField(),

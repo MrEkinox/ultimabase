@@ -34,7 +34,7 @@ import type {
 import { RuntimePipeline } from './runtime-pipeline.js'
 import { createPreparedOperationFixture } from '../../../tests/runtime/fixtures/recording-database-adapter.js'
 
-const articleSchema = new Schema({
+const articleSchema = Schema.define({
 	className: 'Article',
 	fields: {
 		title: stringField({ validation: { required: true } }),
