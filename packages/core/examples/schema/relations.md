@@ -11,6 +11,7 @@ import {
 	stringField,
 	type InferCreateInput,
 	type InferObject,
+	type SchemaResult,
 } from '@ultimabase/core'
 
 export const UserSchema = Schema.define({
@@ -45,4 +46,20 @@ An owning `relationField({ target })` plus one inverse `relationField` represent
 many-to-many. Use `pointerField({ indexed: "unique" })` for one-to-one.
 
 Relation fields contain no join-table, SQL, REST, or GraphQL naming. Relation
-handles, mutations, predicates, and physical storage are separate capabilities.
+handles keep those choices separate from model values:
+
+```ts
+declare const user: SchemaResult<typeof UserSchema>
+
+const recentPosts = user
+	.relation('posts')
+	.query()
+	.select('id', 'title')
+	.descending('createdAt')
+	.limit(20)
+	.after()
+```
+
+The handle and its complete target Query surface are implemented. Relation
+mutation and PostgreSQL execution examples will be added with their dedicated
+issues; until then Runtime refuses to lose the private relationship scope.

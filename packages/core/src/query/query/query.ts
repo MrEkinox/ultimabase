@@ -5,7 +5,7 @@ import {
 	type SchemaDefinition,
 } from '../../schema/index.js'
 import { getFieldSchemaTarget } from '../../schema/fields/base/definition.js'
-import { immutableRecord } from '@ultimabase/shared'
+import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
 import type {
 	QueryAst,
@@ -69,6 +69,7 @@ import {
 	type QueryBulkTerminalOptions,
 	type QueryBulkTerminalResult,
 	type QueryBulkAtomic,
+	type QueryRelationPrivateScope,
 	type QueryTerminalPrivateScope,
 	type QueryTerminalOptions,
 } from '../operations/execution.js'
@@ -588,7 +589,9 @@ export class Query<
 			throw new TypeError('query scope must return the same schema definition')
 		}
 
-		return scopedQuery
+		// A developer scope may replace the public AST branch, but it cannot replace
+		// or discard a framework-owned pointer or relation restriction.
+		return hydrateQueryFromAst(scopedQuery.ast, readQueryPrivateScope(this))
 	}
 
 	/**
@@ -1047,7 +1050,48 @@ export const scopeQueryToObjectId = <const TSchema extends SchemaDefinition>(
 		'id' as QueryFieldName<TSchema>,
 		id,
 	)
-	const scope: QueryTerminalPrivateScope = immutableRecord({ rowFilter })
+	const scope: QueryTerminalPrivateScope = immutableRecord({
+		kind: 'row-filter',
+		rowFilter,
+	})
+
+	return hydrateQueryFromAst(query.ast, scope)
+}
+
+/** Describes one trusted relation restriction before it enters private Query state. */
+export interface QueryRelationScopeInput<
+	TSource extends SchemaDefinition = SchemaDefinition,
+	TTarget extends SchemaDefinition = SchemaDefinition,
+> {
+	readonly fieldName: string
+	readonly source: TSource
+	readonly sourceObjectId: string
+	readonly target: TTarget
+}
+
+/**
+ * Applies one framework-owned relation edge without adding it to the public AST.
+ *
+ * @internal Persisted Relation handles are the only intended caller.
+ */
+export const scopeQueryToRelation = <
+	const TSource extends SchemaDefinition,
+	const TTarget extends SchemaDefinition,
+>(
+	query: Query<TTarget>,
+	input: QueryRelationScopeInput<TSource, TTarget>,
+): Query<TTarget> => {
+	if (query.schema !== input.target) {
+		throw new TypeError('relation query must use its exact target schema')
+	}
+
+	const scope: QueryRelationPrivateScope = immutableRecord({
+		fieldPath: immutableArray([input.fieldName]),
+		kind: 'relation',
+		source: input.source,
+		sourceObjectId: input.sourceObjectId,
+		target: input.target,
+	})
 
 	return hydrateQueryFromAst(query.ast, scope)
 }

@@ -116,10 +116,24 @@ export interface QueryExecutionDispatcher {
 	execute(operation: unknown): Promise<unknown>
 }
 
-/** @internal Carries framework-owned predicates outside the transformable Query AST. */
-export interface QueryTerminalPrivateScope {
+/** @internal Carries one protected object predicate outside the transformable Query AST. */
+export interface QueryRowFilterPrivateScope {
+	readonly kind: 'row-filter'
 	readonly rowFilter: QueryFilterExpression
 }
+
+/** @internal Identifies one relation edge without exposing it to Query or hook ASTs. */
+export interface QueryRelationPrivateScope {
+	readonly kind: 'relation'
+	readonly fieldPath: readonly string[]
+	readonly source: SchemaDefinition
+	readonly sourceObjectId: string
+	readonly target: SchemaDefinition
+}
+
+/** @internal Keeps framework-owned Query restrictions behind one closed union. */
+export type QueryTerminalPrivateScope =
+	QueryRelationPrivateScope | QueryRowFilterPrivateScope
 
 /** @internal Resolves authority without adding execution state to a Query instance. */
 export type QueryTerminalExecutionHandler = (

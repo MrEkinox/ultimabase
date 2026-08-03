@@ -318,6 +318,30 @@ export class RequestEngine<
 
 		this.framework.assertOwnsSchema(schema)
 
+		if (scope?.kind === 'relation') {
+			this.framework.assertOwnsSchema(scope.source)
+			const relation = this.framework.application.schemaTargets.getRelation(
+				scope.source,
+				scope.fieldPath,
+			)
+
+			if (relation?.target !== schema || scope.target !== schema) {
+				throw new FrameworkError(
+					'VALIDATION_ERROR',
+					'Relation query scope does not match the executed target schema.',
+					{ publicMessage: 'The requested relation is not available.' },
+				)
+			}
+
+			// Issue 744 will pass the already validated private edge to an adapter
+			// capability. Failing closed prevents an ordinary target query today.
+			throw new FrameworkError(
+				'INTERNAL_ERROR',
+				'Relation query execution requires database relation support.',
+				{ publicMessage: 'Relation queries are not available.' },
+			)
+		}
+
 		let context: RequestContext = this.context
 
 		if (options.context !== undefined) {

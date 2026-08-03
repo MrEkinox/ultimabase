@@ -157,6 +157,7 @@ const reservedModelFieldNames = new Set([
 	'create',
 	'delete',
 	'get',
+	'relation',
 	'then',
 	'toJSON',
 	'update',

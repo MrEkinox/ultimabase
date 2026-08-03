@@ -190,8 +190,43 @@ join-table, REST, or GraphQL names.
 
 Relations accept documentation and field extensions, but no scalar validation,
 default, list, index, or immutable options. They are omitted from
-`InferObject`, `InferCreateInput`, and `InferUpdateInput`; later issues add
-independently paginated relation handles and adapter storage.
+`InferObject`, `InferCreateInput`, and `InferUpdateInput`.
+
+## Relation handles and scoped queries
+
+Runtime-materialized models expose independently queryable relations without
+adding a collection property:
+
+```ts
+const user = await UserSchema.query().select('name').get(userId, { ultimabase })
+
+if (user !== null) {
+	const posts = user.relation('posts')
+	const query = posts
+		.query()
+		.select('id', 'title')
+		.descending('createdAt')
+		.limit(20)
+		.after()
+}
+```
+
+The `relation()` argument completes only exact relation field names and returns
+`Relation<typeof UserSchema, typeof PostSchema>`. Drafts omit the method from
+their type. A persisted projection may use it even when `id` is not visible,
+because Runtime retains the validated source identity separately; an adapter
+that did not provide protected identity fails before a handle can be created.
+
+`Relation` is a frozen opaque class. `query()` returns the ordinary target
+`Query`, so selection, filtering, ordering, offset or cursor pagination, count,
+exists, ambient request reuse, and terminal-only execution options stay
+consistent. The relationship edge is carried beside the AST in private Runtime
+state. It is neither enumerable nor serializable, and every Query branch,
+reusable scope, and business hook preserves it monotonically.
+
+Issue 744 adds database execution for this private scope. Until then, Runtime
+validates the logical edge and fails closed instead of letting an adapter run
+the public target AST without its relationship restriction.
 
 ## Drafts, static queries, and persisted models
 

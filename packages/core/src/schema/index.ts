@@ -42,6 +42,11 @@ export type {
 } from './fields/builtins/relation.js'
 export { Pointer, snapshotPointerValue } from './relations/pointer.js'
 export type { PointerJSON } from './relations/pointer.js'
+export { Relation } from './relations/relation.js'
+export type {
+	SchemaRelationFieldName,
+	SchemaRelationTarget,
+} from './relations/relation.js'
 export { definePluginField } from './fields/plugin.js'
 export type {
 	PluginFieldDefinition,
@@ -199,6 +204,7 @@ export type {
 	SchemaModelUpdateInput,
 	SchemaResult,
 	SchemaResultCommands,
+	SchemaResultRelations,
 } from './schema/model.js'
 export type {
 	FieldAfterCommitHook,

@@ -85,15 +85,21 @@ describe('schema definitions', () => {
 		},
 	)
 
-	it.each(['create', 'delete', 'get', 'then', 'toJSON', 'update', 'upsert'])(
-		'rejects the reserved model member %s',
-		(name) => {
-			expect(() =>
-				Schema.define({
-					className: 'InvalidModel',
-					fields: { [name]: stringField() },
-				}),
-			).toThrow(new TypeError(`Reserved schema model field: ${name}`))
-		},
-	)
+	it.each([
+		'create',
+		'delete',
+		'get',
+		'relation',
+		'then',
+		'toJSON',
+		'update',
+		'upsert',
+	])('rejects the reserved model member %s', (name) => {
+		expect(() =>
+			Schema.define({
+				className: 'InvalidModel',
+				fields: { [name]: stringField() },
+			}),
+		).toThrow(new TypeError(`Reserved schema model field: ${name}`))
+	})
 })

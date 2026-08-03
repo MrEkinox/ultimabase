@@ -128,8 +128,31 @@ The example represents one-to-many storage through `PostSchema.author`. An
 owning relation plus one inverse relation represents many-to-many storage, while
 one-to-one remains `pointerField({ indexed: "unique" })`. Relation fields are
 root-level schema declarations and never appear in `InferObject`, create input,
-update input, validation values, or `toJSON()`. Query handles and physical
-relation storage are introduced by the following relation issues.
+update input, validation values, or `toJSON()`.
+
+Persisted models expose only their declared to-many fields through an immutable
+`Relation<TSource, TTarget>` handle:
+
+```ts
+const posts = user.relation('posts')
+const recentPosts = posts
+	.query()
+	.select('id', 'title')
+	.descending('createdAt')
+	.limit(20)
+	.after()
+```
+
+`relation()` autocomplete excludes pointers and scalar fields. Drafts cannot
+create a handle, while selected persisted models retain a protected source ID
+without adding it to their visible values. The handle is opaque, frozen, and
+never serializes a related collection. Its `query()` is an ordinary target
+`Query`, including filters, ordering, cursors, `find`, `count`, and `exists`.
+The source edge stays in private Runtime state across every public builder and
+hook transformation; it never appears in `query.ast` and cannot be replaced by
+`Query.use()`. PostgreSQL execution and relation mutations remain in the next
+relation issues, so Core currently fails closed instead of executing an
+unscoped target query.
 
 Invalid, throwing, unregistered, and foreign targets fail before infrastructure
 connects with the source class and field path. The graph contains logical class

@@ -23,6 +23,12 @@ import {
 } from '../fields/base/options.js'
 import type { InferCreateInput, InferObject } from '../inference/types.js'
 import { Pointer } from '../relations/pointer.js'
+import {
+	createRelationHandle,
+	type Relation,
+	type SchemaRelationFieldName,
+	type SchemaRelationTarget,
+} from '../relations/relation.js'
 import type {
 	SchemaClass,
 	SchemaDefinition,
@@ -154,16 +160,40 @@ export interface SchemaResultCommands<
 	delete(options?: QueryTerminalOptions): Promise<TResult | null>
 }
 
+/** Exposes exact to-many handles only on Runtime-materialized model results. */
+interface SchemaResultRelationCommands<TSchema extends SchemaDefinition> {
+	/**
+	 * Returns an independently queryable immutable relationship handle.
+	 *
+	 * Only declared relation fields are suggested. The handle retains protected
+	 * source identity even when the visible result projection omits `id`.
+	 *
+	 * @example `const tags = post.relation('tags')`
+	 */
+	relation<const TFieldName extends SchemaRelationFieldName<TSchema>>(
+		fieldName: TFieldName,
+	): Relation<TSchema, SchemaRelationTarget<TSchema, TFieldName>>
+}
+
+/** Omits the relation method entirely when a schema declares no to-many fields. */
+export type SchemaResultRelations<TSchema extends SchemaDefinition> = [
+	SchemaRelationFieldName<TSchema>,
+] extends [never]
+	? Readonly<Record<never, never>>
+	: SchemaResultRelationCommands<TSchema>
+
 /** Keeps persisted model hovers independent from complete field definitions. */
 export type PersistedSchemaModel<
 	TClassName extends string,
 	TValues extends object,
 	TUpdateInput extends object,
+	TRelations extends object = Readonly<Record<never, never>>,
 > = SchemaModelInstance<SchemaDefinition<TClassName>, 'persisted', TValues> &
 	SchemaResultCommands<
 		TUpdateInput,
-		PersistedSchemaModel<TClassName, TValues, TUpdateInput>
-	>
+		PersistedSchemaModel<TClassName, TValues, TUpdateInput, TRelations>
+	> &
+	TRelations
 
 /** Represents one immutable instance of an exact generated schema class. */
 type SchemaModelInstance<
@@ -185,7 +215,8 @@ export type SchemaDraft<TSchema extends SchemaDefinition> = Simplify<
 					Simplify<UpdateSetInput<TSchema>>,
 					Simplify<NumericUpdateInput<TSchema>>,
 					UnsetUpdateFieldName<TSchema>
-				>
+				>,
+				SchemaResultRelations<TSchema>
 			>,
 			SchemaDraftUpsertInput<TSchema>
 		>
@@ -202,7 +233,8 @@ export type SchemaResult<
 		Simplify<UpdateSetInput<TSchema>>,
 		Simplify<NumericUpdateInput<TSchema>>,
 		UnsetUpdateFieldName<TSchema>
-	>
+	>,
+	SchemaResultRelations<TSchema>
 >
 
 interface SchemaModelRecord {
@@ -412,6 +444,13 @@ class SchemaModelPrototype {
 
 	toJSON(): Readonly<Record<string, unknown>> {
 		return immutableRecord(readSchemaModelRecord(this).values)
+	}
+
+	/** Creates one handle only from trusted persisted state and protected identity. */
+	relation(fieldName: string): Relation {
+		const record = readPersistedSchemaModelRecord(this, 'relation')
+
+		return createRelationHandle(record.schema, fieldName, record.objectId)
 	}
 
 	/** Persists only trusted draft state through Query's ordinary create terminal. */
