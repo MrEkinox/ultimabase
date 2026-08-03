@@ -25,8 +25,11 @@ import { expectTypeOf, test } from 'vitest'
 
 import {
 	databaseAdapterServiceToken,
+	databasePointerCapability,
+	databasePointerCapabilityVersion,
 	type DatabaseConstraintNode,
 	type DatabaseAdapter,
+	type DatabaseAdapterCapabilities,
 	type DatabaseCreateMaterialization,
 	type DatabaseDeleteMaterialization,
 	type DatabaseLogicalRecord,
@@ -37,6 +40,7 @@ import {
 	type DatabaseOperationOutcome,
 	type DatabaseOperationRequest,
 	type DatabaseOperationResult,
+	type DatabasePointerCapability,
 	type DatabaseTransactionAdapter,
 	type DatabaseUpdateMaterialization,
 	type PreparedDatabaseOperation,
@@ -126,6 +130,13 @@ test('preserves operation and constraint inference through execute', () => {
 })
 
 test('distinguishes root and transaction adapter capabilities', () => {
+	expectTypeOf(
+		databasePointerCapability,
+	).toEqualTypeOf<DatabasePointerCapability>()
+	expectTypeOf(databasePointerCapabilityVersion).toEqualTypeOf<1>()
+	expectTypeOf<DatabaseAdapterCapabilities['pointers']>().toEqualTypeOf<
+		DatabasePointerCapability | undefined
+	>()
 	expectTypeOf<DatabaseAdapter['kind']>().toEqualTypeOf<'database-adapter'>()
 	expectTypeOf<
 		DatabaseTransactionAdapter['kind']

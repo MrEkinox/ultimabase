@@ -2,6 +2,7 @@ import { AsyncLocalStorage } from 'node:async_hooks'
 
 import { FrameworkError, type PluginDefinition } from '../../foundation.js'
 import type { SchemaDefinition } from '../../schema/index.js'
+import type { QueryFilterExpression } from '../filters/logical.js'
 import type { UltimaBase } from '../../runtime/application/ultima-base.js'
 import type { RequestContext } from '../../runtime/context/request-context.js'
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
@@ -115,10 +116,16 @@ export interface QueryExecutionDispatcher {
 	execute(operation: unknown): Promise<unknown>
 }
 
+/** @internal Carries framework-owned predicates outside the transformable Query AST. */
+export interface QueryTerminalPrivateScope {
+	readonly rowFilter: QueryFilterExpression
+}
+
 /** @internal Resolves authority without adding execution state to a Query instance. */
 export type QueryTerminalExecutionHandler = (
 	operation: unknown,
 	options: NormalizedQueryTerminalOptions,
+	scope: QueryTerminalPrivateScope | undefined,
 ) => Promise<unknown>
 
 /** Lets Runtime add one revocable boundary without exposing hook internals here. */
@@ -275,8 +282,13 @@ const dispatchQueryTerminal = (
 	executor: QueryExecutionDispatcher,
 	operation: unknown,
 	options: NormalizedQueryTerminalOptions,
+	scope: QueryTerminalPrivateScope | undefined,
 ): Promise<unknown> => {
-	if (options.context === undefined && !options.useMasterKey) {
+	if (
+		options.context === undefined &&
+		!options.useMasterKey &&
+		scope === undefined
+	) {
 		return executor.execute(operation)
 	}
 
@@ -295,7 +307,7 @@ const dispatchQueryTerminal = (
 		)
 	}
 
-	return handler(operation, options)
+	return handler(operation, options, scope)
 }
 
 /** Runs ordinary terminals through one exact request engine in this async branch. */
@@ -333,9 +345,14 @@ export const runWithQueryExecutionGuard = <TResult>(
 	})
 
 	// Authority resolution stays behind the same revocable hook lease.
-	registerQueryTerminalExecutionHandler(executor, (operation, options) =>
+	registerQueryTerminalExecutionHandler(executor, (operation, options, scope) =>
 		guard.run(() =>
-			dispatchQueryTerminal(requireParent().executor, operation, options),
+			dispatchQueryTerminal(
+				requireParent().executor,
+				operation,
+				options,
+				scope,
+			),
 		),
 	)
 
@@ -349,6 +366,7 @@ export const runWithQueryExecutionGuard = <TResult>(
 export const executeQueryTerminal = <const TOperation extends OperationAstNode>(
 	operation: TOperation,
 	options: NormalizedQueryTerminalOptions,
+	scope?: QueryTerminalPrivateScope,
 ): Promise<InferOperationResult<TOperation>> => {
 	const active: ActiveQueryExecution | undefined =
 		activeQueryExecution.getStore()
@@ -379,6 +397,7 @@ export const executeQueryTerminal = <const TOperation extends OperationAstNode>(
 			active.executor,
 			operation,
 			options,
+			scope,
 		) as Promise<InferOperationResult<TOperation>>
 	}
 
@@ -397,5 +416,6 @@ export const executeQueryTerminal = <const TOperation extends OperationAstNode>(
 		registration.createRootExecutor(),
 		operation,
 		options,
+		scope,
 	) as Promise<InferOperationResult<TOperation>>
 }

@@ -6,6 +6,7 @@ import {
 	isUnknownArray,
 } from '@ultimabase/shared'
 
+import { FrameworkError } from '../../foundation.js'
 import { RequestContext } from '../context/request-context.js'
 import { assertDatabaseConstraintVersion } from '../../plugins/constraint-compilers.js'
 import type {
@@ -41,6 +42,7 @@ import {
 	type EnforcementState,
 } from '../enforcement/state.js'
 import { throwIfOperationCancelled } from '../hooks/cancellation.js'
+import { normalizeLogicalFilter } from '../../query/filters/logical.js'
 import {
 	collectDatabaseObjectIdentities,
 	retainRuntimeSchemaModelMetadata,
@@ -77,6 +79,25 @@ const nativeHookStageNames = [
 ] as const satisfies readonly (keyof RuntimeNativeHookStages)[]
 
 const emptyConstraints: readonly DatabaseConstraintNode[] = immutableArray([])
+
+/** Combines independent private restrictions without making either transformable. */
+const combineDatabaseRowFilters = (
+	first: DatabaseRowFilterNode | undefined,
+	second: DatabaseRowFilterNode | undefined,
+): DatabaseRowFilterNode | undefined => {
+	if (first === undefined) {
+		return second
+	}
+
+	if (second === undefined) {
+		return first
+	}
+
+	return normalizeLogicalFilter({
+		kind: 'and',
+		expressions: [first, second],
+	})
+}
 
 interface RuntimeDatabaseExecution<TOperation extends DatabaseOperationAst> {
 	readonly objectIdentities: readonly unknown[]
@@ -502,6 +523,15 @@ export class RuntimePipeline {
 			throw new TypeError('Runtime pipeline context must be a RequestContext')
 		}
 
+		if (
+			request.nativeAccessDeniedAsMissing === true &&
+			request.operation.kind !== 'first'
+		) {
+			throw new TypeError(
+				'Runtime nativeAccessDeniedAsMissing requires a first operation',
+			)
+		}
+
 		const context: RequestContext = request.context
 		throwIfOperationCancelled(context.signal, {
 			operationKind: request.operation.kind,
@@ -523,6 +553,19 @@ export class RuntimePipeline {
 		try {
 			return await this.#executeOperation(request, execution)
 		} catch (error: unknown) {
+			if (
+				request.nativeAccessDeniedAsMissing === true &&
+				error instanceof FrameworkError &&
+				error.code === 'PERMISSION_DENIED' &&
+				error.internalDetails?.kind === 'native-access-denied'
+			) {
+				// Expected target invisibility completes as an empty singular read,
+				// so the surrounding mutation transaction remains committable.
+				execution.transactionOperation?.succeed(execution.operation, null)
+
+				return null as DatabaseOperationResult<TOperation>
+			}
+
 			execution.transactionOperation?.fail(
 				execution.operation,
 				error,
@@ -561,6 +604,10 @@ export class RuntimePipeline {
 		execution: RuntimePipelineExecutionState,
 	): Promise<DatabaseOperationResult<TOperation>> {
 		const context: RequestContext = request.context
+		const privateRowFilter =
+			request.rowFilter === undefined
+				? undefined
+				: normalizeLogicalFilter(request.rowFilter)
 		let operation: TOperation = request.operation
 
 		operation = await this.#stages.normalization(
@@ -593,7 +640,7 @@ export class RuntimePipeline {
 
 		let enforcement: EnforcementState | undefined
 		let constraints: readonly DatabaseConstraintNode[] = emptyConstraints
-		let rowFilter: DatabaseRowFilterNode | undefined
+		let rowFilter: DatabaseRowFilterNode | undefined = privateRowFilter
 
 		if (this.#stages.enforcement !== undefined) {
 			enforcement = await this.#stages.enforcement.evaluate(
@@ -606,7 +653,10 @@ export class RuntimePipeline {
 
 			operation = retainExecutionOperation(execution, enforced.operation)
 			constraints = snapshotConstraints(enforced.constraints)
-			rowFilter = enforced.rowFilter
+			rowFilter = combineDatabaseRowFilters(
+				privateRowFilter,
+				enforced.rowFilter,
+			)
 		}
 
 		operation = retainExecutionOperation(
@@ -648,7 +698,10 @@ export class RuntimePipeline {
 
 			operation = retainExecutionOperation(execution, enforced.operation)
 			constraints = snapshotConstraints(enforced.constraints)
-			rowFilter = enforced.rowFilter
+			rowFilter = combineDatabaseRowFilters(
+				privateRowFilter,
+				enforced.rowFilter,
+			)
 		}
 
 		throwIfOperationCancelled(context.signal, {

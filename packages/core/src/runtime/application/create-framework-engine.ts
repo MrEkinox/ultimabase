@@ -11,6 +11,7 @@ import {
 
 import {
 	databaseAdapterServiceToken,
+	databasePointerCapabilityVersion,
 	type DatabaseAdapter,
 } from '../database/contracts.js'
 import { FrameworkEngine } from '../engine/framework-engine.js'
@@ -137,6 +138,44 @@ const assertDatabaseAdapter: (
 	}
 }
 
+/** Detects whether static schemas require the portable pointer adapter protocol. */
+const applicationUsesPointers = (
+	application: FrameworkApplication<
+		readonly SchemaDefinition[],
+		readonly PluginDefinition[]
+	>,
+): boolean =>
+	application.schemas
+		.values()
+		.some((schema) =>
+			Object.values(schema.fields).some((field) => field.kind === 'pointer'),
+		)
+
+/** Fails during assembly instead of letting a database mis-store logical pointers. */
+const assertRequiredAdapterCapabilities = (
+	application: FrameworkApplication<
+		readonly SchemaDefinition[],
+		readonly PluginDefinition[]
+	>,
+	adapter: DatabaseAdapter,
+): void => {
+	if (!applicationUsesPointers(application)) {
+		return
+	}
+
+	const pointers: unknown = adapter.capabilities?.pointers
+
+	if (
+		!isPlainRecord(pointers) ||
+		pointers.kind !== 'pointers' ||
+		pointers.version !== databasePointerCapabilityVersion
+	) {
+		throw new TypeError(
+			`database adapter must implement pointer capability version ${String(databasePointerCapabilityVersion)}`,
+		)
+	}
+}
+
 /** Validates and groups plugin stages while retaining contribution order. */
 const collectRuntimePipelineStages = (
 	application: FrameworkApplication<
@@ -232,6 +271,7 @@ export const createFrameworkEngine = <
 	)
 
 	assertDatabaseAdapter(databaseAdapter)
+	assertRequiredAdapterCapabilities(application, databaseAdapter)
 
 	const contributedStages = collectRuntimePipelineStages(application)
 	const hookStages = createRuntimeHookStages(application)

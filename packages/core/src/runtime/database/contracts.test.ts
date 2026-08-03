@@ -16,6 +16,8 @@ import { describe, expect, it } from 'vitest'
 
 import {
 	databaseAdapterServiceToken,
+	databasePointerCapability,
+	databasePointerCapabilityVersion,
 	type DatabaseAdapter,
 	type DatabaseMutationOperationAst,
 	type DatabaseOperationAst,
@@ -132,6 +134,14 @@ class InMemoryAdapterFake
 }
 
 describe('database adapter contracts', () => {
+	it('publishes one frozen versioned pointer capability for adapter reuse', () => {
+		expect(databasePointerCapability).toStrictEqual({
+			kind: 'pointers',
+			version: databasePointerCapabilityVersion,
+		})
+		expect(Object.isFrozen(databasePointerCapability)).toBe(true)
+	})
+
 	it('passes normalized operations and explicit constraints to an adapter', async () => {
 		const returnedArticles = [
 			{ id: 'article-1', title: 'UltimaBase', views: 10 },

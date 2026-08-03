@@ -24,6 +24,10 @@ export interface RuntimePipelineRequest<
 > {
 	readonly context: RequestContext
 	readonly operation: TOperation
+	/** Carries a framework-owned predicate that business hooks cannot replace. */
+	readonly rowFilter?: DatabaseRowFilterNode
+	/** Treats an included target's Access denial exactly like an absent target. */
+	readonly nativeAccessDeniedAsMissing?: true
 }
 
 /** Supplies normalization, validation, guards, and hooks with immutable request state. */

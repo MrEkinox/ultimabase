@@ -69,6 +69,7 @@ import {
 	type QueryBulkTerminalOptions,
 	type QueryBulkTerminalResult,
 	type QueryBulkAtomic,
+	type QueryTerminalPrivateScope,
 	type QueryTerminalOptions,
 } from '../operations/execution.js'
 import type { InferOperationResult } from '../operations/results.js'
@@ -103,6 +104,7 @@ type QueryBuilderAst<TSchema extends SchemaDefinition> = QueryAst<
 // Query state stays outside the frozen public shell so internal hydration does
 // not need a public constructor overload or an externally callable static API.
 const queryAsts = new WeakMap<object, unknown>()
+const queryPrivateScopes = new WeakMap<object, QueryTerminalPrivateScope>()
 
 const readQueryAst = <const TSchema extends SchemaDefinition>(
 	query: object,
@@ -122,6 +124,21 @@ const storeQueryAst = <const TSchema extends SchemaDefinition>(
 	ast: QueryBuilderAst<TSchema>,
 ): void => {
 	queryAsts.set(query, ast)
+}
+
+/** Reads a trusted scope that must remain invisible to Query hooks and serialization. */
+const readQueryPrivateScope = (
+	query: object,
+): QueryTerminalPrivateScope | undefined => queryPrivateScopes.get(query)
+
+/** Retains one immutable framework scope beside, never inside, the public AST. */
+const storeQueryPrivateScope = (
+	query: object,
+	scope: QueryTerminalPrivateScope | undefined,
+): void => {
+	if (scope !== undefined) {
+		queryPrivateScopes.set(query, scope)
+	}
 }
 
 type QueryAstPatch<TSchema extends SchemaDefinition> = Partial<
@@ -968,15 +985,10 @@ export class Query<
 		operation: TOperation,
 		options: QueryTerminalOptions | undefined,
 	): Promise<InferOperationResult<TOperation>> {
-		if ('query' in operation && operation.query.inclusion.pointers.length > 0) {
-			// Issue 738 replaces this guard with the Runtime inclusion capability;
-			// failing now prevents adapters from returning an unexpanded Pointer.
-			throw new TypeError('pointer inclusion execution is not available yet')
-		}
-
 		return executeQueryTerminal(
 			operation,
 			normalizeQueryTerminalOptions(options),
+			readQueryPrivateScope(this),
 		)
 	}
 
@@ -988,6 +1000,7 @@ export class Query<
 	): Query<TSchema, TNextSelection, TNextIncludedPointer> {
 		return hydrateQueryFromAst<TSchema, TNextSelection, TNextIncludedPointer>(
 			immutableRecord({ ...this.ast, ...patch }),
+			readQueryPrivateScope(this),
 		)
 	}
 }
@@ -1007,12 +1020,34 @@ export const hydrateQueryFromAst = <
 	TIncludedPointer = never,
 >(
 	ast: QueryBuilderAst<TSchema>,
+	privateScope?: QueryTerminalPrivateScope,
 ): Query<TSchema, TSelectedField, TIncludedPointer> => {
 	const query = new Query<TSchema, TSelectedField, TIncludedPointer>(
 		ast.schema.definition,
 	)
 
 	storeQueryAst(query, ast)
+	storeQueryPrivateScope(query, privateScope)
 
 	return query
+}
+
+/**
+ * Applies a framework-owned object identity without exposing it to Query hooks.
+ *
+ * @internal Pointer and relation handles are the only intended callers.
+ */
+export const scopeQueryToObjectId = <const TSchema extends SchemaDefinition>(
+	query: Query<TSchema>,
+	id: OperationObjectId<TSchema>,
+): Query<TSchema> => {
+	const rowFilter = createQueryValueFilter(
+		query.schema,
+		'equal',
+		'id' as QueryFieldName<TSchema>,
+		id,
+	)
+	const scope: QueryTerminalPrivateScope = immutableRecord({ rowFilter })
+
+	return hydrateQueryFromAst(query.ast, scope)
 }

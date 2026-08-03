@@ -128,3 +128,15 @@ export const retainRuntimeSchemaModelMetadata = (
 export const readRuntimeSchemaModelMetadata = (
 	record: object,
 ): RuntimeSchemaModelMetadata | undefined => modelMetadata.get(record)
+
+/** Preserves adapter-proven identity when Runtime replaces a record after hooks. */
+export const transferRuntimeSchemaModelMetadata = (
+	source: object,
+	target: object,
+): void => {
+	const metadata = modelMetadata.get(source)
+
+	if (metadata !== undefined) {
+		modelMetadata.set(target, metadata)
+	}
+}

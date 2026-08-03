@@ -14,7 +14,10 @@ import type {
 	PreparedDatabaseOperation,
 	RuntimePipelineStages,
 } from '../../../src/runtime/index.js'
-import { RuntimePipeline } from '../../../src/runtime/index.js'
+import {
+	databasePointerCapability,
+	RuntimePipeline,
+} from '../../../src/runtime/index.js'
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
 type QueuedMutationMaterialization =
@@ -129,6 +132,9 @@ export const createPreparedOperationFixture = <
 /** Models one plugin-owned transaction and records every lifecycle boundary. */
 export class RecordingTransactionAdapter implements DatabaseTransactionAdapter {
 	readonly kind = 'database-transaction-adapter' as const
+	readonly capabilities = immutableRecord({
+		pointers: databasePointerCapability,
+	})
 	readonly requests: DatabaseOperationRequest[] = []
 	readonly #results: QueuedAdapterResult[]
 	readonly #trace: string[]
@@ -194,6 +200,9 @@ export class RecordingTransactionAdapter implements DatabaseTransactionAdapter {
 /** Starts fresh transaction adapters while retaining root read execution. */
 export class RecordingDatabaseAdapter implements DatabaseAdapter {
 	readonly kind = 'database-adapter' as const
+	readonly capabilities = immutableRecord({
+		pointers: databasePointerCapability,
+	})
 	readonly rootRequests: DatabaseOperationRequest[] = []
 	readonly transactions: RecordingTransactionAdapter[] = []
 	readonly #results: QueuedAdapterResult[]

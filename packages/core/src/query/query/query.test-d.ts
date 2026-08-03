@@ -166,9 +166,10 @@ test('infers pointer predicates, target queries, and included projections', () =
 	expectTypeOf<IncludedResult>().toHaveProperty('title')
 	expectTypeOf<IncludedResult>().toHaveProperty('author')
 	expectTypeOf<IncludedResult>().toHaveProperty('reviewer')
-	expectTypeOf<IncludedResult['author']['name']>().toEqualTypeOf<
+	expectTypeOf<NonNullable<IncludedResult['author']>['name']>().toEqualTypeOf<
 		string | undefined
 	>()
+	expectTypeOf<null>().toExtend<IncludedResult['author']>()
 	expectTypeOf<NonNullable<IncludedResult['reviewer']>['name']>().toEqualTypeOf<
 		string | undefined
 	>()

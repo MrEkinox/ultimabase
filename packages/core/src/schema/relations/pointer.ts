@@ -1,6 +1,6 @@
 import { assertNonEmptyString, immutableRecord } from '@ultimabase/shared'
 
-import { Query } from '../../query/query/query.js'
+import { Query, scopeQueryToObjectId } from '../../query/query/query.js'
 import type { OperationObjectId } from '../../query/operations/contracts.js'
 import { Schema, type SchemaDefinition } from '../schema/definition.js'
 
@@ -81,7 +81,10 @@ export class Pointer<TSchema extends SchemaDefinition = SchemaDefinition> {
 	query(): Query<TSchema> {
 		// Every schema receives Core's string UUID identifier, although an arbitrary
 		// schema generic cannot reduce that framework-owned intersection here.
-		return new Query(this.#schema).byId(this.#id as OperationObjectId<TSchema>)
+		return scopeQueryToObjectId(
+			new Query(this.#schema),
+			this.#id as OperationObjectId<TSchema>,
+		)
 	}
 
 	/** Serializes the logical identity without exposing database representation. */

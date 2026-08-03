@@ -53,6 +53,8 @@ describe('@ultimabase/core public entry point', () => {
 			'createServiceToken',
 			'databaseAdapterServiceToken',
 			'databaseConstraint',
+			'databasePointerCapability',
+			'databasePointerCapabilityVersion',
 			'dateField',
 			'dateTimeField',
 			'decimalField',

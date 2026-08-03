@@ -50,11 +50,8 @@ describe('Pointer', () => {
 		const query = pointer.query().select('id')
 
 		expect(query.schema).toBe(userSchema)
-		expect(query.ast.where?.expression).toStrictEqual({
-			kind: 'equal',
-			field: 'id',
-			value: targetId,
-		})
+		// The identity is private Runtime state and cannot be serialized or removed by hooks.
+		expect(query.ast.where).toBeUndefined()
 		expect(query.ast.selection.fields).toStrictEqual([
 			{ kind: 'selected-field', field: 'id' },
 		])

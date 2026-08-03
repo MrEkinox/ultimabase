@@ -39,7 +39,7 @@ type MaterializeIncludedPointer<TValue, TInclusion> =
 		infer TNestedInclusion
 	>
 		? TValue extends Pointer<TTargetSchema>
-			? InferQueryResult<TTargetSchema, TSelectedField, TNestedInclusion>
+			? InferQueryResult<TTargetSchema, TSelectedField, TNestedInclusion> | null
 			: TValue
 		: TValue
 

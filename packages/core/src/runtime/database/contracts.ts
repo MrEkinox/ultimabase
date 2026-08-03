@@ -10,6 +10,28 @@ import type {
 	QuerySchemaNode,
 } from '../../query/index.js'
 import type { InferObject, SchemaDefinition } from '../../schema/index.js'
+import { immutableRecord } from '@ultimabase/shared'
+
+/** Selects the portable pointer protocol currently understood by Core Runtime. */
+export const databasePointerCapabilityVersion = 1 as const
+
+/** Advertises logical pointer storage, predicates, and inclusion source values. */
+export interface DatabasePointerCapability {
+	readonly kind: 'pointers'
+	readonly version: typeof databasePointerCapabilityVersion
+}
+
+/** Lets adapters opt into portable features without coupling Core to a database. */
+export interface DatabaseAdapterCapabilities {
+	readonly pointers?: DatabasePointerCapability
+}
+
+/** Reuses one frozen capability declaration across root and transaction adapters. */
+export const databasePointerCapability: DatabasePointerCapability =
+	immutableRecord({
+		kind: 'pointers',
+		version: databasePointerCapabilityVersion,
+	})
 
 /**
  * Retains the closed operation discriminants while allowing each request to
@@ -256,6 +278,8 @@ export type PreparedDatabaseOperation<
 
 /** Executes one normalized operation while preserving its exact result type. */
 export interface DatabaseOperationExecutor {
+	/** Declares the exact portable protocols implemented by this adapter family. */
+	readonly capabilities?: DatabaseAdapterCapabilities
 	execute<const TOperation extends DatabaseOperationAst>(
 		request: DatabaseOperationRequest<TOperation>,
 	): Promise<DatabaseOperationResult<TOperation>>

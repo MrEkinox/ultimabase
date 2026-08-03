@@ -157,9 +157,6 @@ describe('Query', () => {
 		expect(Object.isFrozen(included.ast.inclusion)).toBe(true)
 		expect(Object.isFrozen(included.ast.inclusion.pointers)).toBe(true)
 		expect(Object.isFrozen(included.ast.inclusion.pointers[0])).toBe(true)
-		expect(() => included.first()).toThrow(
-			new TypeError('pointer inclusion execution is not available yet'),
-		)
 	})
 
 	it('normalizes pointer identity predicates without physical foreign-key names', () => {

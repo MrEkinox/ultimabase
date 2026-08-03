@@ -27,8 +27,13 @@ export type {
 	RequestTransactionHandler,
 } from './engine/framework-engine.js'
 // Database plugins implement this neutral boundary without leaking their query builders.
-export { databaseAdapterServiceToken } from './database/contracts.js'
+export {
+	databaseAdapterServiceToken,
+	databasePointerCapability,
+	databasePointerCapabilityVersion,
+} from './database/contracts.js'
 export type {
+	DatabaseAdapterCapabilities,
 	DatabaseConstraintNode,
 	DatabaseConstraintPayload,
 	DatabaseConstraintPayloadObject,
@@ -46,6 +51,7 @@ export type {
 	DatabaseOperationOutcome,
 	DatabaseOperationRequest,
 	DatabaseOperationResult,
+	DatabasePointerCapability,
 	DatabaseRowFilterNode,
 	DatabaseTransactionAdapter,
 	DatabaseUpdateMaterialization,

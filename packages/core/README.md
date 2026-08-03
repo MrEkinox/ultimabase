@@ -86,19 +86,30 @@ const selected = PostSchema.query()
 	.select('id', 'title')
 	.include('author', (author) => author.select('id', 'name'))
 
-// The result type contains only id, title, and the selected User shape.
+const posts = await selected.find({ ultimabase })
+
+// `author` is the selected User model, or null when missing or inaccessible.
 ```
 
-The inclusion clause is already immutable and transport-neutral. Runtime
-expansion belongs to the next pointer vertical issue; until then, executing an
-included query fails explicitly rather than returning a misleading Pointer.
+Runtime resolves every included target through the same operation Access,
+filter, item, field, hook, and transaction lifecycle as a direct Query. The
+source pointer field is checked before loading the target. Missing and
+inaccessible targets both become `null`, so inclusion does not reveal whether a
+protected object exists. Nested inclusions remain independently selected.
+
+The target ID used by `pointer.query()` and inclusion is a private Runtime row
+filter. It never enters `query.ast`, and a `beforeFind` hook can neither inspect
+nor remove it. A target Query inherits the active request; outside one, it
+accepts the same terminal-only `{ ultimabase, context, useMasterKey }` options
+as every ordinary Query.
 
 `onDelete` defaults to `restrict`; `cascade` and nullable-only `setNull` are
 explicit alternatives. `indexed: "unique"` declares a one-to-one pointer.
 Pointer lists and defaults are rejected so relationship writes stay explicit;
 to-many collections belong to the later `relationField` contract. Physical
-foreign keys and pointer Query execution are implemented by subsequent vertical
-issues.
+foreign keys are implemented by database plugins. An adapter serving schemas
+with pointer fields must advertise the exported versioned
+`databasePointerCapability`; setup fails before execution when it does not.
 
 Invalid, throwing, unregistered, and foreign targets fail before infrastructure
 connects with the source class and field path. The graph contains logical class

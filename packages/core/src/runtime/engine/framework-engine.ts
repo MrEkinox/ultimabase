@@ -16,6 +16,7 @@ import type {
 import {
 	registerQueryTerminalExecutionHandler,
 	type NormalizedQueryTerminalOptions,
+	type QueryTerminalPrivateScope,
 } from '../../query/operations/execution.js'
 import { Schema, type SchemaDefinition } from '../../schema/index.js'
 import type { MaybePromise } from '@ultimabase/shared'
@@ -29,7 +30,10 @@ import {
 	type RequestContextOptions,
 } from '../context/request-context.js'
 import { runWithRequestEngineScope } from '../context/active-framework-storage.js'
-import type { DatabaseOperationResult } from '../database/contracts.js'
+import type {
+	DatabaseOperationResult,
+	DatabaseRowFilterNode,
+} from '../database/contracts.js'
 import {
 	elevateTrustedMasterRequest,
 	MasterAuthority,
@@ -45,6 +49,7 @@ import {
 	type TransactionLifetime,
 } from '../transactions/transaction-lifetime.js'
 import { throwIfOperationCancelled } from '../hooks/cancellation.js'
+import { resolvePointerInclusions } from '../relations/pointer-inclusion.js'
 
 const requestEngineConstructionKey: unique symbol = Symbol(
 	'ultimabase.request-engine-construction',
@@ -292,8 +297,8 @@ export class RequestEngine<
 		this.context = context
 		this.#pipeline = pipeline
 		this.#transactionLifetime = transactionLifetime
-		registerQueryTerminalExecutionHandler(this, (operation, options) =>
-			this.#executeTerminal(operation, options),
+		registerQueryTerminalExecutionHandler(this, (operation, options, scope) =>
+			this.#executeTerminal(operation, options, scope),
 		)
 
 		// A request engine cannot change application or authority after binding.
@@ -304,6 +309,7 @@ export class RequestEngine<
 	async #executeTerminal(
 		operation: unknown,
 		options: NormalizedQueryTerminalOptions,
+		scope: QueryTerminalPrivateScope | undefined,
 	): Promise<unknown> {
 		const normalizedOperation = operation as ExecutableOperationAst<
 			TSchemas[number]
@@ -345,7 +351,7 @@ export class RequestEngine<
 					)
 
 		// Query terminal construction guarantees an executable operation for this schema.
-		return engine.execute(normalizedOperation)
+		return engine.#executeOperation(normalizedOperation, scope?.rowFilter)
 	}
 
 	get application(): FrameworkApplication<TSchemas, TPlugins> {
@@ -356,6 +362,17 @@ export class RequestEngine<
 	async execute<
 		const TOperation extends ExecutableOperationAst<TSchemas[number]>,
 	>(operation: TOperation): Promise<InferOperationResult<TOperation>> {
+		return this.#executeOperation(operation)
+	}
+
+	/** Executes public and framework-scoped operations through one shared lifecycle. */
+	async #executeOperation<
+		const TOperation extends ExecutableOperationAst<TSchemas[number]>,
+	>(
+		operation: TOperation,
+		rowFilter?: DatabaseRowFilterNode,
+		nativeAccessDeniedAsMissing?: true,
+	): Promise<InferOperationResult<TOperation>> {
 		this.framework.assertOwnsSchema(getOperationSchema(operation))
 		throwIfOperationCancelled(this.context.signal, {
 			operationKind: operation.kind,
@@ -367,17 +384,39 @@ export class RequestEngine<
 			requiresAutomaticMutationTransaction(operation)
 		) {
 			// Every root mutation reuses the exact public transaction lifecycle.
-			return this.transaction((transaction) => transaction.execute(operation))
+			return this.transaction((transaction) =>
+				transaction.#executeOperation(
+					operation,
+					rowFilter,
+					nativeAccessDeniedAsMissing,
+				),
+			)
 		}
 
 		const executeOperation = (): Promise<DatabaseOperationResult<TOperation>> =>
 			runWithRequestEngineScope(this, () =>
-				this.#pipeline.execute({ context: this.context, operation }),
+				this.#pipeline.execute({
+					context: this.context,
+					operation,
+					...(rowFilter === undefined ? {} : { rowFilter }),
+					...(nativeAccessDeniedAsMissing === undefined
+						? {}
+						: { nativeAccessDeniedAsMissing }),
+				}),
 			)
 
-		const result = await (this.#transactionLifetime === undefined
+		let result = await (this.#transactionLifetime === undefined
 			? executeOperation()
 			: this.#transactionLifetime.run(executeOperation))
+
+		result = await resolvePointerInclusions(operation, result, {
+			execute: async (targetOperation, targetRowFilter) =>
+				this.#executeOperation(
+					targetOperation as ExecutableOperationAst<TSchemas[number]>,
+					targetRowFilter,
+					true,
+				),
+		})
 
 		return materializeOperationResult(operation, result)
 	}

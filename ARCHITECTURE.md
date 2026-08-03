@@ -98,8 +98,10 @@ consumers of Core Query and Runtime contracts.
 `pointerField` is the first producer of this graph. Its ordinary value is the
 nominal immutable `Pointer<TSchema>` class, which carries exact schema identity
 and a string object ID without loading a target. Pointer metadata defines only
-logical presence, uniqueness, and referential action; Query inclusion and
-physical foreign keys remain later Runtime and adapter capabilities.
+logical presence, uniqueness, and referential action. Direct target queries and
+inclusion execute through Runtime with a private ID row filter combined
+monotonically with Access. Database adapters explicitly advertise the versioned
+portable pointer capability; physical foreign keys remain adapter-owned.
 
 ## Plugins
 
