@@ -32,6 +32,14 @@ export type {
 	PointerFieldOptions,
 	PointerReferentialAction,
 } from './fields/builtins/pointer.js'
+export { relationField } from './fields/builtins/relation.js'
+export type {
+	RelationField,
+	RelationFieldInferenceState,
+	RelationFieldMetadataOptions,
+	RelationFieldOptions,
+	RelationMappedFieldName,
+} from './fields/builtins/relation.js'
 export { Pointer, snapshotPointerValue } from './relations/pointer.js'
 export type { PointerJSON } from './relations/pointer.js'
 export { definePluginField } from './fields/plugin.js'
@@ -326,6 +334,13 @@ export type {
 	SchemaTargetGraph,
 	SchemaTargetResolutionReason,
 } from './schema/targets.js'
+export { SchemaRelationMappingError } from './relations/mapping.js'
+export type {
+	ResolvedSchemaRelation,
+	ResolvedSchemaRelationMapping,
+	SchemaRelationMappingReason,
+	SchemaRelationOwnership,
+} from './relations/mapping.js'
 export { stringField } from './fields/builtins/string.js'
 export type {
 	StringField,

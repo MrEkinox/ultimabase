@@ -124,7 +124,7 @@ incomplete.
 
 ### Phase 3 — Complete relation vertical
 
-7. [ ] [741 — Add owning and inverse relation fields](issues/700-extensions/741-relation-field-contracts.md)
+7. [x] [741 — Add owning and inverse relation fields](issues/700-extensions/741-relation-field-contracts.md)
 8. [ ] [742 — Add immutable Relation handles and scoped queries](issues/700-extensions/742-relation-handle-and-query.md)
 9. [ ] [743 — Execute transactional relation mutations](issues/700-extensions/743-relation-mutations.md)
 10. [ ] [744 — Compile and execute PostgreSQL relations](issues/700-extensions/744-postgres-relation-storage.md)
@@ -151,7 +151,7 @@ When resuming after context loss:
 
 ## Current issue
 
-[741 — Add owning and inverse relation fields](issues/700-extensions/741-relation-field-contracts.md) is `ready`.
+[742 — Add immutable Relation handles and scoped queries](issues/700-extensions/742-relation-handle-and-query.md) is `ready`.
 
 ## Progress log
 
@@ -161,3 +161,4 @@ When resuming after context loss:
 - 738 added versioned adapter capability checks and transaction-preserving, Access-aware nested pointer inclusion.
 - 739 compiled pointer UUID columns, deterministic foreign keys, referential actions, codecs, predicates, introspection, and direct synchronization in PostgreSQL.
 - 740 proved the complete pointer vertical through public Core and PostgreSQL exports with live CRUD, inclusion, Access, hooks, transactions, circular targets, constraints, and referential actions.
+- 741 added exact owning and inverse relation fields, row-value omission, application-local topology diagnostics, and storage-neutral mapping metadata.

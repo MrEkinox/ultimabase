@@ -1,6 +1,7 @@
 import { expectTypeOf, test } from 'vitest'
 
 import {
+	relationField,
 	Schema,
 	stringField,
 	type SchemaIndexDefinition,
@@ -33,6 +34,11 @@ test('checks composite fields and exposes one normalized index type', () => {
 })
 
 test('rejects invalid composite declarations statically', () => {
+	const RelationTarget = Schema.define({
+		className: 'IndexRelationTarget',
+		fields: {},
+	})
+
 	Schema.define({
 		className: 'UnknownField',
 		fields: {
@@ -67,6 +73,18 @@ test('rejects invalid composite declarations statically', () => {
 				// @ts-expect-error -- Index uniqueness is a boolean.
 				unique: 'yes',
 			},
+		],
+	})
+
+	Schema.define({
+		className: 'RelationIndex',
+		fields: {
+			title: stringField(),
+			targets: relationField({ target: () => RelationTarget }),
+		},
+		indexes: [
+			// @ts-expect-error -- Relation handles have no source-table column to index.
+			{ fields: ['title', 'targets'] },
 		],
 	})
 })

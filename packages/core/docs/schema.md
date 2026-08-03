@@ -89,7 +89,7 @@ object cannot bypass validation or provide a forged snapshot capability.
 ## Lazy relationship targets
 
 `SchemaTarget<TSchema>` represents the zero-argument callback consumed by
-`pointerField` and the later `relationField`. The callback keeps the exact
+`pointerField` and `relationField`. The callback keeps the exact
 target class in TypeScript while deferring its value until every application
 schema declaration is available:
 
@@ -112,8 +112,8 @@ const application = await createApplication({
 application.schemaTargets.get(PostSchema, ['author'])
 ```
 
-`pointerField({ target: () => UserSchema })` now populates this graph while
-keeping its callback out of public field metadata. Application developers never
+Relationship fields populate this graph while keeping callbacks out of public
+field metadata. Application developers never
 call `SchemaRegistry.resolveSchemaTargets()` during normal UltimaBase setup; the
 framework owns that lifecycle. Adapter and framework plugin authors may read
 the completed graph through the application or the captured schema registry
@@ -159,9 +159,39 @@ transport-specific Parse object.
 is deleted, while `setNull` requires `validation.nullable: true`. Use
 `indexed: "unique"` for a one-to-one pointer. Pointer defaults and `list: true`
 are deliberately unsupported: callers provide relationship identity explicitly,
-and to-many values use the independently queryable `relationField` introduced
-later. This issue does not add pointer predicates, inclusion, physical storage,
-or execution.
+and to-many values use `relationField` instead.
+
+## Relation field declarations
+
+`relationField` declares logical to-many topology without embedding an array in
+the source row. Omitting `mappedBy` creates the owning side. Supplying it creates
+an inverse backed by one exact pointer or owning relation on the target:
+
+```ts
+const UserSchema = Schema.define({
+	className: 'User',
+	fields: {
+		posts: relationField({ target: () => PostSchema, mappedBy: 'author' }),
+	},
+})
+```
+
+This is one-to-many because `PostSchema.author` is a pointer to `UserSchema`.
+For many-to-many, one schema declares an owning `relationField({ target })` and
+the other may declare an inverse targeting that field. One-to-one continues to
+use a unique pointer.
+
+`mappedBy` is restricted by TypeScript to compatible target field names and is
+validated again against exact application-owned schema identities during setup.
+Missing fields, wrong targets, inverse-to-inverse cycles, duplicate inverses,
+reused owners, and nested relation declarations fail before infrastructure
+connects. The logical graph exposes ownership and mapping paths without SQL,
+join-table, REST, or GraphQL names.
+
+Relations accept documentation and field extensions, but no scalar validation,
+default, list, index, or immutable options. They are omitted from
+`InferObject`, `InferCreateInput`, and `InferUpdateInput`; later issues add
+independently paginated relation handles and adapter storage.
 
 ## Drafts, static queries, and persisted models
 

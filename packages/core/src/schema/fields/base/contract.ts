@@ -19,7 +19,7 @@ export type FieldInferencePresence = 'forbidden' | 'optional' | 'required'
  */
 export interface FieldInferenceState {
 	readonly create: FieldInferencePresence
-	readonly object: Exclude<FieldInferencePresence, 'forbidden'>
+	readonly object: FieldInferencePresence
 	readonly update: Exclude<FieldInferencePresence, 'required'>
 	readonly nullable: boolean
 	readonly list: FieldListOption

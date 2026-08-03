@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+	relationField,
 	Schema,
 	stringField,
 	type FieldDefinition,
@@ -76,6 +77,11 @@ describe('schema indexes', () => {
 	})
 
 	it('rejects unknown and repeated composite fields', () => {
+		const relationTarget = Schema.define({
+			className: 'RuntimeIndexRelationTarget',
+			fields: {},
+		})
+
 		expect(() =>
 			Schema.define({
 				className: 'UnknownIndexField',
@@ -98,6 +104,20 @@ describe('schema indexes', () => {
 				indexes: [{ fields: ['title', 'title'] }],
 			}),
 		).toThrow(new TypeError('Duplicate index field: title'))
+
+		expect(() =>
+			Schema.define({
+				className: 'RelationIndexField',
+				fields: {
+					title: stringField(),
+					targets: relationField({ target: () => relationTarget }),
+				},
+				indexes: [
+					// @ts-expect-error -- Runtime validation protects JavaScript callers.
+					{ fields: ['title', 'targets'] },
+				],
+			}),
+		).toThrow(new TypeError('Unknown index field: targets'))
 	})
 
 	it('rejects malformed composite options at runtime', () => {

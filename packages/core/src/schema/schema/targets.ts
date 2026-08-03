@@ -6,6 +6,12 @@ import {
 
 import { getFieldSchemaTarget } from '../fields/base/definition.js'
 import { collectFieldTraversalEntries } from '../fields/traversal.js'
+import {
+	compileSchemaRelations,
+	readRelationMappedBy,
+	type PendingSchemaRelation,
+	type ResolvedSchemaRelation,
+} from '../relations/mapping.js'
 import { Schema, type SchemaDefinition } from './definition.js'
 import type { SchemaRegistry } from './registry.js'
 
@@ -38,6 +44,13 @@ export interface SchemaTargetGraph {
 	): SchemaDefinition | undefined
 	/** Returns an immutable declaration-ordered snapshot of every edge. */
 	values(): readonly ResolvedSchemaTarget[]
+	/** Resolves validated to-many metadata for one exact source field. */
+	getRelation(
+		source: SchemaDefinition,
+		fieldPath: readonly string[],
+	): ResolvedSchemaRelation | undefined
+	/** Returns every validated relation in declaration order. */
+	relations(): readonly ResolvedSchemaRelation[]
 }
 
 interface SchemaTargetResolutionErrorOptions extends ErrorOptions {
@@ -94,8 +107,16 @@ class ImmutableSchemaTargetGraph implements SchemaTargetGraph {
 		Map<string, SchemaDefinition>
 	>()
 	readonly #values: readonly ResolvedSchemaTarget[]
+	readonly #relationsBySource = new Map<
+		SchemaDefinition,
+		Map<string, ResolvedSchemaRelation>
+	>()
+	readonly #relations: readonly ResolvedSchemaRelation[]
 
-	constructor(entries: readonly ResolvedSchemaTarget[]) {
+	constructor(
+		entries: readonly ResolvedSchemaTarget[],
+		relations: readonly ResolvedSchemaRelation[],
+	) {
 		for (const entry of entries) {
 			const targetsByPath =
 				this.#targetsBySource.get(entry.source) ??
@@ -106,7 +127,17 @@ class ImmutableSchemaTargetGraph implements SchemaTargetGraph {
 			this.#targetsBySource.set(entry.source, targetsByPath)
 		}
 
+		for (const relation of relations) {
+			const relationsByPath =
+				this.#relationsBySource.get(relation.source) ??
+				new Map<string, ResolvedSchemaRelation>()
+
+			relationsByPath.set(schemaTargetPathKey(relation.fieldPath), relation)
+			this.#relationsBySource.set(relation.source, relationsByPath)
+		}
+
 		this.#values = immutableArray(entries)
+		this.#relations = immutableArray(relations)
 		Object.freeze(this)
 	}
 
@@ -133,6 +164,27 @@ class ImmutableSchemaTargetGraph implements SchemaTargetGraph {
 
 	values(): readonly ResolvedSchemaTarget[] {
 		return this.#values
+	}
+
+	getRelation(
+		source: SchemaDefinition,
+		fieldPath: readonly string[],
+	): ResolvedSchemaRelation | undefined {
+		if (!Schema.is(source)) {
+			throw new TypeError(
+				'Schema relation source must be created by Schema.define',
+			)
+		}
+
+		assertSchemaTargetPath(fieldPath)
+
+		return this.#relationsBySource
+			.get(source)
+			?.get(schemaTargetPathKey(fieldPath))
+	}
+
+	relations(): readonly ResolvedSchemaRelation[] {
+		return this.#relations
 	}
 }
 
@@ -211,6 +263,7 @@ export const compileSchemaTargetGraph = (
 	registry: SchemaRegistry,
 ): SchemaTargetGraph => {
 	const entries: ResolvedSchemaTarget[] = []
+	const pendingRelations: PendingSchemaRelation[] = []
 
 	for (const source of registry.values()) {
 		for (const { field, path } of collectFieldTraversalEntries(source.fields)) {
@@ -220,15 +273,28 @@ export const compileSchemaTargetGraph = (
 				continue
 			}
 
+			const resolvedTarget = resolveTarget(registry, source, path, target)
+
 			entries.push(
-				immutableRecord({
-					fieldPath: path,
-					source,
-					target: resolveTarget(registry, source, path, target),
-				}),
+				immutableRecord({ fieldPath: path, source, target: resolvedTarget }),
 			)
+
+			if (field.kind === 'relation') {
+				pendingRelations.push(
+					immutableRecord({
+						field,
+						fieldPath: path,
+						mappedBy: readRelationMappedBy(field),
+						source,
+						target: resolvedTarget,
+					}),
+				)
+			}
 		}
 	}
 
-	return new ImmutableSchemaTargetGraph(entries)
+	return new ImmutableSchemaTargetGraph(
+		entries,
+		compileSchemaRelations(pendingRelations, entries),
+	)
 }

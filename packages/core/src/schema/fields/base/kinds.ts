@@ -13,6 +13,7 @@ import type { IntField } from '../builtins/int.js'
 import type { JsonField } from '../builtins/json.js'
 import type { ObjectField } from '../builtins/object.js'
 import type { PointerField } from '../builtins/pointer.js'
+import type { RelationField } from '../builtins/relation.js'
 import type { StringField } from '../builtins/string.js'
 import type { TimeField } from '../builtins/time.js'
 import type { UuidField } from '../builtins/uuid.js'
@@ -33,6 +34,7 @@ export const builtInFieldKinds = [
 	'json',
 	'object',
 	'pointer',
+	'relation',
 	'string',
 	'time',
 	'uuid',
@@ -69,6 +71,7 @@ export type BuiltInField =
 	| JsonField
 	| ObjectField
 	| PointerField
+	| RelationField
 	| StringField
 	| TimeField
 	| UuidField

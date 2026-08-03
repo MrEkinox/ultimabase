@@ -32,6 +32,9 @@ const readPresence = (
 	field: GenericField,
 	operation: ValidationOperation,
 ): ValidationPresence => {
+	// Relation collections are addressed through handles and never cross row inputs.
+	if (field.kind === 'relation') return 'forbidden'
+
 	const options = field.options
 	const generated = 'generatedOn' in options
 	const immutable = 'immutable' in options && options.immutable

@@ -46,6 +46,6 @@ export type CreatePostInput = InferCreateInput<typeof PostSchema>
 ```
 
 `Post['author']` and `CreatePostInput['author']` are both
-`Pointer<typeof UserSchema>`. The value never loads the user. Query inclusion,
-PostgreSQL foreign keys, and to-many `relationField` collections are separate
-later capabilities.
+`Pointer<typeof UserSchema>`. The value never loads the user. Query inclusion
+loads one bounded target explicitly, while to-many collections use the separate
+`relationField` declaration shown in the relations example.

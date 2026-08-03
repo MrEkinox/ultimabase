@@ -7,6 +7,10 @@ import {
 } from '@ultimabase/shared'
 
 import type { SchemaFields } from './definition.js'
+import type {
+	FieldInferenceStateOf,
+	GenericField,
+} from '../fields/base/contract.js'
 import {
 	reservedSystemFieldNames,
 	type ReservedSystemFieldName,
@@ -15,8 +19,23 @@ import {
 /**
  * Includes developer and framework-owned fields in top-level index declarations.
  */
+type IndexableDeclaredFieldName<TFields extends object> =
+	string extends keyof TFields
+		? string
+		: {
+				[
+					TFieldName in keyof TFields & string
+				]: TFields[TFieldName] extends GenericField
+					? FieldInferenceStateOf<
+							TFields[TFieldName]
+						>['object'] extends 'forbidden'
+						? never
+						: TFieldName
+					: never
+			}[keyof TFields & string]
+
 export type SchemaFieldName<TFields extends object> =
-	Extract<keyof TFields, string> | ReservedSystemFieldName
+	IndexableDeclaredFieldName<TFields> | ReservedSystemFieldName
 
 /**
  * Requires schema-level indexes to combine at least two fields.
@@ -134,7 +153,9 @@ export const normalizeSchemaIndexes = (
 
 	const definitions: SchemaIndexDefinition[] = []
 	const knownFieldNames = new Set<string>([
-		...Object.keys(fields),
+		...Object.entries(fields)
+			.filter(([, field]) => field.kind !== 'relation')
+			.map(([fieldName]) => fieldName),
 		...reservedSystemFieldNames,
 	])
 

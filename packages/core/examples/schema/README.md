@@ -10,6 +10,8 @@ TypeScript snippets:
   and multidimensional lists;
 - [`pointers.md`](pointers.md) declares exact single-object references and
   immutable logical pointer values;
+- [`relations.md`](relations.md) declares owning and inverse to-many topology
+  without embedding collections in model records;
 - [`hooks.md`](hooks.md) colocates exact-value field behavior and cross-field
   schema behavior;
 - [`extensions.md`](extensions.md) declares opaque schema and field metadata

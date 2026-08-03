@@ -106,10 +106,30 @@ as every ordinary Query.
 `onDelete` defaults to `restrict`; `cascade` and nullable-only `setNull` are
 explicit alternatives. `indexed: "unique"` declares a one-to-one pointer.
 Pointer lists and defaults are rejected so relationship writes stay explicit;
-to-many collections belong to the later `relationField` contract. Physical
-foreign keys are implemented by database plugins. An adapter serving schemas
-with pointer fields must advertise the exported versioned
+to-many collections use `relationField` instead. Physical foreign keys are
+implemented by database plugins. An adapter serving schemas with pointer fields
+must advertise the exported versioned
 `databasePointerCapability`; setup fails before execution when it does not.
+
+`relationField({ target })` declares the owning side of a to-many relationship.
+An inverse names one exact pointer or owning relation on its target through
+`mappedBy`:
+
+```ts
+const UserSchema = Schema.define({
+	className: 'User',
+	fields: {
+		posts: relationField({ target: () => PostSchema, mappedBy: 'author' }),
+	},
+})
+```
+
+The example represents one-to-many storage through `PostSchema.author`. An
+owning relation plus one inverse relation represents many-to-many storage, while
+one-to-one remains `pointerField({ indexed: "unique" })`. Relation fields are
+root-level schema declarations and never appear in `InferObject`, create input,
+update input, validation values, or `toJSON()`. Query handles and physical
+relation storage are introduced by the following relation issues.
 
 Invalid, throwing, unregistered, and foreign targets fail before infrastructure
 connects with the source class and field path. The graph contains logical class
