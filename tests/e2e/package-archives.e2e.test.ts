@@ -185,7 +185,7 @@ describe('@ultimabase/core Schema and Query declarations', () => {
 	it('keeps immutable builder and contextual terminal hovers focused', () => {
 		const select = readFixtureQuickInfo("select('id', 'title')")
 		const find = readFixtureQuickInfo('find({ ultimabase })')
-		const deleteOne = readFixtureQuickInfo('deleteOne({ ultimabase })')
+		const deletion = readFixtureQuickInfo('delete({ ultimabase })')
 		const count = readFixtureQuickInfo('count({ ultimabase })')
 		const exists = readFixtureQuickInfo('exists({ ultimabase })')
 
@@ -196,8 +196,11 @@ describe('@ultimabase/core Schema and Query declarations', () => {
 		expect(find.display).toContain(
 			'.find(options?: QueryTerminalOptions): Promise<',
 		)
-		expect(deleteOne.display).toContain(
-			'.deleteOne(options?: QueryTerminalOptions): Promise<',
+		expect(deletion.display).toContain(
+			'.delete(options?: QueryTerminalOptions): Promise<',
+		)
+		expect(deletion.documentation).toContain(
+			'concise singular alias for `deleteOne`',
 		)
 		expect(count.display).toContain(
 			'.count(options?: QueryTerminalOptions): Promise<number>',
@@ -205,7 +208,7 @@ describe('@ultimabase/core Schema and Query declarations', () => {
 		expect(exists.display).toContain(
 			'.exists(options?: QueryTerminalOptions): Promise<boolean>',
 		)
-		for (const terminal of [find, deleteOne, count, exists]) {
+		for (const terminal of [find, deletion, count, exists]) {
 			expect(terminal.display).not.toContain('(this:')
 		}
 	})
@@ -222,9 +225,9 @@ describe('@ultimabase/core Schema and Query declarations', () => {
 	})
 
 	it('materializes update operator groups in editor hovers', () => {
-		const update = readFixtureQuickInfo('updateOne(\n')
+		const update = readFixtureQuickInfo('update(\n')
 		const inputDisplay = update.display.slice(
-			update.display.indexOf('.updateOne(input:'),
+			update.display.indexOf('.update(input:'),
 		)
 
 		// Developers should see usable operators instead of the complete field schema.
@@ -235,6 +238,9 @@ describe('@ultimabase/core Schema and Query declarations', () => {
 		expect(inputDisplay).not.toContain('UpdateExpressionInput<')
 		expect(inputDisplay).not.toContain('SchemaDefinition<')
 		expect(inputDisplay).not.toContain('NonDefaultedIntField<')
+		expect(update.documentation).toContain(
+			'concise singular alias for `updateOne`',
+		)
 	})
 })
 

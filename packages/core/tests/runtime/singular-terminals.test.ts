@@ -54,7 +54,9 @@ describe('singular Query terminals', () => {
 			{ status: 'fulfilled', value: createdOne },
 			{ status: 'fulfilled', value: createdAlias },
 			{ status: 'fulfilled', value: null },
+			{ status: 'fulfilled', value: null },
 			{ status: 'fulfilled', value: upserted },
+			{ status: 'fulfilled', value: null },
 			{ status: 'fulfilled', value: null },
 		]
 		const adapter = new RecordingDatabaseAdapter(results, [])
@@ -98,6 +100,9 @@ describe('singular Query terminals', () => {
 			await expect(
 				query.updateOne({ increment: { views: 1 } }),
 			).resolves.toBeNull()
+			await expect(
+				query.update({ increment: { views: 1 } }),
+			).resolves.toBeNull()
 			const upsertedResult = await articleSchema
 				.query()
 				.equalTo('title', 'Upserted')
@@ -109,6 +114,7 @@ describe('singular Query terminals', () => {
 			expect(upsertedResult).toBeInstanceOf(articleSchema)
 			expect(upsertedResult.toJSON()).toStrictEqual(upserted)
 			await expect(query.deleteOne()).resolves.toBeNull()
+			await expect(query.delete()).resolves.toBeNull()
 		})
 
 		const requests = [
@@ -119,7 +125,7 @@ describe('singular Query terminals', () => {
 		expect(
 			adapter.rootRequests.map(({ operation }) => operation.kind),
 		).toStrictEqual(['find', 'first', 'get', 'count', 'exists'])
-		expect(adapter.transactions).toHaveLength(5)
+		expect(adapter.transactions).toHaveLength(7)
 		expect(requests.map(({ operation }) => operation.kind)).toStrictEqual([
 			'find',
 			'first',
@@ -129,7 +135,9 @@ describe('singular Query terminals', () => {
 			'create-one',
 			'create-one',
 			'update-one',
+			'update-one',
 			'upsert-one',
+			'delete-one',
 			'delete-one',
 		])
 		expect(requests[0]?.operation).toMatchObject({
@@ -153,9 +161,15 @@ describe('singular Query terminals', () => {
 			},
 		})
 		expect(requests[8]?.operation).toMatchObject({
+			kind: 'update-one',
+		})
+		expect(requests[9]?.operation).toMatchObject({
 			kind: 'upsert-one',
 			target: { fields: ['title'] },
 		})
+		// Aliases delegate before normalization, so Runtime receives identical ASTs.
+		expect(requests[8]?.operation).toStrictEqual(requests[7]?.operation)
+		expect(requests[11]?.operation).toStrictEqual(requests[10]?.operation)
 		expect(
 			requests.every(
 				(requestEnvelope) =>

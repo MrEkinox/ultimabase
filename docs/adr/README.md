@@ -105,6 +105,7 @@ Accepted records:
 - [ADR-0107: HookContext capabilities and named events](0107-hook-context-capabilities-and-events.md)
 - [ADR-0108: Contextual Query terminal execution](0108-contextual-query-terminal-execution.md)
 - [ADR-0109: Constructible schema model classes](0109-constructible-schema-models.md)
+- [ADR-0110: Concise singular Query terminals](0110-concise-singular-query-terminals.md)
 
 Superseded records:
 

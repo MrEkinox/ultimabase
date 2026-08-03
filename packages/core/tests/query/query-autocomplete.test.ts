@@ -82,4 +82,54 @@ Post.query()./* hover */find()
 		expect(display).not.toContain('SchemaDefinition<')
 		expect(display.length).toBeLessThan(900)
 	})
+
+	it('suggests and documents concise singular mutation aliases', () => {
+		const marker = '/* completion */'
+		const sourceWithMarker = `
+import { Schema, stringField } from '../../src/index.js'
+const Post = Schema.define({ className: 'Post', fields: { title: stringField() } })
+Post.query().${marker}
+`
+		const position = sourceWithMarker.indexOf(marker)
+		const source = sourceWithMarker.replace(marker, ' '.repeat(marker.length))
+		const fileName = `${import.meta.dirname}/query-singular-aliases.fixture.ts`
+		const service = createLanguageService(fileName, source)
+		const completions = service.getCompletionsAtPosition(fileName, position, {})
+		const completionNames = new Set(
+			completions?.entries.map(({ name }) => name) ?? [],
+		)
+
+		expect(completionNames.has('update')).toBe(true)
+		expect(completionNames.has('delete')).toBe(true)
+
+		const update = readMarkedQuickInfo(
+			`${import.meta.dirname}/query-update-alias-hover.fixture.ts`,
+			`
+import { Schema, intField } from '../../src/index.js'
+const Post = Schema.define({ className: 'Post', fields: { views: intField() } })
+Post.query()./* hover */update({ increment: { views: 1 } })
+`,
+		)
+		const deletion = readMarkedQuickInfo(
+			`${import.meta.dirname}/query-delete-alias-hover.fixture.ts`,
+			`
+import { Schema, stringField } from '../../src/index.js'
+const Post = Schema.define({ className: 'Post', fields: { title: stringField() } })
+Post.query()./* hover */delete()
+`,
+		)
+
+		expect(readDisplay(update.displayParts)).toContain('update(input:')
+		expect(readDisplay(update.documentation)).toContain(
+			'concise singular alias for `updateOne`',
+		)
+		expect(update.tags?.some(({ name }) => name === 'example')).toBe(true)
+		expect(readDisplay(deletion.displayParts)).toContain(
+			'delete(options?: QueryTerminalOptions)',
+		)
+		expect(readDisplay(deletion.documentation)).toContain(
+			'concise singular alias for `deleteOne`',
+		)
+		expect(deletion.tags?.some(({ name }) => name === 'example')).toBe(true)
+	})
 })

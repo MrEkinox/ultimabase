@@ -41,7 +41,7 @@ composable with every other filter and terminal:
 const updated = await postSchema
 	.query()
 	.byId(created.id)
-	.updateOne({ set: { title: 'Updated' } }, { ultimabase })
+	.update({ set: { title: 'Updated' } }, { ultimabase })
 ```
 
 `byId(id)` is the typed equivalent of `equalTo('id', id)`. It returns a new
@@ -123,14 +123,20 @@ declarations, so editor hovers show only selected properties instead of an
 expanded schema or `Pick` helper. Update terminal hovers similarly materialize
 legal `set`, `unset`, `increment`, and `decrement` groups.
 
-The implemented terminals are `find`, `first`, `get`, `count`, `exists`,
-`createOne`/`create`, `createMany`, `updateOne`, `updateMany`,
-`upsertOne`/`upsert`, `upsertMany`, `deleteOne`, and `deleteMany`. The
+The concise singular terminals are `create`, `update`, `upsert`, and `delete`;
+their explicit `*One` counterparts remain available. Collection and set-based
+operations always keep the explicit `createMany`, `updateMany`, `upsertMany`,
+and `deleteMany` names because their inputs, results, and database behavior
+differ. No singular method accepts an array or changes cardinality through an
+overload.
+
+The complete terminal surface also includes `find`, `first`, `get`, `count`,
+and `exists`. The
 zero-argument `exists()` terminal coexists with the Parse-inspired
-`exists(fieldName)` filter. `first`, `get`, `updateOne`, and `deleteOne` return
-`null` when no object matches. Bulk update and delete return affected-object
-counts. Create and upsert results retain input order; query-backed singular
-object results follow the accumulated selection exactly.
+`exists(fieldName)` filter. `first`, `get`, `update`/`updateOne`, and
+`delete`/`deleteOne` return `null` when no object matches. Bulk update and delete
+return affected-object counts. Create and upsert results retain input order;
+query-backed singular object results follow the accumulated selection exactly.
 
 ## Bulk writes and unique upserts
 

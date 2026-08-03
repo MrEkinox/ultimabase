@@ -43,7 +43,13 @@ test('preserves Query schema selection across every singular terminal', () => {
 	expectTypeOf(query.updateOne({ increment: { views: 1 } })).toEqualTypeOf<
 		Promise<InferQueryResult<typeof articleSchema, 'id' | 'title'> | null>
 	>()
+	expectTypeOf(query.update({ increment: { views: 1 } })).toEqualTypeOf<
+		Promise<InferQueryResult<typeof articleSchema, 'id' | 'title'> | null>
+	>()
 	expectTypeOf(query.deleteOne()).toEqualTypeOf<
+		Promise<InferQueryResult<typeof articleSchema, 'id' | 'title'> | null>
+	>()
+	expectTypeOf(query.delete()).toEqualTypeOf<
 		Promise<InferQueryResult<typeof articleSchema, 'id' | 'title'> | null>
 	>()
 	expectTypeOf(query.find({ ultimabase })).toEqualTypeOf<
@@ -81,6 +87,10 @@ test('preserves Query schema selection across every singular terminal', () => {
 	void query.find({ atomic: false })
 	// @ts-expect-error -- Mutation execution options follow the mutation input.
 	void query.create({ ultimabase }, { title: 'Created' })
+	// @ts-expect-error -- Singular update aliases never accept a collection input.
+	void query.update([{ increment: { views: 1 } }])
+	// @ts-expect-error -- Singular delete aliases accept only terminal options.
+	void query.delete([])
 	// @ts-expect-error -- Terminal ownership never becomes a Query builder option.
 	articleSchema.query({ ultimabase })
 })

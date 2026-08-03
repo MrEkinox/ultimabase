@@ -62,7 +62,7 @@ to enforce business invariants:
 ```ts
 const updated = await PostSchema.query()
 	.select('id')
-	.updateOne(
+	.update(
 		{ set: { title: 'Visible only to the hook outcome' } },
 		{ ultimabase },
 	)

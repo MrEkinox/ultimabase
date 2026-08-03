@@ -565,6 +565,21 @@ export class Query<
 		return this.#execute(operation, options)
 	}
 
+	/**
+	 * Provides the concise singular alias for `updateOne`.
+	 *
+	 * Collection updates remain explicit through `updateMany` because they return
+	 * an affected count rather than one selection-aware object.
+	 *
+	 * @example `await Post.query().byId(id).update({ set: { title: 'Updated' } })`
+	 */
+	update(
+		input: UpdateExpressionInput<TSchema> & {},
+		options?: QueryTerminalOptions,
+	): Promise<InferQueryResult<TSchema, TSelectedField> | null> {
+		return this.updateOne(input, options)
+	}
+
 	/** Updates every match and returns the affected count. */
 	updateMany(
 		input: UpdateExpressionInput<TSchema> & {},
@@ -644,6 +659,20 @@ export class Query<
 		> = immutableRecord({ kind: 'delete-one', query: this.ast })
 
 		return this.#execute(operation, options)
+	}
+
+	/**
+	 * Provides the concise singular alias for `deleteOne`.
+	 *
+	 * Collection deletion remains explicit through `deleteMany` because it is a
+	 * set-based operation returning an affected count.
+	 *
+	 * @example `await Post.query().byId(id).delete()`
+	 */
+	delete(
+		options?: QueryTerminalOptions,
+	): Promise<InferQueryResult<TSchema, TSelectedField> | null> {
+		return this.deleteOne(options)
 	}
 
 	/** Deletes every match without loading objects and returns its count. */

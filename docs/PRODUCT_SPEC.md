@@ -20,7 +20,7 @@ The first complete vertical includes:
 
 - primitive fields: string, integer/float number, boolean, date, enum, JSON, and array;
 - UUID v7 identifiers plus `createdAt` and `updatedAt`;
-- `createOne`, `createMany`, `find`, `first`, `get`, `count`, `exists`, `updateOne`, `updateMany`, `upsertOne`, `upsertMany`, `deleteOne`, and `deleteMany`;
+- `create`/`createOne`, `update`/`updateOne`, `upsert`/`upsertOne`, and `delete`/`deleteOne` for singular mutations, explicit `*Many` collection terminals, plus `find`, `first`, `get`, `count`, and `exists`;
 - immutable Query classes and cursor pagination;
 - PostgreSQL through Drizzle internally;
 - direct schema synchronization and an optional PostgreSQL migration plugin;

@@ -268,7 +268,7 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 			const updated = await PostSchema.query()
 				.equalTo('id', created.id)
 				.select('id', 'published', 'title', 'updatedAt', 'views')
-				.updateOne(
+				.update(
 					{
 						increment: { views: 2 },
 						set: { published: true, title: 'Persisted E2E' },
@@ -288,7 +288,7 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 			const deleted = await PostSchema.query()
 				.equalTo('id', created.id)
 				.select('id', 'title')
-				.deleteOne({ ultimabase })
+				.delete({ ultimabase })
 
 			expect(deleted).toBeInstanceOf(PostSchema)
 			expect(deleted?.toJSON()).toStrictEqual({

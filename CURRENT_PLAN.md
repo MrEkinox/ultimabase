@@ -3,7 +3,7 @@
 - Status: active
 - Started: 2026-08-01
 - Objective owner: `@ultimabase/core`, `@ultimabase/postgres`, `@ultimabase/testing`
-- Governing decisions: [ADR-0089](docs/adr/0089-native-schema-and-field-hooks.md), [ADR-0090](docs/adr/0090-permission-plugins-through-hooks.md), [ADR-0095](docs/adr/0095-consolidated-foundational-core.md), [ADR-0096](docs/adr/0096-native-hook-declaration-capabilities.md), [ADR-0099](docs/adr/0099-automatic-mutation-transactions.md), [ADR-0100](docs/adr/0100-prepared-mutation-outcomes.md), [ADR-0102](docs/adr/0102-policy-neutral-monotonic-enforcement.md), [ADR-0103](docs/adr/0103-versioned-adapter-constraint-compilers.md), [ADR-0104](docs/adr/0104-read-hook-execution-and-output-resolution.md), [ADR-0105](docs/adr/0105-transaction-hook-journal.md), [ADR-0106](docs/adr/0106-hook-execution-safety-and-diagnostics.md), [ADR-0107](docs/adr/0107-hook-context-capabilities-and-events.md), [ADR-0108](docs/adr/0108-contextual-query-terminal-execution.md), [ADR-0109](docs/adr/0109-constructible-schema-models.md)
+- Governing decisions: [ADR-0089](docs/adr/0089-native-schema-and-field-hooks.md), [ADR-0090](docs/adr/0090-permission-plugins-through-hooks.md), [ADR-0095](docs/adr/0095-consolidated-foundational-core.md), [ADR-0096](docs/adr/0096-native-hook-declaration-capabilities.md), [ADR-0099](docs/adr/0099-automatic-mutation-transactions.md), [ADR-0100](docs/adr/0100-prepared-mutation-outcomes.md), [ADR-0102](docs/adr/0102-policy-neutral-monotonic-enforcement.md), [ADR-0103](docs/adr/0103-versioned-adapter-constraint-compilers.md), [ADR-0104](docs/adr/0104-read-hook-execution-and-output-resolution.md), [ADR-0105](docs/adr/0105-transaction-hook-journal.md), [ADR-0106](docs/adr/0106-hook-execution-safety-and-diagnostics.md), [ADR-0107](docs/adr/0107-hook-context-capabilities-and-events.md), [ADR-0108](docs/adr/0108-contextual-query-terminal-execution.md), [ADR-0109](docs/adr/0109-constructible-schema-models.md), [ADR-0110](docs/adr/0110-concise-singular-query-terminals.md)
 - Previous completed objective: [Runtime-to-PostgreSQL E2E](docs/plans/completed/runtime-postgres-e2e.md)
 
 ## Objective
@@ -99,7 +99,7 @@ dependencies are incomplete.
 16. [x] [340 — Expose the native HookContext class](issues/300-query-runtime/340-hook-context-class.md)
 17. [x] [339 — Define constructible schema model classes](issues/300-query-runtime/339-constructible-schema-models.md)
 18. [x] [347 — Execute Query terminals through the current context](issues/300-query-runtime/347-contextual-query-terminals.md)
-19. [ ] [345 — Add concise singular terminal aliases](issues/300-query-runtime/345-singular-terminal-aliases.md)
+19. [x] [345 — Add concise singular terminal aliases](issues/300-query-runtime/345-singular-terminal-aliases.md)
 20. [ ] [348 — Add terminal-only Query authority options](issues/300-query-runtime/348-query-terminal-authority.md)
 21. [ ] [349 — Add immutable model persistence commands](issues/300-query-runtime/349-immutable-model-persistence.md)
 22. [ ] [334 — Define bulk hook and non-atomic grouping semantics](issues/300-query-runtime/334-bulk-hook-semantics.md)
@@ -130,13 +130,13 @@ the named Runtime stages and proven monotonic hook enforcement.
 
 ## Current issue
 
-[345 — Add concise singular terminal aliases](issues/300-query-runtime/345-singular-terminal-aliases.md)
+[348 — Add terminal-only Query authority options](issues/300-query-runtime/348-query-terminal-authority.md)
 
-Issue 347 has moved every terminal onto Query. Issue 345 now adds concise
-singular aliases, issue 348 adds authority options, and issue 349 finally
-exposes immutable instance persistence commands. Issue 339 has already
-established constructible schema classes, static Query access, typed drafts,
-and exact persisted result identity.
+Issues 347 and 345 have moved every terminal onto Query and completed the
+concise singular vocabulary. Issue 348 now adds authority options, and issue
+349 finally exposes immutable instance persistence commands. Issue 339 has
+already established constructible schema classes, static Query access, typed
+drafts, and exact persisted result identity.
 
 ## Progress log
 
@@ -161,7 +161,7 @@ without reconstructing repository history.
 - 340 — `done` — Runtime-owned HookContext now exposes exact revocable nested queries, immutable request and hook identity, capability checks, and named JSON events buffered on the outer transaction for ordered post-commit delivery.
 - 339 — `done` — Schema.define now produces the registered schema class, immutable typed drafts, fresh static Query branches, neutral infrastructure metadata, and exact selection-aware Runtime model results.
 - 347 — `done` — Every immutable Query now owns exact terminals that resolve the active request or an explicit UltimaBase instance while preserving hook transaction safety and application isolation.
-- 345 — `planned` — Concise singular aliases complete the terminal vocabulary directly on the consolidated Query API.
+- 345 — `done` — Query now exposes selection-aware `update()` and `delete()` aliases while retaining explicit `*One` and unambiguous `*Many` methods under ADR-0110.
 - 348 — `planned` — Terminal-only session and master options will give trusted backend code explicit authority without exposing it to transports.
 - 349 — `planned` — Immutable model commands will delegate create, upsert, update, and delete through the same contextual Query pipeline.
 - 334 — `planned` — Bulk hook grouping and partial-success semantics build on the complete transaction and HookContext lifecycle.
