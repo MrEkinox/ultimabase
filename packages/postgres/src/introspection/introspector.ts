@@ -43,6 +43,7 @@ WHERE namespace.nspname = $1
 ORDER BY table_class.relname, attribute.attnum
 `
 
+// `pg` does not parse PostgreSQL's `name[]` type, so catalog names must become `text[]`.
 const indexesQuery = `
 SELECT
   table_class.relname AS table_name,
@@ -55,7 +56,7 @@ SELECT
   pg_get_expr(index_metadata.indexprs, index_metadata.indrelid) AS expressions,
   index_metadata.indnatts > index_metadata.indnkeyatts AS has_included_columns,
   ARRAY(
-    SELECT attribute.attname
+    SELECT attribute.attname::text
     FROM unnest(index_metadata.indkey) WITH ORDINALITY AS key(attnum, position)
     JOIN pg_catalog.pg_attribute AS attribute
       ON attribute.attrelid = table_class.oid
@@ -83,7 +84,7 @@ SELECT
   constraint_metadata.contype AS constraint_kind,
   pg_get_constraintdef(constraint_metadata.oid, true) AS definition,
   ARRAY(
-    SELECT attribute.attname
+    SELECT attribute.attname::text
     FROM unnest(constraint_metadata.conkey) WITH ORDINALITY AS key(attnum, position)
     JOIN pg_catalog.pg_attribute AS attribute
       ON attribute.attrelid = table_class.oid

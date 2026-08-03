@@ -15,6 +15,8 @@ interface CatalogFixtures {
 
 /** Supplies deterministic catalog rows without coupling unit tests to Docker. */
 class FixtureCatalogPool implements PostgresPool {
+	readonly queries: string[] = []
+
 	constructor(private readonly fixtures: CatalogFixtures) {}
 
 	connect(): Promise<PostgresPoolClient> {
@@ -31,6 +33,8 @@ class FixtureCatalogPool implements PostgresPool {
 	}
 
 	query(queryText: string): Promise<PostgresQueryResult> {
+		this.queries.push(queryText)
+
 		const rows = queryText.includes('pg_catalog.pg_index')
 			? this.fixtures.indexes
 			: queryText.includes('pg_catalog.pg_constraint')
@@ -152,11 +156,10 @@ const fixtures: CatalogFixtures = {
 
 describe('PostgreSQL catalog introspection', () => {
 	it('normalizes managed and unrelated structures deterministically', async () => {
-		const snapshot = await introspectPostgresDatabase(
-			new FixtureCatalogPool(fixtures),
-			'public',
-			['articles'],
-		)
+		const pool = new FixtureCatalogPool(fixtures)
+		const snapshot = await introspectPostgresDatabase(pool, 'public', [
+			'articles',
+		])
 
 		expect(snapshot.namespace).toBe('public')
 		expect(
@@ -236,6 +239,17 @@ describe('PostgreSQL catalog introspection', () => {
 		])
 		expect(Object.isFrozen(snapshot)).toBe(true)
 		expect(Object.isFrozen(snapshot.tables)).toBe(true)
+
+		// Catalog names must be text arrays so `pg` returns string arrays instead of literals.
+		const collectionQueries = pool.queries.filter((query) =>
+			query.includes(') AS columns'),
+		)
+		expect(collectionQueries).toHaveLength(2)
+		expect(
+			collectionQueries.every((query) =>
+				query.includes('SELECT attribute.attname::text'),
+			),
+		).toBe(true)
 	})
 
 	it('rejects malformed driver results at the unknown boundary', async () => {
