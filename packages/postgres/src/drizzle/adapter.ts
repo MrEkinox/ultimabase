@@ -9,6 +9,7 @@ import type {
 	DatabaseTransactionAdapter,
 	PreparedDatabaseOperation,
 } from '@ultimabase/core'
+import { and, type SQL } from 'drizzle-orm'
 import {
 	immutableArray,
 	immutableRecord,
@@ -37,6 +38,7 @@ import {
 	type PostgresItemRecovery,
 } from './item-recovery.js'
 import { createPostgresTransactionError } from './transaction-error.js'
+import { compilePostgresRowFilter } from '../query/filter-compiler.js'
 
 const postgresObjectIdentities = new WeakMap<object, unknown>()
 
@@ -167,10 +169,10 @@ const readOperationSchema = (operation: DatabaseOperationAst): unknown => {
 /** Prevents a row predicate from being silently ignored by an INSERT path. */
 const assertConstraintOperationSupported = (
 	operation: DatabaseOperationAst,
-	constraintCount: number,
+	hasRowRestriction: boolean,
 ): void => {
 	if (
-		constraintCount > 0 &&
+		hasRowRestriction &&
 		(operation.kind === 'create-one' || operation.kind === 'create-many')
 	) {
 		throw new FrameworkError(
@@ -185,6 +187,25 @@ const assertConstraintOperationSupported = (
 			},
 		)
 	}
+}
+
+/** Combines policy-neutral constraints and native Access without exposing either to Query hooks. */
+const compilePostgresRequestConstraint = (
+	constraintCompilers: PostgresConstraintCompilerRegistry,
+	schema: ReturnType<PostgresSchemaCatalog['get']>,
+	request: DatabaseOperationRequest,
+): SQL | undefined => {
+	const contributed = compilePostgresConstraints(
+		constraintCompilers,
+		schema,
+		request.constraints,
+	)
+	const access =
+		request.rowFilter === undefined
+			? undefined
+			: compilePostgresRowFilter(request.rowFilter, schema)
+
+	return and(contributed, access)
 }
 
 /** Prevents structural pool cleanup failures from replacing a known SQL outcome. */
@@ -210,14 +231,14 @@ const executePostgresRequest = async <
 	request: DatabaseOperationRequest<TOperation>,
 ): Promise<DatabaseOperationResult<TOperation>> => {
 	const schema = schemas.get(readOperationSchema(request.operation))
-	const constraintPredicate = compilePostgresConstraints(
+	const constraintPredicate = compilePostgresRequestConstraint(
 		constraintCompilers,
 		schema,
-		request.constraints,
+		request,
 	)
 	assertConstraintOperationSupported(
 		request.operation,
-		request.constraints.length,
+		request.constraints.length > 0 || request.rowFilter !== undefined,
 	)
 	// Runtime guarantees the closed Operation AST union before the adapter boundary.
 	const operation = request.operation as unknown as ExecutableOperationAst
@@ -305,14 +326,14 @@ class DrizzlePostgresTransactionAdapter implements DatabaseTransactionAdapter {
 	): Promise<PreparedDatabaseOperation<TOperation>> {
 		this.#assertActive()
 		const schema = this.#schemas.get(readOperationSchema(request.operation))
-		const constraintPredicate = compilePostgresConstraints(
+		const constraintPredicate = compilePostgresRequestConstraint(
 			this.#constraintCompilers,
 			schema,
-			request.constraints,
+			request,
 		)
 		assertConstraintOperationSupported(
 			request.operation,
-			request.constraints.length,
+			request.constraints.length > 0 || request.rowFilter !== undefined,
 		)
 
 		return preparePostgresMutation(

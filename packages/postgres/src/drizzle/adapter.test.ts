@@ -374,6 +374,12 @@ describe('internal PostgreSQL database adapter', () => {
 			kind: 'find',
 			query: new Query(articleSchema).greaterThan('views', 10).ast,
 		} satisfies FindOperationAst<typeof articleSchema>
+		const rowFilter = new Query(articleSchema).equalTo('note', 'Access-visible')
+			.ast.where?.expression
+
+		if (rowFilter === undefined) {
+			throw new TypeError('Access row-filter fixture requires an expression')
+		}
 
 		driver.respond([])
 		await adapter.execute({
@@ -384,13 +390,19 @@ describe('internal PostgreSQL database adapter', () => {
 				databaseConstraint('fixture.visibility', 1, 'Visible'),
 			],
 			operation,
+			rowFilter,
 		})
 
 		const call = driver.calls[0]
 
-		expect(call?.params).toStrictEqual([10, injectedTenant, 'Visible'])
+		expect(call?.params).toStrictEqual([
+			10,
+			injectedTenant,
+			'Visible',
+			'Access-visible',
+		])
 		expect(call?.text).toMatch(
-			/where \("articles"\."views" > \$1 and \("articles"\."note" = \$2 and "articles"\."title" = \$3\)\)/u,
+			/where \("articles"\."views" > \$1 and \(\("articles"\."note" = \$2 and "articles"\."title" = \$3\) and "articles"\."note" = \$4\)\)/u,
 		)
 		expect(call?.text).not.toContain(injectedTenant)
 	})
@@ -593,6 +605,30 @@ describe('internal PostgreSQL database adapter', () => {
 					kind: 'create-one',
 					schema: query.schema,
 				},
+			}),
+		).rejects.toMatchObject({
+			code: 'INTERNAL_ERROR',
+			internalDetails: {
+				kind: 'postgres-constraint-operation-unsupported',
+				operation: 'create-one',
+			},
+		})
+		const rowFilter = new Query(articleSchema).equalTo('title', 'visible').ast
+			.where?.expression
+
+		if (rowFilter === undefined) {
+			throw new TypeError('Create row-filter fixture requires an expression')
+		}
+
+		await expect(
+			adapter.execute({
+				constraints: [],
+				operation: {
+					input: { title: 'Never inserted by Access' },
+					kind: 'create-one',
+					schema: query.schema,
+				},
+				rowFilter,
 			}),
 		).rejects.toMatchObject({
 			code: 'INTERNAL_ERROR',

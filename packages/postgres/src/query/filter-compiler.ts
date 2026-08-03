@@ -1,4 +1,5 @@
 import type {
+	DatabaseRowFilterNode,
 	QueryComparisonFilterNode,
 	QueryEqualityFilterNode,
 	QueryExistenceFilterNode,
@@ -226,3 +227,9 @@ export const compilePostgresFilter = <TSchema extends SchemaDefinition>(
 	filter: QueryFilterNode<TSchema>,
 	schema: CompiledPostgresSchema,
 ): SQL => compileRuntimeFilter(filter, schema)
+
+/** Compiles Runtime's schema-erased private predicate through the same safe visitor. */
+export const compilePostgresRowFilter = (
+	filter: DatabaseRowFilterNode,
+	schema: CompiledPostgresSchema,
+): SQL => compileRuntimeFilter(filter as RuntimeFilter, schema)

@@ -640,10 +640,10 @@ const computeStaticSelection = (
 	request: RuntimeOperationStageInput<DatabaseOperationAst>,
 	plan: AccessPlan,
 	schemaPlan: SchemaAccessPlan,
-): readonly string[] =>
-	immutableArray(
-		schemaPlan.fields
-			.filter((field) => field.path.length === 1)
+): readonly string[] | undefined => {
+	const topLevel = schemaPlan.fields.filter((field) => field.path.length === 1)
+	const permitted = immutableArray(
+		topLevel
 			.filter((field) => {
 				const effective = getEffectiveRules(field.read.item, request.context)
 
@@ -657,12 +657,20 @@ const computeStaticSelection = (
 			.filter((field): field is string => field !== undefined),
 	)
 
+	// Leaving select-all implicit preserves optional-field semantics when no rule narrows it.
+	return permitted.length === topLevel.length ? undefined : permitted
+}
+
 const assertExplicitSelection = (
 	request: RuntimeOperationStageInput<DatabaseOperationAst>,
 	plan: AccessPlan,
 	schemaPlan: SchemaAccessPlan,
-	permitted: readonly string[],
+	permitted: readonly string[] | undefined,
 ): void => {
+	if (permitted === undefined) {
+		return
+	}
+
 	const operation = request.operation as unknown as ExecutableOperationAst
 
 	for (const query of readOperationQueries(operation)) {
@@ -892,7 +900,9 @@ export class NativeAccessRuntime {
 
 		const permitted = computeStaticSelection(request, this.#plan, schemaPlan)
 		assertExplicitSelection(request, this.#plan, schemaPlan, permitted)
-		next = narrowEnforcementFields(next, 'selection', permitted)
+		if (permitted !== undefined) {
+			next = narrowEnforcementFields(next, 'selection', permitted)
+		}
 
 		return next
 	}

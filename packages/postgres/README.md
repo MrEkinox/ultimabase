@@ -89,7 +89,12 @@ fields. Core uses that protected identity for immutable model `update` and
 `delete` commands without exposing it through hooks, properties, `get()`, or
 `toJSON()`.
 
-Every adapter request carries Core's policy-neutral `constraints` array.
+Every adapter request carries Core's policy-neutral `constraints` array and an
+optional framework-owned `rowFilter`. The latter contains native Access
+restrictions outside the developer Query, so business hooks cannot inspect or
+remove it. PostgreSQL compiles both channels and the developer predicate into
+one parameterized `AND` expression.
+
 Adapter integration plugins register exact kind-and-version compilers during
 application setup. PostgreSQL combines every resulting predicate with the
 developer query using parameterized logical `AND`:
