@@ -2,6 +2,7 @@ import {
 	Schema,
 	SchemaRegistry,
 	type SchemaDefinition,
+	type SchemaTargetGraph,
 } from '../schema/index.js'
 import {
 	immutableRecord,
@@ -211,6 +212,11 @@ export class FrameworkApplication<
 		return this.#lifecycle.state
 	}
 
+	/** Reads the immutable application-local relationship graph after setup. */
+	get schemaTargets(): SchemaTargetGraph {
+		return this.schemas.schemaTargets
+	}
+
 	/** Checks exact schema identity so Runtime engines cannot cross applications. */
 	ownsSchema(schema: unknown): schema is TSchemas[number] {
 		if (!Schema.is(schema)) {
@@ -301,6 +307,7 @@ export class FrameworkApplication<
 	async #performInitialize(): Promise<this> {
 		try {
 			await this.#lifecycle.setup()
+			this.schemas.resolveSchemaTargets()
 			validateExtensionHandlers(
 				this.schemas.values(),
 				this.#setupRegistries.extensions,

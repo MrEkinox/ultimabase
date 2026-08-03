@@ -310,6 +310,13 @@ export type {
 	SchemaIndexOptions,
 } from './schema/indexes.js'
 export { DuplicateSchemaError, SchemaRegistry } from './schema/registry.js'
+export { SchemaTargetResolutionError } from './schema/targets.js'
+export type {
+	ResolvedSchemaTarget,
+	SchemaTarget,
+	SchemaTargetGraph,
+	SchemaTargetResolutionReason,
+} from './schema/targets.js'
 export { stringField } from './fields/builtins/string.js'
 export type {
 	StringField,

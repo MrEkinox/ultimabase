@@ -86,6 +86,45 @@ objects that only imitate the public metadata shape.
 Field definitions carry private factory provenance, so a structurally similar
 object cannot bypass validation or provide a forged snapshot capability.
 
+## Lazy relationship targets
+
+`SchemaTarget<TSchema>` represents the zero-argument callback later consumed by
+`pointerField` and `relationField`. The callback keeps the exact target class in
+TypeScript while deferring its value until every application schema declaration
+is available:
+
+```ts
+const targetUser: SchemaTarget<typeof UserSchema> = () => UserSchema
+```
+
+An application resolves field-owned callbacks after plugin setup and before
+infrastructure lifecycle phases. This ordering permits a plugin to register a
+schema during setup and supports circular module declarations without a global
+registry. The resulting `SchemaTargetGraph` is immutable and application-local.
+It identifies an edge by exact source class identity and structural field path.
+
+```ts
+const application = await createApplication({
+	schemas: [UserSchema, PostSchema],
+	plugins: [],
+})
+
+application.schemaTargets.get(PostSchema, ['author'])
+```
+
+The field factories that populate this graph are intentionally deferred to
+issues 702 and 741. Application developers never call
+`SchemaRegistry.resolveSchemaTargets()` during normal UltimaBase setup; the
+framework owns that lifecycle. Adapter and framework plugin authors may read
+the completed graph through the application or the captured schema registry
+after setup. Target callbacks must be pure declarations and are invoked once
+per application graph.
+
+Resolution rejects callbacks that throw or return a non-schema, unregistered,
+or foreign schema identity. Duplicate class names remain the registry's
+existing ambiguous-ownership error. Every target error includes the logical
+source class and field path without exposing physical storage names.
+
 ## Drafts, static queries, and persisted models
 
 The generated class is constructible and starts fresh immutable Query branches:

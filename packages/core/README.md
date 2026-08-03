@@ -34,6 +34,37 @@ Detailed guides remain focused by domain:
 - [request authority](docs/access.md);
 - [Runtime, engines, transactions, and hooks](docs/runtime.md).
 
+## Lazy relationship target foundation
+
+Core resolves relationship targets only after declaration-only plugin setup has
+finished. A plugin may therefore register a schema during setup, while a lazy
+callback can safely reference a class declared later in the module. Resolution
+then closes schema registration and produces one immutable graph owned by the
+application:
+
+```ts
+const application = await createApplication({
+	schemas: [UserSchema, PostSchema],
+	plugins: [],
+})
+
+application.schemaTargets.values()
+```
+
+`SchemaTarget<TSchema>` is the public callback type retained by future
+relationship fields. It preserves the exact target class without invoking it:
+
+```ts
+const userTarget: SchemaTarget<typeof UserSchema> = () => UserSchema
+```
+
+Issue 701 implements only this resolution boundary. `pointerField` and
+`relationField` are introduced by later issues; developers do not register
+target callbacks separately. Invalid, throwing, unregistered, and foreign
+targets fail before infrastructure connects with the source class and field
+path. The graph contains logical class identities only and no PostgreSQL,
+REST, or GraphQL metadata.
+
 ## Plugin-owned request identity
 
 Core has no User schema, session resolver, or authenticated-user authority

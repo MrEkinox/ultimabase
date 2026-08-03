@@ -7,7 +7,9 @@ static schemas
       ↓
 SchemaRegistry
       ↓
-typed extensions + plugin graph
+typed extensions + plugin declaration setup
+      ↓
+application-local relationship target graph
       ↓
 Query / Operation AST
       ↓
@@ -78,6 +80,20 @@ Plugins may also contribute new logical field kinds. Structural validation
 plans retain the original immutable field definition by identity; the owning
 plugin claims its namespaced kind and contributes validation and adapter
 behavior without a second plugin-only plan representation.
+
+## Relationship targets
+
+Relationship fields retain zero-argument lazy schema callbacks as private field
+capabilities rather than physical metadata. Declaration-only plugin setup may
+register additional schemas. Core then resolves every callback by exact class
+identity, freezes one application-local logical graph, and closes further
+schema registration before `connect` or another infrastructure phase.
+
+The graph stores only source schema identity, structural field path, and target
+schema identity. It contains no foreign-key column, join-table name, transport
+shape, or execution state. Database plugins consume this same graph when they
+later compile physical relationships, while transports remain downstream
+consumers of Core Query and Runtime contracts.
 
 ## Plugins
 

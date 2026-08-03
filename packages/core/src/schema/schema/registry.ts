@@ -1,6 +1,7 @@
 import { immutableArray } from '@ultimabase/shared'
 
 import { Schema, type SchemaDefinition } from './definition.js'
+import { compileSchemaTargetGraph, type SchemaTargetGraph } from './targets.js'
 
 type SchemaMatchingClassName<
 	TSchemas extends readonly SchemaDefinition[],
@@ -39,6 +40,7 @@ export class SchemaRegistry<
 	const TSchemas extends readonly SchemaDefinition[] = readonly [],
 > {
 	readonly #schemasByClassName = new Map<string, SchemaDefinition>()
+	#schemaTargets: SchemaTargetGraph | undefined
 
 	constructor(schemas?: TSchemas) {
 		for (const schema of schemas ?? []) {
@@ -57,6 +59,12 @@ export class SchemaRegistry<
 	 * Registers one schema and rejects ambiguous class-name ownership.
 	 */
 	register(schema: SchemaDefinition): void {
+		if (this.#schemaTargets !== undefined) {
+			throw new TypeError(
+				'Cannot register schemas after relationship targets are resolved',
+			)
+		}
+
 		if (!Schema.is(schema)) {
 			throw new TypeError('schema must be a class created by Schema.define')
 		}
@@ -91,5 +99,21 @@ export class SchemaRegistry<
 	 */
 	values(): readonly SchemaDefinition[] {
 		return immutableArray([...this.#schemasByClassName.values()])
+	}
+
+	/** Resolves every lazy relationship target and closes schema registration. */
+	resolveSchemaTargets(): SchemaTargetGraph {
+		this.#schemaTargets ??= compileSchemaTargetGraph(this)
+
+		return this.#schemaTargets
+	}
+
+	/** Reads the immutable target graph after application declaration setup. */
+	get schemaTargets(): SchemaTargetGraph {
+		if (this.#schemaTargets === undefined) {
+			throw new TypeError('Schema targets have not been resolved')
+		}
+
+		return this.#schemaTargets
 	}
 }

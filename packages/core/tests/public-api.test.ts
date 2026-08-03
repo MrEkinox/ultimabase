@@ -27,6 +27,7 @@ describe('@ultimabase/core public entry point', () => {
 			'RuntimePipeline',
 			'Schema',
 			'SchemaRegistry',
+			'SchemaTargetResolutionError',
 			'ServiceRegistry',
 			'UltimaBase',
 			'accessModes',

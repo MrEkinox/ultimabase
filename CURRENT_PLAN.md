@@ -112,7 +112,7 @@ incomplete.
 
 ### Phase 1 — Relationship identity
 
-1. [ ] [701 — Resolve lazy relationship schema targets](issues/700-extensions/701-lazy-relationship-targets.md)
+1. [x] [701 — Resolve lazy relationship schema targets](issues/700-extensions/701-lazy-relationship-targets.md)
 2. [ ] [702 — Add pointer fields and immutable Pointer values](issues/700-extensions/702-pointer-field.md)
 
 ### Phase 2 — Complete pointer vertical
@@ -151,8 +151,8 @@ When resuming after context loss:
 
 ## Current issue
 
-[701 — Resolve lazy relationship schema targets](issues/700-extensions/701-lazy-relationship-targets.md) is `ready`.
+[702 — Add pointer fields and immutable Pointer values](issues/700-extensions/702-pointer-field.md) is `ready`.
 
 ## Progress log
 
-- No relation issue is implemented yet.
+- 701 established lazy, application-local schema target resolution before plugin infrastructure starts.

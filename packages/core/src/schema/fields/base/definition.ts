@@ -10,6 +10,7 @@ import { getFieldListDepth, snapshotListedFieldValue } from './options.js'
 import type { FieldScalarValue, GenericField } from './contract.js'
 import type { FieldHookDeclarations } from '../../hooks/field-declarations.js'
 import type { FieldAccessDeclarations } from '../../access/field-declarations.js'
+import type { SchemaTarget } from '../../schema/targets.js'
 
 export type ScalarValueSnapshot = (value: unknown, path: string) => unknown
 
@@ -21,7 +22,13 @@ interface FieldMetadata<TKind extends string, TOptions extends object> {
 interface FieldCapabilities {
 	readonly access: FieldAccessDeclarations | undefined
 	readonly hooks: FieldHookDeclarations | undefined
+	readonly schemaTarget: SchemaTarget | undefined
 	readonly snapshotValue: ScalarValueSnapshot
+}
+
+/** Carries non-metadata capabilities used only by specialized field factories. */
+export interface FieldDefinitionCapabilities {
+	readonly schemaTarget?: SchemaTarget
 }
 
 // Weak ownership proves factory provenance without retaining application schemas.
@@ -39,12 +46,18 @@ export const createFieldDefinition = <
 	snapshotValue: ScalarValueSnapshot,
 	hooks?: FieldHookDeclarations,
 	access?: FieldAccessDeclarations,
+	capabilities: FieldDefinitionCapabilities = {},
 ): FieldMetadata<TKind, TOptions> => {
 	const field = immutableRecord({ kind, options })
 
 	fieldCapabilities.set(
 		field,
-		immutableRecord({ access, hooks, snapshotValue }),
+		immutableRecord({
+			access,
+			hooks,
+			schemaTarget: capabilities.schemaTarget,
+			snapshotValue,
+		}),
 	)
 
 	return field
@@ -59,6 +72,11 @@ export const getFieldHookDeclarations = (
 export const getFieldAccessDeclarations = (
 	field: GenericField,
 ): FieldAccessDeclarations | undefined => fieldCapabilities.get(field)?.access
+
+/** Resolves one lazy schema target without placing its callback in field metadata. */
+export const getFieldSchemaTarget = (
+	field: GenericField,
+): SchemaTarget | undefined => fieldCapabilities.get(field)?.schemaTarget
 
 /** Distinguishes official factories from structurally forged field objects. */
 export const isDeclaredFieldDefinition = (value: object): boolean =>

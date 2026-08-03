@@ -1,6 +1,6 @@
 # 702: Add pointer fields and immutable Pointer values
 
-- Status: planned
+- Status: ready
 - Milestone: 7+
 - Packages: `@ultimabase/core`
 - Depends on: 701
