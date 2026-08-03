@@ -166,6 +166,33 @@ persistence failure, and leave the successful prefix available to the outer
 Runtime transaction. A hook or finalization failure can still roll that prefix
 back before commit.
 
+### Native hook transactions
+
+Native schema, inline field, and plugin-contributed hooks use the same borrowed
+PostgreSQL client as the primary mutation. A hook may therefore start another
+typed query without receiving a pool, Drizzle client, or explicit transaction:
+
+```ts
+hooks: {
+	beforeCreate: async ({ operation }) => {
+		if (operation.kind === 'create-one') {
+			await AuditSchema.query().create({
+				action: `create:${operation.input.title}`,
+			})
+		}
+
+		return operation
+	},
+}
+```
+
+If a later business or finalization hook fails, PostgreSQL rolls back the audit
+row and primary row together. Field and schema `afterCommit` hooks plus named
+events are released only after a successful outer commit. The Docker-backed
+public-package E2E suite verifies this behavior alongside plugin ordering,
+opaque scope constraints, read restrictions, output resolution, and set-based bulk
+semantics.
+
 ## CRUD, bulk, and upsert execution
 
 After `ultimabase.start()` prepares the static schemas, a direct query can

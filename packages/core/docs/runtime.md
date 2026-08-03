@@ -361,6 +361,31 @@ the transaction state still permits it. `beforeCommit` and `afterCommit` may
 queue named events before post-commit delivery begins; rollback and error
 observers cannot queue work for a transaction that will not commit.
 
+The official PostgreSQL adapter verifies this lifecycle through the same public
+API. A mutation started from `beforeCreate` reuses the primary transaction, so
+an `afterCreate` or `beforeCommit` failure rolls back both writes. Successful
+`afterCommit` handlers and named-event consumers run once only after PostgreSQL
+confirms the outer commit:
+
+```ts
+const ArticleSchema = Schema.define({
+	className: 'Article',
+	fields: { title: stringField({ validation: { required: true } }) },
+	hooks: {
+		beforeCreate: async ({ context, operation }) => {
+			if (operation.kind === 'create-one') {
+				await AuditSchema.query().create({ action: 'article.create' })
+				context.emit('article.created', { title: operation.input.title })
+			}
+
+			return operation
+		},
+	},
+})
+```
+
+No database handle or explicit transaction is passed through hook code.
+
 ## Structural validation
 
 `createRuntimeValidationStage()` executes Schema's create and update plans in

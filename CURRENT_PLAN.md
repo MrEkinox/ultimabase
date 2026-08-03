@@ -102,7 +102,7 @@ dependencies are incomplete.
 19. [x] [345 — Add concise singular terminal aliases](issues/300-query-runtime/345-singular-terminal-aliases.md)
 20. [x] [334 — Define bulk hook and non-atomic grouping semantics](issues/300-query-runtime/334-bulk-hook-semantics.md)
 21. [x] [508 — Implement PostgreSQL bulk and upsert execution](issues/500-postgres/508-transactions-bulk-upsert.md)
-22. [ ] [335 — Verify native hooks against PostgreSQL](issues/300-query-runtime/335-native-hooks-postgres-e2e.md)
+22. [x] [335 — Verify native hooks against PostgreSQL](issues/300-query-runtime/335-native-hooks-postgres-e2e.md)
 23. [ ] [348 — Add terminal-only Query authority options](issues/300-query-runtime/348-query-terminal-authority.md)
 24. [ ] [349 — Add immutable model persistence commands](issues/300-query-runtime/349-immutable-model-persistence.md)
 
@@ -130,11 +130,11 @@ the named Runtime stages and proven monotonic hook enforcement.
 
 ## Current issue
 
-[335 — Verify native hooks against PostgreSQL](issues/300-query-runtime/335-native-hooks-postgres-e2e.md)
+[348 — Add terminal-only Query authority options](issues/300-query-runtime/348-query-terminal-authority.md)
 
-Issue 508 now implements the complete PostgreSQL bulk, upsert, and savepoint
-contract. Issue 335 proves the complete native hook lifecycle against those live
-adapter outcomes before authority options and immutable model commands resume.
+Issue 335 now proves the complete native hook lifecycle against live PostgreSQL
+adapter outcomes. Issue 348 resumes the Query DX by adding trusted,
+terminal-only authority options before immutable model commands.
 
 ## Progress log
 
@@ -161,6 +161,7 @@ without reconstructing repository history.
 - 347 — `done` — Every immutable Query now owns exact terminals that resolve the active request or an explicit UltimaBase instance while preserving hook transaction safety and application isolation.
 - 345 — `done` — Query now exposes selection-aware `update()` and `delete()` aliases while retaining explicit `*One` and unambiguous `*Many` methods under ADR-0110.
 - 334 — `done` — Atomic collections remain all-or-nothing, non-atomic create/upsert now return an immutable completed-or-stopped prefix result, hooks retain one transaction and operation cycle, and set-based update/delete never load rows.
+- 335 — `done` — A public-export PostgreSQL E2E now proves schema, field, plugin, policy-neutral, transaction, finalization, read, and set-based bulk hook behavior against a worker-isolated live database.
 - 348 — `planned` — Terminal-only session and master options will give trusted backend code explicit authority without exposing it to transports.
 - 349 — `planned` — Immutable model commands will delegate create, upsert, update, and delete through the same contextual Query pipeline.
 - 508 — `done` — PostgreSQL now executes ordered create/upsert collections, set-based update/delete statements, exact upsert branches, and recoverable non-atomic prefixes through one prepared transaction adapter.
