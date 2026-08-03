@@ -1,12 +1,23 @@
 import { describe, expect, it } from 'vitest'
 
+import { Schema, booleanField } from '../../schema/index.js'
+import {
+	createAccessFilter,
+	getAccessFilterExpression,
+} from '../../schema/access/filter.js'
 import { databaseConstraint } from './definitions.js'
 import {
 	appendEnforcementConstraints,
+	appendEnforcementRowFilter,
 	createEnforcementState,
 	getEnforcementStateSnapshot,
 	narrowEnforcementFields,
 } from './state.js'
+
+const rowSchema = Schema.define({
+	className: 'EnforcementRows',
+	fields: { published: booleanField() },
+})
 
 describe('monotonic enforcement state', () => {
 	it('starts without neutral policy placeholders', () => {
@@ -17,6 +28,7 @@ describe('monotonic enforcement state', () => {
 			constraints: [],
 			inputFields: undefined,
 			outputFields: undefined,
+			rowFilter: undefined,
 			selectionFields: undefined,
 		})
 		expect(Object.isFrozen(state)).toBe(true)
@@ -67,6 +79,32 @@ describe('monotonic enforcement state', () => {
 			changed,
 			newVersion,
 		])
+	})
+
+	it('combines private row restrictions with AND without changing prior states', () => {
+		const published = getAccessFilterExpression(
+			rowSchema,
+			createAccessFilter(rowSchema).equalTo('published', true),
+		)
+		const hidden = getAccessFilterExpression(
+			rowSchema,
+			createAccessFilter(rowSchema).equalTo('published', false),
+		)
+
+		if (published === undefined || hidden === undefined) {
+			throw new TypeError('Fixture Access filters must contain expressions')
+		}
+
+		const empty = createEnforcementState()
+		const first = appendEnforcementRowFilter(empty, published)
+		const combined = appendEnforcementRowFilter(first, hidden)
+
+		expect(getEnforcementStateSnapshot(empty).rowFilter).toBeUndefined()
+		expect(getEnforcementStateSnapshot(first).rowFilter).toBe(published)
+		expect(getEnforcementStateSnapshot(combined).rowFilter).toMatchObject({
+			expressions: [published, hidden],
+			kind: 'and',
+		})
 	})
 
 	it('intersects each field boundary independently and never restores fields', () => {

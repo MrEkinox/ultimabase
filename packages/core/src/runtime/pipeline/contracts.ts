@@ -7,6 +7,7 @@ import type {
 } from '../../schema/hooks/contracts.js'
 import type {
 	DatabaseConstraintNode,
+	DatabaseRowFilterNode,
 	DatabaseMutationLogicalRecord,
 	DatabaseMutationMaterializationSource,
 	DatabaseMutationOperationAst,
@@ -43,6 +44,8 @@ export interface RuntimeEnforcementOperationResult<
 > {
 	readonly operation: TOperation
 	readonly constraints: readonly DatabaseConstraintNode[]
+	/** Keeps private row restrictions outside business-transformable operation state. */
+	readonly rowFilter?: DatabaseRowFilterNode
 }
 
 /** Supplies business after-hooks, commit, and events with the current result. */
@@ -104,6 +107,10 @@ export interface RuntimeEnforcementStages {
 	/** Applies retained selection restrictions before business output hooks run. */
 	readonly enforceSelectionResult: RuntimeEnforcementResultStage
 	readonly enforceResult: RuntimeEnforcementResultStage
+	/** Enforces item rules against a stable singular mutation target. */
+	readonly enforcePreparedMutation?: RuntimePreparedMutationEffectStage
+	/** Enforces the exact create or update branch materialized by a mutation. */
+	readonly enforceMutationOutcome?: RuntimeMutationOutcomeTransformStage
 }
 
 /** Transforms one adapter result while preserving operation result semantics. */

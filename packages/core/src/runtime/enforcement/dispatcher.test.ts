@@ -63,13 +63,15 @@ const requireEnforcementStages = (
 }
 
 describe('createEnforcementStages', () => {
-	it('returns no placeholder stages when no plugin contributes enforcement', async () => {
+	it('installs native Access even when no plugin contributes enforcement', async () => {
 		const application = await createApplication({
 			schemas: [articleSchema],
 			plugins: [],
 		})
 
-		expect(createEnforcementStages(application)).toBeUndefined()
+		const stages = createEnforcementStages(application)
+		expect(typeof stages?.evaluate).toBe('function')
+		expect(typeof stages?.enforceOperation).toBe('function')
 		await application.dispose()
 	})
 

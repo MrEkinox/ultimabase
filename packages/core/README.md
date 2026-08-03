@@ -244,10 +244,10 @@ schema metadata, validation plans, migrations, or inferred model values. An
 operation read may instead use one shared rule, and a field `read: false`
 denies item output, filtering, and ordering together. Every grouped form is
 complete so indirect disclosure cannot inherit an accidentally broader rule.
-An omitted rule does not create an implicit allow or deny callback: application
-Access defaults will be applied by the compiler. Issue 416 supplies the full
-immutable row-filter builder, and issues 417–419 compile and execute these
-declarations. Until then, declaring a rule does not enforce it at Runtime.
+An omitted rule does not create an implicit callback: the compiled application
+fallback decides operation and field access. Runtime executes every matching
+rule sequentially through the same cancellation, recursion, and diagnostic
+boundary as native hooks.
 
 An Access filter reuses the same typed field predicates as Query, but remains
 in private monotonic state. `beforeFind` can add application defaults such as
@@ -294,8 +294,12 @@ const ultimabase = new UltimaBase({
 })
 ```
 
-See [Core Access](docs/access.md) for plugin target examples and compilation
-semantics. Runtime begins evaluating the compiled rules in issue 418.
+At execution time, Access filters travel beside the operation in the private
+database request. Business hooks see only the developer Query, while adapters
+combine both predicates with logical `AND`. Singular mutation item checks run
+against the adapter's prepared target before the write; value-dependent field
+output is removed before business output hooks and checked again after their
+transformations. See [Core Access](docs/access.md) for the complete lifecycle.
 
 Neutral declaration helpers keep common policies explicit without creating
 Runtime behavior. A read-only schema can deny every mutation concisely:

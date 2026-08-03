@@ -10,6 +10,9 @@ import type {
 	DatabaseConstraintNode,
 	EnforcementFieldBoundary,
 } from './contracts.js'
+import type { DatabaseRowFilterNode } from '../database/contracts.js'
+import { normalizeLogicalFilter } from '../../query/filters/logical.js'
+import type { QueryExpressionNode } from '../../query/index.js'
 import { isDatabaseConstraintNode } from './definitions.js'
 
 declare const enforcementStateBrand: unique symbol
@@ -25,6 +28,7 @@ export interface EnforcementStateSnapshot {
 	readonly inputFields: readonly string[] | undefined
 	readonly outputFields: readonly string[] | undefined
 	readonly selectionFields: readonly string[] | undefined
+	readonly rowFilter: DatabaseRowFilterNode | undefined
 }
 
 const snapshots = new WeakMap<object, EnforcementStateSnapshot>()
@@ -56,8 +60,26 @@ export const createEnforcementState = (): EnforcementState =>
 			inputFields: emptyFields,
 			outputFields: emptyFields,
 			selectionFields: emptyFields,
+			rowFilter: undefined,
 		}),
 	)
+
+/** ANDs one private row restriction without granting any later widening operation. */
+export const appendEnforcementRowFilter = (
+	state: EnforcementState,
+	rowFilter: DatabaseRowFilterNode,
+): EnforcementState => {
+	const current = readSnapshot(state)
+	const combined =
+		current.rowFilter === undefined
+			? rowFilter
+			: normalizeLogicalFilter<QueryExpressionNode>({
+					kind: 'and',
+					expressions: [current.rowFilter, rowFilter],
+				})
+
+	return createState(immutableRecord({ ...current, rowFilter: combined }))
+}
 
 const normalizeConstraints = (
 	constraints: DatabaseConstraintNode | readonly DatabaseConstraintNode[],

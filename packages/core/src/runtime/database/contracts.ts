@@ -6,6 +6,7 @@ import type {
 	OperationAstNode,
 	OperationKind,
 	QueryFieldName,
+	QueryFilterExpression,
 	QuerySchemaNode,
 } from '../../query/index.js'
 import type { InferObject, SchemaDefinition } from '../../schema/index.js'
@@ -73,6 +74,9 @@ export interface DatabaseConstraintNode<
 	readonly payload: TPayload
 }
 
+/** Erases schema inference only after Runtime has validated one private row predicate. */
+export type DatabaseRowFilterNode = QueryFilterExpression
+
 /**
  * Keeps the normalized operation and accumulated constraints together so an
  * adapter never receives one without the other.
@@ -83,6 +87,11 @@ export interface DatabaseOperationRequest<
 > {
 	readonly constraints: readonly TConstraint[]
 	readonly operation: TOperation
+	/**
+	 * Carries framework-owned row restrictions outside the transformable Query AST.
+	 * Adapters must combine this predicate with the operation predicate using AND.
+	 */
+	readonly rowFilter?: DatabaseRowFilterNode
 }
 
 /** Represents the exact persisted projection returned after query selection. */

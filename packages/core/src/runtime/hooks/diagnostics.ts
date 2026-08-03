@@ -23,6 +23,12 @@ export type HookDiagnosticPhase =
 	| FieldHookPhase
 	| SchemaHookPhase
 	| 'after-operation'
+	| 'access-field-create'
+	| 'access-field-read'
+	| 'access-field-update'
+	| 'access-filter'
+	| 'access-item'
+	| 'access-operation'
 	| 'before-operation'
 	| 'constraint'
 	| 'guard'

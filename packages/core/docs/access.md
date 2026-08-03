@@ -9,17 +9,16 @@ enforcement primitives used by Runtime. It does not implement CLP, ACL, roles,
 authenticated users, ownership, or field permissions.
 
 ADR-0116 makes Access itself a fundamental Core lifecycle. Native declarations
-are retained privately by schema and field identity. Issues 416–419 add the
-complete typed row-filter builder, compiled `AccessPlan` instances, Runtime
-execution, and a PostgreSQL proof. The official permission packages then
-provide policies to that lifecycle instead of constructing parallel permission
-pipelines.
+are retained privately by schema and field identity, compiled once per
+application, and executed by Runtime before business hooks. The official
+permission packages provide policies to that lifecycle instead of constructing
+parallel permission pipelines.
 
-The implemented low-level guard, opaque adapter constraint, and field
-restriction factories remain the monotonic execution foundation. Access plans
-will lower native and provider policies into those primitives while keeping
-their state separate from Query and business hooks. Runtime never interprets
-concrete provider configuration.
+The low-level guard, opaque adapter constraint, and field restriction factories
+remain available to advanced plugins. Native Access shares their monotonic
+state while adding a private database row-filter channel and item-aware
+transaction boundaries. Runtime never interprets concrete provider
+configuration.
 
 ## Native declarations
 
@@ -63,8 +62,8 @@ single family rule needs to distinguish singular and bulk behavior.
 
 Declarations are validated and snapshotted without executing callbacks. They
 never appear in enumerable schema or field metadata and do not alter inferred
-create, update, or persisted object shapes. Runtime enforcement starts with
-issue 418; declaration alone is intentionally not enforcement yet.
+create, update, or persisted object shapes. Runtime evaluates matching rules in
+dependency and declaration order; a denial stops before later business effects.
 
 ## Compiled plans and plugin policies
 
@@ -122,6 +121,28 @@ const ultimabase = new UltimaBase({
 The plan is private Runtime state: it contains normalized rule references and
 provenance, never request data, filter results, Query AST mutations, or
 per-request placeholder handlers.
+
+## Runtime enforcement
+
+Operation rules run after structural validation and before business hooks.
+Filter rules build one private predicate per contribution; Runtime combines
+them with `AND` and sends the result beside the normalized operation to the
+database adapter. A `beforeFind` hook can still add business filtering,
+ordering, or limits, but it cannot observe or remove the Access predicate.
+
+Mutation field rules reject the complete operation when a present create or
+update value is forbidden. Singular update and delete item rules receive the
+stable target selected by the transaction adapter before its single-use write
+handle executes. A value-dependent item rule on `updateMany` or `deleteMany`
+fails with a typed capability error rather than materializing an unbounded row
+set. Upsert item rules inspect the exact create or update branch materialized
+inside the transaction, so a denial rolls the write back.
+
+Field `read.item` rules project adapter records before output hooks. The same
+projection is enforced again after result transforms, so a hook cannot restore
+a forbidden value. Explicit selection, filtering, or ordering through a
+statically forbidden field fails; default reads simply omit it. A row rejected
+by an Access filter appears nonexistent because the adapter never returns it.
 
 ## Request access
 

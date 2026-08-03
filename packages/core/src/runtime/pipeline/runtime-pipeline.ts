@@ -15,6 +15,7 @@ import type {
 	DatabaseOperationExecutor,
 	DatabaseOperationOutcome,
 	DatabaseOperationResult,
+	DatabaseRowFilterNode,
 	DatabaseTransactionAdapter,
 } from '../database/contracts.js'
 import type { HookErrorPhase } from '../../schema/hooks/contracts.js'
@@ -154,7 +155,10 @@ const executeDatabaseOperation = async <
 	request: {
 		readonly constraints: readonly DatabaseConstraintNode[]
 		readonly operation: TOperation
+		readonly rowFilter?: DatabaseRowFilterNode
 	},
+	enforcement: RuntimeEnforcementStages | undefined,
+	enforcementState: EnforcementState | undefined,
 ): Promise<RuntimeDatabaseExecution<TOperation>> => {
 	if (!isMutationOperation(request.operation)) {
 		const result = await executor.execute(request)
@@ -174,14 +178,35 @@ const executeDatabaseOperation = async <
 		immutableRecord({
 			constraints: request.constraints,
 			operation: request.operation,
+			...(request.rowFilter === undefined
+				? {}
+				: { rowFilter: request.rowFilter }),
 		}),
 	)
 	const target = 'target' in prepared ? prepared.target : undefined
+
+	if (
+		enforcement?.enforcePreparedMutation !== undefined &&
+		enforcementState !== undefined
+	) {
+		await enforcement.enforcePreparedMutation(
+			immutableRecord({ context, operation: request.operation, target }),
+		)
+	}
 
 	await nativeHooks?.fieldBefore(
 		immutableRecord({ context, operation: request.operation, target }),
 	)
 	let outcome = await prepared.execute()
+
+	if (
+		enforcement?.enforceMutationOutcome !== undefined &&
+		enforcementState !== undefined
+	) {
+		outcome = await enforcement.enforceMutationOutcome(
+			immutableRecord({ context, operation: request.operation, outcome }),
+		)
+	}
 
 	if (nativeHooks !== undefined) {
 		outcome = await nativeHooks.fieldAfter(
@@ -242,6 +267,20 @@ const assertRuntimePipelineStages = (stages: RuntimePipelineStages): void => {
 
 		for (const stageName of enforcementStageNames) {
 			if (typeof enforcement[stageName] !== 'function') {
+				throw new TypeError(
+					`Runtime enforcement stage ${stageName} must be a function`,
+				)
+			}
+		}
+
+		for (const stageName of [
+			'enforceMutationOutcome',
+			'enforcePreparedMutation',
+		] as const) {
+			if (
+				enforcement[stageName] !== undefined &&
+				typeof enforcement[stageName] !== 'function'
+			) {
 				throw new TypeError(
 					`Runtime enforcement stage ${stageName} must be a function`,
 				)
@@ -554,6 +593,7 @@ export class RuntimePipeline {
 
 		let enforcement: EnforcementState | undefined
 		let constraints: readonly DatabaseConstraintNode[] = emptyConstraints
+		let rowFilter: DatabaseRowFilterNode | undefined
 
 		if (this.#stages.enforcement !== undefined) {
 			enforcement = await this.#stages.enforcement.evaluate(
@@ -566,6 +606,7 @@ export class RuntimePipeline {
 
 			operation = retainExecutionOperation(execution, enforced.operation)
 			constraints = snapshotConstraints(enforced.constraints)
+			rowFilter = enforced.rowFilter
 		}
 
 		operation = retainExecutionOperation(
@@ -607,6 +648,7 @@ export class RuntimePipeline {
 
 			operation = retainExecutionOperation(execution, enforced.operation)
 			constraints = snapshotConstraints(enforced.constraints)
+			rowFilter = enforced.rowFilter
 		}
 
 		throwIfOperationCancelled(context.signal, {
@@ -621,7 +663,10 @@ export class RuntimePipeline {
 			immutableRecord({
 				constraints,
 				operation,
+				...(rowFilter === undefined ? {} : { rowFilter }),
 			}),
+			this.#stages.enforcement,
+			enforcement,
 		)
 		throwIfOperationCancelled(context.signal, {
 			operationKind: operation.kind,

@@ -60,8 +60,10 @@ family must observe the same protected row universe.
 
 Application setup compiles developer declarations and plugin contributions into
 one immutable `AccessPlan` per schema. Runtime executes that plan through the
-existing policy-neutral guard, constraint, input, selection, and output
-enforcement primitives from ADR-0102.
+policy-neutral monotonic state and pipeline boundaries from ADR-0102. A
+framework-owned `rowFilter` travels in the private database request beside the
+operation rather than inside its transformable Query AST; adapters compile it
+with the ordinary predicate using logical `AND`.
 
 Operation denial is irreversible, row predicates accumulate with logical
 `AND`, and field sets only intersect. Access runs before business hooks; final

@@ -46,6 +46,7 @@ export type {
 	DatabaseOperationOutcome,
 	DatabaseOperationRequest,
 	DatabaseOperationResult,
+	DatabaseRowFilterNode,
 	DatabaseTransactionAdapter,
 	DatabaseUpdateMaterialization,
 	ImmutableDatabaseConstraintPayload,
