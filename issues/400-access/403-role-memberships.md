@@ -3,7 +3,7 @@
 - Status: planned
 - Milestone: 4
 - Packages: `@ultimabase/roles`
-- Depends on: 317, 402, 702
+- Depends on: 317, 402
 - ADR: ADR-0006, ADR-0113, ADR-0116
 
 ## Goal

@@ -8,9 +8,9 @@
 
 ## Goal
 
-Represent selected fields, deterministic ordering, limit, and offset. Relation
-inclusion is deferred to issues 701 and 702 so the schema can restrict it to
-pointer and relation fields.
+Represent selected fields, deterministic ordering, limit, and offset. Pointer
+inclusion is deferred to issue 737 so the schema can restrict it to exact
+pointer fields; to-many relations remain independently queried.
 
 ## Acceptance criteria
 

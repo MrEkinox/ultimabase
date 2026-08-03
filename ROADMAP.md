@@ -4,11 +4,12 @@ The issue backlog is the executable roadmap. This document only describes milest
 
 ## Current execution priority
 
-The access-free Runtime-to-PostgreSQL vertical and native hook lifecycle are
-complete. The current priority is the fundamental Access system described in
-[`CURRENT_PLAN.md`](CURRENT_PLAN.md): native schema and field policies, typed
-row filters, compiled plugin contributions, monotonic Runtime execution, and a
-PostgreSQL proof before concrete permission providers are implemented.
+The Runtime-to-PostgreSQL vertical, native hook lifecycle, and fundamental
+Access system are complete. The current priority is the transport-neutral
+relations vertical described in [`CURRENT_PLAN.md`](CURRENT_PLAN.md): lazy
+schema targets, immutable Pointer and Relation APIs, Runtime and Access
+execution, PostgreSQL foreign keys and join storage, then a public Core plus
+PostgreSQL proof before transports consume the feature.
 
 Completed cross-milestone plans are retained under
 [`docs/plans/completed/`](docs/plans/completed/) so their decisions remain
@@ -50,9 +51,13 @@ Drizzle-backed adapter, schema compilation, introspection, direct schema synchro
 
 Hono server, generated REST endpoints, GraphQL schema generation, cursor connections, Yoga integration, custom schema merging, and developer explorers.
 
-## Milestone 7+ — Optional ecosystem
+## Milestone 7+ — Relations and optional ecosystem
 
-Pointers, relations, object fields, authentication, realtime, jobs, cache, gRPC, OpenAPI, CLI, code generation, SDKs, audit, observability, soft delete, tenant isolation, advanced fields, health, and administration remain issue-tracked extensions. Their packages are created only when implementation begins.
+Pointers and relations are the active transport-neutral vertical. Object
+fields, authentication, realtime, jobs, cache, gRPC, OpenAPI, CLI, code
+generation, SDKs, audit, observability, soft delete, tenant isolation, advanced
+fields, health, and administration remain issue-tracked extensions. New
+packages are created only when implementation begins.
 
 ## First usable release
 

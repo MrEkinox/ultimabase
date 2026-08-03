@@ -7,3 +7,5 @@ developer flows are not lost when the active objective changes.
 ## Completed
 
 - [Runtime-to-PostgreSQL E2E](completed/runtime-postgres-e2e.md)
+- [Native hooks and contextual execution](completed/native-hooks-and-contextual-execution.md)
+- [Fundamental Access system](completed/fundamental-access-system.md)

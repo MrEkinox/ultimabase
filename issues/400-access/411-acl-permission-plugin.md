@@ -33,5 +33,5 @@ native Access lifecycle.
 
 ## Out of scope
 
-- Pointer and relation traversal, which issues 701 and 702 must route through
-  the same compiled Access plan without existence leakage.
+- Pointer and relation traversal, which the relation milestone ending at issue
+  747 must route through the same compiled Access plan without existence leakage.

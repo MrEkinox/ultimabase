@@ -25,10 +25,11 @@ never mutated, and empty selection and ordering nodes may be safely shared.
 Automatic primary-key ordering is deferred to cursor pagination, where the
 stability requirement is concrete.
 
-Relation inclusion is deferred until pointer and relation field contracts are
-implemented by issues 701 and 702. Adding inclusion now would either accept
-scalar fields incorrectly or introduce a relation concept before the schema can
-represent it.
+Pointer inclusion is deferred until the relationship target and pointer field
+contracts are implemented by issues 701 and 702. Issue 737 then adds it at the
+same normalization boundary with schema-aware pointer-only types. To-many
+relations remain independently queried so inclusion cannot hide an unbounded
+collection.
 
 ## Consequences
 
@@ -38,5 +39,5 @@ values fail before reaching an adapter, while stable duplicate rules make
 builder composition reproducible.
 
 Runtime and transport packages may enforce stricter pagination limits without
-changing the portable Query AST. Relation inclusion will later extend this
-normalization boundary with schema-aware relation-only types.
+changing the portable Query AST. Pointer inclusion later extends this
+normalization boundary without defining a separate transport representation.

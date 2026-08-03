@@ -892,9 +892,10 @@ The completed
 [native-hook plan](../../docs/plans/completed/native-hooks-and-contextual-execution.md)
 gives Core's Schema domain identity-owned declaration storage and gives its
 Runtime domain interpretation and execution. Native developer hooks require no
-plugin. The active [Access plan](../../CURRENT_PLAN.md) reuses the same private
-declaration and application-compilation principles while keeping Access
-decisions separate from business hooks.
+plugin. The completed
+[Access plan](../../docs/plans/completed/fundamental-access-system.md) reuses the
+same private declaration and application-compilation principles while keeping
+Access decisions separate from business hooks.
 
 [ADR-0096](../../docs/adr/0096-native-hook-declaration-capabilities.md)
 keeps callbacks outside `SchemaDefinition`, `FieldDefinition`, field options,

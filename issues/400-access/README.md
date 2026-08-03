@@ -53,7 +53,7 @@ Concrete provider tracks may then proceed independently:
 - ACL: issues 409, 410, 510, 411, 509, and 412;
 - provider composition: issue 415.
 
-The official role provider remains deferred until pointer and relation issues
-701 and 702 are complete. CLP and ACL are not blocked by that implementation:
+The official role provider remains deferred until the transport-neutral
+relations vertical ends at issue 747. CLP and ACL are not blocked by that implementation:
 they depend only on issue 420 and use compatible fixture providers in their
 own role-aware tests.

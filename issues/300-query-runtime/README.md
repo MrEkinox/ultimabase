@@ -6,13 +6,14 @@ Issue 323 closed the application assembly seam discovered before the first real
 database E2E. Its original context is retained in the
 [completed plan](../../docs/plans/completed/runtime-postgres-e2e.md).
 
-The active hook issues refine the completed low-level hook and transaction
-foundation into native schema and inline field hooks. They preserve issue 318
-as the plugin-contribution foundation, remove permission-specific Runtime
-stages, add automatic mutation transactions, prepare stable mutation outcomes,
-and end with a PostgreSQL rollback E2E. Their dependency-first execution order is recorded in
-[`CURRENT_PLAN.md`](../../CURRENT_PLAN.md), including PostgreSQL bulk and upsert
-issue 508 before the final E2E.
+The completed
+[native-hook plan](../../docs/plans/completed/native-hooks-and-contextual-execution.md)
+refined the low-level hook and transaction foundation into native schema and
+inline field hooks. It preserved issue 318 as the plugin-contribution
+foundation, removed permission-specific Runtime stages, added automatic
+mutation transactions, prepared stable mutation outcomes, and ended with a
+PostgreSQL rollback E2E. Its dependency-first history includes PostgreSQL bulk
+and upsert issue 508 before the final E2E.
 
 Issue 344 is the adapter prerequisite for the native dispatcher. It requires
 every transaction adapter to prepare one opaque mutation handle and keeps

@@ -1,145 +1,158 @@
-# Current plan: fundamental Access system
+# Current plan: transport-neutral pointers and relations
 
-- Status: completed
-- Started: 2026-08-03
+- Status: active
+- Prepared: 2026-08-03
 - Objective owner: `@ultimabase/core`, `@ultimabase/postgres`
-- Governing decisions: [ADR-0090](docs/adr/0090-permission-plugins-through-hooks.md), [ADR-0102](docs/adr/0102-policy-neutral-monotonic-enforcement.md), [ADR-0103](docs/adr/0103-versioned-adapter-constraint-compilers.md), [ADR-0113](docs/adr/0113-plugin-owned-authentication-context.md), [ADR-0116](docs/adr/0116-fundamental-access-system.md)
-- Previous completed objective: [Native hooks and contextual execution](docs/plans/completed/native-hooks-and-contextual-execution.md)
+- Governing decisions: [ADR-0004](docs/adr/0004-one-operation-engine.md), [ADR-0055](docs/adr/0055-deterministic-query-clause-normalization.md), [ADR-0063](docs/adr/0063-portable-database-adapter-boundary.md), [ADR-0099](docs/adr/0099-automatic-mutation-transactions.md), [ADR-0109](docs/adr/0109-constructible-schema-models.md), [ADR-0115](docs/adr/0115-immutable-model-commands.md), [ADR-0116](docs/adr/0116-fundamental-access-system.md), [ADR-0118](docs/adr/0118-transport-neutral-relations.md)
+- Previous completed objective: [Fundamental Access system](docs/plans/completed/fundamental-access-system.md)
 
 ## Objective
 
-Make Access a fundamental schema, field, application, and Runtime capability
-before implementing concrete permission providers. Native developer policies
-and plugin contributions must compile into the same monotonic plan without
-making Core aware of CLP, ACL, roles, authenticated users, ownership, or field
-permissions.
+Add precisely typed pointers and queryable relations as foundational Core
+concepts, then prove their complete Runtime, Access, hook, transaction, and
+PostgreSQL behavior without involving REST or GraphQL.
 
-The finished vertical must prove this developer contract:
+The finished vertical targets this developer experience:
 
 ```ts
-const Post = Schema.define({
-	className: 'Post',
-	access: {
-		operation: {
-			read: {
-				one: true,
-				many: true,
-				count: false,
-				exists: true,
-			},
-			delete: ({ context }) => context.access.mode === 'master',
-		},
-		filter: {
-			read: ({ filter }) => filter.equalTo('published', true),
-		},
-		item: {
-			update: ({ item, input }) => item.authorId === input.authorId,
-		},
-	},
+const UserSchema = Schema.define({
+	className: 'User',
 	fields: {
-		secret: stringField({
-			access: {
-				read: {
-					item: false,
-					filter: false,
-					order: false,
-				},
-				create: true,
-				update: false,
-			},
-		}),
+		name: stringField({ validation: { required: true } }),
 	},
 })
+
+const TagSchema = Schema.define({
+	className: 'Tag',
+	fields: {
+		label: stringField({ validation: { required: true } }),
+	},
+})
+
+const PostSchema = Schema.define({
+	className: 'Post',
+	fields: {
+		author: pointerField({
+			target: () => UserSchema,
+			onDelete: 'restrict',
+			validation: { required: true },
+		}),
+		tags: relationField({ target: () => TagSchema }),
+		title: stringField({ validation: { required: true } }),
+	},
+})
+
+const post = await PostSchema.query().create({
+	author: UserSchema.pointer(user.id),
+	title: 'Typed relations',
+})
+
+const selected = await PostSchema.query()
+	.include('author', (author) => author.select('id', 'name'))
+	.get(post.id)
+
+const tags = post.relation('tags')
+await tags.connect(TagSchema.pointer(tag.id))
+
+const page = await tags
+	.query()
+	.select('id', 'label')
+	.ascending('label')
+	.limit(20)
+	.after()
+	.find()
 ```
+
+The exact spelling of a method may be refined by its issue when type and
+runtime tests demonstrate a clearer API. The architectural boundaries and
+security semantics below are fixed.
 
 ## Definition of done
 
 The objective is complete only when:
 
-- schemas and fields expose native, precisely typed Access declarations with concise IntelliSense;
-- neutral `allowAll`, `denyAll`, `allOperations`, and `allMutations` utilities keep common declarations explicit without runtime behavior;
-- `AccessFilter` reuses Core filter contracts without exposing Query terminals or a second filter AST;
-- application setup compiles native declarations and owner-scoped plugin contributions once into immutable per-schema plans;
-- operation denial, row filters, item decisions, and field restrictions execute before unsafe business effects or data exposure;
-- Access filters constrain reads, counts, mutation targets, upserts, model commands, and bulk operations without entering transformable Query state;
-- `beforeFind` cannot inspect, replace, or remove an Access filter;
-- set-based mutations never materialize rows silently to satisfy item rules;
-- optional authenticated-principal and role capabilities remain provider-owned and are required only by policies that reference them;
-- a public-export PostgreSQL E2E proves native and fixture-provider composition, SQL filtering, rollback, field restriction, and non-existence semantics;
-- Core Runtime and diagnostics contain no concrete permission-provider vocabulary.
+- lazy relationship targets support circular declarations with exact inference and application-local validation;
+- `Pointer<TSchema>` and `Relation<TSource, TTarget>` are small immutable public domain objects with concise hovers and focused JSDoc;
+- pointer values are explicit and no relationship auto-loads database objects;
+- pointer inclusion is selection-aware and limited to bounded single targets;
+- to-many relations stay out of ordinary inferred model records and expose independently paginated target Queries;
+- owning and inverse one-to-one, one-to-many, and many-to-many topologies validate deterministically;
+- `connect`, `disconnect`, `set`, and `clear` use Runtime, Access, hooks, and automatic transactions;
+- related reads and predicates preserve private relation scopes and complete target Access without leaking existence;
+- PostgreSQL owns foreign-key and join-table representation, names, indexes, introspection, synchronization, and parameterized execution;
+- relationship edges with business data use an explicit ordinary schema with two pointers;
+- public Core plus PostgreSQL E2E tests prove the entire feature with no transport installed;
+- Core imports no database or transport package and PostgreSQL uses only public Core contracts.
 
 ## Frozen decisions
 
-- Access is fundamental Core behavior, not a plugin.
-- CLP, ACL, field permissions, tenancy, soft deletion, and community policies are Access providers.
-- Access has four neutral levels: `operation`, `filter`, `item`, and `field`.
-- Schema read decisions accept one shared rule or explicit `one`, `many`, `count`, and `exists` branches; mutation families remain direct rules with exact `kind` narrowing.
-- Field decisions group item output, filtering, and ordering under `read`, while `create` and `update` remain mutation decisions.
-- Access declaration utilities remain static neutral sugar; they add no authenticated, permission-provider, or runtime concept.
-- `filter` is retained as the public name even though it reuses Query predicate contracts internally.
-- Access filters are private monotonic constraints; `beforeFind` remains a business Query transform.
-- Denial composes by logical `AND`, row predicates append with `AND`, and field capabilities only intersect.
-- Access runs before effectful business hooks; final output restrictions run after result transforms.
-- Core authority remains `anonymous` or audited `master`. Authenticated principals and roles are optional typed values or services.
-- Core defines no built-in authenticated, user, owner, role, CLP, or ACL rule node.
-- Every declaration or provider owns its master-bypass policy.
-- Permission providers register Access contributions rather than arbitrary business hooks for enforcement.
-- Set-based update and delete remain set-based; item rules require singular or explicit itemized execution.
-- Row denial behaves as non-existence, while operation and forbidden explicit-field denial use typed access errors.
+- Relations are foundational Core behavior, not REST, GraphQL, or database-plugin inventions.
+- `pointerField` represents one target and returns `Pointer<TSchema>` until explicitly included.
+- Pointer fields cannot use `list`; one-to-one uses a unique pointer.
+- Referential actions are explicit and default to `restrict`.
+- `relationField` represents a to-many collection, never an embedded array.
+- One relation side owns storage; `mappedBy` is a storage-free exact inverse.
+- One-to-many uses an inverse pointer; many-to-many uses one owning relation; one-to-one uses a unique pointer.
+- To-many values are absent from base create, update, persisted, selected, and JSON records.
+- Persisted models expose relation handles only when protected source identity is available.
+- Relation Query scopes and Access filters are private monotonic constraints that business hooks cannot remove.
+- Related reads enforce source field disclosure and the target schema's complete Access lifecycle.
+- Missing and inaccessible targets have identical observable behavior.
+- Relation mutations reuse the update lifecycle and expose typed deltas instead of adding many new hooks.
+- Inverse-pointer mutation executes the target pointer update with target validation, Access, and hooks.
+- Join-row cleanup never implies deletion of related objects.
+- Edge metadata requires an explicit relationship schema.
+- `some`, `none`, and `every` belong to portable Core Query, not to GraphQL.
+- Transport batching, DataLoader, route shapes, resolvers, and transport ID formats remain outside Core.
 
 ## Execution order
 
-Complete one issue at a time in this dependency order:
+Complete one issue at a time. Do not start an issue whose dependencies are
+incomplete.
 
-1. [x] [401 — Define native Access declarations](issues/400-access/401-native-access-declarations.md)
-2. [x] [421 — Group schema and field read Access](issues/400-access/421-group-read-access.md)
-3. [x] [422 — Add Access declaration utilities](issues/400-access/422-access-declaration-utilities.md)
-4. [x] [416 — Define typed Access filters](issues/400-access/416-typed-access-filters.md)
-5. [x] [417 — Compile Access plans and plugin contributions](issues/400-access/417-compiled-access-plans.md)
-6. [x] [418 — Execute the native Access lifecycle](issues/400-access/418-native-access-runtime.md)
-7. [x] [419 — Verify native Access against PostgreSQL](issues/400-access/419-native-access-postgres-e2e.md)
-8. [x] [420 — Define optional Access subject capabilities](issues/400-access/420-optional-access-capabilities.md)
+### Phase 1 — Relationship identity
 
-Do not implement concrete CLP, ACL, or field-permission providers before issue
-419 proves the neutral system against PostgreSQL. Issue 420 then supplies the
-optional interoperability boundary needed by subject-aware providers.
+1. [ ] [701 — Resolve lazy relationship schema targets](issues/700-extensions/701-lazy-relationship-targets.md)
+2. [ ] [702 — Add pointer fields and immutable Pointer values](issues/700-extensions/702-pointer-field.md)
 
-## Provider order after the foundation
+### Phase 2 — Complete pointer vertical
 
-- CLP: 407 → 408.
-- Field permissions: 413 → 414.
-- ACL: 409 → 410 → 510 → 411 → 509 → 412.
-- Independent provider composition: 415.
-- Official roles: 701 → 702 → 402 → 403 → 404 → 405 → 406.
+3. [ ] [737 — Add pointer Query contracts and inclusion](issues/700-extensions/737-pointer-query-contracts.md)
+4. [ ] [738 — Execute pointer reads and inclusion through Runtime](issues/700-extensions/738-pointer-runtime.md)
+5. [ ] [739 — Compile and execute PostgreSQL pointers](issues/700-extensions/739-postgres-pointer-storage.md)
+6. [ ] [740 — Verify the pointer vertical against PostgreSQL](issues/700-extensions/740-pointer-postgres-e2e.md)
 
-CLP and ACL do not depend on the official role implementation. Their role-aware
-tests use the neutral issue 420 contract and a compatible fixture provider.
+### Phase 3 — Complete relation vertical
+
+7. [ ] [741 — Add owning and inverse relation fields](issues/700-extensions/741-relation-field-contracts.md)
+8. [ ] [742 — Add immutable Relation handles and scoped queries](issues/700-extensions/742-relation-handle-and-query.md)
+9. [ ] [743 — Execute transactional relation mutations](issues/700-extensions/743-relation-mutations.md)
+10. [ ] [744 — Compile and execute PostgreSQL relations](issues/700-extensions/744-postgres-relation-storage.md)
+11. [ ] [745 — Add portable relation predicates](issues/700-extensions/745-relation-predicates.md)
+
+### Phase 4 — Explicit edges and final proof
+
+12. [ ] [746 — Document explicit relationship models](issues/700-extensions/746-explicit-relationship-models.md)
+13. [ ] [747 — Verify and audit the complete relations vertical](issues/700-extensions/747-relations-postgres-e2e.md)
 
 ## Resume protocol
 
 When resuming after context loss:
 
-1. Read `AGENTS.md`, ADR-0116, this file, and the current issue completely.
-2. Read the Core README and every package README in scope.
+1. Read `AGENTS.md`, ADR-0118, this file, and the current issue completely.
+2. Read the Core README, PostgreSQL README when in scope, and the relevant focused package guides.
 3. Inspect the working tree and preserve unrelated changes.
-4. Confirm every dependency issue is `done` before changing the current issue to `in-progress`.
-5. Implement one issue only, including colocated runtime and type tests, language-service coverage, documentation, and a Changeset for public API changes.
-6. Run targeted checks, then the broader typecheck, tests, lint, build, packed-package, and PostgreSQL E2E checks justified by the change.
-7. Create one dedicated commit after the issue is complete and never push without explicit user confirmation.
-8. Show the resulting developer-facing API before proposing the next issue.
+4. Confirm every dependency issue is `done` before marking the current issue `in-progress`.
+5. Implement one issue only with colocated runtime, type, language-service, immutability, documentation, packed-export, and regression coverage justified by its public contract.
+6. Keep physical storage behind versioned portable adapter capabilities and keep transports out of Core.
+7. Run targeted checks, then the broader typecheck, test, lint, build, packed-package, and PostgreSQL E2E checks justified by the issue.
+8. Create one dedicated commit only after the issue is complete; never push without explicit user confirmation.
+9. Show the resulting developer-facing API before proposing the next issue.
 
 ## Current issue
 
-The native Access foundation is complete. Concrete permission providers may
-now proceed in the dependency order above.
+[701 — Resolve lazy relationship schema targets](issues/700-extensions/701-lazy-relationship-targets.md) is `ready`.
 
 ## Progress log
 
-- 401 — `done` — Schema and field Access declarations are typed, normalized, and retained privately without changing structural metadata.
-- 421 — `done` — Schema cardinalities and field disclosure channels share concise rules or complete immutable grouped declarations.
-- 422 — `done` — Neutral literal decisions and immutable family helpers reduce repetitive declarations without Runtime behavior.
-- 416 — `done` — Restricted typed Access filters reuse portable Query predicate contracts without exposing terminals.
-- 417 — `done` — Native and plugin policies compile into immutable application-local plans with stable provenance.
-- 418 — `done` — Runtime executes operation, filter, item, and field policies through monotonic enforcement boundaries.
-- 419 — `done` — PostgreSQL E2E proves private row filters, field restrictions, rollback, master behavior, and set-based terminals.
-- 420 — `done` — Optional principals and neutral role resolvers remain provider-owned, typed, conditional, and application-isolated.
+- No relation issue is implemented yet.
