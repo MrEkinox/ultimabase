@@ -15,6 +15,7 @@ import type {
 	FirstOperationAst,
 	GetOperationAst,
 	OperationAstNode,
+	OperationIncludedPointer,
 	UpdateOneOperationAst,
 	UpsertManyOperationAst,
 	UpsertOneOperationAst,
@@ -27,8 +28,9 @@ type QueryObjectResult<
 	TSchema extends SchemaDefinition,
 	TSelectedField extends QueryFieldName<TSchema>,
 	TMode extends OperationResultMode,
+	TIncludedPointer,
 > = TMode extends 'model'
-	? InferQueryResult<TSchema, TSelectedField>
+	? InferQueryResult<TSchema, TSelectedField, TIncludedPointer>
 	: InferQueryRecord<TSchema, TSelectedField>
 
 type CompleteObjectResult<
@@ -44,21 +46,39 @@ type InferOperationResultFor<
 	TOperation extends FindOperationAst<
 		infer TSchema,
 		QueryExpressionNode,
-		infer TSelectedField
+		infer TSelectedField,
+		unknown
 	>
-		? readonly QueryObjectResult<TSchema, TSelectedField, TMode>[]
+		? readonly QueryObjectResult<
+				TSchema,
+				TSelectedField,
+				TMode,
+				OperationIncludedPointer<TOperation>
+			>[]
 		: TOperation extends FirstOperationAst<
 					infer TSchema,
 					QueryExpressionNode,
-					infer TSelectedField
+					infer TSelectedField,
+					unknown
 			  >
-			? QueryObjectResult<TSchema, TSelectedField, TMode> | null
+			? QueryObjectResult<
+					TSchema,
+					TSelectedField,
+					TMode,
+					OperationIncludedPointer<TOperation>
+				> | null
 			: TOperation extends GetOperationAst<
 						infer TSchema,
 						QueryExpressionNode,
-						infer TSelectedField
+						infer TSelectedField,
+						unknown
 				  >
-				? QueryObjectResult<TSchema, TSelectedField, TMode> | null
+				? QueryObjectResult<
+						TSchema,
+						TSelectedField,
+						TMode,
+						OperationIncludedPointer<TOperation>
+					> | null
 				: TOperation extends {
 							readonly kind: 'count' | 'update-many' | 'delete-many'
 					  }
@@ -79,16 +99,28 @@ type InferOperationResultFor<
 											infer TSchema,
 											UpdateExpressionNode,
 											QueryExpressionNode,
-											infer TSelectedField
+											infer TSelectedField,
+											unknown
 									  >
-									? QueryObjectResult<TSchema, TSelectedField, TMode> | null
+									? QueryObjectResult<
+											TSchema,
+											TSelectedField,
+											TMode,
+											OperationIncludedPointer<TOperation>
+										> | null
 									: TOperation extends UpsertOneOperationAst<
 												infer TSchema,
 												UpdateExpressionNode,
 												QueryExpressionNode,
-												infer TSelectedField
+												infer TSelectedField,
+												unknown
 										  >
-										? QueryObjectResult<TSchema, TSelectedField, TMode>
+										? QueryObjectResult<
+												TSchema,
+												TSelectedField,
+												TMode,
+												OperationIncludedPointer<TOperation>
+											>
 										: TOperation extends UpsertManyOperationAst<
 													infer TSchema,
 													UpdateExpressionNode,
@@ -102,12 +134,14 @@ type InferOperationResultFor<
 											: TOperation extends DeleteOneOperationAst<
 														infer TSchema,
 														QueryExpressionNode,
-														infer TSelectedField
+														infer TSelectedField,
+														unknown
 												  >
 												? QueryObjectResult<
 														TSchema,
 														TSelectedField,
-														TMode
+														TMode,
+														OperationIncludedPointer<TOperation>
 													> | null
 												: never
 

@@ -1,6 +1,6 @@
 # 737: Add pointer Query contracts and inclusion
 
-- Status: ready
+- Status: done
 - Milestone: 7+
 - Packages: `@ultimabase/core`
 - Depends on: 702
@@ -13,16 +13,16 @@ target queries, and selection-aware single-target inclusion.
 
 ## Acceptance criteria
 
-- [ ] Pointer fields expose only compatible equality, membership, and existence predicates with exact target inference.
-- [ ] `pointer.query()` creates a normal Query for the exact target schema without performing I/O.
-- [ ] `include(pointerField, callback)` accepts only pointer keys and lets the callback select, filter, and shape one immutable target Query.
-- [ ] Included target typing reflects its exact selection while a non-included pointer remains `Pointer<TSchema>`.
-- [ ] Inclusion and pointer predicates normalize into immutable transport-neutral AST nodes with deterministic duplicate behavior.
-- [ ] Query JSON and diagnostics expose logical field paths and never physical foreign-key names.
+- [x] Pointer fields expose only compatible equality, membership, and existence predicates with exact target inference.
+- [x] `pointer.query()` creates a normal Query for the exact target schema without performing I/O.
+- [x] `include(pointerField, callback)` accepts only pointer keys and lets the callback select, filter, and shape one immutable target Query.
+- [x] Included target typing reflects its exact selection while a non-included pointer remains `Pointer<TSchema>`.
+- [x] Inclusion and pointer predicates normalize into immutable transport-neutral AST nodes with deterministic duplicate behavior.
+- [x] Query JSON and diagnostics expose logical field paths and never physical foreign-key names.
 
 ## Tests
 
-- [ ] Colocated runtime, type, language-service, immutability, normalization, and packed-export tests cover valid and invalid pointer queries.
+- [x] Colocated runtime, type, language-service, immutability, normalization, and packed-export tests cover valid and invalid pointer queries.
 
 ## Out of scope
 

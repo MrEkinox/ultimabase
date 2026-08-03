@@ -6,6 +6,8 @@ export type {
 	QueryCursorPaginationNode,
 	QueryExpressionNode,
 	QueryFieldName,
+	QueryIncludedPointerNode,
+	QueryInclusionNode,
 	QueryOffsetPaginationNode,
 	QueryOrderingNode,
 	QueryOrderDirection,
@@ -44,6 +46,14 @@ export type {
 	QueryOffsetPaginationInput,
 } from './clauses/pagination.js'
 export { normalizeQuerySelection } from './clauses/selection.js'
+export { normalizeQueryInclusion } from './clauses/inclusion.js'
+export type {
+	QueryPointerFieldName,
+	QueryPointerInclusionAst,
+	QueryPointerInclusionInput,
+	QueryPointerInclusionNode,
+	QueryPointerTargetSchema,
+} from './clauses/inclusion.js'
 export { normalizeLogicalFilter } from './filters/logical.js'
 export type {
 	QueryAndFilterNode,
@@ -121,7 +131,11 @@ export type {
 	UpsertManyItemInput,
 	UpsertTargetQuery,
 } from './operations/upsert.js'
-export type { InferQueryRecord, InferQueryResult } from './query/result.js'
+export type {
+	InferQueryRecord,
+	InferQueryResult,
+	QueryPointerResultInclusion,
+} from './query/result.js'
 export { Query } from './query/query.js'
 export type { QueryScope } from './query/scope.js'
 export { normalizeUpdateExpression } from './updates/normalize.js'

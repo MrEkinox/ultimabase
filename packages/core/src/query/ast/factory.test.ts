@@ -19,6 +19,7 @@ describe('createQueryAst', () => {
 			kind: 'query',
 			schema: { kind: 'schema', definition: postSchema },
 			selection: { kind: 'selection', fields: [] },
+			inclusion: { kind: 'inclusion', pointers: [] },
 			where: undefined,
 			ordering: { kind: 'ordering', orders: [] },
 			limit: undefined,
@@ -29,6 +30,8 @@ describe('createQueryAst', () => {
 		expect(Object.isFrozen(ast.schema)).toBe(true)
 		expect(Object.isFrozen(ast.selection)).toBe(true)
 		expect(Object.isFrozen(ast.selection.fields)).toBe(true)
+		expect(Object.isFrozen(ast.inclusion)).toBe(true)
+		expect(Object.isFrozen(ast.inclusion.pointers)).toBe(true)
 		expect(Object.isFrozen(ast.ordering)).toBe(true)
 		expect(Object.isFrozen(ast.ordering.orders)).toBe(true)
 		expect(Reflect.set(ast, 'where', { kind: 'transport-filter' })).toBe(false)
@@ -43,6 +46,7 @@ describe('createQueryAst', () => {
 		expect(first).not.toBe(second)
 		expect(first.schema).not.toBe(second.schema)
 		expect(first.selection).toBe(second.selection)
+		expect(first.inclusion).toBe(second.inclusion)
 		expect(first.ordering).toBe(second.ordering)
 	})
 

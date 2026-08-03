@@ -4,7 +4,9 @@ import {
 	enumField,
 	intField,
 	objectField,
+	pointerField,
 	stringField,
+	type Pointer,
 } from '../../schema/index.js'
 import { expect, expectTypeOf, test } from 'vitest'
 
@@ -27,6 +29,25 @@ const postSchema = Schema.define({
 		status: enumField({ values: ['draft', 'published'] }),
 		aliases: stringField({ list: true }),
 		metadata: objectField({ fields: { label: stringField() } }),
+	},
+})
+
+const includedUserSchema = Schema.define({
+	className: 'TypedQueryUser',
+	fields: { name: stringField(), active: booleanField() },
+})
+const includedPostSchema = Schema.define({
+	className: 'TypedQueryPost',
+	fields: {
+		author: pointerField({
+			target: () => includedUserSchema,
+			validation: { required: true },
+		}),
+		reviewer: pointerField({
+			target: () => includedUserSchema,
+			validation: { nullable: true },
+		}),
+		title: stringField(),
 	},
 })
 
@@ -116,6 +137,58 @@ test('correlates every filter field with its exact operand type', () => {
 	query.matches('views', { source: '10', flags: [] })
 	// @ts-expect-error -- Equality does not apply to list fields.
 	query.equalTo('aliases', ['alias'])
+})
+
+test('infers pointer predicates, target queries, and included projections', () => {
+	const author = includedUserSchema.pointer(
+		'0194f292-0dd9-7c2d-a0a3-a2f755a3d90a',
+	)
+	const pointerQuery = author.query().select('id', 'name')
+	const included = new Query(includedPostSchema)
+		.select('id', 'title')
+		.equalTo('author', author)
+		.containedIn('author', [author])
+		.exists('author')
+		.include('author', (query) =>
+			query.select('id', 'name').equalTo('active', true),
+		)
+		.include('reviewer', (query) => query.select('name'))
+	type IncludedResult = NonNullable<Awaited<ReturnType<typeof included.first>>>
+	type PlainResult = NonNullable<
+		Awaited<ReturnType<ReturnType<typeof includedPostSchema.query>['first']>>
+	>
+
+	expect(included.ast.kind).toBe('query')
+	expectTypeOf(pointerQuery).toEqualTypeOf<
+		Query<typeof includedUserSchema, 'id' | 'name'>
+	>()
+	expectTypeOf<IncludedResult>().toHaveProperty('id')
+	expectTypeOf<IncludedResult>().toHaveProperty('title')
+	expectTypeOf<IncludedResult>().toHaveProperty('author')
+	expectTypeOf<IncludedResult>().toHaveProperty('reviewer')
+	expectTypeOf<IncludedResult['author']['name']>().toEqualTypeOf<
+		string | undefined
+	>()
+	expectTypeOf<NonNullable<IncludedResult['reviewer']>['name']>().toEqualTypeOf<
+		string | undefined
+	>()
+	expectTypeOf<null>().toExtend<IncludedResult['reviewer']>()
+	expectTypeOf<undefined>().toExtend<IncludedResult['reviewer']>()
+	expectTypeOf<PlainResult['author']>().toEqualTypeOf<
+		Pointer<typeof includedUserSchema>
+	>()
+
+	// @ts-expect-error -- Pointer equality preserves exact target identity.
+	new Query(includedPostSchema).equalTo('author', postSchema.pointer('post-1'))
+	// @ts-expect-error -- Pointers do not support ordered comparisons.
+	new Query(includedPostSchema).greaterThan('author', author)
+	// @ts-expect-error -- Only pointer fields are includable.
+	new Query(includedPostSchema).include('title', (query) => query)
+	new Query(includedPostSchema).include('author', (query) => {
+		// @ts-expect-error -- The callback Query exposes only target fields.
+		query.select('title')
+		return query
+	})
 })
 
 test('restricts fields, pagination values, and logical schemas', () => {

@@ -5,6 +5,7 @@ import {
 	enumField,
 	intField,
 	objectField,
+	pointerField,
 	stringField,
 } from '../../schema/index.js'
 import { describe, expect, it } from 'vitest'
@@ -24,6 +25,17 @@ const postFields = {
 }
 
 const postSchema = Schema.define({ className: 'Post', fields: postFields })
+const includedUserSchema = Schema.define({
+	className: 'QueryIncludedUser',
+	fields: { name: stringField(), active: booleanField() },
+})
+const includedPostSchema = Schema.define({
+	className: 'QueryIncludedPost',
+	fields: {
+		author: pointerField({ target: () => includedUserSchema }),
+		title: stringField(),
+	},
+})
 
 describe('Query', () => {
 	it('hydrates one internal immutable shell without rebuilding its normalized AST', () => {
@@ -111,6 +123,96 @@ describe('Query', () => {
 		expect(noOffsetChange.ast.pagination).toBe(base.ast.pagination)
 		expect(Object.isFrozen(base)).toBe(true)
 		expect(Object.isFrozen(limited.ast)).toBe(true)
+	})
+
+	it('builds immutable pointer inclusion branches from exact target queries', () => {
+		const base = new Query(includedPostSchema)
+		const included = base.include('author', (query) =>
+			query.select('id', 'name').equalTo('active', true),
+		)
+		const replaced = included.include('author', (query) => query.select('name'))
+
+		expect(base.ast.inclusion.pointers).toStrictEqual([])
+		expect(included.ast.inclusion.pointers).toHaveLength(1)
+		expect(included.ast.inclusion.pointers[0]).toMatchObject({
+			kind: 'included-pointer',
+			field: 'author',
+			query: {
+				kind: 'query',
+				selection: {
+					fields: [
+						{ kind: 'selected-field', field: 'id' },
+						{ kind: 'selected-field', field: 'name' },
+					],
+				},
+				where: {
+					expression: { kind: 'equal', field: 'active', value: true },
+				},
+			},
+		})
+		expect(replaced.ast.inclusion.pointers).toHaveLength(1)
+		expect(
+			replaced.ast.inclusion.pointers[0]?.query.selection.fields,
+		).toStrictEqual([{ kind: 'selected-field', field: 'name' }])
+		expect(Object.isFrozen(included.ast.inclusion)).toBe(true)
+		expect(Object.isFrozen(included.ast.inclusion.pointers)).toBe(true)
+		expect(Object.isFrozen(included.ast.inclusion.pointers[0])).toBe(true)
+		expect(() => included.first()).toThrow(
+			new TypeError('pointer inclusion execution is not available yet'),
+		)
+	})
+
+	it('normalizes pointer identity predicates without physical foreign-key names', () => {
+		const author = includedUserSchema.pointer(
+			'0194f292-0dd9-7c2d-a0a3-a2f755a3d90a',
+		)
+		const query = new Query(includedPostSchema)
+			.equalTo('author', author)
+			.containedIn('author', [author])
+			.doesNotExist('author')
+
+		expect(query.ast.where?.expression).toMatchObject({
+			kind: 'and',
+			expressions: [
+				{ kind: 'equal', field: 'author', value: author },
+				{ kind: 'in', field: 'author', values: [author] },
+				{ kind: 'exists', field: 'author', exists: false },
+			],
+		})
+		expect(JSON.stringify(query.ast)).not.toContain('authorId')
+	})
+
+	it('keeps logical field names and rejects malformed inclusion callbacks', () => {
+		const selected = new Query(includedPostSchema)
+			.select('id')
+			.include('author', (query) => query.select('name'))
+
+		expect(selected.ast.selection.fields).toStrictEqual([
+			{ kind: 'selected-field', field: 'id' },
+			{ kind: 'selected-field', field: 'author' },
+		])
+		expect(JSON.stringify(selected.ast)).toContain('"field":"author"')
+		expect(JSON.stringify(selected.ast)).not.toContain('authorId')
+		expect(() =>
+			new Query(includedPostSchema).include(
+				'author',
+				// @ts-expect-error -- Runtime validation protects JavaScript callbacks.
+				() => immutableScopeFixture,
+			),
+		).toThrow(
+			new TypeError(
+				'query inclusion callback must return a Query for the pointer target',
+			),
+		)
+		expect(() =>
+			new Query(includedPostSchema).include(
+				// @ts-expect-error -- Runtime validation rejects non-pointer fields.
+				'title',
+				(query) => query,
+			),
+		).toThrow(
+			new TypeError('query inclusion field must reference a pointer field'),
+		)
 	})
 
 	it('creates every primitive filter through an implicit AND chain', () => {

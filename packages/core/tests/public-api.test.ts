@@ -85,6 +85,7 @@ describe('@ultimabase/core public entry point', () => {
 			'normalizePlugins',
 			'normalizeQueryCursorOrdering',
 			'normalizeQueryCursorPagination',
+			'normalizeQueryInclusion',
 			'normalizeQueryLimit',
 			'normalizeQueryOffsetPagination',
 			'normalizeQueryOrdering',

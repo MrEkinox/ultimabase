@@ -22,6 +22,13 @@ export interface OperationAstNode {
 }
 
 declare const operationSelectionType: unique symbol
+declare const operationInclusionType: unique symbol
+
+/** Reads the type-only inclusion projection without coupling it to runtime AST data. */
+export type OperationIncludedPointer<TOperation extends OperationAstNode> =
+	TOperation extends { readonly [operationInclusionType]?: unknown }
+		? Exclude<TOperation[typeof operationInclusionType], undefined>
+		: never
 
 /** Carries the only execution behavior configurable by normalized bulk writes. */
 export interface AtomicBulkOperationOptions<TAtomic extends boolean = boolean> {
@@ -79,10 +86,13 @@ interface QueryOperationAst<
 	TSchema extends SchemaDefinition,
 	TFilter extends QueryExpressionNode,
 	TSelectedField extends QueryFieldName<TSchema>,
+	TIncludedPointer,
 > extends OperationAstNode {
 	readonly query: OperationQuery<TSchema, TFilter>
 	// Selection stays type-only while the Query AST remains the runtime source of truth.
 	readonly [operationSelectionType]?: TSelectedField
+	// Included pointer projections stay type-only beside their runtime AST nodes.
+	readonly [operationInclusionType]?: TIncludedPointer
 }
 
 interface SchemaOperationAst<
@@ -96,7 +106,13 @@ export interface FindOperationAst<
 	TSchema extends SchemaDefinition,
 	TFilter extends QueryExpressionNode = QueryFilterNode<TSchema>,
 	TSelectedField extends QueryFieldName<TSchema> = never,
-> extends QueryOperationAst<TSchema, TFilter, TSelectedField> {
+	TIncludedPointer = never,
+> extends QueryOperationAst<
+	TSchema,
+	TFilter,
+	TSelectedField,
+	TIncludedPointer
+> {
 	readonly kind: 'find'
 }
 
@@ -105,7 +121,13 @@ export interface FirstOperationAst<
 	TSchema extends SchemaDefinition,
 	TFilter extends QueryExpressionNode = QueryFilterNode<TSchema>,
 	TSelectedField extends QueryFieldName<TSchema> = never,
-> extends QueryOperationAst<TSchema, TFilter, TSelectedField> {
+	TIncludedPointer = never,
+> extends QueryOperationAst<
+	TSchema,
+	TFilter,
+	TSelectedField,
+	TIncludedPointer
+> {
 	readonly kind: 'first'
 }
 
@@ -114,7 +136,13 @@ export interface GetOperationAst<
 	TSchema extends SchemaDefinition,
 	TFilter extends QueryExpressionNode = QueryFilterNode<TSchema>,
 	TSelectedField extends QueryFieldName<TSchema> = never,
-> extends QueryOperationAst<TSchema, TFilter, TSelectedField> {
+	TIncludedPointer = never,
+> extends QueryOperationAst<
+	TSchema,
+	TFilter,
+	TSelectedField,
+	TIncludedPointer
+> {
 	readonly kind: 'get'
 	readonly id: OperationObjectId<TSchema>
 }
@@ -124,7 +152,7 @@ export interface CountOperationAst<
 	TSchema extends SchemaDefinition,
 	TFilter extends QueryExpressionNode = QueryFilterNode<TSchema>,
 	TSelectedField extends QueryFieldName<TSchema> = never,
-> extends QueryOperationAst<TSchema, TFilter, TSelectedField> {
+> extends QueryOperationAst<TSchema, TFilter, TSelectedField, never> {
 	readonly kind: 'count'
 }
 
@@ -133,7 +161,7 @@ export interface ExistsOperationAst<
 	TSchema extends SchemaDefinition,
 	TFilter extends QueryExpressionNode = QueryFilterNode<TSchema>,
 	TSelectedField extends QueryFieldName<TSchema> = never,
-> extends QueryOperationAst<TSchema, TFilter, TSelectedField> {
+> extends QueryOperationAst<TSchema, TFilter, TSelectedField, never> {
 	readonly kind: 'exists'
 }
 
@@ -161,7 +189,13 @@ export interface UpdateOneOperationAst<
 	TUpdate extends UpdateExpressionNode = UpdateExpression<TSchema>,
 	TFilter extends QueryExpressionNode = QueryFilterNode<TSchema>,
 	TSelectedField extends QueryFieldName<TSchema> = never,
-> extends QueryOperationAst<TSchema, TFilter, TSelectedField> {
+	TIncludedPointer = never,
+> extends QueryOperationAst<
+	TSchema,
+	TFilter,
+	TSelectedField,
+	TIncludedPointer
+> {
 	readonly kind: 'update-one'
 	readonly update: TUpdate
 }
@@ -172,7 +206,7 @@ export interface UpdateManyOperationAst<
 	TUpdate extends UpdateExpressionNode = UpdateExpression<TSchema>,
 	TFilter extends QueryExpressionNode = QueryFilterNode<TSchema>,
 	TSelectedField extends QueryFieldName<TSchema> = never,
-> extends QueryOperationAst<TSchema, TFilter, TSelectedField> {
+> extends QueryOperationAst<TSchema, TFilter, TSelectedField, never> {
 	readonly kind: 'update-many'
 	readonly update: TUpdate
 }
@@ -183,7 +217,13 @@ export interface UpsertOneOperationAst<
 	TUpdate extends UpdateExpressionNode = UpdateExpression<TSchema>,
 	TFilter extends QueryExpressionNode = QueryFilterNode<TSchema>,
 	TSelectedField extends QueryFieldName<TSchema> = never,
-> extends QueryOperationAst<TSchema, TFilter, TSelectedField> {
+	TIncludedPointer = never,
+> extends QueryOperationAst<
+	TSchema,
+	TFilter,
+	TSelectedField,
+	TIncludedPointer
+> {
 	readonly kind: 'upsert-one'
 	readonly target: UniqueUpsertTargetNode<TSchema>
 	readonly create: InferCreateInput<TSchema>
@@ -219,7 +259,13 @@ export interface DeleteOneOperationAst<
 	TSchema extends SchemaDefinition,
 	TFilter extends QueryExpressionNode = QueryFilterNode<TSchema>,
 	TSelectedField extends QueryFieldName<TSchema> = never,
-> extends QueryOperationAst<TSchema, TFilter, TSelectedField> {
+	TIncludedPointer = never,
+> extends QueryOperationAst<
+	TSchema,
+	TFilter,
+	TSelectedField,
+	TIncludedPointer
+> {
 	readonly kind: 'delete-one'
 }
 
@@ -228,7 +274,7 @@ export interface DeleteManyOperationAst<
 	TSchema extends SchemaDefinition,
 	TFilter extends QueryExpressionNode = QueryFilterNode<TSchema>,
 	TSelectedField extends QueryFieldName<TSchema> = never,
-> extends QueryOperationAst<TSchema, TFilter, TSelectedField> {
+> extends QueryOperationAst<TSchema, TFilter, TSelectedField, never> {
 	readonly kind: 'delete-many'
 }
 
@@ -239,19 +285,32 @@ export type OperationAst<
 	TFilter extends QueryExpressionNode = QueryFilterNode<TSchema>,
 	TSelectedField extends QueryFieldName<TSchema> = never,
 	TAtomic extends boolean = boolean,
+	TIncludedPointer = never,
 > =
-	| FindOperationAst<TSchema, TFilter, TSelectedField>
-	| FirstOperationAst<TSchema, TFilter, TSelectedField>
-	| GetOperationAst<TSchema, TFilter, TSelectedField>
+	| FindOperationAst<TSchema, TFilter, TSelectedField, TIncludedPointer>
+	| FirstOperationAst<TSchema, TFilter, TSelectedField, TIncludedPointer>
+	| GetOperationAst<TSchema, TFilter, TSelectedField, TIncludedPointer>
 	| CountOperationAst<TSchema, TFilter, TSelectedField>
 	| ExistsOperationAst<TSchema, TFilter, TSelectedField>
 	| CreateOneOperationAst<TSchema>
 	| CreateManyOperationAst<TSchema, TAtomic>
-	| UpdateOneOperationAst<TSchema, TUpdate, TFilter, TSelectedField>
+	| UpdateOneOperationAst<
+			TSchema,
+			TUpdate,
+			TFilter,
+			TSelectedField,
+			TIncludedPointer
+	  >
 	| UpdateManyOperationAst<TSchema, TUpdate, TFilter, TSelectedField>
-	| UpsertOneOperationAst<TSchema, TUpdate, TFilter, TSelectedField>
+	| UpsertOneOperationAst<
+			TSchema,
+			TUpdate,
+			TFilter,
+			TSelectedField,
+			TIncludedPointer
+	  >
 	| UpsertManyOperationAst<TSchema, TUpdate, TFilter, TAtomic>
-	| DeleteOneOperationAst<TSchema, TFilter, TSelectedField>
+	| DeleteOneOperationAst<TSchema, TFilter, TSelectedField, TIncludedPointer>
 	| DeleteManyOperationAst<TSchema, TFilter, TSelectedField>
 
 /** Accepts every normalized operation specialization for one schema. */
@@ -261,7 +320,9 @@ export type ExecutableOperationAst<
 	TSchema,
 	UpdateExpressionNode,
 	QueryExpressionNode,
-	QueryFieldName<TSchema>
+	QueryFieldName<TSchema>,
+	boolean,
+	unknown
 >
 
 /** Extracts the stable discriminant union used by adapters and hook registries. */

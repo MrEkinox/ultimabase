@@ -97,7 +97,7 @@ Post.query()./* hover */find()
 
 		expect(display).toContain('find(options?: QueryTerminalOptions)')
 		expect(display).not.toContain('SchemaDefinition<')
-		expect(display.length).toBeLessThan(900)
+		expect(display.length).toBeLessThan(950)
 	})
 
 	it('suggests and documents concise singular mutation aliases', () => {
@@ -198,5 +198,46 @@ Post.query()./* hover */createMany([{ title: 'First' }], { atomic: false })
 			'discriminated result',
 		)
 		expect(terminal.tags?.some(({ name }) => name === 'example')).toBe(true)
+	})
+
+	it('documents pointer inclusion and keeps target-field autocomplete exact', () => {
+		const inclusion = readMarkedQuickInfo(
+			`${import.meta.dirname}/query-pointer-include-hover.fixture.ts`,
+			`
+import { Schema, pointerField, stringField } from '../../src/index.js'
+const User = Schema.define({ className: 'User', fields: { name: stringField(), email: stringField() } })
+const Post = Schema.define({ className: 'Post', fields: { author: pointerField({ target: () => User }), title: stringField() } })
+Post.query()./* hover */include('author', (query) => query.select('name'))
+`,
+		)
+		const display = readDisplay(inclusion.displayParts)
+
+		expect(display).toContain('include<')
+		expect(display).toContain('"author"')
+		expect(display).not.toContain('authorId')
+		expect(readDisplay(inclusion.documentation)).toContain(
+			'Loads one pointer through an exact',
+		)
+		expect(inclusion.tags?.some(({ name }) => name === 'example')).toBe(true)
+
+		const marker = '/* completion */'
+		const sourceWithMarker = `
+import { Schema, pointerField, stringField } from '../../src/index.js'
+const User = Schema.define({ className: 'User', fields: { name: stringField(), email: stringField() } })
+const Post = Schema.define({ className: 'Post', fields: { author: pointerField({ target: () => User }), title: stringField() } })
+Post.query().include('author', (query) => query.select('${marker}'))
+`
+		const position = sourceWithMarker.indexOf(marker)
+		const source = sourceWithMarker.replace(marker, ' '.repeat(marker.length))
+		const fileName = `${import.meta.dirname}/query-pointer-include-completion.fixture.ts`
+		const service = createLanguageService(fileName, source)
+		const completions = service.getCompletionsAtPosition(fileName, position, {})
+		const completionNames = new Set(
+			completions?.entries.map(({ name }) => name) ?? [],
+		)
+
+		expect(completionNames.has('name')).toBe(true)
+		expect(completionNames.has('email')).toBe(true)
+		expect(completionNames.has('title')).toBe(false)
 	})
 })

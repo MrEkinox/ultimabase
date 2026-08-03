@@ -28,6 +28,26 @@ export interface QuerySelectionNode<TFieldName extends string = string> {
 	readonly fields: readonly QuerySelectedFieldNode<TFieldName>[]
 }
 
+/** Includes one logical pointer field through an independently shaped target query. */
+export interface QueryIncludedPointerNode<
+	TFieldName extends string = string,
+	TQuery = unknown,
+> {
+	readonly kind: 'included-pointer'
+	readonly field: TFieldName
+	readonly query: TQuery
+}
+
+/** Groups bounded single-target inclusions without introducing to-many loading. */
+export interface QueryInclusionNode<
+	TFieldName extends string = string,
+	TIncludedPointer extends QueryIncludedPointerNode<TFieldName> =
+		QueryIncludedPointerNode<TFieldName>,
+> {
+	readonly kind: 'inclusion'
+	readonly pointers: readonly TIncludedPointer[]
+}
+
 /** Provides the neutral discriminant required by future filter node unions. */
 export interface QueryExpressionNode {
 	readonly kind: string
@@ -77,10 +97,13 @@ export type QueryPaginationNode =
 export interface QueryAst<
 	TSchema extends SchemaDefinition = SchemaDefinition,
 	TExpression extends QueryExpressionNode = QueryExpressionNode,
+	TInclusion extends QueryInclusionNode<QueryFieldName<TSchema>> =
+		QueryInclusionNode<QueryFieldName<TSchema>>,
 > {
 	readonly kind: 'query'
 	readonly schema: QuerySchemaNode<TSchema>
 	readonly selection: QuerySelectionNode<QueryFieldName<TSchema>>
+	readonly inclusion: TInclusion
 	readonly where: QueryWhereNode<TExpression> | undefined
 	readonly ordering: QueryOrderingNode<QueryFieldName<TSchema>>
 	readonly limit: number | undefined
@@ -92,6 +115,7 @@ export interface InitialQueryAst<
 	TSchema extends SchemaDefinition = SchemaDefinition,
 > extends QueryAst<TSchema, never> {
 	readonly selection: QuerySelectionNode<never>
+	readonly inclusion: QueryInclusionNode<never, never>
 	readonly where: undefined
 	readonly ordering: QueryOrderingNode<never>
 	readonly limit: undefined
@@ -107,6 +131,8 @@ export type QueryAstNode<
 	| QuerySchemaNode<TSchema>
 	| QuerySelectionNode<QueryFieldName<TSchema>>
 	| QuerySelectedFieldNode<QueryFieldName<TSchema>>
+	| QueryInclusionNode<QueryFieldName<TSchema>>
+	| QueryIncludedPointerNode<QueryFieldName<TSchema>>
 	| QueryWhereNode<TExpression>
 	| TExpression
 	| QueryOrderingNode<QueryFieldName<TSchema>>

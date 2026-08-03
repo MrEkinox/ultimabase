@@ -45,6 +45,21 @@ describe('Pointer', () => {
 		expect(pointer.id).toBe(targetId)
 	})
 
+	it('builds one ordinary target query scoped by the pointer id', () => {
+		const pointer = userSchema.pointer(targetId)
+		const query = pointer.query().select('id')
+
+		expect(query.schema).toBe(userSchema)
+		expect(query.ast.where?.expression).toStrictEqual({
+			kind: 'equal',
+			field: 'id',
+			value: targetId,
+		})
+		expect(query.ast.selection.fields).toStrictEqual([
+			{ kind: 'selected-field', field: 'id' },
+		])
+	})
+
 	it('structurally shares trusted values at snapshot boundaries', () => {
 		const pointer = new Pointer(userSchema, targetId)
 

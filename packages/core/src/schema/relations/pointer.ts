@@ -1,5 +1,7 @@
 import { assertNonEmptyString, immutableRecord } from '@ultimabase/shared'
 
+import { Query } from '../../query/query/query.js'
+import type { OperationObjectId } from '../../query/operations/contracts.js'
 import { Schema, type SchemaDefinition } from '../schema/definition.js'
 
 /** Describes the stable transport-neutral JSON identity of one pointer. */
@@ -69,6 +71,17 @@ export class Pointer<TSchema extends SchemaDefinition = SchemaDefinition> {
 			other.schema === this.#schema &&
 			other.id === this.#id
 		)
+	}
+
+	/**
+	 * Builds an immutable Query scoped to this exact target without performing I/O.
+	 *
+	 * @example `await post.author.query().select('id', 'name').first()`
+	 */
+	query(): Query<TSchema> {
+		// Every schema receives Core's string UUID identifier, although an arbitrary
+		// schema generic cannot reduce that framework-owned intersection here.
+		return new Query(this.#schema).byId(this.#id as OperationObjectId<TSchema>)
 	}
 
 	/** Serializes the logical identity without exposing database representation. */

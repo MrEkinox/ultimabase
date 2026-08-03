@@ -117,7 +117,7 @@ incomplete.
 
 ### Phase 2 — Complete pointer vertical
 
-3. [ ] [737 — Add pointer Query contracts and inclusion](issues/700-extensions/737-pointer-query-contracts.md)
+3. [x] [737 — Add pointer Query contracts and inclusion](issues/700-extensions/737-pointer-query-contracts.md)
 4. [ ] [738 — Execute pointer reads and inclusion through Runtime](issues/700-extensions/738-pointer-runtime.md)
 5. [ ] [739 — Compile and execute PostgreSQL pointers](issues/700-extensions/739-postgres-pointer-storage.md)
 6. [ ] [740 — Verify the pointer vertical against PostgreSQL](issues/700-extensions/740-pointer-postgres-e2e.md)
@@ -151,9 +151,10 @@ When resuming after context loss:
 
 ## Current issue
 
-[737 — Add pointer Query contracts and inclusion](issues/700-extensions/737-pointer-query-contracts.md) is `ready`.
+[738 — Execute pointer reads and inclusion through Runtime](issues/700-extensions/738-pointer-runtime.md) is `ready`.
 
 ## Progress log
 
 - 701 established lazy, application-local schema target resolution before plugin infrastructure starts.
 - 702 added exact pointer fields, immutable logical Pointer values, referential metadata, and schema pointer conveniences.
+- 737 added exact pointer predicates, ID-scoped Pointer queries, and immutable selection-aware inclusion AST contracts.

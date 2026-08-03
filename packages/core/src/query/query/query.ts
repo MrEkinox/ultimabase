@@ -1,14 +1,28 @@
-import type { InferCreateInput, SchemaDefinition } from '../../schema/index.js'
+import {
+	Schema,
+	type GenericField,
+	type InferCreateInput,
+	type SchemaDefinition,
+} from '../../schema/index.js'
+import { getFieldSchemaTarget } from '../../schema/fields/base/definition.js'
 import { immutableRecord } from '@ultimabase/shared'
 
 import type {
 	QueryAst,
 	QueryFieldName,
+	QueryInclusionNode,
 	QueryOrderDirection,
 	QueryWhereNode,
 } from '../ast/contracts.js'
 import { createQueryAst } from '../ast/factory.js'
 import { normalizeQueryOrdering } from '../clauses/ordering.js'
+import type {
+	QueryPointerFieldName,
+	QueryPointerInclusionAst,
+	QueryPointerInclusionInput,
+	QueryPointerTargetSchema,
+} from '../clauses/inclusion.js'
+import { normalizeQueryInclusion } from '../clauses/inclusion.js'
 import {
 	normalizeQueryCursorPagination,
 	normalizeQueryLimit,
@@ -71,12 +85,19 @@ import type {
 	UpdateExpressionInput,
 } from '../updates/contracts.js'
 import { normalizeUpdateExpression } from '../updates/normalize.js'
-import type { InferQueryResult } from './result.js'
+import type { InferQueryResult, QueryPointerResultInclusion } from './result.js'
 import type { QueryScope } from './scope.js'
+
+type QueryBuilderInclusion<TSchema extends SchemaDefinition> = [
+	QueryPointerFieldName<TSchema>,
+] extends [never]
+	? QueryInclusionNode<QueryFieldName<TSchema>>
+	: QueryPointerInclusionAst<TSchema>
 
 type QueryBuilderAst<TSchema extends SchemaDefinition> = QueryAst<
 	TSchema,
-	QueryFilterNode<TSchema>
+	QueryFilterNode<TSchema>,
+	QueryBuilderInclusion<TSchema>
 >
 
 // Query state stays outside the frozen public shell so internal hydration does
@@ -106,7 +127,7 @@ const storeQueryAst = <const TSchema extends SchemaDefinition>(
 type QueryAstPatch<TSchema extends SchemaDefinition> = Partial<
 	Pick<
 		QueryBuilderAst<TSchema>,
-		'limit' | 'ordering' | 'pagination' | 'selection' | 'where'
+		'inclusion' | 'limit' | 'ordering' | 'pagination' | 'selection' | 'where'
 	>
 >
 
@@ -119,6 +140,30 @@ type QueryStringValue<
 	TSchema extends SchemaDefinition,
 	TFieldName extends QueryFieldName<TSchema>,
 > = Extract<QueryFilterValue<TSchema, TFieldName>, string>
+
+type QuerySelectionAfterInclude<
+	TSchema extends SchemaDefinition,
+	TSelectedField extends QueryFieldName<TSchema>,
+	TIncludedField extends QueryFieldName<TSchema>,
+> = [TSelectedField] extends [never] ? never : TSelectedField | TIncludedField
+
+type ReplacePointerResultInclusion<
+	TIncludedPointer,
+	TFieldName extends string,
+	TNextInclusion,
+> = Exclude<TIncludedPointer, { readonly field: TFieldName }> | TNextInclusion
+
+const getFieldQueryTarget = (
+	field: GenericField,
+): SchemaDefinition | undefined => {
+	if (field.kind !== 'pointer') {
+		return undefined
+	}
+
+	const target = getFieldSchemaTarget(field)?.()
+
+	return Schema.is(target) ? target : undefined
+}
 
 /**
  * Builds one immutable, transport-neutral query without retaining execution state.
@@ -138,6 +183,7 @@ type QueryStringValue<
 export class Query<
 	const TSchema extends SchemaDefinition,
 	TSelectedField extends QueryFieldName<TSchema> = never,
+	TIncludedPointer = never,
 > {
 	// The explicit mode separates `never` (implicit select-all) from every concrete
 	// projection, while input and output positions keep selected unions invariant.
@@ -145,6 +191,10 @@ export class Query<
 		readonly mode: [TSelectedField] extends [never] ? 'all' : 'selected'
 		readonly read: TSelectedField
 		readonly write: (field: TSelectedField) => void
+	}
+	declare private readonly includedPointerType: {
+		readonly read: TIncludedPointer
+		readonly write: (inclusion: TIncludedPointer) => void
 	}
 
 	constructor(schema: TSchema) {
@@ -167,7 +217,7 @@ export class Query<
 	/** Adds selected fields while keeping their first declaration order. */
 	select<const TField extends QueryFieldName<TSchema>>(
 		...fields: readonly TField[]
-	): Query<TSchema, TSelectedField | TField> {
+	): Query<TSchema, TSelectedField | TField, TIncludedPointer> {
 		const selectedFields = this.ast.selection.fields.map(
 			(selection) => selection.field,
 		)
@@ -180,27 +230,120 @@ export class Query<
 		})
 	}
 
+	/**
+	 * Loads one pointer through an exact, independently shaped target Query.
+	 *
+	 * The callback only builds portable AST state. It performs no I/O, and a
+	 * repeated field replaces its earlier shape without changing inclusion order.
+	 *
+	 * @example `Post.query().include('author', (query) => query.select('id', 'name'))`
+	 */
+	include<
+		const TFieldName extends QueryPointerFieldName<TSchema>,
+		TTargetSelectedField extends QueryFieldName<
+			QueryPointerTargetSchema<TSchema, TFieldName>
+		>,
+		TTargetIncludedPointer,
+	>(
+		fieldName: TFieldName,
+		shape: (
+			query: Query<QueryPointerTargetSchema<TSchema, TFieldName>>,
+		) => Query<
+			QueryPointerTargetSchema<TSchema, TFieldName>,
+			TTargetSelectedField,
+			TTargetIncludedPointer
+		>,
+	): Query<
+		TSchema,
+		QuerySelectionAfterInclude<TSchema, TSelectedField, TFieldName>,
+		ReplacePointerResultInclusion<
+			TIncludedPointer,
+			TFieldName,
+			QueryPointerResultInclusion<
+				TFieldName,
+				QueryPointerTargetSchema<TSchema, TFieldName>,
+				TTargetSelectedField,
+				TTargetIncludedPointer
+			>
+		>
+	> {
+		const field = this.schema.fields[fieldName]
+		const target = field === undefined ? undefined : getFieldQueryTarget(field)
+
+		if (target === undefined) {
+			throw new TypeError(
+				'query inclusion field must reference a pointer field',
+			)
+		}
+
+		// The field-level target type and private target callback originate from the
+		// same pointer factory; runtime identity is rechecked below before storage.
+		const exactTarget = target as QueryPointerTargetSchema<TSchema, TFieldName>
+		const targetQuery = shape(
+			new Query<QueryPointerTargetSchema<TSchema, TFieldName>>(exactTarget),
+		)
+
+		if (!(targetQuery instanceof Query) || targetQuery.schema !== target) {
+			throw new TypeError(
+				'query inclusion callback must return a Query for the pointer target',
+			)
+		}
+
+		// Every retained node previously crossed the same pointer-only normalizer.
+		const pointers = this.ast.inclusion.pointers.map((pointer) => ({
+			field: pointer.field,
+			query: pointer.query,
+		})) as readonly QueryPointerInclusionInput<TSchema>[]
+		const selectionFields = this.ast.selection.fields.map(
+			(selection) => selection.field,
+		)
+		const selection =
+			selectionFields.length === 0
+				? this.ast.selection
+				: normalizeQuerySelection(this.schema, [...selectionFields, fieldName])
+
+		return this.#with<
+			QuerySelectionAfterInclude<TSchema, TSelectedField, TFieldName>,
+			ReplacePointerResultInclusion<
+				TIncludedPointer,
+				TFieldName,
+				QueryPointerResultInclusion<
+					TFieldName,
+					QueryPointerTargetSchema<TSchema, TFieldName>,
+					TTargetSelectedField,
+					TTargetIncludedPointer
+				>
+			>
+		>({
+			inclusion: normalizeQueryInclusion(this.schema, [
+				...pointers,
+				{ field: fieldName, query: targetQuery.ast },
+			]),
+			selection,
+		})
+	}
+
 	/** Appends ascending order terms without mutating earlier query branches. */
 	ascending(
 		...fields: readonly QueryFieldName<TSchema>[]
-	): Query<TSchema, TSelectedField> {
+	): Query<TSchema, TSelectedField, TIncludedPointer> {
 		return this.#order('ascending', fields)
 	}
 
 	/** Appends descending order terms without mutating earlier query branches. */
 	descending(
 		...fields: readonly QueryFieldName<TSchema>[]
-	): Query<TSchema, TSelectedField> {
+	): Query<TSchema, TSelectedField, TIncludedPointer> {
 		return this.#order('descending', fields)
 	}
 
 	/** Defines the single page-size clause shared by all pagination strategies. */
-	limit(value: number): Query<TSchema, TSelectedField> {
+	limit(value: number): Query<TSchema, TSelectedField, TIncludedPointer> {
 		return this.#with({ limit: normalizeQueryLimit(value) })
 	}
 
 	/** Selects offset pagination and rejects an existing cursor position. */
-	skip(value: number): Query<TSchema, TSelectedField> {
+	skip(value: number): Query<TSchema, TSelectedField, TIncludedPointer> {
 		const pagination = normalizeQueryOffsetPagination({ skip: value })
 
 		if (pagination === undefined) {
@@ -218,7 +361,7 @@ export class Query<
 	}
 
 	/** Selects the first or a resumed cursor page and rejects an existing offset. */
-	after(cursor?: string): Query<TSchema, TSelectedField> {
+	after(cursor?: string): Query<TSchema, TSelectedField, TIncludedPointer> {
 		if (this.ast.pagination?.kind === 'offset-pagination') {
 			throw new TypeError('query cannot combine skip and after pagination')
 		}
@@ -238,7 +381,9 @@ export class Query<
 	 *
 	 * @example `query.byId(post.id).updateOne({ set: { title: "Updated" } })`
 	 */
-	byId(id: OperationObjectId<TSchema>): Query<TSchema, TSelectedField> {
+	byId(
+		id: OperationObjectId<TSchema>,
+	): Query<TSchema, TSelectedField, TIncludedPointer> {
 		// Every Schema includes the framework-owned UUID field, although TypeScript
 		// cannot reduce that intersection through an arbitrary schema generic here.
 		const idField = 'id' as QueryFilterFieldName<TSchema, 'equal'>
@@ -252,7 +397,7 @@ export class Query<
 	equalTo<TFieldName extends QueryFilterFieldName<TSchema, 'equal'>>(
 		fieldName: TFieldName,
 		value: QueryFilterValue<TSchema, TFieldName>,
-	): Query<TSchema, TSelectedField> {
+	): Query<TSchema, TSelectedField, TIncludedPointer> {
 		return this.#appendFilter(
 			createQueryValueFilter(this.schema, 'equal', fieldName, value),
 		)
@@ -262,7 +407,7 @@ export class Query<
 	notEqualTo<TFieldName extends QueryFilterFieldName<TSchema, 'not-equal'>>(
 		fieldName: TFieldName,
 		value: QueryFilterValue<TSchema, TFieldName>,
-	): Query<TSchema, TSelectedField> {
+	): Query<TSchema, TSelectedField, TIncludedPointer> {
 		return this.#appendFilter(
 			createQueryValueFilter(this.schema, 'not-equal', fieldName, value),
 		)
@@ -272,7 +417,7 @@ export class Query<
 	greaterThan<TFieldName extends QueryFilterFieldName<TSchema, 'greater-than'>>(
 		fieldName: TFieldName,
 		value: QueryComparisonValue<TSchema, TFieldName>,
-	): Query<TSchema, TSelectedField> {
+	): Query<TSchema, TSelectedField, TIncludedPointer> {
 		return this.#appendFilter(
 			createQueryValueFilter(this.schema, 'greater-than', fieldName, value),
 		)
@@ -284,7 +429,7 @@ export class Query<
 	>(
 		fieldName: TFieldName,
 		value: QueryComparisonValue<TSchema, TFieldName>,
-	): Query<TSchema, TSelectedField> {
+	): Query<TSchema, TSelectedField, TIncludedPointer> {
 		return this.#appendFilter(
 			createQueryValueFilter(
 				this.schema,
@@ -299,7 +444,7 @@ export class Query<
 	lessThan<TFieldName extends QueryFilterFieldName<TSchema, 'less-than'>>(
 		fieldName: TFieldName,
 		value: QueryComparisonValue<TSchema, TFieldName>,
-	): Query<TSchema, TSelectedField> {
+	): Query<TSchema, TSelectedField, TIncludedPointer> {
 		return this.#appendFilter(
 			createQueryValueFilter(this.schema, 'less-than', fieldName, value),
 		)
@@ -311,7 +456,7 @@ export class Query<
 	>(
 		fieldName: TFieldName,
 		value: QueryComparisonValue<TSchema, TFieldName>,
-	): Query<TSchema, TSelectedField> {
+	): Query<TSchema, TSelectedField, TIncludedPointer> {
 		return this.#appendFilter(
 			createQueryValueFilter(
 				this.schema,
@@ -326,7 +471,7 @@ export class Query<
 	containedIn<TFieldName extends QueryFilterFieldName<TSchema, 'in'>>(
 		fieldName: TFieldName,
 		values: readonly QueryFilterValue<TSchema, TFieldName>[],
-	): Query<TSchema, TSelectedField> {
+	): Query<TSchema, TSelectedField, TIncludedPointer> {
 		return this.#appendFilter(
 			createQueryMembershipFilter(this.schema, 'in', fieldName, values),
 		)
@@ -336,7 +481,7 @@ export class Query<
 	notContainedIn<TFieldName extends QueryFilterFieldName<TSchema, 'not-in'>>(
 		fieldName: TFieldName,
 		values: readonly QueryFilterValue<TSchema, TFieldName>[],
-	): Query<TSchema, TSelectedField> {
+	): Query<TSchema, TSelectedField, TIncludedPointer> {
 		return this.#appendFilter(
 			createQueryMembershipFilter(this.schema, 'not-in', fieldName, values),
 		)
@@ -346,7 +491,7 @@ export class Query<
 	contains<TFieldName extends QueryFilterFieldName<TSchema, 'contains'>>(
 		fieldName: TFieldName,
 		value: QueryStringValue<TSchema, TFieldName>,
-	): Query<TSchema, TSelectedField> {
+	): Query<TSchema, TSelectedField, TIncludedPointer> {
 		return this.#appendFilter(
 			createQueryValueFilter(this.schema, 'contains', fieldName, value),
 		)
@@ -356,7 +501,7 @@ export class Query<
 	startsWith<TFieldName extends QueryFilterFieldName<TSchema, 'starts-with'>>(
 		fieldName: TFieldName,
 		value: QueryStringValue<TSchema, TFieldName>,
-	): Query<TSchema, TSelectedField> {
+	): Query<TSchema, TSelectedField, TIncludedPointer> {
 		return this.#appendFilter(
 			createQueryValueFilter(this.schema, 'starts-with', fieldName, value),
 		)
@@ -366,7 +511,7 @@ export class Query<
 	endsWith<TFieldName extends QueryFilterFieldName<TSchema, 'ends-with'>>(
 		fieldName: TFieldName,
 		value: QueryStringValue<TSchema, TFieldName>,
-	): Query<TSchema, TSelectedField> {
+	): Query<TSchema, TSelectedField, TIncludedPointer> {
 		return this.#appendFilter(
 			createQueryValueFilter(this.schema, 'ends-with', fieldName, value),
 		)
@@ -376,7 +521,7 @@ export class Query<
 	matches(
 		fieldName: QueryFilterFieldName<TSchema, 'regex'>,
 		pattern: QueryRegexPattern,
-	): Query<TSchema, TSelectedField> {
+	): Query<TSchema, TSelectedField, TIncludedPointer> {
 		return this.#appendFilter(
 			createQueryRegexFilter(this.schema, fieldName, pattern),
 		)
@@ -385,35 +530,37 @@ export class Query<
 	/** Adds a negative field-presence condition. */
 	doesNotExist(
 		fieldName: QueryFilterFieldName<TSchema, 'exists'>,
-	): Query<TSchema, TSelectedField> {
+	): Query<TSchema, TSelectedField, TIncludedPointer> {
 		return this.#appendFilter(
 			createQueryExistenceFilter(this.schema, fieldName, false),
 		)
 	}
 
 	/** Combines the other query's filter with this query through AND. */
-	and<TOtherSelection extends QueryFieldName<TSchema>>(
-		query: Query<TSchema, TOtherSelection>,
-	): Query<TSchema, TSelectedField> {
+	and<TOtherSelection extends QueryFieldName<TSchema>, TOtherIncludedPointer>(
+		query: Query<TSchema, TOtherSelection, TOtherIncludedPointer>,
+	): Query<TSchema, TSelectedField, TIncludedPointer> {
 		return this.#combine(query, 'and', false)
 	}
 
 	/** Combines the other query's filter with this query through OR. */
-	or<TOtherSelection extends QueryFieldName<TSchema>>(
-		query: Query<TSchema, TOtherSelection>,
-	): Query<TSchema, TSelectedField> {
+	or<TOtherSelection extends QueryFieldName<TSchema>, TOtherIncludedPointer>(
+		query: Query<TSchema, TOtherSelection, TOtherIncludedPointer>,
+	): Query<TSchema, TSelectedField, TIncludedPointer> {
 		return this.#combine(query, 'or', false)
 	}
 
 	/** Adds the negation of the other query's filter through the implicit AND. */
-	not<TOtherSelection extends QueryFieldName<TSchema>>(
-		query: Query<TSchema, TOtherSelection>,
-	): Query<TSchema, TSelectedField> {
+	not<TOtherSelection extends QueryFieldName<TSchema>, TOtherIncludedPointer>(
+		query: Query<TSchema, TOtherSelection, TOtherIncludedPointer>,
+	): Query<TSchema, TSelectedField, TIncludedPointer> {
 		return this.#combine(query, 'and', true)
 	}
 
 	/** Applies one reusable transformation without exposing execution state. */
-	use(scope: QueryScope<TSchema>): Query<TSchema, TSelectedField> {
+	use(
+		scope: QueryScope<TSchema>,
+	): Query<TSchema, TSelectedField, TIncludedPointer> {
 		const scopedQuery = scope(this)
 
 		if (!(scopedQuery instanceof Query)) {
@@ -435,11 +582,14 @@ export class Query<
 	 */
 	find(
 		options?: QueryTerminalOptions,
-	): Promise<readonly InferQueryResult<TSchema, TSelectedField>[]> {
+	): Promise<
+		readonly InferQueryResult<TSchema, TSelectedField, TIncludedPointer>[]
+	> {
 		const operation: FindOperationAst<
 			TSchema,
 			QueryFilterNode<TSchema>,
-			TSelectedField
+			TSelectedField,
+			TIncludedPointer
 		> = immutableRecord({ kind: 'find', query: this.ast })
 
 		return this.#execute(operation, options)
@@ -448,11 +598,16 @@ export class Query<
 	/** Reads the first matching object, or `null` when no object matches. */
 	first(
 		options?: QueryTerminalOptions,
-	): Promise<InferQueryResult<TSchema, TSelectedField> | null> {
+	): Promise<InferQueryResult<
+		TSchema,
+		TSelectedField,
+		TIncludedPointer
+	> | null> {
 		const operation: FirstOperationAst<
 			TSchema,
 			QueryFilterNode<TSchema>,
-			TSelectedField
+			TSelectedField,
+			TIncludedPointer
 		> = immutableRecord({ kind: 'first', query: this.ast })
 
 		return this.#execute(operation, options)
@@ -462,11 +617,16 @@ export class Query<
 	get(
 		id: OperationObjectId<TSchema>,
 		options?: QueryTerminalOptions,
-	): Promise<InferQueryResult<TSchema, TSelectedField> | null> {
+	): Promise<InferQueryResult<
+		TSchema,
+		TSelectedField,
+		TIncludedPointer
+	> | null> {
 		const operation: GetOperationAst<
 			TSchema,
 			QueryFilterNode<TSchema>,
-			TSelectedField
+			TSelectedField,
+			TIncludedPointer
 		> = immutableRecord({ kind: 'get', query: this.ast, id })
 
 		return this.#execute(operation, options)
@@ -489,12 +649,12 @@ export class Query<
 	/** Adds a positive field-presence condition without executing the query. */
 	exists(
 		fieldName: QueryFilterFieldName<TSchema, 'exists'>,
-	): Query<TSchema, TSelectedField>
+	): Query<TSchema, TSelectedField, TIncludedPointer>
 
 	exists(
 		fieldNameOrOptions?:
 			QueryFilterFieldName<TSchema, 'exists'> | QueryTerminalOptions,
-	): Query<TSchema, TSelectedField> | Promise<boolean> {
+	): Query<TSchema, TSelectedField, TIncludedPointer> | Promise<boolean> {
 		if (typeof fieldNameOrOptions === 'string') {
 			return this.#appendFilter(
 				createQueryExistenceFilter(this.schema, fieldNameOrOptions, true),
@@ -567,12 +727,17 @@ export class Query<
 	updateOne(
 		input: UpdateExpressionInput<TSchema> & {},
 		options?: QueryTerminalOptions,
-	): Promise<InferQueryResult<TSchema, TSelectedField> | null> {
+	): Promise<InferQueryResult<
+		TSchema,
+		TSelectedField,
+		TIncludedPointer
+	> | null> {
 		const operation: UpdateOneOperationAst<
 			TSchema,
 			UpdateExpression<TSchema>,
 			QueryFilterNode<TSchema>,
-			TSelectedField
+			TSelectedField,
+			TIncludedPointer
 		> = immutableRecord({
 			kind: 'update-one',
 			query: this.ast,
@@ -593,7 +758,11 @@ export class Query<
 	update(
 		input: UpdateExpressionInput<TSchema> & {},
 		options?: QueryTerminalOptions,
-	): Promise<InferQueryResult<TSchema, TSelectedField> | null> {
+	): Promise<InferQueryResult<
+		TSchema,
+		TSelectedField,
+		TIncludedPointer
+	> | null> {
 		return this.updateOne(input, options)
 	}
 
@@ -620,13 +789,14 @@ export class Query<
 	upsertOne(
 		input: UpsertInput<TSchema> & {},
 		options?: QueryTerminalOptions,
-	): Promise<InferQueryResult<TSchema, TSelectedField>> {
+	): Promise<InferQueryResult<TSchema, TSelectedField, TIncludedPointer>> {
 		const normalizedInput = normalizeUpsertInput(this.schema, input)
 		const operation: UpsertOneOperationAst<
 			TSchema,
 			UpdateExpression<TSchema>,
 			QueryFilterNode<TSchema>,
-			TSelectedField
+			TSelectedField,
+			TIncludedPointer
 		> = immutableRecord({
 			kind: 'upsert-one',
 			query: this.ast,
@@ -641,7 +811,7 @@ export class Query<
 	upsert(
 		input: UpsertInput<TSchema> & {},
 		options?: QueryTerminalOptions,
-	): Promise<InferQueryResult<TSchema, TSelectedField>> {
+	): Promise<InferQueryResult<TSchema, TSelectedField, TIncludedPointer>> {
 		return this.upsertOne(input, options)
 	}
 
@@ -680,11 +850,16 @@ export class Query<
 	/** Deletes and returns the first match, or `null` when absent. */
 	deleteOne(
 		options?: QueryTerminalOptions,
-	): Promise<InferQueryResult<TSchema, TSelectedField> | null> {
+	): Promise<InferQueryResult<
+		TSchema,
+		TSelectedField,
+		TIncludedPointer
+	> | null> {
 		const operation: DeleteOneOperationAst<
 			TSchema,
 			QueryFilterNode<TSchema>,
-			TSelectedField
+			TSelectedField,
+			TIncludedPointer
 		> = immutableRecord({ kind: 'delete-one', query: this.ast })
 
 		return this.#execute(operation, options)
@@ -700,7 +875,11 @@ export class Query<
 	 */
 	delete(
 		options?: QueryTerminalOptions,
-	): Promise<InferQueryResult<TSchema, TSelectedField> | null> {
+	): Promise<InferQueryResult<
+		TSchema,
+		TSelectedField,
+		TIncludedPointer
+	> | null> {
 		return this.deleteOne(options)
 	}
 
@@ -718,7 +897,7 @@ export class Query<
 	#order(
 		direction: QueryOrderDirection,
 		fields: readonly QueryFieldName<TSchema>[],
-	): Query<TSchema, TSelectedField> {
+	): Query<TSchema, TSelectedField, TIncludedPointer> {
 		const orders = this.ast.ordering.orders.map((order) => ({
 			field: order.field,
 			direction: order.direction,
@@ -735,7 +914,7 @@ export class Query<
 	#appendFilter(
 		filter: QueryFilterNode<TSchema>,
 		logicalKind: 'and' | 'or' = 'and',
-	): Query<TSchema, TSelectedField> {
+	): Query<TSchema, TSelectedField, TIncludedPointer> {
 		const currentExpression = this.ast.where?.expression
 		const expression =
 			currentExpression === undefined
@@ -757,11 +936,14 @@ export class Query<
 		return this.#with({ where })
 	}
 
-	#combine<TOtherSelection extends QueryFieldName<TSchema>>(
-		query: Query<TSchema, TOtherSelection>,
+	#combine<
+		TOtherSelection extends QueryFieldName<TSchema>,
+		TOtherIncludedPointer,
+	>(
+		query: Query<TSchema, TOtherSelection, TOtherIncludedPointer>,
 		logicalKind: 'and' | 'or',
 		negate: boolean,
-	): Query<TSchema, TSelectedField> {
+	): Query<TSchema, TSelectedField, TIncludedPointer> {
 		if (query.schema !== this.schema) {
 			throw new TypeError('logical queries must use the same schema definition')
 		}
@@ -786,16 +968,25 @@ export class Query<
 		operation: TOperation,
 		options: QueryTerminalOptions | undefined,
 	): Promise<InferOperationResult<TOperation>> {
+		if ('query' in operation && operation.query.inclusion.pointers.length > 0) {
+			// Issue 738 replaces this guard with the Runtime inclusion capability;
+			// failing now prevents adapters from returning an unexpanded Pointer.
+			throw new TypeError('pointer inclusion execution is not available yet')
+		}
+
 		return executeQueryTerminal(
 			operation,
 			normalizeQueryTerminalOptions(options),
 		)
 	}
 
-	#with<TNextSelection extends QueryFieldName<TSchema> = TSelectedField>(
+	#with<
+		TNextSelection extends QueryFieldName<TSchema> = TSelectedField,
+		TNextIncludedPointer = TIncludedPointer,
+	>(
 		patch: QueryAstPatch<TSchema>,
-	): Query<TSchema, TNextSelection> {
-		return hydrateQueryFromAst<TSchema, TNextSelection>(
+	): Query<TSchema, TNextSelection, TNextIncludedPointer> {
+		return hydrateQueryFromAst<TSchema, TNextSelection, TNextIncludedPointer>(
 			immutableRecord({ ...this.ast, ...patch }),
 		)
 	}
@@ -813,10 +1004,13 @@ export class Query<
 export const hydrateQueryFromAst = <
 	const TSchema extends SchemaDefinition,
 	TSelectedField extends QueryFieldName<TSchema>,
+	TIncludedPointer = never,
 >(
 	ast: QueryBuilderAst<TSchema>,
-): Query<TSchema, TSelectedField> => {
-	const query = new Query<TSchema, TSelectedField>(ast.schema.definition)
+): Query<TSchema, TSelectedField, TIncludedPointer> => {
+	const query = new Query<TSchema, TSelectedField, TIncludedPointer>(
+		ast.schema.definition,
+	)
 
 	storeQueryAst(query, ast)
 

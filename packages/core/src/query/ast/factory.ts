@@ -2,6 +2,7 @@ import type { SchemaDefinition } from '../../schema/index.js'
 import { immutableRecord } from '@ultimabase/shared'
 
 import { emptyQueryOrdering } from '../clauses/ordering.js'
+import { emptyQueryInclusion } from '../clauses/inclusion.js'
 import { emptyQuerySelection } from '../clauses/selection.js'
 import type { InitialQueryAst, QuerySchemaNode } from './contracts.js'
 import { assertQuerySchemaReference } from './schema.js'
@@ -24,6 +25,7 @@ export const createQueryAst = <const TSchema extends SchemaDefinition>(
 		kind: 'query',
 		schema: schemaNode,
 		selection: emptyQuerySelection,
+		inclusion: emptyQueryInclusion,
 		where: undefined,
 		ordering: emptyQueryOrdering,
 		limit: undefined,

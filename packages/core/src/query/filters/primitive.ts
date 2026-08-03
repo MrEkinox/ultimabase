@@ -19,6 +19,7 @@ export const queryEqualityFieldKinds = [
 	'float',
 	'int',
 	'json',
+	'pointer',
 	'string',
 	'time',
 	'uuid',

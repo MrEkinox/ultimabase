@@ -75,12 +75,30 @@ general constructor, while `UserSchema.pointer(id)` is the concise typed form.
 Pointers serialize to `{ type: "pointer", className, id }` and compare by exact
 schema identity plus ID.
 
+Pointers participate in Query without revealing physical foreign-key names.
+Equality, membership, and existence predicates retain the exact target type;
+ordered and string comparisons are rejected. `pointer.query()` builds a normal
+target Query already scoped by its ID, while bounded single-target inclusion is
+selection-aware:
+
+```ts
+const selected = PostSchema.query()
+	.select('id', 'title')
+	.include('author', (author) => author.select('id', 'name'))
+
+// The result type contains only id, title, and the selected User shape.
+```
+
+The inclusion clause is already immutable and transport-neutral. Runtime
+expansion belongs to the next pointer vertical issue; until then, executing an
+included query fails explicitly rather than returning a misleading Pointer.
+
 `onDelete` defaults to `restrict`; `cascade` and nullable-only `setNull` are
 explicit alternatives. `indexed: "unique"` declares a one-to-one pointer.
 Pointer lists and defaults are rejected so relationship writes stay explicit;
 to-many collections belong to the later `relationField` contract. Physical
-foreign keys, pointer Query inclusion, and database execution are implemented
-by subsequent vertical issues.
+foreign keys and pointer Query execution are implemented by subsequent vertical
+issues.
 
 Invalid, throwing, unregistered, and foreign targets fail before infrastructure
 connects with the source class and field path. The graph contains logical class

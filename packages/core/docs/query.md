@@ -386,12 +386,12 @@ const filter = {
 
 The built-in capability matrix is deliberately explicit:
 
-| Operators                                       | Supported scalar field kinds                                                                      |
-| ----------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| `equal`, `not-equal`, `in`, `not-in`            | bigint, binary, boolean, date, date-time, decimal, enum, float, integer, JSON, string, time, UUID |
-| ordered comparisons                             | bigint, date, date-time, decimal, float, integer, string, time                                    |
-| `contains`, `starts-with`, `ends-with`, `regex` | string                                                                                            |
-| `exists`                                        | every field                                                                                       |
+| Operators                                       | Supported scalar field kinds                                                                               |
+| ----------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `equal`, `not-equal`, `in`, `not-in`            | bigint, binary, boolean, date, date-time, decimal, enum, float, integer, JSON, pointer, string, time, UUID |
+| ordered comparisons                             | bigint, date, date-time, decimal, float, integer, string, time                                             |
+| `contains`, `starts-with`, `ends-with`, `regex` | string                                                                                                     |
+| `exists`                                        | every field                                                                                                |
 
 Value operators apply only to non-list fields. Structured objects, lists, and
 plugin field kinds expose `exists` until their owning capability defines
@@ -482,9 +482,39 @@ skip is a non-negative safe integer. Empty clauses are removed or represented
 by shared immutable nodes without mutating caller input.
 
 The query package deliberately does not impose an application-wide maximum
-limit. That policy belongs to the runtime or transport layer. Relation
-inclusion will be introduced with pointer and relation fields so only fields
-that can actually be included are accepted.
+limit. That policy belongs to the runtime or transport layer.
+
+Pointer inclusion is a separate immutable clause. Only pointer keys are
+accepted, and each included target keeps a normal independently shaped Query:
+
+```ts
+const query = PostSchema.query()
+	.select('id', 'title')
+	.include('author', (author) =>
+		author.select('id', 'name').equalTo('active', true),
+	)
+```
+
+When the parent already has an explicit selection, inclusion adds the pointer
+field to it. With implicit select-all, the parent selection remains empty.
+Repeating the same pointer keeps its first position while the latest callback
+replaces its target shape. A non-included value remains `Pointer<TSchema>`;
+an included value becomes the exact selected target model, preserving pointer
+nullability and optionality.
+
+`pointer.query()` creates an ordinary target Query already filtered by the
+pointer ID. It performs no I/O until a terminal is called:
+
+```ts
+const authorName = await author.query().select('name').first({ ultimabase })
+```
+
+Inclusion nodes and pointer predicates contain only logical paths such as
+`author`; foreign-key columns such as `authorId` are adapter concerns. This
+issue defines and types the portable inclusion AST. Runtime expansion is added
+by issue 738, so executing a query that contains an inclusion currently fails
+explicitly instead of returning an unexpanded Pointer under an included type.
+To-many relations remain independently queried and paginated.
 
 ## Opaque cursors
 

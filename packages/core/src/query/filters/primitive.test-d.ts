@@ -12,9 +12,11 @@ import {
 	intField,
 	jsonField,
 	objectField,
+	pointerField,
 	stringField,
 	timeField,
 	uuidField,
+	type Pointer,
 } from '../../schema/index.js'
 import { expect, expectTypeOf, test } from 'vitest'
 
@@ -37,6 +39,11 @@ const vectorField = definePluginField(
 	},
 )
 
+const pointerTargetSchema = Schema.define({
+	className: 'FilterPointerTarget',
+	fields: {},
+})
+
 const filterSchema = Schema.define({
 	className: 'FilterMatrix',
 	fields: {
@@ -51,6 +58,7 @@ const filterSchema = Schema.define({
 		count: intField(),
 		payload: jsonField(),
 		profile: objectField({ fields: { name: stringField() } }),
+		author: pointerField({ target: () => pointerTargetSchema }),
 		title: stringField(),
 		aliases: stringField({ list: true }),
 		reminder: timeField(),
@@ -83,6 +91,7 @@ test('restricts every built-in field kind to its portable operators', () => {
 	expectTypeOf<Operators<'count'>>().toEqualTypeOf<OrderedOperators>()
 	expectTypeOf<Operators<'payload'>>().toEqualTypeOf<EqualityOperators>()
 	expectTypeOf<Operators<'profile'>>().toEqualTypeOf<'exists'>()
+	expectTypeOf<Operators<'author'>>().toEqualTypeOf<EqualityOperators>()
 	expectTypeOf<Operators<'title'>>().toEqualTypeOf<StringOperators>()
 	expectTypeOf<Operators<'aliases'>>().toEqualTypeOf<'exists'>()
 	expectTypeOf<Operators<'reminder'>>().toEqualTypeOf<OrderedOperators>()
@@ -124,6 +133,11 @@ test('correlates operands with exact inferred field values', () => {
 		readonly kind: 'exists'
 		readonly field: 'profile'
 		readonly exists: false
+	}>().toExtend<Filters>()
+	expectTypeOf<{
+		readonly kind: 'equal'
+		readonly field: 'author'
+		readonly value: Pointer<typeof pointerTargetSchema>
 	}>().toExtend<Filters>()
 
 	expectTypeOf<{
