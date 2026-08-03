@@ -106,6 +106,7 @@ Accepted records:
 - [ADR-0108: Contextual Query terminal execution](0108-contextual-query-terminal-execution.md)
 - [ADR-0109: Constructible schema model classes](0109-constructible-schema-models.md)
 - [ADR-0110: Concise singular Query terminals](0110-concise-singular-query-terminals.md)
+- [ADR-0111: Non-atomic bulk hook semantics](0111-non-atomic-bulk-hook-semantics.md)
 
 Superseded records:
 

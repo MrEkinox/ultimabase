@@ -19,7 +19,7 @@ import {
 	type SchemaHookTypes,
 	type SchemaBeforeCommitResult,
 } from '../index.js'
-import type { Query } from '../../query/index.js'
+import type { NonAtomicBulkResult, Query } from '../../query/index.js'
 
 const ArticleSchema = Schema.define({
 	className: 'HookedArticle',
@@ -231,6 +231,7 @@ test('keeps finalization results honest about selected fields', () => {
 	expectTypeOf<SchemaBeforeCommitResult<typeof ArticleSchema>>().toEqualTypeOf<
 		| Readonly<Partial<InferObject<typeof ArticleSchema>>>
 		| readonly Readonly<Partial<InferObject<typeof ArticleSchema>>>[]
+		| NonAtomicBulkResult<Readonly<Partial<InferObject<typeof ArticleSchema>>>>
 		| number
 		| null
 	>()

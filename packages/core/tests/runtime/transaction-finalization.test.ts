@@ -14,7 +14,7 @@ import {
 	type RuntimePipelineStages,
 } from '../../src/runtime/index.js'
 import { createNativeHookStages } from '../../src/runtime/hooks/dispatcher.js'
-import { isPlainRecord } from '@ultimabase/shared'
+import { isPlainRecord, isUnknownArray } from '@ultimabase/shared'
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -44,6 +44,19 @@ const readResultTitle = (result: unknown): string => {
 	}
 
 	return result.title
+}
+
+/** Reads the first successful title from a validated non-atomic summary. */
+const readBulkResultTitle = (result: unknown): string => {
+	if (
+		!isPlainRecord(result) ||
+		result.status !== 'stopped' ||
+		!isUnknownArray(result.results)
+	) {
+		throw new TypeError('Expected a stopped bulk result')
+	}
+
+	return readResultTitle(result.results[0])
 }
 
 /** Assembles the real native dispatcher around one deterministic fake adapter. */
@@ -196,6 +209,73 @@ describe('native transaction hook finalization', () => {
 			'field:after-commit',
 			'schema:afterCommit:Created',
 			'event:create-one',
+		])
+
+		await application.dispose()
+	})
+
+	it('finalizes a stopped non-atomic prefix only after its outer commit', async () => {
+		const trace: string[] = []
+		const writeError = new Error('second input failed')
+		const first = createRecord(generatedIds[0], 'First')
+		const schema = Schema.define({
+			className: 'TransactionFinalizationPartialBulk',
+			fields: {
+				title: stringField({
+					hooks: {
+						afterCommit: ({ change }) => {
+							trace.push(
+								`field:afterCommit:${change.current.present ? change.current.value : 'absent'}`,
+							)
+						},
+					},
+					validation: { required: true },
+				}),
+			},
+			hooks: {
+				afterCommit: ({ result }) => {
+					trace.push(`schema:afterCommit:${readBulkResultTitle(result)}`)
+				},
+				beforeCommit: ({ changes }) => {
+					trace.push(
+						`schema:beforeCommit:${readBulkResultTitle(changes[0]?.result)}`,
+					)
+				},
+			},
+		})
+		const { application, request } = await createRequest(
+			schema,
+			[
+				{
+					materializations: [{ current: first, kind: 'create' }],
+					status: 'fulfilled',
+					value: {
+						error: writeError,
+						failedIndex: 1,
+						results: [first],
+						status: 'stopped',
+					},
+				},
+			],
+			trace,
+		)
+
+		const result = await runWithRequestEngine(request, () =>
+			schema.query().createMany([{ title: 'First' }, { title: 'Second' }], {
+				atomic: false,
+			}),
+		)
+
+		expect(result.status).toBe('stopped')
+		expect(trace).toStrictEqual([
+			'adapter:begin',
+			'prepare:create-many',
+			'execute:create-many',
+			'schema:beforeCommit:First',
+			'adapter:commit',
+			'field:afterCommit:First',
+			'schema:afterCommit:First',
+			'event:create-many',
 		])
 
 		await application.dispose()

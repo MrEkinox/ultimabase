@@ -140,8 +140,9 @@ query-backed singular object results follow the accumulated selection exactly.
 
 ## Bulk writes and unique upserts
 
-Bulk create and upsert request one collection group by default. Setting
-`atomic: false` may opt into a future finer-grained grouping strategy, but it
+Bulk create and upsert request one all-or-nothing collection group by default.
+Setting `atomic: false` asks the adapter to persist inputs in order, stop on the
+first persistence failure, and return the successful prefix explicitly. It
 never disables Runtime's mandatory mutation transaction:
 
 ```ts
@@ -152,17 +153,29 @@ const accounts = await accountSchema
 		{ ultimabase },
 	)
 
-await accountSchema.query().createMany(importRows, {
+const imported = await accountSchema.query().createMany(importRows, {
 	atomic: false,
 	ultimabase,
 })
+
+if (imported.status === 'stopped') {
+	console.error(`Input ${String(imported.failedIndex)} failed`, imported.error)
+}
 ```
 
-Issue 334 owns the exact partial-success, stopping, result, and per-item
-grouping contract. Until that issue introduces another documented strategy,
-one normalized bulk operation remains one automatic transaction. Transports and
-adapters must not interpret `atomic: false` as permission to execute a mutation
-directly on the root database adapter.
+The `completed` branch contains one result per input. The `stopped` branch
+contains only the successful prefix, and `failedIndex` equals
+`results.length`. No later input is attempted. The wrapper is immutable, and
+its `error` remains `unknown` until application code narrows it.
+
+One operation-level before/after hook cycle wraps the collection. Field input
+hooks run in stable input order, and field result hooks observe only adapter
+materializations from the successful prefix. A hook or validation failure still
+rejects and rolls back everything; post-commit work runs once only after the
+outer transaction commits. Result hooks may transform successful records but
+cannot rewrite the adapter-owned `status` or `failedIndex`. Transports and
+adapters must not interpret `atomic: false` as permission to execute directly
+on the root database adapter.
 
 `upsertOne` uses the bound query as its conflict target. It must contain only
 distinct, non-null equality filters that exactly match `id`, one unique field,

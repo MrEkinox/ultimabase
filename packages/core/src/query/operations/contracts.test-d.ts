@@ -3,17 +3,20 @@ import {
 	intField,
 	stringField,
 	type InferCreateInput,
+	type SchemaResult,
 } from '../../schema/index.js'
 import { expect, expectTypeOf, test } from 'vitest'
 
 import {
 	Query,
 	type AtomicBulkOperationOptions,
+	type BulkOperationResult,
 	type CreateManyOperationAst,
 	type CreateOneOperationAst,
 	type GetOperationAst,
 	type OperationAst,
 	type OperationKind,
+	type NonAtomicBulkResult,
 	type UpdateExpressionNode,
 	type UpdateManyOperationAst,
 	type UpdateOneOperationAst,
@@ -129,6 +132,20 @@ test('keeps master authority outside operation options', () => {
 
 	expect(validOptions.atomic).toBe(true)
 	expect(invalidOptions.atomic).toBe(true)
+})
+
+test('correlates the bulk result with the normalized atomic literal', () => {
+	type Article = SchemaResult<typeof articleSchema>
+
+	expectTypeOf<BulkOperationResult<Article, true>>().toEqualTypeOf<
+		readonly Article[]
+	>()
+	expectTypeOf<BulkOperationResult<Article, false>>().toEqualTypeOf<
+		NonAtomicBulkResult<Article>
+	>()
+	expectTypeOf<
+		CreateManyOperationAst<typeof articleSchema, false>['options']['atomic']
+	>().toEqualTypeOf<false>()
 })
 
 test('forces exhaustive matching when a terminal kind is added', () => {

@@ -1,4 +1,5 @@
 import type {
+	CreateManyOperationAst,
 	CreateOneOperationAst,
 	FindOperationAst,
 } from '../../query/index.js'
@@ -56,6 +57,37 @@ describe('Runtime result materialization', () => {
 
 		expect(() => materializeOperationResult(operation, result)).toThrow(
 			new TypeError('Runtime result references an invalid schema model class'),
+		)
+	})
+
+	it('materializes only the successful non-atomic prefix', () => {
+		const operation = {
+			inputs: [{ title: 'First' }, { title: 'Second' }],
+			kind: 'create-many',
+			options: { atomic: false },
+			schema: new Query(ResultSchema).ast.schema,
+		} satisfies CreateManyOperationAst<typeof ResultSchema, false>
+		const writeError = new Error('second input failed')
+		const result: DatabaseOperationResult<typeof operation> = {
+			error: writeError,
+			failedIndex: 1,
+			results: [
+				{
+					createdAt: '2026-08-03T00:00:00.000Z',
+					id: '00000000-0000-7000-8000-000000000001',
+					title: 'First',
+					updatedAt: '2026-08-03T00:00:00.000Z',
+				},
+			],
+			status: 'stopped',
+		}
+		const materialized = materializeOperationResult(operation, result)
+
+		expect(materialized.status).toBe('stopped')
+		expect(materialized.results[0]).toBeInstanceOf(ResultSchema)
+		expect(materialized.results[0]?.title).toBe('First')
+		expect(materialized.status === 'stopped' && materialized.error).toBe(
+			writeError,
 		)
 	})
 })

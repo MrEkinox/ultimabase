@@ -50,8 +50,20 @@ The complete current Runtime mutation pipeline and database work started inside
 it commit or roll back together. Native schema, field, and plugin hooks execute
 inside this same active boundary. An explicit
 `RequestEngine.transaction()` is reused without nesting, while root reads
-remain non-transactional. Bulk `{ atomic: false }` may later change collection
-grouping, but it never disables the transaction boundary.
+remain non-transactional. Bulk `{ atomic: false }` stops at the first adapter
+persistence failure and returns the committed-prefix candidate explicitly. The
+prefix still commits only after every result and finalization hook succeeds.
+
+```ts
+const imported = await PostSchema.query().createMany(rows, {
+	atomic: false,
+	ultimabase,
+})
+
+if (imported.status === 'stopped') {
+	console.error(imported.failedIndex, imported.error)
+}
+```
 
 Database plugins prepare each transaction-bound mutation through one opaque,
 single-use handle. Its execution keeps the exact public result separate from

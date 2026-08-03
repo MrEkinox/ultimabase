@@ -1,6 +1,7 @@
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 import {
 	Query,
+	type CreateManyOperationAst,
 	type CountOperationAst,
 	type ExistsOperationAst,
 	type FindOperationAst,
@@ -175,6 +176,82 @@ describe('runtime field outputs', () => {
 		await expect(
 			transformOperationFieldOutputs(operation, result, () => undefined),
 		).resolves.toBe(result)
+	})
+
+	it('visits and replaces only the successful non-atomic prefix', async () => {
+		const operation = immutableRecord({
+			inputs: immutableArray([{ title: 'First' }, { title: 'Second' }]),
+			kind: 'create-many',
+			options: immutableRecord({ atomic: false }),
+			schema: new Query(outputSchema).ast.schema,
+		}) satisfies CreateManyOperationAst<typeof outputSchema, false>
+		const writeError = new Error('second input failed')
+		const result = immutableRecord({
+			error: writeError,
+			failedIndex: 1,
+			results: immutableArray([
+				immutableRecord({
+					createdAt: '2026-08-03T00:00:00.000Z',
+					id: '00000000-0000-7000-8000-000000000001',
+					title: 'First',
+					updatedAt: '2026-08-03T00:00:00.000Z',
+				}),
+			]),
+			status: 'stopped',
+		})
+
+		expect(
+			describeOutputs(collectOperationFieldOutputs(operation, result)),
+		).toStrictEqual([
+			{
+				fieldPath: ['title'],
+				itemIndex: 0,
+				kind: 'create-many',
+				mode: 'object',
+				valuePath: ['results', 0, 'title'],
+			},
+			{
+				fieldPath: ['id'],
+				itemIndex: 0,
+				kind: 'create-many',
+				mode: 'object',
+				valuePath: ['results', 0, 'id'],
+			},
+			{
+				fieldPath: ['createdAt'],
+				itemIndex: 0,
+				kind: 'create-many',
+				mode: 'object',
+				valuePath: ['results', 0, 'createdAt'],
+			},
+			{
+				fieldPath: ['updatedAt'],
+				itemIndex: 0,
+				kind: 'create-many',
+				mode: 'object',
+				valuePath: ['results', 0, 'updatedAt'],
+			},
+		])
+
+		const transformed = await transformOperationFieldOutputs(
+			operation,
+			result,
+			({ value }) => (typeof value === 'string' ? value.toUpperCase() : value),
+		)
+
+		expect(transformed).toStrictEqual({
+			error: writeError,
+			failedIndex: 1,
+			results: [
+				{
+					createdAt: '2026-08-03T00:00:00.000Z',
+					id: '00000000-0000-7000-8000-000000000001',
+					title: 'FIRST',
+					updatedAt: '2026-08-03T00:00:00.000Z',
+				},
+			],
+			status: 'stopped',
+		})
 	})
 
 	it('skips null, empty, and scalar terminal results without calling the visitor', async () => {

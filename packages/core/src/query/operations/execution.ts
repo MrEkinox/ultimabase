@@ -7,6 +7,7 @@ import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 
 import type {
 	AtomicBulkOperationOptions,
+	BulkOperationResult,
 	OperationAstNode,
 } from './contracts.js'
 import { normalizeBulkOperationOptions } from './bulk.js'
@@ -29,18 +30,49 @@ export interface QueryTerminalOptions {
 	readonly ultimabase?: QueryUltimaBase
 }
 
+/** Keeps the default all-or-nothing collection contract. */
+export interface QueryAtomicBulkTerminalOptions extends QueryTerminalOptions {
+	/** Keeps every item all-or-nothing inside one transaction. Defaults to `true`. */
+	readonly atomic?: true
+}
+
+/** Selects an explicit stopped-prefix result instead of all-or-nothing failure. */
+export interface QueryNonAtomicBulkTerminalOptions extends QueryTerminalOptions {
+	/** Commits the successful prefix and reports the first persistence failure. */
+	readonly atomic: false
+}
+
 /** Combines collection grouping with the same terminal-only execution ownership. */
 export interface QueryBulkTerminalOptions extends QueryTerminalOptions {
-	/** Keeps ordered bulk items in one transaction by default. */
+	/** Keeps all items all-or-nothing, or selects an explicit stopped-prefix result. */
 	readonly atomic?: boolean
 }
+
+/** Infers the collection result selected by one public terminal option value. */
+export type QueryBulkTerminalResult<
+	TResult,
+	TOptions extends QueryBulkTerminalOptions | undefined,
+> = BulkOperationResult<TResult, QueryBulkAtomic<TOptions>>
+
+/** Retains the normalized atomic literal selected by one terminal option value. */
+export type QueryBulkAtomic<
+	TOptions extends QueryBulkTerminalOptions | undefined,
+> = [TOptions] extends [undefined]
+	? true
+	: TOptions extends QueryNonAtomicBulkTerminalOptions
+		? false
+		: TOptions extends QueryAtomicBulkTerminalOptions
+			? true
+			: boolean
 
 interface NormalizedQueryTerminalOptions {
 	readonly ultimabase: object | undefined
 }
 
-interface NormalizedQueryBulkTerminalOptions extends NormalizedQueryTerminalOptions {
-	readonly bulk: AtomicBulkOperationOptions
+interface NormalizedQueryBulkTerminalOptions<
+	TAtomic extends boolean = boolean,
+> extends NormalizedQueryTerminalOptions {
+	readonly bulk: AtomicBulkOperationOptions<TAtomic>
 }
 
 interface QueryExecutionOwnerRegistration {
@@ -114,14 +146,16 @@ export const normalizeQueryTerminalOptions = (
 }
 
 /** Normalizes bulk behavior and ownership through one shared public options object. */
-export const normalizeQueryBulkTerminalOptions = (
-	options: QueryBulkTerminalOptions | undefined,
-): NormalizedQueryBulkTerminalOptions => {
+export const normalizeQueryBulkTerminalOptions = <
+	const TOptions extends QueryBulkTerminalOptions | undefined,
+>(
+	options: TOptions | undefined,
+): NormalizedQueryBulkTerminalOptions<QueryBulkAtomic<TOptions>> => {
 	if (options === undefined) {
 		return immutableRecord({
 			...emptyTerminalOptions,
 			bulk: normalizeBulkOperationOptions(undefined),
-		})
+		}) as NormalizedQueryBulkTerminalOptions<QueryBulkAtomic<TOptions>>
 	}
 
 	const untrustedOptions: unknown = options
@@ -143,7 +177,7 @@ export const normalizeQueryBulkTerminalOptions = (
 		bulk: normalizeBulkOperationOptions(
 			atomic === undefined ? undefined : { atomic: atomic as boolean },
 		),
-	})
+	}) as NormalizedQueryBulkTerminalOptions<QueryBulkAtomic<TOptions>>
 }
 
 /** Registers one facade-owned root executor without creating a default application. */

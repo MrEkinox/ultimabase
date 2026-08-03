@@ -436,10 +436,15 @@ upsert, and delete operations, including the set-based `updateMany` and
 reuses that exact scope without attempting a nested transaction. Root reads do
 not open a transaction.
 
-The bulk `{ atomic: false }` option never bypasses this boundary. It may control
-future collection grouping, but every resulting group remains transactional.
-Issue 334 owns partial-success, stopping, and per-item grouping semantics;
-until then, one normalized bulk operation uses one automatic transaction.
+The bulk `{ atomic: false }` option never bypasses this boundary. The adapter
+stops at the first persistence failure and returns the successful prefix plus
+its failure index. Runtime still owns one normalized operation and one outer
+transaction. Result hooks and `beforeCommit` may abort and roll back that
+prefix; post-commit work is released once only after it commits.
+
+`updateMany` and `deleteMany` remain one set-based adapter statement returning
+an affected-row count. They run operation hooks once and never load matching
+objects merely to fabricate per-object field hooks.
 
 Automatic mutation transactions install their derived request engine in the
 active asynchronous scope before the operation pipeline runs. Runtime captures

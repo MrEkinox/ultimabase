@@ -10,6 +10,8 @@ const testProjects: TestProjectConfiguration[] = [
 		test: {
 			include: ['packages/*/src/**/*.test.ts', 'packages/*/tests/**/*.test.ts'],
 			name: 'unit',
+			// Language-service fixtures need headroom when coverage instruments Core.
+			testTimeout: 20_000,
 		},
 	},
 	{

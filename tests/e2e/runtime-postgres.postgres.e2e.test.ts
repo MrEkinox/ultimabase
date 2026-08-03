@@ -114,8 +114,13 @@ const allFieldValues = {
 // These side-effect-free values also exercise packed constructor and static Query declarations.
 const packedDraft = new PostSchema({ title: 'Packed draft' })
 const packedQuery = PostSchema.query().select('id', 'title')
+const packedNonAtomicCreate = () =>
+	PostSchema.query().createMany([{ title: 'Packed bulk draft' }], {
+		atomic: false,
+	})
 void packedDraft
 void packedQuery
+void packedNonAtomicCreate
 
 let fixture: PostgresWorkerFixture | undefined
 

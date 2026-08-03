@@ -12,6 +12,10 @@ import type {
 	DatabaseOperationResult,
 } from '../database/contracts.js'
 import {
+	isNonAtomicBulkOperation,
+	readNonAtomicBulkResult,
+} from '../operations/non-atomic-result.js'
+import {
 	collectRecordFieldValues,
 	getRuntimeOperationFields,
 	readRuntimeFieldValuePath,
@@ -96,12 +100,17 @@ const collectOutputRecords = (
 	}
 
 	if (collectionOutputKinds.has(operation.kind)) {
-		if (!isUnknownArray(result)) {
+		const nonAtomic = isNonAtomicBulkOperation(operation)
+		const records = nonAtomic
+			? readNonAtomicBulkResult(result, 'Runtime field outputs').results
+			: result
+
+		if (!isUnknownArray(records)) {
 			throw new TypeError('Runtime field outputs require an array result')
 		}
 
 		return immutableArray(
-			result.map((record, itemIndex) =>
+			records.map((record, itemIndex) =>
 				immutableRecord({
 					itemIndex,
 					kind: operation.kind as Extract<
@@ -112,7 +121,9 @@ const collectOutputRecords = (
 						record,
 						`Runtime field output record[${String(itemIndex)}]`,
 					),
-					valuePath: immutableArray([itemIndex]),
+					valuePath: immutableArray(
+						nonAtomic ? ['results', itemIndex] : [itemIndex],
+					),
 				}),
 			),
 		)

@@ -2,6 +2,7 @@ import type { MaybePromise } from '@ultimabase/shared'
 
 import type {
 	InferOperationRecordResult,
+	NonAtomicBulkResult,
 	OperationAst,
 	OperationAstNode,
 	OperationKind,
@@ -353,6 +354,7 @@ export type SchemaAfterFindHook<TSchema extends SchemaDefinition> =
 export type SchemaBeforeCommitResult<TSchema extends SchemaDefinition> =
 	| Readonly<Partial<InferObject<TSchema>>>
 	| readonly Readonly<Partial<InferObject<TSchema>>>[]
+	| NonAtomicBulkResult<Readonly<Partial<InferObject<TSchema>>>>
 	| number
 	| null
 

@@ -149,6 +149,13 @@ describe('@ultimabase/core Schema and Query declarations', () => {
 		expect(query.display).toContain('"id" | "title"')
 	})
 
+	it('preserves the discriminated non-atomic bulk result', () => {
+		const bulk = readFixtureQuickInfo('packedNonAtomicCreate = () =>')
+
+		expect(bulk.display).toContain('NonAtomicBulkResult<')
+		expect(bulk.display).not.toContain('readonly SchemaResult<')
+	})
+
 	it('preserves field option documentation through package exports', () => {
 		const validation = readFixtureQuickInfo('validation: { required: true }')
 

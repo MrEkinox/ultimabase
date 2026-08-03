@@ -186,8 +186,11 @@ One handler may cover a full create, update, upsert, delete, save, or find
 family; the exact terminal kind remains a discriminant. Handler lists execute
 sequentially. Create-many and upsert-many preserve stable input order, while
 set-based update-many and delete-many never materialize every row merely to run
-item callbacks. Runtime rejects dangerous same-hook recursion and offers no
-general `skipHooks` bypass.
+item callbacks. Non-atomic create and upsert stop at the first adapter
+persistence failure and expose the successful prefix through a discriminated
+result; hooks may still abort that prefix before the one outer transaction
+commits. Runtime rejects dangerous same-hook recursion and offers no general
+`skipHooks` bypass.
 
 Runtime's structural validation stage caches Schema's compact create/update
 plans, traverses structured values, and delegates scalar snapshots and

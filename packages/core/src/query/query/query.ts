@@ -53,6 +53,8 @@ import {
 	normalizeQueryBulkTerminalOptions,
 	normalizeQueryTerminalOptions,
 	type QueryBulkTerminalOptions,
+	type QueryBulkTerminalResult,
+	type QueryBulkAtomic,
 	type QueryTerminalOptions,
 } from '../operations/execution.js'
 import type { InferOperationResult } from '../operations/results.js'
@@ -530,19 +532,34 @@ export class Query<
 		return this.createOne(input, options)
 	}
 
-	/** Creates objects in input order and keeps them atomic by default. */
-	createMany(
+	/**
+	 * Creates objects in input order and keeps them atomic by default.
+	 *
+	 * Passing `{ atomic: false }` returns a discriminated result containing either
+	 * every created model or the committed prefix and first failed input index.
+	 *
+	 * @example `await Post.query().createMany(inputs, { atomic: false, ultimabase })`
+	 */
+	createMany<
+		const TOptions extends QueryBulkTerminalOptions | undefined = undefined,
+	>(
 		inputs: readonly InferCreateInput<TSchema>[],
-		options?: QueryBulkTerminalOptions,
-	): Promise<readonly InferQueryResult<TSchema>[]> {
-		const normalizedOptions = normalizeQueryBulkTerminalOptions(options)
-		const operation: CreateManyOperationAst<TSchema> = immutableRecord({
+		options?: TOptions & QueryBulkTerminalOptions,
+	): Promise<QueryBulkTerminalResult<InferQueryResult<TSchema>, TOptions>> {
+		const normalizedOptions =
+			normalizeQueryBulkTerminalOptions<TOptions>(options)
+		const operation: CreateManyOperationAst<
+			TSchema,
+			QueryBulkAtomic<TOptions>
+		> = immutableRecord({
 			kind: 'create-many',
 			schema: this.ast.schema,
 			inputs: snapshotCreateInputs(inputs),
 			options: normalizedOptions.bulk,
 		})
 
+		// Runtime validates the normalized atomic discriminant before mapping the
+		// option-specific public collection result.
 		return executeQueryTerminal(operation, normalizedOptions)
 	}
 
@@ -628,16 +645,27 @@ export class Query<
 		return this.upsertOne(input, options)
 	}
 
-	/** Upserts independently targeted items in input order. */
-	upsertMany(
+	/**
+	 * Upserts independently targeted items in input order.
+	 *
+	 * Passing `{ atomic: false }` exposes the same explicit stopped-prefix result
+	 * as `createMany` while the default remains one all-or-nothing transaction.
+	 *
+	 * @example `await Post.query().upsertMany(items, { atomic: false, ultimabase })`
+	 */
+	upsertMany<
+		const TOptions extends QueryBulkTerminalOptions | undefined = undefined,
+	>(
 		inputs: readonly UpsertManyItemInput<TSchema>[],
-		options?: QueryBulkTerminalOptions,
-	): Promise<readonly InferQueryResult<TSchema>[]> {
-		const normalizedOptions = normalizeQueryBulkTerminalOptions(options)
+		options?: TOptions & QueryBulkTerminalOptions,
+	): Promise<QueryBulkTerminalResult<InferQueryResult<TSchema>, TOptions>> {
+		const normalizedOptions =
+			normalizeQueryBulkTerminalOptions<TOptions>(options)
 		const operation: UpsertManyOperationAst<
 			TSchema,
 			UpdateExpression<TSchema>,
-			QueryFilterNode<TSchema>
+			QueryFilterNode<TSchema>,
+			QueryBulkAtomic<TOptions>
 		> = immutableRecord({
 			kind: 'upsert-many',
 			schema: this.ast.schema,
@@ -645,6 +673,7 @@ export class Query<
 			options: normalizedOptions.bulk,
 		})
 
+		// The adapter result follows the same atomic literal normalized above.
 		return executeQueryTerminal(operation, normalizedOptions)
 	}
 

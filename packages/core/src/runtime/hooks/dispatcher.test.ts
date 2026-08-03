@@ -6,6 +6,7 @@ import {
 import {
 	Query,
 	type CountOperationAst,
+	type CreateManyOperationAst,
 	type CreateOneOperationAst,
 	type ExistsOperationAst,
 	type FindOperationAst,
@@ -228,6 +229,126 @@ describe('native hook dispatcher', () => {
 			'schema:afterCreate',
 			'schema:afterSave',
 			'schema:afterOperation',
+		])
+
+		await application.dispose()
+	})
+
+	it('wraps one bulk operation while visiting item fields in stable order', async () => {
+		const trace: string[] = []
+		const schema = Schema.define({
+			className: 'NativeBulkHooks',
+			fields: {
+				title: stringField({
+					hooks: {
+						afterCreate: ({ value }) => {
+							trace.push(`field:after:${value}`)
+						},
+						beforeCreate: ({ value }) => {
+							trace.push(`field:before:${value}`)
+						},
+						resolveInput: ({ value }) => {
+							trace.push(`field:resolve:${value}`)
+
+							return value.trim()
+						},
+					},
+				}),
+			},
+			hooks: {
+				afterCreate: ({ result }) => {
+					trace.push('schema:after')
+
+					return result
+				},
+				beforeCreate: ({ operation }) => {
+					trace.push('schema:before')
+
+					return operation
+				},
+			},
+		})
+		const application = await createApplication({
+			plugins: [],
+			schemas: [schema],
+		})
+		const stages = createNativeHookStages(application)
+		const generatedIds = [generatedId, '00000000-0000-7000-8000-000000000002']
+		const validate = createRuntimeValidationStage({
+			clock: () => fixedInstant,
+			uuidV7Generator: () => {
+				const id = generatedIds.shift()
+
+				if (id === undefined) {
+					throw new TypeError('Missing generated bulk identifier')
+				}
+
+				return id
+			},
+		})
+		const operation = immutableRecord({
+			inputs: immutableArray([{ title: ' First ' }, { title: ' Second ' }]),
+			kind: 'create-many',
+			options: immutableRecord({ atomic: true }),
+			schema: new Query(schema).ast.schema,
+		}) satisfies CreateManyOperationAst<typeof schema>
+		const validated = await validate({ context, operation })
+		const resolved = await stages.resolveInput({
+			context,
+			operation: validated,
+		})
+		const prepared = await stages.schemaBefore({
+			context,
+			operation: resolved,
+		})
+
+		await stages.fieldBefore({
+			context,
+			operation: prepared,
+			target: undefined,
+		})
+		const records = immutableArray([
+			immutableRecord({
+				createdAt: fixedInstant.toISOString(),
+				id: generatedId,
+				title: 'First',
+				updatedAt: fixedInstant.toISOString(),
+			}),
+			immutableRecord({
+				createdAt: fixedInstant.toISOString(),
+				id: '00000000-0000-7000-8000-000000000002',
+				title: 'Second',
+				updatedAt: fixedInstant.toISOString(),
+			}),
+		])
+		const outcome = await stages.fieldAfter({
+			context,
+			operation: prepared,
+			outcome: immutableRecord({
+				materializations: immutableArray(
+					records.map((current) =>
+						immutableRecord({ current, kind: 'create' as const }),
+					),
+				),
+				result: records,
+			}),
+		})
+
+		await stages.schemaAfter({
+			context,
+			operation: prepared,
+			result: outcome.result,
+		})
+
+		expect(trace).toStrictEqual([
+			'field:resolve: First ',
+			'field:resolve: Second ',
+			'schema:before',
+			'field:before:First',
+			'field:before:Second',
+			'field:after:First',
+			'field:after:Second',
+			'schema:after',
 		])
 
 		await application.dispose()

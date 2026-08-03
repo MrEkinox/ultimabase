@@ -75,6 +75,7 @@ export type {
 } from './filters/primitive.js'
 export type {
 	AtomicBulkOperationOptions,
+	BulkOperationResult,
 	CountOperationAst,
 	CreateManyOperationAst,
 	CreateOneOperationAst,
@@ -89,6 +90,9 @@ export type {
 	OperationAstNode,
 	OperationKind,
 	OperationObjectId,
+	NonAtomicBulkCompleted,
+	NonAtomicBulkResult,
+	NonAtomicBulkStopped,
 	UpdateManyOperationAst,
 	UpdateOneOperationAst,
 	UpsertManyOperationAst,
@@ -100,7 +104,11 @@ export { normalizeBulkOperationOptions } from './operations/bulk.js'
 export type { BulkOperationOptions } from './operations/bulk.js'
 export type { QueryOperationExecutor } from './operations/executor.js'
 export type {
+	QueryAtomicBulkTerminalOptions,
+	QueryBulkAtomic,
 	QueryBulkTerminalOptions,
+	QueryBulkTerminalResult,
+	QueryNonAtomicBulkTerminalOptions,
 	QueryTerminalOptions,
 } from './operations/execution.js'
 export type {

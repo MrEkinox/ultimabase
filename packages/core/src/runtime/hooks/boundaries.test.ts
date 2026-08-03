@@ -2,6 +2,7 @@ import {
 	normalizeUpdateExpression,
 	Query,
 	type CountOperationAst,
+	type CreateManyOperationAst,
 	type CreateOneOperationAst,
 	type FindOperationAst,
 	type QueryFilterNode,
@@ -17,6 +18,7 @@ import {
 } from '../../schema/index.js'
 import { FrameworkError } from '../../foundation.js'
 import {
+	immutableArray,
 	immutableRecord,
 	isPlainRecord,
 	isUnknownArray,
@@ -315,6 +317,66 @@ describe('runtime hook boundaries', () => {
 		).toThrow(expect.objectContaining({ code: 'VALIDATION_ERROR' }))
 		expect(() =>
 			boundaries.snapshotResultReplacement(createOperation, null),
+		).toThrow(expect.objectContaining({ code: 'VALIDATION_ERROR' }))
+	})
+
+	it('validates complete and stopped non-atomic collection boundaries', () => {
+		const schema = createFixtureSchema(() => 'Generated title')
+		const operation = immutableRecord({
+			inputs: immutableArray([{}, {}]),
+			kind: 'create-many',
+			options: immutableRecord({ atomic: false }),
+			schema: new Query(schema).ast.schema,
+		}) satisfies CreateManyOperationAst<typeof schema, false>
+		const boundaries = createRuntimeHookBoundaries()
+		const writeError = new Error('second input failed')
+		const completed = boundaries.snapshotResultReplacement(operation, {
+			results: [completeRecord, completeRecord],
+			status: 'completed',
+		})
+		const stopped = boundaries.snapshotResultReplacement(operation, {
+			error: writeError,
+			failedIndex: 1,
+			results: [completeRecord],
+			status: 'stopped',
+		})
+
+		expect(completed.status).toBe('completed')
+		expect(completed.results).toHaveLength(2)
+		expect(stopped).toMatchObject({ failedIndex: 1, status: 'stopped' })
+		expect(stopped.status === 'stopped' && stopped.error).toBe(writeError)
+		expect(Object.isFrozen(stopped)).toBe(true)
+		expect(Object.isFrozen(stopped.results)).toBe(true)
+		expect(() => {
+			boundaries.assertResultGrouping(operation, stopped, {
+				results: [completeRecord, completeRecord],
+				status: 'completed',
+			})
+		}).toThrow(expect.objectContaining({ code: 'VALIDATION_ERROR' }))
+		expect(() => {
+			boundaries.assertResultGrouping(operation, stopped, {
+				error: writeError,
+				failedIndex: 0,
+				results: [],
+				status: 'stopped',
+			})
+		}).toThrow(expect.objectContaining({ code: 'VALIDATION_ERROR' }))
+		expect(() => {
+			boundaries.assertResultGrouping(immutableRecord({ kind: 'find' }), [], [])
+		}).not.toThrow()
+		expect(() =>
+			boundaries.snapshotResultReplacement(operation, {
+				error: writeError,
+				failedIndex: 0,
+				results: [completeRecord],
+				status: 'stopped',
+			}),
+		).toThrow(expect.objectContaining({ code: 'VALIDATION_ERROR' }))
+		expect(() =>
+			boundaries.snapshotResultReplacement(operation, {
+				results: [completeRecord],
+				status: 'completed',
+			}),
 		).toThrow(expect.objectContaining({ code: 'VALIDATION_ERROR' }))
 	})
 

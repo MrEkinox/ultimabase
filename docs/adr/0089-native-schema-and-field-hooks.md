@@ -3,7 +3,7 @@
 - Status: accepted
 - Date: 2026-08-01
 - Refines: ADR-0015, ADR-0068, ADR-0069, ADR-0070, ADR-0076, ADR-0088
-- Refined by: ADR-0090, ADR-0093, ADR-0095, ADR-0096, ADR-0097, ADR-0099, ADR-0100, ADR-0101, ADR-0102, ADR-0104, ADR-0105
+- Refined by: ADR-0090, ADR-0093, ADR-0095, ADR-0096, ADR-0097, ADR-0099, ADR-0100, ADR-0101, ADR-0102, ADR-0104, ADR-0105, ADR-0111
 
 ADR-0090 replaces the permission-specific named stages and ordering references
 in this record with policy-neutral monotonic hook effects. The remaining native
@@ -165,8 +165,9 @@ the rejection. Business after-hooks still run before commit and may abort.
 The transaction portion of ADR-0069 is refined: `{ atomic: false }` may change
 how a bulk collection is grouped, but it must never separate one item's hooks
 from that item's persistence. No mutation executes without an atomic boundary.
-The exact partial-result and stopping policy for non-atomic collections is
-defined by the dedicated bulk-hook issue.
+ADR-0111 defines the partial-result and stopping policy: adapters stop at the
+first persistence failure, result hooks receive the successful-prefix wrapper,
+and the prefix commits only after every remaining pre-commit hook succeeds.
 
 Reads do not open an automatic transaction. `beforeFind` and `afterFind` are
 expected to transform or observe reads without hidden writes. A developer may

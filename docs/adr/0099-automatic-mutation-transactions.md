@@ -4,7 +4,7 @@
 - Date: 2026-08-02
 - Refines: ADR-0015, ADR-0068, ADR-0069, ADR-0089
 - Extends: ADR-0098
-- Refined by: ADR-0100
+- Refined by: ADR-0100, ADR-0111
 
 ## Context
 
@@ -53,15 +53,16 @@ lifetime and cannot create a side transaction.
 ### Bulk grouping does not bypass transactions
 
 ADR-0069 is refined: `{ atomic: false }` no longer means execution on the root
-adapter. The `atomic` option may control how a future collection is grouped,
-but every resulting group remains inside an adapter transaction. Issue 329
-establishes the mandatory transaction floor without selecting partial-success,
-stopping, result, or per-item grouping semantics; issue 334 owns those choices.
+adapter. At the time of this decision, issue 329 established the mandatory
+transaction floor without selecting partial-success, stopping, result, or
+per-item grouping semantics; issue 334 retained those choices for the later
+decision now recorded by ADR-0111.
 
-Until issue 334 introduces a different documented grouping strategy, a bulk
-mutation remains one normalized operation and therefore one automatic
-transaction. Transports must not interpret `atomic: false` as permission to
-bypass Runtime's transaction boundary.
+ADR-0111 now defines the grouping strategy. A non-atomic adapter stops at the
+first persistence failure and returns the successful prefix as a discriminated
+result. The bulk remains one normalized operation and one outer transaction;
+result hooks or finalization failures still roll back that prefix. Transports
+must not interpret `atomic: false` as permission to bypass Runtime's boundary.
 
 ### Hook capability boundary
 

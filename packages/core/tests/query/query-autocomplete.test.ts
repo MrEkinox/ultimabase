@@ -132,4 +132,54 @@ Post.query()./* hover */delete()
 		)
 		expect(deletion.tags?.some(({ name }) => name === 'example')).toBe(true)
 	})
+
+	it('documents explicit non-atomic bulk behavior at the option boundary', () => {
+		const marker = '/* completion */'
+		const sourceWithMarker = `
+import { Schema, stringField } from '../../src/index.js'
+const Post = Schema.define({ className: 'Post', fields: { title: stringField() } })
+Post.query().createMany([{ title: 'First' }], { ${marker} })
+`
+		const position = sourceWithMarker.indexOf(marker)
+		const source = sourceWithMarker.replace(marker, ' '.repeat(marker.length))
+		const fileName = `${import.meta.dirname}/query-bulk-options.fixture.ts`
+		const service = createLanguageService(fileName, source)
+		const completions = service.getCompletionsAtPosition(fileName, position, {})
+		const atomic = completions?.entries.find(({ name }) => name === 'atomic')
+
+		if (atomic === undefined) {
+			throw new TypeError('Missing Query bulk atomic completion')
+		}
+
+		const details = service.getCompletionEntryDetails(
+			fileName,
+			position,
+			atomic.name,
+			undefined,
+			atomic.source,
+			undefined,
+			atomic.data,
+		)
+		const documentation = readDisplay(details?.documentation)
+
+		expect(documentation).toContain('all-or-nothing')
+
+		const terminal = readMarkedQuickInfo(
+			`${import.meta.dirname}/query-create-many-hover.fixture.ts`,
+			`
+import { Schema, stringField } from '../../src/index.js'
+const Post = Schema.define({ className: 'Post', fields: { title: stringField() } })
+Post.query()./* hover */createMany([{ title: 'First' }], { atomic: false })
+`,
+		)
+		const terminalDisplay = readDisplay(terminal.displayParts)
+
+		expect(terminalDisplay).toContain('NonAtomicBulkResult<')
+		expect(terminalDisplay).not.toContain('SchemaDefinition<')
+		expect(terminalDisplay.length).toBeLessThan(1_200)
+		expect(readDisplay(terminal.documentation)).toContain(
+			'discriminated result',
+		)
+		expect(terminal.tags?.some(({ name }) => name === 'example')).toBe(true)
+	})
 })

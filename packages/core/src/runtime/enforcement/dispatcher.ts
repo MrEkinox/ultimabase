@@ -22,6 +22,10 @@ import type {
 	DatabaseOperationAst,
 	DatabaseOperationResult,
 } from '../database/contracts.js'
+import {
+	isNonAtomicBulkOperation,
+	mapNonAtomicBulkResult,
+} from '../operations/non-atomic-result.js'
 import { getOperationSchema } from '../operations/schema.js'
 import type {
 	RuntimeEnforcementOperationResult,
@@ -413,6 +417,7 @@ const restrictResultRecord = (
 }
 
 const restrictResult = <const TOperation extends DatabaseOperationAst>(
+	operation: TOperation,
 	result: DatabaseOperationResult<TOperation>,
 	permittedFields: readonly string[] | undefined,
 ): DatabaseOperationResult<TOperation> => {
@@ -421,6 +426,17 @@ const restrictResult = <const TOperation extends DatabaseOperationAst>(
 	}
 
 	const unknownResult: unknown = result
+
+	if (isNonAtomicBulkOperation(operation)) {
+		return mapNonAtomicBulkResult(
+			unknownResult,
+			'Runtime restricted result',
+			(record) =>
+				isPlainRecord(record)
+					? restrictResultRecord(record, permittedFields)
+					: record,
+		) as DatabaseOperationResult<TOperation>
+	}
 
 	if (isUnknownArray(unknownResult)) {
 		return immutableArray(
@@ -447,7 +463,7 @@ const enforceSelectionResult = <const TOperation extends DatabaseOperationAst>(
 ): DatabaseOperationResult<TOperation> => {
 	const snapshot = getEnforcementStateSnapshot(input.enforcement)
 
-	return restrictResult(input.result, snapshot.selectionFields)
+	return restrictResult(input.operation, input.result, snapshot.selectionFields)
 }
 
 /** Evaluates final output restrictions after business result replacement. */
@@ -499,7 +515,7 @@ const enforceResult = async <const TOperation extends DatabaseOperationAst>(
 						snapshot.selectionFields?.includes(field),
 					)
 
-	return restrictResult(input.result, permittedFields)
+	return restrictResult(input.operation, input.result, permittedFields)
 }
 
 /** Compiles deterministic enforcement stages only when a plugin contributed one. */

@@ -3,6 +3,7 @@ import {
 	stringField,
 	Schema,
 	type InferQueryResult,
+	type NonAtomicBulkResult,
 	type UltimaBase,
 } from '../../src/index.js'
 import { expectTypeOf, test } from 'vitest'
@@ -63,7 +64,53 @@ test('preserves Query schema selection across every singular terminal', () => {
 			atomic: false,
 			ultimabase,
 		}),
+	).toEqualTypeOf<
+		Promise<NonAtomicBulkResult<InferQueryResult<typeof articleSchema>>>
+	>()
+	expectTypeOf(
+		query.createMany([{ title: 'Created' }], { atomic: true, ultimabase }),
 	).toEqualTypeOf<Promise<readonly InferQueryResult<typeof articleSchema>[]>>()
+	const dynamicAtomic: boolean = Math.random() > 0.5
+
+	expectTypeOf(
+		query.createMany([{ title: 'Created' }], {
+			atomic: dynamicAtomic,
+			ultimabase,
+		}),
+	).toEqualTypeOf<
+		Promise<
+			| readonly InferQueryResult<typeof articleSchema>[]
+			| NonAtomicBulkResult<InferQueryResult<typeof articleSchema>>
+		>
+	>()
+	const nonAtomicCreate = query.createMany([{ title: 'Created' }], {
+		atomic: false,
+		ultimabase,
+	})
+
+	void nonAtomicCreate.then((result) => {
+		if (result.status === 'stopped') {
+			expectTypeOf(result.failedIndex).toEqualTypeOf<number>()
+			expectTypeOf(result.error).toBeUnknown()
+		} else {
+			// @ts-expect-error -- Completed results never carry failure metadata.
+			void result.failedIndex
+		}
+	})
+	expectTypeOf(
+		articleSchema.query().upsertMany(
+			[
+				{
+					create: { title: 'Unique' },
+					query: articleSchema.query().equalTo('title', 'Unique'),
+					update: { increment: { views: 1 } },
+				},
+			],
+			{ atomic: false, ultimabase },
+		),
+	).toEqualTypeOf<
+		Promise<NonAtomicBulkResult<InferQueryResult<typeof articleSchema>>>
+	>()
 	expectTypeOf(
 		query.updateMany({ increment: { views: 1 } }, { ultimabase }),
 	).toEqualTypeOf<Promise<number>>()

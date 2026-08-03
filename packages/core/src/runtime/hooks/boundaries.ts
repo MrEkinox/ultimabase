@@ -22,6 +22,10 @@ import type {
 } from '../database/contracts.js'
 import { getOperationSchema } from '../operations/schema.js'
 import {
+	isNonAtomicBulkOperation,
+	readNonAtomicBulkResult,
+} from '../operations/non-atomic-result.js'
+import {
 	revalidateRuntimeMutationOperation,
 	snapshotRuntimeResultRecord,
 	throwRuntimeValidationIssues,
@@ -269,6 +273,115 @@ const snapshotRecordResult = (
 ): Readonly<Record<string, unknown>> =>
 	snapshotRuntimeResultRecord(plans, value, path, selectedFields, description)
 
+const readBulkInputCount = (operation: DatabaseOperationAst): number => {
+	const value: unknown = operation
+
+	if (!isPlainRecord(value)) {
+		return 0
+	}
+
+	const inputs = value.kind === 'create-many' ? value.inputs : value.items
+
+	return isUnknownArray(inputs) ? inputs.length : 0
+}
+
+/** Validates the stopped-prefix contract before any hook can observe it. */
+const snapshotNonAtomicBulkResult = <
+	const TOperation extends DatabaseOperationAst,
+>(
+	operation: TOperation,
+	value: unknown,
+	plans: SchemaValidationPlans,
+	path: ValidationIssuePath,
+	description: Readonly<RuntimeValidationErrorDescription>,
+): DatabaseOperationResult<TOperation> => {
+	if (!isPlainRecord(value)) {
+		return throwBoundaryIssue(
+			path,
+			'Non-atomic bulk result must be a plain object',
+			description,
+		)
+	}
+
+	if (value.status !== 'completed' && value.status !== 'stopped') {
+		return throwBoundaryIssue(
+			[...path, 'status'],
+			'Non-atomic bulk status must be completed or stopped',
+			description,
+		)
+	}
+
+	assertExactKeys(
+		value,
+		value.status === 'completed'
+			? ['status', 'results']
+			: ['status', 'results', 'failedIndex', 'error'],
+		path,
+		description,
+	)
+
+	if (!isUnknownArray(value.results)) {
+		return throwBoundaryIssue(
+			[...path, 'results'],
+			'Non-atomic bulk results must be an array',
+			description,
+		)
+	}
+
+	const results = immutableArray(
+		value.results.map((item, index) =>
+			snapshotRecordResult(
+				plans,
+				item,
+				[...path, 'results', index],
+				undefined,
+				description,
+			),
+		),
+	)
+	const inputCount = readBulkInputCount(operation)
+
+	if (value.status === 'completed') {
+		if (results.length !== inputCount) {
+			return throwBoundaryIssue(
+				[...path, 'results'],
+				'Completed non-atomic bulk result must contain every input',
+				description,
+			)
+		}
+
+		return immutableRecord({
+			results,
+			status: 'completed',
+		}) as DatabaseOperationResult<TOperation>
+	}
+
+	if (
+		typeof value.failedIndex !== 'number' ||
+		!Number.isSafeInteger(value.failedIndex) ||
+		value.failedIndex < 0 ||
+		value.failedIndex >= inputCount ||
+		value.failedIndex !== results.length
+	) {
+		return throwBoundaryIssue(
+			[...path, 'failedIndex'],
+			'Failed index must identify the first input after the successful prefix',
+			description,
+		)
+	}
+
+	return immutableRecord({
+		error: snapshotBoundaryValue(
+			value.error,
+			[...path, 'error'],
+			new WeakSet<object>(),
+		),
+		failedIndex: value.failedIndex,
+		results,
+		status: 'stopped',
+	}) as DatabaseOperationResult<TOperation>
+}
+
 const snapshotOperationResult = <const TOperation extends DatabaseOperationAst>(
 	operation: TOperation,
 	value: unknown,
@@ -311,6 +424,16 @@ const snapshotOperationResult = <const TOperation extends DatabaseOperationAst>(
 		}
 
 		return null as DatabaseOperationResult<TOperation>
+	}
+
+	if (isNonAtomicBulkOperation(operation)) {
+		return snapshotNonAtomicBulkResult(
+			operation,
+			value,
+			plans,
+			path,
+			description,
+		)
 	}
 
 	if (collectionResultKinds.has(operation.kind)) {
@@ -481,7 +604,12 @@ const assertOutcomeCardinality = (
 			break
 		case 'create-many':
 		case 'upsert-many':
-			expected = isUnknownArray(result) ? result.length : undefined
+			expected = isNonAtomicBulkOperation(operation)
+				? readNonAtomicBulkResult(result, 'Database non-atomic bulk result')
+						.results.length
+				: isUnknownArray(result)
+					? result.length
+					: undefined
 			break
 	}
 
@@ -511,6 +639,13 @@ export interface RuntimeHookBoundaries {
 		replacement: unknown,
 		selectedFieldsOverride?: readonly string[],
 	): DatabaseOperationResult<TOperation>
+
+	/** Prevents result hooks from rewriting adapter-owned bulk completion truth. */
+	assertResultGrouping(
+		operation: DatabaseOperationAst,
+		persisted: unknown,
+		transformed: unknown,
+	): void
 
 	/** Validates the selected result and complete materializations returned by an adapter. */
 	snapshotMutationOutcome<
@@ -556,6 +691,38 @@ export const createRuntimeHookBoundaries = (): RuntimeHookBoundaries => {
 	}
 
 	return immutableRecord({
+		assertResultGrouping: (operation, persisted, transformed): void => {
+			if (!isNonAtomicBulkOperation(operation)) {
+				return
+			}
+
+			const persistedResult = readNonAtomicBulkResult(
+				persisted,
+				'Persisted non-atomic bulk result',
+			)
+			const transformedResult = readNonAtomicBulkResult(
+				transformed,
+				'Transformed non-atomic bulk result',
+			)
+
+			if (persistedResult.status !== transformedResult.status) {
+				throwBoundaryIssue(
+					['result', 'status'],
+					'Result hooks cannot change non-atomic persistence status',
+				)
+			}
+
+			if (
+				persistedResult.status === 'stopped' &&
+				transformedResult.status === 'stopped' &&
+				persistedResult.failedIndex !== transformedResult.failedIndex
+			) {
+				throwBoundaryIssue(
+					['result', 'failedIndex'],
+					'Result hooks cannot change the first failed persistence index',
+				)
+			}
+		},
 		snapshotValue: <const TValue>(value: TValue): TValue =>
 			snapshotBoundaryValue(value, [], new WeakSet<object>()) as TValue,
 		snapshotMutationOutcome: <

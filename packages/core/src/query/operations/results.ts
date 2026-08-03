@@ -7,6 +7,7 @@ import type {
 import type { QueryExpressionNode, QueryFieldName } from '../ast/contracts.js'
 import type { UpdateExpressionNode } from '../updates/contracts.js'
 import type {
+	BulkOperationResult,
 	CreateManyOperationAst,
 	CreateOneOperationAst,
 	DeleteOneOperationAst,
@@ -66,8 +67,14 @@ type InferOperationResultFor<
 						? boolean
 						: TOperation extends CreateOneOperationAst<infer TSchema>
 							? CompleteObjectResult<TSchema, TMode>
-							: TOperation extends CreateManyOperationAst<infer TSchema>
-								? readonly CompleteObjectResult<TSchema, TMode>[]
+							: TOperation extends CreateManyOperationAst<
+										infer TSchema,
+										infer TAtomic
+								  >
+								? BulkOperationResult<
+										CompleteObjectResult<TSchema, TMode>,
+										TAtomic
+									>
 								: TOperation extends UpdateOneOperationAst<
 											infer TSchema,
 											UpdateExpressionNode,
@@ -82,8 +89,16 @@ type InferOperationResultFor<
 												infer TSelectedField
 										  >
 										? QueryObjectResult<TSchema, TSelectedField, TMode>
-										: TOperation extends UpsertManyOperationAst<infer TSchema>
-											? readonly CompleteObjectResult<TSchema, TMode>[]
+										: TOperation extends UpsertManyOperationAst<
+													infer TSchema,
+													UpdateExpressionNode,
+													QueryExpressionNode,
+													infer TAtomic
+											  >
+											? BulkOperationResult<
+													CompleteObjectResult<TSchema, TMode>,
+													TAtomic
+												>
 											: TOperation extends DeleteOneOperationAst<
 														infer TSchema,
 														QueryExpressionNode,

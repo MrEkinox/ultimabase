@@ -640,6 +640,11 @@ export class RuntimePipeline {
 				}),
 			)
 		}
+		this.#resultBoundaries.assertResultGrouping(
+			operation,
+			databaseExecution.result,
+			result,
+		)
 
 		const completedOperation: RuntimeResultStageInput<TOperation> =
 			createResultInput(context, operation, result)

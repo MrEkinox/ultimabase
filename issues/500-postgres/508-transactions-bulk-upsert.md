@@ -3,8 +3,8 @@
 - Status: planned
 - Milestone: 5
 - Packages: `@ultimabase/postgres`
-- Depends on: 316, 317, 344, 504, 507, 519
-- ADR: ADR-0015, ADR-0069, ADR-0089, ADR-0100
+- Depends on: 316, 317, 334, 344, 504, 507, 519
+- ADR: ADR-0015, ADR-0069, ADR-0089, ADR-0100, ADR-0111
 
 ## Goal
 
@@ -14,6 +14,7 @@ the transaction lifecycle implemented by issue 519.
 ## Acceptance criteria
 
 - [ ] Create-many and upsert-many preserve input order and return results in that order.
+- [ ] Non-atomic create and upsert use item-local recovery, stop at the first persistence failure, and return the ADR-0111 stopped-prefix result without invalidating the outer transaction.
 - [ ] Update-many and delete-many remain single set-based statements and return their documented summaries.
 - [ ] Unique-target upserts compile without exposing Drizzle through the public adapter contract.
 - [ ] Bulk and upsert execution consumes the prepared-mutation protocol and returns ordered internal outcomes with the database-resolved branch for each upsert item.
@@ -23,4 +24,4 @@ the transaction lifecycle implemented by issue 519.
 
 ## Tests
 
-- [ ] Ordered bulk, set-based call-count, concurrency, and unique-conflict fixtures.
+- [ ] Ordered atomic and stopped-prefix bulk, set-based call-count, savepoint recovery, concurrency, and unique-conflict fixtures.
