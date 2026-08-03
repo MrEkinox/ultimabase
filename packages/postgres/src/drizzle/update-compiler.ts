@@ -35,9 +35,13 @@ export const compilePostgresUpdate = (
 		}
 
 		const fieldName = operation.field
-		const field = resolveCompiledPostgresField(schema, fieldName)
 
 		fields.add(fieldName)
+
+		// Relation storage is handled separately while scalar system updates remain here.
+		if (operation.kind === 'relation') continue
+
+		const field = resolveCompiledPostgresField(schema, fieldName)
 
 		switch (operation.kind) {
 			case 'set':

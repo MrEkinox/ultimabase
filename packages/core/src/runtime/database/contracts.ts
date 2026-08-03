@@ -116,6 +116,14 @@ export interface DatabaseConstraintNode<
 /** Erases schema inference only after Runtime has validated one private row predicate. */
 export type DatabaseRowFilterNode = QueryFilterExpression
 
+/** Identifies one validated logical edge outside the transformable Query AST. */
+export interface DatabaseRelationScope {
+	readonly fieldPath: readonly string[]
+	readonly source: SchemaDefinition
+	readonly sourceObjectId: string
+	readonly target: SchemaDefinition
+}
+
 /**
  * Keeps the normalized operation and accumulated constraints together so an
  * adapter never receives one without the other.
@@ -126,6 +134,8 @@ export interface DatabaseOperationRequest<
 > {
 	readonly constraints: readonly TConstraint[]
 	readonly operation: TOperation
+	/** Carries one Runtime-validated relation edge only to capable adapters. */
+	readonly relation?: DatabaseRelationScope
 	/**
 	 * Carries framework-owned row restrictions outside the transformable Query AST.
 	 * Adapters must combine this predicate with the operation predicate using AND.

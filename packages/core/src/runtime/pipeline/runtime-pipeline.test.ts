@@ -10,6 +10,7 @@ import {
 } from '../context/request-context.js'
 import type {
 	DatabaseAdapter,
+	DatabaseAdapterCapabilities,
 	DatabaseConstraintNode,
 	DatabaseMutationOperationAst,
 	DatabaseOperationAst,
@@ -19,6 +20,7 @@ import type {
 	DatabaseTransactionAdapter,
 	PreparedDatabaseOperation,
 } from '../database/contracts.js'
+import { databaseRelationCapability } from '../database/contracts.js'
 import { databaseConstraint } from '../enforcement/definitions.js'
 import { createEnforcementState } from '../enforcement/state.js'
 import type {
@@ -59,6 +61,8 @@ const createOperationTransform =
 	): TOperation => {
 		trace.push(stageName)
 		expect(Object.isFrozen(input)).toBe(true)
+		// Private adapter scopes must never become transformable business input.
+		expect(input).not.toHaveProperty('relation')
 
 		return input.operation
 	}
@@ -164,6 +168,7 @@ class TraceDatabaseExecutor implements DatabaseOperationExecutor {
 	constructor(
 		private readonly trace: string[],
 		private readonly fixtureResult: unknown,
+		readonly capabilities: DatabaseAdapterCapabilities = {},
 	) {}
 
 	execute<const TOperation extends DatabaseOperationAst>(
@@ -312,6 +317,65 @@ describe('RuntimePipeline', () => {
 				payload: { tenantId: 'tenant-1' },
 			},
 		])
+	})
+
+	it('keeps a relation scope private while enforcing and forwarding it', async () => {
+		const trace: string[] = []
+		const executor = new TraceDatabaseExecutor(trace, [], {
+			relations: databaseRelationCapability,
+		})
+		const relation = {
+			fieldPath: ['tags'],
+			source: articleSchema,
+			sourceObjectId: '0198f090-2a50-7000-8000-000000000070',
+			target: articleSchema,
+		} as const
+		const enforcement = createEnforcementStages(trace)
+		const pipeline = new RuntimePipeline(
+			createStages(trace, executor, {
+				enforcement: {
+					...enforcement,
+					enforceRelationRead: (input) => {
+						trace.push('enforcement:relation-read')
+						expect(Object.isFrozen(input)).toBe(true)
+						expect(input.relation).toBe(relation)
+					},
+				},
+			}),
+		)
+
+		await pipeline.execute({
+			context: requestContext,
+			operation: articleOperation,
+			relation,
+		})
+
+		expect(trace).toContain('enforcement:relation-read')
+		expect(executor.requests).toHaveLength(1)
+		expect(executor.requests[0]?.relation).toBe(relation)
+	})
+
+	it('fails closed when an adapter does not advertise relation support', async () => {
+		const trace: string[] = []
+		const executor = new TraceDatabaseExecutor(trace, [])
+		const pipeline = new RuntimePipeline(createStages(trace, executor))
+
+		await expect(
+			pipeline.execute({
+				context: requestContext,
+				operation: articleOperation,
+				relation: {
+					fieldPath: ['tags'],
+					source: articleSchema,
+					sourceObjectId: '0198f090-2a50-7000-8000-000000000071',
+					target: articleSchema,
+				},
+			}),
+		).rejects.toMatchObject({
+			code: 'INTERNAL_ERROR',
+			publicMessage: 'Relation queries are not available.',
+		})
+		expect(executor.requests).toStrictEqual([])
 	})
 
 	it('preserves framework errors and stops every later phase', async () => {

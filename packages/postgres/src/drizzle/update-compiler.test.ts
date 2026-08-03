@@ -74,4 +74,19 @@ describe('PostgreSQL update compiler', () => {
 			}),
 		).toThrow(new TypeError('PostgreSQL update operation is invalid'))
 	})
+
+	it('leaves logical relation deltas to the dedicated storage executor', () => {
+		expect(
+			compilePostgresUpdate(updateSchema, {
+				kind: 'update-expression',
+				operations: [
+					{
+						field: 'tags',
+						kind: 'relation',
+						value: { action: 'clear', targets: [] },
+					},
+				],
+			}),
+		).toStrictEqual({})
+	})
 })

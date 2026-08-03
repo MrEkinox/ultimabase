@@ -44,6 +44,7 @@ import {
 	type DatabaseOperationResult,
 	type DatabasePointerCapability,
 	type DatabaseRelationCapability,
+	type DatabaseRelationScope,
 	type DatabaseTransactionAdapter,
 	type DatabaseUpdateMaterialization,
 	type PreparedDatabaseOperation,
@@ -115,11 +116,18 @@ test('preserves operation and constraint inference through execute', () => {
 		kind: 'find',
 		query: new Query(articleSchema).equalTo('views', 10).ast,
 	} satisfies FindOperationAst<typeof articleSchema>
+	const relation = {
+		fieldPath: ['relatedArticles'],
+		source: articleSchema,
+		sourceObjectId: '0198f090-2a50-7000-8000-000000000072',
+		target: articleSchema,
+	} satisfies DatabaseRelationScope
 	const request = {
 		constraints: [
 			{ kind: 'fixture.tenant', version: 1, payload: { tenantId: 'tenant-1' } },
 		],
 		operation,
+		relation,
 	} satisfies DatabaseOperationRequest<typeof operation, TenantConstraint>
 	expectTypeOf(adapter.execute(request)).toEqualTypeOf<
 		Promise<readonly ArticleRecord[]>
@@ -127,6 +135,10 @@ test('preserves operation and constraint inference through execute', () => {
 	expectTypeOf<
 		(typeof request.constraints)[number]['payload']['tenantId']
 	>().toBeString()
+	expectTypeOf(request.relation.source).toEqualTypeOf<typeof articleSchema>()
+	expectTypeOf<DatabaseOperationRequest['relation']>().toEqualTypeOf<
+		DatabaseRelationScope | undefined
+	>()
 	expectTypeOf(databaseAdapterServiceToken).toEqualTypeOf<
 		ServiceToken<DatabaseAdapter>
 	>()

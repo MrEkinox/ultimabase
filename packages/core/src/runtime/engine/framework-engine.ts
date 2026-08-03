@@ -20,7 +20,11 @@ import {
 } from '../../query/operations/execution.js'
 import { Schema, type SchemaDefinition } from '../../schema/index.js'
 import type { MaybePromise } from '@ultimabase/shared'
-import { isPlainRecord } from '@ultimabase/shared'
+import {
+	immutableArray,
+	immutableRecord,
+	isPlainRecord,
+} from '@ultimabase/shared'
 
 import {
 	getRequestContextOwner,
@@ -32,6 +36,7 @@ import {
 import { runWithRequestEngineScope } from '../context/active-framework-storage.js'
 import type {
 	DatabaseOperationResult,
+	DatabaseRelationScope,
 	DatabaseRowFilterNode,
 } from '../database/contracts.js'
 import {
@@ -325,6 +330,7 @@ export class RequestEngine<
 			TSchemas[number]
 		>
 		const schema = getOperationSchema(normalizedOperation)
+		let relationScope: DatabaseRelationScope | undefined
 
 		this.framework.assertOwnsSchema(schema)
 
@@ -343,13 +349,12 @@ export class RequestEngine<
 				)
 			}
 
-			// Issue 744 will pass the already validated private edge to an adapter
-			// capability. Failing closed prevents an ordinary target query today.
-			throw new FrameworkError(
-				'INTERNAL_ERROR',
-				'Relation query execution requires database relation support.',
-				{ publicMessage: 'Relation queries are not available.' },
-			)
+			relationScope = immutableRecord({
+				fieldPath: immutableArray(scope.fieldPath),
+				source: scope.source,
+				sourceObjectId: scope.sourceObjectId,
+				target: scope.target,
+			})
 		}
 
 		let context: RequestContext = this.context
@@ -392,6 +397,7 @@ export class RequestEngine<
 				? scope.nativeAccessDeniedAsMissing
 				: undefined,
 			scope?.kind === 'row-filter' ? scope.objectId : undefined,
+			relationScope,
 		)
 	}
 
@@ -414,6 +420,7 @@ export class RequestEngine<
 		rowFilter?: DatabaseRowFilterNode,
 		nativeAccessDeniedAsMissing?: true,
 		privateObjectId?: string,
+		relationScope?: DatabaseRelationScope,
 	): Promise<InferOperationResult<TOperation>> {
 		this.framework.assertOwnsSchema(getOperationSchema(operation))
 		throwIfOperationCancelled(this.context.signal, {
@@ -435,6 +442,7 @@ export class RequestEngine<
 						rowFilter,
 						nativeAccessDeniedAsMissing,
 						privateObjectId,
+						relationScope,
 					)
 				} catch (error: unknown) {
 					if (
@@ -460,27 +468,40 @@ export class RequestEngine<
 			})
 		}
 
-		await executeRuntimeRelationMutation(operation, privateObjectId, {
-			assertOwnsSchema: (schema) => {
-				this.framework.assertOwnsSchema(schema)
-			},
-			execute: (nestedOperation, nestedRowFilter, deniedAsMissing, objectId) =>
-				this.#executeOperation(
-					nestedOperation as unknown as ExecutableOperationAst<
-						TSchemas[number]
-					>,
+		const mutationRelationScope = await executeRuntimeRelationMutation(
+			operation,
+			privateObjectId,
+			{
+				assertOwnsSchema: (schema) => {
+					this.framework.assertOwnsSchema(schema)
+				},
+				execute: (
+					nestedOperation,
 					nestedRowFilter,
 					deniedAsMissing,
 					objectId,
-				),
-			getSchemaTargets: () => this.framework.application.schemaTargets,
-		})
+				) =>
+					this.#executeOperation(
+						nestedOperation as unknown as ExecutableOperationAst<
+							TSchemas[number]
+						>,
+						nestedRowFilter,
+						deniedAsMissing,
+						objectId,
+					),
+				getSchemaTargets: () => this.framework.application.schemaTargets,
+			},
+		)
+		const databaseRelationScope = mutationRelationScope ?? relationScope
 
 		const executeOperation = (): Promise<DatabaseOperationResult<TOperation>> =>
 			runWithRequestEngineScope(this, () =>
 				this.#pipeline.execute({
 					context: this.context,
 					operation,
+					...(databaseRelationScope === undefined
+						? {}
+						: { relation: databaseRelationScope }),
 					...(rowFilter === undefined ? {} : { rowFilter }),
 					...(nativeAccessDeniedAsMissing === undefined
 						? {}

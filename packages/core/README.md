@@ -165,8 +165,8 @@ Each call uses the source schema's update Access and hook lifecycle, validates
 target visibility, and joins the active or automatic transaction. Inverse
 pointer relations execute ordinary target pointer updates through the same
 Runtime. Adapters must advertise the versioned relation capability; PostgreSQL
-storage and scoped relation-query execution arrive in issue 744, so unsupported
-adapters still fail closed.
+implements scoped reads and atomic edge storage, while unsupported adapters
+still fail closed.
 
 Invalid, throwing, unregistered, and foreign targets fail before infrastructure
 connects with the source class and field path. The graph contains logical class

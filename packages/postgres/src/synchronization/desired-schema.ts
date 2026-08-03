@@ -6,7 +6,10 @@ import {
 	isPlainRecord,
 } from '@ultimabase/shared'
 
-import type { CompiledPostgresSchema } from '../schema/contracts.js'
+import type {
+	CompiledPostgresJoinRelation,
+	CompiledPostgresSchema,
+} from '../schema/contracts.js'
 import type {
 	DesiredPostgresColumn,
 	DesiredPostgresForeignKey,
@@ -139,9 +142,10 @@ const compileDesiredForeignKeys = (
 /** Compiles private Drizzle tables into a small comparable synchronization model. */
 export const compileDesiredPostgresTables = (
 	schemas: readonly CompiledPostgresSchema[],
+	relations: readonly CompiledPostgresJoinRelation[] = [],
 ): readonly DesiredPostgresTable[] =>
-	immutableArray(
-		schemas.map((schema) =>
+	immutableArray([
+		...schemas.map((schema) =>
 			immutableRecord({
 				columns: compileDesiredColumns(schema),
 				foreignKeys: compileDesiredForeignKeys(schema),
@@ -149,4 +153,43 @@ export const compileDesiredPostgresTables = (
 				name: schema.tableName,
 			}),
 		),
-	)
+		...relations.map((relation) =>
+			immutableRecord({
+				columns: immutableArray([
+					immutableRecord({
+						name: relation.sourceColumn.name,
+						nullable: false,
+						primary: false,
+						type: 'uuid',
+					}),
+					immutableRecord({
+						name: relation.targetColumn.name,
+						nullable: false,
+						primary: false,
+						type: 'uuid',
+					}),
+				]),
+				foreignKeys: immutableArray(
+					relation.foreignKeys.map((foreignKey) =>
+						immutableRecord({
+							column: foreignKey.column,
+							name: foreignKey.constraintName,
+							onDelete: 'cascade' as const,
+							targetColumn: 'id',
+							targetTable: foreignKey.targetTable,
+						}),
+					),
+				),
+				indexes: immutableArray(
+					relation.indexes.map((index) =>
+						immutableRecord({
+							columns: index.fields,
+							name: index.name,
+							unique: index.unique,
+						}),
+					),
+				),
+				name: relation.tableName,
+			}),
+		),
+	])

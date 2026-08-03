@@ -127,7 +127,7 @@ incomplete.
 7. [x] [741 — Add owning and inverse relation fields](issues/700-extensions/741-relation-field-contracts.md)
 8. [x] [742 — Add immutable Relation handles and scoped queries](issues/700-extensions/742-relation-handle-and-query.md)
 9. [x] [743 — Execute transactional relation mutations](issues/700-extensions/743-relation-mutations.md)
-10. [ ] [744 — Compile and execute PostgreSQL relations](issues/700-extensions/744-postgres-relation-storage.md)
+10. [x] [744 — Compile and execute PostgreSQL relations](issues/700-extensions/744-postgres-relation-storage.md)
 11. [ ] [745 — Add portable relation predicates](issues/700-extensions/745-relation-predicates.md)
 
 ### Phase 4 — Explicit edges and final proof
@@ -151,7 +151,7 @@ When resuming after context loss:
 
 ## Current issue
 
-[744 — Compile and execute PostgreSQL relations](issues/700-extensions/744-postgres-relation-storage.md) is `ready`.
+[745 — Add portable relation predicates](issues/700-extensions/745-relation-predicates.md) is `ready`.
 
 ## Progress log
 
@@ -164,3 +164,4 @@ When resuming after context loss:
 - 741 added exact owning and inverse relation fields, row-value omission, application-local topology diagnostics, and storage-neutral mapping metadata.
 - 742 added opaque immutable Relation handles, exact persisted-model autocomplete, and target Queries whose private source edge survives every public branch and terminal.
 - 743 added immutable transactional relation deltas, source update Access and hooks, protected target preflight, inverse-pointer target updates, adapter capability checks, and rollback-safe execution.
+- 744 added deterministic PostgreSQL join storage, inverse traversal, private relation predicates, atomic edge mutations, schema synchronization, Access enforcement, cleanup, and Docker-backed integration proof.

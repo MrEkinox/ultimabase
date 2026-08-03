@@ -561,6 +561,7 @@ export const createEnforcementStages = <
 				await access.evaluate(input, createEnforcementState()),
 			),
 		enforceOperation: (input) => enforceOperation(input),
+		enforceRelationRead: (input) => access.enforceRelationRead(input),
 		enforcePreparedMutation: (input) => access.enforcePreparedMutation(input),
 		enforceMutationOutcome: (input) => access.enforceMutationOutcome(input),
 		enforceSelectionResult: enforceAccessSelectionResult,

@@ -125,7 +125,10 @@ export const prepareDirectPostgresSchema = async (
 	if (policy === 'ignore') return
 
 	const namespace = await readCurrentNamespace(pool)
-	const desired = compileDesiredPostgresTables(catalog.values())
+	const desired = compileDesiredPostgresTables(
+		catalog.values(),
+		catalog.relationValues(),
+	)
 	const live = await introspectPostgresDatabase(
 		pool,
 		namespace,

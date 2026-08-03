@@ -26,6 +26,7 @@ import {
 } from '../../schema/index.js'
 import type {
 	DatabaseOperationAst,
+	DatabaseRelationScope,
 	DatabaseRowFilterNode,
 } from '../database/contracts.js'
 import { getOperationSchema } from '../operations/schema.js'
@@ -272,11 +273,11 @@ export const executeRuntimeRelationMutation = async (
 	operation: DatabaseOperationAst,
 	privateObjectId: string | undefined,
 	executor: RuntimeRelationMutationExecutor,
-): Promise<void> => {
+): Promise<DatabaseRelationScope | undefined> => {
 	const mutation = readRuntimeRelationMutation(operation)
 
 	if (mutation === undefined) {
-		return
+		return undefined
 	}
 
 	const source = getOperationSchema(operation)
@@ -302,6 +303,13 @@ export const executeRuntimeRelationMutation = async (
 		)
 	}
 
+	const relationScope = immutableRecord({
+		fieldPath: immutableArray([mutation.fieldName]),
+		source,
+		sourceObjectId: privateObjectId,
+		target: mapping.target,
+	})
+
 	for (const pointer of mutation.delta.targets) {
 		executor.assertOwnsSchema(pointer.schema)
 
@@ -326,7 +334,7 @@ export const executeRuntimeRelationMutation = async (
 	}
 
 	if (mapping.mappedBy?.kind !== 'pointer') {
-		return
+		return relationScope
 	}
 
 	if (!Schema.is(mapping.target)) {
@@ -414,4 +422,6 @@ export const executeRuntimeRelationMutation = async (
 			throw createRelationNotFoundError()
 		}
 	}
+
+	return relationScope
 }

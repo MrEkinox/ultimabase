@@ -1,6 +1,7 @@
 import type {
 	FieldValidationPlan,
 	PointerReferentialAction,
+	ResolvedSchemaRelation,
 	SchemaDefinition,
 } from '@ultimabase/core'
 import type { Index, PgColumn, PgTable } from 'drizzle-orm/pg-core'
@@ -61,4 +62,43 @@ export interface CompiledPostgresSchema {
 	readonly indexes: readonly CompiledPostgresIndex[]
 	readonly table: PgTable
 	readonly tableName: string
+}
+
+/** Retains one physical foreign key owned by a hidden relation table. */
+export interface CompiledPostgresRelationForeignKey {
+	readonly column: 'source_id' | 'target_id'
+	readonly constraintName: string
+	readonly targetTable: string
+}
+
+/** Owns the single hidden join table shared by an owning relation and its inverse. */
+export interface CompiledPostgresJoinRelation {
+	readonly foreignKeys: readonly [
+		CompiledPostgresRelationForeignKey,
+		CompiledPostgresRelationForeignKey,
+	]
+	readonly indexes: readonly CompiledPostgresIndex[]
+	readonly owner: ResolvedSchemaRelation
+	readonly sourceColumn: PgColumn
+	readonly table: PgTable
+	readonly tableName: string
+	readonly targetColumn: PgColumn
+}
+
+/** Orients physical edge storage for one exact logical relation declaration. */
+export interface CompiledPostgresRelation {
+	readonly relation: ResolvedSchemaRelation
+	readonly source: CompiledPostgresSchema
+	readonly target: CompiledPostgresSchema
+	readonly storage:
+		| Readonly<{
+				readonly kind: 'join'
+				readonly relation: CompiledPostgresJoinRelation
+				readonly sourceColumn: PgColumn
+				readonly targetColumn: PgColumn
+		  }>
+		| Readonly<{
+				readonly kind: 'pointer'
+				readonly targetColumn: PgColumn
+		  }>
 }

@@ -15,6 +15,7 @@ import type {
 	DatabaseOperationOutcome,
 	DatabaseOperationExecutor,
 	DatabaseOperationResult,
+	DatabaseRelationScope,
 } from '../database/contracts.js'
 import type { EnforcementState } from '../enforcement/state.js'
 
@@ -24,6 +25,8 @@ export interface RuntimePipelineRequest<
 > {
 	readonly context: RequestContext
 	readonly operation: TOperation
+	/** Keeps a validated relation edge private from transformable hook inputs. */
+	readonly relation?: DatabaseRelationScope
 	/** Carries a framework-owned predicate that business hooks cannot replace. */
 	readonly rowFilter?: DatabaseRowFilterNode
 	/** Treats an included target's Access denial exactly like an absent target. */
@@ -31,9 +34,12 @@ export interface RuntimePipelineRequest<
 }
 
 /** Supplies normalization, validation, guards, and hooks with immutable request state. */
-export type RuntimeOperationStageInput<
+export interface RuntimeOperationStageInput<
 	TOperation extends DatabaseOperationAst,
-> = RuntimePipelineRequest<TOperation>
+> {
+	readonly context: RequestContext
+	readonly operation: TOperation
+}
 
 /** Carries private monotonic state without exposing it to plugin handlers. */
 export interface RuntimeEnforcementStageInput<
@@ -103,6 +109,20 @@ export type RuntimeEnforcementResultStage = <
 	},
 ) => MaybePromise<DatabaseOperationResult<TOperation>>
 
+/** Supplies one protected relation traversal only to monotonic enforcement. */
+export interface RuntimeRelationEnforcementStageInput<
+	TOperation extends DatabaseOperationAst = DatabaseOperationAst,
+> extends RuntimeOperationStageInput<TOperation> {
+	readonly relation: DatabaseRelationScope
+}
+
+/** Authorizes one source relation field before its target query executes. */
+export type RuntimeRelationEnforcementStage = <
+	const TOperation extends DatabaseOperationAst,
+>(
+	input: RuntimeRelationEnforcementStageInput<TOperation>,
+) => MaybePromise<void>
+
 /** Groups policy-neutral effects without manufacturing absent policy stages. */
 export interface RuntimeEnforcementStages {
 	readonly evaluate: RuntimeEnforcementEvaluationStage
@@ -111,6 +131,8 @@ export interface RuntimeEnforcementStages {
 	/** Applies retained selection restrictions before business output hooks run. */
 	readonly enforceSelectionResult: RuntimeEnforcementResultStage
 	readonly enforceResult: RuntimeEnforcementResultStage
+	/** Enforces the source field that grants one to-many traversal. */
+	readonly enforceRelationRead?: RuntimeRelationEnforcementStage
 	/** Enforces item rules against a stable singular mutation target. */
 	readonly enforcePreparedMutation?: RuntimePreparedMutationEffectStage
 	/** Enforces the exact create or update branch materialized by a mutation. */

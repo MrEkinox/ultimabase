@@ -444,6 +444,45 @@ hooks, request authority, and the current transaction remain enforced. Direct
 schema synchronization creates every table before foreign keys, which also
 supports circular schema graphs.
 
+## Relation storage
+
+An owning `relationField` compiles to one deterministic hidden join table with
+`source_id` and `target_id` UUID foreign keys. The pair is unique, each
+traversal direction is indexed, and both foreign keys use cascade cleanup for
+join rows only. Deleting either object therefore removes stale edges without
+deleting the related object. An inverse relation reuses that same table with
+the orientation reversed, or queries its declared `mappedBy` pointer column;
+it never creates duplicate storage.
+
+```ts
+const tags = article.relation('tags')
+
+await tags.connect([Tag.pointer(firstTagId), Tag.pointer(secondTagId)], {
+	ultimabase,
+})
+
+const selected = await tags
+	.query()
+	.select('id', 'label')
+	.ascending('label')
+	.limit(20)
+	.after()
+	.find({ ultimabase })
+
+await tags.set([Tag.pointer(featuredTagId)], { ultimabase })
+await tags.disconnect(Tag.pointer(featuredTagId), { ultimabase })
+await tags.clear({ ultimabase })
+```
+
+Relation scopes stay outside the developer Query AST and are combined with
+developer predicates and native Access using parameterized SQL. Traversal
+first checks the source relation field, then runs the target Query through its
+ordinary Access and hook lifecycle. Mutations lock and update the source inside
+the same Runtime transaction as their edge changes, so a later hook failure
+rolls back both. Duplicate connects are idempotent. `.after()` enables the
+stable first cursor page; resumed opaque cursor tokens retain the same general
+execution limitation documented above.
+
 ## Query filter compilation
 
 The internal adapter compiles the normalized `Query` filter tree through

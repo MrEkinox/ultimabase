@@ -18,6 +18,7 @@ import type {
 	DatabaseOperationExecutor,
 	DatabaseOperationOutcome,
 	DatabaseOperationResult,
+	DatabaseRelationScope,
 	DatabaseRowFilterNode,
 	DatabaseTransactionAdapter,
 } from '../database/contracts.js'
@@ -206,12 +207,29 @@ const executeDatabaseOperation = async <
 	request: {
 		readonly constraints: readonly DatabaseConstraintNode[]
 		readonly operation: TOperation
+		readonly relation?: DatabaseRelationScope
 		readonly rowFilter?: DatabaseRowFilterNode
 	},
 	enforcement: RuntimeEnforcementStages | undefined,
 	enforcementState: EnforcementState | undefined,
 ): Promise<RuntimeDatabaseExecution<TOperation>> => {
 	assertRelationMutationCapability(executor, request.operation)
+
+	if (request.relation !== undefined) {
+		const capability: unknown = executor.capabilities?.relations
+
+		if (
+			!isPlainRecord(capability) ||
+			capability.kind !== 'relations' ||
+			capability.version !== databaseRelationCapabilityVersion
+		) {
+			throw new FrameworkError(
+				'INTERNAL_ERROR',
+				`Database adapter must implement relation capability version ${String(databaseRelationCapabilityVersion)}.`,
+				{ publicMessage: 'Relation queries are not available.' },
+			)
+		}
+	}
 
 	if (!isMutationOperation(request.operation)) {
 		const result = await executor.execute(request)
@@ -231,6 +249,7 @@ const executeDatabaseOperation = async <
 		immutableRecord({
 			constraints: request.constraints,
 			operation: request.operation,
+			...(request.relation === undefined ? {} : { relation: request.relation }),
 			...(request.rowFilter === undefined
 				? {}
 				: { rowFilter: request.rowFilter }),
@@ -329,6 +348,7 @@ const assertRuntimePipelineStages = (stages: RuntimePipelineStages): void => {
 		for (const stageName of [
 			'enforceMutationOutcome',
 			'enforcePreparedMutation',
+			'enforceRelationRead',
 		] as const) {
 			if (
 				enforcement[stageName] !== undefined &&
@@ -657,6 +677,7 @@ export class RuntimePipeline {
 			request.rowFilter === undefined
 				? undefined
 				: normalizeLogicalFilter(request.rowFilter)
+		const privateRelation = request.relation
 		let operation: TOperation = request.operation
 
 		operation = await this.#stages.normalization(
@@ -692,6 +713,20 @@ export class RuntimePipeline {
 		let rowFilter: DatabaseRowFilterNode | undefined = privateRowFilter
 
 		if (this.#stages.enforcement !== undefined) {
+			if (
+				privateRelation !== undefined &&
+				!isMutationOperation(operation) &&
+				this.#stages.enforcement.enforceRelationRead !== undefined
+			) {
+				await this.#stages.enforcement.enforceRelationRead(
+					immutableRecord({
+						context,
+						operation,
+						relation: privateRelation,
+					}),
+				)
+			}
+
 			enforcement = await this.#stages.enforcement.evaluate(
 				createOperationInput(context, operation),
 			)
@@ -765,6 +800,7 @@ export class RuntimePipeline {
 			immutableRecord({
 				constraints,
 				operation,
+				...(privateRelation === undefined ? {} : { relation: privateRelation }),
 				...(rowFilter === undefined ? {} : { rowFilter }),
 			}),
 			this.#stages.enforcement,

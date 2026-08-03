@@ -13,7 +13,10 @@ import {
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 import { and, eq, type SQL } from 'drizzle-orm'
 
-import type { CompiledPostgresSchema } from '../schema/contracts.js'
+import type {
+	CompiledPostgresRelation,
+	CompiledPostgresSchema,
+} from '../schema/contracts.js'
 import {
 	compilePostgresSelection,
 	resolveCompiledPostgresField,
@@ -34,6 +37,7 @@ import type { PostgresItemRecovery } from './item-recovery.js'
 import { mapPostgresOperationError } from './operation-error.js'
 import { decodePostgresRecord } from './record-codec.js'
 import { compilePostgresUpdate } from './update-compiler.js'
+import { executePostgresRelationMutation } from './relation-executor.js'
 
 type RuntimeMutationOperation = Extract<
 	ExecutableOperationAst,
@@ -211,6 +215,7 @@ const executeLockedMutation = async (
 	operation: RuntimeLockedOperation,
 	previous: DatabaseLogicalRecord,
 	constraint: SQL | undefined,
+	relation: CompiledPostgresRelation | undefined,
 ): Promise<
 	Readonly<{
 		materialization: DatabaseMutationMaterialization
@@ -218,6 +223,15 @@ const executeLockedMutation = async (
 	}>
 > => {
 	if (operation.kind === 'update-one') {
+		if (relation !== undefined) {
+			await executePostgresRelationMutation(
+				client,
+				relation,
+				operation.update,
+				previous.id,
+			)
+		}
+
 		const current = await executeRetainedUpdate(
 			client,
 			schema,
@@ -446,6 +460,7 @@ const prepareLockedSingular = async (
 	operation: RuntimeLockedOperation,
 	constraint: SQL | undefined,
 	assertActive: () => void,
+	relation: CompiledPostgresRelation | undefined,
 ): Promise<PreparedDatabaseOperation<DatabaseMutationOperationAst>> => {
 	const previous = await runPreparedMutationStep(operation.kind, () =>
 		lockPostgresSingularMutationTarget(client, schema, operation, constraint),
@@ -468,6 +483,7 @@ const prepareLockedSingular = async (
 						operation,
 						previous,
 						constraint,
+						relation,
 					),
 			)
 
@@ -586,6 +602,7 @@ export const preparePostgresMutation = async <
 	constraint: SQL | undefined,
 	recovery: PostgresItemRecovery,
 	assertActive: () => void,
+	relation?: CompiledPostgresRelation,
 ): Promise<PreparedDatabaseOperation<TOperation>> => {
 	const runtimeOperation = operation as unknown as RuntimeMutationOperation
 	let prepared: PreparedDatabaseOperation<DatabaseMutationOperationAst>
@@ -610,12 +627,19 @@ export const preparePostgresMutation = async <
 			break
 		case 'delete-one':
 		case 'update-one':
+			if (relation !== undefined && runtimeOperation.kind !== 'update-one') {
+				throw new TypeError(
+					'PostgreSQL relation scope requires an update-one operation',
+				)
+			}
+
 			prepared = await prepareLockedSingular(
 				client,
 				schema,
 				runtimeOperation,
 				constraint,
 				assertActive,
+				relation,
 			)
 			break
 		case 'delete-many':

@@ -1,4 +1,8 @@
-import { databasePointerCapability, FrameworkError } from '@ultimabase/core'
+import {
+	databasePointerCapability,
+	databaseRelationCapability,
+	FrameworkError,
+} from '@ultimabase/core'
 import type { ExecutableOperationAst } from '@ultimabase/core'
 import type {
 	DatabaseAdapter,
@@ -39,10 +43,12 @@ import {
 } from './item-recovery.js'
 import { createPostgresTransactionError } from './transaction-error.js'
 import { compilePostgresRowFilter } from '../query/filter-compiler.js'
+import { compilePostgresRelationPredicate } from '../query/relation-compiler.js'
 
 const postgresObjectIdentities = new WeakMap<object, unknown>()
 const postgresDatabaseCapabilities = immutableRecord({
 	pointers: databasePointerCapability,
+	relations: databaseRelationCapability,
 })
 
 /** Reads explicit public fields from object-returning read terminals only. */
@@ -211,6 +217,35 @@ const compilePostgresRequestConstraint = (
 	return and(contributed, access)
 }
 
+/** Adds a validated to-many traversal only to target read operations. */
+const compilePostgresRequestRelation = (
+	client: PostgresDrizzleClient,
+	schemas: PostgresSchemaCatalog,
+	schema: ReturnType<PostgresSchemaCatalog['get']>,
+	request: DatabaseOperationRequest,
+): SQL | undefined => {
+	if (
+		request.relation === undefined ||
+		request.operation.kind === 'update-one'
+	) {
+		return undefined
+	}
+
+	const relation = schemas.getRelation(request.relation)
+
+	if (relation.target !== schema) {
+		throw new TypeError(
+			'PostgreSQL relation read target does not match its operation schema',
+		)
+	}
+
+	return compilePostgresRelationPredicate(
+		client,
+		relation,
+		request.relation.sourceObjectId,
+	)
+}
+
 /** Prevents structural pool cleanup failures from replacing a known SQL outcome. */
 const releasePostgresClient = (
 	client: PostgresPoolClient,
@@ -239,6 +274,13 @@ const executePostgresRequest = async <
 		schema,
 		request,
 	)
+	const relationPredicate = compilePostgresRequestRelation(
+		client,
+		schemas,
+		schema,
+		request,
+	)
+	const effectivePredicate = and(constraintPredicate, relationPredicate)
 	assertConstraintOperationSupported(
 		request.operation,
 		request.constraints.length > 0 || request.rowFilter !== undefined,
@@ -249,7 +291,7 @@ const executePostgresRequest = async <
 		client,
 		schema,
 		operation,
-		constraintPredicate,
+		effectivePredicate,
 	)
 
 	// Exhaustive operation dispatch preserves Runtime's discriminant-to-result contract.
@@ -335,6 +377,10 @@ class DrizzlePostgresTransactionAdapter implements DatabaseTransactionAdapter {
 			schema,
 			request,
 		)
+		const relation =
+			request.relation === undefined
+				? undefined
+				: this.#schemas.getRelation(request.relation)
 		assertConstraintOperationSupported(
 			request.operation,
 			request.constraints.length > 0 || request.rowFilter !== undefined,
@@ -349,6 +395,7 @@ class DrizzlePostgresTransactionAdapter implements DatabaseTransactionAdapter {
 			() => {
 				this.#assertActive()
 			},
+			relation,
 		)
 	}
 

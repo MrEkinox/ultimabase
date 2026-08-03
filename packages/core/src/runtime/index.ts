@@ -55,6 +55,7 @@ export type {
 	DatabaseOperationResult,
 	DatabasePointerCapability,
 	DatabaseRelationCapability,
+	DatabaseRelationScope,
 	DatabaseRowFilterNode,
 	DatabaseTransactionAdapter,
 	DatabaseUpdateMaterialization,

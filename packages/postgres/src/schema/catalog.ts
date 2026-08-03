@@ -1,12 +1,23 @@
-import type { SchemaDefinition, SchemaTargetGraph } from '@ultimabase/core'
+import type {
+	DatabaseRelationScope,
+	SchemaDefinition,
+	SchemaTargetGraph,
+} from '@ultimabase/core'
 import { immutableArray } from '@ultimabase/shared'
 
-import type { CompiledPostgresSchema } from './contracts.js'
+import type {
+	CompiledPostgresJoinRelation,
+	CompiledPostgresRelation,
+	CompiledPostgresSchema,
+} from './contracts.js'
+import { compilePostgresRelations } from './relation-compiler.js'
 import { compilePostgresSchemas } from './schema-compiler.js'
 
 /** Owns application-scoped compiled tables without exposing mutable map operations. */
 export class PostgresSchemaCatalog {
 	readonly #schemas = new Map<object, CompiledPostgresSchema>()
+	readonly #relations = new Map<object, Map<string, CompiledPostgresRelation>>()
+	readonly #joins: readonly CompiledPostgresJoinRelation[]
 
 	constructor(
 		schemas: readonly SchemaDefinition[],
@@ -24,6 +35,33 @@ export class PostgresSchemaCatalog {
 			}
 
 			this.#schemas.set(schema, compiledSchema)
+		}
+
+		if (targets === undefined) {
+			this.#joins = immutableArray([])
+			return
+		}
+
+		const schemasByDefinition = new Map<
+			SchemaDefinition,
+			CompiledPostgresSchema
+		>()
+
+		for (const schema of schemas) {
+			schemasByDefinition.set(schema, this.get(schema))
+		}
+
+		const relations = compilePostgresRelations(targets, schemasByDefinition)
+
+		this.#joins = relations.joins
+
+		for (const relation of relations.relations) {
+			const sourceRelations =
+				this.#relations.get(relation.relation.source) ??
+				new Map<string, CompiledPostgresRelation>()
+
+			sourceRelations.set(JSON.stringify(relation.relation.fieldPath), relation)
+			this.#relations.set(relation.relation.source, sourceRelations)
 		}
 	}
 
@@ -53,12 +91,32 @@ export class PostgresSchemaCatalog {
 	/** Lists exact managed table identifiers for catalog ownership classification. */
 	tableNames(): readonly string[] {
 		return immutableArray(
-			[...this.#schemas.values()].map(({ tableName }) => tableName),
+			[...this.#schemas.values(), ...this.#joins].map(
+				({ tableName }) => tableName,
+			),
 		)
 	}
 
 	/** Returns compiled schemas in declaration order for deterministic preparation. */
 	values(): readonly CompiledPostgresSchema[] {
 		return immutableArray([...this.#schemas.values()])
+	}
+
+	/** Lists each physical owning join once for schema preparation. */
+	relationValues(): readonly CompiledPostgresJoinRelation[] {
+		return this.#joins
+	}
+
+	/** Resolves one Runtime-validated edge by exact application schema identity. */
+	getRelation(scope: DatabaseRelationScope): CompiledPostgresRelation {
+		const relation = this.#relations
+			.get(scope.source)
+			?.get(JSON.stringify(scope.fieldPath))
+
+		if (relation?.relation.target !== scope.target) {
+			throw new TypeError('PostgreSQL relation scope is not registered')
+		}
+
+		return relation
 	}
 }

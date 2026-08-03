@@ -59,6 +59,7 @@ import type {
 	RuntimeMutationOutcomeStageInput,
 	RuntimeOperationStageInput,
 	RuntimePreparedMutationStageInput,
+	RuntimeRelationEnforcementStageInput,
 } from '../pipeline/contracts.js'
 
 type AccessPhase =
@@ -927,6 +928,37 @@ export class NativeAccessRuntime {
 		)
 
 		return state
+	}
+
+	/** Enforces one relation source field that is intentionally absent from row output. */
+	async enforceRelationRead(
+		request: RuntimeRelationEnforcementStageInput,
+	): Promise<void> {
+		const field = this.#plan.getField(
+			request.relation.source,
+			request.relation.fieldPath,
+		)
+
+		if (field?.field.kind !== 'relation') {
+			throw new TypeError('Native Access relation field is unavailable')
+		}
+
+		await assertDecisionRules(
+			this.#runtime,
+			request,
+			field.read.item,
+			{
+				branch: 'item',
+				field,
+				phase: 'access-field-read',
+				schema: request.relation.source,
+			},
+			immutableRecord({
+				context: request.context,
+				kind: request.operation.kind,
+			}),
+			this.#plan.defaults.field,
+		)
 	}
 
 	async enforcePreparedMutation<

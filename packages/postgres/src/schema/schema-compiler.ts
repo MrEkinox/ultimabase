@@ -178,6 +178,9 @@ const preparePostgresSchema = (
 	const renameSources = new Set<string>()
 
 	for (const [fieldName, plan] of Object.entries(validationPlan.fields)) {
+		// To-many relations own edge storage and never become row columns.
+		if (plan.field.kind === 'relation') continue
+
 		assertNoNestedIndexes(plan, fieldName)
 		const pointer = resolvePointerMetadata(schema, fieldName, plan, targets)
 		const compiled = compilePostgresFieldBuilder(
