@@ -54,12 +54,14 @@ retaining explicit `*Many` methods for collection and set-based behavior. Issue
 itemized implementations: terminal kinds remain exact discriminants, but
 developers never declare separate `One` and `Many` hook phases.
 
-Issues 347–348 consolidate builder and execution DX around one immutable
-`Query` class. Terminals first resolve the active Runtime scope or an explicitly
-supplied `UltimaBase`, then apply trusted backend-only session or master options.
-This removes `BoundQuery`, `context.query`, and repeated context plumbing while
-preserving hook transactions, revocable leases, application isolation, and the
-transport authority boundary.
+Issues 347, 350, and 348 consolidate builder, context, and execution DX around
+one immutable `Query` class. Core first removes native user authority in favor
+of plugin-owned typed context values. Terminals then resolve the active Runtime
+scope or an explicitly supplied `UltimaBase` and context, with trusted
+backend-only master elevation. This removes `BoundQuery`, `context.query`,
+session handling in Query, and repeated context plumbing while preserving hook
+transactions, revocable leases, application isolation, and the transport
+authority boundary.
 
 Issue 349 completes the object-level DX with immutable `create`, `upsert`,
 `update`, and `delete` commands on the schema-specific draft or persisted

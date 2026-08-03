@@ -73,7 +73,7 @@ const posts = await Post.query().find({ ultimabase })
 
 ## Out of scope
 
-- Session-token and master authority overrides, owned by issue 348.
+- Explicit plugin-derived context and master authority overrides, owned by issue 348 after issue 350 removes native user authority.
 - Model instance persistence commands, owned by issue 349.
 - Query JSON round trips, owned by issue 342.
 - Relations, pointers, roles, ACL, or CLP behavior.

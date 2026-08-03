@@ -4,7 +4,7 @@
 - Milestone: 3
 - Packages: `@ultimabase/access`, `@ultimabase/runtime`
 - Depends on: 201
-- ADR: ADR-0013, ADR-0062
+- ADR: ADR-0013, ADR-0062, ADR-0113
 
 ## Goal
 
@@ -21,3 +21,9 @@ Represent request source, authentication, anonymous/user/master access, capabili
 ## Tests
 
 - [x] Runtime, type, immutability, and public-export tests.
+
+## Follow-up
+
+ADR-0113 supersedes the native user mode implemented by this historical issue.
+Issue 350 removes that mode and introduces plugin-owned typed request values
+while preserving the anonymous and audited-master boundaries.

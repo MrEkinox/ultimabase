@@ -2,15 +2,30 @@
 
 - Status: planned
 - Milestone: 7+
-- Packages: core, runtime, access
-- Depends on: 617
-- ADR: new ADR required
+- Packages: future `@ultimabase/auth`
+- Depends on: 350, 617
+- ADR: ADR-0113
 
 ## Goal
 
-Normalize transport credentials into user auth context without coupling Core to a provider.
+Define an optional authentication plugin contract that owns its user schema,
+credentials, sessions, custom auth operations, and typed request identity without
+adding authentication concepts to Core.
 
 ## Acceptance criteria
 
 - [ ] Authentication and authorization remain distinct.
+- [ ] Installing no authentication plugin creates no user schema, auth operation, session service, or request identity.
+- [ ] The plugin contributes a default typed User schema and accepts an explicitly compatible custom schema.
+- [ ] `signUp`, `login`, `logout`, and refresh behavior are plugin-owned custom operations shared by every installed transport integration.
+- [ ] Validated sessions derive immutable contexts through the generic request-value boundary from issue 350.
+- [ ] The plugin exposes a typed principal token and `runWithSession()` helper without adding `user` authority to Core.
+- [ ] CLP, ACL, role, and field-permission plugins consume neutral typed identity contracts rather than importing this plugin.
 - [ ] Session secrets never enter request metadata.
+- [ ] Query terminals never accept raw session tokens or provider credentials.
+
+## Tests
+
+- [ ] Applications start and execute normally without the plugin.
+- [ ] Authenticated context derivation, invalid sessions, schema contribution, and custom operation contracts are covered through public exports.
+- [ ] REST and GraphQL fixtures normalize the same plugin-owned auth operations and principal context.

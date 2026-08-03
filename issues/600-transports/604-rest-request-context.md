@@ -3,19 +3,23 @@
 - Status: planned
 - Milestone: 6
 - Packages: `@ultimabase/rest`
-- Depends on: 310, 314, 601
-- ADR: ADR-0013
+- Depends on: 314, 350, 601
+- ADR: ADR-0113
 
 ## Goal
 
-Normalize request ID, auth input, source, metadata, and trusted master headers into RequestEngine scopes.
+Create an anonymous request scope from transport-safe request data, then let
+installed plugins validate their own credentials and derive typed context
+values before execution.
 
 ## Acceptance criteria
 
-- [ ] Raw master keys are verified by a service and never retained.
-- [ ] Arbitrary body/query values cannot enable master.
+- [ ] REST creates an anonymous Core context without requiring authentication.
+- [ ] Ordered plugin context resolvers may derive typed values but cannot broaden authority.
+- [ ] Raw master keys and client-provided master flags never enable master transport execution.
+- [ ] Authentication headers remain private to the installed authentication plugin and never enter request metadata.
 - [ ] AsyncLocalStorage covers the full handler.
 
 ## Tests
 
-- [ ] Anonymous, user, valid master, and forged master requests.
+- [ ] Anonymous, plugin-derived identity, malformed plugin credentials, and forged master requests.

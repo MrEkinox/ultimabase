@@ -16,7 +16,6 @@ Accepted records:
 - [ADR-0010: GraphQL Core and Yoga](0010-graphql-core-and-yoga.md)
 - [ADR-0011: Node ESM toolchain](0011-node-esm-toolchain.md)
 - [ADR-0012: Vitest and PostgreSQL isolation](0012-vitest-postgres-isolation.md)
-- [ADR-0013: Access modes and master authority](0013-access-modes-and-master.md)
 - [ADR-0014: Data naming and system fields](0014-data-conventions.md)
 - [ADR-0015: Hook order and transaction boundary](0015-hook-order-and-transactions.md)
 - [ADR-0016: Controlled public exports](0016-controlled-public-exports.md)
@@ -60,7 +59,6 @@ Accepted records:
 - [ADR-0058: Immutable unbound Query builder](0058-immutable-unbound-query-builder.md)
 - [ADR-0059: Terminal Operation AST](0059-terminal-operation-ast.md)
 - [ADR-0060: Typed atomic update expressions](0060-typed-atomic-update-expressions.md)
-- [ADR-0062: Request context security boundary](0062-request-context-security-boundary.md)
 - [ADR-0063: Portable database adapter boundary](0063-portable-database-adapter-boundary.md)
 - [ADR-0065: Application-owned request engines](0065-application-owned-request-engines.md)
 - [ADR-0066: Derived asynchronous request scopes](0066-derived-asynchronous-request-scopes.md)
@@ -108,14 +106,17 @@ Accepted records:
 - [ADR-0110: Concise singular Query terminals](0110-concise-singular-query-terminals.md)
 - [ADR-0111: Non-atomic bulk hook semantics](0111-non-atomic-bulk-hook-semantics.md)
 - [ADR-0112: Unique upsert targets seed create candidates](0112-upsert-target-seeds-create.md)
+- [ADR-0113: Plugin-owned authentication context](0113-plugin-owned-authentication-context.md)
 
 Superseded records:
 
+- [ADR-0013: Access modes and master authority](0013-access-modes-and-master.md), superseded by ADR-0113.
 - [ADR-0017: Composite fields and PostgreSQL storage](0017-composite-fields-and-postgres-storage.md), superseded by ADR-0021.
 - [ADR-0018: Default value boundaries](0018-default-value-boundaries.md), superseded by ADR-0038.
 - [ADR-0020: Compiled validation plans](0020-compiled-validation-plans.md), superseded by ADR-0039.
 - [ADR-0035: Schema domain-oriented internal layout](0035-schema-domain-layout.md), superseded by ADR-0036.
 - [ADR-0061: Neutral BoundQuery facade](0061-neutral-bound-query-facade.md), superseded by ADR-0108.
+- [ADR-0062: Request context security boundary](0062-request-context-security-boundary.md), superseded by ADR-0113.
 - [ADR-0064: Mandatory deterministic Runtime pipeline](0064-mandatory-runtime-pipeline.md), superseded by ADR-0090.
 - [ADR-0092: Bound queries require executors](0092-bound-queries-require-executors.md), superseded by ADR-0108.
 - [ADR-0093: Immutable Schema constructor API](0093-schema-constructor-api.md), superseded by ADR-0109.

@@ -3,8 +3,8 @@
 - Status: ready
 - Milestone: 4
 - Packages: `@ultimabase/core`
-- Depends on: 103, 310
-- ADR: ADR-0006
+- Depends on: 103, 350
+- ADR: ADR-0006, ADR-0113
 
 ## Goal
 
@@ -15,6 +15,7 @@ Represent allow, deny, authenticated, role, ownership, and logical rules without
 - [ ] Rule functions are synchronous and return declarative rules.
 - [ ] Rules are immutable discriminated unions.
 - [ ] Unknown custom rules require registered compilers.
+- [ ] Authenticated and user subjects are access-plugin concepts resolved from optional typed context providers, not Core authority modes.
 
 ## Tests
 

@@ -29,7 +29,7 @@ Before changing code:
 - REST and GraphQL normalize into the same operation/query AST and execute through the same runtime pipeline.
 - CLP controls class operations. ACL controls individual objects. Field permissions control field selection and mutation.
 - CLP, ACL, roles, and field permissions are optional plugins that register policy-neutral guards, constraints, and field restrictions through the hook registry. Runtime must not name, configure, bypass, or install neutral stages for them.
-- Access modes are `anonymous`, `user`, and `master`. There is no `system` mode.
+- Core authority modes are `anonymous` and `master`. Authentication, user identity, sessions, and user schemas belong to optional plugins; there is no `user` or `system` Core mode.
 - Master access is trusted server-side authority and must never be forgeable from transport input.
 
 ## Dependency direction

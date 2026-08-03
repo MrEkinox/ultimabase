@@ -4,7 +4,7 @@
 - Milestone: 4
 - Packages: `@ultimabase/acl-permissions`
 - Depends on: 210, 328, 331, 337, 406, 410
-- ADR: ADR-0006, ADR-0089, ADR-0090
+- ADR: ADR-0006, ADR-0089, ADR-0090, ADR-0113
 
 ## Goal
 
@@ -23,6 +23,7 @@ Compile object access constraints into adapter requests and protect ACL mutation
 - [ ] ACL imports only neutral role-reference and service-token types and never imports or identifies `rolePermissionPlugin`.
 - [ ] A configured role subject requires the neutral role-resolution service and fails application setup before infrastructure starts when no provider is installed.
 - [ ] ACL does not resolve or require the role service when no ACL or default ACL references a role.
+- [ ] Authenticated and user subjects resolve through optional typed context providers without importing a concrete authentication plugin.
 
 ## Tests
 

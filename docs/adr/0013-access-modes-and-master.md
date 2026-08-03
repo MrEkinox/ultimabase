@@ -1,7 +1,8 @@
 # ADR-0013: Access modes and master authority
 
-- Status: accepted
+- Status: superseded
 - Date: 2026-07-30
+- Superseded by: ADR-0113
 
 ## Decision
 

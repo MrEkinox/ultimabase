@@ -200,10 +200,13 @@ Validation remains mandatory for master requests and precedes permissions and
 business hooks. The framework-owned `id` is generated there as a UUID v7 from
 the same instant before an adapter receives a create branch.
 
-Access modes are `anonymous`, `user`, and `master`. Request sources such as `rest`, `graphql`, `job`, or `internal` are metadata, not access modes.
-`RequestContext` correlates the mode with immutable request identity, source,
-safe metadata, and identity-based capability tokens. Public construction cannot
-select master mode. Runtime verifies raw credentials into framework-owned
+Core authority modes are `anonymous` and `master`. Request sources such as
+`rest`, `graphql`, `job`, or `internal` are metadata, not authority modes.
+`RequestContext` correlates authority with immutable request identity, source,
+safe metadata, identity-based capability tokens, and typed values contributed
+by plugins. Authentication, sessions, and user schemas are optional plugin
+capabilities rather than Core concepts. Public context derivation cannot select
+master mode. Runtime verifies raw master credentials into framework-owned
 opaque grants, audits their use, and creates master engines without retaining
 the credential in request state.
 

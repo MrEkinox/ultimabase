@@ -4,7 +4,7 @@
 - Milestone: 3
 - Packages: `@ultimabase/core`
 - Depends on: 329, 330, 332, 333
-- ADR: ADR-0062, ADR-0065, ADR-0068, ADR-0089, ADR-0107
+- ADR: ADR-0062, ADR-0065, ADR-0068, ADR-0089, ADR-0107, ADR-0113
 
 ## Goal
 
@@ -52,4 +52,5 @@ Issue 347 replaces the public `context.query(schema)` entry point with direct
 ambient `new Query(schema)` terminals. It must preserve this issue's transaction,
 lease, cancellation, tracking, and application-isolation guarantees while
 leaving `HookContext` responsible for hook identity, capability checks, and
-named events.
+named events. Issue 350 additionally replaces the native authenticated identity
+with read-only lookup of plugin-owned typed request values.

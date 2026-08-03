@@ -9,6 +9,12 @@ plugins attach guards, adapter constraints, and field restrictions through the
 native hook dispatcher from ADR-0090. It is an execution priority, not a package
 dependency: access contracts remain database-neutral.
 
+Core authority is limited to anonymous and master execution under ADR-0113.
+Authenticated, user, owner, and role subjects remain valid permission-domain
+concepts, but access plugins resolve them through optional typed context values
+or neutral services. Installing no authentication provider is valid until a
+configured rule requires identity.
+
 CLP and ACL are independent permission plugins: neither imports, installs, nor
 depends on the other. Both may use the typed role contract because their public
 configuration accepts role rules or subjects. That contract and its typed
