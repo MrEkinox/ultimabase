@@ -69,6 +69,25 @@ for every item inside the root transaction. Non-master requests can never read,
 filter, order by, or replace the reserved ACL field, even when their ACL grants
 ordinary object updates.
 
+The shared callback receives `data` as the complete proposed developer-field
+snapshot on both create and singular update. Update additionally exposes the
+locked `currentData` and the normalized non-ACL `update` operations:
+
+```ts
+const deriveACL = (visibility: string | undefined) =>
+	visibility === 'public' ? new ACL().grantPublic('read') : new ACL()
+
+acl({
+	resolveInput: ({ currentAcl, data, inputAcl }) =>
+		inputAcl ?? currentAcl ?? deriveACL(data.visibility),
+})
+```
+
+The update candidate includes unchanged fields and applies `set`, `unset`, and
+numeric operations before the callback. Framework-generated timestamps remain
+visible in `update.operations` but are not mixed into schema-local `data`.
+Throwing from the callback aborts the same automatic transaction.
+
 `aclPlugin()` bounds persisted ACL size with safe application defaults. Limits
 count canonical principal and role entries, so repeated grants for one subject
 count once while public and authenticated rights count toward neither limit:

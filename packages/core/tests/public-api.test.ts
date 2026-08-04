@@ -43,6 +43,7 @@ describe('@ultimabase/core public entry point', () => {
 			'allOperations',
 			'allowAll',
 			'anyOf',
+			'applyUpdateExpressionToRecord',
 			'assertFieldOptions',
 			'beforeOperation',
 			'bigintField',

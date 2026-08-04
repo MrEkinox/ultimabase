@@ -2,6 +2,7 @@ import {
 	AccessSubjectReference,
 	accessPrincipalResolverServiceToken,
 	accessRoleResolverServiceToken,
+	applyUpdateExpressionToRecord,
 	constraint,
 	defineFieldKindAccessTarget,
 	definePlugin,
@@ -61,6 +62,8 @@ import {
 	aclFieldKind,
 	aclPluginName,
 	aclSchemaExtensionName,
+	type ACLNormalizedUpdateInput,
+	type ACLNormalizedUpdateOperation,
 	type ACLSchemaExtensionConfig,
 	type ACLField,
 } from './acl-extension.js'
@@ -72,6 +75,9 @@ type ACLCreateOperation = Extract<
 
 interface ACLPreparedUpdateOperation {
 	readonly kind: 'update-one'
+	readonly query: Readonly<{
+		readonly schema: Readonly<{ readonly definition: SchemaDefinition }>
+	}>
 	readonly update: unknown
 }
 
@@ -147,13 +153,23 @@ const assertMasterACLManagement = (context: HookContext): void => {
 	)
 }
 
-/** Removes the reserved ACL value before schema-local callbacks observe row data. */
-const omitACL = (
+/** Projects only developer fields so create and update callbacks share one data shape. */
+const projectACLData = (
+	schema: SchemaDefinition,
 	input: Readonly<Record<string, unknown>>,
 ): Readonly<Record<string, unknown>> =>
 	immutableRecord(
 		Object.fromEntries(
-			Object.entries(input).filter(([fieldName]) => fieldName !== aclFieldName),
+			Object.entries(input).filter(([fieldName]) => {
+				if (fieldName === aclFieldName) return false
+
+				const field = schema.fields[fieldName]
+
+				return (
+					field !== undefined &&
+					!('system' in field.options && field.options.system === true)
+				)
+			}),
 		),
 	)
 
@@ -271,6 +287,7 @@ const hasStaticRoleGrant = (config: ACLSchemaExtensionConfig): boolean =>
 const resolveCreateInputACL = async <
 	TData extends Readonly<Record<string, unknown>>,
 >(
+	schema: SchemaDefinition,
 	input: Readonly<Record<string, unknown>>,
 	config: ACLSchemaExtensionConfig<TData>,
 	principal: PointerValue | undefined,
@@ -279,8 +296,8 @@ const resolveCreateInputACL = async <
 	limits: ResolvedACLEntryLimits,
 	resolvePersistentRole: PersistentRoleResolver | undefined,
 ): Promise<Readonly<Record<string, unknown>>> => {
-	// The schema-targeted hook guarantees this extension's declared create-data shape.
-	const data = omitACL(input) as TData
+	// The schema-targeted hook guarantees this extension's declared developer-data shape.
+	const data = projectACLData(schema, input) as TData
 	const explicitACL = Object.hasOwn(input, aclFieldName)
 		? snapshotResolvedACL(input[aclFieldName], 'acl input')
 		: undefined
@@ -296,10 +313,12 @@ const resolveCreateInputACL = async <
 	const resolvedInput = await config.resolveInput?.({
 		context,
 		currentAcl: undefined,
+		currentData: undefined,
 		data,
 		inputAcl: explicitACL,
 		operation: 'create',
 		principal,
+		update: undefined,
 	})
 	const acceptedACL =
 		resolvedInput === undefined
@@ -335,6 +354,7 @@ export const resolveCreateOperationACL = async <
 			return immutableRecord({
 				...operation,
 				input: await resolveCreateInputACL(
+					operation.schema.definition,
 					operation.input,
 					config,
 					principal,
@@ -351,6 +371,7 @@ export const resolveCreateOperationACL = async <
 					await Promise.all(
 						operation.inputs.map((input) =>
 							resolveCreateInputACL(
+								operation.schema.definition,
 								input,
 								config,
 								principal,
@@ -367,6 +388,7 @@ export const resolveCreateOperationACL = async <
 			return immutableRecord({
 				...operation,
 				create: await resolveCreateInputACL(
+					operation.query.schema.definition,
 					operation.create,
 					config,
 					principal,
@@ -385,6 +407,7 @@ export const resolveCreateOperationACL = async <
 							immutableRecord({
 								...item,
 								create: await resolveCreateInputACL(
+									operation.schema.definition,
 									item.create,
 									config,
 									principal,
@@ -425,6 +448,10 @@ export const resolvePreparedOperationACL = async <
 	) {
 		throw new TypeError('ACL update requires a normalized update expression')
 	}
+	const normalizedUpdate = immutableRecord({
+		kind: 'update-expression' as const,
+		operations: update.operations,
+	})
 
 	const aclOperation = update.operations.find(
 		(candidate) => isPlainRecord(candidate) && candidate.field === aclFieldName,
@@ -467,26 +494,23 @@ export const resolvePreparedOperationACL = async <
 
 	const currentAcl = snapshotResolvedACL(target[aclFieldName], 'current acl')
 	const inputAcl = snapshotResolvedACL(aclOperation.value, 'acl input')
-	// The normalized schema update guarantees this extension's declared data shape.
-	const data = immutableRecord(
-		Object.fromEntries(
-			update.operations.flatMap((candidate) =>
-				isPlainRecord(candidate) &&
-				candidate.field !== aclFieldName &&
-				typeof candidate.field === 'string' &&
-				Object.hasOwn(candidate, 'value')
-					? [[candidate.field, candidate.value] as const]
-					: [],
-			),
-		),
+	const schema = operation.query.schema.definition
+	const currentData = projectACLData(schema, target) as TData
+	// Structural revalidation has normalized every operation before this locked callback.
+	const data = projectACLData(
+		schema,
+		applyUpdateExpressionToRecord(schema, target, normalizedUpdate),
 	) as TData
+	const updateInput = snapshotACLUpdateInput(normalizedUpdate)
 	const resolved = await config.resolveInput({
 		context,
 		currentAcl,
+		currentData,
 		data,
 		inputAcl,
 		operation: 'update',
 		principal,
+		update: updateInput,
 	})
 	const acceptedAcl =
 		resolved === undefined
@@ -545,6 +569,58 @@ const updateTouchesACL = (update: unknown): boolean =>
 	update.operations.some(
 		(candidate) => isPlainRecord(candidate) && candidate.field === aclFieldName,
 	)
+
+/** Detaches the normalized non-ACL update intent exposed to schema callbacks. */
+const snapshotACLUpdateInput = (
+	update: Readonly<Record<string, unknown>>,
+): ACLNormalizedUpdateInput => {
+	if (!isUnknownArray(update.operations)) {
+		throw new TypeError('ACL update requires normalized operations')
+	}
+
+	const operations: ACLNormalizedUpdateOperation[] = []
+
+	for (const candidate of update.operations) {
+		if (
+			!isPlainRecord(candidate) ||
+			typeof candidate.field !== 'string' ||
+			typeof candidate.kind !== 'string'
+		) {
+			throw new TypeError('ACL update contains an invalid operation')
+		}
+
+		if (candidate.field === aclFieldName) continue
+
+		if (candidate.kind === 'unset') {
+			operations.push(
+				immutableRecord({ field: candidate.field, kind: candidate.kind }),
+			)
+			continue
+		}
+
+		if (
+			(candidate.kind !== 'decrement' &&
+				candidate.kind !== 'increment' &&
+				candidate.kind !== 'set') ||
+			!Object.hasOwn(candidate, 'value')
+		) {
+			throw new TypeError('ACL update contains an unsupported operation')
+		}
+
+		operations.push(
+			immutableRecord({
+				field: candidate.field,
+				kind: candidate.kind,
+				value: candidate.value,
+			}),
+		)
+	}
+
+	return immutableRecord({
+		kind: 'update-expression',
+		operations: immutableArray(operations),
+	})
+}
 
 /** @internal Rejects set-based ACL replacement before adapter execution. */
 export const assertSingularACLReplacement = <TSchema extends SchemaDefinition>(

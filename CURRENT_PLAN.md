@@ -57,7 +57,7 @@ events, or mutation-shape invariants.
 
 ### Phase 2 — Callback semantics and IntelliSense
 
-3. [ ] [431 — Align ACL create and update input resolution data](issues/400-access/431-align-acl-input-resolution-data.md)
+3. [x] [431 — Align ACL create and update input resolution data](issues/400-access/431-align-acl-input-resolution-data.md)
 4. [ ] [144 — Contextualize schema extension callbacks from sibling fields](issues/100-schema/144-contextual-schema-extension-callbacks.md)
 
 ### Phase 3 — Runtime events and reference lifecycle

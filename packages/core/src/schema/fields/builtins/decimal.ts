@@ -218,6 +218,34 @@ export const compareDecimalValues = (left: string, right: string): number => {
 			: 0
 }
 
+/** Applies one exact decimal delta without converting either operand to a number. */
+export const applyDecimalDelta = (
+	current: string,
+	delta: string,
+	operation: 'decrement' | 'increment',
+): string => {
+	const currentDecimal = parseDecimal(current)
+	const deltaDecimal = parseDecimal(delta)
+	const commonScale = Math.max(currentDecimal.scale, deltaDecimal.scale)
+	const currentCoefficient =
+		currentDecimal.coefficient *
+		10n ** BigInt(commonScale - currentDecimal.scale)
+	const deltaCoefficient =
+		deltaDecimal.coefficient * 10n ** BigInt(commonScale - deltaDecimal.scale)
+	const coefficient =
+		operation === 'increment'
+			? currentCoefficient + deltaCoefficient
+			: currentCoefficient - deltaCoefficient
+	const sign = coefficient < 0n ? '-' : ''
+	const digits = (coefficient < 0n ? -coefficient : coefficient)
+		.toString()
+		.padStart(commonScale + 1, '0')
+
+	if (commonScale === 0) return `${sign}${digits}`
+
+	return `${sign}${digits.slice(0, -commonScale)}.${digits.slice(-commonScale)}`
+}
+
 const assertValidPrecision = (precision: number | undefined): void => {
 	if (
 		precision !== undefined &&

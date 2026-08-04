@@ -44,6 +44,8 @@ export type {
 	ACLDefaultInput,
 	ACLField,
 	ACLInputResolver,
+	ACLNormalizedUpdateInput,
+	ACLNormalizedUpdateOperation,
 	ACLSchemaExtension,
 	ACLSchemaExtensionConfig,
 	ACLSchemaLimits,

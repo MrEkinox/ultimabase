@@ -56,12 +56,23 @@ test('preserves explicit data contracts and discriminates shared input resolutio
 				expectTypeOf(input).toEqualTypeOf<
 					ACLCreateInputResolution<ResolvedData>
 				>()
+				expectTypeOf(input.data).toEqualTypeOf<ResolvedData>()
+				expectTypeOf(input.currentData).toEqualTypeOf<undefined>()
+				expectTypeOf(input.update).toEqualTypeOf<undefined>()
+				// @ts-expect-error -- Callback snapshots are immutable.
+				input.data.title = 'mutated'
 				return input.inputAcl
 			}
 
 			expectTypeOf(input).toEqualTypeOf<
 				ACLUpdateInputResolution<ResolvedData>
 			>()
+			expectTypeOf(input.data).toEqualTypeOf<ResolvedData>()
+			expectTypeOf(input.currentData).toEqualTypeOf<ResolvedData>()
+			expectTypeOf(input.update.kind).toEqualTypeOf<'update-expression'>()
+			expectTypeOf(input.update.operations[0]?.value).toEqualTypeOf<unknown>()
+			// @ts-expect-error -- Locked current data cannot be mutated by ACL callbacks.
+			input.currentData.title = 'mutated'
 			return input.inputAcl ?? input.currentAcl
 		},
 	})

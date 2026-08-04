@@ -122,6 +122,7 @@ Accepted records:
 - [ADR-0126: Transactional ACL subject-reference cleanup](0126-transactional-acl-reference-cleanup.md)
 - [ADR-0127: Committed ACL change events](0127-committed-acl-change-events.md)
 - [ADR-0128: Explicit master bypass for policy-neutral enforcement](0128-explicit-master-enforcement-bypass.md)
+- [ADR-0129: Proposed logical data for ACL input resolution](0129-proposed-acl-input-data.md)
 
 Superseded records:
 

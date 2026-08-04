@@ -1,0 +1,287 @@
+import { aclPostgresPlugin } from '@ultimabase/acl-postgres-plugin'
+import {
+	ACL,
+	acl,
+	aclPlugin,
+	type ACLNormalizedUpdateInput,
+} from '@ultimabase/acl-permissions-plugin'
+import {
+	decimalField,
+	intField,
+	MasterAuthority,
+	Schema,
+	stringField,
+	UltimaBase,
+} from '@ultimabase/core'
+import { postgresPlugin, postgresTable } from '@ultimabase/postgres-plugin'
+import { immutableRecord } from '@ultimabase/shared'
+import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+
+import {
+	createPostgresWorkerFixture,
+	type PostgresWorkerFixture,
+} from './postgres-worker-fixture.js'
+
+interface CapturedCreateResolution {
+	readonly currentData: undefined
+	readonly data: Readonly<Record<string, unknown>>
+	readonly update: undefined
+}
+
+interface CapturedUpdateResolution {
+	readonly currentData: Readonly<Record<string, unknown>>
+	readonly data: Readonly<Record<string, unknown>>
+	readonly update: ACLNormalizedUpdateInput
+}
+
+const emptyACL = new ACL()
+let createResolution: CapturedCreateResolution | undefined
+let updateResolution: CapturedUpdateResolution | undefined
+let rollbackResolution: CapturedUpdateResolution | undefined
+let resolutionCount = 0
+
+const ResolutionPost = Schema.define({
+	className: 'ACLInputResolutionPost',
+	fields: {
+		balance: decimalField({ default: '10.00' }),
+		labels: stringField({ default: ['current'], list: true }),
+		note: stringField(),
+		status: stringField({ default: 'unchanged' }),
+		title: stringField({ validation: { required: true } }),
+		views: intField({ default: 2 }),
+	},
+	extensions: [
+		acl({
+			default: emptyACL,
+			resolveInput: (input) => {
+				resolutionCount += 1
+
+				if (input.operation === 'create') {
+					createResolution = immutableRecord({
+						currentData: input.currentData,
+						data: input.data,
+						update: input.update,
+					})
+
+					return input.inputAcl ?? emptyACL
+				}
+
+				const captured = immutableRecord({
+					currentData: input.currentData,
+					data: input.data,
+					update: input.update,
+				})
+
+				if (input.data.title === 'rollback-candidate') {
+					rollbackResolution = captured
+					throw new Error('ACL resolver requested rollback')
+				}
+
+				updateResolution = captured
+
+				return input.inputAcl ?? input.currentAcl
+			},
+		}),
+		postgresTable({ name: 'acl_input_resolution_posts' }),
+	],
+})
+
+let fixture: PostgresWorkerFixture | undefined
+let ultimabase:
+	| UltimaBase<
+			readonly [typeof ResolutionPost],
+			readonly [
+				ReturnType<typeof aclPlugin>,
+				ReturnType<typeof postgresPlugin>,
+				ReturnType<typeof aclPostgresPlugin>,
+			]
+	  >
+	| undefined
+let postId: string | undefined
+
+const getApplication = (): NonNullable<typeof ultimabase> => {
+	if (ultimabase === undefined) {
+		throw new TypeError('ACL input-resolution application is missing')
+	}
+
+	return ultimabase
+}
+
+const getFixture = (): NonNullable<typeof fixture> => {
+	if (fixture === undefined) {
+		throw new TypeError('ACL input-resolution PostgreSQL fixture is missing')
+	}
+
+	return fixture
+}
+
+const getPostId = (): string => {
+	if (postId === undefined) {
+		throw new TypeError('ACL input-resolution row is missing')
+	}
+
+	return postId
+}
+
+beforeAll(async () => {
+	fixture = await createPostgresWorkerFixture()
+	ultimabase = new UltimaBase({
+		masterAuthority: new MasterAuthority({
+			keys: [{ id: 'acl-input-resolution-e2e', value: 'server-only' }],
+			onUse: () => undefined,
+		}),
+		plugins: [
+			aclPlugin(),
+			postgresPlugin({
+				schemaPolicy: 'override',
+				url: fixture.connectionUri,
+			}),
+			aclPostgresPlugin(),
+		],
+		schemas: [ResolutionPost],
+	})
+	await ultimabase.start()
+	const created = await ResolutionPost.query().create(
+		{ acl: emptyACL, note: 'remove-me', title: 'current' },
+		{ ultimabase, useMasterKey: true },
+	)
+
+	postId = created.id
+}, 30_000)
+
+afterAll(async () => {
+	await ultimabase?.dispose()
+	await fixture?.dispose()
+})
+
+describe('ACL input resolution with PostgreSQL', { concurrent: false }, () => {
+	it('exposes honest create and update candidates inside the mutation transaction', async () => {
+		const app = getApplication()
+		const id = getPostId()
+		const replacement = new ACL().grantPublic('read')
+		const masterOptions = { ultimabase: app, useMasterKey: true } as const
+
+		expect(createResolution).toStrictEqual({
+			currentData: undefined,
+			data: {
+				balance: '10.00',
+				labels: ['current'],
+				note: 'remove-me',
+				status: 'unchanged',
+				title: 'current',
+				views: 2,
+			},
+			update: undefined,
+		})
+
+		const updated = await ResolutionPost.query()
+			.byId(id)
+			.select('acl', 'balance', 'labels', 'status', 'title', 'views')
+			.update(
+				{
+					increment: { balance: '1.50', views: 3 },
+					set: {
+						acl: replacement,
+						labels: ['stable', 'typed'],
+						title: 'resolved-candidate',
+					},
+					unset: ['note'],
+				},
+				masterOptions,
+			)
+
+		expect(updated).toMatchObject({
+			acl: replacement,
+			balance: '11.50',
+			labels: ['stable', 'typed'],
+			status: 'unchanged',
+			title: 'resolved-candidate',
+			views: 5,
+		})
+		expect(updateResolution?.currentData).toStrictEqual({
+			balance: '10.00',
+			labels: ['current'],
+			note: 'remove-me',
+			status: 'unchanged',
+			title: 'current',
+			views: 2,
+		})
+		expect(updateResolution?.data).toStrictEqual({
+			balance: '11.50',
+			labels: ['stable', 'typed'],
+			status: 'unchanged',
+			title: 'resolved-candidate',
+			views: 5,
+		})
+		expect(updateResolution?.update.operations.slice(0, -1)).toStrictEqual([
+			{ field: 'labels', kind: 'set', value: ['stable', 'typed'] },
+			{ field: 'title', kind: 'set', value: 'resolved-candidate' },
+			{ field: 'note', kind: 'unset' },
+			{ field: 'balance', kind: 'increment', value: '1.50' },
+			{ field: 'views', kind: 'increment', value: 3 },
+		])
+		const timestampOperation = updateResolution?.update.operations.at(-1)
+
+		expect(timestampOperation).toMatchObject({
+			field: 'updatedAt',
+			kind: 'set',
+		})
+		expect(typeof timestampOperation?.value).toBe('string')
+		expect(Object.isFrozen(updateResolution?.currentData)).toBe(true)
+		expect(Object.isFrozen(updateResolution?.data)).toBe(true)
+		expect(Object.isFrozen(updateResolution?.update)).toBe(true)
+		expect(updateResolution?.update.operations.every(Object.isFrozen)).toBe(
+			true,
+		)
+
+		const persisted = await getFixture().pool.query<{
+			readonly note: string | null
+		}>('SELECT "note" FROM "acl_input_resolution_posts" WHERE "id" = $1', [id])
+
+		expect(persisted.rows[0]?.note).toBeNull()
+	})
+
+	it('rolls back resolver failures and skips ordinary object updates', async () => {
+		const app = getApplication()
+		const id = getPostId()
+		const masterOptions = { ultimabase: app, useMasterKey: true } as const
+		const countBeforeRollback = resolutionCount
+
+		await expect(
+			ResolutionPost.query()
+				.byId(id)
+				.update(
+					{
+						decrement: { balance: '0.25', views: 1 },
+						set: { acl: new ACL(), title: 'rollback-candidate' },
+					},
+					masterOptions,
+				),
+		).rejects.toThrow('ACL resolver requested rollback')
+		expect(rollbackResolution?.data).toMatchObject({
+			balance: '11.25',
+			title: 'rollback-candidate',
+			views: 4,
+		})
+		expect(resolutionCount).toBe(countBeforeRollback + 1)
+		await expect(
+			ResolutionPost.query()
+				.byId(id)
+				.select('acl', 'balance', 'status', 'title', 'views')
+				.first(masterOptions),
+		).resolves.toMatchObject({
+			balance: '11.50',
+			title: 'resolved-candidate',
+			views: 5,
+		})
+
+		const countBeforeOrdinaryUpdate = resolutionCount
+		await expect(
+			ResolutionPost.query()
+				.byId(id)
+				.select('status')
+				.update({ set: { status: 'ordinary' } }, masterOptions),
+		).resolves.toMatchObject({ status: 'ordinary' })
+		expect(resolutionCount).toBe(countBeforeOrdinaryUpdate)
+	})
+})

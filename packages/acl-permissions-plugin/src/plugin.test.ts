@@ -781,14 +781,21 @@ describe('aclPlugin create input resolution', () => {
 		const currentACL = new ACL().grantPublic('read')
 		const proposedACL = new ACL().grantPublic('update')
 		const resolvedACL = proposedACL.grantPublic('delete')
-		const resolver = vi.fn(({ currentAcl, data, inputAcl, operation }) => {
-			expect(operation).toBe('update')
-			expect(currentAcl).toBe(currentACL)
-			expect(inputAcl).toBe(proposedACL)
-			expect(data).toStrictEqual({ title: 'Changed' })
+		const resolver = vi.fn(
+			({ currentAcl, currentData, data, inputAcl, operation, update }) => {
+				expect(operation).toBe('update')
+				expect(currentAcl).toBe(currentACL)
+				expect(inputAcl).toBe(proposedACL)
+				expect(currentData).toStrictEqual({ title: 'Current' })
+				expect(data).toStrictEqual({ title: 'Changed' })
+				expect(update).toStrictEqual({
+					kind: 'update-expression',
+					operations: [{ field: 'title', kind: 'set', value: 'Changed' }],
+				})
 
-			return resolvedACL
-		})
+				return resolvedACL
+			},
+		)
 		const operation = {
 			kind: 'update-one',
 			query: ProtectedPost.query().byId('0198a43e-2431-7000-8000-000000000031')

@@ -115,6 +115,12 @@ target as `Query.upsert({ create, update }, options?)`. Instance commands keep
 the model's visible selection and protected identity; they never place either
 execution authority or hidden fields in the Query AST.
 
+Transaction-bound plugins that own a locked logical preimage may derive one
+immutable proposed candidate with `applyUpdateExpressionToRecord(schema,
+current, update)`. The helper applies the normalized portable scalar operators,
+including exact decimal and bigint arithmetic, without importing an adapter or
+executing persistence.
+
 Outside a request scope, the final terminal argument identifies the exact
 started application. Runtime creates one anonymous internal root request; it
 never falls back to a process-wide default:

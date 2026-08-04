@@ -99,11 +99,30 @@ export interface ACLCreateInputResolution<
 	>,
 > {
 	readonly operation: 'create'
+	/** Exposes the complete proposed developer-field create candidate. */
+	readonly data: TData
+	/** Create has no locked persisted preimage. */
+	readonly currentData: undefined
+	/** Create has no normalized update expression. */
+	readonly update: undefined
 	readonly inputAcl: ACL | undefined
 	readonly currentAcl: undefined
-	readonly data: TData
 	readonly principal: PointerValue | undefined
 	readonly context: HookContext
+}
+
+/** Describes one immutable normalized update operation supplied to ACL resolution. */
+export interface ACLNormalizedUpdateOperation {
+	readonly field: string
+	readonly kind: 'decrement' | 'increment' | 'set' | 'unset'
+	/** `unset` omits the value; other operation kinds retain their validated value. */
+	readonly value?: unknown
+}
+
+/** Exposes the normalized non-ACL update intent without adapter-specific syntax. */
+export interface ACLNormalizedUpdateInput {
+	readonly kind: 'update-expression'
+	readonly operations: readonly ACLNormalizedUpdateOperation[]
 }
 
 /** Supplies the shared facts available while resolving update ACL input. */
@@ -113,9 +132,14 @@ export interface ACLUpdateInputResolution<
 	>,
 > {
 	readonly operation: 'update'
+	/** Exposes the proposed developer-field row after applying the normalized update. */
+	readonly data: TData
+	/** Exposes the locked developer-field row before the proposed update. */
+	readonly currentData: TData
+	/** Exposes the immutable normalized update expression without the ACL operation. */
+	readonly update: ACLNormalizedUpdateInput
 	readonly inputAcl: ACL | undefined
 	readonly currentAcl: ACL
-	readonly data: TData
 	readonly principal: PointerValue | undefined
 	readonly context: HookContext
 }
