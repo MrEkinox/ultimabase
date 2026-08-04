@@ -2,13 +2,50 @@ import { expectTypeOf, test } from 'vitest'
 
 import {
 	booleanField,
+	defineContextualSchemaExtensionFactory,
 	defineFieldExtension,
 	Schema,
 	defineSchemaExtension,
 	stringField,
 	type SchemaDefinition,
 	type SchemaDraft,
+	type SchemaExtension,
+	type SchemaExtensionContextKind,
 } from '../index.js'
+
+interface ContextualFixtureOptions<
+	TData extends Readonly<Record<string, unknown>>,
+> {
+	readonly select: (data: TData) => string
+}
+
+type ContextualFixtureExtension<
+	TData extends Readonly<Record<string, unknown>>,
+> = SchemaExtension<'fixture.contextual', ContextualFixtureOptions<TData>>
+
+type ContextualFixtureData<TData> =
+	TData extends Readonly<Record<string, unknown>> ? TData : never
+
+interface ContextualFixtureKind extends SchemaExtensionContextKind {
+	readonly options: ContextualFixtureOptions<
+		ContextualFixtureData<this['data']>
+	>
+	readonly extension: ContextualFixtureExtension<
+		ContextualFixtureData<this['data']>
+	>
+}
+
+const createContextualFixture = <
+	TData extends Readonly<Record<string, unknown>>,
+>(
+	options: ContextualFixtureOptions<TData>,
+): ContextualFixtureExtension<TData> =>
+	defineSchemaExtension('fixture.contextual', options)
+
+const contextualFixture =
+	defineContextualSchemaExtensionFactory<ContextualFixtureKind>()(
+		createContextualFixture,
+	)
 
 test('preserves schema, field, and extension literals', () => {
 	const permissions = defineSchemaExtension('fixture.permissions', {
@@ -74,6 +111,42 @@ test('includes extension-owned fields in schema and draft inference', () => {
 
 	expectTypeOf(schema.fields.privateValue).toEqualTypeOf(extensionField)
 	expectTypeOf(new schema({ privateValue: 'secret' }).privateValue).toBeString()
+})
+
+test('binds community extension callbacks to exact sibling fields', () => {
+	const schema = Schema.define({
+		className: 'ContextualPost',
+		fields: {
+			published: booleanField({ default: false }),
+			title: stringField({ validation: { required: true } }),
+			visibility: stringField(),
+		},
+		extensions: ({ bind }) => [
+			bind(contextualFixture, {
+				select: (data) => {
+					expectTypeOf(data.title).toEqualTypeOf<string>()
+					expectTypeOf(data.published).toEqualTypeOf<boolean>()
+					expectTypeOf(data.visibility).toEqualTypeOf<string | undefined>()
+					const selectField = <TKey extends keyof typeof data>(
+						field: TKey,
+					): TKey => field
+					// @ts-expect-error -- Contextual data contains no framework fields.
+					selectField('id')
+					// @ts-expect-error -- Undeclared names do not survive contextual binding.
+					selectField('unknown')
+
+					return data.title
+				},
+			}),
+		],
+	})
+
+	expectTypeOf(schema.extensions[0].name).toEqualTypeOf<'fixture.contextual'>()
+	expectTypeOf(schema.extensions[0].config.select)
+		.parameter(0)
+		.toEqualTypeOf<
+			Readonly<{ published: boolean; title: string; visibility?: string }>
+		>()
 })
 
 test('preserves package-owned static capability inference', () => {

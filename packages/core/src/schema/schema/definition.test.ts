@@ -1,6 +1,53 @@
 import { describe, expect, it } from 'vitest'
 
-import { Schema, defineSchemaExtension, stringField } from '../index.js'
+import {
+	defineContextualSchemaExtensionFactory,
+	Schema,
+	defineSchemaExtension,
+	stringField,
+	type SchemaExtension,
+	type SchemaExtensionContextKind,
+} from '../index.js'
+
+interface RuntimeContextualOptions<
+	TData extends Readonly<Record<string, unknown>>,
+> {
+	readonly readTitle: (data: TData) => string
+}
+
+type RuntimeContextualExtension<
+	TData extends Readonly<Record<string, unknown>>,
+> = SchemaExtension<
+	'fixture.runtime-contextual',
+	RuntimeContextualOptions<TData>
+>
+
+type RuntimeContextualData<TData> =
+	TData extends Readonly<Record<string, unknown>> ? TData : never
+
+interface RuntimeContextualKind extends SchemaExtensionContextKind {
+	readonly options: RuntimeContextualOptions<
+		RuntimeContextualData<this['data']>
+	>
+	readonly extension: RuntimeContextualExtension<
+		RuntimeContextualData<this['data']>
+	>
+}
+
+let runtimeContextualFactoryCalls = 0
+const createRuntimeContextualExtension = <
+	TData extends Readonly<Record<string, unknown>>,
+>(
+	options: RuntimeContextualOptions<TData>,
+): RuntimeContextualExtension<TData> => {
+	runtimeContextualFactoryCalls += 1
+
+	return defineSchemaExtension('fixture.runtime-contextual', options)
+}
+const runtimeContextualExtension =
+	defineContextualSchemaExtensionFactory<RuntimeContextualKind>()(
+		createRuntimeContextualExtension,
+	)
 
 describe('schema definitions', () => {
 	it('keeps Schema itself as a non-constructible static declaration facade', () => {
@@ -65,6 +112,31 @@ describe('schema definitions', () => {
 
 		// Consumers can inspect extensions without branching on optional metadata.
 		expect(schema.extensions).toStrictEqual([])
+		expect(Object.isFrozen(schema.extensions)).toBe(true)
+	})
+
+	it('binds contextual extension factories without changing runtime identity', () => {
+		runtimeContextualFactoryCalls = 0
+		const schema = Schema.define({
+			className: 'ContextualPost',
+			fields: { title: stringField({ validation: { required: true } }) },
+			extensions: (context) => {
+				expect(Object.isFrozen(context)).toBe(true)
+
+				return [
+					context.bind(runtimeContextualExtension, {
+						readTitle: ({ title }) => title,
+					}),
+				]
+			},
+		})
+
+		expect(runtimeContextualFactoryCalls).toBe(1)
+		expect(Object.isFrozen(runtimeContextualExtension)).toBe(true)
+		expect(schema.extensions[0].name).toBe('fixture.runtime-contextual')
+		expect(schema.extensions[0].config.readTitle({ title: 'Visible' })).toBe(
+			'Visible',
+		)
 		expect(Object.isFrozen(schema.extensions)).toBe(true)
 	})
 

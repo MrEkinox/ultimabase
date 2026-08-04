@@ -10,6 +10,7 @@ const packageDirectory = path.dirname(fileURLToPath(import.meta.url))
 const fixtureFile = path.join(packageDirectory, 'acl-intellisense.fixture.ts')
 const source = `
 import { ACL, acl as aclExtension, aclPlugin, onACLChange } from '@ultimabase/acl-permissions-plugin'
+import { Schema, stringField } from '@ultimabase/core'
 
 const acl = new ACL()
 
@@ -33,6 +34,32 @@ onACLChange(({ event }) => {
 	const /* event-payload-hover */payload = event.payload
 	payload./* event-payload-complete */
 })
+
+const ContextualPost = Schema.define({
+	className: 'ContextualPost',
+	fields: {
+		title: stringField({ validation: { required: true } }),
+		visibility: stringField(),
+	},
+	extensions: ({ bind }) => [
+		bind(aclExtension, {
+			default: ({ data }) => {
+				data./* schema-data-complete */
+				const /* schema-title-hover */title = data.title
+				const /* schema-visibility-hover */visibility = data.visibility
+
+				return new ACL()
+			},
+			resolveInput: (input) => {
+				const /* schema-input-hover */candidate = input.data
+
+				return input.inputAcl ?? input.currentAcl
+			},
+		}),
+	],
+})
+
+void ContextualPost
 `
 // Replacing markers with equal-width spaces makes the fixture match real editor input.
 const serviceSource = source.replace(/\/\* [^*]+ \*\//g, (marker) =>
@@ -180,6 +207,45 @@ describe('ACL IntelliSense', () => {
 		)
 		expect(limitCompletions?.entries.map(({ name }) => name) ?? []).toEqual(
 			expect.arrayContaining(['maxPrincipals', 'maxRoles']),
+		)
+	})
+
+	it('exposes concise schema-aware callback completions and hovers', () => {
+		const completionMarker = '/* schema-data-complete */'
+		const completions = service.getCompletionsAtPosition(
+			fixtureFile,
+			markerPosition(completionMarker) + completionMarker.length,
+			{},
+		)
+		const names = completions?.entries.map(({ name }) => name) ?? []
+		const titleMarker = '/* schema-title-hover */'
+		const title = service.getQuickInfoAtPosition(
+			fixtureFile,
+			markerPosition(titleMarker) + titleMarker.length,
+		)
+		const visibilityMarker = '/* schema-visibility-hover */'
+		const visibility = service.getQuickInfoAtPosition(
+			fixtureFile,
+			markerPosition(visibilityMarker) + visibilityMarker.length,
+		)
+		const inputMarker = '/* schema-input-hover */'
+		const input = service.getQuickInfoAtPosition(
+			fixtureFile,
+			markerPosition(inputMarker) + inputMarker.length,
+		)
+
+		expect(names).toEqual(expect.arrayContaining(['title', 'visibility']))
+		expect(names).not.toEqual(
+			expect.arrayContaining(['acl', 'createdAt', 'id', 'updatedAt']),
+		)
+		expect(ts.displayPartsToString(title?.displayParts)).toContain(
+			'const title: string',
+		)
+		expect(ts.displayPartsToString(visibility?.displayParts)).toContain(
+			'const visibility: string | undefined',
+		)
+		expect(ts.displayPartsToString(input?.displayParts)).toContain(
+			'readonly title: string',
 		)
 	})
 

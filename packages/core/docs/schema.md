@@ -832,6 +832,7 @@ portable default mapping without adding database metadata to this package.
 - `defineSchemaExtension(name, config, pluginName?)` creates plugin-owned schema metadata.
 - `defineFieldExtension(name, config, pluginName?)` creates plugin-owned field metadata.
 - `defineExtensions(extensions)` copies and freezes a list while rejecting duplicate names within the same scope.
+- `defineContextualSchemaExtensionFactory<Kind>()(factory)` lets an extension author expose sibling-field-aware callback options.
 
 Each extension exposes the literal `scope`, `name`, `pluginName`, and typed
 readonly `config` properties. `pluginName` defaults to the extension name; an
@@ -839,6 +840,30 @@ explicit value lets one plugin handle several extension identities. Schema
 transports this opaque configuration without importing or interpreting the
 plugin. Core later verifies that the expected plugin registered the matching
 handler before infrastructure starts.
+
+Callback-bearing extensions can opt into exact sibling-field inference through
+the neutral schema binder:
+
+```ts
+const Post = Schema.define({
+	className: 'Post',
+	fields: {
+		title: stringField({ validation: { required: true } }),
+		visibility: stringField(),
+	},
+	extensions: ({ bind }) => [
+		bind(contentPolicy, {
+			resolve: ({ data }) => data.visibility ?? data.title,
+		}),
+	],
+})
+```
+
+The callback data contains only the exact developer field values. Required,
+optional, nullable, structured, list, pointer, and community plugin field types
+retain their ordinary object inference. Framework system fields and fields
+reserved by extensions stay private. The bound factory still returns the same
+ordinary immutable extension object stored on the schema.
 
 Schema and field names use separate namespaces. The same name may therefore exist once in each scope, while two schema extensions or two field extensions with the same name produce a `TypeError`. Extension values and their configuration objects are shallowly copied and frozen.
 

@@ -7,10 +7,13 @@ extension identities.
 
 ```ts
 import {
+	defineContextualSchemaExtensionFactory,
 	defineFieldExtension,
 	Schema,
 	defineSchemaExtension,
 	stringField,
+	type SchemaExtension,
+	type SchemaExtensionContextKind,
 } from '@ultimabase/core'
 
 const contentMetadataPluginName = '@example/content-metadata'
@@ -36,6 +39,60 @@ export const PostSchema = Schema.define({
 	extensions: [contentCategory],
 })
 ```
+
+When extension options contain callbacks that should understand sibling
+fields, the extension package can expose a contextual factory. `bind` derives
+the data contract from `fields`; the application does not repeat an interface:
+
+```ts
+interface ContentPolicyOptions<
+	TData extends Readonly<Record<string, unknown>>,
+> {
+	readonly resolve: (input: Readonly<{ data: TData }>) => string
+}
+
+type ContentPolicyData<TData> =
+	TData extends Readonly<Record<string, unknown>> ? TData : never
+
+type ContentPolicyExtension<TData extends Readonly<Record<string, unknown>>> =
+	SchemaExtension<
+		'content-policy',
+		ContentPolicyOptions<TData>,
+		typeof contentMetadataPluginName
+	>
+
+interface ContentPolicyKind extends SchemaExtensionContextKind {
+	readonly options: ContentPolicyOptions<ContentPolicyData<this['data']>>
+	readonly extension: ContentPolicyExtension<ContentPolicyData<this['data']>>
+}
+
+const createContentPolicy = <TData extends Readonly<Record<string, unknown>>>(
+	options: ContentPolicyOptions<TData>,
+): ContentPolicyExtension<TData> =>
+	defineSchemaExtension('content-policy', options, contentMetadataPluginName)
+
+const contentPolicy =
+	defineContextualSchemaExtensionFactory<ContentPolicyKind>()(
+		createContentPolicy,
+	)
+
+const ProtectedPost = Schema.define({
+	className: 'ProtectedPost',
+	fields: {
+		title: stringField({ validation: { required: true } }),
+		visibility: stringField(),
+	},
+	extensions: ({ bind }) => [
+		bind(contentPolicy, {
+			resolve: ({ data }) => data.visibility ?? data.title,
+		}),
+	],
+})
+```
+
+`data.title` is `string`, `data.visibility` is `string | undefined`, and unknown,
+system, or extension-reserved fields are rejected by TypeScript. Static metadata
+continues to use the direct `extensions: [contentCategory]` tuple.
 
 Each value is immutable and retains its literal scope, name, expected plugin,
 and configuration type. Core requires the expected plugin to register handlers

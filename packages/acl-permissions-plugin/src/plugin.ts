@@ -157,11 +157,15 @@ const assertMasterACLManagement = (context: HookContext): void => {
 const projectACLData = (
 	schema: SchemaDefinition,
 	input: Readonly<Record<string, unknown>>,
-): Readonly<Record<string, unknown>> =>
-	immutableRecord(
+): Readonly<Record<string, unknown>> => {
+	const extensionFieldNames = new Set(
+		schema.extensions.flatMap(({ fields }) => Object.keys(fields)),
+	)
+
+	return immutableRecord(
 		Object.fromEntries(
 			Object.entries(input).filter(([fieldName]) => {
-				if (fieldName === aclFieldName) return false
+				if (extensionFieldNames.has(fieldName)) return false
 
 				const field = schema.fields[fieldName]
 
@@ -172,6 +176,7 @@ const projectACLData = (
 			}),
 		),
 	)
+}
 
 const resolveDefaultACL = async <
 	TData extends Readonly<Record<string, unknown>>,

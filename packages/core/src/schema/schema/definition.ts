@@ -6,13 +6,15 @@ import {
 } from '@ultimabase/shared'
 
 import {
+	createSchemaExtensionBindingContext,
 	defineExtensions,
+	type SchemaExtensionBindingContext,
 	type SchemaExtension,
 } from '../extensions/definition.js'
 import type { GenericField } from '../fields/base/contract.js'
 import { assertFieldDefinition } from '../fields/base/definition.js'
 import type { Query } from '../../query/query/query.js'
-import type { InferCreateInput } from '../inference/types.js'
+import type { InferCreateInput, InferFields } from '../inference/types.js'
 import type { Pointer } from '../relations/pointer.js'
 import {
 	createSchemaModelCapabilityContext,
@@ -69,6 +71,22 @@ export type ResolvedSchemaFields<
 	TExtensions extends SchemaExtensions,
 > = Readonly<TFields> & Readonly<SchemaExtensionFields<TExtensions>>
 
+/** Infers the developer-field snapshot supplied to contextual schema extensions. */
+export type SchemaExtensionData<TFields extends SchemaFields> = InferFields<
+	TFields,
+	'object'
+>
+
+/** Supports ordinary extension tuples and sibling-field-aware declarations. */
+export type SchemaExtensionDeclaration<
+	TFields extends SchemaFields,
+	TExtensions extends SchemaExtensions,
+> =
+	| TExtensions
+	| ((
+			context: SchemaExtensionBindingContext<SchemaExtensionData<TFields>>,
+	  ) => TExtensions)
+
 /**
  * Describes the developer input accepted by `Schema.define()`.
  */
@@ -101,11 +119,15 @@ export interface SchemaOptions<
 	>[]
 	/**
 	 * Attaches immutable schema metadata interpreted by installed plugins.
+	 * A callback may bind extension options to the exact sibling-field values.
 	 * Extension order is preserved and duplicate identities are rejected.
 	 *
 	 * @example `extensions: [permissionsExtension]`
 	 */
-	readonly extensions?: TExtensions
+	readonly extensions?: SchemaExtensionDeclaration<
+		NoInfer<TFields>,
+		TExtensions
+	>
 	/**
 	 * Declares native operation, row-filter, and prepared-item access policies.
 	 * Rules stay private to Runtime and never alter physical schema metadata.
@@ -283,10 +305,16 @@ const defineSchemaModel = <
 		assertFieldDefinition(field, `fields.${name}`)
 	}
 
+	const declaredExtensions =
+		typeof options.extensions === 'function'
+			? options.extensions(
+					createSchemaExtensionBindingContext<SchemaExtensionData<TFields>>(),
+				)
+			: options.extensions
 	const extensions = (
-		options.extensions === undefined
+		declaredExtensions === undefined
 			? emptySchemaExtensions
-			: defineExtensions(options.extensions)
+			: defineExtensions(declaredExtensions)
 	) as readonly [...TExtensions]
 	const extensionFields = collectSchemaExtensionFields(
 		options.fields,

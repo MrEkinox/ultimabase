@@ -46,8 +46,8 @@ const Post = Schema.define({
 		title: stringField({ validation: { required: true } }),
 		visibility: stringField(),
 	},
-	extensions: [
-		acl({
+	extensions: ({ bind }) => [
+		bind(acl, {
 			default: ({ data, principal }) => {
 				const initial =
 					data.visibility === 'public'
@@ -77,11 +77,17 @@ locked `currentData` and the normalized non-ACL `update` operations:
 const deriveACL = (visibility: string | undefined) =>
 	visibility === 'public' ? new ACL().grantPublic('read') : new ACL()
 
-acl({
-	resolveInput: ({ currentAcl, data, inputAcl }) =>
-		inputAcl ?? currentAcl ?? deriveACL(data.visibility),
-})
+extensions: ({ bind }) => [
+	bind(acl, {
+		resolveInput: ({ currentAcl, data, inputAcl }) =>
+			inputAcl ?? currentAcl ?? deriveACL(data.visibility),
+	}),
+],
 ```
+
+The contextual declaration is opt-in. Static extensions may keep the shorter
+`extensions: [acl()]` tuple; use `({ bind }) => [...]` when callbacks need exact
+sibling-field autocomplete without a duplicated data interface.
 
 The update candidate includes unchanged fields and applies `set`, `unset`, and
 numeric operations before the callback. Framework-generated timestamps remain

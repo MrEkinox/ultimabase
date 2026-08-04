@@ -1,9 +1,13 @@
 import {
+	definePluginField,
+	objectField,
+	pointerField,
 	Schema,
 	stringField,
 	type InferCreateInput,
 	type InferObject,
 	type InferUpdateInput,
+	type Pointer,
 	type PointerValue,
 } from '@ultimabase/core'
 import { expectTypeOf, test } from 'vitest'
@@ -76,6 +80,75 @@ test('preserves explicit data contracts and discriminates shared input resolutio
 			return input.inputAcl ?? input.currentAcl
 		},
 	})
+})
+
+test('contextually infers exact sibling fields without a manual data generic', () => {
+	const Author = Schema.define({
+		className: 'ContextualACLAuthor',
+		fields: { name: stringField({ validation: { required: true } }) },
+	})
+	const customField = definePluginField(
+		'fixture.contextual-acl',
+		{ validation: { required: true } },
+		{ snapshotValue: (value: unknown): string => String(value) },
+	)
+	const Post = Schema.define({
+		className: 'ContextualACLPost',
+		fields: {
+			author: pointerField({
+				target: () => Author,
+				validation: { required: true },
+			}),
+			custom: customField,
+			profile: objectField({
+				fields: {
+					displayName: stringField({ validation: { required: true } }),
+				},
+				typeName: 'ContextualACLProfile',
+			}),
+			tags: stringField({ list: true }),
+			title: stringField({ validation: { required: true } }),
+			visibility: stringField(),
+		},
+		extensions: ({ bind }) => [
+			bind(acl, {
+				default: ({ data }) => {
+					expectTypeOf(data.title).toEqualTypeOf<string>()
+					expectTypeOf(data.visibility).toEqualTypeOf<string | undefined>()
+					expectTypeOf(data.tags).toEqualTypeOf<readonly string[] | undefined>()
+					expectTypeOf(data.profile).toEqualTypeOf<
+						Readonly<{ displayName: string }> | undefined
+					>()
+					expectTypeOf(data.author).toEqualTypeOf<Pointer<typeof Author>>()
+					expectTypeOf(data.custom).toEqualTypeOf<string>()
+					const selectField = <TKey extends keyof typeof data>(
+						field: TKey,
+					): TKey => field
+					// @ts-expect-error -- Framework system fields are not schema-local data.
+					selectField('id')
+					// @ts-expect-error -- Extension-contributed fields cannot couple sibling extensions.
+					selectField('acl')
+					// @ts-expect-error -- Undeclared sibling fields are rejected.
+					selectField('unknown')
+
+					return new ACL()
+				},
+				resolveInput: (input) => {
+					expectTypeOf(input.data.title).toEqualTypeOf<string>()
+
+					if (input.operation === 'update') {
+						expectTypeOf(input.currentData.visibility).toEqualTypeOf<
+							string | undefined
+						>()
+					}
+
+					return input.inputAcl ?? input.currentAcl
+				},
+			}),
+		],
+	})
+
+	expectTypeOf(Post.fields.acl.kind).toEqualTypeOf<'ultimabase.acl'>()
 })
 
 test('rejects incompatible public configuration types', () => {

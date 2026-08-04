@@ -100,14 +100,20 @@ export type {
 	EnumValues,
 } from './fields/builtins/enum.js'
 export {
+	defineContextualSchemaExtensionFactory,
 	defineExtensions,
 	defineFieldExtension,
 	defineSchemaExtension,
 } from './extensions/definition.js'
 export type {
+	ContextualSchemaExtensionFactory,
+	ContextualSchemaExtensionOptions,
+	ContextualSchemaExtensionResult,
 	ExtensionDefinition,
 	ExtensionScope,
 	FieldExtension,
+	SchemaExtensionBindingContext,
+	SchemaExtensionContextKind,
 	SchemaExtension,
 	SchemaExtensionContributions,
 	SchemaExtensionFields,
@@ -212,6 +218,8 @@ export type {
 	SchemaClassCapabilities,
 	SchemaClassCapabilityFactory,
 	SchemaDefinition,
+	SchemaExtensionData,
+	SchemaExtensionDeclaration,
 	ResolvedSchemaFields,
 	SchemaExtensionFields as ResolvedSchemaExtensionFields,
 	SchemaExtensions,

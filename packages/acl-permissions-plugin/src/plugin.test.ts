@@ -9,6 +9,7 @@ import {
 	createApplication,
 	databaseAdapterServiceToken,
 	definePlugin,
+	defineSchemaExtension,
 	stringField,
 	UltimaBase,
 	type DatabaseAdapter,
@@ -460,6 +461,43 @@ describe('aclPlugin create input resolution', () => {
 		expect(resolved.input).toStrictEqual({ title: 'Visible', acl: generated })
 		expect(defaultFactory).toHaveBeenCalledOnce()
 		expect(operation.input).not.toHaveProperty('acl')
+	})
+
+	it('keeps extension-reserved fields out of schema-local ACL data', async () => {
+		const privateField = stringField({ validation: { required: true } })
+		const privateExtension = defineSchemaExtension(
+			'fixture.private-contextual-data',
+			{},
+			'fixture.private-contextual-plugin',
+			{ fields: { privateValue: privateField } },
+		)
+		const extension = acl()
+		const PrivatePost = Schema.define({
+			className: 'ACLPrivateContextualPost',
+			fields: { title: stringField({ validation: { required: true } }) },
+			extensions: [privateExtension, extension],
+		})
+		const defaultFactory = vi.fn(({ data }: ACLDefaultInput) =>
+			Object.keys(data).length === 1 && data.title === 'Visible'
+				? new ACL().grantPublic('read')
+				: new ACL(),
+		)
+		const operation = {
+			input: { privateValue: 'plugin-owned', title: 'Visible' },
+			kind: 'create-one',
+			schema: PrivatePost.query().ast.schema,
+		} as const
+
+		await resolveCreateOperationACL(
+			operation,
+			acl({ default: defaultFactory }).config,
+			undefined,
+			context,
+		)
+
+		expect(defaultFactory).toHaveBeenCalledWith(
+			expect.objectContaining({ data: { title: 'Visible' } }),
+		)
 	})
 
 	it('runs asynchronous defaults independently for every create-many item', async () => {

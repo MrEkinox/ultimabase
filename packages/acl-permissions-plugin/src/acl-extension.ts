@@ -1,10 +1,13 @@
 import {
+	type ContextualSchemaExtensionFactory,
+	defineContextualSchemaExtensionFactory,
 	definePluginField,
 	defineSchemaExtension,
 	type HookContext,
 	type PluginFieldDefinition,
 	type PointerValue,
 	type SchemaExtension,
+	type SchemaExtensionContextKind,
 } from '@ultimabase/core'
 import {
 	immutableRecord,
@@ -199,26 +202,27 @@ export type ACLSchemaExtension<
 	Readonly<{ readonly acl: ACLField }>
 >
 
-/**
- * Enables persisted object ACL for one schema without changing Core Runtime.
- *
- * Omitted ACL input receives the configured default after ordinary field input
- * hooks have resolved. Explicit ACL input is rejected unless `resolveInput` is
- * declared, while `aclPlugin()` owns all executable policy behavior.
- *
- * @example
- * ```ts
- * extensions: [
- *   acl({
- *     default: ({ principal }) =>
- *       principal === undefined
- *         ? new ACL().grantPublic('read')
- *         : new ACL().grantPrincipal(principal, 'read', 'update'),
- *   }),
- * ]
- * ```
- */
-export const acl = <
+type ACLContextData<TData> =
+	TData extends Readonly<Record<string, unknown>> ? TData : never
+
+interface ACLSchemaExtensionContextKind extends SchemaExtensionContextKind {
+	readonly options: ACLSchemaOptions<ACLContextData<this['data']>>
+	readonly extension: ACLSchemaExtension<ACLContextData<this['data']>>
+}
+
+/** Carries the ordinary and sibling-field-bound ACL factory call signatures. */
+export interface ACLSchemaExtensionFactory extends ContextualSchemaExtensionFactory<ACLSchemaExtensionContextKind> {
+	<
+		const TData extends Readonly<Record<string, unknown>> = Readonly<
+			Record<string, unknown>
+		>,
+	>(
+		options?: ACLSchemaOptions<TData>,
+	): ACLSchemaExtension<TData>
+}
+
+/** Creates one ACL extension while preserving an optional explicit data contract. */
+const createACL = <
 	const TData extends Readonly<Record<string, unknown>> = Readonly<
 		Record<string, unknown>
 	>,
@@ -256,3 +260,29 @@ export const acl = <
 		fields: { acl: aclField },
 	})
 }
+
+/**
+ * Enables persisted object ACL for one schema without changing Core Runtime.
+ *
+ * Omitted ACL input receives the configured default after ordinary field input
+ * hooks have resolved. Explicit ACL input is rejected unless `resolveInput` is
+ * declared, while `aclPlugin()` owns all executable policy behavior.
+ *
+ * @example
+ * ```ts
+ * extensions: ({ bind }) => [
+ *   bind(acl, {
+ *     default: ({ data, principal }) =>
+ *       data.visibility === "public"
+ *         ? new ACL().grantPublic('read')
+ *         : principal === undefined
+ *           ? new ACL()
+ *           : new ACL().grantPrincipal(principal, 'read', 'update'),
+ *   }),
+ * ]
+ * ```
+ */
+export const acl: ACLSchemaExtensionFactory =
+	defineContextualSchemaExtensionFactory<ACLSchemaExtensionContextKind>()(
+		createACL,
+	)

@@ -52,6 +52,96 @@ export type SchemaExtension<
 		readonly fields: TFields
 	}>
 
+/** Associates extension-specific options and output with one schema data context. */
+export interface SchemaExtensionContextKind {
+	readonly data: unknown
+	readonly options: object
+	readonly extension: SchemaExtension<string, object>
+}
+
+type AppliedSchemaExtensionContext<
+	TKind extends SchemaExtensionContextKind,
+	TData extends Readonly<Record<string, unknown>>,
+> = TKind & Readonly<{ data: TData }>
+
+/** Resolves one contextual extension factory's options for exact sibling fields. */
+export type ContextualSchemaExtensionOptions<
+	TKind extends SchemaExtensionContextKind,
+	TData extends Readonly<Record<string, unknown>>,
+> = AppliedSchemaExtensionContext<TKind, TData>['options']
+
+/** Resolves one contextual extension factory's exact output type. */
+export type ContextualSchemaExtensionResult<
+	TKind extends SchemaExtensionContextKind,
+	TData extends Readonly<Record<string, unknown>>,
+> = AppliedSchemaExtensionContext<TKind, TData>['extension']
+
+type ContextualSchemaExtensionBuilder<
+	TKind extends SchemaExtensionContextKind,
+> = <TData extends Readonly<Record<string, unknown>>>(
+	options: ContextualSchemaExtensionOptions<TKind, TData>,
+) => ContextualSchemaExtensionResult<TKind, TData>
+
+const contextualSchemaExtensionBuilder: unique symbol = Symbol.for(
+	'@ultimabase/core/contextual-schema-extension-builder/v1',
+)
+
+/** Marks a package factory that Core can bind to one exact sibling-field shape. */
+export interface ContextualSchemaExtensionFactory<
+	TKind extends SchemaExtensionContextKind,
+> {
+	readonly [contextualSchemaExtensionBuilder]: ContextualSchemaExtensionBuilder<TKind>
+}
+
+/** Supplies the neutral binding helper available to contextual extension declarations. */
+export interface SchemaExtensionBindingContext<
+	TData extends Readonly<Record<string, unknown>>,
+> {
+	/** Binds package-owned extension options to this schema's exact developer fields. */
+	readonly bind: <TKind extends SchemaExtensionContextKind>(
+		factory: ContextualSchemaExtensionFactory<TKind>,
+		options: ContextualSchemaExtensionOptions<TKind, TData>,
+	) => ContextualSchemaExtensionResult<TKind, TData>
+}
+
+/**
+ * Marks one generic package factory for contextual schema declaration binding.
+ *
+ * Extension authors declare the relationship once; applications then use the
+ * neutral `bind(factory, options)` helper exposed by `Schema.define()`.
+ */
+export const defineContextualSchemaExtensionFactory =
+	<TKind extends SchemaExtensionContextKind>(): (<
+		TFactory extends ContextualSchemaExtensionBuilder<TKind>,
+	>(
+		factory: TFactory,
+	) => TFactory & ContextualSchemaExtensionFactory<TKind>) =>
+	<TFactory extends ContextualSchemaExtensionBuilder<TKind>>(
+		factory: TFactory,
+	): TFactory & ContextualSchemaExtensionFactory<TKind> =>
+		Object.freeze(
+			Object.assign(factory, {
+				[contextualSchemaExtensionBuilder]: factory,
+			}),
+		)
+
+/** Creates one immutable binder whose generic implementation remains package-neutral. */
+export const createSchemaExtensionBindingContext = <
+	TData extends Readonly<Record<string, unknown>>,
+>(): SchemaExtensionBindingContext<TData> =>
+	immutableRecord({
+		bind: <TKind extends SchemaExtensionContextKind>(
+			factory: ContextualSchemaExtensionFactory<TKind>,
+			options: ContextualSchemaExtensionOptions<TKind, TData>,
+		): ContextualSchemaExtensionResult<TKind, TData> => {
+			if (typeof factory[contextualSchemaExtensionBuilder] !== 'function') {
+				throw new TypeError('Invalid contextual schema extension factory')
+			}
+
+			return factory[contextualSchemaExtensionBuilder]<TData>(options)
+		},
+	})
+
 /**
  * Represents configuration attached to one field definition.
  */
