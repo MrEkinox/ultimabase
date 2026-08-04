@@ -5,7 +5,7 @@
 - Objective owner: `@ultimabase/acl-permissions-plugin`, `@ultimabase/core`, `@ultimabase/postgres-plugin`
 - Governing decisions: [ADR-0005](docs/adr/0005-immutable-class-api.md), [ADR-0113](docs/adr/0113-plugin-owned-authentication-context.md), [ADR-0116](docs/adr/0116-fundamental-access-system.md), [ADR-0117](docs/adr/0117-optional-access-subject-capabilities.md), [ADR-0119](docs/adr/0119-developer-defined-role-schemas.md), [ADR-0122](docs/adr/0122-immutable-persisted-object-acls.md), [ADR-0123](docs/adr/0123-master-only-acl-management.md)
 - Previous completed objective: [Developer-defined stored roles](docs/plans/completed/developer-defined-stored-roles.md)
-- Resume point: issue 428
+- Resume point: issue 510
 
 ## Objective
 
@@ -77,8 +77,9 @@ never imports or identifies that plugin.
   management.
 - `ACL` is an immutable, non-persisting value class with symmetric grant,
   revoke, replace, and inspection methods.
-- One ACL may contain any number of principals and roles. Principal identity is
-  schema plus object ID; role identity is schema-qualified and persisted by UUID.
+- One ACL may contain multiple principals and roles within configurable finite
+  limits. Principal identity is schema plus object ID; role identity is
+  schema-qualified and persisted by UUID.
 - `toJSON()` is versioned and detached; `fromJSON(unknown)` validates strictly
   and performs no I/O.
 - `acl()` is a schema extension; `aclPlugin()` is the optional Access provider.
@@ -114,7 +115,7 @@ never imports or identifies that plugin.
 ### Phase 3 — Native Access and PostgreSQL
 
 5. [x] [411 — Implement aclPlugin Access contributions](issues/400-access/411-acl-plugin.md)
-6. [ ] [428 — Enforce configurable ACL entry limits](issues/400-access/428-acl-entry-limits.md)
+6. [x] [428 — Enforce configurable ACL entry limits](issues/400-access/428-acl-entry-limits.md)
 7. [ ] [510 — Store ACL in indexed JSONB columns](issues/500-postgres/510-acl-jsonb-storage.md)
 8. [ ] [509 — Compile PostgreSQL ACL constraints](issues/500-postgres/509-postgres-access-compilers.md)
 

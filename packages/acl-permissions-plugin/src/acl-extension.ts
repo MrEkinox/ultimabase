@@ -13,6 +13,7 @@ import {
 } from '@ultimabase/shared'
 
 import { ACL } from './acl.js'
+import { normalizeACLEntryLimits, type ACLEntryLimits } from './acl-limits.js'
 
 /** Identifies the schema extension owned by the official ACL plugin. */
 export const aclSchemaExtensionName = 'ultimabase.acl.schema' as const
@@ -121,10 +122,7 @@ export type ACLInputResolver<
 ) => MaybePromise<ACL | undefined>
 
 /** Overrides application ACL entry limits for one schema. */
-export interface ACLSchemaLimits {
-	readonly maxPrincipals?: number
-	readonly maxRoles?: number
-}
+export type ACLSchemaLimits = ACLEntryLimits
 
 /** Configures ACL generation and accepted input for one schema. */
 export interface ACLSchemaOptions<
@@ -136,7 +134,13 @@ export interface ACLSchemaOptions<
 	readonly default?: ACL | ACLDefaultFactory<TData>
 	/** Accepts and resolves explicit ACL input for create and update operations. */
 	readonly resolveInput?: ACLInputResolver<TData>
-	/** Overrides the plugin's default principal and role entry limits. */
+	/**
+	 * Overrides either plugin-level limit for this schema only.
+	 *
+	 * Omitted values continue to inherit the corresponding plugin limit.
+	 *
+	 * @example `limits: { maxPrincipals: 25, maxRoles: 10 }`
+	 */
 	readonly limits?: ACLSchemaLimits
 }
 
@@ -162,43 +166,6 @@ export type ACLSchemaExtension<
 	typeof aclPluginName,
 	Readonly<{ readonly acl: ACLField }>
 >
-
-const assertLimit = (value: unknown, path: string): number => {
-	if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < 0) {
-		throw new RangeError(`${path} must be a non-negative safe integer`)
-	}
-
-	return value
-}
-
-const normalizeLimits = (
-	limits: ACLSchemaLimits | undefined,
-): Readonly<ACLSchemaLimits> | undefined => {
-	if (limits === undefined) return undefined
-
-	if (!isPlainRecord(limits)) {
-		throw new TypeError('acl limits must be a plain object')
-	}
-
-	const unknownKeys = Object.keys(limits).filter(
-		(key) => key !== 'maxPrincipals' && key !== 'maxRoles',
-	)
-
-	const unknownKey = unknownKeys[0]
-
-	if (unknownKey !== undefined) {
-		throw new TypeError(`Unknown acl limit: ${unknownKey}`)
-	}
-
-	return immutableRecord({
-		...(limits.maxPrincipals === undefined
-			? {}
-			: { maxPrincipals: assertLimit(limits.maxPrincipals, 'maxPrincipals') }),
-		...(limits.maxRoles === undefined
-			? {}
-			: { maxRoles: assertLimit(limits.maxRoles, 'maxRoles') }),
-	})
-}
 
 /**
  * Enables persisted object ACL for one schema without changing Core Runtime.
@@ -250,7 +217,7 @@ export const acl = <
 	const config: ACLSchemaExtensionConfig<TData> = immutableRecord({
 		default: options.default ?? new ACL(),
 		resolveInput: options.resolveInput,
-		limits: normalizeLimits(options.limits),
+		limits: normalizeACLEntryLimits(options.limits, 'acl limits'),
 	})
 
 	return defineSchemaExtension(aclSchemaExtensionName, config, aclPluginName, {

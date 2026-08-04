@@ -123,6 +123,12 @@ options are intentionally limited to default entry limits; schema defaults,
 input behavior, Access, hooks, indexes, and transport exposure remain on the
 schema.
 
+Zero-option setup bounds one canonical ACL to 100 exact principals and 50
+roles. Plugin options replace either application default, while schema limits
+replace either plugin value and inherit omitted values. Public and
+authenticated rights consume no entry. Every accepted default, explicit input,
+and resolved update is checked before persistence, including master execution.
+
 Subject deletion semantics remain owned by the subject schema or provider.
 ACL registers provider-neutral reference inspection and cleanup contributions;
 it does not duplicate RoleSchema's `fail`, `preserve`, and `cascade` policy in

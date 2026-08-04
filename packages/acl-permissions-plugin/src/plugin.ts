@@ -24,6 +24,14 @@ import {
 
 import { ACL } from './acl.js'
 import {
+	assertACLEntryLimits,
+	defaultACLEntryLimits,
+	normalizeACLEntryLimits,
+	resolveACLEntryLimits,
+	type ACLEntryLimits,
+	type ResolvedACLEntryLimits,
+} from './acl-limits.js'
+import {
 	createACLRowConstraint,
 	requiredACLPermissions,
 	resolveACLAccessSubjects,
@@ -53,7 +61,21 @@ export interface ACLPluginExports {
 	readonly schemas: readonly SchemaDefinition[]
 }
 
-/** Represents the zero-option ACL provider before entry limits are added by issue 428. */
+/** Configures application-wide defaults for persisted ACL size. */
+export interface ACLPluginOptions {
+	/**
+	 * Sets finite subject-entry limits inherited by every ACL-enabled schema.
+	 *
+	 * Canonical duplicate grants count once. Public and authenticated grants do
+	 * not consume either limit.
+	 *
+	 * @default `{ maxPrincipals: 100, maxRoles: 50 }`
+	 * @example `limits: { maxPrincipals: 100, maxRoles: 50 }`
+	 */
+	readonly limits?: ACLEntryLimits
+}
+
+/** Represents the optional ACL provider configured for one application. */
 export type ACLPlugin = FrameworkPlugin<
 	typeof aclPluginName,
 	ACLPluginExports,
@@ -70,6 +92,26 @@ const snapshotResolvedACL = (value: unknown, path: string): ACL => {
 	}
 
 	return value
+}
+
+const normalizeACLPluginOptions = (
+	options: ACLPluginOptions,
+): Readonly<ACLPluginOptions> => {
+	const untrustedOptions: unknown = options
+
+	if (!isPlainRecord(untrustedOptions)) {
+		throw new TypeError('aclPlugin options must be a plain object')
+	}
+
+	const unknownKey = Object.keys(options).find((key) => key !== 'limits')
+
+	if (unknownKey !== undefined) {
+		throw new TypeError(`Unknown aclPlugin option: ${unknownKey}`)
+	}
+
+	const limits = normalizeACLEntryLimits(options.limits, 'aclPlugin limits')
+
+	return immutableRecord(limits === undefined ? {} : { limits })
 }
 
 /** Keeps ACL-document management behind trusted server authority. */
@@ -125,6 +167,16 @@ const assertACLRoleResolution = (
 	)
 }
 
+/** Applies every adapter-neutral invariant to one accepted ACL value. */
+const validateAcceptedACL = (
+	value: ACL,
+	roleResolutionAvailable: boolean,
+	limits: ResolvedACLEntryLimits,
+): void => {
+	assertACLRoleResolution(value, roleResolutionAvailable)
+	assertACLEntryLimits(value, limits)
+}
+
 const resolveCreateInputACL = async <
 	TData extends Readonly<Record<string, unknown>>,
 >(
@@ -133,6 +185,7 @@ const resolveCreateInputACL = async <
 	principal: PointerValue | undefined,
 	context: HookContext,
 	roleResolutionAvailable: boolean,
+	limits: ResolvedACLEntryLimits,
 ): Promise<Readonly<Record<string, unknown>>> => {
 	// The schema-targeted hook guarantees this extension's declared create-data shape.
 	const data = omitACL(input) as TData
@@ -160,7 +213,7 @@ const resolveCreateInputACL = async <
 		resolvedInput === undefined
 			? await resolveDefaultACL(config, data, principal, context)
 			: snapshotResolvedACL(resolvedInput, 'acl resolveInput')
-	assertACLRoleResolution(resolvedACL, roleResolutionAvailable)
+	validateAcceptedACL(resolvedACL, roleResolutionAvailable, limits)
 
 	return immutableRecord({ ...input, [aclFieldName]: resolvedACL })
 }
@@ -176,6 +229,7 @@ export const resolveCreateOperationACL = async <
 	principal: PointerValue | undefined,
 	context: HookContext,
 	roleResolutionAvailable = false,
+	limits: ResolvedACLEntryLimits = defaultACLEntryLimits,
 ): Promise<TOperation> => {
 	switch (operation.kind) {
 		case 'create-one':
@@ -187,6 +241,7 @@ export const resolveCreateOperationACL = async <
 					principal,
 					context,
 					roleResolutionAvailable,
+					limits,
 				),
 			})
 		case 'create-many':
@@ -201,6 +256,7 @@ export const resolveCreateOperationACL = async <
 								principal,
 								context,
 								roleResolutionAvailable,
+								limits,
 							),
 						),
 					),
@@ -215,6 +271,7 @@ export const resolveCreateOperationACL = async <
 					principal,
 					context,
 					roleResolutionAvailable,
+					limits,
 				),
 			})
 		case 'upsert-many':
@@ -231,6 +288,7 @@ export const resolveCreateOperationACL = async <
 									principal,
 									context,
 									roleResolutionAvailable,
+									limits,
 								),
 							}),
 						),
@@ -251,6 +309,7 @@ export const resolvePreparedOperationACL = async <
 	principal: PointerValue | undefined,
 	context: HookContext,
 	roleResolutionAvailable = false,
+	limits: ResolvedACLEntryLimits = defaultACLEntryLimits,
 ): Promise<TOperation> => {
 	const update: unknown = operation.update
 
@@ -311,7 +370,7 @@ export const resolvePreparedOperationACL = async <
 		resolved === undefined
 			? currentAcl
 			: snapshotResolvedACL(resolved, 'acl resolveInput')
-	assertACLRoleResolution(resolvedAcl, roleResolutionAvailable)
+	validateAcceptedACL(resolvedAcl, roleResolutionAvailable, limits)
 	const operations = immutableArray(
 		update.operations.map((candidate) =>
 			candidate === aclOperation
@@ -376,10 +435,22 @@ export const assertSingularACLReplacement = <TSchema extends SchemaDefinition>(
  * Activates ACL defaults and native Access behavior for schemas using `acl()`.
  *
  * The plugin discovers compatible identity providers through neutral Core
- * services; applications without authentication remain valid.
+ * services; applications without authentication remain valid. Entry limits
+ * default to 100 exact principals and 50 roles per persisted ACL.
+ *
+ * @example
+ * ```ts
+ * aclPlugin({ limits: { maxPrincipals: 100, maxRoles: 50 } })
+ * ```
  */
-export const aclPlugin = (): ACLPlugin =>
-	definePlugin({
+export const aclPlugin = (options: ACLPluginOptions = {}): ACLPlugin => {
+	const normalizedOptions = normalizeACLPluginOptions(options)
+	const pluginLimits = resolveACLEntryLimits(
+		defaultACLEntryLimits,
+		normalizedOptions.limits,
+	)
+
+	return definePlugin({
 		name: aclPluginName,
 		setup: ({ access, hooks, registries, schemas, services }) => {
 			registries.extensions.register(
@@ -407,6 +478,10 @@ export const aclPlugin = (): ACLPlugin =>
 
 				return resolution
 			}
+			const resolveSchemaLimits = (
+				config: ACLSchemaExtensionConfig,
+			): ResolvedACLEntryLimits =>
+				resolveACLEntryLimits(pluginLimits, config.limits)
 			hooks.schemaExtension(
 				'resolve-create-input',
 				aclExtensionTarget,
@@ -421,6 +496,7 @@ export const aclPlugin = (): ACLPlugin =>
 								subjects.principal,
 								context,
 								subjects.roleResolutionAvailable,
+								resolveSchemaLimits(extension.config),
 							)
 						},
 						upsert: async ({ context, operation }) => {
@@ -432,6 +508,7 @@ export const aclPlugin = (): ACLPlugin =>
 								subjects.principal,
 								context,
 								subjects.roleResolutionAvailable,
+								resolveSchemaLimits(extension.config),
 							)
 						},
 					},
@@ -465,6 +542,8 @@ export const aclPlugin = (): ACLPlugin =>
 				if (extension === undefined) {
 					throw new TypeError('ACL plugin lost its discovered schema extension')
 				}
+				const schemaConfig = extension.config as ACLSchemaExtensionConfig
+				const schemaLimits = resolveSchemaLimits(schemaConfig)
 
 				registries.hooks.register(
 					`acl-input:${schema.className}`,
@@ -476,10 +555,11 @@ export const aclPlugin = (): ACLPlugin =>
 								operation: await resolvePreparedOperationACL(
 									operation,
 									target,
-									extension.config as ACLSchemaExtensionConfig,
+									schemaConfig,
 									subjects.principal,
 									context,
 									subjects.roleResolutionAvailable,
+									schemaLimits,
 								),
 							}
 						},
@@ -509,3 +589,4 @@ export const aclPlugin = (): ACLPlugin =>
 			return Object.freeze({ schemas: Object.freeze(protectedSchemas) })
 		},
 	})
+}

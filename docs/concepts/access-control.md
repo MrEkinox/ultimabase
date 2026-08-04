@@ -29,8 +29,8 @@ operations to anonymous or plugin-provided subjects and contributes row, item,
 and field restrictions without overriding native schema or field Access.
 
 One immutable ACL may grant `read`, `update`, and `delete` to public access,
-any authenticated principal, any number of exact schema-qualified principal
-Pointers, and any number of schema-qualified roles. Symmetric grant, revoke,
+any authenticated principal, exact schema-qualified principal Pointers, and
+schema-qualified roles within configured entry limits. Symmetric grant, revoke,
 replace, and inspection methods never perform persistence or subject resolution.
 
 ACL values expose a versioned detached `toJSON()` document and strict
@@ -55,9 +55,10 @@ Referenced-role deletion supports `fail`, `preserve`, and `cascade`; the default
 
 `acl()` is valid on a developer-defined RoleSchema. Normal RoleSchema Access
 still controls creation, while per-role ACL rights may narrow reads, updates,
-membership or hierarchy mutations, deletion, and ACL management. Internal role
-membership resolution uses its existing trusted provider boundary so evaluating
-a role grant never recurses through the ACL protecting that RoleSchema row.
+membership or hierarchy mutations, and deletion. Only master may inspect or
+replace the role row's ACL value. Internal role membership resolution uses its
+existing trusted provider boundary so evaluating a role grant never recurses
+through the ACL protecting that RoleSchema row.
 
 ## ACL input
 
@@ -73,3 +74,10 @@ never grants control over its ACL.
 Master is trusted execution authority rather than an ACL subject. It bypasses
 ACL authorization but not validation, default generation, hooks, transactions,
 database constraints, or audit events.
+
+`aclPlugin()` defaults each ACL to at most 100 exact principals and 50 roles.
+Applications may change those defaults through plugin options, while
+`acl({ limits })` overrides either value for one schema and inherits omitted
+values. Limits count canonical subject entries after duplicate grants are
+merged. Public and authenticated rights consume no subject entry, and every
+create or update path—including master execution—is checked before persistence.

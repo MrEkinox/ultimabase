@@ -4,10 +4,10 @@ Provides the immutable `ACL` class, the typed `acl()` schema extension, and the
 optional `aclPlugin()` provider.
 
 ACL grants object-level `read`, `update`, and `delete` rights to public,
-authenticated, exact-principal, and role subjects. One ACL may contain any
-number of principals and roles. The provider contributes native Access filters,
-item checks, and field restrictions that compile into database filtering rather
-than post-filtering in memory.
+authenticated, exact-principal, and role subjects. One ACL may contain multiple
+principals and roles within its configured entry limits. The provider
+contributes native Access filters, item checks, and field restrictions that
+compile into database filtering rather than post-filtering in memory.
 
 PostgreSQL support will store the ACL as indexed JSONB on the protected row.
 Normal reads will therefore require no ACL-table join, while the adapter will
@@ -68,6 +68,36 @@ for every item inside the root transaction. Non-master requests can never read,
 filter, order by, or replace the reserved ACL field, even when their ACL grants
 ordinary object updates.
 
+`aclPlugin()` bounds persisted ACL size with safe application defaults. Limits
+count canonical principal and role entries, so repeated grants for one subject
+count once while public and authenticated rights count toward neither limit:
+
+```ts
+aclPlugin({
+	limits: {
+		maxPrincipals: 100,
+		maxRoles: 50,
+	},
+})
+```
+
+The zero-option defaults are 100 principals and 50 roles. A schema may override
+either value independently while inheriting the other:
+
+```ts
+acl({
+	limits: { maxPrincipals: 25 },
+	default: ({ principal }) =>
+		principal === undefined
+			? new ACL().grantPublic('read')
+			: new ACL().grantPrincipal(principal, 'read', 'update'),
+})
+```
+
+Static and asynchronous defaults, explicit master input, create-many items, and
+singular updates are validated before persistence. Master bypasses ACL
+authorization, never size validation.
+
 Authentication and roles are optional providers. ACL discovers them only
 through neutral Core services and never imports a concrete auth or roles
 plugin. Trusted master execution bypasses ACL authorization but still runs
@@ -78,5 +108,5 @@ Access controls creation, while each persisted role ACL may narrow reads,
 updates, member or nested-role mutations, and deletion. Only master execution
 may inspect or replace the role row's ACL value.
 
-Native Access and PostgreSQL integration remain tracked by
+PostgreSQL storage and constraint compilation remain tracked by
 [`CURRENT_PLAN.md`](../../CURRENT_PLAN.md).

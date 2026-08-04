@@ -11,11 +11,13 @@ import {
 	stringField,
 	UltimaBase,
 	type DatabaseAdapter,
+	type DatabaseMutationOperationAst,
 	type DatabaseOperationAst,
 	type DatabaseOperationRequest,
 	type DatabaseOperationResult,
 	type DatabaseTransactionAdapter,
 	type HookContext,
+	type PreparedDatabaseOperation,
 } from '@ultimabase/core'
 import { describe, expect, it, vi } from 'vitest'
 
@@ -63,7 +65,82 @@ class ACLReadAdapter implements DatabaseAdapter {
 	}
 }
 
+class ACLRejectedWriteTransaction implements DatabaseTransactionAdapter {
+	readonly kind = 'database-transaction-adapter' as const
+	prepareCount = 0
+	commitCount = 0
+	rollbackCount = 0
+
+	execute<const TOperation extends DatabaseOperationAst>(
+		request: DatabaseOperationRequest<TOperation>,
+	): Promise<DatabaseOperationResult<TOperation>> {
+		void request
+
+		return Promise.reject(
+			new TypeError('ACL limit fixture does not execute transaction reads'),
+		)
+	}
+
+	prepare<const TOperation extends DatabaseMutationOperationAst>(
+		request: DatabaseOperationRequest<TOperation>,
+	): Promise<PreparedDatabaseOperation<TOperation>> {
+		void request
+		this.prepareCount += 1
+
+		return Promise.reject(
+			new TypeError('ACL limit fixture stops after adapter preparation'),
+		)
+	}
+
+	commit(): Promise<void> {
+		this.commitCount += 1
+
+		return Promise.resolve()
+	}
+
+	rollback(): Promise<void> {
+		this.rollbackCount += 1
+
+		return Promise.resolve()
+	}
+}
+
+class ACLRejectedWriteAdapter implements DatabaseAdapter {
+	readonly kind = 'database-adapter' as const
+	readonly transactions: ACLRejectedWriteTransaction[] = []
+
+	execute<const TOperation extends DatabaseOperationAst>(
+		request: DatabaseOperationRequest<TOperation>,
+	): Promise<DatabaseOperationResult<TOperation>> {
+		void request
+
+		return Promise.reject(
+			new TypeError('ACL limit fixture only accepts automatic transactions'),
+		)
+	}
+
+	beginTransaction(): Promise<DatabaseTransactionAdapter> {
+		const transaction = new ACLRejectedWriteTransaction()
+		this.transactions.push(transaction)
+
+		return Promise.resolve(transaction)
+	}
+}
+
 describe('aclPlugin create input resolution', () => {
+	it('normalizes finite application defaults without complicating zero-option setup', () => {
+		expect(() => aclPlugin()).not.toThrow()
+		expect(() =>
+			aclPlugin({ limits: { maxPrincipals: 100, maxRoles: 50 } }),
+		).not.toThrow()
+		expect(() => aclPlugin({ limits: { maxPrincipals: -1 } })).toThrow(
+			'aclPlugin limits.maxPrincipals must be a non-negative safe integer',
+		)
+		expect(() => aclPlugin({ extra: true } as never)).toThrow(
+			'Unknown aclPlugin option: extra',
+		)
+	})
+
 	it('requires the owning plugin only when a schema declares acl()', async () => {
 		await expect(
 			createApplication({ schemas: [ProtectedPost], plugins: [] }),
@@ -225,6 +302,130 @@ describe('aclPlugin create input resolution', () => {
 		expect(secondACL.permissionsForPublic()).toStrictEqual(['delete'])
 	})
 
+	it('checks static and asynchronous defaults before persistence', async () => {
+		const Principal = Schema.define({
+			className: 'ACLDefaultLimitPrincipal',
+			fields: {},
+		})
+		const oversized = new ACL()
+			.grantPrincipal(Principal.pointer('first'), 'read')
+			.grantPrincipal(Principal.pointer('second'), 'read')
+		const operation = {
+			input: { title: 'Oversized' },
+			kind: 'create-one',
+			schema: protectedPostNode,
+		} as const
+		const limits = { maxPrincipals: 1, maxRoles: 50 }
+
+		await expect(
+			resolveCreateOperationACL(
+				operation,
+				acl({ default: oversized }).config,
+				undefined,
+				context,
+				false,
+				limits,
+			),
+		).rejects.toMatchObject({
+			code: 'VALIDATION_ERROR',
+			internalDetails: { kind: 'acl-entry-limit', subject: 'principal' },
+		} satisfies Partial<FrameworkError>)
+		await expect(
+			resolveCreateOperationACL(
+				operation,
+				acl({ default: () => Promise.resolve(oversized) }).config,
+				undefined,
+				context,
+				false,
+				limits,
+			),
+		).rejects.toMatchObject({ code: 'VALIDATION_ERROR' })
+	})
+
+	it('rolls back oversized batches and honors a wider schema override', async () => {
+		const Principal = Schema.define({
+			className: 'ACLBatchLimitPrincipal',
+			fields: {},
+		})
+		const twoPrincipals = new ACL()
+			.grantPrincipal(Principal.pointer('first'), 'read')
+			.grantPrincipal(Principal.pointer('second'), 'read')
+		const BatchPost = Schema.define({
+			className: 'ACLBatchLimitPost',
+			fields: { title: stringField({ validation: { required: true } }) },
+			extensions: [
+				acl({
+					default: ({ data }) => {
+						const value = new ACL().grantPrincipal(
+							Principal.pointer('first'),
+							'read',
+						)
+
+						return data.title === 'Oversized'
+							? value.grantPrincipal(Principal.pointer('second'), 'read')
+							: value
+					},
+				}),
+			],
+		})
+		const OverridePost = Schema.define({
+			className: 'ACLSchemaLimitOverridePost',
+			fields: { title: stringField({ validation: { required: true } }) },
+			extensions: [
+				acl({
+					default: twoPrincipals,
+					limits: { maxPrincipals: 2 },
+				}),
+			],
+		})
+		const adapter = new ACLRejectedWriteAdapter()
+		const databaseProvider = definePlugin({
+			name: 'fixture.acl-limit-write-database',
+			slot: 'database-adapter',
+			setup: ({ services }) => {
+				services.provide(databaseAdapterServiceToken, adapter)
+			},
+		})
+		const ultimabase = new UltimaBase({
+			plugins: [aclPlugin({ limits: { maxPrincipals: 1 } }), databaseProvider],
+			schemas: [Principal, BatchPost, OverridePost],
+		})
+
+		try {
+			await ultimabase.start()
+			await expect(
+				BatchPost.query().createMany(
+					[{ title: 'Accepted' }, { title: 'Oversized' }],
+					{ ultimabase },
+				),
+			).rejects.toMatchObject({
+				code: 'VALIDATION_ERROR',
+				internalDetails: { kind: 'acl-entry-limit' },
+			} satisfies Partial<FrameworkError>)
+
+			expect(adapter.transactions).toHaveLength(1)
+			expect(adapter.transactions[0]).toMatchObject({
+				commitCount: 0,
+				prepareCount: 0,
+				rollbackCount: 1,
+			})
+
+			await expect(
+				OverridePost.query().create(
+					{ title: 'Schema override' },
+					{ ultimabase },
+				),
+			).rejects.toThrow('ACL limit fixture stops after adapter preparation')
+			expect(adapter.transactions[1]).toMatchObject({
+				commitCount: 0,
+				prepareCount: 1,
+				rollbackCount: 1,
+			})
+		} finally {
+			await ultimabase.dispose()
+		}
+	})
+
 	it('requires current-role enumeration before accepting role-aware values', async () => {
 		const roleAware = new ACL().grantRole(
 			new AccessSubjectReference('role', 'AppRole:editor'),
@@ -298,6 +499,57 @@ describe('aclPlugin create input resolution', () => {
 		)
 
 		expect(accepted.input.acl).toBe(explicit)
+	})
+
+	it('applies entry limits to master create and update resolution', async () => {
+		const Principal = Schema.define({
+			className: 'ACLMasterLimitPrincipal',
+			fields: {},
+		})
+		const oversized = new ACL()
+			.grantPrincipal(Principal.pointer('first'), 'read')
+			.grantPrincipal(Principal.pointer('second'), 'read')
+		const config = acl({ resolveInput: ({ inputAcl }) => inputAcl }).config
+		const limits = { maxPrincipals: 1, maxRoles: 50 }
+		const createOperation = {
+			input: { title: 'Explicit', acl: oversized },
+			kind: 'create-one',
+			schema: protectedPostNode,
+		} as const
+
+		await expect(
+			resolveCreateOperationACL(
+				createOperation,
+				config,
+				undefined,
+				masterContext,
+				false,
+				limits,
+			),
+		).rejects.toMatchObject({
+			code: 'VALIDATION_ERROR',
+			internalDetails: { kind: 'acl-entry-limit' },
+		} satisfies Partial<FrameworkError>)
+
+		const updateOperation = {
+			kind: 'update-one',
+			query: ProtectedPost.query().byId('master-limit-post').ast,
+			update: {
+				kind: 'update-expression',
+				operations: [{ field: 'acl', kind: 'set', value: oversized }],
+			},
+		} as const
+		await expect(
+			resolvePreparedOperationACL(
+				updateOperation,
+				{ acl: new ACL() },
+				config,
+				undefined,
+				masterContext,
+				false,
+				limits,
+			),
+		).rejects.toMatchObject({ code: 'VALIDATION_ERROR' })
 	})
 
 	it('resolves one master ACL replacement against the locked current value', async () => {

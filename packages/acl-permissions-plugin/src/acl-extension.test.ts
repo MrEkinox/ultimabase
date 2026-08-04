@@ -66,7 +66,9 @@ describe('acl schema extension', () => {
 			new TypeError('acl resolveInput must be a function'),
 		)
 		expect(() => acl({ limits: { maxPrincipals: -1 } })).toThrow(
-			new RangeError('maxPrincipals must be a non-negative safe integer'),
+			new RangeError(
+				'acl limits.maxPrincipals must be a non-negative safe integer',
+			),
 		)
 		expect(() =>
 			Schema.define({

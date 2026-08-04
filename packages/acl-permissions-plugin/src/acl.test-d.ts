@@ -8,9 +8,13 @@ import { expectTypeOf, test } from 'vitest'
 import {
 	ACL,
 	aclPermissions,
+	aclPlugin,
+	type ACLEntryLimits,
 	type ACLPermission,
 	type ACLPrincipal,
 	type ACLJSON,
+	type ACLPlugin,
+	type ACLPluginOptions,
 	type ACLPrincipalJSON,
 	type ACLRoleJSON,
 } from './index.js'
@@ -65,4 +69,20 @@ test('rejects ambiguous subjects and unknown rights at compile time', () => {
 	acl.grantPublic('create')
 	// @ts-expect-error -- Master is an execution authority, never an ACL subject.
 	void acl.grantMaster
+})
+
+test('keeps plugin and schema entry limits explicit and finite at runtime', () => {
+	const limits = {
+		maxPrincipals: 100,
+		maxRoles: 50,
+	} satisfies ACLEntryLimits
+	const options = { limits } satisfies ACLPluginOptions
+	const plugin = aclPlugin(options)
+
+	expectTypeOf(plugin).toEqualTypeOf<ACLPlugin>()
+	expectTypeOf(options.limits.maxPrincipals).toBeNumber()
+	// @ts-expect-error -- Entry-limit keys are closed for reliable autocomplete.
+	aclPlugin({ limits: { maxGroups: 10 } })
+	// @ts-expect-error -- Limits are numeric bounds rather than transport strings.
+	aclPlugin({ limits: { maxRoles: '50' } })
 })

@@ -9,7 +9,7 @@ import { createLanguageService } from '../../../tooling/vitest/typescript-langua
 const packageDirectory = path.dirname(fileURLToPath(import.meta.url))
 const fixtureFile = path.join(packageDirectory, 'acl-intellisense.fixture.ts')
 const source = `
-import { ACL, acl as aclExtension } from '@ultimabase/acl-permissions-plugin'
+import { ACL, acl as aclExtension, aclPlugin } from '@ultimabase/acl-permissions-plugin'
 
 const acl = new ACL()
 
@@ -23,6 +23,11 @@ const /* acl-hover */value = acl.grantPublic('read')
 const /* json-hover */document = acl.toJSON()
 void aclExtension/* extension-hover */
 aclExtension({ /* options-complete */ })
+aclExtension({ limits: { /* schema-limits-complete */ } })
+void aclPlugin/* plugin-hover */
+aclPlugin({ /* plugin-options-complete */ })
+aclPlugin({ limits: { /* plugin-limits-complete */ } })
+aclPlugin({ limits: { maxPrincipals/* principal-limit-hover */: 100 } })
 `
 // Replacing markers with equal-width spaces makes the fixture match real editor input.
 const serviceSource = source.replace(/\/\* [^*]+ \*\//g, (marker) =>
@@ -160,6 +165,54 @@ describe('ACL IntelliSense', () => {
 		)
 		expect(names).toEqual(
 			expect.arrayContaining(['default', 'limits', 'resolveInput']),
+		)
+
+		const limitsMarker = '/* schema-limits-complete */'
+		const limitCompletions = service.getCompletionsAtPosition(
+			fixtureFile,
+			markerPosition(limitsMarker),
+			{},
+		)
+		expect(limitCompletions?.entries.map(({ name }) => name) ?? []).toEqual(
+			expect.arrayContaining(['maxPrincipals', 'maxRoles']),
+		)
+	})
+
+	it('documents plugin defaults and completes every limit option', () => {
+		const hoverMarker = '/* plugin-hover */'
+		const hover = service.getQuickInfoAtPosition(
+			fixtureFile,
+			markerPosition(hoverMarker) - 1,
+		)
+		const optionsMarker = '/* plugin-options-complete */'
+		const optionCompletions = service.getCompletionsAtPosition(
+			fixtureFile,
+			markerPosition(optionsMarker),
+			{},
+		)
+		const limitsMarker = '/* plugin-limits-complete */'
+		const limitCompletions = service.getCompletionsAtPosition(
+			fixtureFile,
+			markerPosition(limitsMarker),
+			{},
+		)
+		const principalMarker = '/* principal-limit-hover */'
+		const principal = service.getQuickInfoAtPosition(
+			fixtureFile,
+			markerPosition(principalMarker) - 1,
+		)
+
+		expect(ts.displayPartsToString(hover?.documentation)).toContain(
+			'default to 100 exact principals and 50 roles',
+		)
+		expect(optionCompletions?.entries.map(({ name }) => name) ?? []).toEqual(
+			expect.arrayContaining(['limits']),
+		)
+		expect(limitCompletions?.entries.map(({ name }) => name) ?? []).toEqual(
+			expect.arrayContaining(['maxPrincipals', 'maxRoles']),
+		)
+		expect(ts.displayPartsToString(principal?.documentation)).toContain(
+			'Limits exact principal entries after duplicate grants have been merged',
 		)
 	})
 })
