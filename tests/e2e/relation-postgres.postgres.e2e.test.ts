@@ -1,4 +1,5 @@
 import {
+	booleanField,
 	pointerField,
 	relationField,
 	Schema,
@@ -20,6 +21,8 @@ import {
 const relationTrace: string[] = []
 const rollbackError = new Error('relation mutation rollback fixture')
 let rejectNextRelationUpdate = false
+const tagLabelField = stringField({ validation: { required: true } })
+const tagVisibleField = booleanField({ default: true })
 
 type ArticleSchema = SchemaClass<
 	'RelationE2EArticle',
@@ -33,8 +36,9 @@ type ArticleSchema = SchemaClass<
 type TagSchema = SchemaClass<
 	'RelationE2ETag',
 	Readonly<{
-		readonly label: ReturnType<typeof stringField>
+		readonly label: typeof tagLabelField
 		readonly articles: RelationField<ArticleSchema, 'tags'>
+		readonly visible: typeof tagVisibleField
 	}>,
 	readonly []
 >
@@ -81,12 +85,18 @@ const Article: ArticleSchema = Schema.define({
 
 const Tag: TagSchema = Schema.define({
 	className: 'RelationE2ETag',
+	access: {
+		filter: {
+			read: ({ filter }) => filter.equalTo('visible', true),
+		},
+	},
 	fields: {
 		articles: relationField({
 			mappedBy: 'tags',
 			target: (): ArticleSchema => Article,
 		}),
-		label: stringField({ validation: { required: true } }),
+		label: tagLabelField,
+		visible: tagVisibleField,
 	},
 	hooks: {
 		afterFind: ({ result }) => {
@@ -214,6 +224,127 @@ afterAll(async () => {
 })
 
 describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
+	it('filters owning, inverse, pointer, empty, and nested relations with target Access', async () => {
+		const app = getUltimaBase()
+		const [alpha, beta, gamma, hidden] = await Tag.query().createMany(
+			[
+				{ label: 'predicate-alpha' },
+				{ label: 'predicate-beta' },
+				{ label: 'predicate-gamma' },
+				{ label: 'predicate-hidden' },
+			],
+			{ ultimabase: app },
+		)
+
+		if (
+			alpha === undefined ||
+			beta === undefined ||
+			gamma === undefined ||
+			hidden === undefined
+		) {
+			throw new TypeError('Relation predicate tags are incomplete')
+		}
+
+		const [mixed, gammaOnly, empty] = await Article.query().createMany(
+			[
+				{ title: 'Predicate mixed' },
+				{ title: 'Predicate gamma' },
+				{ title: 'Predicate empty' },
+			],
+			{ ultimabase: app },
+		)
+
+		if (mixed === undefined || gammaOnly === undefined || empty === undefined) {
+			throw new TypeError('Relation predicate articles are incomplete')
+		}
+		await mixed
+			.relation('tags')
+			.connect(
+				[Tag.pointer(alpha.id), Tag.pointer(beta.id), Tag.pointer(hidden.id)],
+				{ ultimabase: app },
+			)
+		await gammaOnly
+			.relation('tags')
+			.connect(Tag.pointer(gamma.id), { ultimabase: app })
+		await Tag.query()
+			.byId(hidden.id)
+			.updateOne({ set: { visible: false } }, { ultimabase: app })
+
+		expect(
+			await Article.query()
+				.some('tags', (tag) => tag.equalTo('label', 'predicate-alpha'))
+				.find({ ultimabase: app }),
+		).toMatchObject([{ id: mixed.id }])
+		expect(
+			await Article.query()
+				.some('tags', (tag) => tag.equalTo('label', 'predicate-hidden'))
+				.count({ ultimabase: app }),
+		).toBe(0)
+		expect(
+			await Article.query()
+				.none('tags', (tag) => tag.equalTo('label', 'predicate-gamma'))
+				.count({ ultimabase: app }),
+		).toBeGreaterThanOrEqual(2)
+		expect(
+			await Article.query()
+				.byId(mixed.id)
+				.every('tags', (tag) => tag.notEqualTo('label', 'predicate-gamma'))
+				.exists({ ultimabase: app }),
+		).toBe(true)
+		expect(
+			await Article.query()
+				.byId(empty.id)
+				.some('tags', (tag) => tag)
+				.exists({ ultimabase: app }),
+		).toBe(false)
+		expect(
+			await Article.query()
+				.byId(empty.id)
+				.none('tags', (tag) => tag)
+				.exists({ ultimabase: app }),
+		).toBe(true)
+		expect(
+			await Article.query()
+				.byId(empty.id)
+				.every('tags', (tag) => tag)
+				.exists({ ultimabase: app }),
+		).toBe(true)
+		expect(
+			await Tag.query()
+				.byId(alpha.id)
+				.some('articles', (article) =>
+					article.equalTo('title', 'Predicate mixed'),
+				)
+				.exists({ ultimabase: app }),
+		).toBe(true)
+		expect(
+			await Article.query()
+				.byId(mixed.id)
+				.some('tags', (tag) =>
+					tag.some('articles', (article) =>
+						article.equalTo('title', 'Predicate mixed'),
+					),
+				)
+				.exists({ ultimabase: app }),
+		).toBe(true)
+
+		const author = await Author.query().create(
+			{ name: 'Predicate author' },
+			{ ultimabase: app },
+		)
+		await Post.query().create(
+			{ author: Author.pointer(author.id), title: 'Predicate post' },
+			{ ultimabase: app },
+		)
+
+		expect(
+			await Author.query()
+				.byId(author.id)
+				.some('posts', (post) => post.equalTo('title', 'Predicate post'))
+				.exists({ ultimabase: app }),
+		).toBe(true)
+	})
+
 	it('executes owning and inverse traversal with normal Query semantics', async () => {
 		const app = getUltimaBase()
 		const [alpha, beta, gamma] = await Tag.query().createMany(

@@ -11,6 +11,7 @@ import type {
 	EnforcementFieldBoundary,
 } from './contracts.js'
 import type { DatabaseRowFilterNode } from '../database/contracts.js'
+import type { DatabaseRelationPredicateScope } from '../database/contracts.js'
 import { normalizeLogicalFilter } from '../../query/filters/logical.js'
 import type { QueryExpressionNode } from '../../query/index.js'
 import { isDatabaseConstraintNode } from './definitions.js'
@@ -29,6 +30,7 @@ export interface EnforcementStateSnapshot {
 	readonly outputFields: readonly string[] | undefined
 	readonly selectionFields: readonly string[] | undefined
 	readonly rowFilter: DatabaseRowFilterNode | undefined
+	readonly relationPredicates: readonly DatabaseRelationPredicateScope[]
 }
 
 const snapshots = new WeakMap<object, EnforcementStateSnapshot>()
@@ -61,6 +63,7 @@ export const createEnforcementState = (): EnforcementState =>
 			outputFields: emptyFields,
 			selectionFields: emptyFields,
 			rowFilter: undefined,
+			relationPredicates: immutableArray([]),
 		}),
 	)
 
@@ -79,6 +82,32 @@ export const appendEnforcementRowFilter = (
 				})
 
 	return createState(immutableRecord({ ...current, rowFilter: combined }))
+}
+
+/** Appends target policy once for each exact immutable relation leaf. */
+export const appendEnforcementRelationPredicates = (
+	state: EnforcementState,
+	scopes: readonly DatabaseRelationPredicateScope[],
+): EnforcementState => {
+	const current = readSnapshot(state)
+	const additions = scopes.filter(
+		(scope) =>
+			!current.relationPredicates.some(
+				(existing) => existing.predicate === scope.predicate,
+			),
+	)
+
+	return additions.length === 0
+		? state
+		: createState(
+				immutableRecord({
+					...current,
+					relationPredicates: immutableArray([
+						...current.relationPredicates,
+						...additions,
+					]),
+				}),
+			)
 }
 
 const normalizeConstraints = (

@@ -3,6 +3,7 @@ import { assertNonEmptyString, immutableRecord } from '@ultimabase/shared'
 import type { AccessContext } from '../../../access/index.js'
 import type {
 	AccessDecisionRule,
+	FieldFilterAccessKind,
 	FieldValueAccessInput,
 } from '../../access/contracts.js'
 import {
@@ -12,10 +13,7 @@ import {
 import { createFieldDefinition } from '../base/definition.js'
 import { assertFieldOptions } from '../base/options.js'
 import { splitFieldDeclarationOptions } from '../../hooks/field-declarations.js'
-import type {
-	SchemaFindHookKind,
-	SchemaUpdateHookKind,
-} from '../../hooks/contracts.js'
+import type { SchemaUpdateHookKind } from '../../hooks/contracts.js'
 import type { RelationMutationDelta } from '../../relations/mutation.js'
 import type {
 	FieldDefinition,
@@ -73,7 +71,7 @@ export interface RelationFieldMetadataOptions<
 /** Supplies the protected source-field decision used by related reads. */
 export interface RelationFieldReadAccessInput {
 	readonly context: AccessContext
-	readonly kind: SchemaFindHookKind
+	readonly kind: FieldFilterAccessKind
 }
 
 /** Controls relation traversal and logical edge mutation independently. */

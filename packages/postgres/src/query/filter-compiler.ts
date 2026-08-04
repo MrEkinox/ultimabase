@@ -6,6 +6,7 @@ import type {
 	QueryFilterExpression,
 	QueryFilterNode,
 	QueryMembershipFilterNode,
+	QueryRelationPredicateNode,
 	QueryRegexFilterNode,
 	QueryRegexFlag,
 	QueryStringFilterNode,
@@ -43,7 +44,15 @@ type RuntimePrimitiveFilter =
 	| QueryRegexFilterNode
 	| QueryStringFilterNode
 
-type RuntimeFilter = QueryFilterExpression<RuntimePrimitiveFilter>
+type RuntimeFilter = QueryFilterExpression<
+	RuntimePrimitiveFilter | QueryRelationPredicateNode
+>
+
+/** Compiles one correlated relation leaf against the current source alias. */
+export type PostgresRelationPredicateCompiler = (
+	predicate: QueryRelationPredicateNode,
+	source: CompiledPostgresSchema,
+) => SQL
 
 const trueExpression = sql<boolean>`true`
 const falseExpression = sql<boolean>`false`
@@ -197,16 +206,19 @@ const compilePrimitive = (
 const compileRuntimeFilter = (
 	filter: RuntimeFilter,
 	schema: CompiledPostgresSchema,
+	relationCompiler?: PostgresRelationPredicateCompiler,
 ): SQL => {
 	switch (filter.kind) {
 		case 'constant':
 			return filter.value ? trueExpression : falseExpression
 		case 'not':
-			return notExpression(compileRuntimeFilter(filter.expression, schema))
+			return notExpression(
+				compileRuntimeFilter(filter.expression, schema, relationCompiler),
+			)
 		case 'and':
 		case 'or': {
 			const expressions = filter.expressions.map((expression) =>
-				compileRuntimeFilter(expression, schema),
+				compileRuntimeFilter(expression, schema, relationCompiler),
 			)
 			const compiled =
 				filter.kind === 'and' ? and(...expressions) : or(...expressions)
@@ -217,6 +229,14 @@ const compileRuntimeFilter = (
 
 			return compiled
 		}
+		case 'relation-predicate':
+			if (relationCompiler === undefined) {
+				throw new TypeError(
+					'PostgreSQL relation predicate compiler is unavailable',
+				)
+			}
+
+			return relationCompiler(filter, schema)
 		default:
 			return compilePrimitive(filter, schema)
 	}
@@ -226,7 +246,14 @@ const compileRuntimeFilter = (
 export const compilePostgresFilter = <TSchema extends SchemaDefinition>(
 	filter: QueryFilterNode<TSchema>,
 	schema: CompiledPostgresSchema,
-): SQL => compileRuntimeFilter(filter, schema)
+	relationCompiler?: PostgresRelationPredicateCompiler,
+): SQL =>
+	// Runtime traversal erases only schema inference after Core validated the exact AST.
+	compileRuntimeFilter(
+		filter as unknown as RuntimeFilter,
+		schema,
+		relationCompiler,
+	)
 
 /** Compiles Runtime's schema-erased private predicate through the same safe visitor. */
 export const compilePostgresRowFilter = (

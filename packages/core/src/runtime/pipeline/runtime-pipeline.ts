@@ -10,7 +10,10 @@ import { FrameworkError } from '../../foundation.js'
 import { isRelationUpdateExpression } from '../../schema/relations/mutation.js'
 import { RequestContext } from '../context/request-context.js'
 import { assertDatabaseConstraintVersion } from '../../plugins/constraint-compilers.js'
-import { databaseRelationCapabilityVersion } from '../database/contracts.js'
+import {
+	databaseRelationCapabilityVersion,
+	databaseRelationPredicateCapabilityVersion,
+} from '../database/contracts.js'
 import type {
 	DatabaseConstraintNode,
 	DatabaseMutationOperationAst,
@@ -19,6 +22,7 @@ import type {
 	DatabaseOperationOutcome,
 	DatabaseOperationResult,
 	DatabaseRelationScope,
+	DatabaseRelationPredicateScope,
 	DatabaseRowFilterNode,
 	DatabaseTransactionAdapter,
 } from '../database/contracts.js'
@@ -46,6 +50,9 @@ import {
 } from '../enforcement/state.js'
 import { throwIfOperationCancelled } from '../hooks/cancellation.js'
 import { normalizeLogicalFilter } from '../../query/filters/logical.js'
+import { collectQueryRelationPredicates } from '../../query/filters/relation.js'
+import type { ExecutableOperationAst } from '../../query/index.js'
+import { readOperationQueries } from '../operations/queries.js'
 import {
 	collectDatabaseObjectIdentities,
 	retainRuntimeSchemaModelMetadata,
@@ -208,6 +215,7 @@ const executeDatabaseOperation = async <
 		readonly constraints: readonly DatabaseConstraintNode[]
 		readonly operation: TOperation
 		readonly relation?: DatabaseRelationScope
+		readonly relationPredicates?: readonly DatabaseRelationPredicateScope[]
 		readonly rowFilter?: DatabaseRowFilterNode
 	},
 	enforcement: RuntimeEnforcementStages | undefined,
@@ -231,6 +239,44 @@ const executeDatabaseOperation = async <
 		}
 	}
 
+	const executable = request.operation as unknown as ExecutableOperationAst
+	const predicates = readOperationQueries(executable).flatMap((query) =>
+		query.where === undefined
+			? []
+			: [...collectQueryRelationPredicates(query.where.expression)],
+	)
+
+	if (predicates.length > 0) {
+		const capability: unknown = executor.capabilities?.relationPredicates
+
+		if (
+			!isPlainRecord(capability) ||
+			capability.kind !== 'relation-predicates' ||
+			capability.version !== databaseRelationPredicateCapabilityVersion
+		) {
+			throw new FrameworkError(
+				'INTERNAL_ERROR',
+				`Database adapter must implement relation predicate capability version ${String(databaseRelationPredicateCapabilityVersion)}.`,
+				{ publicMessage: 'Relation filters are not available.' },
+			)
+		}
+
+		if (
+			predicates.some(
+				(predicate) =>
+					!request.relationPredicates?.some(
+						(scope) => scope.predicate === predicate,
+					),
+			)
+		) {
+			throw new FrameworkError(
+				'INTERNAL_ERROR',
+				'Relation predicate target policy was not evaluated.',
+				{ publicMessage: 'Relation filters are not available.' },
+			)
+		}
+	}
+
 	if (!isMutationOperation(request.operation)) {
 		const result = await executor.execute(request)
 
@@ -250,6 +296,9 @@ const executeDatabaseOperation = async <
 			constraints: request.constraints,
 			operation: request.operation,
 			...(request.relation === undefined ? {} : { relation: request.relation }),
+			...(request.relationPredicates === undefined
+				? {}
+				: { relationPredicates: request.relationPredicates }),
 			...(request.rowFilter === undefined
 				? {}
 				: { rowFilter: request.rowFilter }),
@@ -711,6 +760,8 @@ export class RuntimePipeline {
 		let enforcement: EnforcementState | undefined
 		let constraints: readonly DatabaseConstraintNode[] = emptyConstraints
 		let rowFilter: DatabaseRowFilterNode | undefined = privateRowFilter
+		let relationPredicates:
+			readonly DatabaseRelationPredicateScope[] | undefined
 
 		if (this.#stages.enforcement !== undefined) {
 			if (
@@ -741,6 +792,7 @@ export class RuntimePipeline {
 				privateRowFilter,
 				enforced.rowFilter,
 			)
+			relationPredicates = enforced.relationPredicates
 		}
 
 		operation = retainExecutionOperation(
@@ -786,6 +838,7 @@ export class RuntimePipeline {
 				privateRowFilter,
 				enforced.rowFilter,
 			)
+			relationPredicates = enforced.relationPredicates
 		}
 
 		throwIfOperationCancelled(context.signal, {
@@ -801,6 +854,7 @@ export class RuntimePipeline {
 				constraints,
 				operation,
 				...(privateRelation === undefined ? {} : { relation: privateRelation }),
+				...(relationPredicates === undefined ? {} : { relationPredicates }),
 				...(rowFilter === undefined ? {} : { rowFilter }),
 			}),
 			this.#stages.enforcement,

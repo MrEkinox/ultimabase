@@ -483,6 +483,22 @@ rolls back both. Duplicate connects are idempotent. `.after()` enables the
 stable first cursor page; resumed opaque cursor tokens retain the same general
 execution limitation documented above.
 
+Source relation quantifiers compile to correlated `EXISTS` expressions without
+loading target rows:
+
+```ts
+const query = Article.query().some('tags', (tag) =>
+	tag.equalTo('label', 'typescript'),
+)
+```
+
+Owning joins, inverse joins, and inverse pointers share the same compiler.
+`none` negates a matching `EXISTS`; `every` rejects a visible related row that
+does not satisfy the target predicate, which makes it true for an empty
+relation. Nested predicates receive deterministic table aliases. Developer
+values, target Access filters, and plugin constraints remain parameters or
+private compiler input and never become interpolated SQL text.
+
 ## Query filter compilation
 
 The internal adapter compiles the normalized `Query` filter tree through
@@ -513,8 +529,8 @@ ordering comparisons use the database column's configured collation. See the
 [PostgreSQL pattern-matching reference](https://www.postgresql.org/docs/current/functions-matching.html)
 for the underlying ARE syntax.
 
-This compiler remains internal until the CRUD adapter issue consumes it;
-developers continue to build filters only through `Query`.
+The compiler remains internal; developers build every scalar and relation
+filter only through `Query`.
 
 ## Query selection and pagination compilation
 

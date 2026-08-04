@@ -9,6 +9,7 @@ import {
 
 import type { QueryExpressionNode } from '../ast/contracts.js'
 import type { QueryPrimitiveFilterNode } from './primitive.js'
+import type { QueryRelationPredicateForSchema } from './relation.js'
 
 /** Reserves structural discriminants so plugin leaves cannot shadow logic. */
 export type QueryLogicalFilterKind = 'and' | 'constant' | 'not' | 'or'
@@ -52,18 +53,18 @@ export type QueryLogicalFilterNode<
 	| QueryOrFilterNode<TLeaf>
 	| QueryNotFilterNode<TLeaf>
 
-type QueryFilterLeaf<TLeaf extends QueryExpressionNode> = TLeaf & {
-	readonly kind: Exclude<TLeaf['kind'], QueryLogicalFilterKind>
-}
-
 /** Recursively composes an immutable logical tree around one leaf union. */
 export type QueryFilterExpression<
 	TLeaf extends QueryExpressionNode = QueryExpressionNode,
-> = QueryFilterLeaf<TLeaf> | QueryLogicalFilterNode<TLeaf>
+> = TLeaf | QueryLogicalFilterNode<TLeaf>
+
+/** Lists every schema-correlated leaf accepted by the portable Query AST. */
+export type QuerySchemaFilterLeaf<TSchema extends SchemaDefinition> =
+	QueryPrimitiveFilterNode<TSchema> | QueryRelationPredicateForSchema<TSchema>
 
 /** Specializes the recursive expression tree to one exact schema. */
 export type QueryFilterNode<TSchema extends SchemaDefinition> =
-	QueryFilterExpression<QueryPrimitiveFilterNode<TSchema>>
+	QueryFilterExpression<QuerySchemaFilterLeaf<TSchema>>
 
 const trueFilter: QueryConstantFilterNode = immutableRecord({
 	kind: 'constant',

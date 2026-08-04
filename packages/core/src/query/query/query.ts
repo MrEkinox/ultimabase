@@ -3,6 +3,8 @@ import {
 	type GenericField,
 	type InferCreateInput,
 	type SchemaDefinition,
+	type SchemaRelationFieldName,
+	type SchemaRelationTarget,
 } from '../../schema/index.js'
 import { getFieldSchemaTarget } from '../../schema/fields/base/definition.js'
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
@@ -45,6 +47,11 @@ import type {
 	QueryPrimitiveFilterNode,
 	QueryRegexPattern,
 } from '../filters/primitive.js'
+import {
+	createQueryRelationPredicate,
+	type QueryRelationPredicateForSchema,
+	type RelationPredicate,
+} from '../filters/relation.js'
 import type {
 	CountOperationAst,
 	CreateManyOperationAst,
@@ -555,6 +562,42 @@ export class Query<
 		)
 	}
 
+	/** Requires at least one related object to satisfy an exact target predicate. */
+	some<TFieldName extends SchemaRelationFieldName<TSchema>>(
+		fieldName: TFieldName,
+		predicate: (
+			filter: RelationPredicate<SchemaRelationTarget<TSchema, TFieldName>>,
+		) => RelationPredicate<SchemaRelationTarget<TSchema, TFieldName>>,
+	): Query<TSchema, TSelectedField, TIncludedPointer> {
+		return this.#appendFilter(
+			createQueryRelationPredicate(this.schema, 'some', fieldName, predicate),
+		)
+	}
+
+	/** Requires no related object to satisfy an exact target predicate. */
+	none<TFieldName extends SchemaRelationFieldName<TSchema>>(
+		fieldName: TFieldName,
+		predicate: (
+			filter: RelationPredicate<SchemaRelationTarget<TSchema, TFieldName>>,
+		) => RelationPredicate<SchemaRelationTarget<TSchema, TFieldName>>,
+	): Query<TSchema, TSelectedField, TIncludedPointer> {
+		return this.#appendFilter(
+			createQueryRelationPredicate(this.schema, 'none', fieldName, predicate),
+		)
+	}
+
+	/** Requires every related object to satisfy an exact target predicate. */
+	every<TFieldName extends SchemaRelationFieldName<TSchema>>(
+		fieldName: TFieldName,
+		predicate: (
+			filter: RelationPredicate<SchemaRelationTarget<TSchema, TFieldName>>,
+		) => RelationPredicate<SchemaRelationTarget<TSchema, TFieldName>>,
+	): Query<TSchema, TSelectedField, TIncludedPointer> {
+		return this.#appendFilter(
+			createQueryRelationPredicate(this.schema, 'every', fieldName, predicate),
+		)
+	}
+
 	/** Combines the other query's filter with this query through AND. */
 	and<TOtherSelection extends QueryFieldName<TSchema>, TOtherIncludedPointer>(
 		query: Query<TSchema, TOtherSelection, TOtherIncludedPointer>,
@@ -941,11 +984,17 @@ export class Query<
 			currentExpression === undefined
 				? filter
 				: logicalKind === 'and'
-					? normalizeLogicalFilter<QueryPrimitiveFilterNode<TSchema>>({
+					? normalizeLogicalFilter<
+							| QueryPrimitiveFilterNode<TSchema>
+							| QueryRelationPredicateForSchema<TSchema>
+						>({
 							kind: 'and',
 							expressions: [currentExpression, filter],
 						})
-					: normalizeLogicalFilter<QueryPrimitiveFilterNode<TSchema>>({
+					: normalizeLogicalFilter<
+							| QueryPrimitiveFilterNode<TSchema>
+							| QueryRelationPredicateForSchema<TSchema>
+						>({
 							kind: 'or',
 							expressions: [currentExpression, filter],
 						})
@@ -976,7 +1025,10 @@ export class Query<
 		}
 
 		const expression = negate
-			? normalizeLogicalFilter<QueryPrimitiveFilterNode<TSchema>>({
+			? normalizeLogicalFilter<
+					| QueryPrimitiveFilterNode<TSchema>
+					| QueryRelationPredicateForSchema<TSchema>
+				>({
 					kind: 'not',
 					expression: otherExpression,
 				})

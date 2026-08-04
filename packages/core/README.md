@@ -168,6 +168,26 @@ Runtime. Adapters must advertise the versioned relation capability; PostgreSQL
 implements scoped reads and atomic edge storage, while unsupported adapters
 still fail closed.
 
+Source Queries filter to-many relationships through the exact target schema:
+
+```ts
+const visiblePosts = await UserSchema.query()
+	.some('posts', (post) =>
+		post
+			.equalTo('published', true)
+			.some('tags', (tag) => tag.equalTo('label', 'typescript')),
+	)
+	.find()
+```
+
+`some`, `none`, and `every` create immutable portable Query AST nodes. Their
+callback receives `RelationPredicate<TTarget>`, which deliberately exposes only
+typed filters and nested relation quantifiers—never selection, ordering,
+pagination, terminals, or authority. Runtime evaluates every target Access
+filter into a private adapter scope that source hooks cannot remove. Predicate
+depth is bounded, and adapters must advertise the separate versioned relation
+predicate capability before execution.
+
 Invalid, throwing, unregistered, and foreign targets fail before infrastructure
 connects with the source class and field path. The graph contains logical class
 identities only and no PostgreSQL, REST, or GraphQL metadata.

@@ -78,6 +78,7 @@ const indexColumnsByName = (
 
 interface PreparedPostgresSchema {
 	readonly definition: SchemaDefinition['definition']
+	readonly schema: SchemaDefinition
 	readonly pendingFields: readonly [
 		string,
 		Omit<CompiledPostgresField, 'column'>,
@@ -234,13 +235,13 @@ const preparePostgresSchema = (
 		...compilePointerConstraints(columns, pointerEntries, resolveTargetColumn),
 	])
 
-	return { definition, pendingFields, table, tableName }
+	return { definition, pendingFields, schema, table, tableName }
 }
 
 const finalizePostgresSchema = (
 	prepared: PreparedPostgresSchema,
 ): CompiledPostgresSchema => {
-	const { definition, pendingFields, table, tableName } = prepared
+	const { definition, pendingFields, schema, table, tableName } = prepared
 	const tableConfig = getTableConfig(table)
 	const columns = indexColumnsByName(tableConfig.columns)
 	const fields = immutableRecord(
@@ -278,7 +279,13 @@ const finalizePostgresSchema = (
 		),
 	)
 
-	return immutableRecord({ fields, indexes, table, tableName })
+	return immutableRecord({
+		definition: schema,
+		fields,
+		indexes,
+		table,
+		tableName,
+	})
 }
 
 /** Compiles one closed schema graph in two phases so circular pointers stay valid. */

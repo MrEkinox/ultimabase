@@ -74,7 +74,17 @@ test('types relation traversal and mutation Access without exposing row values',
 		access: {
 			read: ({ kind }) => {
 				expectTypeOf(kind).toEqualTypeOf<
-					'count' | 'exists' | 'find' | 'first' | 'get'
+					| 'count'
+					| 'delete-many'
+					| 'delete-one'
+					| 'exists'
+					| 'find'
+					| 'first'
+					| 'get'
+					| 'update-many'
+					| 'update-one'
+					| 'upsert-many'
+					| 'upsert-one'
 				>()
 
 				return true

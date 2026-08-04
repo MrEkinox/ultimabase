@@ -145,15 +145,15 @@ describe('normalizeLogicalFilter', () => {
 		}).toThrow(new TypeError('filter must be a query expression'))
 		expect(() => {
 			// @ts-expect-error -- Logical groups require expression collections.
-			normalizeLogicalFilter({ kind: 'and', expressions: 'invalid' })
+			normalizeLogicalFilter<never>({ kind: 'and', expressions: 'invalid' })
 		}).toThrow(new TypeError('logical and filter expressions must be an array'))
 		expect(() => {
 			// @ts-expect-error -- Constants require boolean truth values.
-			normalizeLogicalFilter({ kind: 'constant', value: 'true' })
+			normalizeLogicalFilter<never>({ kind: 'constant', value: 'true' })
 		}).toThrow(new TypeError('constant filter value must be a boolean'))
 		expect(() => {
 			// @ts-expect-error -- Negation requires exactly one expression.
-			normalizeLogicalFilter({ kind: 'not' })
+			normalizeLogicalFilter<never>({ kind: 'not' })
 		}).toThrow(new TypeError('filter must be a query expression'))
 		expect(() => {
 			const emptyKind: unknown = { kind: '' }

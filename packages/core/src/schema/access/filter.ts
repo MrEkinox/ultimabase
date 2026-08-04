@@ -7,6 +7,7 @@ import {
 } from '../../query/filters/factory.js'
 import {
 	normalizeLogicalFilter,
+	type QueryFilterExpression,
 	type QueryFilterNode,
 } from '../../query/filters/logical.js'
 import type {
@@ -21,8 +22,12 @@ import type { AccessFilter } from './contracts.js'
 
 interface AccessFilterState<TSchema extends SchemaDefinition> {
 	readonly schema: TSchema
-	readonly expression?: QueryFilterNode<TSchema>
+	readonly expression?: AccessFilterExpression<TSchema>
 }
+
+/** Keeps native Access predicates scalar-only until a dedicated policy API opts in. */
+type AccessFilterExpression<TSchema extends SchemaDefinition> =
+	QueryFilterExpression<QueryPrimitiveFilterNode<TSchema>>
 
 // Private state prevents application callbacks from inspecting or replacing an
 // Access predicate while preserving a small public builder surface.
@@ -246,7 +251,7 @@ class ImmutableAccessFilter<
 	}
 
 	#append(
-		expression: QueryFilterNode<TSchema>,
+		expression: AccessFilterExpression<TSchema>,
 		logicalKind: 'and' | 'or' = 'and',
 	): AccessFilter<TSchema> {
 		const state = readAccessFilterState<TSchema>(this)
@@ -307,7 +312,7 @@ export const getAccessFilterExpression = <
 >(
 	schema: TSchema,
 	filter: unknown,
-): QueryFilterNode<TSchema> | undefined => {
+): AccessFilterExpression<TSchema> | undefined => {
 	const state = readAccessFilterState<TSchema>(filter)
 
 	if (state.schema !== schema) {
@@ -323,7 +328,7 @@ export const normalizeAccessFilterResult = <
 >(
 	schema: TSchema,
 	result: unknown,
-): QueryFilterNode<TSchema> => {
+): AccessFilterExpression<TSchema> => {
 	if (typeof result === 'boolean') {
 		return normalizeLogicalFilter<QueryPrimitiveFilterNode<TSchema>>({
 			kind: 'constant',

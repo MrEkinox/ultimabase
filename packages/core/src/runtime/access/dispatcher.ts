@@ -6,7 +6,7 @@ import {
 import type {
 	ExecutableOperationAst,
 	OperationKind,
-	QueryAst,
+	QueryRelationPredicateNode,
 	QueryExpressionNode,
 } from '../../query/index.js'
 import { Schema, type SchemaDefinition } from '../../schema/index.js'
@@ -51,6 +51,7 @@ import {
 import type { HookExecutionRuntime } from '../hooks/execution-runtime.js'
 import { getApplicationHookExecutionRuntime } from '../hooks/execution-runtime.js'
 import { getOperationSchema } from '../operations/schema.js'
+import { readOperationQueries } from '../operations/queries.js'
 import {
 	isNonAtomicBulkOperation,
 	readNonAtomicBulkResult,
@@ -274,18 +275,6 @@ const operationItemFamily = (
 	}
 }
 
-const readOperationQueries = (
-	operation: ExecutableOperationAst,
-): readonly QueryAst[] => {
-	if ('query' in operation) {
-		return immutableArray([operation.query])
-	}
-
-	return operation.kind === 'upsert-many'
-		? immutableArray(operation.items.map(({ query }) => query))
-		: immutableArray([])
-}
-
 const collectFilterFields = (
 	expression: QueryExpressionNode,
 	fields: Set<string>,
@@ -293,6 +282,11 @@ const collectFilterFields = (
 	const candidate: unknown = expression
 
 	if (!isPlainRecord(candidate)) {
+		return
+	}
+
+	// Relation fields and their target expressions cross a separate Access boundary.
+	if (candidate.kind === 'relation-predicate') {
 		return
 	}
 
@@ -934,10 +928,31 @@ export class NativeAccessRuntime {
 	async enforceRelationRead(
 		request: RuntimeRelationEnforcementStageInput,
 	): Promise<void> {
-		const field = this.#plan.getField(
+		return this.#enforceRelationFieldRead(
+			request,
 			request.relation.source,
 			request.relation.fieldPath,
 		)
+	}
+
+	/** Enforces relation traversal declared directly inside one public Query filter. */
+	async enforceRelationPredicateRead(
+		request: RuntimeOperationStageInput<DatabaseOperationAst>,
+		predicate: QueryRelationPredicateNode,
+	): Promise<void> {
+		return this.#enforceRelationFieldRead(
+			request,
+			predicate.source.definition,
+			[predicate.field],
+		)
+	}
+
+	async #enforceRelationFieldRead(
+		request: RuntimeOperationStageInput<DatabaseOperationAst>,
+		source: SchemaDefinition,
+		fieldPath: readonly string[],
+	): Promise<void> {
+		const field = this.#plan.getField(source, fieldPath)
 
 		if (field?.field.kind !== 'relation') {
 			throw new TypeError('Native Access relation field is unavailable')
@@ -951,7 +966,7 @@ export class NativeAccessRuntime {
 				branch: 'item',
 				field,
 				phase: 'access-field-read',
-				schema: request.relation.source,
+				schema: source,
 			},
 			immutableRecord({
 				context: request.context,

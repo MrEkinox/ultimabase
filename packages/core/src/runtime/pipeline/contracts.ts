@@ -16,6 +16,7 @@ import type {
 	DatabaseOperationExecutor,
 	DatabaseOperationResult,
 	DatabaseRelationScope,
+	DatabaseRelationPredicateScope,
 } from '../database/contracts.js'
 import type { EnforcementState } from '../enforcement/state.js'
 
@@ -29,6 +30,8 @@ export interface RuntimePipelineRequest<
 	readonly relation?: DatabaseRelationScope
 	/** Carries a framework-owned predicate that business hooks cannot replace. */
 	readonly rowFilter?: DatabaseRowFilterNode
+	/** Carries target restrictions associated with exact public relation leaves. */
+	readonly relationPredicates?: readonly DatabaseRelationPredicateScope[]
 	/** Treats an included target's Access denial exactly like an absent target. */
 	readonly nativeAccessDeniedAsMissing?: true
 }
@@ -56,6 +59,8 @@ export interface RuntimeEnforcementOperationResult<
 	readonly constraints: readonly DatabaseConstraintNode[]
 	/** Keeps private row restrictions outside business-transformable operation state. */
 	readonly rowFilter?: DatabaseRowFilterNode
+	/** Keeps target restrictions outside the source operation transformed by hooks. */
+	readonly relationPredicates?: readonly DatabaseRelationPredicateScope[]
 }
 
 /** Supplies business after-hooks, commit, and events with the current result. */

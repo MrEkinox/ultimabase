@@ -7,6 +7,7 @@ import type {
 	OperationKind,
 	QueryFieldName,
 	QueryFilterExpression,
+	QueryRelationPredicateNode,
 	QuerySchemaNode,
 } from '../../query/index.js'
 import type { InferObject, SchemaDefinition } from '../../schema/index.js'
@@ -17,6 +18,9 @@ export const databasePointerCapabilityVersion = 1 as const
 
 /** Selects the portable relation protocol currently understood by Core Runtime. */
 export const databaseRelationCapabilityVersion = 1 as const
+
+/** Selects the correlated relation-predicate protocol understood by adapters. */
+export const databaseRelationPredicateCapabilityVersion = 1 as const
 
 /** Advertises logical pointer storage, predicates, and inclusion source values. */
 export interface DatabasePointerCapability {
@@ -30,10 +34,17 @@ export interface DatabaseRelationCapability {
 	readonly version: typeof databaseRelationCapabilityVersion
 }
 
+/** Advertises correlated `some`, `none`, and `every` predicate compilation. */
+export interface DatabaseRelationPredicateCapability {
+	readonly kind: 'relation-predicates'
+	readonly version: typeof databaseRelationPredicateCapabilityVersion
+}
+
 /** Lets adapters opt into portable features without coupling Core to a database. */
 export interface DatabaseAdapterCapabilities {
 	readonly pointers?: DatabasePointerCapability
 	readonly relations?: DatabaseRelationCapability
+	readonly relationPredicates?: DatabaseRelationPredicateCapability
 }
 
 /** Reuses one frozen capability declaration across root and transaction adapters. */
@@ -48,6 +59,13 @@ export const databaseRelationCapability: DatabaseRelationCapability =
 	immutableRecord({
 		kind: 'relations',
 		version: databaseRelationCapabilityVersion,
+	})
+
+/** Reuses one frozen relation-predicate declaration across transaction adapters. */
+export const databaseRelationPredicateCapability: DatabaseRelationPredicateCapability =
+	immutableRecord({
+		kind: 'relation-predicates',
+		version: databaseRelationPredicateCapabilityVersion,
 	})
 
 /**
@@ -124,6 +142,13 @@ export interface DatabaseRelationScope {
 	readonly target: SchemaDefinition
 }
 
+/** Carries target policy beside one exact public relation leaf, never inside it. */
+export interface DatabaseRelationPredicateScope {
+	readonly constraints: readonly DatabaseConstraintNode[]
+	readonly predicate: QueryRelationPredicateNode
+	readonly rowFilter?: DatabaseRowFilterNode
+}
+
 /**
  * Keeps the normalized operation and accumulated constraints together so an
  * adapter never receives one without the other.
@@ -136,6 +161,8 @@ export interface DatabaseOperationRequest<
 	readonly operation: TOperation
 	/** Carries one Runtime-validated relation edge only to capable adapters. */
 	readonly relation?: DatabaseRelationScope
+	/** Keeps target Access monotonic and invisible to source Query hooks. */
+	readonly relationPredicates?: readonly DatabaseRelationPredicateScope[]
 	/**
 	 * Carries framework-owned row restrictions outside the transformable Query AST.
 	 * Adapters must combine this predicate with the operation predicate using AND.

@@ -38,6 +38,7 @@ import { mapPostgresOperationError } from './operation-error.js'
 import { decodePostgresRecord } from './record-codec.js'
 import { compilePostgresUpdate } from './update-compiler.js'
 import { executePostgresRelationMutation } from './relation-executor.js'
+import type { PostgresRelationPredicateCompiler } from '../query/filter-compiler.js'
 
 type RuntimeMutationOperation = Extract<
 	ExecutableOperationAst,
@@ -278,12 +279,14 @@ const executeUpsertItem = async (
 	schema: CompiledPostgresSchema,
 	item: RuntimeUpsertItem,
 	constraint: SQL | undefined,
+	relationCompiler?: PostgresRelationPredicateCompiler,
 ): Promise<PersistedMutationItem> => {
 	let previous = await lockPostgresUpsertTarget(
 		client,
 		schema,
 		item.query,
 		constraint,
+		relationCompiler,
 	)
 
 	if (previous === null) {
@@ -310,6 +313,7 @@ const executeUpsertItem = async (
 			schema,
 			item.query,
 			constraint,
+			relationCompiler,
 		)
 	}
 
@@ -461,9 +465,16 @@ const prepareLockedSingular = async (
 	constraint: SQL | undefined,
 	assertActive: () => void,
 	relation: CompiledPostgresRelation | undefined,
+	relationCompiler?: PostgresRelationPredicateCompiler,
 ): Promise<PreparedDatabaseOperation<DatabaseMutationOperationAst>> => {
 	const previous = await runPreparedMutationStep(operation.kind, () =>
-		lockPostgresSingularMutationTarget(client, schema, operation, constraint),
+		lockPostgresSingularMutationTarget(
+			client,
+			schema,
+			operation,
+			constraint,
+			relationCompiler,
+		),
 	)
 
 	return createPreparedMutationHandle({
@@ -504,14 +515,27 @@ const prepareSetBasedMutation = (
 	>,
 	constraint: SQL | undefined,
 	assertActive: () => void,
+	relationCompiler?: PostgresRelationPredicateCompiler,
 ): PreparedDatabaseOperation<DatabaseMutationOperationAst> =>
 	createPreparedMutationHandle({
 		assertActive,
 		execute: async () => {
 			const result = await runPreparedMutationStep(operation.kind, () =>
 				operation.kind === 'update-many'
-					? executeUpdateMany(client, schema, operation, constraint)
-					: executeDeleteMany(client, schema, operation, constraint),
+					? executeUpdateMany(
+							client,
+							schema,
+							operation,
+							constraint,
+							relationCompiler,
+						)
+					: executeDeleteMany(
+							client,
+							schema,
+							operation,
+							constraint,
+							relationCompiler,
+						),
 			)
 
 			return createPostgresMutationOutcome(result, [])
@@ -524,12 +548,19 @@ const prepareUpsertOne = (
 	operation: Extract<RuntimeMutationOperation, { readonly kind: 'upsert-one' }>,
 	constraint: SQL | undefined,
 	assertActive: () => void,
+	relationCompiler?: PostgresRelationPredicateCompiler,
 ): PreparedDatabaseOperation<DatabaseMutationOperationAst> =>
 	createPreparedMutationHandle({
 		assertActive,
 		execute: async () => {
 			const persisted = await runPreparedMutationStep(operation.kind, () =>
-				executeUpsertItem(client, schema, operation, constraint),
+				executeUpsertItem(
+					client,
+					schema,
+					operation,
+					constraint,
+					relationCompiler,
+				),
 			)
 
 			return createPostgresMutationOutcome(
@@ -549,6 +580,7 @@ const prepareUpsertMany = (
 	constraint: SQL | undefined,
 	recovery: PostgresItemRecovery,
 	assertActive: () => void,
+	relationCompiler?: PostgresRelationPredicateCompiler,
 ): PreparedDatabaseOperation<DatabaseMutationOperationAst> =>
 	createPreparedMutationHandle({
 		assertActive,
@@ -560,7 +592,14 @@ const prepareUpsertMany = (
 					operation.kind,
 					items,
 					recovery,
-					(item) => executeUpsertItem(client, schema, item, constraint),
+					(item) =>
+						executeUpsertItem(
+							client,
+							schema,
+							item,
+							constraint,
+							relationCompiler,
+						),
 				)
 
 				return createPostgresMutationOutcome(
@@ -574,7 +613,7 @@ const prepareUpsertMany = (
 
 			for (const item of items) {
 				const persisted = await runPreparedMutationStep(operation.kind, () =>
-					executeUpsertItem(client, schema, item, constraint),
+					executeUpsertItem(client, schema, item, constraint, relationCompiler),
 				)
 				records.push(persisted.record)
 				materializations.push(persisted.materialization)
@@ -603,6 +642,7 @@ export const preparePostgresMutation = async <
 	recovery: PostgresItemRecovery,
 	assertActive: () => void,
 	relation?: CompiledPostgresRelation,
+	relationCompiler?: PostgresRelationPredicateCompiler,
 ): Promise<PreparedDatabaseOperation<TOperation>> => {
 	const runtimeOperation = operation as unknown as RuntimeMutationOperation
 	let prepared: PreparedDatabaseOperation<DatabaseMutationOperationAst>
@@ -640,6 +680,7 @@ export const preparePostgresMutation = async <
 				constraint,
 				assertActive,
 				relation,
+				relationCompiler,
 			)
 			break
 		case 'delete-many':
@@ -650,6 +691,7 @@ export const preparePostgresMutation = async <
 				runtimeOperation,
 				constraint,
 				assertActive,
+				relationCompiler,
 			)
 			break
 		case 'upsert-one':
@@ -659,6 +701,7 @@ export const preparePostgresMutation = async <
 				runtimeOperation,
 				constraint,
 				assertActive,
+				relationCompiler,
 			)
 			break
 		case 'upsert-many':
@@ -669,6 +712,7 @@ export const preparePostgresMutation = async <
 				constraint,
 				recovery,
 				assertActive,
+				relationCompiler,
 			)
 			break
 	}

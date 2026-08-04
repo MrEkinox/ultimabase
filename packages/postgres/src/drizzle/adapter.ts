@@ -1,6 +1,7 @@
 import {
 	databasePointerCapability,
 	databaseRelationCapability,
+	databaseRelationPredicateCapability,
 	FrameworkError,
 } from '@ultimabase/core'
 import type { ExecutableOperationAst } from '@ultimabase/core'
@@ -44,11 +45,13 @@ import {
 import { createPostgresTransactionError } from './transaction-error.js'
 import { compilePostgresRowFilter } from '../query/filter-compiler.js'
 import { compilePostgresRelationPredicate } from '../query/relation-compiler.js'
+import { createPostgresRelationPredicateCompiler } from '../query/relation-predicate-compiler.js'
 
 const postgresObjectIdentities = new WeakMap<object, unknown>()
 const postgresDatabaseCapabilities = immutableRecord({
 	pointers: databasePointerCapability,
 	relations: databaseRelationCapability,
+	relationPredicates: databaseRelationPredicateCapability,
 })
 
 /** Reads explicit public fields from object-returning read terminals only. */
@@ -281,6 +284,12 @@ const executePostgresRequest = async <
 		request,
 	)
 	const effectivePredicate = and(constraintPredicate, relationPredicate)
+	const relationPredicateCompiler = createPostgresRelationPredicateCompiler(
+		client,
+		schemas,
+		constraintCompilers,
+		request.relationPredicates ?? [],
+	)
 	assertConstraintOperationSupported(
 		request.operation,
 		request.constraints.length > 0 || request.rowFilter !== undefined,
@@ -292,6 +301,7 @@ const executePostgresRequest = async <
 		schema,
 		operation,
 		effectivePredicate,
+		relationPredicateCompiler,
 	)
 
 	// Exhaustive operation dispatch preserves Runtime's discriminant-to-result contract.
@@ -381,6 +391,12 @@ class DrizzlePostgresTransactionAdapter implements DatabaseTransactionAdapter {
 			request.relation === undefined
 				? undefined
 				: this.#schemas.getRelation(request.relation)
+		const relationPredicateCompiler = createPostgresRelationPredicateCompiler(
+			this.#drizzle,
+			this.#schemas,
+			this.#constraintCompilers,
+			request.relationPredicates ?? [],
+		)
 		assertConstraintOperationSupported(
 			request.operation,
 			request.constraints.length > 0 || request.rowFilter !== undefined,
@@ -396,6 +412,7 @@ class DrizzlePostgresTransactionAdapter implements DatabaseTransactionAdapter {
 				this.#assertActive()
 			},
 			relation,
+			relationPredicateCompiler,
 		)
 	}
 

@@ -19,6 +19,7 @@ import {
 	compilePostgresQueryClauses,
 	type CompiledPostgresQueryClauses,
 } from '../query/clause-compiler.js'
+import type { PostgresRelationPredicateCompiler } from '../query/filter-compiler.js'
 import type { PostgresDrizzleClient } from './client.js'
 import { mapPostgresOperationError } from './operation-error.js'
 import { decodePostgresRecord, encodePostgresRecord } from './record-codec.js'
@@ -79,9 +80,15 @@ const executeFind = async (
 	schema: CompiledPostgresSchema,
 	operation: Extract<RuntimeOperation, { readonly kind: 'find' }>,
 	constraint: SQL | undefined,
+	relationCompiler?: PostgresRelationPredicateCompiler,
 ): Promise<readonly Readonly<Record<string, unknown>>[]> => {
 	const query = readBuiltInQuery(operation.query)
-	const clauses = compilePostgresQueryClauses(query, schema)
+	const clauses = compilePostgresQueryClauses(
+		query,
+		schema,
+		undefined,
+		relationCompiler,
+	)
 	const rows = await buildSelect(client, schema, clauses.selection, clauses, {
 		constraint,
 	})
@@ -94,9 +101,15 @@ const executeFirst = async (
 	schema: CompiledPostgresSchema,
 	operation: Extract<RuntimeOperation, { readonly kind: 'first' }>,
 	constraint: SQL | undefined,
+	relationCompiler?: PostgresRelationPredicateCompiler,
 ): Promise<Readonly<Record<string, unknown>> | null> => {
 	const query = readBuiltInQuery(operation.query)
-	const clauses = compilePostgresQueryClauses(query, schema)
+	const clauses = compilePostgresQueryClauses(
+		query,
+		schema,
+		undefined,
+		relationCompiler,
+	)
 	const [row] = await buildSelect(client, schema, clauses.selection, clauses, {
 		constraint,
 		limit: 1,
@@ -110,9 +123,15 @@ const executeGet = async (
 	schema: CompiledPostgresSchema,
 	operation: Extract<RuntimeOperation, { readonly kind: 'get' }>,
 	constraint: SQL | undefined,
+	relationCompiler?: PostgresRelationPredicateCompiler,
 ): Promise<Readonly<Record<string, unknown>> | null> => {
 	const query = readBuiltInQuery(operation.query)
-	const clauses = compilePostgresQueryClauses(query, schema)
+	const clauses = compilePostgresQueryClauses(
+		query,
+		schema,
+		undefined,
+		relationCompiler,
+	)
 	const id = resolveCompiledPostgresField(schema, 'id')
 	const [row] = await buildSelect(client, schema, clauses.selection, clauses, {
 		constraint,
@@ -128,10 +147,16 @@ const executeCount = async (
 	schema: CompiledPostgresSchema,
 	operation: Extract<RuntimeOperation, { readonly kind: 'count' }>,
 	constraint: SQL | undefined,
+	relationCompiler?: PostgresRelationPredicateCompiler,
 ): Promise<number> => {
 	const query = readBuiltInQuery(operation.query)
 	const id = resolveCompiledPostgresField(schema, 'id').column
-	const clauses = compilePostgresQueryClauses(query, schema)
+	const clauses = compilePostgresQueryClauses(
+		query,
+		schema,
+		undefined,
+		relationCompiler,
+	)
 	const target = buildSelect(client, schema, { id }, clauses, {
 		constraint,
 	}).as('ultimabase_count_target')
@@ -149,10 +174,16 @@ const executeExists = async (
 	schema: CompiledPostgresSchema,
 	operation: Extract<RuntimeOperation, { readonly kind: 'exists' }>,
 	constraint: SQL | undefined,
+	relationCompiler?: PostgresRelationPredicateCompiler,
 ): Promise<boolean> => {
 	const query = readBuiltInQuery(operation.query)
 	const id = resolveCompiledPostgresField(schema, 'id').column
-	const clauses = compilePostgresQueryClauses(query, schema)
+	const clauses = compilePostgresQueryClauses(
+		query,
+		schema,
+		undefined,
+		relationCompiler,
+	)
 	const rows = await buildSelect(client, schema, { id }, clauses, {
 		constraint,
 		limit: 1,
@@ -259,9 +290,15 @@ const buildManyTarget = (
 	schema: CompiledPostgresSchema,
 	query: QueryAst,
 	constraint: SQL | undefined,
+	relationCompiler?: PostgresRelationPredicateCompiler,
 ) => {
 	const runtimeQuery = readBuiltInQuery(query)
-	const clauses = compilePostgresQueryClauses(runtimeQuery, schema)
+	const clauses = compilePostgresQueryClauses(
+		runtimeQuery,
+		schema,
+		undefined,
+		relationCompiler,
+	)
 
 	return buildSelect(
 		client,
@@ -277,9 +314,15 @@ const executeUpdateOne = async (
 	schema: CompiledPostgresSchema,
 	operation: Extract<RuntimeOperation, { readonly kind: 'update-one' }>,
 	constraint: SQL | undefined,
+	relationCompiler?: PostgresRelationPredicateCompiler,
 ): Promise<Readonly<Record<string, unknown>> | null> => {
 	const query = readBuiltInQuery(operation.query)
-	const clauses = compilePostgresQueryClauses(query, schema)
+	const clauses = compilePostgresQueryClauses(
+		query,
+		schema,
+		undefined,
+		relationCompiler,
+	)
 	const id = resolveCompiledPostgresField(schema, 'id').column
 	const target = buildSingularTarget(client, schema, clauses, constraint)
 	const [row] = await client
@@ -296,9 +339,15 @@ const executeDeleteOne = async (
 	schema: CompiledPostgresSchema,
 	operation: Extract<RuntimeOperation, { readonly kind: 'delete-one' }>,
 	constraint: SQL | undefined,
+	relationCompiler?: PostgresRelationPredicateCompiler,
 ): Promise<Readonly<Record<string, unknown>> | null> => {
 	const query = readBuiltInQuery(operation.query)
-	const clauses = compilePostgresQueryClauses(query, schema)
+	const clauses = compilePostgresQueryClauses(
+		query,
+		schema,
+		undefined,
+		relationCompiler,
+	)
 	const id = resolveCompiledPostgresField(schema, 'id').column
 	const target = buildSingularTarget(client, schema, clauses, constraint)
 	const [row] = await client
@@ -315,9 +364,16 @@ export const executeUpdateMany = async (
 	schema: CompiledPostgresSchema,
 	operation: Extract<RuntimeOperation, { readonly kind: 'update-many' }>,
 	constraint: SQL | undefined,
+	relationCompiler?: PostgresRelationPredicateCompiler,
 ): Promise<number> => {
 	const id = resolveCompiledPostgresField(schema, 'id').column
-	const target = buildManyTarget(client, schema, operation.query, constraint)
+	const target = buildManyTarget(
+		client,
+		schema,
+		operation.query,
+		constraint,
+		relationCompiler,
+	)
 	const where = and(inArray(id, target), constraint)
 
 	if (where === undefined) {
@@ -346,9 +402,16 @@ export const executeDeleteMany = async (
 	schema: CompiledPostgresSchema,
 	operation: Extract<RuntimeOperation, { readonly kind: 'delete-many' }>,
 	constraint: SQL | undefined,
+	relationCompiler?: PostgresRelationPredicateCompiler,
 ): Promise<number> => {
 	const id = resolveCompiledPostgresField(schema, 'id').column
-	const target = buildManyTarget(client, schema, operation.query, constraint)
+	const target = buildManyTarget(
+		client,
+		schema,
+		operation.query,
+		constraint,
+		relationCompiler,
+	)
 	const where = and(inArray(id, target), constraint)
 
 	if (where === undefined) {
@@ -374,8 +437,14 @@ export const lockPostgresUpsertTarget = async (
 	schema: CompiledPostgresSchema,
 	query: QueryAst,
 	constraint: SQL | undefined,
+	relationCompiler?: PostgresRelationPredicateCompiler,
 ): Promise<Readonly<Record<string, unknown>> | null> => {
-	const clauses = compilePostgresQueryClauses(readBuiltInQuery(query), schema)
+	const clauses = compilePostgresQueryClauses(
+		readBuiltInQuery(query),
+		schema,
+		undefined,
+		relationCompiler,
+	)
 	const [row] = await buildSelect(
 		client,
 		schema,
@@ -439,9 +508,15 @@ export const lockPostgresSingularMutationTarget = async (
 		{ readonly kind: 'delete-one' | 'update-one' }
 	>,
 	constraint: SQL | undefined,
+	relationCompiler?: PostgresRelationPredicateCompiler,
 ): Promise<Readonly<Record<string, unknown>> | null> => {
 	const query = readBuiltInQuery(operation.query)
-	const clauses = compilePostgresQueryClauses(query, schema)
+	const clauses = compilePostgresQueryClauses(
+		query,
+		schema,
+		undefined,
+		relationCompiler,
+	)
 	const [row] = await buildSelect(
 		client,
 		schema,
@@ -474,31 +549,86 @@ export const executePostgresOperation = async (
 	schema: CompiledPostgresSchema,
 	operation: RuntimeOperation,
 	constraint?: SQL,
+	relationCompiler?: PostgresRelationPredicateCompiler,
 ): Promise<unknown> => {
 	try {
 		switch (operation.kind) {
 			case 'find':
-				return await executeFind(client, schema, operation, constraint)
+				return await executeFind(
+					client,
+					schema,
+					operation,
+					constraint,
+					relationCompiler,
+				)
 			case 'first':
-				return await executeFirst(client, schema, operation, constraint)
+				return await executeFirst(
+					client,
+					schema,
+					operation,
+					constraint,
+					relationCompiler,
+				)
 			case 'get':
-				return await executeGet(client, schema, operation, constraint)
+				return await executeGet(
+					client,
+					schema,
+					operation,
+					constraint,
+					relationCompiler,
+				)
 			case 'count':
-				return await executeCount(client, schema, operation, constraint)
+				return await executeCount(
+					client,
+					schema,
+					operation,
+					constraint,
+					relationCompiler,
+				)
 			case 'exists':
-				return await executeExists(client, schema, operation, constraint)
+				return await executeExists(
+					client,
+					schema,
+					operation,
+					constraint,
+					relationCompiler,
+				)
 			case 'create-one':
 				return await executeCreateOne(client, schema, operation)
 			case 'create-many':
 				return await executeCreateMany(client, schema, operation)
 			case 'update-one':
-				return await executeUpdateOne(client, schema, operation, constraint)
+				return await executeUpdateOne(
+					client,
+					schema,
+					operation,
+					constraint,
+					relationCompiler,
+				)
 			case 'update-many':
-				return await executeUpdateMany(client, schema, operation, constraint)
+				return await executeUpdateMany(
+					client,
+					schema,
+					operation,
+					constraint,
+					relationCompiler,
+				)
 			case 'delete-one':
-				return await executeDeleteOne(client, schema, operation, constraint)
+				return await executeDeleteOne(
+					client,
+					schema,
+					operation,
+					constraint,
+					relationCompiler,
+				)
 			case 'delete-many':
-				return await executeDeleteMany(client, schema, operation, constraint)
+				return await executeDeleteMany(
+					client,
+					schema,
+					operation,
+					constraint,
+					relationCompiler,
+				)
 			case 'upsert-one':
 			case 'upsert-many':
 				throw createPendingOperationError(operation.kind)

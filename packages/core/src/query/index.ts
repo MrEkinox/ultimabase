@@ -64,6 +64,7 @@ export type {
 	QueryLogicalFilterNode,
 	QueryNotFilterNode,
 	QueryOrFilterNode,
+	QuerySchemaFilterLeaf,
 } from './filters/logical.js'
 export type {
 	QueryComparisonFilterNode,
@@ -83,6 +84,17 @@ export type {
 	QueryStringFilterNode,
 	QueryStringFilterOperator,
 } from './filters/primitive.js'
+export {
+	collectQueryRelationPredicates,
+	isQueryRelationPredicateNode,
+	queryRelationPredicateMaxDepth,
+	RelationPredicate,
+} from './filters/relation.js'
+export type {
+	QueryRelationPredicateForSchema,
+	QueryRelationPredicateNode,
+	QueryRelationPredicateOperator,
+} from './filters/relation.js'
 export type {
 	AtomicBulkOperationOptions,
 	BulkOperationResult,

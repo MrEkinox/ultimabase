@@ -30,7 +30,10 @@ import {
 	compilePostgresSelection,
 	resolveCompiledPostgresField,
 } from '../schema/field.js'
-import { compilePostgresFilter } from './filter-compiler.js'
+import {
+	compilePostgresFilter,
+	type PostgresRelationPredicateCompiler,
+} from './filter-compiler.js'
 
 /** Collects query fragments reused later by read, update, and delete builders. */
 export interface CompiledPostgresQueryClauses {
@@ -191,6 +194,7 @@ export const compilePostgresQueryClauses = <TSchema extends SchemaDefinition>(
 	query: QueryAst<TSchema, QueryFilterNode<TSchema>>,
 	schema: CompiledPostgresSchema,
 	cursorPayload?: QueryCursorPayload,
+	relationCompiler?: PostgresRelationPredicateCompiler,
 ): CompiledPostgresQueryClauses => {
 	const cursorPagination = query.pagination?.kind === 'cursor-pagination'
 	const stableOrdering = cursorPagination
@@ -219,7 +223,7 @@ export const compilePostgresQueryClauses = <TSchema extends SchemaDefinition>(
 	const filter =
 		query.where === undefined
 			? undefined
-			: compilePostgresFilter(query.where.expression, schema)
+			: compilePostgresFilter(query.where.expression, schema, relationCompiler)
 	const cursor =
 		cursorPayload === undefined
 			? undefined

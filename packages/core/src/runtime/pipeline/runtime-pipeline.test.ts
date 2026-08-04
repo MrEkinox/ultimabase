@@ -1,6 +1,6 @@
 import { FrameworkError } from '../../foundation.js'
 import { Query, type FindOperationAst } from '../../query/index.js'
-import { Schema, stringField } from '../../schema/index.js'
+import { relationField, Schema, stringField } from '../../schema/index.js'
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -20,7 +20,10 @@ import type {
 	DatabaseTransactionAdapter,
 	PreparedDatabaseOperation,
 } from '../database/contracts.js'
-import { databaseRelationCapability } from '../database/contracts.js'
+import {
+	databaseRelationCapability,
+	databaseRelationPredicateCapability,
+} from '../database/contracts.js'
 import { databaseConstraint } from '../enforcement/definitions.js'
 import { createEnforcementState } from '../enforcement/state.js'
 import type {
@@ -47,6 +50,23 @@ const articleOperation = {
 	kind: 'find',
 	query: new Query(articleSchema).limit(10).ast,
 } satisfies FindOperationAst<typeof articleSchema>
+
+const relationPredicateTarget = Schema.define({
+	className: 'RuntimeRelationPredicateTarget',
+	fields: { label: stringField() },
+})
+const relationPredicateSource = Schema.define({
+	className: 'RuntimeRelationPredicateSource',
+	fields: {
+		targets: relationField({ target: () => relationPredicateTarget }),
+	},
+})
+const relationPredicateOperation = {
+	kind: 'find',
+	query: relationPredicateSource
+		.query()
+		.some('targets', (target) => target.equalTo('label', 'portable')).ast,
+} satisfies FindOperationAst<typeof relationPredicateSource>
 
 const requestContext = RequestContext.anonymous({
 	requestId: 'request-1',
@@ -374,6 +394,50 @@ describe('RuntimePipeline', () => {
 		).rejects.toMatchObject({
 			code: 'INTERNAL_ERROR',
 			publicMessage: 'Relation queries are not available.',
+		})
+		expect(executor.requests).toStrictEqual([])
+	})
+
+	it('fails closed when an adapter cannot compile relation predicates', async () => {
+		const trace: string[] = []
+		const executor = new TraceDatabaseExecutor(trace, [])
+		const pipeline = new RuntimePipeline(
+			createStages(trace, executor, {
+				enforcement: createEnforcementStages(trace),
+			}),
+		)
+
+		await expect(
+			pipeline.execute({
+				context: requestContext,
+				operation: relationPredicateOperation,
+			}),
+		).rejects.toMatchObject({
+			code: 'INTERNAL_ERROR',
+			publicMessage: 'Relation filters are not available.',
+		})
+		expect(executor.requests).toStrictEqual([])
+	})
+
+	it('requires private target policy for every relation predicate leaf', async () => {
+		const trace: string[] = []
+		const executor = new TraceDatabaseExecutor(trace, [], {
+			relationPredicates: databaseRelationPredicateCapability,
+		})
+		const pipeline = new RuntimePipeline(
+			createStages(trace, executor, {
+				enforcement: createEnforcementStages(trace),
+			}),
+		)
+
+		await expect(
+			pipeline.execute({
+				context: requestContext,
+				operation: relationPredicateOperation,
+			}),
+		).rejects.toMatchObject({
+			code: 'INTERNAL_ERROR',
+			publicMessage: 'Relation filters are not available.',
 		})
 		expect(executor.requests).toStrictEqual([])
 	})

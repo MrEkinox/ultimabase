@@ -58,6 +58,7 @@ export interface CompiledPostgresIndex {
 
 /** Keeps one schema's internal Drizzle table and field lookup together. */
 export interface CompiledPostgresSchema {
+	readonly definition: SchemaDefinition
 	readonly fields: Readonly<Record<string, CompiledPostgresField>>
 	readonly indexes: readonly CompiledPostgresIndex[]
 	readonly table: PgTable

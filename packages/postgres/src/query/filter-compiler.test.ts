@@ -1,4 +1,9 @@
-import { Query, type QueryFilterNode } from '@ultimabase/core'
+import {
+	collectQueryRelationPredicates,
+	Query,
+	relationField,
+	type QueryFilterNode,
+} from '@ultimabase/core'
 import {
 	bigintField,
 	binaryField,
@@ -23,6 +28,9 @@ import { describe, expect, it } from 'vitest'
 import { compilePostgresSchema } from '../schema/schema-compiler.js'
 import { compilePostgresFilter } from './filter-compiler.js'
 import { PostgresSchemaCatalog } from '../schema/catalog.js'
+import { createPostgresDrizzleClient } from '../drizzle/client.js'
+import { emptyPostgresConstraintCompilerRegistry } from '../constraints/compiler.js'
+import { createPostgresRelationPredicateCompiler } from './relation-predicate-compiler.js'
 
 const FilterSchema = Schema.define({
 	className: 'FilterFixture',
@@ -60,6 +68,57 @@ const renderQuery = (query: Query<typeof FilterSchema>) => {
 }
 
 describe('PostgreSQL filter compiler', () => {
+	it('parameterizes correlated relation predicates and private target Access', () => {
+		const Target = Schema.define({
+			className: 'FilterRelationTarget',
+			fields: { label: stringField(), visible: booleanField() },
+		})
+		const Source = Schema.define({
+			className: 'FilterRelationSource',
+			fields: { targets: relationField({ target: () => Target }) },
+		})
+		const registry = new SchemaRegistry([Source, Target])
+		const catalog = new PostgresSchemaCatalog(
+			registry.values(),
+			registry.resolveSchemaTargets(),
+		)
+		const query = Source.query().some('targets', (target) =>
+			target.equalTo('label', 'developer-value'),
+		)
+		const expression = query.ast.where?.expression
+
+		if (expression === undefined) {
+			throw new TypeError('Relation compiler fixture requires an expression')
+		}
+
+		const [predicate] = collectQueryRelationPredicates(expression)
+		const targetAccess = Target.query().equalTo('visible', true).ast.where
+			?.expression
+
+		if (predicate === undefined || targetAccess === undefined) {
+			throw new TypeError('Relation compiler fixture is incomplete')
+		}
+
+		const client = createPostgresDrizzleClient({
+			// SQL construction never reaches the inert driver in this compiler test.
+			query: () => undefined,
+		})
+		const compiler = createPostgresRelationPredicateCompiler(
+			client,
+			catalog,
+			emptyPostgresConstraintCompilerRegistry,
+			[{ constraints: [], predicate, rowFilter: targetAccess }],
+		)
+		const rendered = dialect.sqlToQuery(
+			compilePostgresFilter(expression, catalog.get(Source), compiler),
+		)
+
+		expect(rendered.sql.toLowerCase()).toContain('exists')
+		expect(rendered.sql).not.toContain('developer-value')
+		expect(rendered.params).toContain('developer-value')
+		expect(rendered.params).toContain(true)
+	})
+
 	it('parameterizes pointer predicates as target UUIDs', () => {
 		const User = Schema.define({ className: 'FilterPointerUser', fields: {} })
 		const Post = Schema.define({

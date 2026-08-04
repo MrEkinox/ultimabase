@@ -7,7 +7,13 @@ import {
 import type {
 	ExecutableOperationAst,
 	QueryAst,
+	QueryExpressionNode,
+	QueryRelationPredicateNode,
 	QuerySelectedFieldNode,
+} from '../../query/index.js'
+import {
+	createQueryAst,
+	isQueryRelationPredicateNode,
 } from '../../query/index.js'
 import { Schema, type SchemaDefinition } from '../../schema/index.js'
 import {
@@ -40,6 +46,7 @@ import {
 } from './definitions.js'
 import {
 	appendEnforcementConstraints,
+	appendEnforcementRelationPredicates,
 	createEnforcementState,
 	getEnforcementStateSnapshot,
 	narrowEnforcementFields,
@@ -57,10 +64,53 @@ import {
 	type HookExecutionRuntime,
 } from '../hooks/execution-runtime.js'
 import { NativeAccessRuntime } from '../access/dispatcher.js'
+import { readOperationQueries } from '../operations/queries.js'
 
 interface OwnedEnforcementContribution {
 	readonly contribution: PluginContribution
 	readonly implementation: EnforcementContributionImplementation
+}
+
+/** Reads only the relation leaves owned by the current schema expression level. */
+const collectDirectRelationPredicates = (
+	expression: QueryExpressionNode,
+): readonly QueryRelationPredicateNode[] => {
+	if (isQueryRelationPredicateNode(expression)) {
+		return immutableArray([expression])
+	}
+
+	const candidate: unknown = expression
+
+	if (!isPlainRecord(candidate)) {
+		return immutableArray([])
+	}
+
+	const collected: QueryRelationPredicateNode[] = []
+
+	if (isUnknownArray(candidate.expressions)) {
+		for (const child of candidate.expressions) {
+			if (isPlainRecord(child) && typeof child.kind === 'string') {
+				collected.push(
+					...collectDirectRelationPredicates(
+						child as unknown as QueryExpressionNode,
+					),
+				)
+			}
+		}
+	}
+
+	if (
+		isPlainRecord(candidate.expression) &&
+		typeof candidate.expression.kind === 'string'
+	) {
+		collected.push(
+			...collectDirectRelationPredicates(
+				candidate.expression as unknown as QueryExpressionNode,
+			),
+		)
+	}
+
+	return immutableArray(collected)
 }
 
 /** Gives policy hooks the same recursion and diagnostic identity as business hooks. */
@@ -405,6 +455,9 @@ const enforceOperation = <const TOperation extends DatabaseOperationAst>(
 		...(snapshot.rowFilter === undefined
 			? {}
 			: { rowFilter: snapshot.rowFilter }),
+		...(snapshot.relationPredicates.length === 0
+			? {}
+			: { relationPredicates: snapshot.relationPredicates }),
 	})
 }
 
@@ -536,6 +589,79 @@ export const createEnforcementStages = <
 	const contributions = readEnforcementContributions(application)
 	const runtime = getApplicationHookExecutionRuntime(application)
 	const access = new NativeAccessRuntime(application)
+
+	/** Evaluates target policy recursively without merging it into source policy. */
+	const evaluateRelationPredicates = async <
+		const TOperation extends DatabaseOperationAst,
+	>(
+		input: RuntimeOperationStageInput<TOperation>,
+		initialState: EnforcementState,
+	): Promise<EnforcementState> => {
+		const executable = input.operation as unknown as ExecutableOperationAst
+		let state = initialState
+
+		for (const query of readOperationQueries(executable)) {
+			if (query.where === undefined) {
+				continue
+			}
+
+			for (const predicate of collectDirectRelationPredicates(
+				query.where.expression,
+			)) {
+				if (
+					getEnforcementStateSnapshot(state).relationPredicates.some(
+						(scope) => scope.predicate === predicate,
+					)
+				) {
+					continue
+				}
+
+				await access.enforceRelationPredicateRead(input, predicate)
+
+				const targetQuery = immutableRecord({
+					...createQueryAst(predicate.target.definition),
+					where: immutableRecord({
+						kind: 'where' as const,
+						expression: predicate.expression,
+					}),
+				})
+				const targetOperation = immutableRecord({
+					kind: 'exists' as const,
+					query: targetQuery,
+				})
+				const targetInput = immutableRecord({
+					context: input.context,
+					operation: targetOperation,
+				})
+				let targetState = await access.evaluate(
+					targetInput,
+					createEnforcementState(),
+				)
+
+				targetState = await evaluateContributions(
+					contributions,
+					runtime,
+					targetInput,
+					targetState,
+				)
+				targetState = await evaluateRelationPredicates(targetInput, targetState)
+
+				const targetSnapshot = getEnforcementStateSnapshot(targetState)
+				state = appendEnforcementRelationPredicates(state, [
+					immutableRecord({
+						constraints: targetSnapshot.constraints,
+						predicate,
+						...(targetSnapshot.rowFilter === undefined
+							? {}
+							: { rowFilter: targetSnapshot.rowFilter }),
+					}),
+					...targetSnapshot.relationPredicates,
+				])
+			}
+		}
+
+		return state
+	}
 	const enforceAccessSelectionResult: RuntimeEnforcementStages['enforceSelectionResult'] =
 		async (input) =>
 			access.enforceOutput({
@@ -553,25 +679,31 @@ export const createEnforcementStages = <
 		})
 
 	return immutableRecord({
-		evaluate: async (input) =>
-			evaluateContributions(
+		evaluate: async (input) => {
+			const state = await evaluateContributions(
 				contributions,
 				runtime,
 				input,
 				await access.evaluate(input, createEnforcementState()),
-			),
+			)
+
+			return evaluateRelationPredicates(input, state)
+		},
 		enforceOperation: (input) => enforceOperation(input),
 		enforceRelationRead: (input) => access.enforceRelationRead(input),
 		enforcePreparedMutation: (input) => access.enforcePreparedMutation(input),
 		enforceMutationOutcome: (input) => access.enforceMutationOutcome(input),
 		enforceSelectionResult: enforceAccessSelectionResult,
 		enforceResult: enforceAccessResult,
-		reevaluate: async (input) =>
-			evaluateContributions(
+		reevaluate: async (input) => {
+			const state = await evaluateContributions(
 				contributions,
 				runtime,
 				input,
 				await access.reevaluate(input, input.enforcement),
-			),
+			)
+
+			return evaluateRelationPredicates(input, state)
+		},
 	})
 }

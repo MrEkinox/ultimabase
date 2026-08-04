@@ -86,9 +86,17 @@ relation delta to compatible hooks, and obey field update policy. Updating an
 inverse pointer relation executes the corresponding target pointer mutation,
 including its validation, Access, and hooks.
 
-Core Query may add portable `some`, `none`, and `every` relation predicates.
-They are Query AST nodes rather than GraphQL operators, so every transport and
-adapter observes the same semantics.
+Core Query exposes portable `some`, `none`, and `every` relation predicates.
+Their callback receives a filter-only builder for the exact target schema and
+cannot select, order, paginate, execute, or choose authority. Nested predicates
+are bounded immutable Query AST nodes rather than GraphQL operators, so every
+transport and adapter observes the same semantics.
+
+Runtime evaluates target Access and plugin constraints separately from the
+source Query AST. Each private target scope is associated with the exact
+relation node and remains monotonic across source Query hooks. An adapter must
+advertise the versioned relation-predicate capability and combine the public
+predicate with that private target scope.
 
 ### PostgreSQL representation
 
@@ -96,6 +104,12 @@ adapter observes the same semantics.
 to deterministic join tables. Join storage has composite uniqueness and
 indexes in both directions. Deleting a source or target may cascade its join
 rows, but relation storage never implicitly deletes the related objects.
+
+Relation quantifiers compile to correlated, parameterized `EXISTS` expressions
+for owning joins, inverse joins, and inverse pointers. `every` is the absence of
+a visible related target that violates the developer predicate, so it and
+`none` are true for an empty visible relation. Nested predicates use
+request-local aliases and never materialize target collections.
 
 Physical constraint, column, and join-table names remain PostgreSQL concerns.
 Core metadata contains only logical targets, ownership, inverse mapping, and

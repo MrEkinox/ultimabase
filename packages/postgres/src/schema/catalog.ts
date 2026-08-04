@@ -109,11 +109,22 @@ export class PostgresSchemaCatalog {
 
 	/** Resolves one Runtime-validated edge by exact application schema identity. */
 	getRelation(scope: DatabaseRelationScope): CompiledPostgresRelation {
-		const relation = this.#relations
-			.get(scope.source)
-			?.get(JSON.stringify(scope.fieldPath))
+		return this.getRelationDefinition(
+			scope.source,
+			scope.fieldPath,
+			scope.target,
+		)
+	}
 
-		if (relation?.relation.target !== scope.target) {
+	/** Resolves relation metadata without manufacturing an object-scoped edge. */
+	getRelationDefinition(
+		source: SchemaDefinition,
+		fieldPath: readonly string[],
+		target: SchemaDefinition,
+	): CompiledPostgresRelation {
+		const relation = this.#relations.get(source)?.get(JSON.stringify(fieldPath))
+
+		if (relation?.relation.target !== target) {
 			throw new TypeError('PostgreSQL relation scope is not registered')
 		}
 

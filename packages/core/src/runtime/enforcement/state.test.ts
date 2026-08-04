@@ -28,6 +28,7 @@ describe('monotonic enforcement state', () => {
 			constraints: [],
 			inputFields: undefined,
 			outputFields: undefined,
+			relationPredicates: [],
 			rowFilter: undefined,
 			selectionFields: undefined,
 		})
