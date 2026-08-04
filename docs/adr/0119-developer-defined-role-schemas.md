@@ -24,10 +24,11 @@ those foundations directly instead of introducing a second persistence API.
 
 `@ultimabase/roles` exports `RoleSchema.define()`. It specializes
 `Schema.define()` and requires one exact member schema. The declaration accepts
-ordinary custom fields, indexes, Access, hooks, table naming, and compatible
-schema options. It injects the reserved role name, member relation, nested-role
-self relation, normalized identity storage, and one private extension claimed
-by the official roles plugin.
+ordinary custom fields, indexes, Access, hooks, adapter extensions, and
+compatible schema options. It injects the reserved role name, member relation,
+nested-role self relation, and one private extension claimed by the official
+roles plugin. The stored `name` is itself the normalized identity; keeping a
+second private copy would create two columns that could drift.
 
 The returned value is the application's role schema-model class. The developer
 registers it in `UltimaBase.schemas`, constructs drafts with `new AppRole()`,
@@ -38,8 +39,8 @@ service.
 
 Reserved role fields cannot be replaced accidentally. Custom fields remain
 ordinary fields with their exact inference and native hooks or Access. Stored
-role names use one documented locale-independent normalization rule, while the
-framework UUID remains the stable identity across rename.
+role names use NFKC normalization, trimming, and locale-independent lower-case
+conversion, while the framework UUID remains the stable identity across rename.
 
 ### Role references remain lightweight
 

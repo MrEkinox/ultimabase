@@ -143,8 +143,19 @@ export interface SchemaClass<
 	pointer(id: string): Pointer<SchemaClass<TClassName, TFields, TExtensions>>
 }
 
+/** Collects additional static capabilities owned by a schema specialization. */
+export type SchemaStaticCapabilities = object
+
+/** Creates static capabilities after the exact schema class exists. */
+export type SchemaStaticCapabilityFactory<
+	TSchema extends object,
+	TCapabilities extends SchemaStaticCapabilities,
+> = (schema: TSchema) => TCapabilities
+
 type ReservedFieldCollision<TFields extends SchemaFields> =
-	Extract<keyof TFields, ReservedSystemFieldName> extends never
+	string extends keyof TFields
+		? unknown
+		: Extract<keyof TFields, ReservedSystemFieldName> extends never
 		? unknown
 		: never
 
@@ -163,6 +174,102 @@ const reservedModelFieldNames = new Set([
 	'update',
 	'upsert',
 ])
+
+const defineSchemaStaticCapabilities = <
+	const TSchema extends object,
+	const TCapabilities extends SchemaStaticCapabilities,
+>(
+	schema: TSchema,
+	createCapabilities: SchemaStaticCapabilityFactory<TSchema, TCapabilities>,
+): TSchema & TCapabilities => {
+	if (typeof createCapabilities !== 'function') {
+		throw new TypeError('createCapabilities must be a function')
+	}
+
+	const capabilities: unknown = createCapabilities(schema)
+
+	if (!isPlainRecord(capabilities)) {
+		throw new TypeError('schema static capabilities must be a plain object')
+	}
+
+	for (const [name, capability] of Object.entries(capabilities)) {
+		assertNonEmptyString(name, 'schema static capability name')
+
+		if (name in schema) {
+			throw new TypeError(`Reserved schema static capability: ${name}`)
+		}
+
+		// Static specialization methods follow native class-method visibility.
+		Object.defineProperty(schema, name, {
+			configurable: false,
+			enumerable: false,
+			value: capability,
+			writable: false,
+		})
+	}
+
+	return schema as TSchema & TCapabilities
+}
+
+const defineSchemaModel = <
+	const TClassName extends string,
+	const TFields extends SchemaFields,
+	const TExtensions extends SchemaExtensions,
+>(
+	options: SchemaOptions<TClassName, TFields, TExtensions>,
+): SchemaClass<TClassName, TFields, TExtensions> => {
+	if (!isPlainRecord(options)) {
+		throw new TypeError('schema options must be an object')
+	}
+
+	assertNonEmptyString(options.className, 'className')
+
+	if (!isPlainRecord(options.fields)) {
+		throw new TypeError('fields must be an object')
+	}
+
+	assertNoReservedFieldCollision(options.fields)
+
+	for (const [name, field] of Object.entries(options.fields)) {
+		assertNonEmptyString(name, 'schema field name')
+		assertFieldDefinition(field, `fields.${name}`)
+	}
+
+	const fields = immutableRecord({
+		...options.fields,
+		...systemFields,
+	})
+	const indexes = normalizeSchemaIndexes(
+		options.fields,
+		options.indexes,
+	) as readonly SchemaIndexDefinition<SchemaFieldName<TFields>>[]
+	const extensions = (
+		options.extensions === undefined
+			? emptySchemaExtensions
+			: defineExtensions(options.extensions)
+	) as readonly [...TExtensions]
+	const definition: SchemaMetadata<TClassName, TFields, TExtensions> =
+		immutableRecord({
+			className: options.className,
+			fields,
+			indexes,
+			extensions,
+		})
+	const schema = createSchemaModelClass(definition, options.fields)
+
+	// Keep provenance out of public enumeration while sharing it across package copies.
+	Object.defineProperty(schema, schemaDefinitionMarker, {
+		configurable: false,
+		enumerable: false,
+		value: true,
+		writable: false,
+	})
+	// Behavioral capabilities follow Schema identity without entering metadata.
+	declareSchemaAccess(schema, options.access)
+	declareSchemaHooks(schema, options.hooks)
+
+	return schema
+}
 
 const assertNoReservedFieldCollision = (fields: SchemaFields): void => {
 	for (const name of reservedSystemFieldNames) {
@@ -238,57 +345,40 @@ export class Schema {
 		options: SchemaOptions<TClassName, TFields, TExtensions> &
 			ReservedFieldCollision<NoInfer<TFields>>,
 	): SchemaClass<TClassName, TFields, TExtensions> {
-		if (!isPlainRecord(options)) {
-			throw new TypeError('schema options must be an object')
-		}
-
-		assertNonEmptyString(options.className, 'className')
-
-		if (!isPlainRecord(options.fields)) {
-			throw new TypeError('fields must be an object')
-		}
-
-		assertNoReservedFieldCollision(options.fields)
-
-		for (const [name, field] of Object.entries(options.fields)) {
-			assertNonEmptyString(name, 'schema field name')
-			assertFieldDefinition(field, `fields.${name}`)
-		}
-
-		const fields = immutableRecord({
-			...options.fields,
-			...systemFields,
-		})
-		const indexes = normalizeSchemaIndexes(
-			options.fields,
-			options.indexes,
-		) as readonly SchemaIndexDefinition<SchemaFieldName<TFields>>[]
-		const extensions = (
-			options.extensions === undefined
-				? emptySchemaExtensions
-				: defineExtensions(options.extensions)
-		) as readonly [...TExtensions]
-		const definition: SchemaMetadata<TClassName, TFields, TExtensions> =
-			immutableRecord({
-				className: options.className,
-				fields,
-				indexes,
-				extensions,
-			})
-		const schema = createSchemaModelClass(definition, options.fields)
-
-		// Keep provenance out of public enumeration while sharing it across package copies.
-		Object.defineProperty(schema, schemaDefinitionMarker, {
-			configurable: false,
-			enumerable: false,
-			value: true,
-			writable: false,
-		})
-		// Behavioral capabilities follow Schema identity without entering metadata.
-		declareSchemaAccess(schema, options.access)
-		declareSchemaHooks(schema, options.hooks)
+		const schema = defineSchemaModel(options)
 		Object.freeze(schema)
 
 		return schema
+	}
+
+	/**
+	 * Defines a final schema class with package-owned static capabilities.
+	 *
+	 * This low-level composition point lets optional packages add concise static
+	 * helpers without wrapping, subclassing, or weakening schema identity.
+	 * Ordinary application schemas should use `Schema.define()`.
+	 *
+	 * @example `Schema.defineWithStatics(options, (schema) => ({ byId: (id) => schema.pointer(id) }))`
+	 */
+	static defineWithStatics<
+		const TClassName extends string,
+		const TFields extends SchemaFields,
+		const TExtensions extends SchemaExtensions = readonly [],
+		const TCapabilities extends SchemaStaticCapabilities = SchemaStaticCapabilities,
+	>(
+		options: SchemaOptions<TClassName, TFields, TExtensions>,
+		createCapabilities: SchemaStaticCapabilityFactory<
+			SchemaClass<TClassName, TFields, TExtensions>,
+			TCapabilities
+		>,
+	): SchemaClass<TClassName, TFields, TExtensions> & TCapabilities {
+		const schema = defineSchemaModel(options)
+		const specializedSchema = defineSchemaStaticCapabilities(
+			schema,
+			createCapabilities,
+		)
+		Object.freeze(specializedSchema)
+
+		return specializedSchema
 	}
 }

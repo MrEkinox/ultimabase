@@ -58,6 +58,23 @@ test('normalizes absent extensions to an empty tuple', () => {
 	expectTypeOf(schema.extensions).toEqualTypeOf<readonly []>()
 })
 
+test('preserves package-owned static capability inference', () => {
+	const schema = Schema.defineWithStatics(
+		{ className: 'SpecializedPost', fields: { title: stringField() } },
+		(exactSchema) => ({
+			byId: (id: string) => exactSchema.pointer(id),
+		}),
+	)
+
+	expectTypeOf(schema.byId).parameter(0).toBeString()
+	expectTypeOf(schema.byId('post-1').schema.className).toEqualTypeOf<
+		'SpecializedPost'
+	>()
+	expectTypeOf(new schema({ title: 'Hello' })).toEqualTypeOf<
+		SchemaDraft<typeof schema>
+	>()
+})
+
 test('narrows untrusted values through Schema.define identity', () => {
 	const value: unknown = Schema.define({ className: 'Post', fields: {} })
 

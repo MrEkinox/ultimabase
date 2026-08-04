@@ -68,6 +68,41 @@ describe('schema definitions', () => {
 		expect(Object.isFrozen(schema.extensions)).toBe(true)
 	})
 
+	it('finalizes package-owned static schema capabilities without wrapping identity', () => {
+		const schema = Schema.defineWithStatics(
+			{ className: 'SpecializedPost', fields: { title: stringField() } },
+			(exactSchema) => ({
+				byId: (id: string) => exactSchema.pointer(id),
+			}),
+		)
+
+		expect(Schema.is(schema)).toBe(true)
+		expect(schema.byId('post-1').schema).toBe(schema)
+		expect(Object.keys(schema)).not.toContain('byId')
+		expect(Object.isFrozen(schema)).toBe(true)
+	})
+
+	it('rejects invalid or colliding package-owned static capabilities', () => {
+		expect(() =>
+			Schema.defineWithStatics(
+				{ className: 'InvalidStaticFactory', fields: {} },
+				true as unknown as () => object,
+			),
+		).toThrow(new TypeError('createCapabilities must be a function'))
+		expect(() =>
+			Schema.defineWithStatics(
+				{ className: 'InvalidStaticResult', fields: {} },
+				() => [],
+			),
+		).toThrow(new TypeError('schema static capabilities must be a plain object'))
+		expect(() =>
+			Schema.defineWithStatics(
+				{ className: 'CollidingStatic', fields: {} },
+				() => ({ query: true }),
+			),
+		).toThrow(new TypeError('Reserved schema static capability: query'))
+	})
+
 	it.each(['id', 'createdAt', 'updatedAt'] as const)(
 		'rejects the reserved %s field',
 		(name) => {
