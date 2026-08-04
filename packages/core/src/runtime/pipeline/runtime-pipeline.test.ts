@@ -1,5 +1,9 @@
 import { FrameworkError } from '../../foundation.js'
-import { Query, type FindOperationAst } from '../../query/index.js'
+import {
+	Query,
+	type FindOperationAst,
+	type UpdateOneOperationAst,
+} from '../../query/index.js'
 import { relationField, Schema, stringField } from '../../schema/index.js'
 import { describe, expect, it } from 'vitest'
 
@@ -50,6 +54,18 @@ const articleOperation = {
 	kind: 'find',
 	query: new Query(articleSchema).limit(10).ast,
 } satisfies FindOperationAst<typeof articleSchema>
+
+const articleUpdateOperation = {
+	kind: 'update-one',
+	query: new Query(articleSchema).equalTo(
+		'id',
+		'0198f090-2a50-7000-8000-000000000081',
+	).ast,
+	update: {
+		kind: 'update-expression',
+		operations: [{ field: 'title', kind: 'set', value: 'requested' }],
+	},
+} satisfies UpdateOneOperationAst<typeof articleSchema>
 
 const relationPredicateTarget = Schema.define({
 	className: 'RuntimeRelationPredicateTarget',
@@ -289,6 +305,69 @@ describe('RuntimePipeline', () => {
 			'commit',
 			'postCommitEvents',
 		])
+	})
+
+	it('revalidates prepared values and executes the transformed update', async () => {
+		const trace: string[] = []
+		const target = {
+			createdAt: '2026-08-02T00:00:00.000Z',
+			id: '0198f090-2a50-7000-8000-000000000081',
+			title: 'stored',
+			updatedAt: '2026-08-02T00:00:00.000Z',
+		}
+		let executedOperation: DatabaseMutationOperationAst | undefined
+		const transaction: DatabaseTransactionAdapter = {
+			kind: 'database-transaction-adapter',
+			prepare: <
+				const TOperation extends DatabaseMutationOperationAst,
+			>(): Promise<PreparedDatabaseOperation<TOperation>> =>
+				Promise.resolve(
+					createPreparedOperationFixture<TOperation>({
+						execute: () =>
+							Promise.resolve(
+								target as unknown as DatabaseOperationResult<TOperation>,
+							),
+						onExecute: (operation) => {
+							executedOperation = operation
+						},
+						target,
+					}),
+				),
+			execute: <const TOperation extends DatabaseOperationAst>(): Promise<
+				DatabaseOperationResult<TOperation>
+			> => Promise.reject(new TypeError('Unexpected direct execution')),
+			commit: () => Promise.resolve(),
+			rollback: () => Promise.resolve(),
+		}
+		const enforcement = createEnforcementStages(trace)
+		const pipeline = new RuntimePipeline(
+			createStages(trace, transaction, {
+				enforcement,
+				nativeHooks: createNativeHookStages(trace),
+				preparedOperationHooks: (input) => ({
+					...input.operation,
+					update: {
+						kind: 'update-expression',
+						operations: [{ field: 'title', kind: 'set', value: target.title }],
+					},
+				}),
+			}),
+		)
+
+		await pipeline.execute({
+			context: requestContext,
+			operation: articleUpdateOperation,
+		})
+
+		expect(executedOperation).toMatchObject({
+			kind: 'update-one',
+			update: {
+				operations: [{ field: 'title', kind: 'set', value: 'stored' }],
+			},
+		})
+		expect(
+			trace.filter((entry) => entry === 'enforcement:reevaluate'),
+		).toHaveLength(2)
 	})
 
 	it('reapplies operation enforcement after hooks and restricts the final result', async () => {

@@ -34,6 +34,7 @@ export type HookDiagnosticPhase =
 	| 'guard'
 	| 'event'
 	| 'post-commit-event'
+	| 'prepared-operation'
 	| 'restrictInput'
 	| 'restrictOutput'
 	| 'restrictSelection'

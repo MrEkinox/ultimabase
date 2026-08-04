@@ -16,7 +16,7 @@ export interface PointerJSON<TClassName extends string = string> {
 
 class PointerValueBrand {
 	// The hidden base prevents structural objects from satisfying PointerValue.
-	declare private readonly pointerValueIdentity: void
+	declare private readonly pointerValueIdentity: undefined
 }
 
 /**

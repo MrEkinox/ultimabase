@@ -291,6 +291,7 @@ export const createFrameworkEngine = <
 		globalAfterHooks: hookStages.globalAfterHooks,
 		commit: composeCommitStage(contributedStages.commit),
 		postCommitEvents: hookStages.postCommitEvents,
+		preparedOperationHooks: hookStages.preparedOperationHooks,
 		nativeHooks,
 		...(enforcement === undefined ? {} : { enforcement }),
 	}

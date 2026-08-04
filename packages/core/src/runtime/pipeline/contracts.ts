@@ -234,6 +234,13 @@ export type RuntimePreparedMutationEffectStage = <
 	input: RuntimePreparedMutationStageInput<TOperation>,
 ) => MaybePromise<void>
 
+/** Replaces values for one locked singular mutation without changing its target. */
+export type RuntimePreparedMutationTransformStage = <
+	const TOperation extends DatabaseMutationOperationAst,
+>(
+	input: RuntimePreparedMutationStageInput<TOperation>,
+) => MaybePromise<TOperation>
+
 /** Validates private materializations while executing their field effects. */
 export type RuntimeMutationOutcomeTransformStage = <
 	const TOperation extends DatabaseMutationOperationAst,
@@ -273,6 +280,8 @@ export interface RuntimePipelineStages {
 	readonly globalAfterHooks: RuntimeResultTransformStage
 	readonly commit: RuntimeResultEffectStage
 	readonly postCommitEvents: RuntimeResultEffectStage
+	/** Resolves authorized values against one locked singular update target. */
+	readonly preparedOperationHooks?: RuntimePreparedMutationTransformStage
 	/** Installed by application assembly when native declarations are compiled. */
 	readonly nativeHooks?: RuntimeNativeHookStages
 	/** Present only when at least one plugin contributed monotonic enforcement. */

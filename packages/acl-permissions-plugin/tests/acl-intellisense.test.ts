@@ -96,9 +96,8 @@ describe('ACL IntelliSense', () => {
 				name.replace(/^['"]|['"]$/g, ''),
 			) ?? []
 
-		expect(names).toEqual(
-			expect.arrayContaining(['read', 'update', 'delete', 'manageAcl']),
-		)
+		expect(names).toEqual(expect.arrayContaining(['read', 'update', 'delete']))
+		expect(names).not.toContain('manageAcl')
 	})
 
 	it('keeps the chained result hover at the public ACL class', () => {

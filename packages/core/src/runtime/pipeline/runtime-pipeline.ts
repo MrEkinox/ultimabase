@@ -16,6 +16,7 @@ import {
 } from '../database/contracts.js'
 import type {
 	DatabaseConstraintNode,
+	DatabaseMutationLogicalRecord,
 	DatabaseMutationOperationAst,
 	DatabaseOperationAst,
 	DatabaseOperationExecutor,
@@ -25,6 +26,7 @@ import type {
 	DatabaseRelationPredicateScope,
 	DatabaseRowFilterNode,
 	DatabaseTransactionAdapter,
+	PreparedDatabaseOperation,
 } from '../database/contracts.js'
 import type { HookErrorPhase } from '../../schema/hooks/contracts.js'
 import {
@@ -38,6 +40,7 @@ import type {
 	RuntimeEnforcementStages,
 	RuntimeOperationStageInput,
 	RuntimeNativeHookStages,
+	RuntimePreparedMutationTransformStage,
 	RuntimeNativeTransactionOperation,
 	RuntimeNativeResultStageInput,
 	RuntimePipelineRequest,
@@ -176,6 +179,31 @@ const assertPreparedMutationExecutor: (
 	}
 }
 
+/** Reads the conditional prepared target through one validated erased boundary. */
+const readPreparedMutationTarget = <
+	const TOperation extends DatabaseMutationOperationAst,
+>(
+	prepared: PreparedDatabaseOperation<TOperation>,
+): DatabaseMutationLogicalRecord<TOperation> | null | undefined => {
+	const untrustedPrepared: unknown = prepared
+
+	if (typeof untrustedPrepared !== 'object' || untrustedPrepared === null) {
+		throw new TypeError('Prepared database operation must be an object')
+	}
+
+	const value: unknown =
+		'target' in untrustedPrepared ? untrustedPrepared.target : undefined
+
+	if (value === undefined || value === null) return value
+
+	if (!isPlainRecord(value)) {
+		throw new TypeError('Prepared database target must be a logical record')
+	}
+
+	// The adapter contract ties this validated logical record to the operation schema.
+	return value as DatabaseMutationLogicalRecord<TOperation>
+}
+
 /** Rejects relation work unless the active transaction adapter claims its protocol. */
 const assertRelationMutationCapability = (
 	executor: DatabaseOperationExecutor,
@@ -211,6 +239,7 @@ const executeDatabaseOperation = async <
 	executor: DatabaseOperationExecutor,
 	context: RequestContext,
 	nativeHooks: RuntimeNativeHookStages | undefined,
+	preparedOperationHooks: RuntimePreparedMutationTransformStage | undefined,
 	request: {
 		readonly constraints: readonly DatabaseConstraintNode[]
 		readonly operation: TOperation
@@ -304,7 +333,7 @@ const executeDatabaseOperation = async <
 				: { rowFilter: request.rowFilter }),
 		}),
 	)
-	const target = 'target' in prepared ? prepared.target : undefined
+	const target = readPreparedMutationTarget(prepared)
 
 	if (
 		enforcement?.enforcePreparedMutation !== undefined &&
@@ -314,11 +343,61 @@ const executeDatabaseOperation = async <
 			immutableRecord({ context, operation: request.operation, target }),
 		)
 	}
+	let executableOperation = request.operation
+
+	if (
+		target !== undefined &&
+		target !== null &&
+		preparedOperationHooks !== undefined
+	) {
+		const resolvedOperation = await preparedOperationHooks(
+			immutableRecord({
+				context,
+				operation: request.operation,
+				target,
+			}),
+		)
+		executableOperation = resolvedOperation
+
+		if (resolvedOperation !== request.operation && nativeHooks !== undefined) {
+			executableOperation = await nativeHooks.revalidate(
+				immutableRecord({ context, operation: executableOperation }),
+			)
+			await nativeHooks.validate(
+				immutableRecord({ context, operation: executableOperation }),
+			)
+		}
+		if (
+			resolvedOperation !== request.operation &&
+			enforcement !== undefined &&
+			enforcementState !== undefined
+		) {
+			// Prepared value resolvers cannot bypass value-dependent field Access.
+			await enforcement.reevaluate(
+				immutableRecord({
+					context,
+					enforcement: enforcementState,
+					operation: executableOperation,
+				}),
+			)
+		}
+
+		// Value-dependent item decisions observe the final resolved value as well.
+		if (
+			resolvedOperation !== request.operation &&
+			enforcement?.enforcePreparedMutation !== undefined &&
+			enforcementState !== undefined
+		) {
+			await enforcement.enforcePreparedMutation(
+				immutableRecord({ context, operation: executableOperation, target }),
+			)
+		}
+	}
 
 	await nativeHooks?.fieldBefore(
-		immutableRecord({ context, operation: request.operation, target }),
+		immutableRecord({ context, operation: executableOperation, target }),
 	)
-	let outcome = await prepared.execute()
+	let outcome = await prepared.execute(executableOperation)
 
 	if (
 		enforcement?.enforceMutationOutcome !== undefined &&
@@ -420,6 +499,15 @@ const assertRuntimePipelineStages = (stages: RuntimePipelineStages): void => {
 	) {
 		throw new TypeError(
 			'Runtime pipeline databaseOperation must be an operation executor',
+		)
+	}
+
+	if (
+		untrustedStages.preparedOperationHooks !== undefined &&
+		typeof untrustedStages.preparedOperationHooks !== 'function'
+	) {
+		throw new TypeError(
+			'Runtime pipeline stage preparedOperationHooks must be a function',
 		)
 	}
 }
@@ -850,6 +938,7 @@ export class RuntimePipeline {
 			this.#stages.databaseOperation,
 			context,
 			this.#stages.nativeHooks,
+			this.#stages.preparedOperationHooks,
 			immutableRecord({
 				constraints,
 				operation,

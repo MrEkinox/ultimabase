@@ -1,4 +1,5 @@
 import {
+	AccessSubjectReference,
 	Schema,
 	accessRoleResolverServiceToken,
 	createApplication,
@@ -92,6 +93,32 @@ describe('stored role Access integration', () => {
 		).resolves.toBe(true)
 		expect(fixture.membership).toHaveBeenCalledTimes(1)
 		expect(fixture.references).toHaveBeenCalledTimes(2)
+	})
+
+	it('lists current roles from the same request-local membership snapshot', async () => {
+		const fixture = createDependencies()
+		const resolver = createStoredRoleResolver([AppRole], fixture.dependencies)
+		const context = createContext('current-role-list')
+
+		const roles = await resolver.resolveCurrentRoles?.({ context })
+		await resolver.hasRole({ context, role: AppRole.role({ id: editorId }) })
+
+		expect(roles?.map(({ value }) => value)).toHaveLength(2)
+		expect(fixture.membership).toHaveBeenCalledOnce()
+	})
+
+	it('restores serialized official references without relying on WeakMap identity', async () => {
+		const fixture = createDependencies()
+		const resolver = createStoredRoleResolver([AppRole], fixture.dependencies)
+		const original = AppRole.role({ id: editorId })
+		const restored = new AccessSubjectReference('role', original.value)
+
+		await expect(
+			resolver.hasRole({
+				context: createContext('restored-role-reference'),
+				role: restored,
+			}),
+		).resolves.toBe(true)
 	})
 
 	it('isolates caches by request and rejects foreign role domains normally', async () => {

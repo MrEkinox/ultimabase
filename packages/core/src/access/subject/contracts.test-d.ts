@@ -97,7 +97,7 @@ test('infers plugin-owned principals and resolved subjects exactly', () => {
 	expectTypeOf(accessPrincipalResolverServiceToken).toEqualTypeOf<
 		ServiceToken<AccessPrincipalResolver>
 	>()
-	expectTypeOf(principalResolver.resolveCurrent).toBeFunction()
+	expectTypeOf<AccessPrincipalResolver['resolveCurrent']>().toBeFunction()
 	expectTypeOf(
 		resolveAccessPrincipal({
 			context: {} as never,

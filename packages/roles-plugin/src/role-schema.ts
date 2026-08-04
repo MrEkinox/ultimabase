@@ -426,7 +426,7 @@ export class RoleSchema {
 
 				const toAccessRoleReference = function (
 					this: object,
-				): RoleReference<SelfSchema, RoleIdSelector<string>> {
+				): RoleReference<SelfSchema, RoleIdSelector> {
 					exactContext.assertPersisted(this, 'toAccessRoleReference')
 
 					if (!('id' in this) || typeof this.id !== 'string') {

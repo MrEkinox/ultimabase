@@ -3,9 +3,9 @@
 - Status: active
 - Started: 2026-08-04
 - Objective owner: `@ultimabase/acl-permissions-plugin`, `@ultimabase/core`, `@ultimabase/postgres-plugin`
-- Governing decisions: [ADR-0005](docs/adr/0005-immutable-class-api.md), [ADR-0113](docs/adr/0113-plugin-owned-authentication-context.md), [ADR-0116](docs/adr/0116-fundamental-access-system.md), [ADR-0117](docs/adr/0117-optional-access-subject-capabilities.md), [ADR-0119](docs/adr/0119-developer-defined-role-schemas.md), [ADR-0122](docs/adr/0122-immutable-persisted-object-acls.md)
+- Governing decisions: [ADR-0005](docs/adr/0005-immutable-class-api.md), [ADR-0113](docs/adr/0113-plugin-owned-authentication-context.md), [ADR-0116](docs/adr/0116-fundamental-access-system.md), [ADR-0117](docs/adr/0117-optional-access-subject-capabilities.md), [ADR-0119](docs/adr/0119-developer-defined-role-schemas.md), [ADR-0122](docs/adr/0122-immutable-persisted-object-acls.md), [ADR-0123](docs/adr/0123-master-only-acl-management.md)
 - Previous completed objective: [Developer-defined stored roles](docs/plans/completed/developer-defined-stored-roles.md)
-- Resume point: issue 411
+- Resume point: issue 428
 
 ## Objective
 
@@ -13,7 +13,8 @@ Implement persisted object ACL as an optional provider for native Access. The
 vertical must support applications with no authentication or roles, accept any
 number of exact principals and roles when their neutral providers are present,
 compile row restrictions into PostgreSQL, protect the ACL field with
-`manageAcl`, and preserve automatic transactions and post-commit auditing.
+master-only management, and preserve automatic transactions and post-commit
+auditing.
 
 The target developer experience is:
 
@@ -35,13 +36,7 @@ const Post = Schema.define({
 
 				return principal === undefined
 					? value
-					: value.grantPrincipal(
-							principal,
-							'read',
-							'update',
-							'delete',
-							'manageAcl',
-						)
+					: value.grantPrincipal(principal, 'read', 'update', 'delete')
 			},
 		}),
 	],
@@ -76,7 +71,10 @@ never imports or identifies that plugin.
 
 ## Frozen decisions
 
-- ACL rights are exactly `read`, `update`, `delete`, and `manageAcl`.
+- ACL rights are exactly `read`, `update`, and `delete`.
+- Only trusted master execution may read, filter, order by, explicitly create,
+  or replace the reserved ACL field. Object `update` grants never imply ACL
+  management.
 - `ACL` is an immutable, non-persisting value class with symmetric grant,
   revoke, replace, and inspection methods.
 - One ACL may contain any number of principals and roles. Principal identity is
@@ -87,8 +85,8 @@ never imports or identifies that plugin.
 - A default ACL may be static or asynchronous and may read the exact
   field-resolved create candidate, optional principal, and context. The complete
   row is revalidated before Access.
-- One `resolveInput` callback serves create and update. Existing ACL changes
-  require `manageAcl`.
+- One `resolveInput` callback serves create and update. It accepts explicit ACL
+  input only during trusted master execution.
 - Plugin options stay limited to default entry limits; schema configuration may
   override them.
 - Subject-owning providers define deletion policy. ACL contributes neutral
@@ -115,7 +113,7 @@ never imports or identifies that plugin.
 
 ### Phase 3 — Native Access and PostgreSQL
 
-5. [ ] [411 — Implement aclPlugin Access contributions](issues/400-access/411-acl-plugin.md)
+5. [x] [411 — Implement aclPlugin Access contributions](issues/400-access/411-acl-plugin.md)
 6. [ ] [428 — Enforce configurable ACL entry limits](issues/400-access/428-acl-entry-limits.md)
 7. [ ] [510 — Store ACL in indexed JSONB columns](issues/500-postgres/510-acl-jsonb-storage.md)
 8. [ ] [509 — Compile PostgreSQL ACL constraints](issues/500-postgres/509-postgres-access-compilers.md)
@@ -134,7 +132,7 @@ never imports or identifies that plugin.
 
 - Focused runtime, type, language-service, package-export, and immutability tests pass.
 - Docker-backed PostgreSQL tests prove every subject and right, row hiding,
-  `manageAcl`, RoleSchema protection, master bypass, cleanup, rollback, and
+  master-only ACL management, RoleSchema protection, master bypass, cleanup, rollback, and
   application isolation.
 - Repository typecheck, tests, lint, formatting, dependency constraints, build,
   and packed-package checks pass.

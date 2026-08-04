@@ -13,6 +13,8 @@ describe('@ultimabase/acl-permissions-plugin public entry point', () => {
 			'aclPermissions',
 			'aclPlugin',
 			'aclPluginName',
+			'aclRowConstraintKind',
+			'aclRowConstraintVersion',
 			'aclSchemaExtensionName',
 		])
 	})

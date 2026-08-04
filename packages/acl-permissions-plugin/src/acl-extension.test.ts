@@ -6,6 +6,7 @@ import {
 	aclFieldKind,
 	aclPluginName,
 	aclSchemaExtensionName,
+	type ACLInputResolver,
 } from './acl-extension.js'
 import { ACL } from './acl.js'
 
@@ -34,7 +35,7 @@ describe('acl schema extension', () => {
 	it('retains static and asynchronous defaults without executing callbacks', () => {
 		const value = new ACL().grantPublic('read')
 		const staticExtension = acl({ default: value })
-		const factory = vi.fn(async () => value)
+		const factory = vi.fn(() => Promise.resolve(value))
 		const dynamicExtension = acl({ default: factory })
 
 		expect(staticExtension.config.default).toBe(value)
@@ -44,7 +45,7 @@ describe('acl schema extension', () => {
 
 	it('normalizes callbacks and schema-level limits without mutating source options', () => {
 		const limits = { maxPrincipals: 10, maxRoles: 5 }
-		const resolveInput = vi.fn(({ inputAcl }) => inputAcl)
+		const resolveInput: ACLInputResolver = ({ inputAcl }) => inputAcl
 		const extension = acl({ limits, resolveInput })
 
 		limits.maxPrincipals = 20

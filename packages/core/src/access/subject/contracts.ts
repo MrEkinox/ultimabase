@@ -128,11 +128,24 @@ export type AccessRoleReference<TValue extends string | number = string> =
 /** Lets a persisted provider-owned value expose its neutral role reference. */
 export interface AccessRoleReferenceCarrier {
 	/** Returns one stable role reference without performing persistence or lookup. */
-	toAccessRoleReference(): AccessRoleReference
+	readonly toAccessRoleReference: () => AccessRoleReference
 }
 
 /** Accepts either a lightweight reference or a persisted role value. */
 export type AccessRoleSubject = AccessRoleReference | AccessRoleReferenceCarrier
+
+const isAccessRoleReferenceCarrier = (
+	value: unknown,
+): value is AccessRoleReferenceCarrier =>
+	typeof value === 'object' &&
+	value !== null &&
+	'toAccessRoleReference' in value &&
+	typeof value.toAccessRoleReference === 'function'
+
+const isAccessRoleReference = (value: unknown): value is AccessRoleReference =>
+	value instanceof AccessSubjectReference &&
+	value.kind === 'role' &&
+	typeof value.value === 'string'
 
 /**
  * Normalizes one role subject without identifying its provider package.
@@ -146,18 +159,11 @@ export const resolveAccessRoleReference = (
 	const reference: unknown =
 		candidate instanceof AccessSubjectReference
 			? candidate
-			: typeof candidate === 'object' &&
-				  candidate !== null &&
-				  'toAccessRoleReference' in candidate &&
-				  typeof candidate.toAccessRoleReference === 'function'
+			: isAccessRoleReferenceCarrier(candidate)
 				? candidate.toAccessRoleReference()
 				: undefined
 
-	if (
-		!(reference instanceof AccessSubjectReference) ||
-		reference.kind !== 'role' ||
-		typeof reference.value !== 'string'
-	) {
+	if (!isAccessRoleReference(reference)) {
 		throw new TypeError(
 			'Access role subject must provide one string role reference',
 		)
@@ -192,6 +198,15 @@ export interface AccessRoleResolutionInput {
 /** Allows official or community providers to resolve request-local role membership. */
 export interface AccessRoleResolver {
 	hasRole(input: AccessRoleResolutionInput): MaybePromise<boolean>
+	/**
+	 * Lists stable role references held by the current request principal.
+	 *
+	 * Row-level providers use this optional capability when candidate role
+	 * references live inside persisted rows and are therefore unknown before SQL.
+	 */
+	resolveCurrentRoles?(
+		input: AccessPrincipalResolutionInput,
+	): MaybePromise<readonly AccessRoleReference[] | undefined>
 }
 
 /**

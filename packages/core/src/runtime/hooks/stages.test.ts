@@ -5,10 +5,13 @@ import {
 } from '../../foundation.js'
 import { Query } from '../../query/index.js'
 import { Schema, stringField } from '../../schema/index.js'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import { RequestContext, requestSources } from '../context/request-context.js'
-import type { CreateOneOperationAst } from '../../query/index.js'
+import type {
+	CreateOneOperationAst,
+	UpdateOneOperationAst,
+} from '../../query/index.js'
 import type {
 	RuntimeOperationStageInput,
 	RuntimeResultStageInput,
@@ -17,6 +20,7 @@ import {
 	afterOperation,
 	beforeOperation,
 	postCommitEvent,
+	preparedOperation,
 } from './definitions.js'
 import { createRuntimeHookStages } from './stages.js'
 
@@ -40,6 +44,22 @@ const operation: CreateOneOperationAst<typeof articleSchema> = {
 	schema: new Query(articleSchema).ast.schema,
 	input: { title: 'input' },
 }
+
+const updateOperation: UpdateOneOperationAst<typeof articleSchema> = {
+	kind: 'update-one',
+	query: new Query(articleSchema).equalTo('id', 'article-1').ast,
+	update: {
+		kind: 'update-expression',
+		operations: [{ field: 'title', kind: 'set', value: 'input' }],
+	},
+}
+
+const updateTarget = Object.freeze({
+	createdAt: '2026-08-01T00:00:00.000Z',
+	id: 'article-1',
+	title: 'stored',
+	updatedAt: '2026-08-01T00:00:00.000Z',
+})
 
 describe('createRuntimeHookStages', () => {
 	it('requires an initialized FrameworkApplication', async () => {
@@ -227,5 +247,104 @@ describe('createRuntimeHookStages', () => {
 		).rejects.toThrow(
 			new TypeError('before-operation hook must preserve schema identity'),
 		)
+	})
+
+	it('resolves only update values against one locked singular target', async () => {
+		const handler = vi.fn()
+		const plugin = definePlugin({
+			name: 'fixture.prepared-value',
+			setup: ({ registries }) => {
+				registries.hooks.register(
+					'fixture.prepared-value',
+					preparedOperation({
+						schema: articleSchema,
+						handler: ({ operation: current, target }) => {
+							handler(target)
+
+							return {
+								operation: {
+									...current,
+									update: {
+										...current.update,
+										operations: current.update.operations.map((candidate) =>
+											candidate.kind === 'set'
+												? { ...candidate, value: target.title }
+												: candidate,
+										),
+									},
+								},
+							}
+						},
+					}),
+				)
+			},
+		})
+		const application = await createApplication({
+			plugins: [plugin],
+			schemas: [articleSchema],
+		})
+		const stages = createRuntimeHookStages(application)
+		const resolved = await stages.preparedOperationHooks({
+			context,
+			operation: updateOperation,
+			target: updateTarget,
+		})
+
+		expect(resolved.update.operations).toStrictEqual([
+			{ field: 'title', kind: 'set', value: 'stored' },
+		])
+		expect(resolved.query).toBe(updateOperation.query)
+		expect(handler).toHaveBeenCalledOnce()
+
+		const unchanged = await stages.preparedOperationHooks({
+			context,
+			operation: updateOperation,
+			target: null,
+		})
+		expect(unchanged).toBe(updateOperation)
+		expect(handler).toHaveBeenCalledOnce()
+	})
+
+	it('rejects prepared transformers that alter the target or update shape', async () => {
+		const invalidReplacements = [
+			{
+				...updateOperation,
+				query: new Query(articleSchema).equalTo('id', 'article-2').ast,
+			},
+			{
+				...updateOperation,
+				update: {
+					kind: 'update-expression',
+					operations: [{ field: 'other', kind: 'set', value: 'changed' }],
+				},
+			},
+		] as const
+
+		for (const [index, replacement] of invalidReplacements.entries()) {
+			const plugin = definePlugin({
+				name: `fixture.invalid-prepared-${String(index)}`,
+				setup: ({ registries }) => {
+					registries.hooks.register(
+						'fixture.invalid-prepared',
+						preparedOperation({
+							schema: articleSchema,
+							handler: (() => ({ operation: replacement })) as never,
+						}),
+					)
+				},
+			})
+			const application = await createApplication({
+				plugins: [plugin],
+				schemas: [articleSchema],
+			})
+
+			await expect(
+				createRuntimeHookStages(application).preparedOperationHooks({
+					context,
+					operation: updateOperation,
+					target: updateTarget,
+				}),
+			).rejects.toThrow(/prepared-operation hook/u)
+		}
 	})
 })

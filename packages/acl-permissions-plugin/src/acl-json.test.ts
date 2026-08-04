@@ -15,7 +15,7 @@ describe('ACL JSON', () => {
 		const original = new ACL()
 			.grantPublic('read')
 			.grantAuthenticated('update')
-			.grantPrincipal(user, 'read', 'manageAcl')
+			.grantPrincipal(user, 'read', 'update')
 			.grantPrincipal(service, 'delete')
 			.grantRole(editor, 'read', 'update')
 			.grantRole(reviewer, 'delete')
@@ -25,7 +25,7 @@ describe('ACL JSON', () => {
 		expect(restored.toJSON()).toStrictEqual(document)
 		expect(restored.permissionsForPrincipal(user)).toStrictEqual([
 			'read',
-			'manageAcl',
+			'update',
 		])
 		expect(restored.permissionsForPrincipal(service)).toStrictEqual(['delete'])
 		expect(restored.permissionsForRole(editor)).toStrictEqual([

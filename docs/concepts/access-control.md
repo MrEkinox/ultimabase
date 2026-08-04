@@ -28,11 +28,10 @@ ACL is an optional persisted per-object Access provider. It grants object
 operations to anonymous or plugin-provided subjects and contributes row, item,
 and field restrictions without overriding native schema or field Access.
 
-One immutable ACL may grant `read`, `update`, `delete`, and `manageAcl` to
-public access, any authenticated principal, any number of exact schema-qualified
-principal Pointers, and any number of schema-qualified roles. Symmetric grant,
-revoke, replace, and inspection methods never perform persistence or subject
-resolution.
+One immutable ACL may grant `read`, `update`, and `delete` to public access,
+any authenticated principal, any number of exact schema-qualified principal
+Pointers, and any number of schema-qualified roles. Symmetric grant, revoke,
+replace, and inspection methods never perform persistence or subject resolution.
 
 ACL values expose a versioned detached `toJSON()` document and strict
 `ACL.fromJSON(unknown)` reconstruction. PostgreSQL stores an adapter-owned JSONB
@@ -67,8 +66,9 @@ extension accepts one static or asynchronous default and one shared
 `resolveInput` callback for both operations. A default factory receives the
 field-resolved create candidate, optional current principal, and operation
 context, so it may derive object grants from the data being inserted. The
-complete row is revalidated before Access. Updating an existing ACL requires
-`manageAcl`, and the field is visible only with that right.
+complete row is revalidated before Access. Only trusted master execution may
+supply, inspect, or replace an ACL value. An ordinary object `update` grant
+never grants control over its ACL.
 
 Master is trusted execution authority rather than an ACL subject. It bypasses
 ACL authorization but not validation, default generation, hooks, transactions,

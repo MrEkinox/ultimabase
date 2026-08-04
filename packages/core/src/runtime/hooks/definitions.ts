@@ -1,6 +1,7 @@
 import type {
 	ExecutableOperationAst,
 	OperationKind,
+	UpdateOneOperationAst,
 } from '../../query/index.js'
 import { Schema, type SchemaDefinition } from '../../schema/index.js'
 import {
@@ -13,6 +14,8 @@ import {
 
 import type { HookContext } from '../../schema/hooks/hook-context.js'
 import type {
+	DatabaseMutationLogicalRecord,
+	DatabaseMutationOperationAst,
 	DatabaseOperationAst,
 	DatabaseOperationResult,
 } from '../database/contracts.js'
@@ -32,6 +35,14 @@ export interface RuntimeHookResultInput<
 > extends RuntimeHookOperationInput<TOperation> {
 	/** Contains the immutable adapter result paired with the observed operation. */
 	readonly result: DatabaseOperationResult<TOperation>
+}
+
+/** Supplies one stable singular preimage after Access has authorized its row. */
+export interface RuntimePreparedOperationInput<
+	TOperation extends DatabaseMutationOperationAst,
+> extends RuntimeHookOperationInput<TOperation> {
+	/** Contains the locked logical object that the mutation would update. */
+	readonly target: DatabaseMutationLogicalRecord<TOperation>
 }
 
 const runtimeOperationKinds = new Set<OperationKind>([
@@ -94,6 +105,11 @@ export type PostCommitEventHandler<
 	input: RuntimeHookResultInput<RuntimeHookOperation<TSchema, TOperationKind>>,
 ) => MaybePromise<void>
 
+/** Resolves one authorized update value against its locked current object. */
+export type PreparedOperationHandler<TSchema extends SchemaDefinition> = (
+	input: RuntimePreparedOperationInput<UpdateOneOperationAst<TSchema>>,
+) => MaybePromise<BeforeOperationResult<UpdateOneOperationAst<TSchema>>>
+
 interface RuntimeContributionOptions<
 	TSchema extends SchemaDefinition,
 	TOperations extends readonly OperationKind[],
@@ -131,6 +147,15 @@ export type PostCommitEventOptions<
 	TSchema,
 	TOperations,
 	PostCommitEventHandler<TSchema, TOperations[number]>
+>
+
+export type PreparedOperationOptions<TSchema extends SchemaDefinition> = Omit<
+	RuntimeContributionOptions<
+		TSchema,
+		readonly ['update-one'],
+		PreparedOperationHandler<TSchema>
+	>,
+	'operations'
 >
 
 declare const runtimeContributionType: unique symbol
@@ -178,13 +203,26 @@ export type PostCommitEventDefinition<
 	PostCommitEventHandler<TSchema, TOperationKind>
 >
 
+export type PreparedOperationDefinition<
+	TSchema extends SchemaDefinition = SchemaDefinition,
+> = RuntimeContributionDefinition<
+	'prepared-operation',
+	TSchema,
+	'update-one',
+	PreparedOperationHandler<TSchema>
+>
+
 export type RuntimeContributionDefinitionUnion =
 	| BeforeOperationDefinition
 	| AfterOperationDefinition
+	| PreparedOperationDefinition
 	| PostCommitEventDefinition
 
 type RuntimeContributionKind =
-	'after-operation' | 'before-operation' | 'post-commit-event'
+	| 'after-operation'
+	| 'before-operation'
+	| 'post-commit-event'
+	| 'prepared-operation'
 
 interface RuntimeContributionImplementation {
 	readonly kind: RuntimeContributionKind
@@ -195,6 +233,7 @@ interface RuntimeContributionImplementation {
 
 type RuntimeContributionInput =
 	| RuntimeHookOperationInput<DatabaseOperationAst>
+	| RuntimePreparedOperationInput<DatabaseMutationOperationAst>
 	| RuntimeHookResultInput<DatabaseOperationAst>
 
 type ErasedRuntimeContributionHandler = (
@@ -334,6 +373,20 @@ export const postCommitEvent = <
 ): PostCommitEventDefinition<TSchema, TOperations[number]> =>
 	defineRuntimeContribution('post-commit-event', options)
 
+/**
+ * Declares a schema-scoped transformer for one authorized, locked update target.
+ *
+ * This narrow plugin boundary exists for persisted value objects whose accepted
+ * replacement depends on their current value. It never runs for set-based work.
+ */
+export const preparedOperation = <const TSchema extends SchemaDefinition>(
+	options: PreparedOperationOptions<TSchema>,
+): PreparedOperationDefinition<TSchema> =>
+	defineRuntimeContribution('prepared-operation', {
+		...options,
+		operations: ['update-one'],
+	})
+
 /** Resolves only definitions created by the public factories. */
 export const getRuntimeContributionImplementation = (
 	value: unknown,
@@ -360,3 +413,13 @@ export const createAfterHookInput = <
 	result: DatabaseOperationResult<TOperation>,
 ): RuntimeHookResultInput<TOperation> =>
 	immutableRecord({ context, operation, result })
+
+/** Creates one isolated envelope for an authorized locked-target transformer. */
+export const createPreparedHookInput = <
+	const TOperation extends DatabaseMutationOperationAst,
+>(
+	context: HookContext,
+	operation: TOperation,
+	target: DatabaseMutationLogicalRecord<TOperation>,
+): RuntimePreparedOperationInput<TOperation> =>
+	immutableRecord({ context, operation, target })

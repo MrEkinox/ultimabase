@@ -105,6 +105,7 @@ export {
 	afterOperation,
 	beforeOperation,
 	postCommitEvent,
+	preparedOperation,
 } from './hooks/definitions.js'
 export type {
 	AfterOperationDefinition,
@@ -118,8 +119,12 @@ export type {
 	PostCommitEventDefinition,
 	PostCommitEventHandler,
 	PostCommitEventOptions,
+	PreparedOperationDefinition,
+	PreparedOperationHandler,
+	PreparedOperationOptions,
 	RuntimeContributionDefinitionUnion,
 	RuntimeHookOperationInput,
+	RuntimePreparedOperationInput,
 	RuntimeHookResultInput,
 } from './hooks/definitions.js'
 export { onEvent } from './hooks/events.js'
@@ -173,6 +178,7 @@ export type {
 	RuntimePipelineRequest,
 	RuntimePipelineStages,
 	RuntimePreparedMutationEffectStage,
+	RuntimePreparedMutationTransformStage,
 	RuntimePreparedMutationStageInput,
 	RuntimeResultEffectStage,
 	RuntimeResultStageInput,

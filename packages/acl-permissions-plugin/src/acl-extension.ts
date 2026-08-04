@@ -184,8 +184,10 @@ const normalizeLimits = (
 		(key) => key !== 'maxPrincipals' && key !== 'maxRoles',
 	)
 
-	if (unknownKeys.length > 0) {
-		throw new TypeError(`Unknown acl limit: ${unknownKeys[0]}`)
+	const unknownKey = unknownKeys[0]
+
+	if (unknownKey !== undefined) {
+		throw new TypeError(`Unknown acl limit: ${unknownKey}`)
 	}
 
 	return immutableRecord({
@@ -212,7 +214,7 @@ const normalizeLimits = (
  *     default: ({ principal }) =>
  *       principal === undefined
  *         ? new ACL().grantPublic('read')
- *         : new ACL().grantPrincipal(principal, 'read', 'manageAcl'),
+ *         : new ACL().grantPrincipal(principal, 'read', 'update'),
  *   }),
  * ]
  * ```
@@ -221,7 +223,9 @@ export const acl = <
 	const TData extends Readonly<Record<string, unknown>> = Readonly<
 		Record<string, unknown>
 	>,
->(options: ACLSchemaOptions<TData> = {}): ACLSchemaExtension<TData> => {
+>(
+	options: ACLSchemaOptions<TData> = {},
+): ACLSchemaExtension<TData> => {
 	const untrustedOptions: unknown = options
 
 	if (!isPlainRecord(untrustedOptions)) {
@@ -249,10 +253,7 @@ export const acl = <
 		limits: normalizeLimits(options.limits),
 	})
 
-	return defineSchemaExtension(
-		aclSchemaExtensionName,
-		config,
-		aclPluginName,
-		{ fields: { acl: aclField } },
-	)
+	return defineSchemaExtension(aclSchemaExtensionName, config, aclPluginName, {
+		fields: { acl: aclField },
+	})
 }

@@ -64,5 +64,5 @@ test('rejects ambiguous subjects and unknown rights at compile time', () => {
 	// @ts-expect-error -- ACL owns one closed object-right vocabulary.
 	acl.grantPublic('create')
 	// @ts-expect-error -- Master is an execution authority, never an ACL subject.
-	acl.grantMaster('read')
+	void acl.grantMaster
 })

@@ -22,12 +22,7 @@ describe('ACL', () => {
 	it('starts empty and exposes one canonical permission vocabulary', () => {
 		const acl = new ACL()
 
-		expect(aclPermissions).toStrictEqual([
-			'read',
-			'update',
-			'delete',
-			'manageAcl',
-		])
+		expect(aclPermissions).toStrictEqual(['read', 'update', 'delete'])
 		expect(acl.permissionsForPublic()).toStrictEqual([])
 		expect(acl.permissionsForAuthenticated()).toStrictEqual([])
 		expect(acl.permissionsForPrincipal(alice)).toStrictEqual([])
@@ -59,12 +54,12 @@ describe('ACL', () => {
 		const acl = new ACL()
 			.grantPrincipal(alice, 'update', 'read')
 			.grantPrincipal(service, 'delete')
-			.grantPrincipal(alice, 'manageAcl', 'read')
+			.grantPrincipal(alice, 'delete', 'read')
 
 		expect(acl.permissionsForPrincipal(alice)).toStrictEqual([
 			'read',
 			'update',
-			'manageAcl',
+			'delete',
 		])
 		expect(acl.permissionsForPrincipal(service)).toStrictEqual(['delete'])
 		expect(acl.hasPrincipalPermission(service, 'delete')).toBe(true)
@@ -95,17 +90,17 @@ describe('ACL', () => {
 		const acl = new ACL()
 			.grantRole(persistedEditor, 'update', 'read')
 			.grantRole(moderator, 'delete')
-			.grantRole(editor, 'manageAcl')
+			.grantRole(editor, 'delete')
 
 		expect(acl.permissionsForRole(editor)).toStrictEqual([
 			'read',
 			'update',
-			'manageAcl',
+			'delete',
 		])
 		expect(acl.permissionsForRole(persistedEditor)).toStrictEqual([
 			'read',
 			'update',
-			'manageAcl',
+			'delete',
 		])
 		expect(acl.permissionsForRole(moderator)).toStrictEqual(['delete'])
 		expect(acl.hasRolePermission(persistedEditor, 'update')).toBe(true)
@@ -133,7 +128,7 @@ describe('ACL', () => {
 		const acl = new ACL()
 			.grantPublic('delete', 'read')
 			.setPublicPermissions('update')
-			.grantAuthenticated('manageAcl', 'read')
+			.grantAuthenticated('update', 'read')
 			.setAuthenticatedPermissions('delete', 'read')
 
 		expect(acl.permissionsForPublic()).toStrictEqual(['update'])

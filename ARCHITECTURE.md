@@ -266,7 +266,9 @@ remove the private Access state.
 
 Persisted object ACL is one optional provider for this lifecycle. Its immutable
 value stores public, authenticated, exact schema-qualified principal, and
-schema-qualified role grants for `read`, `update`, `delete`, and `manageAcl`.
+schema-qualified role grants for `read`, `update`, and `delete`. The reserved
+ACL field itself is visible and mutable only under trusted master execution;
+ordinary object update grants never authorize ACL management.
 The ACL package consumes an optional neutral current-principal resolver and the
 separate neutral role resolver; it never imports a concrete authentication or
 roles plugin. Missing identity fails closed while applications using only

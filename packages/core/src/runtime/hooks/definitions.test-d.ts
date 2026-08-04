@@ -6,9 +6,11 @@ import {
 	afterOperation,
 	beforeOperation,
 	postCommitEvent,
+	preparedOperation,
 	type AfterOperationDefinition,
 	type BeforeOperationDefinition,
 	type PostCommitEventDefinition,
+	type PreparedOperationDefinition,
 } from './definitions.js'
 
 const articleSchema = Schema.define({
@@ -60,6 +62,23 @@ test('infers schema and operation discriminants inside contribution handlers', (
 	>()
 	expectTypeOf(event).toEqualTypeOf<
 		PostCommitEventDefinition<typeof articleSchema, 'create-one'>
+	>()
+
+	const prepared = preparedOperation({
+		schema: articleSchema,
+		handler: (input) => {
+			expectTypeOf(input.operation.kind).toEqualTypeOf<'update-one'>()
+			expectTypeOf(
+				input.operation.update.kind,
+			).toEqualTypeOf<'update-expression'>()
+			expectTypeOf(input.target.title).toEqualTypeOf<string>()
+
+			return { operation: input.operation }
+		},
+	})
+
+	expectTypeOf(prepared).toEqualTypeOf<
+		PreparedOperationDefinition<typeof articleSchema>
 	>()
 })
 

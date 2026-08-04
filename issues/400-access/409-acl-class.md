@@ -17,7 +17,7 @@ modes or user identifiers to Core.
 
 ## Acceptance criteria
 
-- [x] Rights are read, update, delete, and manageAcl.
+- [x] Rights are read, update, and delete; ADR-0123 reserves ACL document management for master rather than storing it as a grant.
 - [x] Symmetric `grant*`, `revoke*`, and `set*Permissions` methods cover public, authenticated, exact-principal, and role subjects and return new instances.
 - [x] `grant*` unions rights, `revoke*` removes only selected rights, `set*Permissions` replaces one subject's complete rights, and removing the final right removes the subject entry.
 - [x] One ACL retains any number of principals and roles without collisions or order-dependent behavior.

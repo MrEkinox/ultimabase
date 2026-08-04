@@ -6,6 +6,7 @@ import {
 	beforeOperation,
 	getRuntimeContributionImplementation,
 	postCommitEvent,
+	preparedOperation,
 } from './definitions.js'
 
 const articleSchema = Schema.define({
@@ -59,6 +60,24 @@ describe('runtime contribution definitions', () => {
 		})
 		expect(getRuntimeContributionImplementation({})).toBeUndefined()
 		expect(getRuntimeContributionImplementation(null)).toBeUndefined()
+	})
+
+	it('fixes prepared contributions to schema-scoped singular updates', () => {
+		const prepared = preparedOperation({
+			schema: articleSchema,
+			handler: ({ operation }) => ({ operation }),
+		})
+
+		expect(prepared).toStrictEqual({
+			kind: 'prepared-operation',
+			operations: ['update-one'],
+			schema: articleSchema,
+		})
+		expect(getRuntimeContributionImplementation(prepared)).toMatchObject({
+			kind: 'prepared-operation',
+			operations: ['update-one'],
+			schema: articleSchema,
+		})
 	})
 
 	it('rejects malformed JavaScript contribution options', () => {

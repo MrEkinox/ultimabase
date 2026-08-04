@@ -20,7 +20,7 @@ to PostgreSQL.
 - [ ] Exact principals store schema class name plus object ID so equal IDs from different schemas cannot collide.
 - [ ] Subject rows do not depend on a native Core user mode or user schema.
 - [ ] Role references resolve names before persistence and store schema-qualified stable UUIDs.
-- [ ] Read, update, delete, and manageAcl grants use one deterministic JSONB representation without storing master as a subject.
+- [ ] Read, update, and delete grants use one deterministic JSONB representation without storing master as a subject or persisted ACL-management right.
 - [ ] A GIN index supports subject-and-right containment for public, authenticated, principal, and resolved-role predicates.
 - [ ] Direct synchronization, introspection, and migration snapshots include the generated column and index only for schemas carrying the owned extension.
 - [ ] The physical JSONB codec is versioned, validates strictly, and may differ from public `ACLJSON` without leaking into Core or transports.

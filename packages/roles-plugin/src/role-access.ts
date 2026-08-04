@@ -12,10 +12,15 @@ import {
 	type QueryTerminalOptions,
 	type SchemaDefinition,
 } from '@ultimabase/core'
-import { immutableRecord } from '@ultimabase/shared'
+import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
 import { resolveStoredRoleMembership } from './role-membership.js'
-import { getRoleReferenceState, type RoleReference } from './role-reference.js'
+import {
+	createRoleReference,
+	getRoleReferenceState,
+	restoreRoleReferenceState,
+	type RoleReference,
+} from './role-reference.js'
 import {
 	resolveRoleReferenceId,
 	RoleReferenceResolutionError,
@@ -129,42 +134,53 @@ export const createStoredRoleResolver = (
 		object,
 		Map<SchemaDefinition, RoleDomainRequestCache>
 	>()
+	/** Reuses one membership snapshot across every role lookup in a request domain. */
+	const getDomain = (
+		context: AccessContext,
+		schema: SchemaDefinition,
+	): RoleDomainRequestCache | undefined => {
+		const declaration = getRoleSchemaDeclaration(schema)
+
+		if (declaration === undefined) return undefined
+
+		const requestCacheKey = dependencies.getRequestCacheKey(context)
+		let domains = requestCaches.get(requestCacheKey)
+
+		if (domains === undefined) {
+			domains = new Map()
+			requestCaches.set(requestCacheKey, domains)
+		}
+
+		let domain = domains.get(schema)
+
+		if (domain === undefined) {
+			domain = {
+				membership: dependencies.resolveMembership(
+					schema,
+					declaration,
+					context,
+				),
+				references: new Map(),
+			}
+			domains.set(schema, domain)
+		}
+
+		return domain
+	}
 
 	return immutableRecord({
 		async hasRole({ context, role }): Promise<boolean> {
-			const state = getRoleReferenceState(role)
+			const state =
+				getRoleReferenceState(role) ??
+				restoreRoleReferenceState(role, registeredSchemas)
 
 			if (state === undefined || !registeredSchemas.has(state.schema)) {
 				return false
 			}
 
-			const requestCacheKey = dependencies.getRequestCacheKey(context)
-			let domains = requestCaches.get(requestCacheKey)
+			const domain = getDomain(context, state.schema)
 
-			if (domains === undefined) {
-				domains = new Map()
-				requestCaches.set(requestCacheKey, domains)
-			}
-
-			let domain = domains.get(state.schema)
-
-			if (domain === undefined) {
-				const declaration = getRoleSchemaDeclaration(state.schema)
-
-				if (declaration === undefined) {
-					return false
-				}
-
-				domain = {
-					membership: dependencies.resolveMembership(
-						state.schema,
-						declaration,
-						context,
-					),
-					references: new Map(),
-				}
-				domains.set(state.schema, domain)
-			}
+			if (domain === undefined) return false
 
 			const membership = await domain.membership
 
@@ -176,13 +192,35 @@ export const createStoredRoleResolver = (
 			let roleId = domain.references.get(referenceKey)
 
 			if (roleId === undefined) {
-				roleId = dependencies.resolveReferenceId(role as RoleReference)
+				// Rehydrate a package-owned reference after ACL JSON removed WeakMap identity.
+				const resolvableReference =
+					getRoleReferenceState(role) === undefined
+						? createRoleReference(state.schema, state.selector)
+						: (role as RoleReference)
+				roleId = dependencies.resolveReferenceId(resolvableReference)
 				domain.references.set(referenceKey, roleId)
 			}
 
 			const resolvedRoleId = await roleId
 
 			return resolvedRoleId !== undefined && membership.includes(resolvedRoleId)
+		},
+		async resolveCurrentRoles({ context }) {
+			const references: AccessRoleReference[] = []
+
+			for (const schema of roleSchemas) {
+				const domain = getDomain(context, schema)
+
+				if (domain === undefined) continue
+
+				const membership = await domain.membership
+
+				for (const roleId of membership ?? []) {
+					references.push(createRoleReference(schema, { id: roleId }))
+				}
+			}
+
+			return immutableArray(references)
 		},
 	})
 }

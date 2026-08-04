@@ -340,7 +340,9 @@ const collectSchemaExtensionFields = (
 			}
 
 			if (
-				reservedSystemFieldNames.some((reservedName) => reservedName === name) ||
+				reservedSystemFieldNames.some(
+					(reservedName) => reservedName === name,
+				) ||
 				reservedModelFieldNames.has(name)
 			) {
 				throw new TypeError(`Reserved schema extension field: ${name}`)

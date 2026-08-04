@@ -14,11 +14,11 @@ live worker-isolated PostgreSQL database.
 ## Acceptance criteria
 
 - [ ] One schema default derives an ACL from the field-resolved create candidate and the optional current principal.
-- [ ] Public, authenticated, multiple exact-principal, and multiple role grants enforce read, update, delete, and manageAcl correctly.
+- [ ] Public, authenticated, multiple exact-principal, and multiple role grants enforce read, update, and delete correctly while ACL management remains master-only.
 - [ ] Principals from different schemas with the same ID remain distinct.
 - [ ] Native schema and field Access, developer Query filters, beforeFind transforms, and ACL constraints combine through logical `AND` in SQL.
 - [ ] Singular, count, exists, cursor, bulk, pointer, and relation paths cannot observe inaccessible rows or bypass ACL field restrictions.
-- [ ] An ACL-protected RoleSchema enforces role-row updates, member and nested-role commands, deletion, and manageAcl without recursive authorization.
+- [ ] An ACL-protected RoleSchema enforces role-row updates, member and nested-role commands, and deletion without recursive authorization while ACL management remains master-only.
 - [ ] JSON round-trip, explicit ACL input, shared create/update input resolution, limits, role UUID persistence, and reference cleanup work through public package exports.
 - [ ] Master bypasses ACL authorization while validation, default generation, hooks, transactions, database constraints, and post-commit audit behavior still execute.
 - [ ] Applications without auth or roles retain public/master ACL behavior; compatible fixture providers satisfy principal and role contracts without official package-name checks.

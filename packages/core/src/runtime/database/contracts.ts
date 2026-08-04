@@ -313,8 +313,8 @@ export type DatabaseOperationOutcome<
 interface PreparedDatabaseOperationHandle<
 	TOperation extends DatabaseMutationOperationAst,
 > {
-	/** Executes the retained target exactly once and returns its private outcome. */
-	execute(): Promise<DatabaseOperationOutcome<TOperation>>
+	/** Executes the retained target exactly once with an optional value-only replacement. */
+	execute(operation?: TOperation): Promise<DatabaseOperationOutcome<TOperation>>
 }
 
 /** Adds the stable preimage only when a singular update or delete can have one. */

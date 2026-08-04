@@ -374,6 +374,14 @@ The root adapter starts the transaction; its transaction adapter stabilizes the
 target so the native dispatcher can run affected-field before hooks before
 Runtime consumes the prepared mutation exactly once.
 
+Policy and value-object plugins may register `preparedOperation()` when an
+accepted `updateOne()` value depends on that locked target. The handler receives
+the fully typed current object and may replace only values inside the existing
+normalized update shape. Runtime then repeats structural validation,
+value-dependent field Access, and item Access before the adapter executes the
+replacement. It cannot change the query, target, fields, operators, schema, or
+terminal kind, and it never runs for set-based mutations.
+
 ```ts
 import { Schema, UltimaBase, booleanField, stringField } from '@ultimabase/core'
 

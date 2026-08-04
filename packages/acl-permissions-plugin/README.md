@@ -3,11 +3,11 @@
 Provides the immutable `ACL` class, the typed `acl()` schema extension, and the
 optional `aclPlugin()` provider.
 
-ACL grants object-level `read`, `update`, `delete`, and `manageAcl` rights to
-public, authenticated, exact-principal, and role subjects. One ACL may contain
-any number of principals and roles. The provider will contribute native Access
-filters, item checks, and field restrictions that compile into database
-filtering rather than post-filtering in memory.
+ACL grants object-level `read`, `update`, and `delete` rights to public,
+authenticated, exact-principal, and role subjects. One ACL may contain any
+number of principals and roles. The provider contributes native Access filters,
+item checks, and field restrictions that compile into database filtering rather
+than post-filtering in memory.
 
 PostgreSQL support will store the ACL as indexed JSONB on the protected row.
 Normal reads will therefore require no ACL-table join, while the adapter will
@@ -55,17 +55,18 @@ const Post = Schema.define({
 
 				return principal === undefined
 					? initial
-					: initial.grantPrincipal(principal, 'read', 'manageAcl')
+					: initial.grantPrincipal(principal, 'read', 'update')
 			},
 		}),
 	],
 })
 ```
 
-Explicit ACL input is rejected unless the schema declares `resolveInput`.
-Create-many evaluates the default independently for every item inside the root
-transaction. The next milestone step completes update resolution and native
-Access enforcement; updating or reading the ACL field will require `manageAcl`.
+Explicit ACL input is accepted only for trusted master execution and when the
+schema declares `resolveInput`. Create-many evaluates the default independently
+for every item inside the root transaction. Non-master requests can never read,
+filter, order by, or replace the reserved ACL field, even when their ACL grants
+ordinary object updates.
 
 Authentication and roles are optional providers. ACL discovers them only
 through neutral Core services and never imports a concrete auth or roles
@@ -74,7 +75,8 @@ validation, defaults, hooks, transactions, constraints, and audit behavior.
 
 The extension also works on a developer-defined RoleSchema. Native RoleSchema
 Access controls creation, while each persisted role ACL may narrow reads,
-updates, member or nested-role mutations, deletion, and ACL management.
+updates, member or nested-role mutations, and deletion. Only master execution
+may inspect or replace the role row's ACL value.
 
 Native Access and PostgreSQL integration remain tracked by
 [`CURRENT_PLAN.md`](../../CURRENT_PLAN.md).

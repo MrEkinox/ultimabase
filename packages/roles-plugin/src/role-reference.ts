@@ -3,6 +3,7 @@ import {
 	type AccessRoleReference,
 	type SchemaDefinition,
 } from '@ultimabase/core'
+import { isPlainRecord, isUnknownArray } from '@ultimabase/shared'
 
 /** Selects one stored role by its normalized logical name. */
 export interface RoleNameSelector<TName extends string = string> {
@@ -114,4 +115,64 @@ export function getRoleReferenceState(
 	reference: AccessRoleReference,
 ): RoleReferenceState | undefined {
 	return roleReferenceStates.get(reference)
+}
+
+const parseJSON: (value: string) => unknown = JSON.parse
+
+/** Restores official role state from the stable neutral value retained by ACL JSON. */
+export const restoreRoleReferenceState = (
+	reference: AccessRoleReference,
+	registeredSchemas: ReadonlySet<SchemaDefinition>,
+): RoleReferenceState | undefined => {
+	let value: unknown
+
+	try {
+		value = parseJSON(reference.value)
+	} catch {
+		return undefined
+	}
+
+	if (
+		!isUnknownArray(value) ||
+		value.length !== 4 ||
+		value[0] !== '@ultimabase/roles-plugin' ||
+		value[1] !== 1 ||
+		typeof value[2] !== 'string' ||
+		!isPlainRecord(value[3])
+	) {
+		return undefined
+	}
+
+	const className = value[2]
+	const schema = [...registeredSchemas].find(
+		(candidate) => candidate.className === className,
+	)
+
+	if (schema === undefined) return undefined
+
+	const selectorValue = value[3]
+	let selector: RoleSelector
+
+	if (
+		Object.keys(selectorValue).length === 1 &&
+		typeof selectorValue.id === 'string'
+	) {
+		selector = { id: selectorValue.id }
+	} else if (
+		Object.keys(selectorValue).length === 1 &&
+		typeof selectorValue.name === 'string'
+	) {
+		selector = { name: selectorValue.name }
+	} else {
+		return undefined
+	}
+
+	try {
+		return Object.freeze({
+			schema,
+			selector: normalizeRoleSelector(selector),
+		})
+	} catch {
+		return undefined
+	}
 }

@@ -11,6 +11,8 @@ export {
 } from './acl-extension.js'
 export { aclPlugin } from './plugin.js'
 export type { ACLPlugin, ACLPluginExports } from './plugin.js'
+export { aclRowConstraintKind, aclRowConstraintVersion } from './acl-access.js'
+export type { ACLRowConstraint, ACLRowConstraintPayload } from './acl-access.js'
 export type {
 	ACLCreateInputResolution,
 	ACLDefaultFactory,

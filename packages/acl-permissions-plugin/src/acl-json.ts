@@ -75,11 +75,9 @@ const assertExactKeys = (
 
 			const descriptor = Reflect.getOwnPropertyDescriptor(record, key)
 
-			return (
-				descriptor === undefined ||
-				descriptor.enumerable !== true ||
-				!('value' in descriptor)
-			)
+			if (descriptor?.enumerable !== true) return true
+
+			return !('value' in descriptor)
 		})
 	) {
 		throw new TypeError(`${path} contains unknown or missing keys`)

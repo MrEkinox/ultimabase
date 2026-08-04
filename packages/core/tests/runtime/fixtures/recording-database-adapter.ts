@@ -40,7 +40,7 @@ export interface PreparedOperationFixtureOptions<
 	readonly target?: DatabaseLogicalRecord | null
 	readonly execute: () => Promise<DatabaseOperationResult<TOperation>>
 	readonly materializations?: readonly DatabaseMutationMaterialization<TOperation>[]
-	readonly onExecute?: () => void
+	readonly onExecute?: (operation: TOperation | undefined) => void
 }
 
 export interface FulfilledAdapterResult extends AdapterMutationFixture {
@@ -121,14 +121,16 @@ export const createPreparedOperationFixture = <
 	options: PreparedOperationFixtureOptions<TOperation>,
 ): PreparedDatabaseOperation<TOperation> => {
 	let attempted = false
-	const execute = async (): Promise<DatabaseOperationOutcome<TOperation>> => {
+	const execute = async (
+		operation?: TOperation,
+	): Promise<DatabaseOperationOutcome<TOperation>> => {
 		if (attempted) {
 			throw new TypeError('Prepared database operation is already executed')
 		}
 
 		// A failed attempt consumes the retained target just like a successful write.
 		attempted = true
-		options.onExecute?.()
+		options.onExecute?.(operation)
 
 		const outcome = immutableRecord({
 			materializations: immutableArray(options.materializations ?? []),

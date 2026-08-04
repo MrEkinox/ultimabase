@@ -520,7 +520,7 @@ describe('internal PostgreSQL database adapter', () => {
 			.select('id', 'title')
 			.descending('views')
 		const update = normalizeUpdateExpression(articleSchema, {
-			set: { title: 'Updated' },
+			set: { title: 'Requested' },
 			increment: { views: 1 },
 		})
 		const updateOperation = {
@@ -810,8 +810,15 @@ describe('internal PostgreSQL database adapter', () => {
 
 		expect(driver.calls.at(-1)?.text).toMatch(/for update/u)
 		expect(preparedUpdate.target).toStrictEqual(previous)
+		const resolvedUpdateOperation = {
+			...updateOperation,
+			update: normalizeUpdateExpression(articleSchema, {
+				set: { title: 'Updated' },
+				increment: { views: 1 },
+			}),
+		}
 		driver.respond([[null, 'Updated', 2, firstId, timestamp, timestamp]])
-		const updateOutcome = await preparedUpdate.execute()
+		const updateOutcome = await preparedUpdate.execute(resolvedUpdateOperation)
 
 		expect(updateOutcome).toStrictEqual({
 			materializations: [{ current, kind: 'update', previous }],
@@ -828,6 +835,8 @@ describe('internal PostgreSQL database adapter', () => {
 			true,
 		)
 		expect(driver.calls.at(-1)?.params).toContain(firstId)
+		expect(driver.calls.at(-1)?.params).toContain('Updated')
+		expect(driver.calls.at(-1)?.params).not.toContain('Requested')
 		expect(driver.calls.at(-1)?.text).not.toContain(' in (select ')
 		await expect(preparedUpdate.execute()).rejects.toThrow(
 			/already been executed/u,

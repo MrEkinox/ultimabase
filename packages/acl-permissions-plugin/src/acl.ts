@@ -112,8 +112,7 @@ const principalKey = (identity: PrincipalIdentity): string =>
 const roleIdentity = (role: AccessRoleSubject): AccessRoleReference =>
 	resolveAccessRoleReference(role)
 
-const roleKey = (reference: AccessRoleReference): string =>
-	String(reference.value)
+const roleKey = (reference: AccessRoleReference): string => reference.value
 
 const findPermissions = <TSubject>(
 	entries: readonly ACLSubjectEntry<TSubject>[],
@@ -460,7 +459,7 @@ export class ACL {
 				immutableRecord({
 					kind: 'role' as const,
 					permissions: entry.permissions,
-					value: String(entry.subject.value),
+					value: entry.subject.value,
 				}),
 			),
 			version: 1,
