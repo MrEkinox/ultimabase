@@ -117,6 +117,7 @@ Accepted records:
 - [ADR-0121: Explicit plugin package names](0121-explicit-plugin-package-names.md)
 - [ADR-0122: Immutable persisted object ACLs](0122-immutable-persisted-object-acls.md)
 - [ADR-0123: Master-only ACL management](0123-master-only-acl-management.md)
+- [ADR-0124: Portable plugin-field storage codecs](0124-portable-plugin-field-storage-codecs.md)
 
 Superseded records:
 

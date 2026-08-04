@@ -199,6 +199,15 @@ export interface AccessRoleResolutionInput {
 export interface AccessRoleResolver {
 	hasRole(input: AccessRoleResolutionInput): MaybePromise<boolean>
 	/**
+	 * Converts a logical role selector into its stable schema-qualified storage identity.
+	 *
+	 * Persisted policy providers require this optional capability only when their
+	 * value contains role references. `undefined` rejects an unknown role.
+	 */
+	resolvePersistentRole?(
+		input: AccessRoleResolutionInput,
+	): MaybePromise<AccessRoleReference | undefined>
+	/**
 	 * Lists stable role references held by the current request principal.
 	 *
 	 * Row-level providers use this optional capability when candidate role

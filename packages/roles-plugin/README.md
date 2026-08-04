@@ -121,6 +121,11 @@ Query. One immutable membership snapshot and each reference resolution are
 memoized for that engine, so repeated schema, field, or future ACL checks do not
 traverse the graph again. Master authority does not imply membership.
 
+Persisted policy providers may also request a canonical role reference. The
+neutral resolver converts a name selector to the RoleSchema's stable UUID
+without loading current membership, allowing ACL storage to remain independent
+from this package and from mutable role names.
+
 Persisted roles also expose distinct `addRole()` and `removeRole()` commands.
 `Administrator.addRole(Editor)` makes Editor a child role, so its direct and
 inherited members belong to Administrator. The plugin checks the complete

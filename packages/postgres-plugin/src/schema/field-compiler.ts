@@ -5,6 +5,7 @@ import type {
 	GenericField,
 	SchemaDefinition,
 } from '@ultimabase/core'
+import { getPluginFieldStorageCodec } from '@ultimabase/core'
 import {
 	immutableRecord,
 	isPlainRecord,
@@ -305,6 +306,10 @@ export const compilePostgresFieldBuilder = (
 			)
 		}
 
+		return compileJsonbBuilder(fieldName, plan, declaredDefault)
+	}
+
+	if (getPluginFieldStorageCodec(field) !== undefined) {
 		return compileJsonbBuilder(fieldName, plan, declaredDefault)
 	}
 

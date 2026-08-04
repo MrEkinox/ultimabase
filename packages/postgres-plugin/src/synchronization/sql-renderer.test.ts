@@ -58,6 +58,7 @@ describe('PostgreSQL schema SQL renderer', () => {
 					indexes: [
 						{
 							columns: ['title'],
+							method: 'btree',
 							name: 'articles_title_idx',
 							unique: true,
 						},
@@ -68,6 +69,23 @@ describe('PostgreSQL schema SQL renderer', () => {
 		).toStrictEqual([
 			'CREATE TABLE "public"."articles" ("id" uuid NOT NULL PRIMARY KEY, "title" text DEFAULT \'draft\'::text NOT NULL)',
 			'CREATE UNIQUE INDEX "articles_title_idx" ON "public"."articles" ("title")',
+		])
+	})
+
+	it('renders GIN indexes for JSONB containment predicates', () => {
+		expect(
+			renderPostgresSchemaChange('public', {
+				index: {
+					columns: ['acl'],
+					method: 'gin',
+					name: 'posts_acl_idx',
+					unique: false,
+				},
+				kind: 'create-index',
+				table: 'posts',
+			}),
+		).toStrictEqual([
+			'CREATE INDEX "posts_acl_idx" ON "public"."posts" USING gin ("acl")',
 		])
 	})
 })

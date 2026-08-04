@@ -28,6 +28,7 @@ export const aclFieldName = 'acl' as const
 export const aclFieldKind = 'ultimabase.acl' as const
 
 interface ACLFieldOptions {
+	readonly indexed: true
 	readonly validation: Readonly<{ readonly required: true }>
 }
 
@@ -55,11 +56,18 @@ const snapshotACL = (value: unknown, path: string): ACL => {
 
 const aclField = definePluginField(
 	aclFieldKind,
-	{ validation: { required: true } },
+	{ indexed: true, validation: { required: true } },
 	{
 		// The ACL plugin supplies missing create values after ordinary fields resolve.
 		deferRequiredUntilResolveInput: true,
 		snapshotValue: snapshotACL,
+		// Public ACL JSON is already versioned and strictly validated in both directions.
+		storageCodec: {
+			decode: (value) => ACL.fromJSON(value),
+			encode: (value) => value.toJSON(),
+			format: 'json',
+			version: 1,
+		},
 	},
 ) as ACLField
 

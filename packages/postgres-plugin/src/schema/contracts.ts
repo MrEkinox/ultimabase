@@ -22,6 +22,9 @@ export type PostgresStorageKind =
 	| 'timestamp'
 	| 'uuid'
 
+/** Lists index methods emitted and synchronized by the PostgreSQL adapter. */
+export type PostgresIndexMethod = 'btree' | 'gin'
+
 /** Retains framework-owned generation facts that do not become database defaults. */
 export interface PostgresFieldGeneration {
 	readonly on: 'create' | 'createAndUpdate'
@@ -52,6 +55,7 @@ export interface CompiledPostgresField {
 export interface CompiledPostgresIndex {
 	readonly fields: readonly [string, ...string[]]
 	readonly index: Index
+	readonly method: PostgresIndexMethod
 	readonly name: string
 	readonly unique: boolean
 }

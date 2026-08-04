@@ -28,7 +28,10 @@ import type {
 	CompiledPostgresSchema,
 } from './contracts.js'
 import { compilePostgresFieldBuilder } from './field-compiler.js'
-import { compilePostgresIndexBuilders } from './index-compiler.js'
+import {
+	compilePostgresIndexBuilders,
+	resolvePostgresIndexMethod,
+} from './index-compiler.js'
 
 const hasIndex = (plan: FieldValidationPlan): boolean =>
 	'indexed' in plan.field.options &&
@@ -230,8 +233,18 @@ const preparePostgresSchema = (
 		PgColumnBuilderBase
 	>
 	const tableName = resolvePostgresTableName(definition)
+	const storageByField = immutableRecord(
+		Object.fromEntries(
+			pendingFields.map(([fieldName, field]) => [fieldName, field.storage]),
+		) as Record<string, CompiledPostgresField['storage']>,
+	)
 	const table = pgTable(tableName, builders, (columns) => [
-		...compilePostgresIndexBuilders(tableName, definition.indexes, columns),
+		...compilePostgresIndexBuilders(
+			tableName,
+			definition.indexes,
+			columns,
+			storageByField,
+		),
 		...compilePointerConstraints(columns, pointerEntries, resolveTargetColumn),
 	])
 
@@ -257,6 +270,11 @@ const finalizePostgresSchema = (
 			}),
 		) as Record<string, CompiledPostgresField>,
 	)
+	const storageByField = immutableRecord(
+		Object.fromEntries(
+			pendingFields.map(([fieldName, field]) => [fieldName, field.storage]),
+		) as Record<string, CompiledPostgresField['storage']>,
+	)
 	const indexes = immutableArray(
 		definition.indexes.map(
 			(indexDefinition, position): CompiledPostgresIndex => {
@@ -272,6 +290,7 @@ const finalizePostgresSchema = (
 				return immutableRecord({
 					fields: indexDefinition.fields,
 					index: compiledIndex,
+					method: resolvePostgresIndexMethod(indexDefinition, storageByField),
 					name,
 					unique: indexDefinition.unique,
 				})

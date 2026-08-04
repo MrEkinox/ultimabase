@@ -98,6 +98,9 @@ test('infers plugin-owned principals and resolved subjects exactly', () => {
 		ServiceToken<AccessPrincipalResolver>
 	>()
 	expectTypeOf<AccessPrincipalResolver['resolveCurrent']>().toBeFunction()
+	expectTypeOf<
+		NonNullable<AccessRoleResolver['resolvePersistentRole']>
+	>().toBeFunction()
 	expectTypeOf(
 		resolveAccessPrincipal({
 			context: {} as never,

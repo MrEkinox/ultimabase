@@ -107,6 +107,26 @@ describe('stored role Access integration', () => {
 		expect(fixture.membership).toHaveBeenCalledOnce()
 	})
 
+	it('resolves names to stable UUID references without loading membership', async () => {
+		const fixture = createDependencies()
+		const resolver = createStoredRoleResolver([AppRole], fixture.dependencies)
+		const context = createContext('persistent-role-reference')
+		const resolved = await resolver.resolvePersistentRole?.({
+			context,
+			role: AppRole.role('editor'),
+		})
+
+		expect(resolved).toBeDefined()
+		if (resolved === undefined) {
+			throw new TypeError('Persistent role resolution must return a reference')
+		}
+		expect(getRoleReferenceState(resolved)?.selector).toStrictEqual({
+			id: editorId,
+		})
+		expect(fixture.references).toHaveBeenCalledOnce()
+		expect(fixture.membership).not.toHaveBeenCalled()
+	})
+
 	it('restores serialized official references without relying on WeakMap identity', async () => {
 		const fixture = createDependencies()
 		const resolver = createStoredRoleResolver([AppRole], fixture.dependencies)

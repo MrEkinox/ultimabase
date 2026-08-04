@@ -5,7 +5,7 @@
 - Objective owner: `@ultimabase/acl-permissions-plugin`, `@ultimabase/core`, `@ultimabase/postgres-plugin`
 - Governing decisions: [ADR-0005](docs/adr/0005-immutable-class-api.md), [ADR-0113](docs/adr/0113-plugin-owned-authentication-context.md), [ADR-0116](docs/adr/0116-fundamental-access-system.md), [ADR-0117](docs/adr/0117-optional-access-subject-capabilities.md), [ADR-0119](docs/adr/0119-developer-defined-role-schemas.md), [ADR-0122](docs/adr/0122-immutable-persisted-object-acls.md), [ADR-0123](docs/adr/0123-master-only-acl-management.md)
 - Previous completed objective: [Developer-defined stored roles](docs/plans/completed/developer-defined-stored-roles.md)
-- Resume point: issue 510
+- Resume point: issue 509
 
 ## Objective
 
@@ -116,7 +116,7 @@ never imports or identifies that plugin.
 
 5. [x] [411 — Implement aclPlugin Access contributions](issues/400-access/411-acl-plugin.md)
 6. [x] [428 — Enforce configurable ACL entry limits](issues/400-access/428-acl-entry-limits.md)
-7. [ ] [510 — Store ACL in indexed JSONB columns](issues/500-postgres/510-acl-jsonb-storage.md)
+7. [x] [510 — Store ACL in indexed JSONB columns](issues/500-postgres/510-acl-jsonb-storage.md)
 8. [ ] [509 — Compile PostgreSQL ACL constraints](issues/500-postgres/509-postgres-access-compilers.md)
 
 ### Phase 4 — Lifecycle and composition

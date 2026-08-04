@@ -319,7 +319,7 @@ const appendIndexes = (
 			}),
 		)
 
-		if (method !== 'btree')
+		if (method !== 'btree' && method !== 'gin')
 			unsupported.push({ kind: 'index-method', name, table: tableName })
 		if (readOptionalString(row, 'predicate') !== undefined)
 			unsupported.push({ kind: 'index-partial', name, table: tableName })

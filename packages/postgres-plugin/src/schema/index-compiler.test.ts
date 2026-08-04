@@ -3,6 +3,7 @@ import { getTableConfig } from 'drizzle-orm/pg-core'
 import { describe, expect, it } from 'vitest'
 
 import { compilePostgresSchema } from './schema-compiler.js'
+import { createStoredPluginField } from './storage-codec-fixture.test-support.js'
 
 const readIndexColumnName = (column: unknown): string => {
 	if (
@@ -18,6 +19,21 @@ const readIndexColumnName = (column: unknown): string => {
 }
 
 describe('PostgreSQL index compiler', () => {
+	it('uses GIN for non-unique codec-backed JSONB fields', () => {
+		const schema = Schema.define({
+			className: 'IndexedPluginValue',
+			fields: { value: createStoredPluginField() },
+		})
+		const [compiledIndex] = compilePostgresSchema(schema).indexes
+
+		expect(compiledIndex).toMatchObject({
+			fields: ['value'],
+			method: 'gin',
+			unique: false,
+		})
+		expect(compiledIndex?.index.config.method).toBe('gin')
+	})
+
 	it('compiles ordinary, unique, and composite indexes in normalized order', () => {
 		const schema = Schema.define({
 			className: 'Article',

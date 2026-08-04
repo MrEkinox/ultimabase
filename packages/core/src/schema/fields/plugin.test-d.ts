@@ -35,6 +35,37 @@ test('infers namespaced plugin kinds, values, and exact options', () => {
 	expectTypeOf<FieldValue<typeof field>>().toEqualTypeOf<string>()
 })
 
+test('types plugin storage codecs against the logical scalar value', () => {
+	definePluginField(
+		'fixture.stored',
+		{},
+		{
+			...normalizers,
+			storageCodec: {
+				decode: (value: unknown): string => String(value),
+				encode: (value: string): unknown => value,
+				format: 'json',
+				version: 1,
+			},
+		},
+	)
+
+	definePluginField(
+		'fixture.invalid-storage',
+		{},
+		{
+			...normalizers,
+			storageCodec: {
+				// @ts-expect-error -- Storage decoding must return the plugin field scalar.
+				decode: (value: unknown): string => String(value),
+				encode: (value: number): unknown => value,
+				format: 'json',
+				version: 1,
+			},
+		},
+	)
+})
+
 test('rejects framework-owned plugin kinds', () => {
 	// @ts-expect-error -- Plugins cannot shadow a built-in field kind.
 	definePluginField('string', {}, normalizers)

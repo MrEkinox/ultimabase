@@ -70,3 +70,41 @@ Developer fields, framework fields, and fields contributed by separate
 extensions cannot share a name. A plugin may defer one required contributed
 value until its `resolveInput` hook; structural revalidation then guarantees
 that the field exists before Access and persistence.
+
+Portable plugin scalar values may provide a private versioned JSON codec for
+database adapters without adding callbacks to public field metadata:
+
+```ts
+import { definePluginField } from '@ultimabase/core'
+
+const opaqueTokenField = definePluginField(
+	'example.opaque-token',
+	{ validation: { required: true } },
+	{
+		snapshotValue: (value, path): string => {
+			if (typeof value !== 'string') throw new TypeError(`${path} must be text`)
+			return value
+		},
+		storageCodec: {
+			format: 'json',
+			version: 1,
+			encode: (value) => ({ value, version: 1 }),
+			decode: (stored): string => {
+				if (
+					typeof stored !== 'object' ||
+					stored === null ||
+					!('value' in stored) ||
+					typeof stored.value !== 'string'
+				) {
+					throw new TypeError('Stored token is invalid')
+				}
+
+				return stored.value
+			},
+		},
+	},
+)
+```
+
+Specialized physical types such as vectors may omit this capability and remain
+owned by a dedicated adapter plugin.

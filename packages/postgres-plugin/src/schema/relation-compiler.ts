@@ -154,6 +154,7 @@ const compileOwningJoinRelation = (
 				return immutableRecord({
 					fields,
 					index: compiledIndex,
+					method: 'btree',
 					name,
 					unique: position === 0,
 				})

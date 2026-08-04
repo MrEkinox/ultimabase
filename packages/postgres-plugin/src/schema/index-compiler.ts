@@ -7,12 +7,25 @@ import {
 } from 'drizzle-orm/pg-core'
 
 import { createPostgresIndexName } from '../naming/index.js'
+import type { PostgresIndexMethod, PostgresStorageKind } from './contracts.js'
+
+/** Uses GIN only for one non-unique JSONB containment index. */
+export const resolvePostgresIndexMethod = (
+	definition: SchemaIndexDefinition,
+	storageByField: Readonly<Record<string, PostgresStorageKind>>,
+): PostgresIndexMethod =>
+	!definition.unique &&
+	definition.fields.length === 1 &&
+	storageByField[definition.fields[0]] === 'jsonb'
+		? 'gin'
+		: 'btree'
 
 /** Compiles normalized logical indexes in their declaration order. */
 export const compilePostgresIndexBuilders = (
 	tableName: string,
 	definitions: readonly SchemaIndexDefinition[],
 	columns: Readonly<Record<string, ExtraConfigColumn>>,
+	storageByField: Readonly<Record<string, PostgresStorageKind>>,
 ): PgTableExtraConfigValue[] => {
 	const names = new Set<string>()
 
@@ -46,7 +59,10 @@ export const compilePostgresIndexBuilders = (
 		}
 
 		const builder = definition.unique ? uniqueIndex(name) : index(name)
+		const method = resolvePostgresIndexMethod(definition, storageByField)
 
-		return builder.on(first, ...rest)
+		return method === 'gin'
+			? builder.using('gin', first)
+			: builder.on(first, ...rest)
 	})
 }

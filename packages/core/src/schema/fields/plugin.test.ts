@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { immutableRecord } from '@ultimabase/shared'
+import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 
 import {
 	definePluginField,
 	defineFieldExtension,
+	getPluginFieldStorageCodec,
 	type FieldValidationOptions,
 } from '../index.js'
 
@@ -62,6 +63,74 @@ describe('plugin fields', () => {
 		// Schema owns common metadata even when the plugin omits a custom normalizer.
 		expect(field.options.validation.required).toBe(true)
 		expect(Object.isFrozen(field.options.validation)).toBe(true)
+	})
+
+	it('keeps versioned storage codecs private and reapplies scalar snapshots', () => {
+		const field = definePluginField(
+			'fixture.stored',
+			{},
+			{
+				snapshotValue,
+				storageCodec: {
+					decode: (value: unknown): string => {
+						if (!isPlainRecord(value) || typeof value.value !== 'string') {
+							throw new TypeError('Stored fixture value must contain a string')
+						}
+
+						return value.value
+					},
+					encode: (value: string) => ({ value }),
+					format: 'json',
+					version: 1,
+				},
+			},
+		)
+		const codec = getPluginFieldStorageCodec(field)
+
+		expect(field).toStrictEqual({ kind: 'fixture.stored', options: {} })
+		expect(codec?.encode('value')).toStrictEqual({ value: 'value' })
+		expect(codec?.decode({ value: 'stored' })).toBe('stored')
+		expect(Object.isFrozen(codec)).toBe(true)
+		expect(() => codec?.encode(42)).toThrow(
+			'Encoded plugin field value must be a string',
+		)
+		expect(() => codec?.decode({ value: 42 })).toThrow(
+			'Stored fixture value must contain a string',
+		)
+	})
+
+	it.each([
+		{
+			codec: {
+				decode: snapshotValue,
+				encode: String,
+				format: 'json',
+				version: 0,
+			},
+			message: 'version must be a positive safe integer',
+		},
+		{
+			codec: {
+				decode: snapshotValue,
+				encode: String,
+				format: 'json',
+				unknown: true,
+				version: 1,
+			},
+			message: 'Unknown plugin field storageCodec key: unknown',
+		},
+	] as const)('rejects malformed storage codecs', ({ codec, message }) => {
+		expect(() =>
+			definePluginField(
+				'fixture.invalid-storage',
+				{},
+				{
+					snapshotValue,
+					// @ts-expect-error -- Runtime validation protects untyped plugin metadata.
+					storageCodec: codec,
+				},
+			),
+		).toThrow(message)
 	})
 
 	it.each(['', 'string', 'pointer', 'plugin'] as const)(

@@ -31,6 +31,7 @@ const desired: DesiredPostgresTable = {
 	indexes: [
 		{
 			columns: ['title'],
+			method: 'btree',
 			name: 'articles_title_idx',
 			unique: false,
 		},
@@ -223,6 +224,56 @@ describe('PostgreSQL schema change planner', () => {
 		).toStrictEqual({
 			kind: 'unsupported-structure',
 			structure: 'column-generated:title',
+			table: 'articles',
+		})
+	})
+
+	it('replaces an index when its physical method drifts', () => {
+		const ginDesired: DesiredPostgresTable = {
+			...desired,
+			indexes: [
+				{
+					columns: ['title'],
+					method: 'gin',
+					name: 'articles_title_idx',
+					unique: false,
+				},
+			],
+		}
+		const article = live.tables[0]
+
+		if (article === undefined) {
+			throw new TypeError('Planner fixture requires the articles table')
+		}
+
+		const changes = planPostgresSchemaChanges([ginDesired], {
+			...live,
+			tables: [
+				{
+					...article,
+					indexes: [
+						...article.indexes,
+						{
+							columns: ['title'],
+							definition: 'CREATE INDEX articles_title_idx',
+							method: 'btree',
+							name: 'articles_title_idx',
+							primary: false,
+							unique: false,
+						},
+					],
+				},
+			],
+		})
+
+		expect(changes).toContainEqual({
+			index: ginDesired.indexes[0],
+			kind: 'create-index',
+			table: 'articles',
+		})
+		expect(changes).toContainEqual({
+			index: 'articles_title_idx',
+			kind: 'drop-index',
 			table: 'articles',
 		})
 	})

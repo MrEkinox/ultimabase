@@ -1062,6 +1062,13 @@ other extension fields. A plugin field may explicitly defer its required
 create value until `resolveInput`; the normal revalidation boundary still
 requires that value before Access and persistence.
 
+Portable plugin scalars may additionally declare a private, versioned JSON
+storage codec through `definePluginField()`. Core validates and snapshots both
+codec directions without placing executable functions in field metadata.
+Database adapters may consume `getPluginFieldStorageCodec()` generically, while
+plugin kinds without a portable codec still require a specialized adapter
+integration.
+
 ## Typed plugin hook targets
 
 A plugin registers native declarations through the owner-bound `hooks` setup

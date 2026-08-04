@@ -46,7 +46,7 @@ const renderCreateIndex = (
 	table: string,
 	index: DesiredPostgresIndex,
 ): string =>
-	`CREATE ${index.unique ? 'UNIQUE ' : ''}INDEX ${quoteIdentifier(index.name)} ON ${qualify(namespace, table)} (${index.columns.map(quoteIdentifier).join(', ')})`
+	`CREATE ${index.unique ? 'UNIQUE ' : ''}INDEX ${quoteIdentifier(index.name)} ON ${qualify(namespace, table)}${index.method === 'gin' ? ' USING gin' : ''} (${index.columns.map(quoteIdentifier).join(', ')})`
 
 const renderForeignKeyAction = (
 	action: DesiredPostgresForeignKey['onDelete'],

@@ -87,9 +87,11 @@ export type {
 export { isStaticDefault } from './fields/base/defaults.js'
 export type { DefaultFactory, FieldDefault } from './fields/base/defaults.js'
 export {
+	getPluginFieldStorageCodec,
 	isFieldRequiredDeferred,
 	snapshotScalarFieldValue,
 } from './fields/base/definition.js'
+export type { PluginFieldStorageCodec } from './fields/base/definition.js'
 export { enumField } from './fields/builtins/enum.js'
 export type {
 	EnumField,

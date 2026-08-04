@@ -1,4 +1,4 @@
-import { isPlainRecord } from '@ultimabase/shared'
+import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 
 import { createFieldDefinition } from './base/definition.js'
 import {
@@ -21,6 +21,7 @@ import type {
 import type { FieldHookDeclaration } from '../hooks/field-contracts.js'
 import { splitFieldDeclarationOptions } from '../hooks/field-declarations.js'
 import type { FieldAccessDeclaration } from '../access/contracts.js'
+import type { PluginFieldStorageCodec } from './base/definition.js'
 
 export type { ReservedFieldKind } from './base/kinds.js'
 
@@ -68,6 +69,62 @@ export interface PluginFieldNormalizers<
 		validation: TValidation,
 	) => Readonly<TValidation>
 	readonly snapshotValue: (value: unknown, path: string) => TValue
+	/** Serializes one logical scalar through an adapter-neutral versioned JSON value. */
+	readonly storageCodec?: PluginFieldStorageCodec<TValue>
+}
+
+const storageCodecKeys = new Set(['decode', 'encode', 'format', 'version'])
+
+/** Erases the logical generic only after wrapping both directions in its snapshot guard. */
+const normalizePluginFieldStorageCodec = <TValue>(
+	codec: PluginFieldStorageCodec<TValue>,
+	snapshotValue: (value: unknown, path: string) => TValue,
+): PluginFieldStorageCodec => {
+	const candidate: unknown = codec
+
+	if (!isPlainRecord(candidate)) {
+		throw new TypeError('Plugin field storageCodec must be a plain object')
+	}
+
+	const unknownKey = Object.keys(candidate).find(
+		(key) => !storageCodecKeys.has(key),
+	)
+
+	if (unknownKey !== undefined) {
+		throw new TypeError(`Unknown plugin field storageCodec key: ${unknownKey}`)
+	}
+
+	if (candidate.format !== 'json') {
+		throw new TypeError('Plugin field storageCodec format must be json')
+	}
+
+	if (
+		typeof candidate.version !== 'number' ||
+		!Number.isSafeInteger(candidate.version) ||
+		candidate.version < 1
+	) {
+		throw new RangeError(
+			'Plugin field storageCodec version must be a positive safe integer',
+		)
+	}
+
+	if (
+		typeof candidate.decode !== 'function' ||
+		typeof candidate.encode !== 'function'
+	) {
+		throw new TypeError(
+			'Plugin field storageCodec must provide decode and encode functions',
+		)
+	}
+
+	return immutableRecord({
+		decode: (value: unknown): unknown =>
+			snapshotValue(codec.decode(value), 'Decoded plugin field value'),
+		encode: (value: unknown): unknown =>
+			codec.encode(snapshotValue(value, 'Encoded plugin field value')),
+		format: 'json' as const,
+		version: candidate.version,
+	})
 }
 
 /**
@@ -117,6 +174,14 @@ export const definePluginField = <
 		throw new TypeError('Plugin field snapshotValue must be a function')
 	}
 
+	const storageCodec =
+		normalizers.storageCodec === undefined
+			? undefined
+			: normalizePluginFieldStorageCodec(
+					normalizers.storageCodec,
+					normalizers.snapshotValue,
+				)
+
 	if (
 		normalizers.normalizeValidation !== undefined &&
 		typeof normalizers.normalizeValidation !== 'function'
@@ -143,6 +208,7 @@ export const definePluginField = <
 		{
 			deferRequiredUntilResolveInput:
 				normalizers.deferRequiredUntilResolveInput === true,
+			...(storageCodec === undefined ? {} : { storageCodec }),
 		},
 	)
 }

@@ -1,4 +1,5 @@
 import {
+	AccessSubjectReference,
 	accessPrincipalResolverServiceToken,
 	accessRoleResolverServiceToken,
 	constraint,
@@ -9,6 +10,7 @@ import {
 	getCurrentEngine,
 	preparedOperation,
 	type AccessContext,
+	type AccessRoleResolver,
 	type ExecutableOperationAst,
 	type FrameworkPlugin,
 	type HookContext,
@@ -23,6 +25,7 @@ import {
 } from '@ultimabase/shared'
 
 import { ACL } from './acl.js'
+import { normalizeACLPermissions, type ACLPermission } from './acl-contracts.js'
 import {
 	assertACLEntryLimits,
 	defaultACLEntryLimits,
@@ -167,14 +170,82 @@ const assertACLRoleResolution = (
 	)
 }
 
+type PersistentRoleResolver = NonNullable<
+	AccessRoleResolver['resolvePersistentRole']
+>
+
+/** Replaces every logical role selector with its stable provider-owned identity. */
+const resolvePersistentACLRoles = async (
+	value: ACL,
+	context: HookContext,
+	resolvePersistentRole: PersistentRoleResolver | undefined,
+): Promise<ACL> => {
+	const document = value.toJSON()
+
+	if (document.roles.length === 0) return value
+
+	if (resolvePersistentRole === undefined) {
+		throw new TypeError(
+			'ACL role grants require a role resolver with persistent-role resolution',
+		)
+	}
+
+	const resolvedEntries = await Promise.all(
+		document.roles.map(async (entry) => {
+			const resolved = await resolvePersistentRole({
+				context,
+				role: new AccessSubjectReference('role', entry.value),
+			})
+
+			if (!(resolved instanceof AccessSubjectReference)) {
+				throw new TypeError(`ACL role could not be resolved: ${entry.value}`)
+			}
+
+			return immutableRecord({
+				permissions: entry.permissions,
+				value: resolved.value,
+			})
+		}),
+	)
+	const permissionsByRole = new Map<string, readonly ACLPermission[]>()
+
+	for (const entry of resolvedEntries) {
+		permissionsByRole.set(
+			entry.value,
+			normalizeACLPermissions([
+				...(permissionsByRole.get(entry.value) ?? []),
+				...entry.permissions,
+			]),
+		)
+	}
+
+	return ACL.fromJSON({
+		...document,
+		roles: [...permissionsByRole.entries()].map(([role, permissions]) => ({
+			kind: 'role' as const,
+			permissions,
+			value: role,
+		})),
+	})
+}
+
 /** Applies every adapter-neutral invariant to one accepted ACL value. */
-const validateAcceptedACL = (
+const validateAcceptedACL = async (
 	value: ACL,
 	roleResolutionAvailable: boolean,
 	limits: ResolvedACLEntryLimits,
-): void => {
+	context: HookContext,
+	resolvePersistentRole: PersistentRoleResolver | undefined,
+): Promise<ACL> => {
 	assertACLRoleResolution(value, roleResolutionAvailable)
-	assertACLEntryLimits(value, limits)
+	const persistent = await resolvePersistentACLRoles(
+		value,
+		context,
+		resolvePersistentRole,
+	)
+	assertACLEntryLimits(persistent, limits)
+
+	return persistent
 }
 
 const resolveCreateInputACL = async <
@@ -186,6 +257,7 @@ const resolveCreateInputACL = async <
 	context: HookContext,
 	roleResolutionAvailable: boolean,
 	limits: ResolvedACLEntryLimits,
+	resolvePersistentRole: PersistentRoleResolver | undefined,
 ): Promise<Readonly<Record<string, unknown>>> => {
 	// The schema-targeted hook guarantees this extension's declared create-data shape.
 	const data = omitACL(input) as TData
@@ -209,11 +281,17 @@ const resolveCreateInputACL = async <
 		operation: 'create',
 		principal,
 	})
-	const resolvedACL =
+	const acceptedACL =
 		resolvedInput === undefined
 			? await resolveDefaultACL(config, data, principal, context)
 			: snapshotResolvedACL(resolvedInput, 'acl resolveInput')
-	validateAcceptedACL(resolvedACL, roleResolutionAvailable, limits)
+	const resolvedACL = await validateAcceptedACL(
+		acceptedACL,
+		roleResolutionAvailable,
+		limits,
+		context,
+		resolvePersistentRole,
+	)
 
 	return immutableRecord({ ...input, [aclFieldName]: resolvedACL })
 }
@@ -230,6 +308,7 @@ export const resolveCreateOperationACL = async <
 	context: HookContext,
 	roleResolutionAvailable = false,
 	limits: ResolvedACLEntryLimits = defaultACLEntryLimits,
+	resolvePersistentRole?: PersistentRoleResolver,
 ): Promise<TOperation> => {
 	switch (operation.kind) {
 		case 'create-one':
@@ -242,6 +321,7 @@ export const resolveCreateOperationACL = async <
 					context,
 					roleResolutionAvailable,
 					limits,
+					resolvePersistentRole,
 				),
 			})
 		case 'create-many':
@@ -257,6 +337,7 @@ export const resolveCreateOperationACL = async <
 								context,
 								roleResolutionAvailable,
 								limits,
+								resolvePersistentRole,
 							),
 						),
 					),
@@ -272,6 +353,7 @@ export const resolveCreateOperationACL = async <
 					context,
 					roleResolutionAvailable,
 					limits,
+					resolvePersistentRole,
 				),
 			})
 		case 'upsert-many':
@@ -289,6 +371,7 @@ export const resolveCreateOperationACL = async <
 									context,
 									roleResolutionAvailable,
 									limits,
+									resolvePersistentRole,
 								),
 							}),
 						),
@@ -310,6 +393,7 @@ export const resolvePreparedOperationACL = async <
 	context: HookContext,
 	roleResolutionAvailable = false,
 	limits: ResolvedACLEntryLimits = defaultACLEntryLimits,
+	resolvePersistentRole?: PersistentRoleResolver,
 ): Promise<TOperation> => {
 	const update: unknown = operation.update
 
@@ -366,11 +450,17 @@ export const resolvePreparedOperationACL = async <
 		operation: 'update',
 		principal,
 	})
-	const resolvedAcl =
+	const acceptedAcl =
 		resolved === undefined
 			? currentAcl
 			: snapshotResolvedACL(resolved, 'acl resolveInput')
-	validateAcceptedACL(resolvedAcl, roleResolutionAvailable, limits)
+	const resolvedAcl = await validateAcceptedACL(
+		acceptedAcl,
+		roleResolutionAvailable,
+		limits,
+		context,
+		resolvePersistentRole,
+	)
 	const operations = immutableArray(
 		update.operations.map((candidate) =>
 			candidate === aclOperation
@@ -461,6 +551,9 @@ export const aclPlugin = (options: ACLPluginOptions = {}): ACLPlugin => {
 				object,
 				ReturnType<typeof resolveACLAccessSubjects>
 			>()
+			const roleResolver = services.getOptional(accessRoleResolverServiceToken)
+			const resolvePersistentRole =
+				roleResolver?.resolvePersistentRole?.bind(roleResolver)
 			const resolveSubjects = (context: AccessContext) => {
 				// The engine is the stable cache owner shared by every hook context in one operation.
 				const cacheKey = getCurrentEngine()
@@ -471,7 +564,7 @@ export const aclPlugin = (options: ACLPluginOptions = {}): ACLPlugin => {
 				const resolution = resolveACLAccessSubjects(
 					context,
 					services.getOptional(accessPrincipalResolverServiceToken),
-					services.getOptional(accessRoleResolverServiceToken),
+					roleResolver,
 					(schema) => schemas.get(schema.className) === schema,
 				)
 				subjectCache.set(cacheKey, resolution)
@@ -497,6 +590,7 @@ export const aclPlugin = (options: ACLPluginOptions = {}): ACLPlugin => {
 								context,
 								subjects.roleResolutionAvailable,
 								resolveSchemaLimits(extension.config),
+								resolvePersistentRole,
 							)
 						},
 						upsert: async ({ context, operation }) => {
@@ -509,6 +603,7 @@ export const aclPlugin = (options: ACLPluginOptions = {}): ACLPlugin => {
 								context,
 								subjects.roleResolutionAvailable,
 								resolveSchemaLimits(extension.config),
+								resolvePersistentRole,
 							)
 						},
 					},
@@ -560,6 +655,7 @@ export const aclPlugin = (options: ACLPluginOptions = {}): ACLPlugin => {
 									context,
 									subjects.roleResolutionAvailable,
 									schemaLimits,
+									resolvePersistentRole,
 								),
 							}
 						},

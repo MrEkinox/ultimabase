@@ -114,6 +114,7 @@ const compileDesiredIndexes = (
 		schema.indexes.map((index) =>
 			immutableRecord({
 				columns: index.fields,
+				method: index.method,
 				name: index.name,
 				unique: index.unique,
 			}),
@@ -184,6 +185,7 @@ export const compileDesiredPostgresTables = (
 					relation.indexes.map((index) =>
 						immutableRecord({
 							columns: index.fields,
+							method: index.method,
 							name: index.name,
 							unique: index.unique,
 						}),

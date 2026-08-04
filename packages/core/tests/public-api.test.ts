@@ -89,6 +89,7 @@ describe('@ultimabase/core public entry point', () => {
 			'getCurrentEngine',
 			'getCurrentFrameworkContext',
 			'getCurrentRequest',
+			'getPluginFieldStorageCodec',
 			'guard',
 			'hookDiagnosticsObserverServiceToken',
 			'intField',

@@ -9,9 +9,10 @@ principals and roles within its configured entry limits. The provider
 contributes native Access filters, item checks, and field restrictions that
 compile into database filtering rather than post-filtering in memory.
 
-PostgreSQL support will store the ACL as indexed JSONB on the protected row.
-Normal reads will therefore require no ACL-table join, while the adapter will
-still evaluate public, principal, and resolved-role grants inside SQL.
+PostgreSQL stores the ACL as non-null indexed JSONB on the protected row through
+the field's portable versioned codec. Object and ACL writes are therefore one
+atomic row mutation with no generated ACL table. Logical role names resolve to
+schema-qualified stable UUID references before persistence.
 
 The immutable ACL value currently supports this API:
 
@@ -108,5 +109,5 @@ Access controls creation, while each persisted role ACL may narrow reads,
 updates, member or nested-role mutations, and deletion. Only master execution
 may inspect or replace the role row's ACL value.
 
-PostgreSQL storage and constraint compilation remain tracked by
+PostgreSQL constraint compilation remains tracked by
 [`CURRENT_PLAN.md`](../../CURRENT_PLAN.md).

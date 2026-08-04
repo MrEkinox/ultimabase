@@ -427,10 +427,16 @@ describe('aclPlugin create input resolution', () => {
 	})
 
 	it('requires current-role enumeration before accepting role-aware values', async () => {
-		const roleAware = new ACL().grantRole(
-			new AccessSubjectReference('role', 'AppRole:editor'),
-			'read',
+		const persistentRole = new AccessSubjectReference(
+			'role',
+			'AppRole:0198a43e-2431-7000-8000-000000000040',
 		)
+		const roleAware = new ACL()
+			.grantRole(new AccessSubjectReference('role', 'AppRole:editor'), 'read')
+			.grantRole(
+				new AccessSubjectReference('role', 'AppRole:authors'),
+				'update',
+			)
 		const operation = {
 			input: { title: 'Role protected' },
 			kind: 'create-one',
@@ -455,7 +461,31 @@ describe('aclPlugin create input resolution', () => {
 				context,
 				true,
 			),
-		).resolves.toMatchObject({ input: { acl: roleAware } })
+		).rejects.toThrow(
+			'ACL role grants require a role resolver with persistent-role resolution',
+		)
+		const resolved = await resolveCreateOperationACL(
+			operation,
+			acl({ default: roleAware }).config,
+			undefined,
+			context,
+			true,
+			undefined,
+			() => persistentRole,
+		)
+		const storedACL: unknown = Reflect.get(resolved.input, 'acl')
+
+		expect(storedACL).toBeInstanceOf(ACL)
+		if (!(storedACL instanceof ACL)) {
+			throw new TypeError('Resolved create input must contain an ACL')
+		}
+		expect(storedACL.toJSON().roles).toStrictEqual([
+			{
+				kind: 'role',
+				permissions: ['read', 'update'],
+				value: persistentRole.value,
+			},
+		])
 	})
 
 	it('reserves explicit ACL input for configured master execution', async () => {

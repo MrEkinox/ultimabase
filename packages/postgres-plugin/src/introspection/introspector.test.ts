@@ -158,6 +158,38 @@ const fixtures: CatalogFixtures = {
 }
 
 describe('PostgreSQL catalog introspection', () => {
+	it('accepts managed GIN indexes as synchronizable structures', async () => {
+		const pool = new FixtureCatalogPool({
+			...fixtures,
+			indexes: [
+				...fixtures.indexes,
+				{
+					columns: ['acl'],
+					definition:
+						'CREATE INDEX articles_acl_idx ON public.articles USING gin (acl)',
+					expressions: null,
+					has_included_columns: false,
+					index_name: 'articles_acl_idx',
+					is_primary: false,
+					is_unique: false,
+					method: 'gin',
+					predicate: null,
+					table_name: 'articles',
+				},
+			],
+		})
+		const snapshot = await introspectPostgresDatabase(pool, 'public', [
+			'articles',
+		])
+
+		expect(snapshot.tables[0]?.indexes).toContainEqual(
+			expect.objectContaining({ method: 'gin', name: 'articles_acl_idx' }),
+		)
+		expect(snapshot.unsupported).not.toContainEqual(
+			expect.objectContaining({ name: 'articles_acl_idx' }),
+		)
+	})
+
 	it('normalizes managed and unrelated structures deterministically', async () => {
 		const pool = new FixtureCatalogPool(fixtures)
 		const snapshot = await introspectPostgresDatabase(pool, 'public', [

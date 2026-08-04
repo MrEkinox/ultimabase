@@ -14,6 +14,18 @@ import type { SchemaTarget } from '../../schema/targets.js'
 
 export type ScalarValueSnapshot = (value: unknown, path: string) => unknown
 
+/** Describes one adapter-neutral serialized scalar boundary owned by a plugin field. */
+export interface PluginFieldStorageCodec<TValue = unknown> {
+	/** Selects the portable representation adapters may opt into. */
+	readonly format: 'json'
+	/** Identifies the plugin-owned physical contract for migration planning. */
+	readonly version: number
+	/** Strictly restores one logical scalar from untrusted stored data. */
+	readonly decode: (value: unknown) => TValue
+	/** Produces one JSON-compatible physical value from a validated logical scalar. */
+	readonly encode: (value: TValue) => unknown
+}
+
 interface FieldMetadata<TKind extends string, TOptions extends object> {
 	readonly kind: TKind
 	readonly options: Readonly<TOptions>
@@ -25,6 +37,7 @@ interface FieldCapabilities {
 	readonly hooks: FieldHookDeclarations | undefined
 	readonly schemaTarget: SchemaTarget | undefined
 	readonly snapshotValue: ScalarValueSnapshot
+	readonly storageCodec: PluginFieldStorageCodec | undefined
 }
 
 /** Carries non-metadata capabilities used only by specialized field factories. */
@@ -32,6 +45,8 @@ export interface FieldDefinitionCapabilities {
 	/** Lets a plugin fill a required create value before structural revalidation. */
 	readonly deferRequiredUntilResolveInput?: boolean
 	readonly schemaTarget?: SchemaTarget
+	/** Lets adapters persist one plugin scalar through a validated JSON representation. */
+	readonly storageCodec?: PluginFieldStorageCodec
 }
 
 // Weak ownership proves factory provenance without retaining application schemas.
@@ -62,6 +77,7 @@ export const createFieldDefinition = <
 			hooks,
 			schemaTarget: capabilities.schemaTarget,
 			snapshotValue,
+			storageCodec: capabilities.storageCodec,
 		}),
 	)
 
@@ -82,6 +98,12 @@ export const getFieldAccessDeclarations = (
 export const getFieldSchemaTarget = (
 	field: GenericField,
 ): SchemaTarget | undefined => fieldCapabilities.get(field)?.schemaTarget
+
+/** Resolves a plugin-owned serialized value boundary without exposing it as metadata. */
+export const getPluginFieldStorageCodec = (
+	field: GenericField,
+): PluginFieldStorageCodec | undefined =>
+	fieldCapabilities.get(field)?.storageCodec
 
 /** Distinguishes official factories from structurally forged field objects. */
 export const isDeclaredFieldDefinition = (value: object): boolean =>

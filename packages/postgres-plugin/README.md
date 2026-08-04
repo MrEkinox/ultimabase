@@ -319,6 +319,12 @@ membership validation, which keeps enum-value changes independent from native
 PostgreSQL enum migrations. Structured JSONB codecs preserve nested bigints,
 binary values, and canonical temporal strings losslessly.
 
+Plugin fields that declare Core's portable versioned JSON storage codec also
+compile to JSONB without coupling this package to the plugin kind. A single
+non-unique index on JSONB uses GIN; synchronization and introspection preserve
+the method and repair method drift. Plugin fields without a portable codec
+remain unsupported until a specialized adapter compiler handles them.
+
 ## Index compilation
 
 Field and composite indexes use the storage-neutral Schema API:

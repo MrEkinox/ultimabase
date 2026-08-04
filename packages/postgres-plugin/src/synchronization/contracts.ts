@@ -1,5 +1,6 @@
 import type { PostgresIdentityKind } from '../introspection/contracts.js'
 import type { PointerReferentialAction } from '@ultimabase/core'
+import type { PostgresIndexMethod } from '../schema/contracts.js'
 
 /** Describes one desired physical column without exposing its Drizzle builder. */
 export interface DesiredPostgresColumn {
@@ -12,9 +13,10 @@ export interface DesiredPostgresColumn {
 	readonly type: string
 }
 
-/** Describes one desired physical B-tree index. */
+/** Describes one desired physical index supported by synchronization. */
 export interface DesiredPostgresIndex {
 	readonly columns: readonly [string, ...string[]]
+	readonly method: PostgresIndexMethod
 	readonly name: string
 	readonly unique: boolean
 }

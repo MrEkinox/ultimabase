@@ -11,6 +11,7 @@ import {
 import { describe, expect, it } from 'vitest'
 
 import { compilePostgresSchema } from './schema-compiler.js'
+import { createStoredPluginField } from './storage-codec-fixture.test-support.js'
 
 describe('PostgreSQL value codecs', () => {
 	it('round-trips schema-guided JSONB values without losing native scalars', () => {
@@ -107,6 +108,25 @@ describe('PostgreSQL value codecs', () => {
 
 		expect(Object.isFrozen(Reflect.get(decoded, 'nested'))).toBe(true)
 		expect(Object.isFrozen(Reflect.get(decoded, 'tags'))).toBe(true)
+	})
+
+	it('round-trips portable plugin codecs through top-level JSONB columns', () => {
+		const schema = Schema.define({
+			className: 'PluginCodecFixture',
+			fields: { protectedValue: createStoredPluginField() },
+		})
+		const field = compilePostgresSchema(schema).fields.protectedValue
+
+		expect(field?.storage).toBe('jsonb')
+		expect(field?.column.notNull).toBe(true)
+		expect(field?.codec.encode('logical')).toStrictEqual({
+			value: 'logical',
+			version: 1,
+		})
+		expect(field?.codec.decode({ value: 'stored', version: 1 })).toBe('stored')
+		expect(() => field?.codec.decode({ value: 42, version: 1 })).toThrow(
+			'Stored plugin fixture is invalid',
+		)
 	})
 
 	it('normalizes PostgreSQL temporal text into Schema values', () => {

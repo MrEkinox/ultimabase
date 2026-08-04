@@ -1,4 +1,8 @@
-import { Schema, stringField } from '@ultimabase/core'
+import {
+	getPluginFieldStorageCodec,
+	Schema,
+	stringField,
+} from '@ultimabase/core'
 import { describe, expect, it, vi } from 'vitest'
 
 import {
@@ -26,10 +30,27 @@ describe('acl schema extension', () => {
 		})
 		expect(extension.fields.acl.kind).toBe(aclFieldKind)
 		expect(extension.fields.acl.options.validation.required).toBe(true)
+		expect(extension.fields.acl.options.indexed).toBe(true)
 		expect(schema.fields.acl).toBe(extension.fields.acl)
 		expect(extension.config.default).toBeInstanceOf(ACL)
 		expect(Object.isFrozen(extension)).toBe(true)
 		expect(Object.isFrozen(extension.config)).toBe(true)
+	})
+
+	it('round-trips strict versioned ACL documents through its private codec', () => {
+		const field = acl().fields.acl
+		const codec = getPluginFieldStorageCodec(field)
+		const source = new ACL().grantPublic('read')
+		const encoded = codec?.encode(source)
+		const decoded = codec?.decode(encoded)
+
+		expect(encoded).toStrictEqual(source.toJSON())
+		expect(decoded).toBeInstanceOf(ACL)
+		if (!(decoded instanceof ACL)) {
+			throw new TypeError('ACL storage codec must restore an ACL')
+		}
+		expect(decoded.toJSON()).toStrictEqual(source.toJSON())
+		expect(() => codec?.decode({ version: 2 })).toThrow()
 	})
 
 	it('retains static and asynchronous defaults without executing callbacks', () => {

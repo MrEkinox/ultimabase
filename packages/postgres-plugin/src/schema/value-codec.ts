@@ -2,6 +2,7 @@ import { Buffer } from 'node:buffer'
 
 import {
 	fieldUsesTemporalTimezone,
+	getPluginFieldStorageCodec,
 	Pointer,
 	snapshotScalarFieldValue,
 	type FieldValidationPlan,
@@ -300,6 +301,22 @@ const createScalarCodec = (
 	plan: FieldValidationPlan & { readonly kind: 'scalar' },
 	jsonb: boolean,
 ): PostgresValueCodec => {
+	const pluginStorageCodec = getPluginFieldStorageCodec(plan.field)
+
+	if (pluginStorageCodec !== undefined) {
+		if (!jsonb) {
+			throw new TypeError(
+				'Plugin JSON storage codecs require a PostgreSQL JSONB column',
+			)
+		}
+
+		// Core already validates and snapshots both codec directions at declaration time.
+		return immutableRecord({
+			decode: pluginStorageCodec.decode,
+			encode: pluginStorageCodec.encode,
+		})
+	}
+
 	if (plan.field.kind === 'bigint') {
 		return jsonb ? jsonbBigintCodec : identityCodec
 	}

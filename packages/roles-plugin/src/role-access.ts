@@ -20,6 +20,7 @@ import {
 	getRoleReferenceState,
 	restoreRoleReferenceState,
 	type RoleReference,
+	type RoleReferenceState,
 } from './role-reference.js'
 import {
 	resolveRoleReferenceId,
@@ -75,7 +76,7 @@ export interface StoredRoleResolverDependencies {
 }
 
 interface RoleDomainRequestCache {
-	readonly membership: Promise<readonly string[] | undefined>
+	membership: Promise<readonly string[] | undefined> | undefined
 	readonly references: Map<string, Promise<string | undefined>>
 }
 
@@ -155,11 +156,7 @@ export const createStoredRoleResolver = (
 
 		if (domain === undefined) {
 			domain = {
-				membership: dependencies.resolveMembership(
-					schema,
-					declaration,
-					context,
-				),
+				membership: undefined,
 				references: new Map(),
 			}
 			domains.set(schema, domain)
@@ -167,43 +164,86 @@ export const createStoredRoleResolver = (
 
 		return domain
 	}
+	const resolveMembership = (
+		context: AccessContext,
+		schema: SchemaDefinition,
+		domain: RoleDomainRequestCache,
+	): Promise<readonly string[] | undefined> => {
+		if (domain.membership !== undefined) return domain.membership
+
+		const declaration = getRoleSchemaDeclaration(schema)
+
+		if (declaration === undefined) return Promise.resolve(undefined)
+
+		// Membership remains lazy because persistence needs role identity, not a principal.
+		domain.membership = dependencies.resolveMembership(
+			schema,
+			declaration,
+			context,
+		)
+		return domain.membership
+	}
+	const resolveReferenceState = (
+		role: AccessRoleReference,
+	): RoleReferenceState | undefined => {
+		const state =
+			getRoleReferenceState(role) ??
+			restoreRoleReferenceState(role, registeredSchemas)
+
+		return state !== undefined && registeredSchemas.has(state.schema)
+			? state
+			: undefined
+	}
+	const resolveReferenceId = (
+		role: AccessRoleReference,
+		state: RoleReferenceState,
+		domain: RoleDomainRequestCache,
+	): Promise<string | undefined> => {
+		let roleId = domain.references.get(role.value)
+
+		if (roleId === undefined) {
+			// Rehydrate a package-owned reference after ACL JSON removed WeakMap identity.
+			roleId = dependencies.resolveReferenceId(
+				createRoleReference(state.schema, state.selector),
+			)
+			domain.references.set(role.value, roleId)
+		}
+
+		return roleId
+	}
 
 	return immutableRecord({
 		async hasRole({ context, role }): Promise<boolean> {
-			const state =
-				getRoleReferenceState(role) ??
-				restoreRoleReferenceState(role, registeredSchemas)
+			const state = resolveReferenceState(role)
 
-			if (state === undefined || !registeredSchemas.has(state.schema)) {
-				return false
-			}
+			if (state === undefined) return false
 
 			const domain = getDomain(context, state.schema)
 
 			if (domain === undefined) return false
 
-			const membership = await domain.membership
+			const membership = await resolveMembership(context, state.schema, domain)
 
-			if (membership === undefined) {
-				return false
-			}
+			if (membership === undefined) return false
 
-			const referenceKey = role.value
-			let roleId = domain.references.get(referenceKey)
-
-			if (roleId === undefined) {
-				// Rehydrate a package-owned reference after ACL JSON removed WeakMap identity.
-				const resolvableReference =
-					getRoleReferenceState(role) === undefined
-						? createRoleReference(state.schema, state.selector)
-						: (role as RoleReference)
-				roleId = dependencies.resolveReferenceId(resolvableReference)
-				domain.references.set(referenceKey, roleId)
-			}
-
-			const resolvedRoleId = await roleId
+			const resolvedRoleId = await resolveReferenceId(role, state, domain)
 
 			return resolvedRoleId !== undefined && membership.includes(resolvedRoleId)
+		},
+		async resolvePersistentRole({ context, role }) {
+			const state = resolveReferenceState(role)
+
+			if (state === undefined) return undefined
+
+			const domain = getDomain(context, state.schema)
+
+			if (domain === undefined) return undefined
+
+			const id = await resolveReferenceId(role, state, domain)
+
+			return id === undefined
+				? undefined
+				: createRoleReference(state.schema, { id })
 		},
 		async resolveCurrentRoles({ context }) {
 			const references: AccessRoleReference[] = []
@@ -213,7 +253,7 @@ export const createStoredRoleResolver = (
 
 				if (domain === undefined) continue
 
-				const membership = await domain.membership
+				const membership = await resolveMembership(context, schema, domain)
 
 				for (const roleId of membership ?? []) {
 					references.push(createRoleReference(schema, { id: roleId }))

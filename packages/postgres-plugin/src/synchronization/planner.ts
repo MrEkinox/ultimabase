@@ -33,7 +33,7 @@ const indexMatches = (
 	desired: DesiredPostgresIndex,
 	live: PostgresIndexSnapshot,
 ): boolean =>
-	live.method === 'btree' &&
+	live.method === desired.method &&
 	live.unique === desired.unique &&
 	arraysEqual(live.columns, desired.columns)
 
