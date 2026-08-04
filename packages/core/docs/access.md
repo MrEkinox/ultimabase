@@ -65,6 +65,25 @@ never appear in enumerable schema or field metadata and do not alter inferred
 create, update, or persisted object shapes. Runtime evaluates matching rules in
 dependency and declaration order; a denial stops before later business effects.
 
+Alternative decisions remain concise with the provider-neutral composition
+helpers:
+
+```ts
+access: {
+	operation: {
+		update: anyOf(isOwner('author'), hasRole(Editor)),
+		delete: allOf(hasRole(Administrator), not(isProtected)),
+	},
+}
+```
+
+`anyOf`, `allOf`, and `not` accept direct booleans and synchronous or
+asynchronous callbacks. Evaluation is ordered, short-circuited, and observes
+request cancellation between awaited decisions. These helpers combine branches
+inside one rule only; Runtime still combines every independent developer or
+plugin contribution through logical `AND`, so a local `anyOf` cannot weaken a
+separate denial.
+
 ## Compiled plans and plugin policies
 
 Application initialization now compiles one immutable Access plan for every

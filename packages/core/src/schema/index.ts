@@ -148,11 +148,15 @@ export type {
 } from './access/contracts.js'
 export {
 	allMutations,
+	allOf,
 	allOperations,
 	allowAll,
+	anyOf,
 	denyAll,
+	not,
 } from './access/utilities.js'
 export type {
+	AccessDecisionInput,
 	AllMutationAccess,
 	AllOperationAccess,
 	OperationAccessRule,

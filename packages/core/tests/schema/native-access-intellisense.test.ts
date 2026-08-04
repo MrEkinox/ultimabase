@@ -209,7 +209,15 @@ definePlugin({
 		])
 	})
 
-	it.each(['allowAll', 'denyAll', 'allOperations', 'allMutations'])(
+	it.each([
+		'allowAll',
+		'denyAll',
+		'allOperations',
+		'allMutations',
+		'anyOf',
+		'allOf',
+		'not',
+	])(
 		'documents the %s helper from the package root',
 		(helperName) => {
 			const documentation = readHelperDocumentation(helperName)

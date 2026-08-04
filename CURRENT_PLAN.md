@@ -140,7 +140,7 @@ incomplete.
 
 ### Phase 3 — Native Access integration
 
-5. [ ] [407 — Add composable Access decision helpers](issues/400-access/407-access-decision-combinators.md)
+5. [x] [407 — Add composable Access decision helpers](issues/400-access/407-access-decision-combinators.md)
 6. [ ] [406 — Integrate stored roles with native Access](issues/400-access/406-role-access-integration.md)
 
 ### Phase 4 — Complete public proof
@@ -163,8 +163,8 @@ When resuming after context loss:
 
 ## Current issue
 
-[407 — Add composable Access decision helpers](issues/400-access/407-access-decision-combinators.md)
-is ready. Role references and deletion policies are complete.
+[406 — Integrate stored roles with native Access](issues/400-access/406-role-access-integration.md)
+is ready. Provider-neutral Access decision composition is complete.
 
 ## Progress log
 
@@ -172,3 +172,5 @@ is ready. Role references and deletion policies are complete.
 - ADR-0119 records the schema-backed role model and option-light plugin boundary.
 - Issues 402–405 implement role schemas, immutable member and hierarchy commands,
   bounded cycle-safe traversal, stable references, and transactional deletion policies.
+- Issue 407 adds cancellation-aware `anyOf`, `allOf`, and `not` without changing
+  monotonic composition between independent Access contributions.

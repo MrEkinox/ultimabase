@@ -504,9 +504,12 @@ Runtime behavior. A read-only schema can deny every mutation concisely:
 ```ts
 import {
 	allMutations,
+	allOf,
 	allOperations,
 	allowAll,
+	anyOf,
 	denyAll,
+	not,
 } from '@ultimabase/core'
 
 const readOnly = {
@@ -518,11 +521,21 @@ const explicitDefaultDeny = {
 	...allOperations(denyAll),
 	read: { one: allowAll, many: allowAll, count: denyAll, exists: allowAll },
 }
+
+const editorOrOwner = anyOf(hasRole(Editor), isOwner('author'))
+const editable = allOf(editorOrOwner, not(isLocked))
 ```
 
 Each helper returns a fresh frozen record and retains a supplied callback by
 identity. Ordinary object-spread order controls overrides; the helpers add no
 custom merge semantics or permission-provider concepts.
+
+`anyOf`, `allOf`, and `not` compose booleans plus synchronous or asynchronous
+decision callbacks in deterministic short-circuit order. They simplify
+constants and single callbacks during declaration, check cancellation between
+awaited decisions, and allocate no request-local registry or policy object.
+Composition is local to one rule: separate native and plugin contributions
+still combine through the Runtime's monotonic `AND` boundary.
 
 ### Schema hooks
 

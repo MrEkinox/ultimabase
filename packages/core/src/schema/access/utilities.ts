@@ -1,5 +1,6 @@
-import { immutableRecord } from '@ultimabase/shared'
+import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
+import type { AccessContext } from '../../access/index.js'
 import type { OperationKind } from '../../query/index.js'
 import type {
 	SchemaCreateHookKind,
@@ -25,6 +26,157 @@ export const allowAll = true as const
  * @example `operation: { delete: denyAll }`
  */
 export const denyAll = false as const
+
+/** Represents the common cancellable boundary shared by every Access decision. */
+export interface AccessDecisionInput {
+	readonly context: AccessContext
+}
+
+type AccessDecisionCallback<TInput> = (
+	input: TInput,
+) => boolean | Promise<boolean>
+
+const assertDecisionResult = (result: unknown): boolean => {
+	if (typeof result !== 'boolean') {
+		throw new TypeError('Access decision must return a boolean')
+	}
+
+	return result
+}
+
+const evaluateDecision = async <TInput extends AccessDecisionInput>(
+	rule: AccessDecisionRule<TInput>,
+	input: TInput,
+): Promise<boolean> => {
+	input.context.signal.throwIfAborted()
+	const result =
+		typeof rule === 'boolean' ? rule : await Promise.resolve(rule(input))
+	input.context.signal.throwIfAborted()
+
+	return assertDecisionResult(result)
+}
+
+const requireDecisions = <TInput extends AccessDecisionInput>(
+	name: 'allOf' | 'anyOf',
+	rules: readonly AccessDecisionRule<TInput>[],
+): readonly AccessDecisionRule<TInput>[] => {
+	if (rules.length === 0) {
+		throw new TypeError(`${name} requires at least one Access decision`)
+	}
+
+	// One immutable setup-time snapshot prevents later array mutation from changing policy.
+	return immutableArray(rules)
+}
+
+/**
+ * Allows when at least one decision allows, using deterministic short-circuit OR.
+ *
+ * This combines alternatives inside one rule. Separate native or plugin Access
+ * contributions are still combined monotonically through AND by Runtime.
+ *
+ * @example `update: anyOf(isOwner("author"), hasRole(Editor))`
+ */
+export const anyOf = <TInput extends AccessDecisionInput>(
+	...decisions: readonly [
+		AccessDecisionRule<TInput>,
+		...AccessDecisionRule<TInput>[],
+	]
+): AccessDecisionRule<TInput> => {
+	const rules = requireDecisions('anyOf', decisions)
+
+	if (rules.includes(true)) {
+		return true
+	}
+
+	const effectiveRules = rules.filter((rule) => rule !== false)
+
+	if (effectiveRules.length === 0) {
+		return false
+	}
+
+	if (effectiveRules.length === 1) {
+		return effectiveRules[0] as AccessDecisionRule<TInput>
+	}
+
+	const combined: AccessDecisionCallback<TInput> = async (input) => {
+		for (const rule of effectiveRules) {
+			if (await evaluateDecision(rule, input)) {
+				return true
+			}
+		}
+
+		return false
+	}
+
+	return combined
+}
+
+/**
+ * Allows only when every decision allows, using deterministic short-circuit AND.
+ *
+ * This is local composition within one declaration and never broadens another
+ * Access contribution that independently denied the operation.
+ *
+ * @example `delete: allOf(hasRole(Editor), isNotLocked)`
+ */
+export const allOf = <TInput extends AccessDecisionInput>(
+	...decisions: readonly [
+		AccessDecisionRule<TInput>,
+		...AccessDecisionRule<TInput>[],
+	]
+): AccessDecisionRule<TInput> => {
+	const rules = requireDecisions('allOf', decisions)
+
+	if (rules.includes(false)) {
+		return false
+	}
+
+	const effectiveRules = rules.filter((rule) => rule !== true)
+
+	if (effectiveRules.length === 0) {
+		return true
+	}
+
+	if (effectiveRules.length === 1) {
+		return effectiveRules[0] as AccessDecisionRule<TInput>
+	}
+
+	const combined: AccessDecisionCallback<TInput> = async (input) => {
+		for (const rule of effectiveRules) {
+			if (!(await evaluateDecision(rule, input))) {
+				return false
+			}
+		}
+
+		return true
+	}
+
+	return combined
+}
+
+/**
+ * Inverts exactly one Access decision without changing contribution ordering.
+ *
+ * @example `create: not(isRegistrationClosed)`
+ */
+export const not = <TInput extends AccessDecisionInput>(
+	...decisions: readonly [AccessDecisionRule<TInput>]
+): AccessDecisionRule<TInput> => {
+	const untrustedDecisions: readonly unknown[] = decisions
+
+	if (untrustedDecisions.length !== 1) {
+		throw new TypeError('not requires exactly one Access decision')
+	}
+
+	const rule = decisions[0]
+
+	if (typeof rule === 'boolean') {
+		return !rule
+	}
+
+	return async (input): Promise<boolean> =>
+		!(await evaluateDecision(rule, input))
+}
 
 /** Represents one concise direct rule shared by compatible operation families. */
 export type OperationAccessRule<TKind extends OperationKind> =
