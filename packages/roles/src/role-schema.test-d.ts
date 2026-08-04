@@ -43,6 +43,37 @@ test('preserves exact role schema, member, draft, Query, and reference types', (
 	).toEqualTypeOf<'role'>()
 })
 
+test('exposes exact member commands only on persisted role results', async () => {
+	const draft = new AppRole({ name: 'editor' })
+	const created = await draft.create()
+	const role = await AppRole.query().first()
+	const member = await User.query().first()
+
+	expectTypeOf(draft).not.toHaveProperty('addMember')
+	expectTypeOf(created).toHaveProperty('addMember')
+	// @ts-expect-error -- Draft roles cannot mutate persisted membership.
+	const invalidDraftCommand: { readonly addMember: unknown } = draft
+	void invalidDraftCommand
+
+	if (role !== null) {
+		expectTypeOf(role).toHaveProperty('addMember')
+		expectTypeOf(role).toHaveProperty('removeMember')
+		void role.addMember(
+			User.pointer('123e4567-e89b-42d3-a456-426614174000'),
+		)
+
+		if (member !== null) {
+			void role.addMember(member)
+			void role.removeMember(member)
+		}
+
+		// @ts-expect-error -- Raw identifiers are ambiguous and never accepted.
+		void role.addMember('123e4567-e89b-42d3-a456-426614174000')
+		// @ts-expect-error -- Role pointers cannot become members of this domain.
+		void role.addMember(AppRole.pointer('123e4567-e89b-42d3-a456-426614174000'))
+	}
+})
+
 test('rejects reserved role fields and unrelated member values', () => {
 	// @ts-expect-error -- RoleSchema owns its canonical name field.
 	RoleSchema.define({

@@ -1612,6 +1612,7 @@ __metadata:
   resolution: "@ultimabase/roles@workspace:packages/roles"
   dependencies:
     "@ultimabase/core": "workspace:^"
+    "@ultimabase/shared": "workspace:^"
     tsdown: "npm:^0.22.14"
     typescript: "npm:^6.0.3"
     vitest: "npm:4.1.10"

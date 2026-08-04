@@ -14,6 +14,7 @@ import {
 	type SchemaHooks,
 	type SchemaFieldName,
 	type SchemaIndexOptions,
+	type SchemaResultCapabilityCarrier,
 	type ScalarFieldInferenceState,
 	type StringField,
 } from '@ultimabase/core'
@@ -25,6 +26,10 @@ import {
 	type RoleNameSelector,
 	type RoleReference,
 } from './role-reference.js'
+import {
+	createRoleMemberCommands,
+	type RoleMemberCommands,
+} from './role-member.js'
 
 /** Identifies the extension claimed by the official roles plugin. */
 export const roleSchemaExtensionName = 'ultimabase.roles.schema' as const
@@ -182,6 +187,17 @@ export type RoleSchemaClass<
 			TMemberSchema,
 			TCustomFields,
 			TExtensions
+		>
+	> &
+	SchemaResultCapabilityCarrier<
+		RoleMemberCommands<
+			RoleSchemaSelfDefinition<
+				TClassName,
+				TMemberSchema,
+				TCustomFields,
+				TExtensions
+			>,
+			TMemberSchema
 		>
 	>
 
@@ -348,7 +364,7 @@ export class RoleSchema {
 			TCustomFields,
 			TExtensions
 		>
-		const definedSchema = Schema.defineWithStatics(
+		const definedSchema = Schema.defineWithCapabilities(
 			{
 				className: options.className,
 				fields,
@@ -361,8 +377,8 @@ export class RoleSchema {
 					: { access: options.access }),
 				...(options.hooks === undefined ? {} : { hooks: options.hooks }),
 			},
-			(schema): RoleSchemaStatics<SelfSchema> => {
-				const exactSchema = schema as unknown as SelfSchema
+			(context) => {
+				const exactSchema = context.schema as unknown as SelfSchema
 
 				function role<const TName extends string>(
 					name: TName,
@@ -379,7 +395,10 @@ export class RoleSchema {
 					)
 				}
 
-				return { role }
+				return {
+					statics: { role } satisfies RoleSchemaStatics<SelfSchema>,
+					results: createRoleMemberCommands(context, options.members.schema),
+				}
 			},
 		)
 

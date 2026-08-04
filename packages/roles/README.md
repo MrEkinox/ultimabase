@@ -42,6 +42,9 @@ const Editor = await new AppRole({
 const EditorByName = AppRole.role('editor')
 const EditorById = AppRole.role({ id: Editor.id })
 
+await Editor.addMember(User.pointer(user.id), { useMasterKey: true })
+await Editor.removeMember(User.pointer(user.id), { useMasterKey: true })
+
 const ultimabase = new UltimaBase({
 	schemas: [User, AppRole],
 	plugins: [rolesPlugin()],
@@ -68,6 +71,11 @@ Role schemas carry hidden-by-default transport metadata. Transport packages
 must require an explicit opt-in before generating administrative role APIs;
 trusted server code can always use `new Query(AppRole)` or `AppRole.query()`.
 
-Member commands, nested-role resolution, deletion policies, and native
-`hasRole()` decisions are implemented by the following issues in this
-milestone.
+Persisted role results expose `addMember()` and `removeMember()`. Both accept a
+Pointer or persisted result of the exact member schema, delegate to the normal
+relation lifecycle, inherit ambient execution or ordinary terminal options,
+and emit `ultimabase.roles.membership.changed` only after commit. Draft roles,
+raw identifiers, and unrelated schema values are rejected.
+
+Nested-role resolution, deletion policies, and native `hasRole()` decisions
+are implemented by the following issues in this milestone.

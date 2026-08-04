@@ -221,4 +221,51 @@ describe('schema model classes', () => {
 		expect(second.ast.selection.fields).toStrictEqual([])
 		expect(first.ast.where).toBeUndefined()
 	})
+
+	it('attaches specialization commands only to trusted persisted models', () => {
+		const Target = Schema.define({ className: 'CapabilityTarget', fields: {} })
+		const Specialized = Schema.defineWithCapabilities(
+			{ className: 'CapabilitySource', fields: {} },
+			(context) => ({
+				statics: { kind: 'specialized' as const },
+				results: {
+					targetId(
+						this: object,
+						target: Parameters<typeof context.toPointer<typeof Target>>[1],
+					): string {
+						context.assertPersisted(this, 'targetId')
+						return context.toPointer(Target, target, 'targetId').id
+					},
+				},
+			}),
+		)
+		const source = materializeSchemaModel(Specialized, {
+			id: '0198f090-2a50-7000-8000-000000000041',
+		})
+		const target = materializeSchemaModel(Target, {
+			id: '0198f090-2a50-7000-8000-000000000042',
+		})
+		const draft = new Specialized({})
+		const targetId: unknown = Reflect.get(draft, 'targetId')
+
+		if (typeof targetId !== 'function') {
+			throw new TypeError('Specialized model must expose targetId at runtime')
+		}
+		const invokeTargetId = targetId as (
+			this: object,
+			target: unknown,
+		) => unknown
+
+		expect(Specialized.kind).toBe('specialized')
+		expect(source.targetId(target)).toBe(
+			'0198f090-2a50-7000-8000-000000000042',
+		)
+		expect(source.targetId(Target.pointer('target-pointer'))).toBe(
+			'target-pointer',
+		)
+		expect(() => invokeTargetId.call(draft, target)).toThrow(
+			new TypeError('Schema model targetId requires persisted model state'),
+		)
+		expect(Object.isFrozen(Reflect.getPrototypeOf(source))).toBe(true)
+	})
 })

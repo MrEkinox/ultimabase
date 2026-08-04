@@ -46,6 +46,7 @@ type Simplify<TValue> = {
 } & {}
 
 declare const schemaModelStateType: unique symbol
+declare const schemaResultCapabilitiesType: unique symbol
 
 /** @internal Carries nominal lifecycle identity without runtime surface. */
 interface SchemaModelStateIdentity<
@@ -57,6 +58,21 @@ interface SchemaModelStateIdentity<
 		readonly state: TState
 	}>
 }
+
+/** Carries package-owned persisted commands through Query result inference. */
+export interface SchemaResultCapabilityCarrier<TCapabilities extends object> {
+	readonly [schemaResultCapabilitiesType]: TCapabilities
+}
+
+/** Extracts specialized persisted commands without affecting ordinary schemas. */
+export type SchemaResultCapabilitiesOf<TSchema> =
+	TSchema extends SchemaResultCapabilityCarrier<infer TCapabilities>
+		? TCapabilities
+		: Readonly<Record<never, never>>
+
+/** Identifies a trusted persisted model independently from its visible selection. */
+export type PersistedSchemaReference<TSchema extends SchemaDefinition> =
+	SchemaModelStateIdentity<TSchema['className'], 'persisted'>
 
 /** Exposes immutable values without leaking the model's private lifecycle state. */
 interface SchemaModelMethods<TValues extends object> {
@@ -208,16 +224,7 @@ type SchemaModelInstance<
 export type SchemaDraft<TSchema extends SchemaDefinition> = Simplify<
 	SchemaModelInstance<TSchema, 'draft', InferCreateInput<TSchema>> &
 		SchemaDraftCommands<
-			PersistedSchemaModel<
-				TSchema['className'],
-				InferObject<TSchema>,
-				CompactSchemaModelUpdateInput<
-					Simplify<UpdateSetInput<TSchema>>,
-					Simplify<NumericUpdateInput<TSchema>>,
-					UnsetUpdateFieldName<TSchema>
-				>,
-				SchemaResultRelations<TSchema>
-			>,
+			SchemaResult<TSchema>,
 			SchemaDraftUpsertInput<TSchema>
 		>
 >
@@ -235,7 +242,8 @@ export type SchemaResult<
 		UnsetUpdateFieldName<TSchema>
 	>,
 	SchemaResultRelations<TSchema>
->
+> &
+	SchemaResultCapabilitiesOf<TSchema>
 
 interface SchemaModelRecord {
 	readonly objectId: unknown
@@ -250,6 +258,21 @@ const persistedModelConstructionKey: unique symbol = Symbol(
 )
 const schemaModelRecords = new WeakMap<object, SchemaModelRecord>()
 const schemaModelClasses = new WeakSet<SchemaDefinition>()
+
+/** Gives one specialization only the safe model operations needed by commands. */
+export interface SchemaModelCapabilityContext<
+	TSchema extends SchemaDefinition,
+> {
+	readonly schema: TSchema
+	/** Rejects drafts and forged receivers before a specialized command runs. */
+	assertPersisted(instance: object, command: string): void
+	/** Converts an exact Pointer or persisted model into a detached Pointer. */
+	toPointer<TTarget extends SchemaDefinition>(
+		target: TTarget,
+		value: Pointer<TTarget> | PersistedSchemaReference<TTarget>,
+		command: string,
+	): Pointer<TTarget>
+}
 
 const readSchemaModelRecord = (instance: object): SchemaModelRecord => {
 	const record = schemaModelRecords.get(instance)
@@ -288,6 +311,103 @@ const readPersistedSchemaModelRecord = (
 	}
 
 	return record
+}
+
+const toPersistedSchemaPointer = <TTarget extends SchemaDefinition>(
+	target: TTarget,
+	value: unknown,
+	command: string,
+): Pointer<TTarget> => {
+	if (Pointer.is(value)) {
+		if (value.schema !== target) {
+			throw new TypeError(
+				`${command} target must belong to ${target.className}`,
+			)
+		}
+
+		return new Pointer(target, value.id)
+	}
+
+	if (typeof value !== 'object' || value === null) {
+		throw new TypeError(
+			`${command} target must be a Pointer or persisted schema model`,
+		)
+	}
+
+	const record = readPersistedSchemaModelRecord(value, command)
+
+	if (record.schema !== target) {
+		throw new TypeError(`${command} target must belong to ${target.className}`)
+	}
+	if (typeof record.objectId !== 'string') {
+		throw new TypeError(`${command} target has an invalid persisted identity`)
+	}
+
+	return new Pointer(target, record.objectId)
+}
+
+/** Creates an immutable specialization context without exposing private model state. */
+export const createSchemaModelCapabilityContext = <
+	const TSchema extends SchemaDefinition,
+>(
+	schema: TSchema,
+): SchemaModelCapabilityContext<TSchema> =>
+	Object.freeze({
+		schema,
+		assertPersisted: (instance: object, command: string): void => {
+			const record = readPersistedSchemaModelRecord(instance, command)
+
+			if (record.schema !== schema) {
+				throw new TypeError(`${command} receiver must belong to ${schema.className}`)
+			}
+		},
+		toPointer: toPersistedSchemaPointer,
+	})
+
+/** Attaches package-owned result methods before the generated prototype is frozen. */
+export const defineSchemaModelResultCapabilities = (
+	schema: SchemaDefinition,
+	capabilities: object,
+): void => {
+	if (!isPlainRecord(capabilities)) {
+		throw new TypeError('schema result capabilities must be a plain object')
+	}
+
+	const prototype: unknown = Reflect.get(schema, 'prototype')
+
+	if (typeof prototype !== 'object' || prototype === null) {
+		throw new TypeError('schema model prototype is unavailable')
+	}
+
+	for (const [name, capability] of Object.entries(capabilities)) {
+		if (name.length === 0 || typeof capability !== 'function') {
+			throw new TypeError(
+				'schema result capabilities must contain named functions',
+			)
+		}
+
+		if (name in prototype) {
+			throw new TypeError(`Reserved schema result capability: ${name}`)
+		}
+
+		Object.defineProperty(prototype, name, {
+			configurable: false,
+			enumerable: false,
+			value: capability,
+			writable: false,
+		})
+	}
+}
+
+/** Closes the generated model prototype after every specialization is attached. */
+export const finalizeSchemaModelClass = (schema: SchemaDefinition): void => {
+	const prototype: unknown = Reflect.get(schema, 'prototype')
+
+	if (typeof prototype !== 'object' || prototype === null) {
+		throw new TypeError('schema model prototype is unavailable')
+	}
+
+	Object.freeze(prototype)
 }
 
 interface NormalizedSchemaDraftUpsertInput {
@@ -677,8 +797,6 @@ export const createSchemaModelClass = <
 		TExtensions
 	>
 	schemaModelClasses.add(schema)
-	Object.freeze(DefinedSchemaModel.prototype)
-
 	return schema
 }
 

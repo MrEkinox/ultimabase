@@ -198,6 +198,8 @@ export type {
 export { Schema } from './schema/definition.js'
 export type {
 	SchemaClass,
+	SchemaClassCapabilities,
+	SchemaClassCapabilityFactory,
 	SchemaDefinition,
 	SchemaExtensions,
 	SchemaFields,
@@ -209,11 +211,15 @@ export type {
 export type {
 	CompactSchemaModelUpdateInput,
 	PersistedSchemaModel,
+	PersistedSchemaReference,
 	SchemaDraft,
 	SchemaDraftCommands,
 	SchemaDraftUpsertInput,
 	SchemaDraftUpsertWhere,
 	SchemaModelUpdateInput,
+	SchemaModelCapabilityContext,
+	SchemaResultCapabilitiesOf,
+	SchemaResultCapabilityCarrier,
 	SchemaResult,
 	SchemaResultCommands,
 	SchemaResultRelations,

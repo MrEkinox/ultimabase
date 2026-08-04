@@ -14,7 +14,15 @@ import { assertFieldDefinition } from '../fields/base/definition.js'
 import type { Query } from '../../query/query/query.js'
 import type { InferCreateInput } from '../inference/types.js'
 import type { Pointer } from '../relations/pointer.js'
-import { createSchemaModelClass, type SchemaDraft } from './model.js'
+import {
+	createSchemaModelCapabilityContext,
+	createSchemaModelClass,
+	defineSchemaModelResultCapabilities,
+	finalizeSchemaModelClass,
+	type SchemaDraft,
+	type SchemaModelCapabilityContext,
+	type SchemaResultCapabilityCarrier,
+} from './model.js'
 import {
 	normalizeSchemaIndexes,
 	type SchemaFieldName,
@@ -136,11 +144,11 @@ export interface SchemaClass<
 	/** Creates one immutable typed draft without performing database I/O. */
 	new (
 		input: InferCreateInput<SchemaDefinition<TClassName, TFields, TExtensions>>,
-	): SchemaDraft<SchemaClass<TClassName, TFields, TExtensions>>
+	): SchemaDraft<this>
 	/** Starts one fresh immutable Query without retaining execution state. */
-	query(): Query<SchemaClass<TClassName, TFields, TExtensions>>
+	query(): Query<this>
 	/** Creates one immutable pointer to an object of this exact schema. */
-	pointer(id: string): Pointer<SchemaClass<TClassName, TFields, TExtensions>>
+	pointer(id: string): Pointer<this>
 }
 
 /** Collects additional static capabilities owned by a schema specialization. */
@@ -151,6 +159,24 @@ export type SchemaStaticCapabilityFactory<
 	TSchema extends object,
 	TCapabilities extends SchemaStaticCapabilities,
 > = (schema: TSchema) => TCapabilities
+
+/** Groups static helpers and persisted commands contributed by one specialization. */
+export interface SchemaClassCapabilities<
+	TStatics extends SchemaStaticCapabilities,
+	TResults extends object,
+> {
+	readonly statics: TStatics
+	readonly results: TResults
+}
+
+/** Creates specialized class capabilities after exact schema identity exists. */
+export type SchemaClassCapabilityFactory<
+	TSchema extends SchemaDefinition,
+	TStatics extends SchemaStaticCapabilities,
+	TResults extends object,
+> = (
+	context: SchemaModelCapabilityContext<TSchema>,
+) => SchemaClassCapabilities<TStatics, TResults>
 
 type ReservedFieldCollision<TFields extends SchemaFields> =
 	string extends keyof TFields
@@ -346,6 +372,7 @@ export class Schema {
 			ReservedFieldCollision<NoInfer<TFields>>,
 	): SchemaClass<TClassName, TFields, TExtensions> {
 		const schema = defineSchemaModel(options)
+		finalizeSchemaModelClass(schema)
 		Object.freeze(schema)
 
 		return schema
@@ -377,8 +404,67 @@ export class Schema {
 			schema,
 			createCapabilities,
 		)
+		finalizeSchemaModelClass(specializedSchema)
 		Object.freeze(specializedSchema)
 
 		return specializedSchema
+	}
+
+	/**
+	 * Defines one package-specialized schema with static helpers and persisted commands.
+	 *
+	 * Result commands are absent from drafts at the type level and validate trusted
+	 * persisted identity at runtime. Packages retain ordinary Query and relation
+	 * execution rather than receiving an adapter or application escape hatch.
+	 */
+	static defineWithCapabilities<
+		const TClassName extends string,
+		const TFields extends SchemaFields,
+		const TExtensions extends SchemaExtensions = readonly [],
+		const TStatics extends SchemaStaticCapabilities = SchemaStaticCapabilities,
+		const TResults extends object = object,
+	>(
+		options: SchemaOptions<TClassName, TFields, TExtensions>,
+		createCapabilities: SchemaClassCapabilityFactory<
+			SchemaClass<TClassName, TFields, TExtensions>,
+			TStatics,
+			TResults
+		>,
+	): SchemaClass<TClassName, TFields, TExtensions> &
+		TStatics &
+		SchemaResultCapabilityCarrier<TResults> {
+		if (typeof createCapabilities !== 'function') {
+			throw new TypeError('createCapabilities must be a function')
+		}
+
+		const schema = defineSchemaModel(options)
+		const capabilities: unknown = createCapabilities(
+			createSchemaModelCapabilityContext(schema),
+		)
+
+		if (!isPlainRecord(capabilities)) {
+			throw new TypeError('schema class capabilities must be a plain object')
+		}
+		const staticCapabilities = capabilities.statics
+		const resultCapabilities = capabilities.results
+
+		if (!isPlainRecord(staticCapabilities)) {
+			throw new TypeError('schema static capabilities must be a plain object')
+		}
+		if (!isPlainRecord(resultCapabilities)) {
+			throw new TypeError('schema result capabilities must be a plain object')
+		}
+
+		const specializedSchema = defineSchemaStaticCapabilities(
+			schema,
+			() => staticCapabilities as TStatics,
+		)
+		defineSchemaModelResultCapabilities(schema, resultCapabilities)
+		finalizeSchemaModelClass(specializedSchema)
+		Object.freeze(specializedSchema)
+
+		// The required marker is type-only; attached methods back it at runtime.
+		return specializedSchema as typeof specializedSchema &
+			SchemaResultCapabilityCarrier<TResults>
 	}
 }

@@ -21,6 +21,10 @@ const AppRole = RoleSchema.define({
 
 AppRole./* role-hover */role('editor')
 RoleSchema.define({ /* options-complete */ })
+async function inspectMemberCommand() {
+  const role = await AppRole.query().first()
+  role?./* member-hover */addMember(User.pointer('member-id'))
+}
 `
 
 const service = createLanguageService(fixtureFile, source)
@@ -66,5 +70,16 @@ describe('RoleSchema IntelliSense', () => {
 				'members',
 			]),
 		)
+	})
+
+	it('documents persisted member commands at their call site', () => {
+		const marker = '/* member-hover */'
+		const quickInfo = service.getQuickInfoAtPosition(
+			fixtureFile,
+			markerPosition(marker) + marker.length,
+		)
+		const documentation = ts.displayPartsToString(quickInfo?.documentation)
+
+		expect(documentation).toContain('Adds one exact persisted member')
 	})
 })

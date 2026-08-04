@@ -1,5 +1,13 @@
-export { rolesPlugin } from './plugin.js'
-export type { RolesPlugin, RolesPluginExports } from './plugin.js'
+export { roleMembershipChangedEvent, rolesPlugin } from './plugin.js'
+export type {
+	RoleMembershipChangedEvent,
+	RolesPlugin,
+	RolesPluginExports,
+} from './plugin.js'
+export type {
+	RoleMemberCommands,
+	RoleMemberTarget,
+} from './role-member.js'
 export {
 	RoleSchema,
 	roleSchemaExtensionName,

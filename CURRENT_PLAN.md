@@ -130,8 +130,8 @@ incomplete.
 
 ### Phase 1 — Schema-defined role domain
 
-1. [ ] [402 — Define extensible role schemas](issues/400-access/402-role-schema-definition.md)
-2. [ ] [403 — Add typed role member commands](issues/400-access/403-role-member-commands.md)
+1. [x] [402 — Define extensible role schemas](issues/400-access/402-role-schema-definition.md)
+2. [x] [403 — Add typed role member commands](issues/400-access/403-role-member-commands.md)
 
 ### Phase 2 — Hierarchies and stable references
 
@@ -163,7 +163,7 @@ When resuming after context loss:
 
 ## Current issue
 
-[402 — Define extensible role schemas](issues/400-access/402-role-schema-definition.md)
+[404 — Resolve nested roles and reject cycles](issues/400-access/404-nested-role-resolution.md)
 is ready. No role implementation issue is in progress yet.
 
 ## Progress log

@@ -7,6 +7,7 @@ describe('@ultimabase/roles public entry point', () => {
 		// One explicit manifest prevents package-private reference state from leaking.
 		expect(Object.keys(publicApi).sort()).toStrictEqual([
 			'RoleSchema',
+			'roleMembershipChangedEvent',
 			'roleSchemaExtensionName',
 			'rolesPlugin',
 			'rolesPluginName',

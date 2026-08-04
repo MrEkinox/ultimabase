@@ -83,6 +83,31 @@ test('infers exact immutable drafts from the generated constructor', () => {
 	})
 })
 
+test('infers package-owned commands only on persisted results', async () => {
+	const Specialized = Schema.defineWithCapabilities(
+		{ className: 'TypedCapability', fields: { title: stringField() } },
+		() => ({
+			statics: { category: 'fixture' as const },
+			results: {
+				publish(): Promise<void> {
+					return Promise.resolve()
+				},
+			},
+		}),
+	)
+	const draft = new Specialized({ title: 'Draft' })
+	const persisted = await draft.create()
+	const queried = await Specialized.query().first()
+
+	expectTypeOf(Specialized.category).toEqualTypeOf<'fixture'>()
+	expectTypeOf(draft).not.toHaveProperty('publish')
+	expectTypeOf(persisted.publish()).toEqualTypeOf<Promise<void>>()
+
+	if (queried !== null) {
+		expectTypeOf(queried.publish()).toEqualTypeOf<Promise<void>>()
+	}
+})
+
 test('distinguishes draft and persisted states for the same visible fields', () => {
 	const Minimal = Schema.define({
 		className: 'Minimal',
