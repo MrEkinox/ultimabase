@@ -297,4 +297,58 @@ describe('ACL PostgreSQL Access constraints', { concurrent: false }, () => {
 			ProtectedPost.query().count({ ultimabase: app, useMasterKey: true }),
 		).resolves.toBe(5)
 	})
+
+	it('keeps ACL replacement singular even for trusted master execution', async () => {
+		const app = getApplication()
+		const deniedId = requireRowId('denied')
+		const replacement = new ACL().grantPublic('read', 'update')
+		const masterOptions = { ultimabase: app, useMasterKey: true } as const
+		const attempts = [
+			() =>
+				ProtectedPost.query().updateMany(
+					{ set: { acl: replacement } },
+					masterOptions,
+				),
+			() =>
+				ProtectedPost.query()
+					.byId(deniedId)
+					.upsert(
+						{
+							create: { title: 'unexpected-upsert' },
+							update: { set: { acl: replacement } },
+						},
+						masterOptions,
+					),
+			() =>
+				ProtectedPost.query().upsertMany(
+					[
+						{
+							create: { title: 'unexpected-bulk-upsert' },
+							query: ProtectedPost.query().byId(deniedId),
+							update: { set: { acl: replacement } },
+						},
+					],
+					masterOptions,
+				),
+		] as const
+
+		for (const attempt of attempts) {
+			await expect(attempt()).rejects.toMatchObject({
+				code: 'VALIDATION_ERROR',
+			})
+		}
+
+		const unchanged = await ProtectedPost.query()
+			.byId(deniedId)
+			.select('acl')
+			.first(masterOptions)
+
+		expect(unchanged?.acl).toStrictEqual(new ACL())
+		const updated = await ProtectedPost.query()
+			.byId(deniedId)
+			.select('acl')
+			.update({ set: { acl: replacement } }, masterOptions)
+
+		expect(updated?.acl).toStrictEqual(replacement)
+	})
 })

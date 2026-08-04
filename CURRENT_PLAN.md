@@ -52,7 +52,7 @@ events, or mutation-shape invariants.
 
 ### Phase 1 — Security and provider composition
 
-1. [ ] [429 — Enforce singular ACL management before authorization bypass](issues/400-access/429-enforce-singular-acl-management.md)
+1. [x] [429 — Enforce singular ACL management before authorization bypass](issues/400-access/429-enforce-singular-acl-management.md)
 2. [ ] [430 — Resolve optional ACL subject providers lazily](issues/400-access/430-resolve-optional-acl-providers-lazily.md)
 
 ### Phase 2 — Callback semantics and IntelliSense

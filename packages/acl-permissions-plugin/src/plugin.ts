@@ -9,6 +9,7 @@ import {
 	FrameworkError,
 	getCurrentEngine,
 	getCurrentRequest,
+	guard,
 	preparedOperation,
 	type AccessRoleResolver,
 	type ExecutableOperationAst,
@@ -525,6 +526,12 @@ const aclConstraintOperationKinds = Object.freeze([
 	'upsert-one',
 ] as const)
 
+const aclReplacementInvariantOperationKinds = Object.freeze([
+	'update-many',
+	'upsert-many',
+	'upsert-one',
+] as const)
+
 type ACLDatabaseConstraint = ACLReferenceConstraint | ACLRowConstraint
 const emptyACLChangeValue = new ACL()
 
@@ -727,6 +734,17 @@ export const aclPlugin = (options: ACLPluginOptions = {}): ACLPlugin => {
 				const schemaLimits = resolveSchemaLimits(schemaConfig)
 
 				registries.hooks.register(
+					`acl-replacement-shape:${schema.className}`,
+					guard({
+						handler: ({ operation }) => {
+							// Mutation shape is a data invariant, so trusted master execution must enforce it too.
+							assertSingularACLReplacement(operation)
+						},
+						operations: aclReplacementInvariantOperationKinds,
+						schema,
+					}),
+				)
+				registries.hooks.register(
 					`acl-input:${schema.className}`,
 					preparedOperation({
 						handler: async ({ context, operation, target }) => {
@@ -777,8 +795,6 @@ export const aclPlugin = (options: ACLPluginOptions = {}): ACLPlugin => {
 						ACLDatabaseConstraint
 					>({
 						handler: async ({ operation }) => {
-							assertSingularACLReplacement(operation)
-
 							if (getACLReferenceScope(schema) !== undefined) {
 								return immutableArray([])
 							}

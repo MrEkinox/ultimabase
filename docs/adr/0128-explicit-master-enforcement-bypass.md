@@ -38,7 +38,9 @@ registers:
 
 - one authorization constraint with explicit master bypass; and
 - one separate reference-maintenance constraint that remains enforced for
-  trusted cleanup queries and otherwise returns no nodes.
+  trusted cleanup queries and otherwise returns no nodes; and
+- one mutation-shape guard that remains enforced so master cannot replace ACLs
+  through set-based updates or upserts.
 
 This is the low-level equivalent of contribution-owned native Access master
 behavior. It is not a general hook bypass and does not skip validation,
@@ -51,6 +53,8 @@ or committed events.
   recursive policy execution.
 - ACL reference fail and cascade policies still constrain trusted maintenance
   queries correctly.
+- ACL replacement remains a prepared singular operation under every authority
+  mode, independently from authorization bypass.
 - Advanced providers can express audited master behavior without teaching Core
   their policy vocabulary.
 - An omitted option remains fail-closed for master, and each bypass stays

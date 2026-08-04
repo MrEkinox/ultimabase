@@ -25,7 +25,6 @@ import { ACL } from './acl.js'
 import { acl, type ACLDefaultInput } from './acl-extension.js'
 import {
 	aclPlugin,
-	assertSingularACLReplacement,
 	resolveCreateOperationACL,
 	resolvePreparedOperationACL,
 } from './plugin.js'
@@ -642,25 +641,82 @@ describe('aclPlugin create input resolution', () => {
 		} satisfies Partial<FrameworkError>)
 	})
 
-	it('rejects set-based ACL replacement without materializing rows', () => {
-		const update = {
-			kind: 'update-expression',
-			operations: [{ field: 'acl', kind: 'set', value: new ACL() }],
-		} as const
+	it('rejects non-singular ACL replacement through the complete runtime pipeline', async () => {
+		const adapter = new ACLRejectedWriteAdapter()
+		const databaseProvider = definePlugin({
+			name: 'fixture.acl-replacement-write-database',
+			slot: 'database-adapter',
+			setup: ({ services }) => {
+				services.provide(databaseAdapterServiceToken, adapter)
+			},
+		})
+		const ultimabase = new UltimaBase({
+			masterAuthority: new MasterAuthority({
+				keys: [{ id: 'acl-replacement-master', value: 'unused-by-terminal' }],
+				onUse: () => undefined,
+			}),
+			plugins: [aclPlugin(), databaseProvider],
+			schemas: [ProtectedPost],
+		})
+		const replacement = new ACL().grantPublic('read')
+		const masterOptions = { ultimabase, useMasterKey: true } as const
 
-		expect(() => {
-			assertSingularACLReplacement({
-				kind: 'update-many',
-				query: ProtectedPost.query().ast,
-				update,
-			})
-		}).toThrow('ACL replacement requires an itemized singular update.')
-		expect(() => {
-			assertSingularACLReplacement({
-				kind: 'update-one',
-				query: ProtectedPost.query().ast,
-				update,
-			})
-		}).not.toThrow()
+		try {
+			await ultimabase.start()
+			const attempts = [
+				() =>
+					ProtectedPost.query().updateMany(
+						{ set: { acl: replacement } },
+						masterOptions,
+					),
+				() =>
+					ProtectedPost.query()
+						.byId('0198a43e-2431-7000-8000-000000000032')
+						.upsert(
+							{
+								create: { title: 'Created' },
+								update: { set: { acl: replacement } },
+							},
+							masterOptions,
+						),
+				() =>
+					ProtectedPost.query().upsertMany(
+						[
+							{
+								create: { title: 'Created' },
+								query: ProtectedPost.query().byId(
+									'0198a43e-2431-7000-8000-000000000033',
+								),
+								update: { set: { acl: replacement } },
+							},
+						],
+						masterOptions,
+					),
+			] as const
+
+			for (const attempt of attempts) {
+				await expect(attempt()).rejects.toMatchObject({
+					code: 'VALIDATION_ERROR',
+				} satisfies Partial<FrameworkError>)
+			}
+
+			await expect(
+				ProtectedPost.query().updateMany(
+					{ set: { acl: replacement } },
+					{ ultimabase },
+				),
+			).rejects.toMatchObject({
+				code: 'PERMISSION_DENIED',
+			} satisfies Partial<FrameworkError>)
+			expect(adapter.transactions).toHaveLength(4)
+			expect(
+				adapter.transactions.every(
+					({ prepareCount, rollbackCount }) =>
+						prepareCount === 0 && rollbackCount === 1,
+				),
+			).toBe(true)
+		} finally {
+			await ultimabase.dispose()
+		}
 	})
 })
