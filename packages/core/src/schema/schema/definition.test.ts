@@ -69,7 +69,10 @@ describe('schema definitions', () => {
 	})
 
 	it('merges extension-owned fields and rejects every reserved collision', () => {
-		const privateValue = stringField({ validation: { required: true } })
+		const privateValue = stringField({
+			indexed: true,
+			validation: { required: true },
+		})
 		const extension = defineSchemaExtension(
 			'fixture.storage',
 			{},
@@ -83,6 +86,10 @@ describe('schema definitions', () => {
 		})
 
 		expect(schema.fields.privateValue).toBe(privateValue)
+		expect(schema.indexes).toContainEqual({
+			fields: ['privateValue'],
+			unique: false,
+		})
 		expect(() =>
 			Schema.define({
 				className: 'CollidingPost',

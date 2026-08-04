@@ -29,9 +29,7 @@ import type {
 	SchemaDefinition,
 	SchemaExtensions,
 	SchemaFields,
-	SchemaIndexDefinition,
 	SchemaOptions,
-	SchemaFieldName,
 } from '../../src/index.js'
 
 interface FixturePrincipal {
@@ -157,7 +155,11 @@ declare class PrototypeSchema<
 	>['definition']
 	readonly className: TClassName
 	readonly fields: SchemaDefinition<TClassName, TFields, TExtensions>['fields']
-	readonly indexes: readonly SchemaIndexDefinition<SchemaFieldName<TFields>>[]
+	readonly indexes: SchemaDefinition<
+		TClassName,
+		TFields,
+		TExtensions
+	>['indexes']
 	readonly extensions: readonly [...TExtensions]
 
 	constructor(options: PrototypeSchemaOptions<TClassName, TFields, TExtensions>)

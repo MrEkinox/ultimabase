@@ -140,7 +140,9 @@ export interface SchemaMetadata<
 	readonly fields: ResolvedSchemaFields<TFields, TExtensions> &
 		Readonly<SystemFields>
 	/** The immutable normalized field-level and composite index declarations. */
-	readonly indexes: readonly SchemaIndexDefinition<SchemaFieldName<TFields>>[]
+	readonly indexes: readonly SchemaIndexDefinition<
+		SchemaFieldName<ResolvedSchemaFields<TFields, TExtensions>>
+	>[]
 	/** The immutable ordered schema-extension tuple. */
 	readonly extensions: readonly [...TExtensions]
 }
@@ -290,15 +292,20 @@ const defineSchemaModel = <
 		options.fields,
 		extensions,
 	)
-	const fields = immutableRecord({
+	const declaredFields = immutableRecord({
 		...options.fields,
 		...extensionFields,
+	}) as ResolvedSchemaFields<TFields, TExtensions>
+	const fields = immutableRecord({
+		...declaredFields,
 		...systemFields,
 	}) as ResolvedSchemaFields<TFields, TExtensions> & Readonly<SystemFields>
 	const indexes = normalizeSchemaIndexes(
-		options.fields,
+		declaredFields,
 		options.indexes,
-	) as readonly SchemaIndexDefinition<SchemaFieldName<TFields>>[]
+	) as readonly SchemaIndexDefinition<
+		SchemaFieldName<ResolvedSchemaFields<TFields, TExtensions>>
+	>[]
 	const definition: SchemaMetadata<TClassName, TFields, TExtensions> =
 		immutableRecord({
 			className: options.className,

@@ -1,5 +1,10 @@
 import { ACL, acl, aclPlugin } from '@ultimabase/acl-permissions-plugin'
-import { Schema, stringField, UltimaBase } from '@ultimabase/core'
+import {
+	MasterAuthority,
+	Schema,
+	stringField,
+	UltimaBase,
+} from '@ultimabase/core'
 import { postgresPlugin, postgresTable } from '@ultimabase/postgres-plugin'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
@@ -55,6 +60,10 @@ afterAll(async () => {
 describe('ACL JSONB storage', { concurrent: false }, () => {
 	it('keeps ACL lifecycle atomic in one indexed object row', async () => {
 		const ultimabase = new UltimaBase({
+			masterAuthority: new MasterAuthority({
+				keys: [{ id: 'acl-storage-e2e', value: 'server-only' }],
+				onUse: () => undefined,
+			}),
 			plugins: [
 				aclPlugin(),
 				postgresPlugin({
@@ -100,11 +109,11 @@ describe('ACL JSONB storage', { concurrent: false }, () => {
 			}>(
 				`SELECT indexname, indexdef FROM pg_indexes WHERE schemaname = current_schema() AND tablename = 'acl_storage_posts'`,
 			)
-			expect(
-				indexes.rows.some(({ indexdef }) =>
-					indexdef.includes('USING gin (acl)'),
-				),
-			).toBe(true)
+			const aclIndex = indexes.rows.find(({ indexname }) =>
+				indexname.includes('_acl_idx_'),
+			)
+
+			expect(aclIndex?.indexdef).toContain('USING gin')
 			const explainClient = await getFixture().pool.connect()
 			let queryPlan: readonly string[]
 
