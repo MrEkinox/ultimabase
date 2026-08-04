@@ -68,14 +68,20 @@ The completed stored-role objective is recorded in its
 
 ## Remaining execution order
 
-The remaining independent Access work continues with:
+The active persisted-object ACL vertical is tracked in
+[`CURRENT_PLAN.md`](../../CURRENT_PLAN.md) and continues with:
 
 1. [409 — Implement immutable ACL class](409-acl-class.md)
-2. [410 — Implement ACL schema extension](410-acl-schema-extension.md)
-3. [411 — Implement aclPlugin](411-acl-plugin.md)
-4. PostgreSQL ACL storage and compilation through issues 510 and 509
-5. [412 — Add ACL hooks and events](412-acl-hooks-events.md)
-6. [415 — Verify native Access and provider composition](415-access-plugin-composition.md)
+2. [424 — Add versioned ACL JSON serialization](424-acl-json-serialization.md)
+3. [425 — Define the neutral current-principal resolver](425-current-principal-resolver.md)
+4. [410 — Implement ACL schema extension](410-acl-schema-extension.md)
+5. [411 — Implement aclPlugin](411-acl-plugin.md)
+6. [428 — Enforce configurable ACL entry limits](428-acl-entry-limits.md)
+7. PostgreSQL JSONB ACL storage and compilation through issues 510 and 509
+8. [426 — Integrate ACL subject-reference cleanup](426-acl-reference-cleanup.md)
+9. [412 — Add ACL hooks and events](412-acl-hooks-events.md)
+10. [415 — Verify native Access and provider composition](415-access-plugin-composition.md)
+11. [427 — Verify the complete ACL PostgreSQL vertical](427-acl-postgres-e2e.md)
 
 Issues 407 and 408 previously described a separate CLP provider. Issue 408 is
 complete and records the consolidation in ADR-0120. Issues 413
@@ -90,3 +96,7 @@ option-light roles plugin discovers those declarations, while ordinary schema
 configuration owns custom fields, indexes, Access, hooks, and Query behavior.
 ACL remains independently implementable against the neutral contracts from
 issue 420 and must not import the official roles package.
+
+ADR-0122 freezes the immutable class API, optional principal bridge, versioned
+JSON, row-aware defaults, shared create/update input resolution, entry limits,
+subject cleanup ownership, and audited master bypass for this vertical.

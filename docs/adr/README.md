@@ -115,6 +115,7 @@ Accepted records:
 - [ADR-0119: Developer-defined schema-backed roles](0119-developer-defined-role-schemas.md)
 - [ADR-0120: Native Access replaces permission placeholder packages](0120-native-access-replaces-permission-placeholders.md)
 - [ADR-0121: Explicit plugin package names](0121-explicit-plugin-package-names.md)
+- [ADR-0122: Immutable persisted object ACLs](0122-immutable-persisted-object-acls.md)
 
 Superseded records:
 

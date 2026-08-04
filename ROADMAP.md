@@ -39,7 +39,7 @@ access.
 
 Native operation, filter, item, and field Access; compiled provider
 contributions; developer-defined stored roles and role hierarchy; object ACL;
-per-schema ACL tables; SQL compilation; and audit events.
+indexed PostgreSQL JSONB storage; SQL compilation; and audit events.
 
 ## Milestone 5 — PostgreSQL vertical
 

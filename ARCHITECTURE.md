@@ -264,6 +264,22 @@ Query. Query predicates, `beforeFind` predicates, and every Access provider
 constraint combine through logical `AND`; a business hook cannot inspect or
 remove the private Access state.
 
+Persisted object ACL is one optional provider for this lifecycle. Its immutable
+value stores public, authenticated, exact schema-qualified principal, and
+schema-qualified role grants for `read`, `update`, `delete`, and `manageAcl`.
+The ACL package consumes an optional neutral current-principal resolver and the
+separate neutral role resolver; it never imports a concrete authentication or
+roles plugin. Missing identity fails closed while applications using only
+public and audited master behavior require neither provider.
+
+The `acl()` schema extension owns row-aware defaults and shared create/update
+input resolution through generic extension-targeted hooks. `aclPlugin()` owns
+monotonic Access contributions and declares master bypass. Runtime has no ACL
+stage or subject vocabulary. PostgreSQL stores one indexed JSONB ACL document
+on each protected row and combines its opaque containment constraint with every
+other predicate in one statement. This physical representation requires no
+ACL-specific join and remains private to the adapter.
+
 Native schema Access is the generalized class-level permission system, and
 native field Access controls field disclosure and mutation. ACL is an optional
 persisted per-object provider. Roles and authentication supply optional typed

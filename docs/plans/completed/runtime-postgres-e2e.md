@@ -44,7 +44,7 @@ REST, and GraphQL are not required for this first vertical.
 
 - Static schemas remain the source of truth; the E2E test must not create its application tables manually.
 - Missing permission plugins install explicit neutral Runtime stages only when no permission extension requests them.
-- PostgreSQL introspection is independent from ACL table compilation. ACL tables remain owned by issue 510.
+- PostgreSQL introspection is independent from ACL physical storage, which remains owned by issue 510.
 - Runtime resolves the database adapter through Core's typed application service boundary, not a second adapter registry.
 - Drizzle remains private to `@ultimabase/postgres-plugin`.
 - The first E2E uses direct TypeScript queries. HTTP, REST, and GraphQL are later verticals.

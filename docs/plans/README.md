@@ -7,7 +7,7 @@ objective changes.
 
 ## Active
 
-No cross-package objective is currently active.
+- [Persisted object ACL](../../CURRENT_PLAN.md)
 
 ## Completed
 
