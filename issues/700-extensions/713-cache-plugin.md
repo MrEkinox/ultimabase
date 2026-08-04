@@ -2,7 +2,7 @@
 
 - Status: planned
 - Milestone: 7+
-- Packages: future cache packages
+- Packages: future cache plugin packages ending with `-plugin`
 - Depends on: 318, 617
 - ADR: new ADR required
 

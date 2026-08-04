@@ -3,7 +3,7 @@
 The active objective extracts transport-neutral pointers and relations from the
 future ecosystem backlog. It creates no new package: the logical declaration,
 Query, Access, hook, and Runtime contracts belong to `@ultimabase/core`, while
-physical foreign keys and join storage belong to `@ultimabase/postgres`.
+physical foreign keys and join storage belong to `@ultimabase/postgres-plugin`.
 
 ## Completed relations vertical
 

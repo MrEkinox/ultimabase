@@ -6,7 +6,7 @@
 
 ## Decision
 
-`@ultimabase/postgres` compiles every normalized field-level and composite
+`@ultimabase/postgres-plugin` compiles every normalized field-level and composite
 index as a Drizzle PostgreSQL index on the schema's private table. Ordinary
 definitions use `index`; unique definitions use `uniqueIndex`. Declaration
 order and field order remain unchanged.

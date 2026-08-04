@@ -2,7 +2,7 @@
 
 - Status: done
 - Milestone: 4
-- Packages: `@ultimabase/roles`
+- Packages: `@ultimabase/roles-plugin`
 - Depends on: 103, 112, 204, 339, 349, 420, 747
 - ADR: ADR-0002, ADR-0005, ADR-0109, ADR-0115, ADR-0119
 
@@ -10,7 +10,7 @@
 
 Provide `RoleSchema.define()` as a role-aware specialization of
 `Schema.define()`. The developer declares, extends, registers, queries, and
-protects the role schema while `@ultimabase/roles` contributes only the
+protects the role schema while `@ultimabase/roles-plugin` contributes only the
 reserved fields and capabilities required by stored roles.
 
 ## Target developer experience

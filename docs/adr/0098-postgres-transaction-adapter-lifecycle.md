@@ -7,7 +7,7 @@
 
 ## Decision
 
-`@ultimabase/postgres` implements Runtime's adapter-neutral transaction contract
+`@ultimabase/postgres-plugin` implements Runtime's adapter-neutral transaction contract
 by borrowing one client from its private pool. `beginTransaction()` executes
 `BEGIN` before exposing a `DatabaseTransactionAdapter`. That adapter creates a
 private Drizzle client around the borrowed driver client and reuses the same

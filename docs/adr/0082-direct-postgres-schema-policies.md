@@ -45,4 +45,4 @@ resolved before startup, while `ignore` supports externally managed schemas.
 
 Direct synchronization deliberately has no migration history, rename
 inference, advisory lock, or removed-table ownership. Those responsibilities
-remain in `@ultimabase/postgres-migrations` issues 513–515.
+remain in `@ultimabase/postgres-migrations-plugin` issues 513–515.

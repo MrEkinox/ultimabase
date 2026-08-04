@@ -2,7 +2,7 @@
 
 - Status: planned
 - Milestone: 7+
-- Packages: future observability package
+- Packages: future `@ultimabase/observability-plugin`
 - Depends on: 312, 617
 - ADR: new ADR required
 

@@ -1,5 +1,5 @@
 ---
-'@ultimabase/postgres': minor
+'@ultimabase/postgres-plugin': minor
 ---
 
 Execute explicit Runtime transactions through one borrowed PostgreSQL client

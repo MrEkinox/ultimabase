@@ -6,7 +6,7 @@
 
 ## Decision
 
-`@ultimabase/postgres` compiles the normalized Query projection, ordering,
+`@ultimabase/postgres-plugin` compiles the normalized Query projection, ordering,
 limit, offset, and cursor position into private Drizzle clauses shared by read,
 update, and delete operations. An empty selection loads every compiled field;
 an explicit selection loads exactly those columns. Field-permission plugins

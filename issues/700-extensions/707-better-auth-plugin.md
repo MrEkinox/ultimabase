@@ -2,7 +2,7 @@
 
 - Status: planned
 - Milestone: 7+
-- Packages: future auth-better-auth package
+- Packages: future `@ultimabase/better-auth-plugin`
 - Depends on: 706
 - ADR: ADR-0113
 

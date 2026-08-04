@@ -10,7 +10,7 @@ It takes inspiration from the simplicity of Parse Server while deliberately repl
 
 ```ts
 import { Schema, UltimaBase, booleanField, stringField } from '@ultimabase/core'
-import { postgresPlugin } from '@ultimabase/postgres'
+import { postgresPlugin } from '@ultimabase/postgres-plugin'
 
 export const UserSchema = Schema.define({
 	className: 'User',
@@ -62,6 +62,7 @@ users[0]?.toJSON() // A detached immutable object.
 
 - Static schemas are the source of truth.
 - Concrete capabilities are plugins.
+- Publishable plugin packages use the explicit `-plugin` directory and package-name suffix.
 - Core contains the inseparable Schema, Query, Access, application, and Runtime domains while remaining independent from infrastructure implementations.
 - REST and GraphQL use one operation AST and one runtime pipeline.
 - UltimaBase, Schema, Query, ACL, and Role domain objects use immutable classes.

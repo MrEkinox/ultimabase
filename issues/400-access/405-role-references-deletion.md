@@ -2,7 +2,7 @@
 
 - Status: done
 - Milestone: 4
-- Packages: `@ultimabase/roles`
+- Packages: `@ultimabase/roles-plugin`
 - Depends on: 402, 404
 - ADR: ADR-0006
 

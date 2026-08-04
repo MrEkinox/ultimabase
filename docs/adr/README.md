@@ -114,6 +114,7 @@ Accepted records:
 - [ADR-0118: Transport-neutral pointers and relations](0118-transport-neutral-relations.md)
 - [ADR-0119: Developer-defined schema-backed roles](0119-developer-defined-role-schemas.md)
 - [ADR-0120: Native Access replaces permission placeholder packages](0120-native-access-replaces-permission-placeholders.md)
+- [ADR-0121: Explicit plugin package names](0121-explicit-plugin-package-names.md)
 
 Superseded records:
 

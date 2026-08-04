@@ -2,7 +2,7 @@
 
 - Status: planned
 - Milestone: 6
-- Packages: `@ultimabase/graphql-yoga`
+- Packages: `@ultimabase/graphql-yoga-plugin`
 - Depends on: 601, 604, 608, 614
 - ADR: ADR-0010
 

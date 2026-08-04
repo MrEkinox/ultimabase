@@ -1,4 +1,4 @@
-import { postgresPlugin } from '@ultimabase/postgres'
+import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import {
 	MasterAuthority,
 	Schema,

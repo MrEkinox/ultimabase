@@ -1,5 +1,5 @@
 ---
-'@ultimabase/postgres': minor
+'@ultimabase/postgres-plugin': minor
 ---
 
 Compile built-in schemas into private Drizzle table metadata with explicit

@@ -2,7 +2,7 @@
 
 - Status: planned
 - Milestone: 7+
-- Packages: future openapi package
+- Packages: future `@ultimabase/openapi-plugin`
 - Depends on: 607
 - ADR: none
 

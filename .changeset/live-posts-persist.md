@@ -1,5 +1,5 @@
 ---
-'@ultimabase/postgres': patch
+'@ultimabase/postgres-plugin': patch
 ---
 
 Normalize PostgreSQL temporal results to Schema's canonical ISO values and add

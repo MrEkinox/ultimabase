@@ -2,7 +2,7 @@
 
 - Status: planned
 - Milestone: 6
-- Packages: `@ultimabase/server-hono`
+- Packages: `@ultimabase/server-hono-plugin`
 - Depends on: 601
 - ADR: ADR-0009
 

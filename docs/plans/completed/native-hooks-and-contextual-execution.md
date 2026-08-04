@@ -3,7 +3,7 @@
 - Status: completed
 - Completed: 2026-08-03
 - Started: 2026-08-01
-- Objective owner: `@ultimabase/core`, `@ultimabase/postgres`, `@ultimabase/testing`
+- Objective owner: `@ultimabase/core`, `@ultimabase/postgres-plugin`, `@ultimabase/testing`
 - Governing decisions: [ADR-0089](../../adr/0089-native-schema-and-field-hooks.md), [ADR-0090](../../adr/0090-permission-plugins-through-hooks.md), [ADR-0095](../../adr/0095-consolidated-foundational-core.md), [ADR-0096](../../adr/0096-native-hook-declaration-capabilities.md), [ADR-0099](../../adr/0099-automatic-mutation-transactions.md), [ADR-0100](../../adr/0100-prepared-mutation-outcomes.md), [ADR-0102](../../adr/0102-policy-neutral-monotonic-enforcement.md), [ADR-0103](../../adr/0103-versioned-adapter-constraint-compilers.md), [ADR-0104](../../adr/0104-read-hook-execution-and-output-resolution.md), [ADR-0105](../../adr/0105-transaction-hook-journal.md), [ADR-0106](../../adr/0106-hook-execution-safety-and-diagnostics.md), [ADR-0107](../../adr/0107-hook-context-capabilities-and-events.md), [ADR-0108](../../adr/0108-contextual-query-terminal-execution.md), [ADR-0109](../../adr/0109-constructible-schema-models.md), [ADR-0110](../../adr/0110-concise-singular-query-terminals.md), [ADR-0111](../../adr/0111-non-atomic-bulk-hook-semantics.md), [ADR-0113](../../adr/0113-plugin-owned-authentication-context.md), [ADR-0115](../../adr/0115-immutable-model-commands.md)
 - Previous completed objective: [Runtime-to-PostgreSQL E2E](runtime-postgres-e2e.md)
 

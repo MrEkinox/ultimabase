@@ -2,7 +2,7 @@
 
 - Status: planned
 - Milestone: 6
-- Packages: `@ultimabase/rest`
+- Packages: `@ultimabase/rest-plugin`
 - Depends on: 301, 302, 303, 304, 305, 603
 - ADR: ADR-0004
 

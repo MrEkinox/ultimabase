@@ -2,7 +2,7 @@
 
 - Status: planned
 - Milestone: 4
-- Packages: `@ultimabase/core`, `@ultimabase/roles`, `@ultimabase/acl-permissions`
+- Packages: `@ultimabase/core`, `@ultimabase/roles-plugin`, `@ultimabase/acl-permissions-plugin`
 - Depends on: 407, 411, 419, 420, 423
 - ADR: ADR-0003, ADR-0006, ADR-0090, ADR-0116
 

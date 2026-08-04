@@ -2,7 +2,7 @@
 
 - Status: done
 - Milestone: 3
-- Packages: `@ultimabase/core`, `@ultimabase/postgres`
+- Packages: `@ultimabase/core`, `@ultimabase/postgres-plugin`
 - Depends on: 328, 330
 - ADR: ADR-0064, ADR-0076, ADR-0089, ADR-0090, ADR-0102
 

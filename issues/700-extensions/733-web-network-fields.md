@@ -2,7 +2,7 @@
 
 - Status: planned
 - Milestone: 7+
-- Packages: standard-fields
+- Packages: future `@ultimabase/standard-fields-plugin`
 - Depends on: 730
 - ADR: none
 

@@ -3,7 +3,7 @@
 - Status: completed
 - Started: 2026-08-03
 - Completed: 2026-08-03
-- Objective owner: `@ultimabase/core`, `@ultimabase/postgres`
+- Objective owner: `@ultimabase/core`, `@ultimabase/postgres-plugin`
 - Governing decisions: [ADR-0090](../../adr/0090-permission-plugins-through-hooks.md), [ADR-0102](../../adr/0102-policy-neutral-monotonic-enforcement.md), [ADR-0103](../../adr/0103-versioned-adapter-constraint-compilers.md), [ADR-0113](../../adr/0113-plugin-owned-authentication-context.md), [ADR-0116](../../adr/0116-fundamental-access-system.md), [ADR-0117](../../adr/0117-optional-access-subject-capabilities.md)
 - Previous completed objective: [Native hooks and contextual execution](native-hooks-and-contextual-execution.md)
 

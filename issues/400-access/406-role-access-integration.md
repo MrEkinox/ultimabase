@@ -2,7 +2,7 @@
 
 - Status: done
 - Milestone: 4
-- Packages: `@ultimabase/roles`
+- Packages: `@ultimabase/roles-plugin`
 - Depends on: 204, 207, 404, 405, 407, 417, 420
 - ADR: ADR-0003, ADR-0113, ADR-0116, ADR-0117, ADR-0119
 

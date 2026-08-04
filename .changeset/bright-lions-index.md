@@ -1,5 +1,5 @@
 ---
-'@ultimabase/postgres': minor
+'@ultimabase/postgres-plugin': minor
 ---
 
 Compile ordinary, unique, and composite schema indexes with deterministic

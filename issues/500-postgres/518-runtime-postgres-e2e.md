@@ -2,7 +2,7 @@
 
 - Status: done
 - Milestone: 5
-- Packages: `@ultimabase/testing`, `@ultimabase/postgres`, `@ultimabase/runtime`
+- Packages: `@ultimabase/testing`, `@ultimabase/postgres-plugin`, `@ultimabase/runtime`
 - Depends on: 323, 504, 505, 506, 507, 512, 516
 - ADR: ADR-0004, ADR-0007, ADR-0012, ADR-0087
 

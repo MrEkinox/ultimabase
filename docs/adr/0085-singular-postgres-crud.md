@@ -7,7 +7,7 @@
 
 ## Decision
 
-`@ultimabase/postgres` executes `find`, `first`, `get`, `count`, `exists`,
+`@ultimabase/postgres-plugin` executes `find`, `first`, `get`, `count`, `exists`,
 `create-one`, `update-one`, and `delete-one` through its private Drizzle client.
 Every query operation reuses the shared filter and clause compilers. Explicit
 selections become `RETURNING` projections for updates and deletes as well as

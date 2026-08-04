@@ -2,7 +2,7 @@
 
 - Status: planned
 - Milestone: 7+
-- Packages: future postgres-outbox package
+- Packages: future `@ultimabase/postgres-outbox-plugin`
 - Depends on: 318, 508
 - ADR: new ADR required
 

@@ -2,7 +2,7 @@
 
 - Status: planned
 - Milestone: 7+
-- Packages: postgres-migrations, cli
+- Packages: `@ultimabase/postgres-migrations-plugin`, future CLI package
 - Depends on: 515, 716
 - ADR: ADR-0008
 

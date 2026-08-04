@@ -55,7 +55,7 @@ Core owns only neutral target identity, versioned metadata, provenance, and
 registry lifetime. A target's exact compiler input and output types belong to
 the concrete adapter package and remain opaque to Core and Runtime.
 
-`@ultimabase/postgres` therefore owns the protected PostgreSQL compiler factory.
+`@ultimabase/postgres-plugin` therefore owns the protected PostgreSQL compiler factory.
 Its compiler first decodes the portable payload into the exact type expected by
 that `(kind, version)` definition, then returns a PostgreSQL-owned opaque
 parameterized predicate. Structural lookalikes, raw return values, and public
@@ -97,7 +97,7 @@ nor driver details.
 A database-neutral policy package emits portable versioned nodes and does not
 import PostgreSQL. A PostgreSQL-specific compiler belongs in application
 composition or a dedicated integration plugin that may depend on the policy
-contract and `@ultimabase/postgres`. The foundational policy package must not
+contract and `@ultimabase/postgres-plugin`. The foundational policy package must not
 gain a concrete database dependency merely to register a compiler.
 
 Core and Runtime never import the adapter-specific compiler output. PostgreSQL

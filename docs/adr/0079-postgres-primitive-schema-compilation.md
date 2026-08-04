@@ -6,7 +6,7 @@
 
 ## Decision
 
-`@ultimabase/postgres` compiles each static schema into an application-scoped,
+`@ultimabase/postgres-plugin` compiles each static schema into an application-scoped,
 private Drizzle table catalog during plugin setup. The package uses these
 physical mappings:
 

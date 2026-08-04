@@ -1,6 +1,6 @@
 ---
 '@ultimabase/core': minor
-'@ultimabase/postgres': minor
+'@ultimabase/postgres-plugin': minor
 ---
 
 Execute PostgreSQL create-many, update-many, delete-many, upsert-one, and

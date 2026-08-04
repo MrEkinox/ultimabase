@@ -2,7 +2,7 @@
 
 - Status: ready
 - Milestone: 5
-- Packages: `@ultimabase/postgres-migrations`
+- Packages: `@ultimabase/postgres-migrations-plugin`
 - Depends on: 204, 208, 511
 - ADR: ADR-0008
 

@@ -2,7 +2,7 @@
 
 - Status: planned
 - Milestone: 7+
-- Packages: future files package
+- Packages: future `@ultimabase/files-plugin`
 - Depends on: 103, 617
 - ADR: new ADR required
 

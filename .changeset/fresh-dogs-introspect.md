@@ -1,5 +1,5 @@
 ---
-'@ultimabase/postgres': minor
+'@ultimabase/postgres-plugin': minor
 ---
 
 Read deterministic PostgreSQL catalog snapshots that distinguish managed

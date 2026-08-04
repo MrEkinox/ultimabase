@@ -2,7 +2,7 @@
 
 - Status: planned
 - Milestone: 5
-- Packages: `@ultimabase/postgres`, `@ultimabase/acl-permissions`
+- Packages: `@ultimabase/postgres-plugin`, `@ultimabase/acl-permissions-plugin`
 - Depends on: 338, 411, 505, 506, 510
 - ADR: ADR-0006, ADR-0007, ADR-0090, ADR-0113, ADR-0116
 
@@ -29,5 +29,5 @@ constraint registry and into the same SQL operation as the developer query.
 ## Out of scope
 
 - Native schema operation decisions, which do not compile into row predicates.
-- Role graph resolution, which is owned by `@ultimabase/roles` and consumed before the adapter boundary.
+- Role graph resolution, which is owned by `@ultimabase/roles-plugin` and consumed before the adapter boundary.
 - Native field input, selection, and output restrictions.

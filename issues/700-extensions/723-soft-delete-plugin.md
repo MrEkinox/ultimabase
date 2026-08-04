@@ -2,7 +2,7 @@
 
 - Status: planned
 - Milestone: 7+
-- Packages: future soft-delete package
+- Packages: future `@ultimabase/soft-delete-plugin`
 - Depends on: 617
 - ADR: new ADR required
 

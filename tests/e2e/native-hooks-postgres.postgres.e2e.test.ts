@@ -21,7 +21,7 @@ import {
 import {
 	postgresConstraintCompiler,
 	postgresPlugin,
-} from '@ultimabase/postgres'
+} from '@ultimabase/postgres-plugin'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import {

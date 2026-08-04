@@ -22,7 +22,7 @@ those foundations directly instead of introducing a second persistence API.
 
 ### Applications define role schemas
 
-`@ultimabase/roles` exports `RoleSchema.define()`. It specializes
+`@ultimabase/roles-plugin` exports `RoleSchema.define()`. It specializes
 `Schema.define()` and requires one exact member schema. The declaration accepts
 ordinary custom fields, indexes, Access, hooks, adapter extensions, and
 compatible schema options. It injects the reserved role name, member relation,

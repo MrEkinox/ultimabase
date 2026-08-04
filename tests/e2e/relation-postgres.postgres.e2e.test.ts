@@ -10,7 +10,7 @@ import {
 	type ScalarFieldInferenceState,
 	type SchemaClass,
 } from '@ultimabase/core'
-import { postgresPlugin } from '@ultimabase/postgres'
+import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import {

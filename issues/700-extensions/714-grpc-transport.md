@@ -2,7 +2,7 @@
 
 - Status: planned
 - Milestone: 7+
-- Packages: future grpc package
+- Packages: future `@ultimabase/grpc-plugin`
 - Depends on: 617
 - ADR: new ADR required
 

@@ -6,7 +6,7 @@
 
 ## Decision
 
-`@ultimabase/postgres` reads live columns, indexes, and constraints through
+`@ultimabase/postgres-plugin` reads live columns, indexes, and constraints through
 parameterized `pg_catalog` queries and converts driver rows into one detached,
 immutable snapshot. Tables are sorted by physical name; columns retain ordinal
 position, while indexes and constraints retain catalog name order.

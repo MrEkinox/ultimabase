@@ -2,7 +2,7 @@
 
 - Status: planned
 - Milestone: 7+
-- Packages: future realtime package
+- Packages: future `@ultimabase/realtime-memory-plugin`
 - Depends on: 708
 - ADR: none
 

@@ -1,0 +1,35 @@
+{
+	"name": "@ultimabase/roles-plugin",
+	"version": "0.0.0",
+	"type": "module",
+	"license": "Apache-2.0",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/MrEkinox/ultimadatabase.git",
+		"directory": "packages/roles-plugin"
+	},
+	"sideEffects": false,
+	"files": [
+		"dist"
+	],
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js"
+		}
+	},
+	"scripts": {
+		"build": "tsdown",
+		"test": "vitest run --passWithNoTests",
+		"typecheck": "tsc --build"
+	},
+	"dependencies": {
+		"@ultimabase/core": "workspace:^",
+		"@ultimabase/shared": "workspace:^"
+	},
+	"devDependencies": {
+		"tsdown": "^0.22.14",
+		"typescript": "^6.0.3",
+		"vitest": "4.1.10"
+	}
+}

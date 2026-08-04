@@ -12,8 +12,8 @@ with schema operation, row-filter, item, and field decisions. That lifecycle
 now implements the complete class-level and field-level behavior directly in
 static schema declarations.
 
-Keeping empty `@ultimabase/clp-permissions` and
-`@ultimabase/field-permissions` workspaces would preserve two competing names
+Keeping empty `@ultimabase/clp-permissions-plugin` and
+`@ultimabase/field-permissions-plugin` workspaces would preserve two competing names
 and suggest that ordinary authorization requires plugins. It would also force
 documentation, transports, and future policy providers to distinguish APIs
 that compile to the same Access plan without adding storage or context.
@@ -33,8 +33,8 @@ semantics.
 filtering, ordering, create input, and update input without a field extension or
 permission plugin.
 
-The `@ultimabase/clp-permissions` and
-`@ultimabase/field-permissions` packages are removed before publication. Core
+The `@ultimabase/clp-permissions-plugin` and
+`@ultimabase/field-permissions-plugin` packages are removed before publication. Core
 continues to compile native declarations and plugin-contributed policies into
 one monotonic Access plan.
 

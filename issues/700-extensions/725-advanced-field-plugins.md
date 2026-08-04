@@ -2,7 +2,7 @@
 
 - Status: planned
 - Milestone: 7+
-- Packages: future field packages
+- Packages: future field plugin packages ending with `-plugin`
 - Depends on: 103, 617
 - ADR: separate ADRs as needed
 

@@ -1,5 +1,5 @@
 ---
-'@ultimabase/postgres': minor
+'@ultimabase/postgres-plugin': minor
 ---
 
 Compile native Access row filters beside developer predicates and contributed

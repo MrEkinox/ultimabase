@@ -71,6 +71,9 @@ Run or update `yarn constraints` when dependency constraints exist. If a request
 
 ## Plugins
 
+- Every publishable plugin package must end with `-plugin` in both its
+  `packages/<name>-plugin` directory and its `@ultimabase/<name>-plugin` package
+  name. Packages that are not plugins must not use this suffix.
 - A plugin factory returns a static typed definition.
 - Nested plugins are configuration sugar over one global plugin graph.
 - Parent setup precedes child setup; child teardown precedes parent teardown.

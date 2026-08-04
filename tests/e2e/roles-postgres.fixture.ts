@@ -16,7 +16,10 @@ import {
 	stringField,
 	type AccessContext,
 } from '@ultimabase/core'
-import { postgresPlugin, type PostgresSchemaPolicy } from '@ultimabase/postgres'
+import {
+	postgresPlugin,
+	type PostgresSchemaPolicy,
+} from '@ultimabase/postgres-plugin'
 import {
 	RoleSchema,
 	hasRole,
@@ -24,7 +27,7 @@ import {
 	roleHierarchyChangedEvent,
 	roleMembershipChangedEvent,
 	rolesPlugin,
-} from '@ultimabase/roles'
+} from '@ultimabase/roles-plugin'
 
 /** Carries a member identity without making authentication a Core feature. */
 export const currentRoleMemberId = new RequestContextValue<string>(

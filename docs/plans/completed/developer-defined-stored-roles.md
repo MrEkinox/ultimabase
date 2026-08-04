@@ -3,7 +3,7 @@
 - Status: completed
 - Started: 2026-08-04
 - Completed: 2026-08-04
-- Objective owner: `@ultimabase/roles`, `@ultimabase/core`, `@ultimabase/postgres`
+- Objective owner: `@ultimabase/roles-plugin`, `@ultimabase/core`, `@ultimabase/postgres-plugin`
 - Governing decisions: [ADR-0002](../../adr/0002-static-schemas-and-typed-extensions.md), [ADR-0005](../../adr/0005-immutable-class-api.md), [ADR-0099](../../adr/0099-automatic-mutation-transactions.md), [ADR-0109](../../adr/0109-constructible-schema-models.md), [ADR-0115](../../adr/0115-immutable-model-commands.md), [ADR-0116](../../adr/0116-fundamental-access-system.md), [ADR-0117](../../adr/0117-optional-access-subject-capabilities.md), [ADR-0118](../../adr/0118-transport-neutral-relations.md), [ADR-0119](../../adr/0119-developer-defined-role-schemas.md)
 - Previous completed objective: [Transport-neutral pointers and relations](transport-neutral-relations.md)
 

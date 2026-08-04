@@ -2,7 +2,7 @@
 
 - Status: planned
 - Milestone: 7+
-- Packages: future audit package
+- Packages: future `@ultimabase/audit-plugin`
 - Depends on: 318, 412, 617
 - ADR: new ADR required
 

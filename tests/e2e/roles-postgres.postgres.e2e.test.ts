@@ -5,7 +5,10 @@ import {
 	requestSources,
 	runWithRequestEngine,
 } from '@ultimabase/core'
-import { resolveRoleReference, type RoleReference } from '@ultimabase/roles'
+import {
+	resolveRoleReference,
+	type RoleReference,
+} from '@ultimabase/roles-plugin'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import {

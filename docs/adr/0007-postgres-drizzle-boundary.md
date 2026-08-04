@@ -5,7 +5,7 @@
 
 ## Decision
 
-Drizzle and `pg` are internal implementation details of `@ultimabase/postgres`. Public code never imports Drizzle constructs.
+Drizzle and `pg` are internal implementation details of `@ultimabase/postgres-plugin`. Public code never imports Drizzle constructs.
 
 ## Consequences
 

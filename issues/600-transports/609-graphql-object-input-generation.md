@@ -2,7 +2,7 @@
 
 - Status: planned
 - Milestone: 6
-- Packages: `@ultimabase/graphql`
+- Packages: `@ultimabase/graphql-plugin`
 - Depends on: 112, 608
 - ADR: ADR-0010, ADR-0014
 

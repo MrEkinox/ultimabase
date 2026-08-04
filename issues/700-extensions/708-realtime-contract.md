@@ -2,7 +2,7 @@
 
 - Status: planned
 - Milestone: 7+
-- Packages: future realtime package
+- Packages: future `@ultimabase/realtime-plugin`
 - Depends on: 318, 617
 - ADR: new ADR required
 

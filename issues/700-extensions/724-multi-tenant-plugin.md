@@ -2,7 +2,7 @@
 
 - Status: planned
 - Milestone: 7+
-- Packages: future multi-tenant package
+- Packages: future `@ultimabase/multi-tenant-plugin`
 - Depends on: 617
 - ADR: new ADR required
 

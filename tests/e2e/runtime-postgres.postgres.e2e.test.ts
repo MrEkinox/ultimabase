@@ -1,7 +1,7 @@
 import {
 	postgresConnectionServiceToken,
 	postgresPlugin,
-} from '@ultimabase/postgres'
+} from '@ultimabase/postgres-plugin'
 import {
 	bigintField,
 	binaryField,

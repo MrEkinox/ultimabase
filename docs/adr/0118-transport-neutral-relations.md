@@ -105,7 +105,7 @@ predicate with that private target scope.
 
 ### PostgreSQL representation
 
-`@ultimabase/postgres` compiles pointers to foreign keys and owning relations
+`@ultimabase/postgres-plugin` compiles pointers to foreign keys and owning relations
 to deterministic join tables. Join storage has composite uniqueness and
 indexes in both directions. Deleting a source or target may cascade its join
 rows, but relation storage never implicitly deletes the related objects.

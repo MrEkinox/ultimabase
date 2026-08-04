@@ -2,7 +2,7 @@
 
 - Status: planned
 - Milestone: 7+
-- Packages: future realtime-redis package
+- Packages: future `@ultimabase/realtime-redis-plugin`
 - Depends on: 708
 - ADR: new ADR required
 

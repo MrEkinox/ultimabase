@@ -6,13 +6,13 @@
 
 ## Decision
 
-`@ultimabase/postgres` derives default physical table names from schema class
+`@ultimabase/postgres-plugin` derives default physical table names from schema class
 names using `inflection.tableize()`. This provides deterministic English
 pluralization and `snake_case`, including irregular nouns, without placing
 database naming logic in Schema or Runtime.
 
 Developers may attach `postgresTable({ name })`, a `postgres.table` schema
-extension owned by `@ultimabase/postgres`. Its non-empty name is preserved
+extension owned by `@ultimabase/postgres-plugin`. Its non-empty name is preserved
 verbatim; UltimaBase does not impose casing, pluralization, or character rules
 on explicit names.
 

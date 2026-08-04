@@ -1472,18 +1472,18 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@ultimabase/acl-permissions@workspace:packages/acl-permissions":
+"@ultimabase/acl-permissions-plugin@workspace:packages/acl-permissions-plugin":
   version: 0.0.0-use.local
-  resolution: "@ultimabase/acl-permissions@workspace:packages/acl-permissions"
+  resolution: "@ultimabase/acl-permissions-plugin@workspace:packages/acl-permissions-plugin"
   dependencies:
     "@ultimabase/core": "workspace:^"
     tsdown: "npm:^0.22.14"
     typescript: "npm:^6.0.3"
     vitest: "npm:4.1.10"
   peerDependencies:
-    "@ultimabase/roles": "workspace:^"
+    "@ultimabase/roles-plugin": "workspace:^"
   peerDependenciesMeta:
-    "@ultimabase/roles":
+    "@ultimabase/roles-plugin":
       optional: true
   languageName: unknown
   linkType: soft
@@ -1501,9 +1501,9 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@ultimabase/graphql@workspace:^, @ultimabase/graphql@workspace:packages/graphql":
+"@ultimabase/graphql-plugin@workspace:^, @ultimabase/graphql-plugin@workspace:packages/graphql-plugin":
   version: 0.0.0-use.local
-  resolution: "@ultimabase/graphql@workspace:packages/graphql"
+  resolution: "@ultimabase/graphql-plugin@workspace:packages/graphql-plugin"
   dependencies:
     "@graphql-tools/schema": "npm:^10.0.25"
     "@ultimabase/core": "workspace:^"
@@ -1515,12 +1515,12 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@ultimabase/graphql-yoga@workspace:packages/graphql-yoga":
+"@ultimabase/graphql-yoga-plugin@workspace:packages/graphql-yoga-plugin":
   version: 0.0.0-use.local
-  resolution: "@ultimabase/graphql-yoga@workspace:packages/graphql-yoga"
+  resolution: "@ultimabase/graphql-yoga-plugin@workspace:packages/graphql-yoga-plugin"
   dependencies:
     "@ultimabase/core": "workspace:^"
-    "@ultimabase/graphql": "workspace:^"
+    "@ultimabase/graphql-plugin": "workspace:^"
     graphql: "npm:^16.14.2"
     graphql-yoga: "npm:^5.21.2"
     tsdown: "npm:^0.22.14"
@@ -1541,21 +1541,21 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@ultimabase/postgres-migrations@workspace:packages/postgres-migrations":
+"@ultimabase/postgres-migrations-plugin@workspace:packages/postgres-migrations-plugin":
   version: 0.0.0-use.local
-  resolution: "@ultimabase/postgres-migrations@workspace:packages/postgres-migrations"
+  resolution: "@ultimabase/postgres-migrations-plugin@workspace:packages/postgres-migrations-plugin"
   dependencies:
     "@ultimabase/core": "workspace:^"
-    "@ultimabase/postgres": "workspace:^"
+    "@ultimabase/postgres-plugin": "workspace:^"
     tsdown: "npm:^0.22.14"
     typescript: "npm:^6.0.3"
     vitest: "npm:4.1.10"
   languageName: unknown
   linkType: soft
 
-"@ultimabase/postgres@workspace:^, @ultimabase/postgres@workspace:packages/postgres":
+"@ultimabase/postgres-plugin@workspace:^, @ultimabase/postgres-plugin@workspace:packages/postgres-plugin":
   version: 0.0.0-use.local
-  resolution: "@ultimabase/postgres@workspace:packages/postgres"
+  resolution: "@ultimabase/postgres-plugin@workspace:packages/postgres-plugin"
   dependencies:
     "@types/pg": "npm:^8.15.5"
     "@ultimabase/core": "workspace:^"
@@ -1569,9 +1569,9 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@ultimabase/rest@workspace:packages/rest":
+"@ultimabase/rest-plugin@workspace:packages/rest-plugin":
   version: 0.0.0-use.local
-  resolution: "@ultimabase/rest@workspace:packages/rest"
+  resolution: "@ultimabase/rest-plugin@workspace:packages/rest-plugin"
   dependencies:
     "@ultimabase/core": "workspace:^"
     tsdown: "npm:^0.22.14"
@@ -1580,9 +1580,9 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@ultimabase/roles@workspace:packages/roles":
+"@ultimabase/roles-plugin@workspace:packages/roles-plugin":
   version: 0.0.0-use.local
-  resolution: "@ultimabase/roles@workspace:packages/roles"
+  resolution: "@ultimabase/roles-plugin@workspace:packages/roles-plugin"
   dependencies:
     "@ultimabase/core": "workspace:^"
     "@ultimabase/shared": "workspace:^"
@@ -1592,9 +1592,9 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@ultimabase/server-hono@workspace:packages/server-hono":
+"@ultimabase/server-hono-plugin@workspace:packages/server-hono-plugin":
   version: 0.0.0-use.local
-  resolution: "@ultimabase/server-hono@workspace:packages/server-hono"
+  resolution: "@ultimabase/server-hono-plugin@workspace:packages/server-hono-plugin"
   dependencies:
     "@hono/node-server": "npm:^2.0.12"
     "@ultimabase/core": "workspace:^"

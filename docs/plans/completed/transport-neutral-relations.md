@@ -3,7 +3,7 @@
 - Status: completed
 - Started: 2026-08-03
 - Completed: 2026-08-04
-- Objective owner: `@ultimabase/core`, `@ultimabase/postgres`
+- Objective owner: `@ultimabase/core`, `@ultimabase/postgres-plugin`
 - Governing decision: [ADR-0118](../../adr/0118-transport-neutral-relations.md)
 - Previous completed objective: [Fundamental Access system](fundamental-access-system.md)
 

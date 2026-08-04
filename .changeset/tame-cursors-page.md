@@ -1,6 +1,6 @@
 ---
 '@ultimabase/core': minor
-'@ultimabase/postgres': patch
+'@ultimabase/postgres-plugin': patch
 ---
 
 Compile stable PostgreSQL selections, ordering, offsets, and cursor predicates,

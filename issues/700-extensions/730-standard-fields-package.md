@@ -2,13 +2,13 @@
 
 - Status: planned
 - Milestone: 7+
-- Packages: standard-fields
+- Packages: future `@ultimabase/standard-fields-plugin`
 - Depends on: 729
 - ADR: none
 
 ## Goal
 
-Create `@ultimabase/standard-fields` as the official plugin package for portable
+Create `@ultimabase/standard-fields-plugin` as the official plugin package for portable
 derived fields backed by native UltimaBase field kinds.
 
 ## Acceptance criteria

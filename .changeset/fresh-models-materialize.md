@@ -1,6 +1,6 @@
 ---
 '@ultimabase/core': major
-'@ultimabase/postgres': patch
+'@ultimabase/postgres-plugin': patch
 ---
 
 Replace schema instances with constructible classes returned by `Schema.define`,

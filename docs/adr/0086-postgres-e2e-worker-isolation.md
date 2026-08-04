@@ -21,7 +21,7 @@ by `CREATE SCHEMA`, and expose a libpq `search_path` option for worker-owned
 pools.
 
 `PostgresTestWorker` accepts an administrative query callback rather than a
-`pg`, Testcontainers, or `@ultimabase/postgres` object. This keeps concrete test
+`pg`, Testcontainers, or `@ultimabase/postgres-plugin` object. This keeps concrete test
 infrastructure at the root E2E boundary and preserves the Testing package's
 dependency direction toward foundational contracts. The callback receives only
 fixed SQL assembled from validated generated identifiers.

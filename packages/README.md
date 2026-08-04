@@ -14,15 +14,22 @@ optional infrastructure and policy behavior remains in plugins.
 
 ## Official plugins
 
-- `roles`
-- `acl-permissions`
+- `roles-plugin`
+- `acl-permissions-plugin`
 - `pg-vector-plugin`
-- `postgres`
-- `postgres-migrations`
-- `server-hono`
-- `rest`
-- `graphql`
-- `graphql-yoga`
+- `postgres-plugin`
+- `postgres-migrations-plugin`
+- `server-hono-plugin`
+- `rest-plugin`
+- `graphql-plugin`
+- `graphql-yoga-plugin`
+
+Every plugin uses the `-plugin` suffix in both its workspace directory and its
+published package name. This makes optional capabilities recognizable before a
+developer reads their exports.
+
+## Development tooling
+
 - `testing`
 
 No package may import another package through its source directory.

@@ -37,14 +37,14 @@ An arrow means “imports or depends on” and always points toward a foundation
 ```text
 core ─────────────────→ shared
 pg-vector-plugin ─────→ core, shared
-roles ────────────────→ core
-acl-permissions ──────→ core
-postgres ─────────────→ core
-postgres-migrations ──→ postgres, core
-server-hono ──────────→ core
-rest ─────────────────→ core
-graphql ──────────────→ core
-graphql-yoga ─────────→ graphql, core
+roles-plugin ─────────→ core
+acl-permissions-plugin → core
+postgres-plugin ──────→ core
+postgres-migrations-plugin → postgres-plugin, core
+server-hono-plugin ───→ core
+rest-plugin ──────────→ core
+graphql-plugin ───────→ core
+graphql-yoga-plugin ──→ graphql-plugin, core
 testing ──────────────→ core, shared
 ```
 

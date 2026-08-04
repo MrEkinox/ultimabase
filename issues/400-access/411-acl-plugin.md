@@ -2,7 +2,7 @@
 
 - Status: planned
 - Milestone: 4
-- Packages: `@ultimabase/acl-permissions`
+- Packages: `@ultimabase/acl-permissions-plugin`
 - Depends on: 210, 410, 417, 418, 420
 - ADR: ADR-0006, ADR-0090, ADR-0113, ADR-0116, ADR-0117
 

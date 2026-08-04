@@ -7,7 +7,7 @@
 
 ## Decision
 
-`@ultimabase/postgres` recursively compiles the normalized Query filter AST to
+`@ultimabase/postgres-plugin` recursively compiles the normalized Query filter AST to
 private Drizzle `SQL` expressions. Logical constants and `and`, `or`, and `not`
 retain their normalized topology. Every built-in primitive operator has an
 explicit exhaustive branch.
