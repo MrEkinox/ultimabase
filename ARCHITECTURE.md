@@ -284,6 +284,14 @@ other predicate in one statement. This physical representation requires no
 ACL-specific join and remains private to the adapter. The optional
 `@ultimabase/acl-postgres-plugin` package owns the concrete compiler bridge so
 neither the database-neutral ACL provider nor PostgreSQL imports the other.
+Subject-owning providers independently choose `fail`, `preserve`, or `cascade`
+deletion behavior. ACL publishes neutral principal and role cleanup
+contributions, then uses a private asynchronous maintenance scope to add an
+opaque exact-subject constraint to ordinary Query execution. PostgreSQL lowers
+that constraint to indexed JSONB containment. Cascade derives every rewritten
+ACL from the locked current row and performs singular updates inside the
+subject deletion transaction, preserving unrelated grants and rolling all
+schemas back together on failure.
 
 Native schema Access is the generalized class-level permission system, and
 native field Access controls field disclosure and mutation. ACL is an optional

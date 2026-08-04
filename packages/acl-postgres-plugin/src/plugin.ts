@@ -2,7 +2,10 @@ import { aclPluginName } from '@ultimabase/acl-permissions-plugin'
 import { definePlugin, type FrameworkPlugin } from '@ultimabase/core'
 import { postgresPluginName } from '@ultimabase/postgres-plugin'
 
-import { aclPostgresConstraintCompiler } from './acl-constraint.js'
+import {
+	aclPostgresConstraintCompiler,
+	aclReferencePostgresConstraintCompiler,
+} from './acl-constraint.js'
 
 /** Identifies the optional PostgreSQL integration for persisted ACL constraints. */
 export const aclPostgresPluginName = 'ultimabase.acl-postgres' as const
@@ -21,6 +24,7 @@ export const aclPostgresPlugin = (): ACLPostgresPlugin =>
 		name: aclPostgresPluginName,
 		setup: ({ constraintCompilers }) => {
 			constraintCompilers.register(aclPostgresConstraintCompiler)
+			constraintCompilers.register(aclReferencePostgresConstraintCompiler)
 
 			return undefined
 		},

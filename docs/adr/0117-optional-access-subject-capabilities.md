@@ -3,7 +3,7 @@
 - Status: accepted
 - Date: 2026-08-03
 - Refines: ADR-0043, ADR-0090, ADR-0113, ADR-0116
-- Refined by: ADR-0122
+- Refined by: ADR-0122, ADR-0126
 
 ## Context
 

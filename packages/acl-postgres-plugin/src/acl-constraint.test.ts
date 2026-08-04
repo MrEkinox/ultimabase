@@ -1,5 +1,7 @@
 import {
 	aclFieldName,
+	aclReferenceConstraintKind,
+	aclReferenceConstraintVersion,
 	aclRowConstraintKind,
 	aclRowConstraintVersion,
 } from '@ultimabase/acl-permissions-plugin'
@@ -7,6 +9,8 @@ import { describe, expect, it } from 'vitest'
 
 import {
 	aclPostgresConstraintCompiler,
+	aclReferencePostgresConstraintCompiler,
+	decodeACLReferenceConstraintPayload,
 	decodeACLRowConstraintPayload,
 } from './acl-constraint.js'
 
@@ -77,5 +81,81 @@ describe('ACL PostgreSQL constraint', () => {
 		expect(() => decodeACLRowConstraintPayload(symbolic)).toThrow(
 			'payload has invalid keys',
 		)
+	})
+})
+
+describe('ACL PostgreSQL reference constraint', () => {
+	it('decodes exact principal and role identities', () => {
+		expect(
+			decodeACLReferenceConstraintPayload({
+				field: aclFieldName,
+				principalClassName: 'User',
+				principalId: 'user-1',
+				role: null,
+				subjectKind: 'principal',
+			}),
+		).toStrictEqual({
+			field: aclFieldName,
+			principalClassName: 'User',
+			principalId: 'user-1',
+			role: null,
+			subjectKind: 'principal',
+		})
+		expect(
+			decodeACLReferenceConstraintPayload({
+				field: aclFieldName,
+				principalClassName: null,
+				principalId: null,
+				role: 'role-1',
+				subjectKind: 'role',
+			}),
+		).toStrictEqual({
+			field: aclFieldName,
+			principalClassName: null,
+			principalId: null,
+			role: 'role-1',
+			subjectKind: 'role',
+		})
+		expect(aclReferencePostgresConstraintCompiler).toStrictEqual({
+			adapter: 'postgres',
+			kind: aclReferenceConstraintKind,
+			version: aclReferenceConstraintVersion,
+		})
+	})
+
+	it.each([
+		[null, 'payload must be an object'],
+		[
+			{
+				field: aclFieldName,
+				principalClassName: 'User',
+				principalId: 'user-1',
+				role: 'role-1',
+				subjectKind: 'principal',
+			},
+			'principal reference role must be null',
+		],
+		[
+			{
+				field: aclFieldName,
+				principalClassName: 'User',
+				principalId: null,
+				role: 'role-1',
+				subjectKind: 'role',
+			},
+			'role reference principal identity must be null',
+		],
+		[
+			{
+				field: aclFieldName,
+				principalClassName: null,
+				principalId: null,
+				role: null,
+				subjectKind: 'group',
+			},
+			'subjectKind is invalid',
+		],
+	] as const)('rejects malformed reference payloads', (payload, message) => {
+		expect(() => decodeACLReferenceConstraintPayload(payload)).toThrow(message)
 	})
 })

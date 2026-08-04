@@ -38,6 +38,13 @@ ACL values expose a versioned detached `toJSON()` document and strict
 representation directly on each protected row and indexes it with GIN, so ACL
 filtering adds no ACL-table join.
 
+Subject-owning providers choose deletion policy. They discover ACL through
+Core's neutral reference-cleanup contributions: `fail` inspects exact
+references, `preserve` leaves inert entries untouched, and master-only
+`cascade` removes only the deleted subject from matching ACL rows. Discovery,
+singular cleanup updates, and subject deletion share one transaction, so a
+failure in any protected schema rolls back the entire operation.
+
 ## Roles
 
 Role schemas have UUIDs, unique normalized names, developer-defined fields,

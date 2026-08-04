@@ -8,8 +8,8 @@ import {
 	extensionHandlerKey,
 	FrameworkError,
 	getCurrentEngine,
+	getCurrentRequest,
 	preparedOperation,
-	type AccessContext,
 	type AccessRoleResolver,
 	type ExecutableOperationAst,
 	type FrameworkPlugin,
@@ -25,6 +25,14 @@ import {
 } from '@ultimabase/shared'
 
 import { ACL } from './acl.js'
+import {
+	createACLReferenceCleanups,
+	createACLReferenceConstraint,
+	getACLReferenceScope,
+	removeACLReference,
+	type ACLReferenceConstraint,
+	type ACLReferenceSubject,
+} from './acl-reference-cleanup.js'
 import { normalizeACLPermissions, type ACLPermission } from './acl-contracts.js'
 import {
 	assertACLEntryLimits,
@@ -38,6 +46,7 @@ import {
 	createACLRowConstraint,
 	requiredACLPermissions,
 	resolveACLAccessSubjects,
+	type ACLRowConstraint,
 } from './acl-access.js'
 import {
 	acl,
@@ -394,6 +403,7 @@ export const resolvePreparedOperationACL = async <
 	roleResolutionAvailable = false,
 	limits: ResolvedACLEntryLimits = defaultACLEntryLimits,
 	resolvePersistentRole?: PersistentRoleResolver,
+	referenceCleanup?: ACLReferenceSubject,
 ): Promise<TOperation> => {
 	const update: unknown = operation.update
 
@@ -412,6 +422,23 @@ export const resolvePreparedOperationACL = async <
 	if (aclOperation === undefined) return operation
 
 	assertMasterACLManagement(context)
+
+	if (referenceCleanup !== undefined) {
+		const currentAcl = snapshotResolvedACL(target[aclFieldName], 'current acl')
+		const resolvedAcl = removeACLReference(currentAcl, referenceCleanup)
+		const operations = immutableArray(
+			update.operations.map((candidate) =>
+				candidate === aclOperation
+					? immutableRecord({ ...aclOperation, value: resolvedAcl })
+					: candidate,
+			),
+		)
+
+		return immutableRecord({
+			...operation,
+			update: immutableRecord({ ...update, operations }),
+		})
+	}
 
 	if (
 		!isPlainRecord(aclOperation) ||
@@ -492,6 +519,8 @@ const aclConstraintOperationKinds = Object.freeze([
 	'upsert-one',
 ] as const)
 
+type ACLDatabaseConstraint = ACLReferenceConstraint | ACLRowConstraint
+
 const updateTouchesACL = (update: unknown): boolean =>
 	isPlainRecord(update) &&
 	isUnknownArray(update.operations) &&
@@ -552,9 +581,18 @@ export const aclPlugin = (options: ACLPluginOptions = {}): ACLPlugin => {
 				ReturnType<typeof resolveACLAccessSubjects>
 			>()
 			const roleResolver = services.getOptional(accessRoleResolverServiceToken)
-			const resolvePersistentRole =
+			const persistentRoleResolver =
 				roleResolver?.resolvePersistentRole?.bind(roleResolver)
-			const resolveSubjects = (context: AccessContext) => {
+			const resolvePersistentRole: PersistentRoleResolver | undefined =
+				persistentRoleResolver === undefined
+					? undefined
+					: ({ role }) =>
+							persistentRoleResolver.call(roleResolver, {
+								// Providers resolve against the original request instead of a derived hook view.
+								context: getCurrentRequest(),
+								role,
+							})
+			const resolveSubjects = () => {
 				// The engine is the stable cache owner shared by every hook context in one operation.
 				const cacheKey = getCurrentEngine()
 				const cached = subjectCache.get(cacheKey)
@@ -562,7 +600,8 @@ export const aclPlugin = (options: ACLPluginOptions = {}): ACLPlugin => {
 				if (cached !== undefined) return cached
 
 				const resolution = resolveACLAccessSubjects(
-					context,
+					// Subject providers receive the original request, not a derived hook view.
+					getCurrentRequest(),
 					services.getOptional(accessPrincipalResolverServiceToken),
 					roleResolver,
 					(schema) => schemas.get(schema.className) === schema,
@@ -581,7 +620,7 @@ export const aclPlugin = (options: ACLPluginOptions = {}): ACLPlugin => {
 				({ extension }) => ({
 					resolveInput: {
 						create: async ({ context, operation }) => {
-							const subjects = await resolveSubjects(context)
+							const subjects = await resolveSubjects()
 
 							return resolveCreateOperationACL(
 								operation,
@@ -594,7 +633,7 @@ export const aclPlugin = (options: ACLPluginOptions = {}): ACLPlugin => {
 							)
 						},
 						upsert: async ({ context, operation }) => {
-							const subjects = await resolveSubjects(context)
+							const subjects = await resolveSubjects()
 
 							return resolveCreateOperationACL(
 								operation,
@@ -628,6 +667,16 @@ export const aclPlugin = (options: ACLPluginOptions = {}): ACLPlugin => {
 						(extension) => extension.name === aclSchemaExtensionName,
 					),
 				)
+			const referenceCleanups = createACLReferenceCleanups(protectedSchemas)
+
+			registries.commands.register(
+				'acl-principal-reference-cleanup',
+				referenceCleanups.principal,
+			)
+			registries.commands.register(
+				'acl-role-reference-cleanup',
+				referenceCleanups.role,
+			)
 
 			for (const schema of protectedSchemas) {
 				const extension = schema.extensions.find(
@@ -644,7 +693,7 @@ export const aclPlugin = (options: ACLPluginOptions = {}): ACLPlugin => {
 					`acl-input:${schema.className}`,
 					preparedOperation({
 						handler: async ({ context, operation, target }) => {
-							const subjects = await resolveSubjects(context)
+							const subjects = await resolveSubjects()
 
 							return {
 								operation: await resolvePreparedOperationACL(
@@ -656,6 +705,7 @@ export const aclPlugin = (options: ACLPluginOptions = {}): ACLPlugin => {
 									subjects.roleResolutionAvailable,
 									schemaLimits,
 									resolvePersistentRole,
+									getACLReferenceScope(schema),
 								),
 							}
 						},
@@ -664,13 +714,22 @@ export const aclPlugin = (options: ACLPluginOptions = {}): ACLPlugin => {
 				)
 				registries.hooks.register(
 					`acl-rows:${schema.className}`,
-					constraint({
+					constraint<
+						typeof schema,
+						typeof aclConstraintOperationKinds,
+						ACLDatabaseConstraint
+					>({
 						handler: async ({ context, operation }) => {
 							assertSingularACLReplacement(operation)
+							const referenceSubject = getACLReferenceScope(schema)
+
+							if (referenceSubject !== undefined) {
+								return createACLReferenceConstraint(referenceSubject)
+							}
 
 							if (context.access.mode === 'master') return immutableArray([])
 
-							const subjects = await resolveSubjects(context)
+							const subjects = await resolveSubjects()
 
 							return requiredACLPermissions(operation).map((permission) =>
 								createACLRowConstraint(permission, subjects),

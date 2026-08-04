@@ -1,9 +1,12 @@
 import {
 	aclFieldName,
 	aclPermissions,
+	aclReferenceConstraintKind,
+	aclReferenceConstraintVersion,
 	aclRowConstraintKind,
 	aclRowConstraintVersion,
 	type ACLPermission,
+	type ACLReferenceConstraintPayload,
 	type ACLRowConstraintPayload,
 } from '@ultimabase/acl-permissions-plugin'
 import type { DatabaseConstraintPayload } from '@ultimabase/core'
@@ -21,7 +24,7 @@ import {
 	isUnknownArray,
 } from '@ultimabase/shared'
 
-const payloadKeys = new Set([
+const rowPayloadKeys = new Set([
 	'field',
 	'permission',
 	'principalClassName',
@@ -29,9 +32,36 @@ const payloadKeys = new Set([
 	'roleResolutionAvailable',
 	'roles',
 ])
+const referencePayloadKeys = new Set([
+	'field',
+	'principalClassName',
+	'principalId',
+	'role',
+	'subjectKind',
+])
 
 const isACLPermission = (value: unknown): value is ACLPermission =>
 	aclPermissions.some((permission) => permission === value)
+
+/** Rejects missing, additional, hidden, accessor, and symbol payload keys. */
+const assertExactPayloadKeys = (
+	payload: Readonly<Record<string, unknown>>,
+	expected: ReadonlySet<string>,
+	label: string,
+): void => {
+	const ownKeys = Reflect.ownKeys(payload)
+	const invalidKey = ownKeys.find((key) => {
+		if (typeof key !== 'string' || !expected.has(key)) return true
+
+		const descriptor = Reflect.getOwnPropertyDescriptor(payload, key)
+
+		return descriptor?.enumerable !== true || !('value' in descriptor)
+	})
+
+	if (invalidKey !== undefined || ownKeys.length !== expected.size) {
+		throw new TypeError(`${label} payload has invalid keys`)
+	}
+}
 
 /** Strictly decodes the portable ACL node before any SQL is constructed. */
 export const decodeACLRowConstraintPayload = (
@@ -41,19 +71,7 @@ export const decodeACLRowConstraintPayload = (
 		throw new TypeError('ACL PostgreSQL constraint payload must be an object')
 	}
 
-	const ownKeys = Reflect.ownKeys(payload)
-	const invalidKey = ownKeys.find((key) => {
-		if (typeof key !== 'string' || !payloadKeys.has(key)) return true
-
-		const descriptor = Reflect.getOwnPropertyDescriptor(payload, key)
-
-		// Accessors and hidden keys must not cross the untrusted payload boundary.
-		return descriptor?.enumerable !== true || !('value' in descriptor)
-	})
-
-	if (invalidKey !== undefined || ownKeys.length !== payloadKeys.size) {
-		throw new TypeError('ACL PostgreSQL constraint payload has invalid keys')
-	}
+	assertExactPayloadKeys(payload, rowPayloadKeys, 'ACL PostgreSQL constraint')
 
 	if (payload.field !== aclFieldName) {
 		throw new TypeError('ACL PostgreSQL constraint field must be acl')
@@ -115,6 +133,72 @@ export const decodeACLRowConstraintPayload = (
 	})
 }
 
+/** Strictly decodes one ACL reference lookup before SQL construction. */
+export const decodeACLReferenceConstraintPayload = (
+	payload: DatabaseConstraintPayload,
+): ACLReferenceConstraintPayload => {
+	if (!isPlainRecord(payload)) {
+		throw new TypeError(
+			'ACL PostgreSQL reference constraint payload must be an object',
+		)
+	}
+
+	assertExactPayloadKeys(
+		payload,
+		referencePayloadKeys,
+		'ACL PostgreSQL reference constraint',
+	)
+
+	if (payload.field !== aclFieldName) {
+		throw new TypeError('ACL PostgreSQL reference constraint field must be acl')
+	}
+
+	if (payload.subjectKind === 'principal') {
+		assertNonEmptyString(
+			payload.principalClassName,
+			'ACL PostgreSQL reference principal className',
+		)
+		assertNonEmptyString(
+			payload.principalId,
+			'ACL PostgreSQL reference principal id',
+		)
+
+		if (payload.role !== null) {
+			throw new TypeError(
+				'ACL PostgreSQL principal reference role must be null',
+			)
+		}
+
+		return immutableRecord({
+			field: aclFieldName,
+			principalClassName: payload.principalClassName,
+			principalId: payload.principalId,
+			role: null,
+			subjectKind: payload.subjectKind,
+		})
+	}
+
+	if (payload.subjectKind === 'role') {
+		if (payload.principalClassName !== null || payload.principalId !== null) {
+			throw new TypeError(
+				'ACL PostgreSQL role reference principal identity must be null',
+			)
+		}
+
+		assertNonEmptyString(payload.role, 'ACL PostgreSQL reference role')
+
+		return immutableRecord({
+			field: aclFieldName,
+			principalClassName: null,
+			principalId: null,
+			role: payload.role,
+			subjectKind: payload.subjectKind,
+		})
+	}
+
+	throw new TypeError('ACL PostgreSQL reference subjectKind is invalid')
+}
+
 /** Builds one GIN-compatible containment alternative for each accepted subject. */
 const compileACLRowConstraint = ({
 	anyOf,
@@ -165,6 +249,28 @@ const compileACLRowConstraint = ({
 	return anyOf(first, ...rest)
 }
 
+/** Builds one GIN-compatible containment predicate for an exact ACL subject. */
+const compileACLReferenceConstraint = ({
+	field,
+	payload,
+	sql,
+}: PostgresConstraintCompileContext<ACLReferenceConstraintPayload>): PostgresConstraintPredicate => {
+	const aclColumn = field(payload.field)
+
+	return payload.subjectKind === 'principal'
+		? sql`${aclColumn} @> ${{
+				principals: [
+					{
+						className: payload.principalClassName,
+						id: payload.principalId,
+					},
+				],
+			}}`
+		: sql`${aclColumn} @> ${{
+				roles: [{ kind: 'role', value: payload.role }],
+			}}`
+}
+
 /** Registers the exact ACL row-node version supported by this integration. */
 export const aclPostgresConstraintCompiler: PostgresConstraintCompilerDefinition<
 	typeof aclRowConstraintKind,
@@ -175,4 +281,16 @@ export const aclPostgresConstraintCompiler: PostgresConstraintCompilerDefinition
 	version: aclRowConstraintVersion,
 	decode: decodeACLRowConstraintPayload,
 	compile: compileACLRowConstraint,
+})
+
+/** Registers the ACL reference-search node used by transactional cleanup. */
+export const aclReferencePostgresConstraintCompiler: PostgresConstraintCompilerDefinition<
+	typeof aclReferenceConstraintKind,
+	typeof aclReferenceConstraintVersion,
+	ACLReferenceConstraintPayload
+> = postgresConstraintCompiler({
+	kind: aclReferenceConstraintKind,
+	version: aclReferenceConstraintVersion,
+	decode: decodeACLReferenceConstraintPayload,
+	compile: compileACLReferenceConstraint,
 })

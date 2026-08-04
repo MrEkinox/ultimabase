@@ -8,6 +8,8 @@ import {
 import { RequestContextValue } from '../request/context-value.js'
 import {
 	AccessSubjectReference,
+	createAccessPrincipalReference,
+	parseAccessPrincipalReference,
 	resolveAccessPrincipal,
 	resolveAccessRoleReference,
 } from './contracts.js'
@@ -49,6 +51,46 @@ describe('AccessSubjectReference', () => {
 					'editor',
 				),
 		).toThrow(new TypeError('Access subject kind must be a non-empty string'))
+	})
+})
+
+describe('Access principal references', () => {
+	it('round-trips one schema-qualified principal without retaining its schema', () => {
+		const reference = createAccessPrincipalReference(principal)
+
+		expect(reference.kind).toBe('principal')
+		expect(parseAccessPrincipalReference(reference)).toStrictEqual({
+			className: Principal.className,
+			id: principal.id,
+		})
+		expect(Object.isFrozen(parseAccessPrincipalReference(reference))).toBe(true)
+	})
+
+	it('rejects forged pointers and malformed neutral values', () => {
+		expect(() => createAccessPrincipalReference({} as never)).toThrow(
+			'Access principal reference requires a Core Pointer',
+		)
+		expect(() =>
+			parseAccessPrincipalReference(
+				new AccessSubjectReference('role', 'invalid') as never,
+			),
+		).toThrow('Access principal reference is invalid')
+	})
+
+	it.each([
+		'invalid',
+		'{}',
+		JSON.stringify(['@ultimabase/core', 1, 'Principal']),
+		JSON.stringify(['foreign', 1, 'Principal', 'principal-1']),
+		JSON.stringify(['@ultimabase/core', 2, 'Principal', 'principal-1']),
+		JSON.stringify(['@ultimabase/core', 1, '', 'principal-1']),
+		JSON.stringify(['@ultimabase/core', 1, 'Principal', '']),
+	])('rejects malformed neutral principal value %s', (value) => {
+		expect(() =>
+			parseAccessPrincipalReference(
+				new AccessSubjectReference('principal', value),
+			),
+		).toThrow()
 	})
 })
 

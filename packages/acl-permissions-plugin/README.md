@@ -104,6 +104,14 @@ through neutral Core services and never imports a concrete auth or roles
 plugin. Trusted master execution bypasses ACL authorization but still runs
 validation, defaults, hooks, transactions, constraints, and audit behavior.
 
+Subject deletion remains owned by the authentication, role, or community
+provider that owns that subject. `aclPlugin()` registers neutral principal and
+role reference contributions that those providers may inspect for `fail`,
+ignore for `preserve`, or invoke for `cascade`. Cascade removes only the exact
+subject entry from every matching ACL-enabled row through ordinary singular
+updates in the active deletion transaction. Unrelated grants survive, and a
+failure in any schema rolls back both earlier cleanup and subject deletion.
+
 The extension also works on a developer-defined RoleSchema. Native RoleSchema
 Access controls creation, while each persisted role ACL may narrow reads,
 updates, member or nested-role mutations, and deletion. Only master execution

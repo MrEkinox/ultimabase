@@ -6,9 +6,13 @@ import {
 	Schema,
 	accessPrincipalResolverServiceToken,
 	accessRoleResolverServiceToken,
+	createAccessPrincipalReference,
+	parseAccessPrincipalReference,
 	resolveAccessPrincipal,
 	resolveAccessRoleReference,
 	type AccessPrincipalResolver,
+	type AccessPrincipalReference,
+	type AccessPrincipalReferenceIdentity,
 	type AccessRoleReference,
 	type AccessRoleReferenceCarrier,
 	type AccessRoleResolver,
@@ -98,6 +102,14 @@ test('infers plugin-owned principals and resolved subjects exactly', () => {
 		ServiceToken<AccessPrincipalResolver>
 	>()
 	expectTypeOf<AccessPrincipalResolver['resolveCurrent']>().toBeFunction()
+	expectTypeOf(
+		createAccessPrincipalReference(principalPointer),
+	).toEqualTypeOf<AccessPrincipalReference>()
+	expectTypeOf(
+		parseAccessPrincipalReference(
+			createAccessPrincipalReference(principalPointer),
+		),
+	).toEqualTypeOf<Readonly<AccessPrincipalReferenceIdentity>>()
 	expectTypeOf<
 		NonNullable<AccessRoleResolver['resolvePersistentRole']>
 	>().toBeFunction()

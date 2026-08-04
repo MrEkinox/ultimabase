@@ -4,6 +4,7 @@
 - Date: 2026-08-04
 - Refines: ADR-0005, ADR-0006, ADR-0113, ADR-0116, ADR-0117, ADR-0119
 - Superseded in part by: ADR-0123 for ACL rights and ACL-field management
+- Refined by: ADR-0126 for transactional subject-reference cleanup
 
 ## Context
 

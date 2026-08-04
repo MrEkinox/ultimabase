@@ -1,4 +1,9 @@
-import type { MaybePromise } from '@ultimabase/shared'
+import {
+	assertNonEmptyString,
+	immutableRecord,
+	isUnknownArray,
+	type MaybePromise,
+} from '@ultimabase/shared'
 
 import type { RequestContextValue } from '../request/context-value.js'
 import type { AccessContext } from '../request/context.js'
@@ -119,6 +124,89 @@ export class AccessSubjectReference<
 		// Reference identity and payload cannot be replaced after configuration.
 		Object.freeze(this)
 	}
+}
+
+/** Describes the neutral reference shape used when a principal object is deleted. */
+export type AccessPrincipalReference = AccessSubjectReference<
+	'principal',
+	string
+>
+
+/** Retains the exact schema-qualified identity encoded by a principal reference. */
+export interface AccessPrincipalReferenceIdentity {
+	readonly className: string
+	readonly id: string
+}
+
+const principalReferenceNamespace = '@ultimabase/core' as const
+const principalReferenceVersion = 1 as const
+const parseJSON: (value: string) => unknown = JSON.parse
+
+/**
+ * Creates one stable provider-neutral reference for a persisted principal.
+ *
+ * Subject-owning plugins pass this value to generic reference-cleanup
+ * contributions without importing any ACL implementation.
+ *
+ * @example `createAccessPrincipalReference(User.pointer(userId))`
+ */
+export const createAccessPrincipalReference = (
+	principal: PointerValue,
+): AccessPrincipalReference => {
+	if (!Pointer.is(principal)) {
+		throw new TypeError('Access principal reference requires a Core Pointer')
+	}
+
+	return new AccessSubjectReference(
+		'principal',
+		JSON.stringify([
+			principalReferenceNamespace,
+			principalReferenceVersion,
+			principal.schema.className,
+			principal.id,
+		]),
+	)
+}
+
+/**
+ * Parses one exact principal identity without resolving its schema or provider.
+ *
+ * @example `parseAccessPrincipalReference(reference) // { className, id }`
+ */
+export const parseAccessPrincipalReference = (
+	reference: AccessPrincipalReference,
+): Readonly<AccessPrincipalReferenceIdentity> => {
+	const candidate: unknown = reference
+
+	if (
+		!(candidate instanceof AccessSubjectReference) ||
+		candidate.kind !== 'principal' ||
+		typeof candidate.value !== 'string'
+	) {
+		throw new TypeError('Access principal reference is invalid')
+	}
+
+	let value: unknown
+
+	try {
+		value = parseJSON(candidate.value)
+	} catch {
+		throw new TypeError('Access principal reference value is invalid')
+	}
+
+	if (
+		!isUnknownArray(value) ||
+		value.length !== 4 ||
+		value[0] !== principalReferenceNamespace ||
+		value[1] !== principalReferenceVersion
+	) {
+		throw new TypeError('Access principal reference value is invalid')
+	}
+
+	assertNonEmptyString(value[2], 'Access principal reference className')
+	assertNonEmptyString(value[3], 'Access principal reference id')
+
+	return immutableRecord({ className: value[2], id: value[3] })
 }
 
 /** Describes the neutral reference shape consumed by role-aware policies. */

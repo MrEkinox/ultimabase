@@ -14,6 +14,11 @@ export interface PostgresWorkerFixture {
 	dispose(): Promise<void>
 }
 
+/** Selects a safe namespace family when one test needs multiple databases. */
+export interface PostgresWorkerFixtureOptions {
+	readonly prefix?: string
+}
+
 const withConnectionOptions = (
 	connectionUri: string,
 	options: string,
@@ -26,49 +31,51 @@ const withConnectionOptions = (
 }
 
 /** Creates and resets the namespace assigned to the current Vitest worker slot. */
-export const createPostgresWorkerFixture =
-	async (): Promise<PostgresWorkerFixture> => {
-		const baseConnectionUri = inject(postgresConnectionUriContextKey)
-		const adminPool = new Pool({ connectionString: baseConnectionUri })
-		const worker = new PostgresTestWorker({
-			query: async (statement): Promise<void> => {
-				await adminPool.query(statement)
-			},
-			workerId: readVitestPoolId(process.env.VITEST_POOL_ID),
-		})
+export const createPostgresWorkerFixture = async (
+	options: PostgresWorkerFixtureOptions = {},
+): Promise<PostgresWorkerFixture> => {
+	const baseConnectionUri = inject(postgresConnectionUriContextKey)
+	const adminPool = new Pool({ connectionString: baseConnectionUri })
+	const worker = new PostgresTestWorker({
+		...(options.prefix === undefined ? {} : { prefix: options.prefix }),
+		query: async (statement): Promise<void> => {
+			await adminPool.query(statement)
+		},
+		workerId: readVitestPoolId(process.env.VITEST_POOL_ID),
+	})
 
-		try {
-			await worker.reset()
-		} catch (error: unknown) {
-			await adminPool.end()
-			throw error
-		}
-
-		const connectionUri = withConnectionOptions(
-			baseConnectionUri,
-			worker.connectionOptions,
-		)
-		const pool = new Pool({ connectionString: connectionUri })
-		let disposed = false
-
-		return Object.freeze({
-			connectionUri,
-			pool,
-			schemaName: worker.schemaName,
-			dispose: async (): Promise<void> => {
-				if (disposed) return
-
-				disposed = true
-
-				try {
-					await pool.end()
-				} finally {
-					try {
-						await worker.dispose()
-					} finally {
-						await adminPool.end()
-					}
-				}
-			},
-		})
+	try {
+		await worker.reset()
+	} catch (error: unknown) {
+		await adminPool.end()
+		throw error
 	}
+
+	const connectionUri = withConnectionOptions(
+		baseConnectionUri,
+		worker.connectionOptions,
+	)
+	const pool = new Pool({ connectionString: connectionUri })
+	let disposed = false
+
+	return Object.freeze({
+		connectionUri,
+		pool,
+		schemaName: worker.schemaName,
+		dispose: async (): Promise<void> => {
+			if (disposed) return
+
+			disposed = true
+
+			try {
+				await pool.end()
+			} finally {
+				try {
+					await worker.dispose()
+				} finally {
+					await adminPool.end()
+				}
+			}
+		},
+	})
+}

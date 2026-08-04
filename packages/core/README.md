@@ -1044,6 +1044,18 @@ Both callbacks execute only when the subject provider explicitly discovers the
 contribution. Their database work inherits the active request transaction;
 Core does not name roles, ACL, or a concrete reference store.
 
+Principal owners can encode an exact Pointer without sharing their schema with
+the cleanup provider:
+
+```ts
+const reference = createAccessPrincipalReference(User.pointer(userId))
+const identity = parseAccessPrincipalReference(reference)
+```
+
+The versioned neutral value preserves only `className` and `id`. Parsing
+validates that boundary without resolving a User schema or importing an
+authentication package.
+
 Schema extensions may contribute reserved fields without teaching Core about
 the plugin domain:
 

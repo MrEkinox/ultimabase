@@ -26,3 +26,10 @@ Both dependency plugins are required. The integration owns no connection,
 schema, authority, hooks, or lifecycle state; it only validates the opaque ACL
 payload and registers its PostgreSQL compiler. Master requests emit no ACL row
 constraint, so this plugin adds no predicate on the audited bypass path.
+
+The same integration compiles ACL subject-reference searches used during
+provider-owned deletion. Exact principal and role lookups become parameterized
+JSONB containment predicates and therefore reuse each ACL field's generated
+GIN index. ACL cleanup still runs as ordinary singular updates inside the
+subject deletion transaction; this package never chooses `fail`, `preserve`,
+or `cascade` policy.
