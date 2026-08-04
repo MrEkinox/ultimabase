@@ -1,22 +1,39 @@
 # Access control
 
-## Layers
+## Native Access
 
 ```text
-CLP
-AND ACL
-AND field access
+schema operation decision
+AND schema row filter
+AND schema item decision
+AND field decisions
+AND optional provider policies
 ```
 
-CLP contains explicit rules for `find`, `get`, `count`, `exists`, `create`, `update`, and `delete`.
+`schema.access` is the generalized class-level permission API. It protects
+singular and collection reads, counts, existence checks, creates, updates,
+upserts, deletes, row visibility, and prepared items without installing a
+permission plugin.
 
-ACL grants `read`, `update`, `delete`, and `manageAcl` to public, authenticated, user, and role subjects.
+`field.access` controls item output, filtering, ordering, create input, and
+update input. Forbidden columns are not selected. Explicit forbidden field use
+returns a typed error.
 
-Field rules control `read`, `create`, and `update`. Forbidden columns are not selected. Explicit forbidden selection and forbidden writes return typed errors.
+Every independent declaration and provider contribution combines monotonically
+through logical `AND`; no later policy can broaden an earlier restriction.
+
+## ACL
+
+ACL is an optional persisted per-object Access provider. It grants object
+operations to anonymous or plugin-provided subjects and contributes row, item,
+and field restrictions without overriding native schema or field Access.
 
 ## Roles
 
-Roles have UUIDs, unique case-insensitive names, optional display names, user members, and role members. Nested membership cycles are rejected.
+Role schemas have UUIDs, unique normalized names, developer-defined fields,
+exact member schemas, and role members. Nested membership cycles are rejected.
+Authentication and roles provide typed request subjects; installing either
+provider grants no operation by itself.
 
 ACL accepts role UUID or name references, but persistence resolves and stores the UUID.
 

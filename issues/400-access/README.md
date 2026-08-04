@@ -70,15 +70,15 @@ The completed stored-role objective is recorded in its
 
 The remaining independent Access work continues with:
 
-1. [408 — Align packages and documentation with native Access](408-native-access-package-alignment.md)
-2. [409 — Implement immutable ACL class](409-acl-class.md)
-3. [410 — Implement ACL schema extension](410-acl-schema-extension.md)
-4. [411 — Implement aclPlugin](411-acl-plugin.md)
-5. PostgreSQL ACL storage and compilation through issues 510 and 509
-6. [412 — Add ACL hooks and events](412-acl-hooks-events.md)
-7. [415 — Verify native Access and provider composition](415-access-plugin-composition.md)
+1. [409 — Implement immutable ACL class](409-acl-class.md)
+2. [410 — Implement ACL schema extension](410-acl-schema-extension.md)
+3. [411 — Implement aclPlugin](411-acl-plugin.md)
+4. PostgreSQL ACL storage and compilation through issues 510 and 509
+5. [412 — Add ACL hooks and events](412-acl-hooks-events.md)
+6. [415 — Verify native Access and provider composition](415-access-plugin-composition.md)
 
-Issues 407 and 408 previously described a separate CLP provider. Issues 413
+Issues 407 and 408 previously described a separate CLP provider. Issue 408 is
+complete and records the consolidation in ADR-0120. Issues 413
 and 414 previously described a separate field-permission provider. Those plans
 were retired before implementation because issues 401, 421, 418, and 419
 already provide the more general native behavior with a smaller public API.

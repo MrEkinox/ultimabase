@@ -9,7 +9,7 @@ Static TypeScript schemas generate or drive:
 - PostgreSQL structures;
 - validation and inferred types;
 - full CRUD, bulk operations, and upserts;
-- CLP, object ACL, roles, and field access;
+- native schema and field Access, object ACL, and roles;
 - REST and GraphQL APIs;
 - migrations and synchronization;
 - SDK and realtime metadata in later milestones.
@@ -61,10 +61,11 @@ and a field may declare hooks that infer its exact logical value. Plugins append
 global, schema, typed field-path, extension, or field-kind hooks through the
 same application-owned dispatcher.
 
-CLP, ACL, and field permissions use that dispatcher rather than named Runtime
-stages. Their generic hook effects are monotonic: guards only deny, database
+Native Access declarations and ACL provider contributions compile separately
+from business hooks into one monotonic plan: guards only deny, database
 constraints only accumulate, and field restrictions only narrow. Applications
-that omit those plugins do not execute placeholder permission behavior.
+without Access declarations or providers do not execute placeholder permission
+behavior.
 
 Every mutation and every database write started by its business hooks shares an
 automatic transaction. Business after-hooks may still abort before commit;
@@ -73,11 +74,11 @@ non-transactional unless the developer explicitly opens a transaction.
 
 ## Access semantics
 
-- `anonymous`, `user`, and `master` are the only access modes.
-- CLP applies to whole-schema operations.
-- ACL applies to individual objects and never overrides CLP.
-- field access controls selection, create input, and update input.
-- roles may contain users and other roles.
+- `anonymous` and `master` are Core's only authority modes; authentication adds typed request context without adding another Core mode.
+- native schema Access controls whole-schema operations, row filters, and item decisions.
+- ACL applies to individual objects and never overrides native Access.
+- native field Access controls selection, filtering, ordering, create input, and update input.
+- roles may contain members and other roles without granting an operation by installation alone.
 - master is trusted server-side authority and is audited.
 
 ## Compatibility

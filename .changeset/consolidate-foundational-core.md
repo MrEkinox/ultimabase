@@ -1,8 +1,6 @@
 ---
 '@ultimabase/core': major
 '@ultimabase/acl-permissions': patch
-'@ultimabase/clp-permissions': patch
-'@ultimabase/field-permissions': patch
 '@ultimabase/graphql': patch
 '@ultimabase/graphql-yoga': patch
 '@ultimabase/pg-vector-plugin': patch

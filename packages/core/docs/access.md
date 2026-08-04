@@ -5,14 +5,14 @@ contracts.
 
 Core implements anonymous and master authority, typed plugin-owned request
 values, native schema and field Access declarations, and the monotonic
-enforcement primitives used by Runtime. It does not implement CLP, ACL, roles,
-authenticated users, ownership, or field permissions.
+enforcement primitives used by Runtime. It does not implement persisted ACL,
+roles, authenticated users, ownership, or another concrete policy domain.
 
 ADR-0116 makes Access itself a fundamental Core lifecycle. Native declarations
 are retained privately by schema and field identity, compiled once per
-application, and executed by Runtime before business hooks. The official
-permission packages provide policies to that lifecycle instead of constructing
-parallel permission pipelines.
+application, and executed by Runtime before business hooks. Persisted ACL and
+community packages may contribute policies to that lifecycle instead of
+constructing parallel permission pipelines.
 
 The low-level guard, opaque adapter constraint, and field restriction factories
 remain available to advanced plugins. Native Access shares their monotonic
@@ -267,7 +267,8 @@ const rolePolicy = definePlugin({
 ```
 
 The requirement is validated after all plugin setup callbacks and before any
-database connection, migration, runtime, or transport starts. CLP and ACL only
-declare it when their normalized configuration actually contains a role. An
-official role plugin and a community provider are interchangeable when they
-provide the exported neutral token; duplicate providers still fail.
+database connection, migration, runtime, or transport starts. An ACL or
+community policy only declares it when its normalized configuration actually
+contains a role. An official role plugin and a community provider are
+interchangeable when they provide the exported neutral token; duplicate
+providers still fail.

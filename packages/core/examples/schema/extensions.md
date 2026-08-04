@@ -13,27 +13,27 @@ import {
 	stringField,
 } from '@ultimabase/core'
 
-const permissionPluginName = '@example/permissions'
+const contentMetadataPluginName = '@example/content-metadata'
 
-const classPermissions = defineSchemaExtension(
-	'class-permissions',
-	{ find: 'authenticated' as const },
-	permissionPluginName,
+const contentCategory = defineSchemaExtension(
+	'content-category',
+	{ category: 'article' as const },
+	contentMetadataPluginName,
 )
 
-const fieldPermissions = defineFieldExtension(
-	'field-permissions',
-	{ read: 'owner' as const },
-	permissionPluginName,
+const searchMetadata = defineFieldExtension(
+	'search-metadata',
+	{ weight: 2 as const },
+	contentMetadataPluginName,
 )
 
 export const PostSchema = Schema.define({
 	className: 'Post',
 	fields: {
 		title: stringField(),
-		draftNotes: stringField({ extensions: [fieldPermissions] }),
+		draftNotes: stringField({ extensions: [searchMetadata] }),
 	},
-	extensions: [classPermissions],
+	extensions: [contentCategory],
 })
 ```
 

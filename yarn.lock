@@ -1488,22 +1488,6 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@ultimabase/clp-permissions@workspace:packages/clp-permissions":
-  version: 0.0.0-use.local
-  resolution: "@ultimabase/clp-permissions@workspace:packages/clp-permissions"
-  dependencies:
-    "@ultimabase/core": "workspace:^"
-    tsdown: "npm:^0.22.14"
-    typescript: "npm:^6.0.3"
-    vitest: "npm:4.1.10"
-  peerDependencies:
-    "@ultimabase/roles": "workspace:^"
-  peerDependenciesMeta:
-    "@ultimabase/roles":
-      optional: true
-  languageName: unknown
-  linkType: soft
-
 "@ultimabase/core@workspace:^, @ultimabase/core@workspace:packages/core":
   version: 0.0.0-use.local
   resolution: "@ultimabase/core@workspace:packages/core"
@@ -1517,11 +1501,14 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@ultimabase/field-permissions@workspace:packages/field-permissions":
+"@ultimabase/graphql@workspace:^, @ultimabase/graphql@workspace:packages/graphql":
   version: 0.0.0-use.local
-  resolution: "@ultimabase/field-permissions@workspace:packages/field-permissions"
+  resolution: "@ultimabase/graphql@workspace:packages/graphql"
   dependencies:
+    "@graphql-tools/schema": "npm:^10.0.25"
     "@ultimabase/core": "workspace:^"
+    dataloader: "npm:^2.2.3"
+    graphql: "npm:^16.14.2"
     tsdown: "npm:^0.22.14"
     typescript: "npm:^6.0.3"
     vitest: "npm:4.1.10"
@@ -1536,20 +1523,6 @@ __metadata:
     "@ultimabase/graphql": "workspace:^"
     graphql: "npm:^16.14.2"
     graphql-yoga: "npm:^5.21.2"
-    tsdown: "npm:^0.22.14"
-    typescript: "npm:^6.0.3"
-    vitest: "npm:4.1.10"
-  languageName: unknown
-  linkType: soft
-
-"@ultimabase/graphql@workspace:^, @ultimabase/graphql@workspace:packages/graphql":
-  version: 0.0.0-use.local
-  resolution: "@ultimabase/graphql@workspace:packages/graphql"
-  dependencies:
-    "@graphql-tools/schema": "npm:^10.0.25"
-    "@ultimabase/core": "workspace:^"
-    dataloader: "npm:^2.2.3"
-    graphql: "npm:^16.14.2"
     tsdown: "npm:^0.22.14"
     typescript: "npm:^6.0.3"
     vitest: "npm:4.1.10"

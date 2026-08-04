@@ -124,11 +124,10 @@ boundary.
 
 ## Policy-neutral monotonic enforcement
 
-These factories are the currently implemented low-level security foundation.
-ADR-0116 and issues 401 plus 416–419 add the native Access declarations and
-provider registry that compile into the same monotonic machinery. Official CLP,
-ACL, and field-permission providers will use that Access registry instead of
-registering business hooks directly.
+These factories are the low-level security foundation. Native schema and field
+Access declarations plus provider contributions compile into the same
+monotonic machinery. ACL and community policy providers use the Access registry
+instead of registering business hooks directly.
 
 Policy plugins register the same five public factories as any community tenant,
 ownership, moderation, or soft-delete capability. A definition may omit

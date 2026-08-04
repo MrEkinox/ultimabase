@@ -127,6 +127,7 @@ Inline field callbacks infer the exact logical value. Cross-field behavior uses
 schema hooks. Plugins append to the same dispatcher with deterministic targets;
 they cannot replace developer hooks. Policy plugins use a final monotonic hook
 boundary: they may deny, append opaque adapter constraints, or narrow fields,
-but later hooks cannot reverse those decisions. Runtime never names CLP, ACL,
-roles, or field permissions. Set-based `updateMany` and `deleteMany` stay
-set-based instead of loading every row for item callbacks.
+but later hooks cannot reverse those decisions. Runtime never names concrete
+ACL, role, authentication, ownership, or community-provider behavior. Set-based
+`updateMany` and `deleteMany` stay set-based instead of loading every row for
+item callbacks.

@@ -448,9 +448,9 @@ boundary as native hooks.
 
 An Access filter reuses the same typed field predicates as Query, but remains
 in private monotonic state. `beforeFind` can add application defaults such as
-ordering or limits and cannot inspect, replace, or remove Access filters. CLP,
-ACL, and field-permission plugins register policy contributions to this native
-system rather than business hooks.
+ordering or limits and cannot inspect, replace, or remove Access filters. ACL
+and community policy plugins register contributions to this native system
+rather than business hooks.
 
 The callback receives one immutable schema-aware builder and no terminal
 `kind`, so `get`, `find`, `count`, and `exists` always observe the same protected
@@ -1127,16 +1127,16 @@ Extension handlers use a scope-qualified identity so schema and field names stay
 independent:
 
 ```ts
-const permissionsPlugin = definePlugin({
-	name: '@example/permissions',
+const contentMetadataPlugin = definePlugin({
+	name: '@example/content-metadata',
 	setup: ({ registries }) => {
 		registries.extensions.register(
-			extensionHandlerKey('schema', 'class-permissions'),
-			classPermissionHandler,
+			extensionHandlerKey('schema', 'content-category'),
+			contentCategoryHandler,
 		)
 		registries.extensions.register(
-			extensionHandlerKey('field', 'field-permissions'),
-			fieldPermissionHandler,
+			extensionHandlerKey('field', 'search-metadata'),
+			searchMetadataHandler,
 		)
 	},
 })

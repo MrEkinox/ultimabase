@@ -4,12 +4,10 @@ The issue backlog is the executable roadmap. This document only describes milest
 
 ## Current execution priority
 
-The Runtime-to-PostgreSQL vertical, native hook lifecycle, fundamental Access
-system, and transport-neutral relations vertical are complete. The current
-priority is the developer-defined stored-role vertical described in
-[`CURRENT_PLAN.md`](CURRENT_PLAN.md): extensible RoleSchema declarations, typed
-member and nested-role commands, stable references, native Access integration,
-then a public roles plus PostgreSQL proof before ACL consumes the capability.
+The Runtime-to-PostgreSQL vertical, native hook lifecycle, fundamental Access,
+transport-neutral relations, and developer-defined stored roles are complete.
+The current priority is implementing persisted object ACL on top of native
+Access and the completed neutral role-subject capability.
 
 Completed cross-milestone plans are retained under
 [`docs/plans/completed/`](docs/plans/completed/) so their decisions remain
@@ -51,9 +49,9 @@ Drizzle-backed adapter, schema compilation, introspection, direct schema synchro
 
 Hono server, generated REST endpoints, GraphQL schema generation, cursor connections, Yoga integration, custom schema merging, and developer explorers.
 
-## Milestone 7+ — Relations and optional ecosystem
+## Milestone 7+ — Optional ecosystem
 
-Pointers and relations are the active transport-neutral vertical. Object
+Pointers and relations are complete transport-neutral foundations. Object
 fields, authentication, realtime, jobs, cache, gRPC, OpenAPI, CLI, code
 generation, SDKs, audit, observability, soft delete, tenant isolation, advanced
 fields, health, and administration remain issue-tracked extensions. New

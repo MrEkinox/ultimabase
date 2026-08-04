@@ -27,8 +27,8 @@ Before changing code:
 - The developer never writes Drizzle directly.
 - Concrete capabilities are plugins. The Core must not depend on PostgreSQL, Drizzle, Hono, GraphQL, Yoga, authentication providers, Redis, or job systems.
 - REST and GraphQL normalize into the same operation/query AST and execute through the same runtime pipeline.
-- CLP controls class operations. ACL controls individual objects. Field permissions control field selection and mutation.
-- CLP, ACL, roles, and field permissions are optional plugins that register policy-neutral guards, constraints, and field restrictions through the hook registry. Runtime must not name, configure, bypass, or install neutral stages for them.
+- Native schema Access controls class operations. ACL controls individual objects. Native field Access controls field selection and mutation.
+- ACL providers contribute monotonic policies through the Access registry. Roles and authentication provide optional request subjects but grant nothing by themselves. Runtime must not name, configure, bypass, or install neutral stages for concrete providers.
 - Core authority modes are `anonymous` and `master`. Authentication, user identity, sessions, and user schemas belong to optional plugins; there is no `user` or `system` Core mode.
 - Master access is trusted server-side authority and must never be forgeable from transport input.
 
@@ -76,7 +76,7 @@ Run or update `yarn constraints` when dependency constraints exist. If a request
 - Parent setup precedes child setup; child teardown precedes parent teardown.
 - Dependencies and configuration order determine deterministic plugin and hook ordering.
 - Duplicate plugins with conflicting options are errors unless a future ADR introduces explicit instances.
-- Schema and field plugins contribute typed extensions. Core's Schema domain must not know concrete ACL, CLP, role, or field-permission configuration.
+- Schema and field plugins contribute typed extensions. Core's Schema domain must not know concrete ACL, role, authentication, or community-provider configuration.
 - Hooks are a native framework capability, not a plugin or schema extension. Plugins append hook contributions through the application dispatcher; they never replace developer hooks.
 - Policy plugins use generic deny-only guards, append-only adapter constraints, and narrowing field restrictions. Later hooks must never broaden accumulated enforcement.
 

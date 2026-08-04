@@ -65,9 +65,9 @@ users[0]?.toJSON() // A detached immutable object.
 - Core contains the inseparable Schema, Query, Access, application, and Runtime domains while remaining independent from infrastructure implementations.
 - REST and GraphQL use one operation AST and one runtime pipeline.
 - UltimaBase, Schema, Query, ACL, and Role domain objects use immutable classes.
-- Access is a fundamental Core lifecycle with native schema and field rules;
-  CLP, ACL, roles, and field permissions are independent providers that
-  contribute policies to the same monotonic Access plan.
+- Access is a fundamental Core lifecycle with native schema and field rules.
+  ACL contributes persisted per-object policies, while roles and authentication
+  provide optional request subjects consumed by Access decisions.
 - PostgreSQL synchronization and PostgreSQL migrations are separate capabilities.
 - The framework targets Node.js 24+, ESM, TypeScript, and an Apache-2.0 license.
 

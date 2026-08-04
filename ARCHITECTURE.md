@@ -38,9 +38,7 @@ An arrow means “imports or depends on” and always points toward a foundation
 core ─────────────────→ shared
 pg-vector-plugin ─────→ core, shared
 roles ────────────────→ core
-clp-permissions ──────→ core
 acl-permissions ──────→ core
-field-permissions ────→ core
 postgres ─────────────→ core
 postgres-migrations ──→ postgres, core
 server-hono ──────────→ core
@@ -55,7 +53,7 @@ concrete plugins.
 
 The internal Access domain remains a neutral home for request-authority and
 shared policy contracts. Runtime using those contracts does not install or
-name CLP, ACL, roles, or field-permission behavior.
+name ACL, role, authentication, or community-provider behavior.
 
 ## Schema extensions
 
@@ -65,8 +63,13 @@ Core's Schema domain only knows the generic `SchemaExtension` and
 ```ts
 Schema.define({
 	className: 'Post',
-	fields: {},
-	extensions: [clpPermissions({}), aclPermissions({})],
+	access: {
+		operation: { read: true },
+	},
+	fields: {
+		title: stringField({ access: { update: isEditor } }),
+	},
+	extensions: [auditSchema({ category: 'content' })],
 })
 ```
 
@@ -192,17 +195,17 @@ exact declaration identity. They never enter field options, extensions,
 validation plans, schema hashes, or migration metadata. Core's Runtime domain
 reads those declarations internally; absent hooks create no neutral stage.
 
-Runtime does not name CLP, ACL, roles, authenticated users, ownership, or field
-permissions. Core's fundamental Access domain compiles native schema and field
-declarations plus plugin-provided policies into `operation`, `filter`, `item`,
-and `field` decisions. The compiler lowers those decisions into the existing
-policy-neutral `guard`, `constraint`, `restrictInput`, `restrictSelection`, and
-`restrictOutput` enforcement primitives. Guards may only deny, adapter
-constraints accumulate with logical `AND`, and field restrictions only narrow.
-Enforcement state remains separate from transformable operations so later
-business hooks cannot broaden it. An application with no Access declaration or
-provider follows its configured global default without installing placeholder
-callbacks.
+Runtime does not name ACL, roles, authenticated users, ownership, or another
+concrete policy domain. Core's fundamental Access domain compiles native schema
+and field declarations plus plugin-provided policies into `operation`,
+`filter`, `item`, and `field` decisions. The compiler lowers those decisions
+into the existing policy-neutral `guard`, `constraint`, `restrictInput`,
+`restrictSelection`, and `restrictOutput` enforcement primitives. Guards may
+only deny, adapter constraints accumulate with logical `AND`, and field
+restrictions only narrow. Enforcement state remains separate from transformable
+operations so later business hooks cannot broaden it. An application with no
+Access declaration or provider follows its configured global default without
+installing placeholder callbacks.
 
 The existing Runtime hook factories remain the low-level implementation
 foundation beside native declarations and policy-neutral enforcement. Core has
@@ -261,11 +264,13 @@ Query. Query predicates, `beforeFind` predicates, and every Access provider
 constraint combine through logical `AND`; a business hook cannot inspect or
 remove the private Access state.
 
-CLP, ACL, and field permissions are independent plugin providers for this
-system. Roles and authentication supply optional typed subject capabilities.
-Core Access contains no built-in CLP, ACL, user, owner, or role rule. Each
-native declaration or provider decides whether audited master authority
-bypasses its own policy; Runtime has no permission-specific bypass branch.
+Native schema Access is the generalized class-level permission system, and
+native field Access controls field disclosure and mutation. ACL is an optional
+persisted per-object provider. Roles and authentication supply optional typed
+subject capabilities and grant nothing by themselves. Core Access contains no
+built-in ACL, user, owner, or role rule. Each native declaration or provider
+decides whether audited master authority bypasses its own policy; Runtime has no
+permission-specific bypass branch.
 
 ## Database and migrations
 

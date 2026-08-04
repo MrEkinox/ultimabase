@@ -7,7 +7,7 @@ Please report security vulnerabilities privately to the maintainers rather than 
 Security-sensitive areas include:
 
 - master capability creation and transport boundaries;
-- CLP, ACL, role inheritance, and field selection;
+- native Access, object ACL, role inheritance, and field disclosure;
 - schema synchronization and destructive migrations;
 - query normalization and SQL compilation;
 - GraphQL complexity and introspection controls;

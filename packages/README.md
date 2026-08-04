@@ -15,9 +15,7 @@ optional infrastructure and policy behavior remains in plugins.
 ## Official plugins
 
 - `roles`
-- `clp-permissions`
 - `acl-permissions`
-- `field-permissions`
 - `pg-vector-plugin`
 - `postgres`
 - `postgres-migrations`
