@@ -5,7 +5,7 @@
 - Objective owner: `@ultimabase/acl-permissions-plugin`, `@ultimabase/acl-postgres-plugin`, `@ultimabase/core`, `@ultimabase/postgres-plugin`
 - Governing decisions: [ADR-0005](docs/adr/0005-immutable-class-api.md), [ADR-0113](docs/adr/0113-plugin-owned-authentication-context.md), [ADR-0116](docs/adr/0116-fundamental-access-system.md), [ADR-0117](docs/adr/0117-optional-access-subject-capabilities.md), [ADR-0119](docs/adr/0119-developer-defined-role-schemas.md), [ADR-0122](docs/adr/0122-immutable-persisted-object-acls.md), [ADR-0123](docs/adr/0123-master-only-acl-management.md), [ADR-0125](docs/adr/0125-dedicated-acl-postgres-integration-plugin.md), [ADR-0126](docs/adr/0126-transactional-acl-reference-cleanup.md)
 - Previous completed objective: [Developer-defined stored roles](docs/plans/completed/developer-defined-stored-roles.md)
-- Resume point: issue 415
+- Resume point: issue 427
 
 ## Objective
 
@@ -128,7 +128,7 @@ never imports or identifies that plugin.
 
 9. [x] [426 — Integrate ACL subject-reference cleanup](issues/400-access/426-acl-reference-cleanup.md)
 10. [x] [412 — Emit committed ACL change events](issues/400-access/412-acl-hooks-events.md)
-11. [ ] [415 — Verify Access-provider composition](issues/400-access/415-access-plugin-composition.md)
+11. [x] [415 — Verify Access-provider composition](issues/400-access/415-access-plugin-composition.md)
 
 ### Phase 5 — Complete public proof
 
