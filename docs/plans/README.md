@@ -7,7 +7,7 @@ objective changes.
 
 ## Active
 
-- None. The next multi-issue objective has not been selected yet.
+- [ACL hardening and developer-experience consolidation](../../CURRENT_PLAN.md)
 
 ## Completed
 

@@ -6,7 +6,10 @@ The issue backlog is the executable roadmap. This document only describes milest
 
 The Runtime-to-PostgreSQL vertical, native hook lifecycle, fundamental Access,
 transport-neutral relations, developer-defined stored roles, and persisted
-object ACL are complete. The next multi-issue priority has not been selected.
+object ACL are complete. The active priority is the
+[ACL hardening and developer-experience consolidation plan](CURRENT_PLAN.md),
+which closes security, provider-ordering, callback-typing, cleanup, event, and
+maintainability findings before authentication builds on this foundation.
 
 Completed cross-milestone plans are retained under
 [`docs/plans/completed/`](docs/plans/completed/) so their decisions remain

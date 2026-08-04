@@ -68,3 +68,8 @@ Issue 349 completes the object-level DX with immutable `create`, `upsert`,
 `update`, and `delete` commands on the schema-specific draft or persisted
 instance. Collection operations remain on `Post.query()` and every instance
 command reaches the same Query and Runtime pipeline.
+
+Issue 351 participates in the active
+[ACL hardening and DX plan](../../CURRENT_PLAN.md). It distinguishes optional
+post-commit notifications from required event delivery so ACL, roles, and
+future feature plugins do not register synthetic no-op consumers.

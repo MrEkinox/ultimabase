@@ -83,6 +83,22 @@ The completed persisted-object ACL vertical is recorded in its
 10. [415 — Verify native Access and provider composition](415-access-plugin-composition.md)
 11. [427 — Verify the complete ACL PostgreSQL vertical](427-acl-postgres-e2e.md)
 
+## Active ACL hardening execution order
+
+The post-implementation audit is tracked by the active
+[ACL hardening and DX plan](../../CURRENT_PLAN.md). It must finish before an
+authentication plugin or another persisted policy provider builds on ACL:
+
+1. [429 — Enforce singular ACL management before authorization bypass](429-enforce-singular-acl-management.md)
+2. [430 — Resolve optional ACL subject providers lazily](430-resolve-optional-acl-providers-lazily.md)
+3. [431 — Align ACL create and update input resolution data](431-align-acl-input-resolution-data.md)
+4. Schema issue 144 contextualizes extension callbacks from sibling fields
+5. Runtime issue 351 removes synthetic consumers for optional committed events
+6. [432 — Batch ACL reference cleanup with stable cursors](432-batch-acl-reference-cleanup.md)
+7. [433 — Harden concurrent ACL reference lifecycle](433-harden-concurrent-acl-reference-lifecycle.md)
+8. [434 — Restructure ACL runtime internals](434-restructure-acl-runtime-internals.md)
+9. [435 — Verify the hardened ACL vertical](435-verify-hardened-acl-vertical.md)
+
 Issues 407 and 408 previously described a separate CLP provider. Issue 408 is
 complete and records the consolidation in ADR-0120. Issues 413
 and 414 previously described a separate field-permission provider. Those plans
