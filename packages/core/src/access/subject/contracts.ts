@@ -4,6 +4,8 @@ import type { RequestContextValue } from '../request/context-value.js'
 import type { AccessContext } from '../request/context.js'
 import { createServiceToken } from '../../services/service-token.js'
 import type { ServiceToken } from '../../services/service-token.js'
+import { Pointer, type PointerValue } from '../../schema/relations/pointer.js'
+import type { SchemaDefinition } from '../../schema/schema/definition.js'
 
 /** Gives a plugin-owned context token an explicit Access-domain meaning. */
 export type AccessSubjectValue<
@@ -15,6 +17,75 @@ export type AccessSubjectValue<
 export type InferAccessSubjectValue<
 	TToken extends AccessSubjectValue<unknown>,
 > = TToken extends AccessSubjectValue<infer TSubject> ? TSubject : never
+
+/** Supplies the immutable request surface to one optional principal provider. */
+export interface AccessPrincipalResolutionInput {
+	readonly context: AccessContext
+}
+
+/**
+ * Resolves the current request principal as one exact Core Pointer.
+ *
+ * Authentication, credentials, and session behavior remain provider-owned.
+ * Returning `undefined` is the fail-closed anonymous result.
+ */
+export interface AccessPrincipalResolver<
+	TPrincipal extends PointerValue = PointerValue,
+> {
+	resolveCurrent(
+		input: AccessPrincipalResolutionInput,
+	): MaybePromise<TPrincipal | undefined>
+}
+
+/** Configures framework validation around one optional principal provider. */
+export interface ResolveAccessPrincipalOptions {
+	readonly context: AccessContext
+	readonly resolver: AccessPrincipalResolver | undefined
+	/** Confirms exact schema ownership inside the consuming application. */
+	readonly ownsSchema: (schema: SchemaDefinition) => boolean
+}
+
+/**
+ * Resolves and validates one optional application-local principal.
+ *
+ * @example
+ * ```ts
+ * const principal = await resolveAccessPrincipal({
+ *   context,
+ *   resolver: services.getOptional(accessPrincipalResolverServiceToken),
+ *   ownsSchema: (schema) => schemas.get(schema.className) === schema,
+ * })
+ * ```
+ */
+export const resolveAccessPrincipal = async (
+	options: ResolveAccessPrincipalOptions,
+): Promise<PointerValue | undefined> => {
+	const principal = await options.resolver?.resolveCurrent({
+		context: options.context,
+	})
+
+	if (principal === undefined) {
+		return undefined
+	}
+
+	if (!Pointer.is(principal)) {
+		throw new TypeError('Access principal resolver must return a Core Pointer')
+	}
+
+	if (!options.ownsSchema(principal.schema)) {
+		throw new TypeError(
+			'Access principal resolver returned a foreign application schema',
+		)
+	}
+
+	return principal
+}
+
+/** Identifies the optional principal provider without naming authentication. */
+export const accessPrincipalResolverServiceToken: ServiceToken<AccessPrincipalResolver> =
+	createServiceToken<AccessPrincipalResolver>(
+		'ultimabase.access.principal-resolver',
+	)
 
 /**
  * Identifies one policy-domain subject without naming its provider plugin.

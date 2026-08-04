@@ -217,6 +217,7 @@ definePlugin({
 		'anyOf',
 		'allOf',
 		'not',
+		'resolveAccessPrincipal',
 	])('documents the %s helper from the package root', (helperName) => {
 		const documentation = readHelperDocumentation(helperName)
 

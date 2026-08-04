@@ -14,7 +14,9 @@ export type {
 } from './request/context-value.js'
 export {
 	AccessSubjectReference,
+	accessPrincipalResolverServiceToken,
 	accessRoleResolverServiceToken,
+	resolveAccessPrincipal,
 	resolveAccessRoleReference,
 } from './subject/contracts.js'
 export type {
@@ -26,8 +28,11 @@ export type {
 	AccessSubjectResolutionInput,
 	AccessSubjectResolver,
 	AccessSubjectValue,
+	AccessPrincipalResolutionInput,
+	AccessPrincipalResolver,
 	InferAccessSubjectValue,
 	InferResolvedAccessSubject,
+	ResolveAccessPrincipalOptions,
 } from './subject/contracts.js'
 export {
 	defineAccessReferenceCleanup,

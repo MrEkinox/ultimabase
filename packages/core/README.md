@@ -265,12 +265,26 @@ provides the same typed read boundary without exposing `withValue()`.
 
 Permission providers may also consume optional subject capabilities without
 importing a concrete authentication or role plugin. Dynamic principals use
-nominal `RequestContextValue<T>` identities. Role-aware configuration may
-conditionally call `services.require(accessRoleResolverServiceToken)` and
-capture the returned typed reference in an Access rule. Core validates that
-requirement after all plugin setup callbacks and before infrastructure starts,
-so provider configuration order is irrelevant. Applications with no role-aware
-policy require no resolver at all.
+nominal `RequestContextValue<T>` identities. An authentication provider may
+publish one exact current principal without becoming a Core dependency:
+
+```ts
+services.provide(accessPrincipalResolverServiceToken, {
+	resolveCurrent: ({ context }) => context.getValue(authenticatedPrincipal),
+})
+```
+
+Access providers retrieve this service optionally and call
+`resolveAccessPrincipal()`. The helper rejects forged Pointers and schemas not
+owned by the consuming application. An absent provider or absent request-local
+identity returns `undefined`; neither creates authenticated authority.
+
+Role-aware configuration may conditionally call
+`services.require(accessRoleResolverServiceToken)` and capture the returned
+typed reference in an Access rule. Core validates that requirement after all
+plugin setup callbacks and before infrastructure starts, so provider
+configuration order is irrelevant. Applications with no role-aware policy
+require no resolver at all.
 
 ## Terminal execution authority
 

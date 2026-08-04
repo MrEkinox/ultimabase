@@ -31,6 +31,10 @@ or role implementation.
 - `AccessSubjectResolver<TReference, TSubject>` is the generic asynchronous
   resolution contract. `undefined` represents unavailable request-local
   identity and therefore cannot grant access.
+- `AccessPrincipalResolver` and `accessPrincipalResolverServiceToken` expose one
+  optional exact Core Pointer without defining authentication. The shared
+  resolution helper validates nominal Pointer identity and exact application
+  schema ownership before a policy consumes it.
 - `AccessRoleReference` and `AccessRoleResolver` define the neutral role
   membership boundary. `accessRoleResolverServiceToken` identifies that
   contract without exposing an official provider plugin.

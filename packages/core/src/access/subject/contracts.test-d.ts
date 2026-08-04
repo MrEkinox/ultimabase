@@ -3,8 +3,12 @@ import { expectTypeOf, test } from 'vitest'
 import {
 	AccessSubjectReference,
 	RequestContextValue,
+	Schema,
+	accessPrincipalResolverServiceToken,
 	accessRoleResolverServiceToken,
+	resolveAccessPrincipal,
 	resolveAccessRoleReference,
+	type AccessPrincipalResolver,
 	type AccessRoleReference,
 	type AccessRoleReferenceCarrier,
 	type AccessRoleResolver,
@@ -12,6 +16,7 @@ import {
 	type AccessSubjectValue,
 	type InferAccessSubjectValue,
 	type InferResolvedAccessSubject,
+	type PointerValue,
 	type ServiceToken,
 } from '../../index.js'
 
@@ -49,6 +54,14 @@ const editor = new AccessSubjectReference('role', 'editor')
 const editorModel: AccessRoleReferenceCarrier = {
 	toAccessRoleReference: () => editor,
 }
+const PrincipalSchema = Schema.define({
+	className: 'TypedAccessPrincipal',
+	fields: {},
+})
+const principalPointer = PrincipalSchema.pointer('principal-id')
+const principalResolver: AccessPrincipalResolver<typeof principalPointer> = {
+	resolveCurrent: () => principalPointer,
+}
 
 const resolver: AccessSubjectResolver<typeof editor, FixtureRole> = {
 	resolve: ({ context, reference }) => {
@@ -81,10 +94,27 @@ test('infers plugin-owned principals and resolved subjects exactly', () => {
 	expectTypeOf(accessRoleResolverServiceToken).toEqualTypeOf<
 		ServiceToken<AccessRoleResolver>
 	>()
+	expectTypeOf(accessPrincipalResolverServiceToken).toEqualTypeOf<
+		ServiceToken<AccessPrincipalResolver>
+	>()
+	expectTypeOf(principalResolver.resolveCurrent).toBeFunction()
+	expectTypeOf(
+		resolveAccessPrincipal({
+			context: {} as never,
+			ownsSchema: () => true,
+			resolver: principalResolver,
+		}),
+	).toEqualTypeOf<Promise<PointerValue | undefined>>()
 
 	// @ts-expect-error -- Core never introduces a native authenticated authority mode.
 	const invalidMode: 'user' = 'anonymous'
 	void invalidMode
+
+	const invalidResolver: AccessPrincipalResolver = {
+		// @ts-expect-error -- Principal providers must return exact Core Pointers.
+		resolveCurrent: () => ({ id: 'principal-id' }),
+	}
+	void invalidResolver
 })
 
 test('keeps nominal subject references distinct from structural values', () => {
