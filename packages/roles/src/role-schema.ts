@@ -96,7 +96,14 @@ export interface RoleMemberOptions<
 > {
 	/** The exact schema whose persisted objects may become direct role members. */
 	readonly schema: TMemberSchema
-	/** Optionally maps request-local plugin state to one exact member pointer. */
+	/**
+	 * Maps immutable request-local plugin state to one exact member Pointer.
+	 *
+	 * Omission makes current-member Access checks deny normally while retaining
+	 * every administrative RoleSchema and Query capability.
+	 *
+	 * @example `resolveCurrent: ({ context }) => toUserPointer(context.getValue(principal))`
+	 */
 	readonly resolveCurrent?: (
 		input: RoleCurrentMemberInput,
 	) =>

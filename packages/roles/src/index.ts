@@ -1,10 +1,7 @@
-export {
-	roleDeletedEvent,
-	RoleDeletionError,
-} from './role-deletion.js'
-export type {
-	RoleDeletedEvent,
-} from './role-deletion.js'
+export { hasRole } from './role-access.js'
+export type { RoleAccessDecision } from './role-access.js'
+export { roleDeletedEvent, RoleDeletionError } from './role-deletion.js'
+export type { RoleDeletedEvent } from './role-deletion.js'
 export {
 	roleHierarchyChangedEvent,
 	roleMembershipChangedEvent,

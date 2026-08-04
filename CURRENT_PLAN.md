@@ -141,7 +141,7 @@ incomplete.
 ### Phase 3 — Native Access integration
 
 5. [x] [407 — Add composable Access decision helpers](issues/400-access/407-access-decision-combinators.md)
-6. [ ] [406 — Integrate stored roles with native Access](issues/400-access/406-role-access-integration.md)
+6. [x] [406 — Integrate stored roles with native Access](issues/400-access/406-role-access-integration.md)
 
 ### Phase 4 — Complete public proof
 
@@ -163,8 +163,9 @@ When resuming after context loss:
 
 ## Current issue
 
-[406 — Integrate stored roles with native Access](issues/400-access/406-role-access-integration.md)
-is ready. Provider-neutral Access decision composition is complete.
+[423 — Verify the complete stored-role vertical](issues/400-access/423-role-postgres-e2e.md)
+is ready. The option-light stored-role provider and native `hasRole()` decision
+are complete.
 
 ## Progress log
 
@@ -174,3 +175,5 @@ is ready. Provider-neutral Access decision composition is complete.
   bounded cycle-safe traversal, stable references, and transactional deletion policies.
 - Issue 407 adds cancellation-aware `anyOf`, `allOf`, and `not` without changing
   monotonic composition between independent Access contributions.
+- Issue 406 provides the neutral role resolver, validates current-member
+  pointers, and memoizes direct plus inherited membership per request domain.

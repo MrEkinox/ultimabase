@@ -7,8 +7,8 @@ parallel role repository. Applications keep control of custom fields, indexes,
 Access, hooks, adapter extensions, and trusted server queries.
 
 ```ts
-import { Schema, intField, stringField } from '@ultimabase/core'
-import { RoleSchema, rolesPlugin } from '@ultimabase/roles'
+import { Schema, UltimaBase, intField, stringField } from '@ultimabase/core'
+import { RoleSchema, hasRole, rolesPlugin } from '@ultimabase/roles'
 
 const User = Schema.define({
 	className: 'User',
@@ -35,24 +35,33 @@ const AppRole = RoleSchema.define({
 	},
 })
 
+const EditorReference = AppRole.role('editor')
+
+const Post = Schema.define({
+	className: 'Post',
+	access: {
+		operation: { update: hasRole(EditorReference) },
+	},
+	fields: { title: stringField() },
+})
+
+const ultimabase = new UltimaBase({
+	schemas: [User, AppRole, Post],
+	plugins: [rolesPlugin()],
+})
+
 const Editor = await new AppRole({
 	name: 'editor',
 	description: 'Content editors',
-}).create({ useMasterKey: true })
-
-const EditorByName = AppRole.role('editor')
+}).create({ ultimabase, useMasterKey: true })
+const Administrator = await new AppRole({ name: 'administrator' }).create({
+	ultimabase,
+	useMasterKey: true,
+})
 const EditorById = AppRole.role({ id: Editor.id })
 
-await Editor.addMember(User.pointer(user.id), { useMasterKey: true })
-await Editor.removeMember(User.pointer(user.id), { useMasterKey: true })
-
-await Administrator.addRole(Editor, { useMasterKey: true })
-await Administrator.removeRole(Editor, { useMasterKey: true })
-
-const ultimabase = new UltimaBase({
-	schemas: [User, AppRole],
-	plugins: [rolesPlugin()],
-})
+await Editor.addMember(User.pointer(user.id), { ultimabase, useMasterKey: true })
+await Administrator.addRole(Editor, { ultimabase, useMasterKey: true })
 ```
 
 `RoleSchema.define()` injects `name`, `members`, and `roles`. Role names are
@@ -96,8 +105,18 @@ contributions inside the same transaction. Successful deletion emits
 ordinary `role.delete()` and `AppRole.query().byId(id).delete()` both execute
 the complete policy.
 
-Native `hasRole()` decisions are implemented by the following issue in this
-milestone.
+`hasRole(reference)` is an ordinary native Access decision. It resolves the
+neutral application service at execution time, so the declaration captures no
+application or request. A missing provider raises Core's typed
+`SERVICE_NOT_FOUND` error before business hooks or database execution; an
+installed provider with no current member or no membership returns `false`.
+
+The official provider calls the RoleSchema's optional `resolveCurrent` once per
+request and domain, validates that it returned a Pointer from the exact member
+schema, then loads direct roles and all parent roles through ordinary Query. One
+immutable membership snapshot and each reference resolution are memoized for
+that request, so repeated schema, field, or future ACL checks do not traverse
+the graph again. Master authority does not imply membership.
 
 Persisted roles also expose distinct `addRole()` and `removeRole()` commands.
 `Administrator.addRole(Editor)` makes Editor a child role, so its direct and

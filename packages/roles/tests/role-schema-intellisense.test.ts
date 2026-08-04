@@ -10,7 +10,7 @@ const packageDirectory = path.dirname(fileURLToPath(import.meta.url))
 const fixtureFile = path.join(packageDirectory, 'role-schema-intellisense.fixture.ts')
 const source = `
 import { Schema, stringField } from '@ultimabase/core'
-import { RoleSchema } from '../src/index.js'
+import { RoleSchema, hasRole } from '../src/index.js'
 
 const User = Schema.define({ className: 'User', fields: {} })
 const AppRole = RoleSchema.define({
@@ -28,6 +28,7 @@ RoleSchema.define({
 })
 
 AppRole./* role-hover */role('editor')
+void /* access-hover */hasRole(AppRole.role('editor'))
 RoleSchema.define({ /* options-complete */ })
 async function inspectMemberCommand() {
   const role = await AppRole.query().first()
@@ -58,6 +59,17 @@ describe('RoleSchema IntelliSense', () => {
 		const documentation = ts.displayPartsToString(quickInfo?.documentation)
 
 		expect(documentation).toContain('Creates a normalized name reference')
+	})
+
+	it('documents the compact native Access decision helper', () => {
+		const marker = '/* access-hover */'
+		const quickInfo = service.getQuickInfoAtPosition(
+			fixtureFile,
+			markerPosition(marker) + marker.length,
+		)
+		const documentation = ts.displayPartsToString(quickInfo?.documentation)
+
+		expect(documentation).toContain('Creates one native Access decision')
 	})
 
 	it('suggests the complete top-level declaration shape', () => {

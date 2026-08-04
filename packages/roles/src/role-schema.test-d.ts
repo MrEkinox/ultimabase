@@ -8,7 +8,7 @@ import {
 } from '@ultimabase/core'
 import { expectTypeOf, test } from 'vitest'
 
-import { RoleSchema } from './index.js'
+import { RoleSchema, hasRole } from './index.js'
 
 const User = Schema.define({
 	className: 'TypedRoleUser',
@@ -18,6 +18,17 @@ const AppRole = RoleSchema.define({
 	className: 'TypedAppRole',
 	members: { schema: User },
 	fields: { description: stringField(), priority: intField({ default: 0 }) },
+})
+const editorAccess = hasRole(AppRole.role('editor'))
+
+Schema.define({
+	className: 'RoleProtectedPost',
+	access: {
+		operation: { update: editorAccess },
+	},
+	fields: {
+		title: stringField({ access: { read: editorAccess } }),
+	},
 })
 
 RoleSchema.define({

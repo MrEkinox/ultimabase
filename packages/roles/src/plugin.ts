@@ -3,6 +3,7 @@ import {
 	extensionHandlerKey,
 	isAccessReferenceCleanup,
 	Pointer,
+	accessRoleResolverServiceToken,
 	type HookContext,
 	type JsonObject,
 	type RelationMutationAction,
@@ -25,6 +26,7 @@ import {
 	assertSingularRoleDeletion,
 	type NamedRoleReferenceCleanup,
 } from './role-deletion.js'
+import { createStoredRoleResolver } from './role-access.js'
 
 /** Exposes the application-local role domains discovered during setup. */
 export interface RolesPluginExports {
@@ -169,7 +171,7 @@ export type RolesPlugin = FrameworkPlugin<
 export const rolesPlugin = (): RolesPlugin =>
 	definePlugin({
 		name: rolesPluginName,
-		setup: ({ hooks, registries, schemas }) => {
+		setup: ({ hooks, registries, schemas, services }) => {
 			registries.extensions.register(
 				extensionHandlerKey('schema', roleSchemaExtensionName),
 				getRoleSchemaDeclaration,
@@ -178,6 +180,11 @@ export const rolesPlugin = (): RolesPlugin =>
 			const roleSchemas = schemas
 				.values()
 				.filter((schema) => getRoleSchemaDeclaration(schema) !== undefined)
+
+			services.provide(
+				accessRoleResolverServiceToken,
+				createStoredRoleResolver(roleSchemas),
+			)
 			const readReferenceCleanups = (): readonly NamedRoleReferenceCleanup[] =>
 				immutableArray(
 					registries.commands.values().flatMap((contribution) => {

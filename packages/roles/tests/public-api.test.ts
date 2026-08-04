@@ -10,6 +10,7 @@ describe('@ultimabase/roles public entry point', () => {
 			'RoleHierarchyError',
 			'RoleReferenceResolutionError',
 			'RoleSchema',
+			'hasRole',
 			'resolveRoleReference',
 			'resolveRoleReferenceId',
 			'roleDeletedEvent',

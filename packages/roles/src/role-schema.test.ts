@@ -42,6 +42,9 @@ describe('RoleSchema', () => {
 			unique: false,
 		})
 		expect(AppRole.extensions.at(-1)?.name).toBe(roleSchemaExtensionName)
+		expect(AppRole.extensions.at(-1)?.config).toMatchObject({
+			transportVisibility: 'hidden',
+		})
 		expect(new Query(AppRole).ast.schema.definition).toBe(AppRole)
 		expect(AppRole.query().ast.schema.definition).toBe(AppRole)
 		expect(draft.name).toBe('editor')
