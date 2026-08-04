@@ -14,7 +14,7 @@ Deliver the minimal example with full primitive CRUD, PostgreSQL, REST, GraphQL,
 
 - [ ] The example starts on port 1337.
 - [ ] REST and GraphQL produce equivalent behavior.
-- [ ] CRUD, bulk, upsert, cursor pagination, transactions, CLP, ACL, and field access work.
+- [ ] CRUD, bulk, upsert, cursor pagination, transactions, native schema and field Access, roles, and ACL work.
 - [ ] Multiple test applications and workers remain isolated.
 - [ ] User code imports only public package exports.
 

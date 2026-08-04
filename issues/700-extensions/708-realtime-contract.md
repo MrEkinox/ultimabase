@@ -13,4 +13,4 @@ Define post-commit create, update, delete, enter, and leave events independently
 ## Acceptance criteria
 
 - [ ] Events contain safe before/after metadata.
-- [ ] ACL and field permissions filter subscriptions.
+- [ ] ACL and native field Access filter subscriptions.

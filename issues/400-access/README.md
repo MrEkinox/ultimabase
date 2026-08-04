@@ -1,9 +1,16 @@
-# Milestone 4 — Fundamental Access and permission providers
+# Milestone 4 — Fundamental Access and persisted policy providers
 
-Access is a native Core lifecycle. Schemas and fields may declare policies
-without installing a plugin, while CLP, ACL, field permissions, tenancy, soft
-deletion, and community packages contribute policies through the same compiled
-`AccessPlan`.
+Access is UltimaBase's only authorization lifecycle. Schemas and fields declare
+their policies without installing a plugin. Parse-style CLP maps directly to
+native schema Access, and field permissions map directly to native field
+Access; neither concept needs a second configuration language or execution
+plugin.
+
+Optional packages extend this lifecycle only when they own additional data or
+context. Roles resolve reusable subject membership, authentication supplies a
+principal, and ACL persists per-object grants. Tenancy, soft deletion, and
+community packages may contribute more monotonic policies through the same
+compiled `AccessPlan`.
 
 The four neutral levels are:
 
@@ -26,9 +33,9 @@ Neutral `allowAll`, `denyAll`, `allOperations`, and `allMutations` utilities
 reduce repetitive declarations without installing callbacks or policy concepts.
 
 Runtime knows this generic lifecycle and its monotonic enforcement effects. It
-never names CLP, ACL, roles, authenticated users, ownership, or field
-permissions. Permission plugins register Access contributions rather than
-installing arbitrary business hooks for enforcement.
+never names ACL, roles, authenticated users, ownership, tenants, or another
+policy domain. Persisted policy providers register Access contributions rather
+than installing arbitrary business hooks for enforcement.
 
 Core authority remains limited to anonymous and audited master execution under
 ADR-0113. Authenticated principals and roles are optional typed context or
@@ -46,14 +53,28 @@ actually references the corresponding subject.
 7. [419 — Verify native Access against PostgreSQL](419-native-access-postgres-e2e.md)
 8. [420 — Define optional Access subject capabilities](420-optional-access-capabilities.md)
 
-Concrete provider tracks may then proceed independently:
+## Remaining execution order
 
-- CLP: issues 407 and 408;
-- field permissions: issues 413 and 414;
-- ACL: issues 409, 410, 510, 411, 509, and 412;
-- provider composition: issue 415.
+1. [408 — Align packages and documentation with native Access](408-native-access-package-alignment.md)
+2. [407 — Add composable Access decision helpers](407-access-decision-combinators.md)
+3. [402 — Implement Role class and internal schema](402-role-class-schema.md)
+4. [403 — Implement direct role memberships](403-role-memberships.md)
+5. [404 — Resolve nested roles and reject cycles](404-nested-role-resolution.md)
+6. [405 — Resolve role references and deletion policies](405-role-references-deletion.md)
+7. [406 — Implement rolesPlugin and role Access helpers](406-roles-plugin.md)
+8. [409 — Implement immutable ACL class](409-acl-class.md)
+9. [410 — Implement ACL schema extension](410-acl-schema-extension.md)
+10. [411 — Implement aclPlugin](411-acl-plugin.md)
+11. PostgreSQL ACL storage and compilation through issues 510 and 509
+12. [412 — Add ACL hooks and events](412-acl-hooks-events.md)
+13. [415 — Verify native Access and provider composition](415-access-plugin-composition.md)
 
-The official role provider remains deferred until the transport-neutral
-relations vertical ends at issue 747. CLP and ACL are not blocked by that implementation:
-they depend only on issue 420 and use compatible fixture providers in their
-own role-aware tests.
+Issues 407 and 408 previously described a separate CLP provider. Issues 413
+and 414 previously described a separate field-permission provider. Those plans
+were retired before implementation because issues 401, 421, 418, and 419
+already provide the more general native behavior with a smaller public API.
+
+The relations vertical ending at issue 747 is complete, so the official role
+provider may now use the same pointer and relation primitives as application
+schemas. ACL remains independently implementable against the neutral contracts
+from issue 420 and must not import the official roles package.

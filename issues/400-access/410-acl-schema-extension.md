@@ -8,8 +8,9 @@
 
 ## Goal
 
-Configure ACL enablement, defaults, and create-input policy as a provider for
-the native Access lifecycle.
+Configure ACL storage, defaults, and create-input policy for the persisted ACL
+provider. Native schema and field Access remain available without this
+extension.
 
 ## Acceptance criteria
 
@@ -17,6 +18,7 @@ the native Access lifecycle.
 - [ ] Default ACL factories are synchronous and context-aware.
 - [ ] ACL may be enabled globally and overridden per schema.
 - [ ] The extension contains no executable hook and identifies only the ACL Access provider that owns it.
+- [ ] Installing no ACL extension adds no field, table, Access contribution, transport input, or runtime stage.
 
 ## Tests
 

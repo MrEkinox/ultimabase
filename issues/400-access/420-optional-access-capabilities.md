@@ -8,7 +8,7 @@
 
 ## Goal
 
-Let permission providers consume optional authenticated-principal and role
+Let Access policy providers consume optional authenticated-principal and role
 resolution capabilities without importing a concrete authentication or role
 plugin.
 
@@ -16,8 +16,8 @@ plugin.
 
 - [x] Core exports nominal generic subject-value and subject-resolution contracts rather than a native User schema, user authority mode, or session type.
 - [x] A provider can declare a typed principal token or resolver service required by one Access contribution.
-- [x] Role reference types and the neutral role-resolution service contract do not expose the official `rolePermissionPlugin` definition or implementation identity.
-- [x] CLP and ACL packages may consume only these neutral contracts and never import or identify the authentication or role plugin factories.
+- [x] Role reference types and the neutral role-resolution service contract do not expose the official `rolesPlugin` definition or implementation identity.
+- [x] ACL and community policy packages may consume only these neutral contracts and never import or identify authentication or role plugin factories.
 - [x] Installing no provider remains valid until a configured Access contribution references its subject kind.
 - [x] Missing dynamically required context data fails closed at execution; missing statically required services fail application setup before infrastructure starts.
 - [x] Compatible community providers satisfy the same identity-based token or service contract.

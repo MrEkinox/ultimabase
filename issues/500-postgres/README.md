@@ -18,8 +18,8 @@ application service lookup and Runtime assembly
 ```
 
 This scheduling decision does not make PostgreSQL a dependency of access
-contracts. It supplies a real adapter vertical against which later CLP, ACL,
-role, and field-permission plugins can be tested.
+contracts. It supplies a real adapter vertical against which later native
+Access, persisted ACL policies, and role-aware decisions can be tested.
 
 ACL-specific SQL issues 509 and 510 and migration issues 513–515 remain outside
 that completed E2E objective. Generic constraint compilers are introduced by

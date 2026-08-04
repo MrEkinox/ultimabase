@@ -1,28 +1,28 @@
-# 415: Verify independent permission-plugin composition
+# 415: Verify native Access and policy-provider composition
 
 - Status: planned
 - Milestone: 4
-- Packages: access plugins
-- Depends on: 408, 411, 414, 419, 420
+- Packages: `@ultimabase/core`, `@ultimabase/roles`, `@ultimabase/acl-permissions`
+- Depends on: 406, 407, 411, 419, 420
 - ADR: ADR-0003, ADR-0006, ADR-0090, ADR-0116
 
 ## Goal
 
-Prove each permission provider works independently and composes with native
-Access through top-level or nested plugin configuration.
+Prove native schema and field Access, role-aware decision helpers, and
+persisted ACL policies work independently and compose through one immutable
+`AccessPlan`.
 
 ## Acceptance criteria
 
-- [ ] CLP works without roles when no role rule exists.
-- [ ] ACL works without roles when no role subject exists.
-- [ ] CLP and ACL work independently and neither plugin imports, installs, or requires the other.
-- [ ] When both are installed, effective authorization is the logical `AND` of their independent decisions and neither can override a denial.
-- [ ] Native schema and field Access declarations compose with every installed provider through the same `AccessPlan`.
-- [ ] Field permissions work without ACL.
-- [ ] Installing CLP or ACL without a role provider succeeds when its complete normalized configuration contains no role reference.
-- [ ] A CLP role rule or ACL role subject without a role-resolution provider fails setup before connect, migration, or transport startup.
-- [ ] CLP and ACL consume the neutral role-resolution capability without inspecting the provider's plugin name or implementation; a compatible fixture provider is sufficient.
+- [ ] Native schema operation Access provides complete class-level authorization without installing ACL or roles.
+- [ ] Native field Access controls item, filter, order, create, and update use without installing a field-permission package.
+- [ ] `rolesPlugin` works without ACL, and ACL works without roles when no ACL subject references a role.
+- [ ] Native declarations, role-aware helpers, ACL, and a fixture community provider combine through logical `AND`; none can override another denial.
+- [ ] A direct `hasRole` rule without a provider fails closed with a typed error before business effects; an ACL role subject records a static requirement and fails setup before infrastructure starts.
+- [ ] ACL consumes the neutral role-resolution capability without inspecting the provider's plugin name or implementation; a compatible fixture provider is sufficient.
+- [ ] Nested plugin configuration remains only graph-ordering sugar and changes no authorization result.
+- [ ] Runtime diagnostics retain generic Access provenance without CLP, role, or ACL execution branches.
 
 ## Tests
 
-- [ ] Configuration matrix covers native-only, CLP-only, ACL-only, field-only, combined, role-free, missing-provider, compatible-provider, top-level, and nested declarations.
+- [ ] Configuration and execution matrices cover native-only, roles-only, ACL-only, combined, role-free, missing-provider, compatible-provider, top-level, nested, anonymous, and master cases.

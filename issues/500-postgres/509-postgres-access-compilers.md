@@ -20,7 +20,7 @@ constraint registry and into the same SQL operation as the developer query.
 - [ ] Find, count, update, delete, and bulk operations combine ACL filtering with every query predicate using logical `AND`.
 - [ ] ACL filters compose with native Access filters and other provider constraints without `beforeFind` being able to inspect or remove them.
 - [ ] A missing compiler, unsupported payload version, or malformed ACL payload fails closed.
-- [ ] The compiler contains no CLP or field-permission behavior.
+- [ ] The compiler contains no native schema-operation or field-decision behavior already enforced by Core Access.
 
 ## Tests
 
@@ -28,6 +28,6 @@ constraint registry and into the same SQL operation as the developer query.
 
 ## Out of scope
 
-- CLP guards, which do not compile into row predicates.
+- Native schema operation decisions, which do not compile into row predicates.
 - Role graph resolution, which is owned by `@ultimabase/roles` and consumed before the adapter boundary.
-- Field input, selection, and output restrictions.
+- Native field input, selection, and output restrictions.

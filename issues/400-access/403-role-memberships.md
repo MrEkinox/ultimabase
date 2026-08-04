@@ -8,15 +8,29 @@
 
 ## Goal
 
-Add stable plugin-resolved principal identities and roles as members through
-transaction-safe relation services without requiring a Core user mode.
+Add stable plugin-owned subject references as direct role members through
+transaction-safe relation services without requiring a Core user mode or an
+authentication package.
+
+## Target developer experience
+
+```ts
+const roles = ultimabase.getService(roleServiceToken)
+const principal = new AccessSubjectReference('auth.user', userId)
+
+await roles.addMember(Editor, principal, { useMasterKey: true })
+await roles.removeMember(Editor, principal, { useMasterKey: true })
+```
 
 ## Acceptance criteria
 
-- [ ] Duplicate membership is idempotent or a typed conflict.
-- [ ] Master is required by default.
-- [ ] Membership changes emit audit-ready events.
+- [ ] One membership accepts a nominal subject reference owned by any installed identity provider; the roles package never imports that provider.
+- [ ] Subject kind and stable value are persisted without assuming a foreign key to a User schema.
+- [ ] Add and remove execute through Query, RequestEngine, native Access, hooks, and one automatic transaction.
+- [ ] Duplicate addition is idempotent and removing an absent membership has one documented deterministic result.
+- [ ] Role administration requires audited master authority by default without retaining or exposing a raw credential.
+- [ ] Membership changes emit typed audit-ready post-commit events and emit nothing after rollback.
 
 ## Tests
 
-- [ ] Add, remove, duplicate, and rollback tests.
+- [ ] Add, remove, duplicate, missing, application-isolation, authority, event, and rollback tests.

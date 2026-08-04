@@ -13,7 +13,7 @@ Convert REST inputs into Operation AST and execute them through RequestEngine.
 ## Acceptance criteria
 
 - [ ] Every generated route uses Runtime terminals.
-- [ ] ACL create-input policy and field permissions shape inputs.
+- [ ] ACL create-input policy and native field Access shape inputs.
 - [ ] Dates serialize as ISO strings.
 - [ ] Bulk response contracts match Runtime.
 

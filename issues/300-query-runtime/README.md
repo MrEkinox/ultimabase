@@ -25,7 +25,7 @@ Issue 336 retains the explicit future itemized update/delete work without
 placing it on the active hook-lifecycle critical path.
 
 Issue 337 removes the old named permission stages after the native dispatcher
-exists. CLP, ACL, field permissions, tenancy, and community policies then share
+exists. Persisted ACL, tenancy, and community policies then share
 the same monotonic plugin-hook enforcement boundary.
 
 Issue 338 adds the generic adapter compiler registry required to execute opaque

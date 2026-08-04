@@ -17,7 +17,7 @@ validation and no implicit destructive normalization.
 - [ ] Validation uses `validator` rather than a custom email regular expression.
 - [ ] Public options cover deliberate behavior such as display names and domain requirements without leaking library types.
 - [ ] Case conversion or canonicalization occurs only through an explicit option.
-- [ ] Lists, defaults, indexes, descriptions, and field permissions remain composable.
+- [ ] Lists, defaults, indexes, descriptions, and native field Access remain composable.
 
 ## Tests
 
