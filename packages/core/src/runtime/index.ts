@@ -127,8 +127,10 @@ export type {
 	RuntimePreparedOperationInput,
 	RuntimeHookResultInput,
 } from './hooks/definitions.js'
-export { onEvent } from './hooks/events.js'
+export { defineEvent, onEvent } from './hooks/events.js'
 export type {
+	DefineEventFactory,
+	DefineEventOptions,
 	HookEvent,
 	HookEventDefinition,
 	HookEventHandler,

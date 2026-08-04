@@ -1,6 +1,50 @@
 import { describe, expect, it } from 'vitest'
 
-import { getHookEventImplementation, onEvent } from './events.js'
+import {
+	defineEvent,
+	getHookEventContractImplementation,
+	getHookEventImplementation,
+	onEvent,
+} from './events.js'
+
+describe('defineEvent', () => {
+	it('creates one immutable trusted delivery contract', () => {
+		const event = defineEvent()('post.created', { delivery: 'optional' })
+
+		expect(event).toStrictEqual({
+			delivery: 'optional',
+			kind: 'hook-event-contract',
+			name: 'post.created',
+		})
+		expect(Object.isFrozen(event)).toBe(true)
+		expect(getHookEventContractImplementation(event)).toStrictEqual({
+			delivery: 'optional',
+			name: 'post.created',
+		})
+	})
+
+	it('rejects malformed contracts and structural lookalikes', () => {
+		const createEvent = defineEvent()
+
+		for (const [name, options] of [
+			['', { delivery: 'optional' }],
+			['post.created', null],
+			['post.created', {}],
+			['post.created', { delivery: 'ignored' }],
+			['post.created', { delivery: 'required', extra: true }],
+		] as const) {
+			expect(() => createEvent(name, options as never)).toThrow(TypeError)
+		}
+
+		expect(
+			getHookEventContractImplementation({
+				delivery: 'optional',
+				kind: 'hook-event-contract',
+				name: 'post.created',
+			}),
+		).toBeUndefined()
+	})
+})
 
 describe('onEvent', () => {
 	it('creates an immutable opaque named-event definition', () => {

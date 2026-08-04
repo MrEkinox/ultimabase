@@ -20,7 +20,7 @@ import {
 	RecordingDatabaseAdapter,
 	type QueuedAdapterResult,
 } from '../../../tests/runtime/fixtures/recording-database-adapter.js'
-import { onEvent, type HookEventDefinition } from './events.js'
+import { defineEvent, onEvent, type HookEventDefinition } from './events.js'
 
 const createDatabasePlugin = (adapter: DatabaseAdapter) =>
 	definePlugin({
@@ -443,12 +443,15 @@ describe('HookContext Runtime capabilities', () => {
 		const trace: string[] = []
 		const deliveries: JsonObject[] = []
 		const mutablePayload = { nested: { title: 'captured' } }
+		const postCreatedEvent = defineEvent<JsonObject>()('post.created', {
+			delivery: 'optional',
+		})
 		const PostSchema = Schema.define({
 			className: 'HookContextEventPost',
 			fields: { title: stringField({ validation: { required: true } }) },
 			hooks: {
 				beforeCreate: ({ context, operation }) => {
-					context.emit('post.created', mutablePayload)
+					context.emit(postCreatedEvent, mutablePayload)
 					mutablePayload.nested.title = 'mutated later'
 
 					return operation
@@ -504,10 +507,46 @@ describe('HookContext Runtime capabilities', () => {
 		await ultimabase.dispose()
 	})
 
+	it('drops optional events without consumers before queuing post-commit work', async () => {
+		const trace: string[] = []
+		const optionalEvent = defineEvent()('post.unobserved', {
+			delivery: 'optional',
+		})
+		const PostSchema = Schema.define({
+			className: 'HookContextUnobservedEventPost',
+			fields: { title: stringField({ validation: { required: true } }) },
+			hooks: {
+				beforeCreate: ({ context, operation }) => {
+					context.emit(optionalEvent, { title: 'stored' })
+
+					return operation
+				},
+			},
+		})
+		const adapter = new RecordingDatabaseAdapter(
+			[createMutationResult('0198a43e-2431-7000-8000-000000000207', 'stored')],
+			trace,
+		)
+		const ultimabase = new UltimaBase({
+			plugins: [createDatabasePlugin(adapter)],
+			schemas: [PostSchema],
+		})
+
+		await ultimabase.start()
+		await expect(
+			PostSchema.query().create({ title: 'stored' }, { ultimabase }),
+		).resolves.toMatchObject({ title: 'stored' })
+		expect(trace).toContain('adapter:commit')
+		await ultimabase.dispose()
+	})
+
 	it('accepts after-commit emission and continues independent consumers', async () => {
 		const trace: string[] = []
 		let observedCommittedFailure = false
 		let nestedDeliveries = 0
+		const postCommittedEvent = defineEvent()('post.committed', {
+			delivery: 'optional',
+		})
 		const PostSchema = Schema.define({
 			className: 'HookContextAfterCommitEventPost',
 			fields: {
@@ -523,7 +562,7 @@ describe('HookContext Runtime capabilities', () => {
 			hooks: {
 				afterCommit: ({ context }) => {
 					trace.push('hook:afterCommit')
-					context.emit('post.committed', {})
+					context.emit(postCommittedEvent, {})
 				},
 				onError: ({ phase, transaction }) => {
 					observedCommittedFailure =
@@ -597,13 +636,17 @@ describe('HookContext Runtime capabilities', () => {
 		const failure = new Error('fail after emit')
 		const trace: string[] = []
 		let deliveries = 0
+		const discardedEvent = defineEvent<{ readonly title: string }>()(
+			'post.discarded',
+			{ delivery: 'optional' },
+		)
 		const PostSchema = Schema.define({
 			className: 'HookContextDiscardedEventPost',
 			fields: { title: stringField({ validation: { required: true } }) },
 			hooks: {
 				beforeCreate: [
 					({ context, operation }) => {
-						context.emit('post.discarded', { title: 'discarded' })
+						context.emit(discardedEvent, { title: 'discarded' })
 						return operation
 					},
 					() => {
@@ -636,12 +679,15 @@ describe('HookContext Runtime capabilities', () => {
 		expect(trace.at(-1)).toBe('adapter:rollback')
 		await ultimabase.dispose()
 
+		const requiredEvent = defineEvent()('missing.consumer', {
+			delivery: 'required',
+		})
 		const MissingConsumerSchema = Schema.define({
 			className: 'HookContextMissingConsumer',
 			fields: { title: stringField() },
 			hooks: {
 				beforeCreate: ({ context, operation }) => {
-					context.emit('missing.consumer', {})
+					context.emit(requiredEvent, {})
 					return operation
 				},
 			},
@@ -662,24 +708,21 @@ describe('HookContext Runtime capabilities', () => {
 	})
 
 	it('rejects named events from non-transactional reads', async () => {
+		const optionalReadEvent = defineEvent()('read.observed', {
+			delivery: 'optional',
+		})
 		const ReadSchema = Schema.define({
 			className: 'HookContextReadEvent',
 			fields: { title: stringField() },
 			hooks: {
 				beforeFind: ({ context, query }) => {
-					context.emit('read.observed', {})
+					context.emit(optionalReadEvent, {})
 					return query
 				},
 			},
 		})
-		const consumer = createEventPlugin('fixture.read-event-consumer', {
-			read: onEvent({ name: 'read.observed', handler: () => undefined }),
-		})
 		const ultimabase = new UltimaBase({
-			plugins: [
-				consumer,
-				createDatabasePlugin(new RecordingDatabaseAdapter([], [])),
-			],
+			plugins: [createDatabasePlugin(new RecordingDatabaseAdapter([], []))],
 			schemas: [ReadSchema],
 		})
 

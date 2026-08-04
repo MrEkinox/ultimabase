@@ -74,6 +74,7 @@ describe('@ultimabase/core public entry point', () => {
 			'defineAccessReferenceCleanup',
 			'defineContextualSchemaExtensionFactory',
 			'defineDatabaseConstraintCompiler',
+			'defineEvent',
 			'defineExtensions',
 			'defineFieldExtension',
 			'defineFieldKindAccessTarget',

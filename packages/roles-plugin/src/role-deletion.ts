@@ -1,10 +1,12 @@
 import {
+	defineEvent,
 	Query,
 	Relation,
 	Pointer,
 	type AccessContext,
 	type AccessReferenceCleanup,
 	type HookContext,
+	type HookEventContract,
 	type JsonObject,
 	type QueryTerminalOptions,
 	type RelationField,
@@ -28,6 +30,12 @@ export interface RoleDeletedEvent extends JsonObject {
 	readonly policy: RoleReferenceDeletionPolicy
 	readonly roleId: string
 }
+
+const roleDeletedEventContract: HookEventContract<
+	typeof roleDeletedEvent,
+	RoleDeletedEvent,
+	'optional'
+> = defineEvent<RoleDeletedEvent>()(roleDeletedEvent, { delivery: 'optional' })
 
 /** Reports deterministic deletion-policy failures owned by the roles package. */
 export class RoleDeletionError extends Error {
@@ -236,7 +244,7 @@ export const applyRoleDeletionPolicy = async (
 	})
 
 	// HookContext journals the event and publishes it only after outer commit.
-	context.emit(roleDeletedEvent, payload)
+	context.emit(roleDeletedEventContract, payload)
 }
 
 /** Rejects set-based deletion because it cannot preserve per-role policy hooks. */

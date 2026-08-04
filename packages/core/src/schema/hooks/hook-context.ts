@@ -7,6 +7,23 @@ import type { OperationKind } from '../../query/index.js'
 import type { JsonDocument } from '../fields/builtins/json.js'
 import type { HookExecutionContext } from './execution-context.js'
 
+/** Selects whether one emitted event requires at least one configured consumer. */
+export type HookEventDelivery = 'optional' | 'required'
+
+declare const hookEventPayloadType: unique symbol
+
+/** Carries one trusted named-event delivery contract into `HookContext.emit()`. */
+export interface HookEventContract<
+	TName extends string = string,
+	TPayload extends JsonDocument = JsonDocument,
+	TDelivery extends HookEventDelivery = HookEventDelivery,
+> {
+	readonly kind: 'hook-event-contract'
+	readonly name: TName
+	readonly delivery: TDelivery
+	readonly [hookEventPayloadType]?: TPayload
+}
+
 /** Identifies application or plugin ownership without exposing callback state. */
 export type HookContextOwner =
 	| Readonly<{ readonly kind: 'application' }>
@@ -44,7 +61,7 @@ export interface HookContextIdentity {
 
 /** @internal Supplies revocable behavior without exposing Runtime dependencies. */
 export interface HookContextCapabilities {
-	emit(name: string, payload: JsonDocument): void
+	emit(event: string | HookEventContract, payload: JsonDocument): void
 	getValue<TValue>(token: RequestContextValue<TValue>): TValue | undefined
 	hasCapability(capability: RequestCapability): boolean
 }
@@ -129,10 +146,22 @@ export class HookContext implements HookExecutionContext {
 	/**
 	 * Queues one portable event for delivery only after the transaction commits.
 	 *
-	 * @example `context.emit('post.created', { postId: result.id })`
+	 * A string name retains required-delivery behavior. Pass a contract created by
+	 * `defineEvent()` when zero consumers should be valid.
+	 *
+	 * @example `context.emit(postCreatedEvent, { postId: result.id })`
 	 */
-	emit(name: string, payload: JsonDocument): void {
-		requireHookContextCapabilities(this).emit(name, payload)
+	emit<
+		const TName extends string,
+		TPayload extends JsonDocument,
+		TDelivery extends HookEventDelivery,
+	>(
+		event: HookEventContract<TName, TPayload, TDelivery>,
+		payload: TPayload,
+	): void
+	emit(name: string, payload: JsonDocument): void
+	emit(event: string | HookEventContract, payload: JsonDocument): void {
+		requireHookContextCapabilities(this).emit(event, payload)
 	}
 
 	/**

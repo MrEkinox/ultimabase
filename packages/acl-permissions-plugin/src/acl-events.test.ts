@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { ACL } from './acl.js'
 import {
 	aclChangedEvent,
+	aclChangedEventContract,
 	createACLChangeDiff,
 	createACLChangedEvent,
 	onACLChange,
@@ -16,6 +17,14 @@ const editor = new AccessSubjectReference('role', 'role-editor')
 const reviewer = new AccessSubjectReference('role', 'role-reviewer')
 
 describe('ACL change events', () => {
+	it('declares optional delivery without changing the stable public name', () => {
+		expect(aclChangedEventContract).toStrictEqual({
+			delivery: 'optional',
+			kind: 'hook-event-contract',
+			name: aclChangedEvent,
+		})
+	})
+
 	it('reports canonical additions and removals for every subject kind', () => {
 		const previous = new ACL()
 			.grantPublic('read')

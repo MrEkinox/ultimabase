@@ -28,10 +28,9 @@ import {
 
 import { ACL } from './acl.js'
 import {
-	aclChangedEvent,
+	aclChangedEventContract,
 	aclFieldHookTarget,
 	createACLChangedEvent,
-	onACLChange,
 } from './acl-events.js'
 import {
 	createACLReferenceCleanups,
@@ -671,11 +670,6 @@ export const aclPlugin = (options: ACLPluginOptions = {}): ACLPlugin => {
 	return definePlugin({
 		name: aclPluginName,
 		setup: ({ access, hooks, registries, schemas, services }) => {
-			// ACL changes are optional notifications; this built-in observer prevents absent audit plugins from blocking writes.
-			registries.events.register(
-				'acl-change-notification-boundary',
-				onACLChange(() => undefined),
-			)
 			registries.extensions.register(
 				extensionHandlerKey('schema', aclSchemaExtensionName),
 				true,
@@ -766,7 +760,7 @@ export const aclPlugin = (options: ACLPluginOptions = {}): ACLPlugin => {
 						})
 
 						// Core buffers named events and delivers them only after outer commit.
-						context.emit(aclChangedEvent, payload)
+						context.emit(aclChangedEventContract, payload)
 					},
 				}),
 			)

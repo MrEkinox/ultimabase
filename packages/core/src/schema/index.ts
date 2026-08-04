@@ -181,6 +181,8 @@ export type {
 	HookContextIdentity,
 	HookContextOwner,
 	HookContextTarget,
+	HookEventContract,
+	HookEventDelivery,
 } from './hooks/hook-context.js'
 export { assertFieldOptions } from './fields/base/options.js'
 export type {

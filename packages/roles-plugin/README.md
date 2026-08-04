@@ -98,6 +98,11 @@ relation lifecycle, inherit ambient execution or ordinary terminal options,
 and emit `ultimabase.roles.membership.changed` only after commit. Draft roles,
 raw identifiers, and unrelated schema values are rejected.
 
+Role membership, hierarchy, and deletion events are optional committed
+notifications. Without an observer, role writes queue no post-commit delivery;
+registered `onEvent()` consumers still receive each event once in deterministic
+plugin order.
+
 Each role schema owns its external-reference deletion policy. `fail` is the
 safe default and rejects roles that still own members, child roles, parent-role
 edges, or references reported by another plugin. `preserve` deletes the role

@@ -361,23 +361,6 @@ export class HookExecutionRuntime {
 	/** Queues one named event on the exact transaction inherited by this hook. */
 	#emit(emission: HookContextEmission): void {
 		const transactionId = getCurrentTransactionId()
-		const handlers = this.#eventHandlers.filter(
-			({ implementation }) => implementation.name === emission.name,
-		)
-
-		if (handlers.length === 0) {
-			throw new FrameworkError(
-				'SERVICE_NOT_FOUND',
-				`No hook event consumer is registered for "${emission.name}".`,
-				{
-					publicMessage: 'The emitted hook event has no consumer.',
-					internalDetails: {
-						eventName: emission.name,
-						reason: 'hook-event-consumer-missing',
-					},
-				},
-			)
-		}
 
 		if (transactionId === undefined) {
 			throw new FrameworkError(
@@ -387,6 +370,27 @@ export class HookExecutionRuntime {
 					publicMessage:
 						'This hook event cannot be emitted outside a transaction.',
 					internalDetails: { reason: 'hook-event-transaction-required' },
+				},
+			)
+		}
+
+		const handlers = this.#eventHandlers.filter(
+			({ implementation }) => implementation.name === emission.name,
+		)
+
+		if (handlers.length === 0) {
+			// Optional notifications do not allocate an empty post-commit effect.
+			if (emission.delivery === 'optional') return
+
+			throw new FrameworkError(
+				'SERVICE_NOT_FOUND',
+				`No hook event consumer is registered for "${emission.name}".`,
+				{
+					publicMessage: 'The emitted hook event has no consumer.',
+					internalDetails: {
+						eventName: emission.name,
+						reason: 'hook-event-consumer-missing',
+					},
 				},
 			)
 		}

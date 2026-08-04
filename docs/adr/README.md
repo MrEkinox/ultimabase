@@ -124,6 +124,7 @@ Accepted records:
 - [ADR-0128: Explicit master bypass for policy-neutral enforcement](0128-explicit-master-enforcement-bypass.md)
 - [ADR-0129: Proposed logical data for ACL input resolution](0129-proposed-acl-input-data.md)
 - [ADR-0130: Contextual schema extension binding](0130-contextual-schema-extension-binding.md)
+- [ADR-0131: Optional committed event delivery](0131-optional-committed-event-delivery.md)
 
 Superseded records:
 

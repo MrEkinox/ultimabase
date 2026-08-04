@@ -12,6 +12,7 @@ import { assertNonEmptyString, immutableRecord } from '@ultimabase/shared'
 
 import type { RequestContext } from '../context/request-context.js'
 import { TrackedExecutionLifetime } from '../engine/tracked-execution-lifetime.js'
+import { getHookEventContractImplementation } from './events.js'
 
 /** Creates the stable failure shared by contexts and queries used after a hook. */
 const createClosedHookContextError =
@@ -32,6 +33,7 @@ const snapshotHookEventPayload = (payload: JsonDocument): JsonDocument =>
 	snapshotScalarFieldValue(hookEventPayloadField, payload, 'hook event payload')
 
 export interface HookContextEmission {
+	readonly delivery: 'optional' | 'required'
 	readonly hook: HookContextIdentity
 	readonly name: string
 	readonly payload: JsonDocument
@@ -91,10 +93,25 @@ export const createRuntimeHookContext = ({
 			transactionId,
 		},
 		{
-			emit: (name, payload): void => {
+			emit: (event, payload): void => {
 				lifetime.assertActive()
+				const contract =
+					typeof event === 'string'
+						? immutableRecord({
+								delivery: 'required' as const,
+								name: event,
+							})
+						: getHookEventContractImplementation(event)
+
+				if (contract === undefined) {
+					throw new TypeError('Invalid hook event contract')
+				}
+
+				const { delivery, name } = contract
+
 				assertNonEmptyString(name, 'Hook event name')
 				emit({
+					delivery,
 					hook,
 					name,
 					payload: snapshotHookEventPayload(payload),

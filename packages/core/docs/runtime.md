@@ -642,13 +642,22 @@ Operation hooks may emit one explicit portable event through their current
 transaction:
 
 ```ts
+interface ArticleCreatedEvent extends JsonObject {
+	readonly title: string
+}
+
+const articleCreatedEvent = defineEvent<ArticleCreatedEvent>()(
+	'article.created',
+	{ delivery: 'required' },
+)
+
 const ArticleSchema = Schema.define({
 	className: 'Article',
 	fields: { title: stringField({ validation: { required: true } }) },
 	hooks: {
 		beforeCreate: ({ context, operation }) => {
 			if (operation.kind === 'create-one') {
-				context.emit('article.created', { title: operation.input.title })
+				context.emit(articleCreatedEvent, { title: operation.input.title })
 			}
 
 			return operation
@@ -674,12 +683,14 @@ const searchPlugin = definePlugin({
 ```
 
 The payload root must be a JSON object or array. Runtime copies and deeply
-freezes it at emission, requires a matching consumer, buffers it on the exact
-outer transaction, discards it on rollback, and delivers it after commit in
-plugin graph plus registration order. Consumers are non-queryable committed
-observers. Every matching consumer still runs if a sibling fails; failures are
-reported after commit and never trigger rollback. A root read may emit only
-inside an explicit transaction.
+freezes it at emission, buffers it on the exact outer transaction, discards it
+on rollback, and delivers it after commit in plugin graph plus registration
+order. Required contracts fail when no matching consumer exists. Optional
+contracts succeed with zero consumers and queue no post-commit effect; strings
+retain required behavior for compatibility. Consumers are non-queryable
+committed observers. Every matching consumer still runs if a sibling fails;
+failures are reported after commit and never trigger rollback. A root read may
+emit only inside an explicit transaction regardless of delivery mode.
 
 ### Legacy low-level definitions
 

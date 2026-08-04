@@ -1,6 +1,6 @@
 # ADR-0127: Committed ACL change events
 
-- Status: accepted
+- Status: accepted; refined by ADR-0131
 - Date: 2026-08-04
 - Refines: ADR-0089, ADR-0105, ADR-0107, ADR-0122, ADR-0123, ADR-0126
 
@@ -60,8 +60,8 @@ Create-many and upsert-many retain deterministic materialization order and emit
 one event per changed item.
 
 The package exports `onACLChange(handler)` as a precisely typed named-event
-consumer helper. ACL change notification is optional, so `aclPlugin()` installs
-one internal no-op consumer to satisfy Core's explicit-consumer invariant. An
+consumer helper. ACL change notification is optional through Core's explicit
+event delivery contract, so `aclPlugin()` registers no internal consumer. An
 application or future audit plugin may add consumers without changing ACL
 behavior. No realtime or transport plugin consumes or publishes this event by
 default.

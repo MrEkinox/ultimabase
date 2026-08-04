@@ -1,11 +1,12 @@
 import {
 	definePlugin,
+	defineEvent,
 	extensionHandlerKey,
 	isAccessReferenceCleanup,
-	onEvent,
 	Pointer,
 	accessRoleResolverServiceToken,
 	type HookContext,
+	type HookEventContract,
 	type JsonObject,
 	type RelationMutationAction,
 	type FrameworkPlugin,
@@ -30,7 +31,6 @@ import {
 import {
 	applyRoleDeletionPolicy,
 	assertSingularRoleDeletion,
-	roleDeletedEvent,
 	type NamedRoleReferenceCleanup,
 } from './role-deletion.js'
 import { createStoredRoleResolver } from './role-access.js'
@@ -68,6 +68,14 @@ export interface RoleMembershipChangedEvent extends JsonObject {
 	readonly roleId: string
 }
 
+const roleMembershipChangedEventContract: HookEventContract<
+	typeof roleMembershipChangedEvent,
+	RoleMembershipChangedEvent,
+	'optional'
+> = defineEvent<RoleMembershipChangedEvent>()(roleMembershipChangedEvent, {
+	delivery: 'optional',
+})
+
 /** Names the post-commit event emitted for every nested-role edge change. */
 export const roleHierarchyChangedEvent =
 	'ultimabase.roles.hierarchy.changed' as const
@@ -78,6 +86,14 @@ export interface RoleHierarchyChangedEvent extends JsonObject {
 	readonly childRoleIds: readonly string[]
 	readonly roleId: string
 }
+
+const roleHierarchyChangedEventContract: HookEventContract<
+	typeof roleHierarchyChangedEvent,
+	RoleHierarchyChangedEvent,
+	'optional'
+> = defineEvent<RoleHierarchyChangedEvent>()(roleHierarchyChangedEvent, {
+	delivery: 'optional',
+})
 
 interface RoleRelationChange {
 	readonly action: RelationMutationAction
@@ -161,7 +177,7 @@ const emitRoleRelationChanges = (
 				roleId,
 			})
 
-			context.emit(roleMembershipChangedEvent, payload)
+			context.emit(roleMembershipChangedEventContract, payload)
 			continue
 		}
 
@@ -171,7 +187,7 @@ const emitRoleRelationChanges = (
 			roleId,
 		})
 
-		context.emit(roleHierarchyChangedEvent, payload)
+		context.emit(roleHierarchyChangedEventContract, payload)
 	}
 }
 
@@ -196,17 +212,6 @@ export const rolesPlugin = (): RolesPlugin =>
 	definePlugin({
 		name: rolesPluginName,
 		setup: ({ hooks, registries, schemas, services }) => {
-			// Role notifications are optional; built-in sinks preserve standalone commands.
-			for (const eventName of [
-				roleDeletedEvent,
-				roleHierarchyChangedEvent,
-				roleMembershipChangedEvent,
-			]) {
-				registries.events.register(
-					`role-notification-boundary:${eventName}`,
-					onEvent({ name: eventName, handler: () => undefined }),
-				)
-			}
 			registries.extensions.register(
 				extensionHandlerKey('schema', roleSchemaExtensionName),
 				getRoleSchemaDeclaration,

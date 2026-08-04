@@ -15,20 +15,13 @@ import {
 	createAccessPrincipalReference,
 	definePlugin,
 	isAccessReferenceCleanup,
-	onEvent,
 	stringField,
 	type AccessContext,
 	type AccessReferenceCleanup,
 	type SchemaDefinition,
 } from '@ultimabase/core'
 import { postgresPlugin, postgresTable } from '@ultimabase/postgres-plugin'
-import {
-	RoleSchema,
-	roleDeletedEvent,
-	roleHierarchyChangedEvent,
-	roleMembershipChangedEvent,
-	rolesPlugin,
-} from '@ultimabase/roles-plugin'
+import { RoleSchema, rolesPlugin } from '@ultimabase/roles-plugin'
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
@@ -163,17 +156,6 @@ const principalOwnerPlugin = definePlugin({
 				committedACLChanges.push(event.payload)
 			}),
 		)
-		// Role deletion deliberately requires an event consumer before it may commit.
-		for (const eventName of [
-			roleDeletedEvent,
-			roleHierarchyChangedEvent,
-			roleMembershipChangedEvent,
-		]) {
-			registries.events.register(
-				`fixture.observe:${eventName}`,
-				onEvent({ handler: () => undefined, name: eventName }),
-			)
-		}
 		const readCleanups = () =>
 			readPrincipalCleanups(() => registries.commands.values())
 

@@ -62,7 +62,7 @@ events, or mutation-shape invariants.
 
 ### Phase 3 — Runtime events and reference lifecycle
 
-5. [ ] [351 — Support optional committed events without synthetic consumers](issues/300-query-runtime/351-optional-committed-events.md)
+5. [x] [351 — Support optional committed events without synthetic consumers](issues/300-query-runtime/351-optional-committed-events.md)
 6. [ ] [432 — Batch ACL reference cleanup with stable cursors](issues/400-access/432-batch-acl-reference-cleanup.md)
 7. [ ] [433 — Harden concurrent ACL reference lifecycle](issues/400-access/433-harden-concurrent-acl-reference-lifecycle.md)
 

@@ -1,9 +1,11 @@
 import {
 	defineFieldKindHookTarget,
+	defineEvent,
 	onEvent,
 	type FieldMutationHookKind,
 	type FieldKindHookTarget,
 	type HookEventDefinition,
+	type HookEventContract,
 	type HookEventHandler,
 	type JsonObject,
 	type PointerValue,
@@ -90,6 +92,13 @@ export interface ACLChangedEvent extends JsonObject {
 	readonly operation: ACLChangedOperation
 	readonly target: ACLChangeTarget
 }
+
+/** Selects optional delivery while preserving the public stable event name. */
+export const aclChangedEventContract: HookEventContract<
+	typeof aclChangedEvent,
+	ACLChangedEvent,
+	'optional'
+> = defineEvent<ACLChangedEvent>()(aclChangedEvent, { delivery: 'optional' })
 
 /** Handles one committed ACL transition through Core's named-event registry. */
 export type ACLChangedEventHandler = HookEventHandler<

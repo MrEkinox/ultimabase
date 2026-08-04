@@ -9,7 +9,91 @@ import type { JsonDocument } from '../../schema/index.js'
 import type {
 	HookContext,
 	HookContextIdentity,
+	HookEventContract,
+	HookEventDelivery,
 } from '../../schema/hooks/hook-context.js'
+
+/** Configures whether one named event may be emitted without consumers. */
+export interface DefineEventOptions<
+	TDelivery extends HookEventDelivery = HookEventDelivery,
+> {
+	/** Requires a consumer or treats zero consumers as an intentional no-op. */
+	readonly delivery: TDelivery
+}
+
+/** Creates exact event contracts after the package selects its payload type. */
+export type DefineEventFactory<TPayload extends JsonDocument = JsonDocument> = <
+	const TName extends string,
+	const TDelivery extends HookEventDelivery,
+>(
+	name: TName,
+	options: DefineEventOptions<TDelivery>,
+) => HookEventContract<TName, TPayload, TDelivery>
+
+interface HookEventContractImplementation {
+	readonly delivery: HookEventDelivery
+	readonly name: string
+}
+
+const hookEventContracts = new WeakMap<
+	object,
+	HookEventContractImplementation
+>()
+const defineEventOptionKeys = new Set(['delivery'])
+
+/**
+ * Defines one trusted named-event contract with explicit delivery semantics.
+ *
+ * @example `defineEvent<PostCreatedEvent>()('post.created', { delivery: 'optional' })`
+ */
+export const defineEvent =
+	<
+		TPayload extends JsonDocument = JsonDocument,
+	>(): DefineEventFactory<TPayload> =>
+	<const TName extends string, const TDelivery extends HookEventDelivery>(
+		name: TName,
+		options: DefineEventOptions<TDelivery>,
+	): HookEventContract<TName, TPayload, TDelivery> => {
+		assertNonEmptyString(name, 'event name')
+
+		const untrustedOptions: unknown = options
+
+		if (!isPlainRecord(untrustedOptions)) {
+			throw new TypeError('defineEvent options must be a plain object')
+		}
+
+		for (const key of Object.keys(untrustedOptions)) {
+			if (!defineEventOptionKeys.has(key)) {
+				throw new TypeError(`defineEvent contains unknown option: ${key}`)
+			}
+		}
+
+		if (options.delivery !== 'optional' && options.delivery !== 'required') {
+			throw new TypeError('defineEvent delivery must be optional or required')
+		}
+
+		const contract: HookEventContract<TName, TPayload, TDelivery> =
+			immutableRecord({
+				delivery: options.delivery,
+				kind: 'hook-event-contract' as const,
+				name,
+			})
+
+		hookEventContracts.set(
+			contract,
+			immutableRecord({ delivery: options.delivery, name }),
+		)
+
+		return contract
+	}
+
+/** Reads only event contracts created by the trusted public factory. */
+export const getHookEventContractImplementation = (
+	contract: unknown,
+): HookEventContractImplementation | undefined =>
+	typeof contract === 'object' && contract !== null
+		? hookEventContracts.get(contract)
+		: undefined
 
 /** Carries one detached portable business event after its transaction commits. */
 export interface HookEvent<
