@@ -5,6 +5,7 @@ import {
 	defineFieldExtension,
 	defineSchemaExtension,
 	type SchemaExtension,
+	stringField,
 } from '../index.js'
 
 interface FixturePluginConfig {
@@ -28,9 +29,11 @@ describe('typed extensions', () => {
 			name: 'fixture.permissions',
 			pluginName: 'fixture.permissions',
 			config: { mode: 'strict' },
+			fields: {},
 		})
 		expect(Object.isFrozen(extension)).toBe(true)
 		expect(Object.isFrozen(extension.config)).toBe(true)
+		expect(Object.isFrozen(extension.fields)).toBe(true)
 	})
 
 	it('records an explicit owner when one plugin handles several extensions', () => {
@@ -41,6 +44,22 @@ describe('typed extensions', () => {
 		)
 
 		expect(extension.pluginName).toBe('fixture.permissions')
+	})
+
+	it('snapshots schema fields contributed through the neutral extension contract', () => {
+		const field = stringField({ validation: { required: true } })
+		const contributedFields = { privateValue: field }
+		const extension = defineSchemaExtension(
+			'fixture.storage',
+			{ version: 1 },
+			'fixture.plugin',
+			{ fields: contributedFields },
+		)
+
+		contributedFields.privateValue = stringField()
+
+		expect(extension.fields).toStrictEqual({ privateValue: field })
+		expect(Object.isFrozen(extension.fields)).toBe(true)
 	})
 
 	it('returns a frozen copy of an extension list', () => {

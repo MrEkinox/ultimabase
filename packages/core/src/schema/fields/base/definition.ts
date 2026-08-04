@@ -21,6 +21,7 @@ interface FieldMetadata<TKind extends string, TOptions extends object> {
 
 interface FieldCapabilities {
 	readonly access: FieldAccessDeclarations | undefined
+	readonly deferRequiredUntilResolveInput: boolean
 	readonly hooks: FieldHookDeclarations | undefined
 	readonly schemaTarget: SchemaTarget | undefined
 	readonly snapshotValue: ScalarValueSnapshot
@@ -28,6 +29,8 @@ interface FieldCapabilities {
 
 /** Carries non-metadata capabilities used only by specialized field factories. */
 export interface FieldDefinitionCapabilities {
+	/** Lets a plugin fill a required create value before structural revalidation. */
+	readonly deferRequiredUntilResolveInput?: boolean
 	readonly schemaTarget?: SchemaTarget
 }
 
@@ -54,6 +57,8 @@ export const createFieldDefinition = <
 		field,
 		immutableRecord({
 			access,
+			deferRequiredUntilResolveInput:
+				capabilities.deferRequiredUntilResolveInput === true,
 			hooks,
 			schemaTarget: capabilities.schemaTarget,
 			snapshotValue,
@@ -148,3 +153,7 @@ export const snapshotDeclaredFieldValue = (
 		path,
 	)
 }
+
+/** Identifies required plugin fields whose value is supplied by resolveInput hooks. */
+export const isFieldRequiredDeferred = (field: GenericField): boolean =>
+	fieldCapabilities.get(field)?.deferRequiredUntilResolveInput === true

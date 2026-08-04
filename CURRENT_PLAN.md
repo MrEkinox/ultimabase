@@ -5,7 +5,7 @@
 - Objective owner: `@ultimabase/acl-permissions-plugin`, `@ultimabase/core`, `@ultimabase/postgres-plugin`
 - Governing decisions: [ADR-0005](docs/adr/0005-immutable-class-api.md), [ADR-0113](docs/adr/0113-plugin-owned-authentication-context.md), [ADR-0116](docs/adr/0116-fundamental-access-system.md), [ADR-0117](docs/adr/0117-optional-access-subject-capabilities.md), [ADR-0119](docs/adr/0119-developer-defined-role-schemas.md), [ADR-0122](docs/adr/0122-immutable-persisted-object-acls.md)
 - Previous completed objective: [Developer-defined stored roles](docs/plans/completed/developer-defined-stored-roles.md)
-- Resume point: issue 410
+- Resume point: issue 411
 
 ## Objective
 
@@ -111,7 +111,7 @@ never imports or identifies that plugin.
 ### Phase 2 — Optional identity and schema configuration
 
 3. [x] [425 — Define the neutral current-principal resolver](issues/400-access/425-current-principal-resolver.md)
-4. [ ] [410 — Implement the ACL schema extension](issues/400-access/410-acl-schema-extension.md)
+4. [x] [410 — Implement the ACL schema extension](issues/400-access/410-acl-schema-extension.md)
 
 ### Phase 3 — Native Access and PostgreSQL
 

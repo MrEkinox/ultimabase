@@ -50,6 +50,25 @@ export type SchemaFields = Readonly<Record<string, GenericField>>
  */
 export type SchemaExtensions = readonly SchemaExtension<string, object>[]
 
+type UnionToIntersection<TValue> = (
+	TValue extends unknown ? (value: TValue) => void : never
+) extends (value: infer TIntersection) => void
+	? TIntersection
+	: never
+
+/** Resolves every extension-owned field into the ordinary schema field map. */
+export type SchemaExtensionFields<TExtensions extends SchemaExtensions> = [
+	TExtensions[number],
+] extends [never]
+	? Readonly<Record<never, never>>
+	: UnionToIntersection<TExtensions[number]['fields']>
+
+/** Combines developer fields with fields reserved by installed schema extensions. */
+export type ResolvedSchemaFields<
+	TFields extends SchemaFields,
+	TExtensions extends SchemaExtensions,
+> = Readonly<TFields> & Readonly<SchemaExtensionFields<TExtensions>>
+
 /**
  * Describes the developer input accepted by `Schema.define()`.
  */
@@ -118,7 +137,8 @@ export interface SchemaMetadata<
 	/** The exact logical class name supplied to `Schema.define()`. */
 	readonly className: TClassName
 	/** The immutable developer and framework-owned field map. */
-	readonly fields: Readonly<TFields> & Readonly<SystemFields>
+	readonly fields: ResolvedSchemaFields<TFields, TExtensions> &
+		Readonly<SystemFields>
 	/** The immutable normalized field-level and composite index declarations. */
 	readonly indexes: readonly SchemaIndexDefinition<SchemaFieldName<TFields>>[]
 	/** The immutable ordered schema-extension tuple. */
@@ -261,19 +281,24 @@ const defineSchemaModel = <
 		assertFieldDefinition(field, `fields.${name}`)
 	}
 
-	const fields = immutableRecord({
-		...options.fields,
-		...systemFields,
-	})
-	const indexes = normalizeSchemaIndexes(
-		options.fields,
-		options.indexes,
-	) as readonly SchemaIndexDefinition<SchemaFieldName<TFields>>[]
 	const extensions = (
 		options.extensions === undefined
 			? emptySchemaExtensions
 			: defineExtensions(options.extensions)
 	) as readonly [...TExtensions]
+	const extensionFields = collectSchemaExtensionFields(
+		options.fields,
+		extensions,
+	)
+	const fields = immutableRecord({
+		...options.fields,
+		...extensionFields,
+		...systemFields,
+	}) as ResolvedSchemaFields<TFields, TExtensions> & Readonly<SystemFields>
+	const indexes = normalizeSchemaIndexes(
+		options.fields,
+		options.indexes,
+	) as readonly SchemaIndexDefinition<SchemaFieldName<TFields>>[]
 	const definition: SchemaMetadata<TClassName, TFields, TExtensions> =
 		immutableRecord({
 			className: options.className,
@@ -295,6 +320,38 @@ const defineSchemaModel = <
 	declareSchemaHooks(schema, options.hooks)
 
 	return schema
+}
+
+/** Validates extension-owned fields at the same trusted boundary as developer fields. */
+const collectSchemaExtensionFields = (
+	developerFields: SchemaFields,
+	extensions: SchemaExtensions,
+): SchemaFields => {
+	const entries: [string, GenericField][] = []
+	const names = new Set(Object.keys(developerFields))
+
+	for (const extension of extensions) {
+		for (const [name, field] of Object.entries(extension.fields)) {
+			assertNonEmptyString(name, `extension ${extension.name} field name`)
+			assertFieldDefinition(field, `extension ${extension.name} fields.${name}`)
+
+			if (names.has(name)) {
+				throw new TypeError(`Reserved schema extension field: ${name}`)
+			}
+
+			if (
+				reservedSystemFieldNames.some((reservedName) => reservedName === name) ||
+				reservedModelFieldNames.has(name)
+			) {
+				throw new TypeError(`Reserved schema extension field: ${name}`)
+			}
+
+			names.add(name)
+			entries.push([name, field])
+		}
+	}
+
+	return immutableRecord(Object.fromEntries(entries))
 }
 
 const assertNoReservedFieldCollision = (fields: SchemaFields): void => {

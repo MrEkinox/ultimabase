@@ -40,3 +40,33 @@ export const PostSchema = Schema.define({
 Each value is immutable and retains its literal scope, name, expected plugin,
 and configuration type. Core requires the expected plugin to register handlers
 for both extension identities during application setup.
+
+Schema extensions may also contribute reserved fields through the same neutral
+contract. Core merges these fields into validation and TypeScript inference but
+does not interpret their kind or configuration:
+
+```ts
+const ownership = defineSchemaExtension(
+	'ownership',
+	{ version: 1 as const },
+	contentMetadataPluginName,
+	{
+		fields: {
+			ownerKey: stringField({ validation: { required: true } }),
+		},
+	},
+)
+
+const OwnedPost = Schema.define({
+	className: 'OwnedPost',
+	fields: { title: stringField() },
+	extensions: [ownership],
+})
+
+OwnedPost.fields.ownerKey // StringField
+```
+
+Developer fields, framework fields, and fields contributed by separate
+extensions cannot share a name. A plugin may defer one required contributed
+value until its `resolveInput` hook; structural revalidation then guarantees
+that the field exists before Access and persistence.

@@ -11,9 +11,11 @@ import {
 } from './base/options.js'
 import type {
 	FieldDefinition,
+	FieldInferenceState,
 	FieldOptions,
 	FieldValidationOptions,
 	InvalidOptionsArguments,
+	ResolveFieldInferenceState,
 	ValidatedFieldOptions,
 } from './base/contract.js'
 import type { FieldHookDeclaration } from '../hooks/field-contracts.js'
@@ -35,7 +37,22 @@ export type PluginFieldDefinition<
 	TKind extends string = string,
 	TValue = unknown,
 	TOptions extends object = FieldOptions<TValue>,
-> = FieldDefinition<TKind, TValue, TOptions>
+	TInference extends FieldInferenceState = ResolveFieldInferenceState<TOptions>,
+> = FieldDefinition<TKind, TValue, TOptions, TInference>
+
+type DeferredPluginFieldInference<TOptions extends object> = Omit<
+	ResolveFieldInferenceState<TOptions>,
+	'create'
+> & {
+	readonly create: 'optional'
+}
+
+type PluginFieldInference<
+	TOptions extends object,
+	TDeferred extends boolean,
+> = TDeferred extends true
+	? DeferredPluginFieldInference<TOptions>
+	: ResolveFieldInferenceState<TOptions>
 
 /**
  * Lets a plugin normalize its own constraints and scalar values through Schema.
@@ -43,7 +60,10 @@ export type PluginFieldDefinition<
 export interface PluginFieldNormalizers<
 	TValue,
 	TValidation extends FieldValidationOptions,
+	TDeferred extends boolean = false,
 > {
+	/** Defers one required create value until plugin resolveInput hooks have run. */
+	readonly deferRequiredUntilResolveInput?: TDeferred
 	readonly normalizeValidation?: (
 		validation: TValidation,
 	) => Readonly<TValidation>
@@ -58,6 +78,7 @@ export const definePluginField = <
 	const TKind extends string,
 	TValidation extends FieldValidationOptions,
 	const TOptions extends FieldOptions<TValue, TValidation>,
+	const TDeferred extends boolean = false,
 >(
 	kind: AvailablePluginFieldKind<TKind>,
 	options: TOptions &
@@ -75,11 +96,16 @@ export const definePluginField = <
 				PluginFieldMetadata<NoInfer<TOptions>>
 			>
 		>,
-	normalizers: PluginFieldNormalizers<TValue, TValidation>,
+	normalizers: PluginFieldNormalizers<TValue, TValidation, TDeferred>,
 	...invalidOptions: InvalidOptionsArguments<
 		ValidatedFieldOptions<NoInfer<TOptions>, TValue>
 	>
-): PluginFieldDefinition<TKind, TValue, PluginFieldMetadata<TOptions>> => {
+): PluginFieldDefinition<
+	TKind,
+	TValue,
+	PluginFieldMetadata<TOptions>,
+	PluginFieldInference<PluginFieldMetadata<TOptions>, TDeferred>
+> => {
 	// The rest parameter keeps invalid plugin metadata out of the public call contract.
 	void invalidOptions
 	assertPluginFieldKind(kind, 'Plugin field kind')
@@ -114,5 +140,9 @@ export const definePluginField = <
 		normalizers.snapshotValue,
 		hooks,
 		access,
+		{
+			deferRequiredUntilResolveInput:
+				normalizers.deferRequiredUntilResolveInput === true,
+		},
 	)
 }

@@ -68,6 +68,30 @@ describe('schema definitions', () => {
 		expect(Object.isFrozen(schema.extensions)).toBe(true)
 	})
 
+	it('merges extension-owned fields and rejects every reserved collision', () => {
+		const privateValue = stringField({ validation: { required: true } })
+		const extension = defineSchemaExtension(
+			'fixture.storage',
+			{},
+			'fixture.plugin',
+			{ fields: { privateValue } },
+		)
+		const schema = Schema.define({
+			className: 'ExtendedPost',
+			fields: { title: stringField() },
+			extensions: [extension],
+		})
+
+		expect(schema.fields.privateValue).toBe(privateValue)
+		expect(() =>
+			Schema.define({
+				className: 'CollidingPost',
+				fields: { privateValue: stringField() },
+				extensions: [extension],
+			}),
+		).toThrow(new TypeError('Reserved schema extension field: privateValue'))
+	})
+
 	it('finalizes package-owned static schema capabilities without wrapping identity', () => {
 		const schema = Schema.defineWithStatics(
 			{ className: 'SpecializedPost', fields: { title: stringField() } },

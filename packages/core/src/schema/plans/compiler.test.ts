@@ -155,6 +155,25 @@ describe('validation plans', () => {
 		})
 	})
 
+	it('defers required plugin values until resolveInput without weakening output', () => {
+		const generated = definePluginField(
+			'fixture.deferred',
+			{ validation: { required: true } },
+			{
+				deferRequiredUntilResolveInput: true,
+				snapshotValue: (value: unknown): string => String(value),
+			},
+		)
+		const schema = Schema.define({
+			className: 'DeferredPlan',
+			fields: { generated },
+		})
+		const plans = compileValidationPlans(schema)
+
+		expect(plans.create.fields.generated?.presence).toBe('optional')
+		expect(plans.update.fields.generated?.presence).toBe('optional')
+	})
+
 	it('uses create child rules when an update replaces an object list', () => {
 		const listedObject = objectField({
 			list: true,

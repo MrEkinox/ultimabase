@@ -9,7 +9,7 @@ import { createLanguageService } from '../../../tooling/vitest/typescript-langua
 const packageDirectory = path.dirname(fileURLToPath(import.meta.url))
 const fixtureFile = path.join(packageDirectory, 'acl-intellisense.fixture.ts')
 const source = `
-import { ACL } from '@ultimabase/acl-permissions-plugin'
+import { ACL, acl as aclExtension } from '@ultimabase/acl-permissions-plugin'
 
 const acl = new ACL()
 
@@ -21,6 +21,8 @@ void ACL.fromJSON/* from-json-hover */
 acl.grantPublic(/* permission-complete */)
 const /* acl-hover */value = acl.grantPublic('read')
 const /* json-hover */document = acl.toJSON()
+void aclExtension/* extension-hover */
+aclExtension({ /* options-complete */ })
 `
 // Replacing markers with equal-width spaces makes the fixture match real editor input.
 const serviceSource = source.replace(/\/\* [^*]+ \*\//g, (marker) =>
@@ -137,6 +139,28 @@ describe('ACL IntelliSense', () => {
 		)
 		expect(ts.displayPartsToString(document?.displayParts)).toContain(
 			'const document: ACLJSON',
+		)
+	})
+
+	it('documents the schema extension and completes its focused options', () => {
+		const hoverMarker = '/* extension-hover */'
+		const hover = service.getQuickInfoAtPosition(
+			fixtureFile,
+			markerPosition(hoverMarker) - 1,
+		)
+		const optionsMarker = '/* options-complete */'
+		const completions = service.getCompletionsAtPosition(
+			fixtureFile,
+			markerPosition(optionsMarker),
+			{},
+		)
+		const names = completions?.entries.map(({ name }) => name) ?? []
+
+		expect(ts.displayPartsToString(hover?.documentation)).toContain(
+			'Enables persisted object ACL for one schema',
+		)
+		expect(names).toEqual(
+			expect.arrayContaining(['default', 'limits', 'resolveInput']),
 		)
 	})
 })

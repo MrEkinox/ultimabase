@@ -6,6 +6,8 @@ import {
 	isUnknownArray,
 } from '@ultimabase/shared'
 
+import type { GenericField } from '../fields/base/contract.js'
+
 /**
  * Identifies where an extension may be attached and keeps both namespaces independent.
  */
@@ -26,6 +28,17 @@ export interface ExtensionDefinition<
 	readonly config: Readonly<TConfig>
 }
 
+/** Collects fields contributed by one schema extension without naming their owner in Core. */
+export type SchemaExtensionFields = Readonly<Record<string, GenericField>>
+
+/** Carries optional physical schema contributions beside plugin-owned configuration. */
+export interface SchemaExtensionContributions<
+	TFields extends SchemaExtensionFields = SchemaExtensionFields,
+> {
+	/** Adds immutable reserved fields that participate in ordinary schema inference. */
+	readonly fields: TFields
+}
+
 /**
  * Represents configuration attached to one schema definition.
  */
@@ -33,7 +46,11 @@ export type SchemaExtension<
 	TName extends string,
 	TConfig extends object,
 	TPluginName extends string = string,
-> = ExtensionDefinition<'schema', TName, TConfig, TPluginName>
+	TFields extends SchemaExtensionFields = Readonly<Record<never, never>>,
+> = ExtensionDefinition<'schema', TName, TConfig, TPluginName> &
+	Readonly<{
+		readonly fields: TFields
+	}>
 
 /**
  * Represents configuration attached to one field definition.
@@ -89,12 +106,40 @@ export function defineSchemaExtension<
 	pluginName: TPluginName,
 ): SchemaExtension<TName, TConfig, TPluginName>
 
+/** Lets an extension contribute reserved fields through the neutral schema contract. */
+export function defineSchemaExtension<
+	const TName extends string,
+	const TConfig extends object,
+	const TPluginName extends string,
+	const TFields extends SchemaExtensionFields,
+>(
+	name: TName,
+	config: TConfig,
+	pluginName: TPluginName,
+	contributions: SchemaExtensionContributions<TFields>,
+): SchemaExtension<TName, TConfig, TPluginName, TFields>
+
 export function defineSchemaExtension(
 	name: string,
 	config: object,
 	pluginName: string = name,
-): SchemaExtension<string, object> {
-	return createExtension('schema', name, config, pluginName)
+	contributions?: SchemaExtensionContributions,
+): SchemaExtension<string, object, string, SchemaExtensionFields> {
+	const extension = createExtension('schema', name, config, pluginName)
+	const untrustedContributions: unknown = contributions
+
+	if (
+		untrustedContributions !== undefined &&
+		(!isPlainRecord(untrustedContributions) ||
+			!isPlainRecord(untrustedContributions.fields))
+	) {
+		throw new TypeError('schema extension contributions must define fields')
+	}
+
+	return immutableRecord({
+		...extension,
+		fields: immutableRecord(contributions?.fields ?? {}),
+	})
 }
 
 /**
@@ -156,6 +201,10 @@ export const defineExtensions = <
 			extension.pluginName.length === 0 ||
 			!isPlainRecord(extension.config)
 		) {
+			throw new TypeError('Invalid extension definition')
+		}
+
+		if (extension.scope === 'schema' && !isPlainRecord(extension.fields)) {
 			throw new TypeError('Invalid extension definition')
 		}
 

@@ -58,6 +58,24 @@ test('normalizes absent extensions to an empty tuple', () => {
 	expectTypeOf(schema.extensions).toEqualTypeOf<readonly []>()
 })
 
+test('includes extension-owned fields in schema and draft inference', () => {
+	const extensionField = stringField({ validation: { required: true } })
+	const storage = defineSchemaExtension(
+		'fixture.storage',
+		{},
+		'fixture.plugin',
+		{ fields: { privateValue: extensionField } },
+	)
+	const schema = Schema.define({
+		className: 'ExtendedPost',
+		fields: { title: stringField() },
+		extensions: [storage],
+	})
+
+	expectTypeOf(schema.fields.privateValue).toEqualTypeOf(extensionField)
+	expectTypeOf(new schema({ privateValue: 'secret' }).privateValue).toBeString()
+})
+
 test('preserves package-owned static capability inference', () => {
 	const schema = Schema.defineWithStatics(
 		{ className: 'SpecializedPost', fields: { title: stringField() } },

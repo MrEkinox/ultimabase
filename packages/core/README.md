@@ -1036,6 +1036,24 @@ Both callbacks execute only when the subject provider explicitly discovers the
 contribution. Their database work inherits the active request transaction;
 Core does not name roles, ACL, or a concrete reference store.
 
+Schema extensions may contribute reserved fields without teaching Core about
+the plugin domain:
+
+```ts
+const owned = defineSchemaExtension(
+	'fixture.owned',
+	{ version: 1 },
+	'fixture.ownership',
+	{ fields: { ownerKey: stringField({ validation: { required: true } }) } },
+)
+```
+
+Contributed fields join ordinary validation, inference, hooks, Access, and
+adapter metadata. Core rejects collisions with developer, system, model, or
+other extension fields. A plugin field may explicitly defer its required
+create value until `resolveInput`; the normal revalidation boundary still
+requires that value before Access and persistence.
+
 ## Typed plugin hook targets
 
 A plugin registers native declarations through the owner-bound `hooks` setup

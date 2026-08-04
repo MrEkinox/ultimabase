@@ -2,6 +2,7 @@ import { expectTypeOf, test } from 'vitest'
 
 import {
 	definePluginField,
+	Schema,
 	type FieldDefinition,
 	type FieldValidationOptions,
 	type FieldValue,
@@ -51,4 +52,21 @@ test('rejects contradictory presence metadata for plugin fields', () => {
 		{ validation: { required: true, nullable: true } },
 		normalizers,
 	)
+})
+
+test('makes hook-resolved required plugin fields optional only during create input', () => {
+	const field = definePluginField(
+		'fixture.deferred',
+		{ validation: { required: true } },
+		{ ...normalizers, deferRequiredUntilResolveInput: true },
+	)
+
+	expectTypeOf(field.kind).toEqualTypeOf<'fixture.deferred'>()
+	const schema = Schema.define({
+		className: 'DeferredPost',
+		fields: { generated: field },
+	})
+	const draft = new schema({})
+
+	expectTypeOf(draft.generated).toEqualTypeOf<string | undefined>()
 })

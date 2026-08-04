@@ -1,6 +1,6 @@
 # 410: Implement the ACL schema extension
 
-- Status: planned
+- Status: done
 - Milestone: 4
 - Packages: `@ultimabase/acl-permissions-plugin`
 - Depends on: 103, 409, 424, 425
@@ -8,10 +8,11 @@
 
 ## Goal
 
-Provide the typed `acl()` schema extension that injects the reserved ACL value,
-derives defaults from field-resolved create candidates, and uses one input
-callback for create and update. Native schema and field Access remain available
-without this extension.
+Provide the typed `acl()` schema extension that injects the reserved ACL value
+and derives create defaults from field-resolved candidates. The extension also
+declares the shared create/update input callback consumed by issue 411, where
+`manageAcl` can be enforced before existing ACL replacement. Native schema and
+field Access remain available without this extension.
 
 ## Target developer experience
 
@@ -34,19 +35,19 @@ acl({
 
 ## Acceptance criteria
 
-- [ ] The public factory is named `acl` and returns an immutable schema extension owned by `aclPlugin`.
-- [ ] The extension injects one reserved, non-null ACL field without requiring developers to declare it manually.
-- [ ] A default accepts either one static immutable ACL or an asynchronous factory.
-- [ ] The default factory receives precisely inferred readonly field-resolved create data excluding the ACL field, the optional current principal, and HookContext.
-- [ ] The generated ACL joins the candidate before structural revalidation and validation hooks; defaults cannot observe database-generated post-insert values and execute once per create-many item inside the root transaction.
-- [ ] An accepted explicit ACL takes precedence over the default; ACL input is rejected by default when no input policy accepts it.
-- [ ] One asynchronous `resolveInput` callback handles create and update through a discriminated `operation` and receives proposed ACL, current ACL when available, resolved row data, optional principal, and context.
-- [ ] Existing ACL changes require `manageAcl` before input resolution may replace the value.
-- [ ] The extension exposes per-schema limit overrides consumed by issue 428.
-- [ ] `acl()` composes with `RoleSchema.define()` through the ordinary schema-extension contract without a RoleSchema-specific ACL API.
-- [ ] Plugin-owned executable behavior is registered through generic extension-targeted native hooks and Access contributions; the extension value itself does not execute or teach Runtime about ACL.
-- [ ] Installing no ACL extension adds no field, table, Access contribution, transport input, or runtime stage.
+- [x] The public factory is named `acl` and returns an immutable schema extension owned by `aclPlugin`.
+- [x] The extension injects one reserved, non-null ACL field without requiring developers to declare it manually.
+- [x] A default accepts either one static immutable ACL or an asynchronous factory.
+- [x] The default factory receives a precise generic readonly field-resolved create-data contract excluding the ACL field, the optional current principal, and HookContext.
+- [x] The generated ACL joins the candidate before structural revalidation and validation hooks; defaults cannot observe database-generated post-insert values and execute once per create-many item inside the root transaction.
+- [x] An accepted explicit ACL takes precedence over the default; ACL input is rejected by default when no input policy accepts it.
+- [x] One asynchronous `resolveInput` contract discriminates create and update and carries proposed ACL, current ACL when available, resolved row data, optional principal, and context. Issue 411 executes the update branch after `manageAcl` enforcement.
+- [x] The extension exposes per-schema limit overrides consumed by issue 428.
+- [x] `acl()` composes with `RoleSchema.define()` through the ordinary schema-extension contract without a RoleSchema-specific ACL API.
+- [x] Plugin-owned create behavior is registered through generic extension-targeted native hooks; the extension value itself does not execute or teach Runtime about ACL.
+- [x] Installing no ACL extension adds no field, table, Access contribution, transport input, or runtime stage.
 
 ## Tests
 
-- [ ] Type, language-service, static/async default, resolved-data, create/update callback, create-many, ownership, missing-plugin, and configuration-normalization tests.
+- [x] Type, language-service, static/async default, resolved-data, create callback, create-many, ownership, missing-plugin, and configuration-normalization tests.
+- [ ] Update callback and `manageAcl` ordering tests belong to issue 411.

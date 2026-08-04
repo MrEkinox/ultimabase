@@ -1,6 +1,7 @@
 import { immutableRecord } from '@ultimabase/shared'
 
 import type { GenericField } from '../fields/base/contract.js'
+import { isFieldRequiredDeferred } from '../fields/base/definition.js'
 import { getFieldListDepth } from '../fields/base/options.js'
 import {
 	hasValidationFlag,
@@ -44,6 +45,10 @@ const readPresence = (
 	}
 
 	if (operation === 'update') {
+		return 'optional'
+	}
+
+	if (isFieldRequiredDeferred(field)) {
 		return 'optional'
 	}
 
