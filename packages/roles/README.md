@@ -45,6 +45,9 @@ const EditorById = AppRole.role({ id: Editor.id })
 await Editor.addMember(User.pointer(user.id), { useMasterKey: true })
 await Editor.removeMember(User.pointer(user.id), { useMasterKey: true })
 
+await Administrator.addRole(Editor, { useMasterKey: true })
+await Administrator.removeRole(Editor, { useMasterKey: true })
+
 const ultimabase = new UltimaBase({
 	schemas: [User, AppRole],
 	plugins: [rolesPlugin()],
@@ -77,5 +80,13 @@ relation lifecycle, inherit ambient execution or ordinary terminal options,
 and emit `ultimabase.roles.membership.changed` only after commit. Draft roles,
 raw identifiers, and unrelated schema values are rejected.
 
-Nested-role resolution, deletion policies, and native `hasRole()` decisions
-are implemented by the following issues in this milestone.
+Deletion policies and native `hasRole()` decisions are implemented by the
+following issues in this milestone.
+
+Persisted roles also expose distinct `addRole()` and `removeRole()` commands.
+`Administrator.addRole(Editor)` makes Editor a child role, so its direct and
+inherited members belong to Administrator. The plugin checks the complete
+post-update graph inside the active transaction, rejects self or indirect
+cycles before commit, handles diamond paths once, and fails explicitly beyond
+64 levels or 10,000 visited roles. Direct and inherited child roles remain
+separate in the internal immutable resolution snapshot used by Access.

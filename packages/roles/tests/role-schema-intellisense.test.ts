@@ -24,6 +24,7 @@ RoleSchema.define({ /* options-complete */ })
 async function inspectMemberCommand() {
   const role = await AppRole.query().first()
   role?./* member-hover */addMember(User.pointer('member-id'))
+  role?./* hierarchy-hover */addRole(AppRole.pointer('role-id'))
 }
 `
 
@@ -81,5 +82,16 @@ describe('RoleSchema IntelliSense', () => {
 		const documentation = ts.displayPartsToString(quickInfo?.documentation)
 
 		expect(documentation).toContain('Adds one exact persisted member')
+	})
+
+	it('documents hierarchy direction at the nested-role call site', () => {
+		const marker = '/* hierarchy-hover */'
+		const quickInfo = service.getQuickInfoAtPosition(
+			fixtureFile,
+			markerPosition(marker) + marker.length,
+		)
+		const documentation = ts.displayPartsToString(quickInfo?.documentation)
+
+		expect(documentation).toContain('Makes the supplied role a child')
 	})
 })

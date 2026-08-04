@@ -1,5 +1,10 @@
-export { roleMembershipChangedEvent, rolesPlugin } from './plugin.js'
+export {
+	roleHierarchyChangedEvent,
+	roleMembershipChangedEvent,
+	rolesPlugin,
+} from './plugin.js'
 export type {
+	RoleHierarchyChangedEvent,
 	RoleMembershipChangedEvent,
 	RolesPlugin,
 	RolesPluginExports,
@@ -8,6 +13,15 @@ export type {
 	RoleMemberCommands,
 	RoleMemberTarget,
 } from './role-member.js'
+export {
+	RoleHierarchyError,
+	roleHierarchyMaxDepth,
+	roleHierarchyMaxVisitedRoles,
+} from './role-hierarchy.js'
+export type {
+	NestedRoleTarget,
+	RoleHierarchyCommands,
+} from './role-hierarchy.js'
 export {
 	RoleSchema,
 	roleSchemaExtensionName,

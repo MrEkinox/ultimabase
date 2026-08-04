@@ -113,6 +113,12 @@ describe('RoleSchema', () => {
 		expect(first.getPlugin(rolesPluginName).schemas).not.toBe(
 			second.getPlugin(rolesPluginName).schemas,
 		)
+		expect(first.getContributions('hooks').map(({ name }) => name)).toStrictEqual(
+			['membership-events:FirstRoleDomain'],
+		)
+		expect(
+			second.getContributions('hooks').map(({ name }) => name),
+		).toStrictEqual(['membership-events:SecondRoleDomain'])
 
 		await Promise.all([first.dispose(), second.dispose()])
 	})

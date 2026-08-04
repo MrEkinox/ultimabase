@@ -135,7 +135,7 @@ incomplete.
 
 ### Phase 2 — Hierarchies and stable references
 
-3. [ ] [404 — Resolve nested roles and reject cycles](issues/400-access/404-nested-role-resolution.md)
+3. [x] [404 — Resolve nested roles and reject cycles](issues/400-access/404-nested-role-resolution.md)
 4. [ ] [405 — Resolve role references and deletion policies](issues/400-access/405-role-references-deletion.md)
 
 ### Phase 3 — Native Access integration
@@ -163,7 +163,7 @@ When resuming after context loss:
 
 ## Current issue
 
-[404 — Resolve nested roles and reject cycles](issues/400-access/404-nested-role-resolution.md)
+[405 — Resolve role references and deletion policies](issues/400-access/405-role-references-deletion.md)
 is ready. No role implementation issue is in progress yet.
 
 ## Progress log

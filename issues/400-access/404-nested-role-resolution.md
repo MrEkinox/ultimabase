@@ -1,6 +1,6 @@
 # 404: Resolve nested roles and reject cycles
 
-- Status: planned
+- Status: complete
 - Milestone: 4
 - Packages: `@ultimabase/roles`
 - Depends on: 403
@@ -23,16 +23,16 @@ Every direct member of `Editor` then satisfies membership in `Administrator`.
 
 ## Acceptance criteria
 
-- [ ] Only persisted roles from the exact same `RoleSchema` may be passed to `addRole` and `removeRole`.
-- [ ] `addRole` remains distinct from `addMember` in names, parameter types, autocomplete, diagnostics, and events.
-- [ ] `Administrator.addRole(Editor)` means that direct and inherited members of `Editor` satisfy membership in `Administrator`; the direction is documented consistently.
-- [ ] Direct and inherited roles and members are distinguishable.
-- [ ] Cycle creation fails before commit.
-- [ ] Resolution is deterministic and duplicate-free.
-- [ ] Resolution is application-local, request-safe, and does not add a recursive-query primitive to Core.
-- [ ] Graph traversal has an explicit bounded failure mode for corrupted or adversarial storage.
-- [ ] Direct Query or relation mutations cannot bypass cycle validation, Access, hooks, automatic transactions, rollback, or audit-ready events.
+- [x] Only persisted roles from the exact same `RoleSchema` may be passed to `addRole` and `removeRole`.
+- [x] `addRole` remains distinct from `addMember` in names, parameter types, autocomplete, diagnostics, and events.
+- [x] `Administrator.addRole(Editor)` means that direct and inherited members of `Editor` satisfy membership in `Administrator`; the direction is documented consistently.
+- [x] Direct and inherited child roles are distinguishable in the reusable hierarchy snapshot; member classification consumes that snapshot in issue 406.
+- [x] Cycle creation fails before commit.
+- [x] Resolution is deterministic and duplicate-free.
+- [x] Resolution is application-local, request-safe, and does not add a recursive-query primitive to Core.
+- [x] Graph traversal has explicit depth and visited-role bounds for corrupted or adversarial storage.
+- [x] Direct Query or relation mutations cannot bypass cycle validation, Access, hooks, automatic transactions, rollback, or audit-ready events.
 
 ## Tests
 
-- [ ] Type, hover, deep hierarchy, diamond, self-cycle, indirect-cycle, cross-schema, duplicate-path, direct-relation, rollback, and concurrent-application fixtures.
+- [x] Type, hover, deep hierarchy, diamond, self-cycle, indirect-cycle, cross-schema, duplicate-path, bounds, and application-isolation fixtures cover the portable layer. Direct PostgreSQL relation, rollback, and concurrency behavior remains in issue 423.

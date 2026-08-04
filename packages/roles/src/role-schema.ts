@@ -14,6 +14,7 @@ import {
 	type SchemaHooks,
 	type SchemaFieldName,
 	type SchemaIndexOptions,
+	type SchemaModelCapabilityContext,
 	type SchemaResultCapabilityCarrier,
 	type ScalarFieldInferenceState,
 	type StringField,
@@ -30,6 +31,10 @@ import {
 	createRoleMemberCommands,
 	type RoleMemberCommands,
 } from './role-member.js'
+import {
+	createRoleHierarchyCommands,
+	type RoleHierarchyCommands,
+} from './role-hierarchy.js'
 
 /** Identifies the extension claimed by the official roles plugin. */
 export const roleSchemaExtensionName = 'ultimabase.roles.schema' as const
@@ -198,7 +203,21 @@ export type RoleSchemaClass<
 				TExtensions
 			>,
 			TMemberSchema
-		>
+		> &
+			RoleHierarchyCommands<
+				RoleSchemaSelfDefinition<
+					TClassName,
+					TMemberSchema,
+					TCustomFields,
+					TExtensions
+				>,
+				RoleSchemaClass<
+					TClassName,
+					TMemberSchema,
+					TCustomFields,
+					TExtensions
+				>
+			>
 	>
 
 /** Declares the developer-owned portion of a role-aware schema. */
@@ -379,6 +398,8 @@ export class RoleSchema {
 			},
 			(context) => {
 				const exactSchema = context.schema as unknown as SelfSchema
+				const exactContext =
+					context as unknown as SchemaModelCapabilityContext<SelfSchema>
 
 				function role<const TName extends string>(
 					name: TName,
@@ -397,7 +418,21 @@ export class RoleSchema {
 
 				return {
 					statics: { role } satisfies RoleSchemaStatics<SelfSchema>,
-					results: createRoleMemberCommands(context, options.members.schema),
+					results: {
+						...createRoleMemberCommands(
+							exactContext,
+							options.members.schema,
+						),
+						...createRoleHierarchyCommands<
+							SelfSchema,
+							RoleSchemaClass<
+								TClassName,
+								TMemberSchema,
+								TCustomFields,
+								TExtensions
+							>
+						>(exactContext),
+					},
 				}
 			},
 		)

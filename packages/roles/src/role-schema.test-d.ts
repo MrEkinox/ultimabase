@@ -74,6 +74,22 @@ test('exposes exact member commands only on persisted role results', async () =>
 	}
 })
 
+test('keeps nested-role commands distinct and schema-qualified', async () => {
+	const role = await AppRole.query().first()
+	const siblingRole = await AppRole.query().first()
+
+	if (role !== null && siblingRole !== null) {
+		expectTypeOf(role).toHaveProperty('addRole')
+		expectTypeOf(role).toHaveProperty('removeRole')
+		void role.addRole(siblingRole)
+		void role.removeRole(AppRole.pointer(siblingRole.id))
+		// @ts-expect-error -- Members and nested roles use distinct commands.
+		void role.addRole(User.pointer(siblingRole.id))
+		// @ts-expect-error -- Raw role identifiers are never guessed.
+		void role.removeRole(siblingRole.id)
+	}
+})
+
 test('rejects reserved role fields and unrelated member values', () => {
 	// @ts-expect-error -- RoleSchema owns its canonical name field.
 	RoleSchema.define({

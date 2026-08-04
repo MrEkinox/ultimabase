@@ -15,6 +15,10 @@ import {
 	rolesPluginName,
 	roleSchemaExtensionName,
 } from './role-schema.js'
+import {
+	assertRoleHierarchyAcyclic,
+	readPersistedRoleId,
+} from './role-hierarchy.js'
 
 /** Exposes the application-local role domains discovered during setup. */
 export interface RolesPluginExports {
@@ -32,42 +36,44 @@ export interface RoleMembershipChangedEvent extends JsonObject {
 	readonly roleId: string
 }
 
-const readResultId = (result: unknown): string | undefined => {
-	if (typeof result !== 'object' || result === null) {
-		return undefined
-	}
+/** Names the post-commit event emitted for every nested-role edge change. */
+export const roleHierarchyChangedEvent =
+	'ultimabase.roles.hierarchy.changed' as const
 
-	const id: unknown = Reflect.get(result, 'id')
-
-	return typeof id === 'string' ? id : undefined
+/** Describes one committed change to a generated child-role relation. */
+export interface RoleHierarchyChangedEvent extends JsonObject {
+	readonly action: RelationMutationAction
+	readonly childRoleIds: readonly string[]
+	readonly roleId: string
 }
 
-/** Emits audit-ready data only after Runtime confirms the outer commit. */
-const emitRoleMembershipChanges = (
-	context: HookContext,
+interface RoleRelationChange {
+	readonly action: RelationMutationAction
+	readonly field: 'members' | 'roles'
+	readonly targetIds: readonly string[]
+}
+
+/** Reads generated role relation deltas without trusting arbitrary update nodes. */
+const readRoleRelationChanges = (
 	operation: unknown,
-	result: unknown,
-): void => {
+): readonly RoleRelationChange[] => {
 	if (
 		!isPlainRecord(operation) ||
 		operation.kind !== 'update-one' ||
 		!isPlainRecord(operation.update) ||
 		!isUnknownArray(operation.update.operations)
 	) {
-		return
+		return immutableArray([])
 	}
 
-	const roleId = readResultId(result)
-
-	if (roleId === undefined) {
-		return
-	}
+	const changes: RoleRelationChange[] = []
 
 	for (const updateOperation of operation.update.operations) {
 		if (
 			!isPlainRecord(updateOperation) ||
 			updateOperation.kind !== 'relation' ||
-			updateOperation.field !== 'members' ||
+			(updateOperation.field !== 'members' &&
+				updateOperation.field !== 'roles') ||
 			!isPlainRecord(updateOperation.value) ||
 			!isUnknownArray(updateOperation.value.targets)
 		) {
@@ -85,16 +91,55 @@ const emitRoleMembershipChanges = (
 			continue
 		}
 
-		const memberIds = updateOperation.value.targets.flatMap((target) =>
+		const targetIds = updateOperation.value.targets.flatMap((target) =>
 			Pointer.is(target) ? [target.id] : [],
 		)
-		const payload: RoleMembershipChangedEvent = immutableRecord({
-			action,
-			memberIds: immutableArray(memberIds),
+
+		changes.push(
+			immutableRecord({
+				action,
+				field: updateOperation.field,
+				targetIds: immutableArray(targetIds),
+			}),
+		)
+	}
+
+	return immutableArray(changes)
+}
+
+/** Emits audit-ready data only after Runtime confirms the outer commit. */
+const emitRoleRelationChanges = (
+	context: HookContext,
+	operation: unknown,
+	result: unknown,
+): void => {
+	const changes = readRoleRelationChanges(operation)
+
+	if (changes.length === 0) {
+		return
+	}
+
+	const roleId = readPersistedRoleId(result)
+
+	for (const change of changes) {
+		if (change.field === 'members') {
+			const payload: RoleMembershipChangedEvent = immutableRecord({
+				action: change.action,
+				memberIds: change.targetIds,
+				roleId,
+			})
+
+			context.emit(roleMembershipChangedEvent, payload)
+			continue
+		}
+
+		const payload: RoleHierarchyChangedEvent = immutableRecord({
+			action: change.action,
+			childRoleIds: change.targetIds,
 			roleId,
 		})
 
-		context.emit(roleMembershipChangedEvent, payload)
+		context.emit(roleHierarchyChangedEvent, payload)
 	}
 }
 
@@ -130,8 +175,15 @@ export const rolesPlugin = (): RolesPlugin =>
 
 			for (const schema of roleSchemas) {
 				hooks.schema(`membership-events:${schema.className}`, schema, {
+					afterUpdate: async ({ operation, result }) => {
+						const changes = readRoleRelationChanges(operation)
+
+						if (changes.some(({ field }) => field === 'roles')) {
+							await assertRoleHierarchyAcyclic(result)
+						}
+					},
 					afterCommit: ({ context, operation, result }) => {
-						emitRoleMembershipChanges(context, operation, result)
+						emitRoleRelationChanges(context, operation, result)
 					},
 				})
 			}
