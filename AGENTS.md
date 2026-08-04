@@ -157,3 +157,29 @@ Create a dedicated commit after an issue is complete, but never push it without 
 - Do not create empty future packages as placeholders.
 - Do not combine unrelated issues merely because they touch nearby files.
 - Temporary compromises must be explicit in code comments, issue notes, or ADRs.
+
+## Evidence-first implementation
+
+- Implement only behavior required by the current issue acceptance criteria, a
+  failing test, an existing documented contract, or the user's explicit request.
+- Treat plausible future use cases as out of scope. Present them separately as
+  proposals; do not add code, APIs, options, extension points, storage, or
+  infrastructure for them without explicit approval.
+- Prefer the smallest correct solution that reuses existing concepts and a
+  suitable standard, native, or established-library capability.
+- Introduce a shared abstraction only when it protects one current invariant or
+  removes duplication across at least two current concrete usages. A
+  hypothetical future consumer is not a second usage.
+- Do not widen a public API or generalize an internal contract merely to keep
+  future options open.
+- Before an unapproved architectural change, summarize the proven need, the
+  minimal solution, and what will deliberately not be anticipated. Then wait
+  for user validation. An accepted ADR or explicit issue criterion already
+  counts as approval.
+- If implementation starts expanding beyond the selected issue, stop and ask
+  for direction instead of silently absorbing the extra scope.
+- In the issue handoff, identify any implementation that exceeds the original
+  acceptance criteria and explain why it was necessary.
+- A recent explicit user instruction such as `stop` overrides an older plan,
+  autonomous objective, or automatic continuation until the user explicitly
+  resumes it.
