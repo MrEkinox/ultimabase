@@ -2,10 +2,10 @@
 
 - Status: active
 - Started: 2026-08-04
-- Objective owner: `@ultimabase/acl-permissions-plugin`, `@ultimabase/core`, `@ultimabase/postgres-plugin`
-- Governing decisions: [ADR-0005](docs/adr/0005-immutable-class-api.md), [ADR-0113](docs/adr/0113-plugin-owned-authentication-context.md), [ADR-0116](docs/adr/0116-fundamental-access-system.md), [ADR-0117](docs/adr/0117-optional-access-subject-capabilities.md), [ADR-0119](docs/adr/0119-developer-defined-role-schemas.md), [ADR-0122](docs/adr/0122-immutable-persisted-object-acls.md), [ADR-0123](docs/adr/0123-master-only-acl-management.md)
+- Objective owner: `@ultimabase/acl-permissions-plugin`, `@ultimabase/acl-postgres-plugin`, `@ultimabase/core`, `@ultimabase/postgres-plugin`
+- Governing decisions: [ADR-0005](docs/adr/0005-immutable-class-api.md), [ADR-0113](docs/adr/0113-plugin-owned-authentication-context.md), [ADR-0116](docs/adr/0116-fundamental-access-system.md), [ADR-0117](docs/adr/0117-optional-access-subject-capabilities.md), [ADR-0119](docs/adr/0119-developer-defined-role-schemas.md), [ADR-0122](docs/adr/0122-immutable-persisted-object-acls.md), [ADR-0123](docs/adr/0123-master-only-acl-management.md), [ADR-0125](docs/adr/0125-dedicated-acl-postgres-integration-plugin.md)
 - Previous completed objective: [Developer-defined stored roles](docs/plans/completed/developer-defined-stored-roles.md)
-- Resume point: issue 509
+- Resume point: issue 426
 
 ## Objective
 
@@ -58,7 +58,12 @@ const restoredAcl = ACL.fromJSON(restrictedAcl.toJSON())
 
 const ultimabase = new UltimaBase({
 	schemas: [User, AppRole, Post],
-	plugins: [rolesPlugin(), aclPlugin(), postgresPlugin()],
+	plugins: [
+		rolesPlugin(),
+		aclPlugin(),
+		postgresPlugin({ url: databaseUrl }),
+		aclPostgresPlugin(),
+	],
 })
 
 await Post.query().find({ ultimabase })
@@ -117,7 +122,7 @@ never imports or identifies that plugin.
 5. [x] [411 — Implement aclPlugin Access contributions](issues/400-access/411-acl-plugin.md)
 6. [x] [428 — Enforce configurable ACL entry limits](issues/400-access/428-acl-entry-limits.md)
 7. [x] [510 — Store ACL in indexed JSONB columns](issues/500-postgres/510-acl-jsonb-storage.md)
-8. [ ] [509 — Compile PostgreSQL ACL constraints](issues/500-postgres/509-postgres-access-compilers.md)
+8. [x] [509 — Compile PostgreSQL ACL constraints](issues/500-postgres/509-postgres-access-compilers.md)
 
 ### Phase 4 — Lifecycle and composition
 

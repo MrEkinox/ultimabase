@@ -16,6 +16,7 @@ optional infrastructure and policy behavior remains in plugins.
 
 - `roles-plugin`
 - `acl-permissions-plugin`
+- `acl-postgres-plugin`
 - `pg-vector-plugin`
 - `postgres-plugin`
 - `postgres-migrations-plugin`

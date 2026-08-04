@@ -109,5 +109,17 @@ Access controls creation, while each persisted role ACL may narrow reads,
 updates, member or nested-role mutations, and deletion. Only master execution
 may inspect or replace the role row's ACL value.
 
-PostgreSQL constraint compilation remains tracked by
-[`CURRENT_PLAN.md`](../../CURRENT_PLAN.md).
+With PostgreSQL, install the dedicated integration after both dependency
+plugins. The ACL package itself stays adapter-neutral:
+
+```ts
+plugins: [
+	aclPlugin(),
+	postgresPlugin({ url: databaseUrl }),
+	aclPostgresPlugin(),
+]
+```
+
+`@ultimabase/acl-postgres-plugin` compiles the opaque ACL row constraint into
+indexed JSONB containment predicates. Missing integration fails closed instead
+of silently ignoring ACL enforcement.

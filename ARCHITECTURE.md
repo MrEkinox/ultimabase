@@ -40,6 +40,7 @@ pg-vector-plugin ─────→ core, shared
 roles-plugin ─────────→ core
 acl-permissions-plugin → core
 postgres-plugin ──────→ core
+acl-postgres-plugin ──→ acl-permissions-plugin, postgres-plugin, core
 postgres-migrations-plugin → postgres-plugin, core
 server-hono-plugin ───→ core
 rest-plugin ──────────→ core
@@ -280,7 +281,9 @@ monotonic Access contributions and declares master bypass. Runtime has no ACL
 stage or subject vocabulary. PostgreSQL stores one indexed JSONB ACL document
 on each protected row and combines its opaque containment constraint with every
 other predicate in one statement. This physical representation requires no
-ACL-specific join and remains private to the adapter.
+ACL-specific join and remains private to the adapter. The optional
+`@ultimabase/acl-postgres-plugin` package owns the concrete compiler bridge so
+neither the database-neutral ACL provider nor PostgreSQL imports the other.
 
 Native schema Access is the generalized class-level permission system, and
 native field Access controls field disclosure and mutation. ACL is an optional

@@ -20,6 +20,7 @@
 		{ "path": "./packages/core" },
 		{ "path": "./packages/roles-plugin" },
 		{ "path": "./packages/acl-permissions-plugin" },
+		{ "path": "./packages/acl-postgres-plugin" },
 		{ "path": "./packages/postgres-plugin" },
 		{ "path": "./packages/postgres-migrations-plugin" },
 		{ "path": "./packages/server-hono-plugin" },

@@ -9,6 +9,7 @@ describe('@ultimabase/postgres-plugin public entry point', () => {
 			'postgresConnectionServiceToken',
 			'postgresConstraintCompiler',
 			'postgresPlugin',
+			'postgresPluginName',
 			'postgresSchemaPreparationClaimName',
 			'postgresTable',
 		])

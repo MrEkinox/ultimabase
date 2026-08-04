@@ -8,7 +8,7 @@ import {
 	isPlainRecord,
 	isUnknownArray,
 } from '@ultimabase/shared'
-import { sql as drizzleSql, type SQL } from 'drizzle-orm'
+import { or, sql as drizzleSql, type SQL } from 'drizzle-orm'
 import type { PgColumn } from 'drizzle-orm/pg-core'
 
 import type { CompiledPostgresSchema } from '../schema/contracts.js'
@@ -43,6 +43,11 @@ export interface PostgresConstraintCompileContext<
 	TPayload extends DatabaseConstraintPayload,
 > {
 	readonly payload: TPayload
+	/** Combines one or more protected predicates without exposing SQL objects. */
+	readonly anyOf: (
+		first: PostgresConstraintPredicate,
+		...rest: readonly PostgresConstraintPredicate[]
+	) => PostgresConstraintPredicate
 	/** Resolves one logical schema field or rejects the constraint before SQL. */
 	readonly field: (name: string) => PostgresConstraintField
 	/** Parameterizes values while allowing only resolved field references as SQL. */
@@ -221,9 +226,36 @@ const createCompileContext = (
 
 		return predicate
 	}
+	const anyOf: PostgresConstraintCompileContext<DatabaseConstraintPayload>['anyOf'] =
+		(first, ...rest) => {
+			const expressions = [first, ...rest].map((predicate) => {
+				const expression = predicateExpressions.get(predicate)
+
+				if (expression === undefined) {
+					throw new TypeError(
+						'postgres constraint predicate belongs to another compile context',
+					)
+				}
+
+				return expression
+			})
+			const expression = or(...expressions)
+
+			if (expression === undefined) {
+				throw new TypeError('postgres constraint anyOf requires one predicate')
+			}
+
+			const predicate = immutableRecord(
+				{},
+			) as unknown as PostgresConstraintPredicate
+
+			predicateExpressions.set(predicate, expression)
+
+			return predicate
+		}
 
 	return immutableRecord({
-		context: immutableRecord({ field, payload, sql }),
+		context: immutableRecord({ anyOf, field, payload, sql }),
 		readPredicate: (predicate) => predicateExpressions.get(predicate),
 	})
 }

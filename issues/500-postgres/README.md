@@ -23,7 +23,8 @@ Access, persisted ACL policies, and role-aware decisions can be tested.
 
 ACL-specific SQL issues 509 and 510 and migration issues 513–515 remain outside
 that completed E2E objective. Generic constraint compilers are introduced by
-issue 338 before issue 509 registers the ACL-specific PostgreSQL compiler.
+issue 338 before issue 509 registers the ACL-specific PostgreSQL compiler
+through the dedicated `@ultimabase/acl-postgres-plugin` integration package.
 Issue 519 supplies the transaction adapter required by automatic mutation
 transactions. Issue 344 adds its mandatory prepared-mutation protocol and the
 singular PostgreSQL create, update, and delete outcomes. Issue 508 then adds

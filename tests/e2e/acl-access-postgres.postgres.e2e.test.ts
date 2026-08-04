@@ -1,0 +1,280 @@
+import { aclPostgresPlugin } from '@ultimabase/acl-postgres-plugin'
+import { ACL, acl, aclPlugin } from '@ultimabase/acl-permissions-plugin'
+import {
+	AccessSubjectReference,
+	accessPrincipalResolverServiceToken,
+	accessRoleResolverServiceToken,
+	definePlugin,
+	MasterAuthority,
+	RequestContext,
+	RequestContextValue,
+	requestSources,
+	Schema,
+	stringField,
+	UltimaBase,
+} from '@ultimabase/core'
+import { postgresPlugin, postgresTable } from '@ultimabase/postgres-plugin'
+import { immutableArray, immutableRecord } from '@ultimabase/shared'
+import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+
+import {
+	createPostgresWorkerFixture,
+	type PostgresWorkerFixture,
+} from './postgres-worker-fixture.js'
+
+const Principal = Schema.define({
+	className: 'ACLAccessPrincipal',
+	fields: {},
+})
+const currentPrincipalId = new RequestContextValue<string>(
+	'fixture.acl.principal-id',
+	(value: unknown): string => {
+		if (typeof value !== 'string') {
+			throw new TypeError('ACL fixture principal id must be a string')
+		}
+
+		return value
+	},
+)
+const currentRoleIds = new RequestContextValue<readonly string[]>(
+	'fixture.acl.role-ids',
+	(value: unknown): readonly string[] => {
+		if (
+			!Array.isArray(value) ||
+			!value.every((role): role is string => typeof role === 'string')
+		) {
+			throw new TypeError('ACL fixture role ids must be strings')
+		}
+
+		return immutableArray(value)
+	},
+)
+const identityPlugin = definePlugin({
+	name: 'fixture.acl-identity',
+	setup: ({ services }) => {
+		services.provide(accessPrincipalResolverServiceToken, {
+			resolveCurrent: ({ context }) => {
+				const principalId = context.getValue(currentPrincipalId)
+
+				return principalId === undefined
+					? undefined
+					: Principal.pointer(principalId)
+			},
+		})
+		services.provide(accessRoleResolverServiceToken, {
+			hasRole: ({ context, role }) =>
+				context.getValue(currentRoleIds)?.includes(role.value) ?? false,
+			resolveCurrentRoles: ({ context }) =>
+				(context.getValue(currentRoleIds) ?? []).map(
+					(role) => new AccessSubjectReference('role', role),
+				),
+			resolvePersistentRole: ({ role }) => role,
+		})
+
+		return undefined
+	},
+})
+const emptyACL = new ACL()
+const ProtectedPost = Schema.define({
+	className: 'ACLAccessPost',
+	fields: {
+		marker: stringField({ default: 'original' }),
+		title: stringField({ validation: { required: true } }),
+	},
+	extensions: [
+		acl({
+			default: emptyACL,
+			resolveInput: ({ currentAcl, inputAcl }) =>
+				inputAcl ?? currentAcl ?? emptyACL,
+		}),
+		postgresTable({ name: 'acl_access_posts' }),
+	],
+})
+const aliceId = '0198a43e-2431-7000-8000-000000000070'
+const bobId = '0198a43e-2431-7000-8000-000000000071'
+const editorRoleId = 'fixture-role-editor-stable-id'
+const editorRole = new AccessSubjectReference('role', editorRoleId)
+
+let fixture: PostgresWorkerFixture | undefined
+let ultimabase:
+	| UltimaBase<
+			readonly [typeof Principal, typeof ProtectedPost],
+			readonly [
+				typeof identityPlugin,
+				ReturnType<typeof aclPlugin>,
+				ReturnType<typeof postgresPlugin>,
+				ReturnType<typeof aclPostgresPlugin>,
+			]
+	  >
+	| undefined
+let rowIds: Readonly<Record<string, string>> = immutableRecord({})
+
+const getApplication = (): NonNullable<typeof ultimabase> => {
+	if (ultimabase === undefined) {
+		throw new TypeError('ACL Access application is missing')
+	}
+
+	return ultimabase
+}
+
+const request = (requestId: string) =>
+	RequestContext.anonymous({
+		requestId,
+		source: requestSources.internal,
+	})
+
+/** Fails setup mistakes explicitly instead of querying with a synthetic identifier. */
+const requireRowId = (title: string): string => {
+	const rowId = rowIds[title]
+
+	if (rowId === undefined) {
+		throw new TypeError(`ACL Access fixture row is missing: ${title}`)
+	}
+
+	return rowId
+}
+
+beforeAll(async () => {
+	fixture = await createPostgresWorkerFixture()
+	ultimabase = new UltimaBase({
+		masterAuthority: new MasterAuthority({
+			keys: [{ id: 'acl-access-e2e', value: 'server-only' }],
+			onUse: () => undefined,
+		}),
+		plugins: [
+			identityPlugin,
+			aclPlugin(),
+			postgresPlugin({
+				schemaPolicy: 'override',
+				url: fixture.connectionUri,
+			}),
+			aclPostgresPlugin(),
+		],
+		schemas: [Principal, ProtectedPost],
+	})
+	await ultimabase.start()
+
+	const created = await ProtectedPost.query().createMany(
+		[
+			{ acl: new ACL().grantPublic('read'), title: 'public' },
+			{ acl: new ACL().grantAuthenticated('read'), title: 'authenticated' },
+			{
+				acl: new ACL().grantPrincipal(
+					Principal.pointer(aliceId),
+					'read',
+					'update',
+					'delete',
+				),
+				title: 'alice',
+			},
+			{
+				acl: new ACL().grantPrincipal(Principal.pointer(bobId), 'read'),
+				title: 'bob',
+			},
+			{
+				acl: new ACL().grantRole(editorRole, 'read', 'update', 'delete'),
+				title: 'editor',
+			},
+			{ acl: new ACL(), title: 'denied' },
+		],
+		{ ultimabase, useMasterKey: true },
+	)
+
+	rowIds = immutableRecord(
+		Object.fromEntries(created.map(({ id, title }) => [title, id] as const)),
+	)
+}, 30_000)
+
+afterAll(async () => {
+	await ultimabase?.dispose()
+	await fixture?.dispose()
+})
+
+describe('ACL PostgreSQL Access constraints', { concurrent: false }, () => {
+	it('filters public, authenticated, principal, and role reads in SQL', async () => {
+		const app = getApplication()
+		const anonymous = request('acl-anonymous')
+		const alice = request('acl-alice').withValue(currentPrincipalId, aliceId)
+		const bob = request('acl-bob').withValue(currentPrincipalId, bobId)
+		const editor = request('acl-editor').withValue(currentRoleIds, [
+			editorRoleId,
+		])
+		const visibleTitles = (context: RequestContext) =>
+			ProtectedPost.query()
+				.ascending('title')
+				.select('title')
+				.find({ context, ultimabase: app })
+				.then((rows) => rows.map(({ title }) => title))
+
+		await expect(visibleTitles(anonymous)).resolves.toStrictEqual(['public'])
+		await expect(visibleTitles(alice)).resolves.toStrictEqual([
+			'alice',
+			'authenticated',
+			'public',
+		])
+		await expect(visibleTitles(bob)).resolves.toStrictEqual([
+			'authenticated',
+			'bob',
+			'public',
+		])
+		await expect(visibleTitles(editor)).resolves.toStrictEqual([
+			'editor',
+			'public',
+		])
+		await expect(
+			ProtectedPost.query().count({ context: alice, ultimabase: app }),
+		).resolves.toBe(3)
+		await expect(
+			ProtectedPost.query()
+				.equalTo('title', 'denied')
+				.exists({ context: alice, ultimabase: app }),
+		).resolves.toBe(false)
+	})
+
+	it('combines ACL with developer filters for singular and bulk mutations', async () => {
+		const app = getApplication()
+		const alice = request('acl-alice-mutations').withValue(
+			currentPrincipalId,
+			aliceId,
+		)
+		const editor = request('acl-editor-mutations').withValue(currentRoleIds, [
+			editorRoleId,
+		])
+		const aliceUpdated = await ProtectedPost.query()
+			.equalTo('title', 'alice')
+			.updateMany(
+				{ set: { marker: 'alice-updated' } },
+				{ context: alice, ultimabase: app },
+			)
+		const deniedUpdate = await ProtectedPost.query()
+			.byId(requireRowId('bob'))
+			.update(
+				{ set: { marker: 'forbidden' } },
+				{ context: alice, ultimabase: app },
+			)
+		const editorUpdated = await ProtectedPost.query()
+			.byId(requireRowId('editor'))
+			.update(
+				{ set: { marker: 'editor-updated' } },
+				{ context: editor, ultimabase: app },
+			)
+
+		expect(aliceUpdated).toBe(1)
+		expect(deniedUpdate).toBeNull()
+		expect(editorUpdated?.marker).toBe('editor-updated')
+
+		await expect(
+			ProtectedPost.query()
+				.equalTo('title', 'alice')
+				.deleteMany({ context: alice, ultimabase: app }),
+		).resolves.toBe(1)
+		await expect(
+			ProtectedPost.query()
+				.byId(requireRowId('editor'))
+				.delete({ context: editor, ultimabase: app }),
+		).resolves.toMatchObject({ title: 'editor' })
+		await expect(
+			ProtectedPost.query().count({ ultimabase: app, useMasterKey: true }),
+		).resolves.toBe(4)
+	})
+})

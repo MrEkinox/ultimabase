@@ -51,6 +51,27 @@ describe('postgresConstraintCompiler', () => {
 		})
 	})
 
+	it('combines protected alternatives without exposing SQL expressions', () => {
+		const definition = postgresConstraintCompiler({
+			kind: 'fixture.alternatives',
+			version: 1,
+			decode: decodeTenant,
+			compile: ({ anyOf, field, payload, sql }) =>
+				anyOf(
+					sql`${field('tenantId')} = ${payload.tenantId}`,
+					sql`${field('tenantId')} = ${'public'}`,
+				),
+		})
+		const expression = compilePostgresConstraintPredicate(definition, schema, {
+			tenantId: 'tenant-1',
+		})
+
+		expect(dialect.sqlToQuery(expression)).toMatchObject({
+			params: ['tenant-1', 'public'],
+			sql: '("constraint_articles"."tenantId" = $1 or "constraint_articles"."tenantId" = $2)',
+		})
+	})
+
 	it('rejects SQL-wrapper interpolations before Drizzle can unwrap them', () => {
 		const injectedSql = drizzleSql.raw('true; drop table secrets')
 		const definition = postgresConstraintCompiler({

@@ -1,4 +1,5 @@
 export { postgresConnectionServiceToken } from './connection/contracts.js'
+export { postgresPluginName } from './constants.js'
 export type {
 	PostgresConnectionService,
 	PostgresConnectionState,

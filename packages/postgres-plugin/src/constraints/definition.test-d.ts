@@ -24,12 +24,12 @@ test('preserves exact kind, version, and decoded payload types', () => {
 
 			return { tenantId: payload.tenantId }
 		},
-		compile: ({ field, payload, sql }) => {
+		compile: ({ anyOf, field, payload, sql }) => {
 			expectTypeOf(payload).toEqualTypeOf<{
 				readonly tenantId: string
 			}>()
 
-			return sql`${field('tenantId')} = ${payload.tenantId}`
+			return anyOf(sql`${field('tenantId')} = ${payload.tenantId}`)
 		},
 	})
 

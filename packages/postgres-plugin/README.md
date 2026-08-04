@@ -130,6 +130,17 @@ const tenantPostgresPlugin = definePlugin({
 })
 ```
 
+When one policy has several accepted subject alternatives, `anyOf()` combines
+opaque predicates without exposing their underlying SQL representation:
+
+```ts
+compile: ({ anyOf, field, payload, sql }) =>
+	anyOf(
+		sql`${field('ownerId')} = ${payload.principalId}`,
+		sql`${field('visibility')} = ${'public'}`,
+	)
+```
+
 The callback cannot access Drizzle or return or interpolate raw SQL objects.
 The safe tag accepts code-owned static SQL fragments, `field()` resolves one
 logical schema field, and every portable dynamic interpolation becomes a driver
@@ -139,6 +150,11 @@ invalid compiler results fail before database execution.
 Constraints are applied to reads, mutation targets, `FOR UPDATE` locks, and the
 final prepared update or delete statement. Row constraints on create operations
 fail closed because an insert has no existing target row to restrict.
+
+The official ACL bridge follows this pattern in the separate
+`@ultimabase/acl-postgres-plugin` package. Keeping that compiler outside both
+dependency plugins preserves ACL's adapter neutrality and PostgreSQL's policy
+neutrality.
 
 ## Transactions
 
