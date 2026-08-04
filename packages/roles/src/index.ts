@@ -1,4 +1,11 @@
 export {
+	roleDeletedEvent,
+	RoleDeletionError,
+} from './role-deletion.js'
+export type {
+	RoleDeletedEvent,
+} from './role-deletion.js'
+export {
 	roleHierarchyChangedEvent,
 	roleMembershipChangedEvent,
 	rolesPlugin,
@@ -23,6 +30,11 @@ export type {
 	RoleHierarchyCommands,
 } from './role-hierarchy.js'
 export {
+	RoleReferenceResolutionError,
+	resolveRoleReference,
+	resolveRoleReferenceId,
+} from './role-resolution.js'
+export {
 	RoleSchema,
 	roleSchemaExtensionName,
 	rolesPluginName,
@@ -30,7 +42,9 @@ export {
 export type {
 	ReservedRoleFieldName,
 	RoleCurrentMemberInput,
+	RoleDeletionOptions,
 	RoleMemberOptions,
+	RoleReferenceDeletionPolicy,
 	RoleSchemaClass,
 	RoleSchemaFields,
 	RoleSchemaOptions,

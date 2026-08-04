@@ -10,6 +10,7 @@ import { describe, expect, it } from 'vitest'
 
 import { rolesPlugin } from './plugin.js'
 import {
+	getRoleSchemaDeclaration,
 	RoleSchema,
 	roleSchemaExtensionName,
 	rolesPluginName,
@@ -46,6 +47,34 @@ describe('RoleSchema', () => {
 		expect(draft.name).toBe('editor')
 		expect(Object.isFrozen(draft)).toBe(true)
 		expect(Object.isFrozen(AppRole)).toBe(true)
+		expect(getRoleSchemaDeclaration(AppRole)?.deletionPolicy).toBe('fail')
+	})
+
+	it('retains one validated schema-owned reference deletion policy', () => {
+		const CascadingRole = RoleSchema.define({
+			className: 'CascadingRole',
+			members: { schema: User },
+			fields: {},
+			deletion: { references: 'cascade' },
+		})
+
+		expect(getRoleSchemaDeclaration(CascadingRole)?.deletionPolicy).toBe(
+			'cascade',
+		)
+		expect(() =>
+			RoleSchema.define({
+				className: 'InvalidDeletionRole',
+				members: { schema: User },
+				fields: {},
+				deletion: {
+					references: 'remove' as unknown as 'fail',
+				},
+			}),
+		).toThrow(
+			new TypeError(
+				'deletion.references must be "fail", "preserve", or "cascade"',
+			),
+		)
 	})
 
 	it('rejects generated field collisions with precise diagnostics', () => {
@@ -113,12 +142,16 @@ describe('RoleSchema', () => {
 		expect(first.getPlugin(rolesPluginName).schemas).not.toBe(
 			second.getPlugin(rolesPluginName).schemas,
 		)
-		expect(first.getContributions('hooks').map(({ name }) => name)).toStrictEqual(
-			['membership-events:FirstRoleDomain'],
-		)
+		expect(first.getContributions('hooks').map(({ name }) => name)).toStrictEqual([
+			'membership-events:FirstRoleDomain',
+			'deletion-policy:FirstRoleDomain',
+		])
 		expect(
 			second.getContributions('hooks').map(({ name }) => name),
-		).toStrictEqual(['membership-events:SecondRoleDomain'])
+		).toStrictEqual([
+			'membership-events:SecondRoleDomain',
+			'deletion-policy:SecondRoleDomain',
+		])
 
 		await Promise.all([first.dispose(), second.dispose()])
 	})

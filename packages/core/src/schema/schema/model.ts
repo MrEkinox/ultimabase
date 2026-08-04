@@ -224,7 +224,16 @@ type SchemaModelInstance<
 export type SchemaDraft<TSchema extends SchemaDefinition> = Simplify<
 	SchemaModelInstance<TSchema, 'draft', InferCreateInput<TSchema>> &
 		SchemaDraftCommands<
-			SchemaResult<TSchema>,
+			PersistedSchemaModel<
+				TSchema['className'],
+				InferObject<TSchema>,
+				CompactSchemaModelUpdateInput<
+					Simplify<UpdateSetInput<TSchema>>,
+					Simplify<NumericUpdateInput<TSchema>>,
+					UnsetUpdateFieldName<TSchema>
+				>,
+				SchemaResultRelations<TSchema> & SchemaResultCapabilitiesOf<TSchema>
+			>,
 			SchemaDraftUpsertInput<TSchema>
 		>
 >
@@ -241,9 +250,8 @@ export type SchemaResult<
 		Simplify<NumericUpdateInput<TSchema>>,
 		UnsetUpdateFieldName<TSchema>
 	>,
-	SchemaResultRelations<TSchema>
-> &
-	SchemaResultCapabilitiesOf<TSchema>
+	SchemaResultRelations<TSchema> & SchemaResultCapabilitiesOf<TSchema>
+>
 
 interface SchemaModelRecord {
 	readonly objectId: unknown

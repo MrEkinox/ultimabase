@@ -136,7 +136,7 @@ incomplete.
 ### Phase 2 — Hierarchies and stable references
 
 3. [x] [404 — Resolve nested roles and reject cycles](issues/400-access/404-nested-role-resolution.md)
-4. [ ] [405 — Resolve role references and deletion policies](issues/400-access/405-role-references-deletion.md)
+4. [x] [405 — Resolve role references and deletion policies](issues/400-access/405-role-references-deletion.md)
 
 ### Phase 3 — Native Access integration
 
@@ -163,10 +163,12 @@ When resuming after context loss:
 
 ## Current issue
 
-[405 — Resolve role references and deletion policies](issues/400-access/405-role-references-deletion.md)
-is ready. No role implementation issue is in progress yet.
+[407 — Add composable Access decision helpers](issues/400-access/407-access-decision-combinators.md)
+is ready. Role references and deletion policies are complete.
 
 ## Progress log
 
 - Planning aligned stored roles with developer-defined Schema, native Access, immutable model commands, and completed relation foundations.
 - ADR-0119 records the schema-backed role model and option-light plugin boundary.
+- Issues 402–405 implement role schemas, immutable member and hierarchy commands,
+  bounded cycle-safe traversal, stable references, and transactional deletion policies.

@@ -990,6 +990,25 @@ disposal fails, and the returned values do not expose a writable registry.
 Core's Runtime domain uses this boundary to compose hook and event declarations
 without application orchestration depending on their concrete contracts.
 
+Independent subject consumers can register deletion participation without
+importing the provider that resolves that subject. The nominal factory prevents
+arbitrary command values from being mistaken for cleanup behavior:
+
+```ts
+context.registries.commands.register(
+	'acl.role-references',
+	defineAccessReferenceCleanup({
+		kind: 'role',
+		hasReferences: ({ reference }) => aclStore.hasSubject(reference.value),
+		cleanup: ({ reference }) => aclStore.removeSubject(reference.value),
+	}),
+)
+```
+
+Both callbacks execute only when the subject provider explicitly discovers the
+contribution. Their database work inherits the active request transaction;
+Core does not name roles, ACL, or a concrete reference store.
+
 ## Typed plugin hook targets
 
 A plugin registers native declarations through the owner-bound `hooks` setup

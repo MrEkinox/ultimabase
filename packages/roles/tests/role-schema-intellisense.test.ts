@@ -17,6 +17,14 @@ const AppRole = RoleSchema.define({
   className: 'Role',
   members: { schema: User },
   fields: { description: stringField() },
+  deletion: { /* deletion-hover */references: 'fail' },
+})
+
+RoleSchema.define({
+  className: 'CompletedRole',
+  members: { schema: User },
+  fields: {},
+  deletion: { /* deletion-complete */ },
 })
 
 AppRole./* role-hover */role('editor')
@@ -64,12 +72,32 @@ describe('RoleSchema IntelliSense', () => {
 			expect.arrayContaining([
 				'access',
 				'className',
+				'deletion',
 				'extensions',
 				'fields',
 				'hooks',
 				'indexes',
 				'members',
 			]),
+		)
+	})
+
+	it('documents and completes schema-owned deletion policy options', () => {
+		const completions = service.getCompletionsAtPosition(
+			fixtureFile,
+			markerPosition('/* deletion-complete */'),
+			{},
+		)
+		const names = completions?.entries.map(({ name }) => name) ?? []
+		const marker = '/* deletion-hover */'
+		const quickInfo = service.getQuickInfoAtPosition(
+			fixtureFile,
+			markerPosition(marker) + marker.length,
+		)
+
+		expect(names).toContain('references')
+		expect(ts.displayPartsToString(quickInfo?.documentation)).toContain(
+			'Controls references registered by independent consumer plugins',
 		)
 	})
 

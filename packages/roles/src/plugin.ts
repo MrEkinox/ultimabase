@@ -1,6 +1,7 @@
 import {
 	definePlugin,
 	extensionHandlerKey,
+	isAccessReferenceCleanup,
 	Pointer,
 	type HookContext,
 	type JsonObject,
@@ -19,6 +20,11 @@ import {
 	assertRoleHierarchyAcyclic,
 	readPersistedRoleId,
 } from './role-hierarchy.js'
+import {
+	applyRoleDeletionPolicy,
+	assertSingularRoleDeletion,
+	type NamedRoleReferenceCleanup,
+} from './role-deletion.js'
 
 /** Exposes the application-local role domains discovered during setup. */
 export interface RolesPluginExports {
@@ -172,9 +178,37 @@ export const rolesPlugin = (): RolesPlugin =>
 			const roleSchemas = schemas
 				.values()
 				.filter((schema) => getRoleSchemaDeclaration(schema) !== undefined)
+			const readReferenceCleanups = (): readonly NamedRoleReferenceCleanup[] =>
+				immutableArray(
+					registries.commands.values().flatMap((contribution) => {
+						if (
+							!isAccessReferenceCleanup(contribution.value) ||
+							contribution.value.kind !== 'role'
+						) {
+							return []
+						}
+
+						return [
+							immutableRecord({
+								cleanup: contribution.value,
+								name: contribution.name,
+							}),
+						]
+					}),
+				)
 
 			for (const schema of roleSchemas) {
+				const declaration = getRoleSchemaDeclaration(schema)
+
+				if (declaration === undefined) {
+					// Discovery and declaration lookup share one private WeakMap invariant.
+					throw new TypeError('Discovered role schema lost its declaration')
+				}
+
 				hooks.schema(`membership-events:${schema.className}`, schema, {
+					beforeDelete: ({ operation }) => {
+						assertSingularRoleDeletion(operation)
+					},
 					afterUpdate: async ({ operation, result }) => {
 						const changes = readRoleRelationChanges(operation)
 
@@ -186,6 +220,21 @@ export const rolesPlugin = (): RolesPlugin =>
 						emitRoleRelationChanges(context, operation, result)
 					},
 				})
+				hooks.field(
+					`deletion-policy:${schema.className}`,
+					schema,
+					['name'],
+					{
+						beforeDelete: ({ context, value }) =>
+							applyRoleDeletionPolicy(
+								context,
+								schema,
+								value,
+								declaration,
+								readReferenceCleanups(),
+							),
+					},
+				)
 			}
 
 			return Object.freeze({ schemas: Object.freeze(roleSchemas) })

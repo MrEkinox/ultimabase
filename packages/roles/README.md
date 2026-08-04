@@ -20,6 +20,7 @@ const User = Schema.define({
 const AppRole = RoleSchema.define({
 	className: 'Role',
 	members: { schema: User },
+	deletion: { references: 'fail' },
 	fields: {
 		description: stringField(),
 		priority: intField({ default: 0 }),
@@ -65,6 +66,11 @@ The generated `members` relation targets the exact declared member schema;
 one or the other. Both return frozen Core-neutral role references without
 performing I/O.
 
+`resolveRoleReference()` performs a strict schema-qualified lookup when server
+code needs the stored model. A UUID reference reads the exact object directly;
+a name reference reads at most two matches and rejects absent or ambiguous
+storage. Renaming a role never changes its UUID identity.
+
 `rolesPlugin()` receives no schema options. It discovers registered role
 schemas and claims their private extension. Registering a role schema without
 the plugin fails during application setup. Applications without a role schema
@@ -80,8 +86,18 @@ relation lifecycle, inherit ambient execution or ordinary terminal options,
 and emit `ultimabase.roles.membership.changed` only after commit. Draft roles,
 raw identifiers, and unrelated schema values are rejected.
 
-Deletion policies and native `hasRole()` decisions are implemented by the
-following issues in this milestone.
+Each role schema owns its external-reference deletion policy. `fail` is the
+safe default and rejects roles that still own members, child roles, parent-role
+edges, or references reported by another plugin. `preserve` deletes the role
+and leaves external references inert. `cascade` requires master authority,
+clears role-owned edges, and invokes only explicit provider-neutral cleanup
+contributions inside the same transaction. Successful deletion emits
+`ultimabase.roles.deleted` after commit. Set-based `deleteMany()` is rejected;
+ordinary `role.delete()` and `AppRole.query().byId(id).delete()` both execute
+the complete policy.
+
+Native `hasRole()` decisions are implemented by the following issue in this
+milestone.
 
 Persisted roles also expose distinct `addRole()` and `removeRole()` commands.
 `Administrator.addRole(Editor)` makes Editor a child role, so its direct and

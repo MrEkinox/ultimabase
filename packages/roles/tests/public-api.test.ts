@@ -6,8 +6,13 @@ describe('@ultimabase/roles public entry point', () => {
 	it('exports only the implemented runtime surface', () => {
 		// One explicit manifest prevents package-private reference state from leaking.
 		expect(Object.keys(publicApi).sort()).toStrictEqual([
+			'RoleDeletionError',
 			'RoleHierarchyError',
+			'RoleReferenceResolutionError',
 			'RoleSchema',
+			'resolveRoleReference',
+			'resolveRoleReferenceId',
+			'roleDeletedEvent',
 			'roleHierarchyChangedEvent',
 			'roleHierarchyMaxDepth',
 			'roleHierarchyMaxVisitedRoles',

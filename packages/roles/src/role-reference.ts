@@ -101,6 +101,17 @@ export const createRoleReference = <
 }
 
 /** Reads only references created by this package without trusting their payload. */
-export const getRoleReferenceState = (
+export function getRoleReferenceState<
+	const TSchema extends SchemaDefinition,
+	const TSelector extends RoleSelector,
+>(
+	reference: RoleReference<TSchema, TSelector>,
+): RoleReferenceState<TSchema> | undefined
+export function getRoleReferenceState(
 	reference: AccessRoleReference,
-): RoleReferenceState | undefined => roleReferenceStates.get(reference)
+): RoleReferenceState | undefined
+export function getRoleReferenceState(
+	reference: AccessRoleReference,
+): RoleReferenceState | undefined {
+	return roleReferenceStates.get(reference)
+}

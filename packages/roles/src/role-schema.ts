@@ -105,6 +105,22 @@ export interface RoleMemberOptions<
 		| Promise<Pointer<TMemberSchema> | undefined>
 }
 
+/** Selects how one role deletion treats references owned outside its schema. */
+export type RoleReferenceDeletionPolicy = 'cascade' | 'fail' | 'preserve'
+
+/** Configures stable reference behavior without adding plugin execution options. */
+export interface RoleDeletionOptions {
+	/**
+	 * Controls references registered by independent consumer plugins.
+	 *
+	 * `fail` is the safe default. `preserve` leaves inert external references,
+	 * while `cascade` transactionally asks their owners to remove them.
+	 *
+	 * @example `references: "cascade"`
+	 */
+	readonly references?: RoleReferenceDeletionPolicy
+}
+
 /** Describes the generated fields shared by every developer-defined role schema. */
 export type RoleSchemaFields<
 	TMemberSchema extends SchemaDefinition,
@@ -233,6 +249,8 @@ export interface RoleSchemaOptions<
 	readonly members: RoleMemberOptions<TMemberSchema>
 	/** Adds ordinary application fields beside generated role fields. */
 	readonly fields: TCustomFields
+	/** Owns the default external-reference behavior for every role deletion. */
+	readonly deletion?: RoleDeletionOptions
 	/** Declares adapter-neutral composite indexes for custom and generated scalar fields. */
 	readonly indexes?: readonly SchemaIndexOptions<
 		SchemaFieldName<
@@ -272,6 +290,7 @@ export interface RoleSchemaOptions<
 
 /** Retains package-private declaration state without polluting schema metadata. */
 export interface RoleSchemaDeclaration {
+	readonly deletionPolicy: RoleReferenceDeletionPolicy
 	readonly memberSchema: SchemaDefinition
 	/** The exact resolver stays paired with its member schema behind package validation. */
 	readonly resolveCurrent:
@@ -330,6 +349,22 @@ export class RoleSchema {
 	> {
 		if (!Schema.is(options.members.schema)) {
 			throw new TypeError('members.schema must be created by Schema.define')
+		}
+
+		const configuredDeletionPolicy: unknown =
+			options.deletion === undefined
+				? undefined
+				: Reflect.get(options.deletion, 'references')
+		const deletionPolicy = configuredDeletionPolicy ?? 'fail'
+
+		if (
+			deletionPolicy !== 'fail' &&
+			deletionPolicy !== 'preserve' &&
+			deletionPolicy !== 'cascade'
+		) {
+			throw new TypeError(
+				'deletion.references must be "fail", "preserve", or "cascade"',
+			)
 		}
 
 		for (const fieldName of ['members', 'name', 'roles'] as const) {
@@ -448,6 +483,7 @@ export class RoleSchema {
 		roleSchemaDeclarations.set(
 			roleSchema,
 			Object.freeze({
+				deletionPolicy,
 				memberSchema: options.members.schema,
 				resolveCurrent: options.members.resolveCurrent,
 			}),

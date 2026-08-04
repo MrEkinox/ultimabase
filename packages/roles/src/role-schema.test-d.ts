@@ -20,6 +20,23 @@ const AppRole = RoleSchema.define({
 	fields: { description: stringField(), priority: intField({ default: 0 }) },
 })
 
+RoleSchema.define({
+	className: 'TypedPreservedRole',
+	members: { schema: User },
+	fields: {},
+	deletion: { references: 'preserve' },
+})
+
+RoleSchema.define({
+	className: 'TypedInvalidDeletionRole',
+	members: { schema: User },
+	fields: {},
+	deletion: {
+		// @ts-expect-error -- Deletion behavior is one closed schema-owned policy.
+		references: 'remove',
+	},
+})
+
 test('preserves exact role schema, member, draft, Query, and reference types', () => {
 	type CreateInput = InferCreateInput<typeof AppRole>
 	type MemberTarget = SchemaRelationTarget<typeof AppRole, 'members'>

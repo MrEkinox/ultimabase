@@ -54,6 +54,24 @@ UUID references avoid repeated name lookup.
 A role reference grants nothing by itself. `hasRole(reference)` is an ordinary
 native Access decision supplied by the roles package.
 
+Name references resolve strictly within their exact RoleSchema domain before
+membership evaluation. UUID references skip name lookup, and the persisted UUID
+remains stable across rename. Missing or ambiguous name lookup fails closed.
+
+Each RoleSchema declaration owns one external-reference deletion policy. The
+safe default, `fail`, rejects deletion while generated membership or hierarchy
+edges or explicitly registered external references remain. `preserve` removes
+the role while leaving external references inert. `cascade` is master-only and
+removes generated edges plus only the generic cleanup contributions registered
+by their owning plugins. Cleanup and the role deletion share one transaction;
+the deletion audit event is delivered only after commit. Set-based role deletion
+is rejected because Runtime deliberately does not materialize bulk items for
+per-object hooks.
+
+Core exposes only a nominal provider-neutral reference-cleanup contribution.
+The roles package discovers contributions by neutral subject kind and never
+imports ACL, authentication, or another consumer implementation.
+
 ### Membership uses ordinary typed relations
 
 The generated member relation targets exactly the schema supplied to

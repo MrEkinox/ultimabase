@@ -26,3 +26,11 @@ export type {
 	InferAccessSubjectValue,
 	InferResolvedAccessSubject,
 } from './subject/contracts.js'
+export {
+	defineAccessReferenceCleanup,
+	isAccessReferenceCleanup,
+} from './subject/reference-cleanup.js'
+export type {
+	AccessReferenceCleanup,
+	AccessReferenceCleanupInput,
+} from './subject/reference-cleanup.js'
