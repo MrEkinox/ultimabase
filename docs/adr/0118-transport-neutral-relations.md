@@ -73,6 +73,11 @@ If a relationship itself owns application data such as position, timestamps,
 or status, the developer declares an ordinary schema with two pointer fields.
 Hidden join-table metadata is not part of `relationField`.
 
+That explicit relationship is a normal public schema: its edge attributes,
+composite indexes, Access declarations, hooks, queries, referential actions,
+and transaction behavior use existing Core contracts. Core and adapters do not
+add hidden edge-metadata options or a direct join-table API for this use case.
+
 ### Query, Access, and lifecycle
 
 Relation scopes are immutable private Runtime constraints. Business Query hooks

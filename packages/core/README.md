@@ -188,6 +188,36 @@ filter into a private adapter scope that source hooks cannot remove. Predicate
 depth is bounded, and adapters must advertise the separate versioned relation
 predicate capability before execution.
 
+When an edge owns application data, model it as an ordinary schema with two
+pointer fields instead of hiding metadata behind `relationField`:
+
+```ts
+const Membership = Schema.define({
+	className: 'Membership',
+	fields: {
+		member: pointerField({
+			target: () => Member,
+			validation: { required: true },
+		}),
+		project: pointerField({
+			target: () => Project,
+			validation: { required: true },
+		}),
+		role: enumField({
+			values: ['editor', 'viewer'] as const,
+			validation: { required: true },
+		}),
+	},
+	indexes: [{ fields: ['project', 'member'], unique: true }],
+})
+```
+
+This explicit edge receives the same inference, Query, Access, hook,
+transaction, index, and referential behavior as any other schema. Use it when
+the relationship has fields or its own lifecycle; keep an implicit owning
+`relationField` for metadata-free set membership. See the
+[complete relationship example](examples/schema/explicit-relationships.md).
+
 Invalid, throwing, unregistered, and foreign targets fail before infrastructure
 connects with the source class and field path. The graph contains logical class
 identities only and no PostgreSQL, REST, or GraphQL metadata.

@@ -13,6 +13,9 @@ TypeScript snippets:
 - [`relations.md`](relations.md) declares owning and inverse to-many topology
   and builds opaque, independently paginated relation queries without embedding
   collections in model records;
+- [`explicit-relationships.md`](explicit-relationships.md) models edges with
+  business data as ordinary schemas with exact pointers, hooks, Access, and
+  composite uniqueness;
 - [`hooks.md`](hooks.md) colocates exact-value field behavior and cross-field
   schema behavior;
 - [`extensions.md`](extensions.md) declares opaque schema and field metadata

@@ -132,7 +132,7 @@ incomplete.
 
 ### Phase 4 — Explicit edges and final proof
 
-12. [ ] [746 — Document explicit relationship models](issues/700-extensions/746-explicit-relationship-models.md)
+12. [x] [746 — Document explicit relationship models](issues/700-extensions/746-explicit-relationship-models.md)
 13. [ ] [747 — Verify and audit the complete relations vertical](issues/700-extensions/747-relations-postgres-e2e.md)
 
 ## Resume protocol
@@ -151,7 +151,7 @@ When resuming after context loss:
 
 ## Current issue
 
-[746 — Document explicit relationship models](issues/700-extensions/746-explicit-relationship-models.md) is `ready`.
+[747 — Verify and audit the complete relations vertical](issues/700-extensions/747-relations-postgres-e2e.md) is `ready`.
 
 ## Progress log
 
@@ -166,3 +166,4 @@ When resuming after context loss:
 - 743 added immutable transactional relation deltas, source update Access and hooks, protected target preflight, inverse-pointer target updates, adapter capability checks, and rollback-safe execution.
 - 744 added deterministic PostgreSQL join storage, inverse traversal, private relation predicates, atomic edge mutations, schema synchronization, Access enforcement, cleanup, and Docker-backed integration proof.
 - 745 added exact filter-only relation quantifiers, bounded nested AST nodes, monotonic target Access scopes, parameterized correlated PostgreSQL `EXISTS` compilation, and live topology proof.
+- 746 proved that business-data edges need no special storage API: an ordinary two-pointer schema retains exact inference, composite uniqueness, Access, hooks, referential actions, and transaction rollback.

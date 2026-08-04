@@ -499,6 +499,35 @@ relation. Nested predicates receive deterministic table aliases. Developer
 values, target Access filters, and plugin constraints remain parameters or
 private compiler input and never become interpolated SQL text.
 
+Relationships with business data remain ordinary schemas. For example, two
+required pointers plus a composite unique index model a membership edge:
+
+```ts
+const Membership = Schema.define({
+	className: 'Membership',
+	fields: {
+		member: pointerField({
+			onDelete: 'cascade',
+			target: () => Member,
+			validation: { required: true },
+		}),
+		project: pointerField({
+			onDelete: 'cascade',
+			target: () => Project,
+			validation: { required: true },
+		}),
+		role: stringField({ validation: { required: true } }),
+	},
+	indexes: [{ fields: ['project', 'member'], unique: true }],
+})
+```
+
+PostgreSQL compiles this into an ordinary edge table, two named foreign keys,
+and one composite unique index. Direct edge queries, Access, hooks, and explicit
+transactions continue through Core Runtime; no join-table API or adapter SQL
+enters developer code. Implicit `relationField` storage remains preferable when
+the edge has no independent data or lifecycle.
+
 ## Query filter compilation
 
 The internal adapter compiles the normalized `Query` filter tree through
