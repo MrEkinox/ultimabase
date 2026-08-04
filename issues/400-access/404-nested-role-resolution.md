@@ -1,6 +1,6 @@
 # 404: Resolve nested roles and reject cycles
 
-- Status: complete
+- Status: done
 - Milestone: 4
 - Packages: `@ultimabase/roles`
 - Depends on: 403

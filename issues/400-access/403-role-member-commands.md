@@ -1,6 +1,6 @@
 # 403: Add typed role member commands
 
-- Status: complete
+- Status: done
 - Milestone: 4
 - Packages: `@ultimabase/roles`
 - Depends on: 317, 349, 402, 743
