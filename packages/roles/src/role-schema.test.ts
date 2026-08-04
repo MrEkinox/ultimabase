@@ -26,7 +26,10 @@ describe('RoleSchema', () => {
 		const AppRole = RoleSchema.define({
 			className: 'AppRole',
 			members: { schema: User },
-			fields: { description: stringField(), priority: intField({ default: 0 }) },
+			fields: {
+				description: stringField(),
+				priority: intField({ default: 0 }),
+			},
 			indexes: [{ fields: ['priority', 'createdAt'] }],
 		})
 		const draft = new AppRole({ name: 'editor', description: 'Editors' })
@@ -141,11 +144,15 @@ describe('RoleSchema', () => {
 		])
 
 		expect(first.getPlugin(rolesPluginName).schemas).toStrictEqual([FirstRole])
-		expect(second.getPlugin(rolesPluginName).schemas).toStrictEqual([SecondRole])
+		expect(second.getPlugin(rolesPluginName).schemas).toStrictEqual([
+			SecondRole,
+		])
 		expect(first.getPlugin(rolesPluginName).schemas).not.toBe(
 			second.getPlugin(rolesPluginName).schemas,
 		)
-		expect(first.getContributions('hooks').map(({ name }) => name)).toStrictEqual([
+		expect(
+			first.getContributions('hooks').map(({ name }) => name),
+		).toStrictEqual([
 			'membership-events:FirstRoleDomain',
 			'deletion-policy:FirstRoleDomain',
 		])

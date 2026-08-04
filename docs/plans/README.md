@@ -1,12 +1,13 @@
 # Implementation plans
 
-`CURRENT_PLAN.md` at the repository root owns the active multi-issue objective.
-This directory preserves completed plans so architectural context and verified
-developer flows are not lost when the active objective changes.
+`CURRENT_PLAN.md`, when present at the repository root, owns the active
+multi-issue objective. This directory preserves completed plans so
+architectural context and verified developer flows are not lost when the active
+objective changes.
 
 ## Active
 
-- [Developer-defined stored roles](../../CURRENT_PLAN.md)
+No cross-package objective is currently active.
 
 ## Completed
 
@@ -14,3 +15,4 @@ developer flows are not lost when the active objective changes.
 - [Native hooks and contextual execution](completed/native-hooks-and-contextual-execution.md)
 - [Fundamental Access system](completed/fundamental-access-system.md)
 - [Transport-neutral pointers and relations](completed/transport-neutral-relations.md)
+- [Developer-defined stored roles](completed/developer-defined-stored-roles.md)

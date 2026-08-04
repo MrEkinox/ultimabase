@@ -98,7 +98,11 @@ describe('Access declaration utilities', () => {
 
 	it('short-circuits AND decisions and simplifies setup-time constants', async () => {
 		const callback = () => Promise.resolve(true)
-		const decision = allOf(callback, () => false, () => true)
+		const decision = allOf(
+			callback,
+			() => false,
+			() => true,
+		)
 
 		if (typeof decision !== 'function') {
 			throw new TypeError('Fixture requires a composed Access callback')
@@ -135,15 +139,15 @@ describe('Access declaration utilities', () => {
 	})
 
 	it('rejects empty, arity-invalid, and non-boolean declarations', async () => {
-		expect(() =>
-			(anyOf as (...rules: readonly never[]) => unknown)(),
-		).toThrow(new TypeError('anyOf requires at least one Access decision'))
-		expect(() =>
-			(allOf as (...rules: readonly never[]) => unknown)(),
-		).toThrow(new TypeError('allOf requires at least one Access decision'))
-		expect(() =>
-			(not as (...rules: readonly never[]) => unknown)(),
-		).toThrow(new TypeError('not requires exactly one Access decision'))
+		expect(() => (anyOf as (...rules: readonly never[]) => unknown)()).toThrow(
+			new TypeError('anyOf requires at least one Access decision'),
+		)
+		expect(() => (allOf as (...rules: readonly never[]) => unknown)()).toThrow(
+			new TypeError('allOf requires at least one Access decision'),
+		)
+		expect(() => (not as (...rules: readonly never[]) => unknown)()).toThrow(
+			new TypeError('not requires exactly one Access decision'),
+		)
 
 		const invalid = anyOf(
 			() => false,

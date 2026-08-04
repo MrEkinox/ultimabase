@@ -217,13 +217,10 @@ definePlugin({
 		'anyOf',
 		'allOf',
 		'not',
-	])(
-		'documents the %s helper from the package root',
-		(helperName) => {
-			const documentation = readHelperDocumentation(helperName)
+	])('documents the %s helper from the package root', (helperName) => {
+		const documentation = readHelperDocumentation(helperName)
 
-			expect(documentation.documentation.trim()).not.toHaveLength(0)
-			expect(documentation.hasExample).toBe(true)
-		},
-	)
+		expect(documentation.documentation.trim()).not.toHaveLength(0)
+		expect(documentation.hasExample).toBe(true)
+	})
 })

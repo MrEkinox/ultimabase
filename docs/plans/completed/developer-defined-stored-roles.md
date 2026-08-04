@@ -1,10 +1,11 @@
-# Current plan: developer-defined stored roles
+# Completed plan: developer-defined stored roles
 
-- Status: ready
-- Prepared: 2026-08-04
+- Status: completed
+- Started: 2026-08-04
+- Completed: 2026-08-04
 - Objective owner: `@ultimabase/roles`, `@ultimabase/core`, `@ultimabase/postgres`
-- Governing decisions: [ADR-0002](docs/adr/0002-static-schemas-and-typed-extensions.md), [ADR-0005](docs/adr/0005-immutable-class-api.md), [ADR-0099](docs/adr/0099-automatic-mutation-transactions.md), [ADR-0109](docs/adr/0109-constructible-schema-models.md), [ADR-0115](docs/adr/0115-immutable-model-commands.md), [ADR-0116](docs/adr/0116-fundamental-access-system.md), [ADR-0117](docs/adr/0117-optional-access-subject-capabilities.md), [ADR-0118](docs/adr/0118-transport-neutral-relations.md), [ADR-0119](docs/adr/0119-developer-defined-role-schemas.md)
-- Previous completed objective: [Transport-neutral pointers and relations](docs/plans/completed/transport-neutral-relations.md)
+- Governing decisions: [ADR-0002](../../adr/0002-static-schemas-and-typed-extensions.md), [ADR-0005](../../adr/0005-immutable-class-api.md), [ADR-0099](../../adr/0099-automatic-mutation-transactions.md), [ADR-0109](../../adr/0109-constructible-schema-models.md), [ADR-0115](../../adr/0115-immutable-model-commands.md), [ADR-0116](../../adr/0116-fundamental-access-system.md), [ADR-0117](../../adr/0117-optional-access-subject-capabilities.md), [ADR-0118](../../adr/0118-transport-neutral-relations.md), [ADR-0119](../../adr/0119-developer-defined-role-schemas.md)
+- Previous completed objective: [Transport-neutral pointers and relations](transport-neutral-relations.md)
 
 ## Objective
 
@@ -23,9 +24,7 @@ const AppRole = RoleSchema.define({
 		resolveCurrent: ({ context }) => {
 			const user = context.getValue(authenticatedUser)
 
-			return user === undefined
-				? undefined
-				: UserSchema.pointer(user.id)
+			return user === undefined ? undefined : UserSchema.pointer(user.id)
 		},
 	},
 	fields: {
@@ -86,7 +85,7 @@ type, hover, and runtime tests prove a clearer form. The schema ownership,
 separate member/role commands, Access boundaries, and transaction semantics in
 this plan are fixed.
 
-## Definition of done
+## Verified contract
 
 The objective is complete only when:
 
@@ -123,57 +122,31 @@ The objective is complete only when:
 - External identity-provider role claims may satisfy the neutral resolver without installing stored roles.
 - Role schemas are hidden from generated transports by default; transport exposure is transport-owned.
 
-## Execution order
-
-Complete one issue at a time. Do not start an issue whose dependencies are
-incomplete.
+## Completed execution order
 
 ### Phase 1 — Schema-defined role domain
 
-1. [x] [402 — Define extensible role schemas](issues/400-access/402-role-schema-definition.md)
-2. [x] [403 — Add typed role member commands](issues/400-access/403-role-member-commands.md)
+1. [x] [402 — Define extensible role schemas](../../../issues/400-access/402-role-schema-definition.md)
+2. [x] [403 — Add typed role member commands](../../../issues/400-access/403-role-member-commands.md)
 
 ### Phase 2 — Hierarchies and stable references
 
-3. [x] [404 — Resolve nested roles and reject cycles](issues/400-access/404-nested-role-resolution.md)
-4. [x] [405 — Resolve role references and deletion policies](issues/400-access/405-role-references-deletion.md)
+3. [x] [404 — Resolve nested roles and reject cycles](../../../issues/400-access/404-nested-role-resolution.md)
+4. [x] [405 — Resolve role references and deletion policies](../../../issues/400-access/405-role-references-deletion.md)
 
 ### Phase 3 — Native Access integration
 
-5. [x] [407 — Add composable Access decision helpers](issues/400-access/407-access-decision-combinators.md)
-6. [x] [406 — Integrate stored roles with native Access](issues/400-access/406-role-access-integration.md)
+5. [x] [407 — Add composable Access decision helpers](../../../issues/400-access/407-access-decision-combinators.md)
+6. [x] [406 — Integrate stored roles with native Access](../../../issues/400-access/406-role-access-integration.md)
 
 ### Phase 4 — Complete public proof
 
-7. [ ] [423 — Verify the complete stored-role vertical](issues/400-access/423-role-postgres-e2e.md)
+7. [x] [423 — Verify the complete stored-role vertical](../../../issues/400-access/423-role-postgres-e2e.md)
 
-## Resume protocol
+## Final verification
 
-When resuming after context loss:
-
-1. Read `AGENTS.md`, ADR-0119, this file, and the current issue completely.
-2. Read the Core, roles, and PostgreSQL READMEs required by the current issue.
-3. Inspect the working tree and preserve unrelated changes.
-4. Confirm every dependency issue is complete before marking the current issue `in-progress`.
-5. Implement one issue only with colocated runtime and type tests plus the language-service, documentation, public-export, immutability, and regression coverage justified by its API.
-6. Keep RoleSchema values on normal Schema, Query, Access, hook, Relation, Runtime, and adapter paths; never introduce a private persistence shortcut.
-7. Run targeted checks, then the broader typecheck, test, lint, build, packed-package, and Docker-backed PostgreSQL checks justified by the issue.
-8. Create one dedicated commit only after the issue is complete; never push without explicit user confirmation.
-9. Show the resulting developer-facing API before proposing the next issue.
-
-## Current issue
-
-[423 — Verify the complete stored-role vertical](issues/400-access/423-role-postgres-e2e.md)
-is ready. The option-light stored-role provider and native `hasRole()` decision
-are complete.
-
-## Progress log
-
-- Planning aligned stored roles with developer-defined Schema, native Access, immutable model commands, and completed relation foundations.
-- ADR-0119 records the schema-backed role model and option-light plugin boundary.
-- Issues 402–405 implement role schemas, immutable member and hierarchy commands,
-  bounded cycle-safe traversal, stable references, and transactional deletion policies.
-- Issue 407 adds cancellation-aware `anyOf`, `allOf`, and `not` without changing
-  monotonic composition between independent Access contributions.
-- Issue 406 provides the neutral role resolver, validates current-member
-  pointers, and memoizes direct plus inherited membership per request domain.
+- Role and Core focused unit, runtime, type, and language-service suites passed.
+- The repository typecheck, lint, formatting, build, dependency constraints,
+  and packed-package checks passed.
+- Seven worker-isolated public-export scenarios passed against live PostgreSQL
+  through Testcontainers, including rollback and multiple-application proof.

@@ -76,8 +76,7 @@ test('contextually infers exact schema and field Access inputs', () => {
 
 			return kind === 'update-one'
 		},
-		async ({ context }) =>
-			Promise.resolve(context.access.mode === 'master'),
+		async ({ context }) => Promise.resolve(context.access.mode === 'master'),
 	)
 	const strictUpdate = allOf<UpdateInput>(updateRule, true)
 	const inverted = not<UpdateInput>(strictUpdate)
@@ -93,9 +92,7 @@ test('contextually infers exact schema and field Access inputs', () => {
 
 	expectTypeOf(updateRule).toEqualTypeOf<AccessDecisionRule<UpdateInput>>()
 	expectTypeOf(inverted).toEqualTypeOf<AccessDecisionRule<UpdateInput>>()
-	expectTypeOf(fieldReadRule).toEqualTypeOf<
-		AccessDecisionRule<TextReadInput>
-	>()
+	expectTypeOf(fieldReadRule).toEqualTypeOf<AccessDecisionRule<TextReadInput>>()
 
 	// @ts-expect-error -- Access composition requires at least one decision.
 	anyOf()

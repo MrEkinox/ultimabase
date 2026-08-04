@@ -94,7 +94,9 @@ describe('schema definitions', () => {
 				{ className: 'InvalidStaticResult', fields: {} },
 				() => [],
 			),
-		).toThrow(new TypeError('schema static capabilities must be a plain object'))
+		).toThrow(
+			new TypeError('schema static capabilities must be a plain object'),
+		)
 		expect(() =>
 			Schema.defineWithStatics(
 				{ className: 'CollidingStatic', fields: {} },

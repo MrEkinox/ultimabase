@@ -182,8 +182,8 @@ type ReservedFieldCollision<TFields extends SchemaFields> =
 	string extends keyof TFields
 		? unknown
 		: Extract<keyof TFields, ReservedSystemFieldName> extends never
-		? unknown
-		: never
+			? unknown
+			: never
 
 // A versioned global symbol preserves constructor provenance across package copies.
 const schemaDefinitionMarker = Symbol.for(
@@ -391,7 +391,8 @@ export class Schema {
 		const TClassName extends string,
 		const TFields extends SchemaFields,
 		const TExtensions extends SchemaExtensions = readonly [],
-		const TCapabilities extends SchemaStaticCapabilities = SchemaStaticCapabilities,
+		const TCapabilities extends SchemaStaticCapabilities =
+			SchemaStaticCapabilities,
 	>(
 		options: SchemaOptions<TClassName, TFields, TExtensions>,
 		createCapabilities: SchemaStaticCapabilityFactory<

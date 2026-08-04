@@ -134,15 +134,16 @@ to `rolesPlugin()` and never changes server-side Query availability.
 - Strong member typing comes from the RoleSchema declaration rather than an
   unrelated runtime plugin option.
 - ACL and community policies consume neutral schema-qualified references and
-resolver contracts without importing the official roles implementation.
+  resolver contracts without importing the official roles implementation.
 
 `rolesPlugin()` provides Core's neutral role-resolver service. `hasRole()`
 resolves that service only when Runtime evaluates the Access decision, so it can
 also use a compatible community provider and missing providers fail through the
 typed service boundary. The official resolver stores one WeakMap-backed cache
-per application, request context, and exact RoleSchema. It resolves the current
+per application, active RequestEngine, and exact RoleSchema. It resolves the current
 member once, builds one immutable direct-plus-ancestor membership snapshot, and
 memoizes schema-qualified name or UUID resolutions. Master authority never
 implicitly satisfies membership.
+
 - Role-specific invariants must apply equally to model commands, direct Query,
   and direct Relation paths.

@@ -81,8 +81,12 @@ describe('stored role Access integration', () => {
 		const editor = AppRole.role('editor')
 		const administrator = AppRole.role({ id: administratorId })
 
-		await expect(resolver.hasRole({ context, role: editor })).resolves.toBe(true)
-		await expect(resolver.hasRole({ context, role: editor })).resolves.toBe(true)
+		await expect(resolver.hasRole({ context, role: editor })).resolves.toBe(
+			true,
+		)
+		await expect(resolver.hasRole({ context, role: editor })).resolves.toBe(
+			true,
+		)
 		await expect(
 			resolver.hasRole({ context, role: administrator }),
 		).resolves.toBe(true)
@@ -163,10 +167,7 @@ describe('stored role Access integration', () => {
 			roleApplication.getService(accessRoleResolverServiceToken),
 		).toHaveProperty('hasRole')
 
-		await Promise.all([
-			emptyApplication.dispose(),
-			roleApplication.dispose(),
-		])
+		await Promise.all([emptyApplication.dispose(), roleApplication.dispose()])
 	})
 
 	it('keeps a compatible community provider independent from rolesPlugin', async () => {
@@ -176,10 +177,7 @@ describe('stored role Access integration', () => {
 		const communityProvider = definePlugin({
 			name: 'fixture.community-role-provider',
 			setup: ({ services }) => {
-				services.provide(
-					accessRoleResolverServiceToken,
-					communityResolver,
-				)
+				services.provide(accessRoleResolverServiceToken, communityResolver)
 			},
 		})
 		const application = await createApplication({

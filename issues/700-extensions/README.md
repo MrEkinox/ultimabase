@@ -24,10 +24,10 @@ dependency order:
 12. [746 — Document explicit relationship models](746-explicit-relationship-models.md)
 13. [747 — Verify and audit the complete relations vertical](747-relations-postgres-e2e.md)
 
-The exact resume state, frozen decisions, and developer-facing target live in
-[`CURRENT_PLAN.md`](../../CURRENT_PLAN.md). REST and GraphQL do not block this
-vertical and must consume its public contracts later rather than defining
-parallel relationship semantics.
+The frozen decisions and verified developer-facing target live in the
+[completed relations plan](../../docs/plans/completed/transport-neutral-relations.md).
+REST and GraphQL do not block this vertical and must consume its public
+contracts later rather than defining parallel relationship semantics.
 
 ## Other planned extensions
 

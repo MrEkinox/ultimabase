@@ -63,9 +63,14 @@ type RoleDeletionLookupSchema = SchemaDefinition<
 	}>
 >
 
-const masterOptions: QueryTerminalOptions = Object.freeze({ useMasterKey: true })
+const masterOptions: QueryTerminalOptions = Object.freeze({
+	useMasterKey: true,
+})
 
-const readRelation = (role: object, fieldName: 'members' | 'roles'): Relation => {
+const readRelation = (
+	role: object,
+	fieldName: 'members' | 'roles',
+): Relation => {
 	const relationMethod: unknown = Reflect.get(role, 'relation')
 
 	if (typeof relationMethod !== 'function') {
@@ -79,7 +84,9 @@ const readRelation = (role: object, fieldName: 'members' | 'roles'): Relation =>
 	const relation = invokeRelation.call(role, fieldName)
 
 	if (!Relation.is(relation)) {
-		throw new TypeError(`Persisted role returned an invalid ${fieldName} relation`)
+		throw new TypeError(
+			`Persisted role returned an invalid ${fieldName} relation`,
+		)
 	}
 
 	return relation
@@ -178,7 +185,10 @@ const cascadeReferences = async (
 	await readRelation(role, 'roles').clear(masterOptions)
 
 	for (const parentRole of parentRoles) {
-		await readRelation(parentRole, 'roles').disconnect(rolePointer, masterOptions)
+		await readRelation(parentRole, 'roles').disconnect(
+			rolePointer,
+			masterOptions,
+		)
 	}
 
 	const invoked: string[] = []
@@ -208,13 +218,7 @@ export const applyRoleDeletionPolicy = async (
 	let cleanupContributions: readonly string[] = immutableArray([])
 
 	if (declaration.deletionPolicy === 'fail') {
-		await assertUnreferenced(
-			context,
-			role,
-			schema,
-			stableReference,
-			cleanups,
-		)
+		await assertUnreferenced(context, role, schema, stableReference, cleanups)
 	} else if (declaration.deletionPolicy === 'cascade') {
 		cleanupContributions = await cascadeReferences(
 			context,

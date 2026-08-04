@@ -15,10 +15,7 @@ import {
 import { immutableRecord } from '@ultimabase/shared'
 
 import { resolveStoredRoleMembership } from './role-membership.js'
-import {
-	getRoleReferenceState,
-	type RoleReference,
-} from './role-reference.js'
+import { getRoleReferenceState, type RoleReference } from './role-reference.js'
 import {
 	resolveRoleReferenceId,
 	RoleReferenceResolutionError,
@@ -28,7 +25,9 @@ import {
 	type RoleSchemaDeclaration,
 } from './role-schema.js'
 
-const masterOptions: QueryTerminalOptions = Object.freeze({ useMasterKey: true })
+const masterOptions: QueryTerminalOptions = Object.freeze({
+	useMasterKey: true,
+})
 
 /** Represents one compact decision compatible with every native Access level. */
 export type RoleAccessDecision = (
@@ -102,9 +101,7 @@ const createDefaultDependencies = (): StoredRoleResolverDependencies => ({
 			)
 		}
 
-		return (
-			await resolveStoredRoleMembership(schema, member)
-		).allRoleIds
+		return (await resolveStoredRoleMembership(schema, member)).allRoleIds
 	},
 	async resolveReferenceId(reference) {
 		try {
@@ -185,10 +182,7 @@ export const createStoredRoleResolver = (
 
 			const resolvedRoleId = await roleId
 
-			return (
-				resolvedRoleId !== undefined &&
-				membership.includes(resolvedRoleId)
-			)
+			return resolvedRoleId !== undefined && membership.includes(resolvedRoleId)
 		},
 	})
 }

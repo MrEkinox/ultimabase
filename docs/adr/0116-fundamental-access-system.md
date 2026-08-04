@@ -116,7 +116,7 @@ transport-specific `null` values.
 ## Consequences
 
 - Native application access requires no CLP, ACL, role, or authentication
-plugin.
+  plugin.
 
 Core may expose provider-neutral boolean decision composition through `anyOf`,
 `allOf`, and `not`. These helpers combine booleans and callbacks only within one
@@ -124,6 +124,7 @@ declaration, preserve deterministic short-circuit and cancellation behavior,
 and never alter the monotonic `AND` between independent Access contributions.
 They introduce no subject vocabulary, registry, service requirement, or
 provider lookup.
+
 - Permission plugins share one documented lifecycle and cannot weaken one
   another.
 - `beforeFind` remains a business Query transform rather than a security

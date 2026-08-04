@@ -61,9 +61,9 @@ test('preserves exact role schema, member, draft, Query, and reference types', (
 	expectTypeOf<MemberTarget>().toEqualTypeOf<typeof User>()
 	expectTypeOf<NestedRoleTarget['className']>().toEqualTypeOf<'TypedAppRole'>()
 	expectTypeOf(new Query(AppRole).ast.schema.definition).toEqualTypeOf(AppRole)
-	expectTypeOf(AppRole.query().ast.schema.definition.className).toEqualTypeOf<
-		'TypedAppRole'
-	>()
+	expectTypeOf(
+		AppRole.query().ast.schema.definition.className,
+	).toEqualTypeOf<'TypedAppRole'>()
 	expectTypeOf(new AppRole({ name: 'editor' }).create).toBeFunction()
 	expectTypeOf(AppRole.role('editor').kind).toEqualTypeOf<'role'>()
 	expectTypeOf(
@@ -86,9 +86,7 @@ test('exposes exact member commands only on persisted role results', async () =>
 	if (role !== null) {
 		expectTypeOf(role).toHaveProperty('addMember')
 		expectTypeOf(role).toHaveProperty('removeMember')
-		void role.addMember(
-			User.pointer('123e4567-e89b-42d3-a456-426614174000'),
-		)
+		void role.addMember(User.pointer('123e4567-e89b-42d3-a456-426614174000'))
 
 		if (member !== null) {
 			void role.addMember(member)

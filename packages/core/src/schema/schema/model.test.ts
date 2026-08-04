@@ -257,9 +257,7 @@ describe('schema model classes', () => {
 		) => unknown
 
 		expect(Specialized.kind).toBe('specialized')
-		expect(source.targetId(target)).toBe(
-			'0198f090-2a50-7000-8000-000000000042',
-		)
+		expect(source.targetId(target)).toBe('0198f090-2a50-7000-8000-000000000042')
 		expect(source.targetId(Target.pointer('target-pointer'))).toBe(
 			'target-pointer',
 		)

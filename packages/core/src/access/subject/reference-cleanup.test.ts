@@ -40,7 +40,9 @@ describe('access reference cleanup contributions', () => {
 				hasReferences: () => false,
 				cleanup: () => undefined,
 			}),
-		).toThrow(new TypeError('reference cleanup kind must be a non-empty string'))
+		).toThrow(
+			new TypeError('reference cleanup kind must be a non-empty string'),
+		)
 
 		expect(() =>
 			defineAccessReferenceCleanup({

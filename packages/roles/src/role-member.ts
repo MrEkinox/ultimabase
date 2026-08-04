@@ -9,8 +9,7 @@ import type {
 
 /** Accepts either a detached Pointer or any persisted projection of the member. */
 export type RoleMemberTarget<TMemberSchema extends SchemaDefinition> =
-	| Pointer<TMemberSchema>
-	| PersistedSchemaReference<TMemberSchema>
+	Pointer<TMemberSchema> | PersistedSchemaReference<TMemberSchema>
 
 interface RoleMemberCommandReceiver<
 	TRoleSchema extends SchemaDefinition,

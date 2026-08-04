@@ -14,11 +14,11 @@ export const roleHierarchyMaxVisitedRoles = 10_000
 
 /** Accepts only a detached Pointer or persisted role from the exact domain. */
 export type NestedRoleTarget<TRoleSchema extends SchemaDefinition> =
-	| Pointer<TRoleSchema>
-	| PersistedSchemaReference<TRoleSchema>
+	Pointer<TRoleSchema> | PersistedSchemaReference<TRoleSchema>
 
-interface RoleHierarchyCommandReceiver<TRoleSchema extends SchemaDefinition>
-	extends PersistedSchemaReference<TRoleSchema> {
+interface RoleHierarchyCommandReceiver<
+	TRoleSchema extends SchemaDefinition,
+> extends PersistedSchemaReference<TRoleSchema> {
 	relation(fieldName: 'roles'): Relation<TRoleSchema, TRoleSchema>
 }
 
@@ -143,7 +143,9 @@ const readRolesRelation = (value: unknown): Relation => {
 	const relation = invokeRelation.call(value, 'roles')
 
 	if (!Relation.is(relation)) {
-		throw new TypeError('Role hierarchy result returned an invalid roles relation')
+		throw new TypeError(
+			'Role hierarchy result returned an invalid roles relation',
+		)
 	}
 
 	return relation
@@ -239,9 +241,7 @@ export const resolveRoleHierarchyGraph = async (
 
 	const all = [...minimumDepthByRoleId.entries()]
 		.sort(([leftId], [rightId]) => leftId.localeCompare(rightId))
-		.map(([id, depth]) =>
-			Object.freeze({ depth, id, role: rolesById.get(id) }),
-		)
+		.map(([id, depth]) => Object.freeze({ depth, id, role: rolesById.get(id) }))
 	const direct = all.filter(({ depth }) => depth === 1)
 	const inherited = all.filter(({ depth }) => depth > 1)
 
@@ -262,9 +262,7 @@ export const assertRoleHierarchyAcyclicGraph = async (
 }
 
 /** Uses live role relations while preserving the request's active transaction. */
-export const assertRoleHierarchyAcyclic = (
-	rootRole: unknown,
-): Promise<void> =>
+export const assertRoleHierarchyAcyclic = (rootRole: unknown): Promise<void> =>
 	assertRoleHierarchyAcyclicGraph(rootRole, readChildRoles, {
 		maxDepth: roleHierarchyMaxDepth,
 		maxVisitedRoles: roleHierarchyMaxVisitedRoles,

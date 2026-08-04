@@ -78,12 +78,8 @@ type RoleNameField = ReturnType<typeof createRoleNameField>
 /** Names fields reserved for portable role semantics. */
 export type ReservedRoleFieldName = 'members' | 'name' | 'roles'
 
-type ReservedRoleFieldCollision<TFields extends SchemaFields> = Extract<
-	keyof TFields,
-	ReservedRoleFieldName
-> extends never
-	? unknown
-	: never
+type ReservedRoleFieldCollision<TFields extends SchemaFields> =
+	Extract<keyof TFields, ReservedRoleFieldName> extends never ? unknown : never
 
 /** Resolves the current request member without coupling roles to authentication. */
 export interface RoleCurrentMemberInput {
@@ -150,19 +146,19 @@ export type RoleSchemaSelfDefinition<
 	TCustomFields extends SchemaFields,
 	TExtensions extends readonly SchemaExtension<string, object>[],
 > = SchemaDefinition<
-		TClassName,
-		RoleSchemaFields<
+	TClassName,
+	RoleSchemaFields<
+		TMemberSchema,
+		RoleSchemaSelfDefinition<
+			TClassName,
 			TMemberSchema,
-			RoleSchemaSelfDefinition<
-				TClassName,
-				TMemberSchema,
-				TCustomFields,
-				TExtensions
-			>,
-			TCustomFields
+			TCustomFields,
+			TExtensions
 		>,
-		readonly [...TExtensions, typeof roleSchemaExtension]
-	>
+		TCustomFields
+	>,
+	readonly [...TExtensions, typeof roleSchemaExtension]
+>
 
 /** Adds lightweight reference construction to one exact generated schema class. */
 export interface RoleSchemaStatics<TSchema extends SchemaDefinition> {
@@ -203,12 +199,7 @@ export type RoleSchemaClass<
 	TMemberSchema extends SchemaDefinition = SchemaDefinition,
 	TCustomFields extends SchemaFields = SchemaFields,
 	TExtensions extends readonly SchemaExtension<string, object>[] = readonly [],
-> = RoleSchemaBaseClass<
-	TClassName,
-	TMemberSchema,
-	TCustomFields,
-	TExtensions
-> &
+> = RoleSchemaBaseClass<TClassName, TMemberSchema, TCustomFields, TExtensions> &
 	RoleSchemaStatics<
 		RoleSchemaSelfDefinition<
 			TClassName,
@@ -234,12 +225,7 @@ export type RoleSchemaClass<
 					TCustomFields,
 					TExtensions
 				>,
-				RoleSchemaClass<
-					TClassName,
-					TMemberSchema,
-					TCustomFields,
-					TExtensions
-				>
+				RoleSchemaClass<TClassName, TMemberSchema, TCustomFields, TExtensions>
 			>
 	>
 
@@ -277,21 +263,11 @@ export interface RoleSchemaOptions<
 	readonly extensions?: TExtensions
 	/** Protects role administration through native schema Access. */
 	readonly access?: SchemaAccess<
-		RoleSchemaBaseClass<
-			TClassName,
-			TMemberSchema,
-			TCustomFields,
-			TExtensions
-		>
+		RoleSchemaBaseClass<TClassName, TMemberSchema, TCustomFields, TExtensions>
 	>
 	/** Adds ordinary schema lifecycle behavior to role persistence. */
 	readonly hooks?: SchemaHooks<
-		RoleSchemaBaseClass<
-			TClassName,
-			TMemberSchema,
-			TCustomFields,
-			TExtensions
-		>
+		RoleSchemaBaseClass<TClassName, TMemberSchema, TCustomFields, TExtensions>
 	>
 }
 
@@ -301,8 +277,7 @@ export interface RoleSchemaDeclaration {
 	readonly memberSchema: SchemaDefinition
 	/** The exact resolver stays paired with its member schema behind package validation. */
 	readonly resolveCurrent:
-		| ((input: RoleCurrentMemberInput) => unknown)
-		| undefined
+		((input: RoleCurrentMemberInput) => unknown) | undefined
 }
 
 const roleSchemaDeclarations = new WeakMap<object, RoleSchemaDeclaration>()
@@ -336,10 +311,8 @@ export class RoleSchema {
 		const TClassName extends string,
 		const TMemberSchema extends SchemaDefinition,
 		const TCustomFields extends SchemaFields,
-		const TExtensions extends readonly SchemaExtension<
-			string,
-			object
-		>[] = readonly [],
+		const TExtensions extends readonly SchemaExtension<string, object>[] =
+			readonly [],
 	>(
 		options: RoleSchemaOptions<
 			TClassName,
@@ -348,12 +321,7 @@ export class RoleSchema {
 			TExtensions
 		> &
 			ReservedRoleFieldCollision<NoInfer<TCustomFields>>,
-	): RoleSchemaClass<
-		TClassName,
-		TMemberSchema,
-		TCustomFields,
-		TExtensions
-	> {
+	): RoleSchemaClass<TClassName, TMemberSchema, TCustomFields, TExtensions> {
 		if (!Schema.is(options.members.schema)) {
 			throw new TypeError('members.schema must be created by Schema.define')
 		}
@@ -382,11 +350,11 @@ export class RoleSchema {
 
 		const selfTargetState: {
 			roleSchema?: RoleSchemaClass<
-					TClassName,
-					TMemberSchema,
-					TCustomFields,
-					TExtensions
-			  >
+				TClassName,
+				TMemberSchema,
+				TCustomFields,
+				TExtensions
+			>
 		} = {}
 		const selfTarget = (): RoleSchemaSelfDefinition<
 			TClassName,
@@ -430,12 +398,8 @@ export class RoleSchema {
 				className: options.className,
 				fields,
 				extensions,
-				...(options.indexes === undefined
-					? {}
-					: { indexes: options.indexes }),
-				...(options.access === undefined
-					? {}
-					: { access: options.access }),
+				...(options.indexes === undefined ? {} : { indexes: options.indexes }),
+				...(options.access === undefined ? {} : { access: options.access }),
 				...(options.hooks === undefined ? {} : { hooks: options.hooks }),
 			},
 			(context) => {
@@ -461,10 +425,7 @@ export class RoleSchema {
 				return {
 					statics: { role } satisfies RoleSchemaStatics<SelfSchema>,
 					results: {
-						...createRoleMemberCommands(
-							exactContext,
-							options.members.schema,
-						),
+						...createRoleMemberCommands(exactContext, options.members.schema),
 						...createRoleHierarchyCommands<
 							SelfSchema,
 							RoleSchemaClass<

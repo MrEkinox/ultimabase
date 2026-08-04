@@ -7,9 +7,7 @@ test('preserves the exact neutral subject kind in cleanup callbacks', () => {
 	const cleanup = defineAccessReferenceCleanup({
 		kind: 'role',
 		hasReferences: ({ context, reference }) => {
-			expectTypeOf(context.access.mode).toEqualTypeOf<
-				'anonymous' | 'master'
-			>()
+			expectTypeOf(context.access.mode).toEqualTypeOf<'anonymous' | 'master'>()
 			expectTypeOf(reference.kind).toEqualTypeOf<'role'>()
 
 			return false

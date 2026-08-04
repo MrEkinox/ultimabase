@@ -1,6 +1,6 @@
 # Documentation
 
-- [`CURRENT_PLAN.md`](../CURRENT_PLAN.md): active multi-issue objective, execution order, and context-loss resume protocol.
+- `CURRENT_PLAN.md`, when present at the repository root: active multi-issue objective, execution order, and context-loss resume protocol.
 - [`plans/`](plans/README.md): retained plans for completed cross-package objectives.
 - [`PRODUCT_SPEC.md`](PRODUCT_SPEC.md): agreed product scope and semantics.
 - [`RELEASING.md`](RELEASING.md): Changesets, prereleases, and npm publication.

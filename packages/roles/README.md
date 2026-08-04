@@ -60,7 +60,10 @@ const Administrator = await new AppRole({ name: 'administrator' }).create({
 })
 const EditorById = AppRole.role({ id: Editor.id })
 
-await Editor.addMember(User.pointer(user.id), { ultimabase, useMasterKey: true })
+await Editor.addMember(User.pointer(user.id), {
+	ultimabase,
+	useMasterKey: true,
+})
 await Administrator.addRole(Editor, { ultimabase, useMasterKey: true })
 ```
 
@@ -112,11 +115,11 @@ application or request. A missing provider raises Core's typed
 installed provider with no current member or no membership returns `false`.
 
 The official provider calls the RoleSchema's optional `resolveCurrent` once per
-request and domain, validates that it returned a Pointer from the exact member
-schema, then loads direct roles and all parent roles through ordinary Query. One
-immutable membership snapshot and each reference resolution are memoized for
-that request, so repeated schema, field, or future ACL checks do not traverse
-the graph again. Master authority does not imply membership.
+RequestEngine and domain, validates that it returned a Pointer from the exact
+member schema, then loads direct roles and all parent roles through ordinary
+Query. One immutable membership snapshot and each reference resolution are
+memoized for that engine, so repeated schema, field, or future ACL checks do not
+traverse the graph again. Master authority does not imply membership.
 
 Persisted roles also expose distinct `addRole()` and `removeRole()` commands.
 `Administrator.addRole(Editor)` makes Editor a child role, so its direct and

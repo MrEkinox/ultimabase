@@ -67,9 +67,9 @@ test('preserves package-owned static capability inference', () => {
 	)
 
 	expectTypeOf(schema.byId).parameter(0).toBeString()
-	expectTypeOf(schema.byId('post-1').schema.className).toEqualTypeOf<
-		'SpecializedPost'
-	>()
+	expectTypeOf(
+		schema.byId('post-1').schema.className,
+	).toEqualTypeOf<'SpecializedPost'>()
 	expectTypeOf(new schema({ title: 'Hello' })).toEqualTypeOf<
 		SchemaDraft<typeof schema>
 	>()

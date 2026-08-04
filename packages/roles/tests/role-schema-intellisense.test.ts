@@ -7,7 +7,10 @@ import * as ts from 'typescript'
 import { createLanguageService } from '../../../tooling/vitest/typescript-language-service.js'
 
 const packageDirectory = path.dirname(fileURLToPath(import.meta.url))
-const fixtureFile = path.join(packageDirectory, 'role-schema-intellisense.fixture.ts')
+const fixtureFile = path.join(
+	packageDirectory,
+	'role-schema-intellisense.fixture.ts',
+)
 const source = `
 import { Schema, stringField } from '@ultimabase/core'
 import { RoleSchema, hasRole } from '../src/index.js'

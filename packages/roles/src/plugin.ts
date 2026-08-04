@@ -10,7 +10,12 @@ import {
 	type FrameworkPlugin,
 	type SchemaDefinition,
 } from '@ultimabase/core'
-import { immutableArray, immutableRecord, isPlainRecord, isUnknownArray } from '@ultimabase/shared'
+import {
+	immutableArray,
+	immutableRecord,
+	isPlainRecord,
+	isUnknownArray,
+} from '@ultimabase/shared'
 
 import {
 	getRoleSchemaDeclaration,
@@ -27,6 +32,23 @@ import {
 	type NamedRoleReferenceCleanup,
 } from './role-deletion.js'
 import { createStoredRoleResolver } from './role-access.js'
+
+const masterOptions = Object.freeze({ useMasterKey: true })
+
+/** Materializes relation capabilities that adapter results do not expose inside after hooks. */
+const readUpdatedRoleModel = async (
+	schema: SchemaDefinition,
+	result: unknown,
+): Promise<object> => {
+	const roleId = readPersistedRoleId(result)
+	const role = await new Pointer(schema, roleId).query().first(masterOptions)
+
+	if (role === null) {
+		throw new TypeError('Updated role disappeared before hierarchy validation')
+	}
+
+	return role
+}
 
 /** Exposes the application-local role domains discovered during setup. */
 export interface RolesPluginExports {
@@ -220,28 +242,25 @@ export const rolesPlugin = (): RolesPlugin =>
 						const changes = readRoleRelationChanges(operation)
 
 						if (changes.some(({ field }) => field === 'roles')) {
-							await assertRoleHierarchyAcyclic(result)
+							await assertRoleHierarchyAcyclic(
+								await readUpdatedRoleModel(schema, result),
+							)
 						}
 					},
 					afterCommit: ({ context, operation, result }) => {
 						emitRoleRelationChanges(context, operation, result)
 					},
 				})
-				hooks.field(
-					`deletion-policy:${schema.className}`,
-					schema,
-					['name'],
-					{
-						beforeDelete: ({ context, value }) =>
-							applyRoleDeletionPolicy(
-								context,
-								schema,
-								value,
-								declaration,
-								readReferenceCleanups(),
-							),
-					},
-				)
+				hooks.field(`deletion-policy:${schema.className}`, schema, ['name'], {
+					beforeDelete: ({ context, value }) =>
+						applyRoleDeletionPolicy(
+							context,
+							schema,
+							value,
+							declaration,
+							readReferenceCleanups(),
+						),
+				})
 			}
 
 			return Object.freeze({ schemas: Object.freeze(roleSchemas) })

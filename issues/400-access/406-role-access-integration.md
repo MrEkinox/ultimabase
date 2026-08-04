@@ -23,9 +23,7 @@ const AppRole = RoleSchema.define({
 		resolveCurrent: ({ context }) => {
 			const user = context.getValue(authenticatedUser)
 
-			return user === undefined
-				? undefined
-				: UserSchema.pointer(user.id)
+			return user === undefined ? undefined : UserSchema.pointer(user.id)
 		},
 	},
 	fields: {},

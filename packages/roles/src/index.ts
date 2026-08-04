@@ -13,10 +13,7 @@ export type {
 	RolesPlugin,
 	RolesPluginExports,
 } from './plugin.js'
-export type {
-	RoleMemberCommands,
-	RoleMemberTarget,
-} from './role-member.js'
+export type { RoleMemberCommands, RoleMemberTarget } from './role-member.js'
 export {
 	RoleHierarchyError,
 	roleHierarchyMaxDepth,

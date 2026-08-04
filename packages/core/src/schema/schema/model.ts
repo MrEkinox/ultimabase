@@ -366,7 +366,9 @@ export const createSchemaModelCapabilityContext = <
 			const record = readPersistedSchemaModelRecord(instance, command)
 
 			if (record.schema !== schema) {
-				throw new TypeError(`${command} receiver must belong to ${schema.className}`)
+				throw new TypeError(
+					`${command} receiver must belong to ${schema.className}`,
+				)
 			}
 		},
 		toPointer: toPersistedSchemaPointer,

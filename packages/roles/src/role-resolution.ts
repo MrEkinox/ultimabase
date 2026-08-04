@@ -60,7 +60,9 @@ const requireRoleReferenceState = <
 }
 
 /** Selects one unique match while treating absent or corrupt storage explicitly. */
-export const resolveUniqueRoleNameMatch = <TRole extends { readonly id: string }>(
+export const resolveUniqueRoleNameMatch = <
+	TRole extends { readonly id: string },
+>(
 	name: string,
 	matches: readonly TRole[],
 ): TRole => {
@@ -102,7 +104,10 @@ const findRoleByName = async <const TSchema extends SchemaDefinition>(
 		.limit(2)
 		.find(options)
 
-	return resolveUniqueRoleNameMatch(name, matches) as unknown as SchemaResult<TSchema>
+	return resolveUniqueRoleNameMatch(
+		name,
+		matches,
+	) as unknown as SchemaResult<TSchema>
 }
 
 /**
