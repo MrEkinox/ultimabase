@@ -2,6 +2,8 @@ import {
 	AccessSubjectReference,
 	accessRoleResolverServiceToken,
 	getCurrentApplication,
+	getCurrentEngine,
+	getCurrentRequest,
 	Pointer,
 	type AccessContext,
 	type AccessDecisionInput,
@@ -59,6 +61,7 @@ export const hasRole = (role: AccessRoleReference): RoleAccessDecision => {
 
 /** Supplies storage work behind an injectable boundary for deterministic tests. */
 export interface StoredRoleResolverDependencies {
+	getRequestCacheKey(context: AccessContext): object
 	resolveMembership(
 		schema: SchemaDefinition,
 		declaration: RoleSchemaDeclaration,
@@ -73,6 +76,15 @@ interface RoleDomainRequestCache {
 }
 
 const createDefaultDependencies = (): StoredRoleResolverDependencies => ({
+	getRequestCacheKey(context) {
+		if (getCurrentRequest() !== context) {
+			throw new TypeError(
+				'Role Access context must match the active request context',
+			)
+		}
+
+		return getCurrentEngine()
+	},
 	async resolveMembership(schema, declaration, context) {
 		if (declaration.resolveCurrent === undefined) {
 			return undefined
@@ -129,11 +141,12 @@ export const createStoredRoleResolver = (
 				return false
 			}
 
-			let domains = requestCaches.get(context)
+			const requestCacheKey = dependencies.getRequestCacheKey(context)
+			let domains = requestCaches.get(requestCacheKey)
 
 			if (domains === undefined) {
 				domains = new Map()
-				requestCaches.set(context, domains)
+				requestCaches.set(requestCacheKey, domains)
 			}
 
 			let domain = domains.get(state.schema)

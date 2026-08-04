@@ -64,6 +64,7 @@ const createDependencies = (): Readonly<{
 
 	return {
 		dependencies: {
+			getRequestCacheKey: (context) => context,
 			resolveMembership: membership,
 			resolveReferenceId: references,
 		},
@@ -108,6 +109,7 @@ describe('stored role Access integration', () => {
 	it('denies unresolved members before resolving a stored role reference', async () => {
 		const references = vi.fn(() => Promise.resolve(editorId))
 		const resolver = createStoredRoleResolver([AppRole], {
+			getRequestCacheKey: (context) => context,
 			resolveMembership: () => Promise.resolve(undefined),
 			resolveReferenceId: references,
 		})
@@ -122,7 +124,11 @@ describe('stored role Access integration', () => {
 	})
 
 	it('denies omitted current-member resolution without an implicit master grant', async () => {
-		const resolver = createStoredRoleResolver([AppRole])
+		const resolver = createStoredRoleResolver([AppRole], {
+			getRequestCacheKey: (context) => context,
+			resolveMembership: () => Promise.resolve(undefined),
+			resolveReferenceId: () => Promise.resolve(editorId),
+		})
 		const masterContext: AccessContext = {
 			...createContext('master-without-member'),
 			access: {
