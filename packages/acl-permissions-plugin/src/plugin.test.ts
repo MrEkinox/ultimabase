@@ -5,6 +5,7 @@ import {
 	Pointer,
 	Schema,
 	accessPrincipalResolverServiceToken,
+	accessRoleResolverServiceToken,
 	createApplication,
 	databaseAdapterServiceToken,
 	definePlugin,
@@ -17,6 +18,7 @@ import {
 	type DatabaseOperationResult,
 	type DatabaseTransactionAdapter,
 	type HookContext,
+	type PluginDefinition,
 	type PreparedDatabaseOperation,
 } from '@ultimabase/core'
 import { describe, expect, it, vi } from 'vitest'
@@ -123,6 +125,69 @@ class ACLRejectedWriteAdapter implements DatabaseAdapter {
 		this.transactions.push(transaction)
 
 		return Promise.resolve(transaction)
+	}
+}
+
+type RoleProviderPlacement = 'after' | 'before' | 'nested'
+
+/** Builds isolated applications that expose provider-order regressions through row constraints. */
+const createRoleProviderFixture = (
+	suffix: string,
+	placement: RoleProviderPlacement,
+) => {
+	const role = new AccessSubjectReference('role', `fixture-role-${suffix}`)
+	const adapter = new ACLReadAdapter([
+		{
+			acl: new ACL().grantRole(role, 'read'),
+			createdAt: '2026-08-04T00:00:00.000Z',
+			id: '0198a43e-2431-7000-8000-000000000041',
+			title: suffix,
+			updatedAt: '2026-08-04T00:00:00.000Z',
+		},
+	])
+	const roleProvider = definePlugin({
+		name: `fixture.acl-role-provider.${suffix}`,
+		setup: ({ services }) => {
+			services.provide(accessRoleResolverServiceToken, {
+				hasRole: ({ role: candidate }) => candidate.value === role.value,
+				resolveCurrentRoles: () => [role],
+				resolvePersistentRole: ({ role: candidate }) => candidate,
+			})
+		},
+	})
+	const databaseProvider = definePlugin({
+		name: `fixture.acl-role-database.${suffix}`,
+		slot: 'database-adapter',
+		setup: ({ services }) => {
+			services.provide(databaseAdapterServiceToken, adapter)
+		},
+	})
+	const aclProvider = aclPlugin()
+	let plugins: readonly PluginDefinition[]
+
+	switch (placement) {
+		case 'after':
+			plugins = [aclProvider, roleProvider, databaseProvider]
+			break
+		case 'before':
+			plugins = [roleProvider, aclProvider, databaseProvider]
+			break
+		case 'nested':
+			plugins = [
+				aclProvider,
+				definePlugin({
+					name: `fixture.acl-role-parent.${suffix}`,
+					plugins: [roleProvider],
+				}),
+				databaseProvider,
+			]
+			break
+	}
+
+	return {
+		adapter,
+		role,
+		ultimabase: new UltimaBase({ plugins, schemas: [ProtectedPost] }),
 	}
 }
 
@@ -235,6 +300,137 @@ describe('aclPlugin create input resolution', () => {
 			})
 			expect(masterResult[0]?.acl).toBe(storedACL)
 			expect(adapter.requests[1]?.constraints).toStrictEqual([])
+		} finally {
+			await ultimabase.dispose()
+		}
+	})
+
+	it('resolves optional role providers after setup in every configuration order', async () => {
+		const fixtures = (
+			[
+				['after', 'after'],
+				['before', 'before'],
+				['nested', 'nested'],
+			] as const
+		).map(([suffix, placement]) => createRoleProviderFixture(suffix, placement))
+
+		try {
+			await Promise.all(fixtures.map(({ ultimabase }) => ultimabase.start()))
+			await Promise.all(
+				fixtures.map(({ ultimabase }) =>
+					ProtectedPost.query().find({ ultimabase }),
+				),
+			)
+
+			for (const { adapter, role } of fixtures) {
+				expect(adapter.requests[0]?.constraints).toMatchObject([
+					{
+						kind: 'ultimabase.acl.row',
+						payload: {
+							roleResolutionAvailable: true,
+							roles: [role.value],
+						},
+						version: 1,
+					},
+				])
+			}
+		} finally {
+			await Promise.all(fixtures.map(({ ultimabase }) => ultimabase.dispose()))
+		}
+	})
+
+	it('requires a provider during setup for statically declared role grants', async () => {
+		const StaticRolePost = Schema.define({
+			className: 'ACLStaticRoleRequirementPost',
+			fields: { title: stringField() },
+			extensions: [
+				acl({
+					default: new ACL().grantRole(
+						new AccessSubjectReference('role', 'fixture-static-role'),
+						'read',
+					),
+				}),
+			],
+		})
+		let infrastructureStarted = false
+		const infrastructure = definePlugin({
+			name: 'fixture.acl-static-role-infrastructure',
+			hooks: {
+				connect: () => {
+					infrastructureStarted = true
+				},
+			},
+		})
+		const ultimabase = new UltimaBase({
+			plugins: [aclPlugin(), infrastructure],
+			schemas: [StaticRolePost],
+		})
+
+		await expect(ultimabase.start()).rejects.toMatchObject({
+			code: 'SERVICE_NOT_FOUND',
+			internalDetails: {
+				requiredBy: 'ultimabase.acl',
+				service: 'ultimabase.access.role-resolver',
+			},
+		} satisfies Partial<FrameworkError>)
+		expect(infrastructureStarted).toBe(false)
+
+		const roleProvider = definePlugin({
+			name: 'fixture.acl-static-role-provider',
+			setup: ({ services }) => {
+				services.provide(accessRoleResolverServiceToken, {
+					hasRole: () => false,
+					resolveCurrentRoles: () => [],
+					resolvePersistentRole: ({ role }) => role,
+				})
+			},
+		})
+		const resolved = await createApplication({
+			plugins: [aclPlugin(), roleProvider],
+			schemas: [StaticRolePost],
+		})
+
+		expect(resolved.state).toBe('ready')
+		await resolved.dispose()
+	})
+
+	it('rejects dynamically produced role grants before adapter preparation', async () => {
+		const dynamicRole = new AccessSubjectReference(
+			'role',
+			'fixture-dynamic-role',
+		)
+		const DynamicRolePost = Schema.define({
+			className: 'ACLDynamicRoleRequirementPost',
+			fields: { title: stringField() },
+			extensions: [
+				acl({ default: () => new ACL().grantRole(dynamicRole, 'read') }),
+			],
+		})
+		const adapter = new ACLRejectedWriteAdapter()
+		const databaseProvider = definePlugin({
+			name: 'fixture.acl-dynamic-role-database',
+			slot: 'database-adapter',
+			setup: ({ services }) => {
+				services.provide(databaseAdapterServiceToken, adapter)
+			},
+		})
+		const ultimabase = new UltimaBase({
+			plugins: [aclPlugin(), databaseProvider],
+			schemas: [DynamicRolePost],
+		})
+
+		try {
+			await ultimabase.start()
+			await expect(
+				DynamicRolePost.query().create({ title: 'Dynamic' }, { ultimabase }),
+			).rejects.toThrow(
+				'ACL role grants require a role resolver with current-role enumeration',
+			)
+			expect(adapter.transactions).toHaveLength(1)
+			expect(adapter.transactions[0]).toMatchObject({
+				prepareCount: 0,
+				rollbackCount: 1,
+			})
 		} finally {
 			await ultimabase.dispose()
 		}

@@ -264,6 +264,10 @@ const validateAcceptedACL = async (
 	return persistent
 }
 
+/** Detects declarations that cannot become valid without role capabilities. */
+const hasStaticRoleGrant = (config: ACLSchemaExtensionConfig): boolean =>
+	config.default instanceof ACL && config.default.toJSON().roles.length > 0
+
 const resolveCreateInputACL = async <
 	TData extends Readonly<Record<string, unknown>>,
 >(
@@ -595,22 +599,49 @@ export const aclPlugin = (options: ACLPluginOptions = {}): ACLPlugin => {
 				extensionHandlerKey('schema', aclSchemaExtensionName),
 				true,
 			)
+			const protectedSchemas = schemas
+				.values()
+				.filter((schema) =>
+					schema.extensions.some(
+						(extension) => extension.name === aclSchemaExtensionName,
+					),
+				)
+			const hasDeclaredRoleGrant = protectedSchemas.some((schema) => {
+				const extension = schema.extensions.find(
+					(candidate) => candidate.name === aclSchemaExtensionName,
+				)
+
+				return (
+					extension !== undefined &&
+					hasStaticRoleGrant(extension.config as ACLSchemaExtensionConfig)
+				)
+			})
+
+			if (hasDeclaredRoleGrant) {
+				// Deferred requirements validate after every plugin setup, regardless of graph order.
+				services.require(accessRoleResolverServiceToken)
+			}
 			const subjectCache = new WeakMap<
 				object,
 				ReturnType<typeof resolveACLAccessSubjects>
 			>()
-			const roleResolver = services.getOptional(accessRoleResolverServiceToken)
-			const persistentRoleResolver =
-				roleResolver?.resolvePersistentRole?.bind(roleResolver)
-			const resolvePersistentRole: PersistentRoleResolver | undefined =
-				persistentRoleResolver === undefined
-					? undefined
-					: ({ role }) =>
-							persistentRoleResolver.call(roleResolver, {
-								// Providers resolve against the original request instead of a derived hook view.
-								context: getCurrentRequest(),
-								role,
-							})
+			const readRoleResolver = (): AccessRoleResolver | undefined =>
+				services.getOptional(accessRoleResolverServiceToken)
+			const readPersistentRoleResolver = ():
+				PersistentRoleResolver | undefined => {
+				const roleResolver = readRoleResolver()
+				const persistentRoleResolver =
+					roleResolver?.resolvePersistentRole?.bind(roleResolver)
+
+				if (persistentRoleResolver === undefined) return undefined
+
+				return ({ role }) =>
+					persistentRoleResolver({
+						// Providers resolve against the original request instead of a derived hook view.
+						context: getCurrentRequest(),
+						role,
+					})
+			}
 			const resolveSubjects = () => {
 				// The engine is the stable cache owner shared by every hook context in one operation.
 				const cacheKey = getCurrentEngine()
@@ -622,7 +653,7 @@ export const aclPlugin = (options: ACLPluginOptions = {}): ACLPlugin => {
 					// Subject providers receive the original request, not a derived hook view.
 					getCurrentRequest(),
 					services.getOptional(accessPrincipalResolverServiceToken),
-					roleResolver,
+					readRoleResolver(),
 					(schema) => schemas.get(schema.className) === schema,
 				)
 				subjectCache.set(cacheKey, resolution)
@@ -673,7 +704,7 @@ export const aclPlugin = (options: ACLPluginOptions = {}): ACLPlugin => {
 								context,
 								subjects.roleResolutionAvailable,
 								resolveSchemaLimits(extension.config),
-								resolvePersistentRole,
+								readPersistentRoleResolver(),
 							)
 						},
 						upsert: async ({ context, operation }) => {
@@ -686,7 +717,7 @@ export const aclPlugin = (options: ACLPluginOptions = {}): ACLPlugin => {
 								context,
 								subjects.roleResolutionAvailable,
 								resolveSchemaLimits(extension.config),
-								resolvePersistentRole,
+								readPersistentRoleResolver(),
 							)
 						},
 					},
@@ -704,13 +735,6 @@ export const aclPlugin = (options: ACLPluginOptions = {}): ACLPlugin => {
 				{ master: 'bypass' },
 			)
 
-			const protectedSchemas = schemas
-				.values()
-				.filter((schema) =>
-					schema.extensions.some(
-						(extension) => extension.name === aclSchemaExtensionName,
-					),
-				)
 			const referenceCleanups = createACLReferenceCleanups(protectedSchemas)
 
 			registries.commands.register(
@@ -759,7 +783,7 @@ export const aclPlugin = (options: ACLPluginOptions = {}): ACLPlugin => {
 									context,
 									subjects.roleResolutionAvailable,
 									schemaLimits,
-									resolvePersistentRole,
+									readPersistentRoleResolver(),
 									getACLReferenceScope(schema),
 								),
 							}

@@ -81,8 +81,8 @@ let ultimabase:
 			readonly [typeof Member, typeof AppRole],
 			readonly [
 				typeof identityPlugin,
-				ReturnType<typeof rolesPlugin>,
 				ReturnType<typeof aclPlugin>,
+				ReturnType<typeof rolesPlugin>,
 				ReturnType<typeof postgresPlugin>,
 				ReturnType<typeof aclPostgresPlugin>,
 			]
@@ -125,8 +125,8 @@ beforeAll(async () => {
 		}),
 		plugins: [
 			identityPlugin,
-			rolesPlugin(),
 			aclPlugin(),
+			rolesPlugin(),
 			postgresPlugin({
 				schemaPolicy: 'override',
 				url: fixture.connectionUri,

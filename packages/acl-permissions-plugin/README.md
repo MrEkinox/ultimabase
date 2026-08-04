@@ -104,8 +104,13 @@ trusted master execution.
 
 Authentication and roles are optional providers. ACL discovers them only
 through neutral Core services and never imports a concrete auth or roles
-plugin. Trusted master execution bypasses ACL authorization but still runs
-validation, defaults, hooks, transactions, constraints, and audit behavior.
+plugin. Provider lookup happens after application setup, so top-level order and
+nested plugin configuration do not change ACL behavior. A static default that
+already contains role grants requires a compatible provider during setup;
+dynamically produced role grants fail before persistence when the required
+role capabilities are unavailable. Trusted master execution bypasses ACL
+authorization but still runs validation, defaults, hooks, transactions,
+constraints, and audit behavior.
 
 Subject deletion remains owned by the authentication, role, or community
 provider that owns that subject. `aclPlugin()` registers neutral principal and
