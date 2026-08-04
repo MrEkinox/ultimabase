@@ -55,26 +55,34 @@ actually references the corresponding subject.
 
 ## Remaining execution order
 
-1. [408 — Align packages and documentation with native Access](408-native-access-package-alignment.md)
-2. [407 — Add composable Access decision helpers](407-access-decision-combinators.md)
-3. [402 — Implement Role class and internal schema](402-role-class-schema.md)
-4. [403 — Implement direct role memberships](403-role-memberships.md)
-5. [404 — Resolve nested roles and reject cycles](404-nested-role-resolution.md)
-6. [405 — Resolve role references and deletion policies](405-role-references-deletion.md)
-7. [406 — Implement rolesPlugin and role Access helpers](406-roles-plugin.md)
-8. [409 — Implement immutable ACL class](409-acl-class.md)
-9. [410 — Implement ACL schema extension](410-acl-schema-extension.md)
-10. [411 — Implement aclPlugin](411-acl-plugin.md)
-11. PostgreSQL ACL storage and compilation through issues 510 and 509
-12. [412 — Add ACL hooks and events](412-acl-hooks-events.md)
-13. [415 — Verify native Access and provider composition](415-access-plugin-composition.md)
+The active stored-role objective follows [`CURRENT_PLAN.md`](../../CURRENT_PLAN.md):
+
+1. [402 — Define extensible role schemas](402-role-schema-definition.md)
+2. [403 — Add typed role member commands](403-role-member-commands.md)
+3. [404 — Resolve nested roles and reject cycles](404-nested-role-resolution.md)
+4. [405 — Resolve role references and deletion policies](405-role-references-deletion.md)
+5. [407 — Add composable Access decision helpers](407-access-decision-combinators.md)
+6. [406 — Integrate stored roles with native Access](406-role-access-integration.md)
+7. [423 — Verify the complete stored-role vertical](423-role-postgres-e2e.md)
+
+The remaining independent Access work then continues with:
+
+8. [408 — Align packages and documentation with native Access](408-native-access-package-alignment.md)
+9. [409 — Implement immutable ACL class](409-acl-class.md)
+10. [410 — Implement ACL schema extension](410-acl-schema-extension.md)
+11. [411 — Implement aclPlugin](411-acl-plugin.md)
+12. PostgreSQL ACL storage and compilation through issues 510 and 509
+13. [412 — Add ACL hooks and events](412-acl-hooks-events.md)
+14. [415 — Verify native Access and provider composition](415-access-plugin-composition.md)
 
 Issues 407 and 408 previously described a separate CLP provider. Issues 413
 and 414 previously described a separate field-permission provider. Those plans
 were retired before implementation because issues 401, 421, 418, and 419
 already provide the more general native behavior with a smaller public API.
 
-The relations vertical ending at issue 747 is complete, so the official role
-provider may now use the same pointer and relation primitives as application
-schemas. ACL remains independently implementable against the neutral contracts
-from issue 420 and must not import the official roles package.
+The active [stored-role plan](../../CURRENT_PLAN.md) treats every role domain as
+one developer-defined `RoleSchema` tied to an exact member schema. The
+option-light roles plugin discovers those declarations, while ordinary schema
+configuration owns custom fields, indexes, Access, hooks, and Query behavior.
+ACL remains independently implementable against the neutral contracts from
+issue 420 and must not import the official roles package.

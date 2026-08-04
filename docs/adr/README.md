@@ -112,6 +112,7 @@ Accepted records:
 - [ADR-0116: Fundamental Access system and policy providers](0116-fundamental-access-system.md)
 - [ADR-0117: Optional Access subject capabilities](0117-optional-access-subject-capabilities.md)
 - [ADR-0118: Transport-neutral pointers and relations](0118-transport-neutral-relations.md)
+- [ADR-0119: Developer-defined schema-backed roles](0119-developer-defined-role-schemas.md)
 
 Superseded records:
 

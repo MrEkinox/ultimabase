@@ -4,12 +4,12 @@ The issue backlog is the executable roadmap. This document only describes milest
 
 ## Current execution priority
 
-The Runtime-to-PostgreSQL vertical, native hook lifecycle, and fundamental
-Access system are complete. The current priority is the transport-neutral
-relations vertical described in [`CURRENT_PLAN.md`](CURRENT_PLAN.md): lazy
-schema targets, immutable Pointer and Relation APIs, Runtime and Access
-execution, PostgreSQL foreign keys and join storage, then a public Core plus
-PostgreSQL proof before transports consume the feature.
+The Runtime-to-PostgreSQL vertical, native hook lifecycle, fundamental Access
+system, and transport-neutral relations vertical are complete. The current
+priority is the developer-defined stored-role vertical described in
+[`CURRENT_PLAN.md`](CURRENT_PLAN.md): extensible RoleSchema declarations, typed
+member and nested-role commands, stable references, native Access integration,
+then a public roles plus PostgreSQL proof before ACL consumes the capability.
 
 Completed cross-milestone plans are retained under
 [`docs/plans/completed/`](docs/plans/completed/) so their decisions remain
@@ -37,11 +37,11 @@ automatic mutation transactions, native schema and field hooks, plugin hook
 targets, policy-neutral monotonic enforcement, cursor pagination, and master
 access.
 
-## Milestone 4 — Fundamental Access and permission providers
+## Milestone 4 — Fundamental Access and persisted policy providers
 
-Native operation, filter, item, and field access; compiled provider
-contributions; roles and role hierarchy; CLP; object ACL; per-schema ACL tables;
-field permissions; SQL compilation; and audit events.
+Native operation, filter, item, and field Access; compiled provider
+contributions; developer-defined stored roles and role hierarchy; object ACL;
+per-schema ACL tables; SQL compilation; and audit events.
 
 ## Milestone 5 — PostgreSQL vertical
 

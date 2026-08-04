@@ -20,7 +20,7 @@ modes or user identifiers to Core.
 - [ ] Rights are read, update, delete, and manageAcl.
 - [ ] Grant and revoke methods return new instances.
 - [ ] Principal and role grants retain nominal neutral subject references rather than importing authentication or roles packages.
-- [ ] Role references accept UUID or name.
+- [ ] Role references accept schema-qualified UUID or name references produced by `AppRole.role(...)` without importing the concrete RoleSchema or roles plugin.
 - [ ] Serialization is stable and validation is strict.
 - [ ] Constructing or modifying an ACL performs no persistence or subject resolution.
 
