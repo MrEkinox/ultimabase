@@ -4,7 +4,9 @@ import {
 	AccessSubjectReference,
 	RequestContextValue,
 	accessRoleResolverServiceToken,
+	resolveAccessRoleReference,
 	type AccessRoleReference,
+	type AccessRoleReferenceCarrier,
 	type AccessRoleResolver,
 	type AccessSubjectResolver,
 	type AccessSubjectValue,
@@ -44,6 +46,9 @@ const principal = new RequestContextValue<FixturePrincipal>(
 	},
 )
 const editor = new AccessSubjectReference('role', 'editor')
+const editorModel: AccessRoleReferenceCarrier = {
+	toAccessRoleReference: () => editor,
+}
 
 const resolver: AccessSubjectResolver<typeof editor, FixtureRole> = {
 	resolve: ({ context, reference }) => {
@@ -67,6 +72,9 @@ test('infers plugin-owned principals and resolved subjects exactly', () => {
 	>().toEqualTypeOf<FixturePrincipal>()
 	expectTypeOf(editor).toEqualTypeOf<AccessSubjectReference<'role', 'editor'>>()
 	expectTypeOf(editor).toExtend<AccessRoleReference<'editor'>>()
+	expectTypeOf(
+		resolveAccessRoleReference(editorModel),
+	).toEqualTypeOf<AccessRoleReference>()
 	expectTypeOf<
 		InferResolvedAccessSubject<typeof resolver>
 	>().toEqualTypeOf<FixtureRole>()

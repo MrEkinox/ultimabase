@@ -54,6 +54,47 @@ export class AccessSubjectReference<
 export type AccessRoleReference<TValue extends string | number = string> =
 	AccessSubjectReference<'role', TValue>
 
+/** Lets a persisted provider-owned value expose its neutral role reference. */
+export interface AccessRoleReferenceCarrier {
+	/** Returns one stable role reference without performing persistence or lookup. */
+	toAccessRoleReference(): AccessRoleReference
+}
+
+/** Accepts either a lightweight reference or a persisted role value. */
+export type AccessRoleSubject = AccessRoleReference | AccessRoleReferenceCarrier
+
+/**
+ * Normalizes one role subject without identifying its provider package.
+ *
+ * The returned reference remains the only value consumed by Access providers.
+ */
+export const resolveAccessRoleReference = (
+	subject: AccessRoleSubject,
+): AccessRoleReference => {
+	const candidate: unknown = subject
+	const reference: unknown =
+		candidate instanceof AccessSubjectReference
+			? candidate
+			: typeof candidate === 'object' &&
+				  candidate !== null &&
+				  'toAccessRoleReference' in candidate &&
+				  typeof candidate.toAccessRoleReference === 'function'
+				? candidate.toAccessRoleReference()
+				: undefined
+
+	if (
+		!(reference instanceof AccessSubjectReference) ||
+		reference.kind !== 'role' ||
+		typeof reference.value !== 'string'
+	) {
+		throw new TypeError(
+			'Access role subject must provide one string role reference',
+		)
+	}
+
+	return reference
+}
+
 /** Supplies one request-local subject lookup to a provider-owned resolver. */
 export interface AccessSubjectResolutionInput<TReference> {
 	readonly context: AccessContext

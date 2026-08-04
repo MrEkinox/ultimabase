@@ -14,6 +14,24 @@ export interface PointerJSON<TClassName extends string = string> {
 	readonly id: string
 }
 
+class PointerValueBrand {
+	// The hidden base prevents structural objects from satisfying PointerValue.
+	declare private readonly pointerValueIdentity: void
+}
+
+/**
+ * Erases only a Pointer's schema generic while retaining its nominal identity.
+ *
+ * Consumer APIs use this compact boundary when they need identity but do not
+ * inspect schema-specific fields or build a typed query.
+ */
+export interface PointerValue extends PointerValueBrand {
+	/** Returns the immutable framework-owned target identifier. */
+	readonly id: string
+	/** Serializes the schema-qualified identity without loading its object. */
+	toJSON(): Readonly<PointerJSON>
+}
+
 const pointerInstances = new WeakSet<object>()
 
 /**
@@ -24,11 +42,15 @@ const pointerInstances = new WeakSet<object>()
  * const author = new Pointer(User, "0198f090-2a50-7000-8000-000000000034")
  * ```
  */
-export class Pointer<TSchema extends SchemaDefinition = SchemaDefinition> {
+export class Pointer<
+	TSchema extends SchemaDefinition = SchemaDefinition,
+> extends PointerValueBrand {
 	readonly #schema: TSchema
 	readonly #id: string
 
 	constructor(schema: TSchema, id: string) {
+		super()
+
 		if (new.target !== Pointer) {
 			throw new TypeError('Pointer cannot be subclassed')
 		}

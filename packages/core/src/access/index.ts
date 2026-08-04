@@ -15,11 +15,14 @@ export type {
 export {
 	AccessSubjectReference,
 	accessRoleResolverServiceToken,
+	resolveAccessRoleReference,
 } from './subject/contracts.js'
 export type {
 	AccessRoleReference,
+	AccessRoleReferenceCarrier,
 	AccessRoleResolutionInput,
 	AccessRoleResolver,
+	AccessRoleSubject,
 	AccessSubjectResolutionInput,
 	AccessSubjectResolver,
 	AccessSubjectValue,

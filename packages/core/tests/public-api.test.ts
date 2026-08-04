@@ -116,6 +116,7 @@ describe('@ultimabase/core public entry point', () => {
 			'queryRelationPredicateMaxDepth',
 			'relationField',
 			'requestSources',
+			'resolveAccessRoleReference',
 			'restrictInput',
 			'restrictOutput',
 			'restrictSelection',

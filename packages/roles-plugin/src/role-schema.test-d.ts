@@ -3,6 +3,7 @@ import {
 	Schema,
 	intField,
 	stringField,
+	type AccessRoleReferenceCarrier,
 	type InferCreateInput,
 	type SchemaRelationTarget,
 } from '@ultimabase/core'
@@ -65,6 +66,9 @@ test('preserves exact role schema, member, draft, Query, and reference types', (
 		AppRole.query().ast.schema.definition.className,
 	).toEqualTypeOf<'TypedAppRole'>()
 	expectTypeOf(new AppRole({ name: 'editor' }).create).toBeFunction()
+	expectTypeOf<
+		Awaited<ReturnType<InstanceType<typeof AppRole>['create']>>
+	>().toExtend<AccessRoleReferenceCarrier>()
 	expectTypeOf(AppRole.role('editor').kind).toEqualTypeOf<'role'>()
 	expectTypeOf(
 		AppRole.role({ id: '123e4567-e89b-42d3-a456-426614174000' }).kind,
@@ -84,6 +88,7 @@ test('exposes exact member commands only on persisted role results', async () =>
 	void invalidDraftCommand
 
 	if (role !== null) {
+		expectTypeOf(role.toAccessRoleReference().kind).toEqualTypeOf<'role'>()
 		expectTypeOf(role).toHaveProperty('addMember')
 		expectTypeOf(role).toHaveProperty('removeMember')
 		void role.addMember(User.pointer('123e4567-e89b-42d3-a456-426614174000'))

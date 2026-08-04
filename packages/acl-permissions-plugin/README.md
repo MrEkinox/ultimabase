@@ -1,19 +1,19 @@
 # @ultimabase/acl-permissions-plugin
 
-Official `aclPlugin` Access provider, `acl()` schema extension, and immutable
-`ACL` class.
+Provides the immutable `ACL` class. This package will also own the planned
+`acl()` schema extension and `aclPlugin()` Access provider.
 
 ACL grants object-level `read`, `update`, `delete`, and `manageAcl` rights to
 public, authenticated, exact-principal, and role subjects. One ACL may contain
-any number of principals and roles. It contributes native Access filters, item
-checks, and field restrictions that compile into database filtering rather than
-post-filtering in memory.
+any number of principals and roles. The provider will contribute native Access
+filters, item checks, and field restrictions that compile into database
+filtering rather than post-filtering in memory.
 
-PostgreSQL stores the ACL as indexed JSONB on the protected row. Normal reads
-therefore require no ACL-table join, while the adapter still evaluates public,
-principal, and resolved-role grants inside SQL.
+PostgreSQL support will store the ACL as indexed JSONB on the protected row.
+Normal reads will therefore require no ACL-table join, while the adapter will
+still evaluate public, principal, and resolved-role grants inside SQL.
 
-The active implementation plan targets this API:
+The immutable ACL value currently supports this API:
 
 ```ts
 const value = new ACL()
@@ -23,7 +23,7 @@ const value = new ACL()
 	.grantRole(Editor, 'read', 'update')
 
 const updated = value.revokePrincipal(User.pointer(aliceId), 'read')
-const restored = ACL.fromJSON(updated.toJSON())
+updated.permissionsForRole(Editor)
 ```
 
 Create and update use the same ACL value. `acl()` may generate a default from
@@ -40,6 +40,5 @@ The extension also works on a developer-defined RoleSchema. Native RoleSchema
 Access controls creation, while each persisted role ACL may narrow reads,
 updates, member or nested-role mutations, deletion, and ACL management.
 
-This package is currently a placeholder. Follow the active
-[`CURRENT_PLAN.md`](../../CURRENT_PLAN.md) before treating the examples above as
-implemented exports.
+The `acl()` extension, `aclPlugin()`, JSON serialization, and PostgreSQL
+integration remain tracked by [`CURRENT_PLAN.md`](../../CURRENT_PLAN.md).

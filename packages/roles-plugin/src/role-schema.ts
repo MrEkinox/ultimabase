@@ -3,6 +3,7 @@ import {
 	Schema,
 	stringField,
 	defineSchemaExtension,
+	type AccessRoleReferenceCarrier,
 	type AccessContext,
 	type Pointer,
 	type RelationField,
@@ -209,15 +210,16 @@ export type RoleSchemaClass<
 		>
 	> &
 	SchemaResultCapabilityCarrier<
-		RoleMemberCommands<
-			RoleSchemaSelfDefinition<
-				TClassName,
-				TMemberSchema,
-				TCustomFields,
-				TExtensions
-			>,
-			TMemberSchema
-		> &
+		AccessRoleReferenceCarrier &
+			RoleMemberCommands<
+				RoleSchemaSelfDefinition<
+					TClassName,
+					TMemberSchema,
+					TCustomFields,
+					TExtensions
+				>,
+				TMemberSchema
+			> &
 			RoleHierarchyCommands<
 				RoleSchemaSelfDefinition<
 					TClassName,
@@ -422,20 +424,47 @@ export class RoleSchema {
 					)
 				}
 
+				const toAccessRoleReference = function (
+					this: object,
+				): RoleReference<SelfSchema, RoleIdSelector<string>> {
+					exactContext.assertPersisted(this, 'toAccessRoleReference')
+
+					if (!('id' in this) || typeof this.id !== 'string') {
+						throw new TypeError(
+							'Persisted role has no valid framework identifier',
+						)
+					}
+
+					// The neutral reference keeps ACL and other consumers independent from roles.
+					return createRoleReference(exactSchema, { id: this.id })
+				}
+				const resultCapabilities: AccessRoleReferenceCarrier &
+					RoleMemberCommands<SelfSchema, TMemberSchema> &
+					RoleHierarchyCommands<
+						SelfSchema,
+						RoleSchemaClass<
+							TClassName,
+							TMemberSchema,
+							TCustomFields,
+							TExtensions
+						>
+					> = {
+					toAccessRoleReference,
+					...createRoleMemberCommands(exactContext, options.members.schema),
+					...createRoleHierarchyCommands<
+						SelfSchema,
+						RoleSchemaClass<
+							TClassName,
+							TMemberSchema,
+							TCustomFields,
+							TExtensions
+						>
+					>(exactContext),
+				}
+
 				return {
 					statics: { role } satisfies RoleSchemaStatics<SelfSchema>,
-					results: {
-						...createRoleMemberCommands(exactContext, options.members.schema),
-						...createRoleHierarchyCommands<
-							SelfSchema,
-							RoleSchemaClass<
-								TClassName,
-								TMemberSchema,
-								TCustomFields,
-								TExtensions
-							>
-						>(exactContext),
-					},
+					results: resultCapabilities,
 				}
 			},
 		)

@@ -43,7 +43,7 @@ export type {
 	RelationMappedFieldName,
 } from './fields/builtins/relation.js'
 export { Pointer, snapshotPointerValue } from './relations/pointer.js'
-export type { PointerJSON } from './relations/pointer.js'
+export type { PointerJSON, PointerValue } from './relations/pointer.js'
 export { Relation } from './relations/relation.js'
 export type {
 	SchemaRelationFieldName,
