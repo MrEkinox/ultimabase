@@ -2,6 +2,7 @@ import {
 	definePlugin,
 	extensionHandlerKey,
 	isAccessReferenceCleanup,
+	onEvent,
 	Pointer,
 	accessRoleResolverServiceToken,
 	type HookContext,
@@ -29,6 +30,7 @@ import {
 import {
 	applyRoleDeletionPolicy,
 	assertSingularRoleDeletion,
+	roleDeletedEvent,
 	type NamedRoleReferenceCleanup,
 } from './role-deletion.js'
 import { createStoredRoleResolver } from './role-access.js'
@@ -194,6 +196,17 @@ export const rolesPlugin = (): RolesPlugin =>
 	definePlugin({
 		name: rolesPluginName,
 		setup: ({ hooks, registries, schemas, services }) => {
+			// Role notifications are optional; built-in sinks preserve standalone commands.
+			for (const eventName of [
+				roleDeletedEvent,
+				roleHierarchyChangedEvent,
+				roleMembershipChangedEvent,
+			]) {
+				registries.events.register(
+					`role-notification-boundary:${eventName}`,
+					onEvent({ name: eventName, handler: () => undefined }),
+				)
+			}
 			registries.extensions.register(
 				extensionHandlerKey('schema', roleSchemaExtensionName),
 				getRoleSchemaDeclaration,

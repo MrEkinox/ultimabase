@@ -1,0 +1,292 @@
+import { aclPostgresPlugin } from '@ultimabase/acl-postgres-plugin'
+import { ACL, acl, aclPlugin } from '@ultimabase/acl-permissions-plugin'
+import {
+	MasterAuthority,
+	RequestContext,
+	RequestContextValue,
+	Schema,
+	UltimaBase,
+	accessPrincipalResolverServiceToken,
+	definePlugin,
+	requestSources,
+	stringField,
+} from '@ultimabase/core'
+import { postgresPlugin, postgresTable } from '@ultimabase/postgres-plugin'
+import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+
+import {
+	createPostgresWorkerFixture,
+	type PostgresWorkerFixture,
+} from './postgres-worker-fixture.js'
+
+const PrincipalA = Schema.define({
+	className: 'ACLCompositionPrincipalA',
+	fields: {},
+})
+const PrincipalB = Schema.define({
+	className: 'ACLCompositionPrincipalB',
+	fields: {},
+})
+const principalId = new RequestContextValue<string>(
+	'fixture.acl-composition.principal-id',
+	(value: unknown): string => {
+		if (typeof value !== 'string' || value.length === 0) {
+			throw new TypeError('ACL composition principal id must be a string')
+		}
+
+		return value
+	},
+)
+const principalSchema = new RequestContextValue<'a' | 'b'>(
+	'fixture.acl-composition.principal-schema',
+	(value: unknown): 'a' | 'b' => {
+		if (value !== 'a' && value !== 'b') {
+			throw new TypeError('ACL composition principal schema must be a or b')
+		}
+
+		return value
+	},
+)
+
+const identityPlugin = definePlugin({
+	name: 'fixture.acl-composition.identity',
+	setup: ({ services }) => {
+		services.provide(accessPrincipalResolverServiceToken, {
+			resolveCurrent: ({ context }) => {
+				const id = context.getValue(principalId)
+
+				if (id === undefined) return undefined
+
+				return context.getValue(principalSchema) === 'b'
+					? PrincipalB.pointer(id)
+					: PrincipalA.pointer(id)
+			},
+		})
+	},
+})
+
+const emptyACL = new ACL()
+const Document = Schema.define({
+	className: 'ACLCompositionDocument',
+	access: {
+		filter: {
+			delete: ({ filter }) => filter.equalTo('nativeScope', 'allowed'),
+			read: ({ filter }) => filter.equalTo('nativeScope', 'allowed'),
+			update: ({ filter }) => filter.equalTo('nativeScope', 'allowed'),
+		},
+		operation: { create: true, delete: true, read: true, update: true },
+	},
+	fields: {
+		hookScope: stringField({ default: 'allowed' }),
+		nativeScope: stringField({ default: 'allowed' }),
+		secret: stringField({ access: { read: false } }),
+		title: stringField({
+			hooks: { resolveInput: ({ value }) => value.trim().toLowerCase() },
+			validation: { required: true },
+		}),
+	},
+	hooks: {
+		// The business transform must narrow the developer query after ACL compilation.
+		beforeFind: ({ query }) => query.equalTo('hookScope', 'allowed'),
+	},
+	extensions: [
+		acl({
+			default: ({ data, principal }) => {
+				const initial =
+					data.title === 'public' ? emptyACL.grantPublic('read') : emptyACL
+
+				return principal === undefined
+					? initial
+					: initial.grantPrincipal(principal, 'read', 'update', 'delete')
+			},
+			// Returning undefined on create deliberately delegates to the configured default.
+			resolveInput: ({ currentAcl, inputAcl }) => inputAcl ?? currentAcl,
+		}),
+		postgresTable({ name: 'acl_composition_documents' }),
+	],
+})
+
+const sharedPrincipalId = '0198a43e-2431-7000-8000-000000000610'
+let fixture: PostgresWorkerFixture | undefined
+let ultimabase:
+	| UltimaBase<
+			readonly [typeof PrincipalA, typeof PrincipalB, typeof Document],
+			readonly [
+				typeof identityPlugin,
+				ReturnType<typeof aclPlugin>,
+				ReturnType<typeof postgresPlugin>,
+				ReturnType<typeof aclPostgresPlugin>,
+			]
+	  >
+	| undefined
+
+const getApplication = (): NonNullable<typeof ultimabase> => {
+	if (ultimabase === undefined) {
+		throw new TypeError('ACL composition application has not started')
+	}
+
+	return ultimabase
+}
+
+const request = (
+	requestId: string,
+	schema: 'a' | 'b',
+	id = sharedPrincipalId,
+): RequestContext =>
+	RequestContext.anonymous({
+		requestId,
+		source: requestSources.internal,
+	})
+		.withValue(principalId, id)
+		.withValue(principalSchema, schema)
+
+beforeAll(async () => {
+	fixture = await createPostgresWorkerFixture()
+	ultimabase = new UltimaBase({
+		masterAuthority: new MasterAuthority({
+			keys: [{ id: 'acl-composition-e2e', value: 'server-only' }],
+			onUse: () => undefined,
+		}),
+		plugins: [
+			identityPlugin,
+			aclPlugin(),
+			postgresPlugin({
+				schemaPolicy: 'override',
+				url: fixture.connectionUri,
+			}),
+			aclPostgresPlugin(),
+		],
+		schemas: [PrincipalA, PrincipalB, Document],
+	})
+	await ultimabase.start()
+}, 30_000)
+
+afterAll(async () => {
+	await ultimabase?.dispose()
+	await fixture?.dispose()
+})
+
+describe(
+	'complete ACL composition with PostgreSQL',
+	{ concurrent: false },
+	() => {
+		it('derives defaults from resolved input and the exact current principal', async () => {
+			const app = getApplication()
+			const alice = request('acl-composition-default', 'a')
+			const owned = await Document.query().create(
+				{ secret: 'private', title: '  Owned  ' },
+				{ context: alice, ultimabase: app },
+			)
+			const publicDocument = await Document.query().create(
+				{ secret: 'public-secret', title: '  PUBLIC  ' },
+				{ ultimabase: app },
+			)
+			const persisted = await Document.query()
+				.byId(owned.id)
+				.select('acl', 'title')
+				.first({ ultimabase: app, useMasterKey: true })
+
+			expect(owned.title).toBe('owned')
+			expect(owned).not.toHaveProperty('acl')
+			expect(owned).not.toHaveProperty('secret')
+			expect(persisted?.title).toBe('owned')
+			expect(persisted?.acl.toJSON()).toStrictEqual(
+				new ACL()
+					.grantPrincipal(
+						PrincipalA.pointer(sharedPrincipalId),
+						'read',
+						'update',
+						'delete',
+					)
+					.toJSON(),
+			)
+			await expect(
+				Document.query().byId(publicDocument.id).exists({ ultimabase: app }),
+			).resolves.toBe(true)
+		})
+
+		it('keeps schema-qualified principals distinct while intersecting every SQL scope', async () => {
+			const app = getApplication()
+			const alice = request('acl-composition-a', 'a')
+			const otherSchema = request('acl-composition-b', 'b')
+			await Document.query().createMany(
+				[
+					{
+						acl: new ACL().grantPrincipal(
+							PrincipalA.pointer(sharedPrincipalId),
+							'read',
+						),
+						secret: 'a',
+						title: 'principal-a',
+					},
+					{
+						acl: new ACL().grantPrincipal(
+							PrincipalB.pointer(sharedPrincipalId),
+							'read',
+						),
+						secret: 'b',
+						title: 'principal-b',
+					},
+					{
+						acl: new ACL().grantPrincipal(
+							PrincipalA.pointer(sharedPrincipalId),
+							'read',
+						),
+						nativeScope: 'denied',
+						secret: 'native',
+						title: 'native-denied',
+					},
+					{
+						acl: new ACL().grantPrincipal(
+							PrincipalA.pointer(sharedPrincipalId),
+							'read',
+						),
+						hookScope: 'denied',
+						secret: 'hook',
+						title: 'hook-denied',
+					},
+				],
+				{ ultimabase: app, useMasterKey: true },
+			)
+
+			const visibleTitles = (context: RequestContext) =>
+				Document.query()
+					.equalTo(
+						'title',
+						context.getValue(principalSchema) === 'b'
+							? 'principal-b'
+							: 'principal-a',
+					)
+					.after()
+					.limit(10)
+					.select('title')
+					.find({ context, ultimabase: app })
+					.then((rows) => rows.map(({ title }) => title))
+
+			await expect(visibleTitles(alice)).resolves.toStrictEqual(['principal-a'])
+			await expect(visibleTitles(otherSchema)).resolves.toStrictEqual([
+				'principal-b',
+			])
+			await expect(
+				Document.query()
+					.equalTo('title', 'native-denied')
+					.exists({ context: alice, ultimabase: app }),
+			).resolves.toBe(false)
+			await expect(
+				Document.query()
+					.equalTo('title', 'hook-denied')
+					.count({ context: alice, ultimabase: app }),
+			).resolves.toBe(0)
+			await expect(
+				Document.query()
+					.select('secret')
+					.find({ context: alice, ultimabase: app }),
+			).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
+			await expect(
+				Document.query()
+					.select('acl')
+					.find({ context: alice, ultimabase: app }),
+			).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
+		})
+	},
+)

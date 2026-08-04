@@ -121,6 +121,7 @@ Accepted records:
 - [ADR-0125: Dedicated ACL and PostgreSQL integration plugin](0125-dedicated-acl-postgres-integration-plugin.md)
 - [ADR-0126: Transactional ACL subject-reference cleanup](0126-transactional-acl-reference-cleanup.md)
 - [ADR-0127: Committed ACL change events](0127-committed-acl-change-events.md)
+- [ADR-0128: Explicit master bypass for policy-neutral enforcement](0128-explicit-master-enforcement-bypass.md)
 
 Superseded records:
 

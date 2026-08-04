@@ -59,6 +59,11 @@ interface EnforcementOptions<
 	 */
 	readonly operations?: TOperations
 	/**
+	 * Selects whether trusted master execution skips this contribution entirely.
+	 * Omission keeps the contribution enforced so bypass stays explicit per provider.
+	 */
+	readonly master?: 'bypass' | 'enforce'
+	/**
 	 * Evaluates trusted context and exact operation data without receiving another
 	 * plugin's accumulated enforcement state.
 	 */
@@ -201,6 +206,7 @@ type ErasedEnforcementHandler = (
 /** Supplies Runtime with the handler paired to a validated public definition. */
 export interface EnforcementContributionImplementation {
 	readonly kind: EnforcementContributionKind
+	readonly master: 'bypass' | 'enforce'
 	readonly schema: SchemaDefinition | undefined
 	readonly operations: readonly OperationKind[] | undefined
 	run(
@@ -213,7 +219,7 @@ const implementations = new WeakMap<
 	EnforcementContributionImplementation
 >()
 const databaseConstraintNodes = new WeakSet<object>()
-const optionKeys = new Set(['handler', 'operations', 'schema'])
+const optionKeys = new Set(['handler', 'master', 'operations', 'schema'])
 
 /** Detaches portable payload data so retained caller references cannot alter a plan. */
 const snapshotDatabaseConstraintPayload = (
@@ -317,6 +323,16 @@ const assertOptions = (options: unknown): void => {
 		throw new TypeError('enforcement contribution handler must be a function')
 	}
 
+	if (
+		options.master !== undefined &&
+		options.master !== 'bypass' &&
+		options.master !== 'enforce'
+	) {
+		throw new TypeError(
+			'enforcement contribution master must be bypass or enforce',
+		)
+	}
+
 	if (options.schema !== undefined && !Schema.is(options.schema)) {
 		throw new TypeError(
 			'enforcement contribution schema must be a schema definition',
@@ -348,6 +364,7 @@ const defineEnforcement = <
 		definition,
 		immutableRecord({
 			kind,
+			master: options.master ?? 'enforce',
 			operations,
 			run: (input) => handler(input),
 			schema: options.schema,

@@ -636,7 +636,16 @@ const computeStaticSelection = (
 	plan: AccessPlan,
 	schemaPlan: SchemaAccessPlan,
 ): readonly string[] | undefined => {
-	const topLevel = schemaPlan.fields.filter((field) => field.path.length === 1)
+	const topLevel = schemaPlan.fields.filter((field) => {
+		if (field.path.length !== 1) return false
+
+		const [fieldName] = field.path
+		const definition =
+			fieldName === undefined ? undefined : schemaPlan.schema.fields[fieldName]
+
+		// Relations remain Access-controlled handles but never become row projections.
+		return definition?.kind !== 'relation'
+	})
 	const permitted = immutableArray(
 		topLevel
 			.filter((field) => {

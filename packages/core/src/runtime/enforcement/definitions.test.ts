@@ -42,6 +42,25 @@ describe('policy-neutral enforcement definitions', () => {
 		expect(handler).toHaveBeenCalledOnce()
 	})
 
+	it('keeps explicit master behavior private beside executable handlers', () => {
+		const bypassed = constraint({
+			handler: () => databaseConstraint('fixture.master', 1, {}),
+			master: 'bypass',
+		})
+		const enforced = guard({ handler: () => undefined })
+
+		expect(bypassed).not.toHaveProperty('master')
+		expect(getEnforcementContributionImplementation(bypassed)?.master).toBe(
+			'bypass',
+		)
+		expect(getEnforcementContributionImplementation(enforced)?.master).toBe(
+			'enforce',
+		)
+		expect(() =>
+			guard({ handler: () => undefined, master: 'invalid' as never }),
+		).toThrow('enforcement contribution master must be bypass or enforce')
+	})
+
 	it('creates every generic category without attaching plugin provenance', () => {
 		const definitions = [
 			constraint({

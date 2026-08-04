@@ -7,7 +7,7 @@ objective changes.
 
 ## Active
 
-- [Persisted object ACL](../../CURRENT_PLAN.md)
+- None. The next multi-issue objective has not been selected yet.
 
 ## Completed
 
@@ -16,3 +16,4 @@ objective changes.
 - [Fundamental Access system](completed/fundamental-access-system.md)
 - [Transport-neutral pointers and relations](completed/transport-neutral-relations.md)
 - [Developer-defined stored roles](completed/developer-defined-stored-roles.md)
+- [Persisted object ACL](completed/persisted-object-acl.md)

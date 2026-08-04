@@ -6,7 +6,12 @@ import {
 	type UpdateManyOperationAst,
 	type UpdateOneOperationAst,
 } from '../../query/index.js'
-import { Schema, booleanField, stringField } from '../../schema/index.js'
+import {
+	Schema,
+	booleanField,
+	relationField,
+	stringField,
+} from '../../schema/index.js'
 import { describe, expect, it, vi } from 'vitest'
 
 import { createEnforcementStages } from '../enforcement/dispatcher.js'
@@ -82,6 +87,44 @@ const createFind = (
 })
 
 describe('NativeAccessRuntime', () => {
+	it('never materializes relation handles when field Access narrows select-all', async () => {
+		const target = Schema.define({
+			className: 'NativeAccessSelectionTarget',
+			fields: { label: stringField() },
+		})
+		const source = Schema.define({
+			className: 'NativeAccessSelectionSource',
+			fields: {
+				denied: stringField({ access: { read: false } }),
+				targets: relationField({ target: () => target }),
+				title: stringField(),
+			},
+		})
+		const application = await createApplication({
+			schemas: [source, target],
+			plugins: [],
+		})
+		const stages = requireStages(createEnforcementStages(application))
+		const operation = {
+			kind: 'find',
+			query: new Query(source).ast,
+		} as const
+		const enforcement = await stages.evaluate({ context, operation })
+		const enforced = await stages.enforceOperation({
+			context,
+			enforcement,
+			operation,
+		})
+		const selected = enforced.operation.query.selection.fields.map(
+			({ field }) => field,
+		)
+
+		expect(selected).toContain('title')
+		expect(selected).not.toContain('denied')
+		expect(selected).not.toContain('targets')
+		await application.dispose()
+	})
+
 	it('dispatches exact read kinds and keeps row filters outside the Query AST', async () => {
 		accessTrace.length = 0
 		const application = await createApplication({

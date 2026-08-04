@@ -12,7 +12,11 @@ import {
 import { Schema, stringField } from '../../schema/index.js'
 import { describe, expect, it, vi } from 'vitest'
 
-import { RequestContext, requestSources } from '../context/request-context.js'
+import {
+	RequestContext,
+	createTrustedMasterRequestContext,
+	requestSources,
+} from '../context/request-context.js'
 import type { RuntimeEnforcementStages } from '../pipeline/contracts.js'
 import {
 	constraint,
@@ -63,6 +67,49 @@ const requireEnforcementStages = (
 }
 
 describe('createEnforcementStages', () => {
+	it('skips only contributions that explicitly declare trusted master bypass', async () => {
+		const trace: string[] = []
+		const plugin = definePlugin({
+			name: 'fixture.enforcement-master-behavior',
+			setup: ({ registries }) => {
+				registries.hooks.register(
+					'fixture.master-bypassed',
+					guard({
+						handler: () => {
+							trace.push('bypassed')
+						},
+						master: 'bypass',
+					}),
+				)
+				registries.hooks.register(
+					'fixture.master-enforced',
+					guard({
+						handler: () => {
+							trace.push('enforced')
+						},
+					}),
+				)
+			},
+		})
+		const application = await createApplication({
+			schemas: [articleSchema],
+			plugins: [plugin],
+		})
+		const stages = requireEnforcementStages(
+			createEnforcementStages(application),
+		)
+		const master = createTrustedMasterRequestContext(
+			'policy bypass test',
+			'fixture-key',
+			context,
+		)
+		const operation = createOperation()
+
+		await stages.evaluate({ context: master, operation })
+		expect(trace).toStrictEqual(['enforced'])
+		await application.dispose()
+	})
+
 	it('installs native Access even when no plugin contributes enforcement', async () => {
 		const application = await createApplication({
 			schemas: [articleSchema],

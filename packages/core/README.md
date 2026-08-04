@@ -832,6 +832,9 @@ monotonically and reapplies input and selection limits after operation
 transforms. It evaluates output restrictions once against the fully transformed
 result. No policy
 contribution means no enforcement stage or permission placeholder.
+Each definition may opt into `master: "bypass"`; omission enforces it for
+master too, so trusted provider-internal queries skip only explicitly bypassable
+policy work before hook-recursion checks.
 
 ADR-0116 retains these guarantees as Access's low-level implementation layer.
 After issues 401 and 416–419, official permission providers register native

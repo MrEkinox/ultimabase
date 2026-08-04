@@ -750,21 +750,38 @@ export const aclPlugin = (options: ACLPluginOptions = {}): ACLPlugin => {
 					}),
 				)
 				registries.hooks.register(
-					`acl-rows:${schema.className}`,
+					`acl-reference-rows:${schema.className}`,
 					constraint<
 						typeof schema,
 						typeof aclConstraintOperationKinds,
 						ACLDatabaseConstraint
 					>({
-						handler: async ({ context, operation }) => {
-							assertSingularACLReplacement(operation)
+						handler: () => {
 							const referenceSubject = getACLReferenceScope(schema)
 
 							if (referenceSubject !== undefined) {
 								return createACLReferenceConstraint(referenceSubject)
 							}
 
-							if (context.access.mode === 'master') return immutableArray([])
+							return immutableArray([])
+						},
+						operations: aclConstraintOperationKinds,
+						schema,
+					}),
+				)
+				registries.hooks.register(
+					`acl-rows:${schema.className}`,
+					constraint<
+						typeof schema,
+						typeof aclConstraintOperationKinds,
+						ACLDatabaseConstraint
+					>({
+						handler: async ({ operation }) => {
+							assertSingularACLReplacement(operation)
+
+							if (getACLReferenceScope(schema) !== undefined) {
+								return immutableArray([])
+							}
 
 							const subjects = await resolveSubjects()
 
@@ -772,6 +789,7 @@ export const aclPlugin = (options: ACLPluginOptions = {}): ACLPlugin => {
 								createACLRowConstraint(permission, subjects),
 							)
 						},
+						master: 'bypass',
 						operations: aclConstraintOperationKinds,
 						schema,
 					}),

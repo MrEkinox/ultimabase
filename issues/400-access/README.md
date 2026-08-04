@@ -66,10 +66,10 @@ The completed stored-role objective is recorded in its
 6. [406 — Integrate stored roles with native Access](406-role-access-integration.md)
 7. [423 — Verify the complete stored-role vertical](423-role-postgres-e2e.md)
 
-## Remaining execution order
+## Completed persisted-object ACL execution order
 
-The active persisted-object ACL vertical is tracked in
-[`CURRENT_PLAN.md`](../../CURRENT_PLAN.md) and continues with:
+The completed persisted-object ACL vertical is recorded in its
+[archived plan](../../docs/plans/completed/persisted-object-acl.md):
 
 1. [409 — Implement immutable ACL class](409-acl-class.md)
 2. [424 — Add versioned ACL JSON serialization](424-acl-json-serialization.md)
@@ -94,8 +94,8 @@ The completed
 treats every role domain as one developer-defined `RoleSchema` tied to an exact member schema. The
 option-light roles plugin discovers those declarations, while ordinary schema
 configuration owns custom fields, indexes, Access, hooks, and Query behavior.
-ACL remains independently implementable against the neutral contracts from
-issue 420 and must not import the official roles package.
+ACL is implemented independently against the neutral contracts from issue 420
+and does not import the official roles package.
 
 ADR-0122 freezes the immutable class API, optional principal bridge, versioned
 JSON, row-aware defaults, shared create/update input resolution, entry limits,

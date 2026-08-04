@@ -93,7 +93,9 @@ const ProtectedPost = Schema.define({
 const aliceId = '0198a43e-2431-7000-8000-000000000070'
 const bobId = '0198a43e-2431-7000-8000-000000000071'
 const editorRoleId = 'fixture-role-editor-stable-id'
+const reviewerRoleId = 'fixture-role-reviewer-stable-id'
 const editorRole = new AccessSubjectReference('role', editorRoleId)
+const reviewerRole = new AccessSubjectReference('role', reviewerRoleId)
 
 let fixture: PostgresWorkerFixture | undefined
 let ultimabase:
@@ -175,6 +177,14 @@ beforeAll(async () => {
 				acl: new ACL().grantRole(editorRole, 'read', 'update', 'delete'),
 				title: 'editor',
 			},
+			{
+				acl: new ACL()
+					.grantPrincipal(Principal.pointer(aliceId), 'read')
+					.grantPrincipal(Principal.pointer(bobId), 'read')
+					.grantRole(editorRole, 'read', 'update')
+					.grantRole(reviewerRole, 'read'),
+				title: 'shared',
+			},
 			{ acl: new ACL(), title: 'denied' },
 		],
 		{ ultimabase, useMasterKey: true },
@@ -199,6 +209,9 @@ describe('ACL PostgreSQL Access constraints', { concurrent: false }, () => {
 		const editor = request('acl-editor').withValue(currentRoleIds, [
 			editorRoleId,
 		])
+		const reviewer = request('acl-reviewer').withValue(currentRoleIds, [
+			reviewerRoleId,
+		])
 		const visibleTitles = (context: RequestContext) =>
 			ProtectedPost.query()
 				.ascending('title')
@@ -211,19 +224,26 @@ describe('ACL PostgreSQL Access constraints', { concurrent: false }, () => {
 			'alice',
 			'authenticated',
 			'public',
+			'shared',
 		])
 		await expect(visibleTitles(bob)).resolves.toStrictEqual([
 			'authenticated',
 			'bob',
 			'public',
+			'shared',
 		])
 		await expect(visibleTitles(editor)).resolves.toStrictEqual([
 			'editor',
 			'public',
+			'shared',
+		])
+		await expect(visibleTitles(reviewer)).resolves.toStrictEqual([
+			'public',
+			'shared',
 		])
 		await expect(
 			ProtectedPost.query().count({ context: alice, ultimabase: app }),
-		).resolves.toBe(3)
+		).resolves.toBe(4)
 		await expect(
 			ProtectedPost.query()
 				.equalTo('title', 'denied')
@@ -275,6 +295,6 @@ describe('ACL PostgreSQL Access constraints', { concurrent: false }, () => {
 		).resolves.toMatchObject({ title: 'editor' })
 		await expect(
 			ProtectedPost.query().count({ ultimabase: app, useMasterKey: true }),
-		).resolves.toBe(4)
+		).resolves.toBe(5)
 	})
 })

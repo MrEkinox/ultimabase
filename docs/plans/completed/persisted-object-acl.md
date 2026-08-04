@@ -1,11 +1,11 @@
-# Current plan: persisted object ACL
+# Completed plan: persisted object ACL
 
-- Status: active
+- Status: completed
 - Started: 2026-08-04
+- Completed: 2026-08-04
 - Objective owner: `@ultimabase/acl-permissions-plugin`, `@ultimabase/acl-postgres-plugin`, `@ultimabase/core`, `@ultimabase/postgres-plugin`
-- Governing decisions: [ADR-0005](docs/adr/0005-immutable-class-api.md), [ADR-0113](docs/adr/0113-plugin-owned-authentication-context.md), [ADR-0116](docs/adr/0116-fundamental-access-system.md), [ADR-0117](docs/adr/0117-optional-access-subject-capabilities.md), [ADR-0119](docs/adr/0119-developer-defined-role-schemas.md), [ADR-0122](docs/adr/0122-immutable-persisted-object-acls.md), [ADR-0123](docs/adr/0123-master-only-acl-management.md), [ADR-0125](docs/adr/0125-dedicated-acl-postgres-integration-plugin.md), [ADR-0126](docs/adr/0126-transactional-acl-reference-cleanup.md)
-- Previous completed objective: [Developer-defined stored roles](docs/plans/completed/developer-defined-stored-roles.md)
-- Resume point: issue 427
+- Governing decisions: [ADR-0005](../../adr/0005-immutable-class-api.md), [ADR-0113](../../adr/0113-plugin-owned-authentication-context.md), [ADR-0116](../../adr/0116-fundamental-access-system.md), [ADR-0117](../../adr/0117-optional-access-subject-capabilities.md), [ADR-0119](../../adr/0119-developer-defined-role-schemas.md), [ADR-0122](../../adr/0122-immutable-persisted-object-acls.md), [ADR-0123](../../adr/0123-master-only-acl-management.md), [ADR-0125](../../adr/0125-dedicated-acl-postgres-integration-plugin.md), [ADR-0126](../../adr/0126-transactional-acl-reference-cleanup.md), [ADR-0128](../../adr/0128-explicit-master-enforcement-bypass.md)
+- Previous completed objective: [Developer-defined stored roles](developer-defined-stored-roles.md)
 
 ## Objective
 
@@ -109,30 +109,30 @@ never imports or identifies that plugin.
 
 ### Phase 1 — Immutable public value
 
-1. [x] [409 — Implement the immutable ACL class](issues/400-access/409-acl-class.md)
-2. [x] [424 — Add versioned ACL JSON serialization](issues/400-access/424-acl-json-serialization.md)
+1. [x] [409 — Implement the immutable ACL class](../../../issues/400-access/409-acl-class.md)
+2. [x] [424 — Add versioned ACL JSON serialization](../../../issues/400-access/424-acl-json-serialization.md)
 
 ### Phase 2 — Optional identity and schema configuration
 
-3. [x] [425 — Define the neutral current-principal resolver](issues/400-access/425-current-principal-resolver.md)
-4. [x] [410 — Implement the ACL schema extension](issues/400-access/410-acl-schema-extension.md)
+3. [x] [425 — Define the neutral current-principal resolver](../../../issues/400-access/425-current-principal-resolver.md)
+4. [x] [410 — Implement the ACL schema extension](../../../issues/400-access/410-acl-schema-extension.md)
 
 ### Phase 3 — Native Access and PostgreSQL
 
-5. [x] [411 — Implement aclPlugin Access contributions](issues/400-access/411-acl-plugin.md)
-6. [x] [428 — Enforce configurable ACL entry limits](issues/400-access/428-acl-entry-limits.md)
-7. [x] [510 — Store ACL in indexed JSONB columns](issues/500-postgres/510-acl-jsonb-storage.md)
-8. [x] [509 — Compile PostgreSQL ACL constraints](issues/500-postgres/509-postgres-access-compilers.md)
+5. [x] [411 — Implement aclPlugin Access contributions](../../../issues/400-access/411-acl-plugin.md)
+6. [x] [428 — Enforce configurable ACL entry limits](../../../issues/400-access/428-acl-entry-limits.md)
+7. [x] [510 — Store ACL in indexed JSONB columns](../../../issues/500-postgres/510-acl-jsonb-storage.md)
+8. [x] [509 — Compile PostgreSQL ACL constraints](../../../issues/500-postgres/509-postgres-access-compilers.md)
 
 ### Phase 4 — Lifecycle and composition
 
-9. [x] [426 — Integrate ACL subject-reference cleanup](issues/400-access/426-acl-reference-cleanup.md)
-10. [x] [412 — Emit committed ACL change events](issues/400-access/412-acl-hooks-events.md)
-11. [x] [415 — Verify Access-provider composition](issues/400-access/415-access-plugin-composition.md)
+9. [x] [426 — Integrate ACL subject-reference cleanup](../../../issues/400-access/426-acl-reference-cleanup.md)
+10. [x] [412 — Emit committed ACL change events](../../../issues/400-access/412-acl-hooks-events.md)
+11. [x] [415 — Verify Access-provider composition](../../../issues/400-access/415-access-plugin-composition.md)
 
 ### Phase 5 — Complete public proof
 
-12. [ ] [427 — Verify the complete ACL PostgreSQL vertical](issues/400-access/427-acl-postgres-e2e.md)
+12. [x] [427 — Verify the complete ACL PostgreSQL vertical](../../../issues/400-access/427-acl-postgres-e2e.md)
 
 ## Completion gate
 
@@ -144,3 +144,15 @@ never imports or identifies that plugin.
   and packed-package checks pass.
 - The package README and Access concept documentation show only implemented
   public syntax when the plan is archived.
+
+## Final verification
+
+- All 307 unit and type-test files passed with 1,839 runtime tests and no type
+  errors.
+- All 27 root E2E files passed with 131 tests, including 23 ACL-focused tests
+  against live worker-isolated PostgreSQL through Testcontainers.
+- Lint, formatting, dependency constraints, build, package publication checks,
+  and packed-export tests passed.
+- PostgreSQL plans use each row's indexed ACL JSONB value without an ACL join;
+  pointer, relation, bulk, cursor, RoleSchema, rollback, and application
+  isolation paths use the same native Access and Runtime boundaries.

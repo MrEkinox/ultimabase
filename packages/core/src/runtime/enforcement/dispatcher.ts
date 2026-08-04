@@ -223,6 +223,8 @@ const evaluateContributions = async <
 		const { contribution, implementation } = owned
 		if (
 			implementation.kind === 'restrictOutput' ||
+			(input.context.access.mode === 'master' &&
+				implementation.master === 'bypass') ||
 			!matchesEnforcementContribution(implementation, input.operation, schema)
 		) {
 			continue
@@ -538,6 +540,8 @@ const enforceResult = async <const TOperation extends DatabaseOperationAst>(
 		const { contribution, implementation } = owned
 		if (
 			implementation.kind !== 'restrictOutput' ||
+			(input.context.access.mode === 'master' &&
+				implementation.master === 'bypass') ||
 			!matchesEnforcementContribution(implementation, input.operation, schema)
 		) {
 			continue

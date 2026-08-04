@@ -122,6 +122,11 @@ when the hook registry contains none. An optional `MasterAuthority` may be
 supplied to `createFrameworkEngine` without changing the trusted master
 boundary.
 
+Low-level enforcement is applied to master by default. A provider may declare
+`master: "bypass"` on one definition when its audited master contract requires
+Runtime to skip that contribution before invocation, including trusted nested
+provider queries that would otherwise re-enter the same policy hook.
+
 ## Policy-neutral monotonic enforcement
 
 These factories are the low-level security foundation. Native schema and field

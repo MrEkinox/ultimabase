@@ -5,9 +5,8 @@ The issue backlog is the executable roadmap. This document only describes milest
 ## Current execution priority
 
 The Runtime-to-PostgreSQL vertical, native hook lifecycle, fundamental Access,
-transport-neutral relations, and developer-defined stored roles are complete.
-The current priority is implementing persisted object ACL on top of native
-Access and the completed neutral role-subject capability.
+transport-neutral relations, developer-defined stored roles, and persisted
+object ACL are complete. The next multi-issue priority has not been selected.
 
 Completed cross-milestone plans are retained under
 [`docs/plans/completed/`](docs/plans/completed/) so their decisions remain

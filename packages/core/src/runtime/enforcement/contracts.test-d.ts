@@ -36,6 +36,7 @@ test('preserves exact schemas, operation kinds, constraints, and results', () =>
 	})
 
 	constraint({
+		master: 'bypass',
 		schema: postSchema,
 		operations: ['find'],
 		handler: ({ operation }) => {
@@ -45,6 +46,12 @@ test('preserves exact schemas, operation kinds, constraints, and results', () =>
 
 			return databaseConstraint('fixture.tenant', 1, { tenantId: 'tenant-1' })
 		},
+	})
+
+	constraint({
+		handler: () => databaseConstraint('fixture.master', 1, {}),
+		// @ts-expect-error -- Master behavior is a closed explicit policy.
+		master: 'skip',
 	})
 
 	restrictOutput({
