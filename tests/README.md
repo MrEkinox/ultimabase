@@ -28,6 +28,10 @@ upsert persistence. `native-hooks-postgres.postgres.e2e.test.ts` adds the live
 native schema, field, plugin, policy, rollback, output, and post-commit vertical.
 `pointer-postgres.postgres.e2e.test.ts` proves pointer CRUD, inclusion, Access,
 hooks, atomicity, circular targets, and referential actions against PostgreSQL.
+`relation-postgres.postgres.e2e.test.ts` proves owning and inverse relations,
+all edge mutations, predicates, target Access, hooks, rollback, and cleanup.
+`explicit-relationship-postgres.postgres.e2e.test.ts` proves that business-data
+edges remain ordinary schemas with composite uniqueness and transactions.
 These suites use only built public package exports and worker-isolated schemas
 without transport plugins.
 

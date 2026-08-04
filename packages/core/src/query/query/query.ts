@@ -562,7 +562,12 @@ export class Query<
 		)
 	}
 
-	/** Requires at least one related object to satisfy an exact target predicate. */
+	/**
+	 * Requires at least one related object to satisfy an exact target predicate.
+	 * The callback can only build filters for the relation's target schema.
+	 *
+	 * @example `Post.query().some('tags', (tag) => tag.equalTo('label', 'typed'))`
+	 */
 	some<TFieldName extends SchemaRelationFieldName<TSchema>>(
 		fieldName: TFieldName,
 		predicate: (
@@ -574,7 +579,12 @@ export class Query<
 		)
 	}
 
-	/** Requires no related object to satisfy an exact target predicate. */
+	/**
+	 * Requires no related object to satisfy an exact target predicate.
+	 * An empty relationship satisfies this quantifier.
+	 *
+	 * @example `Post.query().none('tags', (tag) => tag.equalTo('label', 'blocked'))`
+	 */
 	none<TFieldName extends SchemaRelationFieldName<TSchema>>(
 		fieldName: TFieldName,
 		predicate: (
@@ -586,7 +596,12 @@ export class Query<
 		)
 	}
 
-	/** Requires every related object to satisfy an exact target predicate. */
+	/**
+	 * Requires every visible related object to satisfy an exact target predicate.
+	 * An empty relationship satisfies this quantifier.
+	 *
+	 * @example `Post.query().every('tags', (tag) => tag.equalTo('active', true))`
+	 */
 	every<TFieldName extends SchemaRelationFieldName<TSchema>>(
 		fieldName: TFieldName,
 		predicate: (

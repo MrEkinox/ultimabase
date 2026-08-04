@@ -511,10 +511,37 @@ const authorName = await author.query().select('name').first({ ultimabase })
 
 Inclusion nodes and pointer predicates contain only logical paths such as
 `author`; foreign-key columns such as `authorId` are adapter concerns. This
-issue defines and types the portable inclusion AST. Runtime expansion is added
-by issue 738, so executing a query that contains an inclusion currently fails
+portable inclusion AST executes through Runtime's source-field and target
+Access lifecycle. An adapter without the required versioned capability fails
 explicitly instead of returning an unexpanded Pointer under an included type.
 To-many relations remain independently queried and paginated.
+
+## Relation predicates
+
+Source Queries filter to-many edges through the exact target schema without
+loading the target collection:
+
+```ts
+const visiblePosts = UserSchema.query()
+	.some('posts', (post) =>
+		post
+			.equalTo('published', true)
+			.some('tags', (tag) => tag.equalTo('label', 'typescript')),
+	)
+	.none('posts', (post) => post.equalTo('status', 'blocked'))
+```
+
+`some` requires one matching visible target. `none` requires no matching target.
+`every` requires every visible target to match and is true for an empty
+relationship. The callback receives `RelationPredicate<TTarget>`, which offers
+only typed filters and nested quantifiers—no selection, ordering, pagination,
+terminal, or authority method.
+
+Each predicate is an immutable portable Query AST node with bounded nesting.
+Runtime associates it with a separate monotonic target Access scope, so a
+source `beforeFind` hook cannot observe or remove target restrictions. Database
+adapters must advertise relation-predicate support; PostgreSQL compiles the
+tree into correlated parameterized `EXISTS` expressions.
 
 ## Opaque cursors
 

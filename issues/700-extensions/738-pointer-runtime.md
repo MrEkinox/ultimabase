@@ -1,6 +1,6 @@
 # 738: Execute pointer reads and inclusion through Runtime
 
-- Status: completed
+- Status: done
 - Milestone: 7+
 - Packages: `@ultimabase/core`
 - Depends on: 418, 702, 737

@@ -1,7 +1,8 @@
 # Current plan: transport-neutral pointers and relations
 
-- Status: active
+- Status: completed
 - Prepared: 2026-08-03
+- Completed: 2026-08-04
 - Objective owner: `@ultimabase/core`, `@ultimabase/postgres`
 - Governing decisions: [ADR-0004](docs/adr/0004-one-operation-engine.md), [ADR-0055](docs/adr/0055-deterministic-query-clause-normalization.md), [ADR-0063](docs/adr/0063-portable-database-adapter-boundary.md), [ADR-0099](docs/adr/0099-automatic-mutation-transactions.md), [ADR-0109](docs/adr/0109-constructible-schema-models.md), [ADR-0115](docs/adr/0115-immutable-model-commands.md), [ADR-0116](docs/adr/0116-fundamental-access-system.md), [ADR-0118](docs/adr/0118-transport-neutral-relations.md)
 - Previous completed objective: [Fundamental Access system](docs/plans/completed/fundamental-access-system.md)
@@ -133,7 +134,7 @@ incomplete.
 ### Phase 4 — Explicit edges and final proof
 
 12. [x] [746 — Document explicit relationship models](issues/700-extensions/746-explicit-relationship-models.md)
-13. [ ] [747 — Verify and audit the complete relations vertical](issues/700-extensions/747-relations-postgres-e2e.md)
+13. [x] [747 — Verify and audit the complete relations vertical](issues/700-extensions/747-relations-postgres-e2e.md)
 
 ## Resume protocol
 
@@ -151,7 +152,8 @@ When resuming after context loss:
 
 ## Current issue
 
-[747 — Verify and audit the complete relations vertical](issues/700-extensions/747-relations-postgres-e2e.md) is `ready`.
+No relation issue remains. The objective is completed and preserved in
+[the completed plan](docs/plans/completed/transport-neutral-relations.md).
 
 ## Progress log
 
@@ -167,3 +169,4 @@ When resuming after context loss:
 - 744 added deterministic PostgreSQL join storage, inverse traversal, private relation predicates, atomic edge mutations, schema synchronization, Access enforcement, cleanup, and Docker-backed integration proof.
 - 745 added exact filter-only relation quantifiers, bounded nested AST nodes, monotonic target Access scopes, parameterized correlated PostgreSQL `EXISTS` compilation, and live topology proof.
 - 746 proved that business-data edges need no special storage API: an ordinary two-pointer schema retains exact inference, composite uniqueness, Access, hooks, referential actions, and transaction rollback.
+- 747 audited the complete public vertical, added packed Relation and predicate hover regression tests, removed stale future-tense documentation, verified package boundaries, and passed the full Docker-backed E2E project.

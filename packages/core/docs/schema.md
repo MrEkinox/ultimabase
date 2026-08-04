@@ -226,9 +226,9 @@ consistent. The relationship edge is carried beside the AST in private Runtime
 state. It is neither enumerable nor serializable, and every Query branch,
 reusable scope, and business hook preserves it monotonically.
 
-Issue 744 adds database execution for this private scope. Until then, Runtime
-validates the logical edge and fails closed instead of letting an adapter run
-the public target AST without its relationship restriction.
+Database execution requires the versioned relation capability. PostgreSQL
+implements private scoped traversal; an unsupported adapter fails closed
+instead of running the public target AST without its relationship restriction.
 
 The handle also exposes transactional edge mutations:
 
@@ -251,7 +251,8 @@ Schema update hooks can narrow `candidate.kind === "relation"` to inspect the
 typed `{ action, targets }` delta. Inverse pointer relations execute ordinary
 target pointer updates, so target validation, Access, and hooks remain active.
 Owning storage stays adapter-owned and requires the versioned relation
-capability; PostgreSQL implements it in issue 744.
+capability; PostgreSQL implements deterministic joins and inverse-pointer
+updates without exposing physical storage to Core.
 
 ## Drafts, static queries, and persisted models
 

@@ -74,5 +74,17 @@ await user.relation('posts').clear()
 Every call inherits the active request or accepts the same terminal options as
 a Query. It runs source update Access and hooks inside one transaction; inverse
 pointer relations also run the target pointer update lifecycle. A database
-adapter must advertise relation support. Core's contract is implemented here,
-while PostgreSQL storage and scoped relation-query execution arrive in issue 744.
+adapter must advertise relation support. PostgreSQL implements scoped reads,
+owning join storage, inverse traversal, mutations, and cleanup.
+
+Source Queries can filter without materializing related collections:
+
+```ts
+const authorsWithTypedPosts = await UserSchema.query()
+	.some('posts', (post) => post.contains('title', 'TypeScript'))
+	.find()
+```
+
+The callback receives only the exact target filter surface. Nested `some`,
+`none`, and `every` predicates remain portable Core Query AST and preserve
+private target Access constraints.

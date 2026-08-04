@@ -5,9 +5,10 @@ future ecosystem backlog. It creates no new package: the logical declaration,
 Query, Access, hook, and Runtime contracts belong to `@ultimabase/core`, while
 physical foreign keys and join storage belong to `@ultimabase/postgres`.
 
-## Active relations vertical
+## Completed relations vertical
 
-Implement one issue at a time in this dependency order:
+The transport-neutral pointer and relation objective completed in this
+dependency order:
 
 1. [701 — Resolve lazy relationship schema targets](701-lazy-relationship-targets.md)
 2. [702 — Add pointer fields and immutable Pointer values](702-pointer-field.md)
