@@ -16,8 +16,11 @@ const acl = new ACL()
 acl./* methods-complete */
 void acl.grantPrincipal/* principal-hover */
 void acl.revokeRole/* role-hover */
+void acl.toJSON/* to-json-hover */
+void ACL.fromJSON/* from-json-hover */
 acl.grantPublic(/* permission-complete */)
 const /* acl-hover */value = acl.grantPublic('read')
+const /* json-hover */document = acl.toJSON()
 `
 // Replacing markers with equal-width spaces makes the fixture match real editor input.
 const serviceSource = source.replace(/\/\* [^*]+ \*\//g, (marker) =>
@@ -107,5 +110,33 @@ describe('ACL IntelliSense', () => {
 		expect(display).toContain('const value: ACL')
 		expect(display).not.toContain('ACLState')
 		expect(display).not.toContain('WeakMap')
+	})
+
+	it('documents compact JSON conversion in both directions', () => {
+		const toJSONMarker = '/* to-json-hover */'
+		const toJSON = service.getQuickInfoAtPosition(
+			fixtureFile,
+			markerPosition(toJSONMarker) - 1,
+		)
+		const fromJSONMarker = '/* from-json-hover */'
+		const fromJSON = service.getQuickInfoAtPosition(
+			fixtureFile,
+			markerPosition(fromJSONMarker) - 1,
+		)
+		const documentMarker = '/* json-hover */'
+		const document = service.getQuickInfoAtPosition(
+			fixtureFile,
+			markerPosition(documentMarker) + documentMarker.length,
+		)
+
+		expect(ts.displayPartsToString(toJSON?.documentation)).toContain(
+			'Returns one deeply detached canonical JSON snapshot',
+		)
+		expect(ts.displayPartsToString(fromJSON?.documentation)).toContain(
+			'Reconstructs one canonical ACL',
+		)
+		expect(ts.displayPartsToString(document?.displayParts)).toContain(
+			'const document: ACLJSON',
+		)
 	})
 })

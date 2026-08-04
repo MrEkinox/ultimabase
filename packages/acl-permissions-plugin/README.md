@@ -24,7 +24,14 @@ const value = new ACL()
 
 const updated = value.revokePrincipal(User.pointer(aliceId), 'read')
 updated.permissionsForRole(Editor)
+
+const document = updated.toJSON()
+const restored = ACL.fromJSON(JSON.parse(JSON.stringify(document)))
 ```
+
+`ACLJSON` is a detached versioned format. Parsing rejects unknown keys,
+versions, subjects, and permissions. Repeated rights and repeated entries are
+combined by union, then serialized in canonical order.
 
 Create and update use the same ACL value. `acl()` may generate a default from
 the field-resolved create candidate and uses one shared input callback for both
@@ -40,5 +47,5 @@ The extension also works on a developer-defined RoleSchema. Native RoleSchema
 Access controls creation, while each persisted role ACL may narrow reads,
 updates, member or nested-role mutations, deletion, and ACL management.
 
-The `acl()` extension, `aclPlugin()`, JSON serialization, and PostgreSQL
-integration remain tracked by [`CURRENT_PLAN.md`](../../CURRENT_PLAN.md).
+The `acl()` extension, `aclPlugin()`, and PostgreSQL integration remain tracked
+by [`CURRENT_PLAN.md`](../../CURRENT_PLAN.md).

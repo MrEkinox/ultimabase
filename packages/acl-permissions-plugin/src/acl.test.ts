@@ -5,7 +5,8 @@ import {
 } from '@ultimabase/core'
 import { describe, expect, it } from 'vitest'
 
-import { ACL, aclPermissions } from './acl.js'
+import { ACL } from './acl.js'
+import { aclPermissions } from './acl-contracts.js'
 
 const User = Schema.define({ className: 'ACLUser', fields: {} })
 const ServiceAccount = Schema.define({

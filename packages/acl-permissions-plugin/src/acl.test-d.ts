@@ -10,6 +10,9 @@ import {
 	aclPermissions,
 	type ACLPermission,
 	type ACLPrincipal,
+	type ACLJSON,
+	type ACLPrincipalJSON,
+	type ACLRoleJSON,
 } from './index.js'
 
 const User = Schema.define({ className: 'TypedACLUser', fields: {} })
@@ -43,6 +46,12 @@ test('keeps the complete ACL builder surface compact and precise', () => {
 	>()
 	expectTypeOf(acl.hasPrincipalPermission(principal, 'read')).toBeBoolean()
 	expectTypeOf(acl.hasRolePermission(role, 'delete')).toBeBoolean()
+	expectTypeOf(acl.toJSON()).toEqualTypeOf<ACLJSON>()
+	expectTypeOf(ACL.fromJSON(acl.toJSON())).toEqualTypeOf<ACL>()
+	expectTypeOf(acl.toJSON().principals).toEqualTypeOf<
+		readonly ACLPrincipalJSON[]
+	>()
+	expectTypeOf(acl.toJSON().roles).toEqualTypeOf<readonly ACLRoleJSON[]>()
 })
 
 test('rejects ambiguous subjects and unknown rights at compile time', () => {

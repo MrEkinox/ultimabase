@@ -5,7 +5,7 @@
 - Objective owner: `@ultimabase/acl-permissions-plugin`, `@ultimabase/core`, `@ultimabase/postgres-plugin`
 - Governing decisions: [ADR-0005](docs/adr/0005-immutable-class-api.md), [ADR-0113](docs/adr/0113-plugin-owned-authentication-context.md), [ADR-0116](docs/adr/0116-fundamental-access-system.md), [ADR-0117](docs/adr/0117-optional-access-subject-capabilities.md), [ADR-0119](docs/adr/0119-developer-defined-role-schemas.md), [ADR-0122](docs/adr/0122-immutable-persisted-object-acls.md)
 - Previous completed objective: [Developer-defined stored roles](docs/plans/completed/developer-defined-stored-roles.md)
-- Resume point: issue 424
+- Resume point: issue 425
 
 ## Objective
 
@@ -106,7 +106,7 @@ never imports or identifies that plugin.
 ### Phase 1 — Immutable public value
 
 1. [x] [409 — Implement the immutable ACL class](issues/400-access/409-acl-class.md)
-2. [ ] [424 — Add versioned ACL JSON serialization](issues/400-access/424-acl-json-serialization.md)
+2. [x] [424 — Add versioned ACL JSON serialization](issues/400-access/424-acl-json-serialization.md)
 
 ### Phase 2 — Optional identity and schema configuration
 

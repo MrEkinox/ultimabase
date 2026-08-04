@@ -1,25 +1,18 @@
 import {
+	AccessSubjectReference,
 	Pointer,
 	resolveAccessRoleReference,
 	type AccessRoleReference,
 	type AccessRoleSubject,
-	type PointerValue,
 } from '@ultimabase/core'
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
-/** Names every object-level right understood by the ACL provider. */
-export type ACLPermission = 'delete' | 'manageAcl' | 'read' | 'update'
-
-/** Accepts an exact Core Pointer while erasing schema details ACL never reads. */
-export type ACLPrincipal = PointerValue
-
-/** Exposes the canonical right order used by immutable ACL snapshots. */
-export const aclPermissions: readonly ACLPermission[] = immutableArray([
-	'read',
-	'update',
-	'delete',
-	'manageAcl',
-])
+import {
+	normalizeACLPermissions,
+	type ACLPermission,
+	type ACLPrincipal,
+} from './acl-contracts.js'
+import { createACLJSON, parseACLJSON, type ACLJSON } from './acl-json.js'
 
 interface PrincipalIdentity {
 	readonly className: string
@@ -39,7 +32,6 @@ interface ACLState {
 	readonly roles: readonly ACLSubjectEntry<AccessRoleReference>[]
 }
 
-const permissionSet: ReadonlySet<string> = new Set(aclPermissions)
 const aclStates = new WeakMap<object, ACLState>()
 
 const createState = (input?: Partial<ACLState>): ACLState =>
@@ -62,32 +54,17 @@ const requireState = (acl: ACL): ACLState => {
 	return state
 }
 
-const normalizePermissions = (
-	permissions: readonly ACLPermission[],
-): readonly ACLPermission[] => {
-	for (const permission of permissions) {
-		if (!permissionSet.has(permission)) {
-			throw new TypeError(`Unknown ACL permission: ${String(permission)}`)
-		}
-	}
-
-	// Filtering the fixed list removes duplicates and makes call order irrelevant.
-	return immutableArray(
-		aclPermissions.filter((permission) => permissions.includes(permission)),
-	)
-}
-
 const grantPermissions = (
 	current: readonly ACLPermission[],
 	permissions: readonly ACLPermission[],
 ): readonly ACLPermission[] =>
-	normalizePermissions(immutableArray([...current, ...permissions]))
+	normalizeACLPermissions(immutableArray([...current, ...permissions]))
 
 const revokePermissions = (
 	current: readonly ACLPermission[],
 	permissions: readonly ACLPermission[],
 ): readonly ACLPermission[] => {
-	const revoked = normalizePermissions(permissions)
+	const revoked = normalizeACLPermissions(permissions)
 
 	return immutableArray(
 		current.filter((permission) => !revoked.includes(permission)),
@@ -154,7 +131,7 @@ type PermissionChange = (
 ) => readonly ACLPermission[]
 
 const setPermissions: PermissionChange = (_current, requested) =>
-	normalizePermissions(requested)
+	normalizeACLPermissions(requested)
 
 /** Reuses one immutable state transition for public and authenticated rights. */
 const updateAudiencePermissions = (
@@ -234,6 +211,47 @@ const updateRolePermissions = (
  * ```
  */
 export class ACL {
+	/**
+	 * Reconstructs one canonical ACL from its complete untrusted JSON boundary.
+	 *
+	 * @example `const acl = ACL.fromJSON(JSON.parse(serialized))`
+	 */
+	static fromJSON(value: unknown): ACL {
+		const document = parseACLJSON(value)
+
+		return createACL(
+			createState({
+				authenticated: document.authenticated,
+				principals: immutableArray(
+					document.principals.map((entry) => {
+						const subject = immutableRecord({
+							className: entry.className,
+							id: entry.id,
+						})
+
+						return immutableRecord({
+							key: principalKey(subject),
+							permissions: entry.permissions,
+							subject,
+						})
+					}),
+				),
+				public: document.public,
+				roles: immutableArray(
+					document.roles.map((entry) => {
+						const subject = new AccessSubjectReference('role', entry.value)
+
+						return immutableRecord({
+							key: roleKey(subject),
+							permissions: entry.permissions,
+							subject,
+						})
+					}),
+				),
+			}),
+		)
+	}
+
 	constructor() {
 		if (new.target !== ACL) {
 			throw new TypeError('ACL cannot be subclassed')
@@ -418,6 +436,35 @@ export class ACL {
 		permission: ACLPermission,
 	): boolean {
 		return this.permissionsForRole(role).includes(permission)
+	}
+
+	/**
+	 * Returns one deeply detached canonical JSON snapshot of this ACL.
+	 *
+	 * @example `const document = acl.toJSON()`
+	 */
+	toJSON(): ACLJSON {
+		const state = requireState(this)
+
+		return createACLJSON({
+			authenticated: state.authenticated,
+			principals: state.principals.map((entry) =>
+				immutableRecord({
+					className: entry.subject.className,
+					id: entry.subject.id,
+					permissions: entry.permissions,
+				}),
+			),
+			public: state.public,
+			roles: state.roles.map((entry) =>
+				immutableRecord({
+					kind: 'role' as const,
+					permissions: entry.permissions,
+					value: String(entry.subject.value),
+				}),
+			),
+			version: 1,
+		})
 	}
 }
 

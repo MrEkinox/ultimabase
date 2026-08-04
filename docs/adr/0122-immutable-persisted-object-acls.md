@@ -81,8 +81,9 @@ entries. `JSON.stringify(acl)` therefore uses the same public representation.
 `ACL.fromJSON(value: unknown)` validates the complete untrusted boundary,
 rejects unknown versions, subjects, permissions, and malformed identities, and
 returns a canonical immutable ACL. Canonical ordering and duplicate
-normalization make equivalent ACLs serialize identically. JSON conversion never
-queries a provider or database.
+normalization make equivalent ACLs serialize identically. Repeated rights and
+repeated entries are combined by union before one canonical entry is emitted.
+JSON conversion never queries a provider or database.
 
 The JSON representation is a public transport and snapshot format. PostgreSQL
 stores one adapter-owned JSONB representation on the protected object row and
