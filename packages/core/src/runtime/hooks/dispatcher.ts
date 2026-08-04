@@ -560,6 +560,7 @@ const runChangeEffects = async <
 				immutableRecord({
 					context: hookContext,
 					change: change.change,
+					itemId: change.itemId,
 					kind: change.kind,
 					timing: change.timing,
 				}),

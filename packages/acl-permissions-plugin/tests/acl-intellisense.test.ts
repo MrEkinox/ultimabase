@@ -9,7 +9,7 @@ import { createLanguageService } from '../../../tooling/vitest/typescript-langua
 const packageDirectory = path.dirname(fileURLToPath(import.meta.url))
 const fixtureFile = path.join(packageDirectory, 'acl-intellisense.fixture.ts')
 const source = `
-import { ACL, acl as aclExtension, aclPlugin } from '@ultimabase/acl-permissions-plugin'
+import { ACL, acl as aclExtension, aclPlugin, onACLChange } from '@ultimabase/acl-permissions-plugin'
 
 const acl = new ACL()
 
@@ -28,6 +28,11 @@ void aclPlugin/* plugin-hover */
 aclPlugin({ /* plugin-options-complete */ })
 aclPlugin({ limits: { /* plugin-limits-complete */ } })
 aclPlugin({ limits: { maxPrincipals/* principal-limit-hover */: 100 } })
+void onACLChange/* event-hover */
+onACLChange(({ event }) => {
+	const /* event-payload-hover */payload = event.payload
+	payload./* event-payload-complete */
+})
 `
 // Replacing markers with equal-width spaces makes the fixture match real editor input.
 const serviceSource = source.replace(/\/\* [^*]+ \*\//g, (marker) =>
@@ -213,6 +218,35 @@ describe('ACL IntelliSense', () => {
 		)
 		expect(ts.displayPartsToString(principal?.documentation)).toContain(
 			'Limits exact principal entries after duplicate grants have been merged',
+		)
+	})
+
+	it('documents committed event consumers and exposes a compact payload', () => {
+		const hoverMarker = '/* event-hover */'
+		const hover = service.getQuickInfoAtPosition(
+			fixtureFile,
+			markerPosition(hoverMarker) - 1,
+		)
+		const payloadMarker = '/* event-payload-hover */'
+		const payload = service.getQuickInfoAtPosition(
+			fixtureFile,
+			markerPosition(payloadMarker) + payloadMarker.length,
+		)
+		const completionMarker = '/* event-payload-complete */'
+		const completions = service.getCompletionsAtPosition(
+			fixtureFile,
+			markerPosition(completionMarker) + completionMarker.length,
+			{},
+		)
+
+		expect(ts.displayPartsToString(hover?.documentation)).toContain(
+			'precisely typed consumer for committed ACL change events',
+		)
+		expect(ts.displayPartsToString(payload?.displayParts)).toContain(
+			'const payload: ACLChangedEvent',
+		)
+		expect(completions?.entries.map(({ name }) => name) ?? []).toEqual(
+			expect.arrayContaining(['actor', 'diff', 'operation', 'target']),
 		)
 	})
 })

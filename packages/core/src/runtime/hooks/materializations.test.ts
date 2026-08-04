@@ -11,6 +11,7 @@ import {
 	type UpsertManyOperationAst,
 } from '../../query/index.js'
 import {
+	definePluginField,
 	intField,
 	objectField,
 	Schema,
@@ -25,6 +26,73 @@ import {
 	collectMutationBeforeFieldValues,
 	collectMutationFieldChanges,
 } from './materializations.js'
+
+const opaqueValues = new WeakMap<object, string>()
+
+/** Models plugin values whose semantic state deliberately has no own properties. */
+class OpaqueValue {
+	constructor(value: string) {
+		opaqueValues.set(this, value)
+		Object.freeze(this)
+	}
+
+	toJSON(): Readonly<{ readonly value: string }> {
+		const value = opaqueValues.get(this)
+
+		if (value === undefined) {
+			throw new TypeError('Opaque fixture has no value')
+		}
+
+		return { value }
+	}
+}
+
+const snapshotOpaqueValue = (value: unknown): OpaqueValue => {
+	if (!(value instanceof OpaqueValue)) {
+		throw new TypeError('Opaque fixture field requires OpaqueValue')
+	}
+
+	return value
+}
+
+const opaqueStorageCodec = {
+	decode: (value: unknown): OpaqueValue => {
+		const decoded: unknown =
+			typeof value === 'object' && value !== null
+				? Reflect.get(value, 'value')
+				: undefined
+
+		if (typeof decoded !== 'string') {
+			throw new TypeError('Opaque fixture storage requires a string value')
+		}
+
+		return new OpaqueValue(decoded)
+	},
+	encode: (value: OpaqueValue) => value.toJSON(),
+	format: 'json' as const,
+	version: 1,
+}
+
+const opaqueField = definePluginField(
+	'fixture.opaque-materialization',
+	{},
+	{
+		snapshotValue: snapshotOpaqueValue,
+		storageCodec: opaqueStorageCodec,
+	},
+)
+const opaqueListField = definePluginField(
+	'fixture.opaque-list-materialization',
+	{ list: true },
+	{
+		snapshotValue: snapshotOpaqueValue,
+		storageCodec: opaqueStorageCodec,
+	},
+)
+const opaqueSchema = Schema.define({
+	className: 'OpaqueFieldMaterialization',
+	fields: { opaque: opaqueField, opaqueList: opaqueListField },
+})
 
 const materializationSchema = Schema.define({
 	className: 'FieldMaterialization',
@@ -106,6 +174,71 @@ const deleteOperation: DeleteOneOperationAst<
 }
 
 describe('runtime mutation materializations', () => {
+	it('compares opaque plugin values through their portable storage codec', () => {
+		const query = new Query(opaqueSchema).select('id').ast
+		const update = normalizeUpdateExpression(opaqueSchema, {
+			set: { opaque: new OpaqueValue('after') },
+		})
+		const operation: UpdateOneOperationAst<
+			typeof opaqueSchema,
+			typeof update,
+			QueryFilterNode<typeof opaqueSchema>,
+			'id'
+		> = { kind: 'update-one', query, update }
+		const base = {
+			createdAt: '2026-08-04T10:00:00.000Z',
+			id: '00000000-0000-7000-8000-000000000099',
+			updatedAt: '2026-08-04T10:00:00.000Z',
+		}
+		const previous = { ...base, opaque: new OpaqueValue('before') }
+		const changed = { ...base, opaque: new OpaqueValue('after') }
+		const unchanged = { ...base, opaque: new OpaqueValue('before') }
+
+		expect(
+			collectMutationFieldChanges(operation, {
+				materializations: [{ current: changed, kind: 'update', previous }],
+			}).map(({ fieldPath, itemId }) => ({ fieldPath, itemId })),
+		).toStrictEqual([{ fieldPath: ['opaque'], itemId: base.id }])
+		expect(
+			collectMutationFieldChanges(operation, {
+				materializations: [{ current: unchanged, kind: 'update', previous }],
+			}),
+		).toStrictEqual([])
+	})
+
+	it('compares listed opaque plugin values through the scalar codec', () => {
+		const query = new Query(opaqueSchema).select('id').ast
+		const update = normalizeUpdateExpression(opaqueSchema, {
+			set: { opaqueList: [new OpaqueValue('after')] },
+		})
+		const operation: UpdateOneOperationAst<
+			typeof opaqueSchema,
+			typeof update,
+			QueryFilterNode<typeof opaqueSchema>,
+			'id'
+		> = { kind: 'update-one', query, update }
+		const base = {
+			createdAt: '2026-08-04T10:00:00.000Z',
+			id: '00000000-0000-7000-8000-000000000098',
+			opaque: new OpaqueValue('stable'),
+			updatedAt: '2026-08-04T10:00:00.000Z',
+		}
+		const previous = { ...base, opaqueList: [new OpaqueValue('before')] }
+		const changed = { ...base, opaqueList: [new OpaqueValue('after')] }
+		const unchanged = { ...base, opaqueList: [new OpaqueValue('before')] }
+
+		expect(
+			collectMutationFieldChanges(operation, {
+				materializations: [{ current: changed, kind: 'update', previous }],
+			}).map(({ fieldPath }) => fieldPath),
+		).toStrictEqual([['opaqueList']])
+		expect(
+			collectMutationFieldChanges(operation, {
+				materializations: [{ current: unchanged, kind: 'update', previous }],
+			}),
+		).toStrictEqual([])
+	})
+
 	it('builds parent-first before values from candidates and stabilized targets', () => {
 		const target = makeRecord('before')
 

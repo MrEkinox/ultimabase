@@ -1,5 +1,11 @@
 import { aclPostgresPlugin } from '@ultimabase/acl-postgres-plugin'
-import { ACL, acl, aclPlugin } from '@ultimabase/acl-permissions-plugin'
+import {
+	ACL,
+	acl,
+	aclPlugin,
+	onACLChange,
+	type ACLChangedEvent,
+} from '@ultimabase/acl-permissions-plugin'
 import {
 	MasterAuthority,
 	Pointer,
@@ -71,6 +77,7 @@ const CascadeRole = RoleSchema.define({
 })
 
 const emptyACL = new ACL()
+const committedACLChanges: ACLChangedEvent[] = []
 let rejectNextSecondaryCleanup = false
 const ProtectedPrimary = Schema.define({
 	className: 'ACLReferenceProtectedPrimary',
@@ -150,6 +157,12 @@ const applyPrincipalPolicy = async (
 const principalOwnerPlugin = definePlugin({
 	name: 'fixture.acl-principal-owner',
 	setup: ({ hooks, registries }) => {
+		registries.events.register(
+			'fixture.observe:acl-change',
+			onACLChange(({ event }) => {
+				committedACLChanges.push(event.payload)
+			}),
+		)
 		// Role deletion deliberately requires an event consumer before it may commit.
 		for (const eventName of [
 			roleDeletedEvent,
@@ -344,10 +357,12 @@ describe(
 			await expect(cascade.delete({ ultimabase })).rejects.toThrow(
 				'Cascade principal deletion requires master authority',
 			)
+			const changeStart = committedACLChanges.length
 			rejectNextSecondaryCleanup = true
 			await expect(
 				cascade.delete({ ultimabase, useMasterKey: true }),
 			).rejects.toThrow('ACL reference cleanup rollback fixture')
+			expect(committedACLChanges).toHaveLength(changeStart)
 			await expect(
 				CascadePrincipal.query().byId(cascade.id).exists({ ultimabase }),
 			).resolves.toBe(true)
@@ -390,6 +405,49 @@ describe(
 				'delete',
 			])
 			expect(cleanedPrimary.permissionsForPublic()).toStrictEqual(['read'])
+			expect(
+				committedACLChanges
+					.slice(changeStart)
+					.map(({ diff, operation, target }) => ({ diff, operation, target })),
+			).toStrictEqual([
+				{
+					diff: {
+						added: [],
+						removed: [
+							{
+								permissions: ['read', 'update'],
+								subject: {
+									className: CascadePrincipal.className,
+									id: cascade.id,
+									kind: 'principal',
+								},
+							},
+						],
+					},
+					operation: 'update-one',
+					target: { className: ProtectedPrimary.className, id: primary.id },
+				},
+				{
+					diff: {
+						added: [],
+						removed: [
+							{
+								permissions: ['read', 'update'],
+								subject: {
+									className: CascadePrincipal.className,
+									id: cascade.id,
+									kind: 'principal',
+								},
+							},
+						],
+					},
+					operation: 'update-one',
+					target: {
+						className: ProtectedSecondary.className,
+						id: secondary.id,
+					},
+				},
+			])
 			await expect(
 				CascadePrincipal.query().deleteMany({
 					ultimabase,
@@ -448,6 +506,7 @@ describe(
 			await expect(
 				preserve.delete({ ultimabase, useMasterKey: true }),
 			).resolves.toMatchObject({ id: preserve.id })
+			const changeStart = committedACLChanges.length
 			await expect(
 				cascade.delete({ ultimabase, useMasterKey: true }),
 			).resolves.toMatchObject({ id: cascade.id })
@@ -468,6 +527,24 @@ describe(
 				'update',
 			])
 			expect(cleaned.permissionsForPublic()).toStrictEqual(['read'])
+			expect(committedACLChanges.slice(changeStart)).toMatchObject([
+				{
+					diff: {
+						added: [],
+						removed: [
+							{
+								permissions: ['read', 'delete'],
+								subject: {
+									kind: 'role',
+									value: cascadeReference.value,
+								},
+							},
+						],
+					},
+					operation: 'update-one',
+					target: { className: ProtectedPrimary.className, id: cascadeRow.id },
+				},
+			])
 		})
 
 		it('keeps cleanup contributions isolated between applications', async () => {

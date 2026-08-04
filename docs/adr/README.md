@@ -120,6 +120,7 @@ Accepted records:
 - [ADR-0124: Portable plugin-field storage codecs](0124-portable-plugin-field-storage-codecs.md)
 - [ADR-0125: Dedicated ACL and PostgreSQL integration plugin](0125-dedicated-acl-postgres-integration-plugin.md)
 - [ADR-0126: Transactional ACL subject-reference cleanup](0126-transactional-acl-reference-cleanup.md)
+- [ADR-0127: Committed ACL change events](0127-committed-acl-change-events.md)
 
 Superseded records:
 

@@ -776,6 +776,12 @@ for a real create, replacement, or unset. Set-based `updateMany` may transform
 the supplied update value once, but it and `deleteMany` never load matching rows
 to simulate per-object CRUD or change hooks.
 
+Materialized `onChange` and `afterCommit` callbacks also receive `itemId`, the
+stable system ID of the exact object whose field changed. Plugin-defined fields
+with a portable storage codec use that encoded representation for semantic
+change detection, so opaque immutable values can avoid both missed changes and
+duplicate notifications.
+
 For nested objects, siblings retain declaration order. Input resolution,
 validation, and output resolution visit children before their parent; before
 CRUD/save phases enter the parent before its descendants, and after phases

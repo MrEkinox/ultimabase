@@ -308,6 +308,8 @@ export interface FieldChangeHookInput<
 > {
 	/** Carries immutable request identity and revocable hook capabilities. */
 	readonly context: HookContext
+	/** Identifies the exact materialized object whose field value changed. */
+	readonly itemId: string
 	/** Excludes set-based update and delete because they do not materialize rows. */
 	readonly kind: TKind
 	/** Makes the rollback-capable timing explicit to hook implementations. */
@@ -334,6 +336,8 @@ export interface FieldAfterCommitInput<
 > {
 	/** Carries immutable request identity and revocable hook capabilities. */
 	readonly context: HookContext
+	/** Identifies the exact committed object whose field value changed. */
+	readonly itemId: string
 	readonly kind: TKind
 	readonly timing: 'after-commit'
 	readonly change: FieldValueChange<FieldHookTypes<TField>['object']>

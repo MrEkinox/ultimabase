@@ -119,6 +119,29 @@ describe('TransactionHookJournal', () => {
 		}
 	})
 
+	it('retains a policy-projected result after required fields are hidden', () => {
+		const journal = new TransactionHookJournal()
+		const completeRecord = createRecord('protected')
+		const operation = immutableRecord({
+			input: completeRecord,
+			kind: 'create-one',
+			schema: new Query(articleSchema).ast.schema,
+		}) satisfies CreateOneOperationAst<typeof articleSchema>
+		const outcome = {
+			materializations: [{ current: completeRecord, kind: 'create' }],
+			result: completeRecord,
+		} satisfies DatabaseOperationOutcome<typeof operation>
+		const token = journal.reserve(context)
+
+		journal.succeed(token, operation, { id: generatedId }, outcome)
+
+		expect(journal.snapshot()[0]).toMatchObject({
+			category: 'mutation',
+			result: { id: generatedId },
+			status: 'succeeded',
+		})
+	})
+
 	it('retains the latest failed operation and enforces token ownership', () => {
 		const journal = new TransactionHookJournal()
 		const initialOperation = immutableRecord({

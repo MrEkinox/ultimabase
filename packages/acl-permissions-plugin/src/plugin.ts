@@ -26,6 +26,12 @@ import {
 
 import { ACL } from './acl.js'
 import {
+	aclChangedEvent,
+	aclFieldHookTarget,
+	createACLChangedEvent,
+	onACLChange,
+} from './acl-events.js'
+import {
 	createACLReferenceCleanups,
 	createACLReferenceConstraint,
 	getACLReferenceScope,
@@ -520,6 +526,7 @@ const aclConstraintOperationKinds = Object.freeze([
 ] as const)
 
 type ACLDatabaseConstraint = ACLReferenceConstraint | ACLRowConstraint
+const emptyACLChangeValue = new ACL()
 
 const updateTouchesACL = (update: unknown): boolean =>
 	isPlainRecord(update) &&
@@ -572,6 +579,11 @@ export const aclPlugin = (options: ACLPluginOptions = {}): ACLPlugin => {
 	return definePlugin({
 		name: aclPluginName,
 		setup: ({ access, hooks, registries, schemas, services }) => {
+			// ACL changes are optional notifications; this built-in observer prevents absent audit plugins from blocking writes.
+			registries.events.register(
+				'acl-change-notification-boundary',
+				onACLChange(() => undefined),
+			)
 			registries.extensions.register(
 				extensionHandlerKey('schema', aclSchemaExtensionName),
 				true,
@@ -614,6 +626,31 @@ export const aclPlugin = (options: ACLPluginOptions = {}): ACLPlugin => {
 				config: ACLSchemaExtensionConfig,
 			): ResolvedACLEntryLimits =>
 				resolveACLEntryLimits(pluginLimits, config.limits)
+			hooks.fieldKind(
+				'emit-acl-change-event',
+				aclFieldHookTarget,
+				({ schema }) => ({
+					onChange: async ({ context, change, itemId, kind }) => {
+						if (!change.current.present || kind === 'delete-one') return
+
+						const subjects = await resolveSubjects()
+						const payload = createACLChangedEvent({
+							authority: context.access.mode,
+							className: schema.className,
+							current: change.current.value,
+							itemId,
+							operation: kind,
+							previous: change.previous.present
+								? change.previous.value
+								: emptyACLChangeValue,
+							principal: subjects.principal,
+						})
+
+						// Core buffers named events and delivers them only after outer commit.
+						context.emit(aclChangedEvent, payload)
+					},
+				}),
+			)
 			hooks.schemaExtension(
 				'resolve-create-input',
 				aclExtensionTarget,

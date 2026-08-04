@@ -1,6 +1,6 @@
-# 412: Add ACL hooks and events
+# 412: Emit committed ACL change events
 
-- Status: planned
+- Status: completed
 - Milestone: 4
 - Packages: `@ultimabase/acl-permissions-plugin`
 - Depends on: 328, 332, 411, 509
@@ -8,20 +8,22 @@
 
 ## Goal
 
-Emit before/after ACL update hooks and post-commit audit events.
+Observe the ACL field through the native hook lifecycle and emit one typed,
+post-commit audit event without adding a parallel ACL hook API.
 
 ## Acceptance criteria
 
-- [ ] Events contain actor, target, and structured diff.
-- [ ] Structured diffs report added and removed public, authenticated, principal, role, and right entries without exposing private internal collections.
-- [ ] Public realtime does not expose ACL changes by default.
-- [ ] Failed transactions emit no post-commit event.
-- [ ] The plugin appends typed extension- or schema-targeted hooks through the native dispatcher without replacing developer hooks.
-- [ ] Hooks observe only ACL lifecycle events after the native Access plan has authorized their input; they do not implement ACL enforcement.
-- [ ] ACL enforcement remains an Access contribution and never becomes a replaceable operation transform.
-- [ ] Master changes remain audited even though ACL authorization is bypassed.
-- [ ] Default generation, explicit create input, update input, and reference cleanup have deterministic lifecycle coverage without duplicate events.
+- [x] Events contain actor, target, mutation terminal, and structured diff.
+- [x] Structured diffs report added and removed public, authenticated, principal, role, and right entries without exposing private internal collections.
+- [x] Public realtime does not expose ACL changes by default.
+- [x] Failed transactions emit no post-commit event.
+- [x] The plugin appends one typed field-kind hook through the native dispatcher without replacing developer hooks or exposing `acl({ hooks })`.
+- [x] The hook observes only authorized persisted ACL changes and does not implement ACL enforcement.
+- [x] ACL enforcement remains an Access contribution and never becomes a replaceable operation transform.
+- [x] Master changes remain audited even though ACL authorization is bypassed.
+- [x] Default generation, explicit create input, update input, create-many, and reference cleanup have deterministic lifecycle coverage without duplicate events.
+- [x] Opaque plugin-field equality uses its portable storage codec before producing semantic changes.
 
 ## Tests
 
-- [ ] Ordering and rollback tests.
+- [x] Unit, type, public-export, ordering, rollback, and PostgreSQL cleanup tests.

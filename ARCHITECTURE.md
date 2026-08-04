@@ -292,6 +292,10 @@ that constraint to indexed JSONB containment. Cascade derives every rewritten
 ACL from the locked current row and performs singular updates inside the
 subject deletion transaction, preserving unrelated grants and rolling all
 schemas back together on failure.
+ACL also observes its reserved field through the generic native field-kind
+lifecycle and queues one typed structured-diff event for post-commit delivery.
+This observer never participates in authorization, emits nothing on rollback,
+and is not published by realtime or transport plugins by default.
 
 Native schema Access is the generalized class-level permission system, and
 native field Access controls field disclosure and mutation. ACL is an optional

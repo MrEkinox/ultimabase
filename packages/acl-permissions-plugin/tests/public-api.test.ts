@@ -8,6 +8,7 @@ describe('@ultimabase/acl-permissions-plugin public entry point', () => {
 		expect(Object.keys(publicApi).sort()).toStrictEqual([
 			'ACL',
 			'acl',
+			'aclChangedEvent',
 			'aclFieldKind',
 			'aclFieldName',
 			'aclPermissions',
@@ -18,6 +19,7 @@ describe('@ultimabase/acl-permissions-plugin public entry point', () => {
 			'aclRowConstraintKind',
 			'aclRowConstraintVersion',
 			'aclSchemaExtensionName',
+			'onACLChange',
 		])
 	})
 })

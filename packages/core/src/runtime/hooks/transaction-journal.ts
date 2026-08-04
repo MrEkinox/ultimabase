@@ -155,10 +155,9 @@ export class TransactionHookJournal {
 	): void {
 		const pending = this.#requirePending(token)
 		const finalOperation = this.#boundaries.snapshotValue(operation)
-		const finalResult: unknown = this.#boundaries.snapshotResultReplacement(
-			finalOperation,
-			result,
-		)
+		// Runtime validates business output before monotonic restrictions remove
+		// protected fields, so finalization must snapshot rather than revalidate it.
+		const finalResult: unknown = this.#boundaries.snapshotValue(result)
 		if (isMutationOperation(finalOperation)) {
 			if (outcome === undefined) {
 				throw new TypeError(

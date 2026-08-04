@@ -268,6 +268,19 @@ test('keeps set-based terminals out of materialized field hooks', () => {
 	expectTypeOf<'get'>().toExtend<ErrorKind>()
 })
 
+test('exposes the exact materialized object id to change hooks', () => {
+	const hooks: FieldHooks<typeof titleField> = {
+		onChange: ({ itemId }) => {
+			expectTypeOf(itemId).toEqualTypeOf<string>()
+		},
+		afterCommit: ({ itemId }) => {
+			expectTypeOf(itemId).toEqualTypeOf<string>()
+		},
+	}
+
+	expectTypeOf(hooks).toEqualTypeOf<FieldHooks<typeof titleField>>()
+})
+
 test('exposes precise error lifecycle metadata to field hooks', () => {
 	const observeError: FieldErrorHook = ({ phase, transaction }) => {
 		expectTypeOf(phase).toEqualTypeOf<HookErrorPhase>()

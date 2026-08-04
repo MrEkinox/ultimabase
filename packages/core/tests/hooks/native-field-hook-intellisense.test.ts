@@ -150,7 +150,7 @@ describe('native field hook IntelliSense', () => {
 			readCompletions('on-change')
 				.entries.map(({ name }) => name)
 				.sort(),
-		).toStrictEqual(['change', 'context', 'kind', 'timing'])
+		).toStrictEqual(['change', 'context', 'itemId', 'kind', 'timing'])
 	})
 
 	it('suggests and documents only compatible family branches', () => {
@@ -217,6 +217,7 @@ describe('native field hook IntelliSense', () => {
 
 	it('shows exact values and explicit change state', () => {
 		expect(readHoverDisplay('input-value')).toContain('string | null')
+		expect(readHoverDisplay('change-item-id')).toContain('string')
 		expect(readHoverDisplay('change-timing')).toContain('"before-commit"')
 		const currentState = readHoverDisplay('current-state')
 

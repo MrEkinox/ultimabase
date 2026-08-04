@@ -275,6 +275,7 @@ const runAfterCommit = async (
 						immutableRecord({
 							context,
 							change: fieldChange.change,
+							itemId: fieldChange.itemId,
 							kind: entry.operation.kind,
 							timing: 'after-commit' as const,
 						}),

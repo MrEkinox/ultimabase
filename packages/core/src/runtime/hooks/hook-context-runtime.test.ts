@@ -510,7 +510,16 @@ describe('HookContext Runtime capabilities', () => {
 		let nestedDeliveries = 0
 		const PostSchema = Schema.define({
 			className: 'HookContextAfterCommitEventPost',
-			fields: { title: stringField({ validation: { required: true } }) },
+			fields: {
+				title: stringField({
+					hooks: {
+						afterCommit: ({ itemId }) => {
+							trace.push(`field:afterCommit:${itemId}`)
+						},
+					},
+					validation: { required: true },
+				}),
+			},
 			hooks: {
 				afterCommit: ({ context }) => {
 					trace.push('hook:afterCommit')
@@ -572,7 +581,8 @@ describe('HookContext Runtime capabilities', () => {
 			internalDetails: { reason: 'hook-event-queue-closed' },
 		})
 		expect(trace).toContain('adapter:commit')
-		expect(trace.slice(-3)).toStrictEqual([
+		expect(trace.slice(-4)).toStrictEqual([
+			'field:afterCommit:0198a43e-2431-7000-8000-000000000206',
 			'hook:afterCommit',
 			'event:failing',
 			'event:succeeding',

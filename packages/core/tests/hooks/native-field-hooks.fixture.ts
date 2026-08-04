@@ -27,11 +27,13 @@ export const emailField = /* hover:field-definition */ stringField({
 				void value
 			},
 		},
-		onChange: ({ change, timing }) => {
+		onChange: ({ change, itemId, timing }) => {
 			const changeTiming = /* hover:change-timing */ timing
+			const changeItemId = /* hover:change-item-id */ itemId
 			const /* hover:current-state */ current = change.current
 
 			void changeTiming
+			void changeItemId
 			if (current.present) {
 				current.value?.trim()
 			}

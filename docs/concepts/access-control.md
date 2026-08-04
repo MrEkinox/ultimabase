@@ -88,3 +88,17 @@ Applications may change those defaults through plugin options, while
 values. Limits count canonical subject entries after duplicate grants are
 merged. Public and authenticated rights consume no subject entry, and every
 create or update path—including master execution—is checked before persistence.
+
+## ACL change events
+
+`onACLChange(handler)` creates a typed consumer for the committed
+`ultimabase.acl.changed` event. Its immutable payload identifies the actor and
+target and groups rights added or removed for every ACL subject kind. Default
+generation, explicit master writes, updates, bulk creates, and cascade cleanup
+all use the same contract. Equivalent ACL replacements are ignored, and an
+outer transaction rollback discards every queued event.
+
+The event is optional audit infrastructure rather than authorization. ACL
+Access checks happen earlier through the native Access plan, and no realtime or
+transport integration exposes the event unless an application explicitly adds
+a consumer.

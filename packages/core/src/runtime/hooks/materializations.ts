@@ -7,7 +7,11 @@ import type {
 	FieldHookMode,
 	FieldValueChange,
 } from '../../schema/hooks/field-contracts.js'
-import type { GenericField } from '../../schema/index.js'
+import {
+	getPluginFieldStorageCodec,
+	type GenericField,
+} from '../../schema/index.js'
+import { getFieldListDepth } from '../../schema/fields/base/options.js'
 import type {
 	DatabaseLogicalRecord,
 	DatabaseMutationMaterializationSource,
@@ -34,6 +38,7 @@ export interface RuntimeMutationFieldChange {
 	readonly change: FieldValueChange<unknown>
 	readonly field: GenericField
 	readonly fieldPath: readonly string[]
+	readonly itemId: string
 	readonly itemIndex: number
 	readonly kind: DatabaseMutationOperationAst['kind']
 	readonly timing: 'before-commit'
@@ -257,6 +262,7 @@ const indexRecordValues = (
 }
 
 const createValueChange = (
+	field: GenericField,
 	previous: PresentRecordValue | undefined,
 	current: PresentRecordValue | undefined,
 ): FieldValueChange<unknown> | undefined => {
@@ -284,11 +290,14 @@ const createValueChange = (
 		})
 	}
 
-	if (
-		previous === undefined ||
-		current === undefined ||
-		isDeepStrictEqual(previous.value, current.value)
-	) {
+	if (previous === undefined || current === undefined) {
+		return undefined
+	}
+
+	const previousComparable = encodeComparableFieldValue(field, previous.value)
+	const currentComparable = encodeComparableFieldValue(field, current.value)
+
+	if (isDeepStrictEqual(previousComparable, currentComparable)) {
 		return undefined
 	}
 
@@ -301,11 +310,53 @@ const createValueChange = (
 	})
 }
 
+/** Applies one plugin scalar codec through every declared list dimension. */
+const encodeComparableFieldValue = (
+	field: GenericField,
+	value: unknown,
+): unknown => {
+	const storageCodec = getPluginFieldStorageCodec(field)
+
+	if (storageCodec === undefined) return value
+
+	const encodeAtDepth = (candidate: unknown, depth: number): unknown => {
+		if (depth === 0) return storageCodec.encode(candidate)
+
+		if (!Array.isArray(candidate)) {
+			throw new TypeError('Runtime plugin field list value must be an array')
+		}
+
+		return candidate.map((item) => encodeAtDepth(item, depth - 1))
+	}
+
+	return encodeAtDepth(value, getFieldListDepth(field.options))
+}
+
+/** Reads the stable system identity from the materialized row that still exists. */
+const readMaterializedItemId = (
+	materialization: MutationMaterialization,
+): string => {
+	const record =
+		materialization.kind === 'delete'
+			? materialization.previous
+			: materialization.current
+	const itemId: unknown = record.id
+
+	if (typeof itemId !== 'string' || itemId.length === 0) {
+		throw new TypeError(
+			'Runtime field change requires a materialized object id',
+		)
+	}
+
+	return itemId
+}
+
 const collectMaterializationChanges = (
 	operation: DatabaseMutationOperationAst,
 	materialization: MutationMaterialization,
 	itemIndex: number,
 ): readonly RuntimeMutationFieldChange[] => {
+	const itemId = readMaterializedItemId(materialization)
 	const fields = getRuntimeOperationFields(operation)
 	const previousRecord =
 		materialization.kind === 'create' ? undefined : materialization.previous
@@ -349,7 +400,11 @@ const collectMaterializationChanges = (
 			continue
 		}
 
-		const change = createValueChange(previousValue, currentValue)
+		const change = createValueChange(
+			descriptor.field,
+			previousValue,
+			currentValue,
+		)
 
 		if (change === undefined) {
 			continue
@@ -360,6 +415,7 @@ const collectMaterializationChanges = (
 				change,
 				field: descriptor.field,
 				fieldPath: descriptor.fieldPath,
+				itemId,
 				itemIndex,
 				kind: operation.kind,
 				timing: 'before-commit' as const,

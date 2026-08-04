@@ -112,6 +112,42 @@ subject entry from every matching ACL-enabled row through ordinary singular
 updates in the active deletion transaction. Unrelated grants survive, and a
 failure in any schema rolls back both earlier cleanup and subject deletion.
 
+Every semantic persisted ACL change also emits one typed event after the outer
+transaction commits. Defaults, explicit master input, singular updates, bulk
+creates, and cascade cleanup share the same event. Rollback discards queued
+changes, and assigning an equivalent reconstructed ACL emits nothing.
+
+```ts
+import {
+	aclChangedEvent,
+	onACLChange,
+} from '@ultimabase/acl-permissions-plugin'
+import { definePlugin } from '@ultimabase/core'
+
+const aclAuditPlugin = definePlugin({
+	name: 'app.acl-audit',
+	setup: ({ registries }) => {
+		registries.events.register(
+			'record-acl-change',
+			onACLChange(({ event }) => {
+				console.log(
+					event.name === aclChangedEvent,
+					event.payload.actor,
+					event.payload.target,
+					event.payload.diff,
+				)
+			}),
+		)
+	},
+})
+```
+
+The payload groups added and removed `read`, `update`, and `delete` rights by
+public, authenticated, exact-principal, or role subject. It is detached,
+immutable, and contains no private ACL collection. Observation is optional:
+`aclPlugin()` works without an audit consumer, and no realtime or transport
+plugin publishes ACL changes by default.
+
 The extension also works on a developer-defined RoleSchema. Native RoleSchema
 Access controls creation, while each persisted role ACL may narrow reads,
 updates, member or nested-role mutations, and deletion. Only master execution
