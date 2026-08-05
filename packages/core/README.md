@@ -103,7 +103,7 @@ nor remove it. A target Query inherits the active request; outside one, it
 accepts the same terminal-only `{ ultimabase, context, useMasterKey }` options
 as every ordinary Query.
 
-`onDelete` defaults to `restrict`; `cascade` and nullable-only `setNull` are
+`onDelete` defaults to `restrict`; `cascade` and optional-pointer `setNull` are
 explicit alternatives. `indexed: "unique"` declares a one-to-one pointer.
 Pointer lists and defaults are rejected so relationship writes stay explicit;
 to-many collections use `relationField` instead. Physical foreign keys are
@@ -776,7 +776,8 @@ Inline hooks deliberately cannot access sibling fields. A rule comparing
 `email` with another property belongs in `UserSchema` hooks, where the complete
 operation is available. Omitted input properties do not produce fake
 `undefined` executions. `onChange` instead receives explicit `present` states
-for a real create, replacement, or unset. Set-based `updateMany` may transform
+for lifecycle creation or deletion and receives `null` when an optional field
+is cleared. Set-based `updateMany` may transform
 the supplied update value once, but it and `deleteMany` never load matching rows
 to simulate per-object CRUD or change hooks.
 

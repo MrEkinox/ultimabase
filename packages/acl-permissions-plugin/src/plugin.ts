@@ -595,13 +595,6 @@ const snapshotACLUpdateInput = (
 
 		if (candidate.field === aclFieldName) continue
 
-		if (candidate.kind === 'unset') {
-			operations.push(
-				immutableRecord({ field: candidate.field, kind: candidate.kind }),
-			)
-			continue
-		}
-
 		if (
 			(candidate.kind !== 'decrement' &&
 				candidate.kind !== 'increment' &&

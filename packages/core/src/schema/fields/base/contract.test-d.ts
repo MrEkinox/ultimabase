@@ -4,14 +4,12 @@ import type {
 	FieldDefinition,
 	FieldOptions,
 	FieldValidationOptions,
-	ValidatedFieldOptions,
 } from '../../index.js'
 
 test('represents every common field option without widening literals', () => {
 	const options = {
 		validation: {
 			required: true,
-			nullable: false,
 		},
 		default: 'anonymous',
 		immutable: true,
@@ -29,18 +27,13 @@ test('represents every common field option without widening literals', () => {
 	expectTypeOf(field.options.indexed).toEqualTypeOf<'unique'>()
 })
 
-test('keeps optional and nullable presence independent', () => {
+test('represents optional and required presence', () => {
 	const optional = {} as const satisfies FieldValidationOptions
-	const nullable = {
-		nullable: true,
-	} as const satisfies FieldValidationOptions
 	const explicitOptional = {
 		required: false,
-		nullable: false,
 	} as const satisfies FieldValidationOptions
 
 	expectTypeOf(optional).toExtend<FieldValidationOptions>()
-	expectTypeOf(nullable.nullable).toEqualTypeOf<true>()
 	expectTypeOf(explicitOptional.required).toEqualTypeOf<false>()
 })
 
@@ -56,24 +49,20 @@ test('distinguishes regular, unique, and disabled indexing', () => {
 	expectTypeOf(disabled.indexed).toEqualTypeOf<false>()
 })
 
-test('rejects contradictory presence and invalid metadata values', () => {
-	const invalidPresence = {
+test('rejects nullable and invalid metadata values', () => {
+	const invalidPresence: FieldOptions<string> = {
 		validation: {
-			required: true,
+			// @ts-expect-error -- Nullability is derived from required presence.
 			nullable: true,
 		},
-	} as const satisfies FieldOptions<string>
+	}
 	// Static defaults must match the field's base value type.
 	// @ts-expect-error -- A string field cannot use a numeric default.
 	const invalidDefault: FieldOptions<string> = { default: 42 }
 	// @ts-expect-error -- Unique indexing uses one explicit literal.
 	const invalidIndex: FieldOptions<string> = { indexed: 'non-unique' }
 
-	// Exact factory validation rejects the dependent presence combination.
-	expectTypeOf<
-		ValidatedFieldOptions<typeof invalidPresence, string>
-	>().toBeNever()
-	expectTypeOf(invalidPresence).toExtend<FieldOptions<string>>()
+	expectTypeOf(invalidPresence).toEqualTypeOf<FieldOptions<string>>()
 	expectTypeOf(invalidDefault).toEqualTypeOf<FieldOptions<string>>()
 	expectTypeOf(invalidIndex).toEqualTypeOf<FieldOptions<string>>()
 })

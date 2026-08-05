@@ -57,27 +57,27 @@ describe('native hook dispatcher', () => {
 						name: stringField({
 							hooks: {
 								afterCreate: ({ value }) => {
-									record(`name:afterCreate:${value}`)
+									record(`name:afterCreate:${String(value)}`)
 								},
 								afterSave: ({ value }) => {
-									record(`name:afterSave:${value}`)
+									record(`name:afterSave:${String(value)}`)
 								},
 								beforeCreate: ({ value }) => {
-									record(`name:beforeCreate:${value}`)
+									record(`name:beforeCreate:${String(value)}`)
 								},
 								beforeSave: ({ value }) => {
-									record(`name:beforeSave:${value}`)
+									record(`name:beforeSave:${String(value)}`)
 								},
 								onChange: ({ change }) => {
 									record(`name:onChange:${String(change.current.present)}`)
 								},
 								resolveInput: ({ value }) => {
-									record(`name:resolve:${value}`)
+									record(`name:resolve:${String(value)}`)
 
-									return value.trim()
+									return value === null ? null : value.trim()
 								},
 								validate: ({ value }) => {
-									record(`name:validate:${value}`)
+									record(`name:validate:${String(value)}`)
 
 									return []
 								},
@@ -101,7 +101,7 @@ describe('native hook dispatcher', () => {
 							record('profile:onChange')
 						},
 						resolveInput: ({ value }) => {
-							record(`profile:resolve:${String(value.name)}`)
+							record(`profile:resolve:${String(value?.name)}`)
 
 							return value
 						},
@@ -242,15 +242,15 @@ describe('native hook dispatcher', () => {
 				title: stringField({
 					hooks: {
 						afterCreate: ({ value }) => {
-							trace.push(`field:after:${value}`)
+							trace.push(`field:after:${String(value)}`)
 						},
 						beforeCreate: ({ value }) => {
-							trace.push(`field:before:${value}`)
+							trace.push(`field:before:${String(value)}`)
 						},
 						resolveInput: ({ value }) => {
-							trace.push(`field:resolve:${value}`)
+							trace.push(`field:resolve:${String(value)}`)
 
-							return value.trim()
+							return value === null ? null : value.trim()
 						},
 					},
 				}),
@@ -539,7 +539,7 @@ describe('native hook dispatcher', () => {
 						resolveOutput: ({ kind, value }) => {
 							trace.push(`field:title:${kind}`)
 
-							return value.toUpperCase()
+							return value === null ? null : value.toUpperCase()
 						},
 					},
 				}),

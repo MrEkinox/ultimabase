@@ -7,7 +7,7 @@ import {
 import { describe, expect, it } from 'vitest'
 
 import {
-	createQueryExistenceFilter,
+	createQueryNullFilter,
 	createQueryMembershipFilter,
 	createQueryRegexFilter,
 	createQueryValueFilter,
@@ -64,10 +64,10 @@ describe('query filter factories', () => {
 		}).toThrow(new TypeError('query regex flag must be a declared flag'))
 	})
 
-	it('rejects unsupported field capabilities and malformed existence values', () => {
-		expect(() =>
+	it('rejects unsupported field capabilities and malformed null values', () => {
+		expect(
 			createQueryValueFilter(fixtureSchema, 'equal', 'title', null),
-		).toThrow(TypeError)
+		).toStrictEqual({ kind: 'equal', field: 'title', value: null })
 		expect(() =>
 			createQueryValueFilter(fixtureSchema, 'equal', 'requiredTitle', null),
 		).toThrow(TypeError)
@@ -82,9 +82,9 @@ describe('query filter factories', () => {
 			new TypeError('query operator equal does not support list fields'),
 		)
 		expect(() => {
-			// @ts-expect-error -- Runtime normalization rejects non-boolean presence state.
-			createQueryExistenceFilter(fixtureSchema, 'title', 'true')
-		}).toThrow(new TypeError('query exists value must be a boolean'))
+			// @ts-expect-error -- Runtime normalization rejects non-boolean null state.
+			createQueryNullFilter(fixtureSchema, 'title', 'true')
+		}).toThrow(new TypeError('query null value must be a boolean'))
 	})
 
 	it('rejects a forged schema entry without a declared field definition', () => {

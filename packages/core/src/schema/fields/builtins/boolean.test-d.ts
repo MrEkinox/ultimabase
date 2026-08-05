@@ -14,7 +14,6 @@ test('preserves boolean defaults and common option literals', () => {
 	const field = booleanField({
 		validation: {
 			required: true,
-			nullable: false,
 		},
 		default: false,
 		immutable: true,
@@ -50,8 +49,13 @@ test('creates an exact empty option contract by default', () => {
 test('rejects incompatible boolean metadata', () => {
 	// @ts-expect-error -- Boolean defaults cannot use numeric values.
 	booleanField({ default: 0 })
-	// @ts-expect-error -- Required fields cannot also be nullable.
-	booleanField({ validation: { required: true, nullable: true } })
+	booleanField({
+		validation: {
+			required: true,
+			// @ts-expect-error -- Nullability is derived and cannot be configured.
+			nullable: true,
+		},
+	})
 	booleanField({
 		// @ts-expect-error -- Schema extensions cannot attach to individual fields.
 		extensions: [defineSchemaExtension('fixture.flag', {})],

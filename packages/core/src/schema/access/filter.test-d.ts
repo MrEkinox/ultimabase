@@ -17,7 +17,7 @@ const Article = Schema.define({
 		aliases: stringField({ list: true }),
 		metadata: objectField({ fields: { label: stringField() } }),
 		published: booleanField(),
-		score: intField({ validation: { nullable: true } }),
+		score: intField(),
 		status: enumField({ values: ['draft', 'published'] }),
 		title: stringField(),
 		views: intField(),
@@ -45,8 +45,8 @@ test('correlates every Access predicate with exact schema capabilities', () => {
 				flags: ['case-insensitive'],
 				source: '^Ultima',
 			})
-			.exists('metadata')
-			.doesNotExist('aliases'),
+			.isNotNull('metadata')
+			.isNull('aliases'),
 	).toEqualTypeOf<AccessFilter<typeof Article>>()
 
 	filter.equalTo('score', null)

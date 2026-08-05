@@ -26,7 +26,7 @@ describe('validation plans', () => {
 						match: /^[a-z]+$/u,
 					},
 				}),
-				nickname: stringField({ validation: { nullable: true } }),
+				nickname: stringField(),
 				active: booleanField({ default: true }),
 				generated: stringField({ default: runtimeDefault }),
 				automaticDate: dateField({
@@ -93,7 +93,6 @@ describe('validation plans', () => {
 				}),
 				tags: stringField({
 					list: true,
-					validation: { nullable: true },
 					default: ['generated'],
 				}),
 				matrix: intField({ list: [true, true] }),
@@ -242,7 +241,7 @@ describe('validation plans', () => {
 			kind: 'scalar',
 			field: customField,
 			presence: 'optional',
-			nullable: false,
+			nullable: true,
 		})
 	})
 

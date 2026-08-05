@@ -56,8 +56,8 @@ test('preserves exact role schema, member, draft, Query, and reference types', (
 
 	expectTypeOf<CreateInput>().toEqualTypeOf<{
 		name: string
-		description?: string
-		priority?: number
+		description?: string | null
+		priority?: number | null
 	}>()
 	expectTypeOf<MemberTarget>().toEqualTypeOf<typeof User>()
 	expectTypeOf<NestedRoleTarget['className']>().toEqualTypeOf<'TypedAppRole'>()

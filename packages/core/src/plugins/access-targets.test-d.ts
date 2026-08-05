@@ -68,9 +68,9 @@ test('infers exact schema and field Access policy targets', () => {
 				['profile', 'displayName'],
 				{
 					create: ({ value }) => {
-						expectTypeOf(value).toEqualTypeOf<string>()
+						expectTypeOf(value).toEqualTypeOf<string | null>()
 
-						return value.length > 0
+						return value !== null && value.length > 0
 					},
 				},
 				{ master: 'enforce' },
@@ -103,7 +103,7 @@ test('infers exact schema and field Access policy targets', () => {
 
 					return {
 						update: ({ value }) => {
-							expectTypeOf(value).toEqualTypeOf<URL>()
+							expectTypeOf(value).toEqualTypeOf<URL | null>()
 
 							return true
 						},

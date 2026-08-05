@@ -156,7 +156,7 @@ describe('native schema hook IntelliSense', () => {
 		const createInput = readHoverDisplay('create-input')
 
 		expect(createInput).toContain('title: string;')
-		expect(createInput).toContain('views?: number;')
+		expect(createInput).toContain('views?: number | null;')
 		expect(createInput).not.toContain('SchemaDefinition<')
 		expect(createInput).not.toContain('OPAQUE_PERMISSION_CONFIG_MUST_NOT_LEAK')
 		expect(readHoverDisplay('update-expression')).toContain('UpdateExpression<')

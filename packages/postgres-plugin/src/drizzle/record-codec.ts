@@ -44,11 +44,6 @@ export const decodePostgresRecord = (
 	for (const [fieldName, fieldValue] of Object.entries(value)) {
 		const field = resolveCompiledPostgresField(schema, fieldName)
 
-		if (fieldValue === null && !field.plan.nullable && !field.column.notNull) {
-			// PostgreSQL NULL represents absence for an optional non-nullable field.
-			continue
-		}
-
 		decoded[fieldName] = field.codec.decode(fieldValue)
 	}
 

@@ -47,7 +47,7 @@ const Membership = Schema.define({
 test('infers exact explicit-edge pointers, inputs, models, and selections', () => {
 	interface ExpectedCreateInput {
 		member: Pointer<typeof Member>
-		position?: number
+		position?: number | null
 		project: Pointer<typeof Project>
 		role: 'editor' | 'viewer'
 	}
@@ -56,7 +56,7 @@ test('infers exact explicit-edge pointers, inputs, models, and selections', () =
 		readonly createdAt: string
 		readonly id: string
 		readonly member: Pointer<typeof Member>
-		readonly position: number
+		readonly position: number | null
 		readonly project: Pointer<typeof Project>
 		readonly role: 'editor' | 'viewer'
 		readonly updatedAt: string

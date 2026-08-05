@@ -1,7 +1,6 @@
 import { stringField } from '../../src/index.js'
 
 export const emailField = /* hover:field-definition */ stringField({
-	validation: { nullable: true },
 	hooks: {
 		resolveInput: [
 			({ value }) => {

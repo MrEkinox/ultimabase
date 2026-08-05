@@ -59,10 +59,11 @@ const profileSlugField = definePluginField(
 			resolveInput: ({ value }) => {
 				trace('field:slug:developer:resolveInput')
 
-				return value.trim().toLowerCase()
+				return value === null ? null : value.trim().toLowerCase()
 			},
 			resolveOutput: ({ value }) => {
 				trace('field:slug:developer:resolveOutput')
+				if (value === null) throw new TypeError('slug must be present')
 
 				return `${value}:developer-output`
 			},
@@ -390,6 +391,7 @@ const behaviorPlugin = definePlugin({
 		hooks.fieldKind('profile-slug', profileSlugHookTarget, () => ({
 			resolveOutput: ({ value }) => {
 				trace('plugin:field-kind:slug:resolveOutput')
+				if (value === null) throw new TypeError('slug must be present')
 
 				return `${value}:plugin-kind`
 			},

@@ -2,7 +2,7 @@ import type {
 	DatabaseRowFilterNode,
 	QueryComparisonFilterNode,
 	QueryEqualityFilterNode,
-	QueryExistenceFilterNode,
+	QueryNullFilterNode,
 	QueryFilterExpression,
 	QueryFilterNode,
 	QueryMembershipFilterNode,
@@ -39,7 +39,7 @@ import { resolveCompiledPostgresField } from '../schema/field.js'
 type RuntimePrimitiveFilter =
 	| QueryComparisonFilterNode
 	| QueryEqualityFilterNode
-	| QueryExistenceFilterNode
+	| QueryNullFilterNode
 	| QueryMembershipFilterNode
 	| QueryRegexFilterNode
 	| QueryStringFilterNode
@@ -198,8 +198,8 @@ const compilePrimitive = (
 			return compileString(filter, field)
 		case 'regex':
 			return compileRegex(filter, field)
-		case 'exists':
-			return filter.exists ? isNotNull(field.column) : isNull(field.column)
+		case 'null':
+			return filter.isNull ? isNull(field.column) : isNotNull(field.column)
 	}
 }
 

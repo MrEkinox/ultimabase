@@ -27,6 +27,7 @@ import {
 } from '../index.js'
 
 const titleField = stringField({
+	validation: { required: true },
 	hooks: {
 		resolveInput: ({ context, value }) => {
 			expectTypeOf(context).toEqualTypeOf<HookContext>()
@@ -43,13 +44,13 @@ const titleField = stringField({
 
 const statusField = enumField({
 	values: ['draft', 'published'],
+	validation: { required: true },
 	hooks: {
 		resolveInput: ({ value }) => value,
 	},
 })
 
 const nullableField = stringField({
-	validation: { nullable: true },
 	hooks: {
 		resolveInput: ({ value }) => value,
 	},
@@ -57,6 +58,7 @@ const nullableField = stringField({
 
 const matrixField = intField({
 	list: [true, true],
+	validation: { required: true },
 	hooks: {
 		resolveInput: ({ value }) => value,
 	},
@@ -64,6 +66,7 @@ const matrixField = intField({
 
 const immutableField = stringField({
 	immutable: true,
+	validation: { required: true },
 	hooks: {
 		beforeCreate: ({ value }) => {
 			value.toUpperCase()
@@ -72,6 +75,7 @@ const immutableField = stringField({
 })
 
 const profileField = objectField({
+	validation: { required: true },
 	fields: {
 		displayName: stringField({ validation: { required: true } }),
 		biography: stringField(),
@@ -94,6 +98,7 @@ const vectorNormalizers = {
 const vectorField = definePluginField(
 	'fixture.vector',
 	{
+		validation: { required: true },
 		hooks: {
 			resolveInput: ({ value }) => value,
 			resolveOutput: ({ value }) => value,
@@ -160,18 +165,18 @@ test('keeps object create, update, and persisted values distinct', () => {
 
 	expectTypeOf<ProfileHooks['create']>().toEqualTypeOf<{
 		displayName: string
-		biography?: string
-		visits?: number
+		biography?: string | null
+		visits?: number | null
 	}>()
 	expectTypeOf<ProfileHooks['update']>().toEqualTypeOf<{
 		displayName?: string
-		biography?: string
-		visits?: number
+		biography?: string | null
+		visits?: number | null
 	}>()
 	expectTypeOf<ProfileHooks['object']>().toEqualTypeOf<{
 		readonly displayName: string
-		readonly biography?: string
-		readonly visits: number
+		readonly biography: string | null
+		readonly visits: number | null
 	}>()
 })
 
@@ -193,9 +198,9 @@ test('removes impossible immutable updates without changing other modes', () => 
 
 test('preserves a plugin field logical value without retaining hook metadata', () => {
 	expectTypeOf<FieldHookTypes<typeof vectorField>>().toEqualTypeOf<{
-		readonly create: readonly number[]
-		readonly object: readonly number[]
-		readonly update: readonly number[]
+		readonly create: readonly number[] | null
+		readonly object: readonly number[] | null
+		readonly update: readonly number[] | null
 	}>()
 	expectTypeOf<'hooks'>().not.toExtend<keyof typeof vectorField.options>()
 })

@@ -101,15 +101,29 @@ type CompactObjectFieldOptions<
 > = ObjectFieldOptions<TFields> & {
 	readonly validation?: {
 		readonly required?: TRequired
-		readonly nullable?: TNullable
 	}
+} & {
 	readonly list?: TList
 	readonly immutable?: TImmutable
 } & FieldHookDeclaration<
-		ResolvedObjectField<TFields, TRequired, TNullable, TList, TImmutable, false>
+		ResolvedObjectField<
+			NoInfer<TFields>,
+			NoInfer<TRequired>,
+			NoInfer<TNullable>,
+			NoInfer<TList>,
+			NoInfer<TImmutable>,
+			false
+		>
 	> &
 	FieldAccessDeclaration<
-		ResolvedObjectField<TFields, TRequired, TNullable, TList, TImmutable, false>
+		ResolvedObjectField<
+			NoInfer<TFields>,
+			NoInfer<TRequired>,
+			NoInfer<TNullable>,
+			NoInfer<TList>,
+			NoInfer<TImmutable>,
+			false
+		>
 	>
 
 type DefaultedObjectFieldOptions<

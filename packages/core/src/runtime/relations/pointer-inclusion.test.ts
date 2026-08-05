@@ -352,7 +352,7 @@ describe('pointer Runtime execution', () => {
 
 			expect(updated?.target).toBe(target)
 
-			if (updated?.target === undefined) {
+			if (updated?.target === undefined || updated.target === null) {
 				throw new TypeError('Expected the complete mutation result pointer')
 			}
 

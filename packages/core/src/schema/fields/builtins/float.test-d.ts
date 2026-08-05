@@ -35,9 +35,9 @@ test('preserves float options and exact literals', () => {
 	expectTypeOf(field.options).toEqualTypeOf<Readonly<FloatFieldOptions>>()
 	expectTypeOf<FieldInferenceStateOf<typeof field>>().toEqualTypeOf<{
 		readonly create: 'optional'
-		readonly object: 'optional'
+		readonly object: 'required'
 		readonly update: 'optional'
-		readonly nullable: false
+		readonly nullable: true
 		readonly list: false
 	}>()
 })
@@ -58,10 +58,10 @@ test('rejects incompatible float metadata', () => {
 	// @ts-expect-error -- Range boundaries must be JavaScript numbers.
 	floatField({ validation: { range: { min: '0' } } })
 
-	// @ts-expect-error -- Required fields cannot also be nullable.
 	floatField({
 		validation: {
 			required: true,
+			// @ts-expect-error -- Nullability is derived and cannot be configured.
 			nullable: true,
 		},
 	})

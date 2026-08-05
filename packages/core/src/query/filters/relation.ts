@@ -19,7 +19,7 @@ import type {
 } from '../ast/contracts.js'
 import { createQueryAst } from '../ast/factory.js'
 import {
-	createQueryExistenceFilter,
+	createQueryNullFilter,
 	createQueryMembershipFilter,
 	createQueryRegexFilter,
 	createQueryValueFilter,
@@ -276,22 +276,18 @@ export class RelationPredicate<TSchema extends SchemaDefinition> {
 		return this.#append(createQueryRegexFilter(this.schema, fieldName, pattern))
 	}
 
-	/** Adds a positive field-presence condition to the target predicate. */
-	exists(
-		fieldName: QueryFilterFieldName<TSchema, 'exists'>,
+	/** Requires one target field to contain a non-null value. */
+	isNotNull(
+		fieldName: QueryFilterFieldName<TSchema, 'null'>,
 	): RelationPredicate<TSchema> {
-		return this.#append(
-			createQueryExistenceFilter(this.schema, fieldName, true),
-		)
+		return this.#append(createQueryNullFilter(this.schema, fieldName, false))
 	}
 
-	/** Adds a negative field-presence condition to the target predicate. */
-	doesNotExist(
-		fieldName: QueryFilterFieldName<TSchema, 'exists'>,
+	/** Requires one target field to contain null. */
+	isNull(
+		fieldName: QueryFilterFieldName<TSchema, 'null'>,
 	): RelationPredicate<TSchema> {
-		return this.#append(
-			createQueryExistenceFilter(this.schema, fieldName, false),
-		)
+		return this.#append(createQueryNullFilter(this.schema, fieldName, true))
 	}
 
 	/** Combines another target predicate through AND. */

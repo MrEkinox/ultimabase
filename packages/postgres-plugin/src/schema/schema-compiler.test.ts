@@ -183,11 +183,11 @@ describe('PostgreSQL primitive schema compiler', () => {
 		})
 		expect(columns.required?.notNull).toBe(true)
 		expect(columns.optional?.notNull).toBe(false)
-		expect(columns.runtime).toMatchObject({ hasDefault: false, notNull: true })
+		expect(columns.runtime).toMatchObject({ hasDefault: false, notNull: false })
 		expect(columns.active).toMatchObject({
 			default: true,
 			hasDefault: true,
-			notNull: true,
+			notNull: false,
 		})
 		expect(columns.counter?.generatedIdentity?.type).toBe('byDefault')
 		expect(columns.status?.enumValues).toStrictEqual(['draft', 'live'])
@@ -202,7 +202,6 @@ describe('PostgreSQL primitive schema compiler', () => {
 			fields: {
 				nullable: stringField({
 					default: 'fallback',
-					validation: { nullable: true },
 				}),
 			},
 		})

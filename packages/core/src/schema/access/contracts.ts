@@ -129,18 +129,18 @@ export interface AccessFilter<TSchema extends SchemaDefinition> {
 		pattern: QueryRegexPattern,
 	): AccessFilter<TSchema>
 	/**
-	 * Requires one declared field to be present.
-	 * @example `filter.exists("publishedAt")`
+	 * Requires one declared field to contain a non-null value.
+	 * @example `filter.isNotNull("publishedAt")`
 	 */
-	exists(
-		fieldName: QueryFilterFieldName<TSchema, 'exists'>,
+	isNotNull(
+		fieldName: QueryFilterFieldName<TSchema, 'null'>,
 	): AccessFilter<TSchema>
 	/**
-	 * Requires one declared field to be absent.
-	 * @example `filter.doesNotExist("deletedAt")`
+	 * Requires one declared field to contain null.
+	 * @example `filter.isNull("publishedAt")`
 	 */
-	doesNotExist(
-		fieldName: QueryFilterFieldName<TSchema, 'exists'>,
+	isNull(
+		fieldName: QueryFilterFieldName<TSchema, 'null'>,
 	): AccessFilter<TSchema>
 	/**
 	 * Requires this branch and another branch to match.

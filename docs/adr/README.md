@@ -125,6 +125,7 @@ Accepted records:
 - [ADR-0130: Contextual schema extension binding](0130-contextual-schema-extension-binding.md)
 - [ADR-0131: Optional committed event delivery](0131-optional-committed-event-delivery.md)
 - [ADR-0132: Read-only queries and schema-owned write commands](0132-read-only-queries-and-schema-write-commands.md)
+- [ADR-0133: Canonical null for optional field values](0133-canonical-null-for-optional-fields.md)
 
 Superseded records:
 

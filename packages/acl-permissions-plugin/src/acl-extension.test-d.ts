@@ -114,11 +114,11 @@ test('contextually infers exact sibling fields without a manual data generic', (
 			bind(acl, {
 				default: ({ data }) => {
 					expectTypeOf(data.title).toEqualTypeOf<string>()
-					expectTypeOf(data.visibility).toEqualTypeOf<string | undefined>()
-					expectTypeOf(data.tags).toEqualTypeOf<readonly string[] | undefined>()
-					expectTypeOf(data.profile).toEqualTypeOf<
-						Readonly<{ displayName: string }> | undefined
-					>()
+					expectTypeOf(data.visibility).toEqualTypeOf<string | null>()
+					expectTypeOf(data.tags).toEqualTypeOf<readonly string[] | null>()
+					expectTypeOf(data.profile).toEqualTypeOf<Readonly<{
+						displayName: string
+					}> | null>()
 					expectTypeOf(data.author).toEqualTypeOf<Pointer<typeof Author>>()
 					expectTypeOf(data.custom).toEqualTypeOf<string>()
 					const selectField = <TKey extends keyof typeof data>(
@@ -138,7 +138,7 @@ test('contextually infers exact sibling fields without a manual data generic', (
 
 					if (input.operation === 'update') {
 						expectTypeOf(input.currentData.visibility).toEqualTypeOf<
-							string | undefined
+							string | null
 						>()
 					}
 

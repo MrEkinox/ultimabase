@@ -131,6 +131,7 @@ export type {
 	FieldOptionsValue,
 	FieldScalarValue,
 	FieldValidationOptions,
+	FieldOptionsWithoutNullable,
 	FieldValue,
 	ResolveFieldInferenceState,
 	ScalarFieldInferenceState,

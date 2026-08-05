@@ -28,12 +28,12 @@ describe('runtime declaration boundaries', () => {
 		[
 			'nullable',
 			{ validation: { nullable: 1 } },
-			'validation.nullable must be a boolean',
+			'validation.nullable is not supported',
 		],
 		[
 			'contradictory presence',
 			{ validation: { required: true, nullable: true } },
-			'validation.required and validation.nullable cannot both be true',
+			'validation.nullable is not supported',
 		],
 		['immutability', { immutable: 'yes' }, 'immutable must be a boolean'],
 		[

@@ -42,7 +42,6 @@ export const ProductSchema = Schema.define({
 		}),
 		rating: floatField({
 			validation: {
-				nullable: true,
 				finite: true,
 				range: { min: 0, max: 5 },
 			},
@@ -70,7 +69,7 @@ export const ProductSchema = Schema.define({
 		tags: stringField({ list: true, default: [] }),
 		metadata: jsonField({ default: {} }),
 		attachment: binaryField({
-			validation: { nullable: true, length: { max: 5_000_000 } },
+			validation: { length: { max: 5_000_000 } },
 		}),
 		isActive: booleanField({ default: true }),
 	},
@@ -82,8 +81,8 @@ export const ProductSchema = Schema.define({
 ```
 
 `jsonField` accepts an object or array at its root. Nested values may contain
-every portable JSON primitive, including `null`; root `null` requires
-`validation.nullable: true` so field nullability remains explicit.
+every portable JSON primitive, including `null`; an optional JSON field also
+accepts `null` at its root.
 
 `decimalField` uses strings to preserve exact base-10 values. Temporal fields
 also use explicit strings: `dateField` stores a calendar day, `timeField` a

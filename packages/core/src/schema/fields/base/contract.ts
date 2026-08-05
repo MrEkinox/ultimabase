@@ -41,15 +41,16 @@ export interface ScalarFieldInferenceState<
 				? 'optional'
 				: 'required'
 			: 'optional'
-	readonly object: THasGeneratedValue extends true
-		? 'required'
-		: TRequired extends true
-			? 'required'
-			: THasDefault extends true
-				? 'required'
-				: 'optional'
+	readonly object: 'required'
 	readonly update: TImmutable extends true ? 'forbidden' : 'optional'
-	readonly nullable: TNullable
+	// The retained compatibility parameter is ignored: nullability now follows the invariant.
+	readonly nullable: TNullable extends boolean
+		? TRequired extends true
+			? false
+			: THasGeneratedValue extends true
+				? false
+				: true
+		: never
 	readonly list: TList
 }
 
@@ -88,9 +89,7 @@ type FieldOptionsDefaultValue<
 	: FieldListValue<TValue, TList>
 
 /**
- * Describes whether a field may be omitted or contain null.
- *
- * Optional fields remain non-null by default, while required fields can never be nullable.
+ * Describes whether a field must contain a non-null persisted value.
  */
 export interface FieldValidationOptions {
 	/**
@@ -99,13 +98,15 @@ export interface FieldValidationOptions {
 	 * @example `validation: { required: true }`
 	 */
 	readonly required?: boolean
-	/**
-	 * Allows an explicit `null` value. It cannot be enabled together with `required`.
-	 *
-	 * @example `validation: { nullable: true }`
-	 */
-	readonly nullable?: boolean
 }
+
+/** Rejects legacy validation metadata that attempts to configure derived nullability. */
+export type FieldOptionsWithoutNullable<TOptions extends object> =
+	TOptions extends { readonly validation: infer TValidation extends object }
+		? 'nullable' extends keyof TValidation
+			? never
+			: TOptions
+		: TOptions
 
 interface FieldMetadataOptions<TValidation extends FieldValidationOptions> {
 	/**
@@ -183,14 +184,6 @@ type DefaultIsCompatible<TOptions, TValue> = TOptions extends {
 			: false
 	: true
 
-type PresenceIsCompatible<TOptions> = TOptions extends {
-	readonly validation: infer TValidation
-}
-	? TValidation extends { readonly required: true; readonly nullable: true }
-		? false
-		: true
-	: true
-
 type GeneratedValueIsCompatible<TOptions> = TOptions extends {
 	readonly autoNow: true
 }
@@ -209,9 +202,7 @@ type FieldOptionsAreCompatible<TOptions extends object, TValue> =
 		TOptions,
 		FieldOptionsValue<TValue, TOptions>
 	> extends true
-		? PresenceIsCompatible<TOptions> extends true
-			? GeneratedValueIsCompatible<TOptions>
-			: false
+		? GeneratedValueIsCompatible<TOptions>
 		: false
 
 export type ValidatedFieldOptions<TOptions extends object, TValue> =
@@ -228,12 +219,6 @@ type FieldOptionsList<TOptions> = TOptions extends {
 	readonly list: infer TList extends FieldList
 }
 	? TList
-	: false
-
-type FieldOptionsNullable<TOptions> = TOptions extends {
-	readonly validation: { readonly nullable: true }
-}
-	? true
 	: false
 
 type FieldOptionsRequired<TOptions> = TOptions extends {
@@ -272,18 +257,18 @@ type FieldOptionsAreImmutable<TOptions> = TOptions extends {
 	? true
 	: false
 
-type ResolveObjectPresence<TOptions> =
+type ResolveObjectPresence = 'required'
+
+type ResolveNullability<TOptions> =
 	FieldOptionsRequired<TOptions> extends true
-		? 'required'
-		: FieldOptionsHaveDefault<TOptions> extends true
-			? 'required'
-			: FieldOptionsHaveAutoNow<TOptions> extends true
-				? 'required'
-				: FieldOptionsAreAutoIncremented<TOptions> extends true
-					? 'required'
-					: FieldOptionsAreGenerated<TOptions> extends true
-						? 'required'
-						: 'optional'
+		? false
+		: FieldOptionsHaveAutoNow<TOptions> extends true
+			? false
+			: FieldOptionsAreAutoIncremented<TOptions> extends true
+				? false
+				: FieldOptionsAreGenerated<TOptions> extends true
+					? false
+					: true
 
 type ResolveCreatePresence<TOptions> =
 	FieldOptionsAreGenerated<TOptions> extends true
@@ -308,9 +293,9 @@ type ResolveUpdatePresence<TOptions> =
 /** Converts exact legacy options into the compact field inference contract. */
 export interface ResolveFieldInferenceState<TOptions extends object> {
 	readonly create: ResolveCreatePresence<TOptions>
-	readonly object: ResolveObjectPresence<TOptions>
+	readonly object: ResolveObjectPresence
 	readonly update: ResolveUpdatePresence<TOptions>
-	readonly nullable: FieldOptionsNullable<TOptions>
+	readonly nullable: ResolveNullability<TOptions>
 	readonly list: FieldOptionsList<TOptions>
 }
 

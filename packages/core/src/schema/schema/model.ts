@@ -34,15 +34,11 @@ import {
 } from '../../query/query/query.js'
 import type {
 	NumericUpdateInput,
-	UnsetUpdateFieldName,
 	UpdateExpressionInput,
 	UpdateSetInput,
 } from '../../query/updates/contracts.js'
 import { snapshotDeclaredFieldValue } from '../fields/base/definition.js'
-import {
-	hasValidationFlag,
-	isRequiredOnCreate,
-} from '../fields/base/options.js'
+import { isFieldNullable, isRequiredOnCreate } from '../fields/base/options.js'
 import type { InferCreateInput, InferObject } from '../inference/types.js'
 import { Pointer } from '../relations/pointer.js'
 import {
@@ -123,10 +119,8 @@ export interface SchemaDraftUpsertInput<TSchema extends SchemaDefinition> {
 interface CompactSchemaModelUpdateGroups<
 	TSet extends object,
 	TNumeric extends object,
-	TUnset extends string,
 > {
 	readonly set?: TSet
-	readonly unset?: readonly TUnset[]
 	readonly increment?: TNumeric
 	readonly decrement?: TNumeric
 }
@@ -135,15 +129,13 @@ interface CompactSchemaModelUpdateGroups<
 export type CompactSchemaModelUpdateInput<
 	TSet extends object,
 	TNumeric extends object,
-	TUnset extends string,
-> = RequireOneProperty<CompactSchemaModelUpdateGroups<TSet, TNumeric, TUnset>>
+> = RequireOneProperty<CompactSchemaModelUpdateGroups<TSet, TNumeric>>
 
 /** Infers the compact atomic update surface reused by persisted model commands. */
 export type SchemaModelUpdateInput<TSchema extends SchemaDefinition> =
 	CompactSchemaModelUpdateInput<
 		UpdateSetInput<TSchema>,
-		NumericUpdateInput<TSchema>,
-		UnsetUpdateFieldName<TSchema>
+		NumericUpdateInput<TSchema>
 	>
 
 /** Exposes only persistence commands valid for a caller-created immutable draft. */
@@ -247,8 +239,7 @@ export type SchemaDraft<TSchema extends SchemaDefinition> = Simplify<
 				InferObject<TSchema>,
 				CompactSchemaModelUpdateInput<
 					Simplify<UpdateSetInput<TSchema>>,
-					Simplify<NumericUpdateInput<TSchema>>,
-					UnsetUpdateFieldName<TSchema>
+					Simplify<NumericUpdateInput<TSchema>>
 				>,
 				SchemaResultRelations<TSchema> & SchemaResultCapabilitiesOf<TSchema>
 			>,
@@ -265,8 +256,7 @@ export type SchemaResult<
 	TValues,
 	CompactSchemaModelUpdateInput<
 		Simplify<UpdateSetInput<TSchema>>,
-		Simplify<NumericUpdateInput<TSchema>>,
-		UnsetUpdateFieldName<TSchema>
+		Simplify<NumericUpdateInput<TSchema>>
 	>,
 	SchemaResultRelations<TSchema> & SchemaResultCapabilitiesOf<TSchema>,
 	InferObject<TSchema>
@@ -625,7 +615,7 @@ const snapshotDraftValues = (
 		const value = input[key]
 
 		values[key] =
-			value === null && hasValidationFlag(definition.options, 'nullable')
+			value === null && isFieldNullable(definition)
 				? null
 				: snapshotDeclaredFieldValue(definition, value, `input.${key}`)
 	}

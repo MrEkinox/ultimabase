@@ -267,7 +267,7 @@ describe('createFrameworkEngine', () => {
 						resolveOutput: ({ value }) => {
 							trace.push('field:title')
 
-							return value.toUpperCase()
+							return value === null ? null : value.toUpperCase()
 						},
 					},
 				}),

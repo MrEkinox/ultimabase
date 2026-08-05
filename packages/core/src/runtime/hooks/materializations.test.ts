@@ -149,8 +149,8 @@ const updateExpression = normalizeUpdateExpression(materializationSchema, {
 			displayName: 'name-after',
 			details: { code: 'code-before' },
 		},
+		removable: null,
 	},
-	unset: ['removable'],
 })
 
 const updateOperation: UpdateOneOperationAst<
@@ -262,6 +262,7 @@ describe('runtime mutation materializations', () => {
 			{ fieldPath: ['profile', 'displayName'], mode: 'update' },
 			{ fieldPath: ['profile', 'details'], mode: 'update' },
 			{ fieldPath: ['profile', 'details', 'code'], mode: 'update' },
+			{ fieldPath: ['removable'], mode: 'update' },
 		])
 		expect(
 			collectMutationBeforeFieldValues(deleteOperation, target).map(
@@ -297,14 +298,13 @@ describe('runtime mutation materializations', () => {
 
 	it('unwinds after values from complete snapshots rather than selected results', () => {
 		const previous = makeRecord('before')
-		const withoutRemoved = { ...previous }
-		delete withoutRemoved.removable
 		const current: InferObject<typeof materializationSchema> = {
-			...withoutRemoved,
+			...previous,
 			profile: {
 				displayName: 'name-after',
 				details: { code: 'code-before' },
 			},
+			removable: null,
 		}
 		const outcome = {
 			materializations: [{ current, kind: 'update', previous }],
@@ -314,6 +314,7 @@ describe('runtime mutation materializations', () => {
 		const values = collectMutationAfterFieldValues(updateOperation, outcome)
 
 		expect(values.map(({ fieldPath }) => fieldPath)).toStrictEqual([
+			['removable'],
 			['profile', 'details', 'code'],
 			['profile', 'details'],
 			['profile', 'displayName'],
@@ -321,22 +322,23 @@ describe('runtime mutation materializations', () => {
 		])
 		expect(values.every(({ mode }) => mode === 'update')).toBe(true)
 		expect(
-			values.find(({ fieldPath }) => fieldPath.length === 1)?.value,
+			values.find(
+				({ fieldPath }) => fieldPath.length === 1 && fieldPath[0] === 'profile',
+			)?.value,
 		).toEqual(current.profile)
 		expect(Object.isFrozen(values)).toBe(true)
 		expect(Object.isFrozen(values[0])).toBe(true)
 	})
 
-	it('emits only real child-first semantic changes including explicit absence', () => {
+	it('emits only real child-first semantic changes including an explicit clear', () => {
 		const previous = makeRecord('before')
-		const withoutRemoved = { ...previous }
-		delete withoutRemoved.removable
 		const current: InferObject<typeof materializationSchema> = {
-			...withoutRemoved,
+			...previous,
 			profile: {
 				displayName: 'name-after',
 				details: { code: 'code-before' },
 			},
+			removable: null,
 		}
 		const outcome = {
 			materializations: [{ current, kind: 'update', previous }],
@@ -351,7 +353,7 @@ describe('runtime mutation materializations', () => {
 			['profile'],
 		])
 		expect(changes[0]?.change).toStrictEqual({
-			current: { present: false },
+			current: { present: true, value: null },
 			previous: { present: true, value: 'remove-before' },
 		})
 		expect(changes[1]?.change).toStrictEqual({

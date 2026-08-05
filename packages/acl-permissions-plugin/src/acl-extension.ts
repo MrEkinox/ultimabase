@@ -117,9 +117,9 @@ export interface ACLCreateInputResolution<
 /** Describes one immutable normalized update operation supplied to ACL resolution. */
 export interface ACLNormalizedUpdateOperation {
 	readonly field: string
-	readonly kind: 'decrement' | 'increment' | 'set' | 'unset'
-	/** `unset` omits the value; other operation kinds retain their validated value. */
-	readonly value?: unknown
+	readonly kind: 'decrement' | 'increment' | 'set'
+	/** Retains the validated operand, including `null` for an explicit clear. */
+	readonly value: unknown
 }
 
 /** Exposes the normalized non-ACL update intent without adapter-specific syntax. */

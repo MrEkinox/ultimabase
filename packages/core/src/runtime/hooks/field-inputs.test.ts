@@ -194,7 +194,7 @@ describe('runtime field inputs', () => {
 		expect(second).not.toHaveProperty('profile')
 	})
 
-	it('extracts and replaces update values while preserving value-less unsets', async () => {
+	it('extracts and replaces update values including explicit null clears', async () => {
 		const update = normalizeUpdateExpression(traversalSchema, {
 			set: {
 				'literal.name': 'updated.literal',
@@ -202,9 +202,9 @@ describe('runtime field inputs', () => {
 					displayName: 'updated name',
 					contact: { email: 'updated@example.com' },
 				},
+				removable: null,
 			},
 			increment: { count: 2 },
-			unset: ['removable'],
 		})
 		const operation = {
 			kind: 'update-one',
@@ -228,6 +228,7 @@ describe('runtime field inputs', () => {
 			['profile', 'contact', 'email'],
 			['profile', 'contact'],
 			['profile'],
+			['removable'],
 			['count'],
 		])
 
@@ -239,7 +240,8 @@ describe('runtime field inputs', () => {
 
 		expect(transformed.update.operations).toContainEqual({
 			field: 'removable',
-			kind: 'unset',
+			kind: 'set',
+			value: null,
 		})
 		expect(transformed.update.operations).toContainEqual({
 			field: 'literal.name',

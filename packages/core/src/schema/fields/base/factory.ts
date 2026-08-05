@@ -25,14 +25,13 @@ type ScalarFieldOptionsNormalizer<TOptions extends object> = <
 type CompactScalarFieldOptions<
 	TOptions extends object,
 	TRequired extends boolean,
-	TNullable extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 > = TOptions & {
 	readonly validation?: {
 		readonly required?: TRequired
-		readonly nullable?: TNullable
 	}
+} & {
 	readonly list?: TList
 	readonly immutable?: TImmutable
 }
@@ -46,29 +45,27 @@ export type DefaultedCompactScalarFieldOptions<
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 	TInferredOptions extends object = object,
-> = CompactScalarFieldOptions<
-	TOptions,
-	TRequired,
-	TNullable,
-	TList,
-	TImmutable
-> &
+> = CompactScalarFieldOptions<TOptions, TRequired, TList, TImmutable> &
 	TInferredOptions & {
 		readonly default: FieldDefault<FieldListValue<TValue, TList>>
 	} & FieldHookDeclaration<
-		FieldDefinition<
-			'field',
-			TValue,
-			TOptions,
-			ScalarFieldInferenceState<TRequired, TNullable, TList, TImmutable, true>
+		NoInfer<
+			FieldDefinition<
+				'field',
+				TValue,
+				TOptions,
+				ScalarFieldInferenceState<TRequired, TNullable, TList, TImmutable, true>
+			>
 		>
 	> &
 	FieldAccessDeclaration<
-		FieldDefinition<
-			'field',
-			TValue,
-			TOptions,
-			ScalarFieldInferenceState<TRequired, TNullable, TList, TImmutable, true>
+		NoInfer<
+			FieldDefinition<
+				'field',
+				TValue,
+				TOptions,
+				ScalarFieldInferenceState<TRequired, TNullable, TList, TImmutable, true>
+			>
 		>
 	>
 
@@ -81,34 +78,48 @@ export type NonDefaultedCompactScalarFieldOptions<
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 	TInferredOptions extends object = object,
-> = CompactScalarFieldOptions<
-	TOptions,
-	TRequired,
-	TNullable,
-	TList,
-	TImmutable
-> &
+> = CompactScalarFieldOptions<TOptions, TRequired, TList, TImmutable> &
 	TInferredOptions & { readonly default?: never } & FieldHookDeclaration<
-		FieldDefinition<
-			'field',
-			TValue,
-			TOptions,
-			ScalarFieldInferenceState<TRequired, TNullable, TList, TImmutable, false>
+		NoInfer<
+			FieldDefinition<
+				'field',
+				TValue,
+				TOptions,
+				ScalarFieldInferenceState<
+					TRequired,
+					TNullable,
+					TList,
+					TImmutable,
+					false
+				>
+			>
 		>
 	> &
 	FieldAccessDeclaration<
-		FieldDefinition<
-			'field',
-			TValue,
-			TOptions,
-			ScalarFieldInferenceState<TRequired, TNullable, TList, TImmutable, false>
+		NoInfer<
+			FieldDefinition<
+				'field',
+				TValue,
+				TOptions,
+				ScalarFieldInferenceState<
+					TRequired,
+					TNullable,
+					TList,
+					TImmutable,
+					false
+				>
+			>
 		>
 	>
 
 export type CompatibleScalarPresence<
 	TRequired extends boolean,
 	TNullable extends boolean,
-> = TRequired extends true ? (TNullable extends true ? never : object) : object
+> = TRequired extends boolean
+	? TNullable extends boolean
+		? object
+		: never
+	: never
 
 /** Resolves one scalar field's compact state for field-specific editor aliases. */
 export type CompactScalarFieldDefinition<

@@ -32,12 +32,12 @@ test('exposes a safe recursive JSON value', () => {
 	>()
 })
 
-test('reserves root null for explicit field nullability', () => {
+test('uses root null for optional JSON fields', () => {
 	const schema = Schema.define({
 		className: 'JsonDocuments',
 		fields: {
 			document: jsonField(),
-			nullableDocument: jsonField({ validation: { nullable: true } }),
+			nullableDocument: jsonField(),
 		},
 	})
 
@@ -46,8 +46,8 @@ test('reserves root null for explicit field nullability', () => {
 		readonly id: string
 		readonly createdAt: string
 		readonly updatedAt: string
-		readonly document?: JsonDocument
-		readonly nullableDocument?: JsonDocument | null
+		readonly document: JsonDocument | null
+		readonly nullableDocument: JsonDocument | null
 	}>()
 })
 

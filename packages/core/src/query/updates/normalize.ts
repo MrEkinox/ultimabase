@@ -8,7 +8,6 @@ import {
 	immutableArray,
 	immutableRecord,
 	isPlainRecord,
-	isUnknownArray,
 } from '@ultimabase/shared'
 
 import {
@@ -18,10 +17,9 @@ import {
 	type UpdateExpressionInput,
 	type UpdateFieldName,
 	type UpdateOperationNode,
-	type UnsetUpdateFieldName,
 } from './contracts.js'
 
-const updateGroupKinds = ['set', 'unset', 'increment', 'decrement'] as const
+const updateGroupKinds = ['set', 'increment', 'decrement'] as const
 
 type NumericUpdateKind = 'decrement' | 'increment'
 type RuntimeUpdateField = FieldDefinition<string, unknown, object>
@@ -36,20 +34,6 @@ const isListField = (field: RuntimeUpdateField): boolean =>
 	'list' in field.options &&
 	field.options.list !== false &&
 	field.options.list !== undefined
-
-const isRequiredOutputField = (field: RuntimeUpdateField): boolean => {
-	const validation =
-		'validation' in field.options ? field.options.validation : undefined
-
-	return (
-		(isPlainRecord(validation) && validation.required === true) ||
-		'default' in field.options ||
-		('autoNow' in field.options && field.options.autoNow === true) ||
-		('autoIncrement' in field.options &&
-			field.options.autoIncrement === true) ||
-		'generatedOn' in field.options
-	)
-}
 
 const resolveMutableField = <const TSchema extends SchemaDefinition>(
 	schema: TSchema,
@@ -138,39 +122,6 @@ const appendSetOperations = <const TSchema extends SchemaDefinition>(
 	}
 }
 
-const appendUnsetOperations = <const TSchema extends SchemaDefinition>(
-	schema: TSchema,
-	group: unknown,
-	claimedFields: Set<string>,
-	operations: UpdateOperationNode<TSchema>[],
-): void => {
-	if (!isUnknownArray(group)) {
-		throw new TypeError('update unset must be an array')
-	}
-
-	for (const fieldName of group) {
-		const [mutableFieldName, field] = resolveMutableField(
-			schema,
-			fieldName,
-			'update unset field',
-		)
-
-		if (isRequiredOutputField(field)) {
-			throw new TypeError(
-				'update unset field must reference an optional output field',
-			)
-		}
-
-		claimUpdateField(claimedFields, mutableFieldName)
-		operations.push(
-			immutableRecord({
-				kind: 'unset',
-				field: mutableFieldName as UnsetUpdateFieldName<TSchema>,
-			}),
-		)
-	}
-}
-
 const appendNumericOperations = <const TSchema extends SchemaDefinition>(
 	schema: TSchema,
 	kind: NumericUpdateKind,
@@ -243,9 +194,6 @@ export const normalizeUpdateExpression = <
 		switch (kind) {
 			case 'set':
 				appendSetOperations(schema, group, claimedFields, operations)
-				break
-			case 'unset':
-				appendUnsetOperations(schema, group, claimedFields, operations)
 				break
 			case 'increment':
 			case 'decrement':

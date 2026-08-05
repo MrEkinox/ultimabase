@@ -93,7 +93,7 @@ const fieldSpecificOptions: FactoryOptionMap = {
 	uuidField: [],
 }
 
-const commonValidationOptions = ['nullable', 'required'] as const
+const commonValidationOptions = ['required'] as const
 const validationSpecificOptions: FactoryOptionMap = {
 	bigintField: ['range'],
 	binaryField: ['length'],
@@ -215,7 +215,6 @@ const validationOptionExpressions: Readonly<Record<string, string>> = {
 	finite: 'true',
 	length: '{}',
 	match: '/^[a-z]+$/u',
-	nullable: 'true',
 	precision: '12',
 	range: '{}',
 	required: 'true',

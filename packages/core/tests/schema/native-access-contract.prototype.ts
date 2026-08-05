@@ -64,7 +64,7 @@ export const AccessPost = Schema.define({
 		authorId: stringField({ validation: { required: true } }),
 		published: booleanField({
 			access: {
-				create: ({ /* hover:field-value */ value }) => value,
+				create: ({ /* hover:field-value */ value }) => value === true,
 				read: { filter: false, item: true, order: false },
 				update: false,
 			},

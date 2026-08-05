@@ -33,14 +33,14 @@ describe('applyUpdateExpressionToRecord', () => {
 		const update = normalizeUpdateExpression(Account, {
 			decrement: { sequence: 2n },
 			increment: { balance: '1.5', visits: 3 },
-			set: { labels: ['new', 'stable'] },
-			unset: ['legacy'],
+			set: { labels: ['new', 'stable'], legacy: null },
 		})
 		const candidate = applyUpdateExpressionToRecord(Account, current, update)
 
 		expect(candidate).toStrictEqual({
 			balance: '11.50',
 			labels: ['new', 'stable'],
+			legacy: null,
 			sequence: 8n,
 			visits: 7,
 		})

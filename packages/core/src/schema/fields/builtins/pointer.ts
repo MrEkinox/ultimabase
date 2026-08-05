@@ -52,7 +52,7 @@ export interface PointerFieldOptions<
 	readonly target: SchemaTarget<TTarget>
 	/**
 	 * Selects target-deletion behavior. The safe default is `"restrict"`.
-	 * `"setNull"` requires `validation.nullable: true`.
+	 * `"setNull"` requires an optional pointer.
 	 *
 	 * @example `onDelete: "cascade"`
 	 */
@@ -81,20 +81,12 @@ type ResolvedPointerField<
 >
 
 /** Keeps presence literals inferable while preserving option-level editor help. */
-interface CompactPointerValidationOptions<
-	TRequired extends boolean,
-	TNullable extends boolean,
-> {
+interface CompactPointerValidationOptions<TRequired extends boolean> {
 	/**
 	 * Requires an explicit pointer during creation.
 	 * @example `required: true`
 	 */
 	readonly required?: TRequired
-	/**
-	 * Allows the pointer value to be explicitly `null`.
-	 * @example `nullable: true`
-	 */
-	readonly nullable?: TNullable
 }
 
 type CompactPointerFieldOptions<
@@ -108,10 +100,10 @@ type CompactPointerFieldOptions<
 	'immutable' | 'onDelete' | 'validation'
 > & {
 	/**
-	 * Groups pointer presence rules enforced by Runtime.
+	 * Groups the pointer's required-presence rule.
 	 * @example `validation: { required: true }`
 	 */
-	readonly validation?: CompactPointerValidationOptions<TRequired, TNullable>
+	readonly validation?: CompactPointerValidationOptions<TRequired>
 	/**
 	 * Prevents replacement of the pointer after creation.
 	 * @example `immutable: true`
@@ -123,10 +115,20 @@ type CompactPointerFieldOptions<
 	 */
 	readonly onDelete?: TOnDelete
 } & FieldHookDeclaration<
-		ResolvedPointerField<TTarget, TRequired, TNullable, TImmutable>
+		ResolvedPointerField<
+			NoInfer<TTarget>,
+			NoInfer<TRequired>,
+			NoInfer<TNullable>,
+			NoInfer<TImmutable>
+		>
 	> &
 	FieldAccessDeclaration<
-		ResolvedPointerField<TTarget, TRequired, TNullable, TImmutable>
+		ResolvedPointerField<
+			NoInfer<TTarget>,
+			NoInfer<TRequired>,
+			NoInfer<TNullable>,
+			NoInfer<TImmutable>
+		>
 	>
 
 type CompatiblePointerOptions<
@@ -135,9 +137,9 @@ type CompatiblePointerOptions<
 	TOnDelete extends PointerReferentialAction,
 > = CompatibleScalarPresence<TRequired, TNullable> &
 	(TOnDelete extends 'setNull'
-		? TNullable extends true
-			? object
-			: never
+		? TRequired extends true
+			? never
+			: object
 		: object)
 
 interface PointerFieldMetadataInput extends FieldOptionsBase<
@@ -165,10 +167,8 @@ const normalizePointerMetadata = (
 		throw new TypeError('onDelete must be "restrict", "cascade", or "setNull"')
 	}
 
-	if (onDelete === 'setNull' && options.validation?.nullable !== true) {
-		throw new TypeError(
-			'onDelete "setNull" requires validation.nullable to be true',
-		)
+	if (onDelete === 'setNull' && options.validation?.required === true) {
+		throw new TypeError('onDelete "setNull" requires an optional pointer')
 	}
 
 	const normalized = normalizeFieldOptions(

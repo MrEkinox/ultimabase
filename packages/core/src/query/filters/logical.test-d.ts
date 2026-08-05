@@ -49,7 +49,7 @@ test('recursively composes schema-correlated primitive filters', () => {
 					{ kind: 'greater-than', field: 'age', value: 18 },
 					{
 						kind: 'not',
-						expression: { kind: 'exists', field: 'age', exists: true },
+						expression: { kind: 'null', field: 'age', isNull: false },
 					},
 				],
 			},

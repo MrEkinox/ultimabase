@@ -182,9 +182,9 @@ describe('ACL input resolution with PostgreSQL', { concurrent: false }, () => {
 					set: {
 						acl: replacement,
 						labels: ['stable', 'typed'],
+						note: null,
 						title: 'resolved-candidate',
 					},
-					unset: ['note'],
 				},
 			},
 			masterOptions,
@@ -209,6 +209,7 @@ describe('ACL input resolution with PostgreSQL', { concurrent: false }, () => {
 		expect(updateResolution?.data).toStrictEqual({
 			balance: '11.50',
 			labels: ['stable', 'typed'],
+			note: null,
 			status: 'unchanged',
 			title: 'resolved-candidate',
 			views: 5,
@@ -216,7 +217,7 @@ describe('ACL input resolution with PostgreSQL', { concurrent: false }, () => {
 		expect(updateResolution?.update.operations.slice(0, -1)).toStrictEqual([
 			{ field: 'labels', kind: 'set', value: ['stable', 'typed'] },
 			{ field: 'title', kind: 'set', value: 'resolved-candidate' },
-			{ field: 'note', kind: 'unset' },
+			{ field: 'note', kind: 'set', value: null },
 			{ field: 'balance', kind: 'increment', value: '1.50' },
 			{ field: 'views', kind: 'increment', value: 3 },
 		])

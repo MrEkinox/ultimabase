@@ -45,7 +45,7 @@ const FilterSchema = Schema.define({
 		metadata: jsonField(),
 		rating: floatField(),
 		status: enumField({ values: ['draft', 'published'] }),
-		title: stringField({ validation: { nullable: true } }),
+		title: stringField(),
 		token: uuidField(),
 		wakeAt: timeField(),
 	},
@@ -208,11 +208,11 @@ describe('PostgreSQL filter compiler', () => {
 			},
 			{
 				fragment: ' is not null',
-				query: new Query(FilterSchema).exists('title'),
+				query: new Query(FilterSchema).isNotNull('title'),
 			},
 			{
 				fragment: ' is null',
-				query: new Query(FilterSchema).doesNotExist('title'),
+				query: new Query(FilterSchema).isNull('title'),
 			},
 		]
 

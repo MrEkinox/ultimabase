@@ -34,10 +34,8 @@ describe('pointerField', () => {
 	})
 
 	it('copies common metadata and preserves pointer snapshots', () => {
-		const validation = { nullable: true }
 		const field = pointerField({
 			target: () => userSchema,
-			validation,
 			onDelete: 'setNull',
 			indexed: 'unique',
 			immutable: true,
@@ -45,16 +43,12 @@ describe('pointerField', () => {
 		})
 		const pointer = userSchema.pointer('user-1')
 
-		validation.nullable = false
-
 		expect(field.options).toStrictEqual({
-			validation: { nullable: true },
 			onDelete: 'setNull',
 			indexed: 'unique',
 			immutable: true,
 			description: 'Post author',
 		})
-		expect(field.options.validation?.nullable).toBe(true)
 		expect(snapshotScalarFieldValue(field, pointer, 'input.author')).toBe(
 			pointer,
 		)
@@ -80,8 +74,12 @@ describe('pointerField', () => {
 			options: { target: () => userSchema, onDelete: 'detach' },
 		},
 		{
-			expected: 'onDelete "setNull" requires validation.nullable to be true',
-			options: { target: () => userSchema, onDelete: 'setNull' },
+			expected: 'onDelete "setNull" requires an optional pointer',
+			options: {
+				target: () => userSchema,
+				onDelete: 'setNull',
+				validation: { required: true },
+			},
 		},
 	])('rejects invalid metadata: $expected', ({ expected, options }) => {
 		expect(() => {
@@ -100,19 +98,15 @@ describe('pointerField', () => {
 		}).toThrow(new TypeError('pointerField does not support default values'))
 
 		expect(() => {
-			// @ts-expect-error -- Runtime normalization protects JavaScript callers.
 			pointerField({
 				target: () => userSchema,
 				validation: {
 					required: true,
+					// @ts-expect-error -- Runtime normalization protects JavaScript callers.
 					nullable: true,
 				},
 			})
-		}).toThrow(
-			new TypeError(
-				'validation.required and validation.nullable cannot both be true',
-			),
-		)
+		}).toThrow(new TypeError('validation.nullable is not supported'))
 	})
 
 	it('rejects malformed lazy targets when a value crosses the field', () => {

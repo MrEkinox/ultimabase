@@ -314,7 +314,7 @@ export interface FieldChangeHookInput<
 	readonly kind: TKind
 	/** Makes the rollback-capable timing explicit to hook implementations. */
 	readonly timing: 'before-commit'
-	/** Distinguishes create, replacement, and a real unset without `undefined`. */
+	/** Distinguishes lifecycle absence from a present logical value without `undefined`. */
 	readonly change: FieldValueChange<FieldHookTypes<TField>['object']>
 }
 

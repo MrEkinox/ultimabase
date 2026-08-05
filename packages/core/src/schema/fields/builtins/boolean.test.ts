@@ -40,14 +40,14 @@ describe('booleanField', () => {
 	it('copies caller-owned validation metadata', () => {
 		const source = {
 			validation: {
-				nullable: true,
+				required: false,
 			},
 		}
 		const field = booleanField(source)
 
-		source.validation.nullable = false
+		source.validation.required = true
 
 		// Presence metadata remains stable after schema registration.
-		expect(field.options.validation?.nullable).toBe(true)
+		expect(field.options.validation?.required).toBe(false)
 	})
 })

@@ -99,7 +99,7 @@ const mutationKinds = new Set<OperationKind>([
 	'upsert-one',
 	'upsert-many',
 ])
-const updateKinds = new Set(['decrement', 'increment', 'set', 'unset'])
+const updateKinds = new Set(['decrement', 'increment', 'set'])
 const relationMutationActions = new Set([
 	'clear',
 	'connect',
@@ -439,6 +439,9 @@ const validateObjectValue = (
 		if (plan.presence === 'required') {
 			valid = false
 			appendIssue(execution, 'field.required', fieldPath, 'Field is required')
+		} else if (allowDefaults && plan.nullable) {
+			// Complete create values canonicalize unresolved optional fields to null.
+			entries.push([fieldName, null])
 		}
 	}
 
@@ -649,10 +652,7 @@ const validateUpdateExpression = (
 			continue
 		}
 
-		const expectedKeys =
-			candidate.kind === 'unset'
-				? new Set(['field', 'kind'])
-				: new Set(['field', 'kind', 'value'])
+		const expectedKeys = new Set(['field', 'kind', 'value'])
 
 		if (
 			Object.keys(candidate).some((key) => !expectedKeys.has(key)) ||
@@ -727,21 +727,6 @@ const validateUpdateExpression = (
 
 			// A hook may retain framework-generated work but cannot remove or replace it.
 			observedForbiddenFields.add(candidate.field)
-		}
-
-		if (candidate.kind === 'unset') {
-			if (isRequiredOutput(fieldPlan.field)) {
-				appendIssue(
-					execution,
-					'field.required',
-					fieldPath,
-					'Required output field cannot be unset',
-				)
-				continue
-			}
-
-			operations.push(immutableRecord(candidate))
-			continue
 		}
 
 		const valuePath: ValidationIssuePath = [...fieldPath, 'value']

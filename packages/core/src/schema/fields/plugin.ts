@@ -13,6 +13,7 @@ import type {
 	FieldDefinition,
 	FieldInferenceState,
 	FieldOptions,
+	FieldOptionsWithoutNullable,
 	FieldValidationOptions,
 	InvalidOptionsArguments,
 	ResolveFieldInferenceState,
@@ -155,7 +156,9 @@ export const definePluginField = <
 		>,
 	normalizers: PluginFieldNormalizers<TValue, TValidation, TDeferred>,
 	...invalidOptions: InvalidOptionsArguments<
-		ValidatedFieldOptions<NoInfer<TOptions>, TValue>
+		FieldOptionsWithoutNullable<
+			ValidatedFieldOptions<NoInfer<TOptions>, TValue>
+		>
 	>
 ): PluginFieldDefinition<
 	TKind,

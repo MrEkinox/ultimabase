@@ -71,12 +71,10 @@ describe('dateField', () => {
 
 	it('freezes presence validation without a date range', () => {
 		const field = dateField({
-			validation: {
-				nullable: true,
-			},
+			validation: {},
 		})
 
-		expect(field.options.validation).toStrictEqual({ nullable: true })
+		expect(field.options.validation).toStrictEqual({})
 		expect(Object.isFrozen(field.options.validation)).toBe(true)
 	})
 

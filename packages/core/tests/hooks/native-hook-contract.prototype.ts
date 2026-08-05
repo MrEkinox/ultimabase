@@ -174,20 +174,18 @@ interface PrototypeFieldHooks<TValue> {
 type PrototypePresenceOptions<
 	TValue,
 	TRequired extends boolean,
-	TNullable extends boolean,
 	TList extends FieldListOption,
 > = Omit<
 	FieldOptions<TValue, FieldValidationOptions, TList>,
 	'default' | 'list' | 'validation'
 > & {
 	readonly hooks?: PrototypeFieldHooks<
-		TNullable extends true
-			? FieldListValue<TValue, TList> | null
-			: FieldListValue<TValue, TList>
+		TRequired extends true
+			? FieldListValue<TValue, TList>
+			: FieldListValue<TValue, TList> | null
 	>
 	readonly list?: TList
 	readonly validation?: {
-		readonly nullable?: TNullable
 		readonly required?: TRequired
 	}
 }
@@ -197,83 +195,63 @@ type PrototypeField<
 	TValue,
 	TOptions extends object,
 	TRequired extends boolean,
-	TNullable extends boolean,
 	TList extends FieldListOption,
 > = FieldDefinition<
 	TKind,
 	TValue,
 	TOptions,
-	ScalarFieldInferenceState<TRequired, TNullable, TList, false, false>
+	ScalarFieldInferenceState<TRequired, false, TList, false, false>
 >
 
 /** Models a scalar factory whose callback declarations never enter field metadata. */
 declare function stringField<
 	const TRequired extends boolean = false,
-	const TNullable extends boolean = false,
 	const TList extends FieldListOption = false,
 >(
-	options?: PrototypePresenceOptions<string, TRequired, TNullable, TList>,
-): PrototypeField<
-	'string',
-	string,
-	FieldOptions<string>,
-	TRequired,
-	TNullable,
-	TList
->
+	options?: PrototypePresenceOptions<string, TRequired, TList>,
+): PrototypeField<'string', string, FieldOptions<string>, TRequired, TList>
 
 type PrototypeEnumOptions<
 	TValues extends EnumValues,
 	TRequired extends boolean,
-	TNullable extends boolean,
 	TList extends FieldListOption,
 > = Omit<EnumFieldOptions<TValues>, 'default' | 'list' | 'validation'> &
-	PrototypePresenceOptions<EnumValue<TValues>, TRequired, TNullable, TList>
+	PrototypePresenceOptions<EnumValue<TValues>, TRequired, TList>
 
 /** Models exact enum value inference before native field hooks are implemented. */
 declare function enumField<
 	const TValues extends EnumValues,
 	const TRequired extends boolean = false,
-	const TNullable extends boolean = false,
 	const TList extends FieldListOption = false,
 >(
-	options: PrototypeEnumOptions<TValues, TRequired, TNullable, TList>,
+	options: PrototypeEnumOptions<TValues, TRequired, TList>,
 ): PrototypeField<
 	'enum',
 	EnumValue<TValues>,
 	EnumFieldOptions<TValues>,
 	TRequired,
-	TNullable,
 	TList
 >
 
 type PrototypeObjectOptions<
 	TFields extends ObjectFields,
 	TRequired extends boolean,
-	TNullable extends boolean,
 	TList extends FieldListOption,
 > = Omit<ObjectFieldOptions<TFields>, 'default' | 'list' | 'validation'> &
-	PrototypePresenceOptions<
-		ObjectFieldValue<TFields>,
-		TRequired,
-		TNullable,
-		TList
-	>
+	PrototypePresenceOptions<ObjectFieldValue<TFields>, TRequired, TList>
 
 /** Models exact structured values without exposing sibling schema fields. */
 declare function objectField<
 	const TFields extends ObjectFields,
 	const TRequired extends boolean = false,
-	const TNullable extends boolean = false,
 	const TList extends FieldListOption = false,
 >(
-	options: PrototypeObjectOptions<TFields, TRequired, TNullable, TList>,
+	options: PrototypeObjectOptions<TFields, TRequired, TList>,
 ): PrototypeField<
 	'object',
 	ObjectFieldValue<TFields>,
 	ObjectFieldOptions<TFields>,
 	TRequired,
-	TNullable,
 	TList
 >
 
@@ -282,22 +260,22 @@ type VectorValue = readonly [number, number, number]
 /** Models a community field whose plugin fixes its logical value before hooks run. */
 declare function vectorField<
 	const TRequired extends boolean = false,
-	const TNullable extends boolean = false,
 	const TList extends FieldListOption = false,
 >(
-	options?: PrototypePresenceOptions<VectorValue, TRequired, TNullable, TList>,
+	options?: PrototypePresenceOptions<VectorValue, TRequired, TList>,
 ): PrototypeField<
 	'fixture.vector',
 	VectorValue,
 	FieldOptions<VectorValue>,
 	TRequired,
-	TNullable,
 	TList
 >
 
 export const emailField = /* hover:field-definition */ stringField({
 	hooks: {
 		resolveInput: ({ value }) => {
+			if (value === null) return null
+
 			// @ts-expect-error -- Inline field hooks never expose sibling schema fields.
 			void value.title
 			const normalized = /* hover:string-value */ value.trim()
@@ -326,7 +304,9 @@ export const profileField = objectField({
 		resolveInput: ({ value }) => {
 			const profile = /* hover:object-value */ value
 
-			return { displayName: profile.displayName.trim() }
+			return profile === null
+				? null
+				: { displayName: profile.displayName.trim() }
 		},
 	},
 })
@@ -343,7 +323,6 @@ export const matrixField = stringField({
 })
 
 export const nullableField = stringField({
-	validation: { nullable: true },
 	hooks: {
 		resolveInput: ({ value }) => {
 			const nullable = /* hover:nullable-value */ value

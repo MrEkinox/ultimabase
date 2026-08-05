@@ -74,7 +74,7 @@ snapshot on both create and singular update. Update additionally exposes the
 locked `currentData` and the normalized non-ACL `update` operations:
 
 ```ts
-const deriveACL = (visibility: string | undefined) =>
+const deriveACL = (visibility: string | null) =>
 	visibility === 'public' ? new ACL().grantPublic('read') : new ACL()
 
 extensions: ({ bind }) => [
@@ -89,8 +89,8 @@ The contextual declaration is opt-in. Static extensions may keep the shorter
 `extensions: [acl()]` tuple; use `({ bind }) => [...]` when callbacks need exact
 sibling-field autocomplete without a duplicated data interface.
 
-The update candidate includes unchanged fields and applies `set`, `unset`, and
-numeric operations before the callback. Framework-generated timestamps remain
+The update candidate includes unchanged fields and applies `set` (including
+`null` clears) and numeric operations before the callback. Framework-generated timestamps remain
 visible in `update.operations` but are not mixed into schema-local `data`.
 Throwing from the callback aborts the same automatic transaction.
 

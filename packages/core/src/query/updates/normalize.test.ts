@@ -17,7 +17,7 @@ const accountSchema = Schema.define({
 		name: stringField({ validation: { required: true } }),
 		nickname: stringField(),
 		visits: intField(),
-		rating: floatField({ validation: { nullable: true } }),
+		rating: floatField(),
 		balance: decimalField(),
 		sequence: bigintField(),
 		serial: intField({ autoIncrement: true }),
@@ -32,15 +32,14 @@ describe('normalizeUpdateExpression', () => {
 		const expression = normalizeUpdateExpression(accountSchema, {
 			decrement: { rating: 0.5, sequence: 1n },
 			increment: { visits: 2, balance: '1.25' },
-			unset: ['nickname'],
-			set: { name: 'Updated account' },
+			set: { name: 'Updated account', nickname: null },
 		})
 
 		expect(expression).toStrictEqual({
 			kind: 'update-expression',
 			operations: [
 				{ kind: 'set', field: 'name', value: 'Updated account' },
-				{ kind: 'unset', field: 'nickname' },
+				{ kind: 'set', field: 'nickname', value: null },
 				{ kind: 'increment', field: 'visits', value: 2 },
 				{ kind: 'increment', field: 'balance', value: '1.25' },
 				{ kind: 'decrement', field: 'rating', value: 0.5 },
@@ -53,11 +52,11 @@ describe('normalizeUpdateExpression', () => {
 			expression.operations.every((operation) => Object.isFrozen(operation)),
 		).toBe(true)
 
-		// Nullable optional fields remain unsettable without using a null replacement.
+		// Optional fields clear through the same replacement operation as other values.
 		expect(
-			normalizeUpdateExpression(accountSchema, { unset: ['rating'] })
+			normalizeUpdateExpression(accountSchema, { set: { rating: null } })
 				.operations,
-		).toStrictEqual([{ kind: 'unset', field: 'rating' }])
+		).toStrictEqual([{ kind: 'set', field: 'rating', value: null }])
 	})
 
 	it('rejects conflicting operations on the same field', () => {
@@ -68,13 +67,6 @@ describe('normalizeUpdateExpression', () => {
 			}),
 		).toThrow(
 			new TypeError('update field visits cannot use more than one operation'),
-		)
-		expect(() =>
-			normalizeUpdateExpression(accountSchema, {
-				unset: ['nickname', 'nickname'],
-			}),
-		).toThrow(
-			new TypeError('update field nickname cannot use more than one operation'),
 		)
 		expect(() =>
 			normalizeUpdateExpression(accountSchema, {
@@ -105,10 +97,6 @@ describe('normalizeUpdateExpression', () => {
 			normalizeUpdateExpression(accountSchema, { set: [] })
 		}).toThrow(new TypeError('update set must be an object'))
 		expect(() => {
-			// @ts-expect-error -- Unset values require a field collection.
-			normalizeUpdateExpression(accountSchema, { unset: {} })
-		}).toThrow(new TypeError('update unset must be an array'))
-		expect(() => {
 			// @ts-expect-error -- Numeric operators require field maps.
 			normalizeUpdateExpression(accountSchema, { increment: [] })
 		}).toThrow(new TypeError('update increment must be an object'))
@@ -123,7 +111,7 @@ describe('normalizeUpdateExpression', () => {
 		)
 	})
 
-	it('rejects unknown, immutable, system, and required unset fields', () => {
+	it('rejects unknown, immutable, system, undefined, and required null fields', () => {
 		expect(() => {
 			normalizeUpdateExpression(accountSchema, {
 				// @ts-expect-error -- Unknown fields are rejected statically and at runtime.
@@ -145,36 +133,6 @@ describe('normalizeUpdateExpression', () => {
 			})
 		}).toThrow(
 			new TypeError('update set field must reference a mutable schema field'),
-		)
-		expect(() => {
-			normalizeUpdateExpression(accountSchema, {
-				// @ts-expect-error -- Required output fields cannot be removed.
-				unset: ['name'],
-			})
-		}).toThrow(
-			new TypeError(
-				'update unset field must reference an optional output field',
-			),
-		)
-		expect(() => {
-			normalizeUpdateExpression(accountSchema, {
-				// @ts-expect-error -- Auto-generated date-time outputs cannot be removed.
-				unset: ['refreshedAt'],
-			})
-		}).toThrow(
-			new TypeError(
-				'update unset field must reference an optional output field',
-			),
-		)
-		expect(() => {
-			normalizeUpdateExpression(accountSchema, {
-				// @ts-expect-error -- Auto-incremented outputs cannot be removed.
-				unset: ['serial'],
-			})
-		}).toThrow(
-			new TypeError(
-				'update unset field must reference an optional output field',
-			),
 		)
 		expect(() => {
 			normalizeUpdateExpression(accountSchema, {

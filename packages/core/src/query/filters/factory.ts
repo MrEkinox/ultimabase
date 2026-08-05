@@ -3,6 +3,7 @@ import {
 	type FieldDefinition,
 	type SchemaDefinition,
 } from '../../schema/index.js'
+import { isFieldNullable } from '../../schema/fields/base/options.js'
 import {
 	immutableArray,
 	immutableRecord,
@@ -40,13 +41,6 @@ const hasListShape = (field: RuntimeQueryField): boolean =>
 	field.options.list !== false &&
 	field.options.list !== undefined
 
-const isNullableField = (field: RuntimeQueryField): boolean => {
-	const validation =
-		'validation' in field.options ? field.options.validation : undefined
-
-	return isPlainRecord(validation) && validation.nullable === true
-}
-
 const resolveQueryField = <
 	const TSchema extends SchemaDefinition,
 	TFieldName extends QueryFieldName<TSchema>,
@@ -76,10 +70,10 @@ const assertOperatorSupport = (
 		| QueryEqualityFilterOperator
 		| QueryMembershipFilterOperator
 		| QueryStringFilterOperator
-		| 'exists'
+		| 'null'
 		| 'regex',
 ): void => {
-	if (operator === 'exists') {
+	if (operator === 'null') {
 		return
 	}
 
@@ -114,7 +108,7 @@ const snapshotQueryValue = (
 	value: unknown,
 	path: string,
 ): unknown => {
-	if (value === null && isNullableField(field)) {
+	if (value === null && isFieldNullable(field)) {
 		return null
 	}
 
@@ -230,26 +224,26 @@ export const createQueryRegexFilter = <
 	}) as QueryPrimitiveFilterNode<TSchema, TFieldName>
 }
 
-/** Creates one presence filter for every declared built-in or plugin field. */
-export const createQueryExistenceFilter = <
+/** Creates one null filter for every declared built-in or plugin field. */
+export const createQueryNullFilter = <
 	const TSchema extends SchemaDefinition,
 	TFieldName extends QueryFieldName<TSchema>,
 >(
 	schema: TSchema,
 	fieldName: TFieldName,
-	exists: boolean,
+	isNull: boolean,
 ): QueryPrimitiveFilterNode<TSchema, TFieldName> => {
 	const [normalizedFieldName, field] = resolveQueryField(schema, fieldName)
 
-	assertOperatorSupport(field, 'exists')
+	assertOperatorSupport(field, 'null')
 
-	if (typeof exists !== 'boolean') {
-		throw new TypeError('query exists value must be a boolean')
+	if (typeof isNull !== 'boolean') {
+		throw new TypeError('query null value must be a boolean')
 	}
 
 	return immutableRecord({
-		kind: 'exists',
+		kind: 'null',
 		field: normalizedFieldName,
-		exists,
+		isNull,
 	}) as QueryPrimitiveFilterNode<TSchema, TFieldName>
 }

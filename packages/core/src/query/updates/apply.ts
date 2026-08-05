@@ -81,7 +81,7 @@ export const applyUpdateExpressionToRecord = <
 		throw new TypeError('Update application requires a schema logical record')
 	}
 
-	let candidate: MutableLogicalRecord = { ...record }
+	const candidate: MutableLogicalRecord = { ...record }
 
 	for (const operation of readOperations(update)) {
 		if (
@@ -104,13 +104,6 @@ export const applyUpdateExpressionToRecord = <
 				}
 
 				candidate[operation.field] = operation.value
-				break
-			case 'unset':
-				candidate = Object.fromEntries(
-					Object.entries(candidate).filter(
-						([fieldName]) => fieldName !== operation.field,
-					),
-				)
 				break
 			case 'decrement':
 			case 'increment':

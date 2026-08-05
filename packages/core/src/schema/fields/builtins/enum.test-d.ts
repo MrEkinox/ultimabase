@@ -104,11 +104,11 @@ test('rejects invalid enum sources and metadata', () => {
 		typeName: 42,
 		values: ['draft'],
 	})
-	// @ts-expect-error -- Required fields cannot also be nullable.
 	enumField({
 		values: ['draft'],
 		validation: {
 			required: true,
+			// @ts-expect-error -- Nullability is derived and cannot be configured.
 			nullable: true,
 		},
 	})

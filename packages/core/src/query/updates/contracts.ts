@@ -1,7 +1,6 @@
 import type {
 	FieldInferenceStateOf,
 	FieldList,
-	InferObject,
 	InferUpdateInput,
 	SchemaDefinition,
 } from '../../schema/index.js'
@@ -20,13 +19,6 @@ type UpdateFieldValue<
 	TFieldName extends UpdateFieldName<TSchema>,
 > = TFieldName extends keyof InferUpdateInput<TSchema>
 	? Exclude<InferUpdateInput<TSchema>[TFieldName], undefined>
-	: never
-
-type OutputFieldValue<
-	TSchema extends SchemaDefinition,
-	TFieldName extends UpdateFieldName<TSchema>,
-> = TFieldName extends keyof InferObject<TSchema>
-	? InferObject<TSchema>[TFieldName]
 	: never
 
 type UpdateFieldDefinition<
@@ -67,16 +59,6 @@ export type NumericUpdateFieldName<TSchema extends SchemaDefinition> = {
 		: never
 }[UpdateFieldName<TSchema>]
 
-/** Selects mutable fields whose persisted output may be absent. */
-export type UnsetUpdateFieldName<TSchema extends SchemaDefinition> = {
-	[TFieldName in UpdateFieldName<TSchema>]: undefined extends OutputFieldValue<
-		TSchema,
-		TFieldName
-	>
-		? TFieldName
-		: never
-}[UpdateFieldName<TSchema>]
-
 /** Correlates every mutable field with its exact schema-derived replacement value. */
 export type UpdateSetInput<TSchema extends SchemaDefinition> = Readonly<
 	InferUpdateInput<TSchema>
@@ -95,17 +77,8 @@ type SimplifyUpdateInput<TInput> = TInput extends object
 	? { [TKey in keyof TInput]: TInput[TKey] } & {}
 	: TInput
 
-/** Converts unsettable names through a record so QuickInfo prints their union. */
-type UnsetUpdateFieldMap<TSchema extends SchemaDefinition> = Readonly<
-	Record<UnsetUpdateFieldName<TSchema>, true>
->
-
 interface UpdateExpressionGroups<TSchema extends SchemaDefinition> {
 	readonly set?: SimplifyUpdateInput<UpdateSetInput<TSchema>>
-	readonly unset?: readonly (keyof SimplifyUpdateInput<
-		UnsetUpdateFieldMap<TSchema>
-	> &
-		string)[]
 	readonly increment?: SimplifyUpdateInput<NumericUpdateInput<TSchema>>
 	readonly decrement?: SimplifyUpdateInput<NumericUpdateInput<TSchema>>
 }
@@ -139,13 +112,6 @@ export type SetUpdateOperationNode<
 			}
 		: never
 
-/** Removes one mutable field whose persisted output may be absent. */
-export type UnsetUpdateOperationNode<
-	TSchema extends SchemaDefinition,
-	TFieldName extends UnsetUpdateFieldName<TSchema> =
-		UnsetUpdateFieldName<TSchema>,
-> = UpdateFieldOperationNode<'unset', TFieldName>
-
 type NumericUpdateOperationNode<
 	TSchema extends SchemaDefinition,
 	TKind extends 'decrement' | 'increment',
@@ -175,7 +141,6 @@ export type DecrementUpdateOperationNode<
 /** Enumerates every atomic field operation accepted by one update expression. */
 export type UpdateOperationNode<TSchema extends SchemaDefinition> =
 	| SetUpdateOperationNode<TSchema>
-	| UnsetUpdateOperationNode<TSchema>
 	| IncrementUpdateOperationNode<TSchema>
 	| DecrementUpdateOperationNode<TSchema>
 

@@ -32,7 +32,7 @@ import {
 } from '../clauses/pagination.js'
 import { normalizeQuerySelection } from '../clauses/selection.js'
 import {
-	createQueryExistenceFilter,
+	createQueryNullFilter,
 	createQueryMembershipFilter,
 	createQueryRegexFilter,
 	createQueryValueFilter,
@@ -552,12 +552,27 @@ export class Query<
 		)
 	}
 
-	/** Adds a negative field-presence condition. */
-	doesNotExist(
-		fieldName: QueryFilterFieldName<TSchema, 'exists'>,
+	/**
+	 * Requires one selected field to contain null.
+	 * @example `Post.query().isNull("publishedAt")`
+	 */
+	isNull(
+		fieldName: QueryFilterFieldName<TSchema, 'null'>,
 	): Query<TSchema, TSelectedField, TIncludedPointer> {
 		return this.#appendFilter(
-			createQueryExistenceFilter(this.schema, fieldName, false),
+			createQueryNullFilter(this.schema, fieldName, true),
+		)
+	}
+
+	/**
+	 * Requires one selected field to contain a non-null value.
+	 * @example `Post.query().isNotNull("publishedAt")`
+	 */
+	isNotNull(
+		fieldName: QueryFilterFieldName<TSchema, 'null'>,
+	): Query<TSchema, TSelectedField, TIncludedPointer> {
+		return this.#appendFilter(
+			createQueryNullFilter(this.schema, fieldName, false),
 		)
 	}
 
@@ -724,28 +739,14 @@ export class Query<
 	/** Tests whether at least one object matches this query. */
 	exists(options?: QueryTerminalOptions): Promise<boolean>
 
-	/** Adds a positive field-presence condition without executing the query. */
-	exists(
-		fieldName: QueryFilterFieldName<TSchema, 'exists'>,
-	): Query<TSchema, TSelectedField, TIncludedPointer>
-
-	exists(
-		fieldNameOrOptions?:
-			QueryFilterFieldName<TSchema, 'exists'> | QueryTerminalOptions,
-	): Query<TSchema, TSelectedField, TIncludedPointer> | Promise<boolean> {
-		if (typeof fieldNameOrOptions === 'string') {
-			return this.#appendFilter(
-				createQueryExistenceFilter(this.schema, fieldNameOrOptions, true),
-			)
-		}
-
+	exists(options?: QueryTerminalOptions): Promise<boolean> {
 		const operation: ExistsOperationAst<
 			TSchema,
 			QueryFilterNode<TSchema>,
 			TSelectedField
 		> = immutableRecord({ kind: 'exists', query: this.ast })
 
-		return this.#execute(operation, fieldNameOrOptions)
+		return this.#execute(operation, options)
 	}
 
 	#order(

@@ -215,9 +215,12 @@ describe('runtime validation', () => {
 		})
 		const query = new Query(validationSchema).equalTo('title', 'old')
 		const update = normalizeUpdateExpression(validationSchema, {
-			set: { title: 'new title', profile: { name: 'Grace' } },
+			set: {
+				title: 'new title',
+				profile: { name: 'Grace' },
+				note: null,
+			},
 			increment: { score: 100 },
-			unset: ['note'],
 		})
 		const operation: UpdateOneOperationAst<
 			typeof validationSchema,
@@ -229,7 +232,7 @@ describe('runtime validation', () => {
 		expect(normalized.update.operations).toStrictEqual([
 			{ field: 'title', kind: 'set', value: 'new title' },
 			{ field: 'profile', kind: 'set', value: { name: 'Grace' } },
-			{ field: 'note', kind: 'unset' },
+			{ field: 'note', kind: 'set', value: null },
 			{ field: 'score', kind: 'increment', value: 100 },
 			{
 				field: 'updatedAt',
@@ -600,8 +603,8 @@ describe('runtime validation', () => {
 				time: timeField(),
 				uuid: uuidField(),
 				custom: customField,
-				nullable: stringField({ validation: { nullable: true } }),
-				nonNullable: stringField(),
+				nullable: stringField(),
+				nonNullable: stringField({ validation: { required: true } }),
 				list: stringField({ list: true }),
 				object: objectField({ fields: { child: stringField() } }),
 				pointer: pointerField({ target: () => pointerTarget }),

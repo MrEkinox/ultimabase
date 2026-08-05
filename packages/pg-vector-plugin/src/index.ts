@@ -5,6 +5,7 @@ import {
 	type FieldHookDeclaration,
 	type FieldListOption,
 	type FieldOptions,
+	type FieldOptionsWithoutNullable,
 	type FieldValidationOptions,
 	type FieldValidationPlan,
 	type PluginFieldDefinition,
@@ -124,7 +125,9 @@ export function vectorField<
 	} & FieldHookDeclaration<
 			ResolvedVectorField<NoInfer<TOptions>, TDimensions>
 		> &
-		(ValidatedFieldOptions<NoInfer<TOptions>, readonly number[]> extends never
+		(FieldOptionsWithoutNullable<
+			ValidatedFieldOptions<NoInfer<TOptions>, readonly number[]>
+		> extends never
 			? never
 			: unknown),
 ): ResolvedVectorField<TOptions, TDimensions>

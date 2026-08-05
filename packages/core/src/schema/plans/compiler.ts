@@ -2,9 +2,9 @@ import { immutableRecord } from '@ultimabase/shared'
 
 import type { GenericField } from '../fields/base/contract.js'
 import { isFieldRequiredDeferred } from '../fields/base/definition.js'
-import { getFieldListDepth } from '../fields/base/options.js'
 import {
-	hasValidationFlag,
+	getFieldListDepth,
+	isFieldNullable,
 	isRequiredOnCreate,
 } from '../fields/base/options.js'
 import type { ObjectField } from '../fields/builtins/object.js'
@@ -60,7 +60,7 @@ const compileFieldPlanBase = (
 	operation: ValidationOperation,
 ): FieldPlanBase => ({
 	presence: readPresence(field, operation),
-	nullable: hasValidationFlag(field.options, 'nullable'),
+	nullable: isFieldNullable(field),
 })
 
 /** Narrows the only built-in kind whose plan requires recursive children. */

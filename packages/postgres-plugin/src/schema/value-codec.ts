@@ -277,12 +277,20 @@ const createObjectCodec = (
 		}
 
 		const entries: [string, unknown][] = Object.entries(codecs)
-			.filter(([name]) => Object.hasOwn(value, name))
+			.filter(([name]) => operation === 'decode' || Object.hasOwn(value, name))
 			.map(([name, codec]) => {
 				const field = fields[name]
 
 				if (field === undefined) {
 					throw new TypeError(`JSONB codec is missing field metadata: ${name}`)
+				}
+
+				if (!Object.hasOwn(value, name)) {
+					if (operation === 'decode' && field.nullable) {
+						return [name, null]
+					}
+
+					throw new TypeError(`JSONB object is missing required field: ${name}`)
 				}
 
 				return [name, applyCodec(field, codec, operation, value[name])]

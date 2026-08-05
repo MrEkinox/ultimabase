@@ -17,7 +17,7 @@ const postFields = {
 	title: stringField(),
 	published: booleanField(),
 	views: intField(),
-	score: intField({ validation: { nullable: true } }),
+	score: intField(),
 	status: enumField({ values: ['draft', 'published'] }),
 	aliases: stringField({ list: true }),
 	metadata: objectField({ fields: { label: stringField() } }),
@@ -166,14 +166,14 @@ describe('Query', () => {
 		const query = new Query(includedPostSchema)
 			.equalTo('author', author)
 			.containedIn('author', [author])
-			.doesNotExist('author')
+			.isNull('author')
 
 		expect(query.ast.where?.expression).toMatchObject({
 			kind: 'and',
 			expressions: [
 				{ kind: 'equal', field: 'author', value: author },
 				{ kind: 'in', field: 'author', values: [author] },
-				{ kind: 'exists', field: 'author', exists: false },
+				{ kind: 'null', field: 'author', isNull: true },
 			],
 		})
 		expect(JSON.stringify(query.ast)).not.toContain('authorId')
@@ -232,8 +232,8 @@ describe('Query', () => {
 			.startsWith('title', 'Ultima')
 			.endsWith('title', 'Base')
 			.matches('title', { source: '^Ultima', flags: regexFlags })
-			.exists('metadata')
-			.doesNotExist('aliases')
+			.isNotNull('metadata')
+			.isNull('aliases')
 			.equalTo('score', null)
 
 		statusValues.push('draft')

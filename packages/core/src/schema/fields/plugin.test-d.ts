@@ -77,10 +77,15 @@ test('rejects framework-owned plugin kinds', () => {
 })
 
 test('rejects contradictory presence metadata for plugin fields', () => {
-	// @ts-expect-error -- Plugin fields share the required and nullable invariant.
+	// @ts-expect-error -- Nullability is derived and cannot be configured.
 	definePluginField(
 		'fixture.custom',
-		{ validation: { required: true, nullable: true } },
+		{
+			validation: {
+				required: true,
+				nullable: true,
+			},
+		},
 		normalizers,
 	)
 })

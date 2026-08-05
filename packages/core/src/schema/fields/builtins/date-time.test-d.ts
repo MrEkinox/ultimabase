@@ -62,8 +62,13 @@ test('rejects incompatible date-time metadata', () => {
 	// @ts-expect-error -- Clock generation produces one scalar value.
 	dateTimeField({ autoNow: true, list: true })
 
-	// @ts-expect-error -- Required fields cannot also be nullable.
-	dateTimeField({ validation: { required: true, nullable: true } })
+	dateTimeField({
+		validation: {
+			required: true,
+			// @ts-expect-error -- Nullability is derived and cannot be configured.
+			nullable: true,
+		},
+	})
 
 	dateTimeField({
 		// @ts-expect-error -- Schema extensions cannot attach to individual fields.

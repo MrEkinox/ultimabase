@@ -59,7 +59,8 @@ Verification returns an opaque grant owned by that framework; passing it to
 the master engine. Operation options and transport booleans still cannot select
 master authority.
 
-Update inputs group `set`, `unset`, `increment`, and `decrement` operations.
+Update inputs group `set`, `increment`, and `decrement` operations. Setting an
+optional field to `null` clears it.
 They normalize to immutable field-operation nodes, reject cross-operator field
 conflicts, and keep partial set values pending the shared Runtime validation
 pipeline.

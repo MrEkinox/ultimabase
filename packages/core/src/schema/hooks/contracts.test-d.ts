@@ -44,7 +44,7 @@ const ArticleSchema = Schema.define({
 		validate: ({ operation }) => {
 			if (operation.kind === 'create-many') {
 				expectTypeOf(operation.inputs).toEqualTypeOf<
-					readonly { title: string; views?: number }[]
+					readonly { title: string; views?: number | null }[]
 				>()
 			}
 
@@ -118,7 +118,7 @@ const ArticleSchema = Schema.define({
 					readonly id: string
 					readonly title: string
 					readonly updatedAt: string
-					readonly views?: number
+					readonly views: number | null
 				}>()
 			}
 
@@ -267,11 +267,11 @@ test('keeps schema metadata and inferred values independent from hooks', () => {
 	>()
 	expectTypeOf<InferCreateInput<typeof ArticleSchema>>().toEqualTypeOf<{
 		title: string
-		views?: number
+		views?: number | null
 	}>()
 	expectTypeOf<InferUpdateInput<typeof ArticleSchema>>().toEqualTypeOf<{
 		title?: string
-		views?: number
+		views?: number | null
 	}>()
 })
 

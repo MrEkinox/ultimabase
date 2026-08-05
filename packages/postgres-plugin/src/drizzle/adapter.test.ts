@@ -502,11 +502,15 @@ describe('internal PostgreSQL database adapter', () => {
 		).resolves.toStrictEqual({
 			createdAt: timestamp,
 			id: firstId,
+			note: null,
 			title: 'Created',
 			updatedAt: timestamp,
+			views: null,
 		})
 		expect(driver.calls[0]?.params).toStrictEqual([
+			null,
 			'Created',
+			null,
 			firstId,
 			timestamp,
 			timestamp,
@@ -763,8 +767,10 @@ describe('internal PostgreSQL database adapter', () => {
 					current: {
 						createdAt: timestamp,
 						id: firstId,
+						note: null,
 						title: 'Created',
 						updatedAt: timestamp,
+						views: null,
 					},
 					kind: 'create',
 				},
@@ -772,8 +778,10 @@ describe('internal PostgreSQL database adapter', () => {
 			result: {
 				createdAt: timestamp,
 				id: firstId,
+				note: null,
 				title: 'Created',
 				updatedAt: timestamp,
+				views: null,
 			},
 		})
 
@@ -792,6 +800,7 @@ describe('internal PostgreSQL database adapter', () => {
 		const previous = {
 			createdAt: timestamp,
 			id: firstId,
+			note: null,
 			title: 'Old',
 			updatedAt: timestamp,
 			views: 1,
@@ -872,6 +881,7 @@ describe('internal PostgreSQL database adapter', () => {
 		const first = {
 			createdAt: timestamp,
 			id: firstId,
+			note: null,
 			title: 'First',
 			updatedAt: timestamp,
 			views: 1,
@@ -879,6 +889,7 @@ describe('internal PostgreSQL database adapter', () => {
 		const second = {
 			createdAt: timestamp,
 			id: secondId,
+			note: null,
 			title: 'Second',
 			updatedAt: timestamp,
 			views: 2,
@@ -1020,6 +1031,7 @@ describe('internal PostgreSQL database adapter', () => {
 		const create = {
 			createdAt: timestamp,
 			id: firstId,
+			note: null,
 			title: 'Created',
 			updatedAt: timestamp,
 			views: 0,
@@ -1073,6 +1085,7 @@ describe('internal PostgreSQL database adapter', () => {
 		const first = {
 			createdAt: timestamp,
 			id: firstId,
+			note: null,
 			title: 'First created',
 			updatedAt: timestamp,
 			views: 0,
@@ -1080,6 +1093,7 @@ describe('internal PostgreSQL database adapter', () => {
 		const secondPrevious = {
 			createdAt: timestamp,
 			id: secondId,
+			note: null,
 			title: 'Second previous',
 			updatedAt: timestamp,
 			views: 1,

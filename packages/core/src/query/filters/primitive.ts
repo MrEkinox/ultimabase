@@ -107,13 +107,13 @@ export interface QueryRegexFilterNode<
 	readonly pattern: QueryRegexPattern
 }
 
-/** Tests field presence without assuming a physical storage representation. */
-export interface QueryExistenceFilterNode<
+/** Tests whether one selected logical field contains null. */
+export interface QueryNullFilterNode<
 	TFieldName extends string = string,
 > extends QueryExpressionNode {
-	readonly kind: 'exists'
+	readonly kind: 'null'
 	readonly field: TFieldName
-	readonly exists: boolean
+	readonly isNull: boolean
 }
 
 type QueryFieldDefinition<
@@ -201,7 +201,7 @@ type QueryPrimitiveFilterForField<
 	TSchema extends SchemaDefinition,
 	TFieldName extends QueryFieldName<TSchema>,
 > =
-	| QueryExistenceFilterNode<TFieldName>
+	| QueryNullFilterNode<TFieldName>
 	| (IsScalarQueryField<TSchema, TFieldName> extends true
 			? QueryScalarPrimitiveFilterNode<TSchema, TFieldName>
 			: never)

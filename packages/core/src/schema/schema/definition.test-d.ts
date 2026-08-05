@@ -76,7 +76,7 @@ test('preserves schema, field, and extension literals', () => {
 	const draft = new schema({ title: 'Hello' })
 	expectTypeOf(draft).toEqualTypeOf<SchemaDraft<typeof schema>>()
 	expectTypeOf(draft.title).toBeString()
-	expectTypeOf(draft.published).toEqualTypeOf<boolean | undefined>()
+	expectTypeOf(draft.published).toEqualTypeOf<boolean | null | undefined>()
 	expectTypeOf(draft.get('title')).toBeString()
 	expectTypeOf(draft.toJSON().title).toBeString()
 
@@ -125,8 +125,8 @@ test('binds community extension callbacks to exact sibling fields', () => {
 			bind(contextualFixture, {
 				select: (data) => {
 					expectTypeOf(data.title).toEqualTypeOf<string>()
-					expectTypeOf(data.published).toEqualTypeOf<boolean>()
-					expectTypeOf(data.visibility).toEqualTypeOf<string | undefined>()
+					expectTypeOf(data.published).toEqualTypeOf<boolean | null>()
+					expectTypeOf(data.visibility).toEqualTypeOf<string | null>()
 					const selectField = <TKey extends keyof typeof data>(
 						field: TKey,
 					): TKey => field
@@ -142,11 +142,13 @@ test('binds community extension callbacks to exact sibling fields', () => {
 	})
 
 	expectTypeOf(schema.extensions[0].name).toEqualTypeOf<'fixture.contextual'>()
-	expectTypeOf(schema.extensions[0].config.select)
-		.parameter(0)
-		.toEqualTypeOf<
-			Readonly<{ published: boolean; title: string; visibility?: string }>
-		>()
+	expectTypeOf(schema.extensions[0].config.select).parameter(0).toEqualTypeOf<
+		Readonly<{
+			published: boolean | null
+			title: string
+			visibility: string | null
+		}>
+	>()
 })
 
 test('preserves package-owned static capability inference', () => {

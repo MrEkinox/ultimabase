@@ -24,25 +24,25 @@ const preserveSelection = (({ query }) =>
 describe('native hook contract prototype', () => {
 	it('preserves schema and field inference outside callback declarations', () => {
 		expectTypeOf<InferCreateInput<typeof PostSchema>>().toEqualTypeOf<{
-			email?: string
-			status?: 'draft' | 'published'
+			email?: string | null
+			status?: 'draft' | 'published' | null
 			title: string
-			views?: number
+			views?: number | null
 		}>()
 		expectTypeOf<InferUpdateInput<typeof PostSchema>>().toEqualTypeOf<{
-			email?: string
-			status?: 'draft' | 'published'
+			email?: string | null
+			status?: 'draft' | 'published' | null
 			title?: string
-			views?: number
+			views?: number | null
 		}>()
 		expectTypeOf<InferObject<typeof PostSchema>>().toEqualTypeOf<{
 			readonly createdAt: string
-			readonly email?: string
+			readonly email: string | null
 			readonly id: string
-			readonly status?: 'draft' | 'published'
+			readonly status: 'draft' | 'published' | null
 			readonly title: string
 			readonly updatedAt: string
-			readonly views?: number
+			readonly views: number | null
 		}>()
 
 		expectTypeOf(emailField.options).not.toHaveProperty('hooks')

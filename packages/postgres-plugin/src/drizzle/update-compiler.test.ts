@@ -34,8 +34,7 @@ describe('PostgreSQL update compiler', () => {
 
 	it('compiles replacements, absence, and numeric expressions once per field', () => {
 		const update = normalizeUpdateExpression(updateSchemaDefinition, {
-			set: { title: 'Updated' },
-			unset: ['note'],
+			set: { note: null, title: 'Updated' },
 			increment: { views: 2 },
 			decrement: { balance: '1.25' },
 		})

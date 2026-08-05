@@ -242,7 +242,7 @@ describe('ACL IntelliSense', () => {
 			'const title: string',
 		)
 		expect(ts.displayPartsToString(visibility?.displayParts)).toContain(
-			'const visibility: string | undefined',
+			'const visibility: string | null',
 		)
 		expect(ts.displayPartsToString(input?.displayParts)).toContain(
 			'readonly title: string',

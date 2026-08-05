@@ -10,7 +10,7 @@ const Post = Schema.define({
 	className: 'Post',
 	fields: {
 		title: stringField({ validation: { required: true } }),
-		summary: stringField({ validation: { nullable: true } }),
+		summary: stringField(),
 		profile: objectField({
 			fields: {
 				displayName: stringField({ validation: { required: true } }),

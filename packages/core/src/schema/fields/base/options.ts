@@ -138,12 +138,9 @@ const normalizeCommonValidation = <TValidation extends FieldValidationOptions>(
 	}
 
 	assertOptionalBoolean(normalized.required, 'validation.required')
-	assertOptionalBoolean(normalized.nullable, 'validation.nullable')
 
-	if (normalized.required === true && normalized.nullable === true) {
-		throw new TypeError(
-			'validation.required and validation.nullable cannot both be true',
-		)
+	if ('nullable' in normalized) {
+		throw new TypeError('validation.nullable is not supported')
 	}
 
 	// Schema owns the common shallow snapshot even when a plugin returns caller data.
@@ -219,11 +216,8 @@ export const normalizeFieldOptions = <
 	})
 }
 
-/** Reads one boolean validation flag without trusting external metadata. */
-export const hasValidationFlag = (
-	options: object,
-	flag: 'nullable' | 'required',
-): boolean => {
+/** Reads required presence without trusting external metadata. */
+const hasRequiredValidation = (options: object): boolean => {
 	if (
 		!('validation' in options) ||
 		typeof options.validation !== 'object' ||
@@ -232,15 +226,21 @@ export const hasValidationFlag = (
 		return false
 	}
 
-	// Explicit branches preserve safe property narrowing at an unknown boundary.
-	return flag === 'nullable'
-		? 'nullable' in options.validation && options.validation.nullable === true
-		: 'required' in options.validation && options.validation.required === true
+	return (
+		'required' in options.validation && options.validation.required === true
+	)
 }
+
+/** Derives whether a selected persisted field may contain logical null. */
+export const isFieldNullable = (field: GenericField): boolean =>
+	!hasRequiredValidation(field.options) &&
+	!('autoNow' in field.options && field.options.autoNow === true) &&
+	!('autoIncrement' in field.options && field.options.autoIncrement === true) &&
+	!('generatedOn' in field.options)
 
 /** Mirrors create-input omission rules at runtime snapshot boundaries. */
 export const isRequiredOnCreate = (field: GenericField): boolean =>
-	hasValidationFlag(field.options, 'required') &&
+	hasRequiredValidation(field.options) &&
 	!('default' in field.options) &&
 	!('autoNow' in field.options && field.options.autoNow === true) &&
 	!('autoIncrement' in field.options && field.options.autoIncrement === true) &&

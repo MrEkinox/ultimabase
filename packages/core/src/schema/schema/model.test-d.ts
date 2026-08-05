@@ -48,10 +48,12 @@ test('infers exact immutable drafts from the generated constructor', () => {
 
 	expectTypeOf(draft).toEqualTypeOf<SchemaDraft<typeof Post>>()
 	expectTypeOf(draft.title).toBeString()
-	expectTypeOf(draft.published).toEqualTypeOf<boolean | undefined>()
+	expectTypeOf(draft.published).toEqualTypeOf<boolean | null | undefined>()
 	expectTypeOf(draft.profile?.displayName).toEqualTypeOf<string | undefined>()
-	expectTypeOf(draft.tags).toEqualTypeOf<readonly string[] | undefined>()
-	expectTypeOf(draft.embedding).toEqualTypeOf<readonly number[] | undefined>()
+	expectTypeOf(draft.tags).toEqualTypeOf<readonly string[] | null | undefined>()
+	expectTypeOf(draft.embedding).toEqualTypeOf<
+		readonly number[] | null | undefined
+	>()
 	expectTypeOf(draft.get('title')).toBeString()
 	expectTypeOf(draft.toJSON()).toEqualTypeOf<
 		Readonly<InferCreateInput<typeof Post>>

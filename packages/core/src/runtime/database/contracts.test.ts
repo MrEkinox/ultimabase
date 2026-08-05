@@ -250,6 +250,7 @@ describe('database adapter contracts', () => {
 			id: 'article-1',
 			title: 'Before',
 			updatedAt: '2026-08-02T00:00:00.000Z',
+			views: null,
 		})
 		const current = Object.freeze({
 			...previous,

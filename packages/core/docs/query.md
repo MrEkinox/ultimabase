@@ -40,7 +40,8 @@ const post = await Post.query().byId(postId).first({ ultimabase })
 
 The complete read terminal surface is `find`, `first`, `get`, `count`, and
 `exists`. `first` and `get` return `null` when no visible object matches.
-`exists()` as a terminal coexists with the `exists(fieldName)` filter.
+The `exists()` terminal tests whether a matching row exists; `isNull(fieldName)`
+and `isNotNull(fieldName)` test a field value.
 
 ## Reusable read scopes
 

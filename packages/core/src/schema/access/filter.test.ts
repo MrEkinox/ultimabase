@@ -22,7 +22,7 @@ const articleSchema = Schema.define({
 		aliases: stringField({ list: true }),
 		metadata: objectField({ fields: { label: stringField() } }),
 		published: booleanField(),
-		score: intField({ validation: { nullable: true } }),
+		score: intField(),
 		status: enumField({ values: ['draft', 'published'] }),
 		title: stringField(),
 		views: intField(),
@@ -50,8 +50,8 @@ describe('AccessFilter', () => {
 			.startsWith('title', 'Ultima')
 			.endsWith('title', 'Base')
 			.matches('title', { source: '^Ultima', flags })
-			.exists('metadata')
-			.doesNotExist('aliases')
+			.isNotNull('metadata')
+			.isNull('aliases')
 			.equalTo('score', null)
 
 		statuses.push('draft')

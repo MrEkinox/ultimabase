@@ -266,11 +266,10 @@ describe('createRuntimeHookStages', () => {
 									...current,
 									update: {
 										...current.update,
-										operations: current.update.operations.map((candidate) =>
-											candidate.kind === 'set'
-												? { ...candidate, value: target.title }
-												: candidate,
-										),
+										operations: current.update.operations.map((candidate) => ({
+											...candidate,
+											value: target.title,
+										})),
 									},
 								},
 							}

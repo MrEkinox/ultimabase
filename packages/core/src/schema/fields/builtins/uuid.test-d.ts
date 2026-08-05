@@ -38,12 +38,14 @@ test('preserves UUID literals and operation-specific inference', () => {
 	>().toEqualTypeOf<'required'>()
 	expectTypeOf<UuidVersion>().toEqualTypeOf<1 | 2 | 3 | 4 | 5 | 6 | 7 | 8>()
 	expectTypeOf<ObjectShape['ownerId']>().toEqualTypeOf<string>()
-	expectTypeOf<ObjectShape['externalId']>().toEqualTypeOf<string>()
+	expectTypeOf<ObjectShape['externalId']>().toEqualTypeOf<string | null>()
 	expectTypeOf<ObjectShape['relatedIds']>().toEqualTypeOf<
-		readonly string[] | undefined
+		readonly string[] | null
 	>()
 	expectTypeOf<CreateShape['ownerId']>().toEqualTypeOf<string>()
-	expectTypeOf<CreateShape['externalId']>().toEqualTypeOf<string | undefined>()
+	expectTypeOf<CreateShape['externalId']>().toEqualTypeOf<
+		string | null | undefined
+	>()
 	expectTypeOf<UpdateShape['ownerId']>().toEqualTypeOf<string | undefined>()
 })
 

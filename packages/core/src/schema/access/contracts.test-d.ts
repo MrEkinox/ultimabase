@@ -97,7 +97,7 @@ const Article = Schema.define({
 			create: ({ input, item, mode }) => {
 				expectTypeOf(input).toEqualTypeOf<{
 					authorId: string
-					published?: boolean
+					published?: boolean | null
 					title: string
 				}>()
 				expectTypeOf(item).toEqualTypeOf<InferObject<typeof Article>>()
@@ -135,14 +135,14 @@ const Article = Schema.define({
 					expectTypeOf(kind).toEqualTypeOf<
 						'create-many' | 'create-one' | 'upsert-many' | 'upsert-one'
 					>()
-					expectTypeOf(value).toEqualTypeOf<boolean>()
+					expectTypeOf(value).toEqualTypeOf<boolean | null>()
 
 					return true
 				},
 				read: {
 					item: ({ channel, value }) => {
 						expectTypeOf(channel).toEqualTypeOf<'item'>()
-						expectTypeOf(value).toEqualTypeOf<boolean>()
+						expectTypeOf(value).toEqualTypeOf<boolean | null>()
 
 						return true
 					},
@@ -171,9 +171,9 @@ const Article = Schema.define({
 					},
 				},
 				update: ({ value }): Promise<boolean> => {
-					expectTypeOf(value).toEqualTypeOf<boolean>()
+					expectTypeOf(value).toEqualTypeOf<boolean | null>()
 
-					return Promise.resolve(value)
+					return Promise.resolve(value !== null)
 				},
 			},
 		}),
@@ -203,14 +203,14 @@ test('keeps native Access outside schema metadata and value inference', () => {
 	>()
 	expectTypeOf<InferCreateInput<typeof Article>>().toEqualTypeOf<{
 		authorId: string
-		published?: boolean
+		published?: boolean | null
 		title: string
 	}>()
 	expectTypeOf<InferObject<typeof Article>>().toEqualTypeOf<{
 		readonly authorId: string
 		readonly createdAt: string
 		readonly id: string
-		readonly published?: boolean
+		readonly published: boolean | null
 		readonly title: string
 		readonly updatedAt: string
 	}>()

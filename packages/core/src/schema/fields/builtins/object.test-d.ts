@@ -91,10 +91,10 @@ test('infers object list values from reusable fields', () => {
 
 	interface ExpectedItem {
 		readonly name: string
-		readonly active?: boolean
-		readonly createdAt?: string
-		readonly avatar?: Uint8Array
-		readonly tags?: readonly string[]
+		readonly active: boolean | null
+		readonly createdAt: string | null
+		readonly avatar: Uint8Array | null
+		readonly tags: readonly string[] | null
 	}
 
 	expectTypeOf<FieldValue<typeof field>>().toEqualTypeOf<

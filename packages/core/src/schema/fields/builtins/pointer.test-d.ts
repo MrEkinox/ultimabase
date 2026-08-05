@@ -21,7 +21,6 @@ const postSchema = Schema.define({
 		}),
 		reviewer: pointerField({
 			target: () => userSchema,
-			validation: { nullable: true },
 			onDelete: 'setNull',
 		}),
 		owner: pointerField({
@@ -46,9 +45,9 @@ test('infers exact pointer values across every model mode', () => {
 	expectTypeOf<CreateValue['author']>().toEqualTypeOf<
 		Pointer<typeof userSchema>
 	>()
-	expectTypeOf<ObjectValue['reviewer']>().toEqualTypeOf<
-		Pointer<typeof userSchema> | null | undefined
-	>()
+	expectTypeOf<ObjectValue['reviewer']>().toEqualTypeOf<Pointer<
+		typeof userSchema
+	> | null>()
 	expectTypeOf<CreateValue['reviewer']>().toEqualTypeOf<
 		Pointer<typeof userSchema> | null | undefined
 	>()
@@ -69,12 +68,14 @@ test('rejects incompatible pointer declarations and target values', () => {
 
 	// @ts-expect-error -- Collections use relationField instead of pointer lists.
 	pointerField({ target: () => userSchema, list: true })
-	// @ts-expect-error -- setNull requires a nullable pointer.
 	pointerField({ target: () => userSchema, onDelete: 'setNull' })
-	// @ts-expect-error -- Required fields cannot also be nullable.
 	pointerField({
 		target: () => userSchema,
-		validation: { required: true, nullable: true },
+		validation: {
+			required: true,
+			// @ts-expect-error -- Nullability is derived and cannot be configured.
+			nullable: true,
+		},
 	})
 	pointerField({
 		target: () => userSchema,

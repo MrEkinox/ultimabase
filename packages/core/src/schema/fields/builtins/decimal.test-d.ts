@@ -66,9 +66,9 @@ test('uses a compact optional scalar state by default', () => {
 	expectTypeOf(field.options).toEqualTypeOf<Readonly<DecimalFieldOptions>>()
 	expectTypeOf<FieldInferenceStateOf<typeof field>>().toEqualTypeOf<{
 		readonly create: 'optional'
-		readonly object: 'optional'
+		readonly object: 'required'
 		readonly update: 'optional'
-		readonly nullable: false
+		readonly nullable: true
 		readonly list: false
 	}>()
 })
@@ -80,7 +80,7 @@ test('derives decimal create, object, and update shapes from compact state', () 
 		fields: {
 			required: decimalField({ validation: { required: true } }),
 			defaulted: decimalField({ default: '0.00' }),
-			nullable: decimalField({ validation: { nullable: true } }),
+			nullable: decimalField(),
 			immutable: decimalField({ immutable: true }),
 			matrix: decimalField({ list: [true, true] }),
 			extended: decimalField({ extensions: [extension] }),
@@ -90,29 +90,29 @@ test('derives decimal create, object, and update shapes from compact state', () 
 	expectTypeOf(schema.className).toEqualTypeOf<'DecimalState'>()
 	expectTypeOf<InferCreateInput<typeof schema>>().toEqualTypeOf<{
 		required: string
-		defaulted?: string
+		defaulted?: string | null
 		nullable?: string | null
-		immutable?: string
-		matrix?: readonly (readonly string[])[]
-		extended?: string
+		immutable?: string | null
+		matrix?: readonly (readonly string[])[] | null
+		extended?: string | null
 	}>()
 	expectTypeOf<InferObject<typeof schema>>().toEqualTypeOf<{
 		readonly id: string
 		readonly createdAt: string
 		readonly updatedAt: string
 		readonly required: string
-		readonly defaulted: string
-		readonly nullable?: string | null
-		readonly immutable?: string
-		readonly matrix?: readonly (readonly string[])[]
-		readonly extended?: string
+		readonly defaulted: string | null
+		readonly nullable: string | null
+		readonly immutable: string | null
+		readonly matrix: readonly (readonly string[])[] | null
+		readonly extended: string | null
 	}>()
 	expectTypeOf<InferUpdateInput<typeof schema>>().toEqualTypeOf<{
 		required?: string
-		defaulted?: string
+		defaulted?: string | null
 		nullable?: string | null
-		matrix?: readonly (readonly string[])[]
-		extended?: string
+		matrix?: readonly (readonly string[])[] | null
+		extended?: string | null
 	}>()
 	// Runtime extensions retain their public option contract without changing shapes.
 	expectTypeOf(schema.fields.extended.options.extensions).toEqualTypeOf<
@@ -130,7 +130,7 @@ test('rejects incompatible decimal metadata', () => {
 	// @ts-expect-error -- Runtime factories must produce exact decimal strings.
 	decimalField({ default: () => 19.99 })
 
-	// @ts-expect-error -- Required fields cannot also be nullable.
+	// @ts-expect-error -- Nullability is derived and cannot be configured.
 	decimalField({ validation: { required: true, nullable: true } })
 
 	decimalField({

@@ -4,6 +4,7 @@ import {
 	isPlainRecord,
 	isUnknownArray,
 } from '@ultimabase/shared'
+import { isFieldNullable } from '../../schema/fields/base/options.js'
 
 import type {
 	FindOperationAst,
@@ -209,11 +210,7 @@ export const createInversePointerUpdate = <
 		source,
 	) as DatabaseRowFilterNode
 	const field = target.schema.fields[mappedFieldName]
-	const nullable =
-		field !== undefined &&
-		'validation' in field.options &&
-		isPlainRecord(field.options.validation) &&
-		field.options.validation.nullable === true
+	const nullable = field !== undefined && isFieldNullable(field)
 	const fieldOperation =
 		action === 'connect'
 			? immutableRecord({
@@ -227,10 +224,11 @@ export const createInversePointerUpdate = <
 						kind: 'set' as const,
 						value: null,
 					})
-				: immutableRecord({
-						field: mappedFieldName,
-						kind: 'unset' as const,
-					})
+				: (() => {
+						throw new TypeError(
+							'Inverse pointer disconnect requires an optional mapped field',
+						)
+					})()
 	const update = immutableRecord({
 		kind: 'update-expression' as const,
 		operations: immutableArray([fieldOperation]),

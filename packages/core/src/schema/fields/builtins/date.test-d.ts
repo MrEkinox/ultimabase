@@ -15,7 +15,6 @@ test('infers calendar-day values and range boundaries', () => {
 	const field = dateField({
 		validation: {
 			required: true,
-			nullable: false,
 			range: {
 				min: '2026-01-01',
 				max: '2026-12-31',
@@ -58,8 +57,13 @@ test('rejects non-string values and invalid default factories', () => {
 	// @ts-expect-error -- Clock generation produces one scalar value.
 	dateField({ autoNow: true, list: true })
 
-	// @ts-expect-error -- Required fields cannot also be nullable.
-	dateField({ validation: { required: true, nullable: true } })
+	dateField({
+		validation: {
+			required: true,
+			// @ts-expect-error -- Nullability is derived and cannot be configured.
+			nullable: true,
+		},
+	})
 
 	dateField({
 		// @ts-expect-error -- Schema extensions cannot attach to individual fields.

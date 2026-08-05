@@ -28,9 +28,6 @@ type ObjectChildMode<
 		: 'update'
 	: TMode
 
-type IsOutputRequired<TField> =
-	FieldInferenceStateOf<TField>['object'] extends 'required' ? true : false
-
 type IsCreateRequired<TField> =
 	FieldInferenceStateOf<TField>['create'] extends 'required' ? true : false
 
@@ -64,25 +61,9 @@ type ObjectRequiredFields<TFields extends SchemaFields> = {
 		TKey in keyof TFields as TFields[TKey] extends GenericField
 			? IsOmittedField<TFields[TKey], 'object'> extends true
 				? never
-				: IsOutputRequired<TFields[TKey]> extends true
-					? TKey
-					: never
+				: TKey
 			: never
 	]-?: TFields[TKey] extends GenericField
-		? InferFieldValue<TFields[TKey], 'object'>
-		: never
-}
-
-type ObjectOptionalFields<TFields extends SchemaFields> = {
-	readonly [
-		TKey in keyof TFields as TFields[TKey] extends GenericField
-			? IsOmittedField<TFields[TKey], 'object'> extends true
-				? never
-				: IsOutputRequired<TFields[TKey]> extends true
-					? never
-					: TKey
-			: never
-	]?: TFields[TKey] extends GenericField
 		? InferFieldValue<TFields[TKey], 'object'>
 		: never
 }
@@ -131,7 +112,7 @@ export type InferFields<
 	TFields extends SchemaFields,
 	TMode extends InferenceMode,
 > = TMode extends 'object'
-	? Simplify<ObjectRequiredFields<TFields> & ObjectOptionalFields<TFields>>
+	? Simplify<ObjectRequiredFields<TFields>>
 	: TMode extends 'create'
 		? Simplify<CreateRequiredFields<TFields> & CreateOptionalFields<TFields>>
 		: Simplify<UpdateFields<TFields>>

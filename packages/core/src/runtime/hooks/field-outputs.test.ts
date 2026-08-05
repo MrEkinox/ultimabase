@@ -29,7 +29,7 @@ const outputSchema = Schema.define({
 				}),
 			},
 		}),
-		nickname: stringField({ validation: { nullable: true } }),
+		nickname: stringField(),
 		bio: stringField(),
 		secret: stringField(),
 	},
@@ -61,6 +61,7 @@ describe('runtime field outputs', () => {
 		}
 		const result = immutableArray([
 			immutableRecord({
+				bio: null,
 				title: 'First',
 				profile: immutableRecord({
 					displayName: 'Ada',
@@ -116,6 +117,13 @@ describe('runtime field outputs', () => {
 				kind: 'find',
 				mode: 'object',
 				valuePath: [0, 'nickname'],
+			},
+			{
+				fieldPath: ['bio'],
+				itemIndex: 0,
+				kind: 'find',
+				mode: 'object',
+				valuePath: [0, 'bio'],
 			},
 		])
 	})
@@ -191,8 +199,12 @@ describe('runtime field outputs', () => {
 			failedIndex: 1,
 			results: immutableArray([
 				immutableRecord({
+					bio: null,
 					createdAt: '2026-08-03T00:00:00.000Z',
 					id: '00000000-0000-7000-8000-000000000001',
+					nickname: null,
+					profile: null,
+					secret: null,
 					title: 'First',
 					updatedAt: '2026-08-03T00:00:00.000Z',
 				}),
@@ -209,6 +221,34 @@ describe('runtime field outputs', () => {
 				kind: 'create-many',
 				mode: 'object',
 				valuePath: ['results', 0, 'title'],
+			},
+			{
+				fieldPath: ['profile'],
+				itemIndex: 0,
+				kind: 'create-many',
+				mode: 'object',
+				valuePath: ['results', 0, 'profile'],
+			},
+			{
+				fieldPath: ['nickname'],
+				itemIndex: 0,
+				kind: 'create-many',
+				mode: 'object',
+				valuePath: ['results', 0, 'nickname'],
+			},
+			{
+				fieldPath: ['bio'],
+				itemIndex: 0,
+				kind: 'create-many',
+				mode: 'object',
+				valuePath: ['results', 0, 'bio'],
+			},
+			{
+				fieldPath: ['secret'],
+				itemIndex: 0,
+				kind: 'create-many',
+				mode: 'object',
+				valuePath: ['results', 0, 'secret'],
 			},
 			{
 				fieldPath: ['id'],
@@ -244,8 +284,12 @@ describe('runtime field outputs', () => {
 			failedIndex: 1,
 			results: [
 				{
+					bio: null,
 					createdAt: '2026-08-03T00:00:00.000Z',
 					id: '00000000-0000-7000-8000-000000000001',
+					nickname: null,
+					profile: null,
+					secret: null,
 					title: 'FIRST',
 					updatedAt: '2026-08-03T00:00:00.000Z',
 				},

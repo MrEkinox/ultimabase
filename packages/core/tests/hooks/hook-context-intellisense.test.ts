@@ -122,7 +122,7 @@ describe('HookContext IntelliSense', () => {
 		expect(selectedValues).toContain('readonly action: string;')
 		expect(selectedValues).toContain('readonly id: string;')
 		expect(selectedValues).not.toContain('secret')
-		expect(selected).toContain('readonly secret?: string;')
+		expect(selected).toContain('readonly secret?: string | null;')
 		expect(selected.length).toBeLessThan(900)
 	})
 

@@ -32,7 +32,6 @@ export const UserSchema = Schema.define({
 		}),
 		bio: stringField({
 			validation: {
-				nullable: true,
 				length: { max: 500 },
 			},
 		}),

@@ -29,7 +29,6 @@ export const PostSchema = Schema.define({
 		}),
 		reviewer: pointerField({
 			target: () => UserSchema,
-			validation: { nullable: true },
 			onDelete: 'setNull',
 		}),
 	},

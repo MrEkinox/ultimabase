@@ -21,8 +21,8 @@ items.
 root. Recursive members continue to use `JsonValue`, which includes documents,
 strings, finite numbers, booleans, and `null`.
 
-Root `null` is represented only through `validation.nullable: true`, consistently
-with every other field kind. Runtime snapshots reject root scalars at the same
+Root `null` is represented by every optional JSON field, consistently with
+every other optional field kind. Runtime snapshots reject root scalars at the same
 boundary that already rejects non-portable values, circular references, and
 non-finite numbers.
 

@@ -160,7 +160,6 @@ const Post: PostSchema = Schema.define({
 		author: pointerField({
 			onDelete: 'setNull',
 			target: (): AuthorSchema => Author,
-			validation: { nullable: true },
 		}),
 		title: postTitleField,
 	},

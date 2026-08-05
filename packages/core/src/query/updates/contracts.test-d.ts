@@ -14,7 +14,6 @@ import {
 	normalizeUpdateExpression,
 	type NumericUpdateFieldName,
 	type SetUpdateOperationNode,
-	type UnsetUpdateFieldName,
 	type UpdateExpression,
 	type UpdateFieldName,
 	type UpdateOneOperationAst,
@@ -27,7 +26,7 @@ const articleSchema = Schema.define({
 		summary: stringField(),
 		status: stringField({ default: 'draft' }),
 		views: intField(),
-		rating: floatField({ validation: { nullable: true } }),
+		rating: floatField(),
 		balance: decimalField(),
 		sequence: bigintField(),
 		serial: intField({ autoIncrement: true }),
@@ -40,7 +39,7 @@ const articleSchema = Schema.define({
 	},
 })
 
-test('infers mutable, numeric, and unsettable fields independently', () => {
+test('infers mutable and numeric fields independently', () => {
 	expectTypeOf<UpdateFieldName<typeof articleSchema>>().toEqualTypeOf<
 		| 'title'
 		| 'summary'
@@ -57,25 +56,16 @@ test('infers mutable, numeric, and unsettable fields independently', () => {
 	expectTypeOf<NumericUpdateFieldName<typeof articleSchema>>().toEqualTypeOf<
 		'views' | 'rating' | 'balance' | 'sequence' | 'serial'
 	>()
-	expectTypeOf<UnsetUpdateFieldName<typeof articleSchema>>().toEqualTypeOf<
-		| 'summary'
-		| 'views'
-		| 'rating'
-		| 'balance'
-		| 'sequence'
-		| 'scores'
-		| 'metadata'
-	>()
 })
 
 test('correlates each operator field with its exact value type', () => {
 	const expression = normalizeUpdateExpression(articleSchema, {
 		set: {
-			title: 'Typed updates',
-			rating: null,
 			metadata: { label: 'Query' },
+			rating: null,
+			summary: null,
+			title: 'Typed updates',
 		},
-		unset: ['summary'],
 		increment: {
 			views: 1,
 			balance: '1.25',
@@ -95,7 +85,7 @@ test('correlates each operator field with its exact value type', () => {
 			SetUpdateOperationNode<typeof articleSchema>,
 			{ readonly field: 'views' }
 		>['value']
-	>().toEqualTypeOf<number>()
+	>().toEqualTypeOf<number | null>()
 	expect(expression.kind).toBe('update-expression')
 })
 
@@ -122,12 +112,10 @@ test('rejects incompatible fields and values at compile time', () => {
 		},
 	})
 	normalizeUpdateExpression(articleSchema, {
-		// @ts-expect-error -- Required output fields cannot be unset.
-		unset: ['title'],
-	})
-	normalizeUpdateExpression(articleSchema, {
-		// @ts-expect-error -- Defaulted output fields cannot be unset.
-		unset: ['status'],
+		set: {
+			// @ts-expect-error -- Required output fields cannot be cleared.
+			title: null,
+		},
 	})
 	normalizeUpdateExpression(articleSchema, {
 		// @ts-expect-error -- Numeric lists do not support scalar arithmetic.

@@ -121,9 +121,9 @@ describe('binaryField', () => {
 	)
 
 	it('freezes presence validation without a length constraint', () => {
-		const field = binaryField({ validation: { nullable: true } })
+		const field = binaryField({ validation: {} })
 
-		expect(field.options.validation).toStrictEqual({ nullable: true })
+		expect(field.options.validation).toStrictEqual({})
 		expect(Object.isFrozen(field.options.validation)).toBe(true)
 	})
 

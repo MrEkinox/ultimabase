@@ -27,9 +27,7 @@ const primitiveSchema = Schema.define({
 			validation: { required: true },
 		}),
 		optionalText: stringField(),
-		nullableText: stringField({
-			validation: { nullable: true },
-		}),
+		nullableText: stringField(),
 		defaultedFlag: booleanField({
 			default: false,
 		}),
@@ -71,21 +69,21 @@ test('infers the complete primitive output matrix', () => {
 		readonly createdAt: string
 		readonly updatedAt: string
 		readonly requiredText: string
-		readonly optionalText?: string
-		readonly nullableText?: string | null
-		readonly defaultedFlag: boolean
+		readonly optionalText: string | null
+		readonly nullableText: string | null
+		readonly defaultedFlag: boolean | null
 		readonly requiredDefault: string
 		readonly immutableText: string
 		readonly sequence: number
-		readonly ratio?: number
+		readonly ratio: number | null
 		readonly status: 'draft' | 'published'
-		readonly publishedAt?: string
-		readonly processedAt?: string
+		readonly publishedAt: string | null
+		readonly processedAt: string | null
 		readonly automaticDate: string
-		readonly reminderTime?: string
-		readonly payload?: JsonDocument
-		readonly attachment?: Uint8Array
-		readonly price?: string
+		readonly reminderTime: string | null
+		readonly payload: JsonDocument | null
+		readonly attachment: Uint8Array | null
+		readonly price: string | null
 	}
 
 	expectTypeOf(primitiveSchema.className).toEqualTypeOf<'PrimitiveMatrix'>()
@@ -97,21 +95,21 @@ test('infers the complete primitive output matrix', () => {
 test('makes generated and defaulted values optional in create inputs', () => {
 	interface ExpectedCreateInput {
 		requiredText: string
-		optionalText?: string
+		optionalText?: string | null
 		nullableText?: string | null
-		defaultedFlag?: boolean
+		defaultedFlag?: boolean | null
 		requiredDefault?: string
 		immutableText: string
 		sequence?: number
-		ratio?: number
+		ratio?: number | null
 		status: 'draft' | 'published'
-		publishedAt?: string
-		processedAt?: string
+		publishedAt?: string | null
+		processedAt?: string | null
 		automaticDate?: string
-		reminderTime?: string
-		payload?: JsonDocument
-		attachment?: Uint8Array
-		price?: string
+		reminderTime?: string | null
+		payload?: JsonDocument | null
+		attachment?: Uint8Array | null
+		price?: string | null
 	}
 
 	type CreateInput = InferCreateInput<typeof primitiveSchema>
@@ -131,20 +129,20 @@ test('makes generated and defaulted values optional in create inputs', () => {
 test('makes mutable developer fields optional in update inputs', () => {
 	interface ExpectedUpdateInput {
 		requiredText?: string
-		optionalText?: string
+		optionalText?: string | null
 		nullableText?: string | null
-		defaultedFlag?: boolean
+		defaultedFlag?: boolean | null
 		requiredDefault?: string
 		sequence?: number
-		ratio?: number
+		ratio?: number | null
 		status?: 'draft' | 'published'
-		publishedAt?: string
-		processedAt?: string
+		publishedAt?: string | null
+		processedAt?: string | null
 		automaticDate?: string
-		reminderTime?: string
-		payload?: JsonDocument
-		attachment?: Uint8Array
-		price?: string
+		reminderTime?: string | null
+		payload?: JsonDocument | null
+		attachment?: Uint8Array | null
+		price?: string | null
 	}
 
 	type UpdateInput = InferUpdateInput<typeof primitiveSchema>
@@ -167,9 +165,7 @@ const compositeSchema = Schema.define({
 				name: stringField({
 					validation: { required: true },
 				}),
-				bio: stringField({
-					validation: { nullable: true },
-				}),
+				bio: stringField(),
 				active: booleanField({
 					default: true,
 				}),
@@ -201,38 +197,38 @@ test('recursively infers object list fields for every operation', () => {
 	expectTypeOf(compositeSchema.className).toEqualTypeOf<'CompositeMatrix'>()
 	expectTypeOf<ObjectShape['profile']>().toEqualTypeOf<{
 		readonly name: string
-		readonly bio?: string | null
-		readonly active: boolean
-		readonly internalCode?: string
+		readonly bio: string | null
+		readonly active: boolean | null
+		readonly internalCode: string | null
 	}>()
 	expectTypeOf<CreateShape['profile']>().toEqualTypeOf<{
 		name: string
 		bio?: string | null
-		active?: boolean
-		internalCode?: string
+		active?: boolean | null
+		internalCode?: string | null
 	}>()
 	expectTypeOf<NonNullable<UpdateShape['profile']>>().toEqualTypeOf<{
 		name?: string
 		bio?: string | null
-		active?: boolean
+		active?: boolean | null
 	}>()
 
 	expectTypeOf<ObjectShape['members']>().toEqualTypeOf<
 		readonly {
 			readonly name: string
-			readonly verified: boolean
+			readonly verified: boolean | null
 		}[]
 	>()
 	expectTypeOf<CreateShape['members']>().toEqualTypeOf<
 		readonly {
 			name: string
-			verified?: boolean
+			verified?: boolean | null
 		}[]
 	>()
 	expectTypeOf<NonNullable<UpdateShape['members']>>().toEqualTypeOf<
 		readonly {
 			name: string
-			verified?: boolean
+			verified?: boolean | null
 		}[]
 	>()
 })

@@ -28,12 +28,11 @@ const TargetSchema = Schema.define({
 		endpoint: definePluginField('fixture.url', {}, urlNormalizers),
 		profile: objectField({
 			fields: {
-				displayName: stringField({ validation: { nullable: true } }),
+				displayName: stringField(),
 			},
 		}),
 		tags: stringField({
 			list: true,
-			validation: { nullable: true },
 			extensions: [fieldExtension],
 		}),
 		title: stringField({ validation: { required: true } }),

@@ -9,7 +9,7 @@ const codecSchema = compilePostgresSchema(
 	Schema.define({
 		className: 'CodecFixture',
 		fields: {
-			alias: stringField({ validation: { nullable: true } }),
+			alias: stringField(),
 			note: stringField(),
 			payload: binaryField({ validation: { required: true } }),
 			title: stringField({ validation: { required: true } }),
@@ -56,7 +56,7 @@ describe('PostgreSQL record codec', () => {
 		expect(Object.isFrozen(decoded)).toBe(true)
 	})
 
-	it('restores optional absence while retaining explicitly nullable values', () => {
+	it('restores SQL null as the canonical optional field value', () => {
 		const decoded = decodePostgresRecord(codecSchema, {
 			alias: null,
 			note: null,
@@ -65,7 +65,7 @@ describe('PostgreSQL record codec', () => {
 		})
 
 		expect(decoded).toHaveProperty('alias', null)
-		expect(decoded).not.toHaveProperty('note')
+		expect(decoded).toHaveProperty('note', null)
 	})
 
 	it('rejects unknown, undefined, and invalid required values', () => {

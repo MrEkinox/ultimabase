@@ -156,7 +156,7 @@ identity and ID. `pointer.toJSON()` returns the frozen logical shape
 transport-specific Parse object.
 
 `onDelete` defaults to `restrict`. `cascade` deletes the source when its target
-is deleted, while `setNull` requires `validation.nullable: true`. Use
+is deleted, while `setNull` requires an optional pointer. Use
 `indexed: "unique"` for a one-to-one pointer. Pointer defaults and `list: true`
 are deliberately unsupported: callers provide relationship identity explicitly,
 and to-many values use `relationField` instead.
@@ -467,9 +467,10 @@ provided unless a default, `autoNow`, or auto-increment supplies their value. Im
 developer fields remain accepted during creation.
 
 `InferUpdateInput` excludes generated and immutable fields, and makes every
-remaining property optional. In all three modes, `validation.nullable: true`
-adds `null` to the complete field value. Object fields apply the same rules
-recursively. A listed object uses create-input rules for each complete
+remaining property optional. Every complete field property is present: required
+fields use `T`, while optional fields use `T | null`. Create and update inputs
+keep optional properties so omission still means default resolution or no change.
+Object fields apply the same rules recursively. A listed object uses create-input rules for each complete
 replacement item during update.
 
 The final mapped shapes are materialized at the public inference boundary.
@@ -480,7 +481,7 @@ operation-specific presence rules.
 
 ## Generic field contract
 
-- `FieldValidationOptions` represents omission and nullability inside the `validation` option. Fields are optional and non-null by default, and `required: true` cannot be combined with `nullable: true`.
+- `FieldValidationOptions` exposes `required` plus field-specific constraints. Optional fields persist as `null`; `required: true` makes their persisted value non-null.
 - `FieldOptions<TValue, TValidation>` adds typed defaults, homogeneous lists, field-value immutability, `indexed`, descriptions, and field extensions without introducing database-specific metadata. `list: true` creates one list level, a tuple such as `list: [true, true]` creates nested lists, and `false` disables list wrapping explicitly. `indexed: true` requests a regular index, `indexed: "unique"` requests a unique index, and `false` disables indexing explicitly.
 - `FieldDefinition<TKind, TValue, TOptions, TInference>` preserves the literal field kind, its base value type, immutable runtime options, and a type-only operation state for later schema inference.
 
@@ -490,8 +491,8 @@ the public declarations readable and make future documentation local to the
 property it describes. Inline options remain contextually typed through one
 exact-options generic, so editors suggest the complete option set while
 TypeScript preserves literal values and nested object-field inference.
-Dependent rules such as `required` with `nullable` and `autoNow` with a default
-or list are checked outside the contextual option object. Hover information
+Dependent rules such as `autoNow` with a default or list are checked outside
+the contextual option object. Hover information
 documents every built-in factory and option with a focused declaration example.
 `Schema.define()`, its top-level options, and nested composite-index
 options expose the same contextual documentation through completion and hover
@@ -774,8 +775,8 @@ owns its naming syntax and collision checks.
 `jsonField(options)` represents a root `JsonObject` or `JsonArray` through the
 `JsonDocument` type. Nested values use recursive `JsonValue`, so they may still
 contain null, booleans, finite numbers, strings, arrays, and plain objects. A
-root scalar is rejected; root `null` is reserved for
-`validation.nullable: true`. Documents are copied and deeply frozen, while
+root scalar is rejected; root `null` is accepted for optional JSON fields.
+Documents are copied and deeply frozen, while
 values such as `undefined`, `Date`, `BigInt`, functions, and circular
 references are rejected.
 
@@ -815,8 +816,8 @@ update-input, filter, or other generated type names.
 `list: true` wraps the scalar or object value once. A non-empty tuple containing
 only `true` values declares its exact depth, so `list: [true, true]` represents a
 list of lists. The tuple and static list defaults are copied and frozen.
-`validation.nullable` applies to the complete field; list elements are
-non-null. Object definitions may nest to any finite depth, and child definitions
+An optional list has the complete value `readonly T[] | null`; list elements
+remain non-null. Object definitions may nest to any finite depth, and child definitions
 remain reusable immutable values. Factory provenance and immutable construction
 make hand-written or circular field-definition graphs invalid by construction.
 Structured defaults are detached from caller-owned values and normalized

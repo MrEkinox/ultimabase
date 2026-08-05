@@ -16,7 +16,8 @@ describe('field hook declaration traversal', () => {
 						fields: {
 							'email.address': stringField({
 								hooks: {
-									resolveInput: ({ value }) => value.trim(),
+									resolveInput: ({ value }) =>
+										value === null ? null : value.trim(),
 								},
 							}),
 						},

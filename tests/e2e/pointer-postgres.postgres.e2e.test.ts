@@ -140,7 +140,6 @@ const NullableSource = Schema.define({
 		target: pointerField({
 			onDelete: 'setNull',
 			target: () => NullableTarget,
-			validation: { nullable: true },
 		}),
 	},
 })
@@ -196,7 +195,6 @@ const CircularLeft: CircularLeftSchema = Schema.define({
 		right: pointerField({
 			onDelete: 'setNull',
 			target: resolveCircularRight,
-			validation: { nullable: true },
 		}),
 	},
 })
@@ -206,7 +204,6 @@ const CircularRight: CircularRightSchema = Schema.define({
 		left: pointerField({
 			onDelete: 'setNull',
 			target: (): CircularLeftSchema => CircularLeft,
-			validation: { nullable: true },
 		}),
 	},
 })

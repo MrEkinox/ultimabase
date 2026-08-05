@@ -248,7 +248,7 @@ const readUpdateOperations = (
 	return update.operations
 }
 
-/** Lists every explicitly affected top-level field, including value-less unsets. */
+/** Lists every explicitly affected top-level field. */
 export const collectUpdateExpressionFieldNames = (
 	update: UpdateExpressionNode,
 ): readonly string[] => {
@@ -272,10 +272,6 @@ export const collectUpdateExpressionFieldNames = (
 const readUpdateOperationValue = (
 	operation: Readonly<Record<string, unknown>>,
 ): UpdateOperationValue | undefined => {
-	if (operation.kind === 'unset') {
-		return undefined
-	}
-
 	if (
 		(operation.kind !== 'relation' &&
 			operation.kind !== 'decrement' &&

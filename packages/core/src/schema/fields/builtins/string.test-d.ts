@@ -16,7 +16,6 @@ test('retains only string metadata that affects inference', () => {
 	const field = stringField({
 		validation: {
 			required: true,
-			nullable: false,
 			length: {
 				min: 2,
 				max: 40,
@@ -45,7 +44,7 @@ test('retains only string metadata that affects inference', () => {
 
 test('represents optional, nullable, and defaulted variants independently', () => {
 	const optional = stringField()
-	const nullable = stringField({ validation: { nullable: true } })
+	const nullable = stringField()
 	const defaulted = stringField({ default: 'pending' })
 
 	expectTypeOf(optional).toExtend<StringField>()
@@ -72,7 +71,7 @@ test('preserves field extension literals', () => {
 test('rejects incompatible string metadata', () => {
 	// @ts-expect-error -- String defaults must use the field's base value type.
 	stringField({ default: 42 })
-	// @ts-expect-error -- Required fields cannot also be nullable.
+	// @ts-expect-error -- Nullability is derived and cannot be configured.
 	stringField({ validation: { required: true, nullable: true } })
 	// @ts-expect-error -- Patterns use the native RegExp contract.
 	stringField({ validation: { match: '^[a-z]+$' } })

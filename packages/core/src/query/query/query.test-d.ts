@@ -25,7 +25,7 @@ const postSchema = Schema.define({
 		title: stringField(),
 		published: booleanField(),
 		views: intField(),
-		score: intField({ validation: { nullable: true } }),
+		score: intField(),
 		status: enumField({ values: ['draft', 'published'] }),
 		aliases: stringField({ list: true }),
 		metadata: objectField({ fields: { label: stringField() } }),
@@ -43,10 +43,7 @@ const includedPostSchema = Schema.define({
 			target: () => includedUserSchema,
 			validation: { required: true },
 		}),
-		reviewer: pointerField({
-			target: () => includedUserSchema,
-			validation: { nullable: true },
-		}),
+		reviewer: pointerField({ target: () => includedUserSchema }),
 		title: stringField(),
 	},
 })
@@ -118,8 +115,8 @@ test('correlates every filter field with its exact operand type', () => {
 	query.startsWith('title', 'Ultima')
 	query.endsWith('title', 'Base')
 	query.matches('title', { source: '^Ultima', flags: ['case-insensitive'] })
-	query.exists('metadata')
-	query.doesNotExist('aliases')
+	query.isNotNull('metadata')
+	query.isNull('aliases')
 
 	// @ts-expect-error -- Boolean operands remain booleans.
 	query.equalTo('published', 'true')
@@ -148,7 +145,7 @@ test('infers pointer predicates, target queries, and included projections', () =
 		.select('id', 'title')
 		.equalTo('author', author)
 		.containedIn('author', [author])
-		.exists('author')
+		.isNotNull('author')
 		.include('author', (query) =>
 			query.select('id', 'name').equalTo('active', true),
 		)
@@ -167,14 +164,14 @@ test('infers pointer predicates, target queries, and included projections', () =
 	expectTypeOf<IncludedResult>().toHaveProperty('author')
 	expectTypeOf<IncludedResult>().toHaveProperty('reviewer')
 	expectTypeOf<NonNullable<IncludedResult['author']>['name']>().toEqualTypeOf<
-		string | undefined
+		string | null
 	>()
 	expectTypeOf<null>().toExtend<IncludedResult['author']>()
 	expectTypeOf<NonNullable<IncludedResult['reviewer']>['name']>().toEqualTypeOf<
-		string | undefined
+		string | null
 	>()
 	expectTypeOf<null>().toExtend<IncludedResult['reviewer']>()
-	expectTypeOf<undefined>().toExtend<IncludedResult['reviewer']>()
+	expectTypeOf<undefined>().not.toExtend<IncludedResult['reviewer']>()
 	expectTypeOf<PlainResult['author']>().toEqualTypeOf<
 		Pointer<typeof includedUserSchema>
 	>()
@@ -206,7 +203,7 @@ test('restricts fields, pagination values, and logical schemas', () => {
 	query.after()
 	query.and(new Query(postSchema).equalTo('published', true))
 	query.or(new Query(postSchema).equalTo('published', false))
-	query.not(new Query(postSchema).exists('title'))
+	query.not(new Query(postSchema).isNotNull('title'))
 
 	// @ts-expect-error -- Selection is restricted to schema fields.
 	query.select('missing')

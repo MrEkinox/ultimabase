@@ -45,12 +45,14 @@ test('preserves bigint literals and operation-specific inference', () => {
 		FieldInferenceStateOf<typeof bigintSchema.fields.sequence>['object']
 	>().toEqualTypeOf<'required'>()
 	expectTypeOf<ObjectShape['sequence']>().toEqualTypeOf<bigint>()
-	expectTypeOf<ObjectShape['balance']>().toEqualTypeOf<bigint>()
+	expectTypeOf<ObjectShape['balance']>().toEqualTypeOf<bigint | null>()
 	expectTypeOf<ObjectShape['relatedIds']>().toEqualTypeOf<
-		readonly bigint[] | undefined
+		readonly bigint[] | null
 	>()
 	expectTypeOf<CreateShape['sequence']>().toEqualTypeOf<bigint | undefined>()
-	expectTypeOf<CreateShape['balance']>().toEqualTypeOf<bigint | undefined>()
+	expectTypeOf<CreateShape['balance']>().toEqualTypeOf<
+		bigint | null | undefined
+	>()
 	expectTypeOf<UpdateShape['sequence']>().toEqualTypeOf<bigint | undefined>()
 })
 
@@ -64,10 +66,10 @@ test('rejects incompatible bigint metadata', () => {
 	// @ts-expect-error -- Bigint ranges cannot mix JavaScript numbers.
 	bigintField({ validation: { range: { min: 0 } } })
 
-	// @ts-expect-error -- Required fields cannot also be nullable.
 	bigintField({
 		validation: {
 			required: true,
+			// @ts-expect-error -- Nullability is derived and cannot be configured.
 			nullable: true,
 		},
 	})

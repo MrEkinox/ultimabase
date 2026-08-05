@@ -63,13 +63,13 @@ const filterSchema = Schema.define({
 		aliases: stringField({ list: true }),
 		reminder: timeField(),
 		externalId: uuidField(),
-		nullableCount: intField({ validation: { nullable: true } }),
+		nullableCount: intField(),
 		vector: vectorField,
 	},
 })
 
 type EqualityOperators =
-	QueryEqualityFilterOperator | QueryMembershipFilterOperator | 'exists'
+	QueryEqualityFilterOperator | QueryMembershipFilterOperator | 'null'
 
 type OrderedOperators = EqualityOperators | QueryComparisonFilterOperator
 
@@ -90,13 +90,13 @@ test('restricts every built-in field kind to its portable operators', () => {
 	expectTypeOf<Operators<'ratio'>>().toEqualTypeOf<OrderedOperators>()
 	expectTypeOf<Operators<'count'>>().toEqualTypeOf<OrderedOperators>()
 	expectTypeOf<Operators<'payload'>>().toEqualTypeOf<EqualityOperators>()
-	expectTypeOf<Operators<'profile'>>().toEqualTypeOf<'exists'>()
+	expectTypeOf<Operators<'profile'>>().toEqualTypeOf<'null'>()
 	expectTypeOf<Operators<'author'>>().toEqualTypeOf<EqualityOperators>()
 	expectTypeOf<Operators<'title'>>().toEqualTypeOf<StringOperators>()
-	expectTypeOf<Operators<'aliases'>>().toEqualTypeOf<'exists'>()
+	expectTypeOf<Operators<'aliases'>>().toEqualTypeOf<'null'>()
 	expectTypeOf<Operators<'reminder'>>().toEqualTypeOf<OrderedOperators>()
 	expectTypeOf<Operators<'externalId'>>().toEqualTypeOf<EqualityOperators>()
-	expectTypeOf<Operators<'vector'>>().toEqualTypeOf<'exists'>()
+	expectTypeOf<Operators<'vector'>>().toEqualTypeOf<'null'>()
 	expectTypeOf<Operators<'id'>>().toEqualTypeOf<EqualityOperators>()
 	expectTypeOf<Operators<'createdAt'>>().toEqualTypeOf<OrderedOperators>()
 })
@@ -130,9 +130,9 @@ test('correlates operands with exact inferred field values', () => {
 		readonly value: Uint8Array
 	}>().toExtend<Filters>()
 	expectTypeOf<{
-		readonly kind: 'exists'
+		readonly kind: 'null'
 		readonly field: 'profile'
-		readonly exists: false
+		readonly isNull: true
 	}>().toExtend<Filters>()
 	expectTypeOf<{
 		readonly kind: 'equal'

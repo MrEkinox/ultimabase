@@ -112,10 +112,7 @@ describe('pointerField IntelliSense', () => {
 	it('documents the complete presence contract', () => {
 		const entries = readMemberCompletions(validationMarker)
 
-		expect(entries.map(({ name }) => name).sort()).toStrictEqual([
-			'nullable',
-			'required',
-		])
+		expect(entries.map(({ name }) => name).sort()).toStrictEqual(['required'])
 
 		for (const entry of entries) {
 			expectDocumentedCompletion(validationMarker, entry)

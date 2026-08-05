@@ -30,12 +30,11 @@ const schema = Schema.define({
 		endpoint: definePluginField('fixture.url', {}, urlNormalizers),
 		profile: objectField({
 			fields: {
-				displayName: stringField({ validation: { nullable: true } }),
+				displayName: stringField(),
 			},
 		}),
 		tags: stringField({
 			list: true,
-			validation: { nullable: true },
 			extensions: [fieldExtension],
 		}),
 		title: stringField({ validation: { required: true } }),
@@ -72,7 +71,7 @@ test('infers setup hook targets and exact schema or field handlers', () => {
 			})
 			hooks.field('nested-object', schema, ['profile'], {
 				beforeSave: ({ value }) => {
-					expectTypeOf(value.displayName).toEqualTypeOf<
+					expectTypeOf(value?.displayName).toEqualTypeOf<
 						string | null | undefined
 					>()
 				},
@@ -85,7 +84,7 @@ test('infers setup hook targets and exact schema or field handlers', () => {
 			})
 			hooks.field('custom', schema, ['endpoint'], {
 				resolveInput: ({ value }) => {
-					expectTypeOf(value).toEqualTypeOf<URL>()
+					expectTypeOf(value).toEqualTypeOf<URL | null>()
 					return value
 				},
 			})
@@ -101,7 +100,7 @@ test('infers setup hook targets and exact schema or field handlers', () => {
 				expectTypeOf(field).toEqualTypeOf<typeof schema.fields.endpoint>()
 				return {
 					resolveInput: ({ value }) => {
-						expectTypeOf(value).toEqualTypeOf<URL>()
+						expectTypeOf(value).toEqualTypeOf<URL | null>()
 						return value
 					},
 				}

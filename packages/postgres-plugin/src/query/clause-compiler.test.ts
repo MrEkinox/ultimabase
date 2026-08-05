@@ -15,7 +15,7 @@ const ArticleSchema = Schema.define({
 	fields: {
 		created: dateTimeField(),
 		rank: intField(),
-		title: stringField({ validation: { nullable: true } }),
+		title: stringField(),
 	},
 })
 
@@ -200,8 +200,8 @@ describe('PostgreSQL query clause compiler', () => {
 		const invalidValue: QueryCursorPayload = {
 			className: 'Article',
 			ordering: [
-				{ direction: 'ascending', field: 'rank', value: null },
-				{ direction: 'ascending', field: 'id', value: 'id-1' },
+				{ direction: 'ascending', field: 'rank', value: 1 },
+				{ direction: 'ascending', field: 'id', value: null },
 			],
 			version: queryCursorVersion,
 		}

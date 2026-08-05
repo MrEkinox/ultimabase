@@ -78,9 +78,9 @@ describe('timeField', () => {
 	})
 
 	it('freezes presence validation without a time range', () => {
-		const field = timeField({ validation: { nullable: true } })
+		const field = timeField({ validation: {} })
 
-		expect(field.options.validation).toStrictEqual({ nullable: true })
+		expect(field.options.validation).toStrictEqual({})
 		expect(Object.isFrozen(field.options.validation)).toBe(true)
 	})
 

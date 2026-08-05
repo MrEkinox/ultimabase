@@ -36,7 +36,7 @@ test('ambient Query keeps exact typing without adding controls to HookContext', 
 	const selected = await AuditSchema.query().select('id', 'action').find()
 
 	expectTypeOf(created.action).toEqualTypeOf<string>()
-	expectTypeOf(created.secret).toEqualTypeOf<string | undefined>()
+	expectTypeOf(created.secret).toEqualTypeOf<string | null>()
 	expectTypeOf(selected).toEqualTypeOf<
 		readonly InferQueryResult<typeof AuditSchema, 'action' | 'id'>[]
 	>()

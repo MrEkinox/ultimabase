@@ -231,7 +231,7 @@ describe('native field hook IntelliSense', () => {
 		const display = readHoverDisplay('field-definition')
 
 		expect(display).toContain(
-			'NonDefaultedStringField<false, true, false, false>',
+			'NonDefaultedStringField<false, false, false, false>',
 		)
 		expect(display).not.toContain('FieldHooks')
 		expect(display).not.toContain('resolveInput')

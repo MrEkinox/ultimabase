@@ -1,7 +1,7 @@
 import type { SchemaDefinition } from '../schema/definition.js'
 import {
-	createQueryExistenceFilter,
 	createQueryMembershipFilter,
+	createQueryNullFilter,
 	createQueryRegexFilter,
 	createQueryValueFilter,
 } from '../../query/filters/factory.js'
@@ -218,24 +218,20 @@ class ImmutableAccessFilter<
 		)
 	}
 
-	exists(
-		fieldName: QueryFilterFieldName<TSchema, 'exists'>,
+	isNotNull(
+		fieldName: QueryFilterFieldName<TSchema, 'null'>,
 	): AccessFilter<TSchema> {
 		const state = readAccessFilterState<TSchema>(this)
 
-		return this.#append(
-			createQueryExistenceFilter(state.schema, fieldName, true),
-		)
+		return this.#append(createQueryNullFilter(state.schema, fieldName, false))
 	}
 
-	doesNotExist(
-		fieldName: QueryFilterFieldName<TSchema, 'exists'>,
+	isNull(
+		fieldName: QueryFilterFieldName<TSchema, 'null'>,
 	): AccessFilter<TSchema> {
 		const state = readAccessFilterState<TSchema>(this)
 
-		return this.#append(
-			createQueryExistenceFilter(state.schema, fieldName, false),
-		)
+		return this.#append(createQueryNullFilter(state.schema, fieldName, true))
 	}
 
 	and(filter: AccessFilter<TSchema>): AccessFilter<TSchema> {

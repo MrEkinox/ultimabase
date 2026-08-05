@@ -42,12 +42,10 @@ describe('uuidField', () => {
 
 	it('freezes validation metadata without restricting the version', () => {
 		const field = uuidField({
-			validation: {
-				nullable: true,
-			},
+			validation: {},
 		})
 
-		expect(field.options.validation).toStrictEqual({ nullable: true })
+		expect(field.options.validation).toStrictEqual({})
 		expect(Object.isFrozen(field.options.validation)).toBe(true)
 	})
 

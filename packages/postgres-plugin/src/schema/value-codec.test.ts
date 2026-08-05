@@ -48,7 +48,7 @@ describe('PostgreSQL value codecs', () => {
 			loginAt: logical.loginAt,
 			nestedCounts: [['1', '9007199254740993']],
 		})
-		expect(decoded).toStrictEqual(logical)
+		expect(decoded).toStrictEqual({ ...logical, nickname: null })
 		expect(decoded).not.toBe(logical)
 		if (
 			typeof decoded !== 'object' ||
@@ -178,7 +178,11 @@ describe('PostgreSQL value codecs', () => {
 		const schema = Schema.define({
 			className: 'CorruptCodecFixture',
 			fields: {
-				profile: objectField({ fields: { count: bigintField() } }),
+				profile: objectField({
+					fields: {
+						count: bigintField({ validation: { required: true } }),
+					},
+				}),
 			},
 		})
 		const codec = compilePostgresSchema(schema).fields.profile?.codec

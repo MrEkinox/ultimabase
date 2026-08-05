@@ -431,8 +431,9 @@ database-specific implementation owns the preparation phase.
 Portable Core pointers compile to PostgreSQL UUID columns and named foreign
 keys. The logical field name remains the physical column name, while the
 constraint name is deterministic and safe within PostgreSQL's identifier
-limit. `required`, `nullable`, `indexed`, and `indexed: "unique"` retain their
-normal Schema meaning. `onDelete` becomes `RESTRICT`, `CASCADE`, or `SET NULL`.
+limit. Optional pointers use nullable columns, while `required`, `indexed`, and
+`indexed: "unique"` retain their normal Schema meaning. `onDelete` becomes
+`RESTRICT`, `CASCADE`, or `SET NULL`.
 
 ```ts
 import { pointerField, Schema, stringField } from '@ultimabase/core'

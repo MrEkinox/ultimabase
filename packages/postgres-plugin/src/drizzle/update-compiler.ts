@@ -50,9 +50,6 @@ export const compilePostgresUpdate = (
 				}
 				compiled[fieldName] = field.codec.encode(operation.value)
 				break
-			case 'unset':
-				compiled[fieldName] = null
-				break
 			case 'increment':
 			case 'decrement': {
 				if (!Object.hasOwn(operation, 'value')) {

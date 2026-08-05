@@ -176,10 +176,10 @@ describe('@ultimabase/core Schema and Query declarations', () => {
 	it('preserves field option documentation through package exports', () => {
 		const validation = readFixtureQuickInfo('validation: { required: true }')
 
-		// Compiled declarations expose only the booleans needed by field inference.
+		// Compiled declarations expose required presence without a nullable switch.
 		expect(validation.display).toContain('StringValidationOptions & {')
 		expect(validation.display).toContain('readonly required?: true')
-		expect(validation.display).toContain('readonly nullable?: false')
+		expect(validation.display).not.toContain('readonly nullable?:')
 		expect(validation.display).not.toContain(
 			'FieldValidationOptions & StringValidationOptions',
 		)
@@ -194,9 +194,8 @@ describe('@ultimabase/core Schema and Query declarations', () => {
 		const create = readFixtureQuickInfo('create(allFieldValues,')
 
 		// This guards the declaration experience seen through Query and Runtime exports.
-		expect(created.display).toContain('readonly externalId?: string;')
-		expect(created.display).toContain('readonly id: string;')
-		expect(created.display).toContain('readonly metadata?: JsonDocument;')
+		expect(created.display).toContain('readonly externalId: string | null;')
+		expect(created.display).toContain('readonly metadata: JsonDocument | null;')
 		expect(created.display).not.toContain('Simplify<')
 		expect(created.display).not.toContain('ObjectRequiredFields<')
 		expect(created.display).not.toContain('ObjectOptionalFields<')
@@ -266,8 +265,8 @@ describe('@ultimabase/core Schema and Query declarations', () => {
 
 		// Developers should see usable operators instead of the complete field schema.
 		expect(inputDisplay).toContain('readonly set: {')
-		expect(inputDisplay).toContain('readonly views?: number;')
-		expect(inputDisplay).toContain('readonly unset?: readonly (')
+		expect(inputDisplay).toContain('readonly views?: number | null;')
+		expect(inputDisplay).toContain('readonly published?: boolean | null;')
 		expect(inputDisplay).toContain('readonly increment?: {')
 		expect(inputDisplay).not.toContain('UpdateExpressionInput<')
 		expect(inputDisplay).not.toContain('SchemaDefinition<')
