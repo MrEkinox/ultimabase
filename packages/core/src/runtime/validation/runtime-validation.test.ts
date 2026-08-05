@@ -210,6 +210,29 @@ describe('runtime validation', () => {
 		).toBe(true)
 	})
 
+	it('canonicalizes optional fields without materializing forbidden relations', async () => {
+		const schema = Schema.define({
+			className: 'RuntimeOptionalWithoutRelation',
+			fields: {
+				note: stringField(),
+				targets: relationField({ target: () => relationValidationTarget }),
+			},
+		})
+		const operation: CreateOneOperationAst<typeof schema> = {
+			kind: 'create-one',
+			schema: new Query(schema).ast.schema,
+			input: {},
+		}
+
+		const normalized = await executeStage(
+			createRuntimeValidationStage(),
+			operation,
+		)
+
+		expect(normalized.input).toHaveProperty('note', null)
+		expect(normalized.input).not.toHaveProperty('targets')
+	})
+
 	it('validates update replacements and appends the trusted update timestamp', async () => {
 		const stage = createRuntimeValidationStage({
 			clock: () => new Date('2026-05-01T08:00:00.000Z'),

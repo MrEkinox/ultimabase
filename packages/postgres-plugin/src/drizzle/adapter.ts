@@ -222,7 +222,6 @@ const compilePostgresRequestConstraint = (
 
 /** Adds a validated to-many traversal only to target read operations. */
 const compilePostgresRequestRelation = (
-	client: PostgresDrizzleClient,
 	schemas: PostgresSchemaCatalog,
 	schema: ReturnType<PostgresSchemaCatalog['get']>,
 	request: DatabaseOperationRequest,
@@ -243,7 +242,7 @@ const compilePostgresRequestRelation = (
 	}
 
 	return compilePostgresRelationPredicate(
-		client,
+		schemas,
 		relation,
 		request.relation.sourceObjectId,
 	)
@@ -278,14 +277,12 @@ const executePostgresRequest = async <
 		request,
 	)
 	const relationPredicate = compilePostgresRequestRelation(
-		client,
 		schemas,
 		schema,
 		request,
 	)
 	const effectivePredicate = and(constraintPredicate, relationPredicate)
 	const relationPredicateCompiler = createPostgresRelationPredicateCompiler(
-		client,
 		schemas,
 		constraintCompilers,
 		request.relationPredicates ?? [],
@@ -330,7 +327,10 @@ class DrizzlePostgresTransactionAdapter implements DatabaseTransactionAdapter {
 		constraintCompilers: PostgresConstraintCompilerRegistry,
 	) {
 		this.#client = client
-		this.#drizzle = createPostgresDrizzleClient(client)
+		this.#drizzle = createPostgresDrizzleClient(
+			client,
+			schemas.drizzleRelationDefinitions(),
+		)
 		this.#schemas = schemas
 		this.#constraintCompilers = constraintCompilers
 		this.#itemRecovery = createPostgresItemRecovery(client)
@@ -392,7 +392,6 @@ class DrizzlePostgresTransactionAdapter implements DatabaseTransactionAdapter {
 				? undefined
 				: this.#schemas.getRelation(request.relation)
 		const relationPredicateCompiler = createPostgresRelationPredicateCompiler(
-			this.#drizzle,
 			this.#schemas,
 			this.#constraintCompilers,
 			request.relationPredicates ?? [],
@@ -475,7 +474,10 @@ class DrizzlePostgresDatabaseAdapter implements DatabaseAdapter {
 		schemas: PostgresSchemaCatalog,
 		constraintCompilers: PostgresConstraintCompilerRegistry,
 	) {
-		this.#client = createPostgresDrizzleClient(pool)
+		this.#client = createPostgresDrizzleClient(
+			pool,
+			schemas.drizzleRelationDefinitions(),
+		)
 		this.#pool = pool
 		this.#schemas = schemas
 		this.#constraintCompilers = constraintCompilers

@@ -68,7 +68,7 @@ describe('postgresConstraintCompiler', () => {
 
 		expect(dialect.sqlToQuery(expression)).toMatchObject({
 			params: ['tenant-1', 'public'],
-			sql: '("constraint_articles"."tenantId" = $1 or "constraint_articles"."tenantId" = $2)',
+			sql: '(("constraint_articles"."tenantId" = $1) or ("constraint_articles"."tenantId" = $2))',
 		})
 	})
 

@@ -1,12 +1,26 @@
-import { eq, inArray, type SQL } from 'drizzle-orm'
+import type {
+	RelationsFilter,
+	SQL,
+	TableRelationalConfig,
+	TablesRelationalConfig,
+} from 'drizzle-orm'
 
-import type { PostgresDrizzleClient } from '../drizzle/client.js'
+import type { PostgresSchemaCatalog } from '../schema/catalog.js'
 import type { CompiledPostgresRelation } from '../schema/contracts.js'
 import { resolveCompiledPostgresField } from '../schema/field.js'
+import {
+	compilePostgresDrizzleRelationFilter,
+	createPostgresDrizzleRelationFilter,
+} from './drizzle-relation-filter.js'
+
+type PostgresDrizzleRelationsFilter = RelationsFilter<
+	TableRelationalConfig,
+	TablesRelationalConfig
+>
 
 /** Compiles one private relation edge as a parameterized target-row predicate. */
 export const compilePostgresRelationPredicate = (
-	client: PostgresDrizzleClient,
+	catalog: PostgresSchemaCatalog,
 	relation: CompiledPostgresRelation,
 	sourceObjectId: string,
 ): SQL => {
@@ -15,15 +29,21 @@ export const compilePostgresRelationPredicate = (
 		'id',
 	).codec.encode(sourceObjectId)
 
-	if (relation.storage.kind === 'pointer') {
-		return eq(relation.storage.targetColumn, encodedSourceId)
-	}
+	const binding = catalog.getDrizzleRelation(relation)
+	// The generated table retains `id`, but its dynamic key is intentionally private.
+	const targetFilter = {
+		id: encodedSourceId,
+	} as unknown as PostgresDrizzleRelationsFilter
+	const filter = createPostgresDrizzleRelationFilter(
+		binding.reverseRelationName,
+		targetFilter,
+	)
 
-	const targetId = resolveCompiledPostgresField(relation.target, 'id').column
-	const relatedTargetIds = client
-		.select({ id: relation.storage.targetColumn })
-		.from(relation.storage.relation.table)
-		.where(eq(relation.storage.sourceColumn, encodedSourceId))
-
-	return inArray(targetId, relatedTargetIds)
+	return compilePostgresDrizzleRelationFilter(
+		catalog,
+		binding,
+		'target',
+		relation.target.table,
+		filter,
+	)
 }

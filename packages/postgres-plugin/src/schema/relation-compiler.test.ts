@@ -86,6 +86,39 @@ describe('PostgreSQL relation compilation', () => {
 		expect(pointerInverse.storage.kind).toBe('pointer')
 	})
 
+	it('generates RQB v2 definitions for joins, inverses, and pointers', () => {
+		const catalog = createCatalog()
+		const owning = catalog.getRelationDefinition(
+			PostgresRelationArticle,
+			['tags'],
+			PostgresRelationTag,
+		)
+		const inverse = catalog.getRelationDefinition(
+			PostgresRelationTag,
+			['articles'],
+			PostgresRelationArticle,
+		)
+		const pointerInverse = catalog.getRelationDefinition(
+			PostgresRelationAuthor,
+			['posts'],
+			PostgresRelationPost,
+		)
+		const definitions = catalog.drizzleRelationDefinitions()
+
+		for (const relation of [owning, inverse, pointerInverse]) {
+			const binding = catalog.getDrizzleRelation(relation)
+			const source = definitions[binding.sourceTableKey]
+			const target = definitions[binding.targetTableKey]
+
+			expect(source?.relations[binding.sourceRelationName]?.relationType).toBe(
+				'many',
+			)
+			expect(target?.relations[binding.reverseRelationName]?.relationType).toBe(
+				relation.storage.kind === 'pointer' ? 'one' : 'many',
+			)
+		}
+	})
+
 	it('adds hidden joins to the managed direct-synchronization model', () => {
 		const catalog = createCatalog()
 		const desired = compileDesiredPostgresTables(

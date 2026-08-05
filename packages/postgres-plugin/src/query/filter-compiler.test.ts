@@ -30,7 +30,6 @@ import { describe, expect, it } from 'vitest'
 import { compilePostgresSchema } from '../schema/schema-compiler.js'
 import { compilePostgresFilter } from './filter-compiler.js'
 import { PostgresSchemaCatalog } from '../schema/catalog.js'
-import { createPostgresDrizzleClient } from '../drizzle/client.js'
 import { emptyPostgresConstraintCompilerRegistry } from '../constraints/compiler.js'
 import { createPostgresRelationPredicateCompiler } from './relation-predicate-compiler.js'
 
@@ -107,12 +106,7 @@ describe('PostgreSQL filter compiler', () => {
 			throw new TypeError('Relation compiler fixture is incomplete')
 		}
 
-		const client = createPostgresDrizzleClient({
-			// SQL construction never reaches the inert driver in this compiler test.
-			query: () => undefined,
-		})
 		const compiler = createPostgresRelationPredicateCompiler(
-			client,
 			catalog,
 			emptyPostgresConstraintCompilerRegistry,
 			[{ constraints: [], predicate, rowFilter: targetAccess }],
@@ -271,7 +265,7 @@ describe('PostgreSQL filter compiler', () => {
 		const rendered = renderQuery(query)
 
 		expect(rendered.params).toStrictEqual(['published', 10, false])
-		expect(rendered.sql).toMatch(/\(.* or .*\) and not /u)
+		expect(rendered.sql).toMatch(/\(.* or .*\).* and \(not /u)
 	})
 
 	it('encodes exact and structured values through compiled field codecs', () => {
@@ -290,7 +284,8 @@ describe('PostgreSQL filter compiler', () => {
 		expect(binaryQuery.params).toHaveLength(1)
 		expect(binaryQuery.params[0]).toBeInstanceOf(Uint8Array)
 		expect(binaryQuery.params[0]).not.toBe(bytes)
-		expect(jsonQuery.params).toStrictEqual(['{"nested":true}'])
+		// Drizzle's driver codec owns the final JSON wire serialization in v1.
+		expect(jsonQuery.params).toStrictEqual([{ nested: true }])
 	})
 
 	it('compiles structural fields and typed paths through JSONB parameters', () => {

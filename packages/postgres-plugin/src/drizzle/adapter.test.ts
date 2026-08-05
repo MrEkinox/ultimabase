@@ -472,8 +472,9 @@ describe('internal PostgreSQL database adapter', () => {
 			'Visible',
 			'Access-visible',
 		])
-		expect(call?.text).toMatch(
-			/where \("articles"\."views" > \$1 and \(\("articles"\."note" = \$2 and "articles"\."title" = \$3\) and "articles"\."note" = \$4\)\)/u,
+		// Redundant parentheses are a Drizzle rendering detail; every predicate is conjunctive here.
+		expect(call?.text.replaceAll(/[()]/gu, '')).toContain(
+			'where "articles"."views" > $1 and "articles"."note" = $2 and "articles"."title" = $3 and "articles"."note" = $4',
 		)
 		expect(call?.text).not.toContain(injectedTenant)
 	})

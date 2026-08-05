@@ -129,6 +129,7 @@ Accepted records:
 - [ADR-0134: Unified field-oriented update data](0134-unified-update-data.md)
 - [ADR-0135: First-class Query range filters](0135-first-class-query-range-filters.md)
 - [ADR-0136: Structured Query targets for JSON and object fields](0136-structured-query-targets.md)
+- [ADR-0137: Drizzle-native PostgreSQL relation compilation](0137-drizzle-native-relation-compilation.md)
 
 Superseded records:
 

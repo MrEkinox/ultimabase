@@ -439,7 +439,7 @@ const validateObjectValue = (
 		if (plan.presence === 'required') {
 			valid = false
 			appendIssue(execution, 'field.required', fieldPath, 'Field is required')
-		} else if (allowDefaults && plan.nullable) {
+		} else if (plan.presence === 'optional' && allowDefaults && plan.nullable) {
 			// Complete create values canonicalize unresolved optional fields to null.
 			entries.push([fieldName, null])
 		}

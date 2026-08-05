@@ -3,6 +3,7 @@ import {
 	type NodePgClient,
 	type NodePgDatabase,
 } from 'drizzle-orm/node-postgres'
+import type { TablesRelationalConfig } from 'drizzle-orm'
 
 /** Captures the single driver capability shared by pools and borrowed clients. */
 export interface PostgresDriverQueryClient {
@@ -10,14 +11,15 @@ export interface PostgresDriverQueryClient {
 }
 
 /** Keeps the concrete Drizzle database type inside the PostgreSQL package. */
-export type PostgresDrizzleClient = NodePgDatabase
+export type PostgresDrizzleClient = NodePgDatabase<TablesRelationalConfig>
 
 /** Wraps a validated pg-compatible query client with the internal Drizzle driver. */
 export const createPostgresDrizzleClient = (
 	client: PostgresDriverQueryClient,
+	relations: TablesRelationalConfig = {},
 ): PostgresDrizzleClient => {
 	// Drizzle only consumes query() here; the narrow public pool contract proves that capability.
 	const nodePostgresClient = client as NodePgClient
 
-	return drizzle(nodePostgresClient)
+	return drizzle({ client: nodePostgresClient, relations })
 }

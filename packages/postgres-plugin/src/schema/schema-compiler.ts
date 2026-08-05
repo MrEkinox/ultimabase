@@ -6,13 +6,13 @@ import {
 	type SchemaTargetGraph,
 } from '@ultimabase/core'
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
-import { getTableColumns } from 'drizzle-orm'
+import { getColumns } from 'drizzle-orm'
 import {
 	foreignKey,
 	getTableConfig,
 	pgTable,
+	type AnyPgColumnBuilder,
 	type PgColumn,
-	type PgColumnBuilderBase,
 	type PgTable,
 	type PgTableExtraConfigValue,
 	type UpdateDeleteAction,
@@ -175,7 +175,7 @@ const preparePostgresSchema = (
 ): PreparedPostgresSchema => {
 	const definition = schema.definition
 	const validationPlan = compileValidationPlans(schema).create
-	const builderEntries: [string, PgColumnBuilderBase][] = []
+	const builderEntries: [string, AnyPgColumnBuilder][] = []
 	const pendingFields: [string, Omit<CompiledPostgresField, 'column'>][] = []
 	const pointerEntries: [string, CompiledPostgresPointer][] = []
 	const fieldNames = new Set(Object.keys(validationPlan.fields))
@@ -230,7 +230,7 @@ const preparePostgresSchema = (
 
 	const builders = Object.fromEntries(builderEntries) as Record<
 		string,
-		PgColumnBuilderBase
+		AnyPgColumnBuilder
 	>
 	const tableName = resolvePostgresTableName(definition)
 	const storageByField = immutableRecord(
@@ -322,7 +322,7 @@ export const compilePostgresSchemas = (
 			)
 		}
 
-		const id = getTableColumns(table).id
+		const id = getColumns(table).id
 
 		if (id === undefined) {
 			throw new TypeError(

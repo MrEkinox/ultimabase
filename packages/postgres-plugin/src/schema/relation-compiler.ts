@@ -4,7 +4,7 @@ import type {
 	SchemaTargetGraph,
 } from '@ultimabase/core'
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
-import { getTableColumns } from 'drizzle-orm'
+import { getColumns } from 'drizzle-orm'
 import {
 	foreignKey,
 	getTableConfig,
@@ -46,7 +46,7 @@ const requireCompiledSchema = (
 }
 
 const requireIdColumn = (schema: CompiledPostgresSchema): PgColumn => {
-	const id = getTableColumns(schema.table).id
+	const id = getColumns(schema.table).id
 
 	if (id === undefined) {
 		throw new TypeError(
@@ -132,7 +132,7 @@ const compileOwningJoinRelation = (
 			}).onDelete('cascade'),
 		],
 	)
-	const columns = getTableColumns(table)
+	const columns = getColumns(table)
 	const sourceColumn = columns.sourceId
 	const targetColumn = columns.targetId
 

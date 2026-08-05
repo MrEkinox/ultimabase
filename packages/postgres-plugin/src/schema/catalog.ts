@@ -10,6 +10,11 @@ import type {
 	CompiledPostgresRelation,
 	CompiledPostgresSchema,
 } from './contracts.js'
+import {
+	compilePostgresDrizzleRelations,
+	type CompiledPostgresDrizzleRelations,
+	type PostgresDrizzleRelationBinding,
+} from './drizzle-relations.js'
 import { compilePostgresRelations } from './relation-compiler.js'
 import { compilePostgresSchemas } from './schema-compiler.js'
 
@@ -17,6 +22,7 @@ import { compilePostgresSchemas } from './schema-compiler.js'
 export class PostgresSchemaCatalog {
 	readonly #schemas = new Map<object, CompiledPostgresSchema>()
 	readonly #relations = new Map<object, Map<string, CompiledPostgresRelation>>()
+	readonly #drizzleRelations: CompiledPostgresDrizzleRelations
 	readonly #joins: readonly CompiledPostgresJoinRelation[]
 
 	constructor(
@@ -39,6 +45,11 @@ export class PostgresSchemaCatalog {
 
 		if (targets === undefined) {
 			this.#joins = immutableArray([])
+			this.#drizzleRelations = compilePostgresDrizzleRelations(
+				compiled,
+				this.#joins,
+				[],
+			)
 			return
 		}
 
@@ -54,6 +65,11 @@ export class PostgresSchemaCatalog {
 		const relations = compilePostgresRelations(targets, schemasByDefinition)
 
 		this.#joins = relations.joins
+		this.#drizzleRelations = compilePostgresDrizzleRelations(
+			compiled,
+			relations.joins,
+			relations.relations,
+		)
 
 		for (const relation of relations.relations) {
 			const sourceRelations =
@@ -63,6 +79,24 @@ export class PostgresSchemaCatalog {
 			sourceRelations.set(JSON.stringify(relation.relation.fieldPath), relation)
 			this.#relations.set(relation.relation.source, sourceRelations)
 		}
+	}
+
+	/** Supplies generated RQB v2 metadata to every Drizzle client lifetime. */
+	drizzleRelationDefinitions(): CompiledPostgresDrizzleRelations['relations'] {
+		return this.#drizzleRelations.relations
+	}
+
+	/** Resolves generated names for one exact logical relation orientation. */
+	getDrizzleRelation(
+		relation: CompiledPostgresRelation,
+	): PostgresDrizzleRelationBinding {
+		const binding = this.#drizzleRelations.bindings.get(relation)
+
+		if (binding === undefined) {
+			throw new TypeError('PostgreSQL Drizzle relation is not registered')
+		}
+
+		return binding
 	}
 
 	/** Resolves the exact static schema identity retained by each Query AST. */

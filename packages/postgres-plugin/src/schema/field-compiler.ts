@@ -23,7 +23,7 @@ import {
 	time,
 	timestamp,
 	uuid,
-	type PgColumnBuilderBase,
+	type AnyPgColumnBuilder,
 } from 'drizzle-orm/pg-core'
 
 import type {
@@ -41,20 +41,20 @@ type StaticDefault =
 	| { readonly present: true; readonly value: unknown }
 
 interface CompiledPostgresFieldBuilder {
-	readonly builder: PgColumnBuilderBase
+	readonly builder: AnyPgColumnBuilder
 	readonly codec: PostgresValueCodec
 	readonly generation: PostgresFieldGeneration | undefined
 	readonly storage: PostgresStorageKind
 }
 
+interface ConfigurableColumnBuilder extends AnyPgColumnBuilder {
+	readonly notNull: () => AnyPgColumnBuilder
+	readonly primaryKey: () => AnyPgColumnBuilder
+}
+
 /** Supplies a resolved target only for a top-level pointer field. */
 export interface PostgresPointerCompilerContext {
 	readonly target: SchemaDefinition
-}
-
-interface ConfigurableColumnBuilder extends PgColumnBuilderBase {
-	readonly notNull: () => PgColumnBuilderBase
-	readonly primaryKey: () => PgColumnBuilderBase
 }
 
 const bytea = customType<{
@@ -138,7 +138,7 @@ const finalizeBuilder = (
 	builder: ConfigurableColumnBuilder,
 	plan: FieldValidationPlan,
 	fieldName: string,
-): PgColumnBuilderBase => {
+): AnyPgColumnBuilder => {
 	if (
 		fieldName === 'id' &&
 		optionIsTrue(plan.field, 'system') &&

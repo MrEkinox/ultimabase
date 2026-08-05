@@ -3,25 +3,41 @@ import {
 	type DatabaseRelationPredicateScope,
 } from '@ultimabase/core'
 import { immutableRecord } from '@ultimabase/shared'
-import { and, eq, exists, getTableColumns, not, type SQL } from 'drizzle-orm'
-import { alias, type PgColumn } from 'drizzle-orm/pg-core'
+import {
+	and,
+	getColumns,
+	not,
+	type RelationsFilter,
+	type SchemaEntry,
+	type SQL,
+	type TableRelationalConfig,
+	type TablesRelationalConfig,
+} from 'drizzle-orm'
+import type { PgColumn, PgTable } from 'drizzle-orm/pg-core'
 
 import {
 	compilePostgresConstraints,
 	type PostgresConstraintCompilerRegistry,
 } from '../constraints/compiler.js'
-import type { PostgresDrizzleClient } from '../drizzle/client.js'
 import type { PostgresSchemaCatalog } from '../schema/catalog.js'
 import type {
 	CompiledPostgresField,
 	CompiledPostgresSchema,
 } from '../schema/contracts.js'
-import { resolveCompiledPostgresField } from '../schema/field.js'
+import {
+	compilePostgresDrizzleRelationFilter,
+	createPostgresDrizzleRelationFilter,
+} from './drizzle-relation-filter.js'
 import {
 	compilePostgresFilter,
 	compilePostgresRowFilter,
 	type PostgresRelationPredicateCompiler,
 } from './filter-compiler.js'
+
+type PostgresDrizzleRelationsFilter = RelationsFilter<
+	TableRelationalConfig,
+	TablesRelationalConfig
+>
 
 const resolveAliasedColumn = (
 	columns: Readonly<Record<string, PgColumn>>,
@@ -44,12 +60,11 @@ const resolveAliasedColumn = (
 }
 
 /** Rebinds codecs and validation metadata to one query-local table alias. */
-const aliasCompiledSchema = (
+const rebindCompiledSchema = (
 	schema: CompiledPostgresSchema,
-	name: string,
+	table: PgTable,
 ): CompiledPostgresSchema => {
-	const table = alias(schema.table, name)
-	const columns = getTableColumns(table)
+	const columns = getColumns(table)
 	const fields = immutableRecord(
 		Object.fromEntries(
 			Object.entries(schema.fields).map(
@@ -76,12 +91,11 @@ const createMissingScopeError = (): FrameworkError<'INTERNAL_ERROR'> =>
 
 /** Creates one request-local compiler so nested aliases remain deterministic. */
 export const createPostgresRelationPredicateCompiler = (
-	client: PostgresDrizzleClient,
 	catalog: PostgresSchemaCatalog,
 	constraintCompilers: PostgresConstraintCompilerRegistry,
 	scopes: readonly DatabaseRelationPredicateScope[],
 ): PostgresRelationPredicateCompiler => {
-	let aliasPosition = 0
+	let relationDepth = 0
 
 	const compile: PostgresRelationPredicateCompiler = (
 		predicate,
@@ -104,96 +118,64 @@ export const createPostgresRelationPredicateCompiler = (
 			[predicate.field],
 			predicate.target.definition,
 		)
-		const position = aliasPosition
-		aliasPosition += 1
-		const target = aliasCompiledSchema(
-			relation.target,
-			`ub_relation_${String(position)}_target`,
-		)
-		const targetConstraint = compilePostgresConstraints(
-			constraintCompilers,
-			target,
-			scope.constraints,
-		)
-		const targetAccess =
-			scope.rowFilter === undefined
-				? undefined
-				: compilePostgresRowFilter(scope.rowFilter, target)
-		const developerPredicate = compilePostgresFilter(
-			predicate.expression,
-			target,
-			compile,
-		)
-		const quantifiedPredicate =
-			predicate.operator === 'every'
-				? not(developerPredicate)
-				: developerPredicate
-		const sourceId = resolveCompiledPostgresField(source, 'id').column
-		let correlated: SQL
+		const binding = catalog.getDrizzleRelation(relation)
+		const depth = relationDepth
 
-		if (relation.storage.kind === 'pointer') {
-			const pointerField = Object.entries(relation.target.fields).find(
-				([, field]) => field.column === relation.storage.targetColumn,
-			)?.[0]
-
-			if (pointerField === undefined) {
-				throw new TypeError(
-					'PostgreSQL inverse relation pointer field is unavailable',
+		relationDepth += 1
+		const targetFilter = {
+			RAW: (table: SchemaEntry): SQL => {
+				// Generated relation metadata only contains PostgreSQL tables, never views.
+				const target = rebindCompiledSchema(relation.target, table as PgTable)
+				const targetConstraint = compilePostgresConstraints(
+					constraintCompilers,
+					target,
+					scope.constraints,
 				)
-			}
+				const targetAccess =
+					scope.rowFilter === undefined
+						? undefined
+						: compilePostgresRowFilter(scope.rowFilter, target)
+				const developerPredicate = compilePostgresFilter(
+					predicate.expression,
+					target,
+					compile,
+				)
+				const quantifiedPredicate =
+					predicate.operator === 'every'
+						? not(developerPredicate)
+						: developerPredicate
+				const combined = and(
+					targetConstraint,
+					targetAccess,
+					quantifiedPredicate,
+				)
 
-			const pointerColumn = resolveCompiledPostgresField(
-				target,
-				pointerField,
-			).column
-			correlated = exists(
-				client
-					.select({ value: resolveCompiledPostgresField(target, 'id').column })
-					.from(target.table)
-					.where(
-						and(
-							eq(pointerColumn, sourceId),
-							targetConstraint,
-							targetAccess,
-							quantifiedPredicate,
-						),
-					),
-			)
-		} else {
-			const joinTable = alias(
-				relation.storage.relation.table,
-				`ub_relation_${String(position)}_edge`,
-			)
-			const joinColumns = getTableColumns(joinTable)
-			const sourceColumn = resolveAliasedColumn(
-				joinColumns,
-				'sourceId',
-				relation.storage.sourceColumn.name,
-			)
-			const targetColumn = resolveAliasedColumn(
-				joinColumns,
-				'targetId',
-				relation.storage.targetColumn.name,
-			)
-			const targetId = resolveCompiledPostgresField(target, 'id').column
+				if (combined === undefined) {
+					throw new TypeError(
+						'PostgreSQL relation target predicate is unavailable',
+					)
+				}
 
-			correlated = exists(
-				client
-					.select({ value: targetId })
-					.from(joinTable)
-					.innerJoin(target.table, eq(targetId, targetColumn))
-					.where(
-						and(
-							eq(sourceColumn, sourceId),
-							targetConstraint,
-							targetAccess,
-							quantifiedPredicate,
-						),
-					),
-			)
-		}
+				return combined
+			},
+		} as unknown as PostgresDrizzleRelationsFilter
+		const related = createPostgresDrizzleRelationFilter(
+			binding.sourceRelationName,
+			targetFilter,
+		)
+		const filter =
+			predicate.operator === 'some'
+				? related
+				: ({ NOT: related } satisfies PostgresDrizzleRelationsFilter)
 
-		return predicate.operator === 'some' ? correlated : not(correlated)
+		return compilePostgresDrizzleRelationFilter(
+			catalog,
+			binding,
+			'source',
+			source.table,
+			filter,
+			depth,
+		)
 	}
 
 	return compile
