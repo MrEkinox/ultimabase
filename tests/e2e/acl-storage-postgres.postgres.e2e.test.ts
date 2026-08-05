@@ -77,7 +77,7 @@ describe('ACL JSONB storage', { concurrent: false }, () => {
 		await ultimabase.start()
 
 		try {
-			const created = await StoredPost.query().create(
+			const created = await StoredPost.create(
 				{ title: 'Protected' },
 				{ ultimabase, useMasterKey: true },
 			)
@@ -95,12 +95,13 @@ describe('ACL JSONB storage', { concurrent: false }, () => {
 			const replacement = initialACL
 				.revokePublic('read')
 				.grantAuthenticated('read')
-			const updated = await StoredPost.query()
-				.byId(created.id)
-				.update(
-					{ set: { acl: replacement } },
-					{ ultimabase, useMasterKey: true },
-				)
+			const updated = await StoredPost.updateOne(
+				{
+					where: (where) => where.equalTo('id', created.id),
+					data: { set: { acl: replacement } },
+				},
+				{ ultimabase, useMasterKey: true },
+			)
 
 			expect(updated?.acl.toJSON()).toStrictEqual(replacement.toJSON())
 			const indexes = await getFixture().pool.query<{
@@ -135,9 +136,10 @@ describe('ACL JSONB storage', { concurrent: false }, () => {
 			)
 			expect(queryPlan.every((line) => !line.includes('Join'))).toBe(true)
 
-			await StoredPost.query()
-				.byId(created.id)
-				.delete({ ultimabase, useMasterKey: true })
+			await StoredPost.deleteOne(
+				{ where: (where) => where.equalTo('id', created.id) },
+				{ ultimabase, useMasterKey: true },
+			)
 			const remaining = await getFixture().pool.query<{
 				readonly count: string
 			}>('SELECT count(*) FROM acl_storage_posts')

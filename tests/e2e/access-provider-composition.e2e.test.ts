@@ -165,7 +165,8 @@ const CombinedPost = Schema.define({
 		beforeFind: ({ query }) =>
 			query.equalTo('businessScope', 'business-allowed'),
 	},
-	extensions: [acl({ default: roleACL })],
+	// A callback defers role discovery so this fixture can prove runtime composition.
+	extensions: [acl({ default: () => roleACL })],
 })
 
 const createRoleProvider = (allowed: boolean) =>
@@ -283,7 +284,8 @@ const MissingRolePost = Schema.define({
 			return operation
 		},
 	},
-	extensions: [acl({ default: roleACL })],
+	// Dynamic grants validate the absent provider before business or storage hooks.
+	extensions: [acl({ default: () => roleACL })],
 })
 
 describe('Access provider composition', () => {
@@ -398,7 +400,7 @@ describe('Access provider composition', () => {
 
 			roleAwareBusinessHooks = 0
 			await expect(
-				MissingRolePost.query().create(
+				MissingRolePost.create(
 					{ title: 'missing provider' },
 					{ ultimabase: writeApplication },
 				),

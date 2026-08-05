@@ -103,7 +103,6 @@ Accepted records:
 - [ADR-0107: HookContext capabilities and named events](0107-hook-context-capabilities-and-events.md)
 - [ADR-0108: Contextual Query terminal execution](0108-contextual-query-terminal-execution.md)
 - [ADR-0109: Constructible schema model classes](0109-constructible-schema-models.md)
-- [ADR-0110: Concise singular Query terminals](0110-concise-singular-query-terminals.md)
 - [ADR-0111: Non-atomic bulk hook semantics](0111-non-atomic-bulk-hook-semantics.md)
 - [ADR-0112: Unique upsert targets seed create candidates](0112-upsert-target-seeds-create.md)
 - [ADR-0113: Plugin-owned authentication context](0113-plugin-owned-authentication-context.md)
@@ -125,6 +124,7 @@ Accepted records:
 - [ADR-0129: Proposed logical data for ACL input resolution](0129-proposed-acl-input-data.md)
 - [ADR-0130: Contextual schema extension binding](0130-contextual-schema-extension-binding.md)
 - [ADR-0131: Optional committed event delivery](0131-optional-committed-event-delivery.md)
+- [ADR-0132: Read-only queries and schema-owned write commands](0132-read-only-queries-and-schema-write-commands.md)
 
 Superseded records:
 
@@ -138,5 +138,6 @@ Superseded records:
 - [ADR-0064: Mandatory deterministic Runtime pipeline](0064-mandatory-runtime-pipeline.md), superseded by ADR-0090.
 - [ADR-0092: Bound queries require executors](0092-bound-queries-require-executors.md), superseded by ADR-0108.
 - [ADR-0093: Immutable Schema constructor API](0093-schema-constructor-api.md), superseded by ADR-0109.
+- [ADR-0110: Concise singular Query terminals](0110-concise-singular-query-terminals.md), superseded by ADR-0132.
 
 New decisions receive the next number. Do not rewrite history; supersede a record.

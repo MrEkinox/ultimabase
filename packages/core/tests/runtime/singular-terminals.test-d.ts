@@ -24,7 +24,7 @@ declare const ultimabase: UltimaBase<
 >
 declare const context: RequestContext
 
-test('preserves Query schema selection across every singular terminal', () => {
+test('preserves Query schema selection across every read terminal', () => {
 	const query = articleSchema.query().select('id', 'title')
 
 	expectTypeOf(query.find()).toEqualTypeOf<
@@ -38,32 +38,14 @@ test('preserves Query schema selection across every singular terminal', () => {
 	>()
 	expectTypeOf(query.count()).toEqualTypeOf<Promise<number>>()
 	expectTypeOf(query.exists()).toEqualTypeOf<Promise<boolean>>()
-	expectTypeOf(query.createOne({ title: 'Created' })).toEqualTypeOf<
-		Promise<InferQueryResult<typeof articleSchema>>
-	>()
-	expectTypeOf(query.create({ title: 'Created' })).toEqualTypeOf<
-		Promise<InferQueryResult<typeof articleSchema>>
-	>()
-	expectTypeOf(query.updateOne({ increment: { views: 1 } })).toEqualTypeOf<
-		Promise<InferQueryResult<typeof articleSchema, 'id' | 'title'> | null>
-	>()
-	expectTypeOf(query.update({ increment: { views: 1 } })).toEqualTypeOf<
-		Promise<InferQueryResult<typeof articleSchema, 'id' | 'title'> | null>
-	>()
-	expectTypeOf(query.deleteOne()).toEqualTypeOf<
-		Promise<InferQueryResult<typeof articleSchema, 'id' | 'title'> | null>
-	>()
-	expectTypeOf(query.delete()).toEqualTypeOf<
-		Promise<InferQueryResult<typeof articleSchema, 'id' | 'title'> | null>
-	>()
 	expectTypeOf(query.find({ ultimabase })).toEqualTypeOf<
 		Promise<readonly InferQueryResult<typeof articleSchema, 'id' | 'title'>[]>
 	>()
 	expectTypeOf(
-		query.create({ title: 'Created' }, { ultimabase }),
+		articleSchema.create({ title: 'Created' }, { ultimabase }),
 	).toEqualTypeOf<Promise<InferQueryResult<typeof articleSchema>>>()
 	expectTypeOf(
-		query.createMany([{ title: 'Created' }], {
+		articleSchema.createMany([{ title: 'Created' }], {
 			atomic: false,
 			ultimabase,
 		}),
@@ -71,12 +53,15 @@ test('preserves Query schema selection across every singular terminal', () => {
 		Promise<NonAtomicBulkResult<InferQueryResult<typeof articleSchema>>>
 	>()
 	expectTypeOf(
-		query.createMany([{ title: 'Created' }], { atomic: true, ultimabase }),
+		articleSchema.createMany([{ title: 'Created' }], {
+			atomic: true,
+			ultimabase,
+		}),
 	).toEqualTypeOf<Promise<readonly InferQueryResult<typeof articleSchema>[]>>()
 	const dynamicAtomic: boolean = Math.random() > 0.5
 
 	expectTypeOf(
-		query.createMany([{ title: 'Created' }], {
+		articleSchema.createMany([{ title: 'Created' }], {
 			atomic: dynamicAtomic,
 			ultimabase,
 		}),
@@ -86,7 +71,7 @@ test('preserves Query schema selection across every singular terminal', () => {
 			| NonAtomicBulkResult<InferQueryResult<typeof articleSchema>>
 		>
 	>()
-	const nonAtomicCreate = query.createMany([{ title: 'Created' }], {
+	const nonAtomicCreate = articleSchema.createMany([{ title: 'Created' }], {
 		atomic: false,
 		ultimabase,
 	})
@@ -101,11 +86,11 @@ test('preserves Query schema selection across every singular terminal', () => {
 		}
 	})
 	expectTypeOf(
-		articleSchema.query().upsertMany(
+		articleSchema.upsertMany(
 			[
 				{
 					create: { title: 'Unique' },
-					query: articleSchema.query().equalTo('title', 'Unique'),
+					where: (where) => where.equalTo('title', 'Unique'),
 					update: { increment: { views: 1 } },
 				},
 			],
@@ -115,23 +100,27 @@ test('preserves Query schema selection across every singular terminal', () => {
 		Promise<NonAtomicBulkResult<InferQueryResult<typeof articleSchema>>>
 	>()
 	expectTypeOf(
-		query.updateMany({ increment: { views: 1 } }, { ultimabase }),
+		articleSchema.updateMany(
+			{
+				where: (where) => where.equalTo('title', 'Unique'),
+				data: { increment: { views: 1 } },
+			},
+			{ ultimabase },
+		),
 	).toEqualTypeOf<Promise<number>>()
 	expectTypeOf(
-		articleSchema
-			.query()
-			.equalTo('title', 'Unique')
-			.upsert(
-				{
-					create: { title: 'Unique' },
-					update: { increment: { views: 1 } },
-				},
-				{ ultimabase },
-			),
+		articleSchema.upsert(
+			{
+				where: (where) => where.equalTo('title', 'Unique'),
+				create: { title: 'Unique' },
+				update: { increment: { views: 1 } },
+			},
+			{ ultimabase },
+		),
 	).toEqualTypeOf<Promise<InferQueryResult<typeof articleSchema>>>()
-	expectTypeOf(query.deleteMany({ ultimabase })).toEqualTypeOf<
-		Promise<number>
-	>()
+	expectTypeOf(
+		articleSchema.deleteMany({ where: 'all' }, { ultimabase }),
+	).toEqualTypeOf<Promise<number>>()
 
 	const masterOptions = { useMasterKey: true } as const
 	const contextOptions = { context, ultimabase } as const
@@ -147,42 +136,48 @@ test('preserves Query schema selection across every singular terminal', () => {
 	void query.get('article-1', contextualMasterOptions)
 	void query.count(masterOptions)
 	void query.exists(contextOptions)
-	void query.createOne({ title: 'Created' }, contextualMasterOptions)
-	void query.create({ title: 'Created' }, masterOptions)
-	void query.createMany([{ title: 'Created' }], {
+	void articleSchema.create({ title: 'Created' }, contextualMasterOptions)
+	void articleSchema.createMany([{ title: 'Created' }], {
 		atomic: false,
 		...contextualMasterOptions,
 	})
-	void query.updateOne({ increment: { views: 1 } }, masterOptions)
-	void query.update({ increment: { views: 1 } }, contextOptions)
-	void query.updateMany({ increment: { views: 1 } }, contextualMasterOptions)
-	void query.upsertOne(
+	void articleSchema.updateOne(
 		{
-			create: { title: 'Unique' },
-			update: { increment: { views: 1 } },
+			where: (where) => where.equalTo('title', 'Unique'),
+			data: { increment: { views: 1 } },
 		},
 		masterOptions,
 	)
-	void query.upsert(
+	void articleSchema.updateMany(
 		{
+			where: (where) => where.equalTo('views', 0),
+			data: { increment: { views: 1 } },
+		},
+		contextOptions,
+	)
+	void articleSchema.upsert(
+		{
+			where: (where) => where.equalTo('title', 'Unique'),
 			create: { title: 'Unique' },
 			update: { increment: { views: 1 } },
 		},
 		contextOptions,
 	)
-	void articleSchema.query().upsertMany(
+	void articleSchema.upsertMany(
 		[
 			{
 				create: { title: 'Unique' },
-				query: articleSchema.query().equalTo('title', 'Unique'),
+				where: (where) => where.equalTo('title', 'Unique'),
 				update: { increment: { views: 1 } },
 			},
 		],
 		{ atomic: true, ...contextualMasterOptions },
 	)
-	void query.deleteOne(masterOptions)
-	void query.delete(contextOptions)
-	void query.deleteMany(contextualMasterOptions)
+	void articleSchema.deleteOne(
+		{ where: (where) => where.equalTo('title', 'Unique') },
+		masterOptions,
+	)
+	void articleSchema.deleteMany({ where: 'all' }, contextualMasterOptions)
 
 	// @ts-expect-error -- Read terminals accept only their final execution options.
 	void query.find({ atomic: false })
@@ -191,11 +186,11 @@ test('preserves Query schema selection across every singular terminal', () => {
 	// @ts-expect-error -- Query terminals remain credential-neutral.
 	void query.find({ sessionToken: 'transport-secret' })
 	// @ts-expect-error -- Mutation execution options follow the mutation input.
-	void query.create({ ultimabase }, { title: 'Created' })
+	void articleSchema.create({ ultimabase }, { title: 'Created' })
 	// @ts-expect-error -- Singular update aliases never accept a collection input.
-	void query.update([{ increment: { views: 1 } }])
-	// @ts-expect-error -- Singular delete aliases accept only terminal options.
-	void query.delete([])
+	void articleSchema.updateOne([{ increment: { views: 1 } }])
+	// @ts-expect-error -- Singular delete commands require their target wrapper.
+	void articleSchema.deleteOne([])
 	// @ts-expect-error -- Terminal ownership never becomes a Query builder option.
 	articleSchema.query({ ultimabase })
 })

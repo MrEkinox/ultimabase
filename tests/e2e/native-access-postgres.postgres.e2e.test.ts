@@ -61,7 +61,7 @@ const AccessArticle = Schema.define({
 	hooks: {
 		beforeFind: ({ query }) => query.greaterThanOrEqualTo('rank', 0),
 		beforeUpdate: async ({ operation }) => {
-			await AccessAudit.query().create({ action: `update:${operation.kind}` })
+			await AccessAudit.create({ action: `update:${operation.kind}` })
 
 			return operation
 		},
@@ -146,7 +146,7 @@ beforeAll(async () => {
 	})
 	await ultimabase.start()
 
-	const articles = await AccessArticle.query().createMany(
+	const articles = await AccessArticle.createMany(
 		[
 			{
 				published: true,
@@ -180,7 +180,7 @@ beforeAll(async () => {
 	privateId = articles[1]?.id ?? ''
 	lockedId = articles[3]?.id ?? ''
 
-	await BulkDocument.query().createMany(
+	await BulkDocument.createMany(
 		[
 			{ key: 'visible-a', value: 1, visible: true },
 			{ key: 'private-a', value: 2, visible: false },
@@ -241,9 +241,13 @@ describe('native Access with PostgreSQL', () => {
 			AccessArticle.query().ascending('secret').find({ ultimabase: app }),
 		).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
 		await expect(
-			AccessArticle.query()
-				.byId(publicId)
-				.updateOne({ set: { secret: 'changed' } }, { ultimabase: app }),
+			AccessArticle.updateOne(
+				{
+					where: (where) => where.equalTo('id', publicId),
+					data: { set: { secret: 'changed' } },
+				},
+				{ ultimabase: app },
+			),
 		).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
 	})
 
@@ -251,12 +255,12 @@ describe('native Access with PostgreSQL', () => {
 		const app = getUltimaBase()
 
 		await expect(
-			AccessArticle.query().create(
+			AccessArticle.create(
 				{ published: true, secret: 'anonymous-secret', title: 'anonymous' },
 				{ ultimabase: app },
 			),
 		).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
-		const masterCreated = await AccessArticle.query().create(
+		const masterCreated = await AccessArticle.create(
 			{
 				published: true,
 				secret: 'master-secret',
@@ -276,7 +280,10 @@ describe('native Access with PostgreSQL', () => {
 	it('filters mutation targets and rolls nested writes back after item denial', async () => {
 		const app = getUltimaBase()
 		await expect(
-			AccessArticle.query().byId(privateId).deleteOne({ ultimabase: app }),
+			AccessArticle.deleteOne(
+				{ where: (where) => where.equalTo('id', privateId) },
+				{ ultimabase: app },
+			),
 		).resolves.toBeNull()
 		const publicModel = await AccessArticle.query()
 			.byId(publicId)
@@ -295,9 +302,13 @@ describe('native Access with PostgreSQL', () => {
 
 		const auditCount = await AccessAudit.query().count({ ultimabase: app })
 		await expect(
-			AccessArticle.query()
-				.byId(lockedId)
-				.updateOne({ set: { title: 'must-rollback' } }, { ultimabase: app }),
+			AccessArticle.updateOne(
+				{
+					where: (where) => where.equalTo('id', lockedId),
+					data: { set: { title: 'must-rollback' } },
+				},
+				{ ultimabase: app },
+			),
 		).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
 		await expect(AccessAudit.query().count({ ultimabase: app })).resolves.toBe(
 			auditCount,
@@ -311,27 +322,26 @@ describe('native Access with PostgreSQL', () => {
 		const app = getUltimaBase()
 
 		await expect(
-			BulkDocument.query().updateMany(
-				{ increment: { value: 10 } },
+			BulkDocument.updateMany(
+				{ where: 'all', data: { increment: { value: 10 } } },
 				{ ultimabase: app },
 			),
 		).resolves.toBe(2)
 		await expect(
-			BulkDocument.query()
-				.equalTo('key', 'visible-a')
-				.upsert(
-					{
-						create: { key: 'visible-a', value: 0, visible: true },
-						update: { increment: { value: 1 } },
-					},
-					{ ultimabase: app },
-				),
+			BulkDocument.upsert(
+				{
+					where: (where) => where.equalTo('key', 'visible-a'),
+					create: { key: 'visible-a', value: 0, visible: true },
+					update: { increment: { value: 1 } },
+				},
+				{ ultimabase: app },
+			),
 		).resolves.toMatchObject({ value: 12 })
 		await expect(BulkDocument.query().count({ ultimabase: app })).resolves.toBe(
 			2,
 		)
 		await expect(
-			BulkDocument.query().deleteMany({ ultimabase: app }),
+			BulkDocument.deleteMany({ where: 'all' }, { ultimabase: app }),
 		).resolves.toBe(2)
 		await expect(BulkDocument.query().count({ ultimabase: app })).resolves.toBe(
 			0,

@@ -201,15 +201,15 @@ describe('@ultimabase/core Schema and Query declarations', () => {
 		expect(created.display).not.toContain('ObjectRequiredFields<')
 		expect(created.display).not.toContain('ObjectOptionalFields<')
 		// Contextual execution stays in the optional final argument.
-		expect(create.display).toContain('create(input: {')
+		expect(create.display).toContain('.create(input: {')
 		expect(create.display).toContain('options?: QueryTerminalOptions')
 		expect(create.display).not.toContain('create(this:')
 	})
 
-	it('keeps immutable builder and contextual terminal hovers focused', () => {
+	it('keeps immutable read builders and schema command hovers focused', () => {
 		const select = readFixtureQuickInfo("select('id', 'title')")
 		const find = readFixtureQuickInfo('find({ ultimabase })')
-		const deletion = readFixtureQuickInfo('delete({ context: packedContext })')
+		const deletion = readFixtureQuickInfo('deleteOne(')
 		const count = readFixtureQuickInfo('count({ ultimabase })')
 		const exists = readFixtureQuickInfo('exists({ ultimabase })')
 
@@ -220,11 +220,10 @@ describe('@ultimabase/core Schema and Query declarations', () => {
 		expect(find.display).toContain(
 			'.find(options?: QueryTerminalOptions): Promise<',
 		)
-		expect(deletion.display).toContain(
-			'.delete(options?: QueryTerminalOptions): Promise<',
-		)
+		expect(deletion.display).toContain('.deleteOne(input:')
+		expect(deletion.display).toContain('options?: QueryTerminalOptions')
 		expect(deletion.documentation).toContain(
-			'concise singular alias for `deleteOne`',
+			'Deletes one uniquely identified row',
 		)
 		expect(count.display).toContain(
 			'.count(options?: QueryTerminalOptions): Promise<number>',
@@ -261,11 +260,9 @@ describe('@ultimabase/core Schema and Query declarations', () => {
 
 	it('materializes update operator groups in editor hovers', () => {
 		const update = readFixtureQuickInfo(
-			"update({ set: { title: 'Packed query update' } })",
+			"data: { set: { title: 'Packed query update' } }",
 		)
-		const inputDisplay = update.display.slice(
-			update.display.indexOf('.update(input:'),
-		)
+		const inputDisplay = update.display
 
 		// Developers should see usable operators instead of the complete field schema.
 		expect(inputDisplay).toContain('readonly set: {')
@@ -276,7 +273,7 @@ describe('@ultimabase/core Schema and Query declarations', () => {
 		expect(inputDisplay).not.toContain('SchemaDefinition<')
 		expect(inputDisplay).not.toContain('NonDefaultedIntField<')
 		expect(update.documentation).toContain(
-			'concise singular alias for `updateOne`',
+			'Applies typed atomic field operations',
 		)
 	})
 })

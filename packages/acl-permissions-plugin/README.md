@@ -123,9 +123,9 @@ acl({
 Static and asynchronous defaults, explicit master input, create-many items, and
 singular updates are validated before persistence. Master bypasses ACL
 authorization, never size validation or the singular replacement requirement.
-Replacing an existing ACL therefore uses `query.update()`/`updateOne()`;
-`updateMany()`, `upsert()`, and `upsertMany()` reject ACL replacement even for
-trusted master execution.
+Replacing an existing ACL therefore uses `Schema.updateOne()`; `updateMany()`,
+`upsert()`, and `upsertMany()` reject ACL replacement even for trusted master
+execution.
 
 Authentication and roles are optional providers. ACL discovers them only
 through neutral Core services and never imports a concrete auth or roles

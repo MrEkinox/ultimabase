@@ -123,15 +123,12 @@ describe(
 	() => {
 		it('uses ordinary Query, hooks, Access, and composite uniqueness', async () => {
 			const app = getUltimaBase()
-			const member = await Member.query().create(
-				{ name: 'Ada' },
-				{ ultimabase: app },
-			)
-			const project = await Project.query().create(
+			const member = await Member.create({ name: 'Ada' }, { ultimabase: app })
+			const project = await Project.create(
 				{ title: 'UltimaBase' },
 				{ ultimabase: app },
 			)
-			const membership = await Membership.query().create(
+			const membership = await Membership.create(
 				{
 					internalNote: 'private edge data',
 					member: Member.pointer(member.id),
@@ -168,7 +165,7 @@ describe(
 			})
 
 			await expect(
-				Membership.query().create(
+				Membership.create(
 					{
 						member: Member.pointer(member.id),
 						position: 1,
@@ -182,7 +179,7 @@ describe(
 				internalDetails: { driverCode: '23505' },
 			})
 			await expect(
-				Membership.query().create(
+				Membership.create(
 					{
 						member: Member.pointer(member.id),
 						project: Project.pointer(project.id),
@@ -198,15 +195,12 @@ describe(
 
 		it('keeps edge writes atomic and applies pointer referential actions', async () => {
 			const app = getUltimaBase()
-			const member = await Member.query().create(
-				{ name: 'Grace' },
-				{ ultimabase: app },
-			)
-			const project = await Project.query().create(
+			const member = await Member.create({ name: 'Grace' }, { ultimabase: app })
+			const project = await Project.create(
 				{ title: 'Cascade project' },
 				{ ultimabase: app },
 			)
-			await Membership.query().create(
+			await Membership.create(
 				{
 					member: Member.pointer(member.id),
 					project: Project.pointer(project.id),
@@ -233,14 +227,14 @@ describe(
 
 			await expect(
 				request.transaction(async () => {
-					const rolledBackMember = await Member.query().create({
+					const rolledBackMember = await Member.create({
 						name: 'Rolled back member',
 					})
-					const rolledBackProject = await Project.query().create({
+					const rolledBackProject = await Project.create({
 						title: 'Rolled back project',
 					})
 
-					await Membership.query().create({
+					await Membership.create({
 						member: Member.pointer(rolledBackMember.id),
 						project: Project.pointer(rolledBackProject.id),
 						role: 'editor',

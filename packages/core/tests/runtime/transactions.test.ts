@@ -89,14 +89,14 @@ describe('RequestEngine transactions', () => {
 					expect(getCurrentEngine()).toBe(transaction)
 					expect(getCurrentRequest()).toBe(request.context)
 
-					const article = await articleSchema.query().create({
+					const article = await articleSchema.create({
 						title: 'Created',
 					})
 
-					await articleSchema
-						.query()
-						.equalTo('id', article.id)
-						.updateOne({ increment: { views: 1 } })
+					await articleSchema.updateOne({
+						where: (where) => where.equalTo('id', article.id),
+						data: { increment: { views: 1 } },
+					})
 
 					return article
 				},
@@ -146,7 +146,7 @@ describe('RequestEngine transactions', () => {
 		)
 
 		const transactionPromise = request.transaction(() => {
-			void articleSchema.query().create({ title: 'Deferred' })
+			void articleSchema.create({ title: 'Deferred' })
 
 			return 'completed'
 		})
@@ -176,7 +176,7 @@ describe('RequestEngine transactions', () => {
 
 		const transactionPromise = request.transaction(async () => {
 			try {
-				await articleSchema.query().create({ title: 'Rejected' })
+				await articleSchema.create({ title: 'Rejected' })
 			} catch (error: unknown) {
 				expect(error).toBe(operationError)
 			}
@@ -202,7 +202,7 @@ describe('RequestEngine transactions', () => {
 		)
 
 		const transactionPromise = request.transaction(() =>
-			articleSchema.query().create({ title: 'Rejected' }),
+			articleSchema.create({ title: 'Rejected' }),
 		)
 
 		await expect(transactionPromise).rejects.toBe(operationError)

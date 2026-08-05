@@ -164,20 +164,25 @@ setup export types, including definitions introduced through nested composition.
 - Optional `AsyncLocalStorage` scopes derive every current-context reference
   from one explicitly injected `RequestEngine`; nested and concurrent requests
   never share mutable global state.
-- `Query<TSchema>` is an immutable context-free definition whose terminals
-  resolve execution only when called.
+- `Query<TSchema>` is an immutable context-free read definition whose
+  `find`, `first`, `get`, `count`, and `exists` terminals resolve execution only
+  when called.
 - `QueryScope<TSchema>` composes selection-preserving unbound transformations.
-- Query terminals create Operation AST nodes and execute through one neutral
-  Runtime bridge. They reuse the exact active request and hook lease, or accept
-  `{ ultimabase }` outside a scope. No process-wide application singleton,
-  request, authority, transaction, or adapter enters the Query AST.
+- Generated schema classes own static create, update, upsert, and delete
+  commands. Their filter-only `where` callbacks normalize into the same
+  Operation AST and Runtime bridge as reads. Reads and writes reuse the exact
+  active request and hook lease, or accept `{ ultimabase }` outside a scope. No
+  process-wide application singleton, request, authority, transaction, or
+  adapter enters the Query AST.
 
 ADR-0109 and issue 339 replace the former schema instance plus plain-result
 split with one class returned by `Schema.define()`. The class is the registered
 schema identity, exposes `Post.query()`, constructs immutable drafts, and
 materializes immutable persisted results after Runtime restrictions. Issue 349
 adds instance commands that delegate to Query and Runtime; instances never
-retain adapters, mutate records, or track dirty state.
+retain adapters, mutate records, or track dirty state. ADR-0132 makes Query
+read-only, moves collection writes to the generated class, and makes every
+singular mutation return a complete model allowed by Access.
 
 The Query AST retains the exact static schema definition and represents
 selection, filtering, ordering, and pagination as immutable discriminated

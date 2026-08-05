@@ -4,12 +4,34 @@ import {
 	isPlainRecord,
 } from '@ultimabase/shared'
 
+import {
+	createSchemaRecord,
+	createSchemaRecords,
+	deleteSchemaRecord,
+	deleteSchemaRecords,
+	updateSchemaRecord,
+	updateSchemaRecords,
+	upsertSchemaRecord,
+	upsertSchemaRecords,
+} from '../../query/operations/schema-command-execution.js'
 import type {
-	QueryFilterFieldName,
-	QueryFilterValue,
-} from '../../query/filters/primitive.js'
-import type { QueryTerminalOptions } from '../../query/operations/execution.js'
-import { Query } from '../../query/query/query.js'
+	SchemaDeleteManyInput,
+	SchemaDeleteOneInput,
+	SchemaUpdateManyInput,
+	SchemaUpdateOneInput,
+	SchemaUpsertInput,
+	SchemaUpsertManyItemInput,
+	SchemaWhereFactory,
+} from '../../query/operations/schema-commands.js'
+import type {
+	QueryBulkTerminalOptions,
+	QueryTerminalOptions,
+} from '../../query/operations/execution.js'
+import {
+	executeQueryDeleteOne,
+	executeQueryUpdateOne,
+	Query,
+} from '../../query/query/query.js'
 import type {
 	NumericUpdateInput,
 	UnsetUpdateFieldName,
@@ -84,27 +106,16 @@ interface SchemaModelMethods<TValues extends object> {
 	toJSON(): TValues
 }
 
-type SchemaUpsertWhereFields<TSchema extends SchemaDefinition> = {
-	readonly [TField in QueryFilterFieldName<TSchema, 'equal'>]?: Exclude<
-		QueryFilterValue<TSchema, TField>,
-		null | undefined
-	>
-}
-
 type RequireOneProperty<TValue extends object> = {
 	[TKey in keyof TValue]-?: Readonly<
 		Required<Pick<TValue, TKey>> & Partial<Omit<TValue, TKey>>
 	>
 }[keyof TValue]
 
-/** Selects one non-null equality target that Runtime verifies against a unique index. */
-export type SchemaDraftUpsertWhere<TSchema extends SchemaDefinition> =
-	RequireOneProperty<SchemaUpsertWhereFields<TSchema>>
-
 /** Combines a draft's create values with one unique target and update branch. */
 export interface SchemaDraftUpsertInput<TSchema extends SchemaDefinition> {
-	/** Declares equality values that must exactly match one schema unique index. */
-	readonly where: SchemaDraftUpsertWhere<TSchema>
+	/** Builds the exact equality target that Runtime verifies against a unique index. */
+	readonly where: SchemaWhereFactory<TSchema>
 	/** Applies this exact atomic update when the unique target already exists. */
 	readonly update: UpdateExpressionInput<TSchema> & {}
 }
@@ -149,7 +160,7 @@ export interface SchemaDraftCommands<
 	/**
 	 * Creates this draft or updates the object selected by one unique target.
 	 *
-	 * @example `await draft.upsert({ where: { slug: "hello" }, update: { increment: { views: 1 } } })`
+	 * @example `await draft.upsert({ where: (where) => where.equalTo("slug", "hello"), update: { increment: { views: 1 } } })`
 	 */
 	upsert(input: TUpsertInput, options?: QueryTerminalOptions): Promise<TResult>
 }
@@ -157,23 +168,23 @@ export interface SchemaDraftCommands<
 /** Exposes only object-targeted commands valid for trusted persisted instances. */
 export interface SchemaResultCommands<
 	TUpdateInput extends object,
-	TResult extends object,
+	TMutationResult extends object,
 > {
 	/**
-	 * Updates this protected object identity and preserves its visible projection.
+	 * Updates this protected object identity and returns the complete model.
 	 *
 	 * @example `const updated = await post.update({ set: { title: "Updated" } })`
 	 */
 	update(
 		input: TUpdateInput,
 		options?: QueryTerminalOptions,
-	): Promise<TResult | null>
+	): Promise<TMutationResult | null>
 	/**
-	 * Deletes this protected object identity and preserves its visible projection.
+	 * Deletes this protected object identity and returns the complete model.
 	 *
 	 * @example `const deleted = await post.delete()`
 	 */
-	delete(options?: QueryTerminalOptions): Promise<TResult | null>
+	delete(options?: QueryTerminalOptions): Promise<TMutationResult | null>
 }
 
 /** Exposes exact to-many handles only on Runtime-materialized model results. */
@@ -204,10 +215,17 @@ export type PersistedSchemaModel<
 	TValues extends object,
 	TUpdateInput extends object,
 	TRelations extends object = Readonly<Record<never, never>>,
+	TCompleteValues extends object = TValues,
 > = SchemaModelInstance<SchemaDefinition<TClassName>, 'persisted', TValues> &
 	SchemaResultCommands<
 		TUpdateInput,
-		PersistedSchemaModel<TClassName, TValues, TUpdateInput, TRelations>
+		PersistedSchemaModel<
+			TClassName,
+			TCompleteValues,
+			TUpdateInput,
+			TRelations,
+			TCompleteValues
+		>
 	> &
 	TRelations
 
@@ -250,7 +268,8 @@ export type SchemaResult<
 		Simplify<NumericUpdateInput<TSchema>>,
 		UnsetUpdateFieldName<TSchema>
 	>,
-	SchemaResultRelations<TSchema> & SchemaResultCapabilitiesOf<TSchema>
+	SchemaResultRelations<TSchema> & SchemaResultCapabilitiesOf<TSchema>,
+	InferObject<TSchema>
 >
 
 interface SchemaModelRecord {
@@ -421,24 +440,15 @@ export const finalizeSchemaModelClass = (schema: SchemaDefinition): void => {
 }
 
 interface NormalizedSchemaDraftUpsertInput {
-	readonly update: unknown
-	readonly where: Readonly<Record<string, unknown>>
+	readonly update: UpdateExpressionInput<SchemaDefinition> & {}
+	readonly where: SchemaWhereFactory<SchemaDefinition>
 }
 
 /** Erases schema variance only inside the private model-to-Query delegation. */
 interface SchemaModelQuery {
 	byId(id: unknown): SchemaModelQuery
-	delete(options?: QueryTerminalOptions): Promise<object | null>
-	equalTo(field: string, value: unknown): SchemaModelQuery
-	select(...fields: readonly string[]): SchemaModelQuery
-	update(input: unknown, options?: QueryTerminalOptions): Promise<object | null>
-	upsert(
-		input: Readonly<{
-			readonly create: Readonly<Record<string, unknown>>
-			readonly update: unknown
-		}>,
-		options?: QueryTerminalOptions,
-	): Promise<object>
+	readonly ast: Query<SchemaDefinition>['ast']
+	readonly schema: SchemaDefinition
 }
 
 const createSchemaModelQuery = (schema: SchemaDefinition): SchemaModelQuery =>
@@ -466,75 +476,22 @@ const readSchemaDraftUpsertInput = (
 		)
 	}
 
-	if (!isPlainRecord(input.where) || Object.keys(input.where).length === 0) {
-		throw new TypeError('Schema model upsert where must be a non-empty object')
+	if (typeof input.where !== 'function') {
+		throw new TypeError('Schema model upsert where must be a function')
 	}
 
-	for (const [field, value] of Object.entries(input.where)) {
-		if (value === null || value === undefined) {
-			throw new TypeError(
-				`Schema model upsert where field must be non-null: ${field}`,
-			)
-		}
-	}
-
-	return immutableRecord({ update: input.update, where: input.where })
-}
-
-/** Builds a target-only Query whose unique-index proof remains Runtime-owned. */
-const createSchemaDraftUpsertQuery = (
-	schema: SchemaDefinition,
-	where: Readonly<Record<string, unknown>>,
-): SchemaModelQuery => {
-	let query = createSchemaModelQuery(schema)
-
-	for (const [field, value] of Object.entries(where)) {
-		query = query.equalTo(field, value)
-	}
-
-	return query
+	return immutableRecord({
+		update: input.update as UpdateExpressionInput<SchemaDefinition> & {},
+		where: input.where as SchemaWhereFactory<SchemaDefinition>,
+	})
 }
 
 /** Restores the exact protected target without deriving identity from visible values. */
 const createPersistedModelQuery = (
 	record: SchemaModelRecord & { readonly objectId: unknown },
-): SchemaModelQuery => {
-	let query = createSchemaModelQuery(record.schema).byId(record.objectId)
-
-	if (record.selectedFields !== undefined && record.selectedFields.length > 0) {
-		query = query.select(...record.selectedFields)
-	}
-
-	return query
-}
-
-/** Reapplies an instance's original projection even when authority changes. */
-const retainSchemaModelSelection = (
-	result: object | null,
-	selectedFields: readonly string[] | undefined,
-): object | null => {
-	if (result === null || selectedFields === undefined) {
-		return result
-	}
-
-	const resultRecord = readSchemaModelRecord(result)
-	const visibleValues: Record<string, unknown> = {}
-
-	for (const field of selectedFields) {
-		if (Object.hasOwn(resultRecord.values, field)) {
-			visibleValues[field] = resultRecord.values[field]
-		}
-	}
-
-	return materializeSchemaModel(
-		resultRecord.schema,
-		immutableRecord(visibleValues),
-		{
-			objectId: resultRecord.objectId,
-			selectedFields,
-		},
-	)
-}
+): SchemaModelQuery =>
+	// Mutation results intentionally ignore the receiver's read projection.
+	createSchemaModelQuery(record.schema).byId(record.objectId)
 
 /** Owns the common runtime behavior without becoming the public model identity. */
 class SchemaModelPrototype {
@@ -589,7 +546,7 @@ class SchemaModelPrototype {
 
 		assertSchemaModelState(record, 'draft', 'create')
 
-		return new Query(record.schema).create(record.values, options)
+		return createSchemaRecord(record.schema, record.values, options)
 	}
 
 	/** Resolves one unique conflict target without retaining execution on the model. */
@@ -598,10 +555,10 @@ class SchemaModelPrototype {
 
 		assertSchemaModelState(record, 'draft', 'upsert')
 		const normalized = readSchemaDraftUpsertInput(input)
-		const query = createSchemaDraftUpsertQuery(record.schema, normalized.where)
-
-		return query.upsert(
+		return upsertSchemaRecord(
+			record.schema,
 			{
+				where: normalized.where,
 				create: record.values,
 				update: normalized.update,
 			},
@@ -615,20 +572,22 @@ class SchemaModelPrototype {
 		options?: QueryTerminalOptions,
 	): Promise<object | null> {
 		const record = readPersistedSchemaModelRecord(this, 'update')
-		const result = await createPersistedModelQuery(record).update(
-			input,
+
+		return executeQueryUpdateOne(
+			createPersistedModelQuery(record) as Query<SchemaDefinition>,
+			input as UpdateExpressionInput<SchemaDefinition> & {},
 			options,
 		)
-
-		return retainSchemaModelSelection(result, record.selectedFields)
 	}
 
 	/** Deletes only Runtime-issued object identity through Query's singular alias. */
 	async delete(options?: QueryTerminalOptions): Promise<object | null> {
 		const record = readPersistedSchemaModelRecord(this, 'delete')
-		const result = await createPersistedModelQuery(record).delete(options)
 
-		return retainSchemaModelSelection(result, record.selectedFields)
+		return executeQueryDeleteOne(
+			createPersistedModelQuery(record) as Query<SchemaDefinition>,
+			options,
+		)
 	}
 }
 
@@ -781,6 +740,102 @@ export const createSchemaModelClass = <
 
 		static query(): Query<SchemaClass> {
 			return new Query(DefinedSchemaModel as unknown as SchemaClass)
+		}
+
+		/** Creates one persisted model through the shared Runtime operation pipeline. */
+		static create(
+			input: InferCreateInput<SchemaDefinition>,
+			options?: QueryTerminalOptions,
+		): Promise<object> {
+			return createSchemaRecord(
+				DefinedSchemaModel as unknown as SchemaDefinition,
+				input,
+				options,
+			)
+		}
+
+		/** Creates ordered models through one atomic bulk operation by default. */
+		static createMany(
+			inputs: readonly InferCreateInput<SchemaDefinition>[],
+			options?: QueryBulkTerminalOptions,
+		): Promise<unknown> {
+			return createSchemaRecords(
+				DefinedSchemaModel as unknown as SchemaDefinition,
+				inputs,
+				options,
+			)
+		}
+
+		/** Updates one exact unique target. */
+		static updateOne(
+			input: SchemaUpdateOneInput<SchemaDefinition>,
+			options?: QueryTerminalOptions,
+		): Promise<object | null> {
+			return updateSchemaRecord(
+				DefinedSchemaModel as unknown as SchemaDefinition,
+				input,
+				options,
+			)
+		}
+
+		/** Updates one explicit filtered set. */
+		static updateMany(
+			input: SchemaUpdateManyInput<SchemaDefinition>,
+			options?: QueryTerminalOptions,
+		): Promise<number> {
+			return updateSchemaRecords(
+				DefinedSchemaModel as unknown as SchemaDefinition,
+				input,
+				options,
+			)
+		}
+
+		/** Creates or updates one exact unique target. */
+		static upsert(
+			input: SchemaUpsertInput<SchemaDefinition>,
+			options?: QueryTerminalOptions,
+		): Promise<object> {
+			return upsertSchemaRecord(
+				DefinedSchemaModel as unknown as SchemaDefinition,
+				input,
+				options,
+			)
+		}
+
+		/** Upserts independently targeted inputs in order. */
+		static upsertMany(
+			inputs: readonly SchemaUpsertManyItemInput<SchemaDefinition>[],
+			options?: QueryBulkTerminalOptions,
+		): Promise<unknown> {
+			return upsertSchemaRecords(
+				DefinedSchemaModel as unknown as SchemaDefinition,
+				inputs,
+				options,
+			)
+		}
+
+		/** Deletes one exact unique target. */
+		static deleteOne(
+			input: SchemaDeleteOneInput<SchemaDefinition>,
+			options?: QueryTerminalOptions,
+		): Promise<object | null> {
+			return deleteSchemaRecord(
+				DefinedSchemaModel as unknown as SchemaDefinition,
+				input,
+				options,
+			)
+		}
+
+		/** Deletes one explicit filtered set. */
+		static deleteMany(
+			input: SchemaDeleteManyInput<SchemaDefinition>,
+			options?: QueryTerminalOptions,
+		): Promise<number> {
+			return deleteSchemaRecords(
+				DefinedSchemaModel as unknown as SchemaDefinition,
+				input,
+				options,
+			)
 		}
 
 		/** Creates a pointer without binding Query or Runtime execution state. */

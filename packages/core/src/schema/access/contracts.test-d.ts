@@ -186,12 +186,20 @@ test('keeps native Access outside schema metadata and value inference', () => {
 	expectTypeOf<RequestContext>().toExtend<AccessContext>()
 	expectTypeOf<keyof typeof Article>().toEqualTypeOf<
 		| 'className'
+		| 'create'
+		| 'createMany'
+		| 'deleteMany'
+		| 'deleteOne'
 		| 'definition'
 		| 'extensions'
 		| 'fields'
 		| 'indexes'
 		| 'pointer'
 		| 'query'
+		| 'updateMany'
+		| 'updateOne'
+		| 'upsert'
+		| 'upsertMany'
 	>()
 	expectTypeOf<InferCreateInput<typeof Article>>().toEqualTypeOf<{
 		authorId: string

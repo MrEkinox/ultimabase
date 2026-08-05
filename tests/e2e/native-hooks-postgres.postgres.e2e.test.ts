@@ -218,7 +218,7 @@ const HookArticleSchema = Schema.define({
 			trace('schema:developer:beforeCreate')
 
 			if (operation.kind === 'create-one') {
-				await HookAuditSchema.query().create({
+				await HookAuditSchema.create({
 					action: `create:${operation.input.title}`,
 					scopeId: operation.input.scopeId,
 				})
@@ -490,7 +490,7 @@ describe('native hooks with PostgreSQL', { concurrent: false }, () => {
 		committedEvents.length = 0
 
 		const created = await runWithScope('scope-create', () =>
-			HookArticleSchema.query().create({
+			HookArticleSchema.create({
 				profile: { slug: '  Public-Profile  ' },
 				published: true,
 				secret: 'private-create-value',
@@ -550,7 +550,7 @@ describe('native hooks with PostgreSQL', { concurrent: false }, () => {
 
 		await expect(
 			runWithScope('scope-rollback', () =>
-				HookArticleSchema.query().create({
+				HookArticleSchema.create({
 					profile: { slug: 'rollback' },
 					published: true,
 					scopeId: 'scope-rollback',
@@ -587,7 +587,7 @@ describe('native hooks with PostgreSQL', { concurrent: false }, () => {
 
 	it('keeps beforeFind transforms inside opaque scope and field restrictions', async () => {
 		await runWithScope('scope-visible-a', () =>
-			HookArticleSchema.query().create({
+			HookArticleSchema.create({
 				profile: { slug: 'scope-a' },
 				published: true,
 				secret: 'scope-a-secret',
@@ -596,7 +596,7 @@ describe('native hooks with PostgreSQL', { concurrent: false }, () => {
 			}),
 		)
 		await runWithScope('scope-visible-b', () =>
-			HookArticleSchema.query().create({
+			HookArticleSchema.create({
 				profile: { slug: 'scope-b' },
 				published: true,
 				secret: 'scope-b-secret',
@@ -649,7 +649,7 @@ describe('native hooks with PostgreSQL', { concurrent: false }, () => {
 
 	it('wraps update and delete with their exact field and save families', async () => {
 		const created = await runWithScope('scope-write', () =>
-			HookArticleSchema.query().create({
+			HookArticleSchema.create({
 				profile: { slug: 'write' },
 				published: true,
 				scopeId: 'scope-write',
@@ -659,9 +659,10 @@ describe('native hooks with PostgreSQL', { concurrent: false }, () => {
 		hookTrace.length = 0
 
 		await runWithScope('scope-write', () =>
-			HookArticleSchema.query()
-				.equalTo('id', created.id)
-				.update({ set: { title: 'Updated target' } }),
+			HookArticleSchema.updateOne({
+				where: (where) => where.equalTo('id', created.id),
+				data: { set: { title: 'Updated target' } },
+			}),
 		)
 		expectTraceSubsequence([
 			'schema:developer:beforeOperation:update-one',
@@ -682,7 +683,9 @@ describe('native hooks with PostgreSQL', { concurrent: false }, () => {
 
 		hookTrace.length = 0
 		await runWithScope('scope-write', () =>
-			HookArticleSchema.query().equalTo('id', created.id).delete(),
+			HookArticleSchema.deleteOne({
+				where: (where) => where.equalTo('id', created.id),
+			}),
 		)
 		expectTraceSubsequence([
 			'schema:developer:beforeOperation:delete-one',
@@ -701,7 +704,7 @@ describe('native hooks with PostgreSQL', { concurrent: false }, () => {
 	it('keeps updateMany and deleteMany set-based without item field hooks', async () => {
 		for (const scopeId of ['scope-bulk-a', 'scope-bulk-b']) {
 			await runWithScope(scopeId, () =>
-				HookArticleSchema.query().create({
+				HookArticleSchema.create({
 					profile: { slug: scopeId },
 					published: true,
 					scopeId,
@@ -713,9 +716,10 @@ describe('native hooks with PostgreSQL', { concurrent: false }, () => {
 
 		await expect(
 			runWithScope('scope-bulk-a', () =>
-				HookArticleSchema.query()
-					.equalTo('title', 'Bulk scoped target')
-					.updateMany({ set: { title: 'Bulk updated target' } }),
+				HookArticleSchema.updateMany({
+					where: (where) => where.equalTo('title', 'Bulk scoped target'),
+					data: { set: { title: 'Bulk updated target' } },
+				}),
 			),
 		).resolves.toBe(1)
 		const updateTrace = [...hookTrace]
@@ -729,9 +733,9 @@ describe('native hooks with PostgreSQL', { concurrent: false }, () => {
 		hookTrace.length = 0
 		await expect(
 			runWithScope('scope-bulk-a', () =>
-				HookArticleSchema.query()
-					.equalTo('title', 'Bulk updated target')
-					.deleteMany(),
+				HookArticleSchema.deleteMany({
+					where: (where) => where.equalTo('title', 'Bulk updated target'),
+				}),
 			),
 		).resolves.toBe(1)
 		const deleteTrace = [...hookTrace]

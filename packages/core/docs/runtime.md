@@ -268,7 +268,7 @@ Every business hook input includes one immutable Runtime-owned `HookContext`:
 ```ts
 beforeCreate: async ({ context, operation }) => {
 	if (operation.kind === 'create-one') {
-		await AuditSchema.query().create({ action: 'article.create' })
+		await AuditSchema.create({ action: 'article.create' })
 		context.emit('article.creating', { title: operation.input.title })
 	}
 	logger.debug({
@@ -390,7 +390,7 @@ const ArticleSchema = Schema.define({
 	hooks: {
 		beforeCreate: async ({ context, operation }) => {
 			if (operation.kind === 'create-one') {
-				await AuditSchema.query().create({ action: 'article.create' })
+				await AuditSchema.create({ action: 'article.create' })
 				context.emit('article.created', { title: operation.input.title })
 			}
 
@@ -502,13 +502,14 @@ metadata:
 
 ```ts
 const article = await request.transaction(async () => {
-	const created = await ArticleSchema.query().create({
+	const created = await ArticleSchema.create({
 		title: 'Atomic article',
 	})
 
-	await StatsSchema.query()
-		.equalTo('id', 'global')
-		.updateOne({ increment: { articleCount: 1 } })
+	await StatsSchema.updateOne({
+		where: (where) => where.byId('global'),
+		data: { increment: { articleCount: 1 } },
+	})
 
 	return created
 })

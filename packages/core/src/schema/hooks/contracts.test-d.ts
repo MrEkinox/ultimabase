@@ -250,12 +250,20 @@ test('namespaces application-owned hook validation issues', () => {
 test('keeps schema metadata and inferred values independent from hooks', () => {
 	expectTypeOf<keyof typeof ArticleSchema>().toEqualTypeOf<
 		| 'className'
+		| 'create'
+		| 'createMany'
+		| 'deleteMany'
+		| 'deleteOne'
 		| 'definition'
 		| 'extensions'
 		| 'fields'
 		| 'indexes'
 		| 'pointer'
 		| 'query'
+		| 'updateMany'
+		| 'updateOne'
+		| 'upsert'
+		| 'upsertMany'
 	>()
 	expectTypeOf<InferCreateInput<typeof ArticleSchema>>().toEqualTypeOf<{
 		title: string

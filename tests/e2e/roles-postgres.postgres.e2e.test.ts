@@ -105,7 +105,7 @@ const createMemberContext = (memberId: string, requestId: string) =>
 const createExternalReference = async (
 	reference: RoleReference,
 ): Promise<void> => {
-	await ExternalRoleReference.query().create(
+	await ExternalRoleReference.create(
 		{ subject: reference.value },
 		{ ultimabase: getApplication() },
 	)
@@ -117,7 +117,7 @@ beforeAll(async () => {
 	await ultimabase.start()
 
 	const app = getApplication()
-	;[alice, bob] = await RoleMember.query().createMany(
+	;[alice, bob] = await RoleMember.createMany(
 		[{ email: 'alice@example.test' }, { email: 'bob@example.test' }],
 		{ ultimabase: app },
 	)
@@ -162,7 +162,7 @@ beforeAll(async () => {
 		{ ultimabase: app, useMasterKey: true },
 	)
 
-	const posts = await ProtectedPost.query().createMany(
+	const posts = await ProtectedPost.createMany(
 		[
 			{
 				internalNote: 'visible to administrators',
@@ -293,23 +293,25 @@ describe('stored roles with PostgreSQL', { concurrent: false }, () => {
 		)
 
 		roleQueryTrace.length = 0
-		const updated = await ProtectedPost.query()
-			.byId(publishedPostId)
-			.update(
-				{ set: { title: 'Updated through inherited roles' } },
-				{ context: aliceContext, ultimabase: app },
-			)
+		const updated = await ProtectedPost.updateOne(
+			{
+				where: (where) => where.byId(publishedPostId),
+				data: { set: { title: 'Updated through inherited roles' } },
+			},
+			{ context: aliceContext, ultimabase: app },
+		)
 
 		expect(updated?.internalNote).toBe('visible to administrators')
 		// One membership graph and two named references serve operation and field Access.
 		expect(roleQueryTrace).toHaveLength(7)
 		await expect(
-			ProtectedPost.query()
-				.byId(publishedPostId)
-				.update(
-					{ set: { title: 'Bob must not update' } },
-					{ context: bobContext, ultimabase: app },
-				),
+			ProtectedPost.updateOne(
+				{
+					where: (where) => where.byId(publishedPostId),
+					data: { set: { title: 'Bob must not update' } },
+				},
+				{ context: bobContext, ultimabase: app },
+			),
 		).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
 
 		const visible = await ProtectedPost.query()
@@ -324,24 +326,27 @@ describe('stored roles with PostgreSQL', { concurrent: false }, () => {
 			}),
 		).resolves.toBe(false)
 
-		const deletable = await ProtectedPost.query().create(
+		const deletable = await ProtectedPost.create(
 			{ published: true, title: 'Role-protected deletion' },
 			{ ultimabase: app, useMasterKey: true },
 		)
 		await expect(
-			ProtectedPost.query().byId(deletable.id).delete({
-				context: aliceContext,
-				ultimabase: app,
-			}),
+			ProtectedPost.deleteOne(
+				{ where: (where) => where.byId(deletable.id) },
+				{ context: aliceContext, ultimabase: app },
+			),
 		).resolves.toMatchObject({ id: deletable.id })
 
 		roleQueryTrace.length = 0
-		await ProtectedPost.query()
-			.byId(publishedPostId)
-			.update(
-				{ set: { title: 'A second terminal gets a fresh role snapshot' } },
-				{ context: aliceContext, ultimabase: app },
-			)
+		await ProtectedPost.updateOne(
+			{
+				where: (where) => where.byId(publishedPostId),
+				data: {
+					set: { title: 'A second terminal gets a fresh role snapshot' },
+				},
+			},
+			{ context: aliceContext, ultimabase: app },
+		)
 		expect(roleQueryTrace).toHaveLength(7)
 	})
 
@@ -414,14 +419,15 @@ describe('stored roles with PostgreSQL', { concurrent: false }, () => {
 		const failReference = FailRole.role({ id: failRole.id })
 		await createExternalReference(failReference)
 		await expect(
-			FailRole.query().byId(failRole.id).delete({
-				ultimabase: app,
-				useMasterKey: true,
-			}),
+			FailRole.deleteOne(
+				{ where: (where) => where.byId(failRole.id) },
+				{ ultimabase: app, useMasterKey: true },
+			),
 		).rejects.toMatchObject({ code: 'ROLE_DELETE_REFERENCED' })
-		await ExternalRoleReference.query()
-			.equalTo('subject', failReference.value)
-			.deleteMany({ ultimabase: app })
+		await ExternalRoleReference.deleteMany(
+			{ where: (where) => where.equalTo('subject', failReference.value) },
+			{ ultimabase: app },
+		)
 		await expect(
 			failRole.delete({ ultimabase: app, useMasterKey: true }),
 		).resolves.toMatchObject({ id: failRole.id })
@@ -435,7 +441,10 @@ describe('stored roles with PostgreSQL', { concurrent: false }, () => {
 		const preserveReference = PreserveRole.role({ id: preserveRole.id })
 		await createExternalReference(preserveReference)
 		await expect(
-			PreserveRole.query().byId(preserveRole.id).delete({ ultimabase: app }),
+			PreserveRole.deleteOne(
+				{ where: (where) => where.byId(preserveRole.id) },
+				{ ultimabase: app },
+			),
 		).resolves.toMatchObject({ id: preserveRole.id })
 		await expect(
 			ExternalRoleReference.query()
@@ -501,14 +510,17 @@ describe('stored roles with PostgreSQL', { concurrent: false }, () => {
 				.exists({ ultimabase: app }),
 		).resolves.toBe(true)
 		await expect(
-			CascadeRole.query().deleteMany({ ultimabase: app, useMasterKey: true }),
+			CascadeRole.deleteMany(
+				{ where: 'all' },
+				{ ultimabase: app, useMasterKey: true },
+			),
 		).rejects.toMatchObject({ code: 'ROLE_DELETE_BULK_UNSUPPORTED' })
 		expect(committedRoleEvents).toContain('ultimabase.roles.deleted')
 	})
 
 	it('keeps the neutral provider boundary fail-closed and community-extensible', async () => {
 		const app = getApplication()
-		const row = await MissingProviderPost.query().create(
+		const row = await MissingProviderPost.create(
 			{ title: 'Provider boundary' },
 			{ ultimabase: app },
 		)
@@ -521,12 +533,13 @@ describe('stored roles with PostgreSQL', { concurrent: false }, () => {
 
 		try {
 			await expect(
-				MissingProviderPost.query()
-					.byId(row.id)
-					.update(
-						{ set: { title: 'Must fail before hooks' } },
-						{ ultimabase: missing },
-					),
+				MissingProviderPost.updateOne(
+					{
+						where: (where) => where.byId(row.id),
+						data: { set: { title: 'Must fail before hooks' } },
+					},
+					{ ultimabase: missing },
+				),
 			).rejects.toMatchObject({ code: 'SERVICE_NOT_FOUND' })
 			expect(missingProviderHookCalls).toBe(0)
 		} finally {
@@ -542,12 +555,13 @@ describe('stored roles with PostgreSQL', { concurrent: false }, () => {
 
 		try {
 			await expect(
-				MissingProviderPost.query()
-					.byId(row.id)
-					.update(
-						{ set: { title: 'Community provider allowed' } },
-						{ ultimabase: community },
-					),
+				MissingProviderPost.updateOne(
+					{
+						where: (where) => where.byId(row.id),
+						data: { set: { title: 'Community provider allowed' } },
+					},
+					{ ultimabase: community },
+				),
 			).resolves.toMatchObject({ title: 'Community provider allowed' })
 			expect(missingProviderHookCalls).toBe(1)
 		} finally {

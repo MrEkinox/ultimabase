@@ -13,7 +13,21 @@ import {
 } from '../extensions/definition.js'
 import type { GenericField } from '../fields/base/contract.js'
 import { assertFieldDefinition } from '../fields/base/definition.js'
+import type {
+	QueryBulkTerminalOptions,
+	QueryBulkTerminalResult,
+	QueryTerminalOptions,
+} from '../../query/operations/execution.js'
+import type {
+	SchemaDeleteManyInput,
+	SchemaDeleteOneInput,
+	SchemaUpdateManyInput,
+	SchemaUpdateOneInput,
+	SchemaUpsertInput,
+	SchemaUpsertManyItemInput,
+} from '../../query/operations/schema-commands.js'
 import type { Query } from '../../query/query/query.js'
+import type { InferQueryResult } from '../../query/query/result.js'
 import type { InferCreateInput, InferFields } from '../inference/types.js'
 import type { Pointer } from '../relations/pointer.js'
 import {
@@ -191,6 +205,84 @@ export interface SchemaClass<
 	): SchemaDraft<this>
 	/** Starts one fresh immutable Query without retaining execution state. */
 	query(): Query<this>
+	/**
+	 * Creates one complete persisted model.
+	 *
+	 * @example `await Post.create({ title: 'Hello' })`
+	 */
+	create(
+		input: InferCreateInput<this>,
+		options?: QueryTerminalOptions,
+	): Promise<InferQueryResult<this>>
+	/**
+	 * Creates input rows in order and keeps them atomic by default.
+	 * Passing `{ atomic: false }` returns a discriminated result with either every
+	 * model or the successful prefix and first failed input index.
+	 *
+	 * @example `await Post.createMany(inputs, { atomic: false })`
+	 */
+	createMany<
+		const TOptions extends QueryBulkTerminalOptions | undefined = undefined,
+	>(
+		inputs: readonly InferCreateInput<this>[],
+		options?: TOptions & QueryBulkTerminalOptions,
+	): Promise<QueryBulkTerminalResult<InferQueryResult<this>, TOptions>>
+	/**
+	 * Updates one unique target and returns its complete model.
+	 *
+	 * @example `await Post.updateOne({ where: (where) => where.byId(id), data })`
+	 */
+	updateOne(
+		input: SchemaUpdateOneInput<this>,
+		options?: QueryTerminalOptions,
+	): Promise<InferQueryResult<this> | null>
+	/**
+	 * Updates every row selected by one explicit predicate.
+	 *
+	 * @example `await Post.updateMany({ where: (where) => where.equalTo('draft', true), data })`
+	 */
+	updateMany(
+		input: SchemaUpdateManyInput<this>,
+		options?: QueryTerminalOptions,
+	): Promise<number>
+	/**
+	 * Creates or updates one row selected by an exact unique target.
+	 *
+	 * @example `await Post.upsert({ where: (where) => where.byId(id), create, update })`
+	 */
+	upsert(
+		input: SchemaUpsertInput<this>,
+		options?: QueryTerminalOptions,
+	): Promise<InferQueryResult<this>>
+	/**
+	 * Upserts independently targeted inputs in declaration order.
+	 *
+	 * @example `await Post.upsertMany(items)`
+	 */
+	upsertMany<
+		const TOptions extends QueryBulkTerminalOptions | undefined = undefined,
+	>(
+		inputs: readonly SchemaUpsertManyItemInput<this>[],
+		options?: TOptions & QueryBulkTerminalOptions,
+	): Promise<QueryBulkTerminalResult<InferQueryResult<this>, TOptions>>
+	/**
+	 * Deletes one uniquely identified row and returns its complete model.
+	 *
+	 * @example `await Post.deleteOne({ where: (where) => where.byId(id) })`
+	 */
+	deleteOne(
+		input: SchemaDeleteOneInput<this>,
+		options?: QueryTerminalOptions,
+	): Promise<InferQueryResult<this> | null>
+	/**
+	 * Deletes every row selected by one explicit predicate.
+	 *
+	 * @example `await Post.deleteMany({ where: 'all' })`
+	 */
+	deleteMany(
+		input: SchemaDeleteManyInput<this>,
+		options?: QueryTerminalOptions,
+	): Promise<number>
 	/** Creates one immutable pointer to an object of this exact schema. */
 	pointer(id: string): Pointer<this>
 }

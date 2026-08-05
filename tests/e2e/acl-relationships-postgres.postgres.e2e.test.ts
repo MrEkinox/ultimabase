@@ -162,7 +162,7 @@ beforeAll(async () => {
 	await ultimabase.start()
 	const app = getApplication()
 
-	alice = await Member.query().create(
+	alice = await Member.create(
 		{ name: 'Alice' },
 		{ ultimabase: app, useMasterKey: true },
 	)
@@ -170,21 +170,21 @@ beforeAll(async () => {
 	const readACL = new ACL().grantPrincipal(alicePointer, 'read')
 	const editableACL = readACL.grantPrincipal(alicePointer, 'update')
 
-	;[visibleAuthor, hiddenAuthor] = await Author.query().createMany(
+	;[visibleAuthor, hiddenAuthor] = await Author.createMany(
 		[
 			{ acl: readACL, name: 'Visible author' },
 			{ acl: emptyACL, name: 'Hidden author' },
 		],
 		{ ultimabase: app, useMasterKey: true },
 	)
-	;[visibleTag, hiddenTag] = await Tag.query().createMany(
+	;[visibleTag, hiddenTag] = await Tag.createMany(
 		[
 			{ acl: readACL, label: 'visible' },
 			{ acl: emptyACL, label: 'hidden' },
 		],
 		{ ultimabase: app, useMasterKey: true },
 	)
-	;[visibleArticle, , hiddenArticle] = await Article.query().createMany(
+	;[visibleArticle, , hiddenArticle] = await Article.createMany(
 		[
 			{
 				acl: editableACL,

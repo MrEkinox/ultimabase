@@ -23,11 +23,12 @@ const rollbackError = new Error('relation mutation rollback fixture')
 let rejectNextRelationUpdate = false
 const tagLabelField = stringField({ validation: { required: true } })
 const tagVisibleField = booleanField({ default: true })
+const articleTitleField = stringField({ validation: { required: true } })
 
 type ArticleSchema = SchemaClass<
 	'RelationE2EArticle',
 	Readonly<{
-		readonly title: ReturnType<typeof stringField>
+		readonly title: typeof articleTitleField
 		readonly tags: RelationField<TagSchema, undefined>
 	}>,
 	readonly []
@@ -65,7 +66,7 @@ const Article: ArticleSchema = Schema.define({
 			},
 			target: resolveTag,
 		}),
-		title: stringField({ validation: { required: true } }),
+		title: articleTitleField,
 	},
 	hooks: {
 		afterUpdate: ({ operation, result }) => {
@@ -120,10 +121,13 @@ type OptionalPointerState = ScalarFieldInferenceState<
 	false
 >
 
+const authorNameField = stringField({ validation: { required: true } })
+const postTitleField = stringField({ validation: { required: true } })
+
 type AuthorSchema = SchemaClass<
 	'RelationE2EAuthor',
 	Readonly<{
-		readonly name: ReturnType<typeof stringField>
+		readonly name: typeof authorNameField
 		readonly posts: RelationField<PostSchema, 'author'>
 	}>,
 	readonly []
@@ -133,7 +137,7 @@ type PostSchema = SchemaClass<
 	'RelationE2EPost',
 	Readonly<{
 		readonly author: PointerField<AuthorSchema, OptionalPointerState>
-		readonly title: ReturnType<typeof stringField>
+		readonly title: typeof postTitleField
 	}>,
 	readonly []
 >
@@ -145,7 +149,7 @@ function resolvePost(): PostSchema {
 const Author: AuthorSchema = Schema.define({
 	className: 'RelationE2EAuthor',
 	fields: {
-		name: stringField({ validation: { required: true } }),
+		name: authorNameField,
 		posts: relationField({ mappedBy: 'author', target: resolvePost }),
 	},
 })
@@ -158,7 +162,7 @@ const Post: PostSchema = Schema.define({
 			target: (): AuthorSchema => Author,
 			validation: { nullable: true },
 		}),
-		title: stringField({ validation: { required: true } }),
+		title: postTitleField,
 	},
 })
 
@@ -226,7 +230,7 @@ afterAll(async () => {
 describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 	it('filters owning, inverse, pointer, empty, and nested relations with target Access', async () => {
 		const app = getUltimaBase()
-		const [alpha, beta, gamma, hidden] = await Tag.query().createMany(
+		const [alpha, beta, gamma, hidden] = await Tag.createMany(
 			[
 				{ label: 'predicate-alpha' },
 				{ label: 'predicate-beta' },
@@ -245,7 +249,7 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 			throw new TypeError('Relation predicate tags are incomplete')
 		}
 
-		const [mixed, gammaOnly, empty] = await Article.query().createMany(
+		const [mixed, gammaOnly, empty] = await Article.createMany(
 			[
 				{ title: 'Predicate mixed' },
 				{ title: 'Predicate gamma' },
@@ -266,9 +270,13 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 		await gammaOnly
 			.relation('tags')
 			.connect(Tag.pointer(gamma.id), { ultimabase: app })
-		await Tag.query()
-			.byId(hidden.id)
-			.updateOne({ set: { visible: false } }, { ultimabase: app })
+		await Tag.updateOne(
+			{
+				where: (where) => where.byId(hidden.id),
+				data: { set: { visible: false } },
+			},
+			{ ultimabase: app },
+		)
 
 		expect(
 			await Article.query()
@@ -328,11 +336,11 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 				.exists({ ultimabase: app }),
 		).toBe(true)
 
-		const author = await Author.query().create(
+		const author = await Author.create(
 			{ name: 'Predicate author' },
 			{ ultimabase: app },
 		)
-		await Post.query().create(
+		await Post.create(
 			{ author: Author.pointer(author.id), title: 'Predicate post' },
 			{ ultimabase: app },
 		)
@@ -347,11 +355,11 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 
 	it('executes owning and inverse traversal with normal Query semantics', async () => {
 		const app = getUltimaBase()
-		const [alpha, beta, gamma] = await Tag.query().createMany(
+		const [alpha, beta, gamma] = await Tag.createMany(
 			[{ label: 'alpha' }, { label: 'beta' }, { label: 'gamma' }],
 			{ ultimabase: app },
 		)
-		const article = await Article.query().create(
+		const article = await Article.create(
 			{ title: 'Relations' },
 			{ ultimabase: app },
 		)
@@ -412,7 +420,7 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 		await tags.clear({ ultimabase: app })
 		expect(await tags.query().count({ ultimabase: app })).toBe(0)
 
-		const inverseTag = await Tag.query().create(
+		const inverseTag = await Tag.create(
 			{ label: 'inverse' },
 			{ ultimabase: app },
 		)
@@ -431,7 +439,7 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 		await gamma.delete({ ultimabase: app })
 		expect(await tags.query().count({ ultimabase: app })).toBe(0)
 
-		const cleanupTag = await Tag.query().create(
+		const cleanupTag = await Tag.create(
 			{ label: 'cleanup' },
 			{ ultimabase: app },
 		)
@@ -452,11 +460,8 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 
 	it('reuses pointer storage for inverse relation reads and mutations', async () => {
 		const app = getUltimaBase()
-		const author = await Author.query().create(
-			{ name: 'Ada' },
-			{ ultimabase: app },
-		)
-		const post = await Post.query().create(
+		const author = await Author.create({ name: 'Ada' }, { ultimabase: app })
+		const post = await Post.create(
 			{ author: Author.pointer(author.id), title: 'Pointers' },
 			{ ultimabase: app },
 		)
@@ -471,11 +476,8 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 
 	it('denies relation traversal at the source field before returning targets', async () => {
 		const app = getUltimaBase()
-		const tag = await Tag.query().create(
-			{ label: 'private' },
-			{ ultimabase: app },
-		)
-		const article = await PrivateArticle.query().create(
+		const tag = await Tag.create({ label: 'private' }, { ultimabase: app })
+		const article = await PrivateArticle.create(
 			{ title: 'Private relation' },
 			{ ultimabase: app },
 		)

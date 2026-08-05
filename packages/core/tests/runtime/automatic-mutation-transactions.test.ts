@@ -1,6 +1,5 @@
 import {
 	FrameworkApplication,
-	Query,
 	type SchemaMutationHookKind,
 } from '../../src/index.js'
 import { Schema, stringField } from '../../src/index.js'
@@ -94,7 +93,7 @@ const mutationFixtures: readonly MutationFixture[] = [
 		result: articleRecord('0198f090-2a50-7000-8000-000000000001', 'Created'),
 		execute: (request) =>
 			runWithRequestEngine(request, () =>
-				articleSchema.query().create({ title: 'Created' }),
+				articleSchema.create({ title: 'Created' }),
 			),
 	},
 	{
@@ -102,7 +101,7 @@ const mutationFixtures: readonly MutationFixture[] = [
 		result: [articleRecord('0198f090-2a50-7000-8000-000000000002', 'Created')],
 		execute: (request) =>
 			runWithRequestEngine(request, () =>
-				articleSchema.query().createMany([{ title: 'Created' }]),
+				articleSchema.createMany([{ title: 'Created' }]),
 			),
 	},
 	{
@@ -110,10 +109,10 @@ const mutationFixtures: readonly MutationFixture[] = [
 		result: articleRecord('0198f090-2a50-7000-8000-000000000003', 'After'),
 		execute: (request) =>
 			runWithRequestEngine(request, () =>
-				articleSchema
-					.query()
-					.equalTo('title', 'Before')
-					.updateOne({ set: { title: 'After' } }),
+				articleSchema.updateOne({
+					where: (where) => where.equalTo('title', 'Before'),
+					data: { set: { title: 'After' } },
+				}),
 			),
 	},
 	{
@@ -121,10 +120,10 @@ const mutationFixtures: readonly MutationFixture[] = [
 		result: 2,
 		execute: (request) =>
 			runWithRequestEngine(request, () =>
-				articleSchema
-					.query()
-					.equalTo('title', 'Before')
-					.updateMany({ set: { title: 'After' } }),
+				articleSchema.updateMany({
+					where: (where) => where.equalTo('title', 'Before'),
+					data: { set: { title: 'After' } },
+				}),
 			),
 	},
 	{
@@ -132,13 +131,11 @@ const mutationFixtures: readonly MutationFixture[] = [
 		result: articleRecord('0198f090-2a50-7000-8000-000000000004', 'Upserted'),
 		execute: (request) =>
 			runWithRequestEngine(request, () =>
-				articleSchema
-					.query()
-					.equalTo('title', 'Upserted')
-					.upsertOne({
-						create: { title: 'Upserted' },
-						update: { set: { title: 'Upserted' } },
-					}),
+				articleSchema.upsert({
+					where: (where) => where.equalTo('title', 'Upserted'),
+					create: { title: 'Upserted' },
+					update: { set: { title: 'Upserted' } },
+				}),
 			),
 	},
 	{
@@ -146,9 +143,9 @@ const mutationFixtures: readonly MutationFixture[] = [
 		result: [articleRecord('0198f090-2a50-7000-8000-000000000005', 'Upserted')],
 		execute: (request) =>
 			runWithRequestEngine(request, () =>
-				articleSchema.query().upsertMany([
+				articleSchema.upsertMany([
 					{
-						query: new Query(articleSchema).equalTo('title', 'Upserted'),
+						where: (where) => where.equalTo('title', 'Upserted'),
 						create: { title: 'Upserted' },
 						update: { set: { title: 'Upserted' } },
 					},
@@ -160,7 +157,9 @@ const mutationFixtures: readonly MutationFixture[] = [
 		result: articleRecord('0198f090-2a50-7000-8000-000000000006', 'Deleted'),
 		execute: (request) =>
 			runWithRequestEngine(request, () =>
-				articleSchema.query().equalTo('title', 'Deleted').deleteOne(),
+				articleSchema.deleteOne({
+					where: (where) => where.equalTo('title', 'Deleted'),
+				}),
 			),
 	},
 	{
@@ -168,7 +167,9 @@ const mutationFixtures: readonly MutationFixture[] = [
 		result: 2,
 		execute: (request) =>
 			runWithRequestEngine(request, () =>
-				articleSchema.query().equalTo('title', 'Deleted').deleteMany(),
+				articleSchema.deleteMany({
+					where: (where) => where.equalTo('title', 'Deleted'),
+				}),
 			),
 	},
 ]
@@ -245,7 +246,7 @@ describe('automatic mutation transaction scope', () => {
 					observedEngine = getCurrentEngine()
 
 					try {
-						await articleSchema.query().create({ title: 'Nested' })
+						await articleSchema.create({ title: 'Nested' })
 					} catch (error: unknown) {
 						expect(error).toBe(nestedError)
 					}
@@ -265,7 +266,7 @@ describe('automatic mutation transaction scope', () => {
 
 		await expect(
 			runWithRequestEngine(request, () =>
-				articleSchema.query().create({ title: 'Primary' }),
+				articleSchema.create({ title: 'Primary' }),
 			),
 		).rejects.toBe(nestedError)
 		expect(observedEngine).toBeDefined()
@@ -291,7 +292,7 @@ describe('automatic mutation transaction scope', () => {
 		const hookStages: RecordingPipelineHookStages = {
 			globalBeforeHooks: async (input) => {
 				if (readCreatedTitle(input.operation) === 'Primary') {
-					await articleSchema.query().create({ title: 'Nested' })
+					await articleSchema.create({ title: 'Nested' })
 				}
 
 				return input.operation
@@ -314,7 +315,7 @@ describe('automatic mutation transaction scope', () => {
 
 		await expect(
 			runWithRequestEngine(request, () =>
-				articleSchema.query().create({ title: 'Primary' }),
+				articleSchema.create({ title: 'Primary' }),
 			),
 		).rejects.toBe(primaryError)
 		expect(trace).toStrictEqual([
@@ -333,7 +334,7 @@ describe('automatic mutation transaction scope', () => {
 		const hookStages: RecordingPipelineHookStages = {
 			globalAfterHooks: async (input) => {
 				if (readCreatedTitle(input.operation) === 'Primary') {
-					await articleSchema.query().create({ title: 'Nested after' })
+					await articleSchema.create({ title: 'Nested after' })
 					throw afterError
 				}
 
@@ -363,7 +364,7 @@ describe('automatic mutation transaction scope', () => {
 
 		await expect(
 			runWithRequestEngine(request, () =>
-				articleSchema.query().create({ title: 'Primary' }),
+				articleSchema.create({ title: 'Primary' }),
 			),
 		).rejects.toBe(afterError)
 		expect(trace).toStrictEqual([
@@ -400,9 +401,10 @@ describe('automatic mutation transaction scope', () => {
 				}
 
 				if (title === 'Primary') {
-					await articleSchema
-						.query()
-						.create({ title: 'Master nested' }, { useMasterKey: true })
+					await articleSchema.create(
+						{ title: 'Master nested' },
+						{ useMasterKey: true },
+					)
 				}
 
 				return input.operation
@@ -432,7 +434,7 @@ describe('automatic mutation transaction scope', () => {
 
 		await expect(
 			runWithRequestEngine(request, () =>
-				articleSchema.query().create({ title: 'Primary' }),
+				articleSchema.create({ title: 'Primary' }),
 			),
 		).resolves.toMatchObject({ title: 'Primary' })
 		expect(nestedAccessMode).toBe('master')

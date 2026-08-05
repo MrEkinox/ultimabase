@@ -173,11 +173,11 @@ describe(
 		it('derives defaults from resolved input and the exact current principal', async () => {
 			const app = getApplication()
 			const alice = request('acl-composition-default', 'a')
-			const owned = await Document.query().create(
+			const owned = await Document.create(
 				{ secret: 'private', title: '  Owned  ' },
 				{ context: alice, ultimabase: app },
 			)
-			const publicDocument = await Document.query().create(
+			const publicDocument = await Document.create(
 				{ secret: 'public-secret', title: '  PUBLIC  ' },
 				{ ultimabase: app },
 			)
@@ -209,7 +209,7 @@ describe(
 			const app = getApplication()
 			const alice = request('acl-composition-a', 'a')
 			const otherSchema = request('acl-composition-b', 'b')
-			await Document.query().createMany(
+			await Document.createMany(
 				[
 					{
 						acl: new ACL().grantPrincipal(

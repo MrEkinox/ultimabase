@@ -156,7 +156,7 @@ beforeAll(async () => {
 	})
 	await ultimabase.start()
 
-	const created = await ProtectedPost.query().createMany(
+	const created = await ProtectedPost.createMany(
 		[
 			{ acl: new ACL().grantPublic('read'), title: 'public' },
 			{ acl: new ACL().grantAuthenticated('read'), title: 'authenticated' },
@@ -260,38 +260,43 @@ describe('ACL PostgreSQL Access constraints', { concurrent: false }, () => {
 		const editor = request('acl-editor-mutations').withValue(currentRoleIds, [
 			editorRoleId,
 		])
-		const aliceUpdated = await ProtectedPost.query()
-			.equalTo('title', 'alice')
-			.updateMany(
-				{ set: { marker: 'alice-updated' } },
-				{ context: alice, ultimabase: app },
-			)
-		const deniedUpdate = await ProtectedPost.query()
-			.byId(requireRowId('bob'))
-			.update(
-				{ set: { marker: 'forbidden' } },
-				{ context: alice, ultimabase: app },
-			)
-		const editorUpdated = await ProtectedPost.query()
-			.byId(requireRowId('editor'))
-			.update(
-				{ set: { marker: 'editor-updated' } },
-				{ context: editor, ultimabase: app },
-			)
+		const aliceUpdated = await ProtectedPost.updateMany(
+			{
+				where: (where) => where.equalTo('title', 'alice'),
+				data: { set: { marker: 'alice-updated' } },
+			},
+			{ context: alice, ultimabase: app },
+		)
+		const deniedUpdate = await ProtectedPost.updateOne(
+			{
+				where: (where) => where.equalTo('id', requireRowId('bob')),
+				data: { set: { marker: 'forbidden' } },
+			},
+			{ context: alice, ultimabase: app },
+		)
+		const editorUpdated = await ProtectedPost.updateOne(
+			{
+				where: (where) => where.equalTo('id', requireRowId('editor')),
+				data: { set: { marker: 'editor-updated' } },
+			},
+			{ context: editor, ultimabase: app },
+		)
 
 		expect(aliceUpdated).toBe(1)
 		expect(deniedUpdate).toBeNull()
 		expect(editorUpdated?.marker).toBe('editor-updated')
 
 		await expect(
-			ProtectedPost.query()
-				.equalTo('title', 'alice')
-				.deleteMany({ context: alice, ultimabase: app }),
+			ProtectedPost.deleteMany(
+				{ where: (where) => where.equalTo('title', 'alice') },
+				{ context: alice, ultimabase: app },
+			),
 		).resolves.toBe(1)
 		await expect(
-			ProtectedPost.query()
-				.byId(requireRowId('editor'))
-				.delete({ context: editor, ultimabase: app }),
+			ProtectedPost.deleteOne(
+				{ where: (where) => where.equalTo('id', requireRowId('editor')) },
+				{ context: editor, ultimabase: app },
+			),
 		).resolves.toMatchObject({ title: 'editor' })
 		await expect(
 			ProtectedPost.query().count({ ultimabase: app, useMasterKey: true }),
@@ -305,26 +310,25 @@ describe('ACL PostgreSQL Access constraints', { concurrent: false }, () => {
 		const masterOptions = { ultimabase: app, useMasterKey: true } as const
 		const attempts = [
 			() =>
-				ProtectedPost.query().updateMany(
-					{ set: { acl: replacement } },
+				ProtectedPost.updateMany(
+					{ where: 'all', data: { set: { acl: replacement } } },
 					masterOptions,
 				),
 			() =>
-				ProtectedPost.query()
-					.byId(deniedId)
-					.upsert(
-						{
-							create: { title: 'unexpected-upsert' },
-							update: { set: { acl: replacement } },
-						},
-						masterOptions,
-					),
+				ProtectedPost.upsert(
+					{
+						where: (where) => where.equalTo('id', deniedId),
+						create: { title: 'unexpected-upsert' },
+						update: { set: { acl: replacement } },
+					},
+					masterOptions,
+				),
 			() =>
-				ProtectedPost.query().upsertMany(
+				ProtectedPost.upsertMany(
 					[
 						{
 							create: { title: 'unexpected-bulk-upsert' },
-							query: ProtectedPost.query().byId(deniedId),
+							where: (where) => where.equalTo('id', deniedId),
 							update: { set: { acl: replacement } },
 						},
 					],
@@ -344,10 +348,13 @@ describe('ACL PostgreSQL Access constraints', { concurrent: false }, () => {
 			.first(masterOptions)
 
 		expect(unchanged?.acl).toStrictEqual(new ACL())
-		const updated = await ProtectedPost.query()
-			.byId(deniedId)
-			.select('acl')
-			.update({ set: { acl: replacement } }, masterOptions)
+		const updated = await ProtectedPost.updateOne(
+			{
+				where: (where) => where.equalTo('id', deniedId),
+				data: { set: { acl: replacement } },
+			},
+			masterOptions,
+		)
 
 		expect(updated?.acl).toStrictEqual(replacement)
 	})

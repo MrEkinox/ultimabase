@@ -287,7 +287,9 @@ Direct properties, `get()`, enumeration, inspection, and `toJSON()` all share
 the same visible snapshot. Omitted fields are absent at runtime and from the
 inferred result type. Runtime retains the protected object identity separately,
 so an instance selected with only `title` can still target itself without
-revealing `id` through properties or serialization.
+revealing `id` through properties or serialization. A later `update()` or
+`delete()` returns a complete model allowed by Access rather than preserving
+that earlier read projection.
 
 Drafts expose only `create` and `upsert`; persisted or queried models expose only
 `update` and `delete`:
@@ -298,7 +300,7 @@ const created = await draft.create({ ultimabase })
 
 const imported = await new PostSchema({ title: 'Imported' }).upsert(
 	{
-		where: { slug: 'imported' },
+		where: (where) => where.equalTo('slug', 'imported'),
 		update: { increment: { imports: 1 } },
 	},
 	{ ultimabase },
@@ -311,9 +313,9 @@ const updated = await created.update(
 await updated?.delete({ ultimabase })
 ```
 
-`where` must contain distinct non-null equalities matching `id`, one unique
-field, or one composite unique index. Every command returns a new model and
-delegates to Query validation, hooks, policies, cancellation, and transactions.
+`where` must build distinct non-null equalities matching `id`, one unique field,
+or one composite unique index. Every command returns a new model and delegates
+to Runtime validation, hooks, policies, cancellation, and transactions.
 There is no dirty tracking, implicit batching, `save()`, or instance collection
 operation.
 

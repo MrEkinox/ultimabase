@@ -22,8 +22,8 @@ const articleSchema = Schema.define({
 	},
 })
 
-describe('singular Query terminals', () => {
-	it('executes every terminal through the RequestEngine pipeline', async () => {
+describe('read terminals and singular schema commands', () => {
+	it('executes reads and writes through the RequestEngine pipeline', async () => {
 		const found = [
 			{ id: '0198f090-2a50-7000-8000-000000000021', title: 'Found' },
 		]
@@ -31,12 +31,6 @@ describe('singular Query terminals', () => {
 			createdAt: '2026-08-02T00:00:00.000Z',
 			id: '0198f090-2a50-7000-8000-000000000022',
 			title: 'Created one',
-			updatedAt: '2026-08-02T00:00:00.000Z',
-		}
-		const createdAlias = {
-			createdAt: '2026-08-02T00:00:00.000Z',
-			id: '0198f090-2a50-7000-8000-000000000023',
-			title: 'Created alias',
 			updatedAt: '2026-08-02T00:00:00.000Z',
 		}
 		const upserted = {
@@ -52,11 +46,8 @@ describe('singular Query terminals', () => {
 			{ status: 'fulfilled', value: 1 },
 			{ status: 'fulfilled', value: true },
 			{ status: 'fulfilled', value: createdOne },
-			{ status: 'fulfilled', value: createdAlias },
-			{ status: 'fulfilled', value: null },
 			{ status: 'fulfilled', value: null },
 			{ status: 'fulfilled', value: upserted },
-			{ status: 'fulfilled', value: null },
 			{ status: 'fulfilled', value: null },
 		]
 		const adapter = new RecordingDatabaseAdapter(results, [])
@@ -76,7 +67,6 @@ describe('singular Query terminals', () => {
 			.equalTo('views', 1)
 			.select('id', 'title')
 		const createOneInput = { title: 'Created one' }
-		const createAliasInput = { title: 'Created alias' }
 
 		await runWithRequestEngine(request, async () => {
 			const foundResult = await query.find()
@@ -90,31 +80,29 @@ describe('singular Query terminals', () => {
 			await expect(query.get('missing')).resolves.toBeNull()
 			await expect(query.count()).resolves.toBe(1)
 			await expect(query.exists()).resolves.toBe(true)
-			const createdOneResult = await query.createOne(createOneInput)
-			const createdAliasResult = await query.create(createAliasInput)
+			const createdOneResult = await articleSchema.create(createOneInput)
 
 			expect(createdOneResult).toBeInstanceOf(articleSchema)
 			expect(createdOneResult.toJSON()).toStrictEqual(createdOne)
-			expect(createdAliasResult).toBeInstanceOf(articleSchema)
-			expect(createdAliasResult.toJSON()).toStrictEqual(createdAlias)
 			await expect(
-				query.updateOne({ increment: { views: 1 } }),
+				articleSchema.updateOne({
+					where: (where) => where.equalTo('title', 'Updated target'),
+					data: { increment: { views: 1 } },
+				}),
 			).resolves.toBeNull()
-			await expect(
-				query.update({ increment: { views: 1 } }),
-			).resolves.toBeNull()
-			const upsertedResult = await articleSchema
-				.query()
-				.equalTo('title', 'Upserted')
-				.upsertOne({
-					create: { title: 'Upserted' },
-					update: { set: { title: 'Upserted' } },
-				})
+			const upsertedResult = await articleSchema.upsert({
+				where: (where) => where.equalTo('title', 'Upserted'),
+				create: { title: 'Upserted' },
+				update: { set: { title: 'Upserted' } },
+			})
 
 			expect(upsertedResult).toBeInstanceOf(articleSchema)
 			expect(upsertedResult.toJSON()).toStrictEqual(upserted)
-			await expect(query.deleteOne()).resolves.toBeNull()
-			await expect(query.delete()).resolves.toBeNull()
+			await expect(
+				articleSchema.deleteOne({
+					where: (where) => where.equalTo('title', 'Deleted target'),
+				}),
+			).resolves.toBeNull()
 		})
 
 		const requests = [
@@ -125,7 +113,7 @@ describe('singular Query terminals', () => {
 		expect(
 			adapter.rootRequests.map(({ operation }) => operation.kind),
 		).toStrictEqual(['find', 'first', 'get', 'count', 'exists'])
-		expect(adapter.transactions).toHaveLength(7)
+		expect(adapter.transactions).toHaveLength(4)
 		expect(requests.map(({ operation }) => operation.kind)).toStrictEqual([
 			'find',
 			'first',
@@ -133,11 +121,8 @@ describe('singular Query terminals', () => {
 			'count',
 			'exists',
 			'create-one',
-			'create-one',
-			'update-one',
 			'update-one',
 			'upsert-one',
-			'delete-one',
 			'delete-one',
 		])
 		expect(requests[0]?.operation).toMatchObject({
@@ -153,23 +138,17 @@ describe('singular Query terminals', () => {
 			schema: query.ast.schema,
 			input: createOneInput,
 		})
-		expect(requests[7]?.operation).toMatchObject({
+		expect(requests[6]?.operation).toMatchObject({
 			kind: 'update-one',
 			update: {
 				kind: 'update-expression',
 				operations: [{ kind: 'increment', field: 'views', value: 1 }],
 			},
 		})
-		expect(requests[8]?.operation).toMatchObject({
-			kind: 'update-one',
-		})
-		expect(requests[9]?.operation).toMatchObject({
+		expect(requests[7]?.operation).toMatchObject({
 			kind: 'upsert-one',
 			target: { fields: ['title'] },
 		})
-		// Aliases delegate before normalization, so Runtime receives identical ASTs.
-		expect(requests[8]?.operation).toStrictEqual(requests[7]?.operation)
-		expect(requests[11]?.operation).toStrictEqual(requests[10]?.operation)
 		expect(
 			requests.every(
 				(requestEnvelope) =>

@@ -170,7 +170,7 @@ const PackedModelSchema = Schema.define({
 const packedModelDraft = new PackedModelSchema({ title: 'Packed model draft' })
 const packedQuery = PostSchema.query().select('id', 'title')
 const packedNonAtomicCreate = () =>
-	PostSchema.query().createMany([{ title: 'Packed bulk draft' }], {
+	PostSchema.createMany([{ title: 'Packed bulk draft' }], {
 		atomic: false,
 	})
 declare const packedContext: RequestContext
@@ -185,9 +185,15 @@ declare const packedResult: SchemaResult<
 const packedModelUpdate = () =>
 	packedResult.update({ set: { title: 'Packed update' } })
 const packedQueryUpdate = () =>
-	PostSchema.query().update({ set: { title: 'Packed query update' } })
+	PostSchema.updateOne({
+		where: (where) => where.byId('packed-post'),
+		data: { set: { title: 'Packed query update' } },
+	})
 const packedQueryDelete = () =>
-	PostSchema.query().delete({ context: packedContext })
+	PostSchema.deleteOne(
+		{ where: (where) => where.byId('packed-post') },
+		{ context: packedContext },
+	)
 void packedDraft
 void packedModelDraft
 void packedQuery
@@ -257,7 +263,7 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 		await ultimabase.start()
 
 		try {
-			const ordered = await BulkAccountSchema.query().createMany(
+			const ordered = await BulkAccountSchema.createMany(
 				[
 					{
 						email: 'second@example.com',
@@ -278,72 +284,71 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 				'first@example.com',
 			])
 			await expect(
-				BulkAccountSchema.query()
-					.equalTo('tenantId', 'tenant-a')
-					.ascending('email')
-					.limit(1)
-					.updateMany({ increment: { visits: 2 } }, { ultimabase }),
-			).resolves.toBe(1)
-
-			const createdUpsert = await BulkAccountSchema.query()
-				.equalTo('email', 'upsert@example.com')
-				.select('email', 'visits')
-				.upsert(
+				BulkAccountSchema.updateMany(
 					{
-						create: {
-							email: 'upsert@example.com',
-							handle: 'upsert',
-							tenantId: 'tenant-b',
-						},
-						update: { increment: { visits: 1 } },
+						where: (where) => where.equalTo('tenantId', 'tenant-a'),
+						data: { increment: { visits: 2 } },
 					},
 					{ ultimabase },
-				)
-			expect(createdUpsert.toJSON()).toStrictEqual({
+				),
+			).resolves.toBe(2)
+
+			const createdUpsert = await BulkAccountSchema.upsert(
+				{
+					where: (where) => where.equalTo('email', 'upsert@example.com'),
+					create: {
+						email: 'upsert@example.com',
+						handle: 'upsert',
+						tenantId: 'tenant-b',
+					},
+					update: { increment: { visits: 1 } },
+				},
+				{ ultimabase },
+			)
+			expect(createdUpsert.toJSON()).toMatchObject({
 				email: 'upsert@example.com',
 				visits: 0,
 			})
 
-			const updatedUpsert = await BulkAccountSchema.query()
-				.equalTo('email', 'upsert@example.com')
-				.select('email', 'visits')
-				.upsert(
-					{
-						create: {
-							email: 'upsert@example.com',
-							handle: 'upsert',
-							tenantId: 'tenant-b',
-						},
-						update: { increment: { visits: 1 } },
+			const updatedUpsert = await BulkAccountSchema.upsert(
+				{
+					where: (where) => where.equalTo('email', 'upsert@example.com'),
+					create: {
+						email: 'upsert@example.com',
+						handle: 'upsert',
+						tenantId: 'tenant-b',
 					},
-					{ ultimabase },
-				)
-			expect(updatedUpsert.toJSON()).toStrictEqual({
+					update: { increment: { visits: 1 } },
+				},
+				{ ultimabase },
+			)
+			expect(updatedUpsert.toJSON()).toMatchObject({
 				email: 'upsert@example.com',
 				visits: 1,
 			})
 
-			const composite = await BulkAccountSchema.query()
-				.equalTo('handle', 'composite')
-				.equalTo('tenantId', 'tenant-c')
-				.upsert(
-					{
-						create: {
-							email: 'composite@example.com',
-							handle: 'composite',
-							tenantId: 'tenant-c',
-						},
-						update: { increment: { visits: 1 } },
+			const composite = await BulkAccountSchema.upsert(
+				{
+					where: (where) =>
+						where
+							.equalTo('handle', 'composite')
+							.equalTo('tenantId', 'tenant-c'),
+					create: {
+						email: 'composite@example.com',
+						handle: 'composite',
+						tenantId: 'tenant-c',
 					},
-					{ ultimabase },
-				)
+					update: { increment: { visits: 1 } },
+				},
+				{ ultimabase },
+			)
 			expect(composite).toMatchObject({
 				handle: 'composite',
 				tenantId: 'tenant-c',
 				visits: 0,
 			})
 
-			const partial = await BulkAccountSchema.query().createMany(
+			const partial = await BulkAccountSchema.createMany(
 				[
 					{
 						email: 'prefix@example.com',
@@ -384,7 +389,7 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 			).resolves.toBe(false)
 
 			await expect(
-				BulkAccountSchema.query().createMany(
+				BulkAccountSchema.createMany(
 					[
 						{
 							email: 'atomic-duplicate@example.com',
@@ -407,47 +412,46 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 			).resolves.toBe(false)
 
 			const concurrent = await Promise.all([
-				BulkAccountSchema.query()
-					.equalTo('email', 'concurrent@example.com')
-					.upsert(
-						{
-							create: {
-								email: 'concurrent@example.com',
-								handle: 'concurrent',
-								tenantId: 'tenant-e',
-							},
-							update: { increment: { visits: 1 } },
+				BulkAccountSchema.upsert(
+					{
+						where: (where) => where.equalTo('email', 'concurrent@example.com'),
+						create: {
+							email: 'concurrent@example.com',
+							handle: 'concurrent',
+							tenantId: 'tenant-e',
 						},
-						{ ultimabase },
-					),
-				BulkAccountSchema.query()
-					.equalTo('email', 'concurrent@example.com')
-					.upsert(
-						{
-							create: {
-								email: 'concurrent@example.com',
-								handle: 'concurrent',
-								tenantId: 'tenant-e',
-							},
-							update: { increment: { visits: 1 } },
+						update: { increment: { visits: 1 } },
+					},
+					{ ultimabase },
+				),
+				BulkAccountSchema.upsert(
+					{
+						where: (where) => where.equalTo('email', 'concurrent@example.com'),
+						create: {
+							email: 'concurrent@example.com',
+							handle: 'concurrent',
+							tenantId: 'tenant-e',
 						},
-						{ ultimabase },
-					),
+						update: { increment: { visits: 1 } },
+					},
+					{ ultimabase },
+				),
 			])
 			expect(concurrent.map(({ visits }) => visits).sort()).toStrictEqual([
 				0, 1,
 			])
 			await expect(
-				BulkAccountSchema.query()
-					.equalTo('tenantId', 'tenant-d')
-					.deleteMany({ ultimabase }),
+				BulkAccountSchema.deleteMany(
+					{ where: (where) => where.equalTo('tenantId', 'tenant-d') },
+					{ ultimabase },
+				),
 			).resolves.toBe(1)
 		} finally {
 			await ultimabase.dispose()
 		}
 	})
 
-	it('executes immutable model commands while keeping selected identity private', async () => {
+	it('executes immutable model commands and returns complete mutation models', async () => {
 		const auditReasons: string[] = []
 		const ultimabase = new UltimaBase({
 			masterAuthority: new MasterAuthority({
@@ -484,7 +488,7 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 			}).upsert(
 				{
 					update: { increment: { visits: 1 } },
-					where: { email: 'model-upsert@example.com' },
+					where: (where) => where.equalTo('email', 'model-upsert@example.com'),
 				},
 				{ ultimabase },
 			)
@@ -521,15 +525,21 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 			expect(selected.toJSON()).toStrictEqual({
 				email: 'model-create@example.com',
 			})
-			expect(updated?.toJSON()).toStrictEqual({
+			expect(updated?.toJSON()).toMatchObject({
 				email: 'model-create@example.com',
+				handle: 'model-create',
+				tenantId: 'model-commands',
+				visits: 2,
 			})
-			expect(deleted?.toJSON()).toStrictEqual({
+			expect(deleted?.toJSON()).toMatchObject({
 				email: 'model-create@example.com',
+				handle: 'model-create',
+				tenantId: 'model-commands',
+				visits: 2,
 			})
 			expect(selected).not.toHaveProperty('id')
-			expect(updated).not.toHaveProperty('id')
-			expect(deleted).not.toHaveProperty('id')
+			expect(updated?.id).toBe(created.id)
+			expect(deleted?.id).toBe(created.id)
 			expect(auditReasons).toStrictEqual([
 				'Query terminal update-one on RuntimeBulkAccount',
 				'Query terminal delete-one on RuntimeBulkAccount',
@@ -577,11 +587,11 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 		await ultimabase.start()
 
 		try {
-			const ordinary = await AuthorityRecordSchema.query().create(
+			const ordinary = await AuthorityRecordSchema.create(
 				{ title: 'plugin context' },
 				{ context, ultimabase },
 			)
-			const master = await AuthorityRecordSchema.query().create(
+			const master = await AuthorityRecordSchema.create(
 				{ title: 'master context' },
 				{ context, ultimabase, useMasterKey: true },
 			)
@@ -621,7 +631,7 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 		await ultimabase.start()
 
 		try {
-			const committed = await HookPostSchema.query().create(
+			const committed = await HookPostSchema.create(
 				{ title: 'commit' },
 				{ ultimabase },
 			)
@@ -639,7 +649,7 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 			])
 
 			await expect(
-				HookPostSchema.query().create({ title: 'rollback' }, { ultimabase }),
+				HookPostSchema.create({ title: 'rollback' }, { ultimabase }),
 			).rejects.toBe(hookRollbackError)
 			await expect(
 				HookPostSchema.query()
@@ -684,7 +694,7 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 
 		try {
 			// One live row exercises every built-in field kind across the public boundary.
-			const created = await PostSchema.query().create(allFieldValues, {
+			const created = await PostSchema.create(allFieldValues, {
 				ultimabase,
 			})
 
@@ -710,19 +720,19 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 				{ id: created.id, title: 'First real E2E' },
 			])
 
-			const updated = await PostSchema.query()
-				.equalTo('id', created.id)
-				.select('id', 'published', 'title', 'updatedAt', 'views')
-				.update(
-					{
+			const updated = await PostSchema.updateOne(
+				{
+					where: (where) => where.byId(created.id),
+					data: {
 						increment: { views: 2 },
 						set: { published: true, title: 'Persisted E2E' },
 					},
-					{ ultimabase },
-				)
+				},
+				{ ultimabase },
+			)
 
 			expect(updated).toBeInstanceOf(PostSchema)
-			expect(updated?.toJSON()).toStrictEqual({
+			expect(updated?.toJSON()).toMatchObject({
 				id: created.id,
 				published: true,
 				title: 'Persisted E2E',
@@ -730,13 +740,13 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 				views: 2,
 			})
 
-			const deleted = await PostSchema.query()
-				.equalTo('id', created.id)
-				.select('id', 'title')
-				.delete({ ultimabase })
+			const deleted = await PostSchema.deleteOne(
+				{ where: (where) => where.byId(created.id) },
+				{ ultimabase },
+			)
 
 			expect(deleted).toBeInstanceOf(PostSchema)
-			expect(deleted?.toJSON()).toStrictEqual({
+			expect(deleted?.toJSON()).toMatchObject({
 				id: created.id,
 				title: 'Persisted E2E',
 			})
@@ -788,7 +798,7 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 
 		try {
 			const committed = await request.transaction(() =>
-				PostSchema.query().create({ title: 'Committed transaction' }),
+				PostSchema.create({ title: 'Committed transaction' }),
 			)
 			expect(committed).toBeInstanceOf(PostSchema)
 
@@ -807,7 +817,7 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 
 			await expect(
 				request.transaction(async () => {
-					await PostSchema.query().create({
+					await PostSchema.create({
 						title: 'Rolled back transaction',
 					})
 					throw rollbackError
@@ -822,7 +832,9 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 			).resolves.toBe(false)
 
 			await runWithRequestEngine(request, () =>
-				PostSchema.query().equalTo('id', committed.id).deleteOne(),
+				PostSchema.deleteOne({
+					where: (where) => where.byId(committed.id),
+				}),
 			)
 		} finally {
 			await ultimabase.dispose()
@@ -847,7 +859,7 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 		const transactions: DatabaseTransactionAdapter[] = []
 
 		try {
-			const updatedTarget = await PostSchema.query().create(
+			const updatedTarget = await PostSchema.create(
 				{ title: 'Original update target' },
 				{ ultimabase },
 			)
@@ -895,7 +907,7 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 				},
 			])
 
-			const deletedTarget = await PostSchema.query().create(
+			const deletedTarget = await PostSchema.create(
 				{ title: 'Stable delete target' },
 				{ ultimabase },
 			)

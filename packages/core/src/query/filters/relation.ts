@@ -30,6 +30,7 @@ import type {
 	QueryFilterValue,
 	QueryRegexPattern,
 } from './primitive.js'
+import type { OperationObjectId } from '../operations/contracts.js'
 
 /** Bounds portable relation recursion before an adapter sees the Query AST. */
 export const queryRelationPredicateMaxDepth = 8 as const
@@ -131,6 +132,16 @@ export class RelationPredicate<TSchema extends SchemaDefinition> {
 			immutableRecord({ depth: 0, expression: undefined, schema }),
 		)
 		Object.freeze(this)
+	}
+
+	/** Adds an equality condition for the framework-owned object identifier. */
+	byId(id: OperationObjectId<TSchema>): RelationPredicate<TSchema> {
+		// The identifier exists on every schema even after concrete fields are erased.
+		const idField = 'id' as QueryFilterFieldName<TSchema, 'equal'>
+
+		return this.#append(
+			createQueryValueFilter(this.schema, 'equal', idField, id),
+		)
 	}
 
 	/** Adds an equality condition to the target predicate. */

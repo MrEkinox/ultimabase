@@ -138,7 +138,7 @@ beforeAll(async () => {
 	await ultimabase.start()
 	const app = getApplication()
 
-	;[alice, bob] = await Member.query().createMany(
+	;[alice, bob] = await Member.createMany(
 		[{ email: 'alice@example.test' }, { email: 'bob@example.test' }],
 		{ ultimabase: app, useMasterKey: true },
 	)
@@ -146,7 +146,7 @@ beforeAll(async () => {
 	const aliceRead = new ACL().grantPrincipal(alicePointer, 'read')
 	const aliceUpdate = aliceRead.grantPrincipal(alicePointer, 'update')
 
-	editor = await AppRole.query().create(
+	editor = await AppRole.create(
 		{
 			acl: aliceUpdate,
 			description: 'Directly managed by Alice',
@@ -156,7 +156,7 @@ beforeAll(async () => {
 	)
 	await editor.addMember(alicePointer, { ultimabase: app, useMasterKey: true })
 
-	roleProtected = await AppRole.query().create(
+	roleProtected = await AppRole.create(
 		{
 			acl: new ACL().grantRole(
 				AppRole.role({ id: editor.id }),
@@ -168,15 +168,15 @@ beforeAll(async () => {
 		},
 		{ ultimabase: app, useMasterKey: true },
 	)
-	parent = await AppRole.query().create(
+	parent = await AppRole.create(
 		{ acl: aliceUpdate, description: 'Nested parent', name: 'parent' },
 		{ ultimabase: app, useMasterKey: true },
 	)
-	child = await AppRole.query().create(
+	child = await AppRole.create(
 		{ acl: aliceRead, description: 'Nested child', name: 'child' },
 		{ ultimabase: app, useMasterKey: true },
 	)
-	deletable = await AppRole.query().create(
+	deletable = await AppRole.create(
 		{
 			acl: aliceRead.grantPrincipal(alicePointer, 'delete'),
 			description: 'Deletable by Alice',

@@ -284,11 +284,8 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 	it('executes public CRUD, model commands, selection-aware inclusion, and hooks', async () => {
 		const app = getUltimaBase()
 		pointerTrace.length = 0
-		const firstAuthor = await User.query().create(
-			{ name: 'Ada' },
-			{ ultimabase: app },
-		)
-		const secondAuthor = await User.query().create(
+		const firstAuthor = await User.create({ name: 'Ada' }, { ultimabase: app })
+		const secondAuthor = await User.create(
 			{ name: 'Grace' },
 			{ ultimabase: app },
 		)
@@ -337,17 +334,18 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 		)
 
 		await expect(
-			Post.query()
-				.byId(created.id)
-				.updateOne(
-					{
+			Post.updateOne(
+				{
+					where: (where) => where.equalTo('id', created.id),
+					data: {
 						set: {
 							author: firstPointer,
 							title: 'rollback-pointer',
 						},
 					},
-					{ ultimabase: app },
-				),
+				},
+				{ ultimabase: app },
+			),
 		).rejects.toBe(pointerRollbackError)
 
 		const afterRollback = await Post.query()
@@ -368,27 +366,21 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 
 	it('enforces unique and foreign-key constraints through sanitized errors', async () => {
 		const app = getUltimaBase()
-		const target = await UniqueTarget.query().create(
+		const target = await UniqueTarget.create(
 			{ label: 'unique' },
 			{ ultimabase: app },
 		)
 		const targetPointer = UniqueTarget.pointer(target.id)
 
-		await UniqueSource.query().create(
-			{ target: targetPointer },
-			{ ultimabase: app },
-		)
+		await UniqueSource.create({ target: targetPointer }, { ultimabase: app })
 		await expect(
-			UniqueSource.query().create(
-				{ target: targetPointer },
-				{ ultimabase: app },
-			),
+			UniqueSource.create({ target: targetPointer }, { ultimabase: app }),
 		).rejects.toMatchObject({
 			code: 'VALIDATION_ERROR',
 			internalDetails: { driverCode: '23505' },
 		})
 		await expect(
-			UniqueSource.query().create(
+			UniqueSource.create(
 				{
 					target: UniqueTarget.pointer('0198a43e-2431-7000-8000-000000000999'),
 				},
@@ -408,9 +400,9 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 		})
 		const rollbackError = new Error('pointer transaction rollback fixture')
 		const committed = await request.transaction(async () => {
-			const author = await User.query().create({ name: 'Committed author' })
+			const author = await User.create({ name: 'Committed author' })
 
-			return Post.query().create({
+			return Post.create({
 				author: User.pointer(author.id),
 				title: 'Committed post',
 			})
@@ -420,9 +412,9 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 
 		await expect(
 			request.transaction(async () => {
-				const author = await User.query().create({ name: 'Rolled back author' })
+				const author = await User.create({ name: 'Rolled back author' })
 
-				await Post.query().create({
+				await Post.create({
 					author: User.pointer(author.id),
 					title: 'Rolled back post',
 				})
@@ -444,19 +436,20 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 
 	it('applies restrict, cascade, and setNull in PostgreSQL', async () => {
 		const app = getUltimaBase()
-		const restrictedTarget = await RestrictedTarget.query().create(
+		const restrictedTarget = await RestrictedTarget.create(
 			{ label: 'restricted' },
 			{ ultimabase: app },
 		)
-		const restrictedSource = await RestrictedSource.query().create(
+		const restrictedSource = await RestrictedSource.create(
 			{ target: RestrictedTarget.pointer(restrictedTarget.id) },
 			{ ultimabase: app },
 		)
 
 		await expect(
-			RestrictedTarget.query()
-				.byId(restrictedTarget.id)
-				.deleteOne({ ultimabase: app }),
+			RestrictedTarget.deleteOne(
+				{ where: (where) => where.equalTo('id', restrictedTarget.id) },
+				{ ultimabase: app },
+			),
 		).rejects.toMatchObject({
 			code: 'VALIDATION_ERROR',
 			internalDetails: { driverCode: '23503' },
@@ -467,34 +460,36 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 				.exists({ ultimabase: app }),
 		).resolves.toBe(true)
 
-		const cascadeTarget = await CascadeTarget.query().create(
+		const cascadeTarget = await CascadeTarget.create(
 			{ label: 'cascade' },
 			{ ultimabase: app },
 		)
-		const cascadeSource = await CascadeSource.query().create(
+		const cascadeSource = await CascadeSource.create(
 			{ target: CascadeTarget.pointer(cascadeTarget.id) },
 			{ ultimabase: app },
 		)
 
-		await CascadeTarget.query()
-			.byId(cascadeTarget.id)
-			.deleteOne({ ultimabase: app })
+		await CascadeTarget.deleteOne(
+			{ where: (where) => where.equalTo('id', cascadeTarget.id) },
+			{ ultimabase: app },
+		)
 		await expect(
 			CascadeSource.query().byId(cascadeSource.id).exists({ ultimabase: app }),
 		).resolves.toBe(false)
 
-		const nullableTarget = await NullableTarget.query().create(
+		const nullableTarget = await NullableTarget.create(
 			{ label: 'set-null' },
 			{ ultimabase: app },
 		)
-		const nullableSource = await NullableSource.query().create(
+		const nullableSource = await NullableSource.create(
 			{ target: NullableTarget.pointer(nullableTarget.id) },
 			{ ultimabase: app },
 		)
 
-		await NullableTarget.query()
-			.byId(nullableTarget.id)
-			.deleteOne({ ultimabase: app })
+		await NullableTarget.deleteOne(
+			{ where: (where) => where.equalTo('id', nullableTarget.id) },
+			{ ultimabase: app },
+		)
 		const detached = await NullableSource.query()
 			.byId(nullableSource.id)
 			.select('target')
@@ -506,11 +501,11 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 
 	it('hides denied and deleted included targets behind the same null result', async () => {
 		const app = getUltimaBase()
-		const target = await PrivateTarget.query().create(
+		const target = await PrivateTarget.create(
 			{ label: 'private' },
 			{ ultimabase: app },
 		)
-		const source = await PrivateSource.query().create(
+		const source = await PrivateSource.create(
 			{ target: PrivateTarget.pointer(target.id) },
 			{ ultimabase: app },
 		)
@@ -520,11 +515,11 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 			.include('target', (targetQuery) => targetQuery.select('label'))
 		const denied = await query.first({ ultimabase: app })
 		const allowed = await query.first({ ultimabase: app, useMasterKey: true })
-		const deletedTarget = await NullableTarget.query().create(
+		const deletedTarget = await NullableTarget.create(
 			{ label: 'deleted' },
 			{ ultimabase: app },
 		)
-		const detachedSource = await NullableSource.query().create(
+		const detachedSource = await NullableSource.create(
 			{ target: NullableTarget.pointer(deletedTarget.id) },
 			{ ultimabase: app },
 		)
@@ -543,20 +538,24 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 
 	it('persists and cleans circular pointers without transport infrastructure', async () => {
 		const app = getUltimaBase()
-		const left = await CircularLeft.query().create({}, { ultimabase: app })
-		const right = await CircularRight.query().create(
+		const left = await CircularLeft.create({}, { ultimabase: app })
+		const right = await CircularRight.create(
 			{ left: CircularLeft.pointer(left.id) },
 			{ ultimabase: app },
 		)
-		const updatedLeft = await CircularLeft.query()
-			.byId(left.id)
-			.updateOne(
-				{ set: { right: new Pointer(CircularRight, right.id) } },
-				{ ultimabase: app },
-			)
+		const updatedLeft = await CircularLeft.updateOne(
+			{
+				where: (where) => where.equalTo('id', left.id),
+				data: { set: { right: new Pointer(CircularRight, right.id) } },
+			},
+			{ ultimabase: app },
+		)
 
 		expect(updatedLeft?.right?.id).toBe(right.id)
-		await CircularLeft.query().byId(left.id).deleteOne({ ultimabase: app })
+		await CircularLeft.deleteOne(
+			{ where: (where) => where.equalTo('id', left.id) },
+			{ ultimabase: app },
+		)
 		const detachedRight = await CircularRight.query()
 			.byId(right.id)
 			.select('left')

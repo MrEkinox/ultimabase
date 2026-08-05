@@ -217,9 +217,13 @@ export const externalRoleReferencePlugin = definePlugin({
 						.equalTo('subject', readReferenceValue(reference.value))
 						.exists({ useMasterKey: true }),
 				cleanup: async ({ reference }) => {
-					await ExternalRoleReference.query()
-						.equalTo('subject', readReferenceValue(reference.value))
-						.deleteMany({ useMasterKey: true })
+					await ExternalRoleReference.deleteMany(
+						{
+							where: (where) =>
+								where.equalTo('subject', readReferenceValue(reference.value)),
+						},
+						{ useMasterKey: true },
+					)
 
 					if (rejectNextExternalCleanup) {
 						rejectNextExternalCleanup = false

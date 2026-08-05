@@ -238,7 +238,6 @@ export type {
 	SchemaDraft,
 	SchemaDraftCommands,
 	SchemaDraftUpsertInput,
-	SchemaDraftUpsertWhere,
 	SchemaModelUpdateInput,
 	SchemaModelCapabilityContext,
 	SchemaResultCapabilitiesOf,

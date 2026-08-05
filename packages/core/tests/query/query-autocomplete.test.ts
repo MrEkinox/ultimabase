@@ -100,7 +100,7 @@ Post.query()./* hover */find()
 		expect(display.length).toBeLessThan(950)
 	})
 
-	it('suggests and documents concise singular mutation aliases', () => {
+	it('keeps Query read-only and documents schema mutation commands', () => {
 		const marker = '/* completion */'
 		const sourceWithMarker = `
 import { Schema, stringField } from '../../src/index.js'
@@ -116,15 +116,16 @@ Post.query().${marker}
 			completions?.entries.map(({ name }) => name) ?? [],
 		)
 
-		expect(completionNames.has('update')).toBe(true)
-		expect(completionNames.has('delete')).toBe(true)
+		expect(completionNames.has('find')).toBe(true)
+		expect(completionNames.has('update')).toBe(false)
+		expect(completionNames.has('delete')).toBe(false)
 
 		const update = readMarkedQuickInfo(
 			`${import.meta.dirname}/query-update-alias-hover.fixture.ts`,
 			`
 import { Schema, intField } from '../../src/index.js'
 const Post = Schema.define({ className: 'Post', fields: { views: intField() } })
-Post.query()./* hover */update({ increment: { views: 1 } })
+Post./* hover */updateOne({ where: (where) => where.byId('post-1'), data: { increment: { views: 1 } } })
 `,
 		)
 		const deletion = readMarkedQuickInfo(
@@ -132,20 +133,18 @@ Post.query()./* hover */update({ increment: { views: 1 } })
 			`
 import { Schema, stringField } from '../../src/index.js'
 const Post = Schema.define({ className: 'Post', fields: { title: stringField() } })
-Post.query()./* hover */delete()
+Post./* hover */deleteOne({ where: (where) => where.byId('post-1') })
 `,
 		)
 
-		expect(readDisplay(update.displayParts)).toContain('update(input:')
+		expect(readDisplay(update.displayParts)).toContain('.updateOne(input:')
 		expect(readDisplay(update.documentation)).toContain(
-			'concise singular alias for `updateOne`',
+			'Updates one unique target',
 		)
 		expect(update.tags?.some(({ name }) => name === 'example')).toBe(true)
-		expect(readDisplay(deletion.displayParts)).toContain(
-			'delete(options?: QueryTerminalOptions)',
-		)
+		expect(readDisplay(deletion.displayParts)).toContain('.deleteOne(input:')
 		expect(readDisplay(deletion.documentation)).toContain(
-			'concise singular alias for `deleteOne`',
+			'Deletes one uniquely identified row',
 		)
 		expect(deletion.tags?.some(({ name }) => name === 'example')).toBe(true)
 	})
@@ -155,7 +154,7 @@ Post.query()./* hover */delete()
 		const sourceWithMarker = `
 import { Schema, stringField } from '../../src/index.js'
 const Post = Schema.define({ className: 'Post', fields: { title: stringField() } })
-Post.query().createMany([{ title: 'First' }], { ${marker} })
+Post.createMany([{ title: 'First' }], { ${marker} })
 `
 		const position = sourceWithMarker.indexOf(marker)
 		const source = sourceWithMarker.replace(marker, ' '.repeat(marker.length))
@@ -186,7 +185,7 @@ Post.query().createMany([{ title: 'First' }], { ${marker} })
 			`
 import { Schema, stringField } from '../../src/index.js'
 const Post = Schema.define({ className: 'Post', fields: { title: stringField() } })
-Post.query()./* hover */createMany([{ title: 'First' }], { atomic: false })
+Post./* hover */createMany([{ title: 'First' }], { atomic: false })
 `,
 		)
 		const terminalDisplay = readDisplay(terminal.displayParts)

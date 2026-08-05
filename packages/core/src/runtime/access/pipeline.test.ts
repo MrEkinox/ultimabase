@@ -169,10 +169,14 @@ describe('native Access pipeline integration', () => {
 		try {
 			await ultimabase.start()
 			await expect(
-				securedArticle
-					.query()
-					.byId('0198a43e-2431-7000-8000-000000000002')
-					.updateOne({ set: { title: 'Changed' } }, { ultimabase }),
+				securedArticle.updateOne(
+					{
+						where: (where) =>
+							where.equalTo('id', '0198a43e-2431-7000-8000-000000000002'),
+						data: { set: { title: 'Changed' } },
+					},
+					{ ultimabase },
+				),
 			).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
 			expect(trace).toStrictEqual([
 				'adapter:begin',

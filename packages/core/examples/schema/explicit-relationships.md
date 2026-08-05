@@ -70,7 +70,7 @@ identity. Pointer targets remain exactly typed in create inputs, persisted
 models, filters, and selections:
 
 ```ts
-const membership = await Membership.query().create({
+const membership = await Membership.create({
 	member: Member.pointer(memberId),
 	position: 1,
 	project: Project.pointer(projectId),
@@ -90,9 +90,9 @@ other schema:
 
 ```ts
 await request.transaction(async () => {
-	const project = await Project.query().create({ title: 'Relations' })
+	const project = await Project.create({ title: 'Relations' })
 
-	await Membership.query().create({
+	await Membership.create({
 		member: Member.pointer(memberId),
 		project: Project.pointer(project.id),
 		role: 'editor',

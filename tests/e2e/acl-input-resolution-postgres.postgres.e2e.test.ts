@@ -141,7 +141,7 @@ beforeAll(async () => {
 		schemas: [ResolutionPost],
 	})
 	await ultimabase.start()
-	const created = await ResolutionPost.query().create(
+	const created = await ResolutionPost.create(
 		{ acl: emptyACL, note: 'remove-me', title: 'current' },
 		{ ultimabase, useMasterKey: true },
 	)
@@ -174,11 +174,10 @@ describe('ACL input resolution with PostgreSQL', { concurrent: false }, () => {
 			update: undefined,
 		})
 
-		const updated = await ResolutionPost.query()
-			.byId(id)
-			.select('acl', 'balance', 'labels', 'status', 'title', 'views')
-			.update(
-				{
+		const updated = await ResolutionPost.updateOne(
+			{
+				where: (where) => where.equalTo('id', id),
+				data: {
 					increment: { balance: '1.50', views: 3 },
 					set: {
 						acl: replacement,
@@ -187,8 +186,9 @@ describe('ACL input resolution with PostgreSQL', { concurrent: false }, () => {
 					},
 					unset: ['note'],
 				},
-				masterOptions,
-			)
+			},
+			masterOptions,
+		)
 
 		expect(updated).toMatchObject({
 			acl: replacement,
@@ -248,15 +248,16 @@ describe('ACL input resolution with PostgreSQL', { concurrent: false }, () => {
 		const countBeforeRollback = resolutionCount
 
 		await expect(
-			ResolutionPost.query()
-				.byId(id)
-				.update(
-					{
+			ResolutionPost.updateOne(
+				{
+					where: (where) => where.equalTo('id', id),
+					data: {
 						decrement: { balance: '0.25', views: 1 },
 						set: { acl: new ACL(), title: 'rollback-candidate' },
 					},
-					masterOptions,
-				),
+				},
+				masterOptions,
+			),
 		).rejects.toThrow('ACL resolver requested rollback')
 		expect(rollbackResolution?.data).toMatchObject({
 			balance: '11.25',
@@ -277,10 +278,13 @@ describe('ACL input resolution with PostgreSQL', { concurrent: false }, () => {
 
 		const countBeforeOrdinaryUpdate = resolutionCount
 		await expect(
-			ResolutionPost.query()
-				.byId(id)
-				.select('status')
-				.update({ set: { status: 'ordinary' } }, masterOptions),
+			ResolutionPost.updateOne(
+				{
+					where: (where) => where.equalTo('id', id),
+					data: { set: { status: 'ordinary' } },
+				},
+				masterOptions,
+			),
 		).resolves.toMatchObject({ status: 'ordinary' })
 		expect(resolutionCount).toBe(countBeforeOrdinaryUpdate)
 	})

@@ -171,8 +171,8 @@ const request = ultimabase.engine.anonymous({
 	source: requestSources.internal,
 })
 
-const post = await request.transaction(async (transaction) => {
-	return transaction.query(PostSchema).create({ title: 'Atomic post' })
+const post = await request.transaction(async () => {
+	return PostSchema.create({ title: 'Atomic post' })
 })
 ```
 
@@ -183,9 +183,9 @@ for every mutation is introduced separately by Core issue 329.
 Inside that transaction, singular mutations use Core's prepared-mutation
 protocol. Creates defer their write until the prepared handle executes. Updates
 and deletes first lock one deterministic full target, then write by its retained
-identifier and return two separate views: the developer's exact selection and a
-private complete logical materialization for native field hooks. Handles are
-single-use and expire with their borrowed transaction client.
+identifier and return a complete immutable model. Pointer and relation fields
+remain unloaded references. Handles are single-use and expire with their
+borrowed transaction client.
 
 Atomic create-many uses one ordered multi-row insert. Non-atomic create-many and
 upsert-many isolate each item with a PostgreSQL savepoint, stop at the first
@@ -200,10 +200,10 @@ PostgreSQL client as the primary mutation. A hook may therefore start another
 typed query without receiving a pool, Drizzle client, or explicit transaction:
 
 ```ts
-hooks: {
+	hooks: {
 	beforeCreate: async ({ operation }) => {
 		if (operation.kind === 'create-one') {
-			await AuditSchema.query().create({
+			await AuditSchema.create({
 				action: `create:${operation.input.title}`,
 			})
 		}
@@ -222,14 +222,15 @@ semantics.
 
 ## CRUD, bulk, and upsert execution
 
-After `ultimabase.start()` prepares the static schemas, a direct query can
-create, read, filter, project, update, and delete PostgreSQL rows without SQL or
-Drizzle in developer code:
+After `ultimabase.start()` prepares the static schemas, Query handles reads and
+the generated schema class handles writes without SQL or Drizzle in developer
+code:
 
 ```ts
-const created = await ultimabase.query(ArticleSchema).create({
-	title: 'Runtime to PostgreSQL',
-})
+const created = await ArticleSchema.create(
+	{ title: 'Runtime to PostgreSQL' },
+	{ ultimabase },
+)
 
 const found = await ultimabase
 	.query(ArticleSchema)
@@ -237,15 +238,18 @@ const found = await ultimabase
 	.select('id', 'title')
 	.first()
 
-const updated = await ultimabase
-	.query(ArticleSchema)
-	.equalTo('id', created.id)
-	.updateOne({ set: { title: 'Updated' } })
+const updated = await ArticleSchema.updateOne(
+	{
+		where: (where) => where.byId(created.id),
+		data: { set: { title: 'Updated' } },
+	},
+	{ ultimabase },
+)
 
-const deleted = await ultimabase
-	.query(ArticleSchema)
-	.equalTo('id', created.id)
-	.deleteOne()
+const deleted = await ArticleSchema.deleteOne(
+	{ where: (where) => where.byId(created.id) },
+	{ ultimabase },
+)
 ```
 
 Runtime generates UUID v7 identifiers and automatic timestamps once; the
@@ -263,7 +267,7 @@ single set-based statements returning only their affected counts. Resumed
 opaque cursor tokens are not yet executable.
 
 ```ts
-const imported = await ArticleSchema.query().createMany(rows, {
+const imported = await ArticleSchema.createMany(rows, {
 	atomic: false,
 	ultimabase,
 })
@@ -272,15 +276,14 @@ if (imported.status === 'stopped') {
 	console.log(imported.failedIndex, imported.results)
 }
 
-const article = await ArticleSchema.query()
-	.equalTo('slug', 'runtime-postgres')
-	.upsert(
-		{
-			create: { slug: 'runtime-postgres', title: 'Runtime + PostgreSQL' },
-			update: { set: { title: 'Runtime + PostgreSQL' } },
-		},
-		{ ultimabase },
-	)
+const article = await ArticleSchema.upsert(
+	{
+		where: (where) => where.equalTo('slug', 'runtime-postgres'),
+		create: { slug: 'runtime-postgres', title: 'Runtime + PostgreSQL' },
+		update: { set: { title: 'Runtime + PostgreSQL' } },
+	},
+	{ ultimabase },
+)
 ```
 
 ## Primitive schema compilation
@@ -452,7 +455,7 @@ const Post = Schema.define({
 })
 
 const author = User.pointer('0198f090-2a50-7000-8000-000000000034')
-const created = await Post.query().create({ author }, { ultimabase })
+const created = await Post.create({ author }, { ultimabase })
 const found = await Post.query()
 	.equalTo('author', author)
 	.include('author', (query) => query.select('id', 'name'))

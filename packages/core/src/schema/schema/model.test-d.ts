@@ -3,6 +3,8 @@ import { expectTypeOf, test } from 'vitest'
 import { RequestContext } from '../../runtime/context/request-context.js'
 import type { Query } from '../../query/query/query.js'
 import type { InferQueryResult } from '../../query/query/result.js'
+import type { NonAtomicBulkResult } from '../../query/operations/contracts.js'
+import type { SchemaWhere } from '../../query/operations/schema-commands.js'
 import { booleanField } from '../fields/builtins/boolean.js'
 import { objectField } from '../fields/builtins/object.js'
 import { stringField } from '../fields/builtins/string.js'
@@ -60,7 +62,7 @@ test('infers exact immutable drafts from the generated constructor', () => {
 	expectTypeOf(
 		draft.upsert({
 			update: { set: { title: 'Updated' } },
-			where: { title: 'Hello' },
+			where: (where) => where.equalTo('title', 'Hello'),
 		}),
 	).toEqualTypeOf<Promise<SchemaResult<typeof Post>>>()
 
@@ -74,13 +76,73 @@ test('infers exact immutable drafts from the generated constructor', () => {
 	draft.get('missing')
 	expectTypeOf(draft).not.toHaveProperty('update')
 	expectTypeOf(draft).not.toHaveProperty('delete')
-	// @ts-expect-error -- Upsert targets require at least one exact field value.
+	// @ts-expect-error -- Upsert targets use the filter-only callback surface.
 	void draft.upsert({ update: { set: { title: 'Updated' } }, where: {} })
 	void draft.upsert({
 		update: { set: { title: 'Updated' } },
-		// @ts-expect-error -- Upsert equality values retain their exact field types.
-		where: { title: 1 },
+		where: (where) =>
+			// @ts-expect-error -- Upsert equality values retain their exact field types.
+			where.equalTo('title', 1),
 	})
+})
+
+test('exposes writes on the schema class and keeps Query read-only', () => {
+	const readQuery = Post.query().equalTo('published', false)
+
+	expectTypeOf(Post.create({ title: 'Created' })).toEqualTypeOf<
+		Promise<InferQueryResult<typeof Post>>
+	>()
+	expectTypeOf(
+		Post.createMany([{ title: 'First' }, { title: 'Second' }]),
+	).toEqualTypeOf<Promise<readonly InferQueryResult<typeof Post>[]>>()
+	expectTypeOf(
+		Post.createMany([{ title: 'First' }], { atomic: false }),
+	).toEqualTypeOf<Promise<NonAtomicBulkResult<InferQueryResult<typeof Post>>>>()
+	expectTypeOf(
+		Post.updateOne({
+			where: (where) => where.byId('post-1'),
+			data: { set: { title: 'Updated' } },
+		}),
+	).toEqualTypeOf<Promise<InferQueryResult<typeof Post> | null>>()
+	expectTypeOf(
+		Post.updateMany({
+			where: (where) => where.equalTo('published', false),
+			data: { set: { published: true } },
+		}),
+	).toEqualTypeOf<Promise<number>>()
+	expectTypeOf(
+		Post.deleteOne({
+			where: (where) => where.byId('post-1'),
+		}),
+	).toEqualTypeOf<Promise<InferQueryResult<typeof Post> | null>>()
+	expectTypeOf(Post.deleteMany({ where: 'all' })).toEqualTypeOf<
+		Promise<number>
+	>()
+	expectTypeOf(
+		Post.upsert({
+			where: (where) => where.equalTo('id', 'post-1'),
+			create: { title: 'Created' },
+			update: { set: { title: 'Updated' } },
+		}),
+	).toEqualTypeOf<Promise<InferQueryResult<typeof Post>>>()
+	expectTypeOf(
+		Post.upsertMany([
+			{
+				where: (where) => where.equalTo('id', 'post-1'),
+				create: { title: 'Created' },
+				update: { set: { title: 'Updated' } },
+			},
+		]),
+	).toEqualTypeOf<Promise<readonly InferQueryResult<typeof Post>[]>>()
+
+	expectTypeOf(readQuery).not.toHaveProperty('create')
+	expectTypeOf(readQuery).not.toHaveProperty('updateOne')
+	expectTypeOf(readQuery).not.toHaveProperty('deleteMany')
+	expectTypeOf(readQuery).not.toHaveProperty('upsert')
+	expectTypeOf<SchemaWhere<typeof Post>>().not.toHaveProperty('select')
+	expectTypeOf<SchemaWhere<typeof Post>>().not.toHaveProperty('find')
+	// @ts-expect-error -- Set-based mutations require an explicit predicate or `all`.
+	void Post.deleteMany({})
 })
 
 test('infers package-owned commands only on persisted results', async () => {
@@ -139,16 +201,10 @@ test('retains exact schema and selection types through static Query access', () 
 		Readonly<{ readonly id: string; readonly title: string }>
 	>()
 	expectTypeOf(selected.update({ set: { title: 'Updated' } })).toEqualTypeOf<
-		Promise<SchemaResult<
-			typeof Post,
-			Readonly<{ readonly id: string; readonly title: string }>
-		> | null>
+		Promise<SchemaResult<typeof Post> | null>
 	>()
 	expectTypeOf(selected.delete()).toEqualTypeOf<
-		Promise<SchemaResult<
-			typeof Post,
-			Readonly<{ readonly id: string; readonly title: string }>
-		> | null>
+		Promise<SchemaResult<typeof Post> | null>
 	>()
 	expectTypeOf<SchemaResult<typeof Post>>().toHaveProperty('updatedAt')
 	const context = RequestContext.anonymous({

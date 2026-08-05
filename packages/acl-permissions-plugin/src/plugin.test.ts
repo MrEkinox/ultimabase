@@ -423,7 +423,7 @@ describe('aclPlugin create input resolution', () => {
 		try {
 			await ultimabase.start()
 			await expect(
-				DynamicRolePost.query().create({ title: 'Dynamic' }, { ultimabase }),
+				DynamicRolePost.create({ title: 'Dynamic' }, { ultimabase }),
 			).rejects.toThrow(
 				'ACL role grants require a role resolver with current-role enumeration',
 			)
@@ -627,10 +627,9 @@ describe('aclPlugin create input resolution', () => {
 		try {
 			await ultimabase.start()
 			await expect(
-				BatchPost.query().createMany(
-					[{ title: 'Accepted' }, { title: 'Oversized' }],
-					{ ultimabase },
-				),
+				BatchPost.createMany([{ title: 'Accepted' }, { title: 'Oversized' }], {
+					ultimabase,
+				}),
 			).rejects.toMatchObject({
 				code: 'VALIDATION_ERROR',
 				internalDetails: { kind: 'acl-entry-limit' },
@@ -644,10 +643,7 @@ describe('aclPlugin create input resolution', () => {
 			})
 
 			await expect(
-				OverridePost.query().create(
-					{ title: 'Schema override' },
-					{ ultimabase },
-				),
+				OverridePost.create({ title: 'Schema override' }, { ultimabase }),
 			).rejects.toThrow('ACL limit fixture stops after adapter preparation')
 			expect(adapter.transactions[1]).toMatchObject({
 				commitCount: 0,
@@ -906,28 +902,27 @@ describe('aclPlugin create input resolution', () => {
 			await ultimabase.start()
 			const attempts = [
 				() =>
-					ProtectedPost.query().updateMany(
-						{ set: { acl: replacement } },
+					ProtectedPost.updateMany(
+						{ where: 'all', data: { set: { acl: replacement } } },
 						masterOptions,
 					),
 				() =>
-					ProtectedPost.query()
-						.byId('0198a43e-2431-7000-8000-000000000032')
-						.upsert(
-							{
-								create: { title: 'Created' },
-								update: { set: { acl: replacement } },
-							},
-							masterOptions,
-						),
+					ProtectedPost.upsert(
+						{
+							where: (where) =>
+								where.equalTo('id', '0198a43e-2431-7000-8000-000000000032'),
+							create: { title: 'Created' },
+							update: { set: { acl: replacement } },
+						},
+						masterOptions,
+					),
 				() =>
-					ProtectedPost.query().upsertMany(
+					ProtectedPost.upsertMany(
 						[
 							{
 								create: { title: 'Created' },
-								query: ProtectedPost.query().byId(
-									'0198a43e-2431-7000-8000-000000000033',
-								),
+								where: (where) =>
+									where.equalTo('id', '0198a43e-2431-7000-8000-000000000033'),
 								update: { set: { acl: replacement } },
 							},
 						],
@@ -942,8 +937,8 @@ describe('aclPlugin create input resolution', () => {
 			}
 
 			await expect(
-				ProtectedPost.query().updateMany(
-					{ set: { acl: replacement } },
+				ProtectedPost.updateMany(
+					{ where: 'all', data: { set: { acl: replacement } } },
 					{ ultimabase },
 				),
 			).rejects.toMatchObject({

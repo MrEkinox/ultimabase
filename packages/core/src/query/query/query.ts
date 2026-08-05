@@ -402,10 +402,9 @@ export class Query<
 	/**
 	 * Adds an equality filter for the framework-owned object identifier.
 	 *
-	 * Existing filters and selections are preserved, so the resulting branch can
-	 * execute any singular or collection terminal without repeating the `id` field.
+	 * Existing filters and selections are preserved for the next read terminal.
 	 *
-	 * @example `query.byId(post.id).updateOne({ set: { title: "Updated" } })`
+	 * @example `const post = await Post.query().byId(postId).first()`
 	 */
 	byId(
 		id: OperationObjectId<TSchema>,
@@ -749,230 +748,6 @@ export class Query<
 		return this.#execute(operation, fieldNameOrOptions)
 	}
 
-	/** Creates one object from its schema-derived input. */
-	createOne(
-		input: InferCreateInput<TSchema>,
-		options?: QueryTerminalOptions,
-	): Promise<InferQueryResult<TSchema>> {
-		const operation: CreateOneOperationAst<TSchema> = immutableRecord({
-			kind: 'create-one',
-			schema: this.ast.schema,
-			input,
-		})
-
-		return this.#execute(operation, options)
-	}
-
-	/** Provides the concise Parse-inspired alias for singular creation. */
-	create(
-		input: InferCreateInput<TSchema>,
-		options?: QueryTerminalOptions,
-	): Promise<InferQueryResult<TSchema>> {
-		return this.createOne(input, options)
-	}
-
-	/**
-	 * Creates objects in input order and keeps them atomic by default.
-	 *
-	 * Passing `{ atomic: false }` returns a discriminated result containing either
-	 * every created model or the committed prefix and first failed input index.
-	 *
-	 * @example `await Post.query().createMany(inputs, { atomic: false, ultimabase })`
-	 */
-	createMany<
-		const TOptions extends QueryBulkTerminalOptions | undefined = undefined,
-	>(
-		inputs: readonly InferCreateInput<TSchema>[],
-		options?: TOptions & QueryBulkTerminalOptions,
-	): Promise<QueryBulkTerminalResult<InferQueryResult<TSchema>, TOptions>> {
-		const normalizedOptions =
-			normalizeQueryBulkTerminalOptions<TOptions>(options)
-		const operation: CreateManyOperationAst<
-			TSchema,
-			QueryBulkAtomic<TOptions>
-		> = immutableRecord({
-			kind: 'create-many',
-			schema: this.ast.schema,
-			inputs: snapshotCreateInputs(inputs),
-			options: normalizedOptions.bulk,
-		})
-
-		// Runtime validates the normalized atomic discriminant before mapping the
-		// option-specific public collection result.
-		return executeQueryTerminal(operation, normalizedOptions)
-	}
-
-	/** Updates the first match through one normalized atomic expression. */
-	updateOne(
-		input: UpdateExpressionInput<TSchema> & {},
-		options?: QueryTerminalOptions,
-	): Promise<InferQueryResult<
-		TSchema,
-		TSelectedField,
-		TIncludedPointer
-	> | null> {
-		const operation: UpdateOneOperationAst<
-			TSchema,
-			UpdateExpression<TSchema>,
-			QueryFilterNode<TSchema>,
-			TSelectedField,
-			TIncludedPointer
-		> = immutableRecord({
-			kind: 'update-one',
-			query: this.ast,
-			update: normalizeUpdateExpression(this.schema, input),
-		})
-
-		return this.#execute(operation, options)
-	}
-
-	/**
-	 * Provides the concise singular alias for `updateOne`.
-	 *
-	 * Collection updates remain explicit through `updateMany` because they return
-	 * an affected count rather than one selection-aware object.
-	 *
-	 * @example `await Post.query().byId(id).update({ set: { title: 'Updated' } })`
-	 */
-	update(
-		input: UpdateExpressionInput<TSchema> & {},
-		options?: QueryTerminalOptions,
-	): Promise<InferQueryResult<
-		TSchema,
-		TSelectedField,
-		TIncludedPointer
-	> | null> {
-		return this.updateOne(input, options)
-	}
-
-	/** Updates every match and returns the affected count. */
-	updateMany(
-		input: UpdateExpressionInput<TSchema> & {},
-		options?: QueryTerminalOptions,
-	): Promise<number> {
-		const operation: UpdateManyOperationAst<
-			TSchema,
-			UpdateExpression<TSchema>,
-			QueryFilterNode<TSchema>,
-			TSelectedField
-		> = immutableRecord({
-			kind: 'update-many',
-			query: this.ast,
-			update: normalizeUpdateExpression(this.schema, input),
-		})
-
-		return this.#execute(operation, options)
-	}
-
-	/** Upserts one unique match while retaining this query's selection. */
-	upsertOne(
-		input: UpsertInput<TSchema> & {},
-		options?: QueryTerminalOptions,
-	): Promise<InferQueryResult<TSchema, TSelectedField, TIncludedPointer>> {
-		const normalizedInput = normalizeUpsertInput(this.schema, input)
-		const operation: UpsertOneOperationAst<
-			TSchema,
-			UpdateExpression<TSchema>,
-			QueryFilterNode<TSchema>,
-			TSelectedField,
-			TIncludedPointer
-		> = immutableRecord({
-			kind: 'upsert-one',
-			query: this.ast,
-			target: normalizeUniqueUpsertTarget(this.schema, this.ast),
-			...normalizedInput,
-		})
-
-		return this.#execute(operation, options)
-	}
-
-	/** Provides the concise alias for the singular unique-target operation. */
-	upsert(
-		input: UpsertInput<TSchema> & {},
-		options?: QueryTerminalOptions,
-	): Promise<InferQueryResult<TSchema, TSelectedField, TIncludedPointer>> {
-		return this.upsertOne(input, options)
-	}
-
-	/**
-	 * Upserts independently targeted items in input order.
-	 *
-	 * Passing `{ atomic: false }` exposes the same explicit stopped-prefix result
-	 * as `createMany` while the default remains one all-or-nothing transaction.
-	 *
-	 * @example `await Post.query().upsertMany(items, { atomic: false, ultimabase })`
-	 */
-	upsertMany<
-		const TOptions extends QueryBulkTerminalOptions | undefined = undefined,
-	>(
-		inputs: readonly UpsertManyItemInput<TSchema>[],
-		options?: TOptions & QueryBulkTerminalOptions,
-	): Promise<QueryBulkTerminalResult<InferQueryResult<TSchema>, TOptions>> {
-		const normalizedOptions =
-			normalizeQueryBulkTerminalOptions<TOptions>(options)
-		const operation: UpsertManyOperationAst<
-			TSchema,
-			UpdateExpression<TSchema>,
-			QueryFilterNode<TSchema>,
-			QueryBulkAtomic<TOptions>
-		> = immutableRecord({
-			kind: 'upsert-many',
-			schema: this.ast.schema,
-			items: normalizeUpsertItems(this.schema, inputs),
-			options: normalizedOptions.bulk,
-		})
-
-		// The adapter result follows the same atomic literal normalized above.
-		return executeQueryTerminal(operation, normalizedOptions)
-	}
-
-	/** Deletes and returns the first match, or `null` when absent. */
-	deleteOne(
-		options?: QueryTerminalOptions,
-	): Promise<InferQueryResult<
-		TSchema,
-		TSelectedField,
-		TIncludedPointer
-	> | null> {
-		const operation: DeleteOneOperationAst<
-			TSchema,
-			QueryFilterNode<TSchema>,
-			TSelectedField,
-			TIncludedPointer
-		> = immutableRecord({ kind: 'delete-one', query: this.ast })
-
-		return this.#execute(operation, options)
-	}
-
-	/**
-	 * Provides the concise singular alias for `deleteOne`.
-	 *
-	 * Collection deletion remains explicit through `deleteMany` because it is a
-	 * set-based operation returning an affected count.
-	 *
-	 * @example `await Post.query().byId(id).delete()`
-	 */
-	delete(
-		options?: QueryTerminalOptions,
-	): Promise<InferQueryResult<
-		TSchema,
-		TSelectedField,
-		TIncludedPointer
-	> | null> {
-		return this.deleteOne(options)
-	}
-
-	/** Deletes every match without loading objects and returns its count. */
-	deleteMany(options?: QueryTerminalOptions): Promise<number> {
-		const operation: DeleteManyOperationAst<
-			TSchema,
-			QueryFilterNode<TSchema>,
-			TSelectedField
-		> = immutableRecord({ kind: 'delete-many', query: this.ast })
-
-		return this.#execute(operation, options)
-	}
-
 	#order(
 		direction: QueryOrderDirection,
 		fields: readonly QueryFieldName<TSchema>[],
@@ -1177,9 +952,11 @@ export const scopeQueryToRelation = <
  */
 export const executeQueryWithPrivateScope = <
 	const TSchema extends SchemaDefinition,
+	TSelectedField extends QueryFieldName<TSchema>,
+	TIncludedPointer,
 	const TOperation extends OperationAstNode,
 >(
-	query: Query<TSchema>,
+	query: Query<TSchema, TSelectedField, TIncludedPointer>,
 	operation: TOperation,
 	options?: QueryTerminalOptions,
 ): Promise<InferOperationResult<TOperation>> =>
@@ -1188,3 +965,185 @@ export const executeQueryWithPrivateScope = <
 		normalizeQueryTerminalOptions(options),
 		readQueryPrivateScope(query),
 	)
+
+/** Executes one schema-owned create command without inventing a meaningless Query. */
+export const executeSchemaCreate = <const TSchema extends SchemaDefinition>(
+	schema: TSchema,
+	input: InferCreateInput<TSchema>,
+	options?: QueryTerminalOptions,
+): Promise<InferQueryResult<TSchema>> => {
+	const operation: CreateOneOperationAst<TSchema> = immutableRecord({
+		kind: 'create-one',
+		schema: createQueryAst(schema).schema,
+		input,
+	})
+
+	return executeQueryTerminal(operation, normalizeQueryTerminalOptions(options))
+}
+
+/** Executes one ordered schema-owned bulk create command. */
+export const executeSchemaCreateMany = <
+	const TSchema extends SchemaDefinition,
+	const TOptions extends QueryBulkTerminalOptions | undefined = undefined,
+>(
+	schema: TSchema,
+	inputs: readonly InferCreateInput<TSchema>[],
+	options?: TOptions & QueryBulkTerminalOptions,
+): Promise<QueryBulkTerminalResult<InferQueryResult<TSchema>, TOptions>> => {
+	const normalizedOptions = normalizeQueryBulkTerminalOptions<TOptions>(options)
+	const operation: CreateManyOperationAst<
+		TSchema,
+		QueryBulkAtomic<TOptions>
+	> = immutableRecord({
+		kind: 'create-many',
+		schema: createQueryAst(schema).schema,
+		inputs: snapshotCreateInputs(inputs),
+		options: normalizedOptions.bulk,
+	})
+
+	return executeQueryTerminal(operation, normalizedOptions)
+}
+
+/** Executes one singular update while retaining private Query restrictions. */
+export const executeQueryUpdateOne = <
+	const TSchema extends SchemaDefinition,
+	TSelectedField extends QueryFieldName<TSchema>,
+	TIncludedPointer,
+>(
+	query: Query<TSchema, TSelectedField, TIncludedPointer>,
+	input: UpdateExpressionInput<TSchema> & {},
+	options?: QueryTerminalOptions,
+): Promise<InferQueryResult<
+	TSchema,
+	TSelectedField,
+	TIncludedPointer
+> | null> => {
+	const operation: UpdateOneOperationAst<
+		TSchema,
+		UpdateExpression<TSchema>,
+		QueryFilterNode<TSchema>,
+		TSelectedField,
+		TIncludedPointer
+	> = immutableRecord({
+		kind: 'update-one',
+		query: query.ast,
+		update: normalizeUpdateExpression(query.schema, input),
+	})
+
+	return executeQueryWithPrivateScope(query, operation, options)
+}
+
+/** Executes one set-based update while retaining private Query restrictions. */
+export const executeQueryUpdateMany = <
+	const TSchema extends SchemaDefinition,
+	TSelectedField extends QueryFieldName<TSchema>,
+>(
+	query: Query<TSchema, TSelectedField>,
+	input: UpdateExpressionInput<TSchema> & {},
+	options?: QueryTerminalOptions,
+): Promise<number> => {
+	const operation: UpdateManyOperationAst<
+		TSchema,
+		UpdateExpression<TSchema>,
+		QueryFilterNode<TSchema>,
+		TSelectedField
+	> = immutableRecord({
+		kind: 'update-many',
+		query: query.ast,
+		update: normalizeUpdateExpression(query.schema, input),
+	})
+
+	return executeQueryWithPrivateScope(query, operation, options)
+}
+
+/** Executes one unique-target upsert while retaining private Query restrictions. */
+export const executeQueryUpsert = <
+	const TSchema extends SchemaDefinition,
+	TSelectedField extends QueryFieldName<TSchema>,
+	TIncludedPointer,
+>(
+	query: Query<TSchema, TSelectedField, TIncludedPointer>,
+	input: UpsertInput<TSchema> & {},
+	options?: QueryTerminalOptions,
+): Promise<InferQueryResult<TSchema, TSelectedField, TIncludedPointer>> => {
+	const normalizedInput = normalizeUpsertInput(query.schema, input)
+	const operation: UpsertOneOperationAst<
+		TSchema,
+		UpdateExpression<TSchema>,
+		QueryFilterNode<TSchema>,
+		TSelectedField,
+		TIncludedPointer
+	> = immutableRecord({
+		kind: 'upsert-one',
+		query: query.ast,
+		target: normalizeUniqueUpsertTarget(query.schema, query.ast),
+		...normalizedInput,
+	})
+
+	return executeQueryWithPrivateScope(query, operation, options)
+}
+
+/** Executes independently targeted upsert items without a container Query. */
+export const executeSchemaUpsertMany = <
+	const TSchema extends SchemaDefinition,
+	const TOptions extends QueryBulkTerminalOptions | undefined = undefined,
+>(
+	schema: TSchema,
+	inputs: readonly UpsertManyItemInput<TSchema>[],
+	options?: TOptions & QueryBulkTerminalOptions,
+): Promise<QueryBulkTerminalResult<InferQueryResult<TSchema>, TOptions>> => {
+	const normalizedOptions = normalizeQueryBulkTerminalOptions<TOptions>(options)
+	const operation: UpsertManyOperationAst<
+		TSchema,
+		UpdateExpression<TSchema>,
+		QueryFilterNode<TSchema>,
+		QueryBulkAtomic<TOptions>
+	> = immutableRecord({
+		kind: 'upsert-many',
+		schema: createQueryAst(schema).schema,
+		items: normalizeUpsertItems(schema, inputs),
+		options: normalizedOptions.bulk,
+	})
+
+	return executeQueryTerminal(operation, normalizedOptions)
+}
+
+/** Executes one singular delete while retaining private Query restrictions. */
+export const executeQueryDeleteOne = <
+	const TSchema extends SchemaDefinition,
+	TSelectedField extends QueryFieldName<TSchema>,
+	TIncludedPointer,
+>(
+	query: Query<TSchema, TSelectedField, TIncludedPointer>,
+	options?: QueryTerminalOptions,
+): Promise<InferQueryResult<
+	TSchema,
+	TSelectedField,
+	TIncludedPointer
+> | null> => {
+	const operation: DeleteOneOperationAst<
+		TSchema,
+		QueryFilterNode<TSchema>,
+		TSelectedField,
+		TIncludedPointer
+	> = immutableRecord({ kind: 'delete-one', query: query.ast })
+
+	return executeQueryWithPrivateScope(query, operation, options)
+}
+
+/** Executes one set-based delete while retaining private Query restrictions. */
+export const executeQueryDeleteMany = <
+	const TSchema extends SchemaDefinition,
+	TSelectedField extends QueryFieldName<TSchema>,
+>(
+	query: Query<TSchema, TSelectedField>,
+	options?: QueryTerminalOptions,
+): Promise<number> => {
+	const operation: DeleteManyOperationAst<
+		TSchema,
+		QueryFilterNode<TSchema>,
+		TSelectedField
+	> = immutableRecord({ kind: 'delete-many', query: query.ast })
+
+	return executeQueryWithPrivateScope(query, operation, options)
+}

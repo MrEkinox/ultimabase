@@ -308,7 +308,7 @@ typed values:
 
 ```ts
 const allPosts = await PostSchema.query().find({ useMasterKey: true })
-const imported = await PostSchema.query().createMany(rows, {
+const imported = await PostSchema.createMany(rows, {
 	context: contextCreatedByAuthPlugin,
 	ultimabase,
 	useMasterKey: true,
@@ -327,7 +327,7 @@ configured database adapter's transaction lifecycle. Developer code keeps the
 same concise API:
 
 ```ts
-const post = await PostSchema.query().create(
+const post = await PostSchema.create(
 	{ title: 'Atomic by default' },
 	{ ultimabase },
 )
@@ -342,7 +342,7 @@ persistence failure and returns the committed-prefix candidate explicitly. The
 prefix still commits only after every result and finalization hook succeeds.
 
 ```ts
-const imported = await PostSchema.query().createMany(rows, {
+const imported = await PostSchema.createMany(rows, {
 	atomic: false,
 	ultimabase,
 })
@@ -353,20 +353,21 @@ if (imported.status === 'stopped') {
 ```
 
 Database plugins prepare each transaction-bound mutation through one opaque,
-single-use handle. Its execution keeps the exact public result separate from
-complete logical materializations used by native field hooks. A narrow
-selection therefore stays narrow without depriving hooks of the values needed
-to enforce business invariants:
+single-use handle. Its execution keeps the complete public model separate from
+the logical materializations used by native field hooks. Write commands never
+accept read projections or implicit relation loading:
 
 ```ts
-const updated = await PostSchema.query()
-	.select('id')
-	.update(
-		{ set: { title: 'Visible only to the hook outcome' } },
-		{ ultimabase },
-	)
+const updated = await PostSchema.updateOne(
+	{
+		where: (where) => where.byId(postId),
+		data: { set: { title: 'Updated' } },
+	},
+	{ ultimabase },
+)
 
-// The developer result remains exactly `{ readonly id: string } | null`.
+// Pointer and relation fields remain unloaded references until queried.
+const authors = await updated?.author.query().find()
 ```
 
 This protocol belongs to database-adapter authors rather than application code.
@@ -414,8 +415,11 @@ Runtime queries and mutations return immutable `PostSchema` instances only after
 hooks and field restrictions finish. `get(field)` and `toJSON()` expose only the
 fields visible in that result, so a selected result cannot recover omitted data.
 Draft `create` and `upsert` plus persisted `update` and `delete` are immutable
-convenience commands over the same Query pipeline. Collection writes remain on
-`PostSchema.query()`, and models deliberately expose no mutable `save()` method.
+convenience commands over the same Runtime pipeline. A mutation starts without
+the receiver's read projection and therefore returns the complete model allowed
+by Access. Collection writes live on the generated schema class, while
+`PostSchema.query()` remains read-only and models deliberately expose no mutable
+`save()` method.
 
 ## Native Access and schema hooks
 
@@ -671,7 +675,7 @@ const PostSchema = Schema.define({
 	hooks: {
 		beforeCreate: async ({ context, operation }) => {
 			if (operation.kind === 'create-one') {
-				await AuditSchema.query().create({
+				await AuditSchema.create({
 					action: 'post.create',
 				})
 				context.emit('post.created', { title: operation.input.title })

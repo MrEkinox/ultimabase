@@ -207,7 +207,7 @@ describe('createFrameworkEngine', () => {
 			source: 'internal',
 		})
 		const result = await runWithRequestEngine(request, () =>
-			articleSchema.query().create({ title: '  assembled  ' }),
+			articleSchema.create({ title: '  assembled  ' }),
 		)
 
 		expect(result.title).toBe('assembled')
@@ -415,9 +415,7 @@ describe('createFrameworkEngine', () => {
 			source: 'internal',
 		})
 		await expect(
-			runWithRequestEngine(request, () =>
-				schema.query().create({ title: 'Rejected' }),
-			),
+			runWithRequestEngine(request, () => schema.create({ title: 'Rejected' })),
 		).rejects.toBe(failure)
 		expect(trace).toStrictEqual([
 			'adapter:begin',
@@ -482,7 +480,7 @@ describe('createFrameworkEngine', () => {
 		})
 		await expect(
 			runWithRequestEngine(request, () =>
-				articleSchema.query().create({ title: 'initial' }),
+				articleSchema.create({ title: 'initial' }),
 			),
 		).rejects.toBe(denial)
 		expect(trace).toStrictEqual([

@@ -1,4 +1,4 @@
-import { definePlugin, FrameworkError } from '../../foundation.js'
+import { definePlugin } from '../../foundation.js'
 import {
 	pointerField,
 	Schema,
@@ -296,18 +296,13 @@ describe('pointer Runtime execution', () => {
 		}
 	})
 
-	it('rolls back a pointer update when an included target hook fails', async () => {
-		const failure = new FrameworkError(
-			'PERMISSION_DENIED',
-			'Included target business hook failed',
-			{ internalDetails: { kind: 'business-hook-denied' } },
-		)
+	it('returns an unloaded pointer from a complete mutation result', async () => {
 		const failingTarget = Schema.define({
 			className: 'PointerRuntimeFailingTarget',
 			fields: { name: stringField() },
 			hooks: {
 				afterFind: () => {
-					throw failure
+					throw new TypeError('Mutation results must not load pointer targets')
 				},
 			},
 		})
@@ -335,9 +330,8 @@ describe('pointer Runtime execution', () => {
 					],
 					status: 'fulfilled',
 					target: { ...current, title: 'Old' },
-					value: { target },
+					value: current,
 				},
-				{ status: 'fulfilled', value: { name: 'Failure' } },
 			],
 			trace,
 		)
@@ -348,76 +342,21 @@ describe('pointer Runtime execution', () => {
 
 		try {
 			await ultimabase.start()
-			await expect(
-				mutationSource
-					.query()
-					.byId(current.id)
-					.select('target')
-					.include('target', (query) => query.select('name'))
-					.updateOne({ set: { title: 'Updated' } }, { ultimabase }),
-			).rejects.toBe(failure)
-			expect(trace).toStrictEqual([
-				'adapter:begin',
-				'prepare:update-one',
-				'execute:update-one',
-				'execute:first',
-				'adapter:rollback',
-			])
-		} finally {
-			await ultimabase.dispose()
-		}
-	})
-
-	it('commits a mutation when its included target is inaccessible', async () => {
-		const privateTarget = Schema.define({
-			className: 'PointerRuntimePrivateMutationTarget',
-			access: { operation: { read: false } },
-			fields: { name: stringField() },
-		})
-		const mutableSource = Schema.define({
-			className: 'PointerRuntimePrivateMutationSource',
-			fields: {
-				target: pointerField({ target: () => privateTarget }),
-				title: stringField(),
-			},
-		})
-		const target = privateTarget.pointer('0198a43e-2431-7000-8000-000000000407')
-		const current = {
-			createdAt: '2026-08-03T20:00:00.000Z',
-			id: '0198a43e-2431-7000-8000-000000000408',
-			target,
-			title: 'Updated',
-			updatedAt: '2026-08-03T20:00:00.000Z',
-		}
-		const trace: string[] = []
-		const adapter = new RecordingDatabaseAdapter(
-			[
+			const updated = await mutationSource.updateOne(
 				{
-					materializations: [
-						{ current, kind: 'update', previous: { ...current, title: 'Old' } },
-					],
-					status: 'fulfilled',
-					target: { ...current, title: 'Old' },
-					value: { target },
+					where: (where) => where.equalTo('id', current.id),
+					data: { set: { title: 'Updated' } },
 				},
-			],
-			trace,
-		)
-		const ultimabase = new UltimaBase({
-			plugins: [createDatabasePlugin(adapter)],
-			schemas: [privateTarget, mutableSource],
-		})
+				{ ultimabase },
+			)
 
-		try {
-			await ultimabase.start()
-			const updated = await mutableSource
-				.query()
-				.byId(current.id)
-				.select('target')
-				.include('target', (query) => query.select('name'))
-				.updateOne({ set: { title: 'Updated' } }, { ultimabase })
+			expect(updated?.target).toBe(target)
 
-			expect(updated?.target).toBeNull()
+			if (updated?.target === undefined) {
+				throw new TypeError('Expected the complete mutation result pointer')
+			}
+
+			expect(updated.target.query().ast.schema.definition).toBe(failingTarget)
 			expect(trace).toStrictEqual([
 				'adapter:begin',
 				'prepare:update-one',

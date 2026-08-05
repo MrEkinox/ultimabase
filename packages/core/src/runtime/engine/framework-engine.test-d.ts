@@ -107,7 +107,7 @@ test('keeps bound terminal types exact in multi-schema applications', () => {
 
 	expectTypeOf(
 		runWithRequestEngine(request, () =>
-			schema.query().create({ title: 'Typed article' }),
+			schema.create({ title: 'Typed article' }),
 		),
 	).toEqualTypeOf<Promise<InferQueryResult<typeof schema>>>()
 })

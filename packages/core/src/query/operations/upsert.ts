@@ -162,9 +162,14 @@ export const normalizeUniqueUpsertTarget = <
 >(
 	schema: TSchema,
 	query: QueryAst<TSchema, QueryFilterNode<TSchema>>,
+	path = 'upsert target',
 ): UniqueUpsertTargetNode<TSchema> => {
 	if (query.schema.definition !== schema) {
-		throw new TypeError('upsert query must reference the operation schema')
+		const queryPath = path === 'upsert target' ? 'upsert' : path
+
+		throw new TypeError(
+			`${queryPath} query must reference the operation schema`,
+		)
 	}
 
 	if (
@@ -172,13 +177,11 @@ export const normalizeUniqueUpsertTarget = <
 		query.limit !== undefined ||
 		query.pagination !== undefined
 	) {
-		throw new TypeError('upsert target query cannot use ordering or pagination')
+		throw new TypeError(`${path} query cannot use ordering or pagination`)
 	}
 
 	if (query.where === undefined) {
-		throw new TypeError(
-			'upsert target query must contain a unique equality filter',
-		)
+		throw new TypeError(`${path} query must contain a unique equality filter`)
 	}
 
 	const expressions = readEqualityExpressions(query.where.expression)
@@ -194,7 +197,7 @@ export const normalizeUniqueUpsertTarget = <
 			targetFields.includes(expression.field)
 		) {
 			throw new TypeError(
-				'upsert target must contain distinct non-null equality filters',
+				`${path} must contain distinct non-null equality filters`,
 			)
 		}
 
@@ -219,9 +222,7 @@ export const normalizeUniqueUpsertTarget = <
 	}
 
 	if (fields === undefined) {
-		throw new TypeError(
-			'upsert target must match id or one declared unique index',
-		)
+		throw new TypeError(`${path} must match id or one declared unique index`)
 	}
 
 	return createUniqueUpsertTarget<TSchema>(fields)

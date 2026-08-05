@@ -75,7 +75,7 @@ export interface UniqueUpsertTargetNode<
 
 /** Infers the framework identifier type retained by the exact schema. */
 export type OperationObjectId<TSchema extends SchemaDefinition> =
-	InferObject<TSchema> extends { readonly id: infer TId } ? TId : never
+	InferObject<TSchema> extends { readonly id: infer TId } ? TId : string
 
 type OperationQuery<
 	TSchema extends SchemaDefinition,

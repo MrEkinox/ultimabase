@@ -299,7 +299,7 @@ describe('UltimaBase', () => {
 			const upserted = await importedDraft.upsert(
 				{
 					update: { set: { title: 'Upserted' } },
-					where: { title: 'Imported' },
+					where: (where) => where.equalTo('title', 'Imported'),
 				},
 				{ ultimabase },
 			)
@@ -441,7 +441,7 @@ describe('UltimaBase', () => {
 			await first.engine
 				.anonymous({ requestId: 'transaction-owner', source: 'internal' })
 				.transaction(async () =>
-					articleSchema.query().create({ title: 'Transactional' }),
+					articleSchema.create({ title: 'Transactional' }),
 				)
 
 			expect(firstAdapter.rootRequests).toStrictEqual([])

@@ -6,6 +6,7 @@ import {
 	defineAccessReferenceCleanup,
 	parseAccessPrincipalReference,
 	Query,
+	Schema,
 	type AccessPrincipalReference,
 	type AccessReferenceCleanup,
 	type AccessRoleReference,
@@ -193,16 +194,23 @@ const removeSchemaReferences = async (
 	schema: SchemaDefinition,
 	subject: ACLReferenceSubject,
 ): Promise<void> => {
+	if (!Schema.is(schema)) {
+		throw new TypeError(
+			'ACL reference cleanup requires a registered schema class',
+		)
+	}
+
 	const ids = await findSchemaReferenceIds(schema, subject)
 
 	for (const id of ids) {
 		await runWithReferenceScope(schema, subject, () =>
-			new Query(schema)
-				.byId(id)
-				.update(
-					{ set: { [aclFieldName]: cleanupPlaceholder } },
-					{ useMasterKey: true },
-				),
+			schema.updateOne(
+				{
+					where: (where) => where.byId(id),
+					data: { set: { [aclFieldName]: cleanupPlaceholder } },
+				},
+				{ useMasterKey: true },
+			),
 		)
 	}
 }

@@ -278,14 +278,14 @@ describe(
 					useMasterKey: true,
 				},
 			)
-			const failRow = await ProtectedPrimary.query().create(
+			const failRow = await ProtectedPrimary.create(
 				{
 					acl: new ACL().grantPrincipal(FailPrincipal.pointer(fail.id), 'read'),
 					title: 'principal-fail',
 				},
 				{ ultimabase, useMasterKey: true },
 			)
-			const preserveRow = await ProtectedPrimary.query().create(
+			const preserveRow = await ProtectedPrimary.create(
 				{
 					acl: new ACL().grantPrincipal(
 						PreservePrincipal.pointer(preserve.id),
@@ -327,11 +327,11 @@ describe(
 				.grantPublic('read')
 				.grantPrincipal(CascadePrincipal.pointer(cascade.id), 'read', 'update')
 				.grantPrincipal(unrelated, 'delete')
-			const primary = await ProtectedPrimary.query().create(
+			const primary = await ProtectedPrimary.create(
 				{ acl: value, title: 'principal-cascade-primary' },
 				{ ultimabase, useMasterKey: true },
 			)
-			const secondary = await ProtectedSecondary.query().create(
+			const secondary = await ProtectedSecondary.create(
 				{ acl: value, title: 'principal-cascade-secondary' },
 				{ ultimabase, useMasterKey: true },
 			)
@@ -431,10 +431,10 @@ describe(
 				},
 			])
 			await expect(
-				CascadePrincipal.query().deleteMany({
-					ultimabase,
-					useMasterKey: true,
-				}),
+				CascadePrincipal.deleteMany(
+					{ where: 'all' },
+					{ ultimabase, useMasterKey: true },
+				),
 			).rejects.toThrow('requires singular deletion')
 		})
 
@@ -457,21 +457,21 @@ describe(
 			const failReference = FailRole.role({ id: fail.id })
 			const preserveReference = PreserveRole.role({ id: preserve.id })
 			const cascadeReference = CascadeRole.role({ id: cascade.id })
-			const failRow = await ProtectedPrimary.query().create(
+			const failRow = await ProtectedPrimary.create(
 				{
 					acl: new ACL().grantRole(failReference, 'read'),
 					title: 'role-fail',
 				},
 				{ ultimabase, useMasterKey: true },
 			)
-			const preserveRow = await ProtectedPrimary.query().create(
+			const preserveRow = await ProtectedPrimary.create(
 				{
 					acl: new ACL().grantRole(preserveReference, 'read'),
 					title: 'role-preserve',
 				},
 				{ ultimabase, useMasterKey: true },
 			)
-			const cascadeRow = await ProtectedPrimary.query().create(
+			const cascadeRow = await ProtectedPrimary.create(
 				{
 					acl: new ACL()
 						.grantPublic('read')
@@ -546,14 +546,14 @@ describe(
 					useMasterKey: true,
 				})
 				const pointer = CascadePrincipal.pointer(principal.id)
-				const firstRow = await ProtectedPrimary.query().create(
+				const firstRow = await ProtectedPrimary.create(
 					{
 						acl: new ACL().grantPrincipal(pointer, 'read'),
 						title: 'first-application',
 					},
 					{ ultimabase: first, useMasterKey: true },
 				)
-				const secondRow = await ProtectedPrimary.query().create(
+				const secondRow = await ProtectedPrimary.create(
 					{
 						acl: new ACL().grantPrincipal(pointer, 'read'),
 						title: 'second-application',

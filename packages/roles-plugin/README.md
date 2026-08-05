@@ -110,8 +110,9 @@ and leaves external references inert. `cascade` requires master authority,
 clears role-owned edges, and invokes only explicit provider-neutral cleanup
 contributions inside the same transaction. Successful deletion emits
 `ultimabase.roles.deleted` after commit. Set-based `deleteMany()` is rejected;
-ordinary `role.delete()` and `AppRole.query().byId(id).delete()` both execute
-the complete policy.
+ordinary `role.delete()` and
+`AppRole.deleteOne({ where: (where) => where.byId(id) })` both execute the
+complete policy.
 
 `hasRole(reference)` is an ordinary native Access decision. It resolves the
 neutral application service at execution time, so the declaration captures no
