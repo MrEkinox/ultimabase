@@ -272,7 +272,13 @@ describe('ACL input resolution with PostgreSQL', { concurrent: false }, () => {
 		await expect(
 			ResolutionPost.query()
 				.byId(id)
-				.select('acl', 'balance', 'status', 'title', 'views')
+				.select({
+					acl: true,
+					balance: true,
+					status: true,
+					title: true,
+					views: true,
+				})
 				.first(masterOptions),
 		).resolves.toMatchObject({
 			balance: '11.50',

@@ -120,7 +120,7 @@ const created = await request.query(PostSchema).create({
 const rows = await request
 	.query(PostSchema)
 	.equalTo('id', created.id)
-	.select('id', 'title')
+	.select({ id: true, title: true })
 	.find()
 
 await application.dispose()

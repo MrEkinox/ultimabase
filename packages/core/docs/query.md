@@ -19,7 +19,7 @@ const popular = new Query(Post).greaterThan('views', 1_000)
 
 const feed = published
 	.or(popular)
-	.select('id', 'title', 'createdAt')
+	.select({ id: true, title: true, createdAt: true })
 	.descending('createdAt')
 	.limit(25)
 
@@ -31,6 +31,21 @@ const adminPage = feed.skip(50)
 Every call returns a new `Query`, so all four branches remain independent.
 `limit` defines the page size; `skip` and `after` choose mutually exclusive
 pagination positions.
+
+`select` receives one flat boolean object correlated with the schema. As soon
+as one field is `true`, only fields marked `true` remain visible. With only
+`false` values, every schema field remains visible except those marked `false`:
+
+```ts
+const card = Post.query().select({ id: true, title: true })
+const publicPost = Post.query().select({ internalNote: false })
+```
+
+An empty object keeps the complete result shape. Mixed objects use inclusion
+mode, so `{ id: true, internalNote: false }` selects only `id`. Each `select`
+call replaces the previous projection, and nested pointer shaping remains the
+responsibility of `include`. Selection flags must be literal booleans so the
+result type cannot disagree with a dynamic runtime projection.
 
 `byId(id)` is the concise typed equivalent of `equalTo('id', id)`:
 
@@ -57,7 +72,7 @@ const published: QueryScope<typeof Post> = (query) =>
 const recentPublished: QueryScope<typeof Post> = (query) =>
 	query.use(published).descending('createdAt').limit(25)
 
-const feed = Post.query().select('id', 'title').use(recentPublished)
+const feed = Post.query().select({ id: true, title: true }).use(recentPublished)
 ```
 
 Direct filters form an implicit `and`. `and`, `or`, and `not` combine only the
@@ -204,7 +219,7 @@ authority, cancellation signal, recursion state, and transaction:
 ```ts
 const article = await Article.query()
 	.equalTo('published', true)
-	.select('id', 'title')
+	.select({ id: true, title: true })
 	.first()
 
 const created = await Article.create({ title: 'Inherited request' })

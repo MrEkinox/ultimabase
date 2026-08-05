@@ -27,7 +27,7 @@ const render = (expression: Parameters<PgDialect['sqlToQuery']>[0]) =>
 describe('PostgreSQL query clause compiler', () => {
 	it('loads only explicit selections and retains normalized offset clauses', () => {
 		const query = new Query(ArticleSchema)
-			.select('id', 'title')
+			.select({ id: true, title: true })
 			.descending('rank')
 			.ascending('title')
 			.limit(20)
@@ -45,7 +45,7 @@ describe('PostgreSQL query clause compiler', () => {
 
 	it('adds private object identity when an explicit selection omits id', () => {
 		const clauses = compilePostgresQueryClauses(
-			new Query(ArticleSchema).select('title').ast,
+			new Query(ArticleSchema).select({ title: true }).ast,
 			compiledSchema,
 		)
 

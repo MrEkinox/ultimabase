@@ -286,7 +286,7 @@ describe('aclPlugin create input resolution', () => {
 			])
 			expect(resolveCurrent).toHaveBeenCalledOnce()
 			await expect(
-				ProtectedPost.query().select('acl').find({ ultimabase }),
+				ProtectedPost.query().select({ acl: true }).find({ ultimabase }),
 			).rejects.toMatchObject({
 				code: 'PERMISSION_DENIED',
 				internalDetails: {

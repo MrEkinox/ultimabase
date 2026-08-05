@@ -249,7 +249,7 @@ const Post = Schema.define({
 	className: 'Post',
 	fields: { title: stringField({ validation: { required: true } }) },
 })
-const query = Post./* hover */query().select('id', 'title')
+const query = Post./* hover */query().select({ id: true, title: true })
 void query
 `)
 		const draftDisplay = ts.displayPartsToString(draft.displayParts)

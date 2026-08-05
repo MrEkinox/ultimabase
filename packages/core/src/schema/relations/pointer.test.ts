@@ -47,7 +47,7 @@ describe('Pointer', () => {
 
 	it('builds one ordinary target query scoped by the pointer id', () => {
 		const pointer = userSchema.pointer(targetId)
-		const query = pointer.query().select('id')
+		const query = pointer.query().select({ id: true })
 
 		expect(query.schema).toBe(userSchema)
 		// The identity is private Runtime state and cannot be serialized or removed by hooks.

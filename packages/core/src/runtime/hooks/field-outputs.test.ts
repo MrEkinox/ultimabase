@@ -52,12 +52,12 @@ describe('runtime field outputs', () => {
 			'title' | 'profile' | 'nickname' | 'bio'
 		> = {
 			kind: 'find',
-			query: new Query(outputSchema).select(
-				'title',
-				'profile',
-				'nickname',
-				'bio',
-			).ast,
+			query: new Query(outputSchema).select({
+				title: true,
+				profile: true,
+				nickname: true,
+				bio: true,
+			}).ast,
 		}
 		const result = immutableArray([
 			immutableRecord({
@@ -135,7 +135,7 @@ describe('runtime field outputs', () => {
 			'title' | 'profile'
 		> = {
 			kind: 'find',
-			query: new Query(outputSchema).select('title', 'profile').ast,
+			query: new Query(outputSchema).select({ title: true, profile: true }).ast,
 		}
 		const originalProfile = immutableRecord({
 			displayName: 'Ada',
@@ -306,7 +306,7 @@ describe('runtime field outputs', () => {
 			'title'
 		> = {
 			kind: 'first',
-			query: new Query(outputSchema).select('title').ast,
+			query: new Query(outputSchema).select({ title: true }).ast,
 		}
 		const find: FindOperationAst<
 			typeof outputSchema,
@@ -314,7 +314,7 @@ describe('runtime field outputs', () => {
 			'title'
 		> = {
 			kind: 'find',
-			query: new Query(outputSchema).select('title').ast,
+			query: new Query(outputSchema).select({ title: true }).ast,
 		}
 		const count = {
 			kind: 'count',

@@ -153,8 +153,16 @@ describe(
 
 			const selected = await Membership.query()
 				.byId(membership.id)
-				.include('project', (target) => target.select('id', 'title'))
-				.select('id', 'member', 'position', 'project', 'role')
+				.include('project', (target) =>
+					target.select({ id: true, title: true }),
+				)
+				.select({
+					id: true,
+					member: true,
+					position: true,
+					project: true,
+					role: true,
+				})
 				.first({ ultimabase: app })
 
 			expect(selected?.toJSON()).toMatchObject({
@@ -189,7 +197,9 @@ describe(
 				),
 			).rejects.toThrow('The first project member must be an editor')
 			await expect(
-				Membership.query().select('internalNote').find({ ultimabase: app }),
+				Membership.query()
+					.select({ internalNote: true })
+					.find({ ultimabase: app }),
 			).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
 		})
 

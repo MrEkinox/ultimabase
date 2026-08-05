@@ -29,7 +29,7 @@ const ultimabase = new UltimaBase({
 })
 
 const draft = new Post({ title: 'Hello' })
-const query = Post.query().select('id', 'title')
+const query = Post.query().select({ id: true, title: true })
 ```
 
 ## Acceptance criteria

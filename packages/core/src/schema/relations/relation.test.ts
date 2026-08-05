@@ -126,7 +126,7 @@ describe('Relation handles', () => {
 		)
 		const base = article.relation('tags').query()
 		const query = base
-			.select('id')
+			.select({ id: true })
 			.ascending('createdAt')
 			.limit(20)
 			.after()

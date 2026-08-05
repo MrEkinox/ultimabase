@@ -26,7 +26,7 @@ declare const ultimabase: UltimaBase<
 declare const context: RequestContext
 
 test('preserves Query schema selection across every read terminal', () => {
-	const query = articleSchema.query().select('id', 'title')
+	const query = articleSchema.query().select({ id: true, title: true })
 
 	expectTypeOf(query.find()).toEqualTypeOf<
 		Promise<readonly InferQueryResult<typeof articleSchema, 'id' | 'title'>[]>

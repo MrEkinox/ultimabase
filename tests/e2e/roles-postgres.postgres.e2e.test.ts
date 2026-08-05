@@ -199,7 +199,7 @@ describe('stored roles with PostgreSQL', { concurrent: false }, () => {
 		const selected = await new Query(AppRole)
 			.greaterThanOrEqualTo('priority', 10)
 			.ascending('priority')
-			.select('id', 'name', 'priority')
+			.select({ id: true, name: true, priority: true })
 			.find({ ultimabase: app, useMasterKey: true })
 
 		expect(selected.map((role) => role.toJSON())).toStrictEqual([
@@ -315,7 +315,7 @@ describe('stored roles with PostgreSQL', { concurrent: false }, () => {
 		).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
 
 		const visible = await ProtectedPost.query()
-			.select('id', 'internalNote', 'title')
+			.select({ id: true, internalNote: true, title: true })
 			.find({ context: aliceContext, ultimabase: app })
 		expect(visible).toHaveLength(1)
 		expect(visible[0]?.id).toBe(publishedPostId)

@@ -169,7 +169,7 @@ const PackedModelSchema = Schema.define({
 	fields: { title: stringField() },
 })
 const packedModelDraft = new PackedModelSchema({ title: 'Packed model draft' })
-const packedQuery = PostSchema.query().select('id', 'title')
+const packedQuery = PostSchema.query().select({ id: true, title: true })
 const packedNonAtomicCreate = () =>
 	PostSchema.createMany([{ title: 'Packed bulk draft' }], {
 		atomic: false,
@@ -494,7 +494,7 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 			)
 			const selected = await BulkAccountSchema.query()
 				.byId(created.id)
-				.select('email')
+				.select({ email: true })
 				.first({ ultimabase })
 
 			if (selected === null) {
@@ -636,7 +636,7 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 				{ ultimabase },
 			)
 			const audits = await HookAuditSchema.query()
-				.select('action')
+				.select({ action: true })
 				.find({ ultimabase })
 
 			expect(committed).toBeInstanceOf(HookPostSchema)
@@ -712,7 +712,7 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 			const found = await PostSchema.query()
 				.equalTo('published', false)
 				.greaterThanOrEqualTo('views', 0)
-				.select('id', 'title')
+				.select({ id: true, title: true })
 				.find({ ultimabase })
 
 			expect(found.every((post) => post instanceof PostSchema)).toBe(true)
@@ -806,7 +806,7 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 			const found = await runWithRequestEngine(request, () =>
 				PostSchema.query()
 					.equalTo('id', committed.id)
-					.select('id', 'title')
+					.select({ id: true, title: true })
 					.first(),
 			)
 
@@ -866,7 +866,7 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 			)
 			const updateQuery = new Query(PostSchema)
 				.equalTo('id', updatedTarget.id)
-				.select('id', 'title')
+				.select({ id: true, title: true })
 			const firstUpdate = normalizeUpdateExpression(PostSchema, {
 				title: 'First committed update',
 			})
@@ -914,7 +914,7 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 			)
 			const deleteQuery = new Query(PostSchema)
 				.equalTo('id', deletedTarget.id)
-				.select('id', 'title')
+				.select({ id: true, title: true })
 			const deleteTransaction = await adapter.beginTransaction()
 			const competingTransaction = await adapter.beginTransaction()
 			transactions.push(deleteTransaction, competingTransaction)

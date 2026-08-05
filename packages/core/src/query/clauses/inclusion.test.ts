@@ -20,10 +20,10 @@ const postSchema = Schema.define({
 
 describe('normalizeQueryInclusion', () => {
 	it('keeps first field order while the last duplicate target query wins', () => {
-		const firstAuthor = new Query(userSchema).select('id')
-		const reviewer = new Query(userSchema).select('name')
+		const firstAuthor = new Query(userSchema).select({ id: true })
+		const reviewer = new Query(userSchema).select({ name: true })
 		const finalAuthor = new Query(userSchema)
-			.select('id', 'email')
+			.select({ id: true, email: true })
 			.endsWith('email', '@example.com')
 		const inclusion = normalizeQueryInclusion(postSchema, [
 			{ field: 'author', query: firstAuthor.ast },

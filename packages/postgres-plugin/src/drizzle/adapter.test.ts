@@ -346,7 +346,7 @@ describe('internal PostgreSQL database adapter', () => {
 		const { adapter, driver } = createFixture()
 		const query = new Query(articleSchema)
 			.greaterThan('views', 10)
-			.select('id', 'title')
+			.select({ id: true, title: true })
 			.descending('views')
 			.limit(2)
 		const find = {
@@ -377,7 +377,7 @@ describe('internal PostgreSQL database adapter', () => {
 
 		const titleOnly = {
 			kind: 'find',
-			query: new Query(articleSchema).select('title').ast,
+			query: new Query(articleSchema).select({ title: true }).ast,
 		} satisfies FindOperationAst<
 			typeof articleSchema,
 			QueryFilterNode<typeof articleSchema>,
@@ -398,6 +398,24 @@ describe('internal PostgreSQL database adapter', () => {
 		}
 
 		expect(adapter.readObjectIdentity?.(projectedRecord)).toBe(firstId)
+
+		const withoutNote = new Query(articleSchema).select({ note: false })
+
+		driver.respond([['Public article', 3, firstId, timestamp, timestamp]])
+		await expect(
+			adapter.execute({
+				constraints: [],
+				operation: { kind: 'find', query: withoutNote.ast },
+			}),
+		).resolves.toStrictEqual([
+			{
+				createdAt: timestamp,
+				id: firstId,
+				title: 'Public article',
+				updatedAt: timestamp,
+				views: 3,
+			},
+		])
 
 		driver.respond([])
 		await expect(
@@ -523,7 +541,7 @@ describe('internal PostgreSQL database adapter', () => {
 		const { adapter, driver } = createFixture()
 		const query = new Query(articleSchema)
 			.equalTo('title', 'Old')
-			.select('id', 'title')
+			.select({ id: true, title: true })
 			.descending('views')
 		const update = normalizeUpdateExpression(articleSchema, {
 			title: 'Requested',
@@ -723,7 +741,7 @@ describe('internal PostgreSQL database adapter', () => {
 		const transaction = await adapter.beginTransaction()
 		const operation = {
 			kind: 'find',
-			query: new Query(articleSchema).select('id', 'title').ast,
+			query: new Query(articleSchema).select({ id: true, title: true }).ast,
 		} satisfies FindOperationAst<
 			typeof articleSchema,
 			QueryFilterNode<typeof articleSchema>,
@@ -789,7 +807,7 @@ describe('internal PostgreSQL database adapter', () => {
 
 		const query = new Query(articleSchema)
 			.equalTo('title', 'Old')
-			.select('id', 'title')
+			.select({ id: true, title: true })
 		const update = normalizeUpdateExpression(articleSchema, {
 			title: 'Updated',
 			views: increment(1),
@@ -1040,7 +1058,7 @@ describe('internal PostgreSQL database adapter', () => {
 		}
 		const query = new Query(articleSchema)
 			.equalTo('id', firstId)
-			.select('id', 'title')
+			.select({ id: true, title: true })
 		const update = normalizeUpdateExpression(articleSchema, {
 			title: 'Updated',
 		})
@@ -1339,7 +1357,7 @@ describe('internal PostgreSQL database adapter', () => {
 		const firstTransaction = await fixture.adapter.beginTransaction()
 		const deleteOperation = {
 			kind: 'delete-one',
-			query: new Query(articleSchema).select('id').ast,
+			query: new Query(articleSchema).select({ id: true }).ast,
 		} satisfies DeleteOneOperationAst<typeof articleSchema>
 
 		firstDriver.respond([])

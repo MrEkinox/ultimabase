@@ -210,7 +210,7 @@ describe('ACL committed events with PostgreSQL', { concurrent: false }, () => {
 
 		const persisted = await Post.query()
 			.byId(created.id)
-			.select('acl')
+			.select({ acl: true })
 			.first({ ultimabase: getApplication(), useMasterKey: true })
 
 		expect(persisted?.acl.toJSON()).toStrictEqual(created.acl.toJSON())

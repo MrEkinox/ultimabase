@@ -297,8 +297,8 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 
 		const included = await Post.query()
 			.equalTo('author', firstPointer)
-			.select('title')
-			.include('author', (query) => query.select('name'))
+			.select({ title: true })
+			.include('author', (query) => query.select({ name: true }))
 			.first({ ultimabase: app })
 
 		expect(included?.title).toBe('Typed pointer')
@@ -313,7 +313,7 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 
 		const directAuthor = await firstPointer
 			.query()
-			.select('name')
+			.select({ name: true })
 			.first({ ultimabase: app })
 
 		expect(directAuthor?.toJSON()).toStrictEqual({ name: 'Ada' })
@@ -344,7 +344,7 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 
 		const afterRollback = await Post.query()
 			.byId(created.id)
-			.select('author', 'title')
+			.select({ author: true, title: true })
 			.first({ ultimabase: app })
 
 		expect(afterRollback?.author.equals(secondPointer)).toBe(true)
@@ -486,8 +486,8 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 		)
 		const detached = await NullableSource.query()
 			.byId(nullableSource.id)
-			.select('target')
-			.include('target', (query) => query.select('label'))
+			.select({ target: true })
+			.include('target', (query) => query.select({ label: true }))
 			.first({ ultimabase: app })
 
 		expect(detached?.target).toBeNull()
@@ -505,8 +505,8 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 		)
 		const query = PrivateSource.query()
 			.byId(source.id)
-			.select('target')
-			.include('target', (targetQuery) => targetQuery.select('label'))
+			.select({ target: true })
+			.include('target', (targetQuery) => targetQuery.select({ label: true }))
 		const denied = await query.first({ ultimabase: app })
 		const allowed = await query.first({ ultimabase: app, useMasterKey: true })
 		const deletedTarget = await NullableTarget.create(
@@ -521,8 +521,8 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 		await deletedTarget.delete({ ultimabase: app })
 		const detached = await NullableSource.query()
 			.byId(detachedSource.id)
-			.select('target')
-			.include('target', (targetQuery) => targetQuery.select('label'))
+			.select({ target: true })
+			.include('target', (targetQuery) => targetQuery.select({ label: true }))
 			.first({ ultimabase: app })
 
 		expect(denied?.target).toBeNull()
@@ -552,7 +552,7 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 		)
 		const detachedRight = await CircularRight.query()
 			.byId(right.id)
-			.select('left')
+			.select({ left: true })
 			.first({ ultimabase: app })
 
 		expect(detachedRight?.left).toBeNull()

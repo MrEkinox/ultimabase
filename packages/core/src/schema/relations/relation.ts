@@ -154,7 +154,7 @@ export class Relation<
 	 * Every regular read builder and terminal remains available. The terminal
 	 * inherits ambient execution or accepts the same final options as any Query.
 	 *
-	 * @example `await post.relation('tags').query().select('id', 'label').find()`
+	 * @example `await post.relation('tags').query().select({ id: true, label: true }).find()`
 	 */
 	query(): Query<TTarget> {
 		const exactState = this.getState()

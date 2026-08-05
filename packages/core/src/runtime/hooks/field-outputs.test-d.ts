@@ -28,7 +28,7 @@ const findOperation: FindOperationAst<
 	'title'
 > = {
 	kind: 'find',
-	query: new Query(schema).select('title').ast,
+	query: new Query(schema).select({ title: true }).ast,
 }
 const countOperation = {
 	kind: 'count',

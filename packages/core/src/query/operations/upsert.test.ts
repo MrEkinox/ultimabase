@@ -231,7 +231,7 @@ describe('bulk upsert items', () => {
 	it('rejects selected queries and malformed item wrappers', () => {
 		const selected = new Query(accountSchema)
 			.equalTo('email', 'dev@ultimabase.dev')
-			.select('email')
+			.select({ email: true })
 
 		expect(() =>
 			normalizeUpsertItem(accountSchema, {

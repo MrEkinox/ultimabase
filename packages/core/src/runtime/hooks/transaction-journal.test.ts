@@ -47,7 +47,7 @@ describe('TransactionHookJournal', () => {
 		}) satisfies CreateOneOperationAst<typeof articleSchema>
 		const readOperation = immutableRecord({
 			kind: 'find',
-			query: new Query(articleSchema).select('title').ast,
+			query: new Query(articleSchema).select({ title: true }).ast,
 		})
 		const mutationToken = journal.reserve(context)
 		const readToken = journal.reserve(context)

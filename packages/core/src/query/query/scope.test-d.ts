@@ -17,7 +17,7 @@ test('preserves exact schema and projection through reusable scopes', () => {
 	const recentPopular: QueryScope<typeof postSchema> = (query) =>
 		query.use(popular).descending('createdAt')
 	const selected = new Query(postSchema)
-		.select('id', 'title')
+		.select({ id: true, title: true })
 		.use(recentPopular)
 
 	expectTypeOf(selected).toEqualTypeOf<
@@ -34,8 +34,9 @@ test('preserves exact schema and projection through reusable scopes', () => {
 	expect(commentSchema.className).toBe('Comment')
 	// @ts-expect-error -- Scopes cannot cross exact schema definitions.
 	new Query(postSchema).use(comments)
-	// @ts-expect-error -- Scope outputs cannot silently widen the projection.
-	const selecting: QueryScope<typeof postSchema> = (query) => query.select('id')
+	const selecting: QueryScope<typeof postSchema> = (query) =>
+		// @ts-expect-error -- Scope outputs cannot silently widen the projection.
+		query.select({ id: true })
 
 	expectTypeOf(selecting).toBeFunction()
 })

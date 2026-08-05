@@ -235,7 +235,7 @@ const created = await ArticleSchema.create(
 const found = await ultimabase
 	.query(ArticleSchema)
 	.equalTo('id', created.id)
-	.select('id', 'title')
+	.select({ id: true, title: true })
 	.first()
 
 const updated = await ArticleSchema.updateOne(
@@ -473,7 +473,7 @@ const author = User.pointer('0198f090-2a50-7000-8000-000000000034')
 const created = await Post.create({ author }, { ultimabase })
 const found = await Post.query()
 	.equalTo('author', author)
-	.include('author', (query) => query.select('id', 'name'))
+	.include('author', (query) => query.select({ id: true, name: true }))
 	.first({ ultimabase })
 ```
 
@@ -503,7 +503,7 @@ await tags.connect([Tag.pointer(firstTagId), Tag.pointer(secondTagId)], {
 
 const selected = await tags
 	.query()
-	.select('id', 'label')
+	.select({ id: true, label: true })
 	.ascending('label')
 	.limit(20)
 	.after()
@@ -639,7 +639,7 @@ null placement, so equal developer sort values remain stable:
 
 ```ts
 const firstPage = new Query(ArticleSchema)
-	.select('id', 'title', 'createdAt')
+	.select({ id: true, title: true, createdAt: true })
 	.descending('createdAt')
 	.limit(25)
 	.after()

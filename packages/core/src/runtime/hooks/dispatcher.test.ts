@@ -562,7 +562,7 @@ describe('native hook dispatcher', () => {
 			schemas: [schema],
 		})
 		const stages = createNativeHookStages(application)
-		const selectedQuery = new Query(schema).select('title')
+		const selectedQuery = new Query(schema).select({ title: true })
 		const findOperation: FindOperationAst<
 			typeof schema,
 			QueryFilterNode<typeof schema>,
@@ -667,7 +667,7 @@ describe('native hook dispatcher', () => {
 		const invalidHooks = [
 			() => new Query(otherSchema),
 			({ query }: { readonly query: Query<typeof otherSchema> }) =>
-				query.select('title'),
+				query.select({ title: true }),
 		] as const
 
 		for (const invalidHook of invalidHooks) {

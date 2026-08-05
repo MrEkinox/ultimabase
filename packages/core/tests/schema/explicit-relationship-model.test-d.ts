@@ -67,7 +67,11 @@ test('infers exact explicit-edge pointers, inputs, models, and selections', () =
 	>().toEqualTypeOf<ExpectedCreateInput>()
 	expectTypeOf<InferObject<typeof Membership>>().toEqualTypeOf<ExpectedObject>()
 
-	const selected = Membership.query().select('id', 'member', 'role')
+	const selected = Membership.query().select({
+		id: true,
+		member: true,
+		role: true,
+	})
 	type SelectedMembership = NonNullable<
 		Awaited<ReturnType<typeof selected.first>>
 	>

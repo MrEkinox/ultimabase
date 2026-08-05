@@ -235,7 +235,7 @@ const ArticleSchema = Schema.define({
 })
 
 const articles = await runWithRequestEngine(request, () =>
-	ArticleSchema.query().select('id', 'title').find(),
+	ArticleSchema.query().select({ id: true, title: true }).find(),
 )
 
 // The exact result is readonly { id: string; title: string }[].

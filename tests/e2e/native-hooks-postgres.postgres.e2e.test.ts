@@ -611,7 +611,13 @@ describe('native hooks with PostgreSQL', { concurrent: false }, () => {
 		const visible = await runWithScope('scope-visible-a', () =>
 			HookArticleSchema.query()
 				.equalTo('title', 'Shared visible title')
-				.select('id', 'title', 'secret', 'profile', 'scopeId')
+				.select({
+					id: true,
+					title: true,
+					secret: true,
+					profile: true,
+					scopeId: true,
+				})
 				.find(),
 		)
 

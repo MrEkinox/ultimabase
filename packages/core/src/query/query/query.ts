@@ -30,7 +30,14 @@ import {
 	normalizeQueryLimit,
 	normalizeQueryOffsetPagination,
 } from '../clauses/pagination.js'
-import { normalizeQuerySelection } from '../clauses/selection.js'
+import {
+	normalizeQuerySelectedFields,
+	normalizeQuerySelection,
+	type ExactQuerySelection,
+	type LiteralQuerySelection,
+	type QuerySelectedField,
+	type QuerySelection,
+} from '../clauses/selection.js'
 import {
 	createQueryJsonPathFilter,
 	createQueryNullFilter,
@@ -249,19 +256,21 @@ export class Query<
 		return this.ast.schema.definition
 	}
 
-	/** Adds selected fields while keeping their first declaration order. */
-	select<const TField extends QueryFieldName<TSchema>>(
-		...fields: readonly TField[]
-	): Query<TSchema, TSelectedField | TField, TIncludedPointer> {
-		const selectedFields = this.ast.selection.fields.map(
-			(selection) => selection.field,
-		)
-
-		return this.#with<TSelectedField | TField>({
-			selection: normalizeQuerySelection(this.schema, [
-				...selectedFields,
-				...fields,
-			]),
+	/**
+	 * Replaces the current flat projection with literal inclusion or exclusion flags.
+	 *
+	 * Any `true` enables inclusion mode. With only `false` values, every other
+	 * schema field remains selected. Nested relation projections belong to `include`.
+	 *
+	 * @example `Post.query().select({ id: true, title: true })`
+	 * @example `Post.query().select({ internalNote: false })`
+	 */
+	select<const TSelection extends QuerySelection<TSchema>>(
+		selection: ExactQuerySelection<TSchema, TSelection> &
+			LiteralQuerySelection<TSelection>,
+	): Query<TSchema, QuerySelectedField<TSchema, TSelection>, TIncludedPointer> {
+		return this.#with<QuerySelectedField<TSchema, TSelection>>({
+			selection: normalizeQuerySelection(this.schema, selection),
 		})
 	}
 
@@ -271,7 +280,7 @@ export class Query<
 	 * The callback only builds portable AST state. It performs no I/O, and a
 	 * repeated field replaces its earlier shape without changing inclusion order.
 	 *
-	 * @example `Post.query().include('author', (query) => query.select('id', 'name'))`
+	 * @example `Post.query().include('author', (query) => query.select({ id: true, name: true }))`
 	 */
 	include<
 		const TFieldName extends QueryPointerFieldName<TSchema>,
@@ -335,7 +344,10 @@ export class Query<
 		const selection =
 			selectionFields.length === 0
 				? this.ast.selection
-				: normalizeQuerySelection(this.schema, [...selectionFields, fieldName])
+				: normalizeQuerySelectedFields(this.schema, [
+						...selectionFields,
+						fieldName,
+					])
 
 		return this.#with<
 			QuerySelectionAfterInclude<TSchema, TSelectedField, TFieldName>,

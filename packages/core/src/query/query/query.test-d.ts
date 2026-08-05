@@ -18,6 +18,7 @@ import {
 	Query,
 	type QueryFilterFieldName,
 	type QueryFilterNode,
+	type QuerySelection,
 } from '../index.js'
 import { hydrateQueryFromAst } from './query.js'
 
@@ -56,7 +57,7 @@ test('preserves schema, AST, and chain result types', () => {
 		.equalTo('published', true)
 		.byId('0194f292-0dd9-7c2d-a0a3-a2f755a3d90a')
 		.greaterThan('views', 10)
-		.select('title', 'id')
+		.select({ title: true, id: true })
 		.descending('createdAt')
 		.limit(25)
 		.after('opaque.cursor')
@@ -79,7 +80,7 @@ test('preserves schema, AST, and chain result types', () => {
 })
 
 test('hydrates exact selections internally without widening the public API', () => {
-	const source = new Query(postSchema).select('title', 'id')
+	const source = new Query(postSchema).select({ title: true, id: true })
 	const unselected = new Query(postSchema)
 	const hydrated = hydrateQueryFromAst<typeof postSchema, 'title' | 'id'>(
 		source.ast,
@@ -100,6 +101,43 @@ test('hydrates exact selections internally without widening the public API', () 
 
 	void selectAll
 	expectTypeOf<'hydrateQueryFromAst'>().not.toExtend<keyof typeof publicQuery>()
+})
+
+test('infers literal inclusion and exclusion projections exactly', () => {
+	const included = new Query(postSchema).select({
+		title: true,
+		published: false,
+	})
+	const excluded = new Query(postSchema).select({ payload: false })
+	const empty = new Query(postSchema).select({})
+	const reusableSelection = {
+		id: true,
+		title: true,
+	} satisfies QuerySelection<typeof postSchema>
+	const reusable = new Query(postSchema).select(reusableSelection)
+	type IncludedResult = NonNullable<Awaited<ReturnType<typeof included.first>>>
+	type ExcludedResult = NonNullable<Awaited<ReturnType<typeof excluded.first>>>
+	type EmptyResult = NonNullable<Awaited<ReturnType<typeof empty.first>>>
+
+	expect(excluded.ast.kind).toBe('query')
+	expect(empty.ast.kind).toBe('query')
+	expectTypeOf(included).toEqualTypeOf<Query<typeof postSchema, 'title'>>()
+	expectTypeOf(reusable).toEqualTypeOf<
+		Query<typeof postSchema, 'id' | 'title'>
+	>()
+	expectTypeOf<IncludedResult>().toHaveProperty('title')
+	expectTypeOf<IncludedResult>().not.toHaveProperty('published')
+	expectTypeOf<ExcludedResult>().not.toHaveProperty('payload')
+	expectTypeOf<ExcludedResult>().toHaveProperty('title')
+	expectTypeOf<EmptyResult>().toEqualTypeOf<
+		NonNullable<
+			Awaited<ReturnType<ReturnType<typeof postSchema.query>['first']>>
+		>
+	>()
+
+	const dynamicFlag = Boolean(Date.now())
+	// @ts-expect-error -- Dynamic flags cannot promise one exact static result shape.
+	new Query(postSchema).select({ title: dynamicFlag })
 })
 
 test('correlates every filter field with its exact operand type', () => {
@@ -188,16 +226,16 @@ test('infers pointer predicates, target queries, and included projections', () =
 	const author = includedUserSchema.pointer(
 		'0194f292-0dd9-7c2d-a0a3-a2f755a3d90a',
 	)
-	const pointerQuery = author.query().select('id', 'name')
+	const pointerQuery = author.query().select({ id: true, name: true })
 	const included = new Query(includedPostSchema)
-		.select('id', 'title')
+		.select({ id: true, title: true })
 		.equalTo('author', author)
 		.containedIn('author', [author])
 		.isNotNull('author')
 		.include('author', (query) =>
-			query.select('id', 'name').equalTo('active', true),
+			query.select({ id: true, name: true }).equalTo('active', true),
 		)
-		.include('reviewer', (query) => query.select('name'))
+		.include('reviewer', (query) => query.select({ name: true }))
 	type IncludedResult = NonNullable<Awaited<ReturnType<typeof included.first>>>
 	type PlainResult = NonNullable<
 		Awaited<ReturnType<ReturnType<typeof includedPostSchema.query>['first']>>
@@ -232,7 +270,7 @@ test('infers pointer predicates, target queries, and included projections', () =
 	new Query(includedPostSchema).include('title', (query) => query)
 	new Query(includedPostSchema).include('author', (query) => {
 		// @ts-expect-error -- The callback Query exposes only target fields.
-		query.select('title')
+		query.select({ title: true })
 		return query
 	})
 })
@@ -244,7 +282,10 @@ test('restricts fields, pagination values, and logical schemas', () => {
 		fields: { body: stringField() },
 	})
 
-	query.select('title', 'createdAt').ascending('title').descending('views')
+	query
+		.select({ title: true, createdAt: true })
+		.ascending('title')
+		.descending('views')
 	query.limit(25)
 	query.skip(50)
 	query.after('opaque.cursor')
@@ -254,7 +295,7 @@ test('restricts fields, pagination values, and logical schemas', () => {
 	query.not(new Query(postSchema).isNotNull('title'))
 
 	// @ts-expect-error -- Selection is restricted to schema fields.
-	query.select('missing')
+	query.select({ missing: true })
 	// @ts-expect-error -- Ordering is restricted to schema fields.
 	query.ascending('missing')
 	// @ts-expect-error -- Limit requires a number.

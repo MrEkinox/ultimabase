@@ -29,7 +29,10 @@ test('correlates pointer keys with their exact target query', () => {
 	>().toEqualTypeOf<typeof userSchema>()
 
 	const inclusion = normalizeQueryInclusion(postSchema, [
-		{ field: 'author', query: new Query(userSchema).select('name').ast },
+		{
+			field: 'author',
+			query: new Query(userSchema).select({ name: true }).ast,
+		},
 	])
 
 	expectTypeOf(inclusion.pointers[0]?.field).toEqualTypeOf<

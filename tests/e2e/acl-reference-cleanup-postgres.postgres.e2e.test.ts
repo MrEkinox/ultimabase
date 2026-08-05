@@ -240,7 +240,7 @@ const readACL = async (
 ): Promise<ACL> => {
 	const row = await new Query(schema)
 		.byId(id)
-		.select('acl')
+		.select({ acl: true })
 		.first({ ultimabase, useMasterKey: true })
 	const value: unknown = row === null ? undefined : Reflect.get(row, 'acl')
 

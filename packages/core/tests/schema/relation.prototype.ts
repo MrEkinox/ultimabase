@@ -19,7 +19,9 @@ const PackedRelationArticle = Schema.define({
 
 declare const article: SchemaResult<typeof PackedRelationArticle>
 const /* hover:relation-handle */ tags = article.relation('tags')
-const /* hover:relation-query */ tagQuery = tags.query().select('id', 'label')
+const /* hover:relation-query */ tagQuery = tags
+		.query()
+		.select({ id: true, label: true })
 const connectTag = () =>
 	tags./* hover:relation-connect */ connect(PackedRelationTag.pointer('tag-id'))
 const relatedArticleQuery =

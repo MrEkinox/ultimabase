@@ -133,18 +133,18 @@ describe('pointer Runtime execution', () => {
 			await ultimabase.start()
 			const posts = await pointerRuntimePost
 				.query()
-				.select('title')
+				.select({ title: true })
 				.include('author', (query) =>
 					query
-						.select('name')
+						.select({ name: true })
 						.include('organization', (organizationQuery) =>
-							organizationQuery.select('name'),
+							organizationQuery.select({ name: true }),
 						),
 				)
 				.find({ ultimabase })
 			const directAuthor = await author
 				.query()
-				.select('name')
+				.select({ name: true })
 				.first({ ultimabase })
 
 			expect(posts[0]?.author).toBeInstanceOf(pointerRuntimeUser)
@@ -222,8 +222,8 @@ describe('pointer Runtime execution', () => {
 			await ultimabase.start()
 			const result = await source
 				.query()
-				.select('target')
-				.include('target', (query) => query.select('name'))
+				.select({ target: true })
+				.include('target', (query) => query.select({ name: true }))
 				.find({ ultimabase })
 
 			expect(result[0]).not.toHaveProperty('target')
@@ -271,8 +271,8 @@ describe('pointer Runtime execution', () => {
 		})
 		const includedQuery = restrictedSource
 			.query()
-			.select('target')
-			.include('target', (query) => query.select('name'))
+			.select({ target: true })
+			.include('target', (query) => query.select({ name: true }))
 
 		try {
 			await ultimabase.start()

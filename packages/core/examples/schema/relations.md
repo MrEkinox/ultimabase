@@ -54,7 +54,7 @@ declare const user: SchemaResult<typeof UserSchema>
 const recentPosts = user
 	.relation('posts')
 	.query()
-	.select('id', 'title')
+	.select({ id: true, title: true })
 	.descending('createdAt')
 	.limit(20)
 	.after()

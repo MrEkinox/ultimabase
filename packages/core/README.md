@@ -83,13 +83,18 @@ selection-aware:
 
 ```ts
 const selected = PostSchema.query()
-	.select('id', 'title')
-	.include('author', (author) => author.select('id', 'name'))
+	.select({ id: true, title: true })
+	.include('author', (author) => author.select({ id: true, name: true }))
 
 const posts = await selected.find({ ultimabase })
 
 // `author` is the selected User model, or null when missing or inaccessible.
 ```
+
+`select` is flat and schema-correlated. Any `true` flag selects only the fields
+marked `true`; an object containing only `false` flags selects every other
+field. `{}` keeps the complete result shape, and a later `select` replaces the
+previous projection. Pointer result shaping stays explicit through `include`.
 
 Runtime resolves every included target through the same operation Access,
 filter, item, field, hook, and transaction lifecycle as a direct Query. The
@@ -137,7 +142,7 @@ Persisted models expose only their declared to-many fields through an immutable
 const posts = user.relation('posts')
 const recentPosts = posts
 	.query()
-	.select('id', 'title')
+	.select({ id: true, title: true })
 	.descending('createdAt')
 	.limit(20)
 	.after()
@@ -436,7 +441,7 @@ const ultimabase = new UltimaBase({
 })
 
 const draft = new PostSchema({ title: 'Preview' })
-const query = PostSchema.query().select('id', 'title')
+const query = PostSchema.query().select({ id: true, title: true })
 
 const created = await draft.create({ ultimabase })
 const updated = await created.update({ title: 'Published' }, { ultimabase })
@@ -668,7 +673,7 @@ const ArticleSchema = Schema.define({
 })
 
 const articles = await ArticleSchema.query()
-	.select('id', 'title')
+	.select({ id: true, title: true })
 	.find({ ultimabase })
 
 // The exact result is readonly { id: string; title: string }[].

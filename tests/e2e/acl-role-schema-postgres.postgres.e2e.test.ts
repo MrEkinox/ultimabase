@@ -201,13 +201,13 @@ describe(
 			const current = requireFixture(roleProtected, 'role-protected')
 			const resolved = await AppRole.query()
 				.byId(current.id)
-				.select('description', 'name')
+				.select({ description: true, name: true })
 				.first({ context, ultimabase: app })
 
 			expect(resolved?.name).toBe('role-protected')
 			const persistedACL = await AppRole.query()
 				.byId(current.id)
-				.select('acl')
+				.select({ acl: true })
 				.first({ ultimabase: app, useMasterKey: true })
 
 			expect(
@@ -268,7 +268,9 @@ describe(
 				}),
 			).resolves.toMatchObject({ name: 'deletable' })
 			await expect(
-				AppRole.query().select('acl').find({ context, ultimabase: app }),
+				AppRole.query()
+					.select({ acl: true })
+					.find({ context, ultimabase: app }),
 			).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
 		})
 	},

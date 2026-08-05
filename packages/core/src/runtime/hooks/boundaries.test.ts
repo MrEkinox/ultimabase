@@ -165,7 +165,7 @@ describe('runtime hook boundaries', () => {
 
 	it('does not append a second generated timestamp during update revalidation', async () => {
 		const schema = createFixtureSchema(() => 'Generated title')
-		const query = new Query(schema).select('id').ast
+		const query = new Query(schema).select({ id: true }).ast
 		const initialOperation = immutableRecord({
 			kind: 'update-one',
 			query,
@@ -211,7 +211,7 @@ describe('runtime hook boundaries', () => {
 			'id'
 		> = immutableRecord({
 			kind: 'update-one',
-			query: new Query(schema).select('id').ast,
+			query: new Query(schema).select({ id: true }).ast,
 			update: normalizeUpdateExpression(schema, {
 				published: true,
 			}),
@@ -244,7 +244,7 @@ describe('runtime hook boundaries', () => {
 			'id'
 		> = immutableRecord({
 			kind: 'update-one',
-			query: new Query(schema).select('id').ast,
+			query: new Query(schema).select({ id: true }).ast,
 			update: normalizeUpdateExpression(schema, {
 				published: true,
 			}),
@@ -273,7 +273,7 @@ describe('runtime hook boundaries', () => {
 
 	it('preserves each scalar, collection, and nullable terminal result contract', () => {
 		const schema = createFixtureSchema(() => 'Generated title')
-		const selectedQuery = new Query(schema).select('id').ast
+		const selectedQuery = new Query(schema).select({ id: true }).ast
 		const findOperation: FindOperationAst<
 			typeof schema,
 			QueryFilterNode<typeof schema>,

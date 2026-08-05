@@ -388,7 +388,11 @@ describe('createEnforcementStages', () => {
 		)
 		const operation: FindOperationAst<typeof articleSchema> = {
 			kind: 'find',
-			query: new Query(articleSchema).select('id', 'title', 'secret').ast,
+			query: new Query(articleSchema).select({
+				id: true,
+				title: true,
+				secret: true,
+			}).ast,
 		}
 		const enforcement = await stages.evaluate({ context, operation })
 		const enforced = await stages.enforceOperation({

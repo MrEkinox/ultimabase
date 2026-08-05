@@ -132,6 +132,7 @@ Accepted records:
 - [ADR-0137: Drizzle-native PostgreSQL relation compilation](0137-drizzle-native-relation-compilation.md)
 - [ADR-0138: Drizzle-native PostgreSQL synchronization metadata](0138-drizzle-native-synchronization-metadata.md)
 - [ADR-0139: Drizzle-native PostgreSQL column value mapping](0139-drizzle-native-column-value-mapping.md)
+- [ADR-0140: Flat boolean Query selections](0140-flat-boolean-query-selections.md)
 
 Superseded records:
 

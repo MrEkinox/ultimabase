@@ -190,7 +190,7 @@ test('distinguishes draft and persisted states for the same visible fields', () 
 })
 
 test('retains exact schema and selection types through static Query access', () => {
-	const query = Post.query().select('id', 'title')
+	const query = Post.query().select({ id: true, title: true })
 	const selected = null as unknown as InferQueryResult<
 		typeof Post,
 		'id' | 'title'

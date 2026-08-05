@@ -215,7 +215,7 @@ describe('ACL PostgreSQL Access constraints', { concurrent: false }, () => {
 		const visibleTitles = (context: RequestContext) =>
 			ProtectedPost.query()
 				.ascending('title')
-				.select('title')
+				.select({ title: true })
 				.find({ context, ultimabase: app })
 				.then((rows) => rows.map(({ title }) => title))
 
@@ -344,7 +344,7 @@ describe('ACL PostgreSQL Access constraints', { concurrent: false }, () => {
 
 		const unchanged = await ProtectedPost.query()
 			.byId(deniedId)
-			.select('acl')
+			.select({ acl: true })
 			.first(masterOptions)
 
 		expect(unchanged?.acl).toStrictEqual(new ACL())

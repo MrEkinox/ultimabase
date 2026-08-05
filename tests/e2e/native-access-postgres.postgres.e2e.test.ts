@@ -231,7 +231,7 @@ describe('native Access with PostgreSQL', () => {
 		expect(article).not.toBeNull()
 		expect(article).not.toHaveProperty('secret')
 		await expect(
-			AccessArticle.query().select('secret').find({ ultimabase: app }),
+			AccessArticle.query().select({ secret: true }).find({ ultimabase: app }),
 		).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
 		await expect(
 			AccessArticle.query()

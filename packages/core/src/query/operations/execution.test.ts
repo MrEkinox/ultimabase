@@ -50,7 +50,9 @@ describe('contextual Query execution', () => {
 		const secondFailure = new Error('second execution')
 		const first = new RecordingDispatcher(firstFailure)
 		const second = new RecordingDispatcher(secondFailure)
-		const reusable = PostSchema.query().equalTo('title', 'shared').select('id')
+		const reusable = PostSchema.query()
+			.equalTo('title', 'shared')
+			.select({ id: true })
 		const firstApplication = {}
 		const secondApplication = {}
 

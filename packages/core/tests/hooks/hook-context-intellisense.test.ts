@@ -27,7 +27,7 @@ context.${completionMarker}emit('audit.checked', { id: 'audit-1' })
 const query = AuditSchema./* hover:query-builder */query()
 const event = context./* hover:emit-method */emit('audit.created', { id: 'audit-1' })
 const principalId = context./* hover:get-value-method */getValue(principal)
-const selected = await query.select('id', 'action')./* hover:query-terminal */find()
+const selected = await query.select({ id: true, action: true })./* hover:query-terminal */find()
 const /* hover:selected-result */ first = selected[0]
 void event
 void principalId

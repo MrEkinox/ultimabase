@@ -2,7 +2,7 @@ import type { SchemaDefinition } from '../../schema/index.js'
 import {
 	immutableArray,
 	immutableRecord,
-	isUnknownArray,
+	isPlainRecord,
 } from '@ultimabase/shared'
 
 import type {
@@ -15,34 +15,92 @@ import {
 	parseQueryFieldName,
 } from '../ast/schema.js'
 
+/**
+ * Describes one flat schema projection through literal inclusion or exclusion flags.
+ *
+ * At least one `true` enables inclusion mode. An object containing only `false`
+ * values starts from every schema field and omits the named fields.
+ *
+ * @example
+ * ```ts
+ * Post.query().select({ id: true, title: true })
+ * Post.query().select({ internalNote: false })
+ * ```
+ */
+export type QuerySelection<TSchema extends SchemaDefinition> = Readonly<
+	Partial<Record<QueryFieldName<TSchema>, boolean>>
+>
+
+type QuerySelectionKeyWithValue<TSelection, TValue extends boolean> = {
+	[TKey in keyof TSelection]-?: [TSelection[TKey]] extends [TValue]
+		? TKey
+		: never
+}[keyof TSelection]
+
+type QueryIncludedSelectionField<
+	TSchema extends SchemaDefinition,
+	TSelection,
+> = Extract<
+	QuerySelectionKeyWithValue<TSelection, true>,
+	QueryFieldName<TSchema>
+>
+
+type QueryExcludedSelectionField<
+	TSchema extends SchemaDefinition,
+	TSelection,
+> = Extract<
+	QuerySelectionKeyWithValue<TSelection, false>,
+	QueryFieldName<TSchema>
+>
+
+/** Resolves the statically visible field union for one literal selection object. */
+export type QuerySelectedField<
+	TSchema extends SchemaDefinition,
+	TSelection,
+> = keyof TSelection extends never
+	? never
+	: [QueryIncludedSelectionField<TSchema, TSelection>] extends [never]
+		? Exclude<
+				QueryFieldName<TSchema>,
+				QueryExcludedSelectionField<TSchema, TSelection>
+			>
+		: QueryIncludedSelectionField<TSchema, TSelection>
+
+/** Prevents dynamic booleans from producing a falsely exact result projection. */
+export type LiteralQuerySelection<TSelection> = {
+	readonly [TKey in keyof TSelection]: boolean extends TSelection[TKey]
+		? never
+		: TSelection[TKey]
+}
+
+/** Rejects keys that are not fields of the correlated schema. */
+export type ExactQuerySelection<
+	TSchema extends SchemaDefinition,
+	TSelection,
+> = TSelection &
+	Readonly<Record<Exclude<keyof TSelection, QueryFieldName<TSchema>>, never>>
+
 /** Shares the only selection that cannot carry schema-specific field names. */
 export const emptyQuerySelection: QuerySelectionNode<never> = immutableRecord({
 	kind: 'selection',
 	fields: immutableArray([]),
 })
 
-/** Deduplicates selected fields in first-declaration order without mutating input. */
-export const normalizeQuerySelection = <const TSchema extends SchemaDefinition>(
+/** Builds one immutable AST selection from already correlated field names. */
+export const normalizeQuerySelectedFields = <
+	const TSchema extends SchemaDefinition,
+>(
 	schema: TSchema,
 	fields: readonly QueryFieldName<TSchema>[],
 ): QuerySelectionNode<QueryFieldName<TSchema>> => {
-	const untrustedSchema: unknown = schema
-	const untrustedFields: unknown = fields
-
-	assertQuerySchemaReference(untrustedSchema)
-
-	if (!isUnknownArray(untrustedFields)) {
-		throw new TypeError('selection fields must be an array')
-	}
-
-	if (untrustedFields.length === 0) {
+	if (fields.length === 0) {
 		return emptyQuerySelection
 	}
 
 	const selectedFields: QuerySelectedFieldNode<QueryFieldName<TSchema>>[] = []
 	const knownFieldNames = new Set<string>()
 
-	for (const [index, fieldName] of untrustedFields.entries()) {
+	for (const [index, fieldName] of fields.entries()) {
 		const selectedFieldName = parseQueryFieldName(
 			schema,
 			fieldName,
@@ -63,4 +121,65 @@ export const normalizeQuerySelection = <const TSchema extends SchemaDefinition>(
 		kind: 'selection',
 		fields: immutableArray(selectedFields),
 	})
+}
+
+/** Normalizes one literal boolean projection without mutating caller-owned input. */
+export const normalizeQuerySelection = <const TSchema extends SchemaDefinition>(
+	schema: TSchema,
+	selection: QuerySelection<TSchema>,
+): QuerySelectionNode<QueryFieldName<TSchema>> => {
+	const untrustedSchema: unknown = schema
+	const untrustedSelection: unknown = selection
+
+	assertQuerySchemaReference(untrustedSchema)
+
+	if (!isPlainRecord(untrustedSelection)) {
+		throw new TypeError('query selection must be an object')
+	}
+
+	const entries = Object.entries(untrustedSelection)
+
+	if (entries.length === 0) {
+		return emptyQuerySelection
+	}
+
+	const normalizedEntries: {
+		readonly field: QueryFieldName<TSchema>
+		readonly selected: boolean
+	}[] = []
+
+	for (const [fieldName, selected] of entries) {
+		const normalizedFieldName = parseQueryFieldName(
+			schema,
+			fieldName,
+			`selection.${fieldName}`,
+		)
+
+		if (typeof selected !== 'boolean') {
+			throw new TypeError(`selection.${fieldName} must be a boolean`)
+		}
+
+		normalizedEntries.push({ field: normalizedFieldName, selected })
+	}
+
+	const includedFields = normalizedEntries
+		.filter((entry) => entry.selected)
+		.map((entry) => entry.field)
+
+	if (includedFields.length > 0) {
+		return normalizeQuerySelectedFields(schema, includedFields)
+	}
+
+	const excludedFields = new Set(normalizedEntries.map((entry) => entry.field))
+	const selectedFields = Object.keys(schema.fields)
+		.map((fieldName, index) =>
+			parseQueryFieldName(schema, fieldName, `schema.fields[${String(index)}]`),
+		)
+		.filter((fieldName) => !excludedFields.has(fieldName))
+
+	if (selectedFields.length === 0) {
+		throw new TypeError('query selection must retain at least one field')
+	}
+
+	return normalizeQuerySelectedFields(schema, selectedFields)
 }

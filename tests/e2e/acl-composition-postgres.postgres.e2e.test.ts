@@ -183,7 +183,7 @@ describe(
 			)
 			const persisted = await Document.query()
 				.byId(owned.id)
-				.select('acl', 'title')
+				.select({ acl: true, title: true })
 				.first({ ultimabase: app, useMasterKey: true })
 
 			expect(owned.title).toBe('owned')
@@ -259,7 +259,7 @@ describe(
 					)
 					.after()
 					.limit(10)
-					.select('title')
+					.select({ title: true })
 					.find({ context, ultimabase: app })
 					.then((rows) => rows.map(({ title }) => title))
 
@@ -279,12 +279,12 @@ describe(
 			).resolves.toBe(0)
 			await expect(
 				Document.query()
-					.select('secret')
+					.select({ secret: true })
 					.find({ context: alice, ultimabase: app }),
 			).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
 			await expect(
 				Document.query()
-					.select('acl')
+					.select({ acl: true })
 					.find({ context: alice, ultimabase: app }),
 			).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
 		})

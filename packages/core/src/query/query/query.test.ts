@@ -43,7 +43,7 @@ const includedPostSchema = Schema.define({
 describe('Query', () => {
 	it('hydrates one internal immutable shell without rebuilding its normalized AST', () => {
 		const source = new Query(postSchema)
-			.select('id', 'title')
+			.select({ id: true, title: true })
 			.equalTo('published', true)
 			.limit(25)
 		const hydrated = hydrateQueryFromAst<typeof postSchema, 'id' | 'title'>(
@@ -65,7 +65,9 @@ describe('Query', () => {
 
 	it('builds immutable selection, ordering, limit, and pagination branches', () => {
 		const base = new Query(postSchema)
-		const selected = base.select('title', 'id', 'title')
+		const selected = base.select({ title: true, id: true })
+		const excluded = base.select({ published: false, updatedAt: false })
+		const replacedSelection = selected.select({ views: true })
 		const ordered = selected.descending('createdAt', 'title').ascending('title')
 		const limited = ordered.limit(25)
 		const offset = limited.skip(50)
@@ -78,6 +80,23 @@ describe('Query', () => {
 		expect(selected.ast.selection.fields).toStrictEqual([
 			{ kind: 'selected-field', field: 'title' },
 			{ kind: 'selected-field', field: 'id' },
+		])
+		expect(
+			excluded.ast.selection.fields.map(({ field }) => field),
+		).toStrictEqual([
+			'title',
+			'views',
+			'score',
+			'status',
+			'aliases',
+			'metadata',
+			'payload',
+			'attachment',
+			'id',
+			'createdAt',
+		])
+		expect(replacedSelection.ast.selection.fields).toStrictEqual([
+			{ kind: 'selected-field', field: 'views' },
 		])
 		expect(ordered.ast.ordering.orders).toStrictEqual([
 			{ kind: 'order', field: 'createdAt', direction: 'descending' },
@@ -99,6 +118,8 @@ describe('Query', () => {
 		})
 		expect(unchangedCursor.ast.pagination).toBe(cursor.ast.pagination)
 		expect(base).not.toBe(selected)
+		expect(base).not.toBe(excluded)
+		expect(selected).not.toBe(replacedSelection)
 		expect(selected).not.toBe(ordered)
 		expect(ordered).not.toBe(limited)
 		expect(limited).not.toBe(offset)
@@ -106,10 +127,12 @@ describe('Query', () => {
 	})
 
 	it('shares every unchanged immutable AST branch', () => {
-		const base = new Query(postSchema).select('title').descending('createdAt')
+		const base = new Query(postSchema)
+			.select({ title: true })
+			.descending('createdAt')
 		const published = base.equalTo('published', true)
 		const limited = published.limit(10)
-		const noSelectionChange = base.select()
+		const noSelectionChange = base.select({})
 		const noOrderingChange = base.ascending()
 		const noOffsetChange = base.skip(0)
 
@@ -131,9 +154,11 @@ describe('Query', () => {
 	it('builds immutable pointer inclusion branches from exact target queries', () => {
 		const base = new Query(includedPostSchema)
 		const included = base.include('author', (query) =>
-			query.select('id', 'name').equalTo('active', true),
+			query.select({ id: true, name: true }).equalTo('active', true),
 		)
-		const replaced = included.include('author', (query) => query.select('name'))
+		const replaced = included.include('author', (query) =>
+			query.select({ name: true }),
+		)
 
 		expect(base.ast.inclusion.pointers).toStrictEqual([])
 		expect(included.ast.inclusion.pointers).toHaveLength(1)
@@ -184,8 +209,8 @@ describe('Query', () => {
 
 	it('keeps logical field names and rejects malformed inclusion callbacks', () => {
 		const selected = new Query(includedPostSchema)
-			.select('id')
-			.include('author', (query) => query.select('name'))
+			.select({ id: true })
+			.include('author', (query) => query.select({ name: true }))
 
 		expect(selected.ast.selection.fields).toStrictEqual([
 			{ kind: 'selected-field', field: 'id' },
@@ -418,7 +443,7 @@ describe('Query', () => {
 			query.greaterThan('views', 100)
 		const discoverable: QueryScope<typeof postSchema> = (query) =>
 			query.use(published).use(popular).descending('createdAt')
-		const base = new Query(postSchema).select('id', 'title')
+		const base = new Query(postSchema).select({ id: true, title: true })
 		const publishedBranch = base.use(published)
 		const discoverableBranch = base.use(discoverable)
 

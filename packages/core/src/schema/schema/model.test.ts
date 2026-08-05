@@ -209,7 +209,7 @@ describe('schema model classes', () => {
 	})
 
 	it('creates independent Query branches from the static entry point', () => {
-		const first = Post.query().select('id', 'title')
+		const first = Post.query().select({ id: true, title: true })
 		const second = Post.query().equalTo('title', 'Second')
 
 		expect(first).toBeInstanceOf(Query)

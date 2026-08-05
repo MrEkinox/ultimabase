@@ -383,7 +383,7 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 					.ascending('label')
 					.limit(1)
 					.after()
-					.select('label')
+					.select({ label: true })
 					.find({ ultimabase: app })
 			).map((tag) => tag.toJSON()),
 		).toStrictEqual([{ label: 'alpha' }])

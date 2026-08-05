@@ -23,7 +23,10 @@ const posts = await Post.query()
 	})
 	.find({ ultimabase })
 
-const json = Post.query().equalTo('published', true).select('id').toJson()
+const json = Post.query()
+	.equalTo('published', true)
+	.select({ id: true })
+	.toJson()
 ```
 
 ## Acceptance criteria

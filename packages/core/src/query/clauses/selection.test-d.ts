@@ -12,11 +12,11 @@ const postSchema = Schema.define({
 })
 
 test('correlates selected fields with developer and framework schema fields', () => {
-	const selection = normalizeQuerySelection(postSchema, [
-		'title',
-		'id',
-		'updatedAt',
-	])
+	const selection = normalizeQuerySelection(postSchema, {
+		title: true,
+		id: true,
+		updatedAt: true,
+	})
 
 	expect(selection.kind).toBe('selection')
 	expectTypeOf<(typeof selection.fields)[number]['field']>().toEqualTypeOf<
@@ -24,7 +24,7 @@ test('correlates selected fields with developer and framework schema fields', ()
 	>()
 
 	// @ts-expect-error -- Unknown fields never enter a schema-correlated selection.
-	normalizeQuerySelection(postSchema, ['missing'])
+	normalizeQuerySelection(postSchema, { missing: true })
 	// @ts-expect-error -- Normalized selections are immutable.
 	selection.fields = []
 	// @ts-expect-error -- Normalized field collections are immutable.

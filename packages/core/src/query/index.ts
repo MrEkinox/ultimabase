@@ -46,6 +46,7 @@ export type {
 	QueryOffsetPaginationInput,
 } from './clauses/pagination.js'
 export { normalizeQuerySelection } from './clauses/selection.js'
+export type { QuerySelectedField, QuerySelection } from './clauses/selection.js'
 export { normalizeQueryInclusion } from './clauses/inclusion.js'
 export type {
 	QueryPointerFieldName,

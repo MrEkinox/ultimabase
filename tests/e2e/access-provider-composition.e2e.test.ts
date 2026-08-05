@@ -310,7 +310,7 @@ describe('Access provider composition', () => {
 				NativeDocument.query().find({ ultimabase }),
 			).resolves.toEqual([expect.not.objectContaining({ secret: 'hidden' })])
 			await expect(
-				NativeDocument.query().select('secret').find({ ultimabase }),
+				NativeDocument.query().select({ secret: true }).find({ ultimabase }),
 			).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
 			expect(adapter.requests).toHaveLength(1)
 		} finally {

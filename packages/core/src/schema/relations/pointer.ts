@@ -98,7 +98,7 @@ export class Pointer<
 	/**
 	 * Builds an immutable Query scoped to this exact target without performing I/O.
 	 *
-	 * @example `await post.author.query().select('id', 'name').first()`
+	 * @example `await post.author.query().select({ id: true, name: true }).first()`
 	 */
 	query(): Query<TSchema> {
 		// Every schema receives Core's string UUID identifier, although an arbitrary

@@ -232,7 +232,7 @@ describe(
 			const context = aliceRequest('acl-relationships-pointers')
 			const rows = await Article.query()
 				.ascending('title')
-				.include('author', (query) => query.select('name'))
+				.include('author', (query) => query.select({ name: true }))
 				.find({ context, ultimabase: app })
 
 			expect(rows.map(({ title }) => title)).toStrictEqual([
@@ -249,7 +249,7 @@ describe(
 					.first({ context, ultimabase: app }),
 			).resolves.toBeNull()
 			const protectedInclusion = await Article.query()
-				.include('author', (query) => query.select('acl'))
+				.include('author', (query) => query.select({ acl: true }))
 				.find({ context, ultimabase: app })
 
 			// A forbidden target projection is indistinguishable from a missing pointer.
@@ -257,7 +257,9 @@ describe(
 				true,
 			)
 			await expect(
-				Article.query().select('acl').find({ context, ultimabase: app }),
+				Article.query()
+					.select({ acl: true })
+					.find({ context, ultimabase: app }),
 			).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
 		})
 
@@ -272,7 +274,7 @@ describe(
 					.query()
 					.after()
 					.limit(10)
-					.select('label')
+					.select({ label: true })
 					.find({ context, ultimabase: app }),
 			).resolves.toEqual([expect.objectContaining({ label: 'visible' })])
 			await expect(
@@ -282,7 +284,7 @@ describe(
 				tags.query().exists({ context, ultimabase: app }),
 			).resolves.toBe(true)
 			await expect(
-				tags.query().select('acl').find({ context, ultimabase: app }),
+				tags.query().select({ acl: true }).find({ context, ultimabase: app }),
 			).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
 			await expect(
 				requireFixture(hiddenArticle, 'hidden article')

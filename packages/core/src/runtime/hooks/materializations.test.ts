@@ -158,7 +158,7 @@ const updateOperation: UpdateOneOperationAst<
 	'id'
 > = {
 	kind: 'update-one',
-	query: new Query(materializationSchema).select('id').ast,
+	query: new Query(materializationSchema).select({ id: true }).ast,
 	update: updateExpression,
 }
 
@@ -168,12 +168,12 @@ const deleteOperation: DeleteOneOperationAst<
 	'id'
 > = {
 	kind: 'delete-one',
-	query: new Query(materializationSchema).select('id').ast,
+	query: new Query(materializationSchema).select({ id: true }).ast,
 }
 
 describe('runtime mutation materializations', () => {
 	it('compares opaque plugin values through their portable storage codec', () => {
-		const query = new Query(opaqueSchema).select('id').ast
+		const query = new Query(opaqueSchema).select({ id: true }).ast
 		const update = normalizeUpdateExpression(opaqueSchema, {
 			opaque: new OpaqueValue('after'),
 		})
@@ -205,7 +205,7 @@ describe('runtime mutation materializations', () => {
 	})
 
 	it('compares listed opaque plugin values through the scalar codec', () => {
-		const query = new Query(opaqueSchema).select('id').ast
+		const query = new Query(opaqueSchema).select({ id: true }).ast
 		const update = normalizeUpdateExpression(opaqueSchema, {
 			opaqueList: [new OpaqueValue('after')],
 		})

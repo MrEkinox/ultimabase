@@ -65,7 +65,7 @@ describe('read terminals and singular schema commands', () => {
 		const query = articleSchema
 			.query()
 			.equalTo('views', 1)
-			.select('id', 'title')
+			.select({ id: true, title: true })
 		const createOneInput = { title: 'Created one' }
 
 		await runWithRequestEngine(request, async () => {

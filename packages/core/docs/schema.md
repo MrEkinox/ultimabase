@@ -200,13 +200,15 @@ Runtime-materialized models expose independently queryable relations without
 adding a collection property:
 
 ```ts
-const user = await UserSchema.query().select('name').get(userId, { ultimabase })
+const user = await UserSchema.query()
+	.select({ name: true })
+	.get(userId, { ultimabase })
 
 if (user !== null) {
 	const posts = user.relation('posts')
 	const query = posts
 		.query()
-		.select('id', 'title')
+		.select({ id: true, title: true })
 		.descending('createdAt')
 		.limit(20)
 		.after()
@@ -260,7 +262,7 @@ The generated class is constructible and starts fresh immutable Query branches:
 
 ```ts
 const draft = new PostSchema({ title: 'Preview' })
-const query = PostSchema.query().select('id', 'title')
+const query = PostSchema.query().select({ id: true, title: true })
 
 draft.title // string
 draft.get('title') // string
@@ -274,7 +276,7 @@ exact registered class:
 
 ```ts
 const post = await PostSchema.query()
-	.select('id', 'title')
+	.select({ id: true, title: true })
 	.first({ ultimabase })
 
 if (post !== null) {

@@ -155,7 +155,7 @@ const readRolesRelation = (value: unknown): Relation => {
 const readChildRoles = async (role: unknown): Promise<readonly unknown[]> =>
 	readRolesRelation(role)
 		.query()
-		.select('id')
+		.select({ id: true })
 		.ascending('id')
 		.find({ useMasterKey: true })
 

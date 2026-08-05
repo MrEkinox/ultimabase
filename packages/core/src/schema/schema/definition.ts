@@ -515,7 +515,7 @@ const assertNoReservedFieldCollision = (fields: SchemaFields): void => {
  * })
  *
  * const draft = new Post({ title: "Hello" })
- * const query = Post.query().select("id", "title")
+ * const query = Post.query().select({ id: true, title: true })
  * ```
  */
 // A static class deliberately provides the class-first `Schema.define()` namespace.

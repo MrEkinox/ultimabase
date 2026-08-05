@@ -149,6 +149,47 @@ Post./* hover */deleteOne({ where: (where) => where.byId('post-1') })
 		expect(deletion.tags?.some(({ name }) => name === 'example')).toBe(true)
 	})
 
+	it('documents flat selection and completes only correlated schema fields', () => {
+		const selection = readMarkedQuickInfo(
+			`${import.meta.dirname}/query-selection-hover.fixture.ts`,
+			`
+import { Schema, stringField } from '../../src/index.js'
+const Post = Schema.define({ className: 'Post', fields: { title: stringField(), secret: stringField() } })
+Post.query()./* hover */select({ title: true })
+`,
+		)
+		const display = readDisplay(selection.displayParts)
+		const documentation = readDisplay(selection.documentation)
+
+		expect(display).toContain('select<')
+		expect(display).toContain('title: true')
+		expect(documentation).toContain('Replaces the current flat projection')
+		expect(documentation).toContain('Any `true` enables inclusion mode')
+		expect(
+			selection.tags?.filter(({ name }) => name === 'example'),
+		).toHaveLength(2)
+
+		const marker = '/* completion */'
+		const sourceWithMarker = `
+import { Schema, stringField } from '../../src/index.js'
+const Post = Schema.define({ className: 'Post', fields: { title: stringField(), secret: stringField() } })
+Post.query().select({ ${marker} })
+`
+		const position = sourceWithMarker.indexOf(marker)
+		const source = sourceWithMarker.replace(marker, ' '.repeat(marker.length))
+		const fileName = `${import.meta.dirname}/query-selection-completion.fixture.ts`
+		const service = createLanguageService(fileName, source)
+		const completions = service.getCompletionsAtPosition(fileName, position, {})
+		const completionNames = new Set(
+			completions?.entries.map(({ name }) => name) ?? [],
+		)
+
+		expect(completionNames.has('title')).toBe(true)
+		expect(completionNames.has('secret')).toBe(true)
+		expect(completionNames.has('id')).toBe(true)
+		expect(completionNames.has('missing')).toBe(false)
+	})
+
 	it('documents explicit non-atomic bulk behavior at the option boundary', () => {
 		const marker = '/* completion */'
 		const sourceWithMarker = `
@@ -206,7 +247,7 @@ Post./* hover */createMany([{ title: 'First' }], { atomic: false })
 import { Schema, pointerField, stringField } from '../../src/index.js'
 const User = Schema.define({ className: 'User', fields: { name: stringField(), email: stringField() } })
 const Post = Schema.define({ className: 'Post', fields: { author: pointerField({ target: () => User }), title: stringField() } })
-Post.query()./* hover */include('author', (query) => query.select('name'))
+Post.query()./* hover */include('author', (query) => query.select({ name: true }))
 `,
 		)
 		const display = readDisplay(inclusion.displayParts)
@@ -224,7 +265,7 @@ Post.query()./* hover */include('author', (query) => query.select('name'))
 import { Schema, pointerField, stringField } from '../../src/index.js'
 const User = Schema.define({ className: 'User', fields: { name: stringField(), email: stringField() } })
 const Post = Schema.define({ className: 'Post', fields: { author: pointerField({ target: () => User }), title: stringField() } })
-Post.query().include('author', (query) => query.select('${marker}'))
+Post.query().include('author', (query) => query.select({ ${marker}: true }))
 `
 		const position = sourceWithMarker.indexOf(marker)
 		const source = sourceWithMarker.replace(marker, ' '.repeat(marker.length))
