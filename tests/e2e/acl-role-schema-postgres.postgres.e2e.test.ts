@@ -217,7 +217,7 @@ describe(
 			).toStrictEqual(['read', 'update'])
 			await expect(
 				current.update(
-					{ set: { description: 'Updated through role ACL' } },
+					{ description: 'Updated through role ACL' },
 					{ context, ultimabase: app },
 				),
 			).resolves.toMatchObject({ description: 'Updated through role ACL' })
@@ -257,7 +257,7 @@ describe(
 
 			await expect(
 				currentEditor.update(
-					{ set: { acl: new ACL().grantPublic('read') } },
+					{ acl: new ACL().grantPublic('read') },
 					{ context, ultimabase: app },
 				),
 			).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })

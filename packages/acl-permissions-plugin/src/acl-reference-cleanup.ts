@@ -207,7 +207,7 @@ const removeSchemaReferences = async (
 			schema.updateOne(
 				{
 					where: (where) => where.byId(id),
-					data: { set: { [aclFieldName]: cleanupPlaceholder } },
+					data: { [aclFieldName]: cleanupPlaceholder },
 				},
 				{ useMasterKey: true },
 			),

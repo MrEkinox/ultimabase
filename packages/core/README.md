@@ -361,7 +361,7 @@ accept read projections or implicit relation loading:
 const updated = await PostSchema.updateOne(
 	{
 		where: (where) => where.byId(postId),
-		data: { set: { title: 'Updated' } },
+		data: { title: 'Updated' },
 	},
 	{ ultimabase },
 )
@@ -403,10 +403,7 @@ const draft = new PostSchema({ title: 'Preview' })
 const query = PostSchema.query().select('id', 'title')
 
 const created = await draft.create({ ultimabase })
-const updated = await created.update(
-	{ set: { title: 'Published' } },
-	{ ultimabase },
-)
+const updated = await created.update({ title: 'Published' }, { ultimabase })
 await updated?.delete({ ultimabase })
 ```
 

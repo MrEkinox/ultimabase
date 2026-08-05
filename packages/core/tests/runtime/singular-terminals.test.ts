@@ -1,4 +1,4 @@
-import { FrameworkApplication } from '../../src/index.js'
+import { FrameworkApplication, increment } from '../../src/index.js'
 import { Schema, intField, stringField } from '../../src/index.js'
 import { describe, expect, it } from 'vitest'
 
@@ -87,13 +87,13 @@ describe('read terminals and singular schema commands', () => {
 			await expect(
 				articleSchema.updateOne({
 					where: (where) => where.equalTo('title', 'Updated target'),
-					data: { increment: { views: 1 } },
+					data: { views: increment(1) },
 				}),
 			).resolves.toBeNull()
 			const upsertedResult = await articleSchema.upsert({
 				where: (where) => where.equalTo('title', 'Upserted'),
 				create: { title: 'Upserted' },
-				update: { set: { title: 'Upserted' } },
+				update: { title: 'Upserted' },
 			})
 
 			expect(upsertedResult).toBeInstanceOf(articleSchema)

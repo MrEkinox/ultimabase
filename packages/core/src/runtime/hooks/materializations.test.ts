@@ -144,13 +144,11 @@ const createOperation = {
 } satisfies CreateOneOperationAst<typeof materializationSchema>
 
 const updateExpression = normalizeUpdateExpression(materializationSchema, {
-	set: {
-		profile: {
-			displayName: 'name-after',
-			details: { code: 'code-before' },
-		},
-		removable: null,
+	profile: {
+		displayName: 'name-after',
+		details: { code: 'code-before' },
 	},
+	removable: null,
 })
 
 const updateOperation: UpdateOneOperationAst<
@@ -177,7 +175,7 @@ describe('runtime mutation materializations', () => {
 	it('compares opaque plugin values through their portable storage codec', () => {
 		const query = new Query(opaqueSchema).select('id').ast
 		const update = normalizeUpdateExpression(opaqueSchema, {
-			set: { opaque: new OpaqueValue('after') },
+			opaque: new OpaqueValue('after'),
 		})
 		const operation: UpdateOneOperationAst<
 			typeof opaqueSchema,
@@ -209,7 +207,7 @@ describe('runtime mutation materializations', () => {
 	it('compares listed opaque plugin values through the scalar codec', () => {
 		const query = new Query(opaqueSchema).select('id').ast
 		const update = normalizeUpdateExpression(opaqueSchema, {
-			set: { opaqueList: [new OpaqueValue('after')] },
+			opaqueList: [new OpaqueValue('after')],
 		})
 		const operation: UpdateOneOperationAst<
 			typeof opaqueSchema,
@@ -387,7 +385,7 @@ describe('runtime mutation materializations', () => {
 
 	it('preserves materialized bulk item order while unwinding each item', () => {
 		const update = normalizeUpdateExpression(materializationSchema, {
-			set: { 'literal.name': 'updated' },
+			'literal.name': 'updated',
 		})
 		const query = new Query(materializationSchema).equalTo(
 			'literal.name',

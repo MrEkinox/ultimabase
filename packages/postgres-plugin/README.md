@@ -241,7 +241,7 @@ const found = await ultimabase
 const updated = await ArticleSchema.updateOne(
 	{
 		where: (where) => where.byId(created.id),
-		data: { set: { title: 'Updated' } },
+		data: { title: 'Updated' },
 	},
 	{ ultimabase },
 )
@@ -280,7 +280,7 @@ const article = await ArticleSchema.upsert(
 	{
 		where: (where) => where.equalTo('slug', 'runtime-postgres'),
 		create: { slug: 'runtime-postgres', title: 'Runtime + PostgreSQL' },
-		update: { set: { title: 'Runtime + PostgreSQL' } },
+		update: { title: 'Runtime + PostgreSQL' },
 	},
 	{ ultimabase },
 )

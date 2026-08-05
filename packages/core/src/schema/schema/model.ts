@@ -33,6 +33,7 @@ import {
 	Query,
 } from '../../query/query/query.js'
 import type {
+	CompactUpdateExpressionInput,
 	NumericUpdateInput,
 	UpdateExpressionInput,
 	UpdateSetInput,
@@ -102,12 +103,6 @@ interface SchemaModelMethods<TValues extends object> {
 	toJSON(): TValues
 }
 
-type RequireOneProperty<TValue extends object> = {
-	[TKey in keyof TValue]-?: Readonly<
-		Required<Pick<TValue, TKey>> & Partial<Omit<TValue, TKey>>
-	>
-}[keyof TValue]
-
 /** Combines a draft's create values with one unique target and update branch. */
 export interface SchemaDraftUpsertInput<TSchema extends SchemaDefinition> {
 	/** Builds the exact equality target that Runtime verifies against a unique index. */
@@ -116,26 +111,17 @@ export interface SchemaDraftUpsertInput<TSchema extends SchemaDefinition> {
 	readonly update: UpdateExpressionInput<TSchema> & {}
 }
 
-interface CompactSchemaModelUpdateGroups<
-	TSet extends object,
-	TNumeric extends object,
-> {
-	readonly set?: TSet
-	readonly increment?: TNumeric
-	readonly decrement?: TNumeric
-}
-
-/** Names one exact update without retaining complete field definitions in hovers. */
+/** Names one exact field-oriented update without retaining field definitions in hovers. */
 export type CompactSchemaModelUpdateInput<
 	TSet extends object,
 	TNumeric extends object,
-> = RequireOneProperty<CompactSchemaModelUpdateGroups<TSet, TNumeric>>
+> = CompactUpdateExpressionInput<TSet, TNumeric>
 
 /** Infers the compact atomic update surface reused by persisted model commands. */
 export type SchemaModelUpdateInput<TSchema extends SchemaDefinition> =
 	CompactSchemaModelUpdateInput<
-		UpdateSetInput<TSchema>,
-		NumericUpdateInput<TSchema>
+		Simplify<UpdateSetInput<TSchema>>,
+		Simplify<NumericUpdateInput<TSchema>>
 	>
 
 /** Exposes only persistence commands valid for a caller-created immutable draft. */
@@ -152,7 +138,7 @@ export interface SchemaDraftCommands<
 	/**
 	 * Creates this draft or updates the object selected by one unique target.
 	 *
-	 * @example `await draft.upsert({ where: (where) => where.equalTo("slug", "hello"), update: { increment: { views: 1 } } })`
+	 * @example `await draft.upsert({ where: (where) => where.equalTo("slug", "hello"), update: { views: increment(1) } })`
 	 */
 	upsert(input: TUpsertInput, options?: QueryTerminalOptions): Promise<TResult>
 }
@@ -165,7 +151,7 @@ export interface SchemaResultCommands<
 	/**
 	 * Updates this protected object identity and returns the complete model.
 	 *
-	 * @example `const updated = await post.update({ set: { title: "Updated" } })`
+	 * @example `const updated = await post.update({ title: "Updated" })`
 	 */
 	update(
 		input: TUpdateInput,

@@ -3,6 +3,7 @@ import { expectTypeOf, test } from 'vitest'
 import { Schema, intField, stringField } from '../../schema/index.js'
 import { applyUpdateExpressionToRecord } from './apply.js'
 import { normalizeUpdateExpression } from './normalize.js'
+import { increment } from './operators.js'
 
 test('preserves the exact logical record type', () => {
 	const Post = Schema.define({
@@ -13,7 +14,7 @@ test('preserves the exact logical record type', () => {
 	const candidate = applyUpdateExpressionToRecord(
 		Post,
 		current,
-		normalizeUpdateExpression(Post, { increment: { views: 1 } }),
+		normalizeUpdateExpression(Post, { views: increment(1) }),
 	)
 
 	expectTypeOf(candidate).toEqualTypeOf<Readonly<typeof current>>()

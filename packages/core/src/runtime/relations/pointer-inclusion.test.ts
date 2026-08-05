@@ -345,7 +345,7 @@ describe('pointer Runtime execution', () => {
 			const updated = await mutationSource.updateOne(
 				{
 					where: (where) => where.equalTo('id', current.id),
-					data: { set: { title: 'Updated' } },
+					data: { title: 'Updated' },
 				},
 				{ ultimabase },
 			)

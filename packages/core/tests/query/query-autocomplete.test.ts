@@ -123,9 +123,9 @@ Post.query().${marker}
 		const update = readMarkedQuickInfo(
 			`${import.meta.dirname}/query-update-alias-hover.fixture.ts`,
 			`
-import { Schema, intField } from '../../src/index.js'
+import { Schema, increment, intField } from '../../src/index.js'
 const Post = Schema.define({ className: 'Post', fields: { views: intField() } })
-Post./* hover */updateOne({ where: (where) => where.byId('post-1'), data: { increment: { views: 1 } } })
+Post./* hover */updateOne({ where: (where) => where.byId('post-1'), data: { views: increment(1) } })
 `,
 		)
 		const deletion = readMarkedQuickInfo(

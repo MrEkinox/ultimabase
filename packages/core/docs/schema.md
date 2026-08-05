@@ -295,21 +295,20 @@ Drafts expose only `create` and `upsert`; persisted or queried models expose onl
 `update` and `delete`:
 
 ```ts
+import { increment } from '@ultimabase/core'
+
 const draft = new PostSchema({ title: 'Hello' })
 const created = await draft.create({ ultimabase })
 
 const imported = await new PostSchema({ title: 'Imported' }).upsert(
 	{
 		where: (where) => where.equalTo('slug', 'imported'),
-		update: { increment: { imports: 1 } },
+		update: { imports: increment(1) },
 	},
 	{ ultimabase },
 )
 
-const updated = await created.update(
-	{ set: { title: 'Updated' } },
-	{ ultimabase },
-)
+const updated = await created.update({ title: 'Updated' }, { ultimabase })
 await updated?.delete({ ultimabase })
 ```
 

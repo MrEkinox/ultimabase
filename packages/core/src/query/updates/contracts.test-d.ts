@@ -11,7 +11,10 @@ import {
 import { expect, expectTypeOf, test } from 'vitest'
 
 import {
+	decrement,
+	increment,
 	normalizeUpdateExpression,
+	unset,
 	type NumericUpdateFieldName,
 	type SetUpdateOperationNode,
 	type UpdateExpression,
@@ -58,20 +61,15 @@ test('infers mutable and numeric fields independently', () => {
 	>()
 })
 
-test('correlates each operator field with its exact value type', () => {
+test('correlates each field with its exact value or operation type', () => {
 	const expression = normalizeUpdateExpression(articleSchema, {
-		set: {
-			metadata: { label: 'Query' },
-			rating: null,
-			summary: null,
-			title: 'Typed updates',
-		},
-		increment: {
-			views: 1,
-			balance: '1.25',
-			sequence: 1n,
-		},
-		decrement: { rating: 0.5 },
+		metadata: { label: 'Query' },
+		rating: decrement(0.5),
+		summary: unset(),
+		title: 'Typed updates',
+		views: increment(1),
+		balance: increment('1.25'),
+		sequence: increment(1n),
 	})
 
 	expectTypeOf(expression).toEqualTypeOf<
@@ -86,51 +84,38 @@ test('correlates each operator field with its exact value type', () => {
 			{ readonly field: 'views' }
 		>['value']
 	>().toEqualTypeOf<number | null>()
+	expectTypeOf(unset()).toEqualTypeOf<null>()
 	expect(expression.kind).toBe('update-expression')
 })
 
 test('rejects incompatible fields and values at compile time', () => {
-	// @ts-expect-error -- At least one operator group is required.
+	// @ts-expect-error -- At least one changed field is required.
 	normalizeUpdateExpression(articleSchema, {})
 
 	normalizeUpdateExpression(articleSchema, {
-		set: {
-			// @ts-expect-error -- System fields are never developer-updatable.
-			id: '0194f292-0dd9-7c2d-a0a3-a2f755a3d90a',
-		},
+		// @ts-expect-error -- System fields are never developer-updatable.
+		id: '0194f292-0dd9-7c2d-a0a3-a2f755a3d90a',
 	})
 	normalizeUpdateExpression(articleSchema, {
-		set: {
-			// @ts-expect-error -- Immutable fields are omitted from update inference.
-			lockedCounter: 1,
-		},
+		// @ts-expect-error -- Immutable fields are omitted from update inference.
+		lockedCounter: 1,
 	})
 	normalizeUpdateExpression(articleSchema, {
-		set: {
-			// @ts-expect-error -- Set values remain correlated with their fields.
-			views: 'one',
-		},
+		// @ts-expect-error -- Replacement values remain correlated with fields.
+		views: 'one',
 	})
 	normalizeUpdateExpression(articleSchema, {
-		set: {
-			// @ts-expect-error -- Required output fields cannot be cleared.
-			title: null,
-		},
+		// @ts-expect-error -- Required output fields cannot be cleared.
+		title: unset(),
 	})
 	normalizeUpdateExpression(articleSchema, {
 		// @ts-expect-error -- Numeric lists do not support scalar arithmetic.
-		increment: { scores: 1 },
+		scores: increment(1),
 	})
 	normalizeUpdateExpression(articleSchema, {
-		increment: {
-			// @ts-expect-error -- Decimal deltas remain exact strings.
-			balance: 1.25,
-		},
+		// @ts-expect-error -- Decimal deltas remain exact strings.
+		balance: increment(1.25),
 	})
-	normalizeUpdateExpression(articleSchema, {
-		decrement: {
-			// @ts-expect-error -- Nullable fields still reject null arithmetic deltas.
-			rating: null,
-		},
-	})
+	// @ts-expect-error -- Arithmetic helpers reject null deltas.
+	decrement(null)
 })

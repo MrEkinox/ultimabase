@@ -5,6 +5,7 @@ import {
 	UltimaBase,
 	booleanField,
 	definePlugin,
+	increment,
 	intField,
 	stringField,
 } from '@ultimabase/core'
@@ -244,7 +245,7 @@ describe('native Access with PostgreSQL', () => {
 			AccessArticle.updateOne(
 				{
 					where: (where) => where.equalTo('id', publicId),
-					data: { set: { secret: 'changed' } },
+					data: { secret: 'changed' },
 				},
 				{ ultimabase: app },
 			),
@@ -294,10 +295,7 @@ describe('native Access with PostgreSQL', () => {
 		}
 
 		await expect(
-			publicModel.update(
-				{ set: { title: 'public-updated' } },
-				{ ultimabase: app },
-			),
+			publicModel.update({ title: 'public-updated' }, { ultimabase: app }),
 		).resolves.toMatchObject({ title: 'public-updated' })
 
 		const auditCount = await AccessAudit.query().count({ ultimabase: app })
@@ -305,7 +303,7 @@ describe('native Access with PostgreSQL', () => {
 			AccessArticle.updateOne(
 				{
 					where: (where) => where.equalTo('id', lockedId),
-					data: { set: { title: 'must-rollback' } },
+					data: { title: 'must-rollback' },
 				},
 				{ ultimabase: app },
 			),
@@ -323,7 +321,7 @@ describe('native Access with PostgreSQL', () => {
 
 		await expect(
 			BulkDocument.updateMany(
-				{ where: 'all', data: { increment: { value: 10 } } },
+				{ where: 'all', data: { value: increment(10) } },
 				{ ultimabase: app },
 			),
 		).resolves.toBe(2)
@@ -332,7 +330,7 @@ describe('native Access with PostgreSQL', () => {
 				{
 					where: (where) => where.equalTo('key', 'visible-a'),
 					create: { key: 'visible-a', value: 0, visible: true },
-					update: { increment: { value: 1 } },
+					update: { value: increment(1) },
 				},
 				{ ultimabase: app },
 			),

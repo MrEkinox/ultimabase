@@ -27,7 +27,7 @@ describe('schema command execution boundaries', () => {
 		expect(() =>
 			updateSchemaRecord(Post, {
 				where: (where) => where,
-				data: { set: { published: true } },
+				data: { published: true },
 			}),
 		).toThrow(
 			new TypeError(
@@ -43,7 +43,7 @@ describe('schema command execution boundaries', () => {
 			updateSchemaRecord(Post, {
 				// This assertion models an untyped transport returning a foreign builder.
 				where: () => foreignWhere as unknown as SchemaWhere<typeof Post>,
-				data: { set: { published: true } },
+				data: { published: true },
 			}),
 		).toThrow(
 			new TypeError(
@@ -56,7 +56,7 @@ describe('schema command execution boundaries', () => {
 		expect(() =>
 			updateSchemaRecord(Post, {
 				where: (where) => where.equalTo('title', 'Not unique'),
-				data: { set: { published: true } },
+				data: { published: true },
 			}),
 		).toThrow(
 			new TypeError(
@@ -77,7 +77,7 @@ describe('schema command execution boundaries', () => {
 	it('validates command wrappers before resolving execution context', () => {
 		const malformedInput: unknown = {
 			where: (where: SchemaWhere<typeof Post>) => where.byId('post-1'),
-			data: { set: { title: 'Updated' } },
+			data: { title: 'Updated' },
 			extra: true,
 		}
 

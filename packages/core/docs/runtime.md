@@ -501,6 +501,8 @@ the same application, context, authority, capabilities, typed values, and
 metadata:
 
 ```ts
+import { increment } from '@ultimabase/core'
+
 const article = await request.transaction(async () => {
 	const created = await ArticleSchema.create({
 		title: 'Atomic article',
@@ -508,7 +510,7 @@ const article = await request.transaction(async () => {
 
 	await StatsSchema.updateOne({
 		where: (where) => where.byId('global'),
-		data: { increment: { articleCount: 1 } },
+		data: { articleCount: increment(1) },
 	})
 
 	return created

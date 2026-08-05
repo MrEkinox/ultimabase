@@ -663,7 +663,7 @@ describe('native hooks with PostgreSQL', { concurrent: false }, () => {
 		await runWithScope('scope-write', () =>
 			HookArticleSchema.updateOne({
 				where: (where) => where.equalTo('id', created.id),
-				data: { set: { title: 'Updated target' } },
+				data: { title: 'Updated target' },
 			}),
 		)
 		expectTraceSubsequence([
@@ -720,7 +720,7 @@ describe('native hooks with PostgreSQL', { concurrent: false }, () => {
 			runWithScope('scope-bulk-a', () =>
 				HookArticleSchema.updateMany({
 					where: (where) => where.equalTo('title', 'Bulk scoped target'),
-					data: { set: { title: 'Bulk updated target' } },
+					data: { title: 'Bulk updated target' },
 				}),
 			),
 		).resolves.toBe(1)

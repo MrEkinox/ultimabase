@@ -1,4 +1,5 @@
 import {
+	increment,
 	normalizeUpdateExpression,
 	Query,
 	type CreateManyOperationAst,
@@ -196,15 +197,13 @@ describe('runtime field inputs', () => {
 
 	it('extracts and replaces update values including explicit null clears', async () => {
 		const update = normalizeUpdateExpression(traversalSchema, {
-			set: {
-				'literal.name': 'updated.literal',
-				profile: {
-					displayName: 'updated name',
-					contact: { email: 'updated@example.com' },
-				},
-				removable: null,
+			'literal.name': 'updated.literal',
+			profile: {
+				displayName: 'updated name',
+				contact: { email: 'updated@example.com' },
 			},
-			increment: { count: 2 },
+			removable: null,
+			count: increment(2),
 		})
 		const operation = {
 			kind: 'update-one',
@@ -257,7 +256,7 @@ describe('runtime field inputs', () => {
 
 	it('visits and replaces branch-neutral upsert candidates in create-then-update order', async () => {
 		const update = normalizeUpdateExpression(traversalSchema, {
-			set: { 'literal.name': 'update-value' },
+			'literal.name': 'update-value',
 		})
 		const query = new Query(traversalSchema).equalTo('literal.name', 'lookup')
 		const target = {

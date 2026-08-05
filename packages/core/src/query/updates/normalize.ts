@@ -18,10 +18,8 @@ import {
 	type UpdateFieldName,
 	type UpdateOperationNode,
 } from './contracts.js'
+import { isNumericUpdateOperationValue } from './operators.js'
 
-const updateGroupKinds = ['set', 'increment', 'decrement'] as const
-
-type NumericUpdateKind = 'decrement' | 'increment'
 type RuntimeUpdateField = FieldDefinition<string, unknown, object>
 
 const includesString = (values: readonly string[], value: string): boolean =>
@@ -77,96 +75,53 @@ const resolveNumericField = <const TSchema extends SchemaDefinition>(
 	return [mutableFieldName as NumericUpdateFieldName<TSchema>, field]
 }
 
-const claimUpdateField = (
-	claimedFields: Set<string>,
+const appendUpdateOperation = <const TSchema extends SchemaDefinition>(
+	schema: TSchema,
 	fieldName: string,
-): void => {
-	if (claimedFields.has(fieldName)) {
-		throw new TypeError(
-			`update field ${fieldName} cannot use more than one operation`,
-		)
-	}
-
-	claimedFields.add(fieldName)
-}
-
-const appendSetOperations = <const TSchema extends SchemaDefinition>(
-	schema: TSchema,
-	group: unknown,
-	claimedFields: Set<string>,
+	value: unknown,
 	operations: UpdateOperationNode<TSchema>[],
 ): void => {
-	if (!isPlainRecord(group)) {
-		throw new TypeError('update set must be an object')
+	if (value === undefined) {
+		throw new TypeError('update value must not be undefined')
 	}
 
-	for (const [fieldName, value] of Object.entries(group)) {
-		const [mutableFieldName] = resolveMutableField(
-			schema,
-			fieldName,
-			'update set field',
-		)
-
-		if (value === undefined) {
-			throw new TypeError('update set value must not be undefined')
-		}
-
-		claimUpdateField(claimedFields, mutableFieldName)
-		operations.push(
-			immutableRecord({
-				kind: 'set',
-				field: mutableFieldName,
-				value,
-			}) as UpdateOperationNode<TSchema>,
-		)
-	}
-}
-
-const appendNumericOperations = <const TSchema extends SchemaDefinition>(
-	schema: TSchema,
-	kind: NumericUpdateKind,
-	group: unknown,
-	claimedFields: Set<string>,
-	operations: UpdateOperationNode<TSchema>[],
-): void => {
-	if (!isPlainRecord(group)) {
-		throw new TypeError(`update ${kind} must be an object`)
-	}
-
-	for (const [fieldName, value] of Object.entries(group)) {
+	if (isNumericUpdateOperationValue(value)) {
 		const [numericFieldName, field] = resolveNumericField(
 			schema,
 			fieldName,
-			`update ${kind} field`,
+			`update ${value.kind} field`,
 		)
 		const normalizedValue = snapshotScalarFieldValue(
 			field,
-			value,
-			`update ${kind} value`,
+			value.value,
+			`update ${value.kind} value`,
 		)
 
-		claimUpdateField(claimedFields, numericFieldName)
 		operations.push(
 			immutableRecord({
-				kind,
+				kind: value.kind,
 				field: numericFieldName,
 				value: normalizedValue,
 			}) as UpdateOperationNode<TSchema>,
 		)
+		return
 	}
+
+	const [mutableFieldName] = resolveMutableField(
+		schema,
+		fieldName,
+		'update field',
+	)
+	operations.push(
+		immutableRecord({
+			kind: 'set',
+			field: mutableFieldName,
+			value,
+		}) as UpdateOperationNode<TSchema>,
+	)
 }
 
-const assertKnownUpdateGroups = (
-	input: Readonly<Record<string, unknown>>,
-): void => {
-	for (const key of Object.keys(input)) {
-		if (!includesString(updateGroupKinds, key)) {
-			throw new TypeError(`update expression contains unknown group: ${key}`)
-		}
-	}
-}
-
-/** Normalizes typed or transport update input into one deterministic atomic AST. */
+/** Normalizes typed update data into one deterministic atomic AST. */
 export const normalizeUpdateExpression = <
 	const TSchema extends SchemaDefinition,
 >(
@@ -179,27 +134,10 @@ export const normalizeUpdateExpression = <
 		throw new TypeError('update expression must be an object')
 	}
 
-	assertKnownUpdateGroups(untrustedInput)
-
 	const operations: UpdateOperationNode<TSchema>[] = []
-	const claimedFields = new Set<string>()
 
-	for (const kind of updateGroupKinds) {
-		const group: unknown = untrustedInput[kind]
-
-		if (group === undefined) {
-			continue
-		}
-
-		switch (kind) {
-			case 'set':
-				appendSetOperations(schema, group, claimedFields, operations)
-				break
-			case 'increment':
-			case 'decrement':
-				appendNumericOperations(schema, kind, group, claimedFields, operations)
-				break
-		}
+	for (const [fieldName, value] of Object.entries(untrustedInput)) {
+		appendUpdateOperation(schema, fieldName, value, operations)
 	}
 
 	if (operations.length === 0) {

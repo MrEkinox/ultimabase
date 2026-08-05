@@ -15,6 +15,7 @@ import {
 	enumField,
 	floatField,
 	intField,
+	increment,
 	jsonField,
 	normalizeUpdateExpression,
 	objectField,
@@ -182,12 +183,11 @@ declare const packedResult: SchemaResult<
 	typeof PackedModelSchema,
 	{ readonly title: string }
 >
-const packedModelUpdate = () =>
-	packedResult.update({ set: { title: 'Packed update' } })
+const packedModelUpdate = () => packedResult.update({ title: 'Packed update' })
 const packedQueryUpdate = () =>
 	PostSchema.updateOne({
 		where: (where) => where.byId('packed-post'),
-		data: { set: { title: 'Packed query update' } },
+		data: { title: 'Packed query update' },
 	})
 const packedQueryDelete = () =>
 	PostSchema.deleteOne(
@@ -287,7 +287,7 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 				BulkAccountSchema.updateMany(
 					{
 						where: (where) => where.equalTo('tenantId', 'tenant-a'),
-						data: { increment: { visits: 2 } },
+						data: { visits: increment(2) },
 					},
 					{ ultimabase },
 				),
@@ -301,7 +301,7 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 						handle: 'upsert',
 						tenantId: 'tenant-b',
 					},
-					update: { increment: { visits: 1 } },
+					update: { visits: increment(1) },
 				},
 				{ ultimabase },
 			)
@@ -318,7 +318,7 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 						handle: 'upsert',
 						tenantId: 'tenant-b',
 					},
-					update: { increment: { visits: 1 } },
+					update: { visits: increment(1) },
 				},
 				{ ultimabase },
 			)
@@ -338,7 +338,7 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 						handle: 'composite',
 						tenantId: 'tenant-c',
 					},
-					update: { increment: { visits: 1 } },
+					update: { visits: increment(1) },
 				},
 				{ ultimabase },
 			)
@@ -420,7 +420,7 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 							handle: 'concurrent',
 							tenantId: 'tenant-e',
 						},
-						update: { increment: { visits: 1 } },
+						update: { visits: increment(1) },
 					},
 					{ ultimabase },
 				),
@@ -432,7 +432,7 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 							handle: 'concurrent',
 							tenantId: 'tenant-e',
 						},
-						update: { increment: { visits: 1 } },
+						update: { visits: increment(1) },
 					},
 					{ ultimabase },
 				),
@@ -487,7 +487,7 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 				tenantId: 'model-commands',
 			}).upsert(
 				{
-					update: { increment: { visits: 1 } },
+					update: { visits: increment(1) },
 					where: (where) => where.equalTo('email', 'model-upsert@example.com'),
 				},
 				{ ultimabase },
@@ -504,7 +504,7 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 			}
 
 			const updated = await selected.update(
-				{ increment: { visits: 2 } },
+				{ visits: increment(2) },
 				{ ultimabase, useMasterKey: true },
 			)
 			const deleted = await updated?.delete({
@@ -724,8 +724,9 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 				{
 					where: (where) => where.byId(created.id),
 					data: {
-						increment: { views: 2 },
-						set: { published: true, title: 'Persisted E2E' },
+						views: increment(2),
+						published: true,
+						title: 'Persisted E2E',
 					},
 				},
 				{ ultimabase },
@@ -867,10 +868,10 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 				.equalTo('id', updatedTarget.id)
 				.select('id', 'title')
 			const firstUpdate = normalizeUpdateExpression(PostSchema, {
-				set: { title: 'First committed update' },
+				title: 'First committed update',
 			})
 			const secondUpdate = normalizeUpdateExpression(PostSchema, {
-				set: { title: 'Second committed update' },
+				title: 'Second committed update',
 			})
 			const firstTransaction = await adapter.beginTransaction()
 			const secondTransaction = await adapter.beginTransaction()

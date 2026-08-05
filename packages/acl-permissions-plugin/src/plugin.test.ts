@@ -903,7 +903,7 @@ describe('aclPlugin create input resolution', () => {
 			const attempts = [
 				() =>
 					ProtectedPost.updateMany(
-						{ where: 'all', data: { set: { acl: replacement } } },
+						{ where: 'all', data: { acl: replacement } },
 						masterOptions,
 					),
 				() =>
@@ -912,7 +912,7 @@ describe('aclPlugin create input resolution', () => {
 							where: (where) =>
 								where.equalTo('id', '0198a43e-2431-7000-8000-000000000032'),
 							create: { title: 'Created' },
-							update: { set: { acl: replacement } },
+							update: { acl: replacement },
 						},
 						masterOptions,
 					),
@@ -923,7 +923,7 @@ describe('aclPlugin create input resolution', () => {
 								create: { title: 'Created' },
 								where: (where) =>
 									where.equalTo('id', '0198a43e-2431-7000-8000-000000000033'),
-								update: { set: { acl: replacement } },
+								update: { acl: replacement },
 							},
 						],
 						masterOptions,
@@ -938,7 +938,7 @@ describe('aclPlugin create input resolution', () => {
 
 			await expect(
 				ProtectedPost.updateMany(
-					{ where: 'all', data: { set: { acl: replacement } } },
+					{ where: 'all', data: { acl: replacement } },
 					{ ultimabase },
 				),
 			).rejects.toMatchObject({

@@ -173,7 +173,7 @@ describe('native Access pipeline integration', () => {
 					{
 						where: (where) =>
 							where.equalTo('id', '0198a43e-2431-7000-8000-000000000002'),
-						data: { set: { title: 'Changed' } },
+						data: { title: 'Changed' },
 					},
 					{ ultimabase },
 				),

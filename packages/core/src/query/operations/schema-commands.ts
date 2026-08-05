@@ -32,7 +32,7 @@ export interface SchemaUpdateOneInput<TSchema extends SchemaDefinition> {
 	/**
 	 * Applies typed atomic field operations when the target exists.
 	 *
-	 * @example `{ set: { published: true }, increment: { views: 1 } }`
+	 * @example `{ published: true, views: increment(1) }`
 	 */
 	readonly data: UpdateExpressionInput<TSchema> & {}
 }

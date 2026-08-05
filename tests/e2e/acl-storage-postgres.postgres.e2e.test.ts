@@ -98,7 +98,7 @@ describe('ACL JSONB storage', { concurrent: false }, () => {
 			const updated = await StoredPost.updateOne(
 				{
 					where: (where) => where.equalTo('id', created.id),
-					data: { set: { acl: replacement } },
+					data: { acl: replacement },
 				},
 				{ ultimabase, useMasterKey: true },
 			)

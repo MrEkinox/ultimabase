@@ -1,6 +1,7 @@
 import { FrameworkError } from '../../foundation.js'
 import {
 	Query,
+	increment,
 	normalizeUpdateExpression,
 	type CreateManyOperationAst,
 	type CreateOneOperationAst,
@@ -215,12 +216,10 @@ describe('runtime validation', () => {
 		})
 		const query = new Query(validationSchema).equalTo('title', 'old')
 		const update = normalizeUpdateExpression(validationSchema, {
-			set: {
-				title: 'new title',
-				profile: { name: 'Grace' },
-				note: null,
-			},
-			increment: { score: 100 },
+			title: 'new title',
+			profile: { name: 'Grace' },
+			note: null,
+			score: increment(100),
 		})
 		const operation: UpdateOneOperationAst<
 			typeof validationSchema,
@@ -254,7 +253,7 @@ describe('runtime validation', () => {
 			'public-code',
 		)
 		const update = normalizeUpdateExpression(validationSchema, {
-			set: { title: 'updated' },
+			title: 'updated',
 		})
 		const target = {
 			kind: 'unique-upsert-target',
@@ -318,7 +317,7 @@ describe('runtime validation', () => {
 			uuidV7Generator: () => generatedId,
 		})
 		const update = normalizeUpdateExpression(validationSchema, {
-			set: { title: 'updated' },
+			title: 'updated',
 		})
 		const byId: UpsertOneOperationAst<typeof validationSchema, typeof update> =
 			{
@@ -388,7 +387,7 @@ describe('runtime validation', () => {
 			clock: () => new Date('2026-01-01T00:00:00.000Z'),
 		})
 		const update = normalizeUpdateExpression(validationSchema, {
-			set: { title: 'updated' },
+			title: 'updated',
 		})
 		const operation: UpsertOneOperationAst<
 			typeof validationSchema,

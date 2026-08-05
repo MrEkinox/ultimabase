@@ -263,21 +263,21 @@ describe('ACL PostgreSQL Access constraints', { concurrent: false }, () => {
 		const aliceUpdated = await ProtectedPost.updateMany(
 			{
 				where: (where) => where.equalTo('title', 'alice'),
-				data: { set: { marker: 'alice-updated' } },
+				data: { marker: 'alice-updated' },
 			},
 			{ context: alice, ultimabase: app },
 		)
 		const deniedUpdate = await ProtectedPost.updateOne(
 			{
 				where: (where) => where.equalTo('id', requireRowId('bob')),
-				data: { set: { marker: 'forbidden' } },
+				data: { marker: 'forbidden' },
 			},
 			{ context: alice, ultimabase: app },
 		)
 		const editorUpdated = await ProtectedPost.updateOne(
 			{
 				where: (where) => where.equalTo('id', requireRowId('editor')),
-				data: { set: { marker: 'editor-updated' } },
+				data: { marker: 'editor-updated' },
 			},
 			{ context: editor, ultimabase: app },
 		)
@@ -311,7 +311,7 @@ describe('ACL PostgreSQL Access constraints', { concurrent: false }, () => {
 		const attempts = [
 			() =>
 				ProtectedPost.updateMany(
-					{ where: 'all', data: { set: { acl: replacement } } },
+					{ where: 'all', data: { acl: replacement } },
 					masterOptions,
 				),
 			() =>
@@ -319,7 +319,7 @@ describe('ACL PostgreSQL Access constraints', { concurrent: false }, () => {
 					{
 						where: (where) => where.equalTo('id', deniedId),
 						create: { title: 'unexpected-upsert' },
-						update: { set: { acl: replacement } },
+						update: { acl: replacement },
 					},
 					masterOptions,
 				),
@@ -329,7 +329,7 @@ describe('ACL PostgreSQL Access constraints', { concurrent: false }, () => {
 						{
 							create: { title: 'unexpected-bulk-upsert' },
 							where: (where) => where.equalTo('id', deniedId),
-							update: { set: { acl: replacement } },
+							update: { acl: replacement },
 						},
 					],
 					masterOptions,
@@ -351,7 +351,7 @@ describe('ACL PostgreSQL Access constraints', { concurrent: false }, () => {
 		const updated = await ProtectedPost.updateOne(
 			{
 				where: (where) => where.equalTo('id', deniedId),
-				data: { set: { acl: replacement } },
+				data: { acl: replacement },
 			},
 			masterOptions,
 		)

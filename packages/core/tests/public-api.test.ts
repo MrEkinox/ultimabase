@@ -71,6 +71,7 @@ describe('@ultimabase/core public entry point', () => {
 			'dateField',
 			'dateTimeField',
 			'decimalField',
+			'decrement',
 			'defineAccessReferenceCleanup',
 			'defineContextualSchemaExtensionFactory',
 			'defineDatabaseConstraintCompiler',
@@ -96,6 +97,7 @@ describe('@ultimabase/core public entry point', () => {
 			'getPluginFieldStorageCodec',
 			'guard',
 			'hookDiagnosticsObserverServiceToken',
+			'increment',
 			'intField',
 			'isAccessReferenceCleanup',
 			'isFieldRequiredDeferred',
@@ -138,6 +140,7 @@ describe('@ultimabase/core public entry point', () => {
 			'stringField',
 			'timeField',
 			'unsealQueryCursor',
+			'unset',
 			'uuidField',
 			'validateScalarFieldConstraints',
 		])

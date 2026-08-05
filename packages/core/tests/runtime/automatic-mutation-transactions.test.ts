@@ -111,7 +111,7 @@ const mutationFixtures: readonly MutationFixture[] = [
 			runWithRequestEngine(request, () =>
 				articleSchema.updateOne({
 					where: (where) => where.equalTo('title', 'Before'),
-					data: { set: { title: 'After' } },
+					data: { title: 'After' },
 				}),
 			),
 	},
@@ -122,7 +122,7 @@ const mutationFixtures: readonly MutationFixture[] = [
 			runWithRequestEngine(request, () =>
 				articleSchema.updateMany({
 					where: (where) => where.equalTo('title', 'Before'),
-					data: { set: { title: 'After' } },
+					data: { title: 'After' },
 				}),
 			),
 	},
@@ -134,7 +134,7 @@ const mutationFixtures: readonly MutationFixture[] = [
 				articleSchema.upsert({
 					where: (where) => where.equalTo('title', 'Upserted'),
 					create: { title: 'Upserted' },
-					update: { set: { title: 'Upserted' } },
+					update: { title: 'Upserted' },
 				}),
 			),
 	},
@@ -147,7 +147,7 @@ const mutationFixtures: readonly MutationFixture[] = [
 					{
 						where: (where) => where.equalTo('title', 'Upserted'),
 						create: { title: 'Upserted' },
-						update: { set: { title: 'Upserted' } },
+						update: { title: 'Upserted' },
 					},
 				]),
 			),

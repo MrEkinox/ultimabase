@@ -63,7 +63,7 @@ test('infers exact immutable drafts from the generated constructor', () => {
 	>()
 	expectTypeOf(
 		draft.upsert({
-			update: { set: { title: 'Updated' } },
+			update: { title: 'Updated' },
 			where: (where) => where.equalTo('title', 'Hello'),
 		}),
 	).toEqualTypeOf<Promise<SchemaResult<typeof Post>>>()
@@ -79,9 +79,9 @@ test('infers exact immutable drafts from the generated constructor', () => {
 	expectTypeOf(draft).not.toHaveProperty('update')
 	expectTypeOf(draft).not.toHaveProperty('delete')
 	// @ts-expect-error -- Upsert targets use the filter-only callback surface.
-	void draft.upsert({ update: { set: { title: 'Updated' } }, where: {} })
+	void draft.upsert({ update: { title: 'Updated' }, where: {} })
 	void draft.upsert({
-		update: { set: { title: 'Updated' } },
+		update: { title: 'Updated' },
 		where: (where) =>
 			// @ts-expect-error -- Upsert equality values retain their exact field types.
 			where.equalTo('title', 1),
@@ -103,13 +103,13 @@ test('exposes writes on the schema class and keeps Query read-only', () => {
 	expectTypeOf(
 		Post.updateOne({
 			where: (where) => where.byId('post-1'),
-			data: { set: { title: 'Updated' } },
+			data: { title: 'Updated' },
 		}),
 	).toEqualTypeOf<Promise<InferQueryResult<typeof Post> | null>>()
 	expectTypeOf(
 		Post.updateMany({
 			where: (where) => where.equalTo('published', false),
-			data: { set: { published: true } },
+			data: { published: true },
 		}),
 	).toEqualTypeOf<Promise<number>>()
 	expectTypeOf(
@@ -124,7 +124,7 @@ test('exposes writes on the schema class and keeps Query read-only', () => {
 		Post.upsert({
 			where: (where) => where.equalTo('id', 'post-1'),
 			create: { title: 'Created' },
-			update: { set: { title: 'Updated' } },
+			update: { title: 'Updated' },
 		}),
 	).toEqualTypeOf<Promise<InferQueryResult<typeof Post>>>()
 	expectTypeOf(
@@ -132,7 +132,7 @@ test('exposes writes on the schema class and keeps Query read-only', () => {
 			{
 				where: (where) => where.equalTo('id', 'post-1'),
 				create: { title: 'Created' },
-				update: { set: { title: 'Updated' } },
+				update: { title: 'Updated' },
 			},
 		]),
 	).toEqualTypeOf<Promise<readonly InferQueryResult<typeof Post>[]>>()
@@ -202,7 +202,7 @@ test('retains exact schema and selection types through static Query access', () 
 	expectTypeOf(selected.toJSON()).toEqualTypeOf<
 		Readonly<{ readonly id: string; readonly title: string }>
 	>()
-	expectTypeOf(selected.update({ set: { title: 'Updated' } })).toEqualTypeOf<
+	expectTypeOf(selected.update({ title: 'Updated' })).toEqualTypeOf<
 		Promise<SchemaResult<typeof Post> | null>
 	>()
 	expectTypeOf(selected.delete()).toEqualTypeOf<
@@ -215,7 +215,7 @@ test('retains exact schema and selection types through static Query access', () 
 	})
 
 	void selected.update(
-		{ set: { title: 'Master update' } },
+		{ title: 'Master update' },
 		{ context, useMasterKey: true },
 	)
 	void selected.delete({ useMasterKey: true })

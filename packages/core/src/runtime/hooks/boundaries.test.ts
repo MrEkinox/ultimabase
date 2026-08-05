@@ -170,7 +170,7 @@ describe('runtime hook boundaries', () => {
 			kind: 'update-one',
 			query,
 			update: normalizeUpdateExpression(schema, {
-				set: { published: true },
+				published: true,
 			}),
 		}) satisfies UpdateOneOperationAst<typeof schema>
 		const validate = createRuntimeValidationStage({ clock: () => fixedInstant })
@@ -213,7 +213,7 @@ describe('runtime hook boundaries', () => {
 			kind: 'update-one',
 			query: new Query(schema).select('id').ast,
 			update: normalizeUpdateExpression(schema, {
-				set: { published: true },
+				published: true,
 			}),
 		})
 		const boundaries = createRuntimeHookBoundaries()
@@ -246,7 +246,7 @@ describe('runtime hook boundaries', () => {
 			kind: 'update-one',
 			query: new Query(schema).select('id').ast,
 			update: normalizeUpdateExpression(schema, {
-				set: { published: true },
+				published: true,
 			}),
 		})
 		const boundaries = createRuntimeHookBoundaries()
@@ -292,7 +292,7 @@ describe('runtime hook boundaries', () => {
 			kind: 'update-one',
 			query: selectedQuery,
 			update: normalizeUpdateExpression(schema, {
-				set: { published: true },
+				published: true,
 			}),
 		})
 		const createOperation = immutableRecord({

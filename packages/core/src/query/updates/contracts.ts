@@ -4,6 +4,7 @@ import type {
 	InferUpdateInput,
 	SchemaDefinition,
 } from '../../schema/index.js'
+import type { DecrementUpdateValue, IncrementUpdateValue } from './operators.js'
 
 /** Leaves concrete update expressions structurally extensible for Operation AST. */
 export interface UpdateExpressionNode {
@@ -77,21 +78,41 @@ type SimplifyUpdateInput<TInput> = TInput extends object
 	? { [TKey in keyof TInput]: TInput[TKey] } & {}
 	: TInput
 
-interface UpdateExpressionGroups<TSchema extends SchemaDefinition> {
-	readonly set?: SimplifyUpdateInput<UpdateSetInput<TSchema>>
-	readonly increment?: SimplifyUpdateInput<NumericUpdateInput<TSchema>>
-	readonly decrement?: SimplifyUpdateInput<NumericUpdateInput<TSchema>>
+type CompactUpdateDataFields<TSet extends object, TNumeric extends object> = {
+	readonly [TFieldName in keyof TSet]?:
+		| Exclude<TSet[TFieldName], undefined>
+		| (TFieldName extends keyof TNumeric
+				? | IncrementUpdateValue<Exclude<TNumeric[TFieldName], undefined>>
+					| DecrementUpdateValue<Exclude<TNumeric[TFieldName], undefined>>
+				: never)
 }
 
-type RequireOneGroup<TGroups extends object> = {
-	[TKey in keyof TGroups]-?: Readonly<
-		Required<Pick<TGroups, TKey>> & Partial<Omit<TGroups, TKey>>
+type RequireOneField<TFields extends object> = {
+	[TKey in keyof TFields]-?: Readonly<
+		Required<Pick<TFields, TKey>> & Partial<Omit<TFields, TKey>>
 	>
-}[keyof TGroups]
+}[keyof TFields]
 
-/** Requires callers to declare at least one update operator group. */
+/** Materializes a field-oriented update without retaining schema definitions. */
+export type CompactUpdateExpressionInput<
+	TSet extends object,
+	TNumeric extends object,
+> = Exclude<
+	SimplifyUpdateInput<RequireOneField<CompactUpdateDataFields<TSet, TNumeric>>>,
+	undefined
+>
+
+/**
+ * Correlates each mutable field with either its replacement value or one
+ * supported operation value, while requiring at least one changed field.
+ */
 export type UpdateExpressionInput<TSchema extends SchemaDefinition> =
-	SimplifyUpdateInput<RequireOneGroup<UpdateExpressionGroups<TSchema>>>
+	string extends TSchema['className']
+		? Readonly<Record<string, unknown>>
+		: CompactUpdateExpressionInput<
+				SimplifyUpdateInput<UpdateSetInput<TSchema>>,
+				SimplifyUpdateInput<NumericUpdateInput<TSchema>>
+			>
 
 interface UpdateFieldOperationNode<
 	TKind extends string,
@@ -144,7 +165,7 @@ export type UpdateOperationNode<TSchema extends SchemaDefinition> =
 	| IncrementUpdateOperationNode<TSchema>
 	| DecrementUpdateOperationNode<TSchema>
 
-/** Stores normalized atomic field operations in deterministic declaration order. */
+/** Stores normalized operations in deterministic own-property enumeration order. */
 export interface UpdateExpression<
 	TSchema extends SchemaDefinition,
 > extends UpdateExpressionNode {

@@ -1,4 +1,9 @@
-import { Pointer, normalizeUpdateExpression } from '@ultimabase/core'
+import {
+	Pointer,
+	decrement,
+	increment,
+	normalizeUpdateExpression,
+} from '@ultimabase/core'
 import { decimalField, Schema, intField, stringField } from '@ultimabase/core'
 import { SQL } from 'drizzle-orm'
 import { PgDialect } from 'drizzle-orm/pg-core'
@@ -34,25 +39,26 @@ describe('PostgreSQL update compiler', () => {
 
 	it('compiles replacements, absence, and numeric expressions once per field', () => {
 		const update = normalizeUpdateExpression(updateSchemaDefinition, {
-			set: { note: null, title: 'Updated' },
-			increment: { views: 2 },
-			decrement: { balance: '1.25' },
+			note: null,
+			title: 'Updated',
+			views: increment(2),
+			balance: decrement('1.25'),
 		})
 		const compiled = compilePostgresUpdate(updateSchema, update)
-		const increment = compiled.views
-		const decrement = compiled.balance
+		const incrementSql = compiled.views
+		const decrementSql = compiled.balance
 
-		if (!(increment instanceof SQL) || !(decrement instanceof SQL)) {
+		if (!(incrementSql instanceof SQL) || !(decrementSql instanceof SQL)) {
 			throw new TypeError('Numeric update fixture requires SQL expressions')
 		}
 
 		expect(compiled.title).toBe('Updated')
 		expect(compiled.note).toBeNull()
-		expect(dialect.sqlToQuery(increment)).toMatchObject({
+		expect(dialect.sqlToQuery(incrementSql)).toMatchObject({
 			params: [2],
 			sql: '"update_fixtures"."views" + $1',
 		})
-		expect(dialect.sqlToQuery(decrement)).toMatchObject({
+		expect(dialect.sqlToQuery(decrementSql)).toMatchObject({
 			params: ['1.25'],
 			sql: '"update_fixtures"."balance" - $1',
 		})

@@ -151,9 +151,7 @@ describe('@ultimabase/core Schema and Query declarations', () => {
 
 	it('preserves compact immutable model persistence commands', () => {
 		const create = readFixtureQuickInfo('create({ useMasterKey: true })')
-		const update = readFixtureQuickInfo(
-			"update({ set: { title: 'Packed update' } })",
-		)
+		const update = readFixtureQuickInfo("update({ title: 'Packed update' })")
 
 		expect(create.display).toContain(
 			'create(options?: QueryTerminalOptions): Promise<PersistedSchemaModel<',
@@ -257,17 +255,20 @@ describe('@ultimabase/core Schema and Query declarations', () => {
 		expect(found.display).not.toContain('Pick<')
 	})
 
-	it('materializes update operator groups in editor hovers', () => {
+	it('materializes unified update data in editor hovers', () => {
 		const update = readFixtureQuickInfo(
-			"data: { set: { title: 'Packed query update' } }",
+			"data: { title: 'Packed query update' }",
 		)
 		const inputDisplay = update.display
 
-		// Developers should see usable operators instead of the complete field schema.
-		expect(inputDisplay).toContain('readonly set: {')
-		expect(inputDisplay).toContain('readonly views?: number | null;')
-		expect(inputDisplay).toContain('readonly published?: boolean | null;')
-		expect(inputDisplay).toContain('readonly increment?: {')
+		// Developers should see field values and operations instead of the complete schema.
+		expect(inputDisplay).toContain(
+			'readonly attachment: Uint8Array<ArrayBufferLike> | null;',
+		)
+		expect(inputDisplay).toContain(
+			'readonly exactAmount?: string | IncrementUpdateValue<string>',
+		)
+		expect(inputDisplay).toContain('DecrementUpdateValue<string> | null;')
 		expect(inputDisplay).not.toContain('UpdateExpressionInput<')
 		expect(inputDisplay).not.toContain('SchemaDefinition<')
 		expect(inputDisplay).not.toContain('NonDefaultedIntField<')

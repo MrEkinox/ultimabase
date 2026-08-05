@@ -223,7 +223,7 @@ describe('stored roles with PostgreSQL', { concurrent: false }, () => {
 
 		roleDeveloperHookTrace.length = 0
 		const updated = await currentEditor.update(
-			{ set: { description: 'Edits published content' } },
+			{ description: 'Edits published content' },
 			{ ultimabase: app, useMasterKey: true },
 		)
 		expect(updated?.description).toBe('Edits published content')
@@ -296,7 +296,7 @@ describe('stored roles with PostgreSQL', { concurrent: false }, () => {
 		const updated = await ProtectedPost.updateOne(
 			{
 				where: (where) => where.byId(publishedPostId),
-				data: { set: { title: 'Updated through inherited roles' } },
+				data: { title: 'Updated through inherited roles' },
 			},
 			{ context: aliceContext, ultimabase: app },
 		)
@@ -308,7 +308,7 @@ describe('stored roles with PostgreSQL', { concurrent: false }, () => {
 			ProtectedPost.updateOne(
 				{
 					where: (where) => where.byId(publishedPostId),
-					data: { set: { title: 'Bob must not update' } },
+					data: { title: 'Bob must not update' },
 				},
 				{ context: bobContext, ultimabase: app },
 			),
@@ -342,7 +342,7 @@ describe('stored roles with PostgreSQL', { concurrent: false }, () => {
 			{
 				where: (where) => where.byId(publishedPostId),
 				data: {
-					set: { title: 'A second terminal gets a fresh role snapshot' },
+					title: 'A second terminal gets a fresh role snapshot',
 				},
 			},
 			{ context: aliceContext, ultimabase: app },
@@ -372,7 +372,7 @@ describe('stored roles with PostgreSQL', { concurrent: false }, () => {
 		const currentEditor = requireRole(editor, 'editor')
 		const stableReference = AppRole.role({ id: currentEditor.id })
 		const renamed = await currentEditor.update(
-			{ set: { name: 'content-editor' } },
+			{ name: 'content-editor' },
 			{ ultimabase: app, useMasterKey: true },
 		)
 
@@ -536,7 +536,7 @@ describe('stored roles with PostgreSQL', { concurrent: false }, () => {
 				MissingProviderPost.updateOne(
 					{
 						where: (where) => where.byId(row.id),
-						data: { set: { title: 'Must fail before hooks' } },
+						data: { title: 'Must fail before hooks' },
 					},
 					{ ultimabase: missing },
 				),
@@ -558,7 +558,7 @@ describe('stored roles with PostgreSQL', { concurrent: false }, () => {
 				MissingProviderPost.updateOne(
 					{
 						where: (where) => where.byId(row.id),
-						data: { set: { title: 'Community provider allowed' } },
+						data: { title: 'Community provider allowed' },
 					},
 					{ ultimabase: community },
 				),

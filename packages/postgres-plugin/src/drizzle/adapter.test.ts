@@ -2,6 +2,7 @@ import {
 	Query,
 	Pointer,
 	databaseConstraint,
+	increment,
 	normalizeUpdateExpression,
 	type CreateOneOperationAst,
 	type DeleteOneOperationAst,
@@ -524,8 +525,8 @@ describe('internal PostgreSQL database adapter', () => {
 			.select('id', 'title')
 			.descending('views')
 		const update = normalizeUpdateExpression(articleSchema, {
-			set: { title: 'Requested' },
-			increment: { views: 1 },
+			title: 'Requested',
+			views: increment(1),
 		})
 		const updateOperation = {
 			kind: 'update-one',
@@ -593,7 +594,7 @@ describe('internal PostgreSQL database adapter', () => {
 					query: new Query(articleSchema).equalTo('id', firstId).ast,
 					target: { fields: ['id'], kind: 'unique-upsert-target' },
 					update: normalizeUpdateExpression(articleSchema, {
-						set: { title: 'Pending' },
+						title: 'Pending',
 					}),
 				},
 			}),
@@ -789,8 +790,8 @@ describe('internal PostgreSQL database adapter', () => {
 			.equalTo('title', 'Old')
 			.select('id', 'title')
 		const update = normalizeUpdateExpression(articleSchema, {
-			set: { title: 'Updated' },
-			increment: { views: 1 },
+			title: 'Updated',
+			views: increment(1),
 		})
 		const updateOperation = {
 			kind: 'update-one',
@@ -822,8 +823,8 @@ describe('internal PostgreSQL database adapter', () => {
 		const resolvedUpdateOperation = {
 			...updateOperation,
 			update: normalizeUpdateExpression(articleSchema, {
-				set: { title: 'Updated' },
-				increment: { views: 1 },
+				title: 'Updated',
+				views: increment(1),
 			}),
 		}
 		driver.respond([[null, 'Updated', 2, firstId, timestamp, timestamp]])
@@ -995,7 +996,7 @@ describe('internal PostgreSQL database adapter', () => {
 		const transaction = await fixture.adapter.beginTransaction()
 		const query = new Query(articleSchema).greaterThan('views', 0).limit(10)
 		const update = normalizeUpdateExpression(articleSchema, {
-			increment: { views: 1 },
+			views: increment(1),
 		})
 		const preparedUpdate = await transaction.prepare({
 			constraints: [],
@@ -1040,7 +1041,7 @@ describe('internal PostgreSQL database adapter', () => {
 			.equalTo('id', firstId)
 			.select('id', 'title')
 		const update = normalizeUpdateExpression(articleSchema, {
-			set: { title: 'Updated' },
+			title: 'Updated',
 		})
 		const operation = {
 			create,
@@ -1100,7 +1101,7 @@ describe('internal PostgreSQL database adapter', () => {
 		}
 		const secondCurrent = { ...secondPrevious, title: 'Second updated' }
 		const update = normalizeUpdateExpression(articleSchema, {
-			set: { title: 'Second updated' },
+			title: 'Second updated',
 		})
 		const item = (id: string, create: typeof first) => ({
 			create,
@@ -1155,7 +1156,7 @@ describe('internal PostgreSQL database adapter', () => {
 			views: 0,
 		}
 		const update = normalizeUpdateExpression(articleSchema, {
-			set: { title: 'Updated' },
+			title: 'Updated',
 		})
 		const item = (id: string) => ({
 			create: { ...first, id },
@@ -1222,7 +1223,7 @@ describe('internal PostgreSQL database adapter', () => {
 			kind: 'update-one',
 			query,
 			update: normalizeUpdateExpression(articleSchema, {
-				set: { title: 'Updated' },
+				title: 'Updated',
 			}),
 		} satisfies UpdateOneOperationAst<typeof articleSchema>
 
@@ -1302,7 +1303,7 @@ describe('internal PostgreSQL database adapter', () => {
 				kind: 'unique-upsert-target',
 			},
 			update: normalizeUpdateExpression(articleSchema, {
-				set: { title: 'Upsert updated' },
+				title: 'Upsert updated',
 			}),
 		} as const satisfies UpsertOneOperationAst<typeof articleSchema>
 		const preparedUpsert = await transaction.prepare({
@@ -1356,7 +1357,7 @@ describe('internal PostgreSQL database adapter', () => {
 			kind: 'update-one',
 			query: deleteOperation.query,
 			update: normalizeUpdateExpression(articleSchema, {
-				set: { title: 'Never written' },
+				title: 'Never written',
 			}),
 		} satisfies UpdateOneOperationAst<typeof articleSchema>
 

@@ -9,6 +9,7 @@ import { describe, expect, it } from 'vitest'
 
 import { applyUpdateExpressionToRecord } from './apply.js'
 import { normalizeUpdateExpression } from './normalize.js'
+import { decrement, increment } from './operators.js'
 
 const Account = Schema.define({
 	className: 'AppliedUpdateAccount',
@@ -31,9 +32,11 @@ describe('applyUpdateExpressionToRecord', () => {
 			visits: 4,
 		})
 		const update = normalizeUpdateExpression(Account, {
-			decrement: { sequence: 2n },
-			increment: { balance: '1.5', visits: 3 },
-			set: { labels: ['new', 'stable'], legacy: null },
+			sequence: decrement(2n),
+			balance: increment('1.5'),
+			visits: increment(3),
+			labels: ['new', 'stable'],
+			legacy: null,
 		})
 		const candidate = applyUpdateExpressionToRecord(Account, current, update)
 
@@ -56,7 +59,8 @@ describe('applyUpdateExpressionToRecord', () => {
 
 	it('preserves absent and null numeric values instead of inventing defaults', () => {
 		const update = normalizeUpdateExpression(Account, {
-			increment: { balance: '1.25', visits: 1 },
+			balance: increment('1.25'),
+			visits: increment(1),
 		})
 
 		expect(

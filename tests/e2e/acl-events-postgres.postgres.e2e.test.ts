@@ -157,7 +157,7 @@ describe('ACL committed events with PostgreSQL', { concurrent: false }, () => {
 		await Post.updateOne(
 			{
 				where: (where) => where.equalTo('id', created.id),
-				data: { set: { acl: replacement } },
+				data: { acl: replacement },
 			},
 			{ ultimabase: getApplication(), useMasterKey: true },
 		)
@@ -182,7 +182,7 @@ describe('ACL committed events with PostgreSQL', { concurrent: false }, () => {
 		await Post.updateOne(
 			{
 				where: (where) => where.equalTo('id', created.id),
-				data: { set: { acl: ACL.fromJSON(replacement.toJSON()) } },
+				data: { acl: ACL.fromJSON(replacement.toJSON()) },
 			},
 			{ ultimabase: getApplication(), useMasterKey: true },
 		)
@@ -201,7 +201,7 @@ describe('ACL committed events with PostgreSQL', { concurrent: false }, () => {
 			Post.updateOne(
 				{
 					where: (where) => where.equalTo('id', created.id),
-					data: { set: { acl: created.acl.grantAuthenticated('update') } },
+					data: { acl: created.acl.grantAuthenticated('update') },
 				},
 				{ ultimabase: getApplication(), useMasterKey: true },
 			),

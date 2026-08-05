@@ -272,7 +272,7 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 		await Tag.updateOne(
 			{
 				where: (where) => where.byId(hidden.id),
-				data: { set: { visible: false } },
+				data: { visible: false },
 			},
 			{ ultimabase: app },
 		)

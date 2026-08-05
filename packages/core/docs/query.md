@@ -77,7 +77,7 @@ const created = await Post.create(
 const updated = await Post.updateOne(
 	{
 		where: (where) => where.byId(created.id),
-		data: { set: { title: 'Updated' } },
+		data: { title: 'Updated' },
 	},
 	{ ultimabase },
 )
@@ -106,9 +106,33 @@ pagination, read terminal, execution option, or authority method:
 ```ts
 await Post.updateMany({
 	where: (where) => where.equalTo('published', false),
-	data: { set: { published: true } },
+	data: { published: true },
 })
 ```
+
+Update `data` is one field-oriented map. A direct value replaces the field,
+an omitted property remains unchanged, and `null` clears an optional field.
+Arithmetic operations stay explicit values, while `unset()` is a readable
+alias for the same canonical `null` clear:
+
+```ts
+import { decrement, increment, unset } from '@ultimabase/core'
+
+await Post.updateOne({
+	where: (where) => where.byId(postId),
+	data: {
+		title: 'Updated',
+		views: increment(2),
+		stock: decrement(1),
+		summary: unset(),
+	},
+})
+```
+
+`increment()` and `decrement()` are accepted only by mutable scalar numeric
+fields and preserve the field's exact type: numbers for integer and float
+fields, strings for decimals, and bigint values for bigint fields. `unset()` is
+accepted only where `null` is accepted, so required fields cannot be cleared.
 
 An empty callback is rejected. A set-based command can deliberately target all
 rows only with the explicit value `where: 'all'`:
@@ -131,7 +155,7 @@ the mutation never triggers an implicit relation read:
 ```ts
 const post = await Post.updateOne({
 	where: (where) => where.byId(postId),
-	data: { set: { title: 'Updated' } },
+	data: { title: 'Updated' },
 })
 
 if (post !== null) {
@@ -148,7 +172,7 @@ Runtime-issued models also expose identity-safe instance commands:
 ```ts
 const draft = new Post({ title: 'Draft' })
 const created = await draft.create()
-const updated = await created.update({ set: { title: 'Updated' } })
+const updated = await created.update({ title: 'Updated' })
 await updated?.delete()
 ```
 
@@ -224,7 +248,7 @@ const imported = await Account.upsertMany(
 	rows.map((row) => ({
 		where: (where) => where.equalTo('email', row.email),
 		create: row,
-		update: { set: { displayName: row.displayName } },
+		update: { displayName: row.displayName },
 	})),
 	{ ultimabase },
 )

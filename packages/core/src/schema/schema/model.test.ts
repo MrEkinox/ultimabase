@@ -162,7 +162,7 @@ describe('schema model classes', () => {
 
 		await expect(
 			Reflect.apply(Reflect.get(draft, 'update') as () => unknown, draft, [
-				{ set: { title: 'Forged' } },
+				{ title: 'Forged' },
 			]),
 		).rejects.toThrow(
 			new TypeError('Schema model update requires persisted model state'),
@@ -185,7 +185,7 @@ describe('schema model classes', () => {
 				persisted,
 				[
 					{
-						update: { set: { title: 'Forged' } },
+						update: { title: 'Forged' },
 						where: { title: 'Persisted' },
 					},
 				],

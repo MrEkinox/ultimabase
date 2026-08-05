@@ -1,5 +1,6 @@
 import {
 	FrameworkApplication,
+	increment,
 	type SchemaMutationHookKind,
 } from '../../src/index.js'
 import { Schema, intField, stringField } from '../../src/index.js'
@@ -143,12 +144,12 @@ describe('bulk and upsert terminals', () => {
 				{
 					where: (where) => where.equalTo('email', 'first@example.com'),
 					create: { email: 'first@example.com' },
-					update: { increment: { visits: 1 } },
+					update: { visits: increment(1) },
 				},
 				{
 					where: (where) => where.equalTo('email', 'second@example.com'),
 					create: { email: 'second@example.com' },
-					update: { increment: { visits: 1 } },
+					update: { visits: increment(1) },
 				},
 			]),
 		)
@@ -387,7 +388,7 @@ describe('bulk and upsert terminals', () => {
 		const updated = await runWithRequestEngine(updateRequest, () =>
 			accountSchema.updateMany({
 				where: (where) => where.greaterThan('visits', 0),
-				data: { increment: { visits: 1 } },
+				data: { visits: increment(1) },
 			}),
 		)
 		const deleted = await runWithRequestEngine(deleteRequest, () =>

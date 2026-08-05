@@ -7,6 +7,8 @@ import {
 } from '@ultimabase/acl-permissions-plugin'
 import {
 	decimalField,
+	decrement,
+	increment,
 	intField,
 	MasterAuthority,
 	Schema,
@@ -178,13 +180,12 @@ describe('ACL input resolution with PostgreSQL', { concurrent: false }, () => {
 			{
 				where: (where) => where.equalTo('id', id),
 				data: {
-					increment: { balance: '1.50', views: 3 },
-					set: {
-						acl: replacement,
-						labels: ['stable', 'typed'],
-						note: null,
-						title: 'resolved-candidate',
-					},
+					acl: replacement,
+					labels: ['stable', 'typed'],
+					title: 'resolved-candidate',
+					note: null,
+					balance: increment('1.50'),
+					views: increment(3),
 				},
 			},
 			masterOptions,
@@ -253,8 +254,10 @@ describe('ACL input resolution with PostgreSQL', { concurrent: false }, () => {
 				{
 					where: (where) => where.equalTo('id', id),
 					data: {
-						decrement: { balance: '0.25', views: 1 },
-						set: { acl: new ACL(), title: 'rollback-candidate' },
+						balance: decrement('0.25'),
+						views: decrement(1),
+						acl: new ACL(),
+						title: 'rollback-candidate',
 					},
 				},
 				masterOptions,
@@ -282,7 +285,7 @@ describe('ACL input resolution with PostgreSQL', { concurrent: false }, () => {
 			ResolutionPost.updateOne(
 				{
 					where: (where) => where.equalTo('id', id),
-					data: { set: { status: 'ordinary' } },
+					data: { status: 'ordinary' },
 				},
 				masterOptions,
 			),

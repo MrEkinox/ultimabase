@@ -1,4 +1,4 @@
-import { RequestCapability } from '../../src/index.js'
+import { RequestCapability, increment } from '../../src/index.js'
 import { FrameworkApplication, FrameworkError } from '../../src/index.js'
 import { Schema, intField, stringField } from '../../src/index.js'
 import { describe, expect, it } from 'vitest'
@@ -95,7 +95,7 @@ describe('RequestEngine transactions', () => {
 
 					await articleSchema.updateOne({
 						where: (where) => where.equalTo('id', article.id),
-						data: { increment: { views: 1 } },
+						data: { views: increment(1) },
 					})
 
 					return article

@@ -298,15 +298,12 @@ describe('UltimaBase', () => {
 			const created = await draft.create({ ultimabase })
 			const upserted = await importedDraft.upsert(
 				{
-					update: { set: { title: 'Upserted' } },
+					update: { title: 'Upserted' },
 					where: (where) => where.equalTo('title', 'Imported'),
 				},
 				{ ultimabase },
 			)
-			const updated = await created.update(
-				{ set: { title: 'Updated' } },
-				{ ultimabase },
-			)
+			const updated = await created.update({ title: 'Updated' }, { ultimabase })
 			const deleted = await updated?.delete({ ultimabase })
 
 			expect(draft.toJSON()).toStrictEqual({ title: 'Created' })

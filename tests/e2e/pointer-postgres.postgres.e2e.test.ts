@@ -321,7 +321,7 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 
 		pointerTrace.length = 0
 		const updated = await created.update(
-			{ set: { author: secondPointer, title: 'Updated pointer' } },
+			{ author: secondPointer, title: 'Updated pointer' },
 			{ ultimabase: app },
 		)
 
@@ -335,10 +335,8 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 				{
 					where: (where) => where.equalTo('id', created.id),
 					data: {
-						set: {
-							author: firstPointer,
-							title: 'rollback-pointer',
-						},
+						author: firstPointer,
+						title: 'rollback-pointer',
 					},
 				},
 				{ ultimabase: app },
@@ -543,7 +541,7 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 		const updatedLeft = await CircularLeft.updateOne(
 			{
 				where: (where) => where.equalTo('id', left.id),
-				data: { set: { right: new Pointer(CircularRight, right.id) } },
+				data: { right: new Pointer(CircularRight, right.id) },
 			},
 			{ ultimabase: app },
 		)

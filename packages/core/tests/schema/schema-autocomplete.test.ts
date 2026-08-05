@@ -307,7 +307,7 @@ new Post({ title: 'Hello' })./* hover */create()
 import { Schema, stringField, type SchemaResult } from '../../src/schema/index.js'
 const Post = Schema.define({ className: 'Post', fields: { title: stringField() } })
 declare const post: SchemaResult<typeof Post, { readonly title: string }>
-post./* hover */update({ set: { title: 'Updated' } })
+post./* hover */update({ title: 'Updated' })
 `)
 		const createDisplay = ts.displayPartsToString(create.displayParts)
 		const updateDisplay = ts.displayPartsToString(update.displayParts)

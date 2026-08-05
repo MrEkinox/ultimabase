@@ -1,4 +1,5 @@
 import {
+	increment,
 	intField,
 	stringField,
 	Schema,
@@ -91,7 +92,7 @@ test('preserves Query schema selection across every read terminal', () => {
 				{
 					create: { title: 'Unique' },
 					where: (where) => where.equalTo('title', 'Unique'),
-					update: { increment: { views: 1 } },
+					update: { views: increment(1) },
 				},
 			],
 			{ atomic: false, ultimabase },
@@ -103,7 +104,7 @@ test('preserves Query schema selection across every read terminal', () => {
 		articleSchema.updateMany(
 			{
 				where: (where) => where.equalTo('title', 'Unique'),
-				data: { increment: { views: 1 } },
+				data: { views: increment(1) },
 			},
 			{ ultimabase },
 		),
@@ -113,7 +114,7 @@ test('preserves Query schema selection across every read terminal', () => {
 			{
 				where: (where) => where.equalTo('title', 'Unique'),
 				create: { title: 'Unique' },
-				update: { increment: { views: 1 } },
+				update: { views: increment(1) },
 			},
 			{ ultimabase },
 		),
@@ -144,14 +145,14 @@ test('preserves Query schema selection across every read terminal', () => {
 	void articleSchema.updateOne(
 		{
 			where: (where) => where.equalTo('title', 'Unique'),
-			data: { increment: { views: 1 } },
+			data: { views: increment(1) },
 		},
 		masterOptions,
 	)
 	void articleSchema.updateMany(
 		{
 			where: (where) => where.equalTo('views', 0),
-			data: { increment: { views: 1 } },
+			data: { views: increment(1) },
 		},
 		contextOptions,
 	)
@@ -159,7 +160,7 @@ test('preserves Query schema selection across every read terminal', () => {
 		{
 			where: (where) => where.equalTo('title', 'Unique'),
 			create: { title: 'Unique' },
-			update: { increment: { views: 1 } },
+			update: { views: increment(1) },
 		},
 		contextOptions,
 	)
@@ -168,7 +169,7 @@ test('preserves Query schema selection across every read terminal', () => {
 			{
 				create: { title: 'Unique' },
 				where: (where) => where.equalTo('title', 'Unique'),
-				update: { increment: { views: 1 } },
+				update: { views: increment(1) },
 			},
 		],
 		{ atomic: true, ...contextualMasterOptions },
@@ -188,7 +189,7 @@ test('preserves Query schema selection across every read terminal', () => {
 	// @ts-expect-error -- Mutation execution options follow the mutation input.
 	void articleSchema.create({ ultimabase }, { title: 'Created' })
 	// @ts-expect-error -- Singular update aliases never accept a collection input.
-	void articleSchema.updateOne([{ increment: { views: 1 } }])
+	void articleSchema.updateOne([{ views: increment(1) }])
 	// @ts-expect-error -- Singular delete commands require their target wrapper.
 	void articleSchema.deleteOne([])
 	// @ts-expect-error -- Terminal ownership never becomes a Query builder option.
