@@ -34,6 +34,7 @@ import { normalizeQuerySelection } from '../clauses/selection.js'
 import {
 	createQueryNullFilter,
 	createQueryMembershipFilter,
+	createQueryRangeFilter,
 	createQueryRegexFilter,
 	createQueryValueFilter,
 } from '../filters/factory.js'
@@ -488,6 +489,40 @@ export class Query<
 				'less-than-or-equal',
 				fieldName,
 				value,
+			),
+		)
+	}
+
+	/**
+	 * Adds one inclusive interval condition to the implicit AND filter chain.
+	 * @example `Post.query().between("views", 10, 100)`
+	 */
+	between<TFieldName extends QueryFilterFieldName<TSchema, 'between'>>(
+		fieldName: TFieldName,
+		lower: QueryComparisonValue<TSchema, TFieldName>,
+		upper: QueryComparisonValue<TSchema, TFieldName>,
+	): Query<TSchema, TSelectedField, TIncludedPointer> {
+		return this.#appendFilter(
+			createQueryRangeFilter(this.schema, 'between', fieldName, lower, upper),
+		)
+	}
+
+	/**
+	 * Adds the inverse of one inclusive interval to the implicit AND chain.
+	 * @example `Post.query().notBetween("views", 10, 100)`
+	 */
+	notBetween<TFieldName extends QueryFilterFieldName<TSchema, 'not-between'>>(
+		fieldName: TFieldName,
+		lower: QueryComparisonValue<TSchema, TFieldName>,
+		upper: QueryComparisonValue<TSchema, TFieldName>,
+	): Query<TSchema, TSelectedField, TIncludedPointer> {
+		return this.#appendFilter(
+			createQueryRangeFilter(
+				this.schema,
+				'not-between',
+				fieldName,
+				lower,
+				upper,
 			),
 		)
 	}

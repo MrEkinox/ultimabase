@@ -36,6 +36,8 @@ test('correlates every Access predicate with exact schema capabilities', () => {
 			.greaterThanOrEqualTo('views', 10)
 			.lessThan('views', 100)
 			.lessThanOrEqualTo('views', 100)
+			.between('views', 10, 100)
+			.notBetween('views', 10, 100)
 			.containedIn('status', ['draft', 'published'])
 			.notContainedIn('status', ['draft'])
 			.contains('title', 'Base')
@@ -59,6 +61,10 @@ test('correlates every Access predicate with exact schema capabilities', () => {
 	filter.greaterThan('published', true)
 	// @ts-expect-error -- Ordered comparisons reject nullable null operands.
 	filter.greaterThan('score', null)
+	// @ts-expect-error -- Range bounds reject nullable null operands.
+	filter.between('score', null, 100)
+	// @ts-expect-error -- Range filters reject unordered fields.
+	filter.notBetween('published', false, true)
 	// @ts-expect-error -- Membership values stay correlated with the enum.
 	filter.containedIn('status', ['archived'])
 	// @ts-expect-error -- String operators reject numeric fields.

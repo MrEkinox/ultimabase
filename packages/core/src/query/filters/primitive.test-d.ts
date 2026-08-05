@@ -26,6 +26,7 @@ import type {
 	QueryMembershipFilterOperator,
 	QueryPrimitiveFilterNode,
 	QueryPrimitiveFilterOperator,
+	QueryRangeFilterOperator,
 	QueryRegexPattern,
 	QueryStringFilterOperator,
 } from '../index.js'
@@ -71,7 +72,8 @@ const filterSchema = Schema.define({
 type EqualityOperators =
 	QueryEqualityFilterOperator | QueryMembershipFilterOperator | 'null'
 
-type OrderedOperators = EqualityOperators | QueryComparisonFilterOperator
+type OrderedOperators =
+	EqualityOperators | QueryComparisonFilterOperator | QueryRangeFilterOperator
 
 type StringOperators = OrderedOperators | QueryStringFilterOperator | 'regex'
 
@@ -114,6 +116,18 @@ test('correlates operands with exact inferred field values', () => {
 		readonly field: 'count'
 		readonly value: 10
 	}>().toExtend<Filters>()
+	expectTypeOf<{
+		readonly kind: 'between'
+		readonly field: 'count'
+		readonly lower: 10
+		readonly upper: 20
+	}>().toExtend<Filters>()
+	expectTypeOf<{
+		readonly kind: 'not-between'
+		readonly field: 'nullableCount'
+		readonly lower: null
+		readonly upper: 20
+	}>().not.toExtend<Filters>()
 	expectTypeOf<{
 		readonly kind: 'in'
 		readonly field: 'status'

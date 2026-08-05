@@ -226,6 +226,8 @@ describe('Query', () => {
 			.greaterThanOrEqualTo('views', 11)
 			.lessThan('views', 100)
 			.lessThanOrEqualTo('views', 99)
+			.between('views', 20, 80)
+			.notBetween('views', 40, 60)
 			.containedIn('status', statusValues)
 			.notContainedIn('status', ['draft'])
 			.contains('title', 'Base')
@@ -243,13 +245,25 @@ describe('Query', () => {
 			kind: 'and',
 		})
 		if (query.ast.where?.expression.kind === 'and') {
-			expect(query.ast.where.expression.expressions).toHaveLength(15)
+			expect(query.ast.where.expression.expressions).toHaveLength(17)
 			expect(query.ast.where.expression.expressions[6]).toStrictEqual({
+				kind: 'between',
+				field: 'views',
+				lower: 20,
+				upper: 80,
+			})
+			expect(query.ast.where.expression.expressions[7]).toStrictEqual({
+				kind: 'not-between',
+				field: 'views',
+				lower: 40,
+				upper: 60,
+			})
+			expect(query.ast.where.expression.expressions[8]).toStrictEqual({
 				kind: 'in',
 				field: 'status',
 				values: ['draft', 'published'],
 			})
-			expect(query.ast.where.expression.expressions[11]).toStrictEqual({
+			expect(query.ast.where.expression.expressions[13]).toStrictEqual({
 				kind: 'regex',
 				field: 'title',
 				pattern: {
@@ -410,6 +424,14 @@ describe('Query', () => {
 				'query operator greater-than does not support boolean fields',
 			),
 		)
+		expect(() => {
+			// @ts-expect-error -- Runtime rejects nullable comparison operands.
+			new Query(postSchema).greaterThan('score', null)
+		}).toThrow(new TypeError('query filter value must not be null'))
+		expect(() => {
+			// @ts-expect-error -- Runtime rejects nullable range bounds.
+			new Query(postSchema).between('score', null, 10)
+		}).toThrow(new TypeError('query range lower bound must not be null'))
 		expect(() => {
 			// @ts-expect-error -- Numeric fields do not support string operators.
 			new Query(postSchema).contains('views', '10')

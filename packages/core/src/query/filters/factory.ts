@@ -20,6 +20,7 @@ import {
 	type QueryEqualityFilterOperator,
 	type QueryMembershipFilterOperator,
 	type QueryPrimitiveFilterNode,
+	type QueryRangeFilterOperator,
 	type QueryRegexFlag,
 	type QueryRegexPattern,
 	type QueryStringFilterOperator,
@@ -69,6 +70,7 @@ const assertOperatorSupport = (
 		| QueryComparisonFilterOperator
 		| QueryEqualityFilterOperator
 		| QueryMembershipFilterOperator
+		| QueryRangeFilterOperator
 		| QueryStringFilterOperator
 		| 'null'
 		| 'regex',
@@ -92,7 +94,9 @@ const assertOperatorSupport = (
 			: operator === 'greater-than' ||
 				  operator === 'greater-than-or-equal' ||
 				  operator === 'less-than' ||
-				  operator === 'less-than-or-equal'
+				  operator === 'less-than-or-equal' ||
+				  operator === 'between' ||
+				  operator === 'not-between'
 				? includesString(queryOrderedFieldKinds, field.kind)
 				: field.kind === 'string'
 
@@ -114,6 +118,26 @@ const snapshotQueryValue = (
 
 	return snapshotScalarFieldValue(field, value, path)
 }
+
+const snapshotQueryNonNullValue = (
+	field: RuntimeQueryField,
+	value: unknown,
+	path: string,
+): unknown => {
+	if (value === null) {
+		throw new TypeError(`${path} must not be null`)
+	}
+
+	return snapshotScalarFieldValue(field, value, path)
+}
+
+const isNullableValueOperator = (
+	operator:
+		| QueryComparisonFilterOperator
+		| QueryEqualityFilterOperator
+		| QueryStringFilterOperator,
+): operator is QueryEqualityFilterOperator =>
+	operator === 'equal' || operator === 'not-equal'
 
 const isQueryRegexFlag = (value: unknown): value is QueryRegexFlag =>
 	typeof value === 'string' && includesString(regexFlags, value)
@@ -138,7 +162,32 @@ export const createQueryValueFilter = <
 	return immutableRecord({
 		kind: operator,
 		field: normalizedFieldName,
-		value: snapshotQueryValue(field, value, 'query filter value'),
+		value: isNullableValueOperator(operator)
+			? snapshotQueryValue(field, value, 'query filter value')
+			: snapshotQueryNonNullValue(field, value, 'query filter value'),
+	}) as QueryPrimitiveFilterNode<TSchema, TFieldName>
+}
+
+/** Creates one immutable inclusive range filter with two non-null bounds. */
+export const createQueryRangeFilter = <
+	const TSchema extends SchemaDefinition,
+	TFieldName extends QueryFieldName<TSchema>,
+>(
+	schema: TSchema,
+	operator: QueryRangeFilterOperator,
+	fieldName: TFieldName,
+	lower: unknown,
+	upper: unknown,
+): QueryPrimitiveFilterNode<TSchema, TFieldName> => {
+	const [normalizedFieldName, field] = resolveQueryField(schema, fieldName)
+
+	assertOperatorSupport(field, operator)
+
+	return immutableRecord({
+		kind: operator,
+		field: normalizedFieldName,
+		lower: snapshotQueryNonNullValue(field, lower, 'query range lower bound'),
+		upper: snapshotQueryNonNullValue(field, upper, 'query range upper bound'),
 	}) as QueryPrimitiveFilterNode<TSchema, TFieldName>
 }
 

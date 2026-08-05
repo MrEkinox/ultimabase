@@ -9,6 +9,7 @@ import { describe, expect, it } from 'vitest'
 import {
 	createQueryNullFilter,
 	createQueryMembershipFilter,
+	createQueryRangeFilter,
 	createQueryRegexFilter,
 	createQueryValueFilter,
 } from './factory.js'
@@ -81,6 +82,25 @@ describe('query filter factories', () => {
 		).toThrow(
 			new TypeError('query operator equal does not support list fields'),
 		)
+		expect(
+			createQueryRangeFilter(fixtureSchema, 'between', 'count', 1, 10),
+		).toStrictEqual({
+			kind: 'between',
+			field: 'count',
+			lower: 1,
+			upper: 10,
+		})
+		expect(() =>
+			createQueryRangeFilter(fixtureSchema, 'not-between', 'count', null, 10),
+		).toThrow(new TypeError('query range lower bound must not be null'))
+		expect(() =>
+			createQueryRangeFilter(fixtureSchema, 'between', 'tags', 'a', 'z'),
+		).toThrow(
+			new TypeError('query operator between does not support list fields'),
+		)
+		expect(() =>
+			createQueryRangeFilter(fixtureSchema, 'between', 'count', 1.5, 10),
+		).toThrow(TypeError)
 		expect(() => {
 			// @ts-expect-error -- Runtime normalization rejects non-boolean null state.
 			createQueryNullFilter(fixtureSchema, 'title', 'true')

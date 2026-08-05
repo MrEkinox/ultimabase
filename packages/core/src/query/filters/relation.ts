@@ -21,6 +21,7 @@ import { createQueryAst } from '../ast/factory.js'
 import {
 	createQueryNullFilter,
 	createQueryMembershipFilter,
+	createQueryRangeFilter,
 	createQueryRegexFilter,
 	createQueryValueFilter,
 } from './factory.js'
@@ -214,6 +215,34 @@ export class RelationPredicate<TSchema extends SchemaDefinition> {
 				'less-than-or-equal',
 				fieldName,
 				value,
+			),
+		)
+	}
+
+	/** Requires the target value to remain inside one inclusive interval. */
+	between<TFieldName extends QueryFilterFieldName<TSchema, 'between'>>(
+		fieldName: TFieldName,
+		lower: QueryComparisonValue<TSchema, TFieldName>,
+		upper: QueryComparisonValue<TSchema, TFieldName>,
+	): RelationPredicate<TSchema> {
+		return this.#append(
+			createQueryRangeFilter(this.schema, 'between', fieldName, lower, upper),
+		)
+	}
+
+	/** Requires the target value to remain outside one inclusive interval. */
+	notBetween<TFieldName extends QueryFilterFieldName<TSchema, 'not-between'>>(
+		fieldName: TFieldName,
+		lower: QueryComparisonValue<TSchema, TFieldName>,
+		upper: QueryComparisonValue<TSchema, TFieldName>,
+	): RelationPredicate<TSchema> {
+		return this.#append(
+			createQueryRangeFilter(
+				this.schema,
+				'not-between',
+				fieldName,
+				lower,
+				upper,
 			),
 		)
 	}

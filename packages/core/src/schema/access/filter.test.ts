@@ -44,6 +44,8 @@ describe('AccessFilter', () => {
 			.greaterThanOrEqualTo('views', 11)
 			.lessThan('views', 100)
 			.lessThanOrEqualTo('views', 99)
+			.between('views', 20, 80)
+			.notBetween('views', 40, 60)
 			.containedIn('status', statuses)
 			.notContainedIn('status', ['draft'])
 			.contains('title', 'Base')
@@ -61,13 +63,25 @@ describe('AccessFilter', () => {
 
 		expect(expression).toMatchObject({ kind: 'and' })
 		if (expression?.kind === 'and') {
-			expect(expression.expressions).toHaveLength(15)
+			expect(expression.expressions).toHaveLength(17)
 			expect(expression.expressions[6]).toStrictEqual({
+				field: 'views',
+				kind: 'between',
+				lower: 20,
+				upper: 80,
+			})
+			expect(expression.expressions[7]).toStrictEqual({
+				field: 'views',
+				kind: 'not-between',
+				lower: 40,
+				upper: 60,
+			})
+			expect(expression.expressions[8]).toStrictEqual({
 				field: 'status',
 				kind: 'in',
 				values: ['draft', 'published'],
 			})
-			expect(expression.expressions[11]).toStrictEqual({
+			expect(expression.expressions[13]).toStrictEqual({
 				field: 'title',
 				kind: 'regex',
 				pattern: {

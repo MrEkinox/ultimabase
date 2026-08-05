@@ -1,5 +1,6 @@
 import {
 	booleanField,
+	intField,
 	relationField,
 	Schema,
 	stringField,
@@ -11,7 +12,7 @@ import type { RelationPredicate } from './relation.js'
 
 const Target = Schema.define({
 	className: 'TypedRelationPredicateTarget',
-	fields: { active: booleanField(), label: stringField() },
+	fields: { active: booleanField(), label: stringField(), score: intField() },
 })
 const Source = Schema.define({
 	className: 'TypedRelationPredicateSource',
@@ -26,6 +27,11 @@ test('exposes only exact target filter capabilities inside relation predicates',
 		expectTypeOf(target).toEqualTypeOf<RelationPredicate<typeof Target>>()
 		target.equalTo('active', true)
 		target.contains('label', 'typed')
+		target.between('score', 10, 20)
+		target.notBetween('score', 30, 40)
+
+		// @ts-expect-error -- Range filters reject unordered target fields.
+		target.between('active', false, true)
 
 		// @ts-expect-error -- Source fields never leak into the target predicate.
 		target.equalTo('name', 'invalid')

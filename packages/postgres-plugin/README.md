@@ -252,6 +252,10 @@ const deleted = await ArticleSchema.deleteOne(
 )
 ```
 
+Inclusive `between(field, lower, upper)` and inverse `notBetween(...)` Query
+nodes compile to PostgreSQL range predicates with both bounds retained as
+driver parameters.
+
 Runtime generates UUID v7 identifiers and automatic timestamps once; the
 adapter persists those exact normalized values. `first`, `get`, `updateOne`,
 and `deleteOne` return `null` when no row matches. Update and delete select their

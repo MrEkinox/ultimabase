@@ -127,6 +127,7 @@ Accepted records:
 - [ADR-0132: Read-only queries and schema-owned write commands](0132-read-only-queries-and-schema-write-commands.md)
 - [ADR-0133: Canonical null for optional field values](0133-canonical-null-for-optional-fields.md)
 - [ADR-0134: Unified field-oriented update data](0134-unified-update-data.md)
+- [ADR-0135: First-class Query range filters](0135-first-class-query-range-filters.md)
 
 Superseded records:
 

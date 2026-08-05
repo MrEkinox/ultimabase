@@ -177,6 +177,14 @@ describe('PostgreSQL filter compiler', () => {
 				query: new Query(FilterSchema).lessThanOrEqualTo('count', 1),
 			},
 			{
+				fragment: ' between $1 and $2',
+				query: new Query(FilterSchema).between('count', 1, 10),
+			},
+			{
+				fragment: ' not between $1 and $2',
+				query: new Query(FilterSchema).notBetween('count', 1, 10),
+			},
+			{
 				fragment: ' in ($1, $2)',
 				query: new Query(FilterSchema).containedIn('status', [
 					'draft',
@@ -310,6 +318,9 @@ describe('PostgreSQL filter compiler', () => {
 		const contains = renderQuery(
 			new Query(FilterSchema).contains('title', payload),
 		)
+		const range = renderQuery(
+			new Query(FilterSchema).between('title', payload, `${payload}z`),
+		)
 		const regex = renderQuery(
 			new Query(FilterSchema).matches('title', {
 				flags: [],
@@ -321,6 +332,8 @@ describe('PostgreSQL filter compiler', () => {
 		expect(equality.params).toStrictEqual([payload])
 		expect(contains.sql).not.toContain(payload)
 		expect(contains.params).toStrictEqual(["%x\\%'\\_\\\\ OR true --%", '\\'])
+		expect(range.sql).not.toContain(payload)
+		expect(range.params).toStrictEqual([payload, `${payload}z`])
 		expect(regex.sql).not.toContain(payload)
 		expect(regex.params).toStrictEqual([`(?p)${payload}`])
 	})

@@ -78,6 +78,8 @@ export type {
 	QueryMembershipFilterOperator,
 	QueryPrimitiveFilterNode,
 	QueryPrimitiveFilterOperator,
+	QueryRangeFilterNode,
+	QueryRangeFilterOperator,
 	QueryRegexFilterNode,
 	QueryRegexFlag,
 	QueryRegexPattern,

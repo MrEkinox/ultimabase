@@ -81,6 +81,24 @@ export interface AccessFilter<TSchema extends SchemaDefinition> {
 		value: Exclude<QueryFilterValue<TSchema, TFieldName>, null>,
 	): AccessFilter<TSchema>
 	/**
+	 * Requires an ordered field to remain inside one inclusive interval.
+	 * @example `filter.between("score", 10, 20)`
+	 */
+	between<TFieldName extends QueryFilterFieldName<TSchema, 'between'>>(
+		fieldName: TFieldName,
+		lower: Exclude<QueryFilterValue<TSchema, TFieldName>, null>,
+		upper: Exclude<QueryFilterValue<TSchema, TFieldName>, null>,
+	): AccessFilter<TSchema>
+	/**
+	 * Requires an ordered field to remain outside one inclusive interval.
+	 * @example `filter.notBetween("score", 10, 20)`
+	 */
+	notBetween<TFieldName extends QueryFilterFieldName<TSchema, 'not-between'>>(
+		fieldName: TFieldName,
+		lower: Exclude<QueryFilterValue<TSchema, TFieldName>, null>,
+		upper: Exclude<QueryFilterValue<TSchema, TFieldName>, null>,
+	): AccessFilter<TSchema>
+	/**
 	 * Matches one field against an immutable candidate collection.
 	 * @example `filter.containedIn("status", ["draft", "published"])`
 	 */

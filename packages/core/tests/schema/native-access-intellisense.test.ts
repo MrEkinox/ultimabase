@@ -168,6 +168,7 @@ Schema.define({
 
 		expectDocumentedNames(completions, [
 			'and',
+			'between',
 			'containedIn',
 			'contains',
 			'endsWith',
@@ -180,6 +181,7 @@ Schema.define({
 			'lessThanOrEqualTo',
 			'matches',
 			'not',
+			'notBetween',
 			'notContainedIn',
 			'notEqualTo',
 			'or',

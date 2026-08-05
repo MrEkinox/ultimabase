@@ -64,6 +64,19 @@ Direct filters form an implicit `and`. `and`, `or`, and `not` combine only the
 filter expression from another Query of the exact same schema; selection,
 ordering, limit, and pagination remain on the receiving branch.
 
+Ordered scalar fields expose first-class inclusive range predicates:
+
+```ts
+const midRange = Post.query().between('views', 10, 100)
+const outsideMidRange = Post.query().notBetween('views', 10, 100)
+```
+
+`between` matches both bounds and every value between them. `notBetween`
+matches values strictly below the lower bound or strictly above the upper
+bound. Both methods retain one explicit range node in the Query AST, require
+non-null bounds of the field's exact type, and are also available in schema
+command `where`, Access filters, and relation predicates.
+
 ## Schema write commands
 
 Generated schema classes own collection and target-based writes:

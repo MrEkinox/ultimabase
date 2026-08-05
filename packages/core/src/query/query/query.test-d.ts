@@ -109,6 +109,8 @@ test('correlates every filter field with its exact operand type', () => {
 	query.greaterThanOrEqualTo('views', 10)
 	query.lessThan('views', 100)
 	query.lessThanOrEqualTo('views', 100)
+	query.between('views', 10, 100)
+	query.notBetween('views', 10, 100)
 	query.containedIn('status', ['draft', 'published'])
 	query.notContainedIn('status', ['draft'])
 	query.contains('title', 'Base')
@@ -126,6 +128,10 @@ test('correlates every filter field with its exact operand type', () => {
 	query.greaterThan('published', true)
 	// @ts-expect-error -- Ordered comparisons reject nullable null operands.
 	query.greaterThan('score', null)
+	// @ts-expect-error -- Range bounds reject nullable null operands.
+	query.between('score', null, 100)
+	// @ts-expect-error -- Range filters reject unordered fields.
+	query.notBetween('published', false, true)
 	// @ts-expect-error -- Membership values stay correlated with the enum.
 	query.containedIn('status', ['archived'])
 	// @ts-expect-error -- String operators reject numeric fields.
@@ -134,6 +140,8 @@ test('correlates every filter field with its exact operand type', () => {
 	query.matches('views', { source: '10', flags: [] })
 	// @ts-expect-error -- Equality does not apply to list fields.
 	query.equalTo('aliases', ['alias'])
+	// @ts-expect-error -- Range filters do not apply to list fields.
+	query.between('aliases', ['a'], ['z'])
 })
 
 test('infers pointer predicates, target queries, and included projections', () => {

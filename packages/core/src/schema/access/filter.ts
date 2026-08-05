@@ -2,6 +2,7 @@ import type { SchemaDefinition } from '../schema/definition.js'
 import {
 	createQueryMembershipFilter,
 	createQueryNullFilter,
+	createQueryRangeFilter,
 	createQueryRegexFilter,
 	createQueryValueFilter,
 } from '../../query/filters/factory.js'
@@ -148,6 +149,36 @@ class ImmutableAccessFilter<
 				'less-than-or-equal',
 				fieldName,
 				value,
+			),
+		)
+	}
+
+	between<TFieldName extends QueryFilterFieldName<TSchema, 'between'>>(
+		fieldName: TFieldName,
+		lower: AccessComparisonValue<TSchema, TFieldName>,
+		upper: AccessComparisonValue<TSchema, TFieldName>,
+	): AccessFilter<TSchema> {
+		const state = readAccessFilterState<TSchema>(this)
+
+		return this.#append(
+			createQueryRangeFilter(state.schema, 'between', fieldName, lower, upper),
+		)
+	}
+
+	notBetween<TFieldName extends QueryFilterFieldName<TSchema, 'not-between'>>(
+		fieldName: TFieldName,
+		lower: AccessComparisonValue<TSchema, TFieldName>,
+		upper: AccessComparisonValue<TSchema, TFieldName>,
+	): AccessFilter<TSchema> {
+		const state = readAccessFilterState<TSchema>(this)
+
+		return this.#append(
+			createQueryRangeFilter(
+				state.schema,
+				'not-between',
+				fieldName,
+				lower,
+				upper,
 			),
 		)
 	}

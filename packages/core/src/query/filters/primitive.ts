@@ -46,6 +46,9 @@ export type QueryEqualityFilterOperator = 'equal' | 'not-equal'
 export type QueryComparisonFilterOperator =
 	'greater-than' | 'greater-than-or-equal' | 'less-than' | 'less-than-or-equal'
 
+/** Represents inclusive interval membership and its inverse. */
+export type QueryRangeFilterOperator = 'between' | 'not-between'
+
 export type QueryMembershipFilterOperator = 'in' | 'not-in'
 
 export type QueryStringFilterOperator = 'contains' | 'starts-with' | 'ends-with'
@@ -81,6 +84,17 @@ export type QueryComparisonFilterNode<
 	TFieldName extends string = string,
 	TValue = unknown,
 > = QueryValueFilterNode<QueryComparisonFilterOperator, TFieldName, TValue>
+
+/** Carries both inclusive bounds of one ordered scalar interval. */
+export interface QueryRangeFilterNode<
+	TFieldName extends string = string,
+	TValue = unknown,
+> extends QueryExpressionNode {
+	readonly kind: QueryRangeFilterOperator
+	readonly field: TFieldName
+	readonly lower: TValue
+	readonly upper: TValue
+}
 
 /** Compares one scalar field against an immutable candidate collection. */
 export interface QueryMembershipFilterNode<
@@ -177,10 +191,14 @@ type QueryOrderedPrimitiveFilterNode<
 	TFieldName extends QueryFieldName<TSchema>,
 > =
 	QueryFieldKind<TSchema, TFieldName> extends QueryOrderedFieldKind
-		? QueryComparisonFilterNode<
-				TFieldName,
-				Exclude<QueryFilterValue<TSchema, TFieldName>, null>
-			>
+		? | QueryComparisonFilterNode<
+					TFieldName,
+					Exclude<QueryFilterValue<TSchema, TFieldName>, null>
+			  >
+			| QueryRangeFilterNode<
+					TFieldName,
+					Exclude<QueryFilterValue<TSchema, TFieldName>, null>
+			  >
 		: never
 
 type QueryStringPrimitiveFilterNode<

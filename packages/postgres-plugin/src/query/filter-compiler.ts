@@ -6,6 +6,7 @@ import type {
 	QueryFilterExpression,
 	QueryFilterNode,
 	QueryMembershipFilterNode,
+	QueryRangeFilterNode,
 	QueryRelationPredicateNode,
 	QueryRegexFilterNode,
 	QueryRegexFlag,
@@ -14,6 +15,7 @@ import type {
 import type { SchemaDefinition } from '@ultimabase/core'
 import {
 	and,
+	between,
 	eq,
 	gt,
 	gte,
@@ -24,6 +26,7 @@ import {
 	lte,
 	ne,
 	not as notExpression,
+	notBetween,
 	notInArray,
 	or,
 	sql,
@@ -41,6 +44,7 @@ type RuntimePrimitiveFilter =
 	| QueryEqualityFilterNode
 	| QueryNullFilterNode
 	| QueryMembershipFilterNode
+	| QueryRangeFilterNode
 	| QueryRegexFilterNode
 	| QueryStringFilterNode
 
@@ -142,6 +146,18 @@ const compileString = (
 	return sql`${field.column} LIKE ${pattern} ESCAPE ${'\\'}`
 }
 
+const compileRange = (
+	filter: QueryRangeFilterNode,
+	field: CompiledPostgresField,
+): SQL => {
+	const lower = encodeValue(field, filter.lower)
+	const upper = encodeValue(field, filter.upper)
+
+	return filter.kind === 'between'
+		? between(field.column, lower, upper)
+		: notBetween(field.column, lower, upper)
+}
+
 const hasRegexFlag = (
 	flags: readonly QueryRegexFlag[],
 	flag: QueryRegexFlag,
@@ -189,6 +205,9 @@ const compilePrimitive = (
 			return lt(field.column, encodeValue(field, filter.value))
 		case 'less-than-or-equal':
 			return lte(field.column, encodeValue(field, filter.value))
+		case 'between':
+		case 'not-between':
+			return compileRange(filter, field)
 		case 'in':
 		case 'not-in':
 			return compileMembership(filter, field)

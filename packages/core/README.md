@@ -152,6 +152,11 @@ The source edge stays in private Runtime state across every public builder and
 hook transformation; it never appears in `query.ast` and cannot be replaced by
 `Query.use()`.
 
+Ordered scalar filters include explicit inclusive ranges. `between(field,
+lower, upper)` keeps values inside the interval, while `notBetween(field,
+lower, upper)` keeps values strictly outside it. Both remain first-class
+transport-neutral AST nodes rather than expanding into logical branches.
+
 Relation handles expose atomic logical mutations without join-row commands:
 
 ```ts

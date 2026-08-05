@@ -66,7 +66,9 @@ describe('relation predicates', () => {
 		const filtered = base.some('teams', (team) =>
 			team
 				.equalTo('name', 'Core')
-				.some('members', (member) => member.equalTo('active', true)),
+				.some('members', (member) =>
+					member.between('name', 'A', 'M').equalTo('active', true),
+				),
 		)
 		const expression = filtered.ast.where?.expression
 
@@ -86,6 +88,18 @@ describe('relation predicates', () => {
 			target: { definition: Team, kind: 'schema' },
 		})
 		expect(predicates[1]).toMatchObject({
+			expression: {
+				expressions: [
+					{
+						field: 'name',
+						kind: 'between',
+						lower: 'A',
+						upper: 'M',
+					},
+					{ field: 'active', kind: 'equal', value: true },
+				],
+				kind: 'and',
+			},
 			field: 'members',
 			operator: 'some',
 			source: { definition: Team },
