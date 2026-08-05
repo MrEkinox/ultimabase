@@ -3,13 +3,7 @@ import { pointerField, type PointerField } from './pointer.js'
 import { relationField, type RelationField } from './relation.js'
 import { Schema, type SchemaClass } from '../../schema/definition.js'
 
-type RequiredPointerState = ScalarFieldInferenceState<
-	true,
-	false,
-	false,
-	false,
-	false
->
+type RequiredPointerState = ScalarFieldInferenceState<true, false, false, false>
 
 /** Exact circular fixture for an inverse one-to-many pointer topology. */
 export type RelationAuthorSchema = SchemaClass<

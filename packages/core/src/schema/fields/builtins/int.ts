@@ -57,7 +57,6 @@ export type IntField<
 /** Provides integer-specific names for compact sequence inference. */
 type DefaultedIntFieldOptions<
 	TRequired extends boolean,
-	TNullable extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 	TAutoIncrement extends boolean,
@@ -65,7 +64,6 @@ type DefaultedIntFieldOptions<
 	IntFieldOptions,
 	number,
 	TRequired,
-	TNullable,
 	TList,
 	TImmutable,
 	GeneratedScalarOption<'autoIncrement', TAutoIncrement>
@@ -73,7 +71,6 @@ type DefaultedIntFieldOptions<
 
 type NonDefaultedIntFieldOptions<
 	TRequired extends boolean,
-	TNullable extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 	TAutoIncrement extends boolean,
@@ -81,7 +78,6 @@ type NonDefaultedIntFieldOptions<
 	IntFieldOptions,
 	number,
 	TRequired,
-	TNullable,
 	TList,
 	TImmutable,
 	GeneratedScalarOption<'autoIncrement', TAutoIncrement>
@@ -89,7 +85,6 @@ type NonDefaultedIntFieldOptions<
 
 type ResolvedIntField<
 	TRequired extends boolean,
-	TNullable extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 	THasDefault extends boolean,
@@ -99,7 +94,6 @@ type ResolvedIntField<
 	number,
 	IntFieldOptions,
 	TRequired,
-	TNullable,
 	TList,
 	TImmutable,
 	THasDefault,
@@ -108,91 +102,51 @@ type ResolvedIntField<
 
 type DefaultedIntField<
 	TRequired extends boolean,
-	TNullable extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 	TAutoIncrement extends boolean,
-> = ResolvedIntField<
-	TRequired,
-	TNullable,
-	TList,
-	TImmutable,
-	true,
-	TAutoIncrement
->
+> = ResolvedIntField<TRequired, TList, TImmutable, true, TAutoIncrement>
 
 type NonDefaultedIntField<
 	TRequired extends boolean,
-	TNullable extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 	TAutoIncrement extends boolean,
-> = ResolvedIntField<
-	TRequired,
-	TNullable,
-	TList,
-	TImmutable,
-	false,
-	TAutoIncrement
->
+> = ResolvedIntField<TRequired, TList, TImmutable, false, TAutoIncrement>
 
 interface IntFieldFactory {
 	<
 		const TRequired extends boolean = false,
-		const TNullable extends boolean = false,
 		const TList extends FieldListOption = false,
 		const TImmutable extends boolean = false,
 		const TAutoIncrement extends boolean = false,
 	>(
 		options: DefaultedIntFieldOptions<
 			TRequired,
-			TNullable,
 			TList,
 			TImmutable,
 			TAutoIncrement
 		>,
 		...invalidOptions: InvalidOptionsArguments<
-			CompatibleGeneratedScalarOptions<
-				TRequired,
-				TNullable,
-				TAutoIncrement,
-				TList,
-				true,
-				false
-			>
+			CompatibleGeneratedScalarOptions<TAutoIncrement, TList, true, false>
 		>
-	): DefaultedIntField<TRequired, TNullable, TList, TImmutable, TAutoIncrement>
+	): DefaultedIntField<TRequired, TList, TImmutable, TAutoIncrement>
 	<
 		const TRequired extends boolean = false,
-		const TNullable extends boolean = false,
 		const TList extends FieldListOption = false,
 		const TImmutable extends boolean = false,
 		const TAutoIncrement extends boolean = false,
 	>(
 		options?: NonDefaultedIntFieldOptions<
 			TRequired,
-			TNullable,
 			TList,
 			TImmutable,
 			TAutoIncrement
 		>,
 		...invalidOptions: InvalidOptionsArguments<
-			CompatibleGeneratedScalarOptions<
-				TRequired,
-				TNullable,
-				TAutoIncrement,
-				TList,
-				false,
-				false
-			>
+			CompatibleGeneratedScalarOptions<TAutoIncrement, TList, false, false>
 		>
-	): NonDefaultedIntField<
-		TRequired,
-		TNullable,
-		TList,
-		TImmutable,
-		TAutoIncrement
-	>
+	): NonDefaultedIntField<TRequired, TList, TImmutable, TAutoIncrement>
 }
 
 const normalizeIntValidation = (

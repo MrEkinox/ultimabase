@@ -63,7 +63,7 @@ const roleSchemaExtension: SchemaExtension<
 )
 
 const createRoleNameField = (): StringField<
-	ScalarFieldInferenceState<true, false, false, false, false>
+	ScalarFieldInferenceState<true, false, false, false>
 > =>
 	stringField({
 		indexed: 'unique',

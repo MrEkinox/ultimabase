@@ -45,7 +45,6 @@ export type DateTimeField<
 /** Provides date-time-specific names for compact auto-now inference. */
 type DefaultedDateTimeFieldOptions<
 	TRequired extends boolean,
-	TNullable extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 	TAutoNow extends boolean,
@@ -53,7 +52,6 @@ type DefaultedDateTimeFieldOptions<
 	DateTimeFieldOptions,
 	string,
 	TRequired,
-	TNullable,
 	TList,
 	TImmutable,
 	GeneratedScalarOption<'autoNow', TAutoNow>
@@ -61,7 +59,6 @@ type DefaultedDateTimeFieldOptions<
 
 type NonDefaultedDateTimeFieldOptions<
 	TRequired extends boolean,
-	TNullable extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 	TAutoNow extends boolean,
@@ -69,7 +66,6 @@ type NonDefaultedDateTimeFieldOptions<
 	DateTimeFieldOptions,
 	string,
 	TRequired,
-	TNullable,
 	TList,
 	TImmutable,
 	GeneratedScalarOption<'autoNow', TAutoNow>
@@ -77,7 +73,6 @@ type NonDefaultedDateTimeFieldOptions<
 
 type ResolvedDateTimeField<
 	TRequired extends boolean,
-	TNullable extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 	THasDefault extends boolean,
@@ -87,7 +82,6 @@ type ResolvedDateTimeField<
 	string,
 	DateTimeFieldOptions,
 	TRequired,
-	TNullable,
 	TList,
 	TImmutable,
 	THasDefault,
@@ -96,91 +90,51 @@ type ResolvedDateTimeField<
 
 type DefaultedDateTimeField<
 	TRequired extends boolean,
-	TNullable extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 	TAutoNow extends boolean,
-> = ResolvedDateTimeField<
-	TRequired,
-	TNullable,
-	TList,
-	TImmutable,
-	true,
-	TAutoNow
->
+> = ResolvedDateTimeField<TRequired, TList, TImmutable, true, TAutoNow>
 
 type NonDefaultedDateTimeField<
 	TRequired extends boolean,
-	TNullable extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 	TAutoNow extends boolean,
-> = ResolvedDateTimeField<
-	TRequired,
-	TNullable,
-	TList,
-	TImmutable,
-	false,
-	TAutoNow
->
+> = ResolvedDateTimeField<TRequired, TList, TImmutable, false, TAutoNow>
 
 interface DateTimeFieldFactory {
 	<
 		const TRequired extends boolean = false,
-		const TNullable extends boolean = false,
 		const TList extends FieldListOption = false,
 		const TImmutable extends boolean = false,
 		const TAutoNow extends boolean = false,
 	>(
 		options: DefaultedDateTimeFieldOptions<
 			TRequired,
-			TNullable,
 			TList,
 			TImmutable,
 			TAutoNow
 		>,
 		...invalidOptions: InvalidOptionsArguments<
-			CompatibleGeneratedScalarOptions<
-				TRequired,
-				TNullable,
-				TAutoNow,
-				TList,
-				true,
-				true
-			>
+			CompatibleGeneratedScalarOptions<TAutoNow, TList, true, true>
 		>
-	): DefaultedDateTimeField<TRequired, TNullable, TList, TImmutable, TAutoNow>
+	): DefaultedDateTimeField<TRequired, TList, TImmutable, TAutoNow>
 	<
 		const TRequired extends boolean = false,
-		const TNullable extends boolean = false,
 		const TList extends FieldListOption = false,
 		const TImmutable extends boolean = false,
 		const TAutoNow extends boolean = false,
 	>(
 		options?: NonDefaultedDateTimeFieldOptions<
 			TRequired,
-			TNullable,
 			TList,
 			TImmutable,
 			TAutoNow
 		>,
 		...invalidOptions: InvalidOptionsArguments<
-			CompatibleGeneratedScalarOptions<
-				TRequired,
-				TNullable,
-				TAutoNow,
-				TList,
-				false,
-				true
-			>
+			CompatibleGeneratedScalarOptions<TAutoNow, TList, false, true>
 		>
-	): NonDefaultedDateTimeField<
-		TRequired,
-		TNullable,
-		TList,
-		TImmutable,
-		TAutoNow
-	>
+	): NonDefaultedDateTimeField<TRequired, TList, TImmutable, TAutoNow>
 }
 
 const localDateTimePattern = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}$/u

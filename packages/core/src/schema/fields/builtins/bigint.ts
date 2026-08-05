@@ -57,7 +57,6 @@ export type BigintField<
 /** Provides bigint-specific names for compact sequence inference. */
 type DefaultedBigintFieldOptions<
 	TRequired extends boolean,
-	TNullable extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 	TAutoIncrement extends boolean,
@@ -65,7 +64,6 @@ type DefaultedBigintFieldOptions<
 	BigintFieldOptions,
 	bigint,
 	TRequired,
-	TNullable,
 	TList,
 	TImmutable,
 	GeneratedScalarOption<'autoIncrement', TAutoIncrement>
@@ -73,7 +71,6 @@ type DefaultedBigintFieldOptions<
 
 type NonDefaultedBigintFieldOptions<
 	TRequired extends boolean,
-	TNullable extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 	TAutoIncrement extends boolean,
@@ -81,7 +78,6 @@ type NonDefaultedBigintFieldOptions<
 	BigintFieldOptions,
 	bigint,
 	TRequired,
-	TNullable,
 	TList,
 	TImmutable,
 	GeneratedScalarOption<'autoIncrement', TAutoIncrement>
@@ -89,7 +85,6 @@ type NonDefaultedBigintFieldOptions<
 
 type ResolvedBigintField<
 	TRequired extends boolean,
-	TNullable extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 	THasDefault extends boolean,
@@ -99,7 +94,6 @@ type ResolvedBigintField<
 	bigint,
 	BigintFieldOptions,
 	TRequired,
-	TNullable,
 	TList,
 	TImmutable,
 	THasDefault,
@@ -108,97 +102,51 @@ type ResolvedBigintField<
 
 type DefaultedBigintField<
 	TRequired extends boolean,
-	TNullable extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 	TAutoIncrement extends boolean,
-> = ResolvedBigintField<
-	TRequired,
-	TNullable,
-	TList,
-	TImmutable,
-	true,
-	TAutoIncrement
->
+> = ResolvedBigintField<TRequired, TList, TImmutable, true, TAutoIncrement>
 
 type NonDefaultedBigintField<
 	TRequired extends boolean,
-	TNullable extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 	TAutoIncrement extends boolean,
-> = ResolvedBigintField<
-	TRequired,
-	TNullable,
-	TList,
-	TImmutable,
-	false,
-	TAutoIncrement
->
+> = ResolvedBigintField<TRequired, TList, TImmutable, false, TAutoIncrement>
 
 interface BigintFieldFactory {
 	<
 		const TRequired extends boolean = false,
-		const TNullable extends boolean = false,
 		const TList extends FieldListOption = false,
 		const TImmutable extends boolean = false,
 		const TAutoIncrement extends boolean = false,
 	>(
 		options: DefaultedBigintFieldOptions<
 			TRequired,
-			TNullable,
 			TList,
 			TImmutable,
 			TAutoIncrement
 		>,
 		...invalidOptions: InvalidOptionsArguments<
-			CompatibleGeneratedScalarOptions<
-				TRequired,
-				TNullable,
-				TAutoIncrement,
-				TList,
-				true,
-				false
-			>
+			CompatibleGeneratedScalarOptions<TAutoIncrement, TList, true, false>
 		>
-	): DefaultedBigintField<
-		TRequired,
-		TNullable,
-		TList,
-		TImmutable,
-		TAutoIncrement
-	>
+	): DefaultedBigintField<TRequired, TList, TImmutable, TAutoIncrement>
 	<
 		const TRequired extends boolean = false,
-		const TNullable extends boolean = false,
 		const TList extends FieldListOption = false,
 		const TImmutable extends boolean = false,
 		const TAutoIncrement extends boolean = false,
 	>(
 		options?: NonDefaultedBigintFieldOptions<
 			TRequired,
-			TNullable,
 			TList,
 			TImmutable,
 			TAutoIncrement
 		>,
 		...invalidOptions: InvalidOptionsArguments<
-			CompatibleGeneratedScalarOptions<
-				TRequired,
-				TNullable,
-				TAutoIncrement,
-				TList,
-				false,
-				false
-			>
+			CompatibleGeneratedScalarOptions<TAutoIncrement, TList, false, false>
 		>
-	): NonDefaultedBigintField<
-		TRequired,
-		TNullable,
-		TList,
-		TImmutable,
-		TAutoIncrement
-	>
+	): NonDefaultedBigintField<TRequired, TList, TImmutable, TAutoIncrement>
 }
 
 const isBigint = (value: unknown): value is bigint => typeof value === 'bigint'

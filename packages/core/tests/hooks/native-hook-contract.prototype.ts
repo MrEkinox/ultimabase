@@ -200,7 +200,7 @@ type PrototypeField<
 	TKind,
 	TValue,
 	TOptions,
-	ScalarFieldInferenceState<TRequired, false, TList, false, false>
+	ScalarFieldInferenceState<TRequired, TList, false, false>
 >
 
 /** Models a scalar factory whose callback declarations never enter field metadata. */

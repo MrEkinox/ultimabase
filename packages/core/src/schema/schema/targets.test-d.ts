@@ -29,7 +29,7 @@ type RecursiveUserSchema = SchemaClass<
 	Readonly<{
 		readonly posts: PointerField<
 			RecursivePostSchema,
-			ScalarFieldInferenceState<false, false, false, false, false>
+			ScalarFieldInferenceState<false, false, false, false>
 		>
 	}>
 >
@@ -39,7 +39,7 @@ type RecursivePostSchema = SchemaClass<
 	Readonly<{
 		readonly author: PointerField<
 			RecursiveUserSchema,
-			ScalarFieldInferenceState<false, false, false, false, false>
+			ScalarFieldInferenceState<false, false, false, false>
 		>
 	}>
 >
@@ -80,13 +80,13 @@ test('supports exact mutually recursive target contracts', () => {
 	expectTypeOf(recursiveUser.fields.posts).toEqualTypeOf<
 		PointerField<
 			RecursivePostSchema,
-			ScalarFieldInferenceState<false, false, false, false, false>
+			ScalarFieldInferenceState<false, false, false, false>
 		>
 	>()
 	expectTypeOf(recursivePost.fields.author).toEqualTypeOf<
 		PointerField<
 			RecursiveUserSchema,
-			ScalarFieldInferenceState<false, false, false, false, false>
+			ScalarFieldInferenceState<false, false, false, false>
 		>
 	>()
 })

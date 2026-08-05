@@ -66,6 +66,8 @@ unchanged because it tests whether any row matches a query.
 
 - Complete-model hovers expose stable required properties with either `T` or
   `T | null`.
+- Compact field aliases retain `required` but no redundant nullability type
+  parameter; nullability is derived from the required invariant.
 - Create and update inputs keep optional properties, so callers never need to
   provide `null` for every non-required field.
 - Defaults distinguish omission from explicit `null`; `required: true` remains

@@ -6,10 +6,8 @@ import type {
 	FieldInferenceState,
 	FieldListOption,
 	FieldOptions,
-	InvalidOptionsArguments,
 } from '../base/contract.js'
 import {
-	type CompatibleScalarPresence,
 	type CompactScalarFieldDefinition,
 	createCompactScalarFieldFactory,
 	type DefaultedCompactScalarFieldOptions,
@@ -54,35 +52,30 @@ export type StringField<
 /** Provides string-specific names for the shared compact scalar contract. */
 type DefaultedStringFieldOptions<
 	TRequired extends boolean,
-	TNullable extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 > = DefaultedCompactScalarFieldOptions<
 	StringFieldOptions,
 	string,
 	TRequired,
-	TNullable,
 	TList,
 	TImmutable
 >
 
 type NonDefaultedStringFieldOptions<
 	TRequired extends boolean,
-	TNullable extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 > = NonDefaultedCompactScalarFieldOptions<
 	StringFieldOptions,
 	string,
 	TRequired,
-	TNullable,
 	TList,
 	TImmutable
 >
 
 type ResolvedStringField<
 	TRequired extends boolean,
-	TNullable extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 	THasDefault extends boolean,
@@ -91,7 +84,6 @@ type ResolvedStringField<
 	string,
 	StringFieldOptions,
 	TRequired,
-	TNullable,
 	TList,
 	TImmutable,
 	THasDefault
@@ -99,51 +91,31 @@ type ResolvedStringField<
 
 type DefaultedStringField<
 	TRequired extends boolean,
-	TNullable extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
-> = ResolvedStringField<TRequired, TNullable, TList, TImmutable, true>
+> = ResolvedStringField<TRequired, TList, TImmutable, true>
 
 type NonDefaultedStringField<
 	TRequired extends boolean,
-	TNullable extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
-> = ResolvedStringField<TRequired, TNullable, TList, TImmutable, false>
+> = ResolvedStringField<TRequired, TList, TImmutable, false>
 
 interface StringFieldFactory {
 	<
 		const TRequired extends boolean = false,
-		const TNullable extends boolean = false,
 		const TList extends FieldListOption = false,
 		const TImmutable extends boolean = false,
 	>(
-		options: DefaultedStringFieldOptions<
-			TRequired,
-			TNullable,
-			TList,
-			TImmutable
-		>,
-		...invalidOptions: InvalidOptionsArguments<
-			CompatibleScalarPresence<TRequired, TNullable>
-		>
-	): DefaultedStringField<TRequired, TNullable, TList, TImmutable>
+		options: DefaultedStringFieldOptions<TRequired, TList, TImmutable>,
+	): DefaultedStringField<TRequired, TList, TImmutable>
 	<
 		const TRequired extends boolean = false,
-		const TNullable extends boolean = false,
 		const TList extends FieldListOption = false,
 		const TImmutable extends boolean = false,
 	>(
-		options?: NonDefaultedStringFieldOptions<
-			TRequired,
-			TNullable,
-			TList,
-			TImmutable
-		>,
-		...invalidOptions: InvalidOptionsArguments<
-			CompatibleScalarPresence<TRequired, TNullable>
-		>
-	): NonDefaultedStringField<TRequired, TNullable, TList, TImmutable>
+		options?: NonDefaultedStringFieldOptions<TRequired, TList, TImmutable>,
+	): NonDefaultedStringField<TRequired, TList, TImmutable>
 }
 
 const normalizeStringValidation = (

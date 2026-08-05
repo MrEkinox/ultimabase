@@ -165,7 +165,6 @@ const PrivateSource = Schema.define({
 
 type CircularPointerState = ScalarFieldInferenceState<
 	false,
-	true,
 	false,
 	false,
 	false

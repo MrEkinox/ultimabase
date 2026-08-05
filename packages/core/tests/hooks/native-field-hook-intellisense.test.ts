@@ -230,9 +230,7 @@ describe('native field hook IntelliSense', () => {
 	it('keeps declaration callbacks out of compact field hovers', () => {
 		const display = readHoverDisplay('field-definition')
 
-		expect(display).toContain(
-			'NonDefaultedStringField<false, false, false, false>',
-		)
+		expect(display).toContain('NonDefaultedStringField<false, false, false>')
 		expect(display).not.toContain('FieldHooks')
 		expect(display).not.toContain('resolveInput')
 		expect(display).not.toContain('HOOK_BODY_MUST_NOT_LEAK')

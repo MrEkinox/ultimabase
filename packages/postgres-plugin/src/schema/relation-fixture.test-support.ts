@@ -8,13 +8,7 @@ import {
 	type SchemaClass,
 } from '@ultimabase/core'
 
-type RequiredPointerState = ScalarFieldInferenceState<
-	true,
-	false,
-	false,
-	false,
-	false
->
+type RequiredPointerState = ScalarFieldInferenceState<true, false, false, false>
 
 export type PostgresRelationArticleSchema = SchemaClass<
 	'PostgresRelationArticle',

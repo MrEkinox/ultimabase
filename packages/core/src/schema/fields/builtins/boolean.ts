@@ -8,10 +8,8 @@ import type {
 	FieldListOption,
 	FieldOptions,
 	FieldValidationOptions,
-	InvalidOptionsArguments,
 } from '../base/contract.js'
 import {
-	type CompatibleScalarPresence,
 	type CompactScalarFieldDefinition,
 	createCompactScalarFieldFactory,
 	type DefaultedCompactScalarFieldOptions,
@@ -39,35 +37,30 @@ export type BooleanField<
 /** Provides boolean-specific names for the shared compact scalar contract. */
 type DefaultedBooleanFieldOptions<
 	TRequired extends boolean,
-	TNullable extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 > = DefaultedCompactScalarFieldOptions<
 	BooleanFieldOptions,
 	boolean,
 	TRequired,
-	TNullable,
 	TList,
 	TImmutable
 >
 
 type NonDefaultedBooleanFieldOptions<
 	TRequired extends boolean,
-	TNullable extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 > = NonDefaultedCompactScalarFieldOptions<
 	BooleanFieldOptions,
 	boolean,
 	TRequired,
-	TNullable,
 	TList,
 	TImmutable
 >
 
 type ResolvedBooleanField<
 	TRequired extends boolean,
-	TNullable extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 	THasDefault extends boolean,
@@ -76,7 +69,6 @@ type ResolvedBooleanField<
 	boolean,
 	BooleanFieldOptions,
 	TRequired,
-	TNullable,
 	TList,
 	TImmutable,
 	THasDefault
@@ -84,51 +76,31 @@ type ResolvedBooleanField<
 
 type DefaultedBooleanField<
 	TRequired extends boolean,
-	TNullable extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
-> = ResolvedBooleanField<TRequired, TNullable, TList, TImmutable, true>
+> = ResolvedBooleanField<TRequired, TList, TImmutable, true>
 
 type NonDefaultedBooleanField<
 	TRequired extends boolean,
-	TNullable extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
-> = ResolvedBooleanField<TRequired, TNullable, TList, TImmutable, false>
+> = ResolvedBooleanField<TRequired, TList, TImmutable, false>
 
 interface BooleanFieldFactory {
 	<
 		const TRequired extends boolean = false,
-		const TNullable extends boolean = false,
 		const TList extends FieldListOption = false,
 		const TImmutable extends boolean = false,
 	>(
-		options: DefaultedBooleanFieldOptions<
-			TRequired,
-			TNullable,
-			TList,
-			TImmutable
-		>,
-		...invalidOptions: InvalidOptionsArguments<
-			CompatibleScalarPresence<TRequired, TNullable>
-		>
-	): DefaultedBooleanField<TRequired, TNullable, TList, TImmutable>
+		options: DefaultedBooleanFieldOptions<TRequired, TList, TImmutable>,
+	): DefaultedBooleanField<TRequired, TList, TImmutable>
 	<
 		const TRequired extends boolean = false,
-		const TNullable extends boolean = false,
 		const TList extends FieldListOption = false,
 		const TImmutable extends boolean = false,
 	>(
-		options?: NonDefaultedBooleanFieldOptions<
-			TRequired,
-			TNullable,
-			TList,
-			TImmutable
-		>,
-		...invalidOptions: InvalidOptionsArguments<
-			CompatibleScalarPresence<TRequired, TNullable>
-		>
-	): NonDefaultedBooleanField<TRequired, TNullable, TList, TImmutable>
+		options?: NonDefaultedBooleanFieldOptions<TRequired, TList, TImmutable>,
+	): NonDefaultedBooleanField<TRequired, TList, TImmutable>
 }
 
 const normalizeBooleanFieldOptions = <

@@ -121,7 +121,7 @@ describe('packed @ultimabase/core native field hooks', () => {
 		const fieldDisplay = readHoverDisplay('field-definition')
 
 		expect(fieldDisplay).toContain(
-			'NonDefaultedStringField<false, true, false, false>',
+			'NonDefaultedStringField<false, false, false>',
 		)
 		expect(fieldDisplay).not.toContain('FieldHooks')
 		expect(fieldDisplay).not.toContain('HOOK_BODY_MUST_NOT_LEAK')

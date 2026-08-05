@@ -45,7 +45,6 @@ export type TimeField<
 /** Provides time-specific names for compact auto-now inference. */
 type DefaultedTimeFieldOptions<
 	TRequired extends boolean,
-	TNullable extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 	TAutoNow extends boolean,
@@ -53,7 +52,6 @@ type DefaultedTimeFieldOptions<
 	TimeFieldOptions,
 	string,
 	TRequired,
-	TNullable,
 	TList,
 	TImmutable,
 	GeneratedScalarOption<'autoNow', TAutoNow>
@@ -61,7 +59,6 @@ type DefaultedTimeFieldOptions<
 
 type NonDefaultedTimeFieldOptions<
 	TRequired extends boolean,
-	TNullable extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 	TAutoNow extends boolean,
@@ -69,7 +66,6 @@ type NonDefaultedTimeFieldOptions<
 	TimeFieldOptions,
 	string,
 	TRequired,
-	TNullable,
 	TList,
 	TImmutable,
 	GeneratedScalarOption<'autoNow', TAutoNow>
@@ -77,7 +73,6 @@ type NonDefaultedTimeFieldOptions<
 
 type ResolvedTimeField<
 	TRequired extends boolean,
-	TNullable extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 	THasDefault extends boolean,
@@ -87,7 +82,6 @@ type ResolvedTimeField<
 	string,
 	TimeFieldOptions,
 	TRequired,
-	TNullable,
 	TList,
 	TImmutable,
 	THasDefault,
@@ -96,71 +90,46 @@ type ResolvedTimeField<
 
 type DefaultedTimeField<
 	TRequired extends boolean,
-	TNullable extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 	TAutoNow extends boolean,
-> = ResolvedTimeField<TRequired, TNullable, TList, TImmutable, true, TAutoNow>
+> = ResolvedTimeField<TRequired, TList, TImmutable, true, TAutoNow>
 
 type NonDefaultedTimeField<
 	TRequired extends boolean,
-	TNullable extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 	TAutoNow extends boolean,
-> = ResolvedTimeField<TRequired, TNullable, TList, TImmutable, false, TAutoNow>
+> = ResolvedTimeField<TRequired, TList, TImmutable, false, TAutoNow>
 
 interface TimeFieldFactory {
 	<
 		const TRequired extends boolean = false,
-		const TNullable extends boolean = false,
 		const TList extends FieldListOption = false,
 		const TImmutable extends boolean = false,
 		const TAutoNow extends boolean = false,
 	>(
-		options: DefaultedTimeFieldOptions<
-			TRequired,
-			TNullable,
-			TList,
-			TImmutable,
-			TAutoNow
-		>,
+		options: DefaultedTimeFieldOptions<TRequired, TList, TImmutable, TAutoNow>,
 		...invalidOptions: InvalidOptionsArguments<
-			CompatibleGeneratedScalarOptions<
-				TRequired,
-				TNullable,
-				TAutoNow,
-				TList,
-				true,
-				true
-			>
+			CompatibleGeneratedScalarOptions<TAutoNow, TList, true, true>
 		>
-	): DefaultedTimeField<TRequired, TNullable, TList, TImmutable, TAutoNow>
+	): DefaultedTimeField<TRequired, TList, TImmutable, TAutoNow>
 	<
 		const TRequired extends boolean = false,
-		const TNullable extends boolean = false,
 		const TList extends FieldListOption = false,
 		const TImmutable extends boolean = false,
 		const TAutoNow extends boolean = false,
 	>(
 		options?: NonDefaultedTimeFieldOptions<
 			TRequired,
-			TNullable,
 			TList,
 			TImmutable,
 			TAutoNow
 		>,
 		...invalidOptions: InvalidOptionsArguments<
-			CompatibleGeneratedScalarOptions<
-				TRequired,
-				TNullable,
-				TAutoNow,
-				TList,
-				false,
-				true
-			>
+			CompatibleGeneratedScalarOptions<TAutoNow, TList, false, true>
 		>
-	): NonDefaultedTimeField<TRequired, TNullable, TList, TImmutable, TAutoNow>
+	): NonDefaultedTimeField<TRequired, TList, TImmutable, TAutoNow>
 }
 
 const localTimePattern = /^(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d\.\d{3}$/u

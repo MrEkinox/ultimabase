@@ -5,10 +5,8 @@ import type {
 	FieldInferenceState,
 	FieldListOption,
 	FieldOptions,
-	InvalidOptionsArguments,
 } from '../base/contract.js'
 import {
-	type CompatibleScalarPresence,
 	type CompactScalarFieldDefinition,
 	createCompactScalarFieldFactory,
 	type DefaultedCompactScalarFieldOptions,
@@ -53,35 +51,30 @@ export type FloatField<
 /** Provides float-specific names for the shared compact scalar contract. */
 type DefaultedFloatFieldOptions<
 	TRequired extends boolean,
-	TNullable extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 > = DefaultedCompactScalarFieldOptions<
 	FloatFieldOptions,
 	number,
 	TRequired,
-	TNullable,
 	TList,
 	TImmutable
 >
 
 type NonDefaultedFloatFieldOptions<
 	TRequired extends boolean,
-	TNullable extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 > = NonDefaultedCompactScalarFieldOptions<
 	FloatFieldOptions,
 	number,
 	TRequired,
-	TNullable,
 	TList,
 	TImmutable
 >
 
 type ResolvedFloatField<
 	TRequired extends boolean,
-	TNullable extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 	THasDefault extends boolean,
@@ -90,7 +83,6 @@ type ResolvedFloatField<
 	number,
 	FloatFieldOptions,
 	TRequired,
-	TNullable,
 	TList,
 	TImmutable,
 	THasDefault
@@ -98,51 +90,31 @@ type ResolvedFloatField<
 
 type DefaultedFloatField<
 	TRequired extends boolean,
-	TNullable extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
-> = ResolvedFloatField<TRequired, TNullable, TList, TImmutable, true>
+> = ResolvedFloatField<TRequired, TList, TImmutable, true>
 
 type NonDefaultedFloatField<
 	TRequired extends boolean,
-	TNullable extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
-> = ResolvedFloatField<TRequired, TNullable, TList, TImmutable, false>
+> = ResolvedFloatField<TRequired, TList, TImmutable, false>
 
 interface FloatFieldFactory {
 	<
 		const TRequired extends boolean = false,
-		const TNullable extends boolean = false,
 		const TList extends FieldListOption = false,
 		const TImmutable extends boolean = false,
 	>(
-		options: DefaultedFloatFieldOptions<
-			TRequired,
-			TNullable,
-			TList,
-			TImmutable
-		>,
-		...invalidOptions: InvalidOptionsArguments<
-			CompatibleScalarPresence<TRequired, TNullable>
-		>
-	): DefaultedFloatField<TRequired, TNullable, TList, TImmutable>
+		options: DefaultedFloatFieldOptions<TRequired, TList, TImmutable>,
+	): DefaultedFloatField<TRequired, TList, TImmutable>
 	<
 		const TRequired extends boolean = false,
-		const TNullable extends boolean = false,
 		const TList extends FieldListOption = false,
 		const TImmutable extends boolean = false,
 	>(
-		options?: NonDefaultedFloatFieldOptions<
-			TRequired,
-			TNullable,
-			TList,
-			TImmutable
-		>,
-		...invalidOptions: InvalidOptionsArguments<
-			CompatibleScalarPresence<TRequired, TNullable>
-		>
-	): NonDefaultedFloatField<TRequired, TNullable, TList, TImmutable>
+		options?: NonDefaultedFloatFieldOptions<TRequired, TList, TImmutable>,
+	): NonDefaultedFloatField<TRequired, TList, TImmutable>
 }
 
 const normalizeFloatValidation = (

@@ -28,7 +28,6 @@ export interface FieldInferenceState {
 /** Builds the compact state shared by scalar fields without automatic generation. */
 export interface ScalarFieldInferenceState<
 	TRequired extends boolean,
-	TNullable extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 	THasDefault extends boolean,
@@ -43,14 +42,12 @@ export interface ScalarFieldInferenceState<
 			: 'optional'
 	readonly object: 'required'
 	readonly update: TImmutable extends true ? 'forbidden' : 'optional'
-	// The retained compatibility parameter is ignored: nullability now follows the invariant.
-	readonly nullable: TNullable extends boolean
-		? TRequired extends true
+	// Optional persisted fields use canonical null; generated values remain non-null.
+	readonly nullable: TRequired extends true
+		? false
+		: THasGeneratedValue extends true
 			? false
-			: THasGeneratedValue extends true
-				? false
-				: true
-		: never
+			: true
 	readonly list: TList
 }
 

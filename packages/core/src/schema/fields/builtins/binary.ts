@@ -4,10 +4,8 @@ import type {
 	FieldInferenceState,
 	FieldListOption,
 	FieldOptions,
-	InvalidOptionsArguments,
 } from '../base/contract.js'
 import {
-	type CompatibleScalarPresence,
 	type CompactScalarFieldDefinition,
 	createCompactScalarFieldFactory,
 	type DefaultedCompactScalarFieldOptions,
@@ -47,35 +45,30 @@ export type BinaryField<
 /** Provides binary-specific names for the shared compact scalar contract. */
 type DefaultedBinaryFieldOptions<
 	TRequired extends boolean,
-	TNullable extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 > = DefaultedCompactScalarFieldOptions<
 	BinaryFieldOptions,
 	Uint8Array,
 	TRequired,
-	TNullable,
 	TList,
 	TImmutable
 >
 
 type NonDefaultedBinaryFieldOptions<
 	TRequired extends boolean,
-	TNullable extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 > = NonDefaultedCompactScalarFieldOptions<
 	BinaryFieldOptions,
 	Uint8Array,
 	TRequired,
-	TNullable,
 	TList,
 	TImmutable
 >
 
 type ResolvedBinaryField<
 	TRequired extends boolean,
-	TNullable extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 	THasDefault extends boolean,
@@ -84,7 +77,6 @@ type ResolvedBinaryField<
 	Uint8Array,
 	BinaryFieldOptions,
 	TRequired,
-	TNullable,
 	TList,
 	TImmutable,
 	THasDefault
@@ -92,51 +84,31 @@ type ResolvedBinaryField<
 
 type DefaultedBinaryField<
 	TRequired extends boolean,
-	TNullable extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
-> = ResolvedBinaryField<TRequired, TNullable, TList, TImmutable, true>
+> = ResolvedBinaryField<TRequired, TList, TImmutable, true>
 
 type NonDefaultedBinaryField<
 	TRequired extends boolean,
-	TNullable extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
-> = ResolvedBinaryField<TRequired, TNullable, TList, TImmutable, false>
+> = ResolvedBinaryField<TRequired, TList, TImmutable, false>
 
 interface BinaryFieldFactory {
 	<
 		const TRequired extends boolean = false,
-		const TNullable extends boolean = false,
 		const TList extends FieldListOption = false,
 		const TImmutable extends boolean = false,
 	>(
-		options: DefaultedBinaryFieldOptions<
-			TRequired,
-			TNullable,
-			TList,
-			TImmutable
-		>,
-		...invalidOptions: InvalidOptionsArguments<
-			CompatibleScalarPresence<TRequired, TNullable>
-		>
-	): DefaultedBinaryField<TRequired, TNullable, TList, TImmutable>
+		options: DefaultedBinaryFieldOptions<TRequired, TList, TImmutable>,
+	): DefaultedBinaryField<TRequired, TList, TImmutable>
 	<
 		const TRequired extends boolean = false,
-		const TNullable extends boolean = false,
 		const TList extends FieldListOption = false,
 		const TImmutable extends boolean = false,
 	>(
-		options?: NonDefaultedBinaryFieldOptions<
-			TRequired,
-			TNullable,
-			TList,
-			TImmutable
-		>,
-		...invalidOptions: InvalidOptionsArguments<
-			CompatibleScalarPresence<TRequired, TNullable>
-		>
-	): NonDefaultedBinaryField<TRequired, TNullable, TList, TImmutable>
+		options?: NonDefaultedBinaryFieldOptions<TRequired, TList, TImmutable>,
+	): NonDefaultedBinaryField<TRequired, TList, TImmutable>
 }
 
 /**

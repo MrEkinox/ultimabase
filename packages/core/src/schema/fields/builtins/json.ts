@@ -13,10 +13,8 @@ import type {
 	FieldInferenceState,
 	FieldListOption,
 	FieldOptions,
-	InvalidOptionsArguments,
 } from '../base/contract.js'
 import {
-	type CompatibleScalarPresence,
 	type CompactScalarFieldDefinition,
 	createCompactScalarFieldFactory,
 	type DefaultedCompactScalarFieldOptions,
@@ -55,35 +53,30 @@ export type JsonField<
 /** Provides JSON-specific names for the shared compact scalar contract. */
 type DefaultedJsonFieldOptions<
 	TRequired extends boolean,
-	TNullable extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 > = DefaultedCompactScalarFieldOptions<
 	JsonFieldOptions,
 	JsonDocument,
 	TRequired,
-	TNullable,
 	TList,
 	TImmutable
 >
 
 type NonDefaultedJsonFieldOptions<
 	TRequired extends boolean,
-	TNullable extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 > = NonDefaultedCompactScalarFieldOptions<
 	JsonFieldOptions,
 	JsonDocument,
 	TRequired,
-	TNullable,
 	TList,
 	TImmutable
 >
 
 type ResolvedJsonField<
 	TRequired extends boolean,
-	TNullable extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 	THasDefault extends boolean,
@@ -92,7 +85,6 @@ type ResolvedJsonField<
 	JsonDocument,
 	JsonFieldOptions,
 	TRequired,
-	TNullable,
 	TList,
 	TImmutable,
 	THasDefault
@@ -100,46 +92,31 @@ type ResolvedJsonField<
 
 type DefaultedJsonField<
 	TRequired extends boolean,
-	TNullable extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
-> = ResolvedJsonField<TRequired, TNullable, TList, TImmutable, true>
+> = ResolvedJsonField<TRequired, TList, TImmutable, true>
 
 type NonDefaultedJsonField<
 	TRequired extends boolean,
-	TNullable extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
-> = ResolvedJsonField<TRequired, TNullable, TList, TImmutable, false>
+> = ResolvedJsonField<TRequired, TList, TImmutable, false>
 
 interface JsonFieldFactory {
 	<
 		const TRequired extends boolean = false,
-		const TNullable extends boolean = false,
 		const TList extends FieldListOption = false,
 		const TImmutable extends boolean = false,
 	>(
-		options: DefaultedJsonFieldOptions<TRequired, TNullable, TList, TImmutable>,
-		...invalidOptions: InvalidOptionsArguments<
-			CompatibleScalarPresence<TRequired, TNullable>
-		>
-	): DefaultedJsonField<TRequired, TNullable, TList, TImmutable>
+		options: DefaultedJsonFieldOptions<TRequired, TList, TImmutable>,
+	): DefaultedJsonField<TRequired, TList, TImmutable>
 	<
 		const TRequired extends boolean = false,
-		const TNullable extends boolean = false,
 		const TList extends FieldListOption = false,
 		const TImmutable extends boolean = false,
 	>(
-		options?: NonDefaultedJsonFieldOptions<
-			TRequired,
-			TNullable,
-			TList,
-			TImmutable
-		>,
-		...invalidOptions: InvalidOptionsArguments<
-			CompatibleScalarPresence<TRequired, TNullable>
-		>
-	): NonDefaultedJsonField<TRequired, TNullable, TList, TImmutable>
+		options?: NonDefaultedJsonFieldOptions<TRequired, TList, TImmutable>,
+	): NonDefaultedJsonField<TRequired, TList, TImmutable>
 }
 
 const normalizeJsonValue = (

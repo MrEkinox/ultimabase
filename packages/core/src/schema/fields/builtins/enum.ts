@@ -20,7 +20,6 @@ import type {
 	InvalidOptionsArguments,
 } from '../base/contract.js'
 import {
-	type CompatibleScalarPresence,
 	type CompactScalarFieldDefinition,
 	type DefaultedCompactScalarFieldOptions,
 	type NonDefaultedCompactScalarFieldOptions,
@@ -82,27 +81,19 @@ type NonEmptyMapping<TValues extends EnumValues> =
 			? never
 			: TValues
 
-type CompatibleEnumFieldOptions<
-	TValues extends EnumValues,
-	TRequired extends boolean,
-	TNullable extends boolean,
-> =
-	NonEmptyMapping<TValues> extends never
-		? never
-		: CompatibleScalarPresence<TRequired, TNullable>
+type CompatibleEnumFieldOptions<TValues extends EnumValues> =
+	NonEmptyMapping<TValues> extends never ? never : object
 
 /** Preserves the enum domain while naming only operation-relevant options. */
 type DefaultedEnumFieldOptions<
 	TValues extends EnumValues,
 	TRequired extends boolean,
-	TNullable extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 > = DefaultedCompactScalarFieldOptions<
 	EnumFieldOptions<TValues>,
 	EnumValue<TValues>,
 	TRequired,
-	TNullable,
 	TList,
 	TImmutable
 >
@@ -110,14 +101,12 @@ type DefaultedEnumFieldOptions<
 type NonDefaultedEnumFieldOptions<
 	TValues extends EnumValues,
 	TRequired extends boolean,
-	TNullable extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 > = NonDefaultedCompactScalarFieldOptions<
 	EnumFieldOptions<TValues>,
 	EnumValue<TValues>,
 	TRequired,
-	TNullable,
 	TList,
 	TImmutable
 >
@@ -125,7 +114,6 @@ type NonDefaultedEnumFieldOptions<
 type ResolvedEnumField<
 	TValues extends EnumValues,
 	TRequired extends boolean,
-	TNullable extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 	THasDefault extends boolean,
@@ -134,7 +122,6 @@ type ResolvedEnumField<
 	EnumValue<TValues>,
 	EnumFieldOptions<TValues>,
 	TRequired,
-	TNullable,
 	TList,
 	TImmutable,
 	THasDefault
@@ -143,18 +130,16 @@ type ResolvedEnumField<
 type DefaultedEnumField<
 	TValues extends EnumValues,
 	TRequired extends boolean,
-	TNullable extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
-> = ResolvedEnumField<TValues, TRequired, TNullable, TList, TImmutable, true>
+> = ResolvedEnumField<TValues, TRequired, TList, TImmutable, true>
 
 type NonDefaultedEnumField<
 	TValues extends EnumValues,
 	TRequired extends boolean,
-	TNullable extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
-> = ResolvedEnumField<TValues, TRequired, TNullable, TList, TImmutable, false>
+> = ResolvedEnumField<TValues, TRequired, TList, TImmutable, false>
 
 const isString = (value: unknown): value is string => typeof value === 'string'
 
@@ -282,40 +267,26 @@ const normalizeEnumFieldOptions = (
 export function enumField<
 	const TValues extends EnumValues,
 	const TRequired extends boolean = false,
-	const TNullable extends boolean = false,
 	const TList extends FieldListOption = false,
 	const TImmutable extends boolean = false,
 >(
-	options: DefaultedEnumFieldOptions<
-		TValues,
-		TRequired,
-		TNullable,
-		TList,
-		TImmutable
-	>,
+	options: DefaultedEnumFieldOptions<TValues, TRequired, TList, TImmutable>,
 	...invalidOptions: InvalidOptionsArguments<
-		CompatibleEnumFieldOptions<TValues, TRequired, TNullable>
+		CompatibleEnumFieldOptions<TValues>
 	>
-): DefaultedEnumField<TValues, TRequired, TNullable, TList, TImmutable>
+): DefaultedEnumField<TValues, TRequired, TList, TImmutable>
 
 export function enumField<
 	const TValues extends EnumValues,
 	const TRequired extends boolean = false,
-	const TNullable extends boolean = false,
 	const TList extends FieldListOption = false,
 	const TImmutable extends boolean = false,
 >(
-	options: NonDefaultedEnumFieldOptions<
-		TValues,
-		TRequired,
-		TNullable,
-		TList,
-		TImmutable
-	>,
+	options: NonDefaultedEnumFieldOptions<TValues, TRequired, TList, TImmutable>,
 	...invalidOptions: InvalidOptionsArguments<
-		CompatibleEnumFieldOptions<TValues, TRequired, TNullable>
+		CompatibleEnumFieldOptions<TValues>
 	>
-): NonDefaultedEnumField<TValues, TRequired, TNullable, TList, TImmutable>
+): NonDefaultedEnumField<TValues, TRequired, TList, TImmutable>
 
 export function enumField(
 	options: EnumFieldOptions,

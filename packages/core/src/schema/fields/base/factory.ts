@@ -41,7 +41,6 @@ export type DefaultedCompactScalarFieldOptions<
 	TOptions extends object,
 	TValue,
 	TRequired extends boolean,
-	TNullable extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 	TInferredOptions extends object = object,
@@ -54,7 +53,7 @@ export type DefaultedCompactScalarFieldOptions<
 				'field',
 				TValue,
 				TOptions,
-				ScalarFieldInferenceState<TRequired, TNullable, TList, TImmutable, true>
+				ScalarFieldInferenceState<TRequired, TList, TImmutable, true>
 			>
 		>
 	> &
@@ -64,7 +63,7 @@ export type DefaultedCompactScalarFieldOptions<
 				'field',
 				TValue,
 				TOptions,
-				ScalarFieldInferenceState<TRequired, TNullable, TList, TImmutable, true>
+				ScalarFieldInferenceState<TRequired, TList, TImmutable, true>
 			>
 		>
 	>
@@ -74,7 +73,6 @@ export type NonDefaultedCompactScalarFieldOptions<
 	TOptions extends object,
 	TValue,
 	TRequired extends boolean,
-	TNullable extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 	TInferredOptions extends object = object,
@@ -85,13 +83,7 @@ export type NonDefaultedCompactScalarFieldOptions<
 				'field',
 				TValue,
 				TOptions,
-				ScalarFieldInferenceState<
-					TRequired,
-					TNullable,
-					TList,
-					TImmutable,
-					false
-				>
+				ScalarFieldInferenceState<TRequired, TList, TImmutable, false>
 			>
 		>
 	> &
@@ -101,25 +93,10 @@ export type NonDefaultedCompactScalarFieldOptions<
 				'field',
 				TValue,
 				TOptions,
-				ScalarFieldInferenceState<
-					TRequired,
-					TNullable,
-					TList,
-					TImmutable,
-					false
-				>
+				ScalarFieldInferenceState<TRequired, TList, TImmutable, false>
 			>
 		>
 	>
-
-export type CompatibleScalarPresence<
-	TRequired extends boolean,
-	TNullable extends boolean,
-> = TRequired extends boolean
-	? TNullable extends boolean
-		? object
-		: never
-	: never
 
 /** Resolves one scalar field's compact state for field-specific editor aliases. */
 export type CompactScalarFieldDefinition<
@@ -127,7 +104,6 @@ export type CompactScalarFieldDefinition<
 	TValue,
 	TOptions extends FieldOptions<TValue>,
 	TRequired extends boolean,
-	TNullable extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 	THasDefault extends boolean,
@@ -138,7 +114,6 @@ export type CompactScalarFieldDefinition<
 	TOptions,
 	ScalarFieldInferenceState<
 		TRequired,
-		TNullable,
 		TList,
 		TImmutable,
 		THasDefault,
@@ -167,19 +142,16 @@ type CompatibleGeneratedValue<
 	: object
 
 export type CompatibleGeneratedScalarOptions<
-	TRequired extends boolean,
-	TNullable extends boolean,
 	THasGeneratedValue extends boolean,
 	TList extends FieldListOption,
 	THasDefault extends boolean,
 	TExclusiveGeneration extends boolean,
-> = CompatibleScalarPresence<TRequired, TNullable> &
-	CompatibleGeneratedValue<
-		THasGeneratedValue,
-		TList,
-		THasDefault,
-		TExclusiveGeneration
-	>
+> = CompatibleGeneratedValue<
+	THasGeneratedValue,
+	TList,
+	THasDefault,
+	TExclusiveGeneration
+>
 
 /** Carries option-dependent construction behavior without exposing capabilities. */
 export interface ScalarFieldConfiguration<TOptions extends object> {
@@ -202,7 +174,6 @@ export interface CompactScalarFieldFactory<
 > {
 	<
 		const TRequired extends boolean = false,
-		const TNullable extends boolean = false,
 		const TList extends FieldListOption = false,
 		const TImmutable extends boolean = false,
 	>(
@@ -210,22 +181,17 @@ export interface CompactScalarFieldFactory<
 			TOptions,
 			TValue,
 			TRequired,
-			TNullable,
 			TList,
 			TImmutable
 		>,
-		...invalidOptions: InvalidOptionsArguments<
-			CompatibleScalarPresence<TRequired, TNullable>
-		>
 	): FieldDefinition<
 		TKind,
 		TValue,
 		TOptions,
-		ScalarFieldInferenceState<TRequired, TNullable, TList, TImmutable, true>
+		ScalarFieldInferenceState<TRequired, TList, TImmutable, true>
 	>
 	<
 		const TRequired extends boolean = false,
-		const TNullable extends boolean = false,
 		const TList extends FieldListOption = false,
 		const TImmutable extends boolean = false,
 	>(
@@ -233,18 +199,14 @@ export interface CompactScalarFieldFactory<
 			TOptions,
 			TValue,
 			TRequired,
-			TNullable,
 			TList,
 			TImmutable
 		>,
-		...invalidOptions: InvalidOptionsArguments<
-			CompatibleScalarPresence<TRequired, TNullable>
-		>
 	): FieldDefinition<
 		TKind,
 		TValue,
 		TOptions,
-		ScalarFieldInferenceState<TRequired, TNullable, TList, TImmutable, false>
+		ScalarFieldInferenceState<TRequired, TList, TImmutable, false>
 	>
 }
 
@@ -258,7 +220,6 @@ export interface GeneratedCompactScalarFieldFactory<
 > {
 	<
 		const TRequired extends boolean = false,
-		const TNullable extends boolean = false,
 		const TList extends FieldListOption = false,
 		const TImmutable extends boolean = false,
 		const THasGeneratedValue extends boolean = false,
@@ -267,15 +228,12 @@ export interface GeneratedCompactScalarFieldFactory<
 			TOptions,
 			TValue,
 			TRequired,
-			TNullable,
 			TList,
 			TImmutable,
 			GeneratedScalarOption<TGenerationKey, THasGeneratedValue>
 		>,
 		...invalidOptions: InvalidOptionsArguments<
 			CompatibleGeneratedScalarOptions<
-				TRequired,
-				TNullable,
 				THasGeneratedValue,
 				TList,
 				true,
@@ -287,7 +245,6 @@ export interface GeneratedCompactScalarFieldFactory<
 		TValue,
 		TOptions,
 		TRequired,
-		TNullable,
 		TList,
 		TImmutable,
 		true,
@@ -295,7 +252,6 @@ export interface GeneratedCompactScalarFieldFactory<
 	>
 	<
 		const TRequired extends boolean = false,
-		const TNullable extends boolean = false,
 		const TList extends FieldListOption = false,
 		const TImmutable extends boolean = false,
 		const THasGeneratedValue extends boolean = false,
@@ -304,15 +260,12 @@ export interface GeneratedCompactScalarFieldFactory<
 			TOptions,
 			TValue,
 			TRequired,
-			TNullable,
 			TList,
 			TImmutable,
 			GeneratedScalarOption<TGenerationKey, THasGeneratedValue>
 		>,
 		...invalidOptions: InvalidOptionsArguments<
 			CompatibleGeneratedScalarOptions<
-				TRequired,
-				TNullable,
 				THasGeneratedValue,
 				TList,
 				false,
@@ -324,7 +277,6 @@ export interface GeneratedCompactScalarFieldFactory<
 		TValue,
 		TOptions,
 		TRequired,
-		TNullable,
 		TList,
 		TImmutable,
 		false,

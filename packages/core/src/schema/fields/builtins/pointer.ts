@@ -15,7 +15,6 @@ import type {
 	ScalarFieldInferenceState,
 } from '../base/contract.js'
 import { createFieldDefinition } from '../base/definition.js'
-import type { CompatibleScalarPresence } from '../base/factory.js'
 import {
 	assertFieldOptions,
 	normalizeFieldOptions,
@@ -73,11 +72,10 @@ export type PointerField<
 type ResolvedPointerField<
 	TTarget extends SchemaDefinition,
 	TRequired extends boolean,
-	TNullable extends boolean,
 	TImmutable extends boolean,
 > = PointerField<
 	TTarget,
-	ScalarFieldInferenceState<TRequired, TNullable, false, TImmutable, false>
+	ScalarFieldInferenceState<TRequired, false, TImmutable, false>
 >
 
 /** Keeps presence literals inferable while preserving option-level editor help. */
@@ -92,7 +90,6 @@ interface CompactPointerValidationOptions<TRequired extends boolean> {
 type CompactPointerFieldOptions<
 	TTarget extends SchemaDefinition,
 	TRequired extends boolean,
-	TNullable extends boolean,
 	TImmutable extends boolean,
 	TOnDelete extends PointerReferentialAction,
 > = Omit<
@@ -118,7 +115,6 @@ type CompactPointerFieldOptions<
 		ResolvedPointerField<
 			NoInfer<TTarget>,
 			NoInfer<TRequired>,
-			NoInfer<TNullable>,
 			NoInfer<TImmutable>
 		>
 	> &
@@ -126,21 +122,18 @@ type CompactPointerFieldOptions<
 		ResolvedPointerField<
 			NoInfer<TTarget>,
 			NoInfer<TRequired>,
-			NoInfer<TNullable>,
 			NoInfer<TImmutable>
 		>
 	>
 
 type CompatiblePointerOptions<
 	TRequired extends boolean,
-	TNullable extends boolean,
 	TOnDelete extends PointerReferentialAction,
-> = CompatibleScalarPresence<TRequired, TNullable> &
-	(TOnDelete extends 'setNull'
-		? TRequired extends true
-			? never
-			: object
-		: object)
+> = TOnDelete extends 'setNull'
+	? TRequired extends true
+		? never
+		: object
+	: object
 
 interface PointerFieldMetadataInput extends FieldOptionsBase<
 	FieldValidationOptions,
@@ -213,21 +206,19 @@ const createPointerSnapshot =
 export function pointerField<
 	const TTarget extends SchemaDefinition,
 	const TRequired extends boolean = false,
-	const TNullable extends boolean = false,
 	const TImmutable extends boolean = false,
 	const TOnDelete extends PointerReferentialAction = 'restrict',
 >(
 	options: CompactPointerFieldOptions<
 		TTarget,
 		TRequired,
-		TNullable,
 		TImmutable,
 		TOnDelete
 	>,
 	...invalidOptions: InvalidOptionsArguments<
-		CompatiblePointerOptions<TRequired, TNullable, TOnDelete>
+		CompatiblePointerOptions<TRequired, TOnDelete>
 	>
-): ResolvedPointerField<TTarget, TRequired, TNullable, TImmutable>
+): ResolvedPointerField<TTarget, TRequired, TImmutable>
 
 export function pointerField(
 	options: PointerFieldOptions,

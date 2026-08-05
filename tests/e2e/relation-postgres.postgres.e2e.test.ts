@@ -115,7 +115,6 @@ const Tag: TagSchema = Schema.define({
 
 type OptionalPointerState = ScalarFieldInferenceState<
 	false,
-	true,
 	false,
 	false,
 	false
