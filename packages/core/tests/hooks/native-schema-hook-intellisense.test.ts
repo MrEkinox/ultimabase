@@ -85,18 +85,14 @@ const schemaHookPhaseNames = [
 	'afterCommit',
 	'afterCreate',
 	'afterDelete',
-	'afterFind',
-	'afterOperation',
+	'afterRead',
 	'afterRollback',
-	'afterSave',
 	'afterUpdate',
 	'afterUpsert',
 	'beforeCommit',
 	'beforeCreate',
 	'beforeDelete',
-	'beforeFind',
-	'beforeOperation',
-	'beforeSave',
+	'beforeRead',
 	'beforeUpdate',
 	'beforeUpsert',
 	'onError',
@@ -176,7 +172,7 @@ describe('native schema hook IntelliSense', () => {
 			'all',
 			'create',
 			'delete',
-			'find',
+			'read',
 			'update',
 			'upsert',
 		])
@@ -223,7 +219,7 @@ describe('native schema hook IntelliSense', () => {
 	it('keeps family declaration hovers behind concise aliases', () => {
 		const display = readHoverDisplay('schema-family-declaration')
 
-		expect(display).toContain('SchemaBeforeSaveHookDeclaration<')
+		expect(display).toContain('SchemaValidateHookDeclaration<')
 		expect(display).not.toContain('ExecutableOperationAst<')
 		expect(display).not.toContain('InferOperationResult<')
 	})

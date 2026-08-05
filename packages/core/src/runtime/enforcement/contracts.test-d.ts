@@ -2,10 +2,8 @@ import { expectTypeOf, test } from 'vitest'
 
 import type { CreateOneOperationAst } from '../../query/index.js'
 import { Schema, booleanField, stringField } from '../../schema/index.js'
-import type {
-	DatabaseConstraintNode,
-	DatabaseOperationResult,
-} from '../database/contracts.js'
+import type { DatabaseConstraintNode } from '../database/contracts.js'
+import type { RuntimeOperationResult } from '../pipeline/contracts.js'
 import type { EnforcementOperation } from './contracts.js'
 import {
 	constraint,
@@ -62,7 +60,7 @@ test('preserves exact schemas, operation kinds, constraints, and results', () =>
 
 			expectTypeOf(operation).toEqualTypeOf<FindOperation>()
 			expectTypeOf(result).toEqualTypeOf<
-				DatabaseOperationResult<FindOperation>
+				RuntimeOperationResult<FindOperation>
 			>()
 
 			return ['id', 'title']

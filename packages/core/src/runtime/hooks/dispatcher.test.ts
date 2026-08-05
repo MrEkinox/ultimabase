@@ -16,9 +16,11 @@ import {
 } from '../../query/index.js'
 import {
 	objectField,
+	pointerField,
 	Schema,
 	stringField,
 	type HookValidationIssue,
+	type SchemaDefinition,
 } from '../../schema/index.js'
 import {
 	immutableArray,
@@ -33,6 +35,7 @@ import type {
 	DatabaseOperationOutcome,
 	DatabaseOperationResult,
 } from '../database/contracts.js'
+import type { RuntimeOperationResult } from '../pipeline/contracts.js'
 import { createRuntimeValidationStage } from '../validation/runtime-validation.js'
 import { createNativeHookStages } from './dispatcher.js'
 
@@ -119,28 +122,8 @@ describe('native hook dispatcher', () => {
 
 					return result
 				},
-				afterOperation: ({ result }) => {
-					record('schema:afterOperation')
-
-					return result
-				},
-				afterSave: ({ result }) => {
-					record('schema:afterSave')
-
-					return result
-				},
 				beforeCreate: ({ operation }) => {
 					record('schema:beforeCreate')
-
-					return operation
-				},
-				beforeOperation: ({ operation }) => {
-					record('schema:beforeOperation')
-
-					return operation
-				},
-				beforeSave: ({ operation }) => {
-					record('schema:beforeSave')
 
 					return operation
 				},
@@ -213,8 +196,6 @@ describe('native hook dispatcher', () => {
 			'name:validate:Ada',
 			'profile:validate',
 			'schema:validate',
-			'schema:beforeOperation',
-			'schema:beforeSave',
 			'schema:beforeCreate',
 			'profile:beforeSave',
 			'profile:beforeCreate',
@@ -227,8 +208,6 @@ describe('native hook dispatcher', () => {
 			'name:onChange:true',
 			'profile:onChange',
 			'schema:afterCreate',
-			'schema:afterSave',
-			'schema:afterOperation',
 		])
 
 		await application.dispose()
@@ -545,12 +524,12 @@ describe('native hook dispatcher', () => {
 				}),
 			},
 			hooks: {
-				afterFind: ({ kind, result }) => {
+				afterRead: ({ kind, result }) => {
 					trace.push(`schema:after:${kind}`)
 
 					return result
 				},
-				beforeFind: ({ kind, query }) => {
+				beforeRead: ({ kind, query }) => {
 					trace.push(`schema:before:${kind}`)
 
 					return query.equalTo('title', 'visible')
@@ -616,7 +595,7 @@ describe('native hook dispatcher', () => {
 			const result = await stages.schemaAfter({
 				context,
 				operation: transformed,
-				result: resolved,
+				result: resolved as RuntimeOperationResult<TOperation>,
 			})
 
 			expect(result).toStrictEqual(expectedResult)
@@ -659,7 +638,7 @@ describe('native hook dispatcher', () => {
 		await application.dispose()
 	})
 
-	it('rejects beforeFind replacements that change schema or selection', async () => {
+	it('rejects beforeRead replacements that change schema or selection', async () => {
 		const otherSchema = Schema.define({
 			className: 'NativeHookReadOther',
 			fields: { title: stringField() },
@@ -676,7 +655,7 @@ describe('native hook dispatcher', () => {
 				fields: { title: stringField() },
 				hooks: {
 					// The assertion models malformed JavaScript callbacks at Runtime's boundary.
-					beforeFind: invalidHook as never,
+					beforeRead: invalidHook as never,
 				},
 			})
 			const application = await createApplication({
@@ -694,6 +673,74 @@ describe('native hook dispatcher', () => {
 			).rejects.toBeInstanceOf(TypeError)
 			await application.dispose()
 		}
+	})
+
+	it('rejects beforeRead replacements that change pointer inclusions', async () => {
+		const targetSchema = Schema.define({
+			className: 'NativeHookReadInclusionTarget',
+			fields: { name: stringField() },
+		})
+		const hookInputFields = {
+			author: pointerField({ target: () => targetSchema }),
+			title: stringField(),
+		}
+		type HookInputSchema = SchemaDefinition<
+			'NativeHookReadInclusionInput',
+			typeof hookInputFields
+		>
+		const addInclusion = ({
+			query,
+		}: {
+			readonly query: Query<HookInputSchema>
+		}) => query.include('author', (target) => target.select({ name: true }))
+		const replaceInclusion = ({
+			query,
+		}: {
+			readonly query: Query<HookInputSchema>
+		}) =>
+			query.include('author', (target) =>
+				target.select({ name: true }).equalTo('name', 'Ada'),
+			)
+		const addSchema = Schema.define({
+			className: 'NativeHookReadInclusionAdd',
+			fields: hookInputFields,
+			hooks: {
+				// The assertion models a JavaScript hook that widens its typed query result.
+				beforeRead: addInclusion as never,
+			},
+		})
+		const replaceSchema = Schema.define({
+			className: 'NativeHookReadInclusionReplace',
+			fields: hookInputFields,
+			hooks: {
+				// Runtime must also reject changing an already declared target query.
+				beforeRead: replaceInclusion as never,
+			},
+		})
+		const application = await createApplication({
+			plugins: [],
+			schemas: [targetSchema, addSchema, replaceSchema],
+		})
+		const stages = createNativeHookStages(application)
+		const addOperation = immutableRecord({
+			kind: 'find',
+			query: new Query(addSchema).ast,
+		}) satisfies FindOperationAst<typeof addSchema>
+		const replaceOperation = immutableRecord({
+			kind: 'find',
+			query: new Query(replaceSchema).include('author', (target) =>
+				target.select({ name: true }),
+			).ast,
+		}) satisfies FindOperationAst<typeof replaceSchema>
+
+		await expect(
+			stages.schemaBefore({ context, operation: addOperation }),
+		).rejects.toThrow('beforeRead must retain the exact query inclusion')
+		await expect(
+			stages.schemaBefore({ context, operation: replaceOperation }),
+		).rejects.toThrow('beforeRead must retain the exact query inclusion')
+
+		await application.dispose()
 	})
 
 	it('rejects values that are not initialized framework applications', () => {

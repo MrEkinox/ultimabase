@@ -33,7 +33,6 @@ import type {
 	DatabaseMutationOperationAst,
 	DatabaseOperationAst,
 	DatabaseOperationOutcome,
-	DatabaseOperationResult,
 } from '../database/contracts.js'
 import {
 	appendEnforcementRowFilter,
@@ -52,6 +51,10 @@ import type { HookExecutionRuntime } from '../hooks/execution-runtime.js'
 import { getApplicationHookExecutionRuntime } from '../hooks/execution-runtime.js'
 import { getOperationSchema } from '../operations/schema.js'
 import { readOperationQueries } from '../operations/queries.js'
+import {
+	readRuntimeIncludedPointerValue,
+	transferRuntimeSchemaModelMetadata,
+} from '../operations/model-metadata.js'
 import {
 	isNonAtomicBulkOperation,
 	readNonAtomicBulkResult,
@@ -702,11 +705,15 @@ const removePath = (
 	}
 
 	if (tail.length === 0) {
-		return immutableRecord(
+		const result = immutableRecord(
 			Object.fromEntries(
 				Object.entries(record).filter(([key]) => key !== head),
 			),
 		)
+
+		transferRuntimeSchemaModelMetadata(record, result)
+
+		return result
 	}
 
 	const child = record[head]
@@ -715,7 +722,11 @@ const removePath = (
 		return record
 	}
 
-	return immutableRecord({ ...record, [head]: removePath(child, tail) })
+	const result = immutableRecord({ ...record, [head]: removePath(child, tail) })
+
+	transferRuntimeSchemaModelMetadata(record, result)
+
+	return result
 }
 
 const enforceRecordOutput = async (
@@ -733,6 +744,8 @@ const enforceRecordOutput = async (
 		if (!current.present) {
 			continue
 		}
+		const retained = readRuntimeIncludedPointerValue(projected, field.path)
+		const accessValue = retained.present ? retained.value : current.value
 
 		try {
 			await assertDecisionRules(
@@ -749,7 +762,7 @@ const enforceRecordOutput = async (
 					channel: 'item',
 					context: request.context,
 					kind: request.operation.kind,
-					value: current.value,
+					value: accessValue,
 				}),
 				plan.defaults.field,
 			)
@@ -769,14 +782,17 @@ const enforceRecordOutput = async (
 	return projected
 }
 
-const enforceOutput = async <const TOperation extends DatabaseOperationAst>(
+const enforceOutput = async <
+	const TOperation extends DatabaseOperationAst,
+	const TResult,
+>(
 	runtime: HookExecutionRuntime,
 	request: RuntimeOperationStageInput<TOperation> & {
-		readonly result: unknown
+		readonly result: TResult
 	},
 	plan: AccessPlan,
 	schemaPlan: SchemaAccessPlan,
-): Promise<DatabaseOperationResult<TOperation>> => {
+): Promise<TResult> => {
 	const unknownResult: unknown = request.result
 	const operationInput = immutableRecord({
 		context: request.context,
@@ -784,7 +800,7 @@ const enforceOutput = async <const TOperation extends DatabaseOperationAst>(
 	})
 
 	if (unknownResult === null || typeof unknownResult !== 'object') {
-		return request.result as DatabaseOperationResult<TOperation>
+		return request.result
 	}
 
 	if (isNonAtomicBulkOperation(request.operation)) {
@@ -817,7 +833,7 @@ const enforceOutput = async <const TOperation extends DatabaseOperationAst>(
 						results: immutableArray(results),
 						status: 'stopped',
 					})
-		) as DatabaseOperationResult<TOperation>
+		) as TResult
 	}
 
 	if (isUnknownArray(unknownResult)) {
@@ -837,7 +853,7 @@ const enforceOutput = async <const TOperation extends DatabaseOperationAst>(
 			)
 		}
 
-		return immutableArray(results) as DatabaseOperationResult<TOperation>
+		return immutableArray(results) as TResult
 	}
 
 	return (
@@ -850,7 +866,7 @@ const enforceOutput = async <const TOperation extends DatabaseOperationAst>(
 					unknownResult,
 				)
 			: request.result
-	) as DatabaseOperationResult<TOperation>
+	) as TResult
 }
 
 /** Executes one application's immutable native Access plan at Runtime boundaries. */
@@ -1100,11 +1116,14 @@ export class NativeAccessRuntime {
 		return request.outcome
 	}
 
-	async enforceOutput<const TOperation extends DatabaseOperationAst>(
+	async enforceOutput<
+		const TOperation extends DatabaseOperationAst,
+		const TResult,
+	>(
 		request: RuntimeOperationStageInput<TOperation> & {
-			readonly result: unknown
+			readonly result: TResult
 		},
-	): Promise<DatabaseOperationResult<TOperation>> {
+	): Promise<TResult> {
 		const schemaPlan = this.#plan.getSchema(readSchema(request.operation))
 
 		if (schemaPlan === undefined) {

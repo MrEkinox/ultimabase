@@ -81,7 +81,7 @@ export const AppRole = RoleSchema.define({
 	indexes: [{ fields: ['priority', 'createdAt'] }],
 	access: { operation: protectedRoleOperations },
 	hooks: {
-		beforeFind: ({ query }) => {
+		beforeRead: ({ query }) => {
 			roleQueryTrace.push('find')
 
 			return query

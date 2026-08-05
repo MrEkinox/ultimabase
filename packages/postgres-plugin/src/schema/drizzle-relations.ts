@@ -15,6 +15,7 @@ import type { PgTable } from 'drizzle-orm/pg-core'
 
 import type {
 	CompiledPostgresJoinRelation,
+	CompiledPostgresPointerRelation,
 	CompiledPostgresRelation,
 	CompiledPostgresSchema,
 } from './contracts.js'
@@ -26,13 +27,24 @@ export interface PostgresDrizzleRelationBinding {
 	readonly targetTableKey: string
 }
 
+export interface PostgresDrizzlePointerBinding {
+	readonly relationName: string
+	readonly sourceTableKey: string
+	readonly targetTableKey: string
+}
+
 /** Retains generated Drizzle relation metadata behind exact compiled identities. */
 export interface CompiledPostgresDrizzleRelations {
 	readonly bindings: ReadonlyMap<
 		CompiledPostgresRelation,
 		PostgresDrizzleRelationBinding
 	>
+	readonly pointerBindings: ReadonlyMap<
+		CompiledPostgresPointerRelation,
+		PostgresDrizzlePointerBinding
+	>
 	readonly relations: TablesRelationalConfig
+	readonly tableKeys: ReadonlyMap<CompiledPostgresSchema, string>
 }
 
 type DynamicPostgresTables = Readonly<Record<string, PgTable>>
@@ -211,6 +223,7 @@ export const compilePostgresDrizzleRelations = (
 	schemas: readonly CompiledPostgresSchema[],
 	joins: readonly CompiledPostgresJoinRelation[],
 	relations: readonly CompiledPostgresRelation[],
+	pointers: readonly CompiledPostgresPointerRelation[] = [],
 ): CompiledPostgresDrizzleRelations => {
 	const tables: Record<string, PgTable> = {}
 	const schemaTableKeys = new Map<CompiledPostgresSchema, string>()
@@ -233,6 +246,10 @@ export const compilePostgresDrizzleRelations = (
 	const bindings = new Map<
 		CompiledPostgresRelation,
 		PostgresDrizzleRelationBinding
+	>()
+	const pointerBindings = new Map<
+		CompiledPostgresPointerRelation,
+		PostgresDrizzlePointerBinding
 	>()
 	const drizzleRelations = defineRelations(tables, (helpers) => {
 		const config: Record<string, RelationsBuilderConfigValue> = {}
@@ -293,8 +310,71 @@ export const compilePostgresDrizzleRelations = (
 			})
 		}
 
+		for (const [position, pointer] of pointers.entries()) {
+			const fieldName = pointer.fieldPath[0]
+
+			if (fieldName === undefined || pointer.fieldPath.length !== 1) {
+				throw new TypeError('Drizzle pointer path must contain one field')
+			}
+
+			const sourceTableKey = requireTableKey(
+				schemaTableKeys,
+				pointer.source,
+				'pointer source',
+			)
+			const targetTableKey = requireTableKey(
+				schemaTableKeys,
+				pointer.target,
+				'pointer target',
+			)
+			const sourceConfig = config[sourceTableKey]
+			const targetConfig = config[targetTableKey]
+
+			if (sourceConfig === undefined || targetConfig === undefined) {
+				throw new TypeError('Drizzle pointer configuration is unavailable')
+			}
+			const relationName = createReverseRelationName(
+				sourceConfig,
+				relations.length + pointers.length + position,
+			)
+
+			const sourcePointer = readBuilderColumn(
+				helpers,
+				sourceTableKey,
+				fieldName,
+			)
+			const targetId = readBuilderColumn(helpers, targetTableKey, 'id')
+			const reverseRelationName = createReverseRelationName(
+				targetConfig,
+				relations.length + position,
+			)
+
+			sourceConfig[relationName] = createOneRelation(helpers, targetTableKey, {
+				from: sourcePointer,
+				to: targetId,
+			})
+			targetConfig[reverseRelationName] = createManyRelation(
+				helpers,
+				sourceTableKey,
+				{
+					from: targetId,
+					to: sourcePointer,
+				},
+			)
+			pointerBindings.set(pointer, {
+				relationName,
+				sourceTableKey,
+				targetTableKey,
+			})
+		}
+
 		return config
 	})
 
-	return { bindings, relations: drizzleRelations }
+	return {
+		bindings,
+		pointerBindings,
+		relations: drizzleRelations,
+		tableKeys: schemaTableKeys,
+	}
 }

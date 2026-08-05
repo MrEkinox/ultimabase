@@ -203,7 +203,7 @@ decides whether its own handler treats that authority differently.
 
 ## Read hooks and output resolution
 
-Every read transport shares the same native Runtime path. `beforeFind` covers
+Every read transport shares the same native Runtime path. `beforeRead` covers
 `find`, `first`, `get`, `count`, and `exists` while preserving the exact terminal
 through `kind`. It returns a new immutable Query or `undefined` to retain the
 current one:
@@ -221,9 +221,9 @@ const ArticleSchema = Schema.define({
 		published: booleanField({ default: false }),
 	},
 	hooks: {
-		beforeFind: ({ query }) =>
+		beforeRead: ({ query }) =>
 			query.equalTo('published', true).descending('createdAt'),
-		afterFind: (input) => {
+		afterRead: (input) => {
 			if (input.kind === 'count') {
 				// Terminal narrowing keeps this value as a number.
 				return Math.max(input.result, 0)
@@ -241,19 +241,24 @@ const articles = await runWithRequestEngine(request, () =>
 // The exact result is readonly { id: string; title: string }[].
 ```
 
-Runtime rejects a `beforeFind` replacement that changes schema identity or the
-selected-field union. The hook may add filters, ordering, pagination, or a
-limit. Opaque adapter constraints remain in the private enforcement envelope
-and reach the database separately from Query, so no business transform can see
-or remove them.
+Runtime rejects a `beforeRead` replacement that changes schema identity, the
+selected-field union, or the pointer-inclusion tree. The hook may add filters,
+ordering, pagination, or a limit. Opaque adapter constraints remain in the
+private enforcement envelope and reach the database separately from Query, so
+no business transform can see or remove them.
 
 For object-producing reads, Runtime validates and projects the adapter result
 to its effective selection before executing `resolveOutput`. Only present,
 selected, readable field values execute. Nested children resolve before their
 parent, and every resolver preserves the field's logical type. Schema
-`afterFind` then receives the already projected and resolved exact result;
-`afterOperation` unwinds after it. `count` and `exists` contain no field values,
-so they skip resolution and retain exact `number` and `boolean` results.
+`afterRead` then receives the already projected and resolved exact result, with
+eager pointer targets already checked by target Access and scalar output
+resolution. Included targets do not run target schema or global read hooks. The
+value returned by `afterRead` continues without a second inclusion pass.
+`count` and `exists` contain no field values, so they skip resolution and retain
+exact `number` and `boolean` results.
+Pointer field Access remains defined over the schema's logical `Pointer` value;
+Runtime keeps it private while parent result hooks observe the hydrated target.
 
 Native replacements are validated at their phase boundary. The completed
 low-level schema and global after-hook chain also crosses final terminal-and-
@@ -589,11 +594,11 @@ const auditPlugin = () =>
 	definePlugin({
 		name: 'example.audit',
 		setup: ({ hooks }) => {
-			hooks.global('measure-all', {
-				afterOperation: ({ result }) => result,
+			hooks.global('measure-reads', {
+				afterRead: ({ result }) => result,
 			})
 			hooks.schema('audit-articles', ArticleSchema, {
-				beforeSave: ({ operation }) => operation,
+				beforeCreate: ({ operation }) => operation,
 			})
 			hooks.field('normalize-title', ArticleSchema, ['title'], {
 				resolveInput: ({ value }) => value.trim(),
@@ -611,7 +616,7 @@ the Runtime hook input:
 
 ```ts
 hooks.schemaExtension('retention', retentionExtension, ({ extension }) => ({
-	beforeOperation: ({ operation }) => {
+	beforeCreate: ({ operation }) => {
 		retention.observe(extension.config.policy)
 		return operation
 	},

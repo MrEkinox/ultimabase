@@ -1,7 +1,7 @@
 import { immutableRecord } from '@ultimabase/shared'
 
 import type { FieldAccessDeclaration } from '../../access/contracts.js'
-import type { FieldHookDeclaration } from '../../hooks/field-contracts.js'
+import type { FieldHooks } from '../../hooks/field-contracts.js'
 import { splitFieldDeclarationOptions } from '../../hooks/field-declarations.js'
 import { snapshotPointerValue, type Pointer } from '../../relations/pointer.js'
 import { Schema, type SchemaDefinition } from '../../schema/definition.js'
@@ -111,14 +111,24 @@ type CompactPointerFieldOptions<
 	 * @example `onDelete: "cascade"`
 	 */
 	readonly onDelete?: TOnDelete
-} & FieldHookDeclaration<
-		ResolvedPointerField<
-			NoInfer<TTarget>,
-			NoInfer<TRequired>,
-			NoInfer<TImmutable>
-		>
-	> &
-	FieldAccessDeclaration<
+} & {
+	/**
+	 * Declares pointer lifecycle hooks without allowing read-time identity rewrites.
+	 * Use field Access to hide a pointer and target scalar hooks to resolve included values.
+	 *
+	 * @example `hooks: { validate: ({ value }) => value.id === "" ? [{ code: "pointer.empty", path: [], message: "Pointer id is required" }] : [] }`
+	 */
+	readonly hooks?: Omit<
+		FieldHooks<
+			ResolvedPointerField<
+				NoInfer<TTarget>,
+				NoInfer<TRequired>,
+				NoInfer<TImmutable>
+			>
+		>,
+		'resolveOutput'
+	>
+} & FieldAccessDeclaration<
 		ResolvedPointerField<
 			NoInfer<TTarget>,
 			NoInfer<TRequired>,
@@ -230,6 +240,14 @@ export function pointerField(
 
 	if ('default' in options) {
 		throw new TypeError('pointerField does not support default values')
+	}
+	if (
+		typeof options.hooks === 'object' &&
+		options.hooks !== null &&
+		!Array.isArray(options.hooks) &&
+		Object.hasOwn(options.hooks, 'resolveOutput')
+	) {
+		throw new TypeError('pointerField does not support hooks.resolveOutput')
 	}
 
 	const { target, ...declarationOptions } = options

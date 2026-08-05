@@ -35,31 +35,31 @@ describe('native hook phase order', () => {
 		},
 	)
 
-	it('nests schema save phases before persistence and unwinds after it', () => {
+	it('dispatches one exact schema phase around each save family', () => {
 		expect(getNativeHookPhaseOrder('create-one')).toMatchObject({
 			family: 'create',
-			schemaBefore: ['beforeOperation', 'beforeSave', 'beforeCreate'],
-			schemaAfter: ['afterCreate', 'afterSave', 'afterOperation'],
+			schemaBefore: ['beforeCreate'],
+			schemaAfter: ['afterCreate'],
 		})
 		expect(getNativeHookPhaseOrder('update-one')).toMatchObject({
 			family: 'update',
-			schemaBefore: ['beforeOperation', 'beforeSave', 'beforeUpdate'],
-			schemaAfter: ['afterUpdate', 'afterSave', 'afterOperation'],
+			schemaBefore: ['beforeUpdate'],
+			schemaAfter: ['afterUpdate'],
 		})
 		expect(getNativeHookPhaseOrder('upsert-many')).toMatchObject({
 			family: 'upsert',
-			schemaBefore: ['beforeOperation', 'beforeSave', 'beforeUpsert'],
-			schemaAfter: ['afterUpsert', 'afterSave', 'afterOperation'],
+			schemaBefore: ['beforeUpsert'],
+			schemaAfter: ['afterUpsert'],
 		})
 	})
 
-	it('nests read-specific phases inside generic operation hooks', () => {
+	it('dispatches only the exact read phases', () => {
 		expect(getNativeHookPhaseOrder('find')).toStrictEqual({
-			family: 'find',
+			family: 'read',
 			fieldAfter: [],
 			fieldBefore: [],
-			schemaAfter: ['afterFind', 'afterOperation'],
-			schemaBefore: ['beforeOperation', 'beforeFind'],
+			schemaAfter: ['afterRead'],
+			schemaBefore: ['beforeRead'],
 		})
 	})
 

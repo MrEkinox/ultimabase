@@ -74,16 +74,10 @@ type SchemaResolveInputContext<TSchema extends SchemaDefinition> =
 			readonly input: InferUpdateInput<TSchema>
 	  }
 
-type SaveOperation<TSchema extends SchemaDefinition> = Extract<
+type CreateOperation<TSchema extends SchemaDefinition> = Extract<
 	OperationAst<TSchema>,
 	{
-		readonly kind:
-			| 'create-many'
-			| 'create-one'
-			| 'update-many'
-			| 'update-one'
-			| 'upsert-many'
-			| 'upsert-one'
+		readonly kind: 'create-many' | 'create-one'
 	}
 >
 
@@ -107,18 +101,18 @@ interface PrototypeSchemaHooks<TSchema extends SchemaDefinition> {
 	readonly resolveInput?: (
 		context: SchemaResolveInputContext<TSchema>,
 	) => MaybePromise<void>
-	readonly beforeSave?: (context: {
+	readonly beforeCreate?: (context: {
 		readonly object: InferObject<TSchema>
-		readonly operation: SaveOperation<TSchema>
+		readonly operation: CreateOperation<TSchema>
 	}) => MaybePromise<void>
-	readonly beforeFind?: PrototypeBeforeFindHook<TSchema>
-	readonly afterOperation?: (
-		context: SchemaOperationResultContext<TSchema>,
+	readonly beforeRead?: PrototypeBeforeReadHook<TSchema>
+	readonly afterRead?: (
+		context: SchemaOperationResultContext<TSchema, ReadOperation<TSchema>>,
 	) => MaybePromise<void>
 }
 
 /** Preserves a terminal's accumulated selection through immutable query transforms. */
-export type PrototypeBeforeFindHook<TSchema extends SchemaDefinition> = <
+export type PrototypeBeforeReadHook<TSchema extends SchemaDefinition> = <
 	const TSelectedField extends QueryFieldName<TSchema>,
 >(context: {
 	readonly operation: ReadOperation<TSchema>
@@ -367,13 +361,13 @@ export const PostSchema = new PrototypeSchema({
 				updateInput.title?.toUpperCase()
 			}
 		},
-		beforeSave: ({ object }) => {
+		beforeCreate: ({ object }) => {
 			const /* hover:object */ savedObject = object
 
 			savedObject.id.toUpperCase()
 			savedObject.title.toUpperCase()
 		},
-		beforeFind: ({ operation, query }) => {
+		beforeRead: ({ operation, query }) => {
 			const /* hover:query */ typedQuery = query
 
 			if (operation.kind === 'get') {
@@ -382,7 +376,7 @@ export const PostSchema = new PrototypeSchema({
 
 			return typedQuery.limit(25)
 		},
-		afterOperation: (context) => {
+		afterRead: (context) => {
 			if (context.kind === 'count') {
 				const /* hover:count-result */ count = context.result
 

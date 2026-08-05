@@ -273,15 +273,15 @@ describe('createFrameworkEngine', () => {
 				}),
 			},
 			hooks: {
-				afterFind: ({ kind, result }) => {
-					trace.push('schema:afterFind')
+				afterRead: ({ kind, result }) => {
+					trace.push('schema:afterRead')
 					// The exact terminal remains available even when this hook only observes.
 					expect(kind).toBe('find')
 
 					return result
 				},
-				beforeFind: ({ query }) => {
-					trace.push('schema:beforeFind')
+				beforeRead: ({ query }) => {
+					trace.push('schema:beforeRead')
 
 					return query.equalTo('title', 'visible')
 				},
@@ -359,10 +359,10 @@ describe('createFrameworkEngine', () => {
 			},
 		})
 		expect(trace).toStrictEqual([
-			'schema:beforeFind',
+			'schema:beforeRead',
 			'execute:find',
 			'field:title',
-			'schema:afterFind',
+			'schema:afterRead',
 		])
 
 		await application.dispose()

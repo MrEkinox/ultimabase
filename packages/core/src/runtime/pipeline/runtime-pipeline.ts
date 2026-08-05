@@ -8,9 +8,11 @@ import {
 
 import { FrameworkError } from '../../foundation.js'
 import { isRelationUpdateExpression } from '../../schema/relations/mutation.js'
+import { Pointer } from '../../schema/index.js'
 import { RequestContext } from '../context/request-context.js'
 import { assertDatabaseConstraintVersion } from '../../plugins/constraint-compilers.js'
 import {
+	databasePointerInclusionCapabilityVersion,
 	databaseRelationCapabilityVersion,
 	databaseRelationPredicateCapabilityVersion,
 } from '../database/contracts.js'
@@ -21,6 +23,7 @@ import type {
 	DatabaseOperationAst,
 	DatabaseOperationExecutor,
 	DatabaseOperationOutcome,
+	DatabasePointerInclusionPlan,
 	DatabaseOperationResult,
 	DatabaseRelationScope,
 	DatabaseRelationPredicateScope,
@@ -40,9 +43,11 @@ import type {
 	RuntimeEnforcementStages,
 	RuntimeOperationStageInput,
 	RuntimeNativeHookStages,
+	RuntimeNativeDatabaseResultStageInput,
 	RuntimePreparedMutationTransformStage,
 	RuntimeNativeTransactionOperation,
 	RuntimeNativeResultStageInput,
+	RuntimeOperationResult,
 	RuntimePipelineRequest,
 	RuntimePipelineStages,
 	RuntimeResultStageInput,
@@ -58,8 +63,16 @@ import type { ExecutableOperationAst } from '../../query/index.js'
 import { readOperationQueries } from '../operations/queries.js'
 import {
 	collectDatabaseObjectIdentities,
+	retainRuntimeIncludedPointerValue,
 	retainRuntimeSchemaModelMetadata,
+	transferRuntimeSchemaModelMetadata,
 } from '../operations/model-metadata.js'
+import {
+	createPointerInclusionOperation,
+	readPointerInclusions,
+	type RuntimePointerInclusion,
+	type RuntimePointerTargetOperation,
+} from '../relations/pointer-inclusion.js'
 
 const functionStageNames = [
 	'normalization',
@@ -118,6 +131,17 @@ interface RuntimeDatabaseExecution<TOperation extends DatabaseOperationAst> {
 	readonly result: DatabaseOperationResult<TOperation>
 }
 
+/** Retains target policy beside one adapter-ready nested read. */
+interface RuntimePreparedPointerInclusion {
+	readonly database: DatabasePointerInclusionPlan
+	readonly descriptor: RuntimePointerInclusion
+	readonly enforcement: EnforcementState | undefined
+	readonly nested: readonly RuntimePreparedPointerInclusion[]
+	readonly operation: RuntimePointerTargetOperation
+	readonly selectedFieldsOverride: readonly string[] | undefined
+	readonly unavailable: boolean
+}
+
 /** Carries only mutable orchestration state that never crosses a hook boundary. */
 interface RuntimePipelineExecutionState {
 	operation: DatabaseOperationAst
@@ -135,6 +159,12 @@ const combineExecutionErrors = (
 		'Runtime operation and its error observer both failed.',
 		{ cause: error },
 	)
+
+/** Identifies only the framework-owned denial that inclusion may hide as missing. */
+const isNativeAccessDenied = (error: unknown): boolean =>
+	error instanceof FrameworkError &&
+	error.code === 'PERMISSION_DENIED' &&
+	error.internalDetails?.kind === 'native-access-denied'
 
 /** Narrows the closed terminal union before selecting the adapter protocol. */
 const isMutationOperation = (
@@ -243,6 +273,7 @@ const executeDatabaseOperation = async <
 	request: {
 		readonly constraints: readonly DatabaseConstraintNode[]
 		readonly operation: TOperation
+		readonly pointerInclusions?: readonly DatabasePointerInclusionPlan[]
 		readonly relation?: DatabaseRelationScope
 		readonly relationPredicates?: readonly DatabaseRelationPredicateScope[]
 		readonly rowFilter?: DatabaseRowFilterNode
@@ -251,6 +282,23 @@ const executeDatabaseOperation = async <
 	enforcementState: EnforcementState | undefined,
 ): Promise<RuntimeDatabaseExecution<TOperation>> => {
 	assertRelationMutationCapability(executor, request.operation)
+
+	if (request.pointerInclusions !== undefined) {
+		const capability: unknown = executor.capabilities?.pointerInclusions
+
+		if (
+			!isPlainRecord(capability) ||
+			capability.kind !== 'pointer-inclusions' ||
+			capability.version !== databasePointerInclusionCapabilityVersion ||
+			typeof executor.readIncludedPointer !== 'function'
+		) {
+			throw new FrameworkError(
+				'INTERNAL_ERROR',
+				`Database adapter must implement pointer inclusion capability version ${String(databasePointerInclusionCapabilityVersion)}.`,
+				{ publicMessage: 'Pointer inclusion is not available.' },
+			)
+		}
+	}
 
 	if (request.relation !== undefined) {
 		const capability: unknown = executor.capabilities?.relations
@@ -324,6 +372,9 @@ const executeDatabaseOperation = async <
 		immutableRecord({
 			constraints: request.constraints,
 			operation: request.operation,
+			...(request.pointerInclusions === undefined
+				? {}
+				: { pointerInclusions: request.pointerInclusions }),
 			...(request.relation === undefined ? {} : { relation: request.relation }),
 			...(request.relationPredicates === undefined
 				? {}
@@ -568,10 +619,21 @@ const createEnforcementInput = <const TOperation extends DatabaseOperationAst>(
 ): RuntimeEnforcementStageInput<TOperation> =>
 	immutableRecord({ context, enforcement, operation })
 
+const createEnforcementResultInput = <
+	const TOperation extends DatabaseOperationAst,
+>(
+	context: RequestContext,
+	operation: TOperation,
+	result: RuntimeOperationResult<TOperation>,
+	enforcement: EnforcementState,
+): RuntimeResultStageInput<TOperation> & {
+	readonly enforcement: EnforcementState
+} => immutableRecord({ context, enforcement, operation, result })
+
 const createResultInput = <const TOperation extends DatabaseOperationAst>(
 	context: RequestContext,
 	operation: TOperation,
-	result: DatabaseOperationResult<TOperation>,
+	result: RuntimeOperationResult<TOperation>,
 ): RuntimeResultStageInput<TOperation> =>
 	immutableRecord({ context, operation, result })
 
@@ -648,9 +710,24 @@ const readSchemaModelSelectedFields = (
 const createNativeResultInput = <const TOperation extends DatabaseOperationAst>(
 	context: RequestContext,
 	operation: TOperation,
-	result: DatabaseOperationResult<TOperation>,
+	result: RuntimeOperationResult<TOperation>,
 	selectedFieldsOverride: readonly string[] | undefined,
 ): RuntimeNativeResultStageInput<TOperation> =>
+	immutableRecord({
+		context,
+		operation,
+		result,
+		...(selectedFieldsOverride === undefined ? {} : { selectedFieldsOverride }),
+	})
+
+const createNativeDatabaseResultInput = <
+	const TOperation extends DatabaseOperationAst,
+>(
+	context: RequestContext,
+	operation: TOperation,
+	result: DatabaseOperationResult<TOperation>,
+	selectedFieldsOverride: readonly string[] | undefined,
+): RuntimeNativeDatabaseResultStageInput<TOperation> =>
 	immutableRecord({
 		context,
 		operation,
@@ -699,9 +776,318 @@ export class RuntimePipeline {
 		)
 	}
 
+	/** Prepares target security without manufacturing target schema read hooks. */
+	async #preparePointerInclusions(
+		context: RequestContext,
+		parentOperation: DatabaseOperationAst,
+	): Promise<readonly RuntimePreparedPointerInclusion[]> {
+		const prepared: RuntimePreparedPointerInclusion[] = []
+
+		for (const descriptor of readPointerInclusions(parentOperation)) {
+			let operation = createPointerInclusionOperation(descriptor)
+
+			operation = await this.#stages.normalization(
+				createOperationInput(context, operation),
+			)
+			operation = await this.#stages.structuralValidation(
+				createOperationInput(context, operation),
+			)
+
+			if (this.#stages.nativeHooks !== undefined) {
+				operation = await this.#stages.nativeHooks.revalidate(
+					createOperationInput(context, operation),
+				)
+				await this.#stages.nativeHooks.validate(
+					createOperationInput(context, operation),
+				)
+			}
+
+			let enforcement: EnforcementState | undefined
+			let constraints: readonly DatabaseConstraintNode[] = emptyConstraints
+			let relationPredicates:
+				readonly DatabaseRelationPredicateScope[] | undefined
+			let rowFilter: DatabaseRowFilterNode | undefined
+
+			try {
+				if (this.#stages.enforcement !== undefined) {
+					enforcement = await this.#stages.enforcement.evaluate(
+						createOperationInput(context, operation),
+					)
+					const enforced = await this.#stages.enforcement.enforceOperation(
+						createEnforcementInput(context, operation, enforcement),
+					)
+
+					operation = enforced.operation
+					constraints = snapshotConstraints(enforced.constraints)
+					relationPredicates = enforced.relationPredicates
+					rowFilter = enforced.rowFilter
+				}
+			} catch (error: unknown) {
+				if (!isNativeAccessDenied(error)) throw error
+
+				const request = immutableRecord({
+					constraints: emptyConstraints,
+					operation,
+				})
+				const database = immutableRecord({
+					fieldPath: immutableArray([descriptor.field]),
+					request,
+					unavailable: true as const,
+				})
+
+				prepared.push(
+					immutableRecord({
+						database,
+						descriptor,
+						enforcement: undefined,
+						nested: immutableArray([]),
+						operation,
+						selectedFieldsOverride: undefined,
+						unavailable: true,
+					}),
+				)
+				continue
+			}
+
+			const nested = await this.#preparePointerInclusions(context, operation)
+			const request = immutableRecord({
+				constraints,
+				operation,
+				...(nested.length === 0
+					? {}
+					: {
+							pointerInclusions: immutableArray(
+								nested.map(({ database }) => database),
+							),
+						}),
+				...(relationPredicates === undefined ? {} : { relationPredicates }),
+				...(rowFilter === undefined ? {} : { rowFilter }),
+			})
+			const database = immutableRecord({
+				fieldPath: immutableArray([descriptor.field]),
+				request,
+			})
+
+			prepared.push(
+				immutableRecord({
+					database,
+					descriptor,
+					enforcement,
+					nested,
+					operation,
+					selectedFieldsOverride: readSelectedFieldsOverride(
+						operation,
+						enforcement,
+					),
+					unavailable: false,
+				}),
+			)
+		}
+
+		return immutableArray(prepared)
+	}
+
+	/** Completes Access and scalar output resolution for one already loaded target. */
+	async #finalizeIncludedPointer(
+		context: RequestContext,
+		prepared: RuntimePreparedPointerInclusion,
+		rawTarget: Readonly<Record<string, unknown>>,
+	): Promise<Readonly<Record<string, unknown>>> {
+		let result =
+			rawTarget as DatabaseOperationResult<RuntimePointerTargetOperation>
+
+		if (
+			this.#stages.enforcement !== undefined &&
+			prepared.enforcement !== undefined
+		) {
+			result = await this.#stages.enforcement.enforceSelectionResult(
+				immutableRecord({
+					context,
+					enforcement: prepared.enforcement,
+					operation: prepared.operation,
+					result,
+				}),
+			)
+		}
+
+		result = this.#resultBoundaries.snapshotDatabaseResultReplacement(
+			prepared.operation,
+			result,
+			prepared.selectedFieldsOverride,
+		)
+
+		if (this.#stages.nativeHooks !== undefined) {
+			result = await this.#stages.nativeHooks.resolveOutput(
+				createNativeDatabaseResultInput(
+					context,
+					prepared.operation,
+					result,
+					prepared.selectedFieldsOverride,
+				),
+			)
+		}
+
+		if (!isPlainRecord(result)) {
+			throw new TypeError('Runtime included pointer target must be a record')
+		}
+
+		const hydrated = await this.#hydrateIncludedRecord(
+			context,
+			result,
+			rawTarget,
+			prepared.nested,
+		)
+		const identity =
+			this.#stages.databaseOperation.readObjectIdentity?.(rawTarget)
+
+		retainRuntimeSchemaModelMetadata(
+			prepared.operation,
+			immutableArray([identity]),
+			hydrated,
+			readSchemaModelSelectedFields(
+				prepared.operation,
+				prepared.selectedFieldsOverride,
+			),
+		)
+		let finalized =
+			hydrated as unknown as RuntimeOperationResult<RuntimePointerTargetOperation>
+
+		if (
+			this.#stages.enforcement !== undefined &&
+			prepared.enforcement !== undefined
+		) {
+			finalized = await this.#stages.enforcement.enforceResult(
+				immutableRecord({
+					context,
+					enforcement: prepared.enforcement,
+					operation: prepared.operation,
+					result: finalized,
+				}),
+			)
+		}
+
+		if (!isPlainRecord(finalized)) {
+			throw new TypeError('Runtime included pointer target must be a record')
+		}
+
+		return finalized
+	}
+
+	/** Replaces visible pointers with their adapter-retained target records. */
+	async #hydrateIncludedRecord(
+		context: RequestContext,
+		record: Readonly<Record<string, unknown>>,
+		rawRecord: Readonly<Record<string, unknown>>,
+		inclusions: readonly RuntimePreparedPointerInclusion[],
+	): Promise<Readonly<Record<string, unknown>>> {
+		let hydrated = record
+
+		for (const inclusion of inclusions) {
+			const field = inclusion.descriptor.field
+
+			if (!Object.hasOwn(hydrated, field)) continue
+			const pointer: unknown = hydrated[field]
+
+			if (pointer === null) continue
+			if (!Pointer.is(pointer)) {
+				throw new TypeError(
+					`Runtime pointer inclusion ${field} must receive a Pointer`,
+				)
+			}
+
+			let target: Readonly<Record<string, unknown>> | null = null
+
+			if (!inclusion.unavailable) {
+				const retained = this.#stages.databaseOperation.readIncludedPointer?.(
+					rawRecord,
+					inclusion.database.fieldPath,
+				)
+
+				if (retained === undefined) {
+					throw new TypeError(
+						`Database adapter did not retain pointer inclusion ${field}`,
+					)
+				}
+				target = retained
+			}
+
+			const replacement =
+				target === null
+					? null
+					: await this.#finalizeIncludedPointer(context, inclusion, target)
+			const next = immutableRecord({ ...hydrated, [field]: replacement })
+
+			transferRuntimeSchemaModelMetadata(hydrated, next)
+			retainRuntimeIncludedPointerValue(next, [field], pointer)
+			hydrated = next
+		}
+
+		return hydrated
+	}
+
+	/** Preserves root cardinality while hydrating its exact adapter records by index. */
+	async #hydratePointerInclusions<
+		const TOperation extends DatabaseOperationAst,
+	>(
+		context: RequestContext,
+		operation: TOperation,
+		result: DatabaseOperationResult<TOperation>,
+		rawResult: DatabaseOperationResult<TOperation>,
+		inclusions: readonly RuntimePreparedPointerInclusion[],
+	): Promise<RuntimeOperationResult<TOperation>> {
+		if (inclusions.length === 0 || result === null) {
+			return result as unknown as RuntimeOperationResult<TOperation>
+		}
+
+		if (operation.kind === 'find') {
+			if (!isUnknownArray(result) || !isUnknownArray(rawResult)) {
+				throw new TypeError(
+					'Runtime included pointer collection must be an array',
+				)
+			}
+			if (result.length !== rawResult.length) {
+				throw new TypeError(
+					'Runtime included pointer cardinality changed before hydration',
+				)
+			}
+
+			return immutableArray(
+				await Promise.all(
+					result.map((record, index) => {
+						const rawRecord: unknown = rawResult[index]
+
+						if (!isPlainRecord(record) || !isPlainRecord(rawRecord)) {
+							throw new TypeError(
+								'Runtime included pointer source must be a record',
+							)
+						}
+
+						return this.#hydrateIncludedRecord(
+							context,
+							record,
+							rawRecord,
+							inclusions,
+						)
+					}),
+				),
+			) as unknown as RuntimeOperationResult<TOperation>
+		}
+
+		if (!isPlainRecord(result) || !isPlainRecord(rawResult)) {
+			throw new TypeError('Runtime included pointer source must be a record')
+		}
+
+		return (await this.#hydrateIncludedRecord(
+			context,
+			result,
+			rawResult,
+			inclusions,
+		)) as unknown as RuntimeOperationResult<TOperation>
+	}
+
 	async execute<const TOperation extends DatabaseOperationAst>(
 		request: RuntimePipelineRequest<TOperation>,
-	): Promise<DatabaseOperationResult<TOperation>> {
+	): Promise<RuntimeOperationResult<TOperation>> {
 		const untrustedRequest: unknown = request
 
 		if (!isPlainRecord(untrustedRequest)) {
@@ -769,7 +1155,7 @@ export class RuntimePipeline {
 				// so the surrounding mutation transaction remains committable.
 				execution.transactionOperation?.succeed(execution.operation, null)
 
-				return null as DatabaseOperationResult<TOperation>
+				return null as RuntimeOperationResult<TOperation>
 			}
 
 			execution.transactionOperation?.fail(
@@ -808,7 +1194,7 @@ export class RuntimePipeline {
 	async #executeOperation<const TOperation extends DatabaseOperationAst>(
 		request: RuntimePipelineRequest<TOperation>,
 		execution: RuntimePipelineExecutionState,
-	): Promise<DatabaseOperationResult<TOperation>> {
+	): Promise<RuntimeOperationResult<TOperation>> {
 		const context: RequestContext = request.context
 		const privateRowFilter =
 			request.rowFilter === undefined
@@ -928,6 +1314,10 @@ export class RuntimePipeline {
 			)
 			relationPredicates = enforced.relationPredicates
 		}
+		const pointerInclusions = await this.#preparePointerInclusions(
+			context,
+			operation,
+		)
 
 		throwIfOperationCancelled(context.signal, {
 			operationKind: operation.kind,
@@ -942,6 +1332,13 @@ export class RuntimePipeline {
 			immutableRecord({
 				constraints,
 				operation,
+				...(pointerInclusions.length === 0
+					? {}
+					: {
+							pointerInclusions: immutableArray(
+								pointerInclusions.map(({ database }) => database),
+							),
+						}),
 				...(privateRelation === undefined ? {} : { relation: privateRelation }),
 				...(relationPredicates === undefined ? {} : { relationPredicates }),
 				...(rowFilter === undefined ? {} : { rowFilter }),
@@ -953,38 +1350,59 @@ export class RuntimePipeline {
 			operationKind: operation.kind,
 			phase: 'database-operation',
 		})
-		let result: DatabaseOperationResult<TOperation> = databaseExecution.result
+		let databaseResult: DatabaseOperationResult<TOperation> =
+			databaseExecution.result
 		const selectedFieldsOverride = readSelectedFieldsOverride(
 			operation,
 			enforcement,
 		)
 		if (this.#stages.enforcement !== undefined && enforcement !== undefined) {
-			result = await this.#stages.enforcement.enforceSelectionResult(
+			databaseResult = await this.#stages.enforcement.enforceSelectionResult(
 				immutableRecord({
 					context,
 					enforcement,
 					operation,
-					result,
+					result: databaseResult,
 				}),
 			)
 		}
 		// Policy projection precedes validation so over-fetching adapters cannot
 		// expose or invalidate fields that business output hooks may not observe.
-		result = this.#resultBoundaries.snapshotResultReplacement(
+		databaseResult = this.#resultBoundaries.snapshotDatabaseResultReplacement(
 			operation,
-			result,
+			databaseResult,
 			selectedFieldsOverride,
 		)
 
 		if (this.#stages.nativeHooks !== undefined) {
-			result = await this.#stages.nativeHooks.resolveOutput(
-				createNativeResultInput(
+			databaseResult = await this.#stages.nativeHooks.resolveOutput(
+				createNativeDatabaseResultInput(
 					context,
 					operation,
-					result,
+					databaseResult,
 					selectedFieldsOverride,
 				),
 			)
+		}
+
+		let result: RuntimeOperationResult<TOperation> =
+			await this.#hydratePointerInclusions(
+				context,
+				operation,
+				databaseResult,
+				databaseExecution.result,
+				pointerInclusions,
+			)
+		// Identity follows exact records through result hooks instead of being
+		// reassociated by an unstable final collection index.
+		retainRuntimeSchemaModelMetadata(
+			operation,
+			databaseExecution.objectIdentities,
+			result,
+			readSchemaModelSelectedFields(operation, selectedFieldsOverride),
+		)
+
+		if (this.#stages.nativeHooks !== undefined) {
 			result = await this.#stages.nativeHooks.schemaAfter(
 				createNativeResultInput(
 					context,
@@ -1009,13 +1427,8 @@ export class RuntimePipeline {
 		)
 
 		if (this.#stages.enforcement !== undefined && enforcement !== undefined) {
-			result = await this.#stages.enforcement.enforceResult(
-				immutableRecord({
-					context,
-					enforcement,
-					operation,
-					result,
-				}),
+			result = await this.#stages.enforcement.enforceResult<TOperation>(
+				createEnforcementResultInput(context, operation, result, enforcement),
 			)
 		}
 		this.#resultBoundaries.assertResultGrouping(
@@ -1033,12 +1446,6 @@ export class RuntimePipeline {
 		})
 		await this.#stages.commit(completedOperation)
 		await this.#stages.postCommitEvents(completedOperation)
-		retainRuntimeSchemaModelMetadata(
-			operation,
-			databaseExecution.objectIdentities,
-			result,
-			readSchemaModelSelectedFields(operation, selectedFieldsOverride),
-		)
 		execution.operation = operation
 		execution.transactionOperation?.succeed(
 			operation,

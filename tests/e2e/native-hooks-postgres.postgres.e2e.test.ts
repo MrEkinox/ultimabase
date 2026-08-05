@@ -181,8 +181,8 @@ const HookArticleSchema = Schema.define({
 
 			return result
 		},
-		afterFind: ({ kind, result }) => {
-			trace(`schema:developer:afterFind:${kind}`)
+		afterRead: ({ kind, result }) => {
+			trace(`schema:developer:afterRead:${kind}`)
 
 			if (kind !== 'find') {
 				return result
@@ -194,18 +194,8 @@ const HookArticleSchema = Schema.define({
 				secret: 'restored-by-schema-hook',
 			}))
 		},
-		afterOperation: ({ kind, result }) => {
-			trace(`schema:developer:afterOperation:${kind}`)
-
-			return result
-		},
 		afterRollback: () => {
 			trace('schema:developer:afterRollback')
-		},
-		afterSave: ({ result }) => {
-			trace('schema:developer:afterSave')
-
-			return result
 		},
 		afterUpdate: ({ result }) => {
 			trace('schema:developer:afterUpdate')
@@ -236,20 +226,10 @@ const HookArticleSchema = Schema.define({
 
 			return operation
 		},
-		beforeFind: ({ kind, query }) => {
-			trace(`schema:developer:beforeFind:${kind}`)
+		beforeRead: ({ kind, query }) => {
+			trace(`schema:developer:beforeRead:${kind}`)
 
 			return query.equalTo('published', true)
-		},
-		beforeOperation: ({ operation }) => {
-			trace(`schema:developer:beforeOperation:${operation.kind}`)
-
-			return operation
-		},
-		beforeSave: ({ operation }) => {
-			trace('schema:developer:beforeSave')
-
-			return operation
 		},
 		beforeUpdate: ({ operation }) => {
 			trace('schema:developer:beforeUpdate')
@@ -360,25 +340,25 @@ const behaviorPlugin = definePlugin({
 	dependencies: ['fixture.native-hooks-scope-policy'],
 	setup: ({ hooks, registries }) => {
 		hooks.schema('article-lifecycle', HookArticleSchema, {
-			afterFind: ({ kind, result }) => {
-				trace(`plugin:schema:afterFind:${kind}`)
+			afterCreate: ({ result }) => {
+				trace('plugin:schema:afterCreate')
 
 				return result
 			},
-			afterOperation: ({ kind, result }) => {
-				trace(`plugin:schema:afterOperation:${kind}`)
+			afterRead: ({ kind, result }) => {
+				trace(`plugin:schema:afterRead:${kind}`)
 
 				return result
 			},
-			beforeFind: ({ kind, query }) => {
-				trace(`plugin:schema:beforeFind:${kind}`)
-
-				return query.limit(50)
-			},
-			beforeOperation: ({ operation }) => {
-				trace(`plugin:schema:beforeOperation:${operation.kind}`)
+			beforeCreate: ({ operation }) => {
+				trace('plugin:schema:beforeCreate')
 
 				return operation
+			},
+			beforeRead: ({ kind, query }) => {
+				trace(`plugin:schema:beforeRead:${kind}`)
+
+				return query.limit(50)
 			},
 		})
 		hooks.field('article-title', HookArticleSchema, ['title'], {
@@ -522,9 +502,7 @@ describe('native hooks with PostgreSQL', { concurrent: false }, () => {
 			'field:title:developer:validate',
 			'schema:developer:validate',
 			'policy:guard:create-one',
-			'plugin:schema:beforeOperation:create-one',
-			'schema:developer:beforeOperation:create-one',
-			'schema:developer:beforeSave',
+			'plugin:schema:beforeCreate',
 			'schema:developer:beforeCreate',
 			'field:title:developer:beforeSave',
 			'field:title:developer:beforeCreate',
@@ -536,9 +514,7 @@ describe('native hooks with PostgreSQL', { concurrent: false }, () => {
 			'field:slug:developer:resolveOutput',
 			'plugin:field-kind:slug:resolveOutput',
 			'schema:developer:afterCreate',
-			'schema:developer:afterSave',
-			'schema:developer:afterOperation:create-one',
-			'plugin:schema:afterOperation:create-one',
+			'plugin:schema:afterCreate',
 			'schema:developer:beforeCommit',
 			'field:title:developer:afterCommit',
 			'schema:developer:afterCommit',
@@ -587,7 +563,7 @@ describe('native hooks with PostgreSQL', { concurrent: false }, () => {
 		)
 	})
 
-	it('keeps beforeFind transforms inside opaque scope and field restrictions', async () => {
+	it('keeps beforeRead transforms inside opaque scope and field restrictions', async () => {
 		await runWithScope('scope-visible-a', () =>
 			HookArticleSchema.create({
 				profile: { slug: 'scope-a' },
@@ -632,18 +608,14 @@ describe('native hooks with PostgreSQL', { concurrent: false }, () => {
 		expectTraceSubsequence([
 			'policy:guard:find',
 			'policy:constraint:find',
-			'plugin:schema:beforeOperation:find',
-			'schema:developer:beforeOperation:find',
-			'plugin:schema:beforeFind:find',
-			'schema:developer:beforeFind:find',
+			'plugin:schema:beforeRead:find',
+			'schema:developer:beforeRead:find',
 			'field:title:developer:resolveOutput',
 			'plugin:field:title:resolveOutput',
 			'field:slug:developer:resolveOutput',
 			'plugin:field-kind:slug:resolveOutput',
-			'schema:developer:afterFind:find',
-			'plugin:schema:afterFind:find',
-			'schema:developer:afterOperation:find',
-			'plugin:schema:afterOperation:find',
+			'schema:developer:afterRead:find',
+			'plugin:schema:afterRead:find',
 			'policy:restrictOutput:find',
 		])
 
@@ -652,7 +624,7 @@ describe('native hooks with PostgreSQL', { concurrent: false }, () => {
 			HookArticleSchema.query().find({ ultimabase: getUltimaBase() }),
 		).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
 		expect(hookTrace).toContain('policy:guard:find')
-		expect(hookTrace).not.toContain('plugin:schema:beforeOperation:find')
+		expect(hookTrace).not.toContain('plugin:schema:beforeRead:find')
 	})
 
 	it('wraps update and delete with their exact field and save families', async () => {
@@ -673,8 +645,6 @@ describe('native hooks with PostgreSQL', { concurrent: false }, () => {
 			}),
 		)
 		expectTraceSubsequence([
-			'schema:developer:beforeOperation:update-one',
-			'schema:developer:beforeSave',
 			'schema:developer:beforeUpdate',
 			'field:title:developer:beforeSave',
 			'field:title:developer:beforeUpdate',
@@ -682,8 +652,6 @@ describe('native hooks with PostgreSQL', { concurrent: false }, () => {
 			'field:title:developer:afterSave',
 			'field:title:developer:onChange',
 			'schema:developer:afterUpdate',
-			'schema:developer:afterSave',
-			'schema:developer:afterOperation:update-one',
 			'schema:developer:beforeCommit',
 			'field:title:developer:afterCommit',
 			'schema:developer:afterCommit',
@@ -696,13 +664,11 @@ describe('native hooks with PostgreSQL', { concurrent: false }, () => {
 			}),
 		)
 		expectTraceSubsequence([
-			'schema:developer:beforeOperation:delete-one',
 			'schema:developer:beforeDelete',
 			'field:title:developer:beforeDelete',
 			'field:title:developer:afterDelete',
 			'field:title:developer:onChange',
 			'schema:developer:afterDelete',
-			'schema:developer:afterOperation:delete-one',
 			'schema:developer:beforeCommit',
 			'field:title:developer:afterCommit',
 			'schema:developer:afterCommit',

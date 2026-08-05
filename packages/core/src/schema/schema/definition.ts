@@ -155,7 +155,7 @@ export interface SchemaOptions<
 	 * Declares immutable schema lifecycle behavior without requiring a plugin.
 	 * Hook functions stay outside physical schema metadata and migration plans.
 	 *
-	 * @example `hooks: { beforeFind: ({ query }) => query.limit(100) }`
+	 * @example `hooks: { beforeRead: ({ query }) => query.limit(100) }`
 	 */
 	readonly hooks?: SchemaHooks<
 		SchemaClass<NoInfer<TClassName>, NoInfer<TFields>, NoInfer<TExtensions>>

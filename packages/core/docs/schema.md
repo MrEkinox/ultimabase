@@ -97,6 +97,12 @@ schema declaration is available:
 const targetUser: SchemaTarget<typeof UserSchema> = () => UserSchema
 ```
 
+`pointerField` supports input, validation, mutation, change, and finalization
+hooks, but not `resolveOutput`. Pointer disclosure belongs to field Access and
+included scalar resolution belongs to target fields. Inclusion itself does not
+run target schema read hooks; only an explicit target Query does. `relationField`
+stores no model value and therefore accepts no field hooks.
+
 An application resolves field-owned callbacks after plugin setup and before
 infrastructure lifecycle phases. This ordering permits a plugin to register a
 schema during setup and supports circular module declarations without a global
@@ -335,8 +341,8 @@ const ArticleSchema = Schema.define({
 		title: stringField({ validation: { required: true } }),
 	},
 	hooks: {
-		beforeFind: ({ query }) => query.limit(100),
-		afterFind: (input) => {
+		beforeRead: ({ query }) => query.limit(100),
+		afterRead: (input) => {
 			if (input.kind === 'count') {
 				return Math.max(input.result, 0)
 			}
@@ -358,13 +364,13 @@ map:
 
 ```ts
 hooks: {
-	beforeOperation: {
+	resolveInput: {
 		all: ({ operation }) => operation,
 		create: [
 			({ operation }) => operation,
 			({ operation }) => operation,
 		],
-		find: ({ operation }) => operation,
+		update: ({ operation }) => operation,
 	},
 }
 ```

@@ -49,7 +49,7 @@ test('infers setup hook targets and exact schema or field handlers', () => {
 		name: 'fixture.hooks',
 		setup: ({ hooks }) => {
 			hooks.global('global', {
-				beforeOperation: ({ operation }) => operation,
+				beforeCreate: ({ operation }) => operation,
 			})
 			hooks.schema('schema', schema, {
 				beforeCreate: ({ operation }) => {
@@ -90,7 +90,7 @@ test('infers setup hook targets and exact schema or field handlers', () => {
 			})
 			hooks.schemaExtension('schema-extension', schemaExtension, (context) => {
 				expectTypeOf(context.extension.config.mode).toEqualTypeOf<'strict'>()
-				return { beforeFind: ({ query }) => query }
+				return { beforeRead: ({ query }) => query }
 			})
 			hooks.fieldExtension('field-extension', fieldExtension, (context) => {
 				expectTypeOf(context.extension.config.redact).toEqualTypeOf<true>()

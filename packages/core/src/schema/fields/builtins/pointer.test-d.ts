@@ -82,6 +82,13 @@ test('rejects incompatible pointer declarations and target values', () => {
 		// @ts-expect-error -- Pointer defaults hide relationship creation intent.
 		default: userSchema.pointer('user-1'),
 	})
+	pointerField({
+		target: () => userSchema,
+		hooks: {
+			// @ts-expect-error -- Included pointers retain their persisted relationship identity.
+			resolveOutput: () => undefined,
+		},
+	})
 
 	type CreateValue = InferCreateInput<typeof postSchema>
 	const invalidCreate: CreateValue = {

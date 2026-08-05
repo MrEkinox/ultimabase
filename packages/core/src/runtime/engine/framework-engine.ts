@@ -35,7 +35,6 @@ import {
 } from '../context/request-context.js'
 import { runWithRequestEngineScope } from '../context/active-framework-storage.js'
 import type {
-	DatabaseOperationResult,
 	DatabaseRelationScope,
 	DatabaseRowFilterNode,
 } from '../database/contracts.js'
@@ -46,6 +45,7 @@ import {
 } from '../master/master-authority.js'
 import { getOperationSchema } from '../operations/schema.js'
 import { materializeOperationResult } from '../operations/materialize-result.js'
+import type { RuntimeOperationResult } from '../pipeline/contracts.js'
 import { RuntimePipeline } from '../pipeline/runtime-pipeline.js'
 import { runRequestTransaction } from '../transactions/run-transaction.js'
 import { requiresAutomaticMutationTransaction } from '../transactions/automatic-mutation.js'
@@ -54,7 +54,6 @@ import {
 	type TransactionLifetime,
 } from '../transactions/transaction-lifetime.js'
 import { throwIfOperationCancelled } from '../hooks/cancellation.js'
-import { resolvePointerInclusions } from '../relations/pointer-inclusion.js'
 import {
 	createRelationNotFoundError,
 	executeRuntimeRelationMutation,
@@ -494,7 +493,7 @@ export class RequestEngine<
 		)
 		const databaseRelationScope = mutationRelationScope ?? relationScope
 
-		const executeOperation = (): Promise<DatabaseOperationResult<TOperation>> =>
+		const executeOperation = (): Promise<RuntimeOperationResult<TOperation>> =>
 			runWithRequestEngineScope(this, () =>
 				this.#pipeline.execute({
 					context: this.context,
@@ -509,7 +508,7 @@ export class RequestEngine<
 				}),
 			)
 
-		let result: DatabaseOperationResult<TOperation>
+		let result: RuntimeOperationResult<TOperation>
 
 		try {
 			result = await (this.#transactionLifetime === undefined
@@ -526,15 +525,6 @@ export class RequestEngine<
 
 			throw error
 		}
-
-		result = await resolvePointerInclusions(operation, result, {
-			execute: async (targetOperation, targetRowFilter) =>
-				this.#executeOperation(
-					targetOperation as ExecutableOperationAst<TSchemas[number]>,
-					targetRowFilter,
-					true,
-				),
-		})
 
 		return materializeOperationResult(operation, result)
 	}

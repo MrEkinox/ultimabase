@@ -64,6 +64,8 @@ describe('@ultimabase/core public entry point', () => {
 			'databaseConstraint',
 			'databasePointerCapability',
 			'databasePointerCapabilityVersion',
+			'databasePointerInclusionCapability',
+			'databasePointerInclusionCapabilityVersion',
 			'databaseRelationCapability',
 			'databaseRelationCapabilityVersion',
 			'databaseRelationPredicateCapability',

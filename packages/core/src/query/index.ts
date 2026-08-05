@@ -126,6 +126,7 @@ export type {
 	GetOperationAst,
 	OperationAst,
 	OperationAstNode,
+	OperationIncludedPointer,
 	OperationKind,
 	OperationObjectId,
 	NonAtomicBulkCompleted,
@@ -152,6 +153,7 @@ export type {
 export type {
 	InferOperationRecordResult,
 	InferOperationResult,
+	InferOperationSourceRecordResult,
 } from './operations/results.js'
 export { normalizeUniqueUpsertTarget } from './operations/upsert.js'
 export type {

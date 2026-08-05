@@ -96,14 +96,22 @@ marked `true`; an object containing only `false` flags selects every other
 field. `{}` keeps the complete result shape, and a later `select` replaces the
 previous projection. Pointer result shaping stays explicit through `include`.
 
-Runtime resolves every included target through the same operation Access,
-filter, item, field, hook, and transaction lifecycle as a direct Query. The
-source pointer field is checked before loading the target. Missing and
-inaccessible targets both become `null`, so inclusion does not reveal whether a
-protected object exists. Nested inclusions remain independently selected.
+Runtime evaluates singular target Access, applies target constraints, validates
+the selected target, and runs its scalar field `resolveOutput` hooks. Inclusion
+does not manufacture a target Query lifecycle: target schema and global read
+hooks run only when the developer explicitly queries that target. PostgreSQL
+loads the prepared tree through Drizzle relational `with`, while missing and
+inaccessible targets both become `null`. Nested inclusions use the same rules.
+Field Access still receives the pointer field's declared `Pointer` value; only
+the result observed by parent read hooks and returned to the caller is hydrated.
+
+Pointer hooks may validate and observe relationship changes, but they cannot
+declare `resolveOutput`: field Access owns pointer disclosure and target scalar
+fields own included-value resolution. `relationField` remains a handle-only
+declaration and accepts no field hooks.
 
 The target ID used by `pointer.query()` and inclusion is a private Runtime row
-filter. It never enters `query.ast`, and a `beforeFind` hook can neither inspect
+filter. It never enters `query.ast`, and a `beforeRead` hook can neither inspect
 nor remove it. A target Query inherits the active request; outside one, it
 accepts the same terminal-only `{ ultimabase, context, useMasterKey }` options
 as every ordinary Query.
@@ -511,7 +519,7 @@ rule sequentially through the same cancellation, recursion, and diagnostic
 boundary as native hooks.
 
 An Access filter reuses the same typed field predicates as Query, but remains
-in private monotonic state. `beforeFind` can add application defaults such as
+in private monotonic state. `beforeRead` can add application defaults such as
 ordering or limits and cannot inspect, replace, or remove Access filters. ACL
 and community policy plugins register contributions to this native system
 rather than business hooks.
@@ -614,15 +622,14 @@ const PostSchema = Schema.define({
 		title: stringField({ validation: { required: true } }),
 	},
 	hooks: {
-		resolveInput: ({ operation }) => operation,
-		beforeSave: {
+		resolveInput: {
 			all: ({ operation }) => operation,
 			create: ({ operation }) => {
 				// The exact family still covers createOne and createMany.
 				return operation
 			},
 		},
-		afterOperation: (input) => {
+		afterRead: (input) => {
 			if (input.kind === 'count') {
 				// The result is narrowed to number in this branch.
 				return Math.max(input.result, 0)
@@ -634,24 +641,22 @@ const PostSchema = Schema.define({
 })
 ```
 
-Every phase accepts one handler or a non-empty ordered handler list. Broad
-phases also accept a family map: `all` runs shared behavior while `create`,
-`update`, `upsert`, `delete`, and `find` narrow callbacks to compatible
-operation families. A family callback still covers singular and bulk terminals;
-use `kind` when their behavior differs instead of duplicating `one` and `many`
-declarations.
+Every phase accepts one handler or a non-empty ordered handler list. The
+cross-family lifecycle phases (`resolveInput`, `validate`, `afterCommit`, and
+`onError`) also accept compatible family maps. Exact operation hooks remain
+explicit: `beforeCreate`, `afterCreate`, `beforeUpdate`, `afterUpdate`,
+`beforeUpsert`, `afterUpsert`, `beforeDelete`, `afterDelete`, `beforeRead`, and
+`afterRead`. Each exact family still covers its singular and bulk terminals.
 
 The constructor validates every phase, snapshots every list and family map, and
 keeps them in private identity-owned storage. Hooks never appear on
 `SchemaDefinition`, never affect input or object inference, and never enter
 validation plans, indexes, migrations, or physical diffs.
 
-The lifecycle nests broad phases around exact phases. Saves use
-`beforeOperation → beforeSave → beforeCreate|beforeUpdate|beforeUpsert`, then
-unwind through the exact after phase, `afterSave`, and `afterOperation`. Generic
-`beforeOperation` and `afterOperation` hooks also cover reads. Read phases nest
-as `beforeOperation → beforeFind`, then unwind through field `resolveOutput`,
-`afterFind`, and `afterOperation`:
+After input resolution and validation, Runtime invokes the one exact schema
+before-hook for the current family. It invokes the matching exact after-hook
+after persistence and field output processing. Reads similarly use
+`beforeRead`, field `resolveOutput`, then `afterRead`:
 
 ```ts
 const ArticleSchema = Schema.define({
@@ -667,8 +672,8 @@ const ArticleSchema = Schema.define({
 		published: booleanField({ default: false }),
 	},
 	hooks: {
-		beforeFind: ({ query }) => query.equalTo('published', true),
-		afterFind: ({ result }) => result,
+		beforeRead: ({ query }) => query.equalTo('published', true),
+		afterRead: ({ result }) => result,
 	},
 })
 
@@ -679,11 +684,14 @@ const articles = await ArticleSchema.query()
 // The exact result is readonly { id: string; title: string }[].
 ```
 
-`beforeFind` may add filters, ordering, pagination, or a limit, but it must
-preserve the exact schema and selected-field union. Opaque adapter constraints
+`beforeRead` may add filters, ordering, pagination, or a limit, but it must
+preserve the exact schema, selected-field union, and pointer-inclusion tree.
+Opaque adapter constraints
 remain outside the developer Query. Runtime projects the adapter result before
 field output resolution, validates every native and low-level result transform,
-then applies monotonic output restrictions as the final public boundary.
+then applies monotonic output restrictions as the final public boundary. Eager
+pointer targets are present before the parent `afterRead`; the hook replacement
+continues unchanged and Runtime never reloads a relation afterward.
 `count` and `exists` retain `number` and `boolean` results and skip value
 resolution. Root reads do not open an automatic transaction; reads inside an
 explicit transaction reuse it.
@@ -1165,24 +1173,24 @@ const behaviorPlugin = () =>
 	definePlugin({
 		name: 'example.behavior',
 		setup: ({ hooks }) => {
-			hooks.global('measure-operations', {
-				afterOperation: ({ result }) => result,
+			hooks.global('measure-reads', {
+				afterRead: ({ result }) => result,
 			})
 			hooks.schema('normalize-posts', PostSchema, {
-				beforeSave: ({ operation }) => operation,
+				beforeCreate: ({ operation }) => operation,
 			})
 			hooks.field('normalize-title', PostSchema, ['title'], {
 				resolveInput: ({ value }) => value.trim(),
 			})
 
 			hooks.schemaExtension('audit', audited, ({ extension }) => ({
-				beforeOperation: ({ operation }) => {
+				beforeCreate: ({ operation }) => {
 					audit.route(extension.config.stream)
 					return operation
 				},
 			}))
 			hooks.fieldExtension('redact', redacted, ({ extension }) => ({
-				beforeSave: () => {
+				beforeCreate: () => {
 					redactor.use(extension.config.replacement)
 				},
 			}))

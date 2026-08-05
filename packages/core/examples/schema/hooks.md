@@ -39,23 +39,23 @@ export const AccountSchema = Schema.define({
 	},
 	// Cross-field rules use the complete schema-level operation.
 	hooks: {
-		beforeSave: {
+		resolveInput: {
 			all: ({ operation }) => operation,
 			create: ({ operation }) => {
 				// One family handler covers createOne and createMany.
 				return operation
 			},
 		},
-		beforeFind: [({ query }) => query.limit(100), ({ query }) => query],
+		beforeRead: [({ query }) => query.limit(100), ({ query }) => query],
 	},
 })
 ```
 
 Direct handlers remain the shortest form. Lists run sequentially in declaration
-order. Broad family maps use `all` for shared behavior and only offer compatible
-`create`, `update`, `upsert`, `delete`, or `find` keys. The terminal `kind`
-distinguishes singular and bulk operations when necessary; there are no
-duplicated `one` and `many` declarations.
+order. Cross-family lifecycle phases expose only their compatible family keys.
+Operation hooks themselves are explicit (`beforeCreate`, `afterCreate`,
+`beforeRead`, and so on), while one exact family still covers singular and bulk
+terminals.
 
 The hook declarations are copied and frozen privately. They do not appear in
 `AccountSchema.fields.email.options`, validation plans, adapter metadata, or

@@ -1,13 +1,19 @@
 import {
 	Schema,
 	intField,
+	pointerField,
 	stringField,
+	type Pointer,
 	type SchemaResult,
 } from '../../schema/index.js'
 import { expectTypeOf, test } from 'vitest'
 
 import type { QueryFilterNode } from '../filters/logical.js'
-import type { InferQueryResult } from '../query/result.js'
+import type {
+	InferQueryRecord,
+	InferQueryResult,
+	QueryPointerResultInclusion,
+} from '../query/result.js'
 import type { UpdateExpression } from '../updates/contracts.js'
 import type {
 	CountOperationAst,
@@ -19,12 +25,17 @@ import type {
 	FindOperationAst,
 	FirstOperationAst,
 	GetOperationAst,
+	OperationIncludedPointer,
 	UpdateManyOperationAst,
 	UpdateOneOperationAst,
 	UpsertManyOperationAst,
 	UpsertOneOperationAst,
 } from './contracts.js'
-import type { InferOperationResult } from './results.js'
+import type {
+	InferOperationRecordResult,
+	InferOperationResult,
+	InferOperationSourceRecordResult,
+} from './results.js'
 
 const schema = Schema.define({
 	className: 'ResultArticle',
@@ -100,4 +111,40 @@ test('maps every terminal AST to selection-aware singular and bulk results', () 
 	expectTypeOf<
 		InferOperationResult<DeleteManyOperationAst<typeof schema>>
 	>().toEqualTypeOf<number>()
+})
+
+test('distinguishes adapter pointers from hydrated Runtime inclusions', () => {
+	const user = Schema.define({
+		className: 'ResultIncludedUser',
+		fields: { name: stringField({ validation: { required: true } }) },
+	})
+	const post = Schema.define({
+		className: 'ResultIncludedPost',
+		fields: {
+			author: pointerField({
+				target: () => user,
+				validation: { required: true },
+			}),
+			title: stringField({ validation: { required: true } }),
+		},
+	})
+	type Inclusion = QueryPointerResultInclusion<'author', typeof user, 'name'>
+	type Operation = FindOperationAst<
+		typeof post,
+		QueryFilterNode<typeof post>,
+		'author' | 'title',
+		Inclusion
+	>
+	expectTypeOf(post.className).toEqualTypeOf<'ResultIncludedPost'>()
+
+	expectTypeOf<InferOperationSourceRecordResult<Operation>>().toEqualTypeOf<
+		readonly InferQueryRecord<typeof post, 'author' | 'title'>[]
+	>()
+	expectTypeOf<InferOperationRecordResult<Operation>>().toEqualTypeOf<
+		readonly InferQueryRecord<typeof post, 'author' | 'title', Inclusion>[]
+	>()
+	expectTypeOf<OperationIncludedPointer<Operation>>().toEqualTypeOf<Inclusion>()
+	expectTypeOf<
+		InferQueryRecord<typeof post, 'author'>['author']
+	>().toEqualTypeOf<Pointer<typeof user>>()
 })

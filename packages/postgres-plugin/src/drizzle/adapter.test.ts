@@ -1,4 +1,5 @@
 import {
+	FrameworkError,
 	Query,
 	Pointer,
 	databaseConstraint,
@@ -7,6 +8,8 @@ import {
 	type CreateOneOperationAst,
 	type DeleteOneOperationAst,
 	type FindOperationAst,
+	type FirstOperationAst,
+	type QueryExpressionNode,
 	type QueryFilterNode,
 	type UpdateOneOperationAst,
 	type UpsertOneOperationAst,
@@ -636,6 +639,65 @@ describe('internal PostgreSQL database adapter', () => {
 				},
 			}),
 		).rejects.toMatchObject({ code: 'VALIDATION_ERROR' })
+	})
+
+	it('sanitizes eager pointer query failures through the shared operation boundary', async () => {
+		const driver = new FixtureDriver()
+		const pool = new FixturePool(driver, [])
+		const adapter = createPostgresDatabaseAdapter(pool, pointerCatalog)
+		const query = new Query(pointerPostSchema).include('author', (author) =>
+			author.select({ name: true }),
+		)
+		const inclusion = query.ast.inclusion.pointers[0]
+
+		if (inclusion === undefined) {
+			throw new TypeError('Eager pointer fixture requires one inclusion')
+		}
+		const targetOperation: FirstOperationAst<
+			typeof pointerUserSchema,
+			QueryExpressionNode,
+			'name'
+		> = {
+			kind: 'first',
+			query: inclusion.query,
+		}
+
+		const secret = 'select private_value from internal_table'
+
+		driver.fail(Object.assign(new Error(secret), { code: '08006' }))
+		const failure: unknown = await adapter
+			.execute({
+				constraints: [],
+				operation: { kind: 'find', query: query.ast },
+				pointerInclusions: [
+					{
+						fieldPath: ['author'],
+						request: {
+							constraints: [],
+							operation: targetOperation,
+						},
+					},
+				],
+			})
+			.catch((error: unknown) => error)
+
+		expect(failure).toBeInstanceOf(FrameworkError)
+
+		if (!(failure instanceof FrameworkError)) {
+			throw new TypeError('Expected a sanitized framework error')
+		}
+
+		expect(failure).toMatchObject({
+			code: 'INTERNAL_ERROR',
+			internalDetails: { driverCode: '08006', operation: 'find' },
+		})
+		expect(failure.toJSON()).toStrictEqual({
+			code: 'INTERNAL_ERROR',
+			message: 'The database operation failed.',
+			retryable: false,
+		})
+		expect(String(failure)).not.toContain(secret)
+		expect(JSON.stringify(failure.toJSON())).not.toContain(secret)
 	})
 
 	it('fails before SQL for unsupported versions, invalid payloads, outputs, and creates', async () => {

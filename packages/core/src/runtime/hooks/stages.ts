@@ -14,12 +14,12 @@ import {
 import type {
 	DatabaseMutationOperationAst,
 	DatabaseOperationAst,
-	DatabaseOperationResult,
 } from '../database/contracts.js'
 import { getOperationSchema } from '../operations/schema.js'
 import type {
 	RuntimePreparedMutationStageInput,
 	RuntimePreparedMutationTransformStage,
+	RuntimeOperationResult,
 	RuntimeOperationStageInput,
 	RuntimeOperationTransformStage,
 	RuntimeResultEffectStage,
@@ -44,6 +44,8 @@ import type { HookExecutionDescriptor } from './execution-descriptor.js'
 import { getApplicationHookExecutionRuntime } from './execution-runtime.js'
 import type { HookExecutionRuntime } from './execution-runtime.js'
 import { getHookEventImplementation } from './events.js'
+import { createRuntimeHookBoundaries } from './boundaries.js'
+import type { RuntimeHookBoundaries } from './boundaries.js'
 
 type RuntimeContributionImplementation = NonNullable<
 	ReturnType<typeof getRuntimeContributionImplementation>
@@ -226,11 +228,11 @@ const normalizeAfterHookOutput = <
 	const TOperation extends DatabaseOperationAst,
 >(
 	output: unknown,
-): DatabaseOperationResult<TOperation> => {
+): RuntimeOperationResult<TOperation> => {
 	const result = assertExactHookOutput(output, 'result')
 
 	// Result validation remains operation-specific; this boundary only enforces explicit replacement.
-	return result.result as DatabaseOperationResult<TOperation>
+	return result.result as RuntimeOperationResult<TOperation>
 }
 
 const matchesContribution = (
@@ -309,6 +311,7 @@ const runBeforeContributions = async <
 >(
 	contributions: readonly OwnedRuntimeContribution[],
 	runtime: HookExecutionRuntime,
+	boundaries: RuntimeHookBoundaries,
 	input: RuntimeOperationStageInput<TOperation>,
 ): Promise<TOperation> => {
 	let operation: TOperation = input.operation
@@ -326,7 +329,10 @@ const runBeforeContributions = async <
 				implementation.run(createBeforeHookInput(context, operation)),
 		)
 
-		operation = normalizeBeforeHookOutput(operation, output)
+		operation = boundaries.snapshotContributionOperationReplacement(
+			operation,
+			normalizeBeforeHookOutput(operation, output),
+		)
 	}
 
 	return operation
@@ -338,8 +344,8 @@ const runAfterContributions = async <
 	contributions: readonly OwnedRuntimeContribution[],
 	runtime: HookExecutionRuntime,
 	input: RuntimeResultStageInput<TOperation>,
-): Promise<DatabaseOperationResult<TOperation>> => {
-	let result: DatabaseOperationResult<TOperation> = input.result
+): Promise<RuntimeOperationResult<TOperation>> => {
+	let result: RuntimeOperationResult<TOperation> = input.result
 
 	for (const owned of contributions) {
 		const { implementation } = owned
@@ -436,6 +442,7 @@ export const createRuntimeHookStages = <
 	const hooks = readContributions(application, 'hooks')
 	const events = readContributions(application, 'events')
 	const runtime = getApplicationHookExecutionRuntime(application)
+	const boundaries = createRuntimeHookBoundaries()
 	const globalBefore = immutableArray(
 		hooks.filter(
 			({ implementation }) =>
@@ -472,9 +479,9 @@ export const createRuntimeHookStages = <
 
 	return immutableRecord({
 		globalBeforeHooks: (input) =>
-			runBeforeContributions(globalBefore, runtime, input),
+			runBeforeContributions(globalBefore, runtime, boundaries, input),
 		schemaBeforeHooks: (input) =>
-			runBeforeContributions(schemaBefore, runtime, input),
+			runBeforeContributions(schemaBefore, runtime, boundaries, input),
 		schemaAfterHooks: (input) =>
 			runAfterContributions(schemaAfter, runtime, input),
 		globalAfterHooks: (input) =>

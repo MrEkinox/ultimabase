@@ -11,13 +11,17 @@ import type {
 } from '../../query/index.js'
 import { Schema, type SchemaDefinition } from '../../schema/index.js'
 import { materializeSchemaModel } from '../../schema/schema/model.js'
-import type { DatabaseOperationResult } from '../database/contracts.js'
+import type { RuntimeOperationResult } from '../pipeline/contracts.js'
 import {
 	isNonAtomicBulkOperation,
 	mapNonAtomicBulkResult,
 } from './non-atomic-result.js'
 import { readRuntimeSchemaModelMetadata } from './model-metadata.js'
 import { getOperationSchema } from './schema.js'
+import {
+	createPointerInclusionOperation,
+	readPointerInclusions,
+} from '../relations/pointer-inclusion.js'
 
 const readOperationSchema = (operation: OperationAstNode): SchemaDefinition => {
 	const schema = getOperationSchema(operation)
@@ -35,14 +39,37 @@ const materializeRecord = (
 	schema: SchemaDefinition,
 	value: unknown,
 	path: string,
+	operation?: OperationAstNode & { readonly kind: OperationKind },
 ): object => {
 	if (!isPlainRecord(value)) {
 		throw new TypeError(`${path} must be a plain logical record`)
 	}
+	let values = value
+
+	if (operation !== undefined) {
+		const hydrated: Record<string, unknown> = { ...value }
+
+		for (const inclusion of readPointerInclusions(operation)) {
+			const target: unknown = value[inclusion.field]
+
+			if (!isPlainRecord(target)) continue
+
+			const targetOperation = createPointerInclusionOperation(inclusion)
+
+			hydrated[inclusion.field] = materializeRecord(
+				readOperationSchema(targetOperation),
+				target,
+				`${path}.${inclusion.field}`,
+				targetOperation,
+			)
+		}
+
+		values = hydrated
+	}
 
 	return materializeSchemaModel(
 		schema,
-		value,
+		values,
 		readRuntimeSchemaModelMetadata(value),
 	)
 }
@@ -52,7 +79,7 @@ export const materializeOperationResult = <
 	const TOperation extends OperationAstNode & { readonly kind: OperationKind },
 >(
 	operation: TOperation,
-	result: DatabaseOperationResult<TOperation>,
+	result: RuntimeOperationResult<TOperation>,
 ): InferOperationResult<TOperation> => {
 	switch (operation.kind) {
 		case 'count':
@@ -73,6 +100,7 @@ export const materializeOperationResult = <
 							schema,
 							record,
 							`Runtime result[${String(index)}]`,
+							operation,
 						),
 				) as InferOperationResult<TOperation>
 			}
@@ -83,7 +111,12 @@ export const materializeOperationResult = <
 
 			return immutableArray(
 				result.map((record, index) =>
-					materializeRecord(schema, record, `Runtime result[${String(index)}]`),
+					materializeRecord(
+						schema,
+						record,
+						`Runtime result[${String(index)}]`,
+						operation,
+					),
 				),
 			) as InferOperationResult<TOperation>
 		}
@@ -96,7 +129,12 @@ export const materializeOperationResult = <
 
 			return immutableArray(
 				result.map((record, index) =>
-					materializeRecord(schema, record, `Runtime result[${String(index)}]`),
+					materializeRecord(
+						schema,
+						record,
+						`Runtime result[${String(index)}]`,
+						operation,
+					),
 				),
 			) as InferOperationResult<TOperation>
 		}
@@ -111,6 +149,7 @@ export const materializeOperationResult = <
 				readOperationSchema(operation),
 				result,
 				'Runtime result',
+				operation,
 			) as InferOperationResult<TOperation>
 		case 'create-one':
 		case 'upsert-one':

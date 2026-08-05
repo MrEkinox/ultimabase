@@ -5,6 +5,12 @@ import {
 	type UpdateOneOperationAst,
 } from '../../query/index.js'
 import { relationField, Schema, stringField } from '../../schema/index.js'
+import {
+	immutableArray,
+	immutableRecord,
+	isPlainRecord,
+	isUnknownArray,
+} from '@ultimabase/shared'
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -32,16 +38,20 @@ import { databaseConstraint } from '../enforcement/definitions.js'
 import { createEnforcementState } from '../enforcement/state.js'
 import type {
 	RuntimeEnforcementStages,
+	RuntimeNativeDatabaseResultTransformStage,
 	RuntimeNativeHookStages,
+	RuntimeOperationResult,
 	RuntimeOperationGuardStage,
 	RuntimeOperationStageInput,
 	RuntimeOperationTransformStage,
 	RuntimePipelineStages,
 	RuntimeResultEffectStage,
+	RuntimeResultStageInput,
 	RuntimeResultTransformStage,
 } from './contracts.js'
 import { RuntimePipeline } from './runtime-pipeline.js'
 import { createPreparedOperationFixture } from '../../../tests/runtime/fixtures/recording-database-adapter.js'
+import { readRuntimeSchemaModelMetadata } from '../operations/model-metadata.js'
 
 const articleSchema = Schema.define({
 	className: 'Article',
@@ -171,6 +181,19 @@ const createResultTransform =
 		return input.result
 	}
 
+/** Records scalar resolution while retaining the adapter's pointer-shaped result. */
+const createNativeDatabaseResultTransform =
+	(
+		stageName: string,
+		trace: string[],
+	): RuntimeNativeDatabaseResultTransformStage =>
+	(input) => {
+		trace.push(stageName)
+		expect(Object.isFrozen(input)).toBe(true)
+
+		return input.result
+	}
+
 /** Records commit and event effects that deliberately do not alter the result. */
 const createResultEffect =
 	(stageName: string, trace: string[]): RuntimeResultEffectStage =>
@@ -193,7 +216,10 @@ const createNativeHookStages = (trace: string[]): RuntimeNativeHookStages => ({
 
 		return input.outcome
 	},
-	resolveOutput: createResultTransform('native:resolveOutput', trace),
+	resolveOutput: createNativeDatabaseResultTransform(
+		'native:resolveOutput',
+		trace,
+	),
 	schemaAfter: createResultTransform('native:schemaAfter', trace),
 })
 
@@ -240,6 +266,68 @@ const createStages = (
 })
 
 describe('RuntimePipeline', () => {
+	it('keeps protected identities attached when result hooks filter a find', async () => {
+		const first = immutableRecord({ title: 'First' })
+		const second = immutableRecord({ title: 'Second' })
+		const identities = new WeakMap<object, string>([
+			[first, '0198f090-2a50-7000-8000-000000000091'],
+			[second, '0198f090-2a50-7000-8000-000000000092'],
+		])
+		const executor: DatabaseOperationExecutor = {
+			execute: <const TOperation extends DatabaseOperationAst>() =>
+				Promise.resolve(
+					immutableArray([
+						first,
+						second,
+					]) as unknown as DatabaseOperationResult<TOperation>,
+				),
+			readObjectIdentity: (record) => identities.get(record),
+		}
+		const retainSecondResult: RuntimeResultTransformStage = <
+			const TOperation extends DatabaseOperationAst,
+		>(
+			input: RuntimeResultStageInput<TOperation>,
+		): RuntimeOperationResult<TOperation> => {
+			const secondResult = isUnknownArray(input.result)
+				? input.result[1]
+				: undefined
+
+			if (input.operation.kind !== 'find' || !isPlainRecord(secondResult)) {
+				throw new TypeError('Expected a find result containing two records')
+			}
+
+			// The operation discriminant and structural check establish a find result.
+			return immutableArray([
+				secondResult,
+			]) as unknown as RuntimeOperationResult<TOperation>
+		}
+		const operation = immutableRecord({
+			kind: 'find',
+			query: new Query(articleSchema).select({ title: true }).ast,
+		}) satisfies FindOperationAst<typeof articleSchema>
+		const pipeline = new RuntimePipeline(
+			createStages([], executor, {
+				schemaAfterHooks: retainSecondResult,
+			}),
+		)
+
+		const result = await pipeline.execute({
+			context: requestContext,
+			operation,
+		})
+
+		expect(result.map(({ title }) => title)).toStrictEqual(['Second'])
+		const retainedResult = result[0]
+
+		if (retainedResult === undefined) {
+			throw new TypeError('Expected the retained second result')
+		}
+
+		expect(readRuntimeSchemaModelMetadata(retainedResult)).toMatchObject({
+			objectId: '0198f090-2a50-7000-8000-000000000092',
+		})
+	})
+
 	it('executes without policy placeholders when no enforcement was contributed', async () => {
 		const trace: string[] = []
 		const articles = [

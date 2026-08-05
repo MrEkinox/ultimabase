@@ -87,7 +87,7 @@ const Document = Schema.define({
 	},
 	hooks: {
 		// The business transform must narrow the developer query after ACL compilation.
-		beforeFind: ({ query }) => query.equalTo('hookScope', 'allowed'),
+		beforeRead: ({ query }) => query.equalTo('hookScope', 'allowed'),
 	},
 	extensions: [
 		acl({

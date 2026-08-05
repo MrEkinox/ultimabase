@@ -15,11 +15,11 @@ import {
 } from './native-hook-contract.prototype.js'
 import type {
 	PostSchema,
-	PrototypeBeforeFindHook,
+	PrototypeBeforeReadHook,
 } from './native-hook-contract.prototype.js'
 
 const preserveSelection = (({ query }) =>
-	query.limit(25)) satisfies PrototypeBeforeFindHook<typeof PostSchema>
+	query.limit(25)) satisfies PrototypeBeforeReadHook<typeof PostSchema>
 
 describe('native hook contract prototype', () => {
 	it('preserves schema and field inference outside callback declarations', () => {
@@ -52,7 +52,7 @@ describe('native hook contract prototype', () => {
 		expectTypeOf(nullableField.options).not.toHaveProperty('hooks')
 		expectTypeOf(embeddingField.options).not.toHaveProperty('hooks')
 		expectTypeOf(preserveSelection).toExtend<
-			PrototypeBeforeFindHook<typeof PostSchema>
+			PrototypeBeforeReadHook<typeof PostSchema>
 		>()
 	})
 })

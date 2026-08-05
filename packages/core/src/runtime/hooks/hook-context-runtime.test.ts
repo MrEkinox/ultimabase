@@ -715,7 +715,7 @@ describe('HookContext Runtime capabilities', () => {
 			className: 'HookContextReadEvent',
 			fields: { title: stringField() },
 			hooks: {
-				beforeFind: ({ context, query }) => {
+				beforeRead: ({ context, query }) => {
 					context.emit(optionalReadEvent, {})
 					return query
 				},

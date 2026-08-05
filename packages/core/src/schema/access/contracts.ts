@@ -18,7 +18,7 @@ import type {
 import type {
 	SchemaCreateHookKind,
 	SchemaDeleteHookKind,
-	SchemaFindHookKind,
+	SchemaReadHookKind,
 	SchemaUpdateHookKind,
 	SchemaUpsertHookKind,
 } from '../hooks/contracts.js'
@@ -309,7 +309,7 @@ export interface SchemaReadOperationAccess {
 
 /** Allows one shared read decision or one complete cardinality declaration. */
 export type SchemaReadOperationAccessDeclaration =
-	| AccessDecisionRule<SchemaOperationAccessInput<SchemaFindHookKind>>
+	| AccessDecisionRule<SchemaOperationAccessInput<SchemaReadHookKind>>
 	| SchemaReadOperationAccess
 
 /** Declares early allow-or-deny decisions by logical operation family. */
@@ -433,7 +433,7 @@ interface FieldAccessBaseInput<TKind extends OperationKind> {
 
 /** Groups terminals whose predicates may reference one protected field. */
 export type FieldFilterAccessKind =
-	| SchemaFindHookKind
+	| SchemaReadHookKind
 	| SchemaUpdateHookKind
 	| SchemaUpsertHookKind
 	| SchemaDeleteHookKind
@@ -469,7 +469,7 @@ export interface FieldReadItemAccessInput<
 export type FieldReadAccessInput<TField extends GenericField> =
 	| FieldReadItemAccessInput<FieldHookTypes<TField>['object']>
 	| FieldReadAccessBaseInput<'filter', FieldFilterAccessKind>
-	| FieldReadAccessBaseInput<'order', SchemaFindHookKind>
+	| FieldReadAccessBaseInput<'order', SchemaReadHookKind>
 
 /** Allows independent output, filter, and ordering disclosure decisions. */
 export interface FieldReadAccess<TField extends GenericField> {
@@ -492,7 +492,7 @@ export interface FieldReadAccess<TField extends GenericField> {
 	 * @example `order: false`
 	 */
 	readonly order: AccessDecisionRule<
-		FieldReadAccessBaseInput<'order', SchemaFindHookKind>
+		FieldReadAccessBaseInput<'order', SchemaReadHookKind>
 	>
 }
 

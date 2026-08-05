@@ -85,6 +85,17 @@ const BulkAccountSchema = Schema.define({
 	indexes: [{ fields: ['tenantId', 'handle'], unique: true }],
 })
 
+const AfterReadIdentitySchema = Schema.define({
+	className: 'RuntimeAfterReadIdentity',
+	fields: {
+		title: stringField({ validation: { required: true } }),
+	},
+	hooks: {
+		afterRead: ({ kind, result }) =>
+			kind === 'find' ? result.toReversed() : result,
+	},
+})
+
 const authorityPrincipal = new RequestContextValue<string>(
 	'fixture.postgres.principal',
 	(value: unknown): string => {
@@ -552,6 +563,61 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 					.equalTo('email', upserted.email)
 					.exists({ ultimabase }),
 			).resolves.toBe(true)
+		} finally {
+			await ultimabase.dispose()
+		}
+	})
+
+	it('keeps model commands bound after afterRead reorders hidden identities', async () => {
+		const ultimabase = new UltimaBase({
+			schemas: [AfterReadIdentitySchema],
+			plugins: [
+				postgresPlugin({
+					schemaPolicy: 'override',
+					url: getFixture().connectionUri,
+				}),
+			],
+		})
+		await ultimabase.start()
+
+		try {
+			const [first, second] = await AfterReadIdentitySchema.createMany(
+				[{ title: 'First' }, { title: 'Second' }],
+				{ ultimabase },
+			)
+
+			if (first === undefined || second === undefined) {
+				throw new TypeError('Expected two identity fixtures')
+			}
+
+			const reordered = await AfterReadIdentitySchema.query()
+				.ascending('title')
+				.select({ title: true })
+				.find({ ultimabase })
+			const selected = reordered[0]
+
+			expect(reordered.map(({ title }) => title)).toStrictEqual([
+				'Second',
+				'First',
+			])
+
+			if (selected === undefined) {
+				throw new TypeError('Expected a reordered model')
+			}
+
+			await selected.update({ title: 'Second updated' }, { ultimabase })
+
+			const persistedFirst = await AfterReadIdentitySchema.query()
+				.byId(first.id)
+				.select({ title: true })
+				.first({ ultimabase })
+			const persistedSecond = await AfterReadIdentitySchema.query()
+				.byId(second.id)
+				.select({ title: true })
+				.first({ ultimabase })
+
+			expect(persistedFirst?.title).toBe('First')
+			expect(persistedSecond?.title).toBe('Second updated')
 		} finally {
 			await ultimabase.dispose()
 		}

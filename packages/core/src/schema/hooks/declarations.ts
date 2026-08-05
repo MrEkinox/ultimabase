@@ -15,8 +15,6 @@ import {
 export const schemaHookPhases = [
 	'resolveInput',
 	'validate',
-	'beforeOperation',
-	'afterOperation',
 	'beforeCreate',
 	'afterCreate',
 	'beforeUpdate',
@@ -25,10 +23,8 @@ export const schemaHookPhases = [
 	'afterUpsert',
 	'beforeDelete',
 	'afterDelete',
-	'beforeSave',
-	'afterSave',
-	'beforeFind',
-	'afterFind',
+	'beforeRead',
+	'afterRead',
 	'beforeCommit',
 	'afterCommit',
 	'afterRollback',
@@ -42,10 +38,6 @@ export type SchemaHookPhase = (typeof schemaHookPhases)[number]
 const schemaHookPhaseDescriptors = {
 	resolveInput: { order: 'broad-first', variants: saveHookFamilies },
 	validate: { order: 'broad-first', variants: saveHookFamilies },
-	beforeOperation: { order: 'broad-first', variants: operationHookFamilies },
-	afterOperation: { order: 'specific-first', variants: operationHookFamilies },
-	beforeSave: { order: 'broad-first', variants: saveHookFamilies },
-	afterSave: { order: 'specific-first', variants: saveHookFamilies },
 	afterCommit: { order: 'specific-first', variants: mutationHookFamilies },
 	onError: { order: 'specific-first', variants: operationHookFamilies },
 } as const satisfies Readonly<

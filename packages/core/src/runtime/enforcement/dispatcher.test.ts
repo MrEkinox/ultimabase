@@ -10,6 +10,7 @@ import {
 	type FindOperationAst,
 } from '../../query/index.js'
 import { Schema, stringField } from '../../schema/index.js'
+import { immutableArray, immutableRecord } from '@ultimabase/shared'
 import { describe, expect, it, vi } from 'vitest'
 
 import {
@@ -18,6 +19,10 @@ import {
 	requestSources,
 } from '../context/request-context.js'
 import type { RuntimeEnforcementStages } from '../pipeline/contracts.js'
+import {
+	readRuntimeSchemaModelMetadata,
+	retainRuntimeSchemaModelMetadata,
+} from '../operations/model-metadata.js'
 import {
 	constraint,
 	databaseConstraint,
@@ -275,17 +280,26 @@ describe('createEnforcementStages', () => {
 				updatedAt: '2026-08-02T00:00:00.000Z',
 			},
 		})
+		const protectedResult = immutableRecord({
+			id: 'article-1',
+			secret: 'hidden',
+			title: 'Allowed',
+			createdAt: '2026-08-02T00:00:00.000Z',
+			updatedAt: '2026-08-02T00:00:00.000Z',
+		})
+
+		retainRuntimeSchemaModelMetadata(
+			operation,
+			immutableArray(['article-1']),
+			protectedResult,
+			undefined,
+		)
+
 		const result = await stages.enforceResult({
 			context,
 			enforcement,
 			operation,
-			result: {
-				id: 'article-1',
-				secret: 'hidden',
-				title: 'Allowed',
-				createdAt: '2026-08-02T00:00:00.000Z',
-				updatedAt: '2026-08-02T00:00:00.000Z',
-			},
+			result: protectedResult,
 		})
 
 		expect(enforced.constraints).toStrictEqual([
@@ -294,6 +308,10 @@ describe('createEnforcementStages', () => {
 		])
 		expect(selectionResult).toStrictEqual({ id: 'article-1', title: 'Allowed' })
 		expect(result).toStrictEqual({ title: 'Allowed' })
+		expect(readRuntimeSchemaModelMetadata(result)).toStrictEqual({
+			objectId: 'article-1',
+			selectedFields: undefined,
+		})
 		expect(trace).toStrictEqual([
 			'guard',
 			'constraint:tenant',

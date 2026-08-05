@@ -146,7 +146,7 @@ describe('@ultimabase/core Schema and Query declarations', () => {
 		expect(draft.display).toContain('readonly title: string;')
 		expect(draft.display).not.toContain('readonly id: string;')
 		expect(query.display).toContain('Query<')
-		expect(query.display).toContain('"id" | "title"')
+		expect(query.display).toContain('QuerySelectionKeyWithValue<')
 	})
 
 	it('preserves compact immutable model persistence commands', () => {
@@ -204,15 +204,16 @@ describe('@ultimabase/core Schema and Query declarations', () => {
 	})
 
 	it('keeps immutable read builders and schema command hovers focused', () => {
-		const select = readFixtureQuickInfo("select('id', 'title')")
+		const select = readFixtureQuickInfo('select({ id: true, title: true })')
 		const find = readFixtureQuickInfo('find({ ultimabase })')
 		const deletion = readFixtureQuickInfo('deleteOne(')
 		const count = readFixtureQuickInfo('count({ ultimabase })')
 		const exists = readFixtureQuickInfo('exists({ ultimabase })')
 
-		// Selection inference needs only the accumulated field union, not a tuple copy.
-		expect(select.display).toContain('select<"id" | "title">')
-		expect(select.display).not.toContain('readonly ["id", "title"]')
+		// Selection inference retains the literal object needed by true/false projection.
+		expect(select.display).toContain('select<{')
+		expect(select.display).toContain('id: true')
+		expect(select.display).toContain('title: true')
 		// Parameterless terminals must not repeat the complete bound query as `this`.
 		expect(find.display).toContain(
 			'.find(options?: QueryTerminalOptions): Promise<',

@@ -5,6 +5,7 @@ import type {
 	NonAtomicBulkResult,
 	OperationAst,
 	OperationAstNode,
+	OperationIncludedPointer,
 	OperationKind,
 	Query,
 	QueryFieldName,
@@ -38,7 +39,7 @@ export type SchemaSaveHookKind =
 	SchemaCreateHookKind | SchemaUpdateHookKind | SchemaUpsertHookKind
 
 /** Groups every read terminal without introducing a second query model. */
-export type SchemaFindHookKind = 'count' | 'exists' | 'find' | 'first' | 'get'
+export type SchemaReadHookKind = 'count' | 'exists' | 'find' | 'first' | 'get'
 
 /** Groups every terminal whose business work participates in a transaction. */
 export type SchemaMutationHookKind = SchemaDeleteHookKind | SchemaSaveHookKind
@@ -75,14 +76,14 @@ interface OperationHookFamilyOptions<
 	TUpdate,
 	TUpsert,
 	TDelete,
-	TFind,
+	TRead,
 > extends SaveHookFamilyOptions<TAll, TCreate, TUpdate, TUpsert> {
 	/** Runs for every create, update, upsert, delete, and read operation. */
 	readonly all?: HookHandlerDeclaration<TAll>
 	/** Runs only for delete operations. */
 	readonly delete?: HookHandlerDeclaration<TDelete>
 	/** Runs only for read operations. */
-	readonly find?: HookHandlerDeclaration<TFind>
+	readonly read?: HookHandlerDeclaration<TRead>
 }
 
 /** Specializes an operation-wide handler by one non-empty logical family map. */
@@ -92,9 +93,9 @@ export type OperationHookFamily<
 	TUpdate,
 	TUpsert,
 	TDelete,
-	TFind,
+	TRead,
 > = RequireAtLeastOne<
-	OperationHookFamilyOptions<TAll, TCreate, TUpdate, TUpsert, TDelete, TFind>
+	OperationHookFamilyOptions<TAll, TCreate, TUpdate, TUpsert, TDelete, TRead>
 >
 
 interface MutationHookFamilyOptions<
@@ -125,12 +126,15 @@ export type SchemaHookOperation<
 	TSchema extends SchemaDefinition,
 	TKind extends OperationKind = OperationKind,
 	TSelectedField extends QueryFieldName<TSchema> = QueryFieldName<TSchema>,
+	TIncludedPointer = never,
 > = Extract<
 	OperationAst<
 		TSchema,
 		UpdateExpression<TSchema> | RelationUpdateExpression<TSchema>,
 		QueryFilterNode<TSchema>,
-		TSelectedField
+		TSelectedField,
+		boolean,
+		TIncludedPointer
 	>,
 	{ readonly kind: TKind }
 >
@@ -146,7 +150,8 @@ export interface SchemaHookTypes<
 	TOperation extends SchemaHookOperation<
 		TSchema,
 		OperationKind,
-		TSelectedField
+		TSelectedField,
+		unknown
 	> = SchemaHookOperation<TSchema, OperationKind, TSelectedField>,
 > {
 	/** The complete developer input accepted by create operations. */
@@ -158,7 +163,11 @@ export interface SchemaHookTypes<
 	/** Every normalized terminal operation supported by the schema. */
 	readonly operation: TOperation
 	/** The immutable Query retaining the current selected-field union. */
-	readonly query: Query<TSchema, TSelectedField>
+	readonly query: Query<
+		TSchema,
+		TSelectedField,
+		OperationIncludedPointer<TOperation>
+	>
 	/** The public result correlated with the current operation. */
 	readonly result: SchemaHookResult<TOperation>
 }
@@ -226,12 +235,16 @@ export type SchemaHookValidationIssue = HookValidationIssue
 export type SchemaBeforeHook<
 	TSchema extends SchemaDefinition,
 	TKind extends OperationKind,
-> = <const TSelectedField extends QueryFieldName<TSchema>>(
+> = <
+	const TSelectedField extends QueryFieldName<TSchema>,
+	const TIncludedPointer = never,
+>(
 	input: SchemaOperationHookInput<
-		SchemaHookOperation<TSchema, TKind, TSelectedField>
+		SchemaHookOperation<TSchema, TKind, TSelectedField, TIncludedPointer>
 	>,
 ) => MaybePromise<
-	SchemaHookOperation<TSchema, TKind, TSelectedField> | undefined
+	| SchemaHookOperation<TSchema, TKind, TSelectedField, TIncludedPointer>
+	| undefined
 >
 
 /**
@@ -241,12 +254,17 @@ export type SchemaBeforeHook<
 export type SchemaAfterHook<
 	TSchema extends SchemaDefinition,
 	TKind extends OperationKind,
-> = <const TSelectedField extends QueryFieldName<TSchema>>(
+> = <
+	const TSelectedField extends QueryFieldName<TSchema>,
+	const TIncludedPointer = never,
+>(
 	input: SchemaResultHookInput<
-		SchemaHookOperation<TSchema, TKind, TSelectedField>
+		SchemaHookOperation<TSchema, TKind, TSelectedField, TIncludedPointer>
 	>,
 ) => MaybePromise<
-	| SchemaHookResult<SchemaHookOperation<TSchema, TKind, TSelectedField>>
+	| SchemaHookResult<
+			SchemaHookOperation<TSchema, TKind, TSelectedField, TIncludedPointer>
+	  >
 	| undefined
 >
 
@@ -267,14 +285,6 @@ export type SchemaValidateFamilyHook<
 /** Reports immutable business validation issues without mutating a collector. */
 export type SchemaValidateHook<TSchema extends SchemaDefinition> =
 	SchemaValidateFamilyHook<TSchema, SchemaSaveHookKind>
-
-/** Runs before any terminal-specific business phase. */
-export type SchemaBeforeOperationHook<TSchema extends SchemaDefinition> =
-	SchemaBeforeHook<TSchema, OperationKind>
-
-/** Runs after any terminal-specific business phase and may replace its result. */
-export type SchemaAfterOperationHook<TSchema extends SchemaDefinition> =
-	SchemaAfterHook<TSchema, OperationKind>
 
 /** Runs before one create operation while covering singular and bulk terminals. */
 export type SchemaBeforeCreateHook<TSchema extends SchemaDefinition> =
@@ -308,23 +318,17 @@ export type SchemaBeforeDeleteHook<TSchema extends SchemaDefinition> =
 export type SchemaAfterDeleteHook<TSchema extends SchemaDefinition> =
 	SchemaAfterHook<TSchema, SchemaDeleteHookKind>
 
-/** Runs before create, update, and upsert through one reusable handler. */
-export type SchemaBeforeSaveHook<TSchema extends SchemaDefinition> =
-	SchemaBeforeHook<TSchema, SchemaSaveHookKind>
-
-/** Runs after create, update, and upsert through one reusable handler. */
-export type SchemaAfterSaveHook<TSchema extends SchemaDefinition> =
-	SchemaAfterHook<TSchema, SchemaSaveHookKind>
-
 /** Correlates one read operation with its immutable selected Query. */
-export type SchemaBeforeFindInput<
+export type SchemaBeforeReadInput<
 	TSchema extends SchemaDefinition,
 	TSelectedField extends QueryFieldName<TSchema>,
+	TIncludedPointer = never,
 > =
 	SchemaHookOperation<
 		TSchema,
-		SchemaFindHookKind,
-		TSelectedField
+		SchemaReadHookKind,
+		TSelectedField,
+		TIncludedPointer
 	> extends infer TOperation extends OperationAstNode
 		? TOperation extends OperationAstNode
 			? Readonly<{
@@ -335,21 +339,22 @@ export type SchemaBeforeFindInput<
 					/** The immutable read operation associated with the query. */
 					operation: TOperation
 					/** The immutable query that may be narrowed without erasing selection. */
-					query: Query<TSchema, TSelectedField>
+					query: Query<TSchema, TSelectedField, TIncludedPointer>
 				}>
 			: never
 		: never
 
 /** Supplies an immutable Query while preserving its accumulated selection. */
-export type SchemaBeforeFindHook<TSchema extends SchemaDefinition> = <
+export type SchemaBeforeReadHook<TSchema extends SchemaDefinition> = <
 	const TSelectedField extends QueryFieldName<TSchema>,
+	const TIncludedPointer = never,
 >(
-	input: SchemaBeforeFindInput<TSchema, TSelectedField>,
-) => MaybePromise<Query<TSchema, TSelectedField> | undefined>
+	input: SchemaBeforeReadInput<TSchema, TSelectedField, TIncludedPointer>,
+) => MaybePromise<Query<TSchema, TSelectedField, TIncludedPointer> | undefined>
 
 /** Observes or replaces a read result while retaining terminal correlation. */
-export type SchemaAfterFindHook<TSchema extends SchemaDefinition> =
-	SchemaAfterHook<TSchema, SchemaFindHookKind>
+export type SchemaAfterReadHook<TSchema extends SchemaDefinition> =
+	SchemaAfterHook<TSchema, SchemaReadHookKind>
 
 /** Supplies all successful schema mutations before the outer commit. */
 export type SchemaBeforeCommitResult<TSchema extends SchemaDefinition> =
@@ -518,54 +523,6 @@ export type SchemaValidateHookDeclaration<TSchema extends SchemaDefinition> =
 			SchemaValidateFamilyHook<TSchema, SchemaUpsertHookKind>
 	  >
 
-/** Declares a before-operation transform directly, as a list, or by family. */
-export type SchemaBeforeOperationHookDeclaration<
-	TSchema extends SchemaDefinition,
-> =
-	| HookHandlerDeclaration<SchemaBeforeOperationHook<TSchema>>
-	| OperationHookFamily<
-			SchemaBeforeOperationHook<TSchema>,
-			SchemaBeforeHook<TSchema, SchemaCreateHookKind>,
-			SchemaBeforeHook<TSchema, SchemaUpdateHookKind>,
-			SchemaBeforeHook<TSchema, SchemaUpsertHookKind>,
-			SchemaBeforeHook<TSchema, SchemaDeleteHookKind>,
-			SchemaBeforeHook<TSchema, SchemaFindHookKind>
-	  >
-
-/** Declares an after-operation transform directly, as a list, or by family. */
-export type SchemaAfterOperationHookDeclaration<
-	TSchema extends SchemaDefinition,
-> =
-	| HookHandlerDeclaration<SchemaAfterOperationHook<TSchema>>
-	| OperationHookFamily<
-			SchemaAfterOperationHook<TSchema>,
-			SchemaAfterHook<TSchema, SchemaCreateHookKind>,
-			SchemaAfterHook<TSchema, SchemaUpdateHookKind>,
-			SchemaAfterHook<TSchema, SchemaUpsertHookKind>,
-			SchemaAfterHook<TSchema, SchemaDeleteHookKind>,
-			SchemaAfterHook<TSchema, SchemaFindHookKind>
-	  >
-
-/** Declares a before-save transform directly, as a list, or by family. */
-export type SchemaBeforeSaveHookDeclaration<TSchema extends SchemaDefinition> =
-	| HookHandlerDeclaration<SchemaBeforeSaveHook<TSchema>>
-	| SaveHookFamily<
-			SchemaBeforeSaveHook<TSchema>,
-			SchemaBeforeHook<TSchema, SchemaCreateHookKind>,
-			SchemaBeforeHook<TSchema, SchemaUpdateHookKind>,
-			SchemaBeforeHook<TSchema, SchemaUpsertHookKind>
-	  >
-
-/** Declares an after-save transform directly, as a list, or by family. */
-export type SchemaAfterSaveHookDeclaration<TSchema extends SchemaDefinition> =
-	| HookHandlerDeclaration<SchemaAfterSaveHook<TSchema>>
-	| SaveHookFamily<
-			SchemaAfterSaveHook<TSchema>,
-			SchemaAfterHook<TSchema, SchemaCreateHookKind>,
-			SchemaAfterHook<TSchema, SchemaUpdateHookKind>,
-			SchemaAfterHook<TSchema, SchemaUpsertHookKind>
-	  >
-
 /** Declares one exact phase handler or a non-empty ordered handler list. */
 type SchemaExactHookDeclaration<THandler> = HookHandlerDeclaration<THandler>
 
@@ -589,7 +546,7 @@ export type SchemaErrorHookDeclaration<TSchema extends SchemaDefinition> =
 			SchemaErrorHook<TSchema, SchemaUpdateHookKind>,
 			SchemaErrorHook<TSchema, SchemaUpsertHookKind>,
 			SchemaErrorHook<TSchema, SchemaDeleteHookKind>,
-			SchemaErrorHook<TSchema, SchemaFindHookKind>
+			SchemaErrorHook<TSchema, SchemaReadHookKind>
 	  >
 
 /**
@@ -612,18 +569,6 @@ export interface SchemaHooks<TSchema extends SchemaDefinition> {
 	 * @example `validate: () => []`
 	 */
 	readonly validate?: SchemaValidateHookDeclaration<TSchema>
-	/**
-	 * Runs before every terminal operation and may return a replacement operation.
-	 *
-	 * @example `beforeOperation: ({ operation }) => operation`
-	 */
-	readonly beforeOperation?: SchemaBeforeOperationHookDeclaration<TSchema>
-	/**
-	 * Runs after every terminal operation and may return a replacement result.
-	 *
-	 * @example `afterOperation: ({ result }) => result`
-	 */
-	readonly afterOperation?: SchemaAfterOperationHookDeclaration<TSchema>
 	/**
 	 * Covers `createOne` and `createMany` before persistence.
 	 * @example `beforeCreate: ({ operation }) => operation`
@@ -681,28 +626,18 @@ export interface SchemaHooks<TSchema extends SchemaDefinition> {
 		SchemaAfterDeleteHook<TSchema>
 	>
 	/**
-	 * Covers create, update, and upsert before their exact CRUD phase.
-	 * @example `beforeSave: ({ operation }) => operation`
-	 */
-	readonly beforeSave?: SchemaBeforeSaveHookDeclaration<TSchema>
-	/**
-	 * Covers create, update, and upsert after their exact CRUD phase.
-	 * @example `afterSave: ({ result }) => result`
-	 */
-	readonly afterSave?: SchemaAfterSaveHookDeclaration<TSchema>
-	/**
 	 * Transforms every read Query while preserving selected-field inference.
 	 *
-	 * @example `beforeFind: ({ query }) => query.limit(100)`
+	 * @example `beforeRead: ({ query }) => query.limit(100)`
 	 */
-	readonly beforeFind?: SchemaExactHookDeclaration<
-		SchemaBeforeFindHook<TSchema>
+	readonly beforeRead?: SchemaExactHookDeclaration<
+		SchemaBeforeReadHook<TSchema>
 	>
 	/**
 	 * Covers `find`, `first`, `get`, `count`, and `exists` results.
-	 * @example `afterFind: ({ result }) => result`
+	 * @example `afterRead: ({ result }) => result`
 	 */
-	readonly afterFind?: SchemaExactHookDeclaration<SchemaAfterFindHook<TSchema>>
+	readonly afterRead?: SchemaExactHookDeclaration<SchemaAfterReadHook<TSchema>>
 	/**
 	 * Runs once before the outer transaction commits and may still abort it.
 	 * @example `beforeCommit: ({ changes }) => audit(changes)`

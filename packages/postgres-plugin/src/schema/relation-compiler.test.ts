@@ -135,6 +135,12 @@ describe('PostgreSQL relation compilation', () => {
 			PostgresRelationPost,
 		)
 		const definitions = catalog.drizzleRelationDefinitions()
+		const directPointer = catalog.getPointerDefinition(
+			PostgresRelationPost,
+			['author'],
+			PostgresRelationAuthor,
+		)
+		const pointerBinding = catalog.getDrizzlePointer(directPointer)
 
 		for (const relation of [owning, inverse, pointerInverse]) {
 			const binding = catalog.getDrizzleRelation(relation)
@@ -148,6 +154,11 @@ describe('PostgreSQL relation compilation', () => {
 				relation.storage.kind === 'pointer' ? 'one' : 'many',
 			)
 		}
+		expect(
+			definitions[pointerBinding.sourceTableKey]?.relations[
+				pointerBinding.relationName
+			]?.relationType,
+		).toBe('one')
 	})
 
 	it('adds hidden joins to the managed direct-synchronization model', () => {

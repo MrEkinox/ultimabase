@@ -12,6 +12,7 @@ import {
 import {
 	booleanField,
 	jsonField,
+	pointerField,
 	Schema,
 	stringField,
 	type HookValidationIssue,
@@ -27,6 +28,10 @@ import { describe, expect, it, vi } from 'vitest'
 
 import type { DatabaseOperationOutcome } from '../database/contracts.js'
 import { RequestContext, requestSources } from '../context/request-context.js'
+import {
+	readRuntimeSchemaModelMetadata,
+	retainRuntimeSchemaModelMetadata,
+} from '../operations/model-metadata.js'
 import { createRuntimeValidationStage } from '../validation/runtime-validation.js'
 import { createRuntimeHookBoundaries } from './boundaries.js'
 
@@ -318,6 +323,54 @@ describe('runtime hook boundaries', () => {
 		expect(() =>
 			boundaries.snapshotResultReplacement(createOperation, null),
 		).toThrow(expect.objectContaining({ code: 'VALIDATION_ERROR' }))
+	})
+
+	it('preserves protected target identity across included-result snapshots', () => {
+		const targetId = '00000000-0000-7000-8000-000000000002'
+		const target = Schema.define({
+			className: 'BoundaryIncludedTarget',
+			fields: { name: stringField() },
+		})
+		const source = Schema.define({
+			className: 'BoundaryIncludedSource',
+			fields: { target: pointerField({ target: () => target }) },
+		})
+		const targetQuery = new Query(target).select({ name: true })
+		const operation = immutableRecord({
+			kind: 'find',
+			query: new Query(source)
+				.select({ target: true })
+				.include('target', () => targetQuery).ast,
+		}) satisfies FindOperationAst<typeof source>
+		const targetOperation = immutableRecord({
+			kind: 'first',
+			query: targetQuery.ast,
+		})
+		const includedTarget = immutableRecord({ name: 'Ada' })
+
+		retainRuntimeSchemaModelMetadata(
+			targetOperation,
+			immutableArray([targetId]),
+			includedTarget,
+			immutableArray(['name']),
+		)
+
+		const snapshot = createRuntimeHookBoundaries().snapshotResultReplacement(
+			operation,
+			immutableArray([immutableRecord({ target: includedTarget })]),
+		)
+		const snapshotTarget: unknown = snapshot[0]?.target
+
+		expect(isPlainRecord(snapshotTarget)).toBe(true)
+
+		if (!isPlainRecord(snapshotTarget)) {
+			throw new TypeError('Expected an included target snapshot')
+		}
+
+		expect(readRuntimeSchemaModelMetadata(snapshotTarget)).toStrictEqual({
+			objectId: targetId,
+			selectedFields: ['name'],
+		})
 	})
 
 	it('validates complete and stopped non-atomic collection boundaries', () => {

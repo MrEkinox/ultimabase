@@ -161,7 +161,7 @@ describe('native field hook IntelliSense', () => {
 			'all',
 			'create',
 			'delete',
-			'find',
+			'read',
 			'update',
 			'upsert',
 		])

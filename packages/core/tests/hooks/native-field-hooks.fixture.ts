@@ -73,9 +73,9 @@ stringField({
 })
 stringField({
 	hooks: {
-		// @ts-expect-error -- Read families are unavailable to save-only phases.
 		beforeSave: {
-			find: () => undefined,
+			// @ts-expect-error -- Read families are unavailable to save-only phases.
+			read: () => undefined,
 		},
 	},
 })

@@ -23,6 +23,10 @@ export interface RuntimeSchemaModelMetadata {
 }
 
 const modelMetadata = new WeakMap<object, RuntimeSchemaModelMetadata>()
+const includedPointerValues = new WeakMap<
+	object,
+	ReadonlyMap<string, unknown>
+>()
 const collectionKinds = new Set(['create-many', 'find', 'upsert-many'])
 const recordKinds = new Set([
 	'create-many',
@@ -35,6 +39,17 @@ const recordKinds = new Set([
 	'upsert-many',
 	'upsert-one',
 ])
+
+const retainedFieldPathKey = (fieldPath: readonly string[]): string =>
+	JSON.stringify(fieldPath)
+
+const absentRetainedFieldValue: Readonly<{ readonly present: false }> =
+	immutableRecord({ present: false as const })
+
+/** Distinguishes an absent private value from one explicitly retained as undefined. */
+export type RuntimeRetainedFieldValue =
+	| typeof absentRetainedFieldValue
+	| Readonly<{ readonly present: true; readonly value: unknown }>
 
 const collectResultRecords = (
 	operation: DatabaseOperationAst,
@@ -129,14 +144,45 @@ export const readRuntimeSchemaModelMetadata = (
 	record: object,
 ): RuntimeSchemaModelMetadata | undefined => modelMetadata.get(record)
 
+/** Retains the declared pointer value after its public field becomes hydrated. */
+export const retainRuntimeIncludedPointerValue = (
+	record: object,
+	fieldPath: readonly string[],
+	value: unknown,
+): void => {
+	const values = new Map(includedPointerValues.get(record))
+
+	values.set(retainedFieldPathKey(fieldPath), value)
+	includedPointerValues.set(record, values)
+}
+
+/** Restores the declared pointer value for final field Access evaluation. */
+export const readRuntimeIncludedPointerValue = (
+	record: object,
+	fieldPath: readonly string[],
+): RuntimeRetainedFieldValue => {
+	const values = includedPointerValues.get(record)
+	const key = retainedFieldPathKey(fieldPath)
+
+	if (!values?.has(key)) {
+		return absentRetainedFieldValue
+	}
+
+	return immutableRecord({ present: true as const, value: values.get(key) })
+}
+
 /** Preserves adapter-proven identity when Runtime replaces a record after hooks. */
 export const transferRuntimeSchemaModelMetadata = (
 	source: object,
 	target: object,
 ): void => {
 	const metadata = modelMetadata.get(source)
+	const pointerValues = includedPointerValues.get(source)
 
 	if (metadata !== undefined) {
 		modelMetadata.set(target, metadata)
+	}
+	if (pointerValues !== undefined) {
+		includedPointerValues.set(target, pointerValues)
 	}
 }

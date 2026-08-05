@@ -7,6 +7,7 @@ import { immutableArray } from '@ultimabase/shared'
 
 import type {
 	CompiledPostgresJoinRelation,
+	CompiledPostgresPointerRelation,
 	CompiledPostgresRelation,
 	CompiledPostgresSchema,
 } from './contracts.js'
@@ -14,6 +15,7 @@ import {
 	compilePostgresDrizzleRelations,
 	type CompiledPostgresDrizzleRelations,
 	type PostgresDrizzleRelationBinding,
+	type PostgresDrizzlePointerBinding,
 } from './drizzle-relations.js'
 import { compilePostgresRelations } from './relation-compiler.js'
 import { compilePostgresSchemas } from './schema-compiler.js'
@@ -24,6 +26,10 @@ export class PostgresSchemaCatalog {
 	readonly #relations = new Map<object, Map<string, CompiledPostgresRelation>>()
 	readonly #drizzleRelations: CompiledPostgresDrizzleRelations
 	readonly #joins: readonly CompiledPostgresJoinRelation[]
+	readonly #pointers = new Map<
+		object,
+		Map<string, CompiledPostgresPointerRelation>
+	>()
 
 	constructor(
 		schemas: readonly SchemaDefinition[],
@@ -49,6 +55,7 @@ export class PostgresSchemaCatalog {
 				compiled,
 				this.#joins,
 				[],
+				[],
 			)
 			return
 		}
@@ -63,12 +70,38 @@ export class PostgresSchemaCatalog {
 		}
 
 		const relations = compilePostgresRelations(targets, schemasByDefinition)
+		const pointers: CompiledPostgresPointerRelation[] = []
+
+		for (const target of targets.values()) {
+			const source = this.get(target.source)
+			const fieldName = target.fieldPath[0]
+			const field =
+				fieldName === undefined || target.fieldPath.length !== 1
+					? undefined
+					: source.fields[fieldName]
+
+			if (field?.plan.field.kind !== 'pointer') continue
+
+			const pointer = {
+				fieldPath: target.fieldPath,
+				source,
+				target: this.get(target.target),
+			} satisfies CompiledPostgresPointerRelation
+			const sourcePointers =
+				this.#pointers.get(target.source) ??
+				new Map<string, CompiledPostgresPointerRelation>()
+
+			sourcePointers.set(JSON.stringify(target.fieldPath), pointer)
+			this.#pointers.set(target.source, sourcePointers)
+			pointers.push(pointer)
+		}
 
 		this.#joins = relations.joins
 		this.#drizzleRelations = compilePostgresDrizzleRelations(
 			compiled,
 			relations.joins,
 			relations.relations,
+			pointers,
 		)
 
 		for (const relation of relations.relations) {
@@ -86,6 +119,17 @@ export class PostgresSchemaCatalog {
 		return this.#drizzleRelations.relations
 	}
 
+	/** Resolves the generated RQB table key for one compiled schema. */
+	getDrizzleTableKey(schema: CompiledPostgresSchema): string {
+		const key = this.#drizzleRelations.tableKeys.get(schema)
+
+		if (key === undefined) {
+			throw new TypeError('PostgreSQL Drizzle schema table is not registered')
+		}
+
+		return key
+	}
+
 	/** Resolves generated names for one exact logical relation orientation. */
 	getDrizzleRelation(
 		relation: CompiledPostgresRelation,
@@ -97,6 +141,34 @@ export class PostgresSchemaCatalog {
 		}
 
 		return binding
+	}
+
+	/** Resolves generated RQB metadata for one exact direct pointer. */
+	getDrizzlePointer(
+		pointer: CompiledPostgresPointerRelation,
+	): PostgresDrizzlePointerBinding {
+		const binding = this.#drizzleRelations.pointerBindings.get(pointer)
+
+		if (binding === undefined) {
+			throw new TypeError('PostgreSQL Drizzle pointer is not registered')
+		}
+
+		return binding
+	}
+
+	/** Resolves one direct pointer inclusion by exact schema identity and path. */
+	getPointerDefinition(
+		source: SchemaDefinition,
+		fieldPath: readonly string[],
+		target: SchemaDefinition,
+	): CompiledPostgresPointerRelation {
+		const pointer = this.#pointers.get(source)?.get(JSON.stringify(fieldPath))
+
+		if (pointer?.target.definition !== target) {
+			throw new TypeError('PostgreSQL pointer inclusion is not registered')
+		}
+
+		return pointer
 	}
 
 	/** Resolves the exact static schema identity retained by each Query AST. */

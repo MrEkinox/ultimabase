@@ -5,7 +5,7 @@ import {
 	objectField,
 	Schema,
 	stringField,
-	type SchemaBeforeOperationHook,
+	type SchemaBeforeCreateHook,
 	type SchemaClass,
 } from '../../schema/index.js'
 import { describe, expect, it } from 'vitest'
@@ -50,7 +50,7 @@ type PlanSchemaDefinition = SchemaClass<
 
 /** Creates distinct transform identities while preserving each exact operation. */
 const createSchemaHandler =
-	(): SchemaBeforeOperationHook<PlanSchemaDefinition> =>
+	(): SchemaBeforeCreateHook<PlanSchemaDefinition> =>
 	({ operation }) => {
 		invocationCount += 1
 
@@ -65,17 +65,17 @@ const dependentSchemaHandler = createSchemaHandler()
 const planSchema = Schema.define({
 	className: 'HookContributionPlan',
 	fields: planFields,
-	hooks: { beforeOperation: developerSchemaHandler },
+	hooks: { beforeCreate: developerSchemaHandler },
 })
 
 const basePlugin = definePlugin({
 	name: 'fixture.plan-base',
 	setup: ({ hooks, registries }) => {
 		hooks.schema('schema-first', planSchema, {
-			beforeOperation: baseSchemaHandler,
+			beforeCreate: baseSchemaHandler,
 		})
 		hooks.schema('schema-second', planSchema, {
-			beforeOperation: baseSecondSchemaHandler,
+			beforeCreate: baseSecondSchemaHandler,
 		})
 		hooks.field('field-first', planSchema, ['profile', 'email'], {
 			beforeCreate: baseFieldHandler,
@@ -97,7 +97,7 @@ const dependentPlugin = definePlugin({
 	dependencies: ['fixture.plan-base'],
 	setup: ({ hooks }) => {
 		hooks.schema('schema-dependent', planSchema, {
-			beforeOperation: dependentSchemaHandler,
+			beforeCreate: dependentSchemaHandler,
 		})
 		hooks.field('field-dependent', planSchema, ['profile', 'email'], {
 			beforeCreate: dependentFieldHandler,
@@ -146,7 +146,7 @@ describe('native hook contribution plan', () => {
 		const developer = schemaPlan?.contributions.before.at(-1)
 		expect(developer?.kind).toBe('developer')
 		expect(
-			getHookHandlerEntries(developer?.declarations, 'beforeOperation').map(
+			getHookHandlerEntries(developer?.declarations, 'beforeCreate').map(
 				({ handler }) => handler,
 			),
 		).toStrictEqual([developerSchemaHandler])

@@ -133,6 +133,8 @@ Accepted records:
 - [ADR-0138: Drizzle-native PostgreSQL synchronization metadata](0138-drizzle-native-synchronization-metadata.md)
 - [ADR-0139: Drizzle-native PostgreSQL column value mapping](0139-drizzle-native-column-value-mapping.md)
 - [ADR-0140: Flat boolean Query selections](0140-flat-boolean-query-selections.md)
+- [ADR-0141: Explicit read hooks and eager pointer inclusion](0141-explicit-read-hooks-and-eager-pointer-inclusion.md)
+- [ADR-0142: Explicit schema operation hooks](0142-explicit-schema-operation-hooks.md)
 
 Superseded records:
 

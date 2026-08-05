@@ -32,10 +32,13 @@ import {
 	isNonAtomicBulkOperation,
 	mapNonAtomicBulkResult,
 } from '../operations/non-atomic-result.js'
+import { transferRuntimeSchemaModelMetadata } from '../operations/model-metadata.js'
 import { getOperationSchema } from '../operations/schema.js'
 import type {
+	RuntimeDatabaseResultStageInput,
 	RuntimeEnforcementOperationResult,
 	RuntimeEnforcementStages,
+	RuntimeOperationResult,
 	RuntimeOperationStageInput,
 	RuntimeResultStageInput,
 } from '../pipeline/contracts.js'
@@ -471,15 +474,18 @@ const restrictResultRecord = (
 	const entries = Object.entries(result).filter(([field]) =>
 		permittedFields.includes(field),
 	)
+	const restricted = immutableRecord(Object.fromEntries(entries))
 
-	return immutableRecord(Object.fromEntries(entries))
+	transferRuntimeSchemaModelMetadata(result, restricted)
+
+	return restricted
 }
 
-const restrictResult = <const TOperation extends DatabaseOperationAst>(
-	operation: TOperation,
-	result: DatabaseOperationResult<TOperation>,
+const restrictResult = <const TResult>(
+	operation: DatabaseOperationAst,
+	result: TResult,
 	permittedFields: readonly string[] | undefined,
-): DatabaseOperationResult<TOperation> => {
+): TResult => {
 	if (permittedFields === undefined || result === null) {
 		return result
 	}
@@ -494,7 +500,7 @@ const restrictResult = <const TOperation extends DatabaseOperationAst>(
 				isPlainRecord(record)
 					? restrictResultRecord(record, permittedFields)
 					: record,
-		) as DatabaseOperationResult<TOperation>
+		) as TResult
 	}
 
 	if (isUnknownArray(unknownResult)) {
@@ -504,19 +510,19 @@ const restrictResult = <const TOperation extends DatabaseOperationAst>(
 					? restrictResultRecord(record, permittedFields)
 					: record,
 			),
-		) as DatabaseOperationResult<TOperation>
+		) as TResult
 	}
 
 	return (
 		isPlainRecord(unknownResult)
 			? restrictResultRecord(unknownResult, permittedFields)
 			: result
-	) as DatabaseOperationResult<TOperation>
+	) as TResult
 }
 
 /** Hides selection-restricted fields before any business output hook can observe them. */
 const enforceSelectionResult = <const TOperation extends DatabaseOperationAst>(
-	input: RuntimeResultStageInput<TOperation> & {
+	input: RuntimeDatabaseResultStageInput<TOperation> & {
 		readonly enforcement: EnforcementState
 	},
 ): DatabaseOperationResult<TOperation> => {
@@ -532,7 +538,7 @@ const enforceResult = async <const TOperation extends DatabaseOperationAst>(
 	input: RuntimeResultStageInput<TOperation> & {
 		readonly enforcement: EnforcementState
 	},
-): Promise<DatabaseOperationResult<TOperation>> => {
+): Promise<RuntimeOperationResult<TOperation>> => {
 	const schema = readOperationSchema(input.operation)
 	let state = input.enforcement
 

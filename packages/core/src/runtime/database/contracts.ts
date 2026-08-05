@@ -1,7 +1,7 @@
 import { createServiceToken } from '../../foundation.js'
 import type { ServiceToken } from '../../foundation.js'
 import type {
-	InferOperationRecordResult,
+	InferOperationSourceRecordResult,
 	InferQueryRecord,
 	OperationAstNode,
 	OperationKind,
@@ -16,6 +16,9 @@ import { immutableRecord } from '@ultimabase/shared'
 /** Selects the portable pointer protocol currently understood by Core Runtime. */
 export const databasePointerCapabilityVersion = 1 as const
 
+/** Selects the eager pointer-inclusion protocol currently understood by Runtime. */
+export const databasePointerInclusionCapabilityVersion = 1 as const
+
 /** Selects the portable relation protocol currently understood by Core Runtime. */
 export const databaseRelationCapabilityVersion = 1 as const
 
@@ -26,6 +29,12 @@ export const databaseRelationPredicateCapabilityVersion = 1 as const
 export interface DatabasePointerCapability {
 	readonly kind: 'pointers'
 	readonly version: typeof databasePointerCapabilityVersion
+}
+
+/** Advertises nested pointer loading without exposing the adapter query strategy. */
+export interface DatabasePointerInclusionCapability {
+	readonly kind: 'pointer-inclusions'
+	readonly version: typeof databasePointerInclusionCapabilityVersion
 }
 
 /** Advertises scoped relation reads and atomic logical edge mutations. */
@@ -43,6 +52,7 @@ export interface DatabaseRelationPredicateCapability {
 /** Lets adapters opt into portable features without coupling Core to a database. */
 export interface DatabaseAdapterCapabilities {
 	readonly pointers?: DatabasePointerCapability
+	readonly pointerInclusions?: DatabasePointerInclusionCapability
 	readonly relations?: DatabaseRelationCapability
 	readonly relationPredicates?: DatabaseRelationPredicateCapability
 }
@@ -52,6 +62,13 @@ export const databasePointerCapability: DatabasePointerCapability =
 	immutableRecord({
 		kind: 'pointers',
 		version: databasePointerCapabilityVersion,
+	})
+
+/** Reuses one frozen eager-inclusion declaration across adapter lifetimes. */
+export const databasePointerInclusionCapability: DatabasePointerInclusionCapability =
+	immutableRecord({
+		kind: 'pointer-inclusions',
+		version: databasePointerInclusionCapabilityVersion,
 	})
 
 /** Reuses one frozen relation declaration across root and transaction adapters. */
@@ -149,6 +166,14 @@ export interface DatabaseRelationPredicateScope {
 	readonly rowFilter?: DatabaseRowFilterNode
 }
 
+/** Carries one target read plan whose physical correlation remains adapter-owned. */
+export interface DatabasePointerInclusionPlan {
+	readonly fieldPath: readonly string[]
+	readonly request: DatabaseOperationRequest
+	/** Prevents loading a target whose operation Access was denied. */
+	readonly unavailable?: true
+}
+
 /**
  * Keeps the normalized operation and accumulated constraints together so an
  * adapter never receives one without the other.
@@ -163,6 +188,8 @@ export interface DatabaseOperationRequest<
 	readonly relation?: DatabaseRelationScope
 	/** Keeps target Access monotonic and invisible to source Query hooks. */
 	readonly relationPredicates?: readonly DatabaseRelationPredicateScope[]
+	/** Carries recursively prepared target reads only to eager-inclusion adapters. */
+	readonly pointerInclusions?: readonly DatabasePointerInclusionPlan[]
 	/**
 	 * Carries framework-owned row restrictions outside the transformable Query AST.
 	 * Adapters must combine this predicate with the operation predicate using AND.
@@ -181,7 +208,7 @@ export type DatabaseObjectRecord<
  * cannot drift on selection, nullability, or singular versus bulk semantics.
  */
 export type DatabaseOperationResult<TOperation extends OperationAstNode> =
-	InferOperationRecordResult<TOperation>
+	InferOperationSourceRecordResult<TOperation>
 
 /** Carries one complete adapter-decoded object without exposing physical rows. */
 export type DatabaseLogicalRecord = Readonly<Record<string, unknown>>
@@ -339,6 +366,11 @@ export interface DatabaseOperationExecutor {
 	): Promise<DatabaseOperationResult<TOperation>>
 	/** Reads adapter-retained identity without placing it in a public projection. */
 	readObjectIdentity?(record: Readonly<Record<string, unknown>>): unknown
+	/** Reads one raw eager target retained beside an exact parent record. */
+	readIncludedPointer?(
+		record: Readonly<Record<string, unknown>>,
+		fieldPath: readonly string[],
+	): DatabaseLogicalRecord | null | undefined
 }
 
 /** Owns regular operations and starts isolated adapter transactions. */

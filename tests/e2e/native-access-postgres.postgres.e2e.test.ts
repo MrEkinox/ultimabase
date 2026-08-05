@@ -60,7 +60,7 @@ const AccessArticle = Schema.define({
 		}),
 	},
 	hooks: {
-		beforeFind: ({ query }) => query.greaterThanOrEqualTo('rank', 0),
+		beforeRead: ({ query }) => query.greaterThanOrEqualTo('rank', 0),
 		beforeUpdate: async ({ operation }) => {
 			await AccessAudit.create({ action: `update:${operation.kind}` })
 
@@ -197,7 +197,7 @@ afterAll(async () => {
 })
 
 describe('native Access with PostgreSQL', () => {
-	it('composes native, plugin, developer, and beforeFind predicates in SQL', async () => {
+	it('composes native, plugin, developer, and beforeRead predicates in SQL', async () => {
 		const app = getUltimaBase()
 		const rows = await AccessArticle.query()
 			.greaterThan('rank', 0)

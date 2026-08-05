@@ -334,7 +334,7 @@ describe('hook execution safety', () => {
 			className: 'ObservedHookArticle',
 			fields: { title: stringField() },
 			hooks: {
-				beforeFind: ({ query }) => query,
+				beforeRead: ({ query }) => query,
 			},
 		})
 		const adapter = new RecordingDatabaseAdapter(
@@ -389,7 +389,7 @@ describe('hook execution safety', () => {
 		).resolves.toStrictEqual([])
 		expect(events.map(({ phase }) => phase)).toStrictEqual([
 			'before-operation',
-			'beforeFind',
+			'beforeRead',
 		])
 		expect(events.every(Object.isFrozen)).toBe(true)
 		expect(

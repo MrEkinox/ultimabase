@@ -122,7 +122,7 @@ export type FieldOutputHookKind =
 	| 'upsert-one'
 
 /** Groups read terminals that can resolve one selected field value. */
-export type FieldFindHookKind = Extract<
+export type FieldReadHookKind = Extract<
 	FieldOutputHookKind,
 	'find' | 'first' | 'get'
 >
@@ -444,7 +444,7 @@ export type FieldResolveOutputHookDeclaration<TField extends GenericField> =
 			FieldResolveOutputFamilyHook<TField, FieldUpdateHookKind>,
 			FieldResolveOutputFamilyHook<TField, FieldUpsertHookKind>,
 			FieldResolveOutputFamilyHook<TField, FieldDeleteHookKind>,
-			FieldResolveOutputFamilyHook<TField, FieldFindHookKind>
+			FieldResolveOutputFamilyHook<TField, FieldReadHookKind>
 	  >
 
 /** Declares change effects directly, as a list, or by mutation family. */
@@ -489,7 +489,7 @@ export type FieldErrorHookDeclaration =
 			FieldErrorHook<FieldUpdateInputHookKind>,
 			FieldErrorHook<FieldUpsertHookKind>,
 			FieldErrorHook<FieldDeleteHookKind>,
-			FieldErrorHook<FieldFindHookKind>
+			FieldErrorHook<FieldReadHookKind>
 	  >
 
 /** Declares one exact field phase handler or a non-empty ordered list. */

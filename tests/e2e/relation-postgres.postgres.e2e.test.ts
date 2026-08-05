@@ -100,13 +100,13 @@ const Tag: TagSchema = Schema.define({
 		visible: tagVisibleField,
 	},
 	hooks: {
-		afterFind: ({ result }) => {
-			relationTrace.push('tag:afterFind')
+		afterRead: ({ result }) => {
+			relationTrace.push('tag:afterRead')
 
 			return result
 		},
-		beforeFind: ({ query }) => {
-			relationTrace.push('tag:beforeFind')
+		beforeRead: ({ query }) => {
+			relationTrace.push('tag:beforeRead')
 
 			return query
 		},
@@ -393,8 +393,8 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 		expect(relationTrace).toEqual(
 			expect.arrayContaining([
 				'article:tags:read:count',
-				'tag:beforeFind',
-				'tag:afterFind',
+				'tag:beforeRead',
+				'tag:afterRead',
 			]),
 		)
 
@@ -466,6 +466,14 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 		const posts = author.relation('posts')
 
 		expect(await posts.query().count({ ultimabase: app })).toBe(1)
+		const included = await posts
+			.query()
+			.include('author', (query) => query.select({ name: true }))
+			.find({ ultimabase: app })
+
+		expect(included).toHaveLength(1)
+		expect(included[0]?.title).toBe('Pointers')
+		expect(included[0]?.author?.toJSON()).toStrictEqual({ name: 'Ada' })
 		await posts.disconnect(Post.pointer(post.id), { ultimabase: app })
 		expect(await posts.query().count({ ultimabase: app })).toBe(0)
 		await posts.connect(Post.pointer(post.id), { ultimabase: app })

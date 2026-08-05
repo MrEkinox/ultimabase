@@ -1,10 +1,11 @@
 import { definePlugin } from '../../foundation.js'
 import {
+	Pointer,
 	pointerField,
 	Schema,
 	stringField,
-	type Pointer,
 } from '../../schema/index.js'
+import { isPlainRecord } from '@ultimabase/shared'
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -42,20 +43,23 @@ const pointerRuntimeUser = Schema.define({
 		},
 	},
 	fields: {
-		name: stringField({ validation: { required: true } }),
+		name: stringField({
+			hooks: { resolveOutput: ({ value }) => value.toUpperCase() },
+			validation: { required: true },
+		}),
 		organization: pointerField({
 			target: () => pointerRuntimeOrganization,
 		}),
 		status: stringField({ validation: { required: true } }),
 	},
 	hooks: {
-		afterFind: ({ result }) => {
-			targetHookTrace.push('user:afterFind')
+		afterRead: ({ result }) => {
+			targetHookTrace.push('user:afterRead')
 
 			return result
 		},
-		beforeFind: ({ query }) => {
-			targetHookTrace.push('user:beforeFind')
+		beforeRead: ({ query }) => {
+			targetHookTrace.push('user:beforeRead')
 
 			// Replacing the visible predicate cannot remove the private pointer identity.
 			return query.equalTo('name', 'Ada')
@@ -108,14 +112,27 @@ describe('pointer Runtime execution', () => {
 		const organization = pointerRuntimeOrganization.pointer(
 			'0198a43e-2431-7000-8000-000000000402',
 		)
+		const post = createPostResult(author)
+		const includedAuthor = { name: 'Ada', organization }
+		const includedOrganization = { name: 'Ultima Labs' }
 		const adapter = new RecordingDatabaseAdapter(
 			[
-				{ status: 'fulfilled', value: [createPostResult(author)] },
 				{
+					inclusions: [
+						{
+							fieldPath: ['author'],
+							record: post,
+							target: includedAuthor,
+						},
+						{
+							fieldPath: ['organization'],
+							record: includedAuthor,
+							target: includedOrganization,
+						},
+					],
 					status: 'fulfilled',
-					value: { name: 'Ada', organization },
+					value: [post],
 				},
-				{ status: 'fulfilled', value: { name: 'Ultima Labs' } },
 				{ status: 'fulfilled', value: { name: 'Ada' } },
 			],
 			[],
@@ -148,45 +165,43 @@ describe('pointer Runtime execution', () => {
 				.first({ ultimabase })
 
 			expect(posts[0]?.author).toBeInstanceOf(pointerRuntimeUser)
-			expect(posts[0]?.author?.name).toBe('Ada')
+			expect(posts[0]?.author?.name).toBe('ADA')
 			expect(posts[0]?.author?.organization).toBeInstanceOf(
 				pointerRuntimeOrganization,
 			)
 			expect(posts[0]?.author?.organization?.name).toBe('Ultima Labs')
-			expect(directAuthor?.name).toBe('Ada')
+			expect(directAuthor?.name).toBe('ADA')
 			expect(targetHookTrace).toStrictEqual([
-				'user:beforeFind',
-				'user:afterFind',
-				'user:beforeFind',
-				'user:afterFind',
+				'user:beforeRead',
+				'user:afterRead',
 			])
-			expect(adapter.rootRequests).toHaveLength(4)
-			expect(adapter.rootRequests[1]?.operation).toMatchObject({
+			expect(adapter.rootRequests).toHaveLength(2)
+			expect(
+				adapter.rootRequests[0]?.pointerInclusions?.[0]?.request.operation,
+			).toMatchObject({
 				kind: 'first',
 				query: {
 					selection: {
 						fields: [{ field: 'name' }, { field: 'organization' }],
 					},
+				},
+			})
+			expect(
+				adapter.rootRequests[0]?.pointerInclusions?.[0]?.request.rowFilter,
+			).toMatchObject({
+				field: 'status',
+				kind: 'equal',
+				value: 'active',
+			})
+			expect(adapter.rootRequests[1]?.operation).toMatchObject({
+				kind: 'first',
+				query: {
 					where: {
 						expression: { field: 'name', kind: 'equal', value: 'Ada' },
 					},
 				},
 			})
 			expectTargetRowFilter(adapter.rootRequests[1]?.rowFilter, author.id)
-			expect(adapter.rootRequests[2]?.rowFilter).toMatchObject({
-				field: 'id',
-				kind: 'equal',
-				value: organization.id,
-			})
-			expect(adapter.rootRequests[3]?.operation).toMatchObject({
-				kind: 'first',
-				query: {
-					where: {
-						expression: { field: 'name', kind: 'equal', value: 'Ada' },
-					},
-				},
-			})
-			expectTargetRowFilter(adapter.rootRequests[3]?.rowFilter, author.id)
 		} finally {
 			await ultimabase.dispose()
 		}
@@ -233,6 +248,90 @@ describe('pointer Runtime execution', () => {
 		}
 	})
 
+	it('keeps the declared Pointer value for final field Access after hydration', async () => {
+		const accessValues: unknown[] = []
+		let afterReadObservedHydratedTarget = false
+		const target = Schema.define({
+			className: 'PointerRuntimeAccessTarget',
+			fields: { name: stringField() },
+		})
+		const source = Schema.define({
+			className: 'PointerRuntimeAccessSource',
+			fields: {
+				target: pointerField({
+					access: {
+						read: {
+							filter: true,
+							item: ({ value }) => {
+								accessValues.push(value)
+
+								return true
+							},
+							order: true,
+						},
+					},
+					target: () => target,
+				}),
+			},
+			hooks: {
+				afterRead: ({ kind, result }) => {
+					const unknownResult: unknown = result
+
+					if (
+						kind === 'find' &&
+						Array.isArray(unknownResult) &&
+						isPlainRecord(unknownResult[0]) &&
+						isPlainRecord(unknownResult[0].target)
+					) {
+						afterReadObservedHydratedTarget =
+							unknownResult[0].target.name === 'Hydrated target'
+					}
+
+					return result
+				},
+			},
+		})
+		const pointer = target.pointer('0198a43e-2431-7000-8000-000000000408')
+		const sourceRecord = { target: pointer }
+		const adapter = new RecordingDatabaseAdapter(
+			[
+				{
+					inclusions: [
+						{
+							fieldPath: ['target'],
+							record: sourceRecord,
+							target: { name: 'Hydrated target' },
+						},
+					],
+					status: 'fulfilled',
+					value: [sourceRecord],
+				},
+			],
+			[],
+		)
+		const ultimabase = new UltimaBase({
+			plugins: [createDatabasePlugin(adapter)],
+			schemas: [target, source],
+		})
+
+		try {
+			await ultimabase.start()
+			const result = await source
+				.query()
+				.select({ target: true })
+				.include('target', (query) => query.select({ name: true }))
+				.find({ ultimabase })
+
+			expect(result[0]?.target?.name).toBe('Hydrated target')
+			expect(afterReadObservedHydratedTarget).toBe(true)
+			expect(accessValues).toHaveLength(2)
+			expect(accessValues.every((value) => Pointer.is(value))).toBe(true)
+			expect(accessValues).toStrictEqual([pointer, pointer])
+		} finally {
+			await ultimabase.dispose()
+		}
+	})
+
 	it('makes denied and missing targets equally null while preserving master access', async () => {
 		const restrictedTarget = Schema.define({
 			className: 'PointerRuntimeRestrictedTarget',
@@ -255,10 +354,28 @@ describe('pointer Runtime execution', () => {
 		const sourceResult = { target: targetPointer }
 		const results: readonly QueuedAdapterResult[] = [
 			{ status: 'fulfilled', value: [sourceResult] },
-			{ status: 'fulfilled', value: [sourceResult] },
-			{ status: 'fulfilled', value: { name: 'Visible to master' } },
-			{ status: 'fulfilled', value: [sourceResult] },
-			{ status: 'fulfilled', value: null },
+			{
+				inclusions: [
+					{
+						fieldPath: ['target'],
+						record: sourceResult,
+						target: { name: 'Visible to master' },
+					},
+				],
+				status: 'fulfilled',
+				value: [sourceResult],
+			},
+			{
+				inclusions: [
+					{
+						fieldPath: ['target'],
+						record: sourceResult,
+						target: null,
+					},
+				],
+				status: 'fulfilled',
+				value: [sourceResult],
+			},
 		]
 		const adapter = new RecordingDatabaseAdapter(results, [])
 		const ultimabase = new UltimaBase({
@@ -290,7 +407,60 @@ describe('pointer Runtime execution', () => {
 			expect(allowed[0]?.target?.name).toBe('Visible to master')
 			expect(missing[0]?.target).toBeNull()
 			expect(denied[0]?.toJSON()).toStrictEqual(missing[0]?.toJSON())
-			expect(adapter.rootRequests).toHaveLength(5)
+			expect(adapter.rootRequests).toHaveLength(3)
+		} finally {
+			await ultimabase.dispose()
+		}
+	})
+
+	it('returns the parent afterRead replacement without rehydrating it', async () => {
+		const target = Schema.define({
+			className: 'PointerRuntimeAuthoritativeTarget',
+			fields: { name: stringField() },
+		})
+		const source = Schema.define({
+			className: 'PointerRuntimeAuthoritativeSource',
+			fields: { target: pointerField({ target: () => target }) },
+			hooks: {
+				afterRead: ({ kind, result }) =>
+					kind === 'find'
+						? result.map((record) => ({ ...record, target: null }))
+						: result,
+			},
+		})
+		const pointer = target.pointer('0198a43e-2431-7000-8000-000000000407')
+		const sourceRecord = { target: pointer }
+		const adapter = new RecordingDatabaseAdapter(
+			[
+				{
+					inclusions: [
+						{
+							fieldPath: ['target'],
+							record: sourceRecord,
+							target: { name: 'Hydrated before afterRead' },
+						},
+					],
+					status: 'fulfilled',
+					value: [sourceRecord],
+				},
+			],
+			[],
+		)
+		const ultimabase = new UltimaBase({
+			plugins: [createDatabasePlugin(adapter)],
+			schemas: [target, source],
+		})
+
+		try {
+			await ultimabase.start()
+			const result = await source
+				.query()
+				.select({ target: true })
+				.include('target', (query) => query.select({ name: true }))
+				.find({ ultimabase })
+
+			expect(result[0]?.target).toBeNull()
+			expect(adapter.rootRequests).toHaveLength(1)
 		} finally {
 			await ultimabase.dispose()
 		}
@@ -301,7 +471,7 @@ describe('pointer Runtime execution', () => {
 			className: 'PointerRuntimeFailingTarget',
 			fields: { name: stringField() },
 			hooks: {
-				afterFind: () => {
+				afterRead: () => {
 					throw new TypeError('Mutation results must not load pointer targets')
 				},
 			},

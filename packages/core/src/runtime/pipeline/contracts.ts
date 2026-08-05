@@ -1,4 +1,8 @@
 import type { MaybePromise } from '@ultimabase/shared'
+import type {
+	InferOperationRecordResult,
+	OperationAstNode,
+} from '../../query/index.js'
 
 import type { RequestContext } from '../context/request-context.js'
 import type {
@@ -63,11 +67,22 @@ export interface RuntimeEnforcementOperationResult<
 	readonly relationPredicates?: readonly DatabaseRelationPredicateScope[]
 }
 
+/** Represents the post-hydration record shape observed by result hooks. */
+export type RuntimeOperationResult<TOperation extends OperationAstNode> =
+	InferOperationRecordResult<TOperation>
+
+/** Supplies pre-hydration adapter records to projection and scalar resolution. */
+export interface RuntimeDatabaseResultStageInput<
+	TOperation extends DatabaseOperationAst,
+> extends RuntimeOperationStageInput<TOperation> {
+	readonly result: DatabaseOperationResult<TOperation>
+}
+
 /** Supplies business after-hooks, commit, and events with the current result. */
 export interface RuntimeResultStageInput<
 	TOperation extends DatabaseOperationAst,
 > extends RuntimeOperationStageInput<TOperation> {
-	readonly result: DatabaseOperationResult<TOperation>
+	readonly result: RuntimeOperationResult<TOperation>
 }
 
 /** Transforms one exact operation without changing its schema-specific type. */
@@ -112,6 +127,15 @@ export type RuntimeEnforcementResultStage = <
 	input: RuntimeResultStageInput<TOperation> & {
 		readonly enforcement: EnforcementState
 	},
+) => MaybePromise<RuntimeOperationResult<TOperation>>
+
+/** Applies selection restrictions before pointer hydration changes field values. */
+export type RuntimeEnforcementSelectionResultStage = <
+	const TOperation extends DatabaseOperationAst,
+>(
+	input: RuntimeDatabaseResultStageInput<TOperation> & {
+		readonly enforcement: EnforcementState
+	},
 ) => MaybePromise<DatabaseOperationResult<TOperation>>
 
 /** Supplies one protected relation traversal only to monotonic enforcement. */
@@ -134,7 +158,7 @@ export interface RuntimeEnforcementStages {
 	readonly reevaluate: RuntimeEnforcementReevaluationStage
 	readonly enforceOperation: RuntimeEnforcementOperationStage
 	/** Applies retained selection restrictions before business output hooks run. */
-	readonly enforceSelectionResult: RuntimeEnforcementResultStage
+	readonly enforceSelectionResult: RuntimeEnforcementSelectionResultStage
 	readonly enforceResult: RuntimeEnforcementResultStage
 	/** Enforces the source field that grants one to-many traversal. */
 	readonly enforceRelationRead?: RuntimeRelationEnforcementStage
@@ -149,6 +173,20 @@ export type RuntimeResultTransformStage = <
 	const TOperation extends DatabaseOperationAst,
 >(
 	input: RuntimeResultStageInput<TOperation>,
+) => MaybePromise<RuntimeOperationResult<TOperation>>
+
+/** Carries an exact pre-hydration projection into scalar field resolution. */
+export interface RuntimeNativeDatabaseResultStageInput<
+	TOperation extends DatabaseOperationAst,
+> extends RuntimeDatabaseResultStageInput<TOperation> {
+	readonly selectedFieldsOverride?: readonly string[]
+}
+
+/** Resolves scalar output while pointer fields still retain declared values. */
+export type RuntimeNativeDatabaseResultTransformStage = <
+	const TOperation extends DatabaseOperationAst,
+>(
+	input: RuntimeNativeDatabaseResultStageInput<TOperation>,
 ) => MaybePromise<DatabaseOperationResult<TOperation>>
 
 /** Carries an exact policy projection when an empty Query selection means no fields. */
@@ -163,7 +201,7 @@ export type RuntimeNativeResultTransformStage = <
 	const TOperation extends DatabaseOperationAst,
 >(
 	input: RuntimeNativeResultStageInput<TOperation>,
-) => MaybePromise<DatabaseOperationResult<TOperation>>
+) => MaybePromise<RuntimeOperationResult<TOperation>>
 
 /** Performs commit or post-commit work without replacing the developer result. */
 export type RuntimeResultEffectStage = <
@@ -256,7 +294,7 @@ export interface RuntimeNativeHookStages {
 	readonly schemaBefore: RuntimeOperationTransformStage
 	readonly fieldBefore: RuntimePreparedMutationEffectStage
 	readonly fieldAfter: RuntimeMutationOutcomeTransformStage
-	readonly resolveOutput: RuntimeNativeResultTransformStage
+	readonly resolveOutput: RuntimeNativeDatabaseResultTransformStage
 	readonly schemaAfter: RuntimeNativeResultTransformStage
 	/** Creates isolated finalization state only when an outer transaction begins. */
 	readonly createTransactionLifecycle?: () => RuntimeNativeTransactionLifecycle

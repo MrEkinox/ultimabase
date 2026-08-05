@@ -98,22 +98,22 @@ describe('packed @ultimabase/core native schema hooks', () => {
 			throw new TypeError('Missing packed schema hook completions')
 		}
 
-		const beforeFind = completions.entries.find(
-			({ name }) => name === 'beforeFind',
+		const beforeRead = completions.entries.find(
+			({ name }) => name === 'beforeRead',
 		)
 
-		if (beforeFind === undefined) {
-			throw new TypeError('Missing packed beforeFind completion')
+		if (beforeRead === undefined) {
+			throw new TypeError('Missing packed beforeRead completion')
 		}
 
 		const details = service.getCompletionEntryDetails(
 			packedFixtureFile,
 			position,
-			beforeFind.name,
+			beforeRead.name,
 			undefined,
-			beforeFind.source,
+			beforeRead.source,
 			undefined,
-			beforeFind.data,
+			beforeRead.data,
 		)
 
 		expect(ts.displayPartsToString(details?.documentation).trim()).not.toBe('')
@@ -145,7 +145,7 @@ describe('packed @ultimabase/core native schema hooks', () => {
 		)
 		const display = readHoverDisplay('schema-family-declaration')
 
-		expect(display).toContain('SchemaBeforeSaveHookDeclaration<')
+		expect(display).toContain('SchemaValidateHookDeclaration<')
 		expect(display).not.toContain('ExecutableOperationAst<')
 	})
 })

@@ -5,7 +5,7 @@ import type { OperationKind } from '../../query/index.js'
 import type {
 	SchemaCreateHookKind,
 	SchemaDeleteHookKind,
-	SchemaFindHookKind,
+	SchemaReadHookKind,
 	SchemaMutationHookKind,
 	SchemaUpdateHookKind,
 	SchemaUpsertHookKind,
@@ -184,7 +184,7 @@ export type OperationAccessRule<TKind extends OperationKind> =
 
 /** Contains one direct decision for every native operation family. */
 export interface AllOperationAccess {
-	readonly read: OperationAccessRule<SchemaFindHookKind>
+	readonly read: OperationAccessRule<SchemaReadHookKind>
 	readonly create: OperationAccessRule<SchemaCreateHookKind>
 	readonly update: OperationAccessRule<SchemaUpdateHookKind>
 	readonly upsert: OperationAccessRule<SchemaUpsertHookKind>

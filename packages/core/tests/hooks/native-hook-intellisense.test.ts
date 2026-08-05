@@ -91,9 +91,9 @@ describe('native hook contract prototype IntelliSense', () => {
 	it('contextually exposes schema and field hook entry points', () => {
 		expect(readPropertyCompletions('schema-options')).toContain('hooks')
 		expect(readPropertyCompletions('schema-hooks')).toStrictEqual([
-			'afterOperation',
-			'beforeFind',
-			'beforeSave',
+			'afterRead',
+			'beforeCreate',
+			'beforeRead',
 			'resolveInput',
 		])
 		expect(readPropertyCompletions('field-options')).toContain('hooks')

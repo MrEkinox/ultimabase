@@ -18,6 +18,8 @@ import {
 	databaseAdapterServiceToken,
 	databasePointerCapability,
 	databasePointerCapabilityVersion,
+	databasePointerInclusionCapability,
+	databasePointerInclusionCapabilityVersion,
 	databaseRelationCapability,
 	databaseRelationCapabilityVersion,
 	type DatabaseAdapter,
@@ -142,6 +144,14 @@ describe('database adapter contracts', () => {
 			version: databasePointerCapabilityVersion,
 		})
 		expect(Object.isFrozen(databasePointerCapability)).toBe(true)
+	})
+
+	it('publishes one frozen eager pointer-inclusion capability', () => {
+		expect(databasePointerInclusionCapability).toStrictEqual({
+			kind: 'pointer-inclusions',
+			version: databasePointerInclusionCapabilityVersion,
+		})
+		expect(Object.isFrozen(databasePointerInclusionCapability)).toBe(true)
 	})
 
 	it('publishes one frozen versioned relation capability for adapter reuse', () => {

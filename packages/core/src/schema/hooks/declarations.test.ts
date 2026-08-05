@@ -20,22 +20,22 @@ const createSchema = (hooks?: object) =>
 
 describe('schema hook declarations', () => {
 	it('copies and freezes handlers without exposing them as schema metadata', () => {
-		const beforeSave = () => undefined
-		const source = { beforeSave }
+		const beforeCreate = () => undefined
+		const source = { beforeCreate }
 		const schema = createSchema(source)
 		const declarations = getSchemaHookDeclarations(schema)
 
-		source.beforeSave = () => undefined
+		source.beforeCreate = () => undefined
 
-		expect(getHookHandlerEntries(declarations, 'beforeSave')[0]?.handler).toBe(
-			beforeSave,
-		)
+		expect(
+			getHookHandlerEntries(declarations, 'beforeCreate')[0]?.handler,
+		).toBe(beforeCreate)
 		expect(Object.isFrozen(declarations)).toBe(true)
-		expect(Object.isFrozen(declarations?.beforeSave)).toBe(true)
-		expect(Object.isFrozen(declarations?.beforeSave?.all)).toBe(true)
-		expect(Reflect.set(declarations ?? {}, 'beforeSave', () => undefined)).toBe(
-			false,
-		)
+		expect(Object.isFrozen(declarations?.beforeCreate)).toBe(true)
+		expect(Object.isFrozen(declarations?.beforeCreate?.all)).toBe(true)
+		expect(
+			Reflect.set(declarations ?? {}, 'beforeCreate', () => undefined),
+		).toBe(false)
 		expect(Object.keys(schema)).toStrictEqual([
 			'definition',
 			'className',
@@ -49,16 +49,18 @@ describe('schema hook declarations', () => {
 	it('retains declarations by exact schema identity', () => {
 		const firstHandler = () => undefined
 		const secondHandler = () => undefined
-		const first = createSchema({ beforeSave: firstHandler })
-		const second = createSchema({ beforeSave: secondHandler })
+		const first = createSchema({ beforeCreate: firstHandler })
+		const second = createSchema({ beforeCreate: secondHandler })
 
 		expect(
-			getHookHandlerEntries(getSchemaHookDeclarations(first), 'beforeSave')[0]
+			getHookHandlerEntries(getSchemaHookDeclarations(first), 'beforeCreate')[0]
 				?.handler,
 		).toBe(firstHandler)
 		expect(
-			getHookHandlerEntries(getSchemaHookDeclarations(second), 'beforeSave')[0]
-				?.handler,
+			getHookHandlerEntries(
+				getSchemaHookDeclarations(second),
+				'beforeCreate',
+			)[0]?.handler,
 		).toBe(secondHandler)
 	})
 
@@ -94,26 +96,20 @@ describe('schema hook declarations', () => {
 		expect(calls).toBe(0)
 	})
 
-	it('precomposes broad schema family branches in lifecycle order', () => {
+	it('precomposes the remaining broad schema family branches', () => {
 		const broad = () => undefined
 		const specific = () => undefined
 		const declarations = getSchemaHookDeclarations(
 			createSchema({
-				beforeOperation: { all: broad, delete: specific },
-				afterOperation: { all: broad, delete: specific },
+				resolveInput: { all: broad, update: specific },
 			}),
 		)
 
 		expect(
-			getHookHandlerEntries(declarations, 'beforeOperation', 'delete').map(
+			getHookHandlerEntries(declarations, 'resolveInput', 'update').map(
 				({ handler }) => handler,
 			),
 		).toStrictEqual([broad, specific])
-		expect(
-			getHookHandlerEntries(declarations, 'afterOperation', 'delete').map(
-				({ handler }) => handler,
-			),
-		).toStrictEqual([specific, broad])
 	})
 
 	it('does not allocate neutral declarations for absent or empty hooks', () => {
@@ -123,7 +119,7 @@ describe('schema hook declarations', () => {
 
 	it('keeps validation plans independent from business callbacks', () => {
 		const plain = createSchema()
-		const hooked = createSchema({ beforeSave: () => undefined })
+		const hooked = createSchema({ beforeCreate: () => undefined })
 
 		// Physical schema consumers receive the same structural plan either way.
 		expect(compileValidationPlans(hooked)).toStrictEqual(
@@ -132,49 +128,51 @@ describe('schema hook declarations', () => {
 	})
 
 	it('accepts plain records with a null prototype', () => {
-		const beforeSave = () => undefined
+		const beforeCreate = () => undefined
 		const hooks: Record<string, unknown> = Object.assign(
 			Object.create(null) as object,
-			{ beforeSave },
+			{ beforeCreate },
 		)
 		const declarations = getSchemaHookDeclarations(createSchema(hooks))
 
-		expect(getHookHandlerEntries(declarations, 'beforeSave')[0]?.handler).toBe(
-			beforeSave,
-		)
+		expect(
+			getHookHandlerEntries(declarations, 'beforeCreate')[0]?.handler,
+		).toBe(beforeCreate)
 	})
 
 	it.each([
 		{ hooks: null, message: 'hooks must be a plain object' },
 		{ hooks: [], message: 'hooks must be a plain object' },
 		{ hooks: new Map(), message: 'hooks must be a plain object' },
-		{ hooks: 'beforeSave', message: 'hooks must be a plain object' },
+		{ hooks: 'beforeCreate', message: 'hooks must be a plain object' },
 		{
 			hooks: { beforeUnknown: () => undefined },
 			message: 'Unknown schema hook: hooks.beforeUnknown',
 		},
 		{
-			hooks: { beforeSave: undefined },
-			message: 'hooks.beforeSave must be a function or non-empty handler list',
+			hooks: { beforeCreate: undefined },
+			message:
+				'hooks.beforeCreate must be a function or non-empty handler list',
 		},
 		{
-			hooks: { beforeSave: [] },
-			message: 'hooks.beforeSave must be a function or non-empty handler list',
+			hooks: { beforeCreate: [] },
+			message:
+				'hooks.beforeCreate must be a function or non-empty handler list',
 		},
 		{
-			hooks: { beforeSave: {} },
-			message: 'hooks.beforeSave family map must not be empty',
+			hooks: { resolveInput: {} },
+			message: 'hooks.resolveInput family map must not be empty',
 		},
 		{
-			hooks: { beforeSave: [() => undefined, false] },
-			message: 'hooks.beforeSave[1] must be a function',
+			hooks: { beforeCreate: [() => undefined, false] },
+			message: 'hooks.beforeCreate[1] must be a function',
 		},
 	] as const)('rejects malformed hook declarations', ({ hooks, message }) => {
 		expect(() => createSchema(hooks as object)).toThrow(new TypeError(message))
 	})
 
 	it('rejects symbol phases instead of silently dropping them', () => {
-		const hooks = { [Symbol('beforeSave')]: () => undefined }
+		const hooks = { [Symbol('beforeCreate')]: () => undefined }
 
 		expect(() => createSchema(hooks)).toThrow(
 			new TypeError('hooks contains an unsupported symbol key'),
@@ -182,17 +180,21 @@ describe('schema hook declarations', () => {
 	})
 
 	it('exposes an immutable internal declaration type', () => {
-		const beforeSave = () => undefined
+		const beforeCreate = () => undefined
 		const declarations: SchemaHookDeclarations = {
-			beforeSave: {
+			beforeCreate: {
 				all: [
-					{ declarationBranch: 'direct', handler: beforeSave, handlerIndex: 0 },
+					{
+						declarationBranch: 'direct',
+						handler: beforeCreate,
+						handlerIndex: 0,
+					},
 				],
 				variants: {},
 			},
 		}
 
 		// The public Runtime reader receives readonly capabilities.
-		expect(Object.keys(declarations)).toStrictEqual(['beforeSave'])
+		expect(Object.keys(declarations)).toStrictEqual(['beforeCreate'])
 	})
 })

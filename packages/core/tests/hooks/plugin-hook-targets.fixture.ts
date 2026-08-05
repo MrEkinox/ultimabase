@@ -56,7 +56,7 @@ export const hookTargetFixturePlugin = definePlugin({
 
 		void registry
 		hooks./* completion:hook-target-methods */ global('global', {
-			beforeOperation: ({ operation }) => operation,
+			beforeCreate: ({ operation }) => operation,
 		})
 		hooks.schema('schema', TargetSchema, {
 			beforeCreate: ({ operation }) => {
@@ -101,7 +101,7 @@ export const hookTargetFixturePlugin = definePlugin({
 					context.extension.config.mode
 
 			void mode
-			return { beforeFind: ({ query }) => query }
+			return { beforeRead: ({ query }) => query }
 		})
 		hooks.fieldExtension('field-extension', fieldExtension, (context) => {
 			const /* hover:field-extension-config */ redact =

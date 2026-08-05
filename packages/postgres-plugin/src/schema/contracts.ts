@@ -45,6 +45,13 @@ export interface CompiledPostgresSchema {
 	readonly tableName: string
 }
 
+/** Orients one direct pointer for Drizzle eager loading without changing storage. */
+export interface CompiledPostgresPointerRelation {
+	readonly fieldPath: readonly string[]
+	readonly source: CompiledPostgresSchema
+	readonly target: CompiledPostgresSchema
+}
+
 /** Owns the single hidden join table shared by an owning relation and its inverse. */
 export interface CompiledPostgresJoinRelation {
 	readonly owner: ResolvedSchemaRelation

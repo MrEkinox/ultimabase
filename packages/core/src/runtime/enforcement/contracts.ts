@@ -10,8 +10,8 @@ import type { RequestContext } from '../context/request-context.js'
 import type {
 	DatabaseConstraintNode,
 	DatabaseOperationAst,
-	DatabaseOperationResult,
 } from '../database/contracts.js'
+import type { RuntimeOperationResult } from '../pipeline/contracts.js'
 
 export type { DatabaseConstraintNode } from '../database/contracts.js'
 
@@ -38,7 +38,7 @@ export interface EnforcementOperationInput<
 export interface EnforcementOutputInput<
 	TOperation extends DatabaseOperationAst,
 > extends EnforcementOperationInput<TOperation> {
-	readonly result: DatabaseOperationResult<TOperation>
+	readonly result: RuntimeOperationResult<TOperation>
 }
 
 /** Resolves the schema-specific AST selected by a contribution declaration. */

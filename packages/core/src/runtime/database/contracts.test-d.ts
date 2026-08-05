@@ -27,6 +27,8 @@ import {
 	databaseAdapterServiceToken,
 	databasePointerCapability,
 	databasePointerCapabilityVersion,
+	databasePointerInclusionCapability,
+	databasePointerInclusionCapabilityVersion,
 	databaseRelationCapability,
 	databaseRelationCapabilityVersion,
 	type DatabaseConstraintNode,
@@ -43,6 +45,7 @@ import {
 	type DatabaseOperationRequest,
 	type DatabaseOperationResult,
 	type DatabasePointerCapability,
+	type DatabasePointerInclusionCapability,
 	type DatabaseRelationCapability,
 	type DatabaseRelationScope,
 	type DatabaseTransactionAdapter,
@@ -150,12 +153,19 @@ test('distinguishes root and transaction adapter capabilities', () => {
 	).toEqualTypeOf<DatabasePointerCapability>()
 	expectTypeOf(databasePointerCapabilityVersion).toEqualTypeOf<1>()
 	expectTypeOf(
+		databasePointerInclusionCapability,
+	).toEqualTypeOf<DatabasePointerInclusionCapability>()
+	expectTypeOf(databasePointerInclusionCapabilityVersion).toEqualTypeOf<1>()
+	expectTypeOf(
 		databaseRelationCapability,
 	).toEqualTypeOf<DatabaseRelationCapability>()
 	expectTypeOf(databaseRelationCapabilityVersion).toEqualTypeOf<1>()
 	expectTypeOf<DatabaseAdapterCapabilities['pointers']>().toEqualTypeOf<
 		DatabasePointerCapability | undefined
 	>()
+	expectTypeOf<
+		DatabaseAdapterCapabilities['pointerInclusions']
+	>().toEqualTypeOf<DatabasePointerInclusionCapability | undefined>()
 	expectTypeOf<DatabaseAdapterCapabilities['relations']>().toEqualTypeOf<
 		DatabaseRelationCapability | undefined
 	>()

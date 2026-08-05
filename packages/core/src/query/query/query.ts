@@ -1001,7 +1001,7 @@ export class Query<
  * Restores a frozen unbound Query from one already normalized immutable AST.
  *
  * This module-level export is intentionally omitted from Core's public export
- * surface. Runtime uses it to expose `beforeFind` without adding execution state
+ * surface. Runtime uses it to expose `beforeRead` without adding execution state
  * or a low-level AST constructor to the developer-facing Query API.
  *
  * @internal

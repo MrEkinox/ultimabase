@@ -17,6 +17,7 @@ import type {
 } from '../../../src/runtime/index.js'
 import {
 	databasePointerCapability,
+	databasePointerInclusionCapability,
 	databaseRelationCapability,
 	RuntimePipeline,
 } from '../../../src/runtime/index.js'
@@ -44,8 +45,15 @@ export interface PreparedOperationFixtureOptions<
 }
 
 export interface FulfilledAdapterResult extends AdapterMutationFixture {
+	readonly inclusions?: readonly AdapterIncludedPointerFixture[]
 	readonly status: 'fulfilled'
 	readonly value: unknown
+}
+
+export interface AdapterIncludedPointerFixture {
+	readonly fieldPath: readonly string[]
+	readonly record: DatabaseLogicalRecord
+	readonly target: DatabaseLogicalRecord | null
 }
 
 export interface RejectedAdapterResult extends AdapterMutationFixture {
@@ -62,6 +70,7 @@ export interface TransactionFailureOptions {
 
 /** Lets capability-boundary tests model an older adapter deliberately. */
 export interface RecordingAdapterCapabilityOptions {
+	readonly pointerInclusions?: boolean
 	readonly relations?: boolean
 }
 
@@ -71,10 +80,37 @@ const createRecordingCapabilities = (
 ): DatabaseAdapterCapabilities =>
 	immutableRecord({
 		pointers: databasePointerCapability,
+		...(options.pointerInclusions === false
+			? {}
+			: { pointerInclusions: databasePointerInclusionCapability }),
 		...(options.relations === false
 			? {}
 			: { relations: databaseRelationCapability }),
 	})
+
+const recordingIncludedPointers = new WeakMap<
+	object,
+	Map<string, DatabaseLogicalRecord | null>
+>()
+
+const retainQueuedInclusions = (result: QueuedAdapterResult): void => {
+	if (result.status !== 'fulfilled') return
+
+	for (const inclusion of result.inclusions ?? []) {
+		const retained =
+			recordingIncludedPointers.get(inclusion.record) ??
+			new Map<string, DatabaseLogicalRecord | null>()
+
+		retained.set(JSON.stringify(inclusion.fieldPath), inclusion.target)
+		recordingIncludedPointers.set(inclusion.record, retained)
+	}
+}
+
+const readRecordingIncludedPointer = (
+	record: Readonly<Record<string, unknown>>,
+	fieldPath: readonly string[],
+): DatabaseLogicalRecord | null | undefined =>
+	recordingIncludedPointers.get(record)?.get(JSON.stringify(fieldPath))
 
 /** Allows focused transaction tests to replace only effectful pipeline stages. */
 export type RecordingPipelineHookStages = Partial<
@@ -177,9 +213,18 @@ export class RecordingTransactionAdapter implements DatabaseTransactionAdapter {
 		this.requests.push(request)
 		this.#trace.push(`execute:${request.operation.kind}`)
 
-		return resolveQueuedResult<TOperation>(
-			await takeQueuedResult(this.#results),
-		)
+		const result = await takeQueuedResult(this.#results)
+
+		retainQueuedInclusions(result)
+
+		return resolveQueuedResult<TOperation>(result)
+	}
+
+	readIncludedPointer(
+		record: Readonly<Record<string, unknown>>,
+		fieldPath: readonly string[],
+	): DatabaseLogicalRecord | null | undefined {
+		return readRecordingIncludedPointer(record, fieldPath)
 	}
 
 	async prepare<const TOperation extends DatabaseMutationOperationAst>(
@@ -247,9 +292,18 @@ export class RecordingDatabaseAdapter implements DatabaseAdapter {
 		this.rootRequests.push(request)
 		this.#trace.push(`execute:${request.operation.kind}`)
 
-		return resolveQueuedResult<TOperation>(
-			await takeQueuedResult(this.#results),
-		)
+		const result = await takeQueuedResult(this.#results)
+
+		retainQueuedInclusions(result)
+
+		return resolveQueuedResult<TOperation>(result)
+	}
+
+	readIncludedPointer(
+		record: Readonly<Record<string, unknown>>,
+		fieldPath: readonly string[],
+	): DatabaseLogicalRecord | null | undefined {
+		return readRecordingIncludedPointer(record, fieldPath)
 	}
 
 	beginTransaction(): Promise<RecordingTransactionAdapter> {

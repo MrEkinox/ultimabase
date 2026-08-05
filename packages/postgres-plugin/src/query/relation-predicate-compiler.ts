@@ -60,7 +60,7 @@ const resolveAliasedColumn = (
 }
 
 /** Rebinds codecs and validation metadata to one query-local table alias. */
-const rebindCompiledSchema = (
+export const rebindCompiledPostgresSchema = (
 	schema: CompiledPostgresSchema,
 	table: PgTable,
 ): CompiledPostgresSchema => {
@@ -125,7 +125,10 @@ export const createPostgresRelationPredicateCompiler = (
 		const targetFilter = {
 			RAW: (table: SchemaEntry): SQL => {
 				// Generated relation metadata only contains PostgreSQL tables, never views.
-				const target = rebindCompiledSchema(relation.target, table as PgTable)
+				const target = rebindCompiledPostgresSchema(
+					relation.target,
+					table as PgTable,
+				)
 				const targetConstraint = compilePostgresConstraints(
 					constraintCompilers,
 					target,

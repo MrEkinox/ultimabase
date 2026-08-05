@@ -139,10 +139,10 @@ const UserSchema = Schema.define({
 		}),
 	},
 	hooks: {
-		beforeSave: ({ operation }) => {
-			// This runs for create, update, and upsert variants.
-		},
-		beforeFind: ({ query }) => query.limit(100),
+		beforeCreate: ({ operation }) => operation,
+		beforeUpdate: ({ operation }) => operation,
+		beforeUpsert: ({ operation }) => operation,
+		beforeRead: ({ query }) => query.limit(100),
 	},
 })
 ```

@@ -23,15 +23,21 @@ import type {
 import type { InferQueryRecord, InferQueryResult } from '../query/result.js'
 
 type OperationResultMode = 'model' | 'record'
+type OperationInclusionMode = 'hydrated' | 'pointer'
 
 type QueryObjectResult<
 	TSchema extends SchemaDefinition,
 	TSelectedField extends QueryFieldName<TSchema>,
 	TMode extends OperationResultMode,
 	TIncludedPointer,
+	TInclusionMode extends OperationInclusionMode,
 > = TMode extends 'model'
 	? InferQueryResult<TSchema, TSelectedField, TIncludedPointer>
-	: InferQueryRecord<TSchema, TSelectedField>
+	: InferQueryRecord<
+			TSchema,
+			TSelectedField,
+			TInclusionMode extends 'hydrated' ? TIncludedPointer : never
+		>
 
 type CompleteObjectResult<
 	TSchema extends SchemaDefinition,
@@ -42,6 +48,7 @@ type CompleteObjectResult<
 type InferOperationResultFor<
 	TOperation extends OperationAstNode,
 	TMode extends OperationResultMode,
+	TInclusionMode extends OperationInclusionMode,
 > =
 	TOperation extends FindOperationAst<
 		infer TSchema,
@@ -53,7 +60,8 @@ type InferOperationResultFor<
 				TSchema,
 				TSelectedField,
 				TMode,
-				OperationIncludedPointer<TOperation>
+				OperationIncludedPointer<TOperation>,
+				TInclusionMode
 			>[]
 		: TOperation extends FirstOperationAst<
 					infer TSchema,
@@ -65,7 +73,8 @@ type InferOperationResultFor<
 					TSchema,
 					TSelectedField,
 					TMode,
-					OperationIncludedPointer<TOperation>
+					OperationIncludedPointer<TOperation>,
+					TInclusionMode
 				> | null
 			: TOperation extends GetOperationAst<
 						infer TSchema,
@@ -77,7 +86,8 @@ type InferOperationResultFor<
 						TSchema,
 						TSelectedField,
 						TMode,
-						OperationIncludedPointer<TOperation>
+						OperationIncludedPointer<TOperation>,
+						TInclusionMode
 					> | null
 				: TOperation extends {
 							readonly kind: 'count' | 'update-many' | 'delete-many'
@@ -106,7 +116,8 @@ type InferOperationResultFor<
 											TSchema,
 											TSelectedField,
 											TMode,
-											OperationIncludedPointer<TOperation>
+											OperationIncludedPointer<TOperation>,
+											TInclusionMode
 										> | null
 									: TOperation extends UpsertOneOperationAst<
 												infer TSchema,
@@ -119,7 +130,8 @@ type InferOperationResultFor<
 												TSchema,
 												TSelectedField,
 												TMode,
-												OperationIncludedPointer<TOperation>
+												OperationIncludedPointer<TOperation>,
+												TInclusionMode
 											>
 										: TOperation extends UpsertManyOperationAst<
 													infer TSchema,
@@ -141,14 +153,20 @@ type InferOperationResultFor<
 														TSchema,
 														TSelectedField,
 														TMode,
-														OperationIncludedPointer<TOperation>
+														OperationIncludedPointer<TOperation>,
+														TInclusionMode
 													> | null
 												: never
 
 /** Maps every normalized terminal intent to its exact public model result. */
 export type InferOperationResult<TOperation extends OperationAstNode> =
-	InferOperationResultFor<TOperation, 'model'>
+	InferOperationResultFor<TOperation, 'model', 'hydrated'>
 
-/** Maps every normalized terminal to the plain record used inside Runtime. */
+/** Maps every normalized terminal to its exact hydrated Runtime record. */
 export type InferOperationRecordResult<TOperation extends OperationAstNode> =
-	InferOperationResultFor<TOperation, 'record'>
+	InferOperationResultFor<TOperation, 'record', 'hydrated'>
+
+/** Maps every normalized terminal to the adapter record before pointer hydration. */
+export type InferOperationSourceRecordResult<
+	TOperation extends OperationAstNode,
+> = InferOperationResultFor<TOperation, 'record', 'pointer'>

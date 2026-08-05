@@ -20,7 +20,7 @@ describe('hook family keys', () => {
 			'update',
 			'upsert',
 			'delete',
-			'find',
+			'read',
 		])
 
 		// Global descriptors must not be mutable through JavaScript consumers.

@@ -3,6 +3,7 @@ import { expect, expectTypeOf, test } from 'vitest'
 import {
 	Schema,
 	intField,
+	pointerField,
 	stringField,
 	type InferCreateInput,
 	type InferObject,
@@ -19,7 +20,12 @@ import {
 	type SchemaHookTypes,
 	type SchemaBeforeCommitResult,
 } from '../index.js'
-import type { NonAtomicBulkResult, Query } from '../../query/index.js'
+import type {
+	InferQueryRecord,
+	NonAtomicBulkResult,
+	Query,
+	QueryPointerResultInclusion,
+} from '../../query/index.js'
 
 const ArticleSchema = Schema.define({
 	className: 'HookedArticle',
@@ -81,45 +87,20 @@ const ArticleSchema = Schema.define({
 
 			return operation
 		},
-		beforeSave: ({ operation }) => {
-			expectTypeOf(operation.kind).toEqualTypeOf<
-				| 'create-many'
-				| 'create-one'
-				| 'update-many'
-				| 'update-one'
-				| 'upsert-many'
-				| 'upsert-one'
-			>()
-
-			return operation
-		},
-		beforeFind: (input) => {
+		beforeRead: (input) => {
 			if (input.kind === 'get') {
 				expectTypeOf(input.operation.id).toEqualTypeOf<string>()
 			}
 
 			return input.query.limit(100)
 		},
-		afterFind: (input) => {
+		afterRead: (input) => {
 			if (input.kind === 'count') {
 				expectTypeOf(input.result).toEqualTypeOf<number>()
 			}
 
 			if (input.kind === 'exists') {
 				expectTypeOf(input.result).toEqualTypeOf<boolean>()
-			}
-
-			return input.result
-		},
-		afterOperation: (input) => {
-			if (input.kind === 'create-one') {
-				expectTypeOf(input.result).toEqualTypeOf<{
-					readonly createdAt: string
-					readonly id: string
-					readonly title: string
-					readonly updatedAt: string
-					readonly views: number | null
-				}>()
 			}
 
 			return input.result
@@ -235,6 +216,38 @@ test('keeps finalization results honest about selected fields', () => {
 	>()
 })
 
+test('preserves pointer inclusion types through read hook contracts', () => {
+	const target = Schema.define({
+		className: 'HookIncludedTarget',
+		fields: { name: stringField({ validation: { required: true } }) },
+	})
+	const source = Schema.define({
+		className: 'HookIncludedSource',
+		fields: {
+			target: pointerField({
+				target: () => target,
+				validation: { required: true },
+			}),
+		},
+	})
+	type Inclusion = QueryPointerResultInclusion<'target', typeof target, 'name'>
+	type IncludedFind = SchemaHookOperation<
+		typeof source,
+		'find',
+		'target',
+		Inclusion
+	>
+	type IncludedTypes = SchemaHookTypes<typeof source, 'target', IncludedFind>
+	expectTypeOf(source.className).toEqualTypeOf<'HookIncludedSource'>()
+
+	expectTypeOf<SchemaHookResult<IncludedFind>>().toEqualTypeOf<
+		readonly InferQueryRecord<typeof source, 'target', Inclusion>[]
+	>()
+	expectTypeOf<IncludedTypes['query']>().toEqualTypeOf<
+		Query<typeof source, 'target', Inclusion>
+	>()
+})
+
 test('namespaces application-owned hook validation issues', () => {
 	const issue: HookValidationIssue = {
 		code: 'hook.article-title',
@@ -275,7 +288,7 @@ test('keeps schema metadata and inferred values independent from hooks', () => {
 	}>()
 })
 
-test('types ordered handler lists and broad operation families', () => {
+test('types ordered exact handlers and the remaining lifecycle families', () => {
 	const hooks: SchemaHooks<typeof ArticleSchema> = {
 		beforeCreate: [
 			({ operation }) => operation,
@@ -287,7 +300,7 @@ test('types ordered handler lists and broad operation families', () => {
 				return operation
 			},
 		],
-		beforeOperation: {
+		resolveInput: {
 			all: ({ operation }) => operation,
 			create: [
 				({ operation }) => {
@@ -298,16 +311,6 @@ test('types ordered handler lists and broad operation families', () => {
 					return operation
 				},
 			],
-			find: ({ operation }) => {
-				expectTypeOf(operation.kind).toEqualTypeOf<
-					'count' | 'exists' | 'find' | 'first' | 'get'
-				>()
-
-				return operation
-			},
-		},
-		beforeSave: {
-			all: ({ operation }) => operation,
 			update: ({ operation }) => {
 				expectTypeOf(operation.kind).toEqualTypeOf<
 					'update-many' | 'update-one'
@@ -316,12 +319,9 @@ test('types ordered handler lists and broad operation families', () => {
 				return operation
 			},
 		},
-		afterSave: {
-			all: ({ result }) => result,
-			upsert: ({ kind, result }) => {
+		afterCommit: {
+			upsert: ({ kind }) => {
 				expectTypeOf(kind).toEqualTypeOf<'upsert-many' | 'upsert-one'>()
-
-				return result
 			},
 		},
 	}
@@ -342,11 +342,11 @@ test('rejects incompatible hook declarations and return values', () => {
 		// @ts-expect-error -- Input resolution cannot replace an operation with a number.
 		resolveInput: () => 42,
 		// @ts-expect-error -- Query transforms must retain the same selected schema.
-		beforeFind: () => 42,
+		beforeRead: () => 42,
 		// @ts-expect-error -- Validation hooks return structured issue collections.
 		validate: () => 'invalid',
 		// @ts-expect-error -- Result hooks cannot replace public values with symbols.
-		afterOperation: () => Symbol('invalid'),
+		afterCreate: () => Symbol('invalid'),
 	}
 	const effectOnlyHooks: SchemaHooks<typeof ArticleSchema> = {
 		beforeDelete: ({ operation }) => {
@@ -355,8 +355,8 @@ test('rejects incompatible hook declarations and return values', () => {
 		},
 	}
 	const invalidFamilyHooks: SchemaHooks<typeof ArticleSchema> = {
-		// @ts-expect-error -- Save families never accept read-specific handlers.
-		beforeSave: { find: () => undefined },
+		// @ts-expect-error -- Input resolution accepts only save-family branches.
+		resolveInput: { read: () => undefined },
 	}
 	const invalidEmptyList: SchemaHooks<typeof ArticleSchema> = {
 		// @ts-expect-error -- Ordered hook lists must contain at least one handler.
@@ -364,11 +364,11 @@ test('rejects incompatible hook declarations and return values', () => {
 	}
 	const invalidEmptyFamily: SchemaHooks<typeof ArticleSchema> = {
 		// @ts-expect-error -- Family maps must declare at least one branch.
-		beforeSave: {},
+		resolveInput: {},
 	}
 	const invalidFamilyReturn: SchemaHooks<typeof ArticleSchema> = {
 		// @ts-expect-error -- A create transform must retain its operation family.
-		beforeOperation: {
+		resolveInput: {
 			create: () => 42,
 		},
 	}

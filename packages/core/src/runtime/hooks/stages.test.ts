@@ -249,6 +249,39 @@ describe('createRuntimeHookStages', () => {
 		)
 	})
 
+	it('prevents low-level before-hooks from changing query result shape', async () => {
+		const replacement: UpdateOneOperationAst<typeof articleSchema> = {
+			...updateOperation,
+			query: new Query(articleSchema)
+				.equalTo('id', 'article-1')
+				.select({ title: true }).ast,
+		}
+		const plugin = definePlugin({
+			name: 'fixture.query-shape-replacement',
+			setup: ({ registries }) => {
+				registries.hooks.register(
+					'fixture.query-shape-replacement',
+					beforeOperation({
+						operations: ['update-one'],
+						handler: (() => ({ operation: replacement })) as never,
+					}),
+				)
+			},
+		})
+		const application = await createApplication({
+			plugins: [plugin],
+			schemas: [articleSchema],
+		})
+		const stages = createRuntimeHookStages(application)
+
+		await expect(
+			stages.globalBeforeHooks({ context, operation: updateOperation }),
+		).rejects.toMatchObject({
+			code: 'VALIDATION_ERROR',
+			publicMessage: 'A hook returned an invalid value.',
+		})
+	})
+
 	it('resolves only update values against one locked singular target', async () => {
 		const handler = vi.fn()
 		const plugin = definePlugin({

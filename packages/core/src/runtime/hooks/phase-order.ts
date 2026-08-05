@@ -42,8 +42,8 @@ const createSavePhaseOrder = (
 ): NativeHookPhaseOrder =>
 	createPhaseOrder(
 		family,
-		immutableArray(['beforeOperation', 'beforeSave', exactBefore]),
-		immutableArray([exactAfter, 'afterSave', 'afterOperation']),
+		immutableArray([exactBefore]),
+		immutableArray([exactAfter]),
 		immutableArray(['beforeSave', exactBefore]),
 		immutableArray([exactAfter, 'afterSave']),
 	)
@@ -72,8 +72,8 @@ const upsertOrder = createSavePhaseOrder(
 )
 const deleteOneOrder = createPhaseOrder(
 	'delete',
-	immutableArray(['beforeOperation', 'beforeDelete']),
-	immutableArray(['afterDelete', 'afterOperation']),
+	immutableArray(['beforeDelete']),
+	immutableArray(['afterDelete']),
 	immutableArray(['beforeDelete']),
 	immutableArray(['afterDelete']),
 )
@@ -84,25 +84,25 @@ const deleteManyOrder = createPhaseOrder(
 	noFieldPhases,
 	noFieldPhases,
 )
-const findOrder = createPhaseOrder(
-	'find',
-	immutableArray(['beforeOperation', 'beforeFind']),
-	immutableArray(['afterFind', 'afterOperation']),
+const readOrder = createPhaseOrder(
+	'read',
+	immutableArray(['beforeRead']),
+	immutableArray(['afterRead']),
 	noFieldPhases,
 	noFieldPhases,
 )
 
 // The exhaustive record makes new query terminals fail type checking until ordered.
 const nativeHookPhaseOrders = immutableRecord({
-	count: findOrder,
+	count: readOrder,
 	'create-many': createOrder,
 	'create-one': createOrder,
 	'delete-many': deleteManyOrder,
 	'delete-one': deleteOneOrder,
-	exists: findOrder,
-	find: findOrder,
-	first: findOrder,
-	get: findOrder,
+	exists: readOrder,
+	find: readOrder,
+	first: readOrder,
+	get: readOrder,
 	'update-many': updateManyOrder,
 	'update-one': updateOneOrder,
 	'upsert-many': upsertOrder,

@@ -102,10 +102,12 @@ consumers of Core Query and Runtime contracts.
 `pointerField` is the first producer of this graph. Its ordinary value is the
 nominal immutable `Pointer<TSchema>` class, which carries exact schema identity
 and a string object ID without loading a target. Pointer metadata defines only
-logical presence, uniqueness, and referential action. Direct target queries and
-inclusion execute through Runtime with a private ID row filter combined
-monotonically with Access. Database adapters explicitly advertise the versioned
-portable pointer capability; physical foreign keys remain adapter-owned.
+logical presence, uniqueness, and referential action. Direct target queries
+execute through Runtime with a private ID row filter combined monotonically
+with Access. Inclusion instead carries a separately prepared singular target
+Access plan to an eager-capable adapter, without manufacturing target schema
+hooks. Database adapters explicitly advertise the versioned portable pointer
+capabilities; physical foreign keys remain adapter-owned.
 
 ## Plugins
 
@@ -266,7 +268,7 @@ AND field decisions
 - `field` controls read, filter, order, create, and update use.
 
 Access filters reuse Core's typed filter AST but remain outside the developer
-Query. Query predicates, `beforeFind` predicates, and every Access provider
+Query. Query predicates, `beforeRead` predicates, and every Access provider
 constraint combine through logical `AND`; a business hook cannot inspect or
 remove the private Access state.
 

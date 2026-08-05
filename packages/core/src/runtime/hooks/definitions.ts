@@ -17,8 +17,8 @@ import type {
 	DatabaseMutationLogicalRecord,
 	DatabaseMutationOperationAst,
 	DatabaseOperationAst,
-	DatabaseOperationResult,
 } from '../database/contracts.js'
+import type { RuntimeOperationResult } from '../pipeline/contracts.js'
 /** Supplies low-level hooks with safe execution identity and one operation. */
 export interface RuntimeHookOperationInput<
 	TOperation extends DatabaseOperationAst,
@@ -33,8 +33,8 @@ export interface RuntimeHookOperationInput<
 export interface RuntimeHookResultInput<
 	TOperation extends DatabaseOperationAst,
 > extends RuntimeHookOperationInput<TOperation> {
-	/** Contains the immutable adapter result paired with the observed operation. */
-	readonly result: DatabaseOperationResult<TOperation>
+	/** Contains the immutable hydrated result paired with the observed operation. */
+	readonly result: RuntimeOperationResult<TOperation>
 }
 
 /** Supplies one stable singular preimage after Access has authorized its row. */
@@ -75,7 +75,7 @@ export interface BeforeOperationResult<
 
 /** Makes every after-hook transformation explicit rather than relying on mutation. */
 export interface AfterOperationResult<TOperation extends DatabaseOperationAst> {
-	readonly result: DatabaseOperationResult<TOperation>
+	readonly result: RuntimeOperationResult<TOperation>
 }
 
 export type BeforeOperationHandler<
@@ -410,7 +410,7 @@ export const createAfterHookInput = <
 >(
 	context: HookContext,
 	operation: TOperation,
-	result: DatabaseOperationResult<TOperation>,
+	result: RuntimeOperationResult<TOperation>,
 ): RuntimeHookResultInput<TOperation> =>
 	immutableRecord({ context, operation, result })
 

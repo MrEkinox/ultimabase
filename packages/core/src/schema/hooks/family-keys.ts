@@ -13,8 +13,8 @@ export const mutationHookFamilies: readonly [
 /** Adds reads to the complete operation-family vocabulary. */
 export const operationHookFamilies: readonly [
 	...typeof mutationHookFamilies,
-	'find',
-] = immutableArray([...mutationHookFamilies, 'find'])
+	'read',
+] = immutableArray([...mutationHookFamilies, 'read'])
 
 /** Identifies one logical family without splitting singular and bulk terminals. */
 export type HookOperationFamily = (typeof operationHookFamilies)[number]

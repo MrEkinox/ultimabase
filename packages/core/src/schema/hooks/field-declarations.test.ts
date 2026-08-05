@@ -151,7 +151,7 @@ describe('field hook declarations', () => {
 			hooks: {
 				afterRollback: { all: broad, delete: specific },
 				onChange: { all: broad, delete: specific },
-				resolveOutput: { all: broad, find: specific },
+				resolveOutput: { all: broad, read: specific },
 			},
 		})
 		const declarations = getFieldHookDeclarations(field)
@@ -162,7 +162,7 @@ describe('field hook declarations', () => {
 			),
 		).toStrictEqual([broad, specific])
 		expect(
-			getHookHandlerEntries(declarations, 'resolveOutput', 'find').map(
+			getHookHandlerEntries(declarations, 'resolveOutput', 'read').map(
 				({ handler }) => handler,
 			),
 		).toStrictEqual([specific, broad])
@@ -222,8 +222,8 @@ describe('field hook declarations', () => {
 
 	it('rejects unknown hook phases with their complete path', () => {
 		expect(() =>
-			declareStringFieldFromUnknown({ hooks: { beforeFind: onError } }),
-		).toThrow(new TypeError('Unknown field hook: hooks.beforeFind'))
+			declareStringFieldFromUnknown({ hooks: { beforeRead: onError } }),
+		).toThrow(new TypeError('Unknown field hook: hooks.beforeRead'))
 	})
 
 	it('rejects symbol hook phases without silently copying them', () => {

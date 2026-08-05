@@ -21,6 +21,18 @@ import {
 
 const pointerTrace: string[] = []
 const pointerRollbackError = new Error('pointer update rollback fixture')
+const queuedPointerIds: string[] = []
+let generatedPointerId = 0
+
+const generatePointerId = (): string => {
+	const queued = queuedPointerIds.shift()
+
+	if (queued !== undefined) return queued
+
+	generatedPointerId += 1
+
+	return `0198a43e-2431-7000-8000-${generatedPointerId.toString(16).padStart(12, '0')}`
+}
 
 const User = Schema.define({
 	className: 'PointerE2EUser',
@@ -28,13 +40,13 @@ const User = Schema.define({
 		name: stringField({ validation: { required: true } }),
 	},
 	hooks: {
-		afterFind: ({ result }) => {
-			pointerTrace.push('user:afterFind')
+		afterRead: ({ result }) => {
+			pointerTrace.push('user:afterRead')
 
 			return result
 		},
-		beforeFind: ({ query }) => {
-			pointerTrace.push('user:beforeFind')
+		beforeRead: ({ query }) => {
+			pointerTrace.push('user:beforeRead')
 
 			return query
 		},
@@ -45,13 +57,6 @@ const Post = Schema.define({
 	className: 'PointerE2EPost',
 	fields: {
 		author: pointerField({
-			hooks: {
-				resolveOutput: ({ value }) => {
-					pointerTrace.push('post:author:resolveOutput')
-
-					return value
-				},
-			},
 			indexed: true,
 			target: () => User,
 			validation: { required: true },
@@ -257,6 +262,7 @@ beforeAll(async () => {
 		validation: {
 			clock: () => new Date('2026-08-03T18:00:00.000Z'),
 			timezone: 'UTC',
+			uuidV7Generator: generatePointerId,
 		},
 	})
 
@@ -277,6 +283,41 @@ afterAll(async () => {
 })
 
 describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
+	it('stabilizes an eager first cursor page by id without explicit ordering', async () => {
+		const app = getUltimaBase()
+		const author = await User.create(
+			{ name: 'Cursor author' },
+			{ ultimabase: app },
+		)
+		const higherId = '0198a43e-2431-7000-8000-00000000f002'
+		const lowerId = '0198a43e-2431-7000-8000-00000000f001'
+
+		queuedPointerIds.push(higherId)
+		await Post.create(
+			{ author: User.pointer(author.id), title: 'Cursor order fixture' },
+			{ ultimabase: app },
+		)
+		queuedPointerIds.push(lowerId)
+		await Post.create(
+			{ author: User.pointer(author.id), title: 'Cursor order fixture' },
+			{ ultimabase: app },
+		)
+
+		const page = await Post.query()
+			.equalTo('title', 'Cursor order fixture')
+			.select({ id: true })
+			.include('author', (query) => query.select({ name: true }))
+			.limit(2)
+			.after()
+			.find({ ultimabase: app })
+
+		expect(page.map(({ id }) => id)).toStrictEqual([lowerId, higherId])
+		expect(page.map(({ author: included }) => included?.name)).toStrictEqual([
+			'Cursor author',
+			'Cursor author',
+		])
+	})
+
 	it('executes public CRUD, model commands, selection-aware inclusion, and hooks', async () => {
 		const app = getUltimaBase()
 		pointerTrace.length = 0
@@ -303,20 +344,29 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 
 		expect(included?.title).toBe('Typed pointer')
 		expect(included?.author?.toJSON()).toStrictEqual({ name: 'Ada' })
-		expect(pointerTrace).toEqual(
-			expect.arrayContaining([
-				'post:author:resolveOutput',
-				'user:beforeFind',
-				'user:afterFind',
-			]),
+		expect(pointerTrace).not.toContain('user:beforeRead')
+		expect(pointerTrace).not.toContain('user:afterRead')
+
+		if (included?.author === null || included?.author === undefined) {
+			throw new TypeError('Expected an included author model')
+		}
+
+		const renamedAuthor = await included.author.update(
+			{ name: 'Ada Lovelace' },
+			{ ultimabase: app },
 		)
+
+		expect(renamedAuthor?.name).toBe('Ada Lovelace')
 
 		const directAuthor = await firstPointer
 			.query()
 			.select({ name: true })
 			.first({ ultimabase: app })
 
-		expect(directAuthor?.toJSON()).toStrictEqual({ name: 'Ada' })
+		expect(directAuthor?.toJSON()).toStrictEqual({ name: 'Ada Lovelace' })
+		expect(pointerTrace).toEqual(
+			expect.arrayContaining(['user:beforeRead', 'user:afterRead']),
+		)
 
 		pointerTrace.length = 0
 		const updated = await created.update(

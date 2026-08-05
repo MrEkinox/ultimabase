@@ -328,7 +328,7 @@ test('types ordered field handler lists and compatible family maps', () => {
 		},
 		resolveOutput: {
 			all: ({ value }) => value,
-			find: ({ kind, value }) => {
+			read: ({ kind, value }) => {
 				expectTypeOf(kind).toEqualTypeOf<'find' | 'first' | 'get'>()
 
 				return value
@@ -342,7 +342,7 @@ test('types ordered field handler lists and compatible family maps', () => {
 test('rejects invalid field families, empty lists, and incompatible returns', () => {
 	const invalidFamilyHooks: FieldHooks<typeof titleField> = {
 		// @ts-expect-error -- Save families never accept read-specific handlers.
-		beforeSave: { find: () => undefined },
+		beforeSave: { read: () => undefined },
 	}
 	const invalidEmptyList: FieldHooks<typeof titleField> = {
 		// @ts-expect-error -- Ordered hook lists must contain at least one handler.

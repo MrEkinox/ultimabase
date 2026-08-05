@@ -1,4 +1,5 @@
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
+import { isDeepStrictEqual } from 'node:util'
 
 import { hydrateQueryFromAst, Query } from '../../query/query/query.js'
 import type {
@@ -20,8 +21,10 @@ import type {
 	DatabaseOperationResult,
 } from '../database/contracts.js'
 import type {
+	RuntimeNativeDatabaseResultStageInput,
 	RuntimeNativeHookStages,
 	RuntimeNativeResultStageInput,
+	RuntimeOperationResult,
 	RuntimeOperationStageInput,
 } from '../pipeline/contracts.js'
 import {
@@ -70,13 +73,13 @@ import {
 
 const createSchemaResultInput = <const TOperation extends DatabaseOperationAst>(
 	operation: TOperation,
-	result: DatabaseOperationResult<TOperation>,
+	result: RuntimeOperationResult<TOperation>,
 	context: HookContext,
 ): Readonly<{
 	readonly context: HookContext
 	readonly kind: TOperation['kind']
 	readonly operation: TOperation
-	readonly result: DatabaseOperationResult<TOperation>
+	readonly result: RuntimeOperationResult<TOperation>
 }> => immutableRecord({ context, kind: operation.kind, operation, result })
 
 type RuntimeReadOperation = Extract<
@@ -102,7 +105,7 @@ const readQueryAst = (operation: DatabaseOperationAst): QueryAst => {
 		case 'update-one':
 		case 'upsert-many':
 		case 'upsert-one':
-			throw new TypeError('beforeFind requires a read operation')
+			throw new TypeError('beforeRead requires a read operation')
 	}
 }
 
@@ -112,6 +115,10 @@ const hasSameSelection = (left: QueryAst, right: QueryAst): boolean =>
 		(selected, index) =>
 			selected.field === right.selection.fields[index]?.field,
 	)
+
+/** Prevents a read hook from invalidating the inclusion encoded in its result type. */
+const hasSameInclusion = (left: QueryAst, right: QueryAst): boolean =>
+	isDeepStrictEqual(left.inclusion, right.inclusion)
 
 /** Recovers the builder's normalized filter specialization at the Runtime seam. */
 const hydrateRuntimeQuery = (
@@ -130,7 +137,7 @@ const isRuntimeQuery = (
 	value instanceof Query
 
 /** Lets read hooks replace builder state without changing schema or projection. */
-const runBeforeFind = async <const TOperation extends DatabaseOperationAst>(
+const runBeforeRead = async <const TOperation extends DatabaseOperationAst>(
 	boundaries: RuntimeHookBoundaries,
 	plan: NativeHookContributionPlan,
 	runtime: HookExecutionRuntime,
@@ -147,10 +154,10 @@ const runBeforeFind = async <const TOperation extends DatabaseOperationAst>(
 	const handlers = collectNestedHookHandlers(
 		schemaPlan.contributions,
 		'before',
-		'beforeFind',
+		'beforeRead',
 		input.operation.kind,
 		createSchemaHookTarget(schemaPlan.schema.className),
-		'find',
+		'read',
 	)
 
 	return runHookTransformChain(
@@ -177,15 +184,19 @@ const runBeforeFind = async <const TOperation extends DatabaseOperationAst>(
 			}
 
 			if (!isRuntimeQuery(replacement)) {
-				throw new TypeError('beforeFind must return an immutable Query')
+				throw new TypeError('beforeRead must return an immutable Query')
 			}
 
 			if (replacement.schema !== query.schema) {
-				throw new TypeError('beforeFind must retain the exact schema')
+				throw new TypeError('beforeRead must retain the exact schema')
 			}
 
 			if (!hasSameSelection(currentAst, replacement.ast)) {
-				throw new TypeError('beforeFind must retain the exact query selection')
+				throw new TypeError('beforeRead must retain the exact query selection')
+			}
+
+			if (!hasSameInclusion(currentAst, replacement.ast)) {
+				throw new TypeError('beforeRead must retain the exact query inclusion')
 			}
 
 			const readOperation = current as unknown as RuntimeReadOperation
@@ -205,7 +216,7 @@ const resolveFieldOutputs = async <
 >(
 	plan: NativeHookContributionPlan,
 	runtime: HookExecutionRuntime,
-	input: RuntimeNativeResultStageInput<TOperation>,
+	input: RuntimeNativeDatabaseResultStageInput<TOperation>,
 ): Promise<DatabaseOperationResult<TOperation>> => {
 	const schema = requireDeclaredOperationSchema(input.operation)
 	const family = getNativeHookPhaseOrder(input.operation.kind).family
@@ -351,8 +362,8 @@ const runSchemaBeforePhases = async <
 
 	for (const phase of order.schemaBefore) {
 		operation =
-			phase === 'beforeFind'
-				? await runBeforeFind(
+			phase === 'beforeRead'
+				? await runBeforeRead(
 						boundaries,
 						plan,
 						runtime,
@@ -379,7 +390,7 @@ const resolveInput = async <const TOperation extends DatabaseOperationAst>(
 ): Promise<TOperation> => {
 	const order = getNativeHookPhaseOrder(input.operation.kind)
 
-	if (order.family === 'delete' || order.family === 'find') {
+	if (order.family === 'delete' || order.family === 'read') {
 		return input.operation
 	}
 
@@ -403,7 +414,7 @@ const validateInput = async <const TOperation extends DatabaseOperationAst>(
 ): Promise<void> => {
 	const order = getNativeHookPhaseOrder(input.operation.kind)
 
-	if (order.family === 'delete' || order.family === 'find') {
+	if (order.family === 'delete' || order.family === 'read') {
 		return
 	}
 
@@ -576,7 +587,7 @@ const runSchemaResultPhases = async <
 	plan: NativeHookContributionPlan,
 	runtime: HookExecutionRuntime,
 	input: RuntimeNativeResultStageInput<TOperation>,
-): Promise<DatabaseOperationResult<TOperation>> => {
+): Promise<RuntimeOperationResult<TOperation>> => {
 	const schemaPlan = plan.getSchema(
 		requireDeclaredOperationSchema(input.operation),
 	)

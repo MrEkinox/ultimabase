@@ -1,5 +1,6 @@
 import {
 	databasePointerCapability,
+	databasePointerInclusionCapability,
 	databaseRelationCapability,
 	databaseRelationPredicateCapability,
 	FrameworkError,
@@ -46,10 +47,16 @@ import { createPostgresTransactionError } from './transaction-error.js'
 import { compilePostgresRowFilter } from '../query/filter-compiler.js'
 import { compilePostgresRelationPredicate } from '../query/relation-compiler.js'
 import { createPostgresRelationPredicateCompiler } from '../query/relation-predicate-compiler.js'
+import {
+	executePostgresEagerPointerRequest,
+	readPostgresEagerObjectIdentity,
+	readPostgresIncludedPointer,
+} from './eager-pointer-executor.js'
 
 const postgresObjectIdentities = new WeakMap<object, unknown>()
 const postgresDatabaseCapabilities = immutableRecord({
 	pointers: databasePointerCapability,
+	pointerInclusions: databasePointerInclusionCapability,
 	relations: databaseRelationCapability,
 	relationPredicates: databaseRelationPredicateCapability,
 })
@@ -155,7 +162,9 @@ const projectPostgresReadResult = (
 
 const readPostgresObjectIdentity = (
 	record: Readonly<Record<string, unknown>>,
-): unknown => postgresObjectIdentities.get(record)
+): unknown =>
+	postgresObjectIdentities.get(record) ??
+	readPostgresEagerObjectIdentity(record)
 
 const readOperationSchema = (operation: DatabaseOperationAst): unknown => {
 	if (
@@ -293,18 +302,27 @@ const executePostgresRequest = async <
 	)
 	// Runtime guarantees the closed Operation AST union before the adapter boundary.
 	const operation = request.operation as unknown as ExecutableOperationAst
-	const result: unknown = await executePostgresOperation(
-		client,
-		schema,
-		operation,
-		effectivePredicate,
-		relationPredicateCompiler,
-	)
+	const eager =
+		request.pointerInclusions !== undefined &&
+		request.pointerInclusions.length > 0
+	const result: unknown = eager
+		? await executePostgresEagerPointerRequest(
+				client,
+				schemas,
+				constraintCompilers,
+				request,
+			)
+		: await executePostgresOperation(
+				client,
+				schema,
+				operation,
+				effectivePredicate,
+				relationPredicateCompiler,
+			)
 
 	// Exhaustive operation dispatch preserves Runtime's discriminant-to-result contract.
-	return projectPostgresReadResult(
-		request.operation,
-		result,
+	return (
+		eager ? result : projectPostgresReadResult(request.operation, result)
 	) as DatabaseOperationResult<TOperation>
 }
 
@@ -339,6 +357,13 @@ class DrizzlePostgresTransactionAdapter implements DatabaseTransactionAdapter {
 	/** Exposes only identity retained for the exact projected adapter record. */
 	readObjectIdentity(record: Readonly<Record<string, unknown>>): unknown {
 		return readPostgresObjectIdentity(record)
+	}
+
+	readIncludedPointer(
+		record: Readonly<Record<string, unknown>>,
+		fieldPath: readonly string[],
+	) {
+		return readPostgresIncludedPointer(record, fieldPath)
 	}
 
 	/** Prevents an escaped adapter from issuing work after commit or rollback. */
@@ -486,6 +511,13 @@ class DrizzlePostgresDatabaseAdapter implements DatabaseAdapter {
 	/** Exposes only identity retained for the exact projected adapter record. */
 	readObjectIdentity(record: Readonly<Record<string, unknown>>): unknown {
 		return readPostgresObjectIdentity(record)
+	}
+
+	readIncludedPointer(
+		record: Readonly<Record<string, unknown>>,
+		fieldPath: readonly string[],
+	) {
+		return readPostgresIncludedPointer(record, fieldPath)
 	}
 
 	execute<const TOperation extends DatabaseOperationAst>(

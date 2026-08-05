@@ -162,7 +162,7 @@ const CombinedPost = Schema.define({
 		title: stringField({ validation: { required: true } }),
 	},
 	hooks: {
-		beforeFind: ({ query }) =>
+		beforeRead: ({ query }) =>
 			query.equalTo('businessScope', 'business-allowed'),
 	},
 	// A callback defers role discovery so this fixture can prove runtime composition.

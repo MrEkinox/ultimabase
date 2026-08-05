@@ -4,6 +4,7 @@ import type {
 	TableRelationalConfig,
 	TablesRelationalConfig,
 } from 'drizzle-orm'
+import type { PgTable } from 'drizzle-orm/pg-core'
 
 import type { PostgresSchemaCatalog } from '../schema/catalog.js'
 import type { CompiledPostgresRelation } from '../schema/contracts.js'
@@ -23,6 +24,7 @@ export const compilePostgresRelationPredicate = (
 	catalog: PostgresSchemaCatalog,
 	relation: CompiledPostgresRelation,
 	sourceObjectId: string,
+	targetTable: PgTable = relation.target.table,
 ): SQL => {
 	resolveCompiledPostgresField(relation.source, 'id')
 
@@ -40,7 +42,7 @@ export const compilePostgresRelationPredicate = (
 		catalog,
 		binding,
 		'target',
-		relation.target.table,
+		targetTable,
 		filter,
 	)
 }
