@@ -23,15 +23,10 @@ import { createPostgresForeignKeyName } from '../naming/foreign-key.js'
 import { resolvePostgresTableName } from '../naming/table.js'
 import type {
 	CompiledPostgresField,
-	CompiledPostgresIndex,
-	CompiledPostgresPointer,
 	CompiledPostgresSchema,
 } from './contracts.js'
 import { compilePostgresFieldBuilder } from './field-compiler.js'
-import {
-	compilePostgresIndexBuilders,
-	resolvePostgresIndexMethod,
-} from './index-compiler.js'
+import { compilePostgresIndexBuilders } from './index-compiler.js'
 
 const hasIndex = (plan: FieldValidationPlan): boolean =>
 	'indexed' in plan.field.options &&
@@ -90,6 +85,12 @@ interface PreparedPostgresSchema {
 	readonly tableName: string
 }
 
+interface PreparedPostgresPointer {
+	readonly constraintName: string
+	readonly onDelete: PointerReferentialAction
+	readonly targetSchema: SchemaDefinition
+}
+
 const postgresReferentialActions: Readonly<
 	Record<PointerReferentialAction, UpdateDeleteAction>
 > = immutableRecord({
@@ -118,7 +119,7 @@ const resolvePointerMetadata = (
 	fieldName: string,
 	plan: FieldValidationPlan,
 	targets: SchemaTargetGraph | undefined,
-): CompiledPostgresPointer | undefined => {
+): PreparedPostgresPointer | undefined => {
 	if (plan.kind !== 'scalar' || plan.field.kind !== 'pointer') return undefined
 
 	const targetSchema = targets?.get(schema, [fieldName])
@@ -141,15 +142,13 @@ const resolvePointerMetadata = (
 			'id',
 		),
 		onDelete,
-		targetColumn: 'id',
 		targetSchema,
-		targetTable,
 	})
 }
 
 const compilePointerConstraints = (
 	columns: Readonly<Record<string, PgColumn>>,
-	pointers: readonly [string, CompiledPostgresPointer][],
+	pointers: readonly [string, PreparedPostgresPointer][],
 	resolveTargetColumn: (schema: SchemaDefinition) => PgColumn,
 ): PgTableExtraConfigValue[] =>
 	pointers.map(([fieldName, pointer]) => {
@@ -177,7 +176,7 @@ const preparePostgresSchema = (
 	const validationPlan = compileValidationPlans(schema).create
 	const builderEntries: [string, AnyPgColumnBuilder][] = []
 	const pendingFields: [string, Omit<CompiledPostgresField, 'column'>][] = []
-	const pointerEntries: [string, CompiledPostgresPointer][] = []
+	const pointerEntries: [string, PreparedPostgresPointer][] = []
 	const fieldNames = new Set(Object.keys(validationPlan.fields))
 	const renameSources = new Set<string>()
 
@@ -221,7 +220,6 @@ const preparePostgresSchema = (
 					? {}
 					: { generation: compiled.generation }),
 				plan,
-				...(pointer === undefined ? {} : { pointer }),
 				...(renamedFrom === undefined ? {} : { renamedFrom }),
 				storage: compiled.storage,
 			},
@@ -254,7 +252,7 @@ const preparePostgresSchema = (
 const finalizePostgresSchema = (
 	prepared: PreparedPostgresSchema,
 ): CompiledPostgresSchema => {
-	const { definition, pendingFields, schema, table, tableName } = prepared
+	const { pendingFields, schema, table, tableName } = prepared
 	const tableConfig = getTableConfig(table)
 	const columns = indexColumnsByName(tableConfig.columns)
 	const fields = immutableRecord(
@@ -270,38 +268,10 @@ const finalizePostgresSchema = (
 			}),
 		) as Record<string, CompiledPostgresField>,
 	)
-	const storageByField = immutableRecord(
-		Object.fromEntries(
-			pendingFields.map(([fieldName, field]) => [fieldName, field.storage]),
-		) as Record<string, CompiledPostgresField['storage']>,
-	)
-	const indexes = immutableArray(
-		definition.indexes.map(
-			(indexDefinition, position): CompiledPostgresIndex => {
-				const compiledIndex = tableConfig.indexes[position]
-				const name = compiledIndex?.config.name
-
-				if (compiledIndex === undefined || name === undefined) {
-					throw new TypeError(
-						`Drizzle omitted PostgreSQL index at position: ${String(position)}`,
-					)
-				}
-
-				return immutableRecord({
-					fields: indexDefinition.fields,
-					index: compiledIndex,
-					method: resolvePostgresIndexMethod(indexDefinition, storageByField),
-					name,
-					unique: indexDefinition.unique,
-				})
-			},
-		),
-	)
 
 	return immutableRecord({
 		definition: schema,
 		fields,
-		indexes,
 		table,
 		tableName,
 	})

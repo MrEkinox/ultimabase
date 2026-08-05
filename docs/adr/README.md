@@ -130,6 +130,7 @@ Accepted records:
 - [ADR-0135: First-class Query range filters](0135-first-class-query-range-filters.md)
 - [ADR-0136: Structured Query targets for JSON and object fields](0136-structured-query-targets.md)
 - [ADR-0137: Drizzle-native PostgreSQL relation compilation](0137-drizzle-native-relation-compilation.md)
+- [ADR-0138: Drizzle-native PostgreSQL synchronization metadata](0138-drizzle-native-synchronization-metadata.md)
 
 Superseded records:
 

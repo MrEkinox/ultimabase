@@ -42,19 +42,11 @@ describe('PostgreSQL primitive schema compiler', () => {
 
 		expect(compiled.fields.author).toMatchObject({
 			column: { notNull: true },
-			pointer: {
-				onDelete: 'cascade',
-				targetColumn: 'id',
-				targetSchema: User,
-				targetTable: 'pointer_users',
-			},
 			storage: 'uuid',
 		})
-		expect(compiled.indexes).toHaveLength(1)
+		expect(table.indexes).toHaveLength(1)
 		expect(foreignKey?.onDelete).toBe('cascade')
-		expect(foreignKey?.getName()).toBe(
-			compiled.fields.author?.pointer?.constraintName,
-		)
+		expect(foreignKey?.isNameExplicit()).toBe(true)
 		expect(reference?.columns.map(({ name }) => name)).toStrictEqual(['author'])
 		expect(reference?.foreignColumns.map(({ name }) => name)).toStrictEqual([
 			'id',

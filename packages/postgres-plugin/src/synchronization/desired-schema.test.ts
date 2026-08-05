@@ -1,5 +1,6 @@
 import { Schema, intField, stringField } from '@ultimabase/core'
 import { describe, expect, it } from 'vitest'
+import { getTableConfig } from 'drizzle-orm/pg-core'
 
 import { postgresColumn } from '../naming/column.js'
 import { compilePostgresSchema } from '../schema/schema-compiler.js'
@@ -9,12 +10,14 @@ import { compileDesiredPostgresTables } from './desired-schema.js'
 describe('desired PostgreSQL schema', () => {
 	it('detaches managed pointer foreign keys from Drizzle metadata', () => {
 		const { catalog, Post } = createPostgresPointerFixture()
-		const [table] = compileDesiredPostgresTables([catalog.get(Post)])
+		const compiled = catalog.get(Post)
+		const [table] = compileDesiredPostgresTables([compiled])
+		const [drizzleForeignKey] = getTableConfig(compiled.table).foreignKeys
 
 		expect(table?.foreignKeys).toStrictEqual([
 			{
 				column: 'author',
-				name: catalog.get(Post).fields.author?.pointer?.constraintName,
+				name: drizzleForeignKey?.getName(),
 				onDelete: 'cascade',
 				targetColumn: 'id',
 				targetTable: 'pointer_users',

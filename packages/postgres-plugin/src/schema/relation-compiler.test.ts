@@ -41,15 +41,46 @@ describe('PostgreSQL relation compilation', () => {
 			'target_id',
 		])
 		expect(
-			join.indexes.map(({ fields, unique }) => ({ fields, unique })),
+			config.indexes.map(({ config: indexConfig }) => ({
+				fields: indexConfig.columns.map((column) => {
+					if (
+						typeof column !== 'object' ||
+						!('name' in column) ||
+						typeof column.name !== 'string'
+					) {
+						throw new TypeError('Expected a named relation index column')
+					}
+
+					return column.name
+				}),
+				unique: indexConfig.unique,
+			})),
 		).toStrictEqual([
 			{ fields: ['source_id', 'target_id'], unique: true },
 			{ fields: ['source_id'], unique: false },
 			{ fields: ['target_id'], unique: false },
 		])
-		expect(join.foreignKeys).toMatchObject([
-			{ column: 'source_id', targetTable: 'postgres_relation_articles' },
-			{ column: 'target_id', targetTable: 'postgres_relation_tags' },
+		expect(
+			config.foreignKeys.map((foreignKey) => {
+				const reference = foreignKey.reference()
+
+				return {
+					column: reference.columns[0]?.name,
+					onDelete: foreignKey.onDelete,
+					targetTable: getTableConfig(reference.foreignTable).name,
+				}
+			}),
+		).toStrictEqual([
+			{
+				column: 'source_id',
+				onDelete: 'cascade',
+				targetTable: 'postgres_relation_articles',
+			},
+			{
+				column: 'target_id',
+				onDelete: 'cascade',
+				targetTable: 'postgres_relation_tags',
+			},
 		])
 		expect(catalog.relationValues()).toHaveLength(1)
 	})

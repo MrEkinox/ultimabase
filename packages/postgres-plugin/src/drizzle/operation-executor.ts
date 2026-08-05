@@ -8,13 +8,14 @@ import type {
 import type { SchemaDefinition } from '@ultimabase/core'
 import { isPlainRecord } from '@ultimabase/shared'
 import { and, count, eq, inArray, type SQL } from 'drizzle-orm'
-import type { PgColumn } from 'drizzle-orm/pg-core'
+import { getTableConfig, type PgColumn } from 'drizzle-orm/pg-core'
 
 import type { CompiledPostgresSchema } from '../schema/contracts.js'
 import {
 	compilePostgresSelection,
 	resolveCompiledPostgresField,
 } from '../schema/field.js'
+import { readDrizzleIndexColumns } from '../schema/drizzle-table-metadata.js'
 import {
 	compilePostgresQueryClauses,
 	type CompiledPostgresQueryClauses,
@@ -465,13 +466,19 @@ export const tryCreatePostgresUpsert = async (
 ): Promise<Readonly<Record<string, unknown>> | null> => {
 	const targetFields = target.fields
 	const targetsId = targetFields.length === 1 && targetFields[0] === 'id'
-	const targetsUniqueIndex = schema.indexes.some(
-		(index) =>
-			index.unique &&
-			index.fields.length === targetFields.length &&
-			index.fields.every(
-				(fieldName, index) => fieldName === targetFields[index],
-			),
+	const targetsUniqueIndex = getTableConfig(schema.table).indexes.some(
+		(index) => {
+			if (!index.config.unique) return false
+
+			const indexFields = readDrizzleIndexColumns(index)
+
+			return (
+				indexFields.length === targetFields.length &&
+				indexFields.every(
+					(fieldName, index) => fieldName === targetFields[index],
+				)
+			)
+		},
 	)
 
 	if (!targetsId && !targetsUniqueIndex) {

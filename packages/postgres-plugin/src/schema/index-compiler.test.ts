@@ -24,14 +24,15 @@ describe('PostgreSQL index compiler', () => {
 			className: 'IndexedPluginValue',
 			fields: { value: createStoredPluginField() },
 		})
-		const [compiledIndex] = compilePostgresSchema(schema).indexes
+		const [compiledIndex] = getTableConfig(
+			compilePostgresSchema(schema).table,
+		).indexes
 
-		expect(compiledIndex).toMatchObject({
-			fields: ['value'],
-			method: 'gin',
-			unique: false,
-		})
-		expect(compiledIndex?.index.config.method).toBe('gin')
+		expect(compiledIndex?.config.method).toBe('gin')
+		expect(compiledIndex?.config.unique).toBe(false)
+		expect(
+			compiledIndex?.config.columns.map(readIndexColumnName),
+		).toStrictEqual(['value'])
 	})
 
 	it('compiles ordinary, unique, and composite indexes in normalized order', () => {
@@ -51,29 +52,22 @@ describe('PostgreSQL index compiler', () => {
 		const drizzleIndexes = getTableConfig(compiled.table).indexes
 
 		expect(
-			compiled.indexes.map(({ fields, unique }) => ({ fields, unique })),
+			drizzleIndexes.map(({ config }) => ({
+				fields: config.columns.map(readIndexColumnName),
+				unique: config.unique,
+			})),
 		).toStrictEqual([
 			{ fields: ['slug'], unique: true },
 			{ fields: ['title'], unique: false },
 			{ fields: ['authorId', 'createdAt'], unique: false },
 			{ fields: ['authorId', 'slug'], unique: true },
 		])
-		expect(
-			drizzleIndexes.map(({ config }) => ({
-				columns: config.columns.map(readIndexColumnName),
-				name: config.name,
-				unique: config.unique,
-			})),
-		).toStrictEqual(
-			compiled.indexes.map(({ fields, name, unique }) => ({
-				columns: fields,
-				name,
-				unique,
-			})),
+		const names = drizzleIndexes.map(({ config }) => config.name)
+
+		expect(new Set(names).size).toBe(4)
+		expect(names.every((name) => name !== undefined && name.length <= 63)).toBe(
+			true,
 		)
-		expect(new Set(compiled.indexes.map(({ name }) => name)).size).toBe(4)
-		expect(compiled.indexes.every(({ name }) => name.length <= 63)).toBe(true)
-		expect(Object.isFrozen(compiled.indexes)).toBe(true)
 	})
 
 	it('retains unique composite columns as a future upsert conflict target', () => {
@@ -85,18 +79,15 @@ describe('PostgreSQL index compiler', () => {
 			},
 			indexes: [{ fields: ['organizationId', 'userId'], unique: true }],
 		})
-		const target = compilePostgresSchema(schema).indexes.find(
-			({ unique }) => unique,
-		)
+		const target = getTableConfig(
+			compilePostgresSchema(schema).table,
+		).indexes.find(({ config }) => config.unique)
 
-		// The normalized tuple remains available without reading Drizzle internals later.
-		expect(target).toMatchObject({
-			fields: ['organizationId', 'userId'],
-			unique: true,
-		})
-		expect(target?.index.config.columns.map(readIndexColumnName)).toStrictEqual(
-			['organizationId', 'userId'],
-		)
+		// The Drizzle table remains the physical source for later upsert validation.
+		expect(target?.config.columns.map(readIndexColumnName)).toStrictEqual([
+			'organizationId',
+			'userId',
+		])
 	})
 
 	it('rejects duplicate normalized definitions instead of creating duplicate DDL', () => {

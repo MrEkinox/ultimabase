@@ -409,6 +409,11 @@ const ultimabase = new UltimaBase({
 await ultimabase.start()
 ```
 
+The desired physical state is normalized from the same private Drizzle tables
+used for query execution. UltimaBase adds only explicit transition metadata,
+such as `renamedFrom`, before comparing that state with the live PostgreSQL
+catalog.
+
 Use `fail` to inspect and reject any drift without mutation, or `ignore` to
 skip structural inspection entirely. Direct synchronization preserves tables
 outside the current application catalog because it has no migration history

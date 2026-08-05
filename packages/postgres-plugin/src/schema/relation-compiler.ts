@@ -7,7 +7,6 @@ import { immutableArray, immutableRecord } from '@ultimabase/shared'
 import { getColumns } from 'drizzle-orm'
 import {
 	foreignKey,
-	getTableConfig,
 	index,
 	pgTable,
 	uniqueIndex,
@@ -19,10 +18,8 @@ import { createPostgresForeignKeyName } from '../naming/foreign-key.js'
 import { createPostgresIndexName } from '../naming/index.js'
 import { createPostgresRelationTableName } from '../naming/relation.js'
 import type {
-	CompiledPostgresIndex,
 	CompiledPostgresJoinRelation,
 	CompiledPostgresRelation,
-	CompiledPostgresRelationForeignKey,
 	CompiledPostgresSchema,
 } from './contracts.js'
 
@@ -90,26 +87,18 @@ const compileOwningJoinRelation = (
 		[targetColumnName],
 		false,
 	)
-	const sourceForeignKey: CompiledPostgresRelationForeignKey = immutableRecord({
-		column: sourceColumnName,
-		constraintName: createPostgresForeignKeyName(
-			tableName,
-			sourceColumnName,
-			source.tableName,
-			'id',
-		),
-		targetTable: source.tableName,
-	})
-	const targetForeignKey: CompiledPostgresRelationForeignKey = immutableRecord({
-		column: targetColumnName,
-		constraintName: createPostgresForeignKeyName(
-			tableName,
-			targetColumnName,
-			target.tableName,
-			'id',
-		),
-		targetTable: target.tableName,
-	})
+	const sourceForeignKeyName = createPostgresForeignKeyName(
+		tableName,
+		sourceColumnName,
+		source.tableName,
+		'id',
+	)
+	const targetForeignKeyName = createPostgresForeignKeyName(
+		tableName,
+		targetColumnName,
+		target.tableName,
+		'id',
+	)
 	const table = pgTable(
 		tableName,
 		{
@@ -123,12 +112,12 @@ const compileOwningJoinRelation = (
 			foreignKey({
 				columns: [columns.sourceId],
 				foreignColumns: [requireIdColumn(source)],
-				name: sourceForeignKey.constraintName,
+				name: sourceForeignKeyName,
 			}).onDelete('cascade'),
 			foreignKey({
 				columns: [columns.targetId],
 				foreignColumns: [requireIdColumn(target)],
-				name: targetForeignKey.constraintName,
+				name: targetForeignKeyName,
 			}).onDelete('cascade'),
 		],
 	)
@@ -136,35 +125,7 @@ const compileOwningJoinRelation = (
 	const sourceColumn = columns.sourceId
 	const targetColumn = columns.targetId
 
-	const indexes = immutableArray(
-		getTableConfig(table).indexes.map(
-			(compiledIndex, position): CompiledPostgresIndex => {
-				const fields =
-					position === 0
-						? ([sourceColumnName, targetColumnName] as const)
-						: position === 1
-							? ([sourceColumnName] as const)
-							: ([targetColumnName] as const)
-				const name = compiledIndex.config.name
-
-				if (name === undefined) {
-					throw new TypeError('Drizzle omitted PostgreSQL relation index name')
-				}
-
-				return immutableRecord({
-					fields,
-					index: compiledIndex,
-					method: 'btree',
-					name,
-					unique: position === 0,
-				})
-			},
-		),
-	)
-
 	return immutableRecord({
-		foreignKeys: immutableArray([sourceForeignKey, targetForeignKey]),
-		indexes,
 		owner: relation,
 		sourceColumn,
 		table,
