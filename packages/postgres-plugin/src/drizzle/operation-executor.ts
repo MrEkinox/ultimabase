@@ -23,7 +23,7 @@ import {
 import type { PostgresRelationPredicateCompiler } from '../query/filter-compiler.js'
 import type { PostgresDrizzleClient } from './client.js'
 import { mapPostgresOperationError } from './operation-error.js'
-import { decodePostgresRecord, encodePostgresRecord } from './record-codec.js'
+import { preparePostgresRecord, readPostgresRecord } from './record.js'
 import { compilePostgresUpdate } from './update-compiler.js'
 
 type RuntimeOperation = ExecutableOperationAst
@@ -74,7 +74,7 @@ const decodeRows = (
 	schema: CompiledPostgresSchema,
 	rows: readonly unknown[],
 ): readonly Readonly<Record<string, unknown>>[] =>
-	rows.map((row) => decodePostgresRecord(schema, row))
+	rows.map((row) => readPostgresRecord(schema, row))
 
 const executeFind = async (
 	client: PostgresDrizzleClient,
@@ -116,7 +116,7 @@ const executeFirst = async (
 		limit: 1,
 	})
 
-	return row === undefined ? null : decodePostgresRecord(schema, row)
+	return row === undefined ? null : readPostgresRecord(schema, row)
 }
 
 const executeGet = async (
@@ -137,10 +137,10 @@ const executeGet = async (
 	const [row] = await buildSelect(client, schema, clauses.selection, clauses, {
 		constraint,
 		limit: 1,
-		where: eq(id.column, id.codec.encode(operation.id)),
+		where: eq(id.column, operation.id),
 	})
 
-	return row === undefined ? null : decodePostgresRecord(schema, row)
+	return row === undefined ? null : readPostgresRecord(schema, row)
 }
 
 const executeCount = async (
@@ -199,7 +199,7 @@ export const executeCreateInput = async (
 	schema: CompiledPostgresSchema,
 	input: unknown,
 ): Promise<Readonly<Record<string, unknown>>> => {
-	const values = encodePostgresRecord(schema, input)
+	const values = preparePostgresRecord(schema, input)
 	const selection = compilePostgresSelection(schema)
 	const [row] = await client
 		.insert(schema.table)
@@ -210,7 +210,7 @@ export const executeCreateInput = async (
 		throw new TypeError('PostgreSQL create did not return the inserted row')
 	}
 
-	return decodePostgresRecord(schema, row)
+	return readPostgresRecord(schema, row)
 }
 
 export const executeCreateOne = async (
@@ -238,7 +238,7 @@ export const executeCreateMany = async (
 		return input.id
 	})
 	const encodedInputs = operation.inputs.map((input) =>
-		encodePostgresRecord(schema, input),
+		preparePostgresRecord(schema, input),
 	)
 	const rows = await client
 		.insert(schema.table)
@@ -332,7 +332,7 @@ const executeUpdateOne = async (
 		.where(inArray(id, target))
 		.returning(clauses.selection)
 
-	return row === undefined ? null : decodePostgresRecord(schema, row)
+	return row === undefined ? null : readPostgresRecord(schema, row)
 }
 
 const executeDeleteOne = async (
@@ -356,7 +356,7 @@ const executeDeleteOne = async (
 		.where(inArray(id, target))
 		.returning(clauses.selection)
 
-	return row === undefined ? null : decodePostgresRecord(schema, row)
+	return row === undefined ? null : readPostgresRecord(schema, row)
 }
 
 /** Updates every selected id in one set-based statement without loading objects. */
@@ -454,7 +454,7 @@ export const lockPostgresUpsertTarget = async (
 		{ constraint, limit: 1 },
 	).for('update')
 
-	return row === undefined ? null : decodePostgresRecord(schema, row)
+	return row === undefined ? null : readPostgresRecord(schema, row)
 }
 
 /** Attempts the create branch while restricting conflict handling to the declared key. */
@@ -499,11 +499,11 @@ export const tryCreatePostgresUpsert = async (
 
 	const [row] = await client
 		.insert(schema.table)
-		.values(encodePostgresRecord(schema, create))
+		.values(preparePostgresRecord(schema, create))
 		.onConflictDoNothing({ target: conflictTarget })
 		.returning(compilePostgresSelection(schema))
 
-	return row === undefined ? null : decodePostgresRecord(schema, row)
+	return row === undefined ? null : readPostgresRecord(schema, row)
 }
 
 /** Locks one full deterministic target without exposing a physical row token. */
@@ -532,7 +532,7 @@ export const lockPostgresSingularMutationTarget = async (
 		{ constraint, limit: 1 },
 	).for('update')
 
-	return row === undefined ? null : decodePostgresRecord(schema, row)
+	return row === undefined ? null : readPostgresRecord(schema, row)
 }
 
 const createPendingOperationError = (

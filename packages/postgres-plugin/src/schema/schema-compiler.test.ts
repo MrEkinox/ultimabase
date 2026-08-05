@@ -12,6 +12,7 @@ import {
 	intField,
 	jsonField,
 	objectField,
+	Pointer,
 	pointerField,
 	stringField,
 	timeField,
@@ -24,6 +25,10 @@ import { describe, expect, it, vi } from 'vitest'
 
 import { postgresColumn } from '../naming/column.js'
 import { PostgresSchemaCatalog } from './catalog.js'
+import {
+	mapPostgresColumnFromDriver,
+	mapPostgresColumnToDriver,
+} from './column-value.test-support.js'
 import { compilePostgresSchema } from './schema-compiler.js'
 import { createPostgresPointerFixture } from './pointer-fixture.test-support.js'
 
@@ -39,6 +44,8 @@ describe('PostgreSQL primitive schema compiler', () => {
 		const table = getTableConfig(compiled.table)
 		const [foreignKey] = table.foreignKeys
 		const reference = foreignKey?.reference()
+		const authorColumn = compiled.fields.author?.column
+		const author = new Pointer(User, '018f0f8c-7b5a-7cc9-98db-123456789abc')
 
 		expect(compiled.fields.author).toMatchObject({
 			column: { notNull: true },
@@ -52,6 +59,14 @@ describe('PostgreSQL primitive schema compiler', () => {
 			'id',
 		])
 		expect(reference?.foreignTable).toBe(catalog.get(User).table)
+		if (authorColumn === undefined) {
+			throw new TypeError('Expected the author column')
+		}
+
+		expect(mapPostgresColumnToDriver(authorColumn, author)).toBe(author.id)
+		expect(mapPostgresColumnFromDriver(authorColumn, author.id)).toSatisfy(
+			(value: unknown) => author.equals(value),
+		)
 	})
 
 	it('rejects pointer compilation without a closed application graph', () => {
@@ -182,7 +197,10 @@ describe('PostgreSQL primitive schema compiler', () => {
 			notNull: false,
 		})
 		expect(columns.counter?.generatedIdentity?.type).toBe('byDefault')
+		expect(columns.blob?.columnType).toBe('PgBytea')
+		expect(columns.eventAt?.columnType).toBe('PgTimestampString')
 		expect(columns.status?.enumValues).toStrictEqual(['draft', 'live'])
+		expect(columns.wakeAt?.columnType).toBe('PgTime')
 		expect(columns.document?.default).toStrictEqual({ valid: true })
 		expect(columns.labels?.default).toStrictEqual(['one', 'two'])
 		expect(runtimeDefault).not.toHaveBeenCalled()
@@ -208,7 +226,7 @@ describe('PostgreSQL primitive schema compiler', () => {
 		})
 	})
 
-	it('encodes structured static defaults before Drizzle stores JSONB metadata', () => {
+	it('keeps structured defaults logical and lets the Drizzle column encode them', () => {
 		const schema = Schema.define({
 			className: 'StructuredDefaultFixture',
 			fields: {
@@ -231,6 +249,15 @@ describe('PostgreSQL primitive schema compiler', () => {
 		).columns.find((candidate) => candidate.name === 'profile')
 
 		expect(column?.default).toStrictEqual({
+			avatar: Uint8Array.from([255]),
+			count: 42n,
+			seenAt: '2026-08-01T10:00:00.000Z',
+		})
+		if (column === undefined) {
+			throw new TypeError('Expected the profile column')
+		}
+
+		expect(mapPostgresColumnToDriver(column, column.default)).toStrictEqual({
 			avatar: '/w==',
 			count: '42',
 			seenAt: '2026-08-01T10:00:00.000Z',

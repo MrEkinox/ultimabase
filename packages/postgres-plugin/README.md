@@ -339,8 +339,13 @@ never write Drizzle or SQL themselves.
 
 Portable enums currently use `text` plus explicit enum metadata. Runtime owns
 membership validation, which keeps enum-value changes independent from native
-PostgreSQL enum migrations. Structured JSONB codecs preserve nested bigints,
-binary values, and canonical temporal strings losslessly.
+PostgreSQL enum migrations. Native Drizzle columns handle compatible values
+such as `bytea`, `time`, and string-mode `timestamp`. One client-level Drizzle
+codec extension normalizes raw PostgreSQL temporal text, while the record
+boundary detaches native `bytea` buffers and verifies field-specific scalar
+invariants after Drizzle mapping. Custom columns are reserved for field-dependent
+logical differences such as pointer identity and typed JSONB; nested bigints and
+binary values remain lossless.
 
 Plugin fields that declare Core's portable versioned JSON storage codec also
 compile to JSONB without coupling this package to the plugin kind. A single
@@ -645,8 +650,8 @@ const nextPage = firstPage.after(cursor)
 `.after()` selects cursor pagination for the first page; `.after(cursor)`
 resumes a later page. The opaque token is authenticated and checked through
 Query's cursor contract before PostgreSQL receives its payload. Ordered values
-then pass through the compiled field codecs and Drizzle parameters rather than
-being interpolated into SQL.
+then stay logical until their Drizzle column maps the parameter, rather than
+being interpolated into SQL or encoded by the cursor compiler.
 
 This compiler is internal until the singular CRUD issue consumes it. Today the
 example describes the implemented Query and compilation contract, not yet a

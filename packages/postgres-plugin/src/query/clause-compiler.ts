@@ -87,7 +87,7 @@ const compileEqualCursorValue = (
 		return isNull(field.column)
 	}
 
-	return eq(field.column, field.codec.encode(value))
+	return eq(field.column, value)
 }
 
 const compileAfterCursorValue = (
@@ -106,16 +106,14 @@ const compileAfterCursorValue = (
 			: isNotNull(field.column)
 	}
 
-	const encoded = field.codec.encode(value)
-
 	if (direction === 'descending') {
-		return lt(field.column, encoded)
+		return lt(field.column, value)
 	}
 	if (!field.plan.nullable) {
-		return gt(field.column, encoded)
+		return gt(field.column, value)
 	}
 
-	const expression = or(gt(field.column, encoded), isNull(field.column))
+	const expression = or(gt(field.column, value), isNull(field.column))
 
 	if (expression === undefined) {
 		throw new TypeError('PostgreSQL cursor comparison could not be combined')

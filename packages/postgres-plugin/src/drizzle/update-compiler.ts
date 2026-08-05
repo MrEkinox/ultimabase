@@ -48,7 +48,7 @@ export const compilePostgresUpdate = (
 				if (!Object.hasOwn(operation, 'value')) {
 					throw new TypeError('PostgreSQL set operation requires a value')
 				}
-				compiled[fieldName] = field.codec.encode(operation.value)
+				compiled[fieldName] = operation.value
 				break
 			case 'increment':
 			case 'decrement': {
@@ -56,7 +56,7 @@ export const compilePostgresUpdate = (
 					throw new TypeError('PostgreSQL numeric operation requires a value')
 				}
 
-				const operand = field.codec.encode(operation.value)
+				const operand = sql.param(operation.value, field.column)
 
 				compiled[fieldName] =
 					operation.kind === 'increment'

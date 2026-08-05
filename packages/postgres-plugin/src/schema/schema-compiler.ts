@@ -215,7 +215,6 @@ const preparePostgresSchema = (
 		pendingFields.push([
 			fieldName,
 			{
-				codec: compiled.codec,
 				...(compiled.generation === undefined
 					? {}
 					: { generation: compiled.generation }),

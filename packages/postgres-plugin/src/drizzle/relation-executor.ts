@@ -86,13 +86,15 @@ const readPostgresRelationDelta = (
 	return { action: candidate.value.action, targets }
 }
 
-/** Encodes one object identity through its registered PostgreSQL UUID boundary. */
-const encodeRelationObjectId = (
+/** Keeps one logical identity attached to a registered PostgreSQL id column. */
+const readRelationObjectId = (
 	relation: CompiledPostgresRelation,
 	side: 'source' | 'target',
 	id: unknown,
-): unknown =>
-	resolveCompiledPostgresField(relation[side], 'id').codec.encode(id)
+): unknown => {
+	resolveCompiledPostgresField(relation[side], 'id')
+	return id
+}
 
 /** Converts logical source/target orientation back to owning join columns. */
 const createOwningEdgeValues = (
@@ -122,9 +124,9 @@ export const executePostgresRelationMutation = async (
 	// Core already lowered inverse pointers through the target update lifecycle.
 	if (relation.storage.kind === 'pointer') return
 
-	const sourceId = encodeRelationObjectId(relation, 'source', sourceObjectId)
+	const sourceId = readRelationObjectId(relation, 'source', sourceObjectId)
 	const targetIds = delta.targets.map((target) =>
-		encodeRelationObjectId(relation, 'target', target.id),
+		readRelationObjectId(relation, 'target', target.id),
 	)
 	const sourcePredicate = eq(relation.storage.sourceColumn, sourceId)
 

@@ -5,6 +5,8 @@ import {
 } from 'drizzle-orm/node-postgres'
 import type { TablesRelationalConfig } from 'drizzle-orm'
 
+import { postgresDrizzleCodecs } from './codecs.js'
+
 /** Captures the single driver capability shared by pools and borrowed clients. */
 export interface PostgresDriverQueryClient {
 	query(...arguments_: never[]): unknown
@@ -21,5 +23,9 @@ export const createPostgresDrizzleClient = (
 	// Drizzle only consumes query() here; the narrow public pool contract proves that capability.
 	const nodePostgresClient = client as NodePgClient
 
-	return drizzle({ client: nodePostgresClient, relations })
+	return drizzle({
+		client: nodePostgresClient,
+		codecs: postgresDrizzleCodecs,
+		relations,
+	})
 }

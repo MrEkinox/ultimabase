@@ -6,14 +6,22 @@ import {
 	Schema,
 	objectField,
 	stringField,
-	timeField,
 } from '@ultimabase/core'
 import { describe, expect, it } from 'vitest'
 
+import {
+	mapPostgresColumnFromDriver,
+	mapPostgresColumnToDriver,
+} from './column-value.test-support.js'
 import { compilePostgresSchema } from './schema-compiler.js'
 import { createStoredPluginField } from './storage-codec-fixture.test-support.js'
+import {
+	normalizePostgresDriverLocalDateTime,
+	normalizePostgresDriverTime,
+	normalizePostgresDriverZonedDateTime,
+} from './value-codec.js'
 
-describe('PostgreSQL value codecs', () => {
+describe('PostgreSQL Drizzle column value mapping', () => {
 	it('round-trips schema-guided JSONB values without losing native scalars', () => {
 		const schema = Schema.define({
 			className: 'CodecFixture',
@@ -28,10 +36,10 @@ describe('PostgreSQL value codecs', () => {
 				}),
 			},
 		})
-		const codec = compilePostgresSchema(schema).fields.profile?.codec
+		const column = compilePostgresSchema(schema).fields.profile?.column
 
-		if (codec === undefined) {
-			throw new TypeError('Expected the profile codec')
+		if (column === undefined) {
+			throw new TypeError('Expected the profile column')
 		}
 
 		const avatar = Uint8Array.from([0, 127, 255])
@@ -40,8 +48,8 @@ describe('PostgreSQL value codecs', () => {
 			loginAt: '2026-08-01T12:30:45.123+02:00',
 			nestedCounts: [[1n, 9_007_199_254_740_993n]],
 		}
-		const encoded = codec.encode(logical)
-		const decoded = codec.decode(encoded)
+		const encoded = mapPostgresColumnToDriver(column, logical)
+		const decoded = mapPostgresColumnFromDriver(column, encoded)
 
 		expect(encoded).toStrictEqual({
 			avatar: 'AH//',
@@ -64,25 +72,24 @@ describe('PostgreSQL value codecs', () => {
 		expect(Object.isFrozen(decoded)).toBe(true)
 	})
 
-	it('copies top-level binary values in both directions', () => {
+	it('delegates top-level binary values to Drizzle bytea mapping', () => {
 		const schema = Schema.define({
 			className: 'BinaryCodecFixture',
 			fields: { payload: binaryField() },
 		})
-		const codec = compilePostgresSchema(schema).fields.payload?.codec
+		const column = compilePostgresSchema(schema).fields.payload?.column
 
-		if (codec === undefined) {
-			throw new TypeError('Expected the payload codec')
+		if (column === undefined) {
+			throw new TypeError('Expected the payload column')
 		}
 
 		const source = Uint8Array.from([1, 2, 3])
-		const encoded = codec.encode(source)
-		const decoded = codec.decode(source)
+		const encoded = mapPostgresColumnToDriver(column, source)
+		const decoded = mapPostgresColumnFromDriver(column, source)
 
-		expect(encoded).toStrictEqual(source)
+		expect(encoded).toBe(source)
 		expect(decoded).toStrictEqual(source)
-		expect(encoded).not.toBe(source)
-		expect(decoded).not.toBe(source)
+		expect(decoded).toBe(source)
 	})
 
 	it('snapshots top-level JSON values before exposing driver data', () => {
@@ -90,14 +97,14 @@ describe('PostgreSQL value codecs', () => {
 			className: 'JsonCodecFixture',
 			fields: { metadata: jsonField() },
 		})
-		const codec = compilePostgresSchema(schema).fields.metadata?.codec
+		const column = compilePostgresSchema(schema).fields.metadata?.column
 
-		if (codec === undefined) {
-			throw new TypeError('Expected the metadata codec')
+		if (column === undefined) {
+			throw new TypeError('Expected the metadata column')
 		}
 
 		const source = { nested: { enabled: true }, tags: ['stable'] }
-		const decoded = codec.decode(source)
+		const decoded = mapPostgresColumnFromDriver(column, source)
 
 		expect(decoded).toStrictEqual(source)
 		expect(decoded).not.toBe(source)
@@ -117,59 +124,48 @@ describe('PostgreSQL value codecs', () => {
 		})
 		const field = compilePostgresSchema(schema).fields.protectedValue
 
-		expect(field?.storage).toBe('jsonb')
-		expect(field?.column.notNull).toBe(true)
-		expect(field?.codec.encode('logical')).toStrictEqual({
+		if (field === undefined) {
+			throw new TypeError('Expected the protected value column')
+		}
+
+		expect(field.storage).toBe('jsonb')
+		expect(field.column.notNull).toBe(true)
+		expect(mapPostgresColumnToDriver(field.column, 'logical')).toStrictEqual({
 			value: 'logical',
 			version: 1,
 		})
-		expect(field?.codec.decode({ value: 'stored', version: 1 })).toBe('stored')
-		expect(() => field?.codec.decode({ value: 42, version: 1 })).toThrow(
-			'Stored plugin fixture is invalid',
-		)
+		expect(
+			mapPostgresColumnFromDriver(field.column, {
+				value: 'stored',
+				version: 1,
+			}),
+		).toBe('stored')
+		expect(() =>
+			mapPostgresColumnFromDriver(field.column, { value: 42, version: 1 }),
+		).toThrow('Stored plugin fixture is invalid')
 	})
 
 	it('normalizes PostgreSQL temporal text into Schema values', () => {
-		const schema = Schema.define({
-			className: 'TemporalCodecFixture',
-			fields: {
-				localDateTime: dateTimeField({ timezone: false }),
-				localTime: timeField(),
-				zonedDateTime: dateTimeField(),
-				zonedTime: timeField({ timezone: true }),
-			},
-		})
-		const fields = compilePostgresSchema(schema).fields
-
-		expect(fields.localDateTime?.codec.decode('2026-08-01 12:30:45.1')).toBe(
+		expect(normalizePostgresDriverLocalDateTime('2026-08-01 12:30:45.1')).toBe(
 			'2026-08-01T12:30:45.100',
 		)
-		expect(fields.localTime?.codec.decode('12:30:45')).toBe('12:30:45.000')
-		expect(fields.zonedDateTime?.codec.decode('2026-08-01 12:30:45+02')).toBe(
+		expect(normalizePostgresDriverTime('12:30:45')).toBe('12:30:45.000')
+		expect(normalizePostgresDriverZonedDateTime('2026-08-01 12:30:45+02')).toBe(
 			'2026-08-01T10:30:45.000Z',
 		)
-		expect(fields.zonedTime?.codec.decode('12:30:45.12+0230')).toBe(
+		expect(normalizePostgresDriverTime('12:30:45.12+0230')).toBe(
 			'12:30:45.120+02:30',
 		)
 	})
 
 	it('rejects malformed PostgreSQL temporal text', () => {
-		const schema = Schema.define({
-			className: 'InvalidTemporalCodecFixture',
-			fields: {
-				local: dateTimeField({ timezone: false }),
-				zoned: dateTimeField(),
-			},
-		})
-		const fields = compilePostgresSchema(schema).fields
-
-		expect(() => fields.local?.codec.decode('2026-08-01 12:30:45+00')).toThrow(
-			new TypeError('PostgreSQL returned an invalid time value'),
-		)
-		expect(() => fields.zoned?.codec.decode('not-a-date')).toThrow(
+		expect(() =>
+			normalizePostgresDriverLocalDateTime('2026-08-01 12:30:45+00'),
+		).toThrow(new TypeError('PostgreSQL returned an invalid time value'))
+		expect(() => normalizePostgresDriverZonedDateTime('not-a-date')).toThrow(
 			new TypeError('PostgreSQL returned an invalid date-time value'),
 		)
-		expect(() => fields.zoned?.codec.decode(new Date())).toThrow(
+		expect(() => normalizePostgresDriverZonedDateTime(new Date())).toThrow(
 			new TypeError('PostgreSQL temporal value must be a string'),
 		)
 	})
@@ -185,26 +181,26 @@ describe('PostgreSQL value codecs', () => {
 				}),
 			},
 		})
-		const codec = compilePostgresSchema(schema).fields.profile?.codec
+		const column = compilePostgresSchema(schema).fields.profile?.column
 
-		if (codec === undefined) {
-			throw new TypeError('Expected the profile codec')
+		if (column === undefined) {
+			throw new TypeError('Expected the profile column')
 		}
 
-		expect(() => codec.decode([])).toThrow(
+		expect(() => mapPostgresColumnFromDriver(column, [])).toThrow(
 			new TypeError('JSONB object value must be a plain object'),
 		)
-		expect(() => codec.decode({ unknown: '1' })).toThrow(
+		expect(() => mapPostgresColumnFromDriver(column, { unknown: '1' })).toThrow(
 			new TypeError('JSONB object contains unknown field: unknown'),
 		)
-		expect(() => codec.decode({ count: 1 })).toThrow(
+		expect(() => mapPostgresColumnFromDriver(column, { count: 1 })).toThrow(
 			new TypeError('encoded bigint must be a string'),
 		)
-		expect(() => codec.decode({ count: null })).toThrow(
+		expect(() => mapPostgresColumnFromDriver(column, { count: null })).toThrow(
 			new TypeError('PostgreSQL value cannot be null'),
 		)
-		expect(() => codec.decode({ count: '1', extra: 'value' })).toThrow(
-			new TypeError('JSONB object contains unknown field: extra'),
-		)
+		expect(() =>
+			mapPostgresColumnFromDriver(column, { count: '1', extra: 'value' }),
+		).toThrow(new TypeError('JSONB object contains unknown field: extra'))
 	})
 })

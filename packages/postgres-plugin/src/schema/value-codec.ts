@@ -187,19 +187,42 @@ const normalizePostgresDateTime = (
 	return new Date(timestamp).toISOString()
 }
 
+const readPostgresTemporalText = (value: unknown): string => {
+	if (typeof value !== 'string') {
+		throw new TypeError('PostgreSQL temporal value must be a string')
+	}
+
+	return value
+}
+
+/** Normalizes either native PostgreSQL time representation by its returned suffix. */
+export const normalizePostgresDriverTime = (value: unknown): string => {
+	const text = readPostgresTemporalText(value)
+	const timezone =
+		postgresTimePattern.exec(text)?.groups?.timezone !== undefined
+
+	return normalizePostgresTime(text, timezone)
+}
+
+/** Normalizes a native timestamp-without-time-zone driver string. */
+export const normalizePostgresDriverLocalDateTime = (value: unknown): string =>
+	normalizePostgresDateTime(readPostgresTemporalText(value), false)
+
+/** Normalizes a native timestamp-with-time-zone driver string to UTC. */
+export const normalizePostgresDriverZonedDateTime = (value: unknown): string =>
+	normalizePostgresDateTime(readPostgresTemporalText(value), true)
+
 const createTemporalCodec = (
 	plan: FieldValidationPlan & { readonly kind: 'scalar' },
 ): PostgresValueCodec => {
 	const timezone = fieldUsesTemporalTimezone(plan.field)
 	const decode = (value: unknown): unknown => {
-		if (typeof value !== 'string') {
-			throw new TypeError('PostgreSQL temporal value must be a string')
-		}
+		const text = readPostgresTemporalText(value)
 
 		const normalized =
 			plan.field.kind === 'time'
-				? normalizePostgresTime(value, timezone)
-				: normalizePostgresDateTime(value, timezone)
+				? normalizePostgresTime(text, timezone)
+				: normalizePostgresDateTime(text, timezone)
 
 		return snapshotScalarFieldValue(
 			plan.field,

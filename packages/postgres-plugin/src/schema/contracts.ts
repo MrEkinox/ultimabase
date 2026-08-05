@@ -5,8 +5,6 @@ import type {
 } from '@ultimabase/core'
 import type { PgColumn, PgTable } from 'drizzle-orm/pg-core'
 
-import type { PostgresValueCodec } from './value-codec.js'
-
 /** Lists physical column families needed by synchronization and query compilation. */
 export type PostgresStorageKind =
 	| 'bigint'
@@ -32,7 +30,6 @@ export interface PostgresFieldGeneration {
 
 /** Connects one logical field to its built Drizzle column and value boundary. */
 export interface CompiledPostgresField {
-	readonly codec: PostgresValueCodec
 	readonly column: PgColumn
 	readonly generation?: PostgresFieldGeneration
 	readonly plan: FieldValidationPlan

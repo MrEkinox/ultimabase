@@ -1,5 +1,3 @@
-import { Buffer } from 'node:buffer'
-
 import type {
 	FieldValidationPlan,
 	GenericField,
@@ -14,10 +12,10 @@ import {
 import {
 	bigint,
 	boolean,
+	bytea,
 	customType,
 	date,
 	doublePrecision,
-	jsonb,
 	numeric,
 	text,
 	time,
@@ -25,6 +23,7 @@ import {
 	uuid,
 	type AnyPgColumnBuilder,
 } from 'drizzle-orm/pg-core'
+import type { PostgresColumnType } from 'drizzle-orm/pg-core/codecs'
 
 import type {
 	PostgresFieldGeneration,
@@ -42,7 +41,6 @@ type StaticDefault =
 
 interface CompiledPostgresFieldBuilder {
 	readonly builder: AnyPgColumnBuilder
-	readonly codec: PostgresValueCodec
 	readonly generation: PostgresFieldGeneration | undefined
 	readonly storage: PostgresStorageKind
 }
@@ -56,15 +54,6 @@ interface ConfigurableColumnBuilder extends AnyPgColumnBuilder {
 export interface PostgresPointerCompilerContext {
 	readonly target: SchemaDefinition
 }
-
-const bytea = customType<{
-	data: Uint8Array
-	driverData: Uint8Array
-}>({
-	dataType: () => 'bytea',
-	fromDriver: (value) => Uint8Array.from(value),
-	toDriver: (value) => Buffer.from(value),
-})
 
 const readStaticDefault = (field: GenericField): StaticDefault => {
 	const options = readFieldOptions(field)
@@ -244,15 +233,27 @@ const createCompiledBuilder = (
 	builder: ConfigurableColumnBuilder,
 	plan: FieldValidationPlan,
 	fieldName: string,
-	codec: PostgresValueCodec,
 	generation: PostgresFieldGeneration | undefined,
 	storage: PostgresStorageKind,
 ): CompiledPostgresFieldBuilder => ({
 	builder: finalizeBuilder(builder, plan, fieldName),
-	codec,
 	generation,
 	storage,
 })
+
+const createCodecColumnBuilder = (
+	fieldName: string,
+	type: string,
+	driverCodec: PostgresColumnType,
+	codec: PostgresValueCodec,
+	mapEncodedValue: (value: unknown) => unknown = (value) => value,
+) =>
+	customType<{ data: unknown; driverData: unknown }>({
+		codec: driverCodec,
+		dataType: () => type,
+		fromDriver: (value: unknown): unknown => codec.decode(value),
+		toDriver: (value: unknown): unknown => mapEncodedValue(codec.encode(value)),
+	})(fieldName)
 
 const compileJsonbBuilder = (
 	fieldName: string,
@@ -260,16 +261,15 @@ const compileJsonbBuilder = (
 	declaredDefault: StaticDefault,
 ): CompiledPostgresFieldBuilder => {
 	const codec = createPostgresValueCodec(plan, true)
-	const builder = jsonb(fieldName)
+	const builder = createCodecColumnBuilder(fieldName, 'jsonb', 'jsonb', codec)
 	const withDefault = declaredDefault.present
-		? builder.default(codec.encode(declaredDefault.value))
+		? builder.default(declaredDefault.value)
 		: builder
 
 	return createCompiledBuilder(
 		withDefault,
 		plan,
 		fieldName,
-		codec,
 		readGeneration(plan.field),
 		'jsonb',
 	)
@@ -313,24 +313,19 @@ export const compilePostgresFieldBuilder = (
 		return compileJsonbBuilder(fieldName, plan, declaredDefault)
 	}
 
-	const codec =
+	const pointerCodec =
 		field.kind === 'pointer'
 			? pointerContext === undefined
 				? undefined
 				: createPostgresPointerValueCodec(plan, pointerContext.target)
-			: createPostgresValueCodec(plan, false)
+			: undefined
 
-	if (codec === undefined) {
-		throw new TypeError(
-			`PostgreSQL pointer target is unavailable: ${fieldName}`,
-		)
-	}
 	const generation = readGeneration(field)
 	const finish = (
 		builder: ConfigurableColumnBuilder,
 		storage: PostgresStorageKind,
 	): CompiledPostgresFieldBuilder =>
-		createCompiledBuilder(builder, plan, fieldName, codec, generation, storage)
+		createCompiledBuilder(builder, plan, fieldName, generation, storage)
 
 	switch (field.kind) {
 		case 'string': {
@@ -399,7 +394,7 @@ export const compilePostgresFieldBuilder = (
 		}
 		case 'binary': {
 			const fallback = requireDefault(declaredDefault, isBinary, fieldName)
-			const builder = bytea(fieldName)
+			const builder = bytea(fieldName).$type<Uint8Array>()
 			const configured =
 				fallback === undefined ? builder : builder.default(fallback)
 
@@ -414,8 +409,17 @@ export const compilePostgresFieldBuilder = (
 			return finish(configured, 'uuid')
 		}
 		case 'pointer':
+			if (pointerCodec === undefined) {
+				throw new TypeError(
+					`PostgreSQL pointer target is unavailable: ${fieldName}`,
+				)
+			}
+
 			// Referential metadata is attached at table level after every circular target exists.
-			return finish(uuid(fieldName), 'uuid')
+			return finish(
+				createCodecColumnBuilder(fieldName, 'uuid', 'uuid', pointerCodec),
+				'uuid',
+			)
 		case 'date': {
 			const fallback = requireDefault(declaredDefault, isString, fieldName)
 			const builder = date(fieldName, { mode: 'string' })

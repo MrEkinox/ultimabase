@@ -34,9 +34,13 @@ const renderDefaultExpression = (
 	column: PgColumn,
 	type: string,
 ): string | undefined => {
-	const value: unknown = column.default
+	const declaredDefault: unknown = column.default
 
-	if (value === undefined) return undefined
+	if (declaredDefault === undefined) return undefined
+
+	// Drizzle columns own logical-to-storage mapping for static defaults too.
+	const value: unknown =
+		declaredDefault === null ? null : column.mapToDriverValue(declaredDefault)
 
 	if (value === null) {
 		return type === 'jsonb' ? "'null'::jsonb" : 'NULL'

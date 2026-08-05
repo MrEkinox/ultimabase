@@ -24,15 +24,12 @@ export const compilePostgresRelationPredicate = (
 	relation: CompiledPostgresRelation,
 	sourceObjectId: string,
 ): SQL => {
-	const encodedSourceId = resolveCompiledPostgresField(
-		relation.source,
-		'id',
-	).codec.encode(sourceObjectId)
+	resolveCompiledPostgresField(relation.source, 'id')
 
 	const binding = catalog.getDrizzleRelation(relation)
 	// The generated table retains `id`, but its dynamic key is intentionally private.
 	const targetFilter = {
-		id: encodedSourceId,
+		id: sourceObjectId,
 	} as unknown as PostgresDrizzleRelationsFilter
 	const filter = createPostgresDrizzleRelationFilter(
 		binding.reverseRelationName,

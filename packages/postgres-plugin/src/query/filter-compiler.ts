@@ -124,9 +124,6 @@ export type PostgresRelationPredicateCompiler = (
 const trueExpression = sql<boolean>`true`
 const falseExpression = sql<boolean>`false`
 
-const encodeValue = (field: CompiledPostgresField, value: unknown): unknown =>
-	value === null ? null : field.codec.encode(value)
-
 interface PostgresFilterTarget {
 	readonly field: CompiledPostgresField
 	readonly jsonb: SQL
@@ -253,11 +250,9 @@ const compileEquality = (
 			: isNotNull(target.field.column)
 	}
 
-	const encoded = encodeValue(target.field, filter.value)
-
 	return filter.kind === 'equal'
-		? eq(target.field.column, encoded)
-		: ne(target.field.column, encoded)
+		? eq(target.field.column, filter.value)
+		: ne(target.field.column, filter.value)
 }
 
 const compileMembership = (
@@ -279,9 +274,7 @@ const compileMembership = (
 	}
 
 	const includesNull = filter.values.some((value) => value === null)
-	const values = filter.values
-		.filter((value) => value !== null)
-		.map((value) => encodeValue(target.field, value))
+	const values = filter.values.filter((value) => value !== null)
 
 	if (values.length === 0) {
 		if (includesNull) {
@@ -408,12 +401,9 @@ const compileRange = (
 	filter: RuntimeRangeFilter,
 	field: CompiledPostgresField,
 ): SQL => {
-	const lower = encodeValue(field, filter.lower)
-	const upper = encodeValue(field, filter.upper)
-
 	return filter.kind === 'between'
-		? between(field.column, lower, upper)
-		: notBetween(field.column, lower, upper)
+		? between(field.column, filter.lower, filter.upper)
+		: notBetween(field.column, filter.lower, filter.upper)
 }
 
 const hasRegexFlag = (
@@ -456,13 +446,13 @@ const compilePrimitive = (
 		case 'not-equal':
 			return compileEquality(filter, target)
 		case 'greater-than':
-			return gt(target.field.column, encodeValue(target.field, filter.value))
+			return gt(target.field.column, filter.value)
 		case 'greater-than-or-equal':
-			return gte(target.field.column, encodeValue(target.field, filter.value))
+			return gte(target.field.column, filter.value)
 		case 'less-than':
-			return lt(target.field.column, encodeValue(target.field, filter.value))
+			return lt(target.field.column, filter.value)
 		case 'less-than-or-equal':
-			return lte(target.field.column, encodeValue(target.field, filter.value))
+			return lte(target.field.column, filter.value)
 		case 'between':
 		case 'not-between':
 			return compileRange(filter, target.field)

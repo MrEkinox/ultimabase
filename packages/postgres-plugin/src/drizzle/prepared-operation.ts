@@ -35,7 +35,7 @@ import {
 import type { PostgresDrizzleClient } from './client.js'
 import type { PostgresItemRecovery } from './item-recovery.js'
 import { mapPostgresOperationError } from './operation-error.js'
-import { decodePostgresRecord } from './record-codec.js'
+import { readPostgresRecord } from './record.js'
 import { compilePostgresUpdate } from './update-compiler.js'
 import { executePostgresRelationMutation } from './relation-executor.js'
 import type { PostgresRelationPredicateCompiler } from '../query/filter-compiler.js'
@@ -170,7 +170,8 @@ const readPreparedRecordId = (
 		throw new TypeError('PostgreSQL prepared mutation target is missing its id')
 	}
 
-	return resolveCompiledPostgresField(schema, 'id').codec.encode(record.id)
+	resolveCompiledPostgresField(schema, 'id')
+	return record.id
 }
 
 /** Reuses one retained identifier while preserving every accumulated constraint. */
@@ -211,7 +212,7 @@ const executeRetainedUpdate = async (
 		)
 	}
 
-	return decodePostgresRecord(schema, row)
+	return readPostgresRecord(schema, row)
 }
 
 const executeLockedMutation = async (
@@ -266,7 +267,7 @@ const executeLockedMutation = async (
 		)
 	}
 
-	const removed = decodePostgresRecord(schema, row)
+	const removed = readPostgresRecord(schema, row)
 
 	return immutableRecord({
 		materialization: immutableRecord({
