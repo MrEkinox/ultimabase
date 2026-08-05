@@ -365,3 +365,53 @@ export const createPostgresValueCodec = (
 			applyCodec(plan, codec, 'encode', value),
 	})
 }
+
+/** Encodes only the supplied branches of one structured containment value. */
+export const encodePostgresPartialValue = (
+	plan: FieldValidationPlan,
+	value: unknown,
+): unknown => {
+	if (value === null) {
+		if (!plan.nullable) {
+			throw new TypeError('PostgreSQL structured filter value cannot be null')
+		}
+
+		return null
+	}
+
+	if (plan.kind === 'array') {
+		if (!isUnknownArray(value)) {
+			throw new TypeError('PostgreSQL structured filter value must be an array')
+		}
+
+		return immutableArray(
+			value.map((item) => encodePostgresPartialValue(plan.items, item)),
+		)
+	}
+
+	if (plan.kind === 'object') {
+		if (!isPlainRecord(value)) {
+			throw new TypeError(
+				'PostgreSQL structured filter value must be an object',
+			)
+		}
+
+		const entries: [string, unknown][] = Object.entries(value).map(
+			([name, item]) => {
+				const child = plan.fields[name]
+
+				if (child === undefined) {
+					throw new TypeError(
+						`PostgreSQL structured filter references unknown field: ${name}`,
+					)
+				}
+
+				return [name, encodePostgresPartialValue(child, item)]
+			},
+		)
+
+		return immutableRecord(Object.fromEntries(entries))
+	}
+
+	return createPostgresValueCodec(plan, true).encode(value)
+}

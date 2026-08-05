@@ -1,9 +1,12 @@
 import type { SchemaDefinition } from '../schema/definition.js'
 import {
+	createQueryJsonPathFilter,
 	createQueryMembershipFilter,
+	createQueryKeyFilter,
 	createQueryNullFilter,
 	createQueryRangeFilter,
 	createQueryRegexFilter,
+	createQueryStructuralFilter,
 	createQueryValueFilter,
 } from '../../query/filters/factory.js'
 import {
@@ -13,7 +16,10 @@ import {
 } from '../../query/filters/logical.js'
 import type {
 	QueryFilterFieldName,
+	QueryFilterOperand,
+	QueryFilterTarget,
 	QueryFilterValue,
+	QueryJsonPathExpression,
 	QueryPrimitiveFilterNode,
 	QueryRegexPattern,
 } from '../../query/filters/primitive.js'
@@ -59,11 +65,6 @@ type AccessComparisonValue<
 	TFieldName extends QueryFieldName<TSchema>,
 > = Exclude<QueryFilterValue<TSchema, TFieldName>, null>
 
-type AccessStringValue<
-	TSchema extends SchemaDefinition,
-	TFieldName extends QueryFieldName<TSchema>,
-> = Extract<QueryFilterValue<TSchema, TFieldName>, string>
-
 /** Implements the public capability interface without exporting construction. */
 class ImmutableAccessFilter<
 	const TSchema extends SchemaDefinition,
@@ -73,25 +74,25 @@ class ImmutableAccessFilter<
 		Object.freeze(this)
 	}
 
-	equalTo<TFieldName extends QueryFilterFieldName<TSchema, 'equal'>>(
-		fieldName: TFieldName,
-		value: QueryFilterValue<TSchema, TFieldName>,
+	equalTo<TTarget extends QueryFilterTarget<TSchema, 'equal'>>(
+		target: TTarget,
+		value: QueryFilterOperand<TSchema, 'equal', TTarget>,
 	): AccessFilter<TSchema> {
 		const state = readAccessFilterState<TSchema>(this)
 
 		return this.#append(
-			createQueryValueFilter(state.schema, 'equal', fieldName, value),
+			createQueryValueFilter(state.schema, 'equal', target, value),
 		)
 	}
 
-	notEqualTo<TFieldName extends QueryFilterFieldName<TSchema, 'not-equal'>>(
-		fieldName: TFieldName,
-		value: QueryFilterValue<TSchema, TFieldName>,
+	notEqualTo<TTarget extends QueryFilterTarget<TSchema, 'not-equal'>>(
+		target: TTarget,
+		value: QueryFilterOperand<TSchema, 'not-equal', TTarget>,
 	): AccessFilter<TSchema> {
 		const state = readAccessFilterState<TSchema>(this)
 
 		return this.#append(
-			createQueryValueFilter(state.schema, 'not-equal', fieldName, value),
+			createQueryValueFilter(state.schema, 'not-equal', target, value),
 		)
 	}
 
@@ -183,58 +184,136 @@ class ImmutableAccessFilter<
 		)
 	}
 
-	containedIn<TFieldName extends QueryFilterFieldName<TSchema, 'in'>>(
-		fieldName: TFieldName,
-		values: readonly QueryFilterValue<TSchema, TFieldName>[],
+	containedIn<TTarget extends QueryFilterTarget<TSchema, 'in'>>(
+		target: TTarget,
+		values: readonly QueryFilterOperand<TSchema, 'in', TTarget>[],
 	): AccessFilter<TSchema> {
 		const state = readAccessFilterState<TSchema>(this)
 
 		return this.#append(
-			createQueryMembershipFilter(state.schema, 'in', fieldName, values),
+			createQueryMembershipFilter(state.schema, 'in', target, values),
 		)
 	}
 
-	notContainedIn<TFieldName extends QueryFilterFieldName<TSchema, 'not-in'>>(
-		fieldName: TFieldName,
-		values: readonly QueryFilterValue<TSchema, TFieldName>[],
+	notContainedIn<TTarget extends QueryFilterTarget<TSchema, 'not-in'>>(
+		target: TTarget,
+		values: readonly QueryFilterOperand<TSchema, 'not-in', TTarget>[],
 	): AccessFilter<TSchema> {
 		const state = readAccessFilterState<TSchema>(this)
 
 		return this.#append(
-			createQueryMembershipFilter(state.schema, 'not-in', fieldName, values),
+			createQueryMembershipFilter(state.schema, 'not-in', target, values),
 		)
 	}
 
-	contains<TFieldName extends QueryFilterFieldName<TSchema, 'contains'>>(
-		fieldName: TFieldName,
-		value: AccessStringValue<TSchema, TFieldName>,
+	contains<TTarget extends QueryFilterTarget<TSchema, 'contains'>>(
+		target: TTarget,
+		value: QueryFilterOperand<TSchema, 'contains', TTarget>,
 	): AccessFilter<TSchema> {
 		const state = readAccessFilterState<TSchema>(this)
 
 		return this.#append(
-			createQueryValueFilter(state.schema, 'contains', fieldName, value),
+			createQueryStructuralFilter(state.schema, 'contains', target, value),
 		)
 	}
 
-	startsWith<TFieldName extends QueryFilterFieldName<TSchema, 'starts-with'>>(
-		fieldName: TFieldName,
-		value: AccessStringValue<TSchema, TFieldName>,
+	containedBy<TTarget extends QueryFilterTarget<TSchema, 'contained-by'>>(
+		target: TTarget,
+		value: QueryFilterOperand<TSchema, 'contained-by', TTarget>,
 	): AccessFilter<TSchema> {
 		const state = readAccessFilterState<TSchema>(this)
 
 		return this.#append(
-			createQueryValueFilter(state.schema, 'starts-with', fieldName, value),
+			createQueryStructuralFilter(state.schema, 'contained-by', target, value),
 		)
 	}
 
-	endsWith<TFieldName extends QueryFilterFieldName<TSchema, 'ends-with'>>(
-		fieldName: TFieldName,
-		value: AccessStringValue<TSchema, TFieldName>,
+	hasKey<TTarget extends QueryFilterTarget<TSchema, 'has-key'>>(
+		target: TTarget,
+		key: QueryFilterOperand<TSchema, 'has-key', TTarget> & string,
 	): AccessFilter<TSchema> {
 		const state = readAccessFilterState<TSchema>(this)
 
 		return this.#append(
-			createQueryValueFilter(state.schema, 'ends-with', fieldName, value),
+			createQueryKeyFilter(state.schema, 'has-key', target, key),
+		)
+	}
+
+	hasAnyKeys<TTarget extends QueryFilterTarget<TSchema, 'has-any-keys'>>(
+		target: TTarget,
+		keys: readonly (QueryFilterOperand<TSchema, 'has-any-keys', TTarget> &
+			string)[],
+	): AccessFilter<TSchema> {
+		const state = readAccessFilterState<TSchema>(this)
+
+		return this.#append(
+			createQueryKeyFilter(state.schema, 'has-any-keys', target, keys),
+		)
+	}
+
+	hasAllKeys<TTarget extends QueryFilterTarget<TSchema, 'has-all-keys'>>(
+		target: TTarget,
+		keys: readonly (QueryFilterOperand<TSchema, 'has-all-keys', TTarget> &
+			string)[],
+	): AccessFilter<TSchema> {
+		const state = readAccessFilterState<TSchema>(this)
+
+		return this.#append(
+			createQueryKeyFilter(state.schema, 'has-all-keys', target, keys),
+		)
+	}
+
+	jsonPathExists(
+		target: QueryFilterTarget<TSchema, 'json-path-exists'>,
+		expression: QueryJsonPathExpression,
+	): AccessFilter<TSchema> {
+		const state = readAccessFilterState<TSchema>(this)
+
+		return this.#append(
+			createQueryJsonPathFilter(
+				state.schema,
+				'json-path-exists',
+				target,
+				expression,
+			),
+		)
+	}
+
+	jsonPathMatches(
+		target: QueryFilterTarget<TSchema, 'json-path-matches'>,
+		expression: QueryJsonPathExpression,
+	): AccessFilter<TSchema> {
+		const state = readAccessFilterState<TSchema>(this)
+
+		return this.#append(
+			createQueryJsonPathFilter(
+				state.schema,
+				'json-path-matches',
+				target,
+				expression,
+			),
+		)
+	}
+
+	startsWith<TTarget extends QueryFilterTarget<TSchema, 'starts-with'>>(
+		target: TTarget,
+		value: QueryFilterOperand<TSchema, 'starts-with', TTarget>,
+	): AccessFilter<TSchema> {
+		const state = readAccessFilterState<TSchema>(this)
+
+		return this.#append(
+			createQueryValueFilter(state.schema, 'starts-with', target, value),
+		)
+	}
+
+	endsWith<TTarget extends QueryFilterTarget<TSchema, 'ends-with'>>(
+		target: TTarget,
+		value: QueryFilterOperand<TSchema, 'ends-with', TTarget>,
+	): AccessFilter<TSchema> {
+		const state = readAccessFilterState<TSchema>(this)
+
+		return this.#append(
+			createQueryValueFilter(state.schema, 'ends-with', target, value),
 		)
 	}
 
@@ -249,20 +328,16 @@ class ImmutableAccessFilter<
 		)
 	}
 
-	isNotNull(
-		fieldName: QueryFilterFieldName<TSchema, 'null'>,
-	): AccessFilter<TSchema> {
+	isNotNull(target: QueryFilterTarget<TSchema, 'null'>): AccessFilter<TSchema> {
 		const state = readAccessFilterState<TSchema>(this)
 
-		return this.#append(createQueryNullFilter(state.schema, fieldName, false))
+		return this.#append(createQueryNullFilter(state.schema, target, false))
 	}
 
-	isNull(
-		fieldName: QueryFilterFieldName<TSchema, 'null'>,
-	): AccessFilter<TSchema> {
+	isNull(target: QueryFilterTarget<TSchema, 'null'>): AccessFilter<TSchema> {
 		const state = readAccessFilterState<TSchema>(this)
 
-		return this.#append(createQueryNullFilter(state.schema, fieldName, true))
+		return this.#append(createQueryNullFilter(state.schema, target, true))
 	}
 
 	and(filter: AccessFilter<TSchema>): AccessFilter<TSchema> {

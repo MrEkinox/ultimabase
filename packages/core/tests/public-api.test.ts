@@ -86,6 +86,7 @@ describe('@ultimabase/core public entry point', () => {
 			'denyAll',
 			'enumField',
 			'extensionHandlerKey',
+			'fieldPath',
 			'fieldUsesTemporalTimezone',
 			'floatField',
 			'frameworkErrorCodes',

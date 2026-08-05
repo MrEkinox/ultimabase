@@ -128,6 +128,7 @@ Accepted records:
 - [ADR-0133: Canonical null for optional field values](0133-canonical-null-for-optional-fields.md)
 - [ADR-0134: Unified field-oriented update data](0134-unified-update-data.md)
 - [ADR-0135: First-class Query range filters](0135-first-class-query-range-filters.md)
+- [ADR-0136: Structured Query targets for JSON and object fields](0136-structured-query-targets.md)
 
 Superseded records:
 

@@ -1,6 +1,7 @@
 import {
 	Schema,
 	intField,
+	jsonField,
 	objectField,
 	stringField,
 } from '../../schema/index.js'
@@ -8,10 +9,14 @@ import { describe, expect, it } from 'vitest'
 
 import {
 	createQueryNullFilter,
+	createQueryJsonPathFilter,
+	createQueryKeyFilter,
 	createQueryMembershipFilter,
 	createQueryRangeFilter,
 	createQueryRegexFilter,
+	createQueryStructuralFilter,
 	createQueryValueFilter,
+	fieldPath,
 } from './factory.js'
 
 const fixtureSchema = Schema.define({
@@ -21,7 +26,11 @@ const fixtureSchema = Schema.define({
 		requiredTitle: stringField({ validation: { required: true } }),
 		count: intField(),
 		tags: stringField({ list: true }),
-		metadata: objectField({ fields: { label: stringField() } }),
+		metadata: objectField({
+			fields: { aliases: stringField({ list: true }), label: stringField() },
+		}),
+		payload: jsonField(),
+		documents: jsonField({ list: true }),
 	},
 })
 
@@ -117,6 +126,150 @@ describe('query filter factories', () => {
 			createQueryValueFilter(malformedSchema, 'equal', 'title', 'fixture'),
 		).toThrow(
 			new TypeError('query filter field must reference a field definition'),
+		)
+	})
+
+	it('validates structured targets, paths, partial values, and key collections', () => {
+		expect(
+			createQueryStructuralFilter(fixtureSchema, 'contains', 'metadata', {}),
+		).toStrictEqual({ kind: 'contains', field: 'metadata', value: {} })
+		expect(
+			createQueryValueFilter(
+				fixtureSchema,
+				'equal',
+				fieldPath('metadata', ['label']),
+				'typed',
+			),
+		).toStrictEqual({
+			field: 'metadata',
+			kind: 'equal',
+			path: ['label'],
+			value: 'typed',
+		})
+		expect(() =>
+			createQueryStructuralFilter(fixtureSchema, 'contains', 'metadata', {
+				unknown: true,
+			}),
+		).toThrow(
+			new TypeError('query filter value.unknown is not a declared field'),
+		)
+		expect(() =>
+			createQueryStructuralFilter(fixtureSchema, 'contains', 'metadata', {
+				aliases: [null],
+			}),
+		).toThrow(new TypeError('query filter value.aliases[0] must be a string'))
+		expect(() =>
+			createQueryValueFilter(
+				fixtureSchema,
+				'equal',
+				fieldPath('metadata', ['unknown']),
+				'typed',
+			),
+		).toThrow(
+			new TypeError(
+				'query field path references unknown object field "unknown" at index 0',
+			),
+		)
+		expect(() =>
+			createQueryValueFilter(
+				fixtureSchema,
+				'equal',
+				fieldPath('title', ['nested']),
+				'typed',
+			),
+		).toThrow(
+			new TypeError(
+				'query field paths require a non-list json or object root field',
+			),
+		)
+		expect(() => {
+			// @ts-expect-error -- Runtime validation rejects empty path arrays.
+			fieldPath('payload', [])
+		}).toThrow(
+			new TypeError('query field path must contain at least one segment'),
+		)
+		expect(() =>
+			createQueryKeyFilter(
+				fixtureSchema,
+				'has-any-keys',
+				'payload',
+				// @ts-expect-error -- Runtime validation rejects non-string keys.
+				['valid', 42],
+			),
+		).toThrow(new TypeError('query keys must be an array of strings'))
+	})
+
+	it('snapshots advanced JSONPath expressions without interpreting their source', () => {
+		const variables = { minimum: 10, options: { active: true } }
+		const filter = createQueryJsonPathFilter(
+			fixtureSchema,
+			'json-path-exists',
+			'payload',
+			{
+				source: '$.items[*] ? (@.price > $minimum)',
+				variables,
+			},
+		)
+
+		expect(filter).toStrictEqual({
+			field: 'payload',
+			kind: 'json-path-exists',
+			source: '$.items[*] ? (@.price > $minimum)',
+			variables,
+		})
+		expect(filter).not.toHaveProperty('expression')
+		expect(Object.isFrozen(filter)).toBe(true)
+
+		if (!('variables' in filter)) {
+			throw new TypeError('JSONPath fixture must retain variables')
+		}
+
+		expect(Object.isFrozen(filter.variables)).toBe(true)
+		expect(filter.variables).not.toBe(variables)
+
+		variables.minimum = 99
+		variables.options.active = false
+
+		expect(filter.variables).toStrictEqual({
+			minimum: 10,
+			options: { active: true },
+		})
+	})
+
+	it('rejects malformed JSONPath expression boundaries', () => {
+		expect(() =>
+			createQueryJsonPathFilter(
+				fixtureSchema,
+				'json-path-exists',
+				'payload',
+				// @ts-expect-error -- Runtime validation protects JavaScript callers.
+				null,
+			),
+		).toThrow(new TypeError('query JSONPath expression must be an object'))
+		expect(() =>
+			createQueryJsonPathFilter(fixtureSchema, 'json-path-exists', 'payload', {
+				source: '',
+			}),
+		).toThrow(new TypeError('query JSONPath source must be a non-empty string'))
+		expect(() =>
+			createQueryJsonPathFilter(fixtureSchema, 'json-path-matches', 'payload', {
+				source: '$.active == true',
+				// @ts-expect-error -- Variables must be a JSON object.
+				variables: [],
+			}),
+		).toThrow(new TypeError('query JSONPath variables must be an object'))
+		expect(() =>
+			createQueryJsonPathFilter(
+				fixtureSchema,
+				'json-path-exists',
+				// @ts-expect-error -- Runtime validation rejects structured list roots.
+				'documents',
+				{ source: '$[*]' },
+			),
+		).toThrow(
+			new TypeError(
+				'query operator json-path-exists does not support list fields',
+			),
 		)
 	})
 })

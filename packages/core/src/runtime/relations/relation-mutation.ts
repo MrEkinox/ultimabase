@@ -140,7 +140,7 @@ export const createRelationTargetLookup = <TSchema extends SchemaDefinition>(
 	const rowFilter = createQueryValueFilter(
 		pointer.schema,
 		'equal',
-		'id' as QueryFieldName<TSchema>,
+		'id',
 		pointer.id,
 	) as DatabaseRowFilterNode
 
@@ -200,7 +200,7 @@ export const createInversePointerUpdate = <
 	const idFilter = createQueryValueFilter(
 		target.schema,
 		'equal',
-		'id' as QueryFieldName<TTarget>,
+		'id',
 		target.id,
 	) as DatabaseRowFilterNode
 	const ownerFilter = createQueryValueFilter(

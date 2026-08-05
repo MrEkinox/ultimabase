@@ -176,9 +176,13 @@ const normalizeJsonValue = (
 	}
 }
 
+/** Copies one recursive JSON value at trusted framework boundaries. */
+export const snapshotJsonValue = (value: unknown, path: string): JsonValue =>
+	normalizeJsonValue(value, path, new WeakSet<object>())
+
 /** Copies one root JSON document while reserving scalar nullability for field metadata. */
 const snapshotJsonDocument = (value: unknown, path: string): JsonDocument => {
-	const normalized = normalizeJsonValue(value, path, new WeakSet<object>())
+	const normalized = snapshotJsonValue(value, path)
 
 	if (normalized !== null && typeof normalized === 'object') {
 		return normalized

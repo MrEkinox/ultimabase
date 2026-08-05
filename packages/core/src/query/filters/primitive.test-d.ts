@@ -24,11 +24,14 @@ import type {
 	QueryComparisonFilterOperator,
 	QueryEqualityFilterOperator,
 	QueryMembershipFilterOperator,
+	QueryJsonPathFilterOperator,
+	QueryKeyFilterOperator,
 	QueryPrimitiveFilterNode,
 	QueryPrimitiveFilterOperator,
 	QueryRangeFilterOperator,
 	QueryRegexPattern,
 	QueryStringFilterOperator,
+	QueryStructuralContainmentFilterOperator,
 } from '../index.js'
 
 const vectorField = definePluginField(
@@ -77,6 +80,11 @@ type OrderedOperators =
 
 type StringOperators = OrderedOperators | QueryStringFilterOperator | 'regex'
 
+type StructuredOperators =
+	| QueryJsonPathFilterOperator
+	| QueryKeyFilterOperator
+	| QueryStructuralContainmentFilterOperator
+
 type Operators<TFieldName extends keyof typeof filterSchema.fields> =
 	QueryPrimitiveFilterOperator<typeof filterSchema, TFieldName>
 
@@ -91,8 +99,12 @@ test('restricts every built-in field kind to its portable operators', () => {
 	expectTypeOf<Operators<'status'>>().toEqualTypeOf<EqualityOperators>()
 	expectTypeOf<Operators<'ratio'>>().toEqualTypeOf<OrderedOperators>()
 	expectTypeOf<Operators<'count'>>().toEqualTypeOf<OrderedOperators>()
-	expectTypeOf<Operators<'payload'>>().toEqualTypeOf<EqualityOperators>()
-	expectTypeOf<Operators<'profile'>>().toEqualTypeOf<'null'>()
+	expectTypeOf<Operators<'payload'>>().toEqualTypeOf<
+		EqualityOperators | StructuredOperators
+	>()
+	expectTypeOf<Operators<'profile'>>().toEqualTypeOf<
+		StructuredOperators | 'null'
+	>()
 	expectTypeOf<Operators<'author'>>().toEqualTypeOf<EqualityOperators>()
 	expectTypeOf<Operators<'title'>>().toEqualTypeOf<StringOperators>()
 	expectTypeOf<Operators<'aliases'>>().toEqualTypeOf<'null'>()
@@ -153,6 +165,28 @@ test('correlates operands with exact inferred field values', () => {
 		readonly field: 'author'
 		readonly value: Pointer<typeof pointerTargetSchema>
 	}>().toExtend<Filters>()
+	expectTypeOf<{
+		readonly kind: 'contains'
+		readonly field: 'profile'
+		readonly value: { readonly name: 'Ada' }
+	}>().toExtend<Filters>()
+	expectTypeOf<{
+		readonly kind: 'equal'
+		readonly field: 'profile'
+		readonly path: readonly ['name']
+		readonly value: 'Ada'
+	}>().toExtend<Filters>()
+	expectTypeOf<{
+		readonly kind: 'has-key'
+		readonly field: 'profile'
+		readonly value: 'name'
+	}>().toExtend<Filters>()
+	expectTypeOf<{
+		readonly kind: 'json-path-exists'
+		readonly field: 'payload'
+		readonly source: '$.items[*]'
+		readonly variables: { readonly minimum: 10 }
+	}>().toExtend<Filters>()
 
 	expectTypeOf<{
 		readonly kind: 'equal'
@@ -178,6 +212,17 @@ test('correlates operands with exact inferred field values', () => {
 		readonly kind: 'equal'
 		readonly field: 'vector'
 		readonly value: readonly [1, 2, 3]
+	}>().not.toExtend<Filters>()
+	expectTypeOf<{
+		readonly kind: 'equal'
+		readonly field: 'profile'
+		readonly path: readonly ['name']
+		readonly value: 42
+	}>().not.toExtend<Filters>()
+	expectTypeOf<{
+		readonly kind: 'has-key'
+		readonly field: 'profile'
+		readonly value: 'missing'
 	}>().not.toExtend<Filters>()
 })
 

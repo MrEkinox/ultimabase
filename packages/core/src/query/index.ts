@@ -55,6 +55,7 @@ export type {
 	QueryPointerTargetSchema,
 } from './clauses/inclusion.js'
 export { normalizeLogicalFilter } from './filters/logical.js'
+export { fieldPath } from './filters/factory.js'
 export type {
 	QueryAndFilterNode,
 	QueryConstantFilterNode,
@@ -69,11 +70,21 @@ export type {
 export type {
 	QueryComparisonFilterNode,
 	QueryComparisonFilterOperator,
+	QueryBuiltInFilterOperator,
 	QueryEqualityFilterNode,
 	QueryEqualityFilterOperator,
 	QueryNullFilterNode,
 	QueryFilterValue,
 	QueryFilterFieldName,
+	QueryFilterOperand,
+	QueryFilterTarget,
+	QueryFieldPath,
+	QueryKeyFilterNode,
+	QueryKeyFilterOperator,
+	QueryKeysFilterNode,
+	QueryJsonPathExpression,
+	QueryJsonPathFilterNode,
+	QueryJsonPathFilterOperator,
 	QueryMembershipFilterNode,
 	QueryMembershipFilterOperator,
 	QueryPrimitiveFilterNode,
@@ -85,6 +96,8 @@ export type {
 	QueryRegexPattern,
 	QueryStringFilterNode,
 	QueryStringFilterOperator,
+	QueryStructuralContainmentFilterNode,
+	QueryStructuralContainmentFilterOperator,
 } from './filters/primitive.js'
 export {
 	collectQueryRelationPredicates,

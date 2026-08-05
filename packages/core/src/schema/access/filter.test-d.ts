@@ -7,6 +7,7 @@ import {
 	stringField,
 } from '../index.js'
 import { expectTypeOf, test } from 'vitest'
+import { fieldPath } from '../../query/index.js'
 
 import type { AccessFilter } from './contracts.js'
 import { createAccessFilter } from './filter.js'
@@ -52,6 +53,18 @@ test('correlates every Access predicate with exact schema capabilities', () => {
 	).toEqualTypeOf<AccessFilter<typeof Article>>()
 
 	filter.equalTo('score', null)
+	filter
+		.contains('metadata', { label: 'typed' })
+		.containedBy('metadata', { label: 'typed' })
+		.hasKey('metadata', 'label')
+		.hasAnyKeys('metadata', ['label'])
+		.hasAllKeys('metadata', ['label'])
+		.jsonPathExists('metadata', {
+			source: '$.items[*] ? (@.price > $minimum)',
+			variables: { minimum: 10 },
+		})
+		.jsonPathMatches('metadata', { source: '$.label == "typed"' })
+		.equalTo(fieldPath('metadata', ['label']), 'typed')
 
 	// @ts-expect-error -- Boolean operands remain booleans.
 	filter.equalTo('published', 'true')
@@ -69,6 +82,12 @@ test('correlates every Access predicate with exact schema capabilities', () => {
 	filter.containedIn('status', ['archived'])
 	// @ts-expect-error -- String operators reject numeric fields.
 	filter.contains('views', '10')
+	// @ts-expect-error -- Typed objects reject undeclared containment properties.
+	filter.contains('metadata', { missing: true })
+	// @ts-expect-error -- Typed object key operators reject undeclared keys.
+	filter.hasKey('metadata', 'missing')
+	// @ts-expect-error -- JSONPath cannot target ordinary scalar fields.
+	filter.jsonPathExists('views', { source: '$' })
 	// @ts-expect-error -- Regex filters reject non-string fields.
 	filter.matches('views', { flags: [], source: '10' })
 	// @ts-expect-error -- Equality does not apply to list fields.

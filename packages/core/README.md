@@ -157,6 +157,37 @@ lower, upper)` keeps values inside the interval, while `notBetween(field,
 lower, upper)` keeps values strictly outside it. Both remain first-class
 transport-neutral AST nodes rather than expanding into logical branches.
 
+Structured filters use the same flat vocabulary for dynamic JSON and typed
+objects. Object containment accepts recursive partial values, and object keys
+and paths retain exact autocomplete:
+
+```ts
+import { fieldPath } from '@ultimabase/core'
+
+const visible = Post.query()
+	.contains('metadata', { visibility: 'public' })
+	.hasAllKeys('metadata', ['visibility', 'category'])
+	.equalTo(fieldPath('profile', ['contact', 'email']), 'ada@example.com')
+	.jsonPathExists('metadata', {
+		source: '$.items[*] ? (@.price > $minimum)',
+		variables: { minimum: 10 },
+	})
+```
+
+`fieldPath()` keeps segments separate in the Query AST, so dots inside declared
+field names are never parsed as paths. A `jsonField` accepts dynamic string
+segments and safe `JsonValue` operands. An `objectField` rejects unknown paths,
+keys, values, and unsupported terminal operators in TypeScript. Paths cannot
+traverse list fields. Since persisted typed objects contain every declared key,
+their root key checks are normally redundant; the same operators are primarily
+useful for dynamic JSON branches.
+
+`jsonPathExists()` and `jsonPathMatches()` are explicit advanced escape hatches.
+Their JSONPath source string is intentionally untyped, but the target remains a
+JSON or object structure and variables remain immutable portable JSON. On an
+`objectField`, the expression observes encoded JSONB values, including child
+storage codecs such as bigint strings.
+
 Relation handles expose atomic logical mutations without join-row commands:
 
 ```ts

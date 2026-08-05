@@ -1,5 +1,6 @@
 import {
 	collectQueryRelationPredicates,
+	fieldPath,
 	Query,
 	relationField,
 	type QueryFilterNode,
@@ -16,6 +17,7 @@ import {
 	floatField,
 	intField,
 	jsonField,
+	objectField,
 	pointerField,
 	stringField,
 	SchemaRegistry,
@@ -43,6 +45,12 @@ const FilterSchema = Schema.define({
 		exact: decimalField(),
 		huge: bigintField(),
 		metadata: jsonField(),
+		profile: objectField({
+			fields: {
+				label: stringField(),
+				stats: objectField({ fields: { exact: bigintField() } }),
+			},
+		}),
 		rating: floatField(),
 		status: enumField({ values: ['draft', 'published'] }),
 		title: stringField(),
@@ -283,6 +291,113 @@ describe('PostgreSQL filter compiler', () => {
 		expect(binaryQuery.params[0]).toBeInstanceOf(Uint8Array)
 		expect(binaryQuery.params[0]).not.toBe(bytes)
 		expect(jsonQuery.params).toStrictEqual(['{"nested":true}'])
+	})
+
+	it('compiles structural fields and typed paths through JSONB parameters', () => {
+		const jsonContains = renderQuery(
+			new Query(FilterSchema).contains('metadata', { nested: true }),
+		)
+		const objectContains = renderQuery(
+			new Query(FilterSchema).contains('profile', {
+				stats: { exact: 9_007_199_254_740_993n },
+			}),
+		)
+		const containedBy = renderQuery(
+			new Query(FilterSchema).containedBy('metadata', {
+				nested: true,
+				extra: false,
+			}),
+		)
+		const hasKey = renderQuery(
+			new Query(FilterSchema).hasKey('metadata', 'nested'),
+		)
+		const hasAnyKeys = renderQuery(
+			new Query(FilterSchema).hasAnyKeys('profile', ['label', 'stats']),
+		)
+		const hasAllKeys = renderQuery(
+			new Query(FilterSchema).hasAllKeys('profile', ['label', 'stats']),
+		)
+		const pathEquality = renderQuery(
+			new Query(FilterSchema).equalTo(
+				fieldPath('profile', ['stats', 'exact']),
+				9_007_199_254_740_993n,
+			),
+		)
+		const pathString = renderQuery(
+			new Query(FilterSchema).contains(
+				fieldPath('profile', ['label']),
+				'typed',
+			),
+		)
+		const dynamicPath = renderQuery(
+			new Query(FilterSchema).equalTo(
+				fieldPath('metadata', ['nested', 'count']),
+				42,
+			),
+		)
+		const jsonPathExists = renderQuery(
+			new Query(FilterSchema).jsonPathExists('metadata', {
+				source: '$.items[*] ? (@.price > $minimum)',
+				variables: { minimum: 10 },
+			}),
+		)
+		const jsonPathMatches = renderQuery(
+			new Query(FilterSchema).jsonPathMatches('profile', {
+				source: 'exists($.stats ? (@.exact == $expected))',
+				variables: { expected: '9007199254740993' },
+			}),
+		)
+		const jsonPathExistsOperator = renderQuery(
+			new Query(FilterSchema).jsonPathExists('metadata', {
+				source: '$.items[*]',
+			}),
+		)
+		const jsonPathMatchesOperator = renderQuery(
+			new Query(FilterSchema).jsonPathMatches('profile', {
+				source: '$.label == "typed"',
+			}),
+		)
+
+		expect(jsonContains.sql).toContain(' @> $1::jsonb')
+		expect(jsonContains.params).toStrictEqual(['{"nested":true}'])
+		expect(objectContains.params).toStrictEqual([
+			'{"stats":{"exact":"9007199254740993"}}',
+		])
+		expect(containedBy.sql).toContain(' <@ $1::jsonb')
+		expect(hasKey.sql).toContain(' ? $1')
+		expect(hasKey.params).toStrictEqual(['nested'])
+		expect(hasAnyKeys.sql).toContain(' ?| $1::text[]')
+		expect(hasAnyKeys.params).toStrictEqual([['label', 'stats']])
+		expect(hasAllKeys.sql).toContain(' ?& $1::text[]')
+		expect(hasAllKeys.params).toStrictEqual([['label', 'stats']])
+		expect(pathEquality.sql).toContain(' #> $1::text[] = $2::jsonb')
+		expect(pathEquality.params).toStrictEqual([
+			['stats', 'exact'],
+			'"9007199254740993"',
+		])
+		expect(pathString.sql).toContain(' #>> $1::text[] LIKE $2')
+		expect(pathString.params).toStrictEqual([['label'], '%typed%', '\\'])
+		expect(dynamicPath.params).toStrictEqual([['nested', 'count'], '42'])
+		expect(jsonPathExists.sql).toContain(
+			'jsonb_path_exists("filter_fixtures"."metadata", $1::jsonpath, $2::jsonb, $3)',
+		)
+		expect(jsonPathExists.params).toStrictEqual([
+			'$.items[*] ? (@.price > $minimum)',
+			'{"minimum":10}',
+			true,
+		])
+		expect(jsonPathMatches.sql).toContain(
+			'jsonb_path_match("filter_fixtures"."profile", $1::jsonpath, $2::jsonb, $3)',
+		)
+		expect(jsonPathMatches.params).toStrictEqual([
+			'exists($.stats ? (@.exact == $expected))',
+			'{"expected":"9007199254740993"}',
+			true,
+		])
+		expect(jsonPathExistsOperator.sql).toContain('"metadata" @? $1::jsonpath')
+		expect(jsonPathExistsOperator.params).toStrictEqual(['$.items[*]'])
+		expect(jsonPathMatchesOperator.sql).toContain('"profile" @@ $1::jsonpath')
+		expect(jsonPathMatchesOperator.params).toStrictEqual(['$.label == "typed"'])
 	})
 
 	it('parameterizes every built-in equality storage family', () => {

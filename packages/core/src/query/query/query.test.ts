@@ -4,6 +4,7 @@ import {
 	Schema,
 	enumField,
 	intField,
+	jsonField,
 	objectField,
 	pointerField,
 	stringField,
@@ -11,6 +12,7 @@ import {
 import { describe, expect, it } from 'vitest'
 
 import { hydrateQueryFromAst, Query } from './query.js'
+import { fieldPath } from '../filters/factory.js'
 import type { QueryScope } from './scope.js'
 
 const postFields = {
@@ -21,6 +23,7 @@ const postFields = {
 	status: enumField({ values: ['draft', 'published'] }),
 	aliases: stringField({ list: true }),
 	metadata: objectField({ fields: { label: stringField() } }),
+	payload: jsonField(),
 	attachment: binaryField(),
 }
 
@@ -273,6 +276,80 @@ describe('Query', () => {
 			})
 			expect(Object.isFrozen(query.ast.where.expression.expressions)).toBe(true)
 		}
+	})
+
+	it('builds immutable structural filters for JSON and typed object paths', () => {
+		const keys = ['theme', 'locale']
+		const partial = { label: 'typed' }
+		const query = new Query(postSchema)
+			.contains('metadata', partial)
+			.containedBy('metadata', { label: 'typed' })
+			.hasKey('metadata', 'label')
+			.hasAnyKeys('payload', keys)
+			.hasAllKeys('payload', ['theme'])
+			.equalTo(fieldPath('metadata', ['label']), 'typed')
+			.contains(fieldPath('payload', ['nested']), { enabled: true })
+			.jsonPathExists('payload', {
+				source: '$.items[*] ? (@.price > $minimum)',
+				variables: { minimum: 10 },
+			})
+			.jsonPathMatches('metadata', {
+				source: 'exists($.label ? (@ == $expected))',
+				variables: { expected: 'typed' },
+			})
+
+		keys.push('mutated')
+		partial.label = 'mutated'
+
+		if (query.ast.where?.expression.kind !== 'and') {
+			throw new TypeError('Structured query fixture requires an AND expression')
+		}
+
+		expect(query.ast.where.expression.expressions).toStrictEqual([
+			{ kind: 'contains', field: 'metadata', value: { label: 'typed' } },
+			{ kind: 'contained-by', field: 'metadata', value: { label: 'typed' } },
+			{ kind: 'has-key', field: 'metadata', value: 'label' },
+			{
+				kind: 'has-any-keys',
+				field: 'payload',
+				keys: ['theme', 'locale'],
+			},
+			{ kind: 'has-all-keys', field: 'payload', keys: ['theme'] },
+			{
+				kind: 'equal',
+				field: 'metadata',
+				path: ['label'],
+				value: 'typed',
+			},
+			{
+				kind: 'contains',
+				field: 'payload',
+				path: ['nested'],
+				value: { enabled: true },
+			},
+			{
+				field: 'payload',
+				kind: 'json-path-exists',
+				source: '$.items[*] ? (@.price > $minimum)',
+				variables: { minimum: 10 },
+			},
+			{
+				field: 'metadata',
+				kind: 'json-path-matches',
+				source: 'exists($.label ? (@ == $expected))',
+				variables: { expected: 'typed' },
+			},
+		])
+		expect(Object.isFrozen(query.ast.where.expression.expressions[0])).toBe(
+			true,
+		)
+		const keyExpression = query.ast.where.expression.expressions[3]
+
+		if (keyExpression?.kind !== 'has-any-keys') {
+			throw new TypeError('Structured query fixture requires a key expression')
+		}
+
+		expect(Object.isFrozen(keyExpression.keys)).toBe(true)
 	})
 
 	it('adds the framework identifier without mutating existing filters', () => {

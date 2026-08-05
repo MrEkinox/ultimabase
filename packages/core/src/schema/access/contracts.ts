@@ -4,7 +4,10 @@ import type { AccessContext } from '../../access/index.js'
 import type {
 	OperationKind,
 	QueryFilterFieldName,
+	QueryFilterOperand,
+	QueryFilterTarget,
 	QueryFilterValue,
+	QueryJsonPathExpression,
 	QueryRegexPattern,
 } from '../../query/index.js'
 import type { GenericField } from '../fields/base/contract.js'
@@ -32,17 +35,17 @@ export interface AccessFilter<TSchema extends SchemaDefinition> {
 	 * Adds one schema-aware equality predicate.
 	 * @example `filter.equalTo("authorId", principal.id)`
 	 */
-	equalTo<TFieldName extends QueryFilterFieldName<TSchema, 'equal'>>(
-		fieldName: TFieldName,
-		value: QueryFilterValue<TSchema, TFieldName>,
+	equalTo<TTarget extends QueryFilterTarget<TSchema, 'equal'>>(
+		target: TTarget,
+		value: QueryFilterOperand<TSchema, 'equal', TTarget>,
 	): AccessFilter<TSchema>
 	/**
 	 * Adds one schema-aware inequality predicate.
 	 * @example `filter.notEqualTo("status", "archived")`
 	 */
-	notEqualTo<TFieldName extends QueryFilterFieldName<TSchema, 'not-equal'>>(
-		fieldName: TFieldName,
-		value: QueryFilterValue<TSchema, TFieldName>,
+	notEqualTo<TTarget extends QueryFilterTarget<TSchema, 'not-equal'>>(
+		target: TTarget,
+		value: QueryFilterOperand<TSchema, 'not-equal', TTarget>,
 	): AccessFilter<TSchema>
 	/**
 	 * Adds one strict lower-bound predicate.
@@ -102,41 +105,91 @@ export interface AccessFilter<TSchema extends SchemaDefinition> {
 	 * Matches one field against an immutable candidate collection.
 	 * @example `filter.containedIn("status", ["draft", "published"])`
 	 */
-	containedIn<TFieldName extends QueryFilterFieldName<TSchema, 'in'>>(
-		fieldName: TFieldName,
-		values: readonly QueryFilterValue<TSchema, TFieldName>[],
+	containedIn<TTarget extends QueryFilterTarget<TSchema, 'in'>>(
+		target: TTarget,
+		values: readonly QueryFilterOperand<TSchema, 'in', TTarget>[],
 	): AccessFilter<TSchema>
 	/**
 	 * Excludes one immutable candidate collection.
 	 * @example `filter.notContainedIn("status", ["archived"])`
 	 */
-	notContainedIn<TFieldName extends QueryFilterFieldName<TSchema, 'not-in'>>(
-		fieldName: TFieldName,
-		values: readonly QueryFilterValue<TSchema, TFieldName>[],
+	notContainedIn<TTarget extends QueryFilterTarget<TSchema, 'not-in'>>(
+		target: TTarget,
+		values: readonly QueryFilterOperand<TSchema, 'not-in', TTarget>[],
 	): AccessFilter<TSchema>
 	/**
-	 * Adds one portable substring predicate for a string field.
+	 * Adds string substring matching or containment for a structured target.
 	 * @example `filter.contains("title", "Ultima")`
 	 */
-	contains<TFieldName extends QueryFilterFieldName<TSchema, 'contains'>>(
-		fieldName: TFieldName,
-		value: Extract<QueryFilterValue<TSchema, TFieldName>, string>,
+	contains<TTarget extends QueryFilterTarget<TSchema, 'contains'>>(
+		target: TTarget,
+		value: QueryFilterOperand<TSchema, 'contains', TTarget>,
+	): AccessFilter<TSchema>
+	/**
+	 * Requires one structured field or path to be contained by the supplied value.
+	 * @example `filter.containedBy("metadata", { public: true, featured: true })`
+	 */
+	containedBy<TTarget extends QueryFilterTarget<TSchema, 'contained-by'>>(
+		target: TTarget,
+		value: QueryFilterOperand<TSchema, 'contained-by', TTarget>,
+	): AccessFilter<TSchema>
+	/**
+	 * Requires one top-level key on a structured field or path.
+	 * @example `filter.hasKey("metadata", "visibility")`
+	 */
+	hasKey<TTarget extends QueryFilterTarget<TSchema, 'has-key'>>(
+		target: TTarget,
+		key: QueryFilterOperand<TSchema, 'has-key', TTarget> & string,
+	): AccessFilter<TSchema>
+	/**
+	 * Requires at least one candidate key on a structured field or path.
+	 * @example `filter.hasAnyKeys("metadata", ["public", "featured"])`
+	 */
+	hasAnyKeys<TTarget extends QueryFilterTarget<TSchema, 'has-any-keys'>>(
+		target: TTarget,
+		keys: readonly (QueryFilterOperand<TSchema, 'has-any-keys', TTarget> &
+			string)[],
+	): AccessFilter<TSchema>
+	/**
+	 * Requires every candidate key on a structured field or path.
+	 * @example `filter.hasAllKeys("metadata", ["public", "featured"])`
+	 */
+	hasAllKeys<TTarget extends QueryFilterTarget<TSchema, 'has-all-keys'>>(
+		target: TTarget,
+		keys: readonly (QueryFilterOperand<TSchema, 'has-all-keys', TTarget> &
+			string)[],
+	): AccessFilter<TSchema>
+	/**
+	 * Tests whether an advanced JSONPath expression returns at least one item.
+	 * @example `filter.jsonPathExists("metadata", { source: "$.items[*] ? (@.price > $minimum)", variables: { minimum: 10 } })`
+	 */
+	jsonPathExists(
+		target: QueryFilterTarget<TSchema, 'json-path-exists'>,
+		expression: QueryJsonPathExpression,
+	): AccessFilter<TSchema>
+	/**
+	 * Evaluates one advanced JSONPath boolean predicate.
+	 * @example `filter.jsonPathMatches("metadata", { source: "exists($.items[*] ? (@.price > $minimum))", variables: { minimum: 10 } })`
+	 */
+	jsonPathMatches(
+		target: QueryFilterTarget<TSchema, 'json-path-matches'>,
+		expression: QueryJsonPathExpression,
 	): AccessFilter<TSchema>
 	/**
 	 * Adds one portable prefix predicate for a string field.
 	 * @example `filter.startsWith("slug", "docs-")`
 	 */
-	startsWith<TFieldName extends QueryFilterFieldName<TSchema, 'starts-with'>>(
-		fieldName: TFieldName,
-		value: Extract<QueryFilterValue<TSchema, TFieldName>, string>,
+	startsWith<TTarget extends QueryFilterTarget<TSchema, 'starts-with'>>(
+		target: TTarget,
+		value: QueryFilterOperand<TSchema, 'starts-with', TTarget>,
 	): AccessFilter<TSchema>
 	/**
 	 * Adds one portable suffix predicate for a string field.
 	 * @example `filter.endsWith("email", "@example.com")`
 	 */
-	endsWith<TFieldName extends QueryFilterFieldName<TSchema, 'ends-with'>>(
-		fieldName: TFieldName,
-		value: Extract<QueryFilterValue<TSchema, TFieldName>, string>,
+	endsWith<TTarget extends QueryFilterTarget<TSchema, 'ends-with'>>(
+		target: TTarget,
+		value: QueryFilterOperand<TSchema, 'ends-with', TTarget>,
 	): AccessFilter<TSchema>
 	/**
 	 * Adds one inert regular-expression predicate without executable RegExp state.
@@ -150,16 +203,12 @@ export interface AccessFilter<TSchema extends SchemaDefinition> {
 	 * Requires one declared field to contain a non-null value.
 	 * @example `filter.isNotNull("publishedAt")`
 	 */
-	isNotNull(
-		fieldName: QueryFilterFieldName<TSchema, 'null'>,
-	): AccessFilter<TSchema>
+	isNotNull(target: QueryFilterTarget<TSchema, 'null'>): AccessFilter<TSchema>
 	/**
 	 * Requires one declared field to contain null.
 	 * @example `filter.isNull("publishedAt")`
 	 */
-	isNull(
-		fieldName: QueryFilterFieldName<TSchema, 'null'>,
-	): AccessFilter<TSchema>
+	isNull(target: QueryFilterTarget<TSchema, 'null'>): AccessFilter<TSchema>
 	/**
 	 * Requires this branch and another branch to match.
 	 * @example `published.and(filter.equalTo("authorId", principal.id))`

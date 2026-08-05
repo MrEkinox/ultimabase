@@ -19,16 +19,23 @@ import type {
 } from '../ast/contracts.js'
 import { createQueryAst } from '../ast/factory.js'
 import {
+	createQueryJsonPathFilter,
 	createQueryNullFilter,
+	createQueryKeyFilter,
 	createQueryMembershipFilter,
 	createQueryRangeFilter,
 	createQueryRegexFilter,
+	createQueryStructuralFilter,
 	createQueryValueFilter,
 } from './factory.js'
 import { normalizeLogicalFilter, type QueryFilterNode } from './logical.js'
 import type {
 	QueryFilterFieldName,
+	QueryBuiltInFilterOperator,
+	QueryFilterOperand,
+	QueryFilterTarget,
 	QueryFilterValue,
+	QueryJsonPathExpression,
 	QueryRegexPattern,
 } from './primitive.js'
 import type { OperationObjectId } from '../operations/contracts.js'
@@ -115,10 +122,11 @@ type QueryComparisonValue<
 	TFieldName extends QueryFieldName<TSchema>,
 > = Exclude<QueryFilterValue<TSchema, TFieldName>, null>
 
-type QueryStringValue<
+type QueryTargetOperand<
 	TSchema extends SchemaDefinition,
-	TFieldName extends QueryFieldName<TSchema>,
-> = Extract<QueryFilterValue<TSchema, TFieldName>, string>
+	TOperator extends QueryBuiltInFilterOperator,
+	TTarget extends QueryFilterTarget<TSchema, TOperator>,
+> = QueryFilterOperand<TSchema, TOperator, TTarget>
 
 /**
  * Builds only the target filter accepted by a relation quantifier.
@@ -146,22 +154,22 @@ export class RelationPredicate<TSchema extends SchemaDefinition> {
 	}
 
 	/** Adds an equality condition to the target predicate. */
-	equalTo<TFieldName extends QueryFilterFieldName<TSchema, 'equal'>>(
-		fieldName: TFieldName,
-		value: QueryFilterValue<TSchema, TFieldName>,
+	equalTo<TTarget extends QueryFilterTarget<TSchema, 'equal'>>(
+		target: TTarget,
+		value: QueryTargetOperand<TSchema, 'equal', TTarget>,
 	): RelationPredicate<TSchema> {
 		return this.#append(
-			createQueryValueFilter(this.schema, 'equal', fieldName, value),
+			createQueryValueFilter(this.schema, 'equal', target, value),
 		)
 	}
 
 	/** Adds an inequality condition to the target predicate. */
-	notEqualTo<TFieldName extends QueryFilterFieldName<TSchema, 'not-equal'>>(
-		fieldName: TFieldName,
-		value: QueryFilterValue<TSchema, TFieldName>,
+	notEqualTo<TTarget extends QueryFilterTarget<TSchema, 'not-equal'>>(
+		target: TTarget,
+		value: QueryTargetOperand<TSchema, 'not-equal', TTarget>,
 	): RelationPredicate<TSchema> {
 		return this.#append(
-			createQueryValueFilter(this.schema, 'not-equal', fieldName, value),
+			createQueryValueFilter(this.schema, 'not-equal', target, value),
 		)
 	}
 
@@ -248,52 +256,124 @@ export class RelationPredicate<TSchema extends SchemaDefinition> {
 	}
 
 	/** Requires the target value to occur in one immutable candidate list. */
-	containedIn<TFieldName extends QueryFilterFieldName<TSchema, 'in'>>(
-		fieldName: TFieldName,
-		values: readonly QueryFilterValue<TSchema, TFieldName>[],
+	containedIn<TTarget extends QueryFilterTarget<TSchema, 'in'>>(
+		target: TTarget,
+		values: readonly QueryTargetOperand<TSchema, 'in', TTarget>[],
 	): RelationPredicate<TSchema> {
 		return this.#append(
-			createQueryMembershipFilter(this.schema, 'in', fieldName, values),
+			createQueryMembershipFilter(this.schema, 'in', target, values),
 		)
 	}
 
 	/** Excludes target values occurring in one immutable candidate list. */
-	notContainedIn<TFieldName extends QueryFilterFieldName<TSchema, 'not-in'>>(
-		fieldName: TFieldName,
-		values: readonly QueryFilterValue<TSchema, TFieldName>[],
+	notContainedIn<TTarget extends QueryFilterTarget<TSchema, 'not-in'>>(
+		target: TTarget,
+		values: readonly QueryTargetOperand<TSchema, 'not-in', TTarget>[],
 	): RelationPredicate<TSchema> {
 		return this.#append(
-			createQueryMembershipFilter(this.schema, 'not-in', fieldName, values),
+			createQueryMembershipFilter(this.schema, 'not-in', target, values),
 		)
 	}
 
-	/** Adds a portable substring condition to a target string field. */
-	contains<TFieldName extends QueryFilterFieldName<TSchema, 'contains'>>(
-		fieldName: TFieldName,
-		value: QueryStringValue<TSchema, TFieldName>,
+	/** Adds string substring matching or structured containment to the target. */
+	contains<TTarget extends QueryFilterTarget<TSchema, 'contains'>>(
+		target: TTarget,
+		value: QueryTargetOperand<TSchema, 'contains', TTarget>,
 	): RelationPredicate<TSchema> {
 		return this.#append(
-			createQueryValueFilter(this.schema, 'contains', fieldName, value),
+			createQueryStructuralFilter(this.schema, 'contains', target, value),
+		)
+	}
+
+	/** Requires one structured target to be contained by the supplied value. */
+	containedBy<TTarget extends QueryFilterTarget<TSchema, 'contained-by'>>(
+		target: TTarget,
+		value: QueryTargetOperand<TSchema, 'contained-by', TTarget>,
+	): RelationPredicate<TSchema> {
+		return this.#append(
+			createQueryStructuralFilter(this.schema, 'contained-by', target, value),
+		)
+	}
+
+	/** Requires one top-level key on a structured target. */
+	hasKey<TTarget extends QueryFilterTarget<TSchema, 'has-key'>>(
+		target: TTarget,
+		key: QueryTargetOperand<TSchema, 'has-key', TTarget> & string,
+	): RelationPredicate<TSchema> {
+		return this.#append(
+			createQueryKeyFilter(this.schema, 'has-key', target, key),
+		)
+	}
+
+	/** Requires at least one candidate key on a structured target. */
+	hasAnyKeys<TTarget extends QueryFilterTarget<TSchema, 'has-any-keys'>>(
+		target: TTarget,
+		keys: readonly (QueryTargetOperand<TSchema, 'has-any-keys', TTarget> &
+			string)[],
+	): RelationPredicate<TSchema> {
+		return this.#append(
+			createQueryKeyFilter(this.schema, 'has-any-keys', target, keys),
+		)
+	}
+
+	/** Requires every candidate key on a structured target. */
+	hasAllKeys<TTarget extends QueryFilterTarget<TSchema, 'has-all-keys'>>(
+		target: TTarget,
+		keys: readonly (QueryTargetOperand<TSchema, 'has-all-keys', TTarget> &
+			string)[],
+	): RelationPredicate<TSchema> {
+		return this.#append(
+			createQueryKeyFilter(this.schema, 'has-all-keys', target, keys),
+		)
+	}
+
+	/** Adds one advanced JSONPath existence predicate to the relation filter. */
+	jsonPathExists(
+		target: QueryFilterTarget<TSchema, 'json-path-exists'>,
+		expression: QueryJsonPathExpression,
+	): RelationPredicate<TSchema> {
+		return this.#append(
+			createQueryJsonPathFilter(
+				this.schema,
+				'json-path-exists',
+				target,
+				expression,
+			),
+		)
+	}
+
+	/** Adds one advanced JSONPath boolean predicate to the relation filter. */
+	jsonPathMatches(
+		target: QueryFilterTarget<TSchema, 'json-path-matches'>,
+		expression: QueryJsonPathExpression,
+	): RelationPredicate<TSchema> {
+		return this.#append(
+			createQueryJsonPathFilter(
+				this.schema,
+				'json-path-matches',
+				target,
+				expression,
+			),
 		)
 	}
 
 	/** Adds a portable prefix condition to a target string field. */
-	startsWith<TFieldName extends QueryFilterFieldName<TSchema, 'starts-with'>>(
-		fieldName: TFieldName,
-		value: QueryStringValue<TSchema, TFieldName>,
+	startsWith<TTarget extends QueryFilterTarget<TSchema, 'starts-with'>>(
+		target: TTarget,
+		value: QueryTargetOperand<TSchema, 'starts-with', TTarget>,
 	): RelationPredicate<TSchema> {
 		return this.#append(
-			createQueryValueFilter(this.schema, 'starts-with', fieldName, value),
+			createQueryValueFilter(this.schema, 'starts-with', target, value),
 		)
 	}
 
 	/** Adds a portable suffix condition to a target string field. */
-	endsWith<TFieldName extends QueryFilterFieldName<TSchema, 'ends-with'>>(
-		fieldName: TFieldName,
-		value: QueryStringValue<TSchema, TFieldName>,
+	endsWith<TTarget extends QueryFilterTarget<TSchema, 'ends-with'>>(
+		target: TTarget,
+		value: QueryTargetOperand<TSchema, 'ends-with', TTarget>,
 	): RelationPredicate<TSchema> {
 		return this.#append(
-			createQueryValueFilter(this.schema, 'ends-with', fieldName, value),
+			createQueryValueFilter(this.schema, 'ends-with', target, value),
 		)
 	}
 
@@ -307,16 +387,16 @@ export class RelationPredicate<TSchema extends SchemaDefinition> {
 
 	/** Requires one target field to contain a non-null value. */
 	isNotNull(
-		fieldName: QueryFilterFieldName<TSchema, 'null'>,
+		target: QueryFilterTarget<TSchema, 'null'>,
 	): RelationPredicate<TSchema> {
-		return this.#append(createQueryNullFilter(this.schema, fieldName, false))
+		return this.#append(createQueryNullFilter(this.schema, target, false))
 	}
 
 	/** Requires one target field to contain null. */
 	isNull(
-		fieldName: QueryFilterFieldName<TSchema, 'null'>,
+		target: QueryFilterTarget<TSchema, 'null'>,
 	): RelationPredicate<TSchema> {
-		return this.#append(createQueryNullFilter(this.schema, fieldName, true))
+		return this.#append(createQueryNullFilter(this.schema, target, true))
 	}
 
 	/** Combines another target predicate through AND. */

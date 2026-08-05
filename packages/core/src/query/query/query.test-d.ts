@@ -3,6 +3,7 @@ import {
 	Schema,
 	enumField,
 	intField,
+	jsonField,
 	objectField,
 	pointerField,
 	stringField,
@@ -13,6 +14,7 @@ import { expect, expectTypeOf, test } from 'vitest'
 import type * as publicQuery from '../index.js'
 
 import {
+	fieldPath,
 	Query,
 	type QueryFilterFieldName,
 	type QueryFilterNode,
@@ -29,6 +31,7 @@ const postSchema = Schema.define({
 		status: enumField({ values: ['draft', 'published'] }),
 		aliases: stringField({ list: true }),
 		metadata: objectField({ fields: { label: stringField() } }),
+		payload: jsonField(),
 	},
 })
 
@@ -114,6 +117,26 @@ test('correlates every filter field with its exact operand type', () => {
 	query.containedIn('status', ['draft', 'published'])
 	query.notContainedIn('status', ['draft'])
 	query.contains('title', 'Base')
+	query.contains('metadata', { label: 'typed' })
+	query.containedBy('metadata', { label: 'typed' })
+	query.hasKey('metadata', 'label')
+	query.hasAnyKeys('payload', ['theme', 'locale'])
+	query.hasAllKeys('payload', ['theme', 'locale'])
+	query.jsonPathExists('payload', {
+		source: '$.items[*] ? (@.price > $minimum)',
+		variables: { minimum: 10 },
+	})
+	query.jsonPathMatches('metadata', {
+		source: 'exists($.label ? (@ == $expected))',
+		variables: { expected: 'typed' },
+	})
+	query.jsonPathExists(fieldPath('payload', ['nested']), {
+		source: '$.items[*]',
+	})
+	query.equalTo(fieldPath('metadata', ['label']), 'typed')
+	query.contains(fieldPath('metadata', ['label']), 'type')
+	query.equalTo(fieldPath('payload', ['nested', 'count']), 42)
+	query.contains(fieldPath('payload', ['nested']), { enabled: true })
 	query.startsWith('title', 'Ultima')
 	query.endsWith('title', 'Base')
 	query.matches('title', { source: '^Ultima', flags: ['case-insensitive'] })
@@ -136,6 +159,23 @@ test('correlates every filter field with its exact operand type', () => {
 	query.containedIn('status', ['archived'])
 	// @ts-expect-error -- String operators reject numeric fields.
 	query.contains('views', '10')
+	// @ts-expect-error -- Typed object containment rejects unknown child fields.
+	query.contains('metadata', { unknown: true })
+	// @ts-expect-error -- Typed object paths reject unknown child fields.
+	query.equalTo(fieldPath('metadata', ['unknown']), 'typed')
+	// @ts-expect-error -- Typed object path operands preserve child value types.
+	query.equalTo(fieldPath('metadata', ['label']), 42)
+	// @ts-expect-error -- Key operators reject ordinary scalar fields.
+	query.hasKey('title', 'length')
+	// @ts-expect-error -- Typed object key operators suggest only declared fields.
+	query.hasKey('metadata', 'unknown')
+	// @ts-expect-error -- JSONPath targets must be JSON or object structures.
+	query.jsonPathExists('title', { source: '$' })
+	query.jsonPathExists('payload', {
+		source: '$.items[*]',
+		// @ts-expect-error -- JSONPath variables remain portable JSON values.
+		variables: { minimum: 10n },
+	})
 	// @ts-expect-error -- Regex filters reject non-string fields.
 	query.matches('views', { source: '10', flags: [] })
 	// @ts-expect-error -- Equality does not apply to list fields.

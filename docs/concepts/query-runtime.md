@@ -33,6 +33,29 @@ capture execution or authority implicitly.
 
 Transports produce the same AST as the class API. Runtime executes one pipeline for every source.
 
+Structured fields share one flat filter vocabulary. Dynamic JSON uses safe
+`JsonValue` operands, while typed objects preserve exact partial values, keys,
+and nested paths:
+
+```ts
+import { fieldPath } from '@ultimabase/core'
+
+const publicPosts = Post.query()
+	.contains('metadata', { visibility: 'public' })
+	.hasKey('metadata', 'visibility')
+	.equalTo(fieldPath('profile', ['contact', 'email']), 'ada@example.com')
+	.jsonPathExists('metadata', {
+		source: '$.items[*] ? (@.price > $minimum)',
+		variables: { minimum: 10 },
+	})
+```
+
+The AST stores `field: 'profile'` and `path: ['contact', 'email']` separately.
+It never parses dotted property names. String `contains` remains substring
+matching; a JSON or object target selects structural containment instead.
+JSONPath is the explicit advanced exception: its source is intentionally
+untyped, while its target and immutable variables remain checked portable data.
+
 Bulk creates and upserts are atomic by default. Bulk updates and deletes return counts rather than loading all affected objects.
 
 Every mutation eventually executes inside an automatic adapter transaction.

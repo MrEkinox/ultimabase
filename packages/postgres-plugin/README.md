@@ -580,6 +580,35 @@ Developer values and regex sources never become SQL text. `contains`,
 `startsWith`, and `endsWith` escape PostgreSQL `LIKE` wildcards (`%`, `_`) and
 the escape character, so they retain literal substring semantics.
 
+For `jsonField` and `objectField`, the same `contains` builder means structural
+containment. PostgreSQL compiles the shared structured AST to JSONB operators;
+typed object partials pass through child codecs before serialization:
+
+```ts
+import { fieldPath } from '@ultimabase/core'
+
+const query = ArticleSchema.query()
+	.contains('metadata', { visibility: 'public' }) // @>
+	.containedBy('metadata', { visibility: 'public', featured: true }) // <@
+	.hasAnyKeys('metadata', ['visibility', 'featured']) // ?|
+	.equalTo(fieldPath('profile', ['contact', 'email']), 'ada@example.com') // #>
+	.jsonPathExists('metadata', {
+		source: '$.items[*] ? (@.price > $minimum)',
+		variables: { minimum: 10 },
+	})
+```
+
+Containment documents, keys, key arrays, and path segment arrays are parameters.
+The compiler uses `#>>` only for typed string matching and `#>` for JSONB value
+comparisons. No public builder exposes PostgreSQL syntax or raw SQL.
+
+Advanced JSONPath expressions without variables compile directly to
+parameterized `@?` or `@@`, preserving PostgreSQL's JSONB index path. When
+variables are supplied, the compiler uses `jsonb_path_exists` or
+`jsonb_path_match` and sends the source and JSONB variables separately, with
+silent structural-error handling enabled. JSONPath against an `objectField`
+observes its encoded JSONB representation.
+
 Regex uses PostgreSQL advanced regular expressions. `case-insensitive` selects
 `~*`; the compiler maps the independent JavaScript-style `multiline` and
 `dot-matches-newline` flags to PostgreSQL newline modes `n`, `s`, `w`, or `p`.

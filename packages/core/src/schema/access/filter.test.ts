@@ -7,6 +7,7 @@ import {
 	stringField,
 } from '../index.js'
 import { describe, expect, it } from 'vitest'
+import { fieldPath } from '../../query/index.js'
 
 import type { AccessFilter } from './contracts.js'
 import {
@@ -127,6 +128,49 @@ describe('AccessFilter', () => {
 		expect(Object.isFrozen(base)).toBe(true)
 		expect(Object.isFrozen(combined)).toBe(true)
 		expect(Reflect.ownKeys(combined)).toStrictEqual([])
+	})
+
+	it('reuses structured Query leaves without exposing private Access state', () => {
+		const filter = createAccessFilter(articleSchema)
+			.contains('metadata', { label: 'typed' })
+			.containedBy('metadata', { label: 'typed' })
+			.hasKey('metadata', 'label')
+			.hasAnyKeys('metadata', ['label'])
+			.hasAllKeys('metadata', ['label'])
+			.jsonPathExists('metadata', {
+				source: '$.items[*] ? (@.price > $minimum)',
+				variables: { minimum: 10 },
+			})
+			.jsonPathMatches('metadata', { source: '$.label == "typed"' })
+			.equalTo(fieldPath('metadata', ['label']), 'typed')
+
+		expect(getAccessFilterExpression(articleSchema, filter)).toMatchObject({
+			kind: 'and',
+			expressions: [
+				{ field: 'metadata', kind: 'contains', value: { label: 'typed' } },
+				{ field: 'metadata', kind: 'contained-by' },
+				{ field: 'metadata', kind: 'has-key', value: 'label' },
+				{ field: 'metadata', kind: 'has-any-keys', keys: ['label'] },
+				{ field: 'metadata', kind: 'has-all-keys', keys: ['label'] },
+				{
+					field: 'metadata',
+					kind: 'json-path-exists',
+					source: '$.items[*] ? (@.price > $minimum)',
+					variables: { minimum: 10 },
+				},
+				{
+					field: 'metadata',
+					kind: 'json-path-matches',
+					source: '$.label == "typed"',
+				},
+				{
+					field: 'metadata',
+					kind: 'equal',
+					path: ['label'],
+					value: 'typed',
+				},
+			],
+		})
 	})
 
 	it('rejects forged and cross-schema filters at the private boundary', () => {

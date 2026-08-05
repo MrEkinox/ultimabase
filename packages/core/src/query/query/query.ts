@@ -32,10 +32,13 @@ import {
 } from '../clauses/pagination.js'
 import { normalizeQuerySelection } from '../clauses/selection.js'
 import {
+	createQueryJsonPathFilter,
 	createQueryNullFilter,
+	createQueryKeyFilter,
 	createQueryMembershipFilter,
 	createQueryRangeFilter,
 	createQueryRegexFilter,
+	createQueryStructuralFilter,
 	createQueryValueFilter,
 } from '../filters/factory.js'
 import {
@@ -44,7 +47,11 @@ import {
 } from '../filters/logical.js'
 import type {
 	QueryFilterFieldName,
+	QueryBuiltInFilterOperator,
+	QueryFilterOperand,
+	QueryFilterTarget,
 	QueryFilterValue,
+	QueryJsonPathExpression,
 	QueryPrimitiveFilterNode,
 	QueryRegexPattern,
 } from '../filters/primitive.js'
@@ -163,10 +170,11 @@ type QueryComparisonValue<
 	TFieldName extends QueryFieldName<TSchema>,
 > = Exclude<QueryFilterValue<TSchema, TFieldName>, null>
 
-type QueryStringValue<
+type QueryTargetOperand<
 	TSchema extends SchemaDefinition,
-	TFieldName extends QueryFieldName<TSchema>,
-> = Extract<QueryFilterValue<TSchema, TFieldName>, string>
+	TOperator extends QueryBuiltInFilterOperator,
+	TTarget extends QueryFilterTarget<TSchema, TOperator>,
+> = QueryFilterOperand<TSchema, TOperator, TTarget>
 
 type QuerySelectionAfterInclude<
 	TSchema extends SchemaDefinition,
@@ -420,22 +428,22 @@ export class Query<
 	}
 
 	/** Adds an equality condition to the implicit AND filter chain. */
-	equalTo<TFieldName extends QueryFilterFieldName<TSchema, 'equal'>>(
-		fieldName: TFieldName,
-		value: QueryFilterValue<TSchema, TFieldName>,
+	equalTo<TTarget extends QueryFilterTarget<TSchema, 'equal'>>(
+		target: TTarget,
+		value: QueryTargetOperand<TSchema, 'equal', TTarget>,
 	): Query<TSchema, TSelectedField, TIncludedPointer> {
 		return this.#appendFilter(
-			createQueryValueFilter(this.schema, 'equal', fieldName, value),
+			createQueryValueFilter(this.schema, 'equal', target, value),
 		)
 	}
 
 	/** Adds an inequality condition to the implicit AND filter chain. */
-	notEqualTo<TFieldName extends QueryFilterFieldName<TSchema, 'not-equal'>>(
-		fieldName: TFieldName,
-		value: QueryFilterValue<TSchema, TFieldName>,
+	notEqualTo<TTarget extends QueryFilterTarget<TSchema, 'not-equal'>>(
+		target: TTarget,
+		value: QueryTargetOperand<TSchema, 'not-equal', TTarget>,
 	): Query<TSchema, TSelectedField, TIncludedPointer> {
 		return this.#appendFilter(
-			createQueryValueFilter(this.schema, 'not-equal', fieldName, value),
+			createQueryValueFilter(this.schema, 'not-equal', target, value),
 		)
 	}
 
@@ -528,52 +536,146 @@ export class Query<
 	}
 
 	/** Adds an inclusion condition from a caller-owned candidate collection. */
-	containedIn<TFieldName extends QueryFilterFieldName<TSchema, 'in'>>(
-		fieldName: TFieldName,
-		values: readonly QueryFilterValue<TSchema, TFieldName>[],
+	containedIn<TTarget extends QueryFilterTarget<TSchema, 'in'>>(
+		target: TTarget,
+		values: readonly QueryTargetOperand<TSchema, 'in', TTarget>[],
 	): Query<TSchema, TSelectedField, TIncludedPointer> {
 		return this.#appendFilter(
-			createQueryMembershipFilter(this.schema, 'in', fieldName, values),
+			createQueryMembershipFilter(this.schema, 'in', target, values),
 		)
 	}
 
 	/** Adds an exclusion condition from a caller-owned candidate collection. */
-	notContainedIn<TFieldName extends QueryFilterFieldName<TSchema, 'not-in'>>(
-		fieldName: TFieldName,
-		values: readonly QueryFilterValue<TSchema, TFieldName>[],
+	notContainedIn<TTarget extends QueryFilterTarget<TSchema, 'not-in'>>(
+		target: TTarget,
+		values: readonly QueryTargetOperand<TSchema, 'not-in', TTarget>[],
 	): Query<TSchema, TSelectedField, TIncludedPointer> {
 		return this.#appendFilter(
-			createQueryMembershipFilter(this.schema, 'not-in', fieldName, values),
+			createQueryMembershipFilter(this.schema, 'not-in', target, values),
 		)
 	}
 
-	/** Adds a portable substring condition for a scalar string field. */
-	contains<TFieldName extends QueryFilterFieldName<TSchema, 'contains'>>(
-		fieldName: TFieldName,
-		value: QueryStringValue<TSchema, TFieldName>,
+	/**
+	 * Adds substring matching for strings or containment for structured targets.
+	 * @example `Post.query().contains('metadata', { visibility: 'public' })`
+	 */
+	contains<TTarget extends QueryFilterTarget<TSchema, 'contains'>>(
+		target: TTarget,
+		value: QueryTargetOperand<TSchema, 'contains', TTarget>,
 	): Query<TSchema, TSelectedField, TIncludedPointer> {
 		return this.#appendFilter(
-			createQueryValueFilter(this.schema, 'contains', fieldName, value),
+			createQueryStructuralFilter(this.schema, 'contains', target, value),
+		)
+	}
+
+	/**
+	 * Requires one structured field or path to be contained by the supplied value.
+	 * @example `Post.query().containedBy('metadata', { public: true, pinned: true })`
+	 */
+	containedBy<TTarget extends QueryFilterTarget<TSchema, 'contained-by'>>(
+		target: TTarget,
+		value: QueryTargetOperand<TSchema, 'contained-by', TTarget>,
+	): Query<TSchema, TSelectedField, TIncludedPointer> {
+		return this.#appendFilter(
+			createQueryStructuralFilter(this.schema, 'contained-by', target, value),
+		)
+	}
+
+	/**
+	 * Requires one top-level key on a JSON or typed object target.
+	 * @example `Post.query().hasKey('metadata', 'visibility')`
+	 */
+	hasKey<TTarget extends QueryFilterTarget<TSchema, 'has-key'>>(
+		target: TTarget,
+		key: QueryTargetOperand<TSchema, 'has-key', TTarget> & string,
+	): Query<TSchema, TSelectedField, TIncludedPointer> {
+		return this.#appendFilter(
+			createQueryKeyFilter(this.schema, 'has-key', target, key),
+		)
+	}
+
+	/**
+	 * Requires at least one key from an immutable candidate collection.
+	 * @example `Post.query().hasAnyKeys('metadata', ['public', 'featured'])`
+	 */
+	hasAnyKeys<TTarget extends QueryFilterTarget<TSchema, 'has-any-keys'>>(
+		target: TTarget,
+		keys: readonly (QueryTargetOperand<TSchema, 'has-any-keys', TTarget> &
+			string)[],
+	): Query<TSchema, TSelectedField, TIncludedPointer> {
+		return this.#appendFilter(
+			createQueryKeyFilter(this.schema, 'has-any-keys', target, keys),
+		)
+	}
+
+	/**
+	 * Requires every key from an immutable candidate collection.
+	 * @example `Post.query().hasAllKeys('metadata', ['public', 'featured'])`
+	 */
+	hasAllKeys<TTarget extends QueryFilterTarget<TSchema, 'has-all-keys'>>(
+		target: TTarget,
+		keys: readonly (QueryTargetOperand<TSchema, 'has-all-keys', TTarget> &
+			string)[],
+	): Query<TSchema, TSelectedField, TIncludedPointer> {
+		return this.#appendFilter(
+			createQueryKeyFilter(this.schema, 'has-all-keys', target, keys),
+		)
+	}
+
+	/**
+	 * Tests whether an advanced JSONPath expression returns at least one item.
+	 * The expression is intentionally untyped; variables remain portable JSON values.
+	 * @example `Post.query().jsonPathExists('metadata', { source: '$.items[*] ? (@.price > $minimum)', variables: { minimum: 10 } })`
+	 */
+	jsonPathExists(
+		target: QueryFilterTarget<TSchema, 'json-path-exists'>,
+		expression: QueryJsonPathExpression,
+	): Query<TSchema, TSelectedField, TIncludedPointer> {
+		return this.#appendFilter(
+			createQueryJsonPathFilter(
+				this.schema,
+				'json-path-exists',
+				target,
+				expression,
+			),
+		)
+	}
+
+	/**
+	 * Evaluates one advanced JSONPath predicate against a structured target.
+	 * @example `Post.query().jsonPathMatches('metadata', { source: 'exists($.items[*] ? (@.price > $minimum))', variables: { minimum: 10 } })`
+	 */
+	jsonPathMatches(
+		target: QueryFilterTarget<TSchema, 'json-path-matches'>,
+		expression: QueryJsonPathExpression,
+	): Query<TSchema, TSelectedField, TIncludedPointer> {
+		return this.#appendFilter(
+			createQueryJsonPathFilter(
+				this.schema,
+				'json-path-matches',
+				target,
+				expression,
+			),
 		)
 	}
 
 	/** Adds a portable prefix condition for a scalar string field. */
-	startsWith<TFieldName extends QueryFilterFieldName<TSchema, 'starts-with'>>(
-		fieldName: TFieldName,
-		value: QueryStringValue<TSchema, TFieldName>,
+	startsWith<TTarget extends QueryFilterTarget<TSchema, 'starts-with'>>(
+		target: TTarget,
+		value: QueryTargetOperand<TSchema, 'starts-with', TTarget>,
 	): Query<TSchema, TSelectedField, TIncludedPointer> {
 		return this.#appendFilter(
-			createQueryValueFilter(this.schema, 'starts-with', fieldName, value),
+			createQueryValueFilter(this.schema, 'starts-with', target, value),
 		)
 	}
 
 	/** Adds a portable suffix condition for a scalar string field. */
-	endsWith<TFieldName extends QueryFilterFieldName<TSchema, 'ends-with'>>(
-		fieldName: TFieldName,
-		value: QueryStringValue<TSchema, TFieldName>,
+	endsWith<TTarget extends QueryFilterTarget<TSchema, 'ends-with'>>(
+		target: TTarget,
+		value: QueryTargetOperand<TSchema, 'ends-with', TTarget>,
 	): Query<TSchema, TSelectedField, TIncludedPointer> {
 		return this.#appendFilter(
-			createQueryValueFilter(this.schema, 'ends-with', fieldName, value),
+			createQueryValueFilter(this.schema, 'ends-with', target, value),
 		)
 	}
 
@@ -592,11 +694,9 @@ export class Query<
 	 * @example `Post.query().isNull("publishedAt")`
 	 */
 	isNull(
-		fieldName: QueryFilterFieldName<TSchema, 'null'>,
+		target: QueryFilterTarget<TSchema, 'null'>,
 	): Query<TSchema, TSelectedField, TIncludedPointer> {
-		return this.#appendFilter(
-			createQueryNullFilter(this.schema, fieldName, true),
-		)
+		return this.#appendFilter(createQueryNullFilter(this.schema, target, true))
 	}
 
 	/**
@@ -604,11 +704,9 @@ export class Query<
 	 * @example `Post.query().isNotNull("publishedAt")`
 	 */
 	isNotNull(
-		fieldName: QueryFilterFieldName<TSchema, 'null'>,
+		target: QueryFilterTarget<TSchema, 'null'>,
 	): Query<TSchema, TSelectedField, TIncludedPointer> {
-		return this.#appendFilter(
-			createQueryNullFilter(this.schema, fieldName, false),
-		)
+		return this.#appendFilter(createQueryNullFilter(this.schema, target, false))
 	}
 
 	/**
@@ -924,12 +1022,7 @@ export const scopeQueryToObjectId = <const TSchema extends SchemaDefinition>(
 	id: OperationObjectId<TSchema>,
 	options: Readonly<{ readonly nativeAccessDeniedAsMissing?: true }> = {},
 ): Query<TSchema> => {
-	const rowFilter = createQueryValueFilter(
-		query.schema,
-		'equal',
-		'id' as QueryFieldName<TSchema>,
-		id,
-	)
+	const rowFilter = createQueryValueFilter(query.schema, 'equal', 'id', id)
 	const scope: QueryTerminalPrivateScope = immutableRecord({
 		kind: 'row-filter',
 		...(options.nativeAccessDeniedAsMissing === undefined
