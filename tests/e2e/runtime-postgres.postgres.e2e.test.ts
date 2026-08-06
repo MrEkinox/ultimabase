@@ -201,6 +201,8 @@ declare const packedResult: SchemaResult<
 >
 const packedModelUpdate = () =>
 	packedResult.update({ data: { title: 'Packed update' } })
+const packedModelFetch = () => packedResult.fetch({ select: { title: true } })
+const packedModelPointer = () => packedResult.toPointer()
 const packedQueryUpdate = () =>
 	PostSchema.updateOne({
 		where: (where) => where.eq('id', 'packed-post'),
@@ -219,6 +221,8 @@ void packedMasterFind
 void packedContextFind
 void packedDraftCreate
 void packedModelUpdate
+void packedModelFetch
+void packedModelPointer
 void packedQueryUpdate
 void packedQueryDelete
 
@@ -567,6 +571,17 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 					'Model command E2E could not reload its selected row',
 				)
 			}
+			const pointer = selected.toPointer()
+			const fetched = await selected.fetch(
+				{ select: { email: true, id: true, visits: true } },
+				{ ultimabase },
+			)
+
+			await expect(selected.exists({ ultimabase })).resolves.toBe(true)
+			expect(pointer.schema).toBe(BulkAccountSchema)
+			expect(pointer.id).toBe(created.id)
+			expect(selected.equals(created)).toBe(true)
+			expect(selected.equals(BulkAccountSchema.pointer(created.id))).toBe(true)
 
 			const updated = await selected.update(
 				{
@@ -600,6 +615,11 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 			expect(selected.toJSON()).toStrictEqual({
 				email: 'model-create@example.com',
 			})
+			expect(fetched?.toJSON()).toStrictEqual({
+				email: 'model-create@example.com',
+				id: created.id,
+				visits: 0,
+			})
 			expect(updated?.toJSON()).toStrictEqual({
 				email: 'model-create@example.com',
 				id: created.id,
@@ -616,6 +636,8 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 				'Query terminal update-one on RuntimeBulkAccount',
 				'Query terminal delete-one on RuntimeBulkAccount',
 			])
+			await expect(selected.exists({ ultimabase })).resolves.toBe(false)
+			await expect(selected.fetch({}, { ultimabase })).resolves.toBeNull()
 			await expect(
 				BulkAccountSchema.query()
 					.where({ id: { eq: created.id } })

@@ -49,7 +49,7 @@ import type {
 import { snapshotDeclaredFieldValue } from '../fields/base/definition.js'
 import { isFieldNullable, isRequiredOnCreate } from '../fields/base/options.js'
 import type { InferCreateInput, InferObject } from '../inference/types.js'
-import { Pointer } from '../relations/pointer.js'
+import { Pointer, type PointerValue } from '../relations/pointer.js'
 import {
 	createRelationHandle,
 	type Relation,
@@ -74,6 +74,7 @@ type Simplify<TValue> = {
 
 declare const schemaModelStateType: unique symbol
 declare const schemaResultCapabilitiesType: unique symbol
+declare const schemaModelPointerType: unique symbol
 
 /** @internal Carries nominal lifecycle identity without runtime surface. */
 interface SchemaModelStateIdentity<
@@ -90,6 +91,20 @@ interface SchemaModelStateIdentity<
 export interface SchemaResultCapabilityCarrier<TCapabilities extends object> {
 	readonly [schemaResultCapabilitiesType]: TCapabilities
 }
+
+/** Retains exact pointer inference behind a type-only nominal model boundary. */
+interface SchemaModelPointerCarrier {
+	readonly [schemaModelPointerType]: PointerValue
+}
+
+interface SchemaModelPointerIdentity<
+	TPointer extends PointerValue,
+> extends SchemaModelPointerCarrier {
+	readonly [schemaModelPointerType]: TPointer
+}
+
+type SchemaModelPointerFor<TSource extends SchemaModelPointerCarrier> =
+	NonNullable<TSource[typeof schemaModelPointerType]>
 
 /** Extracts specialized persisted commands without affecting ordinary schemas. */
 export type SchemaResultCapabilitiesOf<TSchema> =
@@ -191,6 +206,12 @@ export type SchemaModelCreateInput<
 	TSelection extends SchemaModelSelection<TValues> | undefined = undefined,
 > = SchemaModelResultSelection<TValues, TSelection>
 
+/** Selects the visible fields returned when one persisted model is refreshed. */
+export type SchemaModelFetchInput<
+	TValues extends object,
+	TSelection extends SchemaModelSelection<TValues> | undefined = undefined,
+> = SchemaModelResultSelection<TValues, TSelection>
+
 interface SchemaModelUpdateFields<TUpdateInput extends object> {
 	/** Applies typed atomic field operations to the protected object identity. */
 	readonly data: TUpdateInput
@@ -222,21 +243,40 @@ type SchemaModelSelectedValues<TValues extends object, TSelection> = [
 			>
 		>
 
-/** Materializes a projected model exactly like Query result inference. */
+/** Retains exact pointer identity without expanding schema fields in command hovers. */
+type PersistedSchemaModelWithPointer<
+	TSource extends SchemaModelPointerCarrier,
+	TClassName extends string,
+	TValues extends object,
+	TCompleteValues extends object,
+	TUpdateInput extends object,
+	TRelations extends object,
+> = Simplify<
+	PersistedSchemaModel<
+		TClassName,
+		TValues,
+		TUpdateInput,
+		TRelations,
+		TCompleteValues,
+		SchemaModelPointerFor<TSource>
+	>
+>
+
+/** Materializes a selected model exactly like Query result inference. */
 type SelectedPersistedSchemaModel<
+	TSource extends SchemaModelPointerCarrier,
 	TClassName extends string,
 	TCompleteValues extends object,
 	TUpdateInput extends object,
 	TRelations extends object,
 	TSelection,
-> = Simplify<
-	PersistedSchemaModel<
-		TClassName,
-		SchemaModelSelectedValues<TCompleteValues, TSelection>,
-		TUpdateInput,
-		TRelations,
-		TCompleteValues
-	>
+> = PersistedSchemaModelWithPointer<
+	TSource,
+	TClassName,
+	SchemaModelSelectedValues<TCompleteValues, TSelection>,
+	TCompleteValues,
+	TUpdateInput,
+	TRelations
 >
 
 /** Exposes only persistence commands valid for a caller-created immutable draft. */
@@ -246,7 +286,8 @@ export interface SchemaDraftCommands<
 	TUpdateInput extends object,
 	TRelations extends object,
 	TUpsertFields extends object,
-> {
+	TPointer extends PointerValue,
+> extends SchemaModelPointerIdentity<TPointer> {
 	/**
 	 * Persists this draft and returns its selected model fields.
 	 *
@@ -257,6 +298,7 @@ export interface SchemaDraftCommands<
 		options?: QueryTerminalOptions,
 	): Promise<
 		SelectedPersistedSchemaModel<
+			Pick<this, typeof schemaModelPointerType>,
 			TClassName,
 			TCompleteValues,
 			TUpdateInput,
@@ -273,12 +315,13 @@ export interface SchemaDraftCommands<
 		input: SchemaModelCreateInput<TCompleteValues>,
 		options?: QueryTerminalOptions,
 	): Promise<
-		PersistedSchemaModel<
+		SelectedPersistedSchemaModel<
+			Pick<this, typeof schemaModelPointerType>,
 			TClassName,
 			TCompleteValues,
 			TUpdateInput,
 			TRelations,
-			TCompleteValues
+			undefined
 		>
 	>
 	/**
@@ -292,6 +335,7 @@ export interface SchemaDraftCommands<
 		options?: QueryTerminalOptions,
 	): Promise<
 		SelectedPersistedSchemaModel<
+			Pick<this, typeof schemaModelPointerType>,
 			TClassName,
 			TCompleteValues,
 			TUpdateInput,
@@ -305,12 +349,13 @@ export interface SchemaDraftCommands<
 			SchemaModelResultSelection<TCompleteValues, undefined>,
 		options?: QueryTerminalOptions,
 	): Promise<
-		PersistedSchemaModel<
+		SelectedPersistedSchemaModel<
+			Pick<this, typeof schemaModelPointerType>,
 			TClassName,
 			TCompleteValues,
 			TUpdateInput,
 			TRelations,
-			TCompleteValues
+			undefined
 		>
 	>
 }
@@ -321,7 +366,56 @@ export interface SchemaResultCommands<
 	TCompleteValues extends object,
 	TUpdateInput extends object,
 	TRelations extends object,
-> {
+	TPointer extends PointerValue,
+> extends SchemaModelPointerIdentity<TPointer> {
+	/**
+	 * Reloads this protected object identity and returns selected fresh fields.
+	 *
+	 * @example `const fresh = await post.fetch({ select: { id: true, title: true } })`
+	 */
+	fetch<const TSelection extends SchemaModelSelection<TCompleteValues>>(
+		input: SchemaModelFetchInput<TCompleteValues, TSelection>,
+		options?: QueryTerminalOptions,
+	): Promise<SelectedPersistedSchemaModel<
+		Pick<this, typeof schemaModelPointerType>,
+		TClassName,
+		TCompleteValues,
+		TUpdateInput,
+		TRelations,
+		TSelection
+	> | null>
+	/** Reloads this protected object identity and returns its complete model. */
+	fetch(
+		input: SchemaModelFetchInput<TCompleteValues>,
+		options?: QueryTerminalOptions,
+	): Promise<SelectedPersistedSchemaModel<
+		Pick<this, typeof schemaModelPointerType>,
+		TClassName,
+		TCompleteValues,
+		TUpdateInput,
+		TRelations,
+		undefined
+	> | null>
+	/**
+	 * Tests whether this protected object identity is still readable.
+	 *
+	 * @example `if (await post.exists()) { /* the object remains readable *\/ }`
+	 */
+	exists(options?: QueryTerminalOptions): Promise<boolean>
+	/**
+	 * Returns this model's exact immutable pointer without performing database I/O.
+	 *
+	 * @example `const author = user.toPointer()`
+	 */
+	toPointer(): TPointer
+	/**
+	 * Compares schema and protected identity without performing database I/O.
+	 *
+	 * @example `if (post.equals(pointer)) { /* both identify the same object *\/ }`
+	 */
+	equals(
+		other: PointerValue | PersistedSchemaReference<SchemaDefinition>,
+	): boolean
 	/**
 	 * Updates this protected object identity and returns selected model fields.
 	 *
@@ -335,6 +429,7 @@ export interface SchemaResultCommands<
 		>,
 		options?: QueryTerminalOptions,
 	): Promise<SelectedPersistedSchemaModel<
+		Pick<this, typeof schemaModelPointerType>,
 		TClassName,
 		TCompleteValues,
 		TUpdateInput,
@@ -349,12 +444,13 @@ export interface SchemaResultCommands<
 	update(
 		input: SchemaModelUpdateCommandInput<TCompleteValues, TUpdateInput>,
 		options?: QueryTerminalOptions,
-	): Promise<PersistedSchemaModel<
+	): Promise<SelectedPersistedSchemaModel<
+		Pick<this, typeof schemaModelPointerType>,
 		TClassName,
 		TCompleteValues,
 		TUpdateInput,
 		TRelations,
-		TCompleteValues
+		undefined
 	> | null>
 	/**
 	 * Deletes this protected object identity and returns selected pre-delete fields.
@@ -365,6 +461,7 @@ export interface SchemaResultCommands<
 		input: SchemaModelDeleteInput<TCompleteValues, TSelection>,
 		options?: QueryTerminalOptions,
 	): Promise<SelectedPersistedSchemaModel<
+		Pick<this, typeof schemaModelPointerType>,
 		TClassName,
 		TCompleteValues,
 		TUpdateInput,
@@ -379,12 +476,13 @@ export interface SchemaResultCommands<
 	delete(
 		input: SchemaModelDeleteInput<TCompleteValues>,
 		options?: QueryTerminalOptions,
-	): Promise<PersistedSchemaModel<
+	): Promise<SelectedPersistedSchemaModel<
+		Pick<this, typeof schemaModelPointerType>,
 		TClassName,
 		TCompleteValues,
 		TUpdateInput,
 		TRelations,
-		TCompleteValues
+		undefined
 	> | null>
 }
 
@@ -417,8 +515,15 @@ export type PersistedSchemaModel<
 	TUpdateInput extends object,
 	TRelations extends object = Readonly<Record<never, never>>,
 	TCompleteValues extends object = TValues,
+	TPointer extends PointerValue = Pointer<SchemaDefinition<TClassName>>,
 > = SchemaModelInstance<SchemaDefinition<TClassName>, 'persisted', TValues> &
-	SchemaResultCommands<TClassName, TCompleteValues, TUpdateInput, TRelations> &
+	SchemaResultCommands<
+		TClassName,
+		TCompleteValues,
+		TUpdateInput,
+		TRelations,
+		TPointer
+	> &
 	TRelations
 
 /** Represents one immutable instance of an exact generated schema class. */
@@ -441,7 +546,8 @@ export type SchemaDraft<TSchema extends SchemaDefinition> = Simplify<
 				Simplify<NumericUpdateInput<TSchema>>
 			>,
 			SchemaResultRelations<TSchema> & SchemaResultCapabilitiesOf<TSchema>,
-			SchemaDraftUpsertFields<TSchema>
+			SchemaDraftUpsertFields<TSchema>,
+			Pointer<TSchema>
 		>
 >
 
@@ -449,15 +555,16 @@ export type SchemaDraft<TSchema extends SchemaDefinition> = Simplify<
 export type SchemaResult<
 	TSchema extends SchemaDefinition,
 	TValues extends object = InferObject<TSchema>,
-> = PersistedSchemaModel<
+> = PersistedSchemaModelWithPointer<
+	SchemaModelPointerIdentity<Pointer<TSchema>>,
 	TSchema['className'],
 	TValues,
+	InferObject<TSchema>,
 	CompactSchemaModelUpdateInput<
 		Simplify<UpdateSetInput<TSchema>>,
 		Simplify<NumericUpdateInput<TSchema>>
 	>,
-	SchemaResultRelations<TSchema> & SchemaResultCapabilitiesOf<TSchema>,
-	InferObject<TSchema>
+	SchemaResultRelations<TSchema> & SchemaResultCapabilitiesOf<TSchema>
 >
 
 interface SchemaModelRecord {
@@ -652,9 +759,25 @@ const createSchemaModelQuery = (schema: SchemaDefinition): SchemaModelQuery =>
 	// Public model types validate exact fields before this private variance boundary.
 	new Query(schema)
 
+const selectSchemaModelQuery = (
+	query: SchemaModelQuery,
+	selection?: QuerySelection<SchemaDefinition>,
+): SchemaModelQuery => {
+	if (selection === undefined) {
+		return query
+	}
+
+	return hydrateQueryFromAst<SchemaDefinition, never>(
+		immutableRecord({
+			...query.ast,
+			selection: normalizeQuerySelection(query.schema, selection),
+		}),
+	)
+}
+
 const readSchemaModelSelectionInput = (
 	input: unknown,
-	command: 'create' | 'delete',
+	command: 'create' | 'delete' | 'fetch',
 ): NormalizedSchemaModelSelectionInput => {
 	if (!isPlainRecord(input)) {
 		throw new TypeError(`Schema model ${command} input must be a plain object`)
@@ -748,16 +871,7 @@ const createPersistedModelQuery = (
 		id: { eq: record.objectId },
 	} as WhereInput<typeof record.schema>)
 
-	if (selection === undefined) {
-		return query
-	}
-
-	return hydrateQueryFromAst<SchemaDefinition, never>(
-		immutableRecord({
-			...query.ast,
-			selection: normalizeQuerySelection(record.schema, selection),
-		}),
-	)
+	return selectSchemaModelQuery(query, selection)
 }
 
 /** Owns the common runtime behavior without becoming the public model identity. */
@@ -805,6 +919,71 @@ class SchemaModelPrototype {
 		const record = readPersistedSchemaModelRecord(this, 'relation')
 
 		return createRelationHandle(record.schema, fieldName, record.objectId)
+	}
+
+	/** Reloads one trusted identity through Query's ordinary get terminal. */
+	async fetch(
+		input: unknown,
+		options?: QueryTerminalOptions,
+	): Promise<object | null> {
+		const record = readPersistedSchemaModelRecord(this, 'fetch')
+
+		if (typeof record.objectId !== 'string') {
+			throw new TypeError(
+				'Schema model fetch has an invalid persisted identity',
+			)
+		}
+
+		const normalized = readSchemaModelSelectionInput(input, 'fetch')
+		const query = selectSchemaModelQuery(
+			createSchemaModelQuery(record.schema),
+			normalized.select,
+		)
+
+		return (query as Query<SchemaDefinition>).get(record.objectId, options)
+	}
+
+	/** Tests one trusted identity through Query's ordinary exists terminal. */
+	exists(options?: QueryTerminalOptions): Promise<boolean> {
+		const record = readPersistedSchemaModelRecord(this, 'exists')
+
+		return (
+			createPersistedModelQuery(record) as Query<SchemaDefinition>
+		).exists(options)
+	}
+
+	/** Detaches one exact pointer from protected identity without performing I/O. */
+	toPointer(): Pointer {
+		const record = readPersistedSchemaModelRecord(this, 'toPointer')
+
+		if (typeof record.objectId !== 'string') {
+			throw new TypeError(
+				'Schema model toPointer has an invalid persisted identity',
+			)
+		}
+
+		return new Pointer(record.schema, record.objectId)
+	}
+
+	/** Compares only trusted schema-qualified identities without performing I/O. */
+	equals(other: unknown): boolean {
+		const record = readPersistedSchemaModelRecord(this, 'equals')
+
+		if (Pointer.is(other)) {
+			return other.schema === record.schema && other.id === record.objectId
+		}
+
+		if (typeof other !== 'object' || other === null) {
+			return false
+		}
+
+		const otherRecord = schemaModelRecords.get(other)
+
+		return (
+			otherRecord?.state === 'persisted' &&
+			otherRecord.schema === record.schema &&
+			otherRecord.objectId === record.objectId
+		)
 	}
 
 	/** Persists only trusted draft state through Query's ordinary create terminal. */

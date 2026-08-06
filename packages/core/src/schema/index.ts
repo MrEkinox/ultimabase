@@ -242,6 +242,7 @@ export type {
 	SchemaDraftUpsertInput,
 	SchemaModelCreateInput,
 	SchemaModelDeleteInput,
+	SchemaModelFetchInput,
 	SchemaModelUpdateCommandInput,
 	SchemaModelUpdateInput,
 	SchemaModelSelection,

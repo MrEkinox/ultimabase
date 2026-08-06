@@ -156,5 +156,5 @@ export const resolveRoleReference = async <
 		)
 	}
 
-	return role as unknown as SchemaResult<TSchema>
+	return role
 }

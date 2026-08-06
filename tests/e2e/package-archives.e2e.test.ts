@@ -154,15 +154,22 @@ describe('@ultimabase/core Schema and Query declarations', () => {
 		const update = readFixtureQuickInfo(
 			"update({ data: { title: 'Packed update' } })",
 		)
+		const fetch = readFixtureQuickInfo('fetch({ select: { title: true } })')
+		const toPointer = readFixtureQuickInfo('toPointer()')
 
 		expect(create.display).toContain('create(input:')
-		expect(create.display).toContain('Promise<PersistedSchemaModel<')
+		expect(create.display).toContain('Promise<{')
 		expect(create.documentation).toContain('complete model')
 		expect(update.display).toContain('update(input:')
-		expect(update.display).toContain('Promise<PersistedSchemaModel<')
+		expect(update.display).toContain('Promise<{')
 		expect(update.documentation).toContain('protected object identity')
+		expect(fetch.display).toContain('fetch<')
+		expect(fetch.documentation).toContain('selected fresh fields')
+		expect(toPointer.display).toContain('Pointer<')
+		expect(toPointer.documentation).toContain('without performing database I/O')
 		expect(create.display).not.toContain('NonDefaultedStringField<')
 		expect(update.display).not.toContain('NonDefaultedStringField<')
+		expect(fetch.display).not.toContain('NonDefaultedStringField<')
 	})
 
 	it('preserves the discriminated non-atomic bulk result', () => {

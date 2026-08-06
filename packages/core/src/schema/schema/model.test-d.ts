@@ -10,6 +10,7 @@ import { objectField } from '../fields/builtins/object.js'
 import { stringField } from '../fields/builtins/string.js'
 import { definePluginField } from '../fields/plugin.js'
 import type { InferCreateInput } from '../inference/types.js'
+import type { Pointer } from '../relations/pointer.js'
 import { Schema } from './definition.js'
 import type { SchemaDraft, SchemaResult } from './model.js'
 
@@ -58,9 +59,7 @@ test('infers exact immutable drafts from the generated constructor', () => {
 	expectTypeOf(draft.toJSON()).toEqualTypeOf<
 		Readonly<InferCreateInput<typeof Post>>
 	>()
-	expectTypeOf(draft.create({})).toEqualTypeOf<
-		Promise<SchemaResult<typeof Post>>
-	>()
+	expectTypeOf(draft.create({})).toExtend<Promise<SchemaResult<typeof Post>>>()
 	const selectedCreate = draft.create({ select: { id: true, title: true } })
 	type SelectedCreate = Awaited<typeof selectedCreate>
 	void selectedCreate
@@ -73,7 +72,7 @@ test('infers exact immutable drafts from the generated constructor', () => {
 			update: { title: 'Updated' },
 			where: { title: { eq: 'Hello' } },
 		}),
-	).toEqualTypeOf<Promise<SchemaResult<typeof Post>>>()
+	).toExtend<Promise<SchemaResult<typeof Post>>>()
 	expectTypeOf(
 		draft.upsert({
 			select: { id: true, title: true },
@@ -92,6 +91,10 @@ test('infers exact immutable drafts from the generated constructor', () => {
 	draft.get('missing')
 	expectTypeOf(draft).not.toHaveProperty('update')
 	expectTypeOf(draft).not.toHaveProperty('delete')
+	expectTypeOf(draft).not.toHaveProperty('fetch')
+	expectTypeOf(draft).not.toHaveProperty('exists')
+	expectTypeOf(draft).not.toHaveProperty('toPointer')
+	expectTypeOf(draft).not.toHaveProperty('equals')
 	void draft.upsert({
 		update: { title: 'Updated' },
 		where: { title: { eq: 'Hello' } },
@@ -351,9 +354,17 @@ test('retains exact schema and selection types through static Query access', () 
 	expectTypeOf(selected.toJSON()).toEqualTypeOf<
 		Readonly<{ readonly id: string; readonly title: string }>
 	>()
-	expectTypeOf(selected.update({ data: { title: 'Updated' } })).toEqualTypeOf<
-		Promise<SchemaResult<typeof Post> | null>
+	const completeUpdate = selected.update({ data: { title: 'Updated' } })
+	type CompleteUpdate = NonNullable<Awaited<typeof completeUpdate>>
+	void completeUpdate
+	expectTypeOf<ReturnType<CompleteUpdate['toJSON']>>().toEqualTypeOf<
+		ReturnType<SchemaResult<typeof Post>['toJSON']>
 	>()
+	const chainedPointer = null as unknown as ReturnType<
+		CompleteUpdate['toPointer']
+	>
+	const exactChainedPointer: Pointer<typeof Post> = chainedPointer
+	void exactChainedPointer
 	const selectedUpdate = selected.update({
 		data: { title: 'Updated' },
 		select: { id: true, title: true },
@@ -364,12 +375,39 @@ test('retains exact schema and selection types through static Query access', () 
 		Readonly<{ readonly id: string; readonly title: string }>
 	>()
 	expectTypeOf<SelectedUpdate>().not.toHaveProperty('published')
-	expectTypeOf(selected.delete({})).toEqualTypeOf<
-		Promise<SchemaResult<typeof Post> | null>
+	const completeDelete = selected.delete({})
+	type CompleteDelete = NonNullable<Awaited<typeof completeDelete>>
+	void completeDelete
+	expectTypeOf<ReturnType<CompleteDelete['toJSON']>>().toEqualTypeOf<
+		ReturnType<SchemaResult<typeof Post>['toJSON']>
 	>()
-	expectTypeOf(selected.delete({ select: { id: true, title: true } })).toExtend<
-		Promise<InferQueryResult<typeof Post, 'id' | 'title'> | null>
+	const selectedDelete = selected.delete({
+		select: { id: true, title: true },
+	})
+	type SelectedDelete = NonNullable<Awaited<typeof selectedDelete>>
+	void selectedDelete
+	expectTypeOf<ReturnType<SelectedDelete['toJSON']>>().toEqualTypeOf<
+		Readonly<{ readonly id: string; readonly title: string }>
 	>()
+	const completeFetch = selected.fetch({})
+	type CompleteFetch = NonNullable<Awaited<typeof completeFetch>>
+	void completeFetch
+	expectTypeOf<ReturnType<CompleteFetch['toJSON']>>().toEqualTypeOf<
+		ReturnType<SchemaResult<typeof Post>['toJSON']>
+	>()
+	const selectedFetch = selected.fetch({
+		select: { id: true, title: true },
+	})
+	type SelectedFetch = NonNullable<Awaited<typeof selectedFetch>>
+	void selectedFetch
+	expectTypeOf<ReturnType<SelectedFetch['toJSON']>>().toEqualTypeOf<
+		Readonly<{ readonly id: string; readonly title: string }>
+	>()
+	expectTypeOf<SelectedFetch>().not.toHaveProperty('published')
+	expectTypeOf(selected.exists()).toEqualTypeOf<Promise<boolean>>()
+	expectTypeOf(selected.toPointer()).toEqualTypeOf<Pointer<typeof Post>>()
+	expectTypeOf(selected.equals(selected)).toBeBoolean()
+	expectTypeOf(selected.equals(Post.pointer('post-1'))).toBeBoolean()
 	expectTypeOf<SchemaResult<typeof Post>>().toHaveProperty('updatedAt')
 	const context = RequestContext.anonymous({
 		requestId: 'model-type-test',
@@ -383,6 +421,11 @@ test('retains exact schema and selection types through static Query access', () 
 	void selected.delete({}, { useMasterKey: true })
 	// @ts-expect-error -- Instance selections reject undeclared fields.
 	void selected.delete({ select: { missing: true } })
+	// @ts-expect-error -- Fetch selections reject undeclared fields.
+	void selected.fetch({ select: { missing: true } })
+	const dynamicFetchSelection = Math.random() > 0.5
+	// @ts-expect-error -- Dynamic booleans cannot promise an exact fetch result.
+	void selected.fetch({ select: { title: dynamicFetchSelection } })
 	// @ts-expect-error -- Instance update data stays inside its command envelope.
 	void selected.update({ title: 'Legacy update shape' })
 	expectTypeOf(selected).not.toHaveProperty('create')

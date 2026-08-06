@@ -143,6 +143,7 @@ Accepted records:
 - [ADR-0148: Uniform mutation result selections](0148-uniform-mutation-result-selections.md)
 - [ADR-0149: Explicit operation cardinality names](0149-explicit-operation-cardinality-names.md)
 - [ADR-0150: Instance command result selections](0150-instance-command-result-selections.md)
+- [ADR-0151: Persisted model read and identity helpers](0151-persisted-model-read-and-identity-helpers.md)
 
 Superseded records:
 

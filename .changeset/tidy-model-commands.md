@@ -4,4 +4,5 @@
 ---
 
 Add immutable draft and persisted model commands with selection-safe protected
-PostgreSQL object identity.
+PostgreSQL object identity, refresh and existence reads, and local pointer
+identity helpers.

@@ -506,6 +506,16 @@ const updated = await created.update(
 	{ data: { title: 'Published' }, select: { id: true, title: true } },
 	{ ultimabase },
 )
+const fresh = await updated?.fetch(
+	{ select: { id: true, title: true } },
+	{ ultimabase },
+)
+
+if (fresh !== null && fresh !== undefined) {
+	const pointer = fresh.toPointer()
+	console.log(fresh.equals(pointer), await fresh.exists({ ultimabase }))
+}
+
 await updated?.delete({ select: { id: true } }, { ultimabase })
 ```
 
@@ -513,11 +523,13 @@ await updated?.delete({ select: { id: true } }, { ultimabase })
 Runtime queries and mutations return immutable `PostSchema` instances only after
 hooks and field restrictions finish. `get(field)` and `toJSON()` expose only the
 fields visible in that result, so a selected result cannot recover omitted data.
-Draft `create` and `upsert` plus persisted `update` and `delete` accept the same
-exact result projections as static mutations. They are immutable
-convenience commands over the same Runtime pipeline. A mutation starts without
-the receiver's read projection and therefore returns the complete model allowed
-by Access. Collection writes live on the generated schema class, while
+Draft `create` and `upsert` plus persisted `update`, `delete`, and `fetch` accept
+the same exact result selections as their Query or static mutation equivalents.
+`fetch` and `exists` reuse the normal read pipeline, including Access and hooks.
+`toPointer` and `equals` operate locally on protected identity, even when `id`
+was not selected. All instance commands remain immutable conveniences: a
+mutation starts without the receiver's read selection and returns a new model.
+Collection writes live on the generated schema class, while
 `PostSchema.query()` remains read-only and models deliberately expose no mutable
 `save()` method.
 

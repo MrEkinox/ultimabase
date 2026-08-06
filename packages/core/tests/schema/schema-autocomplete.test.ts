@@ -293,8 +293,16 @@ post./* completion */
 		expect(draftNames.has('upsert')).toBe(true)
 		expect(draftNames.has('update')).toBe(false)
 		expect(draftNames.has('delete')).toBe(false)
+		expect(draftNames.has('fetch')).toBe(false)
+		expect(draftNames.has('exists')).toBe(false)
+		expect(draftNames.has('toPointer')).toBe(false)
+		expect(draftNames.has('equals')).toBe(false)
 		expect(persistedNames.has('update')).toBe(true)
 		expect(persistedNames.has('delete')).toBe(true)
+		expect(persistedNames.has('fetch')).toBe(true)
+		expect(persistedNames.has('exists')).toBe(true)
+		expect(persistedNames.has('toPointer')).toBe(true)
+		expect(persistedNames.has('equals')).toBe(true)
 		expect(persistedNames.has('create')).toBe(false)
 		expect(persistedNames.has('upsert')).toBe(false)
 
@@ -309,13 +317,41 @@ const Post = Schema.define({ className: 'Post', fields: { title: stringField() }
 declare const post: SchemaResult<typeof Post, { readonly title: string }>
 post./* hover */update({ data: { title: 'Updated' } })
 `)
+		const fetch = readMarkedQuickInfo(`
+import { Schema, stringField, type SchemaResult } from '../../src/schema/index.js'
+const Post = Schema.define({ className: 'Post', fields: { title: stringField() } })
+declare const post: SchemaResult<typeof Post, { readonly title: string }>
+post./* hover */fetch({ select: { title: true } })
+`)
+		const exists = readMarkedQuickInfo(`
+import { Schema, stringField, type SchemaResult } from '../../src/schema/index.js'
+const Post = Schema.define({ className: 'Post', fields: { title: stringField() } })
+declare const post: SchemaResult<typeof Post, { readonly title: string }>
+post./* hover */exists()
+`)
+		const toPointer = readMarkedQuickInfo(`
+import { Schema, stringField, type SchemaResult } from '../../src/schema/index.js'
+const Post = Schema.define({ className: 'Post', fields: { title: stringField() } })
+declare const post: SchemaResult<typeof Post, { readonly title: string }>
+post./* hover */toPointer()
+`)
+		const equals = readMarkedQuickInfo(`
+import { Schema, stringField, type SchemaResult } from '../../src/schema/index.js'
+const Post = Schema.define({ className: 'Post', fields: { title: stringField() } })
+declare const post: SchemaResult<typeof Post, { readonly title: string }>
+post./* hover */equals(Post.pointer('post-1'))
+`)
 		const createDisplay = ts.displayPartsToString(create.displayParts)
 		const updateDisplay = ts.displayPartsToString(update.displayParts)
+		const fetchDisplay = ts.displayPartsToString(fetch.displayParts)
 
 		expect(createDisplay).toContain('create(input:')
-		expect(createDisplay).toContain('Promise<PersistedSchemaModel<')
+		expect(createDisplay).toContain('Promise<{')
 		expect(updateDisplay).toContain('update(input:')
-		expect(updateDisplay).toContain('Promise<PersistedSchemaModel<')
+		expect(updateDisplay).toContain('Promise<{')
+		expect(fetchDisplay).toContain('fetch<')
+		expect(fetchDisplay).toContain('Promise<')
+		expect(fetchDisplay).not.toContain('NonDefaultedStringField<')
 		expect(createDisplay).not.toContain('NonDefaultedStringField<')
 		expect(updateDisplay).not.toContain('NonDefaultedStringField<')
 		expect(createDisplay.length).toBeLessThan(900)
@@ -323,6 +359,10 @@ post./* hover */update({ data: { title: 'Updated' } })
 		expect(updateDisplay.length).toBeLessThan(1_000)
 		expectDocumented(readDocumentation(create.documentation, create.tags))
 		expectDocumented(readDocumentation(update.documentation, update.tags))
+		expectDocumented(readDocumentation(fetch.documentation, fetch.tags))
+		expectDocumented(readDocumentation(exists.documentation, exists.tags))
+		expectDocumented(readDocumentation(toPointer.documentation, toPointer.tags))
+		expectDocumented(readDocumentation(equals.documentation, equals.tags))
 	})
 
 	it.each(schemaHoverCases)(

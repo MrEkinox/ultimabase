@@ -172,6 +172,28 @@ describe('schema model classes', () => {
 		).rejects.toThrow(
 			new TypeError('Schema model delete requires persisted model state'),
 		)
+		await expect(
+			Reflect.apply(Reflect.get(draft, 'fetch') as () => unknown, draft, [{}]),
+		).rejects.toThrow(
+			new TypeError('Schema model fetch requires persisted model state'),
+		)
+		expect((): void => {
+			Reflect.apply(Reflect.get(draft, 'exists') as () => unknown, draft, [])
+		}).toThrow(
+			new TypeError('Schema model exists requires persisted model state'),
+		)
+		expect((): void => {
+			Reflect.apply(Reflect.get(draft, 'toPointer') as () => unknown, draft, [])
+		}).toThrow(
+			new TypeError('Schema model toPointer requires persisted model state'),
+		)
+		expect((): void => {
+			Reflect.apply(Reflect.get(draft, 'equals') as () => unknown, draft, [
+				persisted,
+			])
+		}).toThrow(
+			new TypeError('Schema model equals requires persisted model state'),
+		)
 		expect((): void => {
 			Reflect.apply(
 				Reflect.get(persisted, 'create') as () => unknown,
@@ -202,10 +224,61 @@ describe('schema model classes', () => {
 				'Schema model delete requires protected persisted identity',
 			),
 		)
+		await expect(missingIdentity.fetch({})).rejects.toThrow(
+			new TypeError('Schema model fetch requires protected persisted identity'),
+		)
+		expect(() => missingIdentity.toPointer()).toThrow(
+			new TypeError(
+				'Schema model toPointer requires protected persisted identity',
+			),
+		)
 		expect(selected.toJSON()).toStrictEqual({ title: 'Selected' })
 		await expect(selected.delete({})).rejects.toMatchObject({
 			code: 'MISSING_EXECUTION_CONTEXT',
 		})
+	})
+
+	it('compares and detaches protected persisted identities without I/O', () => {
+		const objectId = '0198f090-2a50-7000-8000-000000000035'
+		const selected = materializeSchemaModel(
+			Post,
+			{ title: 'Selected' },
+			{ objectId, selectedFields: ['title'] },
+		)
+		const sameIdentity = materializeSchemaModel(
+			Post,
+			{ title: 'Fresh' },
+			{ objectId, selectedFields: ['title'] },
+		)
+		const otherIdentity = materializeSchemaModel(
+			Post,
+			{ title: 'Other' },
+			{
+				objectId: '0198f090-2a50-7000-8000-000000000036',
+				selectedFields: ['title'],
+			},
+		)
+		const Other = Schema.define({ className: 'OtherIdentity', fields: {} })
+		const otherSchema = materializeSchemaModel(
+			Other,
+			{},
+			{ objectId, selectedFields: [] },
+		)
+		const pointer = selected.toPointer()
+
+		expect(pointer.schema).toBe(Post)
+		expect(pointer.id).toBe(objectId)
+		expect(selected.equals(pointer)).toBe(true)
+		expect(selected.equals(sameIdentity)).toBe(true)
+		expect(selected.equals(otherIdentity)).toBe(false)
+		expect(selected.equals(otherSchema)).toBe(false)
+		expect(
+			Reflect.apply(
+				Reflect.get(selected, 'equals') as () => unknown,
+				selected,
+				[new Post({ title: 'Draft' })],
+			),
+		).toBe(false)
 	})
 
 	it('creates independent Query branches from the static entry point', () => {
