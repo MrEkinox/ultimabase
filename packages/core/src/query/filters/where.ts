@@ -672,7 +672,7 @@ const normalizeWhereRecord = <TSchema extends SchemaDefinition>(
 	}
 }
 
-/** Validates and snapshots one public where object into the existing Query AST. */
+/** Validates and snapshots one public where object into the existing QueryBuilder AST. */
 export const normalizeWhereInput = <const TSchema extends SchemaDefinition>(
 	schema: TSchema,
 	input: WhereInput<TSchema>,
@@ -828,6 +828,14 @@ const serializeWhereExpression = <TSchema extends SchemaDefinition>(
 			)
 	}
 }
+
+/** Restores the canonical object filter represented by one normalized AST node. */
+export const whereInputFromQueryFilter = <
+	const TSchema extends SchemaDefinition,
+>(
+	expression: QueryFilterNode<TSchema>,
+): WhereInput<TSchema> =>
+	serializeWhereExpression(expression) as unknown as WhereInput<TSchema>
 
 const resolveWhereBuilderInput = <TSchema extends SchemaDefinition>(
 	schema: TSchema,
@@ -1152,9 +1160,9 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 	build(): WhereInput<TSchema> {
 		const expression = readWhereBuilderState(this).expression
 
-		return serializeWhereExpression(
+		return whereInputFromQueryFilter(
 			expression ?? createConstantWhereExpression<TSchema>(true),
-		) as unknown as WhereInput<TSchema>
+		)
 	}
 
 	#append(input: WhereInput<TSchema>): WhereBuilder<TSchema> {

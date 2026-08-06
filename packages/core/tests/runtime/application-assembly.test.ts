@@ -12,7 +12,7 @@ const publicArticleSchema = Schema.define({
 
 // This integration boundary intentionally imports every framework API publicly.
 describe('public application Runtime assembly', () => {
-	it('executes a contextual Query using only public framework assembly exports', async () => {
+	it('executes a contextual QueryBuilder using only public framework assembly exports', async () => {
 		const rows = [
 			{
 				id: '0198a43e-2431-7000-8000-000000000001',
@@ -38,7 +38,7 @@ describe('public application Runtime assembly', () => {
 		})
 		await ultimabase.start()
 
-		const result = await publicArticleSchema.query().findMany({ ultimabase })
+		const result = await publicArticleSchema.findMany(undefined, { ultimabase })
 
 		expect(result).toHaveLength(1)
 		expect(result[0]).toBeInstanceOf(publicArticleSchema)

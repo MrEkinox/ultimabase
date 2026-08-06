@@ -15,8 +15,9 @@ Responsibilities:
 
 Runtime does not import Drizzle, PostgreSQL, Hono, GraphQL, Yoga, or concrete permission plugins.
 
-Core exports one immutable `Query` class. Its terminals resolve the exact active
-request context at call time through a neutral bridge; the Query itself never
+Generated schema classes expose canonical object-input reads. Their commands
+resolve the exact active request context at call time through a neutral bridge.
+The optional immutable `QueryBuilder` only builds reusable inputs and never
 retains an application, request, transaction, authority, or adapter.
 
 ## UltimaBase facade
@@ -34,7 +35,7 @@ const ultimabase = new UltimaBase({
 
 await ultimabase.start()
 
-const articles = await ArticleSchema.query().limit(20).findMany({ ultimabase })
+const articles = await ArticleSchema.findMany({ limit: 20 }, { ultimabase })
 ```
 
 Outside an active request scope, `{ ultimabase }` creates a fresh anonymous
@@ -76,7 +77,7 @@ const request = framework.anonymous({
 })
 
 const articles = await runWithRequestEngine(request, () =>
-	ArticleSchema.query().limit(20).findMany(),
+	ArticleSchema.findMany({ limit: 20 }),
 )
 ```
 
@@ -235,7 +236,7 @@ const ArticleSchema = Schema.define({
 })
 
 const articles = await runWithRequestEngine(request, () =>
-	ArticleSchema.query().select({ id: true, title: true }).findMany(),
+	ArticleSchema.findMany({ select: { id: true, title: true } }),
 )
 
 // The exact result is readonly { id: string; title: string }[].
@@ -293,13 +294,13 @@ waits for an active callback to settle rather than detaching it, then rolls an
 active transaction back. Post-commit and confirmed-rollback observers still run
 after the final database outcome is known.
 
-A regular `Schema.query()` terminal reuses the current application's request
+A regular schema read reuses the current application's request
 engine and transaction without forwarding `HookContext`. Runtime waits for
 nested work even when the hook did not await it. The first nested failure keeps
 the transaction rollback-only even if hook code catches that rejection. An
 asynchronous branch that retains the hook's closed scope fails with
-`HOOK_CONTEXT_CLOSED`; a detached Query object retains no scope and therefore
-requires another ambient request or `{ ultimabase }`. Schema identity is checked
+`HOOK_CONTEXT_CLOSED`; a detached input retains no scope and therefore requires
+another ambient request or `{ ultimabase }`. Schema identity is checked
 against the exact application instance.
 
 The class also exposes immutable `access`, `source`, `hook`, request and
@@ -463,11 +464,11 @@ const context = RequestContext.anonymous({
 
 const request = framework.withContext(context)
 
-const publishedArticles = ArticleSchema.query()
-	.where({ status: { eq: 'published' } })
-	.descending('createdAt')
-	.limit(20)
-	.findMany()
+const publishedArticles = ArticleSchema.findMany({
+	where: { status: { eq: 'published' } },
+	orderBy: [{ createdAt: 'desc' }],
+	limit: 20,
+})
 ```
 
 The schema must be the exact definition registered by this application. A
@@ -553,7 +554,7 @@ const framework = new FrameworkEngine({
 const grant = framework.authorizeMasterKey(receivedMasterKey)
 const master = await request.useMasterKey(grant, 'Rebuild article search index')
 
-await runWithRequestEngine(master, () => ArticleSchema.query().findMany())
+await runWithRequestEngine(master, () => ArticleSchema.findMany())
 ```
 
 Ordinary trusted backend code normally uses the concise terminal option. The
@@ -561,12 +562,12 @@ first configured key ID identifies this path in the audit event, while no raw
 key is retained or verified again:
 
 ```ts
-const allArticles = await ArticleSchema.query().findMany({
+const allArticles = await ArticleSchema.findMany(undefined, {
 	ultimabase,
 	useMasterKey: true,
 })
 
-const scopedMaster = await ArticleSchema.query().findMany({
+const scopedMaster = await ArticleSchema.findMany(undefined, {
 	context: contextCreatedByAPlugin,
 	ultimabase,
 	useMasterKey: true,
@@ -824,7 +825,7 @@ deriving safe typed values.
 
 There is deliberately no public master-context factory. Master contexts can
 only be produced by `RequestEngine.useMasterKey` after grant verification or by
-a trusted Query terminal after auditing through the framework-owned authority
+a trusted schema command after auditing through the framework-owned authority
 described above.
 
 ## Database adapter boundary
@@ -840,7 +841,7 @@ Every call keeps the operation-specific result type:
 const articles = await adapter.execute({
 	operation: {
 		kind: 'find-many',
-		query: new Query(articleSchema).limit(20).ast,
+		query: new QueryBuilder(articleSchema).limit(20).ast,
 	},
 	constraints: [
 		databaseConstraint('example.tenant', 1, { tenantId: 'tenant-1' }),

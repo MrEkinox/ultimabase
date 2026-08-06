@@ -102,7 +102,7 @@ import { UltimaBase } from '../../src/runtime/index.js'
 
 const PostSchema = Schema.define({ className: 'Post', fields: { title: stringField() } })
 const ultimabase = new UltimaBase({ schemas: [PostSchema], plugins: [] })
-const posts = PostSchema./* hover */query()
+const posts = PostSchema./* hover */findMany()
 void ultimabase
 `,
 		)
@@ -116,7 +116,7 @@ void ultimabase
 			'Owns one isolated UltimaBase application',
 		)
 		expect(facadeDocumentation.hasExample).toBe(true)
-		expect(queryDisplay).toContain('Query<')
+		expect(queryDisplay).toContain('findMany(input?: undefined')
 		expect(queryDisplay).not.toContain('RequestEngine<')
 		expect(queryDisplay).not.toContain('SchemaDefinition<')
 	})

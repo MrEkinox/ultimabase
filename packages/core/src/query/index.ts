@@ -187,7 +187,22 @@ export type {
 	InferQueryResult,
 	QueryPointerResultInclusion,
 } from './query/result.js'
-export { Query } from './query/query.js'
+export type {
+	CountInput,
+	ExactReadInput,
+	ExistsInput,
+	FindManyInput,
+	FindOneInput,
+	GetInput,
+	QueryIncludeInput,
+	QueryIncludedPointerFromInput,
+	QueryBuilderInput,
+	QueryOrderByDirection,
+	QueryOrderByInput,
+	QueryPointerTargetInput,
+	QuerySelectedFieldFromInput,
+} from './query/input.js'
+export { QueryBuilder } from './query/query.js'
 export type { QueryScope } from './query/scope.js'
 export { normalizeUpdateExpression } from './updates/normalize.js'
 export { applyUpdateExpressionToRecord } from './updates/apply.js'

@@ -151,7 +151,7 @@ export interface DatabaseConstraintNode<
 /** Erases schema inference only after Runtime has validated one private row predicate. */
 export type DatabaseRowFilterNode = QueryFilterExpression
 
-/** Identifies one validated logical edge outside the transformable Query AST. */
+/** Identifies one validated logical edge outside the transformable QueryBuilder AST. */
 export interface DatabaseRelationScope {
 	readonly fieldPath: readonly string[]
 	readonly source: SchemaDefinition
@@ -186,12 +186,12 @@ export interface DatabaseOperationRequest<
 	readonly operation: TOperation
 	/** Carries one Runtime-validated relation edge only to capable adapters. */
 	readonly relation?: DatabaseRelationScope
-	/** Keeps target Access monotonic and invisible to source Query hooks. */
+	/** Keeps target Access monotonic and invisible to source QueryBuilder hooks. */
 	readonly relationPredicates?: readonly DatabaseRelationPredicateScope[]
 	/** Carries recursively prepared target reads only to eager-inclusion adapters. */
 	readonly pointerInclusions?: readonly DatabasePointerInclusionPlan[]
 	/**
-	 * Carries framework-owned row restrictions outside the transformable Query AST.
+	 * Carries framework-owned row restrictions outside the transformable QueryBuilder AST.
 	 * Adapters must combine this predicate with the operation predicate using AND.
 	 */
 	readonly rowFilter?: DatabaseRowFilterNode
@@ -204,7 +204,7 @@ export type DatabaseObjectRecord<
 > = InferQueryRecord<TSchema, TSelectedField>
 
 /**
- * Reuses Query's terminal result contract so adapters and public terminals
+ * Reuses QueryBuilder's terminal result contract so adapters and public terminals
  * cannot drift on selection, nullability, or singular versus bulk semantics.
  */
 export type DatabaseOperationResult<TOperation extends OperationAstNode> =

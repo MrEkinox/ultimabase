@@ -1,6 +1,6 @@
 import {
 	normalizeUpdateExpression,
-	Query,
+	QueryBuilder,
 	type CreateManyOperationAst,
 	type CreateOneOperationAst,
 	type DeleteManyOperationAst,
@@ -113,7 +113,7 @@ const materializationSchema = Schema.define({
 	},
 })
 
-const schemaNode = new Query(materializationSchema).ast.schema
+const schemaNode = new QueryBuilder(materializationSchema).ast.schema
 
 const makeRecord = (
 	suffix: string,
@@ -162,7 +162,7 @@ const updateOperation: UpdateOneOperationAst<
 	'id'
 > = {
 	kind: 'update-one',
-	query: new Query(materializationSchema).select({ id: true }).ast,
+	query: new QueryBuilder(materializationSchema).select({ id: true }).ast,
 	update: updateExpression,
 }
 
@@ -172,12 +172,12 @@ const deleteOperation: DeleteOneOperationAst<
 	'id'
 > = {
 	kind: 'delete-one',
-	query: new Query(materializationSchema).select({ id: true }).ast,
+	query: new QueryBuilder(materializationSchema).select({ id: true }).ast,
 }
 
 describe('runtime mutation materializations', () => {
 	it('compares opaque plugin values through their portable storage codec', () => {
-		const query = new Query(opaqueSchema).select({ id: true }).ast
+		const query = new QueryBuilder(opaqueSchema).select({ id: true }).ast
 		const update = normalizeUpdateExpression(opaqueSchema, {
 			opaque: new OpaqueValue('after'),
 		})
@@ -209,7 +209,7 @@ describe('runtime mutation materializations', () => {
 	})
 
 	it('compares listed opaque plugin values through the scalar codec', () => {
-		const query = new Query(opaqueSchema).select({ id: true }).ast
+		const query = new QueryBuilder(opaqueSchema).select({ id: true }).ast
 		const update = normalizeUpdateExpression(opaqueSchema, {
 			opaqueList: [new OpaqueValue('after')],
 		})
@@ -391,7 +391,7 @@ describe('runtime mutation materializations', () => {
 		const update = normalizeUpdateExpression(materializationSchema, {
 			'literal.name': 'updated',
 		})
-		const query = new Query(materializationSchema).where((where) =>
+		const query = new QueryBuilder(materializationSchema).where((where) =>
 			where.eq('literal.name', 'lookup'),
 		)
 		const target = {
@@ -457,7 +457,7 @@ describe('runtime mutation materializations', () => {
 	it('never materializes set-based update-many or delete-many operations', () => {
 		const updateMany = {
 			kind: 'update-many',
-			query: new Query(materializationSchema).ast,
+			query: new QueryBuilder(materializationSchema).ast,
 			update: updateExpression,
 		} satisfies UpdateManyOperationAst<
 			typeof materializationSchema,
@@ -465,7 +465,7 @@ describe('runtime mutation materializations', () => {
 		>
 		const deleteMany = {
 			kind: 'delete-many',
-			query: new Query(materializationSchema).ast,
+			query: new QueryBuilder(materializationSchema).ast,
 		} satisfies DeleteManyOperationAst<typeof materializationSchema>
 		const forgedOutcome = {
 			materializations: [
@@ -499,7 +499,7 @@ describe('runtime mutation materializations', () => {
 			inputs: [{}, {}],
 			kind: 'create-many',
 			options: { atomic: true },
-			selection: new Query(materializationSchema).ast.selection,
+			selection: new QueryBuilder(materializationSchema).ast.selection,
 			schema: schemaNode,
 		} satisfies CreateManyOperationAst<typeof materializationSchema>
 		const first = makeRecord('first')

@@ -15,12 +15,13 @@ import type * as publicQuery from '../index.js'
 
 import {
 	fieldPath,
-	Query,
+	QueryBuilder,
 	type QueryFilterFieldName,
 	type QueryFilterNode,
 	type QuerySelection,
 } from '../index.js'
 import { hydrateQueryFromAst } from './query.js'
+import type { InferQueryResult } from './result.js'
 
 const postSchema = Schema.define({
 	className: 'Post',
@@ -53,7 +54,7 @@ const includedPostSchema = Schema.define({
 })
 
 test('preserves schema, AST, and chain result types', () => {
-	const query = new Query(postSchema)
+	const query = new QueryBuilder(postSchema)
 		.where((where) => where.eq('published', true))
 		.where({ id: { eq: '0194f292-0dd9-7c2d-a0a3-a2f755a3d90a' } })
 		.where((where) => where.gt('views', 10))
@@ -63,7 +64,9 @@ test('preserves schema, AST, and chain result types', () => {
 		.after('opaque.cursor')
 
 	expect(query.schema.className).toBe('Post')
-	expectTypeOf(query).toEqualTypeOf<Query<typeof postSchema, 'title' | 'id'>>()
+	expectTypeOf(query).toEqualTypeOf<
+		QueryBuilder<typeof postSchema, 'title' | 'id'>
+	>()
 	expectTypeOf(query.ast.schema.definition).toEqualTypeOf<typeof postSchema>()
 	expectTypeOf(query.ast.where?.expression).toEqualTypeOf<
 		QueryFilterNode<typeof postSchema> | undefined
@@ -71,7 +74,8 @@ test('preserves schema, AST, and chain result types', () => {
 	expectTypeOf<
 		QueryFilterFieldName<typeof postSchema, 'greater-than'>
 	>().toEqualTypeOf<'title' | 'views' | 'score' | 'createdAt' | 'updatedAt'>()
-	expectTypeOf<'findMany'>().toExtend<keyof typeof query>()
+	expectTypeOf<'build'>().toExtend<keyof typeof query>()
+	expectTypeOf<'findMany'>().not.toExtend<keyof typeof query>()
 	expectTypeOf<'save'>().not.toExtend<keyof typeof query>()
 	expectTypeOf<'bind'>().not.toExtend<keyof typeof query>()
 
@@ -80,72 +84,74 @@ test('preserves schema, AST, and chain result types', () => {
 })
 
 test('hydrates exact selections internally without widening the public API', () => {
-	const source = new Query(postSchema).select({ title: true, id: true })
-	const unselected = new Query(postSchema)
+	const source = new QueryBuilder(postSchema).select({ title: true, id: true })
+	const unselected = new QueryBuilder(postSchema)
 	const hydrated = hydrateQueryFromAst<typeof postSchema, 'title' | 'id'>(
 		source.ast,
 	)
 	const requireSelected = (
-		query: Query<typeof postSchema, 'title' | 'id'>,
-	): Query<typeof postSchema, 'title' | 'id'> => query
+		query: QueryBuilder<typeof postSchema, 'title' | 'id'>,
+	): QueryBuilder<typeof postSchema, 'title' | 'id'> => query
 
 	expectTypeOf(hydrated).toEqualTypeOf<
-		Query<typeof postSchema, 'title' | 'id'>
+		QueryBuilder<typeof postSchema, 'title' | 'id'>
 	>()
 	requireSelected(hydrated)
 
 	// @ts-expect-error -- Select-all cannot satisfy a concrete projection contract.
 	requireSelected(unselected)
 	// @ts-expect-error -- A concrete projection cannot masquerade as select-all either.
-	const selectAll: Query<typeof postSchema> = hydrated
+	const selectAll: QueryBuilder<typeof postSchema> = hydrated
 
 	void selectAll
 	expectTypeOf<'hydrateQueryFromAst'>().not.toExtend<keyof typeof publicQuery>()
 })
 
 test('infers literal inclusion and exclusion projections exactly', () => {
-	const included = new Query(postSchema).select({
+	const included = new QueryBuilder(postSchema).select({
 		title: true,
 		published: false,
 	})
-	const excluded = new Query(postSchema).select({ payload: false })
-	const empty = new Query(postSchema).select({})
+	const excluded = new QueryBuilder(postSchema).select({ payload: false })
+	const empty = new QueryBuilder(postSchema).select({})
 	const reusableSelection = {
 		id: true,
 		title: true,
 	} satisfies QuerySelection<typeof postSchema>
-	const reusable = new Query(postSchema).select(reusableSelection)
-	type IncludedResult = NonNullable<
-		Awaited<ReturnType<typeof included.findOne>>
-	>
-	type ExcludedResult = NonNullable<
-		Awaited<ReturnType<typeof excluded.findOne>>
-	>
-	type EmptyResult = NonNullable<Awaited<ReturnType<typeof empty.findOne>>>
+	const reusable = new QueryBuilder(postSchema).select(reusableSelection)
+	const includedResult = postSchema.findMany(included.build())
+	const excludedResult = postSchema.findMany(excluded.build())
+	const emptyResult = postSchema.findMany(empty.build())
+	type IncludedResult = Awaited<typeof includedResult>[number]
+	type ExcludedResult = Awaited<typeof excludedResult>[number]
+	type EmptyResult = Awaited<typeof emptyResult>[number]
+	void includedResult
+	void excludedResult
+	void emptyResult
 
 	expect(excluded.ast.kind).toBe('query')
 	expect(empty.ast.kind).toBe('query')
-	expectTypeOf(included).toEqualTypeOf<Query<typeof postSchema, 'title'>>()
+	expectTypeOf(included).toEqualTypeOf<
+		QueryBuilder<typeof postSchema, 'title'>
+	>()
 	expectTypeOf(reusable).toEqualTypeOf<
-		Query<typeof postSchema, 'id' | 'title'>
+		QueryBuilder<typeof postSchema, 'id' | 'title'>
 	>()
 	expectTypeOf<IncludedResult>().toHaveProperty('title')
 	expectTypeOf<IncludedResult>().not.toHaveProperty('published')
 	expectTypeOf<ExcludedResult>().not.toHaveProperty('payload')
 	expectTypeOf<ExcludedResult>().toHaveProperty('title')
 	expectTypeOf<EmptyResult>().toEqualTypeOf<
-		NonNullable<
-			Awaited<ReturnType<ReturnType<typeof postSchema.query>['findOne']>>
-		>
+		Awaited<ReturnType<typeof postSchema.findMany>>[number]
 	>()
 
 	const dynamicFlag = Boolean(Date.now())
 	// @ts-expect-error -- Dynamic flags cannot promise one exact static result shape.
-	new Query(postSchema).select({ title: dynamicFlag })
+	new QueryBuilder(postSchema).select({ title: dynamicFlag })
 })
 
 test('correlates every filter field with its exact operand type', () => {
-	const query = new Query(postSchema)
+	const query = new QueryBuilder(postSchema)
 
 	query.where((where) => where.eq('published', true))
 	query.where((where) => where.eq('score', null))
@@ -246,8 +252,8 @@ test('infers pointer predicates, target queries, and included projections', () =
 	const author = includedUserSchema.pointer(
 		'0194f292-0dd9-7c2d-a0a3-a2f755a3d90a',
 	)
-	const pointerQuery = author.query().select({ id: true, name: true })
-	const included = new Query(includedPostSchema)
+	const pointerRead = author.findOne({ select: { id: true, name: true } })
+	const included = new QueryBuilder(includedPostSchema)
 		.select({ id: true, title: true })
 		.where((where) => where.eq('author', author))
 		.where((where) => where.in('author', [author]))
@@ -258,16 +264,16 @@ test('infers pointer predicates, target queries, and included projections', () =
 				.where((where) => where.eq('active', true)),
 		)
 		.include('reviewer', (query) => query.select({ name: true }))
-	type IncludedResult = NonNullable<
-		Awaited<ReturnType<typeof included.findOne>>
-	>
+	const includedResult = includedPostSchema.findMany(included.build())
+	type IncludedResult = Awaited<typeof includedResult>[number]
 	type PlainResult = NonNullable<
-		Awaited<ReturnType<ReturnType<typeof includedPostSchema.query>['findOne']>>
+		Awaited<ReturnType<typeof includedPostSchema.findOne>>
 	>
+	void includedResult
 
 	expect(included.ast.kind).toBe('query')
-	expectTypeOf(pointerQuery).toEqualTypeOf<
-		Query<typeof includedUserSchema, 'id' | 'name'>
+	expectTypeOf(pointerRead).toEqualTypeOf<
+		Promise<InferQueryResult<typeof includedUserSchema, 'id' | 'name'> | null>
 	>()
 	expectTypeOf<IncludedResult>().toHaveProperty('id')
 	expectTypeOf<IncludedResult>().toHaveProperty('title')
@@ -286,23 +292,25 @@ test('infers pointer predicates, target queries, and included projections', () =
 		Pointer<typeof includedUserSchema>
 	>()
 
-	new Query(includedPostSchema).where((where) =>
+	new QueryBuilder(includedPostSchema).where((where) =>
 		// @ts-expect-error -- Pointer equality preserves exact target identity.
 		where.eq('author', postSchema.pointer('post-1')),
 	)
-	// @ts-expect-error -- Pointers do not support ordered comparisons.
-	new Query(includedPostSchema).where((where) => where.gt('author', author))
+	new QueryBuilder(includedPostSchema).where((where) =>
+		// @ts-expect-error -- Pointers do not support ordered comparisons.
+		where.gt('author', author),
+	)
 	// @ts-expect-error -- Only pointer fields are includable.
-	new Query(includedPostSchema).include('title', (query) => query)
-	new Query(includedPostSchema).include('author', (query) => {
-		// @ts-expect-error -- The callback Query exposes only target fields.
+	new QueryBuilder(includedPostSchema).include('title', (query) => query)
+	new QueryBuilder(includedPostSchema).include('author', (query) => {
+		// @ts-expect-error -- The callback QueryBuilder exposes only target fields.
 		query.select({ title: true })
 		return query
 	})
 })
 
 test('restricts fields, pagination values, and logical schemas', () => {
-	const query = new Query(postSchema)
+	const query = new QueryBuilder(postSchema)
 	query
 		.select({ title: true, createdAt: true })
 		.ascending('title')

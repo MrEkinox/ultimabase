@@ -166,10 +166,10 @@ setup export types, including definitions introduced through nested composition.
 - Optional `AsyncLocalStorage` scopes derive every current-context reference
   from one explicitly injected `RequestEngine`; nested and concurrent requests
   never share mutable global state.
-- `Query<TSchema>` is an immutable context-free read definition whose
-  `findOne`, `findMany`, `get`, `count`, and `exists` terminals resolve
-  execution only when called.
-- `QueryScope<TSchema>` composes selection-preserving unbound transformations.
+- Generated schema classes expose canonical object-input `findOne`, `findMany`,
+  `get`, `count`, and `exists` reads whose execution resolves only when called.
+- `QueryBuilder<TSchema>` and `QueryScope<TSchema>` optionally compose reusable,
+  selection-preserving object inputs without retaining execution state.
 - Generated schema classes own explicit `createOne`/`createMany`,
   `updateOne`/`updateMany`, `upsertOne`/`upsertMany`, and
   `deleteOne`/`deleteMany` commands. Their filter-only `where` callbacks
@@ -181,7 +181,7 @@ setup export types, including definitions introduced through nested composition.
 
 ADR-0109 and issue 339 replace the former schema instance plus plain-result
 split with one class returned by `Schema.define()`. The class is the registered
-schema identity, exposes `Post.query()`, constructs immutable drafts, and
+schema identity, exposes schema-root reads and writes, constructs immutable drafts, and
 materializes immutable persisted results after Runtime restrictions. Issue 349
 adds instance commands that delegate to Query and Runtime; instances never
 retain adapters, mutate records, or track dirty state. ADR-0132 makes Query
@@ -296,7 +296,7 @@ neither the database-neutral ACL provider nor PostgreSQL imports the other.
 Subject-owning providers independently choose `fail`, `preserve`, or `cascade`
 deletion behavior. ACL publishes neutral principal and role cleanup
 contributions, then uses a private asynchronous maintenance scope to add an
-opaque exact-subject constraint to ordinary Query execution. PostgreSQL lowers
+opaque exact-subject constraint to ordinary read execution. PostgreSQL lowers
 that constraint to indexed JSONB containment. Cascade derives every rewritten
 ACL from the locked current row and performs singular updates inside the
 subject deletion transaction, preserving unrelated grants and rolling all

@@ -1,7 +1,7 @@
 import { expectTypeOf, test } from 'vitest'
 
 import {
-	Query,
+	QueryBuilder,
 	type CountOperationAst,
 	type ExistsOperationAst,
 	type FindManyOperationAst,
@@ -28,15 +28,15 @@ const findOperation: FindManyOperationAst<
 	'title'
 > = {
 	kind: 'find-many',
-	query: new Query(schema).select({ title: true }).ast,
+	query: new QueryBuilder(schema).select({ title: true }).ast,
 }
 const countOperation = {
 	kind: 'count',
-	query: new Query(schema).ast,
+	query: new QueryBuilder(schema).ast,
 } satisfies CountOperationAst<typeof schema>
 const existsOperation = {
 	kind: 'exists',
-	query: new Query(schema).ast,
+	query: new QueryBuilder(schema).ast,
 } satisfies ExistsOperationAst<typeof schema>
 const findResult: DatabaseOperationResult<typeof findOperation> = [
 	{ title: 'Selected' },

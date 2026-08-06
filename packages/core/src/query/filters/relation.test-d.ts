@@ -8,7 +8,7 @@ import {
 } from '../../schema/index.js'
 import { expectTypeOf, test } from 'vitest'
 
-import type { Query } from '../query/query.js'
+import { QueryBuilder } from '../query/query.js'
 import { fieldPath } from './factory.js'
 import type { WhereBuilder } from './where.js'
 
@@ -30,7 +30,7 @@ const Source = Schema.define({
 })
 
 test('exposes only exact target filter capabilities inside relation predicates', () => {
-	const query = Source.query().where((where) =>
+	const query = new QueryBuilder(Source).where((where) =>
 		where.some('targets', (target) => {
 			expectTypeOf(target).toEqualTypeOf<WhereBuilder<typeof Target>>()
 			target.eq('active', true)
@@ -63,8 +63,10 @@ test('exposes only exact target filter capabilities inside relation predicates',
 		}),
 	)
 
-	expectTypeOf(query).toEqualTypeOf<Query<typeof Source>>()
+	expectTypeOf(query).toEqualTypeOf<QueryBuilder<typeof Source>>()
 
-	// @ts-expect-error -- Scalar fields cannot be quantified as relations.
-	Source.query().where((where) => where.some('name', (target) => target))
+	new QueryBuilder(Source).where((where) =>
+		// @ts-expect-error -- Scalar fields cannot be quantified as relations.
+		where.some('name', (target) => target),
+	)
 })

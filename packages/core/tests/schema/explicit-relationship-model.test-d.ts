@@ -9,7 +9,7 @@ import {
 	type InferCreateInput,
 	type InferObject,
 	type Pointer,
-	type Query,
+	QueryBuilder,
 } from '../../src/index.js'
 
 const Member = Schema.define({
@@ -67,18 +67,18 @@ test('infers exact explicit-edge pointers, inputs, models, and selections', () =
 	>().toEqualTypeOf<ExpectedCreateInput>()
 	expectTypeOf<InferObject<typeof Membership>>().toEqualTypeOf<ExpectedObject>()
 
-	const selected = Membership.query().select({
+	const selected = new QueryBuilder(Membership).select({
 		id: true,
 		member: true,
 		role: true,
 	})
-	type SelectedMembership = NonNullable<
-		Awaited<ReturnType<typeof selected.findOne>>
-	>
+	const selectedRead = Membership.findMany(selected.build())
+	type SelectedMembership = NonNullable<Awaited<typeof selectedRead>[number]>
 	type SelectedRecord = ReturnType<SelectedMembership['toJSON']>
+	void selectedRead
 
 	expectTypeOf(selected).toEqualTypeOf<
-		Query<typeof Membership, 'id' | 'member' | 'role'>
+		QueryBuilder<typeof Membership, 'id' | 'member' | 'role'>
 	>()
 	expectTypeOf<SelectedRecord>().toEqualTypeOf<
 		Readonly<{
@@ -88,10 +88,10 @@ test('infers exact explicit-edge pointers, inputs, models, and selections', () =
 		}>
 	>()
 
-	Membership.query().where((where) =>
+	new QueryBuilder(Membership).where((where) =>
 		where.eq('member', Member.pointer('member-id')),
 	)
-	Membership.query().where((where) =>
+	new QueryBuilder(Membership).where((where) =>
 		// @ts-expect-error -- The edge source pointer cannot accept another schema.
 		where.eq('member', Project.pointer('project-id')),
 	)

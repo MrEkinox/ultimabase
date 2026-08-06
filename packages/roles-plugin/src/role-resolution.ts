@@ -1,7 +1,7 @@
 import {
-	Query,
 	Pointer,
 	type QueryTerminalOptions,
+	type SchemaClass,
 	type SchemaDefinition,
 	type SchemaResult,
 	type StringField,
@@ -15,7 +15,7 @@ import {
 } from './role-reference.js'
 import { readPersistedRoleId } from './role-hierarchy.js'
 
-type RoleLookupSchema = SchemaDefinition<
+type RoleLookupSchema = SchemaClass<
 	string,
 	Readonly<{ readonly name: StringField }>
 >
@@ -99,10 +99,10 @@ const findRoleByName = async <const TSchema extends SchemaDefinition>(
 	options?: QueryTerminalOptions,
 ): Promise<SchemaResult<TSchema>> => {
 	const lookupSchema = schema as unknown as RoleLookupSchema
-	const matches = await new Query(lookupSchema)
-		.where((where) => where.eq('name', name))
-		.limit(2)
-		.findMany(options)
+	const matches = await lookupSchema.findMany(
+		{ where: { name: { eq: name } }, limit: 2 },
+		options,
+	)
 
 	return resolveUniqueRoleNameMatch(
 		name,
@@ -147,7 +147,10 @@ export const resolveRoleReference = async <
 	}
 
 	const roleId = state.selector.id
-	const role = await new Pointer(state.schema, roleId).query().findOne(options)
+	const role = await new Pointer(state.schema, roleId).findOne(
+		undefined,
+		options,
+	)
 
 	if (role === null) {
 		throw new RoleReferenceResolutionError(

@@ -31,13 +31,13 @@ const principal = new RequestContextValue<Readonly<{ id: string }>>(
 	},
 )
 
-test('ambient Query keeps exact typing without adding controls to HookContext', async () => {
+test('ambient QueryBuilder keeps exact typing without adding controls to HookContext', async () => {
 	const created = await AuditSchema.createOne({
 		data: { action: 'post.create' },
 	})
-	const selected = await AuditSchema.query()
-		.select({ id: true, action: true })
-		.findMany()
+	const selected = await AuditSchema.findMany({
+		select: { id: true, action: true },
+	})
 
 	expectTypeOf(created.action).toEqualTypeOf<string>()
 	expectTypeOf(created.secret).toEqualTypeOf<string | null>()
@@ -50,7 +50,7 @@ test('ambient Query keeps exact typing without adding controls to HookContext', 
 		Readonly<{ id: string }> | undefined
 	>()
 
-	// @ts-expect-error -- Query execution is ambient instead of context plumbing.
+	// @ts-expect-error -- QueryBuilder execution is ambient instead of context plumbing.
 	void context.query
 	// @ts-expect-error -- Private request metadata never enters HookContext.
 	void context.metadata

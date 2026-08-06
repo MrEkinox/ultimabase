@@ -107,7 +107,7 @@ describe('native hook contract prototype IntelliSense', () => {
 		expect(readHoverDisplay('update-input')).toContain('title?: string;')
 		expect(readHoverDisplay('object')).toContain('readonly id: string;')
 		expect(readHoverDisplay('object')).toContain('readonly title: string;')
-		expect(readHoverDisplay('query')).toContain('Query<')
+		expect(readHoverDisplay('query')).toContain('QueryBuilder<')
 		expect(readHoverDisplay('count-result')).toContain('number')
 		expect(readHoverDisplay('find-result')).toContain('readonly')
 		expect(readHoverDisplay('find-result')).toContain('title: string;')

@@ -1,7 +1,7 @@
 import { pointerField, Schema, stringField } from '../../schema/index.js'
 import { describe, expect, it } from 'vitest'
 
-import { Query } from '../query/query.js'
+import { QueryBuilder } from '../query/query.js'
 import { normalizeQueryInclusion } from './inclusion.js'
 
 const userSchema = Schema.define({
@@ -20,9 +20,9 @@ const postSchema = Schema.define({
 
 describe('normalizeQueryInclusion', () => {
 	it('keeps first field order while the last duplicate target query wins', () => {
-		const firstAuthor = new Query(userSchema).select({ id: true })
-		const reviewer = new Query(userSchema).select({ name: true })
-		const finalAuthor = new Query(userSchema)
+		const firstAuthor = new QueryBuilder(userSchema).select({ id: true })
+		const reviewer = new QueryBuilder(userSchema).select({ name: true })
+		const finalAuthor = new QueryBuilder(userSchema)
 			.select({ id: true, email: true })
 			.where((where) => where.endsWith('email', '@example.com'))
 		const inclusion = normalizeQueryInclusion(postSchema, [
@@ -46,7 +46,7 @@ describe('normalizeQueryInclusion', () => {
 		expect(() =>
 			normalizeQueryInclusion(postSchema, [
 				// @ts-expect-error -- Runtime validation protects transport normalizers.
-				{ field: 'title', query: new Query(userSchema).ast },
+				{ field: 'title', query: new QueryBuilder(userSchema).ast },
 			]),
 		).toThrow(
 			new TypeError('query inclusion field must reference a pointer field'),
@@ -56,7 +56,7 @@ describe('normalizeQueryInclusion', () => {
 				{
 					field: 'author',
 					// @ts-expect-error -- Runtime identity checks complement target inference.
-					query: new Query(otherSchema).ast,
+					query: new QueryBuilder(otherSchema).ast,
 				},
 			]),
 		).toThrow(

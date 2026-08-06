@@ -1,6 +1,6 @@
 import { FrameworkError } from '../../foundation.js'
 import {
-	Query,
+	QueryBuilder,
 	type FindManyOperationAst,
 	type UpdateOneOperationAst,
 } from '../../query/index.js'
@@ -62,12 +62,12 @@ const articleSchema = Schema.define({
 
 const articleOperation = {
 	kind: 'find-many',
-	query: new Query(articleSchema).limit(10).ast,
+	query: new QueryBuilder(articleSchema).limit(10).ast,
 } satisfies FindManyOperationAst<typeof articleSchema>
 
 const articleUpdateOperation = {
 	kind: 'update-one',
-	query: new Query(articleSchema).where((where) =>
+	query: new QueryBuilder(articleSchema).where((where) =>
 		where.eq('id', '0198f090-2a50-7000-8000-000000000081'),
 	).ast,
 	update: {
@@ -88,11 +88,9 @@ const relationPredicateSource = Schema.define({
 })
 const relationPredicateOperation = {
 	kind: 'find-many',
-	query: relationPredicateSource
-		.query()
-		.where((where) =>
-			where.some('targets', (target) => target.eq('label', 'portable')),
-		).ast,
+	query: new QueryBuilder(relationPredicateSource).where((where) =>
+		where.some('targets', (target) => target.eq('label', 'portable')),
+	).ast,
 } satisfies FindManyOperationAst<typeof relationPredicateSource>
 
 const requestContext = RequestContext.anonymous({
@@ -307,7 +305,7 @@ describe('RuntimePipeline', () => {
 		}
 		const operation = immutableRecord({
 			kind: 'find-many',
-			query: new Query(articleSchema).select({ title: true }).ast,
+			query: new QueryBuilder(articleSchema).select({ title: true }).ast,
 		}) satisfies FindManyOperationAst<typeof articleSchema>
 		const pipeline = new RuntimePipeline(
 			createStages([], executor, {

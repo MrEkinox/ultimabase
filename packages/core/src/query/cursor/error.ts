@@ -9,7 +9,7 @@ const isQueryCursorErrorCode = (
 	typeof value === 'string' &&
 	queryCursorErrorCodes.some((candidate) => candidate === value)
 
-/** Exposes stable cursor failures without importing Core into Query. */
+/** Exposes stable cursor failures without importing Core into QueryBuilder. */
 export class QueryCursorError<
 	const TCode extends QueryCursorErrorCode = QueryCursorErrorCode,
 > extends Error {

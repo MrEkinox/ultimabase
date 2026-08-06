@@ -7,7 +7,7 @@ import { emptyQuerySelection } from '../clauses/selection.js'
 import type { InitialQueryAst, QuerySchemaNode } from './contracts.js'
 import { assertQuerySchemaReference } from './schema.js'
 
-/** Creates the immutable neutral state from which Query builders will branch. */
+/** Creates the immutable neutral state from which QueryBuilder builders will branch. */
 export const createQueryAst = <const TSchema extends SchemaDefinition>(
 	schema: TSchema,
 ): InitialQueryAst<TSchema> => {

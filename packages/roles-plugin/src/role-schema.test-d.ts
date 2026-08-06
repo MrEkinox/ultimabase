@@ -1,5 +1,5 @@
 import {
-	Query,
+	QueryBuilder,
 	Schema,
 	intField,
 	stringField,
@@ -49,7 +49,7 @@ RoleSchema.define({
 	},
 })
 
-test('preserves exact role schema, member, draft, Query, and reference types', () => {
+test('preserves exact role schema, member, draft, QueryBuilder, and reference types', () => {
 	type CreateInput = InferCreateInput<typeof AppRole>
 	type MemberTarget = SchemaRelationTarget<typeof AppRole, 'members'>
 	type NestedRoleTarget = SchemaRelationTarget<typeof AppRole, 'roles'>
@@ -61,9 +61,11 @@ test('preserves exact role schema, member, draft, Query, and reference types', (
 	}>()
 	expectTypeOf<MemberTarget>().toEqualTypeOf<typeof User>()
 	expectTypeOf<NestedRoleTarget['className']>().toEqualTypeOf<'TypedAppRole'>()
-	expectTypeOf(new Query(AppRole).ast.schema.definition).toEqualTypeOf(AppRole)
+	expectTypeOf(new QueryBuilder(AppRole).ast.schema.definition).toEqualTypeOf(
+		AppRole,
+	)
 	expectTypeOf(
-		AppRole.query().ast.schema.definition.className,
+		new QueryBuilder(AppRole).ast.schema.definition.className,
 	).toEqualTypeOf<'TypedAppRole'>()
 	expectTypeOf(new AppRole({ name: 'editor' }).create).toBeFunction()
 	expectTypeOf<
@@ -78,8 +80,8 @@ test('preserves exact role schema, member, draft, Query, and reference types', (
 test('exposes exact member commands only on persisted role results', async () => {
 	const draft = new AppRole({ name: 'editor' })
 	const created = await draft.create({})
-	const role = await AppRole.query().findOne()
-	const member = await User.query().findOne()
+	const role = await AppRole.findOne()
+	const member = await User.findOne()
 
 	expectTypeOf(draft).not.toHaveProperty('addMember')
 	expectTypeOf(created).toHaveProperty('addMember')
@@ -106,8 +108,8 @@ test('exposes exact member commands only on persisted role results', async () =>
 })
 
 test('keeps nested-role commands distinct and schema-qualified', async () => {
-	const role = await AppRole.query().findOne()
-	const siblingRole = await AppRole.query().findOne()
+	const role = await AppRole.findOne()
+	const siblingRole = await AppRole.findOne()
 
 	if (role !== null && siblingRole !== null) {
 		expectTypeOf(role).toHaveProperty('addRole')

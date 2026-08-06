@@ -152,9 +152,10 @@ const createRelationRuntimeFixture = async (
 	})
 
 	await ultimabase.start()
-	const source = await Source.query()
-		.where({ id: { eq: sourceId } })
-		.findOne({ ultimabase })
+	const source = await Source.findOne(
+		{ where: { id: { eq: sourceId } } },
+		{ ultimabase },
+	)
 
 	if (source === null) {
 		throw new TypeError('Relation mutation fixture requires one source object')
@@ -428,11 +429,10 @@ describe('relation mutation Runtime execution', () => {
 		})
 
 		await ultimabase.start()
-		const author = await RelationAuthor.query()
-			.where({ id: { eq: sourceId } })
-			.findOne({
-				ultimabase,
-			})
+		const author = await RelationAuthor.findOne(
+			{ where: { id: { eq: sourceId } } },
+			{ ultimabase },
+		)
 
 		if (author === null) {
 			throw new TypeError('Inverse relation fixture requires one author')

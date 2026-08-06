@@ -8,7 +8,7 @@ import type {
 	FindManyOperationAst,
 	InferQueryResult,
 } from '../../query/index.js'
-import { Query } from '../../query/index.js'
+import { QueryBuilder } from '../../query/index.js'
 import { Schema, stringField } from '../../schema/index.js'
 import { expectTypeOf, test } from 'vitest'
 
@@ -76,10 +76,10 @@ test('preserves application, context, query, and operation result types', () => 
 		source: 'graphql',
 	}).withValue(principalValue, 'user-1')
 	const scoped = framework.withContext(scopedContext)
-	const query = schema.query()
+	const query = new QueryBuilder(schema)
 	const operation = {
 		kind: 'find-many',
-		query: new Query(schema).ast,
+		query: new QueryBuilder(schema).ast,
 	} satisfies FindManyOperationAst<typeof schema>
 
 	expectTypeOf(framework.application).toEqualTypeOf<typeof application>()
@@ -89,7 +89,7 @@ test('preserves application, context, query, and operation result types', () => 
 	expectTypeOf(scoped.context.getValue(principalValue)).toEqualTypeOf<
 		string | undefined
 	>()
-	expectTypeOf(query).toEqualTypeOf<Query<typeof schema>>()
+	expectTypeOf(query).toEqualTypeOf<QueryBuilder<typeof schema>>()
 	expectTypeOf(scoped.execute(operation)).toEqualTypeOf<
 		Promise<readonly InferQueryResult<typeof schema>[]>
 	>()

@@ -1,6 +1,6 @@
 import type { ServiceToken } from '../../foundation.js'
 import {
-	Query,
+	QueryBuilder,
 	type CountOperationAst,
 	type CreateManyOperationAst,
 	type CreateOneOperationAst,
@@ -117,7 +117,9 @@ test('preserves operation and constraint inference through execute', () => {
 
 	const operation = {
 		kind: 'find-many',
-		query: new Query(articleSchema).where((where) => where.eq('views', 10)).ast,
+		query: new QueryBuilder(articleSchema).where((where) =>
+			where.eq('views', 10),
+		).ast,
 	} satisfies FindManyOperationAst<typeof articleSchema>
 	const relation = {
 		fieldPath: ['relatedArticles'],
@@ -188,7 +190,7 @@ test('keeps prepared outcomes correlated with their exact operation result', () 
 		input: { title: 'Prepared' },
 		kind: 'create-one',
 		selection: { fields: [], kind: 'selection' },
-		schema: new Query(articleSchema).ast.schema,
+		schema: new QueryBuilder(articleSchema).ast.schema,
 	} satisfies CreateOneOperationAst<typeof articleSchema>
 	const transaction = null as unknown as DatabaseTransactionAdapter
 
@@ -292,11 +294,11 @@ test('narrows preparation and materializations by mutation terminal', () => {
 	>().toEqualTypeOf<readonly []>()
 	const read = {
 		kind: 'find-many',
-		query: new Query(articleSchema).ast,
+		query: new QueryBuilder(articleSchema).ast,
 	} satisfies FindManyOperationAst<typeof articleSchema>
 	const count = {
 		kind: 'count',
-		query: new Query(articleSchema).ast,
+		query: new QueryBuilder(articleSchema).ast,
 	} satisfies CountOperationAst<typeof articleSchema>
 
 	// @ts-expect-error -- Reads execute directly and cannot create mutation handles.

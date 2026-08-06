@@ -203,9 +203,9 @@ describe('schema definitions', () => {
 		expect(() =>
 			Schema.defineWithStatics(
 				{ className: 'CollidingStatic', fields: {} },
-				() => ({ query: true }),
+				() => ({ findMany: true }),
 			),
-		).toThrow(new TypeError('Reserved schema static capability: query'))
+		).toThrow(new TypeError('Reserved schema static capability: findMany'))
 	})
 
 	it.each(['id', 'createdAt', 'updatedAt', 'AND', 'OR', 'NOT'] as const)(

@@ -1,5 +1,4 @@
 import {
-	Query,
 	RequestContext,
 	accessRoleResolverServiceToken,
 	requestSources,
@@ -198,11 +197,14 @@ describe('stored roles with PostgreSQL', { concurrent: false }, () => {
 		expect(currentEditor.description).toBe('Can edit content')
 		expect(currentEditor.priority).toBe(10)
 
-		const selected = await new Query(AppRole)
-			.where((where) => where.gte('priority', 10))
-			.ascending('priority')
-			.select({ id: true, name: true, priority: true })
-			.findMany({ ultimabase: app, useMasterKey: true })
+		const selected = await AppRole.findMany(
+			{
+				where: { priority: { gte: 10 } },
+				orderBy: [{ priority: 'asc' }],
+				select: { id: true, name: true, priority: true },
+			},
+			{ ultimabase: app, useMasterKey: true },
+		)
 
 		expect(selected.map((role) => role.toJSON())).toStrictEqual([
 			{ id: currentEditor.id, name: 'editor', priority: 10 },
@@ -243,8 +245,7 @@ describe('stored roles with PostgreSQL', { concurrent: false }, () => {
 		expect(
 			await currentEditor
 				.relation('members')
-				.query()
-				.count({ ultimabase: app }),
+				.count(undefined, { ultimabase: app }),
 		).toBe(2)
 		await currentEditor.removeMember(currentBob, {
 			ultimabase: app,
@@ -253,8 +254,7 @@ describe('stored roles with PostgreSQL', { concurrent: false }, () => {
 		expect(
 			await currentEditor
 				.relation('members')
-				.query()
-				.count({ ultimabase: app }),
+				.count(undefined, { ultimabase: app }),
 		).toBe(1)
 
 		const temporaryChild = await new AppRole({
@@ -265,14 +265,14 @@ describe('stored roles with PostgreSQL', { concurrent: false }, () => {
 			useMasterKey: true,
 		})
 		await expect(
-			currentEditor.relation('roles').query().count({ ultimabase: app }),
+			currentEditor.relation('roles').count(undefined, { ultimabase: app }),
 		).resolves.toBe(1)
 		await currentEditor.removeRole(temporaryChild, {
 			ultimabase: app,
 			useMasterKey: true,
 		})
 		await expect(
-			currentEditor.relation('roles').query().count({ ultimabase: app }),
+			currentEditor.relation('roles').count(undefined, { ultimabase: app }),
 		).resolves.toBe(0)
 		expect(committedRoleEvents.slice(eventCount)).toContain(
 			'ultimabase.roles.membership.changed',
@@ -316,18 +316,17 @@ describe('stored roles with PostgreSQL', { concurrent: false }, () => {
 			),
 		).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
 
-		const visible = await ProtectedPost.query()
-			.select({ id: true, internalNote: true, title: true })
-			.findMany({ context: aliceContext, ultimabase: app })
+		const visible = await ProtectedPost.findMany(
+			{ select: { id: true, internalNote: true, title: true } },
+			{ context: aliceContext, ultimabase: app },
+		)
 		expect(visible).toHaveLength(1)
 		expect(visible[0]?.id).toBe(publishedPostId)
 		await expect(
-			ProtectedPost.query()
-				.where({ id: { eq: privatePostId } })
-				.exists({
-					context: aliceContext,
-					ultimabase: app,
-				}),
+			ProtectedPost.exists(
+				{ where: { id: { eq: privatePostId } } },
+				{ context: aliceContext, ultimabase: app },
+			),
 		).resolves.toBe(false)
 
 		const deletable = await ProtectedPost.createOne(
@@ -366,7 +365,7 @@ describe('stored roles with PostgreSQL', { concurrent: false }, () => {
 			}),
 		).rejects.toMatchObject({ code: 'ROLE_HIERARCHY_CYCLE' })
 		await expect(
-			currentEditor.relation('roles').query().count({ ultimabase: app }),
+			currentEditor.relation('roles').count(undefined, { ultimabase: app }),
 		).resolves.toBe(0)
 		expect(committedRoleEvents).toHaveLength(eventCount)
 	})
@@ -448,9 +447,10 @@ describe('stored roles with PostgreSQL', { concurrent: false }, () => {
 			),
 		).resolves.toMatchObject({ id: preserveRole.id })
 		await expect(
-			ExternalRoleReference.query()
-				.where((where) => where.eq('subject', preserveReference.value))
-				.exists({ ultimabase: app }),
+			ExternalRoleReference.exists(
+				{ where: { subject: { eq: preserveReference.value } } },
+				{ ultimabase: app },
+			),
 		).resolves.toBe(true)
 
 		const cascadeChild = await new CascadeRole({
@@ -476,12 +476,13 @@ describe('stored roles with PostgreSQL', { concurrent: false }, () => {
 			cascadeChild.delete({}, { ultimabase: app, useMasterKey: true }),
 		).resolves.toMatchObject({ id: cascadeChild.id })
 		await expect(
-			cascadeParent.relation('roles').query().count({ ultimabase: app }),
+			cascadeParent.relation('roles').count(undefined, { ultimabase: app }),
 		).resolves.toBe(0)
 		await expect(
-			ExternalRoleReference.query()
-				.where((where) => where.eq('subject', cascadeReference.value))
-				.exists({ ultimabase: app }),
+			ExternalRoleReference.exists(
+				{ where: { subject: { eq: cascadeReference.value } } },
+				{ ultimabase: app },
+			),
 		).resolves.toBe(false)
 
 		const rollbackRole = await new CascadeRole({
@@ -494,14 +495,16 @@ describe('stored roles with PostgreSQL', { concurrent: false }, () => {
 			rollbackRole.delete({}, { ultimabase: app, useMasterKey: true }),
 		).rejects.toThrow('external role cleanup rollback fixture')
 		await expect(
-			CascadeRole.query()
-				.where({ id: { eq: rollbackRole.id } })
-				.exists({ ultimabase: app }),
+			CascadeRole.exists(
+				{ where: { id: { eq: rollbackRole.id } } },
+				{ ultimabase: app },
+			),
 		).resolves.toBe(true)
 		await expect(
-			ExternalRoleReference.query()
-				.where((where) => where.eq('subject', rollbackReference.value))
-				.exists({ ultimabase: app }),
+			ExternalRoleReference.exists(
+				{ where: { subject: { eq: rollbackReference.value } } },
+				{ ultimabase: app },
+			),
 		).resolves.toBe(true)
 		await expect(
 			CascadeRole.deleteMany(
@@ -573,7 +576,10 @@ describe('stored roles with PostgreSQL', { concurrent: false }, () => {
 				second.application.getService(accessRoleResolverServiceToken),
 			).not.toBe(first.application.getService(accessRoleResolverServiceToken))
 			await expect(
-				AppRole.query().count({ ultimabase: second, useMasterKey: true }),
+				AppRole.count(undefined, {
+					ultimabase: second,
+					useMasterKey: true,
+				}),
 			).resolves.toBeGreaterThan(0)
 			const [transportExtension] = AppRole.extensions
 

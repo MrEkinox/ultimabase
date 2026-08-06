@@ -493,9 +493,9 @@ describe('native hooks with PostgreSQL', { concurrent: false }, () => {
 		})
 		await expect(
 			runWithScope('scope-create', () =>
-				HookAuditSchema.query()
-					.where((where) => where.eq('action', 'create:Create lifecycle'))
-					.exists(),
+				HookAuditSchema.exists({
+					where: { action: { eq: 'create:Create lifecycle' } },
+				}),
 			),
 		).resolves.toBe(true)
 		expect(committedEvents).toStrictEqual(['native-hooks.article-created'])
@@ -546,18 +546,16 @@ describe('native hooks with PostgreSQL', { concurrent: false }, () => {
 
 		await expect(
 			runWithScope('scope-rollback', () =>
-				HookArticleSchema.query()
-					.where((where) => where.eq('title', 'Rollback after persistence'))
-					.exists(),
+				HookArticleSchema.exists({
+					where: { title: { eq: 'Rollback after persistence' } },
+				}),
 			),
 		).resolves.toBe(false)
 		await expect(
 			runWithScope('scope-rollback', () =>
-				HookAuditSchema.query()
-					.where((where) =>
-						where.eq('action', 'create:Rollback after persistence'),
-					)
-					.exists(),
+				HookAuditSchema.exists({
+					where: { action: { eq: 'create:Rollback after persistence' } },
+				}),
 			),
 		).resolves.toBe(false)
 		expect(committedEvents).toStrictEqual([])
@@ -597,16 +595,16 @@ describe('native hooks with PostgreSQL', { concurrent: false }, () => {
 		hookTrace.length = 0
 
 		const visible = await runWithScope('scope-visible-a', () =>
-			HookArticleSchema.query()
-				.where((where) => where.eq('title', 'Shared visible title'))
-				.select({
+			HookArticleSchema.findMany({
+				where: { title: { eq: 'Shared visible title' } },
+				select: {
 					id: true,
 					title: true,
 					secret: true,
 					profile: true,
 					scopeId: true,
-				})
-				.findMany(),
+				},
+			}),
 		)
 
 		expect(visible).toHaveLength(1)
@@ -633,7 +631,7 @@ describe('native hooks with PostgreSQL', { concurrent: false }, () => {
 
 		hookTrace.length = 0
 		await expect(
-			HookArticleSchema.query().findMany({ ultimabase: getUltimaBase() }),
+			HookArticleSchema.findMany(undefined, { ultimabase: getUltimaBase() }),
 		).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
 		expect(hookTrace).toContain('policy:guard:find-many')
 		expect(hookTrace).not.toContain('plugin:schema:beforeRead:find-many')
@@ -737,9 +735,9 @@ describe('native hooks with PostgreSQL', { concurrent: false }, () => {
 		expect(deleteTrace).not.toContain('field:title:developer:onChange')
 		await expect(
 			runWithScope('scope-bulk-b', () =>
-				HookArticleSchema.query()
-					.where((where) => where.eq('title', 'Bulk scoped target'))
-					.exists(),
+				HookArticleSchema.exists({
+					where: { title: { eq: 'Bulk scoped target' } },
+				}),
 			),
 		).resolves.toBe(true)
 	})

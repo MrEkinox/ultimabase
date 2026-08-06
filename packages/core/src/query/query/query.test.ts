@@ -11,7 +11,7 @@ import {
 } from '../../schema/index.js'
 import { describe, expect, it } from 'vitest'
 
-import { hydrateQueryFromAst, Query } from './query.js'
+import { hydrateQueryFromAst, QueryBuilder } from './query.js'
 import { fieldPath } from '../filters/factory.js'
 import { WhereBuilder } from '../filters/where.js'
 import type { QueryScope } from './scope.js'
@@ -41,9 +41,9 @@ const includedPostSchema = Schema.define({
 	},
 })
 
-describe('Query', () => {
+describe('QueryBuilder', () => {
 	it('hydrates one internal immutable shell without rebuilding its normalized AST', () => {
-		const source = new Query(postSchema)
+		const source = new QueryBuilder(postSchema)
 			.select({ id: true, title: true })
 			.where((where) => where.eq('published', true))
 			.limit(25)
@@ -52,7 +52,7 @@ describe('Query', () => {
 		)
 		const branch = hydrated.limit(10)
 
-		expect(hydrated).toBeInstanceOf(Query)
+		expect(hydrated).toBeInstanceOf(QueryBuilder)
 		expect(hydrated).not.toBe(source)
 		expect(hydrated.ast).toBe(source.ast)
 		expect(hydrated.schema).toBe(postSchema)
@@ -65,7 +65,7 @@ describe('Query', () => {
 	})
 
 	it('builds immutable selection, ordering, limit, and pagination branches', () => {
-		const base = new Query(postSchema)
+		const base = new QueryBuilder(postSchema)
 		const selected = base.select({ title: true, id: true })
 		const excluded = base.select({ published: false, updatedAt: false })
 		const replacedSelection = selected.select({ views: true })
@@ -117,6 +117,8 @@ describe('Query', () => {
 			after: undefined,
 			kind: 'cursor-pagination',
 		})
+		expect(cursor.build()).toMatchObject({ cursor: 'opaque.cursor', limit: 25 })
+		expect(firstCursorPage.build()).toMatchObject({ cursor: true, limit: 25 })
 		expect(unchangedCursor.ast.pagination).toBe(cursor.ast.pagination)
 		expect(base).not.toBe(selected)
 		expect(base).not.toBe(excluded)
@@ -128,7 +130,7 @@ describe('Query', () => {
 	})
 
 	it('shares every unchanged immutable AST branch', () => {
-		const base = new Query(postSchema)
+		const base = new QueryBuilder(postSchema)
 			.select({ title: true })
 			.descending('createdAt')
 		const published = base.where((where) => where.eq('published', true))
@@ -153,7 +155,7 @@ describe('Query', () => {
 	})
 
 	it('builds immutable pointer inclusion branches from exact target queries', () => {
-		const base = new Query(includedPostSchema)
+		const base = new QueryBuilder(includedPostSchema)
 		const included = base.include('author', (query) =>
 			query
 				.select({ id: true, name: true })
@@ -194,7 +196,7 @@ describe('Query', () => {
 		const author = includedUserSchema.pointer(
 			'0194f292-0dd9-7c2d-a0a3-a2f755a3d90a',
 		)
-		const query = new Query(includedPostSchema)
+		const query = new QueryBuilder(includedPostSchema)
 			.where((where) => where.eq('author', author))
 			.where((where) => where.in('author', [author]))
 			.where((where) => where.isNull('author'))
@@ -211,7 +213,7 @@ describe('Query', () => {
 	})
 
 	it('keeps logical field names and rejects malformed inclusion callbacks', () => {
-		const selected = new Query(includedPostSchema)
+		const selected = new QueryBuilder(includedPostSchema)
 			.select({ id: true })
 			.include('author', (query) => query.select({ name: true }))
 
@@ -222,18 +224,18 @@ describe('Query', () => {
 		expect(JSON.stringify(selected.ast)).toContain('"field":"author"')
 		expect(JSON.stringify(selected.ast)).not.toContain('authorId')
 		expect(() =>
-			new Query(includedPostSchema).include(
+			new QueryBuilder(includedPostSchema).include(
 				'author',
 				// @ts-expect-error -- Runtime validation protects JavaScript callbacks.
 				() => immutableScopeFixture,
 			),
 		).toThrow(
 			new TypeError(
-				'query inclusion callback must return a Query for the pointer target',
+				'query inclusion callback must return a QueryBuilder for the pointer target',
 			),
 		)
 		expect(() =>
-			new Query(includedPostSchema).include(
+			new QueryBuilder(includedPostSchema).include(
 				// @ts-expect-error -- Runtime validation rejects non-pointer fields.
 				'title',
 				(query) => query,
@@ -250,7 +252,7 @@ describe('Query', () => {
 			'case-insensitive',
 			'multiline',
 		]
-		const query = new Query(postSchema)
+		const query = new QueryBuilder(postSchema)
 			.where((where) => where.eq('published', true))
 			.where((where) => where.ne('status', 'draft'))
 			.where((where) => where.gt('views', 10))
@@ -311,7 +313,7 @@ describe('Query', () => {
 	it('builds immutable structural filters for JSON and typed object paths', () => {
 		const keys = ['theme', 'locale']
 		const partial = { label: 'typed' }
-		const query = new Query(postSchema)
+		const query = new QueryBuilder(postSchema)
 			.where((where) => where.contains('metadata', partial))
 			.where((where) => where.containedBy('metadata', { label: 'typed' }))
 			.where((where) => where.hasKey('metadata', 'label'))
@@ -390,16 +392,16 @@ describe('Query', () => {
 
 	it('adds the framework identifier without mutating existing filters', () => {
 		const objectId = '0194f292-0dd9-7c2d-a0a3-a2f755a3d90a'
-		const expected = new Query(postSchema).where((where) =>
+		const expected = new QueryBuilder(postSchema).where((where) =>
 			where.eq('id', objectId),
 		)
-		const base = new Query(postSchema).where((where) =>
+		const base = new QueryBuilder(postSchema).where((where) =>
 			where.eq('published', true),
 		)
 		const identified = base.where({ id: { eq: objectId } })
 
 		expect(
-			new Query(postSchema).where({ id: { eq: objectId } }).ast.where,
+			new QueryBuilder(postSchema).where({ id: { eq: objectId } }).ast.where,
 		).toStrictEqual(expected.ast.where)
 
 		expect(base.ast.where?.expression).toStrictEqual({
@@ -422,11 +424,11 @@ describe('Query', () => {
 	})
 
 	it('combines object filters without copying other clauses', () => {
-		const base = new Query(postSchema).limit(25).descending('createdAt')
-		const published = new Query(postSchema).where({
+		const base = new QueryBuilder(postSchema).limit(25).descending('createdAt')
+		const published = new QueryBuilder(postSchema).where({
 			published: { eq: true },
 		})
-		const popular = new Query(postSchema).where({
+		const popular = new QueryBuilder(postSchema).where({
 			views: { gt: 100 },
 		})
 		const andQuery = base.where({
@@ -464,7 +466,7 @@ describe('Query', () => {
 			query.where((where) => where.gt('views', 100))
 		const discoverable: QueryScope<typeof postSchema> = (query) =>
 			query.use(published).use(popular).descending('createdAt')
-		const base = new Query(postSchema).select({ id: true, title: true })
+		const base = new QueryBuilder(postSchema).select({ id: true, title: true })
 		const publishedBranch = base.use(published)
 		const discoverableBranch = base.use(discoverable)
 
@@ -492,15 +494,15 @@ describe('Query', () => {
 		})
 
 		expect(() =>
-			new Query(postSchema).use(
-				// @ts-expect-error -- Runtime validation rejects non-Query scope results.
+			new QueryBuilder(postSchema).use(
+				// @ts-expect-error -- Runtime validation rejects non-QueryBuilder scope results.
 				() => immutableScopeFixture,
 			),
-		).toThrow(new TypeError('query scope must return a Query instance'))
+		).toThrow(new TypeError('query scope must return a QueryBuilder instance'))
 		expect(() =>
-			new Query(postSchema).use(
+			new QueryBuilder(postSchema).use(
 				// @ts-expect-error -- Runtime validation repeats exact-schema enforcement.
-				() => new Query(commentSchema),
+				() => new QueryBuilder(commentSchema),
 			),
 		).toThrow(
 			new TypeError('query scope must return the same schema definition'),
@@ -514,30 +516,32 @@ describe('Query', () => {
 			fields: postFields,
 		})
 
-		expect(() => new Query(postSchema).skip(5).after('cursor')).toThrow(
+		expect(() => new QueryBuilder(postSchema).skip(5).after('cursor')).toThrow(
 			new TypeError('query cannot combine skip and after pagination'),
 		)
-		expect(() => new Query(postSchema).after('cursor').skip(5)).toThrow(
+		expect(() => new QueryBuilder(postSchema).after('cursor').skip(5)).toThrow(
 			new TypeError('query cannot combine skip and after pagination'),
 		)
 		expect(() =>
-			new Query(postSchema)
+			new QueryBuilder(postSchema)
 				.where((where) => where.eq('published', true))
 				.where(new WhereBuilder(otherPostSchema).eq('title', 'Post')),
 		).toThrow(new TypeError('WhereBuilder must use the same schema definition'))
 		expect(() => {
 			// @ts-expect-error -- Runtime validation rejects unknown fields.
-			new Query(postSchema).where((where) => where.eq('missing', true))
+			new QueryBuilder(postSchema).where((where) => where.eq('missing', true))
 		}).toThrow(new TypeError('where.missing must reference a schema field'))
 		expect(() => {
-			// @ts-expect-error -- List fields expose only presence operators.
-			new Query(postSchema).where((where) => where.eq('aliases', ['alias']))
+			new QueryBuilder(postSchema).where((where) =>
+				// @ts-expect-error -- List fields expose only presence operators.
+				where.eq('aliases', ['alias']),
+			)
 		}).toThrow(
 			new TypeError('query operator equal does not support list fields'),
 		)
 		expect(() => {
 			// @ts-expect-error -- Boolean fields do not support ordered comparisons.
-			new Query(postSchema).where((where) => where.gt('published', true))
+			new QueryBuilder(postSchema).where((where) => where.gt('published', true))
 		}).toThrow(
 			new TypeError(
 				'query operator greater-than does not support boolean fields',
@@ -545,31 +549,37 @@ describe('Query', () => {
 		)
 		expect(() => {
 			// @ts-expect-error -- Runtime rejects nullable comparison operands.
-			new Query(postSchema).where((where) => where.gt('score', null))
+			new QueryBuilder(postSchema).where((where) => where.gt('score', null))
 		}).toThrow(new TypeError('query filter value must not be null'))
 		expect(() => {
-			// @ts-expect-error -- Runtime rejects nullable range bounds.
-			new Query(postSchema).where((where) => where.between('score', null, 10))
+			new QueryBuilder(postSchema).where((where) =>
+				// @ts-expect-error -- Runtime rejects nullable range bounds.
+				where.between('score', null, 10),
+			)
 		}).toThrow(new TypeError('query range lower bound must not be null'))
 		expect(() => {
-			// @ts-expect-error -- Numeric fields do not support string operators.
-			new Query(postSchema).where((where) => where.contains('views', '10'))
+			new QueryBuilder(postSchema).where((where) =>
+				// @ts-expect-error -- Numeric fields do not support string operators.
+				where.contains('views', '10'),
+			)
 		}).toThrow(
 			new TypeError('query operator contains does not support int fields'),
 		)
 		expect(() => {
-			// @ts-expect-error -- Runtime field normalizers reject invalid operands.
-			new Query(postSchema).where((where) => where.eq('published', 'true'))
+			new QueryBuilder(postSchema).where((where) =>
+				// @ts-expect-error -- Runtime field normalizers reject invalid operands.
+				where.eq('published', 'true'),
+			)
 		}).toThrow(TypeError)
 		expect(() => {
 			// @ts-expect-error -- Runtime validation rejects non-string identifiers.
-			new Query(postSchema).where({ id: { eq: 42 } })
+			new QueryBuilder(postSchema).where({ id: { eq: 42 } })
 		}).toThrow(new TypeError('query filter value must be a string'))
 	})
 
-	it('snapshots mutable scalar operands and exposes contextual terminals', () => {
+	it('snapshots mutable scalar operands without retaining execution terminals', () => {
 		const attachment = new Uint8Array([1, 2, 3])
-		const query = new Query(postSchema).where((where) =>
+		const query = new QueryBuilder(postSchema).where((where) =>
 			where.eq('attachment', attachment),
 		)
 
@@ -582,7 +592,8 @@ describe('Query', () => {
 		})
 		expect(query.schema).toBe(postSchema)
 		expect(query).not.toHaveProperty('bind')
-		expect(query).toHaveProperty('findMany')
+		expect(query).not.toHaveProperty('findMany')
+		expect(query).toHaveProperty('build')
 		expect(query).not.toHaveProperty('save')
 	})
 })

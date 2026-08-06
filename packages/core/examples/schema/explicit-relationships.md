@@ -79,12 +79,12 @@ const membership = await Membership.createOne({
 	},
 })
 
-const projectMembers = await Membership.query()
-	.where({ project: { eq: Project.pointer(projectId) } })
-	.include('member', (member) => member.select({ id: true, name: true }))
-	.select({ id: true, member: true, position: true, role: true })
-	.ascending('position')
-	.findMany()
+const projectMembers = await Membership.findMany({
+	where: { project: { eq: Project.pointer(projectId) } },
+	include: { member: { select: { id: true, name: true } } },
+	select: { id: true, member: true, position: true, role: true },
+	orderBy: [{ position: 'asc' }],
+})
 ```
 
 Multiple edge writes compose through the same request transaction as every

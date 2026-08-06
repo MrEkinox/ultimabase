@@ -153,11 +153,10 @@ const readRolesRelation = (value: unknown): Relation => {
 
 /** Reads exact child roles in stable identifier order inside the active transaction. */
 const readChildRoles = async (role: unknown): Promise<readonly unknown[]> =>
-	readRolesRelation(role)
-		.query()
-		.select({ id: true })
-		.ascending('id')
-		.findMany({ useMasterKey: true })
+	readRolesRelation(role).findMany(
+		{ select: { id: true }, orderBy: [{ id: 'asc' }] },
+		{ useMasterKey: true },
+	)
 
 /**
  * Rejects every cycle reachable from one changed role before its transaction commits.

@@ -1,6 +1,6 @@
 import { ServiceRegistry } from '../../foundation.js'
 import {
-	Query,
+	QueryBuilder,
 	type CountOperationAst,
 	type CreateOneOperationAst,
 	type ExistsOperationAst,
@@ -169,8 +169,9 @@ describe('database adapter contracts', () => {
 		const adapter = new InMemoryAdapterFake({ 'find-many': returnedArticles })
 		const operation = {
 			kind: 'find-many',
-			query: new Query(articleSchema).where((where) => where.eq('views', 10))
-				.ast,
+			query: new QueryBuilder(articleSchema).where((where) =>
+				where.eq('views', 10),
+			).ast,
 		} satisfies FindManyOperationAst<typeof articleSchema>
 		const tenantConstraint = immutableRecord({
 			kind: 'fixture.tenant',
@@ -194,7 +195,7 @@ describe('database adapter contracts', () => {
 
 	it('preserves scalar result semantics and transaction identity', async () => {
 		const adapter = new InMemoryAdapterFake({ count: 3, exists: true })
-		const query = new Query(articleSchema).ast
+		const query = new QueryBuilder(articleSchema).ast
 		const countOperation = {
 			kind: 'count',
 			query,
@@ -239,7 +240,7 @@ describe('database adapter contracts', () => {
 			input: { title: 'Prepared' },
 			kind: 'create-one',
 			selection: { fields: [], kind: 'selection' },
-			schema: new Query(articleSchema).ast.schema,
+			schema: new QueryBuilder(articleSchema).ast.schema,
 		} satisfies CreateOneOperationAst<typeof articleSchema>
 		const prepared = await transaction.prepare({
 			constraints: [],

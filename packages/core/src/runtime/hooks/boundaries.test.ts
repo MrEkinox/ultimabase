@@ -1,6 +1,6 @@
 import {
 	normalizeUpdateExpression,
-	Query,
+	QueryBuilder,
 	type CountOperationAst,
 	type CreateManyOperationAst,
 	type CreateOneOperationAst,
@@ -91,7 +91,7 @@ describe('runtime hook boundaries', () => {
 			input: { metadata: { nested: { enabled: true } } },
 			kind: 'create-one',
 			selection: { fields: [], kind: 'selection' },
-			schema: new Query(schema).ast.schema,
+			schema: new QueryBuilder(schema).ast.schema,
 		}) satisfies CreateOneOperationAst<typeof schema>
 		const validate = createRuntimeValidationStage({
 			clock: () => fixedInstant,
@@ -122,7 +122,7 @@ describe('runtime hook boundaries', () => {
 			input: completeRecord,
 			kind: 'create-one',
 			selection: { fields: [], kind: 'selection' },
-			schema: new Query(schema).ast.schema,
+			schema: new QueryBuilder(schema).ast.schema,
 		}) satisfies CreateOneOperationAst<typeof schema>
 		const boundaries = createRuntimeHookBoundaries()
 
@@ -147,7 +147,7 @@ describe('runtime hook boundaries', () => {
 			input: completeRecord,
 			kind: 'create-one',
 			selection: { fields: [], kind: 'selection' },
-			schema: new Query(schema).ast.schema,
+			schema: new QueryBuilder(schema).ast.schema,
 		}) satisfies CreateOneOperationAst<typeof schema>
 		const boundaries = createRuntimeHookBoundaries()
 
@@ -160,7 +160,7 @@ describe('runtime hook boundaries', () => {
 		expect(() =>
 			boundaries.snapshotOperationReplacement(operation, {
 				...operation,
-				schema: new Query(siblingSchema).ast.schema,
+				schema: new QueryBuilder(siblingSchema).ast.schema,
 			}),
 		).toThrow(expect.objectContaining({ code: 'VALIDATION_ERROR' }))
 		expect(() =>
@@ -173,7 +173,7 @@ describe('runtime hook boundaries', () => {
 
 	it('does not append a second generated timestamp during update revalidation', async () => {
 		const schema = createFixtureSchema(() => 'Generated title')
-		const query = new Query(schema).select({ id: true }).ast
+		const query = new QueryBuilder(schema).select({ id: true }).ast
 		const initialOperation = immutableRecord({
 			kind: 'update-one',
 			query,
@@ -219,7 +219,7 @@ describe('runtime hook boundaries', () => {
 			'id'
 		> = immutableRecord({
 			kind: 'update-one',
-			query: new Query(schema).select({ id: true }).ast,
+			query: new QueryBuilder(schema).select({ id: true }).ast,
 			update: normalizeUpdateExpression(schema, {
 				published: true,
 			}),
@@ -252,7 +252,7 @@ describe('runtime hook boundaries', () => {
 			'id'
 		> = immutableRecord({
 			kind: 'update-one',
-			query: new Query(schema).select({ id: true }).ast,
+			query: new QueryBuilder(schema).select({ id: true }).ast,
 			update: normalizeUpdateExpression(schema, {
 				published: true,
 			}),
@@ -281,7 +281,7 @@ describe('runtime hook boundaries', () => {
 
 	it('preserves each scalar, collection, and nullable terminal result contract', () => {
 		const schema = createFixtureSchema(() => 'Generated title')
-		const selectedQuery = new Query(schema).select({ id: true }).ast
+		const selectedQuery = new QueryBuilder(schema).select({ id: true }).ast
 		const findOperation: FindManyOperationAst<
 			typeof schema,
 			QueryFilterNode<typeof schema>,
@@ -289,7 +289,7 @@ describe('runtime hook boundaries', () => {
 		> = immutableRecord({ kind: 'find-many', query: selectedQuery })
 		const countOperation = immutableRecord({
 			kind: 'count',
-			query: new Query(schema).ast,
+			query: new QueryBuilder(schema).ast,
 		}) satisfies CountOperationAst<typeof schema>
 		const updateOperation: UpdateOneOperationAst<
 			typeof schema,
@@ -307,7 +307,7 @@ describe('runtime hook boundaries', () => {
 			input: completeRecord,
 			kind: 'create-one',
 			selection: { fields: [], kind: 'selection' },
-			schema: new Query(schema).ast.schema,
+			schema: new QueryBuilder(schema).ast.schema,
 		}) satisfies CreateOneOperationAst<typeof schema>
 		const boundaries = createRuntimeHookBoundaries()
 		const found = boundaries.snapshotResultReplacement(findOperation, [
@@ -339,10 +339,10 @@ describe('runtime hook boundaries', () => {
 			className: 'BoundaryIncludedSource',
 			fields: { target: pointerField({ target: () => target }) },
 		})
-		const targetQuery = new Query(target).select({ name: true })
+		const targetQuery = new QueryBuilder(target).select({ name: true })
 		const operation = immutableRecord({
 			kind: 'find-many',
-			query: new Query(source)
+			query: new QueryBuilder(source)
 				.select({ target: true })
 				.include('target', () => targetQuery).ast,
 		}) satisfies FindManyOperationAst<typeof source>
@@ -383,8 +383,8 @@ describe('runtime hook boundaries', () => {
 			inputs: immutableArray([{}, {}]),
 			kind: 'create-many',
 			options: immutableRecord({ atomic: false }),
-			selection: new Query(schema).ast.selection,
-			schema: new Query(schema).ast.schema,
+			selection: new QueryBuilder(schema).ast.selection,
+			schema: new QueryBuilder(schema).ast.schema,
 		}) satisfies CreateManyOperationAst<typeof schema, false>
 		const boundaries = createRuntimeHookBoundaries()
 		const writeError = new Error('second input failed')

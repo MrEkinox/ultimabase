@@ -81,24 +81,30 @@ describe('read terminals and singular schema commands', () => {
 			requestId: 'terminals-1',
 			source: requestSources.internal,
 		})
-		const query = articleSchema
-			.query()
-			.where((where) => where.eq('views', 1))
-			.select({ id: true, title: true })
+		const readInput = {
+			where: { views: { eq: 1 } },
+			select: { id: true, title: true },
+		} as const
 		const createOneInput = { title: 'Created one' }
 
 		await runWithRequestEngine(request, async () => {
-			const foundResult = await query.findMany()
+			const foundResult = await articleSchema.findMany(readInput)
 
 			expect(foundResult).toHaveLength(1)
 			expect(foundResult[0]).toBeInstanceOf(articleSchema)
 			expect(foundResult.map((article) => article.toJSON())).toStrictEqual(
 				found,
 			)
-			await expect(query.findOne()).resolves.toBeNull()
-			await expect(query.get('missing')).resolves.toBeNull()
-			await expect(query.count()).resolves.toBe(1)
-			await expect(query.exists()).resolves.toBe(true)
+			await expect(articleSchema.findOne(readInput)).resolves.toBeNull()
+			await expect(
+				articleSchema.get({ id: 'missing', select: readInput.select }),
+			).resolves.toBeNull()
+			await expect(
+				articleSchema.count({ where: readInput.where }),
+			).resolves.toBe(1)
+			await expect(
+				articleSchema.exists({ where: readInput.where }),
+			).resolves.toBe(true)
 			const createdOneResult = await articleSchema.createOne({
 				data: createOneInput,
 				select: { id: true, title: true },
@@ -166,7 +172,14 @@ describe('read terminals and singular schema commands', () => {
 		])
 		expect(requests[0]?.operation).toMatchObject({
 			kind: 'find-many',
-			query: query.ast,
+			query: {
+				selection: {
+					fields: [
+						{ field: 'id', kind: 'selected-field' },
+						{ field: 'title', kind: 'selected-field' },
+					],
+				},
+			},
 		})
 		expect(requests[2]?.operation).toMatchObject({
 			kind: 'get',
@@ -181,7 +194,7 @@ describe('read terminals and singular schema commands', () => {
 				],
 				kind: 'selection',
 			},
-			schema: query.ast.schema,
+			schema: { definition: articleSchema, kind: 'schema' },
 			input: createOneInput,
 		})
 		expect(requests[6]?.operation).toMatchObject({

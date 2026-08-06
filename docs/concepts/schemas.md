@@ -19,8 +19,8 @@ const UserSchema = Schema.define({
 `className` is unique within an application. Registration fails on duplicates.
 
 `Schema.define()` returns the registered model class. `new UserSchema(input)`
-creates an immutable draft without I/O, `UserSchema.query()` starts a fresh
-Query, and Runtime results are exact `UserSchema` instances whose direct
+creates an immutable draft without I/O, schema-root methods execute typed
+object-input reads, and Runtime results are exact `UserSchema` instances whose direct
 properties and `toJSON()` contain only visible fields.
 
 The schema package owns primitives and inference. Advanced capabilities use typed schema or field extensions so the schema package remains independent from their implementations.

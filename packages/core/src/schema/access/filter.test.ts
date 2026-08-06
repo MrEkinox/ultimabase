@@ -31,7 +31,7 @@ const articleSchema = Schema.define({
 })
 
 describe('AccessFilter', () => {
-	it('builds every Query predicate through one private implicit AND tree', () => {
+	it('builds every QueryBuilder predicate through one private implicit AND tree', () => {
 		const statuses: ('draft' | 'published')[] = ['draft', 'published']
 		const flags: ('case-insensitive' | 'multiline')[] = [
 			'case-insensitive',
@@ -130,7 +130,7 @@ describe('AccessFilter', () => {
 		expect(Reflect.ownKeys(combined)).toStrictEqual([])
 	})
 
-	it('reuses structured Query leaves without exposing private Access state', () => {
+	it('reuses structured QueryBuilder leaves without exposing private Access state', () => {
 		const filter = createAccessFilter(articleSchema)
 			.contains('metadata', { label: 'typed' })
 			.containedBy('metadata', { label: 'typed' })
@@ -244,7 +244,7 @@ describe('AccessFilter', () => {
 		)
 	})
 
-	it('retains Query runtime validation at untyped boundaries', () => {
+	it('retains QueryBuilder runtime validation at untyped boundaries', () => {
 		const filter = createAccessFilter(articleSchema)
 
 		expect(() => {

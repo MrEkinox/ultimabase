@@ -205,55 +205,56 @@ afterAll(async () => {
 describe('native Access with PostgreSQL', () => {
 	it('composes native, plugin, developer, and beforeRead predicates in SQL', async () => {
 		const app = getUltimaBase()
-		const rows = await AccessArticle.query()
-			.where((where) => where.gt('rank', 0))
-			.ascending('rank')
-			.findMany({ ultimabase: app })
+		const rows = await AccessArticle.findMany(
+			{ where: { rank: { gt: 0 } }, orderBy: [{ rank: 'asc' }] },
+			{ ultimabase: app },
+		)
 
 		expect(rows.map(({ title }) => title)).toStrictEqual(['public', 'locked'])
+		await expect(AccessArticle.count({}, { ultimabase: app })).resolves.toBe(2)
+		await expect(AccessArticle.exists({}, { ultimabase: app })).resolves.toBe(
+			true,
+		)
 		await expect(
-			AccessArticle.query().count({ ultimabase: app }),
-		).resolves.toBe(2)
-		await expect(
-			AccessArticle.query().exists({ ultimabase: app }),
-		).resolves.toBe(true)
-		await expect(
-			AccessArticle.query()
-				.where({ id: { eq: privateId } })
-				.findOne({ ultimabase: app }),
+			AccessArticle.findOne(
+				{ where: { id: { eq: privateId } } },
+				{ ultimabase: app },
+			),
 		).resolves.toBeNull()
 		await expect(
-			AccessArticle.query()
-				.where({ id: { eq: privateId } })
-				.exists({ ultimabase: app }),
+			AccessArticle.exists(
+				{ where: { id: { eq: privateId } } },
+				{ ultimabase: app },
+			),
 		).resolves.toBe(false)
 		await expect(
-			AccessArticle.query()
-				.where({ id: { eq: publicId } })
-				.get(publicId, { ultimabase: app }),
+			AccessArticle.get({ id: publicId }, { ultimabase: app }),
 		).resolves.toMatchObject({ title: 'public' })
 	})
 
 	it('omits forbidden output and rejects every indirect field disclosure path', async () => {
 		const app = getUltimaBase()
-		const article = await AccessArticle.query()
-			.where({ id: { eq: publicId } })
-			.findOne({ ultimabase: app })
+		const article = await AccessArticle.findOne(
+			{ where: { id: { eq: publicId } } },
+			{ ultimabase: app },
+		)
 
 		expect(article).not.toBeNull()
 		expect(article).not.toHaveProperty('secret')
 		await expect(
-			AccessArticle.query()
-				.select({ secret: true })
-				.findMany({ ultimabase: app }),
+			AccessArticle.findMany({ select: { secret: true } }, { ultimabase: app }),
 		).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
 		await expect(
-			AccessArticle.query()
-				.where((where) => where.eq('secret', 'public-secret'))
-				.findMany({ ultimabase: app }),
+			AccessArticle.findMany(
+				{ where: { secret: { eq: 'public-secret' } } },
+				{ ultimabase: app },
+			),
 		).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
 		await expect(
-			AccessArticle.query().ascending('secret').findMany({ ultimabase: app }),
+			AccessArticle.findMany(
+				{ orderBy: [{ secret: 'asc' }] },
+				{ ultimabase: app },
+			),
 		).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
 		await expect(
 			AccessArticle.updateOne(
@@ -294,9 +295,10 @@ describe('native Access with PostgreSQL', () => {
 
 		expect(masterCreated).not.toHaveProperty('secret')
 		await expect(
-			AccessArticle.query()
-				.where((where) => where.eq('title', 'plugin-hidden'))
-				.exists({ ultimabase: app, useMasterKey: true }),
+			AccessArticle.exists(
+				{ where: { title: { eq: 'plugin-hidden' } } },
+				{ ultimabase: app, useMasterKey: true },
+			),
 		).resolves.toBe(false)
 	})
 
@@ -308,9 +310,10 @@ describe('native Access with PostgreSQL', () => {
 				{ ultimabase: app },
 			),
 		).resolves.toBeNull()
-		const publicModel = await AccessArticle.query()
-			.where({ id: { eq: publicId } })
-			.findOne({ ultimabase: app })
+		const publicModel = await AccessArticle.findOne(
+			{ where: { id: { eq: publicId } } },
+			{ ultimabase: app },
+		)
 
 		if (publicModel === null) {
 			throw new TypeError('Access model-command fixture is missing')
@@ -323,7 +326,7 @@ describe('native Access with PostgreSQL', () => {
 			),
 		).resolves.toMatchObject({ title: 'public-updated' })
 
-		const auditCount = await AccessAudit.query().count({ ultimabase: app })
+		const auditCount = await AccessAudit.count({}, { ultimabase: app })
 		await expect(
 			AccessArticle.updateOne(
 				{
@@ -333,13 +336,14 @@ describe('native Access with PostgreSQL', () => {
 				{ ultimabase: app },
 			),
 		).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
-		await expect(AccessAudit.query().count({ ultimabase: app })).resolves.toBe(
+		await expect(AccessAudit.count({}, { ultimabase: app })).resolves.toBe(
 			auditCount,
 		)
 		await expect(
-			AccessArticle.query()
-				.where({ id: { eq: lockedId } })
-				.findOne({ ultimabase: app }),
+			AccessArticle.findOne(
+				{ where: { id: { eq: lockedId } } },
+				{ ultimabase: app },
+			),
 		).resolves.toMatchObject({ title: 'locked' })
 	})
 
@@ -362,19 +366,16 @@ describe('native Access with PostgreSQL', () => {
 				{ ultimabase: app },
 			),
 		).resolves.toMatchObject({ value: 12 })
-		await expect(BulkDocument.query().count({ ultimabase: app })).resolves.toBe(
-			2,
-		)
+		await expect(BulkDocument.count({}, { ultimabase: app })).resolves.toBe(2)
 		await expect(
 			BulkDocument.deleteMany({ where: 'all' }, { ultimabase: app }),
 		).resolves.toHaveLength(2)
-		await expect(BulkDocument.query().count({ ultimabase: app })).resolves.toBe(
-			0,
-		)
+		await expect(BulkDocument.count({}, { ultimabase: app })).resolves.toBe(0)
 		await expect(
-			BulkDocument.query()
-				.where((where) => where.eq('key', 'private-a'))
-				.exists({ ultimabase: app }),
+			BulkDocument.exists(
+				{ where: { key: { eq: 'private-a' } } },
+				{ ultimabase: app },
+			),
 		).resolves.toBe(false)
 	})
 })

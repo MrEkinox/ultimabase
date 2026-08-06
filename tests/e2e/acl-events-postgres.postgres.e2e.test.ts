@@ -210,10 +210,10 @@ describe('ACL committed events with PostgreSQL', { concurrent: false }, () => {
 		).rejects.toThrow('ACL change event rollback fixture')
 		expect(committedChanges).toHaveLength(start)
 
-		const persisted = await Post.query()
-			.where({ id: { eq: created.id } })
-			.select({ acl: true })
-			.findOne({ ultimabase: getApplication(), useMasterKey: true })
+		const persisted = await Post.findOne(
+			{ where: { id: { eq: created.id } }, select: { acl: true } },
+			{ ultimabase: getApplication(), useMasterKey: true },
+		)
 
 		expect(persisted?.acl.toJSON()).toStrictEqual(created.acl.toJSON())
 	})

@@ -236,10 +236,13 @@ describe(
 		it('uses target ACL constraints for pointer queries and inclusion', async () => {
 			const app = getApplication()
 			const context = aliceRequest('acl-relationships-pointers')
-			const rows = await Article.query()
-				.ascending('title')
-				.include('author', (query) => query.select({ name: true }))
-				.findMany({ context, ultimabase: app })
+			const rows = await Article.findMany(
+				{
+					orderBy: [{ title: 'asc' }],
+					include: { author: { select: { name: true } } },
+				},
+				{ context, ultimabase: app },
+			)
 
 			expect(rows.map(({ title }) => title)).toStrictEqual([
 				'Hidden author article',
@@ -250,22 +253,24 @@ describe(
 				name: 'Visible author',
 			})
 			await expect(
-				Author.pointer(requireFixture(hiddenAuthor, 'hidden author').id)
-					.query()
-					.findOne({ context, ultimabase: app }),
+				Author.pointer(
+					requireFixture(hiddenAuthor, 'hidden author').id,
+				).findOne(undefined, { context, ultimabase: app }),
 			).resolves.toBeNull()
-			const protectedInclusion = await Article.query()
-				.include('author', (query) => query.select({ acl: true }))
-				.findMany({ context, ultimabase: app })
+			const protectedInclusion = await Article.findMany(
+				{ include: { author: { select: { acl: true } } } },
+				{ context, ultimabase: app },
+			)
 
 			// A forbidden target projection is indistinguishable from a missing pointer.
 			expect(protectedInclusion.every(({ author }) => author === null)).toBe(
 				true,
 			)
 			await expect(
-				Article.query()
-					.select({ acl: true })
-					.findMany({ context, ultimabase: app }),
+				Article.findMany(
+					{ select: { acl: true } },
+					{ context, ultimabase: app },
+				),
 			).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
 		})
 
@@ -276,30 +281,24 @@ describe(
 			const tags = article.relation('tags')
 
 			await expect(
-				tags
-					.query()
-					.after()
-					.limit(10)
-					.select({ label: true })
-					.findMany({ context, ultimabase: app }),
+				tags.findMany(
+					{ cursor: true, limit: 10, select: { label: true } },
+					{ context, ultimabase: app },
+				),
 			).resolves.toEqual([expect.objectContaining({ label: 'visible' })])
+			await expect(tags.count({}, { context, ultimabase: app })).resolves.toBe(
+				1,
+			)
+			await expect(tags.exists({}, { context, ultimabase: app })).resolves.toBe(
+				true,
+			)
 			await expect(
-				tags.query().count({ context, ultimabase: app }),
-			).resolves.toBe(1)
-			await expect(
-				tags.query().exists({ context, ultimabase: app }),
-			).resolves.toBe(true)
-			await expect(
-				tags
-					.query()
-					.select({ acl: true })
-					.findMany({ context, ultimabase: app }),
+				tags.findMany({ select: { acl: true } }, { context, ultimabase: app }),
 			).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
 			await expect(
 				requireFixture(hiddenArticle, 'hidden article')
 					.relation('tags')
-					.query()
-					.findMany({ context, ultimabase: app }),
+					.findMany(undefined, { context, ultimabase: app }),
 			).resolves.toStrictEqual([])
 			await expect(
 				tags.connect(Tag.pointer(requireFixture(hiddenTag, 'hidden tag').id), {

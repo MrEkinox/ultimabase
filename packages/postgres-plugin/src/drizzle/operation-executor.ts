@@ -40,7 +40,7 @@ interface SelectOverrides {
 }
 
 export const readBuiltInQuery = (query: QueryAst): RuntimeQuery => {
-	// Runtime currently normalizes built-in Query nodes; plugin expressions need an owning compiler later.
+	// Runtime currently normalizes built-in QueryBuilder nodes; plugin expressions need an owning compiler later.
 	return query as RuntimeQuery
 }
 

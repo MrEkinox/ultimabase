@@ -270,16 +270,19 @@ describe('ACL input resolution with PostgreSQL', { concurrent: false }, () => {
 		})
 		expect(resolutionCount).toBe(countBeforeRollback + 1)
 		await expect(
-			ResolutionPost.query()
-				.where({ id: { eq: id } })
-				.select({
-					acl: true,
-					balance: true,
-					status: true,
-					title: true,
-					views: true,
-				})
-				.findOne(masterOptions),
+			ResolutionPost.findOne(
+				{
+					where: { id: { eq: id } },
+					select: {
+						acl: true,
+						balance: true,
+						status: true,
+						title: true,
+						views: true,
+					},
+				},
+				masterOptions,
+			),
 		).resolves.toMatchObject({
 			balance: '11.50',
 			title: 'resolved-candidate',

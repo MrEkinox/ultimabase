@@ -5,7 +5,6 @@ import {
 	databaseConstraint,
 	defineAccessReferenceCleanup,
 	parseAccessPrincipalReference,
-	Query,
 	Schema,
 	type AccessPrincipalReference,
 	type AccessReferenceCleanup,
@@ -95,7 +94,7 @@ const readRoleSubject = (
 	return immutableRecord({ kind: 'role' as const, value: candidate.value })
 }
 
-/** Runs one internal Query branch with an untransformable reference predicate. */
+/** Runs one internal QueryBuilder branch with an untransformable reference predicate. */
 const runWithReferenceScope = <TResult>(
 	schema: SchemaDefinition,
 	subject: ACLReferenceSubject,
@@ -163,17 +162,30 @@ export const removeACLReference = (
 const hasSchemaReferences = (
 	schema: SchemaDefinition,
 	subject: ACLReferenceSubject,
-): Promise<boolean> =>
-	runWithReferenceScope(schema, subject, () =>
-		new Query(schema).exists({ useMasterKey: true }),
+): Promise<boolean> => {
+	if (!Schema.is(schema)) {
+		throw new TypeError(
+			'ACL reference cleanup requires a registered schema class',
+		)
+	}
+
+	return runWithReferenceScope(schema, subject, () =>
+		schema.exists({}, { useMasterKey: true }),
 	)
+}
 
 const findSchemaReferenceIds = async (
 	schema: SchemaDefinition,
 	subject: ACLReferenceSubject,
 ): Promise<readonly string[]> => {
+	if (!Schema.is(schema)) {
+		throw new TypeError(
+			'ACL reference cleanup requires a registered schema class',
+		)
+	}
+
 	const rows = await runWithReferenceScope(schema, subject, () =>
-		new Query(schema).select({ id: true }).findMany({ useMasterKey: true }),
+		schema.findMany({ select: { id: true } }, { useMasterKey: true }),
 	)
 
 	return immutableArray(

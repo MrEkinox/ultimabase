@@ -1,6 +1,5 @@
 import {
 	defineEvent,
-	Query,
 	Relation,
 	Pointer,
 	type AccessContext,
@@ -10,6 +9,7 @@ import {
 	type JsonObject,
 	type QueryTerminalOptions,
 	type RelationField,
+	type SchemaClass,
 	type SchemaDefinition,
 } from '@ultimabase/core'
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
@@ -64,7 +64,7 @@ export interface NamedRoleReferenceCleanup {
 	readonly name: string
 }
 
-type RoleDeletionLookupSchema = SchemaDefinition<
+type RoleDeletionLookupSchema = SchemaClass<
 	string,
 	Readonly<{
 		readonly roles: RelationField<RoleDeletionLookupSchema>
@@ -118,9 +118,10 @@ const readParentRoles = async (
 	const lookupSchema = schema as unknown as RoleDeletionLookupSchema
 
 	// The public quantified relation predicate compiles to one indexed join lookup.
-	return new Query(lookupSchema)
-		.where((where) => where.some('roles', (role) => role.eq('id', roleId)))
-		.findMany(masterOptions)
+	return lookupSchema.findMany(
+		{ where: { roles: { some: { id: { eq: roleId } } } } },
+		masterOptions,
+	)
 }
 
 const readExternalReferences = async (
@@ -146,12 +147,14 @@ const assertUnreferenced = async (
 	reference: ReturnType<typeof createRoleReference>,
 	cleanups: readonly NamedRoleReferenceCleanup[],
 ): Promise<void> => {
-	const memberCount = await readRelation(role, 'members')
-		.query()
-		.count(masterOptions)
-	const childRoleCount = await readRelation(role, 'roles')
-		.query()
-		.count(masterOptions)
+	const memberCount = await readRelation(role, 'members').count(
+		{},
+		masterOptions,
+	)
+	const childRoleCount = await readRelation(role, 'roles').count(
+		{},
+		masterOptions,
+	)
 	const parentRoles = await readParentRoles(schema, readRoleId(role))
 	const externalOwners = await readExternalReferences(
 		context,

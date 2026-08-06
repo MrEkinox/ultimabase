@@ -1,7 +1,7 @@
 import { pointerField, Schema, stringField } from '../../schema/index.js'
 import { expectTypeOf, test } from 'vitest'
 
-import { Query } from '../query/query.js'
+import { QueryBuilder } from '../query/query.js'
 import {
 	normalizeQueryInclusion,
 	type QueryPointerFieldName,
@@ -31,7 +31,7 @@ test('correlates pointer keys with their exact target query', () => {
 	const inclusion = normalizeQueryInclusion(postSchema, [
 		{
 			field: 'author',
-			query: new Query(userSchema).select({ name: true }).ast,
+			query: new QueryBuilder(userSchema).select({ name: true }).ast,
 		},
 	])
 
@@ -43,7 +43,7 @@ test('correlates pointer keys with their exact target query', () => {
 		{
 			// @ts-expect-error -- Scalar fields cannot enter pointer inclusion.
 			field: 'title',
-			query: new Query(userSchema).ast,
+			query: new QueryBuilder(userSchema).ast,
 		},
 	])
 })

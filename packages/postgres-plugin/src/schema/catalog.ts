@@ -171,7 +171,7 @@ export class PostgresSchemaCatalog {
 		return pointer
 	}
 
-	/** Resolves the exact static schema identity retained by each Query AST. */
+	/** Resolves the exact static schema identity retained by each QueryBuilder AST. */
 	get(schema: unknown): CompiledPostgresSchema {
 		if (
 			(typeof schema !== 'object' || schema === null) &&

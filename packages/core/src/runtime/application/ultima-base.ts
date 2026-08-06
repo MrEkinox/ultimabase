@@ -114,7 +114,7 @@ const readEngineOptions = (
  * })
  *
  * await ultimabase.start()
- * const posts = await PostSchema.query().findMany({ ultimabase })
+ * const posts = await PostSchema.findMany(undefined, { ultimabase })
  * ```
  */
 export class UltimaBase<

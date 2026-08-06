@@ -6,7 +6,7 @@ import { createLanguageService } from '../../../../tooling/vitest/typescript-lan
 const fileName = `${import.meta.dirname}/hook-context-intellisense.fixture.ts`
 const completionMarker = '/* completion:hook-context */'
 const sourceWithMarkers = `
-import { RequestContextValue, Schema, stringField, type HookContext } from '../../src/index.js'
+import { QueryBuilder, RequestContextValue, Schema, stringField, type HookContext } from '../../src/index.js'
 
 const principal = new RequestContextValue<string>('fixture.principal', (value) => {
   if (typeof value !== 'string') throw new TypeError('Expected a string')
@@ -24,10 +24,10 @@ const AuditSchema = Schema.define({
 declare const context: HookContext
 
 context.${completionMarker}emit('audit.checked', { id: 'audit-1' })
-const query = AuditSchema./* hover:query-builder */query()
+const /* hover:query-builder */ query = new QueryBuilder(AuditSchema)
 const event = context./* hover:emit-method */emit('audit.created', { id: 'audit-1' })
 const principalId = context./* hover:get-value-method */getValue(principal)
-const selected = await query.select({ id: true, action: true })./* hover:query-terminal */findMany()
+const selected = await AuditSchema./* hover:query-terminal */findMany({ select: { id: true, action: true } })
 const /* hover:selected-result */ first = selected[0]
 void event
 void principalId
@@ -113,7 +113,7 @@ describe('HookContext IntelliSense', () => {
 		// fields visible on the selected model value itself.
 		const selectedValues = selected.split('get:')[0] ?? ''
 
-		expect(query).toContain('Query<')
+		expect(query).toContain('QueryBuilder<')
 		expect(query.length).toBeLessThan(900)
 		expect(emit).toContain('void')
 		expect(emit.length).toBeLessThan(700)
@@ -126,7 +126,7 @@ describe('HookContext IntelliSense', () => {
 		expect(selected.length).toBeLessThan(1_000)
 	})
 
-	it('documents query and event capabilities in editor hovers', () => {
+	it('documents read and event capabilities in editor hovers', () => {
 		const query = readQuickInfo('/* hover:query-terminal */')
 		const emit = readQuickInfo('/* hover:emit-method */')
 		const getValue = readQuickInfo('/* hover:get-value-method */')

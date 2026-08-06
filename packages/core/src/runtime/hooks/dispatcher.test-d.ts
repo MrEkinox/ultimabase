@@ -1,5 +1,5 @@
 import type { FrameworkApplication } from '../../foundation.js'
-import { Query, type CreateOneOperationAst } from '../../query/index.js'
+import { QueryBuilder, type CreateOneOperationAst } from '../../query/index.js'
 import { Schema, stringField } from '../../schema/index.js'
 import type { MaybePromise } from '@ultimabase/shared'
 import { expectTypeOf, test } from 'vitest'
@@ -21,7 +21,7 @@ const operation = {
 	input: { title: 'Typed' },
 	kind: 'create-one',
 	selection: { fields: [], kind: 'selection' },
-	schema: new Query(schema).ast.schema,
+	schema: new QueryBuilder(schema).ast.schema,
 } satisfies CreateOneOperationAst<typeof schema>
 const context = RequestContext.anonymous({
 	requestId: 'typed-native-hook',

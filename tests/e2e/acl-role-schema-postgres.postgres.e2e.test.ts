@@ -207,16 +207,19 @@ describe(
 			const app = getApplication()
 			const context = aliceRequest('acl-role-schema-resolution')
 			const current = requireFixture(roleProtected, 'role-protected')
-			const resolved = await AppRole.query()
-				.where({ id: { eq: current.id } })
-				.select({ description: true, name: true })
-				.findOne({ context, ultimabase: app })
+			const resolved = await AppRole.findOne(
+				{
+					where: { id: { eq: current.id } },
+					select: { description: true, name: true },
+				},
+				{ context, ultimabase: app },
+			)
 
 			expect(resolved?.name).toBe('role-protected')
-			const persistedACL = await AppRole.query()
-				.where({ id: { eq: current.id } })
-				.select({ acl: true })
-				.findOne({ ultimabase: app, useMasterKey: true })
+			const persistedACL = await AppRole.findOne(
+				{ where: { id: { eq: current.id } }, select: { acl: true } },
+				{ ultimabase: app, useMasterKey: true },
+			)
 
 			expect(
 				persistedACL?.acl.permissionsForRole(
@@ -248,13 +251,10 @@ describe(
 				currentParent.addRole(currentChild, { context, ultimabase: app }),
 			).resolves.toBeUndefined()
 			await expect(
-				currentEditor.relation('members').query().count({ ultimabase: app }),
+				currentEditor.relation('members').count({}, { ultimabase: app }),
 			).resolves.toBe(2)
 			await expect(
-				currentParent
-					.relation('roles')
-					.query()
-					.count({ context, ultimabase: app }),
+				currentParent.relation('roles').count({}, { context, ultimabase: app }),
 			).resolves.toBe(1)
 		})
 
@@ -276,9 +276,10 @@ describe(
 				),
 			).resolves.toMatchObject({ name: 'deletable' })
 			await expect(
-				AppRole.query()
-					.select({ acl: true })
-					.findMany({ context, ultimabase: app }),
+				AppRole.findMany(
+					{ select: { acl: true } },
+					{ context, ultimabase: app },
+				),
 			).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
 		})
 	},

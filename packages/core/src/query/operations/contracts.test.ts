@@ -2,7 +2,7 @@ import { Schema, intField, stringField } from '../../schema/index.js'
 import { describe, expect, it } from 'vitest'
 
 import {
-	Query,
+	QueryBuilder,
 	type OperationAst,
 	type UpdateExpressionNode,
 } from '../index.js'
@@ -50,7 +50,7 @@ const describeOperation = (operation: FixtureOperation): string => {
 
 describe('OperationAst', () => {
 	it('supports exhaustive matching across every singular and bulk terminal', () => {
-		const query = new Query(articleSchema).where((where) =>
+		const query = new QueryBuilder(articleSchema).where((where) =>
 			where.eq('views', 10),
 		).ast
 		const schema = query.schema

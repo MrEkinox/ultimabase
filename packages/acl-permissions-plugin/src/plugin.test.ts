@@ -3,6 +3,7 @@ import {
 	AccessSubjectReference,
 	MasterAuthority,
 	Pointer,
+	QueryBuilder,
 	Schema,
 	accessPrincipalResolverServiceToken,
 	accessRoleResolverServiceToken,
@@ -45,7 +46,7 @@ const ProtectedPost = Schema.define({
 	fields: { title: stringField({ validation: { required: true } }) },
 	extensions: [acl()],
 })
-const protectedPostNode = ProtectedPost.query().ast.schema
+const protectedPostNode = new QueryBuilder(ProtectedPost).ast.schema
 
 class ACLReadAdapter implements DatabaseAdapter {
 	readonly kind = 'database-adapter' as const
@@ -269,7 +270,7 @@ describe('aclPlugin create input resolution', () => {
 
 		try {
 			await ultimabase.start()
-			const result = await ProtectedPost.query().findMany({ ultimabase })
+			const result = await ProtectedPost.findMany(undefined, { ultimabase })
 
 			// Non-master callers may use ACL grants without receiving the security document.
 			expect(result[0]?.acl).toBeUndefined()
@@ -286,7 +287,7 @@ describe('aclPlugin create input resolution', () => {
 			])
 			expect(resolveCurrent).toHaveBeenCalledOnce()
 			await expect(
-				ProtectedPost.query().select({ acl: true }).findMany({ ultimabase }),
+				ProtectedPost.findMany({ select: { acl: true } }, { ultimabase }),
 			).rejects.toMatchObject({
 				code: 'PERMISSION_DENIED',
 				internalDetails: {
@@ -295,7 +296,7 @@ describe('aclPlugin create input resolution', () => {
 				},
 			} satisfies Partial<FrameworkError>)
 			expect(adapter.requests).toHaveLength(1)
-			const masterResult = await ProtectedPost.query().findMany({
+			const masterResult = await ProtectedPost.findMany(undefined, {
 				ultimabase,
 				useMasterKey: true,
 			})
@@ -319,7 +320,7 @@ describe('aclPlugin create input resolution', () => {
 			await Promise.all(fixtures.map(({ ultimabase }) => ultimabase.start()))
 			await Promise.all(
 				fixtures.map(({ ultimabase }) =>
-					ProtectedPost.query().findMany({ ultimabase }),
+					ProtectedPost.findMany(undefined, { ultimabase }),
 				),
 			)
 
@@ -490,7 +491,7 @@ describe('aclPlugin create input resolution', () => {
 			input: { privateValue: 'plugin-owned', title: 'Visible' },
 			kind: 'create-one',
 			selection: { fields: [], kind: 'selection' },
-			schema: PrivatePost.query().ast.schema,
+			schema: new QueryBuilder(PrivatePost).ast.schema,
 		} as const
 
 		await resolveCreateOperationACL(
@@ -517,7 +518,7 @@ describe('aclPlugin create input resolution', () => {
 			inputs: [{ title: 'First' }, { title: 'Second' }],
 			kind: 'create-many',
 			options: { atomic: true },
-			selection: ProtectedPost.query().ast.selection,
+			selection: new QueryBuilder(ProtectedPost).ast.selection,
 			schema: protectedPostNode,
 		} as const
 
@@ -808,8 +809,9 @@ describe('aclPlugin create input resolution', () => {
 
 		const updateOperation = {
 			kind: 'update-one',
-			query: ProtectedPost.query().where({ id: { eq: 'master-limit-post' } })
-				.ast,
+			query: new QueryBuilder(ProtectedPost).where({
+				id: { eq: 'master-limit-post' },
+			}).ast,
 			update: {
 				kind: 'update-expression',
 				operations: [{ field: 'acl', kind: 'set', value: oversized }],
@@ -849,7 +851,7 @@ describe('aclPlugin create input resolution', () => {
 		)
 		const operation = {
 			kind: 'update-one',
-			query: ProtectedPost.query().where({
+			query: new QueryBuilder(ProtectedPost).where({
 				id: { eq: '0198a43e-2431-7000-8000-000000000031' },
 			}).ast,
 			update: {

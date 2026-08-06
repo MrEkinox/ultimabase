@@ -1,6 +1,7 @@
 import {
 	AccessSubjectReference,
 	Pointer,
+	QueryBuilder,
 	Schema,
 	stringField,
 	type AccessContext,
@@ -104,8 +105,8 @@ describe('ACL Access contributions', () => {
 	})
 
 	it('maps terminals to monotonic rights and detects ACL replacement', () => {
-		const schema = ProtectedRecord.query().ast.schema
-		const query = ProtectedRecord.query().ast
+		const schema = new QueryBuilder(ProtectedRecord).ast.schema
+		const query = new QueryBuilder(ProtectedRecord).ast
 		const aclUpdate = {
 			kind: 'update-expression',
 			operations: [{ field: 'acl', kind: 'set', value: new ACL() }],

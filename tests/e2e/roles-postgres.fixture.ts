@@ -213,11 +213,14 @@ export const externalRoleReferencePlugin = definePlugin({
 			defineAccessReferenceCleanup({
 				kind: 'role',
 				hasReferences: ({ reference }) =>
-					ExternalRoleReference.query()
-						.where((where) =>
-							where.eq('subject', readReferenceValue(reference.value)),
-						)
-						.exists({ useMasterKey: true }),
+					ExternalRoleReference.exists(
+						{
+							where: {
+								subject: { eq: readReferenceValue(reference.value) },
+							},
+						},
+						{ useMasterKey: true },
+					),
 				cleanup: async ({ reference }) => {
 					await ExternalRoleReference.deleteMany(
 						{

@@ -35,11 +35,28 @@ import {
 	type QuerySelection,
 } from '../../query/clauses/selection.js'
 import {
+	executeQueryCount,
 	executeQueryDeleteOne,
+	executeQueryExists,
+	executeQueryFindMany,
+	executeQueryFindOne,
+	executeQueryGet,
 	executeQueryUpdateOne,
 	hydrateQueryFromAst,
-	Query,
+	QueryBuilder,
 } from '../../query/query/query.js'
+import {
+	queryFromCountInput,
+	queryFromExistsInput,
+	queryFromFindManyInput,
+	queryFromFindOneInput,
+	queryFromGetInput,
+	type CountInput,
+	type ExistsInput,
+	type FindManyInput,
+	type FindOneInput,
+	type GetInput,
+} from '../../query/query/input.js'
 import type {
 	CompactUpdateExpressionInput,
 	NumericUpdateInput,
@@ -87,7 +104,7 @@ interface SchemaModelStateIdentity<
 	}>
 }
 
-/** Carries package-owned persisted commands through Query result inference. */
+/** Carries package-owned persisted commands through QueryBuilder result inference. */
 export interface SchemaResultCapabilityCarrier<TCapabilities extends object> {
 	readonly [schemaResultCapabilitiesType]: TCapabilities
 }
@@ -262,7 +279,7 @@ type PersistedSchemaModelWithPointer<
 	>
 >
 
-/** Materializes a selected model exactly like Query result inference. */
+/** Materializes a selected model exactly like QueryBuilder result inference. */
 type SelectedPersistedSchemaModel<
 	TSource extends SchemaModelPointerCarrier,
 	TClassName extends string,
@@ -748,16 +765,16 @@ interface NormalizedSchemaModelUpdateInput extends NormalizedSchemaModelSelectio
 	readonly data: UpdateExpressionInput<SchemaDefinition> & {}
 }
 
-/** Erases schema variance only inside the private model-to-Query delegation. */
+/** Erases schema variance only inside the private model-to-QueryBuilder delegation. */
 interface SchemaModelQuery {
 	where(input: WhereInput<SchemaDefinition>): SchemaModelQuery
-	readonly ast: Query<SchemaDefinition>['ast']
+	readonly ast: QueryBuilder<SchemaDefinition>['ast']
 	readonly schema: SchemaDefinition
 }
 
 const createSchemaModelQuery = (schema: SchemaDefinition): SchemaModelQuery =>
 	// Public model types validate exact fields before this private variance boundary.
-	new Query(schema)
+	new QueryBuilder(schema)
 
 const selectSchemaModelQuery = (
 	query: SchemaModelQuery,
@@ -921,7 +938,7 @@ class SchemaModelPrototype {
 		return createRelationHandle(record.schema, fieldName, record.objectId)
 	}
 
-	/** Reloads one trusted identity through Query's ordinary get terminal. */
+	/** Reloads one trusted identity through the ordinary read pipeline. */
 	async fetch(
 		input: unknown,
 		options?: QueryTerminalOptions,
@@ -940,16 +957,21 @@ class SchemaModelPrototype {
 			normalized.select,
 		)
 
-		return (query as Query<SchemaDefinition>).get(record.objectId, options)
+		return executeQueryGet(
+			query as QueryBuilder<SchemaDefinition>,
+			record.objectId,
+			options,
+		)
 	}
 
-	/** Tests one trusted identity through Query's ordinary exists terminal. */
+	/** Tests one trusted identity through the ordinary read pipeline. */
 	exists(options?: QueryTerminalOptions): Promise<boolean> {
 		const record = readPersistedSchemaModelRecord(this, 'exists')
 
-		return (
-			createPersistedModelQuery(record) as Query<SchemaDefinition>
-		).exists(options)
+		return executeQueryExists(
+			createPersistedModelQuery(record) as QueryBuilder<SchemaDefinition>,
+			options,
+		)
 	}
 
 	/** Detaches one exact pointer from protected identity without performing I/O. */
@@ -986,7 +1008,7 @@ class SchemaModelPrototype {
 		)
 	}
 
-	/** Persists only trusted draft state through Query's ordinary create terminal. */
+	/** Persists only trusted draft state through QueryBuilder's ordinary create terminal. */
 	create(input: unknown, options?: QueryTerminalOptions): Promise<object> {
 		const record = readSchemaModelRecord(this)
 
@@ -1032,13 +1054,13 @@ class SchemaModelPrototype {
 			createPersistedModelQuery(
 				record,
 				normalized.select,
-			) as Query<SchemaDefinition>,
+			) as QueryBuilder<SchemaDefinition>,
 			normalized.data,
 			options,
 		)
 	}
 
-	/** Deletes only Runtime-issued object identity through Query's singular alias. */
+	/** Deletes only Runtime-issued object identity through QueryBuilder's singular alias. */
 	async delete(
 		input: unknown,
 		options?: QueryTerminalOptions,
@@ -1050,7 +1072,7 @@ class SchemaModelPrototype {
 			createPersistedModelQuery(
 				record,
 				normalized.select,
-			) as Query<SchemaDefinition>,
+			) as QueryBuilder<SchemaDefinition>,
 			options,
 		)
 	}
@@ -1203,8 +1225,73 @@ export const createSchemaModelClass = <
 			)
 		}
 
-		static query(): Query<SchemaClass> {
-			return new Query(DefinedSchemaModel as unknown as SchemaClass)
+		/** Reads matching rows from one canonical object input. */
+		static findMany(
+			input: FindManyInput<SchemaDefinition> = {},
+			options?: QueryTerminalOptions,
+		): Promise<readonly object[]> {
+			return executeQueryFindMany(
+				queryFromFindManyInput(
+					DefinedSchemaModel as unknown as SchemaDefinition,
+					input,
+				),
+				options,
+			)
+		}
+
+		/** Reads the first matching row from one canonical object input. */
+		static findOne(
+			input: FindOneInput<SchemaDefinition> = {},
+			options?: QueryTerminalOptions,
+		): Promise<object | null> {
+			return executeQueryFindOne(
+				queryFromFindOneInput(
+					DefinedSchemaModel as unknown as SchemaDefinition,
+					input,
+				),
+				options,
+			)
+		}
+
+		/** Reads one exact identifier with its requested projection. */
+		static get(
+			input: GetInput<SchemaDefinition>,
+			options?: QueryTerminalOptions,
+		): Promise<object | null> {
+			const normalized = queryFromGetInput(
+				DefinedSchemaModel as unknown as SchemaDefinition,
+				input,
+			)
+
+			return executeQueryGet(normalized.query, normalized.id, options)
+		}
+
+		/** Counts rows matching one canonical object filter. */
+		static count(
+			input: CountInput<SchemaDefinition> = {},
+			options?: QueryTerminalOptions,
+		): Promise<number> {
+			return executeQueryCount(
+				queryFromCountInput(
+					DefinedSchemaModel as unknown as SchemaDefinition,
+					input,
+				),
+				options,
+			)
+		}
+
+		/** Tests whether one row matches one canonical object filter. */
+		static exists(
+			input: ExistsInput<SchemaDefinition> = {},
+			options?: QueryTerminalOptions,
+		): Promise<boolean> {
+			return executeQueryExists(
+				queryFromExistsInput(
+					DefinedSchemaModel as unknown as SchemaDefinition,
+					input,
+				),
+				options,
+			)
 		}
 
 		/** Creates one persisted model through the shared Runtime operation pipeline. */
@@ -1303,7 +1390,7 @@ export const createSchemaModelClass = <
 			)
 		}
 
-		/** Creates a pointer without binding Query or Runtime execution state. */
+		/** Creates a pointer without binding QueryBuilder or Runtime execution state. */
 		static pointer(id: string): Pointer<SchemaClass> {
 			return new Pointer(DefinedSchemaModel as unknown as SchemaClass, id)
 		}

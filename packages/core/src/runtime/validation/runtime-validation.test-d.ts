@@ -1,4 +1,4 @@
-import { Query, type CreateOneOperationAst } from '../../query/index.js'
+import { QueryBuilder, type CreateOneOperationAst } from '../../query/index.js'
 import { Schema, stringField } from '../../schema/index.js'
 import type { MaybePromise } from '@ultimabase/shared'
 import { expectTypeOf } from 'vitest'
@@ -20,7 +20,7 @@ const schema = Schema.define({
 const operation: CreateOneOperationAst<typeof schema> = {
 	kind: 'create-one',
 	selection: { fields: [], kind: 'selection' },
-	schema: new Query(schema).ast.schema,
+	schema: new QueryBuilder(schema).ast.schema,
 	input: { title: 'typed' },
 }
 const context = RequestContext.anonymous({

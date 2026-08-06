@@ -100,7 +100,7 @@ const targetUser: SchemaTarget<typeof UserSchema> = () => UserSchema
 `pointerField` supports input, validation, mutation, change, and finalization
 hooks, but not `resolveOutput`. Pointer disclosure belongs to field Access and
 included scalar resolution belongs to target fields. Inclusion itself does not
-run target schema read hooks; only an explicit target Query does. `relationField`
+run target schema read hooks; only an explicit target read does. `relationField`
 stores no model value and therefore accepts no field hooks.
 
 An application resolves field-owned callbacks after plugin setup and before
@@ -200,24 +200,25 @@ or value-hook options. Update Access receives the exact immutable relation delta
 Relations remain omitted from `InferObject`, `InferCreateInput`, and
 `InferUpdateInput`.
 
-## Relation handles and scoped queries
+## Relation handles and scoped reads
 
 Runtime-materialized models expose independently queryable relations without
 adding a collection property:
 
 ```ts
-const user = await UserSchema.query()
-	.select({ name: true })
-	.get(userId, { ultimabase })
+const user = await UserSchema.get(
+	{ id: userId, select: { name: true } },
+	{ ultimabase },
+)
 
 if (user !== null) {
 	const posts = user.relation('posts')
-	const query = posts
-		.query()
-		.select({ id: true, title: true })
-		.descending('createdAt')
-		.limit(20)
-		.after()
+	const recentPosts = await posts.findMany({
+		select: { id: true, title: true },
+		orderBy: [{ createdAt: 'desc' }],
+		limit: 20,
+		cursor: true,
+	})
 }
 ```
 
@@ -262,13 +263,13 @@ Owning storage stays adapter-owned and requires the versioned relation
 capability; PostgreSQL implements deterministic joins and inverse-pointer
 updates without exposing physical storage to Core.
 
-## Drafts, static queries, and persisted models
+## Drafts, static reads, and persisted models
 
-The generated class is constructible and starts fresh immutable Query branches:
+The generated class is constructible and exposes canonical object-input reads:
 
 ```ts
 const draft = new PostSchema({ title: 'Preview' })
-const query = PostSchema.query().select({ id: true, title: true })
+const posts = await PostSchema.findMany({ select: { id: true, title: true } })
 
 draft.title // string
 draft.get('title') // string
@@ -281,9 +282,10 @@ output restrictions complete, Runtime converts neutral adapter records into the
 exact registered class:
 
 ```ts
-const post = await PostSchema.query()
-	.select({ id: true, title: true })
-	.findOne({ ultimabase })
+const post = await PostSchema.findOne(
+	{ select: { id: true, title: true } },
+	{ ultimabase },
+)
 
 if (post !== null) {
 	post instanceof PostSchema // true

@@ -231,7 +231,7 @@ import { Schema } from '../../src/schema/index.js'
 		)
 	})
 
-	it('keeps generated drafts and static Query access recognizable', () => {
+	it('keeps generated drafts and static read access recognizable', () => {
 		const draft = readMarkedQuickInfo(`
 import { Schema, stringField } from '../../src/schema/index.js'
 
@@ -249,7 +249,7 @@ const Post = Schema.define({
 	className: 'Post',
 	fields: { title: stringField({ validation: { required: true } }) },
 })
-const query = Post./* hover */query().select({ id: true, title: true })
+const query = Post./* hover */findMany({ select: { id: true, title: true } })
 void query
 `)
 		const draftDisplay = ts.displayPartsToString(draft.displayParts)
@@ -260,9 +260,9 @@ void query
 		expect(draftDisplay).toContain('title: string;')
 		expect(draftValueDisplay).not.toContain('id: string;')
 		expect(draftDisplay).not.toContain('NonDefaultedStringField<')
-		expect(queryDisplay).toContain('query(): Query<')
+		expect(queryDisplay).toContain('findMany<')
 		expect(ts.displayPartsToString(query.documentation)).toContain(
-			'fresh immutable Query',
+			'Reads matching rows',
 		)
 	})
 

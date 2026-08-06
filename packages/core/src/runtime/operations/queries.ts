@@ -5,7 +5,7 @@ import type {
 } from '../../query/index.js'
 import { immutableArray } from '@ultimabase/shared'
 
-/** Reads every public Query AST carried by one normalized executable operation. */
+/** Reads every public QueryBuilder AST carried by one normalized executable operation. */
 export const readOperationQueries = (
 	operation: ExecutableOperationAst,
 ): readonly QueryAst[] => {

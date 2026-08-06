@@ -281,73 +281,77 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 		)
 
 		expect(
-			await Article.query()
-				.where((where) =>
-					where.some('tags', (tag) => tag.eq('label', 'predicate-alpha')),
-				)
-				.findMany({ ultimabase: app }),
+			await Article.findMany(
+				{ where: { tags: { some: { label: { eq: 'predicate-alpha' } } } } },
+				{ ultimabase: app },
+			),
 		).toMatchObject([{ id: mixed.id }])
 		expect(
-			await Article.query()
-				.where((where) =>
-					where.some('tags', (tag) => tag.eq('label', 'predicate-hidden')),
-				)
-				.count({ ultimabase: app }),
+			await Article.count(
+				{ where: { tags: { some: { label: { eq: 'predicate-hidden' } } } } },
+				{ ultimabase: app },
+			),
 		).toBe(0)
 		expect(
-			await Article.query()
-				.where((where) =>
-					where.none('tags', (tag) => tag.eq('label', 'predicate-gamma')),
-				)
-				.count({ ultimabase: app }),
+			await Article.count(
+				{ where: { tags: { none: { label: { eq: 'predicate-gamma' } } } } },
+				{ ultimabase: app },
+			),
 		).toBeGreaterThanOrEqual(2)
 		expect(
-			await Article.query()
-				.where({ id: { eq: mixed.id } })
-				.where((where) =>
-					where.every('tags', (tag) => tag.ne('label', 'predicate-gamma')),
-				)
-				.exists({ ultimabase: app }),
+			await Article.exists(
+				{
+					where: {
+						id: { eq: mixed.id },
+						tags: { every: { label: { ne: 'predicate-gamma' } } },
+					},
+				},
+				{ ultimabase: app },
+			),
 		).toBe(true)
 		expect(
-			await Article.query()
-				.where({ id: { eq: empty.id } })
-				.where((where) => where.some('tags', (tag) => tag))
-				.exists({ ultimabase: app }),
+			await Article.exists(
+				{ where: { id: { eq: empty.id }, tags: { some: {} } } },
+				{ ultimabase: app },
+			),
 		).toBe(false)
 		expect(
-			await Article.query()
-				.where({ id: { eq: empty.id } })
-				.where((where) => where.none('tags', (tag) => tag))
-				.exists({ ultimabase: app }),
+			await Article.exists(
+				{ where: { id: { eq: empty.id }, tags: { none: {} } } },
+				{ ultimabase: app },
+			),
 		).toBe(true)
 		expect(
-			await Article.query()
-				.where({ id: { eq: empty.id } })
-				.where((where) => where.every('tags', (tag) => tag))
-				.exists({ ultimabase: app }),
+			await Article.exists(
+				{ where: { id: { eq: empty.id }, tags: { every: {} } } },
+				{ ultimabase: app },
+			),
 		).toBe(true)
 		expect(
-			await Tag.query()
-				.where({ id: { eq: alpha.id } })
-				.where((where) =>
-					where.some('articles', (article) =>
-						article.eq('title', 'Predicate mixed'),
-					),
-				)
-				.exists({ ultimabase: app }),
+			await Tag.exists(
+				{
+					where: {
+						id: { eq: alpha.id },
+						articles: { some: { title: { eq: 'Predicate mixed' } } },
+					},
+				},
+				{ ultimabase: app },
+			),
 		).toBe(true)
 		expect(
-			await Article.query()
-				.where({ id: { eq: mixed.id } })
-				.where((where) =>
-					where.some('tags', (tag) =>
-						tag.some('articles', (article) =>
-							article.eq('title', 'Predicate mixed'),
-						),
-					),
-				)
-				.exists({ ultimabase: app }),
+			await Article.exists(
+				{
+					where: {
+						id: { eq: mixed.id },
+						tags: {
+							some: {
+								articles: { some: { title: { eq: 'Predicate mixed' } } },
+							},
+						},
+					},
+				},
+				{ ultimabase: app },
+			),
 		).toBe(true)
 
 		const author = await Author.createOne(
@@ -360,12 +364,15 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 		)
 
 		expect(
-			await Author.query()
-				.where({ id: { eq: author.id } })
-				.where((where) =>
-					where.some('posts', (post) => post.eq('title', 'Predicate post')),
-				)
-				.exists({ ultimabase: app }),
+			await Author.exists(
+				{
+					where: {
+						id: { eq: author.id },
+						posts: { some: { title: { eq: 'Predicate post' } } },
+					},
+				},
+				{ ultimabase: app },
+			),
 		).toBe(true)
 	})
 
@@ -391,22 +398,24 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 		})
 		await tags.connect(Tag.pointer(alpha.id), { ultimabase: app })
 
-		expect(await tags.query().count({ ultimabase: app })).toBe(2)
-		expect(await tags.query().exists({ ultimabase: app })).toBe(true)
+		expect(await tags.count(undefined, { ultimabase: app })).toBe(2)
+		expect(await tags.exists(undefined, { ultimabase: app })).toBe(true)
 		expect(
 			(
-				await tags
-					.query()
-					.where((where) => where.eq('label', 'alpha'))
-					.ascending('label')
-					.limit(1)
-					.after()
-					.select({ label: true })
-					.findMany({ ultimabase: app })
+				await tags.findMany(
+					{
+						where: { label: { eq: 'alpha' } },
+						orderBy: [{ label: 'asc' }],
+						limit: 1,
+						cursor: true,
+						select: { label: true },
+					},
+					{ ultimabase: app },
+				)
 			).map((tag) => tag.toJSON()),
 		).toStrictEqual([{ label: 'alpha' }])
 		expect(
-			await alpha.relation('articles').query().count({ ultimabase: app }),
+			await alpha.relation('articles').count(undefined, { ultimabase: app }),
 		).toBe(1)
 		expect(relationTrace).toEqual(
 			expect.arrayContaining([
@@ -420,11 +429,11 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 			ultimabase: app,
 		})
 		expect(
-			await alpha.relation('articles').query().count({ ultimabase: app }),
+			await alpha.relation('articles').count(undefined, { ultimabase: app }),
 		).toBe(0)
 		await tags.disconnect(Tag.pointer(beta.id), { ultimabase: app })
 		expect(
-			(await tags.query().findMany({ ultimabase: app })).map(
+			(await tags.findMany(undefined, { ultimabase: app })).map(
 				({ label }) => label,
 			),
 		).toStrictEqual(['gamma'])
@@ -433,10 +442,10 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 		await expect(
 			tags.connect(Tag.pointer(alpha.id), { ultimabase: app }),
 		).rejects.toBe(rollbackError)
-		expect(await tags.query().count({ ultimabase: app })).toBe(1)
+		expect(await tags.count(undefined, { ultimabase: app })).toBe(1)
 
 		await tags.clear({ ultimabase: app })
-		expect(await tags.query().count({ ultimabase: app })).toBe(0)
+		expect(await tags.count(undefined, { ultimabase: app })).toBe(0)
 
 		const inverseTag = await Tag.createOne(
 			{ data: { label: 'inverse' } },
@@ -447,15 +456,15 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 		await inverseArticles.connect(Article.pointer(article.id), {
 			ultimabase: app,
 		})
-		expect(await tags.query().count({ ultimabase: app })).toBe(1)
+		expect(await tags.count(undefined, { ultimabase: app })).toBe(1)
 		await inverseArticles.disconnect(Article.pointer(article.id), {
 			ultimabase: app,
 		})
-		expect(await tags.query().count({ ultimabase: app })).toBe(0)
+		expect(await tags.count(undefined, { ultimabase: app })).toBe(0)
 
 		await tags.connect(Tag.pointer(gamma.id), { ultimabase: app })
 		await gamma.delete({}, { ultimabase: app })
-		expect(await tags.query().count({ ultimabase: app })).toBe(0)
+		expect(await tags.count(undefined, { ultimabase: app })).toBe(0)
 
 		const cleanupTag = await Tag.createOne(
 			{ data: { label: 'cleanup' } },
@@ -464,7 +473,9 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 		await tags.connect(Tag.pointer(cleanupTag.id), { ultimabase: app })
 		await article.delete({}, { ultimabase: app })
 		expect(
-			await cleanupTag.relation('articles').query().count({ ultimabase: app }),
+			await cleanupTag
+				.relation('articles')
+				.count(undefined, { ultimabase: app }),
 		).toBe(0)
 		expect(relationTrace).toEqual(
 			expect.arrayContaining([
@@ -488,19 +499,19 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 		)
 		const posts = author.relation('posts')
 
-		expect(await posts.query().count({ ultimabase: app })).toBe(1)
-		const included = await posts
-			.query()
-			.include('author', (query) => query.select({ name: true }))
-			.findMany({ ultimabase: app })
+		expect(await posts.count(undefined, { ultimabase: app })).toBe(1)
+		const included = await posts.findMany(
+			{ include: { author: { select: { name: true } } } },
+			{ ultimabase: app },
+		)
 
 		expect(included).toHaveLength(1)
 		expect(included[0]?.title).toBe('Pointers')
 		expect(included[0]?.author?.toJSON()).toStrictEqual({ name: 'Ada' })
 		await posts.disconnect(Post.pointer(post.id), { ultimabase: app })
-		expect(await posts.query().count({ ultimabase: app })).toBe(0)
+		expect(await posts.count(undefined, { ultimabase: app })).toBe(0)
 		await posts.connect(Post.pointer(post.id), { ultimabase: app })
-		expect(await posts.query().count({ ultimabase: app })).toBe(1)
+		expect(await posts.count(undefined, { ultimabase: app })).toBe(1)
 	})
 
 	it('denies relation traversal at the source field before returning targets', async () => {
@@ -518,7 +529,7 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 			.relation('tags')
 			.connect(Tag.pointer(tag.id), { ultimabase: app })
 		await expect(
-			article.relation('tags').query().findMany({ ultimabase: app }),
+			article.relation('tags').findMany(undefined, { ultimabase: app }),
 		).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
 	})
 

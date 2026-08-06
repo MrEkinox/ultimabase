@@ -3,7 +3,7 @@ import { assertNonEmptyString } from '@ultimabase/shared'
 
 import type { QueryFieldName } from './contracts.js'
 
-/** Validates the minimum trusted schema shape required by every Query boundary. */
+/** Validates the minimum trusted schema shape required by every QueryBuilder boundary. */
 export const assertQuerySchemaReference: (
 	schema: unknown,
 ) => asserts schema is SchemaDefinition = (schema) => {

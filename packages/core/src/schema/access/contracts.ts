@@ -354,7 +354,7 @@ export interface SchemaOperationAccess {
 /** Declares database-enforceable row restrictions by logical family. */
 export interface SchemaFilterAccess<TSchema extends SchemaDefinition> {
 	/**
-	 * Restricts every read terminal without mutating its public Query.
+	 * Restricts every read terminal without mutating its public QueryBuilder.
 	 * @example `read: ({ filter }) => filter.equalTo("published", true)`
 	 */
 	readonly read?: AccessFilterRule<TSchema, SchemaFilterAccessInput<TSchema>>

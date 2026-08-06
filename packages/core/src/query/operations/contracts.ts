@@ -90,7 +90,7 @@ interface QueryOperationAst<
 	TIncludedPointer,
 > extends OperationAstNode {
 	readonly query: OperationQuery<TSchema, TFilter>
-	// Selection stays type-only while the Query AST remains the runtime source of truth.
+	// Selection stays type-only while the QueryBuilder AST remains the runtime source of truth.
 	readonly [operationSelectionType]?: TSelectedField
 	// Included pointer projections stay type-only beside their runtime AST nodes.
 	readonly [operationInclusionType]?: TIncludedPointer

@@ -1,4 +1,4 @@
-import { RequestCapability, increment } from '../../src/index.js'
+import { QueryBuilder, RequestCapability, increment } from '../../src/index.js'
 import { FrameworkApplication, FrameworkError } from '../../src/index.js'
 import { Schema, intField, stringField } from '../../src/index.js'
 import { describe, expect, it } from 'vitest'
@@ -237,21 +237,21 @@ describe('RequestEngine transactions', () => {
 		expect(trace).toStrictEqual(['adapter:begin', 'adapter:rollback'])
 	})
 
-	it('closes escaped engines while keeping Query branches context-free', async () => {
+	it('closes escaped engines while keeping QueryBuilder branches context-free', async () => {
 		const trace: string[] = []
 		const { request } = createRequest([], trace)
 		let escapedEngine: typeof request | undefined
-		let escapedQuery: ReturnType<typeof articleSchema.query> | undefined
+		let escapedQuery: QueryBuilder<typeof articleSchema> | undefined
 
 		await request.transaction((transaction) => {
 			escapedEngine = transaction
-			escapedQuery = articleSchema.query()
+			escapedQuery = new QueryBuilder(articleSchema)
 		})
 
 		await expect(
 			escapedEngine?.execute({
 				kind: 'count',
-				query: articleSchema.query().ast,
+				query: new QueryBuilder(articleSchema).ast,
 			}),
 		).rejects.toStrictEqual(
 			expect.objectContaining({
@@ -259,9 +259,11 @@ describe('RequestEngine transactions', () => {
 				internalDetails: { reason: 'transaction-engine-closed' },
 			}),
 		)
-		expect(() => escapedQuery?.count()).toThrow(
-			expect.objectContaining({ code: 'MISSING_EXECUTION_CONTEXT' }),
-		)
+		expect(() =>
+			escapedQuery === undefined
+				? undefined
+				: articleSchema.findMany(escapedQuery.build()),
+		).toThrow(expect.objectContaining({ code: 'MISSING_EXECUTION_CONTEXT' }))
 		expect(trace).toStrictEqual(['adapter:begin', 'adapter:commit'])
 	})
 

@@ -1,7 +1,7 @@
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 import { isDeepStrictEqual } from 'node:util'
 
-import { hydrateQueryFromAst, Query } from '../../query/query/query.js'
+import { hydrateQueryFromAst, QueryBuilder } from '../../query/query/query.js'
 import type {
 	ExecutableOperationAst,
 	QueryAst,
@@ -123,18 +123,18 @@ const hasSameInclusion = (left: QueryAst, right: QueryAst): boolean =>
 /** Recovers the builder's normalized filter specialization at the Runtime seam. */
 const hydrateRuntimeQuery = (
 	ast: QueryAst,
-): Query<SchemaDefinition, QueryFieldName<SchemaDefinition>> =>
+): QueryBuilder<SchemaDefinition, QueryFieldName<SchemaDefinition>> =>
 	// Executable operations can erase their schema-specific filter union, but the
-	// pipeline accepts only Query-produced and structurally normalized AST nodes.
+	// pipeline accepts only QueryBuilder-produced and structurally normalized AST nodes.
 	hydrateQueryFromAst(
 		ast as QueryAst<SchemaDefinition, QueryFilterNode<SchemaDefinition>>,
 	)
 
-/** Narrows an erased callback result without leaking Query's constructor defaults. */
+/** Narrows an erased callback result without leaking QueryBuilder's constructor defaults. */
 const isRuntimeQuery = (
 	value: unknown,
-): value is Query<SchemaDefinition, QueryFieldName<SchemaDefinition>> =>
-	value instanceof Query
+): value is QueryBuilder<SchemaDefinition, QueryFieldName<SchemaDefinition>> =>
+	value instanceof QueryBuilder
 
 /** Lets read hooks replace builder state without changing schema or projection. */
 const runBeforeRead = async <const TOperation extends DatabaseOperationAst>(
@@ -184,7 +184,7 @@ const runBeforeRead = async <const TOperation extends DatabaseOperationAst>(
 			}
 
 			if (!isRuntimeQuery(replacement)) {
-				throw new TypeError('beforeRead must return an immutable Query')
+				throw new TypeError('beforeRead must return an immutable QueryBuilder')
 			}
 
 			if (replacement.schema !== query.schema) {

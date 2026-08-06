@@ -97,7 +97,7 @@ export interface RoleMemberOptions<
 	 * Maps immutable request-local plugin state to one exact member Pointer.
 	 *
 	 * Omission makes current-member Access checks deny normally while retaining
-	 * every administrative RoleSchema and Query capability.
+	 * every administrative RoleSchema and QueryBuilder capability.
 	 *
 	 * @example `resolveCurrent: ({ context }) => toUserPointer(context.getValue(principal))`
 	 */

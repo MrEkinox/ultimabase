@@ -23,8 +23,8 @@ import {
  *
  * @example
  * ```ts
- * Post.query().select({ id: true, title: true })
- * Post.query().select({ internalNote: false })
+ * Post.findMany({ select: { id: true, title: true } })
+ * Post.findMany({ select: { internalNote: false } })
  * ```
  */
 export type QuerySelection<TSchema extends SchemaDefinition> = Readonly<

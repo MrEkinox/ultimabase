@@ -148,21 +148,24 @@ describe('pointer Runtime execution', () => {
 
 		try {
 			await ultimabase.start()
-			const posts = await pointerRuntimePost
-				.query()
-				.select({ title: true })
-				.include('author', (query) =>
-					query
-						.select({ name: true })
-						.include('organization', (organizationQuery) =>
-							organizationQuery.select({ name: true }),
-						),
-				)
-				.findMany({ ultimabase })
-			const directAuthor = await author
-				.query()
-				.select({ name: true })
-				.findOne({ ultimabase })
+			const posts = await pointerRuntimePost.findMany(
+				{
+					select: { title: true },
+					include: {
+						author: {
+							select: { name: true },
+							include: {
+								organization: { select: { name: true } },
+							},
+						},
+					},
+				},
+				{ ultimabase },
+			)
+			const directAuthor = await author.findOne(
+				{ select: { name: true } },
+				{ ultimabase },
+			)
 
 			expect(posts[0]?.author).toBeInstanceOf(pointerRuntimeUser)
 			expect(posts[0]?.author?.name).toBe('ADA')
@@ -235,11 +238,13 @@ describe('pointer Runtime execution', () => {
 
 		try {
 			await ultimabase.start()
-			const result = await source
-				.query()
-				.select({ target: true })
-				.include('target', (query) => query.select({ name: true }))
-				.findMany({ ultimabase })
+			const result = await source.findMany(
+				{
+					select: { target: true },
+					include: { target: { select: { name: true } } },
+				},
+				{ ultimabase },
+			)
 
 			expect(result[0]).not.toHaveProperty('target')
 			expect(adapter.rootRequests).toHaveLength(1)
@@ -316,11 +321,13 @@ describe('pointer Runtime execution', () => {
 
 		try {
 			await ultimabase.start()
-			const result = await source
-				.query()
-				.select({ target: true })
-				.include('target', (query) => query.select({ name: true }))
-				.findMany({ ultimabase })
+			const result = await source.findMany(
+				{
+					select: { target: true },
+					include: { target: { select: { name: true } } },
+				},
+				{ ultimabase },
+			)
 
 			expect(result[0]?.target?.name).toBe('Hydrated target')
 			expect(afterReadObservedHydratedTarget).toBe(true)
@@ -386,19 +393,21 @@ describe('pointer Runtime execution', () => {
 			plugins: [createDatabasePlugin(adapter)],
 			schemas: [restrictedTarget, restrictedSource],
 		})
-		const includedQuery = restrictedSource
-			.query()
-			.select({ target: true })
-			.include('target', (query) => query.select({ name: true }))
+		const includedInput = {
+			select: { target: true },
+			include: { target: { select: { name: true } } },
+		} as const
 
 		try {
 			await ultimabase.start()
-			const denied = await includedQuery.findMany({ ultimabase })
-			const allowed = await includedQuery.findMany({
+			const denied = await restrictedSource.findMany(includedInput, {
+				ultimabase,
+			})
+			const allowed = await restrictedSource.findMany(includedInput, {
 				ultimabase,
 				useMasterKey: true,
 			})
-			const missing = await includedQuery.findMany({
+			const missing = await restrictedSource.findMany(includedInput, {
 				ultimabase,
 				useMasterKey: true,
 			})
@@ -453,11 +462,13 @@ describe('pointer Runtime execution', () => {
 
 		try {
 			await ultimabase.start()
-			const result = await source
-				.query()
-				.select({ target: true })
-				.include('target', (query) => query.select({ name: true }))
-				.findMany({ ultimabase })
+			const result = await source.findMany(
+				{
+					select: { target: true },
+					include: { target: { select: { name: true } } },
+				},
+				{ ultimabase },
+			)
 
 			expect(result[0]?.target).toBeNull()
 			expect(adapter.rootRequests).toHaveLength(1)
@@ -526,7 +537,7 @@ describe('pointer Runtime execution', () => {
 				throw new TypeError('Expected the complete mutation result pointer')
 			}
 
-			expect(updated.target.query().ast.schema.definition).toBe(failingTarget)
+			expect(updated.target.schema).toBe(failingTarget)
 			expect(trace).toStrictEqual([
 				'adapter:begin',
 				'prepare:update-one',

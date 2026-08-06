@@ -215,11 +215,10 @@ describe('ACL PostgreSQL Access constraints', { concurrent: false }, () => {
 			reviewerRoleId,
 		])
 		const visibleTitles = (context: RequestContext) =>
-			ProtectedPost.query()
-				.ascending('title')
-				.select({ title: true })
-				.findMany({ context, ultimabase: app })
-				.then((rows) => rows.map(({ title }) => title))
+			ProtectedPost.findMany(
+				{ orderBy: [{ title: 'asc' }], select: { title: true } },
+				{ context, ultimabase: app },
+			).then((rows) => rows.map(({ title }) => title))
 
 		await expect(visibleTitles(anonymous)).resolves.toStrictEqual(['public'])
 		await expect(visibleTitles(alice)).resolves.toStrictEqual([
@@ -244,12 +243,13 @@ describe('ACL PostgreSQL Access constraints', { concurrent: false }, () => {
 			'shared',
 		])
 		await expect(
-			ProtectedPost.query().count({ context: alice, ultimabase: app }),
+			ProtectedPost.count({}, { context: alice, ultimabase: app }),
 		).resolves.toBe(4)
 		await expect(
-			ProtectedPost.query()
-				.where((where) => where.eq('title', 'denied'))
-				.exists({ context: alice, ultimabase: app }),
+			ProtectedPost.exists(
+				{ where: { title: { eq: 'denied' } } },
+				{ context: alice, ultimabase: app },
+			),
 		).resolves.toBe(false)
 	})
 
@@ -301,7 +301,7 @@ describe('ACL PostgreSQL Access constraints', { concurrent: false }, () => {
 			),
 		).resolves.toMatchObject({ title: 'editor' })
 		await expect(
-			ProtectedPost.query().count({ ultimabase: app, useMasterKey: true }),
+			ProtectedPost.count({}, { ultimabase: app, useMasterKey: true }),
 		).resolves.toBe(5)
 	})
 
@@ -346,10 +346,10 @@ describe('ACL PostgreSQL Access constraints', { concurrent: false }, () => {
 			})
 		}
 
-		const unchanged = await ProtectedPost.query()
-			.where({ id: { eq: deniedId } })
-			.select({ acl: true })
-			.findOne(masterOptions)
+		const unchanged = await ProtectedPost.findOne(
+			{ where: { id: { eq: deniedId } }, select: { acl: true } },
+			masterOptions,
+		)
 
 		expect(unchanged?.acl).toStrictEqual(new ACL())
 		const updated = await ProtectedPost.updateOne(

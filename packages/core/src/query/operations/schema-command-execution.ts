@@ -20,7 +20,7 @@ import {
 	executeSchemaCreateMany,
 	executeSchemaUpsertMany,
 	hydrateQueryFromAst,
-	Query,
+	QueryBuilder,
 } from '../query/query.js'
 import { normalizeUniqueUpsertTarget } from './upsert.js'
 import type {
@@ -95,11 +95,11 @@ const isEmptyWhereExpression = <TSchema extends SchemaDefinition>(
 	expression: QueryFilterNode<TSchema>,
 ): boolean => expression.kind === 'constant' && expression.value
 
-/** Converts one canonical where source into the ordinary immutable Query AST. */
+/** Converts one canonical where source into the ordinary immutable QueryBuilder AST. */
 const createSchemaWhereQuery = <const TSchema extends SchemaDefinition>(
 	schema: TSchema,
 	where: SchemaWhereFactory<TSchema>,
-): Query<TSchema> => {
+): QueryBuilder<TSchema> => {
 	const expression = resolveWhereInput(schema, where)
 
 	if (isEmptyWhereExpression(expression)) {
@@ -124,12 +124,14 @@ const createSchemaWhereQuery = <const TSchema extends SchemaDefinition>(
 const createSchemaManyQuery = <const TSchema extends SchemaDefinition>(
 	schema: TSchema,
 	where: SchemaManyWhere<TSchema>,
-): Query<TSchema> =>
-	where === 'all' ? new Query(schema) : createSchemaWhereQuery(schema, where)
+): QueryBuilder<TSchema> =>
+	where === 'all'
+		? new QueryBuilder(schema)
+		: createSchemaWhereQuery(schema, where)
 
 const assertUniqueSchemaWhere = <const TSchema extends SchemaDefinition>(
 	schema: TSchema,
-	query: Query<TSchema>,
+	query: QueryBuilder<TSchema>,
 	path: string,
 ): void => {
 	// The existing upsert target validator is the single source of truth for unique targeting.
@@ -141,7 +143,7 @@ const createSchemaManyResultQuery = <const TSchema extends SchemaDefinition>(
 	schema: TSchema,
 	where: SchemaManyWhere<TSchema>,
 	selection: QuerySelection<TSchema> | undefined,
-): Query<TSchema, QueryFieldName<TSchema>> => {
+): QueryBuilder<TSchema, QueryFieldName<TSchema>> => {
 	const query = createSchemaManyQuery(schema, where)
 	const normalizedSelection =
 		selection === undefined
@@ -153,7 +155,7 @@ const createSchemaManyResultQuery = <const TSchema extends SchemaDefinition>(
 	)
 }
 
-/** Creates one row through the schema class rather than a selection Query. */
+/** Creates one row through the schema class rather than a selection QueryBuilder. */
 export const createSchemaRecord = <const TSchema extends SchemaDefinition>(
 	schema: TSchema,
 	input: SchemaCreateOneExecutionInput<TSchema>,

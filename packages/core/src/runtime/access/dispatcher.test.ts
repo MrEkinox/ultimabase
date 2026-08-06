@@ -1,6 +1,6 @@
 import { createApplication, definePlugin } from '../../foundation.js'
 import {
-	Query,
+	QueryBuilder,
 	type CreateManyOperationAst,
 	type CreateOneOperationAst,
 	type FindManyOperationAst,
@@ -81,7 +81,7 @@ const requireStages = (
 }
 
 const createFind = (
-	query: Query<typeof articleSchema> = new Query(articleSchema),
+	query: QueryBuilder<typeof articleSchema> = new QueryBuilder(articleSchema),
 ): FindManyOperationAst<typeof articleSchema> => ({
 	kind: 'find-many',
 	query: query.ast,
@@ -108,7 +108,7 @@ describe('NativeAccessRuntime', () => {
 		const stages = requireStages(createEnforcementStages(application))
 		const operation = {
 			kind: 'find-many',
-			query: new Query(source).ast,
+			query: new QueryBuilder(source).ast,
 		} as const
 		const enforcement = await stages.evaluate({ context, operation })
 		const enforced = await stages.enforceOperation({
@@ -126,7 +126,7 @@ describe('NativeAccessRuntime', () => {
 		await application.dispose()
 	})
 
-	it('dispatches exact read kinds and keeps row filters outside the Query AST', async () => {
+	it('dispatches exact read kinds and keeps row filters outside the QueryBuilder AST', async () => {
 		accessTrace.length = 0
 		const application = await createApplication({
 			schemas: [articleSchema],
@@ -134,7 +134,9 @@ describe('NativeAccessRuntime', () => {
 		})
 		const stages = requireStages(createEnforcementStages(application))
 		const operation = createFind(
-			new Query(articleSchema).where((where) => where.eq('title', 'Public')),
+			new QueryBuilder(articleSchema).where((where) =>
+				where.eq('title', 'Public'),
+			),
 		)
 		const originalQuery = operation.query
 		const enforcement = await stages.evaluate({ context, operation })
@@ -169,7 +171,7 @@ describe('NativeAccessRuntime', () => {
 		const stages = requireStages(createEnforcementStages(application))
 		const count = {
 			kind: 'count',
-			query: new Query(articleSchema).ast,
+			query: new QueryBuilder(articleSchema).ast,
 		} as const
 
 		await expect(
@@ -179,7 +181,7 @@ describe('NativeAccessRuntime', () => {
 			stages.evaluate({
 				context,
 				operation: createFind(
-					new Query(articleSchema).where((where) =>
+					new QueryBuilder(articleSchema).where((where) =>
 						where.eq('secret', 'guess'),
 					),
 				),
@@ -188,7 +190,9 @@ describe('NativeAccessRuntime', () => {
 		await expect(
 			stages.evaluate({
 				context,
-				operation: createFind(new Query(articleSchema).ascending('secret')),
+				operation: createFind(
+					new QueryBuilder(articleSchema).ascending('secret'),
+				),
 			}),
 		).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
 		const selectedBulkCreate: CreateManyOperationAst<
@@ -199,9 +203,9 @@ describe('NativeAccessRuntime', () => {
 			inputs: [{ title: 'Allowed input' }],
 			kind: 'create-many',
 			options: { atomic: true },
-			selection: new Query(selectionSchema).select({ denied: true }).ast
+			selection: new QueryBuilder(selectionSchema).select({ denied: true }).ast
 				.selection,
-			schema: new Query(selectionSchema).ast.schema,
+			schema: new QueryBuilder(selectionSchema).ast.schema,
 		}
 		await expect(
 			stages.evaluate({ context, operation: selectedBulkCreate }),
@@ -219,11 +223,11 @@ describe('NativeAccessRuntime', () => {
 			input: { secret: 'private', title: 'Draft' },
 			kind: 'create-one',
 			selection: { fields: [], kind: 'selection' },
-			schema: new Query(articleSchema).ast.schema,
+			schema: new QueryBuilder(articleSchema).ast.schema,
 		}
 		const updateMany: UpdateManyOperationAst<typeof articleSchema> = {
 			kind: 'update-many',
-			query: new Query(articleSchema).ast,
+			query: new QueryBuilder(articleSchema).ast,
 			update: {
 				kind: 'update-expression',
 				operations: [{ field: 'title', kind: 'set', value: 'Changed' }],
@@ -252,7 +256,7 @@ describe('NativeAccessRuntime', () => {
 		const stages = requireStages(createEnforcementStages(application))
 		const operation: UpdateOneOperationAst<typeof articleSchema> = {
 			kind: 'update-one',
-			query: new Query(articleSchema).ast,
+			query: new QueryBuilder(articleSchema).ast,
 			update: {
 				kind: 'update-expression',
 				operations: [{ field: 'title', kind: 'set', value: 'Changed' }],
@@ -365,7 +369,7 @@ describe('NativeAccessRuntime', () => {
 		const stages = requireStages(createEnforcementStages(application))
 		const operation: FindManyOperationAst<typeof schema> = {
 			kind: 'find-many',
-			query: new Query(schema).ast,
+			query: new QueryBuilder(schema).ast,
 		}
 
 		await stages.evaluate({ context, operation })
@@ -398,7 +402,7 @@ describe('NativeAccessRuntime', () => {
 		const stages = requireStages(createEnforcementStages(application))
 		const operation: FindManyOperationAst<typeof schema> = {
 			kind: 'find-many',
-			query: new Query(schema).ast,
+			query: new QueryBuilder(schema).ast,
 		}
 		const master = createTrustedMasterRequestContext(
 			'fixture audit',
@@ -437,7 +441,7 @@ describe('NativeAccessRuntime', () => {
 		const stages = requireStages(createEnforcementStages(application))
 		const operation: FindManyOperationAst<typeof schema> = {
 			kind: 'find-many',
-			query: new Query(schema).ast,
+			query: new QueryBuilder(schema).ast,
 		}
 
 		await expect(

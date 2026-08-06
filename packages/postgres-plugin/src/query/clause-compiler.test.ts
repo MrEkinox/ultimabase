@@ -1,5 +1,5 @@
 import {
-	Query,
+	QueryBuilder,
 	queryCursorVersion,
 	type QueryCursorPayload,
 } from '@ultimabase/core'
@@ -26,7 +26,7 @@ const render = (expression: Parameters<PgDialect['sqlToQuery']>[0]) =>
 
 describe('PostgreSQL query clause compiler', () => {
 	it('loads only explicit selections and retains normalized offset clauses', () => {
-		const query = new Query(ArticleSchema)
+		const query = new QueryBuilder(ArticleSchema)
 			.select({ id: true, title: true })
 			.descending('rank')
 			.ascending('title')
@@ -45,7 +45,7 @@ describe('PostgreSQL query clause compiler', () => {
 
 	it('adds private object identity when an explicit selection omits id', () => {
 		const clauses = compilePostgresQueryClauses(
-			new Query(ArticleSchema).select({ title: true }).ast,
+			new QueryBuilder(ArticleSchema).select({ title: true }).ast,
 			compiledSchema,
 		)
 
@@ -55,7 +55,7 @@ describe('PostgreSQL query clause compiler', () => {
 
 	it('loads every compiled field when no selection is declared', () => {
 		const clauses = compilePostgresQueryClauses(
-			new Query(ArticleSchema).ast,
+			new QueryBuilder(ArticleSchema).ast,
 			compiledSchema,
 		)
 
@@ -70,7 +70,7 @@ describe('PostgreSQL query clause compiler', () => {
 	})
 
 	it('adds the UUID tie-breaker and compiles a lexicographic after predicate', () => {
-		const query = new Query(ArticleSchema)
+		const query = new QueryBuilder(ArticleSchema)
 			.where((where) => where.eq('rank', 10))
 			.descending('created')
 			.limit(2)
@@ -119,7 +119,7 @@ describe('PostgreSQL query clause compiler', () => {
 
 	it('uses id ascending for the first cursor page without explicit ordering', () => {
 		const clauses = compilePostgresQueryClauses(
-			new Query(ArticleSchema).after().ast,
+			new QueryBuilder(ArticleSchema).after().ast,
 			compiledSchema,
 		)
 
@@ -130,7 +130,7 @@ describe('PostgreSQL query clause compiler', () => {
 	})
 
 	it('resumes nullable ordering without skipping the non-null descending page', () => {
-		const query = new Query(ArticleSchema)
+		const query = new QueryBuilder(ArticleSchema)
 			.descending('title')
 			.after('authenticated-cursor')
 		const payload: QueryCursorPayload = {
@@ -159,7 +159,7 @@ describe('PostgreSQL query clause compiler', () => {
 	})
 
 	it('rejects missing, extra, or incompatible authenticated payloads', () => {
-		const query = new Query(ArticleSchema)
+		const query = new QueryBuilder(ArticleSchema)
 			.ascending('rank')
 			.after('authenticated-cursor')
 		const incompatible: QueryCursorPayload = {
@@ -180,7 +180,7 @@ describe('PostgreSQL query clause compiler', () => {
 		)
 		expect(() =>
 			compilePostgresQueryClauses(
-				new Query(ArticleSchema).ast,
+				new QueryBuilder(ArticleSchema).ast,
 				compiledSchema,
 				incompatible,
 			),

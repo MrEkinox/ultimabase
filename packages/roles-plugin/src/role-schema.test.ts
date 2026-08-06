@@ -1,5 +1,5 @@
 import {
-	Query,
+	QueryBuilder,
 	Schema,
 	createApplication,
 	intField,
@@ -48,8 +48,8 @@ describe('RoleSchema', () => {
 		expect(AppRole.extensions.at(-1)?.config).toMatchObject({
 			transportVisibility: 'hidden',
 		})
-		expect(new Query(AppRole).ast.schema.definition).toBe(AppRole)
-		expect(AppRole.query().ast.schema.definition).toBe(AppRole)
+		expect(new QueryBuilder(AppRole).ast.schema.definition).toBe(AppRole)
+		expect(new QueryBuilder(AppRole).ast.schema.definition).toBe(AppRole)
 		expect(draft.name).toBe('editor')
 		expect(Object.isFrozen(draft)).toBe(true)
 		expect(Object.isFrozen(AppRole)).toBe(true)

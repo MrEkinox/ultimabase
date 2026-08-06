@@ -104,10 +104,10 @@ describe('native Access pipeline integration', () => {
 
 		try {
 			await ultimabase.start()
-			const result = await securedArticle
-				.query()
-				.where((where) => where.eq('title', 'Public'))
-				.findMany({ ultimabase })
+			const result = await securedArticle.findMany(
+				{ where: { title: { eq: 'Public' } } },
+				{ ultimabase },
+			)
 
 			expect(observedBusinessFilters).toHaveLength(1)
 			expect(observedBusinessFilters[0]).toMatchObject({

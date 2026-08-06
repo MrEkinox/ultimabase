@@ -3,7 +3,7 @@ import {
 	createApplication,
 	definePlugin,
 } from '../../foundation.js'
-import { Query } from '../../query/index.js'
+import { QueryBuilder } from '../../query/index.js'
 import { Schema, stringField } from '../../schema/index.js'
 import { describe, expect, it, vi } from 'vitest'
 
@@ -42,14 +42,15 @@ const context = RequestContext.anonymous({
 const operation: CreateOneOperationAst<typeof articleSchema> = {
 	kind: 'create-one',
 	selection: { fields: [], kind: 'selection' },
-	schema: new Query(articleSchema).ast.schema,
+	schema: new QueryBuilder(articleSchema).ast.schema,
 	input: { title: 'input' },
 }
 
 const updateOperation: UpdateOneOperationAst<typeof articleSchema> = {
 	kind: 'update-one',
-	query: new Query(articleSchema).where((where) => where.eq('id', 'article-1'))
-		.ast,
+	query: new QueryBuilder(articleSchema).where((where) =>
+		where.eq('id', 'article-1'),
+	).ast,
 	update: {
 		kind: 'update-expression',
 		operations: [{ field: 'title', kind: 'set', value: 'input' }],
@@ -235,7 +236,7 @@ describe('createRuntimeHookStages', () => {
 		const kindStages = await createStages({ ...operation, kind: 'count' })
 		const foreignOperation: CreateOneOperationAst<typeof articleSchema> = {
 			...operation,
-			schema: new Query(foreignSchema).ast.schema as never,
+			schema: new QueryBuilder(foreignSchema).ast.schema as never,
 		}
 		const schemaStages = await createStages(foreignOperation)
 
@@ -254,7 +255,7 @@ describe('createRuntimeHookStages', () => {
 	it('prevents low-level before-hooks from changing query result shape', async () => {
 		const replacement: UpdateOneOperationAst<typeof articleSchema> = {
 			...updateOperation,
-			query: new Query(articleSchema)
+			query: new QueryBuilder(articleSchema)
 				.where((where) => where.eq('id', 'article-1'))
 				.select({ title: true }).ast,
 		}
@@ -343,7 +344,7 @@ describe('createRuntimeHookStages', () => {
 		const invalidReplacements = [
 			{
 				...updateOperation,
-				query: new Query(articleSchema).where((where) =>
+				query: new QueryBuilder(articleSchema).where((where) =>
 					where.eq('id', 'article-2'),
 				).ast,
 			},

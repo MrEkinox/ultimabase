@@ -128,7 +128,7 @@ describe.each(packageFixtures)('$name archive', ({ directory, name }) => {
 	})
 })
 
-describe('@ultimabase/core Schema and Query declarations', () => {
+describe('@ultimabase/core Schema and QueryBuilder declarations', () => {
 	it('exposes the documented Schema definition factory', () => {
 		const schema = readFixtureQuickInfo('define({')
 
@@ -139,13 +139,15 @@ describe('@ultimabase/core Schema and Query declarations', () => {
 		)
 	})
 
-	it('preserves constructible drafts and static Query access', () => {
+	it('preserves constructible drafts and the optional QueryBuilder', () => {
 		const draft = readFixtureQuickInfo('packedDraft = new PostSchema')
-		const query = readFixtureQuickInfo('packedQuery = PostSchema.query()')
+		const query = readFixtureQuickInfo(
+			'packedQuery = new QueryBuilder(PostSchema)',
+		)
 
 		expect(draft.display).toContain('readonly title: string;')
 		expect(draft.display).not.toContain('readonly id: string;')
-		expect(query.display).toContain('Query<')
+		expect(query.display).toContain('QueryBuilder<')
 		expect(query.display).toContain('QuerySelectionKeyWithValue<')
 	})
 
@@ -231,29 +233,33 @@ describe('@ultimabase/core Schema and Query declarations', () => {
 
 	it('keeps immutable read builders and schema command hovers focused', () => {
 		const select = readFixtureQuickInfo('select({ id: true, title: true })')
-		const find = readFixtureQuickInfo('findMany({ ultimabase })')
+		const find = readFixtureQuickInfo(
+			'findMany(undefined, { useMasterKey: true })',
+		)
 		const deletion = readFixtureQuickInfo('deleteOne(')
-		const count = readFixtureQuickInfo('count({ ultimabase })')
-		const exists = readFixtureQuickInfo('exists({ ultimabase })')
+		const count = readFixtureQuickInfo('count(undefined, { ultimabase })')
+		const exists = readFixtureQuickInfo('exists(undefined, { ultimabase })')
 
 		// Selection inference retains the literal object needed by true/false projection.
 		expect(select.display).toContain('select<{')
 		expect(select.display).toContain('id: true')
 		expect(select.display).toContain('title: true')
-		// Parameterless terminals must not repeat the complete bound query as `this`.
+		// Schema reads must not repeat the complete class as an explicit `this`.
 		expect(find.display).toContain(
-			'.findMany(options?: QueryTerminalOptions): Promise<',
+			'.findMany(input?: undefined, options?: QueryTerminalOptions): Promise<',
 		)
 		expect(deletion.display).toContain('.deleteOne(input:')
 		expect(deletion.display).toContain('options?: QueryTerminalOptions')
 		expect(deletion.documentation).toContain(
 			'Deletes one uniquely identified row',
 		)
+		expect(count.display).toContain('.count(input?: CountInput<')
 		expect(count.display).toContain(
-			'.count(options?: QueryTerminalOptions): Promise<number>',
+			'options?: QueryTerminalOptions): Promise<number>',
 		)
+		expect(exists.display).toContain('.exists(input?: ExistsInput<')
 		expect(exists.display).toContain(
-			'.exists(options?: QueryTerminalOptions): Promise<boolean>',
+			'options?: QueryTerminalOptions): Promise<boolean>',
 		)
 		for (const terminal of [find, deletion, count, exists]) {
 			expect(terminal.display).not.toContain('(this:')
@@ -306,15 +312,17 @@ describe('@ultimabase/core Schema and Query declarations', () => {
 })
 
 describe('@ultimabase/core Runtime declarations', () => {
-	it('exposes the documented UltimaBase facade and compact contextual Query', () => {
+	it('exposes the documented UltimaBase facade and compact QueryBuilder', () => {
 		const facade = readFixtureQuickInfo('UltimaBase({')
-		const query = readFixtureQuickInfo('packedQuery = PostSchema.query()')
+		const query = readFixtureQuickInfo(
+			'packedQuery = new QueryBuilder(PostSchema)',
+		)
 
 		expect(facade.display).toContain('new UltimaBase<')
 		expect(facade.documentation).toContain(
 			'Owns one isolated UltimaBase application',
 		)
-		expect(query.display).toContain('Query<')
+		expect(query.display).toContain('QueryBuilder<')
 		expect(query.display).not.toContain('RequestEngine<')
 		expect(query.display).not.toContain('SchemaDefinition<')
 	})

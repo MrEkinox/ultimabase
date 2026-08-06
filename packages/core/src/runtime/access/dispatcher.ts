@@ -962,7 +962,7 @@ export class NativeAccessRuntime {
 		)
 	}
 
-	/** Enforces relation traversal declared directly inside one public Query filter. */
+	/** Enforces relation traversal declared directly inside one public QueryBuilder filter. */
 	async enforceRelationPredicateRead(
 		request: RuntimeOperationStageInput<DatabaseOperationAst>,
 		predicate: QueryRelationPredicateNode,

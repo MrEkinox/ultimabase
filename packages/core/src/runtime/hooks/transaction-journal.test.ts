@@ -2,7 +2,7 @@ import { immutableArray, immutableRecord } from '@ultimabase/shared'
 import { describe, expect, it } from 'vitest'
 
 import {
-	Query,
+	QueryBuilder,
 	type CreateOneOperationAst,
 	type DeleteManyOperationAst,
 	type FindManyOperationAst,
@@ -44,11 +44,11 @@ describe('TransactionHookJournal', () => {
 			input: mutationRecord,
 			kind: 'create-one',
 			selection: { fields: [], kind: 'selection' },
-			schema: new Query(articleSchema).ast.schema,
+			schema: new QueryBuilder(articleSchema).ast.schema,
 		}) satisfies CreateOneOperationAst<typeof articleSchema>
 		const readOperation = immutableRecord({
 			kind: 'find-many',
-			query: new Query(articleSchema).select({ title: true }).ast,
+			query: new QueryBuilder(articleSchema).select({ title: true }).ast,
 		})
 		const mutationToken = journal.reserve(context)
 		const readToken = journal.reserve(context)
@@ -127,7 +127,7 @@ describe('TransactionHookJournal', () => {
 			input: completeRecord,
 			kind: 'create-one',
 			selection: { fields: [], kind: 'selection' },
-			schema: new Query(articleSchema).ast.schema,
+			schema: new QueryBuilder(articleSchema).ast.schema,
 		}) satisfies CreateOneOperationAst<typeof articleSchema>
 		const outcome = {
 			materializations: [{ current: completeRecord, kind: 'create' }],
@@ -148,11 +148,11 @@ describe('TransactionHookJournal', () => {
 		const journal = new TransactionHookJournal()
 		const initialOperation = immutableRecord({
 			kind: 'find-many',
-			query: new Query(articleSchema).limit(1).ast,
+			query: new QueryBuilder(articleSchema).limit(1).ast,
 		}) satisfies FindManyOperationAst<typeof articleSchema>
 		const latestOperation = immutableRecord({
 			...initialOperation,
-			query: new Query(articleSchema).limit(2).ast,
+			query: new QueryBuilder(articleSchema).limit(2).ast,
 		}) satisfies FindManyOperationAst<typeof articleSchema>
 		const token = journal.reserve(context)
 		const error = new Error('read failed')
@@ -198,7 +198,7 @@ describe('TransactionHookJournal', () => {
 		const journal = new TransactionHookJournal()
 		const operation = immutableRecord({
 			kind: 'delete-many',
-			query: new Query(articleSchema).ast,
+			query: new QueryBuilder(articleSchema).ast,
 		}) satisfies DeleteManyOperationAst<typeof articleSchema>
 		const token = journal.reserve(context)
 

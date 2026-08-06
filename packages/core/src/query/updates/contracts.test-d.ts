@@ -63,7 +63,7 @@ test('infers mutable and numeric fields independently', () => {
 
 test('correlates each field with its exact value or operation type', () => {
 	const expression = normalizeUpdateExpression(articleSchema, {
-		metadata: { label: 'Query' },
+		metadata: { label: 'QueryBuilder' },
 		rating: decrement(0.5),
 		summary: unset(),
 		title: 'Typed updates',

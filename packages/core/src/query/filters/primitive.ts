@@ -537,7 +537,7 @@ type QueryPathPrimitiveFilterNode<TSchema extends SchemaDefinition> = {
 	]: QueryPathPrimitiveFilterForField<TSchema, TFieldName>
 }[QueryFieldName<TSchema>]
 
-/** Builds the field-correlated union consumed by Query and transport normalizers. */
+/** Builds the field-correlated union consumed by QueryBuilder and transport normalizers. */
 export type QueryPrimitiveFilterNode<
 	TSchema extends SchemaDefinition,
 	TFieldName extends QueryFieldName<TSchema> = QueryFieldName<TSchema>,

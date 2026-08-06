@@ -152,7 +152,7 @@ const bindRequestContextToFramework = (
 const createTerminalMasterReason = (
 	operation: OperationAstNode,
 	schema: SchemaDefinition,
-): string => `Query terminal ${operation.kind} on ${schema.className}`
+): string => `QueryBuilder terminal ${operation.kind} on ${schema.className}`
 
 /** Recognizes only Runtime's own Access denial marker at a protected boundary. */
 const isNativeAccessDenied = (error: unknown): boolean =>
@@ -388,7 +388,7 @@ export class RequestEngine<
 						this.#transactionLifetime,
 					)
 
-		// Query terminal construction guarantees an executable operation for this schema.
+		// QueryBuilder terminal construction guarantees an executable operation for this schema.
 		return engine.#executeOperation(
 			normalizedOperation,
 			scope?.kind === 'row-filter' ? scope.rowFilter : undefined,

@@ -58,7 +58,7 @@ export type QueryFilterExpression<
 	TLeaf extends QueryExpressionNode = QueryExpressionNode,
 > = TLeaf | QueryLogicalFilterNode<TLeaf>
 
-/** Lists every schema-correlated leaf accepted by the portable Query AST. */
+/** Lists every schema-correlated leaf accepted by the portable QueryBuilder AST. */
 export type QuerySchemaFilterLeaf<TSchema extends SchemaDefinition> =
 	QueryPrimitiveFilterNode<TSchema> | QueryRelationPredicateForSchema<TSchema>
 

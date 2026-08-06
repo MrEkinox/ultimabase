@@ -1,6 +1,6 @@
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 import {
-	Query,
+	QueryBuilder,
 	type CreateManyOperationAst,
 	type CountOperationAst,
 	type DeleteManyOperationAst,
@@ -55,7 +55,7 @@ describe('runtime field outputs', () => {
 			'title' | 'profile' | 'nickname' | 'bio'
 		> = {
 			kind: 'find-many',
-			query: new Query(outputSchema).select({
+			query: new QueryBuilder(outputSchema).select({
 				title: true,
 				profile: true,
 				nickname: true,
@@ -138,7 +138,10 @@ describe('runtime field outputs', () => {
 			'title' | 'profile'
 		> = {
 			kind: 'find-many',
-			query: new Query(outputSchema).select({ title: true, profile: true }).ast,
+			query: new QueryBuilder(outputSchema).select({
+				title: true,
+				profile: true,
+			}).ast,
 		}
 		const originalProfile = immutableRecord({
 			displayName: 'Ada',
@@ -194,8 +197,8 @@ describe('runtime field outputs', () => {
 			inputs: immutableArray([{ title: 'First' }, { title: 'Second' }]),
 			kind: 'create-many',
 			options: immutableRecord({ atomic: false }),
-			selection: new Query(outputSchema).ast.selection,
-			schema: new Query(outputSchema).ast.schema,
+			selection: new QueryBuilder(outputSchema).ast.selection,
+			schema: new QueryBuilder(outputSchema).ast.schema,
 		}) satisfies CreateManyOperationAst<typeof outputSchema, false>
 		const writeError = new Error('second input failed')
 		const result = immutableRecord({
@@ -303,7 +306,7 @@ describe('runtime field outputs', () => {
 	})
 
 	it('resolves selected set-based update and delete results without materializations', async () => {
-		const query = new Query(outputSchema).select({ title: true }).ast
+		const query = new QueryBuilder(outputSchema).select({ title: true }).ast
 		const updateExpression = normalizeUpdateExpression(outputSchema, {
 			title: 'Updated',
 		})
@@ -381,7 +384,7 @@ describe('runtime field outputs', () => {
 			'title'
 		> = {
 			kind: 'find-one',
-			query: new Query(outputSchema).select({ title: true }).ast,
+			query: new QueryBuilder(outputSchema).select({ title: true }).ast,
 		}
 		const find: FindManyOperationAst<
 			typeof outputSchema,
@@ -389,15 +392,15 @@ describe('runtime field outputs', () => {
 			'title'
 		> = {
 			kind: 'find-many',
-			query: new Query(outputSchema).select({ title: true }).ast,
+			query: new QueryBuilder(outputSchema).select({ title: true }).ast,
 		}
 		const count = {
 			kind: 'count',
-			query: new Query(outputSchema).ast,
+			query: new QueryBuilder(outputSchema).ast,
 		} satisfies CountOperationAst<typeof outputSchema>
 		const exists = {
 			kind: 'exists',
-			query: new Query(outputSchema).ast,
+			query: new QueryBuilder(outputSchema).ast,
 		} satisfies ExistsOperationAst<typeof outputSchema>
 		const empty = immutableArray([])
 
@@ -419,7 +422,7 @@ describe('runtime field outputs', () => {
 	it('rejects malformed record terminal shapes before visiting fields', async () => {
 		const find = {
 			kind: 'find-many',
-			query: new Query(outputSchema).ast,
+			query: new QueryBuilder(outputSchema).ast,
 		} satisfies FindManyOperationAst<typeof outputSchema>
 
 		await expect(

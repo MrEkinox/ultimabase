@@ -1,7 +1,7 @@
 import { Schema, intField, stringField } from '../../schema/index.js'
 import { expect, expectTypeOf, test } from 'vitest'
 
-import { Query, type QueryScope } from '../index.js'
+import { QueryBuilder, type QueryScope } from '../index.js'
 
 const postSchema = Schema.define({
 	className: 'Post',
@@ -16,12 +16,12 @@ test('preserves exact schema and projection through reusable scopes', () => {
 		query.where((where) => where.gt('views', 100))
 	const recentPopular: QueryScope<typeof postSchema> = (query) =>
 		query.use(popular).descending('createdAt')
-	const selected = new Query(postSchema)
+	const selected = new QueryBuilder(postSchema)
 		.select({ id: true, title: true })
 		.use(recentPopular)
 
 	expectTypeOf(selected).toEqualTypeOf<
-		Query<typeof postSchema, 'id' | 'title'>
+		QueryBuilder<typeof postSchema, 'id' | 'title'>
 	>()
 
 	const commentSchema = Schema.define({
@@ -33,7 +33,7 @@ test('preserves exact schema and projection through reusable scopes', () => {
 
 	expect(commentSchema.className).toBe('Comment')
 	// @ts-expect-error -- Scopes cannot cross exact schema definitions.
-	new Query(postSchema).use(comments)
+	new QueryBuilder(postSchema).use(comments)
 	const selecting: QueryScope<typeof postSchema> = (query) =>
 		// @ts-expect-error -- Scope outputs cannot silently widen the projection.
 		query.select({ id: true })

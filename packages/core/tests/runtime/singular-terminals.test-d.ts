@@ -1,6 +1,7 @@
 import {
 	increment,
 	intField,
+	QueryBuilder,
 	stringField,
 	Schema,
 	type InferQueryResult,
@@ -25,21 +26,23 @@ declare const ultimabase: UltimaBase<
 >
 declare const context: RequestContext
 
-test('preserves Query schema selection across every read terminal', () => {
-	const query = articleSchema.query().select({ id: true, title: true })
+test('preserves schema selection across every root read terminal', () => {
+	const input = { select: { id: true, title: true } } as const
 
-	expectTypeOf(query.findMany()).toEqualTypeOf<
+	expectTypeOf(articleSchema.findMany(input)).toEqualTypeOf<
 		Promise<readonly InferQueryResult<typeof articleSchema, 'id' | 'title'>[]>
 	>()
-	expectTypeOf(query.findOne()).toEqualTypeOf<
+	expectTypeOf(articleSchema.findOne(input)).toEqualTypeOf<
 		Promise<InferQueryResult<typeof articleSchema, 'id' | 'title'> | null>
 	>()
-	expectTypeOf(query.get('article-1')).toEqualTypeOf<
+	expectTypeOf(
+		articleSchema.get({ id: 'article-1', select: input.select }),
+	).toEqualTypeOf<
 		Promise<InferQueryResult<typeof articleSchema, 'id' | 'title'> | null>
 	>()
-	expectTypeOf(query.count()).toEqualTypeOf<Promise<number>>()
-	expectTypeOf(query.exists()).toEqualTypeOf<Promise<boolean>>()
-	expectTypeOf(query.findMany({ ultimabase })).toEqualTypeOf<
+	expectTypeOf(articleSchema.count()).toEqualTypeOf<Promise<number>>()
+	expectTypeOf(articleSchema.exists()).toEqualTypeOf<Promise<boolean>>()
+	expectTypeOf(articleSchema.findMany(input, { ultimabase })).toEqualTypeOf<
 		Promise<readonly InferQueryResult<typeof articleSchema, 'id' | 'title'>[]>
 	>()
 	expectTypeOf(
@@ -150,11 +153,14 @@ test('preserves Query schema selection across every read terminal', () => {
 	} as const satisfies QueryTerminalOptions
 
 	// Every terminal shares the same final trusted-backend authority boundary.
-	void query.findMany(masterOptions)
-	void query.findOne(contextOptions)
-	void query.get('article-1', contextualMasterOptions)
-	void query.count(masterOptions)
-	void query.exists(contextOptions)
+	void articleSchema.findMany(input, masterOptions)
+	void articleSchema.findOne(input, contextOptions)
+	void articleSchema.get(
+		{ id: 'article-1', select: input.select },
+		contextualMasterOptions,
+	)
+	void articleSchema.count({}, masterOptions)
+	void articleSchema.exists({}, contextOptions)
 	void articleSchema.createOne(
 		{ data: { title: 'Created' } },
 		contextualMasterOptions,
@@ -207,17 +213,17 @@ test('preserves Query schema selection across every read terminal', () => {
 	void articleSchema.deleteMany({ where: 'all' }, contextualMasterOptions)
 
 	// @ts-expect-error -- Read terminals accept only their final execution options.
-	void query.findMany({ atomic: false })
+	void articleSchema.findMany(undefined, { atomic: false })
 	// @ts-expect-error -- Master selection is a positive trusted-code flag, not transport data.
-	void query.findMany({ useMasterKey: false })
-	// @ts-expect-error -- Query terminals remain credential-neutral.
-	void query.findMany({ sessionToken: 'transport-secret' })
+	void articleSchema.findMany(undefined, { useMasterKey: false })
+	// @ts-expect-error -- Read terminals remain credential-neutral.
+	void articleSchema.findMany(undefined, { sessionToken: 'transport-secret' })
 	// @ts-expect-error -- Mutation execution options follow the mutation input.
 	void articleSchema.createOne({ data: { ultimabase } }, { title: 'Created' })
 	// @ts-expect-error -- Singular update aliases never accept a collection input.
 	void articleSchema.updateOne([{ views: increment(1) }])
 	// @ts-expect-error -- Singular delete commands require their target wrapper.
 	void articleSchema.deleteOne([])
-	// @ts-expect-error -- Terminal ownership never becomes a Query builder option.
-	articleSchema.query({ ultimabase })
+	// @ts-expect-error -- Terminal ownership never becomes a QueryBuilder constructor option.
+	new QueryBuilder(articleSchema, { ultimabase })
 })

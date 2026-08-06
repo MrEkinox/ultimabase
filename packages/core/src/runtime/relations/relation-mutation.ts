@@ -16,7 +16,7 @@ import type {
 import { FrameworkError } from '../../foundation.js'
 import { normalizeLogicalFilter } from '../../query/filters/logical.js'
 import { createQueryValueFilter } from '../../query/filters/factory.js'
-import { Query } from '../../query/query/query.js'
+import { QueryBuilder } from '../../query/query/query.js'
 import {
 	Pointer,
 	Schema,
@@ -136,7 +136,7 @@ export const createRelationTargetLookup = <TSchema extends SchemaDefinition>(
 	operation: FindOneOperationAst<TSchema>
 	rowFilter: DatabaseRowFilterNode
 }> => {
-	const query = new Query(pointer.schema)
+	const query = new QueryBuilder(pointer.schema)
 	const rowFilter = createQueryValueFilter(
 		pointer.schema,
 		'equal',
@@ -169,7 +169,7 @@ export const createInversePointerTargetLookup = <
 	operation: FindManyOperationAst<TTarget>
 	rowFilter: DatabaseRowFilterNode
 }> => {
-	const query = new Query(target)
+	const query = new QueryBuilder(target)
 	const rowFilter = createQueryValueFilter(
 		target,
 		'equal',
@@ -199,7 +199,7 @@ export const createInversePointerUpdate = <
 	operation: UpdateOneOperationAst<TTarget, UpdateExpressionNode>
 	rowFilter: DatabaseRowFilterNode
 }> => {
-	const query = new Query(target.schema)
+	const query = new QueryBuilder(target.schema)
 	const idFilter = createQueryValueFilter(
 		target.schema,
 		'equal',

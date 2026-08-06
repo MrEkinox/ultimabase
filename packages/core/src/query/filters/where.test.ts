@@ -10,7 +10,7 @@ import {
 	stringField,
 } from '../../schema/index.js'
 import { fieldPath } from './factory.js'
-import { Query } from '../query/query.js'
+import { QueryBuilder } from '../query/query.js'
 import { WhereBuilder, normalizeWhereInput } from './where.js'
 
 const Tag = Schema.define({
@@ -39,7 +39,7 @@ const Post = Schema.define({
 
 describe('WhereInput', () => {
 	it('normalizes fields, logic, paths, and relations into the existing AST', () => {
-		const query = new Query(Post).where({
+		const query = new QueryBuilder(Post).where({
 			published: { eq: false },
 			views: { gte: 0, lt: 100 },
 			profile: {
@@ -70,8 +70,8 @@ describe('WhereInput', () => {
 		candidates.push(20)
 
 		const built = builder.build()
-		const fromBuilder = new Query(Post).where(builder)
-		const fromObject = new Query(Post).where(built)
+		const fromBuilder = new QueryBuilder(Post).where(builder)
+		const fromObject = new QueryBuilder(Post).where(built)
 
 		expect(base.build()).toStrictEqual({ published: { eq: false } })
 		expect(fromObject.ast.where).toStrictEqual(fromBuilder.ast.where)
@@ -81,13 +81,13 @@ describe('WhereInput', () => {
 	})
 
 	it('accepts the short callback builder without exposing a second vocabulary', () => {
-		const callback = new Query(Post).where((where) =>
+		const callback = new QueryBuilder(Post).where((where) =>
 			where
 				.eq('published', false)
 				.gte('views', 0)
 				.matches('title', { flags: [], source: '^Ultima' }),
 		)
-		const direct = new Query(Post).where({
+		const direct = new QueryBuilder(Post).where({
 			published: { eq: false },
 			views: { gte: 0 },
 			title: { matches: { flags: [], source: '^Ultima' } },

@@ -4,7 +4,7 @@ import {
 	FrameworkError,
 } from '../../foundation.js'
 import {
-	Query,
+	QueryBuilder,
 	type CountOperationAst,
 	type CreateManyOperationAst,
 	type CreateOneOperationAst,
@@ -154,7 +154,7 @@ describe('native hook dispatcher', () => {
 			input: { profile: { name: '  Ada  ' } },
 			kind: 'create-one',
 			selection: { fields: [], kind: 'selection' },
-			schema: new Query(schema).ast.schema,
+			schema: new QueryBuilder(schema).ast.schema,
 		}) satisfies CreateOneOperationAst<typeof schema>
 		let operation = await validate({ context, operation: rawOperation })
 
@@ -270,8 +270,8 @@ describe('native hook dispatcher', () => {
 			inputs: immutableArray([{ title: ' First ' }, { title: ' Second ' }]),
 			kind: 'create-many',
 			options: immutableRecord({ atomic: true }),
-			selection: new Query(schema).ast.selection,
-			schema: new Query(schema).ast.schema,
+			selection: new QueryBuilder(schema).ast.selection,
+			schema: new QueryBuilder(schema).ast.schema,
 		}) satisfies CreateManyOperationAst<typeof schema>
 		const validated = await validate({ context, operation })
 		const resolved = await stages.resolveInput({
@@ -368,7 +368,7 @@ describe('native hook dispatcher', () => {
 			},
 			kind: 'create-one',
 			selection: { fields: [], kind: 'selection' },
-			schema: new Query(schema).ast.schema,
+			schema: new QueryBuilder(schema).ast.schema,
 		}) satisfies CreateOneOperationAst<typeof schema>
 
 		try {
@@ -466,7 +466,7 @@ describe('native hook dispatcher', () => {
 			},
 			kind: 'create-one',
 			selection: { fields: [], kind: 'selection' },
-			schema: new Query(schema).ast.schema,
+			schema: new QueryBuilder(schema).ast.schema,
 		}) satisfies CreateOneOperationAst<typeof schema>
 		const transformed = await stages.schemaBefore({ context, operation })
 
@@ -545,7 +545,7 @@ describe('native hook dispatcher', () => {
 			schemas: [schema],
 		})
 		const stages = createNativeHookStages(application)
-		const selectedQuery = new Query(schema).select({ title: true })
+		const selectedQuery = new QueryBuilder(schema).select({ title: true })
 		const findOperation: FindManyOperationAst<
 			typeof schema,
 			QueryFilterNode<typeof schema>,
@@ -648,8 +648,8 @@ describe('native hook dispatcher', () => {
 			fields: { title: stringField() },
 		})
 		const invalidHooks = [
-			() => new Query(otherSchema),
-			({ query }: { readonly query: Query<typeof otherSchema> }) =>
+			() => new QueryBuilder(otherSchema),
+			({ query }: { readonly query: QueryBuilder<typeof otherSchema> }) =>
 				query.select({ title: true }),
 		] as const
 
@@ -669,7 +669,7 @@ describe('native hook dispatcher', () => {
 			const stages = createNativeHookStages(application)
 			const operation = immutableRecord({
 				kind: 'find-many',
-				query: new Query(schema).ast,
+				query: new QueryBuilder(schema).ast,
 			}) satisfies FindManyOperationAst<typeof schema>
 
 			await expect(
@@ -695,12 +695,12 @@ describe('native hook dispatcher', () => {
 		const addInclusion = ({
 			query,
 		}: {
-			readonly query: Query<HookInputSchema>
+			readonly query: QueryBuilder<HookInputSchema>
 		}) => query.include('author', (target) => target.select({ name: true }))
 		const replaceInclusion = ({
 			query,
 		}: {
-			readonly query: Query<HookInputSchema>
+			readonly query: QueryBuilder<HookInputSchema>
 		}) =>
 			query.include('author', (target) =>
 				target.select({ name: true }).where((where) => where.eq('name', 'Ada')),
@@ -728,11 +728,11 @@ describe('native hook dispatcher', () => {
 		const stages = createNativeHookStages(application)
 		const addOperation = immutableRecord({
 			kind: 'find-many',
-			query: new Query(addSchema).ast,
+			query: new QueryBuilder(addSchema).ast,
 		}) satisfies FindManyOperationAst<typeof addSchema>
 		const replaceOperation = immutableRecord({
 			kind: 'find-many',
-			query: new Query(replaceSchema).include('author', (target) =>
+			query: new QueryBuilder(replaceSchema).include('author', (target) =>
 				target.select({ name: true }),
 			).ast,
 		}) satisfies FindManyOperationAst<typeof replaceSchema>

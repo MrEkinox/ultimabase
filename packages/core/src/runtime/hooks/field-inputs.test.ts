@@ -1,7 +1,7 @@
 import {
 	increment,
 	normalizeUpdateExpression,
-	Query,
+	QueryBuilder,
 	type CreateManyOperationAst,
 	type CreateOneOperationAst,
 	type DeleteOneOperationAst,
@@ -49,7 +49,7 @@ const traversalSchema = Schema.define({
 	},
 })
 
-const schemaNode = new Query(traversalSchema).ast.schema
+const schemaNode = new QueryBuilder(traversalSchema).ast.schema
 
 const createInput = (suffix: string) => ({
 	'literal.name': `literal-${suffix}`,
@@ -182,7 +182,7 @@ describe('runtime field inputs', () => {
 			inputs: [first, second],
 			kind: 'create-many',
 			options: { atomic: true },
-			selection: new Query(traversalSchema).ast.selection,
+			selection: new QueryBuilder(traversalSchema).ast.selection,
 			schema: schemaNode,
 		} satisfies CreateManyOperationAst<typeof traversalSchema>
 
@@ -210,7 +210,7 @@ describe('runtime field inputs', () => {
 		})
 		const operation = {
 			kind: 'update-one',
-			query: new Query(traversalSchema).ast,
+			query: new QueryBuilder(traversalSchema).ast,
 			update,
 		} as const
 
@@ -261,7 +261,7 @@ describe('runtime field inputs', () => {
 		const update = normalizeUpdateExpression(traversalSchema, {
 			'literal.name': 'update-value',
 		})
-		const query = new Query(traversalSchema).where((where) =>
+		const query = new QueryBuilder(traversalSchema).where((where) =>
 			where.eq('literal.name', 'lookup'),
 		)
 		const target = {
@@ -329,7 +329,7 @@ describe('runtime field inputs', () => {
 	it('does not synthesize field inputs for read or delete operations', async () => {
 		const operation = {
 			kind: 'delete-one',
-			query: new Query(traversalSchema).ast,
+			query: new QueryBuilder(traversalSchema).ast,
 		} satisfies DeleteOneOperationAst<typeof traversalSchema>
 
 		expect(

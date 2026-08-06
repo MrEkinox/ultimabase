@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest'
 
 import { Pointer, Schema, snapshotPointerValue } from '../../index.js'
+import {
+	registerQueryTerminalExecutionHandler,
+	runWithQueryExecution,
+	type QueryExecutionDispatcher,
+	type QueryTerminalPrivateScope,
+} from '../../query/operations/execution.js'
 
 const userSchema = Schema.define({ className: 'PointerUser', fields: {} })
 const otherSchema = Schema.define({ className: 'PointerOther', fields: {} })
@@ -45,16 +51,32 @@ describe('Pointer', () => {
 		expect(pointer.id).toBe(targetId)
 	})
 
-	it('builds one ordinary target query scoped by the pointer id', () => {
+	it('reads through one private target scope that hooks cannot discard', async () => {
 		const pointer = userSchema.pointer(targetId)
-		const query = pointer.query().select({ id: true })
+		let scope: QueryTerminalPrivateScope | undefined
+		let operation: unknown
+		const dispatcher: QueryExecutionDispatcher = {
+			execute: () => Promise.resolve(null),
+		}
 
-		expect(query.schema).toBe(userSchema)
-		// The identity is private Runtime state and cannot be serialized or removed by hooks.
-		expect(query.ast.where).toBeUndefined()
-		expect(query.ast.selection.fields).toStrictEqual([
-			{ kind: 'selected-field', field: 'id' },
-		])
+		registerQueryTerminalExecutionHandler(
+			dispatcher,
+			(nextOperation, _options, nextScope) => {
+				operation = nextOperation
+				scope = nextScope
+				return Promise.resolve(null)
+			},
+		)
+
+		await runWithQueryExecution({}, dispatcher, () =>
+			pointer.findOne({ select: { id: true } }),
+		)
+
+		expect(operation).toMatchObject({
+			kind: 'find-one',
+			query: { selection: { fields: [{ field: 'id' }] }, where: undefined },
+		})
+		expect(scope).toMatchObject({ kind: 'row-filter', objectId: targetId })
 	})
 
 	it('structurally shares trusted values at snapshot boundaries', () => {

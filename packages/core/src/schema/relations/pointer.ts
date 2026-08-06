@@ -1,7 +1,22 @@
 import { assertNonEmptyString, immutableRecord } from '@ultimabase/shared'
 
-import { Query, scopeQueryToObjectId } from '../../query/query/query.js'
+import type { QueryTerminalOptions } from '../../query/operations/execution.js'
 import type { OperationObjectId } from '../../query/operations/contracts.js'
+import type { InferQueryResult } from '../../query/query/result.js'
+import {
+	executeQueryExists,
+	executeQueryFindOne,
+	scopeQueryToObjectId,
+} from '../../query/query/query.js'
+import {
+	queryFromExistsInput,
+	queryFromFindOneInput,
+	type ExactReadInput,
+	type ExistsInput,
+	type FindOneInput,
+	type QueryIncludedPointerFromInput,
+	type QuerySelectedFieldFromInput,
+} from '../../query/query/input.js'
 import { Schema, type SchemaDefinition } from '../schema/definition.js'
 
 /** Describes the stable transport-neutral JSON identity of one pointer. */
@@ -95,18 +110,43 @@ export class Pointer<
 		)
 	}
 
-	/**
-	 * Builds an immutable Query scoped to this exact target without performing I/O.
-	 *
-	 * @example `await post.author.query().select({ id: true, name: true }).findOne()`
-	 */
-	query(): Query<TSchema> {
-		// Every schema receives Core's string UUID identifier, although an arbitrary
-		// schema generic cannot reduce that framework-owned intersection here.
-		return scopeQueryToObjectId(
-			new Query(this.#schema),
+	/** Reads this exact target through the ordinary read pipeline. */
+	findOne<const TInput extends FindOneInput<TSchema>>(
+		input: ExactReadInput<TSchema, TInput, FindOneInput<TSchema>>,
+		options?: QueryTerminalOptions,
+	): Promise<InferQueryResult<
+		TSchema,
+		QuerySelectedFieldFromInput<TSchema, TInput>,
+		QueryIncludedPointerFromInput<TSchema, TInput>
+	> | null>
+	/** Reads this exact target without applying a projection. */
+	findOne(
+		input?: undefined,
+		options?: QueryTerminalOptions,
+	): Promise<InferQueryResult<TSchema> | null>
+	findOne(
+		input: FindOneInput<TSchema> = {},
+		options?: QueryTerminalOptions,
+	): Promise<object | null> {
+		const query = scopeQueryToObjectId(
+			queryFromFindOneInput(this.#schema, input),
 			this.#id as OperationObjectId<TSchema>,
 		)
+
+		return executeQueryFindOne(query, options)
+	}
+
+	/** Tests whether this exact target exists and remains visible. */
+	exists(
+		input: ExistsInput<TSchema> = {},
+		options?: QueryTerminalOptions,
+	): Promise<boolean> {
+		const query = scopeQueryToObjectId(
+			queryFromExistsInput(this.#schema, input),
+			this.#id as OperationObjectId<TSchema>,
+		)
+
+		return executeQueryExists(query, options)
 	}
 
 	/** Serializes the logical identity without exposing database representation. */

@@ -1,12 +1,13 @@
 import { expectTypeOf, test } from 'vitest'
 
 import { RequestContext } from '../../runtime/context/request-context.js'
-import type { Query } from '../../query/query/query.js'
+import { QueryBuilder } from '../../query/query/query.js'
 import type { InferQueryResult } from '../../query/query/result.js'
 import type { NonAtomicBulkResult } from '../../query/operations/contracts.js'
 import type { SchemaWhere } from '../../query/operations/schema-commands.js'
 import { booleanField } from '../fields/builtins/boolean.js'
 import { objectField } from '../fields/builtins/object.js'
+import { pointerField } from '../fields/builtins/pointer.js'
 import { stringField } from '../fields/builtins/string.js'
 import { definePluginField } from '../fields/plugin.js'
 import type { InferCreateInput } from '../inference/types.js'
@@ -38,6 +39,22 @@ const Post = Schema.define({
 		}),
 		tags: stringField({ list: true }),
 		embedding: vectorField,
+	},
+})
+
+const Author = Schema.define({
+	className: 'Author',
+	fields: { name: stringField({ validation: { required: true } }) },
+})
+
+const Article = Schema.define({
+	className: 'Article',
+	fields: {
+		author: pointerField({
+			target: () => Author,
+			validation: { required: true },
+		}),
+		title: stringField({ validation: { required: true } }),
 	},
 })
 
@@ -107,8 +124,67 @@ test('infers exact immutable drafts from the generated constructor', () => {
 	})
 })
 
-test('exposes writes on the schema class and keeps Query read-only', () => {
-	const readQuery = Post.query().where((where) => where.eq('published', false))
+test('exposes writes on the schema class and keeps QueryBuilder read-only', () => {
+	const readQuery = new QueryBuilder(Post).where((where) =>
+		where.eq('published', false),
+	)
+
+	expectTypeOf(Post.findMany()).toEqualTypeOf<
+		Promise<readonly InferQueryResult<typeof Post>[]>
+	>()
+	expectTypeOf(
+		Post.findMany({
+			where: { published: { eq: true } },
+			select: { id: true, title: true },
+			orderBy: [{ createdAt: 'desc' }],
+			limit: 20,
+		}),
+	).toEqualTypeOf<
+		Promise<readonly InferQueryResult<typeof Post, 'id' | 'title'>[]>
+	>()
+	void Post.findMany({ cursor: true })
+	void Post.findMany({ cursor: true, select: { title: true } })
+	// @ts-expect-error -- Offset and cursor pagination are mutually exclusive.
+	void Post.findMany({ cursor: true, skip: 10 })
+	expectTypeOf(
+		Article.findOne({
+			select: { id: true, title: true },
+			include: {
+				author: { select: { id: true, name: true } },
+			},
+		}),
+	).toEqualTypeOf<
+		Promise<InferQueryResult<
+			typeof Article,
+			'id' | 'title' | 'author',
+			{
+				readonly field: 'author'
+				readonly target: typeof Author
+				readonly selected: 'id' | 'name'
+				readonly nested: never
+			}
+		> | null>
+	>()
+	expectTypeOf(
+		Post.get({ id: 'post-1', select: { title: true } }),
+	).toEqualTypeOf<Promise<InferQueryResult<typeof Post, 'title'> | null>>()
+	expectTypeOf(
+		Post.count({ where: { published: { eq: true } } }),
+	).toEqualTypeOf<Promise<number>>()
+	expectTypeOf(Post.exists({ where: {} })).toEqualTypeOf<Promise<boolean>>()
+	// @ts-expect-error -- Read inputs reject unknown top-level clauses.
+	void Post.findMany({ unknown: true })
+	// @ts-expect-error -- Read selections reject undeclared fields.
+	void Post.findMany({ select: { missing: true } })
+	const dynamicReadSelection = Math.random() > 0.5
+	// @ts-expect-error -- Dynamic flags cannot promise an exact read result.
+	void Post.findMany({ select: { title: dynamicReadSelection } })
+	// @ts-expect-error -- Ordering exposes only declared schema fields.
+	void Post.findMany({ orderBy: [{ missing: 'asc' }] })
+	// @ts-expect-error -- One ordering object cannot contain competing priorities.
+	void Post.findMany({ orderBy: [{ title: 'asc', createdAt: 'desc' }] })
+	// @ts-expect-error -- Included targets retain exact field selection.
+	void Article.findMany({ include: { author: { select: { missing: true } } } })
 
 	expectTypeOf(Post.createOne({ data: { title: 'Created' } })).toEqualTypeOf<
 		Promise<InferQueryResult<typeof Post>>
@@ -313,7 +389,7 @@ test('infers package-owned commands only on persisted results', async () => {
 	)
 	const draft = new Specialized({ title: 'Draft' })
 	const persisted = await draft.create({})
-	const queried = await Specialized.query().findOne()
+	const queried = await Specialized.findOne()
 
 	expectTypeOf(Specialized.category).toEqualTypeOf<'fixture'>()
 	expectTypeOf(draft).not.toHaveProperty('publish')
@@ -341,14 +417,14 @@ test('distinguishes draft and persisted states for the same visible fields', () 
 	>()
 })
 
-test('retains exact schema and selection types through static Query access', () => {
-	const query = Post.query().select({ id: true, title: true })
+test('retains exact schema and selection types through QueryBuilder inputs', () => {
+	const query = new QueryBuilder(Post).select({ id: true, title: true })
 	const selected = null as unknown as InferQueryResult<
 		typeof Post,
 		'id' | 'title'
 	>
 
-	expectTypeOf(query).toEqualTypeOf<Query<typeof Post, 'id' | 'title'>>()
+	expectTypeOf(query).toEqualTypeOf<QueryBuilder<typeof Post, 'id' | 'title'>>()
 	expectTypeOf(query.schema).toEqualTypeOf<typeof Post>()
 	expectTypeOf(selected.get('title')).toBeString()
 	expectTypeOf(selected.toJSON()).toEqualTypeOf<

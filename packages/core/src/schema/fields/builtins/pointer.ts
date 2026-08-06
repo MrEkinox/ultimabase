@@ -185,8 +185,8 @@ const normalizePointerMetadata = (
 
 /** Enforces the exact target schema whenever a pointer crosses a field boundary. */
 const createPointerSnapshot =
-	(target: SchemaTarget) =>
-	(value: unknown, path: string): Pointer => {
+	<const TTarget extends SchemaDefinition>(target: SchemaTarget<TTarget>) =>
+	(value: unknown, path: string): Pointer<TTarget> => {
 		const pointer = snapshotPointerValue(value, path)
 		const expectedTarget = target()
 
@@ -198,7 +198,8 @@ const createPointerSnapshot =
 			throw new TypeError(`${path} must point to ${expectedTarget.className}`)
 		}
 
-		return pointer
+		// Exact target identity is proven above at the only untyped field boundary.
+		return pointer as Pointer<TTarget>
 	}
 
 /**
@@ -230,10 +231,10 @@ export function pointerField<
 	>
 ): ResolvedPointerField<TTarget, TRequired, TImmutable>
 
-export function pointerField(
-	options: PointerFieldOptions,
+export function pointerField<const TTarget extends SchemaDefinition>(
+	options: PointerFieldOptions<TTarget>,
 	...invalidOptions: readonly never[]
-): PointerField {
+): PointerField<TTarget> {
 	// The rest parameter exists only to reject contradictory generic options.
 	void invalidOptions
 	assertFieldOptions(options)

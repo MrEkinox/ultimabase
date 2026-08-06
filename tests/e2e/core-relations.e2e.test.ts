@@ -18,14 +18,14 @@ describe('packed @ultimabase/core relation contracts', () => {
 		expect(languageFixture.diagnostics()).toStrictEqual([])
 	})
 
-	it('keeps Relation and target Query hovers exact and adapter-neutral', () => {
+	it('keeps Relation and target read hovers exact and adapter-neutral', () => {
 		const handle = languageFixture.readHover('relation-handle').display
 		const query = languageFixture.readHover('relation-query').display
 
 		expect(handle).toContain('Relation<')
 		expect(handle).toContain('"PackedRelationArticle"')
 		expect(handle).toContain('"PackedRelationTag"')
-		expect(query).toContain('Query<')
+		expect(query).toContain('Promise<')
 		expect(query).toContain('"PackedRelationTag"')
 		for (const display of [handle, query]) {
 			expect(display).not.toContain('RelationFieldOptions')

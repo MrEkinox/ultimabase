@@ -1,4 +1,5 @@
 import {
+	QueryBuilder,
 	relationField,
 	Schema,
 	stringField,
@@ -19,15 +20,16 @@ const PackedRelationArticle = Schema.define({
 
 declare const article: SchemaResult<typeof PackedRelationArticle>
 const /* hover:relation-handle */ tags = article.relation('tags')
-const /* hover:relation-query */ tagQuery = tags
-		.query()
-		.select({ id: true, label: true })
+const /* hover:relation-query */ tagQuery = tags.findMany({
+		select: { id: true, label: true },
+	})
 const connectTag = () =>
 	tags./* hover:relation-connect */ connect(PackedRelationTag.pointer('tag-id'))
-const relatedArticleQuery = PackedRelationArticle.query().where((where) =>
-	where./* hover:relation-predicate */ some('tags', (tag) =>
-		tag.eq('label', 'typed'),
-	),
+const relatedArticleQuery = new QueryBuilder(PackedRelationArticle).where(
+	(where) =>
+		where./* hover:relation-predicate */ some('tags', (tag) =>
+			tag.eq('label', 'typed'),
+		),
 )
 
 void tagQuery

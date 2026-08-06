@@ -156,7 +156,7 @@ describe('native schema hook IntelliSense', () => {
 		expect(createInput).not.toContain('SchemaDefinition<')
 		expect(createInput).not.toContain('OPAQUE_PERMISSION_CONFIG_MUST_NOT_LEAK')
 		expect(readHoverDisplay('update-expression')).toContain('UpdateExpression<')
-		expect(readHoverDisplay('query')).toContain('Query<')
+		expect(readHoverDisplay('query')).toContain('QueryBuilder<')
 		expect(readHoverDisplay('count-result')).toContain('number')
 		expect(readHoverDisplay('create-result')).toContain(
 			'readonly title: string;',

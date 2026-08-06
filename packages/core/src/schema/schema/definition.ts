@@ -28,8 +28,17 @@ import type {
 	SchemaUpsertOneInput,
 	SchemaUpsertManyInput,
 } from '../../query/operations/schema-commands.js'
-import type { Query } from '../../query/query/query.js'
 import type { InferQueryResult } from '../../query/query/result.js'
+import type {
+	CountInput,
+	ExactReadInput,
+	ExistsInput,
+	FindManyInput,
+	FindOneInput,
+	GetInput,
+	QueryIncludedPointerFromInput,
+	QuerySelectedFieldFromInput,
+} from '../../query/query/input.js'
 import type {
 	QuerySelectedField,
 	QuerySelection,
@@ -209,8 +218,77 @@ export interface SchemaClass<
 	new (
 		input: InferCreateInput<SchemaDefinition<TClassName, TFields, TExtensions>>,
 	): SchemaDraft<this>
-	/** Starts one fresh immutable Query without retaining execution state. */
-	query(): Query<this>
+	/**
+	 * Reads matching rows from one canonical object input.
+	 *
+	 * The command inherits the active request or accepts explicit root options.
+	 *
+	 * @example `await Post.findMany({ where: { published: { eq: true } } }, { ultimabase })`
+	 */
+	findMany<const TInput extends FindManyInput<this>>(
+		input: ExactReadInput<this, TInput, FindManyInput<this>>,
+		options?: QueryTerminalOptions,
+	): Promise<
+		readonly InferQueryResult<
+			this,
+			QuerySelectedFieldFromInput<this, TInput>,
+			QueryIncludedPointerFromInput<this, TInput>
+		>[]
+	>
+	/** Reads every visible row when no clauses are supplied. */
+	findMany(
+		input?: undefined,
+		options?: QueryTerminalOptions,
+	): Promise<readonly InferQueryResult<this>[]>
+	/**
+	 * Reads the first matching row or `null` from one canonical object input.
+	 *
+	 * @example `await Post.findOne({ orderBy: [{ createdAt: 'desc' }] })`
+	 */
+	findOne<const TInput extends FindOneInput<this>>(
+		input: ExactReadInput<this, TInput, FindOneInput<this>>,
+		options?: QueryTerminalOptions,
+	): Promise<InferQueryResult<
+		this,
+		QuerySelectedFieldFromInput<this, TInput>,
+		QueryIncludedPointerFromInput<this, TInput>
+	> | null>
+	/** Reads the first visible row when no clauses are supplied. */
+	findOne(
+		input?: undefined,
+		options?: QueryTerminalOptions,
+	): Promise<InferQueryResult<this> | null>
+	/**
+	 * Reads one exact identifier with its requested projection.
+	 *
+	 * @example `await Post.get({ id: postId, select: { title: true } })`
+	 */
+	get<const TInput extends GetInput<this>>(
+		input: ExactReadInput<this, TInput, GetInput<this>>,
+		options?: QueryTerminalOptions,
+	): Promise<InferQueryResult<
+		this,
+		QuerySelectedFieldFromInput<this, TInput>,
+		QueryIncludedPointerFromInput<this, TInput>
+	> | null>
+	/**
+	 * Counts rows matching the canonical object filter.
+	 *
+	 * @example `await Post.count({ where: { published: { eq: true } } })`
+	 */
+	count(
+		input?: CountInput<this>,
+		options?: QueryTerminalOptions,
+	): Promise<number>
+	/**
+	 * Tests whether one row matches the canonical object filter.
+	 *
+	 * @example `await Post.exists({ where: { slug: { eq: 'release' } } })`
+	 */
+	exists(
+		input?: ExistsInput<this>,
+		options?: QueryTerminalOptions,
+	): Promise<boolean>
 	/**
 	 * Creates one row and returns its selected model fields.
 	 *
@@ -640,7 +718,7 @@ const assertNoReservedFieldCollision = (fields: SchemaFields): void => {
  * })
  *
  * const draft = new Post({ title: "Hello" })
- * const query = Post.query().select({ id: true, title: true })
+ * const posts = await Post.findMany({ select: { id: true, title: true } })
  * ```
  */
 // A static class deliberately provides the class-first `Schema.define()` namespace.
@@ -664,7 +742,7 @@ export class Schema {
 	}
 
 	/**
-	 * Defines one final schema-specific class with typed drafts and Query access.
+	 * Defines one final schema-specific class with typed drafts and QueryBuilder access.
 	 *
 	 * @example
 	 * ```ts
@@ -726,7 +804,7 @@ export class Schema {
 	 * Defines one package-specialized schema with static helpers and persisted commands.
 	 *
 	 * Result commands are absent from drafts at the type level and validate trusted
-	 * persisted identity at runtime. Packages retain ordinary Query and relation
+	 * persisted identity at runtime. Packages retain ordinary QueryBuilder and relation
 	 * execution rather than receiving an adapter or application escape hatch.
 	 */
 	static defineWithCapabilities<

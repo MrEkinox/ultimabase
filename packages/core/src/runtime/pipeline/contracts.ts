@@ -189,7 +189,7 @@ export type RuntimeNativeDatabaseResultTransformStage = <
 	input: RuntimeNativeDatabaseResultStageInput<TOperation>,
 ) => MaybePromise<DatabaseOperationResult<TOperation>>
 
-/** Carries an exact policy projection when an empty Query selection means no fields. */
+/** Carries an exact policy projection when an empty QueryBuilder selection means no fields. */
 export interface RuntimeNativeResultStageInput<
 	TOperation extends DatabaseOperationAst,
 > extends RuntimeResultStageInput<TOperation> {

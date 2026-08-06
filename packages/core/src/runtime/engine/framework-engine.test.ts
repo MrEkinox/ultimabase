@@ -1,7 +1,7 @@
 import { FrameworkApplication, FrameworkError } from '../../foundation.js'
 import { RequestContextValue } from '../../access/index.js'
 import {
-	Query,
+	QueryBuilder,
 	type CreateOneOperationAst,
 	type FindManyOperationAst,
 } from '../../query/index.js'
@@ -52,7 +52,7 @@ const principalValue = new RequestContextValue<string>(
 
 const articleOperation = {
 	kind: 'find-many',
-	query: new Query(articleSchema).limit(10).ast,
+	query: new QueryBuilder(articleSchema).limit(10).ast,
 } satisfies FindManyOperationAst<typeof articleSchema>
 
 /** Produces complete records for the strict public result boundary. */
@@ -187,12 +187,12 @@ describe('FrameworkEngine', () => {
 			requestId: 'query-1',
 			source: requestSources.internal,
 		})
-		const query = articleSchema
-			.query()
-			.where((where) => where.eq('title', 'UltimaBase'))
+		const query = new QueryBuilder(articleSchema).where((where) =>
+			where.eq('title', 'UltimaBase'),
+		)
 		const foreignOperation = {
 			kind: 'find-many',
-			query: matchingClassSchema.query().ast,
+			query: new QueryBuilder(matchingClassSchema).ast,
 		} satisfies FindManyOperationAst<typeof matchingClassSchema>
 
 		expect('engine' in query).toBe(false)
@@ -228,7 +228,7 @@ describe('FrameworkEngine', () => {
 
 		const foreignOperation = {
 			kind: 'find-many',
-			query: new Query(matchingClassSchema).ast,
+			query: new QueryBuilder(matchingClassSchema).ast,
 		} satisfies FindManyOperationAst<typeof matchingClassSchema>
 
 		await expect(request.execute(foreignOperation)).rejects.toBeInstanceOf(
@@ -263,7 +263,7 @@ describe('FrameworkEngine', () => {
 		const operation = {
 			kind: 'create-one',
 			selection: { fields: [], kind: 'selection' },
-			schema: new Query(articleSchema).ast.schema,
+			schema: new QueryBuilder(articleSchema).ast.schema,
 			input: { title: 'Created' },
 		} satisfies CreateOneOperationAst<typeof articleSchema>
 
@@ -303,7 +303,7 @@ describe('FrameworkEngine', () => {
 		const mutation = {
 			kind: 'create-one',
 			selection: { fields: [], kind: 'selection' },
-			schema: new Query(articleSchema).ast.schema,
+			schema: new QueryBuilder(articleSchema).ast.schema,
 			input: { title: 'Must not execute' },
 		} satisfies CreateOneOperationAst<typeof articleSchema>
 
@@ -467,7 +467,7 @@ describe('FrameworkEngine', () => {
 			})
 			const secondOperation = {
 				kind: 'find-many',
-				query: new Query(matchingClassSchema).ast,
+				query: new QueryBuilder(matchingClassSchema).ast,
 			} satisfies FindManyOperationAst<typeof matchingClassSchema>
 
 			const [firstResult, secondResult] = await Promise.all([

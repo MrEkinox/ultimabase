@@ -3,7 +3,7 @@ import type {
 	CreateOneOperationAst,
 	FindManyOperationAst,
 } from '../../query/index.js'
-import { Query } from '../../query/query/query.js'
+import { QueryBuilder } from '../../query/query/query.js'
 import { Schema, stringField } from '../../schema/index.js'
 import type { DatabaseOperationResult } from '../database/contracts.js'
 import { describe, expect, it } from 'vitest'
@@ -21,7 +21,7 @@ describe('Runtime result materialization', () => {
 	it('rejects malformed collection and record outputs', () => {
 		const find = {
 			kind: 'find-many',
-			query: new Query(ResultSchema).ast,
+			query: new QueryBuilder(ResultSchema).ast,
 		} satisfies FindManyOperationAst<typeof ResultSchema>
 		const malformedCollection = 1 as unknown as DatabaseOperationResult<
 			typeof find
@@ -34,7 +34,7 @@ describe('Runtime result materialization', () => {
 		const create = {
 			kind: 'create-one',
 			selection: { fields: [], kind: 'selection' },
-			schema: new Query(ResultSchema).ast.schema,
+			schema: new QueryBuilder(ResultSchema).ast.schema,
 			input: { title: 'Created' },
 		} satisfies CreateOneOperationAst<typeof ResultSchema>
 		const malformedRecord = 'invalid' as unknown as DatabaseOperationResult<
@@ -67,8 +67,8 @@ describe('Runtime result materialization', () => {
 			inputs: [{ title: 'First' }, { title: 'Second' }],
 			kind: 'create-many',
 			options: { atomic: false },
-			selection: new Query(ResultSchema).ast.selection,
-			schema: new Query(ResultSchema).ast.schema,
+			selection: new QueryBuilder(ResultSchema).ast.selection,
+			schema: new QueryBuilder(ResultSchema).ast.schema,
 		} satisfies CreateManyOperationAst<typeof ResultSchema, false>
 		const writeError = new Error('second input failed')
 		const result: DatabaseOperationResult<typeof operation> = {

@@ -1,7 +1,7 @@
 import {
-	Query,
 	type Pointer,
 	type RelationField,
+	type SchemaClass,
 	type SchemaDefinition,
 } from '@ultimabase/core'
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
@@ -18,7 +18,7 @@ type MembershipMemberSchema = SchemaDefinition<
 	Readonly<Record<never, never>>
 >
 
-type MembershipRoleSchema = SchemaDefinition<
+type MembershipRoleSchema = SchemaClass<
 	string,
 	Readonly<{
 		readonly members: RelationField<MembershipMemberSchema>
@@ -101,27 +101,29 @@ export const resolveRoleMembershipGraph = async (
 	})
 }
 
-/** Resolves direct roles and their ancestors through ordinary protected Query. */
+/** Resolves direct roles and their ancestors through ordinary protected QueryBuilder. */
 export const resolveStoredRoleMembership = async (
 	schema: SchemaDefinition,
 	member: Pointer,
 ): Promise<RoleMembershipSnapshot> => {
 	const lookupSchema = schema as unknown as MembershipRoleSchema
-	const directRoles = await new Query(lookupSchema)
-		.where((where) =>
-			where.some('members', (candidate) => candidate.eq('id', member.id)),
-		)
-		.ascending('id')
-		.findMany({ useMasterKey: true })
+	const directRoles = await lookupSchema.findMany(
+		{
+			where: { members: { some: { id: { eq: member.id } } } },
+			orderBy: [{ id: 'asc' }],
+		},
+		{ useMasterKey: true },
+	)
 
 	return resolveRoleMembershipGraph(member.id, directRoles, async (role) => {
 		const roleId = readPersistedRoleId(role)
 
-		return new Query(lookupSchema)
-			.where((where) =>
-				where.some('roles', (candidate) => candidate.eq('id', roleId)),
-			)
-			.ascending('id')
-			.findMany({ useMasterKey: true })
+		return lookupSchema.findMany(
+			{
+				where: { roles: { some: { id: { eq: roleId } } } },
+				orderBy: [{ id: 'asc' }],
+			},
+			{ useMasterKey: true },
+		)
 	})
 }

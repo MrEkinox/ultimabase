@@ -313,13 +313,16 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 			{ ultimabase: app },
 		)
 
-		const page = await Post.query()
-			.where((where) => where.eq('title', 'Cursor order fixture'))
-			.select({ id: true })
-			.include('author', (query) => query.select({ name: true }))
-			.limit(2)
-			.after()
-			.findMany({ ultimabase: app })
+		const page = await Post.findMany(
+			{
+				where: { title: { eq: 'Cursor order fixture' } },
+				select: { id: true },
+				include: { author: { select: { name: true } } },
+				limit: 2,
+				cursor: true,
+			},
+			{ ultimabase: app },
+		)
 
 		expect(page.map(({ id }) => id)).toStrictEqual([lowerId, higherId])
 		expect(page.map(({ author: included }) => included?.name)).toStrictEqual([
@@ -349,11 +352,14 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 		expect(created.author).toBeInstanceOf(Pointer)
 		expect(created.author.equals(firstPointer)).toBe(true)
 
-		const included = await Post.query()
-			.where((where) => where.eq('author', firstPointer))
-			.select({ title: true })
-			.include('author', (query) => query.select({ name: true }))
-			.findOne({ ultimabase: app })
+		const included = await Post.findOne(
+			{
+				where: { author: { eq: firstPointer } },
+				select: { title: true },
+				include: { author: { select: { name: true } } },
+			},
+			{ ultimabase: app },
+		)
 
 		expect(included?.title).toBe('Typed pointer')
 		expect(included?.author?.toJSON()).toStrictEqual({ name: 'Ada' })
@@ -371,10 +377,10 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 
 		expect(renamedAuthor?.name).toBe('Ada Lovelace')
 
-		const directAuthor = await firstPointer
-			.query()
-			.select({ name: true })
-			.findOne({ ultimabase: app })
+		const directAuthor = await firstPointer.findOne(
+			{ select: { name: true } },
+			{ ultimabase: app },
+		)
 
 		expect(directAuthor?.toJSON()).toStrictEqual({ name: 'Ada Lovelace' })
 		expect(pointerTrace).toEqual(
@@ -405,10 +411,13 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 			),
 		).rejects.toBe(pointerRollbackError)
 
-		const afterRollback = await Post.query()
-			.where({ id: { eq: created.id } })
-			.select({ author: true, title: true })
-			.findOne({ ultimabase: app })
+		const afterRollback = await Post.findOne(
+			{
+				where: { id: { eq: created.id } },
+				select: { author: true, title: true },
+			},
+			{ ultimabase: app },
+		)
 
 		expect(afterRollback?.author.equals(secondPointer)).toBe(true)
 		expect(afterRollback?.title).toBe('Updated pointer')
@@ -417,9 +426,7 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 
 		expect(deleted?.author.equals(secondPointer)).toBe(true)
 		await expect(
-			Post.query()
-				.where({ id: { eq: created.id } })
-				.exists({ ultimabase: app }),
+			Post.exists({ where: { id: { eq: created.id } } }, { ultimabase: app }),
 		).resolves.toBe(false)
 	})
 
@@ -501,16 +508,12 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 
 		await expect(
 			runWithRequestEngine(request, () =>
-				User.query()
-					.where((where) => where.eq('name', 'Rolled back author'))
-					.exists(),
+				User.exists({ where: { name: { eq: 'Rolled back author' } } }),
 			),
 		).resolves.toBe(false)
 		await expect(
 			runWithRequestEngine(request, () =>
-				Post.query()
-					.where((where) => where.eq('title', 'Rolled back post'))
-					.exists(),
+				Post.exists({ where: { title: { eq: 'Rolled back post' } } }),
 			),
 		).resolves.toBe(false)
 	})
@@ -536,9 +539,10 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 			internalDetails: { driverCode: '23503' },
 		})
 		await expect(
-			RestrictedSource.query()
-				.where({ id: { eq: restrictedSource.id } })
-				.exists({ ultimabase: app }),
+			RestrictedSource.exists(
+				{ where: { id: { eq: restrictedSource.id } } },
+				{ ultimabase: app },
+			),
 		).resolves.toBe(true)
 
 		const cascadeTarget = await CascadeTarget.createOne(
@@ -555,9 +559,10 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 			{ ultimabase: app },
 		)
 		await expect(
-			CascadeSource.query()
-				.where({ id: { eq: cascadeSource.id } })
-				.exists({ ultimabase: app }),
+			CascadeSource.exists(
+				{ where: { id: { eq: cascadeSource.id } } },
+				{ ultimabase: app },
+			),
 		).resolves.toBe(false)
 
 		const nullableTarget = await NullableTarget.createOne(
@@ -573,11 +578,14 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 			{ where: (where) => where.eq('id', nullableTarget.id) },
 			{ ultimabase: app },
 		)
-		const detached = await NullableSource.query()
-			.where({ id: { eq: nullableSource.id } })
-			.select({ target: true })
-			.include('target', (query) => query.select({ label: true }))
-			.findOne({ ultimabase: app })
+		const detached = await NullableSource.findOne(
+			{
+				where: { id: { eq: nullableSource.id } },
+				select: { target: true },
+				include: { target: { select: { label: true } } },
+			},
+			{ ultimabase: app },
+		)
 
 		expect(detached?.target).toBeNull()
 	})
@@ -592,12 +600,16 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 			{ data: { target: PrivateTarget.pointer(target.id) } },
 			{ ultimabase: app },
 		)
-		const query = PrivateSource.query()
-			.where({ id: { eq: source.id } })
-			.select({ target: true })
-			.include('target', (targetQuery) => targetQuery.select({ label: true }))
-		const denied = await query.findOne({ ultimabase: app })
-		const allowed = await query.findOne({ ultimabase: app, useMasterKey: true })
+		const query = {
+			where: { id: { eq: source.id } },
+			select: { target: true },
+			include: { target: { select: { label: true } } },
+		} as const
+		const denied = await PrivateSource.findOne(query, { ultimabase: app })
+		const allowed = await PrivateSource.findOne(query, {
+			ultimabase: app,
+			useMasterKey: true,
+		})
 		const deletedTarget = await NullableTarget.createOne(
 			{ data: { label: 'deleted' } },
 			{ ultimabase: app },
@@ -608,11 +620,14 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 		)
 
 		await deletedTarget.delete({}, { ultimabase: app })
-		const detached = await NullableSource.query()
-			.where({ id: { eq: detachedSource.id } })
-			.select({ target: true })
-			.include('target', (targetQuery) => targetQuery.select({ label: true }))
-			.findOne({ ultimabase: app })
+		const detached = await NullableSource.findOne(
+			{
+				where: { id: { eq: detachedSource.id } },
+				select: { target: true },
+				include: { target: { select: { label: true } } },
+			},
+			{ ultimabase: app },
+		)
 
 		expect(denied?.target).toBeNull()
 		expect(denied?.target).toBe(detached?.target)
@@ -639,10 +654,13 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 			{ where: (where) => where.eq('id', left.id) },
 			{ ultimabase: app },
 		)
-		const detachedRight = await CircularRight.query()
-			.where({ id: { eq: right.id } })
-			.select({ left: true })
-			.findOne({ ultimabase: app })
+		const detachedRight = await CircularRight.findOne(
+			{
+				where: { id: { eq: right.id } },
+				select: { left: true },
+			},
+			{ ultimabase: app },
+		)
 
 		expect(detachedRight?.left).toBeNull()
 	})

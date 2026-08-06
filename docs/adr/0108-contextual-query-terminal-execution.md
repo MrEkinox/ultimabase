@@ -1,10 +1,11 @@
 # ADR-0108: Contextual Query terminal execution
 
-- Status: accepted
+- Status: superseded
 - Date: 2026-08-03
 - Refines: ADR-0058, ADR-0065, ADR-0066, ADR-0067, ADR-0069, ADR-0071, ADR-0074, ADR-0094, ADR-0107
 - Supersedes: ADR-0061, ADR-0092
 - Refined by: ADR-0109, ADR-0110, ADR-0113, ADR-0114
+- Superseded by: ADR-0152
 
 ## Context
 

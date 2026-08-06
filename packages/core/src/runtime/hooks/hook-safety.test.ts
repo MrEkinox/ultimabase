@@ -387,7 +387,7 @@ describe('hook execution safety', () => {
 		)
 
 		await expect(
-			runWithRequestEngine(engine, () => schema.query().findMany()),
+			runWithRequestEngine(engine, () => schema.findMany()),
 		).resolves.toStrictEqual([])
 		expect(events.map(({ phase }) => phase)).toStrictEqual([
 			'before-operation',

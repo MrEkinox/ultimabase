@@ -19,7 +19,7 @@ import {
 	jsonField,
 	normalizeUpdateExpression,
 	objectField,
-	Query,
+	QueryBuilder,
 	RequestContext,
 	RequestContextValue,
 	requestSources,
@@ -173,14 +173,17 @@ const allFieldValues = {
 	wakeAt: '08:30:00.456',
 } as const
 
-// These side-effect-free values also exercise packed constructor and static Query declarations.
+// These side-effect-free values also exercise packed constructor and QueryBuilder declarations.
 const packedDraft = new PostSchema({ title: 'Packed draft' })
 const PackedModelSchema = Schema.define({
 	className: 'PackedModel',
 	fields: { title: stringField() },
 })
 const packedModelDraft = new PackedModelSchema({ title: 'Packed model draft' })
-const packedQuery = PostSchema.query().select({ id: true, title: true })
+const packedQuery = new QueryBuilder(PostSchema).select({
+	id: true,
+	title: true,
+})
 const packedNonAtomicCreate = () =>
 	PostSchema.createMany(
 		{ data: [{ title: 'Packed bulk draft' }] },
@@ -190,9 +193,9 @@ const packedNonAtomicCreate = () =>
 	)
 declare const packedContext: RequestContext
 const packedMasterFind = () =>
-	PostSchema.query().findMany({ useMasterKey: true })
+	PostSchema.findMany(undefined, { useMasterKey: true })
 const packedContextFind = () =>
-	PostSchema.query().findMany({ context: packedContext })
+	PostSchema.findMany(undefined, { context: packedContext })
 const packedDraftCreate = () =>
 	packedModelDraft.create({}, { useMasterKey: true })
 declare const packedResult: SchemaResult<
@@ -441,14 +444,16 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 				expect(partial.error).toMatchObject({ code: 'VALIDATION_ERROR' })
 			}
 			await expect(
-				BulkAccountSchema.query()
-					.where((where) => where.eq('email', 'prefix@example.com'))
-					.exists({ ultimabase }),
+				BulkAccountSchema.exists(
+					{ where: { email: { eq: 'prefix@example.com' } } },
+					{ ultimabase },
+				),
 			).resolves.toBe(true)
 			await expect(
-				BulkAccountSchema.query()
-					.where((where) => where.eq('email', 'suffix@example.com'))
-					.exists({ ultimabase }),
+				BulkAccountSchema.exists(
+					{ where: { email: { eq: 'suffix@example.com' } } },
+					{ ultimabase },
+				),
 			).resolves.toBe(false)
 
 			await expect(
@@ -471,9 +476,10 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 				),
 			).rejects.toMatchObject({ code: 'VALIDATION_ERROR' })
 			await expect(
-				BulkAccountSchema.query()
-					.where((where) => where.eq('tenantId', 'tenant-atomic'))
-					.exists({ ultimabase }),
+				BulkAccountSchema.exists(
+					{ where: { tenantId: { eq: 'tenant-atomic' } } },
+					{ ultimabase },
+				),
 			).resolves.toBe(false)
 
 			const concurrent = await Promise.all([
@@ -561,10 +567,10 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 				},
 				{ ultimabase },
 			)
-			const selected = await BulkAccountSchema.query()
-				.where({ id: { eq: created.id } })
-				.select({ email: true })
-				.findOne({ ultimabase })
+			const selected = await BulkAccountSchema.findOne(
+				{ where: { id: { eq: created.id } }, select: { email: true } },
+				{ ultimabase },
+			)
 
 			if (selected === null) {
 				throw new TypeError(
@@ -639,14 +645,16 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 			await expect(selected.exists({ ultimabase })).resolves.toBe(false)
 			await expect(selected.fetch({}, { ultimabase })).resolves.toBeNull()
 			await expect(
-				BulkAccountSchema.query()
-					.where({ id: { eq: created.id } })
-					.exists({ ultimabase }),
+				BulkAccountSchema.exists(
+					{ where: { id: { eq: created.id } } },
+					{ ultimabase },
+				),
 			).resolves.toBe(false)
 			await expect(
-				BulkAccountSchema.query()
-					.where((where) => where.eq('email', upserted.email))
-					.exists({ ultimabase }),
+				BulkAccountSchema.exists(
+					{ where: { email: { eq: upserted.email } } },
+					{ ultimabase },
+				),
 			).resolves.toBe(true)
 		} finally {
 			await ultimabase.dispose()
@@ -675,10 +683,10 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 				throw new TypeError('Expected two identity fixtures')
 			}
 
-			const reordered = await AfterReadIdentitySchema.query()
-				.ascending('title')
-				.select({ title: true })
-				.findMany({ ultimabase })
+			const reordered = await AfterReadIdentitySchema.findMany(
+				{ orderBy: [{ title: 'asc' }], select: { title: true } },
+				{ ultimabase },
+			)
 			const selected = reordered[0]
 
 			expect(reordered.map(({ title }) => title)).toStrictEqual([
@@ -695,14 +703,14 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 				{ ultimabase },
 			)
 
-			const persistedFirst = await AfterReadIdentitySchema.query()
-				.where({ id: { eq: first.id } })
-				.select({ title: true })
-				.findOne({ ultimabase })
-			const persistedSecond = await AfterReadIdentitySchema.query()
-				.where({ id: { eq: second.id } })
-				.select({ title: true })
-				.findOne({ ultimabase })
+			const persistedFirst = await AfterReadIdentitySchema.findOne(
+				{ where: { id: { eq: first.id } }, select: { title: true } },
+				{ ultimabase },
+			)
+			const persistedSecond = await AfterReadIdentitySchema.findOne(
+				{ where: { id: { eq: second.id } }, select: { title: true } },
+				{ ultimabase },
+			)
 
 			expect(persistedFirst?.title).toBe('First')
 			expect(persistedSecond?.title).toBe('Second updated')
@@ -760,7 +768,7 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 				'Query terminal create-one on RuntimeAuthorityRecord',
 			])
 			await expect(
-				AuthorityRecordSchema.query().count({ ultimabase }),
+				AuthorityRecordSchema.count(undefined, { ultimabase }),
 			).resolves.toBe(2)
 		} finally {
 			await ultimabase.dispose()
@@ -789,9 +797,10 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 				{ data: { title: 'commit' } },
 				{ ultimabase },
 			)
-			const audits = await HookAuditSchema.query()
-				.select({ action: true })
-				.findMany({ ultimabase })
+			const audits = await HookAuditSchema.findMany(
+				{ select: { action: true } },
+				{ ultimabase },
+			)
 
 			expect(committed).toBeInstanceOf(HookPostSchema)
 			expect(committed.toJSON()).toMatchObject({ title: 'commit' })
@@ -809,14 +818,16 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 				),
 			).rejects.toBe(hookRollbackError)
 			await expect(
-				HookPostSchema.query()
-					.where((where) => where.eq('title', 'rollback'))
-					.exists({ ultimabase }),
+				HookPostSchema.exists(
+					{ where: { title: { eq: 'rollback' } } },
+					{ ultimabase },
+				),
 			).resolves.toBe(false)
 			await expect(
-				HookAuditSchema.query()
-					.where((where) => where.eq('action', 'create:rollback'))
-					.exists({ ultimabase }),
+				HookAuditSchema.exists(
+					{ where: { action: { eq: 'create:rollback' } } },
+					{ ultimabase },
+				),
 			).resolves.toBe(false)
 		} finally {
 			await ultimabase.dispose()
@@ -869,11 +880,16 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 			expect(created.id).toMatch(uuidV7Pattern)
 			expect(created.attachment).not.toBe(allFieldValues.attachment)
 
-			const found = await PostSchema.query()
-				.where((where) => where.eq('published', false))
-				.where((where) => where.gte('views', 0))
-				.select({ id: true, title: true })
-				.findMany({ ultimabase })
+			const found = await PostSchema.findMany(
+				{
+					where: {
+						published: { eq: false },
+						views: { gte: 0 },
+					},
+					select: { id: true, title: true },
+				},
+				{ ultimabase },
+			)
 
 			expect(found.every((post) => post instanceof PostSchema)).toBe(true)
 			expect(found.map((post) => post.toJSON())).toStrictEqual([
@@ -914,9 +930,10 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 				title: 'Persisted E2E',
 			})
 			await expect(
-				PostSchema.query()
-					.where((where) => where.eq('id', created.id))
-					.findMany({ ultimabase }),
+				PostSchema.findMany(
+					{ where: { id: { eq: created.id } } },
+					{ ultimabase },
+				),
 			).resolves.toStrictEqual([])
 
 			const selectedCreate = await PostSchema.createOne(
@@ -936,8 +953,8 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 				{ where: { id: { eq: selectedCreate.id } } },
 				{ ultimabase },
 			)
-			await expect(PostSchema.query().count({ ultimabase })).resolves.toBe(0)
-			await expect(PostSchema.query().exists({ ultimabase })).resolves.toBe(
+			await expect(PostSchema.count(undefined, { ultimabase })).resolves.toBe(0)
+			await expect(PostSchema.exists(undefined, { ultimabase })).resolves.toBe(
 				false,
 			)
 		} finally {
@@ -986,10 +1003,10 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 			expect(committed).toBeInstanceOf(PostSchema)
 
 			const found = await runWithRequestEngine(request, () =>
-				PostSchema.query()
-					.where((where) => where.eq('id', committed.id))
-					.select({ id: true, title: true })
-					.findOne(),
+				PostSchema.findOne({
+					where: { id: { eq: committed.id } },
+					select: { id: true, title: true },
+				}),
 			)
 
 			expect(found).toBeInstanceOf(PostSchema)
@@ -1010,9 +1027,9 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 			).rejects.toBe(rollbackError)
 			await expect(
 				runWithRequestEngine(request, () =>
-					PostSchema.query()
-						.where((where) => where.eq('title', 'Rolled back transaction'))
-						.exists(),
+					PostSchema.exists({
+						where: { title: { eq: 'Rolled back transaction' } },
+					}),
 				),
 			).resolves.toBe(false)
 
@@ -1048,7 +1065,7 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 				{ data: { title: 'Original update target' } },
 				{ ultimabase },
 			)
-			const updateQuery = new Query(PostSchema)
+			const updateQuery = new QueryBuilder(PostSchema)
 				.where((where) => where.eq('id', updatedTarget.id))
 				.select({ id: true, title: true })
 			const firstUpdate = normalizeUpdateExpression(PostSchema, {
@@ -1096,7 +1113,7 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 				{ data: { title: 'Stable delete target' } },
 				{ ultimabase },
 			)
-			const deleteQuery = new Query(PostSchema)
+			const deleteQuery = new QueryBuilder(PostSchema)
 				.where((where) => where.eq('id', deletedTarget.id))
 				.select({ id: true, title: true })
 			const deleteTransaction = await adapter.beginTransaction()

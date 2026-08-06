@@ -40,7 +40,7 @@ import type {
 } from './primitive.js'
 import type { OperationObjectId } from '../operations/contracts.js'
 
-/** Bounds portable relation recursion before an adapter sees the Query AST. */
+/** Bounds portable relation recursion before an adapter sees the QueryBuilder AST. */
 export const queryRelationPredicateMaxDepth = 8 as const
 
 /** Selects the collection quantifier applied to one exact relation field. */
@@ -450,7 +450,7 @@ export class RelationPredicate<TSchema extends SchemaDefinition> {
 		return readPredicateState(this).schema
 	}
 
-	/** Supplies only trusted Query assembly with the normalized expression. */
+	/** Supplies only trusted QueryBuilder assembly with the normalized expression. */
 	toExpression(): QueryFilterNode<TSchema> {
 		return (
 			readPredicateState(this).expression ??
@@ -576,7 +576,7 @@ const createEmptyRelationPredicate = <TSchema extends SchemaDefinition>(
 	return predicate
 }
 
-/** Builds one exact immutable relation node for the public Query class. */
+/** Builds one exact immutable relation node for the public QueryBuilder class. */
 export const createQueryRelationPredicate = <
 	TSource extends SchemaDefinition,
 	TFieldName extends SchemaRelationFieldName<TSource>,

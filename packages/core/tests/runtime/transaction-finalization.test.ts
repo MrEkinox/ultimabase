@@ -141,7 +141,7 @@ describe('native transaction hook finalization', () => {
 		)
 
 		await expect(
-			runWithRequestEngine(request, () => schema.query().findMany()),
+			runWithRequestEngine(request, () => schema.findMany()),
 		).rejects.toBe(readError)
 		expect(trace).toStrictEqual([
 			'execute:find-many',
@@ -168,7 +168,7 @@ describe('native transaction hook finalization', () => {
 			},
 			hooks: {
 				afterCommit: ({ result }) => {
-					expect(() => schema.query().findMany()).toThrow(
+					expect(() => schema.findMany()).toThrow(
 						expect.objectContaining({ code: 'MISSING_EXECUTION_CONTEXT' }),
 					)
 					trace.push(`schema:afterCommit:${readResultTitle(result)}`)

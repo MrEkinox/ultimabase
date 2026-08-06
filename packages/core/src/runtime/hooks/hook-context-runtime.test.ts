@@ -7,6 +7,7 @@ import {
 	type JsonObject,
 } from '../../schema/index.js'
 import { describe, expect, it } from 'vitest'
+import { QueryBuilder } from '../../query/query/query.js'
 
 import { UltimaBase } from '../application/ultima-base.js'
 import { RequestContext, requestSources } from '../context/request-context.js'
@@ -212,7 +213,7 @@ describe('HookContext Runtime capabilities', () => {
 		expect(transactionIds[1]).toBe(transactionIds[0])
 		expect(nestedAccessModes).toStrictEqual(['master'])
 		expect(auditReasons).toStrictEqual([
-			'Query terminal create-one on HookContextAudit',
+			'QueryBuilder terminal create-one on HookContextAudit',
 		])
 		expect(trace).toStrictEqual([
 			'adapter:begin',
@@ -281,8 +282,8 @@ describe('HookContext Runtime capabilities', () => {
 			hooks: {
 				beforeCreate: ({ context, operation }) => {
 					escapedContext = context
-					const query = PostSchema.query()
-					runEscapedQuery = () => query.findMany()
+					const query = new QueryBuilder(PostSchema)
+					runEscapedQuery = () => PostSchema.findMany(query.build())
 
 					return operation
 				},
@@ -372,7 +373,7 @@ describe('HookContext Runtime capabilities', () => {
 			fields: { title: stringField({ validation: { required: true } }) },
 			hooks: {
 				beforeCommit: () => {
-					void FinalizationReadSchema.query().findMany()
+					void FinalizationReadSchema.findMany()
 				},
 			},
 		})
@@ -415,7 +416,7 @@ describe('HookContext Runtime capabilities', () => {
 			hooks: {
 				beforeCreate: async ({ operation }) => {
 					try {
-						await ForeignSchema.query().findMany()
+						await ForeignSchema.findMany()
 					} catch (error: unknown) {
 						foreignError = error
 					}
@@ -729,7 +730,7 @@ describe('HookContext Runtime capabilities', () => {
 
 		await ultimabase.start()
 		await expect(
-			ReadSchema.query().findMany({ ultimabase }),
+			ReadSchema.findMany(undefined, { ultimabase }),
 		).rejects.toMatchObject({
 			code: 'TRANSACTION_ERROR',
 			internalDetails: { reason: 'hook-event-transaction-required' },

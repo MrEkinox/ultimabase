@@ -51,13 +51,12 @@ handles keep those choices separate from model values:
 ```ts
 declare const user: SchemaResult<typeof UserSchema>
 
-const recentPosts = user
-	.relation('posts')
-	.query()
-	.select({ id: true, title: true })
-	.descending('createdAt')
-	.limit(20)
-	.after()
+const recentPosts = await user.relation('posts').findMany({
+	select: { id: true, title: true },
+	orderBy: [{ createdAt: 'desc' }],
+	limit: 20,
+	cursor: true,
+})
 ```
 
 The same handle owns atomic mutation intent without exposing join rows:
@@ -72,7 +71,7 @@ await user.relation('posts').clear()
 ```
 
 Every call inherits the active request or accepts the same terminal options as
-a Query. It runs source update Access and hooks inside one transaction; inverse
+a schema read. It runs source update Access and hooks inside one transaction; inverse
 pointer relations also run the target pointer update lifecycle. A database
 adapter must advertise relation support. PostgreSQL implements scoped reads,
 owning join storage, inverse traversal, mutations, and cleanup.
@@ -80,9 +79,9 @@ owning join storage, inverse traversal, mutations, and cleanup.
 Source Queries can filter without materializing related collections:
 
 ```ts
-const authorsWithTypedPosts = await UserSchema.query()
-	.where({ posts: { some: { title: { contains: 'TypeScript' } } } })
-	.findMany()
+const authorsWithTypedPosts = await UserSchema.findMany({
+	where: { posts: { some: { title: { contains: 'TypeScript' } } } },
+})
 ```
 
 Nested `some`, `none`, and `every` inputs retain the exact target schema. They

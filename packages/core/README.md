@@ -5,7 +5,7 @@ The complete foundational UltimaBase framework for Node.js.
 Responsibilities:
 
 - immutable schemas, built-in and plugin-defined fields, and type inference;
-- immutable Query and Operation AST builders;
+- canonical object reads plus immutable QueryBuilder and Operation AST builders;
 - native schema and field Access declarations plus policy-neutral enforcement foundations;
 - anonymous and trusted master request authority with plugin-owned typed values;
 - isolated `FrameworkApplication` instances;
@@ -75,31 +75,33 @@ general constructor, while `UserSchema.pointer(id)` is the concise typed form.
 Pointers serialize to `{ type: "pointer", className, id }` and compare by exact
 schema identity plus ID.
 
-Pointers participate in Query without revealing physical foreign-key names.
+Pointers participate in reads without revealing physical foreign-key names.
 Equality, membership, and existence predicates retain the exact target type;
-ordered and string comparisons are rejected. `pointer.query()` builds a normal
-target Query already scoped by its ID, while bounded single-target inclusion is
-selection-aware:
+ordered and string comparisons are rejected. `pointer.findOne()` and
+`pointer.exists()` execute normal reads already scoped by the pointer ID, while
+bounded single-target inclusion is selection-aware:
 
 ```ts
-const selected = PostSchema.query()
-	.select({ id: true, title: true })
-	.include('author', (author) => author.select({ id: true, name: true }))
-
-const posts = await selected.findMany({ ultimabase })
+const posts = await PostSchema.findMany(
+	{
+		select: { id: true, title: true },
+		include: { author: { select: { id: true, name: true } } },
+	},
+	{ ultimabase },
+)
 
 // `author` is the selected User model, or null when missing or inaccessible.
 ```
 
 `select` is flat and schema-correlated. Any `true` flag selects only the fields
 marked `true`; an object containing only `false` flags selects every other
-field. `{}` keeps the complete result shape, and a later `select` replaces the
-previous projection. Pointer result shaping stays explicit through `include`.
+field. `{}` keeps the complete result shape. Pointer result shaping stays
+explicit through `include`.
 
 Runtime evaluates singular target Access, applies target constraints, validates
 the selected target, and runs its scalar field `resolveOutput` hooks. Inclusion
-does not manufacture a target Query lifecycle: target schema and global read
-hooks run only when the developer explicitly queries that target. PostgreSQL
+does not manufacture a target read lifecycle: target schema and global read
+hooks run only when the developer explicitly reads that target. PostgreSQL
 loads the prepared tree through Drizzle relational `with`, while missing and
 inaccessible targets both become `null`. Nested inclusions use the same rules.
 Field Access still receives the pointer field's declared `Pointer` value; only
@@ -110,11 +112,11 @@ declare `resolveOutput`: field Access owns pointer disclosure and target scalar
 fields own included-value resolution. `relationField` remains a handle-only
 declaration and accepts no field hooks.
 
-The target ID used by `pointer.query()` and inclusion is a private Runtime row
-filter. It never enters `query.ast`, and a `beforeRead` hook can neither inspect
-nor remove it. A target Query inherits the active request; outside one, it
-accepts the same terminal-only `{ ultimabase, context, useMasterKey }` options
-as every ordinary Query.
+The target ID used by pointer reads and inclusion is a private Runtime row
+filter. It never enters the developer AST, and a `beforeRead` hook can neither
+inspect nor remove it. A target read inherits the active request; outside one,
+it accepts the same `{ ultimabase, context, useMasterKey }` options as every
+schema-root read.
 
 `onDelete` defaults to `restrict`; `cascade` and optional-pointer `setNull` are
 explicit alternatives. `indexed: "unique"` declares a one-to-one pointer.
@@ -148,23 +150,22 @@ Persisted models expose only their declared to-many fields through an immutable
 
 ```ts
 const posts = user.relation('posts')
-const recentPosts = posts
-	.query()
-	.select({ id: true, title: true })
-	.descending('createdAt')
-	.limit(20)
-	.after()
+const recentPosts = await posts.findMany({
+	select: { id: true, title: true },
+	orderBy: [{ createdAt: 'desc' }],
+	limit: 20,
+	cursor: true,
+})
 ```
 
 `relation()` autocomplete excludes pointers and scalar fields. Drafts cannot
 create a handle, while selected persisted models retain a protected source ID
 without adding it to their visible values. The handle is opaque, frozen, and
-never serializes a related collection. Its `query()` is an ordinary target
-`Query`, including `where` filters, ordering, cursors, `findMany`, `count`, and
-`exists`.
-The source edge stays in private Runtime state across every public builder and
-hook transformation; it never appears in `query.ast` and cannot be replaced by
-`Query.use()`.
+never serializes a related collection. Its direct `findMany`, `findOne`, `get`,
+`count`, and `exists` methods accept the same canonical object inputs as the
+target schema. The source edge stays in private Runtime state across every
+public input and hook transformation; it never appears in the developer AST
+and cannot be replaced by a `QueryBuilder` scope.
 
 Ordered scalar filters include explicit inclusive ranges. `between` keeps
 values inside the interval, while `notBetween` keeps values strictly outside
@@ -176,22 +177,24 @@ objects. Object containment accepts recursive partial values, and object keys
 and paths retain exact autocomplete:
 
 ```ts
-const visible = Post.query().where({
-	metadata: {
-		contains: { visibility: 'public' },
-		hasAllKeys: ['visibility', 'category'],
-		jsonPathExists: {
-			source: '$.items[*] ? (@.price > $minimum)',
-			variables: { minimum: 10 },
-		},
-	},
-	profile: {
-		at: [
-			{
-				path: ['contact', 'email'],
-				eq: 'ada@example.com',
+const visible = await Post.findMany({
+	where: {
+		metadata: {
+			contains: { visibility: 'public' },
+			hasAllKeys: ['visibility', 'category'],
+			jsonPathExists: {
+				source: '$.items[*] ? (@.price > $minimum)',
+				variables: { minimum: 10 },
 			},
-		],
+		},
+		profile: {
+			at: [
+				{
+					path: ['contact', 'email'],
+					eq: 'ada@example.com',
+				},
+			],
+		},
 	},
 })
 ```
@@ -229,16 +232,16 @@ still fail closed.
 Source Queries filter to-many relationships through the exact target schema:
 
 ```ts
-const visiblePosts = await UserSchema.query()
-	.where({
+const visiblePosts = await UserSchema.findMany({
+	where: {
 		posts: {
 			some: {
 				published: { eq: true },
 				tags: { some: { label: { eq: 'typescript' } } },
 			},
 		},
-	})
-	.findMany()
+	},
+})
 ```
 
 `some`, `none`, and `every` create immutable portable Query AST nodes from exact
@@ -271,7 +274,7 @@ const Membership = Schema.define({
 })
 ```
 
-This explicit edge receives the same inference, Query, Access, hook,
+This explicit edge receives the same inference, read, Access, hook,
 transaction, index, and referential behavior as any other schema. Use it when
 the relationship has fields or its own lifecycle; keep an implicit owning
 `relationField` for metadata-free set membership. See the
@@ -345,17 +348,17 @@ plugin setup callbacks and before infrastructure starts, so provider
 configuration order is irrelevant. Applications with no role-aware policy
 require no resolver at all.
 
-## Terminal execution authority
+## Read and mutation execution authority
 
-Every `Query` terminal resolves authority only when it executes. Inside an
+Every schema read resolves authority only when it executes. Inside an
 active request, transaction, or hook it inherits that exact engine. Root jobs
 identify one application explicitly, while an authentication or tenant plugin
 may supply an already-derived context:
 
 ```ts
-const inherited = await PostSchema.query().findMany()
-const root = await PostSchema.query().findMany({ ultimabase })
-const authenticated = await PostSchema.query().findMany({
+const inherited = await PostSchema.findMany()
+const root = await PostSchema.findMany(undefined, { ultimabase })
+const authenticated = await PostSchema.findMany(undefined, {
 	context: contextCreatedByAuthPlugin,
 	ultimabase,
 })
@@ -366,7 +369,7 @@ option position. Combining both elevates the supplied context and preserves its
 typed values:
 
 ```ts
-const allPosts = await PostSchema.query().findMany({ useMasterKey: true })
+const allPosts = await PostSchema.findMany(undefined, { useMasterKey: true })
 const imported = await PostSchema.createMany(
 	{ data: rows },
 	{
@@ -424,7 +427,7 @@ Database plugins prepare each transaction-bound mutation through one opaque,
 single-use handle. Its execution keeps the projected public result separate
 from the complete logical materializations used by native field hooks.
 Every model-returning schema mutation accepts the same flat selection contract
-as Query reads; no write command performs implicit relation loading:
+as schema reads; no write command performs implicit relation loading:
 
 ```ts
 const created = await PostSchema.createOne(
@@ -463,7 +466,7 @@ const published = await PostSchema.updateMany(
 )
 
 // Pointer and relation fields remain unloaded references until queried.
-const authors = await updated?.author.query().findMany()
+const author = await updated?.author.findOne()
 ```
 
 This protocol belongs to database-adapter authors rather than application code.
@@ -496,7 +499,9 @@ const ultimabase = new UltimaBase({
 })
 
 const draft = new PostSchema({ title: 'Preview' })
-const query = PostSchema.query().select({ id: true, title: true })
+const selectedPosts = await PostSchema.findMany({
+	select: { id: true, title: true },
+})
 
 const created = await draft.create(
 	{ select: { id: true, title: true } },
@@ -524,14 +529,13 @@ Runtime queries and mutations return immutable `PostSchema` instances only after
 hooks and field restrictions finish. `get(field)` and `toJSON()` expose only the
 fields visible in that result, so a selected result cannot recover omitted data.
 Draft `create` and `upsert` plus persisted `update`, `delete`, and `fetch` accept
-the same exact result selections as their Query or static mutation equivalents.
+the same exact result selections as their static read or mutation equivalents.
 `fetch` and `exists` reuse the normal read pipeline, including Access and hooks.
 `toPointer` and `equals` operate locally on protected identity, even when `id`
 was not selected. All instance commands remain immutable conveniences: a
 mutation starts without the receiver's read selection and returns a new model.
-Collection writes live on the generated schema class, while
-`PostSchema.query()` remains read-only and models deliberately expose no mutable
-`save()` method.
+Collection reads and writes live on the generated schema class. Models
+deliberately expose no mutable `save()` method.
 
 ## Native Access and schema hooks
 
@@ -744,9 +748,10 @@ const ArticleSchema = Schema.define({
 	},
 })
 
-const articles = await ArticleSchema.query()
-	.select({ id: true, title: true })
-	.findMany({ ultimabase })
+const articles = await ArticleSchema.findMany(
+	{ select: { id: true, title: true } },
+	{ ultimabase },
+)
 
 // The exact result is readonly { id: string; title: string }[].
 ```
@@ -804,8 +809,8 @@ const PostSchema = Schema.define({
 `requestId` correlates the originating request. `transactionId` is defined for
 automatic mutations and explicit transactions and remains identical across
 nested operations. `signal` carries cooperative request cancellation and native
-deadlines such as `AbortSignal.timeout()`. A regular `Schema.query()` terminal
-keeps exact inference and reuses the current transaction. Unawaited nested work is
+deadlines such as `AbortSignal.timeout()`. A regular schema read keeps exact
+inference and reuses the current transaction. Unawaited nested work is
 drained before finalization, and a caught nested failure still makes the
 transaction rollback-only. The context intentionally omits request metadata,
 credentials, adapters, commit/rollback controls, and hook bypasses.

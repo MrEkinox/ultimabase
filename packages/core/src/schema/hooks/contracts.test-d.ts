@@ -23,7 +23,7 @@ import {
 import type {
 	InferQueryRecord,
 	NonAtomicBulkResult,
-	Query,
+	QueryBuilder,
 	QueryPointerResultInclusion,
 } from '../../query/index.js'
 
@@ -161,7 +161,7 @@ test('exports compact schema hook inference contracts', () => {
 		InferObject<typeof ArticleSchema>
 	>()
 	expectTypeOf<CountTypes['query']>().toEqualTypeOf<
-		Query<typeof ArticleSchema>
+		QueryBuilder<typeof ArticleSchema>
 	>()
 	expectTypeOf<CountTypes['result']>().toEqualTypeOf<number>()
 	expectTypeOf<
@@ -244,7 +244,7 @@ test('preserves pointer inclusion types through read hook contracts', () => {
 		readonly InferQueryRecord<typeof source, 'target', Inclusion>[]
 	>()
 	expectTypeOf<IncludedTypes['query']>().toEqualTypeOf<
-		Query<typeof source, 'target', Inclusion>
+		QueryBuilder<typeof source, 'target', Inclusion>
 	>()
 })
 
@@ -263,16 +263,20 @@ test('namespaces application-owned hook validation issues', () => {
 test('keeps schema metadata and inferred values independent from hooks', () => {
 	expectTypeOf<keyof typeof ArticleSchema>().toEqualTypeOf<
 		| 'className'
+		| 'count'
 		| 'createOne'
 		| 'createMany'
 		| 'deleteMany'
 		| 'deleteOne'
 		| 'definition'
 		| 'extensions'
+		| 'exists'
 		| 'fields'
+		| 'findMany'
+		| 'findOne'
+		| 'get'
 		| 'indexes'
 		| 'pointer'
-		| 'query'
 		| 'updateMany'
 		| 'updateOne'
 		| 'upsertOne'
@@ -341,7 +345,7 @@ test('rejects incompatible hook declarations and return values', () => {
 	const hooks: SchemaHooks<typeof ArticleSchema> = {
 		// @ts-expect-error -- Input resolution cannot replace an operation with a number.
 		resolveInput: () => 42,
-		// @ts-expect-error -- Query transforms must retain the same selected schema.
+		// @ts-expect-error -- QueryBuilder transforms must retain the same selected schema.
 		beforeRead: () => 42,
 		// @ts-expect-error -- Validation hooks return structured issue collections.
 		validate: () => 'invalid',

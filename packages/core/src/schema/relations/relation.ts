@@ -5,12 +5,34 @@ import type {
 	OperationObjectId,
 	UpdateOneOperationAst,
 } from '../../query/operations/contracts.js'
+import type { QueryTerminalOptions } from '../../query/operations/execution.js'
+import type { InferQueryResult } from '../../query/query/result.js'
 import {
+	executeQueryCount,
+	executeQueryExists,
+	executeQueryFindMany,
+	executeQueryFindOne,
+	executeQueryGet,
 	executeQueryWithPrivateScope,
-	Query,
+	QueryBuilder,
 	scopeQueryToObjectId,
 	scopeQueryToRelation,
 } from '../../query/query/query.js'
+import {
+	queryFromCountInput,
+	queryFromExistsInput,
+	queryFromFindManyInput,
+	queryFromFindOneInput,
+	queryFromGetInput,
+	type CountInput,
+	type ExactReadInput,
+	type ExistsInput,
+	type FindManyInput,
+	type FindOneInput,
+	type GetInput,
+	type QueryIncludedPointerFromInput,
+	type QuerySelectedFieldFromInput,
+} from '../../query/query/input.js'
 import type { RelationField } from '../fields/builtins/relation.js'
 import { getFieldSchemaTarget } from '../fields/base/definition.js'
 import { Schema, type SchemaDefinition } from '../schema/definition.js'
@@ -60,7 +82,7 @@ const executeRelationMutation = async <
 	options: RelationMutationOptions | undefined,
 ): Promise<void> => {
 	const sourceQuery = scopeQueryToObjectId(
-		new Query(state.source),
+		new QueryBuilder(state.source),
 		state.sourceObjectId as OperationObjectId<TSource>,
 		{ nativeAccessDeniedAsMissing: true },
 	)
@@ -108,10 +130,10 @@ const relationStates = new WeakMap<
  * Represents one immutable, independently queryable to-many relationship.
  *
  * Persisted models create handles through `model.relation(fieldName)`. The
- * protected source identity and relationship restriction never enter the Query
+ * protected source identity and relationship restriction never enter the QueryBuilder
  * AST, so selection and business hooks cannot inspect or discard them.
  *
- * @example `const publishedTags = post.relation('tags').query().where({ published: { eq: true } })`
+ * @example `const publishedTags = await post.relation('tags').findMany({ where: { published: { eq: true } } })`
  */
 export class Relation<
 	TSource extends SchemaDefinition = SchemaDefinition,
@@ -148,18 +170,104 @@ export class Relation<
 		)
 	}
 
-	/**
-	 * Starts one ordinary target Query restricted to this exact relationship.
-	 *
-	 * Every regular read builder and terminal remains available. The terminal
-	 * inherits ambient execution or accepts the same final options as any Query.
-	 *
-	 * @example `await post.relation('tags').query().select({ id: true, label: true }).findMany()`
-	 */
-	query(): Query<TTarget> {
-		const exactState = this.getState()
+	/** Reads matching targets while retaining the protected relation scope. */
+	findMany<const TInput extends FindManyInput<TTarget>>(
+		input: ExactReadInput<TTarget, TInput, FindManyInput<TTarget>>,
+		options?: QueryTerminalOptions,
+	): Promise<
+		readonly InferQueryResult<
+			TTarget,
+			QuerySelectedFieldFromInput<TTarget, TInput>,
+			QueryIncludedPointerFromInput<TTarget, TInput>
+		>[]
+	>
+	/** Reads every visible related target when no clauses are supplied. */
+	findMany(
+		input?: undefined,
+		options?: QueryTerminalOptions,
+	): Promise<readonly InferQueryResult<TTarget>[]>
+	findMany(
+		input: FindManyInput<TTarget> = {},
+		options?: QueryTerminalOptions,
+	): Promise<readonly object[]> {
+		const state = this.getState()
+		const query = scopeQueryToRelation(
+			queryFromFindManyInput(state.target, input),
+			state,
+		)
 
-		return scopeQueryToRelation(new Query(exactState.target), exactState)
+		return executeQueryFindMany(query, options)
+	}
+
+	/** Reads the first matching related target. */
+	findOne<const TInput extends FindOneInput<TTarget>>(
+		input: ExactReadInput<TTarget, TInput, FindOneInput<TTarget>>,
+		options?: QueryTerminalOptions,
+	): Promise<InferQueryResult<
+		TTarget,
+		QuerySelectedFieldFromInput<TTarget, TInput>,
+		QueryIncludedPointerFromInput<TTarget, TInput>
+	> | null>
+	/** Reads the first visible related target without applying a projection. */
+	findOne(
+		input?: undefined,
+		options?: QueryTerminalOptions,
+	): Promise<InferQueryResult<TTarget> | null>
+	findOne(
+		input: FindOneInput<TTarget> = {},
+		options?: QueryTerminalOptions,
+	): Promise<object | null> {
+		const state = this.getState()
+		const query = scopeQueryToRelation(
+			queryFromFindOneInput(state.target, input),
+			state,
+		)
+
+		return executeQueryFindOne(query, options)
+	}
+
+	/** Reads one related target by its exact identifier. */
+	get<const TInput extends GetInput<TTarget>>(
+		input: ExactReadInput<TTarget, TInput, GetInput<TTarget>>,
+		options?: QueryTerminalOptions,
+	): Promise<InferQueryResult<
+		TTarget,
+		QuerySelectedFieldFromInput<TTarget, TInput>,
+		QueryIncludedPointerFromInput<TTarget, TInput>
+	> | null> {
+		const state = this.getState()
+		const normalized = queryFromGetInput(state.target, input)
+		const query = scopeQueryToRelation(normalized.query, state)
+
+		return executeQueryGet(query, normalized.id, options)
+	}
+
+	/** Counts visible related targets without materializing them. */
+	count(
+		input: CountInput<TTarget> = {},
+		options?: QueryTerminalOptions,
+	): Promise<number> {
+		const state = this.getState()
+		const query = scopeQueryToRelation(
+			queryFromCountInput(state.target, input),
+			state,
+		)
+
+		return executeQueryCount(query, options)
+	}
+
+	/** Tests whether at least one visible related target matches. */
+	exists(
+		input: ExistsInput<TTarget> = {},
+		options?: QueryTerminalOptions,
+	): Promise<boolean> {
+		const state = this.getState()
+		const query = scopeQueryToRelation(
+			queryFromExistsInput(state.target, input),
+			state,
+		)
+
+		return executeQueryExists(query, options)
 	}
 
 	/**

@@ -331,7 +331,7 @@ describe('createFrameworkEngine', () => {
 			source: 'internal',
 		})
 		const result = await runWithRequestEngine(request, () =>
-			schema.query().select({ title: true, secret: true }).findMany(),
+			schema.findMany({ select: { title: true, secret: true } }),
 		)
 
 		expect(result).toHaveLength(1)

@@ -52,7 +52,7 @@ export type QueryPointerInclusionNode<TSchema extends SchemaDefinition> = {
 	>
 }[QueryPointerFieldName<TSchema>]
 
-/** Retains the field-correlated union throughout one source Query AST. */
+/** Retains the field-correlated union throughout one source QueryBuilder AST. */
 export type QueryPointerInclusionAst<TSchema extends SchemaDefinition> =
 	QueryInclusionNode<
 		QueryPointerFieldName<TSchema>,

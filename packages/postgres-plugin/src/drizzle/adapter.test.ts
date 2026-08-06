@@ -1,6 +1,6 @@
 import {
 	FrameworkError,
-	Query,
+	QueryBuilder,
 	Pointer,
 	databaseConstraint,
 	increment,
@@ -312,7 +312,7 @@ describe('internal PostgreSQL database adapter', () => {
 			input: { author },
 			kind: 'create-one',
 			selection: { fields: [], kind: 'selection' },
-			schema: new Query(pointerPostSchema).ast.schema,
+			schema: new QueryBuilder(pointerPostSchema).ast.schema,
 		}
 		const normalized = await validation({
 			context: RequestContext.anonymous({
@@ -332,7 +332,7 @@ describe('internal PostgreSQL database adapter', () => {
 		expect(author.equals(created.author)).toBe(true)
 		expect(driver.calls[0]?.params).toContain(secondId)
 
-		const query = new Query(pointerPostSchema).where((where) =>
+		const query = new QueryBuilder(pointerPostSchema).where((where) =>
 			where.eq('author', author),
 		)
 
@@ -350,7 +350,7 @@ describe('internal PostgreSQL database adapter', () => {
 
 	it('executes every singular read contract through parameterized Drizzle SQL', async () => {
 		const { adapter, driver } = createFixture()
-		const query = new Query(articleSchema)
+		const query = new QueryBuilder(articleSchema)
 			.where((where) => where.gt('views', 10))
 			.select({ id: true, title: true })
 			.descending('views')
@@ -383,7 +383,7 @@ describe('internal PostgreSQL database adapter', () => {
 
 		const titleOnly = {
 			kind: 'find-many',
-			query: new Query(articleSchema).select({ title: true }).ast,
+			query: new QueryBuilder(articleSchema).select({ title: true }).ast,
 		} satisfies FindManyOperationAst<
 			typeof articleSchema,
 			QueryFilterNode<typeof articleSchema>,
@@ -405,7 +405,7 @@ describe('internal PostgreSQL database adapter', () => {
 
 		expect(adapter.readObjectIdentity?.(projectedRecord)).toBe(firstId)
 
-		const withoutNote = new Query(articleSchema).select({ note: false })
+		const withoutNote = new QueryBuilder(articleSchema).select({ note: false })
 
 		driver.respond([['Public article', 3, firstId, timestamp, timestamp]])
 		await expect(
@@ -467,10 +467,11 @@ describe('internal PostgreSQL database adapter', () => {
 		const injectedTenant = "tenant' OR true --"
 		const operation = {
 			kind: 'find-many',
-			query: new Query(articleSchema).where((where) => where.gt('views', 10))
-				.ast,
+			query: new QueryBuilder(articleSchema).where((where) =>
+				where.gt('views', 10),
+			).ast,
 		} satisfies FindManyOperationAst<typeof articleSchema>
-		const rowFilter = new Query(articleSchema).where((where) =>
+		const rowFilter = new QueryBuilder(articleSchema).where((where) =>
 			where.eq('note', 'Access-visible'),
 		).ast.where?.expression
 
@@ -524,7 +525,7 @@ describe('internal PostgreSQL database adapter', () => {
 				],
 				kind: 'selection',
 			},
-			schema: new Query(articleSchema).ast.schema,
+			schema: new QueryBuilder(articleSchema).ast.schema,
 		}
 		const normalized = await validation({
 			context: RequestContext.anonymous({
@@ -553,7 +554,7 @@ describe('internal PostgreSQL database adapter', () => {
 
 	it('updates and deletes the deterministic first match through an id subquery', async () => {
 		const { adapter, driver } = createFixture()
-		const query = new Query(articleSchema)
+		const query = new QueryBuilder(articleSchema)
 			.where((where) => where.eq('title', 'Old'))
 			.select({ id: true, title: true })
 			.descending('views')
@@ -597,7 +598,7 @@ describe('internal PostgreSQL database adapter', () => {
 		const { adapter, driver } = createFixture()
 		const operation = {
 			kind: 'find-many',
-			query: new Query(articleSchema).ast,
+			query: new QueryBuilder(articleSchema).ast,
 		} satisfies FindManyOperationAst<typeof articleSchema>
 
 		await expect(
@@ -624,7 +625,7 @@ describe('internal PostgreSQL database adapter', () => {
 				operation: {
 					create: { title: 'Pending' },
 					kind: 'upsert-one',
-					query: new Query(articleSchema).where((where) =>
+					query: new QueryBuilder(articleSchema).where((where) =>
 						where.eq('id', firstId),
 					).ast,
 					target: { fields: ['id'], kind: 'unique-upsert-target' },
@@ -659,8 +660,9 @@ describe('internal PostgreSQL database adapter', () => {
 		const driver = new FixtureDriver()
 		const pool = new FixturePool(driver, [])
 		const adapter = createPostgresDatabaseAdapter(pool, pointerCatalog)
-		const query = new Query(pointerPostSchema).include('author', (author) =>
-			author.select({ name: true }),
+		const query = new QueryBuilder(pointerPostSchema).include(
+			'author',
+			(author) => author.select({ name: true }),
 		)
 		const inclusion = query.ast.inclusion.pointers[0]
 
@@ -726,7 +728,7 @@ describe('internal PostgreSQL database adapter', () => {
 			undefined,
 			createConstraintCompilerRegistry(tenantCompiler, invalidOutputCompiler),
 		)
-		const query = new Query(articleSchema).ast
+		const query = new QueryBuilder(articleSchema).ast
 		const operation = {
 			kind: 'find-many',
 			query,
@@ -784,7 +786,7 @@ describe('internal PostgreSQL database adapter', () => {
 				operation: 'create-one',
 			},
 		})
-		const rowFilter = new Query(articleSchema).where((where) =>
+		const rowFilter = new QueryBuilder(articleSchema).where((where) =>
 			where.eq('title', 'visible'),
 		).ast.where?.expression
 
@@ -820,7 +822,8 @@ describe('internal PostgreSQL database adapter', () => {
 		const transaction = await adapter.beginTransaction()
 		const operation = {
 			kind: 'find-many',
-			query: new Query(articleSchema).select({ id: true, title: true }).ast,
+			query: new QueryBuilder(articleSchema).select({ id: true, title: true })
+				.ast,
 		} satisfies FindManyOperationAst<
 			typeof articleSchema,
 			QueryFilterNode<typeof articleSchema>,
@@ -860,7 +863,7 @@ describe('internal PostgreSQL database adapter', () => {
 				],
 				kind: 'selection',
 			},
-			schema: new Query(articleSchema).ast.schema,
+			schema: new QueryBuilder(articleSchema).ast.schema,
 		}
 		const preparedCreate = await transaction.prepare({
 			constraints: [],
@@ -890,7 +893,7 @@ describe('internal PostgreSQL database adapter', () => {
 			},
 		})
 
-		const query = new Query(articleSchema)
+		const query = new QueryBuilder(articleSchema)
 			.where((where) => where.eq('title', 'Old'))
 			.select({ id: true, title: true })
 		const update = normalizeUpdateExpression(articleSchema, {
@@ -1005,9 +1008,11 @@ describe('internal PostgreSQL database adapter', () => {
 				inputs: [first, second],
 				kind: 'create-many',
 				options: { atomic: true },
-				selection: new Query(articleSchema).select({ id: true, title: true })
-					.ast.selection,
-				schema: new Query(articleSchema).ast.schema,
+				selection: new QueryBuilder(articleSchema).select({
+					id: true,
+					title: true,
+				}).ast.selection,
+				schema: new QueryBuilder(articleSchema).ast.schema,
 			},
 		})
 
@@ -1035,8 +1040,8 @@ describe('internal PostgreSQL database adapter', () => {
 				inputs: [],
 				kind: 'create-many',
 				options: { atomic: true },
-				selection: new Query(articleSchema).ast.selection,
-				schema: new Query(articleSchema).ast.schema,
+				selection: new QueryBuilder(articleSchema).ast.selection,
+				schema: new QueryBuilder(articleSchema).ast.schema,
 			},
 		})
 		await expect(empty.execute()).resolves.toStrictEqual({
@@ -1068,9 +1073,11 @@ describe('internal PostgreSQL database adapter', () => {
 				],
 				kind: 'create-many',
 				options: { atomic: false },
-				selection: new Query(articleSchema).select({ id: true, title: true })
-					.ast.selection,
-				schema: new Query(articleSchema).ast.schema,
+				selection: new QueryBuilder(articleSchema).select({
+					id: true,
+					title: true,
+				}).ast.selection,
+				schema: new QueryBuilder(articleSchema).ast.schema,
 			},
 		})
 
@@ -1106,7 +1113,7 @@ describe('internal PostgreSQL database adapter', () => {
 		const fixture = createFixture()
 		const driver = getTransactionDriver(fixture)
 		const transaction = await fixture.adapter.beginTransaction()
-		const query = new Query(articleSchema)
+		const query = new QueryBuilder(articleSchema)
 			.where((where) => where.gt('views', 0))
 			.select({ id: true, title: true })
 			.limit(10)
@@ -1168,7 +1175,7 @@ describe('internal PostgreSQL database adapter', () => {
 			updatedAt: timestamp,
 			views: 0,
 		}
-		const query = new Query(articleSchema)
+		const query = new QueryBuilder(articleSchema)
 			.where((where) => where.eq('id', firstId))
 			.select({ id: true, title: true })
 		const update = normalizeUpdateExpression(articleSchema, {
@@ -1236,7 +1243,9 @@ describe('internal PostgreSQL database adapter', () => {
 		})
 		const item = (id: string, create: typeof first) => ({
 			create,
-			query: new Query(articleSchema).where((where) => where.eq('id', id)).ast,
+			query: new QueryBuilder(articleSchema).where((where) =>
+				where.eq('id', id),
+			).ast,
 			target: {
 				fields: ['id'] as const,
 				kind: 'unique-upsert-target' as const,
@@ -1252,9 +1261,11 @@ describe('internal PostgreSQL database adapter', () => {
 				],
 				kind: 'upsert-many',
 				options: { atomic: true },
-				selection: new Query(articleSchema).select({ id: true, title: true })
-					.ast.selection,
-				schema: new Query(articleSchema).ast.schema,
+				selection: new QueryBuilder(articleSchema).select({
+					id: true,
+					title: true,
+				}).ast.selection,
+				schema: new QueryBuilder(articleSchema).ast.schema,
 			},
 		})
 
@@ -1296,7 +1307,9 @@ describe('internal PostgreSQL database adapter', () => {
 		})
 		const item = (id: string) => ({
 			create: { ...first, id },
-			query: new Query(articleSchema).where((where) => where.eq('id', id)).ast,
+			query: new QueryBuilder(articleSchema).where((where) =>
+				where.eq('id', id),
+			).ast,
 			target: {
 				fields: ['id'] as const,
 				kind: 'unique-upsert-target' as const,
@@ -1313,9 +1326,11 @@ describe('internal PostgreSQL database adapter', () => {
 				],
 				kind: 'upsert-many',
 				options: { atomic: false },
-				selection: new Query(articleSchema).select({ id: true, title: true })
-					.ast.selection,
-				schema: new Query(articleSchema).ast.schema,
+				selection: new QueryBuilder(articleSchema).select({
+					id: true,
+					title: true,
+				}).ast.selection,
+				schema: new QueryBuilder(articleSchema).ast.schema,
 			},
 		})
 
@@ -1356,7 +1371,7 @@ describe('internal PostgreSQL database adapter', () => {
 		const constraints = [
 			databaseConstraint('fixture.tenant', 1, { tenantId: 'tenant-1' }),
 		]
-		const query = new Query(articleSchema).where((where) =>
+		const query = new QueryBuilder(articleSchema).where((where) =>
 			where.eq('title', 'Old'),
 		).ast
 		const updateOperation = {
@@ -1387,7 +1402,7 @@ describe('internal PostgreSQL database adapter', () => {
 
 		const deleteOperation = {
 			kind: 'delete-one',
-			query: new Query(articleSchema).where((where) =>
+			query: new QueryBuilder(articleSchema).where((where) =>
 				where.eq('title', 'Updated'),
 			).ast,
 		} satisfies DeleteOneOperationAst<typeof articleSchema>
@@ -1413,7 +1428,7 @@ describe('internal PostgreSQL database adapter', () => {
 			constraints,
 			operation: {
 				kind: 'update-many',
-				query: new Query(articleSchema)
+				query: new QueryBuilder(articleSchema)
 					.where((where) => where.eq('title', 'Old'))
 					.select({ id: true }).ast,
 				update: updateOperation.update,
@@ -1443,8 +1458,9 @@ describe('internal PostgreSQL database adapter', () => {
 		const upsertOperation = {
 			create: upsertCreate,
 			kind: 'upsert-one',
-			query: new Query(articleSchema).where((where) => where.eq('id', firstId))
-				.ast,
+			query: new QueryBuilder(articleSchema).where((where) =>
+				where.eq('id', firstId),
+			).ast,
 			target: {
 				fields: ['id'],
 				kind: 'unique-upsert-target',
@@ -1485,7 +1501,7 @@ describe('internal PostgreSQL database adapter', () => {
 		const firstTransaction = await fixture.adapter.beginTransaction()
 		const deleteOperation = {
 			kind: 'delete-one',
-			query: new Query(articleSchema).select({ id: true }).ast,
+			query: new QueryBuilder(articleSchema).select({ id: true }).ast,
 		} satisfies DeleteOneOperationAst<typeof articleSchema>
 
 		firstDriver.respond([])
@@ -1597,7 +1613,7 @@ describe('internal PostgreSQL database adapter', () => {
 				constraints: [],
 				operation: {
 					kind: 'find-many',
-					query: new Query(articleSchema).ast,
+					query: new QueryBuilder(articleSchema).ast,
 				},
 			}),
 		).toThrow(/no longer active/u)

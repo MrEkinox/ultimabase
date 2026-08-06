@@ -396,7 +396,7 @@ const restrictQuerySelection = (
 	})
 }
 
-/** Intersects one normalized selection without coupling it to a Query container. */
+/** Intersects one normalized selection without coupling it to a QueryBuilder container. */
 const restrictSelection = (
 	selection: QueryAst['selection'],
 	permittedFields: readonly string[],

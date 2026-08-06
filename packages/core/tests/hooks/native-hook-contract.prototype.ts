@@ -23,7 +23,7 @@ import type {
 	ObjectFieldValue,
 	OperationAst,
 	OperationAstNode,
-	Query,
+	QueryBuilder,
 	QueryFieldName,
 	ScalarFieldInferenceState,
 	SchemaDefinition,
@@ -118,8 +118,8 @@ export type PrototypeBeforeReadHook<TSchema extends SchemaDefinition> = <
 	const TSelectedField extends QueryFieldName<TSchema>,
 >(context: {
 	readonly operation: ReadOperation<TSchema>
-	readonly query: Query<TSchema, TSelectedField>
-}) => MaybePromise<Query<TSchema, TSelectedField> | undefined>
+	readonly query: QueryBuilder<TSchema, TSelectedField>
+}) => MaybePromise<QueryBuilder<TSchema, TSelectedField> | undefined>
 
 type PrototypeSchemaOptions<
 	TClassName extends string,

@@ -1,7 +1,7 @@
 import { expectTypeOf, test } from 'vitest'
 
-import type { Query } from '../../query/query/query.js'
 import type { QueryTerminalOptions } from '../../query/operations/execution.js'
+import type { InferQueryResult } from '../../query/query/result.js'
 import {
 	RelationArticle,
 	type RelationAuthor,
@@ -37,8 +37,10 @@ test('infers exact owning and inverse relation handles from persisted models', (
 	expectTypeOf(selectedArticle.relation('tags')).toEqualTypeOf<
 		Relation<typeof RelationArticle, typeof RelationTag>
 	>()
-	expectTypeOf(article.relation('tags').query()).toEqualTypeOf<
-		Query<typeof RelationTag>
+	expectTypeOf(
+		article.relation('tags').findMany({ select: { id: true } }),
+	).toEqualTypeOf<
+		Promise<readonly InferQueryResult<typeof RelationTag, 'id'>[]>
 	>()
 	type ArticleRelation = Relation<typeof RelationArticle, typeof RelationTag>
 	type Connect = ArticleRelation['connect']

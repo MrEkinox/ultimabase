@@ -7,7 +7,6 @@ import {
 	type QueryExecutionDispatcher,
 	type QueryTerminalPrivateScope,
 } from '../../query/operations/execution.js'
-import type { QueryScope } from '../../query/query/scope.js'
 import {
 	RelationArticle,
 	RelationTag,
@@ -34,7 +33,9 @@ class RelationScopeDispatcher implements QueryExecutionDispatcher {
 				!('kind' in operation) ||
 				typeof operation.kind !== 'string'
 			) {
-				throw new TypeError('Expected one normalized Query terminal operation')
+				throw new TypeError(
+					'Expected one normalized QueryBuilder terminal operation',
+				)
 			}
 
 			this.executions.push({ kind: operation.kind, operation, options, scope })
@@ -81,11 +82,7 @@ describe('Relation handles', () => {
 		expect(Object.isFrozen(handle)).toBe(true)
 		expect(Object.keys(handle)).toStrictEqual([])
 		expect(JSON.stringify(handle)).toBe('{}')
-		expect(handle.query().schema).toBe(RelationTag)
-		expect(inverse.query().schema).toBe(RelationArticle)
-		expect(handle.query().ast.schema.definition).toBe(RelationTag)
-		expect(JSON.stringify(handle.query().ast)).not.toContain(articleId)
-		expect(JSON.stringify(handle.query().ast)).not.toContain('tags')
+		expect(inverse).toBeInstanceOf(Relation)
 
 		const draft = new RelationArticle({})
 		const draftRelation: unknown = (
@@ -118,31 +115,28 @@ describe('Relation handles', () => {
 		)
 	})
 
-	it('retains one private relation scope through every public Query branch', async () => {
+	it('retains one private relation scope through every direct read', async () => {
 		const article = materializeSchemaModel(
 			RelationArticle,
 			{ id: articleId },
 			{ objectId: articleId },
 		)
-		const base = article.relation('tags').query()
-		const query = base
-			.select({ id: true })
-			.ascending('createdAt')
-			.limit(20)
-			.after()
-			.use((current) => current.where((where) => where.eq('id', articleId)))
+		const relation = article.relation('tags')
 		const dispatcher = new RelationScopeDispatcher()
 
 		await runWithQueryExecution({}, dispatcher, async () => {
-			await expect(query.findMany()).resolves.toStrictEqual([])
-			await expect(query.count({ useMasterKey: true })).resolves.toBe(0)
-			await expect(query.exists()).resolves.toBe(false)
+			await expect(
+				relation.findMany({
+					where: { id: { eq: articleId } },
+					select: { id: true },
+					orderBy: [{ createdAt: 'asc' }],
+					limit: 20,
+				}),
+			).resolves.toStrictEqual([])
+			await expect(relation.count({}, { useMasterKey: true })).resolves.toBe(0)
+			await expect(relation.exists()).resolves.toBe(false)
 		})
 
-		expect(base.ast.selection.fields).toStrictEqual([])
-		expect(query.ast.selection.fields).toStrictEqual([
-			{ field: 'id', kind: 'selected-field' },
-		])
 		expect(dispatcher.executions.map(({ kind }) => kind)).toStrictEqual([
 			'find-many',
 			'count',
@@ -167,26 +161,19 @@ describe('Relation handles', () => {
 		expect(dispatcher.executions[1]?.options.useMasterKey).toBe(true)
 	})
 
-	it('does not let a reusable Query scope discard the relation restriction', async () => {
+	it('rejects attempts to inject framework-owned relation scope state', () => {
 		const article = materializeSchemaModel(RelationArticle, { id: articleId })
-		const discardingScope = (() =>
-			RelationTag.query().limit(1)) as unknown as QueryScope<typeof RelationTag>
-		const replacedPublicBranch = article
-			.relation('tags')
-			.query()
-			.use(discardingScope)
 		const dispatcher = new RelationScopeDispatcher()
 
-		await runWithQueryExecution({}, dispatcher, () =>
-			replacedPublicBranch.findMany(),
-		)
-
-		expect(replacedPublicBranch.ast.limit).toBe(1)
-		expect(dispatcher.executions[0]?.scope).toMatchObject({
-			fieldPath: ['tags'],
-			kind: 'relation',
-			sourceObjectId: articleId,
-		})
+		expect(() =>
+			runWithQueryExecution({}, dispatcher, () =>
+				// @ts-expect-error -- Private scope is never part of public read inputs.
+				article.relation('tags').findMany({
+					sourceObjectId: articleId,
+				}),
+			),
+		).toThrow('find-many input contains an unknown clause')
+		expect(dispatcher.executions).toStrictEqual([])
 	})
 
 	it('emits immutable relation deltas through protected source updates', async () => {

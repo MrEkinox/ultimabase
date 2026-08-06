@@ -86,7 +86,7 @@ interface MutationFixture {
 	readonly result: unknown
 }
 
-/** Exercises public terminals so the matrix cannot drift from Query normalization. */
+/** Exercises public terminals so the matrix cannot drift from QueryBuilder normalization. */
 const mutationFixtures: readonly MutationFixture[] = [
 	{
 		kind: 'create-one',
@@ -447,7 +447,7 @@ describe('automatic mutation transaction scope', () => {
 		).resolves.toMatchObject({ title: 'Primary' })
 		expect(nestedAccessMode).toBe('master')
 		expect(auditReasons).toStrictEqual([
-			'Query terminal create-one on AutomaticTransactionArticle',
+			'QueryBuilder terminal create-one on AutomaticTransactionArticle',
 		])
 		expect(adapter.transactions).toHaveLength(1)
 		expect(adapter.transactions[0]?.requests).toHaveLength(2)

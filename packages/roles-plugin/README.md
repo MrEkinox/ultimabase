@@ -90,7 +90,7 @@ do not need the plugin.
 
 Role schemas carry hidden-by-default transport metadata. Transport packages
 must require an explicit opt-in before generating administrative role APIs;
-trusted server code can always use `new Query(AppRole)` or `AppRole.query()`.
+trusted server code can always use schema-root reads such as `AppRole.findMany()`.
 
 Persisted role results expose `addMember()` and `removeMember()`. Both accept a
 Pointer or persisted result of the exact member schema, delegate to the normal

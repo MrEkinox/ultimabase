@@ -3,39 +3,44 @@
 Transport-neutral Query and Operation AST contracts, normalization, cursor
 contracts, operators, and immutable read definitions.
 
-`Query<TSchema>` is a context-free immutable read builder. It retains only the
-transport-neutral AST and never retains a database, adapter, transaction,
-request, authority, or transport. Writes belong to generated schema classes and
-immutable schema models, so a read filter can never be silently ignored by a
-create operation.
+Generated schema classes expose object-input read commands. These objects are
+the canonical, serializable contract shared with future transports. The
+optional `QueryBuilder<TSchema>` remains a context-free immutable utility: it
+retains only transport-neutral AST state and `build()` returns the same object
+input without executing it. Neither form retains a database, adapter,
+transaction, request, authority, or transport.
 
-## Immutable read queries
+## Canonical object reads
 
 ```ts
-const feed = Post.query()
-	.where({
-		OR: [{ published: { eq: true } }, { views: { gt: 1_000 } }],
-	})
-	.select({ id: true, title: true, createdAt: true })
-	.descending('createdAt')
-	.limit(25)
+const feed = await Post.findMany(
+	{
+		where: {
+			OR: [{ published: { eq: true } }, { views: { gt: 1_000 } }],
+		},
+		select: { id: true, title: true, createdAt: true },
+		orderBy: [{ createdAt: 'desc' }],
+		limit: 25,
+		cursor: true,
+	},
+	{ ultimabase },
+)
 
-const nextPage = feed.after(cursor)
-const firstCursorPage = feed.after()
-const adminPage = feed.skip(50)
+const nextPage = await Post.findMany({ limit: 25, cursor }, { ultimabase })
+const offsetPage = await Post.findMany({ limit: 25, skip: 50 }, { ultimabase })
 ```
 
-Every call returns a new `Query`, so every branch remains independent.
-`limit` defines the page size; `skip` and `after` choose mutually exclusive
-pagination positions.
+`limit` defines the page size. `cursor: true` starts cursor pagination and
+`cursor: string` resumes from an opaque cursor. `skip` selects offset
+pagination and cannot be combined with `cursor`.
 
 `select` receives one flat boolean object correlated with the schema. As soon
 as one field is `true`, only fields marked `true` remain visible. With only
 `false` values, every schema field remains visible except those marked `false`:
 
 ```ts
-const card = Post.query().select({ id: true, title: true })
-const publicPost = Post.query().select({ internalNote: false })
+const cards = await Post.findMany({ select: { id: true, title: true } })
+const publicPosts = await Post.findMany({ select: { internalNote: false } })
 ```
 
 An empty object keeps the complete result shape. Mixed objects use inclusion
@@ -48,10 +53,12 @@ result type cannot disagree with a dynamic runtime projection.
 through implicit `AND`, while `AND`, `OR`, and `NOT` compose recursive groups:
 
 ```ts
-const visible = Post.query().where({
-	published: { eq: true },
-	views: { gte: 10, lt: 1_000 },
-	NOT: { title: { startsWith: 'Archive' } },
+const visible = await Post.findMany({
+	where: {
+		published: { eq: true },
+		views: { gte: 10, lt: 1_000 },
+		NOT: { title: { startsWith: 'Archive' } },
+	},
 })
 ```
 
@@ -60,23 +67,21 @@ Autocomplete exposes only operators supported by the selected field kind.
 same canonical filter contract:
 
 ```ts
-const post = await Post.query()
-	.where({ id: { eq: postId } })
-	.findOne({ ultimabase })
+const post = await Post.get({ id: postId }, { ultimabase })
 ```
 
-The complete read terminal surface is `findOne`, `findMany`, `get`, `count`,
-and `exists`. `findOne` and `get` return `null` when no visible object matches.
-The `exists()` terminal tests whether a matching row exists; `isNull` and
+The complete read surface is `findOne`, `findMany`, `get`, `count`, and
+`exists`. `findOne` and `get` return `null` when no visible object matches.
+`exists` tests whether a matching row exists; `isNull` and
 `isNotNull` are field operators inside `where`.
 
 ## Reusable read scopes
 
-A scope transforms a Query without capturing Runtime state or changing its
-selection:
+A scope transforms a `QueryBuilder` without capturing Runtime state or
+changing its selection:
 
 ```ts
-import { type QueryScope } from '@ultimabase/core'
+import { QueryBuilder, type QueryScope } from '@ultimabase/core'
 
 const published: QueryScope<typeof Post> = (query) =>
 	query.where({ published: { eq: true } })
@@ -84,7 +89,11 @@ const published: QueryScope<typeof Post> = (query) =>
 const recentPublished: QueryScope<typeof Post> = (query) =>
 	query.use(published).descending('createdAt').limit(25)
 
-const feed = Post.query().select({ id: true, title: true }).use(recentPublished)
+const feedInput = new QueryBuilder(Post)
+	.select({ id: true, title: true })
+	.use(recentPublished)
+	.build()
+const feed = await Post.findMany(feedInput, { ultimabase })
 ```
 
 Repeated `where` calls combine through implicit `AND`. Object filters never
@@ -93,11 +102,11 @@ alter selection, ordering, limit, or pagination.
 Ordered scalar fields expose first-class inclusive range predicates:
 
 ```ts
-const midRange = Post.query().where({
-	views: { between: { lower: 10, upper: 100 } },
+const midRange = await Post.findMany({
+	where: { views: { between: { lower: 10, upper: 100 } } },
 })
-const outsideMidRange = Post.query().where({
-	views: { notBetween: { lower: 10, upper: 100 } },
+const outsideMidRange = await Post.findMany({
+	where: { views: { notBetween: { lower: 10, upper: 100 } } },
 })
 ```
 
@@ -154,7 +163,7 @@ transports. Dynamic application code may use the public immutable utility
 class, whose short methods build the exact same object contract:
 
 ```ts
-import { WhereBuilder } from '@ultimabase/core'
+import { QueryBuilder, WhereBuilder } from '@ultimabase/core'
 
 const updated = await Post.updateMany({
 	where: { published: { eq: false } },
@@ -164,8 +173,9 @@ const updated = await Post.updateMany({
 
 const reusable = new WhereBuilder(Post).eq('published', false).gte('views', 10)
 
-Post.query().where(reusable)
-Post.query().where(reusable.build())
+const reusableInput = new QueryBuilder(Post).where(reusable).build()
+await Post.findMany(reusableInput)
+await Post.findMany({ where: reusable.build() })
 ```
 
 Update `data` is one field-oriented map. A direct value replaces the field,
@@ -207,7 +217,7 @@ behavior.
 ## Mutation results and relationships
 
 `createOne`, `updateOne`, and `deleteOne` return complete immutable models by
-default and accept the same flat boolean `select` contract as Query reads. The
+default and accept the same flat boolean `select` contract as schema reads. The
 projection changes only the public result; mutation hooks continue to receive
 complete logical materializations. Other singular schema commands still return
 complete models. No mutation accepts `include`, and pointer or relation values
@@ -231,13 +241,14 @@ const deleted = await Post.deleteOne({
 })
 
 if (post !== null) {
-	const authors = await post.author.query().findMany()
-	const tags = await post.relation('tags').query().findMany()
+	const author = await post.author.findOne()
+	const tags = await post.relation('tags').findMany()
 }
 ```
 
-Use a separate `Post.query()` when an included pointer is required. This keeps
-relation I/O visible while allowing the write result itself to remain narrow.
+Use a separate `Post.findOne` or `Post.get` with `include` when an included
+pointer is required. This keeps relation I/O visible while allowing the write
+result itself to remain narrow.
 
 `updateMany` and `deleteMany` always return immutable model arrays from the
 same set-based database statement. Without `select`, they request only `id`;
@@ -280,15 +291,15 @@ never gain dirty tracking or a mutable `save()` method.
 
 ## Contextual execution and authority
 
-Every read terminal and write command resolves execution only when called.
+Every schema read and write command resolves execution only when called.
 Inside an active request, hook, or transaction it inherits the exact engine,
 authority, cancellation signal, recursion state, and transaction:
 
 ```ts
-const article = await Article.query()
-	.where({ published: { eq: true } })
-	.select({ id: true, title: true })
-	.findOne()
+const article = await Article.findOne({
+	where: { published: { eq: true } },
+	select: { id: true, title: true },
+})
 
 const created = await Article.createOne({
 	data: { title: 'Inherited request' },
@@ -298,7 +309,7 @@ const created = await Article.createOne({
 Outside an active scope, pass the exact started application:
 
 ```ts
-const articles = await Article.query().findMany({ ultimabase })
+const articles = await Article.findMany(undefined, { ultimabase })
 const created = await Article.createOne(
 	{ data: { title: 'Root job' } },
 	{ ultimabase },
@@ -309,7 +320,7 @@ An explicit plugin-derived context and audited master authority use the same
 final options position:
 
 ```ts
-const scoped = await Article.query().findMany({
+const scoped = await Article.findMany(undefined, {
 	context: contextCreatedByAPlugin,
 	ultimabase,
 })

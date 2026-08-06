@@ -239,9 +239,10 @@ const runCombinedComposition = async (
 
 	try {
 		await ultimabase.start()
-		const result = await CombinedPost.query()
-			.where((where) => where.eq('title', 'developer-visible'))
-			.findMany({ ultimabase })
+		const result = await CombinedPost.findMany(
+			{ where: { title: { eq: 'developer-visible' } } },
+			{ ultimabase },
+		)
 		const request = adapter.requests[0]
 		const operation = request?.operation
 
@@ -307,12 +308,10 @@ describe('Access provider composition', () => {
 		try {
 			await ultimabase.start()
 			await expect(
-				NativeDocument.query().findMany({ ultimabase }),
+				NativeDocument.findMany(undefined, { ultimabase }),
 			).resolves.toEqual([expect.not.objectContaining({ secret: 'hidden' })])
 			await expect(
-				NativeDocument.query()
-					.select({ secret: true })
-					.findMany({ ultimabase }),
+				NativeDocument.findMany({ select: { secret: true } }, { ultimabase }),
 			).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
 			expect(adapter.requests).toHaveLength(1)
 		} finally {
@@ -351,7 +350,7 @@ describe('Access provider composition', () => {
 		try {
 			await Promise.all([rolesOnly.start(), aclOnly.start(), composed.start()])
 			await expect(
-				PublicACLPost.query().findMany({ ultimabase: aclOnly }),
+				PublicACLPost.findMany(undefined, { ultimabase: aclOnly }),
 			).resolves.toEqual([expect.objectContaining({ title: 'public ACL' })])
 			expect(rolesOnly.state).toBe('started')
 			expect(aclOnly.state).toBe('started')
@@ -394,7 +393,7 @@ describe('Access provider composition', () => {
 		try {
 			await Promise.all([readApplication.start(), writeApplication.start()])
 			await expect(
-				CombinedPost.query().findMany({ ultimabase: readApplication }),
+				CombinedPost.findMany(undefined, { ultimabase: readApplication }),
 			).rejects.toMatchObject({
 				code: 'SERVICE_NOT_FOUND',
 			} satisfies Partial<FrameworkError>)
@@ -435,7 +434,7 @@ describe('Access provider composition', () => {
 		try {
 			await ultimabase.start()
 			await expect(
-				CombinedPost.query().findMany({ ultimabase }),
+				CombinedPost.findMany(undefined, { ultimabase }),
 			).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
 			expect(adapter.requests).toHaveLength(0)
 		} finally {

@@ -146,29 +146,34 @@ describe(
 			expect(membershipTrace).toContain('created:editor')
 			expect(membership.toJSON()).not.toHaveProperty('internalNote')
 			expect(
-				await Membership.query()
-					.where((where) => where.eq('member', Member.pointer(member.id)))
-					.count({ ultimabase: app }),
+				await Membership.count(
+					{ where: { member: { eq: Member.pointer(member.id) } } },
+					{ ultimabase: app },
+				),
 			).toBe(1)
 			expect(
-				await Membership.query()
-					.where((where) => where.eq('project', Project.pointer(project.id)))
-					.count({ ultimabase: app }),
+				await Membership.count(
+					{ where: { project: { eq: Project.pointer(project.id) } } },
+					{ ultimabase: app },
+				),
 			).toBe(1)
 
-			const selected = await Membership.query()
-				.where({ id: { eq: membership.id } })
-				.include('project', (target) =>
-					target.select({ id: true, title: true }),
-				)
-				.select({
-					id: true,
-					member: true,
-					position: true,
-					project: true,
-					role: true,
-				})
-				.findOne({ ultimabase: app })
+			const selected = await Membership.findOne(
+				{
+					where: { id: { eq: membership.id } },
+					include: {
+						project: { select: { id: true, title: true } },
+					},
+					select: {
+						id: true,
+						member: true,
+						position: true,
+						project: true,
+						role: true,
+					},
+				},
+				{ ultimabase: app },
+			)
 
 			expect(selected?.toJSON()).toMatchObject({
 				id: membership.id,
@@ -206,9 +211,10 @@ describe(
 				),
 			).rejects.toThrow('The first project member must be an editor')
 			await expect(
-				Membership.query()
-					.select({ internalNote: true })
-					.findMany({ ultimabase: app }),
+				Membership.findMany(
+					{ select: { internalNote: true } },
+					{ ultimabase: app },
+				),
 			).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
 		})
 
@@ -235,14 +241,16 @@ describe(
 
 			await member.delete({}, { ultimabase: app })
 			expect(
-				await Membership.query()
-					.where((where) => where.eq('project', Project.pointer(project.id)))
-					.count({ ultimabase: app }),
+				await Membership.count(
+					{ where: { project: { eq: Project.pointer(project.id) } } },
+					{ ultimabase: app },
+				),
 			).toBe(0)
 			expect(
-				await Project.query()
-					.where({ id: { eq: project.id } })
-					.exists({ ultimabase: app }),
+				await Project.exists(
+					{ where: { id: { eq: project.id } } },
+					{ ultimabase: app },
+				),
 			).toBe(true)
 
 			const request = app.engine.anonymous({
@@ -277,14 +285,16 @@ describe(
 
 			// The edge and both endpoints share the same explicit transaction boundary.
 			expect(
-				await Member.query()
-					.where((where) => where.eq('name', 'Rolled back member'))
-					.exists({ ultimabase: app }),
+				await Member.exists(
+					{ where: { name: { eq: 'Rolled back member' } } },
+					{ ultimabase: app },
+				),
 			).toBe(false)
 			expect(
-				await Project.query()
-					.where((where) => where.eq('title', 'Rolled back project'))
-					.exists({ ultimabase: app }),
+				await Project.exists(
+					{ where: { title: { eq: 'Rolled back project' } } },
+					{ ultimabase: app },
+				),
 			).toBe(false)
 		})
 	},

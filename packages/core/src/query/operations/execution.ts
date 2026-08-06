@@ -25,30 +25,30 @@ type QueryUltimaBase = UltimaBase<
  * Selects inherited, plugin-derived, or audited-master terminal execution.
  * Omitting `context` and `useMasterKey` inherits the active request.
  *
- * @example `await Post.query().findMany()`
- * @example `await Post.query().findMany({ ultimabase })`
+ * @example `await Post.findMany()`
+ * @example `await Post.findMany(undefined, { ultimabase })`
  */
 export interface QueryTerminalOptions {
 	/**
 	 * Selects an immutable plugin-derived context without accepting credentials.
 	 * Combine it with `useMasterKey: true` to elevate that exact context.
 	 *
-	 * @example `await Post.query().findMany({ context, ultimabase })`
+	 * @example `await Post.findMany(undefined, { context, ultimabase })`
 	 */
 	readonly context?: RequestContext
 	/**
 	 * Selects the exact started application used to create an anonymous root request.
 	 * It is required with an explicit context outside an active request scope.
 	 *
-	 * @example `await Post.query().findMany({ ultimabase })`
+	 * @example `await Post.findMany(undefined, { ultimabase })`
 	 */
 	readonly ultimabase?: QueryUltimaBase
 	/**
 	 * Requests audited master authority from trusted backend code only.
-	 * Transport input and serialized Query data must never supply this option.
+	 * Transport input and serialized QueryBuilder data must never supply this option.
 	 *
-	 * @example `await Post.query().findMany({ useMasterKey: true })`
-	 * @example `await Post.query().findMany({ context, ultimabase, useMasterKey: true })`
+	 * @example `await Post.findMany(undefined, { useMasterKey: true })`
+	 * @example `await Post.findMany(undefined, { context, ultimabase, useMasterKey: true })`
 	 */
 	readonly useMasterKey?: true
 }
@@ -88,7 +88,7 @@ export type QueryBulkAtomic<
 			? true
 			: boolean
 
-/** @internal Carries validated server-only choices outside every Query and operation AST. */
+/** @internal Carries validated server-only choices outside every QueryBuilder and operation AST. */
 export interface NormalizedQueryTerminalOptions {
 	readonly context: object | undefined
 	readonly ultimabase: object | undefined
@@ -116,7 +116,7 @@ export interface QueryExecutionDispatcher {
 	execute(operation: unknown): Promise<unknown>
 }
 
-/** @internal Carries one protected object predicate outside the transformable Query AST. */
+/** @internal Carries one protected object predicate outside the transformable QueryBuilder AST. */
 export interface QueryRowFilterPrivateScope {
 	readonly kind: 'row-filter'
 	/** Makes protected singular object absence and Access denial indistinguishable. */
@@ -126,7 +126,7 @@ export interface QueryRowFilterPrivateScope {
 	readonly rowFilter: QueryFilterExpression
 }
 
-/** @internal Identifies one relation edge without exposing it to Query or hook ASTs. */
+/** @internal Identifies one relation edge without exposing it to QueryBuilder or hook ASTs. */
 export interface QueryRelationPrivateScope {
 	readonly kind: 'relation'
 	readonly fieldPath: readonly string[]
@@ -135,11 +135,11 @@ export interface QueryRelationPrivateScope {
 	readonly target: SchemaDefinition
 }
 
-/** @internal Keeps framework-owned Query restrictions behind one closed union. */
+/** @internal Keeps framework-owned QueryBuilder restrictions behind one closed union. */
 export type QueryTerminalPrivateScope =
 	QueryRelationPrivateScope | QueryRowFilterPrivateScope
 
-/** @internal Resolves authority without adding execution state to a Query instance. */
+/** @internal Resolves authority without adding execution state to a QueryBuilder instance. */
 export type QueryTerminalExecutionHandler = (
 	operation: unknown,
 	options: NormalizedQueryTerminalOptions,
@@ -380,7 +380,7 @@ export const runWithQueryExecutionGuard = <TResult>(
 	)
 }
 
-/** Resolves one terminal at call time without retaining execution in its Query AST. */
+/** Resolves one terminal at call time without retaining execution in its QueryBuilder AST. */
 export const executeQueryTerminal = <const TOperation extends OperationAstNode>(
 	operation: TOperation,
 	options: NormalizedQueryTerminalOptions,
@@ -422,7 +422,7 @@ export const executeQueryTerminal = <const TOperation extends OperationAstNode>(
 	if (registration === undefined) {
 		throw new FrameworkError(
 			'MISSING_EXECUTION_CONTEXT',
-			'No request is active. Pass { ultimabase } to this Query terminal.',
+			'No request is active. Pass { ultimabase } to this QueryBuilder terminal.',
 			{
 				publicMessage: 'No request execution context is available.',
 				internalDetails: { reason: 'query-terminal-owner-missing' },

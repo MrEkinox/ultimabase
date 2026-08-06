@@ -485,10 +485,13 @@ const Post = Schema.define({
 
 const author = User.pointer('0198f090-2a50-7000-8000-000000000034')
 const created = await Post.createOne({ data: { author } }, { ultimabase })
-const found = await Post.query()
-	.where({ author: { eq: author } })
-	.include('author', (query) => query.select({ id: true, name: true }))
-	.findOne({ ultimabase })
+const found = await Post.findOne(
+	{
+		where: { author: { eq: author } },
+		include: { author: { select: { id: true, name: true } } },
+	},
+	{ ultimabase },
+)
 ```
 
 Writes and predicates send only the target UUID as a parameter. Reads restore
@@ -515,13 +518,15 @@ await tags.connect([Tag.pointer(firstTagId), Tag.pointer(secondTagId)], {
 	ultimabase,
 })
 
-const selected = await tags
-	.query()
-	.select({ id: true, label: true })
-	.ascending('label')
-	.limit(20)
-	.after()
-	.findMany({ ultimabase })
+const selected = await tags.findMany(
+	{
+		select: { id: true, label: true },
+		orderBy: [{ label: 'asc' }],
+		limit: 20,
+		cursor: true,
+	},
+	{ ultimabase },
+)
 
 await tags.set([Tag.pointer(featuredTagId)], { ultimabase })
 await tags.disconnect(Tag.pointer(featuredTagId), { ultimabase })
@@ -530,19 +535,19 @@ await tags.clear({ ultimabase })
 
 Relation scopes stay outside the developer Query AST and are combined with
 developer predicates and native Access using parameterized SQL. Traversal
-first checks the source relation field, then runs the target Query through its
+first checks the source relation field, then runs the target read through its
 ordinary Access and hook lifecycle. Mutations lock and update the source inside
 the same Runtime transaction as their edge changes, so a later hook failure
-rolls back both. Duplicate connects are idempotent. `.after()` enables the
-stable first cursor page; resumed opaque cursor tokens retain the same general
+rolls back both. Duplicate connects are idempotent. `cursor: true` enables the
+stable first cursor page; opaque cursor strings retain the same general
 execution limitation documented above.
 
 Source relation quantifiers compile to correlated `EXISTS` expressions without
 loading target rows:
 
 ```ts
-const query = Article.query().where({
-	tags: { some: { label: { eq: 'typescript' } } },
+const articles = await Article.findMany({
+	where: { tags: { some: { label: { eq: 'typescript' } } } },
 })
 ```
 
@@ -590,7 +595,7 @@ expressions, existence, and nested `and`/`or`/`not` expressions share the same
 parameterized boundary:
 
 ```ts
-const query = new Query(ArticleSchema).where({
+const query = new QueryBuilder(ArticleSchema).where({
 	status: { eq: 'published' },
 	views: { gt: 1_000 },
 	title: { contains: 'Ultima_100%' },
@@ -614,7 +619,7 @@ typed object partials pass through child codecs before serialization:
 ```ts
 import { fieldPath } from '@ultimabase/core'
 
-const query = ArticleSchema.query().where((where) =>
+const query = new QueryBuilder(ArticleSchema).where((where) =>
 	where
 		.contains('metadata', { visibility: 'public' }) // @>
 		.containedBy('metadata', { visibility: 'public', featured: true }) // <@
@@ -647,7 +652,7 @@ ordering comparisons use the database column's configured collation. See the
 for the underlying ARE syntax.
 
 The compiler remains internal; developers build every scalar and relation
-filter only through `Query.where`.
+filter only through canonical `where` objects or `QueryBuilder.where`.
 
 ## Query selection and pagination compilation
 
@@ -657,7 +662,7 @@ pages always append `id` as a deterministic UUID tie-breaker and use explicit
 null placement, so equal developer sort values remain stable:
 
 ```ts
-const firstPage = new Query(ArticleSchema)
+const firstPage = new QueryBuilder(ArticleSchema)
 	.select({ id: true, title: true, createdAt: true })
 	.descending('createdAt')
 	.limit(25)
@@ -672,9 +677,8 @@ Query's cursor contract before PostgreSQL receives its payload. Ordered values
 then stay logical until their Drizzle column maps the parameter, rather than
 being interpolated into SQL or encoded by the cursor compiler.
 
-This compiler is internal until the singular CRUD issue consumes it. Today the
-example describes the implemented Query and compilation contract, not yet a
-database-executable terminal.
+The builder remains a non-executing utility. Schema-root read commands normalize
+their canonical objects to the same AST before this compiler runs.
 
 ## Table names
 

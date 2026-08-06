@@ -210,7 +210,7 @@ const assertConstraintOperationSupported = (
 	}
 }
 
-/** Combines policy-neutral constraints and native Access without exposing either to Query hooks. */
+/** Combines policy-neutral constraints and native Access without exposing either to QueryBuilder hooks. */
 const compilePostgresRequestConstraint = (
 	constraintCompilers: PostgresConstraintCompilerRegistry,
 	schema: ReturnType<PostgresSchemaCatalog['get']>,

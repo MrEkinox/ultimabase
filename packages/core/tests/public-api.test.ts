@@ -19,7 +19,7 @@ describe('@ultimabase/core public entry point', () => {
 			'PluginLifecycleManager',
 			'PluginSetupRegistries',
 			'Pointer',
-			'Query',
+			'QueryBuilder',
 			'QueryCursorError',
 			'Relation',
 			'RelationPredicate',

@@ -43,7 +43,10 @@ const readUpdatedRoleModel = async (
 	result: unknown,
 ): Promise<object> => {
 	const roleId = readPersistedRoleId(result)
-	const role = await new Pointer(schema, roleId).query().findOne(masterOptions)
+	const role = await new Pointer(schema, roleId).findOne(
+		undefined,
+		masterOptions,
+	)
 
 	if (role === null) {
 		throw new TypeError('Updated role disappeared before hierarchy validation')

@@ -2,6 +2,7 @@ import { definePlugin } from '../../foundation.js'
 import { RequestContextValue } from '../../access/index.js'
 import { Schema, stringField } from '../../schema/index.js'
 import { describe, expect, it } from 'vitest'
+import { QueryBuilder } from '../../query/query/query.js'
 
 import type { HookContext } from '../../schema/index.js'
 import {
@@ -120,7 +121,7 @@ describe('UltimaBase', () => {
 		expect(() => ultimabase.engine).toThrow(
 			new TypeError('UltimaBase must be started before accessing its engine'),
 		)
-		expect(() => articleSchema.query().findMany({ ultimabase })).toThrow(
+		expect(() => articleSchema.findMany(undefined, { ultimabase })).toThrow(
 			new TypeError('UltimaBase must be started before accessing its engine'),
 		)
 
@@ -131,7 +132,7 @@ describe('UltimaBase', () => {
 		expect(ultimabase.state).toBe('started')
 		expect(trace).toStrictEqual(['setup', 'connect'])
 
-		const result = await articleSchema.query().findMany({ ultimabase })
+		const result = await articleSchema.findMany(undefined, { ultimabase })
 
 		expect(result).toHaveLength(1)
 		expect(result[0]).toBeInstanceOf(articleSchema)
@@ -144,12 +145,14 @@ describe('UltimaBase', () => {
 			/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u,
 		)
 
-		const escapedQuery = articleSchema.query()
+		const escapedQuery = new QueryBuilder(articleSchema)
 
 		await ultimabase.stop()
 		expect(ultimabase.state).toBe('stopped')
 		expect(trace).toStrictEqual(['setup', 'connect', 'stop'])
-		expect(() => escapedQuery.findMany({ ultimabase })).toThrow(
+		expect(() =>
+			articleSchema.findMany(escapedQuery.build(), { ultimabase }),
+		).toThrow(
 			new TypeError(
 				'Framework engine cannot be used while application is stopped',
 			),
@@ -201,8 +204,8 @@ describe('UltimaBase', () => {
 
 		try {
 			await ultimabase.start()
-			await articleSchema.query().findMany({ context, ultimabase })
-			await articleSchema.query().findMany({
+			await articleSchema.findMany(undefined, { context, ultimabase })
+			await articleSchema.findMany(undefined, {
 				context,
 				ultimabase,
 				useMasterKey: true,
@@ -214,7 +217,7 @@ describe('UltimaBase', () => {
 			expect(observedAccesses[1]).toStrictEqual({
 				keyId: 'server-default',
 				mode: 'master',
-				reason: 'Query terminal find-many on UltimaBaseArticle',
+				reason: 'QueryBuilder terminal find-many on UltimaBaseArticle',
 			})
 			expect(observedPrincipals[1]).toBe('user-1')
 			expect(auditEvents).toStrictEqual([
@@ -223,7 +226,7 @@ describe('UltimaBase', () => {
 					kind: 'master-access',
 					occurredAt: '2026-08-03T12:00:00.000Z',
 					previousAccess: { mode: 'anonymous' },
-					reason: 'Query terminal find-many on UltimaBaseArticle',
+					reason: 'QueryBuilder terminal find-many on UltimaBaseArticle',
 					requestId: 'plugin-context-1',
 					source: 'internal',
 				},
@@ -234,7 +237,7 @@ describe('UltimaBase', () => {
 		}
 	})
 
-	it('delegates immutable model commands through exact Query terminals', async () => {
+	it('delegates immutable model commands through exact QueryBuilder terminals', async () => {
 		const createdRecord = {
 			createdAt: '2026-08-03T12:00:00.000Z',
 			id: '0198a43e-2431-7000-8000-000000000011',
@@ -371,13 +374,13 @@ describe('UltimaBase', () => {
 			await Promise.all([missing.start(), failing.start()])
 
 			await expect(
-				articleSchema.query().findMany({
+				articleSchema.findMany(undefined, {
 					ultimabase: missing,
 					useMasterKey: true,
 				}),
 			).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
 			await expect(
-				articleSchema.query().findMany({
+				articleSchema.findMany(undefined, {
 					ultimabase: failing,
 					useMasterKey: true,
 				}),
@@ -448,10 +451,10 @@ describe('UltimaBase', () => {
 			expect(firstAdapter.transactions).toHaveLength(1)
 			expect(firstAdapter.transactions[0]?.requests).toHaveLength(1)
 			await expect(
-				otherSchema.query().findMany({ ultimabase: first }),
+				otherSchema.findMany(undefined, { ultimabase: first }),
 			).rejects.toMatchObject({ code: 'VALIDATION_ERROR' })
 			await expect(
-				otherSchema.query().findMany({
+				otherSchema.findMany(undefined, {
 					context: foreignContext,
 					ultimabase: second,
 				}),
@@ -468,7 +471,7 @@ describe('UltimaBase', () => {
 				}),
 				() => {
 					expect(() =>
-						otherSchema.query().findMany({ ultimabase: second }),
+						otherSchema.findMany(undefined, { ultimabase: second }),
 					).toThrow(expect.objectContaining({ code: 'VALIDATION_ERROR' }))
 				},
 			)

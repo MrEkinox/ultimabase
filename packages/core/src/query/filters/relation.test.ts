@@ -10,6 +10,7 @@ import { describe, expect, it } from 'vitest'
 
 import { collectQueryRelationPredicates } from './relation.js'
 import { WhereBuilder } from './where.js'
+import { QueryBuilder } from '../query/query.js'
 
 const Member = Schema.define({
 	className: 'RelationPredicateMember',
@@ -60,7 +61,7 @@ const nestRecursivePredicate = (
 
 describe('relation predicates', () => {
 	it('normalizes nested quantifiers into immutable schema-correlated nodes', () => {
-		const base = Company.query()
+		const base = new QueryBuilder(Company)
 		const filtered = base.where((where) =>
 			where.some('teams', (team) =>
 				team
@@ -111,13 +112,13 @@ describe('relation predicates', () => {
 	})
 
 	it('preserves empty-set quantifier semantics as explicit true predicates', () => {
-		const some = Company.query().where((where) =>
+		const some = new QueryBuilder(Company).where((where) =>
 			where.some('teams', (team) => team),
 		)
-		const none = Company.query().where((where) =>
+		const none = new QueryBuilder(Company).where((where) =>
 			where.none('teams', (team) => team),
 		)
-		const every = Company.query().where((where) =>
+		const every = new QueryBuilder(Company).where((where) =>
 			where.every('teams', (team) => team),
 		)
 
@@ -135,7 +136,7 @@ describe('relation predicates', () => {
 
 	it('rejects relation builders created for another target schema', () => {
 		expect(() =>
-			Company.query().where((where) =>
+			new QueryBuilder(Company).where((where) =>
 				where.some(
 					'teams',
 					// @ts-expect-error -- Runtime still rejects dynamically mismatched builders.
@@ -147,7 +148,7 @@ describe('relation predicates', () => {
 
 	it('fails with a typed framework error above the portable depth limit', () => {
 		expect(() =>
-			Recursive.query().where((where) =>
+			new QueryBuilder(Recursive).where((where) =>
 				where.some('children', (child) => nestRecursivePredicate(child, 8)),
 			),
 		).toThrow(

@@ -9,7 +9,6 @@ import {
 import {
 	MasterAuthority,
 	Pointer,
-	Query,
 	Schema,
 	UltimaBase,
 	createAccessPrincipalReference,
@@ -238,10 +237,12 @@ const readACL = async (
 	id: string,
 	ultimabase: ACLReferenceApplication,
 ): Promise<ACL> => {
-	const row = await new Query(schema)
-		.where({ id: { eq: id } })
-		.select({ acl: true })
-		.findOne({ ultimabase, useMasterKey: true })
+	const input = { where: { id: { eq: id } }, select: { acl: true } } as const
+	const options = { ultimabase, useMasterKey: true } as const
+	const row =
+		schema === ProtectedPrimary
+			? await ProtectedPrimary.findOne(input, options)
+			: await ProtectedSecondary.findOne(input, options)
 	const value: unknown = row === null ? undefined : Reflect.get(row, 'acl')
 
 	if (!(value instanceof ACL)) {
@@ -351,9 +352,10 @@ describe(
 			).rejects.toThrow('ACL reference cleanup rollback fixture')
 			expect(committedACLChanges).toHaveLength(changeStart)
 			await expect(
-				CascadePrincipal.query()
-					.where({ id: { eq: cascade.id } })
-					.exists({ ultimabase }),
+				CascadePrincipal.exists(
+					{ where: { id: { eq: cascade.id } } },
+					{ ultimabase },
+				),
 			).resolves.toBe(true)
 			expect(
 				(

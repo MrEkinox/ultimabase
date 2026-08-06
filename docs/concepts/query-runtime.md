@@ -1,37 +1,43 @@
 # Query and Runtime
 
-`Query<TSchema>` is immutable and never retains an application, request,
+Schema reads use canonical typed object inputs. `QueryBuilder<TSchema>` is an
+optional immutable utility that never retains an application, request,
 transaction, adapter, or authority:
 
 ```ts
-const activeUsers = new Query(UserSchema)
+const activeUsers = new QueryBuilder(UserSchema)
 	.where({ isActive: { eq: true } })
 	.descending('createdAt')
+	.build()
 ```
 
-Every terminal resolves execution only when called. Inside a request,
-transaction, or queryable hook, it uses that exact active Runtime scope:
+Every schema read resolves execution only when called. Inside a request,
+transaction, or hook, it uses that exact active Runtime scope:
 
 ```ts
 const users = await runWithRequestEngine(requestEngine, () =>
-	activeUsers.limit(25).findMany(),
+	UserSchema.findMany({ ...activeUsers, limit: 25 }),
 )
 ```
 
-Outside an active scope, the terminal accepts the exact started application and
+Outside an active scope, the read accepts the exact started application and
 creates one anonymous internal request. Omitting both sources fails with
 `MISSING_EXECUTION_CONTEXT` instead of selecting a process-wide default:
 
 ```ts
-const users = await activeUsers.limit(25).findMany({ ultimabase })
+const users = await UserSchema.findMany(
+	{ ...activeUsers, limit: 25 },
+	{ ultimabase },
+)
 ```
 
 Reusable `QueryScope<TSchema>` arrow functions compose filters, ordering,
 limits, and pagination through `.use(scope)`. They retain the exact schema and
-selection type. Scopes receive only a Query, so reusable query behavior cannot
+selection type. Scopes receive only a QueryBuilder, so reusable query behavior cannot
 capture execution or authority implicitly.
 
-Transports produce the same AST as the class API. Runtime executes one pipeline for every source.
+Canonical objects, QueryBuilder, and transports produce the same AST. Runtime
+executes one pipeline for every source.
 
 Structured fields share one flat filter vocabulary. Dynamic JSON uses safe
 `JsonValue` operands, while typed objects preserve exact partial values, keys,
@@ -40,16 +46,20 @@ and nested paths:
 ```ts
 import { fieldPath } from '@ultimabase/core'
 
-const publicPosts = Post.query().where((where) =>
-	where
-		.contains('metadata', { visibility: 'public' })
-		.hasKey('metadata', 'visibility')
-		.eq(fieldPath('profile', ['contact', 'email']), 'ada@example.com')
-		.jsonPathExists('metadata', {
-			source: '$.items[*] ? (@.price > $minimum)',
-			variables: { minimum: 10 },
-		}),
-)
+const publicPostsInput = new QueryBuilder(Post)
+	.where((where) =>
+		where
+			.contains('metadata', { visibility: 'public' })
+			.hasKey('metadata', 'visibility')
+			.eq(fieldPath('profile', ['contact', 'email']), 'ada@example.com')
+			.jsonPathExists('metadata', {
+				source: '$.items[*] ? (@.price > $minimum)',
+				variables: { minimum: 10 },
+			}),
+	)
+	.build()
+
+const publicPosts = await Post.findMany(publicPostsInput)
 ```
 
 The AST stores `field: 'profile'` and `path: ['contact', 'email']` separately.
@@ -64,8 +74,8 @@ selection returns the requested post-update or pre-delete fields from that same
 database statement; the result length is the affected-row count.
 
 Every mutation eventually executes inside an automatic adapter transaction.
-Database work started by a native hook through an ordinary `Schema.query()`
-terminal shares that boundary and rolls back with the primary write. Runtime
+Database work started by a native hook through an ordinary schema command
+shares that boundary and rolls back with the primary write. Runtime
 tracks unawaited nested terminals, preserves caught failures as rollback-only,
 and rejects asynchronous branches whose hook lease has closed. Reads do not
 open a transaction automatically; developers can still use an explicit
@@ -87,16 +97,15 @@ Verification returns an opaque grant owned by that framework; passing it to
 the master engine. Operation options and transport booleans still cannot select
 master authority.
 
-Update inputs group `set`, `increment`, and `decrement` operations. Setting an
-optional field to `null` clears it.
-They normalize to immutable field-operation nodes, reject cross-operator field
-conflicts, and keep partial set values pending the shared Runtime validation
-pipeline.
+Update inputs use one field-oriented `data` map. Direct values replace fields,
+`null` clears optional fields, and explicit `increment()` or `decrement()`
+values normalize to immutable atomic-operation nodes before the shared Runtime
+validation pipeline.
 
 `new UltimaBase(options)` is the regular application boundary. Its `start()`
 method assembles the mandatory pipeline from the application's database service
-and plugin contributions. Schema classes expose `Post.query()` as the regular
-entry point; `new Query(Post)` is the equivalent lower-level primitive. The
+and plugin contributions. Schema classes expose schema-root object reads;
+`new QueryBuilder(Post)` is the equivalent non-executing composition utility. The
 lower-level `createFrameworkEngine(application)` factory remains available to
 framework packages and explicit transport composition.
 

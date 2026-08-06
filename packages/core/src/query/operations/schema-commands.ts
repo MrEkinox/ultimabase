@@ -44,7 +44,7 @@ type SchemaResultSelection<
 	TSelection extends QuerySelection<TSchema> | undefined,
 > = [TSelection] extends [QuerySelection<TSchema>]
 	? Readonly<{
-			/** Projects returned models through the same flat contract as `Query.select`. */
+			/** Projects returned models through the same flat contract as `QueryBuilder.select`. */
 			select: QuerySelection<TSchema> &
 				ExactQuerySelection<TSchema, TSelection> &
 				LiteralQuerySelection<TSelection>

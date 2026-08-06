@@ -1,6 +1,6 @@
 import { FrameworkError } from '../../foundation.js'
 import {
-	Query,
+	QueryBuilder,
 	increment,
 	normalizeUpdateExpression,
 	type CreateManyOperationAst,
@@ -90,7 +90,7 @@ const validationSchema = Schema.define({
 	},
 })
 
-const schemaNode = new Query(validationSchema).ast.schema
+const schemaNode = new QueryBuilder(validationSchema).ast.schema
 const relationValidationTarget = Schema.define({
 	className: 'RuntimeRelationValidationTarget',
 	fields: {},
@@ -178,7 +178,7 @@ describe('runtime validation', () => {
 			schema: schemaNode,
 			inputs: [validCreateInput(), validCreateInput()],
 			options: { atomic: true },
-			selection: new Query(validationSchema).ast.selection,
+			selection: new QueryBuilder(validationSchema).ast.selection,
 		}
 
 		const normalized = await executeStage(stage, operation)
@@ -223,7 +223,7 @@ describe('runtime validation', () => {
 		const operation: CreateOneOperationAst<typeof schema> = {
 			kind: 'create-one',
 			selection: { fields: [], kind: 'selection' },
-			schema: new Query(schema).ast.schema,
+			schema: new QueryBuilder(schema).ast.schema,
 			input: {},
 		}
 
@@ -240,7 +240,7 @@ describe('runtime validation', () => {
 		const stage = createRuntimeValidationStage({
 			clock: () => new Date('2026-05-01T08:00:00.000Z'),
 		})
-		const query = new Query(validationSchema).where((where) =>
+		const query = new QueryBuilder(validationSchema).where((where) =>
 			where.eq('title', 'old'),
 		)
 		const update = normalizeUpdateExpression(validationSchema, {
@@ -276,7 +276,7 @@ describe('runtime validation', () => {
 		const stage = createRuntimeValidationStage({
 			clock: () => new Date('2026-01-01T00:00:00.000Z'),
 		})
-		const query = new Query(validationSchema).where((where) =>
+		const query = new QueryBuilder(validationSchema).where((where) =>
 			where.eq('immutableCode', 'public-code'),
 		)
 		const update = normalizeUpdateExpression(validationSchema, {
@@ -350,7 +350,7 @@ describe('runtime validation', () => {
 		const byId: UpsertOneOperationAst<typeof validationSchema, typeof update> =
 			{
 				kind: 'upsert-one',
-				query: new Query(validationSchema).where((where) =>
+				query: new QueryBuilder(validationSchema).where((where) =>
 					where.eq('id', targetedId),
 				).ast,
 				target: { kind: 'unique-upsert-target', fields: ['id'] },
@@ -369,7 +369,7 @@ describe('runtime validation', () => {
 		const seededRequired = await executeStage(stage, {
 			...byId,
 			create: withoutUniqueTarget as never,
-			query: new Query(validationSchema).where((where) =>
+			query: new QueryBuilder(validationSchema).where((where) =>
 				where.eq('immutableCode', 'public-code'),
 			).ast,
 			target: {
@@ -383,7 +383,7 @@ describe('runtime validation', () => {
 		await expect(
 			executeStage(stage, {
 				...byId,
-				query: new Query(validationSchema).where((where) =>
+				query: new QueryBuilder(validationSchema).where((where) =>
 					where.eq('immutableCode', 'target-code'),
 				).ast,
 				target: {
@@ -424,7 +424,7 @@ describe('runtime validation', () => {
 			typeof update
 		> = {
 			kind: 'upsert-one',
-			query: new Query(validationSchema).where((where) =>
+			query: new QueryBuilder(validationSchema).where((where) =>
 				where.eq('immutableCode', 'public-code'),
 			).ast,
 			target: {
@@ -487,7 +487,7 @@ describe('runtime validation', () => {
 			typeof update
 		> = {
 			kind: 'update-one',
-			query: new Query(relationValidationSource).ast,
+			query: new QueryBuilder(relationValidationSource).ast,
 			update,
 		}
 		const normalized = await executeStage(stage, operation)
@@ -596,7 +596,7 @@ describe('runtime validation', () => {
 		const stage = createRuntimeValidationStage({ clock })
 		const operation: FindManyOperationAst<typeof validationSchema> = {
 			kind: 'find-many',
-			query: new Query(validationSchema).ast,
+			query: new QueryBuilder(validationSchema).ast,
 		}
 
 		expect(await executeStage(stage, operation)).toBe(operation)
@@ -645,7 +645,7 @@ describe('runtime validation', () => {
 		const operation = {
 			kind: 'create-one',
 			selection: { fields: [], kind: 'selection' },
-			schema: new Query(scalarSchema).ast.schema,
+			schema: new QueryBuilder(scalarSchema).ast.schema,
 			input: {
 				bigint: 1,
 				binary: 'binary',
@@ -715,7 +715,7 @@ describe('runtime validation', () => {
 
 	it('rejects every malformed update and bulk boundary from JavaScript callers', async () => {
 		const stage = createRuntimeValidationStage()
-		const query = new Query(validationSchema).ast
+		const query = new QueryBuilder(validationSchema).ast
 		const malformedOperations = [
 			null,
 			{ kind: 'set', field: 'missing', value: 'value' },

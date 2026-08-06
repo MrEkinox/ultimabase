@@ -4,7 +4,7 @@ import {
 	FrameworkError,
 } from '../../foundation.js'
 import {
-	Query,
+	QueryBuilder,
 	type CreateOneOperationAst,
 	type ExecutableOperationAst,
 	type FindManyOperationAst,
@@ -59,7 +59,7 @@ const createOperation = (
 	input,
 	kind: 'create-one',
 	selection: { fields: [], kind: 'selection' },
-	schema: new Query(articleSchema).ast.schema,
+	schema: new QueryBuilder(articleSchema).ast.schema,
 })
 
 const requireEnforcementStages = (
@@ -407,7 +407,7 @@ describe('createEnforcementStages', () => {
 		)
 		const operation: FindManyOperationAst<typeof articleSchema> = {
 			kind: 'find-many',
-			query: new Query(articleSchema).select({
+			query: new QueryBuilder(articleSchema).select({
 				id: true,
 				title: true,
 				secret: true,
@@ -440,7 +440,7 @@ describe('createEnforcementStages', () => {
 				],
 				kind: 'selection',
 			},
-			schema: new Query(articleSchema).ast.schema,
+			schema: new QueryBuilder(articleSchema).ast.schema,
 		}
 		const createEnforcement = await stages.evaluate({
 			context,
@@ -661,7 +661,7 @@ describe('createEnforcementStages', () => {
 		const stages = requireEnforcementStages(
 			createEnforcementStages(application),
 		)
-		const query = new Query(articleSchema).ast
+		const query = new QueryBuilder(articleSchema).ast
 		const schema = query.schema
 		const update = {
 			kind: 'update-expression',

@@ -179,7 +179,7 @@ const readOperationKeys = (kind: OperationKind): readonly string[] => {
 	}
 }
 
-/** Keeps every type-level Query projection stable across operation transforms. */
+/** Keeps every type-level QueryBuilder projection stable across operation transforms. */
 const assertSameQueryResultShape = (
 	operation: DatabaseOperationAst,
 	replacement: Readonly<Record<string, unknown>>,

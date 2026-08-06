@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { Query } from '../../query/query/query.js'
+import { QueryBuilder } from '../../query/query/query.js'
 import { objectField } from '../fields/builtins/object.js'
 import { stringField } from '../fields/builtins/string.js'
 import { Schema } from './definition.js'
@@ -281,11 +281,13 @@ describe('schema model classes', () => {
 		).toBe(false)
 	})
 
-	it('creates independent Query branches from the static entry point', () => {
-		const first = Post.query().select({ id: true, title: true })
-		const second = Post.query().where((where) => where.eq('title', 'Second'))
+	it('creates independent QueryBuilder branches for reusable object inputs', () => {
+		const first = new QueryBuilder(Post).select({ id: true, title: true })
+		const second = new QueryBuilder(Post).where((where) =>
+			where.eq('title', 'Second'),
+		)
 
-		expect(first).toBeInstanceOf(Query)
+		expect(first).toBeInstanceOf(QueryBuilder)
 		expect(first.schema).toBe(Post)
 		expect(first.ast.selection.fields).toStrictEqual([
 			{ field: 'id', kind: 'selected-field' },

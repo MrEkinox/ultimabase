@@ -1,5 +1,6 @@
 import { Schema, stringField } from '../../schema/index.js'
 import { describe, expect, it } from 'vitest'
+import { QueryBuilder } from '../query/query.js'
 
 import {
 	normalizeQueryBulkTerminalOptions,
@@ -29,15 +30,17 @@ class RecordingDispatcher implements QueryExecutionDispatcher {
 	}
 }
 
-describe('contextual Query execution', () => {
+describe('contextual QueryBuilder execution', () => {
 	it('fails clearly when neither an ambient request nor an app is available', () => {
-		expect(() => PostSchema.query().findMany()).toThrow(
+		expect(() => PostSchema.findMany()).toThrow(
 			expect.objectContaining({
 				code: 'MISSING_EXECUTION_CONTEXT',
 				internalDetails: { reason: 'query-terminal-owner-missing' },
 			}),
 		)
-		expect(() => PostSchema.query().findMany({ context: {} as never })).toThrow(
+		expect(() =>
+			PostSchema.findMany(undefined, { context: {} as never }),
+		).toThrow(
 			expect.objectContaining({
 				code: 'MISSING_EXECUTION_CONTEXT',
 				internalDetails: { reason: 'query-terminal-owner-missing' },
@@ -50,16 +53,18 @@ describe('contextual Query execution', () => {
 		const secondFailure = new Error('second execution')
 		const first = new RecordingDispatcher(firstFailure)
 		const second = new RecordingDispatcher(secondFailure)
-		const reusable = PostSchema.query()
+		const reusable = new QueryBuilder(PostSchema)
 			.where((where) => where.eq('title', 'shared'))
 			.select({ id: true })
 		const firstApplication = {}
 		const secondApplication = {}
 
 		const [firstResult, secondResult] = await Promise.allSettled([
-			runWithQueryExecution(firstApplication, first, () => reusable.findMany()),
+			runWithQueryExecution(firstApplication, first, () =>
+				PostSchema.findMany(reusable.build()),
+			),
 			runWithQueryExecution(secondApplication, second, () =>
-				reusable.findMany(),
+				PostSchema.findMany(reusable.build()),
 			),
 		])
 
@@ -78,7 +83,7 @@ describe('contextual Query execution', () => {
 		expect(reusable.ast.selection.fields).toStrictEqual([
 			{ field: 'id', kind: 'selected-field' },
 		])
-		// Execution never becomes mutable state on the reusable Query itself.
+		// Execution never becomes mutable state on the reusable QueryBuilder itself.
 		expect('engine' in reusable).toBe(false)
 	})
 
@@ -108,9 +113,10 @@ describe('contextual Query execution', () => {
 		})
 		expect(Object.isFrozen(terminal)).toBe(true)
 		expect(Object.isFrozen(bulk)).toBe(true)
-		expect('context' in PostSchema.query().ast).toBe(false)
-		expect('ultimabase' in PostSchema.query().ast).toBe(false)
-		expect('useMasterKey' in PostSchema.query().ast).toBe(false)
+		const ast = new QueryBuilder(PostSchema).ast
+		expect('context' in ast).toBe(false)
+		expect('ultimabase' in ast).toBe(false)
+		expect('useMasterKey' in ast).toBe(false)
 		expect(() =>
 			normalizeQueryTerminalOptions({ unknown: true } as never),
 		).toThrow('query terminal options contain unknown key: unknown')

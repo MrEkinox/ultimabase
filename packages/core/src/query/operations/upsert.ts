@@ -18,7 +18,7 @@ import type {
 	UpsertOperationItem,
 } from './contracts.js'
 
-/** Accepts Query and compatible immutable query holders without importing Query at runtime. */
+/** Accepts QueryBuilder and compatible immutable query holders without importing QueryBuilder at runtime. */
 export interface UpsertTargetQuery<TSchema extends SchemaDefinition> {
 	readonly ast: QueryAst<TSchema, QueryFilterNode<TSchema>>
 }

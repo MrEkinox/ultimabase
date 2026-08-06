@@ -182,10 +182,13 @@ describe(
 				{ data: { secret: 'public-secret', title: '  PUBLIC  ' } },
 				{ ultimabase: app },
 			)
-			const persisted = await Document.query()
-				.where({ id: { eq: owned.id } })
-				.select({ acl: true, title: true })
-				.findOne({ ultimabase: app, useMasterKey: true })
+			const persisted = await Document.findOne(
+				{
+					where: { id: { eq: owned.id } },
+					select: { acl: true, title: true },
+				},
+				{ ultimabase: app, useMasterKey: true },
+			)
 
 			expect(owned.title).toBe('owned')
 			expect(owned).not.toHaveProperty('acl')
@@ -202,9 +205,10 @@ describe(
 					.toJSON(),
 			)
 			await expect(
-				Document.query()
-					.where({ id: { eq: publicDocument.id } })
-					.exists({ ultimabase: app }),
+				Document.exists(
+					{ where: { id: { eq: publicDocument.id } } },
+					{ ultimabase: app },
+				),
 			).resolves.toBe(true)
 		})
 
@@ -255,44 +259,50 @@ describe(
 			)
 
 			const visibleTitles = (context: RequestContext) =>
-				Document.query()
-					.where((where) =>
-						where.eq(
-							'title',
-							context.getValue(principalSchema) === 'b'
-								? 'principal-b'
-								: 'principal-a',
-						),
-					)
-					.after()
-					.limit(10)
-					.select({ title: true })
-					.findMany({ context, ultimabase: app })
-					.then((rows) => rows.map(({ title }) => title))
+				Document.findMany(
+					{
+						where: {
+							title: {
+								eq:
+									context.getValue(principalSchema) === 'b'
+										? 'principal-b'
+										: 'principal-a',
+							},
+						},
+						cursor: true,
+						limit: 10,
+						select: { title: true },
+					},
+					{ context, ultimabase: app },
+				).then((rows) => rows.map(({ title }) => title))
 
 			await expect(visibleTitles(alice)).resolves.toStrictEqual(['principal-a'])
 			await expect(visibleTitles(otherSchema)).resolves.toStrictEqual([
 				'principal-b',
 			])
 			await expect(
-				Document.query()
-					.where((where) => where.eq('title', 'native-denied'))
-					.exists({ context: alice, ultimabase: app }),
+				Document.exists(
+					{ where: { title: { eq: 'native-denied' } } },
+					{ context: alice, ultimabase: app },
+				),
 			).resolves.toBe(false)
 			await expect(
-				Document.query()
-					.where((where) => where.eq('title', 'hook-denied'))
-					.count({ context: alice, ultimabase: app }),
+				Document.count(
+					{ where: { title: { eq: 'hook-denied' } } },
+					{ context: alice, ultimabase: app },
+				),
 			).resolves.toBe(0)
 			await expect(
-				Document.query()
-					.select({ secret: true })
-					.findMany({ context: alice, ultimabase: app }),
+				Document.findMany(
+					{ select: { secret: true } },
+					{ context: alice, ultimabase: app },
+				),
 			).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
 			await expect(
-				Document.query()
-					.select({ acl: true })
-					.findMany({ context: alice, ultimabase: app }),
+				Document.findMany(
+					{ select: { acl: true } },
+					{ context: alice, ultimabase: app },
+				),
 			).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
 		})
 	},

@@ -1,4 +1,4 @@
-import { Query, Schema, stringField } from '../../../src/index.js'
+import { QueryBuilder, Schema, stringField } from '../../../src/index.js'
 import type { DeleteOneOperationAst } from '../../../src/query/index.js'
 import { describe, expect, it } from 'vitest'
 
@@ -14,8 +14,9 @@ const articleSchema = Schema.define({
 
 const deleteOperation = {
 	kind: 'delete-one',
-	query: new Query(articleSchema).where((where) => where.eq('id', 'article-1'))
-		.ast,
+	query: new QueryBuilder(articleSchema).where((where) =>
+		where.eq('id', 'article-1'),
+	).ast,
 } satisfies DeleteOneOperationAst<typeof articleSchema>
 
 /** Prepares one delete fixture through the same transaction boundary used by Runtime. */

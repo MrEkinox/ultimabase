@@ -7,7 +7,7 @@ import type {
 	OperationAstNode,
 	OperationIncludedPointer,
 	OperationKind,
-	Query,
+	QueryBuilder,
 	QueryFieldName,
 	QueryFilterNode,
 	UpdateExpression,
@@ -163,8 +163,8 @@ export interface SchemaHookTypes<
 	readonly object: InferObject<TSchema>
 	/** Every normalized terminal operation supported by the schema. */
 	readonly operation: TOperation
-	/** The immutable Query retaining the current selected-field union. */
-	readonly query: Query<
+	/** The immutable QueryBuilder retaining the current selected-field union. */
+	readonly query: QueryBuilder<
 		TSchema,
 		TSelectedField,
 		OperationIncludedPointer<TOperation>
@@ -319,7 +319,7 @@ export type SchemaBeforeDeleteHook<TSchema extends SchemaDefinition> =
 export type SchemaAfterDeleteHook<TSchema extends SchemaDefinition> =
 	SchemaAfterHook<TSchema, SchemaDeleteHookKind>
 
-/** Correlates one read operation with its immutable selected Query. */
+/** Correlates one read operation with its immutable selected QueryBuilder. */
 export type SchemaBeforeReadInput<
 	TSchema extends SchemaDefinition,
 	TSelectedField extends QueryFieldName<TSchema>,
@@ -340,18 +340,20 @@ export type SchemaBeforeReadInput<
 					/** The immutable read operation associated with the query. */
 					operation: TOperation
 					/** The immutable query that may be narrowed without erasing selection. */
-					query: Query<TSchema, TSelectedField, TIncludedPointer>
+					query: QueryBuilder<TSchema, TSelectedField, TIncludedPointer>
 				}>
 			: never
 		: never
 
-/** Supplies an immutable Query while preserving its accumulated selection. */
+/** Supplies an immutable QueryBuilder while preserving its accumulated selection. */
 export type SchemaBeforeReadHook<TSchema extends SchemaDefinition> = <
 	const TSelectedField extends QueryFieldName<TSchema>,
 	const TIncludedPointer = never,
 >(
 	input: SchemaBeforeReadInput<TSchema, TSelectedField, TIncludedPointer>,
-) => MaybePromise<Query<TSchema, TSelectedField, TIncludedPointer> | undefined>
+) => MaybePromise<
+	QueryBuilder<TSchema, TSelectedField, TIncludedPointer> | undefined
+>
 
 /** Observes or replaces a read result while retaining terminal correlation. */
 export type SchemaAfterReadHook<TSchema extends SchemaDefinition> =
@@ -627,7 +629,7 @@ export interface SchemaHooks<TSchema extends SchemaDefinition> {
 		SchemaAfterDeleteHook<TSchema>
 	>
 	/**
-	 * Transforms every read Query while preserving selected-field inference.
+	 * Transforms every read QueryBuilder while preserving selected-field inference.
 	 *
 	 * @example `beforeRead: ({ query }) => query.limit(100)`
 	 */
