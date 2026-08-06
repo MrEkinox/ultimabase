@@ -188,7 +188,8 @@ export interface CreateOneOperationAst<
 export interface CreateManyOperationAst<
 	TSchema extends SchemaDefinition,
 	TAtomic extends boolean = true,
-> extends SchemaOperationAst<TSchema> {
+	TSelectedField extends QueryFieldName<TSchema> = never,
+> extends SelectedSchemaOperationAst<TSchema, TSelectedField> {
 	readonly kind: 'create-many'
 	readonly inputs: readonly InferCreateInput<TSchema>[]
 	readonly options: AtomicBulkOperationOptions<TAtomic>
@@ -259,7 +260,8 @@ export interface UpsertManyOperationAst<
 	TUpdate extends UpdateExpressionNode = UpdateExpression<TSchema>,
 	TFilter extends QueryExpressionNode = QueryFilterNode<TSchema>,
 	TAtomic extends boolean = true,
-> extends SchemaOperationAst<TSchema> {
+	TSelectedField extends QueryFieldName<TSchema> = never,
+> extends SelectedSchemaOperationAst<TSchema, TSelectedField> {
 	readonly kind: 'upsert-many'
 	readonly items: readonly UpsertOperationItem<TSchema, TUpdate, TFilter>[]
 	readonly options: AtomicBulkOperationOptions<TAtomic>
@@ -304,7 +306,7 @@ export type OperationAst<
 	| CountOperationAst<TSchema, TFilter, TSelectedField>
 	| ExistsOperationAst<TSchema, TFilter, TSelectedField>
 	| CreateOneOperationAst<TSchema>
-	| CreateManyOperationAst<TSchema, TAtomic>
+	| CreateManyOperationAst<TSchema, TAtomic, TSelectedField>
 	| UpdateOneOperationAst<
 			TSchema,
 			TUpdate,
@@ -320,7 +322,7 @@ export type OperationAst<
 			TSelectedField,
 			TIncludedPointer
 	  >
-	| UpsertManyOperationAst<TSchema, TUpdate, TFilter, TAtomic>
+	| UpsertManyOperationAst<TSchema, TUpdate, TFilter, TAtomic, TSelectedField>
 	| DeleteOneOperationAst<TSchema, TFilter, TSelectedField, TIncludedPointer>
 	| DeleteManyOperationAst<TSchema, TFilter, TSelectedField>
 

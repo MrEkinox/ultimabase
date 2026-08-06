@@ -1,7 +1,6 @@
 import {
 	Schema,
 	type GenericField,
-	type InferCreateInput,
 	type SchemaDefinition,
 } from '../../schema/index.js'
 import { getFieldSchemaTarget } from '../../schema/fields/base/definition.js'
@@ -89,7 +88,10 @@ import {
 	type UpsertInput,
 	type UpsertManyItemInput,
 } from '../operations/upsert.js'
-import type { SchemaCreateOneExecutionInput } from '../operations/schema-commands.js'
+import type {
+	SchemaCreateManyExecutionInput,
+	SchemaCreateOneExecutionInput,
+} from '../operations/schema-commands.js'
 import type {
 	UpdateExpression,
 	UpdateExpressionInput,
@@ -723,18 +725,28 @@ export const executeSchemaCreateMany = <
 	const TOptions extends QueryBulkTerminalOptions | undefined = undefined,
 >(
 	schema: TSchema,
-	inputs: readonly InferCreateInput<TSchema>[],
+	input: SchemaCreateManyExecutionInput<TSchema>,
 	options?: TOptions & QueryBulkTerminalOptions,
-): Promise<QueryBulkTerminalResult<InferQueryResult<TSchema>, TOptions>> => {
+): Promise<
+	QueryBulkTerminalResult<
+		InferQueryResult<TSchema, QueryFieldName<TSchema>>,
+		TOptions
+	>
+> => {
 	const normalizedOptions = normalizeQueryBulkTerminalOptions<TOptions>(options)
 	const operation: CreateManyOperationAst<
 		TSchema,
-		QueryBulkAtomic<TOptions>
+		QueryBulkAtomic<TOptions>,
+		QueryFieldName<TSchema>
 	> = immutableRecord({
 		kind: 'create-many',
 		schema: createQueryAst(schema).schema,
-		inputs: snapshotCreateInputs(inputs),
+		inputs: snapshotCreateInputs(input.data),
 		options: normalizedOptions.bulk,
+		selection:
+			input.select === undefined
+				? emptyQuerySelection
+				: normalizeQuerySelection(schema, input.select),
 	})
 
 	return executeQueryTerminal(operation, normalizedOptions)
@@ -826,19 +838,30 @@ export const executeSchemaUpsertMany = <
 >(
 	schema: TSchema,
 	inputs: readonly UpsertManyItemInput<TSchema>[],
+	selection: QuerySelection<TSchema> | undefined,
 	options?: TOptions & QueryBulkTerminalOptions,
-): Promise<QueryBulkTerminalResult<InferQueryResult<TSchema>, TOptions>> => {
+): Promise<
+	QueryBulkTerminalResult<
+		InferQueryResult<TSchema, QueryFieldName<TSchema>>,
+		TOptions
+	>
+> => {
 	const normalizedOptions = normalizeQueryBulkTerminalOptions<TOptions>(options)
 	const operation: UpsertManyOperationAst<
 		TSchema,
 		UpdateExpression<TSchema>,
 		QueryFilterNode<TSchema>,
-		QueryBulkAtomic<TOptions>
+		QueryBulkAtomic<TOptions>,
+		QueryFieldName<TSchema>
 	> = immutableRecord({
 		kind: 'upsert-many',
 		schema: createQueryAst(schema).schema,
 		items: normalizeUpsertItems(schema, inputs),
 		options: normalizedOptions.bulk,
+		selection:
+			selection === undefined
+				? emptyQuerySelection
+				: normalizeQuerySelection(schema, selection),
 	})
 
 	return executeQueryTerminal(operation, normalizedOptions)

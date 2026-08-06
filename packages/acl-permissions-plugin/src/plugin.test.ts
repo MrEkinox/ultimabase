@@ -514,6 +514,7 @@ describe('aclPlugin create input resolution', () => {
 			inputs: [{ title: 'First' }, { title: 'Second' }],
 			kind: 'create-many',
 			options: { atomic: true },
+			selection: ProtectedPost.query().ast.selection,
 			schema: protectedPostNode,
 		} as const
 
@@ -630,9 +631,12 @@ describe('aclPlugin create input resolution', () => {
 		try {
 			await ultimabase.start()
 			await expect(
-				BatchPost.createMany([{ title: 'Accepted' }, { title: 'Oversized' }], {
-					ultimabase,
-				}),
+				BatchPost.createMany(
+					{ data: [{ title: 'Accepted' }, { title: 'Oversized' }] },
+					{
+						ultimabase,
+					},
+				),
 			).rejects.toMatchObject({
 				code: 'VALIDATION_ERROR',
 				internalDetails: { kind: 'acl-entry-limit' },
@@ -929,14 +933,16 @@ describe('aclPlugin create input resolution', () => {
 					),
 				() =>
 					ProtectedPost.upsertMany(
-						[
-							{
-								create: { title: 'Created' },
-								where: (where) =>
-									where.eq('id', '0198a43e-2431-7000-8000-000000000033'),
-								update: { acl: replacement },
-							},
-						],
+						{
+							data: [
+								{
+									create: { title: 'Created' },
+									where: (where) =>
+										where.eq('id', '0198a43e-2431-7000-8000-000000000033'),
+									update: { acl: replacement },
+								},
+							],
+						},
 						masterOptions,
 					),
 			] as const

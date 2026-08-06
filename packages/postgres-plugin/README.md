@@ -278,10 +278,16 @@ columns. Their default projection contains only `id`. Resumed opaque cursor
 tokens are not yet executable.
 
 ```ts
-const imported = await ArticleSchema.createMany(rows, {
-	atomic: false,
-	ultimabase,
-})
+const imported = await ArticleSchema.createMany(
+	{
+		data: rows,
+		select: { id: true, title: true },
+	},
+	{
+		atomic: false,
+		ultimabase,
+	},
+)
 
 if (imported.status === 'stopped') {
 	console.log(imported.failedIndex, imported.results)
@@ -292,6 +298,7 @@ const article = await ArticleSchema.upsert(
 		where: { slug: { eq: 'runtime-postgres' } },
 		create: { slug: 'runtime-postgres', title: 'Runtime + PostgreSQL' },
 		update: { title: 'Runtime + PostgreSQL' },
+		select: { id: true, title: true },
 	},
 	{ ultimabase },
 )

@@ -367,11 +367,14 @@ typed values:
 
 ```ts
 const allPosts = await PostSchema.query().find({ useMasterKey: true })
-const imported = await PostSchema.createMany(rows, {
-	context: contextCreatedByAuthPlugin,
-	ultimabase,
-	useMasterKey: true,
-})
+const imported = await PostSchema.createMany(
+	{ data: rows },
+	{
+		context: contextCreatedByAuthPlugin,
+		ultimabase,
+		useMasterKey: true,
+	},
+)
 ```
 
 The application-owned `MasterAuthority` audits the operation before it runs;
@@ -401,10 +404,16 @@ persistence failure and returns the committed-prefix candidate explicitly. The
 prefix still commits only after every result and finalization hook succeeds.
 
 ```ts
-const imported = await PostSchema.createMany(rows, {
-	atomic: false,
-	ultimabase,
-})
+const imported = await PostSchema.createMany(
+	{
+		data: rows,
+		select: { id: true, title: true },
+	},
+	{
+		atomic: false,
+		ultimabase,
+	},
+)
 
 if (imported.status === 'stopped') {
 	console.error(imported.failedIndex, imported.error)
@@ -414,7 +423,7 @@ if (imported.status === 'stopped') {
 Database plugins prepare each transaction-bound mutation through one opaque,
 single-use handle. Its execution keeps the projected public result separate
 from the complete logical materializations used by native field hooks.
-`create`, `updateOne`, and `deleteOne` accept the same flat selection contract
+Every model-returning schema mutation accepts the same flat selection contract
 as Query reads; no write command performs implicit relation loading:
 
 ```ts

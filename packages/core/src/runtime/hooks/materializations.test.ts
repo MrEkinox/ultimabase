@@ -405,6 +405,7 @@ describe('runtime mutation materializations', () => {
 			],
 			kind: 'upsert-many',
 			options: { atomic: true },
+			selection: query.ast.selection,
 			schema: schemaNode,
 		} satisfies UpsertManyOperationAst<
 			typeof materializationSchema,
@@ -498,6 +499,7 @@ describe('runtime mutation materializations', () => {
 			inputs: [{}, {}],
 			kind: 'create-many',
 			options: { atomic: true },
+			selection: new Query(materializationSchema).ast.selection,
 			schema: schemaNode,
 		} satisfies CreateManyOperationAst<typeof materializationSchema>
 		const first = makeRecord('first')

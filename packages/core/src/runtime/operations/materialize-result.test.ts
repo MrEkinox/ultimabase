@@ -67,6 +67,7 @@ describe('Runtime result materialization', () => {
 			inputs: [{ title: 'First' }, { title: 'Second' }],
 			kind: 'create-many',
 			options: { atomic: false },
+			selection: new Query(ResultSchema).ast.selection,
 			schema: new Query(ResultSchema).ast.schema,
 		} satisfies CreateManyOperationAst<typeof ResultSchema, false>
 		const writeError = new Error('second input failed')

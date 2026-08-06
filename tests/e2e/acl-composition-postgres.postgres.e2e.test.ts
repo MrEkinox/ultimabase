@@ -213,42 +213,44 @@ describe(
 			const alice = request('acl-composition-a', 'a')
 			const otherSchema = request('acl-composition-b', 'b')
 			await Document.createMany(
-				[
-					{
-						acl: new ACL().grantPrincipal(
-							PrincipalA.pointer(sharedPrincipalId),
-							'read',
-						),
-						secret: 'a',
-						title: 'principal-a',
-					},
-					{
-						acl: new ACL().grantPrincipal(
-							PrincipalB.pointer(sharedPrincipalId),
-							'read',
-						),
-						secret: 'b',
-						title: 'principal-b',
-					},
-					{
-						acl: new ACL().grantPrincipal(
-							PrincipalA.pointer(sharedPrincipalId),
-							'read',
-						),
-						nativeScope: 'denied',
-						secret: 'native',
-						title: 'native-denied',
-					},
-					{
-						acl: new ACL().grantPrincipal(
-							PrincipalA.pointer(sharedPrincipalId),
-							'read',
-						),
-						hookScope: 'denied',
-						secret: 'hook',
-						title: 'hook-denied',
-					},
-				],
+				{
+					data: [
+						{
+							acl: new ACL().grantPrincipal(
+								PrincipalA.pointer(sharedPrincipalId),
+								'read',
+							),
+							secret: 'a',
+							title: 'principal-a',
+						},
+						{
+							acl: new ACL().grantPrincipal(
+								PrincipalB.pointer(sharedPrincipalId),
+								'read',
+							),
+							secret: 'b',
+							title: 'principal-b',
+						},
+						{
+							acl: new ACL().grantPrincipal(
+								PrincipalA.pointer(sharedPrincipalId),
+								'read',
+							),
+							nativeScope: 'denied',
+							secret: 'native',
+							title: 'native-denied',
+						},
+						{
+							acl: new ACL().grantPrincipal(
+								PrincipalA.pointer(sharedPrincipalId),
+								'read',
+							),
+							hookScope: 'denied',
+							secret: 'hook',
+							title: 'hook-denied',
+						},
+					],
+				},
 				{ ultimabase: app, useMasterKey: true },
 			)
 

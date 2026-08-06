@@ -1,4 +1,4 @@
-import type { InferCreateInput, SchemaDefinition } from '../../schema/index.js'
+import type { SchemaDefinition } from '../../schema/index.js'
 import {
 	immutableArray,
 	immutableRecord,
@@ -33,12 +33,13 @@ import type { UpsertManyItemInput } from './upsert.js'
 import type {
 	SchemaDeleteManyExecutionInput,
 	SchemaDeleteOneExecutionInput,
+	SchemaCreateManyExecutionInput,
 	SchemaCreateOneExecutionInput,
 	SchemaManyWhere,
 	SchemaUpdateManyExecutionInput,
 	SchemaUpdateOneExecutionInput,
-	SchemaUpsertInput,
-	SchemaUpsertManyItemInput,
+	SchemaUpsertExecutionInput,
+	SchemaUpsertManyExecutionInput,
 	SchemaWhereFactory,
 } from './schema-commands.js'
 import {
@@ -81,10 +82,14 @@ const updateOneOptionalCommandKeys = new Set(['select'])
 const updateManyOptionalCommandKeys = new Set(['select'])
 const createCommandKeys = new Set(['data'])
 const createOneOptionalCommandKeys = new Set(['select'])
+const createManyOptionalCommandKeys = new Set(['select'])
 const deleteCommandKeys = new Set(['where'])
 const deleteOneOptionalCommandKeys = new Set(['select'])
 const deleteManyOptionalCommandKeys = new Set(['select'])
 const upsertCommandKeys = new Set(['create', 'update', 'where'])
+const upsertOptionalCommandKeys = new Set(['select'])
+const upsertManyCommandKeys = new Set(['data'])
+const upsertManyOptionalCommandKeys = new Set(['select'])
 
 const isEmptyWhereExpression = <TSchema extends SchemaDefinition>(
 	expression: QueryFilterNode<TSchema>,
@@ -170,10 +175,27 @@ export const createSchemaRecords = <
 	const TOptions extends QueryBulkTerminalOptions | undefined = undefined,
 >(
 	schema: TSchema,
-	inputs: readonly InferCreateInput<TSchema>[],
+	input: SchemaCreateManyExecutionInput<TSchema>,
 	options?: TOptions & QueryBulkTerminalOptions,
-): Promise<QueryBulkTerminalResult<InferQueryResult<TSchema>, TOptions>> =>
-	executeSchemaCreateMany(schema, inputs, options)
+): Promise<
+	QueryBulkTerminalResult<
+		InferQueryResult<TSchema, QueryFieldName<TSchema>>,
+		TOptions
+	>
+> => {
+	assertExactCommandKeys(
+		input,
+		createCommandKeys,
+		'schema createMany input',
+		createManyOptionalCommandKeys,
+	)
+
+	if (!isUnknownArray(input.data)) {
+		throw new TypeError('schema createMany data must be an array')
+	}
+
+	return executeSchemaCreateMany(schema, input, options)
+}
 
 /** Updates one exact unique target through the schema class. */
 export const updateSchemaRecord = <const TSchema extends SchemaDefinition>(
@@ -225,14 +247,34 @@ export const updateSchemaRecords = <const TSchema extends SchemaDefinition>(
 /** Upserts one exact unique target through the schema class. */
 export const upsertSchemaRecord = <const TSchema extends SchemaDefinition>(
 	schema: TSchema,
-	input: SchemaUpsertInput<TSchema>,
+	input: SchemaUpsertExecutionInput<TSchema>,
 	options?: QueryTerminalOptions,
-): Promise<InferQueryResult<TSchema>> => {
-	assertExactCommandKeys(input, upsertCommandKeys, 'schema upsert input')
+): Promise<object> => {
+	assertExactCommandKeys(
+		input,
+		upsertCommandKeys,
+		'schema upsert input',
+		upsertOptionalCommandKeys,
+	)
 	const query = createSchemaWhereQuery(schema, input.where)
 
+	if (input.select === undefined) {
+		return executeQueryUpsert(
+			query,
+			{ create: input.create, update: input.update },
+			options,
+		)
+	}
+
+	const selectedQuery = hydrateQueryFromAst<TSchema, QueryFieldName<TSchema>>(
+		immutableRecord({
+			...query.ast,
+			selection: normalizeQuerySelection(schema, input.select),
+		}),
+	)
+
 	return executeQueryUpsert(
-		query,
+		selectedQuery,
 		{ create: input.create, update: input.update },
 		options,
 	)
@@ -244,32 +286,48 @@ export const upsertSchemaRecords = <
 	const TOptions extends QueryBulkTerminalOptions | undefined = undefined,
 >(
 	schema: TSchema,
-	inputs: readonly SchemaUpsertManyItemInput<TSchema>[],
+	input: SchemaUpsertManyExecutionInput<TSchema>,
 	options?: TOptions & QueryBulkTerminalOptions,
-): Promise<QueryBulkTerminalResult<InferQueryResult<TSchema>, TOptions>> => {
-	const untrustedInputs: unknown = inputs
+): Promise<
+	QueryBulkTerminalResult<
+		InferQueryResult<TSchema, QueryFieldName<TSchema>>,
+		TOptions
+	>
+> => {
+	assertExactCommandKeys(
+		input,
+		upsertManyCommandKeys,
+		'schema upsertMany input',
+		upsertManyOptionalCommandKeys,
+	)
+	const untrustedInputs: unknown = input.data
 
 	if (!isUnknownArray(untrustedInputs)) {
-		throw new TypeError('schema upsertMany input must be an array')
+		throw new TypeError('schema upsertMany data must be an array')
 	}
 
 	const normalizedInputs = immutableArray(
-		inputs.map((input, index): UpsertManyItemInput<TSchema> => {
+		input.data.map((item, index): UpsertManyItemInput<TSchema> => {
 			assertExactCommandKeys(
-				input,
+				item,
 				upsertCommandKeys,
-				`schema upsertMany input[${String(index)}]`,
+				`schema upsertMany data[${String(index)}]`,
 			)
 
 			return immutableRecord({
-				query: createSchemaWhereQuery(schema, input.where),
-				create: input.create,
-				update: input.update,
+				query: createSchemaWhereQuery(schema, item.where),
+				create: item.create,
+				update: item.update,
 			})
 		}),
 	)
 
-	return executeSchemaUpsertMany(schema, normalizedInputs, options)
+	return executeSchemaUpsertMany(
+		schema,
+		normalizedInputs,
+		input.select,
+		options,
+	)
 }
 
 /** Deletes one exact unique target through the schema class. */

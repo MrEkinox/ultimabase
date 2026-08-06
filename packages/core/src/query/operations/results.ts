@@ -110,10 +110,19 @@ type InferOperationResultFor<
 									>
 							: TOperation extends CreateManyOperationAst<
 										infer TSchema,
-										infer TAtomic
+										infer TAtomic,
+										infer TSelectedField
 								  >
 								? BulkOperationResult<
-										CompleteObjectResult<TSchema, TMode>,
+										[TSelectedField] extends [never]
+											? CompleteObjectResult<TSchema, TMode>
+											: QueryObjectResult<
+													TSchema,
+													TSelectedField,
+													TMode,
+													never,
+													TInclusionMode
+												>,
 										TAtomic
 									>
 								: TOperation extends UpdateOneOperationAst<
@@ -161,10 +170,19 @@ type InferOperationResultFor<
 														infer TSchema,
 														UpdateExpressionNode,
 														QueryExpressionNode,
-														infer TAtomic
+														infer TAtomic,
+														infer TSelectedField
 												  >
 												? BulkOperationResult<
-														CompleteObjectResult<TSchema, TMode>,
+														[TSelectedField] extends [never]
+															? CompleteObjectResult<TSchema, TMode>
+															: QueryObjectResult<
+																	TSchema,
+																	TSelectedField,
+																	TMode,
+																	never,
+																	TInclusionMode
+																>,
 														TAtomic
 													>
 												: TOperation extends DeleteOneOperationAst<

@@ -118,7 +118,7 @@ beforeAll(async () => {
 
 	const app = getApplication()
 	;[alice, bob] = await RoleMember.createMany(
-		[{ email: 'alice@example.test' }, { email: 'bob@example.test' }],
+		{ data: [{ email: 'alice@example.test' }, { email: 'bob@example.test' }] },
 		{ ultimabase: app },
 	)
 
@@ -163,18 +163,20 @@ beforeAll(async () => {
 	)
 
 	const posts = await ProtectedPost.createMany(
-		[
-			{
-				internalNote: 'visible to administrators',
-				published: true,
-				title: 'Public role post',
-			},
-			{
-				internalNote: 'hidden by the read filter',
-				published: false,
-				title: 'Private role post',
-			},
-		],
+		{
+			data: [
+				{
+					internalNote: 'visible to administrators',
+					published: true,
+					title: 'Public role post',
+				},
+				{
+					internalNote: 'hidden by the read filter',
+					published: false,
+					title: 'Private role post',
+				},
+			],
+		},
 		{ ultimabase: app, useMasterKey: true },
 	)
 	publishedPostId = posts[0]?.id ?? ''

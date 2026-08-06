@@ -46,36 +46,48 @@ test('preserves Query schema selection across every read terminal', () => {
 		articleSchema.create({ data: { title: 'Created' } }, { ultimabase }),
 	).toEqualTypeOf<Promise<InferQueryResult<typeof articleSchema>>>()
 	expectTypeOf(
-		articleSchema.createMany([{ title: 'Created' }], {
-			atomic: false,
-			ultimabase,
-		}),
+		articleSchema.createMany(
+			{ data: [{ title: 'Created' }] },
+			{
+				atomic: false,
+				ultimabase,
+			},
+		),
 	).toEqualTypeOf<
 		Promise<NonAtomicBulkResult<InferQueryResult<typeof articleSchema>>>
 	>()
 	expectTypeOf(
-		articleSchema.createMany([{ title: 'Created' }], {
-			atomic: true,
-			ultimabase,
-		}),
+		articleSchema.createMany(
+			{ data: [{ title: 'Created' }] },
+			{
+				atomic: true,
+				ultimabase,
+			},
+		),
 	).toEqualTypeOf<Promise<readonly InferQueryResult<typeof articleSchema>[]>>()
 	const dynamicAtomic: boolean = Math.random() > 0.5
 
 	expectTypeOf(
-		articleSchema.createMany([{ title: 'Created' }], {
-			atomic: dynamicAtomic,
-			ultimabase,
-		}),
+		articleSchema.createMany(
+			{ data: [{ title: 'Created' }] },
+			{
+				atomic: dynamicAtomic,
+				ultimabase,
+			},
+		),
 	).toEqualTypeOf<
 		Promise<
 			| readonly InferQueryResult<typeof articleSchema>[]
 			| NonAtomicBulkResult<InferQueryResult<typeof articleSchema>>
 		>
 	>()
-	const nonAtomicCreate = articleSchema.createMany([{ title: 'Created' }], {
-		atomic: false,
-		ultimabase,
-	})
+	const nonAtomicCreate = articleSchema.createMany(
+		{ data: [{ title: 'Created' }] },
+		{
+			atomic: false,
+			ultimabase,
+		},
+	)
 
 	void nonAtomicCreate.then((result) => {
 		if (result.status === 'stopped') {
@@ -88,13 +100,15 @@ test('preserves Query schema selection across every read terminal', () => {
 	})
 	expectTypeOf(
 		articleSchema.upsertMany(
-			[
-				{
-					create: { title: 'Unique' },
-					where: (where) => where.eq('title', 'Unique'),
-					update: { views: increment(1) },
-				},
-			],
+			{
+				data: [
+					{
+						create: { title: 'Unique' },
+						where: (where) => where.eq('title', 'Unique'),
+						update: { views: increment(1) },
+					},
+				],
+			},
 			{ atomic: false, ultimabase },
 		),
 	).toEqualTypeOf<
@@ -145,10 +159,13 @@ test('preserves Query schema selection across every read terminal', () => {
 		{ data: { title: 'Created' } },
 		contextualMasterOptions,
 	)
-	void articleSchema.createMany([{ title: 'Created' }], {
-		atomic: false,
-		...contextualMasterOptions,
-	})
+	void articleSchema.createMany(
+		{ data: [{ title: 'Created' }] },
+		{
+			atomic: false,
+			...contextualMasterOptions,
+		},
+	)
 	void articleSchema.updateOne(
 		{
 			where: (where) => where.eq('title', 'Unique'),
@@ -172,13 +189,15 @@ test('preserves Query schema selection across every read terminal', () => {
 		contextOptions,
 	)
 	void articleSchema.upsertMany(
-		[
-			{
-				create: { title: 'Unique' },
-				where: (where) => where.eq('title', 'Unique'),
-				update: { views: increment(1) },
-			},
-		],
+		{
+			data: [
+				{
+					create: { title: 'Unique' },
+					where: (where) => where.eq('title', 'Unique'),
+					update: { views: increment(1) },
+				},
+			],
+		},
 		{ atomic: true, ...contextualMasterOptions },
 	)
 	void articleSchema.deleteOne(

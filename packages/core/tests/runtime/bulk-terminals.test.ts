@@ -82,6 +82,35 @@ const expectCommittedTransaction = (
 }
 
 describe('bulk and upsert terminals', () => {
+	it('projects bulk results while retaining complete private materializations', async () => {
+		const trace: string[] = []
+		const current = accountRecord(
+			'0198f090-2a50-7000-8000-000000000024',
+			'projected@example.com',
+			0,
+		)
+		const { request } = createRequest(
+			[
+				{
+					materializations: [{ current, kind: 'create' }],
+					status: 'fulfilled',
+					value: [{ email: current.email }],
+				},
+			],
+			trace,
+		)
+
+		const result = await runWithRequestEngine(request, () =>
+			accountSchema.createMany({
+				data: [{ email: current.email }],
+				select: { email: true },
+			}),
+		)
+
+		expect(result[0]?.toJSON()).toStrictEqual({ email: current.email })
+		expect(result[0]?.get('email')).toBe(current.email)
+	})
+
 	it('creates ordered objects in an automatic transaction by default', async () => {
 		const trace: string[] = []
 		const created = [
@@ -102,10 +131,9 @@ describe('bulk and upsert terminals', () => {
 		)
 
 		const result = await runWithRequestEngine(request, () =>
-			accountSchema.createMany([
-				{ email: 'first@example.com' },
-				{ email: 'second@example.com' },
-			]),
+			accountSchema.createMany({
+				data: [{ email: 'first@example.com' }, { email: 'second@example.com' }],
+			}),
 		)
 
 		expect(result.every((account) => account instanceof accountSchema)).toBe(
@@ -140,18 +168,20 @@ describe('bulk and upsert terminals', () => {
 		)
 
 		const result = await runWithRequestEngine(request, () =>
-			accountSchema.upsertMany([
-				{
-					where: (where) => where.eq('email', 'first@example.com'),
-					create: { email: 'first@example.com' },
-					update: { visits: increment(1) },
-				},
-				{
-					where: (where) => where.eq('email', 'second@example.com'),
-					create: { email: 'second@example.com' },
-					update: { visits: increment(1) },
-				},
-			]),
+			accountSchema.upsertMany({
+				data: [
+					{
+						where: (where) => where.eq('email', 'first@example.com'),
+						create: { email: 'first@example.com' },
+						update: { visits: increment(1) },
+					},
+					{
+						where: (where) => where.eq('email', 'second@example.com'),
+						create: { email: 'second@example.com' },
+						update: { visits: increment(1) },
+					},
+				],
+			}),
 		)
 
 		expect(result.every((account) => account instanceof accountSchema)).toBe(
@@ -179,7 +209,7 @@ describe('bulk and upsert terminals', () => {
 
 		await expect(
 			runWithRequestEngine(request, () =>
-				accountSchema.createMany([{ email: 'first@example.com' }]),
+				accountSchema.createMany({ data: [{ email: 'first@example.com' }] }),
 			),
 		).rejects.toBe(writeError)
 		expect(adapter.rootRequests).toStrictEqual([])
@@ -215,7 +245,7 @@ describe('bulk and upsert terminals', () => {
 
 		await expect(
 			runWithRequestEngine(request, () =>
-				accountSchema.createMany([{ email: 'first@example.com' }]),
+				accountSchema.createMany({ data: [{ email: 'first@example.com' }] }),
 			),
 		).rejects.toBe(hookError)
 		expect(adapter.transactions[0]?.requests).toHaveLength(1)
@@ -247,9 +277,12 @@ describe('bulk and upsert terminals', () => {
 		)
 
 		const result = await runWithRequestEngine(request, () =>
-			accountSchema.createMany([{ email: 'first@example.com' }], {
-				atomic: false,
-			}),
+			accountSchema.createMany(
+				{ data: [{ email: 'first@example.com' }] },
+				{
+					atomic: false,
+				},
+			),
 		)
 
 		expect(result.status).toBe('completed')
@@ -293,7 +326,12 @@ describe('bulk and upsert terminals', () => {
 
 		const result = await runWithRequestEngine(request, () =>
 			accountSchema.createMany(
-				[{ email: 'first@example.com' }, { email: 'second@example.com' }],
+				{
+					data: [
+						{ email: 'first@example.com' },
+						{ email: 'second@example.com' },
+					],
+				},
 				{ atomic: false },
 			),
 		)
@@ -343,7 +381,12 @@ describe('bulk and upsert terminals', () => {
 		await expect(
 			runWithRequestEngine(request, () =>
 				accountSchema.createMany(
-					[{ email: 'first@example.com' }, { email: 'second@example.com' }],
+					{
+						data: [
+							{ email: 'first@example.com' },
+							{ email: 'second@example.com' },
+						],
+					},
 					{ atomic: false },
 				),
 			),
@@ -445,7 +488,7 @@ describe('bulk and upsert terminals', () => {
 		)
 
 		await request.transaction(() =>
-			accountSchema.createMany([{ email: 'first@example.com' }]),
+			accountSchema.createMany({ data: [{ email: 'first@example.com' }] }),
 		)
 
 		expectCommittedTransaction(adapter, trace, 'create-many')

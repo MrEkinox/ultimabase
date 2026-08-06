@@ -229,12 +229,14 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 	it('filters owning, inverse, pointer, empty, and nested relations with target Access', async () => {
 		const app = getUltimaBase()
 		const [alpha, beta, gamma, hidden] = await Tag.createMany(
-			[
-				{ label: 'predicate-alpha' },
-				{ label: 'predicate-beta' },
-				{ label: 'predicate-gamma' },
-				{ label: 'predicate-hidden' },
-			],
+			{
+				data: [
+					{ label: 'predicate-alpha' },
+					{ label: 'predicate-beta' },
+					{ label: 'predicate-gamma' },
+					{ label: 'predicate-hidden' },
+				],
+			},
 			{ ultimabase: app },
 		)
 
@@ -248,11 +250,13 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 		}
 
 		const [mixed, gammaOnly, empty] = await Article.createMany(
-			[
-				{ title: 'Predicate mixed' },
-				{ title: 'Predicate gamma' },
-				{ title: 'Predicate empty' },
-			],
+			{
+				data: [
+					{ title: 'Predicate mixed' },
+					{ title: 'Predicate gamma' },
+					{ title: 'Predicate empty' },
+				],
+			},
 			{ ultimabase: app },
 		)
 
@@ -368,7 +372,7 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 	it('executes owning and inverse traversal with normal Query semantics', async () => {
 		const app = getUltimaBase()
 		const [alpha, beta, gamma] = await Tag.createMany(
-			[{ label: 'alpha' }, { label: 'beta' }, { label: 'gamma' }],
+			{ data: [{ label: 'alpha' }, { label: 'beta' }, { label: 'gamma' }] },
 			{ ultimabase: app },
 		)
 		const article = await Article.create(

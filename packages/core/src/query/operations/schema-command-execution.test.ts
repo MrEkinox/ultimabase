@@ -4,10 +4,13 @@ import { describe, expect, it } from 'vitest'
 import { WhereBuilder } from '../filters/where.js'
 import {
 	createSchemaRecord,
+	createSchemaRecords,
 	deleteSchemaRecord,
 	deleteSchemaRecords,
 	updateSchemaRecord,
 	updateSchemaRecords,
+	upsertSchemaRecord,
+	upsertSchemaRecords,
 } from './schema-command-execution.js'
 import type { SchemaWhere } from './schema-commands.js'
 
@@ -131,6 +134,32 @@ describe('schema command execution boundaries', () => {
 			deleteSchemaRecords(Post, {
 				where: 'all',
 				// This assertion models an untyped transport returning an unknown field.
+				select: { missing: true } as never,
+			}),
+		).toThrow(new TypeError('selection.missing must reference a schema field'))
+		expect(() =>
+			createSchemaRecords(Post, {
+				data: [{ title: 'Created' }],
+				select: { missing: true } as never,
+			}),
+		).toThrow(new TypeError('selection.missing must reference a schema field'))
+		expect(() =>
+			upsertSchemaRecord(Post, {
+				where: { id: { eq: 'post-1' } },
+				create: { title: 'Created' },
+				update: { title: 'Updated' },
+				select: { missing: true } as never,
+			}),
+		).toThrow(new TypeError('selection.missing must reference a schema field'))
+		expect(() =>
+			upsertSchemaRecords(Post, {
+				data: [
+					{
+						where: { id: { eq: 'post-1' } },
+						create: { title: 'Created' },
+						update: { title: 'Updated' },
+					},
+				],
 				select: { missing: true } as never,
 			}),
 		).toThrow(new TypeError('selection.missing must reference a schema field'))

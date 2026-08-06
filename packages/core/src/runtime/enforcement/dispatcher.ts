@@ -433,28 +433,25 @@ const restrictOperationSelection = <
 		})
 	}
 
-	if (executable.kind === 'create-one') {
+	if (executable.kind === 'create-one' || executable.kind === 'create-many') {
 		return immutableRecord({
 			...operation,
 			selection: restrictSelection(executable.selection, permittedFields),
 		})
 	}
 
-	if (executable.kind === 'upsert-many') {
-		return immutableRecord({
-			...operation,
-			items: immutableArray(
-				executable.items.map((item) =>
-					immutableRecord({
-						...item,
-						query: restrictQuerySelection(item.query, permittedFields),
-					}),
-				),
+	return immutableRecord({
+		...operation,
+		selection: restrictSelection(executable.selection, permittedFields),
+		items: immutableArray(
+			executable.items.map((item) =>
+				immutableRecord({
+					...item,
+					query: restrictQuerySelection(item.query, permittedFields),
+				}),
 			),
-		})
-	}
-
-	return operation
+		),
+	})
 }
 
 /** Reapplies the immutable plan after business transforms without reevaluation. */

@@ -148,33 +148,35 @@ beforeAll(async () => {
 	await ultimabase.start()
 
 	const articles = await AccessArticle.createMany(
-		[
-			{
-				published: true,
-				rank: 1,
-				secret: 'public-secret',
-				title: 'public',
-			},
-			{
-				published: false,
-				rank: 2,
-				secret: 'private-secret',
-				title: 'private',
-			},
-			{
-				published: true,
-				rank: 3,
-				secret: 'plugin-secret',
-				title: 'plugin-hidden',
-			},
-			{
-				locked: true,
-				published: true,
-				rank: 4,
-				secret: 'locked-secret',
-				title: 'locked',
-			},
-		],
+		{
+			data: [
+				{
+					published: true,
+					rank: 1,
+					secret: 'public-secret',
+					title: 'public',
+				},
+				{
+					published: false,
+					rank: 2,
+					secret: 'private-secret',
+					title: 'private',
+				},
+				{
+					published: true,
+					rank: 3,
+					secret: 'plugin-secret',
+					title: 'plugin-hidden',
+				},
+				{
+					locked: true,
+					published: true,
+					rank: 4,
+					secret: 'locked-secret',
+					title: 'locked',
+				},
+			],
+		},
 		{ ultimabase, useMasterKey: true },
 	)
 	publicId = articles[0]?.id ?? ''
@@ -182,11 +184,13 @@ beforeAll(async () => {
 	lockedId = articles[3]?.id ?? ''
 
 	await BulkDocument.createMany(
-		[
-			{ key: 'visible-a', value: 1, visible: true },
-			{ key: 'private-a', value: 2, visible: false },
-			{ key: 'visible-b', value: 3, visible: true },
-		],
+		{
+			data: [
+				{ key: 'visible-a', value: 1, visible: true },
+				{ key: 'private-a', value: 2, visible: false },
+				{ key: 'visible-b', value: 3, visible: true },
+			],
+		},
 		{ ultimabase, useMasterKey: true },
 	)
 })

@@ -156,7 +156,9 @@ const getReadableOutputFields = (
 		return fields
 	}
 	const selection: unknown =
-		untrustedOperation.kind === 'create-one'
+		untrustedOperation.kind === 'create-one' ||
+		untrustedOperation.kind === 'create-many' ||
+		untrustedOperation.kind === 'upsert-many'
 			? untrustedOperation.selection
 			: isPlainRecord(untrustedOperation.query)
 				? untrustedOperation.query.selection

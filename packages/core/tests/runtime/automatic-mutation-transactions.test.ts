@@ -101,7 +101,7 @@ const mutationFixtures: readonly MutationFixture[] = [
 		result: [articleRecord('0198f090-2a50-7000-8000-000000000002', 'Created')],
 		execute: (request) =>
 			runWithRequestEngine(request, () =>
-				articleSchema.createMany([{ title: 'Created' }]),
+				articleSchema.createMany({ data: [{ title: 'Created' }] }),
 			),
 	},
 	{
@@ -146,13 +146,15 @@ const mutationFixtures: readonly MutationFixture[] = [
 		result: [articleRecord('0198f090-2a50-7000-8000-000000000005', 'Upserted')],
 		execute: (request) =>
 			runWithRequestEngine(request, () =>
-				articleSchema.upsertMany([
-					{
-						where: (where) => where.eq('title', 'Upserted'),
-						create: { title: 'Upserted' },
-						update: { title: 'Upserted' },
-					},
-				]),
+				articleSchema.upsertMany({
+					data: [
+						{
+							where: (where) => where.eq('title', 'Upserted'),
+							create: { title: 'Upserted' },
+							update: { title: 'Upserted' },
+						},
+					],
+				}),
 			),
 	},
 	{

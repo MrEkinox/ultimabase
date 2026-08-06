@@ -171,39 +171,45 @@ beforeAll(async () => {
 	const editableACL = readACL.grantPrincipal(alicePointer, 'update')
 
 	;[visibleAuthor, hiddenAuthor] = await Author.createMany(
-		[
-			{ acl: readACL, name: 'Visible author' },
-			{ acl: emptyACL, name: 'Hidden author' },
-		],
+		{
+			data: [
+				{ acl: readACL, name: 'Visible author' },
+				{ acl: emptyACL, name: 'Hidden author' },
+			],
+		},
 		{ ultimabase: app, useMasterKey: true },
 	)
 	;[visibleTag, hiddenTag] = await Tag.createMany(
-		[
-			{ acl: readACL, label: 'visible' },
-			{ acl: emptyACL, label: 'hidden' },
-		],
+		{
+			data: [
+				{ acl: readACL, label: 'visible' },
+				{ acl: emptyACL, label: 'hidden' },
+			],
+		},
 		{ ultimabase: app, useMasterKey: true },
 	)
 	;[visibleArticle, , hiddenArticle] = await Article.createMany(
-		[
-			{
-				acl: editableACL,
-				author: Author.pointer(requireFixture(visibleAuthor, 'author').id),
-				title: 'Visible article',
-			},
-			{
-				acl: readACL,
-				author: Author.pointer(
-					requireFixture(hiddenAuthor, 'hidden author').id,
-				),
-				title: 'Hidden author article',
-			},
-			{
-				acl: emptyACL,
-				author: Author.pointer(requireFixture(visibleAuthor, 'author').id),
-				title: 'Hidden article',
-			},
-		],
+		{
+			data: [
+				{
+					acl: editableACL,
+					author: Author.pointer(requireFixture(visibleAuthor, 'author').id),
+					title: 'Visible article',
+				},
+				{
+					acl: readACL,
+					author: Author.pointer(
+						requireFixture(hiddenAuthor, 'hidden author').id,
+					),
+					title: 'Hidden author article',
+				},
+				{
+					acl: emptyACL,
+					author: Author.pointer(requireFixture(visibleAuthor, 'author').id),
+					title: 'Hidden article',
+				},
+			],
+		},
 		{ ultimabase: app, useMasterKey: true },
 	)
 

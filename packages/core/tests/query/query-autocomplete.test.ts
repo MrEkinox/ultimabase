@@ -161,7 +161,7 @@ Post./* hover */deleteOne({ where: (where) => where.eq('id', 'post-1') })
 		expect(deletion.tags?.some(({ name }) => name === 'example')).toBe(true)
 	})
 
-	it('completes singular mutation selections with only correlated schema fields', () => {
+	it('completes every mutation selection with only correlated schema fields', () => {
 		const marker = '/* completion */'
 		const readMutationSelectionCompletions = (
 			body: string,
@@ -221,6 +221,33 @@ ${body}
 })`,
 			'delete-many-selection-completion',
 		)
+		const createManyCompletions = readMutationSelectionCompletions(
+			`Post.createMany({
+  data: [{ title: 'Created' }],
+  select: { ${marker} },
+})`,
+			'create-many-selection-completion',
+		)
+		const upsertCompletions = readMutationSelectionCompletions(
+			`Post.upsert({
+  where: { id: { eq: 'post-1' } },
+  create: { title: 'Created' },
+  update: { views: 1 },
+  select: { ${marker} },
+})`,
+			'upsert-one-selection-completion',
+		)
+		const upsertManyCompletions = readMutationSelectionCompletions(
+			`Post.upsertMany({
+  data: [{
+    where: { id: { eq: 'post-1' } },
+    create: { title: 'Created' },
+    update: { views: 1 },
+  }],
+  select: { ${marker} },
+})`,
+			'upsert-many-selection-completion',
+		)
 
 		for (const completionNames of [
 			updateCompletions,
@@ -228,6 +255,9 @@ ${body}
 			deleteCompletions,
 			updateManyCompletions,
 			deleteManyCompletions,
+			createManyCompletions,
+			upsertCompletions,
+			upsertManyCompletions,
 		]) {
 			expect(completionNames.has('id')).toBe(true)
 			expect(completionNames.has('title')).toBe(true)
@@ -358,7 +388,7 @@ ${body}
 		const sourceWithMarker = `
 import { Schema, stringField } from '../../src/index.js'
 const Post = Schema.define({ className: 'Post', fields: { title: stringField() } })
-Post.createMany([{ title: 'First' }], { ${marker} })
+Post.createMany({ data: [{ title: 'First' }] }, { ${marker} })
 `
 		const position = sourceWithMarker.indexOf(marker)
 		const source = sourceWithMarker.replace(marker, ' '.repeat(marker.length))
@@ -389,7 +419,7 @@ Post.createMany([{ title: 'First' }], { ${marker} })
 			`
 import { Schema, stringField } from '../../src/index.js'
 const Post = Schema.define({ className: 'Post', fields: { title: stringField() } })
-Post./* hover */createMany([{ title: 'First' }], { atomic: false })
+Post./* hover */createMany({ data: [{ title: 'First' }] }, { atomic: false })
 `,
 		)
 		const terminalDisplay = readDisplay(terminal.displayParts)

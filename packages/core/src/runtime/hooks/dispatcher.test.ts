@@ -270,6 +270,7 @@ describe('native hook dispatcher', () => {
 			inputs: immutableArray([{ title: ' First ' }, { title: ' Second ' }]),
 			kind: 'create-many',
 			options: immutableRecord({ atomic: true }),
+			selection: new Query(schema).ast.selection,
 			schema: new Query(schema).ast.schema,
 		}) satisfies CreateManyOperationAst<typeof schema>
 		const validated = await validate({ context, operation })

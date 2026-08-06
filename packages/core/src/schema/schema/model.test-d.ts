@@ -116,10 +116,23 @@ test('exposes writes on the schema class and keeps Query read-only', () => {
 	// @ts-expect-error -- Static create uses one explicit command envelope.
 	void Post.create({ title: 'Legacy shape' })
 	expectTypeOf(
-		Post.createMany([{ title: 'First' }, { title: 'Second' }]),
+		Post.createMany({ data: [{ title: 'First' }, { title: 'Second' }] }),
 	).toEqualTypeOf<Promise<readonly InferQueryResult<typeof Post>[]>>()
 	expectTypeOf(
-		Post.createMany([{ title: 'First' }], { atomic: false }),
+		Post.createMany({
+			data: [{ title: 'First' }],
+			select: { id: true, title: true },
+		}),
+	).toEqualTypeOf<
+		Promise<readonly InferQueryResult<typeof Post, 'id' | 'title'>[]>
+	>()
+	// @ts-expect-error -- Bulk create selections reject undeclared fields.
+	void Post.createMany({
+		data: [{ title: 'First' }],
+		select: { missing: true },
+	})
+	expectTypeOf(
+		Post.createMany({ data: [{ title: 'First' }] }, { atomic: false }),
 	).toEqualTypeOf<Promise<NonAtomicBulkResult<InferQueryResult<typeof Post>>>>()
 	expectTypeOf(
 		Post.updateOne({
@@ -226,14 +239,38 @@ test('exposes writes on the schema class and keeps Query read-only', () => {
 		}),
 	).toEqualTypeOf<Promise<InferQueryResult<typeof Post>>>()
 	expectTypeOf(
-		Post.upsertMany([
-			{
-				where: { id: { eq: 'post-1' } },
-				create: { title: 'Created' },
-				update: { title: 'Updated' },
-			},
-		]),
+		Post.upsert({
+			where: { id: { eq: 'post-1' } },
+			create: { title: 'Created' },
+			update: { title: 'Updated' },
+			select: { id: true, title: true },
+		}),
+	).toEqualTypeOf<Promise<InferQueryResult<typeof Post, 'id' | 'title'>>>()
+	expectTypeOf(
+		Post.upsertMany({
+			data: [
+				{
+					where: { id: { eq: 'post-1' } },
+					create: { title: 'Created' },
+					update: { title: 'Updated' },
+				},
+			],
+		}),
 	).toEqualTypeOf<Promise<readonly InferQueryResult<typeof Post>[]>>()
+	expectTypeOf(
+		Post.upsertMany({
+			data: [
+				{
+					where: { id: { eq: 'post-1' } },
+					create: { title: 'Created' },
+					update: { title: 'Updated' },
+				},
+			],
+			select: { id: true, title: true },
+		}),
+	).toEqualTypeOf<
+		Promise<readonly InferQueryResult<typeof Post, 'id' | 'title'>[]>
+	>()
 
 	expectTypeOf(readQuery).not.toHaveProperty('create')
 	expectTypeOf(readQuery).not.toHaveProperty('updateOne')

@@ -221,7 +221,7 @@ describe('ACL committed events with PostgreSQL', { concurrent: false }, () => {
 	it('emits one deterministic event per create-many item', async () => {
 		const start = committedChanges.length
 		const created = await Post.createMany(
-			[{ title: 'many-a' }, { title: 'many-b' }],
+			{ data: [{ title: 'many-a' }, { title: 'many-b' }] },
 			{ ultimabase: getApplication() },
 		)
 		const events = committedChanges.slice(start)

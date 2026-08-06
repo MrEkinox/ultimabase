@@ -261,9 +261,12 @@ describe('native transaction hook finalization', () => {
 		)
 
 		const result = await runWithRequestEngine(request, () =>
-			schema.createMany([{ title: 'First' }, { title: 'Second' }], {
-				atomic: false,
-			}),
+			schema.createMany(
+				{ data: [{ title: 'First' }, { title: 'Second' }] },
+				{
+					atomic: false,
+				},
+			),
 		)
 
 		expect(result.status).toBe('stopped')

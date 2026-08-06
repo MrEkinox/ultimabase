@@ -50,7 +50,10 @@ import {
 import type { HookExecutionRuntime } from '../hooks/execution-runtime.js'
 import { getApplicationHookExecutionRuntime } from '../hooks/execution-runtime.js'
 import { getOperationSchema } from '../operations/schema.js'
-import { readOperationQueries } from '../operations/queries.js'
+import {
+	readOperationQueries,
+	readOperationResultSelection,
+} from '../operations/queries.js'
 import {
 	readRuntimeIncludedPointerValue,
 	transferRuntimeSchemaModelMetadata,
@@ -680,16 +683,15 @@ const assertExplicitSelection = (
 
 	const operation = request.operation as unknown as ExecutableOperationAst
 
-	for (const query of readOperationQueries(operation)) {
-		for (const { field: fieldName } of query.selection.fields) {
-			if (!permitted.includes(fieldName)) {
-				const field = plan.getField(schemaPlan.schema, [fieldName])
-				throw createAccessDeniedError(
-					'access-field-read',
-					request.operation.kind,
-					field,
-				)
-			}
+	for (const { field: fieldName } of readOperationResultSelection(operation)
+		.fields) {
+		if (!permitted.includes(fieldName)) {
+			const field = plan.getField(schemaPlan.schema, [fieldName])
+			throw createAccessDeniedError(
+				'access-field-read',
+				request.operation.kind,
+				field,
+			)
 		}
 	}
 }

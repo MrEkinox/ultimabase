@@ -683,6 +683,7 @@ describe('createEnforcementStages', () => {
 				inputs: [blockedInput],
 				kind: 'create-many',
 				options: { atomic: true },
+				selection: query.selection,
 				schema,
 			},
 			{ kind: 'update-one', query, update },
@@ -698,6 +699,7 @@ describe('createEnforcementStages', () => {
 				items: [{ create: blockedInput, query, target, update }],
 				kind: 'upsert-many',
 				options: { atomic: true },
+				selection: query.selection,
 				schema,
 			},
 		] as const satisfies readonly ExecutableOperationAst<typeof articleSchema>[]

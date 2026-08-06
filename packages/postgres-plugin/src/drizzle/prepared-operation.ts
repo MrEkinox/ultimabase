@@ -8,6 +8,7 @@ import {
 	type DatabaseMutationOperationAst,
 	type DatabaseOperationOutcome,
 	type ExecutableOperationAst,
+	type NonAtomicBulkResult,
 	type PreparedDatabaseOperation,
 } from '@ultimabase/core'
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
@@ -37,7 +38,11 @@ import { readPostgresRecord } from './record.js'
 import { compilePostgresUpdate } from './update-compiler.js'
 import { executePostgresRelationMutation } from './relation-executor.js'
 import type { PostgresRelationPredicateCompiler } from '../query/filter-compiler.js'
-import { projectPostgresRecord } from './result-projection.js'
+import {
+	projectPostgresNonAtomicResult,
+	projectPostgresRecord,
+	projectPostgresRecords,
+} from './result-projection.js'
 
 type RuntimeMutationOperation = Extract<
 	ExecutableOperationAst,
@@ -321,7 +326,7 @@ const executeUpsertItem = async (
 
 interface OrderedCollectionExecution {
 	readonly materializations: readonly DatabaseMutationMaterialization[]
-	readonly result: unknown
+	readonly result: NonAtomicBulkResult<DatabaseLogicalRecord>
 }
 
 /** Executes recoverable items in order and stops after the first failed savepoint. */
@@ -413,7 +418,10 @@ const prepareCreateMany = (
 					immutableRecord({ current, kind: 'create' as const }),
 				)
 
-				return createPostgresMutationOutcome(records, materializations)
+				return createPostgresMutationOutcome(
+					projectPostgresRecords(records, resolvedOperation),
+					materializations,
+				)
 			}
 
 			const execution = await executeNonAtomicCollection(
@@ -434,7 +442,7 @@ const prepareCreateMany = (
 			)
 
 			return createPostgresMutationOutcome(
-				execution.result,
+				projectPostgresNonAtomicResult(execution.result, resolvedOperation),
 				execution.materializations,
 			)
 		},
@@ -602,7 +610,7 @@ const prepareUpsertMany = (
 				)
 
 				return createPostgresMutationOutcome(
-					execution.result,
+					projectPostgresNonAtomicResult(execution.result, resolvedOperation),
 					execution.materializations,
 				)
 			}
@@ -627,7 +635,7 @@ const prepareUpsertMany = (
 			}
 
 			return createPostgresMutationOutcome(
-				immutableArray(records),
+				projectPostgresRecords(records, resolvedOperation),
 				materializations,
 			)
 		},

@@ -168,14 +168,14 @@ const readOperationKeys = (kind: OperationKind): readonly string[] => {
 		case 'create-one':
 			return ['kind', 'schema', 'input', 'selection']
 		case 'create-many':
-			return ['kind', 'schema', 'inputs', 'options']
+			return ['kind', 'schema', 'inputs', 'options', 'selection']
 		case 'update-many':
 		case 'update-one':
 			return ['kind', 'query', 'update']
 		case 'upsert-one':
 			return ['kind', 'query', 'target', 'create', 'update']
 		case 'upsert-many':
-			return ['kind', 'schema', 'items', 'options']
+			return ['kind', 'schema', 'items', 'options', 'selection']
 	}
 }
 
@@ -186,7 +186,12 @@ const assertSameQueryResultShape = (
 ): void => {
 	const original: unknown = operation
 
-	if (isPlainRecord(original) && original.kind === 'create-one') {
+	if (
+		isPlainRecord(original) &&
+		(original.kind === 'create-one' ||
+			original.kind === 'create-many' ||
+			original.kind === 'upsert-many')
+	) {
 		if (!isDeepStrictEqual(original.selection, replacement.selection)) {
 			throwBoundaryIssue(
 				['operation', 'selection'],
@@ -282,11 +287,15 @@ const readSelectedFields = (
 		return undefined
 	}
 	const selectionPath: ValidationIssuePath =
-		candidate.kind === 'create-one'
+		candidate.kind === 'create-one' ||
+		candidate.kind === 'create-many' ||
+		candidate.kind === 'upsert-many'
 			? ['operation', 'selection']
 			: ['operation', 'query', 'selection']
 	const selection: unknown =
-		candidate.kind === 'create-one'
+		candidate.kind === 'create-one' ||
+		candidate.kind === 'create-many' ||
+		candidate.kind === 'upsert-many'
 			? candidate.selection
 			: isPlainRecord(candidate.query)
 				? candidate.query.selection

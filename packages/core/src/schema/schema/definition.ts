@@ -19,13 +19,14 @@ import type {
 	QueryTerminalOptions,
 } from '../../query/operations/execution.js'
 import type {
+	SchemaCreateManyInput,
 	SchemaCreateOneInput,
 	SchemaDeleteManyInput,
 	SchemaDeleteOneInput,
 	SchemaUpdateManyInput,
 	SchemaUpdateOneInput,
 	SchemaUpsertInput,
-	SchemaUpsertManyItemInput,
+	SchemaUpsertManyInput,
 } from '../../query/operations/schema-commands.js'
 import type { Query } from '../../query/query/query.js'
 import type { InferQueryResult } from '../../query/query/result.js'
@@ -233,12 +234,31 @@ export interface SchemaClass<
 	 * Passing `{ atomic: false }` returns a discriminated result with either every
 	 * model or the successful prefix and first failed input index.
 	 *
-	 * @example `await Post.createMany(inputs, { atomic: false })`
+	 * @example `await Post.createMany({ data: inputs, select: { id: true, title: true } }, { atomic: false })`
+	 */
+	createMany<
+		const TSelection extends QuerySelection<this>,
+		const TOptions extends QueryBulkTerminalOptions | undefined = undefined,
+	>(
+		input: SchemaCreateManyInput<this, TSelection>,
+		options?: TOptions & QueryBulkTerminalOptions,
+	): Promise<
+		QueryBulkTerminalResult<
+			InferQueryResult<this, QuerySelectedField<this, TSelection>>,
+			TOptions
+		>
+	>
+	/**
+	 * Creates ordered rows and returns their complete persisted models.
+	 * With `{ atomic: false }`, the discriminated result reports either every
+	 * model or the successful prefix and first failed input index.
+	 *
+	 * @example `await Post.createMany({ data: inputs }, { atomic: false })`
 	 */
 	createMany<
 		const TOptions extends QueryBulkTerminalOptions | undefined = undefined,
 	>(
-		inputs: readonly InferCreateInput<this>[],
+		input: SchemaCreateManyInput<this>,
 		options?: TOptions & QueryBulkTerminalOptions,
 	): Promise<QueryBulkTerminalResult<InferQueryResult<this>, TOptions>>
 	/**
@@ -290,8 +310,13 @@ export interface SchemaClass<
 	/**
 	 * Creates or updates one row selected by an exact unique target.
 	 *
-	 * @example `await Post.upsert({ where: { id: { eq: id } }, create, update })`
+	 * @example `await Post.upsert({ where: { id: { eq: id } }, create, update, select: { id: true, title: true } })`
 	 */
+	upsert<const TSelection extends QuerySelection<this>>(
+		input: SchemaUpsertInput<this, TSelection>,
+		options?: QueryTerminalOptions,
+	): Promise<InferQueryResult<this, QuerySelectedField<this, TSelection>>>
+	/** Creates or updates one unique target and returns its complete model. */
 	upsert(
 		input: SchemaUpsertInput<this>,
 		options?: QueryTerminalOptions,
@@ -299,12 +324,31 @@ export interface SchemaClass<
 	/**
 	 * Upserts independently targeted inputs in declaration order.
 	 *
-	 * @example `await Post.upsertMany(items)`
+	 * @example `await Post.upsertMany({ data: items, select: { id: true, title: true } })`
+	 */
+	upsertMany<
+		const TSelection extends QuerySelection<this>,
+		const TOptions extends QueryBulkTerminalOptions | undefined = undefined,
+	>(
+		input: SchemaUpsertManyInput<this, TSelection>,
+		options?: TOptions & QueryBulkTerminalOptions,
+	): Promise<
+		QueryBulkTerminalResult<
+			InferQueryResult<this, QuerySelectedField<this, TSelection>>,
+			TOptions
+		>
+	>
+	/**
+	 * Upserts ordered items and returns their complete persisted models.
+	 * With `{ atomic: false }`, the discriminated result reports either every
+	 * model or the successful prefix and first failed input index.
+	 *
+	 * @example `await Post.upsertMany({ data: items }, { atomic: false })`
 	 */
 	upsertMany<
 		const TOptions extends QueryBulkTerminalOptions | undefined = undefined,
 	>(
-		inputs: readonly SchemaUpsertManyItemInput<this>[],
+		input: SchemaUpsertManyInput<this>,
 		options?: TOptions & QueryBulkTerminalOptions,
 	): Promise<QueryBulkTerminalResult<InferQueryResult<this>, TOptions>>
 	/**

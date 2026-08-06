@@ -1005,6 +1005,8 @@ describe('internal PostgreSQL database adapter', () => {
 				inputs: [first, second],
 				kind: 'create-many',
 				options: { atomic: true },
+				selection: new Query(articleSchema).select({ id: true, title: true })
+					.ast.selection,
 				schema: new Query(articleSchema).ast.schema,
 			},
 		})
@@ -1019,7 +1021,10 @@ describe('internal PostgreSQL database adapter', () => {
 				{ current: first, kind: 'create' },
 				{ current: second, kind: 'create' },
 			],
-			result: [first, second],
+			result: [
+				{ id: firstId, title: 'First' },
+				{ id: secondId, title: 'Second' },
+			],
 		})
 		expect(driver.calls).toHaveLength(1)
 		expect(driver.calls[0]?.text).toMatch(/insert into "articles"/u)
@@ -1030,6 +1035,7 @@ describe('internal PostgreSQL database adapter', () => {
 				inputs: [],
 				kind: 'create-many',
 				options: { atomic: true },
+				selection: new Query(articleSchema).ast.selection,
 				schema: new Query(articleSchema).ast.schema,
 			},
 		})
@@ -1062,6 +1068,8 @@ describe('internal PostgreSQL database adapter', () => {
 				],
 				kind: 'create-many',
 				options: { atomic: false },
+				selection: new Query(articleSchema).select({ id: true, title: true })
+					.ast.selection,
 				schema: new Query(articleSchema).ast.schema,
 			},
 		})
@@ -1076,7 +1084,7 @@ describe('internal PostgreSQL database adapter', () => {
 			materializations: [{ current: first, kind: 'create' }],
 			result: {
 				failedIndex: 1,
-				results: [first],
+				results: [{ id: firstId, title: 'First' }],
 				status: 'stopped',
 			},
 		})
@@ -1244,6 +1252,8 @@ describe('internal PostgreSQL database adapter', () => {
 				],
 				kind: 'upsert-many',
 				options: { atomic: true },
+				selection: new Query(articleSchema).select({ id: true, title: true })
+					.ast.selection,
 				schema: new Query(articleSchema).ast.schema,
 			},
 		})
@@ -1261,7 +1271,10 @@ describe('internal PostgreSQL database adapter', () => {
 					previous: secondPrevious,
 				},
 			],
-			result: [first, secondCurrent],
+			result: [
+				{ id: firstId, title: 'First created' },
+				{ id: secondId, title: 'Second updated' },
+			],
 		})
 		expect(driver.savepointCalls).toStrictEqual([])
 		await transaction.rollback()
@@ -1300,6 +1313,8 @@ describe('internal PostgreSQL database adapter', () => {
 				],
 				kind: 'upsert-many',
 				options: { atomic: false },
+				selection: new Query(articleSchema).select({ id: true, title: true })
+					.ast.selection,
 				schema: new Query(articleSchema).ast.schema,
 			},
 		})
@@ -1315,7 +1330,7 @@ describe('internal PostgreSQL database adapter', () => {
 			materializations: [{ current: first, kind: 'create' }],
 			result: {
 				failedIndex: 1,
-				results: [first],
+				results: [{ id: firstId, title: 'First' }],
 				status: 'stopped',
 			},
 		})

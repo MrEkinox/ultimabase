@@ -182,9 +182,12 @@ const PackedModelSchema = Schema.define({
 const packedModelDraft = new PackedModelSchema({ title: 'Packed model draft' })
 const packedQuery = PostSchema.query().select({ id: true, title: true })
 const packedNonAtomicCreate = () =>
-	PostSchema.createMany([{ title: 'Packed bulk draft' }], {
-		atomic: false,
-	})
+	PostSchema.createMany(
+		{ data: [{ title: 'Packed bulk draft' }] },
+		{
+			atomic: false,
+		},
+	)
 declare const packedContext: RequestContext
 const packedMasterFind = () => PostSchema.query().find({ useMasterKey: true })
 const packedContextFind = () =>
@@ -275,24 +278,31 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 
 		try {
 			const ordered = await BulkAccountSchema.createMany(
-				[
-					{
-						email: 'second@example.com',
-						handle: 'second',
-						tenantId: 'tenant-a',
-					},
-					{
-						email: 'first@example.com',
-						handle: 'first',
-						tenantId: 'tenant-a',
-					},
-				],
+				{
+					data: [
+						{
+							email: 'second@example.com',
+							handle: 'second',
+							tenantId: 'tenant-a',
+						},
+						{
+							email: 'first@example.com',
+							handle: 'first',
+							tenantId: 'tenant-a',
+						},
+					],
+					select: { email: true, id: true },
+				},
 				{ ultimabase },
 			)
 
 			expect(ordered.map(({ email }) => email)).toStrictEqual([
 				'second@example.com',
 				'first@example.com',
+			])
+			expect(ordered.map((account) => account.toJSON())).toStrictEqual([
+				{ email: 'second@example.com', id: ordered[0]?.id },
+				{ email: 'first@example.com', id: ordered[1]?.id },
 			])
 			const bulkUpdated = await BulkAccountSchema.updateMany(
 				{
@@ -315,10 +325,11 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 						tenantId: 'tenant-b',
 					},
 					update: { visits: increment(1) },
+					select: { email: true, visits: true },
 				},
 				{ ultimabase },
 			)
-			expect(createdUpsert.toJSON()).toMatchObject({
+			expect(createdUpsert.toJSON()).toStrictEqual({
 				email: 'upsert@example.com',
 				visits: 0,
 			})
@@ -332,13 +343,45 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 						tenantId: 'tenant-b',
 					},
 					update: { visits: increment(1) },
+					select: { email: true, visits: true },
 				},
 				{ ultimabase },
 			)
-			expect(updatedUpsert.toJSON()).toMatchObject({
+			expect(updatedUpsert.toJSON()).toStrictEqual({
 				email: 'upsert@example.com',
 				visits: 1,
 			})
+
+			const bulkUpserted = await BulkAccountSchema.upsertMany(
+				{
+					data: [
+						{
+							where: { email: { eq: 'upsert@example.com' } },
+							create: {
+								email: 'upsert@example.com',
+								handle: 'upsert',
+								tenantId: 'tenant-b',
+							},
+							update: { visits: increment(1) },
+						},
+						{
+							where: { email: { eq: 'bulk-upsert@example.com' } },
+							create: {
+								email: 'bulk-upsert@example.com',
+								handle: 'bulk-upsert',
+								tenantId: 'tenant-b',
+							},
+							update: { visits: increment(1) },
+						},
+					],
+					select: { email: true, visits: true },
+				},
+				{ ultimabase },
+			)
+			expect(bulkUpserted.map((account) => account.toJSON())).toStrictEqual([
+				{ email: 'upsert@example.com', visits: 2 },
+				{ email: 'bulk-upsert@example.com', visits: 0 },
+			])
 
 			const composite = await BulkAccountSchema.upsert(
 				{
@@ -360,23 +403,25 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 			})
 
 			const partial = await BulkAccountSchema.createMany(
-				[
-					{
-						email: 'prefix@example.com',
-						handle: 'prefix',
-						tenantId: 'tenant-d',
-					},
-					{
-						email: 'upsert@example.com',
-						handle: 'duplicate',
-						tenantId: 'tenant-d',
-					},
-					{
-						email: 'suffix@example.com',
-						handle: 'suffix',
-						tenantId: 'tenant-d',
-					},
-				],
+				{
+					data: [
+						{
+							email: 'prefix@example.com',
+							handle: 'prefix',
+							tenantId: 'tenant-d',
+						},
+						{
+							email: 'upsert@example.com',
+							handle: 'duplicate',
+							tenantId: 'tenant-d',
+						},
+						{
+							email: 'suffix@example.com',
+							handle: 'suffix',
+							tenantId: 'tenant-d',
+						},
+					],
+				},
 				{ atomic: false, ultimabase },
 			)
 
@@ -401,18 +446,20 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 
 			await expect(
 				BulkAccountSchema.createMany(
-					[
-						{
-							email: 'atomic-duplicate@example.com',
-							handle: 'atomic-first',
-							tenantId: 'tenant-atomic',
-						},
-						{
-							email: 'atomic-duplicate@example.com',
-							handle: 'atomic-second',
-							tenantId: 'tenant-atomic',
-						},
-					],
+					{
+						data: [
+							{
+								email: 'atomic-duplicate@example.com',
+								handle: 'atomic-first',
+								tenantId: 'tenant-atomic',
+							},
+							{
+								email: 'atomic-duplicate@example.com',
+								handle: 'atomic-second',
+								tenantId: 'tenant-atomic',
+							},
+						],
+					},
 					{ ultimabase },
 				),
 			).rejects.toMatchObject({ code: 'VALIDATION_ERROR' })
@@ -584,7 +631,7 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 
 		try {
 			const [first, second] = await AfterReadIdentitySchema.createMany(
-				[{ title: 'First' }, { title: 'Second' }],
+				{ data: [{ title: 'First' }, { title: 'Second' }] },
 				{ ultimabase },
 			)
 

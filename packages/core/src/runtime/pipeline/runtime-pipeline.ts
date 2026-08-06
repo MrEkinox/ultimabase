@@ -659,7 +659,9 @@ const readSelectedFieldsOverride = (
 		return permittedFields
 	}
 	const selection: unknown =
-		candidate.kind === 'create-one'
+		candidate.kind === 'create-one' ||
+		candidate.kind === 'create-many' ||
+		candidate.kind === 'upsert-many'
 			? candidate.selection
 			: isPlainRecord(candidate.query)
 				? candidate.query.selection
@@ -695,7 +697,9 @@ const readSchemaModelSelectedFields = (
 		return undefined
 	}
 	const selection: unknown =
-		candidate.kind === 'create-one'
+		candidate.kind === 'create-one' ||
+		candidate.kind === 'create-many' ||
+		candidate.kind === 'upsert-many'
 			? candidate.selection
 			: isPlainRecord(candidate.query)
 				? candidate.query.selection

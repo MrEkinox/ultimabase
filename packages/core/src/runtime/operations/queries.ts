@@ -1,4 +1,8 @@
-import type { ExecutableOperationAst, QueryAst } from '../../query/index.js'
+import type {
+	ExecutableOperationAst,
+	QueryAst,
+	QuerySelectionNode,
+} from '../../query/index.js'
 import { immutableArray } from '@ultimabase/shared'
 
 /** Reads every public Query AST carried by one normalized executable operation. */
@@ -13,3 +17,9 @@ export const readOperationQueries = (
 		? immutableArray(operation.items.map(({ query }) => query))
 		: immutableArray([])
 }
+
+/** Reads the one normalized projection that shapes the public operation result. */
+export const readOperationResultSelection = (
+	operation: ExecutableOperationAst,
+): QuerySelectionNode =>
+	'query' in operation ? operation.query.selection : operation.selection

@@ -178,6 +178,7 @@ describe('runtime validation', () => {
 			schema: schemaNode,
 			inputs: [validCreateInput(), validCreateInput()],
 			options: { atomic: true },
+			selection: new Query(validationSchema).ast.selection,
 		}
 
 		const normalized = await executeStage(stage, operation)
@@ -308,6 +309,7 @@ describe('runtime validation', () => {
 					},
 				],
 				options: { atomic: true },
+				selection: query.ast.selection,
 			}
 
 		const normalizedSingular = await executeStage(stage, singular)

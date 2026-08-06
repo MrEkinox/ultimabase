@@ -169,6 +169,7 @@ export type {
 	UpsertTargetQuery,
 } from './operations/upsert.js'
 export type {
+	SchemaCreateManyInput,
 	SchemaCreateOneInput,
 	SchemaDeleteManyInput,
 	SchemaDeleteOneInput,
@@ -176,6 +177,7 @@ export type {
 	SchemaUpdateManyInput,
 	SchemaUpdateOneInput,
 	SchemaUpsertInput,
+	SchemaUpsertManyInput,
 	SchemaUpsertManyItemInput,
 	SchemaWhere,
 	SchemaWhereFactory,

@@ -308,11 +308,14 @@ const scoped = await Article.query().find({
 	ultimabase,
 })
 
-const imported = await Article.createMany(rows, {
-	context: contextCreatedByAPlugin,
-	ultimabase,
-	useMasterKey: true,
-})
+const imported = await Article.createMany(
+	{ data: rows },
+	{
+		context: contextCreatedByAPlugin,
+		ultimabase,
+		useMasterKey: true,
+	},
+)
 ```
 
 Core never accepts authentication credentials here. `useMasterKey: true`
@@ -326,10 +329,16 @@ order, stops on the first persistence failure, and returns the successful prefix
 explicitly without disabling Runtime's mutation transaction:
 
 ```ts
-const imported = await Account.createMany(rows, {
-	atomic: false,
-	ultimabase,
-})
+const imported = await Account.createMany(
+	{
+		data: rows,
+		select: { id: true, email: true },
+	},
+	{
+		atomic: false,
+		ultimabase,
+	},
+)
 
 if (imported.status === 'stopped') {
 	console.error(imported.failedIndex, imported.error)
@@ -340,11 +349,14 @@ Bulk upsert gives every item its own exact unique predicate:
 
 ```ts
 const imported = await Account.upsertMany(
-	rows.map((row) => ({
-		where: { email: { eq: row.email } },
-		create: row,
-		update: { displayName: row.displayName },
-	})),
+	{
+		data: rows.map((row) => ({
+			where: { email: { eq: row.email } },
+			create: row,
+			update: { displayName: row.displayName },
+		})),
+		select: { id: true, email: true },
+	},
 	{ ultimabase },
 )
 ```

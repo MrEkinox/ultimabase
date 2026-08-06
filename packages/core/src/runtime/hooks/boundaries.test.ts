@@ -383,6 +383,7 @@ describe('runtime hook boundaries', () => {
 			inputs: immutableArray([{}, {}]),
 			kind: 'create-many',
 			options: immutableRecord({ atomic: false }),
+			selection: new Query(schema).ast.selection,
 			schema: new Query(schema).ast.schema,
 		}) satisfies CreateManyOperationAst<typeof schema, false>
 		const boundaries = createRuntimeHookBoundaries()

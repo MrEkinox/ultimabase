@@ -1,14 +1,26 @@
 import type {
 	DatabaseLogicalRecord,
 	ExecutableOperationAst,
+	NonAtomicBulkResult,
 } from '@ultimabase/core'
-import { immutableRecord } from '@ultimabase/shared'
+import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
 type PostgresProjectedMutationOperation = Extract<
 	ExecutableOperationAst,
 	{
-		readonly kind: 'create-one' | 'delete-one' | 'update-one' | 'upsert-one'
+		readonly kind:
+			| 'create-many'
+			| 'create-one'
+			| 'delete-one'
+			| 'update-one'
+			| 'upsert-many'
+			| 'upsert-one'
 	}
+>
+
+type PostgresProjectedBulkMutationOperation = Extract<
+	PostgresProjectedMutationOperation,
+	{ readonly kind: 'create-many' | 'upsert-many' }
 >
 
 /** Keeps full private records separate from one normalized public projection. */
@@ -17,7 +29,9 @@ export const projectPostgresRecord = (
 	operation: PostgresProjectedMutationOperation,
 ): DatabaseLogicalRecord => {
 	const selection =
-		operation.kind === 'create-one'
+		operation.kind === 'create-one' ||
+		operation.kind === 'create-many' ||
+		operation.kind === 'upsert-many'
 			? operation.selection
 			: operation.query.selection
 
@@ -39,3 +53,29 @@ export const projectPostgresRecord = (
 
 	return immutableRecord(projection)
 }
+
+/** Projects an atomic collection without altering its full private materializations. */
+export const projectPostgresRecords = (
+	records: readonly DatabaseLogicalRecord[],
+	operation: PostgresProjectedBulkMutationOperation,
+): readonly DatabaseLogicalRecord[] =>
+	immutableArray(
+		records.map((record) => projectPostgresRecord(record, operation)),
+	)
+
+/** Projects only the visible prefix of one non-atomic collection result. */
+export const projectPostgresNonAtomicResult = (
+	result: NonAtomicBulkResult<DatabaseLogicalRecord>,
+	operation: PostgresProjectedBulkMutationOperation,
+): NonAtomicBulkResult<DatabaseLogicalRecord> =>
+	result.status === 'completed'
+		? immutableRecord({
+				results: projectPostgresRecords(result.results, operation),
+				status: result.status,
+			})
+		: immutableRecord({
+				error: result.error,
+				failedIndex: result.failedIndex,
+				results: projectPostgresRecords(result.results, operation),
+				status: result.status,
+			})

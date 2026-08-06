@@ -139,7 +139,7 @@ beforeAll(async () => {
 	const app = getApplication()
 
 	;[alice, bob] = await Member.createMany(
-		[{ email: 'alice@example.test' }, { email: 'bob@example.test' }],
+		{ data: [{ email: 'alice@example.test' }, { email: 'bob@example.test' }] },
 		{ ultimabase: app, useMasterKey: true },
 	)
 	const alicePointer = Member.pointer(requireFixture(alice, 'alice').id)

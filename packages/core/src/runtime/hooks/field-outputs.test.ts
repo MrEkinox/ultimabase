@@ -194,6 +194,7 @@ describe('runtime field outputs', () => {
 			inputs: immutableArray([{ title: 'First' }, { title: 'Second' }]),
 			kind: 'create-many',
 			options: immutableRecord({ atomic: false }),
+			selection: new Query(outputSchema).ast.selection,
 			schema: new Query(outputSchema).ast.schema,
 		}) satisfies CreateManyOperationAst<typeof outputSchema, false>
 		const writeError = new Error('second input failed')

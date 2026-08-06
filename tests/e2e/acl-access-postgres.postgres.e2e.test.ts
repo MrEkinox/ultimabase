@@ -157,36 +157,38 @@ beforeAll(async () => {
 	await ultimabase.start()
 
 	const created = await ProtectedPost.createMany(
-		[
-			{ acl: new ACL().grantPublic('read'), title: 'public' },
-			{ acl: new ACL().grantAuthenticated('read'), title: 'authenticated' },
-			{
-				acl: new ACL().grantPrincipal(
-					Principal.pointer(aliceId),
-					'read',
-					'update',
-					'delete',
-				),
-				title: 'alice',
-			},
-			{
-				acl: new ACL().grantPrincipal(Principal.pointer(bobId), 'read'),
-				title: 'bob',
-			},
-			{
-				acl: new ACL().grantRole(editorRole, 'read', 'update', 'delete'),
-				title: 'editor',
-			},
-			{
-				acl: new ACL()
-					.grantPrincipal(Principal.pointer(aliceId), 'read')
-					.grantPrincipal(Principal.pointer(bobId), 'read')
-					.grantRole(editorRole, 'read', 'update')
-					.grantRole(reviewerRole, 'read'),
-				title: 'shared',
-			},
-			{ acl: new ACL(), title: 'denied' },
-		],
+		{
+			data: [
+				{ acl: new ACL().grantPublic('read'), title: 'public' },
+				{ acl: new ACL().grantAuthenticated('read'), title: 'authenticated' },
+				{
+					acl: new ACL().grantPrincipal(
+						Principal.pointer(aliceId),
+						'read',
+						'update',
+						'delete',
+					),
+					title: 'alice',
+				},
+				{
+					acl: new ACL().grantPrincipal(Principal.pointer(bobId), 'read'),
+					title: 'bob',
+				},
+				{
+					acl: new ACL().grantRole(editorRole, 'read', 'update', 'delete'),
+					title: 'editor',
+				},
+				{
+					acl: new ACL()
+						.grantPrincipal(Principal.pointer(aliceId), 'read')
+						.grantPrincipal(Principal.pointer(bobId), 'read')
+						.grantRole(editorRole, 'read', 'update')
+						.grantRole(reviewerRole, 'read'),
+					title: 'shared',
+				},
+				{ acl: new ACL(), title: 'denied' },
+			],
+		},
 		{ ultimabase, useMasterKey: true },
 	)
 
@@ -325,13 +327,15 @@ describe('ACL PostgreSQL Access constraints', { concurrent: false }, () => {
 				),
 			() =>
 				ProtectedPost.upsertMany(
-					[
-						{
-							create: { title: 'unexpected-bulk-upsert' },
-							where: (where) => where.eq('id', deniedId),
-							update: { acl: replacement },
-						},
-					],
+					{
+						data: [
+							{
+								create: { title: 'unexpected-bulk-upsert' },
+								where: (where) => where.eq('id', deniedId),
+								update: { acl: replacement },
+							},
+						],
+					},
 					masterOptions,
 				),
 		] as const

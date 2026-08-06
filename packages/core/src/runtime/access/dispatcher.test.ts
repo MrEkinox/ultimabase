@@ -1,6 +1,7 @@
 import { createApplication, definePlugin } from '../../foundation.js'
 import {
 	Query,
+	type CreateManyOperationAst,
 	type CreateOneOperationAst,
 	type FindOperationAst,
 	type UpdateManyOperationAst,
@@ -154,8 +155,15 @@ describe('NativeAccessRuntime', () => {
 	})
 
 	it('denies operation and indirect field disclosure before database work', async () => {
+		const selectionSchema = Schema.define({
+			className: 'NativeAccessBulkSelection',
+			fields: {
+				denied: stringField({ access: { read: false } }),
+				title: stringField(),
+			},
+		})
 		const application = await createApplication({
-			schemas: [articleSchema],
+			schemas: [articleSchema, selectionSchema],
 			plugins: [],
 		})
 		const stages = requireStages(createEnforcementStages(application))
@@ -182,6 +190,21 @@ describe('NativeAccessRuntime', () => {
 				context,
 				operation: createFind(new Query(articleSchema).ascending('secret')),
 			}),
+		).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
+		const selectedBulkCreate: CreateManyOperationAst<
+			typeof selectionSchema,
+			true,
+			'denied'
+		> = {
+			inputs: [{ title: 'Allowed input' }],
+			kind: 'create-many',
+			options: { atomic: true },
+			selection: new Query(selectionSchema).select({ denied: true }).ast
+				.selection,
+			schema: new Query(selectionSchema).ast.schema,
+		}
+		await expect(
+			stages.evaluate({ context, operation: selectedBulkCreate }),
 		).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
 		await application.dispose()
 	})

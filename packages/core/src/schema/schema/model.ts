@@ -15,13 +15,14 @@ import {
 	upsertSchemaRecords,
 } from '../../query/operations/schema-command-execution.js'
 import type {
+	SchemaCreateManyExecutionInput,
 	SchemaCreateOneExecutionInput,
 	SchemaDeleteManyExecutionInput,
 	SchemaDeleteOneExecutionInput,
 	SchemaUpdateManyExecutionInput,
 	SchemaUpdateOneExecutionInput,
-	SchemaUpsertInput,
-	SchemaUpsertManyItemInput,
+	SchemaUpsertExecutionInput,
+	SchemaUpsertManyExecutionInput,
 	SchemaWhereFactory,
 } from '../../query/operations/schema-commands.js'
 import type {
@@ -736,12 +737,12 @@ export const createSchemaModelClass = <
 
 		/** Creates ordered models through one atomic bulk operation by default. */
 		static createMany(
-			inputs: readonly InferCreateInput<SchemaDefinition>[],
+			input: SchemaCreateManyExecutionInput<SchemaDefinition>,
 			options?: QueryBulkTerminalOptions,
 		): Promise<unknown> {
 			return createSchemaRecords(
 				DefinedSchemaModel as unknown as SchemaDefinition,
-				inputs,
+				input,
 				options,
 			)
 		}
@@ -772,7 +773,7 @@ export const createSchemaModelClass = <
 
 		/** Creates or updates one exact unique target. */
 		static upsert(
-			input: SchemaUpsertInput<SchemaDefinition>,
+			input: SchemaUpsertExecutionInput<SchemaDefinition>,
 			options?: QueryTerminalOptions,
 		): Promise<object> {
 			return upsertSchemaRecord(
@@ -784,12 +785,12 @@ export const createSchemaModelClass = <
 
 		/** Upserts independently targeted inputs in order. */
 		static upsertMany(
-			inputs: readonly SchemaUpsertManyItemInput<SchemaDefinition>[],
+			input: SchemaUpsertManyExecutionInput<SchemaDefinition>,
 			options?: QueryBulkTerminalOptions,
 		): Promise<unknown> {
 			return upsertSchemaRecords(
 				DefinedSchemaModel as unknown as SchemaDefinition,
-				inputs,
+				input,
 				options,
 			)
 		}
