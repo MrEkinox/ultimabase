@@ -71,7 +71,7 @@ describe('PostgreSQL query clause compiler', () => {
 
 	it('adds the UUID tie-breaker and compiles a lexicographic after predicate', () => {
 		const query = new Query(ArticleSchema)
-			.equalTo('rank', 10)
+			.where((where) => where.eq('rank', 10))
 			.descending('created')
 			.limit(2)
 			.after('authenticated-cursor')

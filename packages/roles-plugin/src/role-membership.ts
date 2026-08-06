@@ -108,7 +108,9 @@ export const resolveStoredRoleMembership = async (
 ): Promise<RoleMembershipSnapshot> => {
 	const lookupSchema = schema as unknown as MembershipRoleSchema
 	const directRoles = await new Query(lookupSchema)
-		.some('members', (candidate) => candidate.equalTo('id', member.id))
+		.where((where) =>
+			where.some('members', (candidate) => candidate.eq('id', member.id)),
+		)
 		.ascending('id')
 		.find({ useMasterKey: true })
 
@@ -116,7 +118,9 @@ export const resolveStoredRoleMembership = async (
 		const roleId = readPersistedRoleId(role)
 
 		return new Query(lookupSchema)
-			.some('roles', (candidate) => candidate.equalTo('id', roleId))
+			.where((where) =>
+				where.some('roles', (candidate) => candidate.eq('id', roleId)),
+			)
 			.ascending('id')
 			.find({ useMasterKey: true })
 	})

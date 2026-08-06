@@ -115,7 +115,9 @@ describe('hook execution safety', () => {
 		)
 
 		await expect(
-			runWithRequestEngine(engine, () => schema.create({ title: 'cancel me' })),
+			runWithRequestEngine(engine, () =>
+				schema.create({ data: { title: 'cancel me' } }),
+			),
 		).rejects.toMatchObject({ code: 'OPERATION_CANCELLED' })
 
 		expect(trace).toStrictEqual([
@@ -178,7 +180,7 @@ describe('hook execution safety', () => {
 
 		await expect(
 			runWithRequestEngine(engine, () =>
-				schema.create({ title: 'never starts' }),
+				schema.create({ data: { title: 'never starts' } }),
 			),
 		).rejects.toMatchObject({ code: 'OPERATION_CANCELLED' })
 		expect(adapter.transactions).toStrictEqual([])
@@ -213,7 +215,7 @@ describe('hook execution safety', () => {
 				beforeCreate: async ({ context, operation }) => {
 					trace.push('hook:parent')
 					transactionIds.push(context.transactionId)
-					await childSchema.create({ title: 'child' })
+					await childSchema.create({ data: { title: 'child' } })
 
 					return operation
 				},
@@ -235,7 +237,7 @@ describe('hook execution safety', () => {
 		await ultimabase.start()
 
 		await expect(
-			parentSchema.create({ title: 'parent' }, { ultimabase }),
+			parentSchema.create({ data: { title: 'parent' } }, { ultimabase }),
 		).resolves.toMatchObject({ title: 'parent' })
 
 		expect(transactionIds).toHaveLength(3)
@@ -256,7 +258,7 @@ describe('hook execution safety', () => {
 			hooks: {
 				beforeCreate: async ({ operation }) => {
 					trace.push('hook:beforeCreate')
-					await schema.create({ title: 'nested' })
+					await schema.create({ data: { title: 'nested' } })
 
 					return operation
 				},
@@ -272,7 +274,7 @@ describe('hook execution safety', () => {
 		await ultimabase.start()
 
 		await expect(
-			schema.create({ title: 'root' }, { ultimabase }),
+			schema.create({ data: { title: 'root' } }, { ultimabase }),
 		).rejects.toMatchObject({ code: 'HOOK_RECURSION' })
 		expect(trace).toStrictEqual([
 			'adapter:begin',
@@ -298,7 +300,7 @@ describe('hook execution safety', () => {
 						beforeOperation({
 							handler: async ({ operation }) => {
 								trace.push('hook:before-operation')
-								await schema.create({ title: 'nested' })
+								await schema.create({ data: { title: 'nested' } })
 
 								return { operation }
 							},
@@ -316,7 +318,7 @@ describe('hook execution safety', () => {
 
 		await ultimabase.start()
 		await expect(
-			schema.create({ title: 'root' }, { ultimabase }),
+			schema.create({ data: { title: 'root' } }, { ultimabase }),
 		).rejects.toMatchObject({ code: 'HOOK_RECURSION' })
 		expect(trace).toStrictEqual([
 			'adapter:begin',

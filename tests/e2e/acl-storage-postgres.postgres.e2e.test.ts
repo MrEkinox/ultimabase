@@ -78,7 +78,7 @@ describe('ACL JSONB storage', { concurrent: false }, () => {
 
 		try {
 			const created = await StoredPost.create(
-				{ title: 'Protected' },
+				{ data: { title: 'Protected' } },
 				{ ultimabase, useMasterKey: true },
 			)
 			const createdRow = await getFixture().pool.query<{
@@ -97,7 +97,7 @@ describe('ACL JSONB storage', { concurrent: false }, () => {
 				.grantAuthenticated('read')
 			const updated = await StoredPost.updateOne(
 				{
-					where: (where) => where.equalTo('id', created.id),
+					where: (where) => where.eq('id', created.id),
 					data: { acl: replacement },
 				},
 				{ ultimabase, useMasterKey: true },
@@ -137,7 +137,7 @@ describe('ACL JSONB storage', { concurrent: false }, () => {
 			expect(queryPlan.every((line) => !line.includes('Join'))).toBe(true)
 
 			await StoredPost.deleteOne(
-				{ where: (where) => where.equalTo('id', created.id) },
+				{ where: (where) => where.eq('id', created.id) },
 				{ ultimabase, useMasterKey: true },
 			)
 			const remaining = await getFixture().pool.query<{

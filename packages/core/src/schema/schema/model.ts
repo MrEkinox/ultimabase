@@ -15,10 +15,11 @@ import {
 	upsertSchemaRecords,
 } from '../../query/operations/schema-command-execution.js'
 import type {
-	SchemaDeleteManyInput,
-	SchemaDeleteOneInput,
-	SchemaUpdateManyInput,
-	SchemaUpdateOneInput,
+	SchemaCreateOneExecutionInput,
+	SchemaDeleteManyExecutionInput,
+	SchemaDeleteOneExecutionInput,
+	SchemaUpdateManyExecutionInput,
+	SchemaUpdateOneExecutionInput,
 	SchemaUpsertInput,
 	SchemaUpsertManyItemInput,
 	SchemaWhereFactory,
@@ -27,6 +28,7 @@ import type {
 	QueryBulkTerminalOptions,
 	QueryTerminalOptions,
 } from '../../query/operations/execution.js'
+import type { WhereInput } from '../../query/filters/where.js'
 import {
 	executeQueryDeleteOne,
 	executeQueryUpdateOne,
@@ -138,7 +140,7 @@ export interface SchemaDraftCommands<
 	/**
 	 * Creates this draft or updates the object selected by one unique target.
 	 *
-	 * @example `await draft.upsert({ where: (where) => where.equalTo("slug", "hello"), update: { views: increment(1) } })`
+	 * @example `await draft.upsert({ where: { slug: { eq: "hello" } }, update: { views: increment(1) } })`
 	 */
 	upsert(input: TUpsertInput, options?: QueryTerminalOptions): Promise<TResult>
 }
@@ -422,7 +424,7 @@ interface NormalizedSchemaDraftUpsertInput {
 
 /** Erases schema variance only inside the private model-to-Query delegation. */
 interface SchemaModelQuery {
-	byId(id: unknown): SchemaModelQuery
+	where(input: WhereInput<SchemaDefinition>): SchemaModelQuery
 	readonly ast: Query<SchemaDefinition>['ast']
 	readonly schema: SchemaDefinition
 }
@@ -467,7 +469,9 @@ const createPersistedModelQuery = (
 	record: SchemaModelRecord & { readonly objectId: unknown },
 ): SchemaModelQuery =>
 	// Mutation results intentionally ignore the receiver's read projection.
-	createSchemaModelQuery(record.schema).byId(record.objectId)
+	createSchemaModelQuery(record.schema).where({
+		id: { eq: record.objectId },
+	} as WhereInput<typeof record.schema>)
 
 /** Owns the common runtime behavior without becoming the public model identity. */
 class SchemaModelPrototype {
@@ -522,7 +526,7 @@ class SchemaModelPrototype {
 
 		assertSchemaModelState(record, 'draft', 'create')
 
-		return createSchemaRecord(record.schema, record.values, options)
+		return createSchemaRecord(record.schema, { data: record.values }, options)
 	}
 
 	/** Resolves one unique conflict target without retaining execution on the model. */
@@ -720,7 +724,7 @@ export const createSchemaModelClass = <
 
 		/** Creates one persisted model through the shared Runtime operation pipeline. */
 		static create(
-			input: InferCreateInput<SchemaDefinition>,
+			input: SchemaCreateOneExecutionInput<SchemaDefinition>,
 			options?: QueryTerminalOptions,
 		): Promise<object> {
 			return createSchemaRecord(
@@ -744,7 +748,7 @@ export const createSchemaModelClass = <
 
 		/** Updates one exact unique target. */
 		static updateOne(
-			input: SchemaUpdateOneInput<SchemaDefinition>,
+			input: SchemaUpdateOneExecutionInput<SchemaDefinition>,
 			options?: QueryTerminalOptions,
 		): Promise<object | null> {
 			return updateSchemaRecord(
@@ -756,9 +760,9 @@ export const createSchemaModelClass = <
 
 		/** Updates one explicit filtered set. */
 		static updateMany(
-			input: SchemaUpdateManyInput<SchemaDefinition>,
+			input: SchemaUpdateManyExecutionInput<SchemaDefinition>,
 			options?: QueryTerminalOptions,
-		): Promise<number> {
+		): Promise<readonly object[]> {
 			return updateSchemaRecords(
 				DefinedSchemaModel as unknown as SchemaDefinition,
 				input,
@@ -792,7 +796,7 @@ export const createSchemaModelClass = <
 
 		/** Deletes one exact unique target. */
 		static deleteOne(
-			input: SchemaDeleteOneInput<SchemaDefinition>,
+			input: SchemaDeleteOneExecutionInput<SchemaDefinition>,
 			options?: QueryTerminalOptions,
 		): Promise<object | null> {
 			return deleteSchemaRecord(
@@ -804,9 +808,9 @@ export const createSchemaModelClass = <
 
 		/** Deletes one explicit filtered set. */
 		static deleteMany(
-			input: SchemaDeleteManyInput<SchemaDefinition>,
+			input: SchemaDeleteManyExecutionInput<SchemaDefinition>,
 			options?: QueryTerminalOptions,
-		): Promise<number> {
+		): Promise<readonly object[]> {
 			return deleteSchemaRecords(
 				DefinedSchemaModel as unknown as SchemaDefinition,
 				input,

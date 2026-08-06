@@ -24,7 +24,7 @@ describe('normalizeQueryInclusion', () => {
 		const reviewer = new Query(userSchema).select({ name: true })
 		const finalAuthor = new Query(userSchema)
 			.select({ id: true, email: true })
-			.endsWith('email', '@example.com')
+			.where((where) => where.endsWith('email', '@example.com'))
 		const inclusion = normalizeQueryInclusion(postSchema, [
 			{ field: 'author', query: firstAuthor.ast },
 			{ field: 'reviewer', query: reviewer.ast },

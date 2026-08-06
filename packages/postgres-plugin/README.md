@@ -172,7 +172,7 @@ const request = ultimabase.engine.anonymous({
 })
 
 const post = await request.transaction(async () => {
-	return PostSchema.create({ title: 'Atomic post' })
+	return PostSchema.create({ data: { title: 'Atomic post' } })
 })
 ```
 
@@ -183,9 +183,9 @@ for every mutation is introduced separately by Core issue 329.
 Inside that transaction, singular mutations use Core's prepared-mutation
 protocol. Creates defer their write until the prepared handle executes. Updates
 and deletes first lock one deterministic full target, then write by its retained
-identifier and return a complete immutable model. Pointer and relation fields
-remain unloaded references. Handles are single-use and expire with their
-borrowed transaction client.
+identifier. Their private materializations remain complete even when the public
+result is selected. Pointer and relation fields remain unloaded references.
+Handles are single-use and expire with their borrowed transaction client.
 
 Atomic create-many uses one ordered multi-row insert. Non-atomic create-many and
 upsert-many isolate each item with a PostgreSQL savepoint, stop at the first
@@ -204,7 +204,7 @@ typed query without receiving a pool, Drizzle client, or explicit transaction:
 	beforeCreate: async ({ operation }) => {
 		if (operation.kind === 'create-one') {
 			await AuditSchema.create({
-				action: `create:${operation.input.title}`,
+				data: { action: `create:${operation.input.title}` },
 			})
 		}
 
@@ -228,26 +228,32 @@ code:
 
 ```ts
 const created = await ArticleSchema.create(
-	{ title: 'Runtime to PostgreSQL' },
+	{
+		data: { title: 'Runtime to PostgreSQL' },
+		select: { id: true, title: true },
+	},
 	{ ultimabase },
 )
 
 const found = await ultimabase
 	.query(ArticleSchema)
-	.equalTo('id', created.id)
+	.where({ id: { eq: created.id } })
 	.select({ id: true, title: true })
 	.first()
 
 const updated = await ArticleSchema.updateOne(
 	{
-		where: (where) => where.byId(created.id),
+		where: { id: { eq: created.id } },
 		data: { title: 'Updated' },
 	},
 	{ ultimabase },
 )
 
 const deleted = await ArticleSchema.deleteOne(
-	{ where: (where) => where.byId(created.id) },
+	{
+		where: { id: { eq: created.id } },
+		select: { id: true, title: true },
+	},
 	{ ultimabase },
 )
 ```
@@ -267,8 +273,9 @@ Testcontainers scenario. PostgreSQL temporal text is normalized back to
 Schema's canonical ISO representation before a result reaches developer code.
 Bulk operations and unique-target upserts are executable. Create and upsert
 results preserve developer input order, while update-many and delete-many remain
-single set-based statements returning only their affected counts. Resumed
-opaque cursor tokens are not yet executable.
+single set-based statements using Drizzle `returning()` for the requested
+columns. Their default projection contains only `id`. Resumed opaque cursor
+tokens are not yet executable.
 
 ```ts
 const imported = await ArticleSchema.createMany(rows, {
@@ -282,7 +289,7 @@ if (imported.status === 'stopped') {
 
 const article = await ArticleSchema.upsert(
 	{
-		where: (where) => where.equalTo('slug', 'runtime-postgres'),
+		where: { slug: { eq: 'runtime-postgres' } },
 		create: { slug: 'runtime-postgres', title: 'Runtime + PostgreSQL' },
 		update: { title: 'Runtime + PostgreSQL' },
 	},
@@ -470,9 +477,9 @@ const Post = Schema.define({
 })
 
 const author = User.pointer('0198f090-2a50-7000-8000-000000000034')
-const created = await Post.create({ author }, { ultimabase })
+const created = await Post.create({ data: { author } }, { ultimabase })
 const found = await Post.query()
-	.equalTo('author', author)
+	.where({ author: { eq: author } })
 	.include('author', (query) => query.select({ id: true, name: true }))
 	.first({ ultimabase })
 ```
@@ -527,9 +534,9 @@ Source relation quantifiers compile to correlated `EXISTS` expressions without
 loading target rows:
 
 ```ts
-const query = Article.query().some('tags', (tag) =>
-	tag.equalTo('label', 'typescript'),
-)
+const query = Article.query().where({
+	tags: { some: { label: { eq: 'typescript' } } },
+})
 ```
 
 Owning joins, inverse joins, and inverse pointers share the same compiler.
@@ -576,14 +583,17 @@ expressions, existence, and nested `and`/`or`/`not` expressions share the same
 parameterized boundary:
 
 ```ts
-const query = new Query(ArticleSchema)
-	.equalTo('status', 'published')
-	.greaterThan('views', 1_000)
-	.contains('title', 'Ultima_100%')
-	.matches('slug', {
-		flags: ['case-insensitive'],
-		source: '^release-[0-9]+$',
-	})
+const query = new Query(ArticleSchema).where({
+	status: { eq: 'published' },
+	views: { gt: 1_000 },
+	title: { contains: 'Ultima_100%' },
+	slug: {
+		matches: {
+			flags: ['case-insensitive'],
+			source: '^release-[0-9]+$',
+		},
+	},
+})
 ```
 
 Developer values and regex sources never become SQL text. `contains`,
@@ -597,15 +607,17 @@ typed object partials pass through child codecs before serialization:
 ```ts
 import { fieldPath } from '@ultimabase/core'
 
-const query = ArticleSchema.query()
-	.contains('metadata', { visibility: 'public' }) // @>
-	.containedBy('metadata', { visibility: 'public', featured: true }) // <@
-	.hasAnyKeys('metadata', ['visibility', 'featured']) // ?|
-	.equalTo(fieldPath('profile', ['contact', 'email']), 'ada@example.com') // #>
-	.jsonPathExists('metadata', {
-		source: '$.items[*] ? (@.price > $minimum)',
-		variables: { minimum: 10 },
-	})
+const query = ArticleSchema.query().where((where) =>
+	where
+		.contains('metadata', { visibility: 'public' }) // @>
+		.containedBy('metadata', { visibility: 'public', featured: true }) // <@
+		.hasAnyKeys('metadata', ['visibility', 'featured']) // ?|
+		.eq(fieldPath('profile', ['contact', 'email']), 'ada@example.com') // #>
+		.jsonPathExists('metadata', {
+			source: '$.items[*] ? (@.price > $minimum)',
+			variables: { minimum: 10 },
+		}),
+)
 ```
 
 Containment documents, keys, key arrays, and path segment arrays are parameters.
@@ -628,7 +640,7 @@ ordering comparisons use the database column's configured collation. See the
 for the underlying ARE syntax.
 
 The compiler remains internal; developers build every scalar and relation
-filter only through `Query`.
+filter only through `Query.where`.
 
 ## Query selection and pagination compilation
 

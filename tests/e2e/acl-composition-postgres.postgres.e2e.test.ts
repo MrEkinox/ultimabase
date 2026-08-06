@@ -87,7 +87,8 @@ const Document = Schema.define({
 	},
 	hooks: {
 		// The business transform must narrow the developer query after ACL compilation.
-		beforeRead: ({ query }) => query.equalTo('hookScope', 'allowed'),
+		beforeRead: ({ query }) =>
+			query.where((where) => where.eq('hookScope', 'allowed')),
 	},
 	extensions: [
 		acl({
@@ -174,15 +175,15 @@ describe(
 			const app = getApplication()
 			const alice = request('acl-composition-default', 'a')
 			const owned = await Document.create(
-				{ secret: 'private', title: '  Owned  ' },
+				{ data: { secret: 'private', title: '  Owned  ' } },
 				{ context: alice, ultimabase: app },
 			)
 			const publicDocument = await Document.create(
-				{ secret: 'public-secret', title: '  PUBLIC  ' },
+				{ data: { secret: 'public-secret', title: '  PUBLIC  ' } },
 				{ ultimabase: app },
 			)
 			const persisted = await Document.query()
-				.byId(owned.id)
+				.where({ id: { eq: owned.id } })
 				.select({ acl: true, title: true })
 				.first({ ultimabase: app, useMasterKey: true })
 
@@ -201,7 +202,9 @@ describe(
 					.toJSON(),
 			)
 			await expect(
-				Document.query().byId(publicDocument.id).exists({ ultimabase: app }),
+				Document.query()
+					.where({ id: { eq: publicDocument.id } })
+					.exists({ ultimabase: app }),
 			).resolves.toBe(true)
 		})
 
@@ -251,11 +254,13 @@ describe(
 
 			const visibleTitles = (context: RequestContext) =>
 				Document.query()
-					.equalTo(
-						'title',
-						context.getValue(principalSchema) === 'b'
-							? 'principal-b'
-							: 'principal-a',
+					.where((where) =>
+						where.eq(
+							'title',
+							context.getValue(principalSchema) === 'b'
+								? 'principal-b'
+								: 'principal-a',
+						),
 					)
 					.after()
 					.limit(10)
@@ -269,12 +274,12 @@ describe(
 			])
 			await expect(
 				Document.query()
-					.equalTo('title', 'native-denied')
+					.where((where) => where.eq('title', 'native-denied'))
 					.exists({ context: alice, ultimabase: app }),
 			).resolves.toBe(false)
 			await expect(
 				Document.query()
-					.equalTo('title', 'hook-denied')
+					.where((where) => where.eq('title', 'hook-denied'))
 					.count({ context: alice, ultimabase: app }),
 			).resolves.toBe(0)
 			await expect(

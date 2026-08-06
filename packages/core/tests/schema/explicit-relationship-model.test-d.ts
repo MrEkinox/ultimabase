@@ -88,7 +88,11 @@ test('infers exact explicit-edge pointers, inputs, models, and selections', () =
 		}>
 	>()
 
-	Membership.query().equalTo('member', Member.pointer('member-id'))
-	// @ts-expect-error -- The edge source pointer cannot accept another schema.
-	Membership.query().equalTo('member', Project.pointer('project-id'))
+	Membership.query().where((where) =>
+		where.eq('member', Member.pointer('member-id')),
+	)
+	Membership.query().where((where) =>
+		// @ts-expect-error -- The edge source pointer cannot accept another schema.
+		where.eq('member', Project.pointer('project-id')),
+	)
 })

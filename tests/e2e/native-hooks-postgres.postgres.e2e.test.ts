@@ -210,8 +210,10 @@ const HookArticleSchema = Schema.define({
 
 			if (operation.kind === 'create-one') {
 				await HookAuditSchema.create({
-					action: `create:${operation.input.title}`,
-					scopeId: operation.input.scopeId,
+					data: {
+						action: `create:${operation.input.title}`,
+						scopeId: operation.input.scopeId,
+					},
 				})
 				context.emit('native-hooks.article-created', {
 					scopeId: operation.input.scopeId,
@@ -229,7 +231,7 @@ const HookArticleSchema = Schema.define({
 		beforeRead: ({ kind, query }) => {
 			trace(`schema:developer:beforeRead:${kind}`)
 
-			return query.equalTo('published', true)
+			return query.where((where) => where.eq('published', true))
 		},
 		beforeUpdate: ({ operation }) => {
 			trace('schema:developer:beforeUpdate')
@@ -473,11 +475,13 @@ describe('native hooks with PostgreSQL', { concurrent: false }, () => {
 
 		const created = await runWithScope('scope-create', () =>
 			HookArticleSchema.create({
-				profile: { slug: '  Public-Profile  ' },
-				published: true,
-				secret: 'private-create-value',
-				scopeId: 'scope-create',
-				title: '  Create lifecycle  ',
+				data: {
+					profile: { slug: '  Public-Profile  ' },
+					published: true,
+					secret: 'private-create-value',
+					scopeId: 'scope-create',
+					title: '  Create lifecycle  ',
+				},
 			}),
 		)
 
@@ -490,7 +494,7 @@ describe('native hooks with PostgreSQL', { concurrent: false }, () => {
 		await expect(
 			runWithScope('scope-create', () =>
 				HookAuditSchema.query()
-					.equalTo('action', 'create:Create lifecycle')
+					.where((where) => where.eq('action', 'create:Create lifecycle'))
 					.exists(),
 			),
 		).resolves.toBe(true)
@@ -529,10 +533,12 @@ describe('native hooks with PostgreSQL', { concurrent: false }, () => {
 		await expect(
 			runWithScope('scope-rollback', () =>
 				HookArticleSchema.create({
-					profile: { slug: 'rollback' },
-					published: true,
-					scopeId: 'scope-rollback',
-					title: 'Rollback after persistence',
+					data: {
+						profile: { slug: 'rollback' },
+						published: true,
+						scopeId: 'scope-rollback',
+						title: 'Rollback after persistence',
+					},
 				}),
 			),
 		).rejects.toBe(rollbackHookError)
@@ -541,14 +547,16 @@ describe('native hooks with PostgreSQL', { concurrent: false }, () => {
 		await expect(
 			runWithScope('scope-rollback', () =>
 				HookArticleSchema.query()
-					.equalTo('title', 'Rollback after persistence')
+					.where((where) => where.eq('title', 'Rollback after persistence'))
 					.exists(),
 			),
 		).resolves.toBe(false)
 		await expect(
 			runWithScope('scope-rollback', () =>
 				HookAuditSchema.query()
-					.equalTo('action', 'create:Rollback after persistence')
+					.where((where) =>
+						where.eq('action', 'create:Rollback after persistence'),
+					)
 					.exists(),
 			),
 		).resolves.toBe(false)
@@ -566,27 +574,31 @@ describe('native hooks with PostgreSQL', { concurrent: false }, () => {
 	it('keeps beforeRead transforms inside opaque scope and field restrictions', async () => {
 		await runWithScope('scope-visible-a', () =>
 			HookArticleSchema.create({
-				profile: { slug: 'scope-a' },
-				published: true,
-				secret: 'scope-a-secret',
-				scopeId: 'scope-visible-a',
-				title: 'Shared visible title',
+				data: {
+					profile: { slug: 'scope-a' },
+					published: true,
+					secret: 'scope-a-secret',
+					scopeId: 'scope-visible-a',
+					title: 'Shared visible title',
+				},
 			}),
 		)
 		await runWithScope('scope-visible-b', () =>
 			HookArticleSchema.create({
-				profile: { slug: 'scope-b' },
-				published: true,
-				secret: 'scope-b-secret',
-				scopeId: 'scope-visible-b',
-				title: 'Shared visible title',
+				data: {
+					profile: { slug: 'scope-b' },
+					published: true,
+					secret: 'scope-b-secret',
+					scopeId: 'scope-visible-b',
+					title: 'Shared visible title',
+				},
 			}),
 		)
 		hookTrace.length = 0
 
 		const visible = await runWithScope('scope-visible-a', () =>
 			HookArticleSchema.query()
-				.equalTo('title', 'Shared visible title')
+				.where((where) => where.eq('title', 'Shared visible title'))
 				.select({
 					id: true,
 					title: true,
@@ -630,17 +642,19 @@ describe('native hooks with PostgreSQL', { concurrent: false }, () => {
 	it('wraps update and delete with their exact field and save families', async () => {
 		const created = await runWithScope('scope-write', () =>
 			HookArticleSchema.create({
-				profile: { slug: 'write' },
-				published: true,
-				scopeId: 'scope-write',
-				title: 'Write target',
+				data: {
+					profile: { slug: 'write' },
+					published: true,
+					scopeId: 'scope-write',
+					title: 'Write target',
+				},
 			}),
 		)
 		hookTrace.length = 0
 
 		await runWithScope('scope-write', () =>
 			HookArticleSchema.updateOne({
-				where: (where) => where.equalTo('id', created.id),
+				where: (where) => where.eq('id', created.id),
 				data: { title: 'Updated target' },
 			}),
 		)
@@ -660,7 +674,7 @@ describe('native hooks with PostgreSQL', { concurrent: false }, () => {
 		hookTrace.length = 0
 		await runWithScope('scope-write', () =>
 			HookArticleSchema.deleteOne({
-				where: (where) => where.equalTo('id', created.id),
+				where: (where) => where.eq('id', created.id),
 			}),
 		)
 		expectTraceSubsequence([
@@ -679,10 +693,12 @@ describe('native hooks with PostgreSQL', { concurrent: false }, () => {
 		for (const scopeId of ['scope-bulk-a', 'scope-bulk-b']) {
 			await runWithScope(scopeId, () =>
 				HookArticleSchema.create({
-					profile: { slug: scopeId },
-					published: true,
-					scopeId,
-					title: 'Bulk scoped target',
+					data: {
+						profile: { slug: scopeId },
+						published: true,
+						scopeId,
+						title: 'Bulk scoped target',
+					},
 				}),
 			)
 		}
@@ -691,11 +707,11 @@ describe('native hooks with PostgreSQL', { concurrent: false }, () => {
 		await expect(
 			runWithScope('scope-bulk-a', () =>
 				HookArticleSchema.updateMany({
-					where: (where) => where.equalTo('title', 'Bulk scoped target'),
+					where: (where) => where.eq('title', 'Bulk scoped target'),
 					data: { title: 'Bulk updated target' },
 				}),
 			),
-		).resolves.toBe(1)
+		).resolves.toHaveLength(1)
 		const updateTrace = [...hookTrace]
 
 		expect(updateTrace).toContain('schema:developer:beforeUpdate')
@@ -708,10 +724,10 @@ describe('native hooks with PostgreSQL', { concurrent: false }, () => {
 		await expect(
 			runWithScope('scope-bulk-a', () =>
 				HookArticleSchema.deleteMany({
-					where: (where) => where.equalTo('title', 'Bulk updated target'),
+					where: (where) => where.eq('title', 'Bulk updated target'),
 				}),
 			),
-		).resolves.toBe(1)
+		).resolves.toHaveLength(1)
 		const deleteTrace = [...hookTrace]
 
 		expect(deleteTrace).toContain('schema:developer:beforeDelete')
@@ -722,7 +738,7 @@ describe('native hooks with PostgreSQL', { concurrent: false }, () => {
 		await expect(
 			runWithScope('scope-bulk-b', () =>
 				HookArticleSchema.query()
-					.equalTo('title', 'Bulk scoped target')
+					.where((where) => where.eq('title', 'Bulk scoped target'))
 					.exists(),
 			),
 		).resolves.toBe(true)

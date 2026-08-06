@@ -11,26 +11,25 @@ const readDisplay = (parts: readonly SymbolDisplayPart[] | undefined): string =>
 	parts?.map(({ text }) => text).join('') ?? ''
 
 describe('Query IntelliSense', () => {
-	it('documents the exact byId parameter without expanding terminal internals', () => {
+	it('documents the canonical where entry point without expanding internals', () => {
 		const quickInfo = readMarkedQuickInfo(
-			`${import.meta.dirname}/query-by-id-hover.fixture.ts`,
+			`${import.meta.dirname}/query-where-hover.fixture.ts`,
 			`
 import { Schema, stringField } from '../../src/index.js'
 import { Query } from '../../src/query/index.js'
 
 const PostSchema = Schema.define({ className: 'Post', fields: { title: stringField() } })
-const identified = new Query(PostSchema)./* hover */byId('0194f292-0dd9-7c2d-a0a3-a2f755a3d90a')
+const identified = new Query(PostSchema)./* hover */where({ id: { eq: '0194f292-0dd9-7c2d-a0a3-a2f755a3d90a' } })
 `,
 		)
 		const display = readDisplay(quickInfo.displayParts)
 		const documentation = readDisplay(quickInfo.documentation)
 
-		expect(display).toContain('byId(id: string): Query<')
-		expect(display).not.toContain('OperationObjectId')
+		expect(display).toContain('.where(input: Readonly<{')
+		expect(display).not.toContain('QueryFilterNode')
 		expect(documentation).toContain(
-			'Adds an equality filter for the framework-owned object identifier',
+			'schema-correlated object or builder filter',
 		)
-		expect(quickInfo.tags?.some(({ name }) => name === 'example')).toBe(true)
 	})
 
 	it('documents compact contextual terminals and every trusted authority option', () => {
@@ -117,15 +116,28 @@ Post.query().${marker}
 		)
 
 		expect(completionNames.has('find')).toBe(true)
+		expect(completionNames.has('where')).toBe(true)
 		expect(completionNames.has('update')).toBe(false)
 		expect(completionNames.has('delete')).toBe(false)
+		for (const removedFilterMethod of [
+			'byId',
+			'equalTo',
+			'greaterThan',
+			'containedIn',
+			'some',
+			'and',
+			'or',
+			'not',
+		]) {
+			expect(completionNames.has(removedFilterMethod)).toBe(false)
+		}
 
 		const update = readMarkedQuickInfo(
 			`${import.meta.dirname}/query-update-alias-hover.fixture.ts`,
 			`
 import { Schema, increment, intField } from '../../src/index.js'
 const Post = Schema.define({ className: 'Post', fields: { views: intField() } })
-Post./* hover */updateOne({ where: (where) => where.byId('post-1'), data: { views: increment(1) } })
+Post./* hover */updateOne({ where: (where) => where.eq('id', 'post-1'), data: { views: increment(1) } })
 `,
 		)
 		const deletion = readMarkedQuickInfo(
@@ -133,7 +145,7 @@ Post./* hover */updateOne({ where: (where) => where.byId('post-1'), data: { view
 			`
 import { Schema, stringField } from '../../src/index.js'
 const Post = Schema.define({ className: 'Post', fields: { title: stringField() } })
-Post./* hover */deleteOne({ where: (where) => where.byId('post-1') })
+Post./* hover */deleteOne({ where: (where) => where.eq('id', 'post-1') })
 `,
 		)
 
@@ -147,6 +159,81 @@ Post./* hover */deleteOne({ where: (where) => where.byId('post-1') })
 			'Deletes one uniquely identified row',
 		)
 		expect(deletion.tags?.some(({ name }) => name === 'example')).toBe(true)
+	})
+
+	it('completes singular mutation selections with only correlated schema fields', () => {
+		const marker = '/* completion */'
+		const readMutationSelectionCompletions = (
+			body: string,
+			fixtureName: string,
+		): Set<string> => {
+			const sourceWithMarker = `
+import { Schema, intField, stringField } from '../../src/index.js'
+const Post = Schema.define({ className: 'Post', fields: { title: stringField(), views: intField() } })
+${body}
+`
+			const position = sourceWithMarker.indexOf(marker)
+			const source = sourceWithMarker.replace(marker, ' '.repeat(marker.length))
+			const fileName = `${import.meta.dirname}/${fixtureName}.fixture.ts`
+			const service = createLanguageService(fileName, source)
+			const completions = service.getCompletionsAtPosition(
+				fileName,
+				position,
+				{},
+			)
+
+			return new Set(completions?.entries.map(({ name }) => name) ?? [])
+		}
+		const updateCompletions = readMutationSelectionCompletions(
+			`Post.updateOne({
+  where: { id: { eq: 'post-1' } },
+  data: { title: 'Updated' },
+  select: { ${marker} },
+			})`,
+			'update-one-selection-completion',
+		)
+		const createCompletions = readMutationSelectionCompletions(
+			`Post.create({
+  data: { title: 'Created' },
+  select: { ${marker} },
+})`,
+			'create-one-selection-completion',
+		)
+		const deleteCompletions = readMutationSelectionCompletions(
+			`Post.deleteOne({
+  where: { id: { eq: 'post-1' } },
+  select: { ${marker} },
+})`,
+			'delete-one-selection-completion',
+		)
+		const updateManyCompletions = readMutationSelectionCompletions(
+			`Post.updateMany({
+  where: { views: { gt: 0 } },
+  data: { views: 1 },
+  select: { ${marker} },
+})`,
+			'update-many-selection-completion',
+		)
+		const deleteManyCompletions = readMutationSelectionCompletions(
+			`Post.deleteMany({
+  where: { views: { gt: 0 } },
+  select: { ${marker} },
+})`,
+			'delete-many-selection-completion',
+		)
+
+		for (const completionNames of [
+			updateCompletions,
+			createCompletions,
+			deleteCompletions,
+			updateManyCompletions,
+			deleteManyCompletions,
+		]) {
+			expect(completionNames.has('id')).toBe(true)
+			expect(completionNames.has('title')).toBe(true)
+			expect(completionNames.has('views')).toBe(true)
+			expect(completionNames.has('missing')).toBe(false)
+		}
 	})
 
 	it('documents flat selection and completes only correlated schema fields', () => {
@@ -188,6 +275,82 @@ Post.query().select({ ${marker} })
 		expect(completionNames.has('secret')).toBe(true)
 		expect(completionNames.has('id')).toBe(true)
 		expect(completionNames.has('missing')).toBe(false)
+
+		const continuedSourceWithMarker = `
+import { Schema, stringField } from '../../src/index.js'
+const Post = Schema.define({ className: 'Post', fields: { title: stringField(), secret: stringField() } })
+Post.query().select({ title: true, ${marker} })
+`
+		const continuedPosition = continuedSourceWithMarker.indexOf(marker)
+		const continuedSource = continuedSourceWithMarker.replace(
+			marker,
+			' '.repeat(marker.length),
+		)
+		const continuedFileName = `${import.meta.dirname}/query-selection-continued-completion.fixture.ts`
+		const continuedService = createLanguageService(
+			continuedFileName,
+			continuedSource,
+		)
+		const continuedCompletions = continuedService.getCompletionsAtPosition(
+			continuedFileName,
+			continuedPosition,
+			{},
+		)
+		const continuedCompletionNames = new Set(
+			continuedCompletions?.entries.map(({ name }) => name) ?? [],
+		)
+
+		expect(continuedCompletionNames.has('secret')).toBe(true)
+		expect(continuedCompletionNames.has('id')).toBe(true)
+		expect(continuedCompletionNames.has('missing')).toBe(false)
+	})
+
+	it('completes where fields and only field-compatible operators', () => {
+		const marker = '/* completion */'
+		const readCompletions = (
+			body: string,
+			fixtureName: string,
+		): Set<string> => {
+			const sourceWithMarker = `
+import { Schema, booleanField, intField } from '../../src/index.js'
+const Post = Schema.define({ className: 'Post', fields: { published: booleanField(), views: intField() } })
+${body}
+`
+			const position = sourceWithMarker.indexOf(marker)
+			const source = sourceWithMarker.replace(marker, ' '.repeat(marker.length))
+			const fileName = `${import.meta.dirname}/${fixtureName}.fixture.ts`
+			const service = createLanguageService(fileName, source)
+			const completions = service.getCompletionsAtPosition(
+				fileName,
+				position,
+				{},
+			)
+
+			return new Set(completions?.entries.map(({ name }) => name) ?? [])
+		}
+
+		const fields = readCompletions(
+			`Post.query().where({ ${marker} })`,
+			'query-where-field-completion',
+		)
+		const booleanOperators = readCompletions(
+			`Post.query().where({ published: { ${marker} } })`,
+			'query-where-boolean-completion',
+		)
+		const numericOperators = readCompletions(
+			`Post.query().where({ views: { ${marker} } })`,
+			'query-where-number-completion',
+		)
+
+		expect(fields.has('published')).toBe(true)
+		expect(fields.has('views')).toBe(true)
+		expect(fields.has('AND')).toBe(true)
+		expect(fields.has('eq')).toBe(false)
+		expect(booleanOperators.has('eq')).toBe(true)
+		expect(booleanOperators.has('gte')).toBe(false)
+		expect(numericOperators.has('eq')).toBe(true)
+		expect(numericOperators.has('gte')).toBe(true)
+		expect(numericOperators.has('contains')).toBe(false)
 	})
 
 	it('documents explicit non-atomic bulk behavior at the option boundary', () => {

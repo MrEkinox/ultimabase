@@ -107,15 +107,17 @@ const combineExpressions = <TSchema extends SchemaDefinition>(
 		: normalizeLogicalFilter({ kind: 'or', expressions: [current, next] })
 }
 
-const createDepthError = (): FrameworkError<'VALIDATION_ERROR'> =>
-	new FrameworkError(
-		'VALIDATION_ERROR',
-		`Relation predicates cannot exceed ${String(queryRelationPredicateMaxDepth)} levels.`,
-		{
-			publicMessage: 'The relation filter is nested too deeply.',
-			internalDetails: { kind: 'query-relation-depth-exceeded' },
-		},
-	)
+/** Creates the shared typed failure for every relation-filter authoring form. */
+export const createQueryRelationDepthError =
+	(): FrameworkError<'VALIDATION_ERROR'> =>
+		new FrameworkError(
+			'VALIDATION_ERROR',
+			`Relation predicates cannot exceed ${String(queryRelationPredicateMaxDepth)} levels.`,
+			{
+				publicMessage: 'The relation filter is nested too deeply.',
+				internalDetails: { kind: 'query-relation-depth-exceeded' },
+			},
+		)
 
 type QueryComparisonValue<
 	TSchema extends SchemaDefinition,
@@ -501,7 +503,7 @@ export class RelationPredicate<TSchema extends SchemaDefinition> {
 		const state = readPredicateState(this)
 
 		if (state.depth >= queryRelationPredicateMaxDepth) {
-			throw createDepthError()
+			throw createQueryRelationDepthError()
 		}
 
 		const field = state.schema.fields[fieldName]
@@ -649,7 +651,7 @@ const collectRelationPredicateNodes = (
 	collected: QueryRelationPredicateNode[],
 ): void => {
 	if (depth > queryRelationPredicateMaxDepth) {
-		throw createDepthError()
+		throw createQueryRelationDepthError()
 	}
 
 	if (ancestors.has(expression)) {

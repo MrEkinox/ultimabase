@@ -106,7 +106,7 @@ describe('native Access pipeline integration', () => {
 			await ultimabase.start()
 			const result = await securedArticle
 				.query()
-				.equalTo('title', 'Public')
+				.where((where) => where.eq('title', 'Public'))
 				.find({ ultimabase })
 
 			expect(observedBusinessFilters).toHaveLength(1)
@@ -172,7 +172,7 @@ describe('native Access pipeline integration', () => {
 				securedArticle.updateOne(
 					{
 						where: (where) =>
-							where.equalTo('id', '0198a43e-2431-7000-8000-000000000002'),
+							where.eq('id', '0198a43e-2431-7000-8000-000000000002'),
 						data: { title: 'Changed' },
 					},
 					{ ultimabase },

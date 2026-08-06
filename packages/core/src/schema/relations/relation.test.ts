@@ -130,7 +130,7 @@ describe('Relation handles', () => {
 			.ascending('createdAt')
 			.limit(20)
 			.after()
-			.use((current) => current.equalTo('id', articleId))
+			.use((current) => current.where((where) => where.eq('id', articleId)))
 		const dispatcher = new RelationScopeDispatcher()
 
 		await runWithQueryExecution({}, dispatcher, async () => {

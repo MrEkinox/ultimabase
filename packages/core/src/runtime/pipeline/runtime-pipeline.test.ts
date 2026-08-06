@@ -67,9 +67,8 @@ const articleOperation = {
 
 const articleUpdateOperation = {
 	kind: 'update-one',
-	query: new Query(articleSchema).equalTo(
-		'id',
-		'0198f090-2a50-7000-8000-000000000081',
+	query: new Query(articleSchema).where((where) =>
+		where.eq('id', '0198f090-2a50-7000-8000-000000000081'),
 	).ast,
 	update: {
 		kind: 'update-expression',
@@ -91,7 +90,9 @@ const relationPredicateOperation = {
 	kind: 'find',
 	query: relationPredicateSource
 		.query()
-		.some('targets', (target) => target.equalTo('label', 'portable')).ast,
+		.where((where) =>
+			where.some('targets', (target) => target.eq('label', 'portable')),
+		).ast,
 } satisfies FindOperationAst<typeof relationPredicateSource>
 
 const requestContext = RequestContext.anonymous({

@@ -12,13 +12,10 @@ create operation.
 ## Immutable read queries
 
 ```ts
-import { Query } from '@ultimabase/core'
-
-const published = new Query(Post).equalTo('published', true)
-const popular = new Query(Post).greaterThan('views', 1_000)
-
-const feed = published
-	.or(popular)
+const feed = Post.query()
+	.where({
+		OR: [{ published: { eq: true } }, { views: { gt: 1_000 } }],
+	})
 	.select({ id: true, title: true, createdAt: true })
 	.descending('createdAt')
 	.limit(25)
@@ -28,7 +25,7 @@ const firstCursorPage = feed.after()
 const adminPage = feed.skip(50)
 ```
 
-Every call returns a new `Query`, so all four branches remain independent.
+Every call returns a new `Query`, so every branch remains independent.
 `limit` defines the page size; `skip` and `after` choose mutually exclusive
 pagination positions.
 
@@ -47,16 +44,31 @@ call replaces the previous projection, and nested pointer shaping remains the
 responsibility of `include`. Selection flags must be literal booleans so the
 result type cannot disagree with a dynamic runtime projection.
 
-`byId(id)` is the concise typed equivalent of `equalTo('id', id)`:
+`where` receives one schema-correlated object. Field and operator keys combine
+through implicit `AND`, while `AND`, `OR`, and `NOT` compose recursive groups:
 
 ```ts
-const post = await Post.query().byId(postId).first({ ultimabase })
+const visible = Post.query().where({
+	published: { eq: true },
+	views: { gte: 10, lt: 1_000 },
+	NOT: { title: { startsWith: 'Archive' } },
+})
+```
+
+Autocomplete exposes only operators supported by the selected field kind.
+`AND`, `OR`, and `NOT` are reserved schema field names. Object identity uses the
+same canonical filter contract:
+
+```ts
+const post = await Post.query()
+	.where({ id: { eq: postId } })
+	.first({ ultimabase })
 ```
 
 The complete read terminal surface is `find`, `first`, `get`, `count`, and
 `exists`. `first` and `get` return `null` when no visible object matches.
-The `exists()` terminal tests whether a matching row exists; `isNull(fieldName)`
-and `isNotNull(fieldName)` test a field value.
+The `exists()` terminal tests whether a matching row exists; `isNull` and
+`isNotNull` are field operators inside `where`.
 
 ## Reusable read scopes
 
@@ -67,7 +79,7 @@ selection:
 import { type QueryScope } from '@ultimabase/core'
 
 const published: QueryScope<typeof Post> = (query) =>
-	query.equalTo('published', true)
+	query.where({ published: { eq: true } })
 
 const recentPublished: QueryScope<typeof Post> = (query) =>
 	query.use(published).descending('createdAt').limit(25)
@@ -75,15 +87,18 @@ const recentPublished: QueryScope<typeof Post> = (query) =>
 const feed = Post.query().select({ id: true, title: true }).use(recentPublished)
 ```
 
-Direct filters form an implicit `and`. `and`, `or`, and `not` combine only the
-filter expression from another Query of the exact same schema; selection,
-ordering, limit, and pagination remain on the receiving branch.
+Repeated `where` calls combine through implicit `AND`. Object filters never
+alter selection, ordering, limit, or pagination.
 
 Ordered scalar fields expose first-class inclusive range predicates:
 
 ```ts
-const midRange = Post.query().between('views', 10, 100)
-const outsideMidRange = Post.query().notBetween('views', 10, 100)
+const midRange = Post.query().where({
+	views: { between: { lower: 10, upper: 100 } },
+})
+const outsideMidRange = Post.query().where({
+	views: { notBetween: { lower: 10, upper: 100 } },
+})
 ```
 
 `between` matches both bounds and every value between them. `notBetween`
@@ -98,44 +113,59 @@ Generated schema classes own collection and target-based writes:
 
 ```ts
 const created = await Post.create(
-	{ title: 'Created from a job' },
+	{
+		data: { title: 'Created from a job' },
+		select: { id: true, title: true },
+	},
 	{ ultimabase },
 )
 
 const updated = await Post.updateOne(
 	{
-		where: (where) => where.byId(created.id),
+		where: { id: { eq: created.id } },
 		data: { title: 'Updated' },
+		select: { id: true, title: true },
 	},
 	{ ultimabase },
 )
 
 const deleted = await Post.deleteOne(
-	{ where: (where) => where.byId(created.id) },
+	{
+		where: { id: { eq: created.id } },
+		select: { id: true, title: true },
+	},
 	{ ultimabase },
 )
 ```
 
 The write surface is:
 
-- `create(input, options?)`
+- `create({ data, select? }, options?)`
 - `createMany(inputs, options?)`
-- `updateOne({ where, data }, options?)`
-- `updateMany({ where, data }, options?)`
+- `updateOne({ where, data, select? }, options?)`
+- `updateMany({ where, data, select? }, options?)`
 - `upsert({ where, create, update }, options?)`
 - `upsertMany(items, options?)`
-- `deleteOne({ where }, options?)`
-- `deleteMany({ where }, options?)`
+- `deleteOne({ where, select? }, options?)`
+- `deleteMany({ where, select? }, options?)`
 
-`where` receives an immutable filter-only builder. It exposes the same typed
-scalar, logical, and relation predicates as Query, but no selection, ordering,
-pagination, read terminal, execution option, or authority method:
+The object form is the source of truth for reads, mutations, and future
+transports. Dynamic application code may use the public immutable utility
+class, whose short methods build the exact same object contract:
 
 ```ts
-await Post.updateMany({
-	where: (where) => where.equalTo('published', false),
+import { WhereBuilder } from '@ultimabase/core'
+
+const updated = await Post.updateMany({
+	where: { published: { eq: false } },
 	data: { published: true },
+	select: { id: true, published: true },
 })
+
+const reusable = new WhereBuilder(Post).eq('published', false).gte('views', 10)
+
+Post.query().where(reusable)
+Post.query().where(reusable.build())
 ```
 
 Update `data` is one field-oriented map. A direct value replaces the field,
@@ -147,7 +177,7 @@ alias for the same canonical `null` clear:
 import { decrement, increment, unset } from '@ultimabase/core'
 
 await Post.updateOne({
-	where: (where) => where.byId(postId),
+	where: { id: { eq: postId } },
 	data: {
 		title: 'Updated',
 		views: increment(2),
@@ -162,8 +192,8 @@ fields and preserve the field's exact type: numbers for integer and float
 fields, strings for decimals, and bigint values for bigint fields. `unset()` is
 accepted only where `null` is accepted, so required fields cannot be cleared.
 
-An empty callback is rejected. A set-based command can deliberately target all
-rows only with the explicit value `where: 'all'`:
+An empty object or builder is rejected. A set-based command can deliberately
+target all rows only with the explicit value `where: 'all'`:
 
 ```ts
 await Post.deleteMany({ where: 'all' }, { useMasterKey: true })
@@ -176,14 +206,28 @@ behavior.
 
 ## Mutation results and relationships
 
-Singular schema commands return a complete immutable model. They do not accept
-`select` or `include`. Pointer and relation values remain unloaded references;
-the mutation never triggers an implicit relation read:
+`create`, `updateOne`, and `deleteOne` return complete immutable models by
+default and accept the same flat boolean `select` contract as Query reads. The
+projection changes only the public result; mutation hooks continue to receive
+complete logical materializations. Other singular schema commands still return
+complete models. No mutation accepts `include`, and pointer or relation values
+remain unloaded references:
 
 ```ts
+const created = await Post.create({
+	data: { title: 'Created' },
+	select: { id: true, title: true },
+})
+
 const post = await Post.updateOne({
-	where: (where) => where.byId(postId),
+	where: { id: { eq: postId } },
 	data: { title: 'Updated' },
+	select: { id: true, title: true, author: true },
+})
+
+const deleted = await Post.deleteOne({
+	where: { id: { eq: postId } },
+	select: { id: true, title: true },
 })
 
 if (post !== null) {
@@ -192,8 +236,28 @@ if (post !== null) {
 }
 ```
 
-Use a separate `Post.query()` when an exact projection or included pointer is
-required. This makes the I/O visible and keeps every write result predictable.
+Use a separate `Post.query()` when an included pointer is required. This keeps
+relation I/O visible while allowing the write result itself to remain narrow.
+
+`updateMany` and `deleteMany` always return immutable model arrays from the
+same set-based database statement. Without `select`, they request only `id`;
+an explicit selection returns exactly those post-update or pre-delete fields.
+The array length is the affected-row count. They never materialize rows merely
+to execute per-object mutation hooks:
+
+```ts
+const updated = await Post.updateMany({
+	where: { published: { eq: false } },
+	data: { published: true },
+})
+// [{ id }, ...]
+
+const deleted = await Post.deleteMany({
+	where: { archived: { eq: true } },
+	select: { id: true, title: true },
+})
+// [{ id, title }, ...]
+```
 
 Runtime-issued models also expose identity-safe instance commands:
 
@@ -218,18 +282,21 @@ authority, cancellation signal, recursion state, and transaction:
 
 ```ts
 const article = await Article.query()
-	.equalTo('published', true)
+	.where({ published: { eq: true } })
 	.select({ id: true, title: true })
 	.first()
 
-const created = await Article.create({ title: 'Inherited request' })
+const created = await Article.create({ data: { title: 'Inherited request' } })
 ```
 
 Outside an active scope, pass the exact started application:
 
 ```ts
 const articles = await Article.query().find({ ultimabase })
-const created = await Article.create({ title: 'Root job' }, { ultimabase })
+const created = await Article.create(
+	{ data: { title: 'Root job' } },
+	{ ultimabase },
+)
 ```
 
 An explicit plugin-derived context and audited master authority use the same
@@ -274,7 +341,7 @@ Bulk upsert gives every item its own exact unique predicate:
 ```ts
 const imported = await Account.upsertMany(
 	rows.map((row) => ({
-		where: (where) => where.equalTo('email', row.email),
+		where: { email: { eq: row.email } },
 		create: row,
 		update: { displayName: row.displayName },
 	})),

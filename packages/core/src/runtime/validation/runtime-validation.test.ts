@@ -132,6 +132,7 @@ describe('runtime validation', () => {
 		const input = validCreateInput()
 		const operation: CreateOneOperationAst<typeof validationSchema> = {
 			kind: 'create-one',
+			selection: { fields: [], kind: 'selection' },
 			schema: schemaNode,
 			input,
 		}
@@ -220,6 +221,7 @@ describe('runtime validation', () => {
 		})
 		const operation: CreateOneOperationAst<typeof schema> = {
 			kind: 'create-one',
+			selection: { fields: [], kind: 'selection' },
 			schema: new Query(schema).ast.schema,
 			input: {},
 		}
@@ -237,7 +239,9 @@ describe('runtime validation', () => {
 		const stage = createRuntimeValidationStage({
 			clock: () => new Date('2026-05-01T08:00:00.000Z'),
 		})
-		const query = new Query(validationSchema).equalTo('title', 'old')
+		const query = new Query(validationSchema).where((where) =>
+			where.eq('title', 'old'),
+		)
 		const update = normalizeUpdateExpression(validationSchema, {
 			title: 'new title',
 			profile: { name: 'Grace' },
@@ -271,9 +275,8 @@ describe('runtime validation', () => {
 		const stage = createRuntimeValidationStage({
 			clock: () => new Date('2026-01-01T00:00:00.000Z'),
 		})
-		const query = new Query(validationSchema).equalTo(
-			'immutableCode',
-			'public-code',
+		const query = new Query(validationSchema).where((where) =>
+			where.eq('immutableCode', 'public-code'),
 		)
 		const update = normalizeUpdateExpression(validationSchema, {
 			title: 'updated',
@@ -345,7 +348,9 @@ describe('runtime validation', () => {
 		const byId: UpsertOneOperationAst<typeof validationSchema, typeof update> =
 			{
 				kind: 'upsert-one',
-				query: new Query(validationSchema).equalTo('id', targetedId).ast,
+				query: new Query(validationSchema).where((where) =>
+					where.eq('id', targetedId),
+				).ast,
 				target: { kind: 'unique-upsert-target', fields: ['id'] },
 				create: validCreateInput(),
 				update,
@@ -362,8 +367,9 @@ describe('runtime validation', () => {
 		const seededRequired = await executeStage(stage, {
 			...byId,
 			create: withoutUniqueTarget as never,
-			query: new Query(validationSchema).equalTo('immutableCode', 'public-code')
-				.ast,
+			query: new Query(validationSchema).where((where) =>
+				where.eq('immutableCode', 'public-code'),
+			).ast,
 			target: {
 				kind: 'unique-upsert-target',
 				fields: ['immutableCode'],
@@ -375,9 +381,8 @@ describe('runtime validation', () => {
 		await expect(
 			executeStage(stage, {
 				...byId,
-				query: new Query(validationSchema).equalTo(
-					'immutableCode',
-					'target-code',
+				query: new Query(validationSchema).where((where) =>
+					where.eq('immutableCode', 'target-code'),
 				).ast,
 				target: {
 					kind: 'unique-upsert-target',
@@ -417,8 +422,9 @@ describe('runtime validation', () => {
 			typeof update
 		> = {
 			kind: 'upsert-one',
-			query: new Query(validationSchema).equalTo('immutableCode', 'public-code')
-				.ast,
+			query: new Query(validationSchema).where((where) =>
+				where.eq('immutableCode', 'public-code'),
+			).ast,
 			target: {
 				kind: 'unique-upsert-target',
 				fields: ['immutableCode'],
@@ -530,6 +536,7 @@ describe('runtime validation', () => {
 		const stage = createRuntimeValidationStage()
 		const operation = {
 			kind: 'create-one',
+			selection: { fields: [], kind: 'selection' },
 			schema: schemaNode,
 			input: {
 				title: 'x',
@@ -635,6 +642,7 @@ describe('runtime validation', () => {
 		})
 		const operation = {
 			kind: 'create-one',
+			selection: { fields: [], kind: 'selection' },
 			schema: new Query(scalarSchema).ast.schema,
 			input: {
 				bigint: 1,
@@ -757,6 +765,7 @@ describe('runtime validation', () => {
 	it('rejects a forged schema identity before compiling plans', async () => {
 		const operation = {
 			kind: 'create-one',
+			selection: { fields: [], kind: 'selection' },
 			schema: { kind: 'schema', definition: {} },
 			input: {},
 		} as unknown as CreateOneOperationAst<typeof validationSchema>
@@ -769,6 +778,7 @@ describe('runtime validation', () => {
 	it('validates output from an injected UUID v7 generator', async () => {
 		const operation: CreateOneOperationAst<typeof validationSchema> = {
 			kind: 'create-one',
+			selection: { fields: [], kind: 'selection' },
 			schema: schemaNode,
 			input: validCreateInput(),
 		}

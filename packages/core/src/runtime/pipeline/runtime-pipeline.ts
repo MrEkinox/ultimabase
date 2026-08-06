@@ -655,18 +655,23 @@ const readSelectedFieldsOverride = (
 
 	const candidate: unknown = operation
 
-	if (
-		!isPlainRecord(candidate) ||
-		!isPlainRecord(candidate.query) ||
-		!isPlainRecord(candidate.query.selection) ||
-		!isUnknownArray(candidate.query.selection.fields)
-	) {
+	if (!isPlainRecord(candidate)) {
+		return permittedFields
+	}
+	const selection: unknown =
+		candidate.kind === 'create-one'
+			? candidate.selection
+			: isPlainRecord(candidate.query)
+				? candidate.query.selection
+				: undefined
+
+	if (!isPlainRecord(selection) || !isUnknownArray(selection.fields)) {
 		return permittedFields
 	}
 
 	const selectedFields: string[] = []
 
-	for (const selected of candidate.query.selection.fields) {
+	for (const selected of selection.fields) {
 		if (isPlainRecord(selected) && typeof selected.field === 'string') {
 			selectedFields.push(selected.field)
 		}
@@ -686,19 +691,27 @@ const readSchemaModelSelectedFields = (
 
 	const candidate: unknown = operation
 
+	if (!isPlainRecord(candidate)) {
+		return undefined
+	}
+	const selection: unknown =
+		candidate.kind === 'create-one'
+			? candidate.selection
+			: isPlainRecord(candidate.query)
+				? candidate.query.selection
+				: undefined
+
 	if (
-		!isPlainRecord(candidate) ||
-		!isPlainRecord(candidate.query) ||
-		!isPlainRecord(candidate.query.selection) ||
-		!isUnknownArray(candidate.query.selection.fields) ||
-		candidate.query.selection.fields.length === 0
+		!isPlainRecord(selection) ||
+		!isUnknownArray(selection.fields) ||
+		selection.fields.length === 0
 	) {
 		return undefined
 	}
 
 	const selectedFields: string[] = []
 
-	for (const selected of candidate.query.selection.fields) {
+	for (const selected of selection.fields) {
 		if (isPlainRecord(selected) && typeof selected.field === 'string') {
 			selectedFields.push(selected.field)
 		}

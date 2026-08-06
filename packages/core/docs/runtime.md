@@ -222,7 +222,7 @@ const ArticleSchema = Schema.define({
 	},
 	hooks: {
 		beforeRead: ({ query }) =>
-			query.equalTo('published', true).descending('createdAt'),
+			query.where({ published: { eq: true } }).descending('createdAt'),
 		afterRead: (input) => {
 			if (input.kind === 'count') {
 				// Terminal narrowing keeps this value as a number.
@@ -273,7 +273,7 @@ Every business hook input includes one immutable Runtime-owned `HookContext`:
 ```ts
 beforeCreate: async ({ context, operation }) => {
 	if (operation.kind === 'create-one') {
-		await AuditSchema.create({ action: 'article.create' })
+		await AuditSchema.create({ data: { action: 'article.create' } })
 		context.emit('article.creating', { title: operation.input.title })
 	}
 	logger.debug({
@@ -395,7 +395,7 @@ const ArticleSchema = Schema.define({
 	hooks: {
 		beforeCreate: async ({ context, operation }) => {
 			if (operation.kind === 'create-one') {
-				await AuditSchema.create({ action: 'article.create' })
+				await AuditSchema.create({ data: { action: 'article.create' } })
 				context.emit('article.created', { title: operation.input.title })
 			}
 
@@ -464,7 +464,7 @@ const context = RequestContext.anonymous({
 const request = framework.withContext(context)
 
 const publishedArticles = ArticleSchema.query()
-	.equalTo('status', 'published')
+	.where({ status: { eq: 'published' } })
 	.descending('createdAt')
 	.limit(20)
 	.find()
@@ -491,9 +491,10 @@ its failure index. Runtime still owns one normalized operation and one outer
 transaction. Result hooks and `beforeCommit` may abort and roll back that
 prefix; post-commit work is released once only after it commits.
 
-`updateMany` and `deleteMany` remain one set-based adapter statement returning
-an affected-row count. They run operation hooks once and never load matching
-objects merely to fabricate per-object field hooks.
+`updateMany` and `deleteMany` remain one set-based adapter statement with a
+selected `RETURNING` result. They return only `id` by default, expose the array
+length as the affected-row count, run operation hooks once, and never
+materialize matching objects merely to fabricate per-object mutation hooks.
 
 Automatic mutation transactions install their derived request engine in the
 active asynchronous scope before the operation pipeline runs. Runtime captures
@@ -510,11 +511,11 @@ import { increment } from '@ultimabase/core'
 
 const article = await request.transaction(async () => {
 	const created = await ArticleSchema.create({
-		title: 'Atomic article',
+		data: { title: 'Atomic article' },
 	})
 
 	await StatsSchema.updateOne({
-		where: (where) => where.byId('global'),
+		where: { id: { eq: 'global' } },
 		data: { articleCount: increment(1) },
 	})
 

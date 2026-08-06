@@ -19,6 +19,7 @@ const schema = Schema.define({
 })
 const operation: CreateOneOperationAst<typeof schema> = {
 	kind: 'create-one',
+	selection: { fields: [], kind: 'selection' },
 	schema: new Query(schema).ast.schema,
 	input: { title: 'typed' },
 }

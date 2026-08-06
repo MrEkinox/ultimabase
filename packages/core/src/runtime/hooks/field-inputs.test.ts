@@ -83,6 +83,7 @@ describe('runtime field inputs', () => {
 		const operation = {
 			input: createInput('one'),
 			kind: 'create-one',
+			selection: { fields: [], kind: 'selection' },
 			schema: schemaNode,
 		} satisfies CreateOneOperationAst<typeof traversalSchema>
 
@@ -132,6 +133,7 @@ describe('runtime field inputs', () => {
 		const operation = {
 			input,
 			kind: 'create-one',
+			selection: { fields: [], kind: 'selection' },
 			schema: schemaNode,
 		} satisfies CreateOneOperationAst<typeof traversalSchema>
 		let parentValue: unknown
@@ -258,7 +260,9 @@ describe('runtime field inputs', () => {
 		const update = normalizeUpdateExpression(traversalSchema, {
 			'literal.name': 'update-value',
 		})
-		const query = new Query(traversalSchema).equalTo('literal.name', 'lookup')
+		const query = new Query(traversalSchema).where((where) =>
+			where.eq('literal.name', 'lookup'),
+		)
 		const target = {
 			fields: ['literal.name'],
 			kind: 'unique-upsert-target',

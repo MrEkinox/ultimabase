@@ -187,9 +187,16 @@ describe('@ultimabase/core Schema and Query declarations', () => {
 		)
 	})
 
-	it('materializes create result properties in editor hovers', () => {
+	it('materializes mutation result properties in editor hovers', () => {
 		const created = readFixtureQuickInfo('created = await PostSchema')
-		const create = readFixtureQuickInfo('create(allFieldValues,')
+		const selected = readFixtureQuickInfo('selectedCreate = await PostSchema')
+		const deleted = readFixtureQuickInfo('deleted = await PostSchema')
+		const bulkUpdated = readFixtureQuickInfo(
+			'bulkUpdated = await BulkAccountSchema',
+		)
+		const create = readFixtureQuickInfo(
+			'create(\n\t\t\t\t{ data: allFieldValues },',
+		)
 
 		// This guards the declaration experience seen through Query and Runtime exports.
 		expect(created.display).toContain('readonly externalId: string | null;')
@@ -197,8 +204,16 @@ describe('@ultimabase/core Schema and Query declarations', () => {
 		expect(created.display).not.toContain('Simplify<')
 		expect(created.display).not.toContain('ObjectRequiredFields<')
 		expect(created.display).not.toContain('ObjectOptionalFields<')
+		expect(selected.display).toContain('readonly id: string;')
+		expect(selected.display).toContain('readonly title: string;')
+		expect(selected.display).not.toContain('readonly metadata:')
+		expect(deleted.display).toContain('readonly id: string;')
+		expect(deleted.display).toContain('readonly title: string;')
+		expect(deleted.display).not.toContain('readonly metadata:')
+		expect(bulkUpdated.display).toContain('readonly id: string;')
+		expect(bulkUpdated.display).not.toContain('readonly tenantId:')
 		// Contextual execution stays in the optional final argument.
-		expect(create.display).toContain('.create(input: {')
+		expect(create.display).toContain('.create(input: SchemaCreateOneInput<')
 		expect(create.display).toContain('options?: QueryTerminalOptions')
 		expect(create.display).not.toContain('create(this:')
 	})

@@ -32,14 +32,15 @@ const updateInput = { visits: increment(1) } as const
 
 describe('unique upsert targets', () => {
 	it('normalizes id, unique fields, and composite indexes in declaration order', () => {
-		const id = new Query(accountSchema).equalTo('id', 'account-1').ast
-		const email = new Query(accountSchema).equalTo(
-			'email',
-			'dev@ultimabase.dev',
+		const id = new Query(accountSchema).where((where) =>
+			where.eq('id', 'account-1'),
+		).ast
+		const email = new Query(accountSchema).where((where) =>
+			where.eq('email', 'dev@ultimabase.dev'),
 		).ast
 		const composite = new Query(accountSchema)
-			.equalTo('handle', 'dev')
-			.equalTo('tenantId', 'tenant-1').ast
+			.where((where) => where.eq('handle', 'dev'))
+			.where((where) => where.eq('tenantId', 'tenant-1')).ast
 
 		expect(normalizeUniqueUpsertTarget(accountSchema, id)).toStrictEqual({
 			kind: 'unique-upsert-target',
@@ -61,9 +62,8 @@ describe('unique upsert targets', () => {
 	})
 
 	it('rejects filters that do not identify exactly one declared unique key', () => {
-		const emailQuery = new Query(accountSchema).equalTo(
-			'email',
-			'dev@ultimabase.dev',
+		const emailQuery = new Query(accountSchema).where((where) =>
+			where.eq('email', 'dev@ultimabase.dev'),
 		).ast
 		const nullTarget = {
 			...emailQuery,
@@ -102,11 +102,13 @@ describe('unique upsert targets', () => {
 		} as const
 		const cases = [
 			new Query(accountSchema).ast,
-			new Query(accountSchema).equalTo('handle', 'dev').ast,
+			new Query(accountSchema).where((where) => where.eq('handle', 'dev')).ast,
 			new Query(accountSchema)
-				.equalTo('email', 'dev@ultimabase.dev')
-				.equalTo('handle', 'dev').ast,
-			new Query(accountSchema).notEqualTo('email', 'other@example.com').ast,
+				.where((where) => where.eq('email', 'dev@ultimabase.dev'))
+				.where((where) => where.eq('handle', 'dev')).ast,
+			new Query(accountSchema).where((where) =>
+				where.ne('email', 'other@example.com'),
+			).ast,
 			nullTarget,
 			undefinedTarget,
 			disjunctionTarget,
@@ -123,17 +125,16 @@ describe('unique upsert targets', () => {
 
 	it('rejects targeting clauses and schemas unrelated to conflict identity', () => {
 		const ordered = new Query(accountSchema)
-			.equalTo('email', 'dev@ultimabase.dev')
+			.where((where) => where.eq('email', 'dev@ultimabase.dev'))
 			.ascending('email').ast
 		const limited = new Query(accountSchema)
-			.equalTo('email', 'dev@ultimabase.dev')
+			.where((where) => where.eq('email', 'dev@ultimabase.dev'))
 			.limit(1).ast
 		const paginated = new Query(accountSchema)
-			.equalTo('email', 'dev@ultimabase.dev')
+			.where((where) => where.eq('email', 'dev@ultimabase.dev'))
 			.skip(1).ast
-		const foreign = new Query(foreignSchema).equalTo(
-			'email',
-			'dev@ultimabase.dev',
+		const foreign = new Query(foreignSchema).where((where) =>
+			where.eq('email', 'dev@ultimabase.dev'),
 		).ast
 
 		for (const query of [ordered, limited, paginated]) {
@@ -149,8 +150,8 @@ describe('unique upsert targets', () => {
 
 	it('recovers target values in declared unique-index order', () => {
 		const query = new Query(accountSchema)
-			.equalTo('handle', 'dev')
-			.equalTo('tenantId', 'tenant-1').ast
+			.where((where) => where.eq('handle', 'dev'))
+			.where((where) => where.eq('tenantId', 'tenant-1')).ast
 		const target = normalizeUniqueUpsertTarget(accountSchema, query)
 
 		expect(readUniqueUpsertTargetValues(query, target)).toStrictEqual({
@@ -201,13 +202,12 @@ describe('bulk upsert items', () => {
 	})
 
 	it('normalizes updates and preserves ordered query targets', () => {
-		const firstQuery = new Query(accountSchema).equalTo(
-			'email',
-			'dev@ultimabase.dev',
+		const firstQuery = new Query(accountSchema).where((where) =>
+			where.eq('email', 'dev@ultimabase.dev'),
 		)
 		const secondQuery = new Query(accountSchema)
-			.equalTo('tenantId', 'tenant-1')
-			.equalTo('handle', 'dev')
+			.where((where) => where.eq('tenantId', 'tenant-1'))
+			.where((where) => where.eq('handle', 'dev'))
 		const inputs = [
 			{ query: firstQuery, create: createInput, update: updateInput },
 			{ query: secondQuery, create: createInput, update: updateInput },
@@ -230,7 +230,7 @@ describe('bulk upsert items', () => {
 
 	it('rejects selected queries and malformed item wrappers', () => {
 		const selected = new Query(accountSchema)
-			.equalTo('email', 'dev@ultimabase.dev')
+			.where((where) => where.eq('email', 'dev@ultimabase.dev'))
 			.select({ email: true })
 
 		expect(() =>

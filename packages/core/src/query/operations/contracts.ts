@@ -9,6 +9,7 @@ import type {
 	QueryExpressionNode,
 	QueryFieldName,
 	QuerySchemaNode,
+	QuerySelectionNode,
 } from '../ast/contracts.js'
 import type { QueryFilterNode } from '../filters/logical.js'
 import type {
@@ -101,6 +102,15 @@ interface SchemaOperationAst<
 	readonly schema: QuerySchemaNode<TSchema>
 }
 
+interface SelectedSchemaOperationAst<
+	TSchema extends SchemaDefinition,
+	TSelectedField extends QueryFieldName<TSchema>,
+> extends SchemaOperationAst<TSchema> {
+	readonly selection: QuerySelectionNode<QueryFieldName<TSchema>>
+	// Selection stays type-only while the normalized node remains the runtime source of truth.
+	readonly [operationSelectionType]?: TSelectedField
+}
+
 /** Reads every object selected by one query. */
 export interface FindOperationAst<
 	TSchema extends SchemaDefinition,
@@ -168,7 +178,8 @@ export interface ExistsOperationAst<
 /** Creates exactly one object from its schema-derived input shape. */
 export interface CreateOneOperationAst<
 	TSchema extends SchemaDefinition,
-> extends SchemaOperationAst<TSchema> {
+	TSelectedField extends QueryFieldName<TSchema> = never,
+> extends SelectedSchemaOperationAst<TSchema, TSelectedField> {
 	readonly kind: 'create-one'
 	readonly input: InferCreateInput<TSchema>
 }
@@ -269,7 +280,7 @@ export interface DeleteOneOperationAst<
 	readonly kind: 'delete-one'
 }
 
-/** Deletes every object selected by one query and later returns its count. */
+/** Deletes every object selected by one query and returns its selected preimage. */
 export interface DeleteManyOperationAst<
 	TSchema extends SchemaDefinition,
 	TFilter extends QueryExpressionNode = QueryFilterNode<TSchema>,

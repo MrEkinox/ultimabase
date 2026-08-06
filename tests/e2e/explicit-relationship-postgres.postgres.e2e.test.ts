@@ -123,17 +123,22 @@ describe(
 	() => {
 		it('uses ordinary Query, hooks, Access, and composite uniqueness', async () => {
 			const app = getUltimaBase()
-			const member = await Member.create({ name: 'Ada' }, { ultimabase: app })
+			const member = await Member.create(
+				{ data: { name: 'Ada' } },
+				{ ultimabase: app },
+			)
 			const project = await Project.create(
-				{ title: 'UltimaBase' },
+				{ data: { title: 'UltimaBase' } },
 				{ ultimabase: app },
 			)
 			const membership = await Membership.create(
 				{
-					internalNote: 'private edge data',
-					member: Member.pointer(member.id),
-					project: Project.pointer(project.id),
-					role: 'editor',
+					data: {
+						internalNote: 'private edge data',
+						member: Member.pointer(member.id),
+						project: Project.pointer(project.id),
+						role: 'editor',
+					},
 				},
 				{ ultimabase: app },
 			)
@@ -142,17 +147,17 @@ describe(
 			expect(membership.toJSON()).not.toHaveProperty('internalNote')
 			expect(
 				await Membership.query()
-					.equalTo('member', Member.pointer(member.id))
+					.where((where) => where.eq('member', Member.pointer(member.id)))
 					.count({ ultimabase: app }),
 			).toBe(1)
 			expect(
 				await Membership.query()
-					.equalTo('project', Project.pointer(project.id))
+					.where((where) => where.eq('project', Project.pointer(project.id)))
 					.count({ ultimabase: app }),
 			).toBe(1)
 
 			const selected = await Membership.query()
-				.byId(membership.id)
+				.where({ id: { eq: membership.id } })
 				.include('project', (target) =>
 					target.select({ id: true, title: true }),
 				)
@@ -175,10 +180,12 @@ describe(
 			await expect(
 				Membership.create(
 					{
-						member: Member.pointer(member.id),
-						position: 1,
-						project: Project.pointer(project.id),
-						role: 'viewer',
+						data: {
+							member: Member.pointer(member.id),
+							position: 1,
+							project: Project.pointer(project.id),
+							role: 'viewer',
+						},
 					},
 					{ ultimabase: app },
 				),
@@ -189,9 +196,11 @@ describe(
 			await expect(
 				Membership.create(
 					{
-						member: Member.pointer(member.id),
-						project: Project.pointer(project.id),
-						role: 'viewer',
+						data: {
+							member: Member.pointer(member.id),
+							project: Project.pointer(project.id),
+							role: 'viewer',
+						},
 					},
 					{ ultimabase: app },
 				),
@@ -205,16 +214,21 @@ describe(
 
 		it('keeps edge writes atomic and applies pointer referential actions', async () => {
 			const app = getUltimaBase()
-			const member = await Member.create({ name: 'Grace' }, { ultimabase: app })
+			const member = await Member.create(
+				{ data: { name: 'Grace' } },
+				{ ultimabase: app },
+			)
 			const project = await Project.create(
-				{ title: 'Cascade project' },
+				{ data: { title: 'Cascade project' } },
 				{ ultimabase: app },
 			)
 			await Membership.create(
 				{
-					member: Member.pointer(member.id),
-					project: Project.pointer(project.id),
-					role: 'editor',
+					data: {
+						member: Member.pointer(member.id),
+						project: Project.pointer(project.id),
+						role: 'editor',
+					},
 				},
 				{ ultimabase: app },
 			)
@@ -222,11 +236,13 @@ describe(
 			await member.delete({ ultimabase: app })
 			expect(
 				await Membership.query()
-					.equalTo('project', Project.pointer(project.id))
+					.where((where) => where.eq('project', Project.pointer(project.id)))
 					.count({ ultimabase: app }),
 			).toBe(0)
 			expect(
-				await Project.query().byId(project.id).exists({ ultimabase: app }),
+				await Project.query()
+					.where({ id: { eq: project.id } })
+					.exists({ ultimabase: app }),
 			).toBe(true)
 
 			const request = app.engine.anonymous({
@@ -238,16 +254,22 @@ describe(
 			await expect(
 				request.transaction(async () => {
 					const rolledBackMember = await Member.create({
-						name: 'Rolled back member',
+						data: {
+							name: 'Rolled back member',
+						},
 					})
 					const rolledBackProject = await Project.create({
-						title: 'Rolled back project',
+						data: {
+							title: 'Rolled back project',
+						},
 					})
 
 					await Membership.create({
-						member: Member.pointer(rolledBackMember.id),
-						project: Project.pointer(rolledBackProject.id),
-						role: 'editor',
+						data: {
+							member: Member.pointer(rolledBackMember.id),
+							project: Project.pointer(rolledBackProject.id),
+							role: 'editor',
+						},
 					})
 					throw rollbackError
 				}),
@@ -256,12 +278,12 @@ describe(
 			// The edge and both endpoints share the same explicit transaction boundary.
 			expect(
 				await Member.query()
-					.equalTo('name', 'Rolled back member')
+					.where((where) => where.eq('name', 'Rolled back member'))
 					.exists({ ultimabase: app }),
 			).toBe(false)
 			expect(
 				await Project.query()
-					.equalTo('title', 'Rolled back project')
+					.where((where) => where.eq('title', 'Rolled back project'))
 					.exists({ ultimabase: app }),
 			).toBe(false)
 		})

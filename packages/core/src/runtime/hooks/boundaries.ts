@@ -52,12 +52,7 @@ const mutationKinds = new Set<OperationKind>([
 	'upsert-one',
 ])
 
-const scalarResultKinds = new Set<OperationKind>([
-	'count',
-	'delete-many',
-	'exists',
-	'update-many',
-])
+const scalarResultKinds = new Set<OperationKind>(['count', 'exists'])
 
 const nullableResultKinds = new Set<OperationKind>([
 	'delete-one',
@@ -68,7 +63,9 @@ const nullableResultKinds = new Set<OperationKind>([
 
 const collectionResultKinds = new Set<OperationKind>([
 	'create-many',
+	'delete-many',
 	'find',
+	'update-many',
 	'upsert-many',
 ])
 
@@ -169,7 +166,7 @@ const readOperationKeys = (kind: OperationKind): readonly string[] => {
 		case 'get':
 			return ['kind', 'query', 'id']
 		case 'create-one':
-			return ['kind', 'schema', 'input']
+			return ['kind', 'schema', 'input', 'selection']
 		case 'create-many':
 			return ['kind', 'schema', 'inputs', 'options']
 		case 'update-many':
@@ -188,6 +185,17 @@ const assertSameQueryResultShape = (
 	replacement: Readonly<Record<string, unknown>>,
 ): void => {
 	const original: unknown = operation
+
+	if (isPlainRecord(original) && original.kind === 'create-one') {
+		if (!isDeepStrictEqual(original.selection, replacement.selection)) {
+			throwBoundaryIssue(
+				['operation', 'selection'],
+				'Hook must retain the exact create selection',
+			)
+		}
+
+		return
+	}
 
 	if (
 		!isPlainRecord(original) ||
@@ -270,15 +278,27 @@ const readSelectedFields = (
 ): readonly string[] | undefined => {
 	const candidate: unknown = operation
 
-	if (!isPlainRecord(candidate) || !isPlainRecord(candidate.query)) {
+	if (!isPlainRecord(candidate)) {
+		return undefined
+	}
+	const selectionPath: ValidationIssuePath =
+		candidate.kind === 'create-one'
+			? ['operation', 'selection']
+			: ['operation', 'query', 'selection']
+	const selection: unknown =
+		candidate.kind === 'create-one'
+			? candidate.selection
+			: isPlainRecord(candidate.query)
+				? candidate.query.selection
+				: undefined
+
+	if (selection === undefined) {
 		return undefined
 	}
 
-	const selection: unknown = candidate.query.selection
-
 	if (!isPlainRecord(selection) || !isUnknownArray(selection.fields)) {
 		return throwBoundaryIssue(
-			['operation', 'query', 'selection'],
+			selectionPath,
 			'Operation selection must be normalized',
 		)
 	}
@@ -293,7 +313,7 @@ const readSelectedFields = (
 			!Object.hasOwn(schema.fields, selected.field)
 		) {
 			return throwBoundaryIssue(
-				['operation', 'query', 'selection', 'fields', index],
+				[...selectionPath, 'fields', index],
 				'Selected field must reference the operation schema',
 			)
 		}

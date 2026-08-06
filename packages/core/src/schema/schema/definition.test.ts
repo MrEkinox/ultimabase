@@ -208,7 +208,7 @@ describe('schema definitions', () => {
 		).toThrow(new TypeError('Reserved schema static capability: query'))
 	})
 
-	it.each(['id', 'createdAt', 'updatedAt'] as const)(
+	it.each(['id', 'createdAt', 'updatedAt', 'AND', 'OR', 'NOT'] as const)(
 		'rejects the reserved %s field',
 		(name) => {
 			const field = stringField()

@@ -64,7 +64,7 @@ test('infers exact immutable drafts from the generated constructor', () => {
 	expectTypeOf(
 		draft.upsert({
 			update: { title: 'Updated' },
-			where: (where) => where.equalTo('title', 'Hello'),
+			where: { title: { eq: 'Hello' } },
 		}),
 	).toEqualTypeOf<Promise<SchemaResult<typeof Post>>>()
 
@@ -78,22 +78,43 @@ test('infers exact immutable drafts from the generated constructor', () => {
 	draft.get('missing')
 	expectTypeOf(draft).not.toHaveProperty('update')
 	expectTypeOf(draft).not.toHaveProperty('delete')
-	// @ts-expect-error -- Upsert targets use the filter-only callback surface.
-	void draft.upsert({ update: { title: 'Updated' }, where: {} })
+	void draft.upsert({
+		update: { title: 'Updated' },
+		where: { title: { eq: 'Hello' } },
+	})
 	void draft.upsert({
 		update: { title: 'Updated' },
 		where: (where) =>
 			// @ts-expect-error -- Upsert equality values retain their exact field types.
-			where.equalTo('title', 1),
+			where.eq('title', 1),
 	})
 })
 
 test('exposes writes on the schema class and keeps Query read-only', () => {
-	const readQuery = Post.query().equalTo('published', false)
+	const readQuery = Post.query().where((where) => where.eq('published', false))
 
-	expectTypeOf(Post.create({ title: 'Created' })).toEqualTypeOf<
+	expectTypeOf(Post.create({ data: { title: 'Created' } })).toEqualTypeOf<
 		Promise<InferQueryResult<typeof Post>>
 	>()
+	expectTypeOf(
+		Post.create({
+			data: { title: 'Created' },
+			select: { id: true, title: true },
+		}),
+	).toEqualTypeOf<Promise<InferQueryResult<typeof Post, 'id' | 'title'>>>()
+	// @ts-expect-error -- Create selections reject undeclared fields.
+	void Post.create({
+		data: { title: 'Created' },
+		select: { missing: true },
+	})
+	const dynamicCreateSelection = Math.random() > 0.5
+	// @ts-expect-error -- Dynamic booleans cannot promise an exact create result type.
+	void Post.create({
+		data: { title: 'Created' },
+		select: { title: dynamicCreateSelection },
+	})
+	// @ts-expect-error -- Static create uses one explicit command envelope.
+	void Post.create({ title: 'Legacy shape' })
 	expectTypeOf(
 		Post.createMany([{ title: 'First' }, { title: 'Second' }]),
 	).toEqualTypeOf<Promise<readonly InferQueryResult<typeof Post>[]>>()
@@ -102,27 +123,104 @@ test('exposes writes on the schema class and keeps Query read-only', () => {
 	).toEqualTypeOf<Promise<NonAtomicBulkResult<InferQueryResult<typeof Post>>>>()
 	expectTypeOf(
 		Post.updateOne({
-			where: (where) => where.byId('post-1'),
+			where: (where) => where.eq('id', 'post-1'),
 			data: { title: 'Updated' },
 		}),
 	).toEqualTypeOf<Promise<InferQueryResult<typeof Post> | null>>()
 	expectTypeOf(
+		Post.updateOne({
+			where: { id: { eq: 'post-1' } },
+			data: { title: 'Updated' },
+			select: { id: true, title: true },
+		}),
+	).toEqualTypeOf<
+		Promise<InferQueryResult<typeof Post, 'id' | 'title'> | null>
+	>()
+	// @ts-expect-error -- Mutation selections reject undeclared fields.
+	void Post.updateOne({
+		where: { id: { eq: 'post-1' } },
+		data: { title: 'Updated' },
+		select: { missing: true },
+	})
+	const dynamicSelection = Math.random() > 0.5
+	// @ts-expect-error -- Dynamic booleans cannot promise an exact result type.
+	void Post.updateOne({
+		where: { id: { eq: 'post-1' } },
+		data: { title: 'Updated' },
+		select: { title: dynamicSelection },
+	})
+	expectTypeOf(
 		Post.updateMany({
-			where: (where) => where.equalTo('published', false),
+			where: { published: { eq: false } },
 			data: { published: true },
 		}),
-	).toEqualTypeOf<Promise<number>>()
+	).toEqualTypeOf<Promise<readonly InferQueryResult<typeof Post, 'id'>[]>>()
+	expectTypeOf(
+		Post.updateMany({
+			where: { published: { eq: false } },
+			data: { published: true },
+			select: { id: true, title: true },
+		}),
+	).toEqualTypeOf<
+		Promise<readonly InferQueryResult<typeof Post, 'id' | 'title'>[]>
+	>()
+	// @ts-expect-error -- Bulk update selections reject undeclared fields.
+	void Post.updateMany({
+		where: 'all',
+		data: { published: true },
+		select: { missing: true },
+	})
+	// @ts-expect-error -- Dynamic booleans cannot promise an exact bulk update result.
+	void Post.updateMany({
+		where: 'all',
+		data: { published: true },
+		select: { title: dynamicSelection },
+	})
 	expectTypeOf(
 		Post.deleteOne({
-			where: (where) => where.byId('post-1'),
+			where: (where) => where.eq('id', 'post-1'),
 		}),
 	).toEqualTypeOf<Promise<InferQueryResult<typeof Post> | null>>()
+	expectTypeOf(
+		Post.deleteOne({
+			where: { id: { eq: 'post-1' } },
+			select: { id: true, title: true },
+		}),
+	).toEqualTypeOf<
+		Promise<InferQueryResult<typeof Post, 'id' | 'title'> | null>
+	>()
+	// @ts-expect-error -- Delete selections reject undeclared fields.
+	void Post.deleteOne({
+		where: { id: { eq: 'post-1' } },
+		select: { missing: true },
+	})
+	const dynamicDeleteSelection = Math.random() > 0.5
+	// @ts-expect-error -- Dynamic booleans cannot promise an exact delete result type.
+	void Post.deleteOne({
+		where: { id: { eq: 'post-1' } },
+		select: { title: dynamicDeleteSelection },
+	})
 	expectTypeOf(Post.deleteMany({ where: 'all' })).toEqualTypeOf<
-		Promise<number>
+		Promise<readonly InferQueryResult<typeof Post, 'id'>[]>
 	>()
 	expectTypeOf(
+		Post.deleteMany({
+			where: 'all',
+			select: { id: true, title: true },
+		}),
+	).toEqualTypeOf<
+		Promise<readonly InferQueryResult<typeof Post, 'id' | 'title'>[]>
+	>()
+	// @ts-expect-error -- Bulk delete selections reject undeclared fields.
+	void Post.deleteMany({ where: 'all', select: { missing: true } })
+	// @ts-expect-error -- Dynamic booleans cannot promise an exact bulk delete result.
+	void Post.deleteMany({
+		where: 'all',
+		select: { title: dynamicDeleteSelection },
+	})
+	expectTypeOf(
 		Post.upsert({
-			where: (where) => where.equalTo('id', 'post-1'),
+			where: { id: { eq: 'post-1' } },
 			create: { title: 'Created' },
 			update: { title: 'Updated' },
 		}),
@@ -130,7 +228,7 @@ test('exposes writes on the schema class and keeps Query read-only', () => {
 	expectTypeOf(
 		Post.upsertMany([
 			{
-				where: (where) => where.equalTo('id', 'post-1'),
+				where: { id: { eq: 'post-1' } },
 				create: { title: 'Created' },
 				update: { title: 'Updated' },
 			},

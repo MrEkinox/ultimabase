@@ -160,14 +160,15 @@ const recentPosts = posts
 create a handle, while selected persisted models retain a protected source ID
 without adding it to their visible values. The handle is opaque, frozen, and
 never serializes a related collection. Its `query()` is an ordinary target
-`Query`, including filters, ordering, cursors, `find`, `count`, and `exists`.
+`Query`, including `where` filters, ordering, cursors, `find`, `count`, and
+`exists`.
 The source edge stays in private Runtime state across every public builder and
 hook transformation; it never appears in `query.ast` and cannot be replaced by
 `Query.use()`.
 
-Ordered scalar filters include explicit inclusive ranges. `between(field,
-lower, upper)` keeps values inside the interval, while `notBetween(field,
-lower, upper)` keeps values strictly outside it. Both remain first-class
+Ordered scalar filters include explicit inclusive ranges. `between` keeps
+values inside the interval, while `notBetween` keeps values strictly outside
+it. Both remain first-class
 transport-neutral AST nodes rather than expanding into logical branches.
 
 Structured filters use the same flat vocabulary for dynamic JSON and typed
@@ -175,20 +176,28 @@ objects. Object containment accepts recursive partial values, and object keys
 and paths retain exact autocomplete:
 
 ```ts
-import { fieldPath } from '@ultimabase/core'
-
-const visible = Post.query()
-	.contains('metadata', { visibility: 'public' })
-	.hasAllKeys('metadata', ['visibility', 'category'])
-	.equalTo(fieldPath('profile', ['contact', 'email']), 'ada@example.com')
-	.jsonPathExists('metadata', {
-		source: '$.items[*] ? (@.price > $minimum)',
-		variables: { minimum: 10 },
-	})
+const visible = Post.query().where({
+	metadata: {
+		contains: { visibility: 'public' },
+		hasAllKeys: ['visibility', 'category'],
+		jsonPathExists: {
+			source: '$.items[*] ? (@.price > $minimum)',
+			variables: { minimum: 10 },
+		},
+	},
+	profile: {
+		at: [
+			{
+				path: ['contact', 'email'],
+				eq: 'ada@example.com',
+			},
+		],
+	},
+})
 ```
 
-`fieldPath()` keeps segments separate in the Query AST, so dots inside declared
-field names are never parsed as paths. A `jsonField` accepts dynamic string
+`at` keeps segments separate in the Query AST, so dots inside declared field
+names are never parsed as paths. A `jsonField` accepts dynamic string
 segments and safe `JsonValue` operands. An `objectField` rejects unknown paths,
 keys, values, and unsupported terminal operators in TypeScript. Paths cannot
 traverse list fields. Since persisted typed objects contain every declared key,
@@ -221,18 +230,19 @@ Source Queries filter to-many relationships through the exact target schema:
 
 ```ts
 const visiblePosts = await UserSchema.query()
-	.some('posts', (post) =>
-		post
-			.equalTo('published', true)
-			.some('tags', (tag) => tag.equalTo('label', 'typescript')),
-	)
+	.where({
+		posts: {
+			some: {
+				published: { eq: true },
+				tags: { some: { label: { eq: 'typescript' } } },
+			},
+		},
+	})
 	.find()
 ```
 
-`some`, `none`, and `every` create immutable portable Query AST nodes. Their
-callback receives `RelationPredicate<TTarget>`, which deliberately exposes only
-typed filters and nested relation quantifiers—never selection, ordering,
-pagination, terminals, or authority. Runtime evaluates every target Access
+`some`, `none`, and `every` create immutable portable Query AST nodes from exact
+nested `WhereInput` values. Runtime evaluates every target Access
 filter into a private adapter scope that source hooks cannot remove. Predicate
 depth is bounded, and adapters must advertise the separate versioned relation
 predicate capability before execution.
@@ -377,7 +387,7 @@ same concise API:
 
 ```ts
 const post = await PostSchema.create(
-	{ title: 'Atomic by default' },
+	{ data: { title: 'Atomic by default' } },
 	{ ultimabase },
 )
 ```
@@ -402,15 +412,43 @@ if (imported.status === 'stopped') {
 ```
 
 Database plugins prepare each transaction-bound mutation through one opaque,
-single-use handle. Its execution keeps the complete public model separate from
-the logical materializations used by native field hooks. Write commands never
-accept read projections or implicit relation loading:
+single-use handle. Its execution keeps the projected public result separate
+from the complete logical materializations used by native field hooks.
+`create`, `updateOne`, and `deleteOne` accept the same flat selection contract
+as Query reads; no write command performs implicit relation loading:
 
 ```ts
+const created = await PostSchema.create(
+	{
+		data: { title: 'Created' },
+		select: { id: true, title: true },
+	},
+	{ ultimabase },
+)
+
 const updated = await PostSchema.updateOne(
 	{
-		where: (where) => where.byId(postId),
+		where: { id: { eq: postId } },
 		data: { title: 'Updated' },
+		select: { id: true, title: true, author: true },
+	},
+	{ ultimabase },
+)
+
+const deleted = await PostSchema.deleteOne(
+	{
+		where: { id: { eq: postId } },
+		select: { id: true, title: true },
+	},
+	{ ultimabase },
+)
+
+// Set-based mutations return only identifiers unless a projection is requested.
+const published = await PostSchema.updateMany(
+	{
+		where: { published: { eq: false } },
+		data: { published: true },
+		select: { id: true, published: true },
 	},
 	{ ultimabase },
 )
@@ -518,11 +556,12 @@ fallback decides operation and field access. Runtime executes every matching
 rule sequentially through the same cancellation, recursion, and diagnostic
 boundary as native hooks.
 
-An Access filter reuses the same typed field predicates as Query, but remains
-in private monotonic state. `beforeRead` can add application defaults such as
-ordering or limits and cannot inspect, replace, or remove Access filters. ACL
-and community policy plugins register contributions to this native system
-rather than business hooks.
+An Access filter reuses the same field capabilities and normalized predicate
+nodes as `Query.where`, but keeps its dedicated policy-oriented builder and
+remains in private monotonic state. `beforeRead` can add application defaults
+such as ordering or limits and cannot inspect, replace, or remove Access
+filters. ACL and community policy plugins register contributions to this native
+system rather than business hooks.
 
 The callback receives one immutable schema-aware builder and no terminal
 `kind`, so `get`, `find`, `count`, and `exists` always observe the same protected
@@ -545,8 +584,8 @@ filter: {
 
 The builder deliberately has no selection, ordering, pagination, terminal, or
 execution method. Its equality, comparison, membership, string, regex,
-existence, and logical methods share Query's field capabilities and normalized
-predicate nodes without exposing the developer Query or its AST.
+existence, and logical methods share `WhereInput` field capabilities and
+normalized predicate nodes without exposing the developer Query or its AST.
 
 Application initialization compiles native declarations and owner-bound plugin
 policies once, before infrastructure connects. Plugins contribute through the
@@ -672,7 +711,7 @@ const ArticleSchema = Schema.define({
 		published: booleanField({ default: false }),
 	},
 	hooks: {
-		beforeRead: ({ query }) => query.equalTo('published', true),
+		beforeRead: ({ query }) => query.where({ published: { eq: true } }),
 		afterRead: ({ result }) => result,
 	},
 })
@@ -722,7 +761,7 @@ const PostSchema = Schema.define({
 		beforeCreate: async ({ context, operation }) => {
 			if (operation.kind === 'create-one') {
 				await AuditSchema.create({
-					action: 'post.create',
+					data: { action: 'post.create' },
 				})
 				context.emit('post.created', { title: operation.input.title })
 			}

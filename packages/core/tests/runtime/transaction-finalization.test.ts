@@ -195,7 +195,7 @@ describe('native transaction hook finalization', () => {
 		)
 
 		const result = await runWithRequestEngine(request, () =>
-			schema.create({ title: 'Created' }),
+			schema.create({ data: { title: 'Created' } }),
 		)
 
 		expect(result).toBeInstanceOf(schema)
@@ -318,7 +318,7 @@ describe('native transaction hook finalization', () => {
 
 		await expect(
 			runWithRequestEngine(request, () =>
-				schema.create({ title: 'Committed' }),
+				schema.create({ data: { title: 'Committed' } }),
 			),
 		).rejects.toBe(afterCommitError)
 		expect(trace).toContain('adapter:commit')
@@ -368,8 +368,8 @@ describe('native transaction hook finalization', () => {
 		)
 
 		await request.transaction(async () => {
-			await schema.create({ title: 'First' })
-			await schema.create({ title: 'Second' })
+			await schema.create({ data: { title: 'First' } })
+			await schema.create({ data: { title: 'Second' } })
 		})
 		expect(trace).toContain('summary:First,Second')
 		expect(trace.indexOf('summary:First,Second')).toBeLessThan(
@@ -433,7 +433,9 @@ describe('native transaction hook finalization', () => {
 		)
 
 		await expect(
-			runWithRequestEngine(request, () => schema.create({ title: 'Rejected' })),
+			runWithRequestEngine(request, () =>
+				schema.create({ data: { title: 'Rejected' } }),
+			),
 		).rejects.toBe(beforeCommitError)
 		expect(trace.slice(-5)).toStrictEqual([
 			'adapter:rollback',
@@ -483,7 +485,7 @@ describe('native transaction hook finalization', () => {
 
 		await expect(
 			runWithRequestEngine(request, () =>
-				schema.create({ title: 'Commit failure' }),
+				schema.create({ data: { title: 'Commit failure' } }),
 			),
 		).rejects.toEqual(
 			new AggregateError(

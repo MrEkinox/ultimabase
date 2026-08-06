@@ -19,6 +19,7 @@ import type {
 	QueryTerminalOptions,
 } from '../../query/operations/execution.js'
 import type {
+	SchemaCreateOneInput,
 	SchemaDeleteManyInput,
 	SchemaDeleteOneInput,
 	SchemaUpdateManyInput,
@@ -28,6 +29,10 @@ import type {
 } from '../../query/operations/schema-commands.js'
 import type { Query } from '../../query/query/query.js'
 import type { InferQueryResult } from '../../query/query/result.js'
+import type {
+	QuerySelectedField,
+	QuerySelection,
+} from '../../query/clauses/selection.js'
 import type { InferCreateInput, InferFields } from '../inference/types.js'
 import type { Pointer } from '../relations/pointer.js'
 import {
@@ -206,12 +211,21 @@ export interface SchemaClass<
 	/** Starts one fresh immutable Query without retaining execution state. */
 	query(): Query<this>
 	/**
-	 * Creates one complete persisted model.
+	 * Creates one row and returns its selected model fields.
 	 *
-	 * @example `await Post.create({ title: 'Hello' })`
+	 * @example `await Post.create({ data: { title: 'Hello' }, select: { id: true, title: true } })`
+	 */
+	create<const TSelection extends QuerySelection<this>>(
+		input: SchemaCreateOneInput<this, TSelection>,
+		options?: QueryTerminalOptions,
+	): Promise<InferQueryResult<this, QuerySelectedField<this, TSelection>>>
+	/**
+	 * Creates one row and returns its complete persisted model.
+	 *
+	 * @example `await Post.create({ data: { title: 'Hello' } })`
 	 */
 	create(
-		input: InferCreateInput<this>,
+		input: SchemaCreateOneInput<this>,
 		options?: QueryTerminalOptions,
 	): Promise<InferQueryResult<this>>
 	/**
@@ -228,27 +242,55 @@ export interface SchemaClass<
 		options?: TOptions & QueryBulkTerminalOptions,
 	): Promise<QueryBulkTerminalResult<InferQueryResult<this>, TOptions>>
 	/**
+	 * Updates one unique target and returns its selected model fields.
+	 *
+	 * @example `await Post.updateOne({ where: { id: { eq: id } }, data, select: { id: true, title: true } })`
+	 */
+	updateOne<const TSelection extends QuerySelection<this>>(
+		input: SchemaUpdateOneInput<this, TSelection>,
+		options?: QueryTerminalOptions,
+	): Promise<InferQueryResult<
+		this,
+		QuerySelectedField<this, TSelection>
+	> | null>
+	/**
 	 * Updates one unique target and returns its complete model.
 	 *
-	 * @example `await Post.updateOne({ where: (where) => where.byId(id), data })`
+	 * @example `await Post.updateOne({ where: { id: { eq: id } }, data })`
 	 */
 	updateOne(
 		input: SchemaUpdateOneInput<this>,
 		options?: QueryTerminalOptions,
 	): Promise<InferQueryResult<this> | null>
 	/**
-	 * Updates every row selected by one explicit predicate.
+	 * Updates every selected row and returns its requested post-update fields.
 	 *
-	 * @example `await Post.updateMany({ where: (where) => where.equalTo('draft', true), data })`
+	 * @example `await Post.updateMany({ where: { draft: { eq: true } }, data, select: { id: true, title: true } })`
+	 */
+	updateMany<const TSelection extends QuerySelection<this>>(
+		input: SchemaUpdateManyInput<this, TSelection>,
+		options?: QueryTerminalOptions,
+	): Promise<
+		readonly InferQueryResult<this, QuerySelectedField<this, TSelection>>[]
+	>
+	/**
+	 * Updates every selected row and returns only its identifier by default.
+	 *
+	 * @example `await Post.updateMany({ where: { draft: { eq: true } }, data })`
 	 */
 	updateMany(
 		input: SchemaUpdateManyInput<this>,
 		options?: QueryTerminalOptions,
-	): Promise<number>
+	): Promise<
+		readonly InferQueryResult<
+			this,
+			Extract<'id', QuerySelectedField<this, { readonly id: true }>>
+		>[]
+	>
 	/**
 	 * Creates or updates one row selected by an exact unique target.
 	 *
-	 * @example `await Post.upsert({ where: (where) => where.byId(id), create, update })`
+	 * @example `await Post.upsert({ where: { id: { eq: id } }, create, update })`
 	 */
 	upsert(
 		input: SchemaUpsertInput<this>,
@@ -266,23 +308,51 @@ export interface SchemaClass<
 		options?: TOptions & QueryBulkTerminalOptions,
 	): Promise<QueryBulkTerminalResult<InferQueryResult<this>, TOptions>>
 	/**
+	 * Deletes one unique target and returns its selected removed model fields.
+	 *
+	 * @example `await Post.deleteOne({ where: { id: { eq: id } }, select: { id: true, title: true } })`
+	 */
+	deleteOne<const TSelection extends QuerySelection<this>>(
+		input: SchemaDeleteOneInput<this, TSelection>,
+		options?: QueryTerminalOptions,
+	): Promise<InferQueryResult<
+		this,
+		QuerySelectedField<this, TSelection>
+	> | null>
+	/**
 	 * Deletes one uniquely identified row and returns its complete model.
 	 *
-	 * @example `await Post.deleteOne({ where: (where) => where.byId(id) })`
+	 * @example `await Post.deleteOne({ where: { id: { eq: id } } })`
 	 */
 	deleteOne(
 		input: SchemaDeleteOneInput<this>,
 		options?: QueryTerminalOptions,
 	): Promise<InferQueryResult<this> | null>
 	/**
-	 * Deletes every row selected by one explicit predicate.
+	 * Deletes every selected row and returns its requested pre-delete fields.
+	 *
+	 * @example `await Post.deleteMany({ where: { archived: { eq: true } }, select: { id: true, title: true } })`
+	 */
+	deleteMany<const TSelection extends QuerySelection<this>>(
+		input: SchemaDeleteManyInput<this, TSelection>,
+		options?: QueryTerminalOptions,
+	): Promise<
+		readonly InferQueryResult<this, QuerySelectedField<this, TSelection>>[]
+	>
+	/**
+	 * Deletes every selected row and returns only its identifier by default.
 	 *
 	 * @example `await Post.deleteMany({ where: 'all' })`
 	 */
 	deleteMany(
 		input: SchemaDeleteManyInput<this>,
 		options?: QueryTerminalOptions,
-	): Promise<number>
+	): Promise<
+		readonly InferQueryResult<
+			this,
+			Extract<'id', QuerySelectedField<this, { readonly id: true }>>
+		>[]
+	>
 	/** Creates one immutable pointer to an object of this exact schema. */
 	pointer(id: string): Pointer<this>
 }
@@ -314,10 +384,15 @@ export type SchemaClassCapabilityFactory<
 	context: SchemaModelCapabilityContext<TSchema>,
 ) => SchemaClassCapabilities<TStatics, TResults>
 
+type ReservedWhereLogicalFieldName = 'AND' | 'NOT' | 'OR'
+
 type ReservedFieldCollision<TFields extends SchemaFields> =
 	string extends keyof TFields
 		? unknown
-		: Extract<keyof TFields, ReservedSystemFieldName> extends never
+		: Extract<
+					keyof TFields,
+					ReservedSystemFieldName | ReservedWhereLogicalFieldName
+			  > extends never
 			? unknown
 			: never
 
@@ -326,6 +401,7 @@ const schemaDefinitionMarker = Symbol.for(
 	'@ultimabase/core/schema-definition/v1',
 )
 const emptySchemaExtensions: readonly [] = immutableArray([])
+const reservedWhereLogicalFieldNames = new Set(['AND', 'NOT', 'OR'])
 const reservedModelFieldNames = new Set([
 	'create',
 	'delete',
@@ -470,6 +546,7 @@ const collectSchemaExtensionFields = (
 				reservedSystemFieldNames.some(
 					(reservedName) => reservedName === name,
 				) ||
+				reservedWhereLogicalFieldNames.has(name) ||
 				reservedModelFieldNames.has(name)
 			) {
 				throw new TypeError(`Reserved schema extension field: ${name}`)
@@ -491,6 +568,10 @@ const assertNoReservedFieldCollision = (fields: SchemaFields): void => {
 	}
 
 	for (const name of Object.keys(fields)) {
+		if (reservedWhereLogicalFieldNames.has(name)) {
+			throw new TypeError(`Reserved schema field: ${name}`)
+		}
+
 		if (reservedModelFieldNames.has(name)) {
 			throw new TypeError(`Reserved schema model field: ${name}`)
 		}

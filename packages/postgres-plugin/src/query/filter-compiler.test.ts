@@ -89,8 +89,8 @@ describe('PostgreSQL filter compiler', () => {
 			registry.values(),
 			registry.resolveSchemaTargets(),
 		)
-		const query = Source.query().some('targets', (target) =>
-			target.equalTo('label', 'developer-value'),
+		const query = Source.query().where((where) =>
+			where.some('targets', (target) => target.eq('label', 'developer-value')),
 		)
 		const expression = query.ast.where?.expression
 
@@ -99,8 +99,9 @@ describe('PostgreSQL filter compiler', () => {
 		}
 
 		const [predicate] = collectQueryRelationPredicates(expression)
-		const targetAccess = Target.query().equalTo('visible', true).ast.where
-			?.expression
+		const targetAccess = Target.query().where((where) =>
+			where.eq('visible', true),
+		).ast.where?.expression
 
 		if (predicate === undefined || targetAccess === undefined) {
 			throw new TypeError('Relation compiler fixture is incomplete')
@@ -133,8 +134,9 @@ describe('PostgreSQL filter compiler', () => {
 			registry.resolveSchemaTargets(),
 		)
 		const pointer = User.pointer('018f0f8c-7b5a-7cc9-98db-123456789abc')
-		const expression = new Query(Post).equalTo('author', pointer).ast.where
-			?.expression
+		const expression = new Query(Post).where((where) =>
+			where.eq('author', pointer),
+		).ast.where?.expression
 
 		if (expression === undefined) {
 			throw new TypeError('Pointer filter fixture requires an expression')
@@ -156,73 +158,88 @@ describe('PostgreSQL filter compiler', () => {
 		}[] = [
 			{
 				fragment: ' = $1',
-				query: new Query(FilterSchema).equalTo('title', 'a'),
+				query: new Query(FilterSchema).where((where) => where.eq('title', 'a')),
 			},
 			{
 				fragment: ' <> $1',
-				query: new Query(FilterSchema).notEqualTo('title', 'a'),
+				query: new Query(FilterSchema).where((where) => where.ne('title', 'a')),
 			},
 			{
 				fragment: ' > $1',
-				query: new Query(FilterSchema).greaterThan('count', 1),
+				query: new Query(FilterSchema).where((where) => where.gt('count', 1)),
 			},
 			{
 				fragment: ' >= $1',
-				query: new Query(FilterSchema).greaterThanOrEqualTo('count', 1),
+				query: new Query(FilterSchema).where((where) => where.gte('count', 1)),
 			},
 			{
 				fragment: ' < $1',
-				query: new Query(FilterSchema).lessThan('count', 1),
+				query: new Query(FilterSchema).where((where) => where.lt('count', 1)),
 			},
 			{
 				fragment: ' <= $1',
-				query: new Query(FilterSchema).lessThanOrEqualTo('count', 1),
+				query: new Query(FilterSchema).where((where) => where.lte('count', 1)),
 			},
 			{
 				fragment: ' between $1 and $2',
-				query: new Query(FilterSchema).between('count', 1, 10),
+				query: new Query(FilterSchema).where((where) =>
+					where.between('count', 1, 10),
+				),
 			},
 			{
 				fragment: ' not between $1 and $2',
-				query: new Query(FilterSchema).notBetween('count', 1, 10),
+				query: new Query(FilterSchema).where((where) =>
+					where.notBetween('count', 1, 10),
+				),
 			},
 			{
 				fragment: ' in ($1, $2)',
-				query: new Query(FilterSchema).containedIn('status', [
-					'draft',
-					'published',
-				]),
+				query: new Query(FilterSchema).where((where) =>
+					where.in('status', ['draft', 'published']),
+				),
 			},
 			{
 				fragment: ' not in ($1)',
-				query: new Query(FilterSchema).notContainedIn('status', ['draft']),
+				query: new Query(FilterSchema).where((where) =>
+					where.notIn('status', ['draft']),
+				),
 			},
 			{
 				fragment: ' LIKE $1',
-				query: new Query(FilterSchema).contains('title', 'a'),
+				query: new Query(FilterSchema).where((where) =>
+					where.contains('title', 'a'),
+				),
 			},
 			{
 				fragment: ' LIKE $1',
-				query: new Query(FilterSchema).startsWith('title', 'a'),
+				query: new Query(FilterSchema).where((where) =>
+					where.startsWith('title', 'a'),
+				),
 			},
 			{
 				fragment: ' LIKE $1',
-				query: new Query(FilterSchema).endsWith('title', 'a'),
+				query: new Query(FilterSchema).where((where) =>
+					where.endsWith('title', 'a'),
+				),
 			},
 			{
 				fragment: ' ~ $1',
-				query: new Query(FilterSchema).matches('title', {
-					source: '^a',
-					flags: [],
-				}),
+				query: new Query(FilterSchema).where((where) =>
+					where.matches('title', {
+						source: '^a',
+						flags: [],
+					}),
+				),
 			},
 			{
 				fragment: ' is not null',
-				query: new Query(FilterSchema).isNotNull('title'),
+				query: new Query(FilterSchema).where((where) =>
+					where.isNotNull('title'),
+				),
 			},
 			{
 				fragment: ' is null',
-				query: new Query(FilterSchema).isNull('title'),
+				query: new Query(FilterSchema).where((where) => where.isNull('title')),
 			},
 		]
 
@@ -233,13 +250,17 @@ describe('PostgreSQL filter compiler', () => {
 
 	it('preserves SQL null semantics for equality and membership', () => {
 		const equalNull = renderQuery(
-			new Query(FilterSchema).equalTo('title', null),
+			new Query(FilterSchema).where((where) => where.eq('title', null)),
 		)
 		const includesNull = renderQuery(
-			new Query(FilterSchema).containedIn('title', ['draft', null]),
+			new Query(FilterSchema).where((where) =>
+				where.in('title', ['draft', null]),
+			),
 		)
 		const excludesNull = renderQuery(
-			new Query(FilterSchema).notContainedIn('title', ['draft', null]),
+			new Query(FilterSchema).where((where) =>
+				where.notIn('title', ['draft', null]),
+			),
 		)
 
 		expect(equalNull.params).toStrictEqual([])
@@ -249,7 +270,9 @@ describe('PostgreSQL filter compiler', () => {
 		expect(excludesNull.params).toStrictEqual(['draft'])
 		expect(excludesNull.sql).toMatch(/not in \(\$1\).*and.*is not null/u)
 		expect(
-			renderQuery(new Query(FilterSchema).containedIn('title', [])),
+			renderQuery(
+				new Query(FilterSchema).where((where) => where.in('title', [])),
+			),
 		).toMatchObject({
 			params: [],
 			sql: 'false',
@@ -257,11 +280,10 @@ describe('PostgreSQL filter compiler', () => {
 	})
 
 	it('compiles logical trees without changing declaration order', () => {
-		const published = new Query(FilterSchema).equalTo('status', 'published')
-		const popular = new Query(FilterSchema).greaterThan('count', 10)
-		const query = published
-			.or(popular)
-			.not(new Query(FilterSchema).equalTo('active', false))
+		const query = new Query(FilterSchema).where({
+			OR: [{ status: { eq: 'published' } }, { count: { gt: 10 } }],
+			NOT: { active: { eq: false } },
+		})
 		const rendered = renderQuery(query)
 
 		expect(rendered.params).toStrictEqual(['published', 10, false])
@@ -271,13 +293,17 @@ describe('PostgreSQL filter compiler', () => {
 	it('encodes exact and structured values through compiled field codecs', () => {
 		const bytes = Uint8Array.from([1, 2, 3])
 		const bigintQuery = renderQuery(
-			new Query(FilterSchema).equalTo('huge', 9_007_199_254_740_993n),
+			new Query(FilterSchema).where((where) =>
+				where.eq('huge', 9_007_199_254_740_993n),
+			),
 		)
 		const binaryQuery = renderQuery(
-			new Query(FilterSchema).equalTo('attachment', bytes),
+			new Query(FilterSchema).where((where) => where.eq('attachment', bytes)),
 		)
 		const jsonQuery = renderQuery(
-			new Query(FilterSchema).equalTo('metadata', { nested: true }),
+			new Query(FilterSchema).where((where) =>
+				where.eq('metadata', { nested: true }),
+			),
 		)
 
 		expect(bigintQuery.params).toStrictEqual([9_007_199_254_740_993n])
@@ -290,67 +316,87 @@ describe('PostgreSQL filter compiler', () => {
 
 	it('compiles structural fields and typed paths through JSONB parameters', () => {
 		const jsonContains = renderQuery(
-			new Query(FilterSchema).contains('metadata', { nested: true }),
+			new Query(FilterSchema).where((where) =>
+				where.contains('metadata', { nested: true }),
+			),
 		)
 		const objectContains = renderQuery(
-			new Query(FilterSchema).contains('profile', {
-				stats: { exact: 9_007_199_254_740_993n },
-			}),
+			new Query(FilterSchema).where((where) =>
+				where.contains('profile', {
+					stats: { exact: 9_007_199_254_740_993n },
+				}),
+			),
 		)
 		const containedBy = renderQuery(
-			new Query(FilterSchema).containedBy('metadata', {
-				nested: true,
-				extra: false,
-			}),
+			new Query(FilterSchema).where((where) =>
+				where.containedBy('metadata', {
+					nested: true,
+					extra: false,
+				}),
+			),
 		)
 		const hasKey = renderQuery(
-			new Query(FilterSchema).hasKey('metadata', 'nested'),
+			new Query(FilterSchema).where((where) =>
+				where.hasKey('metadata', 'nested'),
+			),
 		)
 		const hasAnyKeys = renderQuery(
-			new Query(FilterSchema).hasAnyKeys('profile', ['label', 'stats']),
+			new Query(FilterSchema).where((where) =>
+				where.hasAnyKeys('profile', ['label', 'stats']),
+			),
 		)
 		const hasAllKeys = renderQuery(
-			new Query(FilterSchema).hasAllKeys('profile', ['label', 'stats']),
+			new Query(FilterSchema).where((where) =>
+				where.hasAllKeys('profile', ['label', 'stats']),
+			),
 		)
 		const pathEquality = renderQuery(
-			new Query(FilterSchema).equalTo(
-				fieldPath('profile', ['stats', 'exact']),
-				9_007_199_254_740_993n,
+			new Query(FilterSchema).where((where) =>
+				where.eq(
+					fieldPath('profile', ['stats', 'exact']),
+					9_007_199_254_740_993n,
+				),
 			),
 		)
 		const pathString = renderQuery(
-			new Query(FilterSchema).contains(
-				fieldPath('profile', ['label']),
-				'typed',
+			new Query(FilterSchema).where((where) =>
+				where.contains(fieldPath('profile', ['label']), 'typed'),
 			),
 		)
 		const dynamicPath = renderQuery(
-			new Query(FilterSchema).equalTo(
-				fieldPath('metadata', ['nested', 'count']),
-				42,
+			new Query(FilterSchema).where((where) =>
+				where.eq(fieldPath('metadata', ['nested', 'count']), 42),
 			),
 		)
 		const jsonPathExists = renderQuery(
-			new Query(FilterSchema).jsonPathExists('metadata', {
-				source: '$.items[*] ? (@.price > $minimum)',
-				variables: { minimum: 10 },
-			}),
+			new Query(FilterSchema).where((where) =>
+				where.jsonPathExists('metadata', {
+					source: '$.items[*] ? (@.price > $minimum)',
+					variables: { minimum: 10 },
+				}),
+			),
 		)
 		const jsonPathMatches = renderQuery(
-			new Query(FilterSchema).jsonPathMatches('profile', {
-				source: 'exists($.stats ? (@.exact == $expected))',
-				variables: { expected: '9007199254740993' },
-			}),
+			new Query(FilterSchema).where((where) =>
+				where.jsonPathMatches('profile', {
+					source: 'exists($.stats ? (@.exact == $expected))',
+					variables: { expected: '9007199254740993' },
+				}),
+			),
 		)
 		const jsonPathExistsOperator = renderQuery(
-			new Query(FilterSchema).jsonPathExists('metadata', {
-				source: '$.items[*]',
-			}),
+			new Query(FilterSchema).where((where) =>
+				where.jsonPathExists('metadata', {
+					source: '$.items[*]',
+				}),
+			),
 		)
 		const jsonPathMatchesOperator = renderQuery(
-			new Query(FilterSchema).jsonPathMatches('profile', {
-				source: '$.label == "typed"',
-			}),
+			new Query(FilterSchema).where((where) =>
+				where.jsonPathMatches('profile', {
+					source: '$.label == "typed"',
+				}),
+			),
 		)
 
 		expect(jsonContains.sql).toContain(' @> $1::jsonb')
@@ -397,19 +443,24 @@ describe('PostgreSQL filter compiler', () => {
 
 	it('parameterizes every built-in equality storage family', () => {
 		const cases: readonly Query<typeof FilterSchema>[] = [
-			new Query(FilterSchema).equalTo('active', true),
-			new Query(FilterSchema).equalTo('birthday', '2026-08-01'),
-			new Query(FilterSchema).equalTo('count', 42),
-			new Query(FilterSchema).equalTo('eventAt', '2026-08-01T10:00:00.000Z'),
-			new Query(FilterSchema).equalTo('exact', '123.45'),
-			new Query(FilterSchema).equalTo('rating', 4.5),
-			new Query(FilterSchema).equalTo('status', 'draft'),
-			new Query(FilterSchema).equalTo('title', 'typed'),
-			new Query(FilterSchema).equalTo(
-				'token',
-				'018f0f8c-7b5a-7cc9-98db-123456789abc',
+			new Query(FilterSchema).where((where) => where.eq('active', true)),
+			new Query(FilterSchema).where((where) =>
+				where.eq('birthday', '2026-08-01'),
 			),
-			new Query(FilterSchema).equalTo('wakeAt', '10:30:00.000'),
+			new Query(FilterSchema).where((where) => where.eq('count', 42)),
+			new Query(FilterSchema).where((where) =>
+				where.eq('eventAt', '2026-08-01T10:00:00.000Z'),
+			),
+			new Query(FilterSchema).where((where) => where.eq('exact', '123.45')),
+			new Query(FilterSchema).where((where) => where.eq('rating', 4.5)),
+			new Query(FilterSchema).where((where) => where.eq('status', 'draft')),
+			new Query(FilterSchema).where((where) => where.eq('title', 'typed')),
+			new Query(FilterSchema).where((where) =>
+				where.eq('token', '018f0f8c-7b5a-7cc9-98db-123456789abc'),
+			),
+			new Query(FilterSchema).where((where) =>
+				where.eq('wakeAt', '10:30:00.000'),
+			),
 		]
 
 		for (const query of cases) {
@@ -423,19 +474,25 @@ describe('PostgreSQL filter compiler', () => {
 	it('keeps injection payloads in parameters and escapes LIKE wildcards', () => {
 		const payload = "x%'_\\ OR true --"
 		const equality = renderQuery(
-			new Query(FilterSchema).equalTo('title', payload),
+			new Query(FilterSchema).where((where) => where.eq('title', payload)),
 		)
 		const contains = renderQuery(
-			new Query(FilterSchema).contains('title', payload),
+			new Query(FilterSchema).where((where) =>
+				where.contains('title', payload),
+			),
 		)
 		const range = renderQuery(
-			new Query(FilterSchema).between('title', payload, `${payload}z`),
+			new Query(FilterSchema).where((where) =>
+				where.between('title', payload, `${payload}z`),
+			),
 		)
 		const regex = renderQuery(
-			new Query(FilterSchema).matches('title', {
-				flags: [],
-				source: payload,
-			}),
+			new Query(FilterSchema).where((where) =>
+				where.matches('title', {
+					flags: [],
+					source: payload,
+				}),
+			),
 		)
 
 		expect(equality.sql).not.toContain(payload)
@@ -467,10 +524,12 @@ describe('PostgreSQL filter compiler', () => {
 
 		for (const fixture of cases) {
 			const rendered = renderQuery(
-				new Query(FilterSchema).matches('title', {
-					flags: fixture.flags,
-					source: '^value$',
-				}),
+				new Query(FilterSchema).where((where) =>
+					where.matches('title', {
+						flags: fixture.flags,
+						source: '^value$',
+					}),
+				),
 			)
 
 			expect(rendered.params).toStrictEqual([`${fixture.prefix}^value$`])

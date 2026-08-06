@@ -62,7 +62,7 @@ const pointerRuntimeUser = Schema.define({
 			targetHookTrace.push('user:beforeRead')
 
 			// Replacing the visible predicate cannot remove the private pointer identity.
-			return query.equalTo('name', 'Ada')
+			return query.where((where) => where.eq('name', 'Ada'))
 		},
 	},
 })
@@ -514,7 +514,7 @@ describe('pointer Runtime execution', () => {
 			await ultimabase.start()
 			const updated = await mutationSource.updateOne(
 				{
-					where: (where) => where.equalTo('id', current.id),
+					where: (where) => where.eq('id', current.id),
 					data: { title: 'Updated' },
 				},
 				{ ultimabase },

@@ -423,7 +423,7 @@ describe('aclPlugin create input resolution', () => {
 		try {
 			await ultimabase.start()
 			await expect(
-				DynamicRolePost.create({ title: 'Dynamic' }, { ultimabase }),
+				DynamicRolePost.create({ data: { title: 'Dynamic' } }, { ultimabase }),
 			).rejects.toThrow(
 				'ACL role grants require a role resolver with current-role enumeration',
 			)
@@ -448,6 +448,7 @@ describe('aclPlugin create input resolution', () => {
 		const operation = {
 			input: { title: 'Visible' },
 			kind: 'create-one',
+			selection: { fields: [], kind: 'selection' },
 			schema: protectedPostNode,
 		} as const
 
@@ -485,6 +486,7 @@ describe('aclPlugin create input resolution', () => {
 		const operation = {
 			input: { privateValue: 'plugin-owned', title: 'Visible' },
 			kind: 'create-one',
+			selection: { fields: [], kind: 'selection' },
 			schema: PrivatePost.query().ast.schema,
 		} as const
 
@@ -546,6 +548,7 @@ describe('aclPlugin create input resolution', () => {
 		const operation = {
 			input: { title: 'Oversized' },
 			kind: 'create-one',
+			selection: { fields: [], kind: 'selection' },
 			schema: protectedPostNode,
 		} as const
 		const limits = { maxPrincipals: 1, maxRoles: 50 }
@@ -643,7 +646,10 @@ describe('aclPlugin create input resolution', () => {
 			})
 
 			await expect(
-				OverridePost.create({ title: 'Schema override' }, { ultimabase }),
+				OverridePost.create(
+					{ data: { title: 'Schema override' } },
+					{ ultimabase },
+				),
 			).rejects.toThrow('ACL limit fixture stops after adapter preparation')
 			expect(adapter.transactions[1]).toMatchObject({
 				commitCount: 0,
@@ -669,6 +675,7 @@ describe('aclPlugin create input resolution', () => {
 		const operation = {
 			input: { title: 'Role protected' },
 			kind: 'create-one',
+			selection: { fields: [], kind: 'selection' },
 			schema: protectedPostNode,
 		} as const
 
@@ -722,6 +729,7 @@ describe('aclPlugin create input resolution', () => {
 		const operation = {
 			input: { title: 'Explicit', acl: explicit },
 			kind: 'create-one',
+			selection: { fields: [], kind: 'selection' },
 			schema: protectedPostNode,
 		} as const
 
@@ -773,6 +781,7 @@ describe('aclPlugin create input resolution', () => {
 		const createOperation = {
 			input: { title: 'Explicit', acl: oversized },
 			kind: 'create-one',
+			selection: { fields: [], kind: 'selection' },
 			schema: protectedPostNode,
 		} as const
 
@@ -792,7 +801,8 @@ describe('aclPlugin create input resolution', () => {
 
 		const updateOperation = {
 			kind: 'update-one',
-			query: ProtectedPost.query().byId('master-limit-post').ast,
+			query: ProtectedPost.query().where({ id: { eq: 'master-limit-post' } })
+				.ast,
 			update: {
 				kind: 'update-expression',
 				operations: [{ field: 'acl', kind: 'set', value: oversized }],
@@ -832,8 +842,9 @@ describe('aclPlugin create input resolution', () => {
 		)
 		const operation = {
 			kind: 'update-one',
-			query: ProtectedPost.query().byId('0198a43e-2431-7000-8000-000000000031')
-				.ast,
+			query: ProtectedPost.query().where({
+				id: { eq: '0198a43e-2431-7000-8000-000000000031' },
+			}).ast,
 			update: {
 				kind: 'update-expression',
 				operations: [
@@ -910,7 +921,7 @@ describe('aclPlugin create input resolution', () => {
 					ProtectedPost.upsert(
 						{
 							where: (where) =>
-								where.equalTo('id', '0198a43e-2431-7000-8000-000000000032'),
+								where.eq('id', '0198a43e-2431-7000-8000-000000000032'),
 							create: { title: 'Created' },
 							update: { acl: replacement },
 						},
@@ -922,7 +933,7 @@ describe('aclPlugin create input resolution', () => {
 							{
 								create: { title: 'Created' },
 								where: (where) =>
-									where.equalTo('id', '0198a43e-2431-7000-8000-000000000033'),
+									where.eq('id', '0198a43e-2431-7000-8000-000000000033'),
 								update: { acl: replacement },
 							},
 						],

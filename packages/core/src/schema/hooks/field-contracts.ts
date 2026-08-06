@@ -113,10 +113,12 @@ export type FieldSaveHookKind =
 export type FieldOutputHookKind =
 	| 'create-many'
 	| 'create-one'
+	| 'delete-many'
 	| 'delete-one'
 	| 'find'
 	| 'first'
 	| 'get'
+	| 'update-many'
 	| 'update-one'
 	| 'upsert-many'
 	| 'upsert-one'

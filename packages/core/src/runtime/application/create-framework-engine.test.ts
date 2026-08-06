@@ -207,7 +207,7 @@ describe('createFrameworkEngine', () => {
 			source: 'internal',
 		})
 		const result = await runWithRequestEngine(request, () =>
-			articleSchema.create({ title: '  assembled  ' }),
+			articleSchema.create({ data: { title: '  assembled  ' } }),
 		)
 
 		expect(result.title).toBe('assembled')
@@ -223,6 +223,7 @@ describe('createFrameworkEngine', () => {
 		])
 		expect(adapter.transactions[0]?.requests[0]?.operation).toMatchObject({
 			kind: 'create-one',
+			selection: { fields: [], kind: 'selection' },
 			input: {
 				id: generatedId,
 				title: 'assembled',
@@ -283,7 +284,7 @@ describe('createFrameworkEngine', () => {
 				beforeRead: ({ query }) => {
 					trace.push('schema:beforeRead')
 
-					return query.equalTo('title', 'visible')
+					return query.where((where) => where.eq('title', 'visible'))
 				},
 			},
 		})
@@ -415,7 +416,9 @@ describe('createFrameworkEngine', () => {
 			source: 'internal',
 		})
 		await expect(
-			runWithRequestEngine(request, () => schema.create({ title: 'Rejected' })),
+			runWithRequestEngine(request, () =>
+				schema.create({ data: { title: 'Rejected' } }),
+			),
 		).rejects.toBe(failure)
 		expect(trace).toStrictEqual([
 			'adapter:begin',
@@ -480,7 +483,7 @@ describe('createFrameworkEngine', () => {
 		})
 		await expect(
 			runWithRequestEngine(request, () =>
-				articleSchema.create({ title: 'initial' }),
+				articleSchema.create({ data: { title: 'initial' } }),
 			),
 		).rejects.toBe(denial)
 		expect(trace).toStrictEqual([

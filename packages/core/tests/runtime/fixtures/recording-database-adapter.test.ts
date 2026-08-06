@@ -14,7 +14,8 @@ const articleSchema = Schema.define({
 
 const deleteOperation = {
 	kind: 'delete-one',
-	query: new Query(articleSchema).equalTo('id', 'article-1').ast,
+	query: new Query(articleSchema).where((where) => where.eq('id', 'article-1'))
+		.ast,
 } satisfies DeleteOneOperationAst<typeof articleSchema>
 
 /** Prepares one delete fixture through the same transaction boundary used by Runtime. */

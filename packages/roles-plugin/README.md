@@ -111,7 +111,7 @@ clears role-owned edges, and invokes only explicit provider-neutral cleanup
 contributions inside the same transaction. Successful deletion emits
 `ultimabase.roles.deleted` after commit. Set-based `deleteMany()` is rejected;
 ordinary `role.delete()` and
-`AppRole.deleteOne({ where: (where) => where.byId(id) })` both execute the
+`AppRole.deleteOne({ where: { id: { eq: id } } })` both execute the
 complete policy.
 
 `hasRole(reference)` is an ordinary native Access decision. It resolves the

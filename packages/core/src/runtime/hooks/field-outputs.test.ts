@@ -3,10 +3,13 @@ import {
 	Query,
 	type CreateManyOperationAst,
 	type CountOperationAst,
+	type DeleteManyOperationAst,
 	type ExistsOperationAst,
 	type FindOperationAst,
 	type FirstOperationAst,
 	type QueryExpressionNode,
+	normalizeUpdateExpression,
+	type UpdateManyOperationAst,
 } from '../../query/index.js'
 import { objectField, Schema, stringField } from '../../schema/index.js'
 import { describe, expect, it, vi } from 'vitest'
@@ -296,6 +299,77 @@ describe('runtime field outputs', () => {
 			],
 			status: 'stopped',
 		})
+	})
+
+	it('resolves selected set-based update and delete results without materializations', async () => {
+		const query = new Query(outputSchema).select({ title: true }).ast
+		const updateExpression = normalizeUpdateExpression(outputSchema, {
+			title: 'Updated',
+		})
+		const update: UpdateManyOperationAst<
+			typeof outputSchema,
+			typeof updateExpression,
+			QueryExpressionNode,
+			'title'
+		> = {
+			kind: 'update-many',
+			query,
+			update: updateExpression,
+		}
+		const deletion: DeleteManyOperationAst<
+			typeof outputSchema,
+			QueryExpressionNode,
+			'title'
+		> = {
+			kind: 'delete-many',
+			query,
+		}
+		const result = immutableArray([
+			immutableRecord({ title: 'First' }),
+			immutableRecord({ title: 'Second' }),
+		])
+
+		expect(
+			describeOutputs(collectOperationFieldOutputs(update, result)),
+		).toEqual([
+			{
+				fieldPath: ['title'],
+				itemIndex: 0,
+				kind: 'update-many',
+				mode: 'object',
+				valuePath: [0, 'title'],
+			},
+			{
+				fieldPath: ['title'],
+				itemIndex: 1,
+				kind: 'update-many',
+				mode: 'object',
+				valuePath: [1, 'title'],
+			},
+		])
+		expect(
+			describeOutputs(collectOperationFieldOutputs(deletion, result)),
+		).toEqual([
+			{
+				fieldPath: ['title'],
+				itemIndex: 0,
+				kind: 'delete-many',
+				mode: 'object',
+				valuePath: [0, 'title'],
+			},
+			{
+				fieldPath: ['title'],
+				itemIndex: 1,
+				kind: 'delete-many',
+				mode: 'object',
+				valuePath: [1, 'title'],
+			},
+		])
+		await expect(
+			transformOperationFieldOutputs(update, result, ({ value }) =>
+				typeof value === 'string' ? value.toUpperCase() : value,
+			),
+		).resolves.toStrictEqual([{ title: 'FIRST' }, { title: 'SECOND' }])
 	})
 
 	it('skips null, empty, and scalar terminal results without calling the visitor', async () => {

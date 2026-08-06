@@ -13,7 +13,7 @@ const postSchema = Schema.define({
 
 test('preserves exact schema and projection through reusable scopes', () => {
 	const popular: QueryScope<typeof postSchema> = (query) =>
-		query.greaterThan('views', 100)
+		query.where((where) => where.gt('views', 100))
 	const recentPopular: QueryScope<typeof postSchema> = (query) =>
 		query.use(popular).descending('createdAt')
 	const selected = new Query(postSchema)
@@ -29,7 +29,7 @@ test('preserves exact schema and projection through reusable scopes', () => {
 		fields: { body: stringField() },
 	})
 	const comments: QueryScope<typeof commentSchema> = (query) =>
-		query.contains('body', 'typed')
+		query.where((where) => where.contains('body', 'typed'))
 
 	expect(commentSchema.className).toBe('Comment')
 	// @ts-expect-error -- Scopes cannot cross exact schema definitions.

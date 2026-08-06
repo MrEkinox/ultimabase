@@ -8,10 +8,8 @@ import {
 } from '../../schema/index.js'
 import { describe, expect, it } from 'vitest'
 
-import {
-	collectQueryRelationPredicates,
-	RelationPredicate,
-} from './relation.js'
+import { collectQueryRelationPredicates } from './relation.js'
+import { WhereBuilder } from './where.js'
 
 const Member = Schema.define({
 	className: 'RelationPredicateMember',
@@ -51,9 +49,9 @@ const Recursive: RecursiveSchema = Schema.define({
 })
 
 const nestRecursivePredicate = (
-	predicate: RelationPredicate<RecursiveSchema>,
+	predicate: WhereBuilder<RecursiveSchema>,
 	remaining: number,
-): RelationPredicate<RecursiveSchema> =>
+): WhereBuilder<RecursiveSchema> =>
 	remaining === 0
 		? predicate
 		: predicate.some('children', (child) =>
@@ -63,12 +61,14 @@ const nestRecursivePredicate = (
 describe('relation predicates', () => {
 	it('normalizes nested quantifiers into immutable schema-correlated nodes', () => {
 		const base = Company.query()
-		const filtered = base.some('teams', (team) =>
-			team
-				.equalTo('name', 'Core')
-				.some('members', (member) =>
-					member.between('name', 'A', 'M').equalTo('active', true),
-				),
+		const filtered = base.where((where) =>
+			where.some('teams', (team) =>
+				team
+					.eq('name', 'Core')
+					.some('members', (member) =>
+						member.between('name', 'A', 'M').eq('active', true),
+					),
+			),
 		)
 		const expression = filtered.ast.where?.expression
 
@@ -111,9 +111,15 @@ describe('relation predicates', () => {
 	})
 
 	it('preserves empty-set quantifier semantics as explicit true predicates', () => {
-		const some = Company.query().some('teams', (team) => team)
-		const none = Company.query().none('teams', (team) => team)
-		const every = Company.query().every('teams', (team) => team)
+		const some = Company.query().where((where) =>
+			where.some('teams', (team) => team),
+		)
+		const none = Company.query().where((where) =>
+			where.none('teams', (team) => team),
+		)
+		const every = Company.query().where((where) =>
+			where.every('teams', (team) => team),
+		)
 
 		for (const [query, operator] of [
 			[some, 'some'],
@@ -127,21 +133,22 @@ describe('relation predicates', () => {
 		}
 	})
 
-	it('rejects callbacks returning another target builder', () => {
+	it('rejects relation builders created for another target schema', () => {
 		expect(() =>
-			// @ts-expect-error -- Runtime still rejects dynamically mismatched builders.
-			Company.query().some('teams', () => new RelationPredicate(Member)),
-		).toThrow(
-			new TypeError(
-				'relation predicate callback must return the target predicate builder',
+			Company.query().where((where) =>
+				where.some(
+					'teams',
+					// @ts-expect-error -- Runtime still rejects dynamically mismatched builders.
+					() => new WhereBuilder(Member),
+				),
 			),
-		)
+		).toThrow(new TypeError('WhereBuilder must use the same schema definition'))
 	})
 
 	it('fails with a typed framework error above the portable depth limit', () => {
 		expect(() =>
-			Recursive.query().some('children', (child) =>
-				nestRecursivePredicate(child, 8),
+			Recursive.query().where((where) =>
+				where.some('children', (child) => nestRecursivePredicate(child, 8)),
 			),
 		).toThrow(
 			expect.objectContaining({

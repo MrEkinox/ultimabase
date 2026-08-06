@@ -41,13 +41,15 @@ const context = RequestContext.anonymous({
 
 const operation: CreateOneOperationAst<typeof articleSchema> = {
 	kind: 'create-one',
+	selection: { fields: [], kind: 'selection' },
 	schema: new Query(articleSchema).ast.schema,
 	input: { title: 'input' },
 }
 
 const updateOperation: UpdateOneOperationAst<typeof articleSchema> = {
 	kind: 'update-one',
-	query: new Query(articleSchema).equalTo('id', 'article-1').ast,
+	query: new Query(articleSchema).where((where) => where.eq('id', 'article-1'))
+		.ast,
 	update: {
 		kind: 'update-expression',
 		operations: [{ field: 'title', kind: 'set', value: 'input' }],
@@ -253,7 +255,7 @@ describe('createRuntimeHookStages', () => {
 		const replacement: UpdateOneOperationAst<typeof articleSchema> = {
 			...updateOperation,
 			query: new Query(articleSchema)
-				.equalTo('id', 'article-1')
+				.where((where) => where.eq('id', 'article-1'))
 				.select({ title: true }).ast,
 		}
 		const plugin = definePlugin({
@@ -341,7 +343,9 @@ describe('createRuntimeHookStages', () => {
 		const invalidReplacements = [
 			{
 				...updateOperation,
-				query: new Query(articleSchema).equalTo('id', 'article-2').ast,
+				query: new Query(articleSchema).where((where) =>
+					where.eq('id', 'article-2'),
+				).ast,
 			},
 			{
 				...updateOperation,

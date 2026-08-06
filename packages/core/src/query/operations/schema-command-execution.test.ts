@@ -1,10 +1,13 @@
 import { Schema, booleanField, stringField } from '../../schema/index.js'
 import { describe, expect, it } from 'vitest'
 
-import { RelationPredicate } from '../filters/relation.js'
+import { WhereBuilder } from '../filters/where.js'
 import {
+	createSchemaRecord,
 	deleteSchemaRecord,
+	deleteSchemaRecords,
 	updateSchemaRecord,
+	updateSchemaRecords,
 } from './schema-command-execution.js'
 import type { SchemaWhere } from './schema-commands.js'
 
@@ -37,7 +40,7 @@ describe('schema command execution boundaries', () => {
 	})
 
 	it('rejects predicates created for another schema', () => {
-		const foreignWhere = new RelationPredicate(ForeignPost)
+		const foreignWhere = new WhereBuilder(ForeignPost).eq('id', 'foreign-1')
 
 		expect(() =>
 			updateSchemaRecord(Post, {
@@ -45,17 +48,13 @@ describe('schema command execution boundaries', () => {
 				where: () => foreignWhere as unknown as SchemaWhere<typeof Post>,
 				data: { published: true },
 			}),
-		).toThrow(
-			new TypeError(
-				'schema command where must return the supplied schema filter',
-			),
-		)
+		).toThrow(new TypeError('WhereBuilder must use the same schema definition'))
 	})
 
 	it('requires singular commands to target an exact unique key', () => {
 		expect(() =>
 			updateSchemaRecord(Post, {
-				where: (where) => where.equalTo('title', 'Not unique'),
+				where: (where) => where.eq('title', 'Not unique'),
 				data: { published: true },
 			}),
 		).toThrow(
@@ -65,7 +64,7 @@ describe('schema command execution boundaries', () => {
 		)
 		expect(() =>
 			deleteSchemaRecord(Post, {
-				where: (where) => where.equalTo('published', false),
+				where: { published: { eq: false } },
 			}),
 		).toThrow(
 			new TypeError(
@@ -76,7 +75,7 @@ describe('schema command execution boundaries', () => {
 
 	it('validates command wrappers before resolving execution context', () => {
 		const malformedInput: unknown = {
-			where: (where: SchemaWhere<typeof Post>) => where.byId('post-1'),
+			where: (where: SchemaWhere<typeof Post>) => where.eq('id', 'post-1'),
 			data: { title: 'Updated' },
 			extra: true,
 		}
@@ -90,5 +89,50 @@ describe('schema command execution boundaries', () => {
 		).toThrow(
 			new TypeError('schema updateOne input contains unknown key: extra'),
 		)
+
+		expect(() =>
+			updateSchemaRecord(Post, {
+				where: { id: { eq: 'post-1' } },
+				data: { title: 'Updated' },
+				// This assertion models an untyped transport returning an unknown field.
+				select: { missing: true } as never,
+			}),
+		).toThrow(new TypeError('selection.missing must reference a schema field'))
+
+		expect(() =>
+			createSchemaRecord(Post, {
+				data: { title: 'Created' },
+				extra: true,
+			} as never),
+		).toThrow(new TypeError('schema create input contains unknown key: extra'))
+		expect(() =>
+			createSchemaRecord(Post, {
+				data: { title: 'Created' },
+				// This assertion models an untyped transport returning an unknown field.
+				select: { missing: true } as never,
+			}),
+		).toThrow(new TypeError('selection.missing must reference a schema field'))
+		expect(() =>
+			deleteSchemaRecord(Post, {
+				where: { id: { eq: 'post-1' } },
+				// This assertion models an untyped transport returning an unknown field.
+				select: { missing: true } as never,
+			}),
+		).toThrow(new TypeError('selection.missing must reference a schema field'))
+		expect(() =>
+			updateSchemaRecords(Post, {
+				where: 'all',
+				data: { title: 'Updated' },
+				// This assertion models an untyped transport returning an unknown field.
+				select: { missing: true } as never,
+			}),
+		).toThrow(new TypeError('selection.missing must reference a schema field'))
+		expect(() =>
+			deleteSchemaRecords(Post, {
+				where: 'all',
+				// This assertion models an untyped transport returning an unknown field.
+				select: { missing: true } as never,
+			}),
+		).toThrow(new TypeError('selection.missing must reference a schema field'))
 	})
 })

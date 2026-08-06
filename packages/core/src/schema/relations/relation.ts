@@ -111,7 +111,7 @@ const relationStates = new WeakMap<
  * protected source identity and relationship restriction never enter the Query
  * AST, so selection and business hooks cannot inspect or discard them.
  *
- * @example `const publishedTags = post.relation('tags').query().equalTo('published', true)`
+ * @example `const publishedTags = post.relation('tags').query().where({ published: { eq: true } })`
  */
 export class Relation<
 	TSource extends SchemaDefinition = SchemaDefinition,

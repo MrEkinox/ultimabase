@@ -93,7 +93,7 @@ const mutationFixtures: readonly MutationFixture[] = [
 		result: articleRecord('0198f090-2a50-7000-8000-000000000001', 'Created'),
 		execute: (request) =>
 			runWithRequestEngine(request, () =>
-				articleSchema.create({ title: 'Created' }),
+				articleSchema.create({ data: { title: 'Created' } }),
 			),
 	},
 	{
@@ -110,18 +110,21 @@ const mutationFixtures: readonly MutationFixture[] = [
 		execute: (request) =>
 			runWithRequestEngine(request, () =>
 				articleSchema.updateOne({
-					where: (where) => where.equalTo('title', 'Before'),
+					where: (where) => where.eq('title', 'Before'),
 					data: { title: 'After' },
 				}),
 			),
 	},
 	{
 		kind: 'update-many',
-		result: 2,
+		result: [
+			{ id: '0198f090-2a50-7000-8000-000000000007' },
+			{ id: '0198f090-2a50-7000-8000-000000000008' },
+		],
 		execute: (request) =>
 			runWithRequestEngine(request, () =>
 				articleSchema.updateMany({
-					where: (where) => where.equalTo('title', 'Before'),
+					where: (where) => where.eq('title', 'Before'),
 					data: { title: 'After' },
 				}),
 			),
@@ -132,7 +135,7 @@ const mutationFixtures: readonly MutationFixture[] = [
 		execute: (request) =>
 			runWithRequestEngine(request, () =>
 				articleSchema.upsert({
-					where: (where) => where.equalTo('title', 'Upserted'),
+					where: (where) => where.eq('title', 'Upserted'),
 					create: { title: 'Upserted' },
 					update: { title: 'Upserted' },
 				}),
@@ -145,7 +148,7 @@ const mutationFixtures: readonly MutationFixture[] = [
 			runWithRequestEngine(request, () =>
 				articleSchema.upsertMany([
 					{
-						where: (where) => where.equalTo('title', 'Upserted'),
+						where: (where) => where.eq('title', 'Upserted'),
 						create: { title: 'Upserted' },
 						update: { title: 'Upserted' },
 					},
@@ -158,17 +161,20 @@ const mutationFixtures: readonly MutationFixture[] = [
 		execute: (request) =>
 			runWithRequestEngine(request, () =>
 				articleSchema.deleteOne({
-					where: (where) => where.equalTo('title', 'Deleted'),
+					where: (where) => where.eq('title', 'Deleted'),
 				}),
 			),
 	},
 	{
 		kind: 'delete-many',
-		result: 2,
+		result: [
+			{ id: '0198f090-2a50-7000-8000-000000000009' },
+			{ id: '0198f090-2a50-7000-8000-000000000010' },
+		],
 		execute: (request) =>
 			runWithRequestEngine(request, () =>
 				articleSchema.deleteMany({
-					where: (where) => where.equalTo('title', 'Deleted'),
+					where: (where) => where.eq('title', 'Deleted'),
 				}),
 			),
 	},
@@ -246,7 +252,7 @@ describe('automatic mutation transaction scope', () => {
 					observedEngine = getCurrentEngine()
 
 					try {
-						await articleSchema.create({ title: 'Nested' })
+						await articleSchema.create({ data: { title: 'Nested' } })
 					} catch (error: unknown) {
 						expect(error).toBe(nestedError)
 					}
@@ -266,7 +272,7 @@ describe('automatic mutation transaction scope', () => {
 
 		await expect(
 			runWithRequestEngine(request, () =>
-				articleSchema.create({ title: 'Primary' }),
+				articleSchema.create({ data: { title: 'Primary' } }),
 			),
 		).rejects.toBe(nestedError)
 		expect(observedEngine).toBeDefined()
@@ -292,7 +298,7 @@ describe('automatic mutation transaction scope', () => {
 		const hookStages: RecordingPipelineHookStages = {
 			globalBeforeHooks: async (input) => {
 				if (readCreatedTitle(input.operation) === 'Primary') {
-					await articleSchema.create({ title: 'Nested' })
+					await articleSchema.create({ data: { title: 'Nested' } })
 				}
 
 				return input.operation
@@ -315,7 +321,7 @@ describe('automatic mutation transaction scope', () => {
 
 		await expect(
 			runWithRequestEngine(request, () =>
-				articleSchema.create({ title: 'Primary' }),
+				articleSchema.create({ data: { title: 'Primary' } }),
 			),
 		).rejects.toBe(primaryError)
 		expect(trace).toStrictEqual([
@@ -334,7 +340,7 @@ describe('automatic mutation transaction scope', () => {
 		const hookStages: RecordingPipelineHookStages = {
 			globalAfterHooks: async (input) => {
 				if (readCreatedTitle(input.operation) === 'Primary') {
-					await articleSchema.create({ title: 'Nested after' })
+					await articleSchema.create({ data: { title: 'Nested after' } })
 					throw afterError
 				}
 
@@ -364,7 +370,7 @@ describe('automatic mutation transaction scope', () => {
 
 		await expect(
 			runWithRequestEngine(request, () =>
-				articleSchema.create({ title: 'Primary' }),
+				articleSchema.create({ data: { title: 'Primary' } }),
 			),
 		).rejects.toBe(afterError)
 		expect(trace).toStrictEqual([
@@ -402,7 +408,7 @@ describe('automatic mutation transaction scope', () => {
 
 				if (title === 'Primary') {
 					await articleSchema.create(
-						{ title: 'Master nested' },
+						{ data: { title: 'Master nested' } },
 						{ useMasterKey: true },
 					)
 				}
@@ -434,7 +440,7 @@ describe('automatic mutation transaction scope', () => {
 
 		await expect(
 			runWithRequestEngine(request, () =>
-				articleSchema.create({ title: 'Primary' }),
+				articleSchema.create({ data: { title: 'Primary' } }),
 			),
 		).resolves.toMatchObject({ title: 'Primary' })
 		expect(nestedAccessMode).toBe('master')

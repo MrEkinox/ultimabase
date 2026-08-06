@@ -43,6 +43,7 @@ describe('TransactionHookJournal', () => {
 		const mutationOperation = immutableRecord({
 			input: mutationRecord,
 			kind: 'create-one',
+			selection: { fields: [], kind: 'selection' },
 			schema: new Query(articleSchema).ast.schema,
 		}) satisfies CreateOneOperationAst<typeof articleSchema>
 		const readOperation = immutableRecord({
@@ -125,6 +126,7 @@ describe('TransactionHookJournal', () => {
 		const operation = immutableRecord({
 			input: completeRecord,
 			kind: 'create-one',
+			selection: { fields: [], kind: 'selection' },
 			schema: new Query(articleSchema).ast.schema,
 		}) satisfies CreateOneOperationAst<typeof articleSchema>
 		const outcome = {
@@ -206,17 +208,17 @@ describe('TransactionHookJournal', () => {
 
 		const outcome = immutableRecord({
 			materializations: immutableArray([]),
-			result: 3,
+			result: immutableArray([createRecord('deleted')]),
 		}) satisfies DatabaseOperationOutcome<typeof operation>
 
-		journal.succeed(token, operation, 3, outcome)
+		journal.succeed(token, operation, outcome.result, outcome)
 
 		const entry = journal.snapshot()[0]
 
 		expect(entry).toMatchObject({
 			category: 'mutation',
 			fieldChanges: [],
-			result: 3,
+			result: outcome.result,
 			status: 'succeeded',
 		})
 	})

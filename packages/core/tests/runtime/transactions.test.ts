@@ -90,11 +90,13 @@ describe('RequestEngine transactions', () => {
 					expect(getCurrentRequest()).toBe(request.context)
 
 					const article = await articleSchema.create({
-						title: 'Created',
+						data: {
+							title: 'Created',
+						},
 					})
 
 					await articleSchema.updateOne({
-						where: (where) => where.equalTo('id', article.id),
+						where: (where) => where.eq('id', article.id),
 						data: { views: increment(1) },
 					})
 
@@ -146,7 +148,7 @@ describe('RequestEngine transactions', () => {
 		)
 
 		const transactionPromise = request.transaction(() => {
-			void articleSchema.create({ title: 'Deferred' })
+			void articleSchema.create({ data: { title: 'Deferred' } })
 
 			return 'completed'
 		})
@@ -176,7 +178,7 @@ describe('RequestEngine transactions', () => {
 
 		const transactionPromise = request.transaction(async () => {
 			try {
-				await articleSchema.create({ title: 'Rejected' })
+				await articleSchema.create({ data: { title: 'Rejected' } })
 			} catch (error: unknown) {
 				expect(error).toBe(operationError)
 			}
@@ -202,7 +204,7 @@ describe('RequestEngine transactions', () => {
 		)
 
 		const transactionPromise = request.transaction(() =>
-			articleSchema.create({ title: 'Rejected' }),
+			articleSchema.create({ data: { title: 'Rejected' } }),
 		)
 
 		await expect(transactionPromise).rejects.toBe(operationError)

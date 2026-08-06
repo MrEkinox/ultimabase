@@ -148,9 +148,11 @@ beforeAll(async () => {
 
 	editor = await AppRole.create(
 		{
-			acl: aliceUpdate,
-			description: 'Directly managed by Alice',
-			name: 'editor',
+			data: {
+				acl: aliceUpdate,
+				description: 'Directly managed by Alice',
+				name: 'editor',
+			},
 		},
 		{ ultimabase: app, useMasterKey: true },
 	)
@@ -158,29 +160,35 @@ beforeAll(async () => {
 
 	roleProtected = await AppRole.create(
 		{
-			acl: new ACL().grantRole(
-				AppRole.role({ id: editor.id }),
-				'read',
-				'update',
-			),
-			description: 'Resolved through the protected role graph',
-			name: 'role-protected',
+			data: {
+				acl: new ACL().grantRole(
+					AppRole.role({ id: editor.id }),
+					'read',
+					'update',
+				),
+				description: 'Resolved through the protected role graph',
+				name: 'role-protected',
+			},
 		},
 		{ ultimabase: app, useMasterKey: true },
 	)
 	parent = await AppRole.create(
-		{ acl: aliceUpdate, description: 'Nested parent', name: 'parent' },
+		{
+			data: { acl: aliceUpdate, description: 'Nested parent', name: 'parent' },
+		},
 		{ ultimabase: app, useMasterKey: true },
 	)
 	child = await AppRole.create(
-		{ acl: aliceRead, description: 'Nested child', name: 'child' },
+		{ data: { acl: aliceRead, description: 'Nested child', name: 'child' } },
 		{ ultimabase: app, useMasterKey: true },
 	)
 	deletable = await AppRole.create(
 		{
-			acl: aliceRead.grantPrincipal(alicePointer, 'delete'),
-			description: 'Deletable by Alice',
-			name: 'deletable',
+			data: {
+				acl: aliceRead.grantPrincipal(alicePointer, 'delete'),
+				description: 'Deletable by Alice',
+				name: 'deletable',
+			},
 		},
 		{ ultimabase: app, useMasterKey: true },
 	)
@@ -200,13 +208,13 @@ describe(
 			const context = aliceRequest('acl-role-schema-resolution')
 			const current = requireFixture(roleProtected, 'role-protected')
 			const resolved = await AppRole.query()
-				.byId(current.id)
+				.where({ id: { eq: current.id } })
 				.select({ description: true, name: true })
 				.first({ context, ultimabase: app })
 
 			expect(resolved?.name).toBe('role-protected')
 			const persistedACL = await AppRole.query()
-				.byId(current.id)
+				.where({ id: { eq: current.id } })
 				.select({ acl: true })
 				.first({ ultimabase: app, useMasterKey: true })
 

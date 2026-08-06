@@ -90,6 +90,7 @@ describe('runtime hook boundaries', () => {
 		const initialOperation = immutableRecord({
 			input: { metadata: { nested: { enabled: true } } },
 			kind: 'create-one',
+			selection: { fields: [], kind: 'selection' },
 			schema: new Query(schema).ast.schema,
 		}) satisfies CreateOneOperationAst<typeof schema>
 		const validate = createRuntimeValidationStage({
@@ -120,6 +121,7 @@ describe('runtime hook boundaries', () => {
 		const operation = immutableRecord({
 			input: completeRecord,
 			kind: 'create-one',
+			selection: { fields: [], kind: 'selection' },
 			schema: new Query(schema).ast.schema,
 		}) satisfies CreateOneOperationAst<typeof schema>
 		const boundaries = createRuntimeHookBoundaries()
@@ -144,6 +146,7 @@ describe('runtime hook boundaries', () => {
 		const operation = immutableRecord({
 			input: completeRecord,
 			kind: 'create-one',
+			selection: { fields: [], kind: 'selection' },
 			schema: new Query(schema).ast.schema,
 		}) satisfies CreateOneOperationAst<typeof schema>
 		const boundaries = createRuntimeHookBoundaries()
@@ -303,6 +306,7 @@ describe('runtime hook boundaries', () => {
 		const createOperation = immutableRecord({
 			input: completeRecord,
 			kind: 'create-one',
+			selection: { fields: [], kind: 'selection' },
 			schema: new Query(schema).ast.schema,
 		}) satisfies CreateOneOperationAst<typeof schema>
 		const boundaries = createRuntimeHookBoundaries()

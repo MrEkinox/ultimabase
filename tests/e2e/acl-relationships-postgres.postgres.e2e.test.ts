@@ -163,7 +163,7 @@ beforeAll(async () => {
 	const app = getApplication()
 
 	alice = await Member.create(
-		{ name: 'Alice' },
+		{ data: { name: 'Alice' } },
 		{ ultimabase: app, useMasterKey: true },
 	)
 	const alicePointer = Member.pointer(alice.id)

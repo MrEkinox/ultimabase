@@ -45,7 +45,9 @@ interface RuntimeOutputRecord {
 
 const collectionOutputKinds = new Set<FieldOutputHookKind>([
 	'create-many',
+	'delete-many',
 	'find',
+	'update-many',
 	'upsert-many',
 ])
 const nullableOutputKinds = new Set<FieldOutputHookKind>([
@@ -115,7 +117,11 @@ const collectOutputRecords = (
 					itemIndex,
 					kind: operation.kind as Extract<
 						FieldOutputHookKind,
-						'create-many' | 'find' | 'upsert-many'
+						| 'create-many'
+						| 'delete-many'
+						| 'find'
+						| 'update-many'
+						| 'upsert-many'
 					>,
 					record: readOutputRecord(
 						record,
@@ -146,19 +152,27 @@ const getReadableOutputFields = (
 	const fields = getRuntimeOperationFields(operation)
 	const untrustedOperation: unknown = operation
 
+	if (!isPlainRecord(untrustedOperation)) {
+		return fields
+	}
+	const selection: unknown =
+		untrustedOperation.kind === 'create-one'
+			? untrustedOperation.selection
+			: isPlainRecord(untrustedOperation.query)
+				? untrustedOperation.query.selection
+				: undefined
+
 	if (
-		!isPlainRecord(untrustedOperation) ||
-		!isPlainRecord(untrustedOperation.query) ||
-		!isPlainRecord(untrustedOperation.query.selection) ||
-		!isUnknownArray(untrustedOperation.query.selection.fields) ||
-		untrustedOperation.query.selection.fields.length === 0
+		!isPlainRecord(selection) ||
+		!isUnknownArray(selection.fields) ||
+		selection.fields.length === 0
 	) {
 		return fields
 	}
 
 	const selectedFields: Record<string, RuntimeFieldOutputValue['field']> = {}
 
-	for (const selected of untrustedOperation.query.selection.fields) {
+	for (const selected of selection.fields) {
 		const field =
 			isPlainRecord(selected) && typeof selected.field === 'string'
 				? fields[selected.field]

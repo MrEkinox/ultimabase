@@ -3,8 +3,6 @@ import {
 	type GenericField,
 	type InferCreateInput,
 	type SchemaDefinition,
-	type SchemaRelationFieldName,
-	type SchemaRelationTarget,
 } from '../../schema/index.js'
 import { getFieldSchemaTarget } from '../../schema/fields/base/definition.js'
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
@@ -31,6 +29,7 @@ import {
 	normalizeQueryOffsetPagination,
 } from '../clauses/pagination.js'
 import {
+	emptyQuerySelection,
 	normalizeQuerySelectedFields,
 	normalizeQuerySelection,
 	type ExactQuerySelection,
@@ -39,34 +38,19 @@ import {
 	type QuerySelection,
 } from '../clauses/selection.js'
 import {
-	createQueryJsonPathFilter,
-	createQueryNullFilter,
-	createQueryKeyFilter,
-	createQueryMembershipFilter,
-	createQueryRangeFilter,
-	createQueryRegexFilter,
-	createQueryStructuralFilter,
-	createQueryValueFilter,
-} from '../filters/factory.js'
-import {
 	normalizeLogicalFilter,
 	type QueryFilterNode,
 } from '../filters/logical.js'
-import type {
-	QueryFilterFieldName,
-	QueryBuiltInFilterOperator,
-	QueryFilterOperand,
-	QueryFilterTarget,
-	QueryFilterValue,
-	QueryJsonPathExpression,
-	QueryPrimitiveFilterNode,
-	QueryRegexPattern,
-} from '../filters/primitive.js'
+import { createQueryValueFilter } from '../filters/factory.js'
+import type { QueryPrimitiveFilterNode } from '../filters/primitive.js'
+import type { QueryRelationPredicateForSchema } from '../filters/relation.js'
 import {
-	createQueryRelationPredicate,
-	type QueryRelationPredicateForSchema,
-	type RelationPredicate,
-} from '../filters/relation.js'
+	resolveWhereInput,
+	type WhereBuilder,
+	type WhereCallback,
+	type WhereInput,
+	type WhereSource,
+} from '../filters/where.js'
 import type {
 	CountOperationAst,
 	CreateManyOperationAst,
@@ -105,6 +89,7 @@ import {
 	type UpsertInput,
 	type UpsertManyItemInput,
 } from '../operations/upsert.js'
+import type { SchemaCreateOneExecutionInput } from '../operations/schema-commands.js'
 import type {
 	UpdateExpression,
 	UpdateExpressionInput,
@@ -172,17 +157,6 @@ type QueryAstPatch<TSchema extends SchemaDefinition> = Partial<
 	>
 >
 
-type QueryComparisonValue<
-	TSchema extends SchemaDefinition,
-	TFieldName extends QueryFieldName<TSchema>,
-> = Exclude<QueryFilterValue<TSchema, TFieldName>, null>
-
-type QueryTargetOperand<
-	TSchema extends SchemaDefinition,
-	TOperator extends QueryBuiltInFilterOperator,
-	TTarget extends QueryFilterTarget<TSchema, TOperator>,
-> = QueryFilterOperand<TSchema, TOperator, TTarget>
-
 type QuerySelectionAfterInclude<
 	TSchema extends SchemaDefinition,
 	TSelectedField extends QueryFieldName<TSchema>,
@@ -218,7 +192,7 @@ const getFieldQueryTarget = (
  * @example
  * ```ts
  * const published = await Post.query()
- *   .equalTo('published', true)
+ *   .where({ published: { eq: true } })
  *   .find({ ultimabase })
  * ```
  */
@@ -266,7 +240,8 @@ export class Query<
 	 * @example `Post.query().select({ internalNote: false })`
 	 */
 	select<const TSelection extends QuerySelection<TSchema>>(
-		selection: ExactQuerySelection<TSchema, TSelection> &
+		selection: QuerySelection<TSchema> &
+			ExactQuerySelection<TSchema, TSelection> &
 			LiteralQuerySelection<TSelection>,
 	): Query<TSchema, QuerySelectedField<TSchema, TSelection>, TIncludedPointer> {
 		return this.#with<QuerySelectedField<TSchema, TSelection>>({
@@ -421,377 +396,30 @@ export class Query<
 	}
 
 	/**
-	 * Adds an equality filter for the framework-owned object identifier.
+	 * Adds one schema-correlated object or builder filter through implicit AND.
 	 *
-	 * Existing filters and selections are preserved for the next read terminal.
+	 * The object form is the canonical public contract shared with mutations and
+	 * future transports. A callback receives the same immutable utility builder.
 	 *
-	 * @example `const post = await Post.query().byId(postId).first()`
+	 * @example `Post.query().where({ published: { eq: true }, views: { gte: 10 } })`
+	 * @example `Post.query().where((where) => where.eq('published', true))`
 	 */
-	byId(
-		id: OperationObjectId<TSchema>,
+	/* eslint-disable @typescript-eslint/unified-signatures -- Separate overloads preserve field completions for the canonical object form. */
+	where(
+		input: WhereInput<TSchema>,
+	): Query<TSchema, TSelectedField, TIncludedPointer>
+	where(
+		builder: WhereBuilder<TSchema>,
+	): Query<TSchema, TSelectedField, TIncludedPointer>
+	where(
+		callback: WhereCallback<TSchema>,
+	): Query<TSchema, TSelectedField, TIncludedPointer>
+	where(
+		input: WhereSource<TSchema>,
 	): Query<TSchema, TSelectedField, TIncludedPointer> {
-		// Every Schema includes the framework-owned UUID field, although TypeScript
-		// cannot reduce that intersection through an arbitrary schema generic here.
-		const idField = 'id' as QueryFilterFieldName<TSchema, 'equal'>
-
-		return this.#appendFilter(
-			createQueryValueFilter(this.schema, 'equal', idField, id),
-		)
+		return this.#appendFilter(resolveWhereInput(this.schema, input))
 	}
-
-	/** Adds an equality condition to the implicit AND filter chain. */
-	equalTo<TTarget extends QueryFilterTarget<TSchema, 'equal'>>(
-		target: TTarget,
-		value: QueryTargetOperand<TSchema, 'equal', TTarget>,
-	): Query<TSchema, TSelectedField, TIncludedPointer> {
-		return this.#appendFilter(
-			createQueryValueFilter(this.schema, 'equal', target, value),
-		)
-	}
-
-	/** Adds an inequality condition to the implicit AND filter chain. */
-	notEqualTo<TTarget extends QueryFilterTarget<TSchema, 'not-equal'>>(
-		target: TTarget,
-		value: QueryTargetOperand<TSchema, 'not-equal', TTarget>,
-	): Query<TSchema, TSelectedField, TIncludedPointer> {
-		return this.#appendFilter(
-			createQueryValueFilter(this.schema, 'not-equal', target, value),
-		)
-	}
-
-	/** Adds a strict greater-than comparison to the implicit AND filter chain. */
-	greaterThan<TFieldName extends QueryFilterFieldName<TSchema, 'greater-than'>>(
-		fieldName: TFieldName,
-		value: QueryComparisonValue<TSchema, TFieldName>,
-	): Query<TSchema, TSelectedField, TIncludedPointer> {
-		return this.#appendFilter(
-			createQueryValueFilter(this.schema, 'greater-than', fieldName, value),
-		)
-	}
-
-	/** Adds an inclusive lower bound to the implicit AND filter chain. */
-	greaterThanOrEqualTo<
-		TFieldName extends QueryFilterFieldName<TSchema, 'greater-than-or-equal'>,
-	>(
-		fieldName: TFieldName,
-		value: QueryComparisonValue<TSchema, TFieldName>,
-	): Query<TSchema, TSelectedField, TIncludedPointer> {
-		return this.#appendFilter(
-			createQueryValueFilter(
-				this.schema,
-				'greater-than-or-equal',
-				fieldName,
-				value,
-			),
-		)
-	}
-
-	/** Adds a strict less-than comparison to the implicit AND filter chain. */
-	lessThan<TFieldName extends QueryFilterFieldName<TSchema, 'less-than'>>(
-		fieldName: TFieldName,
-		value: QueryComparisonValue<TSchema, TFieldName>,
-	): Query<TSchema, TSelectedField, TIncludedPointer> {
-		return this.#appendFilter(
-			createQueryValueFilter(this.schema, 'less-than', fieldName, value),
-		)
-	}
-
-	/** Adds an inclusive upper bound to the implicit AND filter chain. */
-	lessThanOrEqualTo<
-		TFieldName extends QueryFilterFieldName<TSchema, 'less-than-or-equal'>,
-	>(
-		fieldName: TFieldName,
-		value: QueryComparisonValue<TSchema, TFieldName>,
-	): Query<TSchema, TSelectedField, TIncludedPointer> {
-		return this.#appendFilter(
-			createQueryValueFilter(
-				this.schema,
-				'less-than-or-equal',
-				fieldName,
-				value,
-			),
-		)
-	}
-
-	/**
-	 * Adds one inclusive interval condition to the implicit AND filter chain.
-	 * @example `Post.query().between("views", 10, 100)`
-	 */
-	between<TFieldName extends QueryFilterFieldName<TSchema, 'between'>>(
-		fieldName: TFieldName,
-		lower: QueryComparisonValue<TSchema, TFieldName>,
-		upper: QueryComparisonValue<TSchema, TFieldName>,
-	): Query<TSchema, TSelectedField, TIncludedPointer> {
-		return this.#appendFilter(
-			createQueryRangeFilter(this.schema, 'between', fieldName, lower, upper),
-		)
-	}
-
-	/**
-	 * Adds the inverse of one inclusive interval to the implicit AND chain.
-	 * @example `Post.query().notBetween("views", 10, 100)`
-	 */
-	notBetween<TFieldName extends QueryFilterFieldName<TSchema, 'not-between'>>(
-		fieldName: TFieldName,
-		lower: QueryComparisonValue<TSchema, TFieldName>,
-		upper: QueryComparisonValue<TSchema, TFieldName>,
-	): Query<TSchema, TSelectedField, TIncludedPointer> {
-		return this.#appendFilter(
-			createQueryRangeFilter(
-				this.schema,
-				'not-between',
-				fieldName,
-				lower,
-				upper,
-			),
-		)
-	}
-
-	/** Adds an inclusion condition from a caller-owned candidate collection. */
-	containedIn<TTarget extends QueryFilterTarget<TSchema, 'in'>>(
-		target: TTarget,
-		values: readonly QueryTargetOperand<TSchema, 'in', TTarget>[],
-	): Query<TSchema, TSelectedField, TIncludedPointer> {
-		return this.#appendFilter(
-			createQueryMembershipFilter(this.schema, 'in', target, values),
-		)
-	}
-
-	/** Adds an exclusion condition from a caller-owned candidate collection. */
-	notContainedIn<TTarget extends QueryFilterTarget<TSchema, 'not-in'>>(
-		target: TTarget,
-		values: readonly QueryTargetOperand<TSchema, 'not-in', TTarget>[],
-	): Query<TSchema, TSelectedField, TIncludedPointer> {
-		return this.#appendFilter(
-			createQueryMembershipFilter(this.schema, 'not-in', target, values),
-		)
-	}
-
-	/**
-	 * Adds substring matching for strings or containment for structured targets.
-	 * @example `Post.query().contains('metadata', { visibility: 'public' })`
-	 */
-	contains<TTarget extends QueryFilterTarget<TSchema, 'contains'>>(
-		target: TTarget,
-		value: QueryTargetOperand<TSchema, 'contains', TTarget>,
-	): Query<TSchema, TSelectedField, TIncludedPointer> {
-		return this.#appendFilter(
-			createQueryStructuralFilter(this.schema, 'contains', target, value),
-		)
-	}
-
-	/**
-	 * Requires one structured field or path to be contained by the supplied value.
-	 * @example `Post.query().containedBy('metadata', { public: true, pinned: true })`
-	 */
-	containedBy<TTarget extends QueryFilterTarget<TSchema, 'contained-by'>>(
-		target: TTarget,
-		value: QueryTargetOperand<TSchema, 'contained-by', TTarget>,
-	): Query<TSchema, TSelectedField, TIncludedPointer> {
-		return this.#appendFilter(
-			createQueryStructuralFilter(this.schema, 'contained-by', target, value),
-		)
-	}
-
-	/**
-	 * Requires one top-level key on a JSON or typed object target.
-	 * @example `Post.query().hasKey('metadata', 'visibility')`
-	 */
-	hasKey<TTarget extends QueryFilterTarget<TSchema, 'has-key'>>(
-		target: TTarget,
-		key: QueryTargetOperand<TSchema, 'has-key', TTarget> & string,
-	): Query<TSchema, TSelectedField, TIncludedPointer> {
-		return this.#appendFilter(
-			createQueryKeyFilter(this.schema, 'has-key', target, key),
-		)
-	}
-
-	/**
-	 * Requires at least one key from an immutable candidate collection.
-	 * @example `Post.query().hasAnyKeys('metadata', ['public', 'featured'])`
-	 */
-	hasAnyKeys<TTarget extends QueryFilterTarget<TSchema, 'has-any-keys'>>(
-		target: TTarget,
-		keys: readonly (QueryTargetOperand<TSchema, 'has-any-keys', TTarget> &
-			string)[],
-	): Query<TSchema, TSelectedField, TIncludedPointer> {
-		return this.#appendFilter(
-			createQueryKeyFilter(this.schema, 'has-any-keys', target, keys),
-		)
-	}
-
-	/**
-	 * Requires every key from an immutable candidate collection.
-	 * @example `Post.query().hasAllKeys('metadata', ['public', 'featured'])`
-	 */
-	hasAllKeys<TTarget extends QueryFilterTarget<TSchema, 'has-all-keys'>>(
-		target: TTarget,
-		keys: readonly (QueryTargetOperand<TSchema, 'has-all-keys', TTarget> &
-			string)[],
-	): Query<TSchema, TSelectedField, TIncludedPointer> {
-		return this.#appendFilter(
-			createQueryKeyFilter(this.schema, 'has-all-keys', target, keys),
-		)
-	}
-
-	/**
-	 * Tests whether an advanced JSONPath expression returns at least one item.
-	 * The expression is intentionally untyped; variables remain portable JSON values.
-	 * @example `Post.query().jsonPathExists('metadata', { source: '$.items[*] ? (@.price > $minimum)', variables: { minimum: 10 } })`
-	 */
-	jsonPathExists(
-		target: QueryFilterTarget<TSchema, 'json-path-exists'>,
-		expression: QueryJsonPathExpression,
-	): Query<TSchema, TSelectedField, TIncludedPointer> {
-		return this.#appendFilter(
-			createQueryJsonPathFilter(
-				this.schema,
-				'json-path-exists',
-				target,
-				expression,
-			),
-		)
-	}
-
-	/**
-	 * Evaluates one advanced JSONPath predicate against a structured target.
-	 * @example `Post.query().jsonPathMatches('metadata', { source: 'exists($.items[*] ? (@.price > $minimum))', variables: { minimum: 10 } })`
-	 */
-	jsonPathMatches(
-		target: QueryFilterTarget<TSchema, 'json-path-matches'>,
-		expression: QueryJsonPathExpression,
-	): Query<TSchema, TSelectedField, TIncludedPointer> {
-		return this.#appendFilter(
-			createQueryJsonPathFilter(
-				this.schema,
-				'json-path-matches',
-				target,
-				expression,
-			),
-		)
-	}
-
-	/** Adds a portable prefix condition for a scalar string field. */
-	startsWith<TTarget extends QueryFilterTarget<TSchema, 'starts-with'>>(
-		target: TTarget,
-		value: QueryTargetOperand<TSchema, 'starts-with', TTarget>,
-	): Query<TSchema, TSelectedField, TIncludedPointer> {
-		return this.#appendFilter(
-			createQueryValueFilter(this.schema, 'starts-with', target, value),
-		)
-	}
-
-	/** Adds a portable suffix condition for a scalar string field. */
-	endsWith<TTarget extends QueryFilterTarget<TSchema, 'ends-with'>>(
-		target: TTarget,
-		value: QueryTargetOperand<TSchema, 'ends-with', TTarget>,
-	): Query<TSchema, TSelectedField, TIncludedPointer> {
-		return this.#appendFilter(
-			createQueryValueFilter(this.schema, 'ends-with', target, value),
-		)
-	}
-
-	/** Adds a declarative regular-expression condition without executable state. */
-	matches(
-		fieldName: QueryFilterFieldName<TSchema, 'regex'>,
-		pattern: QueryRegexPattern,
-	): Query<TSchema, TSelectedField, TIncludedPointer> {
-		return this.#appendFilter(
-			createQueryRegexFilter(this.schema, fieldName, pattern),
-		)
-	}
-
-	/**
-	 * Requires one selected field to contain null.
-	 * @example `Post.query().isNull("publishedAt")`
-	 */
-	isNull(
-		target: QueryFilterTarget<TSchema, 'null'>,
-	): Query<TSchema, TSelectedField, TIncludedPointer> {
-		return this.#appendFilter(createQueryNullFilter(this.schema, target, true))
-	}
-
-	/**
-	 * Requires one selected field to contain a non-null value.
-	 * @example `Post.query().isNotNull("publishedAt")`
-	 */
-	isNotNull(
-		target: QueryFilterTarget<TSchema, 'null'>,
-	): Query<TSchema, TSelectedField, TIncludedPointer> {
-		return this.#appendFilter(createQueryNullFilter(this.schema, target, false))
-	}
-
-	/**
-	 * Requires at least one related object to satisfy an exact target predicate.
-	 * The callback can only build filters for the relation's target schema.
-	 *
-	 * @example `Post.query().some('tags', (tag) => tag.equalTo('label', 'typed'))`
-	 */
-	some<TFieldName extends SchemaRelationFieldName<TSchema>>(
-		fieldName: TFieldName,
-		predicate: (
-			filter: RelationPredicate<SchemaRelationTarget<TSchema, TFieldName>>,
-		) => RelationPredicate<SchemaRelationTarget<TSchema, TFieldName>>,
-	): Query<TSchema, TSelectedField, TIncludedPointer> {
-		return this.#appendFilter(
-			createQueryRelationPredicate(this.schema, 'some', fieldName, predicate),
-		)
-	}
-
-	/**
-	 * Requires no related object to satisfy an exact target predicate.
-	 * An empty relationship satisfies this quantifier.
-	 *
-	 * @example `Post.query().none('tags', (tag) => tag.equalTo('label', 'blocked'))`
-	 */
-	none<TFieldName extends SchemaRelationFieldName<TSchema>>(
-		fieldName: TFieldName,
-		predicate: (
-			filter: RelationPredicate<SchemaRelationTarget<TSchema, TFieldName>>,
-		) => RelationPredicate<SchemaRelationTarget<TSchema, TFieldName>>,
-	): Query<TSchema, TSelectedField, TIncludedPointer> {
-		return this.#appendFilter(
-			createQueryRelationPredicate(this.schema, 'none', fieldName, predicate),
-		)
-	}
-
-	/**
-	 * Requires every visible related object to satisfy an exact target predicate.
-	 * An empty relationship satisfies this quantifier.
-	 *
-	 * @example `Post.query().every('tags', (tag) => tag.equalTo('active', true))`
-	 */
-	every<TFieldName extends SchemaRelationFieldName<TSchema>>(
-		fieldName: TFieldName,
-		predicate: (
-			filter: RelationPredicate<SchemaRelationTarget<TSchema, TFieldName>>,
-		) => RelationPredicate<SchemaRelationTarget<TSchema, TFieldName>>,
-	): Query<TSchema, TSelectedField, TIncludedPointer> {
-		return this.#appendFilter(
-			createQueryRelationPredicate(this.schema, 'every', fieldName, predicate),
-		)
-	}
-
-	/** Combines the other query's filter with this query through AND. */
-	and<TOtherSelection extends QueryFieldName<TSchema>, TOtherIncludedPointer>(
-		query: Query<TSchema, TOtherSelection, TOtherIncludedPointer>,
-	): Query<TSchema, TSelectedField, TIncludedPointer> {
-		return this.#combine(query, 'and', false)
-	}
-
-	/** Combines the other query's filter with this query through OR. */
-	or<TOtherSelection extends QueryFieldName<TSchema>, TOtherIncludedPointer>(
-		query: Query<TSchema, TOtherSelection, TOtherIncludedPointer>,
-	): Query<TSchema, TSelectedField, TIncludedPointer> {
-		return this.#combine(query, 'or', false)
-	}
-
-	/** Adds the negation of the other query's filter through the implicit AND. */
-	not<TOtherSelection extends QueryFieldName<TSchema>, TOtherIncludedPointer>(
-		query: Query<TSchema, TOtherSelection, TOtherIncludedPointer>,
-	): Query<TSchema, TSelectedField, TIncludedPointer> {
-		return this.#combine(query, 'and', true)
-	}
+	/* eslint-enable @typescript-eslint/unified-signatures */
 
 	/** Applies one reusable transformation without exposing execution state. */
 	use(
@@ -913,64 +541,24 @@ export class Query<
 
 	#appendFilter(
 		filter: QueryFilterNode<TSchema>,
-		logicalKind: 'and' | 'or' = 'and',
 	): Query<TSchema, TSelectedField, TIncludedPointer> {
 		const currentExpression = this.ast.where?.expression
 		const expression =
 			currentExpression === undefined
 				? filter
-				: logicalKind === 'and'
-					? normalizeLogicalFilter<
-							| QueryPrimitiveFilterNode<TSchema>
-							| QueryRelationPredicateForSchema<TSchema>
-						>({
-							kind: 'and',
-							expressions: [currentExpression, filter],
-						})
-					: normalizeLogicalFilter<
-							| QueryPrimitiveFilterNode<TSchema>
-							| QueryRelationPredicateForSchema<TSchema>
-						>({
-							kind: 'or',
-							expressions: [currentExpression, filter],
-						})
+				: normalizeLogicalFilter<
+						| QueryPrimitiveFilterNode<TSchema>
+						| QueryRelationPredicateForSchema<TSchema>
+					>({
+						kind: 'and',
+						expressions: [currentExpression, filter],
+					})
 		const where: QueryWhereNode<QueryFilterNode<TSchema>> = immutableRecord({
 			kind: 'where',
 			expression,
 		})
 
 		return this.#with({ where })
-	}
-
-	#combine<
-		TOtherSelection extends QueryFieldName<TSchema>,
-		TOtherIncludedPointer,
-	>(
-		query: Query<TSchema, TOtherSelection, TOtherIncludedPointer>,
-		logicalKind: 'and' | 'or',
-		negate: boolean,
-	): Query<TSchema, TSelectedField, TIncludedPointer> {
-		if (query.schema !== this.schema) {
-			throw new TypeError('logical queries must use the same schema definition')
-		}
-
-		const otherExpression = query.ast.where?.expression
-
-		if (otherExpression === undefined) {
-			return this.#with({})
-		}
-
-		const expression = negate
-			? normalizeLogicalFilter<
-					| QueryPrimitiveFilterNode<TSchema>
-					| QueryRelationPredicateForSchema<TSchema>
-				>({
-					kind: 'not',
-					expression: otherExpression,
-				})
-			: otherExpression
-
-		return this.#appendFilter(expression, logicalKind)
 	}
 
 	#execute<const TOperation extends ExecutableOperationAst<TSchema>>(
@@ -1110,13 +698,20 @@ export const executeQueryWithPrivateScope = <
 /** Executes one schema-owned create command without inventing a meaningless Query. */
 export const executeSchemaCreate = <const TSchema extends SchemaDefinition>(
 	schema: TSchema,
-	input: InferCreateInput<TSchema>,
+	input: SchemaCreateOneExecutionInput<TSchema>,
 	options?: QueryTerminalOptions,
-): Promise<InferQueryResult<TSchema>> => {
-	const operation: CreateOneOperationAst<TSchema> = immutableRecord({
+): Promise<object> => {
+	const operation: CreateOneOperationAst<
+		TSchema,
+		QueryFieldName<TSchema>
+	> = immutableRecord({
 		kind: 'create-one',
 		schema: createQueryAst(schema).schema,
-		input,
+		input: input.data,
+		selection:
+			input.select === undefined
+				? emptyQuerySelection
+				: normalizeQuerySelection(schema, input.select),
 	})
 
 	return executeQueryTerminal(operation, normalizeQueryTerminalOptions(options))
@@ -1182,7 +777,7 @@ export const executeQueryUpdateMany = <
 	query: Query<TSchema, TSelectedField>,
 	input: UpdateExpressionInput<TSchema> & {},
 	options?: QueryTerminalOptions,
-): Promise<number> => {
+): Promise<readonly InferQueryResult<TSchema, TSelectedField>[]> => {
 	const operation: UpdateManyOperationAst<
 		TSchema,
 		UpdateExpression<TSchema>,
@@ -1279,7 +874,7 @@ export const executeQueryDeleteMany = <
 >(
 	query: Query<TSchema, TSelectedField>,
 	options?: QueryTerminalOptions,
-): Promise<number> => {
+): Promise<readonly InferQueryResult<TSchema, TSelectedField>[]> => {
 	const operation: DeleteManyOperationAst<
 		TSchema,
 		QueryFilterNode<TSchema>,

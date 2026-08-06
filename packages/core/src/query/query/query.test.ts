@@ -13,6 +13,7 @@ import { describe, expect, it } from 'vitest'
 
 import { hydrateQueryFromAst, Query } from './query.js'
 import { fieldPath } from '../filters/factory.js'
+import { WhereBuilder } from '../filters/where.js'
 import type { QueryScope } from './scope.js'
 
 const postFields = {
@@ -44,7 +45,7 @@ describe('Query', () => {
 	it('hydrates one internal immutable shell without rebuilding its normalized AST', () => {
 		const source = new Query(postSchema)
 			.select({ id: true, title: true })
-			.equalTo('published', true)
+			.where((where) => where.eq('published', true))
 			.limit(25)
 		const hydrated = hydrateQueryFromAst<typeof postSchema, 'id' | 'title'>(
 			source.ast,
@@ -130,7 +131,7 @@ describe('Query', () => {
 		const base = new Query(postSchema)
 			.select({ title: true })
 			.descending('createdAt')
-		const published = base.equalTo('published', true)
+		const published = base.where((where) => where.eq('published', true))
 		const limited = published.limit(10)
 		const noSelectionChange = base.select({})
 		const noOrderingChange = base.ascending()
@@ -154,7 +155,9 @@ describe('Query', () => {
 	it('builds immutable pointer inclusion branches from exact target queries', () => {
 		const base = new Query(includedPostSchema)
 		const included = base.include('author', (query) =>
-			query.select({ id: true, name: true }).equalTo('active', true),
+			query
+				.select({ id: true, name: true })
+				.where((where) => where.eq('active', true)),
 		)
 		const replaced = included.include('author', (query) =>
 			query.select({ name: true }),
@@ -192,9 +195,9 @@ describe('Query', () => {
 			'0194f292-0dd9-7c2d-a0a3-a2f755a3d90a',
 		)
 		const query = new Query(includedPostSchema)
-			.equalTo('author', author)
-			.containedIn('author', [author])
-			.isNull('author')
+			.where((where) => where.eq('author', author))
+			.where((where) => where.in('author', [author]))
+			.where((where) => where.isNull('author'))
 
 		expect(query.ast.where?.expression).toMatchObject({
 			kind: 'and',
@@ -248,23 +251,25 @@ describe('Query', () => {
 			'multiline',
 		]
 		const query = new Query(postSchema)
-			.equalTo('published', true)
-			.notEqualTo('status', 'draft')
-			.greaterThan('views', 10)
-			.greaterThanOrEqualTo('views', 11)
-			.lessThan('views', 100)
-			.lessThanOrEqualTo('views', 99)
-			.between('views', 20, 80)
-			.notBetween('views', 40, 60)
-			.containedIn('status', statusValues)
-			.notContainedIn('status', ['draft'])
-			.contains('title', 'Base')
-			.startsWith('title', 'Ultima')
-			.endsWith('title', 'Base')
-			.matches('title', { source: '^Ultima', flags: regexFlags })
-			.isNotNull('metadata')
-			.isNull('aliases')
-			.equalTo('score', null)
+			.where((where) => where.eq('published', true))
+			.where((where) => where.ne('status', 'draft'))
+			.where((where) => where.gt('views', 10))
+			.where((where) => where.gte('views', 11))
+			.where((where) => where.lt('views', 100))
+			.where((where) => where.lte('views', 99))
+			.where((where) => where.between('views', 20, 80))
+			.where((where) => where.notBetween('views', 40, 60))
+			.where((where) => where.in('status', statusValues))
+			.where((where) => where.notIn('status', ['draft']))
+			.where((where) => where.contains('title', 'Base'))
+			.where((where) => where.startsWith('title', 'Ultima'))
+			.where((where) => where.endsWith('title', 'Base'))
+			.where((where) =>
+				where.matches('title', { source: '^Ultima', flags: regexFlags }),
+			)
+			.where((where) => where.isNotNull('metadata'))
+			.where((where) => where.isNull('aliases'))
+			.where((where) => where.eq('score', null))
 
 		statusValues.push('draft')
 		regexFlags.push('multiline')
@@ -307,21 +312,27 @@ describe('Query', () => {
 		const keys = ['theme', 'locale']
 		const partial = { label: 'typed' }
 		const query = new Query(postSchema)
-			.contains('metadata', partial)
-			.containedBy('metadata', { label: 'typed' })
-			.hasKey('metadata', 'label')
-			.hasAnyKeys('payload', keys)
-			.hasAllKeys('payload', ['theme'])
-			.equalTo(fieldPath('metadata', ['label']), 'typed')
-			.contains(fieldPath('payload', ['nested']), { enabled: true })
-			.jsonPathExists('payload', {
-				source: '$.items[*] ? (@.price > $minimum)',
-				variables: { minimum: 10 },
-			})
-			.jsonPathMatches('metadata', {
-				source: 'exists($.label ? (@ == $expected))',
-				variables: { expected: 'typed' },
-			})
+			.where((where) => where.contains('metadata', partial))
+			.where((where) => where.containedBy('metadata', { label: 'typed' }))
+			.where((where) => where.hasKey('metadata', 'label'))
+			.where((where) => where.hasAnyKeys('payload', keys))
+			.where((where) => where.hasAllKeys('payload', ['theme']))
+			.where((where) => where.eq(fieldPath('metadata', ['label']), 'typed'))
+			.where((where) =>
+				where.contains(fieldPath('payload', ['nested']), { enabled: true }),
+			)
+			.where((where) =>
+				where.jsonPathExists('payload', {
+					source: '$.items[*] ? (@.price > $minimum)',
+					variables: { minimum: 10 },
+				}),
+			)
+			.where((where) =>
+				where.jsonPathMatches('metadata', {
+					source: 'exists($.label ? (@ == $expected))',
+					variables: { expected: 'typed' },
+				}),
+			)
 
 		keys.push('mutated')
 		partial.label = 'mutated'
@@ -379,13 +390,17 @@ describe('Query', () => {
 
 	it('adds the framework identifier without mutating existing filters', () => {
 		const objectId = '0194f292-0dd9-7c2d-a0a3-a2f755a3d90a'
-		const expected = new Query(postSchema).equalTo('id', objectId)
-		const base = new Query(postSchema).equalTo('published', true)
-		const identified = base.byId(objectId)
-
-		expect(new Query(postSchema).byId(objectId).ast.where).toStrictEqual(
-			expected.ast.where,
+		const expected = new Query(postSchema).where((where) =>
+			where.eq('id', objectId),
 		)
+		const base = new Query(postSchema).where((where) =>
+			where.eq('published', true),
+		)
+		const identified = base.where({ id: { eq: objectId } })
+
+		expect(
+			new Query(postSchema).where({ id: { eq: objectId } }).ast.where,
+		).toStrictEqual(expected.ast.where)
 
 		expect(base.ast.where?.expression).toStrictEqual({
 			kind: 'equal',
@@ -406,16 +421,22 @@ describe('Query', () => {
 		expect(identified).not.toBe(base)
 	})
 
-	it('combines filters from independent branches without copying other clauses', () => {
+	it('combines object filters without copying other clauses', () => {
 		const base = new Query(postSchema).limit(25).descending('createdAt')
-		const published = new Query(postSchema).equalTo('published', true)
-		const popular = new Query(postSchema).greaterThan('views', 100)
-		const empty = new Query(postSchema)
-		const andQuery = base.and(published).and(popular)
-		const orQuery = published.or(popular)
-		const notQuery = published.not(popular)
-		const adopted = base.or(popular)
-		const noFilterChange = base.and(empty)
+		const published = new Query(postSchema).where({
+			published: { eq: true },
+		})
+		const popular = new Query(postSchema).where({
+			views: { gt: 100 },
+		})
+		const andQuery = base.where({
+			AND: [{ published: { eq: true } }, { views: { gt: 100 } }],
+		})
+		const orQuery = base.where({
+			OR: [{ published: { eq: true } }, { views: { gt: 100 } }],
+		})
+		const notQuery = published.where({ NOT: { views: { gt: 100 } } })
+		const adopted = base.where({ views: { gt: 100 } })
 
 		expect(andQuery.ast.where?.expression.kind).toBe('and')
 		expect(orQuery.ast.where?.expression.kind).toBe('or')
@@ -429,18 +450,18 @@ describe('Query', () => {
 				},
 			],
 		})
-		expect(adopted.ast.where?.expression).toBe(popular.ast.where?.expression)
+		expect(adopted.ast.where?.expression).toStrictEqual(
+			popular.ast.where?.expression,
+		)
 		expect(adopted.ast.limit).toBe(25)
 		expect(adopted.ast.ordering).toBe(base.ast.ordering)
-		expect(noFilterChange).not.toBe(base)
-		expect(noFilterChange.ast.where).toBe(base.ast.where)
 	})
 
 	it('composes reusable scopes across immutable query branches', () => {
 		const published: QueryScope<typeof postSchema> = (query) =>
-			query.equalTo('published', true)
+			query.where((where) => where.eq('published', true))
 		const popular: QueryScope<typeof postSchema> = (query) =>
-			query.greaterThan('views', 100)
+			query.where((where) => where.gt('views', 100))
 		const discoverable: QueryScope<typeof postSchema> = (query) =>
 			query.use(published).use(popular).descending('createdAt')
 		const base = new Query(postSchema).select({ id: true, title: true })
@@ -501,26 +522,22 @@ describe('Query', () => {
 		)
 		expect(() =>
 			new Query(postSchema)
-				.equalTo('published', true)
-				.and(new Query(otherPostSchema).equalTo('title', 'Post')),
-		).toThrow(
-			new TypeError('logical queries must use the same schema definition'),
-		)
+				.where((where) => where.eq('published', true))
+				.where(new WhereBuilder(otherPostSchema).eq('title', 'Post')),
+		).toThrow(new TypeError('WhereBuilder must use the same schema definition'))
 		expect(() => {
 			// @ts-expect-error -- Runtime validation rejects unknown fields.
-			new Query(postSchema).equalTo('missing', true)
-		}).toThrow(
-			new TypeError('query filter field must reference a schema field'),
-		)
+			new Query(postSchema).where((where) => where.eq('missing', true))
+		}).toThrow(new TypeError('where.missing must reference a schema field'))
 		expect(() => {
 			// @ts-expect-error -- List fields expose only presence operators.
-			new Query(postSchema).equalTo('aliases', ['alias'])
+			new Query(postSchema).where((where) => where.eq('aliases', ['alias']))
 		}).toThrow(
 			new TypeError('query operator equal does not support list fields'),
 		)
 		expect(() => {
 			// @ts-expect-error -- Boolean fields do not support ordered comparisons.
-			new Query(postSchema).greaterThan('published', true)
+			new Query(postSchema).where((where) => where.gt('published', true))
 		}).toThrow(
 			new TypeError(
 				'query operator greater-than does not support boolean fields',
@@ -528,31 +545,33 @@ describe('Query', () => {
 		)
 		expect(() => {
 			// @ts-expect-error -- Runtime rejects nullable comparison operands.
-			new Query(postSchema).greaterThan('score', null)
+			new Query(postSchema).where((where) => where.gt('score', null))
 		}).toThrow(new TypeError('query filter value must not be null'))
 		expect(() => {
 			// @ts-expect-error -- Runtime rejects nullable range bounds.
-			new Query(postSchema).between('score', null, 10)
+			new Query(postSchema).where((where) => where.between('score', null, 10))
 		}).toThrow(new TypeError('query range lower bound must not be null'))
 		expect(() => {
 			// @ts-expect-error -- Numeric fields do not support string operators.
-			new Query(postSchema).contains('views', '10')
+			new Query(postSchema).where((where) => where.contains('views', '10'))
 		}).toThrow(
 			new TypeError('query operator contains does not support int fields'),
 		)
 		expect(() => {
 			// @ts-expect-error -- Runtime field normalizers reject invalid operands.
-			new Query(postSchema).equalTo('published', 'true')
+			new Query(postSchema).where((where) => where.eq('published', 'true'))
 		}).toThrow(TypeError)
 		expect(() => {
 			// @ts-expect-error -- Runtime validation rejects non-string identifiers.
-			new Query(postSchema).byId(42)
+			new Query(postSchema).where({ id: { eq: 42 } })
 		}).toThrow(new TypeError('query filter value must be a string'))
 	})
 
 	it('snapshots mutable scalar operands and exposes contextual terminals', () => {
 		const attachment = new Uint8Array([1, 2, 3])
-		const query = new Query(postSchema).equalTo('attachment', attachment)
+		const query = new Query(postSchema).where((where) =>
+			where.eq('attachment', attachment),
+		)
 
 		attachment[0] = 9
 

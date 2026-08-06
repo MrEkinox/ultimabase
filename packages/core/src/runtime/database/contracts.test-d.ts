@@ -93,7 +93,7 @@ test('maps every operation kind to its database result semantics', () => {
 	>().toEqualTypeOf<ArticleRecord | null>()
 	expectTypeOf<
 		DatabaseOperationResult<UpdateManyOperationAst<typeof articleSchema>>
-	>().toEqualTypeOf<number>()
+	>().toEqualTypeOf<readonly ArticleRecord[]>()
 	expectTypeOf<
 		DatabaseOperationResult<UpsertOneOperationAst<typeof articleSchema>>
 	>().toEqualTypeOf<ArticleRecord>()
@@ -105,7 +105,7 @@ test('maps every operation kind to its database result semantics', () => {
 	>().toEqualTypeOf<ArticleRecord | null>()
 	expectTypeOf<
 		DatabaseOperationResult<DeleteManyOperationAst<typeof articleSchema>>
-	>().toEqualTypeOf<number>()
+	>().toEqualTypeOf<readonly ArticleRecord[]>()
 })
 
 test('preserves operation and constraint inference through execute', () => {
@@ -117,7 +117,7 @@ test('preserves operation and constraint inference through execute', () => {
 
 	const operation = {
 		kind: 'find',
-		query: new Query(articleSchema).equalTo('views', 10).ast,
+		query: new Query(articleSchema).where((where) => where.eq('views', 10)).ast,
 	} satisfies FindOperationAst<typeof articleSchema>
 	const relation = {
 		fieldPath: ['relatedArticles'],
@@ -187,6 +187,7 @@ test('keeps prepared outcomes correlated with their exact operation result', () 
 	const operation = {
 		input: { title: 'Prepared' },
 		kind: 'create-one',
+		selection: { fields: [], kind: 'selection' },
 		schema: new Query(articleSchema).ast.schema,
 	} satisfies CreateOneOperationAst<typeof articleSchema>
 	const transaction = null as unknown as DatabaseTransactionAdapter

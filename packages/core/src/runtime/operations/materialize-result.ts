@@ -83,11 +83,11 @@ export const materializeOperationResult = <
 ): InferOperationResult<TOperation> => {
 	switch (operation.kind) {
 		case 'count':
-		case 'delete-many':
 		case 'exists':
-		case 'update-many':
 			return result as unknown as InferOperationResult<TOperation>
 		case 'create-many':
+		case 'delete-many':
+		case 'update-many':
 		case 'upsert-many': {
 			const schema = readOperationSchema(operation)
 

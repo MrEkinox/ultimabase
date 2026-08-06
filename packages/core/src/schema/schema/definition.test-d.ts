@@ -202,6 +202,13 @@ test('rejects reserved fields and incompatible metadata', () => {
 			updatedAt: stringField(),
 		},
 	})
+	// @ts-expect-error -- Where logical keys cannot collide with schema fields.
+	Schema.define({
+		className: 'InvalidWhereLogicalKey',
+		fields: {
+			AND: stringField(),
+		},
+	})
 	Schema.define({
 		className: 'InvalidField',
 		fields: {

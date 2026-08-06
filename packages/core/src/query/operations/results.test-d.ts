@@ -88,8 +88,15 @@ test('maps every terminal AST to selection-aware singular and bulk results', () 
 		>
 	>().toEqualTypeOf<SelectedResult | null>()
 	expectTypeOf<
-		InferOperationResult<UpdateManyOperationAst<typeof schema>>
-	>().toEqualTypeOf<number>()
+		InferOperationResult<
+			UpdateManyOperationAst<
+				typeof schema,
+				UpdateExpression<typeof schema>,
+				SelectedFilter,
+				'id' | 'title'
+			>
+		>
+	>().toEqualTypeOf<readonly SelectedResult[]>()
 	expectTypeOf<
 		InferOperationResult<
 			UpsertOneOperationAst<
@@ -109,8 +116,10 @@ test('maps every terminal AST to selection-aware singular and bulk results', () 
 		>
 	>().toEqualTypeOf<SelectedResult | null>()
 	expectTypeOf<
-		InferOperationResult<DeleteManyOperationAst<typeof schema>>
-	>().toEqualTypeOf<number>()
+		InferOperationResult<
+			DeleteManyOperationAst<typeof schema, SelectedFilter, 'id' | 'title'>
+		>
+	>().toEqualTypeOf<readonly SelectedResult[]>()
 })
 
 test('distinguishes adapter pointers from hydrated Runtime inclusions', () => {

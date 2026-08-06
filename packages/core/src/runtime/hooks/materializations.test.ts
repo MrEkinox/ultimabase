@@ -140,8 +140,12 @@ const createOperation = {
 		},
 	},
 	kind: 'create-one',
+	selection: {
+		fields: [{ field: 'id', kind: 'selected-field' }],
+		kind: 'selection',
+	},
 	schema: schemaNode,
-} satisfies CreateOneOperationAst<typeof materializationSchema>
+} satisfies CreateOneOperationAst<typeof materializationSchema, 'id'>
 
 const updateExpression = normalizeUpdateExpression(materializationSchema, {
 	profile: {
@@ -387,9 +391,8 @@ describe('runtime mutation materializations', () => {
 		const update = normalizeUpdateExpression(materializationSchema, {
 			'literal.name': 'updated',
 		})
-		const query = new Query(materializationSchema).equalTo(
-			'literal.name',
-			'lookup',
+		const query = new Query(materializationSchema).where((where) =>
+			where.eq('literal.name', 'lookup'),
 		)
 		const target = {
 			fields: ['literal.name'],

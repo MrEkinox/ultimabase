@@ -20,6 +20,7 @@ const schema = Schema.define({
 const operation = {
 	input: { title: 'Typed' },
 	kind: 'create-one',
+	selection: { fields: [], kind: 'selection' },
 	schema: new Query(schema).ast.schema,
 } satisfies CreateOneOperationAst<typeof schema>
 const context = RequestContext.anonymous({

@@ -13,6 +13,7 @@ import {
 	type DatabaseConstraintNode,
 	type DatabaseConstraintPayloadObject,
 	type SchemaDefinition,
+	type WhereInput,
 } from '@ultimabase/core'
 import {
 	assertNonEmptyString,
@@ -203,10 +204,16 @@ const removeSchemaReferences = async (
 	const ids = await findSchemaReferenceIds(schema, subject)
 
 	for (const id of ids) {
+		// Every Schema carries the framework UUID even when this cleanup intentionally
+		// erases the concrete field map while iterating registered definitions.
+		const where = {
+			id: { eq: id },
+		} as unknown as WhereInput<typeof schema>
+
 		await runWithReferenceScope(schema, subject, () =>
 			schema.updateOne(
 				{
-					where: (where) => where.byId(id),
+					where,
 					data: { [aclFieldName]: cleanupPlaceholder },
 				},
 				{ useMasterKey: true },

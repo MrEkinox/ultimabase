@@ -246,7 +246,7 @@ describe('ACL PostgreSQL Access constraints', { concurrent: false }, () => {
 		).resolves.toBe(4)
 		await expect(
 			ProtectedPost.query()
-				.equalTo('title', 'denied')
+				.where((where) => where.eq('title', 'denied'))
 				.exists({ context: alice, ultimabase: app }),
 		).resolves.toBe(false)
 	})
@@ -262,39 +262,39 @@ describe('ACL PostgreSQL Access constraints', { concurrent: false }, () => {
 		])
 		const aliceUpdated = await ProtectedPost.updateMany(
 			{
-				where: (where) => where.equalTo('title', 'alice'),
+				where: (where) => where.eq('title', 'alice'),
 				data: { marker: 'alice-updated' },
 			},
 			{ context: alice, ultimabase: app },
 		)
 		const deniedUpdate = await ProtectedPost.updateOne(
 			{
-				where: (where) => where.equalTo('id', requireRowId('bob')),
+				where: (where) => where.eq('id', requireRowId('bob')),
 				data: { marker: 'forbidden' },
 			},
 			{ context: alice, ultimabase: app },
 		)
 		const editorUpdated = await ProtectedPost.updateOne(
 			{
-				where: (where) => where.equalTo('id', requireRowId('editor')),
+				where: (where) => where.eq('id', requireRowId('editor')),
 				data: { marker: 'editor-updated' },
 			},
 			{ context: editor, ultimabase: app },
 		)
 
-		expect(aliceUpdated).toBe(1)
+		expect(aliceUpdated).toHaveLength(1)
 		expect(deniedUpdate).toBeNull()
 		expect(editorUpdated?.marker).toBe('editor-updated')
 
 		await expect(
 			ProtectedPost.deleteMany(
-				{ where: (where) => where.equalTo('title', 'alice') },
+				{ where: (where) => where.eq('title', 'alice') },
 				{ context: alice, ultimabase: app },
 			),
-		).resolves.toBe(1)
+		).resolves.toHaveLength(1)
 		await expect(
 			ProtectedPost.deleteOne(
-				{ where: (where) => where.equalTo('id', requireRowId('editor')) },
+				{ where: (where) => where.eq('id', requireRowId('editor')) },
 				{ context: editor, ultimabase: app },
 			),
 		).resolves.toMatchObject({ title: 'editor' })
@@ -317,7 +317,7 @@ describe('ACL PostgreSQL Access constraints', { concurrent: false }, () => {
 			() =>
 				ProtectedPost.upsert(
 					{
-						where: (where) => where.equalTo('id', deniedId),
+						where: (where) => where.eq('id', deniedId),
 						create: { title: 'unexpected-upsert' },
 						update: { acl: replacement },
 					},
@@ -328,7 +328,7 @@ describe('ACL PostgreSQL Access constraints', { concurrent: false }, () => {
 					[
 						{
 							create: { title: 'unexpected-bulk-upsert' },
-							where: (where) => where.equalTo('id', deniedId),
+							where: (where) => where.eq('id', deniedId),
 							update: { acl: replacement },
 						},
 					],
@@ -343,14 +343,14 @@ describe('ACL PostgreSQL Access constraints', { concurrent: false }, () => {
 		}
 
 		const unchanged = await ProtectedPost.query()
-			.byId(deniedId)
+			.where({ id: { eq: deniedId } })
 			.select({ acl: true })
 			.first(masterOptions)
 
 		expect(unchanged?.acl).toStrictEqual(new ACL())
 		const updated = await ProtectedPost.updateOne(
 			{
-				where: (where) => where.equalTo('id', deniedId),
+				where: (where) => where.eq('id', deniedId),
 				data: { acl: replacement },
 			},
 			masterOptions,

@@ -311,6 +311,7 @@ describe('internal PostgreSQL database adapter', () => {
 		const create: CreateOneOperationAst<typeof pointerPostSchema> = {
 			input: { author },
 			kind: 'create-one',
+			selection: { fields: [], kind: 'selection' },
 			schema: new Query(pointerPostSchema).ast.schema,
 		}
 		const normalized = await validation({
@@ -331,7 +332,9 @@ describe('internal PostgreSQL database adapter', () => {
 		expect(author.equals(created.author)).toBe(true)
 		expect(driver.calls[0]?.params).toContain(secondId)
 
-		const query = new Query(pointerPostSchema).equalTo('author', author)
+		const query = new Query(pointerPostSchema).where((where) =>
+			where.eq('author', author),
+		)
 
 		driver.respond([[secondId, firstId, timestamp, timestamp]])
 		const [found] = await adapter.execute({
@@ -348,7 +351,7 @@ describe('internal PostgreSQL database adapter', () => {
 	it('executes every singular read contract through parameterized Drizzle SQL', async () => {
 		const { adapter, driver } = createFixture()
 		const query = new Query(articleSchema)
-			.greaterThan('views', 10)
+			.where((where) => where.gt('views', 10))
 			.select({ id: true, title: true })
 			.descending('views')
 			.limit(2)
@@ -464,10 +467,12 @@ describe('internal PostgreSQL database adapter', () => {
 		const injectedTenant = "tenant' OR true --"
 		const operation = {
 			kind: 'find',
-			query: new Query(articleSchema).greaterThan('views', 10).ast,
+			query: new Query(articleSchema).where((where) => where.gt('views', 10))
+				.ast,
 		} satisfies FindOperationAst<typeof articleSchema>
-		const rowFilter = new Query(articleSchema).equalTo('note', 'Access-visible')
-			.ast.where?.expression
+		const rowFilter = new Query(articleSchema).where((where) =>
+			where.eq('note', 'Access-visible'),
+		).ast.where?.expression
 
 		if (rowFilter === undefined) {
 			throw new TypeError('Access row-filter fixture requires an expression')
@@ -500,15 +505,25 @@ describe('internal PostgreSQL database adapter', () => {
 		expect(call?.text).not.toContain(injectedTenant)
 	})
 
-	it('persists Runtime-generated identity and timestamps without regenerating them', async () => {
+	it('projects direct create results after persisting complete Runtime values', async () => {
 		const { adapter, driver } = createFixture()
 		const validation = createRuntimeValidationStage({
 			clock: () => new Date(timestamp),
 			uuidV7Generator: () => firstId,
 		})
-		const operation: CreateOneOperationAst<typeof articleSchema> = {
+		const operation: CreateOneOperationAst<
+			typeof articleSchema,
+			'id' | 'title'
+		> = {
 			input: { title: 'Created' },
 			kind: 'create-one',
+			selection: {
+				fields: [
+					{ field: 'id', kind: 'selected-field' },
+					{ field: 'title', kind: 'selected-field' },
+				],
+				kind: 'selection',
+			},
 			schema: new Query(articleSchema).ast.schema,
 		}
 		const normalized = await validation({
@@ -523,12 +538,8 @@ describe('internal PostgreSQL database adapter', () => {
 		await expect(
 			adapter.execute({ constraints: [], operation: normalized }),
 		).resolves.toStrictEqual({
-			createdAt: timestamp,
 			id: firstId,
-			note: null,
 			title: 'Created',
-			updatedAt: timestamp,
-			views: null,
 		})
 		expect(driver.calls[0]?.params).toStrictEqual([
 			null,
@@ -543,7 +554,7 @@ describe('internal PostgreSQL database adapter', () => {
 	it('updates and deletes the deterministic first match through an id subquery', async () => {
 		const { adapter, driver } = createFixture()
 		const query = new Query(articleSchema)
-			.equalTo('title', 'Old')
+			.where((where) => where.eq('title', 'Old'))
 			.select({ id: true, title: true })
 			.descending('views')
 		const update = normalizeUpdateExpression(articleSchema, {
@@ -613,7 +624,9 @@ describe('internal PostgreSQL database adapter', () => {
 				operation: {
 					create: { title: 'Pending' },
 					kind: 'upsert-one',
-					query: new Query(articleSchema).equalTo('id', firstId).ast,
+					query: new Query(articleSchema).where((where) =>
+						where.eq('id', firstId),
+					).ast,
 					target: { fields: ['id'], kind: 'unique-upsert-target' },
 					update: normalizeUpdateExpression(articleSchema, {
 						title: 'Pending',
@@ -635,6 +648,7 @@ describe('internal PostgreSQL database adapter', () => {
 				operation: {
 					input: { title: 'Duplicate' },
 					kind: 'create-one',
+					selection: { fields: [], kind: 'selection' },
 					schema: operation.query.schema,
 				},
 			}),
@@ -759,6 +773,7 @@ describe('internal PostgreSQL database adapter', () => {
 				operation: {
 					input: { title: 'Never inserted' },
 					kind: 'create-one',
+					selection: { fields: [], kind: 'selection' },
 					schema: query.schema,
 				},
 			}),
@@ -769,8 +784,9 @@ describe('internal PostgreSQL database adapter', () => {
 				operation: 'create-one',
 			},
 		})
-		const rowFilter = new Query(articleSchema).equalTo('title', 'visible').ast
-			.where?.expression
+		const rowFilter = new Query(articleSchema).where((where) =>
+			where.eq('title', 'visible'),
+		).ast.where?.expression
 
 		if (rowFilter === undefined) {
 			throw new TypeError('Create row-filter fixture requires an expression')
@@ -782,6 +798,7 @@ describe('internal PostgreSQL database adapter', () => {
 				operation: {
 					input: { title: 'Never inserted by Access' },
 					kind: 'create-one',
+					selection: { fields: [], kind: 'selection' },
 					schema: query.schema,
 				},
 				rowFilter,
@@ -830,9 +847,19 @@ describe('internal PostgreSQL database adapter', () => {
 		const fixture = createFixture()
 		const driver = getTransactionDriver(fixture)
 		const transaction = await fixture.adapter.beginTransaction()
-		const createOperation: CreateOneOperationAst<typeof articleSchema> = {
+		const createOperation: CreateOneOperationAst<
+			typeof articleSchema,
+			'id' | 'title'
+		> = {
 			input: { title: 'Created' },
 			kind: 'create-one',
+			selection: {
+				fields: [
+					{ field: 'id', kind: 'selected-field' },
+					{ field: 'title', kind: 'selected-field' },
+				],
+				kind: 'selection',
+			},
 			schema: new Query(articleSchema).ast.schema,
 		}
 		const preparedCreate = await transaction.prepare({
@@ -858,17 +885,13 @@ describe('internal PostgreSQL database adapter', () => {
 				},
 			],
 			result: {
-				createdAt: timestamp,
 				id: firstId,
-				note: null,
 				title: 'Created',
-				updatedAt: timestamp,
-				views: null,
 			},
 		})
 
 		const query = new Query(articleSchema)
-			.equalTo('title', 'Old')
+			.where((where) => where.eq('title', 'Old'))
 			.select({ id: true, title: true })
 		const update = normalizeUpdateExpression(articleSchema, {
 			title: 'Updated',
@@ -1075,7 +1098,10 @@ describe('internal PostgreSQL database adapter', () => {
 		const fixture = createFixture()
 		const driver = getTransactionDriver(fixture)
 		const transaction = await fixture.adapter.beginTransaction()
-		const query = new Query(articleSchema).greaterThan('views', 0).limit(10)
+		const query = new Query(articleSchema)
+			.where((where) => where.gt('views', 0))
+			.select({ id: true, title: true })
+			.limit(10)
 		const update = normalizeUpdateExpression(articleSchema, {
 			views: increment(1),
 		})
@@ -1084,25 +1110,41 @@ describe('internal PostgreSQL database adapter', () => {
 			operation: { kind: 'update-many', query: query.ast, update },
 		})
 
-		driver.respond([], 3)
+		driver.respond([
+			[firstId, 'First updated'],
+			[secondId, 'Second updated'],
+		])
 		await expect(preparedUpdate.execute()).resolves.toStrictEqual({
 			materializations: [],
-			result: 3,
+			result: [
+				{ id: firstId, title: 'First updated' },
+				{ id: secondId, title: 'Second updated' },
+			],
 		})
 		expect(driver.calls).toHaveLength(1)
-		expect(driver.calls[0]?.text).toMatch(/update "articles" set/u)
+		expect(driver.calls[0]?.text).toMatch(
+			/update "articles" set .* returning "id", "title"/u,
+		)
 
 		const preparedDelete = await transaction.prepare({
 			constraints: [],
 			operation: { kind: 'delete-many', query: query.ast },
 		})
-		driver.respond([], 2)
+		driver.respond([
+			[firstId, 'First updated'],
+			[secondId, 'Second updated'],
+		])
 		await expect(preparedDelete.execute()).resolves.toStrictEqual({
 			materializations: [],
-			result: 2,
+			result: [
+				{ id: firstId, title: 'First updated' },
+				{ id: secondId, title: 'Second updated' },
+			],
 		})
 		expect(driver.calls).toHaveLength(2)
-		expect(driver.calls[1]?.text).toMatch(/delete from "articles"/u)
+		expect(driver.calls[1]?.text).toMatch(
+			/delete from "articles".* returning "id", "title"/u,
+		)
 		await transaction.rollback()
 	})
 
@@ -1119,7 +1161,7 @@ describe('internal PostgreSQL database adapter', () => {
 			views: 0,
 		}
 		const query = new Query(articleSchema)
-			.equalTo('id', firstId)
+			.where((where) => where.eq('id', firstId))
 			.select({ id: true, title: true })
 		const update = normalizeUpdateExpression(articleSchema, {
 			title: 'Updated',
@@ -1186,7 +1228,7 @@ describe('internal PostgreSQL database adapter', () => {
 		})
 		const item = (id: string, create: typeof first) => ({
 			create,
-			query: new Query(articleSchema).equalTo('id', id).ast,
+			query: new Query(articleSchema).where((where) => where.eq('id', id)).ast,
 			target: {
 				fields: ['id'] as const,
 				kind: 'unique-upsert-target' as const,
@@ -1241,7 +1283,7 @@ describe('internal PostgreSQL database adapter', () => {
 		})
 		const item = (id: string) => ({
 			create: { ...first, id },
-			query: new Query(articleSchema).equalTo('id', id).ast,
+			query: new Query(articleSchema).where((where) => where.eq('id', id)).ast,
 			target: {
 				fields: ['id'] as const,
 				kind: 'unique-upsert-target' as const,
@@ -1299,7 +1341,9 @@ describe('internal PostgreSQL database adapter', () => {
 		const constraints = [
 			databaseConstraint('fixture.tenant', 1, { tenantId: 'tenant-1' }),
 		]
-		const query = new Query(articleSchema).equalTo('title', 'Old').ast
+		const query = new Query(articleSchema).where((where) =>
+			where.eq('title', 'Old'),
+		).ast
 		const updateOperation = {
 			kind: 'update-one',
 			query,
@@ -1328,7 +1372,9 @@ describe('internal PostgreSQL database adapter', () => {
 
 		const deleteOperation = {
 			kind: 'delete-one',
-			query: new Query(articleSchema).equalTo('title', 'Updated').ast,
+			query: new Query(articleSchema).where((where) =>
+				where.eq('title', 'Updated'),
+			).ast,
 		} satisfies DeleteOneOperationAst<typeof articleSchema>
 
 		driver.respond([['tenant-1', 'Updated', 1, firstId, timestamp, timestamp]])
@@ -1352,12 +1398,16 @@ describe('internal PostgreSQL database adapter', () => {
 			constraints,
 			operation: {
 				kind: 'update-many',
-				query,
+				query: new Query(articleSchema)
+					.where((where) => where.eq('title', 'Old'))
+					.select({ id: true }).ast,
 				update: updateOperation.update,
 			},
 		})
-		driver.respond([], 4)
-		await expect(preparedMany.execute()).resolves.toMatchObject({ result: 4 })
+		driver.respond([[firstId]])
+		await expect(preparedMany.execute()).resolves.toMatchObject({
+			result: [{ id: firstId }],
+		})
 		const manyCall = driver.calls.at(-1)
 
 		expect(manyCall?.text).toMatch(
@@ -1378,7 +1428,8 @@ describe('internal PostgreSQL database adapter', () => {
 		const upsertOperation = {
 			create: upsertCreate,
 			kind: 'upsert-one',
-			query: new Query(articleSchema).equalTo('id', firstId).ast,
+			query: new Query(articleSchema).where((where) => where.eq('id', firstId))
+				.ast,
 			target: {
 				fields: ['id'],
 				kind: 'unique-upsert-target',

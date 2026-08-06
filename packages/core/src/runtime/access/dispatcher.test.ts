@@ -133,7 +133,7 @@ describe('NativeAccessRuntime', () => {
 		})
 		const stages = requireStages(createEnforcementStages(application))
 		const operation = createFind(
-			new Query(articleSchema).equalTo('title', 'Public'),
+			new Query(articleSchema).where((where) => where.eq('title', 'Public')),
 		)
 		const originalQuery = operation.query
 		const enforcement = await stages.evaluate({ context, operation })
@@ -171,7 +171,9 @@ describe('NativeAccessRuntime', () => {
 			stages.evaluate({
 				context,
 				operation: createFind(
-					new Query(articleSchema).equalTo('secret', 'guess'),
+					new Query(articleSchema).where((where) =>
+						where.eq('secret', 'guess'),
+					),
 				),
 			}),
 		).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
@@ -193,6 +195,7 @@ describe('NativeAccessRuntime', () => {
 		const create: CreateOneOperationAst<typeof articleSchema> = {
 			input: { secret: 'private', title: 'Draft' },
 			kind: 'create-one',
+			selection: { fields: [], kind: 'selection' },
 			schema: new Query(articleSchema).ast.schema,
 		}
 		const updateMany: UpdateManyOperationAst<typeof articleSchema> = {

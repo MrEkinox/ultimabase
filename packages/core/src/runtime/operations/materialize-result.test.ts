@@ -33,6 +33,7 @@ describe('Runtime result materialization', () => {
 
 		const create = {
 			kind: 'create-one',
+			selection: { fields: [], kind: 'selection' },
 			schema: new Query(ResultSchema).ast.schema,
 			input: { title: 'Created' },
 		} satisfies CreateOneOperationAst<typeof ResultSchema>
@@ -48,6 +49,7 @@ describe('Runtime result materialization', () => {
 	it('rejects an operation whose schema identity was forged', () => {
 		const operation = {
 			kind: 'create-one',
+			selection: { fields: [], kind: 'selection' },
 			schema: { definition: {}, kind: 'schema' },
 			input: { title: 'Created' },
 		} as unknown as CreateOneOperationAst<typeof ResultSchema>

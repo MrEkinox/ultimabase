@@ -22,14 +22,12 @@ import {
 	resolveCompiledPostgresField,
 } from '../schema/field.js'
 import {
-	executeCreateOne,
 	executeCreateInput,
 	executeCreateMany,
 	executeDeleteMany,
 	executeUpdateMany,
 	lockPostgresSingularMutationTarget,
 	lockPostgresUpsertTarget,
-	readBuiltInQuery,
 	tryCreatePostgresUpsert,
 } from './operation-executor.js'
 import type { PostgresDrizzleClient } from './client.js'
@@ -39,6 +37,7 @@ import { readPostgresRecord } from './record.js'
 import { compilePostgresUpdate } from './update-compiler.js'
 import { executePostgresRelationMutation } from './relation-executor.js'
 import type { PostgresRelationPredicateCompiler } from '../query/filter-compiler.js'
+import { projectPostgresRecord } from './result-projection.js'
 
 type RuntimeMutationOperation = Extract<
 	ExecutableOperationAst,
@@ -48,11 +47,6 @@ type RuntimeLockedOperation = Extract<
 	RuntimeMutationOperation,
 	{ readonly kind: 'delete-one' | 'update-one' }
 >
-type RuntimeProjectedMutation = Extract<
-	RuntimeMutationOperation,
-	{ readonly kind: 'delete-one' | 'update-one' | 'upsert-one' }
->
-
 interface RuntimeUpsertItem {
 	readonly create: Readonly<Record<string, unknown>>
 	readonly query: QueryAst
@@ -134,32 +128,6 @@ const runPreparedMutationStep = async <TResult>(
 	} catch (error: unknown) {
 		throw mapPostgresOperationError(error, kind)
 	}
-}
-
-/** Keeps full private records separate from the public Query projection. */
-const projectPostgresRecord = (
-	record: DatabaseLogicalRecord,
-	operation: RuntimeProjectedMutation,
-): DatabaseLogicalRecord => {
-	const query = readBuiltInQuery(operation.query)
-
-	if (query.selection.fields.length === 0) {
-		return record
-	}
-
-	const projection: Record<string, unknown> = {}
-
-	for (const { field } of query.selection.fields) {
-		if (!Object.hasOwn(record, field)) {
-			throw new TypeError(
-				`PostgreSQL prepared mutation result is missing selected field: ${field}`,
-			)
-		}
-
-		projection[field] = record[field]
-	}
-
-	return immutableRecord(projection)
 }
 
 const readPreparedRecordId = (
@@ -410,12 +378,13 @@ const prepareCreateOne = (
 		execute: async (resolvedOperation) => {
 			const current = await runPreparedMutationStep(
 				resolvedOperation.kind,
-				() => executeCreateOne(client, schema, resolvedOperation),
+				() => executeCreateInput(client, schema, resolvedOperation.input),
 			)
 
-			return createPostgresMutationOutcome(current, [
-				immutableRecord({ current, kind: 'create' as const }),
-			])
+			return createPostgresMutationOutcome(
+				projectPostgresRecord(current, resolvedOperation),
+				[immutableRecord({ current, kind: 'create' as const })],
+			)
 		},
 	})
 

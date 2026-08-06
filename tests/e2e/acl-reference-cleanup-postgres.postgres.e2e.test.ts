@@ -239,7 +239,7 @@ const readACL = async (
 	ultimabase: ACLReferenceApplication,
 ): Promise<ACL> => {
 	const row = await new Query(schema)
-		.byId(id)
+		.where({ id: { eq: id } })
 		.select({ acl: true })
 		.first({ ultimabase, useMasterKey: true })
 	const value: unknown = row === null ? undefined : Reflect.get(row, 'acl')
@@ -280,18 +280,25 @@ describe(
 			)
 			const failRow = await ProtectedPrimary.create(
 				{
-					acl: new ACL().grantPrincipal(FailPrincipal.pointer(fail.id), 'read'),
-					title: 'principal-fail',
+					data: {
+						acl: new ACL().grantPrincipal(
+							FailPrincipal.pointer(fail.id),
+							'read',
+						),
+						title: 'principal-fail',
+					},
 				},
 				{ ultimabase, useMasterKey: true },
 			)
 			const preserveRow = await ProtectedPrimary.create(
 				{
-					acl: new ACL().grantPrincipal(
-						PreservePrincipal.pointer(preserve.id),
-						'read',
-					),
-					title: 'principal-preserve',
+					data: {
+						acl: new ACL().grantPrincipal(
+							PreservePrincipal.pointer(preserve.id),
+							'read',
+						),
+						title: 'principal-preserve',
+					},
 				},
 				{ ultimabase, useMasterKey: true },
 			)
@@ -328,11 +335,11 @@ describe(
 				.grantPrincipal(CascadePrincipal.pointer(cascade.id), 'read', 'update')
 				.grantPrincipal(unrelated, 'delete')
 			const primary = await ProtectedPrimary.create(
-				{ acl: value, title: 'principal-cascade-primary' },
+				{ data: { acl: value, title: 'principal-cascade-primary' } },
 				{ ultimabase, useMasterKey: true },
 			)
 			const secondary = await ProtectedSecondary.create(
-				{ acl: value, title: 'principal-cascade-secondary' },
+				{ data: { acl: value, title: 'principal-cascade-secondary' } },
 				{ ultimabase, useMasterKey: true },
 			)
 
@@ -346,7 +353,9 @@ describe(
 			).rejects.toThrow('ACL reference cleanup rollback fixture')
 			expect(committedACLChanges).toHaveLength(changeStart)
 			await expect(
-				CascadePrincipal.query().byId(cascade.id).exists({ ultimabase }),
+				CascadePrincipal.query()
+					.where({ id: { eq: cascade.id } })
+					.exists({ ultimabase }),
 			).resolves.toBe(true)
 			expect(
 				(
@@ -459,25 +468,31 @@ describe(
 			const cascadeReference = CascadeRole.role({ id: cascade.id })
 			const failRow = await ProtectedPrimary.create(
 				{
-					acl: new ACL().grantRole(failReference, 'read'),
-					title: 'role-fail',
+					data: {
+						acl: new ACL().grantRole(failReference, 'read'),
+						title: 'role-fail',
+					},
 				},
 				{ ultimabase, useMasterKey: true },
 			)
 			const preserveRow = await ProtectedPrimary.create(
 				{
-					acl: new ACL().grantRole(preserveReference, 'read'),
-					title: 'role-preserve',
+					data: {
+						acl: new ACL().grantRole(preserveReference, 'read'),
+						title: 'role-preserve',
+					},
 				},
 				{ ultimabase, useMasterKey: true },
 			)
 			const cascadeRow = await ProtectedPrimary.create(
 				{
-					acl: new ACL()
-						.grantPublic('read')
-						.grantRole(cascadeReference, 'read', 'delete')
-						.grantRole(failReference, 'update'),
-					title: 'role-cascade',
+					data: {
+						acl: new ACL()
+							.grantPublic('read')
+							.grantRole(cascadeReference, 'read', 'delete')
+							.grantRole(failReference, 'update'),
+						title: 'role-cascade',
+					},
 				},
 				{ ultimabase, useMasterKey: true },
 			)
@@ -548,15 +563,19 @@ describe(
 				const pointer = CascadePrincipal.pointer(principal.id)
 				const firstRow = await ProtectedPrimary.create(
 					{
-						acl: new ACL().grantPrincipal(pointer, 'read'),
-						title: 'first-application',
+						data: {
+							acl: new ACL().grantPrincipal(pointer, 'read'),
+							title: 'first-application',
+						},
 					},
 					{ ultimabase: first, useMasterKey: true },
 				)
 				const secondRow = await ProtectedPrimary.create(
 					{
-						acl: new ACL().grantPrincipal(pointer, 'read'),
-						title: 'second-application',
+						data: {
+							acl: new ACL().grantPrincipal(pointer, 'read'),
+							title: 'second-application',
+						},
 					},
 					{ ultimabase: second, useMasterKey: true },
 				)

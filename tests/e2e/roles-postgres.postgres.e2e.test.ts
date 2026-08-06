@@ -106,7 +106,7 @@ const createExternalReference = async (
 	reference: RoleReference,
 ): Promise<void> => {
 	await ExternalRoleReference.create(
-		{ subject: reference.value },
+		{ data: { subject: reference.value } },
 		{ ultimabase: getApplication() },
 	)
 }
@@ -197,7 +197,7 @@ describe('stored roles with PostgreSQL', { concurrent: false }, () => {
 		expect(currentEditor.priority).toBe(10)
 
 		const selected = await new Query(AppRole)
-			.greaterThanOrEqualTo('priority', 10)
+			.where((where) => where.gte('priority', 10))
 			.ascending('priority')
 			.select({ id: true, name: true, priority: true })
 			.find({ ultimabase: app, useMasterKey: true })
@@ -295,7 +295,7 @@ describe('stored roles with PostgreSQL', { concurrent: false }, () => {
 		roleQueryTrace.length = 0
 		const updated = await ProtectedPost.updateOne(
 			{
-				where: (where) => where.byId(publishedPostId),
+				where: (where) => where.eq('id', publishedPostId),
 				data: { title: 'Updated through inherited roles' },
 			},
 			{ context: aliceContext, ultimabase: app },
@@ -307,7 +307,7 @@ describe('stored roles with PostgreSQL', { concurrent: false }, () => {
 		await expect(
 			ProtectedPost.updateOne(
 				{
-					where: (where) => where.byId(publishedPostId),
+					where: (where) => where.eq('id', publishedPostId),
 					data: { title: 'Bob must not update' },
 				},
 				{ context: bobContext, ultimabase: app },
@@ -320,19 +320,21 @@ describe('stored roles with PostgreSQL', { concurrent: false }, () => {
 		expect(visible).toHaveLength(1)
 		expect(visible[0]?.id).toBe(publishedPostId)
 		await expect(
-			ProtectedPost.query().byId(privatePostId).exists({
-				context: aliceContext,
-				ultimabase: app,
-			}),
+			ProtectedPost.query()
+				.where({ id: { eq: privatePostId } })
+				.exists({
+					context: aliceContext,
+					ultimabase: app,
+				}),
 		).resolves.toBe(false)
 
 		const deletable = await ProtectedPost.create(
-			{ published: true, title: 'Role-protected deletion' },
+			{ data: { published: true, title: 'Role-protected deletion' } },
 			{ ultimabase: app, useMasterKey: true },
 		)
 		await expect(
 			ProtectedPost.deleteOne(
-				{ where: (where) => where.byId(deletable.id) },
+				{ where: (where) => where.eq('id', deletable.id) },
 				{ context: aliceContext, ultimabase: app },
 			),
 		).resolves.toMatchObject({ id: deletable.id })
@@ -340,7 +342,7 @@ describe('stored roles with PostgreSQL', { concurrent: false }, () => {
 		roleQueryTrace.length = 0
 		await ProtectedPost.updateOne(
 			{
-				where: (where) => where.byId(publishedPostId),
+				where: (where) => where.eq('id', publishedPostId),
 				data: {
 					title: 'A second terminal gets a fresh role snapshot',
 				},
@@ -420,12 +422,12 @@ describe('stored roles with PostgreSQL', { concurrent: false }, () => {
 		await createExternalReference(failReference)
 		await expect(
 			FailRole.deleteOne(
-				{ where: (where) => where.byId(failRole.id) },
+				{ where: (where) => where.eq('id', failRole.id) },
 				{ ultimabase: app, useMasterKey: true },
 			),
 		).rejects.toMatchObject({ code: 'ROLE_DELETE_REFERENCED' })
 		await ExternalRoleReference.deleteMany(
-			{ where: (where) => where.equalTo('subject', failReference.value) },
+			{ where: (where) => where.eq('subject', failReference.value) },
 			{ ultimabase: app },
 		)
 		await expect(
@@ -442,13 +444,13 @@ describe('stored roles with PostgreSQL', { concurrent: false }, () => {
 		await createExternalReference(preserveReference)
 		await expect(
 			PreserveRole.deleteOne(
-				{ where: (where) => where.byId(preserveRole.id) },
+				{ where: (where) => where.eq('id', preserveRole.id) },
 				{ ultimabase: app },
 			),
 		).resolves.toMatchObject({ id: preserveRole.id })
 		await expect(
 			ExternalRoleReference.query()
-				.equalTo('subject', preserveReference.value)
+				.where((where) => where.eq('subject', preserveReference.value))
 				.exists({ ultimabase: app }),
 		).resolves.toBe(true)
 
@@ -485,7 +487,7 @@ describe('stored roles with PostgreSQL', { concurrent: false }, () => {
 		).resolves.toBe(0)
 		await expect(
 			ExternalRoleReference.query()
-				.equalTo('subject', cascadeReference.value)
+				.where((where) => where.eq('subject', cascadeReference.value))
 				.exists({ ultimabase: app }),
 		).resolves.toBe(false)
 
@@ -502,11 +504,13 @@ describe('stored roles with PostgreSQL', { concurrent: false }, () => {
 			rollbackRole.delete({ ultimabase: app, useMasterKey: true }),
 		).rejects.toThrow('external role cleanup rollback fixture')
 		await expect(
-			CascadeRole.query().byId(rollbackRole.id).exists({ ultimabase: app }),
+			CascadeRole.query()
+				.where({ id: { eq: rollbackRole.id } })
+				.exists({ ultimabase: app }),
 		).resolves.toBe(true)
 		await expect(
 			ExternalRoleReference.query()
-				.equalTo('subject', rollbackReference.value)
+				.where((where) => where.eq('subject', rollbackReference.value))
 				.exists({ ultimabase: app }),
 		).resolves.toBe(true)
 		await expect(
@@ -521,7 +525,7 @@ describe('stored roles with PostgreSQL', { concurrent: false }, () => {
 	it('keeps the neutral provider boundary fail-closed and community-extensible', async () => {
 		const app = getApplication()
 		const row = await MissingProviderPost.create(
-			{ title: 'Provider boundary' },
+			{ data: { title: 'Provider boundary' } },
 			{ ultimabase: app },
 		)
 		const missing = createProviderBoundaryApplication(
@@ -535,7 +539,7 @@ describe('stored roles with PostgreSQL', { concurrent: false }, () => {
 			await expect(
 				MissingProviderPost.updateOne(
 					{
-						where: (where) => where.byId(row.id),
+						where: (where) => where.eq('id', row.id),
 						data: { title: 'Must fail before hooks' },
 					},
 					{ ultimabase: missing },
@@ -557,7 +561,7 @@ describe('stored roles with PostgreSQL', { concurrent: false }, () => {
 			await expect(
 				MissingProviderPost.updateOne(
 					{
-						where: (where) => where.byId(row.id),
+						where: (where) => where.eq('id', row.id),
 						data: { title: 'Community provider allowed' },
 					},
 					{ ultimabase: community },

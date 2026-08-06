@@ -388,18 +388,28 @@ const restrictQuerySelection = (
 	query: QueryAst,
 	permittedFields: readonly string[],
 ): QueryAst => {
-	const requestedFields = query.selection.fields.map(({ field }) => field)
+	const selection = restrictSelection(query.selection, permittedFields)
+
+	return immutableRecord({
+		...query,
+		selection,
+	})
+}
+
+/** Intersects one normalized selection without coupling it to a Query container. */
+const restrictSelection = (
+	selection: QueryAst['selection'],
+	permittedFields: readonly string[],
+): QueryAst['selection'] => {
+	const requestedFields = selection.fields.map(({ field }) => field)
 	const selectedFields =
 		requestedFields.length === 0
 			? permittedFields
 			: requestedFields.filter((field) => permittedFields.includes(field))
 
 	return immutableRecord({
-		...query,
-		selection: immutableRecord({
-			fields: immutableArray(selectedFields.map(createSelectedField)),
-			kind: 'selection',
-		}),
+		fields: immutableArray(selectedFields.map(createSelectedField)),
+		kind: 'selection',
 	})
 }
 
@@ -420,6 +430,13 @@ const restrictOperationSelection = <
 		return immutableRecord({
 			...operation,
 			query: restrictQuerySelection(executable.query, permittedFields),
+		})
+	}
+
+	if (executable.kind === 'create-one') {
+		return immutableRecord({
+			...operation,
+			selection: restrictSelection(executable.selection, permittedFields),
 		})
 	}
 

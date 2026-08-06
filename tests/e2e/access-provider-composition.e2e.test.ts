@@ -163,7 +163,7 @@ const CombinedPost = Schema.define({
 	},
 	hooks: {
 		beforeRead: ({ query }) =>
-			query.equalTo('businessScope', 'business-allowed'),
+			query.where((where) => where.eq('businessScope', 'business-allowed')),
 	},
 	// A callback defers role discovery so this fixture can prove runtime composition.
 	extensions: [acl({ default: () => roleACL })],
@@ -240,7 +240,7 @@ const runCombinedComposition = async (
 	try {
 		await ultimabase.start()
 		const result = await CombinedPost.query()
-			.equalTo('title', 'developer-visible')
+			.where((where) => where.eq('title', 'developer-visible'))
 			.find({ ultimabase })
 		const request = adapter.requests[0]
 		const operation = request?.operation
@@ -401,7 +401,7 @@ describe('Access provider composition', () => {
 			roleAwareBusinessHooks = 0
 			await expect(
 				MissingRolePost.create(
-					{ title: 'missing provider' },
+					{ data: { title: 'missing provider' } },
 					{ ultimabase: writeApplication },
 				),
 			).rejects.toThrow(

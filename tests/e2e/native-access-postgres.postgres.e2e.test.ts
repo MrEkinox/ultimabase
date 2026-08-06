@@ -60,9 +60,9 @@ const AccessArticle = Schema.define({
 		}),
 	},
 	hooks: {
-		beforeRead: ({ query }) => query.greaterThanOrEqualTo('rank', 0),
+		beforeRead: ({ query }) => query.where((where) => where.gte('rank', 0)),
 		beforeUpdate: async ({ operation }) => {
-			await AccessAudit.create({ action: `update:${operation.kind}` })
+			await AccessAudit.create({ data: { action: `update:${operation.kind}` } })
 
 			return operation
 		},
@@ -200,7 +200,7 @@ describe('native Access with PostgreSQL', () => {
 	it('composes native, plugin, developer, and beforeRead predicates in SQL', async () => {
 		const app = getUltimaBase()
 		const rows = await AccessArticle.query()
-			.greaterThan('rank', 0)
+			.where((where) => where.gt('rank', 0))
 			.ascending('rank')
 			.find({ ultimabase: app })
 
@@ -212,20 +212,26 @@ describe('native Access with PostgreSQL', () => {
 			AccessArticle.query().exists({ ultimabase: app }),
 		).resolves.toBe(true)
 		await expect(
-			AccessArticle.query().byId(privateId).first({ ultimabase: app }),
+			AccessArticle.query()
+				.where({ id: { eq: privateId } })
+				.first({ ultimabase: app }),
 		).resolves.toBeNull()
 		await expect(
-			AccessArticle.query().byId(privateId).exists({ ultimabase: app }),
+			AccessArticle.query()
+				.where({ id: { eq: privateId } })
+				.exists({ ultimabase: app }),
 		).resolves.toBe(false)
 		await expect(
-			AccessArticle.query().byId(publicId).get(publicId, { ultimabase: app }),
+			AccessArticle.query()
+				.where({ id: { eq: publicId } })
+				.get(publicId, { ultimabase: app }),
 		).resolves.toMatchObject({ title: 'public' })
 	})
 
 	it('omits forbidden output and rejects every indirect field disclosure path', async () => {
 		const app = getUltimaBase()
 		const article = await AccessArticle.query()
-			.byId(publicId)
+			.where({ id: { eq: publicId } })
 			.first({ ultimabase: app })
 
 		expect(article).not.toBeNull()
@@ -235,7 +241,7 @@ describe('native Access with PostgreSQL', () => {
 		).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
 		await expect(
 			AccessArticle.query()
-				.equalTo('secret', 'public-secret')
+				.where((where) => where.eq('secret', 'public-secret'))
 				.find({ ultimabase: app }),
 		).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
 		await expect(
@@ -244,7 +250,7 @@ describe('native Access with PostgreSQL', () => {
 		await expect(
 			AccessArticle.updateOne(
 				{
-					where: (where) => where.equalTo('id', publicId),
+					where: (where) => where.eq('id', publicId),
 					data: { secret: 'changed' },
 				},
 				{ ultimabase: app },
@@ -257,15 +263,23 @@ describe('native Access with PostgreSQL', () => {
 
 		await expect(
 			AccessArticle.create(
-				{ published: true, secret: 'anonymous-secret', title: 'anonymous' },
+				{
+					data: {
+						published: true,
+						secret: 'anonymous-secret',
+						title: 'anonymous',
+					},
+				},
 				{ ultimabase: app },
 			),
 		).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
 		const masterCreated = await AccessArticle.create(
 			{
-				published: true,
-				secret: 'master-secret',
-				title: 'master-created',
+				data: {
+					published: true,
+					secret: 'master-secret',
+					title: 'master-created',
+				},
 			},
 			{ ultimabase: app, useMasterKey: true },
 		)
@@ -273,7 +287,7 @@ describe('native Access with PostgreSQL', () => {
 		expect(masterCreated).not.toHaveProperty('secret')
 		await expect(
 			AccessArticle.query()
-				.equalTo('title', 'plugin-hidden')
+				.where((where) => where.eq('title', 'plugin-hidden'))
 				.exists({ ultimabase: app, useMasterKey: true }),
 		).resolves.toBe(false)
 	})
@@ -282,12 +296,12 @@ describe('native Access with PostgreSQL', () => {
 		const app = getUltimaBase()
 		await expect(
 			AccessArticle.deleteOne(
-				{ where: (where) => where.equalTo('id', privateId) },
+				{ where: (where) => where.eq('id', privateId) },
 				{ ultimabase: app },
 			),
 		).resolves.toBeNull()
 		const publicModel = await AccessArticle.query()
-			.byId(publicId)
+			.where({ id: { eq: publicId } })
 			.first({ ultimabase: app })
 
 		if (publicModel === null) {
@@ -302,7 +316,7 @@ describe('native Access with PostgreSQL', () => {
 		await expect(
 			AccessArticle.updateOne(
 				{
-					where: (where) => where.equalTo('id', lockedId),
+					where: (where) => where.eq('id', lockedId),
 					data: { title: 'must-rollback' },
 				},
 				{ ultimabase: app },
@@ -312,7 +326,9 @@ describe('native Access with PostgreSQL', () => {
 			auditCount,
 		)
 		await expect(
-			AccessArticle.query().byId(lockedId).first({ ultimabase: app }),
+			AccessArticle.query()
+				.where({ id: { eq: lockedId } })
+				.first({ ultimabase: app }),
 		).resolves.toMatchObject({ title: 'locked' })
 	})
 
@@ -324,11 +340,11 @@ describe('native Access with PostgreSQL', () => {
 				{ where: 'all', data: { value: increment(10) } },
 				{ ultimabase: app },
 			),
-		).resolves.toBe(2)
+		).resolves.toHaveLength(2)
 		await expect(
 			BulkDocument.upsert(
 				{
-					where: (where) => where.equalTo('key', 'visible-a'),
+					where: (where) => where.eq('key', 'visible-a'),
 					create: { key: 'visible-a', value: 0, visible: true },
 					update: { value: increment(1) },
 				},
@@ -340,13 +356,13 @@ describe('native Access with PostgreSQL', () => {
 		)
 		await expect(
 			BulkDocument.deleteMany({ where: 'all' }, { ultimabase: app }),
-		).resolves.toBe(2)
+		).resolves.toHaveLength(2)
 		await expect(BulkDocument.query().count({ ultimabase: app })).resolves.toBe(
 			0,
 		)
 		await expect(
 			BulkDocument.query()
-				.equalTo('key', 'private-a')
+				.where((where) => where.eq('key', 'private-a'))
 				.exists({ ultimabase: app }),
 		).resolves.toBe(false)
 	})

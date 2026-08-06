@@ -100,6 +100,13 @@ export type {
 	QueryStructuralContainmentFilterNode,
 	QueryStructuralContainmentFilterOperator,
 } from './filters/primitive.js'
+export { normalizeWhereInput, WhereBuilder } from './filters/where.js'
+export type {
+	WhereCallback,
+	WhereInput,
+	WhereLogicalKey,
+	WhereSource,
+} from './filters/where.js'
 export {
 	collectQueryRelationPredicates,
 	isQueryRelationPredicateNode,
@@ -162,6 +169,7 @@ export type {
 	UpsertTargetQuery,
 } from './operations/upsert.js'
 export type {
+	SchemaCreateOneInput,
 	SchemaDeleteManyInput,
 	SchemaDeleteOneInput,
 	SchemaManyWhere,

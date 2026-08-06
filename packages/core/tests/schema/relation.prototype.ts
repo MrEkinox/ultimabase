@@ -24,11 +24,11 @@ const /* hover:relation-query */ tagQuery = tags
 		.select({ id: true, label: true })
 const connectTag = () =>
 	tags./* hover:relation-connect */ connect(PackedRelationTag.pointer('tag-id'))
-const relatedArticleQuery =
-	PackedRelationArticle.query()./* hover:relation-predicate */ some(
-		'tags',
-		(tag) => tag.equalTo('label', 'typed'),
-	)
+const relatedArticleQuery = PackedRelationArticle.query().where((where) =>
+	where./* hover:relation-predicate */ some('tags', (tag) =>
+		tag.eq('label', 'typed'),
+	),
+)
 
 void tagQuery
 void connectTag

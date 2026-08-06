@@ -50,7 +50,9 @@ const describeOperation = (operation: FixtureOperation): string => {
 
 describe('OperationAst', () => {
 	it('supports exhaustive matching across every singular and bulk terminal', () => {
-		const query = new Query(articleSchema).equalTo('views', 10).ast
+		const query = new Query(articleSchema).where((where) =>
+			where.eq('views', 10),
+		).ast
 		const schema = query.schema
 		const update: FixtureUpdateExpression = { kind: 'fixture-update' }
 		const create = { title: 'UltimaBase' }
@@ -65,7 +67,12 @@ describe('OperationAst', () => {
 			{ kind: 'get', query, id: '0194f292-0dd9-7c2d-a0a3-a2f755a3d90a' },
 			{ kind: 'count', query },
 			{ kind: 'exists', query },
-			{ kind: 'create-one', schema, input: create },
+			{
+				kind: 'create-one',
+				selection: { fields: [], kind: 'selection' },
+				schema,
+				input: create,
+			},
 			{
 				kind: 'create-many',
 				schema,

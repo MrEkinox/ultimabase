@@ -81,10 +81,9 @@ Source Queries can filter without materializing related collections:
 
 ```ts
 const authorsWithTypedPosts = await UserSchema.query()
-	.some('posts', (post) => post.contains('title', 'TypeScript'))
+	.where({ posts: { some: { title: { contains: 'TypeScript' } } } })
 	.find()
 ```
 
-The callback receives only the exact target filter surface. Nested `some`,
-`none`, and `every` predicates remain portable Core Query AST and preserve
-private target Access constraints.
+Nested `some`, `none`, and `every` inputs retain the exact target schema. They
+remain portable Core Query AST and preserve private target Access constraints.

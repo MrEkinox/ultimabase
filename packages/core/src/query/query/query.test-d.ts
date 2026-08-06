@@ -54,9 +54,9 @@ const includedPostSchema = Schema.define({
 
 test('preserves schema, AST, and chain result types', () => {
 	const query = new Query(postSchema)
-		.equalTo('published', true)
-		.byId('0194f292-0dd9-7c2d-a0a3-a2f755a3d90a')
-		.greaterThan('views', 10)
+		.where((where) => where.eq('published', true))
+		.where({ id: { eq: '0194f292-0dd9-7c2d-a0a3-a2f755a3d90a' } })
+		.where((where) => where.gt('views', 10))
 		.select({ title: true, id: true })
 		.descending('createdAt')
 		.limit(25)
@@ -143,83 +143,99 @@ test('infers literal inclusion and exclusion projections exactly', () => {
 test('correlates every filter field with its exact operand type', () => {
 	const query = new Query(postSchema)
 
-	query.equalTo('published', true)
-	query.equalTo('score', null)
-	query.notEqualTo('status', 'draft')
-	query.greaterThan('views', 10)
-	query.greaterThanOrEqualTo('views', 10)
-	query.lessThan('views', 100)
-	query.lessThanOrEqualTo('views', 100)
-	query.between('views', 10, 100)
-	query.notBetween('views', 10, 100)
-	query.containedIn('status', ['draft', 'published'])
-	query.notContainedIn('status', ['draft'])
-	query.contains('title', 'Base')
-	query.contains('metadata', { label: 'typed' })
-	query.containedBy('metadata', { label: 'typed' })
-	query.hasKey('metadata', 'label')
-	query.hasAnyKeys('payload', ['theme', 'locale'])
-	query.hasAllKeys('payload', ['theme', 'locale'])
-	query.jsonPathExists('payload', {
-		source: '$.items[*] ? (@.price > $minimum)',
-		variables: { minimum: 10 },
-	})
-	query.jsonPathMatches('metadata', {
-		source: 'exists($.label ? (@ == $expected))',
-		variables: { expected: 'typed' },
-	})
-	query.jsonPathExists(fieldPath('payload', ['nested']), {
-		source: '$.items[*]',
-	})
-	query.equalTo(fieldPath('metadata', ['label']), 'typed')
-	query.contains(fieldPath('metadata', ['label']), 'type')
-	query.equalTo(fieldPath('payload', ['nested', 'count']), 42)
-	query.contains(fieldPath('payload', ['nested']), { enabled: true })
-	query.startsWith('title', 'Ultima')
-	query.endsWith('title', 'Base')
-	query.matches('title', { source: '^Ultima', flags: ['case-insensitive'] })
-	query.isNotNull('metadata')
-	query.isNull('aliases')
+	query.where((where) => where.eq('published', true))
+	query.where((where) => where.eq('score', null))
+	query.where((where) => where.ne('status', 'draft'))
+	query.where((where) => where.gt('views', 10))
+	query.where((where) => where.gte('views', 10))
+	query.where((where) => where.lt('views', 100))
+	query.where((where) => where.lte('views', 100))
+	query.where((where) => where.between('views', 10, 100))
+	query.where((where) => where.notBetween('views', 10, 100))
+	query.where((where) => where.in('status', ['draft', 'published']))
+	query.where((where) => where.notIn('status', ['draft']))
+	query.where((where) => where.contains('title', 'Base'))
+	query.where((where) => where.contains('metadata', { label: 'typed' }))
+	query.where((where) => where.containedBy('metadata', { label: 'typed' }))
+	query.where((where) => where.hasKey('metadata', 'label'))
+	query.where((where) => where.hasAnyKeys('payload', ['theme', 'locale']))
+	query.where((where) => where.hasAllKeys('payload', ['theme', 'locale']))
+	query.where((where) =>
+		where.jsonPathExists('payload', {
+			source: '$.items[*] ? (@.price > $minimum)',
+			variables: { minimum: 10 },
+		}),
+	)
+	query.where((where) =>
+		where.jsonPathMatches('metadata', {
+			source: 'exists($.label ? (@ == $expected))',
+			variables: { expected: 'typed' },
+		}),
+	)
+	query.where((where) =>
+		where.jsonPathExists(fieldPath('payload', ['nested']), {
+			source: '$.items[*]',
+		}),
+	)
+	query.where((where) => where.eq(fieldPath('metadata', ['label']), 'typed'))
+	query.where((where) =>
+		where.contains(fieldPath('metadata', ['label']), 'type'),
+	)
+	query.where((where) =>
+		where.eq(fieldPath('payload', ['nested', 'count']), 42),
+	)
+	query.where((where) =>
+		where.contains(fieldPath('payload', ['nested']), { enabled: true }),
+	)
+	query.where((where) => where.startsWith('title', 'Ultima'))
+	query.where((where) => where.endsWith('title', 'Base'))
+	query.where((where) =>
+		where.matches('title', { source: '^Ultima', flags: ['case-insensitive'] }),
+	)
+	query.where((where) => where.isNotNull('metadata'))
+	query.where((where) => where.isNull('aliases'))
 
 	// @ts-expect-error -- Boolean operands remain booleans.
-	query.equalTo('published', 'true')
+	query.where((where) => where.eq('published', 'true'))
 	// @ts-expect-error -- Enum operands remain their exact literal union.
-	query.equalTo('status', 'archived')
+	query.where((where) => where.eq('status', 'archived'))
 	// @ts-expect-error -- Ordered comparisons reject boolean fields.
-	query.greaterThan('published', true)
+	query.where((where) => where.gt('published', true))
 	// @ts-expect-error -- Ordered comparisons reject nullable null operands.
-	query.greaterThan('score', null)
+	query.where((where) => where.gt('score', null))
 	// @ts-expect-error -- Range bounds reject nullable null operands.
-	query.between('score', null, 100)
+	query.where((where) => where.between('score', null, 100))
 	// @ts-expect-error -- Range filters reject unordered fields.
-	query.notBetween('published', false, true)
+	query.where((where) => where.notBetween('published', false, true))
 	// @ts-expect-error -- Membership values stay correlated with the enum.
-	query.containedIn('status', ['archived'])
+	query.where((where) => where.in('status', ['archived']))
 	// @ts-expect-error -- String operators reject numeric fields.
-	query.contains('views', '10')
+	query.where((where) => where.contains('views', '10'))
 	// @ts-expect-error -- Typed object containment rejects unknown child fields.
-	query.contains('metadata', { unknown: true })
+	query.where((where) => where.contains('metadata', { unknown: true }))
 	// @ts-expect-error -- Typed object paths reject unknown child fields.
-	query.equalTo(fieldPath('metadata', ['unknown']), 'typed')
+	query.where((where) => where.eq(fieldPath('metadata', ['unknown']), 'typed'))
 	// @ts-expect-error -- Typed object path operands preserve child value types.
-	query.equalTo(fieldPath('metadata', ['label']), 42)
+	query.where((where) => where.eq(fieldPath('metadata', ['label']), 42))
 	// @ts-expect-error -- Key operators reject ordinary scalar fields.
-	query.hasKey('title', 'length')
+	query.where((where) => where.hasKey('title', 'length'))
 	// @ts-expect-error -- Typed object key operators suggest only declared fields.
-	query.hasKey('metadata', 'unknown')
+	query.where((where) => where.hasKey('metadata', 'unknown'))
 	// @ts-expect-error -- JSONPath targets must be JSON or object structures.
-	query.jsonPathExists('title', { source: '$' })
-	query.jsonPathExists('payload', {
-		source: '$.items[*]',
-		// @ts-expect-error -- JSONPath variables remain portable JSON values.
-		variables: { minimum: 10n },
-	})
+	query.where((where) => where.jsonPathExists('title', { source: '$' }))
+	query.where((where) =>
+		where.jsonPathExists('payload', {
+			source: '$.items[*]',
+			// @ts-expect-error -- JSONPath variables remain portable JSON values.
+			variables: { minimum: 10n },
+		}),
+	)
 	// @ts-expect-error -- Regex filters reject non-string fields.
-	query.matches('views', { source: '10', flags: [] })
+	query.where((where) => where.matches('views', { source: '10', flags: [] }))
 	// @ts-expect-error -- Equality does not apply to list fields.
-	query.equalTo('aliases', ['alias'])
+	query.where((where) => where.eq('aliases', ['alias']))
 	// @ts-expect-error -- Range filters do not apply to list fields.
-	query.between('aliases', ['a'], ['z'])
+	query.where((where) => where.between('aliases', ['a'], ['z']))
 })
 
 test('infers pointer predicates, target queries, and included projections', () => {
@@ -229,11 +245,13 @@ test('infers pointer predicates, target queries, and included projections', () =
 	const pointerQuery = author.query().select({ id: true, name: true })
 	const included = new Query(includedPostSchema)
 		.select({ id: true, title: true })
-		.equalTo('author', author)
-		.containedIn('author', [author])
-		.isNotNull('author')
+		.where((where) => where.eq('author', author))
+		.where((where) => where.in('author', [author]))
+		.where((where) => where.isNotNull('author'))
 		.include('author', (query) =>
-			query.select({ id: true, name: true }).equalTo('active', true),
+			query
+				.select({ id: true, name: true })
+				.where((where) => where.eq('active', true)),
 		)
 		.include('reviewer', (query) => query.select({ name: true }))
 	type IncludedResult = NonNullable<Awaited<ReturnType<typeof included.first>>>
@@ -262,10 +280,12 @@ test('infers pointer predicates, target queries, and included projections', () =
 		Pointer<typeof includedUserSchema>
 	>()
 
-	// @ts-expect-error -- Pointer equality preserves exact target identity.
-	new Query(includedPostSchema).equalTo('author', postSchema.pointer('post-1'))
+	new Query(includedPostSchema).where((where) =>
+		// @ts-expect-error -- Pointer equality preserves exact target identity.
+		where.eq('author', postSchema.pointer('post-1')),
+	)
 	// @ts-expect-error -- Pointers do not support ordered comparisons.
-	new Query(includedPostSchema).greaterThan('author', author)
+	new Query(includedPostSchema).where((where) => where.gt('author', author))
 	// @ts-expect-error -- Only pointer fields are includable.
 	new Query(includedPostSchema).include('title', (query) => query)
 	new Query(includedPostSchema).include('author', (query) => {
@@ -277,11 +297,6 @@ test('infers pointer predicates, target queries, and included projections', () =
 
 test('restricts fields, pagination values, and logical schemas', () => {
 	const query = new Query(postSchema)
-	const commentSchema = Schema.define({
-		className: 'Comment',
-		fields: { body: stringField() },
-	})
-
 	query
 		.select({ title: true, createdAt: true })
 		.ascending('title')
@@ -290,9 +305,9 @@ test('restricts fields, pagination values, and logical schemas', () => {
 	query.skip(50)
 	query.after('opaque.cursor')
 	query.after()
-	query.and(new Query(postSchema).equalTo('published', true))
-	query.or(new Query(postSchema).equalTo('published', false))
-	query.not(new Query(postSchema).isNotNull('title'))
+	query.where({ AND: [{ published: { eq: true } }] })
+	query.where({ OR: [{ published: { eq: false } }] })
+	query.where({ NOT: { title: { isNotNull: true } } })
 
 	// @ts-expect-error -- Selection is restricted to schema fields.
 	query.select({ missing: true })
@@ -305,9 +320,9 @@ test('restricts fields, pagination values, and logical schemas', () => {
 	// @ts-expect-error -- Cursors require opaque strings at the input boundary.
 	query.after(42)
 	// @ts-expect-error -- Framework identifiers retain their schema-derived type.
-	query.byId(42)
+	query.where({ id: { eq: 42 } })
 	// @ts-expect-error -- Logical combinations retain the exact schema type.
-	query.and(new Query(commentSchema).equalTo('body', 'Comment'))
+	query.where({ AND: [{ body: { eq: 'Comment' } }] })
 
 	expect(query.ast.kind).toBe('query')
 })

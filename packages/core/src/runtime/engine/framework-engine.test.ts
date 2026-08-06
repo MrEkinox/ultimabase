@@ -187,7 +187,9 @@ describe('FrameworkEngine', () => {
 			requestId: 'query-1',
 			source: requestSources.internal,
 		})
-		const query = articleSchema.query().equalTo('title', 'UltimaBase')
+		const query = articleSchema
+			.query()
+			.where((where) => where.eq('title', 'UltimaBase'))
 		const foreignOperation = {
 			kind: 'find',
 			query: matchingClassSchema.query().ast,
@@ -260,6 +262,7 @@ describe('FrameworkEngine', () => {
 		})
 		const operation = {
 			kind: 'create-one',
+			selection: { fields: [], kind: 'selection' },
 			schema: new Query(articleSchema).ast.schema,
 			input: { title: 'Created' },
 		} satisfies CreateOneOperationAst<typeof articleSchema>
@@ -299,6 +302,7 @@ describe('FrameworkEngine', () => {
 		})
 		const mutation = {
 			kind: 'create-one',
+			selection: { fields: [], kind: 'selection' },
 			schema: new Query(articleSchema).ast.schema,
 			input: { title: 'Must not execute' },
 		} satisfies CreateOneOperationAst<typeof articleSchema>

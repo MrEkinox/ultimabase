@@ -128,6 +128,7 @@ describe('ACL Access contributions', () => {
 			requiredACLPermissions({
 				input: { name: 'created' },
 				kind: 'create-one',
+				selection: { fields: [], kind: 'selection' },
 				schema,
 			}),
 		).toStrictEqual([])

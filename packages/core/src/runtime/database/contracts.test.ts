@@ -169,7 +169,8 @@ describe('database adapter contracts', () => {
 		const adapter = new InMemoryAdapterFake({ find: returnedArticles })
 		const operation = {
 			kind: 'find',
-			query: new Query(articleSchema).equalTo('views', 10).ast,
+			query: new Query(articleSchema).where((where) => where.eq('views', 10))
+				.ast,
 		} satisfies FindOperationAst<typeof articleSchema>
 		const tenantConstraint = immutableRecord({
 			kind: 'fixture.tenant',
@@ -237,6 +238,7 @@ describe('database adapter contracts', () => {
 		const operation = {
 			input: { title: 'Prepared' },
 			kind: 'create-one',
+			selection: { fields: [], kind: 'selection' },
 			schema: new Query(articleSchema).ast.schema,
 		} satisfies CreateOneOperationAst<typeof articleSchema>
 		const prepared = await transaction.prepare({

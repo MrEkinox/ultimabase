@@ -270,7 +270,7 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 			.connect(Tag.pointer(gamma.id), { ultimabase: app })
 		await Tag.updateOne(
 			{
-				where: (where) => where.byId(hidden.id),
+				where: (where) => where.eq('id', hidden.id),
 				data: { visible: false },
 			},
 			{ ultimabase: app },
@@ -278,75 +278,89 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 
 		expect(
 			await Article.query()
-				.some('tags', (tag) => tag.equalTo('label', 'predicate-alpha'))
+				.where((where) =>
+					where.some('tags', (tag) => tag.eq('label', 'predicate-alpha')),
+				)
 				.find({ ultimabase: app }),
 		).toMatchObject([{ id: mixed.id }])
 		expect(
 			await Article.query()
-				.some('tags', (tag) => tag.equalTo('label', 'predicate-hidden'))
+				.where((where) =>
+					where.some('tags', (tag) => tag.eq('label', 'predicate-hidden')),
+				)
 				.count({ ultimabase: app }),
 		).toBe(0)
 		expect(
 			await Article.query()
-				.none('tags', (tag) => tag.equalTo('label', 'predicate-gamma'))
+				.where((where) =>
+					where.none('tags', (tag) => tag.eq('label', 'predicate-gamma')),
+				)
 				.count({ ultimabase: app }),
 		).toBeGreaterThanOrEqual(2)
 		expect(
 			await Article.query()
-				.byId(mixed.id)
-				.every('tags', (tag) => tag.notEqualTo('label', 'predicate-gamma'))
-				.exists({ ultimabase: app }),
-		).toBe(true)
-		expect(
-			await Article.query()
-				.byId(empty.id)
-				.some('tags', (tag) => tag)
-				.exists({ ultimabase: app }),
-		).toBe(false)
-		expect(
-			await Article.query()
-				.byId(empty.id)
-				.none('tags', (tag) => tag)
-				.exists({ ultimabase: app }),
-		).toBe(true)
-		expect(
-			await Article.query()
-				.byId(empty.id)
-				.every('tags', (tag) => tag)
-				.exists({ ultimabase: app }),
-		).toBe(true)
-		expect(
-			await Tag.query()
-				.byId(alpha.id)
-				.some('articles', (article) =>
-					article.equalTo('title', 'Predicate mixed'),
+				.where({ id: { eq: mixed.id } })
+				.where((where) =>
+					where.every('tags', (tag) => tag.ne('label', 'predicate-gamma')),
 				)
 				.exists({ ultimabase: app }),
 		).toBe(true)
 		expect(
 			await Article.query()
-				.byId(mixed.id)
-				.some('tags', (tag) =>
-					tag.some('articles', (article) =>
-						article.equalTo('title', 'Predicate mixed'),
+				.where({ id: { eq: empty.id } })
+				.where((where) => where.some('tags', (tag) => tag))
+				.exists({ ultimabase: app }),
+		).toBe(false)
+		expect(
+			await Article.query()
+				.where({ id: { eq: empty.id } })
+				.where((where) => where.none('tags', (tag) => tag))
+				.exists({ ultimabase: app }),
+		).toBe(true)
+		expect(
+			await Article.query()
+				.where({ id: { eq: empty.id } })
+				.where((where) => where.every('tags', (tag) => tag))
+				.exists({ ultimabase: app }),
+		).toBe(true)
+		expect(
+			await Tag.query()
+				.where({ id: { eq: alpha.id } })
+				.where((where) =>
+					where.some('articles', (article) =>
+						article.eq('title', 'Predicate mixed'),
+					),
+				)
+				.exists({ ultimabase: app }),
+		).toBe(true)
+		expect(
+			await Article.query()
+				.where({ id: { eq: mixed.id } })
+				.where((where) =>
+					where.some('tags', (tag) =>
+						tag.some('articles', (article) =>
+							article.eq('title', 'Predicate mixed'),
+						),
 					),
 				)
 				.exists({ ultimabase: app }),
 		).toBe(true)
 
 		const author = await Author.create(
-			{ name: 'Predicate author' },
+			{ data: { name: 'Predicate author' } },
 			{ ultimabase: app },
 		)
 		await Post.create(
-			{ author: Author.pointer(author.id), title: 'Predicate post' },
+			{ data: { author: Author.pointer(author.id), title: 'Predicate post' } },
 			{ ultimabase: app },
 		)
 
 		expect(
 			await Author.query()
-				.byId(author.id)
-				.some('posts', (post) => post.equalTo('title', 'Predicate post'))
+				.where({ id: { eq: author.id } })
+				.where((where) =>
+					where.some('posts', (post) => post.eq('title', 'Predicate post')),
+				)
 				.exists({ ultimabase: app }),
 		).toBe(true)
 	})
@@ -358,7 +372,7 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 			{ ultimabase: app },
 		)
 		const article = await Article.create(
-			{ title: 'Relations' },
+			{ data: { title: 'Relations' } },
 			{ ultimabase: app },
 		)
 
@@ -379,7 +393,7 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 			(
 				await tags
 					.query()
-					.equalTo('label', 'alpha')
+					.where((where) => where.eq('label', 'alpha'))
 					.ascending('label')
 					.limit(1)
 					.after()
@@ -419,7 +433,7 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 		expect(await tags.query().count({ ultimabase: app })).toBe(0)
 
 		const inverseTag = await Tag.create(
-			{ label: 'inverse' },
+			{ data: { label: 'inverse' } },
 			{ ultimabase: app },
 		)
 		const inverseArticles = inverseTag.relation('articles')
@@ -438,7 +452,7 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 		expect(await tags.query().count({ ultimabase: app })).toBe(0)
 
 		const cleanupTag = await Tag.create(
-			{ label: 'cleanup' },
+			{ data: { label: 'cleanup' } },
 			{ ultimabase: app },
 		)
 		await tags.connect(Tag.pointer(cleanupTag.id), { ultimabase: app })
@@ -458,9 +472,12 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 
 	it('reuses pointer storage for inverse relation reads and mutations', async () => {
 		const app = getUltimaBase()
-		const author = await Author.create({ name: 'Ada' }, { ultimabase: app })
+		const author = await Author.create(
+			{ data: { name: 'Ada' } },
+			{ ultimabase: app },
+		)
 		const post = await Post.create(
-			{ author: Author.pointer(author.id), title: 'Pointers' },
+			{ data: { author: Author.pointer(author.id), title: 'Pointers' } },
 			{ ultimabase: app },
 		)
 		const posts = author.relation('posts')
@@ -482,9 +499,12 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 
 	it('denies relation traversal at the source field before returning targets', async () => {
 		const app = getUltimaBase()
-		const tag = await Tag.create({ label: 'private' }, { ultimabase: app })
+		const tag = await Tag.create(
+			{ data: { label: 'private' } },
+			{ ultimabase: app },
+		)
 		const article = await PrivateArticle.create(
-			{ title: 'Private relation' },
+			{ data: { title: 'Private relation' } },
 			{ ultimabase: app },
 		)
 

@@ -100,7 +100,7 @@ const findRoleByName = async <const TSchema extends SchemaDefinition>(
 ): Promise<SchemaResult<TSchema>> => {
 	const lookupSchema = schema as unknown as RoleLookupSchema
 	const matches = await new Query(lookupSchema)
-		.equalTo('name', name)
+		.where((where) => where.eq('name', name))
 		.limit(2)
 		.find(options)
 

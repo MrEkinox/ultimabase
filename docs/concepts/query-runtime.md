@@ -5,7 +5,7 @@ transaction, adapter, or authority:
 
 ```ts
 const activeUsers = new Query(UserSchema)
-	.equalTo('isActive', true)
+	.where({ isActive: { eq: true } })
 	.descending('createdAt')
 ```
 
@@ -40,14 +40,16 @@ and nested paths:
 ```ts
 import { fieldPath } from '@ultimabase/core'
 
-const publicPosts = Post.query()
-	.contains('metadata', { visibility: 'public' })
-	.hasKey('metadata', 'visibility')
-	.equalTo(fieldPath('profile', ['contact', 'email']), 'ada@example.com')
-	.jsonPathExists('metadata', {
-		source: '$.items[*] ? (@.price > $minimum)',
-		variables: { minimum: 10 },
-	})
+const publicPosts = Post.query().where((where) =>
+	where
+		.contains('metadata', { visibility: 'public' })
+		.hasKey('metadata', 'visibility')
+		.eq(fieldPath('profile', ['contact', 'email']), 'ada@example.com')
+		.jsonPathExists('metadata', {
+			source: '$.items[*] ? (@.price > $minimum)',
+			variables: { minimum: 10 },
+		}),
+)
 ```
 
 The AST stores `field: 'profile'` and `path: ['contact', 'email']` separately.
@@ -56,7 +58,10 @@ matching; a JSON or object target selects structural containment instead.
 JSONPath is the explicit advanced exception: its source is intentionally
 untyped, while its target and immutable variables remain checked portable data.
 
-Bulk creates and upserts are atomic by default. Bulk updates and deletes return counts rather than loading all affected objects.
+Bulk creates and upserts are atomic by default. Bulk updates and deletes remain
+set-based and return identifier-only models by default. An explicit flat
+selection returns the requested post-update or pre-delete fields from that same
+database statement; the result length is the affected-row count.
 
 Every mutation eventually executes inside an automatic adapter transaction.
 Database work started by a native hook through an ordinary `Schema.query()`

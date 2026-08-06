@@ -43,8 +43,8 @@ describe('packed @ultimabase/core relation contracts', () => {
 		expect(connect.documentation).toContain('single transaction')
 		expect(connect.hasExample).toBe(true)
 		expect(predicate.display).toContain('some<"tags">')
-		expect(predicate.display).toContain('RelationPredicate<')
-		expect(predicate.documentation).toContain('related object')
+		expect(predicate.display).toContain('WhereBuilder<')
+		expect(predicate.documentation).toContain('related target')
 		expect(predicate.hasExample).toBe(true)
 		for (const display of [connect.display, predicate.display]) {
 			expect(display.length).toBeLessThan(1_600)

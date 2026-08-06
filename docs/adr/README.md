@@ -135,6 +135,11 @@ Accepted records:
 - [ADR-0140: Flat boolean Query selections](0140-flat-boolean-query-selections.md)
 - [ADR-0141: Explicit read hooks and eager pointer inclusion](0141-explicit-read-hooks-and-eager-pointer-inclusion.md)
 - [ADR-0142: Explicit schema operation hooks](0142-explicit-schema-operation-hooks.md)
+- [ADR-0143: Canonical object-shaped where inputs](0143-canonical-object-where-inputs.md)
+- [ADR-0144: Flat updateOne result selections](0144-flat-update-one-result-selections.md)
+- [ADR-0145: Create command envelope and result selection](0145-create-command-envelope-and-result-selection.md)
+- [ADR-0146: Flat deleteOne result selections](0146-flat-delete-one-result-selections.md)
+- [ADR-0147: Set-based mutation returning selections](0147-set-based-mutation-returning-selections.md)
 
 Superseded records:
 

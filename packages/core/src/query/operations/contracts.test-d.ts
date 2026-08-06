@@ -71,6 +71,7 @@ test('preserves exact operation kinds and schema-derived inputs', () => {
 
 	const createOperation: CreateOneOperationAst<typeof articleSchema> = {
 		kind: 'create-one',
+		selection: { fields: [], kind: 'selection' },
 		schema: new Query(articleSchema).ast.schema,
 		input: { title: 'Typed operation' },
 	}
@@ -79,6 +80,7 @@ test('preserves exact operation kinds and schema-derived inputs', () => {
 
 	const invalidCreate: CreateOneOperationAst<typeof articleSchema> = {
 		kind: 'create-one',
+		selection: { fields: [], kind: 'selection' },
 		schema: new Query(articleSchema).ast.schema,
 		// @ts-expect-error -- Required create fields remain required in Operation AST.
 		input: {},

@@ -58,6 +58,7 @@ const createOperation = (
 ): CreateOneOperationAst<typeof articleSchema> => ({
 	input,
 	kind: 'create-one',
+	selection: { fields: [], kind: 'selection' },
 	schema: new Query(articleSchema).ast.schema,
 })
 
@@ -425,6 +426,38 @@ describe('createEnforcementStages', () => {
 		expect(Object.isFrozen(enforced.operation.query.selection.fields)).toBe(
 			true,
 		)
+		const createOperation: CreateOneOperationAst<
+			typeof articleSchema,
+			'id' | 'secret' | 'title'
+		> = {
+			input: { title: 'Created' },
+			kind: 'create-one',
+			selection: {
+				fields: [
+					{ field: 'id', kind: 'selected-field' },
+					{ field: 'title', kind: 'selected-field' },
+					{ field: 'secret', kind: 'selected-field' },
+				],
+				kind: 'selection',
+			},
+			schema: new Query(articleSchema).ast.schema,
+		}
+		const createEnforcement = await stages.evaluate({
+			context,
+			operation: createOperation,
+		})
+		const enforcedCreate = await stages.enforceOperation({
+			context,
+			enforcement: createEnforcement,
+			operation: createOperation,
+		})
+
+		expect(enforcedCreate.operation.selection.fields).toStrictEqual([
+			{ field: 'title', kind: 'selected-field' },
+		])
+		expect(Object.isFrozen(enforcedCreate.operation.selection.fields)).toBe(
+			true,
+		)
 
 		await application.dispose()
 	})
@@ -640,7 +673,12 @@ describe('createEnforcementStages', () => {
 		} as const
 		const blockedInput = { secret: 'blocked', title: 'Allowed' }
 		const operations = [
-			{ input: blockedInput, kind: 'create-one', schema },
+			{
+				input: blockedInput,
+				kind: 'create-one',
+				selection: { fields: [], kind: 'selection' },
+				schema,
+			},
 			{
 				inputs: [blockedInput],
 				kind: 'create-many',

@@ -1,32 +1,67 @@
 import type { InferCreateInput, SchemaDefinition } from '../../schema/index.js'
 
-import type { RelationPredicate } from '../filters/relation.js'
+import type {
+	ExactQuerySelection,
+	LiteralQuerySelection,
+	QuerySelection,
+} from '../clauses/selection.js'
+import type {
+	WhereBuilder,
+	WhereCallback,
+	WhereInput,
+} from '../filters/where.js'
 import type { UpdateExpressionInput } from '../updates/contracts.js'
 
 /** Exposes typed immutable filters without selection, ordering, or execution methods. */
 export type SchemaWhere<TSchema extends SchemaDefinition> =
-	RelationPredicate<TSchema>
+	WhereBuilder<TSchema>
 
 /**
  * Builds one schema-aware mutation predicate.
  *
- * @example `(where) => where.byId(postId)`
- * @example `(where) => where.equalTo('published', false)`
+ * @example `{ id: { eq: postId } }`
+ * @example `(where) => where.eq('published', false)`
  */
-export type SchemaWhereFactory<TSchema extends SchemaDefinition> = (
-	where: SchemaWhere<TSchema>,
-) => SchemaWhere<TSchema>
+export type SchemaWhereFactory<TSchema extends SchemaDefinition> =
+	WhereCallback<TSchema> | WhereInput<TSchema>
 
 /** Requires an explicit opt-in before a set-based mutation targets every row. */
 export type SchemaManyWhere<TSchema extends SchemaDefinition> =
 	SchemaWhereFactory<TSchema> | 'all'
 
-/** Updates one uniquely identified row through an atomic expression. */
-export interface SchemaUpdateOneInput<TSchema extends SchemaDefinition> {
+interface SchemaCreateOneFields<TSchema extends SchemaDefinition> {
+	/** Supplies the schema-derived values for the new row. */
+	readonly data: InferCreateInput<TSchema>
+}
+
+type SchemaResultSelection<
+	TSchema extends SchemaDefinition,
+	TSelection extends QuerySelection<TSchema> | undefined,
+> = [TSelection] extends [QuerySelection<TSchema>]
+	? Readonly<{
+			/** Projects returned models through the same flat contract as `Query.select`. */
+			select: QuerySelection<TSchema> &
+				ExactQuerySelection<TSchema, TSelection> &
+				LiteralQuerySelection<TSelection>
+		}>
+	: Readonly<{ select?: never }>
+
+/** Creates one row with an optional exact result projection. */
+export type SchemaCreateOneInput<
+	TSchema extends SchemaDefinition,
+	TSelection extends QuerySelection<TSchema> | undefined = undefined,
+> = SchemaCreateOneFields<TSchema> & SchemaResultSelection<TSchema, TSelection>
+
+/** @internal Erases literal selection inference only at the execution boundary. */
+export type SchemaCreateOneExecutionInput<TSchema extends SchemaDefinition> =
+	SchemaCreateOneFields<TSchema> &
+		Readonly<{ select?: QuerySelection<TSchema> }>
+
+interface SchemaUpdateOneFields<TSchema extends SchemaDefinition> {
 	/**
 	 * Selects exactly one row by `id`, one unique field, or one complete unique index.
 	 *
-	 * @example `(where) => where.byId(postId)`
+	 * @example `(where) => where.eq('id', postId)`
 	 */
 	readonly where: SchemaWhereFactory<TSchema>
 	/**
@@ -37,25 +72,66 @@ export interface SchemaUpdateOneInput<TSchema extends SchemaDefinition> {
 	readonly data: UpdateExpressionInput<TSchema> & {}
 }
 
-/** Updates every matching row, or every row only through the explicit `all` value. */
-export interface SchemaUpdateManyInput<TSchema extends SchemaDefinition> {
+/** Updates one uniquely identified row with an optional exact result projection. */
+export type SchemaUpdateOneInput<
+	TSchema extends SchemaDefinition,
+	TSelection extends QuerySelection<TSchema> | undefined = undefined,
+> = SchemaUpdateOneFields<TSchema> & SchemaResultSelection<TSchema, TSelection>
+
+/** @internal Erases literal selection inference only at the execution boundary. */
+export type SchemaUpdateOneExecutionInput<TSchema extends SchemaDefinition> =
+	SchemaUpdateOneFields<TSchema> &
+		Readonly<{ select?: QuerySelection<TSchema> }>
+
+interface SchemaUpdateManyFields<TSchema extends SchemaDefinition> {
 	/** Selects matching rows, or targets every row only through the explicit `all` value. */
 	readonly where: SchemaManyWhere<TSchema>
 	/** Applies the same typed atomic expression to every matching row. */
 	readonly data: UpdateExpressionInput<TSchema> & {}
 }
 
-/** Deletes one row selected by an exact unique target. */
-export interface SchemaDeleteOneInput<TSchema extends SchemaDefinition> {
+/** Updates matching rows and returns their selected post-update values. */
+export type SchemaUpdateManyInput<
+	TSchema extends SchemaDefinition,
+	TSelection extends QuerySelection<TSchema> | undefined = undefined,
+> = SchemaUpdateManyFields<TSchema> & SchemaResultSelection<TSchema, TSelection>
+
+/** @internal Erases literal selection inference only at the execution boundary. */
+export type SchemaUpdateManyExecutionInput<TSchema extends SchemaDefinition> =
+	SchemaUpdateManyFields<TSchema> &
+		Readonly<{ select?: QuerySelection<TSchema> }>
+
+interface SchemaDeleteOneFields<TSchema extends SchemaDefinition> {
 	/** Selects exactly one row by `id`, one unique field, or one complete unique index. */
 	readonly where: SchemaWhereFactory<TSchema>
 }
 
-/** Deletes every matching row, or every row only through the explicit `all` value. */
-export interface SchemaDeleteManyInput<TSchema extends SchemaDefinition> {
+/** Deletes one uniquely identified row with an optional exact result projection. */
+export type SchemaDeleteOneInput<
+	TSchema extends SchemaDefinition,
+	TSelection extends QuerySelection<TSchema> | undefined = undefined,
+> = SchemaDeleteOneFields<TSchema> & SchemaResultSelection<TSchema, TSelection>
+
+/** @internal Erases literal selection inference only at the execution boundary. */
+export type SchemaDeleteOneExecutionInput<TSchema extends SchemaDefinition> =
+	SchemaDeleteOneFields<TSchema> &
+		Readonly<{ select?: QuerySelection<TSchema> }>
+
+interface SchemaDeleteManyFields<TSchema extends SchemaDefinition> {
 	/** Selects matching rows, or targets every row only through the explicit `all` value. */
 	readonly where: SchemaManyWhere<TSchema>
 }
+
+/** Deletes matching rows and returns their selected pre-delete values. */
+export type SchemaDeleteManyInput<
+	TSchema extends SchemaDefinition,
+	TSelection extends QuerySelection<TSchema> | undefined = undefined,
+> = SchemaDeleteManyFields<TSchema> & SchemaResultSelection<TSchema, TSelection>
+
+/** @internal Erases literal selection inference only at the execution boundary. */
+export type SchemaDeleteManyExecutionInput<TSchema extends SchemaDefinition> =
+	SchemaDeleteManyFields<TSchema> &
+		Readonly<{ select?: QuerySelection<TSchema> }>
 
 /** Creates one row or updates the row selected by an exact unique target. */
 export interface SchemaUpsertInput<TSchema extends SchemaDefinition> {

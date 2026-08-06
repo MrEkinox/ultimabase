@@ -10,12 +10,14 @@ import type {
 	BulkOperationResult,
 	CreateManyOperationAst,
 	CreateOneOperationAst,
+	DeleteManyOperationAst,
 	DeleteOneOperationAst,
 	FindOperationAst,
 	FirstOperationAst,
 	GetOperationAst,
 	OperationAstNode,
 	OperationIncludedPointer,
+	UpdateManyOperationAst,
 	UpdateOneOperationAst,
 	UpsertManyOperationAst,
 	UpsertOneOperationAst,
@@ -89,14 +91,23 @@ type InferOperationResultFor<
 						OperationIncludedPointer<TOperation>,
 						TInclusionMode
 					> | null
-				: TOperation extends {
-							readonly kind: 'count' | 'update-many' | 'delete-many'
-					  }
+				: TOperation extends { readonly kind: 'count' }
 					? number
 					: TOperation extends { readonly kind: 'exists' }
 						? boolean
-						: TOperation extends CreateOneOperationAst<infer TSchema>
-							? CompleteObjectResult<TSchema, TMode>
+						: TOperation extends CreateOneOperationAst<
+									infer TSchema,
+									infer TSelectedField
+							  >
+							? [TSelectedField] extends [never]
+								? CompleteObjectResult<TSchema, TMode>
+								: QueryObjectResult<
+										TSchema,
+										TSelectedField,
+										TMode,
+										never,
+										TInclusionMode
+									>
 							: TOperation extends CreateManyOperationAst<
 										infer TSchema,
 										infer TAtomic
@@ -119,44 +130,69 @@ type InferOperationResultFor<
 											OperationIncludedPointer<TOperation>,
 											TInclusionMode
 										> | null
-									: TOperation extends UpsertOneOperationAst<
+									: TOperation extends UpdateManyOperationAst<
 												infer TSchema,
 												UpdateExpressionNode,
 												QueryExpressionNode,
-												infer TSelectedField,
-												unknown
+												infer TSelectedField
 										  >
-										? QueryObjectResult<
+										? readonly QueryObjectResult<
 												TSchema,
 												TSelectedField,
 												TMode,
-												OperationIncludedPointer<TOperation>,
+												never,
 												TInclusionMode
-											>
-										: TOperation extends UpsertManyOperationAst<
+											>[]
+										: TOperation extends UpsertOneOperationAst<
 													infer TSchema,
 													UpdateExpressionNode,
 													QueryExpressionNode,
-													infer TAtomic
+													infer TSelectedField,
+													unknown
 											  >
-											? BulkOperationResult<
-													CompleteObjectResult<TSchema, TMode>,
-													TAtomic
+											? QueryObjectResult<
+													TSchema,
+													TSelectedField,
+													TMode,
+													OperationIncludedPointer<TOperation>,
+													TInclusionMode
 												>
-											: TOperation extends DeleteOneOperationAst<
+											: TOperation extends UpsertManyOperationAst<
 														infer TSchema,
+														UpdateExpressionNode,
 														QueryExpressionNode,
-														infer TSelectedField,
-														unknown
+														infer TAtomic
 												  >
-												? QueryObjectResult<
-														TSchema,
-														TSelectedField,
-														TMode,
-														OperationIncludedPointer<TOperation>,
-														TInclusionMode
-													> | null
-												: never
+												? BulkOperationResult<
+														CompleteObjectResult<TSchema, TMode>,
+														TAtomic
+													>
+												: TOperation extends DeleteOneOperationAst<
+															infer TSchema,
+															QueryExpressionNode,
+															infer TSelectedField,
+															unknown
+													  >
+													? QueryObjectResult<
+															TSchema,
+															TSelectedField,
+															TMode,
+															OperationIncludedPointer<TOperation>,
+															TInclusionMode
+														> | null
+													: TOperation extends DeleteManyOperationAst<
+																infer TSchema,
+																QueryExpressionNode,
+																infer TSelectedField
+														  >
+														? readonly QueryObjectResult<
+																TSchema,
+																TSelectedField,
+																TMode,
+																never,
+																TInclusionMode
+															>[]
+														: never
 
 /** Maps every normalized terminal intent to its exact public model result. */
 export type InferOperationResult<TOperation extends OperationAstNode> =

@@ -25,6 +25,7 @@ import type { PostgresDrizzleClient } from './client.js'
 import { mapPostgresOperationError } from './operation-error.js'
 import { preparePostgresRecord, readPostgresRecord } from './record.js'
 import { compilePostgresUpdate } from './update-compiler.js'
+import { projectPostgresRecord } from './result-projection.js'
 
 type RuntimeOperation = ExecutableOperationAst
 type RuntimeQuery = QueryAst<
@@ -217,8 +218,11 @@ export const executeCreateOne = async (
 	client: PostgresDrizzleClient,
 	schema: CompiledPostgresSchema,
 	operation: Extract<RuntimeOperation, { readonly kind: 'create-one' }>,
-): Promise<Readonly<Record<string, unknown>>> =>
-	executeCreateInput(client, schema, operation.input)
+): Promise<Readonly<Record<string, unknown>>> => {
+	const current = await executeCreateInput(client, schema, operation.input)
+
+	return projectPostgresRecord(current, operation)
+}
 
 /** Inserts one validated collection in one statement and preserves RETURNING order. */
 export const executeCreateMany = async (
@@ -289,18 +293,9 @@ const buildSingularTarget = (
 const buildManyTarget = (
 	client: PostgresDrizzleClient,
 	schema: CompiledPostgresSchema,
-	query: QueryAst,
+	clauses: CompiledPostgresQueryClauses,
 	constraint: SQL | undefined,
-	relationCompiler?: PostgresRelationPredicateCompiler,
 ) => {
-	const runtimeQuery = readBuiltInQuery(query)
-	const clauses = compilePostgresQueryClauses(
-		runtimeQuery,
-		schema,
-		undefined,
-		relationCompiler,
-	)
-
 	return buildSelect(
 		client,
 		schema,
@@ -359,77 +354,65 @@ const executeDeleteOne = async (
 	return row === undefined ? null : readPostgresRecord(schema, row)
 }
 
-/** Updates every selected id in one set-based statement without loading objects. */
+/** Updates every selected id and returns only the requested public columns. */
 export const executeUpdateMany = async (
 	client: PostgresDrizzleClient,
 	schema: CompiledPostgresSchema,
 	operation: Extract<RuntimeOperation, { readonly kind: 'update-many' }>,
 	constraint: SQL | undefined,
 	relationCompiler?: PostgresRelationPredicateCompiler,
-): Promise<number> => {
-	const id = resolveCompiledPostgresField(schema, 'id').column
-	const target = buildManyTarget(
-		client,
+): Promise<readonly Readonly<Record<string, unknown>>[]> => {
+	const clauses = compilePostgresQueryClauses(
+		readBuiltInQuery(operation.query),
 		schema,
-		operation.query,
-		constraint,
+		undefined,
 		relationCompiler,
 	)
+	const id = resolveCompiledPostgresField(schema, 'id').column
+	const target = buildManyTarget(client, schema, clauses, constraint)
 	const where = and(inArray(id, target), constraint)
 
 	if (where === undefined) {
 		throw new TypeError('PostgreSQL update-many target could not be combined')
 	}
 
-	const result = await client
+	const rows = await client
 		.update(schema.table)
 		.set(compilePostgresUpdate(schema, operation.update))
 		.where(where)
+		.returning(clauses.selection)
 
-	if (
-		typeof result.rowCount !== 'number' ||
-		!Number.isSafeInteger(result.rowCount) ||
-		result.rowCount < 0
-	) {
-		throw new TypeError('PostgreSQL update-many returned an invalid row count')
-	}
-
-	return result.rowCount
+	return rows.map((row) => readPostgresRecord(schema, row))
 }
 
-/** Deletes every selected id in one set-based statement without loading objects. */
+/** Deletes every selected id and returns only the requested pre-delete columns. */
 export const executeDeleteMany = async (
 	client: PostgresDrizzleClient,
 	schema: CompiledPostgresSchema,
 	operation: Extract<RuntimeOperation, { readonly kind: 'delete-many' }>,
 	constraint: SQL | undefined,
 	relationCompiler?: PostgresRelationPredicateCompiler,
-): Promise<number> => {
-	const id = resolveCompiledPostgresField(schema, 'id').column
-	const target = buildManyTarget(
-		client,
+): Promise<readonly Readonly<Record<string, unknown>>[]> => {
+	const clauses = compilePostgresQueryClauses(
+		readBuiltInQuery(operation.query),
 		schema,
-		operation.query,
-		constraint,
+		undefined,
 		relationCompiler,
 	)
+	const id = resolveCompiledPostgresField(schema, 'id').column
+	const target = buildManyTarget(client, schema, clauses, constraint)
 	const where = and(inArray(id, target), constraint)
 
 	if (where === undefined) {
 		throw new TypeError('PostgreSQL delete-many target could not be combined')
 	}
 
-	const result = await client.delete(schema.table).where(where)
+	const rows = await client
+		.delete(schema.table)
+		.where(where)
+		.returning(clauses.selection)
 
-	if (
-		typeof result.rowCount !== 'number' ||
-		!Number.isSafeInteger(result.rowCount) ||
-		result.rowCount < 0
-	) {
-		throw new TypeError('PostgreSQL delete-many returned an invalid row count')
-	}
-
-	return result.rowCount
+	return rows.map((row) => readPostgresRecord(schema, row))
 }
 
 /** Locks one complete unique target so upsert hooks can observe an exact branch. */

@@ -310,7 +310,7 @@ const created = await draft.create({ ultimabase })
 
 const imported = await new PostSchema({ title: 'Imported' }).upsert(
 	{
-		where: (where) => where.equalTo('slug', 'imported'),
+		where: { slug: { eq: 'imported' } },
 		update: { imports: increment(1) },
 	},
 	{ ultimabase },

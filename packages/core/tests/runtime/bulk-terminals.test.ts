@@ -142,12 +142,12 @@ describe('bulk and upsert terminals', () => {
 		const result = await runWithRequestEngine(request, () =>
 			accountSchema.upsertMany([
 				{
-					where: (where) => where.equalTo('email', 'first@example.com'),
+					where: (where) => where.eq('email', 'first@example.com'),
 					create: { email: 'first@example.com' },
 					update: { visits: increment(1) },
 				},
 				{
-					where: (where) => where.equalTo('email', 'second@example.com'),
+					where: (where) => where.eq('email', 'second@example.com'),
 					create: { email: 'second@example.com' },
 					update: { visits: increment(1) },
 				},
@@ -357,7 +357,7 @@ describe('bulk and upsert terminals', () => {
 		])
 	})
 
-	it('returns counts for transactional set-based update and delete', async () => {
+	it('returns identifier models for transactional set-based update and delete', async () => {
 		const updateTrace: string[] = []
 		const deleteTrace: string[] = []
 		const beforeKinds: string[] = []
@@ -375,30 +375,55 @@ describe('bulk and upsert terminals', () => {
 			},
 		}
 		const { adapter: updateAdapter, request: updateRequest } = createRequest(
-			[{ status: 'fulfilled', value: 3 }],
+			[
+				{
+					status: 'fulfilled',
+					value: [
+						{ id: '0198f090-2a50-7000-8000-000000000040', visits: 1 },
+						{ id: '0198f090-2a50-7000-8000-000000000041', visits: 2 },
+						{ id: '0198f090-2a50-7000-8000-000000000042', visits: 3 },
+					],
+				},
+			],
 			updateTrace,
 			hookStages,
 		)
 		const { adapter: deleteAdapter, request: deleteRequest } = createRequest(
-			[{ status: 'fulfilled', value: 2 }],
+			[
+				{
+					status: 'fulfilled',
+					value: [
+						{ id: '0198f090-2a50-7000-8000-000000000043' },
+						{ id: '0198f090-2a50-7000-8000-000000000044' },
+					],
+				},
+			],
 			deleteTrace,
 			hookStages,
 		)
 
 		const updated = await runWithRequestEngine(updateRequest, () =>
 			accountSchema.updateMany({
-				where: (where) => where.greaterThan('visits', 0),
+				where: (where) => where.gt('visits', 0),
 				data: { visits: increment(1) },
+				select: { id: true, visits: true },
 			}),
 		)
 		const deleted = await runWithRequestEngine(deleteRequest, () =>
 			accountSchema.deleteMany({
-				where: (where) => where.equalTo('visits', 0),
+				where: (where) => where.eq('visits', 0),
 			}),
 		)
 
-		expect(updated).toBe(3)
-		expect(deleted).toBe(2)
+		expect(updated.map((item) => item.toJSON())).toStrictEqual([
+			{ id: '0198f090-2a50-7000-8000-000000000040', visits: 1 },
+			{ id: '0198f090-2a50-7000-8000-000000000041', visits: 2 },
+			{ id: '0198f090-2a50-7000-8000-000000000042', visits: 3 },
+		])
+		expect(deleted.map((item) => item.toJSON())).toStrictEqual([
+			{ id: '0198f090-2a50-7000-8000-000000000043' },
+			{ id: '0198f090-2a50-7000-8000-000000000044' },
+		])
 		expect(beforeKinds).toStrictEqual(['update-many', 'delete-many'])
 		expect(afterKinds).toStrictEqual(['update-many', 'delete-many'])
 		expectCommittedTransaction(updateAdapter, updateTrace, 'update-many')

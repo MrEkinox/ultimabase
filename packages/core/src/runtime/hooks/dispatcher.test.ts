@@ -153,6 +153,7 @@ describe('native hook dispatcher', () => {
 		const rawOperation = immutableRecord({
 			input: { profile: { name: '  Ada  ' } },
 			kind: 'create-one',
+			selection: { fields: [], kind: 'selection' },
 			schema: new Query(schema).ast.schema,
 		}) satisfies CreateOneOperationAst<typeof schema>
 		let operation = await validate({ context, operation: rawOperation })
@@ -365,6 +366,7 @@ describe('native hook dispatcher', () => {
 				updatedAt: fixedInstant.toISOString(),
 			},
 			kind: 'create-one',
+			selection: { fields: [], kind: 'selection' },
 			schema: new Query(schema).ast.schema,
 		}) satisfies CreateOneOperationAst<typeof schema>
 
@@ -462,6 +464,7 @@ describe('native hook dispatcher', () => {
 				updatedAt: fixedInstant.toISOString(),
 			},
 			kind: 'create-one',
+			selection: { fields: [], kind: 'selection' },
 			schema: new Query(schema).ast.schema,
 		}) satisfies CreateOneOperationAst<typeof schema>
 		const transformed = await stages.schemaBefore({ context, operation })
@@ -532,7 +535,7 @@ describe('native hook dispatcher', () => {
 				beforeRead: ({ kind, query }) => {
 					trace.push(`schema:before:${kind}`)
 
-					return query.equalTo('title', 'visible')
+					return query.where((where) => where.eq('title', 'visible'))
 				},
 			},
 		})
@@ -699,7 +702,7 @@ describe('native hook dispatcher', () => {
 			readonly query: Query<HookInputSchema>
 		}) =>
 			query.include('author', (target) =>
-				target.select({ name: true }).equalTo('name', 'Ada'),
+				target.select({ name: true }).where((where) => where.eq('name', 'Ada')),
 			)
 		const addSchema = Schema.define({
 			className: 'NativeHookReadInclusionAdd',

@@ -71,14 +71,16 @@ models, filters, and selections:
 
 ```ts
 const membership = await Membership.create({
-	member: Member.pointer(memberId),
-	position: 1,
-	project: Project.pointer(projectId),
-	role: 'viewer',
+	data: {
+		member: Member.pointer(memberId),
+		position: 1,
+		project: Project.pointer(projectId),
+		role: 'viewer',
+	},
 })
 
 const projectMembers = await Membership.query()
-	.equalTo('project', Project.pointer(projectId))
+	.where({ project: { eq: Project.pointer(projectId) } })
 	.include('member', (member) => member.select({ id: true, name: true }))
 	.select({ id: true, member: true, position: true, role: true })
 	.ascending('position')
@@ -90,12 +92,14 @@ other schema:
 
 ```ts
 await request.transaction(async () => {
-	const project = await Project.create({ title: 'Relations' })
+	const project = await Project.create({ data: { title: 'Relations' } })
 
 	await Membership.create({
-		member: Member.pointer(memberId),
-		project: Project.pointer(project.id),
-		role: 'editor',
+		data: {
+			member: Member.pointer(memberId),
+			project: Project.pointer(project.id),
+			role: 'editor',
+		},
 	})
 })
 ```

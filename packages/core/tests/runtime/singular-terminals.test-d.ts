@@ -43,7 +43,7 @@ test('preserves Query schema selection across every read terminal', () => {
 		Promise<readonly InferQueryResult<typeof articleSchema, 'id' | 'title'>[]>
 	>()
 	expectTypeOf(
-		articleSchema.create({ title: 'Created' }, { ultimabase }),
+		articleSchema.create({ data: { title: 'Created' } }, { ultimabase }),
 	).toEqualTypeOf<Promise<InferQueryResult<typeof articleSchema>>>()
 	expectTypeOf(
 		articleSchema.createMany([{ title: 'Created' }], {
@@ -91,7 +91,7 @@ test('preserves Query schema selection across every read terminal', () => {
 			[
 				{
 					create: { title: 'Unique' },
-					where: (where) => where.equalTo('title', 'Unique'),
+					where: (where) => where.eq('title', 'Unique'),
 					update: { views: increment(1) },
 				},
 			],
@@ -103,16 +103,18 @@ test('preserves Query schema selection across every read terminal', () => {
 	expectTypeOf(
 		articleSchema.updateMany(
 			{
-				where: (where) => where.equalTo('title', 'Unique'),
+				where: (where) => where.eq('title', 'Unique'),
 				data: { views: increment(1) },
 			},
 			{ ultimabase },
 		),
-	).toEqualTypeOf<Promise<number>>()
+	).toEqualTypeOf<
+		Promise<readonly InferQueryResult<typeof articleSchema, 'id'>[]>
+	>()
 	expectTypeOf(
 		articleSchema.upsert(
 			{
-				where: (where) => where.equalTo('title', 'Unique'),
+				where: (where) => where.eq('title', 'Unique'),
 				create: { title: 'Unique' },
 				update: { views: increment(1) },
 			},
@@ -121,7 +123,9 @@ test('preserves Query schema selection across every read terminal', () => {
 	).toEqualTypeOf<Promise<InferQueryResult<typeof articleSchema>>>()
 	expectTypeOf(
 		articleSchema.deleteMany({ where: 'all' }, { ultimabase }),
-	).toEqualTypeOf<Promise<number>>()
+	).toEqualTypeOf<
+		Promise<readonly InferQueryResult<typeof articleSchema, 'id'>[]>
+	>()
 
 	const masterOptions = { useMasterKey: true } as const
 	const contextOptions = { context, ultimabase } as const
@@ -137,28 +141,31 @@ test('preserves Query schema selection across every read terminal', () => {
 	void query.get('article-1', contextualMasterOptions)
 	void query.count(masterOptions)
 	void query.exists(contextOptions)
-	void articleSchema.create({ title: 'Created' }, contextualMasterOptions)
+	void articleSchema.create(
+		{ data: { title: 'Created' } },
+		contextualMasterOptions,
+	)
 	void articleSchema.createMany([{ title: 'Created' }], {
 		atomic: false,
 		...contextualMasterOptions,
 	})
 	void articleSchema.updateOne(
 		{
-			where: (where) => where.equalTo('title', 'Unique'),
+			where: (where) => where.eq('title', 'Unique'),
 			data: { views: increment(1) },
 		},
 		masterOptions,
 	)
 	void articleSchema.updateMany(
 		{
-			where: (where) => where.equalTo('views', 0),
+			where: (where) => where.eq('views', 0),
 			data: { views: increment(1) },
 		},
 		contextOptions,
 	)
 	void articleSchema.upsert(
 		{
-			where: (where) => where.equalTo('title', 'Unique'),
+			where: (where) => where.eq('title', 'Unique'),
 			create: { title: 'Unique' },
 			update: { views: increment(1) },
 		},
@@ -168,14 +175,14 @@ test('preserves Query schema selection across every read terminal', () => {
 		[
 			{
 				create: { title: 'Unique' },
-				where: (where) => where.equalTo('title', 'Unique'),
+				where: (where) => where.eq('title', 'Unique'),
 				update: { views: increment(1) },
 			},
 		],
 		{ atomic: true, ...contextualMasterOptions },
 	)
 	void articleSchema.deleteOne(
-		{ where: (where) => where.equalTo('title', 'Unique') },
+		{ where: (where) => where.eq('title', 'Unique') },
 		masterOptions,
 	)
 	void articleSchema.deleteMany({ where: 'all' }, contextualMasterOptions)
@@ -187,7 +194,7 @@ test('preserves Query schema selection across every read terminal', () => {
 	// @ts-expect-error -- Query terminals remain credential-neutral.
 	void query.find({ sessionToken: 'transport-secret' })
 	// @ts-expect-error -- Mutation execution options follow the mutation input.
-	void articleSchema.create({ ultimabase }, { title: 'Created' })
+	void articleSchema.create({ data: { ultimabase } }, { title: 'Created' })
 	// @ts-expect-error -- Singular update aliases never accept a collection input.
 	void articleSchema.updateOne([{ views: increment(1) }])
 	// @ts-expect-error -- Singular delete commands require their target wrapper.
