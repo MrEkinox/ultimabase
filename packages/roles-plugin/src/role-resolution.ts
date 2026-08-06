@@ -102,7 +102,7 @@ const findRoleByName = async <const TSchema extends SchemaDefinition>(
 	const matches = await new Query(lookupSchema)
 		.where((where) => where.eq('name', name))
 		.limit(2)
-		.find(options)
+		.findMany(options)
 
 	return resolveUniqueRoleNameMatch(
 		name,
@@ -147,7 +147,7 @@ export const resolveRoleReference = async <
 	}
 
 	const roleId = state.selector.id
-	const role = await new Pointer(state.schema, roleId).query().first(options)
+	const role = await new Pointer(state.schema, roleId).query().findOne(options)
 
 	if (role === null) {
 		throw new RoleReferenceResolutionError(

@@ -31,13 +31,13 @@ class RecordingDispatcher implements QueryExecutionDispatcher {
 
 describe('contextual Query execution', () => {
 	it('fails clearly when neither an ambient request nor an app is available', () => {
-		expect(() => PostSchema.query().find()).toThrow(
+		expect(() => PostSchema.query().findMany()).toThrow(
 			expect.objectContaining({
 				code: 'MISSING_EXECUTION_CONTEXT',
 				internalDetails: { reason: 'query-terminal-owner-missing' },
 			}),
 		)
-		expect(() => PostSchema.query().find({ context: {} as never })).toThrow(
+		expect(() => PostSchema.query().findMany({ context: {} as never })).toThrow(
 			expect.objectContaining({
 				code: 'MISSING_EXECUTION_CONTEXT',
 				internalDetails: { reason: 'query-terminal-owner-missing' },
@@ -57,8 +57,10 @@ describe('contextual Query execution', () => {
 		const secondApplication = {}
 
 		const [firstResult, secondResult] = await Promise.allSettled([
-			runWithQueryExecution(firstApplication, first, () => reusable.find()),
-			runWithQueryExecution(secondApplication, second, () => reusable.find()),
+			runWithQueryExecution(firstApplication, first, () => reusable.findMany()),
+			runWithQueryExecution(secondApplication, second, () =>
+				reusable.findMany(),
+			),
 		])
 
 		expect(firstResult).toStrictEqual({
@@ -71,8 +73,8 @@ describe('contextual Query execution', () => {
 		})
 		expect(first.operations).toHaveLength(1)
 		expect(second.operations).toHaveLength(1)
-		expect(first.operations[0]).toMatchObject({ kind: 'find' })
-		expect(second.operations[0]).toMatchObject({ kind: 'find' })
+		expect(first.operations[0]).toMatchObject({ kind: 'find-many' })
+		expect(second.operations[0]).toMatchObject({ kind: 'find-many' })
 		expect(reusable.ast.selection.fields).toStrictEqual([
 			{ field: 'id', kind: 'selected-field' },
 		])

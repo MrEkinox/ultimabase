@@ -195,7 +195,7 @@ describe('@ultimabase/core Schema and Query declarations', () => {
 			'bulkUpdated = await BulkAccountSchema',
 		)
 		const create = readFixtureQuickInfo(
-			'create(\n\t\t\t\t{ data: allFieldValues },',
+			'createOne(\n\t\t\t\t{ data: allFieldValues },',
 		)
 
 		// This guards the declaration experience seen through Query and Runtime exports.
@@ -213,14 +213,14 @@ describe('@ultimabase/core Schema and Query declarations', () => {
 		expect(bulkUpdated.display).toContain('readonly id: string;')
 		expect(bulkUpdated.display).not.toContain('readonly tenantId:')
 		// Contextual execution stays in the optional final argument.
-		expect(create.display).toContain('.create(input: SchemaCreateOneInput<')
+		expect(create.display).toContain('.createOne(input: SchemaCreateOneInput<')
 		expect(create.display).toContain('options?: QueryTerminalOptions')
 		expect(create.display).not.toContain('create(this:')
 	})
 
 	it('keeps immutable read builders and schema command hovers focused', () => {
 		const select = readFixtureQuickInfo('select({ id: true, title: true })')
-		const find = readFixtureQuickInfo('find({ ultimabase })')
+		const find = readFixtureQuickInfo('findMany({ ultimabase })')
 		const deletion = readFixtureQuickInfo('deleteOne(')
 		const count = readFixtureQuickInfo('count({ ultimabase })')
 		const exists = readFixtureQuickInfo('exists({ ultimabase })')
@@ -231,7 +231,7 @@ describe('@ultimabase/core Schema and Query declarations', () => {
 		expect(select.display).toContain('title: true')
 		// Parameterless terminals must not repeat the complete bound query as `this`.
 		expect(find.display).toContain(
-			'.find(options?: QueryTerminalOptions): Promise<',
+			'.findMany(options?: QueryTerminalOptions): Promise<',
 		)
 		expect(deletion.display).toContain('.deleteOne(input:')
 		expect(deletion.display).toContain('options?: QueryTerminalOptions')

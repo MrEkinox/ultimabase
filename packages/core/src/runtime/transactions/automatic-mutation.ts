@@ -32,8 +32,8 @@ export const requiresAutomaticMutationTransaction = (
 	operation: DatabaseOperationAst,
 ): boolean => {
 	switch (operation.kind) {
-		case 'find':
-		case 'first':
+		case 'find-many':
+		case 'find-one':
 		case 'get':
 		case 'count':
 		case 'exists':

@@ -10,8 +10,8 @@ const operationKinds = [
 	'delete-many',
 	'delete-one',
 	'exists',
-	'find',
-	'first',
+	'find-many',
+	'find-one',
 	'get',
 	'update-many',
 	'update-one',
@@ -54,7 +54,7 @@ describe('native hook phase order', () => {
 	})
 
 	it('dispatches only the exact read phases', () => {
-		expect(getNativeHookPhaseOrder('find')).toStrictEqual({
+		expect(getNativeHookPhaseOrder('find-many')).toStrictEqual({
 			family: 'read',
 			fieldAfter: [],
 			fieldBefore: [],

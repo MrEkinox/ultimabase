@@ -66,8 +66,8 @@ const readPostgresPublicSelection = (
 	operation: DatabaseOperationAst,
 ): readonly string[] | undefined => {
 	if (
-		operation.kind !== 'find' &&
-		operation.kind !== 'first' &&
+		operation.kind !== 'find-many' &&
+		operation.kind !== 'find-one' &&
 		operation.kind !== 'get'
 	) {
 		return undefined
@@ -141,9 +141,9 @@ const projectPostgresReadResult = (
 ): unknown => {
 	const selectedFields = readPostgresPublicSelection(operation)
 
-	if (operation.kind === 'find') {
+	if (operation.kind === 'find-many') {
 		if (!isUnknownArray(result)) {
-			throw new TypeError('PostgreSQL find result must be an array')
+			throw new TypeError('PostgreSQL find-many result must be an array')
 		}
 
 		return immutableArray(
@@ -151,7 +151,7 @@ const projectPostgresReadResult = (
 		)
 	}
 
-	if (operation.kind === 'first' || operation.kind === 'get') {
+	if (operation.kind === 'find-one' || operation.kind === 'get') {
 		return result === null
 			? null
 			: projectPostgresReadRecord(result, selectedFields)

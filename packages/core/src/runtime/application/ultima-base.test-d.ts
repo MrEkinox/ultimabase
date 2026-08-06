@@ -44,7 +44,7 @@ test('preserves exact schema and plugin tuples behind the concise facade', () =>
 	expectTypeOf(articleSchema.query()).toEqualTypeOf<
 		Query<typeof articleSchema>
 	>()
-	expectTypeOf(articleSchema.query().find({ ultimabase })).toEqualTypeOf<
+	expectTypeOf(articleSchema.query().findMany({ ultimabase })).toEqualTypeOf<
 		Promise<readonly InferQueryResult<typeof articleSchema>[]>
 	>()
 	expectTypeOf(
@@ -61,7 +61,7 @@ test('preserves exact schema and plugin tuples behind the concise facade', () =>
 	}>()
 
 	// Ownership remains a Runtime identity check because Query stays application-free.
-	void otherSchema.query().find({ ultimabase })
+	void otherSchema.query().findMany({ ultimabase })
 	new UltimaBase({
 		schemas: [articleSchema],
 		plugins: [databasePlugin],

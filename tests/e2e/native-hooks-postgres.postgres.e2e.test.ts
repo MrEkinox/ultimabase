@@ -184,7 +184,7 @@ const HookArticleSchema = Schema.define({
 		afterRead: ({ kind, result }) => {
 			trace(`schema:developer:afterRead:${kind}`)
 
-			if (kind !== 'find') {
+			if (kind !== 'find-many') {
 				return result
 			}
 
@@ -209,7 +209,7 @@ const HookArticleSchema = Schema.define({
 			trace('schema:developer:beforeCreate')
 
 			if (operation.kind === 'create-one') {
-				await HookAuditSchema.create({
+				await HookAuditSchema.createOne({
 					data: {
 						action: `create:${operation.input.title}`,
 						scopeId: operation.input.scopeId,
@@ -300,8 +300,8 @@ const scopePolicyPlugin = definePlugin({
 					})
 				},
 				operations: [
-					'find',
-					'first',
+					'find-many',
+					'find-one',
 					'get',
 					'count',
 					'exists',
@@ -318,7 +318,7 @@ const scopePolicyPlugin = definePlugin({
 			restrictSelection({
 				// Selection hides the scope identity before output hooks observe a record.
 				handler: () => ['id', 'title', 'secret', 'profile'],
-				operations: ['find', 'first', 'get'],
+				operations: ['find-many', 'find-one', 'get'],
 				schema: HookArticleSchema,
 			}),
 		)
@@ -330,7 +330,7 @@ const scopePolicyPlugin = definePlugin({
 
 					return ['id', 'title', 'profile']
 				},
-				operations: ['find', 'first', 'get'],
+				operations: ['find-many', 'find-one', 'get'],
 				schema: HookArticleSchema,
 			}),
 		)
@@ -474,7 +474,7 @@ describe('native hooks with PostgreSQL', { concurrent: false }, () => {
 		committedEvents.length = 0
 
 		const created = await runWithScope('scope-create', () =>
-			HookArticleSchema.create({
+			HookArticleSchema.createOne({
 				data: {
 					profile: { slug: '  Public-Profile  ' },
 					published: true,
@@ -532,7 +532,7 @@ describe('native hooks with PostgreSQL', { concurrent: false }, () => {
 
 		await expect(
 			runWithScope('scope-rollback', () =>
-				HookArticleSchema.create({
+				HookArticleSchema.createOne({
 					data: {
 						profile: { slug: 'rollback' },
 						published: true,
@@ -573,7 +573,7 @@ describe('native hooks with PostgreSQL', { concurrent: false }, () => {
 
 	it('keeps beforeRead transforms inside opaque scope and field restrictions', async () => {
 		await runWithScope('scope-visible-a', () =>
-			HookArticleSchema.create({
+			HookArticleSchema.createOne({
 				data: {
 					profile: { slug: 'scope-a' },
 					published: true,
@@ -584,7 +584,7 @@ describe('native hooks with PostgreSQL', { concurrent: false }, () => {
 			}),
 		)
 		await runWithScope('scope-visible-b', () =>
-			HookArticleSchema.create({
+			HookArticleSchema.createOne({
 				data: {
 					profile: { slug: 'scope-b' },
 					published: true,
@@ -606,7 +606,7 @@ describe('native hooks with PostgreSQL', { concurrent: false }, () => {
 					profile: true,
 					scopeId: true,
 				})
-				.find(),
+				.findMany(),
 		)
 
 		expect(visible).toHaveLength(1)
@@ -618,30 +618,30 @@ describe('native hooks with PostgreSQL', { concurrent: false }, () => {
 			title: 'SHARED VISIBLE TITLE [plugin]',
 		})
 		expectTraceSubsequence([
-			'policy:guard:find',
-			'policy:constraint:find',
-			'plugin:schema:beforeRead:find',
-			'schema:developer:beforeRead:find',
+			'policy:guard:find-many',
+			'policy:constraint:find-many',
+			'plugin:schema:beforeRead:find-many',
+			'schema:developer:beforeRead:find-many',
 			'field:title:developer:resolveOutput',
 			'plugin:field:title:resolveOutput',
 			'field:slug:developer:resolveOutput',
 			'plugin:field-kind:slug:resolveOutput',
-			'schema:developer:afterRead:find',
-			'plugin:schema:afterRead:find',
-			'policy:restrictOutput:find',
+			'schema:developer:afterRead:find-many',
+			'plugin:schema:afterRead:find-many',
+			'policy:restrictOutput:find-many',
 		])
 
 		hookTrace.length = 0
 		await expect(
-			HookArticleSchema.query().find({ ultimabase: getUltimaBase() }),
+			HookArticleSchema.query().findMany({ ultimabase: getUltimaBase() }),
 		).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
-		expect(hookTrace).toContain('policy:guard:find')
-		expect(hookTrace).not.toContain('plugin:schema:beforeRead:find')
+		expect(hookTrace).toContain('policy:guard:find-many')
+		expect(hookTrace).not.toContain('plugin:schema:beforeRead:find-many')
 	})
 
 	it('wraps update and delete with their exact field and save families', async () => {
 		const created = await runWithScope('scope-write', () =>
-			HookArticleSchema.create({
+			HookArticleSchema.createOne({
 				data: {
 					profile: { slug: 'write' },
 					published: true,
@@ -692,7 +692,7 @@ describe('native hooks with PostgreSQL', { concurrent: false }, () => {
 	it('keeps updateMany and deleteMany set-based without item field hooks', async () => {
 		for (const scopeId of ['scope-bulk-a', 'scope-bulk-b']) {
 			await runWithScope(scopeId, () =>
-				HookArticleSchema.create({
+				HookArticleSchema.createOne({
 					data: {
 						profile: { slug: scopeId },
 						published: true,

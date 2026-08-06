@@ -96,7 +96,7 @@ export interface DatabaseOperationAst extends OperationAstNode {
 /** Lists every write terminal that executes through an automatic transaction. */
 export type DatabaseMutationOperationKind = Exclude<
 	OperationKind,
-	'count' | 'exists' | 'find' | 'first' | 'get'
+	'count' | 'exists' | 'find-many' | 'find-one' | 'get'
 >
 
 /** Narrows the portable adapter boundary to normalized mutation terminals. */

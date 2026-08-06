@@ -88,18 +88,18 @@ describe('read terminals and singular schema commands', () => {
 		const createOneInput = { title: 'Created one' }
 
 		await runWithRequestEngine(request, async () => {
-			const foundResult = await query.find()
+			const foundResult = await query.findMany()
 
 			expect(foundResult).toHaveLength(1)
 			expect(foundResult[0]).toBeInstanceOf(articleSchema)
 			expect(foundResult.map((article) => article.toJSON())).toStrictEqual(
 				found,
 			)
-			await expect(query.first()).resolves.toBeNull()
+			await expect(query.findOne()).resolves.toBeNull()
 			await expect(query.get('missing')).resolves.toBeNull()
 			await expect(query.count()).resolves.toBe(1)
 			await expect(query.exists()).resolves.toBe(true)
-			const createdOneResult = await articleSchema.create({
+			const createdOneResult = await articleSchema.createOne({
 				data: createOneInput,
 				select: { id: true, title: true },
 			})
@@ -123,7 +123,7 @@ describe('read terminals and singular schema commands', () => {
 
 			expect(selectedUpdateResult).toBeInstanceOf(articleSchema)
 			expect(selectedUpdateResult?.toJSON()).toStrictEqual(selectedUpdate)
-			const upsertedResult = await articleSchema.upsert({
+			const upsertedResult = await articleSchema.upsertOne({
 				where: (where) => where.eq('title', 'Upserted'),
 				create: { title: 'Upserted' },
 				update: { title: 'Upserted' },
@@ -150,11 +150,11 @@ describe('read terminals and singular schema commands', () => {
 
 		expect(
 			adapter.rootRequests.map(({ operation }) => operation.kind),
-		).toStrictEqual(['find', 'first', 'get', 'count', 'exists'])
+		).toStrictEqual(['find-many', 'find-one', 'get', 'count', 'exists'])
 		expect(adapter.transactions).toHaveLength(5)
 		expect(requests.map(({ operation }) => operation.kind)).toStrictEqual([
-			'find',
-			'first',
+			'find-many',
+			'find-one',
 			'get',
 			'count',
 			'exists',
@@ -165,7 +165,7 @@ describe('read terminals and singular schema commands', () => {
 			'delete-one',
 		])
 		expect(requests[0]?.operation).toMatchObject({
-			kind: 'find',
+			kind: 'find-many',
 			query: query.ast,
 		})
 		expect(requests[2]?.operation).toMatchObject({

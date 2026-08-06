@@ -28,7 +28,7 @@ const Article = Schema.define({
 			read: {
 				one: ({ context, kind }) => {
 					expectTypeOf(context).toEqualTypeOf<AccessContext>()
-					expectTypeOf(kind).toEqualTypeOf<'first' | 'get'>()
+					expectTypeOf(kind).toEqualTypeOf<'find-one' | 'get'>()
 					expectTypeOf(context.getValue(principalId)).toEqualTypeOf<
 						string | undefined
 					>()
@@ -42,7 +42,7 @@ const Article = Schema.define({
 					return context.access.mode === 'master'
 				},
 				many: ({ kind }) => {
-					expectTypeOf(kind).toEqualTypeOf<'find'>()
+					expectTypeOf(kind).toEqualTypeOf<'find-many'>()
 
 					return true
 				},
@@ -153,8 +153,8 @@ const Article = Schema.define({
 							| 'delete-many'
 							| 'delete-one'
 							| 'exists'
-							| 'find'
-							| 'first'
+							| 'find-many'
+							| 'find-one'
 							| 'get'
 							| 'update-many'
 							| 'update-one'
@@ -186,7 +186,7 @@ test('keeps native Access outside schema metadata and value inference', () => {
 	expectTypeOf<RequestContext>().toExtend<AccessContext>()
 	expectTypeOf<keyof typeof Article>().toEqualTypeOf<
 		| 'className'
-		| 'create'
+		| 'createOne'
 		| 'createMany'
 		| 'deleteMany'
 		| 'deleteOne'
@@ -198,7 +198,7 @@ test('keeps native Access outside schema metadata and value inference', () => {
 		| 'query'
 		| 'updateMany'
 		| 'updateOne'
-		| 'upsert'
+		| 'upsertOne'
 		| 'upsertMany'
 	>()
 	expectTypeOf<InferCreateInput<typeof Article>>().toEqualTypeOf<{

@@ -34,7 +34,7 @@ AppRole./* role-hover */role('editor')
 void /* access-hover */hasRole(AppRole.role('editor'))
 RoleSchema.define({ /* options-complete */ })
 async function inspectMemberCommand() {
-  const role = await AppRole.query().first()
+  const role = await AppRole.query().findOne()
   role?./* member-hover */addMember(User.pointer('member-id'))
   role?./* hierarchy-hover */addRole(AppRole.pointer('role-id'))
 }

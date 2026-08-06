@@ -26,8 +26,8 @@ type FixtureOperation = OperationAst<
 
 const describeOperation = (operation: FixtureOperation): string => {
 	switch (operation.kind) {
-		case 'find':
-		case 'first':
+		case 'find-many':
+		case 'find-one':
 		case 'get':
 		case 'count':
 		case 'exists':
@@ -62,8 +62,8 @@ describe('OperationAst', () => {
 		} as const
 		const upsertItem = { query, target, create, update }
 		const operations = [
-			{ kind: 'find', query },
-			{ kind: 'first', query },
+			{ kind: 'find-many', query },
+			{ kind: 'find-one', query },
 			{ kind: 'get', query, id: '0194f292-0dd9-7c2d-a0a3-a2f755a3d90a' },
 			{ kind: 'count', query },
 			{ kind: 'exists', query },
@@ -95,8 +95,8 @@ describe('OperationAst', () => {
 		] as const satisfies readonly FixtureOperation[]
 
 		expect(operations.map(describeOperation)).toStrictEqual([
-			'read:find',
-			'read:first',
+			'read:find-many',
+			'read:find-one',
 			'read:get',
 			'read:count',
 			'read:exists',

@@ -1,4 +1,4 @@
-import { Query, type FindOperationAst } from '../../query/index.js'
+import { Query, type FindManyOperationAst } from '../../query/index.js'
 import { Schema, stringField } from '../../schema/index.js'
 import { expectTypeOf, test } from 'vitest'
 
@@ -19,9 +19,9 @@ const articleSchema = Schema.define({
 })
 
 const operation = {
-	kind: 'find',
+	kind: 'find-many',
 	query: new Query(articleSchema).ast,
-} satisfies FindOperationAst<typeof articleSchema>
+} satisfies FindManyOperationAst<typeof articleSchema>
 
 declare const databaseOperation: DatabaseAdapter
 

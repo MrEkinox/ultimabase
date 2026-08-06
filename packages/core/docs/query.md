@@ -62,11 +62,11 @@ same canonical filter contract:
 ```ts
 const post = await Post.query()
 	.where({ id: { eq: postId } })
-	.first({ ultimabase })
+	.findOne({ ultimabase })
 ```
 
-The complete read terminal surface is `find`, `first`, `get`, `count`, and
-`exists`. `first` and `get` return `null` when no visible object matches.
+The complete read terminal surface is `findOne`, `findMany`, `get`, `count`,
+and `exists`. `findOne` and `get` return `null` when no visible object matches.
 The `exists()` terminal tests whether a matching row exists; `isNull` and
 `isNotNull` are field operators inside `where`.
 
@@ -112,7 +112,7 @@ command `where`, Access filters, and relation predicates.
 Generated schema classes own collection and target-based writes:
 
 ```ts
-const created = await Post.create(
+const created = await Post.createOne(
 	{
 		data: { title: 'Created from a job' },
 		select: { id: true, title: true },
@@ -140,12 +140,12 @@ const deleted = await Post.deleteOne(
 
 The write surface is:
 
-- `create({ data, select? }, options?)`
-- `createMany(inputs, options?)`
+- `createOne({ data, select? }, options?)`
+- `createMany({ data, select? }, options?)`
 - `updateOne({ where, data, select? }, options?)`
 - `updateMany({ where, data, select? }, options?)`
-- `upsert({ where, create, update }, options?)`
-- `upsertMany(items, options?)`
+- `upsertOne({ where, create, update, select? }, options?)`
+- `upsertMany({ data, select? }, options?)`
 - `deleteOne({ where, select? }, options?)`
 - `deleteMany({ where, select? }, options?)`
 
@@ -199,14 +199,14 @@ target all rows only with the explicit value `where: 'all'`:
 await Post.deleteMany({ where: 'all' }, { useMasterKey: true })
 ```
 
-`updateOne`, `deleteOne`, and `upsert` require an exact unique target: `id`, one
+`updateOne`, `deleteOne`, and `upsertOne` require an exact unique target: `id`, one
 unique field, or all fields of one declared unique composite index. This keeps
 singular cardinality independent from ordering, pagination, or adapter-specific
 behavior.
 
 ## Mutation results and relationships
 
-`create`, `updateOne`, and `deleteOne` return complete immutable models by
+`createOne`, `updateOne`, and `deleteOne` return complete immutable models by
 default and accept the same flat boolean `select` contract as Query reads. The
 projection changes only the public result; mutation hooks continue to receive
 complete logical materializations. Other singular schema commands still return
@@ -214,7 +214,7 @@ complete models. No mutation accepts `include`, and pointer or relation values
 remain unloaded references:
 
 ```ts
-const created = await Post.create({
+const created = await Post.createOne({
 	data: { title: 'Created' },
 	select: { id: true, title: true },
 })
@@ -231,8 +231,8 @@ const deleted = await Post.deleteOne({
 })
 
 if (post !== null) {
-	const authors = await post.author.query().find()
-	const tags = await post.relation('tags').query().find()
+	const authors = await post.author.query().findMany()
+	const tags = await post.relation('tags').query().findMany()
 }
 ```
 
@@ -284,16 +284,18 @@ authority, cancellation signal, recursion state, and transaction:
 const article = await Article.query()
 	.where({ published: { eq: true } })
 	.select({ id: true, title: true })
-	.first()
+	.findOne()
 
-const created = await Article.create({ data: { title: 'Inherited request' } })
+const created = await Article.createOne({
+	data: { title: 'Inherited request' },
+})
 ```
 
 Outside an active scope, pass the exact started application:
 
 ```ts
-const articles = await Article.query().find({ ultimabase })
-const created = await Article.create(
+const articles = await Article.query().findMany({ ultimabase })
+const created = await Article.createOne(
 	{ data: { title: 'Root job' } },
 	{ ultimabase },
 )
@@ -303,7 +305,7 @@ An explicit plugin-derived context and audited master authority use the same
 final options position:
 
 ```ts
-const scoped = await Article.query().find({
+const scoped = await Article.query().findMany({
 	context: contextCreatedByAPlugin,
 	ultimabase,
 })
@@ -382,7 +384,8 @@ ast.limit // undefined
 ```
 
 Read terminals and schema commands normalize into the same discriminated
-`OperationAst` union. Reads use `find`, `first`, `get`, `count`, and `exists`.
+`OperationAst` union. Reads use `find-one`, `find-many`, `get`, `count`, and
+`exists`.
 Writes distinguish `create-one`/`create-many`, `update-one`/`update-many`,
 `upsert-one`/`upsert-many`, and `delete-one`/`delete-many`. Runtime, hooks,
 Access, and adapters therefore keep exhaustive operation matching while the

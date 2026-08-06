@@ -582,7 +582,7 @@ describe('Query', () => {
 		})
 		expect(query.schema).toBe(postSchema)
 		expect(query).not.toHaveProperty('bind')
-		expect(query).toHaveProperty('find')
+		expect(query).toHaveProperty('findMany')
 		expect(query).not.toHaveProperty('save')
 	})
 })

@@ -93,28 +93,28 @@ test('infers exact immutable drafts from the generated constructor', () => {
 test('exposes writes on the schema class and keeps Query read-only', () => {
 	const readQuery = Post.query().where((where) => where.eq('published', false))
 
-	expectTypeOf(Post.create({ data: { title: 'Created' } })).toEqualTypeOf<
+	expectTypeOf(Post.createOne({ data: { title: 'Created' } })).toEqualTypeOf<
 		Promise<InferQueryResult<typeof Post>>
 	>()
 	expectTypeOf(
-		Post.create({
+		Post.createOne({
 			data: { title: 'Created' },
 			select: { id: true, title: true },
 		}),
 	).toEqualTypeOf<Promise<InferQueryResult<typeof Post, 'id' | 'title'>>>()
 	// @ts-expect-error -- Create selections reject undeclared fields.
-	void Post.create({
+	void Post.createOne({
 		data: { title: 'Created' },
 		select: { missing: true },
 	})
 	const dynamicCreateSelection = Math.random() > 0.5
 	// @ts-expect-error -- Dynamic booleans cannot promise an exact create result type.
-	void Post.create({
+	void Post.createOne({
 		data: { title: 'Created' },
 		select: { title: dynamicCreateSelection },
 	})
 	// @ts-expect-error -- Static create uses one explicit command envelope.
-	void Post.create({ title: 'Legacy shape' })
+	void Post.createOne({ title: 'Legacy shape' })
 	expectTypeOf(
 		Post.createMany({ data: [{ title: 'First' }, { title: 'Second' }] }),
 	).toEqualTypeOf<Promise<readonly InferQueryResult<typeof Post>[]>>()
@@ -232,14 +232,14 @@ test('exposes writes on the schema class and keeps Query read-only', () => {
 		select: { title: dynamicDeleteSelection },
 	})
 	expectTypeOf(
-		Post.upsert({
+		Post.upsertOne({
 			where: { id: { eq: 'post-1' } },
 			create: { title: 'Created' },
 			update: { title: 'Updated' },
 		}),
 	).toEqualTypeOf<Promise<InferQueryResult<typeof Post>>>()
 	expectTypeOf(
-		Post.upsert({
+		Post.upsertOne({
 			where: { id: { eq: 'post-1' } },
 			create: { title: 'Created' },
 			update: { title: 'Updated' },
@@ -277,7 +277,7 @@ test('exposes writes on the schema class and keeps Query read-only', () => {
 	expectTypeOf(readQuery).not.toHaveProperty('deleteMany')
 	expectTypeOf(readQuery).not.toHaveProperty('upsert')
 	expectTypeOf<SchemaWhere<typeof Post>>().not.toHaveProperty('select')
-	expectTypeOf<SchemaWhere<typeof Post>>().not.toHaveProperty('find')
+	expectTypeOf<SchemaWhere<typeof Post>>().not.toHaveProperty('findMany')
 	// @ts-expect-error -- Set-based mutations require an explicit predicate or `all`.
 	void Post.deleteMany({})
 })
@@ -296,7 +296,7 @@ test('infers package-owned commands only on persisted results', async () => {
 	)
 	const draft = new Specialized({ title: 'Draft' })
 	const persisted = await draft.create()
-	const queried = await Specialized.query().first()
+	const queried = await Specialized.query().findOne()
 
 	expectTypeOf(Specialized.category).toEqualTypeOf<'fixture'>()
 	expectTypeOf(draft).not.toHaveProperty('publish')

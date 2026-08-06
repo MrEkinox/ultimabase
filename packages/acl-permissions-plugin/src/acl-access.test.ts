@@ -111,7 +111,7 @@ describe('ACL Access contributions', () => {
 			operations: [{ field: 'acl', kind: 'set', value: new ACL() }],
 		} as const
 
-		expect(requiredACLPermissions({ kind: 'find', query })).toStrictEqual([
+		expect(requiredACLPermissions({ kind: 'find-many', query })).toStrictEqual([
 			'read',
 		])
 		expect(requiredACLPermissions({ kind: 'delete-one', query })).toStrictEqual(

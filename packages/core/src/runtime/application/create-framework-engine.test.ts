@@ -207,7 +207,7 @@ describe('createFrameworkEngine', () => {
 			source: 'internal',
 		})
 		const result = await runWithRequestEngine(request, () =>
-			articleSchema.create({ data: { title: '  assembled  ' } }),
+			articleSchema.createOne({ data: { title: '  assembled  ' } }),
 		)
 
 		expect(result.title).toBe('assembled')
@@ -277,7 +277,7 @@ describe('createFrameworkEngine', () => {
 				afterRead: ({ kind, result }) => {
 					trace.push('schema:afterRead')
 					// The exact terminal remains available even when this hook only observes.
-					expect(kind).toBe('find')
+					expect(kind).toBe('find-many')
 
 					return result
 				},
@@ -307,7 +307,7 @@ describe('createFrameworkEngine', () => {
 							databaseConstraint('fixture.read-tenant', 1, {
 								tenantId: 'tenant-1',
 							}),
-						operations: ['find'],
+						operations: ['find-many'],
 						schema,
 					}),
 				)
@@ -315,7 +315,7 @@ describe('createFrameworkEngine', () => {
 					'fixture.read-selection',
 					restrictSelection({
 						handler: () => ['title'],
-						operations: ['find'],
+						operations: ['find-many'],
 						schema,
 					}),
 				)
@@ -331,7 +331,7 @@ describe('createFrameworkEngine', () => {
 			source: 'internal',
 		})
 		const result = await runWithRequestEngine(request, () =>
-			schema.query().select({ title: true, secret: true }).find(),
+			schema.query().select({ title: true, secret: true }).findMany(),
 		)
 
 		expect(result).toHaveLength(1)
@@ -349,7 +349,7 @@ describe('createFrameworkEngine', () => {
 			},
 		])
 		expect(adapter.rootRequests[0]?.operation).toMatchObject({
-			kind: 'find',
+			kind: 'find-many',
 			query: {
 				selection: {
 					fields: [{ field: 'title', kind: 'selected-field' }],
@@ -361,7 +361,7 @@ describe('createFrameworkEngine', () => {
 		})
 		expect(trace).toStrictEqual([
 			'schema:beforeRead',
-			'execute:find',
+			'execute:find-many',
 			'field:title',
 			'schema:afterRead',
 		])
@@ -417,7 +417,7 @@ describe('createFrameworkEngine', () => {
 		})
 		await expect(
 			runWithRequestEngine(request, () =>
-				schema.create({ data: { title: 'Rejected' } }),
+				schema.createOne({ data: { title: 'Rejected' } }),
 			),
 		).rejects.toBe(failure)
 		expect(trace).toStrictEqual([
@@ -483,7 +483,7 @@ describe('createFrameworkEngine', () => {
 		})
 		await expect(
 			runWithRequestEngine(request, () =>
-				articleSchema.create({ data: { title: 'initial' } }),
+				articleSchema.createOne({ data: { title: 'initial' } }),
 			),
 		).rejects.toBe(denial)
 		expect(trace).toStrictEqual([

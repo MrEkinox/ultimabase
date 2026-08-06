@@ -58,8 +58,8 @@ describe('compiled Access plans', () => {
 		const fieldPlan = plan.getField(articleSchema, ['secret'])
 
 		expect(schemaPlan?.operation.get[0]?.rule).toBe(oneRead)
-		expect(schemaPlan?.operation.first[0]?.rule).toBe(oneRead)
-		expect(schemaPlan?.operation.find[0]?.rule).toBe(manyRead)
+		expect(schemaPlan?.operation['find-one'][0]?.rule).toBe(oneRead)
+		expect(schemaPlan?.operation['find-many'][0]?.rule).toBe(manyRead)
 		expect(schemaPlan?.operation.count[0]?.rule).toBe(countRead)
 		expect(schemaPlan?.operation.exists[0]?.rule).toBe(existsRead)
 		expect(schemaPlan?.operation['update-one'][0]?.rule).toBe(developerUpdate)

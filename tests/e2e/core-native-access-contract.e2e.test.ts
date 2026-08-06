@@ -66,7 +66,7 @@ describe('packed @ultimabase/core native Access contract', () => {
 	})
 
 	it('preserves exact operation, item, context-value, and field inference', () => {
-		expect(readHoverDisplay('operation-kind')).toContain('"find"')
+		expect(readHoverDisplay('operation-kind')).toContain('"find-many"')
 		expect(readHoverDisplay('context-value')).toContain('Principal | undefined')
 		expect(readHoverDisplay('update-input')).toContain('authorId?: string')
 		expect(readHoverDisplay('field-value')).toContain('boolean')

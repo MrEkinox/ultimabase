@@ -55,7 +55,7 @@ const createDatabasePlugin = (
 					'fixture.ultimabase-context',
 					beforeOperation({
 						schema: articleSchema,
-						operations: ['find'],
+						operations: ['find-many'],
 						handler: ({ context, operation }) => {
 							options.onContext?.(context)
 
@@ -120,7 +120,7 @@ describe('UltimaBase', () => {
 		expect(() => ultimabase.engine).toThrow(
 			new TypeError('UltimaBase must be started before accessing its engine'),
 		)
-		expect(() => articleSchema.query().find({ ultimabase })).toThrow(
+		expect(() => articleSchema.query().findMany({ ultimabase })).toThrow(
 			new TypeError('UltimaBase must be started before accessing its engine'),
 		)
 
@@ -131,7 +131,7 @@ describe('UltimaBase', () => {
 		expect(ultimabase.state).toBe('started')
 		expect(trace).toStrictEqual(['setup', 'connect'])
 
-		const result = await articleSchema.query().find({ ultimabase })
+		const result = await articleSchema.query().findMany({ ultimabase })
 
 		expect(result).toHaveLength(1)
 		expect(result[0]).toBeInstanceOf(articleSchema)
@@ -149,7 +149,7 @@ describe('UltimaBase', () => {
 		await ultimabase.stop()
 		expect(ultimabase.state).toBe('stopped')
 		expect(trace).toStrictEqual(['setup', 'connect', 'stop'])
-		expect(() => escapedQuery.find({ ultimabase })).toThrow(
+		expect(() => escapedQuery.findMany({ ultimabase })).toThrow(
 			new TypeError(
 				'Framework engine cannot be used while application is stopped',
 			),
@@ -201,8 +201,8 @@ describe('UltimaBase', () => {
 
 		try {
 			await ultimabase.start()
-			await articleSchema.query().find({ context, ultimabase })
-			await articleSchema.query().find({
+			await articleSchema.query().findMany({ context, ultimabase })
+			await articleSchema.query().findMany({
 				context,
 				ultimabase,
 				useMasterKey: true,
@@ -214,7 +214,7 @@ describe('UltimaBase', () => {
 			expect(observedAccesses[1]).toStrictEqual({
 				keyId: 'server-default',
 				mode: 'master',
-				reason: 'Query terminal find on UltimaBaseArticle',
+				reason: 'Query terminal find-many on UltimaBaseArticle',
 			})
 			expect(observedPrincipals[1]).toBe('user-1')
 			expect(auditEvents).toStrictEqual([
@@ -223,7 +223,7 @@ describe('UltimaBase', () => {
 					kind: 'master-access',
 					occurredAt: '2026-08-03T12:00:00.000Z',
 					previousAccess: { mode: 'anonymous' },
-					reason: 'Query terminal find on UltimaBaseArticle',
+					reason: 'Query terminal find-many on UltimaBaseArticle',
 					requestId: 'plugin-context-1',
 					source: 'internal',
 				},
@@ -368,13 +368,13 @@ describe('UltimaBase', () => {
 			await Promise.all([missing.start(), failing.start()])
 
 			await expect(
-				articleSchema.query().find({
+				articleSchema.query().findMany({
 					ultimabase: missing,
 					useMasterKey: true,
 				}),
 			).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
 			await expect(
-				articleSchema.query().find({
+				articleSchema.query().findMany({
 					ultimabase: failing,
 					useMasterKey: true,
 				}),
@@ -438,17 +438,17 @@ describe('UltimaBase', () => {
 			await first.engine
 				.anonymous({ requestId: 'transaction-owner', source: 'internal' })
 				.transaction(async () =>
-					articleSchema.create({ data: { title: 'Transactional' } }),
+					articleSchema.createOne({ data: { title: 'Transactional' } }),
 				)
 
 			expect(firstAdapter.rootRequests).toStrictEqual([])
 			expect(firstAdapter.transactions).toHaveLength(1)
 			expect(firstAdapter.transactions[0]?.requests).toHaveLength(1)
 			await expect(
-				otherSchema.query().find({ ultimabase: first }),
+				otherSchema.query().findMany({ ultimabase: first }),
 			).rejects.toMatchObject({ code: 'VALIDATION_ERROR' })
 			await expect(
-				otherSchema.query().find({
+				otherSchema.query().findMany({
 					context: foreignContext,
 					ultimabase: second,
 				}),
@@ -465,7 +465,7 @@ describe('UltimaBase', () => {
 				}),
 				() => {
 					expect(() =>
-						otherSchema.query().find({ ultimabase: second }),
+						otherSchema.query().findMany({ ultimabase: second }),
 					).toThrow(expect.objectContaining({ code: 'VALIDATION_ERROR' }))
 				},
 			)

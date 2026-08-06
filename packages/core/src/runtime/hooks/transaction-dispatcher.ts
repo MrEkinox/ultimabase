@@ -51,8 +51,8 @@ const isMutationOperation = (
 	switch (entry.operation.kind) {
 		case 'count':
 		case 'exists':
-		case 'find':
-		case 'first':
+		case 'find-many':
+		case 'find-one':
 		case 'get':
 			return false
 		case 'create-many':

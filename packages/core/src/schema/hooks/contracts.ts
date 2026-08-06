@@ -39,7 +39,8 @@ export type SchemaSaveHookKind =
 	SchemaCreateHookKind | SchemaUpdateHookKind | SchemaUpsertHookKind
 
 /** Groups every read terminal without introducing a second query model. */
-export type SchemaReadHookKind = 'count' | 'exists' | 'find' | 'first' | 'get'
+export type SchemaReadHookKind =
+	'count' | 'exists' | 'find-many' | 'find-one' | 'get'
 
 /** Groups every terminal whose business work participates in a transaction. */
 export type SchemaMutationHookKind = SchemaDeleteHookKind | SchemaSaveHookKind

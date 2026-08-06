@@ -25,7 +25,7 @@ import type {
 	SchemaDeleteOneInput,
 	SchemaUpdateManyInput,
 	SchemaUpdateOneInput,
-	SchemaUpsertInput,
+	SchemaUpsertOneInput,
 	SchemaUpsertManyInput,
 } from '../../query/operations/schema-commands.js'
 import type { Query } from '../../query/query/query.js'
@@ -214,18 +214,18 @@ export interface SchemaClass<
 	/**
 	 * Creates one row and returns its selected model fields.
 	 *
-	 * @example `await Post.create({ data: { title: 'Hello' }, select: { id: true, title: true } })`
+	 * @example `await Post.createOne({ data: { title: 'Hello' }, select: { id: true, title: true } })`
 	 */
-	create<const TSelection extends QuerySelection<this>>(
+	createOne<const TSelection extends QuerySelection<this>>(
 		input: SchemaCreateOneInput<this, TSelection>,
 		options?: QueryTerminalOptions,
 	): Promise<InferQueryResult<this, QuerySelectedField<this, TSelection>>>
 	/**
 	 * Creates one row and returns its complete persisted model.
 	 *
-	 * @example `await Post.create({ data: { title: 'Hello' } })`
+	 * @example `await Post.createOne({ data: { title: 'Hello' } })`
 	 */
-	create(
+	createOne(
 		input: SchemaCreateOneInput<this>,
 		options?: QueryTerminalOptions,
 	): Promise<InferQueryResult<this>>
@@ -310,15 +310,15 @@ export interface SchemaClass<
 	/**
 	 * Creates or updates one row selected by an exact unique target.
 	 *
-	 * @example `await Post.upsert({ where: { id: { eq: id } }, create, update, select: { id: true, title: true } })`
+	 * @example `await Post.upsertOne({ where: { id: { eq: id } }, create, update, select: { id: true, title: true } })`
 	 */
-	upsert<const TSelection extends QuerySelection<this>>(
-		input: SchemaUpsertInput<this, TSelection>,
+	upsertOne<const TSelection extends QuerySelection<this>>(
+		input: SchemaUpsertOneInput<this, TSelection>,
 		options?: QueryTerminalOptions,
 	): Promise<InferQueryResult<this, QuerySelectedField<this, TSelection>>>
 	/** Creates or updates one unique target and returns its complete model. */
-	upsert(
-		input: SchemaUpsertInput<this>,
+	upsertOne(
+		input: SchemaUpsertOneInput<this>,
 		options?: QueryTerminalOptions,
 	): Promise<InferQueryResult<this>>
 	/**

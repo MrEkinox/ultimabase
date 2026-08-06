@@ -83,7 +83,9 @@ type CreateOperation<TSchema extends SchemaDefinition> = Extract<
 
 type ReadOperation<TSchema extends SchemaDefinition> = Extract<
 	OperationAst<TSchema>,
-	{ readonly kind: 'count' | 'exists' | 'find' | 'first' | 'get' }
+	{
+		readonly kind: 'count' | 'exists' | 'find-many' | 'find-one' | 'get'
+	}
 >
 
 type SchemaOperationResultContext<
@@ -383,7 +385,7 @@ export const PostSchema = new PrototypeSchema({
 				count.toFixed()
 			}
 
-			if (context.kind === 'find') {
+			if (context.kind === 'find-many') {
 				const /* hover:find-result */ posts = context.result
 
 				posts.at(0)?.title.toUpperCase()

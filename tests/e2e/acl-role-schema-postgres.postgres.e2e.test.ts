@@ -146,7 +146,7 @@ beforeAll(async () => {
 	const aliceRead = new ACL().grantPrincipal(alicePointer, 'read')
 	const aliceUpdate = aliceRead.grantPrincipal(alicePointer, 'update')
 
-	editor = await AppRole.create(
+	editor = await AppRole.createOne(
 		{
 			data: {
 				acl: aliceUpdate,
@@ -158,7 +158,7 @@ beforeAll(async () => {
 	)
 	await editor.addMember(alicePointer, { ultimabase: app, useMasterKey: true })
 
-	roleProtected = await AppRole.create(
+	roleProtected = await AppRole.createOne(
 		{
 			data: {
 				acl: new ACL().grantRole(
@@ -172,17 +172,17 @@ beforeAll(async () => {
 		},
 		{ ultimabase: app, useMasterKey: true },
 	)
-	parent = await AppRole.create(
+	parent = await AppRole.createOne(
 		{
 			data: { acl: aliceUpdate, description: 'Nested parent', name: 'parent' },
 		},
 		{ ultimabase: app, useMasterKey: true },
 	)
-	child = await AppRole.create(
+	child = await AppRole.createOne(
 		{ data: { acl: aliceRead, description: 'Nested child', name: 'child' } },
 		{ ultimabase: app, useMasterKey: true },
 	)
-	deletable = await AppRole.create(
+	deletable = await AppRole.createOne(
 		{
 			data: {
 				acl: aliceRead.grantPrincipal(alicePointer, 'delete'),
@@ -210,13 +210,13 @@ describe(
 			const resolved = await AppRole.query()
 				.where({ id: { eq: current.id } })
 				.select({ description: true, name: true })
-				.first({ context, ultimabase: app })
+				.findOne({ context, ultimabase: app })
 
 			expect(resolved?.name).toBe('role-protected')
 			const persistedACL = await AppRole.query()
 				.where({ id: { eq: current.id } })
 				.select({ acl: true })
-				.first({ ultimabase: app, useMasterKey: true })
+				.findOne({ ultimabase: app, useMasterKey: true })
 
 			expect(
 				persistedACL?.acl.permissionsForRole(
@@ -278,7 +278,7 @@ describe(
 			await expect(
 				AppRole.query()
 					.select({ acl: true })
-					.find({ context, ultimabase: app }),
+					.findMany({ context, ultimabase: app }),
 			).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
 		})
 	},

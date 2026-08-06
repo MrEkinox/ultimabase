@@ -237,8 +237,8 @@ const operationFilterFamily = (
 	switch (kind) {
 		case 'count':
 		case 'exists':
-		case 'find':
-		case 'first':
+		case 'find-many':
+		case 'find-one':
 		case 'get':
 			return 'read'
 		case 'update-many':
@@ -274,8 +274,8 @@ const operationItemFamily = (
 			return 'delete'
 		case 'count':
 		case 'exists':
-		case 'find':
-		case 'first':
+		case 'find-many':
+		case 'find-one':
 		case 'get':
 			return undefined
 	}

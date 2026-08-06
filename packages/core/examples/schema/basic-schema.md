@@ -55,7 +55,7 @@ Singular schema mutations can project their public result without changing the
 complete values available to mutation hooks:
 
 ```ts
-const created = await UserSchema.create({
+const created = await UserSchema.createOne({
 	data: { username: 'ada', displayName: 'Ada' },
 	select: { id: true, username: true },
 })

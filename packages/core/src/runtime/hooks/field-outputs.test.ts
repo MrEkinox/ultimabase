@@ -5,8 +5,8 @@ import {
 	type CountOperationAst,
 	type DeleteManyOperationAst,
 	type ExistsOperationAst,
-	type FindOperationAst,
-	type FirstOperationAst,
+	type FindManyOperationAst,
+	type FindOneOperationAst,
 	type QueryExpressionNode,
 	normalizeUpdateExpression,
 	type UpdateManyOperationAst,
@@ -49,12 +49,12 @@ const describeOutputs = (outputs: readonly RuntimeFieldOutputValue[]) =>
 
 describe('runtime field outputs', () => {
 	it('visits only present selected values with nested children before parents', () => {
-		const operation: FindOperationAst<
+		const operation: FindManyOperationAst<
 			typeof outputSchema,
 			QueryExpressionNode,
 			'title' | 'profile' | 'nickname' | 'bio'
 		> = {
-			kind: 'find',
+			kind: 'find-many',
 			query: new Query(outputSchema).select({
 				title: true,
 				profile: true,
@@ -82,49 +82,49 @@ describe('runtime field outputs', () => {
 			{
 				fieldPath: ['title'],
 				itemIndex: 0,
-				kind: 'find',
+				kind: 'find-many',
 				mode: 'object',
 				valuePath: [0, 'title'],
 			},
 			{
 				fieldPath: ['profile', 'displayName'],
 				itemIndex: 0,
-				kind: 'find',
+				kind: 'find-many',
 				mode: 'object',
 				valuePath: [0, 'profile', 'displayName'],
 			},
 			{
 				fieldPath: ['profile', 'contact', 'email'],
 				itemIndex: 0,
-				kind: 'find',
+				kind: 'find-many',
 				mode: 'object',
 				valuePath: [0, 'profile', 'contact', 'email'],
 			},
 			{
 				fieldPath: ['profile', 'contact'],
 				itemIndex: 0,
-				kind: 'find',
+				kind: 'find-many',
 				mode: 'object',
 				valuePath: [0, 'profile', 'contact'],
 			},
 			{
 				fieldPath: ['profile'],
 				itemIndex: 0,
-				kind: 'find',
+				kind: 'find-many',
 				mode: 'object',
 				valuePath: [0, 'profile'],
 			},
 			{
 				fieldPath: ['nickname'],
 				itemIndex: 0,
-				kind: 'find',
+				kind: 'find-many',
 				mode: 'object',
 				valuePath: [0, 'nickname'],
 			},
 			{
 				fieldPath: ['bio'],
 				itemIndex: 0,
-				kind: 'find',
+				kind: 'find-many',
 				mode: 'object',
 				valuePath: [0, 'bio'],
 			},
@@ -132,12 +132,12 @@ describe('runtime field outputs', () => {
 	})
 
 	it('replaces child values immutably and lets parents observe transformed children', async () => {
-		const operation: FindOperationAst<
+		const operation: FindManyOperationAst<
 			typeof outputSchema,
 			QueryExpressionNode,
 			'title' | 'profile'
 		> = {
-			kind: 'find',
+			kind: 'find-many',
 			query: new Query(outputSchema).select({ title: true, profile: true }).ast,
 		}
 		const originalProfile = immutableRecord({
@@ -375,20 +375,20 @@ describe('runtime field outputs', () => {
 
 	it('skips null, empty, and scalar terminal results without calling the visitor', async () => {
 		const visitor = vi.fn(() => 'unreachable')
-		const first: FirstOperationAst<
+		const first: FindOneOperationAst<
 			typeof outputSchema,
 			QueryExpressionNode,
 			'title'
 		> = {
-			kind: 'first',
+			kind: 'find-one',
 			query: new Query(outputSchema).select({ title: true }).ast,
 		}
-		const find: FindOperationAst<
+		const find: FindManyOperationAst<
 			typeof outputSchema,
 			QueryExpressionNode,
 			'title'
 		> = {
-			kind: 'find',
+			kind: 'find-many',
 			query: new Query(outputSchema).select({ title: true }).ast,
 		}
 		const count = {
@@ -418,9 +418,9 @@ describe('runtime field outputs', () => {
 
 	it('rejects malformed record terminal shapes before visiting fields', async () => {
 		const find = {
-			kind: 'find',
+			kind: 'find-many',
 			query: new Query(outputSchema).ast,
-		} satisfies FindOperationAst<typeof outputSchema>
+		} satisfies FindManyOperationAst<typeof outputSchema>
 
 		await expect(
 			transformOperationFieldOutputs(find, null as never, () => undefined),

@@ -25,7 +25,7 @@ describe('non-atomic Runtime results', () => {
 		expect(isNonAtomicBulkOperation(nonAtomicCreate)).toBe(true)
 		expect(isNonAtomicBulkOperation(nonAtomicUpsert)).toBe(true)
 		expect(isNonAtomicBulkOperation(atomicCreate)).toBe(false)
-		expect(isNonAtomicBulkOperation({ kind: 'find' })).toBe(false)
+		expect(isNonAtomicBulkOperation({ kind: 'find-many' })).toBe(false)
 	})
 
 	it('maps successful records without losing stopped metadata', () => {

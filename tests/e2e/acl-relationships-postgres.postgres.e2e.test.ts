@@ -162,7 +162,7 @@ beforeAll(async () => {
 	await ultimabase.start()
 	const app = getApplication()
 
-	alice = await Member.create(
+	alice = await Member.createOne(
 		{ data: { name: 'Alice' } },
 		{ ultimabase: app, useMasterKey: true },
 	)
@@ -239,7 +239,7 @@ describe(
 			const rows = await Article.query()
 				.ascending('title')
 				.include('author', (query) => query.select({ name: true }))
-				.find({ context, ultimabase: app })
+				.findMany({ context, ultimabase: app })
 
 			expect(rows.map(({ title }) => title)).toStrictEqual([
 				'Hidden author article',
@@ -252,11 +252,11 @@ describe(
 			await expect(
 				Author.pointer(requireFixture(hiddenAuthor, 'hidden author').id)
 					.query()
-					.first({ context, ultimabase: app }),
+					.findOne({ context, ultimabase: app }),
 			).resolves.toBeNull()
 			const protectedInclusion = await Article.query()
 				.include('author', (query) => query.select({ acl: true }))
-				.find({ context, ultimabase: app })
+				.findMany({ context, ultimabase: app })
 
 			// A forbidden target projection is indistinguishable from a missing pointer.
 			expect(protectedInclusion.every(({ author }) => author === null)).toBe(
@@ -265,7 +265,7 @@ describe(
 			await expect(
 				Article.query()
 					.select({ acl: true })
-					.find({ context, ultimabase: app }),
+					.findMany({ context, ultimabase: app }),
 			).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
 		})
 
@@ -281,7 +281,7 @@ describe(
 					.after()
 					.limit(10)
 					.select({ label: true })
-					.find({ context, ultimabase: app }),
+					.findMany({ context, ultimabase: app }),
 			).resolves.toEqual([expect.objectContaining({ label: 'visible' })])
 			await expect(
 				tags.query().count({ context, ultimabase: app }),
@@ -290,13 +290,16 @@ describe(
 				tags.query().exists({ context, ultimabase: app }),
 			).resolves.toBe(true)
 			await expect(
-				tags.query().select({ acl: true }).find({ context, ultimabase: app }),
+				tags
+					.query()
+					.select({ acl: true })
+					.findMany({ context, ultimabase: app }),
 			).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
 			await expect(
 				requireFixture(hiddenArticle, 'hidden article')
 					.relation('tags')
 					.query()
-					.find({ context, ultimabase: app }),
+					.findMany({ context, ultimabase: app }),
 			).resolves.toStrictEqual([])
 			await expect(
 				tags.connect(Tag.pointer(requireFixture(hiddenTag, 'hidden tag').id), {

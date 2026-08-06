@@ -35,8 +35,8 @@ import type { NormalizedAccessRule } from './normalization.js'
 
 /** Lists every Runtime terminal once for exhaustive Access-plan lookup. */
 export const accessOperationKinds: readonly OperationKind[] = [
-	'find',
-	'first',
+	'find-many',
+	'find-one',
 	'get',
 	'count',
 	'exists',
@@ -209,8 +209,8 @@ const schemaReadKinds: Readonly<
 > = immutableRecord({
 	count: immutableArray(['count']),
 	exists: immutableArray(['exists']),
-	many: immutableArray(['find']),
-	one: immutableArray(['get', 'first']),
+	many: immutableArray(['find-many']),
+	one: immutableArray(['get', 'find-one']),
 })
 
 const schemaOperationFamilyKinds = immutableRecord({
@@ -234,7 +234,7 @@ const appendSchemaOperationDeclarations = (
 		if (isNormalizedAccessRule(read)) {
 			appendRuleToKinds(
 				rules,
-				['get', 'first', 'find', 'count', 'exists'],
+				['get', 'find-one', 'find-many', 'count', 'exists'],
 				read,
 				source,
 			)

@@ -3,7 +3,7 @@ import {
 	Query,
 	type CreateManyOperationAst,
 	type CreateOneOperationAst,
-	type FindOperationAst,
+	type FindManyOperationAst,
 	type UpdateManyOperationAst,
 	type UpdateOneOperationAst,
 } from '../../query/index.js'
@@ -82,8 +82,8 @@ const requireStages = (
 
 const createFind = (
 	query: Query<typeof articleSchema> = new Query(articleSchema),
-): FindOperationAst<typeof articleSchema> => ({
-	kind: 'find',
+): FindManyOperationAst<typeof articleSchema> => ({
+	kind: 'find-many',
 	query: query.ast,
 })
 
@@ -107,7 +107,7 @@ describe('NativeAccessRuntime', () => {
 		})
 		const stages = requireStages(createEnforcementStages(application))
 		const operation = {
-			kind: 'find',
+			kind: 'find-many',
 			query: new Query(source).ast,
 		} as const
 		const enforcement = await stages.evaluate({ context, operation })
@@ -144,7 +144,7 @@ describe('NativeAccessRuntime', () => {
 			operation,
 		})
 
-		expect(accessTrace).toStrictEqual(['find'])
+		expect(accessTrace).toStrictEqual(['find-many'])
 		expect(enforced.operation.query.where).toBe(originalQuery.where)
 		expect(enforced.rowFilter).toMatchObject({
 			field: 'published',
@@ -363,8 +363,8 @@ describe('NativeAccessRuntime', () => {
 			plugins: [],
 		})
 		const stages = requireStages(createEnforcementStages(application))
-		const operation: FindOperationAst<typeof schema> = {
-			kind: 'find',
+		const operation: FindManyOperationAst<typeof schema> = {
+			kind: 'find-many',
 			query: new Query(schema).ast,
 		}
 
@@ -396,8 +396,8 @@ describe('NativeAccessRuntime', () => {
 			schemas: [schema],
 		})
 		const stages = requireStages(createEnforcementStages(application))
-		const operation: FindOperationAst<typeof schema> = {
-			kind: 'find',
+		const operation: FindManyOperationAst<typeof schema> = {
+			kind: 'find-many',
 			query: new Query(schema).ast,
 		}
 		const master = createTrustedMasterRequestContext(
@@ -435,8 +435,8 @@ describe('NativeAccessRuntime', () => {
 			plugins: [],
 		})
 		const stages = requireStages(createEnforcementStages(application))
-		const operation: FindOperationAst<typeof schema> = {
-			kind: 'find',
+		const operation: FindManyOperationAst<typeof schema> = {
+			kind: 'find-many',
 			query: new Query(schema).ast,
 		}
 

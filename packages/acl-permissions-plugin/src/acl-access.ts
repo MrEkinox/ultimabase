@@ -113,8 +113,8 @@ export const requiredACLPermissions = <TSchema extends SchemaDefinition>(
 	switch (operation.kind) {
 		case 'count':
 		case 'exists':
-		case 'find':
-		case 'first':
+		case 'find-many':
+		case 'find-one':
 		case 'get':
 			return immutableArray(['read'])
 		case 'delete-many':

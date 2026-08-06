@@ -241,11 +241,11 @@ const runCombinedComposition = async (
 		await ultimabase.start()
 		const result = await CombinedPost.query()
 			.where((where) => where.eq('title', 'developer-visible'))
-			.find({ ultimabase })
+			.findMany({ ultimabase })
 		const request = adapter.requests[0]
 		const operation = request?.operation
 
-		if (request === undefined || operation?.kind !== 'find') {
+		if (request === undefined || operation?.kind !== 'find-many') {
 			throw new TypeError('Composition fixture expected one find request')
 		}
 		const query: unknown = Reflect.get(operation, 'query')
@@ -307,10 +307,12 @@ describe('Access provider composition', () => {
 		try {
 			await ultimabase.start()
 			await expect(
-				NativeDocument.query().find({ ultimabase }),
+				NativeDocument.query().findMany({ ultimabase }),
 			).resolves.toEqual([expect.not.objectContaining({ secret: 'hidden' })])
 			await expect(
-				NativeDocument.query().select({ secret: true }).find({ ultimabase }),
+				NativeDocument.query()
+					.select({ secret: true })
+					.findMany({ ultimabase }),
 			).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
 			expect(adapter.requests).toHaveLength(1)
 		} finally {
@@ -349,7 +351,7 @@ describe('Access provider composition', () => {
 		try {
 			await Promise.all([rolesOnly.start(), aclOnly.start(), composed.start()])
 			await expect(
-				PublicACLPost.query().find({ ultimabase: aclOnly }),
+				PublicACLPost.query().findMany({ ultimabase: aclOnly }),
 			).resolves.toEqual([expect.objectContaining({ title: 'public ACL' })])
 			expect(rolesOnly.state).toBe('started')
 			expect(aclOnly.state).toBe('started')
@@ -392,7 +394,7 @@ describe('Access provider composition', () => {
 		try {
 			await Promise.all([readApplication.start(), writeApplication.start()])
 			await expect(
-				CombinedPost.query().find({ ultimabase: readApplication }),
+				CombinedPost.query().findMany({ ultimabase: readApplication }),
 			).rejects.toMatchObject({
 				code: 'SERVICE_NOT_FOUND',
 			} satisfies Partial<FrameworkError>)
@@ -400,7 +402,7 @@ describe('Access provider composition', () => {
 
 			roleAwareBusinessHooks = 0
 			await expect(
-				MissingRolePost.create(
+				MissingRolePost.createOne(
 					{ data: { title: 'missing provider' } },
 					{ ultimabase: writeApplication },
 				),
@@ -433,7 +435,7 @@ describe('Access provider composition', () => {
 		try {
 			await ultimabase.start()
 			await expect(
-				CombinedPost.query().find({ ultimabase }),
+				CombinedPost.query().findMany({ ultimabase }),
 			).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
 			expect(adapter.requests).toHaveLength(0)
 		} finally {

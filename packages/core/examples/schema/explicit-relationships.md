@@ -70,7 +70,7 @@ identity. Pointer targets remain exactly typed in create inputs, persisted
 models, filters, and selections:
 
 ```ts
-const membership = await Membership.create({
+const membership = await Membership.createOne({
 	data: {
 		member: Member.pointer(memberId),
 		position: 1,
@@ -84,7 +84,7 @@ const projectMembers = await Membership.query()
 	.include('member', (member) => member.select({ id: true, name: true }))
 	.select({ id: true, member: true, position: true, role: true })
 	.ascending('position')
-	.find()
+	.findMany()
 ```
 
 Multiple edge writes compose through the same request transaction as every
@@ -92,9 +92,9 @@ other schema:
 
 ```ts
 await request.transaction(async () => {
-	const project = await Project.create({ data: { title: 'Relations' } })
+	const project = await Project.createOne({ data: { title: 'Relations' } })
 
-	await Membership.create({
+	await Membership.createOne({
 		data: {
 			member: Member.pointer(memberId),
 			project: Project.pointer(project.id),

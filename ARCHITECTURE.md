@@ -167,11 +167,13 @@ setup export types, including definitions introduced through nested composition.
   from one explicitly injected `RequestEngine`; nested and concurrent requests
   never share mutable global state.
 - `Query<TSchema>` is an immutable context-free read definition whose
-  `find`, `first`, `get`, `count`, and `exists` terminals resolve execution only
-  when called.
+  `findOne`, `findMany`, `get`, `count`, and `exists` terminals resolve
+  execution only when called.
 - `QueryScope<TSchema>` composes selection-preserving unbound transformations.
-- Generated schema classes own static create, update, upsert, and delete
-  commands. Their filter-only `where` callbacks normalize into the same
+- Generated schema classes own explicit `createOne`/`createMany`,
+  `updateOne`/`updateMany`, `upsertOne`/`upsertMany`, and
+  `deleteOne`/`deleteMany` commands. Their filter-only `where` callbacks
+  normalize into the same
   Operation AST and Runtime bridge as reads. Reads and writes reuse the exact
   active request and hook lease, or accept `{ ultimabase }` outside a scope. No
   process-wide application singleton, request, authority, transaction, or
@@ -223,7 +225,7 @@ snapshots and composes them with developer hooks. Before/after hooks transform
 values explicitly; business after-hooks may still abort before commit, while
 externally visible event handlers run only after commit succeeds.
 
-One handler may cover a full create, update, upsert, delete, save, or find
+One handler may cover a full create, update, upsert, delete, save, or read
 family; the exact terminal kind remains a discriminant. Handler lists execute
 sequentially. Create-many and upsert-many preserve stable input order, while
 set-based update-many and delete-many never materialize every row merely to run

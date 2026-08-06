@@ -4,7 +4,7 @@ import {
 	Query,
 	type CountOperationAst,
 	type ExistsOperationAst,
-	type FindOperationAst,
+	type FindManyOperationAst,
 	type QueryExpressionNode,
 } from '../../query/index.js'
 import { Schema, stringField } from '../../schema/index.js'
@@ -22,12 +22,12 @@ const schema = Schema.define({
 		secret: stringField(),
 	},
 })
-const findOperation: FindOperationAst<
+const findOperation: FindManyOperationAst<
 	typeof schema,
 	QueryExpressionNode,
 	'title'
 > = {
-	kind: 'find',
+	kind: 'find-many',
 	query: new Query(schema).select({ title: true }).ast,
 }
 const countOperation = {

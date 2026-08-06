@@ -82,7 +82,7 @@ Source Queries can filter without materializing related collections:
 ```ts
 const authorsWithTypedPosts = await UserSchema.query()
 	.where({ posts: { some: { title: { contains: 'TypeScript' } } } })
-	.find()
+	.findMany()
 ```
 
 Nested `some`, `none`, and `every` inputs retain the exact target schema. They

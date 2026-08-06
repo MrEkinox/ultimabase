@@ -1,7 +1,7 @@
 import type {
 	CreateManyOperationAst,
 	CreateOneOperationAst,
-	FindOperationAst,
+	FindManyOperationAst,
 } from '../../query/index.js'
 import { Query } from '../../query/query/query.js'
 import { Schema, stringField } from '../../schema/index.js'
@@ -20,9 +20,9 @@ const ResultSchema = Schema.define({
 describe('Runtime result materialization', () => {
 	it('rejects malformed collection and record outputs', () => {
 		const find = {
-			kind: 'find',
+			kind: 'find-many',
 			query: new Query(ResultSchema).ast,
-		} satisfies FindOperationAst<typeof ResultSchema>
+		} satisfies FindManyOperationAst<typeof ResultSchema>
 		const malformedCollection = 1 as unknown as DatabaseOperationResult<
 			typeof find
 		>

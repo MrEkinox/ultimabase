@@ -7,7 +7,7 @@ import {
 	Query,
 	type CreateOneOperationAst,
 	type ExecutableOperationAst,
-	type FindOperationAst,
+	type FindManyOperationAst,
 } from '../../query/index.js'
 import { Schema, stringField } from '../../schema/index.js'
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
@@ -405,8 +405,8 @@ describe('createEnforcementStages', () => {
 		const stages = requireEnforcementStages(
 			createEnforcementStages(application),
 		)
-		const operation: FindOperationAst<typeof articleSchema> = {
-			kind: 'find',
+		const operation: FindManyOperationAst<typeof articleSchema> = {
+			kind: 'find-many',
 			query: new Query(articleSchema).select({
 				id: true,
 				title: true,

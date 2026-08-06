@@ -269,7 +269,11 @@ const compileEagerConfig = (
 			),
 		)
 	}
-	if (root && request.operation.kind === 'find' && query.limit !== undefined) {
+	if (
+		root &&
+		request.operation.kind === 'find-many' &&
+		query.limit !== undefined
+	) {
 		config.limit = query.limit
 	}
 
@@ -356,8 +360,8 @@ const executePostgresEagerPointerRequestRaw = async (
 	const operation = request.operation as ExecutableOperationAst
 
 	if (
-		operation.kind !== 'find' &&
-		operation.kind !== 'first' &&
+		operation.kind !== 'find-many' &&
+		operation.kind !== 'find-one' &&
 		operation.kind !== 'get'
 	) {
 		throw new TypeError(
@@ -382,13 +386,13 @@ const executePostgresEagerPointerRequestRaw = async (
 		true,
 	)
 	const raw =
-		operation.kind === 'find'
+		operation.kind === 'find-many'
 			? await builder.findMany(config)
 			: await builder.findFirst(config)
 
-	if (operation.kind === 'find') {
+	if (operation.kind === 'find-many') {
 		if (!isUnknownArray(raw)) {
-			throw new TypeError('PostgreSQL eager find must return an array')
+			throw new TypeError('PostgreSQL eager find-many must return an array')
 		}
 
 		return raw.map((record) =>

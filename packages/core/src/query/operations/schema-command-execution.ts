@@ -15,8 +15,8 @@ import {
 	executeQueryDeleteOne,
 	executeQueryUpdateMany,
 	executeQueryUpdateOne,
-	executeQueryUpsert,
-	executeSchemaCreate,
+	executeQueryUpsertOne,
+	executeSchemaCreateOne,
 	executeSchemaCreateMany,
 	executeSchemaUpsertMany,
 	hydrateQueryFromAst,
@@ -38,7 +38,7 @@ import type {
 	SchemaManyWhere,
 	SchemaUpdateManyExecutionInput,
 	SchemaUpdateOneExecutionInput,
-	SchemaUpsertExecutionInput,
+	SchemaUpsertOneExecutionInput,
 	SchemaUpsertManyExecutionInput,
 	SchemaWhereFactory,
 } from './schema-commands.js'
@@ -166,7 +166,7 @@ export const createSchemaRecord = <const TSchema extends SchemaDefinition>(
 		createOneOptionalCommandKeys,
 	)
 
-	return executeSchemaCreate(schema, input, options)
+	return executeSchemaCreateOne(schema, input, options)
 }
 
 /** Creates ordered rows through the schema class. */
@@ -247,7 +247,7 @@ export const updateSchemaRecords = <const TSchema extends SchemaDefinition>(
 /** Upserts one exact unique target through the schema class. */
 export const upsertSchemaRecord = <const TSchema extends SchemaDefinition>(
 	schema: TSchema,
-	input: SchemaUpsertExecutionInput<TSchema>,
+	input: SchemaUpsertOneExecutionInput<TSchema>,
 	options?: QueryTerminalOptions,
 ): Promise<object> => {
 	assertExactCommandKeys(
@@ -259,7 +259,7 @@ export const upsertSchemaRecord = <const TSchema extends SchemaDefinition>(
 	const query = createSchemaWhereQuery(schema, input.where)
 
 	if (input.select === undefined) {
-		return executeQueryUpsert(
+		return executeQueryUpsertOne(
 			query,
 			{ create: input.create, update: input.update },
 			options,
@@ -273,7 +273,7 @@ export const upsertSchemaRecord = <const TSchema extends SchemaDefinition>(
 		}),
 	)
 
-	return executeQueryUpsert(
+	return executeQueryUpsertOne(
 		selectedQuery,
 		{ create: input.create, update: input.update },
 		options,

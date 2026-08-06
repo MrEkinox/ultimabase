@@ -34,7 +34,7 @@ const ultimabase = new UltimaBase({
 
 await ultimabase.start()
 
-const articles = await ArticleSchema.query().limit(20).find({ ultimabase })
+const articles = await ArticleSchema.query().limit(20).findMany({ ultimabase })
 ```
 
 Outside an active request scope, `{ ultimabase }` creates a fresh anonymous
@@ -76,7 +76,7 @@ const request = framework.anonymous({
 })
 
 const articles = await runWithRequestEngine(request, () =>
-	ArticleSchema.query().limit(20).find(),
+	ArticleSchema.query().limit(20).findMany(),
 )
 ```
 
@@ -98,7 +98,7 @@ const tenantPlugin = (tenantId: string) =>
 				'example.tenant-constraint',
 				constraint({
 					schema: ArticleSchema,
-					operations: ['find', 'first', 'get'],
+					operations: ['find-many', 'find-one', 'get'],
 					handler: () => databaseConstraint('example.tenant', 1, { tenantId }),
 				}),
 			)
@@ -204,9 +204,9 @@ decides whether its own handler treats that authority differently.
 ## Read hooks and output resolution
 
 Every read transport shares the same native Runtime path. `beforeRead` covers
-`find`, `first`, `get`, `count`, and `exists` while preserving the exact terminal
-through `kind`. It returns a new immutable Query or `undefined` to retain the
-current one:
+`findOne`, `findMany`, `get`, `count`, and `exists` while preserving the exact
+terminal through `kind`. It returns a new immutable Query or `undefined` to
+retain the current one:
 
 ```ts
 const ArticleSchema = Schema.define({
@@ -235,7 +235,7 @@ const ArticleSchema = Schema.define({
 })
 
 const articles = await runWithRequestEngine(request, () =>
-	ArticleSchema.query().select({ id: true, title: true }).find(),
+	ArticleSchema.query().select({ id: true, title: true }).findMany(),
 )
 
 // The exact result is readonly { id: string; title: string }[].
@@ -273,7 +273,7 @@ Every business hook input includes one immutable Runtime-owned `HookContext`:
 ```ts
 beforeCreate: async ({ context, operation }) => {
 	if (operation.kind === 'create-one') {
-		await AuditSchema.create({ data: { action: 'article.create' } })
+		await AuditSchema.createOne({ data: { action: 'article.create' } })
 		context.emit('article.creating', { title: operation.input.title })
 	}
 	logger.debug({
@@ -395,7 +395,7 @@ const ArticleSchema = Schema.define({
 	hooks: {
 		beforeCreate: async ({ context, operation }) => {
 			if (operation.kind === 'create-one') {
-				await AuditSchema.create({ data: { action: 'article.create' } })
+				await AuditSchema.createOne({ data: { action: 'article.create' } })
 				context.emit('article.created', { title: operation.input.title })
 			}
 
@@ -467,16 +467,17 @@ const publishedArticles = ArticleSchema.query()
 	.where({ status: { eq: 'published' } })
 	.descending('createdAt')
 	.limit(20)
-	.find()
+	.findMany()
 ```
 
 The schema must be the exact definition registered by this application. A
 schema from another application is rejected even if it uses the same
 `className`, so parallel applications cannot leak queries or request contexts.
 Direct `execute(operation)` remains available as the low-level
-normalized-operation API. Bound queries expose `find`, `first`, `get`, `count`,
-`exists`, `createOne`/`create`, `createMany`, `updateOne`, `updateMany`,
-`upsertOne`/`upsert`, `upsertMany`, `deleteOne`, and `deleteMany`.
+normalized-operation API. Queries expose `findOne`, `findMany`, `get`, `count`,
+and `exists`. Generated schema classes expose `createOne`/`createMany`,
+`updateOne`/`updateMany`, `upsertOne`/`upsertMany`, and
+`deleteOne`/`deleteMany`.
 
 Every root mutation automatically uses the same adapter transaction lifecycle
 as `request.transaction()`. This includes singular and bulk create, update,
@@ -510,7 +511,7 @@ metadata:
 import { increment } from '@ultimabase/core'
 
 const article = await request.transaction(async () => {
-	const created = await ArticleSchema.create({
+	const created = await ArticleSchema.createOne({
 		data: { title: 'Atomic article' },
 	})
 
@@ -552,7 +553,7 @@ const framework = new FrameworkEngine({
 const grant = framework.authorizeMasterKey(receivedMasterKey)
 const master = await request.useMasterKey(grant, 'Rebuild article search index')
 
-await runWithRequestEngine(master, () => ArticleSchema.query().find())
+await runWithRequestEngine(master, () => ArticleSchema.query().findMany())
 ```
 
 Ordinary trusted backend code normally uses the concise terminal option. The
@@ -560,12 +561,12 @@ first configured key ID identifies this path in the audit event, while no raw
 key is retained or verified again:
 
 ```ts
-const allArticles = await ArticleSchema.query().find({
+const allArticles = await ArticleSchema.query().findMany({
 	ultimabase,
 	useMasterKey: true,
 })
 
-const scopedMaster = await ArticleSchema.query().find({
+const scopedMaster = await ArticleSchema.query().findMany({
 	context: contextCreatedByAPlugin,
 	ultimabase,
 	useMasterKey: true,
@@ -838,7 +839,7 @@ Every call keeps the operation-specific result type:
 ```ts
 const articles = await adapter.execute({
 	operation: {
-		kind: 'find',
+		kind: 'find-many',
 		query: new Query(articleSchema).limit(20).ast,
 	},
 	constraints: [

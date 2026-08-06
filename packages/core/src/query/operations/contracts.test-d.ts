@@ -45,8 +45,8 @@ type FixtureOperation = OperationAst<
 
 test('preserves exact operation kinds and schema-derived inputs', () => {
 	expectTypeOf<OperationKind>().toEqualTypeOf<
-		| 'find'
-		| 'first'
+		| 'find-many'
+		| 'find-one'
 		| 'get'
 		| 'count'
 		| 'exists'
@@ -155,8 +155,8 @@ test('forces exhaustive matching when a terminal kind is added', () => {
 		operation: FixtureOperation,
 	): 'bulk' | 'read' | 'singular' => {
 		switch (operation.kind) {
-			case 'find':
-			case 'first':
+			case 'find-many':
+			case 'find-one':
 			case 'get':
 			case 'count':
 			case 'exists':

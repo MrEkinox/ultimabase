@@ -7,8 +7,8 @@ import {
 import { isFieldNullable } from '../../schema/fields/base/options.js'
 
 import type {
-	FindOperationAst,
-	FirstOperationAst,
+	FindManyOperationAst,
+	FindOneOperationAst,
 	QueryFieldName,
 	UpdateExpressionNode,
 	UpdateOneOperationAst,
@@ -133,7 +133,7 @@ export const readRuntimeRelationMutation = (
 export const createRelationTargetLookup = <TSchema extends SchemaDefinition>(
 	pointer: Pointer<TSchema>,
 ): Readonly<{
-	operation: FirstOperationAst<TSchema>
+	operation: FindOneOperationAst<TSchema>
 	rowFilter: DatabaseRowFilterNode
 }> => {
 	const query = new Query(pointer.schema)
@@ -145,7 +145,7 @@ export const createRelationTargetLookup = <TSchema extends SchemaDefinition>(
 	) as DatabaseRowFilterNode
 
 	return immutableRecord({
-		operation: immutableRecord({ kind: 'first' as const, query: query.ast }),
+		operation: immutableRecord({ kind: 'find-one' as const, query: query.ast }),
 		rowFilter,
 	})
 }
@@ -166,7 +166,7 @@ export const createInversePointerTargetLookup = <
 	mappedFieldName: string,
 	source: Pointer<TSource>,
 ): Readonly<{
-	operation: FindOperationAst<TTarget>
+	operation: FindManyOperationAst<TTarget>
 	rowFilter: DatabaseRowFilterNode
 }> => {
 	const query = new Query(target)
@@ -178,7 +178,10 @@ export const createInversePointerTargetLookup = <
 	) as DatabaseRowFilterNode
 
 	return immutableRecord({
-		operation: immutableRecord({ kind: 'find' as const, query: query.ast }),
+		operation: immutableRecord({
+			kind: 'find-many' as const,
+			query: query.ast,
+		}),
 		rowFilter,
 	})
 }

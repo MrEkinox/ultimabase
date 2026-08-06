@@ -37,12 +37,12 @@ describe('PostgreSQL operation errors', () => {
 	it('preserves framework failures and sanitizes unknown errors', () => {
 		const existing = new FrameworkError('VALIDATION_ERROR', 'Already mapped')
 
-		expect(mapPostgresOperationError(existing, 'find')).toBe(existing)
+		expect(mapPostgresOperationError(existing, 'find-many')).toBe(existing)
 		expect(
-			mapPostgresOperationError(new Error('secret'), 'find'),
+			mapPostgresOperationError(new Error('secret'), 'find-many'),
 		).toMatchObject({
 			code: 'INTERNAL_ERROR',
-			internalDetails: { operation: 'find' },
+			internalDetails: { operation: 'find-many' },
 		})
 	})
 })

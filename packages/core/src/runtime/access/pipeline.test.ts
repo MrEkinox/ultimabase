@@ -49,7 +49,7 @@ const createAdapterPlugin = (
 
 						return { operation }
 					},
-					operations: ['find'],
+					operations: ['find-many'],
 					schema: securedArticle,
 				}),
 			)
@@ -61,7 +61,7 @@ const createAdapterPlugin = (
 
 						return { result }
 					},
-					operations: ['find'],
+					operations: ['find-many'],
 					schema: securedArticle,
 				}),
 			)
@@ -107,7 +107,7 @@ describe('native Access pipeline integration', () => {
 			const result = await securedArticle
 				.query()
 				.where((where) => where.eq('title', 'Public'))
-				.find({ ultimabase })
+				.findMany({ ultimabase })
 
 			expect(observedBusinessFilters).toHaveLength(1)
 			expect(observedBusinessFilters[0]).toMatchObject({

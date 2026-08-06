@@ -141,10 +141,10 @@ describe('native transaction hook finalization', () => {
 		)
 
 		await expect(
-			runWithRequestEngine(request, () => schema.query().find()),
+			runWithRequestEngine(request, () => schema.query().findMany()),
 		).rejects.toBe(readError)
 		expect(trace).toStrictEqual([
-			'execute:find',
+			'execute:find-many',
 			'error:operation:not-started:not-applicable',
 		])
 
@@ -168,7 +168,7 @@ describe('native transaction hook finalization', () => {
 			},
 			hooks: {
 				afterCommit: ({ result }) => {
-					expect(() => schema.query().find()).toThrow(
+					expect(() => schema.query().findMany()).toThrow(
 						expect.objectContaining({ code: 'MISSING_EXECUTION_CONTEXT' }),
 					)
 					trace.push(`schema:afterCommit:${readResultTitle(result)}`)
@@ -195,7 +195,7 @@ describe('native transaction hook finalization', () => {
 		)
 
 		const result = await runWithRequestEngine(request, () =>
-			schema.create({ data: { title: 'Created' } }),
+			schema.createOne({ data: { title: 'Created' } }),
 		)
 
 		expect(result).toBeInstanceOf(schema)
@@ -321,7 +321,7 @@ describe('native transaction hook finalization', () => {
 
 		await expect(
 			runWithRequestEngine(request, () =>
-				schema.create({ data: { title: 'Committed' } }),
+				schema.createOne({ data: { title: 'Committed' } }),
 			),
 		).rejects.toBe(afterCommitError)
 		expect(trace).toContain('adapter:commit')
@@ -371,8 +371,8 @@ describe('native transaction hook finalization', () => {
 		)
 
 		await request.transaction(async () => {
-			await schema.create({ data: { title: 'First' } })
-			await schema.create({ data: { title: 'Second' } })
+			await schema.createOne({ data: { title: 'First' } })
+			await schema.createOne({ data: { title: 'Second' } })
 		})
 		expect(trace).toContain('summary:First,Second')
 		expect(trace.indexOf('summary:First,Second')).toBeLessThan(
@@ -437,7 +437,7 @@ describe('native transaction hook finalization', () => {
 
 		await expect(
 			runWithRequestEngine(request, () =>
-				schema.create({ data: { title: 'Rejected' } }),
+				schema.createOne({ data: { title: 'Rejected' } }),
 			),
 		).rejects.toBe(beforeCommitError)
 		expect(trace.slice(-5)).toStrictEqual([
@@ -488,7 +488,7 @@ describe('native transaction hook finalization', () => {
 
 		await expect(
 			runWithRequestEngine(request, () =>
-				schema.create({ data: { title: 'Commit failure' } }),
+				schema.createOne({ data: { title: 'Commit failure' } }),
 			),
 		).rejects.toEqual(
 			new AggregateError(

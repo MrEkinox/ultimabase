@@ -275,7 +275,7 @@ describe('Runtime hooks and post-commit events', () => {
 		)
 
 		const result = await runWithRequestEngine(request, () =>
-			articleSchema.create({ data: { title: 'input' } }),
+			articleSchema.createOne({ data: { title: 'input' } }),
 		)
 
 		// Root mutations must use the transaction executor rather than the root adapter.
@@ -318,7 +318,7 @@ describe('Runtime hooks and post-commit events', () => {
 		)
 
 		await request.transaction(async () => {
-			await articleSchema.create({ data: { title: 'input' } })
+			await articleSchema.createOne({ data: { title: 'input' } })
 			expect(trace.some((entry) => entry.startsWith('event:'))).toBe(false)
 			trace.push('transaction:callback-complete')
 		})
@@ -365,7 +365,7 @@ describe('Runtime hooks and post-commit events', () => {
 		// The root mutation owns the rollback boundary without an explicit callback.
 		await expect(
 			runWithRequestEngine(request, () =>
-				articleSchema.create({ data: { title: 'input' } }),
+				articleSchema.createOne({ data: { title: 'input' } }),
 			),
 		).rejects.toBe(hookError)
 		expect(trace).toStrictEqual([

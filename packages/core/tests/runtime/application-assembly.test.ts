@@ -38,7 +38,7 @@ describe('public application Runtime assembly', () => {
 		})
 		await ultimabase.start()
 
-		const result = await publicArticleSchema.query().find({ ultimabase })
+		const result = await publicArticleSchema.query().findMany({ ultimabase })
 
 		expect(result).toHaveLength(1)
 		expect(result[0]).toBeInstanceOf(publicArticleSchema)

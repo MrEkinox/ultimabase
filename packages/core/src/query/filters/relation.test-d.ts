@@ -55,7 +55,7 @@ test('exposes only exact target filter capabilities inside relation predicates',
 			target.eq(fieldPath('metadata', ['category']), 42)
 			// @ts-expect-error -- JSONPath cannot target ordinary scalar fields.
 			target.jsonPathMatches('label', { source: '$ == "typed"' })
-			expectTypeOf<'find'>().not.toExtend<keyof typeof target>()
+			expectTypeOf<'findMany'>().not.toExtend<keyof typeof target>()
 			expectTypeOf<'select'>().not.toExtend<keyof typeof target>()
 			expectTypeOf<'useMasterKey'>().not.toExtend<keyof typeof target>()
 

@@ -241,7 +241,7 @@ const readACL = async (
 	const row = await new Query(schema)
 		.where({ id: { eq: id } })
 		.select({ acl: true })
-		.first({ ultimabase, useMasterKey: true })
+		.findOne({ ultimabase, useMasterKey: true })
 	const value: unknown = row === null ? undefined : Reflect.get(row, 'acl')
 
 	if (!(value instanceof ACL)) {
@@ -278,7 +278,7 @@ describe(
 					useMasterKey: true,
 				},
 			)
-			const failRow = await ProtectedPrimary.create(
+			const failRow = await ProtectedPrimary.createOne(
 				{
 					data: {
 						acl: new ACL().grantPrincipal(
@@ -290,7 +290,7 @@ describe(
 				},
 				{ ultimabase, useMasterKey: true },
 			)
-			const preserveRow = await ProtectedPrimary.create(
+			const preserveRow = await ProtectedPrimary.createOne(
 				{
 					data: {
 						acl: new ACL().grantPrincipal(
@@ -334,11 +334,11 @@ describe(
 				.grantPublic('read')
 				.grantPrincipal(CascadePrincipal.pointer(cascade.id), 'read', 'update')
 				.grantPrincipal(unrelated, 'delete')
-			const primary = await ProtectedPrimary.create(
+			const primary = await ProtectedPrimary.createOne(
 				{ data: { acl: value, title: 'principal-cascade-primary' } },
 				{ ultimabase, useMasterKey: true },
 			)
-			const secondary = await ProtectedSecondary.create(
+			const secondary = await ProtectedSecondary.createOne(
 				{ data: { acl: value, title: 'principal-cascade-secondary' } },
 				{ ultimabase, useMasterKey: true },
 			)
@@ -466,7 +466,7 @@ describe(
 			const failReference = FailRole.role({ id: fail.id })
 			const preserveReference = PreserveRole.role({ id: preserve.id })
 			const cascadeReference = CascadeRole.role({ id: cascade.id })
-			const failRow = await ProtectedPrimary.create(
+			const failRow = await ProtectedPrimary.createOne(
 				{
 					data: {
 						acl: new ACL().grantRole(failReference, 'read'),
@@ -475,7 +475,7 @@ describe(
 				},
 				{ ultimabase, useMasterKey: true },
 			)
-			const preserveRow = await ProtectedPrimary.create(
+			const preserveRow = await ProtectedPrimary.createOne(
 				{
 					data: {
 						acl: new ACL().grantRole(preserveReference, 'read'),
@@ -484,7 +484,7 @@ describe(
 				},
 				{ ultimabase, useMasterKey: true },
 			)
-			const cascadeRow = await ProtectedPrimary.create(
+			const cascadeRow = await ProtectedPrimary.createOne(
 				{
 					data: {
 						acl: new ACL()
@@ -561,7 +561,7 @@ describe(
 					useMasterKey: true,
 				})
 				const pointer = CascadePrincipal.pointer(principal.id)
-				const firstRow = await ProtectedPrimary.create(
+				const firstRow = await ProtectedPrimary.createOne(
 					{
 						data: {
 							acl: new ACL().grantPrincipal(pointer, 'read'),
@@ -570,7 +570,7 @@ describe(
 					},
 					{ ultimabase: first, useMasterKey: true },
 				)
-				const secondRow = await ProtectedPrimary.create(
+				const secondRow = await ProtectedPrimary.createOne(
 					{
 						data: {
 							acl: new ACL().grantPrincipal(pointer, 'read'),

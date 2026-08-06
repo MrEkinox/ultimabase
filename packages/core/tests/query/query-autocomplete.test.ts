@@ -39,7 +39,7 @@ import { Schema, UltimaBase, stringField } from '../../src/index.js'
 
 const Post = Schema.define({ className: 'Post', fields: { title: stringField() } })
 const ultimabase = new UltimaBase({ schemas: [Post], plugins: [] })
-Post.query().find({ ${marker} })
+Post.query().findMany({ ${marker} })
 void ultimabase
 `
 		const position = sourceWithMarker.indexOf(marker)
@@ -89,12 +89,12 @@ void ultimabase
 			`
 import { Schema, stringField } from '../../src/index.js'
 const Post = Schema.define({ className: 'Post', fields: { title: stringField() } })
-Post.query()./* hover */find()
+Post.query()./* hover */findMany()
 `,
 		)
 		const display = readDisplay(terminal.displayParts)
 
-		expect(display).toContain('find(options?: QueryTerminalOptions)')
+		expect(display).toContain('findMany(options?: QueryTerminalOptions)')
 		expect(display).not.toContain('SchemaDefinition<')
 		expect(display.length).toBeLessThan(950)
 	})
@@ -115,7 +115,10 @@ Post.query().${marker}
 			completions?.entries.map(({ name }) => name) ?? [],
 		)
 
-		expect(completionNames.has('find')).toBe(true)
+		expect(completionNames.has('findMany')).toBe(true)
+		expect(completionNames.has('findOne')).toBe(true)
+		expect(completionNames.has('find')).toBe(false)
+		expect(completionNames.has('first')).toBe(false)
 		expect(completionNames.has('where')).toBe(true)
 		expect(completionNames.has('update')).toBe(false)
 		expect(completionNames.has('delete')).toBe(false)
@@ -131,6 +134,33 @@ Post.query().${marker}
 		]) {
 			expect(completionNames.has(removedFilterMethod)).toBe(false)
 		}
+
+		const schemaSourceWithMarker = sourceWithMarker.replace(
+			`Post.query().${marker}`,
+			`Post.${marker}`,
+		)
+		const schemaPosition = schemaSourceWithMarker.indexOf(marker)
+		const schemaSource = schemaSourceWithMarker.replace(
+			marker,
+			' '.repeat(marker.length),
+		)
+		const schemaFileName = `${import.meta.dirname}/schema-cardinality-commands.fixture.ts`
+		const schemaService = createLanguageService(schemaFileName, schemaSource)
+		const schemaCompletions = schemaService.getCompletionsAtPosition(
+			schemaFileName,
+			schemaPosition,
+			{},
+		)
+		const schemaCompletionNames = new Set(
+			schemaCompletions?.entries.map(({ name }) => name) ?? [],
+		)
+
+		expect(schemaCompletionNames.has('createOne')).toBe(true)
+		expect(schemaCompletionNames.has('createMany')).toBe(true)
+		expect(schemaCompletionNames.has('upsertOne')).toBe(true)
+		expect(schemaCompletionNames.has('upsertMany')).toBe(true)
+		expect(schemaCompletionNames.has('create')).toBe(false)
+		expect(schemaCompletionNames.has('upsert')).toBe(false)
 
 		const update = readMarkedQuickInfo(
 			`${import.meta.dirname}/query-update-alias-hover.fixture.ts`,
@@ -193,7 +223,7 @@ ${body}
 			'update-one-selection-completion',
 		)
 		const createCompletions = readMutationSelectionCompletions(
-			`Post.create({
+			`Post.createOne({
   data: { title: 'Created' },
   select: { ${marker} },
 })`,
@@ -229,7 +259,7 @@ ${body}
 			'create-many-selection-completion',
 		)
 		const upsertCompletions = readMutationSelectionCompletions(
-			`Post.upsert({
+			`Post.upsertOne({
   where: { id: { eq: 'post-1' } },
   create: { title: 'Created' },
   update: { views: 1 },

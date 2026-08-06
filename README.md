@@ -27,7 +27,7 @@ export const UserSchema = Schema.define({
 })
 
 const draft = new UserSchema({ name: 'Ada' })
-const activeUsers = UserSchema.query().equalTo('isActive', true)
+const activeUsers = UserSchema.query().where({ isActive: { eq: true } })
 ```
 
 ```ts
@@ -50,9 +50,9 @@ await ultimabase.start()
 
 ```ts
 const users = await UserSchema.query()
-	.equalTo('isActive', true)
+	.where({ isActive: { eq: true } })
 	.limit(25)
-	.find({ ultimabase })
+	.findMany({ ultimabase })
 
 users[0] instanceof UserSchema // true
 users[0]?.toJSON() // A detached immutable object.

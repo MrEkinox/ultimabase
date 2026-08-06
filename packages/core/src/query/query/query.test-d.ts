@@ -71,7 +71,7 @@ test('preserves schema, AST, and chain result types', () => {
 	expectTypeOf<
 		QueryFilterFieldName<typeof postSchema, 'greater-than'>
 	>().toEqualTypeOf<'title' | 'views' | 'score' | 'createdAt' | 'updatedAt'>()
-	expectTypeOf<'find'>().toExtend<keyof typeof query>()
+	expectTypeOf<'findMany'>().toExtend<keyof typeof query>()
 	expectTypeOf<'save'>().not.toExtend<keyof typeof query>()
 	expectTypeOf<'bind'>().not.toExtend<keyof typeof query>()
 
@@ -115,9 +115,13 @@ test('infers literal inclusion and exclusion projections exactly', () => {
 		title: true,
 	} satisfies QuerySelection<typeof postSchema>
 	const reusable = new Query(postSchema).select(reusableSelection)
-	type IncludedResult = NonNullable<Awaited<ReturnType<typeof included.first>>>
-	type ExcludedResult = NonNullable<Awaited<ReturnType<typeof excluded.first>>>
-	type EmptyResult = NonNullable<Awaited<ReturnType<typeof empty.first>>>
+	type IncludedResult = NonNullable<
+		Awaited<ReturnType<typeof included.findOne>>
+	>
+	type ExcludedResult = NonNullable<
+		Awaited<ReturnType<typeof excluded.findOne>>
+	>
+	type EmptyResult = NonNullable<Awaited<ReturnType<typeof empty.findOne>>>
 
 	expect(excluded.ast.kind).toBe('query')
 	expect(empty.ast.kind).toBe('query')
@@ -131,7 +135,7 @@ test('infers literal inclusion and exclusion projections exactly', () => {
 	expectTypeOf<ExcludedResult>().toHaveProperty('title')
 	expectTypeOf<EmptyResult>().toEqualTypeOf<
 		NonNullable<
-			Awaited<ReturnType<ReturnType<typeof postSchema.query>['first']>>
+			Awaited<ReturnType<ReturnType<typeof postSchema.query>['findOne']>>
 		>
 	>()
 
@@ -254,9 +258,11 @@ test('infers pointer predicates, target queries, and included projections', () =
 				.where((where) => where.eq('active', true)),
 		)
 		.include('reviewer', (query) => query.select({ name: true }))
-	type IncludedResult = NonNullable<Awaited<ReturnType<typeof included.first>>>
+	type IncludedResult = NonNullable<
+		Awaited<ReturnType<typeof included.findOne>>
+	>
 	type PlainResult = NonNullable<
-		Awaited<ReturnType<ReturnType<typeof includedPostSchema.query>['first']>>
+		Awaited<ReturnType<ReturnType<typeof includedPostSchema.query>['findOne']>>
 	>
 
 	expect(included.ast.kind).toBe('query')

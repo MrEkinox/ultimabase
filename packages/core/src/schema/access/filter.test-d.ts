@@ -92,7 +92,7 @@ test('correlates every Access predicate with exact schema capabilities', () => {
 	filter.matches('views', { flags: [], source: '10' })
 	// @ts-expect-error -- Equality does not apply to list fields.
 	filter.equalTo('aliases', ['alias'])
-	expectTypeOf<'find'>().not.toExtend<keyof typeof filter>()
+	expectTypeOf<'findMany'>().not.toExtend<keyof typeof filter>()
 	expectTypeOf<'select'>().not.toExtend<keyof typeof filter>()
 	expectTypeOf<'ascending'>().not.toExtend<keyof typeof filter>()
 	expectTypeOf<'limit'>().not.toExtend<keyof typeof filter>()

@@ -120,7 +120,7 @@ export const materializeOperationResult = <
 				),
 			) as InferOperationResult<TOperation>
 		}
-		case 'find': {
+		case 'find-many': {
 			if (!isUnknownArray(result)) {
 				throw new TypeError('Runtime collection result must be an array')
 			}
@@ -139,7 +139,7 @@ export const materializeOperationResult = <
 			) as InferOperationResult<TOperation>
 		}
 		case 'delete-one':
-		case 'first':
+		case 'find-one':
 		case 'get':
 		case 'update-one':
 			if (result === null) {

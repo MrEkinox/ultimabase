@@ -141,6 +141,7 @@ Accepted records:
 - [ADR-0146: Flat deleteOne result selections](0146-flat-delete-one-result-selections.md)
 - [ADR-0147: Set-based mutation returning selections](0147-set-based-mutation-returning-selections.md)
 - [ADR-0148: Uniform mutation result selections](0148-uniform-mutation-result-selections.md)
+- [ADR-0149: Explicit operation cardinality names](0149-explicit-operation-cardinality-names.md)
 
 Superseded records:
 

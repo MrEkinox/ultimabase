@@ -173,8 +173,8 @@ const isMutationOperation = (
 	switch (operation.kind) {
 		case 'count':
 		case 'exists':
-		case 'find':
-		case 'first':
+		case 'find-many':
+		case 'find-one':
 		case 'get':
 			return false
 		case 'create-many':
@@ -1056,7 +1056,7 @@ export class RuntimePipeline {
 			return result as unknown as RuntimeOperationResult<TOperation>
 		}
 
-		if (operation.kind === 'find') {
+		if (operation.kind === 'find-many') {
 			if (!isUnknownArray(result) || !isUnknownArray(rawResult)) {
 				throw new TypeError(
 					'Runtime included pointer collection must be an array',
@@ -1117,7 +1117,7 @@ export class RuntimePipeline {
 
 		if (
 			request.nativeAccessDeniedAsMissing === true &&
-			request.operation.kind !== 'first' &&
+			request.operation.kind !== 'find-one' &&
 			request.operation.kind !== 'update-one'
 		) {
 			throw new TypeError(

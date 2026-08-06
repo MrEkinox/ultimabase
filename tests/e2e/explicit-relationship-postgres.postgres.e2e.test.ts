@@ -123,15 +123,15 @@ describe(
 	() => {
 		it('uses ordinary Query, hooks, Access, and composite uniqueness', async () => {
 			const app = getUltimaBase()
-			const member = await Member.create(
+			const member = await Member.createOne(
 				{ data: { name: 'Ada' } },
 				{ ultimabase: app },
 			)
-			const project = await Project.create(
+			const project = await Project.createOne(
 				{ data: { title: 'UltimaBase' } },
 				{ ultimabase: app },
 			)
-			const membership = await Membership.create(
+			const membership = await Membership.createOne(
 				{
 					data: {
 						internalNote: 'private edge data',
@@ -168,7 +168,7 @@ describe(
 					project: true,
 					role: true,
 				})
-				.first({ ultimabase: app })
+				.findOne({ ultimabase: app })
 
 			expect(selected?.toJSON()).toMatchObject({
 				id: membership.id,
@@ -178,7 +178,7 @@ describe(
 			})
 
 			await expect(
-				Membership.create(
+				Membership.createOne(
 					{
 						data: {
 							member: Member.pointer(member.id),
@@ -194,7 +194,7 @@ describe(
 				internalDetails: { driverCode: '23505' },
 			})
 			await expect(
-				Membership.create(
+				Membership.createOne(
 					{
 						data: {
 							member: Member.pointer(member.id),
@@ -208,21 +208,21 @@ describe(
 			await expect(
 				Membership.query()
 					.select({ internalNote: true })
-					.find({ ultimabase: app }),
+					.findMany({ ultimabase: app }),
 			).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
 		})
 
 		it('keeps edge writes atomic and applies pointer referential actions', async () => {
 			const app = getUltimaBase()
-			const member = await Member.create(
+			const member = await Member.createOne(
 				{ data: { name: 'Grace' } },
 				{ ultimabase: app },
 			)
-			const project = await Project.create(
+			const project = await Project.createOne(
 				{ data: { title: 'Cascade project' } },
 				{ ultimabase: app },
 			)
-			await Membership.create(
+			await Membership.createOne(
 				{
 					data: {
 						member: Member.pointer(member.id),
@@ -253,18 +253,18 @@ describe(
 
 			await expect(
 				request.transaction(async () => {
-					const rolledBackMember = await Member.create({
+					const rolledBackMember = await Member.createOne({
 						data: {
 							name: 'Rolled back member',
 						},
 					})
-					const rolledBackProject = await Project.create({
+					const rolledBackProject = await Project.createOne({
 						data: {
 							title: 'Rolled back project',
 						},
 					})
 
-					await Membership.create({
+					await Membership.createOne({
 						data: {
 							member: Member.pointer(rolledBackMember.id),
 							project: Project.pointer(rolledBackProject.id),

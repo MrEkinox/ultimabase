@@ -122,7 +122,7 @@ afterAll(async () => {
 describe('ACL committed events with PostgreSQL', { concurrent: false }, () => {
 	it('emits default ACL creation only after anonymous commit', async () => {
 		const start = committedChanges.length
-		const created = await Post.create(
+		const created = await Post.createOne(
 			{ data: { title: 'default' } },
 			{ ultimabase: getApplication() },
 		)
@@ -142,7 +142,7 @@ describe('ACL committed events with PostgreSQL', { concurrent: false }, () => {
 	})
 
 	it('reports one structured master update without duplicate no-op events', async () => {
-		const created = await Post.create(
+		const created = await Post.createOne(
 			{
 				data: {
 					acl: new ACL().grantPublic('read').grantAuthenticated('read'),
@@ -192,7 +192,7 @@ describe('ACL committed events with PostgreSQL', { concurrent: false }, () => {
 	})
 
 	it('discards queued ACL events when a later developer hook rolls back', async () => {
-		const created = await Post.create(
+		const created = await Post.createOne(
 			{ data: { title: 'rollback' } },
 			{ ultimabase: getApplication(), useMasterKey: true },
 		)
@@ -213,7 +213,7 @@ describe('ACL committed events with PostgreSQL', { concurrent: false }, () => {
 		const persisted = await Post.query()
 			.where({ id: { eq: created.id } })
 			.select({ acl: true })
-			.first({ ultimabase: getApplication(), useMasterKey: true })
+			.findOne({ ultimabase: getApplication(), useMasterKey: true })
 
 		expect(persisted?.acl.toJSON()).toStrictEqual(created.acl.toJSON())
 	})

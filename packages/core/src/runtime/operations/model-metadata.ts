@@ -27,13 +27,13 @@ const includedPointerValues = new WeakMap<
 	object,
 	ReadonlyMap<string, unknown>
 >()
-const collectionKinds = new Set(['create-many', 'find', 'upsert-many'])
+const collectionKinds = new Set(['create-many', 'find-many', 'upsert-many'])
 const recordKinds = new Set([
 	'create-many',
 	'create-one',
 	'delete-one',
-	'find',
-	'first',
+	'find-many',
+	'find-one',
 	'get',
 	'update-one',
 	'upsert-many',

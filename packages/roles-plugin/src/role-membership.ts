@@ -112,7 +112,7 @@ export const resolveStoredRoleMembership = async (
 			where.some('members', (candidate) => candidate.eq('id', member.id)),
 		)
 		.ascending('id')
-		.find({ useMasterKey: true })
+		.findMany({ useMasterKey: true })
 
 	return resolveRoleMembershipGraph(member.id, directRoles, async (role) => {
 		const roleId = readPersistedRoleId(role)
@@ -122,6 +122,6 @@ export const resolveStoredRoleMembership = async (
 				where.some('roles', (candidate) => candidate.eq('id', roleId)),
 			)
 			.ascending('id')
-			.find({ useMasterKey: true })
+			.findMany({ useMasterKey: true })
 	})
 }

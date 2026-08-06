@@ -1,5 +1,5 @@
 import {
-	type FirstOperationAst,
+	type FindOneOperationAst,
 	type QueryAst,
 	type QueryExpressionNode,
 	type QueryFieldName,
@@ -20,7 +20,7 @@ export interface RuntimePointerInclusion {
 	readonly query: QueryAst
 }
 
-export type RuntimePointerTargetOperation = FirstOperationAst<
+export type RuntimePointerTargetOperation = FindOneOperationAst<
 	SchemaDefinition,
 	QueryExpressionNode,
 	QueryFieldName<SchemaDefinition>,
@@ -33,8 +33,8 @@ const emptyInclusions: readonly RuntimePointerInclusion[] = immutableArray([])
 const operationReturnsRecords = (operation: DatabaseOperationAst): boolean => {
 	switch (operation.kind) {
 		case 'delete-one':
-		case 'find':
-		case 'first':
+		case 'find-many':
+		case 'find-one':
 		case 'get':
 		case 'update-one':
 		case 'upsert-one':
@@ -99,6 +99,6 @@ export const createPointerInclusionOperation = (
 	inclusion: RuntimePointerInclusion,
 ): RuntimePointerTargetOperation =>
 	immutableRecord({
-		kind: 'first',
+		kind: 'find-one',
 		query: inclusion.query,
 	})

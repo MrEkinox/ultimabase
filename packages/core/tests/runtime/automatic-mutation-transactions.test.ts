@@ -93,7 +93,7 @@ const mutationFixtures: readonly MutationFixture[] = [
 		result: articleRecord('0198f090-2a50-7000-8000-000000000001', 'Created'),
 		execute: (request) =>
 			runWithRequestEngine(request, () =>
-				articleSchema.create({ data: { title: 'Created' } }),
+				articleSchema.createOne({ data: { title: 'Created' } }),
 			),
 	},
 	{
@@ -134,7 +134,7 @@ const mutationFixtures: readonly MutationFixture[] = [
 		result: articleRecord('0198f090-2a50-7000-8000-000000000004', 'Upserted'),
 		execute: (request) =>
 			runWithRequestEngine(request, () =>
-				articleSchema.upsert({
+				articleSchema.upsertOne({
 					where: (where) => where.eq('title', 'Upserted'),
 					create: { title: 'Upserted' },
 					update: { title: 'Upserted' },
@@ -254,7 +254,7 @@ describe('automatic mutation transaction scope', () => {
 					observedEngine = getCurrentEngine()
 
 					try {
-						await articleSchema.create({ data: { title: 'Nested' } })
+						await articleSchema.createOne({ data: { title: 'Nested' } })
 					} catch (error: unknown) {
 						expect(error).toBe(nestedError)
 					}
@@ -274,7 +274,7 @@ describe('automatic mutation transaction scope', () => {
 
 		await expect(
 			runWithRequestEngine(request, () =>
-				articleSchema.create({ data: { title: 'Primary' } }),
+				articleSchema.createOne({ data: { title: 'Primary' } }),
 			),
 		).rejects.toBe(nestedError)
 		expect(observedEngine).toBeDefined()
@@ -300,7 +300,7 @@ describe('automatic mutation transaction scope', () => {
 		const hookStages: RecordingPipelineHookStages = {
 			globalBeforeHooks: async (input) => {
 				if (readCreatedTitle(input.operation) === 'Primary') {
-					await articleSchema.create({ data: { title: 'Nested' } })
+					await articleSchema.createOne({ data: { title: 'Nested' } })
 				}
 
 				return input.operation
@@ -323,7 +323,7 @@ describe('automatic mutation transaction scope', () => {
 
 		await expect(
 			runWithRequestEngine(request, () =>
-				articleSchema.create({ data: { title: 'Primary' } }),
+				articleSchema.createOne({ data: { title: 'Primary' } }),
 			),
 		).rejects.toBe(primaryError)
 		expect(trace).toStrictEqual([
@@ -342,7 +342,7 @@ describe('automatic mutation transaction scope', () => {
 		const hookStages: RecordingPipelineHookStages = {
 			globalAfterHooks: async (input) => {
 				if (readCreatedTitle(input.operation) === 'Primary') {
-					await articleSchema.create({ data: { title: 'Nested after' } })
+					await articleSchema.createOne({ data: { title: 'Nested after' } })
 					throw afterError
 				}
 
@@ -372,7 +372,7 @@ describe('automatic mutation transaction scope', () => {
 
 		await expect(
 			runWithRequestEngine(request, () =>
-				articleSchema.create({ data: { title: 'Primary' } }),
+				articleSchema.createOne({ data: { title: 'Primary' } }),
 			),
 		).rejects.toBe(afterError)
 		expect(trace).toStrictEqual([
@@ -409,7 +409,7 @@ describe('automatic mutation transaction scope', () => {
 				}
 
 				if (title === 'Primary') {
-					await articleSchema.create(
+					await articleSchema.createOne(
 						{ data: { title: 'Master nested' } },
 						{ useMasterKey: true },
 					)
@@ -442,7 +442,7 @@ describe('automatic mutation transaction scope', () => {
 
 		await expect(
 			runWithRequestEngine(request, () =>
-				articleSchema.create({ data: { title: 'Primary' } }),
+				articleSchema.createOne({ data: { title: 'Primary' } }),
 			),
 		).resolves.toMatchObject({ title: 'Primary' })
 		expect(nestedAccessMode).toBe('master')

@@ -44,7 +44,7 @@ class RelationScopeDispatcher implements QueryExecutionDispatcher {
 					return Promise.resolve(0)
 				case 'exists':
 					return Promise.resolve(false)
-				case 'find':
+				case 'find-many':
 					return Promise.resolve([])
 				case 'update-one':
 					return Promise.resolve({ id: articleId })
@@ -134,7 +134,7 @@ describe('Relation handles', () => {
 		const dispatcher = new RelationScopeDispatcher()
 
 		await runWithQueryExecution({}, dispatcher, async () => {
-			await expect(query.find()).resolves.toStrictEqual([])
+			await expect(query.findMany()).resolves.toStrictEqual([])
 			await expect(query.count({ useMasterKey: true })).resolves.toBe(0)
 			await expect(query.exists()).resolves.toBe(false)
 		})
@@ -144,7 +144,7 @@ describe('Relation handles', () => {
 			{ field: 'id', kind: 'selected-field' },
 		])
 		expect(dispatcher.executions.map(({ kind }) => kind)).toStrictEqual([
-			'find',
+			'find-many',
 			'count',
 			'exists',
 		])
@@ -178,7 +178,7 @@ describe('Relation handles', () => {
 		const dispatcher = new RelationScopeDispatcher()
 
 		await runWithQueryExecution({}, dispatcher, () =>
-			replacedPublicBranch.find(),
+			replacedPublicBranch.findMany(),
 		)
 
 		expect(replacedPublicBranch.ast.limit).toBe(1)

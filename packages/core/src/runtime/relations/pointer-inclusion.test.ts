@@ -158,11 +158,11 @@ describe('pointer Runtime execution', () => {
 							organizationQuery.select({ name: true }),
 						),
 				)
-				.find({ ultimabase })
+				.findMany({ ultimabase })
 			const directAuthor = await author
 				.query()
 				.select({ name: true })
-				.first({ ultimabase })
+				.findOne({ ultimabase })
 
 			expect(posts[0]?.author).toBeInstanceOf(pointerRuntimeUser)
 			expect(posts[0]?.author?.name).toBe('ADA')
@@ -179,7 +179,7 @@ describe('pointer Runtime execution', () => {
 			expect(
 				adapter.rootRequests[0]?.pointerInclusions?.[0]?.request.operation,
 			).toMatchObject({
-				kind: 'first',
+				kind: 'find-one',
 				query: {
 					selection: {
 						fields: [{ field: 'name' }, { field: 'organization' }],
@@ -194,7 +194,7 @@ describe('pointer Runtime execution', () => {
 				value: 'active',
 			})
 			expect(adapter.rootRequests[1]?.operation).toMatchObject({
-				kind: 'first',
+				kind: 'find-one',
 				query: {
 					where: {
 						expression: { field: 'name', kind: 'equal', value: 'Ada' },
@@ -239,7 +239,7 @@ describe('pointer Runtime execution', () => {
 				.query()
 				.select({ target: true })
 				.include('target', (query) => query.select({ name: true }))
-				.find({ ultimabase })
+				.findMany({ ultimabase })
 
 			expect(result[0]).not.toHaveProperty('target')
 			expect(adapter.rootRequests).toHaveLength(1)
@@ -278,7 +278,7 @@ describe('pointer Runtime execution', () => {
 					const unknownResult: unknown = result
 
 					if (
-						kind === 'find' &&
+						kind === 'find-many' &&
 						Array.isArray(unknownResult) &&
 						isPlainRecord(unknownResult[0]) &&
 						isPlainRecord(unknownResult[0].target)
@@ -320,7 +320,7 @@ describe('pointer Runtime execution', () => {
 				.query()
 				.select({ target: true })
 				.include('target', (query) => query.select({ name: true }))
-				.find({ ultimabase })
+				.findMany({ ultimabase })
 
 			expect(result[0]?.target?.name).toBe('Hydrated target')
 			expect(afterReadObservedHydratedTarget).toBe(true)
@@ -393,12 +393,12 @@ describe('pointer Runtime execution', () => {
 
 		try {
 			await ultimabase.start()
-			const denied = await includedQuery.find({ ultimabase })
-			const allowed = await includedQuery.find({
+			const denied = await includedQuery.findMany({ ultimabase })
+			const allowed = await includedQuery.findMany({
 				ultimabase,
 				useMasterKey: true,
 			})
-			const missing = await includedQuery.find({
+			const missing = await includedQuery.findMany({
 				ultimabase,
 				useMasterKey: true,
 			})
@@ -423,7 +423,7 @@ describe('pointer Runtime execution', () => {
 			fields: { target: pointerField({ target: () => target }) },
 			hooks: {
 				afterRead: ({ kind, result }) =>
-					kind === 'find'
+					kind === 'find-many'
 						? result.map((record) => ({ ...record, target: null }))
 						: result,
 			},
@@ -457,7 +457,7 @@ describe('pointer Runtime execution', () => {
 				.query()
 				.select({ target: true })
 				.include('target', (query) => query.select({ name: true }))
-				.find({ ultimabase })
+				.findMany({ ultimabase })
 
 			expect(result[0]?.target).toBeNull()
 			expect(adapter.rootRequests).toHaveLength(1)

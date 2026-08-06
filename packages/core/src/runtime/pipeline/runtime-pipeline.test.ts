@@ -1,7 +1,7 @@
 import { FrameworkError } from '../../foundation.js'
 import {
 	Query,
-	type FindOperationAst,
+	type FindManyOperationAst,
 	type UpdateOneOperationAst,
 } from '../../query/index.js'
 import { relationField, Schema, stringField } from '../../schema/index.js'
@@ -61,9 +61,9 @@ const articleSchema = Schema.define({
 })
 
 const articleOperation = {
-	kind: 'find',
+	kind: 'find-many',
 	query: new Query(articleSchema).limit(10).ast,
-} satisfies FindOperationAst<typeof articleSchema>
+} satisfies FindManyOperationAst<typeof articleSchema>
 
 const articleUpdateOperation = {
 	kind: 'update-one',
@@ -87,13 +87,13 @@ const relationPredicateSource = Schema.define({
 	},
 })
 const relationPredicateOperation = {
-	kind: 'find',
+	kind: 'find-many',
 	query: relationPredicateSource
 		.query()
 		.where((where) =>
 			where.some('targets', (target) => target.eq('label', 'portable')),
 		).ast,
-} satisfies FindOperationAst<typeof relationPredicateSource>
+} satisfies FindManyOperationAst<typeof relationPredicateSource>
 
 const requestContext = RequestContext.anonymous({
 	requestId: 'request-1',
@@ -293,7 +293,10 @@ describe('RuntimePipeline', () => {
 				? input.result[1]
 				: undefined
 
-			if (input.operation.kind !== 'find' || !isPlainRecord(secondResult)) {
+			if (
+				input.operation.kind !== 'find-many' ||
+				!isPlainRecord(secondResult)
+			) {
 				throw new TypeError('Expected a find result containing two records')
 			}
 
@@ -303,9 +306,9 @@ describe('RuntimePipeline', () => {
 			]) as unknown as RuntimeOperationResult<TOperation>
 		}
 		const operation = immutableRecord({
-			kind: 'find',
+			kind: 'find-many',
 			query: new Query(articleSchema).select({ title: true }).ast,
-		}) satisfies FindOperationAst<typeof articleSchema>
+		}) satisfies FindManyOperationAst<typeof articleSchema>
 		const pipeline = new RuntimePipeline(
 			createStages([], executor, {
 				schemaAfterHooks: retainSecondResult,

@@ -21,7 +21,7 @@ import type {
 	SchemaDeleteOneExecutionInput,
 	SchemaUpdateManyExecutionInput,
 	SchemaUpdateOneExecutionInput,
-	SchemaUpsertExecutionInput,
+	SchemaUpsertOneExecutionInput,
 	SchemaUpsertManyExecutionInput,
 	SchemaWhereFactory,
 } from '../../query/operations/schema-commands.js'
@@ -724,7 +724,7 @@ export const createSchemaModelClass = <
 		}
 
 		/** Creates one persisted model through the shared Runtime operation pipeline. */
-		static create(
+		static createOne(
 			input: SchemaCreateOneExecutionInput<SchemaDefinition>,
 			options?: QueryTerminalOptions,
 		): Promise<object> {
@@ -772,8 +772,8 @@ export const createSchemaModelClass = <
 		}
 
 		/** Creates or updates one exact unique target. */
-		static upsert(
-			input: SchemaUpsertExecutionInput<SchemaDefinition>,
+		static upsertOne(
+			input: SchemaUpsertOneExecutionInput<SchemaDefinition>,
 			options?: QueryTerminalOptions,
 		): Promise<object> {
 			return upsertSchemaRecord(

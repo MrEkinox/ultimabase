@@ -36,10 +36,10 @@ test('preserves exact schemas, operation kinds, constraints, and results', () =>
 	constraint({
 		master: 'bypass',
 		schema: postSchema,
-		operations: ['find'],
+		operations: ['find-many'],
 		handler: ({ operation }) => {
 			expectTypeOf(operation).toEqualTypeOf<
-				EnforcementOperation<typeof postSchema, 'find'>
+				EnforcementOperation<typeof postSchema, 'find-many'>
 			>()
 
 			return databaseConstraint('fixture.tenant', 1, { tenantId: 'tenant-1' })
@@ -54,9 +54,9 @@ test('preserves exact schemas, operation kinds, constraints, and results', () =>
 
 	restrictOutput({
 		schema: postSchema,
-		operations: ['find'],
+		operations: ['find-many'],
 		handler: ({ operation, result }) => {
-			type FindOperation = EnforcementOperation<typeof postSchema, 'find'>
+			type FindOperation = EnforcementOperation<typeof postSchema, 'find-many'>
 
 			expectTypeOf(operation).toEqualTypeOf<FindOperation>()
 			expectTypeOf(result).toEqualTypeOf<

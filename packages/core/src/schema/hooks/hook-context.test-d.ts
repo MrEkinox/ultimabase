@@ -32,10 +32,12 @@ const principal = new RequestContextValue<Readonly<{ id: string }>>(
 )
 
 test('ambient Query keeps exact typing without adding controls to HookContext', async () => {
-	const created = await AuditSchema.create({ data: { action: 'post.create' } })
+	const created = await AuditSchema.createOne({
+		data: { action: 'post.create' },
+	})
 	const selected = await AuditSchema.query()
 		.select({ id: true, action: true })
-		.find()
+		.findMany()
 
 	expectTypeOf(created.action).toEqualTypeOf<string>()
 	expectTypeOf(created.secret).toEqualTypeOf<string | null>()

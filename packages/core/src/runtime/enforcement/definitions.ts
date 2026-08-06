@@ -28,8 +28,8 @@ import type {
 } from '../database/contracts.js'
 
 const operationKinds = new Set<OperationKind>([
-	'find',
-	'first',
+	'find-many',
+	'find-one',
 	'get',
 	'count',
 	'exists',

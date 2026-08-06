@@ -72,7 +72,7 @@ describe('dynamic Access subject capabilities', () => {
 			await ultimabase.start()
 
 			await expect(
-				PrivateNote.query().find({ ultimabase }),
+				PrivateNote.query().findMany({ ultimabase }),
 			).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
 			expect(adapter.rootRequests).toHaveLength(0)
 
@@ -80,7 +80,7 @@ describe('dynamic Access subject capabilities', () => {
 				requestId: 'optional-subject-request',
 				source: requestSources.internal,
 			}).withValue(principal, { id: 'user-1' })
-			const result = await PrivateNote.query().find({
+			const result = await PrivateNote.query().findMany({
 				context: authenticatedContext,
 				ultimabase,
 			})

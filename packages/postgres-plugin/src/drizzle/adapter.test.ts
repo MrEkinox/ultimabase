@@ -7,8 +7,8 @@ import {
 	normalizeUpdateExpression,
 	type CreateOneOperationAst,
 	type DeleteOneOperationAst,
-	type FindOperationAst,
-	type FirstOperationAst,
+	type FindManyOperationAst,
+	type FindOneOperationAst,
 	type QueryExpressionNode,
 	type QueryFilterNode,
 	type UpdateOneOperationAst,
@@ -339,7 +339,7 @@ describe('internal PostgreSQL database adapter', () => {
 		driver.respond([[secondId, firstId, timestamp, timestamp]])
 		const [found] = await adapter.execute({
 			constraints: [],
-			operation: { kind: 'find', query: query.ast },
+			operation: { kind: 'find-many', query: query.ast },
 		})
 
 		expect(found).toBeDefined()
@@ -356,9 +356,9 @@ describe('internal PostgreSQL database adapter', () => {
 			.descending('views')
 			.limit(2)
 		const find = {
-			kind: 'find',
+			kind: 'find-many',
 			query: query.ast,
-		} satisfies FindOperationAst<
+		} satisfies FindManyOperationAst<
 			typeof articleSchema,
 			QueryFilterNode<typeof articleSchema>,
 			'id' | 'title'
@@ -382,9 +382,9 @@ describe('internal PostgreSQL database adapter', () => {
 		)
 
 		const titleOnly = {
-			kind: 'find',
+			kind: 'find-many',
 			query: new Query(articleSchema).select({ title: true }).ast,
-		} satisfies FindOperationAst<
+		} satisfies FindManyOperationAst<
 			typeof articleSchema,
 			QueryFilterNode<typeof articleSchema>,
 			'title'
@@ -411,7 +411,7 @@ describe('internal PostgreSQL database adapter', () => {
 		await expect(
 			adapter.execute({
 				constraints: [],
-				operation: { kind: 'find', query: withoutNote.ast },
+				operation: { kind: 'find-many', query: withoutNote.ast },
 			}),
 		).resolves.toStrictEqual([
 			{
@@ -427,7 +427,7 @@ describe('internal PostgreSQL database adapter', () => {
 		await expect(
 			adapter.execute({
 				constraints: [],
-				operation: { kind: 'first', query: query.ast },
+				operation: { kind: 'find-one', query: query.ast },
 			}),
 		).resolves.toBeNull()
 
@@ -466,10 +466,10 @@ describe('internal PostgreSQL database adapter', () => {
 		const { adapter, driver } = createFixture(1, undefined, compilerRegistry)
 		const injectedTenant = "tenant' OR true --"
 		const operation = {
-			kind: 'find',
+			kind: 'find-many',
 			query: new Query(articleSchema).where((where) => where.gt('views', 10))
 				.ast,
-		} satisfies FindOperationAst<typeof articleSchema>
+		} satisfies FindManyOperationAst<typeof articleSchema>
 		const rowFilter = new Query(articleSchema).where((where) =>
 			where.eq('note', 'Access-visible'),
 		).ast.where?.expression
@@ -596,9 +596,9 @@ describe('internal PostgreSQL database adapter', () => {
 	it('fails closed for unsupported constraints, root upserts, and driver errors', async () => {
 		const { adapter, driver } = createFixture()
 		const operation = {
-			kind: 'find',
+			kind: 'find-many',
 			query: new Query(articleSchema).ast,
-		} satisfies FindOperationAst<typeof articleSchema>
+		} satisfies FindManyOperationAst<typeof articleSchema>
 
 		await expect(
 			adapter.execute({
@@ -667,12 +667,12 @@ describe('internal PostgreSQL database adapter', () => {
 		if (inclusion === undefined) {
 			throw new TypeError('Eager pointer fixture requires one inclusion')
 		}
-		const targetOperation: FirstOperationAst<
+		const targetOperation: FindOneOperationAst<
 			typeof pointerUserSchema,
 			QueryExpressionNode,
 			'name'
 		> = {
-			kind: 'first',
+			kind: 'find-one',
 			query: inclusion.query,
 		}
 
@@ -682,7 +682,7 @@ describe('internal PostgreSQL database adapter', () => {
 		const failure: unknown = await adapter
 			.execute({
 				constraints: [],
-				operation: { kind: 'find', query: query.ast },
+				operation: { kind: 'find-many', query: query.ast },
 				pointerInclusions: [
 					{
 						fieldPath: ['author'],
@@ -703,7 +703,7 @@ describe('internal PostgreSQL database adapter', () => {
 
 		expect(failure).toMatchObject({
 			code: 'INTERNAL_ERROR',
-			internalDetails: { driverCode: '08006', operation: 'find' },
+			internalDetails: { driverCode: '08006', operation: 'find-many' },
 		})
 		expect(failure.toJSON()).toStrictEqual({
 			code: 'INTERNAL_ERROR',
@@ -728,9 +728,9 @@ describe('internal PostgreSQL database adapter', () => {
 		)
 		const query = new Query(articleSchema).ast
 		const operation = {
-			kind: 'find',
+			kind: 'find-many',
 			query,
-		} satisfies FindOperationAst<typeof articleSchema>
+		} satisfies FindManyOperationAst<typeof articleSchema>
 		const invalidCases = [
 			{
 				constraint: databaseConstraint('fixture.tenant', 2, {
@@ -819,9 +819,9 @@ describe('internal PostgreSQL database adapter', () => {
 		const driver = getTransactionDriver(fixture)
 		const transaction = await adapter.beginTransaction()
 		const operation = {
-			kind: 'find',
+			kind: 'find-many',
 			query: new Query(articleSchema).select({ id: true, title: true }).ast,
-		} satisfies FindOperationAst<
+		} satisfies FindManyOperationAst<
 			typeof articleSchema,
 			QueryFilterNode<typeof articleSchema>,
 			'id' | 'title'
@@ -1596,7 +1596,7 @@ describe('internal PostgreSQL database adapter', () => {
 			commitTransaction.execute({
 				constraints: [],
 				operation: {
-					kind: 'find',
+					kind: 'find-many',
 					query: new Query(articleSchema).ast,
 				},
 			}),

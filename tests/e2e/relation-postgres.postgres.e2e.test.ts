@@ -285,7 +285,7 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 				.where((where) =>
 					where.some('tags', (tag) => tag.eq('label', 'predicate-alpha')),
 				)
-				.find({ ultimabase: app }),
+				.findMany({ ultimabase: app }),
 		).toMatchObject([{ id: mixed.id }])
 		expect(
 			await Article.query()
@@ -350,11 +350,11 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 				.exists({ ultimabase: app }),
 		).toBe(true)
 
-		const author = await Author.create(
+		const author = await Author.createOne(
 			{ data: { name: 'Predicate author' } },
 			{ ultimabase: app },
 		)
-		await Post.create(
+		await Post.createOne(
 			{ data: { author: Author.pointer(author.id), title: 'Predicate post' } },
 			{ ultimabase: app },
 		)
@@ -375,7 +375,7 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 			{ data: [{ label: 'alpha' }, { label: 'beta' }, { label: 'gamma' }] },
 			{ ultimabase: app },
 		)
-		const article = await Article.create(
+		const article = await Article.createOne(
 			{ data: { title: 'Relations' } },
 			{ ultimabase: app },
 		)
@@ -402,7 +402,7 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 					.limit(1)
 					.after()
 					.select({ label: true })
-					.find({ ultimabase: app })
+					.findMany({ ultimabase: app })
 			).map((tag) => tag.toJSON()),
 		).toStrictEqual([{ label: 'alpha' }])
 		expect(
@@ -424,7 +424,9 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 		).toBe(0)
 		await tags.disconnect(Tag.pointer(beta.id), { ultimabase: app })
 		expect(
-			(await tags.query().find({ ultimabase: app })).map(({ label }) => label),
+			(await tags.query().findMany({ ultimabase: app })).map(
+				({ label }) => label,
+			),
 		).toStrictEqual(['gamma'])
 
 		rejectNextRelationUpdate = true
@@ -436,7 +438,7 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 		await tags.clear({ ultimabase: app })
 		expect(await tags.query().count({ ultimabase: app })).toBe(0)
 
-		const inverseTag = await Tag.create(
+		const inverseTag = await Tag.createOne(
 			{ data: { label: 'inverse' } },
 			{ ultimabase: app },
 		)
@@ -455,7 +457,7 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 		await gamma.delete({ ultimabase: app })
 		expect(await tags.query().count({ ultimabase: app })).toBe(0)
 
-		const cleanupTag = await Tag.create(
+		const cleanupTag = await Tag.createOne(
 			{ data: { label: 'cleanup' } },
 			{ ultimabase: app },
 		)
@@ -476,11 +478,11 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 
 	it('reuses pointer storage for inverse relation reads and mutations', async () => {
 		const app = getUltimaBase()
-		const author = await Author.create(
+		const author = await Author.createOne(
 			{ data: { name: 'Ada' } },
 			{ ultimabase: app },
 		)
-		const post = await Post.create(
+		const post = await Post.createOne(
 			{ data: { author: Author.pointer(author.id), title: 'Pointers' } },
 			{ ultimabase: app },
 		)
@@ -490,7 +492,7 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 		const included = await posts
 			.query()
 			.include('author', (query) => query.select({ name: true }))
-			.find({ ultimabase: app })
+			.findMany({ ultimabase: app })
 
 		expect(included).toHaveLength(1)
 		expect(included[0]?.title).toBe('Pointers')
@@ -503,11 +505,11 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 
 	it('denies relation traversal at the source field before returning targets', async () => {
 		const app = getUltimaBase()
-		const tag = await Tag.create(
+		const tag = await Tag.createOne(
 			{ data: { label: 'private' } },
 			{ ultimabase: app },
 		)
-		const article = await PrivateArticle.create(
+		const article = await PrivateArticle.createOne(
 			{ data: { title: 'Private relation' } },
 			{ ultimabase: app },
 		)
@@ -516,7 +518,7 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 			.relation('tags')
 			.connect(Tag.pointer(tag.id), { ultimabase: app })
 		await expect(
-			article.relation('tags').query().find({ ultimabase: app }),
+			article.relation('tags').query().findMany({ ultimabase: app }),
 		).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
 	})
 

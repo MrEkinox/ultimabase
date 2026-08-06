@@ -135,7 +135,7 @@ describe('HookContext Runtime capabilities', () => {
 		)
 
 		await runWithRequestEngine(request, () =>
-			PostSchema.create({ data: { title: 'plugin identity' } }),
+			PostSchema.createOne({ data: { title: 'plugin identity' } }),
 		)
 		expect(() => escapedContext?.getValue(principal)).toThrow(
 			expect.objectContaining({ code: 'HOOK_CONTEXT_CLOSED' }),
@@ -202,7 +202,7 @@ describe('HookContext Runtime capabilities', () => {
 
 		await ultimabase.start()
 		await expect(
-			PostSchema.create({ data: { title: 'parent' } }, { ultimabase }),
+			PostSchema.createOne({ data: { title: 'parent' } }, { ultimabase }),
 		).resolves.toMatchObject({ title: 'parent' })
 
 		expect(adapter.transactions).toHaveLength(1)
@@ -238,7 +238,7 @@ describe('HookContext Runtime capabilities', () => {
 			hooks: {
 				beforeCreate: async ({ operation }) => {
 					try {
-						await AuditSchema.create({ data: { title: 'fails' } })
+						await AuditSchema.createOne({ data: { title: 'fails' } })
 					} catch {
 						// Catching nested work cannot make a failed transaction committable.
 					}
@@ -258,7 +258,7 @@ describe('HookContext Runtime capabilities', () => {
 
 		await ultimabase.start()
 		await expect(
-			PostSchema.create({ data: { title: 'parent' } }, { ultimabase }),
+			PostSchema.createOne({ data: { title: 'parent' } }, { ultimabase }),
 		).rejects.toBe(nestedFailure)
 		expect(trace).toStrictEqual([
 			'adapter:begin',
@@ -281,7 +281,7 @@ describe('HookContext Runtime capabilities', () => {
 				beforeCreate: ({ context, operation }) => {
 					escapedContext = context
 					const query = PostSchema.query()
-					runEscapedQuery = () => query.find()
+					runEscapedQuery = () => query.findMany()
 
 					return operation
 				},
@@ -297,7 +297,7 @@ describe('HookContext Runtime capabilities', () => {
 		})
 
 		await ultimabase.start()
-		await PostSchema.create({ data: { title: 'stored' } }, { ultimabase })
+		await PostSchema.createOne({ data: { title: 'stored' } }, { ultimabase })
 
 		expect(() => escapedContext?.hasCapability(capability)).toThrow(
 			expect.objectContaining({ code: 'HOOK_CONTEXT_CLOSED' }),
@@ -341,7 +341,7 @@ describe('HookContext Runtime capabilities', () => {
 		})
 
 		await ultimabase.start()
-		await PostSchema.create({ data: { title: 'stored' } }, { ultimabase })
+		await PostSchema.createOne({ data: { title: 'stored' } }, { ultimabase })
 
 		if (delayedQuery === undefined || releaseBranch === undefined) {
 			throw new TypeError('Hook did not create the delayed query branch')
@@ -371,7 +371,7 @@ describe('HookContext Runtime capabilities', () => {
 			fields: { title: stringField({ validation: { required: true } }) },
 			hooks: {
 				beforeCommit: () => {
-					void FinalizationReadSchema.query().find()
+					void FinalizationReadSchema.query().findMany()
 				},
 			},
 		})
@@ -395,7 +395,7 @@ describe('HookContext Runtime capabilities', () => {
 
 		await ultimabase.start()
 		await expect(
-			PostSchema.create({ data: { title: 'stored' } }, { ultimabase }),
+			PostSchema.createOne({ data: { title: 'stored' } }, { ultimabase }),
 		).rejects.toMatchObject({ code: 'MISSING_EXECUTION_CONTEXT' })
 		expect(trace.at(-1)).toBe('adapter:rollback')
 
@@ -414,7 +414,7 @@ describe('HookContext Runtime capabilities', () => {
 			hooks: {
 				beforeCreate: async ({ operation }) => {
 					try {
-						await ForeignSchema.query().find()
+						await ForeignSchema.query().findMany()
 					} catch (error: unknown) {
 						foreignError = error
 					}
@@ -431,7 +431,7 @@ describe('HookContext Runtime capabilities', () => {
 
 		await ultimabase.start()
 		await expect(
-			PostSchema.create({ data: { title: 'stored' } }, { ultimabase }),
+			PostSchema.createOne({ data: { title: 'stored' } }, { ultimabase }),
 		).rejects.toMatchObject({ code: 'VALIDATION_ERROR' })
 		expect(foreignError).toMatchObject({ code: 'VALIDATION_ERROR' })
 		expect(trace.at(-1)).toBe('adapter:rollback')
@@ -494,7 +494,7 @@ describe('HookContext Runtime capabilities', () => {
 		})
 
 		await ultimabase.start()
-		await PostSchema.create({ data: { title: 'stored' } }, { ultimabase })
+		await PostSchema.createOne({ data: { title: 'stored' } }, { ultimabase })
 
 		expect(trace.indexOf('adapter:commit')).toBeLessThan(
 			trace.indexOf('event:first'),
@@ -534,7 +534,7 @@ describe('HookContext Runtime capabilities', () => {
 
 		await ultimabase.start()
 		await expect(
-			PostSchema.create({ data: { title: 'stored' } }, { ultimabase }),
+			PostSchema.createOne({ data: { title: 'stored' } }, { ultimabase }),
 		).resolves.toMatchObject({ title: 'stored' })
 		expect(trace).toContain('adapter:commit')
 		await ultimabase.dispose()
@@ -614,7 +614,7 @@ describe('HookContext Runtime capabilities', () => {
 
 		await ultimabase.start()
 		await expect(
-			PostSchema.create({ data: { title: 'stored' } }, { ultimabase }),
+			PostSchema.createOne({ data: { title: 'stored' } }, { ultimabase }),
 		).rejects.toMatchObject({
 			code: 'TRANSACTION_ERROR',
 			internalDetails: { reason: 'hook-event-queue-closed' },
@@ -673,7 +673,7 @@ describe('HookContext Runtime capabilities', () => {
 
 		await ultimabase.start()
 		await expect(
-			PostSchema.create({ data: { title: 'discarded' } }, { ultimabase }),
+			PostSchema.createOne({ data: { title: 'discarded' } }, { ultimabase }),
 		).rejects.toBe(failure)
 		expect(deliveries).toBe(0)
 		expect(trace.at(-1)).toBe('adapter:rollback')
@@ -699,7 +699,7 @@ describe('HookContext Runtime capabilities', () => {
 
 		await missingConsumerApp.start()
 		await expect(
-			MissingConsumerSchema.create(
+			MissingConsumerSchema.createOne(
 				{ data: { title: 'rejected' } },
 				{ ultimabase: missingConsumerApp },
 			),
@@ -727,12 +727,12 @@ describe('HookContext Runtime capabilities', () => {
 		})
 
 		await ultimabase.start()
-		await expect(ReadSchema.query().find({ ultimabase })).rejects.toMatchObject(
-			{
-				code: 'TRANSACTION_ERROR',
-				internalDetails: { reason: 'hook-event-transaction-required' },
-			},
-		)
+		await expect(
+			ReadSchema.query().findMany({ ultimabase }),
+		).rejects.toMatchObject({
+			code: 'TRANSACTION_ERROR',
+			internalDetails: { reason: 'hook-event-transaction-required' },
+		})
 		await ultimabase.dispose()
 	})
 })

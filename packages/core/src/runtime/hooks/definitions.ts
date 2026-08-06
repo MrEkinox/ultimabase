@@ -46,8 +46,8 @@ export interface RuntimePreparedOperationInput<
 }
 
 const runtimeOperationKinds = new Set<OperationKind>([
-	'find',
-	'first',
+	'find-many',
+	'find-one',
 	'get',
 	'count',
 	'exists',

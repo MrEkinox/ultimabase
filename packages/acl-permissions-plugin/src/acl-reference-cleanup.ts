@@ -173,7 +173,7 @@ const findSchemaReferenceIds = async (
 	subject: ACLReferenceSubject,
 ): Promise<readonly string[]> => {
 	const rows = await runWithReferenceScope(schema, subject, () =>
-		new Query(schema).select({ id: true }).find({ useMasterKey: true }),
+		new Query(schema).select({ id: true }).findMany({ useMasterKey: true }),
 	)
 
 	return immutableArray(

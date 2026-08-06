@@ -4,7 +4,10 @@ import type {
 } from '../../access/index.js'
 import { RequestContextValue } from '../../access/index.js'
 import { FrameworkApplication } from '../../foundation.js'
-import type { FindOperationAst, InferQueryResult } from '../../query/index.js'
+import type {
+	FindManyOperationAst,
+	InferQueryResult,
+} from '../../query/index.js'
 import { Query } from '../../query/index.js'
 import { Schema, stringField } from '../../schema/index.js'
 import { expectTypeOf, test } from 'vitest'
@@ -75,9 +78,9 @@ test('preserves application, context, query, and operation result types', () => 
 	const scoped = framework.withContext(scopedContext)
 	const query = schema.query()
 	const operation = {
-		kind: 'find',
+		kind: 'find-many',
 		query: new Query(schema).ast,
-	} satisfies FindOperationAst<typeof schema>
+	} satisfies FindManyOperationAst<typeof schema>
 
 	expectTypeOf(framework.application).toEqualTypeOf<typeof application>()
 	expectTypeOf(anonymous.context.access).toEqualTypeOf<AnonymousRequestAccess>()
@@ -107,7 +110,7 @@ test('keeps bound terminal types exact in multi-schema applications', () => {
 
 	expectTypeOf(
 		runWithRequestEngine(request, () =>
-			schema.create({ data: { title: 'Typed article' } }),
+			schema.createOne({ data: { title: 'Typed article' } }),
 		),
 	).toEqualTypeOf<Promise<InferQueryResult<typeof schema>>>()
 })

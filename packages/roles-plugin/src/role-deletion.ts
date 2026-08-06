@@ -120,7 +120,7 @@ const readParentRoles = async (
 	// The public quantified relation predicate compiles to one indexed join lookup.
 	return new Query(lookupSchema)
 		.where((where) => where.some('roles', (role) => role.eq('id', roleId)))
-		.find(masterOptions)
+		.findMany(masterOptions)
 }
 
 const readExternalReferences = async (

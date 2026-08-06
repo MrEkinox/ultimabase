@@ -112,7 +112,7 @@ interface SelectedSchemaOperationAst<
 }
 
 /** Reads every object selected by one query. */
-export interface FindOperationAst<
+export interface FindManyOperationAst<
 	TSchema extends SchemaDefinition,
 	TFilter extends QueryExpressionNode = QueryFilterNode<TSchema>,
 	TSelectedField extends QueryFieldName<TSchema> = never,
@@ -123,11 +123,11 @@ export interface FindOperationAst<
 	TSelectedField,
 	TIncludedPointer
 > {
-	readonly kind: 'find'
+	readonly kind: 'find-many'
 }
 
 /** Reads at most the first object selected by one query. */
-export interface FirstOperationAst<
+export interface FindOneOperationAst<
 	TSchema extends SchemaDefinition,
 	TFilter extends QueryExpressionNode = QueryFilterNode<TSchema>,
 	TSelectedField extends QueryFieldName<TSchema> = never,
@@ -138,7 +138,7 @@ export interface FirstOperationAst<
 	TSelectedField,
 	TIncludedPointer
 > {
-	readonly kind: 'first'
+	readonly kind: 'find-one'
 }
 
 /** Reads one identifier while preserving the query's selection and filters. */
@@ -300,8 +300,8 @@ export type OperationAst<
 	TAtomic extends boolean = boolean,
 	TIncludedPointer = never,
 > =
-	| FindOperationAst<TSchema, TFilter, TSelectedField, TIncludedPointer>
-	| FirstOperationAst<TSchema, TFilter, TSelectedField, TIncludedPointer>
+	| FindManyOperationAst<TSchema, TFilter, TSelectedField, TIncludedPointer>
+	| FindOneOperationAst<TSchema, TFilter, TSelectedField, TIncludedPointer>
 	| GetOperationAst<TSchema, TFilter, TSelectedField, TIncludedPointer>
 	| CountOperationAst<TSchema, TFilter, TSelectedField>
 	| ExistsOperationAst<TSchema, TFilter, TSelectedField>

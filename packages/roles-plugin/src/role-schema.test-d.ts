@@ -78,8 +78,8 @@ test('preserves exact role schema, member, draft, Query, and reference types', (
 test('exposes exact member commands only on persisted role results', async () => {
 	const draft = new AppRole({ name: 'editor' })
 	const created = await draft.create()
-	const role = await AppRole.query().first()
-	const member = await User.query().first()
+	const role = await AppRole.query().findOne()
+	const member = await User.query().findOne()
 
 	expectTypeOf(draft).not.toHaveProperty('addMember')
 	expectTypeOf(created).toHaveProperty('addMember')
@@ -106,8 +106,8 @@ test('exposes exact member commands only on persisted role results', async () =>
 })
 
 test('keeps nested-role commands distinct and schema-qualified', async () => {
-	const role = await AppRole.query().first()
-	const siblingRole = await AppRole.query().first()
+	const role = await AppRole.query().findOne()
+	const siblingRole = await AppRole.query().findOne()
 
 	if (role !== null && siblingRole !== null) {
 		expectTypeOf(role).toHaveProperty('addRole')

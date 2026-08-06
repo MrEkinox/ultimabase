@@ -9,8 +9,8 @@ import {
 	type CreateManyOperationAst,
 	type CreateOneOperationAst,
 	type ExistsOperationAst,
-	type FindOperationAst,
-	type FirstOperationAst,
+	type FindManyOperationAst,
+	type FindOneOperationAst,
 	type GetOperationAst,
 	type QueryFilterNode,
 } from '../../query/index.js'
@@ -546,16 +546,16 @@ describe('native hook dispatcher', () => {
 		})
 		const stages = createNativeHookStages(application)
 		const selectedQuery = new Query(schema).select({ title: true })
-		const findOperation: FindOperationAst<
+		const findOperation: FindManyOperationAst<
 			typeof schema,
 			QueryFilterNode<typeof schema>,
 			'title'
-		> = immutableRecord({ kind: 'find', query: selectedQuery.ast })
-		const firstOperation: FirstOperationAst<
+		> = immutableRecord({ kind: 'find-many', query: selectedQuery.ast })
+		const firstOperation: FindOneOperationAst<
 			typeof schema,
 			QueryFilterNode<typeof schema>,
 			'title'
-		> = immutableRecord({ kind: 'first', query: selectedQuery.ast })
+		> = immutableRecord({ kind: 'find-one', query: selectedQuery.ast })
 		const getOperation: GetOperationAst<
 			typeof schema,
 			QueryFilterNode<typeof schema>,
@@ -625,12 +625,12 @@ describe('native hook dispatcher', () => {
 
 		expect(selectedQuery.ast.where).toBeUndefined()
 		expect(trace).toStrictEqual([
-			'schema:before:find',
-			'field:title:find',
-			'schema:after:find',
-			'schema:before:first',
-			'field:title:first',
-			'schema:after:first',
+			'schema:before:find-many',
+			'field:title:find-many',
+			'schema:after:find-many',
+			'schema:before:find-one',
+			'field:title:find-one',
+			'schema:after:find-one',
 			'schema:before:get',
 			'schema:after:get',
 			'schema:before:count',
@@ -668,9 +668,9 @@ describe('native hook dispatcher', () => {
 			})
 			const stages = createNativeHookStages(application)
 			const operation = immutableRecord({
-				kind: 'find',
+				kind: 'find-many',
 				query: new Query(schema).ast,
-			}) satisfies FindOperationAst<typeof schema>
+			}) satisfies FindManyOperationAst<typeof schema>
 
 			await expect(
 				stages.schemaBefore({ context, operation }),
@@ -727,15 +727,15 @@ describe('native hook dispatcher', () => {
 		})
 		const stages = createNativeHookStages(application)
 		const addOperation = immutableRecord({
-			kind: 'find',
+			kind: 'find-many',
 			query: new Query(addSchema).ast,
-		}) satisfies FindOperationAst<typeof addSchema>
+		}) satisfies FindManyOperationAst<typeof addSchema>
 		const replaceOperation = immutableRecord({
-			kind: 'find',
+			kind: 'find-many',
 			query: new Query(replaceSchema).include('author', (target) =>
 				target.select({ name: true }),
 			).ast,
-		}) satisfies FindOperationAst<typeof replaceSchema>
+		}) satisfies FindManyOperationAst<typeof replaceSchema>
 
 		await expect(
 			stages.schemaBefore({ context, operation: addOperation }),

@@ -154,7 +154,7 @@ const createRelationRuntimeFixture = async (
 	await ultimabase.start()
 	const source = await Source.query()
 		.where({ id: { eq: sourceId } })
-		.first({ ultimabase })
+		.findOne({ ultimabase })
 
 	if (source === null) {
 		throw new TypeError('Relation mutation fixture requires one source object')
@@ -192,9 +192,9 @@ describe('relation mutation Runtime execution', () => {
 			value: { action: 'connect', targets: [pointer] },
 		})
 		expect(fixture.trace).toStrictEqual([
-			'execute:first',
+			'execute:find-one',
 			'adapter:begin',
-			'execute:first',
+			'execute:find-one',
 			'access:connect:1',
 			'before:connect',
 			'access:connect:1',
@@ -273,9 +273,9 @@ describe('relation mutation Runtime execution', () => {
 				}),
 		).rejects.toBe(adapterError)
 		expect(fixture.trace).toStrictEqual([
-			'execute:first',
+			'execute:find-one',
 			'adapter:begin',
-			'execute:first',
+			'execute:find-one',
 			'access:connect:1',
 			'before:connect',
 			'access:connect:1',
@@ -299,7 +299,7 @@ describe('relation mutation Runtime execution', () => {
 				.clear({ ultimabase: fixture.ultimabase }),
 		).rejects.toMatchObject({ code: 'NOT_FOUND' })
 		expect(fixture.trace).toStrictEqual([
-			'execute:first',
+			'execute:find-one',
 			'adapter:begin',
 			'access:clear:0',
 			'adapter:rollback',
@@ -336,9 +336,9 @@ describe('relation mutation Runtime execution', () => {
 				}),
 		).rejects.toMatchObject({ code: 'NOT_FOUND' })
 		expect(fixture.trace).toStrictEqual([
-			'execute:first',
+			'execute:find-one',
 			'adapter:begin',
-			'execute:first',
+			'execute:find-one',
 			'adapter:rollback',
 		])
 
@@ -358,9 +358,9 @@ describe('relation mutation Runtime execution', () => {
 				}),
 		).rejects.toMatchObject({ code: 'INTERNAL_ERROR' })
 		expect(fixture.trace).toStrictEqual([
-			'execute:first',
+			'execute:find-one',
 			'adapter:begin',
-			'execute:first',
+			'execute:find-one',
 			'access:connect:1',
 			'before:connect',
 			'access:connect:1',
@@ -430,7 +430,7 @@ describe('relation mutation Runtime execution', () => {
 		await ultimabase.start()
 		const author = await RelationAuthor.query()
 			.where({ id: { eq: sourceId } })
-			.first({
+			.findOne({
 				ultimabase,
 			})
 
@@ -445,7 +445,7 @@ describe('relation mutation Runtime execution', () => {
 		const requests = adapter.transactions[0]?.requests
 
 		expect(requests?.map(({ operation }) => operation.kind)).toStrictEqual([
-			'first',
+			'find-one',
 			'update-one',
 			'update-one',
 		])
@@ -466,9 +466,9 @@ describe('relation mutation Runtime execution', () => {
 			value: sourcePointer,
 		})
 		expect(trace).toStrictEqual([
-			'execute:first',
+			'execute:find-one',
 			'adapter:begin',
-			'execute:first',
+			'execute:find-one',
 			'prepare:update-one',
 			'execute:update-one',
 			'prepare:update-one',

@@ -269,7 +269,7 @@ describe('aclPlugin create input resolution', () => {
 
 		try {
 			await ultimabase.start()
-			const result = await ProtectedPost.query().find({ ultimabase })
+			const result = await ProtectedPost.query().findMany({ ultimabase })
 
 			// Non-master callers may use ACL grants without receiving the security document.
 			expect(result[0]?.acl).toBeUndefined()
@@ -286,7 +286,7 @@ describe('aclPlugin create input resolution', () => {
 			])
 			expect(resolveCurrent).toHaveBeenCalledOnce()
 			await expect(
-				ProtectedPost.query().select({ acl: true }).find({ ultimabase }),
+				ProtectedPost.query().select({ acl: true }).findMany({ ultimabase }),
 			).rejects.toMatchObject({
 				code: 'PERMISSION_DENIED',
 				internalDetails: {
@@ -295,7 +295,7 @@ describe('aclPlugin create input resolution', () => {
 				},
 			} satisfies Partial<FrameworkError>)
 			expect(adapter.requests).toHaveLength(1)
-			const masterResult = await ProtectedPost.query().find({
+			const masterResult = await ProtectedPost.query().findMany({
 				ultimabase,
 				useMasterKey: true,
 			})
@@ -319,7 +319,7 @@ describe('aclPlugin create input resolution', () => {
 			await Promise.all(fixtures.map(({ ultimabase }) => ultimabase.start()))
 			await Promise.all(
 				fixtures.map(({ ultimabase }) =>
-					ProtectedPost.query().find({ ultimabase }),
+					ProtectedPost.query().findMany({ ultimabase }),
 				),
 			)
 
@@ -423,7 +423,10 @@ describe('aclPlugin create input resolution', () => {
 		try {
 			await ultimabase.start()
 			await expect(
-				DynamicRolePost.create({ data: { title: 'Dynamic' } }, { ultimabase }),
+				DynamicRolePost.createOne(
+					{ data: { title: 'Dynamic' } },
+					{ ultimabase },
+				),
 			).rejects.toThrow(
 				'ACL role grants require a role resolver with current-role enumeration',
 			)
@@ -650,7 +653,7 @@ describe('aclPlugin create input resolution', () => {
 			})
 
 			await expect(
-				OverridePost.create(
+				OverridePost.createOne(
 					{ data: { title: 'Schema override' } },
 					{ ultimabase },
 				),
@@ -922,7 +925,7 @@ describe('aclPlugin create input resolution', () => {
 						masterOptions,
 					),
 				() =>
-					ProtectedPost.upsert(
+					ProtectedPost.upsertOne(
 						{
 							where: (where) =>
 								where.eq('id', '0198a43e-2431-7000-8000-000000000032'),

@@ -16,8 +16,8 @@ const mutationKinds = [
 ] as const satisfies readonly DatabaseOperationAst['kind'][]
 
 const readKinds = [
-	'find',
-	'first',
+	'find-many',
+	'find-one',
 	'get',
 	'count',
 	'exists',

@@ -5,7 +5,7 @@ import {
 	Query,
 	type CreateOneOperationAst,
 	type DeleteManyOperationAst,
-	type FindOperationAst,
+	type FindManyOperationAst,
 } from '../../query/index.js'
 import { jsonField, Schema, stringField } from '../../schema/index.js'
 import { RequestContext, requestSources } from '../context/request-context.js'
@@ -47,7 +47,7 @@ describe('TransactionHookJournal', () => {
 			schema: new Query(articleSchema).ast.schema,
 		}) satisfies CreateOneOperationAst<typeof articleSchema>
 		const readOperation = immutableRecord({
-			kind: 'find',
+			kind: 'find-many',
 			query: new Query(articleSchema).select({ title: true }).ast,
 		})
 		const mutationToken = journal.reserve(context)
@@ -147,13 +147,13 @@ describe('TransactionHookJournal', () => {
 	it('retains the latest failed operation and enforces token ownership', () => {
 		const journal = new TransactionHookJournal()
 		const initialOperation = immutableRecord({
-			kind: 'find',
+			kind: 'find-many',
 			query: new Query(articleSchema).limit(1).ast,
-		}) satisfies FindOperationAst<typeof articleSchema>
+		}) satisfies FindManyOperationAst<typeof articleSchema>
 		const latestOperation = immutableRecord({
 			...initialOperation,
 			query: new Query(articleSchema).limit(2).ast,
-		}) satisfies FindOperationAst<typeof articleSchema>
+		}) satisfies FindManyOperationAst<typeof articleSchema>
 		const token = journal.reserve(context)
 		const error = new Error('read failed')
 

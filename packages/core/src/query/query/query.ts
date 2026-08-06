@@ -58,8 +58,8 @@ import type {
 	DeleteOneOperationAst,
 	ExecutableOperationAst,
 	ExistsOperationAst,
-	FindOperationAst,
-	FirstOperationAst,
+	FindManyOperationAst,
+	FindOneOperationAst,
 	GetOperationAst,
 	OperationAstNode,
 	OperationObjectId,
@@ -195,7 +195,7 @@ const getFieldQueryTarget = (
  * ```ts
  * const published = await Post.query()
  *   .where({ published: { eq: true } })
- *   .find({ ultimabase })
+ *   .findMany({ ultimabase })
  * ```
  */
 export class Query<
@@ -446,37 +446,37 @@ export class Query<
 	 * Reads every matching object through the active request or an explicit app.
 	 * Hook calls reuse the exact request transaction and execution safeguards.
 	 *
-	 * @example `await Post.query().find({ ultimabase })`
+	 * @example `await Post.query().findMany({ ultimabase })`
 	 */
-	find(
+	findMany(
 		options?: QueryTerminalOptions,
 	): Promise<
 		readonly InferQueryResult<TSchema, TSelectedField, TIncludedPointer>[]
 	> {
-		const operation: FindOperationAst<
+		const operation: FindManyOperationAst<
 			TSchema,
 			QueryFilterNode<TSchema>,
 			TSelectedField,
 			TIncludedPointer
-		> = immutableRecord({ kind: 'find', query: this.ast })
+		> = immutableRecord({ kind: 'find-many', query: this.ast })
 
 		return this.#execute(operation, options)
 	}
 
 	/** Reads the first matching object, or `null` when no object matches. */
-	first(
+	findOne(
 		options?: QueryTerminalOptions,
 	): Promise<InferQueryResult<
 		TSchema,
 		TSelectedField,
 		TIncludedPointer
 	> | null> {
-		const operation: FirstOperationAst<
+		const operation: FindOneOperationAst<
 			TSchema,
 			QueryFilterNode<TSchema>,
 			TSelectedField,
 			TIncludedPointer
-		> = immutableRecord({ kind: 'first', query: this.ast })
+		> = immutableRecord({ kind: 'find-one', query: this.ast })
 
 		return this.#execute(operation, options)
 	}
@@ -698,7 +698,7 @@ export const executeQueryWithPrivateScope = <
 	)
 
 /** Executes one schema-owned create command without inventing a meaningless Query. */
-export const executeSchemaCreate = <const TSchema extends SchemaDefinition>(
+export const executeSchemaCreateOne = <const TSchema extends SchemaDefinition>(
 	schema: TSchema,
 	input: SchemaCreateOneExecutionInput<TSchema>,
 	options?: QueryTerminalOptions,
@@ -805,7 +805,7 @@ export const executeQueryUpdateMany = <
 }
 
 /** Executes one unique-target upsert while retaining private Query restrictions. */
-export const executeQueryUpsert = <
+export const executeQueryUpsertOne = <
 	const TSchema extends SchemaDefinition,
 	TSelectedField extends QueryFieldName<TSchema>,
 	TIncludedPointer,

@@ -77,10 +77,10 @@ const decodeRows = (
 ): readonly Readonly<Record<string, unknown>>[] =>
 	rows.map((row) => readPostgresRecord(schema, row))
 
-const executeFind = async (
+const executeFindMany = async (
 	client: PostgresDrizzleClient,
 	schema: CompiledPostgresSchema,
-	operation: Extract<RuntimeOperation, { readonly kind: 'find' }>,
+	operation: Extract<RuntimeOperation, { readonly kind: 'find-many' }>,
 	constraint: SQL | undefined,
 	relationCompiler?: PostgresRelationPredicateCompiler,
 ): Promise<readonly Readonly<Record<string, unknown>>[]> => {
@@ -98,10 +98,10 @@ const executeFind = async (
 	return decodeRows(schema, rows)
 }
 
-const executeFirst = async (
+const executeFindOne = async (
 	client: PostgresDrizzleClient,
 	schema: CompiledPostgresSchema,
-	operation: Extract<RuntimeOperation, { readonly kind: 'first' }>,
+	operation: Extract<RuntimeOperation, { readonly kind: 'find-one' }>,
 	constraint: SQL | undefined,
 	relationCompiler?: PostgresRelationPredicateCompiler,
 ): Promise<Readonly<Record<string, unknown>> | null> => {
@@ -543,16 +543,16 @@ export const executePostgresOperation = async (
 ): Promise<unknown> => {
 	try {
 		switch (operation.kind) {
-			case 'find':
-				return await executeFind(
+			case 'find-many':
+				return await executeFindMany(
 					client,
 					schema,
 					operation,
 					constraint,
 					relationCompiler,
 				)
-			case 'first':
-				return await executeFirst(
+			case 'find-one':
+				return await executeFindOne(
 					client,
 					schema,
 					operation,

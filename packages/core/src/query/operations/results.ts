@@ -12,8 +12,8 @@ import type {
 	CreateOneOperationAst,
 	DeleteManyOperationAst,
 	DeleteOneOperationAst,
-	FindOperationAst,
-	FirstOperationAst,
+	FindManyOperationAst,
+	FindOneOperationAst,
 	GetOperationAst,
 	OperationAstNode,
 	OperationIncludedPointer,
@@ -52,7 +52,7 @@ type InferOperationResultFor<
 	TMode extends OperationResultMode,
 	TInclusionMode extends OperationInclusionMode,
 > =
-	TOperation extends FindOperationAst<
+	TOperation extends FindManyOperationAst<
 		infer TSchema,
 		QueryExpressionNode,
 		infer TSelectedField,
@@ -65,7 +65,7 @@ type InferOperationResultFor<
 				OperationIncludedPointer<TOperation>,
 				TInclusionMode
 			>[]
-		: TOperation extends FirstOperationAst<
+		: TOperation extends FindOneOperationAst<
 					infer TSchema,
 					QueryExpressionNode,
 					infer TSelectedField,

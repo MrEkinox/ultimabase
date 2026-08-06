@@ -77,7 +77,7 @@ describe('ACL JSONB storage', { concurrent: false }, () => {
 		await ultimabase.start()
 
 		try {
-			const created = await StoredPost.create(
+			const created = await StoredPost.createOne(
 				{ data: { title: 'Protected' } },
 				{ ultimabase, useMasterKey: true },
 			)

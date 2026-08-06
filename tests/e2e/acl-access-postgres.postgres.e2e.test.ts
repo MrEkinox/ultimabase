@@ -218,7 +218,7 @@ describe('ACL PostgreSQL Access constraints', { concurrent: false }, () => {
 			ProtectedPost.query()
 				.ascending('title')
 				.select({ title: true })
-				.find({ context, ultimabase: app })
+				.findMany({ context, ultimabase: app })
 				.then((rows) => rows.map(({ title }) => title))
 
 		await expect(visibleTitles(anonymous)).resolves.toStrictEqual(['public'])
@@ -317,7 +317,7 @@ describe('ACL PostgreSQL Access constraints', { concurrent: false }, () => {
 					masterOptions,
 				),
 			() =>
-				ProtectedPost.upsert(
+				ProtectedPost.upsertOne(
 					{
 						where: (where) => where.eq('id', deniedId),
 						create: { title: 'unexpected-upsert' },
@@ -349,7 +349,7 @@ describe('ACL PostgreSQL Access constraints', { concurrent: false }, () => {
 		const unchanged = await ProtectedPost.query()
 			.where({ id: { eq: deniedId } })
 			.select({ acl: true })
-			.first(masterOptions)
+			.findOne(masterOptions)
 
 		expect(unchanged?.acl).toStrictEqual(new ACL())
 		const updated = await ProtectedPost.updateOne(

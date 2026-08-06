@@ -25,30 +25,30 @@ type QueryUltimaBase = UltimaBase<
  * Selects inherited, plugin-derived, or audited-master terminal execution.
  * Omitting `context` and `useMasterKey` inherits the active request.
  *
- * @example `await Post.query().find()`
- * @example `await Post.query().find({ ultimabase })`
+ * @example `await Post.query().findMany()`
+ * @example `await Post.query().findMany({ ultimabase })`
  */
 export interface QueryTerminalOptions {
 	/**
 	 * Selects an immutable plugin-derived context without accepting credentials.
 	 * Combine it with `useMasterKey: true` to elevate that exact context.
 	 *
-	 * @example `await Post.query().find({ context, ultimabase })`
+	 * @example `await Post.query().findMany({ context, ultimabase })`
 	 */
 	readonly context?: RequestContext
 	/**
 	 * Selects the exact started application used to create an anonymous root request.
 	 * It is required with an explicit context outside an active request scope.
 	 *
-	 * @example `await Post.query().find({ ultimabase })`
+	 * @example `await Post.query().findMany({ ultimabase })`
 	 */
 	readonly ultimabase?: QueryUltimaBase
 	/**
 	 * Requests audited master authority from trusted backend code only.
 	 * Transport input and serialized Query data must never supply this option.
 	 *
-	 * @example `await Post.query().find({ useMasterKey: true })`
-	 * @example `await Post.query().find({ context, ultimabase, useMasterKey: true })`
+	 * @example `await Post.query().findMany({ useMasterKey: true })`
+	 * @example `await Post.query().findMany({ context, ultimabase, useMasterKey: true })`
 	 */
 	readonly useMasterKey?: true
 }

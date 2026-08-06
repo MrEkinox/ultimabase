@@ -4,7 +4,7 @@ import {
 	type CountOperationAst,
 	type CreateManyOperationAst,
 	type CreateOneOperationAst,
-	type FindOperationAst,
+	type FindManyOperationAst,
 	type QueryFilterNode,
 	type UpdateExpression,
 	type UpdateOneOperationAst,
@@ -282,11 +282,11 @@ describe('runtime hook boundaries', () => {
 	it('preserves each scalar, collection, and nullable terminal result contract', () => {
 		const schema = createFixtureSchema(() => 'Generated title')
 		const selectedQuery = new Query(schema).select({ id: true }).ast
-		const findOperation: FindOperationAst<
+		const findOperation: FindManyOperationAst<
 			typeof schema,
 			QueryFilterNode<typeof schema>,
 			'id'
-		> = immutableRecord({ kind: 'find', query: selectedQuery })
+		> = immutableRecord({ kind: 'find-many', query: selectedQuery })
 		const countOperation = immutableRecord({
 			kind: 'count',
 			query: new Query(schema).ast,
@@ -341,13 +341,13 @@ describe('runtime hook boundaries', () => {
 		})
 		const targetQuery = new Query(target).select({ name: true })
 		const operation = immutableRecord({
-			kind: 'find',
+			kind: 'find-many',
 			query: new Query(source)
 				.select({ target: true })
 				.include('target', () => targetQuery).ast,
-		}) satisfies FindOperationAst<typeof source>
+		}) satisfies FindManyOperationAst<typeof source>
 		const targetOperation = immutableRecord({
-			kind: 'first',
+			kind: 'find-one',
 			query: targetQuery.ast,
 		})
 		const includedTarget = immutableRecord({ name: 'Ada' })
@@ -420,7 +420,11 @@ describe('runtime hook boundaries', () => {
 			})
 		}).toThrow(expect.objectContaining({ code: 'VALIDATION_ERROR' }))
 		expect(() => {
-			boundaries.assertResultGrouping(immutableRecord({ kind: 'find' }), [], [])
+			boundaries.assertResultGrouping(
+				immutableRecord({ kind: 'find-many' }),
+				[],
+				[],
+			)
 		}).not.toThrow()
 		expect(() =>
 			boundaries.snapshotResultReplacement(operation, {

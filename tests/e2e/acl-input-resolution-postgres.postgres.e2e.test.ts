@@ -143,7 +143,7 @@ beforeAll(async () => {
 		schemas: [ResolutionPost],
 	})
 	await ultimabase.start()
-	const created = await ResolutionPost.create(
+	const created = await ResolutionPost.createOne(
 		{ data: { acl: emptyACL, note: 'remove-me', title: 'current' } },
 		{ ultimabase, useMasterKey: true },
 	)
@@ -279,7 +279,7 @@ describe('ACL input resolution with PostgreSQL', { concurrent: false }, () => {
 					title: true,
 					views: true,
 				})
-				.first(masterOptions),
+				.findOne(masterOptions),
 		).resolves.toMatchObject({
 			balance: '11.50',
 			title: 'resolved-candidate',

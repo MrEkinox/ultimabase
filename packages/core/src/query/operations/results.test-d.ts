@@ -22,8 +22,8 @@ import type {
 	DeleteManyOperationAst,
 	DeleteOneOperationAst,
 	ExistsOperationAst,
-	FindOperationAst,
-	FirstOperationAst,
+	FindManyOperationAst,
+	FindOneOperationAst,
 	GetOperationAst,
 	OperationIncludedPointer,
 	UpdateManyOperationAst,
@@ -52,12 +52,12 @@ test('maps every terminal AST to selection-aware singular and bulk results', () 
 	expectTypeOf(schema.className).toEqualTypeOf<'ResultArticle'>()
 	expectTypeOf<
 		InferOperationResult<
-			FindOperationAst<typeof schema, SelectedFilter, 'id' | 'title'>
+			FindManyOperationAst<typeof schema, SelectedFilter, 'id' | 'title'>
 		>
 	>().toEqualTypeOf<readonly SelectedResult[]>()
 	expectTypeOf<
 		InferOperationResult<
-			FirstOperationAst<typeof schema, SelectedFilter, 'id' | 'title'>
+			FindOneOperationAst<typeof schema, SelectedFilter, 'id' | 'title'>
 		>
 	>().toEqualTypeOf<SelectedResult | null>()
 	expectTypeOf<
@@ -138,7 +138,7 @@ test('distinguishes adapter pointers from hydrated Runtime inclusions', () => {
 		},
 	})
 	type Inclusion = QueryPointerResultInclusion<'author', typeof user, 'name'>
-	type Operation = FindOperationAst<
+	type Operation = FindManyOperationAst<
 		typeof post,
 		QueryFilterNode<typeof post>,
 		'author' | 'title',

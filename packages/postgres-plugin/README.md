@@ -172,7 +172,7 @@ const request = ultimabase.engine.anonymous({
 })
 
 const post = await request.transaction(async () => {
-	return PostSchema.create({ data: { title: 'Atomic post' } })
+	return PostSchema.createOne({ data: { title: 'Atomic post' } })
 })
 ```
 
@@ -203,7 +203,7 @@ typed query without receiving a pool, Drizzle client, or explicit transaction:
 	hooks: {
 	beforeCreate: async ({ operation }) => {
 		if (operation.kind === 'create-one') {
-			await AuditSchema.create({
+			await AuditSchema.createOne({
 				data: { action: `create:${operation.input.title}` },
 			})
 		}
@@ -227,7 +227,7 @@ the generated schema class handles writes without SQL or Drizzle in developer
 code:
 
 ```ts
-const created = await ArticleSchema.create(
+const created = await ArticleSchema.createOne(
 	{
 		data: { title: 'Runtime to PostgreSQL' },
 		select: { id: true, title: true },
@@ -239,7 +239,7 @@ const found = await ultimabase
 	.query(ArticleSchema)
 	.where({ id: { eq: created.id } })
 	.select({ id: true, title: true })
-	.first()
+	.findOne()
 
 const updated = await ArticleSchema.updateOne(
 	{
@@ -263,7 +263,7 @@ nodes compile to PostgreSQL range predicates with both bounds retained as
 driver parameters.
 
 Runtime generates UUID v7 identifiers and automatic timestamps once; the
-adapter persists those exact normalized values. `first`, `get`, `updateOne`,
+adapter persists those exact normalized values. `findOne`, `get`, `updateOne`,
 and `deleteOne` return `null` when no row matches. Update and delete select their
 deterministic first target inside the mutation statement, avoiding a separate
 read race.
@@ -293,7 +293,7 @@ if (imported.status === 'stopped') {
 	console.log(imported.failedIndex, imported.results)
 }
 
-const article = await ArticleSchema.upsert(
+const article = await ArticleSchema.upsertOne(
 	{
 		where: { slug: { eq: 'runtime-postgres' } },
 		create: { slug: 'runtime-postgres', title: 'Runtime + PostgreSQL' },
@@ -484,11 +484,11 @@ const Post = Schema.define({
 })
 
 const author = User.pointer('0198f090-2a50-7000-8000-000000000034')
-const created = await Post.create({ data: { author } }, { ultimabase })
+const created = await Post.createOne({ data: { author } }, { ultimabase })
 const found = await Post.query()
 	.where({ author: { eq: author } })
 	.include('author', (query) => query.select({ id: true, name: true }))
-	.first({ ultimabase })
+	.findOne({ ultimabase })
 ```
 
 Writes and predicates send only the target UUID as a parameter. Reads restore
@@ -521,7 +521,7 @@ const selected = await tags
 	.ascending('label')
 	.limit(20)
 	.after()
-	.find({ ultimabase })
+	.findMany({ ultimabase })
 
 await tags.set([Tag.pointer(featuredTagId)], { ultimabase })
 await tags.disconnect(Tag.pointer(featuredTagId), { ultimabase })

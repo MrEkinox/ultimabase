@@ -14,7 +14,7 @@ transaction, or queryable hook, it uses that exact active Runtime scope:
 
 ```ts
 const users = await runWithRequestEngine(requestEngine, () =>
-	activeUsers.limit(25).find(),
+	activeUsers.limit(25).findMany(),
 )
 ```
 
@@ -23,7 +23,7 @@ creates one anonymous internal request. Omitting both sources fails with
 `MISSING_EXECUTION_CONTEXT` instead of selecting a process-wide default:
 
 ```ts
-const users = await activeUsers.limit(25).find({ ultimabase })
+const users = await activeUsers.limit(25).findMany({ ultimabase })
 ```
 
 Reusable `QueryScope<TSchema>` arrow functions compose filters, ordering,

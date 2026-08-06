@@ -3,7 +3,7 @@ import { RequestContextValue } from '../../access/index.js'
 import {
 	Query,
 	type CreateOneOperationAst,
-	type FindOperationAst,
+	type FindManyOperationAst,
 } from '../../query/index.js'
 import { Schema, stringField } from '../../schema/index.js'
 import { describe, expect, it } from 'vitest'
@@ -51,9 +51,9 @@ const principalValue = new RequestContextValue<string>(
 )
 
 const articleOperation = {
-	kind: 'find',
+	kind: 'find-many',
 	query: new Query(articleSchema).limit(10).ast,
-} satisfies FindOperationAst<typeof articleSchema>
+} satisfies FindManyOperationAst<typeof articleSchema>
 
 /** Produces complete records for the strict public result boundary. */
 const articleRecord = (title: string) => ({
@@ -191,9 +191,9 @@ describe('FrameworkEngine', () => {
 			.query()
 			.where((where) => where.eq('title', 'UltimaBase'))
 		const foreignOperation = {
-			kind: 'find',
+			kind: 'find-many',
 			query: matchingClassSchema.query().ast,
-		} satisfies FindOperationAst<typeof matchingClassSchema>
+		} satisfies FindManyOperationAst<typeof matchingClassSchema>
 
 		expect('engine' in query).toBe(false)
 		expect(query.schema).toBe(articleSchema)
@@ -227,9 +227,9 @@ describe('FrameworkEngine', () => {
 		expect(contexts).toStrictEqual([request.context])
 
 		const foreignOperation = {
-			kind: 'find',
+			kind: 'find-many',
 			query: new Query(matchingClassSchema).ast,
-		} satisfies FindOperationAst<typeof matchingClassSchema>
+		} satisfies FindManyOperationAst<typeof matchingClassSchema>
 
 		await expect(request.execute(foreignOperation)).rejects.toBeInstanceOf(
 			FrameworkError,
@@ -466,9 +466,9 @@ describe('FrameworkEngine', () => {
 				source: requestSources.graphql,
 			})
 			const secondOperation = {
-				kind: 'find',
+				kind: 'find-many',
 				query: new Query(matchingClassSchema).ast,
-			} satisfies FindOperationAst<typeof matchingClassSchema>
+			} satisfies FindManyOperationAst<typeof matchingClassSchema>
 
 			const [firstResult, secondResult] = await Promise.all([
 				firstRequest.execute(articleOperation),

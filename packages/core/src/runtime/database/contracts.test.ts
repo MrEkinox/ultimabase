@@ -4,7 +4,7 @@ import {
 	type CountOperationAst,
 	type CreateOneOperationAst,
 	type ExistsOperationAst,
-	type FindOperationAst,
+	type FindManyOperationAst,
 	type OperationKind,
 	type QueryFilterNode,
 	type UpdateExpression,
@@ -166,12 +166,12 @@ describe('database adapter contracts', () => {
 		const returnedArticles = [
 			{ id: 'article-1', title: 'UltimaBase', views: 10 },
 		]
-		const adapter = new InMemoryAdapterFake({ find: returnedArticles })
+		const adapter = new InMemoryAdapterFake({ 'find-many': returnedArticles })
 		const operation = {
-			kind: 'find',
+			kind: 'find-many',
 			query: new Query(articleSchema).where((where) => where.eq('views', 10))
 				.ast,
-		} satisfies FindOperationAst<typeof articleSchema>
+		} satisfies FindManyOperationAst<typeof articleSchema>
 		const tenantConstraint = immutableRecord({
 			kind: 'fixture.tenant',
 			version: 1,

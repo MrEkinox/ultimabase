@@ -82,7 +82,7 @@ export const AppRole = RoleSchema.define({
 	access: { operation: protectedRoleOperations },
 	hooks: {
 		beforeRead: ({ query }) => {
-			roleQueryTrace.push('find')
+			roleQueryTrace.push('find-many')
 
 			return query
 		},

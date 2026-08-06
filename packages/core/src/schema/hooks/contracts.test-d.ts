@@ -233,7 +233,7 @@ test('preserves pointer inclusion types through read hook contracts', () => {
 	type Inclusion = QueryPointerResultInclusion<'target', typeof target, 'name'>
 	type IncludedFind = SchemaHookOperation<
 		typeof source,
-		'find',
+		'find-many',
 		'target',
 		Inclusion
 	>
@@ -263,7 +263,7 @@ test('namespaces application-owned hook validation issues', () => {
 test('keeps schema metadata and inferred values independent from hooks', () => {
 	expectTypeOf<keyof typeof ArticleSchema>().toEqualTypeOf<
 		| 'className'
-		| 'create'
+		| 'createOne'
 		| 'createMany'
 		| 'deleteMany'
 		| 'deleteOne'
@@ -275,7 +275,7 @@ test('keeps schema metadata and inferred values independent from hooks', () => {
 		| 'query'
 		| 'updateMany'
 		| 'updateOne'
-		| 'upsert'
+		| 'upsertOne'
 		| 'upsertMany'
 	>()
 	expectTypeOf<InferCreateInput<typeof ArticleSchema>>().toEqualTypeOf<{

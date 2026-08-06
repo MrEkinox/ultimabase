@@ -283,7 +283,7 @@ exact registered class:
 ```ts
 const post = await PostSchema.query()
 	.select({ id: true, title: true })
-	.first({ ultimabase })
+	.findOne({ ultimabase })
 
 if (post !== null) {
 	post instanceof PostSchema // true
@@ -329,7 +329,7 @@ operation.
 ## Native schema hook declarations
 
 `Schema.define({ hooks })` accepts the complete typed schema lifecycle directly.
-Create, update, upsert, delete, save, find, and general operation handlers cover
+Create, update, upsert, delete, save, read, and general operation handlers cover
 their singular and bulk terminals through one callback. `operation.kind`
 narrows the exact operation, while result handlers preserve its corresponding
 result type.

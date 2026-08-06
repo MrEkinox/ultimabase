@@ -115,8 +115,8 @@ export type FieldOutputHookKind =
 	| 'create-one'
 	| 'delete-many'
 	| 'delete-one'
-	| 'find'
-	| 'first'
+	| 'find-many'
+	| 'find-one'
 	| 'get'
 	| 'update-many'
 	| 'update-one'
@@ -126,7 +126,7 @@ export type FieldOutputHookKind =
 /** Groups read terminals that can resolve one selected field value. */
 export type FieldReadHookKind = Extract<
 	FieldOutputHookKind,
-	'find' | 'first' | 'get'
+	'find-many' | 'find-one' | 'get'
 >
 
 /** Groups materialized mutations that can execute value-focused field hooks. */

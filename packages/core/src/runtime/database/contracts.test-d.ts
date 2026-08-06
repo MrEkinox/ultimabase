@@ -7,8 +7,8 @@ import {
 	type DeleteManyOperationAst,
 	type DeleteOneOperationAst,
 	type ExistsOperationAst,
-	type FindOperationAst,
-	type FirstOperationAst,
+	type FindManyOperationAst,
+	type FindOneOperationAst,
 	type GetOperationAst,
 	type UpdateManyOperationAst,
 	type UpdateOneOperationAst,
@@ -68,10 +68,10 @@ declare const adapter: DatabaseAdapter
 
 test('maps every operation kind to its database result semantics', () => {
 	expectTypeOf<
-		DatabaseOperationResult<FindOperationAst<typeof articleSchema>>
+		DatabaseOperationResult<FindManyOperationAst<typeof articleSchema>>
 	>().toEqualTypeOf<readonly ArticleRecord[]>()
 	expectTypeOf<
-		DatabaseOperationResult<FirstOperationAst<typeof articleSchema>>
+		DatabaseOperationResult<FindOneOperationAst<typeof articleSchema>>
 	>().toEqualTypeOf<ArticleRecord | null>()
 	expectTypeOf<
 		DatabaseOperationResult<GetOperationAst<typeof articleSchema>>
@@ -116,9 +116,9 @@ test('preserves operation and constraint inference through execute', () => {
 	>
 
 	const operation = {
-		kind: 'find',
+		kind: 'find-many',
 		query: new Query(articleSchema).where((where) => where.eq('views', 10)).ast,
-	} satisfies FindOperationAst<typeof articleSchema>
+	} satisfies FindManyOperationAst<typeof articleSchema>
 	const relation = {
 		fieldPath: ['relatedArticles'],
 		source: articleSchema,
@@ -291,9 +291,9 @@ test('narrows preparation and materializations by mutation terminal', () => {
 		DatabaseOperationOutcome<UpdateManyOperation>['materializations']
 	>().toEqualTypeOf<readonly []>()
 	const read = {
-		kind: 'find',
+		kind: 'find-many',
 		query: new Query(articleSchema).ast,
-	} satisfies FindOperationAst<typeof articleSchema>
+	} satisfies FindManyOperationAst<typeof articleSchema>
 	const count = {
 		kind: 'count',
 		query: new Query(articleSchema).ast,

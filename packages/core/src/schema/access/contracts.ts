@@ -289,12 +289,14 @@ export interface SchemaReadOperationAccess {
 	 * Controls singular object reads through `get` and `first`.
 	 * @example `one: ({ kind }) => kind === "get"`
 	 */
-	readonly one: AccessDecisionRule<SchemaOperationAccessInput<'get' | 'first'>>
+	readonly one: AccessDecisionRule<
+		SchemaOperationAccessInput<'get' | 'find-one'>
+	>
 	/**
 	 * Controls collection reads through `find`.
 	 * @example `many: true`
 	 */
-	readonly many: AccessDecisionRule<SchemaOperationAccessInput<'find'>>
+	readonly many: AccessDecisionRule<SchemaOperationAccessInput<'find-many'>>
 	/**
 	 * Controls exact row counts without implicitly enabling other reads.
 	 * @example `count: false`

@@ -105,7 +105,7 @@ const createMemberContext = (memberId: string, requestId: string) =>
 const createExternalReference = async (
 	reference: RoleReference,
 ): Promise<void> => {
-	await ExternalRoleReference.create(
+	await ExternalRoleReference.createOne(
 		{ data: { subject: reference.value } },
 		{ ultimabase: getApplication() },
 	)
@@ -202,7 +202,7 @@ describe('stored roles with PostgreSQL', { concurrent: false }, () => {
 			.where((where) => where.gte('priority', 10))
 			.ascending('priority')
 			.select({ id: true, name: true, priority: true })
-			.find({ ultimabase: app, useMasterKey: true })
+			.findMany({ ultimabase: app, useMasterKey: true })
 
 		expect(selected.map((role) => role.toJSON())).toStrictEqual([
 			{ id: currentEditor.id, name: 'editor', priority: 10 },
@@ -318,7 +318,7 @@ describe('stored roles with PostgreSQL', { concurrent: false }, () => {
 
 		const visible = await ProtectedPost.query()
 			.select({ id: true, internalNote: true, title: true })
-			.find({ context: aliceContext, ultimabase: app })
+			.findMany({ context: aliceContext, ultimabase: app })
 		expect(visible).toHaveLength(1)
 		expect(visible[0]?.id).toBe(publishedPostId)
 		await expect(
@@ -330,7 +330,7 @@ describe('stored roles with PostgreSQL', { concurrent: false }, () => {
 				}),
 		).resolves.toBe(false)
 
-		const deletable = await ProtectedPost.create(
+		const deletable = await ProtectedPost.createOne(
 			{ data: { published: true, title: 'Role-protected deletion' } },
 			{ ultimabase: app, useMasterKey: true },
 		)
@@ -526,7 +526,7 @@ describe('stored roles with PostgreSQL', { concurrent: false }, () => {
 
 	it('keeps the neutral provider boundary fail-closed and community-extensible', async () => {
 		const app = getApplication()
-		const row = await MissingProviderPost.create(
+		const row = await MissingProviderPost.createOne(
 			{ data: { title: 'Provider boundary' } },
 			{ ultimabase: app },
 		)

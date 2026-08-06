@@ -174,18 +174,18 @@ describe(
 		it('derives defaults from resolved input and the exact current principal', async () => {
 			const app = getApplication()
 			const alice = request('acl-composition-default', 'a')
-			const owned = await Document.create(
+			const owned = await Document.createOne(
 				{ data: { secret: 'private', title: '  Owned  ' } },
 				{ context: alice, ultimabase: app },
 			)
-			const publicDocument = await Document.create(
+			const publicDocument = await Document.createOne(
 				{ data: { secret: 'public-secret', title: '  PUBLIC  ' } },
 				{ ultimabase: app },
 			)
 			const persisted = await Document.query()
 				.where({ id: { eq: owned.id } })
 				.select({ acl: true, title: true })
-				.first({ ultimabase: app, useMasterKey: true })
+				.findOne({ ultimabase: app, useMasterKey: true })
 
 			expect(owned.title).toBe('owned')
 			expect(owned).not.toHaveProperty('acl')
@@ -267,7 +267,7 @@ describe(
 					.after()
 					.limit(10)
 					.select({ title: true })
-					.find({ context, ultimabase: app })
+					.findMany({ context, ultimabase: app })
 					.then((rows) => rows.map(({ title }) => title))
 
 			await expect(visibleTitles(alice)).resolves.toStrictEqual(['principal-a'])
@@ -287,12 +287,12 @@ describe(
 			await expect(
 				Document.query()
 					.select({ secret: true })
-					.find({ context: alice, ultimabase: app }),
+					.findMany({ context: alice, ultimabase: app }),
 			).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
 			await expect(
 				Document.query()
 					.select({ acl: true })
-					.find({ context: alice, ultimabase: app }),
+					.findMany({ context: alice, ultimabase: app }),
 			).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
 		})
 	},

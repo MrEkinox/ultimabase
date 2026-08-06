@@ -46,20 +46,20 @@ interface RuntimeOutputRecord {
 const collectionOutputKinds = new Set<FieldOutputHookKind>([
 	'create-many',
 	'delete-many',
-	'find',
+	'find-many',
 	'update-many',
 	'upsert-many',
 ])
 const nullableOutputKinds = new Set<FieldOutputHookKind>([
 	'delete-one',
-	'first',
+	'find-one',
 	'get',
 	'update-one',
 ])
 const singularOutputKinds = new Set<FieldOutputHookKind>([
 	'create-one',
 	'delete-one',
-	'first',
+	'find-one',
 	'get',
 	'update-one',
 	'upsert-one',
@@ -119,7 +119,7 @@ const collectOutputRecords = (
 						FieldOutputHookKind,
 						| 'create-many'
 						| 'delete-many'
-						| 'find'
+						| 'find-many'
 						| 'update-many'
 						| 'upsert-many'
 					>,

@@ -73,7 +73,7 @@ test('infers exact explicit-edge pointers, inputs, models, and selections', () =
 		role: true,
 	})
 	type SelectedMembership = NonNullable<
-		Awaited<ReturnType<typeof selected.first>>
+		Awaited<ReturnType<typeof selected.findOne>>
 	>
 	type SelectedRecord = ReturnType<SelectedMembership['toJSON']>
 

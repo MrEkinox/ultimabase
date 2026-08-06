@@ -84,7 +84,7 @@ const createSchemaResultInput = <const TOperation extends DatabaseOperationAst>(
 
 type RuntimeReadOperation = Extract<
 	ExecutableOperationAst,
-	{ readonly kind: 'count' | 'exists' | 'find' | 'first' | 'get' }
+	{ readonly kind: 'count' | 'exists' | 'find-many' | 'find-one' | 'get' }
 >
 
 const readQueryAst = (operation: DatabaseOperationAst): QueryAst => {
@@ -93,8 +93,8 @@ const readQueryAst = (operation: DatabaseOperationAst): QueryAst => {
 	switch (executable.kind) {
 		case 'count':
 		case 'exists':
-		case 'find':
-		case 'first':
+		case 'find-many':
+		case 'find-one':
 		case 'get':
 			return executable.query
 		case 'create-many':

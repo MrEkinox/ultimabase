@@ -5,7 +5,7 @@ import {
 	normalizeUpdateExpression,
 	type CreateManyOperationAst,
 	type CreateOneOperationAst,
-	type FindOperationAst,
+	type FindManyOperationAst,
 	type UpdateOneOperationAst,
 	type UpsertManyOperationAst,
 	type UpsertOneOperationAst,
@@ -594,8 +594,8 @@ describe('runtime validation', () => {
 	it('leaves reads unchanged without consulting the operation clock', async () => {
 		const clock = vi.fn(() => new Date())
 		const stage = createRuntimeValidationStage({ clock })
-		const operation: FindOperationAst<typeof validationSchema> = {
-			kind: 'find',
+		const operation: FindManyOperationAst<typeof validationSchema> = {
+			kind: 'find-many',
 			query: new Query(validationSchema).ast,
 		}
 

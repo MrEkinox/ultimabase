@@ -86,7 +86,7 @@ const selected = PostSchema.query()
 	.select({ id: true, title: true })
 	.include('author', (author) => author.select({ id: true, name: true }))
 
-const posts = await selected.find({ ultimabase })
+const posts = await selected.findMany({ ultimabase })
 
 // `author` is the selected User model, or null when missing or inaccessible.
 ```
@@ -160,7 +160,7 @@ const recentPosts = posts
 create a handle, while selected persisted models retain a protected source ID
 without adding it to their visible values. The handle is opaque, frozen, and
 never serializes a related collection. Its `query()` is an ordinary target
-`Query`, including `where` filters, ordering, cursors, `find`, `count`, and
+`Query`, including `where` filters, ordering, cursors, `findMany`, `count`, and
 `exists`.
 The source edge stays in private Runtime state across every public builder and
 hook transformation; it never appears in `query.ast` and cannot be replaced by
@@ -238,7 +238,7 @@ const visiblePosts = await UserSchema.query()
 			},
 		},
 	})
-	.find()
+	.findMany()
 ```
 
 `some`, `none`, and `every` create immutable portable Query AST nodes from exact
@@ -353,9 +353,9 @@ identify one application explicitly, while an authentication or tenant plugin
 may supply an already-derived context:
 
 ```ts
-const inherited = await PostSchema.query().find()
-const root = await PostSchema.query().find({ ultimabase })
-const authenticated = await PostSchema.query().find({
+const inherited = await PostSchema.query().findMany()
+const root = await PostSchema.query().findMany({ ultimabase })
+const authenticated = await PostSchema.query().findMany({
 	context: contextCreatedByAuthPlugin,
 	ultimabase,
 })
@@ -366,7 +366,7 @@ option position. Combining both elevates the supplied context and preserves its
 typed values:
 
 ```ts
-const allPosts = await PostSchema.query().find({ useMasterKey: true })
+const allPosts = await PostSchema.query().findMany({ useMasterKey: true })
 const imported = await PostSchema.createMany(
 	{ data: rows },
 	{
@@ -389,7 +389,7 @@ configured database adapter's transaction lifecycle. Developer code keeps the
 same concise API:
 
 ```ts
-const post = await PostSchema.create(
+const post = await PostSchema.createOne(
 	{ data: { title: 'Atomic by default' } },
 	{ ultimabase },
 )
@@ -427,7 +427,7 @@ Every model-returning schema mutation accepts the same flat selection contract
 as Query reads; no write command performs implicit relation loading:
 
 ```ts
-const created = await PostSchema.create(
+const created = await PostSchema.createOne(
 	{
 		data: { title: 'Created' },
 		select: { id: true, title: true },
@@ -463,7 +463,7 @@ const published = await PostSchema.updateMany(
 )
 
 // Pointer and relation fields remain unloaded references until queried.
-const authors = await updated?.author.query().find()
+const authors = await updated?.author.query().findMany()
 ```
 
 This protocol belongs to database-adapter authors rather than application code.
@@ -573,8 +573,8 @@ filters. ACL and community policy plugins register contributions to this native
 system rather than business hooks.
 
 The callback receives one immutable schema-aware builder and no terminal
-`kind`, so `get`, `find`, `count`, and `exists` always observe the same protected
-row universe. It may return `true`, `false`, or one predicate branch. Every
+`kind`, so `get`, `findOne`, `findMany`, `count`, and `exists` always observe
+the same protected row universe. It may return `true`, `false`, or one predicate branch. Every
 independent native or plugin contribution is later combined through `AND`:
 
 ```ts
@@ -727,7 +727,7 @@ const ArticleSchema = Schema.define({
 
 const articles = await ArticleSchema.query()
 	.select({ id: true, title: true })
-	.find({ ultimabase })
+	.findMany({ ultimabase })
 
 // The exact result is readonly { id: string; title: string }[].
 ```
@@ -769,7 +769,7 @@ const PostSchema = Schema.define({
 	hooks: {
 		beforeCreate: async ({ context, operation }) => {
 			if (operation.kind === 'create-one') {
-				await AuditSchema.create({
+				await AuditSchema.createOne({
 					data: { action: 'post.create' },
 				})
 				context.emit('post.created', { title: operation.input.title })

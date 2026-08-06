@@ -157,7 +157,7 @@ const readChildRoles = async (role: unknown): Promise<readonly unknown[]> =>
 		.query()
 		.select({ id: true })
 		.ascending('id')
-		.find({ useMasterKey: true })
+		.findMany({ useMasterKey: true })
 
 /**
  * Rejects every cycle reachable from one changed role before its transaction commits.

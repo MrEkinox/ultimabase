@@ -268,8 +268,8 @@ test('keeps set-based terminals out of materialized field hooks', () => {
 	expectTypeOf<'delete-many'>().not.toExtend<BeforeDeleteKind>()
 	expectTypeOf<'delete-many'>().not.toExtend<ChangeKind>()
 	// Output failures remain observable for materialized read terminals.
-	expectTypeOf<'find'>().toExtend<ErrorKind>()
-	expectTypeOf<'first'>().toExtend<ErrorKind>()
+	expectTypeOf<'find-many'>().toExtend<ErrorKind>()
+	expectTypeOf<'find-one'>().toExtend<ErrorKind>()
 	expectTypeOf<'get'>().toExtend<ErrorKind>()
 })
 
@@ -329,7 +329,7 @@ test('types ordered field handler lists and compatible family maps', () => {
 		resolveOutput: {
 			all: ({ value }) => value,
 			read: ({ kind, value }) => {
-				expectTypeOf(kind).toEqualTypeOf<'find' | 'first' | 'get'>()
+				expectTypeOf(kind).toEqualTypeOf<'find-many' | 'find-one' | 'get'>()
 
 				return value
 			},

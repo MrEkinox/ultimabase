@@ -56,7 +56,7 @@ const scalarResultKinds = new Set<OperationKind>(['count', 'exists'])
 
 const nullableResultKinds = new Set<OperationKind>([
 	'delete-one',
-	'first',
+	'find-one',
 	'get',
 	'update-one',
 ])
@@ -64,7 +64,7 @@ const nullableResultKinds = new Set<OperationKind>([
 const collectionResultKinds = new Set<OperationKind>([
 	'create-many',
 	'delete-many',
-	'find',
+	'find-many',
 	'update-many',
 	'upsert-many',
 ])
@@ -160,8 +160,8 @@ const readOperationKeys = (kind: OperationKind): readonly string[] => {
 		case 'delete-many':
 		case 'delete-one':
 		case 'exists':
-		case 'find':
-		case 'first':
+		case 'find-many':
+		case 'find-one':
 			return ['kind', 'query']
 		case 'get':
 			return ['kind', 'query', 'id']
@@ -951,7 +951,7 @@ export const createRuntimeHookBoundaries = (): RuntimeHookBoundaries => {
 			return null as DatabaseOperationResult<TOperation>
 		}
 
-		if (operation.kind === 'find') {
+		if (operation.kind === 'find-many') {
 			if (!isUnknownArray(replacement)) {
 				return throwBoundaryIssue(
 					['result'],
