@@ -31,8 +31,13 @@ import type {
 } from '../../query/operations/execution.js'
 import type { WhereInput } from '../../query/filters/where.js'
 import {
+	normalizeQuerySelection,
+	type QuerySelection,
+} from '../../query/clauses/selection.js'
+import {
 	executeQueryDeleteOne,
 	executeQueryUpdateOne,
+	hydrateQueryFromAst,
 	Query,
 } from '../../query/query/query.js'
 import type {
@@ -106,13 +111,66 @@ interface SchemaModelMethods<TValues extends object> {
 	toJSON(): TValues
 }
 
-/** Combines a draft's create values with one unique target and update branch. */
-export interface SchemaDraftUpsertInput<TSchema extends SchemaDefinition> {
+/** Describes one flat instance result projection without retaining field definitions. */
+export type SchemaModelSelection<TValues extends object> = Readonly<
+	Partial<Record<Extract<keyof TValues, string>, boolean>>
+>
+
+type SchemaModelSelectionKeyWithValue<TSelection, TValue extends boolean> = {
+	[TKey in keyof TSelection]-?: [TSelection[TKey]] extends [TValue]
+		? TKey
+		: never
+}[keyof TSelection]
+
+type SchemaModelSelectedField<
+	TValues extends object,
+	TSelection,
+> = keyof TSelection extends never
+	? never
+	: [SchemaModelSelectionKeyWithValue<TSelection, true>] extends [never]
+		? Exclude<
+				Extract<keyof TValues, string>,
+				SchemaModelSelectionKeyWithValue<TSelection, false>
+			>
+		: Extract<SchemaModelSelectionKeyWithValue<TSelection, true>, keyof TValues>
+
+type LiteralSchemaModelSelection<TSelection> = {
+	readonly [TKey in keyof TSelection]: boolean extends TSelection[TKey]
+		? never
+		: TSelection[TKey]
+}
+
+type ExactSchemaModelSelection<
+	TValues extends object,
+	TSelection,
+> = TSelection &
+	Readonly<Record<Exclude<keyof TSelection, keyof TValues>, never>>
+
+type SchemaModelResultSelection<
+	TValues extends object,
+	TSelection extends SchemaModelSelection<TValues> | undefined,
+> = [TSelection] extends [SchemaModelSelection<TValues>]
+	? Readonly<{
+			readonly select: SchemaModelSelection<TValues> &
+				ExactSchemaModelSelection<TValues, TSelection> &
+				LiteralSchemaModelSelection<TSelection>
+		}>
+	: Readonly<{ readonly select?: never }>
+
+export interface SchemaDraftUpsertFields<TSchema extends SchemaDefinition> {
 	/** Builds the exact equality target that Runtime verifies against a unique index. */
 	readonly where: SchemaWhereFactory<TSchema>
 	/** Applies this exact atomic update when the unique target already exists. */
 	readonly update: UpdateExpressionInput<TSchema> & {}
 }
+
+/** Combines a draft's create values with one unique target, update, and projection. */
+export type SchemaDraftUpsertInput<
+	TSchema extends SchemaDefinition,
+	TSelection extends SchemaModelSelection<InferObject<TSchema>> | undefined =
+		undefined,
+> = SchemaDraftUpsertFields<TSchema> &
+	SchemaModelResultSelection<InferObject<TSchema>, TSelection>
 
 /** Names one exact field-oriented update without retaining field definitions in hovers. */
 export type CompactSchemaModelUpdateInput<
@@ -127,45 +185,207 @@ export type SchemaModelUpdateInput<TSchema extends SchemaDefinition> =
 		Simplify<NumericUpdateInput<TSchema>>
 	>
 
+/** Selects the visible result returned after one draft is persisted. */
+export type SchemaModelCreateInput<
+	TValues extends object,
+	TSelection extends SchemaModelSelection<TValues> | undefined = undefined,
+> = SchemaModelResultSelection<TValues, TSelection>
+
+interface SchemaModelUpdateFields<TUpdateInput extends object> {
+	/** Applies typed atomic field operations to the protected object identity. */
+	readonly data: TUpdateInput
+}
+
+/** Combines one instance update expression with its exact result projection. */
+export type SchemaModelUpdateCommandInput<
+	TValues extends object,
+	TUpdateInput extends object,
+	TSelection extends SchemaModelSelection<TValues> | undefined = undefined,
+> = SchemaModelUpdateFields<TUpdateInput> &
+	SchemaModelResultSelection<TValues, TSelection>
+
+/** Selects the visible pre-delete result of one protected object identity. */
+export type SchemaModelDeleteInput<
+	TValues extends object,
+	TSelection extends SchemaModelSelection<TValues> | undefined = undefined,
+> = SchemaModelResultSelection<TValues, TSelection>
+
+/** Computes the visible model values produced by one literal instance selection. */
+type SchemaModelSelectedValues<TValues extends object, TSelection> = [
+	SchemaModelSelectedField<TValues, TSelection>,
+] extends [never]
+	? TValues
+	: Simplify<
+			Pick<
+				TValues,
+				Extract<SchemaModelSelectedField<TValues, TSelection>, keyof TValues>
+			>
+		>
+
+/** Materializes a projected model exactly like Query result inference. */
+type SelectedPersistedSchemaModel<
+	TClassName extends string,
+	TCompleteValues extends object,
+	TUpdateInput extends object,
+	TRelations extends object,
+	TSelection,
+> = Simplify<
+	PersistedSchemaModel<
+		TClassName,
+		SchemaModelSelectedValues<TCompleteValues, TSelection>,
+		TUpdateInput,
+		TRelations,
+		TCompleteValues
+	>
+>
+
 /** Exposes only persistence commands valid for a caller-created immutable draft. */
 export interface SchemaDraftCommands<
-	TResult extends object,
-	TUpsertInput extends object,
+	TClassName extends string,
+	TCompleteValues extends object,
+	TUpdateInput extends object,
+	TRelations extends object,
+	TUpsertFields extends object,
 > {
 	/**
-	 * Persists this draft through the same Query and Runtime pipeline.
+	 * Persists this draft and returns its selected model fields.
 	 *
-	 * @example `const created = await new Post({ title: "Hello" }).create()`
+	 * @example `await draft.create({ select: { id: true, title: true } })`
 	 */
-	create(options?: QueryTerminalOptions): Promise<TResult>
+	create<const TSelection extends SchemaModelSelection<TCompleteValues>>(
+		input: SchemaModelCreateInput<TCompleteValues, TSelection>,
+		options?: QueryTerminalOptions,
+	): Promise<
+		SelectedPersistedSchemaModel<
+			TClassName,
+			TCompleteValues,
+			TUpdateInput,
+			TRelations,
+			TSelection
+		>
+	>
 	/**
-	 * Creates this draft or updates the object selected by one unique target.
+	 * Persists this draft and returns its complete model.
 	 *
-	 * @example `await draft.upsert({ where: { slug: { eq: "hello" } }, update: { views: increment(1) } })`
+	 * @example `const created = await new Post({ title: "Hello" }).create({})`
 	 */
-	upsert(input: TUpsertInput, options?: QueryTerminalOptions): Promise<TResult>
+	create(
+		input: SchemaModelCreateInput<TCompleteValues>,
+		options?: QueryTerminalOptions,
+	): Promise<
+		PersistedSchemaModel<
+			TClassName,
+			TCompleteValues,
+			TUpdateInput,
+			TRelations,
+			TCompleteValues
+		>
+	>
+	/**
+	 * Creates this draft or updates one target and returns selected model fields.
+	 *
+	 * @example `await draft.upsert({ where: { slug: { eq: "hello" } }, update: { views: increment(1) }, select: { id: true } })`
+	 */
+	upsert<const TSelection extends SchemaModelSelection<TCompleteValues>>(
+		input: TUpsertFields &
+			SchemaModelResultSelection<TCompleteValues, TSelection>,
+		options?: QueryTerminalOptions,
+	): Promise<
+		SelectedPersistedSchemaModel<
+			TClassName,
+			TCompleteValues,
+			TUpdateInput,
+			TRelations,
+			TSelection
+		>
+	>
+	/** Creates this draft or updates one unique target and returns the complete model. */
+	upsert(
+		input: TUpsertFields &
+			SchemaModelResultSelection<TCompleteValues, undefined>,
+		options?: QueryTerminalOptions,
+	): Promise<
+		PersistedSchemaModel<
+			TClassName,
+			TCompleteValues,
+			TUpdateInput,
+			TRelations,
+			TCompleteValues
+		>
+	>
 }
 
 /** Exposes only object-targeted commands valid for trusted persisted instances. */
 export interface SchemaResultCommands<
+	TClassName extends string,
+	TCompleteValues extends object,
 	TUpdateInput extends object,
-	TMutationResult extends object,
+	TRelations extends object,
 > {
+	/**
+	 * Updates this protected object identity and returns selected model fields.
+	 *
+	 * @example `const updated = await post.update({ data: { title: "Updated" }, select: { id: true } })`
+	 */
+	update<const TSelection extends SchemaModelSelection<TCompleteValues>>(
+		input: SchemaModelUpdateCommandInput<
+			TCompleteValues,
+			TUpdateInput,
+			TSelection
+		>,
+		options?: QueryTerminalOptions,
+	): Promise<SelectedPersistedSchemaModel<
+		TClassName,
+		TCompleteValues,
+		TUpdateInput,
+		TRelations,
+		TSelection
+	> | null>
 	/**
 	 * Updates this protected object identity and returns the complete model.
 	 *
-	 * @example `const updated = await post.update({ title: "Updated" })`
+	 * @example `const updated = await post.update({ data: { title: "Updated" } })`
 	 */
 	update(
-		input: TUpdateInput,
+		input: SchemaModelUpdateCommandInput<TCompleteValues, TUpdateInput>,
 		options?: QueryTerminalOptions,
-	): Promise<TMutationResult | null>
+	): Promise<PersistedSchemaModel<
+		TClassName,
+		TCompleteValues,
+		TUpdateInput,
+		TRelations,
+		TCompleteValues
+	> | null>
+	/**
+	 * Deletes this protected object identity and returns selected pre-delete fields.
+	 *
+	 * @example `const deleted = await post.delete({ select: { id: true } })`
+	 */
+	delete<const TSelection extends SchemaModelSelection<TCompleteValues>>(
+		input: SchemaModelDeleteInput<TCompleteValues, TSelection>,
+		options?: QueryTerminalOptions,
+	): Promise<SelectedPersistedSchemaModel<
+		TClassName,
+		TCompleteValues,
+		TUpdateInput,
+		TRelations,
+		TSelection
+	> | null>
 	/**
 	 * Deletes this protected object identity and returns the complete model.
 	 *
-	 * @example `const deleted = await post.delete()`
+	 * @example `const deleted = await post.delete({})`
 	 */
-	delete(options?: QueryTerminalOptions): Promise<TMutationResult | null>
+	delete(
+		input: SchemaModelDeleteInput<TCompleteValues>,
+		options?: QueryTerminalOptions,
+	): Promise<PersistedSchemaModel<
+		TClassName,
+		TCompleteValues,
+		TUpdateInput,
+		TRelations,
+		TCompleteValues
+	> | null>
 }
 
 /** Exposes exact to-many handles only on Runtime-materialized model results. */
@@ -198,16 +418,7 @@ export type PersistedSchemaModel<
 	TRelations extends object = Readonly<Record<never, never>>,
 	TCompleteValues extends object = TValues,
 > = SchemaModelInstance<SchemaDefinition<TClassName>, 'persisted', TValues> &
-	SchemaResultCommands<
-		TUpdateInput,
-		PersistedSchemaModel<
-			TClassName,
-			TCompleteValues,
-			TUpdateInput,
-			TRelations,
-			TCompleteValues
-		>
-	> &
+	SchemaResultCommands<TClassName, TCompleteValues, TUpdateInput, TRelations> &
 	TRelations
 
 /** Represents one immutable instance of an exact generated schema class. */
@@ -223,16 +434,14 @@ type SchemaModelInstance<
 export type SchemaDraft<TSchema extends SchemaDefinition> = Simplify<
 	SchemaModelInstance<TSchema, 'draft', InferCreateInput<TSchema>> &
 		SchemaDraftCommands<
-			PersistedSchemaModel<
-				TSchema['className'],
-				InferObject<TSchema>,
-				CompactSchemaModelUpdateInput<
-					Simplify<UpdateSetInput<TSchema>>,
-					Simplify<NumericUpdateInput<TSchema>>
-				>,
-				SchemaResultRelations<TSchema> & SchemaResultCapabilitiesOf<TSchema>
+			TSchema['className'],
+			InferObject<TSchema>,
+			CompactSchemaModelUpdateInput<
+				Simplify<UpdateSetInput<TSchema>>,
+				Simplify<NumericUpdateInput<TSchema>>
 			>,
-			SchemaDraftUpsertInput<TSchema>
+			SchemaResultRelations<TSchema> & SchemaResultCapabilitiesOf<TSchema>,
+			SchemaDraftUpsertFields<TSchema>
 		>
 >
 
@@ -419,8 +628,17 @@ export const finalizeSchemaModelClass = (schema: SchemaDefinition): void => {
 }
 
 interface NormalizedSchemaDraftUpsertInput {
+	readonly select?: QuerySelection<SchemaDefinition>
 	readonly update: UpdateExpressionInput<SchemaDefinition> & {}
 	readonly where: SchemaWhereFactory<SchemaDefinition>
+}
+
+interface NormalizedSchemaModelSelectionInput {
+	readonly select?: QuerySelection<SchemaDefinition>
+}
+
+interface NormalizedSchemaModelUpdateInput extends NormalizedSchemaModelSelectionInput {
+	readonly data: UpdateExpressionInput<SchemaDefinition> & {}
 }
 
 /** Erases schema variance only inside the private model-to-Query delegation. */
@@ -434,6 +652,56 @@ const createSchemaModelQuery = (schema: SchemaDefinition): SchemaModelQuery =>
 	// Public model types validate exact fields before this private variance boundary.
 	new Query(schema)
 
+const readSchemaModelSelectionInput = (
+	input: unknown,
+	command: 'create' | 'delete',
+): NormalizedSchemaModelSelectionInput => {
+	if (!isPlainRecord(input)) {
+		throw new TypeError(`Schema model ${command} input must be a plain object`)
+	}
+
+	for (const key of Object.keys(input)) {
+		if (key !== 'select') {
+			throw new TypeError(
+				`Schema model ${command} input contains unknown key: ${key}`,
+			)
+		}
+	}
+
+	return immutableRecord({
+		...(Object.hasOwn(input, 'select')
+			? { select: input.select as QuerySelection<SchemaDefinition> }
+			: {}),
+	})
+}
+
+const readSchemaModelUpdateInput = (
+	input: unknown,
+): NormalizedSchemaModelUpdateInput => {
+	if (!isPlainRecord(input)) {
+		throw new TypeError('Schema model update input must be a plain object')
+	}
+
+	for (const key of Object.keys(input)) {
+		if (key !== 'data' && key !== 'select') {
+			throw new TypeError(
+				`Schema model update input contains unknown key: ${key}`,
+			)
+		}
+	}
+
+	if (!Object.hasOwn(input, 'data')) {
+		throw new TypeError('Schema model update input must contain data')
+	}
+
+	return immutableRecord({
+		data: input.data as UpdateExpressionInput<SchemaDefinition> & {},
+		...(Object.hasOwn(input, 'select')
+			? { select: input.select as QuerySelection<SchemaDefinition> }
+			: {}),
+	})
+}
+
 const readSchemaDraftUpsertInput = (
 	input: unknown,
 ): NormalizedSchemaDraftUpsertInput => {
@@ -442,7 +710,7 @@ const readSchemaDraftUpsertInput = (
 	}
 
 	for (const key of Object.keys(input)) {
-		if (key !== 'update' && key !== 'where') {
+		if (key !== 'select' && key !== 'update' && key !== 'where') {
 			throw new TypeError(
 				`Schema model upsert input contains unknown key: ${key}`,
 			)
@@ -455,11 +723,16 @@ const readSchemaDraftUpsertInput = (
 		)
 	}
 
-	if (typeof input.where !== 'function') {
-		throw new TypeError('Schema model upsert where must be a function')
+	if (typeof input.where !== 'function' && !isPlainRecord(input.where)) {
+		throw new TypeError(
+			'Schema model upsert where must be an object or function',
+		)
 	}
 
 	return immutableRecord({
+		...(Object.hasOwn(input, 'select')
+			? { select: input.select as QuerySelection<SchemaDefinition> }
+			: {}),
 		update: input.update as UpdateExpressionInput<SchemaDefinition> & {},
 		where: input.where as SchemaWhereFactory<SchemaDefinition>,
 	})
@@ -468,11 +741,24 @@ const readSchemaDraftUpsertInput = (
 /** Restores the exact protected target without deriving identity from visible values. */
 const createPersistedModelQuery = (
 	record: SchemaModelRecord & { readonly objectId: unknown },
-): SchemaModelQuery =>
+	selection?: QuerySelection<SchemaDefinition>,
+): SchemaModelQuery => {
 	// Mutation results intentionally ignore the receiver's read projection.
-	createSchemaModelQuery(record.schema).where({
+	const query = createSchemaModelQuery(record.schema).where({
 		id: { eq: record.objectId },
 	} as WhereInput<typeof record.schema>)
+
+	if (selection === undefined) {
+		return query
+	}
+
+	return hydrateQueryFromAst<SchemaDefinition, never>(
+		immutableRecord({
+			...query.ast,
+			selection: normalizeQuerySelection(record.schema, selection),
+		}),
+	)
+}
 
 /** Owns the common runtime behavior without becoming the public model identity. */
 class SchemaModelPrototype {
@@ -522,12 +808,17 @@ class SchemaModelPrototype {
 	}
 
 	/** Persists only trusted draft state through Query's ordinary create terminal. */
-	create(options?: QueryTerminalOptions): Promise<object> {
+	create(input: unknown, options?: QueryTerminalOptions): Promise<object> {
 		const record = readSchemaModelRecord(this)
 
 		assertSchemaModelState(record, 'draft', 'create')
+		const normalized = readSchemaModelSelectionInput(input, 'create')
 
-		return createSchemaRecord(record.schema, { data: record.values }, options)
+		return createSchemaRecord(
+			record.schema,
+			{ data: record.values, ...normalized },
+			options,
+		)
 	}
 
 	/** Resolves one unique conflict target without retaining execution on the model. */
@@ -541,6 +832,9 @@ class SchemaModelPrototype {
 			{
 				where: normalized.where,
 				create: record.values,
+				...(normalized.select === undefined
+					? {}
+					: { select: normalized.select }),
 				update: normalized.update,
 			},
 			options,
@@ -553,20 +847,31 @@ class SchemaModelPrototype {
 		options?: QueryTerminalOptions,
 	): Promise<object | null> {
 		const record = readPersistedSchemaModelRecord(this, 'update')
+		const normalized = readSchemaModelUpdateInput(input)
 
 		return executeQueryUpdateOne(
-			createPersistedModelQuery(record) as Query<SchemaDefinition>,
-			input as UpdateExpressionInput<SchemaDefinition> & {},
+			createPersistedModelQuery(
+				record,
+				normalized.select,
+			) as Query<SchemaDefinition>,
+			normalized.data,
 			options,
 		)
 	}
 
 	/** Deletes only Runtime-issued object identity through Query's singular alias. */
-	async delete(options?: QueryTerminalOptions): Promise<object | null> {
+	async delete(
+		input: unknown,
+		options?: QueryTerminalOptions,
+	): Promise<object | null> {
 		const record = readPersistedSchemaModelRecord(this, 'delete')
+		const normalized = readSchemaModelSelectionInput(input, 'delete')
 
 		return executeQueryDeleteOne(
-			createPersistedModelQuery(record) as Query<SchemaDefinition>,
+			createPersistedModelQuery(
+				record,
+				normalized.select,
+			) as Query<SchemaDefinition>,
 			options,
 		)
 	}

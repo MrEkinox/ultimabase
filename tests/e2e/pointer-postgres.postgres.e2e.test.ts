@@ -344,7 +344,7 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 		const created = await new Post({
 			author: firstPointer,
 			title: 'Typed pointer',
-		}).create({ ultimabase: app })
+		}).create({}, { ultimabase: app })
 
 		expect(created.author).toBeInstanceOf(Pointer)
 		expect(created.author.equals(firstPointer)).toBe(true)
@@ -365,7 +365,7 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 		}
 
 		const renamedAuthor = await included.author.update(
-			{ name: 'Ada Lovelace' },
+			{ data: { name: 'Ada Lovelace' } },
 			{ ultimabase: app },
 		)
 
@@ -383,7 +383,7 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 
 		pointerTrace.length = 0
 		const updated = await created.update(
-			{ author: secondPointer, title: 'Updated pointer' },
+			{ data: { author: secondPointer, title: 'Updated pointer' } },
 			{ ultimabase: app },
 		)
 
@@ -413,7 +413,7 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 		expect(afterRollback?.author.equals(secondPointer)).toBe(true)
 		expect(afterRollback?.title).toBe('Updated pointer')
 
-		const deleted = await updated?.delete({ ultimabase: app })
+		const deleted = await updated?.delete({}, { ultimabase: app })
 
 		expect(deleted?.author.equals(secondPointer)).toBe(true)
 		await expect(
@@ -607,7 +607,7 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 			{ ultimabase: app },
 		)
 
-		await deletedTarget.delete({ ultimabase: app })
+		await deletedTarget.delete({}, { ultimabase: app })
 		const detached = await NullableSource.query()
 			.where({ id: { eq: detachedSource.id } })
 			.select({ target: true })

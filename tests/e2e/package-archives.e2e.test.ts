@@ -150,13 +150,14 @@ describe('@ultimabase/core Schema and Query declarations', () => {
 	})
 
 	it('preserves compact immutable model persistence commands', () => {
-		const create = readFixtureQuickInfo('create({ useMasterKey: true })')
-		const update = readFixtureQuickInfo("update({ title: 'Packed update' })")
-
-		expect(create.display).toContain(
-			'create(options?: QueryTerminalOptions): Promise<PersistedSchemaModel<',
+		const create = readFixtureQuickInfo('create({}, { useMasterKey: true })')
+		const update = readFixtureQuickInfo(
+			"update({ data: { title: 'Packed update' } })",
 		)
-		expect(create.documentation).toContain('same Query and Runtime pipeline')
+
+		expect(create.display).toContain('create(input:')
+		expect(create.display).toContain('Promise<PersistedSchemaModel<')
+		expect(create.documentation).toContain('complete model')
 		expect(update.display).toContain('update(input:')
 		expect(update.display).toContain('Promise<PersistedSchemaModel<')
 		expect(update.documentation).toContain('protected object identity')
@@ -197,6 +198,9 @@ describe('@ultimabase/core Schema and Query declarations', () => {
 		const create = readFixtureQuickInfo(
 			'createOne(\n\t\t\t\t{ data: allFieldValues },',
 		)
+		const selectedValues = selected.display.split('get:')[0] ?? ''
+		const deletedValues = deleted.display.split('get:')[0] ?? ''
+		const bulkUpdatedValues = bulkUpdated.display.split('get:')[0] ?? ''
 
 		// This guards the declaration experience seen through Query and Runtime exports.
 		expect(created.display).toContain('readonly externalId: string | null;')
@@ -204,14 +208,14 @@ describe('@ultimabase/core Schema and Query declarations', () => {
 		expect(created.display).not.toContain('Simplify<')
 		expect(created.display).not.toContain('ObjectRequiredFields<')
 		expect(created.display).not.toContain('ObjectOptionalFields<')
-		expect(selected.display).toContain('readonly id: string;')
-		expect(selected.display).toContain('readonly title: string;')
-		expect(selected.display).not.toContain('readonly metadata:')
-		expect(deleted.display).toContain('readonly id: string;')
-		expect(deleted.display).toContain('readonly title: string;')
-		expect(deleted.display).not.toContain('readonly metadata:')
-		expect(bulkUpdated.display).toContain('readonly id: string;')
-		expect(bulkUpdated.display).not.toContain('readonly tenantId:')
+		expect(selectedValues).toContain('readonly id: string;')
+		expect(selectedValues).toContain('readonly title: string;')
+		expect(selectedValues).not.toContain('readonly metadata:')
+		expect(deletedValues).toContain('readonly id: string;')
+		expect(deletedValues).toContain('readonly title: string;')
+		expect(deletedValues).not.toContain('readonly metadata:')
+		expect(bulkUpdatedValues).toContain('readonly id: string;')
+		expect(bulkUpdatedValues).not.toContain('readonly tenantId:')
 		// Contextual execution stays in the optional final argument.
 		expect(create.display).toContain('.createOne(input: SchemaCreateOneInput<')
 		expect(create.display).toContain('options?: QueryTerminalOptions')
@@ -310,10 +314,11 @@ describe('@ultimabase/core Runtime declarations', () => {
 
 	it('preserves ambient hook model typing without context plumbing', () => {
 		const result = readFixtureQuickInfo(
-			'create()\n\n\t\t\tif (operation.input.title',
+			'create({})\n\n\t\t\tif (operation.input.title',
 		)
 
-		expect(result.display).toContain('create(options?: QueryTerminalOptions)')
+		expect(result.display).toContain('create(input:')
+		expect(result.display).toContain('options?: QueryTerminalOptions')
 		expect(result.display).not.toContain('RequestEngine<')
 	})
 })

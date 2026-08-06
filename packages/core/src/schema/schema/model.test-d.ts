@@ -58,15 +58,29 @@ test('infers exact immutable drafts from the generated constructor', () => {
 	expectTypeOf(draft.toJSON()).toEqualTypeOf<
 		Readonly<InferCreateInput<typeof Post>>
 	>()
-	expectTypeOf(draft.create()).toEqualTypeOf<
+	expectTypeOf(draft.create({})).toEqualTypeOf<
 		Promise<SchemaResult<typeof Post>>
 	>()
+	const selectedCreate = draft.create({ select: { id: true, title: true } })
+	type SelectedCreate = Awaited<typeof selectedCreate>
+	void selectedCreate
+	expectTypeOf<ReturnType<SelectedCreate['toJSON']>>().toEqualTypeOf<
+		Readonly<{ readonly id: string; readonly title: string }>
+	>()
+	expectTypeOf<SelectedCreate>().not.toHaveProperty('published')
 	expectTypeOf(
 		draft.upsert({
 			update: { title: 'Updated' },
 			where: { title: { eq: 'Hello' } },
 		}),
 	).toEqualTypeOf<Promise<SchemaResult<typeof Post>>>()
+	expectTypeOf(
+		draft.upsert({
+			select: { id: true, title: true },
+			update: { title: 'Updated' },
+			where: (where) => where.eq('title', 'Hello'),
+		}),
+	).toExtend<Promise<InferQueryResult<typeof Post, 'id' | 'title'>>>()
 
 	// @ts-expect-error -- Required create fields cannot be omitted.
 	new Post({})
@@ -295,7 +309,7 @@ test('infers package-owned commands only on persisted results', async () => {
 		}),
 	)
 	const draft = new Specialized({ title: 'Draft' })
-	const persisted = await draft.create()
+	const persisted = await draft.create({})
 	const queried = await Specialized.query().findOne()
 
 	expectTypeOf(Specialized.category).toEqualTypeOf<'fixture'>()
@@ -337,11 +351,24 @@ test('retains exact schema and selection types through static Query access', () 
 	expectTypeOf(selected.toJSON()).toEqualTypeOf<
 		Readonly<{ readonly id: string; readonly title: string }>
 	>()
-	expectTypeOf(selected.update({ title: 'Updated' })).toEqualTypeOf<
+	expectTypeOf(selected.update({ data: { title: 'Updated' } })).toEqualTypeOf<
 		Promise<SchemaResult<typeof Post> | null>
 	>()
-	expectTypeOf(selected.delete()).toEqualTypeOf<
+	const selectedUpdate = selected.update({
+		data: { title: 'Updated' },
+		select: { id: true, title: true },
+	})
+	type SelectedUpdate = NonNullable<Awaited<typeof selectedUpdate>>
+	void selectedUpdate
+	expectTypeOf<ReturnType<SelectedUpdate['toJSON']>>().toEqualTypeOf<
+		Readonly<{ readonly id: string; readonly title: string }>
+	>()
+	expectTypeOf<SelectedUpdate>().not.toHaveProperty('published')
+	expectTypeOf(selected.delete({})).toEqualTypeOf<
 		Promise<SchemaResult<typeof Post> | null>
+	>()
+	expectTypeOf(selected.delete({ select: { id: true, title: true } })).toExtend<
+		Promise<InferQueryResult<typeof Post, 'id' | 'title'> | null>
 	>()
 	expectTypeOf<SchemaResult<typeof Post>>().toHaveProperty('updatedAt')
 	const context = RequestContext.anonymous({
@@ -350,10 +377,14 @@ test('retains exact schema and selection types through static Query access', () 
 	})
 
 	void selected.update(
-		{ title: 'Master update' },
+		{ data: { title: 'Master update' } },
 		{ context, useMasterKey: true },
 	)
-	void selected.delete({ useMasterKey: true })
+	void selected.delete({}, { useMasterKey: true })
+	// @ts-expect-error -- Instance selections reject undeclared fields.
+	void selected.delete({ select: { missing: true } })
+	// @ts-expect-error -- Instance update data stays inside its command envelope.
+	void selected.update({ title: 'Legacy update shape' })
 	expectTypeOf(selected).not.toHaveProperty('create')
 	expectTypeOf(selected).not.toHaveProperty('upsert')
 	// @ts-expect-error -- Selected models never expose omitted schema fields.

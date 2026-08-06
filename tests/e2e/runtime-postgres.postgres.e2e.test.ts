@@ -142,7 +142,7 @@ const HookPostSchema = Schema.define({
 
 			await new HookAuditSchema({
 				action: `create:${operation.input.title}`,
-			}).create()
+			}).create({})
 
 			if (operation.input.title === 'rollback') {
 				throw hookRollbackError
@@ -193,12 +193,14 @@ const packedMasterFind = () =>
 	PostSchema.query().findMany({ useMasterKey: true })
 const packedContextFind = () =>
 	PostSchema.query().findMany({ context: packedContext })
-const packedDraftCreate = () => packedModelDraft.create({ useMasterKey: true })
+const packedDraftCreate = () =>
+	packedModelDraft.create({}, { useMasterKey: true })
 declare const packedResult: SchemaResult<
 	typeof PackedModelSchema,
 	{ readonly title: string }
 >
-const packedModelUpdate = () => packedResult.update({ title: 'Packed update' })
+const packedModelUpdate = () =>
+	packedResult.update({ data: { title: 'Packed update' } })
 const packedQueryUpdate = () =>
 	PostSchema.updateOne({
 		where: (where) => where.eq('id', 'packed-post'),
@@ -539,15 +541,19 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 				handle: 'model-create',
 				tenantId: 'model-commands',
 			})
-			const created = await draft.create({ ultimabase })
+			const created = await draft.create(
+				{ select: { email: true, id: true } },
+				{ ultimabase },
+			)
 			const upserted = await new BulkAccountSchema({
 				email: 'model-upsert@example.com',
 				handle: 'model-upsert',
 				tenantId: 'model-commands',
 			}).upsert(
 				{
+					select: { email: true, id: true, visits: true },
 					update: { visits: increment(1) },
-					where: (where) => where.eq('email', 'model-upsert@example.com'),
+					where: { email: { eq: 'model-upsert@example.com' } },
 				},
 				{ ultimabase },
 			)
@@ -563,13 +569,19 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 			}
 
 			const updated = await selected.update(
-				{ visits: increment(2) },
+				{
+					data: { visits: increment(2) },
+					select: { email: true, id: true, visits: true },
+				},
 				{ ultimabase, useMasterKey: true },
 			)
-			const deleted = await updated?.delete({
-				ultimabase,
-				useMasterKey: true,
-			})
+			const deleted = await updated?.delete(
+				{ select: { email: true, id: true } },
+				{
+					ultimabase,
+					useMasterKey: true,
+				},
+			)
 
 			expect(draft.toJSON()).toStrictEqual({
 				email: 'model-create@example.com',
@@ -577,6 +589,10 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 				tenantId: 'model-commands',
 			})
 			expect(created).toBeInstanceOf(BulkAccountSchema)
+			expect(created.toJSON()).toStrictEqual({
+				email: 'model-create@example.com',
+				id: created.id,
+			})
 			expect(upserted).toMatchObject({
 				email: 'model-upsert@example.com',
 				visits: 0,
@@ -584,17 +600,14 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 			expect(selected.toJSON()).toStrictEqual({
 				email: 'model-create@example.com',
 			})
-			expect(updated?.toJSON()).toMatchObject({
+			expect(updated?.toJSON()).toStrictEqual({
 				email: 'model-create@example.com',
-				handle: 'model-create',
-				tenantId: 'model-commands',
+				id: created.id,
 				visits: 2,
 			})
-			expect(deleted?.toJSON()).toMatchObject({
+			expect(deleted?.toJSON()).toStrictEqual({
 				email: 'model-create@example.com',
-				handle: 'model-create',
-				tenantId: 'model-commands',
-				visits: 2,
+				id: created.id,
 			})
 			expect(selected).not.toHaveProperty('id')
 			expect(updated?.id).toBe(created.id)
@@ -655,7 +668,10 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 				throw new TypeError('Expected a reordered model')
 			}
 
-			await selected.update({ title: 'Second updated' }, { ultimabase })
+			await selected.update(
+				{ data: { title: 'Second updated' } },
+				{ ultimabase },
+			)
 
 			const persistedFirst = await AfterReadIdentitySchema.query()
 				.where({ id: { eq: first.id } })

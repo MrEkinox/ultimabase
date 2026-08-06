@@ -301,26 +301,25 @@ post./* completion */
 		const create = readMarkedQuickInfo(`
 import { Schema, stringField } from '../../src/schema/index.js'
 const Post = Schema.define({ className: 'Post', fields: { title: stringField() } })
-new Post({ title: 'Hello' })./* hover */create()
+new Post({ title: 'Hello' })./* hover */create({})
 `)
 		const update = readMarkedQuickInfo(`
 import { Schema, stringField, type SchemaResult } from '../../src/schema/index.js'
 const Post = Schema.define({ className: 'Post', fields: { title: stringField() } })
 declare const post: SchemaResult<typeof Post, { readonly title: string }>
-post./* hover */update({ title: 'Updated' })
+post./* hover */update({ data: { title: 'Updated' } })
 `)
 		const createDisplay = ts.displayPartsToString(create.displayParts)
 		const updateDisplay = ts.displayPartsToString(update.displayParts)
 
-		expect(createDisplay).toContain(
-			'create(options?: QueryTerminalOptions): Promise<PersistedSchemaModel<',
-		)
+		expect(createDisplay).toContain('create(input:')
+		expect(createDisplay).toContain('Promise<PersistedSchemaModel<')
 		expect(updateDisplay).toContain('update(input:')
 		expect(updateDisplay).toContain('Promise<PersistedSchemaModel<')
 		expect(createDisplay).not.toContain('NonDefaultedStringField<')
 		expect(updateDisplay).not.toContain('NonDefaultedStringField<')
 		expect(createDisplay.length).toBeLessThan(900)
-		// Returning a complete mutation model adds one compact full-value argument.
+		// Returning a complete mutation model retains one compact schema argument.
 		expect(updateDisplay.length).toBeLessThan(1_000)
 		expectDocumented(readDocumentation(create.documentation, create.tags))
 		expectDocumented(readDocumentation(update.documentation, update.tags))

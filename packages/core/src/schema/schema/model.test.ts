@@ -203,7 +203,7 @@ describe('schema model classes', () => {
 			),
 		)
 		expect(selected.toJSON()).toStrictEqual({ title: 'Selected' })
-		await expect(selected.delete()).rejects.toMatchObject({
+		await expect(selected.delete({})).rejects.toMatchObject({
 			code: 'MISSING_EXECUTION_CONTEXT',
 		})
 	})

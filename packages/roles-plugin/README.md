@@ -53,11 +53,11 @@ const ultimabase = new UltimaBase({
 const Editor = await new AppRole({
 	name: 'editor',
 	description: 'Content editors',
-}).create({ ultimabase, useMasterKey: true })
-const Administrator = await new AppRole({ name: 'administrator' }).create({
-	ultimabase,
-	useMasterKey: true,
-})
+}).create({}, { ultimabase, useMasterKey: true })
+const Administrator = await new AppRole({ name: 'administrator' }).create(
+	{},
+	{ ultimabase, useMasterKey: true },
+)
 const EditorById = AppRole.role({ id: Editor.id })
 
 await Editor.addMember(User.pointer(user.id), {
@@ -110,7 +110,7 @@ and leaves external references inert. `cascade` requires master authority,
 clears role-owned edges, and invokes only explicit provider-neutral cleanup
 contributions inside the same transaction. Successful deletion emits
 `ultimabase.roles.deleted` after commit. Set-based `deleteMany()` is rejected;
-ordinary `role.delete()` and
+ordinary `role.delete({}, options)` and
 `AppRole.deleteOne({ where: { id: { eq: id } } })` both execute the
 complete policy.
 

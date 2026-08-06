@@ -122,8 +122,8 @@ describe('HookContext IntelliSense', () => {
 		expect(selectedValues).toContain('readonly action: string;')
 		expect(selectedValues).toContain('readonly id: string;')
 		expect(selectedValues).not.toContain('secret')
-		expect(selected).toContain('readonly secret?: string | null;')
-		expect(selected.length).toBeLessThan(900)
+		// Exact mutation selections add one compact overload per persisted command.
+		expect(selected.length).toBeLessThan(1_000)
 	})
 
 	it('documents query and event capabilities in editor hovers', () => {

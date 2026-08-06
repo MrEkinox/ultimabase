@@ -225,7 +225,7 @@ describe(
 			).toStrictEqual(['read', 'update'])
 			await expect(
 				current.update(
-					{ description: 'Updated through role ACL' },
+					{ data: { description: 'Updated through role ACL' } },
 					{ context, ultimabase: app },
 				),
 			).resolves.toMatchObject({ description: 'Updated through role ACL' })
@@ -265,15 +265,15 @@ describe(
 
 			await expect(
 				currentEditor.update(
-					{ acl: new ACL().grantPublic('read') },
+					{ data: { acl: new ACL().grantPublic('read') } },
 					{ context, ultimabase: app },
 				),
 			).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
 			await expect(
-				requireFixture(deletable, 'deletable').delete({
-					context,
-					ultimabase: app,
-				}),
+				requireFixture(deletable, 'deletable').delete(
+					{},
+					{ context, ultimabase: app },
+				),
 			).resolves.toMatchObject({ name: 'deletable' })
 			await expect(
 				AppRole.query()

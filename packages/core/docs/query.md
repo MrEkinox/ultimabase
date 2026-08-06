@@ -263,16 +263,20 @@ Runtime-issued models also expose identity-safe instance commands:
 
 ```ts
 const draft = new Post({ title: 'Draft' })
-const created = await draft.create()
-const updated = await created.update({ title: 'Updated' })
-await updated?.delete()
+const created = await draft.create({ select: { id: true, title: true } })
+const updated = await created.update({
+	data: { title: 'Updated' },
+	select: { id: true, title: true },
+})
+await updated?.delete({ select: { id: true } })
 ```
 
 Draft `create` and `upsert` delegate to the schema commands. Persisted `update`
 and `delete` retain protected object identity even when the model came from a
-narrow read selection. Their successful result is nevertheless a complete
-model: a read projection never leaks into a later write response. Models remain
-immutable and never gain dirty tracking or a mutable `save()` method.
+narrow read selection. Their successful result follows the command's own
+`select`, or returns the complete model when `select` is omitted. A read
+projection never leaks into a later write response. Models remain immutable and
+never gain dirty tracking or a mutable `save()` method.
 
 ## Contextual execution and authority
 

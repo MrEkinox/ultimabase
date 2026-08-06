@@ -77,7 +77,7 @@ test('preserves exact role schema, member, draft, Query, and reference types', (
 
 test('exposes exact member commands only on persisted role results', async () => {
 	const draft = new AppRole({ name: 'editor' })
-	const created = await draft.create()
+	const created = await draft.create({})
 	const role = await AppRole.query().findOne()
 	const member = await User.query().findOne()
 

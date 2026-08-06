@@ -295,7 +295,7 @@ describe('UltimaBase', () => {
 
 		try {
 			await ultimabase.start()
-			const created = await draft.create({ ultimabase })
+			const created = await draft.create({}, { ultimabase })
 			const upserted = await importedDraft.upsert(
 				{
 					update: { title: 'Upserted' },
@@ -303,8 +303,11 @@ describe('UltimaBase', () => {
 				},
 				{ ultimabase },
 			)
-			const updated = await created.update({ title: 'Updated' }, { ultimabase })
-			const deleted = await updated?.delete({ ultimabase })
+			const updated = await created.update(
+				{ data: { title: 'Updated' } },
+				{ ultimabase },
+			)
+			const deleted = await updated?.delete({}, { ultimabase })
 
 			expect(draft.toJSON()).toStrictEqual({ title: 'Created' })
 			expect(importedDraft.toJSON()).toStrictEqual({ title: 'Imported' })

@@ -233,7 +233,7 @@ describe(
 				{ ultimabase: app },
 			)
 
-			await member.delete({ ultimabase: app })
+			await member.delete({}, { ultimabase: app })
 			expect(
 				await Membership.query()
 					.where((where) => where.eq('project', Project.pointer(project.id)))

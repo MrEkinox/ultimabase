@@ -317,7 +317,10 @@ describe('native Access with PostgreSQL', () => {
 		}
 
 		await expect(
-			publicModel.update({ title: 'public-updated' }, { ultimabase: app }),
+			publicModel.update(
+				{ data: { title: 'public-updated' } },
+				{ ultimabase: app },
+			),
 		).resolves.toMatchObject({ title: 'public-updated' })
 
 		const auditCount = await AccessAudit.query().count({ ultimabase: app })

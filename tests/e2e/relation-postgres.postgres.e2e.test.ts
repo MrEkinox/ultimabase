@@ -454,7 +454,7 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 		expect(await tags.query().count({ ultimabase: app })).toBe(0)
 
 		await tags.connect(Tag.pointer(gamma.id), { ultimabase: app })
-		await gamma.delete({ ultimabase: app })
+		await gamma.delete({}, { ultimabase: app })
 		expect(await tags.query().count({ ultimabase: app })).toBe(0)
 
 		const cleanupTag = await Tag.createOne(
@@ -462,7 +462,7 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 			{ ultimabase: app },
 		)
 		await tags.connect(Tag.pointer(cleanupTag.id), { ultimabase: app })
-		await article.delete({ ultimabase: app })
+		await article.delete({}, { ultimabase: app })
 		expect(
 			await cleanupTag.relation('articles').query().count({ ultimabase: app }),
 		).toBe(0)

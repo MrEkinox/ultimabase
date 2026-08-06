@@ -296,8 +296,9 @@ the same visible snapshot. Omitted fields are absent at runtime and from the
 inferred result type. Runtime retains the protected object identity separately,
 so an instance selected with only `title` can still target itself without
 revealing `id` through properties or serialization. A later `update()` or
-`delete()` returns a complete model allowed by Access rather than preserving
-that earlier read projection.
+`delete()` applies its own result selection rather than preserving that earlier
+read projection. Without `select`, it returns the complete model allowed by
+Access.
 
 Drafts expose only `create` and `upsert`; persisted or queried models expose only
 `update` and `delete`:
@@ -306,18 +307,25 @@ Drafts expose only `create` and `upsert`; persisted or queried models expose onl
 import { increment } from '@ultimabase/core'
 
 const draft = new PostSchema({ title: 'Hello' })
-const created = await draft.create({ ultimabase })
+const created = await draft.create(
+	{ select: { id: true, title: true } },
+	{ ultimabase },
+)
 
 const imported = await new PostSchema({ title: 'Imported' }).upsert(
 	{
+		select: { id: true, title: true },
 		where: { slug: { eq: 'imported' } },
 		update: { imports: increment(1) },
 	},
 	{ ultimabase },
 )
 
-const updated = await created.update({ title: 'Updated' }, { ultimabase })
-await updated?.delete({ ultimabase })
+const updated = await created.update(
+	{ data: { title: 'Updated' }, select: { id: true, title: true } },
+	{ ultimabase },
+)
+await updated?.delete({ select: { id: true } }, { ultimabase })
 ```
 
 `where` must build distinct non-null equalities matching `id`, one unique field,
