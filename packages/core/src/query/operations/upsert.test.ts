@@ -134,7 +134,7 @@ describe('unique upsert targets', () => {
 			.limit(1).ast
 		const paginated = new QueryBuilder(accountSchema)
 			.where((where) => where.eq('email', 'dev@ultimabase.dev'))
-			.skip(1).ast
+			.offset(1).ast
 		const foreign = new QueryBuilder(foreignSchema).where((where) =>
 			where.eq('email', 'dev@ultimabase.dev'),
 		).ast

@@ -31,7 +31,7 @@ describe('PostgreSQL query clause compiler', () => {
 			.descending('rank')
 			.ascending('title')
 			.limit(20)
-			.skip(40)
+			.offset(40)
 		const clauses = compilePostgresQueryClauses(query.ast, compiledSchema)
 
 		expect(Object.keys(clauses.selection)).toStrictEqual(['id', 'title'])

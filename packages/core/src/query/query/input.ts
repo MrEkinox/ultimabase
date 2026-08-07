@@ -79,6 +79,8 @@ export type QueryRelationTargetInput<TSchema extends SchemaDefinition> =
 	Readonly<{
 		readonly include?: QueryIncludeInput<TSchema>
 		readonly limit?: number
+		/** Applies the same offset independently to every ordered parent collection. */
+		readonly offset?: number
 		readonly orderBy?: readonly QueryOrderByInput<TSchema>[]
 		readonly select?: QuerySelection<TSchema>
 		readonly where?: WhereInput<TSchema>
@@ -130,12 +132,12 @@ type QueryPaginationInput =
 	| Readonly<{
 			/** Starts cursor pagination or resumes it from one opaque cursor. */
 			readonly cursor: true | string
-			readonly skip?: never
+			readonly offset?: never
 	  }>
 	| Readonly<{
 			readonly cursor?: never
 			/** Applies offset pagination. */
-			readonly skip?: number
+			readonly offset?: number
 	  }>
 
 /** Describes one complete collection read without retaining execution state. */
@@ -410,7 +412,7 @@ const queryInputKeys: Readonly<Record<QueryInputKind, ReadonlySet<string>>> =
 			'limit',
 			'orderBy',
 			'select',
-			'skip',
+			'offset',
 			'where',
 		]),
 		'find-one': new Set(['include', 'orderBy', 'select', 'where']),
@@ -419,6 +421,7 @@ const queryInputKeys: Readonly<Record<QueryInputKind, ReadonlySet<string>>> =
 		'relation-target': new Set([
 			'include',
 			'limit',
+			'offset',
 			'orderBy',
 			'select',
 			'where',
@@ -608,8 +611,8 @@ const createInputQuery = <const TSchema extends SchemaDefinition>(
 	}
 
 	assertQueryInput(input, kind)
-	if (input.skip !== undefined && input.cursor !== undefined) {
-		throw new TypeError('query cannot combine skip and cursor pagination')
+	if (input.offset !== undefined && input.cursor !== undefined) {
+		throw new TypeError('query cannot combine offset and cursor pagination')
 	}
 
 	let ast = createQueryAst(schema) as QueryInputAst<TSchema>
@@ -628,11 +631,11 @@ const createInputQuery = <const TSchema extends SchemaDefinition>(
 		})
 	}
 
-	if (input.skip !== undefined) {
+	if (input.offset !== undefined) {
 		ast = immutableRecord({
 			...ast,
 			pagination: normalizeQueryOffsetPagination({
-				skip: input.skip as number,
+				offset: input.offset as number,
 			}),
 		})
 	}

@@ -590,6 +590,7 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 					posts: {
 						orderBy: [{ title: 'desc' }],
 						limit: 1,
+						offset: 1,
 						select: { title: true },
 					},
 				},
@@ -598,8 +599,8 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 		)
 
 		expect(authors).toHaveLength(2)
-		expect(authors[0]?.posts[0]?.title).toBe('Included second')
-		expect(authors[1]?.posts[0]?.title).toBe('Other second')
+		expect(authors[0]?.posts[0]?.title).toBe('Included first')
+		expect(authors[1]?.posts[0]?.title).toBe('Other first')
 	})
 
 	it('reuses pointer storage for inverse relation reads and mutations', async () => {

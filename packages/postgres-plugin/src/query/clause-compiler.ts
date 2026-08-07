@@ -239,7 +239,7 @@ export const compilePostgresQueryClauses = <TSchema extends SchemaDefinition>(
 	return immutableRecord({
 		...(query.limit === undefined ? {} : { limit: query.limit }),
 		...(query.pagination?.kind === 'offset-pagination'
-			? { offset: query.pagination.skip }
+			? { offset: query.pagination.offset }
 			: {}),
 		orderBy: compileOrderBy(stableOrdering.orders, schema),
 		selection: compileSelection(query, schema),

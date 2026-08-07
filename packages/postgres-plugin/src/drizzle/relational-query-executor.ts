@@ -260,7 +260,7 @@ const compileRelationalConfig = (
 		where: createRawFilter(catalog, constraintCompilers, schema, request),
 		...(Object.keys(withConfig).length === 0 ? {} : { with: withConfig }),
 		...(query.pagination?.kind === 'offset-pagination'
-			? { offset: query.pagination.skip }
+			? { offset: query.pagination.offset }
 			: {}),
 	}
 

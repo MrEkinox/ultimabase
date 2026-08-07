@@ -94,6 +94,7 @@ describe('canonical read inputs', () => {
 					where: { title: { contains: 'TypeScript' } },
 					orderBy: [{ createdAt: 'desc' }],
 					limit: 3,
+					offset: 2,
 					select: { title: true },
 				},
 			},
@@ -107,6 +108,7 @@ describe('canonical read inputs', () => {
 			kind: 'included-relation',
 			query: {
 				limit: 3,
+				pagination: { kind: 'offset-pagination', offset: 2 },
 				ordering: {
 					orders: [
 						{ direction: 'descending', field: 'createdAt' },
@@ -126,6 +128,9 @@ describe('canonical read inputs', () => {
 
 	it('keeps operation-specific inputs free of irrelevant clauses', () => {
 		expect(() =>
+			queryFromFindManyInput(Post, { skip: 10 } as never),
+		).toThrow('find-many input contains an unknown clause: skip')
+		expect(() =>
 			queryFromCountInput(Post, { select: { id: true } } as never),
 		).toThrow('count input contains an unknown clause: select')
 		expect(() => queryFromFindOneInput(Post, { limit: 1 } as never)).toThrow(
@@ -138,6 +143,11 @@ describe('canonical read inputs', () => {
 				},
 			} as never),
 		).toThrow('pointer-target input contains an unknown clause: orderBy')
+		expect(() =>
+			queryFromFindManyInput(Feed, {
+				include: { posts: { skip: 10 } },
+			} as never),
+		).toThrow('relation-target input contains an unknown clause: skip')
 		expect(() => queryFromGetInput(Post, {} as never)).toThrow(
 			'get input id must be a string',
 		)
@@ -155,9 +165,9 @@ describe('canonical read inputs', () => {
 		expect(() =>
 			queryFromFindManyInput(Post, {
 				cursor: 'cursor',
-				skip: 10,
+				offset: 10,
 			} as never),
-		).toThrow('query cannot combine skip and cursor pagination')
+		).toThrow('query cannot combine offset and cursor pagination')
 		expect(
 			queryFromFindManyInput(Post, { cursor: true }).ast.pagination,
 		).toEqual({

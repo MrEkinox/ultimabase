@@ -98,7 +98,7 @@ export interface QueryOrderingNode<TFieldName extends string = string> {
 /** Represents an optional offset independently from the shared query limit. */
 export interface QueryOffsetPaginationNode {
 	readonly kind: 'offset-pagination'
-	readonly skip: number
+	readonly offset: number
 }
 
 /** Represents forward keyset pagination from an optional opaque cursor. */

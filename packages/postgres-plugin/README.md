@@ -544,6 +544,7 @@ const articles = await Article.findMany({
 		tags: {
 			where: { label: { ne: 'archived' } },
 			orderBy: [{ label: 'asc' }],
+			offset: 10,
 			limit: 20,
 			select: { id: true, label: true },
 		},
@@ -554,7 +555,8 @@ const articles = await Article.findMany({
 PostgreSQL compiles pointer, owning-relation, inverse-relation, and nested
 inclusion branches into one Drizzle RQB `with` tree. Core prepares target Access
 and constraints before the adapter receives that tree. No adapter-side
-DataLoader or per-parent query loop is used.
+DataLoader or per-parent query loop is used. A nested `offset` is applied by
+Drizzle independently to each parent collection.
 
 Relation handle scopes stay outside the developer Query AST and are combined with
 developer predicates and native Access using parameterized SQL. Traversal
@@ -685,17 +687,19 @@ pages always append `id` as a deterministic UUID tie-breaker and use explicit
 null placement, so equal developer sort values remain stable:
 
 ```ts
-const firstPage = new QueryBuilder(ArticleSchema)
+const orderedPage = new QueryBuilder(ArticleSchema)
 	.select({ id: true, title: true, createdAt: true })
 	.descending('createdAt')
 	.limit(25)
-	.after()
 
+const firstPage = orderedPage.after()
 const nextPage = firstPage.after(cursor)
+const offsetPage = orderedPage.offset(50)
 ```
 
 `.after()` selects cursor pagination for the first page; `.after(cursor)`
-resumes a later page. The opaque token is authenticated and checked through
+resumes a later page. `.offset()` selects offset pagination and cannot be
+combined with `.after()`. The opaque token is authenticated and checked through
 Query's cursor contract before PostgreSQL receives its payload. Ordered values
 then stay logical until their Drizzle column maps the parameter, rather than
 being interpolated into SQL or encoded by the cursor compiler.

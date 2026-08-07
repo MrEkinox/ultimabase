@@ -31,23 +31,23 @@ describe('normalizeQueryOffsetPagination', () => {
 	it('removes absent pagination and zero-only offsets', () => {
 		expect(normalizeQueryOffsetPagination()).toBeUndefined()
 		expect(normalizeQueryOffsetPagination({})).toBeUndefined()
-		expect(normalizeQueryOffsetPagination({ skip: 0 })).toBeUndefined()
+		expect(normalizeQueryOffsetPagination({ offset: 0 })).toBeUndefined()
 	})
 
 	it('normalizes explicit offsets without mutating input', () => {
-		const input = { skip: 50 }
+		const input = { offset: 50 }
 		const pagination = normalizeQueryOffsetPagination(input)
-		const skipOnly = normalizeQueryOffsetPagination({ skip: 5 })
+		const offsetOnly = normalizeQueryOffsetPagination({ offset: 5 })
 
 		expect(pagination).toStrictEqual({
 			kind: 'offset-pagination',
-			skip: 50,
+			offset: 50,
 		})
-		expect(skipOnly).toStrictEqual({
+		expect(offsetOnly).toStrictEqual({
 			kind: 'offset-pagination',
-			skip: 5,
+			offset: 5,
 		})
-		expect(input).toStrictEqual({ skip: 50 })
+		expect(input).toStrictEqual({ offset: 50 })
 		expect(Object.isFrozen(pagination)).toBe(true)
 	})
 
@@ -56,12 +56,12 @@ describe('normalizeQueryOffsetPagination', () => {
 			// @ts-expect-error -- Runtime normalization protects JavaScript callers.
 			normalizeQueryOffsetPagination(null)
 		}).toThrow(new TypeError('offset pagination must be an object'))
-		expect(() => normalizeQueryOffsetPagination({ skip: -1 })).toThrow(
+		expect(() => normalizeQueryOffsetPagination({ offset: -1 })).toThrow(
 			new RangeError(
-				'pagination.skip must be a safe integer greater than or equal to 0',
+				'pagination.offset must be a safe integer greater than or equal to 0',
 			),
 		)
-		expect(() => normalizeQueryOffsetPagination({ skip: 0.5 })).toThrow(
+		expect(() => normalizeQueryOffsetPagination({ offset: 0.5 })).toThrow(
 			RangeError,
 		)
 	})

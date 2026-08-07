@@ -10,15 +10,15 @@ import {
 } from '../index.js'
 
 test('keeps offset pagination input and output precise and readonly', () => {
-	const input = { skip: 50 } as const satisfies QueryOffsetPaginationInput
+	const input = { offset: 50 } as const satisfies QueryOffsetPaginationInput
 	const pagination = normalizeQueryOffsetPagination(input)
 
-	expect(input.skip).toBe(50)
+	expect(input.offset).toBe(50)
 	expectTypeOf(normalizeQueryLimit(25)).toEqualTypeOf<number | undefined>()
 	expectTypeOf(pagination).toEqualTypeOf<
 		| {
 				readonly kind: 'offset-pagination'
-				readonly skip: number
+				readonly offset: number
 		  }
 		| undefined
 	>()
@@ -29,7 +29,7 @@ test('keeps offset pagination input and output precise and readonly', () => {
 	normalizeQueryOffsetPagination({ limit: 25 })
 	if (pagination !== undefined) {
 		// @ts-expect-error -- Normalized pagination nodes are immutable.
-		pagination.skip = 0
+		pagination.offset = 0
 	}
 })
 

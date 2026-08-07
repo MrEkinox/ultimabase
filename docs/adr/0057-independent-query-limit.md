@@ -4,6 +4,7 @@
 - Date: 2026-07-31
 - Refines: ADR-0052, ADR-0055, ADR-0056
 - Supersedes: the pagination-node shape described by ADR-0055
+- Refined by: ADR-0155
 
 ## Decision
 

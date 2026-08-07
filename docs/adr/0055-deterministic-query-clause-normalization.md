@@ -3,6 +3,7 @@
 - Status: accepted
 - Date: 2026-07-31
 - Refines: ADR-0004, ADR-0052
+- Refined by: ADR-0155
 
 ## Decision
 

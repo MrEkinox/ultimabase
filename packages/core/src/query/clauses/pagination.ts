@@ -13,7 +13,7 @@ export interface QueryCursorPaginationInput {
 
 /** Describes an optional offset without duplicating the independent limit. */
 export interface QueryOffsetPaginationInput {
-	readonly skip?: number
+	readonly offset?: number
 }
 
 const parsePaginationInteger = (
@@ -59,21 +59,21 @@ export const normalizeQueryOffsetPagination = (
 		throw new TypeError('offset pagination must be an object')
 	}
 
-	const skip = parseOptionalPaginationInteger(
-		untrustedInput.skip,
-		'pagination.skip',
+	const offset = parseOptionalPaginationInteger(
+		untrustedInput.offset,
+		'pagination.offset',
 		0,
 	)
 
-	const normalizedSkip = skip ?? 0
+	const normalizedOffset = offset ?? 0
 
-	if (normalizedSkip === 0) {
+	if (normalizedOffset === 0) {
 		return undefined
 	}
 
 	return immutableRecord({
 		kind: 'offset-pagination',
-		skip: normalizedSkip,
+		offset: normalizedOffset,
 	})
 }
 

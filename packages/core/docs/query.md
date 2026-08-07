@@ -27,12 +27,16 @@ const feed = await Post.findMany(
 )
 
 const nextPage = await Post.findMany({ limit: 25, cursor }, { ultimabase })
-const offsetPage = await Post.findMany({ limit: 25, skip: 50 }, { ultimabase })
+const offsetPage = await Post.findMany({ limit: 25, offset: 50 }, { ultimabase })
 ```
 
 `limit` defines the page size. `cursor: true` starts cursor pagination and
-`cursor: string` resumes from an opaque cursor. `skip` selects offset
+`cursor: string` resumes from an opaque cursor. `offset` selects offset
 pagination and cannot be combined with `cursor`.
+
+Relation inclusions accept the same `offset` name. The adapter applies it
+independently to every parent collection; relation inclusion does not accept a
+cursor.
 
 `select` receives one flat boolean object correlated with the schema. As soon
 as one field is `true`, only fields marked `true` remain visible. With only

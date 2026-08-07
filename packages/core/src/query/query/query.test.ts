@@ -79,11 +79,11 @@ describe('QueryBuilder', () => {
 		const replacedSelection = selected.select({ views: true })
 		const ordered = selected.descending('createdAt', 'title').ascending('title')
 		const limited = ordered.limit(25)
-		const offset = limited.skip(50)
-		const clearedOffset = offset.skip(0)
+		const offset = limited.offset(50)
+		const clearedOffset = offset.offset(0)
 		const cursor = limited.after('opaque.cursor')
 		const firstCursorPage = limited.after()
-		const unchangedCursor = cursor.skip(0)
+		const unchangedCursor = cursor.offset(0)
 
 		expect(base.ast.selection.fields).toStrictEqual([])
 		expect(selected.ast.selection.fields).toStrictEqual([
@@ -114,7 +114,7 @@ describe('QueryBuilder', () => {
 		expect(limited.ast.limit).toBe(25)
 		expect(offset.ast.pagination).toStrictEqual({
 			kind: 'offset-pagination',
-			skip: 50,
+			offset: 50,
 		})
 		expect(clearedOffset.ast.pagination).toBeUndefined()
 		expect(cursor.ast.pagination).toStrictEqual({
@@ -145,7 +145,7 @@ describe('QueryBuilder', () => {
 		const limited = published.limit(10)
 		const noSelectionChange = base.select({})
 		const noOrderingChange = base.ascending()
-		const noOffsetChange = base.skip(0)
+		const noOffsetChange = base.offset(0)
 
 		expect(published.ast.schema).toBe(base.ast.schema)
 		expect(published.ast.selection).toBe(base.ast.selection)
@@ -208,7 +208,8 @@ describe('QueryBuilder', () => {
 					.select({ title: true })
 					.where((where) => where.ne('title', 'Archived'))
 					.descending('createdAt')
-					.limit(4),
+					.limit(4)
+					.offset(2),
 		)
 
 		expect(included.ast.selection.fields).toStrictEqual([])
@@ -217,6 +218,7 @@ describe('QueryBuilder', () => {
 			kind: 'included-relation',
 			query: {
 				limit: 4,
+				pagination: { kind: 'offset-pagination', offset: 2 },
 				ordering: {
 					orders: [{ direction: 'descending', field: 'createdAt' }],
 				},
@@ -227,6 +229,7 @@ describe('QueryBuilder', () => {
 			include: {
 				posts: {
 					limit: 4,
+					offset: 2,
 					orderBy: [{ createdAt: 'desc' }],
 					select: { title: true },
 					where: { title: { ne: 'Archived' } },
@@ -561,11 +564,11 @@ describe('QueryBuilder', () => {
 			fields: postFields,
 		})
 
-		expect(() => new QueryBuilder(postSchema).skip(5).after('cursor')).toThrow(
-			new TypeError('query cannot combine skip and after pagination'),
+		expect(() => new QueryBuilder(postSchema).offset(5).after('cursor')).toThrow(
+			new TypeError('query cannot combine offset and after pagination'),
 		)
-		expect(() => new QueryBuilder(postSchema).after('cursor').skip(5)).toThrow(
-			new TypeError('query cannot combine skip and after pagination'),
+		expect(() => new QueryBuilder(postSchema).after('cursor').offset(5)).toThrow(
+			new TypeError('query cannot combine offset and after pagination'),
 		)
 		expect(() =>
 			new QueryBuilder(postSchema)

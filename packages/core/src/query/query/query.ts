@@ -268,6 +268,9 @@ const buildQueryProjectionInput = <const TSchema extends SchemaDefinition>(
 		...(kind === 'relation' && ast.limit !== undefined
 			? { limit: ast.limit }
 			: {}),
+		...(kind === 'relation' && ast.pagination?.kind === 'offset-pagination'
+			? { offset: ast.pagination.offset }
+			: {}),
 	})
 }
 
@@ -466,8 +469,8 @@ export class QueryBuilder<
 	}
 
 	/** Selects offset pagination and rejects an existing cursor position. */
-	skip(value: number): QueryBuilder<TSchema, TSelectedField, TIncludedPointer> {
-		const pagination = normalizeQueryOffsetPagination({ skip: value })
+	offset(value: number): QueryBuilder<TSchema, TSelectedField, TIncludedPointer> {
+		const pagination = normalizeQueryOffsetPagination({ offset: value })
 
 		if (pagination === undefined) {
 			// Zero removes an existing offset while leaving an unrelated cursor branch intact.
@@ -477,7 +480,7 @@ export class QueryBuilder<
 		}
 
 		if (this.ast.pagination?.kind === 'cursor-pagination') {
-			throw new TypeError('query cannot combine skip and after pagination')
+			throw new TypeError('query cannot combine offset and after pagination')
 		}
 
 		return this.#with({ pagination })
@@ -488,7 +491,7 @@ export class QueryBuilder<
 		cursor?: string,
 	): QueryBuilder<TSchema, TSelectedField, TIncludedPointer> {
 		if (this.ast.pagination?.kind === 'offset-pagination') {
-			throw new TypeError('query cannot combine skip and after pagination')
+			throw new TypeError('query cannot combine offset and after pagination')
 		}
 
 		return this.#with({
@@ -583,7 +586,7 @@ export class QueryBuilder<
 					}),
 			...(this.ast.limit === undefined ? {} : { limit: this.ast.limit }),
 			...(this.ast.pagination?.kind === 'offset-pagination'
-				? { skip: this.ast.pagination.skip }
+				? { offset: this.ast.pagination.offset }
 				: {}),
 			...(this.ast.pagination?.kind === 'cursor-pagination'
 				? { cursor: this.ast.pagination.after ?? true }

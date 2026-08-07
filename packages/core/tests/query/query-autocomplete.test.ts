@@ -445,14 +445,14 @@ ${body}
 		expect(numericOperators.has('contains')).toBe(false)
 	})
 
-	it('completes canonical read clauses, ordering, and pointer inclusion', () => {
+	it('completes canonical read clauses, ordering, and relationship inclusion', () => {
 		const marker = '/* completion */'
 		const readCompletions = (
 			body: string,
 			fixtureName: string,
 		): Set<string> => {
 			const sourceWithMarker = `
-import { Schema, pointerField, stringField } from '../../src/index.js'
+import { Schema, pointerField, relationField, stringField } from '../../src/index.js'
 const Author = Schema.define({ className: 'Author', fields: { name: stringField() } })
 const Post = Schema.define({
   className: 'Post',
@@ -461,6 +461,7 @@ const Post = Schema.define({
     title: stringField(),
   },
 })
+const Feed = Schema.define({ className: 'Feed', fields: { posts: relationField({ target: () => Post }) } })
 ${body}
 `
 			const position = sourceWithMarker.indexOf(marker)
@@ -488,6 +489,10 @@ ${body}
 			`Post.findMany({ include: { author: { ${marker} } } })`,
 			'query-canonical-include-target-completion',
 		)
+		const relationTargetClauses = readCompletions(
+			`Feed.findMany({ include: { posts: { ${marker} } } })`,
+			'query-canonical-relation-include-target-completion',
+		)
 		const orderingFields = readCompletions(
 			`Post.findMany({ orderBy: [{ ${marker} }] })`,
 			'query-canonical-ordering-completion',
@@ -499,18 +504,31 @@ ${body}
 			'limit',
 			'orderBy',
 			'select',
-			'skip',
+			'offset',
 			'where',
 		]) {
 			expect(clauses.has(clause)).toBe(true)
 		}
 		expect(clauses.has('data')).toBe(false)
+		expect(clauses.has('skip')).toBe(false)
 		expect(includeFields.has('author')).toBe(true)
 		expect(includeFields.has('title')).toBe(false)
 		expect(targetClauses.has('include')).toBe(true)
 		expect(targetClauses.has('select')).toBe(true)
 		expect(targetClauses.has('where')).toBe(true)
 		expect(targetClauses.has('orderBy')).toBe(false)
+		for (const clause of [
+			'include',
+			'limit',
+			'offset',
+			'orderBy',
+			'select',
+			'where',
+		]) {
+			expect(relationTargetClauses.has(clause)).toBe(true)
+		}
+		expect(relationTargetClauses.has('cursor')).toBe(false)
+		expect(relationTargetClauses.has('skip')).toBe(false)
 		expect(orderingFields.has('author')).toBe(true)
 		expect(orderingFields.has('title')).toBe(true)
 		expect(orderingFields.has('id')).toBe(true)

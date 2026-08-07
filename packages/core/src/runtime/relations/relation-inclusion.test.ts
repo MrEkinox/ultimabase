@@ -154,6 +154,7 @@ describe('relation Runtime inclusion', () => {
 						comments: {
 							include: { replies: { select: { body: true } } },
 							limit: 2,
+							offset: 3,
 							orderBy: [{ createdAt: 'desc' }],
 							select: { body: true },
 							where: { body: { ne: '' } },
@@ -185,6 +186,7 @@ describe('relation Runtime inclusion', () => {
 						kind: 'find-many',
 						query: {
 							limit: 2,
+							pagination: { kind: 'offset-pagination', offset: 3 },
 							selection: { fields: [{ field: 'body' }] },
 						},
 					},

@@ -162,7 +162,9 @@ test('exposes writes on the schema class and keeps QueryBuilder read-only', () =
 	void Post.findMany({ cursor: true })
 	void Post.findMany({ cursor: true, select: { title: true } })
 	// @ts-expect-error -- Offset and cursor pagination are mutually exclusive.
-	void Post.findMany({ cursor: true, skip: 10 })
+	void Post.findMany({ cursor: true, offset: 10 })
+	// @ts-expect-error -- Offset is the only canonical offset-pagination name.
+	void Post.findMany({ skip: 10 })
 	expectTypeOf(
 		Article.findOne({
 			select: { id: true, title: true },
@@ -192,6 +194,7 @@ test('exposes writes on the schema class and keeps QueryBuilder read-only', () =
 					where: { body: { ne: '' } },
 					orderBy: [{ createdAt: 'desc' }],
 					limit: 5,
+					offset: 10,
 					include: { author: { select: { name: true } } },
 				},
 			},
@@ -217,6 +220,12 @@ test('exposes writes on the schema class and keeps QueryBuilder read-only', () =
 			>[]
 		>
 	>()
+	// @ts-expect-error -- Relation includes do not expose cursor pagination.
+	void Discussion.findMany({ include: { comments: { cursor: true } } })
+	// @ts-expect-error -- Relation includes use offset rather than the legacy skip name.
+	void Discussion.findMany({ include: { comments: { skip: 10 } } })
+	// @ts-expect-error -- Singular pointer includes do not support collection offsets.
+	void Article.findMany({ include: { author: { offset: 10 } } })
 	expectTypeOf(
 		Post.get({ id: 'post-1', select: { title: true } }),
 	).toEqualTypeOf<Promise<InferQueryResult<typeof Post, 'title'> | null>>()

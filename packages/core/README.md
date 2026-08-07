@@ -156,6 +156,7 @@ const users = await UserSchema.findMany({
 	include: {
 		posts: {
 			orderBy: [{ createdAt: 'desc' }],
+			offset: 10,
 			limit: 10,
 			select: { id: true },
 		},
@@ -165,12 +166,13 @@ const users = await UserSchema.findMany({
 // `users[0].posts` is a readonly array of selected Post models.
 ```
 
-An included relation supports `where`, `orderBy`, `limit`, `select`, and nested
-`include`. Per-parent cursor or offset pagination is deliberately not part of
-this contract. Source relation Field Access runs once before loading. Target
-Access and output resolution still apply, but target `beforeRead` and
-`afterRead` hooks do not run merely because a parent included the collection.
-The explicit parent `afterRead` hook observes the hydrated array.
+An included relation supports `where`, `orderBy`, `offset`, `limit`, `select`,
+and nested `include`. Its offset is applied independently to every parent
+collection. Per-parent cursor pagination is deliberately not part of this
+contract. Source relation Field Access runs once before loading. Target Access
+and output resolution still apply, but target `beforeRead` and `afterRead`
+hooks do not run merely because a parent included the collection. The explicit
+parent `afterRead` hook observes the hydrated array.
 
 Persisted models expose only their declared to-many fields through an immutable
 `Relation<TSource, TTarget>` handle:

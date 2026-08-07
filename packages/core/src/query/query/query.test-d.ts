@@ -300,7 +300,7 @@ test('infers pointer predicates, target queries, and included projections', () =
 		// @ts-expect-error -- Pointers do not support ordered comparisons.
 		where.gt('author', author),
 	)
-	// @ts-expect-error -- Only pointer fields are includable.
+	// @ts-expect-error -- Only relationship fields are includable.
 	new QueryBuilder(includedPostSchema).include('title', (query) => query)
 	new QueryBuilder(includedPostSchema).include('author', (query) => {
 		// @ts-expect-error -- The callback QueryBuilder exposes only target fields.
@@ -316,7 +316,7 @@ test('restricts fields, pagination values, and logical schemas', () => {
 		.ascending('title')
 		.descending('views')
 	query.limit(25)
-	query.skip(50)
+	query.offset(50)
 	query.after('opaque.cursor')
 	query.after()
 	query.where({ AND: [{ published: { eq: true } }] })
@@ -330,7 +330,7 @@ test('restricts fields, pagination values, and logical schemas', () => {
 	// @ts-expect-error -- Limit requires a number.
 	query.limit('25')
 	// @ts-expect-error -- Offset requires a number.
-	query.skip('50')
+	query.offset('50')
 	// @ts-expect-error -- Cursors require opaque strings at the input boundary.
 	query.after(42)
 	// @ts-expect-error -- Framework identifiers retain their schema-derived type.
