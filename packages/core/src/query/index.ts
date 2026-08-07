@@ -126,6 +126,7 @@ export {
 } from './filters/relation.js'
 export type {
 	QueryRelationCountForSchema,
+	QueryRelationCountComparison,
 	QueryRelationCountInput,
 	QueryRelationCountNode,
 	QueryRelationCountOperator,

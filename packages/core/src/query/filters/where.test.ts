@@ -123,6 +123,50 @@ describe('WhereInput', () => {
 		expect(nonEmptyBuilder.ast.where).toStrictEqual(some.ast.where)
 	})
 
+	it('keeps filtered cardinality comparisons in one relation node', () => {
+		const query = new QueryBuilder(Post).where({
+			tags: {
+				count: {
+					where: { archived: { eq: false } },
+					gte: 2,
+					lt: 10,
+				},
+			},
+		})
+		const expression = query.ast.where?.expression
+
+		expect(expression).toMatchObject({
+			comparisons: [
+				{ operator: 'greater-than-or-equal', value: 2 },
+				{ operator: 'less-than', value: 10 },
+			],
+			expression: {
+				field: 'archived',
+				kind: 'equal',
+				value: false,
+			},
+			field: 'tags',
+			kind: 'relation-count',
+		})
+		expect(
+			new WhereBuilder(Post)
+				.count('tags', {
+					where: { archived: { eq: false } },
+					gte: 2,
+					lt: 10,
+				})
+				.build(),
+		).toStrictEqual({
+			tags: {
+				count: {
+					gte: 2,
+					lt: 10,
+					where: { archived: { eq: false } },
+				},
+			},
+		})
+	})
+
 	it('rejects malformed, unsupported, and circular objects', () => {
 		expect(() =>
 			normalizeWhereInput(Post, {
@@ -153,6 +197,9 @@ describe('WhereInput', () => {
 		expect(() => normalizeWhereInput(Post, { tags: { count: {} } })).toThrow(
 			'must contain an operator',
 		)
+		expect(() =>
+			normalizeWhereInput(Post, { tags: { count: { where: {} } } }),
+		).toThrow('must contain an operator')
 		expect(() =>
 			normalizeWhereInput(Post, {
 				tags: { count: { missing: 1 } },

@@ -59,6 +59,7 @@ test('correlates where object operators with exact schema fields', () => {
 				between: { lower: 1, upper: 10 },
 				gte: 1,
 				notIn: [2, 4],
+				where: { archived: { eq: false } },
 			},
 			isNotEmpty: true,
 			some: { label: { eq: 'typescript' } },
@@ -106,6 +107,10 @@ test('keeps the public builder short, immutable, and schema-correlated', () => {
 		.between('views', 10, 100)
 		.eq(fieldPath('profile', ['contact', 'email']), 'ada@example.com')
 		.count('tags', { gte: 2 })
+		.count('tags', {
+			where: { label: { startsWith: 'type' } },
+			gte: 1,
+		})
 		.isNotEmpty('tags')
 		.some('tags', (tag) => tag.eq('label', 'typescript'))
 
@@ -139,8 +144,18 @@ test('keeps the public builder short, immutable, and schema-correlated', () => {
 			count: { gte: '2' },
 		},
 	}
+	const invalidCountWhere: WhereInput<typeof Post> = {
+		tags: {
+			count: {
+				gte: 1,
+				// @ts-expect-error -- Filtered cardinality uses the relation target schema.
+				where: { title: { eq: 'source-only' } },
+			},
+		},
+	}
 
 	void invalidCount
 	void invalidEmpty
 	void invalidEmptyFlag
+	void invalidCountWhere
 })

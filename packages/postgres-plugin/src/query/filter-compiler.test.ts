@@ -174,7 +174,15 @@ describe('PostgreSQL filter compiler', () => {
 		}
 		const join = renderCount(
 			new QueryBuilder(PostgresRelationArticle).where({
-				tags: { count: { gte: 2 } },
+				tags: {
+					count: {
+						where: {
+							id: { ne: '018f0f8c-7b5a-7cc9-98db-123456789abc' },
+						},
+						gte: 2,
+						lt: 5,
+					},
+				},
 			}),
 		)
 		const pointer = renderCount(
@@ -183,13 +191,18 @@ describe('PostgreSQL filter compiler', () => {
 			}),
 		)
 
-		expect(join.sql).toContain('select count(*)')
+		expect(join.sql.match(/select count\(\*\)/gu)).toHaveLength(1)
+		expect(join.sql).toContain('exists (select count(*)')
 		expect(join.sql).toContain('inner join')
 		expect(join.sql).toContain(
 			'"source_id" = "postgres_relation_articles"."id"',
 		)
-		expect(join.sql).toContain(' >= $1')
-		expect(join.params).toStrictEqual([2])
+		expect(join.sql).toContain('having ((count(*) >= $2) and (count(*) < $3))')
+		expect(join.params).toStrictEqual([
+			'018f0f8c-7b5a-7cc9-98db-123456789abc',
+			2,
+			5,
+		])
 		expect(pointer.sql).toContain('select count(*)')
 		expect(pointer.sql).not.toContain('inner join')
 		expect(pointer.sql).toContain('"author" = "postgres_relation_authors"."id"')

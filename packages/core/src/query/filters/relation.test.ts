@@ -137,7 +137,10 @@ describe('relation predicates', () => {
 	it('collects visible-cardinality leaves beside nested quantifiers', () => {
 		const query = new QueryBuilder(Company).where((where) =>
 			where
-				.count('teams', { gte: 2 })
+				.count('teams', {
+					where: { members: { some: { active: { eq: true } } } },
+					gte: 2,
+				})
 				.some('teams', (team) => team.count('members', { eq: 3 })),
 		)
 		const expression = query.ast.where?.expression
@@ -148,18 +151,26 @@ describe('relation predicates', () => {
 
 		const predicates = collectQueryRelationPredicates(expression)
 
-		expect(predicates).toHaveLength(3)
+		expect(predicates).toHaveLength(4)
 		expect(predicates[0]).toMatchObject({
+			comparisons: [
+				{
+					operator: 'greater-than-or-equal',
+					value: 2,
+				},
+			],
 			field: 'teams',
 			kind: 'relation-count',
-			operator: 'greater-than-or-equal',
-			value: 2,
 		})
-		expect(predicates[2]).toMatchObject({
+		expect(predicates[1]).toMatchObject({
+			field: 'members',
+			kind: 'relation-predicate',
+			operator: 'some',
+		})
+		expect(predicates[3]).toMatchObject({
+			comparisons: [{ operator: 'equal', value: 3 }],
 			field: 'members',
 			kind: 'relation-count',
-			operator: 'equal',
-			value: 3,
 		})
 	})
 

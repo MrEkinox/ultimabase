@@ -442,6 +442,10 @@ ${body}
 			`Post.findMany({ where: { tags: { count: { ${marker} } } } })`,
 			'query-where-relation-count-completion',
 		)
+		const relationCountWhereFields = readCompletions(
+			`Post.findMany({ where: { tags: { count: { where: { ${marker} }, gte: 1 } } } })`,
+			'query-where-relation-count-target-completion',
+		)
 
 		expect(fields.has('published')).toBe(true)
 		expect(fields.has('views')).toBe(true)
@@ -476,11 +480,15 @@ ${body}
 			'ne',
 			'notBetween',
 			'notIn',
+			'where',
 		]) {
 			expect(relationCountOperators.has(operator)).toBe(true)
 		}
 		expect(relationCountOperators.has('some')).toBe(false)
 		expect(relationCountOperators.has('isNull')).toBe(false)
+		expect(relationCountWhereFields.has('label')).toBe(true)
+		expect(relationCountWhereFields.has('id')).toBe(true)
+		expect(relationCountWhereFields.has('published')).toBe(false)
 	})
 
 	it('completes canonical read clauses, ordering, and relationship inclusion', () => {

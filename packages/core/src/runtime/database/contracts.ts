@@ -23,7 +23,7 @@ export const databaseInclusionCapabilityVersion = 1 as const
 export const databaseRelationCapabilityVersion = 1 as const
 
 /** Selects the correlated relation-predicate protocol understood by adapters. */
-export const databaseRelationPredicateCapabilityVersion = 2 as const
+export const databaseRelationPredicateCapabilityVersion = 3 as const
 
 /** Advertises logical pointer storage, predicates, and inclusion source values. */
 export interface DatabasePointerCapability {

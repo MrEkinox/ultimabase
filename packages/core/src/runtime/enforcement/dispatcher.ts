@@ -648,7 +648,9 @@ export const createEnforcementStages = <
 
 				const targetQuery = immutableRecord({
 					...createQueryAst(predicate.target.definition),
-					...(predicate.kind === 'relation-count'
+					...(predicate.kind === 'relation-count' &&
+					predicate.expression.kind === 'constant' &&
+					predicate.expression.value
 						? {}
 						: {
 								where: immutableRecord({

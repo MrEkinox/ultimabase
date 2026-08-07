@@ -318,6 +318,43 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 			await Article.exists(
 				{
 					where: {
+						id: { eq: mixed.id },
+						tags: {
+							count: {
+								where: { label: { startsWith: 'predicate-' } },
+								gte: 2,
+								lte: 2,
+							},
+						},
+					},
+				},
+				{ ultimabase: app },
+			),
+		).toBe(true)
+		expect(
+			await Article.exists(
+				{
+					where: {
+						id: { eq: mixed.id },
+						tags: {
+							count: {
+								where: {
+									articles: {
+										some: { title: { eq: 'Predicate mixed' } },
+									},
+								},
+								eq: 2,
+							},
+						},
+					},
+				},
+				{ ultimabase: app },
+			),
+		).toBe(true)
+		expect(
+			await Article.exists(
+				{
+					where: {
 						id: { eq: gammaOnly.id },
 						tags: { count: { between: { lower: 1, upper: 1 } } },
 					},

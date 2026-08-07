@@ -1,7 +1,7 @@
 import {
 	FrameworkError,
 	type DatabaseRelationPredicateScope,
-	type QueryRelationCountNode,
+	type QueryRelationCountComparison,
 } from '@ultimabase/core'
 import { immutableRecord } from '@ultimabase/shared'
 import {
@@ -9,6 +9,7 @@ import {
 	between,
 	count,
 	eq,
+	exists,
 	getColumns,
 	gt,
 	gte,
@@ -109,30 +110,30 @@ const createMissingScopeError = (): FrameworkError<'INTERNAL_ERROR'> =>
 	)
 
 const compileRelationCountComparison = (
-	predicate: QueryRelationCountNode,
+	comparison: QueryRelationCountComparison,
 	cardinality: SQLWrapper,
 ): SQL => {
-	switch (predicate.operator) {
+	switch (comparison.operator) {
 		case 'equal':
-			return eq(cardinality, predicate.value)
+			return eq(cardinality, comparison.value)
 		case 'not-equal':
-			return ne(cardinality, predicate.value)
+			return ne(cardinality, comparison.value)
 		case 'greater-than':
-			return gt(cardinality, predicate.value)
+			return gt(cardinality, comparison.value)
 		case 'greater-than-or-equal':
-			return gte(cardinality, predicate.value)
+			return gte(cardinality, comparison.value)
 		case 'less-than':
-			return lt(cardinality, predicate.value)
+			return lt(cardinality, comparison.value)
 		case 'less-than-or-equal':
-			return lte(cardinality, predicate.value)
+			return lte(cardinality, comparison.value)
 		case 'in':
-			return inArray(cardinality, [...predicate.values])
+			return inArray(cardinality, [...comparison.values])
 		case 'not-in':
-			return notInArray(cardinality, [...predicate.values])
+			return notInArray(cardinality, [...comparison.values])
 		case 'between':
-			return between(cardinality, predicate.lower, predicate.upper)
+			return between(cardinality, comparison.lower, comparison.upper)
 		case 'not-between':
-			return notBetween(cardinality, predicate.lower, predicate.upper)
+			return notBetween(cardinality, comparison.lower, comparison.upper)
 	}
 }
 
@@ -185,7 +186,25 @@ export const createPostgresRelationPredicateCompiler = (
 					? undefined
 					: compilePostgresRowFilter(scope.rowFilter, target)
 			const sourceId = resolveCompiledPostgresField(source, 'id').column
-			let cardinality: SQLWrapper
+			const developerPredicate = compilePostgresFilter(
+				predicate.expression,
+				target,
+				compile,
+			)
+			const cardinality = count()
+			const comparisons = and(
+				...predicate.comparisons.map((comparison) =>
+					compileRelationCountComparison(comparison, cardinality),
+				),
+			)
+
+			if (comparisons === undefined) {
+				throw new TypeError(
+					'PostgreSQL relation count comparison is unavailable',
+				)
+			}
+
+			let aggregate: SQLWrapper
 
 			if (relation.storage.kind === 'pointer') {
 				const targetPointer = resolveAliasedColumn(
@@ -194,12 +213,18 @@ export const createPostgresRelationPredicateCompiler = (
 					relation.storage.targetColumn.name,
 				)
 
-				cardinality = new QueryBuilder()
-					.select({ value: count() })
+				aggregate = new QueryBuilder()
+					.select({ value: cardinality })
 					.from(targetAlias)
 					.where(
-						and(eq(targetPointer, sourceId), targetConstraint, targetAccess),
+						and(
+							eq(targetPointer, sourceId),
+							targetConstraint,
+							targetAccess,
+							developerPredicate,
+						),
 					)
+					.having(comparisons)
 			} else {
 				const joinAlias = alias(
 					relation.storage.relation.table,
@@ -218,14 +243,22 @@ export const createPostgresRelationPredicateCompiler = (
 				)
 				const targetId = resolveCompiledPostgresField(target, 'id').column
 
-				cardinality = new QueryBuilder()
-					.select({ value: count() })
+				aggregate = new QueryBuilder()
+					.select({ value: cardinality })
 					.from(targetAlias)
 					.innerJoin(joinAlias, eq(targetEdge, targetId))
-					.where(and(eq(sourceEdge, sourceId), targetConstraint, targetAccess))
+					.where(
+						and(
+							eq(sourceEdge, sourceId),
+							targetConstraint,
+							targetAccess,
+							developerPredicate,
+						),
+					)
+					.having(comparisons)
 			}
 
-			return compileRelationCountComparison(predicate, cardinality)
+			return exists(aggregate)
 		}
 
 		const binding = catalog.getDrizzleRelation(relation)

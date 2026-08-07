@@ -149,6 +149,7 @@ Accepted records:
 - [ADR-0155: Canonical offset pagination naming](0155-canonical-offset-pagination-naming.md)
 - [ADR-0156: Visible relation cardinality filters](0156-visible-relation-cardinality-filters.md)
 - [ADR-0157: Explicit relation emptiness filters](0157-explicit-relation-emptiness-filters.md)
+- [ADR-0158: Filtered relation cardinality](0158-filtered-relation-cardinality.md)
 
 Superseded records:
 

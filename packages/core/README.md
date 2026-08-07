@@ -264,7 +264,11 @@ Source Queries filter to-many relationships through the exact target schema:
 const visiblePosts = await UserSchema.findMany({
 	where: {
 		posts: {
-			count: { gte: 3 },
+			count: {
+				where: { published: { eq: true } },
+				gte: 3,
+				lt: 100,
+			},
 			some: {
 				published: { eq: true },
 				tags: { some: { label: { eq: 'typescript' } } },
@@ -275,12 +279,14 @@ const visiblePosts = await UserSchema.findMany({
 ```
 
 `some`, `none`, and `every` create immutable portable Query AST nodes from exact
-nested `WhereInput` values. `count` compares the complete visible relation as a
-non-null integer through `eq`, `ne`, `gt`, `gte`, `lt`, `lte`, `in`, `notIn`,
-`between`, or `notBetween`; operands must be non-negative safe integers. Runtime
-evaluates every target Access filter into a private adapter scope that source
-hooks cannot remove. Predicate depth is bounded, and adapters must advertise
-the separate versioned relation predicate capability before execution.
+nested `WhereInput` values. `count` compares a visible relation as a non-null
+integer through `eq`, `ne`, `gt`, `gte`, `lt`, `lte`, `in`, `notIn`, `between`,
+or `notBetween`; operands must be non-negative safe integers. Its optional
+target-typed `where` filters the related objects before every comparison, and at
+least one comparison is required. Runtime evaluates every target Access filter
+into a private adapter scope that source hooks cannot remove. Predicate depth is
+bounded, and adapters must advertise the separate versioned relation predicate
+capability before execution.
 
 A to-many relation is never nullable. Use `isNotEmpty: true` to require at least
 one visible related object and `isEmpty: true` to require an empty visible
@@ -291,8 +297,9 @@ collection, so combine it with `isNotEmpty: true` when at least one target must
 exist.
 
 `count: { eq: 0 }` and `count: { gt: 0 }` are valid, but `isEmpty: true` and
-`isNotEmpty: true` remain the clearer and cheaper existence forms. This first
-cardinality contract does not include a nested target filter.
+`isNotEmpty: true` remain the clearer and cheaper existence forms. Multiple
+count comparisons, including a filtered count, reuse one cardinality
+calculation rather than issuing one query per operator or parent object.
 
 When an edge owns application data, model it as an ordinary schema with two
 pointer fields instead of hiding metadata behind `relationField`:

@@ -84,15 +84,25 @@ pseudo-field:
 
 ```ts
 const establishedAuthors = await Author.findMany({
-	where: { posts: { count: { gte: 3, lt: 100 } } },
+	where: {
+		posts: {
+			count: {
+				where: { published: { eq: true } },
+				gte: 3,
+				lt: 100,
+			},
+		},
+	},
 })
 ```
 
 `count` supports `eq`, `ne`, `gt`, `gte`, `lt`, `lte`, `in`, `notIn`,
 `between`, and `notBetween`. Operands are non-negative safe integers. The count
 includes only targets visible through target Access and plugin constraints;
-source relation field read Access still applies. This first contract counts
-the complete visible relation and does not accept a nested target filter.
+source relation field read Access still applies. Its optional target-typed
+`where` filters that visible collection before all comparisons are evaluated.
+At least one comparison is required, and several comparisons share one
+cardinality calculation.
 
 For existence checks, prefer the explicit relation flags:
 

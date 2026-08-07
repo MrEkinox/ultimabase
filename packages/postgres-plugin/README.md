@@ -594,16 +594,26 @@ statement:
 
 ```ts
 const establishedArticles = await Article.findMany({
-	where: { tags: { count: { gte: 3 } } },
+	where: {
+		tags: {
+			count: {
+				where: { label: { eq: 'typescript' } },
+				gte: 3,
+				lt: 100,
+			},
+		},
+	},
 })
 ```
 
 Drizzle RQB v2 has no relation cardinality comparator, so PostgreSQL uses
 Drizzle Core's aliased `QueryBuilder`, `count()`, joins, and parameterized
-comparison helpers for this leaf. Target Access filters and plugin constraints
-remain inside the correlated subquery, so hidden targets are not counted.
-Owning joins, inverse joins, and inverse pointers still execute as one SQL
-statement without loading related rows or issuing per-parent queries.
+comparison helpers for this leaf. An optional target `where`, target Access
+filters, and plugin constraints remain inside the correlated subquery, so
+hidden or non-matching targets are not counted. All comparisons share one
+aggregate scan and compile through `HAVING`. Owning joins, inverse joins, and
+inverse pointers still execute as one SQL statement without loading related
+rows or issuing per-parent queries.
 
 Relationships with business data remain ordinary schemas. For example, two
 required pointers plus a composite unique index model a membership edge:
