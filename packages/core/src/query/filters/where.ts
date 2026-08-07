@@ -201,7 +201,11 @@ type WhereRelationOperators<
 	TDepth extends readonly unknown[],
 > =
 	TFieldName extends SchemaRelationFieldName<TSchema>
-		? Readonly<{ count?: QueryRelationCountInput }> &
+		? Readonly<{
+				count?: QueryRelationCountInput
+				isEmpty?: true
+				isNotEmpty?: true
+			}> &
 				(TDepth['length'] extends typeof queryRelationPredicateMaxDepth
 					? unknown
 					: Readonly<{
@@ -589,6 +593,22 @@ const normalizeWhereFieldOperators = <TSchema extends SchemaDefinition>(
 	let expression: QueryFilterNode<TSchema> | undefined
 
 	for (const [operator, operand] of Object.entries(input)) {
+		if (operator === 'isEmpty' || operator === 'isNotEmpty') {
+			assertEnabledWhereFlag(operand, `where.${fieldName}.${operator}`)
+			expression = combineWhereExpressions(
+				expression,
+				normalizeWhereRelation(
+					schema,
+					fieldName,
+					operator === 'isEmpty' ? 'none' : 'some',
+					immutableRecord({}),
+					relationDepth,
+					ancestors,
+				) as QueryFilterNode<TSchema>,
+			)
+			continue
+		}
+
 		if (operator === 'count') {
 			expression = combineWhereExpressions(
 				expression,
@@ -1055,6 +1075,26 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 		return this.#append(
 			immutableRecord({
 				[fieldName]: immutableRecord({ count: input }),
+			}) as unknown as WhereInput<TSchema>,
+		)
+	}
+
+	/** Requires one relation to contain no visible target. */
+	isEmpty(fieldName: SchemaRelationFieldName<TSchema>): WhereBuilder<TSchema> {
+		return this.#append(
+			immutableRecord({
+				[fieldName]: immutableRecord({ isEmpty: true }),
+			}) as unknown as WhereInput<TSchema>,
+		)
+	}
+
+	/** Requires one relation to contain at least one visible target. */
+	isNotEmpty(
+		fieldName: SchemaRelationFieldName<TSchema>,
+	): WhereBuilder<TSchema> {
+		return this.#append(
+			immutableRecord({
+				[fieldName]: immutableRecord({ isNotEmpty: true }),
 			}) as unknown as WhereInput<TSchema>,
 		)
 	}

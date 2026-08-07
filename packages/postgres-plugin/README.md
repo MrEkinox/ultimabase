@@ -583,9 +583,11 @@ relation. Nested predicates receive deterministic table aliases. Developer
 values, target Access filters, and plugin constraints remain parameters or
 private compiler input and never become interpolated SQL text.
 
-Relation emptiness uses `none: {}` and non-emptiness uses `some: {}`. To-many
-relations have no nullable row column, so `isNull` and `isNotNull` are not part
-of their filter contract.
+Relation emptiness uses `isEmpty: true` and non-emptiness uses
+`isNotEmpty: true`. Core normalizes those explicit flags to `none: {}` and
+`some: {}`, preserving PostgreSQL's correlated `NOT EXISTS` and `EXISTS`
+compilation. To-many relations have no nullable row column, so `isNull` and
+`isNotNull` are not part of their filter contract.
 
 Visible relation cardinality uses a correlated aggregate in the same parent
 statement:

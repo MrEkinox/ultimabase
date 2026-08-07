@@ -282,15 +282,17 @@ evaluates every target Access filter into a private adapter scope that source
 hooks cannot remove. Predicate depth is bounded, and adapters must advertise
 the separate versioned relation predicate capability before execution.
 
-A to-many relation is never nullable. Use `some: {}` to require at least one
-visible related object and `none: {}` to require an empty visible collection;
-`isNull` and `isNotNull` are reserved for stored fields. `every` is true for an
-empty visible collection, so combine it with `some: {}` when at least one target
-must exist.
+A to-many relation is never nullable. Use `isNotEmpty: true` to require at least
+one visible related object and `isEmpty: true` to require an empty visible
+collection; `isNull` and `isNotNull` are reserved for stored fields. These
+explicit flags normalize to `some: {}` and `none: {}` so adapters retain their
+optimized existence predicates. `every` is true for an empty visible
+collection, so combine it with `isNotEmpty: true` when at least one target must
+exist.
 
-`count: { eq: 0 }` and `count: { gt: 0 }` are valid, but `none: {}` and
-`some: {}` remain the clearer existence forms. This first cardinality contract
-does not include a nested target filter.
+`count: { eq: 0 }` and `count: { gt: 0 }` are valid, but `isEmpty: true` and
+`isNotEmpty: true` remain the clearer and cheaper existence forms. This first
+cardinality contract does not include a nested target filter.
 
 When an edge owns application data, model it as an ordinary schema with two
 pointer fields instead of hiding metadata behind `relationField`:

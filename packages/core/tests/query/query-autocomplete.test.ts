@@ -452,7 +452,14 @@ ${body}
 		expect(numericOperators.has('eq')).toBe(true)
 		expect(numericOperators.has('gte')).toBe(true)
 		expect(numericOperators.has('contains')).toBe(false)
-		for (const operator of ['count', 'every', 'none', 'some']) {
+		for (const operator of [
+			'count',
+			'every',
+			'isEmpty',
+			'isNotEmpty',
+			'none',
+			'some',
+		]) {
 			expect(relationOperators.has(operator)).toBe(true)
 		}
 		expect(relationOperators.has('isNull')).toBe(false)

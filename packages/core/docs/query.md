@@ -94,6 +94,20 @@ includes only targets visible through target Access and plugin constraints;
 source relation field read Access still applies. This first contract counts
 the complete visible relation and does not accept a nested target filter.
 
+For existence checks, prefer the explicit relation flags:
+
+```ts
+const untagged = await Post.findMany({
+	where: { tags: { isEmpty: true } },
+})
+const tagged = await Post.findMany({
+	where: { tags: { isNotEmpty: true } },
+})
+```
+
+They normalize to `none: {}` and `some: {}` respectively, so adapters retain
+their optimized existence predicates. Only literal `true` is accepted.
+
 ## Reusable read scopes
 
 A scope transforms a `QueryBuilder` without capturing Runtime state or

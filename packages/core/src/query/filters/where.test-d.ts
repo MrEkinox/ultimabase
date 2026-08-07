@@ -60,6 +60,7 @@ test('correlates where object operators with exact schema fields', () => {
 				gte: 1,
 				notIn: [2, 4],
 			},
+			isNotEmpty: true,
 			some: { label: { eq: 'typescript' } },
 			none: { archived: { eq: true } },
 		},
@@ -105,6 +106,7 @@ test('keeps the public builder short, immutable, and schema-correlated', () => {
 		.between('views', 10, 100)
 		.eq(fieldPath('profile', ['contact', 'email']), 'ada@example.com')
 		.count('tags', { gte: 2 })
+		.isNotEmpty('tags')
 		.some('tags', (tag) => tag.eq('label', 'typescript'))
 
 	expectTypeOf(base).toEqualTypeOf<WhereBuilder<typeof Post>>()
@@ -119,6 +121,18 @@ test('keeps the public builder short, immutable, and schema-correlated', () => {
 	base.isNull('tags')
 	// @ts-expect-error -- Cardinality filters only target relation fields.
 	base.count('views', { gte: 2 })
+	// @ts-expect-error -- Relation emptiness only targets relation fields.
+	base.isEmpty('title')
+	const invalidEmpty: WhereInput<typeof Post> = {
+		// @ts-expect-error -- Relation emptiness is unavailable on scalar fields.
+		title: { isEmpty: true },
+	}
+	const invalidEmptyFlag: WhereInput<typeof Post> = {
+		tags: {
+			// @ts-expect-error -- Emptiness flags are enabled only with literal true.
+			isEmpty: false,
+		},
+	}
 	const invalidCount: WhereInput<typeof Post> = {
 		tags: {
 			// @ts-expect-error -- Cardinality operands are numeric.
@@ -127,4 +141,6 @@ test('keeps the public builder short, immutable, and schema-correlated', () => {
 	}
 
 	void invalidCount
+	void invalidEmpty
+	void invalidEmptyFlag
 })

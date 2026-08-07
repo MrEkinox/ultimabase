@@ -103,6 +103,26 @@ describe('WhereInput', () => {
 		expect(callback.ast.where).toStrictEqual(direct.ast.where)
 	})
 
+	it('normalizes explicit relation emptiness to existing quantifiers', () => {
+		const isEmpty = new QueryBuilder(Post).where({ tags: { isEmpty: true } })
+		const none = new QueryBuilder(Post).where({ tags: { none: {} } })
+		const isNotEmpty = new QueryBuilder(Post).where({
+			tags: { isNotEmpty: true },
+		})
+		const some = new QueryBuilder(Post).where({ tags: { some: {} } })
+		const emptyBuilder = new QueryBuilder(Post).where((where) =>
+			where.isEmpty('tags'),
+		)
+		const nonEmptyBuilder = new QueryBuilder(Post).where((where) =>
+			where.isNotEmpty('tags'),
+		)
+
+		expect(isEmpty.ast.where).toStrictEqual(none.ast.where)
+		expect(isNotEmpty.ast.where).toStrictEqual(some.ast.where)
+		expect(emptyBuilder.ast.where).toStrictEqual(none.ast.where)
+		expect(nonEmptyBuilder.ast.where).toStrictEqual(some.ast.where)
+	})
+
 	it('rejects malformed, unsupported, and circular objects', () => {
 		expect(() =>
 			normalizeWhereInput(Post, {
@@ -118,6 +138,12 @@ describe('WhereInput', () => {
 		expect(() =>
 			normalizeWhereInput(Post, { tags: { isNotNull: true } } as never),
 		).toThrow('query operator null does not support relation fields')
+		expect(() =>
+			normalizeWhereInput(Post, { tags: { isEmpty: false } } as never),
+		).toThrow('where.tags.isEmpty must be true')
+		expect(() =>
+			normalizeWhereInput(Post, { title: { isEmpty: true } } as never),
+		).toThrow('where.title.none requires a relation field')
 		expect(() =>
 			normalizeWhereInput(Post, { tags: { count: { gte: -1 } } }),
 		).toThrow('must be a non-negative safe integer')

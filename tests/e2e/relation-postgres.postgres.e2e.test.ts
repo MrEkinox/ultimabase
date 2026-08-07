@@ -361,6 +361,18 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 			),
 		).toBe(true)
 		expect(
+			await Article.exists(
+				{ where: { id: { eq: empty.id }, tags: { isEmpty: true } } },
+				{ ultimabase: app },
+			),
+		).toBe(true)
+		expect(
+			await Article.exists(
+				{ where: { id: { eq: mixed.id }, tags: { isNotEmpty: true } } },
+				{ ultimabase: app },
+			),
+		).toBe(true)
+		expect(
 			await Tag.exists(
 				{
 					where: {
