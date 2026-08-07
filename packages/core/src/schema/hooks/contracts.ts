@@ -5,7 +5,7 @@ import type {
 	NonAtomicBulkResult,
 	OperationAst,
 	OperationAstNode,
-	OperationIncludedPointer,
+	OperationIncludedField,
 	OperationKind,
 	QueryBuilder,
 	QueryFieldName,
@@ -167,7 +167,7 @@ export interface SchemaHookTypes<
 	readonly query: QueryBuilder<
 		TSchema,
 		TSelectedField,
-		OperationIncludedPointer<TOperation>
+		OperationIncludedField<TOperation>
 	>
 	/** The public result correlated with the current operation. */
 	readonly result: SchemaHookResult<TOperation>

@@ -31,15 +31,15 @@ describe('normalizeQueryInclusion', () => {
 			{ field: 'author', query: finalAuthor.ast },
 		])
 
-		expect(inclusion.pointers.map(({ field }) => field)).toStrictEqual([
+		expect(inclusion.fields.map(({ field }) => field)).toStrictEqual([
 			'author',
 			'reviewer',
 		])
-		expect(inclusion.pointers[0]?.query).toBe(finalAuthor.ast)
-		expect(inclusion.pointers[1]?.query).toBe(reviewer.ast)
+		expect(inclusion.fields[0]?.query).toBe(finalAuthor.ast)
+		expect(inclusion.fields[1]?.query).toBe(reviewer.ast)
 		expect(Object.isFrozen(inclusion)).toBe(true)
-		expect(Object.isFrozen(inclusion.pointers)).toBe(true)
-		expect(Object.isFrozen(inclusion.pointers[0])).toBe(true)
+		expect(Object.isFrozen(inclusion.fields)).toBe(true)
+		expect(Object.isFrozen(inclusion.fields[0])).toBe(true)
 	})
 
 	it('rejects non-pointer fields and queries for another target', () => {
@@ -49,7 +49,9 @@ describe('normalizeQueryInclusion', () => {
 				{ field: 'title', query: new QueryBuilder(userSchema).ast },
 			]),
 		).toThrow(
-			new TypeError('query inclusion field must reference a pointer field'),
+			new TypeError(
+				'query inclusion field must reference a pointer or relation field',
+			),
 		)
 		expect(() =>
 			normalizeQueryInclusion(postSchema, [

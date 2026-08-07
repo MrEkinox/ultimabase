@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest'
 
-import { pointerField, Schema, stringField } from '../../schema/index.js'
+import {
+	pointerField,
+	relationField,
+	Schema,
+	stringField,
+} from '../../schema/index.js'
 import {
 	queryFromCountInput,
 	queryFromFindManyInput,
@@ -22,6 +27,14 @@ const Post = Schema.define({
 			validation: { required: true },
 		}),
 		title: stringField({ validation: { required: true } }),
+	},
+})
+
+const Feed = Schema.define({
+	className: 'ReadInputFeed',
+	fields: {
+		name: stringField(),
+		posts: relationField({ target: () => Post }),
 	},
 })
 
@@ -60,7 +73,7 @@ describe('canonical read inputs', () => {
 				],
 			},
 		})
-		expect(query.ast.inclusion.pointers[0]).toMatchObject({
+		expect(query.ast.inclusion.fields[0]).toMatchObject({
 			field: 'author',
 			query: {
 				selection: {
@@ -68,6 +81,44 @@ describe('canonical read inputs', () => {
 						{ field: 'id', kind: 'selected-field' },
 						{ field: 'name', kind: 'selected-field' },
 					],
+				},
+			},
+		})
+	})
+
+	it('normalizes bounded relation includes without selecting a stored source field', () => {
+		const query = queryFromFindManyInput(Feed, {
+			select: { name: true },
+			include: {
+				posts: {
+					where: { title: { contains: 'TypeScript' } },
+					orderBy: [{ createdAt: 'desc' }],
+					limit: 3,
+					select: { title: true },
+				},
+			},
+		})
+
+		expect(query.ast.selection.fields).toStrictEqual([
+			{ field: 'name', kind: 'selected-field' },
+		])
+		expect(query.ast.inclusion.fields[0]).toMatchObject({
+			field: 'posts',
+			kind: 'included-relation',
+			query: {
+				limit: 3,
+				ordering: {
+					orders: [
+						{ direction: 'descending', field: 'createdAt' },
+					],
+				},
+				selection: { fields: [{ field: 'title' }] },
+				where: {
+					expression: {
+						field: 'title',
+						kind: 'contains',
+						value: 'TypeScript',
+					},
 				},
 			},
 		})

@@ -1,12 +1,14 @@
 import type { SchemaDefinition } from '../../schema/index.js'
 import { getFieldSchemaTarget } from '../../schema/fields/base/definition.js'
 import type { PointerField } from '../../schema/fields/builtins/pointer.js'
+import type { RelationField } from '../../schema/fields/builtins/relation.js'
 import { Schema } from '../../schema/schema/definition.js'
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
 import type {
 	QueryAst,
 	QueryIncludedPointerNode,
+	QueryIncludedRelationNode,
 	QueryInclusionNode,
 } from '../ast/contracts.js'
 import { parseQueryFieldName } from '../ast/schema.js'
@@ -22,6 +24,22 @@ export type QueryPointerFieldName<TSchema extends SchemaDefinition> = {
 		: never
 }[Extract<keyof TSchema['fields'], string>]
 
+/** Selects only declared to-many relation fields while retaining exact keys. */
+export type QueryRelationFieldName<TSchema extends SchemaDefinition> = {
+	[
+		TFieldName in Extract<keyof TSchema['fields'], string>
+	]: TSchema['fields'][TFieldName] extends {
+		readonly kind: 'relation'
+	}
+		? TFieldName
+		: never
+}[Extract<keyof TSchema['fields'], string>]
+
+/** Selects every field that can own one eager-loading branch. */
+export type QueryIncludableFieldName<TSchema extends SchemaDefinition> =
+	| QueryPointerFieldName<TSchema>
+	| QueryRelationFieldName<TSchema>
+
 /** Resolves the target schema encoded by one exact pointer field value. */
 export type QueryPointerTargetSchema<
 	TSchema extends SchemaDefinition,
@@ -34,6 +52,24 @@ export type QueryPointerTargetSchema<
 		: never
 	: never
 
+/** Resolves the target schema encoded by one exact relation field value. */
+export type QueryRelationTargetSchema<
+	TSchema extends SchemaDefinition,
+	TFieldName extends QueryRelationFieldName<TSchema>,
+> = TSchema['fields'][TFieldName] extends RelationField<infer TTarget>
+	? TTarget
+	: never
+
+/** Resolves the target schema encoded by any includable relationship field. */
+export type QueryInclusionTargetSchema<
+	TSchema extends SchemaDefinition,
+	TFieldName extends QueryIncludableFieldName<TSchema>,
+> = TSchema['fields'][TFieldName] extends PointerField<infer TTarget>
+	? TTarget
+	: TSchema['fields'][TFieldName] extends RelationField<infer TTarget>
+		? TTarget
+		: never
+
 /** Describes one caller-owned inclusion before immutable normalization. */
 export interface QueryPointerInclusionInput<
 	TSchema extends SchemaDefinition,
@@ -43,6 +79,21 @@ export interface QueryPointerInclusionInput<
 	readonly field: TFieldName
 	readonly query: QueryAst<QueryPointerTargetSchema<TSchema, TFieldName>>
 }
+
+/** Describes one caller-owned relation branch before immutable normalization. */
+export type QueryRelationInclusionInput<TSchema extends SchemaDefinition> = {
+	[TFieldName in QueryRelationFieldName<TSchema>]: {
+		readonly field: TFieldName
+		readonly query: QueryAst<
+			QueryRelationTargetSchema<TSchema, TFieldName>
+		>
+	}
+}[QueryRelationFieldName<TSchema>]
+
+/** Describes every caller-owned eager branch before immutable normalization. */
+export type QueryInclusionInput<TSchema extends SchemaDefinition> =
+	| QueryPointerInclusionInput<TSchema>
+	| QueryRelationInclusionInput<TSchema>
 
 /** Correlates every pointer key with the exact AST of its declared target. */
 export type QueryPointerInclusionNode<TSchema extends SchemaDefinition> = {
@@ -59,20 +110,39 @@ export type QueryPointerInclusionAst<TSchema extends SchemaDefinition> =
 		QueryPointerInclusionNode<TSchema>
 	>
 
+/** Correlates every relation key with the exact AST of its declared target. */
+export type QueryRelationInclusionNode<TSchema extends SchemaDefinition> = {
+	[TFieldName in QueryRelationFieldName<TSchema>]: QueryIncludedRelationNode<
+		TFieldName,
+		QueryAst<QueryRelationTargetSchema<TSchema, TFieldName>>
+	>
+}[QueryRelationFieldName<TSchema>]
+
+/** Correlates every includable field with its exact target AST and cardinality. */
+export type QueryFieldInclusionNode<TSchema extends SchemaDefinition> =
+	| QueryPointerInclusionNode<TSchema>
+	| QueryRelationInclusionNode<TSchema>
+
+/** Retains the field-correlated union throughout one source Query AST. */
+export type QueryInclusionAst<TSchema extends SchemaDefinition> =
+	QueryInclusionNode<
+		QueryIncludableFieldName<TSchema>,
+		QueryFieldInclusionNode<TSchema>
+	>
+
 /** Empty inclusion state is safe to share because its complete topology is frozen. */
 export const emptyQueryInclusion: QueryInclusionNode<never, never> =
 	immutableRecord({
+		fields: immutableArray([]),
 		kind: 'inclusion',
-		pointers: immutableArray([]),
 	})
 
-const resolvePointerTarget = <
+const resolveInclusionTarget = <
 	const TSchema extends SchemaDefinition,
-	TFieldName extends QueryPointerFieldName<TSchema>,
 >(
 	schema: TSchema,
-	fieldName: TFieldName,
-): QueryPointerTargetSchema<TSchema, TFieldName> => {
+	fieldName: QueryIncludableFieldName<TSchema>,
+): SchemaDefinition => {
 	const normalizedFieldName = parseQueryFieldName(
 		schema,
 		fieldName,
@@ -80,8 +150,10 @@ const resolvePointerTarget = <
 	)
 	const field = schema.fields[normalizedFieldName]
 
-	if (field?.kind !== 'pointer') {
-		throw new TypeError('query inclusion field must reference a pointer field')
+	if (field?.kind !== 'pointer' && field?.kind !== 'relation') {
+		throw new TypeError(
+			'query inclusion field must reference a pointer or relation field',
+		)
 	}
 
 	const target = getFieldSchemaTarget(field)?.()
@@ -92,31 +164,29 @@ const resolvePointerTarget = <
 		)
 	}
 
-	// Pointer field inference already correlates this private target with the key.
-	return target as unknown as QueryPointerTargetSchema<TSchema, TFieldName>
+	return target
 }
 
 /**
- * Normalizes pointer inclusions while preserving first position and last shape.
+ * Normalizes relationship inclusions while preserving first position and last shape.
  *
- * Repeating one pointer key replaces its target query without reordering it,
+ * Repeating one relationship key replaces its target query without reordering it,
  * matching the deterministic replacement rule used by query ordering.
  */
 export const normalizeQueryInclusion = <
 	const TSchema extends SchemaDefinition,
-	TFieldName extends QueryPointerFieldName<TSchema>,
 >(
 	schema: TSchema,
-	inputs: readonly QueryPointerInclusionInput<TSchema, TFieldName>[],
-): QueryPointerInclusionAst<TSchema> => {
+	inputs: readonly QueryInclusionInput<TSchema>[],
+): QueryInclusionAst<TSchema> => {
 	if (inputs.length === 0) {
 		return emptyQueryInclusion
 	}
 
-	const nodes: QueryPointerInclusionNode<TSchema>[] = []
+	const nodes: QueryFieldInclusionNode<TSchema>[] = []
 
 	for (const input of inputs) {
-		const target = resolvePointerTarget(schema, input.field)
+		const target = resolveInclusionTarget(schema, input.field)
 
 		if (input.query.schema.definition !== target) {
 			throw new TypeError(
@@ -124,11 +194,15 @@ export const normalizeQueryInclusion = <
 			)
 		}
 
+		const field = schema.fields[input.field]
 		const node = immutableRecord({
-			kind: 'included-pointer',
+			kind:
+				field?.kind === 'pointer'
+					? ('included-pointer' as const)
+					: ('included-relation' as const),
 			field: input.field,
 			query: input.query,
-		}) as QueryPointerInclusionNode<TSchema>
+		}) as unknown as QueryFieldInclusionNode<TSchema>
 		const existingIndex = nodes.findIndex(
 			(candidate) => candidate.field === input.field,
 		)
@@ -141,7 +215,7 @@ export const normalizeQueryInclusion = <
 	}
 
 	return immutableRecord({
+		fields: immutableArray(nodes),
 		kind: 'inclusion',
-		pointers: immutableArray(nodes),
 	})
 }

@@ -30,7 +30,7 @@ import {
 	type FindManyInput,
 	type FindOneInput,
 	type GetInput,
-	type QueryIncludedPointerFromInput,
+	type QueryIncludedFieldFromInput,
 	type QuerySelectedFieldFromInput,
 } from '../../query/query/input.js'
 import type { RelationField } from '../fields/builtins/relation.js'
@@ -178,7 +178,7 @@ export class Relation<
 		readonly InferQueryResult<
 			TTarget,
 			QuerySelectedFieldFromInput<TTarget, TInput>,
-			QueryIncludedPointerFromInput<TTarget, TInput>
+			QueryIncludedFieldFromInput<TTarget, TInput>
 		>[]
 	>
 	/** Reads every visible related target when no clauses are supplied. */
@@ -206,7 +206,7 @@ export class Relation<
 	): Promise<InferQueryResult<
 		TTarget,
 		QuerySelectedFieldFromInput<TTarget, TInput>,
-		QueryIncludedPointerFromInput<TTarget, TInput>
+		QueryIncludedFieldFromInput<TTarget, TInput>
 	> | null>
 	/** Reads the first visible related target without applying a projection. */
 	findOne(
@@ -233,7 +233,7 @@ export class Relation<
 	): Promise<InferQueryResult<
 		TTarget,
 		QuerySelectedFieldFromInput<TTarget, TInput>,
-		QueryIncludedPointerFromInput<TTarget, TInput>
+		QueryIncludedFieldFromInput<TTarget, TInput>
 	> | null> {
 		const state = this.getState()
 		const normalized = queryFromGetInput(state.target, input)

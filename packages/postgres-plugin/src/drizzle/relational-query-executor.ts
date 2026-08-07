@@ -1,14 +1,15 @@
 import { normalizeQueryCursorOrdering } from '@ultimabase/core'
 import type {
+	DatabaseInclusionPlan,
 	DatabaseLogicalRecord,
 	DatabaseOperationAst,
 	DatabaseOperationRequest,
-	DatabasePointerInclusionPlan,
 	ExecutableOperationAst,
 	QueryAst,
 	SchemaDefinition,
 } from '@ultimabase/core'
 import {
+	immutableArray,
 	immutableRecord,
 	isPlainRecord,
 	isUnknownArray,
@@ -40,7 +41,6 @@ import {
 } from '../query/relation-predicate-compiler.js'
 import type { PostgresSchemaCatalog } from '../schema/catalog.js'
 import type { CompiledPostgresSchema } from '../schema/contracts.js'
-import type { PostgresDrizzlePointerBinding } from '../schema/drizzle-relations.js'
 import type { PostgresDrizzleClient } from './client.js'
 import { readBuiltInQuery } from './operation-executor.js'
 import { mapPostgresOperationError } from './operation-error.js'
@@ -56,9 +56,14 @@ interface DynamicRelationalQueryBuilder {
 	findMany(config: AnyDBQueryConfig): Promise<unknown>
 }
 
-const postgresIncludedPointers = new WeakMap<
+type PostgresIncludedValue =
+	| DatabaseLogicalRecord
+	| readonly DatabaseLogicalRecord[]
+	| null
+
+const postgresIncludedValues = new WeakMap<
 	object,
-	ReadonlyMap<string, DatabaseLogicalRecord | null>
+	ReadonlyMap<string, PostgresIncludedValue>
 >()
 const postgresRelationalObjectIdentities = new WeakMap<object, unknown>()
 
@@ -188,29 +193,39 @@ const createRawFilter = (
 		},
 	}) as unknown as PostgresRelationsFilter
 
-interface CompiledPointerBranch {
-	readonly binding: PostgresDrizzlePointerBinding
-	readonly plan: DatabasePointerInclusionPlan
+interface CompiledInclusionBranch {
+	readonly plan: DatabaseInclusionPlan
+	readonly relationName: string
 	readonly schema: CompiledPostgresSchema
 }
 
-const resolvePointerBranches = (
+const resolveInclusionBranches = (
 	catalog: PostgresSchemaCatalog,
 	source: CompiledPostgresSchema,
-	plans: readonly DatabasePointerInclusionPlan[],
-): readonly CompiledPointerBranch[] =>
+	plans: readonly DatabaseInclusionPlan[],
+): readonly CompiledInclusionBranch[] =>
 	plans.map((plan) => {
 		const target = catalog.get(readOperationSchema(plan.request.operation))
-		const pointer = catalog.getPointerDefinition(
-			source.definition,
-			plan.fieldPath,
-			target.definition,
-		)
-		const binding = catalog.getDrizzlePointer(pointer)
+		const relationName =
+			plan.kind === 'pointer'
+				? catalog.getDrizzlePointer(
+						catalog.getPointerDefinition(
+							source.definition,
+							plan.fieldPath,
+							target.definition,
+						),
+					).relationName
+				: catalog.getDrizzleRelation(
+						catalog.getRelationDefinition(
+							source.definition,
+							plan.fieldPath,
+							target.definition,
+						),
+					).sourceRelationName
 
 		return immutableRecord({
-			binding,
 			plan,
+			relationName,
 			schema: target,
 		})
 	})
@@ -220,24 +235,22 @@ const compileRelationalConfig = (
 	constraintCompilers: PostgresConstraintCompilerRegistry,
 	schema: CompiledPostgresSchema,
 	request: DatabaseOperationRequest,
-	root: boolean,
 ): AnyDBQueryConfig => {
-	const branches = resolvePointerBranches(
+	const branches = resolveInclusionBranches(
 		catalog,
 		schema,
-		request.pointerInclusions ?? [],
+		request.inclusions ?? [],
 	)
 	const withConfig = Object.fromEntries(
 		branches
 			.filter(({ plan }) => plan.unavailable !== true)
-			.map(({ binding, plan, schema: target }) => [
-				binding.relationName,
+			.map(({ plan, relationName, schema: target }) => [
+				relationName,
 				compileRelationalConfig(
 					catalog,
 					constraintCompilers,
 					target,
 					plan.request,
-					false,
 				),
 			]),
 	)
@@ -280,11 +293,7 @@ const compileRelationalConfig = (
 			})
 		}
 	}
-	if (
-		root &&
-		request.operation.kind === 'find-many' &&
-		query.limit !== undefined
-	) {
+	if (request.operation.kind === 'find-many' && query.limit !== undefined) {
 		config.limit = query.limit
 	}
 
@@ -302,33 +311,59 @@ const decodeRelationalRecord = (
 		throw new TypeError('PostgreSQL relational result must be a record')
 	}
 
-	const branches = resolvePointerBranches(
+	const branches = resolveInclusionBranches(
 		catalog,
 		schema,
-		request.pointerInclusions ?? [],
+		request.inclusions ?? [],
 	)
 	const relationNames = new Set(
-		branches.map(({ binding }) => binding.relationName),
+		branches.map(({ relationName }) => relationName),
 	)
 	const row = Object.fromEntries(
 		Object.entries(value).filter(([field]) => !relationNames.has(field)),
 	)
-	const included = new Map<string, DatabaseLogicalRecord | null>()
+	const included = new Map<string, PostgresIncludedValue>()
 
 	for (const branch of branches) {
-		const nested: unknown = value[branch.binding.relationName]
-		const decoded =
-			branch.plan.unavailable === true ||
-			nested === null ||
-			nested === undefined
-				? null
-				: decodeRelationalRecord(
-						catalog,
-						constraintCompilers,
-						branch.schema,
-						branch.plan.request,
-						nested,
+		const nested: unknown = value[branch.relationName]
+		let decoded: PostgresIncludedValue
+
+		if (branch.plan.kind === 'pointer') {
+			decoded =
+				branch.plan.unavailable === true ||
+				nested === null ||
+				nested === undefined
+					? null
+					: decodeRelationalRecord(
+							catalog,
+							constraintCompilers,
+							branch.schema,
+							branch.plan.request,
+							nested,
+						)
+		} else {
+			if (branch.plan.unavailable === true) {
+				decoded = immutableArray([])
+			} else {
+				if (!isUnknownArray(nested)) {
+					throw new TypeError(
+						'PostgreSQL relational inclusion must return an array',
 					)
+				}
+
+				decoded = immutableArray(
+					nested.map((record) =>
+						decodeRelationalRecord(
+							catalog,
+							constraintCompilers,
+							branch.schema,
+							branch.plan.request,
+							record,
+						),
+					),
+				)
+			}
+		}
 
 		included.set(inclusionPathKey(branch.plan.fieldPath), decoded)
 	}
@@ -356,7 +391,7 @@ const decodeRelationalRecord = (
 
 	postgresRelationalObjectIdentities.set(record, decoded.id)
 
-	postgresIncludedPointers.set(record, included)
+	postgresIncludedValues.set(record, included)
 
 	return record
 }
@@ -394,7 +429,6 @@ const executePostgresRelationalReadRaw = async (
 		constraintCompilers,
 		schema,
 		request,
-		true,
 	)
 	const raw =
 		operation.kind === 'find-many'
@@ -442,11 +476,11 @@ export const executePostgresRelationalRead = async (
 }
 
 /** Reads one target retained outside the public logical row. */
-export const readPostgresIncludedPointer = (
+export const readPostgresIncludedValue = (
 	record: Readonly<Record<string, unknown>>,
 	fieldPath: readonly string[],
-): DatabaseLogicalRecord | null | undefined =>
-	postgresIncludedPointers.get(record)?.get(inclusionPathKey(fieldPath))
+): PostgresIncludedValue | undefined =>
+	postgresIncludedValues.get(record)?.get(inclusionPathKey(fieldPath))
 
 /** Reads identity retained while relational selection removes the private id column. */
 export const readPostgresRelationalObjectIdentity = (

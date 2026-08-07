@@ -16,7 +16,7 @@ import type {
 	FindOneOperationAst,
 	GetOperationAst,
 	OperationAstNode,
-	OperationIncludedPointer,
+	OperationIncludedField,
 	UpdateManyOperationAst,
 	UpdateOneOperationAst,
 	UpsertManyOperationAst,
@@ -62,7 +62,7 @@ type InferOperationResultFor<
 				TSchema,
 				TSelectedField,
 				TMode,
-				OperationIncludedPointer<TOperation>,
+				OperationIncludedField<TOperation>,
 				TInclusionMode
 			>[]
 		: TOperation extends FindOneOperationAst<
@@ -75,7 +75,7 @@ type InferOperationResultFor<
 					TSchema,
 					TSelectedField,
 					TMode,
-					OperationIncludedPointer<TOperation>,
+					OperationIncludedField<TOperation>,
 					TInclusionMode
 				> | null
 			: TOperation extends GetOperationAst<
@@ -88,7 +88,7 @@ type InferOperationResultFor<
 						TSchema,
 						TSelectedField,
 						TMode,
-						OperationIncludedPointer<TOperation>,
+						OperationIncludedField<TOperation>,
 						TInclusionMode
 					> | null
 				: TOperation extends { readonly kind: 'count' }
@@ -136,7 +136,7 @@ type InferOperationResultFor<
 											TSchema,
 											TSelectedField,
 											TMode,
-											OperationIncludedPointer<TOperation>,
+											OperationIncludedField<TOperation>,
 											TInclusionMode
 										> | null
 									: TOperation extends UpdateManyOperationAst<
@@ -163,7 +163,7 @@ type InferOperationResultFor<
 													TSchema,
 													TSelectedField,
 													TMode,
-													OperationIncludedPointer<TOperation>,
+													OperationIncludedField<TOperation>,
 													TInclusionMode
 												>
 											: TOperation extends UpsertManyOperationAst<
@@ -195,7 +195,7 @@ type InferOperationResultFor<
 															TSchema,
 															TSelectedField,
 															TMode,
-															OperationIncludedPointer<TOperation>,
+															OperationIncludedField<TOperation>,
 															TInclusionMode
 														> | null
 													: TOperation extends DeleteManyOperationAst<

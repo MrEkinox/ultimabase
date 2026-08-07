@@ -19,11 +19,41 @@ export interface QueryPointerResultInclusion<
 	TSelectedField extends QueryFieldName<TTargetSchema>,
 	TNestedInclusion = never,
 > {
+	readonly kind: 'pointer'
 	readonly field: TFieldName
 	readonly target: TTargetSchema
 	readonly selected: TSelectedField
 	readonly nested: TNestedInclusion
 }
+
+/** Retains one included relation's exact target collection only at type level. */
+export interface QueryRelationResultInclusion<
+	TFieldName extends string,
+	TTargetSchema extends SchemaDefinition,
+	TSelectedField extends QueryFieldName<TTargetSchema>,
+	TNestedInclusion = never,
+> {
+	readonly kind: 'relation'
+	readonly field: TFieldName
+	readonly target: TTargetSchema
+	readonly selected: TSelectedField
+	readonly nested: TNestedInclusion
+}
+
+/** Enumerates the exact hydrated values contributed by one query include tree. */
+export type QueryResultInclusion =
+	| QueryPointerResultInclusion<
+			string,
+			SchemaDefinition,
+			QueryFieldName<SchemaDefinition>,
+			unknown
+	  >
+	| QueryRelationResultInclusion<
+			string,
+			SchemaDefinition,
+			QueryFieldName<SchemaDefinition>,
+			unknown
+	  >
 
 type IncludedPointerForField<TInclusion, TFieldName> = TInclusion extends {
 	readonly field: TFieldName
@@ -43,12 +73,42 @@ type MaterializeIncludedPointer<TValue, TInclusion> =
 			: TValue
 		: TValue
 
+type MaterializeIncludedRelation<TInclusion> =
+	TInclusion extends QueryRelationResultInclusion<
+		infer TFieldName,
+		infer TTargetSchema,
+		infer TSelectedField,
+		infer TNestedInclusion
+	>
+		? Readonly<
+				Record<
+					TFieldName,
+					readonly InferQueryResult<
+						TTargetSchema,
+						TSelectedField,
+						TNestedInclusion
+					>[]
+				>
+			>
+		: unknown
+
+type UnionToIntersection<TValue> = (
+	TValue extends unknown ? (value: TValue) => void : never
+) extends (value: infer TIntersection) => void
+	? TIntersection
+	: unknown
+
 type ApplyPointerInclusions<TRecord, TInclusion> = {
 	[TFieldName in keyof TRecord]: MaterializeIncludedPointer<
 		TRecord[TFieldName],
 		IncludedPointerForField<TInclusion, TFieldName>
 	>
 }
+
+type ApplyInclusions<TRecord, TInclusion> = Simplify<
+	ApplyPointerInclusions<TRecord, TInclusion> &
+		UnionToIntersection<MaterializeIncludedRelation<TInclusion>>
+>
 
 /** Computes the base projection before included pointers replace identities. */
 type SelectedQueryRecord<
@@ -70,11 +130,9 @@ export type InferQueryRecord<
 	TIncludedPointer = never,
 > = [TIncludedPointer] extends [never]
 	? SelectedQueryRecord<TSchema, TSelectedField>
-	: Simplify<
-			ApplyPointerInclusions<
-				SelectedQueryRecord<TSchema, TSelectedField>,
-				TIncludedPointer
-			>
+	: ApplyInclusions<
+			SelectedQueryRecord<TSchema, TSelectedField>,
+			TIncludedPointer
 		>
 
 /** Infers one schema-class result with only its statically visible fields. */

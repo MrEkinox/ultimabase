@@ -26,10 +26,14 @@ declare const operationSelectionType: unique symbol
 declare const operationInclusionType: unique symbol
 
 /** Reads the type-only inclusion projection without coupling it to runtime AST data. */
-export type OperationIncludedPointer<TOperation extends OperationAstNode> =
+export type OperationIncludedField<TOperation extends OperationAstNode> =
 	TOperation extends { readonly [operationInclusionType]?: unknown }
 		? Exclude<TOperation[typeof operationInclusionType], undefined>
 		: never
+
+/** @deprecated Use `OperationIncludedField`. */
+export type OperationIncludedPointer<TOperation extends OperationAstNode> =
+	OperationIncludedField<TOperation>
 
 /** Carries the only execution behavior configurable by normalized bulk writes. */
 export interface AtomicBulkOperationOptions<TAtomic extends boolean = boolean> {

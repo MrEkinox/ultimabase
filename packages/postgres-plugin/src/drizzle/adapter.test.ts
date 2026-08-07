@@ -673,7 +673,7 @@ describe('internal PostgreSQL database adapter', () => {
 			'author',
 			(author) => author.select({ name: true }),
 		)
-		const inclusion = query.ast.inclusion.pointers[0]
+		const inclusion = query.ast.inclusion.fields[0]
 
 		if (inclusion === undefined) {
 			throw new TypeError('Eager pointer fixture requires one inclusion')
@@ -694,9 +694,10 @@ describe('internal PostgreSQL database adapter', () => {
 			.execute({
 				constraints: [],
 				operation: { kind: 'find-many', query: query.ast },
-				pointerInclusions: [
+				inclusions: [
 					{
 						fieldPath: ['author'],
+						kind: 'pointer',
 						request: {
 							constraints: [],
 							operation: targetOperation,

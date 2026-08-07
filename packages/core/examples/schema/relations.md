@@ -45,6 +45,30 @@ one-to-many relationship, and `UserSchema.posts` is its storage-free inverse.
 An owning `relationField({ target })` plus one inverse `relationField` represents
 many-to-many. Use `pointerField({ indexed: "unique" })` for one-to-one.
 
+An ordinary User model keeps `posts` unloaded. A source read can explicitly
+include the collection with its own portable target query:
+
+```ts
+const users = await UserSchema.findMany({
+	select: { id: true, name: true },
+	include: {
+		posts: {
+			where: { title: { contains: 'TypeScript' } },
+			orderBy: [{ createdAt: 'desc' }],
+			limit: 10,
+			select: { id: true, title: true },
+		},
+	},
+})
+
+// `users[0].posts` is a readonly array of selected Post models.
+```
+
+Relation inclusion also supports nested `include`. It preserves source and
+target Access and field output resolution without manufacturing target schema
+read hooks. Direct calls through `user.relation('posts')` remain normal target
+reads and therefore retain the target's ordinary read-hook lifecycle.
+
 Relation fields contain no join-table, SQL, REST, or GraphQL naming. Relation
 handles keep those choices separate from model values:
 

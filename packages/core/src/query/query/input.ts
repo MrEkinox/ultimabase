@@ -24,10 +24,13 @@ import {
 	normalizeQuerySelection,
 } from '../clauses/selection.js'
 import type {
+	QueryIncludableFieldName,
+	QueryInclusionAst,
+	QueryInclusionInput,
 	QueryPointerFieldName,
-	QueryPointerInclusionAst,
-	QueryPointerInclusionInput,
 	QueryPointerTargetSchema,
+	QueryRelationFieldName,
+	QueryRelationTargetSchema,
 } from '../clauses/inclusion.js'
 import { normalizeQueryInclusion } from '../clauses/inclusion.js'
 import {
@@ -42,7 +45,10 @@ import {
 import type { QueryFilterNode } from '../filters/logical.js'
 import { resolveWhereInput, type WhereInput } from '../filters/where.js'
 import type { OperationObjectId } from '../operations/contracts.js'
-import type { QueryPointerResultInclusion } from './result.js'
+import type {
+	QueryPointerResultInclusion,
+	QueryRelationResultInclusion,
+} from './result.js'
 
 /** Uses concise transport-facing directions independently from AST vocabulary. */
 export type QueryOrderByDirection = 'asc' | 'desc'
@@ -68,15 +74,31 @@ export type QueryPointerTargetInput<TSchema extends SchemaDefinition> =
 		readonly where?: WhereInput<TSchema>
 	}>
 
-/** Correlates every optional pointer inclusion with its exact target schema. */
+/** Shapes one included to-many target without adding another execution boundary. */
+export type QueryRelationTargetInput<TSchema extends SchemaDefinition> =
+	Readonly<{
+		readonly include?: QueryIncludeInput<TSchema>
+		readonly limit?: number
+		readonly orderBy?: readonly QueryOrderByInput<TSchema>[]
+		readonly select?: QuerySelection<TSchema>
+		readonly where?: WhereInput<TSchema>
+	}>
+
+/** Correlates every optional eager inclusion with its exact target schema. */
 export type QueryIncludeInput<TSchema extends SchemaDefinition> = Readonly<{
 	readonly [
-		TFieldName in QueryPointerFieldName<TSchema>
-	]?: QueryPointerTargetInput<QueryPointerTargetSchema<TSchema, TFieldName>>
+		TFieldName in QueryIncludableFieldName<TSchema>
+	]?: TFieldName extends QueryPointerFieldName<TSchema>
+		? QueryPointerTargetInput<QueryPointerTargetSchema<TSchema, TFieldName>>
+		: TFieldName extends QueryRelationFieldName<TSchema>
+			? QueryRelationTargetInput<
+					QueryRelationTargetSchema<TSchema, TFieldName>
+				>
+			: never
 }>
 
 interface QueryProjectionInput<TSchema extends SchemaDefinition> {
-	/** Loads explicitly requested pointer targets through independently shaped reads. */
+	/** Loads explicitly requested relationship targets through independently shaped reads. */
 	readonly include?: QueryIncludeInput<TSchema>
 	/** Projects result fields through literal inclusion or exclusion flags. */
 	readonly select?: QuerySelection<TSchema>
@@ -84,9 +106,9 @@ interface QueryProjectionInput<TSchema extends SchemaDefinition> {
 
 declare const queryBuilderInputType: unique symbol
 
-interface QueryBuilderInputIdentity<TSelectedField, TIncludedPointer> {
+interface QueryBuilderInputIdentity<TSelectedField, TIncludedField> {
 	readonly [queryBuilderInputType]?: Readonly<{
-		readonly includedPointer: TIncludedPointer
+		readonly includedField: TIncludedField
 		readonly selectedField: TSelectedField
 	}>
 }
@@ -155,12 +177,15 @@ type ExactSelectionForInput<
 		}>
 	: unknown
 
-type ExactPointerTargetInput<TSchema extends SchemaDefinition, TInput> =
-	TInput extends QueryPointerTargetInput<TSchema>
+type ExactInclusionTargetInput<
+	TSchema extends SchemaDefinition,
+	TInput,
+	TContract,
+> = TInput extends TContract
 		? TInput &
 				Readonly<
 					Record<
-						Exclude<keyof TInput, keyof QueryPointerTargetInput<TSchema>>,
+						Exclude<keyof TInput, keyof TContract>,
 						never
 					>
 				> &
@@ -170,22 +195,35 @@ type ExactPointerTargetInput<TSchema extends SchemaDefinition, TInput> =
 
 type ExactIncludeValue<
 	TSchema extends SchemaDefinition,
-	TFieldName extends QueryPointerFieldName<TSchema>,
+	TFieldName extends QueryIncludableFieldName<TSchema>,
 	TInclude,
 > = TFieldName extends keyof TInclude
-	? ExactPointerTargetInput<
-			QueryPointerTargetSchema<TSchema, TFieldName>,
-			TInclude[TFieldName]
-		>
+	? TFieldName extends QueryPointerFieldName<TSchema>
+		? ExactInclusionTargetInput<
+				QueryPointerTargetSchema<TSchema, TFieldName>,
+				TInclude[TFieldName],
+				QueryPointerTargetInput<
+					QueryPointerTargetSchema<TSchema, TFieldName>
+				>
+			>
+		: TFieldName extends QueryRelationFieldName<TSchema>
+			? ExactInclusionTargetInput<
+					QueryRelationTargetSchema<TSchema, TFieldName>,
+					TInclude[TFieldName],
+					QueryRelationTargetInput<
+						QueryRelationTargetSchema<TSchema, TFieldName>
+					>
+				>
+			: never
 	: never
 
 type ExactQueryInclude<TSchema extends SchemaDefinition, TInclude> = TInclude &
 	Readonly<
-		Record<Exclude<keyof TInclude, QueryPointerFieldName<TSchema>>, never>
+		Record<Exclude<keyof TInclude, QueryIncludableFieldName<TSchema>>, never>
 	> &
 	Readonly<{
 		readonly [
-			TFieldName in Extract<keyof TInclude, QueryPointerFieldName<TSchema>>
+			TFieldName in Extract<keyof TInclude, QueryIncludableFieldName<TSchema>>
 		]: ExactIncludeValue<TSchema, TFieldName, TInclude>
 	}>
 
@@ -256,7 +294,7 @@ type PointerInclusionForField<
 					QueryPointerTargetSchema<TSchema, TFieldName>,
 					TTargetInput
 				>,
-				QueryIncludedPointerFromInput<
+				QueryIncludedFieldFromInput<
 					QueryPointerTargetSchema<TSchema, TFieldName>,
 					TTargetInput
 				>
@@ -264,15 +302,36 @@ type PointerInclusionForField<
 		: never
 	: never
 
-/** Resolves every exact nested pointer result produced by one read input. */
-export type QueryIncludedPointerFromInput<
+type RelationInclusionForField<
+	TSchema extends SchemaDefinition,
+	TInclude,
+	TFieldName extends QueryRelationFieldName<TSchema>,
+> = TFieldName extends keyof TInclude
+	? TInclude[TFieldName] extends infer TTargetInput
+		? QueryRelationResultInclusion<
+				TFieldName,
+				QueryRelationTargetSchema<TSchema, TFieldName>,
+				QuerySelectedFieldFromInput<
+					QueryRelationTargetSchema<TSchema, TFieldName>,
+					TTargetInput
+				>,
+				QueryIncludedFieldFromInput<
+					QueryRelationTargetSchema<TSchema, TFieldName>,
+					TTargetInput
+				>
+			>
+		: never
+	: never
+
+/** Resolves every exact nested eager result produced by one read input. */
+export type QueryIncludedFieldFromInput<
 	TSchema extends SchemaDefinition,
 	TInput,
 > =
-	TInput extends QueryBuilderInputIdentity<unknown, infer TIncludedPointer>
-		? TIncludedPointer
+	TInput extends QueryBuilderInputIdentity<unknown, infer TIncludedField>
+		? TIncludedField
 		: TInput extends { readonly include: infer TInclude }
-			? {
+			? | {
 					[
 						TFieldName in Extract<
 							keyof TInclude,
@@ -280,21 +339,35 @@ export type QueryIncludedPointerFromInput<
 						>
 					]: PointerInclusionForField<TSchema, TInclude, TFieldName>
 				}[Extract<keyof TInclude, QueryPointerFieldName<TSchema>>]
+				| {
+					[
+						TFieldName in Extract<
+							keyof TInclude,
+							QueryRelationFieldName<TSchema>
+						>
+					]: RelationInclusionForField<TSchema, TInclude, TFieldName>
+				}[Extract<keyof TInclude, QueryRelationFieldName<TSchema>>]
 			: never
+
+/** @deprecated Use `QueryIncludedFieldFromInput`. */
+export type QueryIncludedPointerFromInput<
+	TSchema extends SchemaDefinition,
+	TInput,
+> = QueryIncludedFieldFromInput<TSchema, TInput>
 
 /** Retains exact builder result inference without adding runtime metadata. */
 export type QueryBuilderInput<
 	TSchema extends SchemaDefinition,
 	TSelectedField extends QueryFieldName<TSchema>,
-	TIncludedPointer,
+	TIncludedField,
 > = FindManyInput<TSchema> &
-	QueryBuilderInputIdentity<TSelectedField, TIncludedPointer>
+	QueryBuilderInputIdentity<TSelectedField, TIncludedField>
 
 type QueryInputInclusion<TSchema extends SchemaDefinition> = [
-	QueryPointerFieldName<TSchema>,
+	QueryIncludableFieldName<TSchema>,
 ] extends [never]
 	? QueryInclusionNode<QueryFieldName<TSchema>>
-	: QueryPointerInclusionAst<TSchema>
+	: QueryInclusionAst<TSchema>
 
 type QueryInputAst<TSchema extends SchemaDefinition> = QueryAst<
 	TSchema,
@@ -308,18 +381,24 @@ declare const normalizedQueryInputType: unique symbol
 export interface NormalizedQueryInput<
 	TSchema extends SchemaDefinition,
 	TSelectedField extends QueryFieldName<TSchema> = never,
-	TIncludedPointer = never,
+	TIncludedField = never,
 > {
 	readonly ast: QueryInputAst<TSchema>
 	readonly schema: TSchema
 	readonly [normalizedQueryInputType]?: Readonly<{
-		readonly includedPointer: TIncludedPointer
+		readonly includedField: TIncludedField
 		readonly selectedField: TSelectedField
 	}>
 }
 
 type QueryInputKind =
-	'count' | 'exists' | 'find-many' | 'find-one' | 'get' | 'pointer-target'
+	| 'count'
+	| 'exists'
+	| 'find-many'
+	| 'find-one'
+	| 'get'
+	| 'pointer-target'
+	| 'relation-target'
 
 const queryInputKeys: Readonly<Record<QueryInputKind, ReadonlySet<string>>> =
 	immutableRecord({
@@ -337,6 +416,13 @@ const queryInputKeys: Readonly<Record<QueryInputKind, ReadonlySet<string>>> =
 		'find-one': new Set(['include', 'orderBy', 'select', 'where']),
 		get: new Set(['id', 'include', 'select']),
 		'pointer-target': new Set(['include', 'select', 'where']),
+		'relation-target': new Set([
+			'include',
+			'limit',
+			'orderBy',
+			'select',
+			'where',
+		]),
 	})
 
 const assertQueryInput: (
@@ -433,7 +519,7 @@ const applyQueryProjection = <const TSchema extends SchemaDefinition>(
 		throw new TypeError('query.include must be an object')
 	}
 
-	const pointers: QueryPointerInclusionInput<TSchema>[] = []
+	const inclusions: QueryInclusionInput<TSchema>[] = []
 
 	for (const [fieldName, targetInput] of Object.entries(input.include)) {
 		if (!isPlainRecord(targetInput)) {
@@ -442,9 +528,9 @@ const applyQueryProjection = <const TSchema extends SchemaDefinition>(
 
 		const field = schema.fields[fieldName]
 
-		if (field?.kind !== 'pointer') {
+		if (field?.kind !== 'pointer' && field?.kind !== 'relation') {
 			throw new TypeError(
-				'query inclusion field must reference a pointer field',
+				'query inclusion field must reference a pointer or relation field',
 			)
 		}
 
@@ -456,13 +542,17 @@ const applyQueryProjection = <const TSchema extends SchemaDefinition>(
 			)
 		}
 
-		const pointerField = fieldName as QueryPointerFieldName<TSchema>
-		const targetQuery = createInputQuery(target, targetInput, 'pointer-target')
+		const includedField = fieldName as QueryIncludableFieldName<TSchema>
+		const targetQuery = createInputQuery(
+			target,
+			targetInput,
+			field.kind === 'pointer' ? 'pointer-target' : 'relation-target',
+		)
 
 		// Runtime target identity and the pointer field were validated together above;
 		// this boundary only restores their compile-time correlation after iteration.
-		pointers.push(
-			{ field: pointerField, query: targetQuery.ast } as unknown as QueryPointerInclusionInput<TSchema>,
+		inclusions.push(
+			{ field: includedField, query: targetQuery.ast } as unknown as QueryInclusionInput<TSchema>,
 		)
 	}
 
@@ -472,12 +562,14 @@ const applyQueryProjection = <const TSchema extends SchemaDefinition>(
 			? selection
 			: normalizeQuerySelectedFields(schema, [
 					...selectionFields,
-					...pointers.map(({ field }) => field),
+					...inclusions
+						.filter(({ field }) => schema.fields[field]?.kind === 'pointer')
+						.map(({ field }) => field),
 				])
 
 	return immutableRecord({
 		...ast,
-		inclusion: normalizeQueryInclusion(schema, pointers),
+		inclusion: normalizeQueryInclusion(schema, inclusions),
 		selection: includedSelection,
 	})
 }
@@ -571,7 +663,7 @@ export const queryFromFindManyInput = <
 ): NormalizedQueryInput<
 	TSchema,
 	QuerySelectedFieldFromInput<TSchema, TInput>,
-	QueryIncludedPointerFromInput<TSchema, TInput>
+	QueryIncludedFieldFromInput<TSchema, TInput>
 > =>
 	createInputQuery(
 		schema,
@@ -589,7 +681,7 @@ export const queryFromFindOneInput = <
 ): NormalizedQueryInput<
 	TSchema,
 	QuerySelectedFieldFromInput<TSchema, TInput>,
-	QueryIncludedPointerFromInput<TSchema, TInput>
+	QueryIncludedFieldFromInput<TSchema, TInput>
 > =>
 	createInputQuery(
 		schema,
@@ -609,7 +701,7 @@ export const queryFromGetInput = <
 	readonly query: NormalizedQueryInput<
 		TSchema,
 		QuerySelectedFieldFromInput<TSchema, TInput>,
-		QueryIncludedPointerFromInput<TSchema, TInput>
+		QueryIncludedFieldFromInput<TSchema, TInput>
 	>
 }> => {
 	const query = createInputQuery(

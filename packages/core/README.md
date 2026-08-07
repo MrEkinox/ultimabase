@@ -95,17 +95,19 @@ const posts = await PostSchema.findMany(
 
 `select` is flat and schema-correlated. Any `true` flag selects only the fields
 marked `true`; an object containing only `false` flags selects every other
-field. `{}` keeps the complete result shape. Pointer result shaping stays
+field. `{}` keeps the complete result shape. Relationship result shaping stays
 explicit through `include`.
 
-Runtime evaluates singular target Access, applies target constraints, validates
-the selected target, and runs its scalar field `resolveOutput` hooks. Inclusion
-does not manufacture a target read lifecycle: target schema and global read
-hooks run only when the developer explicitly reads that target. PostgreSQL
-loads the prepared tree through Drizzle relational `with`, while missing and
-inaccessible targets both become `null`. Nested inclusions use the same rules.
-Field Access still receives the pointer field's declared `Pointer` value; only
-the result observed by parent read hooks and returned to the caller is hydrated.
+Runtime evaluates target Access, applies target constraints, validates selected
+targets, and runs their scalar field `resolveOutput` hooks. Inclusion does not
+manufacture a target read lifecycle: target schema and global read hooks run
+only when the developer explicitly reads that target. PostgreSQL loads the
+prepared tree through Drizzle relational `with`. Missing or inaccessible
+pointer targets become `null`; a relation contains only its visible targets and
+therefore becomes an empty array when none remain. Nested inclusions use the
+same rules. Pointer Field Access still receives the field's declared `Pointer`
+value; only the result observed by parent read hooks and returned to the caller
+is hydrated.
 
 Pointer hooks may validate and observe relationship changes, but they cannot
 declare `resolveOutput`: field Access owns pointer disclosure and target scalar
@@ -143,7 +145,32 @@ The example represents one-to-many storage through `PostSchema.author`. An
 owning relation plus one inverse relation represents many-to-many storage, while
 one-to-one remains `pointerField({ indexed: "unique" })`. Relation fields are
 root-level schema declarations and never appear in `InferObject`, create input,
-update input, validation values, or `toJSON()`.
+update input, validation values, or an ordinary unloaded model.
+
+Reads may explicitly include the collection with an independently shaped target
+query:
+
+```ts
+const users = await UserSchema.findMany({
+	select: { id: true },
+	include: {
+		posts: {
+			orderBy: [{ createdAt: 'desc' }],
+			limit: 10,
+			select: { id: true },
+		},
+	},
+})
+
+// `users[0].posts` is a readonly array of selected Post models.
+```
+
+An included relation supports `where`, `orderBy`, `limit`, `select`, and nested
+`include`. Per-parent cursor or offset pagination is deliberately not part of
+this contract. Source relation Field Access runs once before loading. Target
+Access and output resolution still apply, but target `beforeRead` and
+`afterRead` hooks do not run merely because a parent included the collection.
+The explicit parent `afterRead` hook observes the hydrated array.
 
 Persisted models expose only their declared to-many fields through an immutable
 `Relation<TSource, TTarget>` handle:
@@ -760,13 +787,14 @@ const articles = await ArticleSchema.findMany(
 ```
 
 `beforeRead` may add filters, ordering, pagination, or a limit, but it must
-preserve the exact schema, selected-field union, and pointer-inclusion tree.
+preserve the exact schema, selected-field union, and relationship-inclusion tree.
 Opaque adapter constraints
 remain outside the developer Query. Runtime projects the adapter result before
 field output resolution, validates every native and low-level result transform,
 then applies monotonic output restrictions as the final public boundary. Eager
-pointer targets are present before the parent `afterRead`; the hook replacement
-continues unchanged and Runtime never reloads a relation afterward.
+pointer and relation targets are present before the parent `afterRead`; the hook
+replacement continues unchanged and Runtime never reloads an inclusion
+afterward.
 `count` and `exists` retain `number` and `boolean` results and skip value
 resolution. Root reads do not open an automatic transaction; reads inside an
 explicit transaction reuse it.

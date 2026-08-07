@@ -1,4 +1,5 @@
 import {
+	type FindManyOperationAst,
 	type FindOneOperationAst,
 	type QueryAst,
 	type QueryExpressionNode,
@@ -14,22 +15,30 @@ import {
 
 import type { DatabaseOperationAst } from '../database/contracts.js'
 
-/** Describes one normalized pointer branch without choosing a loading strategy. */
-export interface RuntimePointerInclusion {
+/** Describes one normalized eager branch without choosing a loading strategy. */
+export interface RuntimeInclusion {
 	readonly field: string
+	readonly kind: 'pointer' | 'relation'
 	readonly query: QueryAst
 }
 
-export type RuntimePointerTargetOperation = FindOneOperationAst<
-	SchemaDefinition,
-	QueryExpressionNode,
-	QueryFieldName<SchemaDefinition>,
-	unknown
->
+export type RuntimeInclusionTargetOperation =
+	| FindOneOperationAst<
+			SchemaDefinition,
+			QueryExpressionNode,
+			QueryFieldName<SchemaDefinition>,
+			unknown
+	  >
+	| FindManyOperationAst<
+			SchemaDefinition,
+			QueryExpressionNode,
+			QueryFieldName<SchemaDefinition>,
+			unknown
+	  >
 
-const emptyInclusions: readonly RuntimePointerInclusion[] = immutableArray([])
+const emptyInclusions: readonly RuntimeInclusion[] = immutableArray([])
 
-/** Selects only terminals whose public result can contain pointer values. */
+/** Selects only terminals whose public result can contain relationship values. */
 const operationReturnsRecords = (operation: DatabaseOperationAst): boolean => {
 	switch (operation.kind) {
 		case 'delete-one':
@@ -51,9 +60,9 @@ const operationReturnsRecords = (operation: DatabaseOperationAst): boolean => {
 }
 
 /** Reads normalized inclusion nodes without trusting an adapter-owned value. */
-export const readPointerInclusions = (
+export const readInclusions = (
 	operation: DatabaseOperationAst,
-): readonly RuntimePointerInclusion[] => {
+): readonly RuntimeInclusion[] => {
 	if (!operationReturnsRecords(operation) || !('query' in operation)) {
 		return emptyInclusions
 	}
@@ -64,17 +73,18 @@ export const readPointerInclusions = (
 		return emptyInclusions
 	}
 
-	const pointers: unknown = query.inclusion.pointers
+	const fields: unknown = query.inclusion.fields
 
-	if (!isUnknownArray(pointers) || pointers.length === 0) {
+	if (!isUnknownArray(fields) || fields.length === 0) {
 		return emptyInclusions
 	}
 
 	return immutableArray(
-		pointers.map((candidate, index) => {
+		fields.map((candidate, index) => {
 			if (
 				!isPlainRecord(candidate) ||
-				candidate.kind !== 'included-pointer' ||
+				(candidate.kind !== 'included-pointer' &&
+					candidate.kind !== 'included-relation') ||
 				typeof candidate.field !== 'string' ||
 				!isPlainRecord(candidate.query) ||
 				candidate.query.kind !== 'query' ||
@@ -82,12 +92,16 @@ export const readPointerInclusions = (
 				!Schema.is(candidate.query.schema.definition)
 			) {
 				throw new TypeError(
-					`Runtime pointer inclusion[${String(index)}] is invalid`,
+					`Runtime inclusion[${String(index)}] is invalid`,
 				)
 			}
 
 			return immutableRecord({
 				field: candidate.field,
+				kind:
+					candidate.kind === 'included-pointer'
+						? ('pointer' as const)
+						: ('relation' as const),
 				query: candidate.query as unknown as QueryAst,
 			})
 		}),
@@ -95,10 +109,9 @@ export const readPointerInclusions = (
 }
 
 /** Creates the singular target shape used for Access and field output processing. */
-export const createPointerInclusionOperation = (
-	inclusion: RuntimePointerInclusion,
-): RuntimePointerTargetOperation =>
-	immutableRecord({
-		kind: 'find-one',
-		query: inclusion.query,
-	})
+export const createInclusionOperation = (
+	inclusion: RuntimeInclusion,
+): RuntimeInclusionTargetOperation =>
+	inclusion.kind === 'pointer'
+		? immutableRecord({ kind: 'find-one' as const, query: inclusion.query })
+		: immutableRecord({ kind: 'find-many' as const, query: inclusion.query })

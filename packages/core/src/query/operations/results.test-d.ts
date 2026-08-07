@@ -25,7 +25,7 @@ import type {
 	FindManyOperationAst,
 	FindOneOperationAst,
 	GetOperationAst,
-	OperationIncludedPointer,
+	OperationIncludedField,
 	UpdateManyOperationAst,
 	UpdateOneOperationAst,
 	UpsertManyOperationAst,
@@ -152,7 +152,7 @@ test('distinguishes adapter pointers from hydrated Runtime inclusions', () => {
 	expectTypeOf<InferOperationRecordResult<Operation>>().toEqualTypeOf<
 		readonly InferQueryRecord<typeof post, 'author' | 'title', Inclusion>[]
 	>()
-	expectTypeOf<OperationIncludedPointer<Operation>>().toEqualTypeOf<Inclusion>()
+	expectTypeOf<OperationIncludedField<Operation>>().toEqualTypeOf<Inclusion>()
 	expectTypeOf<
 		InferQueryRecord<typeof post, 'author'>['author']
 	>().toEqualTypeOf<Pointer<typeof user>>()

@@ -487,6 +487,121 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 		)
 	})
 
+	it('includes owning, inverse, and nested relation collections in one relational read', async () => {
+		const app = getUltimaBase()
+		const [alpha, zeta, hidden] = await Tag.createMany(
+			{
+				data: [
+					{ label: 'include-alpha' },
+					{ label: 'include-zeta' },
+					{ label: 'include-hidden' },
+				],
+			},
+			{ ultimabase: app },
+		)
+		const article = await Article.createOne(
+			{ data: { title: 'Included relations' } },
+			{ ultimabase: app },
+		)
+
+		if (alpha === undefined || zeta === undefined || hidden === undefined) {
+			throw new TypeError('Included relation tags are incomplete')
+		}
+
+		await article
+			.relation('tags')
+			.connect(
+				[Tag.pointer(alpha.id), Tag.pointer(zeta.id), Tag.pointer(hidden.id)],
+				{ ultimabase: app },
+			)
+		await Tag.updateOne(
+			{
+				where: { id: { eq: hidden.id } },
+				data: { visible: false },
+			},
+			{ ultimabase: app },
+		)
+		relationTrace.length = 0
+		const articles = await Article.findMany(
+			{
+				where: { id: { eq: article.id } },
+				select: { title: true },
+				include: {
+					tags: {
+						where: {
+							label: {
+								in: ['include-alpha', 'include-zeta', 'include-hidden'],
+							},
+						},
+						orderBy: [{ label: 'desc' }],
+						limit: 1,
+						select: { label: true },
+						include: {
+							articles: {
+								where: { id: { eq: article.id } },
+								limit: 1,
+								select: { title: true },
+							},
+						},
+					},
+				},
+			},
+			{ ultimabase: app },
+		)
+
+		expect(articles).toHaveLength(1)
+		expect(articles[0]?.tags).toHaveLength(1)
+		expect(articles[0]?.tags[0]?.label).toBe('include-zeta')
+		expect(articles[0]?.tags[0]?.articles).toHaveLength(1)
+		expect(articles[0]?.tags[0]?.articles[0]?.title).toBe('Included relations')
+		expect(relationTrace).toStrictEqual(['article:tags:read:find-many'])
+
+		const author = await Author.createOne(
+			{ data: { name: 'Included author' } },
+			{ ultimabase: app },
+		)
+		const otherAuthor = await Author.createOne(
+			{ data: { name: 'Other included author' } },
+			{ ultimabase: app },
+		)
+		await Post.createMany(
+			{
+				data: [
+					{ author: Author.pointer(author.id), title: 'Included first' },
+					{ author: Author.pointer(author.id), title: 'Included second' },
+					{
+						author: Author.pointer(otherAuthor.id),
+						title: 'Other first',
+					},
+					{
+						author: Author.pointer(otherAuthor.id),
+						title: 'Other second',
+					},
+				],
+			},
+			{ ultimabase: app },
+		)
+		const authors = await Author.findMany(
+			{
+				where: { id: { in: [author.id, otherAuthor.id] } },
+				orderBy: [{ name: 'asc' }],
+				select: { name: true },
+				include: {
+					posts: {
+						orderBy: [{ title: 'desc' }],
+						limit: 1,
+						select: { title: true },
+					},
+				},
+			},
+			{ ultimabase: app },
+		)
+
+		expect(authors).toHaveLength(2)
+		expect(authors[0]?.posts[0]?.title).toBe('Included second')
+		expect(authors[1]?.posts[0]?.title).toBe('Other second')
+	})
+
 	it('reuses pointer storage for inverse relation reads and mutations', async () => {
 		const app = getUltimaBase()
 		const author = await Author.createOne(

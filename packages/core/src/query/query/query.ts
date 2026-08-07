@@ -16,10 +16,11 @@ import type {
 import { createQueryAst } from '../ast/factory.js'
 import { normalizeQueryOrdering } from '../clauses/ordering.js'
 import type {
+	QueryIncludableFieldName,
+	QueryInclusionAst,
+	QueryInclusionInput,
+	QueryInclusionTargetSchema,
 	QueryPointerFieldName,
-	QueryPointerInclusionAst,
-	QueryPointerInclusionInput,
-	QueryPointerTargetSchema,
 } from '../clauses/inclusion.js'
 import { normalizeQueryInclusion } from '../clauses/inclusion.js'
 import {
@@ -99,15 +100,19 @@ import type {
 	UpdateExpressionInput,
 } from '../updates/contracts.js'
 import { normalizeUpdateExpression } from '../updates/normalize.js'
-import type { InferQueryResult, QueryPointerResultInclusion } from './result.js'
+import type {
+	InferQueryResult,
+	QueryPointerResultInclusion,
+	QueryRelationResultInclusion,
+} from './result.js'
 import type { NormalizedQueryInput, QueryBuilderInput } from './input.js'
 import type { QueryScope } from './scope.js'
 
 type QueryBuilderInclusion<TSchema extends SchemaDefinition> = [
-	QueryPointerFieldName<TSchema>,
+	QueryIncludableFieldName<TSchema>,
 ] extends [never]
 	? QueryInclusionNode<QueryFieldName<TSchema>>
-	: QueryPointerInclusionAst<TSchema>
+	: QueryInclusionAst<TSchema>
 
 type QueryBuilderAst<TSchema extends SchemaDefinition> = QueryAst<
 	TSchema,
@@ -173,19 +178,44 @@ type QueryAstPatch<TSchema extends SchemaDefinition> = Partial<
 type QuerySelectionAfterInclude<
 	TSchema extends SchemaDefinition,
 	TSelectedField extends QueryFieldName<TSchema>,
-	TIncludedField extends QueryFieldName<TSchema>,
-> = [TSelectedField] extends [never] ? never : TSelectedField | TIncludedField
+	TIncludedField extends QueryIncludableFieldName<TSchema>,
+> = TIncludedField extends QueryPointerFieldName<TSchema>
+	? [TSelectedField] extends [never]
+		? never
+		: TSelectedField | TIncludedField
+	: TSelectedField
 
-type ReplacePointerResultInclusion<
+type ReplaceResultInclusion<
 	TIncludedPointer,
 	TFieldName extends string,
 	TNextInclusion,
 > = Exclude<TIncludedPointer, { readonly field: TFieldName }> | TNextInclusion
 
+type QueryResultInclusionForField<
+	TSchema extends SchemaDefinition,
+	TFieldName extends QueryIncludableFieldName<TSchema>,
+	TTargetSelectedField extends QueryFieldName<
+		QueryInclusionTargetSchema<TSchema, TFieldName>
+	>,
+	TTargetInclusion,
+> = TFieldName extends QueryPointerFieldName<TSchema>
+	? QueryPointerResultInclusion<
+			TFieldName,
+			QueryInclusionTargetSchema<TSchema, TFieldName>,
+			TTargetSelectedField,
+			TTargetInclusion
+		>
+	: QueryRelationResultInclusion<
+			TFieldName,
+			QueryInclusionTargetSchema<TSchema, TFieldName>,
+			TTargetSelectedField,
+			TTargetInclusion
+		>
+
 const getFieldQueryTarget = (
 	field: GenericField,
 ): SchemaDefinition | undefined => {
-	if (field.kind !== 'pointer') {
+	if (field.kind !== 'pointer' && field.kind !== 'relation') {
 		return undefined
 	}
 
@@ -197,6 +227,7 @@ const getFieldQueryTarget = (
 /** Rebuilds the projection subset allowed inside one canonical pointer include. */
 const buildQueryProjectionInput = <const TSchema extends SchemaDefinition>(
 	ast: QueryBuilderAst<TSchema>,
+	kind: 'pointer' | 'relation',
 ): Readonly<Record<string, unknown>> => {
 	const selection: Record<string, true> = {}
 	const include: Record<string, Readonly<Record<string, unknown>>> = {}
@@ -205,9 +236,10 @@ const buildQueryProjectionInput = <const TSchema extends SchemaDefinition>(
 		selection[field.field] = true
 	}
 
-	for (const pointer of ast.inclusion.pointers) {
-		include[pointer.field] = buildQueryProjectionInput(
-			pointer.query as QueryBuilderAst<SchemaDefinition>,
+	for (const inclusion of ast.inclusion.fields) {
+		include[inclusion.field] = buildQueryProjectionInput(
+			inclusion.query as QueryBuilderAst<SchemaDefinition>,
+			inclusion.kind === 'included-pointer' ? 'pointer' : 'relation',
 		)
 	}
 
@@ -221,6 +253,21 @@ const buildQueryProjectionInput = <const TSchema extends SchemaDefinition>(
 		...(Object.keys(include).length === 0
 			? {}
 			: { include: immutableRecord(include) }),
+		...(kind === 'relation' && ast.ordering.orders.length > 0
+			? {
+					orderBy: immutableArray(
+						ast.ordering.orders.map((order) =>
+							immutableRecord({
+								[order.field]:
+									order.direction === 'ascending' ? 'asc' : 'desc',
+							}),
+						),
+					),
+				}
+			: {}),
+		...(kind === 'relation' && ast.limit !== undefined
+			? { limit: ast.limit }
+			: {}),
 	})
 }
 
@@ -297,7 +344,7 @@ export class QueryBuilder<
 	}
 
 	/**
-	 * Loads one pointer through an exact, independently shaped target QueryBuilder.
+	 * Loads one pointer or relation through an exact target QueryBuilder.
 	 *
 	 * The callback only builds portable AST state. It performs no I/O, and a
 	 * repeated field replaces its earlier shape without changing inclusion order.
@@ -305,29 +352,29 @@ export class QueryBuilder<
 	 * @example `new QueryBuilder(Post).include('author', (query) => query.select({ id: true, name: true }))`
 	 */
 	include<
-		const TFieldName extends QueryPointerFieldName<TSchema>,
+		const TFieldName extends QueryIncludableFieldName<TSchema>,
 		TTargetSelectedField extends QueryFieldName<
-			QueryPointerTargetSchema<TSchema, TFieldName>
+			QueryInclusionTargetSchema<TSchema, TFieldName>
 		>,
 		TTargetIncludedPointer,
 	>(
 		fieldName: TFieldName,
 		shape: (
-			query: QueryBuilder<QueryPointerTargetSchema<TSchema, TFieldName>>,
+			query: QueryBuilder<QueryInclusionTargetSchema<TSchema, TFieldName>>,
 		) => QueryBuilder<
-			QueryPointerTargetSchema<TSchema, TFieldName>,
+			QueryInclusionTargetSchema<TSchema, TFieldName>,
 			TTargetSelectedField,
 			TTargetIncludedPointer
 		>,
 	): QueryBuilder<
 		TSchema,
 		QuerySelectionAfterInclude<TSchema, TSelectedField, TFieldName>,
-		ReplacePointerResultInclusion<
+		ReplaceResultInclusion<
 			TIncludedPointer,
 			TFieldName,
-			QueryPointerResultInclusion<
+			QueryResultInclusionForField<
+				TSchema,
 				TFieldName,
-				QueryPointerTargetSchema<TSchema, TFieldName>,
 				TTargetSelectedField,
 				TTargetIncludedPointer
 			>
@@ -338,15 +385,16 @@ export class QueryBuilder<
 
 		if (target === undefined) {
 			throw new TypeError(
-				'query inclusion field must reference a pointer field',
+				'query inclusion field must reference a pointer or relation field',
 			)
 		}
 
-		// The field-level target type and private target callback originate from the
-		// same pointer factory; runtime identity is rechecked below before storage.
-		const exactTarget = target as QueryPointerTargetSchema<TSchema, TFieldName>
+		// The field-level target type and private callback originate from the same
+		// relationship factory; runtime identity is rechecked below before storage.
+		const exactTarget =
+			target as QueryInclusionTargetSchema<TSchema, TFieldName>
 		const targetQuery = shape(
-			new QueryBuilder<QueryPointerTargetSchema<TSchema, TFieldName>>(
+			new QueryBuilder<QueryInclusionTargetSchema<TSchema, TFieldName>>(
 				exactTarget,
 			),
 		)
@@ -356,20 +404,19 @@ export class QueryBuilder<
 			targetQuery.schema !== target
 		) {
 			throw new TypeError(
-				'query inclusion callback must return a QueryBuilder for the pointer target',
+				'query inclusion callback must return a QueryBuilder for the relationship target',
 			)
 		}
 
-		// Every retained node previously crossed the same pointer-only normalizer.
-		const pointers = this.ast.inclusion.pointers.map((pointer) => ({
-			field: pointer.field,
-			query: pointer.query,
-		})) as readonly QueryPointerInclusionInput<TSchema>[]
+		const inclusions = this.ast.inclusion.fields.map((inclusion) => ({
+			field: inclusion.field,
+			query: inclusion.query,
+		})) as unknown as readonly QueryInclusionInput<TSchema>[]
 		const selectionFields = this.ast.selection.fields.map(
 			(selection) => selection.field,
 		)
 		const selection =
-			selectionFields.length === 0
+			selectionFields.length === 0 || field?.kind === 'relation'
 				? this.ast.selection
 				: normalizeQuerySelectedFields(this.schema, [
 						...selectionFields,
@@ -378,20 +425,20 @@ export class QueryBuilder<
 
 		return this.#with<
 			QuerySelectionAfterInclude<TSchema, TSelectedField, TFieldName>,
-			ReplacePointerResultInclusion<
+			ReplaceResultInclusion<
 				TIncludedPointer,
 				TFieldName,
-				QueryPointerResultInclusion<
+				QueryResultInclusionForField<
+					TSchema,
 					TFieldName,
-					QueryPointerTargetSchema<TSchema, TFieldName>,
 					TTargetSelectedField,
 					TTargetIncludedPointer
 				>
 			>
 		>({
 			inclusion: normalizeQueryInclusion(this.schema, [
-				...pointers,
-				{ field: fieldName, query: targetQuery.ast },
+				...inclusions,
+				{ field: fieldName, query: targetQuery.ast } as unknown as QueryInclusionInput<TSchema>,
 			]),
 			selection,
 		})
@@ -505,9 +552,10 @@ export class QueryBuilder<
 			selection[field.field] = true
 		}
 
-		for (const pointer of this.ast.inclusion.pointers) {
-			include[pointer.field] = buildQueryProjectionInput(
-				pointer.query as QueryBuilderAst<SchemaDefinition>,
+		for (const inclusion of this.ast.inclusion.fields) {
+			include[inclusion.field] = buildQueryProjectionInput(
+				inclusion.query as QueryBuilderAst<SchemaDefinition>,
+				inclusion.kind === 'included-pointer' ? 'pointer' : 'relation',
 			)
 		}
 

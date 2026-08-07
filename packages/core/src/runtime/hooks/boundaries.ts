@@ -37,9 +37,9 @@ import {
 	type RuntimeValidationIssue,
 } from '../validation/runtime-validation.js'
 import {
-	createPointerInclusionOperation,
-	readPointerInclusions,
-} from '../relations/pointer-inclusion.js'
+	createInclusionOperation,
+	readInclusions,
+} from '../relations/inclusion.js'
 
 const mutationKinds = new Set<OperationKind>([
 	'create-many',
@@ -854,7 +854,7 @@ export const createRuntimeHookBoundaries = (): RuntimeHookBoundaries => {
 		selectedFields: readonly string[] | undefined,
 	): Readonly<Record<string, unknown>> => {
 		const schema = readOperationSchema(operation, ['operation', 'schema'])
-		const inclusions = readPointerInclusions(operation)
+		const inclusions = readInclusions(operation)
 
 		if (inclusions.length === 0 || !isPlainRecord(value)) {
 			return snapshotRecordResult(
@@ -866,38 +866,54 @@ export const createRuntimeHookBoundaries = (): RuntimeHookBoundaries => {
 		}
 
 		const parentCandidate: Record<string, unknown> = { ...value }
-		const hydratedTargets = new Map<
-			string,
-			Readonly<Record<string, unknown>> | null
-		>()
+		const hydratedTargets = new Map<string, unknown>()
 
 		for (const inclusion of inclusions) {
 			const targetValue: unknown = value[inclusion.field]
 
-			const targetOperation = createPointerInclusionOperation(inclusion)
+			const targetOperation = createInclusionOperation(inclusion)
 			const targetSchema = readOperationSchema(targetOperation, [
 				...path,
 				inclusion.field,
 			])
 
-			if (targetValue !== null && !isPlainRecord(targetValue)) continue
+			let targetSnapshot: unknown
 
-			const targetSnapshot =
-				targetValue === null
-					? null
-					: snapshotIncludedRecord(
+			if (inclusion.kind === 'pointer') {
+				if (targetValue !== null && !isPlainRecord(targetValue)) continue
+
+				targetSnapshot =
+					targetValue === null
+						? null
+						: snapshotIncludedRecord(
+								targetOperation,
+								targetValue,
+								[...path, inclusion.field],
+								readSelectedFields(targetOperation, targetSchema),
+							)
+				// Parent validation still proves that the declared field itself is a pointer.
+				parentCandidate[inclusion.field] = new Pointer(
+					targetSchema,
+					'__ultimabase_hook_boundary__',
+				)
+			} else {
+				if (!isUnknownArray(targetValue)) continue
+
+				targetSnapshot = immutableArray(
+					targetValue.map((targetRecord, index) =>
+						snapshotIncludedRecord(
 							targetOperation,
-							targetValue,
-							[...path, inclusion.field],
+							targetRecord,
+							[...path, inclusion.field, index],
 							readSelectedFields(targetOperation, targetSchema),
-						)
+						),
+					),
+				)
+				// Relation fields are handle-only unless this exact result included them.
+				delete parentCandidate[inclusion.field]
+			}
 
 			hydratedTargets.set(inclusion.field, targetSnapshot)
-			// Parent validation still proves that the declared field itself is a pointer.
-			parentCandidate[inclusion.field] = new Pointer(
-				targetSchema,
-				'__ultimabase_hook_boundary__',
-			)
 		}
 
 		const parent = snapshotRecordResult(
@@ -930,7 +946,7 @@ export const createRuntimeHookBoundaries = (): RuntimeHookBoundaries => {
 		replacement: unknown,
 		selectedFields: readonly string[] | undefined,
 	): DatabaseOperationResult<TOperation> => {
-		if (readPointerInclusions(operation).length === 0) {
+		if (readInclusions(operation).length === 0) {
 			return snapshotOperationResult(
 				operation,
 				replacement,

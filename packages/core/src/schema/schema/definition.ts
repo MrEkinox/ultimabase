@@ -36,7 +36,7 @@ import type {
 	FindManyInput,
 	FindOneInput,
 	GetInput,
-	QueryIncludedPointerFromInput,
+	QueryIncludedFieldFromInput,
 	QuerySelectedFieldFromInput,
 } from '../../query/query/input.js'
 import type {
@@ -232,7 +232,7 @@ export interface SchemaClass<
 		readonly InferQueryResult<
 			this,
 			QuerySelectedFieldFromInput<this, TInput>,
-			QueryIncludedPointerFromInput<this, TInput>
+			QueryIncludedFieldFromInput<this, TInput>
 		>[]
 	>
 	/** Reads every visible row when no clauses are supplied. */
@@ -251,7 +251,7 @@ export interface SchemaClass<
 	): Promise<InferQueryResult<
 		this,
 		QuerySelectedFieldFromInput<this, TInput>,
-		QueryIncludedPointerFromInput<this, TInput>
+		QueryIncludedFieldFromInput<this, TInput>
 	> | null>
 	/** Reads the first visible row when no clauses are supplied. */
 	findOne(
@@ -269,7 +269,7 @@ export interface SchemaClass<
 	): Promise<InferQueryResult<
 		this,
 		QuerySelectedFieldFromInput<this, TInput>,
-		QueryIncludedPointerFromInput<this, TInput>
+		QueryIncludedFieldFromInput<this, TInput>
 	> | null>
 	/**
 	 * Counts rows matching the canonical object filter.

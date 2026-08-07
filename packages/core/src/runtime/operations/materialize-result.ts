@@ -19,9 +19,9 @@ import {
 import { readRuntimeSchemaModelMetadata } from './model-metadata.js'
 import { getOperationSchema } from './schema.js'
 import {
-	createPointerInclusionOperation,
-	readPointerInclusions,
-} from '../relations/pointer-inclusion.js'
+	createInclusionOperation,
+	readInclusions,
+} from '../relations/inclusion.js'
 
 const readOperationSchema = (operation: OperationAstNode): SchemaDefinition => {
 	const schema = getOperationSchema(operation)
@@ -49,18 +49,34 @@ const materializeRecord = (
 	if (operation !== undefined) {
 		const hydrated: Record<string, unknown> = { ...value }
 
-		for (const inclusion of readPointerInclusions(operation)) {
+		for (const inclusion of readInclusions(operation)) {
 			const target: unknown = value[inclusion.field]
+			const targetOperation = createInclusionOperation(inclusion)
+			const targetSchema = readOperationSchema(targetOperation)
 
-			if (!isPlainRecord(target)) continue
+			if (inclusion.kind === 'pointer') {
+				if (!isPlainRecord(target)) continue
 
-			const targetOperation = createPointerInclusionOperation(inclusion)
+				hydrated[inclusion.field] = materializeRecord(
+					targetSchema,
+					target,
+					`${path}.${inclusion.field}`,
+					targetOperation,
+				)
+				continue
+			}
 
-			hydrated[inclusion.field] = materializeRecord(
-				readOperationSchema(targetOperation),
-				target,
-				`${path}.${inclusion.field}`,
-				targetOperation,
+			if (!isUnknownArray(target)) continue
+
+			hydrated[inclusion.field] = immutableArray(
+				target.map((record, index) =>
+					materializeRecord(
+						targetSchema,
+						record,
+						`${path}.${inclusion.field}[${String(index)}]`,
+						targetOperation,
+					),
+				),
 			)
 		}
 

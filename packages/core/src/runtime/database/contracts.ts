@@ -16,8 +16,8 @@ import { immutableRecord } from '@ultimabase/shared'
 /** Selects the portable pointer protocol currently understood by Core Runtime. */
 export const databasePointerCapabilityVersion = 1 as const
 
-/** Selects the eager pointer-inclusion protocol currently understood by Runtime. */
-export const databasePointerInclusionCapabilityVersion = 1 as const
+/** Selects the eager relationship-inclusion protocol understood by Runtime. */
+export const databaseInclusionCapabilityVersion = 1 as const
 
 /** Selects the portable relation protocol currently understood by Core Runtime. */
 export const databaseRelationCapabilityVersion = 1 as const
@@ -31,10 +31,10 @@ export interface DatabasePointerCapability {
 	readonly version: typeof databasePointerCapabilityVersion
 }
 
-/** Advertises nested pointer loading without exposing the adapter query strategy. */
-export interface DatabasePointerInclusionCapability {
-	readonly kind: 'pointer-inclusions'
-	readonly version: typeof databasePointerInclusionCapabilityVersion
+/** Advertises nested relationship loading without exposing the adapter strategy. */
+export interface DatabaseInclusionCapability {
+	readonly kind: 'inclusions'
+	readonly version: typeof databaseInclusionCapabilityVersion
 }
 
 /** Advertises scoped relation reads and atomic logical edge mutations. */
@@ -52,7 +52,7 @@ export interface DatabaseRelationPredicateCapability {
 /** Lets adapters opt into portable features without coupling Core to a database. */
 export interface DatabaseAdapterCapabilities {
 	readonly pointers?: DatabasePointerCapability
-	readonly pointerInclusions?: DatabasePointerInclusionCapability
+	readonly inclusions?: DatabaseInclusionCapability
 	readonly relations?: DatabaseRelationCapability
 	readonly relationPredicates?: DatabaseRelationPredicateCapability
 }
@@ -65,10 +65,10 @@ export const databasePointerCapability: DatabasePointerCapability =
 	})
 
 /** Reuses one frozen eager-inclusion declaration across adapter lifetimes. */
-export const databasePointerInclusionCapability: DatabasePointerInclusionCapability =
+export const databaseInclusionCapability: DatabaseInclusionCapability =
 	immutableRecord({
-		kind: 'pointer-inclusions',
-		version: databasePointerInclusionCapabilityVersion,
+		kind: 'inclusions',
+		version: databaseInclusionCapabilityVersion,
 	})
 
 /** Reuses one frozen relation declaration across root and transaction adapters. */
@@ -152,11 +152,15 @@ export interface DatabaseConstraintNode<
 export type DatabaseRowFilterNode = QueryFilterExpression
 
 /** Identifies one validated logical edge outside the transformable QueryBuilder AST. */
-export interface DatabaseRelationScope {
+export interface DatabaseRelationReference {
 	readonly fieldPath: readonly string[]
 	readonly source: SchemaDefinition
-	readonly sourceObjectId: string
 	readonly target: SchemaDefinition
+}
+
+/** Identifies one validated object-scoped logical edge outside the public AST. */
+export interface DatabaseRelationScope extends DatabaseRelationReference {
+	readonly sourceObjectId: string
 }
 
 /** Carries target policy beside one exact public relation leaf, never inside it. */
@@ -167,10 +171,11 @@ export interface DatabaseRelationPredicateScope {
 }
 
 /** Carries one target read plan whose physical correlation remains adapter-owned. */
-export interface DatabasePointerInclusionPlan {
+export interface DatabaseInclusionPlan {
 	readonly fieldPath: readonly string[]
+	readonly kind: 'pointer' | 'relation'
 	readonly request: DatabaseOperationRequest
-	/** Prevents loading a target whose operation Access was denied. */
+	/** Prevents loading targets whose operation Access was denied. */
 	readonly unavailable?: true
 }
 
@@ -189,7 +194,7 @@ export interface DatabaseOperationRequest<
 	/** Keeps target Access monotonic and invisible to source QueryBuilder hooks. */
 	readonly relationPredicates?: readonly DatabaseRelationPredicateScope[]
 	/** Carries recursively prepared target reads only to eager-inclusion adapters. */
-	readonly pointerInclusions?: readonly DatabasePointerInclusionPlan[]
+	readonly inclusions?: readonly DatabaseInclusionPlan[]
 	/**
 	 * Carries framework-owned row restrictions outside the transformable QueryBuilder AST.
 	 * Adapters must combine this predicate with the operation predicate using AND.
@@ -367,10 +372,14 @@ export interface DatabaseOperationExecutor {
 	/** Reads adapter-retained identity without placing it in a public projection. */
 	readObjectIdentity?(record: Readonly<Record<string, unknown>>): unknown
 	/** Reads one raw eager target retained beside an exact parent record. */
-	readIncludedPointer?(
+	readIncludedValue?(
 		record: Readonly<Record<string, unknown>>,
 		fieldPath: readonly string[],
-	): DatabaseLogicalRecord | null | undefined
+	):
+		| DatabaseLogicalRecord
+		| readonly DatabaseLogicalRecord[]
+		| null
+		| undefined
 }
 
 /** Owns regular operations and starts isolated adapter transactions. */

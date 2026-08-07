@@ -145,6 +145,7 @@ Accepted records:
 - [ADR-0151: Persisted model read and identity helpers](0151-persisted-model-read-and-identity-helpers.md)
 - [ADR-0152: Schema-root object read commands](0152-schema-root-object-read-commands.md)
 - [ADR-0153: Operation-wide execution options](0153-operation-execution-options.md)
+- [ADR-0154: Unified eager relationship inclusion](0154-unified-eager-relationship-inclusion.md)
 
 Superseded records:
 

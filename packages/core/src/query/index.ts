@@ -6,7 +6,9 @@ export type {
 	QueryCursorPaginationNode,
 	QueryExpressionNode,
 	QueryFieldName,
+	QueryIncludedFieldNode,
 	QueryIncludedPointerNode,
+	QueryIncludedRelationNode,
 	QueryInclusionNode,
 	QueryOffsetPaginationNode,
 	QueryOrderingNode,
@@ -50,10 +52,18 @@ export type { QuerySelectedField, QuerySelection } from './clauses/selection.js'
 export { normalizeQueryInclusion } from './clauses/inclusion.js'
 export type {
 	QueryPointerFieldName,
+	QueryIncludableFieldName,
+	QueryInclusionAst,
+	QueryInclusionInput,
+	QueryInclusionTargetSchema,
 	QueryPointerInclusionAst,
 	QueryPointerInclusionInput,
 	QueryPointerInclusionNode,
 	QueryPointerTargetSchema,
+	QueryRelationFieldName,
+	QueryRelationInclusionInput,
+	QueryRelationInclusionNode,
+	QueryRelationTargetSchema,
 } from './clauses/inclusion.js'
 export { normalizeLogicalFilter } from './filters/logical.js'
 export { fieldPath } from './filters/factory.js'
@@ -133,6 +143,7 @@ export type {
 	GetOperationAst,
 	OperationAst,
 	OperationAstNode,
+	OperationIncludedField,
 	OperationIncludedPointer,
 	OperationKind,
 	OperationObjectId,
@@ -184,6 +195,8 @@ export type {
 	InferQueryRecord,
 	InferQueryResult,
 	QueryPointerResultInclusion,
+	QueryRelationResultInclusion,
+	QueryResultInclusion,
 } from './query/result.js'
 export type {
 	CountInput,
@@ -193,11 +206,13 @@ export type {
 	FindOneInput,
 	GetInput,
 	QueryIncludeInput,
+	QueryIncludedFieldFromInput,
 	QueryIncludedPointerFromInput,
 	QueryBuilderInput,
 	QueryOrderByDirection,
 	QueryOrderByInput,
 	QueryPointerTargetInput,
+	QueryRelationTargetInput,
 	QuerySelectedFieldFromInput,
 } from './query/input.js'
 export { QueryBuilder } from './query/query.js'

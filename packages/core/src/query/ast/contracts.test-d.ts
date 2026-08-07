@@ -37,6 +37,7 @@ const readNodeKind = (
 		case 'selected-field':
 		case 'inclusion':
 		case 'included-pointer':
+		case 'included-relation':
 		case 'where':
 		case 'fixture-expression':
 		case 'ordering':

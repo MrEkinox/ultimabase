@@ -38,14 +38,32 @@ export interface QueryIncludedPointerNode<
 	readonly query: TQuery
 }
 
-/** Groups bounded single-target inclusions without introducing to-many loading. */
+/** Includes one logical to-many relation through an independently shaped target query. */
+export interface QueryIncludedRelationNode<
+	TFieldName extends string = string,
+	TQuery = unknown,
+> {
+	readonly kind: 'included-relation'
+	readonly field: TFieldName
+	readonly query: TQuery
+}
+
+/** Enumerates every transport-neutral eager-loading branch. */
+export type QueryIncludedFieldNode<
+	TFieldName extends string = string,
+	TQuery = unknown,
+> =
+	| QueryIncludedPointerNode<TFieldName, TQuery>
+	| QueryIncludedRelationNode<TFieldName, TQuery>
+
+/** Groups exact pointer and to-many relation inclusions in declaration order. */
 export interface QueryInclusionNode<
 	TFieldName extends string = string,
-	TIncludedPointer extends QueryIncludedPointerNode<TFieldName> =
-		QueryIncludedPointerNode<TFieldName>,
+	TIncludedField extends QueryIncludedFieldNode<TFieldName> =
+		QueryIncludedFieldNode<TFieldName>,
 > {
 	readonly kind: 'inclusion'
-	readonly pointers: readonly TIncludedPointer[]
+	readonly fields: readonly TIncludedField[]
 }
 
 /** Provides the neutral discriminant required by future filter node unions. */
@@ -133,6 +151,7 @@ export type QueryAstNode<
 	| QuerySelectedFieldNode<QueryFieldName<TSchema>>
 	| QueryInclusionNode<QueryFieldName<TSchema>>
 	| QueryIncludedPointerNode<QueryFieldName<TSchema>>
+	| QueryIncludedRelationNode<QueryFieldName<TSchema>>
 	| QueryWhereNode<TExpression>
 	| TExpression
 	| QueryOrderingNode<QueryFieldName<TSchema>>

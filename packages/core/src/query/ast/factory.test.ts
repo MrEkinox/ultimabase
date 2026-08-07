@@ -19,7 +19,7 @@ describe('createQueryAst', () => {
 			kind: 'query',
 			schema: { kind: 'schema', definition: postSchema },
 			selection: { kind: 'selection', fields: [] },
-			inclusion: { kind: 'inclusion', pointers: [] },
+			inclusion: { fields: [], kind: 'inclusion' },
 			where: undefined,
 			ordering: { kind: 'ordering', orders: [] },
 			limit: undefined,
@@ -31,7 +31,7 @@ describe('createQueryAst', () => {
 		expect(Object.isFrozen(ast.selection)).toBe(true)
 		expect(Object.isFrozen(ast.selection.fields)).toBe(true)
 		expect(Object.isFrozen(ast.inclusion)).toBe(true)
-		expect(Object.isFrozen(ast.inclusion.pointers)).toBe(true)
+		expect(Object.isFrozen(ast.inclusion.fields)).toBe(true)
 		expect(Object.isFrozen(ast.ordering)).toBe(true)
 		expect(Object.isFrozen(ast.ordering.orders)).toBe(true)
 		expect(Reflect.set(ast, 'where', { kind: 'transport-filter' })).toBe(false)

@@ -7,6 +7,7 @@ import {
 	jsonField,
 	objectField,
 	pointerField,
+	relationField,
 	stringField,
 } from '../../schema/index.js'
 import { describe, expect, it } from 'vitest'
@@ -37,6 +38,13 @@ const includedPostSchema = Schema.define({
 	className: 'QueryIncludedPost',
 	fields: {
 		author: pointerField({ target: () => includedUserSchema }),
+		title: stringField(),
+	},
+})
+const includedFeedSchema = Schema.define({
+	className: 'QueryIncludedFeed',
+	fields: {
+		posts: relationField({ target: () => includedPostSchema }),
 		title: stringField(),
 	},
 })
@@ -165,9 +173,9 @@ describe('QueryBuilder', () => {
 			query.select({ name: true }),
 		)
 
-		expect(base.ast.inclusion.pointers).toStrictEqual([])
-		expect(included.ast.inclusion.pointers).toHaveLength(1)
-		expect(included.ast.inclusion.pointers[0]).toMatchObject({
+		expect(base.ast.inclusion.fields).toStrictEqual([])
+		expect(included.ast.inclusion.fields).toHaveLength(1)
+		expect(included.ast.inclusion.fields[0]).toMatchObject({
 			kind: 'included-pointer',
 			field: 'author',
 			query: {
@@ -183,13 +191,48 @@ describe('QueryBuilder', () => {
 				},
 			},
 		})
-		expect(replaced.ast.inclusion.pointers).toHaveLength(1)
+		expect(replaced.ast.inclusion.fields).toHaveLength(1)
 		expect(
-			replaced.ast.inclusion.pointers[0]?.query.selection.fields,
+			replaced.ast.inclusion.fields[0]?.query.selection.fields,
 		).toStrictEqual([{ kind: 'selected-field', field: 'name' }])
 		expect(Object.isFrozen(included.ast.inclusion)).toBe(true)
-		expect(Object.isFrozen(included.ast.inclusion.pointers)).toBe(true)
-		expect(Object.isFrozen(included.ast.inclusion.pointers[0])).toBe(true)
+		expect(Object.isFrozen(included.ast.inclusion.fields)).toBe(true)
+		expect(Object.isFrozen(included.ast.inclusion.fields[0])).toBe(true)
+	})
+
+	it('builds bounded relation inclusion branches with collection cardinality', () => {
+		const included = new QueryBuilder(includedFeedSchema).include(
+			'posts',
+			(query) =>
+				query
+					.select({ title: true })
+					.where((where) => where.ne('title', 'Archived'))
+					.descending('createdAt')
+					.limit(4),
+		)
+
+		expect(included.ast.selection.fields).toStrictEqual([])
+		expect(included.ast.inclusion.fields[0]).toMatchObject({
+			field: 'posts',
+			kind: 'included-relation',
+			query: {
+				limit: 4,
+				ordering: {
+					orders: [{ direction: 'descending', field: 'createdAt' }],
+				},
+				selection: { fields: [{ field: 'title' }] },
+			},
+		})
+		expect(included.build()).toStrictEqual({
+			include: {
+				posts: {
+					limit: 4,
+					orderBy: [{ createdAt: 'desc' }],
+					select: { title: true },
+					where: { title: { ne: 'Archived' } },
+				},
+			},
+		})
 	})
 
 	it('normalizes pointer identity predicates without physical foreign-key names', () => {
@@ -231,7 +274,7 @@ describe('QueryBuilder', () => {
 			),
 		).toThrow(
 			new TypeError(
-				'query inclusion callback must return a QueryBuilder for the pointer target',
+				'query inclusion callback must return a QueryBuilder for the relationship target',
 			),
 		)
 		expect(() =>
@@ -241,7 +284,9 @@ describe('QueryBuilder', () => {
 				(query) => query,
 			),
 		).toThrow(
-			new TypeError('query inclusion field must reference a pointer field'),
+			new TypeError(
+				'query inclusion field must reference a pointer or relation field',
+			),
 		)
 	})
 

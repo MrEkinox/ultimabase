@@ -1,6 +1,6 @@
 import {
+	databaseInclusionCapability,
 	databasePointerCapability,
-	databasePointerInclusionCapability,
 	databaseRelationCapability,
 	databaseRelationPredicateCapability,
 	FrameworkError,
@@ -44,13 +44,13 @@ import { compilePostgresRelationPredicate } from '../query/relation-compiler.js'
 import { createPostgresRelationPredicateCompiler } from '../query/relation-predicate-compiler.js'
 import {
 	executePostgresRelationalRead,
-	readPostgresIncludedPointer,
+	readPostgresIncludedValue,
 	readPostgresRelationalObjectIdentity,
 } from './relational-query-executor.js'
 
 const postgresDatabaseCapabilities = immutableRecord({
 	pointers: databasePointerCapability,
-	pointerInclusions: databasePointerInclusionCapability,
+	inclusions: databaseInclusionCapability,
 	relations: databaseRelationCapability,
 	relationPredicates: databaseRelationPredicateCapability,
 })
@@ -260,11 +260,11 @@ class DrizzlePostgresTransactionAdapter implements DatabaseTransactionAdapter {
 		return readPostgresObjectIdentity(record)
 	}
 
-	readIncludedPointer(
+	readIncludedValue(
 		record: Readonly<Record<string, unknown>>,
 		fieldPath: readonly string[],
 	) {
-		return readPostgresIncludedPointer(record, fieldPath)
+		return readPostgresIncludedValue(record, fieldPath)
 	}
 
 	/** Prevents an escaped adapter from issuing work after commit or rollback. */
@@ -414,11 +414,11 @@ class DrizzlePostgresDatabaseAdapter implements DatabaseAdapter {
 		return readPostgresObjectIdentity(record)
 	}
 
-	readIncludedPointer(
+	readIncludedValue(
 		record: Readonly<Record<string, unknown>>,
 		fieldPath: readonly string[],
 	) {
-		return readPostgresIncludedPointer(record, fieldPath)
+		return readPostgresIncludedValue(record, fieldPath)
 	}
 
 	execute<const TOperation extends DatabaseOperationAst>(

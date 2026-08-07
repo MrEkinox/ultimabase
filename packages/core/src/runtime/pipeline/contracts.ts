@@ -19,6 +19,7 @@ import type {
 	DatabaseOperationOutcome,
 	DatabaseOperationExecutor,
 	DatabaseOperationResult,
+	DatabaseRelationReference,
 	DatabaseRelationScope,
 	DatabaseRelationPredicateScope,
 } from '../database/contracts.js'
@@ -142,7 +143,7 @@ export type RuntimeEnforcementSelectionResultStage = <
 export interface RuntimeRelationEnforcementStageInput<
 	TOperation extends DatabaseOperationAst = DatabaseOperationAst,
 > extends RuntimeOperationStageInput<TOperation> {
-	readonly relation: DatabaseRelationScope
+	readonly relation: DatabaseRelationReference
 }
 
 /** Authorizes one source relation field before its target query executes. */

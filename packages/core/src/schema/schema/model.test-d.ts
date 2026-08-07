@@ -8,6 +8,7 @@ import type { SchemaWhere } from '../../query/operations/schema-commands.js'
 import { booleanField } from '../fields/builtins/boolean.js'
 import { objectField } from '../fields/builtins/object.js'
 import { pointerField } from '../fields/builtins/pointer.js'
+import { relationField } from '../fields/builtins/relation.js'
 import { stringField } from '../fields/builtins/string.js'
 import { definePluginField } from '../fields/plugin.js'
 import type { InferCreateInput } from '../inference/types.js'
@@ -54,6 +55,22 @@ const Article = Schema.define({
 			target: () => Author,
 			validation: { required: true },
 		}),
+		title: stringField({ validation: { required: true } }),
+	},
+})
+
+const Comment = Schema.define({
+	className: 'Comment',
+	fields: {
+		body: stringField({ validation: { required: true } }),
+		author: pointerField({ target: () => Author }),
+	},
+})
+
+const Discussion = Schema.define({
+	className: 'Discussion',
+	fields: {
+		comments: relationField({ target: () => Comment }),
 		title: stringField({ validation: { required: true } }),
 	},
 })
@@ -158,12 +175,47 @@ test('exposes writes on the schema class and keeps QueryBuilder read-only', () =
 			typeof Article,
 			'id' | 'title' | 'author',
 			{
+				readonly kind: 'pointer'
 				readonly field: 'author'
 				readonly target: typeof Author
 				readonly selected: 'id' | 'name'
 				readonly nested: never
 			}
 		> | null>
+	>()
+	expectTypeOf(
+		Discussion.findMany({
+			select: { id: true, title: true },
+			include: {
+				comments: {
+					select: { body: true },
+					where: { body: { ne: '' } },
+					orderBy: [{ createdAt: 'desc' }],
+					limit: 5,
+					include: { author: { select: { name: true } } },
+				},
+			},
+		}),
+	).toEqualTypeOf<
+		Promise<
+			readonly InferQueryResult<
+				typeof Discussion,
+				'id' | 'title',
+				{
+					readonly kind: 'relation'
+					readonly field: 'comments'
+					readonly target: typeof Comment
+					readonly selected: 'body' | 'author'
+					readonly nested: {
+						readonly kind: 'pointer'
+						readonly field: 'author'
+						readonly target: typeof Author
+						readonly selected: 'name'
+						readonly nested: never
+					}
+				}
+			>[]
+		>
 	>()
 	expectTypeOf(
 		Post.get({ id: 'post-1', select: { title: true } }),

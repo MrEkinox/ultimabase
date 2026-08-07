@@ -741,6 +741,12 @@ const enforceRecordOutput = async (
 	let projected = record
 
 	for (const field of schemaPlan.fields) {
+		if (field.field.kind === 'relation') {
+			// Relation collections are absent from persisted rows. Their source rule is
+			// enforced once before eager traversal, before an adapter can load targets.
+			continue
+		}
+
 		const current = readPathValue(projected, field.path)
 
 		if (!current.present) {

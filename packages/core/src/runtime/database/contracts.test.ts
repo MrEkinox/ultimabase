@@ -16,10 +16,10 @@ import { describe, expect, it } from 'vitest'
 
 import {
 	databaseAdapterServiceToken,
+	databaseInclusionCapability,
+	databaseInclusionCapabilityVersion,
 	databasePointerCapability,
 	databasePointerCapabilityVersion,
-	databasePointerInclusionCapability,
-	databasePointerInclusionCapabilityVersion,
 	databaseRelationCapability,
 	databaseRelationCapabilityVersion,
 	type DatabaseAdapter,
@@ -146,12 +146,12 @@ describe('database adapter contracts', () => {
 		expect(Object.isFrozen(databasePointerCapability)).toBe(true)
 	})
 
-	it('publishes one frozen eager pointer-inclusion capability', () => {
-		expect(databasePointerInclusionCapability).toStrictEqual({
-			kind: 'pointer-inclusions',
-			version: databasePointerInclusionCapabilityVersion,
+	it('publishes one frozen eager relationship-inclusion capability', () => {
+		expect(databaseInclusionCapability).toStrictEqual({
+			kind: 'inclusions',
+			version: databaseInclusionCapabilityVersion,
 		})
-		expect(Object.isFrozen(databasePointerInclusionCapability)).toBe(true)
+		expect(Object.isFrozen(databaseInclusionCapability)).toBe(true)
 	})
 
 	it('publishes one frozen versioned relation capability for adapter reuse', () => {

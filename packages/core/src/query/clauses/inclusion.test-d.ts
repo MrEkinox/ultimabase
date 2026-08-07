@@ -1,4 +1,9 @@
-import { pointerField, Schema, stringField } from '../../schema/index.js'
+import {
+	pointerField,
+	relationField,
+	Schema,
+	stringField,
+} from '../../schema/index.js'
 import { expectTypeOf, test } from 'vitest'
 
 import { QueryBuilder } from '../query/query.js'
@@ -19,6 +24,10 @@ const postSchema = Schema.define({
 		title: stringField(),
 	},
 })
+const teamSchema = Schema.define({
+	className: 'TypedIncludedTeam',
+	fields: { members: relationField({ target: () => userSchema }) },
+})
 
 test('correlates pointer keys with their exact target query', () => {
 	expectTypeOf<
@@ -35,7 +44,7 @@ test('correlates pointer keys with their exact target query', () => {
 		},
 	])
 
-	expectTypeOf(inclusion.pointers[0]?.field).toEqualTypeOf<
+	expectTypeOf(inclusion.fields[0]?.field).toEqualTypeOf<
 		'author' | undefined
 	>()
 
@@ -46,4 +55,20 @@ test('correlates pointer keys with their exact target query', () => {
 			query: new QueryBuilder(userSchema).ast,
 		},
 	])
+})
+
+test('correlates relation keys with their exact collection target query', () => {
+	const inclusion = normalizeQueryInclusion(teamSchema, [
+		{
+			field: 'members',
+			query: new QueryBuilder(userSchema).select({ name: true }).ast,
+		},
+	])
+
+	expectTypeOf(inclusion.fields[0]?.kind).toEqualTypeOf<
+		'included-relation' | undefined
+	>()
+	expectTypeOf(inclusion.fields[0]?.field).toEqualTypeOf<
+		'members' | undefined
+	>()
 })

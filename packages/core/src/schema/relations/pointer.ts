@@ -14,7 +14,7 @@ import {
 	type ExactReadInput,
 	type ExistsInput,
 	type FindOneInput,
-	type QueryIncludedPointerFromInput,
+	type QueryIncludedFieldFromInput,
 	type QuerySelectedFieldFromInput,
 } from '../../query/query/input.js'
 import { Schema, type SchemaDefinition } from '../schema/definition.js'
@@ -117,7 +117,7 @@ export class Pointer<
 	): Promise<InferQueryResult<
 		TSchema,
 		QuerySelectedFieldFromInput<TSchema, TInput>,
-		QueryIncludedPointerFromInput<TSchema, TInput>
+		QueryIncludedFieldFromInput<TSchema, TInput>
 	> | null>
 	/** Reads this exact target without applying a projection. */
 	findOne(

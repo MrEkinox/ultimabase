@@ -497,7 +497,8 @@ const found = await Post.findOne(
 Writes and predicates send only the target UUID as a parameter. Reads restore
 an immutable `Pointer` bound to the exact registered target schema. Inclusion
 then executes through Core's nested operation pipeline, so target Access,
-hooks, request authority, and the current transaction remain enforced. Direct
+field output resolution, request authority, and the current transaction remain
+enforced without manufacturing target schema read hooks. Direct
 schema synchronization creates every table before foreign keys, which also
 supports circular schema graphs.
 
@@ -533,7 +534,29 @@ await tags.disconnect(Tag.pointer(featuredTagId), { ultimabase })
 await tags.clear({ ultimabase })
 ```
 
-Relation scopes stay outside the developer Query AST and are combined with
+The same generated Drizzle relation graph supports collection inclusion on a
+source read:
+
+```ts
+const articles = await Article.findMany({
+	select: { id: true, title: true },
+	include: {
+		tags: {
+			where: { label: { ne: 'archived' } },
+			orderBy: [{ label: 'asc' }],
+			limit: 20,
+			select: { id: true, label: true },
+		},
+	},
+})
+```
+
+PostgreSQL compiles pointer, owning-relation, inverse-relation, and nested
+inclusion branches into one Drizzle RQB `with` tree. Core prepares target Access
+and constraints before the adapter receives that tree. No adapter-side
+DataLoader or per-parent query loop is used.
+
+Relation handle scopes stay outside the developer Query AST and are combined with
 developer predicates and native Access using parameterized SQL. Traversal
 first checks the source relation field, then runs the target read through its
 ordinary Access and hook lifecycle. Mutations lock and update the source inside

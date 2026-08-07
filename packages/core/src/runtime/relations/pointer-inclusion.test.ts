@@ -180,7 +180,7 @@ describe('pointer Runtime execution', () => {
 			])
 			expect(adapter.rootRequests).toHaveLength(2)
 			expect(
-				adapter.rootRequests[0]?.pointerInclusions?.[0]?.request.operation,
+				adapter.rootRequests[0]?.inclusions?.[0]?.request.operation,
 			).toMatchObject({
 				kind: 'find-one',
 				query: {
@@ -190,7 +190,7 @@ describe('pointer Runtime execution', () => {
 				},
 			})
 			expect(
-				adapter.rootRequests[0]?.pointerInclusions?.[0]?.request.rowFilter,
+				adapter.rootRequests[0]?.inclusions?.[0]?.request.rowFilter,
 			).toMatchObject({
 				field: 'status',
 				kind: 'equal',

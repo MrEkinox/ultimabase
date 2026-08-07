@@ -53,9 +53,7 @@ void ultimabase
 			)
 
 			if (completion === undefined) {
-				throw new TypeError(
-					`Missing operation option completion: ${name}`,
-				)
+				throw new TypeError(`Missing operation option completion: ${name}`)
 			}
 
 			return service.getCompletionEntryDetails(
@@ -569,7 +567,7 @@ Post./* hover */createMany({ data: [{ title: 'First' }] }, { atomic: false })
 		expect(operation.tags?.some(({ name }) => name === 'example')).toBe(true)
 	})
 
-	it('documents pointer inclusion and keeps target-field autocomplete exact', () => {
+	it('documents relationship inclusion and keeps target-field autocomplete exact', () => {
 		const inclusion = readMarkedQuickInfo(
 			`${import.meta.dirname}/query-pointer-include-hover.fixture.ts`,
 			`
@@ -585,7 +583,7 @@ new QueryBuilder(Post)./* hover */include('author', (query) => query.select({ na
 		expect(display).toContain('"author"')
 		expect(display).not.toContain('authorId')
 		expect(readDisplay(inclusion.documentation)).toContain(
-			'Loads one pointer through an exact',
+			'Loads one pointer or relation through an exact',
 		)
 		expect(inclusion.tags?.some(({ name }) => name === 'example')).toBe(true)
 
@@ -608,5 +606,35 @@ new QueryBuilder(Post).include('author', (query) => query.select({ ${marker}: tr
 		expect(completionNames.has('name')).toBe(true)
 		expect(completionNames.has('email')).toBe(true)
 		expect(completionNames.has('title')).toBe(false)
+
+		const relationMarker = '/* relation completion */'
+		const relationSourceWithMarker = `
+import { QueryBuilder, Schema, relationField, stringField } from '../../src/index.js'
+const Post = Schema.define({ className: 'Post', fields: { title: stringField(), body: stringField() } })
+const User = Schema.define({ className: 'User', fields: { name: stringField(), posts: relationField({ target: () => Post }) } })
+new QueryBuilder(User).include('posts', (query) => query.select({ ${relationMarker}: true }))
+`
+		const relationPosition = relationSourceWithMarker.indexOf(relationMarker)
+		const relationSource = relationSourceWithMarker.replace(
+			relationMarker,
+			' '.repeat(relationMarker.length),
+		)
+		const relationFileName = `${import.meta.dirname}/query-relation-include-completion.fixture.ts`
+		const relationService = createLanguageService(
+			relationFileName,
+			relationSource,
+		)
+		const relationCompletions = relationService.getCompletionsAtPosition(
+			relationFileName,
+			relationPosition,
+			{},
+		)
+		const relationCompletionNames = new Set(
+			relationCompletions?.entries.map(({ name }) => name) ?? [],
+		)
+
+		expect(relationCompletionNames.has('title')).toBe(true)
+		expect(relationCompletionNames.has('body')).toBe(true)
+		expect(relationCompletionNames.has('name')).toBe(false)
 	})
 })
