@@ -639,8 +639,8 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 			expect(updated?.id).toBe(created.id)
 			expect(deleted?.id).toBe(created.id)
 			expect(auditReasons).toStrictEqual([
-				'Query terminal update-one on RuntimeBulkAccount',
-				'Query terminal delete-one on RuntimeBulkAccount',
+				'Schema command update-one on RuntimeBulkAccount',
+				'Schema command delete-one on RuntimeBulkAccount',
 			])
 			await expect(selected.exists({ ultimabase })).resolves.toBe(false)
 			await expect(selected.fetch({}, { ultimabase })).resolves.toBeNull()
@@ -765,7 +765,7 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 				{ mode: 'master', principal: 'postgres-user' },
 			])
 			expect(auditReasons).toStrictEqual([
-				'Query terminal create-one on RuntimeAuthorityRecord',
+				'Schema command create-one on RuntimeAuthorityRecord',
 			])
 			await expect(
 				AuthorityRecordSchema.count(undefined, { ultimabase }),

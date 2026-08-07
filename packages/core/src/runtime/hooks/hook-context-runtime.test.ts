@@ -213,7 +213,7 @@ describe('HookContext Runtime capabilities', () => {
 		expect(transactionIds[1]).toBe(transactionIds[0])
 		expect(nestedAccessModes).toStrictEqual(['master'])
 		expect(auditReasons).toStrictEqual([
-			'QueryBuilder terminal create-one on HookContextAudit',
+			'Schema command create-one on HookContextAudit',
 		])
 		expect(trace).toStrictEqual([
 			'adapter:begin',

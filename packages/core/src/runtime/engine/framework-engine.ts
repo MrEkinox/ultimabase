@@ -148,11 +148,11 @@ const bindRequestContextToFramework = (
 	}
 }
 
-/** Builds a stable audit reason without retaining terminal options in the AST. */
-const createTerminalMasterReason = (
+/** Builds a stable master audit reason from the normalized schema operation. */
+const createMasterAuditReason = (
 	operation: OperationAstNode,
 	schema: SchemaDefinition,
-): string => `QueryBuilder terminal ${operation.kind} on ${schema.className}`
+): string => `Schema command ${operation.kind} on ${schema.className}`
 
 /** Recognizes only Runtime's own Access denial marker at a protected boundary. */
 const isNativeAccessDenied = (error: unknown): boolean =>
@@ -373,7 +373,7 @@ export class RequestEngine<
 			context = await elevateTrustedMasterRequest(
 				getFrameworkMasterAuthority(this.framework),
 				context,
-				createTerminalMasterReason(normalizedOperation, schema),
+				createMasterAuditReason(normalizedOperation, schema),
 			)
 		}
 
@@ -388,7 +388,7 @@ export class RequestEngine<
 						this.#transactionLifetime,
 					)
 
-		// QueryBuilder terminal construction guarantees an executable operation for this schema.
+		// Structural normalization guarantees an executable operation for this schema.
 		return engine.#executeOperation(
 			normalizedOperation,
 			scope?.kind === 'row-filter' ? scope.rowFilter : undefined,

@@ -217,7 +217,7 @@ describe('UltimaBase', () => {
 			expect(observedAccesses[1]).toStrictEqual({
 				keyId: 'server-default',
 				mode: 'master',
-				reason: 'QueryBuilder terminal find-many on UltimaBaseArticle',
+				reason: 'Schema command find-many on UltimaBaseArticle',
 			})
 			expect(observedPrincipals[1]).toBe('user-1')
 			expect(auditEvents).toStrictEqual([
@@ -226,7 +226,7 @@ describe('UltimaBase', () => {
 					kind: 'master-access',
 					occurredAt: '2026-08-03T12:00:00.000Z',
 					previousAccess: { mode: 'anonymous' },
-					reason: 'QueryBuilder terminal find-many on UltimaBaseArticle',
+					reason: 'Schema command find-many on UltimaBaseArticle',
 					requestId: 'plugin-context-1',
 					source: 'internal',
 				},

@@ -447,7 +447,7 @@ describe('automatic mutation transaction scope', () => {
 		).resolves.toMatchObject({ title: 'Primary' })
 		expect(nestedAccessMode).toBe('master')
 		expect(auditReasons).toStrictEqual([
-			'QueryBuilder terminal create-one on AutomaticTransactionArticle',
+			'Schema command create-one on AutomaticTransactionArticle',
 		])
 		expect(adapter.transactions).toHaveLength(1)
 		expect(adapter.transactions[0]?.requests).toHaveLength(2)
