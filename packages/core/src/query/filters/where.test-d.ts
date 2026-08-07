@@ -70,6 +70,10 @@ test('correlates where object operators with exact schema fields', () => {
 	const invalidBoolean: WhereInput<typeof Post> = { published: { gte: true } }
 	// @ts-expect-error -- Numeric operands retain the exact field value type.
 	const invalidNumber: WhereInput<typeof Post> = { views: { eq: '10' } }
+	const invalidRelationNull: WhereInput<typeof Post> = {
+		// @ts-expect-error -- Relation emptiness uses some or none rather than nullability.
+		tags: { isNull: true },
+	}
 	const invalidPath: WhereInput<typeof Post> = {
 		profile: {
 			at: [
@@ -85,6 +89,7 @@ test('correlates where object operators with exact schema fields', () => {
 	void unknownField
 	void invalidBoolean
 	void invalidNumber
+	void invalidRelationNull
 	void invalidPath
 })
 
@@ -104,4 +109,6 @@ test('keeps the public builder short, immutable, and schema-correlated', () => {
 	base.contains('published', 'false')
 	// @ts-expect-error -- A builder from another schema cannot be combined.
 	base.and(new WhereBuilder(Tag).eq('label', 'typescript'))
+	// @ts-expect-error -- Relation emptiness uses some or none rather than nullability.
+	base.isNull('tags')
 })

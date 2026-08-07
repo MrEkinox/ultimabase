@@ -105,6 +105,12 @@ describe('WhereInput', () => {
 		expect(() =>
 			normalizeWhereInput(Post, { missing: { eq: true } } as never),
 		).toThrow('must reference a schema field')
+		expect(() =>
+			normalizeWhereInput(Post, { tags: { isNull: true } } as never),
+		).toThrow('query operator null does not support relation fields')
+		expect(() =>
+			normalizeWhereInput(Post, { tags: { isNotNull: true } } as never),
+		).toThrow('query operator null does not support relation fields')
 
 		const circular: Record<string, unknown> = {}
 		circular.NOT = circular

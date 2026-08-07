@@ -225,6 +225,12 @@ const assertOperatorSupport = (
 		| 'regex',
 ): void => {
 	if (operator === 'null') {
+		if (field.kind === 'relation') {
+			throw new TypeError(
+				'query operator null does not support relation fields',
+			)
+		}
+
 		return
 	}
 

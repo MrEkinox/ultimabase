@@ -279,6 +279,12 @@ filter into a private adapter scope that source hooks cannot remove. Predicate
 depth is bounded, and adapters must advertise the separate versioned relation
 predicate capability before execution.
 
+A to-many relation is never nullable. Use `some: {}` to require at least one
+visible related object and `none: {}` to require an empty visible collection;
+`isNull` and `isNotNull` are reserved for stored fields. `every` is true for an
+empty visible collection, so combine it with `some: {}` when at least one target
+must exist.
+
 When an edge owns application data, model it as an ordinary schema with two
 pointer fields instead of hiding metadata behind `relationField`:
 

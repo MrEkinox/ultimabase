@@ -583,6 +583,10 @@ relation. Nested predicates receive deterministic table aliases. Developer
 values, target Access filters, and plugin constraints remain parameters or
 private compiler input and never become interpolated SQL text.
 
+Relation emptiness uses `none: {}` and non-emptiness uses `some: {}`. To-many
+relations have no nullable row column, so `isNull` and `isNotNull` are not part
+of their filter contract.
+
 Relationships with business data remain ordinary schemas. For example, two
 required pointers plus a composite unique index model a membership edge:
 

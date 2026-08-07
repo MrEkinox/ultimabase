@@ -404,8 +404,9 @@ new QueryBuilder(Post).select({ title: true, ${marker} })
 			fixtureName: string,
 		): Set<string> => {
 			const sourceWithMarker = `
-import { Schema, booleanField, intField } from '../../src/index.js'
-const Post = Schema.define({ className: 'Post', fields: { published: booleanField(), views: intField() } })
+import { Schema, booleanField, intField, relationField, stringField } from '../../src/index.js'
+const Tag = Schema.define({ className: 'Tag', fields: { label: stringField() } })
+const Post = Schema.define({ className: 'Post', fields: { published: booleanField(), tags: relationField({ target: () => Tag }), views: intField() } })
 ${body}
 `
 			const position = sourceWithMarker.indexOf(marker)
@@ -433,6 +434,10 @@ ${body}
 			`Post.findMany({ where: { views: { ${marker} } } })`,
 			'query-where-number-completion',
 		)
+		const relationOperators = readCompletions(
+			`Post.findMany({ where: { tags: { ${marker} } } })`,
+			'query-where-relation-completion',
+		)
 
 		expect(fields.has('published')).toBe(true)
 		expect(fields.has('views')).toBe(true)
@@ -443,6 +448,12 @@ ${body}
 		expect(numericOperators.has('eq')).toBe(true)
 		expect(numericOperators.has('gte')).toBe(true)
 		expect(numericOperators.has('contains')).toBe(false)
+		for (const operator of ['every', 'none', 'some']) {
+			expect(relationOperators.has(operator)).toBe(true)
+		}
+		expect(relationOperators.has('isNull')).toBe(false)
+		expect(relationOperators.has('isNotNull')).toBe(false)
+		expect(relationOperators.has('eq')).toBe(false)
 	})
 
 	it('completes canonical read clauses, ordering, and relationship inclusion', () => {

@@ -348,11 +348,13 @@ type QueryPrimitiveFilterForField<
 	TSchema extends SchemaDefinition,
 	TFieldName extends QueryFieldName<TSchema>,
 > =
-	| QueryNullFilterNode<TFieldName>
-	| (IsScalarQueryField<TSchema, TFieldName> extends true
-			? | QueryScalarPrimitiveFilterNode<TSchema, TFieldName>
-				| QueryStructuredPrimitiveFilterNode<TSchema, TFieldName>
-			: never)
+	QueryFieldKind<TSchema, TFieldName> extends 'relation'
+		? never
+		: | QueryNullFilterNode<TFieldName>
+			| (IsScalarQueryField<TSchema, TFieldName> extends true
+					? | QueryScalarPrimitiveFilterNode<TSchema, TFieldName>
+						| QueryStructuredPrimitiveFilterNode<TSchema, TFieldName>
+					: never)
 
 type QueryStructuredPrimitiveFilterNode<
 	TSchema extends SchemaDefinition,

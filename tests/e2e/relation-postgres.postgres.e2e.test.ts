@@ -647,6 +647,12 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 		await expect(
 			article.relation('tags').findMany(undefined, { ultimabase: app }),
 		).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
+		await expect(
+			PrivateArticle.findMany(
+				{ where: { tags: { some: { label: { eq: 'private' } } } } },
+				{ ultimabase: app },
+			),
+		).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
 	})
 
 	it('recognizes managed joins without claiming unrelated tables', async () => {
