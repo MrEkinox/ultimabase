@@ -2,7 +2,7 @@ import type {
 	DatabaseRowFilterNode,
 	QueryFilterExpression,
 	QueryFilterNode,
-	QueryRelationPredicateNode,
+	QueryRelationFilterNode,
 	QueryRegexFlag,
 } from '@ultimabase/core'
 import type { SchemaDefinition } from '@ultimabase/core'
@@ -112,12 +112,12 @@ type RuntimePrimitiveFilter =
 	| RuntimeStringOrContainmentFilter
 
 type RuntimeFilter = QueryFilterExpression<
-	RuntimePrimitiveFilter | QueryRelationPredicateNode
+	RuntimePrimitiveFilter | QueryRelationFilterNode
 >
 
 /** Compiles one correlated relation leaf against the current source alias. */
 export type PostgresRelationPredicateCompiler = (
-	predicate: QueryRelationPredicateNode,
+	predicate: QueryRelationFilterNode,
 	source: CompiledPostgresSchema,
 ) => SQL
 
@@ -529,6 +529,7 @@ const compileRuntimeFilter = (
 
 			return compiled
 		}
+		case 'relation-count':
 		case 'relation-predicate':
 			if (relationCompiler === undefined) {
 				throw new TypeError(

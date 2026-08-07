@@ -73,7 +73,7 @@ describe('postgresPlugin', () => {
 		expect(adapter.capabilities).toStrictEqual({
 			pointers: { kind: 'pointers', version: 1 },
 			inclusions: { kind: 'inclusions', version: 1 },
-			relationPredicates: { kind: 'relation-predicates', version: 1 },
+			relationPredicates: { kind: 'relation-predicates', version: 2 },
 			relations: { kind: 'relations', version: 1 },
 		})
 		expect(adapter).not.toHaveProperty('getClient')

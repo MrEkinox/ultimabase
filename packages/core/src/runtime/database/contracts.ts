@@ -7,7 +7,7 @@ import type {
 	OperationKind,
 	QueryFieldName,
 	QueryFilterExpression,
-	QueryRelationPredicateNode,
+	QueryRelationFilterNode,
 	QuerySchemaNode,
 } from '../../query/index.js'
 import type { InferObject, SchemaDefinition } from '../../schema/index.js'
@@ -23,7 +23,7 @@ export const databaseInclusionCapabilityVersion = 1 as const
 export const databaseRelationCapabilityVersion = 1 as const
 
 /** Selects the correlated relation-predicate protocol understood by adapters. */
-export const databaseRelationPredicateCapabilityVersion = 1 as const
+export const databaseRelationPredicateCapabilityVersion = 2 as const
 
 /** Advertises logical pointer storage, predicates, and inclusion source values. */
 export interface DatabasePointerCapability {
@@ -43,7 +43,7 @@ export interface DatabaseRelationCapability {
 	readonly version: typeof databaseRelationCapabilityVersion
 }
 
-/** Advertises correlated `some`, `none`, and `every` predicate compilation. */
+/** Advertises correlated quantifier and visible-cardinality compilation. */
 export interface DatabaseRelationPredicateCapability {
 	readonly kind: 'relation-predicates'
 	readonly version: typeof databaseRelationPredicateCapabilityVersion
@@ -166,7 +166,7 @@ export interface DatabaseRelationScope extends DatabaseRelationReference {
 /** Carries target policy beside one exact public relation leaf, never inside it. */
 export interface DatabaseRelationPredicateScope {
 	readonly constraints: readonly DatabaseConstraintNode[]
-	readonly predicate: QueryRelationPredicateNode
+	readonly predicate: QueryRelationFilterNode
 	readonly rowFilter?: DatabaseRowFilterNode
 }
 

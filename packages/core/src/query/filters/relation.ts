@@ -7,6 +7,7 @@ import {
 import { getFieldSchemaTarget } from '../../schema/fields/base/definition.js'
 import { FrameworkError } from '../../errors/framework-error.js'
 import {
+	immutableArray,
 	immutableRecord,
 	isPlainRecord,
 	isUnknownArray,
@@ -30,12 +31,16 @@ import {
 } from './factory.js'
 import { normalizeLogicalFilter, type QueryFilterNode } from './logical.js'
 import type {
+	QueryComparisonFilterOperator,
+	QueryEqualityFilterOperator,
 	QueryFilterFieldName,
 	QueryBuiltInFilterOperator,
 	QueryFilterOperand,
 	QueryFilterTarget,
 	QueryFilterValue,
 	QueryJsonPathExpression,
+	QueryMembershipFilterOperator,
+	QueryRangeFilterOperator,
 	QueryRegexPattern,
 } from './primitive.js'
 import type { OperationObjectId } from '../operations/contracts.js'
@@ -45,6 +50,27 @@ export const queryRelationPredicateMaxDepth = 8 as const
 
 /** Selects the collection quantifier applied to one exact relation field. */
 export type QueryRelationPredicateOperator = 'every' | 'none' | 'some'
+
+/** Lists portable comparisons supported by the non-null relation cardinality. */
+export type QueryRelationCountOperator =
+	| QueryComparisonFilterOperator
+	| QueryEqualityFilterOperator
+	| QueryMembershipFilterOperator
+	| QueryRangeFilterOperator
+
+/** Describes portable comparisons against a relation's visible cardinality. */
+export interface QueryRelationCountInput {
+	readonly between?: Readonly<{ lower: number; upper: number }>
+	readonly eq?: number
+	readonly gt?: number
+	readonly gte?: number
+	readonly in?: readonly number[]
+	readonly lt?: number
+	readonly lte?: number
+	readonly ne?: number
+	readonly notBetween?: Readonly<{ lower: number; upper: number }>
+	readonly notIn?: readonly number[]
+}
 
 /** Filters one source object by rows reachable through one declared relation. */
 export interface QueryRelationPredicateNode<
@@ -60,6 +86,43 @@ export interface QueryRelationPredicateNode<
 	readonly expression: QueryFilterNode<TTarget>
 }
 
+interface QueryRelationCountBase<
+	TSource extends SchemaDefinition,
+	TFieldName extends string,
+	TTarget extends SchemaDefinition,
+> extends QueryExpressionNode {
+	readonly field: TFieldName
+	readonly kind: 'relation-count'
+	readonly source: QuerySchemaNode<TSource>
+	readonly target: QuerySchemaNode<TTarget>
+}
+
+/** Compares the visible cardinality of one exact relation with a scalar value. */
+export type QueryRelationCountNode<
+	TSource extends SchemaDefinition = SchemaDefinition,
+	TFieldName extends string = string,
+	TTarget extends SchemaDefinition = SchemaDefinition,
+> = QueryRelationCountBase<TSource, TFieldName, TTarget> &
+	(
+		| Readonly<{
+				operator: QueryComparisonFilterOperator | QueryEqualityFilterOperator
+				value: number
+		  }>
+		| Readonly<{
+				operator: QueryMembershipFilterOperator
+				values: readonly number[]
+		  }>
+		| Readonly<{
+				lower: number
+				operator: QueryRangeFilterOperator
+				upper: number
+		  }>
+	)
+
+/** Lists every portable relation leaf accepted by the query AST. */
+export type QueryRelationFilterNode =
+	QueryRelationCountNode | QueryRelationPredicateNode
+
 /** Correlates every relation field with its exact declared target schema. */
 export type QueryRelationPredicateForSchema<TSource extends SchemaDefinition> =
 	{
@@ -71,6 +134,22 @@ export type QueryRelationPredicateForSchema<TSource extends SchemaDefinition> =
 			SchemaRelationTarget<TSource, TFieldName>
 		>
 	}[SchemaRelationFieldName<TSource>]
+
+/** Correlates relation cardinality leaves with their exact target schemas. */
+export type QueryRelationCountForSchema<TSource extends SchemaDefinition> = {
+	readonly [
+		TFieldName in SchemaRelationFieldName<TSource>
+	]: QueryRelationCountNode<
+		TSource,
+		TFieldName,
+		SchemaRelationTarget<TSource, TFieldName>
+	>
+}[SchemaRelationFieldName<TSource>]
+
+/** Lists every schema-correlated relation leaf accepted by one source schema. */
+export type QueryRelationFilterForSchema<TSource extends SchemaDefinition> =
+	| QueryRelationCountForSchema<TSource>
+	| QueryRelationPredicateForSchema<TSource>
 
 interface RelationPredicateState<TSchema extends SchemaDefinition> {
 	readonly depth: number
@@ -599,7 +678,6 @@ export const createQueryRelationPredicate = <
 	if (field?.kind !== 'relation' || !Schema.is(target)) {
 		throw new TypeError('relation predicate field must reference a relation')
 	}
-
 	const exactTarget = target as unknown as SchemaRelationTarget<
 		TSource,
 		TFieldName
@@ -625,6 +703,148 @@ export const createQueryRelationPredicate = <
 	})
 }
 
+const assertRelationCountValue = (value: unknown, path: string): number => {
+	if (!Number.isSafeInteger(value) || (value as number) < 0) {
+		throw new TypeError(`${path} must be a non-negative safe integer`)
+	}
+
+	return value as number
+}
+
+/** Creates one exact immutable visible-cardinality leaf for a relation field. */
+export const createQueryRelationCount = <
+	TSource extends SchemaDefinition,
+	TFieldName extends SchemaRelationFieldName<TSource>,
+>(
+	source: TSource,
+	fieldName: TFieldName,
+	operator: QueryRelationCountOperator,
+	operand:
+		number | readonly number[] | Readonly<{ lower: number; upper: number }>,
+): QueryRelationCountNode<
+	TSource,
+	TFieldName,
+	SchemaRelationTarget<TSource, TFieldName>
+> => {
+	const field = source.fields[fieldName]
+	const target =
+		field === undefined ? undefined : getFieldSchemaTarget(field)?.()
+
+	if (field?.kind !== 'relation' || !Schema.is(target)) {
+		throw new TypeError('relation count field must reference a relation')
+	}
+	const exactTarget = target as unknown as SchemaRelationTarget<
+		TSource,
+		TFieldName
+	>
+
+	const base = {
+		field: fieldName,
+		kind: 'relation-count' as const,
+		source: createQueryAst(source).schema,
+		target: createQueryAst(exactTarget).schema,
+	}
+
+	if (operator === 'in' || operator === 'not-in') {
+		if (!isUnknownArray(operand)) {
+			throw new TypeError(`relation count ${operator} must be an array`)
+		}
+
+		return immutableRecord({
+			...base,
+			operator,
+			values: immutableArray(
+				operand.map((value, index) =>
+					assertRelationCountValue(
+						value,
+						`relation count ${operator}[${String(index)}]`,
+					),
+				),
+			),
+		})
+	}
+
+	if (operator === 'between' || operator === 'not-between') {
+		if (
+			!isPlainRecord(operand) ||
+			Object.keys(operand).length !== 2 ||
+			!Object.hasOwn(operand, 'lower') ||
+			!Object.hasOwn(operand, 'upper')
+		) {
+			throw new TypeError(
+				`relation count ${operator} must contain only lower and upper`,
+			)
+		}
+
+		return immutableRecord({
+			...base,
+			lower: assertRelationCountValue(
+				operand.lower,
+				`relation count ${operator}.lower`,
+			),
+			operator,
+			upper: assertRelationCountValue(
+				operand.upper,
+				`relation count ${operator}.upper`,
+			),
+		})
+	}
+
+	return immutableRecord({
+		...base,
+		operator,
+		value: assertRelationCountValue(operand, `relation count ${operator}`),
+	})
+}
+
+/** Narrows portable visible-cardinality leaves before Runtime interprets them. */
+export const isQueryRelationCountNode = (
+	value: unknown,
+): value is QueryRelationCountNode => {
+	if (
+		!isPlainRecord(value) ||
+		value.kind !== 'relation-count' ||
+		typeof value.field !== 'string' ||
+		!isPlainRecord(value.source) ||
+		value.source.kind !== 'schema' ||
+		!Schema.is(value.source.definition) ||
+		!isPlainRecord(value.target) ||
+		value.target.kind !== 'schema' ||
+		!Schema.is(value.target.definition)
+	) {
+		return false
+	}
+
+	switch (value.operator) {
+		case 'equal':
+		case 'not-equal':
+		case 'greater-than':
+		case 'greater-than-or-equal':
+		case 'less-than':
+		case 'less-than-or-equal':
+			return Number.isSafeInteger(value.value) && (value.value as number) >= 0
+		case 'in':
+		case 'not-in':
+			return (
+				isUnknownArray(value.values) &&
+				value.values.every(
+					(candidate) =>
+						Number.isSafeInteger(candidate) && (candidate as number) >= 0,
+				)
+			)
+		case 'between':
+		case 'not-between':
+			return (
+				Number.isSafeInteger(value.lower) &&
+				(value.lower as number) >= 0 &&
+				Number.isSafeInteger(value.upper) &&
+				(value.upper as number) >= 0
+			)
+		default:
+			return false
+	}
+}
+
 /** Narrows portable expression leaves before Runtime or adapters interpret them. */
 export const isQueryRelationPredicateNode = (
 	value: unknown,
@@ -648,7 +868,7 @@ const collectRelationPredicateNodes = (
 	expression: QueryExpressionNode,
 	depth: number,
 	ancestors: WeakSet<object>,
-	collected: QueryRelationPredicateNode[],
+	collected: QueryRelationFilterNode[],
 ): void => {
 	if (depth > queryRelationPredicateMaxDepth) {
 		throw createQueryRelationDepthError()
@@ -663,6 +883,11 @@ const collectRelationPredicateNodes = (
 	ancestors.add(expression)
 
 	try {
+		if (isQueryRelationCountNode(expression)) {
+			collected.push(expression)
+			return
+		}
+
 		if (isQueryRelationPredicateNode(expression)) {
 			collected.push(expression)
 			collectRelationPredicateNodes(
@@ -712,8 +937,8 @@ const collectRelationPredicateNodes = (
 /** Collects relation leaves in deterministic depth-first declaration order. */
 export const collectQueryRelationPredicates = (
 	expression: QueryExpressionNode,
-): readonly QueryRelationPredicateNode[] => {
-	const collected: QueryRelationPredicateNode[] = []
+): readonly QueryRelationFilterNode[] => {
+	const collected: QueryRelationFilterNode[] = []
 
 	collectRelationPredicateNodes(expression, 1, new WeakSet<object>(), collected)
 

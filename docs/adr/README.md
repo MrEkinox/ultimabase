@@ -147,6 +147,7 @@ Accepted records:
 - [ADR-0153: Operation-wide execution options](0153-operation-execution-options.md)
 - [ADR-0154: Unified eager relationship inclusion](0154-unified-eager-relationship-inclusion.md)
 - [ADR-0155: Canonical offset pagination naming](0155-canonical-offset-pagination-naming.md)
+- [ADR-0156: Visible relation cardinality filters](0156-visible-relation-cardinality-filters.md)
 
 Superseded records:
 

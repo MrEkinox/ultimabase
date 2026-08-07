@@ -587,6 +587,22 @@ Relation emptiness uses `none: {}` and non-emptiness uses `some: {}`. To-many
 relations have no nullable row column, so `isNull` and `isNotNull` are not part
 of their filter contract.
 
+Visible relation cardinality uses a correlated aggregate in the same parent
+statement:
+
+```ts
+const establishedArticles = await Article.findMany({
+	where: { tags: { count: { gte: 3 } } },
+})
+```
+
+Drizzle RQB v2 has no relation cardinality comparator, so PostgreSQL uses
+Drizzle Core's aliased `QueryBuilder`, `count()`, joins, and parameterized
+comparison helpers for this leaf. Target Access filters and plugin constraints
+remain inside the correlated subquery, so hidden targets are not counted.
+Owning joins, inverse joins, and inverse pointers still execute as one SQL
+statement without loading related rows or issuing per-parent queries.
+
 Relationships with business data remain ordinary schemas. For example, two
 required pointers plus a composite unique index model a membership edge:
 

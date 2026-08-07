@@ -43,7 +43,7 @@ import {
 } from '../filters/logical.js'
 import { createQueryValueFilter } from '../filters/factory.js'
 import type { QueryPrimitiveFilterNode } from '../filters/primitive.js'
-import type { QueryRelationPredicateForSchema } from '../filters/relation.js'
+import type { QueryRelationFilterForSchema } from '../filters/relation.js'
 import {
 	resolveWhereInput,
 	whereInputFromQueryFilter,
@@ -626,7 +626,7 @@ export class QueryBuilder<
 				? filter
 				: normalizeLogicalFilter<
 						| QueryPrimitiveFilterNode<TSchema>
-						| QueryRelationPredicateForSchema<TSchema>
+						| QueryRelationFilterForSchema<TSchema>
 					>({
 						kind: 'and',
 						expressions: [currentExpression, filter],

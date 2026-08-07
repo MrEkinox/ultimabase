@@ -105,6 +105,7 @@ describe('@ultimabase/core public entry point', () => {
 			'intField',
 			'isAccessReferenceCleanup',
 			'isFieldRequiredDeferred',
+			'isQueryRelationCountNode',
 			'isQueryRelationPredicateNode',
 			'isStaticDefault',
 			'jsonField',

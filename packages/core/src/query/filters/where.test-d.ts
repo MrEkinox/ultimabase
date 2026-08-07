@@ -55,6 +55,11 @@ test('correlates where object operators with exact schema fields', () => {
 			at: [{ path: ['category'], in: ['framework', 'typescript'] }],
 		},
 		tags: {
+			count: {
+				between: { lower: 1, upper: 10 },
+				gte: 1,
+				notIn: [2, 4],
+			},
 			some: { label: { eq: 'typescript' } },
 			none: { archived: { eq: true } },
 		},
@@ -99,6 +104,7 @@ test('keeps the public builder short, immutable, and schema-correlated', () => {
 		.gte('views', 0)
 		.between('views', 10, 100)
 		.eq(fieldPath('profile', ['contact', 'email']), 'ada@example.com')
+		.count('tags', { gte: 2 })
 		.some('tags', (tag) => tag.eq('label', 'typescript'))
 
 	expectTypeOf(base).toEqualTypeOf<WhereBuilder<typeof Post>>()
@@ -111,4 +117,14 @@ test('keeps the public builder short, immutable, and schema-correlated', () => {
 	base.and(new WhereBuilder(Tag).eq('label', 'typescript'))
 	// @ts-expect-error -- Relation emptiness uses some or none rather than nullability.
 	base.isNull('tags')
+	// @ts-expect-error -- Cardinality filters only target relation fields.
+	base.count('views', { gte: 2 })
+	const invalidCount: WhereInput<typeof Post> = {
+		tags: {
+			// @ts-expect-error -- Cardinality operands are numeric.
+			count: { gte: '2' },
+		},
+	}
+
+	void invalidCount
 })

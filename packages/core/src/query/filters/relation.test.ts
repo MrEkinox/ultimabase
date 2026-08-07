@@ -134,6 +134,35 @@ describe('relation predicates', () => {
 		}
 	})
 
+	it('collects visible-cardinality leaves beside nested quantifiers', () => {
+		const query = new QueryBuilder(Company).where((where) =>
+			where
+				.count('teams', { gte: 2 })
+				.some('teams', (team) => team.count('members', { eq: 3 })),
+		)
+		const expression = query.ast.where?.expression
+
+		if (expression === undefined) {
+			throw new TypeError('Relation count fixture requires an expression')
+		}
+
+		const predicates = collectQueryRelationPredicates(expression)
+
+		expect(predicates).toHaveLength(3)
+		expect(predicates[0]).toMatchObject({
+			field: 'teams',
+			kind: 'relation-count',
+			operator: 'greater-than-or-equal',
+			value: 2,
+		})
+		expect(predicates[2]).toMatchObject({
+			field: 'members',
+			kind: 'relation-count',
+			operator: 'equal',
+			value: 3,
+		})
+	})
+
 	it('rejects relation builders created for another target schema', () => {
 		expect(() =>
 			new QueryBuilder(Company).where((where) =>

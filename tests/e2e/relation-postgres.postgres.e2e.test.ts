@@ -293,6 +293,39 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 			),
 		).toBe(0)
 		expect(
+			await Article.exists(
+				{
+					where: {
+						id: { eq: mixed.id },
+						tags: { count: { eq: 2 } },
+					},
+				},
+				{ ultimabase: app },
+			),
+		).toBe(true)
+		expect(
+			await Article.exists(
+				{
+					where: {
+						id: { eq: mixed.id },
+						tags: { count: { gte: 3 } },
+					},
+				},
+				{ ultimabase: app },
+			),
+		).toBe(false)
+		expect(
+			await Article.exists(
+				{
+					where: {
+						id: { eq: gammaOnly.id },
+						tags: { count: { between: { lower: 1, upper: 1 } } },
+					},
+				},
+				{ ultimabase: app },
+			),
+		).toBe(true)
+		expect(
 			await Article.count(
 				{ where: { tags: { none: { label: { eq: 'predicate-gamma' } } } } },
 				{ ultimabase: app },
@@ -339,6 +372,17 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 			),
 		).toBe(true)
 		expect(
+			await Tag.exists(
+				{
+					where: {
+						id: { eq: alpha.id },
+						articles: { count: { eq: 1 } },
+					},
+				},
+				{ ultimabase: app },
+			),
+		).toBe(true)
+		expect(
 			await Article.exists(
 				{
 					where: {
@@ -369,6 +413,17 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 					where: {
 						id: { eq: author.id },
 						posts: { some: { title: { eq: 'Predicate post' } } },
+					},
+				},
+				{ ultimabase: app },
+			),
+		).toBe(true)
+		expect(
+			await Author.exists(
+				{
+					where: {
+						id: { eq: author.id },
+						posts: { count: { eq: 1 } },
 					},
 				},
 				{ ultimabase: app },
@@ -650,6 +705,12 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 		await expect(
 			PrivateArticle.findMany(
 				{ where: { tags: { some: { label: { eq: 'private' } } } } },
+				{ ultimabase: app },
+			),
+		).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
+		await expect(
+			PrivateArticle.findMany(
+				{ where: { tags: { count: { gt: 0 } } } },
 				{ ultimabase: app },
 			),
 		).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })

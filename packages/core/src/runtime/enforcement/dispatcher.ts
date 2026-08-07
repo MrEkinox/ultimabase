@@ -8,11 +8,12 @@ import type {
 	ExecutableOperationAst,
 	QueryAst,
 	QueryExpressionNode,
-	QueryRelationPredicateNode,
+	QueryRelationFilterNode,
 	QuerySelectedFieldNode,
 } from '../../query/index.js'
 import {
 	createQueryAst,
+	isQueryRelationCountNode,
 	isQueryRelationPredicateNode,
 } from '../../query/index.js'
 import { Schema, type SchemaDefinition } from '../../schema/index.js'
@@ -77,8 +78,11 @@ interface OwnedEnforcementContribution {
 /** Reads only the relation leaves owned by the current schema expression level. */
 const collectDirectRelationPredicates = (
 	expression: QueryExpressionNode,
-): readonly QueryRelationPredicateNode[] => {
-	if (isQueryRelationPredicateNode(expression)) {
+): readonly QueryRelationFilterNode[] => {
+	if (
+		isQueryRelationCountNode(expression) ||
+		isQueryRelationPredicateNode(expression)
+	) {
 		return immutableArray([expression])
 	}
 
@@ -88,7 +92,7 @@ const collectDirectRelationPredicates = (
 		return immutableArray([])
 	}
 
-	const collected: QueryRelationPredicateNode[] = []
+	const collected: QueryRelationFilterNode[] = []
 
 	if (isUnknownArray(candidate.expressions)) {
 		for (const child of candidate.expressions) {
@@ -644,10 +648,14 @@ export const createEnforcementStages = <
 
 				const targetQuery = immutableRecord({
 					...createQueryAst(predicate.target.definition),
-					where: immutableRecord({
-						kind: 'where' as const,
-						expression: predicate.expression,
-					}),
+					...(predicate.kind === 'relation-count'
+						? {}
+						: {
+								where: immutableRecord({
+									kind: 'where' as const,
+									expression: predicate.expression,
+								}),
+							}),
 				})
 				const targetOperation = immutableRecord({
 					kind: 'exists' as const,

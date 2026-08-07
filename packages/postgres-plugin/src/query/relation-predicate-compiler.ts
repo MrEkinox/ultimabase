@@ -1,19 +1,37 @@
 import {
 	FrameworkError,
 	type DatabaseRelationPredicateScope,
+	type QueryRelationCountNode,
 } from '@ultimabase/core'
 import { immutableRecord } from '@ultimabase/shared'
 import {
 	and,
+	between,
+	count,
+	eq,
 	getColumns,
+	gt,
+	gte,
+	inArray,
+	lt,
+	lte,
+	ne,
 	not,
+	notBetween,
+	notInArray,
 	type RelationsFilter,
 	type SchemaEntry,
 	type SQL,
+	type SQLWrapper,
 	type TableRelationalConfig,
 	type TablesRelationalConfig,
 } from 'drizzle-orm'
-import type { PgColumn, PgTable } from 'drizzle-orm/pg-core'
+import {
+	alias,
+	QueryBuilder,
+	type PgColumn,
+	type PgTable,
+} from 'drizzle-orm/pg-core'
 
 import {
 	compilePostgresConstraints,
@@ -24,6 +42,7 @@ import type {
 	CompiledPostgresField,
 	CompiledPostgresSchema,
 } from '../schema/contracts.js'
+import { resolveCompiledPostgresField } from '../schema/field.js'
 import {
 	compilePostgresDrizzleRelationFilter,
 	createPostgresDrizzleRelationFilter,
@@ -89,6 +108,34 @@ const createMissingScopeError = (): FrameworkError<'INTERNAL_ERROR'> =>
 		{ publicMessage: 'Relation filters are not available.' },
 	)
 
+const compileRelationCountComparison = (
+	predicate: QueryRelationCountNode,
+	cardinality: SQLWrapper,
+): SQL => {
+	switch (predicate.operator) {
+		case 'equal':
+			return eq(cardinality, predicate.value)
+		case 'not-equal':
+			return ne(cardinality, predicate.value)
+		case 'greater-than':
+			return gt(cardinality, predicate.value)
+		case 'greater-than-or-equal':
+			return gte(cardinality, predicate.value)
+		case 'less-than':
+			return lt(cardinality, predicate.value)
+		case 'less-than-or-equal':
+			return lte(cardinality, predicate.value)
+		case 'in':
+			return inArray(cardinality, [...predicate.values])
+		case 'not-in':
+			return notInArray(cardinality, [...predicate.values])
+		case 'between':
+			return between(cardinality, predicate.lower, predicate.upper)
+		case 'not-between':
+			return notBetween(cardinality, predicate.lower, predicate.upper)
+	}
+}
+
 /** Creates one request-local compiler so nested aliases remain deterministic. */
 export const createPostgresRelationPredicateCompiler = (
 	catalog: PostgresSchemaCatalog,
@@ -118,10 +165,70 @@ export const createPostgresRelationPredicateCompiler = (
 			[predicate.field],
 			predicate.target.definition,
 		)
-		const binding = catalog.getDrizzleRelation(relation)
 		const depth = relationDepth
 
 		relationDepth += 1
+
+		if (predicate.kind === 'relation-count') {
+			const targetAlias = alias(
+				relation.target.table,
+				`__ultimabase_relation_target_${String(depth)}`,
+			)
+			const target = rebindCompiledPostgresSchema(relation.target, targetAlias)
+			const targetConstraint = compilePostgresConstraints(
+				constraintCompilers,
+				target,
+				scope.constraints,
+			)
+			const targetAccess =
+				scope.rowFilter === undefined
+					? undefined
+					: compilePostgresRowFilter(scope.rowFilter, target)
+			const sourceId = resolveCompiledPostgresField(source, 'id').column
+			let cardinality: SQLWrapper
+
+			if (relation.storage.kind === 'pointer') {
+				const targetPointer = resolveAliasedColumn(
+					getColumns(targetAlias),
+					'',
+					relation.storage.targetColumn.name,
+				)
+
+				cardinality = new QueryBuilder()
+					.select({ value: count() })
+					.from(targetAlias)
+					.where(
+						and(eq(targetPointer, sourceId), targetConstraint, targetAccess),
+					)
+			} else {
+				const joinAlias = alias(
+					relation.storage.relation.table,
+					`__ultimabase_relation_join_${String(depth)}`,
+				)
+				const joinColumns = getColumns(joinAlias)
+				const sourceEdge = resolveAliasedColumn(
+					joinColumns,
+					'',
+					relation.storage.sourceColumn.name,
+				)
+				const targetEdge = resolveAliasedColumn(
+					joinColumns,
+					'',
+					relation.storage.targetColumn.name,
+				)
+				const targetId = resolveCompiledPostgresField(target, 'id').column
+
+				cardinality = new QueryBuilder()
+					.select({ value: count() })
+					.from(targetAlias)
+					.innerJoin(joinAlias, eq(targetEdge, targetId))
+					.where(and(eq(sourceEdge, sourceId), targetConstraint, targetAccess))
+			}
+
+			return compileRelationCountComparison(predicate, cardinality)
+		}
+
+		const binding = catalog.getDrizzleRelation(relation)
 		const targetFilter = {
 			RAW: (table: SchemaEntry): SQL => {
 				// Generated relation metadata only contains PostgreSQL tables, never views.
@@ -129,12 +236,12 @@ export const createPostgresRelationPredicateCompiler = (
 					relation.target,
 					table as PgTable,
 				)
-				const targetConstraint = compilePostgresConstraints(
+				const aliasedTargetConstraint = compilePostgresConstraints(
 					constraintCompilers,
 					target,
 					scope.constraints,
 				)
-				const targetAccess =
+				const aliasedTargetAccess =
 					scope.rowFilter === undefined
 						? undefined
 						: compilePostgresRowFilter(scope.rowFilter, target)
@@ -148,8 +255,8 @@ export const createPostgresRelationPredicateCompiler = (
 						? not(developerPredicate)
 						: developerPredicate
 				const combined = and(
-					targetConstraint,
-					targetAccess,
+					aliasedTargetConstraint,
+					aliasedTargetAccess,
 					quantifiedPredicate,
 				)
 

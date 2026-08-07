@@ -46,7 +46,10 @@ describe('WhereInput', () => {
 				at: [{ path: ['contact', 'email'], eq: 'ada@example.com' }],
 			},
 			OR: [{ title: { startsWith: 'Guide' } }, { views: { gt: 50 } }],
-			tags: { some: { label: { eq: 'typescript' } } },
+			tags: {
+				count: { gte: 2, lt: 10 },
+				some: { label: { eq: 'typescript' } },
+			},
 		})
 
 		expect(query.ast.where?.expression).toMatchObject({
@@ -58,6 +61,9 @@ describe('WhereInput', () => {
 		expect(JSON.stringify(query.ast.where?.expression)).toContain(
 			'relation-predicate',
 		)
+		expect(JSON.stringify(query.ast.where?.expression)).toContain(
+			'relation-count',
+		)
 	})
 
 	it('uses WhereBuilder only as an immutable producer of the same object contract', () => {
@@ -67,6 +73,7 @@ describe('WhereInput', () => {
 			.in('views', candidates)
 			.gte('views', 0)
 			.eq(fieldPath('profile', ['contact', 'email']), 'ada@example.com')
+			.count('tags', { between: { lower: 1, upper: 3 } })
 		candidates.push(20)
 
 		const built = builder.build()
@@ -111,6 +118,20 @@ describe('WhereInput', () => {
 		expect(() =>
 			normalizeWhereInput(Post, { tags: { isNotNull: true } } as never),
 		).toThrow('query operator null does not support relation fields')
+		expect(() =>
+			normalizeWhereInput(Post, { tags: { count: { gte: -1 } } }),
+		).toThrow('must be a non-negative safe integer')
+		expect(() =>
+			normalizeWhereInput(Post, { tags: { count: { gte: 1.5 } } }),
+		).toThrow('must be a non-negative safe integer')
+		expect(() => normalizeWhereInput(Post, { tags: { count: {} } })).toThrow(
+			'must contain an operator',
+		)
+		expect(() =>
+			normalizeWhereInput(Post, {
+				tags: { count: { missing: 1 } },
+			} as never),
+		).toThrow('is not a supported where operator')
 
 		const circular: Record<string, unknown> = {}
 		circular.NOT = circular

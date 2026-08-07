@@ -28,9 +28,14 @@ import {
 } from './factory.js'
 import { normalizeLogicalFilter, type QueryFilterNode } from './logical.js'
 import {
+	createQueryRelationCount,
 	createQueryRelationDepthError,
+	isQueryRelationCountNode,
 	isQueryRelationPredicateNode,
 	queryRelationPredicateMaxDepth,
+	type QueryRelationCountInput,
+	type QueryRelationCountOperator,
+	type QueryRelationFilterNode,
 	type QueryRelationPredicateNode,
 	type QueryRelationPredicateOperator,
 } from './relation.js'
@@ -196,22 +201,23 @@ type WhereRelationOperators<
 	TDepth extends readonly unknown[],
 > =
 	TFieldName extends SchemaRelationFieldName<TSchema>
-		? TDepth['length'] extends typeof queryRelationPredicateMaxDepth
-			? unknown
-			: Readonly<{
-					every?: WhereInputAtDepth<
-						SchemaRelationTarget<TSchema, TFieldName>,
-						readonly [...TDepth, unknown]
-					>
-					none?: WhereInputAtDepth<
-						SchemaRelationTarget<TSchema, TFieldName>,
-						readonly [...TDepth, unknown]
-					>
-					some?: WhereInputAtDepth<
-						SchemaRelationTarget<TSchema, TFieldName>,
-						readonly [...TDepth, unknown]
-					>
-				}>
+		? Readonly<{ count?: QueryRelationCountInput }> &
+				(TDepth['length'] extends typeof queryRelationPredicateMaxDepth
+					? unknown
+					: Readonly<{
+							every?: WhereInputAtDepth<
+								SchemaRelationTarget<TSchema, TFieldName>,
+								readonly [...TDepth, unknown]
+							>
+							none?: WhereInputAtDepth<
+								SchemaRelationTarget<TSchema, TFieldName>,
+								readonly [...TDepth, unknown]
+							>
+							some?: WhereInputAtDepth<
+								SchemaRelationTarget<TSchema, TFieldName>,
+								readonly [...TDepth, unknown]
+							>
+						}>)
 		: unknown
 
 type WhereFieldInput<
@@ -339,6 +345,83 @@ const normalizeWhereRelation = <TSchema extends SchemaDefinition>(
 		target: createQueryAst(target).schema,
 		expression,
 	})
+}
+
+const relationCountOperator = (
+	operator: keyof QueryRelationCountInput,
+): QueryRelationCountOperator => {
+	switch (operator) {
+		case 'eq':
+			return 'equal'
+		case 'ne':
+			return 'not-equal'
+		case 'gt':
+			return 'greater-than'
+		case 'gte':
+			return 'greater-than-or-equal'
+		case 'lt':
+			return 'less-than'
+		case 'lte':
+			return 'less-than-or-equal'
+		case 'in':
+			return 'in'
+		case 'notIn':
+			return 'not-in'
+		case 'between':
+			return 'between'
+		case 'notBetween':
+			return 'not-between'
+	}
+}
+
+const normalizeWhereRelationCount = <TSchema extends SchemaDefinition>(
+	schema: TSchema,
+	fieldName: QueryFieldName<TSchema>,
+	input: unknown,
+): QueryFilterNode<TSchema> => {
+	if (!isPlainRecord(input)) {
+		throw new TypeError(`where.${fieldName}.count must be an object`)
+	}
+
+	let expression: QueryFilterNode<TSchema> | undefined
+
+	for (const [operator, operand] of Object.entries(input)) {
+		if (
+			operator !== 'eq' &&
+			operator !== 'ne' &&
+			operator !== 'gt' &&
+			operator !== 'gte' &&
+			operator !== 'lt' &&
+			operator !== 'lte' &&
+			operator !== 'in' &&
+			operator !== 'notIn' &&
+			operator !== 'between' &&
+			operator !== 'notBetween'
+		) {
+			throw new TypeError(
+				`where.${fieldName}.count.${operator} is not a supported where operator`,
+			)
+		}
+
+		expression = combineWhereExpressions(
+			expression,
+			createQueryRelationCount(
+				schema,
+				fieldName as unknown as SchemaRelationFieldName<TSchema>,
+				relationCountOperator(operator),
+				operand as
+					| number
+					| readonly number[]
+					| Readonly<{ lower: number; upper: number }>,
+			) as QueryFilterNode<TSchema>,
+		)
+	}
+
+	if (expression === undefined) {
+		throw new TypeError(`where.${fieldName}.count must contain an operator`)
+	}
+
+	return expression
 }
 
 const assertExactRangeInput = (
@@ -506,6 +589,14 @@ const normalizeWhereFieldOperators = <TSchema extends SchemaDefinition>(
 	let expression: QueryFilterNode<TSchema> | undefined
 
 	for (const [operator, operand] of Object.entries(input)) {
+		if (operator === 'count') {
+			expression = combineWhereExpressions(
+				expression,
+				normalizeWhereRelationCount(schema, fieldName, operand),
+			)
+			continue
+		}
+
 		if (operator === 'at') {
 			if (!isUnknownArray(operand)) {
 				throw new TypeError(`where.${fieldName}.at must be an array`)
@@ -734,8 +825,38 @@ type SerializableWherePrimitive =
 	| QueryStructuralContainmentFilterNode
 
 const serializeWhereLeaf = (
-	expression: SerializableWherePrimitive | QueryRelationPredicateNode,
+	expression: SerializableWherePrimitive | QueryRelationFilterNode,
 ): Readonly<Record<string, unknown>> => {
+	if (isQueryRelationCountNode(expression)) {
+		const operator = shortOperatorForKind(expression.operator)
+		let operand: unknown
+
+		if (
+			expression.operator === 'between' ||
+			expression.operator === 'not-between'
+		) {
+			operand = immutableRecord({
+				lower: expression.lower,
+				upper: expression.upper,
+			})
+		} else if (
+			expression.operator === 'in' ||
+			expression.operator === 'not-in'
+		) {
+			operand = expression.values
+		} else if ('value' in expression) {
+			operand = expression.value
+		} else {
+			throw new TypeError('Unsupported relation count operator')
+		}
+
+		return immutableRecord({
+			[expression.field]: immutableRecord({
+				count: immutableRecord({ [operator]: operand }),
+			}),
+		})
+	}
+
 	if (isQueryRelationPredicateNode(expression)) {
 		return immutableRecord({
 			[expression.field]: immutableRecord({
@@ -824,7 +945,7 @@ const serializeWhereExpression = <TSchema extends SchemaDefinition>(
 		default:
 			return serializeWhereLeaf(
 				expression as unknown as
-					SerializableWherePrimitive | QueryRelationPredicateNode,
+					SerializableWherePrimitive | QueryRelationFilterNode,
 			)
 	}
 }
@@ -924,6 +1045,18 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 	/** Returns the exact schema correlated with this immutable builder. */
 	get schema(): TSchema {
 		return readWhereBuilderState(this).schema
+	}
+
+	/** Compares the visible cardinality of one relation. */
+	count(
+		fieldName: SchemaRelationFieldName<TSchema>,
+		input: QueryRelationCountInput,
+	): WhereBuilder<TSchema> {
+		return this.#append(
+			immutableRecord({
+				[fieldName]: immutableRecord({ count: input }),
+			}) as unknown as WhereInput<TSchema>,
+		)
 	}
 
 	/** Compares one field or structured path for equality. */

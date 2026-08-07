@@ -79,6 +79,21 @@ The complete read surface is `findOne`, `findMany`, `get`, `count`, and
 `exists` tests whether a matching row exists; `isNull` and
 `isNotNull` are field operators inside `where`.
 
+To-many relations also expose their visible cardinality as a non-null integer
+pseudo-field:
+
+```ts
+const establishedAuthors = await Author.findMany({
+	where: { posts: { count: { gte: 3, lt: 100 } } },
+})
+```
+
+`count` supports `eq`, `ne`, `gt`, `gte`, `lt`, `lte`, `in`, `notIn`,
+`between`, and `notBetween`. Operands are non-negative safe integers. The count
+includes only targets visible through target Access and plugin constraints;
+source relation field read Access still applies. This first contract counts
+the complete visible relation and does not accept a nested target filter.
+
 ## Reusable read scopes
 
 A scope transforms a `QueryBuilder` without capturing Runtime state or
@@ -119,6 +134,7 @@ matches values strictly below the lower bound or strictly above the upper
 bound. Both methods retain one explicit range node in the Query AST, require
 non-null bounds of the field's exact type, and are also available in schema
 command `where`, Access filters, and relation predicates.
+Relation cardinality ranges use the same object bounds under `count`.
 
 ## Schema write commands
 

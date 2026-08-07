@@ -9,7 +9,7 @@ import {
 
 import type { QueryExpressionNode } from '../ast/contracts.js'
 import type { QueryPrimitiveFilterNode } from './primitive.js'
-import type { QueryRelationPredicateForSchema } from './relation.js'
+import type { QueryRelationFilterForSchema } from './relation.js'
 
 /** Reserves structural discriminants so plugin leaves cannot shadow logic. */
 export type QueryLogicalFilterKind = 'and' | 'constant' | 'not' | 'or'
@@ -60,7 +60,7 @@ export type QueryFilterExpression<
 
 /** Lists every schema-correlated leaf accepted by the portable QueryBuilder AST. */
 export type QuerySchemaFilterLeaf<TSchema extends SchemaDefinition> =
-	QueryPrimitiveFilterNode<TSchema> | QueryRelationPredicateForSchema<TSchema>
+	QueryPrimitiveFilterNode<TSchema> | QueryRelationFilterForSchema<TSchema>
 
 /** Specializes the recursive expression tree to one exact schema. */
 export type QueryFilterNode<TSchema extends SchemaDefinition> =

@@ -32,6 +32,12 @@ import { compilePostgresFilter } from './filter-compiler.js'
 import { PostgresSchemaCatalog } from '../schema/catalog.js'
 import { emptyPostgresConstraintCompilerRegistry } from '../constraints/compiler.js'
 import { createPostgresRelationPredicateCompiler } from './relation-predicate-compiler.js'
+import {
+	PostgresRelationArticle,
+	PostgresRelationAuthor,
+	PostgresRelationPost,
+	PostgresRelationTag,
+} from '../schema/relation-fixture.test-support.js'
 
 const FilterSchema = Schema.define({
 	className: 'FilterFixture',
@@ -120,6 +126,75 @@ describe('PostgreSQL filter compiler', () => {
 		expect(rendered.sql).not.toContain('developer-value')
 		expect(rendered.params).toContain('developer-value')
 		expect(rendered.params).toContain(true)
+	})
+
+	it('compiles join and inverse-pointer cardinality through correlated Drizzle subqueries', () => {
+		const relationSchemas = [
+			PostgresRelationArticle,
+			PostgresRelationTag,
+			PostgresRelationAuthor,
+			PostgresRelationPost,
+		] as const
+		const registry = new SchemaRegistry(relationSchemas)
+		const catalog = new PostgresSchemaCatalog(
+			registry.values(),
+			registry.resolveSchemaTargets(),
+		)
+		const renderCount = <
+			TSchema extends
+				typeof PostgresRelationArticle | typeof PostgresRelationAuthor,
+		>(
+			query: QueryBuilder<TSchema>,
+		) => {
+			const expression = query.ast.where?.expression
+
+			if (expression === undefined) {
+				throw new TypeError('Relation count fixture requires an expression')
+			}
+
+			const [predicate] = collectQueryRelationPredicates(expression)
+
+			if (predicate === undefined) {
+				throw new TypeError('Relation count fixture requires a predicate')
+			}
+
+			const compiler = createPostgresRelationPredicateCompiler(
+				catalog,
+				emptyPostgresConstraintCompilerRegistry,
+				[{ constraints: [], predicate }],
+			)
+
+			return dialect.sqlToQuery(
+				compilePostgresFilter(
+					expression,
+					catalog.get(predicate.source.definition),
+					compiler,
+				),
+			)
+		}
+		const join = renderCount(
+			new QueryBuilder(PostgresRelationArticle).where({
+				tags: { count: { gte: 2 } },
+			}),
+		)
+		const pointer = renderCount(
+			new QueryBuilder(PostgresRelationAuthor).where({
+				posts: { count: { eq: 1 } },
+			}),
+		)
+
+		expect(join.sql).toContain('select count(*)')
+		expect(join.sql).toContain('inner join')
+		expect(join.sql).toContain(
+			'"source_id" = "postgres_relation_articles"."id"',
+		)
+		expect(join.sql).toContain(' >= $1')
+		expect(join.params).toStrictEqual([2])
+		expect(pointer.sql).toContain('select count(*)')
+		expect(pointer.sql).not.toContain('inner join')
+		expect(pointer.sql).toContain('"author" = "postgres_relation_authors"."id"')
+		expect(pointer.sql).toContain(' = $1')
+		expect(pointer.params).toStrictEqual([1])
 	})
 
 	it('parameterizes pointer predicates as target UUIDs', () => {

@@ -438,6 +438,10 @@ ${body}
 			`Post.findMany({ where: { tags: { ${marker} } } })`,
 			'query-where-relation-completion',
 		)
+		const relationCountOperators = readCompletions(
+			`Post.findMany({ where: { tags: { count: { ${marker} } } } })`,
+			'query-where-relation-count-completion',
+		)
 
 		expect(fields.has('published')).toBe(true)
 		expect(fields.has('views')).toBe(true)
@@ -448,12 +452,28 @@ ${body}
 		expect(numericOperators.has('eq')).toBe(true)
 		expect(numericOperators.has('gte')).toBe(true)
 		expect(numericOperators.has('contains')).toBe(false)
-		for (const operator of ['every', 'none', 'some']) {
+		for (const operator of ['count', 'every', 'none', 'some']) {
 			expect(relationOperators.has(operator)).toBe(true)
 		}
 		expect(relationOperators.has('isNull')).toBe(false)
 		expect(relationOperators.has('isNotNull')).toBe(false)
 		expect(relationOperators.has('eq')).toBe(false)
+		for (const operator of [
+			'between',
+			'eq',
+			'gt',
+			'gte',
+			'in',
+			'lt',
+			'lte',
+			'ne',
+			'notBetween',
+			'notIn',
+		]) {
+			expect(relationCountOperators.has(operator)).toBe(true)
+		}
+		expect(relationCountOperators.has('some')).toBe(false)
+		expect(relationCountOperators.has('isNull')).toBe(false)
 	})
 
 	it('completes canonical read clauses, ordering, and relationship inclusion', () => {

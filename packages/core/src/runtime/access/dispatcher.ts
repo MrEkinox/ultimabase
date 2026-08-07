@@ -6,7 +6,7 @@ import {
 import type {
 	ExecutableOperationAst,
 	OperationKind,
-	QueryRelationPredicateNode,
+	QueryRelationFilterNode,
 	QueryExpressionNode,
 } from '../../query/index.js'
 import { Schema, type SchemaDefinition } from '../../schema/index.js'
@@ -971,7 +971,7 @@ export class NativeAccessRuntime {
 	/** Enforces relation traversal declared directly inside one public QueryBuilder filter. */
 	async enforceRelationPredicateRead(
 		request: RuntimeOperationStageInput<DatabaseOperationAst>,
-		predicate: QueryRelationPredicateNode,
+		predicate: QueryRelationFilterNode,
 	): Promise<void> {
 		return this.#enforceRelationFieldRead(
 			request,

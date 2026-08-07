@@ -119,11 +119,18 @@ export type {
 } from './filters/where.js'
 export {
 	collectQueryRelationPredicates,
+	isQueryRelationCountNode,
 	isQueryRelationPredicateNode,
 	queryRelationPredicateMaxDepth,
 	RelationPredicate,
 } from './filters/relation.js'
 export type {
+	QueryRelationCountForSchema,
+	QueryRelationCountInput,
+	QueryRelationCountNode,
+	QueryRelationCountOperator,
+	QueryRelationFilterForSchema,
+	QueryRelationFilterNode,
 	QueryRelationPredicateForSchema,
 	QueryRelationPredicateNode,
 	QueryRelationPredicateOperator,
