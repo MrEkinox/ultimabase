@@ -336,8 +336,11 @@ const imported = await Article.createMany(
 ```
 
 Core never accepts authentication credentials here. `useMasterKey: true`
-elevates through the application-owned `MasterAuthority`, and terminal options
+elevates through the application-owned `MasterAuthority`, and operation options
 never enter a Query or Operation AST.
+
+Singular commands use `OperationOptions`; bulk commands use
+`BulkOperationOptions`, which adds `atomic` to the same execution boundary.
 
 ## Bulk writes
 

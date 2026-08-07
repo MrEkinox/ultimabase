@@ -5,7 +5,7 @@ import type {
 	OperationObjectId,
 	UpdateOneOperationAst,
 } from '../../query/operations/contracts.js'
-import type { QueryTerminalOptions } from '../../query/operations/execution.js'
+import type { OperationOptions } from '../../query/operations/options.js'
 import type { InferQueryResult } from '../../query/query/result.js'
 import {
 	executeQueryCount,
@@ -173,7 +173,7 @@ export class Relation<
 	/** Reads matching targets while retaining the protected relation scope. */
 	findMany<const TInput extends FindManyInput<TTarget>>(
 		input: ExactReadInput<TTarget, TInput, FindManyInput<TTarget>>,
-		options?: QueryTerminalOptions,
+		options?: OperationOptions,
 	): Promise<
 		readonly InferQueryResult<
 			TTarget,
@@ -184,11 +184,11 @@ export class Relation<
 	/** Reads every visible related target when no clauses are supplied. */
 	findMany(
 		input?: undefined,
-		options?: QueryTerminalOptions,
+		options?: OperationOptions,
 	): Promise<readonly InferQueryResult<TTarget>[]>
 	findMany(
 		input: FindManyInput<TTarget> = {},
-		options?: QueryTerminalOptions,
+		options?: OperationOptions,
 	): Promise<readonly object[]> {
 		const state = this.getState()
 		const query = scopeQueryToRelation(
@@ -202,7 +202,7 @@ export class Relation<
 	/** Reads the first matching related target. */
 	findOne<const TInput extends FindOneInput<TTarget>>(
 		input: ExactReadInput<TTarget, TInput, FindOneInput<TTarget>>,
-		options?: QueryTerminalOptions,
+		options?: OperationOptions,
 	): Promise<InferQueryResult<
 		TTarget,
 		QuerySelectedFieldFromInput<TTarget, TInput>,
@@ -211,11 +211,11 @@ export class Relation<
 	/** Reads the first visible related target without applying a projection. */
 	findOne(
 		input?: undefined,
-		options?: QueryTerminalOptions,
+		options?: OperationOptions,
 	): Promise<InferQueryResult<TTarget> | null>
 	findOne(
 		input: FindOneInput<TTarget> = {},
-		options?: QueryTerminalOptions,
+		options?: OperationOptions,
 	): Promise<object | null> {
 		const state = this.getState()
 		const query = scopeQueryToRelation(
@@ -229,7 +229,7 @@ export class Relation<
 	/** Reads one related target by its exact identifier. */
 	get<const TInput extends GetInput<TTarget>>(
 		input: ExactReadInput<TTarget, TInput, GetInput<TTarget>>,
-		options?: QueryTerminalOptions,
+		options?: OperationOptions,
 	): Promise<InferQueryResult<
 		TTarget,
 		QuerySelectedFieldFromInput<TTarget, TInput>,
@@ -245,7 +245,7 @@ export class Relation<
 	/** Counts visible related targets without materializing them. */
 	count(
 		input: CountInput<TTarget> = {},
-		options?: QueryTerminalOptions,
+		options?: OperationOptions,
 	): Promise<number> {
 		const state = this.getState()
 		const query = scopeQueryToRelation(
@@ -259,7 +259,7 @@ export class Relation<
 	/** Tests whether at least one visible related target matches. */
 	exists(
 		input: ExistsInput<TTarget> = {},
-		options?: QueryTerminalOptions,
+		options?: OperationOptions,
 	): Promise<boolean> {
 		const state = this.getState()
 		const query = scopeQueryToRelation(

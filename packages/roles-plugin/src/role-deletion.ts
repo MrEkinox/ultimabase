@@ -7,7 +7,7 @@ import {
 	type HookContext,
 	type HookEventContract,
 	type JsonObject,
-	type QueryTerminalOptions,
+	type OperationOptions,
 	type RelationField,
 	type SchemaClass,
 	type SchemaDefinition,
@@ -71,7 +71,7 @@ type RoleDeletionLookupSchema = SchemaClass<
 	}>
 >
 
-const masterOptions: QueryTerminalOptions = Object.freeze({
+const masterOptions: OperationOptions = Object.freeze({
 	useMasterKey: true,
 })
 

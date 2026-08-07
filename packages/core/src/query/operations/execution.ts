@@ -1,10 +1,8 @@
 import { AsyncLocalStorage } from 'node:async_hooks'
 
-import { FrameworkError, type PluginDefinition } from '../../foundation.js'
+import { FrameworkError } from '../../foundation.js'
 import type { SchemaDefinition } from '../../schema/index.js'
 import type { QueryFilterExpression } from '../filters/logical.js'
-import type { UltimaBase } from '../../runtime/application/ultima-base.js'
-import type { RequestContext } from '../../runtime/context/request-context.js'
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 
 import type {
@@ -12,92 +10,39 @@ import type {
 	BulkOperationResult,
 	OperationAstNode,
 } from './contracts.js'
-import { normalizeBulkOperationOptions } from './bulk.js'
+import { normalizeBulkAtomicity } from './bulk.js'
+import type { BulkOperationOptions, OperationOptions } from './options.js'
 import type { InferOperationResult } from './results.js'
 
-/** Identifies any concrete UltimaBase facade without exposing its plugin tuple. */
-type QueryUltimaBase = UltimaBase<
-	readonly SchemaDefinition[],
-	readonly PluginDefinition[]
->
-
-/**
- * Selects inherited, plugin-derived, or audited-master terminal execution.
- * Omitting `context` and `useMasterKey` inherits the active request.
- *
- * @example `await Post.findMany()`
- * @example `await Post.findMany(undefined, { ultimabase })`
- */
-export interface QueryTerminalOptions {
-	/**
-	 * Selects an immutable plugin-derived context without accepting credentials.
-	 * Combine it with `useMasterKey: true` to elevate that exact context.
-	 *
-	 * @example `await Post.findMany(undefined, { context, ultimabase })`
-	 */
-	readonly context?: RequestContext
-	/**
-	 * Selects the exact started application used to create an anonymous root request.
-	 * It is required with an explicit context outside an active request scope.
-	 *
-	 * @example `await Post.findMany(undefined, { ultimabase })`
-	 */
-	readonly ultimabase?: QueryUltimaBase
-	/**
-	 * Requests audited master authority from trusted backend code only.
-	 * Transport input and serialized QueryBuilder data must never supply this option.
-	 *
-	 * @example `await Post.findMany(undefined, { useMasterKey: true })`
-	 * @example `await Post.findMany(undefined, { context, ultimabase, useMasterKey: true })`
-	 */
-	readonly useMasterKey?: true
-}
-
-/** Keeps the default all-or-nothing collection contract. */
-export interface QueryAtomicBulkTerminalOptions extends QueryTerminalOptions {
-	/** Keeps every item all-or-nothing inside one transaction. Defaults to `true`. */
-	readonly atomic?: true
-}
-
-/** Selects an explicit stopped-prefix result instead of all-or-nothing failure. */
-export interface QueryNonAtomicBulkTerminalOptions extends QueryTerminalOptions {
-	/** Commits the successful prefix and reports the first persistence failure. */
-	readonly atomic: false
-}
-
-/** Combines collection grouping with the same terminal-only execution ownership. */
-export interface QueryBulkTerminalOptions extends QueryTerminalOptions {
-	/** Keeps all items all-or-nothing, or selects an explicit stopped-prefix result. */
-	readonly atomic?: boolean
-}
-
-/** Infers the collection result selected by one public terminal option value. */
-export type QueryBulkTerminalResult<
+/** Infers the collection result selected by one public bulk option value. */
+export type InferBulkOperationResult<
 	TResult,
-	TOptions extends QueryBulkTerminalOptions | undefined,
-> = BulkOperationResult<TResult, QueryBulkAtomic<TOptions>>
+	TOptions extends BulkOperationOptions | undefined,
+> = BulkOperationResult<TResult, InferBulkOperationAtomicity<TOptions>>
 
-/** Retains the normalized atomic literal selected by one terminal option value. */
-export type QueryBulkAtomic<
-	TOptions extends QueryBulkTerminalOptions | undefined,
+/** Retains the normalized atomic literal selected by one bulk option value. */
+export type InferBulkOperationAtomicity<
+	TOptions extends BulkOperationOptions | undefined,
 > = [TOptions] extends [undefined]
 	? true
-	: TOptions extends QueryNonAtomicBulkTerminalOptions
-		? false
-		: TOptions extends QueryAtomicBulkTerminalOptions
-			? true
-			: boolean
+	: 'atomic' extends keyof TOptions
+		? TOptions extends { readonly atomic: false }
+			? false
+			: TOptions extends { readonly atomic?: true }
+				? true
+				: boolean
+		: true
 
-/** @internal Carries validated server-only choices outside every QueryBuilder and operation AST. */
-export interface NormalizedQueryTerminalOptions {
+/** @internal Carries validated server-only choices outside every operation AST. */
+export interface NormalizedOperationOptions {
 	readonly context: object | undefined
 	readonly ultimabase: object | undefined
 	readonly useMasterKey: boolean
 }
 
-interface NormalizedQueryBulkTerminalOptions<
+interface NormalizedBulkOperationOptions<
 	TAtomic extends boolean = boolean,
-> extends NormalizedQueryTerminalOptions {
+> extends NormalizedOperationOptions {
 	readonly bulk: AtomicBulkOperationOptions<TAtomic>
 }
 
@@ -135,15 +80,15 @@ export interface QueryRelationPrivateScope {
 	readonly target: SchemaDefinition
 }
 
-/** @internal Keeps framework-owned QueryBuilder restrictions behind one closed union. */
-export type QueryTerminalPrivateScope =
+/** @internal Keeps framework-owned restrictions behind one closed union. */
+export type OperationPrivateScope =
 	QueryRelationPrivateScope | QueryRowFilterPrivateScope
 
 /** @internal Resolves authority without adding execution state to a QueryBuilder instance. */
-export type QueryTerminalExecutionHandler = (
+export type OperationExecutionHandler = (
 	operation: unknown,
-	options: NormalizedQueryTerminalOptions,
-	scope: QueryTerminalPrivateScope | undefined,
+	options: NormalizedOperationOptions,
+	scope: OperationPrivateScope | undefined,
 ) => Promise<unknown>
 
 /** Lets Runtime add one revocable boundary without exposing hook internals here. */
@@ -156,11 +101,11 @@ const queryExecutionOwners = new WeakMap<
 	object,
 	QueryExecutionOwnerRegistration
 >()
-const queryTerminalExecutionHandlers = new WeakMap<
+const operationExecutionHandlers = new WeakMap<
 	QueryExecutionDispatcher,
-	QueryTerminalExecutionHandler
+	OperationExecutionHandler
 >()
-const emptyTerminalOptions: NormalizedQueryTerminalOptions = immutableRecord({
+const emptyOperationOptions: NormalizedOperationOptions = immutableRecord({
 	context: undefined,
 	ultimabase: undefined,
 	useMasterKey: false,
@@ -177,15 +122,15 @@ const assertKnownOptionKeys = (
 			key !== 'useMasterKey' &&
 			(!bulk || key !== 'atomic')
 		) {
-			throw new TypeError(`query terminal options contain unknown key: ${key}`)
+			throw new TypeError(`operation options contain unknown key: ${key}`)
 		}
 	}
 }
 
 /** Validates authority values after the caller-specific key set is checked. */
-const normalizeQueryAuthorityOptions = (
+const normalizeOperationAuthority = (
 	options: Readonly<Record<string, unknown>>,
-): NormalizedQueryTerminalOptions => {
+): NormalizedOperationOptions => {
 	const context: unknown = options.context
 	const ultimabase: unknown = options.ultimabase
 	const useMasterKey: unknown = options.useMasterKey
@@ -194,22 +139,18 @@ const normalizeQueryAuthorityOptions = (
 		context !== undefined &&
 		(typeof context !== 'object' || context === null)
 	) {
-		throw new TypeError(
-			'query terminal context must be a RequestContext instance',
-		)
+		throw new TypeError('operation context must be a RequestContext instance')
 	}
 
 	if (
 		ultimabase !== undefined &&
 		(typeof ultimabase !== 'object' || ultimabase === null)
 	) {
-		throw new TypeError(
-			'query terminal ultimabase must be an UltimaBase instance',
-		)
+		throw new TypeError('operation ultimabase must be an UltimaBase instance')
 	}
 
 	if (useMasterKey !== undefined && useMasterKey !== true) {
-		throw new TypeError('query terminal useMasterKey must be true when present')
+		throw new TypeError('operation useMasterKey must be true when present')
 	}
 
 	return immutableRecord({
@@ -220,53 +161,53 @@ const normalizeQueryAuthorityOptions = (
 }
 
 /** Snapshots the public terminal boundary before asynchronous execution starts. */
-export const normalizeQueryTerminalOptions = (
-	options: QueryTerminalOptions | undefined,
-): NormalizedQueryTerminalOptions => {
+export const normalizeOperationOptions = (
+	options: OperationOptions | undefined,
+): NormalizedOperationOptions => {
 	if (options === undefined) {
-		return emptyTerminalOptions
+		return emptyOperationOptions
 	}
 
 	const untrustedOptions: unknown = options
 
 	if (!isPlainRecord(untrustedOptions)) {
-		throw new TypeError('query terminal options must be a plain object')
+		throw new TypeError('operation options must be a plain object')
 	}
 
 	assertKnownOptionKeys(untrustedOptions, false)
 
-	return normalizeQueryAuthorityOptions(untrustedOptions)
+	return normalizeOperationAuthority(untrustedOptions)
 }
 
 /** Normalizes bulk behavior and ownership through one shared public options object. */
-export const normalizeQueryBulkTerminalOptions = <
-	const TOptions extends QueryBulkTerminalOptions | undefined,
+export const normalizeBulkOperationOptions = <
+	const TOptions extends BulkOperationOptions | undefined,
 >(
 	options: TOptions | undefined,
-): NormalizedQueryBulkTerminalOptions<QueryBulkAtomic<TOptions>> => {
+): NormalizedBulkOperationOptions<InferBulkOperationAtomicity<TOptions>> => {
 	if (options === undefined) {
 		return immutableRecord({
-			...emptyTerminalOptions,
-			bulk: normalizeBulkOperationOptions(undefined),
-		}) as NormalizedQueryBulkTerminalOptions<QueryBulkAtomic<TOptions>>
+			...emptyOperationOptions,
+			bulk: normalizeBulkAtomicity(undefined),
+		}) as NormalizedBulkOperationOptions<InferBulkOperationAtomicity<TOptions>>
 	}
 
 	const untrustedOptions: unknown = options
 
 	if (!isPlainRecord(untrustedOptions)) {
-		throw new TypeError('query terminal options must be a plain object')
+		throw new TypeError('operation options must be a plain object')
 	}
 
 	assertKnownOptionKeys(untrustedOptions, true)
-	const terminal = normalizeQueryAuthorityOptions(untrustedOptions)
+	const operation = normalizeOperationAuthority(untrustedOptions)
 	const atomic: unknown = untrustedOptions.atomic
 
 	return immutableRecord({
-		...terminal,
-		bulk: normalizeBulkOperationOptions(
+		...operation,
+		bulk: normalizeBulkAtomicity(
 			atomic === undefined ? undefined : { atomic: atomic as boolean },
 		),
-	}) as NormalizedQueryBulkTerminalOptions<QueryBulkAtomic<TOptions>>
+	}) as NormalizedBulkOperationOptions<InferBulkOperationAtomicity<TOptions>>
 }
 
 /** Registers one facade-owned root executor without creating a default application. */
@@ -282,25 +223,23 @@ export const registerQueryExecutionOwner = (
 }
 
 /** Registers one Runtime-owned authority resolver for an erased executor. */
-export const registerQueryTerminalExecutionHandler = (
+export const registerOperationExecutionHandler = (
 	executor: QueryExecutionDispatcher,
-	handler: QueryTerminalExecutionHandler,
+	handler: OperationExecutionHandler,
 ): void => {
-	if (queryTerminalExecutionHandlers.has(executor)) {
-		throw new TypeError(
-			'query terminal execution handler is already registered',
-		)
+	if (operationExecutionHandlers.has(executor)) {
+		throw new TypeError('operation execution handler is already registered')
 	}
 
-	queryTerminalExecutionHandlers.set(executor, handler)
+	operationExecutionHandlers.set(executor, handler)
 }
 
 /** Applies server-only options through Runtime while leaving the operation untouched. */
-const dispatchQueryTerminal = (
+const dispatchOperation = (
 	executor: QueryExecutionDispatcher,
 	operation: unknown,
-	options: NormalizedQueryTerminalOptions,
-	scope: QueryTerminalPrivateScope | undefined,
+	options: NormalizedOperationOptions,
+	scope: OperationPrivateScope | undefined,
 ): Promise<unknown> => {
 	if (
 		options.context === undefined &&
@@ -310,7 +249,7 @@ const dispatchQueryTerminal = (
 		return executor.execute(operation)
 	}
 
-	const handler = queryTerminalExecutionHandlers.get(executor)
+	const handler = operationExecutionHandlers.get(executor)
 
 	if (handler === undefined) {
 		throw new FrameworkError(
@@ -318,9 +257,7 @@ const dispatchQueryTerminal = (
 			'The active query executor cannot apply terminal authority options.',
 			{
 				publicMessage: 'No request execution context is available.',
-				internalDetails: {
-					reason: 'query-terminal-authority-unavailable',
-				},
+				internalDetails: { reason: 'operation-authority-unavailable' },
 			},
 		)
 	}
@@ -363,9 +300,9 @@ export const runWithQueryExecutionGuard = <TResult>(
 	})
 
 	// Authority resolution stays behind the same revocable hook lease.
-	registerQueryTerminalExecutionHandler(executor, (operation, options, scope) =>
+	registerOperationExecutionHandler(executor, (operation, options, scope) =>
 		guard.run(() =>
-			dispatchQueryTerminal(
+			dispatchOperation(
 				requireParent().executor,
 				operation,
 				options,
@@ -381,10 +318,10 @@ export const runWithQueryExecutionGuard = <TResult>(
 }
 
 /** Resolves one terminal at call time without retaining execution in its QueryBuilder AST. */
-export const executeQueryTerminal = <const TOperation extends OperationAstNode>(
+export const executeOperation = <const TOperation extends OperationAstNode>(
 	operation: TOperation,
-	options: NormalizedQueryTerminalOptions,
-	scope?: QueryTerminalPrivateScope,
+	options: NormalizedOperationOptions,
+	scope?: OperationPrivateScope,
 ): Promise<InferOperationResult<TOperation>> => {
 	const active: ActiveQueryExecution | undefined =
 		activeQueryExecution.getStore()
@@ -393,9 +330,7 @@ export const executeQueryTerminal = <const TOperation extends OperationAstNode>(
 		owner === undefined ? undefined : queryExecutionOwners.get(owner)
 
 	if (owner !== undefined && registration === undefined) {
-		throw new TypeError(
-			'query terminal ultimabase must be an UltimaBase instance',
-		)
+		throw new TypeError('operation ultimabase must be an UltimaBase instance')
 	}
 
 	if (active !== undefined) {
@@ -411,7 +346,7 @@ export const executeQueryTerminal = <const TOperation extends OperationAstNode>(
 			)
 		}
 
-		return dispatchQueryTerminal(
+		return dispatchOperation(
 			active.executor,
 			operation,
 			options,
@@ -422,15 +357,15 @@ export const executeQueryTerminal = <const TOperation extends OperationAstNode>(
 	if (registration === undefined) {
 		throw new FrameworkError(
 			'MISSING_EXECUTION_CONTEXT',
-			'No request is active. Pass { ultimabase } to this QueryBuilder terminal.',
+			'No request is active. Pass { ultimabase } to this schema operation.',
 			{
 				publicMessage: 'No request execution context is available.',
-				internalDetails: { reason: 'query-terminal-owner-missing' },
+				internalDetails: { reason: 'operation-owner-missing' },
 			},
 		)
 	}
 
-	return dispatchQueryTerminal(
+	return dispatchOperation(
 		registration.createRootExecutor(),
 		operation,
 		options,

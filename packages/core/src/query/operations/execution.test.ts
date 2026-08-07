@@ -3,8 +3,8 @@ import { describe, expect, it } from 'vitest'
 import { QueryBuilder } from '../query/query.js'
 
 import {
-	normalizeQueryBulkTerminalOptions,
-	normalizeQueryTerminalOptions,
+	normalizeBulkOperationOptions,
+	normalizeOperationOptions,
 	runWithQueryExecution,
 	type QueryExecutionDispatcher,
 } from './execution.js'
@@ -30,12 +30,12 @@ class RecordingDispatcher implements QueryExecutionDispatcher {
 	}
 }
 
-describe('contextual QueryBuilder execution', () => {
+describe('contextual operation execution', () => {
 	it('fails clearly when neither an ambient request nor an app is available', () => {
 		expect(() => PostSchema.findMany()).toThrow(
 			expect.objectContaining({
 				code: 'MISSING_EXECUTION_CONTEXT',
-				internalDetails: { reason: 'query-terminal-owner-missing' },
+				internalDetails: { reason: 'operation-owner-missing' },
 			}),
 		)
 		expect(() =>
@@ -43,7 +43,7 @@ describe('contextual QueryBuilder execution', () => {
 		).toThrow(
 			expect.objectContaining({
 				code: 'MISSING_EXECUTION_CONTEXT',
-				internalDetails: { reason: 'query-terminal-owner-missing' },
+				internalDetails: { reason: 'operation-owner-missing' },
 			}),
 		)
 	})
@@ -87,15 +87,15 @@ describe('contextual QueryBuilder execution', () => {
 		expect('engine' in reusable).toBe(false)
 	})
 
-	it('normalizes terminal ownership and bulk grouping without entering the AST', () => {
+	it('normalizes operation ownership and bulk grouping without entering the AST', () => {
 		const context = {}
 		const owner = {}
-		const terminal = normalizeQueryTerminalOptions({
+		const terminal = normalizeOperationOptions({
 			context: context as never,
 			ultimabase: owner as never,
 			useMasterKey: true,
 		})
-		const bulk = normalizeQueryBulkTerminalOptions({
+		const bulk = normalizeBulkOperationOptions({
 			atomic: false,
 			ultimabase: owner as never,
 		})
@@ -118,16 +118,16 @@ describe('contextual QueryBuilder execution', () => {
 		expect('ultimabase' in ast).toBe(false)
 		expect('useMasterKey' in ast).toBe(false)
 		expect(() =>
-			normalizeQueryTerminalOptions({ unknown: true } as never),
-		).toThrow('query terminal options contain unknown key: unknown')
+			normalizeOperationOptions({ unknown: true } as never),
+		).toThrow('operation options contain unknown key: unknown')
 		expect(() =>
-			normalizeQueryBulkTerminalOptions({ atomic: 'no' } as never),
+			normalizeBulkOperationOptions({ atomic: 'no' } as never),
 		).toThrow('bulk operation atomic option must be a boolean')
 		expect(() =>
-			normalizeQueryTerminalOptions({ context: 'forged' } as never),
-		).toThrow('query terminal context must be a RequestContext instance')
+			normalizeOperationOptions({ context: 'forged' } as never),
+		).toThrow('operation context must be a RequestContext instance')
 		expect(() =>
-			normalizeQueryTerminalOptions({ useMasterKey: false } as never),
-		).toThrow('query terminal useMasterKey must be true when present')
+			normalizeOperationOptions({ useMasterKey: false } as never),
+		).toThrow('operation useMasterKey must be true when present')
 	})
 })

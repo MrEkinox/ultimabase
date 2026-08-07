@@ -27,7 +27,7 @@ context.${completionMarker}emit('audit.checked', { id: 'audit-1' })
 const /* hover:query-builder */ query = new QueryBuilder(AuditSchema)
 const event = context./* hover:emit-method */emit('audit.created', { id: 'audit-1' })
 const principalId = context./* hover:get-value-method */getValue(principal)
-const selected = await AuditSchema./* hover:query-terminal */findMany({ select: { id: true, action: true } })
+const selected = await AuditSchema./* hover:schema-operation */findMany({ select: { id: true, action: true } })
 const /* hover:selected-result */ first = selected[0]
 void event
 void principalId
@@ -127,7 +127,7 @@ describe('HookContext IntelliSense', () => {
 	})
 
 	it('documents read and event capabilities in editor hovers', () => {
-		const query = readQuickInfo('/* hover:query-terminal */')
+		const query = readQuickInfo('/* hover:schema-operation */')
 		const emit = readQuickInfo('/* hover:emit-method */')
 		const getValue = readQuickInfo('/* hover:get-value-method */')
 

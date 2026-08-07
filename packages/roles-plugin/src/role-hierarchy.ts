@@ -2,7 +2,7 @@ import {
 	Relation,
 	type PersistedSchemaReference,
 	type Pointer,
-	type QueryTerminalOptions,
+	type OperationOptions,
 	type SchemaDefinition,
 	type SchemaModelCapabilityContext,
 } from '@ultimabase/core'
@@ -36,13 +36,13 @@ export interface RoleHierarchyCommands<
 	addRole(
 		this: RoleHierarchyCommandReceiver<TRoleSchema>,
 		role: NestedRoleTarget<TInputRoleSchema>,
-		options?: QueryTerminalOptions,
+		options?: OperationOptions,
 	): Promise<void>
 	/** Removes one direct child role without changing either stored role. */
 	removeRole(
 		this: RoleHierarchyCommandReceiver<TRoleSchema>,
 		role: NestedRoleTarget<TInputRoleSchema>,
-		options?: QueryTerminalOptions,
+		options?: OperationOptions,
 	): Promise<void>
 }
 

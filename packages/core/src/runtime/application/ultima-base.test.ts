@@ -166,7 +166,7 @@ describe('UltimaBase', () => {
 		expect(trace).toStrictEqual(['setup', 'connect', 'stop', 'dispose'])
 	})
 
-	it('executes explicit plugin contexts and audited master terminal options', async () => {
+	it('executes explicit plugin contexts and audited master operation options', async () => {
 		const adapter = new RecordingDatabaseAdapter(
 			[
 				{ status: 'fulfilled', value: [] },
@@ -237,7 +237,7 @@ describe('UltimaBase', () => {
 		}
 	})
 
-	it('delegates immutable model commands through exact QueryBuilder terminals', async () => {
+	it('delegates immutable model commands through exact schema operations', async () => {
 		const createdRecord = {
 			createdAt: '2026-08-03T12:00:00.000Z',
 			id: '0198a43e-2431-7000-8000-000000000011',
@@ -461,7 +461,7 @@ describe('UltimaBase', () => {
 			).rejects.toMatchObject({
 				code: 'VALIDATION_ERROR',
 				internalDetails: {
-					reason: 'query-terminal-context-application-mismatch',
+					reason: 'operation-context-application-mismatch',
 				},
 			})
 			runWithRequestEngine(

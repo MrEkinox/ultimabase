@@ -2,10 +2,10 @@ import { describe, expect, it } from 'vitest'
 
 import { Pointer, Schema, snapshotPointerValue } from '../../index.js'
 import {
-	registerQueryTerminalExecutionHandler,
+	registerOperationExecutionHandler,
 	runWithQueryExecution,
 	type QueryExecutionDispatcher,
-	type QueryTerminalPrivateScope,
+	type OperationPrivateScope,
 } from '../../query/operations/execution.js'
 
 const userSchema = Schema.define({ className: 'PointerUser', fields: {} })
@@ -53,13 +53,13 @@ describe('Pointer', () => {
 
 	it('reads through one private target scope that hooks cannot discard', async () => {
 		const pointer = userSchema.pointer(targetId)
-		let scope: QueryTerminalPrivateScope | undefined
+		let scope: OperationPrivateScope | undefined
 		let operation: unknown
 		const dispatcher: QueryExecutionDispatcher = {
 			execute: () => Promise.resolve(null),
 		}
 
-		registerQueryTerminalExecutionHandler(
+		registerOperationExecutionHandler(
 			dispatcher,
 			(nextOperation, _options, nextScope) => {
 				operation = nextOperation

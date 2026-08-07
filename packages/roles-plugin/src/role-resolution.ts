@@ -1,6 +1,6 @@
 import {
 	Pointer,
-	type QueryTerminalOptions,
+	type OperationOptions,
 	type SchemaClass,
 	type SchemaDefinition,
 	type SchemaResult,
@@ -96,7 +96,7 @@ export const resolveUniqueRoleNameMatch = <
 const findRoleByName = async <const TSchema extends SchemaDefinition>(
 	schema: TSchema,
 	name: string,
-	options?: QueryTerminalOptions,
+	options?: OperationOptions,
 ): Promise<SchemaResult<TSchema>> => {
 	const lookupSchema = schema as unknown as RoleLookupSchema
 	const matches = await lookupSchema.findMany(
@@ -120,7 +120,7 @@ export const resolveRoleReferenceId = async <
 	const TSchema extends SchemaDefinition,
 >(
 	reference: RoleReference<TSchema>,
-	options?: QueryTerminalOptions,
+	options?: OperationOptions,
 ): Promise<string> => {
 	const state = requireRoleReferenceState(reference)
 
@@ -138,7 +138,7 @@ export const resolveRoleReference = async <
 	const TSchema extends SchemaDefinition,
 >(
 	reference: RoleReference<TSchema>,
-	options?: QueryTerminalOptions,
+	options?: OperationOptions,
 ): Promise<SchemaResult<TSchema>> => {
 	const state = requireRoleReferenceState(reference)
 

@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest'
 
 import {
-	registerQueryTerminalExecutionHandler,
+	registerOperationExecutionHandler,
 	runWithQueryExecution,
-	type NormalizedQueryTerminalOptions,
+	type NormalizedOperationOptions,
 	type QueryExecutionDispatcher,
-	type QueryTerminalPrivateScope,
+	type OperationPrivateScope,
 } from '../../query/operations/execution.js'
 import {
 	RelationArticle,
@@ -17,8 +17,8 @@ import { Relation } from './relation.js'
 interface ScopedExecution {
 	readonly kind: string
 	readonly operation: Readonly<Record<string, unknown>>
-	readonly options: NormalizedQueryTerminalOptions
-	readonly scope: QueryTerminalPrivateScope | undefined
+	readonly options: NormalizedOperationOptions
+	readonly scope: OperationPrivateScope | undefined
 }
 
 /** Records the private terminal boundary without interpreting relation storage. */
@@ -26,7 +26,7 @@ class RelationScopeDispatcher implements QueryExecutionDispatcher {
 	readonly executions: ScopedExecution[] = []
 
 	constructor() {
-		registerQueryTerminalExecutionHandler(this, (operation, options, scope) => {
+		registerOperationExecutionHandler(this, (operation, options, scope) => {
 			if (
 				typeof operation !== 'object' ||
 				operation === null ||
@@ -34,7 +34,7 @@ class RelationScopeDispatcher implements QueryExecutionDispatcher {
 				typeof operation.kind !== 'string'
 			) {
 				throw new TypeError(
-					'Expected one normalized QueryBuilder terminal operation',
+					'Expected one normalized schema operation',
 				)
 			}
 

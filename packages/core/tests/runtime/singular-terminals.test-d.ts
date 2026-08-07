@@ -6,7 +6,7 @@ import {
 	Schema,
 	type InferQueryResult,
 	type NonAtomicBulkResult,
-	type QueryTerminalOptions,
+	type OperationOptions,
 	type RequestContext,
 	type UltimaBase,
 } from '../../src/index.js'
@@ -150,7 +150,7 @@ test('preserves schema selection across every root read terminal', () => {
 		context,
 		ultimabase,
 		useMasterKey: true,
-	} as const satisfies QueryTerminalOptions
+	} as const satisfies OperationOptions
 
 	// Every terminal shares the same final trusted-backend authority boundary.
 	void articleSchema.findMany(input, masterOptions)

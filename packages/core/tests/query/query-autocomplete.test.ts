@@ -32,7 +32,7 @@ const identified = new QueryBuilder(PostSchema)./* hover */where({ id: { eq: '01
 		)
 	})
 
-	it('documents compact contextual terminals and every trusted authority option', () => {
+	it('documents compact operation options and every trusted authority choice', () => {
 		const marker = '/* completion */'
 		const sourceWithMarker = `
 import { Schema, UltimaBase, stringField } from '../../src/index.js'
@@ -44,7 +44,7 @@ void ultimabase
 `
 		const position = sourceWithMarker.indexOf(marker)
 		const source = sourceWithMarker.replace(marker, ' '.repeat(marker.length))
-		const fileName = `${import.meta.dirname}/query-terminal-options.fixture.ts`
+		const fileName = `${import.meta.dirname}/operation-options.fixture.ts`
 		const service = createLanguageService(fileName, source)
 		const completions = service.getCompletionsAtPosition(fileName, position, {})
 		const readOptionDetails = (name: string) => {
@@ -54,7 +54,7 @@ void ultimabase
 
 			if (completion === undefined) {
 				throw new TypeError(
-					`Missing QueryBuilder terminal option completion: ${name}`,
+					`Missing operation option completion: ${name}`,
 				)
 			}
 
@@ -86,18 +86,18 @@ void ultimabase
 			expect(details?.tags?.some(({ name }) => name === 'example')).toBe(true)
 		}
 
-		const terminal = readMarkedQuickInfo(
-			`${import.meta.dirname}/query-terminal-hover.fixture.ts`,
+		const operation = readMarkedQuickInfo(
+			`${import.meta.dirname}/schema-operation-hover.fixture.ts`,
 			`
 import { Schema, stringField } from '../../src/index.js'
 const Post = Schema.define({ className: 'Post', fields: { title: stringField() } })
 Post./* hover */findMany()
 `,
 		)
-		const display = readDisplay(terminal.displayParts)
+		const display = readDisplay(operation.displayParts)
 
 		expect(display).toContain(
-			'findMany(input?: undefined, options?: QueryTerminalOptions)',
+			'findMany(input?: undefined, options?: OperationOptions)',
 		)
 		expect(display).not.toContain('SchemaDefinition<')
 		expect(display.length).toBeLessThan(950)
@@ -533,7 +533,7 @@ Post.createMany({ data: [{ title: 'First' }] }, { ${marker} })
 		const atomic = completions?.entries.find(({ name }) => name === 'atomic')
 
 		if (atomic === undefined) {
-			throw new TypeError('Missing QueryBuilder bulk atomic completion')
+			throw new TypeError('Missing bulk operation atomic completion')
 		}
 
 		const details = service.getCompletionEntryDetails(
@@ -549,23 +549,24 @@ Post.createMany({ data: [{ title: 'First' }] }, { ${marker} })
 
 		expect(documentation).toContain('all-or-nothing')
 
-		const terminal = readMarkedQuickInfo(
-			`${import.meta.dirname}/query-create-many-hover.fixture.ts`,
+		const operation = readMarkedQuickInfo(
+			`${import.meta.dirname}/bulk-operation-hover.fixture.ts`,
 			`
 import { Schema, stringField } from '../../src/index.js'
 const Post = Schema.define({ className: 'Post', fields: { title: stringField() } })
 Post./* hover */createMany({ data: [{ title: 'First' }] }, { atomic: false })
 `,
 		)
-		const terminalDisplay = readDisplay(terminal.displayParts)
+		const operationDisplay = readDisplay(operation.displayParts)
 
-		expect(terminalDisplay).toContain('NonAtomicBulkResult<')
-		expect(terminalDisplay).not.toContain('SchemaDefinition<')
-		expect(terminalDisplay.length).toBeLessThan(1_200)
-		expect(readDisplay(terminal.documentation)).toContain(
+		expect(operationDisplay).toContain('BulkOperationOptions')
+		expect(operationDisplay).toContain('NonAtomicBulkResult<')
+		expect(operationDisplay).not.toContain('SchemaDefinition<')
+		expect(operationDisplay.length).toBeLessThan(1_200)
+		expect(readDisplay(operation.documentation)).toContain(
 			'discriminated result',
 		)
-		expect(terminal.tags?.some(({ name }) => name === 'example')).toBe(true)
+		expect(operation.tags?.some(({ name }) => name === 'example')).toBe(true)
 	})
 
 	it('documents pointer inclusion and keeps target-field autocomplete exact', () => {

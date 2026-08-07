@@ -69,16 +69,18 @@ import type {
 	UpsertOneOperationAst,
 } from '../operations/contracts.js'
 import {
-	executeQueryTerminal,
-	normalizeQueryBulkTerminalOptions,
-	normalizeQueryTerminalOptions,
-	type QueryBulkTerminalOptions,
-	type QueryBulkTerminalResult,
-	type QueryBulkAtomic,
+	executeOperation,
+	normalizeBulkOperationOptions,
+	normalizeOperationOptions,
+	type InferBulkOperationResult,
+	type InferBulkOperationAtomicity,
 	type QueryRelationPrivateScope,
-	type QueryTerminalPrivateScope,
-	type QueryTerminalOptions,
+	type OperationPrivateScope,
 } from '../operations/execution.js'
+import type {
+	BulkOperationOptions,
+	OperationOptions,
+} from '../operations/options.js'
 import type { InferOperationResult } from '../operations/results.js'
 import { snapshotCreateInputs } from '../operations/bulk.js'
 import {
@@ -124,7 +126,7 @@ type QueryExecutionInput<
 // QueryBuilder state stays outside the frozen public shell so internal hydration does
 // not need a public constructor overload or an externally callable static API.
 const queryAsts = new WeakMap<object, unknown>()
-const queryPrivateScopes = new WeakMap<object, QueryTerminalPrivateScope>()
+const queryPrivateScopes = new WeakMap<object, OperationPrivateScope>()
 
 const readQueryAst = <const TSchema extends SchemaDefinition>(
 	query: object,
@@ -149,12 +151,12 @@ const storeQueryAst = <const TSchema extends SchemaDefinition>(
 /** Reads a trusted scope that must remain invisible to QueryBuilder hooks and serialization. */
 const readQueryPrivateScope = (
 	query: object,
-): QueryTerminalPrivateScope | undefined => queryPrivateScopes.get(query)
+): OperationPrivateScope | undefined => queryPrivateScopes.get(query)
 
 /** Retains one immutable framework scope beside, never inside, the public AST. */
 const storeQueryPrivateScope = (
 	query: object,
-	scope: QueryTerminalPrivateScope | undefined,
+	scope: OperationPrivateScope | undefined,
 ): void => {
 	if (scope !== undefined) {
 		queryPrivateScopes.set(query, scope)
@@ -614,7 +616,7 @@ export const hydrateQueryFromAst = <
 	TIncludedPointer = never,
 >(
 	ast: QueryBuilderAst<TSchema>,
-	privateScope?: QueryTerminalPrivateScope,
+	privateScope?: OperationPrivateScope,
 ): QueryBuilder<TSchema, TSelectedField, TIncludedPointer> => {
 	const query = new QueryBuilder<TSchema, TSelectedField, TIncludedPointer>(
 		ast.schema.definition,
@@ -641,7 +643,7 @@ export const scopeQueryToObjectId = <
 	options: Readonly<{ readonly nativeAccessDeniedAsMissing?: true }> = {},
 ): NormalizedQueryInput<TSchema, TSelectedField, TIncludedPointer> => {
 	const rowFilter = createQueryValueFilter(query.schema, 'equal', 'id', id)
-	const scope: QueryTerminalPrivateScope = immutableRecord({
+	const scope: OperationPrivateScope = immutableRecord({
 		kind: 'row-filter',
 		...(options.nativeAccessDeniedAsMissing === undefined
 			? {}
@@ -715,11 +717,11 @@ export const executeQueryWithPrivateScope = <
 >(
 	query: QueryExecutionInput<TSchema, TSelectedField, TIncludedPointer>,
 	operation: TOperation,
-	options?: QueryTerminalOptions,
+	options?: OperationOptions,
 ): Promise<InferOperationResult<TOperation>> =>
-	executeQueryTerminal(
+	executeOperation(
 		operation,
-		normalizeQueryTerminalOptions(options),
+		normalizeOperationOptions(options),
 		readQueryPrivateScope(query),
 	)
 
@@ -730,7 +732,7 @@ export const executeQueryFindMany = <
 	TIncludedPointer,
 >(
 	query: QueryExecutionInput<TSchema, TSelectedField, TIncludedPointer>,
-	options?: QueryTerminalOptions,
+	options?: OperationOptions,
 ): Promise<
 	readonly InferQueryResult<TSchema, TSelectedField, TIncludedPointer>[]
 > => {
@@ -751,7 +753,7 @@ export const executeQueryFindOne = <
 	TIncludedPointer,
 >(
 	query: QueryExecutionInput<TSchema, TSelectedField, TIncludedPointer>,
-	options?: QueryTerminalOptions,
+	options?: OperationOptions,
 ): Promise<InferQueryResult<
 	TSchema,
 	TSelectedField,
@@ -775,7 +777,7 @@ export const executeQueryGet = <
 >(
 	query: QueryExecutionInput<TSchema, TSelectedField, TIncludedPointer>,
 	id: OperationObjectId<TSchema>,
-	options?: QueryTerminalOptions,
+	options?: OperationOptions,
 ): Promise<InferQueryResult<
 	TSchema,
 	TSelectedField,
@@ -794,7 +796,7 @@ export const executeQueryGet = <
 /** Executes one filtered count without materializing model values. */
 export const executeQueryCount = <const TSchema extends SchemaDefinition>(
 	query: QueryExecutionInput<TSchema, never, never>,
-	options?: QueryTerminalOptions,
+	options?: OperationOptions,
 ): Promise<number> => {
 	const operation: CountOperationAst<
 		TSchema,
@@ -807,7 +809,7 @@ export const executeQueryCount = <const TSchema extends SchemaDefinition>(
 /** Executes one filtered existence check without loading model values. */
 export const executeQueryExists = <const TSchema extends SchemaDefinition>(
 	query: QueryExecutionInput<TSchema, never, never>,
-	options?: QueryTerminalOptions,
+	options?: OperationOptions,
 ): Promise<boolean> => {
 	const operation: ExistsOperationAst<
 		TSchema,
@@ -821,7 +823,7 @@ export const executeQueryExists = <const TSchema extends SchemaDefinition>(
 export const executeSchemaCreateOne = <const TSchema extends SchemaDefinition>(
 	schema: TSchema,
 	input: SchemaCreateOneExecutionInput<TSchema>,
-	options?: QueryTerminalOptions,
+	options?: OperationOptions,
 ): Promise<object> => {
 	const operation: CreateOneOperationAst<
 		TSchema,
@@ -836,27 +838,27 @@ export const executeSchemaCreateOne = <const TSchema extends SchemaDefinition>(
 				: normalizeQuerySelection(schema, input.select),
 	})
 
-	return executeQueryTerminal(operation, normalizeQueryTerminalOptions(options))
+	return executeOperation(operation, normalizeOperationOptions(options))
 }
 
 /** Executes one ordered schema-owned bulk create command. */
 export const executeSchemaCreateMany = <
 	const TSchema extends SchemaDefinition,
-	const TOptions extends QueryBulkTerminalOptions | undefined = undefined,
+	const TOptions extends BulkOperationOptions | undefined = undefined,
 >(
 	schema: TSchema,
 	input: SchemaCreateManyExecutionInput<TSchema>,
-	options?: TOptions & QueryBulkTerminalOptions,
+	options?: TOptions & BulkOperationOptions,
 ): Promise<
-	QueryBulkTerminalResult<
+	InferBulkOperationResult<
 		InferQueryResult<TSchema, QueryFieldName<TSchema>>,
 		TOptions
 	>
 > => {
-	const normalizedOptions = normalizeQueryBulkTerminalOptions<TOptions>(options)
+	const normalizedOptions = normalizeBulkOperationOptions<TOptions>(options)
 	const operation: CreateManyOperationAst<
 		TSchema,
-		QueryBulkAtomic<TOptions>,
+		InferBulkOperationAtomicity<TOptions>,
 		QueryFieldName<TSchema>
 	> = immutableRecord({
 		kind: 'create-many',
@@ -871,8 +873,8 @@ export const executeSchemaCreateMany = <
 
 	// The operation already fixes every selected field. This annotation only
 	// collapses the generic empty-schema branch retained by the conditional mapper.
-	return executeQueryTerminal(operation, normalizedOptions) as Promise<
-		QueryBulkTerminalResult<
+	return executeOperation(operation, normalizedOptions) as Promise<
+		InferBulkOperationResult<
 			InferQueryResult<TSchema, QueryFieldName<TSchema>>,
 			TOptions
 		>
@@ -887,7 +889,7 @@ export const executeQueryUpdateOne = <
 >(
 	query: QueryBuilder<TSchema, TSelectedField, TIncludedPointer>,
 	input: UpdateExpressionInput<TSchema> & {},
-	options?: QueryTerminalOptions,
+	options?: OperationOptions,
 ): Promise<InferQueryResult<
 	TSchema,
 	TSelectedField,
@@ -915,7 +917,7 @@ export const executeQueryUpdateMany = <
 >(
 	query: QueryBuilder<TSchema, TSelectedField>,
 	input: UpdateExpressionInput<TSchema> & {},
-	options?: QueryTerminalOptions,
+	options?: OperationOptions,
 ): Promise<readonly InferQueryResult<TSchema, TSelectedField>[]> => {
 	const operation: UpdateManyOperationAst<
 		TSchema,
@@ -939,7 +941,7 @@ export const executeQueryUpsertOne = <
 >(
 	query: QueryBuilder<TSchema, TSelectedField, TIncludedPointer>,
 	input: UpsertInput<TSchema> & {},
-	options?: QueryTerminalOptions,
+	options?: OperationOptions,
 ): Promise<InferQueryResult<TSchema, TSelectedField, TIncludedPointer>> => {
 	const normalizedInput = normalizeUpsertInput(query.schema, input)
 	const operation: UpsertOneOperationAst<
@@ -961,24 +963,24 @@ export const executeQueryUpsertOne = <
 /** Executes independently targeted upsert items without a container QueryBuilder. */
 export const executeSchemaUpsertMany = <
 	const TSchema extends SchemaDefinition,
-	const TOptions extends QueryBulkTerminalOptions | undefined = undefined,
+	const TOptions extends BulkOperationOptions | undefined = undefined,
 >(
 	schema: TSchema,
 	inputs: readonly UpsertManyItemInput<TSchema>[],
 	selection: QuerySelection<TSchema> | undefined,
-	options?: TOptions & QueryBulkTerminalOptions,
+	options?: TOptions & BulkOperationOptions,
 ): Promise<
-	QueryBulkTerminalResult<
+	InferBulkOperationResult<
 		InferQueryResult<TSchema, QueryFieldName<TSchema>>,
 		TOptions
 	>
 > => {
-	const normalizedOptions = normalizeQueryBulkTerminalOptions<TOptions>(options)
+	const normalizedOptions = normalizeBulkOperationOptions<TOptions>(options)
 	const operation: UpsertManyOperationAst<
 		TSchema,
 		UpdateExpression<TSchema>,
 		QueryFilterNode<TSchema>,
-		QueryBulkAtomic<TOptions>,
+		InferBulkOperationAtomicity<TOptions>,
 		QueryFieldName<TSchema>
 	> = immutableRecord({
 		kind: 'upsert-many',
@@ -993,8 +995,8 @@ export const executeSchemaUpsertMany = <
 
 	// The operation already fixes every selected field. This annotation only
 	// collapses the generic empty-schema branch retained by the conditional mapper.
-	return executeQueryTerminal(operation, normalizedOptions) as Promise<
-		QueryBulkTerminalResult<
+	return executeOperation(operation, normalizedOptions) as Promise<
+		InferBulkOperationResult<
 			InferQueryResult<TSchema, QueryFieldName<TSchema>>,
 			TOptions
 		>
@@ -1008,7 +1010,7 @@ export const executeQueryDeleteOne = <
 	TIncludedPointer,
 >(
 	query: QueryBuilder<TSchema, TSelectedField, TIncludedPointer>,
-	options?: QueryTerminalOptions,
+	options?: OperationOptions,
 ): Promise<InferQueryResult<
 	TSchema,
 	TSelectedField,
@@ -1030,7 +1032,7 @@ export const executeQueryDeleteMany = <
 	TSelectedField extends QueryFieldName<TSchema>,
 >(
 	query: QueryBuilder<TSchema, TSelectedField>,
-	options?: QueryTerminalOptions,
+	options?: OperationOptions,
 ): Promise<readonly InferQueryResult<TSchema, TSelectedField>[]> => {
 	const operation: DeleteManyOperationAst<
 		TSchema,

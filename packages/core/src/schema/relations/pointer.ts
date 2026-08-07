@@ -1,6 +1,6 @@
 import { assertNonEmptyString, immutableRecord } from '@ultimabase/shared'
 
-import type { QueryTerminalOptions } from '../../query/operations/execution.js'
+import type { OperationOptions } from '../../query/operations/options.js'
 import type { OperationObjectId } from '../../query/operations/contracts.js'
 import type { InferQueryResult } from '../../query/query/result.js'
 import {
@@ -113,7 +113,7 @@ export class Pointer<
 	/** Reads this exact target through the ordinary read pipeline. */
 	findOne<const TInput extends FindOneInput<TSchema>>(
 		input: ExactReadInput<TSchema, TInput, FindOneInput<TSchema>>,
-		options?: QueryTerminalOptions,
+		options?: OperationOptions,
 	): Promise<InferQueryResult<
 		TSchema,
 		QuerySelectedFieldFromInput<TSchema, TInput>,
@@ -122,11 +122,11 @@ export class Pointer<
 	/** Reads this exact target without applying a projection. */
 	findOne(
 		input?: undefined,
-		options?: QueryTerminalOptions,
+		options?: OperationOptions,
 	): Promise<InferQueryResult<TSchema> | null>
 	findOne(
 		input: FindOneInput<TSchema> = {},
-		options?: QueryTerminalOptions,
+		options?: OperationOptions,
 	): Promise<object | null> {
 		const query = scopeQueryToObjectId(
 			queryFromFindOneInput(this.#schema, input),
@@ -139,7 +139,7 @@ export class Pointer<
 	/** Tests whether this exact target exists and remains visible. */
 	exists(
 		input: ExistsInput<TSchema> = {},
-		options?: QueryTerminalOptions,
+		options?: OperationOptions,
 	): Promise<boolean> {
 		const query = scopeQueryToObjectId(
 			queryFromExistsInput(this.#schema, input),

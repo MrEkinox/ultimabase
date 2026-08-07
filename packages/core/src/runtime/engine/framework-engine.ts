@@ -14,9 +14,9 @@ import type {
 	OperationAstNode,
 } from '../../query/index.js'
 import {
-	registerQueryTerminalExecutionHandler,
-	type NormalizedQueryTerminalOptions,
-	type QueryTerminalPrivateScope,
+	registerOperationExecutionHandler,
+	type NormalizedOperationOptions,
+	type OperationPrivateScope,
 } from '../../query/operations/execution.js'
 import { Schema, type SchemaDefinition } from '../../schema/index.js'
 import type { MaybePromise } from '@ultimabase/shared'
@@ -137,7 +137,7 @@ const bindRequestContextToFramework = (
 			{
 				publicMessage: 'The request context is not available.',
 				internalDetails: {
-					reason: 'query-terminal-context-application-mismatch',
+					reason: 'operation-context-application-mismatch',
 				},
 			},
 		)
@@ -311,7 +311,7 @@ export class RequestEngine<
 		this.context = context
 		this.#pipeline = pipeline
 		this.#transactionLifetime = transactionLifetime
-		registerQueryTerminalExecutionHandler(this, (operation, options, scope) =>
+		registerOperationExecutionHandler(this, (operation, options, scope) =>
 			this.#executeTerminal(operation, options, scope),
 		)
 
@@ -322,8 +322,8 @@ export class RequestEngine<
 	/** Resolves trusted terminal authority while retaining this engine's lifetime. */
 	async #executeTerminal(
 		operation: unknown,
-		options: NormalizedQueryTerminalOptions,
-		scope: QueryTerminalPrivateScope | undefined,
+		options: NormalizedOperationOptions,
+		scope: OperationPrivateScope | undefined,
 	): Promise<unknown> {
 		const normalizedOperation = operation as ExecutableOperationAst<
 			TSchemas[number]
@@ -361,7 +361,7 @@ export class RequestEngine<
 		if (options.context !== undefined) {
 			if (!isRequestContext(options.context)) {
 				throw new TypeError(
-					'query terminal context must be a RequestContext instance',
+					'operation context must be a RequestContext instance',
 				)
 			}
 

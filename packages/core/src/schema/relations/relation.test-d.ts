@@ -1,6 +1,6 @@
 import { expectTypeOf, test } from 'vitest'
 
-import type { QueryTerminalOptions } from '../../query/operations/execution.js'
+import type { OperationOptions } from '../../query/operations/options.js'
 import type { InferQueryResult } from '../../query/query/result.js'
 import {
 	RelationArticle,
@@ -52,7 +52,7 @@ test('infers exact owning and inverse relation handles from persisted models', (
 		| readonly [Pointer<typeof RelationTag>, ...Pointer<typeof RelationTag>[]]
 	>()
 	expectTypeOf<Parameters<Connect>[1]>().toEqualTypeOf<
-		QueryTerminalOptions | undefined
+		OperationOptions | undefined
 	>()
 	expectTypeOf<ReturnType<Connect>>().toEqualTypeOf<Promise<void>>()
 	expectTypeOf<Parameters<Set>[0]>().toEqualTypeOf<

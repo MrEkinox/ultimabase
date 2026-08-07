@@ -380,14 +380,17 @@ const imported = await PostSchema.createMany(
 )
 ```
 
+Singular reads and mutations accept `OperationOptions`. Bulk commands accept
+`BulkOperationOptions`, which adds `atomic` to the same authority options.
+
 The application-owned `MasterAuthority` audits the operation before it runs;
-the first configured key ID labels trusted terminal elevations. Contexts and
+the first configured key ID labels trusted operation elevations. Contexts and
 authority flags never enter Query or Operation ASTs, and transports must not
 map client input into these server-only options.
 
 ## Automatic mutation transactions
 
-Every root create, update, upsert, and delete terminal automatically uses the
+Every root create, update, upsert, and delete operation automatically uses the
 configured database adapter's transaction lifecycle. Developer code keeps the
 same concise API:
 

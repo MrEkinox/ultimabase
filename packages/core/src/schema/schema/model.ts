@@ -26,9 +26,9 @@ import type {
 	SchemaWhereFactory,
 } from '../../query/operations/schema-commands.js'
 import type {
-	QueryBulkTerminalOptions,
-	QueryTerminalOptions,
-} from '../../query/operations/execution.js'
+	BulkOperationOptions,
+	OperationOptions,
+} from '../../query/operations/options.js'
 import type { WhereInput } from '../../query/filters/where.js'
 import {
 	normalizeQuerySelection,
@@ -312,7 +312,7 @@ export interface SchemaDraftCommands<
 	 */
 	create<const TSelection extends SchemaModelSelection<TCompleteValues>>(
 		input: SchemaModelCreateInput<TCompleteValues, TSelection>,
-		options?: QueryTerminalOptions,
+		options?: OperationOptions,
 	): Promise<
 		SelectedPersistedSchemaModel<
 			Pick<this, typeof schemaModelPointerType>,
@@ -330,7 +330,7 @@ export interface SchemaDraftCommands<
 	 */
 	create(
 		input: SchemaModelCreateInput<TCompleteValues>,
-		options?: QueryTerminalOptions,
+		options?: OperationOptions,
 	): Promise<
 		SelectedPersistedSchemaModel<
 			Pick<this, typeof schemaModelPointerType>,
@@ -349,7 +349,7 @@ export interface SchemaDraftCommands<
 	upsert<const TSelection extends SchemaModelSelection<TCompleteValues>>(
 		input: TUpsertFields &
 			SchemaModelResultSelection<TCompleteValues, TSelection>,
-		options?: QueryTerminalOptions,
+		options?: OperationOptions,
 	): Promise<
 		SelectedPersistedSchemaModel<
 			Pick<this, typeof schemaModelPointerType>,
@@ -364,7 +364,7 @@ export interface SchemaDraftCommands<
 	upsert(
 		input: TUpsertFields &
 			SchemaModelResultSelection<TCompleteValues, undefined>,
-		options?: QueryTerminalOptions,
+		options?: OperationOptions,
 	): Promise<
 		SelectedPersistedSchemaModel<
 			Pick<this, typeof schemaModelPointerType>,
@@ -392,7 +392,7 @@ export interface SchemaResultCommands<
 	 */
 	fetch<const TSelection extends SchemaModelSelection<TCompleteValues>>(
 		input: SchemaModelFetchInput<TCompleteValues, TSelection>,
-		options?: QueryTerminalOptions,
+		options?: OperationOptions,
 	): Promise<SelectedPersistedSchemaModel<
 		Pick<this, typeof schemaModelPointerType>,
 		TClassName,
@@ -404,7 +404,7 @@ export interface SchemaResultCommands<
 	/** Reloads this protected object identity and returns its complete model. */
 	fetch(
 		input: SchemaModelFetchInput<TCompleteValues>,
-		options?: QueryTerminalOptions,
+		options?: OperationOptions,
 	): Promise<SelectedPersistedSchemaModel<
 		Pick<this, typeof schemaModelPointerType>,
 		TClassName,
@@ -418,7 +418,7 @@ export interface SchemaResultCommands<
 	 *
 	 * @example `if (await post.exists()) { /* the object remains readable *\/ }`
 	 */
-	exists(options?: QueryTerminalOptions): Promise<boolean>
+	exists(options?: OperationOptions): Promise<boolean>
 	/**
 	 * Returns this model's exact immutable pointer without performing database I/O.
 	 *
@@ -444,7 +444,7 @@ export interface SchemaResultCommands<
 			TUpdateInput,
 			TSelection
 		>,
-		options?: QueryTerminalOptions,
+		options?: OperationOptions,
 	): Promise<SelectedPersistedSchemaModel<
 		Pick<this, typeof schemaModelPointerType>,
 		TClassName,
@@ -460,7 +460,7 @@ export interface SchemaResultCommands<
 	 */
 	update(
 		input: SchemaModelUpdateCommandInput<TCompleteValues, TUpdateInput>,
-		options?: QueryTerminalOptions,
+		options?: OperationOptions,
 	): Promise<SelectedPersistedSchemaModel<
 		Pick<this, typeof schemaModelPointerType>,
 		TClassName,
@@ -476,7 +476,7 @@ export interface SchemaResultCommands<
 	 */
 	delete<const TSelection extends SchemaModelSelection<TCompleteValues>>(
 		input: SchemaModelDeleteInput<TCompleteValues, TSelection>,
-		options?: QueryTerminalOptions,
+		options?: OperationOptions,
 	): Promise<SelectedPersistedSchemaModel<
 		Pick<this, typeof schemaModelPointerType>,
 		TClassName,
@@ -492,7 +492,7 @@ export interface SchemaResultCommands<
 	 */
 	delete(
 		input: SchemaModelDeleteInput<TCompleteValues>,
-		options?: QueryTerminalOptions,
+		options?: OperationOptions,
 	): Promise<SelectedPersistedSchemaModel<
 		Pick<this, typeof schemaModelPointerType>,
 		TClassName,
@@ -941,7 +941,7 @@ class SchemaModelPrototype {
 	/** Reloads one trusted identity through the ordinary read pipeline. */
 	async fetch(
 		input: unknown,
-		options?: QueryTerminalOptions,
+		options?: OperationOptions,
 	): Promise<object | null> {
 		const record = readPersistedSchemaModelRecord(this, 'fetch')
 
@@ -965,7 +965,7 @@ class SchemaModelPrototype {
 	}
 
 	/** Tests one trusted identity through the ordinary read pipeline. */
-	exists(options?: QueryTerminalOptions): Promise<boolean> {
+	exists(options?: OperationOptions): Promise<boolean> {
 		const record = readPersistedSchemaModelRecord(this, 'exists')
 
 		return executeQueryExists(
@@ -1008,8 +1008,8 @@ class SchemaModelPrototype {
 		)
 	}
 
-	/** Persists only trusted draft state through QueryBuilder's ordinary create terminal. */
-	create(input: unknown, options?: QueryTerminalOptions): Promise<object> {
+	/** Persists only trusted draft state through the ordinary schema create operation. */
+	create(input: unknown, options?: OperationOptions): Promise<object> {
 		const record = readSchemaModelRecord(this)
 
 		assertSchemaModelState(record, 'draft', 'create')
@@ -1023,7 +1023,7 @@ class SchemaModelPrototype {
 	}
 
 	/** Resolves one unique conflict target without retaining execution on the model. */
-	upsert(input: unknown, options?: QueryTerminalOptions): Promise<object> {
+	upsert(input: unknown, options?: OperationOptions): Promise<object> {
 		const record = readSchemaModelRecord(this)
 
 		assertSchemaModelState(record, 'draft', 'upsert')
@@ -1045,7 +1045,7 @@ class SchemaModelPrototype {
 	/** Targets only Runtime-issued object identity and never a visible caller field. */
 	async update(
 		input: unknown,
-		options?: QueryTerminalOptions,
+		options?: OperationOptions,
 	): Promise<object | null> {
 		const record = readPersistedSchemaModelRecord(this, 'update')
 		const normalized = readSchemaModelUpdateInput(input)
@@ -1063,7 +1063,7 @@ class SchemaModelPrototype {
 	/** Deletes only Runtime-issued object identity through QueryBuilder's singular alias. */
 	async delete(
 		input: unknown,
-		options?: QueryTerminalOptions,
+		options?: OperationOptions,
 	): Promise<object | null> {
 		const record = readPersistedSchemaModelRecord(this, 'delete')
 		const normalized = readSchemaModelSelectionInput(input, 'delete')
@@ -1228,7 +1228,7 @@ export const createSchemaModelClass = <
 		/** Reads matching rows from one canonical object input. */
 		static findMany(
 			input: FindManyInput<SchemaDefinition> = {},
-			options?: QueryTerminalOptions,
+			options?: OperationOptions,
 		): Promise<readonly object[]> {
 			return executeQueryFindMany(
 				queryFromFindManyInput(
@@ -1242,7 +1242,7 @@ export const createSchemaModelClass = <
 		/** Reads the first matching row from one canonical object input. */
 		static findOne(
 			input: FindOneInput<SchemaDefinition> = {},
-			options?: QueryTerminalOptions,
+			options?: OperationOptions,
 		): Promise<object | null> {
 			return executeQueryFindOne(
 				queryFromFindOneInput(
@@ -1256,7 +1256,7 @@ export const createSchemaModelClass = <
 		/** Reads one exact identifier with its requested projection. */
 		static get(
 			input: GetInput<SchemaDefinition>,
-			options?: QueryTerminalOptions,
+			options?: OperationOptions,
 		): Promise<object | null> {
 			const normalized = queryFromGetInput(
 				DefinedSchemaModel as unknown as SchemaDefinition,
@@ -1269,7 +1269,7 @@ export const createSchemaModelClass = <
 		/** Counts rows matching one canonical object filter. */
 		static count(
 			input: CountInput<SchemaDefinition> = {},
-			options?: QueryTerminalOptions,
+			options?: OperationOptions,
 		): Promise<number> {
 			return executeQueryCount(
 				queryFromCountInput(
@@ -1283,7 +1283,7 @@ export const createSchemaModelClass = <
 		/** Tests whether one row matches one canonical object filter. */
 		static exists(
 			input: ExistsInput<SchemaDefinition> = {},
-			options?: QueryTerminalOptions,
+			options?: OperationOptions,
 		): Promise<boolean> {
 			return executeQueryExists(
 				queryFromExistsInput(
@@ -1297,7 +1297,7 @@ export const createSchemaModelClass = <
 		/** Creates one persisted model through the shared Runtime operation pipeline. */
 		static createOne(
 			input: SchemaCreateOneExecutionInput<SchemaDefinition>,
-			options?: QueryTerminalOptions,
+			options?: OperationOptions,
 		): Promise<object> {
 			return createSchemaRecord(
 				DefinedSchemaModel as unknown as SchemaDefinition,
@@ -1309,7 +1309,7 @@ export const createSchemaModelClass = <
 		/** Creates ordered models through one atomic bulk operation by default. */
 		static createMany(
 			input: SchemaCreateManyExecutionInput<SchemaDefinition>,
-			options?: QueryBulkTerminalOptions,
+			options?: BulkOperationOptions,
 		): Promise<unknown> {
 			return createSchemaRecords(
 				DefinedSchemaModel as unknown as SchemaDefinition,
@@ -1321,7 +1321,7 @@ export const createSchemaModelClass = <
 		/** Updates one exact unique target. */
 		static updateOne(
 			input: SchemaUpdateOneExecutionInput<SchemaDefinition>,
-			options?: QueryTerminalOptions,
+			options?: OperationOptions,
 		): Promise<object | null> {
 			return updateSchemaRecord(
 				DefinedSchemaModel as unknown as SchemaDefinition,
@@ -1333,7 +1333,7 @@ export const createSchemaModelClass = <
 		/** Updates one explicit filtered set. */
 		static updateMany(
 			input: SchemaUpdateManyExecutionInput<SchemaDefinition>,
-			options?: QueryTerminalOptions,
+			options?: OperationOptions,
 		): Promise<readonly object[]> {
 			return updateSchemaRecords(
 				DefinedSchemaModel as unknown as SchemaDefinition,
@@ -1345,7 +1345,7 @@ export const createSchemaModelClass = <
 		/** Creates or updates one exact unique target. */
 		static upsertOne(
 			input: SchemaUpsertOneExecutionInput<SchemaDefinition>,
-			options?: QueryTerminalOptions,
+			options?: OperationOptions,
 		): Promise<object> {
 			return upsertSchemaRecord(
 				DefinedSchemaModel as unknown as SchemaDefinition,
@@ -1357,7 +1357,7 @@ export const createSchemaModelClass = <
 		/** Upserts independently targeted inputs in order. */
 		static upsertMany(
 			input: SchemaUpsertManyExecutionInput<SchemaDefinition>,
-			options?: QueryBulkTerminalOptions,
+			options?: BulkOperationOptions,
 		): Promise<unknown> {
 			return upsertSchemaRecords(
 				DefinedSchemaModel as unknown as SchemaDefinition,
@@ -1369,7 +1369,7 @@ export const createSchemaModelClass = <
 		/** Deletes one exact unique target. */
 		static deleteOne(
 			input: SchemaDeleteOneExecutionInput<SchemaDefinition>,
-			options?: QueryTerminalOptions,
+			options?: OperationOptions,
 		): Promise<object | null> {
 			return deleteSchemaRecord(
 				DefinedSchemaModel as unknown as SchemaDefinition,
@@ -1381,7 +1381,7 @@ export const createSchemaModelClass = <
 		/** Deletes one explicit filtered set. */
 		static deleteMany(
 			input: SchemaDeleteManyExecutionInput<SchemaDefinition>,
-			options?: QueryTerminalOptions,
+			options?: OperationOptions,
 		): Promise<readonly object[]> {
 			return deleteSchemaRecords(
 				DefinedSchemaModel as unknown as SchemaDefinition,

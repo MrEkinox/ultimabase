@@ -7,8 +7,8 @@ import {
 
 import type { AtomicBulkOperationOptions } from './contracts.js'
 
-/** Lets callers opt out while keeping all ordered bulk writes atomic by default. */
-export interface BulkOperationOptions {
+/** Restricts the internal normalizer to the atomicity value it owns. */
+interface BulkAtomicityInput {
 	readonly atomic?: boolean
 }
 
@@ -21,8 +21,8 @@ const nonAtomicBulkOptions: AtomicBulkOperationOptions = immutableRecord({
 })
 
 /** Converts the optional public input into the closed operation-level contract. */
-export const normalizeBulkOperationOptions = (
-	options: BulkOperationOptions | undefined,
+export const normalizeBulkAtomicity = (
+	options: BulkAtomicityInput | undefined,
 ): AtomicBulkOperationOptions => {
 	if (options === undefined) {
 		return atomicBulkOptions

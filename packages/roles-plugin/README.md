@@ -94,7 +94,7 @@ trusted server code can always use schema-root reads such as `AppRole.findMany()
 
 Persisted role results expose `addMember()` and `removeMember()`. Both accept a
 Pointer or persisted result of the exact member schema, delegate to the normal
-relation lifecycle, inherit ambient execution or ordinary terminal options,
+relation lifecycle, inherit ambient execution or ordinary operation options,
 and emit `ultimabase.roles.membership.changed` only after commit. Draft roles,
 raw identifiers, and unrelated schema values are rejected.
 

@@ -13,11 +13,11 @@ import {
 } from '../extensions/definition.js'
 import type { GenericField } from '../fields/base/contract.js'
 import { assertFieldDefinition } from '../fields/base/definition.js'
+import type { InferBulkOperationResult } from '../../query/operations/execution.js'
 import type {
-	QueryBulkTerminalOptions,
-	QueryBulkTerminalResult,
-	QueryTerminalOptions,
-} from '../../query/operations/execution.js'
+	BulkOperationOptions,
+	OperationOptions,
+} from '../../query/operations/options.js'
 import type {
 	SchemaCreateManyInput,
 	SchemaCreateOneInput,
@@ -227,7 +227,7 @@ export interface SchemaClass<
 	 */
 	findMany<const TInput extends FindManyInput<this>>(
 		input: ExactReadInput<this, TInput, FindManyInput<this>>,
-		options?: QueryTerminalOptions,
+		options?: OperationOptions,
 	): Promise<
 		readonly InferQueryResult<
 			this,
@@ -238,7 +238,7 @@ export interface SchemaClass<
 	/** Reads every visible row when no clauses are supplied. */
 	findMany(
 		input?: undefined,
-		options?: QueryTerminalOptions,
+		options?: OperationOptions,
 	): Promise<readonly InferQueryResult<this>[]>
 	/**
 	 * Reads the first matching row or `null` from one canonical object input.
@@ -247,7 +247,7 @@ export interface SchemaClass<
 	 */
 	findOne<const TInput extends FindOneInput<this>>(
 		input: ExactReadInput<this, TInput, FindOneInput<this>>,
-		options?: QueryTerminalOptions,
+		options?: OperationOptions,
 	): Promise<InferQueryResult<
 		this,
 		QuerySelectedFieldFromInput<this, TInput>,
@@ -256,7 +256,7 @@ export interface SchemaClass<
 	/** Reads the first visible row when no clauses are supplied. */
 	findOne(
 		input?: undefined,
-		options?: QueryTerminalOptions,
+		options?: OperationOptions,
 	): Promise<InferQueryResult<this> | null>
 	/**
 	 * Reads one exact identifier with its requested projection.
@@ -265,7 +265,7 @@ export interface SchemaClass<
 	 */
 	get<const TInput extends GetInput<this>>(
 		input: ExactReadInput<this, TInput, GetInput<this>>,
-		options?: QueryTerminalOptions,
+		options?: OperationOptions,
 	): Promise<InferQueryResult<
 		this,
 		QuerySelectedFieldFromInput<this, TInput>,
@@ -278,7 +278,7 @@ export interface SchemaClass<
 	 */
 	count(
 		input?: CountInput<this>,
-		options?: QueryTerminalOptions,
+		options?: OperationOptions,
 	): Promise<number>
 	/**
 	 * Tests whether one row matches the canonical object filter.
@@ -287,7 +287,7 @@ export interface SchemaClass<
 	 */
 	exists(
 		input?: ExistsInput<this>,
-		options?: QueryTerminalOptions,
+		options?: OperationOptions,
 	): Promise<boolean>
 	/**
 	 * Creates one row and returns its selected model fields.
@@ -296,7 +296,7 @@ export interface SchemaClass<
 	 */
 	createOne<const TSelection extends QuerySelection<this>>(
 		input: SchemaCreateOneInput<this, TSelection>,
-		options?: QueryTerminalOptions,
+		options?: OperationOptions,
 	): Promise<InferQueryResult<this, QuerySelectedField<this, TSelection>>>
 	/**
 	 * Creates one row and returns its complete persisted model.
@@ -305,7 +305,7 @@ export interface SchemaClass<
 	 */
 	createOne(
 		input: SchemaCreateOneInput<this>,
-		options?: QueryTerminalOptions,
+		options?: OperationOptions,
 	): Promise<InferQueryResult<this>>
 	/**
 	 * Creates input rows in order and keeps them atomic by default.
@@ -316,12 +316,12 @@ export interface SchemaClass<
 	 */
 	createMany<
 		const TSelection extends QuerySelection<this>,
-		const TOptions extends QueryBulkTerminalOptions | undefined = undefined,
+		const TOptions extends BulkOperationOptions | undefined = undefined,
 	>(
 		input: SchemaCreateManyInput<this, TSelection>,
-		options?: TOptions & QueryBulkTerminalOptions,
+		options?: TOptions & BulkOperationOptions,
 	): Promise<
-		QueryBulkTerminalResult<
+		InferBulkOperationResult<
 			InferQueryResult<this, QuerySelectedField<this, TSelection>>,
 			TOptions
 		>
@@ -334,11 +334,11 @@ export interface SchemaClass<
 	 * @example `await Post.createMany({ data: inputs }, { atomic: false })`
 	 */
 	createMany<
-		const TOptions extends QueryBulkTerminalOptions | undefined = undefined,
+		const TOptions extends BulkOperationOptions | undefined = undefined,
 	>(
 		input: SchemaCreateManyInput<this>,
-		options?: TOptions & QueryBulkTerminalOptions,
-	): Promise<QueryBulkTerminalResult<InferQueryResult<this>, TOptions>>
+		options?: TOptions & BulkOperationOptions,
+	): Promise<InferBulkOperationResult<InferQueryResult<this>, TOptions>>
 	/**
 	 * Updates one unique target and returns its selected model fields.
 	 *
@@ -346,7 +346,7 @@ export interface SchemaClass<
 	 */
 	updateOne<const TSelection extends QuerySelection<this>>(
 		input: SchemaUpdateOneInput<this, TSelection>,
-		options?: QueryTerminalOptions,
+		options?: OperationOptions,
 	): Promise<InferQueryResult<
 		this,
 		QuerySelectedField<this, TSelection>
@@ -358,7 +358,7 @@ export interface SchemaClass<
 	 */
 	updateOne(
 		input: SchemaUpdateOneInput<this>,
-		options?: QueryTerminalOptions,
+		options?: OperationOptions,
 	): Promise<InferQueryResult<this> | null>
 	/**
 	 * Updates every selected row and returns its requested post-update fields.
@@ -367,7 +367,7 @@ export interface SchemaClass<
 	 */
 	updateMany<const TSelection extends QuerySelection<this>>(
 		input: SchemaUpdateManyInput<this, TSelection>,
-		options?: QueryTerminalOptions,
+		options?: OperationOptions,
 	): Promise<
 		readonly InferQueryResult<this, QuerySelectedField<this, TSelection>>[]
 	>
@@ -378,7 +378,7 @@ export interface SchemaClass<
 	 */
 	updateMany(
 		input: SchemaUpdateManyInput<this>,
-		options?: QueryTerminalOptions,
+		options?: OperationOptions,
 	): Promise<
 		readonly InferQueryResult<
 			this,
@@ -392,12 +392,12 @@ export interface SchemaClass<
 	 */
 	upsertOne<const TSelection extends QuerySelection<this>>(
 		input: SchemaUpsertOneInput<this, TSelection>,
-		options?: QueryTerminalOptions,
+		options?: OperationOptions,
 	): Promise<InferQueryResult<this, QuerySelectedField<this, TSelection>>>
 	/** Creates or updates one unique target and returns its complete model. */
 	upsertOne(
 		input: SchemaUpsertOneInput<this>,
-		options?: QueryTerminalOptions,
+		options?: OperationOptions,
 	): Promise<InferQueryResult<this>>
 	/**
 	 * Upserts independently targeted inputs in declaration order.
@@ -406,12 +406,12 @@ export interface SchemaClass<
 	 */
 	upsertMany<
 		const TSelection extends QuerySelection<this>,
-		const TOptions extends QueryBulkTerminalOptions | undefined = undefined,
+		const TOptions extends BulkOperationOptions | undefined = undefined,
 	>(
 		input: SchemaUpsertManyInput<this, TSelection>,
-		options?: TOptions & QueryBulkTerminalOptions,
+		options?: TOptions & BulkOperationOptions,
 	): Promise<
-		QueryBulkTerminalResult<
+		InferBulkOperationResult<
 			InferQueryResult<this, QuerySelectedField<this, TSelection>>,
 			TOptions
 		>
@@ -424,11 +424,11 @@ export interface SchemaClass<
 	 * @example `await Post.upsertMany({ data: items }, { atomic: false })`
 	 */
 	upsertMany<
-		const TOptions extends QueryBulkTerminalOptions | undefined = undefined,
+		const TOptions extends BulkOperationOptions | undefined = undefined,
 	>(
 		input: SchemaUpsertManyInput<this>,
-		options?: TOptions & QueryBulkTerminalOptions,
-	): Promise<QueryBulkTerminalResult<InferQueryResult<this>, TOptions>>
+		options?: TOptions & BulkOperationOptions,
+	): Promise<InferBulkOperationResult<InferQueryResult<this>, TOptions>>
 	/**
 	 * Deletes one unique target and returns its selected removed model fields.
 	 *
@@ -436,7 +436,7 @@ export interface SchemaClass<
 	 */
 	deleteOne<const TSelection extends QuerySelection<this>>(
 		input: SchemaDeleteOneInput<this, TSelection>,
-		options?: QueryTerminalOptions,
+		options?: OperationOptions,
 	): Promise<InferQueryResult<
 		this,
 		QuerySelectedField<this, TSelection>
@@ -448,7 +448,7 @@ export interface SchemaClass<
 	 */
 	deleteOne(
 		input: SchemaDeleteOneInput<this>,
-		options?: QueryTerminalOptions,
+		options?: OperationOptions,
 	): Promise<InferQueryResult<this> | null>
 	/**
 	 * Deletes every selected row and returns its requested pre-delete fields.
@@ -457,7 +457,7 @@ export interface SchemaClass<
 	 */
 	deleteMany<const TSelection extends QuerySelection<this>>(
 		input: SchemaDeleteManyInput<this, TSelection>,
-		options?: QueryTerminalOptions,
+		options?: OperationOptions,
 	): Promise<
 		readonly InferQueryResult<this, QuerySelectedField<this, TSelection>>[]
 	>
@@ -468,7 +468,7 @@ export interface SchemaClass<
 	 */
 	deleteMany(
 		input: SchemaDeleteManyInput<this>,
-		options?: QueryTerminalOptions,
+		options?: OperationOptions,
 	): Promise<
 		readonly InferQueryResult<
 			this,

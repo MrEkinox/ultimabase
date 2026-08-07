@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest'
 
-import { normalizeBulkOperationOptions, snapshotCreateInputs } from './bulk.js'
+import { normalizeBulkAtomicity, snapshotCreateInputs } from './bulk.js'
 
 describe('bulk operation normalization', () => {
 	it('defaults to an immutable atomic contract and supports explicit opt-out', () => {
-		const defaults = normalizeBulkOperationOptions(undefined)
-		const explicitDefaults = normalizeBulkOperationOptions({})
-		const disabled = normalizeBulkOperationOptions({ atomic: false })
+		const defaults = normalizeBulkAtomicity(undefined)
+		const explicitDefaults = normalizeBulkAtomicity({})
+		const disabled = normalizeBulkAtomicity({ atomic: false })
 
 		expect(defaults).toStrictEqual({ atomic: true })
 		expect(explicitDefaults).toBe(defaults)
@@ -16,14 +16,14 @@ describe('bulk operation normalization', () => {
 	})
 
 	it('rejects malformed options at the public JavaScript boundary', () => {
-		expect(() => normalizeBulkOperationOptions(null as never)).toThrow(
+		expect(() => normalizeBulkAtomicity(null as never)).toThrow(
 			new TypeError('bulk operation options must be an object'),
 		)
 		expect(() =>
-			normalizeBulkOperationOptions({ atomic: 'yes' } as never),
+			normalizeBulkAtomicity({ atomic: 'yes' } as never),
 		).toThrow(new TypeError('bulk operation atomic option must be a boolean'))
 		expect(() =>
-			normalizeBulkOperationOptions({ mode: 'fast' } as never),
+			normalizeBulkAtomicity({ mode: 'fast' } as never),
 		).toThrow(new TypeError('bulk operation options contain unknown key: mode'))
 	})
 

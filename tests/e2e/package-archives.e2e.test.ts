@@ -227,7 +227,7 @@ describe('@ultimabase/core Schema and QueryBuilder declarations', () => {
 		expect(bulkUpdatedValues).not.toContain('readonly tenantId:')
 		// Contextual execution stays in the optional final argument.
 		expect(create.display).toContain('.createOne(input: SchemaCreateOneInput<')
-		expect(create.display).toContain('options?: QueryTerminalOptions')
+		expect(create.display).toContain('options?: OperationOptions')
 		expect(create.display).not.toContain('create(this:')
 	})
 
@@ -246,20 +246,20 @@ describe('@ultimabase/core Schema and QueryBuilder declarations', () => {
 		expect(select.display).toContain('title: true')
 		// Schema reads must not repeat the complete class as an explicit `this`.
 		expect(find.display).toContain(
-			'.findMany(input?: undefined, options?: QueryTerminalOptions): Promise<',
+			'.findMany(input?: undefined, options?: OperationOptions): Promise<',
 		)
 		expect(deletion.display).toContain('.deleteOne(input:')
-		expect(deletion.display).toContain('options?: QueryTerminalOptions')
+		expect(deletion.display).toContain('options?: OperationOptions')
 		expect(deletion.documentation).toContain(
 			'Deletes one uniquely identified row',
 		)
 		expect(count.display).toContain('.count(input?: CountInput<')
 		expect(count.display).toContain(
-			'options?: QueryTerminalOptions): Promise<number>',
+			'options?: OperationOptions): Promise<number>',
 		)
 		expect(exists.display).toContain('.exists(input?: ExistsInput<')
 		expect(exists.display).toContain(
-			'options?: QueryTerminalOptions): Promise<boolean>',
+			'options?: OperationOptions): Promise<boolean>',
 		)
 		for (const terminal of [find, deletion, count, exists]) {
 			expect(terminal.display).not.toContain('(this:')
@@ -333,7 +333,7 @@ describe('@ultimabase/core Runtime declarations', () => {
 		)
 
 		expect(result.display).toContain('create(input:')
-		expect(result.display).toContain('options?: QueryTerminalOptions')
+		expect(result.display).toContain('options?: OperationOptions')
 		expect(result.display).not.toContain('RequestEngine<')
 	})
 })

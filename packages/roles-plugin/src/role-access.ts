@@ -9,7 +9,7 @@ import {
 	type AccessDecisionInput,
 	type AccessRoleReference,
 	type AccessRoleResolver,
-	type QueryTerminalOptions,
+	type OperationOptions,
 	type SchemaDefinition,
 } from '@ultimabase/core'
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
@@ -31,7 +31,7 @@ import {
 	type RoleSchemaDeclaration,
 } from './role-schema.js'
 
-const masterOptions: QueryTerminalOptions = Object.freeze({
+const masterOptions: OperationOptions = Object.freeze({
 	useMasterKey: true,
 })
 

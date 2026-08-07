@@ -144,6 +144,7 @@ Accepted records:
 - [ADR-0150: Instance command result selections](0150-instance-command-result-selections.md)
 - [ADR-0151: Persisted model read and identity helpers](0151-persisted-model-read-and-identity-helpers.md)
 - [ADR-0152: Schema-root object read commands](0152-schema-root-object-read-commands.md)
+- [ADR-0153: Operation-wide execution options](0153-operation-execution-options.md)
 
 Superseded records:
 
@@ -159,5 +160,6 @@ Superseded records:
 - [ADR-0093: Immutable Schema constructor API](0093-schema-constructor-api.md), superseded by ADR-0109.
 - [ADR-0108: Contextual Query terminal execution](0108-contextual-query-terminal-execution.md), superseded by ADR-0152.
 - [ADR-0110: Concise singular Query terminals](0110-concise-singular-query-terminals.md), superseded by ADR-0132.
+- [ADR-0114: Terminal-only Query authority resolution](0114-terminal-only-query-authority-resolution.md), superseded by ADR-0153.
 
 New decisions receive the next number. Do not rewrite history; supersede a record.

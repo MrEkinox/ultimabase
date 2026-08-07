@@ -146,17 +146,15 @@ export type {
 	UpsertOperationItem,
 	UniqueUpsertTargetNode,
 } from './operations/contracts.js'
-export { normalizeBulkOperationOptions } from './operations/bulk.js'
-export type { BulkOperationOptions } from './operations/bulk.js'
 export type { QueryOperationExecutor } from './operations/executor.js'
 export type {
-	QueryAtomicBulkTerminalOptions,
-	QueryBulkAtomic,
-	QueryBulkTerminalOptions,
-	QueryBulkTerminalResult,
-	QueryNonAtomicBulkTerminalOptions,
-	QueryTerminalOptions,
+	InferBulkOperationAtomicity,
+	InferBulkOperationResult,
 } from './operations/execution.js'
+export type {
+	BulkOperationOptions,
+	OperationOptions,
+} from './operations/options.js'
 export type {
 	InferOperationRecordResult,
 	InferOperationResult,

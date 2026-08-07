@@ -24,10 +24,9 @@ import {
 } from '../query/query.js'
 import { normalizeUniqueUpsertTarget } from './upsert.js'
 import type {
-	QueryBulkTerminalOptions,
-	QueryBulkTerminalResult,
-	QueryTerminalOptions,
+	InferBulkOperationResult,
 } from './execution.js'
+import type { BulkOperationOptions, OperationOptions } from './options.js'
 import type { InferQueryResult } from '../query/result.js'
 import type { UpsertManyItemInput } from './upsert.js'
 import type {
@@ -159,7 +158,7 @@ const createSchemaManyResultQuery = <const TSchema extends SchemaDefinition>(
 export const createSchemaRecord = <const TSchema extends SchemaDefinition>(
 	schema: TSchema,
 	input: SchemaCreateOneExecutionInput<TSchema>,
-	options?: QueryTerminalOptions,
+	options?: OperationOptions,
 ): Promise<object> => {
 	assertExactCommandKeys(
 		input,
@@ -174,13 +173,13 @@ export const createSchemaRecord = <const TSchema extends SchemaDefinition>(
 /** Creates ordered rows through the schema class. */
 export const createSchemaRecords = <
 	const TSchema extends SchemaDefinition,
-	const TOptions extends QueryBulkTerminalOptions | undefined = undefined,
+	const TOptions extends BulkOperationOptions | undefined = undefined,
 >(
 	schema: TSchema,
 	input: SchemaCreateManyExecutionInput<TSchema>,
-	options?: TOptions & QueryBulkTerminalOptions,
+	options?: TOptions & BulkOperationOptions,
 ): Promise<
-	QueryBulkTerminalResult<
+	InferBulkOperationResult<
 		InferQueryResult<TSchema, QueryFieldName<TSchema>>,
 		TOptions
 	>
@@ -196,14 +195,14 @@ export const createSchemaRecords = <
 		throw new TypeError('schema createMany data must be an array')
 	}
 
-	return executeSchemaCreateMany(schema, input, options)
+	return executeSchemaCreateMany<TSchema, TOptions>(schema, input, options)
 }
 
 /** Updates one exact unique target through the schema class. */
 export const updateSchemaRecord = <const TSchema extends SchemaDefinition>(
 	schema: TSchema,
 	input: SchemaUpdateOneExecutionInput<TSchema>,
-	options?: QueryTerminalOptions,
+	options?: OperationOptions,
 ): Promise<object | null> => {
 	assertExactCommandKeys(
 		input,
@@ -233,7 +232,7 @@ export const updateSchemaRecord = <const TSchema extends SchemaDefinition>(
 export const updateSchemaRecords = <const TSchema extends SchemaDefinition>(
 	schema: TSchema,
 	input: SchemaUpdateManyExecutionInput<TSchema>,
-	options?: QueryTerminalOptions,
+	options?: OperationOptions,
 ): Promise<readonly object[]> => {
 	assertExactCommandKeys(
 		input,
@@ -250,7 +249,7 @@ export const updateSchemaRecords = <const TSchema extends SchemaDefinition>(
 export const upsertSchemaRecord = <const TSchema extends SchemaDefinition>(
 	schema: TSchema,
 	input: SchemaUpsertOneExecutionInput<TSchema>,
-	options?: QueryTerminalOptions,
+	options?: OperationOptions,
 ): Promise<object> => {
 	assertExactCommandKeys(
 		input,
@@ -285,13 +284,13 @@ export const upsertSchemaRecord = <const TSchema extends SchemaDefinition>(
 /** Upserts independently targeted items through the schema class. */
 export const upsertSchemaRecords = <
 	const TSchema extends SchemaDefinition,
-	const TOptions extends QueryBulkTerminalOptions | undefined = undefined,
+	const TOptions extends BulkOperationOptions | undefined = undefined,
 >(
 	schema: TSchema,
 	input: SchemaUpsertManyExecutionInput<TSchema>,
-	options?: TOptions & QueryBulkTerminalOptions,
+	options?: TOptions & BulkOperationOptions,
 ): Promise<
-	QueryBulkTerminalResult<
+	InferBulkOperationResult<
 		InferQueryResult<TSchema, QueryFieldName<TSchema>>,
 		TOptions
 	>
@@ -324,7 +323,7 @@ export const upsertSchemaRecords = <
 		}),
 	)
 
-	return executeSchemaUpsertMany(
+	return executeSchemaUpsertMany<TSchema, TOptions>(
 		schema,
 		normalizedInputs,
 		input.select,
@@ -336,7 +335,7 @@ export const upsertSchemaRecords = <
 export const deleteSchemaRecord = <const TSchema extends SchemaDefinition>(
 	schema: TSchema,
 	input: SchemaDeleteOneExecutionInput<TSchema>,
-	options?: QueryTerminalOptions,
+	options?: OperationOptions,
 ): Promise<object | null> => {
 	assertExactCommandKeys(
 		input,
@@ -366,7 +365,7 @@ export const deleteSchemaRecord = <const TSchema extends SchemaDefinition>(
 export const deleteSchemaRecords = <const TSchema extends SchemaDefinition>(
 	schema: TSchema,
 	input: SchemaDeleteManyExecutionInput<TSchema>,
-	options?: QueryTerminalOptions,
+	options?: OperationOptions,
 ): Promise<readonly object[]> => {
 	assertExactCommandKeys(
 		input,

@@ -108,7 +108,6 @@ describe('@ultimabase/core public entry point', () => {
 			'isQueryRelationPredicateNode',
 			'isStaticDefault',
 			'jsonField',
-			'normalizeBulkOperationOptions',
 			'normalizeLogicalFilter',
 			'normalizePlugins',
 			'normalizeQueryCursorOrdering',

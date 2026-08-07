@@ -204,7 +204,7 @@ export type DatabaseObjectRecord<
 > = InferQueryRecord<TSchema, TSelectedField>
 
 /**
- * Reuses QueryBuilder's terminal result contract so adapters and public terminals
+ * Reuses the operation result contract so adapters and public terminals
  * cannot drift on selection, nullability, or singular versus bulk semantics.
  */
 export type DatabaseOperationResult<TOperation extends OperationAstNode> =

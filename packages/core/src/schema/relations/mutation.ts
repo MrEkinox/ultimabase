@@ -4,7 +4,7 @@ import {
 	isUnknownArray,
 } from '@ultimabase/shared'
 
-import type { QueryTerminalOptions } from '../../query/operations/execution.js'
+import type { OperationOptions } from '../../query/operations/options.js'
 import type {
 	UpdateExpressionNode,
 	UpdateOperationNode,
@@ -62,7 +62,7 @@ export interface RelationUpdateExpression<
 }
 
 /** Keeps terminal execution choices out of the immutable relation delta. */
-export type RelationMutationOptions = QueryTerminalOptions
+export type RelationMutationOptions = OperationOptions
 
 /** Narrows an unknown update expression to Core's logical relation shape. */
 export const isRelationUpdateExpression = (

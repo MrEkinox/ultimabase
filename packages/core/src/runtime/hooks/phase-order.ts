@@ -92,7 +92,7 @@ const readOrder = createPhaseOrder(
 	noFieldPhases,
 )
 
-// The exhaustive record makes new query terminals fail type checking until ordered.
+// The exhaustive record makes new operation terminals fail type checking until ordered.
 const nativeHookPhaseOrders = immutableRecord({
 	count: readOrder,
 	'create-many': createOrder,

@@ -1,7 +1,7 @@
 import type {
 	PersistedSchemaReference,
 	Pointer,
-	QueryTerminalOptions,
+	OperationOptions,
 	Relation,
 	SchemaDefinition,
 	SchemaModelCapabilityContext,
@@ -30,7 +30,7 @@ export interface RoleMemberCommands<
 	addMember(
 		this: RoleMemberCommandReceiver<TRoleSchema, TMemberSchema>,
 		member: RoleMemberTarget<TMemberSchema>,
-		options?: QueryTerminalOptions,
+		options?: OperationOptions,
 	): Promise<void>
 	/**
 	 * Removes one exact persisted member through the generated relation lifecycle.
@@ -39,7 +39,7 @@ export interface RoleMemberCommands<
 	removeMember(
 		this: RoleMemberCommandReceiver<TRoleSchema, TMemberSchema>,
 		member: RoleMemberTarget<TMemberSchema>,
-		options?: QueryTerminalOptions,
+		options?: OperationOptions,
 	): Promise<void>
 }
 

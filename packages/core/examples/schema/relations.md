@@ -70,7 +70,7 @@ await user.relation('posts').set([post])
 await user.relation('posts').clear()
 ```
 
-Every call inherits the active request or accepts the same terminal options as
+Every call inherits the active request or accepts the same operation options as
 a schema read. It runs source update Access and hooks inside one transaction; inverse
 pointer relations also run the target pointer update lifecycle. A database
 adapter must advertise relation support. PostgreSQL implements scoped reads,
