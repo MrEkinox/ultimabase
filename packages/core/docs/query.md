@@ -53,6 +53,11 @@ call replaces the previous projection, and nested pointer shaping remains the
 responsibility of `include`. Selection flags must be literal booleans so the
 result type cannot disagree with a dynamic runtime projection.
 
+Pointer inclusions accept only `select` and nested `include`. A pointer already
+identifies at most one target, so a nested `where` would ambiguously turn an
+existing but non-matching target into `null`. To-many relation inclusions retain
+`where`, ordering, offset, limit, selection, and nested inclusion.
+
 `where` receives one schema-correlated object. Field and operator keys combine
 through implicit `AND`, while `AND`, `OR`, and `NOT` compose recursive groups:
 

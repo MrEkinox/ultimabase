@@ -45,7 +45,6 @@ describe('canonical read inputs', () => {
 			include: {
 				author: {
 					select: { id: true, name: true },
-					where: { name: { startsWith: 'A' } },
 				},
 			},
 			limit: 20,
@@ -143,6 +142,13 @@ describe('canonical read inputs', () => {
 				},
 			} as never),
 		).toThrow('pointer-target input contains an unknown clause: orderBy')
+		expect(() =>
+			queryFromFindManyInput(Post, {
+				include: {
+					author: { where: { name: { startsWith: 'A' } } },
+				},
+			} as never),
+		).toThrow('pointer-target input contains an unknown clause: where')
 		expect(() =>
 			queryFromFindManyInput(Feed, {
 				include: { posts: { skip: 10 } },

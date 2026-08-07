@@ -258,11 +258,7 @@ test('infers pointer predicates, target queries, and included projections', () =
 		.where((where) => where.eq('author', author))
 		.where((where) => where.in('author', [author]))
 		.where((where) => where.isNotNull('author'))
-		.include('author', (query) =>
-			query
-				.select({ id: true, name: true })
-				.where((where) => where.eq('active', true)),
-		)
+		.include('author', (query) => query.select({ id: true, name: true }))
 		.include('reviewer', (query) => query.select({ name: true }))
 	const includedResult = includedPostSchema.findMany(included.build())
 	type IncludedResult = Awaited<typeof includedResult>[number]
@@ -305,7 +301,18 @@ test('infers pointer predicates, target queries, and included projections', () =
 	new QueryBuilder(includedPostSchema).include('author', (query) => {
 		// @ts-expect-error -- The callback QueryBuilder exposes only target fields.
 		query.select({ title: true })
+		expectTypeOf(query).not.toHaveProperty('where')
+		const selected = query.select({ id: true, name: true })
+		expectTypeOf(selected).not.toHaveProperty('where')
 		return query
+	})
+	// @ts-expect-error -- Canonical pointer inclusions only accept select and include.
+	void includedPostSchema.findMany({
+		include: {
+			author: {
+				where: { active: { eq: true } },
+			},
+		},
 	})
 })
 

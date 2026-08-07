@@ -212,6 +212,89 @@ type QueryResultInclusionForField<
 			TTargetInclusion
 		>
 
+type QueryInclusionTargetBuilder<
+	TSchema extends SchemaDefinition,
+	TFieldName extends QueryIncludableFieldName<TSchema>,
+> =
+	TFieldName extends QueryPointerFieldName<TSchema>
+		? QueryPointerTargetBuilder<QueryInclusionTargetSchema<TSchema, TFieldName>>
+		: QueryBuilder<QueryInclusionTargetSchema<TSchema, TFieldName>>
+
+type QueryInclusionTargetResult<
+	TSchema extends SchemaDefinition,
+	TFieldName extends QueryIncludableFieldName<TSchema>,
+	TSelectedField extends QueryFieldName<
+		QueryInclusionTargetSchema<TSchema, TFieldName>
+	>,
+	TIncludedField,
+> =
+	TFieldName extends QueryPointerFieldName<TSchema>
+		? QueryPointerTargetBuilder<
+				QueryInclusionTargetSchema<TSchema, TFieldName>,
+				TSelectedField,
+				TIncludedField
+			>
+		: QueryBuilder<
+				QueryInclusionTargetSchema<TSchema, TFieldName>,
+				TSelectedField,
+				TIncludedField
+			>
+
+/**
+ * Shapes one singular inclusion without exposing collection filtering clauses.
+ *
+ * A pointer already identifies at most one target. Its inclusion can project that
+ * target or recursively include relationships, but it cannot conditionally filter it.
+ */
+export interface QueryPointerTargetBuilder<
+	TSchema extends SchemaDefinition,
+	TSelectedField extends QueryFieldName<TSchema> = never,
+	TIncludedField = never,
+> {
+	/** Recursively shapes one relationship of the included pointer target. */
+	include<
+		const TFieldName extends QueryIncludableFieldName<TSchema>,
+		TTargetSelectedField extends QueryFieldName<
+			QueryInclusionTargetSchema<TSchema, TFieldName>
+		>,
+		TTargetIncludedField,
+	>(
+		fieldName: TFieldName,
+		shape: (
+			query: QueryInclusionTargetBuilder<TSchema, TFieldName>,
+		) => QueryInclusionTargetResult<
+			TSchema,
+			TFieldName,
+			TTargetSelectedField,
+			TTargetIncludedField
+		>,
+	): QueryPointerTargetBuilder<
+		TSchema,
+		QuerySelectionAfterInclude<TSchema, TSelectedField, TFieldName>,
+		ReplaceResultInclusion<
+			TIncludedField,
+			TFieldName,
+			QueryResultInclusionForField<
+				TSchema,
+				TFieldName,
+				TTargetSelectedField,
+				TTargetIncludedField
+			>
+		>
+	>
+
+	/** Replaces the included pointer target's flat projection. */
+	select<const TSelection extends QuerySelection<TSchema>>(
+		selection: QuerySelection<TSchema> &
+			ExactQuerySelection<TSchema, TSelection> &
+			LiteralQuerySelection<TSelection>,
+	): QueryPointerTargetBuilder<
+		TSchema,
+		QuerySelectedField<TSchema, TSelection>,
+		TIncludedField
+	>
+}
+
 const getFieldQueryTarget = (
 	field: GenericField,
 ): SchemaDefinition | undefined => {
@@ -244,7 +327,7 @@ const buildQueryProjectionInput = <const TSchema extends SchemaDefinition>(
 	}
 
 	return immutableRecord({
-		...(ast.where === undefined
+		...(kind === 'pointer' || ast.where === undefined
 			? {}
 			: { where: whereInputFromQueryFilter(ast.where.expression) }),
 		...(Object.keys(selection).length === 0
@@ -363,9 +446,10 @@ export class QueryBuilder<
 	>(
 		fieldName: TFieldName,
 		shape: (
-			query: QueryBuilder<QueryInclusionTargetSchema<TSchema, TFieldName>>,
-		) => QueryBuilder<
-			QueryInclusionTargetSchema<TSchema, TFieldName>,
+			query: QueryInclusionTargetBuilder<TSchema, TFieldName>,
+		) => QueryInclusionTargetResult<
+			TSchema,
+			TFieldName,
 			TTargetSelectedField,
 			TTargetIncludedPointer
 		>,
@@ -394,20 +478,34 @@ export class QueryBuilder<
 
 		// The field-level target type and private callback originate from the same
 		// relationship factory; runtime identity is rechecked below before storage.
-		const exactTarget =
-			target as QueryInclusionTargetSchema<TSchema, TFieldName>
-		const targetQuery = shape(
+		const exactTarget = target as QueryInclusionTargetSchema<
+			TSchema,
+			TFieldName
+		>
+		const shapedTarget = shape(
 			new QueryBuilder<QueryInclusionTargetSchema<TSchema, TFieldName>>(
 				exactTarget,
-			),
+			) as unknown as QueryInclusionTargetBuilder<TSchema, TFieldName>,
 		)
+		const untrustedTarget: unknown = shapedTarget
 
 		if (
-			!(targetQuery instanceof QueryBuilder) ||
-			targetQuery.schema !== target
+			!(untrustedTarget instanceof QueryBuilder) ||
+			untrustedTarget.schema !== target
 		) {
 			throw new TypeError(
 				'query inclusion callback must return a QueryBuilder for the relationship target',
+			)
+		}
+		const targetQuery = untrustedTarget as QueryBuilder<
+			QueryInclusionTargetSchema<TSchema, TFieldName>,
+			TTargetSelectedField,
+			TTargetIncludedPointer
+		>
+
+		if (field?.kind === 'pointer' && targetQuery.ast.where !== undefined) {
+			throw new TypeError(
+				'pointer-target input contains an unknown clause: where',
 			)
 		}
 
@@ -441,7 +539,10 @@ export class QueryBuilder<
 		>({
 			inclusion: normalizeQueryInclusion(this.schema, [
 				...inclusions,
-				{ field: fieldName, query: targetQuery.ast } as unknown as QueryInclusionInput<TSchema>,
+				{
+					field: fieldName,
+					query: targetQuery.ast,
+				} as unknown as QueryInclusionInput<TSchema>,
 			]),
 			selection,
 		})

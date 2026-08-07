@@ -93,6 +93,10 @@ const posts = await PostSchema.findMany(
 // `author` is the selected User model, or null when missing or inaccessible.
 ```
 
+An included pointer accepts only `select` and nested `include`: the pointer
+already identifies at most one target, so inclusion cannot conditionally filter
+it. Target Access still applies and may make an inaccessible pointer `null`.
+
 `select` is flat and schema-correlated. Any `true` flag selects only the fields
 marked `true`; an object containing only `false` flags selects every other
 field. `{}` keeps the complete result shape. Relationship result shaping stays
@@ -166,11 +170,11 @@ const users = await UserSchema.findMany({
 // `users[0].posts` is a readonly array of selected Post models.
 ```
 
-An included relation supports `where`, `orderBy`, `offset`, `limit`, `select`,
-and nested `include`. Its offset is applied independently to every parent
-collection. Per-parent cursor pagination is deliberately not part of this
-contract. Source relation Field Access runs once before loading. Target Access
-and output resolution still apply, but target `beforeRead` and `afterRead`
+Unlike a pointer, an included relation supports `where`, `orderBy`, `offset`,
+`limit`, `select`, and nested `include`. Its offset is applied independently to
+every parent collection. Per-parent cursor pagination is deliberately not part
+of this contract. Source relation Field Access runs once before loading. Target
+Access and output resolution still apply, but target `beforeRead` and `afterRead`
 hooks do not run merely because a parent included the collection. The explicit
 parent `afterRead` hook observes the hydrated array.
 

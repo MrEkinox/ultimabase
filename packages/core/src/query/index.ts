@@ -224,6 +224,7 @@ export type {
 	QuerySelectedFieldFromInput,
 } from './query/input.js'
 export { QueryBuilder } from './query/query.js'
+export type { QueryPointerTargetBuilder } from './query/query.js'
 export type { QueryScope } from './query/scope.js'
 export { normalizeUpdateExpression } from './updates/normalize.js'
 export { applyUpdateExpressionToRecord } from './updates/apply.js'

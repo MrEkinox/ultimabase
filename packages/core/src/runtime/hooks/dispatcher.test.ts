@@ -701,10 +701,7 @@ describe('native hook dispatcher', () => {
 			query,
 		}: {
 			readonly query: QueryBuilder<HookInputSchema>
-		}) =>
-			query.include('author', (target) =>
-				target.select({ name: true }).where((where) => where.eq('name', 'Ada')),
-			)
+		}) => query.include('author', (target) => target.select({ id: true }))
 		const addSchema = Schema.define({
 			className: 'NativeHookReadInclusionAdd',
 			fields: hookInputFields,

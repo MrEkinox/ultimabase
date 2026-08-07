@@ -12,7 +12,11 @@ import {
 } from '../../schema/index.js'
 import { describe, expect, it } from 'vitest'
 
-import { hydrateQueryFromAst, QueryBuilder } from './query.js'
+import {
+	hydrateQueryFromAst,
+	QueryBuilder,
+	type QueryPointerTargetBuilder,
+} from './query.js'
 import { fieldPath } from '../filters/factory.js'
 import { WhereBuilder } from '../filters/where.js'
 import type { QueryScope } from './scope.js'
@@ -165,9 +169,7 @@ describe('QueryBuilder', () => {
 	it('builds immutable pointer inclusion branches from exact target queries', () => {
 		const base = new QueryBuilder(includedPostSchema)
 		const included = base.include('author', (query) =>
-			query
-				.select({ id: true, name: true })
-				.where((where) => where.eq('active', true)),
+			query.select({ id: true, name: true }),
 		)
 		const replaced = included.include('author', (query) =>
 			query.select({ name: true }),
@@ -185,9 +187,6 @@ describe('QueryBuilder', () => {
 						{ kind: 'selected-field', field: 'id' },
 						{ kind: 'selected-field', field: 'name' },
 					],
-				},
-				where: {
-					expression: { kind: 'equal', field: 'active', value: true },
 				},
 			},
 		})
@@ -269,6 +268,17 @@ describe('QueryBuilder', () => {
 		])
 		expect(JSON.stringify(selected.ast)).toContain('"field":"author"')
 		expect(JSON.stringify(selected.ast)).not.toContain('authorId')
+		expect(() =>
+			new QueryBuilder(includedPostSchema).include(
+				'author',
+				() =>
+					new QueryBuilder(includedUserSchema).where({
+						active: { eq: true },
+					}) as unknown as QueryPointerTargetBuilder<typeof includedUserSchema>,
+			),
+		).toThrow(
+			new TypeError('pointer-target input contains an unknown clause: where'),
+		)
 		expect(() =>
 			new QueryBuilder(includedPostSchema).include(
 				'author',

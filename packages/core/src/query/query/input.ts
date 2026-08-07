@@ -71,7 +71,6 @@ export type QueryPointerTargetInput<TSchema extends SchemaDefinition> =
 	Readonly<{
 		readonly include?: QueryIncludeInput<TSchema>
 		readonly select?: QuerySelection<TSchema>
-		readonly where?: WhereInput<TSchema>
 	}>
 
 /** Shapes one included to-many target without adding another execution boundary. */
@@ -417,7 +416,7 @@ const queryInputKeys: Readonly<Record<QueryInputKind, ReadonlySet<string>>> =
 		]),
 		'find-one': new Set(['include', 'orderBy', 'select', 'where']),
 		get: new Set(['id', 'include', 'select']),
-		'pointer-target': new Set(['include', 'select', 'where']),
+		'pointer-target': new Set(['include', 'select']),
 		'relation-target': new Set([
 			'include',
 			'limit',

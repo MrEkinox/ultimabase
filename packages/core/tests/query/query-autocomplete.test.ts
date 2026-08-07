@@ -498,7 +498,7 @@ ${body}
 			fixtureName: string,
 		): Set<string> => {
 			const sourceWithMarker = `
-import { Schema, pointerField, relationField, stringField } from '../../src/index.js'
+import { QueryBuilder, Schema, pointerField, relationField, stringField } from '../../src/index.js'
 const Author = Schema.define({ className: 'Author', fields: { name: stringField() } })
 const Post = Schema.define({
   className: 'Post',
@@ -539,6 +539,14 @@ ${body}
 			`Feed.findMany({ include: { posts: { ${marker} } } })`,
 			'query-canonical-relation-include-target-completion',
 		)
+		const pointerBuilderClauses = readCompletions(
+			`new QueryBuilder(Post).include('author', (target) => target.${marker})`,
+			'query-pointer-include-builder-completion',
+		)
+		const relationBuilderClauses = readCompletions(
+			`new QueryBuilder(Feed).include('posts', (target) => target.${marker})`,
+			'query-relation-include-builder-completion',
+		)
 		const orderingFields = readCompletions(
 			`Post.findMany({ orderBy: [{ ${marker} }] })`,
 			'query-canonical-ordering-completion',
@@ -561,8 +569,14 @@ ${body}
 		expect(includeFields.has('title')).toBe(false)
 		expect(targetClauses.has('include')).toBe(true)
 		expect(targetClauses.has('select')).toBe(true)
-		expect(targetClauses.has('where')).toBe(true)
+		expect(targetClauses.has('where')).toBe(false)
 		expect(targetClauses.has('orderBy')).toBe(false)
+		expect(pointerBuilderClauses.has('include')).toBe(true)
+		expect(pointerBuilderClauses.has('select')).toBe(true)
+		expect(pointerBuilderClauses.has('where')).toBe(false)
+		expect(pointerBuilderClauses.has('orderBy')).toBe(false)
+		expect(relationBuilderClauses.has('where')).toBe(true)
+		expect(relationBuilderClauses.has('select')).toBe(true)
 		for (const clause of [
 			'include',
 			'limit',
