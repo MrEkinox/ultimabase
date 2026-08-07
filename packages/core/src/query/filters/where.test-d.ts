@@ -6,6 +6,7 @@ import {
 	intField,
 	jsonField,
 	objectField,
+	pointerField,
 	relationField,
 	stringField,
 } from '../../schema/index.js'
@@ -23,6 +24,7 @@ const Tag = Schema.define({
 const Post = Schema.define({
 	className: 'WherePost',
 	fields: {
+		author: pointerField({ target: () => Tag }),
 		metadata: jsonField(),
 		profile: objectField({
 			fields: {
@@ -54,6 +56,12 @@ test('correlates where object operators with exact schema fields', () => {
 		metadata: {
 			at: [{ path: ['category'], in: ['framework', 'typescript'] }],
 		},
+		author: {
+			eq: 'author-id',
+			in: ['author-id', 'reviewer-id'],
+			is: { archived: { eq: false }, label: { startsWith: 'type' } },
+			isNot: { archived: { eq: true } },
+		},
 		tags: {
 			count: {
 				between: { lower: 1, upper: 10 },
@@ -81,6 +89,24 @@ test('correlates where object operators with exact schema fields', () => {
 		// @ts-expect-error -- Relation emptiness uses some or none rather than nullability.
 		tags: { isNull: true },
 	}
+	const invalidPointerIdentity: WhereInput<typeof Post> = {
+		author: {
+			// @ts-expect-error -- Pointer identity filters accept target IDs directly.
+			eq: Tag.pointer('author-id'),
+		},
+	}
+	const invalidPointerNullIdentity: WhereInput<typeof Post> = {
+		author: {
+			// @ts-expect-error -- Pointer nullability uses isNull rather than identity equality.
+			eq: null,
+		},
+	}
+	const invalidPointerTarget: WhereInput<typeof Post> = {
+		author: {
+			// @ts-expect-error -- Pointer traversal is typed from the target schema.
+			is: { title: { eq: 'source-only' } },
+		},
+	}
 	const invalidPath: WhereInput<typeof Post> = {
 		profile: {
 			at: [
@@ -98,6 +124,9 @@ test('correlates where object operators with exact schema fields', () => {
 	void invalidNumber
 	void invalidRelationNull
 	void invalidPath
+	void invalidPointerIdentity
+	void invalidPointerNullIdentity
+	void invalidPointerTarget
 })
 
 test('keeps the public builder short, immutable, and schema-correlated', () => {
@@ -113,6 +142,9 @@ test('keeps the public builder short, immutable, and schema-correlated', () => {
 		})
 		.isNotEmpty('tags')
 		.some('tags', (tag) => tag.eq('label', 'typescript'))
+		.eq('author', 'author-id')
+		.is('author', { archived: { eq: false } })
+		.isNot('author', (author) => author.eq('label', 'blocked'))
 
 	expectTypeOf(base).toEqualTypeOf<WhereBuilder<typeof Post>>()
 	expectTypeOf(extended.build()).toEqualTypeOf<WhereInput<typeof Post>>()
@@ -128,6 +160,8 @@ test('keeps the public builder short, immutable, and schema-correlated', () => {
 	base.count('views', { gte: 2 })
 	// @ts-expect-error -- Relation emptiness only targets relation fields.
 	base.isEmpty('title')
+	// @ts-expect-error -- Pointer traversal only accepts pointer fields.
+	base.is('title', {})
 	const invalidEmpty: WhereInput<typeof Post> = {
 		// @ts-expect-error -- Relation emptiness is unavailable on scalar fields.
 		title: { isEmpty: true },

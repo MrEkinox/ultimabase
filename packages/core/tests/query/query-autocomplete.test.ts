@@ -404,9 +404,10 @@ new QueryBuilder(Post).select({ title: true, ${marker} })
 			fixtureName: string,
 		): Set<string> => {
 			const sourceWithMarker = `
-import { Schema, booleanField, intField, relationField, stringField } from '../../src/index.js'
+import { Schema, booleanField, intField, pointerField, relationField, stringField } from '../../src/index.js'
 const Tag = Schema.define({ className: 'Tag', fields: { label: stringField() } })
-const Post = Schema.define({ className: 'Post', fields: { published: booleanField(), tags: relationField({ target: () => Tag }), views: intField() } })
+const Author = Schema.define({ className: 'Author', fields: { active: booleanField(), name: stringField() } })
+const Post = Schema.define({ className: 'Post', fields: { author: pointerField({ target: () => Author }), published: booleanField(), tags: relationField({ target: () => Tag }), views: intField() } })
 ${body}
 `
 			const position = sourceWithMarker.indexOf(marker)
@@ -437,6 +438,14 @@ ${body}
 		const relationOperators = readCompletions(
 			`Post.findMany({ where: { tags: { ${marker} } } })`,
 			'query-where-relation-completion',
+		)
+		const pointerOperators = readCompletions(
+			`Post.findMany({ where: { author: { ${marker} } } })`,
+			'query-where-pointer-completion',
+		)
+		const pointerTargetFields = readCompletions(
+			`Post.findMany({ where: { author: { is: { ${marker} } } } })`,
+			'query-where-pointer-target-completion',
 		)
 		const relationCountOperators = readCompletions(
 			`Post.findMany({ where: { tags: { count: { ${marker} } } } })`,
@@ -469,6 +478,23 @@ ${body}
 		expect(relationOperators.has('isNull')).toBe(false)
 		expect(relationOperators.has('isNotNull')).toBe(false)
 		expect(relationOperators.has('eq')).toBe(false)
+		for (const operator of [
+			'eq',
+			'in',
+			'is',
+			'isNot',
+			'isNotNull',
+			'isNull',
+			'ne',
+			'notIn',
+		]) {
+			expect(pointerOperators.has(operator)).toBe(true)
+		}
+		expect(pointerOperators.has('some')).toBe(false)
+		expect(pointerOperators.has('count')).toBe(false)
+		expect(pointerTargetFields.has('active')).toBe(true)
+		expect(pointerTargetFields.has('name')).toBe(true)
+		expect(pointerTargetFields.has('published')).toBe(false)
 		for (const operator of [
 			'between',
 			'eq',

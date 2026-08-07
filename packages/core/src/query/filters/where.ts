@@ -1,6 +1,9 @@
 import {
+	Pointer,
 	Schema,
 	type SchemaDefinition,
+	type SchemaPointerFieldName,
+	type SchemaPointerTarget,
 	type SchemaRelationFieldName,
 	type SchemaRelationTarget,
 } from '../../schema/index.js'
@@ -14,6 +17,7 @@ import {
 
 import { createQueryAst } from '../ast/factory.js'
 import type { QueryFieldName } from '../ast/contracts.js'
+import type { OperationObjectId } from '../operations/contracts.js'
 import { parseQueryFieldName } from '../ast/schema.js'
 import {
 	createQueryJsonPathFilter,
@@ -35,8 +39,9 @@ import {
 	queryRelationPredicateMaxDepth,
 	type QueryRelationCountInput,
 	type QueryRelationFilterNode,
-	type QueryRelationPredicateNode,
 	type QueryRelationPredicateOperator,
+	type QueryRelationQuantifierOperator,
+	type QueryRelationshipPredicateNode,
 } from './relation.js'
 import type {
 	QueryComparisonFilterNode,
@@ -73,13 +78,22 @@ type UnionToIntersection<TValue> = (
 	? TIntersection
 	: never
 
+type WhereIdentityOperand<TValue> = [Extract<TValue, Pointer>] extends [never]
+	? TValue
+	: Extract<TValue, Pointer> extends Pointer<infer TTarget>
+		? OperationObjectId<TTarget>
+		: TValue
+
 type WhereOperatorsForNode<TNode> =
 	TNode extends QueryEqualityFilterNode<
 		string,
 		infer TValue,
 		readonly string[] | undefined
 	>
-		? Readonly<{ eq?: TValue; ne?: TValue }>
+		? Readonly<{
+				eq?: WhereIdentityOperand<TValue>
+				ne?: WhereIdentityOperand<TValue>
+			}>
 		: TNode extends QueryComparisonFilterNode<string, infer TValue>
 			? Readonly<{
 					gt?: TValue
@@ -98,8 +112,8 @@ type WhereOperatorsForNode<TNode> =
 							readonly string[] | undefined
 					  >
 					? Readonly<{
-							in?: readonly TValue[]
-							notIn?: readonly TValue[]
+							in?: readonly WhereIdentityOperand<TValue>[]
+							notIn?: readonly WhereIdentityOperand<TValue>[]
 						}>
 					: TNode extends QueryStringFilterNode<
 								string,
@@ -238,6 +252,26 @@ type WhereRelationOperators<
 						}>)
 		: unknown
 
+type WherePointerOperators<
+	TSchema extends SchemaDefinition,
+	TFieldName extends QueryFieldName<TSchema>,
+	TDepth extends readonly unknown[],
+> =
+	TFieldName extends SchemaPointerFieldName<TSchema>
+		? TDepth['length'] extends typeof queryRelationPredicateMaxDepth
+			? unknown
+			: Readonly<{
+					is?: WhereInputAtDepth<
+						SchemaPointerTarget<TSchema, TFieldName>,
+						readonly [...TDepth, unknown]
+					>
+					isNot?: WhereInputAtDepth<
+						SchemaPointerTarget<TSchema, TFieldName>,
+						readonly [...TDepth, unknown]
+					>
+				}>
+		: unknown
+
 type WhereFieldInput<
 	TSchema extends SchemaDefinition,
 	TFieldName extends QueryFieldName<TSchema>,
@@ -251,7 +285,8 @@ type WhereFieldInput<
 			: Readonly<{
 					at?: readonly WherePathCondition<TSchema, TFieldName>[]
 				}>) &
-		WhereRelationOperators<TSchema, TFieldName, TDepth>
+		WhereRelationOperators<TSchema, TFieldName, TDepth> &
+		WherePointerOperators<TSchema, TFieldName, TDepth>
 >
 
 type WhereInputAtDepth<
@@ -296,6 +331,12 @@ type WhereComparisonValue<
 	TFieldName extends QueryFieldName<TSchema>,
 > = Exclude<QueryFilterValue<TSchema, TFieldName>, null>
 
+type WhereBuilderOperand<
+	TSchema extends SchemaDefinition,
+	TOperator extends 'equal' | 'in' | 'not-equal' | 'not-in',
+	TTarget extends QueryFilterTarget<TSchema, TOperator>,
+> = WhereIdentityOperand<QueryFilterOperand<TSchema, TOperator, TTarget>>
+
 const whereBuilderStates = new WeakMap<object, unknown>()
 
 const readWhereBuilderState = <TSchema extends SchemaDefinition>(
@@ -326,14 +367,14 @@ const createConstantWhereExpression = <TSchema extends SchemaDefinition>(
 	value: boolean,
 ): QueryFilterNode<TSchema> => immutableRecord({ kind: 'constant', value })
 
-const normalizeWhereRelation = <TSchema extends SchemaDefinition>(
+const normalizeWhereRelationship = <TSchema extends SchemaDefinition>(
 	schema: TSchema,
 	fieldName: QueryFieldName<TSchema>,
 	operator: QueryRelationPredicateOperator,
 	input: unknown,
 	relationDepth: number,
 	ancestors: WeakSet<object>,
-): QueryRelationPredicateNode => {
+): QueryRelationshipPredicateNode => {
 	if (relationDepth >= queryRelationPredicateMaxDepth) {
 		throw createQueryRelationDepthError()
 	}
@@ -342,9 +383,12 @@ const normalizeWhereRelation = <TSchema extends SchemaDefinition>(
 	const target =
 		field === undefined ? undefined : getFieldSchemaTarget(field)?.()
 
-	if (field?.kind !== 'relation' || !Schema.is(target)) {
+	const expectedKind =
+		operator === 'is' || operator === 'is-not' ? 'pointer' : 'relation'
+
+	if (field?.kind !== expectedKind || !Schema.is(target)) {
 		throw new TypeError(
-			`where.${fieldName}.${operator} requires a relation field`,
+			`where.${fieldName}.${operator} requires a ${expectedKind} field`,
 		)
 	}
 
@@ -469,6 +513,29 @@ const assertEnabledWhereFlag = (input: unknown, path: string): void => {
 	}
 }
 
+const normalizePointerIdentityOperand = <TSchema extends SchemaDefinition>(
+	schema: TSchema,
+	target: QueryFieldName<TSchema> | QueryFieldPath,
+	operand: unknown,
+	path: string,
+): unknown => {
+	if (typeof target !== 'string' || schema.fields[target]?.kind !== 'pointer') {
+		return operand
+	}
+
+	const targetSchema = getFieldSchemaTarget(schema.fields[target])?.()
+
+	if (!Schema.is(targetSchema)) {
+		throw new TypeError(`${path} requires a registered pointer target`)
+	}
+
+	if (typeof operand !== 'string') {
+		throw new TypeError(`${path} must be a target object id`)
+	}
+
+	return new Pointer(targetSchema, operand)
+}
+
 const normalizeWhereOperator = <TSchema extends SchemaDefinition>(
 	schema: TSchema,
 	target: QueryFieldName<TSchema> | QueryFieldPath,
@@ -478,9 +545,19 @@ const normalizeWhereOperator = <TSchema extends SchemaDefinition>(
 ): QueryFilterNode<TSchema> => {
 	switch (operator) {
 		case 'eq':
-			return createQueryValueFilter(schema, 'equal', target, operand)
+			return createQueryValueFilter(
+				schema,
+				'equal',
+				target,
+				normalizePointerIdentityOperand(schema, target, operand, path),
+			)
 		case 'ne':
-			return createQueryValueFilter(schema, 'not-equal', target, operand)
+			return createQueryValueFilter(
+				schema,
+				'not-equal',
+				target,
+				normalizePointerIdentityOperand(schema, target, operand, path),
+			)
 		case 'gt':
 			return createQueryValueFilter(schema, 'greater-than', target, operand)
 		case 'gte':
@@ -525,7 +602,14 @@ const normalizeWhereOperator = <TSchema extends SchemaDefinition>(
 				schema,
 				operator === 'in' ? 'in' : 'not-in',
 				target,
-				operand,
+				operand.map((value, index) =>
+					normalizePointerIdentityOperand(
+						schema,
+						target,
+						value,
+						`${path}[${String(index)}]`,
+					),
+				),
 			)
 		case 'contains':
 			return createQueryStructuralFilter(
@@ -611,7 +695,7 @@ const normalizeWhereFieldOperators = <TSchema extends SchemaDefinition>(
 			assertEnabledWhereFlag(operand, `where.${fieldName}.${operator}`)
 			expression = combineWhereExpressions(
 				expression,
-				normalizeWhereRelation(
+				normalizeWhereRelationship(
 					schema,
 					fieldName,
 					operator === 'isEmpty' ? 'none' : 'some',
@@ -696,13 +780,19 @@ const normalizeWhereFieldOperators = <TSchema extends SchemaDefinition>(
 			continue
 		}
 
-		if (operator === 'some' || operator === 'none' || operator === 'every') {
+		if (
+			operator === 'some' ||
+			operator === 'none' ||
+			operator === 'every' ||
+			operator === 'is' ||
+			operator === 'isNot'
+		) {
 			expression = combineWhereExpressions(
 				expression,
-				normalizeWhereRelation(
+				normalizeWhereRelationship(
 					schema,
 					fieldName,
-					operator,
+					operator === 'isNot' ? 'is-not' : operator,
 					operand,
 					relationDepth,
 					ancestors,
@@ -914,7 +1004,8 @@ const serializeWhereLeaf = (
 	if (isQueryRelationPredicateNode(expression)) {
 		return immutableRecord({
 			[expression.field]: immutableRecord({
-				[expression.operator]: serializeWhereExpression(expression.expression),
+				[expression.operator === 'is-not' ? 'isNot' : expression.operator]:
+					serializeWhereExpression(expression.expression),
 			}),
 		})
 	}
@@ -933,7 +1024,9 @@ const serializeWhereLeaf = (
 			upper: expression.upper,
 		})
 	} else if (expression.kind === 'in' || expression.kind === 'not-in') {
-		operand = expression.values
+		operand = immutableArray(
+			expression.values.map((value) => (Pointer.is(value) ? value.id : value)),
+		)
 	} else if (
 		expression.kind === 'has-all-keys' ||
 		expression.kind === 'has-any-keys'
@@ -954,7 +1047,9 @@ const serializeWhereLeaf = (
 	} else if (expression.kind === 'null') {
 		operand = true
 	} else if ('value' in expression) {
-		operand = expression.value
+		operand = Pointer.is(expression.value)
+			? expression.value.id
+			: expression.value
 	} else {
 		throw new TypeError('Unsupported where expression kind')
 	}
@@ -1136,7 +1231,7 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 	/** Compares one field or structured path for equality. */
 	eq<TTarget extends QueryFilterTarget<TSchema, 'equal'>>(
 		target: TTarget,
-		value: QueryFilterOperand<TSchema, 'equal', TTarget>,
+		value: WhereBuilderOperand<TSchema, 'equal', TTarget>,
 	): WhereBuilder<TSchema> {
 		return this.#append(createWhereTargetInput(target, 'eq', value))
 	}
@@ -1144,7 +1239,7 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 	/** Compares one field or structured path for inequality. */
 	ne<TTarget extends QueryFilterTarget<TSchema, 'not-equal'>>(
 		target: TTarget,
-		value: QueryFilterOperand<TSchema, 'not-equal', TTarget>,
+		value: WhereBuilderOperand<TSchema, 'not-equal', TTarget>,
 	): WhereBuilder<TSchema> {
 		return this.#append(createWhereTargetInput(target, 'ne', value))
 	}
@@ -1214,7 +1309,7 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 	/** Requires membership in one immutable candidate list. */
 	in<TTarget extends QueryFilterTarget<TSchema, 'in'>>(
 		target: TTarget,
-		values: readonly QueryFilterOperand<TSchema, 'in', TTarget>[],
+		values: readonly WhereBuilderOperand<TSchema, 'in', TTarget>[],
 	): WhereBuilder<TSchema> {
 		return this.#append(createWhereTargetInput(target, 'in', values))
 	}
@@ -1222,7 +1317,7 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 	/** Excludes membership in one immutable candidate list. */
 	notIn<TTarget extends QueryFilterTarget<TSchema, 'not-in'>>(
 		target: TTarget,
-		values: readonly QueryFilterOperand<TSchema, 'not-in', TTarget>[],
+		values: readonly WhereBuilderOperand<TSchema, 'not-in', TTarget>[],
 	): WhereBuilder<TSchema> {
 		return this.#append(createWhereTargetInput(target, 'notIn', values))
 	}
@@ -1363,6 +1458,22 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 		return this.#relation('every', fieldName, input)
 	}
 
+	/** Requires the object referenced by one pointer to match the target filter. */
+	is<TFieldName extends SchemaPointerFieldName<TSchema>>(
+		fieldName: TFieldName,
+		input: WhereSource<SchemaPointerTarget<TSchema, TFieldName>>,
+	): WhereBuilder<TSchema> {
+		return this.#pointer('is', fieldName, input)
+	}
+
+	/** Requires the object referenced by one pointer not to match the target filter. */
+	isNot<TFieldName extends SchemaPointerFieldName<TSchema>>(
+		fieldName: TFieldName,
+		input: WhereSource<SchemaPointerTarget<TSchema, TFieldName>>,
+	): WhereBuilder<TSchema> {
+		return this.#pointer('is-not', fieldName, input)
+	}
+
 	/** Returns the immutable object contract shared by direct and transport filters. */
 	build(): WhereInput<TSchema> {
 		const expression = readWhereBuilderState(this).expression
@@ -1400,7 +1511,7 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 	}
 
 	#relation<TFieldName extends SchemaRelationFieldName<TSchema>>(
-		operator: QueryRelationPredicateOperator,
+		operator: QueryRelationQuantifierOperator,
 		fieldName: TFieldName,
 		input: WhereSource<SchemaRelationTarget<TSchema, TFieldName>>,
 	): WhereBuilder<TSchema> {
@@ -1422,6 +1533,34 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 		const inputObject = immutableRecord({
 			[fieldName]: immutableRecord({
 				[operator]: serializeWhereExpression(nested),
+			}),
+		}) as unknown as WhereInput<TSchema>
+
+		return this.#append(inputObject)
+	}
+
+	#pointer<TFieldName extends SchemaPointerFieldName<TSchema>>(
+		operator: 'is' | 'is-not',
+		fieldName: TFieldName,
+		input: WhereSource<SchemaPointerTarget<TSchema, TFieldName>>,
+	): WhereBuilder<TSchema> {
+		const state = readWhereBuilderState(this)
+		const field = state.schema.fields[fieldName]
+		const target =
+			field === undefined ? undefined : getFieldSchemaTarget(field)?.()
+
+		if (field?.kind !== 'pointer' || !Schema.is(target)) {
+			throw new TypeError('WhereBuilder pointer must reference a pointer field')
+		}
+
+		const nested = resolveWhereBuilderInput(
+			target,
+			input as unknown as WhereSource<typeof target>,
+		)
+		const inputObject = immutableRecord({
+			[fieldName]: immutableRecord({
+				[operator === 'is-not' ? 'isNot' : 'is']:
+					serializeWhereExpression(nested),
 			}),
 		}) as unknown as WhereInput<TSchema>
 

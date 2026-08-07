@@ -161,16 +161,16 @@ export const createPostgresRelationPredicateCompiler = (
 			throw createMissingScopeError()
 		}
 
-		const relation = catalog.getRelationDefinition(
-			predicate.source.definition,
-			[predicate.field],
-			predicate.target.definition,
-		)
 		const depth = relationDepth
 
 		relationDepth += 1
 
 		if (predicate.kind === 'relation-count') {
+			const relation = catalog.getRelationDefinition(
+				predicate.source.definition,
+				[predicate.field],
+				predicate.target.definition,
+			)
 			const targetAlias = alias(
 				relation.target.table,
 				`__ultimabase_relation_target_${String(depth)}`,
@@ -261,12 +261,51 @@ export const createPostgresRelationPredicateCompiler = (
 			return exists(aggregate)
 		}
 
-		const binding = catalog.getDrizzleRelation(relation)
+		const pointerPredicate =
+			predicate.operator === 'is' || predicate.operator === 'is-not'
+		const pointer = pointerPredicate
+			? catalog.getPointerDefinition(
+					predicate.source.definition,
+					[predicate.field],
+					predicate.target.definition,
+				)
+			: undefined
+		const relation = pointerPredicate
+			? undefined
+			: catalog.getRelationDefinition(
+					predicate.source.definition,
+					[predicate.field],
+					predicate.target.definition,
+				)
+
+		const metadata = (() => {
+			if (pointer !== undefined) {
+				return {
+					binding: catalog.getDrizzlePointer(pointer),
+					target: pointer.target,
+				}
+			}
+
+			if (relation !== undefined) {
+				return {
+					binding: catalog.getDrizzleRelation(relation),
+					target: relation.target,
+				}
+			}
+
+			throw new TypeError('PostgreSQL relationship predicate is unavailable')
+		})()
+		const binding = metadata.binding
+		const targetSchema = metadata.target
+		const relationName =
+			'relationName' in binding
+				? binding.relationName
+				: binding.sourceRelationName
 		const targetFilter = {
 			RAW: (table: SchemaEntry): SQL => {
 				// Generated relation metadata only contains PostgreSQL tables, never views.
 				const target = rebindCompiledPostgresSchema(
-					relation.target,
+					targetSchema,
 					table as PgTable,
 				)
 				const aliasedTargetConstraint = compilePostgresConstraints(
@@ -303,11 +342,11 @@ export const createPostgresRelationPredicateCompiler = (
 			},
 		} as unknown as PostgresDrizzleRelationsFilter
 		const related = createPostgresDrizzleRelationFilter(
-			binding.sourceRelationName,
+			relationName,
 			targetFilter,
 		)
 		const filter =
-			predicate.operator === 'some'
+			predicate.operator === 'some' || predicate.operator === 'is'
 				? related
 				: ({ NOT: related } satisfies PostgresDrizzleRelationsFilter)
 

@@ -487,14 +487,21 @@ const author = User.pointer('0198f090-2a50-7000-8000-000000000034')
 const created = await Post.createOne({ data: { author } }, { ultimabase })
 const found = await Post.findOne(
 	{
-		where: { author: { eq: author } },
+		where: {
+			author: {
+				eq: author.id,
+				is: { name: { startsWith: 'A' } },
+			},
+		},
 		include: { author: { select: { id: true, name: true } } },
 	},
 	{ ultimabase },
 )
 ```
 
-Writes and predicates send only the target UUID as a parameter. Reads restore
+Identity predicates send only the target UUID as a parameter. `is` and `isNot`
+compile through the generated Drizzle `one` relation with target Access inside
+the correlated predicate. Reads restore
 an immutable `Pointer` bound to the exact registered target schema. Inclusion
 then executes through Core's nested operation pipeline, so target Access,
 field output resolution, request authority, and the current transaction remain

@@ -1,6 +1,8 @@
 import {
 	Schema,
 	type SchemaDefinition,
+	type SchemaPointerFieldName,
+	type SchemaPointerTarget,
 	type SchemaRelationFieldName,
 	type SchemaRelationTarget,
 } from '../../schema/index.js'
@@ -48,8 +50,15 @@ import type { OperationObjectId } from '../operations/contracts.js'
 /** Bounds portable relation recursion before an adapter sees the QueryBuilder AST. */
 export const queryRelationPredicateMaxDepth = 8 as const
 
-/** Selects the collection quantifier applied to one exact relation field. */
-export type QueryRelationPredicateOperator = 'every' | 'none' | 'some'
+/** Selects the collection quantifier applied to one exact to-many relation. */
+export type QueryRelationQuantifierOperator = 'every' | 'none' | 'some'
+
+/** Selects the target predicate applied through one exact pointer. */
+export type QueryPointerPredicateOperator = 'is' | 'is-not'
+
+/** Lists every target-traversal operator retained by the portable relation AST. */
+export type QueryRelationPredicateOperator =
+	QueryPointerPredicateOperator | QueryRelationQuantifierOperator
 
 /** Lists portable comparisons supported by the non-null relation cardinality. */
 export type QueryRelationCountOperator =
@@ -85,6 +94,24 @@ export interface QueryRelationPredicateNode<
 	readonly target: QuerySchemaNode<TTarget>
 	readonly expression: QueryFilterNode<TTarget>
 }
+
+/** Traverses one pointer while avoiding recursive public AST expansion for circular schemas. */
+export interface QueryPointerPredicateNode<
+	TSource extends SchemaDefinition = SchemaDefinition,
+	TFieldName extends string = string,
+	TTarget extends SchemaDefinition = SchemaDefinition,
+> extends QueryExpressionNode {
+	readonly kind: 'relation-predicate'
+	readonly operator: QueryPointerPredicateOperator
+	readonly field: TFieldName
+	readonly source: QuerySchemaNode<TSource>
+	readonly target: QuerySchemaNode<TTarget>
+	readonly expression: QueryFilterNode<SchemaDefinition>
+}
+
+/** Lists both collection and pointer target predicates sharing one AST discriminant. */
+export type QueryRelationshipPredicateNode =
+	QueryPointerPredicateNode | QueryRelationPredicateNode
 
 interface QueryRelationCountBase<
 	TSource extends SchemaDefinition,
@@ -125,7 +152,9 @@ export interface QueryRelationCountNode<
 
 /** Lists every portable relation leaf accepted by the query AST. */
 export type QueryRelationFilterNode =
-	QueryRelationCountNode | QueryRelationPredicateNode
+	| QueryPointerPredicateNode
+	| QueryRelationCountNode
+	| QueryRelationPredicateNode
 
 /** Correlates every relation field with its exact declared target schema. */
 export type QueryRelationPredicateForSchema<TSource extends SchemaDefinition> =
@@ -138,6 +167,17 @@ export type QueryRelationPredicateForSchema<TSource extends SchemaDefinition> =
 			SchemaRelationTarget<TSource, TFieldName>
 		>
 	}[SchemaRelationFieldName<TSource>]
+
+/** Correlates pointer predicates with their exact declared target schemas. */
+export type QueryPointerPredicateForSchema<TSource extends SchemaDefinition> = {
+	readonly [
+		TFieldName in SchemaPointerFieldName<TSource>
+	]: QueryPointerPredicateNode<
+		TSource,
+		TFieldName,
+		SchemaPointerTarget<TSource, TFieldName>
+	>
+}[SchemaPointerFieldName<TSource>]
 
 /** Correlates relation cardinality leaves with their exact target schemas. */
 export type QueryRelationCountForSchema<TSource extends SchemaDefinition> = {
@@ -153,6 +193,7 @@ export type QueryRelationCountForSchema<TSource extends SchemaDefinition> = {
 /** Lists every schema-correlated relation leaf accepted by one source schema. */
 export type QueryRelationFilterForSchema<TSource extends SchemaDefinition> =
 	| QueryRelationCountForSchema<TSource>
+	| QueryPointerPredicateForSchema<TSource>
 	| QueryRelationPredicateForSchema<TSource>
 
 interface RelationPredicateState<TSchema extends SchemaDefinition> {
@@ -577,7 +618,7 @@ export class RelationPredicate<TSchema extends SchemaDefinition> {
 	}
 
 	#relation<TFieldName extends SchemaRelationFieldName<TSchema>>(
-		operator: QueryRelationPredicateOperator,
+		operator: QueryRelationQuantifierOperator,
 		fieldName: TFieldName,
 		predicate: (
 			filter: RelationPredicate<SchemaRelationTarget<TSchema, TFieldName>>,
@@ -665,7 +706,7 @@ export const createQueryRelationPredicate = <
 	TFieldName extends SchemaRelationFieldName<TSource>,
 >(
 	source: TSource,
-	operator: QueryRelationPredicateOperator,
+	operator: QueryRelationQuantifierOperator,
 	fieldName: TFieldName,
 	predicate: (
 		filter: RelationPredicate<SchemaRelationTarget<TSource, TFieldName>>,
@@ -929,12 +970,14 @@ export const isQueryRelationCountNode = (
 /** Narrows portable expression leaves before Runtime or adapters interpret them. */
 export const isQueryRelationPredicateNode = (
 	value: unknown,
-): value is QueryRelationPredicateNode =>
+): value is QueryRelationshipPredicateNode =>
 	isPlainRecord(value) &&
 	value.kind === 'relation-predicate' &&
 	(value.operator === 'some' ||
 		value.operator === 'none' ||
-		value.operator === 'every') &&
+		value.operator === 'every' ||
+		value.operator === 'is' ||
+		value.operator === 'is-not') &&
 	typeof value.field === 'string' &&
 	isPlainRecord(value.source) &&
 	value.source.kind === 'schema' &&

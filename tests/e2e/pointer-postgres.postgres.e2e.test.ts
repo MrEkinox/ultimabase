@@ -354,7 +354,7 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 
 		const included = await Post.findOne(
 			{
-				where: { author: { eq: firstPointer } },
+				where: { author: { eq: firstPointer.id } },
 				select: { title: true },
 				include: { author: { select: { name: true } } },
 			},

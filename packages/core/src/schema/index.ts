@@ -31,6 +31,8 @@ export type {
 	PointerFieldMetadataOptions,
 	PointerFieldOptions,
 	PointerReferentialAction,
+	SchemaPointerFieldName,
+	SchemaPointerTarget,
 } from './fields/builtins/pointer.js'
 export { relationField } from './fields/builtins/relation.js'
 export type {

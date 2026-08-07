@@ -6,6 +6,7 @@ import {
 	intField,
 	jsonField,
 	objectField,
+	pointerField,
 	relationField,
 	stringField,
 } from '../../schema/index.js'
@@ -24,6 +25,7 @@ const Tag = Schema.define({
 const Post = Schema.define({
 	className: 'RuntimeWherePost',
 	fields: {
+		author: pointerField({ target: () => Tag }),
 		metadata: jsonField(),
 		profile: objectField({
 			fields: {
@@ -74,6 +76,9 @@ describe('WhereInput', () => {
 			.gte('views', 0)
 			.eq(fieldPath('profile', ['contact', 'email']), 'ada@example.com')
 			.count('tags', { between: { lower: 1, upper: 3 } })
+			.eq('author', 'author-id')
+			.is('author', { archived: { eq: false } })
+			.isNot('author', (author) => author.eq('label', 'blocked'))
 		candidates.push(20)
 
 		const built = builder.build()
@@ -85,6 +90,38 @@ describe('WhereInput', () => {
 		expect(JSON.stringify(built)).not.toContain('20')
 		expect(Object.isFrozen(builder)).toBe(true)
 		expect(Object.isFrozen(built)).toBe(true)
+	})
+
+	it('normalizes pointer IDs separately from target traversal predicates', () => {
+		const query = new QueryBuilder(Post).where({
+			author: {
+				eq: 'author-id',
+				in: ['author-id', 'reviewer-id'],
+				is: { archived: { eq: false } },
+				isNot: { label: { eq: 'blocked' } },
+			},
+		})
+		const serialized = new WhereBuilder(Post)
+			.eq('author', 'author-id')
+			.is('author', { archived: { eq: false } })
+			.build()
+		const expression = query.ast.where?.expression
+
+		expect(JSON.stringify(expression)).toContain('relation-predicate')
+		expect(serialized).toStrictEqual({
+			AND: [
+				{ author: { eq: 'author-id' } },
+				{ author: { is: { archived: { eq: false } } } },
+			],
+		})
+		expect(() =>
+			normalizeWhereInput(Post, {
+				author: { eq: Tag.pointer('author-id') },
+			} as never),
+		).toThrow('must be a target object id')
+		expect(() =>
+			normalizeWhereInput(Post, { author: { eq: null } } as never),
+		).toThrow('must be a target object id')
 	})
 
 	it('accepts the short callback builder without exposing a second vocabulary', () => {

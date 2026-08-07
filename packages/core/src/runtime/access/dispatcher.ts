@@ -291,8 +291,16 @@ const collectFilterFields = (
 		return
 	}
 
-	// Relation fields and their target expressions cross a separate Access boundary.
+	// Collection fields cross a dedicated item boundary; pointer traversal still
+	// uses the ordinary source field filter channel before target Access runs.
 	if (candidate.kind === 'relation-predicate') {
+		if (
+			(candidate.operator === 'is' || candidate.operator === 'is-not') &&
+			typeof candidate.field === 'string'
+		) {
+			fields.add(candidate.field)
+		}
+
 		return
 	}
 
@@ -968,11 +976,17 @@ export class NativeAccessRuntime {
 		)
 	}
 
-	/** Enforces relation traversal declared directly inside one public QueryBuilder filter. */
+	/** Enforces relationship traversal declared directly inside one public where filter. */
 	async enforceRelationPredicateRead(
 		request: RuntimeOperationStageInput<DatabaseOperationAst>,
 		predicate: QueryRelationFilterNode,
 	): Promise<void> {
+		const sourceField = predicate.source.definition.fields[predicate.field]
+
+		if (sourceField?.kind === 'pointer') {
+			return
+		}
+
 		return this.#enforceRelationFieldRead(
 			request,
 			predicate.source.definition,

@@ -128,6 +128,56 @@ describe('PostgreSQL filter compiler', () => {
 		expect(rendered.params).toContain(true)
 	})
 
+	it('compiles pointer target traversal with target Access through Drizzle relations', () => {
+		const Target = Schema.define({
+			className: 'FilterPointerPredicateTarget',
+			fields: { label: stringField(), visible: booleanField() },
+		})
+		const Source = Schema.define({
+			className: 'FilterPointerPredicateSource',
+			fields: { target: pointerField({ target: () => Target }) },
+		})
+		const registry = new SchemaRegistry([Source, Target])
+		const catalog = new PostgresSchemaCatalog(
+			registry.values(),
+			registry.resolveSchemaTargets(),
+		)
+		const query = new QueryBuilder(Source).where({
+			target: {
+				is: { label: { eq: 'developer-value' } },
+				isNot: { label: { eq: 'blocked-value' } },
+			},
+		})
+		const expression = query.ast.where?.expression
+		const targetAccess = new QueryBuilder(Target).where({
+			visible: { eq: true },
+		}).ast.where?.expression
+
+		if (expression === undefined || targetAccess === undefined) {
+			throw new TypeError('Pointer predicate compiler fixture is incomplete')
+		}
+
+		const predicates = collectQueryRelationPredicates(expression)
+		const compiler = createPostgresRelationPredicateCompiler(
+			catalog,
+			emptyPostgresConstraintCompilerRegistry,
+			predicates.map((predicate) => ({
+				constraints: [],
+				predicate,
+				rowFilter: targetAccess,
+			})),
+		)
+		const rendered = dialect.sqlToQuery(
+			compilePostgresFilter(expression, catalog.get(Source), compiler),
+		)
+
+		expect(rendered.sql.toLowerCase()).toContain('exists')
+		expect(rendered.sql.toLowerCase()).toContain('not (exists')
+		expect(rendered.params).toContain('developer-value')
+		expect(rendered.params).toContain('blocked-value')
+		expect(rendered.params.filter((value) => value === true)).toHaveLength(2)
+	})
+
 	it('compiles join and inverse-pointer cardinality through correlated Drizzle subqueries', () => {
 		const relationSchemas = [
 			PostgresRelationArticle,
@@ -221,9 +271,9 @@ describe('PostgreSQL filter compiler', () => {
 			registry.values(),
 			registry.resolveSchemaTargets(),
 		)
-		const pointer = User.pointer('018f0f8c-7b5a-7cc9-98db-123456789abc')
+		const pointerId = '018f0f8c-7b5a-7cc9-98db-123456789abc'
 		const expression = new QueryBuilder(Post).where((where) =>
-			where.eq('author', pointer),
+			where.eq('author', pointerId),
 		).ast.where?.expression
 
 		if (expression === undefined) {
@@ -235,8 +285,8 @@ describe('PostgreSQL filter compiler', () => {
 		)
 
 		expect(rendered.sql).toContain(' = $1')
-		expect(rendered.sql).not.toContain(pointer.id)
-		expect(rendered.params).toStrictEqual([pointer.id])
+		expect(rendered.sql).not.toContain(pointerId)
+		expect(rendered.params).toStrictEqual([pointerId])
 	})
 
 	it('compiles every primitive operator through Drizzle parameters', () => {

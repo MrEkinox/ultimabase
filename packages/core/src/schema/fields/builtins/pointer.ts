@@ -69,6 +69,26 @@ export type PointerField<
 	TInference
 >
 
+/** Selects only top-level pointer fields declared by one exact schema. */
+export type SchemaPointerFieldName<TSchema extends SchemaDefinition> = {
+	readonly [
+		TFieldName in keyof TSchema['fields'] & string
+	]: TSchema['fields'][TFieldName] extends {
+		readonly kind: 'pointer'
+	}
+		? TFieldName
+		: never
+}[keyof TSchema['fields'] & string]
+
+/** Resolves the exact target schema retained by one pointer field. */
+export type SchemaPointerTarget<
+	TSchema extends SchemaDefinition,
+	TFieldName extends SchemaPointerFieldName<TSchema>,
+> =
+	TSchema['fields'][TFieldName] extends PointerField<infer TTarget>
+		? TTarget
+		: never
+
 type ResolvedPointerField<
 	TTarget extends SchemaDefinition,
 	TRequired extends boolean,

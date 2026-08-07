@@ -22,8 +22,8 @@ export const databaseInclusionCapabilityVersion = 1 as const
 /** Selects the portable relation protocol currently understood by Core Runtime. */
 export const databaseRelationCapabilityVersion = 1 as const
 
-/** Selects the correlated relation-predicate protocol understood by adapters. */
-export const databaseRelationPredicateCapabilityVersion = 3 as const
+/** Selects the correlated relationship-predicate protocol understood by adapters. */
+export const databaseRelationPredicateCapabilityVersion = 4 as const
 
 /** Advertises logical pointer storage, predicates, and inclusion source values. */
 export interface DatabasePointerCapability {
@@ -43,7 +43,7 @@ export interface DatabaseRelationCapability {
 	readonly version: typeof databaseRelationCapabilityVersion
 }
 
-/** Advertises correlated quantifier and visible-cardinality compilation. */
+/** Advertises pointer traversal, quantifier, and visible-cardinality compilation. */
 export interface DatabaseRelationPredicateCapability {
 	readonly kind: 'relation-predicates'
 	readonly version: typeof databaseRelationPredicateCapabilityVersion
@@ -375,11 +375,7 @@ export interface DatabaseOperationExecutor {
 	readIncludedValue?(
 		record: Readonly<Record<string, unknown>>,
 		fieldPath: readonly string[],
-	):
-		| DatabaseLogicalRecord
-		| readonly DatabaseLogicalRecord[]
-		| null
-		| undefined
+	): DatabaseLogicalRecord | readonly DatabaseLogicalRecord[] | null | undefined
 }
 
 /** Owns regular operations and starts isolated adapter transactions. */

@@ -27,7 +27,10 @@ const feed = await Post.findMany(
 )
 
 const nextPage = await Post.findMany({ limit: 25, cursor }, { ultimabase })
-const offsetPage = await Post.findMany({ limit: 25, offset: 50 }, { ultimabase })
+const offsetPage = await Post.findMany(
+	{ limit: 25, offset: 50 },
+	{ ultimabase },
+)
 ```
 
 `limit` defines the page size. `cursor: true` starts cursor pagination and
@@ -78,6 +81,25 @@ same canonical filter contract:
 ```ts
 const post = await Post.get({ id: postId }, { ultimabase })
 ```
+
+Pointer identity filters accept target object IDs directly. Target traversal
+stays explicit and target-typed through `is` or `isNot`:
+
+```ts
+const memberships = await Membership.findMany({
+	where: {
+		project: {
+			eq: projectId,
+			is: { archived: { eq: false } },
+		},
+	},
+})
+```
+
+`eq` inspects only the stored pointer identity. `is` and `isNot` query the
+visible target and therefore apply target Access. A null pointer satisfies
+`isNot`; combine it with `isNotNull: true` when null pointers must be excluded.
+Pointer nullability uses `isNull` and `isNotNull`, never `eq: null`.
 
 The complete read surface is `findOne`, `findMany`, `get`, `count`, and
 `exists`. `findOne` and `get` return `null` when no visible object matches.

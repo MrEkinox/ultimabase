@@ -109,6 +109,11 @@ Access plan to an eager-capable adapter, without manufacturing target schema
 hooks. Database adapters explicitly advertise the versioned portable pointer
 capabilities; physical foreign keys remain adapter-owned.
 
+Parent filters keep pointer identity and target traversal explicit. Identity
+operators accept target object IDs and inspect only the stored pointer. `is`
+and `isNot` carry a target-typed nested filter through the portable relationship
+predicate AST, target Access, and an adapter-owned singular relation query.
+
 ## Plugins
 
 Plugins form one deterministic graph. Nesting is configuration sugar:

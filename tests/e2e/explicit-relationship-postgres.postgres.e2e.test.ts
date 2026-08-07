@@ -147,13 +147,13 @@ describe(
 			expect(membership.toJSON()).not.toHaveProperty('internalNote')
 			expect(
 				await Membership.count(
-					{ where: { member: { eq: Member.pointer(member.id) } } },
+					{ where: { member: { eq: member.id } } },
 					{ ultimabase: app },
 				),
 			).toBe(1)
 			expect(
 				await Membership.count(
-					{ where: { project: { eq: Project.pointer(project.id) } } },
+					{ where: { project: { eq: project.id } } },
 					{ ultimabase: app },
 				),
 			).toBe(1)
@@ -242,7 +242,7 @@ describe(
 			await member.delete({}, { ultimabase: app })
 			expect(
 				await Membership.count(
-					{ where: { project: { eq: Project.pointer(project.id) } } },
+					{ where: { project: { eq: project.id } } },
 					{ ultimabase: app },
 				),
 			).toBe(0)

@@ -76,8 +76,24 @@ Pointers serialize to `{ type: "pointer", className, id }` and compare by exact
 schema identity plus ID.
 
 Pointers participate in reads without revealing physical foreign-key names.
-Equality, membership, and existence predicates retain the exact target type;
-ordered and string comparisons are rejected. `pointer.findOne()` and
+Equality and membership predicates accept target object IDs directly; ordered
+and string comparisons are rejected. Target traversal stays explicit and
+target-typed:
+
+```ts
+const memberships = await Membership.findMany({
+	where: {
+		project: {
+			eq: projectId,
+			is: { archived: { eq: false } },
+		},
+	},
+})
+```
+
+`eq` compares only the stored pointer identity. `is` and `isNot` query fields
+of the visible target and therefore apply its Access constraints. Pointer
+nullability remains explicit through `isNull` and `isNotNull`. `pointer.findOne()` and
 `pointer.exists()` execute normal reads already scoped by the pointer ID, while
 bounded single-target inclusion is selection-aware:
 

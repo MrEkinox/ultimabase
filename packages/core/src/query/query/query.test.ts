@@ -242,8 +242,8 @@ describe('QueryBuilder', () => {
 			'0194f292-0dd9-7c2d-a0a3-a2f755a3d90a',
 		)
 		const query = new QueryBuilder(includedPostSchema)
-			.where((where) => where.eq('author', author))
-			.where((where) => where.in('author', [author]))
+			.where((where) => where.eq('author', author.id))
+			.where((where) => where.in('author', [author.id]))
 			.where((where) => where.isNull('author'))
 
 		expect(query.ast.where?.expression).toMatchObject({
@@ -574,12 +574,12 @@ describe('QueryBuilder', () => {
 			fields: postFields,
 		})
 
-		expect(() => new QueryBuilder(postSchema).offset(5).after('cursor')).toThrow(
-			new TypeError('query cannot combine offset and after pagination'),
-		)
-		expect(() => new QueryBuilder(postSchema).after('cursor').offset(5)).toThrow(
-			new TypeError('query cannot combine offset and after pagination'),
-		)
+		expect(() =>
+			new QueryBuilder(postSchema).offset(5).after('cursor'),
+		).toThrow(new TypeError('query cannot combine offset and after pagination'))
+		expect(() =>
+			new QueryBuilder(postSchema).after('cursor').offset(5),
+		).toThrow(new TypeError('query cannot combine offset and after pagination'))
 		expect(() =>
 			new QueryBuilder(postSchema)
 				.where((where) => where.eq('published', true))

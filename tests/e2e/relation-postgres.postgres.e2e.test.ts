@@ -121,6 +121,7 @@ type OptionalPointerState = ScalarFieldInferenceState<
 >
 
 const authorNameField = stringField({ validation: { required: true } })
+const authorVisibleField = booleanField({ default: true })
 const postTitleField = stringField({ validation: { required: true } })
 
 type AuthorSchema = SchemaClass<
@@ -128,6 +129,7 @@ type AuthorSchema = SchemaClass<
 	Readonly<{
 		readonly name: typeof authorNameField
 		readonly posts: RelationField<PostSchema, 'author'>
+		readonly visible: typeof authorVisibleField
 	}>,
 	readonly []
 >
@@ -147,9 +149,13 @@ function resolvePost(): PostSchema {
 
 const Author: AuthorSchema = Schema.define({
 	className: 'RelationE2EAuthor',
+	access: {
+		filter: { read: ({ filter }) => filter.equalTo('visible', true) },
+	},
 	fields: {
 		name: authorNameField,
 		posts: relationField({ mappedBy: 'author', target: resolvePost }),
+		visible: authorVisibleField,
 	},
 })
 
@@ -175,7 +181,27 @@ const PrivateArticle = Schema.define({
 	},
 })
 
-const relationSchemas = [Article, Tag, Author, Post, PrivateArticle] as const
+const PrivatePointerPost = Schema.define({
+	className: 'RelationE2EPrivatePointerPost',
+	fields: {
+		author: pointerField({
+			access: {
+				read: { filter: false, item: true, order: true },
+			},
+			target: () => Author,
+		}),
+		title: stringField({ validation: { required: true } }),
+	},
+})
+
+const relationSchemas = [
+	Article,
+	Tag,
+	Author,
+	Post,
+	PrivateArticle,
+	PrivatePointerPost,
+] as const
 
 let fixture: PostgresWorkerFixture | undefined
 let ultimabase:
@@ -451,10 +477,116 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 			{ data: { name: 'Predicate author' } },
 			{ ultimabase: app },
 		)
-		await Post.createOne(
+		const post = await Post.createOne(
 			{ data: { author: Author.pointer(author.id), title: 'Predicate post' } },
 			{ ultimabase: app },
 		)
+		const hiddenAuthor = await Author.createOne(
+			{ data: { name: 'Hidden predicate author', visible: false } },
+			{ ultimabase: app },
+		)
+		const hiddenPost = await Post.createOne(
+			{
+				data: {
+					author: Author.pointer(hiddenAuthor.id),
+					title: 'Hidden predicate post',
+				},
+			},
+			{ ultimabase: app },
+		)
+		const unassignedPost = await Post.createOne(
+			{ data: { title: 'Unassigned predicate post' } },
+			{ ultimabase: app },
+		)
+
+		expect(
+			await Post.exists(
+				{ where: { id: { eq: post.id }, author: { eq: author.id } } },
+				{ ultimabase: app },
+			),
+		).toBe(true)
+		expect(
+			await Post.exists(
+				{
+					where: {
+						id: { eq: post.id },
+						author: { is: { name: { eq: 'Predicate author' } } },
+					},
+				},
+				{ ultimabase: app },
+			),
+		).toBe(true)
+		expect(
+			await Post.exists(
+				{
+					where: {
+						id: { eq: post.id },
+						author: { isNot: { name: { eq: 'Predicate author' } } },
+					},
+				},
+				{ ultimabase: app },
+			),
+		).toBe(false)
+		expect(
+			await Post.exists(
+				{
+					where: {
+						id: { eq: hiddenPost.id },
+						author: { eq: hiddenAuthor.id },
+					},
+				},
+				{ ultimabase: app },
+			),
+		).toBe(true)
+		expect(
+			await Post.exists(
+				{
+					where: {
+						id: { eq: hiddenPost.id },
+						author: { is: { name: { eq: 'Hidden predicate author' } } },
+					},
+				},
+				{ ultimabase: app },
+			),
+		).toBe(false)
+		expect(
+			await Post.exists(
+				{
+					where: {
+						id: { eq: hiddenPost.id },
+						author: {
+							isNot: { name: { eq: 'Hidden predicate author' } },
+						},
+					},
+				},
+				{ ultimabase: app },
+			),
+		).toBe(true)
+		expect(
+			await Post.exists(
+				{
+					where: {
+						id: { eq: unassignedPost.id },
+						author: { isNot: { name: { eq: 'Predicate author' } } },
+					},
+				},
+				{ ultimabase: app },
+			),
+		).toBe(true)
+		expect(
+			await Post.exists(
+				{
+					where: {
+						id: { eq: unassignedPost.id },
+						author: {
+							isNot: { name: { eq: 'Predicate author' } },
+							isNotNull: true,
+						},
+					},
+				},
+				{ ultimabase: app },
+			),
+		).toBe(false)
 
 		expect(
 			await Author.exists(
@@ -760,6 +892,36 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 		await expect(
 			PrivateArticle.findMany(
 				{ where: { tags: { count: { gt: 0 } } } },
+				{ ultimabase: app },
+			),
+		).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
+	})
+
+	it('enforces pointer filter Access before identity or target traversal', async () => {
+		const app = getUltimaBase()
+		const author = await Author.createOne(
+			{ data: { name: 'Private pointer author' } },
+			{ ultimabase: app },
+		)
+		await PrivatePointerPost.createOne(
+			{
+				data: {
+					author: Author.pointer(author.id),
+					title: 'Private pointer source',
+				},
+			},
+			{ ultimabase: app },
+		)
+
+		await expect(
+			PrivatePointerPost.findMany(
+				{ where: { author: { eq: author.id } } },
+				{ ultimabase: app },
+			),
+		).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
+		await expect(
+			PrivatePointerPost.findMany(
+				{ where: { author: { is: { name: { eq: author.name } } } } },
 				{ ultimabase: app },
 			),
 		).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })

@@ -8,7 +8,10 @@ import {
 import type { PgTable } from 'drizzle-orm/pg-core'
 
 import type { PostgresSchemaCatalog } from '../schema/catalog.js'
-import type { PostgresDrizzleRelationBinding } from '../schema/drizzle-relations.js'
+import type {
+	PostgresDrizzlePointerBinding,
+	PostgresDrizzleRelationBinding,
+} from '../schema/drizzle-relations.js'
 
 type PostgresDrizzleRelationsFilter = RelationsFilter<
 	TableRelationalConfig,
@@ -24,7 +27,7 @@ export const createPostgresDrizzleRelationFilter = (
 /** Delegates relation joins and correlation aliases to Drizzle RQB v2. */
 export const compilePostgresDrizzleRelationFilter = (
 	catalog: PostgresSchemaCatalog,
-	binding: PostgresDrizzleRelationBinding,
+	binding: PostgresDrizzlePointerBinding | PostgresDrizzleRelationBinding,
 	side: 'source' | 'target',
 	table: PgTable,
 	filter: PostgresDrizzleRelationsFilter,

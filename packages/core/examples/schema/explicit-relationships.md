@@ -80,7 +80,7 @@ const membership = await Membership.createOne({
 })
 
 const projectMembers = await Membership.findMany({
-	where: { project: { eq: Project.pointer(projectId) } },
+	where: { project: { eq: projectId } },
 	include: { member: { select: { id: true, name: true } } },
 	select: { id: true, member: true, position: true, role: true },
 	orderBy: [{ position: 'asc' }],

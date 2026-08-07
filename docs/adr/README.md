@@ -151,6 +151,7 @@ Accepted records:
 - [ADR-0157: Explicit relation emptiness filters](0157-explicit-relation-emptiness-filters.md)
 - [ADR-0158: Filtered relation cardinality](0158-filtered-relation-cardinality.md)
 - [ADR-0159: Projection-only pointer inclusions](0159-projection-only-pointer-inclusions.md)
+- [ADR-0160: Pointer identity and target filters](0160-pointer-identity-and-target-filters.md)
 
 Superseded records:
 

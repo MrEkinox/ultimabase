@@ -135,6 +135,11 @@ export type {
 	QueryRelationPredicateForSchema,
 	QueryRelationPredicateNode,
 	QueryRelationPredicateOperator,
+	QueryRelationQuantifierOperator,
+	QueryPointerPredicateForSchema,
+	QueryPointerPredicateNode,
+	QueryPointerPredicateOperator,
+	QueryRelationshipPredicateNode,
 } from './filters/relation.js'
 export type {
 	AtomicBulkOperationOptions,

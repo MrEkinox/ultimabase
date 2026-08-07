@@ -88,11 +88,9 @@ test('infers exact explicit-edge pointers, inputs, models, and selections', () =
 		}>
 	>()
 
+	new QueryBuilder(Membership).where((where) => where.eq('member', 'member-id'))
 	new QueryBuilder(Membership).where((where) =>
-		where.eq('member', Member.pointer('member-id')),
-	)
-	new QueryBuilder(Membership).where((where) =>
-		// @ts-expect-error -- The edge source pointer cannot accept another schema.
+		// @ts-expect-error -- Pointer identity filters accept target IDs directly.
 		where.eq('member', Project.pointer('project-id')),
 	)
 })

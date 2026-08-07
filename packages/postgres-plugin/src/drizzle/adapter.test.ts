@@ -333,7 +333,7 @@ describe('internal PostgreSQL database adapter', () => {
 		expect(driver.calls[0]?.params).toContain(secondId)
 
 		const query = new QueryBuilder(pointerPostSchema).where((where) =>
-			where.eq('author', author),
+			where.eq('author', author.id),
 		)
 
 		driver.respond([[secondId, firstId, timestamp, timestamp]])
