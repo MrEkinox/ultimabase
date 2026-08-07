@@ -98,7 +98,7 @@ import type {
 } from '../updates/contracts.js'
 import { normalizeUpdateExpression } from '../updates/normalize.js'
 import type { InferQueryResult, QueryPointerResultInclusion } from './result.js'
-import type { QueryBuilderInput } from './input.js'
+import type { NormalizedQueryInput, QueryBuilderInput } from './input.js'
 import type { QueryScope } from './scope.js'
 
 type QueryBuilderInclusion<TSchema extends SchemaDefinition> = [
@@ -112,6 +112,14 @@ type QueryBuilderAst<TSchema extends SchemaDefinition> = QueryAst<
 	QueryFilterNode<TSchema>,
 	QueryBuilderInclusion<TSchema>
 >
+
+type QueryExecutionInput<
+	TSchema extends SchemaDefinition,
+	TSelectedField extends QueryFieldName<TSchema>,
+	TIncludedPointer,
+> =
+	| NormalizedQueryInput<TSchema, TSelectedField, TIncludedPointer>
+	| QueryBuilder<TSchema, TSelectedField, TIncludedPointer>
 
 // QueryBuilder state stays outside the frozen public shell so internal hydration does
 // not need a public constructor overload or an externally callable static API.
@@ -628,10 +636,10 @@ export const scopeQueryToObjectId = <
 	TSelectedField extends QueryFieldName<TSchema>,
 	TIncludedPointer,
 >(
-	query: QueryBuilder<TSchema, TSelectedField, TIncludedPointer>,
+	query: QueryExecutionInput<TSchema, TSelectedField, TIncludedPointer>,
 	id: OperationObjectId<TSchema>,
 	options: Readonly<{ readonly nativeAccessDeniedAsMissing?: true }> = {},
-): QueryBuilder<TSchema, TSelectedField, TIncludedPointer> => {
+): NormalizedQueryInput<TSchema, TSelectedField, TIncludedPointer> => {
 	const rowFilter = createQueryValueFilter(query.schema, 'equal', 'id', id)
 	const scope: QueryTerminalPrivateScope = immutableRecord({
 		kind: 'row-filter',
@@ -642,10 +650,11 @@ export const scopeQueryToObjectId = <
 		rowFilter,
 	})
 
-	return hydrateQueryFromAst<TSchema, TSelectedField, TIncludedPointer>(
-		query.ast,
-		scope,
-	)
+	const scoped = immutableRecord({ ast: query.ast, schema: query.schema })
+
+	storeQueryPrivateScope(scoped, scope)
+
+	return scoped
 }
 
 /** Describes one trusted relation restriction before it enters private QueryBuilder state. */
@@ -670,9 +679,9 @@ export const scopeQueryToRelation = <
 	TSelectedField extends QueryFieldName<TTarget>,
 	TIncludedPointer,
 >(
-	query: QueryBuilder<TTarget, TSelectedField, TIncludedPointer>,
+	query: QueryExecutionInput<TTarget, TSelectedField, TIncludedPointer>,
 	input: QueryRelationScopeInput<TSource, TTarget>,
-): QueryBuilder<TTarget, TSelectedField, TIncludedPointer> => {
+): NormalizedQueryInput<TTarget, TSelectedField, TIncludedPointer> => {
 	if (query.schema !== input.target) {
 		throw new TypeError('relation query must use its exact target schema')
 	}
@@ -685,10 +694,11 @@ export const scopeQueryToRelation = <
 		target: input.target,
 	})
 
-	return hydrateQueryFromAst<TTarget, TSelectedField, TIncludedPointer>(
-		query.ast,
-		scope,
-	)
+	const scoped = immutableRecord({ ast: query.ast, schema: query.schema })
+
+	storeQueryPrivateScope(scoped, scope)
+
+	return scoped
 }
 
 /**
@@ -703,7 +713,7 @@ export const executeQueryWithPrivateScope = <
 	TIncludedPointer,
 	const TOperation extends OperationAstNode,
 >(
-	query: QueryBuilder<TSchema, TSelectedField, TIncludedPointer>,
+	query: QueryExecutionInput<TSchema, TSelectedField, TIncludedPointer>,
 	operation: TOperation,
 	options?: QueryTerminalOptions,
 ): Promise<InferOperationResult<TOperation>> =>
@@ -719,7 +729,7 @@ export const executeQueryFindMany = <
 	TSelectedField extends QueryFieldName<TSchema>,
 	TIncludedPointer,
 >(
-	query: QueryBuilder<TSchema, TSelectedField, TIncludedPointer>,
+	query: QueryExecutionInput<TSchema, TSelectedField, TIncludedPointer>,
 	options?: QueryTerminalOptions,
 ): Promise<
 	readonly InferQueryResult<TSchema, TSelectedField, TIncludedPointer>[]
@@ -740,7 +750,7 @@ export const executeQueryFindOne = <
 	TSelectedField extends QueryFieldName<TSchema>,
 	TIncludedPointer,
 >(
-	query: QueryBuilder<TSchema, TSelectedField, TIncludedPointer>,
+	query: QueryExecutionInput<TSchema, TSelectedField, TIncludedPointer>,
 	options?: QueryTerminalOptions,
 ): Promise<InferQueryResult<
 	TSchema,
@@ -763,7 +773,7 @@ export const executeQueryGet = <
 	TSelectedField extends QueryFieldName<TSchema>,
 	TIncludedPointer,
 >(
-	query: QueryBuilder<TSchema, TSelectedField, TIncludedPointer>,
+	query: QueryExecutionInput<TSchema, TSelectedField, TIncludedPointer>,
 	id: OperationObjectId<TSchema>,
 	options?: QueryTerminalOptions,
 ): Promise<InferQueryResult<
@@ -783,7 +793,7 @@ export const executeQueryGet = <
 
 /** Executes one filtered count without materializing model values. */
 export const executeQueryCount = <const TSchema extends SchemaDefinition>(
-	query: QueryBuilder<TSchema>,
+	query: QueryExecutionInput<TSchema, never, never>,
 	options?: QueryTerminalOptions,
 ): Promise<number> => {
 	const operation: CountOperationAst<
@@ -796,7 +806,7 @@ export const executeQueryCount = <const TSchema extends SchemaDefinition>(
 
 /** Executes one filtered existence check without loading model values. */
 export const executeQueryExists = <const TSchema extends SchemaDefinition>(
-	query: QueryBuilder<TSchema>,
+	query: QueryExecutionInput<TSchema, never, never>,
 	options?: QueryTerminalOptions,
 ): Promise<boolean> => {
 	const operation: ExistsOperationAst<

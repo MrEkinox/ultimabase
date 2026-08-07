@@ -15,9 +15,9 @@ the normalized Query.
 
 Offset pagination retains its normalized non-negative offset. Cursor pagination
 always normalizes ordering through Query's stable-order contract, which appends
-the framework `id` UUID as the final tie-breaker. Ascending terms use `NULLS
-LAST`; descending terms use `NULLS FIRST`, so comparison predicates do not
-depend on PostgreSQL defaults.
+the framework `id` UUID as the final tie-breaker. Both ascending and descending
+terms use `NULLS LAST`, so missing values stay behind concrete values and
+comparison predicates do not depend on PostgreSQL defaults.
 
 The Query builder represents a first cursor page with `.after()` and no token.
 Subsequent pages carry an opaque token. Authentication and structural unsealing

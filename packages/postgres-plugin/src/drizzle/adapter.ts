@@ -16,12 +16,7 @@ import type {
 	PreparedDatabaseOperation,
 } from '@ultimabase/core'
 import { and, type SQL } from 'drizzle-orm'
-import {
-	immutableArray,
-	immutableRecord,
-	isPlainRecord,
-	isUnknownArray,
-} from '@ultimabase/shared'
+import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 
 import {
 	compilePostgresConstraints,
@@ -48,12 +43,11 @@ import { compilePostgresRowFilter } from '../query/filter-compiler.js'
 import { compilePostgresRelationPredicate } from '../query/relation-compiler.js'
 import { createPostgresRelationPredicateCompiler } from '../query/relation-predicate-compiler.js'
 import {
-	executePostgresEagerPointerRequest,
-	readPostgresEagerObjectIdentity,
+	executePostgresRelationalRead,
 	readPostgresIncludedPointer,
-} from './eager-pointer-executor.js'
+	readPostgresRelationalObjectIdentity,
+} from './relational-query-executor.js'
 
-const postgresObjectIdentities = new WeakMap<object, unknown>()
 const postgresDatabaseCapabilities = immutableRecord({
 	pointers: databasePointerCapability,
 	pointerInclusions: databasePointerInclusionCapability,
@@ -61,110 +55,19 @@ const postgresDatabaseCapabilities = immutableRecord({
 	relationPredicates: databaseRelationPredicateCapability,
 })
 
-/** Reads explicit public fields from object-returning read terminals only. */
-const readPostgresPublicSelection = (
-	operation: DatabaseOperationAst,
-): readonly string[] | undefined => {
-	if (
-		operation.kind !== 'find-many' &&
-		operation.kind !== 'find-one' &&
-		operation.kind !== 'get'
-	) {
-		return undefined
-	}
-
-	const candidate: unknown = operation
-
-	if (
-		!isPlainRecord(candidate) ||
-		!isPlainRecord(candidate.query) ||
-		!isPlainRecord(candidate.query.selection) ||
-		!isUnknownArray(candidate.query.selection.fields)
-	) {
-		throw new TypeError('PostgreSQL read operation selection is invalid')
-	}
-
-	const fields: string[] = []
-
-	for (const selected of candidate.query.selection.fields) {
-		if (!isPlainRecord(selected) || typeof selected.field !== 'string') {
-			throw new TypeError('PostgreSQL selected field is invalid')
-		}
-
-		fields.push(selected.field)
-	}
-
-	return fields.length === 0 ? undefined : immutableArray(fields)
-}
-
-/** Removes the privately fetched id while retaining it beside the public record. */
-const projectPostgresReadRecord = (
-	record: unknown,
-	selectedFields: readonly string[] | undefined,
-): Readonly<Record<string, unknown>> => {
-	if (!isPlainRecord(record)) {
-		throw new TypeError('PostgreSQL read result must be a logical record')
-	}
-
-	if (!Object.hasOwn(record, 'id')) {
-		throw new TypeError('PostgreSQL read result is missing its object identity')
-	}
-
-	if (selectedFields === undefined) {
-		postgresObjectIdentities.set(record, record.id)
-
-		return record
-	}
-
-	const projection: Record<string, unknown> = {}
-
-	for (const field of selectedFields) {
-		if (!Object.hasOwn(record, field)) {
-			throw new TypeError(
-				`PostgreSQL read result is missing selected field: ${field}`,
-			)
-		}
-
-		projection[field] = record[field]
-	}
-
-	const result = immutableRecord(projection)
-	postgresObjectIdentities.set(result, record.id)
-
-	return result
-}
-
-/** Projects read results only after the adapter captures every decoded identity. */
-const projectPostgresReadResult = (
-	operation: DatabaseOperationAst,
-	result: unknown,
-): unknown => {
-	const selectedFields = readPostgresPublicSelection(operation)
-
-	if (operation.kind === 'find-many') {
-		if (!isUnknownArray(result)) {
-			throw new TypeError('PostgreSQL find-many result must be an array')
-		}
-
-		return immutableArray(
-			result.map((record) => projectPostgresReadRecord(record, selectedFields)),
-		)
-	}
-
-	if (operation.kind === 'find-one' || operation.kind === 'get') {
-		return result === null
-			? null
-			: projectPostgresReadRecord(result, selectedFields)
-	}
-
-	return result
-}
-
 const readPostgresObjectIdentity = (
 	record: Readonly<Record<string, unknown>>,
-): unknown =>
-	postgresObjectIdentities.get(record) ??
-	readPostgresEagerObjectIdentity(record)
+): unknown => readPostgresRelationalObjectIdentity(record)
+
+const isPostgresRelationalRead = (
+	operation: DatabaseOperationAst,
+): operation is Extract<
+	DatabaseOperationAst,
+	{ readonly kind: 'find-many' | 'find-one' | 'get' }
+> =>
+	operation.kind === 'find-many' ||
+	operation.kind === 'find-one' ||
+	operation.kind === 'get'
 
 const readOperationSchema = (operation: DatabaseOperationAst): unknown => {
 	if (
@@ -280,6 +183,20 @@ const executePostgresRequest = async <
 	request: DatabaseOperationRequest<TOperation>,
 ): Promise<DatabaseOperationResult<TOperation>> => {
 	const schema = schemas.get(readOperationSchema(request.operation))
+	assertConstraintOperationSupported(
+		request.operation,
+		request.constraints.length > 0 || request.rowFilter !== undefined,
+	)
+
+	if (isPostgresRelationalRead(request.operation)) {
+		return (await executePostgresRelationalRead(
+			client,
+			schemas,
+			constraintCompilers,
+			request,
+		)) as DatabaseOperationResult<TOperation>
+	}
+
 	const constraintPredicate = compilePostgresRequestConstraint(
 		constraintCompilers,
 		schema,
@@ -296,34 +213,18 @@ const executePostgresRequest = async <
 		constraintCompilers,
 		request.relationPredicates ?? [],
 	)
-	assertConstraintOperationSupported(
-		request.operation,
-		request.constraints.length > 0 || request.rowFilter !== undefined,
-	)
 	// Runtime guarantees the closed Operation AST union before the adapter boundary.
 	const operation = request.operation as unknown as ExecutableOperationAst
-	const eager =
-		request.pointerInclusions !== undefined &&
-		request.pointerInclusions.length > 0
-	const result: unknown = eager
-		? await executePostgresEagerPointerRequest(
-				client,
-				schemas,
-				constraintCompilers,
-				request,
-			)
-		: await executePostgresOperation(
-				client,
-				schema,
-				operation,
-				effectivePredicate,
-				relationPredicateCompiler,
-			)
+	const result = await executePostgresOperation(
+		client,
+		schema,
+		operation,
+		effectivePredicate,
+		relationPredicateCompiler,
+	)
 
 	// Exhaustive operation dispatch preserves Runtime's discriminant-to-result contract.
-	return (
-		eager ? result : projectPostgresReadResult(request.operation, result)
-	) as DatabaseOperationResult<TOperation>
+	return result as DatabaseOperationResult<TOperation>
 }
 
 /** Owns one borrowed client until exactly one finalization path releases it. */

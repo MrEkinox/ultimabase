@@ -378,7 +378,7 @@ describe('internal PostgreSQL database adapter', () => {
 			params: [10, 2],
 		})
 		expect(driver.calls.at(-1)?.text).toMatch(
-			/select .* from "articles" where .* > \$1 order by .* desc NULLS FIRST limit \$2/u,
+			/select .* from "articles" as "[^"]+" where .* > \$1 order by .* desc nulls last limit \$2/u,
 		)
 
 		const titleOnly = {
@@ -500,8 +500,17 @@ describe('internal PostgreSQL database adapter', () => {
 			'Access-visible',
 		])
 		// Redundant parentheses are a Drizzle rendering detail; every predicate is conjunctive here.
-		expect(call?.text.replaceAll(/[()]/gu, '')).toContain(
-			'where "articles"."views" > $1 and "articles"."note" = $2 and "articles"."title" = $3 and "articles"."note" = $4',
+		const queryText = call?.text.replaceAll(/[()]/gu, '')
+		const tableAlias = /from "articles" as "([^"]+)"/u.exec(
+			queryText ?? '',
+		)?.[1]
+
+		if (tableAlias === undefined) {
+			throw new TypeError('Relational query fixture requires a table alias')
+		}
+
+		expect(queryText).toContain(
+			`where "${tableAlias}"."views" > $1 and "${tableAlias}"."note" = $2 and "${tableAlias}"."title" = $3 and "${tableAlias}"."note" = $4`,
 		)
 		expect(call?.text).not.toContain(injectedTenant)
 	})

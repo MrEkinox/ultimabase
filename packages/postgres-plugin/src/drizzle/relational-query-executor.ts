@@ -16,6 +16,7 @@ import {
 import {
 	and,
 	eq,
+	getColumns,
 	sql,
 	type AnyDBQueryConfig,
 	type RelationsFilter,
@@ -59,7 +60,7 @@ const postgresIncludedPointers = new WeakMap<
 	object,
 	ReadonlyMap<string, DatabaseLogicalRecord | null>
 >()
-const postgresEagerObjectIdentities = new WeakMap<object, unknown>()
+const postgresRelationalObjectIdentities = new WeakMap<object, unknown>()
 
 const inclusionPathKey = (fieldPath: readonly string[]): string =>
 	JSON.stringify(fieldPath)
@@ -80,7 +81,7 @@ const readOperationQuery = (operation: DatabaseOperationAst): QueryAst => {
 		!isPlainRecord(query.schema) ||
 		!('definition' in query.schema)
 	) {
-		throw new TypeError('PostgreSQL eager read operation has no schema')
+		throw new TypeError('PostgreSQL relational read operation has no schema')
 	}
 
 	return query as unknown as QueryAst
@@ -134,7 +135,7 @@ const compileRequestPredicate = (
 		const definition = catalog.getRelation(request.relation)
 
 		if (definition.target.definition !== schema.definition) {
-			throw new TypeError('PostgreSQL eager relation target is invalid')
+			throw new TypeError('PostgreSQL relational target is invalid')
 		}
 
 		relation = compilePostgresRelationPredicate(
@@ -148,7 +149,7 @@ const compileRequestPredicate = (
 	const idField = schema.fields.id
 
 	if (idField === undefined) {
-		throw new TypeError('PostgreSQL eager schema is missing its id field')
+		throw new TypeError('PostgreSQL relational schema is missing its id field')
 	}
 
 	const objectId =
@@ -214,7 +215,7 @@ const resolvePointerBranches = (
 		})
 	})
 
-const compileEagerConfig = (
+const compileRelationalConfig = (
 	catalog: PostgresSchemaCatalog,
 	constraintCompilers: PostgresConstraintCompilerRegistry,
 	schema: CompiledPostgresSchema,
@@ -231,7 +232,7 @@ const compileEagerConfig = (
 			.filter(({ plan }) => plan.unavailable !== true)
 			.map(({ binding, plan, schema: target }) => [
 				binding.relationName,
-				compileEagerConfig(
+				compileRelationalConfig(
 					catalog,
 					constraintCompilers,
 					target,
@@ -259,15 +260,25 @@ const compileEagerConfig = (
 			: query.ordering
 
 	if (ordering.orders.length > 0) {
-		// RQB owns aliasing; the shared cursor normalizer only supplies stable logical terms.
-		config.orderBy = immutableRecord(
-			Object.fromEntries(
-				ordering.orders.map(({ direction, field }) => [
-					field,
-					direction === 'ascending' ? 'asc' : 'desc',
-				]),
-			),
-		)
+		config.orderBy = (table, operators) => {
+			const columns = getColumns(table as PgTable)
+
+			return ordering.orders.map(({ direction, field }) => {
+				const column = columns[field]
+
+				if (column === undefined) {
+					throw new TypeError(
+						`PostgreSQL relational ordering field is unavailable: ${field}`,
+					)
+				}
+
+				// Missing values stay last in both directions so changing direction does
+				// not unexpectedly promote incomplete records.
+				return direction === 'ascending'
+					? operators.sql`${operators.asc(column)} nulls last`
+					: operators.sql`${operators.desc(column)} nulls last`
+			})
+		}
 	}
 	if (
 		root &&
@@ -280,7 +291,7 @@ const compileEagerConfig = (
 	return config
 }
 
-const decodeEagerRecord = (
+const decodeRelationalRecord = (
 	catalog: PostgresSchemaCatalog,
 	constraintCompilers: PostgresConstraintCompilerRegistry,
 	schema: CompiledPostgresSchema,
@@ -288,7 +299,7 @@ const decodeEagerRecord = (
 	value: unknown,
 ): DatabaseLogicalRecord => {
 	if (!isPlainRecord(value)) {
-		throw new TypeError('PostgreSQL eager result must be a record')
+		throw new TypeError('PostgreSQL relational result must be a record')
 	}
 
 	const branches = resolvePointerBranches(
@@ -311,7 +322,7 @@ const decodeEagerRecord = (
 			nested === null ||
 			nested === undefined
 				? null
-				: decodeEagerRecord(
+				: decodeRelationalRecord(
 						catalog,
 						constraintCompilers,
 						branch.schema,
@@ -333,7 +344,7 @@ const decodeEagerRecord = (
 		for (const field of selectedFields) {
 			if (!Object.hasOwn(decoded, field)) {
 				throw new TypeError(
-					`PostgreSQL eager result is missing selected field: ${field}`,
+					`PostgreSQL relational result is missing selected field: ${field}`,
 				)
 			}
 
@@ -343,15 +354,15 @@ const decodeEagerRecord = (
 		record = immutableRecord(projection)
 	}
 
-	postgresEagerObjectIdentities.set(record, decoded.id)
+	postgresRelationalObjectIdentities.set(record, decoded.id)
 
 	postgresIncludedPointers.set(record, included)
 
 	return record
 }
 
-/** Executes a validated eager request before applying the shared error boundary. */
-const executePostgresEagerPointerRequestRaw = async (
+/** Executes one validated relational read before applying the shared error boundary. */
+const executePostgresRelationalReadRaw = async (
 	client: PostgresDrizzleClient,
 	catalog: PostgresSchemaCatalog,
 	constraintCompilers: PostgresConstraintCompilerRegistry,
@@ -365,7 +376,7 @@ const executePostgresEagerPointerRequestRaw = async (
 		operation.kind !== 'get'
 	) {
 		throw new TypeError(
-			'PostgreSQL eager pointer loading requires a read terminal',
+			'PostgreSQL relational loading requires a model read operation',
 		)
 	}
 
@@ -375,10 +386,10 @@ const executePostgresEagerPointerRequestRaw = async (
 		DynamicRelationalQueryBuilder | undefined
 
 	if (builder === undefined) {
-		throw new TypeError('PostgreSQL eager query builder is unavailable')
+		throw new TypeError('PostgreSQL relational query builder is unavailable')
 	}
 
-	const config = compileEagerConfig(
+	const config = compileRelationalConfig(
 		catalog,
 		constraintCompilers,
 		schema,
@@ -392,28 +403,34 @@ const executePostgresEagerPointerRequestRaw = async (
 
 	if (operation.kind === 'find-many') {
 		if (!isUnknownArray(raw)) {
-			throw new TypeError('PostgreSQL eager find-many must return an array')
+			throw new TypeError('PostgreSQL relational find-many must return an array')
 		}
 
 		return raw.map((record) =>
-			decodeEagerRecord(catalog, constraintCompilers, schema, request, record),
+			decodeRelationalRecord(
+				catalog,
+				constraintCompilers,
+				schema,
+				request,
+				record,
+			),
 		)
 	}
 
 	return raw === undefined
 		? null
-		: decodeEagerRecord(catalog, constraintCompilers, schema, request, raw)
+		: decodeRelationalRecord(catalog, constraintCompilers, schema, request, raw)
 }
 
-/** Executes an eager read without exposing Drizzle or driver diagnostics. */
-export const executePostgresEagerPointerRequest = async (
+/** Executes a relational model read without exposing Drizzle or driver diagnostics. */
+export const executePostgresRelationalRead = async (
 	client: PostgresDrizzleClient,
 	catalog: PostgresSchemaCatalog,
 	constraintCompilers: PostgresConstraintCompilerRegistry,
 	request: DatabaseOperationRequest,
 ): Promise<unknown> => {
 	try {
-		return await executePostgresEagerPointerRequestRaw(
+		return await executePostgresRelationalReadRaw(
 			client,
 			catalog,
 			constraintCompilers,
@@ -431,7 +448,7 @@ export const readPostgresIncludedPointer = (
 ): DatabaseLogicalRecord | null | undefined =>
 	postgresIncludedPointers.get(record)?.get(inclusionPathKey(fieldPath))
 
-/** Reads identity retained while eager selection removes the private id column. */
-export const readPostgresEagerObjectIdentity = (
+/** Reads identity retained while relational selection removes the private id column. */
+export const readPostgresRelationalObjectIdentity = (
 	record: Readonly<Record<string, unknown>>,
-): unknown => postgresEagerObjectIdentities.get(record)
+): unknown => postgresRelationalObjectIdentities.get(record)

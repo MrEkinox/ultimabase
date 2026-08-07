@@ -7,6 +7,7 @@ import {
 	queryFromFindOneInput,
 	queryFromGetInput,
 } from './input.js'
+import { QueryBuilder } from './query.js'
 
 const Author = Schema.define({
 	className: 'ReadInputAuthor',
@@ -25,7 +26,7 @@ const Post = Schema.define({
 })
 
 describe('canonical read inputs', () => {
-	it('normalizes one complete object into the existing immutable QueryBuilder AST', () => {
+	it('normalizes one complete object directly into an immutable Query AST', () => {
 		const query = queryFromFindManyInput(Post, {
 			cursor: 'cursor',
 			include: {
@@ -40,6 +41,8 @@ describe('canonical read inputs', () => {
 			where: { title: { contains: 'TypeScript' } },
 		})
 
+		expect(query).not.toBeInstanceOf(QueryBuilder)
+		expect(Object.isFrozen(query)).toBe(true)
 		expect(query.ast).toMatchObject({
 			limit: 20,
 			ordering: {

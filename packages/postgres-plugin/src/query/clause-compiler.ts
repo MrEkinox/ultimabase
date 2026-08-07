@@ -13,7 +13,6 @@ import {
 	desc,
 	eq,
 	gt,
-	isNotNull,
 	isNull,
 	lt,
 	or,
@@ -71,7 +70,7 @@ const compileOrderBy = (
 			// Explicit null placement makes cursor predicates independent from defaults.
 			return order.direction === 'ascending'
 				? sql`${asc(column)} NULLS LAST`
-				: sql`${desc(column)} NULLS FIRST`
+				: sql`${desc(column)} NULLS LAST`
 		}),
 	)
 
@@ -100,20 +99,20 @@ const compileAfterCursorValue = (
 			throw new TypeError('PostgreSQL cursor value cannot be null')
 		}
 
-		// Ascending NULLS LAST has no later value; descending NULLS FIRST resumes at non-null.
-		return direction === 'ascending'
-			? sql<boolean>`false`
-			: isNotNull(field.column)
+		// NULLS LAST makes a null cursor terminal in either direction.
+		return sql<boolean>`false`
 	}
 
-	if (direction === 'descending') {
-		return lt(field.column, value)
-	}
+	const comparison =
+		direction === 'descending'
+			? lt(field.column, value)
+			: gt(field.column, value)
+
 	if (!field.plan.nullable) {
-		return gt(field.column, value)
+		return comparison
 	}
 
-	const expression = or(gt(field.column, value), isNull(field.column))
+	const expression = or(comparison, isNull(field.column))
 
 	if (expression === undefined) {
 		throw new TypeError('PostgreSQL cursor comparison could not be combined')

@@ -38,7 +38,7 @@ describe('PostgreSQL query clause compiler', () => {
 		expect(clauses.limit).toBe(20)
 		expect(clauses.offset).toBe(40)
 		expect(clauses.orderBy.map((order) => render(order).sql)).toStrictEqual([
-			'"articles"."rank" desc NULLS FIRST',
+			'"articles"."rank" desc NULLS LAST',
 			'"articles"."title" asc NULLS LAST',
 		])
 	})
@@ -103,8 +103,8 @@ describe('PostgreSQL query clause compiler', () => {
 		}
 
 		expect(clauses.orderBy.map((order) => render(order).sql)).toStrictEqual([
-			'"articles"."created" desc NULLS FIRST',
-			'"articles"."id" desc NULLS FIRST',
+			'"articles"."created" desc NULLS LAST',
+			'"articles"."id" desc NULLS LAST',
 		])
 		expect(render(where)).toMatchObject({
 			params: [
@@ -114,7 +114,9 @@ describe('PostgreSQL query clause compiler', () => {
 				'018f0f8c-7b5a-7cc9-98db-123456789abc',
 			],
 		})
-		expect(render(where).sql).toMatch(/< \$2.*or.*= \$3.*< \$4/u)
+		expect(render(where).sql).toMatch(
+			/< \$2.*is null.*or.*= \$3.*< \$4/u,
+		)
 	})
 
 	it('uses id ascending for the first cursor page without explicit ordering', () => {
@@ -129,7 +131,7 @@ describe('PostgreSQL query clause compiler', () => {
 		expect(clauses.where).toBeUndefined()
 	})
 
-	it('resumes nullable ordering without skipping the non-null descending page', () => {
+	it('treats a null descending cursor as terminal under NULLS LAST', () => {
 		const query = new QueryBuilder(ArticleSchema)
 			.descending('title')
 			.after('authenticated-cursor')
@@ -155,7 +157,7 @@ describe('PostgreSQL query clause compiler', () => {
 			throw new TypeError('Nullable cursor fixture requires a predicate')
 		}
 
-		expect(render(where).sql).toMatch(/is not null.*or.*is null.*< \$1/u)
+		expect(render(where).sql).toMatch(/false.*or.*is null.*< \$1/u)
 	})
 
 	it('rejects missing, extra, or incompatible authenticated payloads', () => {
