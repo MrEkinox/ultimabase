@@ -87,11 +87,14 @@ const ProtectedSecondary = Schema.define({
 	className: 'ACLReferenceProtectedSecondary',
 	fields: { title: stringField({ validation: { required: true } }) },
 	hooks: {
-		beforeUpdate: ({ operation }) => {
-			if (!rejectNextSecondaryCleanup) return operation
+		beforeOperation: {
+			update: ({ operation }) => {
+				if (!rejectNextSecondaryCleanup) return
 
-			rejectNextSecondaryCleanup = false
-			throw new Error('ACL reference cleanup rollback fixture')
+				rejectNextSecondaryCleanup = false
+				void operation
+				throw new Error('ACL reference cleanup rollback fixture')
+			},
 		},
 	},
 	extensions: [
@@ -160,31 +163,23 @@ const principalOwnerPlugin = definePlugin({
 
 		for (const { policy, schema } of principalPolicies) {
 			hooks.schema(`principal-delete:${schema.className}`, schema, {
-				beforeDelete: ({ operation }) => {
-					if (operation.kind === 'delete-many') {
-						throw new Error(
-							'Principal reference policy requires singular deletion',
-						)
-					}
-
-					return operation
-				},
-			})
-			hooks.field(
-				`principal-reference-policy:${schema.className}`,
-				schema,
-				['id'],
-				{
-					beforeDelete: ({ context, value }) =>
-						applyPrincipalPolicy(
-							context,
+				beforeOperation: {
+					delete: async (input) => {
+						if (input.kind === 'delete-many') {
+							throw new Error(
+								'Principal reference policy requires singular deletion',
+							)
+						}
+						await applyPrincipalPolicy(
+							input.context,
 							schema,
-							value,
+							input.originalItem.id,
 							policy,
 							readCleanups(),
-						),
+						)
+					},
 				},
-			)
+			})
 		}
 	},
 })

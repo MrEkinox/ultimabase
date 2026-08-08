@@ -256,31 +256,47 @@ export const rolesPlugin = (): RolesPlugin =>
 				}
 
 				hooks.schema(`membership-events:${schema.className}`, schema, {
-					beforeDelete: ({ operation }) => {
-						assertSingularRoleDeletion(operation)
-					},
-					afterUpdate: async ({ operation, result }) => {
-						const changes = readRoleRelationChanges(operation)
+					beforeOperation: {
+						delete: async (input) => {
+							assertSingularRoleDeletion(input.operation)
 
-						if (changes.some(({ field }) => field === 'roles')) {
-							await assertRoleHierarchyAcyclic(
-								await readUpdatedRoleModel(schema, result),
+							if (input.kind !== 'delete-one') return
+
+							const roleName: unknown = Reflect.get(input.originalItem, 'name')
+
+							if (typeof roleName !== 'string') {
+								throw new TypeError(
+									'Prepared role deletion requires a role name',
+								)
+							}
+
+							await applyRoleDeletionPolicy(
+								input.context,
+								schema,
+								roleName,
+								declaration,
+								readReferenceCleanups(),
 							)
-						}
+						},
 					},
-					afterCommit: ({ context, operation, result }) => {
-						emitRoleRelationChanges(context, operation, result)
+					afterOperation: {
+						update: async ({ operation, result }) => {
+							const changes = readRoleRelationChanges(operation)
+
+							if (changes.some(({ field }) => field === 'roles')) {
+								await assertRoleHierarchyAcyclic(
+									await readUpdatedRoleModel(schema, result),
+								)
+							}
+						},
 					},
-				})
-				hooks.field(`deletion-policy:${schema.className}`, schema, ['name'], {
-					beforeDelete: ({ context, value }) =>
-						applyRoleDeletionPolicy(
-							context,
-							schema,
-							value,
-							declaration,
-							readReferenceCleanups(),
-						),
+					transaction: {
+						afterCommit: ({ changes, context }) => {
+							for (const { operation, result } of changes) {
+								emitRoleRelationChanges(context, operation, result)
+							}
+						},
+					},
 				})
 			}
 

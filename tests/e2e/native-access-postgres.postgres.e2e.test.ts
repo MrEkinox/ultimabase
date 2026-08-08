@@ -28,7 +28,8 @@ const AccessArticle = Schema.define({
 	access: {
 		filter: {
 			delete: ({ filter }) => filter.equalTo('published', true),
-			read: ({ filter }) => filter.equalTo('published', true),
+			read: ({ filter }) =>
+				filter.equalTo('published', true).greaterThanOrEqualTo('rank', 0),
 			update: ({ filter }) => filter.equalTo('published', true),
 			upsert: ({ filter }) => filter.equalTo('published', true),
 		},
@@ -60,13 +61,14 @@ const AccessArticle = Schema.define({
 		}),
 	},
 	hooks: {
-		beforeRead: ({ query }) => query.where((where) => where.gte('rank', 0)),
-		beforeUpdate: async ({ operation }) => {
-			await AccessAudit.createOne({
-				data: { action: `update:${operation.kind}` },
-			})
+		beforeOperation: {
+			update: async ({ operation }) => {
+				await AccessAudit.createOne({
+					data: { action: `update:${operation.kind}` },
+				})
 
-			return operation
+				void operation
+			},
 		},
 	},
 })
@@ -203,7 +205,7 @@ afterAll(async () => {
 })
 
 describe('native Access with PostgreSQL', () => {
-	it('composes native, plugin, developer, and beforeRead predicates in SQL', async () => {
+	it('composes native, plugin, and developer predicates in SQL', async () => {
 		const app = getUltimaBase()
 		const rows = await AccessArticle.findMany(
 			{ where: { rank: { gt: 0 } }, orderBy: [{ rank: 'asc' }] },

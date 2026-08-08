@@ -112,9 +112,11 @@ describe('plugin hook targets', () => {
 		const { hooks } = registries.forPlugin(ownerPlugin)
 		const extensionPaths: (readonly string[])[] = []
 
-		hooks.global('global', { beforeCreate: ({ operation }) => operation })
+		hooks.global('global', {
+			beforeOperation: { create: ({ operation }) => void operation },
+		})
 		hooks.schema('schema', primarySchema, {
-			beforeCreate: ({ operation }) => operation,
+			beforeOperation: { create: ({ operation }) => void operation },
 		})
 		hooks.field('field', primarySchema, ['dotted.name'], {
 			resolveInput: ({ value }) => value,
@@ -123,10 +125,10 @@ describe('plugin hook targets', () => {
 			'schema-extension',
 			schemaExtension,
 			({ schema }) => ({
-				beforeCreate: ({ operation }) => {
-					expect(schema).toBe(primarySchema)
-
-					return operation
+				beforeOperation: {
+					create: () => {
+						expect(schema).toBe(primarySchema)
+					},
 				},
 			}),
 		)
@@ -195,7 +197,7 @@ describe('plugin hook targets', () => {
 		)
 
 		registries.forPlugin(ownerPlugin).hooks.schema('foreign', foreignSchema, {
-			beforeCreate: ({ operation }) => operation,
+			beforeOperation: { create: ({ operation }) => void operation },
 		})
 		registries.closeSetup()
 
@@ -228,7 +230,9 @@ describe('plugin hook targets', () => {
 			'split-dot',
 			primarySchema,
 			['dotted', 'name'],
-			{ resolveInput: ({ value }: { readonly value: unknown }) => value },
+			{
+				resolveInput: ({ value }: { readonly value: unknown }) => value,
+			},
 		])
 		invalid.closeSetup()
 
@@ -254,7 +258,7 @@ describe('plugin hook targets', () => {
 		expect(
 			captureError(() => {
 				foreign.schemaExtension('foreign-extension', schemaExtension, () => ({
-					beforeCreate: ({ operation }) => operation,
+					beforeOperation: { create: ({ operation }) => void operation },
 				}))
 			}),
 		).toMatchObject({
@@ -326,12 +330,12 @@ describe('plugin hook targets', () => {
 		const second = registries.forPlugin('fixture.second').hooks
 
 		first.global('shared', {
-			beforeCreate: ({ operation }) => operation,
+			beforeOperation: { create: ({ operation }) => void operation },
 		})
 		expect(
 			captureError(() => {
 				first.schema('shared', primarySchema, {
-					beforeCreate: ({ operation }) => operation,
+					beforeOperation: { create: ({ operation }) => void operation },
 				})
 			}),
 		).toMatchObject({
@@ -339,7 +343,7 @@ describe('plugin hook targets', () => {
 			internalDetails: { kind: 'duplicate-plugin-local-contribution' },
 		})
 		second.global('shared', {
-			beforeCreate: ({ operation }) => operation,
+			beforeOperation: { create: ({ operation }) => void operation },
 		})
 
 		expect(
@@ -356,7 +360,7 @@ describe('plugin hook targets', () => {
 		registries.closeSetup()
 		expect(() => {
 			hooks.global('late', {
-				beforeCreate: ({ operation }) => operation,
+				beforeOperation: { create: ({ operation }) => void operation },
 			})
 		}).toThrow(
 			new TypeError('Plugin hooks can only be registered during setup'),
@@ -367,7 +371,7 @@ describe('plugin hook targets', () => {
 			hooks: {
 				connect: ({ hooks: lifecycleHooks }) => {
 					lifecycleHooks.global('too-late', {
-						beforeCreate: ({ operation }) => operation,
+						beforeOperation: { create: ({ operation }) => void operation },
 					})
 				},
 			},
@@ -392,10 +396,10 @@ describe('plugin hook targets', () => {
 				dependencies,
 				setup: ({ hooks }) => {
 					hooks.global('first', {
-						beforeCreate: ({ operation }) => operation,
+						beforeOperation: { create: ({ operation }) => void operation },
 					})
 					hooks.global('second', {
-						beforeCreate: ({ operation }) => operation,
+						beforeOperation: { create: ({ operation }) => void operation },
 					})
 				},
 			})
@@ -429,7 +433,7 @@ describe('plugin hook targets', () => {
 			name: 'fixture.coexisting-hooks',
 			setup: ({ hooks, registries }) => {
 				hooks.global('native', {
-					beforeCreate: ({ operation }) => operation,
+					beforeOperation: { create: ({ operation }) => void operation },
 				})
 				registries.hooks.register(
 					'fixture.low-level',

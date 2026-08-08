@@ -44,6 +44,7 @@ import {
 	executeQueryUpdateOne,
 	hydrateQueryFromAst,
 	QueryBuilder,
+	scopeQueryToObjectId,
 } from '../../query/query/query.js'
 import {
 	queryFromCountInput,
@@ -389,30 +390,35 @@ export interface SchemaResultCommands<
 	 * Reloads this protected object identity and returns selected fresh fields.
 	 *
 	 * @example `const fresh = await post.fetch({ select: { id: true, title: true } })`
+	 * @throws `FrameworkError` with code `NOT_FOUND` when the object is missing or inaccessible.
 	 */
 	fetch<const TSelection extends SchemaModelSelection<TCompleteValues>>(
 		input: SchemaModelFetchInput<TCompleteValues, TSelection>,
 		options?: OperationOptions,
-	): Promise<SelectedPersistedSchemaModel<
-		Pick<this, typeof schemaModelPointerType>,
-		TClassName,
-		TCompleteValues,
-		TUpdateInput,
-		TRelations,
-		TSelection
-	> | null>
+	): Promise<
+		SelectedPersistedSchemaModel<
+			Pick<this, typeof schemaModelPointerType>,
+			TClassName,
+			TCompleteValues,
+			TUpdateInput,
+			TRelations,
+			TSelection
+		>
+	>
 	/** Reloads this protected object identity and returns its complete model. */
 	fetch(
 		input: SchemaModelFetchInput<TCompleteValues>,
 		options?: OperationOptions,
-	): Promise<SelectedPersistedSchemaModel<
-		Pick<this, typeof schemaModelPointerType>,
-		TClassName,
-		TCompleteValues,
-		TUpdateInput,
-		TRelations,
-		undefined
-	> | null>
+	): Promise<
+		SelectedPersistedSchemaModel<
+			Pick<this, typeof schemaModelPointerType>,
+			TClassName,
+			TCompleteValues,
+			TUpdateInput,
+			TRelations,
+			undefined
+		>
+	>
 	/**
 	 * Tests whether this protected object identity is still readable.
 	 *
@@ -437,6 +443,7 @@ export interface SchemaResultCommands<
 	 * Updates this protected object identity and returns selected model fields.
 	 *
 	 * @example `const updated = await post.update({ data: { title: "Updated" }, select: { id: true } })`
+	 * @throws `FrameworkError` with code `NOT_FOUND` when the object is missing or inaccessible.
 	 */
 	update<const TSelection extends SchemaModelSelection<TCompleteValues>>(
 		input: SchemaModelUpdateCommandInput<
@@ -445,14 +452,16 @@ export interface SchemaResultCommands<
 			TSelection
 		>,
 		options?: OperationOptions,
-	): Promise<SelectedPersistedSchemaModel<
-		Pick<this, typeof schemaModelPointerType>,
-		TClassName,
-		TCompleteValues,
-		TUpdateInput,
-		TRelations,
-		TSelection
-	> | null>
+	): Promise<
+		SelectedPersistedSchemaModel<
+			Pick<this, typeof schemaModelPointerType>,
+			TClassName,
+			TCompleteValues,
+			TUpdateInput,
+			TRelations,
+			TSelection
+		>
+	>
 	/**
 	 * Updates this protected object identity and returns the complete model.
 	 *
@@ -461,30 +470,35 @@ export interface SchemaResultCommands<
 	update(
 		input: SchemaModelUpdateCommandInput<TCompleteValues, TUpdateInput>,
 		options?: OperationOptions,
-	): Promise<SelectedPersistedSchemaModel<
-		Pick<this, typeof schemaModelPointerType>,
-		TClassName,
-		TCompleteValues,
-		TUpdateInput,
-		TRelations,
-		undefined
-	> | null>
+	): Promise<
+		SelectedPersistedSchemaModel<
+			Pick<this, typeof schemaModelPointerType>,
+			TClassName,
+			TCompleteValues,
+			TUpdateInput,
+			TRelations,
+			undefined
+		>
+	>
 	/**
 	 * Deletes this protected object identity and returns selected pre-delete fields.
 	 *
 	 * @example `const deleted = await post.delete({ select: { id: true } })`
+	 * @throws `FrameworkError` with code `NOT_FOUND` when the object is missing or inaccessible.
 	 */
 	delete<const TSelection extends SchemaModelSelection<TCompleteValues>>(
 		input: SchemaModelDeleteInput<TCompleteValues, TSelection>,
 		options?: OperationOptions,
-	): Promise<SelectedPersistedSchemaModel<
-		Pick<this, typeof schemaModelPointerType>,
-		TClassName,
-		TCompleteValues,
-		TUpdateInput,
-		TRelations,
-		TSelection
-	> | null>
+	): Promise<
+		SelectedPersistedSchemaModel<
+			Pick<this, typeof schemaModelPointerType>,
+			TClassName,
+			TCompleteValues,
+			TUpdateInput,
+			TRelations,
+			TSelection
+		>
+	>
 	/**
 	 * Deletes this protected object identity and returns the complete model.
 	 *
@@ -493,14 +507,16 @@ export interface SchemaResultCommands<
 	delete(
 		input: SchemaModelDeleteInput<TCompleteValues>,
 		options?: OperationOptions,
-	): Promise<SelectedPersistedSchemaModel<
-		Pick<this, typeof schemaModelPointerType>,
-		TClassName,
-		TCompleteValues,
-		TUpdateInput,
-		TRelations,
-		undefined
-	> | null>
+	): Promise<
+		SelectedPersistedSchemaModel<
+			Pick<this, typeof schemaModelPointerType>,
+			TClassName,
+			TCompleteValues,
+			TUpdateInput,
+			TRelations,
+			undefined
+		>
+	>
 }
 
 /** Exposes exact to-many handles only on Runtime-materialized model results. */
@@ -767,12 +783,13 @@ interface NormalizedSchemaModelUpdateInput extends NormalizedSchemaModelSelectio
 
 /** Erases schema variance only inside the private model-to-QueryBuilder delegation. */
 interface SchemaModelQuery {
-	where(input: WhereInput<SchemaDefinition>): SchemaModelQuery
 	readonly ast: QueryBuilder<SchemaDefinition>['ast']
 	readonly schema: SchemaDefinition
 }
 
-const createSchemaModelQuery = (schema: SchemaDefinition): SchemaModelQuery =>
+const createSchemaModelQuery = (
+	schema: SchemaDefinition,
+): QueryBuilder<SchemaDefinition> =>
 	// Public model types validate exact fields before this private variance boundary.
 	new QueryBuilder(schema)
 
@@ -883,12 +900,35 @@ const createPersistedModelQuery = (
 	record: SchemaModelRecord & { readonly objectId: unknown },
 	selection?: QuerySelection<SchemaDefinition>,
 ): SchemaModelQuery => {
-	// Mutation results intentionally ignore the receiver's read projection.
-	const query = createSchemaModelQuery(record.schema).where({
-		id: { eq: record.objectId },
-	} as WhereInput<typeof record.schema>)
+	if (typeof record.objectId !== 'string') {
+		throw new TypeError('Persisted schema model has an invalid object identity')
+	}
 
-	return selectSchemaModelQuery(query, selection)
+	// Mutation results intentionally ignore the receiver's read projection.
+	const query = selectSchemaModelQuery(
+		createSchemaModelQuery(record.schema).where({
+			id: { eq: record.objectId },
+		} as WhereInput<typeof record.schema>),
+		selection,
+	)
+
+	return scopeQueryToObjectId(query, record.objectId, {
+		nativeAccessDeniedAsMissing: true,
+	})
+}
+
+/** Defends the private strict-target invariant at the generic nullable query boundary. */
+const requirePersistedMutationResult = async (
+	result: Promise<object | null>,
+	command: 'delete' | 'update',
+): Promise<object> => {
+	const item = await result
+
+	if (item === null) {
+		throw new TypeError(`Persisted schema model ${command} returned no target`)
+	}
+
+	return item
 }
 
 /** Owns the common runtime behavior without becoming the public model identity. */
@@ -939,10 +979,7 @@ class SchemaModelPrototype {
 	}
 
 	/** Reloads one trusted identity through the ordinary read pipeline. */
-	async fetch(
-		input: unknown,
-		options?: OperationOptions,
-	): Promise<object | null> {
+	async fetch(input: unknown, options?: OperationOptions): Promise<object> {
 		const record = readPersistedSchemaModelRecord(this, 'fetch')
 
 		if (typeof record.objectId !== 'string') {
@@ -952,10 +989,7 @@ class SchemaModelPrototype {
 		}
 
 		const normalized = readSchemaModelSelectionInput(input, 'fetch')
-		const query = selectSchemaModelQuery(
-			createSchemaModelQuery(record.schema),
-			normalized.select,
-		)
+		const query = createPersistedModelQuery(record, normalized.select)
 
 		return executeQueryGet(
 			query as QueryBuilder<SchemaDefinition>,
@@ -1043,37 +1077,31 @@ class SchemaModelPrototype {
 	}
 
 	/** Targets only Runtime-issued object identity and never a visible caller field. */
-	async update(
-		input: unknown,
-		options?: OperationOptions,
-	): Promise<object | null> {
+	async update(input: unknown, options?: OperationOptions): Promise<object> {
 		const record = readPersistedSchemaModelRecord(this, 'update')
 		const normalized = readSchemaModelUpdateInput(input)
 
-		return executeQueryUpdateOne(
-			createPersistedModelQuery(
-				record,
-				normalized.select,
-			) as QueryBuilder<SchemaDefinition>,
-			normalized.data,
-			options,
+		return requirePersistedMutationResult(
+			executeQueryUpdateOne(
+				createPersistedModelQuery(record, normalized.select),
+				normalized.data,
+				options,
+			),
+			'update',
 		)
 	}
 
 	/** Deletes only Runtime-issued object identity through QueryBuilder's singular alias. */
-	async delete(
-		input: unknown,
-		options?: OperationOptions,
-	): Promise<object | null> {
+	async delete(input: unknown, options?: OperationOptions): Promise<object> {
 		const record = readPersistedSchemaModelRecord(this, 'delete')
 		const normalized = readSchemaModelSelectionInput(input, 'delete')
 
-		return executeQueryDeleteOne(
-			createPersistedModelQuery(
-				record,
-				normalized.select,
-			) as QueryBuilder<SchemaDefinition>,
-			options,
+		return requirePersistedMutationResult(
+			executeQueryDeleteOne(
+				createPersistedModelQuery(record, normalized.select),
+				options,
+			),
+			'delete',
 		)
 	}
 }
@@ -1257,7 +1285,7 @@ export const createSchemaModelClass = <
 		static get(
 			input: GetInput<SchemaDefinition>,
 			options?: OperationOptions,
-		): Promise<object | null> {
+		): Promise<object> {
 			const normalized = queryFromGetInput(
 				DefinedSchemaModel as unknown as SchemaDefinition,
 				input,

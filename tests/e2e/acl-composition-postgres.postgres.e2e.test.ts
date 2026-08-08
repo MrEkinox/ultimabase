@@ -71,7 +71,10 @@ const Document = Schema.define({
 	access: {
 		filter: {
 			delete: ({ filter }) => filter.equalTo('nativeScope', 'allowed'),
-			read: ({ filter }) => filter.equalTo('nativeScope', 'allowed'),
+			read: ({ filter }) =>
+				filter
+					.equalTo('nativeScope', 'allowed')
+					.equalTo('hookScope', 'allowed'),
 			update: ({ filter }) => filter.equalTo('nativeScope', 'allowed'),
 		},
 		operation: { create: true, delete: true, read: true, update: true },
@@ -84,11 +87,6 @@ const Document = Schema.define({
 			hooks: { resolveInput: ({ value }) => value.trim().toLowerCase() },
 			validation: { required: true },
 		}),
-	},
-	hooks: {
-		// The business transform must narrow the developer query after ACL compilation.
-		beforeRead: ({ query }) =>
-			query.where((where) => where.eq('hookScope', 'allowed')),
 	},
 	extensions: [
 		acl({

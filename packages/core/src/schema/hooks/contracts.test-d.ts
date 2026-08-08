@@ -10,11 +10,8 @@ import {
 	type InferUpdateInput,
 	type HookValidationIssue,
 	type HookValidationIssueCode,
-	type HookErrorPhase,
-	type HookErrorTransactionState,
 	type HookContext,
 	type SchemaHookOperation,
-	type SchemaOperationOutcome,
 	type SchemaHookResult,
 	type SchemaHooks,
 	type SchemaHookTypes,
@@ -47,96 +44,56 @@ const ArticleSchema = Schema.define({
 
 			return input.operation
 		},
-		validate: ({ operation }) => {
-			if (operation.kind === 'create-many') {
-				expectTypeOf(operation.inputs).toEqualTypeOf<
-					readonly { title: string; views?: number | null }[]
+		beforeOperation: {
+			create: ({ context, operation }) => {
+				expectTypeOf(context).toEqualTypeOf<HookContext>()
+				expectTypeOf(context.requestId).toBeString()
+				expectTypeOf(context.transactionId).toEqualTypeOf<string | undefined>()
+				expectTypeOf(context.signal).toEqualTypeOf<AbortSignal>()
+				expectTypeOf(context.access.mode).toEqualTypeOf<
+					'anonymous' | 'master'
 				>()
-			}
+				// @ts-expect-error -- Hook execution identity never exposes private metadata.
+				void context.metadata
+				// @ts-expect-error -- Hooks cannot own transaction finalization.
+				void context.commit
+				// @ts-expect-error -- Business invariants cannot be bypassed.
+				void context.skipHooks
+				expectTypeOf(operation.kind).toEqualTypeOf<
+					'create-many' | 'create-one'
+				>()
 
-			return []
-		},
-		beforeCreate: ({ context, operation }) => {
-			expectTypeOf(context).toEqualTypeOf<HookContext>()
-			expectTypeOf(context.requestId).toBeString()
-			expectTypeOf(context.transactionId).toEqualTypeOf<string | undefined>()
-			expectTypeOf(context.signal).toEqualTypeOf<AbortSignal>()
-			expectTypeOf(context.access.mode).toEqualTypeOf<'anonymous' | 'master'>()
-			// @ts-expect-error -- Hook execution identity never exposes private metadata.
-			void context.metadata
-			// @ts-expect-error -- Hooks cannot own transaction finalization.
-			void context.commit
-			// @ts-expect-error -- Business invariants cannot be bypassed.
-			void context.skipHooks
-			expectTypeOf(operation.kind).toEqualTypeOf<'create-many' | 'create-one'>()
+				void operation
+			},
+			update: ({ operation }) => {
+				expectTypeOf(operation.kind).toEqualTypeOf<
+					'update-many' | 'update-one'
+				>()
 
-			return operation
-		},
-		beforeUpdate: ({ operation }) => {
-			expectTypeOf(operation.kind).toEqualTypeOf<'update-many' | 'update-one'>()
+				void operation
+			},
+			upsert: ({ operation }) => {
+				expectTypeOf(operation.kind).toEqualTypeOf<
+					'upsert-many' | 'upsert-one'
+				>()
 
-			return operation
-		},
-		beforeUpsert: ({ operation }) => {
-			expectTypeOf(operation.kind).toEqualTypeOf<'upsert-many' | 'upsert-one'>()
+				void operation
+			},
+			delete: ({ operation }) => {
+				expectTypeOf(operation.kind).toEqualTypeOf<
+					'delete-many' | 'delete-one'
+				>()
 
-			return operation
+				void operation
+			},
 		},
-		beforeDelete: ({ operation }) => {
-			expectTypeOf(operation.kind).toEqualTypeOf<'delete-many' | 'delete-one'>()
-
-			return operation
-		},
-		beforeRead: (input) => {
-			if (input.kind === 'get') {
-				expectTypeOf(input.operation.id).toEqualTypeOf<string>()
-			}
-
-			return input.query.limit(100)
-		},
-		afterRead: (input) => {
-			if (input.kind === 'count') {
-				expectTypeOf(input.result).toEqualTypeOf<number>()
-			}
-
-			if (input.kind === 'exists') {
-				expectTypeOf(input.result).toEqualTypeOf<boolean>()
-			}
-
-			return input.result
-		},
-		beforeCommit: ({ changes }) => {
-			expectTypeOf(changes).toExtend<readonly unknown[]>()
-		},
-		afterCommit: ({ kind, operation }) => {
-			expectTypeOf(kind).toEqualTypeOf<typeof operation.kind>()
-			expectTypeOf(operation.kind).toEqualTypeOf<
-				| 'create-many'
-				| 'create-one'
-				| 'delete-many'
-				| 'delete-one'
-				| 'update-many'
-				| 'update-one'
-				| 'upsert-many'
-				| 'upsert-one'
-			>()
-		},
-		afterRollback: ({ error, operations }) => {
-			expectTypeOf(error).toBeUnknown()
-			expectTypeOf(operations).toExtend<readonly unknown[]>()
-		},
-		onError: ({ error, kind, operation, phase, transaction }) => {
-			expectTypeOf(error).toBeUnknown()
-			expectTypeOf(kind).toEqualTypeOf<typeof operation.kind>()
-			expectTypeOf(operation.kind).toEqualTypeOf<
-				SchemaHookOperation<typeof ArticleSchema>['kind']
-			>()
-			expectTypeOf(phase).toEqualTypeOf<HookErrorPhase>()
-			expectTypeOf(transaction).toEqualTypeOf<HookErrorTransactionState>()
-
-			if (transaction.status === 'rolled-back') {
-				expectTypeOf(transaction.rollback).toEqualTypeOf<'succeeded'>()
-			}
+		transaction: {
+			beforeCommit: ({ changes }) => {
+				expectTypeOf(changes).toExtend<readonly unknown[]>()
+			},
+			afterCommit: ({ changes }) => {
+				expectTypeOf(changes).toExtend<readonly unknown[]>()
+			},
 		},
 	},
 })
@@ -170,43 +127,7 @@ test('exports compact schema hook inference contracts', () => {
 	expectTypeOf<SchemaHooks<typeof ArticleSchema>>().toBeObject()
 })
 
-test('keeps error transaction outcomes internally consistent', () => {
-	expectTypeOf<HookErrorTransactionState>().toEqualTypeOf<
-		| Readonly<{
-				status: 'not-started'
-				rollback: 'not-applicable'
-		  }>
-		| Readonly<{ status: 'rolled-back'; rollback: 'succeeded' }>
-		| Readonly<{ status: 'rollback-failed'; rollback: 'failed' }>
-		| Readonly<{ status: 'committed'; rollback: 'not-applicable' }>
-	>()
-	expectTypeOf<HookErrorPhase>().toEqualTypeOf<
-		| 'transaction-start'
-		| 'operation'
-		| 'before-commit'
-		| 'commit'
-		| 'rollback'
-		| 'after-rollback'
-		| 'after-commit'
-		| 'post-commit'
-	>()
-	expectTypeOf<{
-		status: 'committed'
-		rollback: 'succeeded'
-	}>().not.toExtend<HookErrorTransactionState>()
-})
-
 test('keeps finalization results honest about selected fields', () => {
-	type SelectedUpdate = SchemaHookOperation<
-		typeof ArticleSchema,
-		'update-one',
-		'id'
-	>
-	type SelectedOutcome = SchemaOperationOutcome<SelectedUpdate>
-
-	expectTypeOf<SelectedOutcome['result']>().toEqualTypeOf<{
-		readonly id: string
-	} | null>()
 	expectTypeOf<SchemaBeforeCommitResult<typeof ArticleSchema>>().toEqualTypeOf<
 		| Readonly<Partial<InferObject<typeof ArticleSchema>>>
 		| readonly Readonly<Partial<InferObject<typeof ArticleSchema>>>[]
@@ -294,16 +215,18 @@ test('keeps schema metadata and inferred values independent from hooks', () => {
 
 test('types ordered exact handlers and the remaining lifecycle families', () => {
 	const hooks: SchemaHooks<typeof ArticleSchema> = {
-		beforeCreate: [
-			({ operation }) => operation,
-			({ operation }) => {
-				expectTypeOf(operation.kind).toEqualTypeOf<
-					'create-many' | 'create-one'
-				>()
+		beforeOperation: {
+			create: [
+				({ operation }) => void operation,
+				({ operation }) => {
+					expectTypeOf(operation.kind).toEqualTypeOf<
+						'create-many' | 'create-one'
+					>()
 
-				return operation
-			},
-		],
+					void operation
+				},
+			],
+		},
 		resolveInput: {
 			all: ({ operation }) => operation,
 			create: [
@@ -323,9 +246,71 @@ test('types ordered exact handlers and the remaining lifecycle families', () => 
 				return operation
 			},
 		},
-		afterCommit: {
-			upsert: ({ kind }) => {
-				expectTypeOf(kind).toEqualTypeOf<'upsert-many' | 'upsert-one'>()
+		transaction: {
+			afterCommit: ({ changes }) => {
+				expectTypeOf(changes).toExtend<readonly unknown[]>()
+			},
+		},
+	}
+
+	expectTypeOf(hooks).toEqualTypeOf<SchemaHooks<typeof ArticleSchema>>()
+})
+
+test('narrows complete mutation items by terminal and lifecycle timing', () => {
+	const hooks: SchemaHooks<typeof ArticleSchema> = {
+		beforeOperation: {
+			create: (input) => {
+				if (input.kind === 'create-one') {
+					expectTypeOf(input.originalItem).toEqualTypeOf<null>()
+					expectTypeOf(input.item).toEqualTypeOf<
+						Readonly<InferObject<typeof ArticleSchema>>
+					>()
+				} else {
+					expectTypeOf(input.items[0]?.originalItem).toEqualTypeOf<
+						null | undefined
+					>()
+				}
+			},
+			update: (input) => {
+				if (input.kind === 'update-one') {
+					expectTypeOf(input.originalItem).toEqualTypeOf<
+						Readonly<InferObject<typeof ArticleSchema>>
+					>()
+					expectTypeOf(input.item).toEqualTypeOf<
+						Readonly<InferObject<typeof ArticleSchema>>
+					>()
+				} else {
+					// Set-based writes do not materialize matching rows before execution.
+					// @ts-expect-error -- updateMany has no prepared item collection.
+					void input.items
+				}
+			},
+			delete: (input) => {
+				if (input.kind === 'delete-one') {
+					expectTypeOf(input.originalItem).toEqualTypeOf<
+						Readonly<InferObject<typeof ArticleSchema>>
+					>()
+					expectTypeOf(input.item).toEqualTypeOf<null>()
+				}
+			},
+			upsert: (input) => {
+				// Atomic upsert branch selection happens inside the database statement.
+				// @ts-expect-error -- no reliable preimage exists before an upsert.
+				void input.originalItem
+			},
+		},
+		afterOperation: {
+			upsert: (input) => {
+				if (input.kind === 'upsert-one') {
+					expectTypeOf(input.originalItem).toEqualTypeOf<Readonly<
+						InferObject<typeof ArticleSchema>
+					> | null>()
+					expectTypeOf(input.item).toEqualTypeOf<
+						Readonly<InferObject<typeof ArticleSchema>>
+					>()
+				} else {
+					expectTypeOf(input.items).toExtend<readonly unknown[]>()
+				}
 			},
 		},
 	}
@@ -345,17 +330,13 @@ test('rejects incompatible hook declarations and return values', () => {
 	const hooks: SchemaHooks<typeof ArticleSchema> = {
 		// @ts-expect-error -- Input resolution cannot replace an operation with a number.
 		resolveInput: () => 42,
-		// @ts-expect-error -- QueryBuilder transforms must retain the same selected schema.
-		beforeRead: () => 42,
-		// @ts-expect-error -- Validation hooks return structured issue collections.
-		validate: () => 'invalid',
-		// @ts-expect-error -- Result hooks cannot replace public values with symbols.
-		afterCreate: () => Symbol('invalid'),
 	}
 	const effectOnlyHooks: SchemaHooks<typeof ArticleSchema> = {
-		beforeDelete: ({ operation }) => {
-			// Returning nothing explicitly preserves the immutable operation.
-			void operation
+		beforeOperation: {
+			delete: ({ operation }) => {
+				// Returning nothing explicitly preserves the immutable operation.
+				void operation
+			},
 		},
 	}
 	const invalidFamilyHooks: SchemaHooks<typeof ArticleSchema> = {
@@ -363,8 +344,10 @@ test('rejects incompatible hook declarations and return values', () => {
 		resolveInput: { read: () => undefined },
 	}
 	const invalidEmptyList: SchemaHooks<typeof ArticleSchema> = {
-		// @ts-expect-error -- Ordered hook lists must contain at least one handler.
-		beforeCreate: [],
+		beforeOperation: {
+			// @ts-expect-error -- Ordered hook lists must contain at least one handler.
+			create: [],
+		},
 	}
 	const invalidEmptyFamily: SchemaHooks<typeof ArticleSchema> = {
 		// @ts-expect-error -- Family maps must declare at least one branch.

@@ -5,7 +5,6 @@ import {
 	booleanField,
 	constraint,
 	databaseConstraint,
-	defineFieldKindHookTarget,
 	definePlugin,
 	definePluginField,
 	guard,
@@ -61,12 +60,6 @@ const profileSlugField = definePluginField(
 
 				return value === null ? null : value.trim().toLowerCase()
 			},
-			resolveOutput: ({ value }) => {
-				trace('field:slug:developer:resolveOutput')
-				if (value === null) throw new TypeError('slug must be present')
-
-				return `${value}:developer-output`
-			},
 		},
 		validation: { required: true },
 	},
@@ -80,10 +73,6 @@ const profileSlugField = definePluginField(
 		},
 	},
 )
-const profileSlugHookTarget = defineFieldKindHookTarget<
-	typeof profileSlugField
->('fixture.profile-slug')
-
 const HookAuditSchema = Schema.define({
 	className: 'NativeHookPostgresAudit',
 	fields: {
@@ -94,60 +83,19 @@ const HookAuditSchema = Schema.define({
 
 const HookArticleSchema = Schema.define({
 	className: 'NativeHookPostgresArticle',
+	access: {
+		filter: {
+			read: ({ filter }) => filter.equalTo('published', true),
+		},
+	},
 	fields: {
 		scopeId: stringField({ validation: { required: true } }),
 		title: stringField({
 			hooks: {
-				afterCommit: () => {
-					trace('field:title:developer:afterCommit')
-				},
-				afterCreate: () => {
-					trace('field:title:developer:afterCreate')
-				},
-				afterDelete: () => {
-					trace('field:title:developer:afterDelete')
-				},
-				afterRollback: () => {
-					trace('field:title:developer:afterRollback')
-				},
-				afterSave: () => {
-					trace('field:title:developer:afterSave')
-				},
-				afterUpdate: () => {
-					trace('field:title:developer:afterUpdate')
-				},
-				beforeCreate: () => {
-					trace('field:title:developer:beforeCreate')
-				},
-				beforeDelete: () => {
-					trace('field:title:developer:beforeDelete')
-				},
-				beforeSave: () => {
-					trace('field:title:developer:beforeSave')
-				},
-				beforeUpdate: () => {
-					trace('field:title:developer:beforeUpdate')
-				},
-				onChange: () => {
-					trace('field:title:developer:onChange')
-				},
-				onError: ({ phase, transaction }) => {
-					trace(`field:title:developer:onError:${phase}:${transaction.status}`)
-				},
 				resolveInput: ({ value }) => {
 					trace('field:title:developer:resolveInput')
 
 					return value.trim()
-				},
-				resolveOutput: ({ value }) => {
-					trace('field:title:developer:resolveOutput')
-
-					return value.toUpperCase()
-				},
-				validate: () => {
-					trace('field:title:developer:validate')
-
-					return []
 				},
 			},
 			validation: { required: true },
@@ -161,95 +109,86 @@ const HookArticleSchema = Schema.define({
 		revision: intField({ default: 0 }),
 	},
 	hooks: {
-		afterCommit: () => {
-			trace('schema:developer:afterCommit')
-		},
-		afterCreate: ({ operation, result }) => {
-			trace('schema:developer:afterCreate')
+		afterOperation: {
+			create: (input) => {
+				const { operation } = input
+				trace('schema:developer:afterCreate')
+				if (input.kind === 'create-one') {
+					trace(`schema:developer:afterCreate:item:${input.item.title}`)
+				}
 
-			if (
-				operation.kind === 'create-one' &&
-				operation.input.title === 'Rollback after persistence'
-			) {
-				throw rollbackHookError
-			}
-
-			return result
+				if (
+					operation.kind === 'create-one' &&
+					operation.input.title === 'Rollback after persistence'
+				) {
+					throw rollbackHookError
+				}
+			},
+			delete: (input) => {
+				trace('schema:developer:afterDelete')
+				if (input.kind === 'delete-one') {
+					trace(
+						`schema:developer:afterDelete:original:${input.originalItem.title}`,
+					)
+				}
+			},
+			update: (input) => {
+				trace('schema:developer:afterUpdate')
+				if (input.kind === 'update-one') {
+					trace(
+						`schema:developer:afterUpdate:pair:${input.originalItem.title}->${input.item.title}`,
+					)
+				}
+			},
 		},
-		afterDelete: ({ result }) => {
-			trace('schema:developer:afterDelete')
+		beforeOperation: {
+			create: async (input) => {
+				const { context } = input
+				trace('schema:developer:beforeCreate')
 
-			return result
+				if (input.kind === 'create-one') {
+					trace(`schema:developer:beforeCreate:item:${input.item.title}`)
+					await HookAuditSchema.createOne({
+						data: {
+							action: `create:${input.item.title}`,
+							scopeId: input.item.scopeId,
+						},
+					})
+					context.emit('native-hooks.article-created', {
+						scopeId: input.item.scopeId,
+						title: input.item.title,
+					})
+				}
+			},
+			delete: (input) => {
+				trace('schema:developer:beforeDelete')
+				if (input.kind === 'delete-one') {
+					trace(
+						`schema:developer:beforeDelete:original:${input.originalItem.title}`,
+					)
+				}
+			},
+			update: (input) => {
+				trace('schema:developer:beforeUpdate')
+				if (input.kind === 'update-one') {
+					trace(
+						`schema:developer:beforeUpdate:pair:${input.originalItem.title}->${input.item.title}`,
+					)
+				}
+			},
 		},
-		afterRead: ({ kind, result }) => {
-			trace(`schema:developer:afterRead:${kind}`)
-
-			if (kind !== 'find-many') {
-				return result
-			}
-
-			// The final policy boundary must remove a field restored by a result hook.
-			return result.map((article) => ({
-				...article,
-				secret: 'restored-by-schema-hook',
-			}))
-		},
-		afterRollback: () => {
-			trace('schema:developer:afterRollback')
-		},
-		afterUpdate: ({ result }) => {
-			trace('schema:developer:afterUpdate')
-
-			return result
-		},
-		beforeCommit: () => {
-			trace('schema:developer:beforeCommit')
-		},
-		beforeCreate: async ({ context, operation }) => {
-			trace('schema:developer:beforeCreate')
-
-			if (operation.kind === 'create-one') {
-				await HookAuditSchema.createOne({
-					data: {
-						action: `create:${operation.input.title}`,
-						scopeId: operation.input.scopeId,
-					},
-				})
-				context.emit('native-hooks.article-created', {
-					scopeId: operation.input.scopeId,
-					title: operation.input.title,
-				})
-			}
-
-			return operation
-		},
-		beforeDelete: ({ operation }) => {
-			trace('schema:developer:beforeDelete')
-
-			return operation
-		},
-		beforeRead: ({ kind, query }) => {
-			trace(`schema:developer:beforeRead:${kind}`)
-
-			return query.where((where) => where.eq('published', true))
-		},
-		beforeUpdate: ({ operation }) => {
-			trace('schema:developer:beforeUpdate')
-
-			return operation
-		},
-		onError: ({ phase, transaction }) => {
-			trace(`schema:developer:onError:${phase}:${transaction.status}`)
+		transaction: {
+			afterCommit: () => {
+				trace('schema:developer:afterCommit')
+			},
+			beforeCommit: () => {
+				trace('schema:developer:beforeCommit')
+			},
 		},
 		resolveInput: ({ operation }) => {
 			trace('schema:developer:resolveInput')
 
 			return operation
-		},
-		validate: () => {
-			trace('schema:developer:validate')
-
-			return []
 		},
 	},
 })
@@ -342,42 +281,18 @@ const behaviorPlugin = definePlugin({
 	dependencies: ['fixture.native-hooks-scope-policy'],
 	setup: ({ hooks, registries }) => {
 		hooks.schema('article-lifecycle', HookArticleSchema, {
-			afterCreate: ({ result }) => {
-				trace('plugin:schema:afterCreate')
-
-				return result
+			afterOperation: {
+				create: () => {
+					trace('plugin:schema:afterCreate')
+				},
 			},
-			afterRead: ({ kind, result }) => {
-				trace(`plugin:schema:afterRead:${kind}`)
-
-				return result
-			},
-			beforeCreate: ({ operation }) => {
-				trace('plugin:schema:beforeCreate')
-
-				return operation
-			},
-			beforeRead: ({ kind, query }) => {
-				trace(`plugin:schema:beforeRead:${kind}`)
-
-				return query.limit(50)
+			beforeOperation: {
+				create: ({ operation }) => {
+					trace('plugin:schema:beforeCreate')
+					void operation
+				},
 			},
 		})
-		hooks.field('article-title', HookArticleSchema, ['title'], {
-			resolveOutput: ({ value }) => {
-				trace('plugin:field:title:resolveOutput')
-
-				return `${value} [plugin]`
-			},
-		})
-		hooks.fieldKind('profile-slug', profileSlugHookTarget, () => ({
-			resolveOutput: ({ value }) => {
-				trace('plugin:field-kind:slug:resolveOutput')
-				if (value === null) throw new TypeError('slug must be present')
-
-				return `${value}:plugin-kind`
-			},
-		}))
 		registries.events.register(
 			'fixture.native-hooks-created-event',
 			onEvent({
@@ -487,9 +402,9 @@ describe('native hooks with PostgreSQL', { concurrent: false }, () => {
 
 		expect(created.toJSON()).toMatchObject({
 			profile: {
-				slug: 'public-profile:developer-output:plugin-kind',
+				slug: 'public-profile',
 			},
-			title: 'CREATE LIFECYCLE [plugin]',
+			title: 'Create lifecycle',
 		})
 		await expect(
 			runWithScope('scope-create', () =>
@@ -503,24 +418,14 @@ describe('native hooks with PostgreSQL', { concurrent: false }, () => {
 			'field:title:developer:resolveInput',
 			'field:slug:developer:resolveInput',
 			'schema:developer:resolveInput',
-			'field:title:developer:validate',
-			'schema:developer:validate',
 			'policy:guard:create-one',
 			'plugin:schema:beforeCreate',
 			'schema:developer:beforeCreate',
-			'field:title:developer:beforeSave',
-			'field:title:developer:beforeCreate',
-			'field:title:developer:afterCreate',
-			'field:title:developer:afterSave',
-			'field:title:developer:onChange',
-			'field:title:developer:resolveOutput',
-			'plugin:field:title:resolveOutput',
-			'field:slug:developer:resolveOutput',
-			'plugin:field-kind:slug:resolveOutput',
+			'schema:developer:beforeCreate:item:Create lifecycle',
 			'schema:developer:afterCreate',
+			'schema:developer:afterCreate:item:Create lifecycle',
 			'plugin:schema:afterCreate',
 			'schema:developer:beforeCommit',
-			'field:title:developer:afterCommit',
 			'schema:developer:afterCommit',
 			'event:native-hooks.article-created',
 		])
@@ -559,17 +464,11 @@ describe('native hooks with PostgreSQL', { concurrent: false }, () => {
 			),
 		).resolves.toBe(false)
 		expect(committedEvents).toStrictEqual([])
-		expect(rollbackTrace).toEqual(
-			expect.arrayContaining([
-				'field:title:developer:afterRollback',
-				'schema:developer:afterRollback',
-				'field:title:developer:onError:operation:rolled-back',
-				'schema:developer:onError:operation:rolled-back',
-			]),
-		)
+		expect(rollbackTrace).toContain('schema:developer:afterCreate')
+		expect(rollbackTrace).not.toContain('schema:developer:afterCommit')
 	})
 
-	it('keeps beforeRead transforms inside opaque scope and field restrictions', async () => {
+	it('keeps Access filters inside opaque scope and field restrictions', async () => {
 		await runWithScope('scope-visible-a', () =>
 			HookArticleSchema.createOne({
 				data: {
@@ -611,21 +510,13 @@ describe('native hooks with PostgreSQL', { concurrent: false }, () => {
 		expect(visible[0]?.toJSON()).toEqual({
 			id: visible[0]?.id,
 			profile: {
-				slug: 'scope-a:developer-output:plugin-kind',
+				slug: 'scope-a',
 			},
-			title: 'SHARED VISIBLE TITLE [plugin]',
+			title: 'Shared visible title',
 		})
 		expectTraceSubsequence([
 			'policy:guard:find-many',
 			'policy:constraint:find-many',
-			'plugin:schema:beforeRead:find-many',
-			'schema:developer:beforeRead:find-many',
-			'field:title:developer:resolveOutput',
-			'plugin:field:title:resolveOutput',
-			'field:slug:developer:resolveOutput',
-			'plugin:field-kind:slug:resolveOutput',
-			'schema:developer:afterRead:find-many',
-			'plugin:schema:afterRead:find-many',
 			'policy:restrictOutput:find-many',
 		])
 
@@ -634,10 +525,9 @@ describe('native hooks with PostgreSQL', { concurrent: false }, () => {
 			HookArticleSchema.findMany(undefined, { ultimabase: getUltimaBase() }),
 		).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
 		expect(hookTrace).toContain('policy:guard:find-many')
-		expect(hookTrace).not.toContain('plugin:schema:beforeRead:find-many')
 	})
 
-	it('wraps update and delete with their exact field and save families', async () => {
+	it('wraps update and delete with exact schema item pairs', async () => {
 		const created = await runWithScope('scope-write', () =>
 			HookArticleSchema.createOne({
 				data: {
@@ -658,14 +548,10 @@ describe('native hooks with PostgreSQL', { concurrent: false }, () => {
 		)
 		expectTraceSubsequence([
 			'schema:developer:beforeUpdate',
-			'field:title:developer:beforeSave',
-			'field:title:developer:beforeUpdate',
-			'field:title:developer:afterUpdate',
-			'field:title:developer:afterSave',
-			'field:title:developer:onChange',
+			'schema:developer:beforeUpdate:pair:Write target->Updated target',
 			'schema:developer:afterUpdate',
+			'schema:developer:afterUpdate:pair:Write target->Updated target',
 			'schema:developer:beforeCommit',
-			'field:title:developer:afterCommit',
 			'schema:developer:afterCommit',
 		])
 
@@ -677,17 +563,15 @@ describe('native hooks with PostgreSQL', { concurrent: false }, () => {
 		)
 		expectTraceSubsequence([
 			'schema:developer:beforeDelete',
-			'field:title:developer:beforeDelete',
-			'field:title:developer:afterDelete',
-			'field:title:developer:onChange',
+			'schema:developer:beforeDelete:original:Updated target',
 			'schema:developer:afterDelete',
+			'schema:developer:afterDelete:original:Updated target',
 			'schema:developer:beforeCommit',
-			'field:title:developer:afterCommit',
 			'schema:developer:afterCommit',
 		])
 	})
 
-	it('keeps updateMany and deleteMany set-based without item field hooks', async () => {
+	it('keeps updateMany and deleteMany set-based without before item materialization', async () => {
 		for (const scopeId of ['scope-bulk-a', 'scope-bulk-b']) {
 			await runWithScope(scopeId, () =>
 				HookArticleSchema.createOne({
@@ -714,9 +598,9 @@ describe('native hooks with PostgreSQL', { concurrent: false }, () => {
 
 		expect(updateTrace).toContain('schema:developer:beforeUpdate')
 		expect(updateTrace).toContain('schema:developer:afterUpdate')
-		expect(updateTrace).not.toContain('field:title:developer:beforeUpdate')
-		expect(updateTrace).not.toContain('field:title:developer:afterUpdate')
-		expect(updateTrace).not.toContain('field:title:developer:onChange')
+		expect(updateTrace).not.toContain(
+			'schema:developer:beforeUpdate:pair:Bulk scoped target->Bulk updated target',
+		)
 
 		hookTrace.length = 0
 		await expect(
@@ -730,9 +614,9 @@ describe('native hooks with PostgreSQL', { concurrent: false }, () => {
 
 		expect(deleteTrace).toContain('schema:developer:beforeDelete')
 		expect(deleteTrace).toContain('schema:developer:afterDelete')
-		expect(deleteTrace).not.toContain('field:title:developer:beforeDelete')
-		expect(deleteTrace).not.toContain('field:title:developer:afterDelete')
-		expect(deleteTrace).not.toContain('field:title:developer:onChange')
+		expect(deleteTrace).not.toContain(
+			'schema:developer:beforeDelete:original:Bulk updated target',
+		)
 		await expect(
 			runWithScope('scope-bulk-b', () =>
 				HookArticleSchema.exists({

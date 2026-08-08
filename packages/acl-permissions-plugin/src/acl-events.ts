@@ -1,9 +1,6 @@
 import {
-	defineFieldKindHookTarget,
 	defineEvent,
 	onEvent,
-	type FieldMutationHookKind,
-	type FieldKindHookTarget,
 	type HookEventDefinition,
 	type HookEventContract,
 	type HookEventHandler,
@@ -14,16 +11,17 @@ import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
 import type { ACL } from './acl.js'
 import { aclPermissions, type ACLPermission } from './acl-contracts.js'
-import { aclFieldKind, type ACLField } from './acl-extension.js'
 
 /** Names the committed event emitted for every persisted ACL change. */
 export const aclChangedEvent = 'ultimabase.acl.changed' as const
 
 /** Selects every materialized save terminal that may persist an ACL value. */
-export type ACLChangedOperation = Extract<
-	FieldMutationHookKind,
-	'create-many' | 'create-one' | 'update-one' | 'upsert-many' | 'upsert-one'
->
+export type ACLChangedOperation =
+	| 'create-many'
+	| 'create-one'
+	| 'update-one'
+	| 'upsert-many'
+	| 'upsert-one'
 
 /** Identifies one optional plugin-owned principal without exposing its schema. */
 export interface ACLChangePrincipal extends JsonObject {
@@ -111,10 +109,6 @@ interface ACLSubjectEntry {
 	readonly permissions: readonly ACLPermission[]
 	readonly subject: ACLChangeSubject
 }
-
-/** Lets the ACL plugin attach native field hooks without exposing a second API. */
-export const aclFieldHookTarget: FieldKindHookTarget<ACLField> =
-	defineFieldKindHookTarget<ACLField>(aclFieldKind)
 
 const subjectKey = (kind: string, ...parts: readonly string[]): string =>
 	JSON.stringify([kind, ...parts])

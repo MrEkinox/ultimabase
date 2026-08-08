@@ -62,7 +62,6 @@ test('contextually types inline hooks without retaining them as vector metadata'
 		dimensions: 3,
 		hooks: {
 			resolveInput: ({ value }) => value,
-			resolveOutput: ({ value }) => value,
 		},
 	})
 

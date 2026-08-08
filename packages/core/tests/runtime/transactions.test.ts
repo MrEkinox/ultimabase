@@ -69,7 +69,7 @@ describe('RequestEngine transactions', () => {
 		const { adapter, request } = createRequest(
 			[
 				{ status: 'fulfilled', value: created },
-				{ status: 'fulfilled', value: updated },
+				{ status: 'fulfilled', target: created, value: updated },
 			],
 			trace,
 		)

@@ -1,6 +1,6 @@
 # ADR-0141: Explicit read hooks and eager pointer inclusion
 
-- Status: accepted
+- Status: superseded by ADR-0163
 - Date: 2026-08-05
 - Refines: ADR-0104, ADR-0116, ADR-0118, ADR-0137
 - Refined by: ADR-0142, ADR-0154, ADR-0159

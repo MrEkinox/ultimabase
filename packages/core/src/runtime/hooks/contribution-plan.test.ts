@@ -16,18 +16,29 @@ import {
 } from './contribution-plan.js'
 
 let invocationCount = 0
-const developerFieldHandler = (): void => {
+const developerFieldHandler = ({
+	value,
+}: {
+	readonly value: string | null
+}) => {
 	invocationCount += 1
+	return value
 }
-const baseFieldHandler = (): void => {
+const baseFieldHandler = ({ value }: { readonly value: string | null }) => {
 	invocationCount += 1
+	return value
 }
-const dependentFieldHandler = (): void => {
+const dependentFieldHandler = ({
+	value,
+}: {
+	readonly value: string | null
+}) => {
 	invocationCount += 1
+	return value
 }
 
 const sharedField = stringField({
-	hooks: { beforeCreate: developerFieldHandler },
+	hooks: { resolveInput: developerFieldHandler },
 })
 
 const planFields = {
@@ -36,7 +47,7 @@ const planFields = {
 	profile: objectField({
 		fields: {
 			email: stringField({
-				hooks: { beforeCreate: developerFieldHandler },
+				hooks: { resolveInput: developerFieldHandler },
 			}),
 		},
 	}),
@@ -50,11 +61,8 @@ type PlanSchemaDefinition = SchemaClass<
 
 /** Creates distinct transform identities while preserving each exact operation. */
 const createSchemaHandler =
-	(): SchemaBeforeCreateHook<PlanSchemaDefinition> =>
-	({ operation }) => {
+	(): SchemaBeforeCreateHook<PlanSchemaDefinition> => () => {
 		invocationCount += 1
-
-		return operation
 	}
 
 const developerSchemaHandler = createSchemaHandler()
@@ -65,23 +73,23 @@ const dependentSchemaHandler = createSchemaHandler()
 const planSchema = Schema.define({
 	className: 'HookContributionPlan',
 	fields: planFields,
-	hooks: { beforeCreate: developerSchemaHandler },
+	hooks: { beforeOperation: { create: developerSchemaHandler } },
 })
 
 const basePlugin = definePlugin({
 	name: 'fixture.plan-base',
 	setup: ({ hooks, registries }) => {
 		hooks.schema('schema-first', planSchema, {
-			beforeCreate: baseSchemaHandler,
+			beforeOperation: { create: baseSchemaHandler },
 		})
 		hooks.schema('schema-second', planSchema, {
-			beforeCreate: baseSecondSchemaHandler,
+			beforeOperation: { create: baseSecondSchemaHandler },
 		})
 		hooks.field('field-first', planSchema, ['profile', 'email'], {
-			beforeCreate: baseFieldHandler,
+			resolveInput: baseFieldHandler,
 		})
 		hooks.field('dotted', planSchema, ['dotted.name'], {
-			beforeCreate: baseFieldHandler,
+			resolveInput: baseFieldHandler,
 		})
 
 		// Low-level ADR-0070 hooks remain outside the native declaration plan.
@@ -97,10 +105,10 @@ const dependentPlugin = definePlugin({
 	dependencies: ['fixture.plan-base'],
 	setup: ({ hooks }) => {
 		hooks.schema('schema-dependent', planSchema, {
-			beforeCreate: dependentSchemaHandler,
+			beforeOperation: { create: dependentSchemaHandler },
 		})
 		hooks.field('field-dependent', planSchema, ['profile', 'email'], {
-			beforeCreate: dependentFieldHandler,
+			resolveInput: dependentFieldHandler,
 		})
 	},
 })

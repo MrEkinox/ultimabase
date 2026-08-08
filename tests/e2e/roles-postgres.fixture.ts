@@ -58,8 +58,8 @@ const protectedRoleOperations = {
 	...allMutations(masterOnly),
 }
 
-/** Records live role Query work so request-local memoization is observable. */
-export const roleQueryTrace: string[] = []
+/** Records principal resolution so request-local membership caching is observable. */
+export const roleResolutionTrace: string[] = []
 /** Records developer hooks independently from plugin-owned invariants. */
 export const roleDeveloperHookTrace: string[] = []
 
@@ -68,6 +68,7 @@ export const AppRole = RoleSchema.define({
 	members: {
 		schema: RoleMember,
 		resolveCurrent: ({ context }) => {
+			roleResolutionTrace.push('resolve-current')
 			const memberId = context.getValue(currentRoleMemberId)
 
 			return memberId === undefined ? undefined : RoleMember.pointer(memberId)
@@ -81,15 +82,12 @@ export const AppRole = RoleSchema.define({
 	indexes: [{ fields: ['priority', 'createdAt'] }],
 	access: { operation: protectedRoleOperations },
 	hooks: {
-		beforeRead: ({ query }) => {
-			roleQueryTrace.push('find-many')
+		beforeOperation: {
+			update: ({ operation }) => {
+				roleDeveloperHookTrace.push(operation.kind)
 
-			return query
-		},
-		beforeUpdate: ({ operation }) => {
-			roleDeveloperHookTrace.push(operation.kind)
-
-			return operation
+				void operation
+			},
 		},
 	},
 })
@@ -184,10 +182,12 @@ export const MissingProviderPost = Schema.define({
 		title: stringField({ validation: { required: true } }),
 	},
 	hooks: {
-		beforeUpdate: ({ operation }) => {
-			missingProviderHookCalls += 1
+		beforeOperation: {
+			update: ({ operation }) => {
+				missingProviderHookCalls += 1
 
-			return operation
+				void operation
+			},
 		},
 	},
 })

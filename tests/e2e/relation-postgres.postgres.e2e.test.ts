@@ -69,17 +69,17 @@ const Article: ArticleSchema = Schema.define({
 		title: articleTitleField,
 	},
 	hooks: {
-		afterUpdate: ({ operation, result }) => {
-			const changesRelation = operation.update.operations.some(
-				(candidate) => candidate.kind === 'relation',
-			)
+		afterOperation: {
+			update: ({ operation }) => {
+				const changesRelation = operation.update.operations.some(
+					(candidate) => candidate.kind === 'relation',
+				)
 
-			if (changesRelation && rejectNextRelationUpdate) {
-				rejectNextRelationUpdate = false
-				throw rollbackError
-			}
-
-			return result
+				if (changesRelation && rejectNextRelationUpdate) {
+					rejectNextRelationUpdate = false
+					throw rollbackError
+				}
+			},
 		},
 	},
 })
@@ -98,18 +98,6 @@ const Tag: TagSchema = Schema.define({
 		}),
 		label: tagLabelField,
 		visible: tagVisibleField,
-	},
-	hooks: {
-		afterRead: ({ result }) => {
-			relationTrace.push('tag:afterRead')
-
-			return result
-		},
-		beforeRead: ({ query }) => {
-			relationTrace.push('tag:beforeRead')
-
-			return query
-		},
 	},
 })
 
@@ -654,11 +642,7 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 			await alpha.relation('articles').count(undefined, { ultimabase: app }),
 		).toBe(1)
 		expect(relationTrace).toEqual(
-			expect.arrayContaining([
-				'article:tags:read:count',
-				'tag:beforeRead',
-				'tag:afterRead',
-			]),
+			expect.arrayContaining(['article:tags:read:count']),
 		)
 
 		await tags.set([Tag.pointer(beta.id), Tag.pointer(gamma.id)], {

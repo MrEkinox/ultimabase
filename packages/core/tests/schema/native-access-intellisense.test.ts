@@ -55,7 +55,9 @@ const readMemberCompletions = (
 	const fileName = `${import.meta.dirname}/native-access-completion.fixture.ts`
 	const service = createLanguageService(fileName, source)
 	const completions = service.getCompletionsAtPosition(fileName, position, {
+		includeExternalModuleExports: true,
 		includeCompletionsWithInsertText: true,
+		triggerKind: ts.CompletionTriggerKind.Invoked,
 	})
 
 	if (completions === undefined) {
@@ -122,6 +124,53 @@ Schema.define({
 
 		expectDocumentedNames(completions, ['one', 'many', 'count', 'exists'])
 	})
+
+	it.each([
+		{
+			access: `filter: {
+				delete: false,
+				read: true,
+				update: true,
+				/* completion */
+			}`,
+			branch: 'filter',
+			expected: ['upsert'],
+		},
+		{
+			access: `item: {
+				create: true,
+				delete: true,
+				update: true,
+				/* completion */
+			}`,
+			branch: 'item',
+			expected: ['upsert'],
+		},
+		{
+			access: `item: {
+				update: true,
+				upsert: true,
+				/* completion */
+			}`,
+			branch: 'partially declared item',
+			expected: ['create', 'delete'],
+		},
+	])(
+		'suggests the remaining schema Access $branch members',
+		({ access, expected }) => {
+		const completions = readMemberCompletions(`
+import { Schema } from '../../src/schema/index.js'
+
+Schema.define({
+	className: 'Article',
+	fields: {},
+	access: { ${access} },
+})
+`)
+
+			expectDocumentedNames(completions, expected)
+		},
+	)
 
 	it('offers only grouped read and mutation decisions on fields', () => {
 		const completions = readMemberCompletions(`

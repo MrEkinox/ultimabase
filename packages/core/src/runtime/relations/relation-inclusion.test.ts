@@ -1,6 +1,5 @@
 import { definePlugin } from '../../foundation.js'
 import { relationField, Schema, stringField } from '../../schema/index.js'
-import { isPlainRecord, isUnknownArray } from '@ultimabase/shared'
 import { describe, expect, it } from 'vitest'
 
 import { RecordingDatabaseAdapter } from '../../../tests/runtime/fixtures/recording-database-adapter.js'
@@ -20,29 +19,12 @@ const createDatabasePlugin = (adapter: DatabaseAdapter) =>
 	})
 
 describe('relation Runtime inclusion', () => {
-	it('hydrates filtered nested collections before the parent afterRead hook', async () => {
-		const targetHookTrace: string[] = []
+	it('hydrates filtered nested collections before returning the parent', async () => {
 		const relationAccessTrace: string[] = []
-		let parentObservedHydratedTargets = false
 		const reply = Schema.define({
 			className: 'RelationIncludedReply',
 			fields: {
-				body: stringField({
-					hooks: { resolveOutput: ({ value }) => value.toUpperCase() },
-					validation: { required: true },
-				}),
-			},
-			hooks: {
-				afterRead: ({ result }) => {
-					targetHookTrace.push('reply:afterRead')
-
-					return result
-				},
-				beforeRead: ({ query }) => {
-					targetHookTrace.push('reply:beforeRead')
-
-					return query
-				},
+				body: stringField({ validation: { required: true } }),
 			},
 		})
 		const comment = Schema.define({
@@ -53,10 +35,7 @@ describe('relation Runtime inclusion', () => {
 				},
 			},
 			fields: {
-				body: stringField({
-					hooks: { resolveOutput: ({ value }) => value.toUpperCase() },
-					validation: { required: true },
-				}),
+				body: stringField({ validation: { required: true } }),
 				replies: relationField({
 					access: {
 						read: ({ kind }) => {
@@ -68,18 +47,6 @@ describe('relation Runtime inclusion', () => {
 					target: () => reply,
 				}),
 				status: stringField(),
-			},
-			hooks: {
-				afterRead: ({ result }) => {
-					targetHookTrace.push('comment:afterRead')
-
-					return result
-				},
-				beforeRead: ({ query }) => {
-					targetHookTrace.push('comment:beforeRead')
-
-					return query
-				},
 			},
 		})
 		const discussion = Schema.define({
@@ -96,24 +63,6 @@ describe('relation Runtime inclusion', () => {
 					target: () => comment,
 				}),
 				title: stringField(),
-			},
-			hooks: {
-				afterRead: ({ kind, result }) => {
-					const unknownResult: unknown = result
-
-					if (
-						kind === 'find-many' &&
-						isUnknownArray(unknownResult) &&
-						isPlainRecord(unknownResult[0]) &&
-						isUnknownArray(unknownResult[0].comments) &&
-						isPlainRecord(unknownResult[0].comments[0]) &&
-						isUnknownArray(unknownResult[0].comments[0].replies)
-					) {
-						parentObservedHydratedTargets = true
-					}
-
-					return result
-				},
 			},
 		})
 		const sourceRecord = { title: 'Runtime relations' }
@@ -166,14 +115,12 @@ describe('relation Runtime inclusion', () => {
 
 			expect(results[0]?.comments).toHaveLength(1)
 			expect(results[0]?.comments[0]).toBeInstanceOf(comment)
-			expect(results[0]?.comments[0]?.body).toBe('FIRST')
+			expect(results[0]?.comments[0]?.body).toBe('first')
 			expect(results[0]?.comments[0]?.replies[0]).toBeInstanceOf(reply)
-			expect(results[0]?.comments[0]?.replies[0]?.body).toBe('NESTED')
+			expect(results[0]?.comments[0]?.replies[0]?.body).toBe('nested')
 			expect(JSON.stringify(results[0])).toBe(
-				'{"title":"Runtime relations","comments":[{"body":"FIRST","replies":[{"body":"NESTED"}]}]}',
+				'{"title":"Runtime relations","comments":[{"body":"first","replies":[{"body":"nested"}]}]}',
 			)
-			expect(parentObservedHydratedTargets).toBe(true)
-			expect(targetHookTrace).toStrictEqual([])
 			expect(relationAccessTrace).toStrictEqual([
 				'discussion:comments:find-many',
 				'comment:replies:find-many',

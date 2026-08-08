@@ -117,35 +117,68 @@ const createRequest = async <const TSchema extends SchemaDefinition>(
 }
 
 describe('native transaction hook finalization', () => {
-	it('observes a read failure without manufacturing transaction state', async () => {
+	it('skips item lifecycle hooks when a where mutation matches no row', async () => {
 		const trace: string[] = []
-		const readError = new Error('read failed')
 		const schema = Schema.define({
-			className: 'TransactionFinalizationReadFailure',
+			className: 'TransactionFinalizationMissingWhereTarget',
 			fields: {
-				title: stringField({ validation: { required: true } }),
+				title: stringField({
+					indexed: 'unique',
+					validation: { required: true },
+				}),
 			},
 			hooks: {
-				onError: ({ error, phase, transaction }) => {
-					expect(error).toBe(readError)
-					trace.push(
-						`error:${phase}:${transaction.status}:${transaction.rollback}`,
-					)
+				afterOperation: {
+					delete: () => {
+						trace.push('schema:afterDelete')
+					},
+					update: () => {
+						trace.push('schema:afterUpdate')
+					},
+				},
+				beforeOperation: {
+					delete: () => {
+						trace.push('schema:beforeDelete')
+					},
+					update: () => {
+						trace.push('schema:beforeUpdate')
+					},
 				},
 			},
 		})
 		const { application, request } = await createRequest(
 			schema,
-			[{ error: readError, status: 'rejected' }],
+			[
+				{ status: 'fulfilled', target: null, value: null },
+				{ status: 'fulfilled', target: null, value: null },
+			],
 			trace,
 		)
 
 		await expect(
-			runWithRequestEngine(request, () => schema.findMany()),
-		).rejects.toBe(readError)
+			runWithRequestEngine(request, () =>
+				schema.updateOne({
+					data: { title: 'Updated' },
+					where: { title: { eq: 'Missing' } },
+				}),
+			),
+		).resolves.toBeNull()
+		await expect(
+			runWithRequestEngine(request, () =>
+				schema.deleteOne({ where: { title: { eq: 'Missing' } } }),
+			),
+		).resolves.toBeNull()
 		expect(trace).toStrictEqual([
-			'execute:find-many',
-			'error:operation:not-started:not-applicable',
+			'adapter:begin',
+			'prepare:update-one',
+			'execute:update-one',
+			'adapter:commit',
+			'event:update-one',
+			'adapter:begin',
+			'prepare:delete-one',
+			'execute:delete-one',
+			'adapter:commit',
+			'event:delete-one',
 		])
 
 		await application.dispose()
@@ -157,28 +190,25 @@ describe('native transaction hook finalization', () => {
 		const schema = Schema.define({
 			className: 'TransactionFinalizationSuccess',
 			fields: {
-				title: stringField({
-					hooks: {
-						afterCommit: ({ timing }) => {
-							trace.push(`field:${timing}`)
-						},
-					},
-					validation: { required: true },
-				}),
+				title: stringField({ validation: { required: true } }),
 			},
 			hooks: {
-				afterCommit: ({ result }) => {
-					expect(() => schema.findMany()).toThrow(
-						expect.objectContaining({ code: 'MISSING_EXECUTION_CONTEXT' }),
-					)
-					trace.push(`schema:afterCommit:${readResultTitle(result)}`)
-				},
-				beforeCommit: ({ changes }) => {
-					expect(Object.isFrozen(changes)).toBe(true)
-					expect(Object.isFrozen(changes[0])).toBe(true)
-					expect(Object.isFrozen(changes[0]?.operation)).toBe(true)
-					expect(Object.isFrozen(changes[0]?.result)).toBe(true)
-					trace.push(`schema:beforeCommit:${String(changes.length)}`)
+				transaction: {
+					afterCommit: ({ changes }) => {
+						expect(() => schema.findMany()).toThrow(
+							expect.objectContaining({ code: 'MISSING_EXECUTION_CONTEXT' }),
+						)
+						trace.push(
+							`schema:afterCommit:${readResultTitle(changes[0]?.result)}`,
+						)
+					},
+					beforeCommit: ({ changes }) => {
+						expect(Object.isFrozen(changes)).toBe(true)
+						expect(Object.isFrozen(changes[0])).toBe(true)
+						expect(Object.isFrozen(changes[0]?.operation)).toBe(true)
+						expect(Object.isFrozen(changes[0]?.result)).toBe(true)
+						trace.push(`schema:beforeCommit:${String(changes.length)}`)
+					},
 				},
 			},
 		})
@@ -206,7 +236,6 @@ describe('native transaction hook finalization', () => {
 			'execute:create-one',
 			'schema:beforeCommit:1',
 			'adapter:commit',
-			'field:after-commit',
 			'schema:afterCommit:Created',
 			'event:create-one',
 		])
@@ -221,25 +250,20 @@ describe('native transaction hook finalization', () => {
 		const schema = Schema.define({
 			className: 'TransactionFinalizationPartialBulk',
 			fields: {
-				title: stringField({
-					hooks: {
-						afterCommit: ({ change }) => {
-							trace.push(
-								`field:afterCommit:${change.current.present ? change.current.value : 'absent'}`,
-							)
-						},
-					},
-					validation: { required: true },
-				}),
+				title: stringField({ validation: { required: true } }),
 			},
 			hooks: {
-				afterCommit: ({ result }) => {
-					trace.push(`schema:afterCommit:${readBulkResultTitle(result)}`)
-				},
-				beforeCommit: ({ changes }) => {
-					trace.push(
-						`schema:beforeCommit:${readBulkResultTitle(changes[0]?.result)}`,
-					)
+				transaction: {
+					afterCommit: ({ changes }) => {
+						trace.push(
+							`schema:afterCommit:${readBulkResultTitle(changes[0]?.result)}`,
+						)
+					},
+					beforeCommit: ({ changes }) => {
+						trace.push(
+							`schema:beforeCommit:${readBulkResultTitle(changes[0]?.result)}`,
+						)
+					},
 				},
 			},
 		})
@@ -276,7 +300,6 @@ describe('native transaction hook finalization', () => {
 			'execute:create-many',
 			'schema:beforeCommit:First',
 			'adapter:commit',
-			'field:afterCommit:First',
 			'schema:afterCommit:First',
 			'event:create-many',
 		])
@@ -294,16 +317,11 @@ describe('native transaction hook finalization', () => {
 				title: stringField({ validation: { required: true } }),
 			},
 			hooks: {
-				afterCommit: () => {
-					trace.push('schema:afterCommit')
-					throw afterCommitError
-				},
-				afterRollback: () => {
-					trace.push('unexpected:afterRollback')
-				},
-				onError: ({ error, phase, transaction }) => {
-					expect(error).toBe(afterCommitError)
-					trace.push(`error:${phase}:${transaction.status}`)
+				transaction: {
+					afterCommit: () => {
+						trace.push('schema:afterCommit')
+						throw afterCommitError
+					},
 				},
 			},
 		})
@@ -326,9 +344,7 @@ describe('native transaction hook finalization', () => {
 		).rejects.toBe(afterCommitError)
 		expect(trace).toContain('adapter:commit')
 		expect(trace).toContain('event:create-one')
-		expect(trace).toContain('error:after-commit:committed')
 		expect(trace).not.toContain('adapter:rollback')
-		expect(trace).not.toContain('unexpected:afterRollback')
 
 		await application.dispose()
 	})
@@ -343,13 +359,17 @@ describe('native transaction hook finalization', () => {
 				title: stringField({ validation: { required: true } }),
 			},
 			hooks: {
-				afterCommit: ({ result }) => {
-					trace.push(`after:${readResultTitle(result)}`)
-				},
-				beforeCommit: ({ changes }) => {
-					trace.push(
-						`summary:${changes.map(({ result }) => readResultTitle(result)).join(',')}`,
-					)
+				transaction: {
+					afterCommit: ({ changes }) => {
+						trace.push(
+							`after:${changes.map(({ result }) => readResultTitle(result)).join(',')}`,
+						)
+					},
+					beforeCommit: ({ changes }) => {
+						trace.push(
+							`summary:${changes.map(({ result }) => readResultTitle(result)).join(',')}`,
+						)
+					},
 				},
 			},
 		})
@@ -378,9 +398,8 @@ describe('native transaction hook finalization', () => {
 		expect(trace.indexOf('summary:First,Second')).toBeLessThan(
 			trace.indexOf('adapter:commit'),
 		)
-		expect(trace.slice(-4)).toStrictEqual([
-			'after:First',
-			'after:Second',
+		expect(trace.slice(-3)).toStrictEqual([
+			'after:First,Second',
 			'event:create-one',
 			'event:create-one',
 		])
@@ -395,31 +414,13 @@ describe('native transaction hook finalization', () => {
 		const schema = Schema.define({
 			className: 'TransactionFinalizationRollback',
 			fields: {
-				title: stringField({
-					hooks: {
-						afterRollback: ({ timing }) => {
-							trace.push(`field:${timing}`)
-						},
-						onError: ({ transaction }) => {
-							trace.push(`field:error:${transaction.status}`)
-						},
-					},
-					validation: { required: true },
-				}),
+				title: stringField({ validation: { required: true } }),
 			},
 			hooks: {
-				afterRollback: ({ error }) => {
-					expect(error).toBe(beforeCommitError)
-					trace.push('schema:afterRollback')
-				},
-				beforeCommit: () => {
-					throw beforeCommitError
-				},
-				onError: ({ error, phase, transaction }) => {
-					expect(error).toBe(beforeCommitError)
-					trace.push(
-						`schema:error:${phase}:${transaction.status}:${transaction.rollback}`,
-					)
+				transaction: {
+					beforeCommit: () => {
+						throw beforeCommitError
+					},
 				},
 			},
 		})
@@ -440,13 +441,7 @@ describe('native transaction hook finalization', () => {
 				schema.createOne({ data: { title: 'Rejected' } }),
 			),
 		).rejects.toBe(beforeCommitError)
-		expect(trace.slice(-5)).toStrictEqual([
-			'adapter:rollback',
-			'field:after-rollback',
-			'schema:afterRollback',
-			'field:error:rolled-back',
-			'schema:error:before-commit:rolled-back:succeeded',
-		])
+		expect(trace.at(-1)).toBe('adapter:rollback')
 
 		await application.dispose()
 	})
@@ -460,17 +455,6 @@ describe('native transaction hook finalization', () => {
 			className: 'TransactionFinalizationCommitFailure',
 			fields: {
 				title: stringField({ validation: { required: true } }),
-			},
-			hooks: {
-				afterRollback: () => {
-					trace.push('unexpected:afterRollback')
-				},
-				onError: ({ error, phase, transaction }) => {
-					expect(error).toBe(commitError)
-					trace.push(
-						`error:${phase}:${transaction.status}:${transaction.rollback}`,
-					)
-				},
 			},
 		})
 		const { application, request } = await createRequest(
@@ -497,8 +481,8 @@ describe('native transaction hook finalization', () => {
 				{ cause: rollbackError },
 			),
 		)
-		expect(trace).toContain('error:commit:rollback-failed:failed')
-		expect(trace).not.toContain('unexpected:afterRollback')
+		expect(trace).toContain('adapter:commit')
+		expect(trace).toContain('adapter:rollback')
 
 		await application.dispose()
 	})

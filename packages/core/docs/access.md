@@ -146,8 +146,8 @@ per-request placeholder handlers.
 Operation rules run after structural validation and before business hooks.
 Filter rules build one private predicate per contribution; Runtime combines
 them with `AND` and sends the result beside the normalized operation to the
-database adapter. A `beforeRead` hook can still add business filtering,
-ordering, or limits, but it cannot observe or remove the Access predicate.
+database adapter. Developer filtering, ordering, and limits remain explicit
+Query options and cannot observe or remove the Access predicate.
 
 Mutation field rules reject the complete operation when a present create or
 update value is forbidden. Singular update and delete item rules receive the
@@ -164,7 +164,7 @@ statically forbidden field fails; default reads simply omit it. A row rejected
 by an Access filter appears nonexistent because the adapter never returns it.
 When a pointer is eagerly included, its field rule receives the declared
 `Pointer` value at both output checks. Runtime retains that identity privately
-while `afterRead` and the public result observe the hydrated target or `null`.
+while the public result observes the hydrated target or `null`.
 
 ## Request access
 

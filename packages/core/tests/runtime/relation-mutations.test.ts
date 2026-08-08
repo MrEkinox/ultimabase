@@ -59,23 +59,23 @@ const createRelationRuntimeFixture = async (
 			}),
 		},
 		hooks: {
-			beforeUpdate: ({ operation }) => {
-				for (const candidate of operation.update.operations) {
-					if (candidate.kind === 'relation') {
-						trace.push(`before:${candidate.value.action}`)
+			beforeOperation: {
+				update: ({ operation }) => {
+					for (const candidate of operation.update.operations) {
+						if (candidate.kind === 'relation') {
+							trace.push(`before:${candidate.value.action}`)
+						}
 					}
-				}
-
-				return operation
+				},
 			},
-			afterUpdate: ({ operation, result }) => {
-				for (const candidate of operation.update.operations) {
-					if (candidate.kind === 'relation') {
-						trace.push(`after:${candidate.value.action}`)
+			afterOperation: {
+				update: ({ operation }) => {
+					for (const candidate of operation.update.operations) {
+						if (candidate.kind === 'relation') {
+							trace.push(`after:${candidate.value.action}`)
+						}
 					}
-				}
-
-				return result
+				},
 			},
 		},
 	})
@@ -197,9 +197,9 @@ describe('relation mutation Runtime execution', () => {
 			'adapter:begin',
 			'execute:find-one',
 			'access:connect:1',
-			'before:connect',
 			'access:connect:1',
 			'prepare:update-one',
+			'before:connect',
 			'execute:update-one',
 			'after:connect',
 			'adapter:commit',
@@ -278,9 +278,9 @@ describe('relation mutation Runtime execution', () => {
 			'adapter:begin',
 			'execute:find-one',
 			'access:connect:1',
-			'before:connect',
 			'access:connect:1',
 			'prepare:update-one',
+			'before:connect',
 			'execute:update-one',
 			'adapter:rollback',
 		])
@@ -363,7 +363,6 @@ describe('relation mutation Runtime execution', () => {
 			'adapter:begin',
 			'execute:find-one',
 			'access:connect:1',
-			'before:connect',
 			'access:connect:1',
 			'adapter:rollback',
 		])

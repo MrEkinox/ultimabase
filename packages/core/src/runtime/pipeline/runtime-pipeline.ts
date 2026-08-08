@@ -62,6 +62,7 @@ import { collectQueryRelationPredicates } from '../../query/filters/relation.js'
 import type { ExecutableOperationAst } from '../../query/index.js'
 import { readOperationQueries } from '../operations/queries.js'
 import { getOperationSchema } from '../operations/schema.js'
+import { createProtectedObjectNotFoundError } from '../operations/target-errors.js'
 import {
 	collectDatabaseObjectIdentities,
 	retainRuntimeIncludedPointerValue,
@@ -95,13 +96,13 @@ const enforcementStageNames = [
 ] as const satisfies readonly (keyof RuntimeEnforcementStages)[]
 
 const nativeHookStageNames = [
-	'fieldAfter',
-	'fieldBefore',
+	'mutationOutcome',
 	'resolveInput',
 	'resolveOutput',
 	'revalidate',
 	'schemaAfter',
 	'schemaBefore',
+	'schemaPrepared',
 	'validate',
 ] as const satisfies readonly (keyof RuntimeNativeHookStages)[]
 
@@ -161,7 +162,7 @@ const combineExecutionErrors = (
 		{ cause: error },
 	)
 
-/** Identifies only the framework-owned denial that inclusion may hide as missing. */
+/** Identifies only the framework-owned denial that protected scopes may hide. */
 const isNativeAccessDenied = (error: unknown): boolean =>
 	error instanceof FrameworkError &&
 	error.code === 'PERMISSION_DENIED' &&
@@ -274,6 +275,7 @@ const executeDatabaseOperation = async <
 	request: {
 		readonly constraints: readonly DatabaseConstraintNode[]
 		readonly operation: TOperation
+		readonly strictTarget?: true
 		readonly inclusions?: readonly DatabaseInclusionPlan[]
 		readonly relation?: DatabaseRelationScope
 		readonly relationPredicates?: readonly DatabaseRelationPredicateScope[]
@@ -386,6 +388,23 @@ const executeDatabaseOperation = async <
 		}),
 	)
 	const target = readPreparedMutationTarget(prepared)
+	const requiresPreparedTarget =
+		request.operation.kind === 'update-one' ||
+		request.operation.kind === 'delete-one'
+
+	if (requiresPreparedTarget && target === undefined) {
+		throw new TypeError(
+			'Prepared singular mutation must expose its complete target',
+		)
+	}
+
+	if (
+		requiresPreparedTarget &&
+		target === null &&
+		request.strictTarget === true
+	) {
+		throw createProtectedObjectNotFoundError()
+	}
 
 	if (
 		enforcement?.enforcePreparedMutation !== undefined &&
@@ -446,9 +465,14 @@ const executeDatabaseOperation = async <
 		}
 	}
 
-	await nativeHooks?.fieldBefore(
-		immutableRecord({ context, operation: executableOperation, target }),
-	)
+	if (
+		nativeHooks !== undefined &&
+		!(requiresPreparedTarget && target === null)
+	) {
+		executableOperation = await nativeHooks.schemaPrepared(
+			immutableRecord({ context, operation: executableOperation, target }),
+		)
+	}
 	let outcome = await prepared.execute(executableOperation)
 
 	if (
@@ -461,7 +485,7 @@ const executeDatabaseOperation = async <
 	}
 
 	if (nativeHooks !== undefined) {
-		outcome = await nativeHooks.fieldAfter(
+		outcome = await nativeHooks.mutationOutcome(
 			immutableRecord({ context, operation: request.operation, outcome }),
 		)
 	}
@@ -730,10 +754,12 @@ const createNativeResultInput = <const TOperation extends DatabaseOperationAst>(
 	operation: TOperation,
 	result: RuntimeOperationResult<TOperation>,
 	selectedFieldsOverride: readonly string[] | undefined,
+	outcome: DatabaseOperationOutcome<DatabaseMutationOperationAst> | undefined,
 ): RuntimeNativeResultStageInput<TOperation> =>
 	immutableRecord({
 		context,
 		operation,
+		...(outcome === undefined ? {} : { outcome }),
 		result,
 		...(selectedFieldsOverride === undefined ? {} : { selectedFieldsOverride }),
 	})
@@ -1067,13 +1093,14 @@ export class RuntimePipeline {
 				target !== null &&
 				!isPlainRecord(target)
 			) {
-				throw new TypeError(`Runtime included pointer ${field} must be a record`)
+				throw new TypeError(
+					`Runtime included pointer ${field} must be a record`,
+				)
 			}
-			if (
-				inclusion.descriptor.kind === 'relation' &&
-				!isUnknownArray(target)
-			) {
-				throw new TypeError(`Runtime included relation ${field} must be an array`)
+			if (inclusion.descriptor.kind === 'relation' && !isUnknownArray(target)) {
+				throw new TypeError(
+					`Runtime included relation ${field} must be an array`,
+				)
 			}
 
 			const replacement =
@@ -1099,9 +1126,7 @@ export class RuntimePipeline {
 	}
 
 	/** Preserves root cardinality while hydrating its exact adapter records by index. */
-	async #hydrateInclusions<
-		const TOperation extends DatabaseOperationAst,
-	>(
+	async #hydrateInclusions<const TOperation extends DatabaseOperationAst>(
 		context: RequestContext,
 		operation: TOperation,
 		result: DatabaseOperationResult<TOperation>,
@@ -1114,9 +1139,7 @@ export class RuntimePipeline {
 
 		if (operation.kind === 'find-many') {
 			if (!isUnknownArray(result) || !isUnknownArray(rawResult)) {
-				throw new TypeError(
-					'Runtime included collection must be an array',
-				)
+				throw new TypeError('Runtime included collection must be an array')
 			}
 			if (result.length !== rawResult.length) {
 				throw new TypeError(
@@ -1130,9 +1153,7 @@ export class RuntimePipeline {
 						const rawRecord: unknown = rawResult[index]
 
 						if (!isPlainRecord(record) || !isPlainRecord(rawRecord)) {
-							throw new TypeError(
-								'Runtime included source must be a record',
-							)
+							throw new TypeError('Runtime included source must be a record')
 						}
 
 						return this.#hydrateIncludedRecord(
@@ -1174,7 +1195,10 @@ export class RuntimePipeline {
 		if (
 			request.nativeAccessDeniedAsMissing === true &&
 			request.operation.kind !== 'find-one' &&
-			request.operation.kind !== 'update-one'
+			request.operation.kind !== 'get' &&
+			request.operation.kind !== 'exists' &&
+			request.operation.kind !== 'update-one' &&
+			request.operation.kind !== 'delete-one'
 		) {
 			throw new TypeError(
 				'Runtime nativeAccessDeniedAsMissing requires a singular protected operation',
@@ -1204,16 +1228,13 @@ export class RuntimePipeline {
 		} catch (error: unknown) {
 			if (
 				request.nativeAccessDeniedAsMissing === true &&
-				error instanceof FrameworkError &&
-				error.code === 'PERMISSION_DENIED' &&
-				error.internalDetails?.kind === 'native-access-denied'
+				isNativeAccessDenied(error)
 			) {
-				if (request.operation.kind === 'update-one') {
-					const hiddenError = new FrameworkError(
-						'NOT_FOUND',
-						'Protected singular mutation target was missing or inaccessible.',
-						{ publicMessage: 'The requested object was not found.' },
-					)
+				if (
+					request.operation.kind !== 'find-one' &&
+					request.operation.kind !== 'exists'
+				) {
+					const hiddenError = createProtectedObjectNotFoundError()
 
 					execution.transactionOperation?.fail(
 						execution.operation,
@@ -1224,11 +1245,15 @@ export class RuntimePipeline {
 					throw hiddenError
 				}
 
-				// Expected target invisibility completes as an empty singular read,
-				// so the surrounding mutation transaction remains committable.
-				execution.transactionOperation?.succeed(execution.operation, null)
+				const missingResult = request.operation.kind === 'exists' ? false : null
 
-				return null as RuntimeOperationResult<TOperation>
+				// Expected target invisibility completes as an empty protected read.
+				execution.transactionOperation?.succeed(
+					execution.operation,
+					missingResult,
+				)
+
+				return missingResult as RuntimeOperationResult<TOperation>
 			}
 
 			execution.transactionOperation?.fail(
@@ -1387,10 +1412,7 @@ export class RuntimePipeline {
 			)
 			relationPredicates = enforced.relationPredicates
 		}
-		const inclusions = await this.#prepareInclusions(
-			context,
-			operation,
-		)
+		const inclusions = await this.#prepareInclusions(context, operation)
 
 		throwIfOperationCancelled(context.signal, {
 			operationKind: operation.kind,
@@ -1405,6 +1427,9 @@ export class RuntimePipeline {
 			immutableRecord({
 				constraints,
 				operation,
+				...(request.nativeAccessDeniedAsMissing === true
+					? { strictTarget: true as const }
+					: {}),
 				...(inclusions.length === 0
 					? {}
 					: {
@@ -1419,6 +1444,9 @@ export class RuntimePipeline {
 			this.#stages.enforcement,
 			enforcement,
 		)
+		if (operation.kind === 'get' && databaseExecution.result === null) {
+			throw createProtectedObjectNotFoundError()
+		}
 		throwIfOperationCancelled(context.signal, {
 			operationKind: operation.kind,
 			phase: 'database-operation',
@@ -1482,6 +1510,7 @@ export class RuntimePipeline {
 					operation,
 					result,
 					selectedFieldsOverride,
+					databaseExecution.outcome,
 				),
 			)
 		}

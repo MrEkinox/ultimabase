@@ -226,13 +226,16 @@ The existing Runtime hook factories remain the low-level implementation
 foundation beside native declarations and policy-neutral enforcement. Core has
 removed the legacy named permission stages and stores owner-scoped
 contributions without executing them. Runtime reads immutable dependency-first
-snapshots and composes them with developer hooks. Before/after hooks transform
-values explicitly; business after-hooks may still abort before commit, while
-externally visible event handlers run only after commit succeeds.
+snapshots and composes them with developer hooks. Schema `resolveInput`
+transforms mutation input; grouped before- and after-operation hooks observe
+complete mutation values and have ignored return values. Business after-hooks
+may still abort before commit, while externally visible event handlers run only
+after commit succeeds.
 
-One handler may cover a full create, update, upsert, delete, save, or read
-family; the exact terminal kind remains a discriminant. Handler lists execute
-sequentially. Create-many and upsert-many preserve stable input order, while
+One schema handler may cover a full create, update, upsert, delete, or save
+family; reads expose Query options and Access rather than schema hooks. The
+exact terminal kind remains a discriminant. Handler lists execute sequentially.
+Create-many and upsert-many preserve stable input order, while
 set-based update-many and delete-many never materialize every row merely to run
 item callbacks. Non-atomic create and upsert stop at the first adapter
 persistence failure and expose the successful prefix through a discriminated
@@ -275,7 +278,7 @@ AND field decisions
 - `field` controls read, filter, order, create, and update use.
 
 Access filters reuse Core's typed filter AST but remain outside the developer
-Query. Query predicates, `beforeRead` predicates, and every Access provider
+Query. Query predicates and every Access provider
 constraint combine through logical `AND`; a business hook cannot inspect or
 remove the private Access state.
 
@@ -306,8 +309,8 @@ that constraint to indexed JSONB containment. Cascade derives every rewritten
 ACL from the locked current row and performs singular updates inside the
 subject deletion transaction, preserving unrelated grants and rolling all
 schemas back together on failure.
-ACL also observes its reserved field through the generic native field-kind
-lifecycle and queues one typed structured-diff event for post-commit delivery.
+ACL observes complete schema mutation materializations and queues one typed
+structured-diff event for post-commit delivery.
 This observer never participates in authorization, emits nothing on rollback,
 and is not published by realtime or transport plugins by default.
 

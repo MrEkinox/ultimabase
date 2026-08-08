@@ -138,15 +138,12 @@ type CompactPointerFieldOptions<
 	 *
 	 * @example `hooks: { validate: ({ value }) => value.id === "" ? [{ code: "pointer.empty", path: [], message: "Pointer id is required" }] : [] }`
 	 */
-	readonly hooks?: Omit<
-		FieldHooks<
-			ResolvedPointerField<
-				NoInfer<TTarget>,
-				NoInfer<TRequired>,
-				NoInfer<TImmutable>
-			>
-		>,
-		'resolveOutput'
+	readonly hooks?: FieldHooks<
+		ResolvedPointerField<
+			NoInfer<TTarget>,
+			NoInfer<TRequired>,
+			NoInfer<TImmutable>
+		>
 	>
 } & FieldAccessDeclaration<
 		ResolvedPointerField<
@@ -262,15 +259,6 @@ export function pointerField<const TTarget extends SchemaDefinition>(
 	if ('default' in options) {
 		throw new TypeError('pointerField does not support default values')
 	}
-	if (
-		typeof options.hooks === 'object' &&
-		options.hooks !== null &&
-		!Array.isArray(options.hooks) &&
-		Object.hasOwn(options.hooks, 'resolveOutput')
-	) {
-		throw new TypeError('pointerField does not support hooks.resolveOutput')
-	}
-
 	const { target, ...declarationOptions } = options
 	const { access, hooks, metadataOptions } =
 		splitFieldDeclarationOptions<PointerFieldMetadataInput>(declarationOptions)

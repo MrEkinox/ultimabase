@@ -37,8 +37,7 @@ export type QueryRelationFieldName<TSchema extends SchemaDefinition> = {
 
 /** Selects every field that can own one eager-loading branch. */
 export type QueryIncludableFieldName<TSchema extends SchemaDefinition> =
-	| QueryPointerFieldName<TSchema>
-	| QueryRelationFieldName<TSchema>
+	QueryPointerFieldName<TSchema> | QueryRelationFieldName<TSchema>
 
 /** Resolves the target schema encoded by one exact pointer field value. */
 export type QueryPointerTargetSchema<
@@ -56,19 +55,21 @@ export type QueryPointerTargetSchema<
 export type QueryRelationTargetSchema<
 	TSchema extends SchemaDefinition,
 	TFieldName extends QueryRelationFieldName<TSchema>,
-> = TSchema['fields'][TFieldName] extends RelationField<infer TTarget>
-	? TTarget
-	: never
+> =
+	TSchema['fields'][TFieldName] extends RelationField<infer TTarget>
+		? TTarget
+		: never
 
 /** Resolves the target schema encoded by any includable relationship field. */
 export type QueryInclusionTargetSchema<
 	TSchema extends SchemaDefinition,
 	TFieldName extends QueryIncludableFieldName<TSchema>,
-> = TSchema['fields'][TFieldName] extends PointerField<infer TTarget>
-	? TTarget
-	: TSchema['fields'][TFieldName] extends RelationField<infer TTarget>
+> =
+	TSchema['fields'][TFieldName] extends PointerField<infer TTarget>
 		? TTarget
-		: never
+		: TSchema['fields'][TFieldName] extends RelationField<infer TTarget>
+			? TTarget
+			: never
 
 /** Describes one caller-owned inclusion before immutable normalization. */
 export interface QueryPointerInclusionInput<
@@ -84,16 +85,13 @@ export interface QueryPointerInclusionInput<
 export type QueryRelationInclusionInput<TSchema extends SchemaDefinition> = {
 	[TFieldName in QueryRelationFieldName<TSchema>]: {
 		readonly field: TFieldName
-		readonly query: QueryAst<
-			QueryRelationTargetSchema<TSchema, TFieldName>
-		>
+		readonly query: QueryAst<QueryRelationTargetSchema<TSchema, TFieldName>>
 	}
 }[QueryRelationFieldName<TSchema>]
 
 /** Describes every caller-owned eager branch before immutable normalization. */
 export type QueryInclusionInput<TSchema extends SchemaDefinition> =
-	| QueryPointerInclusionInput<TSchema>
-	| QueryRelationInclusionInput<TSchema>
+	QueryPointerInclusionInput<TSchema> | QueryRelationInclusionInput<TSchema>
 
 /** Correlates every pointer key with the exact AST of its declared target. */
 export type QueryPointerInclusionNode<TSchema extends SchemaDefinition> = {
@@ -120,8 +118,7 @@ export type QueryRelationInclusionNode<TSchema extends SchemaDefinition> = {
 
 /** Correlates every includable field with its exact target AST and cardinality. */
 export type QueryFieldInclusionNode<TSchema extends SchemaDefinition> =
-	| QueryPointerInclusionNode<TSchema>
-	| QueryRelationInclusionNode<TSchema>
+	QueryPointerInclusionNode<TSchema> | QueryRelationInclusionNode<TSchema>
 
 /** Retains the field-correlated union throughout one source Query AST. */
 export type QueryInclusionAst<TSchema extends SchemaDefinition> =
@@ -137,9 +134,7 @@ export const emptyQueryInclusion: QueryInclusionNode<never, never> =
 		kind: 'inclusion',
 	})
 
-const resolveInclusionTarget = <
-	const TSchema extends SchemaDefinition,
->(
+const resolveInclusionTarget = <const TSchema extends SchemaDefinition>(
 	schema: TSchema,
 	fieldName: QueryIncludableFieldName<TSchema>,
 ): SchemaDefinition => {
@@ -173,9 +168,7 @@ const resolveInclusionTarget = <
  * Repeating one relationship key replaces its target query without reordering it,
  * matching the deterministic replacement rule used by query ordering.
  */
-export const normalizeQueryInclusion = <
-	const TSchema extends SchemaDefinition,
->(
+export const normalizeQueryInclusion = <const TSchema extends SchemaDefinition>(
 	schema: TSchema,
 	inputs: readonly QueryInclusionInput<TSchema>[],
 ): QueryInclusionAst<TSchema> => {
@@ -197,7 +190,7 @@ export const normalizeQueryInclusion = <
 		const field = schema.fields[input.field]
 		const node = immutableRecord({
 			kind:
-				field?.kind === 'pointer'
+				field.kind === 'pointer'
 					? ('included-pointer' as const)
 					: ('included-relation' as const),
 			field: input.field,

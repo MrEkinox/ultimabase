@@ -310,7 +310,7 @@ describe('UltimaBase', () => {
 				{ data: { title: 'Updated' } },
 				{ ultimabase },
 			)
-			const deleted = await updated?.delete({}, { ultimabase })
+			const deleted = await updated.delete({}, { ultimabase })
 
 			expect(draft.toJSON()).toStrictEqual({ title: 'Created' })
 			expect(importedDraft.toJSON()).toStrictEqual({ title: 'Imported' })
@@ -320,8 +320,8 @@ describe('UltimaBase', () => {
 			expect(deleted).not.toBe(updated)
 			expect(created.toJSON()).toStrictEqual(createdRecord)
 			expect(upserted.toJSON()).toStrictEqual(upsertedRecord)
-			expect(updated?.toJSON()).toStrictEqual(updatedRecord)
-			expect(deleted?.toJSON()).toStrictEqual(updatedRecord)
+			expect(updated.toJSON()).toStrictEqual(updatedRecord)
+			expect(deleted.toJSON()).toStrictEqual(updatedRecord)
 			expect(
 				adapter.transactions.flatMap((transaction) =>
 					transaction.requests.map((request) => request.operation.kind),

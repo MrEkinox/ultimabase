@@ -54,10 +54,8 @@ import {
 	type TransactionLifetime,
 } from '../transactions/transaction-lifetime.js'
 import { throwIfOperationCancelled } from '../hooks/cancellation.js'
-import {
-	createRelationNotFoundError,
-	executeRuntimeRelationMutation,
-} from '../relations/relation-mutation.js'
+import { executeRuntimeRelationMutation } from '../relations/relation-mutation.js'
+import { createProtectedObjectNotFoundError } from '../operations/target-errors.js'
 
 const requestEngineConstructionKey: unique symbol = Symbol(
 	'ultimabase.request-engine-construction',
@@ -159,6 +157,12 @@ const isNativeAccessDenied = (error: unknown): boolean =>
 	error instanceof FrameworkError &&
 	error.code === 'PERMISSION_DENIED' &&
 	error.internalDetails?.kind === 'native-access-denied'
+
+/** Identifies operations whose private object identity must never resolve to null. */
+const isStrictObjectOperation = (operation: OperationAstNode): boolean =>
+	operation.kind === 'get' ||
+	operation.kind === 'update-one' ||
+	operation.kind === 'delete-one'
 
 /** Rejects malformed low-level construction before it can bind request state. */
 const assertFrameworkEngineOptions = (
@@ -446,10 +450,10 @@ export class RequestEngine<
 				} catch (error: unknown) {
 					if (
 						nativeAccessDeniedAsMissing === true &&
-						operation.kind === 'update-one' &&
+						isStrictObjectOperation(operation) &&
 						isNativeAccessDenied(error)
 					) {
-						throw createRelationNotFoundError()
+						throw createProtectedObjectNotFoundError()
 					}
 
 					throw error
@@ -457,10 +461,10 @@ export class RequestEngine<
 
 				if (
 					nativeAccessDeniedAsMissing === true &&
-					operation.kind === 'update-one' &&
+					isStrictObjectOperation(operation) &&
 					result === null
 				) {
-					throw createRelationNotFoundError()
+					throw createProtectedObjectNotFoundError()
 				}
 
 				return result
@@ -517,10 +521,10 @@ export class RequestEngine<
 		} catch (error: unknown) {
 			if (
 				nativeAccessDeniedAsMissing === true &&
-				operation.kind === 'update-one' &&
+				isStrictObjectOperation(operation) &&
 				isNativeAccessDenied(error)
 			) {
-				throw createRelationNotFoundError()
+				throw createProtectedObjectNotFoundError()
 			}
 
 			throw error

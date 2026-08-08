@@ -65,8 +65,8 @@ const users = await UserSchema.findMany({
 ```
 
 Relation inclusion also supports nested `include`. It preserves source and
-target Access and field output resolution without manufacturing target schema
-read hooks. Direct calls through `user.relation('posts')` remain normal target
+target Access without manufacturing target schema read hooks. Direct calls
+through `user.relation('posts')` remain normal target
 reads and therefore retain the target's ordinary read-hook lifecycle.
 
 Relation fields contain no join-table, SQL, REST, or GraphQL naming. Relation

@@ -92,9 +92,7 @@ export type QueryIncludeInput<TSchema extends SchemaDefinition> = Readonly<{
 	]?: TFieldName extends QueryPointerFieldName<TSchema>
 		? QueryPointerTargetInput<QueryPointerTargetSchema<TSchema, TFieldName>>
 		: TFieldName extends QueryRelationFieldName<TSchema>
-			? QueryRelationTargetInput<
-					QueryRelationTargetSchema<TSchema, TFieldName>
-				>
+			? QueryRelationTargetInput<QueryRelationTargetSchema<TSchema, TFieldName>>
 			: never
 }>
 
@@ -183,16 +181,11 @@ type ExactInclusionTargetInput<
 	TInput,
 	TContract,
 > = TInput extends TContract
-		? TInput &
-				Readonly<
-					Record<
-						Exclude<keyof TInput, keyof TContract>,
-						never
-					>
-				> &
-				ExactSelectionForInput<TSchema, TInput> &
-				ExactIncludeForInput<TSchema, TInput>
-		: never
+	? TInput &
+			Readonly<Record<Exclude<keyof TInput, keyof TContract>, never>> &
+			ExactSelectionForInput<TSchema, TInput> &
+			ExactIncludeForInput<TSchema, TInput>
+	: never
 
 type ExactIncludeValue<
 	TSchema extends SchemaDefinition,
@@ -203,9 +196,7 @@ type ExactIncludeValue<
 		? ExactInclusionTargetInput<
 				QueryPointerTargetSchema<TSchema, TFieldName>,
 				TInclude[TFieldName],
-				QueryPointerTargetInput<
-					QueryPointerTargetSchema<TSchema, TFieldName>
-				>
+				QueryPointerTargetInput<QueryPointerTargetSchema<TSchema, TFieldName>>
 			>
 		: TFieldName extends QueryRelationFieldName<TSchema>
 			? ExactInclusionTargetInput<
@@ -333,21 +324,21 @@ export type QueryIncludedFieldFromInput<
 		? TIncludedField
 		: TInput extends { readonly include: infer TInclude }
 			? | {
-					[
-						TFieldName in Extract<
-							keyof TInclude,
-							QueryPointerFieldName<TSchema>
-						>
-					]: PointerInclusionForField<TSchema, TInclude, TFieldName>
-				}[Extract<keyof TInclude, QueryPointerFieldName<TSchema>>]
+						[
+							TFieldName in Extract<
+								keyof TInclude,
+								QueryPointerFieldName<TSchema>
+							>
+						]: PointerInclusionForField<TSchema, TInclude, TFieldName>
+				  }[Extract<keyof TInclude, QueryPointerFieldName<TSchema>>]
 				| {
-					[
-						TFieldName in Extract<
-							keyof TInclude,
-							QueryRelationFieldName<TSchema>
-						>
-					]: RelationInclusionForField<TSchema, TInclude, TFieldName>
-				}[Extract<keyof TInclude, QueryRelationFieldName<TSchema>>]
+						[
+							TFieldName in Extract<
+								keyof TInclude,
+								QueryRelationFieldName<TSchema>
+							>
+						]: RelationInclusionForField<TSchema, TInclude, TFieldName>
+				  }[Extract<keyof TInclude, QueryRelationFieldName<TSchema>>]
 			: never
 
 /** @deprecated Use `QueryIncludedFieldFromInput`. */
@@ -486,9 +477,7 @@ const applyQueryOrdering = <const TSchema extends SchemaDefinition>(
 
 		orders.push({
 			direction:
-				direction === 'asc'
-					? ('ascending' as const)
-					: ('descending' as const),
+				direction === 'asc' ? ('ascending' as const) : ('descending' as const),
 			field: fieldName as QueryFieldName<TSchema>,
 		})
 	}
@@ -553,9 +542,10 @@ const applyQueryProjection = <const TSchema extends SchemaDefinition>(
 
 		// Runtime target identity and the pointer field were validated together above;
 		// this boundary only restores their compile-time correlation after iteration.
-		inclusions.push(
-			{ field: includedField, query: targetQuery.ast } as unknown as QueryInclusionInput<TSchema>,
-		)
+		inclusions.push({
+			field: includedField,
+			query: targetQuery.ast,
+		} as unknown as QueryInclusionInput<TSchema>)
 	}
 
 	const selectionFields = selection.fields.map(({ field }) => field)
@@ -565,7 +555,7 @@ const applyQueryProjection = <const TSchema extends SchemaDefinition>(
 			: normalizeQuerySelectedFields(schema, [
 					...selectionFields,
 					...inclusions
-						.filter(({ field }) => schema.fields[field]?.kind === 'pointer')
+						.filter(({ field }) => schema.fields[field].kind === 'pointer')
 						.map(({ field }) => field),
 				])
 

@@ -85,7 +85,7 @@ test('rejects incompatible pointer declarations and target values', () => {
 	pointerField({
 		target: () => userSchema,
 		hooks: {
-			// @ts-expect-error -- Included pointers retain their persisted relationship identity.
+			// @ts-expect-error -- Output transformation is not a field hook phase.
 			resolveOutput: () => undefined,
 		},
 	})

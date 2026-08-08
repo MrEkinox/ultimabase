@@ -119,23 +119,23 @@ describe('HookExecutionRuntime', () => {
 		const update = () => undefined
 		const declarations = normalizeHookDeclarations({
 			descriptors: {
-				beforeSave: {
+				beforeOperation: {
 					order: 'broad-first',
 					variants: ['create', 'update'],
 				},
 			},
-			hooks: { beforeSave: { all: shared, create, update } },
-			phases: ['beforeSave'],
+			hooks: { beforeOperation: { all: shared, create, update } },
+			phases: ['beforeOperation'],
 			scope: 'fixture',
 		})
 		const createEntries = getHookHandlerEntries(
 			declarations,
-			'beforeSave',
+			'beforeOperation',
 			'create',
 		)
 		const updateEntries = getHookHandlerEntries(
 			declarations,
-			'beforeSave',
+			'beforeOperation',
 			'update',
 		)
 		const toDescriptor = (
@@ -146,7 +146,7 @@ describe('HookExecutionRuntime', () => {
 				...entry,
 				operationKind,
 				owner: applicationHookOwner,
-				phase: 'beforeSave',
+				phase: 'beforeCreate',
 				target: immutableRecord({
 					className: 'FamilyArticle',
 					kind: 'schema' as const,

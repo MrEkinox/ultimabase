@@ -41,9 +41,9 @@ test('preserves exact operation and result inference through native dispatch', (
 		MaybePromise<typeof operation>
 	>()
 	expectTypeOf(
-		stages.fieldAfter({ context, operation, outcome }),
+		stages.mutationOutcome({ context, operation, outcome }),
 	).toEqualTypeOf<MaybePromise<DatabaseOperationOutcome<typeof operation>>>()
 	expectTypeOf(
-		stages.schemaAfter({ context, operation, result: outcome.result }),
+		stages.schemaAfter({ context, operation, outcome, result: outcome.result }),
 	).toEqualTypeOf<MaybePromise<DatabaseOperationResult<typeof operation>>>()
 })

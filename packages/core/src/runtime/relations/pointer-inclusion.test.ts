@@ -5,7 +5,6 @@ import {
 	Schema,
 	stringField,
 } from '../../schema/index.js'
-import { isPlainRecord } from '@ultimabase/shared'
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -34,7 +33,6 @@ const pointerRuntimeOrganization = Schema.define({
 	fields: { name: stringField({ validation: { required: true } }) },
 })
 
-const targetHookTrace: string[] = []
 const pointerRuntimeUser = Schema.define({
 	className: 'PointerRuntimeUser',
 	access: {
@@ -43,27 +41,11 @@ const pointerRuntimeUser = Schema.define({
 		},
 	},
 	fields: {
-		name: stringField({
-			hooks: { resolveOutput: ({ value }) => value.toUpperCase() },
-			validation: { required: true },
-		}),
+		name: stringField({ validation: { required: true } }),
 		organization: pointerField({
 			target: () => pointerRuntimeOrganization,
 		}),
 		status: stringField({ validation: { required: true } }),
-	},
-	hooks: {
-		afterRead: ({ result }) => {
-			targetHookTrace.push('user:afterRead')
-
-			return result
-		},
-		beforeRead: ({ query }) => {
-			targetHookTrace.push('user:beforeRead')
-
-			// Replacing the visible predicate cannot remove the private pointer identity.
-			return query.where((where) => where.eq('name', 'Ada'))
-		},
 	},
 })
 
@@ -104,8 +86,7 @@ const expectTargetRowFilter = (
 }
 
 describe('pointer Runtime execution', () => {
-	it('loads selected and nested targets through private Access and hook scopes', async () => {
-		targetHookTrace.length = 0
+	it('loads selected and nested targets through private Access scopes', async () => {
 		const author = pointerRuntimeUser.pointer(
 			'0198a43e-2431-7000-8000-000000000401',
 		)
@@ -168,16 +149,12 @@ describe('pointer Runtime execution', () => {
 			)
 
 			expect(posts[0]?.author).toBeInstanceOf(pointerRuntimeUser)
-			expect(posts[0]?.author?.name).toBe('ADA')
+			expect(posts[0]?.author?.name).toBe('Ada')
 			expect(posts[0]?.author?.organization).toBeInstanceOf(
 				pointerRuntimeOrganization,
 			)
 			expect(posts[0]?.author?.organization?.name).toBe('Ultima Labs')
-			expect(directAuthor?.name).toBe('ADA')
-			expect(targetHookTrace).toStrictEqual([
-				'user:beforeRead',
-				'user:afterRead',
-			])
+			expect(directAuthor?.name).toBe('Ada')
 			expect(adapter.rootRequests).toHaveLength(2)
 			expect(
 				adapter.rootRequests[0]?.inclusions?.[0]?.request.operation,
@@ -199,9 +176,7 @@ describe('pointer Runtime execution', () => {
 			expect(adapter.rootRequests[1]?.operation).toMatchObject({
 				kind: 'find-one',
 				query: {
-					where: {
-						expression: { field: 'name', kind: 'equal', value: 'Ada' },
-					},
+					where: undefined,
 				},
 			})
 			expectTargetRowFilter(adapter.rootRequests[1]?.rowFilter, author.id)
@@ -255,7 +230,6 @@ describe('pointer Runtime execution', () => {
 
 	it('keeps the declared Pointer value for final field Access after hydration', async () => {
 		const accessValues: unknown[] = []
-		let afterReadObservedHydratedTarget = false
 		const target = Schema.define({
 			className: 'PointerRuntimeAccessTarget',
 			fields: { name: stringField() },
@@ -277,23 +251,6 @@ describe('pointer Runtime execution', () => {
 					},
 					target: () => target,
 				}),
-			},
-			hooks: {
-				afterRead: ({ kind, result }) => {
-					const unknownResult: unknown = result
-
-					if (
-						kind === 'find-many' &&
-						Array.isArray(unknownResult) &&
-						isPlainRecord(unknownResult[0]) &&
-						isPlainRecord(unknownResult[0].target)
-					) {
-						afterReadObservedHydratedTarget =
-							unknownResult[0].target.name === 'Hydrated target'
-					}
-
-					return result
-				},
 			},
 		})
 		const pointer = target.pointer('0198a43e-2431-7000-8000-000000000408')
@@ -330,7 +287,6 @@ describe('pointer Runtime execution', () => {
 			)
 
 			expect(result[0]?.target?.name).toBe('Hydrated target')
-			expect(afterReadObservedHydratedTarget).toBe(true)
 			expect(accessValues).toHaveLength(2)
 			expect(accessValues.every((value) => Pointer.is(value))).toBe(true)
 			expect(accessValues).toStrictEqual([pointer, pointer])
@@ -422,7 +378,7 @@ describe('pointer Runtime execution', () => {
 		}
 	})
 
-	it('returns the parent afterRead replacement without rehydrating it', async () => {
+	it('returns the hydrated parent pointer without a schema result transform', async () => {
 		const target = Schema.define({
 			className: 'PointerRuntimeAuthoritativeTarget',
 			fields: { name: stringField() },
@@ -430,12 +386,6 @@ describe('pointer Runtime execution', () => {
 		const source = Schema.define({
 			className: 'PointerRuntimeAuthoritativeSource',
 			fields: { target: pointerField({ target: () => target }) },
-			hooks: {
-				afterRead: ({ kind, result }) =>
-					kind === 'find-many'
-						? result.map((record) => ({ ...record, target: null }))
-						: result,
-			},
 		})
 		const pointer = target.pointer('0198a43e-2431-7000-8000-000000000407')
 		const sourceRecord = { target: pointer }
@@ -470,7 +420,7 @@ describe('pointer Runtime execution', () => {
 				{ ultimabase },
 			)
 
-			expect(result[0]?.target).toBeNull()
+			expect(result[0]?.target?.name).toBe('Hydrated before afterRead')
 			expect(adapter.rootRequests).toHaveLength(1)
 		} finally {
 			await ultimabase.dispose()
@@ -481,11 +431,6 @@ describe('pointer Runtime execution', () => {
 		const failingTarget = Schema.define({
 			className: 'PointerRuntimeFailingTarget',
 			fields: { name: stringField() },
-			hooks: {
-				afterRead: () => {
-					throw new TypeError('Mutation results must not load pointer targets')
-				},
-			},
 		})
 		const mutationSource = Schema.define({
 			className: 'PointerRuntimeMutationSource',

@@ -117,7 +117,7 @@ describe('packed @ultimabase/core native field hooks', () => {
 
 	it('keeps exact values and compact field hovers after declaration emission', () => {
 		expect(readHoverDisplay('input-value')).toContain('string | null')
-		expect(readHoverDisplay('change-timing')).toContain('"before-commit"')
+		expect(readHoverDisplay('change-item-id')).toContain('string')
 		const fieldDisplay = readHoverDisplay('field-definition')
 
 		expect(fieldDisplay).toContain(
@@ -139,7 +139,7 @@ describe('packed @ultimabase/core native field hooks', () => {
 		)
 		const display = readHoverDisplay('field-family-declaration')
 
-		expect(display).toContain('FieldBeforeSaveHookDeclaration<')
+		expect(display).toContain('FieldResolveInputHookDeclaration<')
 		expect(display).not.toContain('FieldValueHookInput<')
 		expect(display).not.toContain('HookHandlerDeclaration<')
 	})

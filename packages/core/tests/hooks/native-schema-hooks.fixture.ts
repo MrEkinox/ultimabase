@@ -17,14 +17,25 @@ export const ArticleSchema = Schema.define({
 	},
 	extensions: [permissionsExtension],
 	hooks: {
-		resolveInput: [
-			(input) => {
+		resolveInput: {
+			all: ({ operation }) => {
+				const /* hover:schema-list-operation */ listedOperation = operation
+
+				return listedOperation
+			},
+			create: (input) => {
+				const /* hover:create-family-kind */ kind = input.operation.kind
+
+				void kind
 				if (input.kind === 'create-one') {
 					const /* hover:create-input */ createInput = input.operation.input
 
 					createInput.title.toUpperCase()
 				}
 
+				return input.operation
+			},
+			update: (input) => {
 				if (input.kind === 'update-one') {
 					const /* hover:update-expression */ update = input.operation.update
 
@@ -33,51 +44,29 @@ export const ArticleSchema = Schema.define({
 
 				return input.operation
 			},
-			({ operation }) => {
-				const /* hover:schema-list-operation */ listedOperation = operation
+			upsert: ({ operation }) => operation,
+		},
+		/* hover:schema-family-declaration */ beforeOperation: {
+			create: [({ /* completion:schema-list-input */ ...input }) => void input],
+			update: ({ operation }) => void operation,
+		},
+		afterOperation: {
+			create: (input) => {
+				if (input.kind === 'create-one') {
+					const /* hover:create-result */ created = input.item
 
-				return listedOperation
-			},
-		],
-		/* hover:schema-family-declaration */ validate: {
-			all: () => [],
-			create: ({ operation }) => {
-				const /* hover:create-family-kind */ kind = operation.kind
+					created.title.toUpperCase()
+				}
 
-				void kind
-				return []
+				void input.result
 			},
 		},
-		beforeRead: [
-			({ query }) => {
-				const /* hover:query */ selectedQuery = query
+		transaction: {
+			afterCommit: ({ changes }) => {
+				const /* hover:transaction-changes */ committed = changes
 
-				return selectedQuery.limit(100)
+				void committed
 			},
-			({ query }) => query,
-		],
-		afterRead: (input) => {
-			if (input.kind === 'count') {
-				const /* hover:count-result */ count = input.result
-
-				count.toFixed()
-			}
-
-			return input.result
-		},
-		afterCreate: (input) => {
-			if (input.kind === 'create-one') {
-				const /* hover:create-result */ created = input.result
-
-				created.title.toUpperCase()
-			}
-
-			return input.result
-		},
-		onError: ({ error }) => {
-			const /* hover:error */ failure = error
-
-			void failure
 		},
 	},
 })
@@ -95,11 +84,10 @@ Schema.define({
 })
 
 Schema.define({
-	className: 'OperationFamilyCompletionSchema',
+	className: 'OperationGroupCompletionSchema',
 	fields: {},
 	hooks: {
-		// @ts-expect-error -- The incomplete map exists only to request completions.
-		onError: {/* completion:schema-operation-families */},
+		beforeOperation: {/* completion:schema-operation-families */},
 	},
 })
 
@@ -109,16 +97,6 @@ Schema.define({
 	hooks: {
 		// @ts-expect-error -- The incomplete map exists only to request completions.
 		resolveInput: {/* completion:schema-save-families */},
-	},
-})
-
-Schema.define({
-	className: 'ListCompletionSchema',
-	fields: {},
-	hooks: {
-		beforeCreate: [
-			({ /* completion:schema-list-input */ ...input }) => input.operation,
-		],
 	},
 })
 
@@ -137,7 +115,9 @@ Schema.define({
 	className: 'InvalidEmptyListSchema',
 	fields: {},
 	hooks: {
-		// @ts-expect-error -- Ordered hook declarations must never be empty.
-		beforeCreate: [],
+		beforeOperation: {
+			// @ts-expect-error -- Ordered hook declarations must never be empty.
+			create: [],
+		},
 	},
 })

@@ -198,6 +198,36 @@ export const createPreparedOperationFixture = <
 	return prepared as unknown as PreparedDatabaseOperation<TOperation>
 }
 
+/** Defers target-free writes so nested hooks execute in actual statement order. */
+const createLazyPreparedOperationFixture = <
+	const TOperation extends DatabaseMutationOperationAst,
+>(
+	results: QueuedAdapterResult[],
+	onExecute: () => void,
+): PreparedDatabaseOperation<TOperation> => {
+	let attempted = false
+
+	return immutableRecord({
+		execute: async (): Promise<DatabaseOperationOutcome<TOperation>> => {
+			if (attempted) {
+				throw new TypeError('Prepared database operation is already executed')
+			}
+
+			attempted = true
+			onExecute()
+			const result = await takeQueuedResult(results)
+			retainQueuedInclusions(result)
+
+			return immutableRecord({
+				materializations: immutableArray(
+					(result.materializations ?? []) as readonly DatabaseMutationMaterialization<TOperation>[],
+				),
+				result: await resolveQueuedResult<TOperation>(result),
+			}) as unknown as DatabaseOperationOutcome<TOperation>
+		},
+	}) as PreparedDatabaseOperation<TOperation>
+}
+
 /** Models one plugin-owned transaction and records every lifecycle boundary. */
 export class RecordingTransactionAdapter implements DatabaseTransactionAdapter {
 	readonly kind = 'database-transaction-adapter' as const
@@ -245,6 +275,21 @@ export class RecordingTransactionAdapter implements DatabaseTransactionAdapter {
 	): Promise<PreparedDatabaseOperation<TOperation>> {
 		this.requests.push(request)
 		this.#trace.push(`prepare:${request.operation.kind}`)
+
+		if (
+			request.operation.kind === 'create-one' ||
+			request.operation.kind === 'create-many' ||
+			request.operation.kind === 'upsert-one' ||
+			request.operation.kind === 'upsert-many'
+		) {
+			return createLazyPreparedOperationFixture<TOperation>(
+				this.#results,
+				() => {
+					this.#trace.push(`execute:${request.operation.kind}`)
+				},
+			)
+		}
+
 		const result: QueuedAdapterResult = await takeQueuedResult(this.#results)
 
 		return createPreparedOperationFixture({

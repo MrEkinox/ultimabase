@@ -101,23 +101,10 @@ describe('TransactionHookJournal', () => {
 			throw new TypeError('Expected a successful mutation journal entry')
 		}
 
-		const metadataChange = mutationEntry.fieldChanges.find(
-			({ fieldPath }) => fieldPath[0] === 'metadata',
-		)
-
 		expect(Object.isFrozen(mutationEntry)).toBe(true)
 		expect(Object.isFrozen(mutationEntry.operation)).toBe(true)
 		expect(Object.isFrozen(mutationEntry.result)).toBe(true)
-		expect(Object.isFrozen(mutationEntry.fieldChanges)).toBe(true)
 		expect(journal.snapshot()[0]).toBe(mutationEntry)
-		expect(metadataChange?.change.current).toMatchObject({
-			present: true,
-			value: { nested: { enabled: true } },
-		})
-
-		if (metadataChange?.change.current.present === true) {
-			expect(Object.isFrozen(metadataChange.change.current.value)).toBe(true)
-		}
 	})
 
 	it('retains a policy-projected result after required fields are hidden', () => {
@@ -194,7 +181,7 @@ describe('TransactionHookJournal', () => {
 		foreignJournal.fail(foreignToken, initialOperation, error, 'operation')
 	})
 
-	it('rejects premature snapshots and omits field changes for set-based writes', () => {
+	it('rejects premature snapshots and accepts set-based writes', () => {
 		const journal = new TransactionHookJournal()
 		const operation = immutableRecord({
 			kind: 'delete-many',
@@ -217,7 +204,6 @@ describe('TransactionHookJournal', () => {
 
 		expect(entry).toMatchObject({
 			category: 'mutation',
-			fieldChanges: [],
 			result: outcome.result,
 			status: 'succeeded',
 		})

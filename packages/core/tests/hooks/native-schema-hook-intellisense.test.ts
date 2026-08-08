@@ -82,22 +82,10 @@ const readMemberCompletions = (name: string) => {
 }
 
 const schemaHookPhaseNames = [
-	'afterCommit',
-	'afterCreate',
-	'afterDelete',
-	'afterRead',
-	'afterRollback',
-	'afterUpdate',
-	'afterUpsert',
-	'beforeCommit',
-	'beforeCreate',
-	'beforeDelete',
-	'beforeRead',
-	'beforeUpdate',
-	'beforeUpsert',
-	'onError',
+	'afterOperation',
+	'beforeOperation',
 	'resolveInput',
-	'validate',
+	'transaction',
 ] as const
 
 describe('native schema hook IntelliSense', () => {
@@ -156,12 +144,13 @@ describe('native schema hook IntelliSense', () => {
 		expect(createInput).not.toContain('SchemaDefinition<')
 		expect(createInput).not.toContain('OPAQUE_PERMISSION_CONFIG_MUST_NOT_LEAK')
 		expect(readHoverDisplay('update-expression')).toContain('UpdateExpression<')
-		expect(readHoverDisplay('query')).toContain('QueryBuilder<')
-		expect(readHoverDisplay('count-result')).toContain('number')
 		expect(readHoverDisplay('create-result')).toContain(
 			'readonly title: string;',
 		)
-		expect(readHoverDisplay('error')).toContain('unknown')
+		expect(readHoverDisplay('transaction-changes')).toContain('readonly')
+		expect(readHoverDisplay('transaction-changes')).toContain(
+			'kind: "create-one"',
+		)
 	})
 
 	it('suggests and documents only compatible family branches', () => {
@@ -169,10 +158,8 @@ describe('native schema hook IntelliSense', () => {
 		const save = readMemberCompletions('schema-save-families')
 
 		expect(operation.entries.map(({ name }) => name).sort()).toStrictEqual([
-			'all',
 			'create',
 			'delete',
-			'read',
 			'update',
 			'upsert',
 		])
@@ -219,7 +206,7 @@ describe('native schema hook IntelliSense', () => {
 	it('keeps family declaration hovers behind concise aliases', () => {
 		const display = readHoverDisplay('schema-family-declaration')
 
-		expect(display).toContain('SchemaValidateHookDeclaration<')
+		expect(display).toContain('SchemaBeforeOperationHooks<')
 		expect(display).not.toContain('ExecutableOperationAst<')
 		expect(display).not.toContain('InferOperationResult<')
 	})

@@ -56,17 +56,17 @@ export const hookTargetFixturePlugin = definePlugin({
 
 		void registry
 		hooks./* completion:hook-target-methods */ global('global', {
-			beforeCreate: ({ operation }) => operation,
+			beforeOperation: { create: ({ operation }) => void operation },
 		})
 		hooks.schema('schema', TargetSchema, {
-			beforeCreate: ({ operation }) => {
-				if (operation.kind === 'create-one') {
-					const /* hover:schema-title */ title = operation.input.title
+			beforeOperation: {
+				create: ({ operation }) => {
+					if (operation.kind === 'create-one') {
+						const /* hover:schema-title */ title = operation.input.title
 
-					void title
-				}
-
-				return operation
+						void title
+					}
+				},
 			},
 		})
 		hooks.field('listed', TargetSchema, ['tags'], {
@@ -77,14 +77,14 @@ export const hookTargetFixturePlugin = definePlugin({
 			},
 		})
 		hooks.field('object', TargetSchema, ['profile'], {
-			beforeSave: ({ value }) => {
+			resolveInput: ({ value }) => {
 				const /* hover:object-value */ objectValue = value
 
-				void objectValue
+				return objectValue
 			},
 		})
 		hooks.field('nested', TargetSchema, ['profile', 'displayName'], {
-			resolveOutput: ({ value }) => value,
+			resolveInput: ({ value }) => value,
 		})
 		hooks.field('custom', TargetSchema, ['endpoint'], {
 			resolveInput: ({ value }) => {
@@ -94,21 +94,23 @@ export const hookTargetFixturePlugin = definePlugin({
 			},
 		})
 		hooks.field('path-completion', TargetSchema, ['title'], {
-			onError: ({ error }) => void error,
+			resolveInput: ({ value }) => value,
 		})
 		hooks.schemaExtension('schema-extension', schemaExtension, (context) => {
 			const /* hover:schema-extension-config */ mode =
 					context.extension.config.mode
 
 			void mode
-			return { beforeRead: ({ query }) => query }
+			return {
+				beforeOperation: { create: ({ operation }) => void operation },
+			}
 		})
 		hooks.fieldExtension('field-extension', fieldExtension, (context) => {
 			const /* hover:field-extension-config */ redact =
 					context.extension.config.redact
 
 			void redact
-			return { onError: ({ error }) => void error }
+			return { resolveInput: ({ value }) => value }
 		})
 		hooks.fieldKind('field-kind', urlKindTarget, () => ({
 			resolveInput: ({ value }) => {

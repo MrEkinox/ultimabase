@@ -1,451 +1,115 @@
-import { isDeepStrictEqual } from 'node:util'
+import { immutableArray, immutableRecord, isPlainRecord } from '@ultimabase/shared'
 
-import { immutableArray, immutableRecord } from '@ultimabase/shared'
-
-import type { UpdateExpressionNode } from '../../query/index.js'
-import type {
-	FieldHookMode,
-	FieldValueChange,
-} from '../../schema/hooks/field-contracts.js'
 import {
-	getPluginFieldStorageCodec,
-	type GenericField,
-} from '../../schema/index.js'
-import { getFieldListDepth } from '../../schema/fields/base/options.js'
+	applyUpdateExpressionToRecord,
+	type ExecutableOperationAst,
+	type UpdateExpressionNode,
+} from '../../query/index.js'
+import { Schema } from '../../schema/index.js'
+import { isRelationUpdateExpression } from '../../schema/relations/mutation.js'
 import type {
 	DatabaseLogicalRecord,
 	DatabaseMutationMaterializationSource,
 	DatabaseMutationOperationAst,
-	DatabaseOperationOutcome,
+	DatabaseMutationOperationKind,
 } from '../database/contracts.js'
-import {
-	collectOperationFieldInputs,
-	collectRecordFieldValues,
-	collectUpdateExpressionFieldNames,
-	getRuntimeOperationFields,
-	type RuntimeFieldValue,
-} from './field-inputs.js'
+import { getOperationSchema } from '../operations/schema.js'
 
-/** Adds the exact mutation item and lifecycle mode to one present field value. */
-export interface RuntimeMutationFieldValue extends RuntimeFieldValue {
-	readonly itemIndex: number
-	readonly kind: DatabaseMutationOperationAst['kind']
-	readonly mode: FieldHookMode
+/** Correlates the complete logical value before and after one materialized item. */
+export interface RuntimeMutationItemPair {
+	readonly originalItem: DatabaseLogicalRecord | null
+	readonly item: DatabaseLogicalRecord | null
 }
 
-/** Describes one semantic field transition retained until transaction commit. */
-export interface RuntimeMutationFieldChange {
-	readonly change: FieldValueChange<unknown>
-	readonly field: GenericField
-	readonly fieldPath: readonly string[]
-	readonly itemId: string
-	readonly itemIndex: number
-	readonly kind: DatabaseMutationOperationAst['kind']
-	readonly timing: 'before-commit'
-	readonly valuePath: RuntimeFieldValue['valuePath']
-}
+const emptyMutationItems: readonly RuntimeMutationItemPair[] = immutableArray([])
 
-type MutationMaterialization =
-	DatabaseOperationOutcome<DatabaseMutationOperationAst>['materializations'][number]
+const createItemPair = (
+	originalItem: DatabaseLogicalRecord | null,
+	item: DatabaseLogicalRecord | null,
+): RuntimeMutationItemPair => immutableRecord({ originalItem, item })
 
-const emptyMutationValues: readonly RuntimeMutationFieldValue[] =
-	immutableArray([])
-const emptyMutationChanges: readonly RuntimeMutationFieldChange[] =
-	immutableArray([])
-
-const attachMutationContext = (
-	values: readonly RuntimeFieldValue[],
-	kind: DatabaseMutationOperationAst['kind'],
-	mode: FieldHookMode,
-	itemIndex: number,
-): readonly RuntimeMutationFieldValue[] =>
-	immutableArray(
-		values.map((value) => immutableRecord({ ...value, itemIndex, kind, mode })),
-	)
-
-/** Rejects an incomplete prepared stage instead of silently skipping field hooks. */
-const requireSingularTarget = (
-	target: DatabaseLogicalRecord | null | undefined,
-): DatabaseLogicalRecord | null => {
-	if (target === undefined) {
-		throw new TypeError(
-			'Runtime singular mutation field hooks require a prepared target',
-		)
-	}
-
-	return target
-}
-
-/** Produces parent-first field values for mutation effects before persistence. */
-export const collectMutationBeforeFieldValues = (
+/**
+ * Builds the candidate snapshots available before persistence.
+ *
+ * Atomic upserts deliberately remain empty because their create/update branch
+ * is not known until the database statement executes. Set-based updates and
+ * deletes likewise avoid materializing every matching row.
+ */
+export const collectMutationBeforeItems = (
 	operation: DatabaseMutationOperationAst,
 	target: DatabaseLogicalRecord | null | undefined,
-): readonly RuntimeMutationFieldValue[] => {
-	if (operation.kind === 'delete-many' || operation.kind === 'update-many') {
-		return emptyMutationValues
-	}
-
-	if (operation.kind === 'delete-one') {
-		const preparedTarget = requireSingularTarget(target)
-
-		return preparedTarget === null
-			? emptyMutationValues
-			: attachMutationContext(
-					collectRecordFieldValues(
-						getRuntimeOperationFields(operation),
-						preparedTarget,
-						'parent-first',
-					),
-					operation.kind,
-					'object',
-					0,
-				)
-	}
-
-	if (operation.kind === 'update-one') {
-		if (requireSingularTarget(target) === null) {
-			return emptyMutationValues
-		}
-	}
-
-	return immutableArray(
-		collectOperationFieldInputs(operation, 'parent-first').map((input) =>
-			immutableRecord({
-				field: input.field,
-				fieldPath: input.fieldPath,
-				itemIndex: input.itemIndex,
-				kind: operation.kind,
-				mode: input.mode,
-				value: input.value,
-				valuePath: input.valuePath,
-			}),
-		),
-	)
-}
-
-const readUpdateForItem = (
-	operation: DatabaseMutationOperationAst,
-	itemIndex: number,
-): UpdateExpressionNode | undefined => {
-	const untrustedOperation = operation as unknown as Readonly<
-		Record<string, unknown>
+): readonly RuntimeMutationItemPair[] => {
+	type RuntimeMutationOperation = Extract<
+		ExecutableOperationAst,
+		{ readonly kind: DatabaseMutationOperationKind }
 	>
+	const runtimeOperation = operation as unknown as RuntimeMutationOperation
 
-	if (operation.kind === 'update-one') {
-		return untrustedOperation.update as UpdateExpressionNode
+	switch (runtimeOperation.kind) {
+		case 'create-one':
+			return immutableArray([createItemPair(null, runtimeOperation.input)])
+		case 'create-many':
+			return immutableArray(
+				runtimeOperation.inputs.map((input) => createItemPair(null, input)),
+			)
+		case 'update-one': {
+			if (target === undefined) {
+				throw new TypeError('Prepared update hooks require a target boundary')
+			}
+
+			if (target === null) return emptyMutationItems
+
+			const update: unknown = runtimeOperation.update
+			const schema = getOperationSchema(runtimeOperation)
+
+			if (!Schema.is(schema)) {
+				throw new TypeError('Prepared update hooks require a declared schema')
+			}
+			const item =
+				isPlainRecord(update) && update.kind === 'update-expression'
+					? isRelationUpdateExpression(update)
+						? target
+						: applyUpdateExpressionToRecord(
+							schema,
+							target,
+							update as unknown as UpdateExpressionNode,
+							)
+					: target
+
+			return immutableArray([createItemPair(target, item)])
+		}
+		case 'delete-one':
+			if (target === undefined) {
+				throw new TypeError('Prepared delete hooks require a target boundary')
+			}
+
+			return target === null
+				? emptyMutationItems
+				: immutableArray([createItemPair(target, null)])
+		case 'delete-many':
+		case 'update-many':
+		case 'upsert-many':
+		case 'upsert-one':
+			return emptyMutationItems
 	}
-
-	if (operation.kind === 'upsert-one') {
-		return untrustedOperation.update as UpdateExpressionNode
-	}
-
-	if (operation.kind !== 'upsert-many') {
-		return undefined
-	}
-
-	const items: unknown = untrustedOperation.items
-
-	if (!Array.isArray(items)) {
-		throw new TypeError('Runtime materializations require upsert items')
-	}
-
-	const item: unknown = items[itemIndex]
-
-	if (typeof item !== 'object' || item === null || !('update' in item)) {
-		throw new TypeError('Runtime materialization has no matching upsert item')
-	}
-
-	return item.update as UpdateExpressionNode
 }
 
-/** Recovers the update candidate required by one materialized update branch. */
-const requireUpdateForItem = (
-	operation: DatabaseMutationOperationAst,
-	itemIndex: number,
-): UpdateExpressionNode => {
-	const update = readUpdateForItem(operation, itemIndex)
-
-	if (update === undefined) {
-		throw new TypeError(
-			'Runtime update materialization has no update expression',
-		)
-	}
-
-	return update
-}
-
-const collectAffectedValues = (
-	operation: DatabaseMutationOperationAst,
-	materialization: MutationMaterialization,
-	itemIndex: number,
-): readonly RuntimeMutationFieldValue[] => {
-	const fields = getRuntimeOperationFields(operation)
-	const record =
-		materialization.kind === 'delete'
-			? materialization.previous
-			: materialization.current
-	const mode: FieldHookMode =
-		materialization.kind === 'delete' ? 'object' : materialization.kind
-	let values = collectRecordFieldValues(fields, record, 'parent-first')
-
-	if (materialization.kind === 'update') {
-		const update = requireUpdateForItem(operation, itemIndex)
-		const affectedNames = new Set(collectUpdateExpressionFieldNames(update))
-		values = immutableArray(
-			values.filter((value) => {
-				const topLevelName = value.fieldPath[0]
-
-				return topLevelName !== undefined && affectedNames.has(topLevelName)
-			}),
-		)
-	}
-
-	// After phases unwind the exact parent-first traversal within each stable item.
-	return attachMutationContext(
-		immutableArray([...values].reverse()),
-		operation.kind,
-		mode,
-		itemIndex,
-	)
-}
-
-/** Produces child-first after-hook values without exposing selected public results. */
-export const collectMutationAfterFieldValues = (
-	operation: DatabaseMutationOperationAst,
+/** Builds exact persisted item pairs independently from the public selection. */
+export const collectMutationAfterItems = (
 	outcome: DatabaseMutationMaterializationSource,
-): readonly RuntimeMutationFieldValue[] => {
-	if (operation.kind === 'delete-many' || operation.kind === 'update-many') {
-		return emptyMutationValues
-	}
-
-	const values: RuntimeMutationFieldValue[] = []
-
-	for (const [
-		itemIndex,
-		materialization,
-	] of outcome.materializations.entries()) {
-		values.push(...collectAffectedValues(operation, materialization, itemIndex))
-	}
-
-	return immutableArray(values)
-}
-
-interface PresentRecordValue extends RuntimeFieldValue {
-	readonly value: unknown
-}
-
-const indexRecordValues = (
-	fields: Readonly<Record<string, GenericField>>,
-	record: Readonly<Record<string, unknown>> | undefined,
-): Readonly<{
-	order: readonly string[]
-	values: ReadonlyMap<string, PresentRecordValue>
-}> => {
-	if (record === undefined) {
-		return immutableRecord({ order: immutableArray([]), values: new Map() })
-	}
-
-	const values = new Map<string, PresentRecordValue>()
-	const order: string[] = []
-
-	for (const value of collectRecordFieldValues(
-		fields,
-		record,
-		'parent-first',
-	)) {
-		const key = JSON.stringify(value.valuePath)
-		values.set(key, value)
-		order.push(key)
-	}
-
-	return immutableRecord({ order: immutableArray(order), values })
-}
-
-const createValueChange = (
-	field: GenericField,
-	previous: PresentRecordValue | undefined,
-	current: PresentRecordValue | undefined,
-): FieldValueChange<unknown> | undefined => {
-	if (previous === undefined && current === undefined) {
-		return undefined
-	}
-
-	if (previous === undefined && current !== undefined) {
-		return immutableRecord({
-			previous: immutableRecord({ present: false as const }),
-			current: immutableRecord({
-				present: true as const,
-				value: current.value,
-			}),
-		})
-	}
-
-	if (previous !== undefined && current === undefined) {
-		return immutableRecord({
-			previous: immutableRecord({
-				present: true as const,
-				value: previous.value,
-			}),
-			current: immutableRecord({ present: false as const }),
-		})
-	}
-
-	if (previous === undefined || current === undefined) {
-		return undefined
-	}
-
-	const previousComparable = encodeComparableFieldValue(field, previous.value)
-	const currentComparable = encodeComparableFieldValue(field, current.value)
-
-	if (isDeepStrictEqual(previousComparable, currentComparable)) {
-		return undefined
-	}
-
-	return immutableRecord({
-		previous: immutableRecord({
-			present: true as const,
-			value: previous.value,
+): readonly RuntimeMutationItemPair[] =>
+	immutableArray(
+		outcome.materializations.map((materialization) => {
+			switch (materialization.kind) {
+				case 'create':
+					return createItemPair(null, materialization.current)
+				case 'update':
+					return createItemPair(
+						materialization.previous,
+						materialization.current,
+					)
+				case 'delete':
+					return createItemPair(materialization.previous, null)
+			}
 		}),
-		current: immutableRecord({ present: true as const, value: current.value }),
-	})
-}
-
-/** Applies one plugin scalar codec through every declared list dimension. */
-const encodeComparableFieldValue = (
-	field: GenericField,
-	value: unknown,
-): unknown => {
-	const storageCodec = getPluginFieldStorageCodec(field)
-
-	if (storageCodec === undefined) return value
-
-	const encodeAtDepth = (candidate: unknown, depth: number): unknown => {
-		if (depth === 0) return storageCodec.encode(candidate)
-
-		if (!Array.isArray(candidate)) {
-			throw new TypeError('Runtime plugin field list value must be an array')
-		}
-
-		return candidate.map((item) => encodeAtDepth(item, depth - 1))
-	}
-
-	return encodeAtDepth(value, getFieldListDepth(field.options))
-}
-
-/** Reads the stable system identity from the materialized row that still exists. */
-const readMaterializedItemId = (
-	materialization: MutationMaterialization,
-): string => {
-	const record =
-		materialization.kind === 'delete'
-			? materialization.previous
-			: materialization.current
-	const itemId: unknown = record.id
-
-	if (typeof itemId !== 'string' || itemId.length === 0) {
-		throw new TypeError(
-			'Runtime field change requires a materialized object id',
-		)
-	}
-
-	return itemId
-}
-
-const collectMaterializationChanges = (
-	operation: DatabaseMutationOperationAst,
-	materialization: MutationMaterialization,
-	itemIndex: number,
-): readonly RuntimeMutationFieldChange[] => {
-	const itemId = readMaterializedItemId(materialization)
-	const fields = getRuntimeOperationFields(operation)
-	const previousRecord =
-		materialization.kind === 'create' ? undefined : materialization.previous
-	const currentRecord =
-		materialization.kind === 'delete' ? undefined : materialization.current
-	const previous = indexRecordValues(fields, previousRecord)
-	const current = indexRecordValues(fields, currentRecord)
-	const affectedNames =
-		materialization.kind === 'update'
-			? new Set(
-					collectUpdateExpressionFieldNames(
-						requireUpdateForItem(operation, itemIndex),
-					),
-				)
-			: undefined
-	const orderedKeys = [...previous.order]
-
-	for (const key of current.order) {
-		if (!previous.values.has(key)) {
-			orderedKeys.push(key)
-		}
-	}
-
-	const changes: RuntimeMutationFieldChange[] = []
-
-	for (const key of orderedKeys.reverse()) {
-		const previousValue = previous.values.get(key)
-		const currentValue = current.values.get(key)
-		const descriptor = currentValue ?? previousValue
-
-		if (descriptor === undefined) {
-			continue
-		}
-
-		const topLevelName = descriptor.fieldPath[0]
-
-		if (
-			affectedNames !== undefined &&
-			(topLevelName === undefined || !affectedNames.has(topLevelName))
-		) {
-			continue
-		}
-
-		const change = createValueChange(
-			descriptor.field,
-			previousValue,
-			currentValue,
-		)
-
-		if (change === undefined) {
-			continue
-		}
-
-		changes.push(
-			immutableRecord({
-				change,
-				field: descriptor.field,
-				fieldPath: descriptor.fieldPath,
-				itemId,
-				itemIndex,
-				kind: operation.kind,
-				timing: 'before-commit' as const,
-				valuePath: descriptor.valuePath,
-			}),
-		)
-	}
-
-	return immutableArray(changes)
-}
-
-/** Produces only real child-first semantic changes for materialized mutations. */
-export const collectMutationFieldChanges = (
-	operation: DatabaseMutationOperationAst,
-	outcome: DatabaseMutationMaterializationSource,
-): readonly RuntimeMutationFieldChange[] => {
-	if (operation.kind === 'delete-many' || operation.kind === 'update-many') {
-		return emptyMutationChanges
-	}
-
-	const changes: RuntimeMutationFieldChange[] = []
-
-	for (const [
-		itemIndex,
-		materialization,
-	] of outcome.materializations.entries()) {
-		changes.push(
-			...collectMaterializationChanges(operation, materialization, itemIndex),
-		)
-	}
-
-	return immutableArray(changes)
-}
+	)

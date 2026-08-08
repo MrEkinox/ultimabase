@@ -98,22 +98,22 @@ describe('packed @ultimabase/core native schema hooks', () => {
 			throw new TypeError('Missing packed schema hook completions')
 		}
 
-		const beforeRead = completions.entries.find(
-			({ name }) => name === 'beforeRead',
+		const beforeOperation = completions.entries.find(
+			({ name }) => name === 'beforeOperation',
 		)
 
-		if (beforeRead === undefined) {
-			throw new TypeError('Missing packed beforeRead completion')
+		if (beforeOperation === undefined) {
+			throw new TypeError('Missing packed beforeOperation completion')
 		}
 
 		const details = service.getCompletionEntryDetails(
 			packedFixtureFile,
 			position,
-			beforeRead.name,
+			beforeOperation.name,
 			undefined,
-			beforeRead.source,
+			beforeOperation.source,
 			undefined,
-			beforeRead.data,
+			beforeOperation.data,
 		)
 
 		expect(ts.displayPartsToString(details?.documentation).trim()).not.toBe('')
@@ -126,11 +126,9 @@ describe('packed @ultimabase/core native schema hooks', () => {
 		expect(createInput).toContain('title: string;')
 		expect(createInput).not.toContain('SchemaDefinition<')
 		expect(createInput).not.toContain('OPAQUE_PERMISSION_CONFIG_MUST_NOT_LEAK')
-		expect(readHoverDisplay('count-result')).toContain('number')
 		expect(readHoverDisplay('create-result')).toContain(
 			'readonly title: string;',
 		)
-		expect(readHoverDisplay('error')).toContain('unknown')
 	})
 
 	it('preserves family composition and concise aliases after emission', () => {
@@ -145,7 +143,7 @@ describe('packed @ultimabase/core native schema hooks', () => {
 		)
 		const display = readHoverDisplay('schema-family-declaration')
 
-		expect(display).toContain('SchemaValidateHookDeclaration<')
+		expect(display).toContain('SchemaBeforeOperationHooks<')
 		expect(display).not.toContain('ExecutableOperationAst<')
 	})
 })

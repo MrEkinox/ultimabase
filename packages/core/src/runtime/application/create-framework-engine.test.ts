@@ -249,43 +249,13 @@ describe('createFrameworkEngine', () => {
 		await application.dispose()
 	})
 
-	it('shares one protected read lifecycle without opening an automatic transaction', async () => {
+	it('shares one protected read pipeline without opening an automatic transaction', async () => {
 		const trace: string[] = []
 		const schema = Schema.define({
 			className: 'AssembledReadArticle',
 			fields: {
-				secret: stringField({
-					hooks: {
-						resolveOutput: () => {
-							trace.push('field:secret')
-
-							return 'leaked'
-						},
-					},
-				}),
-				title: stringField({
-					hooks: {
-						resolveOutput: ({ value }) => {
-							trace.push('field:title')
-
-							return value === null ? null : value.toUpperCase()
-						},
-					},
-				}),
-			},
-			hooks: {
-				afterRead: ({ kind, result }) => {
-					trace.push('schema:afterRead')
-					// The exact terminal remains available even when this hook only observes.
-					expect(kind).toBe('find-many')
-
-					return result
-				},
-				beforeRead: ({ query }) => {
-					trace.push('schema:beforeRead')
-
-					return query.where((where) => where.eq('title', 'visible'))
-				},
+				secret: stringField(),
+				title: stringField(),
 			},
 		})
 		const adapter = new RecordingDatabaseAdapter(
@@ -337,7 +307,7 @@ describe('createFrameworkEngine', () => {
 		expect(result).toHaveLength(1)
 		expect(result[0]).toBeInstanceOf(schema)
 		expect(result.map((article) => article.toJSON())).toStrictEqual([
-			{ title: 'VISIBLE' },
+			{ title: 'visible' },
 		])
 		expect(adapter.transactions).toStrictEqual([])
 		expect(adapter.rootRequests).toHaveLength(1)
@@ -354,17 +324,9 @@ describe('createFrameworkEngine', () => {
 				selection: {
 					fields: [{ field: 'title', kind: 'selected-field' }],
 				},
-				where: {
-					expression: { field: 'title', kind: 'equal', value: 'visible' },
-				},
 			},
 		})
-		expect(trace).toStrictEqual([
-			'schema:beforeRead',
-			'execute:find-many',
-			'field:title',
-			'schema:afterRead',
-		])
+		expect(trace).toStrictEqual(['execute:find-many'])
 
 		await application.dispose()
 	})
@@ -397,10 +359,12 @@ describe('createFrameworkEngine', () => {
 				title: stringField({ validation: { required: true } }),
 			},
 			hooks: {
-				beforeCreate: () => {
-					trace.push('hook:beforeCreate')
+				beforeOperation: {
+					create: () => {
+						trace.push('hook:beforeCreate')
 
-					throw failure
+						throw failure
+					},
 				},
 			},
 		})
@@ -422,10 +386,14 @@ describe('createFrameworkEngine', () => {
 		).rejects.toBe(failure)
 		expect(trace).toStrictEqual([
 			'adapter:begin',
+			'prepare:create-one',
 			'hook:beforeCreate',
 			'adapter:rollback',
 		])
-		expect(adapter.transactions[0]?.requests).toStrictEqual([])
+		expect(adapter.transactions[0]?.requests).toHaveLength(1)
+		expect(adapter.transactions[0]?.requests[0]?.operation.kind).toBe(
+			'create-one',
+		)
 
 		await application.dispose()
 	})

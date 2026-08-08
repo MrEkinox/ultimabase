@@ -118,9 +118,7 @@ describe('pointerField', () => {
 					resolveOutput: () => undefined,
 				},
 			}),
-		).toThrow(
-			new TypeError('pointerField does not support hooks.resolveOutput'),
-		)
+		).toThrow(new TypeError('Unknown field hook: hooks.resolveOutput'))
 	})
 
 	it('rejects malformed lazy targets when a value crosses the field', () => {

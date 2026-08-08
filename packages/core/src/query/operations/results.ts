@@ -90,7 +90,7 @@ type InferOperationResultFor<
 						TMode,
 						OperationIncludedField<TOperation>,
 						TInclusionMode
-					> | null
+					>
 				: TOperation extends { readonly kind: 'count' }
 					? number
 					: TOperation extends { readonly kind: 'exists' }

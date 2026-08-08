@@ -31,6 +31,7 @@ import type {
 	DatabaseRowFilterNode,
 } from '../database/contracts.js'
 import { getOperationSchema } from '../operations/schema.js'
+import { createProtectedObjectNotFoundError } from '../operations/target-errors.js'
 
 /** Retains the only relation mutation details Runtime may interpret. */
 export interface RuntimeRelationMutation {
@@ -49,14 +50,6 @@ export interface RuntimeRelationMutationExecutor {
 	): Promise<unknown>
 	getSchemaTargets(): SchemaTargetGraph
 }
-
-/** Hides whether one protected source or target failed storage or Access. */
-export const createRelationNotFoundError = (): FrameworkError =>
-	new FrameworkError(
-		'NOT_FOUND',
-		'Protected relation object was missing or inaccessible.',
-		{ publicMessage: 'The requested object was not found.' },
-	)
 
 /** Narrows the closed action set before Runtime snapshots one delta. */
 const isRelationMutationAction = (
@@ -330,7 +323,7 @@ export const executeRuntimeRelationMutation = async (
 		)
 
 		if (target === null) {
-			throw createRelationNotFoundError()
+			throw createProtectedObjectNotFoundError()
 		}
 	}
 
@@ -420,7 +413,7 @@ export const executeRuntimeRelationMutation = async (
 		)
 
 		if (result === null) {
-			throw createRelationNotFoundError()
+			throw createProtectedObjectNotFoundError()
 		}
 	}
 

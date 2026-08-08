@@ -64,7 +64,7 @@ test('maps every terminal AST to selection-aware singular and bulk results', () 
 		InferOperationResult<
 			GetOperationAst<typeof schema, SelectedFilter, 'id' | 'title'>
 		>
-	>().toEqualTypeOf<SelectedResult | null>()
+	>().toEqualTypeOf<SelectedResult>()
 	expectTypeOf<
 		InferOperationResult<CountOperationAst<typeof schema>>
 	>().toEqualTypeOf<number>()

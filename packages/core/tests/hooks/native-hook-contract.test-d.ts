@@ -13,13 +13,7 @@ import {
 	profileField,
 	statusField,
 } from './native-hook-contract.prototype.js'
-import type {
-	PostSchema,
-	PrototypeBeforeReadHook,
-} from './native-hook-contract.prototype.js'
-
-const preserveSelection = (({ query }) =>
-	query.limit(25)) satisfies PrototypeBeforeReadHook<typeof PostSchema>
+import type { PostSchema } from './native-hook-contract.prototype.js'
 
 describe('native hook contract prototype', () => {
 	it('preserves schema and field inference outside callback declarations', () => {
@@ -51,8 +45,5 @@ describe('native hook contract prototype', () => {
 		expectTypeOf(matrixField.options).not.toHaveProperty('hooks')
 		expectTypeOf(nullableField.options).not.toHaveProperty('hooks')
 		expectTypeOf(embeddingField.options).not.toHaveProperty('hooks')
-		expectTypeOf(preserveSelection).toExtend<
-			PrototypeBeforeReadHook<typeof PostSchema>
-		>()
 	})
 })

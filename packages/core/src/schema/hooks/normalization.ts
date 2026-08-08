@@ -38,6 +38,7 @@ export type NormalizedHookDeclarations<TPhase extends string> = Readonly<
 interface HookDeclarationNormalizationOptions<TPhase extends string> {
 	readonly descriptors?: Readonly<Partial<Record<TPhase, HookPhaseDescriptor>>>
 	readonly hooks: unknown
+	readonly paths?: Readonly<Partial<Record<TPhase, string>>>
 	readonly phases: readonly TPhase[]
 	readonly scope: string
 }
@@ -164,6 +165,7 @@ const normalizeHookPhase = (
 export const normalizeHookDeclarations = <TPhase extends string>({
 	descriptors,
 	hooks,
+	paths,
 	phases,
 	scope,
 }: HookDeclarationNormalizationOptions<TPhase>):
@@ -193,7 +195,7 @@ export const normalizeHookDeclarations = <TPhase extends string>({
 		declarations[phase] = normalizeHookPhase(
 			hooks[key],
 			descriptors?.[phase],
-			`hooks.${key}`,
+			paths?.[phase] ?? `hooks.${key}`,
 		)
 		declarationCount += 1
 	}

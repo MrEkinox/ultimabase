@@ -37,7 +37,7 @@ export interface RuntimePipelineRequest<
 	readonly rowFilter?: DatabaseRowFilterNode
 	/** Carries target restrictions associated with exact public relation leaves. */
 	readonly relationPredicates?: readonly DatabaseRelationPredicateScope[]
-	/** Treats an included target's Access denial exactly like an absent target. */
+	/** Treats a protected target's Access denial exactly like an absent target. */
 	readonly nativeAccessDeniedAsMissing?: true
 }
 
@@ -194,6 +194,8 @@ export type RuntimeNativeDatabaseResultTransformStage = <
 export interface RuntimeNativeResultStageInput<
 	TOperation extends DatabaseOperationAst,
 > extends RuntimeResultStageInput<TOperation> {
+	/** Carries complete mutation snapshots without exposing them through selection. */
+	readonly outcome?: DatabaseMutationMaterializationSource
 	readonly selectedFieldsOverride?: readonly string[]
 }
 
@@ -293,8 +295,8 @@ export interface RuntimeNativeHookStages {
 	readonly revalidate: RuntimeOperationTransformStage
 	readonly validate: RuntimeOperationGuardStage
 	readonly schemaBefore: RuntimeOperationTransformStage
-	readonly fieldBefore: RuntimePreparedMutationEffectStage
-	readonly fieldAfter: RuntimeMutationOutcomeTransformStage
+	readonly schemaPrepared: RuntimePreparedMutationTransformStage
+	readonly mutationOutcome: RuntimeMutationOutcomeTransformStage
 	readonly resolveOutput: RuntimeNativeDatabaseResultTransformStage
 	readonly schemaAfter: RuntimeNativeResultTransformStage
 	/** Creates isolated finalization state only when an outer transaction begins. */

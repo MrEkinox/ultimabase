@@ -29,7 +29,7 @@ import {
 	rejectNextRoleReferenceCleanup,
 	resetMissingProviderHookCalls,
 	roleDeveloperHookTrace,
-	roleQueryTrace,
+	roleResolutionTrace,
 } from './roles-postgres.fixture.js'
 import {
 	createPostgresWorkerFixture,
@@ -230,7 +230,7 @@ describe('stored roles with PostgreSQL', { concurrent: false }, () => {
 			{ data: { description: 'Edits published content' } },
 			{ ultimabase: app, useMasterKey: true },
 		)
-		expect(updated?.description).toBe('Edits published content')
+		expect(updated.description).toBe('Edits published content')
 		expect(roleDeveloperHookTrace).toContain('update-one')
 
 		const eventCount = committedRoleEvents.length
@@ -294,7 +294,7 @@ describe('stored roles with PostgreSQL', { concurrent: false }, () => {
 			'roles-e2e-bob-update',
 		)
 
-		roleQueryTrace.length = 0
+		roleResolutionTrace.length = 0
 		const updated = await ProtectedPost.updateOne(
 			{
 				where: (where) => where.eq('id', publishedPostId),
@@ -304,8 +304,8 @@ describe('stored roles with PostgreSQL', { concurrent: false }, () => {
 		)
 
 		expect(updated?.internalNote).toBe('visible to administrators')
-		// One membership graph and two named references serve operation and field Access.
-		expect(roleQueryTrace).toHaveLength(7)
+		// Operation and field Access share one request-local membership resolution.
+		expect(roleResolutionTrace).toStrictEqual(['resolve-current'])
 		await expect(
 			ProtectedPost.updateOne(
 				{
@@ -340,7 +340,7 @@ describe('stored roles with PostgreSQL', { concurrent: false }, () => {
 			),
 		).resolves.toMatchObject({ id: deletable.id })
 
-		roleQueryTrace.length = 0
+		roleResolutionTrace.length = 0
 		await ProtectedPost.updateOne(
 			{
 				where: (where) => where.eq('id', publishedPostId),
@@ -350,7 +350,7 @@ describe('stored roles with PostgreSQL', { concurrent: false }, () => {
 			},
 			{ context: aliceContext, ultimabase: app },
 		)
-		expect(roleQueryTrace).toHaveLength(7)
+		expect(roleResolutionTrace).toStrictEqual(['resolve-current'])
 	})
 
 	it('rolls back indirect hierarchy cycles without publishing an event', async () => {
@@ -379,7 +379,7 @@ describe('stored roles with PostgreSQL', { concurrent: false }, () => {
 			{ ultimabase: app, useMasterKey: true },
 		)
 
-		expect(renamed?.name).toBe('content-editor')
+		expect(renamed.name).toBe('content-editor')
 		await expect(
 			resolveRoleReference(stableReference, { ultimabase: app }),
 		).resolves.toMatchObject({ id: currentEditor.id, name: 'content-editor' })

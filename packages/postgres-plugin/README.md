@@ -200,21 +200,24 @@ PostgreSQL client as the primary mutation. A hook may therefore start another
 typed query without receiving a pool, Drizzle client, or explicit transaction:
 
 ```ts
-	hooks: {
-	beforeCreate: async ({ operation }) => {
-		if (operation.kind === 'create-one') {
-			await AuditSchema.createOne({
-				data: { action: `create:${operation.input.title}` },
-			})
-		}
-
-		return operation
+hooks: {
+	beforeOperation: {
+		create: async ({ operation }) => {
+			if (operation.kind === 'create-one') {
+				await AuditSchema.createOne({
+					data: { action: `create:${operation.input.title}` },
+				})
+			}
+		},
+	},
+	transaction: {
+		afterCommit: ({ changes }) => publish(changes),
 	},
 }
 ```
 
 If a later business or finalization hook fails, PostgreSQL rolls back the audit
-row and primary row together. Field and schema `afterCommit` hooks plus named
+row and primary row together. Schema `transaction.afterCommit` hooks plus named
 events are released only after a successful outer commit. The Docker-backed
 public-package E2E suite verifies this behavior alongside plugin ordering,
 opaque scope constraints, read restrictions, output resolution, and set-based bulk

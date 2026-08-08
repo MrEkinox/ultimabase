@@ -15,24 +15,25 @@ export const AccountSchema = Schema.define({
 			hooks: {
 				resolveInput: [
 					({ value }) => value.trim(),
-					({ value }) => value.toLowerCase(),
+					({ value }) => {
+						const normalized = value.toLowerCase()
+
+						if (!normalized.includes('@')) {
+							throw new TypeError('Invalid email')
+						}
+
+						return normalized
+					},
 				],
-				resolveOutput: ({ value }) => value,
-				onChange: ({ change }) => {
-					// Absence is explicit; `undefined` is never a field value.
-					if (change.current.present) {
-						change.current.value.toUpperCase()
-					}
-				},
 			},
 		}),
 		status: enumField({
 			values: ['pending', 'active'] as const,
 			default: 'pending',
 			hooks: {
-				beforeSave: ({ value }) => {
+				resolveInput: ({ value }) => {
 					// `value` is inferred as "pending" | "active".
-					void value
+					return value
 				},
 			},
 		}),
@@ -46,16 +47,28 @@ export const AccountSchema = Schema.define({
 				return operation
 			},
 		},
-		beforeRead: [({ query }) => query.limit(100), ({ query }) => query],
+		beforeOperation: {
+			create: [
+				({ item }) => console.log(item),
+				({ operation }) => console.log(operation.kind),
+			],
+		},
+		afterOperation: {
+			update: ({ originalItem, item }) => {
+				console.log(originalItem, item)
+			},
+		},
 	},
 })
 ```
 
 Direct handlers remain the shortest form. Lists run sequentially in declaration
-order. Cross-family lifecycle phases expose only their compatible family keys.
-Operation hooks themselves are explicit (`beforeCreate`, `afterCreate`,
-`beforeRead`, and so on), while one exact family still covers singular and bulk
-terminals.
+order. Field family maps expose `all`, `create`, `update`, and `upsert`. Schema
+operation hooks group `create`, `update`, `upsert`, and `delete` below
+`beforeOperation` or `afterOperation`, while one branch covers singular and bulk
+terminals. Mutation observers may throw, but do not replace the operation or
+result; use `resolveInput` for transformations. Reads are configured through
+Query options and mandatory schema Access filters rather than schema hooks.
 
 The hook declarations are copied and frozen privately. They do not appear in
 `AccountSchema.fields.email.options`, validation plans, adapter metadata, or

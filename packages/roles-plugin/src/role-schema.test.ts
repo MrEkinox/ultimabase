@@ -152,16 +152,10 @@ describe('RoleSchema', () => {
 		)
 		expect(
 			first.getContributions('hooks').map(({ name }) => name),
-		).toStrictEqual([
-			'membership-events:FirstRoleDomain',
-			'deletion-policy:FirstRoleDomain',
-		])
+		).toStrictEqual(['membership-events:FirstRoleDomain'])
 		expect(
 			second.getContributions('hooks').map(({ name }) => name),
-		).toStrictEqual([
-			'membership-events:SecondRoleDomain',
-			'deletion-policy:SecondRoleDomain',
-		])
+		).toStrictEqual(['membership-events:SecondRoleDomain'])
 
 		await Promise.all([first.dispose(), second.dispose()])
 	})

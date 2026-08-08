@@ -18,25 +18,7 @@ const source = fixtureSource.replace(markerPattern, (marker) =>
 )
 const service = createLanguageService(fixtureFile, source)
 
-const fieldHookPhaseNames = [
-	'afterCommit',
-	'afterCreate',
-	'afterDelete',
-	'afterRollback',
-	'afterSave',
-	'afterUpdate',
-	'afterUpsert',
-	'beforeCreate',
-	'beforeDelete',
-	'beforeSave',
-	'beforeUpdate',
-	'beforeUpsert',
-	'onChange',
-	'onError',
-	'resolveInput',
-	'resolveOutput',
-	'validate',
-] as const
+const fieldHookPhaseNames = ['resolveInput'] as const
 
 /** Resolves stable IntelliSense markers without coupling assertions to lines. */
 const readMarkerPosition = (marker: string): number => {
@@ -111,7 +93,7 @@ describe('native field hook IntelliSense', () => {
 		expect(service.getSemanticDiagnostics(fixtureFile)).toStrictEqual([])
 	})
 
-	it('suggests and documents every inline phase', () => {
+	it('suggests and documents every public hook phase', () => {
 		const { entries, position } = readCompletions('field-hooks')
 		const phases = entries.sort((left, right) =>
 			left.name.localeCompare(right.name),
@@ -146,25 +128,11 @@ describe('native field hook IntelliSense', () => {
 				.entries.map(({ name }) => name)
 				.sort(),
 		).toStrictEqual(['context', 'kind', 'mode', 'value'])
-		expect(
-			readCompletions('on-change')
-				.entries.map(({ name }) => name)
-				.sort(),
-		).toStrictEqual(['change', 'context', 'itemId', 'kind', 'timing'])
 	})
 
 	it('suggests and documents only compatible family branches', () => {
-		const operation = readMemberCompletions('field-operation-families')
 		const save = readMemberCompletions('field-save-families')
 
-		expect(operation.entries.map(({ name }) => name).sort()).toStrictEqual([
-			'all',
-			'create',
-			'delete',
-			'read',
-			'update',
-			'upsert',
-		])
 		expect(save.entries.map(({ name }) => name).sort()).toStrictEqual([
 			'all',
 			'create',
@@ -172,10 +140,10 @@ describe('native field hook IntelliSense', () => {
 			'upsert',
 		])
 
-		for (const entry of operation.entries) {
+		for (const entry of save.entries) {
 			const details = service.getCompletionEntryDetails(
 				fixtureFile,
-				operation.position,
+				save.position,
 				entry.name,
 				undefined,
 				entry.source,
@@ -209,22 +177,14 @@ describe('native field hook IntelliSense', () => {
 	it('keeps family declaration hovers behind concise aliases', () => {
 		const display = readHoverDisplay('field-family-declaration')
 
-		expect(display).toContain('FieldBeforeSaveHookDeclaration<')
+		expect(display).toContain('FieldResolveInputHookDeclaration<')
 		expect(display).not.toContain('FieldValueHookInput<')
 		expect(display).not.toContain('HookHandlerDeclaration<')
 		expect(display).not.toContain('HOOK_BODY_MUST_NOT_LEAK')
 	})
 
-	it('shows exact values and explicit change state', () => {
+	it('shows exact input values', () => {
 		expect(readHoverDisplay('input-value')).toContain('string | null')
-		expect(readHoverDisplay('change-item-id')).toContain('string')
-		expect(readHoverDisplay('change-timing')).toContain('"before-commit"')
-		const currentState = readHoverDisplay('current-state')
-
-		expect(currentState).toContain('present: false;')
-		expect(currentState).toContain('present: true;')
-		expect(currentState).toContain('value: string | null;')
-		expect(currentState).not.toContain('value: string | null | undefined;')
 	})
 
 	it('keeps declaration callbacks out of compact field hovers', () => {
@@ -232,7 +192,6 @@ describe('native field hook IntelliSense', () => {
 
 		expect(display).toContain('NonDefaultedStringField<false, false, false>')
 		expect(display).not.toContain('FieldHooks')
-		expect(display).not.toContain('resolveInput')
 		expect(display).not.toContain('HOOK_BODY_MUST_NOT_LEAK')
 	})
 })

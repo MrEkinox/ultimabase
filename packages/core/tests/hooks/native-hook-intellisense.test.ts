@@ -91,10 +91,10 @@ describe('native hook contract prototype IntelliSense', () => {
 	it('contextually exposes schema and field hook entry points', () => {
 		expect(readPropertyCompletions('schema-options')).toContain('hooks')
 		expect(readPropertyCompletions('schema-hooks')).toStrictEqual([
-			'afterRead',
-			'beforeCreate',
-			'beforeRead',
+			'afterOperation',
+			'beforeOperation',
 			'resolveInput',
+			'transaction',
 		])
 		expect(readPropertyCompletions('field-options')).toContain('hooks')
 	})
@@ -107,10 +107,6 @@ describe('native hook contract prototype IntelliSense', () => {
 		expect(readHoverDisplay('update-input')).toContain('title?: string;')
 		expect(readHoverDisplay('object')).toContain('readonly id: string;')
 		expect(readHoverDisplay('object')).toContain('readonly title: string;')
-		expect(readHoverDisplay('query')).toContain('QueryBuilder<')
-		expect(readHoverDisplay('count-result')).toContain('number')
-		expect(readHoverDisplay('find-result')).toContain('readonly')
-		expect(readHoverDisplay('find-result')).toContain('title: string;')
 	})
 
 	it('infers exact scalar, enum, object, list, nullable, and plugin values', () => {

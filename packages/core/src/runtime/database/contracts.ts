@@ -213,7 +213,9 @@ export type DatabaseObjectRecord<
  * cannot drift on selection, nullability, or singular versus bulk semantics.
  */
 export type DatabaseOperationResult<TOperation extends OperationAstNode> =
-	InferOperationSourceRecordResult<TOperation>
+	TOperation['kind'] extends 'get'
+		? InferOperationSourceRecordResult<TOperation> | null
+		: InferOperationSourceRecordResult<TOperation>
 
 /** Carries one complete adapter-decoded object without exposing physical rows. */
 export type DatabaseLogicalRecord = Readonly<Record<string, unknown>>

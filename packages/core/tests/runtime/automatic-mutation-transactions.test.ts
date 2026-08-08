@@ -86,6 +86,21 @@ interface MutationFixture {
 	readonly result: unknown
 }
 
+/** Supplies the stable preimage required by singular prepared mutations. */
+const createMutationTarget = (
+	kind: SchemaMutationHookKind,
+): ReturnType<typeof articleRecord> | undefined => {
+	if (kind === 'update-one') {
+		return articleRecord('0198f090-2a50-7000-8000-000000000003', 'Before')
+	}
+
+	if (kind === 'delete-one') {
+		return articleRecord('0198f090-2a50-7000-8000-000000000006', 'Deleted')
+	}
+
+	return undefined
+}
+
 /** Exercises public terminals so the matrix cannot drift from QueryBuilder normalization. */
 const mutationFixtures: readonly MutationFixture[] = [
 	{
@@ -187,8 +202,15 @@ describe('automatic mutation transaction scope', () => {
 		'commits one automatic transaction for $kind',
 		async ({ execute, kind, result }) => {
 			const trace: string[] = []
+			const target = createMutationTarget(kind)
 			const { adapter, request } = createRequest(
-				[{ status: 'fulfilled', value: result }],
+				[
+					{
+						status: 'fulfilled',
+						...(target === undefined ? {} : { target }),
+						value: result,
+					},
+				],
 				trace,
 				{},
 			)
@@ -221,8 +243,15 @@ describe('automatic mutation transaction scope', () => {
 		async ({ execute, kind }) => {
 			const trace: string[] = []
 			const writeError = new Error(`${kind} failed`)
+			const target = createMutationTarget(kind)
 			const { adapter, request } = createRequest(
-				[{ status: 'rejected', error: writeError }],
+				[
+					{
+						error: writeError,
+						status: 'rejected',
+						...(target === undefined ? {} : { target }),
+					},
+				],
 				trace,
 				{},
 			)

@@ -910,7 +910,7 @@ export const createRuntimeHookBoundaries = (): RuntimeHookBoundaries => {
 					),
 				)
 				// Relation fields are handle-only unless this exact result included them.
-				delete parentCandidate[inclusion.field]
+				Reflect.deleteProperty(parentCandidate, inclusion.field)
 			}
 
 			hydratedTargets.set(inclusion.field, targetSnapshot)

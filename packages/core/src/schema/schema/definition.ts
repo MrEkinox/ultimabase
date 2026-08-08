@@ -170,7 +170,7 @@ export interface SchemaOptions<
 	 * Declares immutable schema lifecycle behavior without requiring a plugin.
 	 * Hook functions stay outside physical schema metadata and migration plans.
 	 *
-	 * @example `hooks: { beforeRead: ({ query }) => query.limit(100) }`
+	 * @example `hooks: { beforeOperation: { update: ({ item }) => audit(item) } }`
 	 */
 	readonly hooks?: SchemaHooks<
 		SchemaClass<NoInfer<TClassName>, NoInfer<TFields>, NoInfer<TExtensions>>
@@ -262,24 +262,24 @@ export interface SchemaClass<
 	 * Reads one exact identifier with its requested projection.
 	 *
 	 * @example `await Post.get({ id: postId, select: { title: true } })`
+	 * @throws `FrameworkError` with code `NOT_FOUND` when the object is absent.
 	 */
 	get<const TInput extends GetInput<this>>(
 		input: ExactReadInput<this, TInput, GetInput<this>>,
 		options?: OperationOptions,
-	): Promise<InferQueryResult<
-		this,
-		QuerySelectedFieldFromInput<this, TInput>,
-		QueryIncludedFieldFromInput<this, TInput>
-	> | null>
+	): Promise<
+		InferQueryResult<
+			this,
+			QuerySelectedFieldFromInput<this, TInput>,
+			QueryIncludedFieldFromInput<this, TInput>
+		>
+	>
 	/**
 	 * Counts rows matching the canonical object filter.
 	 *
 	 * @example `await Post.count({ where: { published: { eq: true } } })`
 	 */
-	count(
-		input?: CountInput<this>,
-		options?: OperationOptions,
-	): Promise<number>
+	count(input?: CountInput<this>, options?: OperationOptions): Promise<number>
 	/**
 	 * Tests whether one row matches the canonical object filter.
 	 *
@@ -340,7 +340,7 @@ export interface SchemaClass<
 		options?: TOptions & BulkOperationOptions,
 	): Promise<InferBulkOperationResult<InferQueryResult<this>, TOptions>>
 	/**
-	 * Updates one unique target and returns its selected model fields.
+	 * Updates one unique target, or returns `null` when its where clause matches none.
 	 *
 	 * @example `await Post.updateOne({ where: { id: { eq: id } }, data, select: { id: true, title: true } })`
 	 */
@@ -430,7 +430,7 @@ export interface SchemaClass<
 		options?: TOptions & BulkOperationOptions,
 	): Promise<InferBulkOperationResult<InferQueryResult<this>, TOptions>>
 	/**
-	 * Deletes one unique target and returns its selected removed model fields.
+	 * Deletes one unique target, or returns `null` when its where clause matches none.
 	 *
 	 * @example `await Post.deleteOne({ where: { id: { eq: id } }, select: { id: true, title: true } })`
 	 */

@@ -2,31 +2,22 @@ import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
 import type { OperationKind } from '../../query/index.js'
 import type { SchemaHookPhase } from '../../schema/hooks/declarations.js'
-import type { FieldHookPhase } from '../../schema/hooks/field-declarations.js'
 import type { HookOperationFamily } from '../../schema/hooks/family-keys.js'
 
 /** Captures the deterministic business phase nesting for one terminal operation. */
 export interface NativeHookPhaseOrder {
 	readonly family: HookOperationFamily
-	readonly fieldAfter: readonly FieldHookPhase[]
-	readonly fieldBefore: readonly FieldHookPhase[]
 	readonly schemaAfter: readonly SchemaHookPhase[]
 	readonly schemaBefore: readonly SchemaHookPhase[]
 }
-
-const noFieldPhases: readonly FieldHookPhase[] = immutableArray([])
 
 const createPhaseOrder = (
 	family: HookOperationFamily,
 	schemaBefore: readonly SchemaHookPhase[],
 	schemaAfter: readonly SchemaHookPhase[],
-	fieldBefore: readonly FieldHookPhase[],
-	fieldAfter: readonly FieldHookPhase[],
 ): NativeHookPhaseOrder =>
 	immutableRecord({
 		family,
-		fieldAfter,
-		fieldBefore,
 		schemaAfter,
 		schemaBefore,
 	})
@@ -44,8 +35,6 @@ const createSavePhaseOrder = (
 		family,
 		immutableArray([exactBefore]),
 		immutableArray([exactAfter]),
-		immutableArray(['beforeSave', exactBefore]),
-		immutableArray([exactAfter, 'afterSave']),
 	)
 
 const createOrder = createSavePhaseOrder(
@@ -62,8 +51,6 @@ const updateManyOrder = createPhaseOrder(
 	'update',
 	updateOneOrder.schemaBefore,
 	updateOneOrder.schemaAfter,
-	noFieldPhases,
-	noFieldPhases,
 )
 const upsertOrder = createSavePhaseOrder(
 	'upsert',
@@ -74,22 +61,16 @@ const deleteOneOrder = createPhaseOrder(
 	'delete',
 	immutableArray(['beforeDelete']),
 	immutableArray(['afterDelete']),
-	immutableArray(['beforeDelete']),
-	immutableArray(['afterDelete']),
 )
 const deleteManyOrder = createPhaseOrder(
 	'delete',
 	deleteOneOrder.schemaBefore,
 	deleteOneOrder.schemaAfter,
-	noFieldPhases,
-	noFieldPhases,
 )
 const readOrder = createPhaseOrder(
 	'read',
-	immutableArray(['beforeRead']),
-	immutableArray(['afterRead']),
-	noFieldPhases,
-	noFieldPhases,
+	immutableArray([]),
+	immutableArray([]),
 )
 
 // The exhaustive record makes new operation terminals fail type checking until ordered.

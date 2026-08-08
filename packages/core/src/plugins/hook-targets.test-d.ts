@@ -49,18 +49,20 @@ test('infers setup hook targets and exact schema or field handlers', () => {
 		name: 'fixture.hooks',
 		setup: ({ hooks }) => {
 			hooks.global('global', {
-				beforeCreate: ({ operation }) => operation,
+				beforeOperation: { create: ({ operation }) => void operation },
 			})
 			hooks.schema('schema', schema, {
-				beforeCreate: ({ operation }) => {
-					if (operation.kind === 'create-one') {
-						expectTypeOf(operation.input.title).toEqualTypeOf<string>()
-					} else {
-						expectTypeOf(operation.inputs[0]?.title).toEqualTypeOf<
-							string | undefined
-						>()
-					}
-					return operation
+				beforeOperation: {
+					create: ({ operation }) => {
+						if (operation.kind === 'create-one') {
+							expectTypeOf(operation.input.title).toEqualTypeOf<string>()
+						} else {
+							expectTypeOf(operation.inputs[0]?.title).toEqualTypeOf<
+								string | undefined
+							>()
+						}
+						void operation
+					},
 				},
 			})
 			hooks.field('listed-nullable', schema, ['tags'], {
@@ -70,14 +72,15 @@ test('infers setup hook targets and exact schema or field handlers', () => {
 				},
 			})
 			hooks.field('nested-object', schema, ['profile'], {
-				beforeSave: ({ value }) => {
+				resolveInput: ({ value }) => {
 					expectTypeOf(value?.displayName).toEqualTypeOf<
 						string | null | undefined
 					>()
+					return value
 				},
 			})
 			hooks.field('nested-scalar', schema, ['profile', 'displayName'], {
-				resolveOutput: ({ value }) => {
+				resolveInput: ({ value }) => {
 					expectTypeOf(value).toEqualTypeOf<string | null>()
 					return value
 				},
@@ -90,11 +93,13 @@ test('infers setup hook targets and exact schema or field handlers', () => {
 			})
 			hooks.schemaExtension('schema-extension', schemaExtension, (context) => {
 				expectTypeOf(context.extension.config.mode).toEqualTypeOf<'strict'>()
-				return { beforeRead: ({ query }) => query }
+				return {
+					beforeOperation: { create: ({ operation }) => void operation },
+				}
 			})
 			hooks.fieldExtension('field-extension', fieldExtension, (context) => {
 				expectTypeOf(context.extension.config.redact).toEqualTypeOf<true>()
-				return { onError: ({ error }) => void error }
+				return { resolveInput: ({ value }) => value }
 			})
 			hooks.fieldKind('field-kind', urlKindTarget, ({ field }) => {
 				expectTypeOf(field).toEqualTypeOf<typeof schema.fields.endpoint>()

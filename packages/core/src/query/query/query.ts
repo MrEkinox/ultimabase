@@ -179,11 +179,12 @@ type QuerySelectionAfterInclude<
 	TSchema extends SchemaDefinition,
 	TSelectedField extends QueryFieldName<TSchema>,
 	TIncludedField extends QueryIncludableFieldName<TSchema>,
-> = TIncludedField extends QueryPointerFieldName<TSchema>
-	? [TSelectedField] extends [never]
-		? never
-		: TSelectedField | TIncludedField
-	: TSelectedField
+> =
+	TIncludedField extends QueryPointerFieldName<TSchema>
+		? [TSelectedField] extends [never]
+			? never
+			: TSelectedField | TIncludedField
+		: TSelectedField
 
 type ReplaceResultInclusion<
 	TIncludedPointer,
@@ -198,19 +199,20 @@ type QueryResultInclusionForField<
 		QueryInclusionTargetSchema<TSchema, TFieldName>
 	>,
 	TTargetInclusion,
-> = TFieldName extends QueryPointerFieldName<TSchema>
-	? QueryPointerResultInclusion<
-			TFieldName,
-			QueryInclusionTargetSchema<TSchema, TFieldName>,
-			TTargetSelectedField,
-			TTargetInclusion
-		>
-	: QueryRelationResultInclusion<
-			TFieldName,
-			QueryInclusionTargetSchema<TSchema, TFieldName>,
-			TTargetSelectedField,
-			TTargetInclusion
-		>
+> =
+	TFieldName extends QueryPointerFieldName<TSchema>
+		? QueryPointerResultInclusion<
+				TFieldName,
+				QueryInclusionTargetSchema<TSchema, TFieldName>,
+				TTargetSelectedField,
+				TTargetInclusion
+			>
+		: QueryRelationResultInclusion<
+				TFieldName,
+				QueryInclusionTargetSchema<TSchema, TFieldName>,
+				TTargetSelectedField,
+				TTargetInclusion
+			>
 
 type QueryInclusionTargetBuilder<
 	TSchema extends SchemaDefinition,
@@ -341,8 +343,7 @@ const buildQueryProjectionInput = <const TSchema extends SchemaDefinition>(
 					orderBy: immutableArray(
 						ast.ordering.orders.map((order) =>
 							immutableRecord({
-								[order.field]:
-									order.direction === 'ascending' ? 'asc' : 'desc',
+								[order.field]: order.direction === 'ascending' ? 'asc' : 'desc',
 							}),
 						),
 					),
@@ -570,7 +571,9 @@ export class QueryBuilder<
 	}
 
 	/** Selects offset pagination and rejects an existing cursor position. */
-	offset(value: number): QueryBuilder<TSchema, TSelectedField, TIncludedPointer> {
+	offset(
+		value: number,
+	): QueryBuilder<TSchema, TSelectedField, TIncludedPointer> {
 		const pagination = normalizeQueryOffsetPagination({ offset: value })
 
 		if (pagination === undefined) {
@@ -757,8 +760,8 @@ export class QueryBuilder<
  * Restores a frozen unbound QueryBuilder from one already normalized immutable AST.
  *
  * This module-level export is intentionally omitted from Core's public export
- * surface. Runtime uses it to expose `beforeRead` without adding execution state
- * or a low-level AST constructor to the developer-facing QueryBuilder API.
+ * surface. Runtime and schema commands use it to retain private execution state
+ * without exposing a low-level AST constructor on the developer QueryBuilder.
  *
  * @internal
  */
@@ -930,11 +933,7 @@ export const executeQueryGet = <
 	query: QueryExecutionInput<TSchema, TSelectedField, TIncludedPointer>,
 	id: OperationObjectId<TSchema>,
 	options?: OperationOptions,
-): Promise<InferQueryResult<
-	TSchema,
-	TSelectedField,
-	TIncludedPointer
-> | null> => {
+): Promise<InferQueryResult<TSchema, TSelectedField, TIncludedPointer>> => {
 	const operation: GetOperationAst<
 		TSchema,
 		QueryFilterNode<TSchema>,
@@ -1039,7 +1038,7 @@ export const executeQueryUpdateOne = <
 	TSelectedField extends QueryFieldName<TSchema>,
 	TIncludedPointer,
 >(
-	query: QueryBuilder<TSchema, TSelectedField, TIncludedPointer>,
+	query: QueryExecutionInput<TSchema, TSelectedField, TIncludedPointer>,
 	input: UpdateExpressionInput<TSchema> & {},
 	options?: OperationOptions,
 ): Promise<InferQueryResult<
@@ -1161,7 +1160,7 @@ export const executeQueryDeleteOne = <
 	TSelectedField extends QueryFieldName<TSchema>,
 	TIncludedPointer,
 >(
-	query: QueryBuilder<TSchema, TSelectedField, TIncludedPointer>,
+	query: QueryExecutionInput<TSchema, TSelectedField, TIncludedPointer>,
 	options?: OperationOptions,
 ): Promise<InferQueryResult<
 	TSchema,

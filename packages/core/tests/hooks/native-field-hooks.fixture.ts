@@ -15,27 +15,19 @@ export const emailField = /* hover:field-definition */ stringField({
 				return listedValue
 			},
 		],
-		/* hover:field-family-declaration */ beforeSave: {
-			all: ({ value }) => {
-				void value
-			},
+	},
+})
+
+stringField({
+	hooks: {
+		/* hover:field-family-declaration */ resolveInput: {
+			all: ({ value }) => value,
 			create: ({ kind, value }) => {
 				const /* hover:field-create-family-kind */ createKind = kind
 
 				void createKind
-				void value
+				return value
 			},
-		},
-		onChange: ({ change, itemId, timing }) => {
-			const changeTiming = /* hover:change-timing */ timing
-			const changeItemId = /* hover:change-item-id */ itemId
-			const /* hover:current-state */ current = change.current
-
-			void changeTiming
-			void changeItemId
-			if (current.present) {
-				current.value?.trim()
-			}
 		},
 	},
 })
@@ -53,38 +45,28 @@ stringField({
 stringField({
 	hooks: {
 		// @ts-expect-error -- The incomplete map exists only to request completions.
-		resolveOutput: {/* completion:field-operation-families */},
+		resolveInput: {/* completion:field-save-families */},
 	},
 })
 stringField({
 	hooks: {
-		// @ts-expect-error -- The incomplete map exists only to request completions.
-		beforeSave: {/* completion:field-save-families */},
+		resolveInput: {
+			update: [
+				({ /* completion:field-list-input */ ...input }) => {
+					void input
+					return undefined
+				},
+			],
+		},
 	},
 })
 stringField({
 	hooks: {
-		beforeCreate: [
-			({ /* completion:field-list-input */ ...input }) => {
-				void input
-			},
-		],
-	},
-})
-stringField({
-	hooks: {
-		beforeSave: {
-			// @ts-expect-error -- Read families are unavailable to save-only phases.
+		resolveInput: {
+			// @ts-expect-error -- Read families are unavailable to input phases.
 			read: () => undefined,
 		},
 	},
 })
 // @ts-expect-error -- Ordered hook declarations must never be empty.
-stringField({ hooks: { beforeCreate: [] } })
-stringField({
-	hooks: {
-		onChange: ({ /* completion:on-change */ ...input }) => {
-			void input
-		},
-	},
-})
+stringField({ hooks: { resolveInput: { create: [] } } })

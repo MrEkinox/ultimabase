@@ -207,11 +207,12 @@ const createNativeHookStages = (trace: string[]): RuntimeNativeHookStages => ({
 	revalidate: createOperationTransform('native:revalidate', trace),
 	validate: createGuard('native:validate', trace),
 	schemaBefore: createOperationTransform('native:schemaBefore', trace),
-	fieldBefore: (): void => {
-		trace.push('native:fieldBefore')
+	schemaPrepared: (input) => {
+		trace.push('native:schemaPrepared')
+		return input.operation
 	},
-	fieldAfter: (input) => {
-		trace.push('native:fieldAfter')
+	mutationOutcome: (input) => {
+		trace.push('native:mutationOutcome')
 
 		return input.outcome
 	},

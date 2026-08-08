@@ -97,11 +97,11 @@ schema declaration is available:
 const targetUser: SchemaTarget<typeof UserSchema> = () => UserSchema
 ```
 
-`pointerField` supports input, validation, mutation, change, and finalization
-hooks, but not `resolveOutput`. Pointer disclosure belongs to field Access and
-included scalar resolution belongs to target fields. Inclusion itself does not
-run target schema read hooks; only an explicit target read does. `relationField`
-stores no model value and therefore accepts no field hooks.
+`pointerField` supports input resolution through its one field hook. Pointer
+disclosure belongs to field Access, while field definitions and transports own
+output representation. Inclusion itself does not run a target schema lifecycle;
+reads expose no schema hooks. `relationField` stores no model value and
+therefore accepts no field hooks.
 
 An application resolves field-owned callbacks after plugin setup and before
 infrastructure lifecycle phases. This ordering permits a plugin to register a
@@ -211,15 +211,13 @@ const user = await UserSchema.get(
 	{ ultimabase },
 )
 
-if (user !== null) {
-	const posts = user.relation('posts')
-	const recentPosts = await posts.findMany({
-		select: { id: true, title: true },
-		orderBy: [{ createdAt: 'desc' }],
-		limit: 20,
-		cursor: true,
-	})
-}
+const posts = user.relation('posts')
+const recentPosts = await posts.findMany({
+	select: { id: true, title: true },
+	orderBy: [{ createdAt: 'desc' }],
+	limit: 20,
+	cursor: true,
+})
 ```
 
 The `relation()` argument completes only exact relation field names and returns
@@ -327,22 +325,24 @@ const updated = await created.update(
 	{ data: { title: 'Updated' }, select: { id: true, title: true } },
 	{ ultimabase },
 )
-await updated?.delete({ select: { id: true } }, { ultimabase })
+await updated.delete({ select: { id: true } }, { ultimabase })
 ```
 
 `where` must build distinct non-null equalities matching `id`, one unique field,
 or one composite unique index. Every command returns a new model and delegates
 to Runtime validation, hooks, policies, cancellation, and transactions.
+Persisted `fetch`, `update`, and `delete` are strict protected-identity commands:
+they return a model or throw `NOT_FOUND`, including when Access hides the target.
 There is no dirty tracking, implicit batching, `save()`, or instance collection
 operation.
 
 ## Native schema hook declarations
 
-`Schema.define({ hooks })` accepts the complete typed schema lifecycle directly.
-Create, update, upsert, delete, save, read, and general operation handlers cover
-their singular and bulk terminals through one callback. `operation.kind`
-narrows the exact operation, while result handlers preserve its corresponding
-result type.
+`Schema.define({ hooks })` accepts the typed mutation lifecycle directly through
+four focused groups: input transformation, before-operation observers,
+after-operation observers, and transaction finalization. Each operation branch
+covers both singular and bulk terminals, while `operation.kind` narrows the
+exact terminal.
 
 ```ts
 const ArticleSchema = Schema.define({
@@ -351,22 +351,32 @@ const ArticleSchema = Schema.define({
 		title: stringField({ validation: { required: true } }),
 	},
 	hooks: {
-		beforeRead: ({ query }) => query.limit(100),
-		afterRead: (input) => {
-			if (input.kind === 'count') {
-				return Math.max(input.result, 0)
-			}
-
-			return input.result
+		resolveInput: {
+			create: ({ operation }) => operation,
+		},
+		beforeOperation: {
+			update: ({ originalItem, item }) => {
+				auditChange(originalItem, item)
+			},
+		},
+		afterOperation: {
+			create: ({ item }) => {
+				auditCreation(item)
+			},
 		},
 	},
 })
 ```
 
+`resolveInput` is the only transforming schema hook and may throw to reject an
+input. Before- and after-operation handlers are observers: they may perform
+transactional work or throw, but Runtime ignores their return values. Read
+filtering belongs to Query options for developer choices and schema Access for
+mandatory restrictions; there are no schema read hooks.
+
 The declaration record is copied and frozen outside enumerable schema metadata.
 Changing only hooks cannot alter validation plans, adapter schemas, or
-migrations. Issue 325 declares and retains these callbacks; issue 330 connects
-them to Runtime execution.
+migrations. Runtime compiles the private declaration once per application.
 
 Each phase accepts one callback or a non-empty ordered callback list. Phases
 covering several logical operation families also accept an `all` plus family
@@ -387,9 +397,8 @@ hooks: {
 
 Only compatible family keys are suggested for a phase. Family handlers cover
 both singular and bulk terminals and retain the exact `kind` discriminant.
-Before phases run shared handlers before the matching family; after phases run
-the matching family before shared handlers. Configuration property order never
-changes this nesting.
+For `resolveInput`, shared `all` handlers run before the matching family.
+Configuration property order never changes this nesting.
 
 ## Inline field hook declarations
 
@@ -407,39 +416,32 @@ const ProfileSchema = Schema.define({
 					({ value }) => value.trim(),
 					({ value }) => value.toLocaleLowerCase(),
 				],
-				onChange: ({ change, timing }) => {
-					// `timing` is exactly "before-commit" here.
-					if (change.current.present) {
-						change.current.value.toUpperCase()
-					}
-				},
 			},
 		}),
 	},
 })
 ```
 
-`resolveInput` and `resolveOutput` are the explicit same-type transformation
-boundaries. Every transform output becomes the following transform input.
-Validation lists aggregate structured immutable issues, while CRUD/save,
-change, commit, rollback, and error phases execute sequentially. Field phases
-support the same direct, non-empty list, and compatible family-map syntax as
-schema phases without widening the field's logical value. An omitted optional
-field runs no value hook. Actual absence is represented by `FieldValueState`
-with `present: false`, never by fabricating an `undefined` logical value.
+`resolveInput` is the explicit same-type transformation boundary. Every
+transform output becomes the following transform input. It may throw to reject
+one value and supports direct handlers, non-empty lists, and compatible
+`all`/`create`/`update`/`upsert` family maps without widening the field's logical
+value. An omitted optional field runs no value hook. Structured and cross-field
+validation belongs to schema hooks.
 
-Set-based `updateMany` can run input resolution and validation over its supplied
-update values, but it does not run materialized update or change hooks per row.
-Set-based `deleteMany` runs no field CRUD hooks. Cross-field behavior belongs to
-schema hooks.
+Set-based `updateMany` runs input resolution over its supplied update values.
+Set-based `deleteMany` has no field input to resolve. Mutation lifecycle,
+cross-field behavior, and transaction finalization belong to schema hooks,
+whose singular mutation callbacks receive complete `originalItem` and `item`
+pairs independently of selection. Field definitions and transports own output
+representation, while diagnostics and infrastructure plugins own low-level
+failure observation.
 
 Nested fields use one deterministic depth-first order. Siblings retain field
-declaration order; input resolution, validation, and output resolution visit
-children before their parent; before CRUD/save handlers enter parent then
-children; after handlers unwind children then parent. Callback declarations are
+declaration order, and input resolution visits children before their parent.
+Callback declarations are
 stored in private field capabilities and never appear in field metadata,
-validation plans, indexes, migrations, or physical schema diffs. Issue 326
-declares this contract; issue 330 executes it.
+validation plans, indexes, migrations, or physical schema diffs.
 
 `id`, `createdAt`, and `updatedAt` are reserved for UltimaBase system fields.
 Developer declarations using those keys fail both TypeScript checking and

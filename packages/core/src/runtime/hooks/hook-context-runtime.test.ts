@@ -105,11 +105,13 @@ describe('HookContext Runtime capabilities', () => {
 			className: 'HookContextPrincipalPost',
 			fields: { title: stringField({ validation: { required: true } }) },
 			hooks: {
-				beforeCreate: ({ context, operation }) => {
-					escapedContext = context
-					expect(context.getValue(principal)).toBe('user-1')
+				beforeOperation: {
+					create: ({ context, operation }) => {
+						escapedContext = context
+						expect(context.getValue(principal)).toBe('user-1')
 
-					return operation
+						void operation
+					},
 				},
 			},
 		})
@@ -154,11 +156,13 @@ describe('HookContext Runtime capabilities', () => {
 			className: 'HookContextAudit',
 			fields: { title: stringField({ validation: { required: true } }) },
 			hooks: {
-				beforeCreate: ({ context, operation }) => {
-					nestedAccessModes.push(context.access.mode)
-					transactionIds.push(context.transactionId)
+				beforeOperation: {
+					create: ({ context, operation }) => {
+						nestedAccessModes.push(context.access.mode)
+						transactionIds.push(context.transactionId)
 
-					return operation
+						void operation
+					},
 				},
 			},
 		})
@@ -166,18 +170,20 @@ describe('HookContext Runtime capabilities', () => {
 			className: 'HookContextPost',
 			fields: { title: stringField({ validation: { required: true } }) },
 			hooks: {
-				beforeCreate: ({ context, operation }) => {
-					expect(context).toBeInstanceOf(HookContext)
-					expect(context.access).toStrictEqual({ mode: 'anonymous' })
-					expect(context.source).toBe('internal')
-					expect(Object.isFrozen(context)).toBe(true)
-					transactionIds.push(context.transactionId)
+				beforeOperation: {
+					create: ({ context, operation }) => {
+						expect(context).toBeInstanceOf(HookContext)
+						expect(context.access).toStrictEqual({ mode: 'anonymous' })
+						expect(context.source).toBe('internal')
+						expect(Object.isFrozen(context)).toBe(true)
+						transactionIds.push(context.transactionId)
 
-					void new AuditSchema({ title: 'nested audit' }).create(
-						{},
-						{ useMasterKey: true },
-					)
-					return operation
+						void new AuditSchema({ title: 'nested audit' }).create(
+							{},
+							{ useMasterKey: true },
+						)
+						void operation
+					},
 				},
 			},
 		})
@@ -218,8 +224,8 @@ describe('HookContext Runtime capabilities', () => {
 		expect(trace).toStrictEqual([
 			'adapter:begin',
 			'prepare:create-one',
-			'execute:create-one',
 			'prepare:create-one',
+			'execute:create-one',
 			'execute:create-one',
 			'adapter:commit',
 		])
@@ -238,14 +244,16 @@ describe('HookContext Runtime capabilities', () => {
 			className: 'HookContextFailedPost',
 			fields: { title: stringField({ validation: { required: true } }) },
 			hooks: {
-				beforeCreate: async ({ operation }) => {
-					try {
-						await AuditSchema.createOne({ data: { title: 'fails' } })
-					} catch {
-						// Catching nested work cannot make a failed transaction committable.
-					}
+				beforeOperation: {
+					create: async ({ operation }) => {
+						try {
+							await AuditSchema.createOne({ data: { title: 'fails' } })
+						} catch {
+							// Catching nested work cannot make a failed transaction committable.
+						}
 
-					return operation
+						void operation
+					},
 				},
 			},
 		})
@@ -265,6 +273,7 @@ describe('HookContext Runtime capabilities', () => {
 		expect(trace).toStrictEqual([
 			'adapter:begin',
 			'prepare:create-one',
+			'prepare:create-one',
 			'execute:create-one',
 			'adapter:rollback',
 		])
@@ -280,12 +289,14 @@ describe('HookContext Runtime capabilities', () => {
 			className: 'HookContextEscapedPost',
 			fields: { title: stringField({ validation: { required: true } }) },
 			hooks: {
-				beforeCreate: ({ context, operation }) => {
-					escapedContext = context
-					const query = new QueryBuilder(PostSchema)
-					runEscapedQuery = () => PostSchema.findMany(query.build())
+				beforeOperation: {
+					create: ({ context, operation }) => {
+						escapedContext = context
+						const query = new QueryBuilder(PostSchema)
+						runEscapedQuery = () => PostSchema.findMany(query.build())
 
-					return operation
+						void operation
+					},
 				},
 			},
 		})
@@ -321,15 +332,17 @@ describe('HookContext Runtime capabilities', () => {
 			className: 'HookContextDelayedBranchPost',
 			fields: { title: stringField({ validation: { required: true } }) },
 			hooks: {
-				beforeCreate: ({ operation }) => {
-					// AsyncLocalStorage retains the hook guard even though this branch
-					// starts its query only after the hook callback has completed.
-					delayedQuery = (async () => {
-						await branchGate
-						return new PostSchema({ title: 'delayed' }).create({})
-					})()
+				beforeOperation: {
+					create: ({ operation }) => {
+						// AsyncLocalStorage retains the hook guard even though this branch
+						// starts its query only after the hook callback has completed.
+						delayedQuery = (async () => {
+							await branchGate
+							return new PostSchema({ title: 'delayed' }).create({})
+						})()
 
-					return operation
+						void operation
+					},
 				},
 			},
 		})
@@ -372,8 +385,10 @@ describe('HookContext Runtime capabilities', () => {
 			className: 'HookContextFinalizationPost',
 			fields: { title: stringField({ validation: { required: true } }) },
 			hooks: {
-				beforeCommit: () => {
-					void FinalizationReadSchema.findMany()
+				transaction: {
+					beforeCommit: () => {
+						void FinalizationReadSchema.findMany()
+					},
 				},
 			},
 		})
@@ -414,14 +429,16 @@ describe('HookContext Runtime capabilities', () => {
 			className: 'HookContextCrossApplicationPost',
 			fields: { title: stringField({ validation: { required: true } }) },
 			hooks: {
-				beforeCreate: async ({ operation }) => {
-					try {
-						await ForeignSchema.findMany()
-					} catch (error: unknown) {
-						foreignError = error
-					}
+				beforeOperation: {
+					create: async ({ operation }) => {
+						try {
+							await ForeignSchema.findMany()
+						} catch (error: unknown) {
+							foreignError = error
+						}
 
-					return operation
+						void operation
+					},
 				},
 			},
 		})
@@ -452,11 +469,13 @@ describe('HookContext Runtime capabilities', () => {
 			className: 'HookContextEventPost',
 			fields: { title: stringField({ validation: { required: true } }) },
 			hooks: {
-				beforeCreate: ({ context, operation }) => {
-					context.emit(postCreatedEvent, mutablePayload)
-					mutablePayload.nested.title = 'mutated later'
+				beforeOperation: {
+					create: ({ context, operation }) => {
+						context.emit(postCreatedEvent, mutablePayload)
+						mutablePayload.nested.title = 'mutated later'
 
-					return operation
+						void operation
+					},
 				},
 			},
 		})
@@ -518,10 +537,12 @@ describe('HookContext Runtime capabilities', () => {
 			className: 'HookContextUnobservedEventPost',
 			fields: { title: stringField({ validation: { required: true } }) },
 			hooks: {
-				beforeCreate: ({ context, operation }) => {
-					context.emit(optionalEvent, { title: 'stored' })
+				beforeOperation: {
+					create: ({ context, operation }) => {
+						context.emit(optionalEvent, { title: 'stored' })
 
-					return operation
+						void operation
+					},
 				},
 			},
 		})
@@ -544,7 +565,6 @@ describe('HookContext Runtime capabilities', () => {
 
 	it('accepts after-commit emission and continues independent consumers', async () => {
 		const trace: string[] = []
-		let observedCommittedFailure = false
 		let nestedDeliveries = 0
 		const postCommittedEvent = defineEvent()('post.committed', {
 			delivery: 'optional',
@@ -552,23 +572,14 @@ describe('HookContext Runtime capabilities', () => {
 		const PostSchema = Schema.define({
 			className: 'HookContextAfterCommitEventPost',
 			fields: {
-				title: stringField({
-					hooks: {
-						afterCommit: ({ itemId }) => {
-							trace.push(`field:afterCommit:${itemId}`)
-						},
-					},
-					validation: { required: true },
-				}),
+				title: stringField({ validation: { required: true } }),
 			},
 			hooks: {
-				afterCommit: ({ context }) => {
-					trace.push('hook:afterCommit')
-					context.emit(postCommittedEvent, {})
-				},
-				onError: ({ phase, transaction }) => {
-					observedCommittedFailure =
-						phase === 'post-commit' && transaction.status === 'committed'
+				transaction: {
+					afterCommit: ({ context }) => {
+						trace.push('hook:afterCommit')
+						context.emit(postCommittedEvent, {})
+					},
 				},
 			},
 		})
@@ -622,13 +633,11 @@ describe('HookContext Runtime capabilities', () => {
 			internalDetails: { reason: 'hook-event-queue-closed' },
 		})
 		expect(trace).toContain('adapter:commit')
-		expect(trace.slice(-4)).toStrictEqual([
-			'field:afterCommit:0198a43e-2431-7000-8000-000000000206',
+		expect(trace.slice(-3)).toStrictEqual([
 			'hook:afterCommit',
 			'event:failing',
 			'event:succeeding',
 		])
-		expect(observedCommittedFailure).toBe(true)
 		expect(nestedDeliveries).toBe(0)
 
 		await ultimabase.dispose()
@@ -646,15 +655,17 @@ describe('HookContext Runtime capabilities', () => {
 			className: 'HookContextDiscardedEventPost',
 			fields: { title: stringField({ validation: { required: true } }) },
 			hooks: {
-				beforeCreate: [
-					({ context, operation }) => {
-						context.emit(discardedEvent, { title: 'discarded' })
-						return operation
-					},
-					() => {
-						throw failure
-					},
-				],
+				beforeOperation: {
+					create: [
+						({ context, operation }) => {
+							context.emit(discardedEvent, { title: 'discarded' })
+							void operation
+						},
+						() => {
+							throw failure
+						},
+					],
+				},
 			},
 		})
 		const consumer = createEventPlugin('fixture.discarded-event-consumer', {
@@ -688,9 +699,11 @@ describe('HookContext Runtime capabilities', () => {
 			className: 'HookContextMissingConsumer',
 			fields: { title: stringField() },
 			hooks: {
-				beforeCreate: ({ context, operation }) => {
-					context.emit(requiredEvent, {})
-					return operation
+				beforeOperation: {
+					create: ({ context, operation }) => {
+						context.emit(requiredEvent, {})
+						void operation
+					},
 				},
 			},
 		})
@@ -707,34 +720,5 @@ describe('HookContext Runtime capabilities', () => {
 			),
 		).rejects.toMatchObject({ code: 'SERVICE_NOT_FOUND' })
 		await missingConsumerApp.dispose()
-	})
-
-	it('rejects named events from non-transactional reads', async () => {
-		const optionalReadEvent = defineEvent()('read.observed', {
-			delivery: 'optional',
-		})
-		const ReadSchema = Schema.define({
-			className: 'HookContextReadEvent',
-			fields: { title: stringField() },
-			hooks: {
-				beforeRead: ({ context, query }) => {
-					context.emit(optionalReadEvent, {})
-					return query
-				},
-			},
-		})
-		const ultimabase = new UltimaBase({
-			plugins: [createDatabasePlugin(new RecordingDatabaseAdapter([], []))],
-			schemas: [ReadSchema],
-		})
-
-		await ultimabase.start()
-		await expect(
-			ReadSchema.findMany(undefined, { ultimabase }),
-		).rejects.toMatchObject({
-			code: 'TRANSACTION_ERROR',
-			internalDetails: { reason: 'hook-event-transaction-required' },
-		})
-		await ultimabase.dispose()
 	})
 })

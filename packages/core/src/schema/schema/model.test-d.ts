@@ -228,7 +228,7 @@ test('exposes writes on the schema class and keeps QueryBuilder read-only', () =
 	void Article.findMany({ include: { author: { offset: 10 } } })
 	expectTypeOf(
 		Post.get({ id: 'post-1', select: { title: true } }),
-	).toEqualTypeOf<Promise<InferQueryResult<typeof Post, 'title'> | null>>()
+	).toEqualTypeOf<Promise<InferQueryResult<typeof Post, 'title'>>>()
 	expectTypeOf(
 		Post.count({ where: { published: { eq: true } } }),
 	).toEqualTypeOf<Promise<number>>()

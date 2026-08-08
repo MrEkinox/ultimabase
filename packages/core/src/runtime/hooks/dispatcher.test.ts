@@ -1,8 +1,4 @@
-import {
-	createApplication,
-	definePlugin,
-	FrameworkError,
-} from '../../foundation.js'
+import { createApplication, definePlugin } from '../../foundation.js'
 import {
 	QueryBuilder,
 	type CountOperationAst,
@@ -19,15 +15,8 @@ import {
 	pointerField,
 	Schema,
 	stringField,
-	type HookValidationIssue,
-	type SchemaDefinition,
 } from '../../schema/index.js'
-import {
-	immutableArray,
-	immutableRecord,
-	isPlainRecord,
-	isUnknownArray,
-} from '@ultimabase/shared'
+import { immutableArray, immutableRecord } from '@ultimabase/shared'
 import { describe, expect, it } from 'vitest'
 
 import { RequestContext, requestSources } from '../context/request-context.js'
@@ -49,8 +38,15 @@ const context = RequestContext.anonymous({
 describe('native hook dispatcher', () => {
 	it('executes one immutable nested lifecycle in its fixed wrapping order', async () => {
 		const trace: string[] = []
+		const ignoredReplacement: { current?: unknown } = {}
 		const record = (label: string): void => {
 			trace.push(label)
+		}
+		const observeBeforeCreate: () => void = () => {
+			record('schema:beforeCreate')
+
+			// Runtime ignores values returned by untyped JavaScript observers.
+			return ignoredReplacement.current
 		}
 		const schema = Schema.define({
 			className: 'NativeHookArticle',
@@ -59,85 +55,36 @@ describe('native hook dispatcher', () => {
 					fields: {
 						name: stringField({
 							hooks: {
-								afterCreate: ({ value }) => {
-									record(`name:afterCreate:${String(value)}`)
-								},
-								afterSave: ({ value }) => {
-									record(`name:afterSave:${String(value)}`)
-								},
-								beforeCreate: ({ value }) => {
-									record(`name:beforeCreate:${String(value)}`)
-								},
-								beforeSave: ({ value }) => {
-									record(`name:beforeSave:${String(value)}`)
-								},
-								onChange: ({ change }) => {
-									record(`name:onChange:${String(change.current.present)}`)
-								},
 								resolveInput: ({ value }) => {
 									record(`name:resolve:${String(value)}`)
 
 									return value === null ? null : value.trim()
 								},
-								validate: ({ value }) => {
-									record(`name:validate:${String(value)}`)
-
-									return []
-								},
 							},
 						}),
 					},
 					hooks: {
-						afterCreate: () => {
-							record('profile:afterCreate')
-						},
-						afterSave: () => {
-							record('profile:afterSave')
-						},
-						beforeCreate: () => {
-							record('profile:beforeCreate')
-						},
-						beforeSave: () => {
-							record('profile:beforeSave')
-						},
-						onChange: () => {
-							record('profile:onChange')
-						},
 						resolveInput: ({ value }) => {
 							record(`profile:resolve:${String(value?.name)}`)
 
 							return value
 						},
-						validate: () => {
-							record('profile:validate')
-
-							return []
-						},
 					},
 				}),
 			},
 			hooks: {
-				afterCreate: ({ result }) => {
-					record('schema:afterCreate')
-
-					return result
+				afterOperation: {
+					create: () => {
+						record('schema:afterCreate')
+					},
 				},
-				beforeCreate: ({ operation }) => {
-					record('schema:beforeCreate')
-
-					return operation
-				},
+				beforeOperation: { create: observeBeforeCreate },
 				resolveInput: ({ operation }) => {
 					if (operation.kind === 'create-one') {
 						record(`schema:resolve:${String(operation.input.profile?.name)}`)
 					}
 
 					return operation
-				},
-				validate: () => {
-					record('schema:validate')
-
-					return []
 				},
 			},
 		})
@@ -162,8 +109,15 @@ describe('native hook dispatcher', () => {
 		operation = await stages.revalidate({ context, operation })
 		await stages.validate({ context, operation })
 		operation = await stages.schemaBefore({ context, operation })
-		operation = await stages.revalidate({ context, operation })
-		await stages.fieldBefore({ context, operation, target: undefined })
+		ignoredReplacement.current = immutableRecord({
+			...operation,
+			input: { ...operation.input, profile: { name: 'Ignored' } },
+		})
+		operation = await stages.schemaPrepared({
+			context,
+			operation,
+			target: undefined,
+		})
 
 		const persisted = immutableRecord({
 			createdAt: fixedInstant.toISOString(),
@@ -177,7 +131,7 @@ describe('native hook dispatcher', () => {
 			]),
 			result: persisted,
 		}) satisfies DatabaseOperationOutcome<typeof operation>
-		const outcome = await stages.fieldAfter({
+		const outcome = await stages.mutationOutcome({
 			context,
 			operation,
 			outcome: sourceOutcome,
@@ -185,6 +139,7 @@ describe('native hook dispatcher', () => {
 		const result = await stages.schemaAfter({
 			context,
 			operation,
+			outcome,
 			result: outcome.result,
 		})
 
@@ -194,20 +149,7 @@ describe('native hook dispatcher', () => {
 			'name:resolve:  Ada  ',
 			'profile:resolve:Ada',
 			'schema:resolve:Ada',
-			'name:validate:Ada',
-			'profile:validate',
-			'schema:validate',
 			'schema:beforeCreate',
-			'profile:beforeSave',
-			'profile:beforeCreate',
-			'name:beforeSave:Ada',
-			'name:beforeCreate:Ada',
-			'name:afterCreate:Ada',
-			'name:afterSave:Ada',
-			'profile:afterCreate',
-			'profile:afterSave',
-			'name:onChange:true',
-			'profile:onChange',
 			'schema:afterCreate',
 		])
 
@@ -221,12 +163,6 @@ describe('native hook dispatcher', () => {
 			fields: {
 				title: stringField({
 					hooks: {
-						afterCreate: ({ value }) => {
-							trace.push(`field:after:${String(value)}`)
-						},
-						beforeCreate: ({ value }) => {
-							trace.push(`field:before:${String(value)}`)
-						},
 						resolveInput: ({ value }) => {
 							trace.push(`field:resolve:${String(value)}`)
 
@@ -236,16 +172,13 @@ describe('native hook dispatcher', () => {
 				}),
 			},
 			hooks: {
-				afterCreate: ({ result }) => {
+				afterOperation: { create: () => {
 					trace.push('schema:after')
-
-					return result
-				},
-				beforeCreate: ({ operation }) => {
+				} },
+				beforeOperation: { create: ({ operation }) => {
 					trace.push('schema:before')
-
-					return operation
-				},
+					void operation
+				} },
 			},
 		})
 		const application = await createApplication({
@@ -278,16 +211,12 @@ describe('native hook dispatcher', () => {
 			context,
 			operation: validated,
 		})
-		const prepared = await stages.schemaBefore({
+		const prepared = await stages.schemaPrepared({
 			context,
 			operation: resolved,
-		})
-
-		await stages.fieldBefore({
-			context,
-			operation: prepared,
 			target: undefined,
 		})
+
 		const records = immutableArray([
 			immutableRecord({
 				createdAt: fixedInstant.toISOString(),
@@ -302,7 +231,7 @@ describe('native hook dispatcher', () => {
 				updatedAt: fixedInstant.toISOString(),
 			}),
 		])
-		const outcome = await stages.fieldAfter({
+		const outcome = await stages.mutationOutcome({
 			context,
 			operation: prepared,
 			outcome: immutableRecord({
@@ -318,6 +247,7 @@ describe('native hook dispatcher', () => {
 		await stages.schemaAfter({
 			context,
 			operation: prepared,
+			outcome,
 			result: outcome.result,
 		})
 
@@ -325,89 +255,19 @@ describe('native hook dispatcher', () => {
 			'field:resolve: First ',
 			'field:resolve: Second ',
 			'schema:before',
-			'field:before:First',
-			'field:before:Second',
-			'field:after:First',
-			'field:after:Second',
 			'schema:after',
 		])
 
 		await application.dispose()
 	})
 
-	it('aggregates field and schema validation issues with operation paths', async () => {
-		const issue = (
-			code: HookValidationIssue['code'],
-			message: string,
-		): HookValidationIssue =>
-			immutableRecord({ code, message, path: immutableArray([]) })
-		const schema = Schema.define({
-			className: 'NativeHookValidation',
-			fields: {
-				title: stringField({
-					hooks: {
-						validate: () => [issue('article.title', 'Invalid title')],
-					},
-				}),
-			},
-			hooks: {
-				validate: () => [issue('article.schema', 'Invalid article')],
-			},
-		})
-		const application = await createApplication({
-			plugins: [],
-			schemas: [schema],
-		})
-		const stages = createNativeHookStages(application)
-		const operation = immutableRecord({
-			input: {
-				createdAt: fixedInstant.toISOString(),
-				id: generatedId,
-				title: 'invalid',
-				updatedAt: fixedInstant.toISOString(),
-			},
-			kind: 'create-one',
-			selection: { fields: [], kind: 'selection' },
-			schema: new QueryBuilder(schema).ast.schema,
-		}) satisfies CreateOneOperationAst<typeof schema>
-
-		try {
-			await stages.validate({ context, operation })
-			expect.unreachable('Expected native hook validation to fail')
-		} catch (error: unknown) {
-			if (!(error instanceof FrameworkError)) {
-				throw error
-			}
-
-			const details: unknown = error.publicDetails
-
-			if (!isPlainRecord(details) || !isUnknownArray(details.issues)) {
-				throw new TypeError('Expected native hook validation issues', {
-					cause: error,
-				})
-			}
-
-			const paths = details.issues
-				.filter(isPlainRecord)
-				.map((validationIssue) => validationIssue.path)
-
-			expect(error.code).toBe('VALIDATION_ERROR')
-			expect(paths).toContainEqual(['input', 'title'])
-			expect(paths).toContainEqual([])
-		}
-
-		await application.dispose()
-	})
-
-	it('wraps developer schema and field phases with resolved plugin targets', async () => {
+	it('wraps developer and plugin field resolution around parent hooks', async () => {
 		const trace: string[] = []
 		const title = stringField({
 			hooks: {
-				afterCreate: () => {
-					trace.push('field:developer:after')
-				},
-				beforeCreate: () => {
-					trace.push('field:developer:before')
+				resolveInput: ({ value }) => {
+					trace.push('field:developer:resolve')
+					return value
 				},
 			},
 		})
@@ -415,39 +275,31 @@ describe('native hook dispatcher', () => {
 			className: 'NativeHookPluginOrder',
 			fields: { title },
 			hooks: {
-				afterCreate: ({ result }) => {
+				afterOperation: { create: () => {
 					trace.push('schema:developer:after')
-
-					return result
-				},
-				beforeCreate: ({ operation }) => {
+				} },
+				beforeOperation: { create: ({ operation }) => {
 					trace.push('schema:developer:before')
-
-					return operation
-				},
+					void operation
+				} },
 			},
 		})
 		const plugin = definePlugin({
 			name: 'fixture.native-hook-order',
 			setup: ({ hooks }) => {
 				hooks.schema('schema', schema, {
-					afterCreate: ({ result }) => {
+					afterOperation: { create: () => {
 						trace.push('schema:plugin:after')
-
-						return result
-					},
-					beforeCreate: ({ operation }) => {
+					} },
+					beforeOperation: { create: ({ operation }) => {
 						trace.push('schema:plugin:before')
-
-						return operation
-					},
+						void operation
+					} },
 				})
 				hooks.field('field', schema, ['title'], {
-					afterCreate: () => {
-						trace.push('field:plugin:after')
-					},
-					beforeCreate: () => {
-						trace.push('field:plugin:before')
+					resolveInput: ({ value }) => {
+						trace.push('field:plugin:resolve')
+						return value
 					},
 				})
 			},
@@ -468,14 +320,13 @@ describe('native hook dispatcher', () => {
 			selection: { fields: [], kind: 'selection' },
 			schema: new QueryBuilder(schema).ast.schema,
 		}) satisfies CreateOneOperationAst<typeof schema>
-		const transformed = await stages.schemaBefore({ context, operation })
-
-		await stages.fieldBefore({
+		const resolved = await stages.resolveInput({ context, operation })
+		const transformed = await stages.schemaPrepared({
 			context,
-			operation: transformed,
+			operation: resolved,
 			target: undefined,
 		})
-		const outcome = await stages.fieldAfter({
+		const outcome = await stages.mutationOutcome({
 			context,
 			operation: transformed,
 			outcome: {
@@ -486,16 +337,15 @@ describe('native hook dispatcher', () => {
 		await stages.schemaAfter({
 			context,
 			operation: transformed,
+			outcome,
 			result: outcome.result,
 		})
 
 		expect(trace).toStrictEqual([
+			'field:plugin:resolve',
+			'field:developer:resolve',
 			'schema:plugin:before',
 			'schema:developer:before',
-			'field:plugin:before',
-			'field:developer:before',
-			'field:developer:after',
-			'field:plugin:after',
 			'schema:developer:after',
 			'schema:plugin:after',
 		])
@@ -503,41 +353,13 @@ describe('native hook dispatcher', () => {
 		await application.dispose()
 	})
 
-	it('executes read hooks for every terminal and resolves only present selected fields', async () => {
+	it('leaves every read terminal unchanged by native schema hooks', async () => {
 		const trace: string[] = []
 		const schema = Schema.define({
 			className: 'NativeHookRead',
 			fields: {
-				hidden: stringField({
-					hooks: {
-						resolveOutput: () => {
-							trace.push('field:hidden')
-
-							return 'unexpected'
-						},
-					},
-				}),
-				title: stringField({
-					hooks: {
-						resolveOutput: ({ kind, value }) => {
-							trace.push(`field:title:${kind}`)
-
-							return value === null ? null : value.toUpperCase()
-						},
-					},
-				}),
-			},
-			hooks: {
-				afterRead: ({ kind, result }) => {
-					trace.push(`schema:after:${kind}`)
-
-					return result
-				},
-				beforeRead: ({ kind, query }) => {
-					trace.push(`schema:before:${kind}`)
-
-					return query.where((where) => where.eq('title', 'visible'))
-				},
+				hidden: stringField(),
+				title: stringField(),
 			},
 		})
 		const application = await createApplication({
@@ -603,9 +425,7 @@ describe('native hook dispatcher', () => {
 			})
 
 			expect(result).toStrictEqual(expectedResult)
-			expect(transformed.query.where).toMatchObject({
-				expression: { field: 'title', kind: 'equal', value: 'visible' },
-			})
+			expect(transformed.query.where).toBeUndefined()
 			expect(transformed.query.selection).toStrictEqual(
 				selectedQuery.ast.selection,
 			)
@@ -614,72 +434,22 @@ describe('native hook dispatcher', () => {
 		await executeRead(
 			operations[0],
 			immutableArray([immutableRecord({ title: 'visible' })]),
-			[{ title: 'VISIBLE' }],
+			[{ title: 'visible' }],
 		)
 		await executeRead(operations[1], immutableRecord({ title: 'visible' }), {
-			title: 'VISIBLE',
+			title: 'visible',
 		})
 		await executeRead(operations[2], null, null)
 		await executeRead(operations[3], 2, 2)
 		await executeRead(operations[4], true, true)
 
 		expect(selectedQuery.ast.where).toBeUndefined()
-		expect(trace).toStrictEqual([
-			'schema:before:find-many',
-			'field:title:find-many',
-			'schema:after:find-many',
-			'schema:before:find-one',
-			'field:title:find-one',
-			'schema:after:find-one',
-			'schema:before:get',
-			'schema:after:get',
-			'schema:before:count',
-			'schema:after:count',
-			'schema:before:exists',
-			'schema:after:exists',
-		])
+		expect(trace).toStrictEqual([])
 
 		await application.dispose()
 	})
 
-	it('rejects beforeRead replacements that change schema or selection', async () => {
-		const otherSchema = Schema.define({
-			className: 'NativeHookReadOther',
-			fields: { title: stringField() },
-		})
-		const invalidHooks = [
-			() => new QueryBuilder(otherSchema),
-			({ query }: { readonly query: QueryBuilder<typeof otherSchema> }) =>
-				query.select({ title: true }),
-		] as const
-
-		for (const invalidHook of invalidHooks) {
-			const schema = Schema.define({
-				className: 'NativeHookReadInvalid',
-				fields: { title: stringField() },
-				hooks: {
-					// The assertion models malformed JavaScript callbacks at Runtime's boundary.
-					beforeRead: invalidHook as never,
-				},
-			})
-			const application = await createApplication({
-				plugins: [],
-				schemas: [schema, otherSchema],
-			})
-			const stages = createNativeHookStages(application)
-			const operation = immutableRecord({
-				kind: 'find-many',
-				query: new QueryBuilder(schema).ast,
-			}) satisfies FindManyOperationAst<typeof schema>
-
-			await expect(
-				stages.schemaBefore({ context, operation }),
-			).rejects.toBeInstanceOf(TypeError)
-			await application.dispose()
-		}
-	})
-
-	it('rejects beforeRead replacements that change pointer inclusions', async () => {
+	it('retains read pointer inclusions through the native no-op stage', async () => {
 		const targetSchema = Schema.define({
 			className: 'NativeHookReadInclusionTarget',
 			fields: { name: stringField() },
@@ -688,58 +458,24 @@ describe('native hook dispatcher', () => {
 			author: pointerField({ target: () => targetSchema }),
 			title: stringField(),
 		}
-		type HookInputSchema = SchemaDefinition<
-			'NativeHookReadInclusionInput',
-			typeof hookInputFields
-		>
-		const addInclusion = ({
-			query,
-		}: {
-			readonly query: QueryBuilder<HookInputSchema>
-		}) => query.include('author', (target) => target.select({ name: true }))
-		const replaceInclusion = ({
-			query,
-		}: {
-			readonly query: QueryBuilder<HookInputSchema>
-		}) => query.include('author', (target) => target.select({ id: true }))
-		const addSchema = Schema.define({
-			className: 'NativeHookReadInclusionAdd',
+		const schema = Schema.define({
+			className: 'NativeHookReadInclusion',
 			fields: hookInputFields,
-			hooks: {
-				// The assertion models a JavaScript hook that widens its typed query result.
-				beforeRead: addInclusion as never,
-			},
-		})
-		const replaceSchema = Schema.define({
-			className: 'NativeHookReadInclusionReplace',
-			fields: hookInputFields,
-			hooks: {
-				// Runtime must also reject changing an already declared target query.
-				beforeRead: replaceInclusion as never,
-			},
 		})
 		const application = await createApplication({
 			plugins: [],
-			schemas: [targetSchema, addSchema, replaceSchema],
+			schemas: [targetSchema, schema],
 		})
 		const stages = createNativeHookStages(application)
-		const addOperation = immutableRecord({
+		const operation = immutableRecord({
 			kind: 'find-many',
-			query: new QueryBuilder(addSchema).ast,
-		}) satisfies FindManyOperationAst<typeof addSchema>
-		const replaceOperation = immutableRecord({
-			kind: 'find-many',
-			query: new QueryBuilder(replaceSchema).include('author', (target) =>
+			query: new QueryBuilder(schema).include('author', (target) =>
 				target.select({ name: true }),
 			).ast,
-		}) satisfies FindManyOperationAst<typeof replaceSchema>
+		}) satisfies FindManyOperationAst<typeof schema>
+		const transformed = await stages.schemaBefore({ context, operation })
 
-		await expect(
-			stages.schemaBefore({ context, operation: addOperation }),
-		).rejects.toThrow('beforeRead must retain the exact query inclusion')
-		await expect(
-			stages.schemaBefore({ context, operation: replaceOperation }),
-		).rejects.toThrow('beforeRead must retain the exact query inclusion')
+		expect(transformed).toBe(operation)
 
 		await application.dispose()
 	})

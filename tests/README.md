@@ -23,6 +23,11 @@ shares only its connection URI, and assigns a reset schema to every worker
 slot. The ordinary E2E project remains Docker-free for focused package archive
 checks.
 
+`tests/tsconfig.json` associates root E2E files with the same strict TypeScript
+settings used by the test runner. Editors should discover this nearby project
+automatically, which preserves contextual autocomplete for schema-dependent
+Access, query, and mutation APIs.
+
 `runtime-postgres.postgres.e2e.test.ts` verifies CRUD, transactions, bulk, and
 upsert persistence. `native-hooks-postgres.postgres.e2e.test.ts` adds the live
 native schema, field, plugin, policy, rollback, output, and post-commit vertical.

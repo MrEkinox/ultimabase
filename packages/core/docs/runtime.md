@@ -202,87 +202,62 @@ receive accumulated state or another plugin's opaque constraint payload. A
 master request remains trusted authority, but only the contributing policy
 decides whether its own handler treats that authority differently.
 
-## Read hooks and output resolution
+## Read pipeline and result shaping
 
-Every read transport shares the same native Runtime path. `beforeRead` covers
-`findOne`, `findMany`, `get`, `count`, and `exists` while preserving the exact
-terminal through `kind`. It returns a new immutable Query or `undefined` to
-retain the current one:
+Every read transport shares the same native Runtime path. Reads deliberately do
+not expose schema lifecycle hooks. Developer filters, ordering, pagination,
+selection, and includes belong to the query options; mandatory row restrictions
+belong to schema Access:
 
 ```ts
 const ArticleSchema = Schema.define({
 	className: 'Article',
 	fields: {
-		title: stringField({
-			validation: { required: true },
-			hooks: {
-				resolveOutput: ({ value }) => value.trim(),
-			},
-		}),
+		title: stringField({ validation: { required: true } }),
 		published: booleanField({ default: false }),
 	},
-	hooks: {
-		beforeRead: ({ query }) =>
-			query.where({ published: { eq: true } }).descending('createdAt'),
-		afterRead: (input) => {
-			if (input.kind === 'count') {
-				// Terminal narrowing keeps this value as a number.
-				return Math.max(input.result, 0)
-			}
-
-			return input.result
+	access: {
+		filter: {
+			read: ({ filter }) => filter.equalTo('published', true),
 		},
+	},
 	},
 })
 
 const articles = await runWithRequestEngine(request, () =>
-	ArticleSchema.findMany({ select: { id: true, title: true } }),
+ArticleSchema.findMany({
+	orderBy: [{ createdAt: 'desc' }],
+	select: { id: true, title: true },
+}),
 )
 
 // The exact result is readonly { id: string; title: string }[].
 ```
 
-Runtime rejects a `beforeRead` replacement that changes schema identity, the
-selected-field union, or the pointer-inclusion tree. The hook may add filters,
-ordering, pagination, or a limit. Opaque adapter constraints remain in the
-private enforcement envelope and reach the database separately from Query, so
-no business transform can see or remove them.
-
-For object-producing reads, Runtime validates and projects the adapter result
-to its effective selection before executing `resolveOutput`. Only present,
-selected, readable field values execute. Nested children resolve before their
-parent, and every resolver preserves the field's logical type. Schema
-`afterRead` then receives the already projected and resolved exact result, with
-eager pointer targets already checked by target Access and scalar output
-resolution. Included targets do not run target schema or global read hooks. The
-value returned by `afterRead` continues without a second inclusion pass.
-`count` and `exists` contain no field values, so they skip resolution and retain
-exact `number` and `boolean` results.
-Pointer field Access remains defined over the schema's logical `Pointer` value;
-Runtime keeps it private while parent result hooks observe the hydrated target.
-
-Native replacements are validated at their phase boundary. The completed
-low-level schema and global after-hook chain also crosses final terminal-and-
-selection validation. Runtime evaluates and applies monotonic output
-restrictions only after every transform, immediately before returning the
-public result, so no later hook can restore a removed field.
+Opaque adapter constraints remain in the private enforcement envelope and
+reach the database separately from Query, so developer code cannot see or
+remove them. For object-producing reads, Runtime validates and projects the
+adapter result to its effective selection, hydrates eager pointer and relation
+targets through their target Access pipeline, then applies monotonic output
+restrictions. `count` and `exists` retain exact `number` and `boolean` results.
+Pointer field Access remains defined over the schema's logical `Pointer` value.
 
 ## HookContext capabilities, safety, and diagnostics
 
 Every business hook input includes one immutable Runtime-owned `HookContext`:
 
 ```ts
-beforeCreate: async ({ context, operation }) => {
-	if (operation.kind === 'create-one') {
-		await AuditSchema.createOne({ data: { action: 'article.create' } })
-		context.emit('article.creating', { title: operation.input.title })
+beforeOperation: {
+	create: async ({ context, operation }) => {
+		if (operation.kind === 'create-one') {
+			await AuditSchema.createOne({ data: { action: 'article.create' } })
+			context.emit('article.creating', { title: operation.input.title })
+		}
+		logger.debug({
+			requestId: context.requestId,
+			transactionId: context.transactionId,
+		})
 	}
-	logger.debug({
-		requestId: context.requestId,
-		transactionId: context.transactionId,
-	})
-
-	return operation
 }
 ```
 
@@ -333,8 +308,8 @@ back with the read.
 
 Every automatic mutation and explicit transaction shares one finalization
 lifecycle. `beforeCommit` receives the successful mutations accumulated for its
-schema and may still abort the transaction. `afterCommit` runs once per
-successful mutation only after the adapter confirms the outer commit:
+schema and may still abort the transaction. `afterCommit` receives the same
+per-schema summary once, only after the adapter confirms the outer commit:
 
 ```ts
 const ArticleSchema = Schema.define({
@@ -343,40 +318,30 @@ const ArticleSchema = Schema.define({
 		title: stringField({ validation: { required: true } }),
 	},
 	hooks: {
-		beforeCommit: ({ changes }) => {
-			// One immutable summary contains this schema's transaction changes.
-			console.log(changes.length)
-		},
-		afterCommit: ({ kind, result }) => {
-			// External work now observes committed database state.
-			console.log(kind, result)
-		},
-		afterRollback: ({ error, operations }) => {
-			console.error(error, operations.length)
-		},
-		onError: ({ error, phase, transaction }) => {
-			console.error(error, phase, transaction.status)
+		transaction: {
+			beforeCommit: ({ changes }) => {
+				// One immutable summary contains this schema's transaction changes.
+				console.log(changes.length)
+			},
+			afterCommit: ({ changes }) => {
+				// External work now observes committed database state.
+				publish(changes)
+			},
 		},
 	},
 })
 ```
 
 An explicit transaction may touch several schemas. Each participating schema's
-`beforeCommit` runs at most once with only its changes, while per-operation
-`afterCommit` handlers retain operation start order. Inline field
-`afterCommit` runs only for real materialized value changes. Set-based
+transaction hooks run at most once with only its changes. Set-based
 `updateMany` and `deleteMany` remain schema-only and never load rows merely to
-manufacture field callbacks.
+manufacture per-item callbacks.
 
-If commit fails, Runtime attempts rollback and reports whether the adapter
-confirmed or rejected it. `afterRollback` never runs after a failed rollback.
-Failures from `afterCommit` or post-commit events report an already committed
-state and never attempt rollback. An `onError` observer receives the initiating
-error as `unknown`, a stable phase, and a discriminated transaction state; its
-input exposes no adapter or lifecycle controls.
+If commit fails, Runtime attempts rollback. A failure from `afterCommit` or a
+post-commit event observes already committed state and never attempts rollback.
 
 The transaction-scoped request engine expires before finalization observers
-run. `beforeCommit`, `afterCommit`, `afterRollback`, `onError`, low-level
+run. `transaction.beforeCommit`, `transaction.afterCommit`, low-level
 post-commit observers, and named-event consumers are explicitly non-queryable.
 They retain correlation, access, capability checks, and event emission where
 the transaction state still permits it. `beforeCommit` and `afterCommit` may
@@ -384,9 +349,10 @@ queue named events before post-commit delivery begins; rollback and error
 observers cannot queue work for a transaction that will not commit.
 
 The official PostgreSQL adapter verifies this lifecycle through the same public
-API. A mutation started from `beforeCreate` reuses the primary transaction, so
-an `afterCreate` or `beforeCommit` failure rolls back both writes. Successful
-`afterCommit` handlers and named-event consumers run once only after PostgreSQL
+API. A mutation started from `beforeOperation.create` reuses the primary
+transaction, so an `afterOperation.create` or `transaction.beforeCommit`
+failure rolls back both writes. Successful `transaction.afterCommit` handlers
+and named-event consumers run once only after PostgreSQL
 confirms the outer commit:
 
 ```ts
@@ -394,13 +360,13 @@ const ArticleSchema = Schema.define({
 	className: 'Article',
 	fields: { title: stringField({ validation: { required: true } }) },
 	hooks: {
-		beforeCreate: async ({ context, operation }) => {
-			if (operation.kind === 'create-one') {
-				await AuditSchema.createOne({ data: { action: 'article.create' } })
-				context.emit('article.created', { title: operation.input.title })
-			}
-
-			return operation
+		beforeOperation: {
+			create: async (input) => {
+				if (input.kind === 'create-one') {
+					await AuditSchema.createOne({ data: { action: 'article.create' } })
+					input.context.emit('article.created', { title: input.item.title })
+				}
+			},
 		},
 	},
 })
@@ -490,8 +456,9 @@ not open a transaction.
 The bulk `{ atomic: false }` option never bypasses this boundary. The adapter
 stops at the first persistence failure and returns the successful prefix plus
 its failure index. Runtime still owns one normalized operation and one outer
-transaction. Result hooks and `beforeCommit` may abort and roll back that
-prefix; post-commit work is released once only after it commits.
+transaction. After-operation observers and `transaction.beforeCommit` may
+abort and roll back that prefix; post-commit work is released once only after
+it commits.
 
 `updateMany` and `deleteMany` remain one set-based adapter statement with a
 selected `RETURNING` result. They return only `id` by default, expose the array
@@ -597,11 +564,11 @@ const auditPlugin = () =>
 	definePlugin({
 		name: 'example.audit',
 		setup: ({ hooks }) => {
-			hooks.global('measure-reads', {
-				afterRead: ({ result }) => result,
+			hooks.global('measure-creates', {
+				afterOperation: { create: ({ item }) => void item },
 			})
 			hooks.schema('audit-articles', ArticleSchema, {
-				beforeCreate: ({ operation }) => operation,
+				beforeOperation: { create: ({ operation }) => void operation },
 			})
 			hooks.field('normalize-title', ArticleSchema, ['title'], {
 				resolveInput: ({ value }) => value.trim(),
@@ -619,9 +586,10 @@ the Runtime hook input:
 
 ```ts
 hooks.schemaExtension('retention', retentionExtension, ({ extension }) => ({
-	beforeCreate: ({ operation }) => {
-		retention.observe(extension.config.policy)
-		return operation
+	beforeOperation: {
+		create: () => {
+			retention.observe(extension.config.policy)
+		},
 	},
 }))
 ```
@@ -666,12 +634,12 @@ const ArticleSchema = Schema.define({
 	className: 'Article',
 	fields: { title: stringField({ validation: { required: true } }) },
 	hooks: {
-		beforeCreate: ({ context, operation }) => {
-			if (operation.kind === 'create-one') {
-				context.emit(articleCreatedEvent, { title: operation.input.title })
-			}
-
-			return operation
+		beforeOperation: {
+			create: (input) => {
+				if (input.kind === 'create-one') {
+					input.context.emit(articleCreatedEvent, { title: input.item.title })
+				}
+			},
 		},
 	},
 })

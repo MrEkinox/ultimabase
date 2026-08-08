@@ -15,16 +15,12 @@ import type {
 	FieldValidationOptions,
 	InferCreateInput,
 	InferObject,
-	InferOperationResult,
 	InferUpdateInput,
 	HookContext,
 	ObjectFieldOptions,
 	ObjectFields,
 	ObjectFieldValue,
 	OperationAst,
-	OperationAstNode,
-	QueryBuilder,
-	QueryFieldName,
 	ScalarFieldInferenceState,
 	SchemaDefinition,
 	SchemaExtensions,
@@ -64,16 +60,6 @@ type PrototypeSchemaDefinition<
 	TExtensions extends SchemaExtensions,
 > = SchemaDefinition<TClassName, TFields, TExtensions>
 
-type SchemaResolveInputContext<TSchema extends SchemaDefinition> =
-	| {
-			readonly kind: 'create'
-			readonly input: InferCreateInput<TSchema>
-	  }
-	| {
-			readonly kind: 'update'
-			readonly input: InferUpdateInput<TSchema>
-	  }
-
 type CreateOperation<TSchema extends SchemaDefinition> = Extract<
 	OperationAst<TSchema>,
 	{
@@ -81,45 +67,33 @@ type CreateOperation<TSchema extends SchemaDefinition> = Extract<
 	}
 >
 
-type ReadOperation<TSchema extends SchemaDefinition> = Extract<
-	OperationAst<TSchema>,
-	{
-		readonly kind: 'count' | 'exists' | 'find-many' | 'find-one' | 'get'
-	}
->
-
-type SchemaOperationResultContext<
-	TSchema extends SchemaDefinition,
-	TOperation extends OperationAst<TSchema> = OperationAst<TSchema>,
-> = TOperation extends OperationAstNode
-	? {
-			readonly kind: TOperation['kind']
-			readonly operation: TOperation
-			readonly result: InferOperationResult<TOperation>
-		}
-	: never
-
 interface PrototypeSchemaHooks<TSchema extends SchemaDefinition> {
-	readonly resolveInput?: (
-		context: SchemaResolveInputContext<TSchema>,
-	) => MaybePromise<void>
-	readonly beforeCreate?: (context: {
-		readonly object: InferObject<TSchema>
-		readonly operation: CreateOperation<TSchema>
-	}) => MaybePromise<void>
-	readonly beforeRead?: PrototypeBeforeReadHook<TSchema>
-	readonly afterRead?: (
-		context: SchemaOperationResultContext<TSchema, ReadOperation<TSchema>>,
-	) => MaybePromise<void>
+	readonly resolveInput?: {
+		readonly create?: (context: {
+			readonly input: InferCreateInput<TSchema>
+		}) => MaybePromise<void>
+		readonly update?: (context: {
+			readonly input: InferUpdateInput<TSchema>
+		}) => MaybePromise<void>
+	}
+	readonly beforeOperation?: {
+		readonly create?: (context: {
+			readonly item: InferObject<TSchema>
+			readonly operation: CreateOperation<TSchema>
+		}) => MaybePromise<void>
+	}
+	readonly afterOperation?: {
+		readonly create?: (context: {
+			readonly item: InferObject<TSchema>
+			readonly operation: CreateOperation<TSchema>
+		}) => MaybePromise<void>
+	}
+	readonly transaction?: {
+		readonly afterCommit?: (context: {
+			readonly changes: readonly InferObject<TSchema>[]
+		}) => MaybePromise<void>
+	}
 }
-
-/** Preserves a terminal's accumulated selection through immutable query transforms. */
-export type PrototypeBeforeReadHook<TSchema extends SchemaDefinition> = <
-	const TSelectedField extends QueryFieldName<TSchema>,
->(context: {
-	readonly operation: ReadOperation<TSchema>
-	readonly query: QueryBuilder<TSchema, TSelectedField>
-}) => MaybePromise<QueryBuilder<TSchema, TSelectedField> | undefined>
 
 type PrototypeSchemaOptions<
 	TClassName extends string,
@@ -352,44 +326,35 @@ export const PostSchema = new PrototypeSchema({
 	},
 	extensions: [permissionsExtension],
 	hooks: {
-		resolveInput: (context) => {
-			if (context.kind === 'create') {
-				const /* hover:create-input */ createInput = context.input
+		resolveInput: {
+			create: ({ input }) => {
+				const /* hover:create-input */ createInput = input
 
 				createInput.title.toUpperCase()
-			} else {
-				const /* hover:update-input */ updateInput = context.input
+			},
+			update: ({ input }) => {
+				const /* hover:update-input */ updateInput = input
 
 				updateInput.title?.toUpperCase()
-			}
+			},
 		},
-		beforeCreate: ({ object }) => {
-			const /* hover:object */ savedObject = object
+		beforeOperation: {
+			create: ({ item }) => {
+				const /* hover:object */ savedObject = item
 
-			savedObject.id.toUpperCase()
-			savedObject.title.toUpperCase()
+				savedObject.id.toUpperCase()
+				savedObject.title.toUpperCase()
+			},
 		},
-		beforeRead: ({ operation, query }) => {
-			const /* hover:query */ typedQuery = query
-
-			if (operation.kind === 'get') {
-				operation.id.toUpperCase()
-			}
-
-			return typedQuery.limit(25)
+		afterOperation: {
+			create: ({ item }) => {
+				item.title.toUpperCase()
+			},
 		},
-		afterRead: (context) => {
-			if (context.kind === 'count') {
-				const /* hover:count-result */ count = context.result
-
-				count.toFixed()
-			}
-
-			if (context.kind === 'find-many') {
-				const /* hover:find-result */ posts = context.result
-
-				posts.at(0)?.title.toUpperCase()
-			}
+		transaction: {
+			afterCommit: ({ changes }) => {
+				changes.at(0)?.title.toUpperCase()
+			},
 		},
 	},
 })

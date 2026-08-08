@@ -1,89 +1,51 @@
 import { describe, expect, it } from 'vitest'
 
 import {
-	bigintField,
-	binaryField,
-	booleanField,
 	compileValidationPlans,
-	dateField,
-	dateTimeField,
-	decimalField,
 	definePluginField,
-	enumField,
-	floatField,
-	intField,
-	jsonField,
-	objectField,
 	Schema,
 	stringField,
-	timeField,
-	uuidField,
-	type FieldErrorHook,
 	type FieldValidationOptions,
 } from '../index.js'
 import type { GenericField } from '../fields/base/contract.js'
 import { getFieldHookDeclarations } from '../fields/base/definition.js'
 import { getHookHandlerEntries } from './normalization.js'
 
-const onError: FieldErrorHook = () => undefined
-const expectedOnErrorDeclarations = {
-	onError: {
-		all: [{ declarationBranch: 'direct', handler: onError, handlerIndex: 0 }],
+const resolveInput = ({ value }: { readonly value: string | null }) => value
+const expectedResolveInputDeclarations = {
+	resolveInput: {
+		all: [
+			{
+				declarationBranch: 'direct',
+				handler: resolveInput,
+				handlerIndex: 0,
+			},
+		],
 		variants: {},
 	},
 }
-
-const builtInFields = [
-	['bigint', bigintField({ hooks: { onError } })],
-	['binary', binaryField({ hooks: { onError } })],
-	['boolean', booleanField({ hooks: { onError } })],
-	['date', dateField({ hooks: { onError } })],
-	['dateTime', dateTimeField({ hooks: { onError } })],
-	['decimal', decimalField({ hooks: { onError } })],
-	[
-		'enum',
-		enumField({
-			hooks: { onError },
-			values: ['draft', 'published'],
-		}),
-	],
-	['float', floatField({ hooks: { onError } })],
-	['int', intField({ hooks: { onError } })],
-	['json', jsonField({ hooks: { onError } })],
-	[
-		'object',
-		objectField({
-			fields: { label: stringField() },
-			hooks: { onError },
-		}),
-	],
-	['string', stringField({ hooks: { onError } })],
-	['time', timeField({ hooks: { onError } })],
-	['uuid', uuidField({ hooks: { onError } })],
-] as const satisfies readonly (readonly [string, GenericField])[]
 
 const declareStringFieldFromUnknown = (options: unknown): GenericField =>
 	Reflect.apply(stringField, undefined, [options]) as GenericField
 
 describe('field hook declarations', () => {
-	it.each(builtInFields)(
-		'keeps %s hooks in private capabilities instead of field metadata',
-		(_kind, field) => {
-			const declarations = getFieldHookDeclarations(field)
+	it('keeps resolveInput in private capabilities instead of field metadata', () => {
+		const field = stringField({ hooks: { resolveInput } })
+		const declarations = getFieldHookDeclarations(field)
 
-			expect(declarations).toStrictEqual(expectedOnErrorDeclarations)
-			expect(Object.isFrozen(declarations)).toBe(true)
-			expect(field.options).not.toHaveProperty('hooks')
-			expect(Object.keys(field)).toStrictEqual(['kind', 'options'])
-		},
-	)
+		expect(declarations).toStrictEqual(expectedResolveInputDeclarations)
+		expect(Object.isFrozen(declarations)).toBe(true)
+		expect(field.options).not.toHaveProperty('hooks')
+		expect(Object.keys(field)).toStrictEqual(['kind', 'options'])
+	})
 
 	it('supports plugin fields without exposing hooks to metadata normalization', () => {
 		let normalizedValidation: FieldValidationOptions | undefined
+		const pluginResolveInput = () => undefined
 		const field = definePluginField(
 			'fixture.slug',
 			{
-				hooks: { onError },
+				hooks: { resolveInput: pluginResolveInput },
 				validation: { required: true },
 			},
 			{
@@ -103,74 +65,49 @@ describe('field hook declarations', () => {
 		)
 
 		expect(normalizedValidation).toStrictEqual({ required: true })
-		expect(normalizedValidation).not.toHaveProperty('hooks')
-		expect(getFieldHookDeclarations(field)).toStrictEqual(
-			expectedOnErrorDeclarations,
-		)
-		expect(Object.isFrozen(getFieldHookDeclarations(field))).toBe(true)
+		expect(getFieldHookDeclarations(field)).toStrictEqual({
+			resolveInput: {
+				all: [
+					{
+						declarationBranch: 'direct',
+						handler: pluginResolveInput,
+						handlerIndex: 0,
+					},
+				],
+				variants: {},
+			},
+		})
 		expect(field.options).not.toHaveProperty('hooks')
-		expect(Object.keys(field)).toStrictEqual(['kind', 'options'])
 	})
 
 	it('copies and freezes declarations while retaining handler identity', () => {
-		const replacement: FieldErrorHook = () => undefined
-		const hooks: { onError?: FieldErrorHook } = { onError }
+		const replacement = ({ value }: { readonly value: string | null }) => value
+		const hooks: { resolveInput?: typeof resolveInput } = { resolveInput }
 		const field = stringField({ hooks })
 		const declarations = getFieldHookDeclarations(field)
 
-		hooks.onError = replacement
+		hooks.resolveInput = replacement
 
-		expect(getHookHandlerEntries(declarations, 'onError')[0]?.handler).toBe(
-			onError,
-		)
+		expect(
+			getHookHandlerEntries(declarations, 'resolveInput')[0]?.handler,
+		).toBe(resolveInput)
 		expect(Object.isFrozen(declarations)).toBe(true)
-		expect(Reflect.set(declarations ?? {}, 'onError', replacement)).toBe(false)
+		expect(Reflect.set(declarations ?? {}, 'resolveInput', replacement)).toBe(false)
 	})
 
-	it('keeps declarations isolated by exact field identity', () => {
-		const firstHandler: FieldErrorHook = () => undefined
-		const secondHandler: FieldErrorHook = () => undefined
-		const first = stringField({ hooks: { onError: firstHandler } })
-		const second = stringField({ hooks: { onError: secondHandler } })
-		const firstDeclarations = getFieldHookDeclarations(first)
-		const secondDeclarations = getFieldHookDeclarations(second)
-
-		expect(firstDeclarations).not.toBe(secondDeclarations)
-		expect(
-			getHookHandlerEntries(firstDeclarations, 'onError')[0]?.handler,
-		).toBe(firstHandler)
-		expect(
-			getHookHandlerEntries(secondDeclarations, 'onError')[0]?.handler,
-		).toBe(secondHandler)
-	})
-
-	it('precomposes every broad field lifecycle according to its timing', () => {
-		const broad = () => undefined
-		const specific = () => undefined
+	it('precomposes broad resolveInput hooks before their specific family', () => {
+		const broad = ({ value }: { readonly value: string | null }) => value
+		const specific = ({ value }: { readonly value: string | null }) => value
 		const field = declareStringFieldFromUnknown({
-			hooks: {
-				afterRollback: { all: broad, delete: specific },
-				onChange: { all: broad, delete: specific },
-				resolveOutput: { all: broad, read: specific },
-			},
+			hooks: { resolveInput: { all: broad, update: specific } },
 		})
 		const declarations = getFieldHookDeclarations(field)
 
 		expect(
-			getHookHandlerEntries(declarations, 'onChange', 'delete').map(
+			getHookHandlerEntries(declarations, 'resolveInput', 'update').map(
 				({ handler }) => handler,
 			),
 		).toStrictEqual([broad, specific])
-		expect(
-			getHookHandlerEntries(declarations, 'resolveOutput', 'read').map(
-				({ handler }) => handler,
-			),
-		).toStrictEqual([specific, broad])
-		expect(
-			getHookHandlerEntries(declarations, 'afterRollback', 'delete').map(
-				({ handler }) => handler,
-			),
-		).toStrictEqual([specific, broad])
 	})
 
 	it('does not retain empty declarations', () => {
@@ -192,7 +129,7 @@ describe('field hook declarations', () => {
 			fields: {
 				title: stringField({
 					validation: { required: true },
-					hooks: { onError },
+					hooks: { resolveInput: ({ value }) => value },
 				}),
 			},
 		})
@@ -200,7 +137,6 @@ describe('field hook declarations', () => {
 		const plainPlan = compileValidationPlans(withoutHooks)
 		const hookedPlan = compileValidationPlans(withHooks)
 
-		// Class identity differs, but field plan structure must stay physical and equal.
 		expect(hookedPlan.create.fields.title).toStrictEqual(
 			plainPlan.create.fields.title,
 		)
@@ -220,14 +156,14 @@ describe('field hook declarations', () => {
 		)
 	})
 
-	it('rejects unknown hook phases with their complete path', () => {
+	it('rejects removed and unknown hook phases with their complete path', () => {
 		expect(() =>
-			declareStringFieldFromUnknown({ hooks: { beforeRead: onError } }),
-		).toThrow(new TypeError('Unknown field hook: hooks.beforeRead'))
+			declareStringFieldFromUnknown({ hooks: { beforeOperation: () => undefined } }),
+		).toThrow(new TypeError('Unknown field hook: hooks.beforeOperation'))
 	})
 
 	it('rejects symbol hook phases without silently copying them', () => {
-		const hooks = { [Symbol('private-hook')]: onError }
+		const hooks = { [Symbol('private-hook')]: resolveInput }
 
 		expect(() => declareStringFieldFromUnknown({ hooks })).toThrow(
 			new TypeError('hooks contains an unsupported symbol key'),
@@ -244,12 +180,12 @@ describe('field hook declarations', () => {
 		'rejects %s handlers with their complete path',
 		(_name, handler) => {
 			expect(() =>
-				declareStringFieldFromUnknown({ hooks: { onError: handler } }),
+				declareStringFieldFromUnknown({ hooks: { resolveInput: handler } }),
 			).toThrow(
 				new TypeError(
 					_name === 'an object'
-						? 'hooks.onError family map must not be empty'
-						: 'hooks.onError must be a function or non-empty handler list',
+						? 'hooks.resolveInput family map must not be empty'
+						: 'hooks.resolveInput must be a function or non-empty handler list',
 				),
 			)
 		},

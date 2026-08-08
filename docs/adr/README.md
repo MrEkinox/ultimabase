@@ -132,8 +132,6 @@ Accepted records:
 - [ADR-0138: Drizzle-native PostgreSQL synchronization metadata](0138-drizzle-native-synchronization-metadata.md)
 - [ADR-0139: Drizzle-native PostgreSQL column value mapping](0139-drizzle-native-column-value-mapping.md)
 - [ADR-0140: Flat boolean Query selections](0140-flat-boolean-query-selections.md)
-- [ADR-0141: Explicit read hooks and eager pointer inclusion](0141-explicit-read-hooks-and-eager-pointer-inclusion.md)
-- [ADR-0142: Explicit schema operation hooks](0142-explicit-schema-operation-hooks.md)
 - [ADR-0143: Canonical object-shaped where inputs](0143-canonical-object-where-inputs.md)
 - [ADR-0144: Flat updateOne result selections](0144-flat-update-one-result-selections.md)
 - [ADR-0145: Create command envelope and result selection](0145-create-command-envelope-and-result-selection.md)
@@ -152,6 +150,9 @@ Accepted records:
 - [ADR-0158: Filtered relation cardinality](0158-filtered-relation-cardinality.md)
 - [ADR-0159: Projection-only pointer inclusions](0159-projection-only-pointer-inclusions.md)
 - [ADR-0160: Pointer identity and target filters](0160-pointer-identity-and-target-filters.md)
+- [ADR-0161: Compact field operation hooks](0161-compact-field-operation-hooks.md)
+- [ADR-0162: Strict object target commands](0162-strict-object-target-commands.md)
+- [ADR-0163: Group schema hooks by mutation responsibility](0163-grouped-schema-mutation-hooks.md)
 
 Superseded records:
 
@@ -168,5 +169,7 @@ Superseded records:
 - [ADR-0108: Contextual Query terminal execution](0108-contextual-query-terminal-execution.md), superseded by ADR-0152.
 - [ADR-0110: Concise singular Query terminals](0110-concise-singular-query-terminals.md), superseded by ADR-0132.
 - [ADR-0114: Terminal-only Query authority resolution](0114-terminal-only-query-authority-resolution.md), superseded by ADR-0153.
+- [ADR-0141: Explicit read hooks and eager pointer inclusion](0141-explicit-read-hooks-and-eager-pointer-inclusion.md), superseded by ADR-0163.
+- [ADR-0142: Explicit schema operation hooks](0142-explicit-schema-operation-hooks.md), superseded by ADR-0163.
 
 New decisions receive the next number. Do not rewrite history; supersede a record.

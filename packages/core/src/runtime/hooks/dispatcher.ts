@@ -1,14 +1,4 @@
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
-import { isDeepStrictEqual } from 'node:util'
-
-import { hydrateQueryFromAst, QueryBuilder } from '../../query/query/query.js'
-import type {
-	ExecutableOperationAst,
-	QueryAst,
-	QueryFilterNode,
-	QueryFieldName,
-} from '../../query/index.js'
-import type { FieldHookPhase } from '../../schema/hooks/field-declarations.js'
 import type { SchemaHookPhase } from '../../schema/hooks/declarations.js'
 import type { HookContext } from '../../schema/hooks/hook-context.js'
 import type { SchemaDefinition } from '../../schema/index.js'
@@ -17,15 +7,13 @@ import { FrameworkApplication } from '../../foundation.js'
 import type {
 	DatabaseMutationOperationAst,
 	DatabaseOperationAst,
-	DatabaseOperationOutcome,
-	DatabaseOperationResult,
 } from '../database/contracts.js'
 import type {
-	RuntimeNativeDatabaseResultStageInput,
 	RuntimeNativeHookStages,
 	RuntimeNativeResultStageInput,
 	RuntimeOperationResult,
 	RuntimeOperationStageInput,
+	RuntimePreparedMutationStageInput,
 } from '../pipeline/contracts.js'
 import {
 	createRuntimeHookBoundaries,
@@ -41,30 +29,18 @@ import {
 	invokeErasedHook,
 	requireDeclaredOperationSchema,
 } from './contribution-execution.js'
+import { transformOperationFieldInputs } from './field-inputs.js'
 import {
-	collectOperationFieldInputs,
-	transformOperationFieldInputs,
-} from './field-inputs.js'
-import { transformOperationFieldOutputs } from './field-outputs.js'
-import {
-	collectMutationAfterFieldValues,
-	collectMutationBeforeFieldValues,
-	collectMutationFieldChanges,
+	collectMutationAfterItems,
+	collectMutationBeforeItems,
+	type RuntimeMutationItemPair,
 } from './materializations.js'
 import { getNativeHookPhaseOrder } from './phase-order.js'
-import {
-	runHookEffects,
-	runHookTransformChain,
-	runHookValidations,
-} from './composition.js'
-import {
-	createTransactionHookLifecycle,
-	runNonTransactionalErrorHooks,
-} from './transaction-dispatcher.js'
+import { runHookEffects, runHookTransformChain } from './composition.js'
+import { createTransactionHookLifecycle } from './transaction-dispatcher.js'
 import {
 	createFieldHookTarget,
 	createSchemaHookTarget,
-	type HookExecutionDescriptor,
 } from './execution-descriptor.js'
 import {
 	getApplicationHookExecutionRuntime,
@@ -75,186 +51,76 @@ const createSchemaResultInput = <const TOperation extends DatabaseOperationAst>(
 	operation: TOperation,
 	result: RuntimeOperationResult<TOperation>,
 	context: HookContext,
+	items: readonly RuntimeMutationItemPair[] | undefined,
 ): Readonly<{
 	readonly context: HookContext
 	readonly kind: TOperation['kind']
 	readonly operation: TOperation
 	readonly result: RuntimeOperationResult<TOperation>
-}> => immutableRecord({ context, kind: operation.kind, operation, result })
+}> => {
+	const base = { context, kind: operation.kind, operation, result } as const
 
-type RuntimeReadOperation = Extract<
-	ExecutableOperationAst,
-	{ readonly kind: 'count' | 'exists' | 'find-many' | 'find-one' | 'get' }
->
+	if (items === undefined) return immutableRecord(base)
 
-const readQueryAst = (operation: DatabaseOperationAst): QueryAst => {
-	const executable = operation as unknown as ExecutableOperationAst
+	switch (operation.kind) {
+		case 'create-one':
+		case 'delete-one':
+		case 'update-one':
+		case 'upsert-one': {
+			const pair = items[0]
 
-	switch (executable.kind) {
+			if (pair === undefined) {
+				throw new TypeError(
+					'Singular mutation after-hooks require one materialized item pair',
+				)
+			}
+
+			return immutableRecord({ ...base, ...pair })
+		}
+		case 'create-many':
+		case 'delete-many':
+		case 'update-many':
+		case 'upsert-many':
+			return immutableRecord({ ...base, items })
 		case 'count':
 		case 'exists':
 		case 'find-many':
 		case 'find-one':
 		case 'get':
-			return executable.query
-		case 'create-many':
+			return immutableRecord(base)
+	}
+}
+
+const createSchemaPreparedInput = (
+	operation: DatabaseMutationOperationAst,
+	context: HookContext,
+	target: RuntimePreparedMutationStageInput<DatabaseMutationOperationAst>['target'],
+): unknown => {
+	const base = createSchemaOperationHookInput(operation, context)
+	const items = collectMutationBeforeItems(operation, target)
+
+	switch (operation.kind) {
 		case 'create-one':
-		case 'delete-many':
 		case 'delete-one':
+		case 'update-one': {
+			const pair = items[0]
+
+			if (pair === undefined) {
+				throw new TypeError(
+					'Singular mutation before-hooks require one materialized item pair',
+				)
+			}
+
+			return immutableRecord({ ...base, ...pair })
+		}
+		case 'create-many':
+			return immutableRecord({ ...base, items })
+		case 'delete-many':
 		case 'update-many':
-		case 'update-one':
 		case 'upsert-many':
 		case 'upsert-one':
-			throw new TypeError('beforeRead requires a read operation')
+			return base
 	}
-}
-
-const hasSameSelection = (left: QueryAst, right: QueryAst): boolean =>
-	left.selection.fields.length === right.selection.fields.length &&
-	left.selection.fields.every(
-		(selected, index) =>
-			selected.field === right.selection.fields[index]?.field,
-	)
-
-/** Prevents a read hook from invalidating the inclusion encoded in its result type. */
-const hasSameInclusion = (left: QueryAst, right: QueryAst): boolean =>
-	isDeepStrictEqual(left.inclusion, right.inclusion)
-
-/** Recovers the builder's normalized filter specialization at the Runtime seam. */
-const hydrateRuntimeQuery = (
-	ast: QueryAst,
-): QueryBuilder<SchemaDefinition, QueryFieldName<SchemaDefinition>> =>
-	// Executable operations can erase their schema-specific filter union, but the
-	// pipeline accepts only QueryBuilder-produced and structurally normalized AST nodes.
-	hydrateQueryFromAst(
-		ast as QueryAst<SchemaDefinition, QueryFilterNode<SchemaDefinition>>,
-	)
-
-/** Narrows an erased callback result without leaking QueryBuilder's constructor defaults. */
-const isRuntimeQuery = (
-	value: unknown,
-): value is QueryBuilder<SchemaDefinition, QueryFieldName<SchemaDefinition>> =>
-	value instanceof QueryBuilder
-
-/** Lets read hooks replace builder state without changing schema or projection. */
-const runBeforeRead = async <const TOperation extends DatabaseOperationAst>(
-	boundaries: RuntimeHookBoundaries,
-	plan: NativeHookContributionPlan,
-	runtime: HookExecutionRuntime,
-	input: RuntimeOperationStageInput<TOperation>,
-): Promise<TOperation> => {
-	const schemaPlan = plan.getSchema(
-		requireDeclaredOperationSchema(input.operation),
-	)
-
-	if (schemaPlan === undefined) {
-		throw new TypeError('Native hook plan does not own the operation schema')
-	}
-
-	const handlers = collectNestedHookHandlers(
-		schemaPlan.contributions,
-		'before',
-		'beforeRead',
-		input.operation.kind,
-		createSchemaHookTarget(schemaPlan.schema.className),
-		'read',
-	)
-
-	return runHookTransformChain(
-		handlers,
-		input.operation,
-		async (handler, current) => {
-			const currentAst = readQueryAst(current)
-			const query = hydrateRuntimeQuery(currentAst)
-			const replacement = await invokeErasedHook<unknown>(
-				runtime,
-				handler,
-				input.context,
-				(context) =>
-					immutableRecord({
-						context,
-						kind: current.kind,
-						operation: current,
-						query,
-					}),
-			)
-
-			if (replacement === undefined) {
-				return undefined
-			}
-
-			if (!isRuntimeQuery(replacement)) {
-				throw new TypeError('beforeRead must return an immutable QueryBuilder')
-			}
-
-			if (replacement.schema !== query.schema) {
-				throw new TypeError('beforeRead must retain the exact schema')
-			}
-
-			if (!hasSameSelection(currentAst, replacement.ast)) {
-				throw new TypeError('beforeRead must retain the exact query selection')
-			}
-
-			if (!hasSameInclusion(currentAst, replacement.ast)) {
-				throw new TypeError('beforeRead must retain the exact query inclusion')
-			}
-
-			const readOperation = current as unknown as RuntimeReadOperation
-			const nextOperation = immutableRecord({
-				...readOperation,
-				query: replacement.ast,
-			})
-
-			return boundaries.snapshotOperationReplacement(current, nextOperation)
-		},
-	)
-}
-
-/** Resolves each readable present output through its field contribution chain. */
-const resolveFieldOutputs = async <
-	const TOperation extends DatabaseOperationAst,
->(
-	plan: NativeHookContributionPlan,
-	runtime: HookExecutionRuntime,
-	input: RuntimeNativeDatabaseResultStageInput<TOperation>,
-): Promise<DatabaseOperationResult<TOperation>> => {
-	const schema = requireDeclaredOperationSchema(input.operation)
-	const family = getNativeHookPhaseOrder(input.operation.kind).family
-
-	return transformOperationFieldOutputs(
-		input.operation,
-		input.result,
-		async (fieldOutput) => {
-			const fieldPlan = plan.getField(schema, fieldOutput.fieldPath)
-
-			if (fieldPlan === undefined) {
-				return undefined
-			}
-
-			const handlers = collectNestedHookHandlers(
-				fieldPlan.contributions,
-				'after',
-				'resolveOutput',
-				input.operation.kind,
-				createFieldHookTarget(schema.className, fieldOutput.fieldPath),
-				family,
-			)
-
-			return runHookTransformChain(
-				handlers,
-				fieldOutput.value,
-				(handler, value) =>
-					invokeErasedHook(runtime, handler, input.context, (context) =>
-						immutableRecord({
-							context,
-							kind: fieldOutput.kind,
-							mode: fieldOutput.mode,
-							value,
-						}),
-					),
-			)
-		},
-	)
 }
 
 const resolveFieldInputs = async <
@@ -279,7 +145,7 @@ const resolveFieldInputs = async <
 			fieldPlan.contributions,
 			'before',
 			'resolveInput',
-			operation.kind,
+			input.operation.kind,
 			createFieldHookTarget(schema.className, fieldInput.fieldPath),
 			order.family,
 		)
@@ -349,37 +215,49 @@ const runSchemaTransformPhases = async <
 	return operation
 }
 
-const runSchemaBeforePhases = async <
-	const TOperation extends DatabaseOperationAst,
+/** Runs mutation before-hooks after Runtime has prepared any reliable preimage. */
+const runSchemaPreparedPhases = async <
+	const TOperation extends DatabaseMutationOperationAst,
 >(
-	boundaries: RuntimeHookBoundaries,
 	plan: NativeHookContributionPlan,
 	runtime: HookExecutionRuntime,
-	input: RuntimeOperationStageInput<TOperation>,
+	input: RuntimePreparedMutationStageInput<TOperation>,
 ): Promise<TOperation> => {
-	const order = getNativeHookPhaseOrder(input.operation.kind)
-	let operation = input.operation
-
-	for (const phase of order.schemaBefore) {
-		operation =
-			phase === 'beforeRead'
-				? await runBeforeRead(
-						boundaries,
-						plan,
-						runtime,
-						immutableRecord({ ...input, operation }),
-					)
-				: await runSchemaTransformPhases(
-						boundaries,
-						plan,
-						runtime,
-						immutableRecord({ ...input, operation }),
-						immutableArray([phase]),
-						'before',
-					)
+	if (
+		(input.operation.kind === 'update-one' ||
+			input.operation.kind === 'delete-one') &&
+		input.target === null
+	) {
+		return input.operation
 	}
 
-	return operation
+	const schemaPlan = plan.getSchema(
+		requireDeclaredOperationSchema(input.operation),
+	)
+
+	if (schemaPlan === undefined) {
+		throw new TypeError('Native hook plan does not own the operation schema')
+	}
+
+	const order = getNativeHookPhaseOrder(input.operation.kind)
+	for (const phase of order.schemaBefore) {
+		const handlers = collectNestedHookHandlers(
+			schemaPlan.contributions,
+			'before',
+			phase,
+			input.operation.kind,
+			createSchemaHookTarget(schemaPlan.schema.className),
+			order.family,
+		)
+
+		await runHookEffects(handlers, (handler) =>
+			invokeErasedHook<undefined>(runtime, handler, input.context, (context) =>
+				createSchemaPreparedInput(input.operation, context, input.target),
+			),
+		)
+	}
+
+	return input.operation
 }
 
 const resolveInput = async <const TOperation extends DatabaseOperationAst>(
@@ -406,180 +284,6 @@ const resolveInput = async <const TOperation extends DatabaseOperationAst>(
 	)
 }
 
-const validateInput = async <const TOperation extends DatabaseOperationAst>(
-	boundaries: RuntimeHookBoundaries,
-	plan: NativeHookContributionPlan,
-	runtime: HookExecutionRuntime,
-	input: RuntimeOperationStageInput<TOperation>,
-): Promise<void> => {
-	const order = getNativeHookPhaseOrder(input.operation.kind)
-
-	if (order.family === 'delete' || order.family === 'read') {
-		return
-	}
-
-	const schema = requireDeclaredOperationSchema(input.operation)
-	const issues = []
-
-	for (const fieldInput of collectOperationFieldInputs(
-		input.operation,
-		'children-first',
-	)) {
-		const fieldPlan = plan.getField(schema, fieldInput.fieldPath)
-
-		if (fieldPlan === undefined) {
-			continue
-		}
-
-		const handlers = collectNestedHookHandlers(
-			fieldPlan.contributions,
-			'before',
-			'validate',
-			input.operation.kind,
-			createFieldHookTarget(schema.className, fieldInput.fieldPath),
-			order.family,
-		)
-		const fieldIssues = await runHookValidations(handlers, (handler) =>
-			invokeErasedHook(runtime, handler, input.context, (context) =>
-				immutableRecord({
-					context,
-					kind: fieldInput.kind,
-					mode: fieldInput.mode,
-					value: fieldInput.value,
-				}),
-			),
-		)
-
-		for (const issue of fieldIssues) {
-			issues.push(
-				immutableRecord({
-					...issue,
-					path: immutableArray([...fieldInput.valuePath, ...issue.path]),
-				}),
-			)
-		}
-	}
-
-	const schemaPlan = plan.getSchema(schema)
-
-	if (schemaPlan === undefined) {
-		throw new TypeError('Native hook plan does not own the operation schema')
-	}
-
-	const schemaHandlers = collectNestedHookHandlers(
-		schemaPlan.contributions,
-		'before',
-		'validate',
-		input.operation.kind,
-		createSchemaHookTarget(schema.className),
-		order.family,
-	)
-	issues.push(
-		...(await runHookValidations(schemaHandlers, (handler) =>
-			invokeErasedHook(runtime, handler, input.context, (context) =>
-				createSchemaOperationHookInput(input.operation, context),
-			),
-		)),
-	)
-
-	boundaries.throwHookValidationIssues(issues)
-}
-
-/** Executes one erased effect while preserving both sync and async handlers. */
-const invokeErasedEffect = async (
-	runtime: HookExecutionRuntime,
-	handler: HookExecutionDescriptor,
-	request: RuntimeOperationStageInput<DatabaseOperationAst>['context'],
-	createInput: (context: HookContext) => unknown,
-): Promise<void> => {
-	await invokeErasedHook(runtime, handler, request, createInput)
-}
-
-const runMutationFieldEffects = async (
-	plan: NativeHookContributionPlan,
-	runtime: HookExecutionRuntime,
-	context: RuntimeOperationStageInput<DatabaseOperationAst>['context'],
-	operation: DatabaseMutationOperationAst,
-	values: ReturnType<typeof collectMutationBeforeFieldValues>,
-	phases: readonly FieldHookPhase[],
-	direction: 'after' | 'before',
-): Promise<void> => {
-	const schema = requireDeclaredOperationSchema(operation)
-	const family = getNativeHookPhaseOrder(operation.kind).family
-
-	for (const value of values) {
-		const fieldPlan = plan.getField(schema, value.fieldPath)
-
-		if (fieldPlan === undefined) {
-			continue
-		}
-
-		for (const phase of phases) {
-			const handlers = collectNestedHookHandlers(
-				fieldPlan.contributions,
-				direction,
-				phase,
-				operation.kind,
-				createFieldHookTarget(schema.className, value.fieldPath),
-				family,
-			)
-
-			await runHookEffects(handlers, (handler) =>
-				invokeErasedEffect(runtime, handler, context, (hookContext) =>
-					immutableRecord({
-						context: hookContext,
-						kind: value.kind,
-						mode: value.mode,
-						value: value.value,
-					}),
-				),
-			)
-		}
-	}
-}
-
-const runChangeEffects = async <
-	const TOperation extends DatabaseMutationOperationAst,
->(
-	plan: NativeHookContributionPlan,
-	runtime: HookExecutionRuntime,
-	context: RuntimeOperationStageInput<DatabaseOperationAst>['context'],
-	operation: TOperation,
-	outcome: DatabaseOperationOutcome<TOperation>,
-): Promise<void> => {
-	const schema = requireDeclaredOperationSchema(operation)
-	const family = getNativeHookPhaseOrder(operation.kind).family
-
-	for (const change of collectMutationFieldChanges(operation, outcome)) {
-		const fieldPlan = plan.getField(schema, change.fieldPath)
-
-		if (fieldPlan === undefined) {
-			continue
-		}
-
-		const handlers = collectNestedHookHandlers(
-			fieldPlan.contributions,
-			'after',
-			'onChange',
-			operation.kind,
-			createFieldHookTarget(schema.className, change.fieldPath),
-			family,
-		)
-
-		await runHookEffects(handlers, (handler) =>
-			invokeErasedEffect(runtime, handler, context, (hookContext) =>
-				immutableRecord({
-					context: hookContext,
-					change: change.change,
-					itemId: change.itemId,
-					kind: change.kind,
-					timing: change.timing,
-				}),
-			),
-		)
-	}
-}
-
 const runSchemaResultPhases = async <
 	const TOperation extends DatabaseOperationAst,
 >(
@@ -597,11 +301,32 @@ const runSchemaResultPhases = async <
 	}
 
 	const order = getNativeHookPhaseOrder(input.operation.kind)
-	let result = boundaries.snapshotResultReplacement(
+	const result = boundaries.snapshotResultReplacement(
 		input.operation,
 		input.result,
 		input.selectedFieldsOverride,
 	)
+
+	if (order.family === 'read') {
+		return result
+	}
+
+	if (input.outcome === undefined) {
+		throw new TypeError(
+			'Schema mutation after-hooks require private materializations',
+		)
+	}
+
+	const items = collectMutationAfterItems(input.outcome)
+
+	if (
+		(input.operation.kind === 'update-one' ||
+			input.operation.kind === 'delete-one') &&
+		items.length === 0
+	) {
+		// A nullable where-based mutation has no item lifecycle when it matched no row.
+		return result
+	}
 
 	for (const phase of order.schemaAfter) {
 		const handlers = collectNestedHookHandlers(
@@ -613,26 +338,10 @@ const runSchemaResultPhases = async <
 			order.family,
 		)
 
-		result = await runHookTransformChain(
-			handlers,
-			result,
-			async (handler, current) => {
-				const replacement = await invokeErasedHook<unknown>(
-					runtime,
-					handler,
-					input.context,
-					(context) =>
-						createSchemaResultInput(input.operation, current, context),
-				)
-
-				return replacement === undefined
-					? undefined
-					: boundaries.snapshotResultReplacement(
-							input.operation,
-							replacement,
-							input.selectedFieldsOverride,
-						)
-			},
+		await runHookEffects(handlers, (handler) =>
+			invokeErasedHook<undefined>(runtime, handler, input.context, (context) =>
+				createSchemaResultInput(input.operation, result, context, items),
+			),
 		)
 	}
 
@@ -657,55 +366,18 @@ export const createNativeHookStages = <
 	return immutableRecord({
 		createTransactionLifecycle: () =>
 			createTransactionHookLifecycle(plan, runtime),
-		fieldAfter: async (input) => {
-			const outcome = boundaries.snapshotMutationOutcome(
-				input.operation,
-				input.outcome,
-			)
-			const order = getNativeHookPhaseOrder(input.operation.kind)
-
-			await runMutationFieldEffects(
-				plan,
-				runtime,
-				input.context,
-				input.operation,
-				collectMutationAfterFieldValues(input.operation, outcome),
-				order.fieldAfter,
-				'after',
-			)
-			await runChangeEffects(
-				plan,
-				runtime,
-				input.context,
-				input.operation,
-				outcome,
-			)
-
-			return outcome
-		},
-		fieldBefore: async (input) => {
-			const order = getNativeHookPhaseOrder(input.operation.kind)
-
-			await runMutationFieldEffects(
-				plan,
-				runtime,
-				input.context,
-				input.operation,
-				collectMutationBeforeFieldValues(input.operation, input.target),
-				order.fieldBefore,
-				'before',
-			)
-		},
-		onError: (input) => runNonTransactionalErrorHooks(plan, runtime, input),
+		mutationOutcome: (input) =>
+			boundaries.snapshotMutationOutcome(input.operation, input.outcome),
 		resolveInput: (input) => resolveInput(boundaries, plan, runtime, input),
-		resolveOutput: (input) => resolveFieldOutputs(plan, runtime, input),
+		// Output representation belongs to field definitions and transports, not hooks.
+		resolveOutput: ({ result }) => result,
 		revalidate: (input) =>
 			boundaries.snapshotOperationReplacement(input.operation, input.operation),
 		schemaAfter: (input) =>
 			runSchemaResultPhases(boundaries, plan, runtime, input),
-		schemaBefore: (input) => {
-			return runSchemaBeforePhases(boundaries, plan, runtime, input)
-		},
-		validate: (input) => validateInput(boundaries, plan, runtime, input),
+		schemaPrepared: (input) => runSchemaPreparedPhases(plan, runtime, input),
+		// Schema read hooks and schema validation are intentionally not public phases.
+		schemaBefore: ({ operation }) => operation,
+		validate: () => undefined,
 	})
 }

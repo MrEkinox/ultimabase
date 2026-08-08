@@ -1,3 +1,5 @@
+import { isDeepStrictEqual } from 'node:util'
+
 import {
 	AccessSubjectReference,
 	accessPrincipalResolverServiceToken,
@@ -29,8 +31,8 @@ import {
 import { ACL } from './acl.js'
 import {
 	aclChangedEventContract,
-	aclFieldHookTarget,
 	createACLChangedEvent,
+	type ACLChangedOperation,
 } from './acl-events.js'
 import {
 	createACLReferenceCleanups,
@@ -567,6 +569,52 @@ const aclReplacementInvariantOperationKinds = Object.freeze([
 type ACLDatabaseConstraint = ACLReferenceConstraint | ACLRowConstraint
 const emptyACLChangeValue = new ACL()
 
+interface ACLMutationItemPair {
+	readonly originalItem: Readonly<Record<string, unknown>> | null
+	readonly item: Readonly<Record<string, unknown>> | null
+}
+
+const readACLMutationItems = (
+	input: unknown,
+): readonly ACLMutationItemPair[] => {
+	if (!isPlainRecord(input)) {
+		throw new TypeError('ACL schema hook input must be an object')
+	}
+
+	if (isUnknownArray(input.items)) {
+		return immutableArray(
+			input.items.map((candidate) => {
+				if (
+					!isPlainRecord(candidate) ||
+					(candidate.originalItem !== null &&
+						!isPlainRecord(candidate.originalItem)) ||
+					(candidate.item !== null && !isPlainRecord(candidate.item))
+				) {
+					throw new TypeError('ACL schema hook item pair is invalid')
+				}
+
+				return immutableRecord({
+					item: candidate.item,
+					originalItem: candidate.originalItem,
+				})
+			}),
+		)
+	}
+
+	if (
+		!Object.hasOwn(input, 'originalItem') ||
+		!Object.hasOwn(input, 'item') ||
+		(input.originalItem !== null && !isPlainRecord(input.originalItem)) ||
+		(input.item !== null && !isPlainRecord(input.item))
+	) {
+		throw new TypeError('ACL singular schema hook item pair is invalid')
+	}
+
+	return immutableArray([
+		immutableRecord({ item: input.item, originalItem: input.originalItem }),
+	])
+}
+
 const updateTouchesACL = (update: unknown): boolean =>
 	isPlainRecord(update) &&
 	isUnknownArray(update.operations) &&
@@ -732,35 +780,63 @@ export const aclPlugin = (options: ACLPluginOptions = {}): ACLPlugin => {
 				config: ACLSchemaExtensionConfig,
 			): ResolvedACLEntryLimits =>
 				resolveACLEntryLimits(pluginLimits, config.limits)
-			hooks.fieldKind(
-				'emit-acl-change-event',
-				aclFieldHookTarget,
-				({ schema }) => ({
-					onChange: async ({ context, change, itemId, kind }) => {
-						if (!change.current.present || kind === 'delete-one') return
+			const emitACLChanges = async (
+				context: HookContext,
+				schema: SchemaDefinition,
+				kind: ACLChangedOperation,
+				input: unknown,
+			): Promise<void> => {
+				for (const { item, originalItem } of readACLMutationItems(input)) {
+					if (item === null) continue
 
-						const subjects = await resolveSubjects()
-						const payload = createACLChangedEvent({
-							authority: context.access.mode,
-							className: schema.className,
-							current: change.current.value,
-							itemId,
-							operation: kind,
-							previous: change.previous.present
-								? change.previous.value
-								: emptyACLChangeValue,
-							principal: subjects.principal,
-						})
+					const current = snapshotResolvedACL(item[aclFieldName], 'current acl')
+					const previous =
+						originalItem === null
+							? emptyACLChangeValue
+							: snapshotResolvedACL(originalItem[aclFieldName], 'previous acl')
 
-						// Core buffers named events and delivers them only after outer commit.
-						context.emit(aclChangedEventContract, payload)
-					},
-				}),
-			)
+					if (isDeepStrictEqual(previous.toJSON(), current.toJSON())) continue
+
+					const itemId: unknown = item.id
+
+					if (typeof itemId !== 'string' || itemId.length === 0) {
+						throw new TypeError(
+							'ACL change event requires a materialized item id',
+						)
+					}
+
+					const subjects = await resolveSubjects()
+					const payload = createACLChangedEvent({
+						authority: context.access.mode,
+						className: schema.className,
+						current,
+						itemId,
+						operation: kind,
+						previous,
+						principal: subjects.principal,
+					})
+
+					// Core buffers named events and delivers them only after outer commit.
+					context.emit(aclChangedEventContract, payload)
+				}
+			}
 			hooks.schemaExtension(
-				'resolve-create-input',
+				'acl-input-and-change-lifecycle',
 				aclExtensionTarget,
-				({ extension }) => ({
+				({ extension, schema }) => ({
+					afterOperation: {
+						create: async (input) => {
+							await emitACLChanges(input.context, schema, input.kind, input)
+						},
+						update: async (input) => {
+							if (input.kind === 'update-one') {
+								await emitACLChanges(input.context, schema, input.kind, input)
+							}
+						},
+						upsert: async (input) => {
+							await emitACLChanges(input.context, schema, input.kind, input)
+						},
+					},
 					resolveInput: {
 						create: async ({ context, operation }) => {
 							const subjects = await resolveSubjects()

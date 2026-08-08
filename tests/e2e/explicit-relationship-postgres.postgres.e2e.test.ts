@@ -48,24 +48,26 @@ const Membership = Schema.define({
 		}),
 	},
 	hooks: {
-		afterCreate: ({ operation, result }) => {
-			if (operation.kind === 'create-one') {
-				membershipTrace.push(`created:${operation.input.role}`)
-			}
-
-			return result
+		afterOperation: {
+			create: ({ operation }) => {
+				if (operation.kind === 'create-one') {
+					membershipTrace.push(`created:${operation.input.role}`)
+				}
+			},
 		},
-		beforeCreate: ({ operation }) => {
-			// The edge uses the ordinary schema lifecycle for cross-field invariants.
-			if (
-				operation.kind === 'create-one' &&
-				operation.input.role === 'viewer' &&
-				(operation.input.position ?? 0) === 0
-			) {
-				throw new TypeError('The first project member must be an editor')
-			}
+		beforeOperation: {
+			create: ({ operation }) => {
+				// The edge uses the ordinary schema lifecycle for cross-field invariants.
+				if (
+					operation.kind === 'create-one' &&
+					operation.input.role === 'viewer' &&
+					(operation.input.position ?? 0) === 0
+				) {
+					throw new TypeError('The first project member must be an editor')
+				}
 
-			return operation
+				void operation
+			},
 		},
 	},
 	indexes: [{ fields: ['project', 'member'], unique: true }],

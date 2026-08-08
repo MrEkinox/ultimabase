@@ -39,18 +39,6 @@ const User = Schema.define({
 	fields: {
 		name: stringField({ validation: { required: true } }),
 	},
-	hooks: {
-		afterRead: ({ result }) => {
-			pointerTrace.push('user:afterRead')
-
-			return result
-		},
-		beforeRead: ({ query }) => {
-			pointerTrace.push('user:beforeRead')
-
-			return query
-		},
-	},
 })
 
 const Post = Schema.define({
@@ -64,28 +52,30 @@ const Post = Schema.define({
 		title: stringField({ validation: { required: true } }),
 	},
 	hooks: {
-		afterUpdate: ({ operation, result }) => {
-			pointerTrace.push('post:afterUpdate')
+		afterOperation: {
+			update: ({ operation }) => {
+				pointerTrace.push('post:afterUpdate')
 
-			// The write has happened at this point, so this failure proves transaction rollback.
-			if (
-				operation.kind === 'update-one' &&
-				operation.update.operations.some(
-					(update) =>
-						update.kind === 'set' &&
-						update.field === 'title' &&
-						update.value === 'rollback-pointer',
-				)
-			) {
-				throw pointerRollbackError
-			}
-
-			return result
+				// The write has happened at this point, so this failure proves transaction rollback.
+				if (
+					operation.kind === 'update-one' &&
+					operation.update.operations.some(
+						(update) =>
+							update.kind === 'set' &&
+							update.field === 'title' &&
+							update.value === 'rollback-pointer',
+					)
+				) {
+					throw pointerRollbackError
+				}
+			},
 		},
-		beforeUpdate: ({ operation }) => {
-			pointerTrace.push('post:beforeUpdate')
+		beforeOperation: {
+			update: ({ operation }) => {
+				pointerTrace.push('post:beforeUpdate')
 
-			return operation
+				void operation
+			},
 		},
 	},
 })
@@ -363,8 +353,6 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 
 		expect(included?.title).toBe('Typed pointer')
 		expect(included?.author?.toJSON()).toStrictEqual({ name: 'Ada' })
-		expect(pointerTrace).not.toContain('user:beforeRead')
-		expect(pointerTrace).not.toContain('user:afterRead')
 
 		if (included?.author === null || included?.author === undefined) {
 			throw new TypeError('Expected an included author model')
@@ -375,7 +363,7 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 			{ ultimabase: app },
 		)
 
-		expect(renamedAuthor?.name).toBe('Ada Lovelace')
+		expect(renamedAuthor.name).toBe('Ada Lovelace')
 
 		const directAuthor = await firstPointer.findOne(
 			{ select: { name: true } },
@@ -383,9 +371,6 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 		)
 
 		expect(directAuthor?.toJSON()).toStrictEqual({ name: 'Ada Lovelace' })
-		expect(pointerTrace).toEqual(
-			expect.arrayContaining(['user:beforeRead', 'user:afterRead']),
-		)
 
 		pointerTrace.length = 0
 		const updated = await created.update(
@@ -393,7 +378,7 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 			{ ultimabase: app },
 		)
 
-		expect(updated?.author.equals(secondPointer)).toBe(true)
+		expect(updated.author.equals(secondPointer)).toBe(true)
 		expect(pointerTrace).toEqual(
 			expect.arrayContaining(['post:beforeUpdate', 'post:afterUpdate']),
 		)
@@ -422,9 +407,9 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 		expect(afterRollback?.author.equals(secondPointer)).toBe(true)
 		expect(afterRollback?.title).toBe('Updated pointer')
 
-		const deleted = await updated?.delete({}, { ultimabase: app })
+		const deleted = await updated.delete({}, { ultimabase: app })
 
-		expect(deleted?.author.equals(secondPointer)).toBe(true)
+		expect(deleted.author.equals(secondPointer)).toBe(true)
 		await expect(
 			Post.exists({ where: { id: { eq: created.id } } }, { ultimabase: app }),
 		).resolves.toBe(false)

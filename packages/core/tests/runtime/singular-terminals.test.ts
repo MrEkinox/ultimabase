@@ -23,6 +23,77 @@ const articleSchema = Schema.define({
 })
 
 describe('read terminals and singular schema commands', () => {
+	it('rejects missing targets for get and persisted model commands', async () => {
+		const trace: string[] = []
+		const persisted = {
+			createdAt: '2026-08-02T00:00:00.000Z',
+			id: '0198f090-2a50-7000-8000-000000000020',
+			title: 'Persisted',
+			updatedAt: '2026-08-02T00:00:00.000Z',
+			views: null,
+		}
+		const adapter = new RecordingDatabaseAdapter(
+			[
+				{
+					materializations: [{ current: persisted, kind: 'create' }],
+					status: 'fulfilled',
+					value: persisted,
+				},
+				{ status: 'fulfilled', value: true },
+				{ status: 'fulfilled', value: null },
+				{ status: 'fulfilled', target: null, value: null },
+				{ status: 'fulfilled', target: null, value: null },
+			],
+			trace,
+		)
+		const framework = new FrameworkEngine({
+			application: new FrameworkApplication({
+				schemas: [articleSchema],
+				plugins: [],
+			}),
+			pipeline: createRecordingPipeline(adapter, trace),
+		})
+		const request = framework.anonymous({
+			requestId: 'strict-targets',
+			source: requestSources.internal,
+		})
+
+		await runWithRequestEngine(request, async () => {
+			const article = await articleSchema.createOne({
+				data: { title: persisted.title },
+			})
+
+			await expect(article.exists()).resolves.toBe(true)
+			await expect(article.fetch({})).rejects.toMatchObject({
+				code: 'NOT_FOUND',
+			})
+			await expect(
+				article.update({ data: { title: 'Missing' } }),
+			).rejects.toMatchObject({ code: 'NOT_FOUND' })
+			await expect(article.delete({})).rejects.toMatchObject({
+				code: 'NOT_FOUND',
+			})
+		})
+
+		expect(trace).toStrictEqual([
+			'adapter:begin',
+			'prepare:create-one',
+			'execute:create-one',
+			'adapter:commit',
+			'event:create-one',
+			'execute:exists',
+			'pipeline:commit:exists',
+			'event:exists',
+			'execute:get',
+			'adapter:begin',
+			'prepare:update-one',
+			'adapter:rollback',
+			'adapter:begin',
+			'prepare:delete-one',
+			'adapter:rollback',
+		])
+	})
+
 	it('executes reads and writes through the RequestEngine pipeline', async () => {
 		const found = [
 			{ id: '0198f090-2a50-7000-8000-000000000021', title: 'Found' },
@@ -43,6 +114,16 @@ describe('read terminals and singular schema commands', () => {
 			id: '0198f090-2a50-7000-8000-000000000023',
 			title: 'Selected update',
 		}
+		const selectedUpdatePrevious = {
+			createdAt: '2026-08-02T00:00:00.000Z',
+			id: selectedUpdate.id,
+			title: 'Unique',
+			updatedAt: '2026-08-02T00:00:00.000Z',
+		}
+		const selectedUpdateCurrent = {
+			...selectedUpdatePrevious,
+			title: selectedUpdate.title,
+		}
 		const deletedOne = {
 			createdAt: '2026-08-02T00:00:00.000Z',
 			id: '0198f090-2a50-7000-8000-000000000025',
@@ -60,11 +141,23 @@ describe('read terminals and singular schema commands', () => {
 				value: { id: createdOne.id, title: createdOne.title },
 				materializations: [{ current: createdOne, kind: 'create' }],
 			},
-			{ status: 'fulfilled', value: null },
-			{ status: 'fulfilled', value: selectedUpdate },
+			{ status: 'fulfilled', target: null, value: null },
+			{
+				status: 'fulfilled',
+				target: selectedUpdatePrevious,
+				value: selectedUpdate,
+				materializations: [
+					{
+						current: selectedUpdateCurrent,
+						kind: 'update',
+						previous: selectedUpdatePrevious,
+					},
+				],
+			},
 			{ status: 'fulfilled', value: upserted },
 			{
 				status: 'fulfilled',
+				target: deletedOne,
 				value: { id: deletedOne.id, title: deletedOne.title },
 				materializations: [{ kind: 'delete', previous: deletedOne }],
 			},
@@ -98,7 +191,7 @@ describe('read terminals and singular schema commands', () => {
 			await expect(articleSchema.findOne(readInput)).resolves.toBeNull()
 			await expect(
 				articleSchema.get({ id: 'missing', select: readInput.select }),
-			).resolves.toBeNull()
+			).rejects.toMatchObject({ code: 'NOT_FOUND' })
 			await expect(
 				articleSchema.count({ where: readInput.where }),
 			).resolves.toBe(1)

@@ -150,7 +150,10 @@ const CombinedPost = Schema.define({
 	className: 'AccessCompositionPost',
 	access: {
 		filter: {
-			read: ({ filter }) => filter.equalTo('nativeScope', 'native-allowed'),
+			read: ({ filter }) =>
+				filter
+					.equalTo('nativeScope', 'native-allowed')
+					.equalTo('businessScope', 'business-allowed'),
 		},
 		operation: { read: hasRole(editor) },
 	},
@@ -160,10 +163,6 @@ const CombinedPost = Schema.define({
 		nativeScope: stringField(),
 		secret: stringField({ access: { read: false } }),
 		title: stringField({ validation: { required: true } }),
-	},
-	hooks: {
-		beforeRead: ({ query }) =>
-			query.where((where) => where.eq('businessScope', 'business-allowed')),
 	},
 	// A callback defers role discovery so this fixture can prove runtime composition.
 	extensions: [acl({ default: () => roleACL })],
@@ -279,10 +278,11 @@ const MissingRolePost = Schema.define({
 	className: 'AccessCompositionMissingRolePost',
 	fields: { title: stringField({ validation: { required: true } }) },
 	hooks: {
-		beforeCreate: ({ operation }) => {
-			roleAwareBusinessHooks += 1
-
-			return operation
+		beforeOperation: {
+			create: ({ operation }) => {
+				roleAwareBusinessHooks += 1
+				void operation
+			},
 		},
 	},
 	// Dynamic grants validate the absent provider before business or storage hooks.
@@ -371,8 +371,9 @@ describe('Access provider composition', () => {
 		expect(nested).toStrictEqual(topLevel)
 		expect(topLevel.constraintKinds).toContain('ultimabase.acl.row')
 		expect(topLevel.developerFilter).toContain('developer-visible')
-		expect(topLevel.developerFilter).toContain('business-allowed')
+		expect(topLevel.developerFilter).not.toContain('business-allowed')
 		expect(topLevel.rowFilter).toContain('native-allowed')
+		expect(topLevel.rowFilter).toContain('business-allowed')
 		expect(topLevel.rowFilter).toContain('community-allowed')
 		expect(topLevel.resultKeys).not.toContain('acl')
 		expect(topLevel.resultKeys).not.toContain('secret')

@@ -30,8 +30,6 @@ describe('native hook phase order', () => {
 			expect(Object.isFrozen(first)).toBe(true)
 			expect(Object.isFrozen(first.schemaBefore)).toBe(true)
 			expect(Object.isFrozen(first.schemaAfter)).toBe(true)
-			expect(Object.isFrozen(first.fieldBefore)).toBe(true)
-			expect(Object.isFrozen(first.fieldAfter)).toBe(true)
 		},
 	)
 
@@ -53,29 +51,19 @@ describe('native hook phase order', () => {
 		})
 	})
 
-	it('dispatches only the exact read phases', () => {
+	it('keeps reads outside schema operation hooks', () => {
 		expect(getNativeHookPhaseOrder('find-many')).toStrictEqual({
 			family: 'read',
-			fieldAfter: [],
-			fieldBefore: [],
-			schemaAfter: ['afterRead'],
-			schemaBefore: ['beforeRead'],
+			schemaAfter: [],
+			schemaBefore: [],
 		})
 	})
 
-	it('omits materialized field phases for set-based update and delete', () => {
-		for (const kind of ['update-many', 'delete-many'] as const) {
-			const order = getNativeHookPhaseOrder(kind)
-
-			expect(order.fieldBefore).toStrictEqual([])
-			expect(order.fieldAfter).toStrictEqual([])
-		}
-
-		expect(getNativeHookPhaseOrder('update-one').fieldBefore).toStrictEqual([
-			'beforeSave',
+	it('keeps set-based writes on their parent schema phases', () => {
+		expect(getNativeHookPhaseOrder('update-many').schemaBefore).toStrictEqual([
 			'beforeUpdate',
 		])
-		expect(getNativeHookPhaseOrder('delete-one').fieldAfter).toStrictEqual([
+		expect(getNativeHookPhaseOrder('delete-many').schemaAfter).toStrictEqual([
 			'afterDelete',
 		])
 	})

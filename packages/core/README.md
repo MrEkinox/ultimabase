@@ -118,25 +118,23 @@ marked `true`; an object containing only `false` flags selects every other
 field. `{}` keeps the complete result shape. Relationship result shaping stays
 explicit through `include`.
 
-Runtime evaluates target Access, applies target constraints, validates selected
-targets, and runs their scalar field `resolveOutput` hooks. Inclusion does not
-manufacture a target read lifecycle: target schema and global read hooks run
-only when the developer explicitly reads that target. PostgreSQL loads the
+Runtime evaluates target Access, applies target constraints, and validates
+selected targets. Inclusion does not manufacture a target schema lifecycle;
+reads expose no schema hooks. PostgreSQL loads the
 prepared tree through Drizzle relational `with`. Missing or inaccessible
 pointer targets become `null`; a relation contains only its visible targets and
 therefore becomes an empty array when none remain. Nested inclusions use the
 same rules. Pointer Field Access still receives the field's declared `Pointer`
-value; only the result observed by parent read hooks and returned to the caller
-is hydrated.
+value; only the result returned to the caller is hydrated.
 
-Pointer hooks may validate and observe relationship changes, but they cannot
-declare `resolveOutput`: field Access owns pointer disclosure and target scalar
-fields own included-value resolution. `relationField` remains a handle-only
+Pointer field hooks may normalize input. Field Access owns pointer disclosure,
+while field definitions and transports own output representation.
+`relationField` remains a handle-only
 declaration and accepts no field hooks.
 
 The target ID used by pointer reads and inclusion is a private Runtime row
-filter. It never enters the developer AST, and a `beforeRead` hook can neither
-inspect nor remove it. A target read inherits the active request; outside one,
+filter. It never enters the developer AST, so application query options can
+neither inspect nor remove it. A target read inherits the active request; outside one,
 it accepts the same `{ ultimabase, context, useMasterKey }` options as every
 schema-root read.
 
@@ -190,9 +188,7 @@ Unlike a pointer, an included relation supports `where`, `orderBy`, `offset`,
 `limit`, `select`, and nested `include`. Its offset is applied independently to
 every parent collection. Per-parent cursor pagination is deliberately not part
 of this contract. Source relation Field Access runs once before loading. Target
-Access and output resolution still apply, but target `beforeRead` and `afterRead`
-hooks do not run merely because a parent included the collection. The explicit
-parent `afterRead` hook observes the hydrated array.
+Access and output resolution still apply through the target read pipeline.
 
 Persisted models expose only their declared to-many fields through an immutable
 `Relation<TSource, TTarget>` handle:
@@ -499,7 +495,7 @@ if (imported.status === 'stopped') {
 
 Database plugins prepare each transaction-bound mutation through one opaque,
 single-use handle. Its execution keeps the projected public result separate
-from the complete logical materializations used by native field hooks.
+from the complete logical materializations supplied to schema lifecycle hooks.
 Every model-returning schema mutation accepts the same flat selection contract
 as schema reads; no write command performs implicit relation loading:
 
@@ -585,17 +581,15 @@ const updated = await created.update(
 	{ data: { title: 'Published' }, select: { id: true, title: true } },
 	{ ultimabase },
 )
-const fresh = await updated?.fetch(
+const fresh = await updated.fetch(
 	{ select: { id: true, title: true } },
 	{ ultimabase },
 )
 
-if (fresh !== null && fresh !== undefined) {
-	const pointer = fresh.toPointer()
-	console.log(fresh.equals(pointer), await fresh.exists({ ultimabase }))
-}
+const pointer = fresh.toPointer()
+console.log(fresh.equals(pointer), await fresh.exists({ ultimabase }))
 
-await updated?.delete({ select: { id: true } }, { ultimabase })
+await updated.delete({ select: { id: true } }, { ultimabase })
 ```
 
 `new PostSchema(input)` creates a typed immutable draft and never performs I/O.
@@ -608,6 +602,10 @@ the same exact result selections as their static read or mutation equivalents.
 `toPointer` and `equals` operate locally on protected identity, even when `id`
 was not selected. All instance commands remain immutable conveniences: a
 mutation starts without the receiver's read selection and returns a new model.
+`get`, `fetch`, `update`, and `delete` target one exact identity and throw
+`NOT_FOUND` when it no longer exists. Schema `updateOne({ where })` and
+`deleteOne({ where })` remain nullable conditional mutations and skip their item
+lifecycle hooks when no row matches.
 Collection reads and writes live on the generated schema class. Models
 deliberately expose no mutable `save()` method.
 
@@ -664,10 +662,10 @@ boundary as native hooks.
 
 An Access filter reuses the same field capabilities and normalized predicate
 nodes as `Query.where`, but keeps its dedicated policy-oriented builder and
-remains in private monotonic state. `beforeRead` can add application defaults
-such as ordering or limits and cannot inspect, replace, or remove Access
-filters. ACL and community policy plugins register contributions to this native
-system rather than business hooks.
+remains in private monotonic state. Developer query options can add filters,
+ordering, or limits but cannot inspect, replace, or remove Access filters. ACL
+and community policy plugins register contributions to this native system
+rather than business hooks.
 
 The callback receives one immutable schema-aware builder and no terminal
 `kind`, so `get`, `findOne`, `findMany`, `count`, and `exists` always observe
@@ -756,9 +754,9 @@ still combine through the Runtime's monotonic `AND` boundary.
 
 ### Schema hooks
 
-Schemas can colocate typed business lifecycle declarations without installing a
-plugin. One handler covers the complete compatible operation family, and the
-terminal `kind` narrows its exact operation and result:
+Schemas can colocate typed mutation lifecycle declarations without installing a
+plugin. The public surface has four concepts: `resolveInput`,
+`beforeOperation`, `afterOperation`, and `transaction`:
 
 ```ts
 const PostSchema = Schema.define({
@@ -769,39 +767,49 @@ const PostSchema = Schema.define({
 	hooks: {
 		resolveInput: {
 			all: ({ operation }) => operation,
-			create: ({ operation }) => {
-				// The exact family still covers createOne and createMany.
-				return operation
-			},
+			create: ({ operation }) => operation,
 		},
-		afterRead: (input) => {
-			if (input.kind === 'count') {
-				// The result is narrowed to number in this branch.
-				return Math.max(input.result, 0)
-			}
-
-			return input.result
+		beforeOperation: {
+			update: ({ originalItem, item }) => audit(originalItem, item),
+		},
+		afterOperation: {
+			create: ({ item }) => audit(item),
+		},
+		transaction: {
+			afterCommit: ({ changes }) => publish(changes),
 		},
 	},
 })
 ```
 
-Every phase accepts one handler or a non-empty ordered handler list. The
-cross-family lifecycle phases (`resolveInput`, `validate`, `afterCommit`, and
-`onError`) also accept compatible family maps. Exact operation hooks remain
-explicit: `beforeCreate`, `afterCreate`, `beforeUpdate`, `afterUpdate`,
-`beforeUpsert`, `afterUpsert`, `beforeDelete`, `afterDelete`, `beforeRead`, and
-`afterRead`. Each exact family still covers its singular and bulk terminals.
+Every branch accepts one handler or a non-empty ordered handler list.
+`resolveInput` accepts the `all`, `create`, `update`, and `upsert` families.
+`beforeOperation` and `afterOperation` expose `create`, `update`, `upsert`, and
+`delete`; each branch covers both singular and bulk terminals.
+
+Singular mutation hooks receive complete selection-independent values.
+`beforeOperation.create` sees `originalItem: null` and `item`;
+`beforeOperation.update` sees `originalItem` and the candidate `item`;
+`beforeOperation.delete` sees `originalItem` and `item: null`. Matching
+after-operation hooks receive the persisted pair. Atomic upserts
+receive their pair only after persistence because the database chooses the
+branch. Mutation before-hooks may perform transactional work or throw, but
+their return value is ignored; operation transformations belong to
+`resolveInput` before target preparation.
 
 The constructor validates every phase, snapshots every list and family map, and
 keeps them in private identity-owned storage. Hooks never appear on
 `SchemaDefinition`, never affect input or object inference, and never enter
 validation plans, indexes, migrations, or physical diffs.
 
-After input resolution and validation, Runtime invokes the one exact schema
-before-hook for the current family. It invokes the matching exact after-hook
-after persistence and field output processing. Reads similarly use
-`beforeRead`, field `resolveOutput`, then `afterRead`:
+After input resolution and structural revalidation, Runtime invokes the matching
+`beforeOperation` observer after reliable target preparation and the matching
+`afterOperation` observer after persistence. Both may perform transactional work
+or throw. Their return values are ignored; only `resolveInput` transforms data.
+
+Reads deliberately have no schema lifecycle hook. Query options define
+developer filtering and projection, while schema Access owns mandatory read
+filters:
 
 ```ts
 const ArticleSchema = Schema.define({
@@ -809,16 +817,13 @@ const ArticleSchema = Schema.define({
 	fields: {
 		title: stringField({
 			validation: { required: true },
-			hooks: {
-				// Output resolution sees only selected, readable values.
-				resolveOutput: ({ value }) => value.trim(),
-			},
 		}),
 		published: booleanField({ default: false }),
 	},
-	hooks: {
-		beforeRead: ({ query }) => query.where({ published: { eq: true } }),
-		afterRead: ({ result }) => result,
+	access: {
+		filter: {
+			read: ({ filter }) => filter.equalTo('published', true),
+		},
 	},
 })
 
@@ -830,32 +835,24 @@ const articles = await ArticleSchema.findMany(
 // The exact result is readonly { id: string; title: string }[].
 ```
 
-`beforeRead` may add filters, ordering, pagination, or a limit, but it must
-preserve the exact schema, selected-field union, and relationship-inclusion tree.
-Opaque adapter constraints
-remain outside the developer Query. Runtime projects the adapter result before
-field output resolution, validates every native and low-level result transform,
-then applies monotonic output restrictions as the final public boundary. Eager
-pointer and relation targets are present before the parent `afterRead`; the hook
-replacement continues unchanged and Runtime never reloads an inclusion
-afterward.
+Opaque Access and adapter constraints remain outside the developer Query.
+Runtime projects the adapter result, hydrates requested pointer and relation
+targets, then applies monotonic output restrictions as the final public
+boundary.
 `count` and `exists` retain `number` and `boolean` results and skip value
 resolution. Root reads do not open an automatic transaction; reads inside an
 explicit transaction reuse it.
 
 Runtime compiles declarations once per application. Input resolution runs from
-nested children to parents, transformed input is structurally revalidated
-without replaying defaults or generators, and all field and schema validation
-issues are reported together before policy or database work begins. Business
-before hooks run inside the automatic mutation transaction, so throwing from a
-hook rolls back database work performed earlier in the same request.
+nested children to parents, and transformed input is structurally revalidated
+without replaying defaults or generators. `resolveInput` may throw for business
+validation. Operation observers run inside the automatic mutation transaction,
+so throwing rolls back database work performed earlier in the same request.
 
-Transaction finalization is explicit and ordered. `beforeCommit` receives one
-immutable per-schema summary before the adapter commits. Field and schema
-`afterCommit` handlers run in operation order after the outer commit;
-`afterRollback` runs only after a confirmed rollback. `onError` distinguishes
-an operation failure, commit failure, rollback failure, and already committed
-post-commit failure without exposing adapter controls. See the
+Transaction finalization is explicit and ordered. Both
+`transaction.beforeCommit` and `transaction.afterCommit` receive one immutable
+per-schema `changes` summary. The former may abort; the latter runs only after
+the outer commit and is intended for external effects. See the
 [Runtime guide](docs/runtime.md#transaction-finalization-hooks) for the public
 contract and example.
 
@@ -866,16 +863,17 @@ const PostSchema = Schema.define({
 	className: 'Post',
 	fields: { title: stringField() },
 	hooks: {
-		beforeCreate: async ({ context, operation }) => {
-			if (operation.kind === 'create-one') {
-				await AuditSchema.createOne({
-					data: { action: 'post.create' },
-				})
-				context.emit('post.created', { title: operation.input.title })
-			}
+		beforeOperation: {
+			create: async ({ context, operation }) => {
+				if (operation.kind === 'create-one') {
+					await AuditSchema.createOne({
+						data: { action: 'post.create' },
+					})
+					context.emit('post.created', { title: operation.input.title })
+				}
 
-			console.log(context.requestId, context.transactionId)
-			return operation
+				console.log(context.requestId, context.transactionId)
+			},
 		},
 	},
 })
@@ -946,21 +944,37 @@ const UserSchema = Schema.define({
 		email: stringField({
 			hooks: {
 				resolveInput: [
-					({ value }) => value.trim(),
+					({ value }) => {
+						const normalized = value.trim()
+
+						if (!normalized.includes('@')) {
+							throw new TypeError('Invalid email')
+						}
+
+						return normalized
+					},
 					({ value }) => value.toLowerCase(),
 				],
-				validate: ({ value }) =>
-					value.includes('@')
-						? []
-						: [
-								{
-									code: 'hook.invalid-email',
-									path: [],
-									message: 'Invalid email',
-								},
-							],
 			},
 		}),
+	},
+})
+```
+
+Each field exposes only `resolveInput`. A direct handler is the short form; it
+also accepts a non-empty ordered list or a family map with `all`, `create`,
+`update`, and `upsert`:
+
+```ts
+title: stringField({
+	hooks: {
+		resolveInput: ({ value }) => {
+			const normalized = value.trim()
+
+			if (normalized === '') throw new TypeError('Title must not be empty')
+
+			return normalized
+		},
 	},
 })
 ```
@@ -968,26 +982,15 @@ const UserSchema = Schema.define({
 Inline hooks deliberately cannot access sibling fields. A rule comparing
 `email` with another property belongs in `UserSchema` hooks, where the complete
 operation is available. Omitted input properties do not produce fake
-`undefined` executions. `onChange` instead receives explicit `present` states
-for lifecycle creation or deletion and receives `null` when an optional field
-is cleared. Set-based `updateMany` may transform
-the supplied update value once, but it and `deleteMany` never load matching rows
-to simulate per-object CRUD or change hooks.
+`undefined` executions. `resolveInput` may throw to reject a value; structured
+or cross-field validation belongs to schema hooks.
 
-Materialized `onChange` and `afterCommit` callbacks also receive `itemId`, the
-stable system ID of the exact object whose field changed. Plugin-defined fields
-with a portable storage codec use that encoded representation for semantic
-change detection, so opaque immutable values can avoid both missed changes and
-duplicate notifications.
-
-For nested objects, siblings retain declaration order. Input resolution,
-validation, and output resolution visit children before their parent; before
-CRUD/save phases enter the parent before its descendants, and after phases
-unwind descendants before their parent. These declarations are retained by
-private field capabilities and compiled with plugin field targets. Before hooks
-receive complete prepared values, after hooks and `onChange` receive complete
-private materializations, and the public result still honors the developer's
-`.select(...)` projection.
+Set-based `updateMany` may transform each supplied update value once, but
+`deleteMany` has no field input to resolve. For nested objects, siblings retain
+declaration order and input resolution visits children before their parent.
+Output representation, business validation, mutation lifecycle, transaction
+finalization, and error observation remain field-definition, transport, and
+schema concerns rather than additional field hook phases.
 
 ## Policy-neutral enforcement primitives
 
@@ -1320,32 +1323,37 @@ const behaviorPlugin = () =>
 	definePlugin({
 		name: 'example.behavior',
 		setup: ({ hooks }) => {
-			hooks.global('measure-reads', {
-				afterRead: ({ result }) => result,
+			hooks.global('audit-creates', {
+				afterOperation: { create: ({ item }) => void item },
 			})
 			hooks.schema('normalize-posts', PostSchema, {
-				beforeCreate: ({ operation }) => operation,
+				beforeOperation: { create: ({ item }) => void item },
 			})
 			hooks.field('normalize-title', PostSchema, ['title'], {
 				resolveInput: ({ value }) => value.trim(),
 			})
 
 			hooks.schemaExtension('audit', audited, ({ extension }) => ({
-				beforeCreate: ({ operation }) => {
-					audit.route(extension.config.stream)
-					return operation
+				beforeOperation: {
+					create: () => {
+						audit.route(extension.config.stream)
+					},
 				},
 			}))
 			hooks.fieldExtension('redact', redacted, ({ extension }) => ({
-				beforeCreate: () => {
+				resolveInput: ({ value }) => {
 					redactor.use(extension.config.replacement)
+					return value
 				},
 			}))
 			hooks.fieldKind('validate-vectors', vectorHookTarget, ({ field }) => ({
-				validate: ({ value }) =>
-					value.length === field.options.dimensions
-						? []
-						: [vectorDimensionIssue(field.options.dimensions)],
+				resolveInput: ({ value }) => {
+					if (value.length !== field.options.dimensions) {
+						throw new TypeError('Invalid vector dimensions')
+					}
+
+					return value
+				},
 			}))
 		},
 	})

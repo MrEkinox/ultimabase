@@ -4,13 +4,13 @@ import { objectField, stringField } from '../../index.js'
 import { collectFieldHookDeclarations } from './field-traversal.js'
 
 describe('field hook declaration traversal', () => {
-	it('collects nested declarations in stable parent-first depth-first order', () => {
+	it('collects nested resolveInput declarations in parent-first depth-first order', () => {
 		const fields = {
 			profile: objectField({
 				list: [true, true],
 				fields: {
 					displayName: stringField({
-						hooks: { validate: () => undefined },
+						hooks: { resolveInput: ({ value }) => value },
 					}),
 					contact: objectField({
 						fields: {
@@ -21,10 +21,10 @@ describe('field hook declaration traversal', () => {
 								},
 							}),
 						},
-						hooks: { beforeSave: () => undefined },
+						hooks: { resolveInput: ({ value }) => value },
 					}),
 				},
-				hooks: { afterSave: () => undefined },
+				hooks: { resolveInput: ({ value }) => value },
 			}),
 		}
 

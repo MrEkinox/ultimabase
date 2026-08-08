@@ -102,8 +102,9 @@ visible target and therefore apply target Access. A null pointer satisfies
 Pointer nullability uses `isNull` and `isNotNull`, never `eq: null`.
 
 The complete read surface is `findOne`, `findMany`, `get`, `count`, and
-`exists`. `findOne` and `get` return `null` when no visible object matches.
-`exists` tests whether a matching row exists; `isNull` and
+`exists`. `findOne` returns `null` when no visible object matches, while the
+identity-targeted `get` throws `NOT_FOUND` when its object is absent. `exists`
+tests whether a matching row exists; `isNull` and
 `isNotNull` are field operators inside `where`.
 
 To-many relations also expose their visible cardinality as a non-null integer
@@ -283,7 +284,8 @@ await Post.deleteMany({ where: 'all' }, { useMasterKey: true })
 `updateOne`, `deleteOne`, and `upsertOne` require an exact unique target: `id`, one
 unique field, or all fields of one declared unique composite index. This keeps
 singular cardinality independent from ordering, pagination, or adapter-specific
-behavior.
+behavior. A where-based `updateOne` or `deleteOne` returns `null` when no target
+matches and does not run its schema item lifecycle hooks.
 
 ## Mutation results and relationships
 

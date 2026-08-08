@@ -90,10 +90,6 @@ const AfterReadIdentitySchema = Schema.define({
 	fields: {
 		title: stringField({ validation: { required: true } }),
 	},
-	hooks: {
-		afterRead: ({ kind, result }) =>
-			kind === 'find-many' ? result.toReversed() : result,
-	},
 })
 
 const authorityPrincipal = new RequestContextValue<string>(
@@ -116,14 +112,16 @@ const AuthorityRecordSchema = Schema.define({
 		title: stringField({ validation: { required: true } }),
 	},
 	hooks: {
-		beforeCreate: ({ context, operation }) => {
-			// Snapshot revocable hook capabilities before the callback completes.
-			authorityObservations.push({
-				mode: context.access.mode,
-				principal: context.getValue(authorityPrincipal),
-			})
+		beforeOperation: {
+			create: ({ context, operation }) => {
+				// Snapshot revocable hook capabilities before the callback completes.
+				authorityObservations.push({
+					mode: context.access.mode,
+					principal: context.getValue(authorityPrincipal),
+				})
 
-			return operation
+				void operation
+			},
 		},
 	},
 })
@@ -135,20 +133,20 @@ const HookPostSchema = Schema.define({
 		title: stringField({ validation: { required: true } }),
 	},
 	hooks: {
-		beforeCreate: async ({ operation }) => {
-			if (operation.kind !== 'create-one') {
-				return operation
-			}
+		beforeOperation: {
+			create: async ({ operation }) => {
+				if (operation.kind !== 'create-one') {
+					return
+				}
 
-			await new HookAuditSchema({
-				action: `create:${operation.input.title}`,
-			}).create({})
+				await new HookAuditSchema({
+					action: `create:${operation.input.title}`,
+				}).create({})
 
-			if (operation.input.title === 'rollback') {
-				throw hookRollbackError
-			}
-
-			return operation
+				if (operation.input.title === 'rollback') {
+					throw hookRollbackError
+				}
+			},
 		},
 	},
 })
@@ -596,7 +594,7 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 				},
 				{ ultimabase, useMasterKey: true },
 			)
-			const deleted = await updated?.delete(
+			const deleted = await updated.delete(
 				{ select: { email: true, id: true } },
 				{
 					ultimabase,
@@ -621,29 +619,31 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 			expect(selected.toJSON()).toStrictEqual({
 				email: 'model-create@example.com',
 			})
-			expect(fetched?.toJSON()).toStrictEqual({
+			expect(fetched.toJSON()).toStrictEqual({
 				email: 'model-create@example.com',
 				id: created.id,
 				visits: 0,
 			})
-			expect(updated?.toJSON()).toStrictEqual({
+			expect(updated.toJSON()).toStrictEqual({
 				email: 'model-create@example.com',
 				id: created.id,
 				visits: 2,
 			})
-			expect(deleted?.toJSON()).toStrictEqual({
+			expect(deleted.toJSON()).toStrictEqual({
 				email: 'model-create@example.com',
 				id: created.id,
 			})
 			expect(selected).not.toHaveProperty('id')
-			expect(updated?.id).toBe(created.id)
-			expect(deleted?.id).toBe(created.id)
+			expect(updated.id).toBe(created.id)
+			expect(deleted.id).toBe(created.id)
 			expect(auditReasons).toStrictEqual([
 				'Schema command update-one on RuntimeBulkAccount',
 				'Schema command delete-one on RuntimeBulkAccount',
 			])
 			await expect(selected.exists({ ultimabase })).resolves.toBe(false)
-			await expect(selected.fetch({}, { ultimabase })).resolves.toBeNull()
+			await expect(selected.fetch({}, { ultimabase })).rejects.toMatchObject({
+				code: 'NOT_FOUND',
+			})
 			await expect(
 				BulkAccountSchema.exists(
 					{ where: { id: { eq: created.id } } },
@@ -661,7 +661,7 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 		}
 	})
 
-	it('keeps model commands bound after afterRead reorders hidden identities', async () => {
+	it('keeps model commands bound after selecting ordered records', async () => {
 		const ultimabase = new UltimaBase({
 			schemas: [AfterReadIdentitySchema],
 			plugins: [
@@ -683,15 +683,15 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 				throw new TypeError('Expected two identity fixtures')
 			}
 
-			const reordered = await AfterReadIdentitySchema.findMany(
+			const ordered = await AfterReadIdentitySchema.findMany(
 				{ orderBy: [{ title: 'asc' }], select: { title: true } },
 				{ ultimabase },
 			)
-			const selected = reordered[0]
+			const selected = ordered[0]
 
-			expect(reordered.map(({ title }) => title)).toStrictEqual([
-				'Second',
+			expect(ordered.map(({ title }) => title)).toStrictEqual([
 				'First',
+				'Second',
 			])
 
 			if (selected === undefined) {
@@ -699,7 +699,7 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 			}
 
 			await selected.update(
-				{ data: { title: 'Second updated' } },
+				{ data: { title: 'First updated' } },
 				{ ultimabase },
 			)
 
@@ -712,8 +712,8 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 				{ ultimabase },
 			)
 
-			expect(persistedFirst?.title).toBe('First')
-			expect(persistedSecond?.title).toBe('Second updated')
+			expect(persistedFirst?.title).toBe('First updated')
+			expect(persistedSecond?.title).toBe('Second')
 		} finally {
 			await ultimabase.dispose()
 		}

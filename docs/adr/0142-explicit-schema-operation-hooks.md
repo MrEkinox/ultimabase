@@ -1,6 +1,6 @@
 # ADR-0142: Explicit schema operation hooks
 
-- Status: accepted
+- Status: superseded by ADR-0163
 - Date: 2026-08-06
 - Refines: ADR-0089, ADR-0104, ADR-0141
 

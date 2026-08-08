@@ -123,7 +123,7 @@ const schemaHoverCases: readonly SchemaHoverCase[] = [
 	{
 		label: 'hooks',
 		source:
-			"Schema.define({ className: 'Post', fields: {}, /* hover */hooks: { beforeRead: ({ query }) => query } })",
+			"Schema.define({ className: 'Post', fields: {}, /* hover */hooks: { beforeOperation: { create: () => {} } } })",
 	},
 	{
 		label: 'indexes.fields',

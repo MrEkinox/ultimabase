@@ -12,10 +12,6 @@ import {
 	createRuntimeHookBoundaries,
 	type RuntimeHookBoundaries,
 } from './boundaries.js'
-import {
-	collectMutationFieldChanges,
-	type RuntimeMutationFieldChange,
-} from './materializations.js'
 
 const transactionOperationTokenMarker: unique symbol = Symbol(
 	'ultimabase.transaction-operation',
@@ -53,7 +49,6 @@ export interface TransactionHookSuccessfulMutationEntry<
 		DatabaseMutationOperationAst,
 > extends TransactionHookJournalEntryBase<TOperation> {
 	readonly category: 'mutation'
-	readonly fieldChanges: readonly RuntimeMutationFieldChange[]
 	/** Retains heterogeneous exact terminal results behind an internal boundary. */
 	readonly result: unknown
 	readonly status: 'succeeded'
@@ -146,7 +141,7 @@ export class TransactionHookJournal {
 		return token
 	}
 
-	/** Finalizes a read or derives one mutation's semantic changes exactly once. */
+	/** Finalizes one read or mutation exactly once. */
 	succeed(
 		token: TransactionHookOperationToken,
 		operation: DatabaseOperationAst,
@@ -165,17 +160,10 @@ export class TransactionHookJournal {
 				)
 			}
 
-			// Native field dispatch already validated the adapter outcome. Snapshot only
-			// the derived changes so the journal never rebuilds full materializations.
-			const fieldChanges = this.#boundaries.snapshotValue(
-				collectMutationFieldChanges(finalOperation, outcome),
-			)
-
-			// Only the public result and semantic changes survive this synchronous scope.
+			// Materializations are operation-local; finalizers retain only public results.
 			this.#slots[pending.order] = immutableRecord({
 				category: 'mutation',
 				context: pending.context,
-				fieldChanges,
 				operation: finalOperation,
 				order: pending.order,
 				result: finalResult,

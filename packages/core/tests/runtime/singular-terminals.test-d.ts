@@ -38,7 +38,7 @@ test('preserves schema selection across every root read terminal', () => {
 	expectTypeOf(
 		articleSchema.get({ id: 'article-1', select: input.select }),
 	).toEqualTypeOf<
-		Promise<InferQueryResult<typeof articleSchema, 'id' | 'title'> | null>
+		Promise<InferQueryResult<typeof articleSchema, 'id' | 'title'>>
 	>()
 	expectTypeOf(articleSchema.count()).toEqualTypeOf<Promise<number>>()
 	expectTypeOf(articleSchema.exists()).toEqualTypeOf<Promise<boolean>>()

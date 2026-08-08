@@ -26,11 +26,13 @@ const Post = Schema.define({
 	className: 'ACLChangeEventPost',
 	fields: { title: stringField({ validation: { required: true } }) },
 	hooks: {
-		afterUpdate: ({ result }) => {
-			if (!rejectNextUpdate) return result
+		afterOperation: {
+			update: () => {
+				if (!rejectNextUpdate) return
 
-			rejectNextUpdate = false
-			throw new Error('ACL change event rollback fixture')
+				rejectNextUpdate = false
+				throw new Error('ACL change event rollback fixture')
+			},
 		},
 	},
 	extensions: [
