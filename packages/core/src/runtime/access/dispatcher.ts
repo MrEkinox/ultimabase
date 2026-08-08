@@ -1114,6 +1114,7 @@ export class NativeAccessRuntime {
 			this.#plan,
 			schemaPlan,
 		)
+		await evaluateCreateItems(this.#runtime, request, schemaPlan)
 
 		return state
 	}

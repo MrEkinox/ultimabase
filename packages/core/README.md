@@ -544,11 +544,13 @@ consumes the prepared mutation exactly once.
 Policy and value-object plugins may register `preparedOperation()` when an
 accepted `updateOne()` value depends on that locked target. The handler receives
 the fully typed current object and may replace only values inside the existing
-normalized update shape. Runtime then repeats structural validation,
-value-dependent field Access, and item Access before the adapter executes the
-replacement. It cannot change the query, target, fields, operators, schema, or
-terminal kind. Public collection commands are already itemized before this
-boundary, so each update entry uses the same singular lifecycle.
+normalized update shape. Runtime groups this replacement with field and schema
+input resolution, then performs one final structural revalidation,
+value-dependent field Access, and item Access pass. The adapter receives the
+final operation and cumulative constraints for the write. The handler cannot
+change the query, target, fields, operators, schema, or terminal kind. Public
+collection commands are already itemized before this boundary, so each update
+entry uses the same singular lifecycle.
 
 ```ts
 import { Schema, UltimaBase, booleanField, stringField } from '@ultimabase/core'

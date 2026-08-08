@@ -95,7 +95,7 @@ const basePlugin = definePlugin({
 		// Low-level ADR-0070 hooks remain outside the native declaration plan.
 		registries.hooks.register(
 			'fixture.plan-low-level',
-			beforeOperation({ handler: ({ operation }) => ({ operation }) }),
+			beforeOperation({ handler: () => undefined }),
 		)
 	},
 })

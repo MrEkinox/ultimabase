@@ -132,8 +132,13 @@ const createGuard =
 	}
 
 /** Records one opaque enforcement envelope without exposing accumulated state. */
-const createEnforcementStages = (trace: string[]): RuntimeEnforcementStages => {
+const createEnforcementStages = (
+	trace: string[],
+	finalConstraint?: DatabaseConstraintNode,
+): RuntimeEnforcementStages => {
 	const state = createEnforcementState()
+	const reevaluatedState =
+		finalConstraint === undefined ? state : createEnforcementState()
 	const constraint: DatabaseConstraintNode = databaseConstraint(
 		'fixture.tenant',
 		1,
@@ -152,29 +157,33 @@ const createEnforcementStages = (trace: string[]): RuntimeEnforcementStages => {
 			expect(Object.isFrozen(input)).toBe(true)
 			expect(input.enforcement).toBe(state)
 
-			return state
+			return reevaluatedState
 		},
 		enforceOperation: (input) => {
 			trace.push('enforcement:operation')
 			expect(Object.isFrozen(input)).toBe(true)
-			expect(input.enforcement).toBe(state)
+			expect([state, reevaluatedState]).toContain(input.enforcement)
 
 			return {
-				constraints: [constraint],
+				constraints:
+					finalConstraint !== undefined &&
+					input.enforcement === reevaluatedState
+						? [constraint, finalConstraint]
+						: [constraint],
 				operation: input.operation,
 			}
 		},
 		enforceSelectionResult: (input) => {
 			trace.push('enforcement:selection-result')
 			expect(Object.isFrozen(input)).toBe(true)
-			expect(input.enforcement).toBe(state)
+			expect([state, reevaluatedState]).toContain(input.enforcement)
 
 			return input.result
 		},
 		enforceResult: (input) => {
 			trace.push('enforcement:result')
 			expect(Object.isFrozen(input)).toBe(true)
-			expect(input.enforcement).toBe(state)
+			expect([state, reevaluatedState]).toContain(input.enforcement)
 
 			return input.result
 		},
@@ -222,11 +231,9 @@ const createNativeHookStages = (trace: string[]): RuntimeNativeHookStages => ({
 		return input.operation
 	},
 	revalidate: createOperationTransform('native:revalidate', trace),
-	validate: createGuard('native:validate', trace),
-	schemaBefore: createOperationTransform('native:schemaBefore', trace),
 	schemaPrepared: (input) => {
 		trace.push('native:schemaPrepared')
-		return input.operation
+		expect(Object.isFrozen(input)).toBe(true)
 	},
 	mutationOutcome: (input) => {
 		trace.push('native:mutationOutcome')
@@ -272,8 +279,8 @@ const createStages = (
 ): RuntimePipelineStages => ({
 	normalization: createOperationTransform('normalization', trace),
 	structuralValidation: createOperationTransform('structuralValidation', trace),
-	globalBeforeHooks: createOperationTransform('globalBeforeHooks', trace),
-	schemaBeforeHooks: createOperationTransform('schemaBeforeHooks', trace),
+	globalBeforeHooks: createGuard('globalBeforeHooks', trace),
+	schemaBeforeHooks: createGuard('schemaBeforeHooks', trace),
 	databaseOperation,
 	schemaAfterHooks: createResultTransform('schemaAfterHooks', trace),
 	globalAfterHooks: createResultTransform('globalAfterHooks', trace),
@@ -424,6 +431,7 @@ describe('RuntimePipeline', () => {
 			updatedAt: '2026-08-02T00:00:00.000Z',
 		}
 		let executedOperation: DatabaseMutationOperationAst | undefined
+		let executedConstraints: readonly DatabaseConstraintNode[] | undefined
 		const transaction: DatabaseTransactionAdapter = {
 			kind: 'database-transaction-adapter',
 			prepare: <
@@ -435,8 +443,9 @@ describe('RuntimePipeline', () => {
 							Promise.resolve(
 								target as unknown as DatabaseOperationResult<TOperation>,
 							),
-						onExecute: (operation) => {
-							executedOperation = operation
+						onExecute: (request) => {
+							executedOperation = request?.operation
+							executedConstraints = request?.constraints
 						},
 						target,
 					}),
@@ -447,7 +456,10 @@ describe('RuntimePipeline', () => {
 			commit: () => Promise.resolve(),
 			rollback: () => Promise.resolve(),
 		}
-		const enforcement = createEnforcementStages(trace)
+		const finalConstraint = databaseConstraint('fixture.resolved-title', 1, {
+			title: 'stored',
+		})
+		const enforcement = createEnforcementStages(trace, finalConstraint)
 		let schemaResolveTarget: unknown
 		const schemaResolveInput: RuntimePreparedMutationTransformStage = (
 			input,
@@ -492,7 +504,19 @@ describe('RuntimePipeline', () => {
 		)
 		expect(
 			trace.filter((entry) => entry === 'enforcement:reevaluate'),
-		).toHaveLength(2)
+		).toHaveLength(1)
+		expect(executedConstraints).toStrictEqual([
+			{
+				kind: 'fixture.tenant',
+				payload: { tenantId: 'tenant-1' },
+				version: 1,
+			},
+			{
+				kind: 'fixture.resolved-title',
+				payload: { title: 'stored' },
+				version: 1,
+			},
+		])
 	})
 
 	it('forwards the native item-hook target requirement to mutation preparation', async () => {
@@ -538,7 +562,7 @@ describe('RuntimePipeline', () => {
 		expect(preparedRequest?.prepareMutationItems).toBe(true)
 	})
 
-	it('reapplies operation enforcement after hooks and restricts the final result', async () => {
+	it('enforces reads before observers and restricts the final result', async () => {
 		const trace: string[] = []
 		const executor = new TraceDatabaseExecutor(trace, [])
 		const pipeline = new RuntimePipeline(
@@ -556,17 +580,10 @@ describe('RuntimePipeline', () => {
 		expect(trace).toStrictEqual([
 			'normalization',
 			'structuralValidation',
-			'native:resolveInput',
-			'native:revalidate',
-			'native:validate',
 			'enforcement:evaluate',
 			'enforcement:operation',
 			'globalBeforeHooks',
 			'schemaBeforeHooks',
-			'native:schemaBefore',
-			'native:revalidate',
-			'enforcement:reevaluate',
-			'enforcement:operation',
 			'databaseOperation',
 			'enforcement:selection-result',
 			'native:resolveOutput',

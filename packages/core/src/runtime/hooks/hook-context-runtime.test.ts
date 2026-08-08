@@ -224,8 +224,8 @@ describe('HookContext Runtime capabilities', () => {
 		expect(trace).toStrictEqual([
 			'adapter:begin',
 			'prepare:create-one',
-			'prepare:create-one',
 			'execute:create-one',
+			'prepare:create-one',
 			'execute:create-one',
 			'adapter:commit',
 		])
@@ -272,7 +272,6 @@ describe('HookContext Runtime capabilities', () => {
 		).rejects.toBe(nestedFailure)
 		expect(trace).toStrictEqual([
 			'adapter:begin',
-			'prepare:create-one',
 			'prepare:create-one',
 			'execute:create-one',
 			'adapter:rollback',

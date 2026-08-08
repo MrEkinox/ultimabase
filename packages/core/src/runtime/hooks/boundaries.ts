@@ -599,14 +599,6 @@ export interface RuntimeHookBoundaries {
 		replacement: unknown,
 	): TOperation
 
-	/** Snapshots a low-level replacement before the shared structural revalidation stage. */
-	snapshotContributionOperationReplacement<
-		const TOperation extends DatabaseOperationAst,
-	>(
-		operation: TOperation,
-		replacement: unknown,
-	): TOperation
-
 	/** Validates one hook-transformed result against its terminal and selection. */
 	snapshotResultReplacement<const TOperation extends DatabaseOperationAst>(
 		operation: TOperation,
@@ -978,11 +970,8 @@ export const createRuntimeHookBoundaries = (): RuntimeHookBoundaries => {
 				)
 			}
 
-			const { plans } = readBoundaryContext(snapshot)
-
-			return revalidateRuntimeMutationOperation(operation, snapshot, plans)
+			return snapshot
 		},
-		snapshotContributionOperationReplacement: snapshotOperationShape,
 		snapshotDatabaseResultReplacement: <
 			const TOperation extends DatabaseOperationAst,
 		>(

@@ -26,7 +26,10 @@ import { createFrameworkEngine } from './create-framework-engine.js'
 const articleSchema = Schema.define({
 	className: 'AssembledArticle',
 	fields: {
-		title: stringField({ validation: { required: true } }),
+		title: stringField({
+			hooks: { resolveInput: ({ value }) => value.trim() },
+			validation: { required: true },
+		}),
 	},
 })
 
@@ -127,18 +130,8 @@ describe('createFrameworkEngine', () => {
 					beforeOperation({
 						schema: articleSchema,
 						operations: ['create-one'],
-						handler: ({ operation }) => {
+						handler: () => {
 							trace.push('hook:before')
-
-							return {
-								operation: {
-									...operation,
-									input: {
-										...operation.input,
-										title: operation.input.title.trim(),
-									},
-								},
-							}
 						},
 					}),
 				)
@@ -231,15 +224,28 @@ describe('createFrameworkEngine', () => {
 				updatedAt: '2026-08-01T08:00:00.000Z',
 			},
 		})
+		expect(adapter.transactions[0]?.executions[0]).toMatchObject({
+			constraints: [
+				{
+					kind: 'fixture.tenant',
+					payload: { tenantId: 'tenant-1' },
+					version: 1,
+				},
+			],
+			operation: {
+				input: { title: 'assembled' },
+				kind: 'create-one',
+			},
+		})
 		expect(trace).toStrictEqual([
 			'adapter:begin',
 			'normalization:dependency',
 			'normalization:consumer',
 			'enforcement:guard',
 			'enforcement:constraint',
-			'hook:before',
 			'enforcement:guard',
 			'enforcement:constraint',
+			'hook:before',
 			'prepare:create-one',
 			'execute:create-one',
 			'adapter:commit',
@@ -386,14 +392,10 @@ describe('createFrameworkEngine', () => {
 		).rejects.toBe(failure)
 		expect(trace).toStrictEqual([
 			'adapter:begin',
-			'prepare:create-one',
 			'hook:beforeCreate',
 			'adapter:rollback',
 		])
-		expect(adapter.transactions[0]?.requests).toHaveLength(1)
-		expect(adapter.transactions[0]?.requests[0]?.operation.kind).toBe(
-			'create-one',
-		)
+		expect(adapter.transactions[0]?.requests).toStrictEqual([])
 
 		await application.dispose()
 	})
@@ -402,22 +404,13 @@ describe('createFrameworkEngine', () => {
 		const denial = new Error('Transformed title is not permitted')
 		const trace: string[] = []
 		const adapter = new RecordingDatabaseAdapter([], trace)
-		const transformPlugin = definePlugin({
-			name: 'fixture.security-sensitive-transform',
-			setup: ({ registries }) => {
-				registries.hooks.register(
-					'fixture.transform-title',
-					beforeOperation({
-						schema: articleSchema,
-						operations: ['create-one'],
-						handler: ({ operation }) => ({
-							operation: {
-								...operation,
-								input: { ...operation.input, title: 'blocked' },
-							},
-						}),
-					}),
-				)
+		const transformedSchema = Schema.define({
+			className: 'SecuritySensitiveTransformArticle',
+			fields: {
+				title: stringField({
+					hooks: { resolveInput: () => 'blocked' },
+					validation: { required: true },
+				}),
 			},
 		})
 		const enforcementPlugin = definePlugin({
@@ -426,7 +419,7 @@ describe('createFrameworkEngine', () => {
 				registries.hooks.register(
 					'fixture.guard-title',
 					guard({
-						schema: articleSchema,
+						schema: transformedSchema,
 						operations: ['create-one'],
 						handler: ({ operation }) => {
 							trace.push(`guard:${operation.input.title}`)
@@ -440,8 +433,8 @@ describe('createFrameworkEngine', () => {
 			},
 		})
 		const application = await createApplication({
-			schemas: [articleSchema],
-			plugins: [transformPlugin, enforcementPlugin, databasePlugin(adapter)],
+			schemas: [transformedSchema],
+			plugins: [enforcementPlugin, databasePlugin(adapter)],
 		})
 		const framework = createFrameworkEngine(application)
 
@@ -451,7 +444,7 @@ describe('createFrameworkEngine', () => {
 		})
 		await expect(
 			runWithRequestEngine(request, () =>
-				articleSchema.createOne({ data: { title: 'initial' } }),
+				transformedSchema.createOne({ data: { title: 'initial' } }),
 			),
 		).rejects.toBe(denial)
 		expect(trace).toStrictEqual([
@@ -461,6 +454,7 @@ describe('createFrameworkEngine', () => {
 			'adapter:rollback',
 		])
 		expect(adapter.transactions[0]?.requests).toStrictEqual([])
+		expect(adapter.transactions[0]?.executions).toStrictEqual([])
 
 		await application.dispose()
 	})

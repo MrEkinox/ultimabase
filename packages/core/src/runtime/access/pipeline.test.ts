@@ -47,7 +47,7 @@ const createAdapterPlugin = (
 							observedBusinessFilters.push(operation.query.where)
 						}
 
-						return { operation }
+						return undefined
 					},
 					operations: ['find-many'],
 					schema: securedArticle,

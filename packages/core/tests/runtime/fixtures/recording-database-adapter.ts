@@ -13,6 +13,7 @@ import type {
 	DatabaseTransactionAdapter,
 	DatabaseUpdateMaterialization,
 	PreparedDatabaseOperation,
+	PreparedDatabaseOperationExecution,
 	RuntimePipelineStages,
 } from '../../../src/runtime/index.js'
 import {
@@ -41,7 +42,9 @@ export interface PreparedOperationFixtureOptions<
 	readonly target?: DatabaseLogicalRecord | null
 	readonly execute: () => Promise<DatabaseOperationResult<TOperation>>
 	readonly materializations?: readonly DatabaseMutationMaterialization<TOperation>[]
-	readonly onExecute?: (operation: TOperation | undefined) => void
+	readonly onExecute?: (
+		request: PreparedDatabaseOperationExecution<TOperation> | undefined,
+	) => void
 }
 
 export interface FulfilledAdapterResult extends AdapterMutationFixture {
@@ -163,7 +166,7 @@ export const createPreparedOperationFixture = <
 ): PreparedDatabaseOperation<TOperation> => {
 	let attempted = false
 	const execute = async (
-		operation?: TOperation,
+		request?: PreparedDatabaseOperationExecution<TOperation>,
 	): Promise<DatabaseOperationOutcome<TOperation>> => {
 		if (attempted) {
 			throw new TypeError('Prepared database operation is already executed')
@@ -171,7 +174,7 @@ export const createPreparedOperationFixture = <
 
 		// A failed attempt consumes the retained target just like a successful write.
 		attempted = true
-		options.onExecute?.(operation)
+		options.onExecute?.(request)
 
 		const outcome = immutableRecord({
 			materializations: immutableArray(options.materializations ?? []),
@@ -195,18 +198,22 @@ const createLazyPreparedOperationFixture = <
 	const TOperation extends DatabaseMutationOperationAst,
 >(
 	results: QueuedAdapterResult[],
-	onExecute: () => void,
+	onExecute: (
+		request: PreparedDatabaseOperationExecution<TOperation> | undefined,
+	) => void,
 ): PreparedDatabaseOperation<TOperation> => {
 	let attempted = false
 
 	return immutableRecord({
-		execute: async (): Promise<DatabaseOperationOutcome<TOperation>> => {
+		execute: async (
+			request?: PreparedDatabaseOperationExecution<TOperation>,
+		): Promise<DatabaseOperationOutcome<TOperation>> => {
 			if (attempted) {
 				throw new TypeError('Prepared database operation is already executed')
 			}
 
 			attempted = true
-			onExecute()
+			onExecute(request)
 			const result = await takeQueuedResult(results)
 			retainQueuedInclusions(result)
 
@@ -225,6 +232,8 @@ const createLazyPreparedOperationFixture = <
 export class RecordingTransactionAdapter implements DatabaseTransactionAdapter {
 	readonly kind = 'database-transaction-adapter' as const
 	readonly capabilities: DatabaseAdapterCapabilities
+	readonly executions: PreparedDatabaseOperationExecution<DatabaseMutationOperationAst>[] =
+		[]
 	readonly requests: DatabaseOperationRequest[] = []
 	readonly #results: QueuedAdapterResult[]
 	readonly #trace: string[]
@@ -241,6 +250,16 @@ export class RecordingTransactionAdapter implements DatabaseTransactionAdapter {
 		this.#trace = trace
 		this.#failures = failures
 		this.capabilities = createRecordingCapabilities(capabilities)
+	}
+
+	/** Retains the final candidate separately from the request used to lock its target. */
+	#recordExecution<const TOperation extends DatabaseMutationOperationAst>(
+		execution: PreparedDatabaseOperationExecution<TOperation> | undefined,
+	): void {
+		// Direct adapter contract tests may intentionally execute the prepared request.
+		if (execution === undefined) return
+
+		this.executions.push(execution)
 	}
 
 	async execute<const TOperation extends DatabaseOperationAst>(
@@ -276,7 +295,8 @@ export class RecordingTransactionAdapter implements DatabaseTransactionAdapter {
 		) {
 			return createLazyPreparedOperationFixture<TOperation>(
 				this.#results,
-				() => {
+				(execution) => {
+					this.#recordExecution(execution)
 					this.#trace.push(`execute:${request.operation.kind}`)
 				},
 			)
@@ -285,7 +305,8 @@ export class RecordingTransactionAdapter implements DatabaseTransactionAdapter {
 		if (request.operation.kind === 'upsert-one') {
 			const prepared = createLazyPreparedOperationFixture<TOperation>(
 				this.#results,
-				() => {
+				(execution) => {
+					this.#recordExecution(execution)
 					this.#trace.push(`execute:${request.operation.kind}`)
 				},
 			)
@@ -303,7 +324,8 @@ export class RecordingTransactionAdapter implements DatabaseTransactionAdapter {
 			execute: () => resolveQueuedResult<TOperation>(result),
 			materializations: (result.materializations ??
 				[]) as readonly DatabaseMutationMaterialization<TOperation>[],
-			onExecute: () => {
+			onExecute: (execution) => {
+				this.#recordExecution(execution)
 				this.#trace.push(`execute:${request.operation.kind}`)
 			},
 		})
@@ -395,8 +417,8 @@ export const createRecordingPipeline = (
 	const stages: RuntimePipelineStages = {
 		normalization: (input) => input.operation,
 		structuralValidation: (input) => input.operation,
-		globalBeforeHooks: (input) => input.operation,
-		schemaBeforeHooks: (input) => input.operation,
+		globalBeforeHooks: () => undefined,
+		schemaBeforeHooks: () => undefined,
 		databaseOperation,
 		schemaAfterHooks: (input) => input.result,
 		globalAfterHooks: (input) => input.result,

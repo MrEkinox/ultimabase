@@ -152,6 +152,7 @@ Accepted records:
 - [ADR-0163: Group schema hooks by mutation responsibility](0163-grouped-schema-mutation-hooks.md)
 - [ADR-0164: Atomic item-oriented mutation hooks](0164-atomic-item-oriented-mutation-hooks.md)
 - [ADR-0165: Embedded object fields contain value fields only](0165-embedded-object-field-contract.md)
+- [ADR-0166: One final mutation validation before observers](0166-single-final-mutation-validation.md)
 
 Superseded records:
 

@@ -116,14 +116,10 @@ describe('hook execution safety', () => {
 
 		expect(trace).toStrictEqual([
 			'adapter:begin',
-			'prepare:create-one',
 			'hook:first',
 			'adapter:rollback',
 		])
-		expect(adapter.transactions[0]?.requests).toHaveLength(1)
-		expect(adapter.transactions[0]?.requests[0]?.operation.kind).toBe(
-			'create-one',
-		)
+		expect(adapter.transactions[0]?.requests).toStrictEqual([])
 		expect(transactionIds).toHaveLength(1)
 		expect(transactionIds[0]).toMatch(/^[0-9a-f-]{36}$/u)
 		expect(events.map(({ phase }) => phase)).toStrictEqual(['beforeCreate'])
@@ -262,9 +258,7 @@ describe('hook execution safety', () => {
 		).rejects.toMatchObject({ code: 'HOOK_RECURSION' })
 		expect(trace).toStrictEqual([
 			'adapter:begin',
-			'prepare:create-one',
 			'hook:beforeCreate',
-			'prepare:create-one',
 			'adapter:rollback',
 		])
 
@@ -284,11 +278,9 @@ describe('hook execution safety', () => {
 					registries.hooks.register(
 						'fixture.recursive-before-operation',
 						beforeOperation({
-							handler: async ({ operation }) => {
+							handler: async () => {
 								trace.push('hook:before-operation')
 								await schema.createOne({ data: { title: 'nested' } })
-
-								return { operation }
 							},
 							operations: ['create-one'],
 							schema,
@@ -350,7 +342,7 @@ describe('hook execution safety', () => {
 					'fixture.observed-before',
 					beforeOperation({
 						schema,
-						handler: ({ operation }) => ({ operation }),
+						handler: () => undefined,
 					}),
 				)
 			},

@@ -116,7 +116,7 @@ describe('createRuntimeHookStages', () => {
 				registries.events.register(
 					'fixture.wrong-hook',
 					beforeOperation({
-						handler: (input) => ({ operation: input.operation }),
+						handler: () => undefined,
 					}),
 				)
 			},
@@ -142,7 +142,7 @@ describe('createRuntimeHookStages', () => {
 					'fixture.foreign',
 					beforeOperation({
 						schema: foreignSchema,
-						handler: (input) => ({ operation: input.operation }),
+						handler: () => undefined,
 					}),
 				)
 			},
@@ -159,7 +159,7 @@ describe('createRuntimeHookStages', () => {
 		)
 	})
 
-	it('requires explicit before and after transformation wrappers', async () => {
+	it('requires before observers to return nothing and exact after replacements', async () => {
 		const plugin = definePlugin({
 			name: 'fixture.invalid-output',
 			setup: ({ registries }) => {
@@ -192,7 +192,7 @@ describe('createRuntimeHookStages', () => {
 		await expect(
 			stages.globalBeforeHooks({ context, operation }),
 		).rejects.toThrow(
-			new TypeError('runtime hook must return exactly { operation }'),
+			new TypeError('before-operation hook must return undefined'),
 		)
 		await expect(
 			stages.globalAfterHooks({
@@ -210,63 +210,19 @@ describe('createRuntimeHookStages', () => {
 		)
 	})
 
-	it('prevents before-hooks from changing terminal kind or schema identity', async () => {
-		const createStages = async (
-			replacement: CreateOneOperationAst<typeof articleSchema> | object,
-		) => {
-			const plugin = definePlugin({
-				name: 'fixture.replacement',
-				setup: ({ registries }) => {
-					registries.hooks.register(
-						'fixture.replacement',
-						beforeOperation({
-							operations: ['create-one'],
-							handler: (() => ({ operation: replacement })) as never,
-						}),
-					)
-				},
-			})
-			const application = await createApplication({
-				schemas: [articleSchema, foreignSchema],
-				plugins: [plugin],
-			})
-
-			return createRuntimeHookStages(application)
-		}
-		const kindStages = await createStages({ ...operation, kind: 'count' })
-		const foreignOperation: CreateOneOperationAst<typeof articleSchema> = {
-			...operation,
-			schema: new QueryBuilder(foreignSchema).ast.schema as never,
-		}
-		const schemaStages = await createStages(foreignOperation)
-
-		await expect(
-			kindStages.globalBeforeHooks({ context, operation }),
-		).rejects.toThrow(
-			new TypeError('before-operation hook must preserve operation kind'),
-		)
-		await expect(
-			schemaStages.globalBeforeHooks({ context, operation }),
-		).rejects.toThrow(
-			new TypeError('before-operation hook must preserve schema identity'),
-		)
-	})
-
-	it('prevents low-level before-hooks from changing query result shape', async () => {
-		const replacement: UpdateOneOperationAst<typeof articleSchema> = {
-			...updateOperation,
-			query: new QueryBuilder(articleSchema)
-				.where((where) => where.eq('id', 'article-1'))
-				.select({ title: true }).ast,
-		}
+	it('rejects every attempted low-level before-operation replacement', async () => {
 		const plugin = definePlugin({
-			name: 'fixture.query-shape-replacement',
+			name: 'fixture.before-replacement',
 			setup: ({ registries }) => {
 				registries.hooks.register(
-					'fixture.query-shape-replacement',
+					'fixture.before-replacement',
 					beforeOperation({
 						operations: ['update-one'],
-						handler: (() => ({ operation: replacement })) as never,
+						handler: ((
+							input: RuntimeOperationStageInput<typeof updateOperation>,
+						) => ({
+							operation: input.operation,
+						})) as never,
 					}),
 				)
 			},
@@ -279,10 +235,9 @@ describe('createRuntimeHookStages', () => {
 
 		await expect(
 			stages.globalBeforeHooks({ context, operation: updateOperation }),
-		).rejects.toMatchObject({
-			code: 'VALIDATION_ERROR',
-			publicMessage: 'A hook returned an invalid value.',
-		})
+		).rejects.toThrow(
+			new TypeError('before-operation hook must return undefined'),
+		)
 	})
 
 	it('resolves only update values against one locked singular target', async () => {

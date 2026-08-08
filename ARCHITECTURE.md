@@ -245,6 +245,13 @@ complete mutation values and have ignored return values. Business after-hooks
 may still abort before commit, while externally visible event handlers run only
 after commit succeeds.
 
+Mutation transformers complete before one final structural revalidation and
+value-dependent Access reevaluation. Low-level `beforeOperation()` is also an
+observer; only the target-aware `preparedOperation()` boundary may replace
+normalized update values. Prepared adapters lock with the initial protected
+request, then receive the final operation and cumulative constraints for the
+actual write so a later restriction cannot remain only in Runtime memory.
+
 One schema handler may cover a full create, update, upsert, or delete family;
 reads expose Query options and Access rather than schema hooks. Public
 collection commands become ordered singular operations before Runtime invokes

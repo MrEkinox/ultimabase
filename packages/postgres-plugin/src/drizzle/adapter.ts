@@ -329,6 +329,22 @@ class DrizzlePostgresTransactionAdapter implements DatabaseTransactionAdapter {
 			() => {
 				this.#assertActive()
 			},
+			(execution) => {
+				assertConstraintOperationSupported(
+					execution.operation,
+					execution.constraints.length > 0 || request.rowFilter !== undefined,
+				)
+
+				return compilePostgresRequestConstraint(
+					this.#constraintCompilers,
+					schema,
+					{
+						...request,
+						constraints: execution.constraints,
+						operation: execution.operation,
+					},
+				)
+			},
 			request.prepareMutationItems === true,
 			relation,
 			relationPredicateCompiler,

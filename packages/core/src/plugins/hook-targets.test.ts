@@ -437,7 +437,7 @@ describe('plugin hook targets', () => {
 				})
 				registries.hooks.register(
 					'fixture.low-level',
-					beforeOperation({ handler: ({ operation }) => ({ operation }) }),
+					beforeOperation({ handler: () => undefined }),
 				)
 			},
 		})

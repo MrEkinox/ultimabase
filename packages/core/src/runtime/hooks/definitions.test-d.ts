@@ -38,7 +38,7 @@ test('infers schema and operation discriminants inside contribution handlers', (
 			>()
 			expectTypeOf(input.operation.input.title).toBeString()
 
-			return { operation: input.operation }
+			return undefined
 		},
 	})
 	const after = afterOperation({
@@ -87,14 +87,21 @@ test('rejects unknown operation kinds and implicit hook mutations', () => {
 		schema: articleSchema,
 		// @ts-expect-error -- Hook operation filters use terminal discriminants.
 		operations: ['save'],
-		handler: (input) => ({ operation: input.operation }),
+		handler: () => undefined,
 	})
 
 	beforeOperation({
 		schema: articleSchema,
 		operations: ['create-one'],
-		// @ts-expect-error -- Before-hooks must return an explicit operation wrapper.
+		// @ts-expect-error -- Before observers cannot replace the operation.
 		handler: (input) => input.operation,
+	})
+
+	beforeOperation({
+		schema: articleSchema,
+		operations: ['create-one'],
+		// @ts-expect-error -- Before observers cannot return a replacement wrapper.
+		handler: (input) => ({ operation: input.operation }),
 	})
 
 	afterOperation({

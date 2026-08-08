@@ -66,18 +66,12 @@ type RuntimeHookOperation<
 	TOperationKind extends OperationKind,
 > = Extract<ExecutableOperationAst<TSchema>, { readonly kind: TOperationKind }>
 
-/** Makes every before-hook transformation explicit rather than relying on mutation. */
-export interface BeforeOperationResult<
-	TOperation extends DatabaseOperationAst,
-> {
-	readonly operation: TOperation
-}
-
 /** Makes every after-hook transformation explicit rather than relying on mutation. */
 export interface AfterOperationResult<TOperation extends DatabaseOperationAst> {
 	readonly result: RuntimeOperationResult<TOperation>
 }
 
+/** Observes the final operation before persistence without replacing its AST. */
 export type BeforeOperationHandler<
 	TSchema extends SchemaDefinition,
 	TOperationKind extends OperationKind,
@@ -85,9 +79,7 @@ export type BeforeOperationHandler<
 	input: RuntimeHookOperationInput<
 		RuntimeHookOperation<TSchema, TOperationKind>
 	>,
-) => MaybePromise<
-	BeforeOperationResult<RuntimeHookOperation<TSchema, TOperationKind>>
->
+) => MaybePromise<void>
 
 export type AfterOperationHandler<
 	TSchema extends SchemaDefinition,
@@ -108,7 +100,9 @@ export type PostCommitEventHandler<
 /** Resolves one authorized update value against its locked current object. */
 export type PreparedOperationHandler<TSchema extends SchemaDefinition> = (
 	input: RuntimePreparedOperationInput<UpdateOneOperationAst<TSchema>>,
-) => MaybePromise<BeforeOperationResult<UpdateOneOperationAst<TSchema>>>
+) => MaybePromise<
+	Readonly<{ readonly operation: UpdateOneOperationAst<TSchema> }>
+>
 
 interface RuntimeContributionOptions<
 	TSchema extends SchemaDefinition,
@@ -346,7 +340,7 @@ const defineRuntimeContribution = <
 	return definition
 }
 
-/** Declares a global or schema-scoped operation transformer before persistence. */
+/** Declares a global or schema-scoped operation observer before persistence. */
 export const beforeOperation = <
 	const TSchema extends SchemaDefinition = SchemaDefinition,
 	const TOperations extends readonly OperationKind[] = readonly OperationKind[],

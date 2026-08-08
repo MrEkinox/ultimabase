@@ -22,8 +22,7 @@ describe('runtime contribution definitions', () => {
 			operations: ['create-one', 'create-one', 'update-one'],
 			handler: (input) => {
 				calls += 1
-
-				return { operation: input.operation }
+				void input.operation
 			},
 		})
 
@@ -92,7 +91,7 @@ describe('runtime contribution definitions', () => {
 			{
 				create: () =>
 					beforeOperation({
-						handler: () => ({ operation: null }),
+						handler: () => undefined,
 						extra: true,
 					} as never),
 				message: 'runtime contribution contains unknown key: extra',
@@ -111,7 +110,7 @@ describe('runtime contribution definitions', () => {
 					beforeOperation({
 						operations: [],
 						handler: () => undefined,
-					} as never),
+					}),
 				message: 'runtime contribution operations must be a non-empty array',
 			},
 			{

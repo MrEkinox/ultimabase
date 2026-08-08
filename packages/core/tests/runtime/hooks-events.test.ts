@@ -53,8 +53,6 @@ const createOrderedPlugins = (trace: string[]) => {
 					handler: (input) => {
 						trace.push('global-before:dependency')
 						expect(Object.isFrozen(input)).toBe(true)
-
-						return { operation: input.operation }
 					},
 				}),
 			)
@@ -63,18 +61,8 @@ const createOrderedPlugins = (trace: string[]) => {
 				beforeOperation({
 					schema: articleSchema,
 					operations: ['create-one'],
-					handler: (input) => {
+					handler: () => {
 						trace.push('schema-before:dependency')
-
-						return {
-							operation: {
-								...input.operation,
-								input: {
-									...input.operation.input,
-									title: `${input.operation.input.title}:dependency`,
-								},
-							},
-						}
 					},
 				}),
 			)
@@ -123,10 +111,8 @@ const createOrderedPlugins = (trace: string[]) => {
 				beforeOperation({
 					schema: foreignSchema,
 					operations: ['create-one'],
-					handler: (input) => {
+					handler: () => {
 						trace.push('unexpected:foreign')
-
-						return { operation: input.operation }
 					},
 				}),
 			)
@@ -152,10 +138,8 @@ const createOrderedPlugins = (trace: string[]) => {
 				'fixture.consumer.global-before',
 				beforeOperation({
 					operations: ['create-one'],
-					handler: (input) => {
+					handler: () => {
 						trace.push('global-before:consumer')
-
-						return { operation: input.operation }
 					},
 				}),
 			)
@@ -166,8 +150,6 @@ const createOrderedPlugins = (trace: string[]) => {
 					operations: ['create-one'],
 					handler: (input) => {
 						trace.push(`schema-before:consumer:${input.operation.input.title}`)
-
-						return { operation: input.operation }
 					},
 				}),
 			)
@@ -265,7 +247,7 @@ const createRequest = async (
 }
 
 describe('Runtime hooks and post-commit events', () => {
-	it('orders plugin transformations and delivers events only after commit', async () => {
+	it('orders plugin observers and delivers events only after commit', async () => {
 		const trace: string[] = []
 		const stored = createStoredArticle('stored')
 		const { adapter, request } = await createRequest(
@@ -284,7 +266,7 @@ describe('Runtime hooks and post-commit events', () => {
 		expect(adapter.transactions[0]?.requests[0]?.operation).toMatchObject({
 			kind: 'create-one',
 			selection: { fields: [], kind: 'selection' },
-			input: { title: 'input:dependency' },
+			input: { title: 'input' },
 		})
 		expect(result).toBeInstanceOf(articleSchema)
 		expect(result.toJSON()).toStrictEqual({
@@ -296,7 +278,7 @@ describe('Runtime hooks and post-commit events', () => {
 			'global-before:dependency',
 			'global-before:consumer',
 			'schema-before:dependency',
-			'schema-before:consumer:input:dependency',
+			'schema-before:consumer:input',
 			'prepare:create-one',
 			'execute:create-one',
 			'schema-after:dependency',

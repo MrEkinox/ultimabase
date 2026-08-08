@@ -70,6 +70,7 @@ export type {
 	DatabaseUpdateMaterialization,
 	ImmutableDatabaseConstraintPayload,
 	PreparedDatabaseOperation,
+	PreparedDatabaseOperationExecution,
 } from './database/contracts.js'
 // Enforcement factories let permission and community plugins share one monotonic boundary.
 export {
@@ -120,7 +121,6 @@ export type {
 	BeforeOperationDefinition,
 	BeforeOperationHandler,
 	BeforeOperationOptions,
-	BeforeOperationResult,
 	PostCommitEventDefinition,
 	PostCommitEventHandler,
 	PostCommitEventOptions,

@@ -299,14 +299,14 @@ const runSchemaPreparedPhases = async <
 	plan: NativeHookContributionPlan,
 	runtime: HookExecutionRuntime,
 	input: RuntimePreparedMutationStageInput<TOperation>,
-): Promise<TOperation> => {
+): Promise<void> => {
 	if (
 		input.operation.kind === 'create-many' ||
 		input.operation.kind === 'update-many' ||
 		input.operation.kind === 'upsert-many' ||
 		input.operation.kind === 'delete-many'
 	) {
-		return input.operation
+		return
 	}
 
 	if (
@@ -314,7 +314,7 @@ const runSchemaPreparedPhases = async <
 			input.operation.kind === 'delete-one') &&
 		input.target === null
 	) {
-		return input.operation
+		return
 	}
 
 	const schemaPlan = plan.getSchema(
@@ -371,7 +371,6 @@ const runSchemaPreparedPhases = async <
 		}
 	}
 
-	return input.operation
 }
 
 const resolveInput = async <const TOperation extends DatabaseOperationAst>(
@@ -530,8 +529,5 @@ export const createNativeHookStages = <
 		schemaPrepared: (input) => runSchemaPreparedPhases(plan, runtime, input),
 		schemaResolveInput: (input) =>
 			resolveSchemaInput(boundaries, plan, runtime, input),
-		// Schema read hooks and schema validation are intentionally not public phases.
-		schemaBefore: ({ operation }) => operation,
-		validate: () => undefined,
 	})
 }

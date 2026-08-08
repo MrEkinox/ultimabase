@@ -343,8 +343,18 @@ export type DatabaseOperationOutcome<
 interface PreparedDatabaseOperationHandle<
 	TOperation extends DatabaseMutationOperationAst,
 > {
-	/** Executes the retained target exactly once with an optional value-only replacement. */
-	execute(operation?: TOperation): Promise<DatabaseOperationOutcome<TOperation>>
+	/** Executes the retained target exactly once with the final resolved operation and constraints. */
+	execute(
+		request?: PreparedDatabaseOperationExecution<TOperation>,
+	): Promise<DatabaseOperationOutcome<TOperation>>
+}
+
+/** Carries the final candidate and monotonic constraints into one prepared write. */
+export interface PreparedDatabaseOperationExecution<
+	TOperation extends DatabaseMutationOperationAst,
+> {
+	readonly constraints: readonly DatabaseConstraintNode[]
+	readonly operation: TOperation
 }
 
 /** Adds the stable visible preimage when one directed mutation can have one. */

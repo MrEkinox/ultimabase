@@ -66,14 +66,14 @@ const createRequest = async <const TSchema extends SchemaDefinition>(
 		commit: () => undefined,
 		databaseOperation: adapter,
 		globalAfterHooks: ({ result }) => result,
-		globalBeforeHooks: ({ operation }) => operation,
+		globalBeforeHooks: () => undefined,
 		nativeHooks,
 		normalization: ({ operation }) => operation,
 		postCommitEvents: ({ operation }) => {
 			trace.push(`event:${operation.kind}`)
 		},
 		schemaAfterHooks: ({ result }) => result,
-		schemaBeforeHooks: ({ operation }) => operation,
+		schemaBeforeHooks: () => undefined,
 		structuralValidation: createRuntimeValidationStage({
 			clock: () => fixedInstant,
 			uuidV7Generator: () => {

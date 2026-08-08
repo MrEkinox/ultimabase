@@ -339,8 +339,6 @@ describe('bulk and upsert terminals', () => {
 			},
 			schemaBeforeHooks: (input) => {
 				beforeKinds.push(input.operation.kind)
-
-				return input.operation
 			},
 		}
 		const { adapter: updateAdapter, request: updateRequest } = createRequest(

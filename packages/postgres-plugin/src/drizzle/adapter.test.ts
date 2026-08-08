@@ -933,7 +933,10 @@ describe('internal PostgreSQL database adapter', () => {
 			}),
 		}
 		driver.respond([[null, 'Updated', 2, firstId, timestamp, timestamp]])
-		const updateOutcome = await preparedUpdate.execute(resolvedUpdateOperation)
+		const updateOutcome = await preparedUpdate.execute({
+			constraints: [],
+			operation: resolvedUpdateOperation,
+		})
 
 		expect(updateOutcome).toStrictEqual({
 			materializations: [{ current, kind: 'update', previous }],
@@ -1339,6 +1342,10 @@ describe('internal PostgreSQL database adapter', () => {
 		const constraints = [
 			databaseConstraint('fixture.tenant', 1, { tenantId: 'tenant-1' }),
 		]
+		const finalConstraints = [
+			...constraints,
+			databaseConstraint('fixture.tenant', 1, { tenantId: 'tenant-final' }),
+		]
 		const query = new QueryBuilder(articleSchema).where((where) =>
 			where.eq('title', 'Old'),
 		).ast
@@ -1361,12 +1368,16 @@ describe('internal PostgreSQL database adapter', () => {
 		expect(lockCall?.params).toContain('tenant-1')
 
 		driver.respond([['tenant-1', 'Updated', 1, firstId, timestamp, timestamp]])
-		await preparedUpdate.execute()
+		await preparedUpdate.execute({
+			constraints: finalConstraints,
+			operation: updateOperation,
+		})
 		const updateCall = driver.calls.at(-1)
 
 		expect(updateCall?.text).toMatch(/update .* where \(.*id.* and .*note/u)
 		expect(updateCall?.params).toContain(firstId)
 		expect(updateCall?.params).toContain('tenant-1')
+		expect(updateCall?.params).toContain('tenant-final')
 
 		const deleteOperation = {
 			kind: 'delete-one',

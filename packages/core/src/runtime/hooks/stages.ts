@@ -19,9 +19,9 @@ import { getOperationSchema } from '../operations/schema.js'
 import type {
 	RuntimePreparedMutationStageInput,
 	RuntimePreparedMutationTransformStage,
+	RuntimeOperationGuardStage,
 	RuntimeOperationResult,
 	RuntimeOperationStageInput,
-	RuntimeOperationTransformStage,
 	RuntimeResultEffectStage,
 	RuntimeResultStageInput,
 	RuntimeResultTransformStage,
@@ -44,8 +44,6 @@ import type { HookExecutionDescriptor } from './execution-descriptor.js'
 import { getApplicationHookExecutionRuntime } from './execution-runtime.js'
 import type { HookExecutionRuntime } from './execution-runtime.js'
 import { getHookEventImplementation } from './events.js'
-import { createRuntimeHookBoundaries } from './boundaries.js'
-import type { RuntimeHookBoundaries } from './boundaries.js'
 
 type RuntimeContributionImplementation = NonNullable<
 	ReturnType<typeof getRuntimeContributionImplementation>
@@ -77,8 +75,8 @@ const createRuntimeContributionDescriptor = (
 
 /** Supplies exactly the five hook and event stages owned by the Runtime pipeline. */
 export interface RuntimeHookStages {
-	readonly globalBeforeHooks: RuntimeOperationTransformStage
-	readonly schemaBeforeHooks: RuntimeOperationTransformStage
+	readonly globalBeforeHooks: RuntimeOperationGuardStage
+	readonly schemaBeforeHooks: RuntimeOperationGuardStage
 	readonly schemaAfterHooks: RuntimeResultTransformStage
 	readonly globalAfterHooks: RuntimeResultTransformStage
 	readonly postCommitEvents: RuntimeResultEffectStage
@@ -98,33 +96,6 @@ const assertExactHookOutput = (
 	}
 
 	return output
-}
-
-/** Rejects terminal or schema changes that would invalidate pipeline result typing. */
-const normalizeBeforeHookOutput = <
-	const TOperation extends DatabaseOperationAst,
->(
-	previousOperation: TOperation,
-	output: unknown,
-): TOperation => {
-	const result = assertExactHookOutput(output, 'operation')
-	const nextOperation: unknown = result.operation
-
-	if (
-		!isPlainRecord(nextOperation) ||
-		nextOperation.kind !== previousOperation.kind
-	) {
-		throw new TypeError('before-operation hook must preserve operation kind')
-	}
-
-	if (
-		getOperationSchema(nextOperation) !== getOperationSchema(previousOperation)
-	) {
-		throw new TypeError('before-operation hook must preserve schema identity')
-	}
-
-	// The discriminant and schema checks retain the exact generic operation contract.
-	return immutableRecord(nextOperation) as TOperation
 }
 
 const haveSameKeys = (
@@ -151,7 +122,17 @@ const normalizePreparedHookOutput = <
 
 	if (result.operation === previousOperation) return previousOperation
 
-	const nextOperation = normalizeBeforeHookOutput(previousOperation, output)
+	const candidate: unknown = result.operation
+
+	if (!isPlainRecord(candidate) || candidate.kind !== previousOperation.kind) {
+		throw new TypeError('prepared-operation hook must preserve operation kind')
+	}
+
+	if (getOperationSchema(candidate) !== getOperationSchema(previousOperation)) {
+		throw new TypeError('prepared-operation hook must preserve schema identity')
+	}
+
+	const nextOperation = immutableRecord(candidate) as TOperation
 	const previousValue: unknown = previousOperation
 	const nextValue: unknown = nextOperation
 
@@ -311,31 +292,25 @@ const runBeforeContributions = async <
 >(
 	contributions: readonly OwnedRuntimeContribution[],
 	runtime: HookExecutionRuntime,
-	boundaries: RuntimeHookBoundaries,
 	input: RuntimeOperationStageInput<TOperation>,
-): Promise<TOperation> => {
-	let operation: TOperation = input.operation
-
+): Promise<void> => {
 	for (const owned of contributions) {
 		const { implementation } = owned
-		if (!matchesContribution(implementation, operation)) {
+		if (!matchesContribution(implementation, input.operation)) {
 			continue
 		}
 
 		const output: unknown = await runtime.invoke(
-			createRuntimeContributionDescriptor(owned, operation),
+			createRuntimeContributionDescriptor(owned, input.operation),
 			input.context,
 			(context) =>
-				implementation.run(createBeforeHookInput(context, operation)),
+				implementation.run(createBeforeHookInput(context, input.operation)),
 		)
 
-		operation = boundaries.snapshotContributionOperationReplacement(
-			operation,
-			normalizeBeforeHookOutput(operation, output),
-		)
+		if (output !== undefined) {
+			throw new TypeError('before-operation hook must return undefined')
+		}
 	}
-
-	return operation
 }
 
 const runAfterContributions = async <
@@ -442,7 +417,6 @@ export const createRuntimeHookStages = <
 	const hooks = readContributions(application, 'hooks')
 	const events = readContributions(application, 'events')
 	const runtime = getApplicationHookExecutionRuntime(application)
-	const boundaries = createRuntimeHookBoundaries()
 	const globalBefore = immutableArray(
 		hooks.filter(
 			({ implementation }) =>
@@ -479,9 +453,9 @@ export const createRuntimeHookStages = <
 
 	return immutableRecord({
 		globalBeforeHooks: (input) =>
-			runBeforeContributions(globalBefore, runtime, boundaries, input),
+			runBeforeContributions(globalBefore, runtime, input),
 		schemaBeforeHooks: (input) =>
-			runBeforeContributions(schemaBefore, runtime, boundaries, input),
+			runBeforeContributions(schemaBefore, runtime, input),
 		schemaAfterHooks: (input) =>
 			runAfterContributions(schemaAfter, runtime, input),
 		globalAfterHooks: (input) =>

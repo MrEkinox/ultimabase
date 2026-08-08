@@ -57,10 +57,8 @@ const createDatabasePlugin = (
 					beforeOperation({
 						schema: articleSchema,
 						operations: ['find-many'],
-						handler: ({ context, operation }) => {
+						handler: ({ context }) => {
 							options.onContext?.(context)
-
-							return { operation }
 						},
 					}),
 				)

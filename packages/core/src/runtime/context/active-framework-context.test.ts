@@ -31,8 +31,8 @@ const createPipeline = (): RuntimePipeline => {
 	const stages: RuntimePipelineStages = {
 		normalization: (input) => input.operation,
 		structuralValidation: (input) => input.operation,
-		globalBeforeHooks: (input) => input.operation,
-		schemaBeforeHooks: (input) => input.operation,
+		globalBeforeHooks: () => undefined,
+		schemaBeforeHooks: () => undefined,
 		databaseOperation: unusedDatabaseOperation,
 		schemaAfterHooks: (input) => input.result,
 		globalAfterHooks: (input) => input.result,

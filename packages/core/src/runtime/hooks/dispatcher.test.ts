@@ -14,12 +14,7 @@ import {
 	type UpdateOneOperationAst,
 	type UpdateManyOperationAst,
 } from '../../query/index.js'
-import {
-	objectField,
-	pointerField,
-	Schema,
-	stringField,
-} from '../../schema/index.js'
+import { objectField, Schema, stringField } from '../../schema/index.js'
 import { isSchemaModelInstance } from '../../schema/schema/model.js'
 import {
 	immutableArray,
@@ -144,8 +139,6 @@ describe('native hook dispatcher', () => {
 
 		operation = await stages.resolveInput({ context, operation })
 		operation = await stages.revalidate({ context, operation })
-		await stages.validate({ context, operation })
-		operation = await stages.schemaBefore({ context, operation })
 		operation = await stages.schemaResolveInput({
 			context,
 			operation,
@@ -155,7 +148,7 @@ describe('native hook dispatcher', () => {
 			...operation,
 			input: { ...operation.input, profile: { name: 'Ignored' } },
 		})
-		operation = await stages.schemaPrepared({
+		await stages.schemaPrepared({
 			context,
 			operation,
 			target: undefined,
@@ -274,14 +267,14 @@ describe('native hook dispatcher', () => {
 			operation,
 			target: original,
 		})
-		const prepared = await stages.schemaPrepared({
+		await stages.schemaPrepared({
 			context,
 			operation: resolved,
 			target: original,
 		})
 		const outcome = await stages.mutationOutcome({
 			context,
-			operation: prepared,
+			operation: resolved,
 			outcome: immutableRecord({
 				materializations: immutableArray([
 					immutableRecord({
@@ -296,7 +289,7 @@ describe('native hook dispatcher', () => {
 
 		await stages.schemaAfter({
 			context,
-			operation: prepared,
+			operation: resolved,
 			outcome,
 			result: outcome.result,
 		})
@@ -374,7 +367,7 @@ describe('native hook dispatcher', () => {
 			context,
 			operation: validated,
 		})
-		const prepared = await stages.schemaPrepared({
+		await stages.schemaPrepared({
 			context,
 			operation: resolved,
 			target: undefined,
@@ -396,7 +389,7 @@ describe('native hook dispatcher', () => {
 		])
 		const outcome = await stages.mutationOutcome({
 			context,
-			operation: prepared,
+			operation: resolved,
 			outcome: immutableRecord({
 				materializations: immutableArray(
 					records.map((current) =>
@@ -409,7 +402,7 @@ describe('native hook dispatcher', () => {
 
 		await stages.schemaAfter({
 			context,
-			operation: prepared,
+			operation: resolved,
 			outcome,
 			result: outcome.result,
 		})
@@ -451,7 +444,7 @@ describe('native hook dispatcher', () => {
 				operation: deletion,
 				target: undefined,
 			}),
-		).resolves.toStrictEqual(deletion)
+		).resolves.toBeUndefined()
 
 		await application.dispose()
 	})
@@ -524,22 +517,22 @@ describe('native hook dispatcher', () => {
 			schema: new QueryBuilder(schema).ast.schema,
 		}) satisfies CreateOneOperationAst<typeof schema>
 		const resolved = await stages.resolveInput({ context, operation })
-		const transformed = await stages.schemaPrepared({
+		await stages.schemaPrepared({
 			context,
 			operation: resolved,
 			target: undefined,
 		})
 		const outcome = await stages.mutationOutcome({
 			context,
-			operation: transformed,
+			operation: resolved,
 			outcome: {
-				materializations: [{ current: transformed.input, kind: 'create' }],
-				result: transformed.input,
+				materializations: [{ current: resolved.input, kind: 'create' }],
+				result: resolved.input,
 			},
 		})
 		await stages.schemaAfter({
 			context,
-			operation: transformed,
+			operation: resolved,
 			outcome,
 			result: outcome.result,
 		})
@@ -615,21 +608,20 @@ describe('native hook dispatcher', () => {
 			sourceResult: DatabaseOperationResult<TOperation>,
 			expectedResult: unknown,
 		): Promise<void> => {
-			const transformed = await stages.schemaBefore({ context, operation })
 			const resolved = await stages.resolveOutput({
 				context,
-				operation: transformed,
+				operation,
 				result: sourceResult,
 			})
 			const result = await stages.schemaAfter({
 				context,
-				operation: transformed,
+				operation,
 				result: resolved as RuntimeOperationResult<TOperation>,
 			})
 
 			expect(result).toStrictEqual(expectedResult)
-			expect(transformed.query.where).toBeUndefined()
-			expect(transformed.query.selection).toStrictEqual(
+			expect(operation.query.where).toBeUndefined()
+			expect(operation.query.selection).toStrictEqual(
 				selectedQuery.ast.selection,
 			)
 		}
@@ -648,37 +640,6 @@ describe('native hook dispatcher', () => {
 
 		expect(selectedQuery.ast.where).toBeUndefined()
 		expect(trace).toStrictEqual([])
-
-		await application.dispose()
-	})
-
-	it('retains read pointer inclusions through the native no-op stage', async () => {
-		const targetSchema = Schema.define({
-			className: 'NativeHookReadInclusionTarget',
-			fields: { name: stringField() },
-		})
-		const hookInputFields = {
-			author: pointerField({ target: () => targetSchema }),
-			title: stringField(),
-		}
-		const schema = Schema.define({
-			className: 'NativeHookReadInclusion',
-			fields: hookInputFields,
-		})
-		const application = await createApplication({
-			plugins: [],
-			schemas: [targetSchema, schema],
-		})
-		const stages = createNativeHookStages(application)
-		const operation = immutableRecord({
-			kind: 'find-many',
-			query: new QueryBuilder(schema).include('author', (target) =>
-				target.select({ name: true }),
-			).ast,
-		}) satisfies FindManyOperationAst<typeof schema>
-		const transformed = await stages.schemaBefore({ context, operation })
-
-		expect(transformed).toBe(operation)
 
 		await application.dispose()
 	})

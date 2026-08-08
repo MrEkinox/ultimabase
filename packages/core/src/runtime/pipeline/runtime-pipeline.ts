@@ -103,9 +103,7 @@ const nativeHookStageNames = [
 	'resolveOutput',
 	'revalidate',
 	'schemaAfter',
-	'schemaBefore',
 	'schemaPrepared',
-	'validate',
 ] as const satisfies readonly (keyof RuntimeNativeHookStages)[]
 
 const emptyConstraints: readonly DatabaseConstraintNode[] = immutableArray([])
@@ -130,7 +128,9 @@ const combineDatabaseRowFilters = (
 }
 
 interface RuntimeDatabaseExecution<TOperation extends DatabaseOperationAst> {
+	readonly enforcement?: EnforcementState
 	readonly objectIdentities: readonly unknown[]
+	readonly operation: TOperation
 	readonly outcome?: DatabaseOperationOutcome<DatabaseMutationOperationAst>
 	readonly result: DatabaseOperationResult<TOperation>
 }
@@ -192,12 +192,6 @@ const isMutationOperation = (
 			return true
 	}
 }
-
-/** Preserves a generic operation's exact type while narrowing its create discriminant. */
-const isCreateOneMutation = <const TOperation extends DatabaseOperationAst>(
-	operation: TOperation,
-): operation is Extract<TOperation, { readonly kind: 'create-one' }> =>
-	operation.kind === 'create-one'
 
 /** Rejects mutation execution that escaped the mandatory transaction scope. */
 const assertPreparedMutationExecutor: (
@@ -311,6 +305,8 @@ const executeDatabaseOperation = async <
 	context: RequestContext,
 	nativeHooks: RuntimeNativeHookStages | undefined,
 	preparedOperationHooks: RuntimePreparedMutationTransformStage | undefined,
+	globalBeforeHooks: RuntimePipelineStages['globalBeforeHooks'],
+	schemaBeforeHooks: RuntimePipelineStages['schemaBeforeHooks'],
 	request: {
 		readonly constraints: readonly DatabaseConstraintNode[]
 		readonly operation: TOperation
@@ -397,45 +393,201 @@ const executeDatabaseOperation = async <
 	}
 
 	if (!isMutationOperation(request.operation)) {
+		await globalBeforeHooks(createOperationInput(context, request.operation))
+		await schemaBeforeHooks(createOperationInput(context, request.operation))
 		const result = await executor.execute(request)
 
 		return immutableRecord({
+			...(enforcementState === undefined
+				? {}
+				: { enforcement: enforcementState }),
 			objectIdentities: collectDatabaseObjectIdentities(
 				executor,
 				request.operation,
 				result,
 			),
+			operation: request.operation,
 			result,
 		})
 	}
 
 	assertPreparedMutationExecutor(executor)
+	type TMutationOperation = TOperation & DatabaseMutationOperationAst
+	let executableOperation: TMutationOperation = request.operation
+	let operationTransformed = false
+	let finalConstraints = request.constraints
 	const prepareMutationItems =
 		nativeHooks?.requiresPreparedMutationItems(request.operation) === true
-	const prepared = await executor.prepare(
-		immutableRecord({
-			constraints: request.constraints,
-			operation: request.operation,
-			...(prepareMutationItems ? { prepareMutationItems: true as const } : {}),
-			...(request.inclusions === undefined
-				? {}
-				: { inclusions: request.inclusions }),
-			...(request.relation === undefined ? {} : { relation: request.relation }),
-			...(request.relationPredicates === undefined
-				? {}
-				: { relationPredicates: request.relationPredicates }),
-			...(request.rowFilter === undefined
-				? {}
-				: { rowFilter: request.rowFilter }),
-		}),
-	)
-	const target = readPreparedMutationTarget(prepared)
-	const targets = readPreparedMutationTargets(prepared)
+	const prepareMutation = (
+		operation: TMutationOperation,
+		constraints: readonly DatabaseConstraintNode[],
+	): Promise<PreparedDatabaseOperation<TMutationOperation>> =>
+		executor.prepare(
+			immutableRecord({
+				constraints,
+				operation,
+				...(prepareMutationItems
+					? { prepareMutationItems: true as const }
+					: {}),
+				...(request.inclusions === undefined
+					? {}
+					: { inclusions: request.inclusions }),
+				...(request.relation === undefined
+					? {}
+					: { relation: request.relation }),
+				...(request.relationPredicates === undefined
+					? {}
+					: { relationPredicates: request.relationPredicates }),
+				...(request.rowFilter === undefined
+					? {}
+					: { rowFilter: request.rowFilter }),
+			}),
+		)
+	const resolveMutationInput = async (
+		target:
+			DatabaseMutationLogicalRecord<TMutationOperation> | null | undefined,
+		targets:
+			readonly DatabaseMutationLogicalRecord<TMutationOperation>[] | undefined,
+	): Promise<void> => {
+		if (
+			nativeHooks !== undefined &&
+			executableOperation.kind !== 'delete-one' &&
+			executableOperation.kind !== 'delete-many'
+		) {
+			const operationBeforeResolution = executableOperation
+			executableOperation = await nativeHooks.resolveInput(
+				immutableRecord({ context, operation: executableOperation }),
+			)
+			operationTransformed ||= executableOperation !== operationBeforeResolution
+		}
+
+		if (
+			nativeHooks !== undefined &&
+			(executableOperation.kind === 'create-one' ||
+				executableOperation.kind === 'update-one' ||
+				executableOperation.kind === 'upsert-one') &&
+			!(executableOperation.kind === 'update-one' && target === null)
+		) {
+			const operationBeforeResolution = executableOperation
+			executableOperation = await nativeHooks.schemaResolveInput(
+				immutableRecord({
+					context,
+					operation: operationBeforeResolution,
+					target: executableOperation.kind === 'create-one' ? null : target,
+					...(targets === undefined ? {} : { targets }),
+				}),
+			)
+			operationTransformed ||= executableOperation !== operationBeforeResolution
+		}
+
+		if (
+			target !== undefined &&
+			target !== null &&
+			preparedOperationHooks !== undefined
+		) {
+			const operationBeforeResolution = executableOperation
+			executableOperation = await preparedOperationHooks(
+				immutableRecord({
+					context,
+					operation: operationBeforeResolution,
+					target,
+				}),
+			)
+			operationTransformed ||= executableOperation !== operationBeforeResolution
+		}
+
+		if (operationTransformed && nativeHooks !== undefined) {
+			executableOperation = await nativeHooks.revalidate(
+				immutableRecord({ context, operation: executableOperation }),
+			)
+		}
+
+		if (
+			operationTransformed &&
+			enforcement !== undefined &&
+			enforcementState !== undefined
+		) {
+			enforcementState = await enforcement.reevaluate(
+				immutableRecord({
+					context,
+					enforcement: enforcementState,
+					operation: executableOperation,
+				}),
+			)
+			const enforced = await enforcement.enforceOperation(
+				immutableRecord({
+					context,
+					enforcement: enforcementState,
+					operation: executableOperation,
+				}),
+			)
+			executableOperation = enforced.operation
+			finalConstraints = snapshotConstraints(enforced.constraints)
+		}
+
+		if (
+			operationTransformed &&
+			enforcement?.enforcePreparedMutation !== undefined &&
+			enforcementState !== undefined
+		) {
+			await enforcement.enforcePreparedMutation(
+				immutableRecord({ context, operation: executableOperation, target }),
+			)
+		}
+	}
+	const runMutationObservers = async (
+		target:
+			DatabaseMutationLogicalRecord<TMutationOperation> | null | undefined,
+		targets:
+			readonly DatabaseMutationLogicalRecord<TMutationOperation>[] | undefined,
+	): Promise<void> => {
+		await globalBeforeHooks(createOperationInput(context, executableOperation))
+		await schemaBeforeHooks(createOperationInput(context, executableOperation))
+
+		if (
+			nativeHooks !== undefined &&
+			!(
+				(executableOperation.kind === 'update-one' ||
+					executableOperation.kind === 'delete-one') &&
+				target === null
+			)
+		) {
+			await nativeHooks.schemaPrepared(
+				immutableRecord({
+					context,
+					operation: executableOperation,
+					target,
+					...(targets === undefined ? {} : { targets }),
+				}),
+			)
+		}
+	}
+	const preparesAfterResolution =
+		executableOperation.kind === 'create-one' ||
+		executableOperation.kind === 'create-many'
+	let prepared: PreparedDatabaseOperation<TMutationOperation>
+	let target:
+		DatabaseMutationLogicalRecord<TMutationOperation> | null | undefined
+	let targets:
+		readonly DatabaseMutationLogicalRecord<TMutationOperation>[] | undefined
+
+	if (preparesAfterResolution) {
+		await resolveMutationInput(undefined, undefined)
+		await runMutationObservers(undefined, undefined)
+		prepared = await prepareMutation(executableOperation, finalConstraints)
+		target = readPreparedMutationTarget(prepared)
+		targets = readPreparedMutationTargets(prepared)
+	} else {
+		prepared = await prepareMutation(executableOperation, finalConstraints)
+		target = readPreparedMutationTarget(prepared)
+		targets = readPreparedMutationTargets(prepared)
+	}
+
 	const requiresPreparedTarget =
-		request.operation.kind === 'update-one' ||
-		request.operation.kind === 'delete-one'
+		executableOperation.kind === 'update-one' ||
+		executableOperation.kind === 'delete-one'
 	const requiresExposedTarget =
-		requiresPreparedTarget || request.operation.kind === 'upsert-one'
+		requiresPreparedTarget || executableOperation.kind === 'upsert-one'
 
 	if (requiresExposedTarget && target === undefined) {
 		throw new TypeError(
@@ -445,8 +597,8 @@ const executeDatabaseOperation = async <
 
 	if (
 		prepareMutationItems &&
-		(request.operation.kind === 'update-many' ||
-			request.operation.kind === 'delete-many') &&
+		(executableOperation.kind === 'update-many' ||
+			executableOperation.kind === 'delete-many') &&
 		targets === undefined
 	) {
 		throw new TypeError(
@@ -462,108 +614,8 @@ const executeDatabaseOperation = async <
 		throw createProtectedObjectNotFoundError()
 	}
 
-	if (
-		enforcement?.enforcePreparedMutation !== undefined &&
-		enforcementState !== undefined
-	) {
-		await enforcement.enforcePreparedMutation(
-			immutableRecord({ context, operation: request.operation, target }),
-		)
-	}
-	let executableOperation = request.operation
-
-	if (
-		nativeHooks !== undefined &&
-		(request.operation.kind === 'update-one' ||
-			request.operation.kind === 'upsert-one') &&
-		!(requiresPreparedTarget && target === null)
-	) {
-		const operationBeforeResolution = executableOperation
-		const resolvedOperation = await nativeHooks.schemaResolveInput(
-			immutableRecord({
-				context,
-				operation: operationBeforeResolution,
-				target,
-				...(targets === undefined ? {} : { targets }),
-			}),
-		)
-		executableOperation = resolvedOperation
-		executableOperation = await nativeHooks.revalidate(
-			immutableRecord({ context, operation: executableOperation }),
-		)
-		await nativeHooks.validate(
-			immutableRecord({ context, operation: executableOperation }),
-		)
+	if (!preparesAfterResolution) {
 		if (
-			resolvedOperation !== operationBeforeResolution &&
-			enforcement !== undefined &&
-			enforcementState !== undefined
-		) {
-			// Resolved data must remain inside the field restrictions already accumulated.
-			await enforcement.reevaluate(
-				immutableRecord({
-					context,
-					enforcement: enforcementState,
-					operation: executableOperation,
-				}),
-			)
-		}
-		if (
-			resolvedOperation !== operationBeforeResolution &&
-			enforcement?.enforcePreparedMutation !== undefined &&
-			enforcementState !== undefined
-		) {
-			// Item Access observes the final schema-resolved input as well.
-			await enforcement.enforcePreparedMutation(
-				immutableRecord({ context, operation: executableOperation, target }),
-			)
-		}
-	}
-
-	if (
-		target !== undefined &&
-		target !== null &&
-		preparedOperationHooks !== undefined
-	) {
-		const operationBeforeResolution = executableOperation
-		const resolvedOperation = await preparedOperationHooks(
-			immutableRecord({
-				context,
-				operation: operationBeforeResolution,
-				target,
-			}),
-		)
-		executableOperation = resolvedOperation
-
-		if (
-			resolvedOperation !== operationBeforeResolution &&
-			nativeHooks !== undefined
-		) {
-			executableOperation = await nativeHooks.revalidate(
-				immutableRecord({ context, operation: executableOperation }),
-			)
-			await nativeHooks.validate(
-				immutableRecord({ context, operation: executableOperation }),
-			)
-		}
-		if (
-			resolvedOperation !== operationBeforeResolution &&
-			enforcement !== undefined &&
-			enforcementState !== undefined
-		) {
-			// Prepared value resolvers cannot bypass value-dependent field Access.
-			await enforcement.reevaluate(
-				immutableRecord({
-					context,
-					enforcement: enforcementState,
-					operation: executableOperation,
-				}),
-			)
-		}
-
-		// Value-dependent item decisions observe the final resolved value as well.
-		if (
-			resolvedOperation !== operationBeforeResolution &&
 			enforcement?.enforcePreparedMutation !== undefined &&
 			enforcementState !== undefined
 		) {
@@ -571,22 +623,16 @@ const executeDatabaseOperation = async <
 				immutableRecord({ context, operation: executableOperation, target }),
 			)
 		}
-	}
 
-	if (
-		nativeHooks !== undefined &&
-		!(requiresPreparedTarget && target === null)
-	) {
-		executableOperation = await nativeHooks.schemaPrepared(
-			immutableRecord({
-				context,
-				operation: executableOperation,
-				target,
-				...(targets === undefined ? {} : { targets }),
-			}),
-		)
+		await resolveMutationInput(target, targets)
+		await runMutationObservers(target, targets)
 	}
-	let outcome = await prepared.execute(executableOperation)
+	let outcome = await prepared.execute(
+		immutableRecord({
+			constraints: finalConstraints,
+			operation: executableOperation,
+		}),
+	)
 
 	if (
 		enforcement?.enforceMutationOutcome !== undefined &&
@@ -604,6 +650,9 @@ const executeDatabaseOperation = async <
 	}
 
 	return immutableRecord({
+		...(enforcementState === undefined
+			? {}
+			: { enforcement: enforcementState }),
 		objectIdentities: collectDatabaseObjectIdentities(
 			executor,
 			request.operation,
@@ -611,6 +660,7 @@ const executeDatabaseOperation = async <
 			outcome,
 		),
 		outcome,
+		operation: executableOperation,
 		result: outcome.result,
 	})
 }
@@ -954,15 +1004,6 @@ export class RuntimePipeline {
 			operation = await this.#stages.structuralValidation(
 				createOperationInput(context, operation),
 			)
-
-			if (this.#stages.nativeHooks !== undefined) {
-				operation = await this.#stages.nativeHooks.revalidate(
-					createOperationInput(context, operation),
-				)
-				await this.#stages.nativeHooks.validate(
-					createOperationInput(context, operation),
-				)
-			}
 
 			let enforcement: EnforcementState | undefined
 			let constraints: readonly DatabaseConstraintNode[] = emptyConstraints
@@ -1424,36 +1465,6 @@ export class RuntimePipeline {
 			),
 		)
 
-		if (this.#stages.nativeHooks !== undefined) {
-			operation = retainExecutionOperation(
-				execution,
-				await this.#stages.nativeHooks.resolveInput(
-					createOperationInput(context, operation),
-				),
-			)
-
-			if (isCreateOneMutation(operation)) {
-				operation = retainExecutionOperation(
-					execution,
-					await this.#stages.nativeHooks.schemaResolveInput(
-						immutableRecord({ context, operation, target: null }),
-					),
-				)
-			}
-
-			if (operation.kind !== 'update-one' && operation.kind !== 'upsert-one') {
-				operation = retainExecutionOperation(
-					execution,
-					await this.#stages.nativeHooks.revalidate(
-						createOperationInput(context, operation),
-					),
-				)
-				await this.#stages.nativeHooks.validate(
-					createOperationInput(context, operation),
-				)
-			}
-		}
-
 		let enforcement: EnforcementState | undefined
 		let constraints: readonly DatabaseConstraintNode[] = emptyConstraints
 		let rowFilter: DatabaseRowFilterNode | undefined = privateRowFilter
@@ -1492,51 +1503,6 @@ export class RuntimePipeline {
 			relationPredicates = enforced.relationPredicates
 		}
 
-		operation = retainExecutionOperation(
-			execution,
-			await this.#stages.globalBeforeHooks(
-				createOperationInput(context, operation),
-			),
-		)
-		operation = retainExecutionOperation(
-			execution,
-			await this.#stages.schemaBeforeHooks(
-				createOperationInput(context, operation),
-			),
-		)
-
-		if (this.#stages.nativeHooks !== undefined) {
-			operation = retainExecutionOperation(
-				execution,
-				await this.#stages.nativeHooks.schemaBefore(
-					createOperationInput(context, operation),
-				),
-			)
-			operation = retainExecutionOperation(
-				execution,
-				await this.#stages.nativeHooks.revalidate(
-					createOperationInput(context, operation),
-				),
-			)
-		}
-
-		if (this.#stages.enforcement !== undefined && enforcement !== undefined) {
-			enforcement = await this.#stages.enforcement.reevaluate(
-				createEnforcementInput(context, operation, enforcement),
-			)
-			const enforced: RuntimeEnforcementOperationResult<TOperation> =
-				await this.#stages.enforcement.enforceOperation(
-					createEnforcementInput(context, operation, enforcement),
-				)
-
-			operation = retainExecutionOperation(execution, enforced.operation)
-			constraints = snapshotConstraints(enforced.constraints)
-			rowFilter = combineDatabaseRowFilters(
-				privateRowFilter,
-				enforced.rowFilter,
-			)
-			relationPredicates = enforced.relationPredicates
-		}
 		const inclusions = await this.#prepareInclusions(context, operation)
 
 		throwIfOperationCancelled(context.signal, {
@@ -1549,6 +1515,8 @@ export class RuntimePipeline {
 			context,
 			this.#stages.nativeHooks,
 			this.#stages.preparedOperationHooks,
+			this.#stages.globalBeforeHooks,
+			this.#stages.schemaBeforeHooks,
 			immutableRecord({
 				constraints,
 				operation,
@@ -1569,6 +1537,8 @@ export class RuntimePipeline {
 			this.#stages.enforcement,
 			enforcement,
 		)
+		enforcement = databaseExecution.enforcement ?? enforcement
+		operation = retainExecutionOperation(execution, databaseExecution.operation)
 		if (operation.kind === 'get' && databaseExecution.result === null) {
 			throw createProtectedObjectNotFoundError()
 		}

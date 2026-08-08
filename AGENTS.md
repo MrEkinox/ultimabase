@@ -90,16 +90,17 @@ Preserve this pipeline unless an ADR changes it:
 
 ```text
 normalization
-→ structural validation
-→ field resolveInput
-→ operation and mutation-field Access
+→ initial structural validation
+→ initial operation and mutation-field Access
 → load and lock the visible target when one may exist
 → item Access
+→ field resolveInput
 → schema resolveInput with originalItem
+→ target-aware preparedOperation transforms
 → structural revalidation without replaying defaults or generators
 → value-dependent Access re-evaluation
-→ plugin/global before hooks
-→ schema before hooks
+→ plugin/global before observers
+→ schema before observers
 → database operation
 → schema after hooks
 → plugin/global after hooks

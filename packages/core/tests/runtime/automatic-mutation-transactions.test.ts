@@ -299,7 +299,7 @@ describe('automatic mutation transaction scope', () => {
 					}
 				}
 
-				return input.operation
+				return undefined
 			},
 		}
 		const { adapter, request } = createRequest(
@@ -342,7 +342,7 @@ describe('automatic mutation transaction scope', () => {
 					await articleSchema.createOne({ data: { title: 'Nested' } })
 				}
 
-				return input.operation
+				return undefined
 			},
 		}
 		const { request } = createRequest(
@@ -439,12 +439,12 @@ describe('automatic mutation transaction scope', () => {
 				const title = readCreatedTitle(input.operation)
 
 				if (title === undefined) {
-					return input.operation
+					return undefined
 				}
 
 				if (title === 'Master nested') {
 					nestedAccessMode = getCurrentEngine().context.access.mode
-					return input.operation
+					return undefined
 				}
 
 				if (title === 'Primary') {
@@ -454,7 +454,7 @@ describe('automatic mutation transaction scope', () => {
 					)
 				}
 
-				return input.operation
+				return undefined
 			},
 		}
 		const { adapter, request } = createRequest(

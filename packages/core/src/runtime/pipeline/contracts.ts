@@ -302,9 +302,7 @@ export interface RuntimeNativeHookStages {
 	/** Resolves schema-wide mutation input after its visible target is stable. */
 	readonly schemaResolveInput: RuntimePreparedMutationTransformStage
 	readonly revalidate: RuntimeOperationTransformStage
-	readonly validate: RuntimeOperationGuardStage
-	readonly schemaBefore: RuntimeOperationTransformStage
-	readonly schemaPrepared: RuntimePreparedMutationTransformStage
+	readonly schemaPrepared: RuntimePreparedMutationEffectStage
 	readonly mutationOutcome: RuntimeMutationOutcomeTransformStage
 	readonly resolveOutput: RuntimeNativeDatabaseResultTransformStage
 	readonly schemaAfter: RuntimeNativeResultTransformStage
@@ -323,8 +321,8 @@ export interface RuntimeNativeHookStages {
 export interface RuntimePipelineStages {
 	readonly normalization: RuntimeOperationTransformStage
 	readonly structuralValidation: RuntimeOperationTransformStage
-	readonly globalBeforeHooks: RuntimeOperationTransformStage
-	readonly schemaBeforeHooks: RuntimeOperationTransformStage
+	readonly globalBeforeHooks: RuntimeOperationGuardStage
+	readonly schemaBeforeHooks: RuntimeOperationGuardStage
 	readonly databaseOperation: DatabaseOperationExecutor
 	readonly schemaAfterHooks: RuntimeResultTransformStage
 	readonly globalAfterHooks: RuntimeResultTransformStage

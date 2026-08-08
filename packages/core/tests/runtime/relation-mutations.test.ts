@@ -197,7 +197,6 @@ describe('relation mutation Runtime execution', () => {
 			'adapter:begin',
 			'execute:find-one',
 			'access:connect:1',
-			'access:connect:1',
 			'prepare:update-one',
 			'before:connect',
 			'execute:update-one',
@@ -256,7 +255,7 @@ describe('relation mutation Runtime execution', () => {
 			useMasterKey: true,
 		})
 
-		expect(fixture.accessModes).toStrictEqual(['master', 'master'])
+		expect(fixture.accessModes).toStrictEqual(['master'])
 		expect(fixture.trace).toContain('after:clear')
 		expect(fixture.trace.at(-1)).toBe('adapter:commit')
 		await fixture.ultimabase.dispose()
@@ -277,7 +276,6 @@ describe('relation mutation Runtime execution', () => {
 			'execute:find-one',
 			'adapter:begin',
 			'execute:find-one',
-			'access:connect:1',
 			'access:connect:1',
 			'prepare:update-one',
 			'before:connect',
@@ -362,7 +360,6 @@ describe('relation mutation Runtime execution', () => {
 			'execute:find-one',
 			'adapter:begin',
 			'execute:find-one',
-			'access:connect:1',
 			'access:connect:1',
 			'adapter:rollback',
 		])

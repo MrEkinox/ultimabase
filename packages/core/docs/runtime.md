@@ -688,19 +688,11 @@ const articleAutomationPlugin = () =>
 		name: 'example.article-automation',
 		setup: ({ registries }) => {
 			registries.hooks.register(
-				'articles.normalize-title',
+				'articles.audit-create',
 				beforeOperation({
 					schema: ArticleSchema,
 					operations: ['create-one'],
-					handler: ({ operation }) => ({
-						operation: {
-							...operation,
-							input: {
-								...operation.input,
-								title: operation.input.title.trim(),
-							},
-						},
-					}),
+					handler: ({ operation }) => audit(operation),
 				}),
 			)
 
@@ -716,14 +708,15 @@ const articleAutomationPlugin = () =>
 	})
 ```
 
-Before-hooks return exactly `{ operation }`; after-hooks return exactly
-`{ result }`. Inputs are immutable, and a before-hook must preserve both the
-operation kind and exact schema identity. `createRuntimeHookStages(application)`
-composes definitions in dependency-first plugin order into the fixed Runtime
-pipeline positions. After-hooks still run before commit and can abort the
-transaction. Post-commit events run only after a successful standalone commit;
-explicit transactions buffer them until the outer commit and discard them on
-rollback.
+Before-hooks are observers and return nothing; after-hooks remain result
+transformers and return exactly `{ result }`. Inputs are immutable. General
+input normalization belongs in field or schema `resolveInput`; the restricted
+`preparedOperation()` factory exists for an update value that depends on its
+locked target. `createRuntimeHookStages(application)` composes definitions in
+dependency-first plugin order into the fixed Runtime pipeline positions.
+After-hooks still run before commit and can abort the transaction. Post-commit
+events run only after a successful standalone commit; explicit transactions
+buffer them until the outer commit and discard them on rollback.
 
 ## Scoped contextual access
 
@@ -852,12 +845,14 @@ const pipeline = new RuntimePipeline({
 const articles = await pipeline.execute({ context, operation })
 ```
 
-The fixed order validates and resolves input, evaluates optional enforcement,
-applies input and selection restrictions, runs business before-hooks, reapplies
-the retained restrictions, executes the adapter with `constraints`, runs every
-business result transform, applies final output restrictions, then finalizes
-the transaction and post-commit events. The enforcement group is absent when no
-plugin contributed one; Runtime does not manufacture permission placeholders.
+The fixed order performs initial validation and enforcement, locks mutation
+targets, runs every input transformer, then crosses one final structural
+revalidation and value-dependent enforcement pass. Business before-hooks only
+observe that final operation. Prepared adapters receive the final operation and
+cumulative `constraints` for the write. Runtime then runs every business result
+transform, applies final output restrictions, and finalizes the transaction and
+post-commit events. The enforcement group is absent when no plugin contributed
+one; Runtime does not manufacture permission placeholders.
 
 Stage envelopes and constraint collections are immutable. A
 `FrameworkError` thrown by any stage crosses the pipeline unchanged, while

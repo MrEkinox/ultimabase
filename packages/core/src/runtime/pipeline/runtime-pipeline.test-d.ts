@@ -28,8 +28,8 @@ declare const databaseOperation: DatabaseAdapter
 const stages = {
 	normalization: (input) => input.operation,
 	structuralValidation: (input) => input.operation,
-	globalBeforeHooks: (input) => input.operation,
-	schemaBeforeHooks: (input) => input.operation,
+	globalBeforeHooks: () => undefined,
+	schemaBeforeHooks: () => undefined,
 	databaseOperation,
 	schemaAfterHooks: (input) => input.result,
 	globalAfterHooks: (input) => input.result,
