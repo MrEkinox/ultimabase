@@ -680,7 +680,7 @@ const evaluateOperationAndFilter = async (
 			phase: 'access-operation',
 			schema: schemaPlan.schema,
 		},
-		immutableRecord({ context: request.context, kind: request.operation.kind }),
+		immutableRecord({ context: request.context }),
 		plan.defaults.operation,
 	)
 

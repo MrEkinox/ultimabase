@@ -4,7 +4,7 @@
 - Milestone: 4
 - Packages: `@ultimabase/core`
 - Depends on: 401
-- ADR: ADR-0116
+- ADR: ADR-0116, ADR-0168
 
 ## Goal
 
@@ -20,8 +20,7 @@ A schema read rule may protect every read terminal through one callback:
 ```ts
 access: {
 	operation: {
-		read: ({ context, kind }) =>
-			context.access.mode === 'master' || kind !== 'count',
+		read: ({ context }) => context.access.mode === 'master',
 		create: true,
 		update: true,
 		upsert: true,
@@ -31,13 +30,13 @@ access: {
 ```
 
 The detailed form separates singular, collection, count, and existence reads
-without losing the exact terminal inside each callback:
+without exposing the internal terminal inside each callback:
 
 ```ts
 access: {
 	operation: {
 		read: {
-			one: ({ kind }) => kind === 'get',
+			one: ({ context }) => context.access.mode === 'master',
 			many: true,
 			count: false,
 			exists: true,
@@ -46,9 +45,9 @@ access: {
 }
 ```
 
-`one` covers `get` and `first`, `many` covers `find`, while `count` and
-`exists` retain their exact terminal names. Mutation families remain direct
-rules and may already distinguish singular and bulk terminals through `kind`.
+`one` covers `get` and `findOne`, `many` covers `findMany`, while `count` and
+`exists` remain explicit branches. Mutation families remain direct rules and
+do not expose singular or bulk cardinality.
 
 One direct rule applies consistently to item output, filtering, and ordering:
 
@@ -105,9 +104,9 @@ read: ({ channel, context }) => {
 ## Acceptance criteria
 
 - [x] Replace schema `operation.read` with `rule | { one, many, count, exists }` while preserving the current direct boolean and synchronous or asynchronous callback forms.
-- [x] The schema read object requires all four branches: `one` covers `get | first`, `many` covers `find`, and `count` and `exists` each cover their exact terminal.
-- [x] Every schema read branch accepts a boolean or a precisely typed synchronous or asynchronous callback and preserves the exact terminal in `kind`.
-- [x] `operation.create`, `update`, `upsert`, and `delete` remain direct family rules; their existing `kind` already distinguishes singular and bulk terminals without another public object layer.
+- [x] The schema read object requires all four branches: `one` covers `get | findOne`, `many` covers `findMany`, and `count` and `exists` remain explicit capabilities.
+- [x] Every schema read branch accepts a boolean or a precisely typed synchronous or asynchronous callback receiving only `context`.
+- [x] `operation.create`, `update`, `upsert`, and `delete` remain direct family rules and expose no singular or bulk terminal detail.
 - [x] Replace the flat field `read`, `filter`, and `order` declarations with `read: rule | { item, filter, order }`; `create` and `update` remain top-level mutation decisions.
 - [x] A direct boolean applies to all three read channels, so `read: false` denies returning, filtering, and ordering by the field.
 - [x] A direct synchronous or asynchronous callback applies to all three channels and receives a precise `channel: 'item' | 'filter' | 'order'` discriminant alongside the exact terminal `kind`.
@@ -122,7 +121,7 @@ read: ({ channel, context }) => {
 ## Tests
 
 - [x] Runtime normalization tests cover schema and field shared booleans, shared sync and async callbacks, complete grouped objects, immutability, unknown properties, missing branches, and legacy flat field declarations.
-- [x] Compile-time tests prove schema branch terminal unions, field channel narrowing, terminal kinds, item values, callback results, and rejection of invalid or incomplete objects.
+- [x] Compile-time tests prove schema operation inputs omit terminal cardinality while field channels, item values, callback results, and invalid or incomplete objects remain precise.
 - [x] TypeScript language-service tests verify schema and field autocomplete, hover documentation, compact QuickInfo, and that field `filter` and `order` are no longer offered beside `read`.
 - [x] Packed-package tests verify the same public contract through `@ultimabase/core` exports.
 
@@ -130,10 +129,13 @@ read: ({ channel, context }) => {
 
 - `item` here names the field-output disclosure channel. It is separate from
   schema-level `access.item`, which authorizes a prepared mutation object.
-- Schema `read.one` intentionally retains `kind: 'get' | 'first'` because these
-  terminals share result cardinality but not lookup semantics.
-- Keep `channel` separate from `kind`: `channel` distinguishes how the field is
-  being read, while `kind` retains the exact Query or mutation terminal.
+- Schema `read.one` intentionally treats `get` and `findOne` as the same Access
+  capability. A policy that needs a different row universe belongs in a named
+  schema filter or a distinct schema command rather than internal terminal
+  inspection.
+- Field `channel` and item-oriented business `kind` remain separate from schema
+  operation Access; they describe materially different callback inputs rather
+  than adapter cardinality.
 - This issue preserves the current precisely typed field-value boundary.
   Supplying complete sibling item or mutation-input data to inline field rules
   requires a separate schema-aware typing decision and must not be approximated

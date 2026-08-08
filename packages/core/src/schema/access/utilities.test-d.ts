@@ -20,40 +20,20 @@ test('types literal and complete operation declaration utilities', () => {
 	expectTypeOf(allowAll).toEqualTypeOf<true>()
 	expectTypeOf(denyAll).toEqualTypeOf<false>()
 
-	const operations = allOperations(({ context, kind }) => {
+	const operations = allOperations((input) => {
+		const { context } = input
+
 		expectTypeOf(context).toEqualTypeOf<AccessContext>()
-		expectTypeOf(kind).toEqualTypeOf<
-			| 'count'
-			| 'create-many'
-			| 'create-one'
-			| 'delete-many'
-			| 'delete-one'
-			| 'exists'
-			| 'find-many'
-			| 'find-one'
-			| 'get'
-			| 'update-many'
-			| 'update-one'
-			| 'upsert-many'
-			| 'upsert-one'
-		>()
+		// @ts-expect-error -- Shared operation helpers expose no terminal kind.
+		void input.kind
 
 		return true
 	})
 
 	expectTypeOf(operations).toEqualTypeOf<AllOperationAccess>()
 
-	const mutations = allMutations(({ kind }) => {
-		expectTypeOf(kind).toEqualTypeOf<
-			| 'create-many'
-			| 'create-one'
-			| 'delete-many'
-			| 'delete-one'
-			| 'update-many'
-			| 'update-one'
-			| 'upsert-many'
-			| 'upsert-one'
-		>()
+	const mutations = allMutations(({ context }) => {
+		expectTypeOf(context).toEqualTypeOf<AccessContext>()
 
 		return Promise.resolve(false)
 	})

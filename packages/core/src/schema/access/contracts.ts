@@ -12,7 +12,6 @@ import type {
 	FieldOutputHookKind,
 } from '../hooks/field-contracts.js'
 import type {
-	SchemaCreateHookKind,
 	SchemaDeleteHookKind,
 	SchemaMutationKind,
 	SchemaReadHookKind,
@@ -34,12 +33,10 @@ export type AccessFilterRule<TSchema extends SchemaDefinition, TInput> =
 			input: TInput,
 	  ) => MaybePromise<boolean | WhereBuilder<TSchema> | WhereInput<TSchema>>)
 
-/** Supplies the exact terminal union covered by one operation-family rule. */
-export interface SchemaOperationAccessInput<TKind extends OperationKind> {
+/** Supplies request authority to one explicitly named operation rule. */
+export interface SchemaOperationAccessInput {
 	/** Carries immutable authority and explicitly typed request capabilities. */
 	readonly context: AccessContext
-	/** Retains the exact terminal for cardinality-specific narrowing. */
-	readonly kind: TKind
 }
 
 /** Supplies an isolated typed where builder for one row-restricted family. */
@@ -92,32 +89,29 @@ export type SchemaItemAccessInput<
 export interface SchemaReadOperationAccess {
 	/**
 	 * Controls singular object reads through `get` and `first`.
-	 * @example `one: ({ kind }) => kind === "get"`
+	 * @example `one: ({ context }) => context.access.mode === "master"`
 	 */
-	readonly one: AccessDecisionRule<
-		SchemaOperationAccessInput<'get' | 'find-one'>
-	>
+	readonly one: AccessDecisionRule<SchemaOperationAccessInput>
 	/**
 	 * Controls collection reads through `find`.
 	 * @example `many: true`
 	 */
-	readonly many: AccessDecisionRule<SchemaOperationAccessInput<'find-many'>>
+	readonly many: AccessDecisionRule<SchemaOperationAccessInput>
 	/**
 	 * Controls exact row counts without implicitly enabling other reads.
 	 * @example `count: false`
 	 */
-	readonly count: AccessDecisionRule<SchemaOperationAccessInput<'count'>>
+	readonly count: AccessDecisionRule<SchemaOperationAccessInput>
 	/**
 	 * Controls existence checks without implicitly enabling object output.
 	 * @example `exists: true`
 	 */
-	readonly exists: AccessDecisionRule<SchemaOperationAccessInput<'exists'>>
+	readonly exists: AccessDecisionRule<SchemaOperationAccessInput>
 }
 
 /** Allows one shared read decision or one complete cardinality declaration. */
 export type SchemaReadOperationAccessDeclaration =
-	| AccessDecisionRule<SchemaOperationAccessInput<SchemaReadHookKind>>
-	| SchemaReadOperationAccess
+	AccessDecisionRule<SchemaOperationAccessInput> | SchemaReadOperationAccess
 
 /** Declares early allow-or-deny decisions by logical operation family. */
 export interface SchemaOperationAccess {
@@ -130,30 +124,22 @@ export interface SchemaOperationAccess {
 	 * Controls singular and bulk creates through one reusable rule.
 	 * @example `create: ({ context }) => context.access.mode === "master"`
 	 */
-	readonly create?: AccessDecisionRule<
-		SchemaOperationAccessInput<SchemaCreateHookKind>
-	>
+	readonly create?: AccessDecisionRule<SchemaOperationAccessInput>
 	/**
 	 * Controls singular and set-based updates through one reusable rule.
 	 * @example `update: true`
 	 */
-	readonly update?: AccessDecisionRule<
-		SchemaOperationAccessInput<SchemaUpdateHookKind>
-	>
+	readonly update?: AccessDecisionRule<SchemaOperationAccessInput>
 	/**
 	 * Controls singular and bulk upserts through one reusable rule.
 	 * @example `upsert: true`
 	 */
-	readonly upsert?: AccessDecisionRule<
-		SchemaOperationAccessInput<SchemaUpsertHookKind>
-	>
+	readonly upsert?: AccessDecisionRule<SchemaOperationAccessInput>
 	/**
 	 * Controls singular and set-based deletes through one reusable rule.
 	 * @example `delete: ({ context }) => context.access.mode === "master"`
 	 */
-	readonly delete?: AccessDecisionRule<
-		SchemaOperationAccessInput<SchemaDeleteHookKind>
-	>
+	readonly delete?: AccessDecisionRule<SchemaOperationAccessInput>
 }
 
 /** Declares database-enforceable row restrictions by logical family. */

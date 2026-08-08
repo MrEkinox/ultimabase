@@ -620,8 +620,9 @@ Schemas now accept native declaration-only policies, and every built-in or
 plugin field accepts its own inline policy. One logical family covers singular
 commands and every item from a collection command. Item-oriented mutation
 callbacks therefore expose the business `kind` (`create`, `update`, `upsert`,
-or `delete`) without cardinality. Early `operation` Access and an exposed
-`operation.kind` retain the exact normalized terminal such as `update-one`:
+or `delete`) without cardinality. Early `operation` Access exposes only
+`context`; its named declaration branch already identifies the authorized
+family, while grouped reads distinguish `one`, `many`, `count`, and `exists`:
 
 ```ts
 const PostSchema = Schema.define({

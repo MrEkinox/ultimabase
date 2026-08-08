@@ -62,10 +62,11 @@ so an omitted count, filter, or ordering path cannot inherit a broader default.
 Callbacks receive an effect-free `AccessContext`: ordinary authority,
 cancellation, request identity, unforgeable capabilities, and typed context
 values. They cannot emit events, query a database, finalize transactions, or
-inspect transport metadata. Early schema `operation` rules and read disclosure
-rules retain the exact terminal `kind` when cardinality matters. Item rules and
-mutation field rules instead receive `create`, `update`, `upsert`, or `delete`,
-because collection commands use the same callback once per item.
+inspect transport metadata. Schema `operation` callbacks expose no terminal
+`kind`: their named mutation family or grouped `one`, `many`, `count`, and
+`exists` read branch is the complete public distinction. Field disclosure,
+schema item, and mutation field rules retain their own discriminants because
+those callbacks share one contract across materially different inputs.
 
 Access callbacks must remain pure decisions. Runtime may evaluate a rule again
 after input transformation, target locking, or final upsert branch resolution
@@ -206,8 +207,8 @@ batches of those singular targets, so Access runs once per entry with the same
 complete `originalItem` and candidate `item` contract. Upsert item rules inspect
 the exact create or update branch materialized inside the transaction, so a
 denial rolls the complete batch back. These item-oriented callbacks use a
-cardinality-free business `kind`; only early operation Access retains terminal
-names such as `update-one`.
+cardinality-free business `kind`; early operation Access exposes only `context`
+and keeps terminal names such as `update-one` private to Runtime.
 
 Field `read.item` rules project adapter records before they become public. The
 same projection is enforced again at the final output boundary. Explicit

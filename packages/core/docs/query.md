@@ -477,5 +477,6 @@ Writes distinguish `create-one`/`create-many`, `update-one`/`update-many`,
 `upsert-one`/`upsert-many`, and `delete-one`/`delete-many`. Runtime and adapters
 therefore retain exhaustive internal operation matching. After collection
 itemization, public item Access and hooks use cardinality-free `create`,
-`update`, `upsert`, and `delete` business kinds; early operation Access and the
-normalized AST retain the exact terminal discriminant.
+`update`, `upsert`, and `delete` business kinds. The normalized AST retains the
+exact terminal discriminant internally, while early operation Access exposes
+only its named capability and request context.

@@ -49,7 +49,11 @@ test('infers exact schema and field Access policy targets', () => {
 		setup: ({ access }) => {
 			access.global(
 				'global',
-				{ operation: { read: ({ kind }) => kind !== 'count' } },
+				{
+					operation: {
+						read: ({ context }) => context.access.mode !== 'master',
+					},
+				},
 				{ master: 'bypass' },
 			)
 			access.schema(

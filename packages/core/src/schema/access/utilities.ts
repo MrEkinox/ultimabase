@@ -1,15 +1,6 @@
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
 import type { AccessContext } from '../../access/index.js'
-import type { OperationKind } from '../../query/index.js'
-import type {
-	SchemaCreateHookKind,
-	SchemaDeleteHookKind,
-	SchemaReadHookKind,
-	SchemaMutationHookKind,
-	SchemaUpdateHookKind,
-	SchemaUpsertHookKind,
-} from '../hooks/contracts.js'
 import type {
 	AccessDecisionRule,
 	SchemaOperationAccessInput,
@@ -178,17 +169,16 @@ export const not = <TInput extends AccessDecisionInput>(
 		!(await evaluateDecision(rule, input))
 }
 
-/** Represents one concise direct rule shared by compatible operation families. */
-export type OperationAccessRule<TKind extends OperationKind> =
-	AccessDecisionRule<SchemaOperationAccessInput<TKind>>
+/** Represents one concise direct rule shared by named operation families. */
+export type OperationAccessRule = AccessDecisionRule<SchemaOperationAccessInput>
 
 /** Contains one direct decision for every native operation family. */
 export interface AllOperationAccess {
-	readonly read: OperationAccessRule<SchemaReadHookKind>
-	readonly create: OperationAccessRule<SchemaCreateHookKind>
-	readonly update: OperationAccessRule<SchemaUpdateHookKind>
-	readonly upsert: OperationAccessRule<SchemaUpsertHookKind>
-	readonly delete: OperationAccessRule<SchemaDeleteHookKind>
+	readonly read: OperationAccessRule
+	readonly create: OperationAccessRule
+	readonly update: OperationAccessRule
+	readonly upsert: OperationAccessRule
+	readonly delete: OperationAccessRule
 }
 
 /** Contains one direct decision for every native mutation family. */
@@ -203,9 +193,7 @@ export type AllMutationAccess = Readonly<Omit<AllOperationAccess, 'read'>>
  *
  * @example `{ ...allOperations(denyAll), read: allowAll }`
  */
-export const allOperations = (
-	rule: OperationAccessRule<OperationKind>,
-): AllOperationAccess =>
+export const allOperations = (rule: OperationAccessRule): AllOperationAccess =>
 	immutableRecord({
 		create: rule,
 		delete: rule,
@@ -222,9 +210,7 @@ export const allOperations = (
  *
  * @example `{ read: allowAll, ...allMutations(denyAll) }`
  */
-export const allMutations = (
-	rule: OperationAccessRule<SchemaMutationHookKind>,
-): AllMutationAccess =>
+export const allMutations = (rule: OperationAccessRule): AllMutationAccess =>
 	immutableRecord({
 		create: rule,
 		delete: rule,

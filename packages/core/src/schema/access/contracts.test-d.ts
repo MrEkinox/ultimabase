@@ -27,12 +27,15 @@ const Article = Schema.define({
 	access: {
 		operation: {
 			read: {
-				one: ({ context, kind }) => {
+				one: (input) => {
+					const { context } = input
+
 					expectTypeOf(context).toEqualTypeOf<AccessContext>()
-					expectTypeOf(kind).toEqualTypeOf<'find-one' | 'get'>()
 					expectTypeOf(context.getValue(principalId)).toEqualTypeOf<
 						string | undefined
 					>()
+					// @ts-expect-error -- Operation Access exposes no terminal cardinality.
+					void input.kind
 					// @ts-expect-error -- Access does not expose diagnostic metadata.
 					void context.metadata
 					// @ts-expect-error -- Access decisions cannot enqueue side effects.
@@ -42,42 +45,18 @@ const Article = Schema.define({
 
 					return context.access.mode === 'master'
 				},
-				many: ({ kind }) => {
-					expectTypeOf(kind).toEqualTypeOf<'find-many'>()
-
-					return true
-				},
-				count: ({ kind }) => {
-					expectTypeOf(kind).toEqualTypeOf<'count'>()
-
-					return false
-				},
-				exists: ({ kind }) => {
-					expectTypeOf(kind).toEqualTypeOf<'exists'>()
-
-					return true
-				},
+				many: true,
+				count: false,
+				exists: true,
 			},
-			create: ({ kind }): Promise<boolean> => {
-				expectTypeOf(kind).toEqualTypeOf<'create-many' | 'create-one'>()
+			create: ({ context }): Promise<boolean> => {
+				expectTypeOf(context).toEqualTypeOf<AccessContext>()
 
 				return Promise.resolve(true)
 			},
-			update: ({ kind }) => {
-				expectTypeOf(kind).toEqualTypeOf<'update-many' | 'update-one'>()
-
-				return true
-			},
-			upsert: ({ kind }) => {
-				expectTypeOf(kind).toEqualTypeOf<'upsert-many' | 'upsert-one'>()
-
-				return true
-			},
-			delete: ({ kind }) => {
-				expectTypeOf(kind).toEqualTypeOf<'delete-many' | 'delete-one'>()
-
-				return false
-			},
+			update: true,
+			upsert: true,
+			delete: false,
 		},
 		filter: {
 			read: (input) => {

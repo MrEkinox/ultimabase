@@ -40,10 +40,11 @@ export const AccessPost = Schema.define({
 		operation: {
 			read: {
 				one: true,
-				many: ({ context, /* hover:operation-kind */ kind }) => {
+				many: (/* hover:operation-access-input */ input) => {
+					const { context } = input
 					const /* hover:context-value */ current = context.getValue(principal)
-					// The literal terminal is intentionally consumed for packed hover coverage.
-					void kind
+					// @ts-expect-error -- Operation Access exposes no internal terminal kind.
+					void input.kind
 
 					return current !== undefined
 				},

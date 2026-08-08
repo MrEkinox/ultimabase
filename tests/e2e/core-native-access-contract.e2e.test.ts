@@ -65,8 +65,11 @@ describe('packed @ultimabase/core native Access contract', () => {
 		).toStrictEqual([])
 	})
 
-	it('preserves exact operation, item, context-value, and field inference', () => {
-		expect(readHoverDisplay('operation-kind')).toContain('"find-many"')
+	it('preserves operation, item, context-value, and field inference', () => {
+		const operationInput = readHoverDisplay('operation-access-input')
+
+		expect(operationInput).toContain('SchemaOperationAccessInput')
+		expect(operationInput).not.toContain('kind')
 		expect(readHoverDisplay('create-access-kind')).toContain('"create"')
 		expect(readHoverDisplay('update-access-kind')).toContain('"update"')
 		expect(readHoverDisplay('delete-access-kind')).toContain('"delete"')

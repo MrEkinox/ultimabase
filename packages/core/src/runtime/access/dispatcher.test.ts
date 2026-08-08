@@ -44,8 +44,8 @@ const articleSchema = Schema.define({
 			read: {
 				count: false,
 				exists: true,
-				many: ({ kind }) => {
-					accessTrace.push(kind)
+				many: () => {
+					accessTrace.push('many')
 					return true
 				},
 				one: true,
@@ -131,7 +131,7 @@ describe('NativeAccessRuntime', () => {
 		await application.dispose()
 	})
 
-	it('dispatches exact read kinds and keeps row filters outside the QueryBuilder AST', async () => {
+	it('dispatches the grouped read branch and keeps row filters outside the QueryBuilder AST', async () => {
 		accessTrace.length = 0
 		const application = await createApplication({
 			schemas: [articleSchema],
@@ -151,7 +151,7 @@ describe('NativeAccessRuntime', () => {
 			operation,
 		})
 
-		expect(accessTrace).toStrictEqual(['find-many'])
+		expect(accessTrace).toStrictEqual(['many'])
 		expect(enforced.operation.query.where).toBe(originalQuery.where)
 		expect(enforced.rowFilter).toMatchObject({
 			field: 'published',

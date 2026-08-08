@@ -154,6 +154,7 @@ Accepted records:
 - [ADR-0165: Embedded object fields contain value fields only](0165-embedded-object-field-contract.md)
 - [ADR-0166: One final mutation validation before observers](0166-single-final-mutation-validation.md)
 - [ADR-0167: Canonical where inputs for Access row policies](0167-canonical-access-where-inputs.md)
+- [ADR-0168: Operation Access hides terminal cardinality](0168-operation-access-hides-terminal-cardinality.md)
 
 Superseded records:
 
