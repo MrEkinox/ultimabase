@@ -22,24 +22,28 @@ configuration.
 
 ## Native declarations
 
-Schema rules are grouped by `operation`, `filter`, and `item`. Schema reads may
-use one shared rule or explicit `one`, `many`, `count`, and `exists` branches.
-Inline field reads similarly group `item`, `filter`, and `order` disclosure;
-`create` and `update` remain direct mutation decisions. A rule is either a
-direct boolean or a synchronous or asynchronous callback:
+Schema rules are grouped by the operation developers authorize: `read`,
+`create`, `update`, `upsert`, and `delete`. A direct boolean or callback is the
+concise `allow` decision. A detailed object colocates `allow`, a private
+`where` restriction when the operation targets existing rows, and an `item`
+decision when Runtime has materialized the relevant values. Schema reads may
+use one shared allow rule or explicit `one`, `many`, `count`, and `exists`
+branches. Inline field reads use a direct boolean or the complete `output`,
+`filter`, and `order` object; `create` and `update` remain direct mutation
+decisions:
 
 ```ts
 const Article = Schema.define({
 	className: 'Article',
 	access: {
-		operation: {
-			read: { one: true, many: true, count: false, exists: true },
-			delete: ({ context }) => context.access.mode === 'master',
+		read: {
+			allow: { one: true, many: true, count: false, exists: true },
+			where: { published: { eq: true } },
 		},
-		item: {
-			update: ({ originalItem, item }) =>
-				item.authorId === originalItem.authorId,
+		update: {
+			item: ({ originalItem, item }) => item.authorId === originalItem.authorId,
 		},
+		delete: ({ context }) => context.access.mode === 'master',
 	},
 	fields: {
 		authorId: stringField({
@@ -49,24 +53,25 @@ const Article = Schema.define({
 			validation: { required: true },
 		}),
 		secret: stringField({
-			access: { read: { item: false, filter: false, order: false } },
+			access: { read: { output: false, filter: false, order: false } },
 		}),
 	},
 })
 ```
 
 Using `read: true` or `read: false` applies the same decision to every schema
-read branch or field disclosure channel. The grouped forms require every branch
-so an omitted count, filter, or ordering path cannot inherit a broader default.
+read capability or field disclosure channel. The grouped forms require every
+branch so an omitted count, filter, or ordering path cannot inherit a broader
+default. Field callbacks must live under their exact channel; only a boolean
+may apply to all three channels at once.
 
 Callbacks receive an effect-free `AccessContext`: ordinary authority,
 cancellation, request identity, unforgeable capabilities, and typed context
 values. They cannot emit events, query a database, finalize transactions, or
-inspect transport metadata. Schema `operation` callbacks expose no terminal
-`kind`: their named mutation family or grouped `one`, `many`, `count`, and
-`exists` read branch is the complete public distinction. Field disclosure,
-schema item, and mutation field rules retain their own discriminants because
-those callbacks share one contract across materially different inputs.
+inspect transport metadata. Access callbacks expose no terminal `kind`: their
+named operation or field channel is the complete public distinction. Upsert
+item Access retains only its meaningful `mode` discriminant because its create
+and update branches expose materially different values.
 
 Access callbacks must remain pure decisions. Runtime may evaluate a rule again
 after input transformation, target locking, or final upsert branch resolution
@@ -75,7 +80,7 @@ to ensure that the decision protects the value that is actually persisted.
 Field create rules traverse normalized objects parent-first. A nested field in
 an object list is evaluated once per concrete list entry, including
 multidimensional lists. A `null` parent evaluates only the parent field. Rules
-that need siblings or the complete candidate belong in schema `item.create`.
+that need siblings or the complete candidate belong in schema `create.item`.
 
 Field output rules use the same parent-first concrete traversal. Denying a
 parent omits its complete property and skips its descendants. Denying one
@@ -101,10 +106,8 @@ helpers:
 
 ```ts
 access: {
-	operation: {
-		update: anyOf(isOwner('author'), hasRole(Editor)),
-		delete: allOf(hasRole(Administrator), not(isProtected)),
-	},
+	update: anyOf(isOwner('author'), hasRole(Editor)),
+	delete: allOf(hasRole(Administrator), not(isProtected)),
 }
 ```
 
@@ -117,10 +120,11 @@ separate denial.
 
 ## Compiled plans and plugin policies
 
-Application initialization now compiles one immutable Access plan for every
+Application initialization compiles one immutable Access plan for every
 schema. Concise schema reads are expanded to `one`, `many`, `count`, and
-`exists` terminals, concise field reads are expanded to `item`, `filter`, and
-`order`, and callbacks remain dormant until Runtime execution. Plugin policies
+`exists` terminals, concise field reads are expanded to internal output,
+filter, and order capabilities, and callbacks remain dormant until Runtime
+execution. Plugin policies
 are ordered by dependencies, configuration, and registration before native
 developer declarations; denial and row-filter composition remain monotonic.
 
@@ -135,8 +139,8 @@ const visibilityPlugin = definePlugin({
 			'published-posts',
 			Post,
 			{
-				filter: {
-					read: ({ where }) => where.eq('published', true),
+				read: {
+					where: ({ where }) => where.eq('published', true),
 				},
 			},
 			{ master: 'enforce' },
@@ -150,10 +154,10 @@ The supplied `WhereBuilder` is only an immutable utility for dynamic branches:
 
 ```ts
 access: {
-	filter: {
-		read: ({ context, where }) =>
+	read: {
+		where: ({ context, where }) =>
 			context.access.mode === 'master'
-				? where.eq('status', 'published')
+				? undefined
 				: { status: { eq: 'published' } },
 	},
 }
@@ -193,8 +197,8 @@ per-request placeholder handlers.
 
 ## Runtime enforcement
 
-Operation rules run after structural validation and before business hooks.
-Filter rules build one private predicate per contribution; Runtime combines
+Allow rules run after structural validation and before business hooks. `where`
+rules build one private predicate per contribution; Runtime combines
 them with `AND` and sends the result beside the normalized operation to the
 database adapter. Developer filtering, ordering, and limits remain explicit
 Query options and cannot observe or remove the Access predicate.
@@ -206,11 +210,11 @@ executes. Generated-schema `updateMany` and `deleteMany` commands are ordered
 batches of those singular targets, so Access runs once per entry with the same
 complete `originalItem` and candidate `item` contract. Upsert item rules inspect
 the exact create or update branch materialized inside the transaction, so a
-denial rolls the complete batch back. These item-oriented callbacks use a
-cardinality-free business `kind`; early operation Access exposes only `context`
-and keeps terminal names such as `update-one` private to Runtime.
+denial rolls the complete batch back. Named declarations keep both business
+operation names and terminal cardinality out of callback inputs; terminal names
+such as `update-one` remain private to Runtime.
 
-Field `read.item` rules project adapter records before they become public. The
+Field `read.output` rules project adapter records before they become public. The
 same projection is enforced again at the final output boundary. Explicit
 selection, filtering, or ordering through a
 statically forbidden field fails; default reads simply omit it. A row rejected
@@ -291,9 +295,7 @@ const principal = new RequestContextValue<Readonly<{ id: string }>>(
 const Post = Schema.define({
 	className: 'Post',
 	access: {
-		operation: {
-			read: ({ context }) => context.getValue(principal) !== undefined,
-		},
+		read: ({ context }) => context.getValue(principal) !== undefined,
 	},
 	fields: { title: stringField() },
 })
@@ -310,13 +312,11 @@ const rolePolicy = definePlugin({
 		const roles = services.require(accessRoleResolverServiceToken)
 
 		access.schema('editors', Post, {
-			operation: {
-				update: ({ context }) =>
-					roles.get().hasRole({
-						context,
-						role: new AccessSubjectReference('role', 'editor'),
-					}),
-			},
+			update: ({ context }) =>
+				roles.get().hasRole({
+					context,
+					role: new AccessSubjectReference('role', 'editor'),
+				}),
 		})
 	},
 })

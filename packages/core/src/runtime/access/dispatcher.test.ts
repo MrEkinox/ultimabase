@@ -32,16 +32,8 @@ const accessTrace: string[] = []
 const articleSchema = Schema.define({
 	className: 'NativeAccessArticle',
 	access: {
-		filter: {
-			read: ({ where }) => where.eq('published', true),
-			update: ({ where }) => where.eq('published', true),
-		},
-		item: {
-			update: ({ originalItem, item }) =>
-				item.title === 'Changed' && originalItem.published === true,
-		},
-		operation: {
-			read: {
+		read: {
+			allow: {
 				count: false,
 				exists: true,
 				many: () => {
@@ -50,7 +42,13 @@ const articleSchema = Schema.define({
 				},
 				one: true,
 			},
-			update: true,
+			where: ({ where }) => where.eq('published', true),
+		},
+		update: {
+			allow: true,
+			where: ({ where }) => where.eq('published', true),
+			item: ({ originalItem, item }) =>
+				item.title === 'Changed' && originalItem.published === true,
 		},
 	},
 	fields: {
@@ -60,8 +58,8 @@ const articleSchema = Schema.define({
 				create: false,
 				read: {
 					filter: false,
-					item: ({ value }) => value !== 'hidden',
 					order: false,
+					output: ({ value }) => value !== 'hidden',
 				},
 				update: false,
 			},
@@ -165,24 +163,24 @@ describe('NativeAccessRuntime', () => {
 		const target = Schema.define({
 			className: 'NativeAccessPolicyTarget',
 			access: {
-				filter: { read: () => ({ visible: { eq: true } }) },
+				read: { where: { visible: { eq: true } } },
 			},
 			fields: {
 				label: stringField({
-					access: { read: { filter: false, item: true, order: false } },
+					access: { read: { filter: false, order: false, output: true } },
 				}),
 				visible: booleanField({
-					access: { read: { filter: false, item: false, order: false } },
+					access: { read: { filter: false, order: false, output: false } },
 				}),
 			},
 		})
 		const source = Schema.define({
 			className: 'NativeAccessPolicySource',
 			access: {
-				filter: {
-					read: () => ({
+				read: {
+					where: {
 						targets: { some: { label: { eq: 'policy-visible' } } },
-					}),
+					},
 				},
 			},
 			fields: {
@@ -318,27 +316,29 @@ describe('NativeAccessRuntime', () => {
 		const createItems: object[] = []
 		const updateItems: object[] = []
 		const updateOriginalItems: object[] = []
-		const itemKinds: string[] = []
-		const fieldKinds: string[] = []
 		const fieldValues: [number | null, number | null][] = []
 		const schema = Schema.define({
 			className: 'MaterializedAccessItem',
 			access: {
-				item: {
-					create: ({ item, kind }) => {
+				create: {
+					item: (input) => {
+						const { item } = input
 						expect(item.get('title')).toBe('Draft')
+						expect(input).not.toHaveProperty('kind')
 						createItems.push(item)
-						itemKinds.push(kind)
 
 						return true
 					},
-					update: ({ originalItem, item, kind }) => {
+				},
+				update: {
+					item: (input) => {
+						const { originalItem, item } = input
 						expect(originalItem.get('title')).toBe('Persisted')
 						expect(item.title).toBe('Updated')
 						expect(item.visits).toBe(15)
+						expect(input).not.toHaveProperty('kind')
 						updateOriginalItems.push(originalItem)
 						updateItems.push(item)
-						itemKinds.push(kind)
 
 						return true
 					},
@@ -356,16 +356,8 @@ describe('NativeAccessRuntime', () => {
 				}),
 				title: stringField({
 					access: {
-						create: ({ kind }) => {
-							fieldKinds.push(kind)
-
-							return true
-						},
-						update: ({ kind }) => {
-							fieldKinds.push(kind)
-
-							return true
-						},
+						create: (input) => !Object.hasOwn(input, 'kind'),
+						update: (input) => !Object.hasOwn(input, 'kind'),
 					},
 					validation: { required: true },
 				}),
@@ -378,17 +370,21 @@ describe('NativeAccessRuntime', () => {
 					'materialized-items',
 					schema,
 					{
-						item: {
-							create: ({ item, kind }) => {
+						create: {
+							item: (input) => {
+								const { item } = input
+								expect(input).not.toHaveProperty('kind')
 								createItems.push(item)
-								itemKinds.push(kind)
 
 								return true
 							},
-							update: ({ originalItem, item, kind }) => {
+						},
+						update: {
+							item: (input) => {
+								const { originalItem, item } = input
+								expect(input).not.toHaveProperty('kind')
 								updateOriginalItems.push(originalItem)
 								updateItems.push(item)
-								itemKinds.push(kind)
 
 								return true
 							},
@@ -450,8 +446,6 @@ describe('NativeAccessRuntime', () => {
 		expect(updateItems[0]).toBe(updateItems[1])
 		expect(updateOriginalItems).toHaveLength(2)
 		expect(updateOriginalItems[0]).toBe(updateOriginalItems[1])
-		expect(itemKinds).toStrictEqual(['create', 'create', 'update', 'update'])
-		expect(fieldKinds).toStrictEqual(['create', 'update'])
 		expect(fieldValues).toStrictEqual([[10, 15]])
 		const [createItem] = createItems
 		const [updateItem] = updateItems
@@ -658,8 +652,8 @@ describe('NativeAccessRuntime', () => {
 		const schema = Schema.define({
 			className: 'UpsertOutcomeAccess',
 			access: {
-				item: {
-					upsert: (input) => {
+				upsert: {
+					item: (input) => {
 						itemModes.push(input.mode)
 
 						if (input.mode === 'create') {
@@ -848,12 +842,12 @@ describe('NativeAccessRuntime', () => {
 				access: {
 					read: {
 						filter: true,
-						item: ({ value }) => {
+						order: true,
+						output: ({ value }) => {
 							trace.push(`secret:${String(value)}`)
 
 							return value !== 'hidden'
 						},
-						order: true,
 					},
 				},
 			}),
@@ -868,12 +862,12 @@ describe('NativeAccessRuntime', () => {
 							access: {
 								read: {
 									filter: true,
-									item: () => {
+									order: true,
+									output: () => {
 										blockedChildRuns += 1
 
 										return true
 									},
-									order: true,
 								},
 							},
 						}),
@@ -883,12 +877,12 @@ describe('NativeAccessRuntime', () => {
 					access: {
 						read: {
 							filter: true,
-							item: () => {
+							order: true,
+							output: () => {
 								trace.push('groups')
 
 								return true
 							},
-							order: true,
 						},
 					},
 					fields: protectedFields,
@@ -1057,11 +1051,9 @@ describe('NativeAccessRuntime', () => {
 		const schema = Schema.define({
 			className: 'SequentialAccess',
 			access: {
-				operation: {
-					read: () => {
-						trace.push('developer')
-						return Promise.resolve(true)
-					},
+				read: () => {
+					trace.push('developer')
+					return Promise.resolve(true)
 				},
 			},
 			fields: { title: stringField() },
@@ -1093,7 +1085,7 @@ describe('NativeAccessRuntime', () => {
 				access.schema(
 					'deny-anonymous',
 					schema,
-					{ operation: { read: false } },
+					{ read: false },
 					{ master: 'bypass' },
 				)
 			},
@@ -1135,7 +1127,7 @@ describe('NativeAccessRuntime', () => {
 		})
 		const schema = Schema.define({
 			className: 'CancelledAccess',
-			access: { operation: { read: () => true } },
+			access: { read: () => true },
 			fields: { title: stringField() },
 		})
 		const application = await createApplication({

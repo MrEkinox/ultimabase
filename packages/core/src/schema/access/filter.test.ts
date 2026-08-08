@@ -110,7 +110,6 @@ describe('Access where normalization', () => {
 		const expression = combineAccessWhereResults(Article, [
 			{ published: { eq: true } },
 			new WhereBuilder(Article).gt('views', 100),
-			true,
 		])
 
 		expect(expression).toMatchObject({ kind: 'and' })
@@ -118,10 +117,11 @@ describe('Access where normalization', () => {
 			kind: 'constant',
 			value: true,
 		})
-		expect(normalizeAccessWhereResult(Article, false)).toStrictEqual({
-			kind: 'constant',
-			value: false,
-		})
+		expect(() => normalizeAccessWhereResult(Article, false)).toThrow(
+			new TypeError(
+				'Access where must return undefined, a WhereInput, or a WhereBuilder',
+			),
+		)
 	})
 
 	it('rejects forged, callback, and cross-schema results', () => {
@@ -132,12 +132,12 @@ describe('Access where normalization', () => {
 
 		expect(() => normalizeAccessWhereResult(Article, undefined)).toThrow(
 			new TypeError(
-				'Access filter result must be a boolean, WhereInput, or WhereBuilder',
+				'Access where must return undefined, a WhereInput, or a WhereBuilder',
 			),
 		)
 		expect(() => normalizeAccessWhereResult(Article, () => true)).toThrow(
 			new TypeError(
-				'Access filter result must be a boolean, WhereInput, or WhereBuilder',
+				'Access where must return undefined, a WhereInput, or a WhereBuilder',
 			),
 		)
 		expect(() =>

@@ -69,13 +69,20 @@ const emptyACL = new ACL()
 const Document = Schema.define({
 	className: 'ACLCompositionDocument',
 	access: {
-		filter: {
-			delete: ({ where }) => where.eq('nativeScope', 'allowed'),
-			read: ({ where }) =>
-				where.eq('nativeScope', 'allowed').eq('hookScope', 'allowed'),
-			update: ({ where }) => where.eq('nativeScope', 'allowed'),
+		create: true,
+		delete: {
+			allow: true,
+			where: ({ where }) => where.eq('nativeScope', 'allowed'),
 		},
-		operation: { create: true, delete: true, read: true, update: true },
+		read: {
+			allow: true,
+			where: ({ where }) =>
+				where.eq('nativeScope', 'allowed').eq('hookScope', 'allowed'),
+		},
+		update: {
+			allow: true,
+			where: ({ where }) => where.eq('nativeScope', 'allowed'),
+		},
 	},
 	fields: {
 		hookScope: stringField({ default: 'allowed' }),

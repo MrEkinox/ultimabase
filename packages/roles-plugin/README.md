@@ -26,12 +26,10 @@ const AppRole = RoleSchema.define({
 		priority: intField({ default: 0 }),
 	},
 	access: {
-		operation: {
-			read: true,
-			create: ({ context }) => context.access.mode === 'master',
-			update: ({ context }) => context.access.mode === 'master',
-			delete: ({ context }) => context.access.mode === 'master',
-		},
+		read: true,
+		create: ({ context }) => context.access.mode === 'master',
+		update: ({ context }) => context.access.mode === 'master',
+		delete: ({ context }) => context.access.mode === 'master',
 	},
 })
 
@@ -40,7 +38,7 @@ const EditorReference = AppRole.role('editor')
 const Post = Schema.define({
 	className: 'Post',
 	access: {
-		operation: { update: hasRole(EditorReference) },
+		update: hasRole(EditorReference),
 	},
 	fields: { title: stringField() },
 })

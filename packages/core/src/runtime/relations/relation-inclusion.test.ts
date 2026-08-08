@@ -30,16 +30,14 @@ describe('relation Runtime inclusion', () => {
 		const comment = Schema.define({
 			className: 'RelationIncludedComment',
 			access: {
-				filter: {
-					read: ({ where }) => where.eq('status', 'visible'),
-				},
+				read: { where: ({ where }) => where.eq('status', 'visible') },
 			},
 			fields: {
 				body: stringField({ validation: { required: true } }),
 				replies: relationField({
 					access: {
-						read: ({ kind }) => {
-							relationAccessTrace.push(`comment:replies:${kind}`)
+						read: () => {
+							relationAccessTrace.push('comment:replies')
 
 							return true
 						},
@@ -54,8 +52,8 @@ describe('relation Runtime inclusion', () => {
 			fields: {
 				comments: relationField({
 					access: {
-						read: ({ kind }) => {
-							relationAccessTrace.push(`discussion:comments:${kind}`)
+						read: () => {
+							relationAccessTrace.push('discussion:comments')
 
 							return true
 						},
@@ -122,8 +120,8 @@ describe('relation Runtime inclusion', () => {
 				'{"title":"Runtime relations","comments":[{"body":"first","replies":[{"body":"nested"}]}]}',
 			)
 			expect(relationAccessTrace).toStrictEqual([
-				'discussion:comments:find-many',
-				'comment:replies:find-many',
+				'discussion:comments',
+				'comment:replies',
 			])
 			expect(adapter.rootRequests).toHaveLength(1)
 			expect(adapter.rootRequests[0]?.inclusions?.[0]).toMatchObject({
@@ -148,7 +146,7 @@ describe('relation Runtime inclusion', () => {
 	it('rejects denied source traversal and hides a denied target as an empty collection', async () => {
 		const target = Schema.define({
 			className: 'RelationIncludedRestrictedTarget',
-			access: { operation: { read: false } },
+			access: { read: false },
 			fields: { name: stringField() },
 		})
 		const deniedSource = Schema.define({

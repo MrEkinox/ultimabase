@@ -10,8 +10,7 @@ import {
 	not,
 	type AllMutationAccess,
 	type AllOperationAccess,
-	type FieldReadAccessInput,
-	type StringField,
+	type FieldValueAccessInput,
 } from '../index.js'
 import type { AccessContext } from '../../access/index.js'
 import type { AccessDecisionRule } from './contracts.js'
@@ -60,12 +59,12 @@ test('contextually infers exact schema and field Access inputs', () => {
 	)
 	const strictUpdate = allOf<UpdateInput>(updateRule, true)
 	const inverted = not<UpdateInput>(strictUpdate)
-	type TextReadInput = FieldReadAccessInput<StringField>
+	type TextReadInput = FieldValueAccessInput<string>
 	const fieldReadRule: AccessDecisionRule<TextReadInput> = anyOf(
-		({ channel }) => {
-			expectTypeOf(channel).toEqualTypeOf<'filter' | 'item' | 'order'>()
+		({ value }) => {
+			expectTypeOf(value).toEqualTypeOf<string>()
 
-			return channel === 'item'
+			return value.length > 0
 		},
 		false,
 	)

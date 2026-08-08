@@ -25,8 +25,8 @@ const principalId = new RequestContextValue<string>('principal.id', (value) => {
 const Article = Schema.define({
 	className: 'AccessArticle',
 	access: {
-		operation: {
-			read: {
+		read: {
+			allow: {
 				one: (input) => {
 					const { context } = input
 
@@ -49,48 +49,44 @@ const Article = Schema.define({
 				count: false,
 				exists: true,
 			},
-			create: ({ context }): Promise<boolean> => {
-				expectTypeOf(context).toEqualTypeOf<AccessContext>()
-
-				return Promise.resolve(true)
-			},
-			update: true,
-			upsert: true,
-			delete: false,
-		},
-		filter: {
-			read: (input) => {
+			where: (input) => {
 				const { context, where } = input
 
 				expectTypeOf(where).toEqualTypeOf<WhereBuilder<typeof Article>>()
 				expectTypeOf(context).toEqualTypeOf<AccessContext>()
-				// @ts-expect-error -- One filter defines every read terminal's row universe.
+				// @ts-expect-error -- One where rule defines every read capability's row universe.
 				void input.kind
 
 				return { published: { eq: true } }
 			},
-			update: async ({ where }) =>
-				Promise.resolve(where.eq('published', false)),
-			delete: false,
 		},
-		item: {
-			create: ({ item, kind }) => {
+		create: {
+			allow: ({ context }): Promise<boolean> => {
+				expectTypeOf(context).toEqualTypeOf<AccessContext>()
+
+				return Promise.resolve(true)
+			},
+			item: ({ item }) => {
 				expectTypeOf(item).toEqualTypeOf<SchemaPreparedDraft<typeof Article>>()
-				expectTypeOf(kind).toEqualTypeOf<'create'>()
 
 				return item.authorId.length > 0
 			},
-			update: ({ originalItem, item, kind }) => {
+		},
+		update: {
+			allow: true,
+			where: async ({ where }) => Promise.resolve(where.eq('published', false)),
+			item: ({ originalItem, item }) => {
 				expectTypeOf(originalItem).toEqualTypeOf<SchemaResult<typeof Article>>()
 				expectTypeOf(item).toEqualTypeOf<
 					Readonly<InferObject<typeof Article>>
 				>()
-				expectTypeOf(kind).toEqualTypeOf<'update'>()
 
 				return originalItem.authorId === item.authorId
 			},
-			upsert: (input) => {
-				expectTypeOf(input.kind).toEqualTypeOf<'upsert'>()
+		},
+		upsert: {
+			allow: true,
+			item: (input) => {
 				if (input.mode === 'create') {
 					expectTypeOf(input.originalItem).toEqualTypeOf<null>()
 					expectTypeOf(input.item).toEqualTypeOf<
@@ -107,10 +103,12 @@ const Article = Schema.define({
 
 				return true
 			},
-			delete: ({ originalItem, item, kind }) => {
+		},
+		delete: {
+			allow: false,
+			where: { published: { eq: false } },
+			item: ({ originalItem }) => {
 				expectTypeOf(originalItem).toEqualTypeOf<SchemaResult<typeof Article>>()
-				expectTypeOf(item).toEqualTypeOf<null>()
-				expectTypeOf(kind).toEqualTypeOf<'delete'>()
 
 				return originalItem.authorId.length > 0
 			},
@@ -120,46 +118,22 @@ const Article = Schema.define({
 		authorId: stringField({ validation: { required: true } }),
 		published: booleanField({
 			access: {
-				create: ({ context, kind, value }) => {
+				create: ({ context, value }) => {
 					expectTypeOf(context).toEqualTypeOf<AccessContext>()
-					expectTypeOf(kind).toEqualTypeOf<'create' | 'upsert'>()
 					expectTypeOf(value).toEqualTypeOf<boolean | null>()
 
 					return true
 				},
 				read: {
-					item: ({ channel, value }) => {
-						expectTypeOf(channel).toEqualTypeOf<'item'>()
+					output: ({ value }) => {
 						expectTypeOf(value).toEqualTypeOf<boolean | null>()
 
 						return true
 					},
-					filter: ({ channel, kind }) => {
-						expectTypeOf(channel).toEqualTypeOf<'filter'>()
-						expectTypeOf(kind).toEqualTypeOf<
-							| 'count'
-							| 'delete-many'
-							| 'delete-one'
-							| 'exists'
-							| 'find-many'
-							| 'find-one'
-							| 'get'
-							| 'update-many'
-							| 'update-one'
-							| 'upsert-many'
-							| 'upsert-one'
-						>()
-
-						return false
-					},
-					order: ({ channel }) => {
-						expectTypeOf(channel).toEqualTypeOf<'order'>()
-
-						return true
-					},
+					filter: ({ context }) => context.access.mode === 'master',
+					order: ({ context }) => context.access.mode === 'master',
 				},
-				update: ({ kind, originalValue, value }): Promise<boolean> => {
-					expectTypeOf(kind).toEqualTypeOf<'update' | 'upsert'>()
+				update: ({ originalValue, value }): Promise<boolean> => {
 					expectTypeOf(originalValue).toEqualTypeOf<boolean | null>()
 					expectTypeOf(value).toEqualTypeOf<boolean | null>()
 
@@ -216,17 +190,13 @@ test('rejects unsupported families and invalid callback results', () => {
 		className: 'InvalidAccess',
 		fields: { title: stringField() },
 		access: {
-			filter: {
+			create: {
 				// @ts-expect-error -- create has no persisted row to restrict.
-				create: true,
+				where: { title: { eq: 'invalid' } },
 			},
-			item: {
-				// @ts-expect-error -- reads must use database-enforced row filters.
-				read: true,
-			},
-			operation: {
+			read: {
 				// @ts-expect-error -- decisions return booleans, never labels.
-				read: () => 'allow',
+				allow: () => 'allow',
 			},
 		},
 	})
@@ -239,23 +209,23 @@ test('rejects unsupported families and invalid callback results', () => {
 	})
 	stringField({
 		access: {
-			// @ts-expect-error -- field decisions return booleans.
+			// @ts-expect-error -- shared field callbacks are intentionally unsupported.
 			read: () => ({ allow: true }),
 		},
 	})
 	stringField({
 		access: {
 			// @ts-expect-error -- grouped field reads require every disclosure channel.
-			read: { item: true, filter: false },
+			read: { output: true, filter: false },
 		},
 	})
 	Schema.define({
 		className: 'IncompleteReadAccess',
 		fields: {},
 		access: {
-			operation: {
+			read: {
 				// @ts-expect-error -- grouped schema reads require every cardinality branch.
-				read: { one: true, many: true, count: false },
+				allow: { one: true, many: true, count: false },
 			},
 		},
 	})

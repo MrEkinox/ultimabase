@@ -8,13 +8,13 @@ import type {
 
 /**
  * Explicitly permits every request covered by one Access declaration.
- * @example `operation: { read: allowAll }`
+ * @example `access: { read: allowAll }`
  */
 export const allowAll = true as const
 
 /**
  * Explicitly rejects every request covered by one Access declaration.
- * @example `operation: { delete: denyAll }`
+ * @example `access: { delete: denyAll }`
  */
 export const denyAll = false as const
 

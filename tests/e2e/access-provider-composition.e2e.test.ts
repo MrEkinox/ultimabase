@@ -115,7 +115,7 @@ const databasePlugin = (adapter: DatabaseAdapter) =>
 
 const NativeDocument = Schema.define({
 	className: 'AccessCompositionNativeDocument',
-	access: { operation: { read: true } },
+	access: { read: true },
 	fields: {
 		secret: stringField({ access: { read: false } }),
 		title: stringField({ validation: { required: true } }),
@@ -149,13 +149,13 @@ const roleACL = new ACL().grantRole(editor, 'read')
 const CombinedPost = Schema.define({
 	className: 'AccessCompositionPost',
 	access: {
-		filter: {
-			read: ({ where }) =>
+		read: {
+			allow: hasRole(editor),
+			where: ({ where }) =>
 				where
 					.eq('nativeScope', 'native-allowed')
 					.eq('businessScope', 'business-allowed'),
 		},
-		operation: { read: hasRole(editor) },
 	},
 	fields: {
 		businessScope: stringField(),
@@ -188,8 +188,8 @@ const communityPolicy = definePlugin({
 			'community-scope',
 			CombinedPost,
 			{
-				filter: {
-					read: ({ where }) => where.eq('communityScope', 'community-allowed'),
+				read: {
+					where: ({ where }) => where.eq('communityScope', 'community-allowed'),
 				},
 			},
 			{ master: 'enforce' },

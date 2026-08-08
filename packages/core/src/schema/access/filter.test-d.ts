@@ -72,12 +72,14 @@ test('contextually types direct Access where object results', () => {
 	Schema.define({
 		className: 'ContextualAccessWhereArticle',
 		access: {
-			filter: {
-				read: () => ({
+			read: {
+				where: {
 					published: { eq: true },
 					views: { gte: 10 },
-				}),
-				update: ({ where }) => where.eq('published', true),
+				},
+			},
+			update: {
+				where: ({ where }) => where.eq('published', true),
 			},
 		},
 		fields: { published: booleanField(), views: intField() },
@@ -86,9 +88,9 @@ test('contextually types direct Access where object results', () => {
 	Schema.define({
 		className: 'InvalidContextualAccessWhereArticle',
 		access: {
-			filter: {
+			read: {
 				// @ts-expect-error -- Direct policy objects retain exact field names.
-				read: () => ({ missing: { eq: true } }),
+				where: { missing: { eq: true } },
 			},
 		},
 		fields: { published: booleanField() },

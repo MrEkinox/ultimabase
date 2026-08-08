@@ -72,25 +72,16 @@ test('restricts mappedBy to compatible target relationship fields', () => {
 test('types relation traversal and mutation Access without exposing row values', () => {
 	relationField({
 		access: {
-			read: ({ kind }) => {
-				expectTypeOf(kind).toEqualTypeOf<
-					| 'count'
-					| 'delete-many'
-					| 'delete-one'
-					| 'exists'
-					| 'find-many'
-					| 'find-one'
-					| 'get'
-					| 'update-many'
-					| 'update-one'
-					| 'upsert-many'
-					| 'upsert-one'
+			read: (input) => {
+				expectTypeOf(input.context.access.mode).toEqualTypeOf<
+					'anonymous' | 'master'
 				>()
+				// @ts-expect-error -- Relation traversal Access hides Runtime terminals.
+				void input.kind
 
 				return true
 			},
-			update: ({ kind, value }) => {
-				expectTypeOf(kind).toEqualTypeOf<'update' | 'upsert'>()
+			update: ({ value }) => {
 				expectTypeOf(value.action).toEqualTypeOf<
 					'clear' | 'connect' | 'disconnect' | 'set'
 				>()

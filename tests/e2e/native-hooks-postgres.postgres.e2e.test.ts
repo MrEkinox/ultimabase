@@ -84,9 +84,7 @@ const HookAuditSchema = Schema.define({
 const HookArticleSchema = Schema.define({
 	className: 'NativeHookPostgresArticle',
 	access: {
-		filter: {
-			read: ({ where }) => where.eq('published', true),
-		},
+		read: { where: ({ where }) => where.eq('published', true) },
 	},
 	fields: {
 		scopeId: stringField({ validation: { required: true } }),

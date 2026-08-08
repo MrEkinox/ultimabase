@@ -3,6 +3,11 @@
 - Status: accepted
 - Date: 2026-08-08
 - Refines: ADR-0116, ADR-0143, ADR-0156, ADR-0158, ADR-0160
+- Refined by: ADR-0169
+
+ADR-0169 retains `WhereInput` and `WhereBuilder` but moves row policy under each
+operation's `where` stage. It also replaces boolean row results with
+`undefined` for no additional restriction; denial belongs to `allow`.
 
 ## Context
 

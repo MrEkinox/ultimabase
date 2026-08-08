@@ -12,12 +12,17 @@ principal, and ACL persists per-object grants. Tenancy, soft deletion, and
 community packages may contribute more monotonic policies through the same
 compiled `AccessPlan`.
 
-The four neutral levels are:
+The private compiled plan retains four neutral levels:
 
 - `operation` for an early allow or deny decision;
 - `filter` for database-enforced row restrictions;
 - `item` for create input or one prepared mutation target;
-- `field` for grouped item/filter/order disclosure plus create and update decisions.
+- `field` for grouped output/filter/order disclosure plus create and update decisions.
+
+The public schema declaration is operation-oriented under ADR-0169: `read`,
+`create`, `update`, `upsert`, and `delete` colocate their applicable `allow`,
+`where`, and `item` stages. This authoring shape compiles into the same private
+levels above.
 
 Access filters reuse the typed Core filter AST but remain separate from the
 developer Query. Runtime combines them with the developer predicate through
@@ -25,10 +30,10 @@ logical `AND`; business hooks cannot inspect, replace, or remove them. Access
 executes before effectful business hooks, while final field restrictions run at
 the last output boundary before a result becomes public.
 
-Schema operation reads accept one shared rule or explicit `one`, `many`,
-`count`, and `exists` branches. Field reads accept one shared rule or explicit
-`item`, `filter`, and `order` disclosure branches. Mutation operation families
-remain direct rules and retain their exact singular or bulk terminal in `kind`.
+Schema reads accept one shared allow rule or explicit `one`, `many`, `count`,
+and `exists` branches. Field reads accept one shared boolean or the complete
+`output`, `filter`, and `order` disclosure object. Access callbacks omit
+redundant terminal cardinality and operation discriminants.
 Neutral `allowAll`, `denyAll`, `allOperations`, and `allMutations` utilities
 reduce repetitive declarations without installing callbacks or policy concepts.
 
@@ -52,6 +57,7 @@ actually references the corresponding subject.
 6. [418 — Execute the native Access lifecycle](418-native-access-runtime.md)
 7. [419 — Verify native Access against PostgreSQL](419-native-access-postgres-e2e.md)
 8. [420 — Define optional Access subject capabilities](420-optional-access-capabilities.md)
+9. [436 — Restructure Access declarations around operations](436-operation-oriented-access-declarations.md)
 
 ## Completed stored-role execution order
 

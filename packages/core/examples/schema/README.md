@@ -18,6 +18,8 @@ TypeScript snippets:
   composite uniqueness;
 - [`hooks.md`](hooks.md) colocates exact-value field behavior and cross-field
   schema behavior;
+- [`access.md`](access.md) groups operation, row, item, and field authorization
+  with precise callback inputs;
 - [`extensions.md`](extensions.md) declares opaque schema and field metadata
   owned by a runtime plugin;
 - [`inference-registry-and-plans.md`](inference-registry-and-plans.md) shows

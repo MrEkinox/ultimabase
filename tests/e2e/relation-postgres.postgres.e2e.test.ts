@@ -53,8 +53,8 @@ const Article: ArticleSchema = Schema.define({
 	fields: {
 		tags: relationField({
 			access: {
-				read: ({ kind }) => {
-					relationTrace.push(`article:tags:read:${kind}`)
+				read: () => {
+					relationTrace.push('article:tags:read')
 
 					return true
 				},
@@ -87,9 +87,7 @@ const Article: ArticleSchema = Schema.define({
 const Tag: TagSchema = Schema.define({
 	className: 'RelationE2ETag',
 	access: {
-		filter: {
-			read: ({ where }) => where.eq('visible', true),
-		},
+		read: { where: ({ where }) => where.eq('visible', true) },
 	},
 	fields: {
 		articles: relationField({
@@ -138,7 +136,7 @@ function resolvePost(): PostSchema {
 const Author: AuthorSchema = Schema.define({
 	className: 'RelationE2EAuthor',
 	access: {
-		filter: { read: ({ where }) => where.eq('visible', true) },
+		read: { where: ({ where }) => where.eq('visible', true) },
 	},
 	fields: {
 		name: authorNameField,
@@ -161,9 +159,7 @@ const Post: PostSchema = Schema.define({
 const PrivateArticle = Schema.define({
 	className: 'RelationE2EPrivateArticle',
 	access: {
-		filter: {
-			read: () => ({ tags: { some: { visible: { eq: true } } } }),
-		},
+		read: { where: { tags: { some: { visible: { eq: true } } } } },
 	},
 	fields: {
 		tags: relationField({
@@ -179,7 +175,7 @@ const PrivatePointerPost = Schema.define({
 	fields: {
 		author: pointerField({
 			access: {
-				read: { filter: false, item: true, order: true },
+				read: { filter: false, order: true, output: true },
 			},
 			target: () => Author,
 		}),
@@ -646,9 +642,7 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 		expect(
 			await alpha.relation('articles').count(undefined, { ultimabase: app }),
 		).toBe(1)
-		expect(relationTrace).toEqual(
-			expect.arrayContaining(['article:tags:read:count']),
-		)
+		expect(relationTrace).toEqual(expect.arrayContaining(['article:tags:read']))
 
 		await tags.set([Tag.pointer(beta.id), Tag.pointer(gamma.id)], {
 			ultimabase: app,
@@ -779,7 +773,7 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 		expect(articles[0]?.tags[0]?.label).toBe('include-zeta')
 		expect(articles[0]?.tags[0]?.articles).toHaveLength(1)
 		expect(articles[0]?.tags[0]?.articles[0]?.title).toBe('Included relations')
-		expect(relationTrace).toStrictEqual(['article:tags:read:find-many'])
+		expect(relationTrace).toStrictEqual(['article:tags:read'])
 
 		const author = await Author.createOne(
 			{ data: { name: 'Included author' } },

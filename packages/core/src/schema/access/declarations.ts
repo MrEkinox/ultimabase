@@ -1,29 +1,29 @@
-import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
+import {
+	immutableArray,
+	immutableRecord,
+	isPlainRecord,
+} from '@ultimabase/shared'
 
 import type { SchemaDefinition } from '../schema/definition.js'
 import type { SchemaAccess } from './contracts.js'
 import {
 	normalizeAccessRule,
 	normalizeAccessRuleOrRequiredMap,
-	normalizeAccessRuleMap,
+	type ErasedAccessRule,
 	type NormalizedAccessRule,
 	type NormalizedAccessRuleMap,
 	type NormalizedRequiredAccessRuleMap,
 } from './normalization.js'
 
-/** Lists schema levels once so validation and diagnostics cannot drift. */
-export const schemaAccessLevels = ['operation', 'filter', 'item'] as const
-
-/** Identifies every schema Access level accepted at the declaration boundary. */
-export type SchemaAccessLevel = (typeof schemaAccessLevels)[number]
-
-export const schemaOperationAccessFamilies = [
+/** Lists public operation families once so validation stays exhaustive. */
+export const schemaAccessFamilies = [
 	'read',
 	'create',
 	'update',
 	'upsert',
 	'delete',
 ] as const
+
 export const schemaReadAccessBranches = [
 	'one',
 	'many',
@@ -43,14 +43,13 @@ export const schemaItemAccessFamilies = [
 	'delete',
 ] as const
 
-export type SchemaOperationAccessFamily =
-	(typeof schemaOperationAccessFamilies)[number]
+export type SchemaAccessFamily = (typeof schemaAccessFamilies)[number]
 export type SchemaReadAccessBranch = (typeof schemaReadAccessBranches)[number]
 export type SchemaFilterAccessFamily =
 	(typeof schemaFilterAccessFamilies)[number]
 export type SchemaItemAccessFamily = (typeof schemaItemAccessFamilies)[number]
 
-/** Stores only declared schema rules for later application-level compilation. */
+/** Retains operation rules in the private stage-oriented compiler format. */
 export interface SchemaOperationAccessDeclarations {
 	readonly read?:
 		| NormalizedAccessRule
@@ -61,6 +60,7 @@ export interface SchemaOperationAccessDeclarations {
 	readonly delete?: NormalizedAccessRule
 }
 
+/** Retains normalized rules in the existing private monotonic lifecycle. */
 export interface SchemaAccessDeclarations {
 	readonly operation?: SchemaOperationAccessDeclarations
 	readonly filter?: NormalizedAccessRuleMap<SchemaFilterAccessFamily>
@@ -69,52 +69,140 @@ export interface SchemaAccessDeclarations {
 
 const schemaAccessDeclarations = new WeakMap<object, SchemaAccessDeclarations>()
 
-/** Normalizes the one grouped schema-operation family without weakening others. */
-const normalizeSchemaOperationAccess = (
-	value: unknown,
-): SchemaOperationAccessDeclarations | undefined => {
-	if (!isPlainRecord(value)) {
-		throw new TypeError('access.operation must be a plain object')
+type MutableSchemaOperationAccessDeclarations = {
+	-readonly [
+		TKey in keyof SchemaOperationAccessDeclarations
+	]?: SchemaOperationAccessDeclarations[TKey]
+}
+
+type MutableAccessRuleMap<TKey extends string> = Partial<
+	Record<TKey, NormalizedAccessRule>
+>
+
+interface MutableSchemaAccessDeclarations {
+	readonly operation: MutableSchemaOperationAccessDeclarations
+	readonly filter: MutableAccessRuleMap<SchemaFilterAccessFamily>
+	readonly item: MutableAccessRuleMap<SchemaItemAccessFamily>
+}
+
+/** Copies plain where structures so later caller mutation cannot change policy. */
+const snapshotWhereValue = (value: unknown): unknown => {
+	if (Array.isArray(value)) {
+		return immutableArray(value.map(snapshotWhereValue))
 	}
 
-	const allowedFamilies = new Set<string>(schemaOperationAccessFamilies)
-	const declarations: {
-		-readonly [
-			TKey in keyof SchemaOperationAccessDeclarations
-		]?: SchemaOperationAccessDeclarations[TKey]
-	} = {}
+	if (!isPlainRecord(value)) {
+		return value
+	}
+
+	const snapshot: Record<string, unknown> = {}
 
 	for (const key of Reflect.ownKeys(value)) {
 		if (typeof key !== 'string') {
-			throw new TypeError('access.operation contains an unsupported symbol key')
+			throw new TypeError('Access where contains an unsupported symbol key')
 		}
 
-		if (!allowedFamilies.has(key)) {
-			throw new TypeError(`Unknown Access rule: access.operation.${key}`)
-		}
+		snapshot[key] = snapshotWhereValue(value[key])
+	}
 
-		if (key === 'read') {
-			declarations.read = normalizeAccessRuleOrRequiredMap(
-				value[key],
-				schemaReadAccessBranches,
-				'access.operation.read',
-			)
-			continue
-		}
+	return immutableRecord(snapshot)
+}
 
-		const family = key as Exclude<SchemaOperationAccessFamily, 'read'>
-		declarations[family] = normalizeAccessRule(
-			value[key],
-			`access.operation.${key}`,
+/** Retains dynamic rules and lowers static where objects to one immutable value rule. */
+const normalizeWhereRule = (value: unknown, path: string): ErasedAccessRule => {
+	if (typeof value === 'function') {
+		return value as ErasedAccessRule
+	}
+
+	if (!isPlainRecord(value)) {
+		throw new TypeError(`${path} must be a plain object or function`)
+	}
+
+	const snapshot = snapshotWhereValue(value)
+
+	// The private plan already stores executable rules. This setup-time wrapper
+	// preserves that stable representation without exposing a callback publicly.
+	return () => snapshot
+}
+
+const detailedKeys = immutableRecord({
+	create: immutableArray(['allow', 'item'] as const),
+	delete: immutableArray(['allow', 'where', 'item'] as const),
+	read: immutableArray(['allow', 'where'] as const),
+	update: immutableArray(['allow', 'where', 'item'] as const),
+	upsert: immutableArray(['allow', 'where', 'item'] as const),
+})
+
+/** Lowers one operation-oriented public branch into private lifecycle stages. */
+const normalizeSchemaAccessFamily = (
+	declarations: MutableSchemaAccessDeclarations,
+	family: SchemaAccessFamily,
+	value: unknown,
+): void => {
+	if (typeof value === 'boolean' || typeof value === 'function') {
+		declarations.operation[family] = normalizeAccessRule(
+			value,
+			`access.${family}`,
+		)
+		return
+	}
+
+	if (!isPlainRecord(value)) {
+		throw new TypeError(
+			`access.${family} must be a boolean, function, or object`,
 		)
 	}
 
-	return Reflect.ownKeys(declarations).length === 0
-		? undefined
-		: immutableRecord(declarations)
+	const allowedKeys = new Set<string>(detailedKeys[family])
+
+	for (const key of Reflect.ownKeys(value)) {
+		if (typeof key !== 'string') {
+			throw new TypeError(`access.${family} contains an unsupported symbol key`)
+		}
+
+		if (!allowedKeys.has(key)) {
+			throw new TypeError(`Unknown Access rule: access.${family}.${key}`)
+		}
+	}
+
+	if (Object.hasOwn(value, 'allow')) {
+		if (family === 'read') {
+			declarations.operation.read = normalizeAccessRuleOrRequiredMap(
+				value.allow,
+				schemaReadAccessBranches,
+				'access.read.allow',
+			)
+		} else {
+			declarations.operation[family] = normalizeAccessRule(
+				value.allow,
+				`access.${family}.allow`,
+			)
+		}
+	}
+
+	if (Object.hasOwn(value, 'where')) {
+		const whereFamily = family as SchemaFilterAccessFamily
+		declarations.filter[whereFamily] = normalizeWhereRule(
+			value.where,
+			`access.${family}.where`,
+		)
+	}
+
+	if (Object.hasOwn(value, 'item')) {
+		const itemFamily = family as SchemaItemAccessFamily
+		declarations.item[itemFamily] = normalizeAccessRule(
+			value.item,
+			`access.${family}.item`,
+		)
+	}
 }
 
-/** Copies and validates one native schema declaration without executing rules. */
+const freezeRuleMap = <TKey extends string>(
+	rules: MutableAccessRuleMap<TKey>,
+): NormalizedAccessRuleMap<TKey> | undefined =>
+	Reflect.ownKeys(rules).length === 0 ? undefined : immutableRecord(rules)
+
+/** Copies and validates one native declaration without executing policy code. */
 export const normalizeSchemaAccessDeclarations = (
 	access: unknown,
 ): SchemaAccessDeclarations | undefined => {
@@ -126,35 +214,35 @@ export const normalizeSchemaAccessDeclarations = (
 		throw new TypeError('access must be a plain object')
 	}
 
-	const allowedLevels = new Set<string>(schemaAccessLevels)
+	const allowedFamilies = new Set<string>(schemaAccessFamilies)
+	const declarations: MutableSchemaAccessDeclarations = {
+		filter: {},
+		item: {},
+		operation: {},
+	}
 
 	for (const key of Reflect.ownKeys(access)) {
 		if (typeof key !== 'string') {
 			throw new TypeError('access contains an unsupported symbol key')
 		}
 
-		if (!allowedLevels.has(key)) {
-			throw new TypeError(`Unknown schema Access level: access.${key}`)
+		if (!allowedFamilies.has(key)) {
+			throw new TypeError(`Unknown schema Access family: access.${key}`)
 		}
+
+		normalizeSchemaAccessFamily(
+			declarations,
+			key as SchemaAccessFamily,
+			access[key],
+		)
 	}
 
-	const operation = Object.hasOwn(access, 'operation')
-		? normalizeSchemaOperationAccess(access.operation)
-		: undefined
-	const filter = Object.hasOwn(access, 'filter')
-		? normalizeAccessRuleMap(
-				access.filter,
-				schemaFilterAccessFamilies,
-				'access.filter',
-			)
-		: undefined
-	const item = Object.hasOwn(access, 'item')
-		? normalizeAccessRuleMap(
-				access.item,
-				schemaItemAccessFamilies,
-				'access.item',
-			)
-		: undefined
+	const operation =
+		Reflect.ownKeys(declarations.operation).length === 0
+			? undefined
+			: immutableRecord(declarations.operation)
+	const filter = freezeRuleMap(declarations.filter)
+	const item = freezeRuleMap(declarations.item)
 
 	if (operation === undefined && filter === undefined && item === undefined) {
 		return undefined

@@ -49,21 +49,13 @@ test('infers exact schema and field Access policy targets', () => {
 		setup: ({ access }) => {
 			access.global(
 				'global',
-				{
-					operation: {
-						read: ({ context }) => context.access.mode !== 'master',
-					},
-				},
+				{ read: ({ context }) => context.access.mode !== 'master' },
 				{ master: 'bypass' },
 			)
 			access.schema(
 				'schema',
 				schema,
-				{
-					filter: {
-						read: ({ where }) => where.eq('title', 'Visible'),
-					},
-				},
+				{ read: { where: ({ where }) => where.eq('title', 'Visible') } },
 				{ master: 'enforce' },
 			)
 			access.field(
@@ -85,7 +77,7 @@ test('infers exact schema and field Access policy targets', () => {
 				(context) => {
 					expectTypeOf(context.extension.config.mode).toEqualTypeOf<'strict'>()
 
-					return { operation: { delete: false } }
+					return { delete: false }
 				},
 				{ master: 'enforce' },
 			)
@@ -138,11 +130,11 @@ test('rejects invalid paths, scopes, kinds, and implicit master behavior', () =>
 				'wrong',
 				// @ts-expect-error -- Schema-extension targets reject field extensions.
 				fieldExtension,
-				() => ({ operation: { read: true } }),
+				() => ({ read: true }),
 				{ master: 'enforce' },
 			)
 			// @ts-expect-error -- Every contribution declares audited-master behavior.
-			access.global('implicit-master', { operation: { read: true } })
+			access.global('implicit-master', { read: true })
 		},
 	})
 

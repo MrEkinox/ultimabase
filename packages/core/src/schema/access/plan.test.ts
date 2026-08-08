@@ -13,7 +13,7 @@ const manyRead = vi.fn(() => true)
 const countRead = vi.fn(() => false)
 const existsRead = vi.fn(() => true)
 const developerUpdate = vi.fn(() => true)
-const developerFilter = vi.fn(() => true)
+const developerFilter = vi.fn(() => ({ published: { eq: true } }) as const)
 const developerItem = vi.fn(() => true)
 const fieldItem = vi.fn(() => true)
 const fieldFilter = vi.fn(() => false)
@@ -22,16 +22,18 @@ const fieldOrder = vi.fn(() => false)
 const articleSchema = Schema.define({
 	className: 'CompiledAccessArticle',
 	access: {
-		filter: { read: developerFilter },
-		item: { update: developerItem },
-		operation: {
-			read: {
+		read: {
+			allow: {
 				count: countRead,
 				exists: existsRead,
 				many: manyRead,
 				one: oneRead,
 			},
-			update: developerUpdate,
+			where: developerFilter,
+		},
+		update: {
+			allow: developerUpdate,
+			item: developerItem,
 		},
 	},
 	fields: {
@@ -39,7 +41,7 @@ const articleSchema = Schema.define({
 		secret: stringField({
 			access: {
 				create: false,
-				read: { filter: fieldFilter, item: fieldItem, order: fieldOrder },
+				read: { filter: fieldFilter, order: fieldOrder, output: fieldItem },
 				update: true,
 			},
 		}),
@@ -91,7 +93,7 @@ describe('compiled Access plans', () => {
 				access.schema(
 					'first',
 					articleSchema,
-					{ operation: { update: firstRule } },
+					{ update: firstRule },
 					{ master: 'bypass' },
 				)
 			},
@@ -103,7 +105,7 @@ describe('compiled Access plans', () => {
 				access.schema(
 					'second',
 					articleSchema,
-					{ operation: { update: secondRule } },
+					{ update: secondRule },
 					{ master: 'enforce' },
 				)
 			},
@@ -152,7 +154,13 @@ describe('compiled Access plans', () => {
 					'secret-field',
 					articleSchema,
 					['secret'],
-					{ read: pluginFieldRule },
+					{
+						read: {
+							filter: pluginFieldRule,
+							order: pluginFieldRule,
+							output: pluginFieldRule,
+						},
+					},
 					{ master: 'enforce' },
 				)
 			},

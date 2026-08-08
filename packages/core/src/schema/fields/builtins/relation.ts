@@ -1,11 +1,11 @@
 import { assertNonEmptyString, immutableRecord } from '@ultimabase/shared'
 
-import type { AccessContext } from '../../../access/index.js'
 import type {
 	AccessDecisionRule,
-	FieldFilterAccessKind,
+	FieldAccessInput,
 	FieldValueAccessInput,
 } from '../../access/contracts.js'
+import { normalizeRelationFieldAccessDeclarations } from '../../access/field-declarations.js'
 import {
 	defineExtensions,
 	type FieldExtension,
@@ -13,7 +13,6 @@ import {
 import { createFieldDefinition } from '../base/definition.js'
 import { assertFieldOptions } from '../base/options.js'
 import { splitFieldDeclarationOptions } from '../../hooks/field-declarations.js'
-import type { SchemaMutationKind } from '../../hooks/contracts.js'
 import type { RelationMutationDelta } from '../../relations/mutation.js'
 import type {
 	FieldDefinition,
@@ -69,10 +68,7 @@ export interface RelationFieldMetadataOptions<
 }
 
 /** Supplies the protected source-field decision used by related reads. */
-export interface RelationFieldReadAccessInput {
-	readonly context: AccessContext
-	readonly kind: FieldFilterAccessKind
-}
+export type RelationFieldReadAccessInput = FieldAccessInput
 
 /** Controls relation traversal and logical edge mutation independently. */
 export interface RelationFieldAccess<TTarget extends SchemaDefinition> {
@@ -80,10 +76,7 @@ export interface RelationFieldAccess<TTarget extends SchemaDefinition> {
 	readonly read?: AccessDecisionRule<RelationFieldReadAccessInput>
 	/** Controls one immutable connect, disconnect, set, or clear delta. */
 	readonly update?: AccessDecisionRule<
-		FieldValueAccessInput<
-			RelationMutationDelta<TTarget>,
-			Extract<SchemaMutationKind, 'update' | 'upsert'>
-		>
+		FieldValueAccessInput<RelationMutationDelta<TTarget>>
 	>
 }
 
@@ -207,10 +200,9 @@ export const relationField = <
 		throw new TypeError('relationField target must be a function')
 	}
 
-	const { access, metadataOptions } =
-		splitFieldDeclarationOptions<RelationFieldMetadataOptions<TMappedBy>>(
-			declarationOptions,
-		)
+	const { access, metadataOptions } = splitFieldDeclarationOptions<
+		RelationFieldMetadataOptions<TMappedBy>
+	>(declarationOptions, normalizeRelationFieldAccessDeclarations)
 
 	return createFieldDefinition(
 		'relation',

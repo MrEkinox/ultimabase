@@ -3,6 +3,10 @@
 - Status: accepted
 - Date: 2026-08-08
 - Refines: ADR-0116, ADR-0164
+- Refined by: ADR-0169
+
+ADR-0169 preserves the cardinality decision while replacing public
+`access.operation` with operation-oriented root declarations.
 
 ## Context
 

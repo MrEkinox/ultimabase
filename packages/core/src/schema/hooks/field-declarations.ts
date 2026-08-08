@@ -49,6 +49,9 @@ export const splitFieldDeclarationOptions = <TMetadata extends object>(
 		readonly access?: unknown
 		readonly hooks?: unknown
 	},
+	normalizeAccess: (
+		access: unknown,
+	) => FieldAccessDeclarations | undefined = normalizeFieldAccessDeclarations,
 ): Readonly<{
 	access: FieldAccessDeclarations | undefined
 	hooks: FieldHookDeclarations | undefined
@@ -69,7 +72,7 @@ export const splitFieldDeclarationOptions = <TMetadata extends object>(
 	const { access, hooks, ...metadataOptions } = options
 
 	return {
-		access: normalizeFieldAccessDeclarations(access),
+		access: normalizeAccess(access),
 		hooks: normalizeFieldHookDeclarations(hooks),
 		// Declaration-only keys never enter physical field metadata.
 		metadataOptions: metadataOptions as TMetadata,

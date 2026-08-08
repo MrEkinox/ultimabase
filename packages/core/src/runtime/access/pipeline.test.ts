@@ -10,20 +10,21 @@ import { UltimaBase } from '../application/ultima-base.js'
 const securedArticle = Schema.define({
 	className: 'AccessPipelineArticle',
 	access: {
-		filter: {
-			read: ({ where }) => where.eq('published', true),
-			update: ({ where }) => where.eq('published', true),
+		read: {
+			allow: true,
+			where: ({ where }) => where.eq('published', true),
 		},
-		item: {
-			update: ({ originalItem, item }) =>
+		update: {
+			allow: true,
+			where: ({ where }) => where.eq('published', true),
+			item: ({ originalItem, item }) =>
 				item.title === 'Changed' && originalItem.published === true,
 		},
-		operation: { read: true, update: true },
 	},
 	fields: {
 		published: booleanField(),
 		secret: stringField({
-			access: { read: { filter: false, item: false, order: false } },
+			access: { read: { filter: false, order: false, output: false } },
 		}),
 		title: stringField({ validation: { required: true } }),
 	},

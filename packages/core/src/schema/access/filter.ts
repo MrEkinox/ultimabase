@@ -11,7 +11,7 @@ import type { SchemaDefinition } from '../schema/definition.js'
 
 /** Names every typed predicate value accepted from one Access filter callback. */
 export type AccessWhereResult<TSchema extends SchemaDefinition> =
-	boolean | WhereBuilder<TSchema> | WhereInput<TSchema>
+	WhereBuilder<TSchema> | WhereInput<TSchema> | undefined
 
 /** Creates one immutable builder whose branch remains private until returned. */
 export const createAccessWhere = <const TSchema extends SchemaDefinition>(
@@ -25,13 +25,9 @@ export const normalizeAccessWhereResult = <
 	schema: TSchema,
 	result: unknown,
 ): QueryFilterNode<TSchema> => {
-	if (typeof result === 'boolean') {
-		return normalizeLogicalFilter({ kind: 'constant', value: result })
-	}
-
 	if (!(result instanceof WhereBuilder) && !isPlainRecord(result)) {
 		throw new TypeError(
-			'Access filter result must be a boolean, WhereInput, or WhereBuilder',
+			'Access where must return undefined, a WhereInput, or a WhereBuilder',
 		)
 	}
 

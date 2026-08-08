@@ -478,7 +478,6 @@ const evaluatePreparedUpdateFieldRules = async (
 	schemaPlan: SchemaAccessPlan,
 	originalItem: Readonly<Record<string, unknown>>,
 	item: Readonly<Record<string, unknown>>,
-	kind: 'update' | 'upsert',
 	updateFields?: ReadonlyMap<string, unknown>,
 ): Promise<void> => {
 	const operation = request.operation as unknown as ExecutableOperationAst
@@ -521,7 +520,6 @@ const evaluatePreparedUpdateFieldRules = async (
 				},
 				immutableRecord({
 					context: request.context,
-					kind,
 					originalValue,
 					value,
 				}),
@@ -571,11 +569,7 @@ const evaluateFieldReferenceRules = async (
 					phase: 'access-field-read',
 					schema: schemaPlan.schema,
 				},
-				immutableRecord({
-					channel,
-					context: request.context,
-					kind: request.operation.kind,
-				}),
+				immutableRecord({ context: request.context }),
 				plan.defaults.field,
 			)
 		}
@@ -589,7 +583,6 @@ const evaluateMutationFieldRules = async (
 	schemaPlan: SchemaAccessPlan,
 ): Promise<void> => {
 	const operation = request.operation as unknown as ExecutableOperationAst
-	const family = operationItemFamily(operation.kind)
 
 	for (const input of collectOperationFieldInputs(
 		request.operation,
@@ -617,7 +610,6 @@ const evaluateMutationFieldRules = async (
 			},
 			immutableRecord({
 				context: request.context,
-				kind: family === 'upsert' ? 'upsert' : 'create',
 				value: input.value,
 			}),
 			plan.defaults.field,
@@ -655,7 +647,6 @@ const evaluateMutationFieldRules = async (
 				},
 				immutableRecord({
 					context: request.context,
-					kind: family === 'upsert' ? 'upsert' : 'update',
 					value,
 				}),
 				defaultDecision,
@@ -695,23 +686,25 @@ const evaluateOperationAndFilter = async (
 	const results: unknown[] = []
 
 	for (const [ruleIndex, rule] of effective.entries()) {
-		results.push(
-			await evaluateRule(
-				runtime,
-				request,
-				{
-					branch: family,
-					phase: 'access-filter',
-					rule,
-					ruleIndex,
-					schema: schemaPlan.schema,
-				},
-				immutableRecord({
-					context: request.context,
-					where: createAccessWhere(schemaPlan.schema),
-				}),
-			),
+		const result = await evaluateRule(
+			runtime,
+			request,
+			{
+				branch: family,
+				phase: 'access-filter',
+				rule,
+				ruleIndex,
+				schema: schemaPlan.schema,
+			},
+			immutableRecord({
+				context: request.context,
+				where: createAccessWhere(schemaPlan.schema),
+			}),
 		)
+
+		if (result !== undefined) {
+			results.push(result)
+		}
 	}
 
 	return results.length === 0
@@ -762,7 +755,7 @@ const evaluateCreateItems = async (
 				phase: 'access-item',
 				schema: schemaPlan.schema,
 			},
-			immutableRecord({ context: request.context, kind: family }),
+			immutableRecord({ context: request.context }),
 			true,
 		)
 		return
@@ -786,7 +779,6 @@ const evaluateCreateItems = async (
 			immutableRecord({
 				context: request.context,
 				item,
-				kind: family,
 			}),
 			true,
 		)
@@ -951,9 +943,7 @@ const enforceRecordOutput = async (
 					schema: schemaPlan.schema,
 				},
 				immutableRecord({
-					channel: 'item',
 					context: request.context,
-					kind: request.operation.kind,
 					value: accessValue,
 				}),
 				plan.defaults.field,
@@ -1169,10 +1159,7 @@ export class NativeAccessRuntime {
 				phase: 'access-field-read',
 				schema: source,
 			},
-			immutableRecord({
-				context: request.context,
-				kind: request.operation.kind,
-			}),
+			immutableRecord({ context: request.context }),
 			this.#plan.defaults.field,
 		)
 	}
@@ -1241,7 +1228,6 @@ export class NativeAccessRuntime {
 					schemaPlan,
 					request.target,
 					candidate,
-					family === 'upsert' ? 'upsert' : 'update',
 				)
 			} else {
 				throw new TypeError(
@@ -1259,17 +1245,20 @@ export class NativeAccessRuntime {
 				phase: 'access-item',
 				schema: schemaPlan.schema,
 			},
-			immutableRecord({
-				context: request.context,
-				item,
-				kind: family,
-				originalItem,
-				...(family === 'upsert'
-					? {
-							mode: upsertUpdate ? ('update' as const) : ('create' as const),
-						}
-					: {}),
-			}),
+			family === 'delete'
+				? immutableRecord({ context: request.context, originalItem })
+				: immutableRecord({
+						context: request.context,
+						item,
+						originalItem,
+						...(family === 'upsert'
+							? {
+									mode: upsertUpdate
+										? ('update' as const)
+										: ('create' as const),
+								}
+							: {}),
+					}),
 			true,
 		)
 	}
@@ -1340,7 +1329,6 @@ export class NativeAccessRuntime {
 					schemaPlan,
 					materialization.previous,
 					materialization.current,
-					'upsert',
 					readExpressionUpdateFieldValues(item.update),
 				)
 			}
@@ -1356,7 +1344,6 @@ export class NativeAccessRuntime {
 				immutableRecord({
 					context: request.context,
 					item: accessItem,
-					kind: 'upsert',
 					mode: update ? ('update' as const) : ('create' as const),
 					originalItem,
 				}),

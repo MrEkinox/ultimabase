@@ -111,6 +111,26 @@ const expectDocumentedNames = (
 }
 
 describe('native Access IntelliSense', () => {
+	it('groups schema Access by public operation family', () => {
+		const completions = readMemberCompletions(`
+import { Schema } from '../../src/schema/index.js'
+
+Schema.define({
+	className: 'Article',
+	fields: {},
+	access: { /* completion */ },
+})
+`)
+
+		expectDocumentedNames(completions, [
+			'read',
+			'create',
+			'update',
+			'upsert',
+			'delete',
+		])
+	})
+
 	it('documents every grouped schema read branch', () => {
 		const completions = readMemberCompletions(`
 import { Schema } from '../../src/schema/index.js'
@@ -118,7 +138,7 @@ import { Schema } from '../../src/schema/index.js'
 Schema.define({
 	className: 'Article',
 	fields: {},
-	access: { operation: { read: { /* completion */ } } },
+	access: { read: { allow: { /* completion */ } } },
 })
 `)
 
@@ -127,38 +147,22 @@ Schema.define({
 
 	it.each([
 		{
-			access: `filter: {
-				delete: false,
-				read: true,
-				update: true,
-				/* completion */
-			}`,
-			branch: 'filter',
-			expected: ['upsert'],
+			access: `read: { /* completion */ }`,
+			branch: 'read',
+			expected: ['allow', 'where'],
 		},
 		{
-			access: `item: {
-				create: true,
-				delete: true,
-				update: true,
-				/* completion */
-			}`,
-			branch: 'item',
-			expected: ['upsert'],
+			access: `create: { /* completion */ }`,
+			branch: 'create',
+			expected: ['allow', 'item'],
 		},
 		{
-			access: `item: {
-				update: true,
-				upsert: true,
-				/* completion */
-			}`,
-			branch: 'partially declared item',
-			expected: ['create', 'delete'],
+			access: `update: { /* completion */ }`,
+			branch: 'update',
+			expected: ['allow', 'where', 'item'],
 		},
-	])(
-		'suggests the remaining schema Access $branch members',
-		({ access, expected }) => {
-			const completions = readMemberCompletions(`
+	])('documents the schema Access $branch stages', ({ access, expected }) => {
+		const completions = readMemberCompletions(`
 import { Schema } from '../../src/schema/index.js'
 
 Schema.define({
@@ -168,9 +172,8 @@ Schema.define({
 })
 `)
 
-			expectDocumentedNames(completions, expected)
-		},
-	)
+		expectDocumentedNames(completions, expected)
+	})
 
 	it('offers only grouped read and mutation decisions on fields', () => {
 		const completions = readMemberCompletions(`
@@ -189,21 +192,21 @@ import { stringField } from '../../src/schema/index.js'
 stringField({ access: { read: { /* completion */ } } })
 `)
 
-		expectDocumentedNames(completions, ['item', 'filter', 'order'])
+		expectDocumentedNames(completions, ['output', 'filter', 'order'])
 	})
 
-	it('offers the shared where builder on schema Access filters', () => {
+	it('offers the shared where builder on dynamic schema Access restrictions', () => {
 		const completions = readMemberCompletions(`
 import { Schema, booleanField, intField, stringField } from '../../src/schema/index.js'
 
 Schema.define({
 	className: 'Article',
 	access: {
-		filter: {
-			read: ({ where }) => {
+		read: {
+			where: ({ where }) => {
 				where./* completion */
 
-				return true
+				return undefined
 			},
 		},
 	},

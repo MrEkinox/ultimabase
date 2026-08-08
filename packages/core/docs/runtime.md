@@ -222,9 +222,7 @@ const ArticleSchema = Schema.define({
 		published: booleanField({ default: false }),
 	},
 	access: {
-		filter: {
-			read: () => ({ published: { eq: true } }),
-		},
+		read: { where: { published: { eq: true } } },
 	},
 })
 

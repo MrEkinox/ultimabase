@@ -35,10 +35,8 @@ const principal = new RequestContextValue<FixturePrincipal>(
 const PrivateNote = Schema.define({
 	className: 'OptionalSubjectPrivateNote',
 	access: {
-		operation: {
-			// An absent plugin-owned principal denies rather than granting anonymous access.
-			read: ({ context }) => context.getValue(principal) !== undefined,
-		},
+		// An absent plugin-owned principal denies rather than granting anonymous access.
+		read: ({ context }) => context.getValue(principal) !== undefined,
 	},
 	fields: { title: stringField({ validation: { required: true } }) },
 })

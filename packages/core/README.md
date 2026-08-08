@@ -611,34 +611,30 @@ deliberately expose no mutable `save()` method.
 
 ## Native Access and schema hooks
 
-Access and hooks are complementary Core capabilities. Access declares security
-boundaries through `operation`, `filter`, `item`, and `field` policies. Hooks
-express business transformations and effects only after Access has restricted
-the operation.
+Access and hooks are complementary Core capabilities. Access groups each
+security boundary under the operation it protects. Hooks express business
+transformations and effects only after Access has restricted the operation.
 
-Schemas now accept native declaration-only policies, and every built-in or
-plugin field accepts its own inline policy. One logical family covers singular
-commands and every item from a collection command. Item-oriented mutation
-callbacks therefore expose the business `kind` (`create`, `update`, `upsert`,
-or `delete`) without cardinality. Early `operation` Access exposes only
-`context`; its named declaration branch already identifies the authorized
-family, while grouped reads distinguish `one`, `many`, `count`, and `exists`:
+Schemas accept native declaration-only policies, and every built-in or plugin
+field accepts its own inline policy. A direct rule is the concise `allow`
+decision. A detailed declaration colocates `allow`, a private `where` row
+restriction when relevant, and an `item` decision when materialized values are
+available. The declaration key already identifies the operation, so callbacks
+do not receive a redundant `kind`. Grouped reads distinguish `one`, `many`,
+`count`, and `exists` only when their capabilities intentionally differ:
 
 ```ts
 const PostSchema = Schema.define({
 	className: 'Post',
 	access: {
-		operation: {
-			read: { one: true, many: true, count: false, exists: true },
-			delete: ({ context }) => context.access.mode === 'master',
+		read: {
+			allow: { one: true, many: true, count: false, exists: true },
+			where: { published: { eq: true } },
 		},
-		filter: {
-			read: ({ where }) => where.eq('published', true),
+		update: {
+			item: ({ originalItem, item }) => item.authorId === originalItem.authorId,
 		},
-		item: {
-			update: ({ originalItem, item }) =>
-				item.authorId === originalItem.authorId,
-		},
+		delete: ({ context }) => context.access.mode === 'master',
 	},
 	fields: {
 		authorId: stringField({
@@ -650,7 +646,7 @@ const PostSchema = Schema.define({
 		published: booleanField({
 			access: {
 				create: true,
-				read: { item: true, filter: false, order: false },
+				read: { output: true, filter: false, order: false },
 				update: false,
 			},
 		}),
@@ -660,9 +656,9 @@ const PostSchema = Schema.define({
 ```
 
 These declarations are validated and retained privately; they do not enter
-schema metadata, validation plans, migrations, or inferred model values. An
-operation read may instead use one shared rule, and a field `read: false`
-denies item output, filtering, and ordering together. Every grouped form is
+schema metadata, validation plans, migrations, or inferred model values. A
+schema read may instead use one shared rule, and a field `read: false` denies
+output, filtering, and ordering together. Every grouped form is
 complete so indirect disclosure cannot inherit an accidentally broader rule.
 An omitted rule does not create an implicit callback: the compiled application
 fallback decides operation and field access. Runtime executes every matching
@@ -675,8 +671,8 @@ the decision attached to the value that is actually persisted.
 
 Field create Access traverses normalized objects parent-first. Nested fields in
 object lists are evaluated once per concrete entry, including multidimensional
-lists. Cross-field decisions use schema `item.create`, which receives the
-complete draft.
+lists. Cross-field decisions use the schema's `create.item` rule, which receives
+the complete draft.
 
 Field output Access follows the same concrete traversal. A denied parent omits
 its complete property and skips descendant rules; a denied nested occurrence
@@ -684,14 +680,14 @@ omits only that property from its object. Lists retain their elements, order,
 and dimensions. The omission is structural projection rather than persisted
 `null`.
 
-Schema `item` Access receives operation-specific materializations. Create
+Schema item Access receives operation-specific materializations. Create
 decisions and the create branch of an upsert receive an immutable
 `SchemaPreparedDraft` with no persistence commands. Update receives the
 complete persisted `originalItem` plus an immutable plain `item` containing the
 final candidate after operators such as `increment` have been applied. Delete
-receives that persisted `originalItem` and `item: null`; upsert exposes the
-actual branch through `mode`. Every contribution for one decision observes the
-same materialized values.
+receives only that persisted `originalItem`; upsert exposes the actual branch
+through `mode`. Every contribution for one decision observes the same
+materialized values.
 
 Generic field update Access follows the same rule through `originalValue` and
 the final `value`. Nested object fields are evaluated at their concrete paths,
@@ -699,7 +695,7 @@ including each object-list entry; removing a nested value exposes `null` as its
 final canonical value. Relation fields intentionally keep their typed mutation
 delta because to-many relations are not embedded inside the parent object.
 
-An Access filter uses the canonical `WhereInput` contract and normalized
+An Access `where` rule uses the canonical `WhereInput` contract and normalized
 predicate nodes from `Query.where`, while remaining in private monotonic state.
 Developer query options can add filters, ordering, or limits but cannot inspect,
 replace, or remove Access filters. ACL and community policy plugins register
@@ -707,13 +703,14 @@ contributions to this native system rather than business hooks.
 
 The callback receives one immutable schema-aware `WhereBuilder` utility and no
 terminal `kind`, so `get`, `findOne`, `findMany`, `count`, and `exists` always
-observe the same protected row universe. It may return `true`, `false`, a
-`WhereInput` object, or the supplied builder. Every independent native or
-plugin contribution is later combined through `AND`:
+observe the same protected row universe. It may return `undefined`, a
+`WhereInput` object, or the supplied builder. Complete denial belongs to
+`allow`. Every independent native or plugin contribution is later combined
+through `AND`:
 
 ```ts
-filter: {
-	read: ({ context }) => {
+read: {
+	where: ({ context }) => {
 		const principal = context.getValue(authenticatedPrincipal)
 
 		return principal === undefined
@@ -890,9 +887,7 @@ const ArticleSchema = Schema.define({
 		published: booleanField({ default: false }),
 	},
 	access: {
-		filter: {
-			read: ({ where }) => where.eq('published', true),
-		},
+		read: { where: ({ where }) => where.eq('published', true) },
 	},
 })
 

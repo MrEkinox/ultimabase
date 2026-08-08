@@ -20,14 +20,14 @@ describe('field Access declarations', () => {
 		[
 			'enum',
 			enumField({
-				access: { read: { filter: true, item: true, order: false } },
+				access: { read: { filter: true, order: false, output: true } },
 				values: ['draft', 'published'],
 			}),
 		],
 		[
 			'object',
 			objectField({
-				access: { read: { filter: true, item: true, order: false } },
+				access: { read: { filter: true, order: false, output: true } },
 				fields: { label: stringField() },
 			}),
 		],
@@ -61,35 +61,34 @@ describe('field Access declarations', () => {
 	})
 
 	it('copies complete read channels while preserving callback identity', () => {
-		const item = () => true
+		const output = () => true
 		const read: {
 			filter: boolean
-			item: typeof item
 			order: boolean
-		} = { filter: false, item, order: false }
+			output: typeof output
+		} = { filter: false, order: false, output }
 		const access = { read }
 		const field = stringField({ access })
 		const declarations = getFieldAccessDeclarations(field)
 
-		read.item = () => false
+		read.output = () => false
 
 		expect(declarations?.read).toStrictEqual({
 			filter: false,
-			item,
+			item: output,
 			order: false,
 		})
 		expect(Object.isFrozen(declarations?.read)).toBe(true)
 	})
 
-	it('copies callbacks while preserving their identity', () => {
-		const read = () => true
-		const access: { read?: typeof read } = { read }
+	it('copies concise boolean read decisions', () => {
+		const access: { read?: boolean } = { read: true }
 		const field = stringField({ access })
 		const declarations = getFieldAccessDeclarations(field)
 
-		access.read = () => false
+		access.read = false
 
-		expect(declarations?.read).toBe(read)
+		expect(declarations?.read).toBe(true)
 		expect(Object.isFrozen(declarations)).toBe(true)
 	})
 
@@ -127,10 +126,14 @@ describe('field Access declarations', () => {
 		[{ filter: true }, 'Unknown Access rule: access.filter'],
 		[{ order: false }, 'Unknown Access rule: access.order'],
 		[{ read: 'allow' }, 'access.read must be a plain object'],
-		[{ read: {} }, 'access.read.item is required'],
-		[{ read: { filter: true, item: true } }, 'access.read.order is required'],
 		[
-			{ read: { filter: true, item: true, order: false, unknown: true } },
+			{ read: () => true },
+			'access.read must be a boolean or complete output/filter/order object',
+		],
+		[{ read: {} }, 'access.read.output is required'],
+		[{ read: { filter: true, output: true } }, 'access.read.order is required'],
+		[
+			{ read: { filter: true, order: false, output: true, unknown: true } },
 			'Unknown Access rule: access.read.unknown',
 		],
 	] as const)('rejects malformed inline declarations %#', (access, message) => {

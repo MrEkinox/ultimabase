@@ -98,7 +98,7 @@ const schemaHoverCases: readonly SchemaHoverCase[] = [
 	{
 		label: 'access',
 		source:
-			"Schema.define({ className: 'Post', /* hover */access: { operation: { read: true } }, fields: { title: stringField() } })",
+			"Schema.define({ className: 'Post', /* hover */access: { read: true }, fields: { title: stringField() } })",
 	},
 	{
 		label: 'className',

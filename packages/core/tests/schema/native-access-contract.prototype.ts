@@ -37,8 +37,8 @@ export const readOnlyOperations = {
 export const AccessPost = Schema.define({
 	className: 'AccessPost',
 	access: {
-		operation: {
-			read: {
+		read: {
+			allow: {
 				one: true,
 				many: (/* hover:operation-access-input */ input) => {
 					const { context } = input
@@ -51,51 +51,40 @@ export const AccessPost = Schema.define({
 				count: false,
 				exists: true,
 			},
+			where: ({ /* hover:access-where */ where }) =>
+				where.eq('published', true),
 		},
-		filter: {
-			read: ({ /* hover:access-where */ where }) => where.eq('published', true),
-		},
-		item: {
-			create: ({ item, kind }) => {
+		create: {
+			item: ({ item }) => {
 				const /* hover:create-access-item */ draft = item
-				const /* hover:create-access-kind */ createKind = kind
 
 				draft.get('authorId')
-				void createKind
 
 				return true
 			},
-			update: ({ originalItem, item, kind }) => {
+		},
+		update: {
+			item: ({ originalItem, item }) => {
 				const /* hover:update-original-access-item */ persisted = originalItem
 				const /* hover:update-access-item */ candidate = item
-				const /* hover:update-access-kind */ updateKind = kind
 
 				persisted.get('authorId')
 				void persisted.update({ data: { title: 'Updated' } })
 				candidate.title.toUpperCase()
-				void updateKind
 
 				return persisted.authorId === candidate.authorId
 			},
-			delete: ({ kind }) => {
-				const /* hover:delete-access-kind */ deleteKind = kind
-
-				void deleteKind
-
-				return true
-			},
+		},
+		delete: {
+			item: ({ originalItem }) => originalItem.authorId.length > 0,
 		},
 	},
 	fields: {
 		authorId: stringField({ validation: { required: true } }),
 		published: booleanField({
 			access: {
-				create: ({ kind, /* hover:field-value */ value }) => {
-					const /* hover:field-create-kind */ createKind = kind
-
-					return createKind === 'create' && value === true
-				},
-				read: { filter: false, item: true, order: false },
+				create: ({ /* hover:field-value */ value }) => value === true,
+				read: { filter: false, output: true, order: false },
 				update: false,
 			},
 		}),
@@ -121,7 +110,7 @@ export const fixtureAccessProvider = definePlugin({
 		access.schema(
 			'published-posts',
 			AccessPost,
-			{ filter: { read: ({ where }) => where.eq('published', true) } },
+			{ read: { where: ({ where }) => where.eq('published', true) } },
 			{ master: 'enforce' },
 		)
 	},

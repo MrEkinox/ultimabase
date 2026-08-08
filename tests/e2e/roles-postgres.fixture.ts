@@ -80,7 +80,7 @@ export const AppRole = RoleSchema.define({
 		priority: intField({ default: 0 }),
 	},
 	indexes: [{ fields: ['priority', 'createdAt'] }],
-	access: { operation: protectedRoleOperations },
+	access: protectedRoleOperations,
 	hooks: {
 		beforeOperation: {
 			update: ({ operation }) => {
@@ -97,7 +97,7 @@ export const FailRole = RoleSchema.define({
 	members: { schema: RoleMember },
 	deletion: { references: 'fail' },
 	fields: {},
-	access: { operation: protectedRoleOperations },
+	access: protectedRoleOperations,
 })
 
 export const PreserveRole = RoleSchema.define({
@@ -105,9 +105,7 @@ export const PreserveRole = RoleSchema.define({
 	members: { schema: RoleMember },
 	deletion: { references: 'preserve' },
 	fields: {},
-	access: {
-		operation: { ...protectedRoleOperations, delete: true },
-	},
+	access: { ...protectedRoleOperations, delete: true },
 })
 
 export const CascadeRole = RoleSchema.define({
@@ -117,7 +115,8 @@ export const CascadeRole = RoleSchema.define({
 	fields: {},
 	access: {
 		// Native Access permits deletion so the plugin's master-only cascade guard is exercised.
-		operation: { ...protectedRoleOperations, delete: true },
+		...protectedRoleOperations,
+		delete: true,
 	},
 })
 
@@ -127,27 +126,29 @@ export const AdministratorReference = AppRole.role('administrator')
 export const ProtectedPost = Schema.define({
 	className: 'RoleE2EProtectedPost',
 	access: {
-		operation: {
-			create: masterOnly,
-			delete: hasRole(AdministratorReference),
-			read: true,
-			update: anyOf(
-				masterOnly,
-				allOf(
-					hasRole(EditorReference),
-					hasRole(AdministratorReference),
-					not(false),
-				),
+		create: masterOnly,
+		delete: hasRole(AdministratorReference),
+		read: {
+			allow: true,
+			where: ({ where }) => where.eq('published', true),
+		},
+		update: anyOf(
+			masterOnly,
+			allOf(
+				hasRole(EditorReference),
+				hasRole(AdministratorReference),
+				not(false),
 			),
-		},
-		filter: {
-			read: ({ where }) => where.eq('published', true),
-		},
+		),
 	},
 	fields: {
 		internalNote: stringField({
 			access: {
-				read: anyOf(masterOnly, hasRole(AdministratorReference)),
+				read: {
+					filter: anyOf(masterOnly, hasRole(AdministratorReference)),
+					order: anyOf(masterOnly, hasRole(AdministratorReference)),
+					output: anyOf(masterOnly, hasRole(AdministratorReference)),
+				},
 			},
 		}),
 		published: booleanField({ default: false }),
@@ -172,11 +173,9 @@ export const resetMissingProviderHookCalls = (): void => {
 export const MissingProviderPost = Schema.define({
 	className: 'RoleE2EMissingProviderPost',
 	access: {
-		operation: {
-			create: true,
-			read: true,
-			update: hasRole(EditorReference),
-		},
+		create: true,
+		read: true,
+		update: hasRole(EditorReference),
 	},
 	fields: {
 		title: stringField({ validation: { required: true } }),

@@ -104,11 +104,11 @@ describe('plugin Access targets', () => {
 		const { access } = registries.forPlugin(ownerPlugin)
 		const extensionPaths: (readonly string[])[] = []
 
-		access.global('global', { operation: { read: true } }, { master: 'bypass' })
+		access.global('global', { read: true }, { master: 'bypass' })
 		access.schema(
 			'schema',
 			primarySchema,
-			{ filter: { read: true } },
+			{ read: { where: {} } },
 			{ master: 'enforce' },
 		)
 		access.field(
@@ -124,7 +124,7 @@ describe('plugin Access targets', () => {
 			({ schema }) => {
 				expect(schema).toBe(primarySchema)
 
-				return { operation: { delete: false } }
+				return { delete: false }
 			},
 			{ master: 'enforce' },
 		)
@@ -200,7 +200,7 @@ describe('plugin Access targets', () => {
 		access.schema(
 			'foreign-schema',
 			foreignSchema,
-			{ operation: { read: true } },
+			{ read: true },
 			{ master: 'enforce' },
 		)
 		registries.closeSetup()
@@ -216,11 +216,7 @@ describe('plugin Access targets', () => {
 			},
 		})
 		expect(() => {
-			access.global(
-				'late',
-				{ operation: { read: true } },
-				{ master: 'enforce' },
-			)
+			access.global('late', { read: true }, { master: 'enforce' })
 		}).toThrow(
 			new TypeError('Plugin Access can only be registered during setup'),
 		)
@@ -234,7 +230,7 @@ describe('plugin Access targets', () => {
 				foreign.schemaExtension(
 					'foreign-extension',
 					schemaExtension,
-					() => ({ operation: { read: true } }),
+					() => ({ read: true }),
 					{ master: 'enforce' },
 				)
 			}),
@@ -278,7 +274,7 @@ describe('plugin Access targets', () => {
 		expect(() =>
 			invokeMethod(access, 'global', [
 				'invalid-master',
-				{ operation: { read: true } },
+				{ read: true },
 				{ master: 'allow' },
 			]),
 		).toThrow(
@@ -287,17 +283,13 @@ describe('plugin Access targets', () => {
 			),
 		)
 
-		access.global(
-			'duplicate',
-			{ operation: { read: true } },
-			{ master: 'enforce' },
-		)
+		access.global('duplicate', { read: true }, { master: 'enforce' })
 		expect(
 			captureError(() => {
 				access.schema(
 					'duplicate',
 					primarySchema,
-					{ operation: { read: true } },
+					{ read: true },
 					{ master: 'enforce' },
 				)
 			}),
@@ -327,11 +319,7 @@ describe('plugin Access targets', () => {
 		)
 		const access = registries.forPlugin(ownerPlugin).access
 
-		access.global(
-			'branded',
-			{ operation: { read: true } },
-			{ master: 'enforce' },
-		)
+		access.global('branded', { read: true }, { master: 'enforce' })
 		const value = registries.getContributions('access')[0]?.value
 
 		expect(isPluginAccessTargetDefinition(value)).toBe(true)

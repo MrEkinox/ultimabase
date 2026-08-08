@@ -141,9 +141,7 @@ const NullableSource = Schema.define({
 const PrivateTarget = Schema.define({
 	className: 'PointerE2EPrivateTarget',
 	access: {
-		operation: {
-			read: ({ context }) => context.access.mode === 'master',
-		},
+		read: ({ context }) => context.access.mode === 'master',
 	},
 	fields: { label: stringField({ validation: { required: true } }) },
 })

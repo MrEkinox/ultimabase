@@ -36,9 +36,7 @@ const pointerRuntimeOrganization = Schema.define({
 const pointerRuntimeUser = Schema.define({
 	className: 'PointerRuntimeUser',
 	access: {
-		filter: {
-			read: ({ where }) => where.eq('status', 'active'),
-		},
+		read: { where: ({ where }) => where.eq('status', 'active') },
 	},
 	fields: {
 		name: stringField({ validation: { required: true } }),
@@ -195,7 +193,7 @@ describe('pointer Runtime execution', () => {
 			fields: {
 				target: pointerField({
 					access: {
-						read: { filter: true, item: () => false, order: true },
+						read: { filter: true, order: true, output: () => false },
 					},
 					target: () => target,
 				}),
@@ -241,12 +239,12 @@ describe('pointer Runtime execution', () => {
 					access: {
 						read: {
 							filter: true,
-							item: ({ value }) => {
+							order: true,
+							output: ({ value }) => {
 								accessValues.push(value)
 
 								return true
 							},
-							order: true,
 						},
 					},
 					target: () => target,
@@ -299,9 +297,7 @@ describe('pointer Runtime execution', () => {
 		const restrictedTarget = Schema.define({
 			className: 'PointerRuntimeRestrictedTarget',
 			access: {
-				operation: {
-					read: ({ context }) => context.access.mode === 'master',
-				},
+				read: ({ context }) => context.access.mode === 'master',
 			},
 			fields: { name: stringField() },
 		})

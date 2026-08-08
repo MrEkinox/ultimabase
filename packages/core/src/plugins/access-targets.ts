@@ -117,7 +117,7 @@ export const defineFieldKindAccessTarget = <TField extends GenericField>(
 export interface PluginAccessRegistry {
 	/**
 	 * Adds schema Access rules to every schema in the application.
-	 * @example `access.global('read-only', { operation: { read: true } }, { master: 'enforce' })`
+	 * @example `access.global('read-only', { read: true }, { master: 'enforce' })`
 	 */
 	global(
 		name: string,
@@ -126,7 +126,7 @@ export interface PluginAccessRegistry {
 	): void
 	/**
 	 * Adds schema Access rules to one exact application-owned schema.
-	 * @example `access.schema('posts', Post, { operation: { delete: false } }, { master: 'bypass' })`
+	 * @example `access.schema('posts', Post, { delete: false }, { master: 'bypass' })`
 	 */
 	schema<TSchema extends SchemaDefinition>(
 		name: string,
@@ -150,7 +150,7 @@ export interface PluginAccessRegistry {
 	): void
 	/**
 	 * Expands schema Access over extensions owned by this plugin.
-	 * @example `access.schemaExtension('tenant', tenantExtension, () => ({ operation: { read: true } }), { master: 'enforce' })`
+	 * @example `access.schemaExtension('tenant', tenantExtension, () => ({ read: true }), { master: 'enforce' })`
 	 */
 	schemaExtension<TExtension extends SchemaExtension<string, object>>(
 		name: string,

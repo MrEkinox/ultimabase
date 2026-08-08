@@ -36,10 +36,7 @@ const createRoleConsumer = () =>
 				'editor-read',
 				Article,
 				{
-					operation: {
-						read: ({ context }) =>
-							roles.get().hasRole({ context, role: editor }),
-					},
+					read: ({ context }) => roles.get().hasRole({ context, role: editor }),
 				},
 				{ master: 'enforce' },
 			)

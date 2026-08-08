@@ -24,11 +24,17 @@ const editorAccess = hasRole(AppRole.role('editor'))
 
 Schema.define({
 	className: 'RoleProtectedPost',
-	access: {
-		operation: { update: editorAccess },
-	},
+	access: { update: editorAccess },
 	fields: {
-		title: stringField({ access: { read: editorAccess } }),
+		title: stringField({
+			access: {
+				read: {
+					filter: editorAccess,
+					order: editorAccess,
+					output: editorAccess,
+				},
+			},
+		}),
 	},
 })
 

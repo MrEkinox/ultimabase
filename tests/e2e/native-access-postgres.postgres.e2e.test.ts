@@ -26,21 +26,23 @@ const AccessAudit = Schema.define({
 const AccessArticle = Schema.define({
 	className: 'NativeAccessArticleE2E',
 	access: {
-		filter: {
-			delete: ({ where }) => where.eq('published', true),
-			read: ({ where }) => where.eq('published', true).gte('rank', 0),
-			update: ({ where }) => where.eq('published', true),
-			upsert: ({ where }) => where.eq('published', true),
+		create: ({ context }) => context.access.mode === 'master',
+		delete: {
+			allow: true,
+			where: ({ where }) => where.eq('published', true),
 		},
-		item: {
-			update: ({ originalItem }) => !originalItem.locked,
+		read: {
+			allow: { count: true, exists: true, many: true, one: true },
+			where: ({ where }) => where.eq('published', true).gte('rank', 0),
 		},
-		operation: {
-			create: ({ context }) => context.access.mode === 'master',
-			delete: true,
-			read: { count: true, exists: true, many: true, one: true },
-			update: true,
-			upsert: true,
+		update: {
+			allow: true,
+			where: ({ where }) => where.eq('published', true),
+			item: ({ originalItem }) => !originalItem.locked,
+		},
+		upsert: {
+			allow: true,
+			where: ({ where }) => where.eq('published', true),
 		},
 	},
 	fields: {
@@ -50,7 +52,7 @@ const AccessArticle = Schema.define({
 		secret: stringField({
 			access: {
 				create: ({ context }) => context.access.mode === 'master',
-				read: { filter: false, item: false, order: false },
+				read: { filter: false, order: false, output: false },
 				update: false,
 			},
 		}),
@@ -75,19 +77,11 @@ const AccessArticle = Schema.define({
 const BulkDocument = Schema.define({
 	className: 'NativeAccessBulkE2E',
 	access: {
-		filter: {
-			delete: ({ where }) => where.eq('visible', true),
-			read: ({ where }) => where.eq('visible', true),
-			update: ({ where }) => where.eq('visible', true),
-			upsert: ({ where }) => where.eq('visible', true),
-		},
-		operation: {
-			create: ({ context }) => context.access.mode === 'master',
-			delete: true,
-			read: true,
-			update: true,
-			upsert: true,
-		},
+		create: ({ context }) => context.access.mode === 'master',
+		delete: { allow: true, where: ({ where }) => where.eq('visible', true) },
+		read: { allow: true, where: ({ where }) => where.eq('visible', true) },
+		update: { allow: true, where: ({ where }) => where.eq('visible', true) },
+		upsert: { allow: true, where: ({ where }) => where.eq('visible', true) },
 	},
 	fields: {
 		key: stringField({ indexed: 'unique', validation: { required: true } }),
@@ -103,9 +97,7 @@ const pluginVisibility = definePlugin({
 			'hide-plugin-rows',
 			AccessArticle,
 			{
-				filter: {
-					read: ({ where }) => where.ne('title', 'plugin-hidden'),
-				},
+				read: { where: ({ where }) => where.ne('title', 'plugin-hidden') },
 			},
 			{ master: 'enforce' },
 		)

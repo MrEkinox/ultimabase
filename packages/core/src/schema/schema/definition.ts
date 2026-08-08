@@ -154,10 +154,10 @@ export interface SchemaOptions<
 		TExtensions
 	>
 	/**
-	 * Declares native operation, row-filter, and prepared-item access policies.
+	 * Groups native allow, row, and prepared-item policies by operation.
 	 * Rules stay private to Runtime and never alter physical schema metadata.
 	 *
-	 * @example `access: { operation: { delete: ({ context }) => context.access.mode === "master" } }`
+	 * @example `access: { delete: ({ context }) => context.access.mode === "master" }`
 	 */
 	readonly access?: SchemaAccess<
 		SchemaClass<NoInfer<TClassName>, NoInfer<TFields>, NoInfer<TExtensions>>

@@ -65,7 +65,7 @@ Core's Schema domain only knows the generic `SchemaExtension` and
 Schema.define({
 	className: 'Post',
 	access: {
-		operation: { read: true },
+		read: true,
 	},
 	fields: {
 		title: stringField({ access: { update: isEditor } }),
