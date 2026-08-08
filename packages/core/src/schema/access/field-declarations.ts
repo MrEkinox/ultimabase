@@ -11,99 +11,46 @@ import type { GenericField } from '../fields/base/contract.js'
 /** Lists field capabilities once so declaration validation stays exhaustive. */
 export const fieldAccessCapabilities = ['read', 'write'] as const
 export const fieldReadAccessChannels = ['item', 'filter', 'order'] as const
-export const fieldUpdateAccessTransitions = [
-	'fill',
-	'replace',
-	'clear',
-] as const
+export const fieldWriteAccessTransitions = ['fill', 'replace', 'clear'] as const
 const publicFieldReadAccessChannels = ['output', 'where', 'orderBy'] as const
-const fieldWriteAccessBranches = ['create', 'update'] as const
 
 /** Identifies every inline field Access capability. */
 export type FieldAccessCapability = (typeof fieldAccessCapabilities)[number]
 export type FieldReadAccessChannel = (typeof fieldReadAccessChannels)[number]
-export type FieldUpdateAccessTransition =
-	(typeof fieldUpdateAccessTransitions)[number]
+export type FieldWriteAccessTransition =
+	(typeof fieldWriteAccessTransitions)[number]
 
 /** Retains only validated field rules inside private field capabilities. */
 export interface FieldAccessDeclarations {
 	readonly read?:
 		| NormalizedAccessRule
 		| NormalizedRequiredAccessRuleMap<FieldReadAccessChannel>
-	readonly create?: NormalizedAccessRule
-	readonly update?: NormalizedRequiredAccessRuleMap<FieldUpdateAccessTransition>
+	readonly write?: NormalizedRequiredAccessRuleMap<FieldWriteAccessTransition>
 	readonly relationWrite?: NormalizedAccessRule
-}
-
-const normalizeFieldUpdateAccess = (
-	update: unknown,
-): NormalizedRequiredAccessRuleMap<FieldUpdateAccessTransition> => {
-	if (typeof update === 'boolean') {
-		return immutableRecord({
-			clear: update,
-			fill: update,
-			replace: update,
-		})
-	}
-
-	if (typeof update === 'function') {
-		throw new TypeError(
-			'access.write.update must be a boolean or complete fill/replace/clear object',
-		)
-	}
-
-	return normalizeRequiredAccessRuleMap(
-		update,
-		fieldUpdateAccessTransitions,
-		'access.write.update',
-	)
 }
 
 const normalizeFieldWriteAccess = (
 	write: unknown,
-): Readonly<{
-	create: NormalizedAccessRule
-	update: NormalizedRequiredAccessRuleMap<FieldUpdateAccessTransition>
-}> => {
+): NormalizedRequiredAccessRuleMap<FieldWriteAccessTransition> => {
 	if (typeof write === 'boolean') {
 		return immutableRecord({
-			create: write,
-			update: normalizeFieldUpdateAccess(write),
+			clear: write,
+			fill: write,
+			replace: write,
 		})
 	}
 
 	if (typeof write === 'function') {
 		throw new TypeError(
-			'access.write must be a boolean or complete create/update object',
+			'access.write must be a boolean or complete fill/replace/clear object',
 		)
 	}
 
-	if (!isPlainRecord(write)) {
-		throw new TypeError('access.write must be a plain object')
-	}
-
-	const allowedBranches = new Set<string>(fieldWriteAccessBranches)
-
-	for (const key of Reflect.ownKeys(write)) {
-		if (typeof key !== 'string') {
-			throw new TypeError('access.write contains an unsupported symbol key')
-		}
-
-		if (!allowedBranches.has(key)) {
-			throw new TypeError(`Unknown Access rule: access.write.${key}`)
-		}
-	}
-
-	for (const branch of fieldWriteAccessBranches) {
-		if (!Object.hasOwn(write, branch)) {
-			throw new TypeError(`access.write.${branch} is required`)
-		}
-	}
-
-	return immutableRecord({
-		create: normalizeAccessRule(write.create, 'access.write.create'),
-		update: normalizeFieldUpdateAccess(write.update),
-	})
+	return normalizeRequiredAccessRuleMap(
+		write,
+		fieldWriteAccessTransitions,
+		'access.write',
+	)
 }
 
 /** Copies and validates one inline declaration without executing policy code. */
@@ -161,9 +108,7 @@ export const normalizeFieldAccessDeclarations = (
 			continue
 		}
 
-		const write = normalizeFieldWriteAccess(access[key])
-		declarations.create = write.create
-		declarations.update = write.update
+		declarations.write = normalizeFieldWriteAccess(access[key])
 	}
 
 	return Reflect.ownKeys(declarations).length === 0

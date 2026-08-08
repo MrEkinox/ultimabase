@@ -151,8 +151,6 @@ export type {
 	FieldReadAccess,
 	FieldReadAccessDeclaration,
 	FieldReplaceAccessInput,
-	FieldUpdateAccess,
-	FieldUpdateAccessDeclaration,
 	FieldValueAccessInput,
 	FieldWriteAccess,
 	FieldWriteAccessDeclaration,

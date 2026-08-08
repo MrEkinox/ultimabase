@@ -63,6 +63,7 @@ actually references the corresponding subject.
 8. [420 — Define optional Access subject capabilities](420-optional-access-capabilities.md)
 9. [436 — Restructure Access declarations around operations](436-operation-oriented-access-declarations.md)
 10. [437 — Organize field Access around read and write capabilities](437-read-write-field-access.md)
+11. [438 — Authorize field writes only through value transitions](438-field-access-value-transitions.md)
 
 ## Completed stored-role execution order
 

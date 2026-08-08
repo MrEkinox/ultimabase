@@ -150,15 +150,6 @@ import { stringField } from '@ultimabase/core'
 
 stringField({ access: { write: { /* completion */ } } })
 `),
-		).toStrictEqual(['create', 'update'])
-		expect(
-			readPackedCompletions(`
-import { stringField } from '@ultimabase/core'
-
-stringField({
-	access: { write: { create: true, update: { /* completion */ } } },
-})
-`),
 		).toStrictEqual(['clear', 'fill', 'replace'])
 	})
 

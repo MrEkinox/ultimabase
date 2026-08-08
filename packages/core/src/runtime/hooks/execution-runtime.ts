@@ -65,9 +65,8 @@ interface HookInvocationOptions {
 }
 
 const queryableHookPhases: ReadonlySet<HookDiagnosticPhase> = new Set([
-	'access-field-create',
 	'access-field-read',
-	'access-field-update',
+	'access-field-write',
 	'access-filter',
 	'access-item',
 	'access-operation',

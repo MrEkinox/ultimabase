@@ -28,12 +28,9 @@ const Post = Schema.define({
 		authorId: stringField({
 			access: {
 				write: {
-					create: true,
-					update: {
-						fill: true,
-						replace: ({ originalValue, value }) => value === originalValue,
-						clear: false,
-					},
+					fill: true,
+					replace: ({ originalValue, value }) => value === originalValue,
+					clear: false,
 				},
 			},
 			validation: { required: true },
@@ -57,7 +54,7 @@ Field `read: true` and `read: false` apply to output, filtering, and ordering
 together. When those channels differ, all three properties are required so an
 omitted indirect disclosure cannot inherit a broader fallback.
 
-Field `write: true` and `write: false` apply to create and every update
-transition. The detailed form distinguishes filling an empty field, replacing
+Field `write: true` and `write: false` apply to every value transition. The
+detailed form distinguishes filling an empty field, replacing
 a non-null value, and clearing to canonical `null`. Direct `null` and `unset()`
 both use the `clear` rule.

@@ -366,15 +366,12 @@ describe('NativeAccessRuntime', () => {
 				visits: intField({
 					access: {
 						write: {
-							create: true,
-							update: {
-								clear: true,
-								fill: true,
-								replace: ({ originalValue, value }) => {
-									fieldValues.push([originalValue, value])
+							clear: true,
+							fill: true,
+							replace: ({ originalValue, value }) => {
+								fieldValues.push([originalValue, value])
 
-									return value <= 20
-								},
+								return value <= 20
 							},
 						},
 					},
@@ -382,12 +379,9 @@ describe('NativeAccessRuntime', () => {
 				title: stringField({
 					access: {
 						write: {
-							create: (input) => !Object.hasOwn(input, 'kind'),
-							update: {
-								clear: true,
-								fill: true,
-								replace: (input) => !Object.hasOwn(input, 'kind'),
-							},
+							clear: true,
+							fill: (input) => !Object.hasOwn(input, 'kind'),
+							replace: (input) => !Object.hasOwn(input, 'kind'),
 						},
 					},
 					validation: { required: true },
@@ -512,33 +506,23 @@ describe('NativeAccessRuntime', () => {
 				count: intField({
 					access: {
 						write: {
-							create: async ({ value }) => {
+							clear: async ({ originalValue }) => {
 								await Promise.resolve()
-								trace.push(`create:${String(value)}`)
+								trace.push(`clear:${String(originalValue)}`)
 
 								return true
 							},
-							update: {
-								clear: async ({ originalValue }) => {
-									await Promise.resolve()
-									trace.push(`clear:${String(originalValue)}`)
+							fill: async ({ value }) => {
+								await Promise.resolve()
+								trace.push(`fill:${String(value)}`)
 
-									return true
-								},
-								fill: async ({ value }) => {
-									await Promise.resolve()
-									trace.push(`fill:${String(value)}`)
+								return true
+							},
+							replace: async ({ originalValue, value }) => {
+								await Promise.resolve()
+								trace.push(`replace:${String(originalValue)}:${String(value)}`)
 
-									return true
-								},
-								replace: async ({ originalValue, value }) => {
-									await Promise.resolve()
-									trace.push(
-										`replace:${String(originalValue)}:${String(value)}`,
-									)
-
-									return true
-								},
+								return true
 							},
 						},
 					},
@@ -555,6 +539,10 @@ describe('NativeAccessRuntime', () => {
 			kind: 'create-one',
 			selection: { fields: [], kind: 'selection' },
 			schema: new QueryBuilder(schema).ast.schema,
+		} satisfies CreateOneOperationAst<typeof schema>
+		const emptyCreate = {
+			...create,
+			input: { count: null },
 		} satisfies CreateOneOperationAst<typeof schema>
 		const update = (
 			operation: UpdateOneOperationAst<
@@ -576,6 +564,7 @@ describe('NativeAccessRuntime', () => {
 		const clear = update({ field: 'count', kind: 'set', value: null })
 
 		await stages.evaluate({ context, operation: create })
+		await stages.evaluate({ context, operation: emptyCreate })
 		for (const [operation, target] of [
 			[fill, record(null)],
 			[replace, record(2)],
@@ -587,7 +576,7 @@ describe('NativeAccessRuntime', () => {
 		}
 
 		expect(trace).toStrictEqual([
-			'create:1',
+			'fill:1',
 			'fill:2',
 			'replace:2:5',
 			'clear:5',
@@ -604,24 +593,26 @@ describe('NativeAccessRuntime', () => {
 				groups: objectField({
 					access: {
 						write: {
-							create: () => {
+							fill: () => {
 								trace.push('groups')
 
 								return true
 							},
-							update: true,
+							clear: true,
+							replace: true,
 						},
 					},
 					fields: {
 						label: stringField({
 							access: {
 								write: {
-									create: ({ value }) => {
-										trace.push(`label:${String(value)}`)
+									fill: ({ value }) => {
+										trace.push(`label:${value}`)
 
 										return value !== 'forbidden'
 									},
-									update: true,
+									clear: true,
+									replace: true,
 								},
 							},
 						}),
@@ -664,19 +655,16 @@ describe('NativeAccessRuntime', () => {
 						label: stringField({
 							access: {
 								write: {
-									create: true,
-									update: {
-										clear: ({ originalValue }) => {
-											groupValues.push([originalValue, null])
+									clear: ({ originalValue }) => {
+										groupValues.push([originalValue, null])
 
-											return true
-										},
-										fill: true,
-										replace: ({ originalValue, value }) => {
-											groupValues.push([originalValue, value])
+										return true
+									},
+									fill: true,
+									replace: ({ originalValue, value }) => {
+										groupValues.push([originalValue, value])
 
-											return true
-										},
+										return true
 									},
 								},
 							},
@@ -689,15 +677,12 @@ describe('NativeAccessRuntime', () => {
 						label: stringField({
 							access: {
 								write: {
-									create: true,
-									update: {
-										clear: true,
-										fill: true,
-										replace: ({ originalValue, value }) => {
-											profileValues.push([originalValue, value])
+									clear: true,
+									fill: true,
+									replace: ({ originalValue, value }) => {
+										profileValues.push([originalValue, value])
 
-											return true
-										},
+										return true
 									},
 								},
 							},
@@ -761,15 +746,12 @@ describe('NativeAccessRuntime', () => {
 						label: stringField({
 							access: {
 								write: {
-									create: true,
-									update: {
-										clear: true,
-										fill: true,
-										replace: ({ originalValue, value }) => {
-											values.push([originalValue, value])
+									clear: true,
+									fill: true,
+									replace: ({ originalValue, value }) => {
+										values.push([originalValue, value])
 
-											return originalValue !== 'Denied'
-										},
+										return originalValue !== 'Denied'
 									},
 								},
 							},
@@ -856,15 +838,12 @@ describe('NativeAccessRuntime', () => {
 				visits: intField({
 					access: {
 						write: {
-							create: true,
-							update: {
-								clear: true,
-								fill: true,
-								replace: ({ originalValue, value }) => {
-									fieldValues.push([originalValue, value])
+							clear: true,
+							fill: true,
+							replace: ({ originalValue, value }) => {
+								fieldValues.push([originalValue, value])
 
-									return true
-								},
+								return true
 							},
 						},
 					},
@@ -935,15 +914,12 @@ describe('NativeAccessRuntime', () => {
 				first: intField({
 					access: {
 						write: {
-							create: true,
-							update: {
-								clear: true,
-								fill: true,
-								replace: ({ originalValue, value }) => {
-									firstValues.push([originalValue, value])
+							clear: true,
+							fill: true,
+							replace: ({ originalValue, value }) => {
+								firstValues.push([originalValue, value])
 
-									return true
-								},
+								return true
 							},
 						},
 					},
@@ -951,15 +927,12 @@ describe('NativeAccessRuntime', () => {
 				second: intField({
 					access: {
 						write: {
-							create: true,
-							update: {
-								clear: true,
-								fill: true,
-								replace: ({ originalValue, value }) => {
-									secondValues.push([originalValue, value])
+							clear: true,
+							fill: true,
+							replace: ({ originalValue, value }) => {
+								secondValues.push([originalValue, value])
 
-									return true
-								},
+								return true
 							},
 						},
 					},

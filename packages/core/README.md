@@ -640,12 +640,9 @@ const PostSchema = Schema.define({
 		authorId: stringField({
 			access: {
 				write: {
-					create: true,
-					update: {
-						fill: true,
-						replace: ({ originalValue, value }) => value === originalValue,
-						clear: false,
-					},
+					fill: true,
+					replace: ({ originalValue, value }) => value === originalValue,
+					clear: false,
 				},
 			},
 			validation: { required: true },
@@ -653,7 +650,7 @@ const PostSchema = Schema.define({
 		published: booleanField({
 			access: {
 				read: { output: true, where: false, orderBy: false },
-				write: { create: true, update: false },
+				write: false,
 			},
 		}),
 		title: stringField({ validation: { required: true } }),

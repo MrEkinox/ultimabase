@@ -85,33 +85,31 @@ export const AccessPost = Schema.define({
 			access: {
 				read: { orderBy: false, output: true, where: false },
 				write: {
-					create: ({ /* hover:field-value */ value }) => value === true,
-					update: false,
+					fill: ({ /* hover:field-value */ value }) => value,
+					replace: false,
+					clear: false,
 				},
 			},
 		}),
 		title: stringField({
 			access: {
 				write: {
-					create: true,
-					update: {
-						clear: ({ originalValue }) => {
-							const /* hover:field-clear-original-value */ previous =
-									originalValue
+					clear: ({ originalValue }) => {
+						const /* hover:field-clear-original-value */ previous =
+								originalValue
 
-							return previous.length > 0
-						},
-						fill: ({ value }) => {
-							const /* hover:field-fill-value */ candidate = value
+						return previous.length > 0
+					},
+					fill: ({ value }) => {
+						const /* hover:field-fill-value */ candidate = value
 
-							return candidate.length > 0
-						},
-						replace: ({ originalValue, value }) => {
-							const /* hover:field-original-value */ previous = originalValue
-							const /* hover:field-update-value */ candidate = value
+						return candidate.length > 0
+					},
+					replace: ({ originalValue, value }) => {
+						const /* hover:field-original-value */ previous = originalValue
+						const /* hover:field-update-value */ candidate = value
 
-							return previous !== candidate
-						},
+						return previous !== candidate
 					},
 				},
 			},

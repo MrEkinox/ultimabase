@@ -50,12 +50,9 @@ const Article = Schema.define({
 		authorId: stringField({
 			access: {
 				write: {
-					create: true,
-					update: {
-						fill: true,
-						replace: ({ originalValue, value }) => value === originalValue,
-						clear: false,
-					},
+					fill: true,
+					replace: ({ originalValue, value }) => value === originalValue,
+					clear: false,
 				},
 			},
 			validation: { required: true },
@@ -69,7 +66,7 @@ const Article = Schema.define({
 
 Using `read: true` or `read: false` applies the same decision to every schema
 read capability or field disclosure channel. `write: true` and `write: false`
-likewise apply to create and every update transition. Detailed forms require
+likewise apply to every value transition. Detailed forms require
 every branch so an omitted count, predicate, ordering, or transition path
 cannot inherit a broader default. Field callbacks must live under their exact
 channel; only a boolean may apply to every channel in one group.

@@ -58,8 +58,7 @@ describe('field Access declarations', () => {
 		)
 
 		expect(getFieldAccessDeclarations(field)).toStrictEqual({
-			create: true,
-			update: { clear: true, fill: true, replace: true },
+			write: { clear: true, fill: true, replace: true },
 		})
 		expect(field.options).not.toHaveProperty('access')
 	})
@@ -88,26 +87,23 @@ describe('field Access declarations', () => {
 	it('copies complete write transitions while preserving callback identity', () => {
 		const fill = () => true
 		const write: {
-			create: boolean
-			update: {
-				clear: boolean
-				fill: typeof fill
-				replace: boolean
-			}
+			clear: boolean
+			fill: typeof fill
+			replace: boolean
 		} = {
-			create: true,
-			update: { clear: false, fill, replace: true },
+			clear: false,
+			fill,
+			replace: true,
 		}
 		const field = stringField({ access: { write } })
 		const declarations = getFieldAccessDeclarations(field)
 
-		write.update.fill = () => false
+		write.fill = () => false
 
 		expect(declarations).toStrictEqual({
-			create: true,
-			update: { clear: false, fill, replace: true },
+			write: { clear: false, fill, replace: true },
 		})
-		expect(Object.isFrozen(declarations?.update)).toBe(true)
+		expect(Object.isFrozen(declarations?.write)).toBe(true)
 	})
 
 	it('copies concise boolean read decisions', () => {
@@ -176,17 +172,15 @@ describe('field Access declarations', () => {
 		],
 		[
 			{ write: () => true },
-			'access.write must be a boolean or complete create/update object',
-		],
-		[{ write: {} }, 'access.write.create is required'],
-		[{ write: { create: true } }, 'access.write.update is required'],
-		[
-			{ write: { create: true, update: () => true } },
-			'access.write.update must be a boolean or complete fill/replace/clear object',
+			'access.write must be a boolean or complete fill/replace/clear object',
 		],
 		[
-			{ write: { create: true, update: { fill: true, replace: true } } },
-			'access.write.update.clear is required',
+			{ write: { create: true, update: false } },
+			'Unknown Access rule: access.write.create',
+		],
+		[
+			{ write: { fill: true, replace: true } },
+			'access.write.clear is required',
 		],
 	] as const)('rejects malformed inline declarations %#', (access, message) => {
 		expect(() => declareStringFieldFromUnknown({ access })).toThrow(

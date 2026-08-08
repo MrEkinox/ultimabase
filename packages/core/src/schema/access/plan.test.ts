@@ -45,7 +45,7 @@ const articleSchema = Schema.define({
 					output: fieldItem,
 					where: fieldFilter,
 				},
-				write: { create: false, update: true },
+				write: { clear: true, fill: false, replace: true },
 			},
 		}),
 		title: stringField({ validation: { required: true } }),
@@ -74,10 +74,9 @@ describe('compiled Access plans', () => {
 		expect(fieldPlan?.read.item[0]?.rule).toBe(fieldItem)
 		expect(fieldPlan?.read.filter[0]?.rule).toBe(fieldFilter)
 		expect(fieldPlan?.read.order[0]?.rule).toBe(fieldOrder)
-		expect(fieldPlan?.create[0]?.rule).toBe(false)
-		expect(fieldPlan?.update.clear[0]?.rule).toBe(true)
-		expect(fieldPlan?.update.fill[0]?.rule).toBe(true)
-		expect(fieldPlan?.update.replace[0]?.rule).toBe(true)
+		expect(fieldPlan?.write.clear[0]?.rule).toBe(true)
+		expect(fieldPlan?.write.fill[0]?.rule).toBe(false)
+		expect(fieldPlan?.write.replace[0]?.rule).toBe(true)
 		expect(fieldPlan?.relationWrite).toStrictEqual([])
 		expect(oneRead).not.toHaveBeenCalled()
 		expect(developerFilter).not.toHaveBeenCalled()

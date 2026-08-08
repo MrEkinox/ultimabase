@@ -886,9 +886,9 @@ export const aclPlugin = (options: ACLPluginOptions = {}): ACLPlugin => {
 				'protect-acl-field',
 				aclFieldAccessTarget,
 				() => ({
-					// Generated defaults may enter create candidates, but only master may inspect or replace ACL values.
+					// Generated defaults may fill create candidates, while prepared ACL policy prevents later mutation.
 					read: false,
-					write: { create: true, update: false },
+					write: { clear: false, fill: true, replace: false },
 				}),
 				{ master: 'bypass' },
 			)

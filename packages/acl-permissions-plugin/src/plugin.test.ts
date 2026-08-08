@@ -1018,6 +1018,7 @@ describe('aclPlugin create input resolution', () => {
 				code: 'PERMISSION_DENIED',
 			} satisfies Partial<FrameworkError>)
 			expect(adapter.transactions).toHaveLength(4)
+			// A late fill passes generic field Access, then the prepared ACL policy rejects it securely.
 			expect(
 				adapter.transactions.map(({ prepareCount, rollbackCount }) => ({
 					prepareCount,
@@ -1027,7 +1028,7 @@ describe('aclPlugin create input resolution', () => {
 				{ prepareCount: 1, rollbackCount: 1 },
 				{ prepareCount: 0, rollbackCount: 1 },
 				{ prepareCount: 0, rollbackCount: 1 },
-				{ prepareCount: 0, rollbackCount: 1 },
+				{ prepareCount: 1, rollbackCount: 1 },
 			])
 		} finally {
 			await ultimabase.dispose()

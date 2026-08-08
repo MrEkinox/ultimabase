@@ -282,14 +282,16 @@ export interface FieldClearAccessInput<TValue> extends FieldAccessInput {
 	readonly originalValue: TValue
 }
 
-/** Declares every update transition explicitly. */
-export interface FieldUpdateAccess<TField extends GenericField> {
+/** Declares every generic field value transition explicitly. */
+export interface FieldWriteAccess<TField extends GenericField> {
 	/**
-	 * Controls updates from canonical null to a non-null value.
+	 * Controls every transition from canonical null to a non-null value.
 	 * @example `fill: ({ value }) => value.length > 0`
 	 */
 	readonly fill: AccessDecisionRule<
-		FieldFillAccessInput<FieldHookTypes<TField>['object']>
+		FieldFillAccessInput<
+			FieldHookTypes<TField>['create'] | FieldHookTypes<TField>['object']
+		>
 	>
 	/**
 	 * Controls updates from one non-null value to another non-null value.
@@ -307,27 +309,7 @@ export interface FieldUpdateAccess<TField extends GenericField> {
 	>
 }
 
-/** Applies one update decision to every transition or requires all three branches. */
-export type FieldUpdateAccessDeclaration<TField extends GenericField> =
-	boolean | FieldUpdateAccess<TField>
-
-/** Describes initial field input and every later value transition. */
-export interface FieldWriteAccess<TField extends GenericField> {
-	/**
-	 * Controls a present field supplied through the actual create branch.
-	 * @example `create: ({ value }) => value !== null`
-	 */
-	readonly create: AccessDecisionRule<
-		FieldValueAccessInput<FieldHookTypes<TField>['create']>
-	>
-	/**
-	 * Controls all updates together or through fill, replace, and clear.
-	 * @example `update: { fill: true, replace: true, clear: false }`
-	 */
-	readonly update: FieldUpdateAccessDeclaration<TField>
-}
-
-/** Applies one boolean to every write or declares create and update separately. */
+/** Applies one boolean to every write or requires all three transitions. */
 export type FieldWriteAccessDeclaration<TField extends GenericField> =
 	boolean | FieldWriteAccess<TField>
 
@@ -339,8 +321,8 @@ export interface FieldAccess<TField extends GenericField> {
 	 */
 	readonly read?: FieldReadAccessDeclaration<TField>
 	/**
-	 * Controls every write together or through create and update transitions.
-	 * @example `write: { create: true, update: { fill: true, replace: true, clear: false } }`
+	 * Controls every write together or through fill, replace, and clear.
+	 * @example `write: { fill: true, replace: true, clear: false }`
 	 */
 	readonly write?: FieldWriteAccessDeclaration<TField>
 }

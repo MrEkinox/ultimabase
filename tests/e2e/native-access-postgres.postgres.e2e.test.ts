@@ -53,8 +53,9 @@ const AccessArticle = Schema.define({
 			access: {
 				read: { orderBy: false, output: false, where: false },
 				write: {
-					create: ({ context }) => context.access.mode === 'master',
-					update: false,
+					fill: ({ context }) => context.access.mode === 'master',
+					replace: false,
+					clear: false,
 				},
 			},
 		}),

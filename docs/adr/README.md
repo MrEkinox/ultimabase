@@ -157,6 +157,7 @@ Accepted records:
 - [ADR-0168: Operation Access hides terminal cardinality](0168-operation-access-hides-terminal-cardinality.md)
 - [ADR-0169: Operation-oriented Access declarations](0169-operation-oriented-access-declarations.md)
 - [ADR-0170: Read and write field Access](0170-read-write-field-access.md)
+- [ADR-0171: Field Access authorizes value transitions](0171-field-access-value-transitions.md)
 
 Superseded records:
 

@@ -29,7 +29,7 @@ import {
 	type FieldAccessPlan,
 	type SchemaAccessPlan,
 } from '../../schema/access/plan.js'
-import type { FieldUpdateAccessTransition } from '../../schema/access/field-declarations.js'
+import type { FieldWriteAccessTransition } from '../../schema/access/field-declarations.js'
 import {
 	immutableArray,
 	immutableRecord,
@@ -80,9 +80,8 @@ import type {
 } from '../pipeline/contracts.js'
 
 type AccessPhase =
-	| 'access-field-create'
 	| 'access-field-read'
-	| 'access-field-update'
+	| 'access-field-write'
 	| 'access-filter'
 	| 'access-item'
 	| 'access-operation'
@@ -470,9 +469,9 @@ const evaluatePreparedUpdateFieldRules = async (
 			values,
 			fieldName,
 		)) {
-			const transition: FieldUpdateAccessTransition =
+			const transition: FieldWriteAccessTransition =
 				value === null ? 'clear' : originalValue === null ? 'fill' : 'replace'
-			const rules = field.update[transition]
+			const rules = field.write[transition]
 			const input =
 				transition === 'clear'
 					? immutableRecord({
@@ -494,7 +493,7 @@ const evaluatePreparedUpdateFieldRules = async (
 				{
 					branch: transition,
 					field,
-					phase: 'access-field-update',
+					phase: 'access-field-write',
 					schema: schemaPlan.schema,
 				},
 				input,
@@ -551,7 +550,7 @@ const evaluateFieldReferenceRules = async (
 	}
 }
 
-const evaluateCreateFieldRules = async (
+const evaluateCreateFillRules = async (
 	runtime: HookExecutionRuntime,
 	request: RuntimeOperationStageInput<DatabaseOperationAst>,
 	plan: AccessPlan,
@@ -559,7 +558,7 @@ const evaluateCreateFieldRules = async (
 	inputs: readonly RuntimeFieldInputValue[],
 ): Promise<void> => {
 	for (const input of inputs) {
-		if (input.mode !== 'create') continue
+		if (input.mode !== 'create' || input.value === null) continue
 
 		const field = plan.getField(schemaPlan.schema, input.fieldPath)
 
@@ -572,11 +571,11 @@ const evaluateCreateFieldRules = async (
 		await assertDecisionRules(
 			runtime,
 			request,
-			field.create,
+			field.write.fill,
 			{
-				branch: 'create',
+				branch: 'fill',
 				field,
-				phase: 'access-field-create',
+				phase: 'access-field-write',
 				schema: schemaPlan.schema,
 			},
 			immutableRecord({
@@ -608,7 +607,7 @@ const evaluateRelationWriteRules = async (
 				{
 					branch: 'write',
 					field,
-					phase: 'access-field-update',
+					phase: 'access-field-write',
 					schema: schemaPlan.schema,
 				},
 				immutableRecord({ change, context: request.context }),
@@ -619,7 +618,7 @@ const evaluateRelationWriteRules = async (
 }
 
 /** Determines whether one transition map has the same static result for every value state. */
-const readStaticUpdateDecision = (
+const readStaticWriteDecision = (
 	field: FieldAccessPlan,
 	request?: RuntimeOperationStageInput<DatabaseOperationAst>,
 ): boolean | undefined => {
@@ -628,8 +627,8 @@ const readStaticUpdateDecision = (
 	for (const transition of ['fill', 'replace', 'clear'] as const) {
 		const rules =
 			request === undefined
-				? field.update[transition]
-				: getEffectiveRules(field.update[transition], request.context)
+				? field.write[transition]
+				: getEffectiveRules(field.write[transition], request.context)
 
 		if (rules.some(({ rule }) => typeof rule === 'function')) {
 			return undefined
@@ -655,7 +654,7 @@ const evaluateMutationFieldRules = async (
 	const operation = request.operation as unknown as ExecutableOperationAst
 	const inputs = collectOperationFieldInputs(request.operation, 'parent-first')
 
-	await evaluateCreateFieldRules(
+	await evaluateCreateFillRules(
 		runtime,
 		request,
 		plan,
@@ -680,7 +679,7 @@ const evaluateMutationFieldRules = async (
 			)
 		}
 
-		if (Object.values(field.update).every((rules) => rules.length === 0)) {
+		if (Object.values(field.write).every((rules) => rules.length === 0)) {
 			await assertDecisionRules(
 				runtime,
 				request,
@@ -688,7 +687,7 @@ const evaluateMutationFieldRules = async (
 				{
 					branch: 'write',
 					field,
-					phase: 'access-field-update',
+					phase: 'access-field-write',
 					schema: schemaPlan.schema,
 				},
 				immutableRecord({ context: request.context }),
@@ -697,17 +696,17 @@ const evaluateMutationFieldRules = async (
 			continue
 		}
 
-		const staticDecision = readStaticUpdateDecision(field, request)
+		const staticDecision = readStaticWriteDecision(field, request)
 
 		if (staticDecision === false) {
 			await assertDecisionRules(
 				runtime,
 				request,
-				Object.values(field.update).flat(),
+				Object.values(field.write).flat(),
 				{
 					branch: 'write',
 					field,
-					phase: 'access-field-update',
+					phase: 'access-field-write',
 					schema: schemaPlan.schema,
 				},
 				immutableRecord({ context: request.context }),
@@ -1253,7 +1252,7 @@ export class NativeAccessRuntime {
 
 				return (
 					field?.field === input.field &&
-					readStaticUpdateDecision(field) === undefined
+					readStaticWriteDecision(field) === undefined
 				)
 			},
 		)
@@ -1374,7 +1373,7 @@ export class NativeAccessRuntime {
 
 			item = materializePreparedSchemaDraft(schemaPlan.schema, operation.create)
 			originalItem = null
-			await evaluateCreateFieldRules(
+			await evaluateCreateFillRules(
 				this.#runtime,
 				request,
 				this.#plan,
@@ -1530,7 +1529,7 @@ export class NativeAccessRuntime {
 					readExpressionUpdateFieldValues(item.update),
 				)
 			} else {
-				await evaluateCreateFieldRules(
+				await evaluateCreateFillRules(
 					this.#runtime,
 					request,
 					this.#plan,

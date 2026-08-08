@@ -195,27 +195,14 @@ stringField({ access: { read: { /* completion */ } } })
 		expectDocumentedNames(completions, ['output', 'where', 'orderBy'])
 	})
 
-	it('documents the field write branches and update transitions', () => {
+	it('documents every field write transition directly', () => {
 		const writeCompletions = readMemberCompletions(`
 import { stringField } from '../../src/schema/index.js'
 
 stringField({ access: { write: { /* completion */ } } })
 `)
-		const updateCompletions = readMemberCompletions(`
-import { stringField } from '../../src/schema/index.js'
 
-stringField({
-	access: {
-		write: {
-			create: true,
-			update: { /* completion */ },
-		},
-	},
-})
-`)
-
-		expectDocumentedNames(writeCompletions, ['create', 'update'])
-		expectDocumentedNames(updateCompletions, ['fill', 'replace', 'clear'])
+		expectDocumentedNames(writeCompletions, ['fill', 'replace', 'clear'])
 	})
 
 	it('offers the shared where builder on dynamic schema Access restrictions', () => {

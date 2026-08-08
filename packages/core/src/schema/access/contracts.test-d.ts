@@ -128,29 +128,22 @@ const Article = Schema.define({
 					orderBy: ({ context }) => context.access.mode === 'master',
 				},
 				write: {
-					create: ({ context, value }) => {
+					fill: ({ context, value }) => {
 						expectTypeOf(context).toEqualTypeOf<AccessContext>()
-						expectTypeOf(value).toEqualTypeOf<boolean | null>()
+						expectTypeOf(value).toEqualTypeOf<boolean>()
 
 						return true
 					},
-					update: {
-						fill: ({ value }) => {
-							expectTypeOf(value).toEqualTypeOf<boolean>()
+					replace: ({ originalValue, value }): Promise<boolean> => {
+						expectTypeOf(originalValue).toEqualTypeOf<boolean>()
+						expectTypeOf(value).toEqualTypeOf<boolean>()
 
-							return true
-						},
-						replace: ({ originalValue, value }): Promise<boolean> => {
-							expectTypeOf(originalValue).toEqualTypeOf<boolean>()
-							expectTypeOf(value).toEqualTypeOf<boolean>()
+						return Promise.resolve(true)
+					},
+					clear: ({ originalValue }) => {
+						expectTypeOf(originalValue).toEqualTypeOf<boolean | null>()
 
-							return Promise.resolve(true)
-						},
-						clear: ({ originalValue }) => {
-							expectTypeOf(originalValue).toEqualTypeOf<boolean | null>()
-
-							return true
-						},
+						return true
 					},
 				},
 			},
@@ -251,17 +244,14 @@ test('rejects unsupported families and invalid callback results', () => {
 	})
 	stringField({
 		access: {
-			// @ts-expect-error -- detailed writes require create and update.
-			write: { create: true },
+			// @ts-expect-error -- the intermediate operation-oriented write shape is unsupported.
+			write: { create: true, update: false },
 		},
 	})
 	stringField({
 		access: {
-			write: {
-				create: true,
-				// @ts-expect-error -- detailed updates require every transition.
-				update: { fill: true, replace: true },
-			},
+			// @ts-expect-error -- detailed writes require every transition.
+			write: { fill: true, replace: true },
 		},
 	})
 	Schema.define({
