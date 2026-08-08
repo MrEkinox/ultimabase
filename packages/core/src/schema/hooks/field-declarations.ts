@@ -12,9 +12,7 @@ import {
 } from '../access/field-declarations.js'
 
 /** Lists accepted inline phases once so declaration validation cannot drift. */
-export const fieldHookPhases = [
-	'resolveInput',
-] as const
+export const fieldHookPhases = ['resolveInput'] as const
 
 /** Identifies every field phase accepted at the declaration boundary. */
 export type FieldHookPhase = (typeof fieldHookPhases)[number]

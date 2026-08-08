@@ -1,10 +1,14 @@
 # 346: Preserve cardinality-neutral hook families
 
-- Status: planned
+- Status: superseded
 - Milestone: 3
 - Packages: `@ultimabase/core`
 - Depends on: 327, 334, 336
 - ADR: ADR-0089, ADR-0109
+
+ADR-0163 replaces the flat hook names in this proposal, and ADR-0164 removes
+public collection cardinality from item hooks and Access. The accepted grouped
+contract is documented by those records rather than this earlier target.
 
 ## Goal
 

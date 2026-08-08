@@ -852,7 +852,10 @@ An object field is one embedded stored value, not an independently addressable
 schema record. Its children may therefore be value fields, including nested
 objects and lists, but not `pointerField` or `relationField`. Declare schema
 relationships as top-level fields; use an explicit relationship schema when the
-relationship itself needs additional structured data.
+relationship itself needs additional structured data. Likewise,
+`intField({ autoIncrement: true })` and
+`bigintField({ autoIncrement: true })` require a dedicated top-level database
+column and cannot be embedded.
 
 `typeName` follows the same optional identity contract as enum fields. A
 generator may use it as the base for distinct output, create-input,

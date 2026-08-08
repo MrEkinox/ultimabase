@@ -1,10 +1,10 @@
 # 704: Add column-backed object fields
 
-- Status: planned
+- Status: ready
 - Milestone: 7+
-- Packages: schema, postgres
+- Packages: `@ultimabase/core`, `@ultimabase/postgres-plugin`
 - Depends on: 703
-- ADR: ADR-0017, new ADR required
+- ADR: ADR-0021, ADR-0165, new ADR required
 
 ## Goal
 

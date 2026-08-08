@@ -44,9 +44,7 @@ test('correlates pointer keys with their exact target query', () => {
 		},
 	])
 
-	expectTypeOf(inclusion.fields[0]?.field).toEqualTypeOf<
-		'author' | undefined
-	>()
+	expectTypeOf(inclusion.fields[0]?.field).toEqualTypeOf<'author' | undefined>()
 
 	normalizeQueryInclusion(postSchema, [
 		{

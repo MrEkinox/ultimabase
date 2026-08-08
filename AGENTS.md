@@ -7,7 +7,8 @@ This file is the operational contract for any coding agent working in this repos
 Before changing code:
 
 1. Read `README.md`, `ARCHITECTURE.md`, and the README of every package in scope.
-2. Read `CURRENT_PLAN.md` when it exists; it records the active multi-issue objective and resume point.
+2. Read `CURRENT_PLAN.md` when it exists; it records the active or explicitly
+   paused multi-issue objective and its resume point.
 3. Read the relevant ADRs under `docs/adr/`.
 4. Pick one issue from `issues/` unless the user explicitly defines a narrower task.
 5. Check the issue dependencies and do not silently implement blocked work.
@@ -91,16 +92,15 @@ Preserve this pipeline unless an ADR changes it:
 normalization
 → structural validation
 → field resolveInput
-→ schema resolveInput
-→ structural revalidation
-→ field validation hooks
-→ schema validation hooks
-→ monotonic guards, adapter constraints, and input or selection restrictions
+→ operation and mutation-field Access
+→ load and lock the visible target when one may exist
+→ item Access
+→ schema resolveInput with originalItem
+→ structural revalidation without replaying defaults or generators
+→ value-dependent Access re-evaluation
 → plugin/global before hooks
 → schema before hooks
-→ affected field before hooks
 → database operation
-→ affected field after hooks
 → schema after hooks
 → plugin/global after hooks
 → final monotonic output restrictions
@@ -114,7 +114,10 @@ reads do not unless the developer opens one explicitly. Hooks are ordered by
 plugin dependencies, then plugin position, then registration order. Business
 after-hooks run before commit and may abort the transaction. Realtime and
 asynchronous audit delivery happen after commit. Do not add a general
-`skipHooks` escape hatch or materialize set-based updates/deletes for item hooks.
+`skipHooks` escape hatch. Generated-schema collection mutations are ordered
+itemized singular operations; do not reintroduce public set-based or
+partial-success variants without an ADR. Low-level set-based adapter operations
+must not manufacture item hooks implicitly.
 Do not add permission-specific stage names or neutral permission handlers to
 Runtime; an absent policy plugin contributes nothing.
 

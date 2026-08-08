@@ -10,6 +10,7 @@ import {
 	type CompactScalarFieldDefinition,
 	type CompatibleGeneratedScalarOptions,
 	createGeneratedCompactScalarFieldFactory,
+	type GeneratedScalarFieldOptions,
 	type DefaultedCompactScalarFieldOptions,
 	type GeneratedScalarOption,
 	type NonDefaultedCompactScalarFieldOptions,
@@ -92,7 +93,7 @@ type ResolvedIntField<
 > = CompactScalarFieldDefinition<
 	'int',
 	number,
-	IntFieldOptions,
+	GeneratedScalarFieldOptions<IntFieldOptions, 'autoIncrement', TAutoIncrement>,
 	TRequired,
 	TList,
 	TImmutable,

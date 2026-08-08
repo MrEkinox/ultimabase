@@ -91,9 +91,7 @@ export const readInclusions = (
 				!isPlainRecord(candidate.query.schema) ||
 				!Schema.is(candidate.query.schema.definition)
 			) {
-				throw new TypeError(
-					`Runtime inclusion[${String(index)}] is invalid`,
-				)
+				throw new TypeError(`Runtime inclusion[${String(index)}] is invalid`)
 			}
 
 			return immutableRecord({

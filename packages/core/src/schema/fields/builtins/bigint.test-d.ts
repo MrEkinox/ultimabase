@@ -41,6 +41,9 @@ test('preserves bigint literals and operation-specific inference', () => {
 		FieldDefinition<'bigint', bigint, BigintFieldOptions, FieldInferenceState>
 	>()
 	expectTypeOf(bigintSchema.fields.sequence).toExtend<BigintField>()
+	expectTypeOf(
+		bigintSchema.fields.sequence.options.autoIncrement,
+	).toEqualTypeOf<true>()
 	expectTypeOf<
 		FieldInferenceStateOf<typeof bigintSchema.fields.sequence>['object']
 	>().toEqualTypeOf<'required'>()

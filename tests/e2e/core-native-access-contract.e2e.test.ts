@@ -77,9 +77,7 @@ describe('packed @ultimabase/core native Access contract', () => {
 		expect(readHoverDisplay('field-original-value')).toContain('string')
 		expect(readHoverDisplay('field-update-value')).toContain('string')
 		const createItem = readHoverDisplay('create-access-item')
-		const originalUpdateItem = readHoverDisplay(
-			'update-original-access-item',
-		)
+		const originalUpdateItem = readHoverDisplay('update-original-access-item')
 		const updateItem = readHoverDisplay('update-access-item')
 
 		expect(createItem).toContain('readonly authorId: string')

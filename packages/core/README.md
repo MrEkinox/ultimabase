@@ -249,8 +249,8 @@ names are never parsed as paths. A `jsonField` accepts dynamic string
 segments and safe `JsonValue` operands. An `objectField` rejects unknown paths,
 keys, values, and unsupported terminal operators in TypeScript. Paths cannot
 traverse list fields. Embedded object children are stored values, so pointer and
-relation fields must remain top-level schema fields. Since persisted typed
-objects contain every declared key,
+relation fields and auto-incremented integer sequences must remain top-level
+schema fields. Since persisted typed objects contain every declared key,
 their root key checks are normally redundant; the same operators are primarily
 useful for dynamic JSON branches.
 

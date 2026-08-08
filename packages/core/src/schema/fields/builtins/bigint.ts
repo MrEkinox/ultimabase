@@ -10,6 +10,7 @@ import {
 	type CompactScalarFieldDefinition,
 	type CompatibleGeneratedScalarOptions,
 	createGeneratedCompactScalarFieldFactory,
+	type GeneratedScalarFieldOptions,
 	type DefaultedCompactScalarFieldOptions,
 	type GeneratedScalarOption,
 	type NonDefaultedCompactScalarFieldOptions,
@@ -92,7 +93,11 @@ type ResolvedBigintField<
 > = CompactScalarFieldDefinition<
 	'bigint',
 	bigint,
-	BigintFieldOptions,
+	GeneratedScalarFieldOptions<
+		BigintFieldOptions,
+		'autoIncrement',
+		TAutoIncrement
+	>,
 	TRequired,
 	TList,
 	TImmutable,

@@ -126,6 +126,18 @@ export type GeneratedScalarOption<
 	THasGeneratedValue extends boolean,
 > = Readonly<Partial<Record<TGenerationKey, THasGeneratedValue>>>
 
+/** Retains an exact generation flag only when a composed field must inspect it. */
+export type GeneratedScalarFieldOptions<
+	TOptions extends object,
+	TGenerationKey extends keyof TOptions,
+	THasGeneratedValue extends boolean,
+> = Omit<TOptions, TGenerationKey> &
+	(boolean extends THasGeneratedValue
+		? Readonly<Partial<Record<TGenerationKey, boolean>>>
+		: THasGeneratedValue extends true
+			? Readonly<Record<TGenerationKey, true>>
+			: Readonly<Partial<Record<TGenerationKey, false>>>)
+
 type CompatibleGeneratedValue<
 	THasGeneratedValue extends boolean,
 	TList extends FieldListOption,

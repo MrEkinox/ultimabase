@@ -21,8 +21,9 @@ complete previous/current hook snapshots separate from selected public results.
 Its PostgreSQL work covers singular create, update, and delete; issue 508 owns
 the remaining bulk and concurrency-resolved upsert execution.
 
-Issue 336 retains the explicit future itemized update/delete work without
-placing it on the active hook-lifecycle critical path.
+Issue 336 is superseded by ADR-0164. Generated-schema collection mutations are
+now ordered, atomic batches of singular item operations rather than a set-based
+surface plus optional itemized terminals.
 
 Issue 337 removes the old named permission stages after the native dispatcher
 exists. Persisted ACL, tenancy, and community policies then share
@@ -37,8 +38,8 @@ schema-specific classes from `Schema.define()`. Issue 349 adds immutable
 instance persistence commands only after contextual Query terminals and
 authority options exist. `HookContext` and the future server-side `QueryCursor`
 remain Runtime-owned capabilities. All model commands preserve plain adapter
-boundaries and delegate through Query rather than implementing mutable Active
-Record state.
+boundaries and delegate through the same RequestEngine pipeline rather than
+implementing mutable Active Record state.
 
 Issue 342 retains the deferred schema-aware Query JSON round trip for transport
 plugins. Its concise input must remain validation-only builder state, preserve
@@ -48,28 +49,25 @@ public contract.
 Issue 343 adds the small `byId(id)` builder alias without introducing terminal
 variants or another adapter operation.
 
-After issue 347 consolidates execution on `Query`, issue 345 completes the
-concise singular terminal vocabulary with `update()` and `delete()` while
-retaining explicit `*Many` methods for collection and set-based behavior. Issue
-346 then protects the cardinality-neutral hook contract across the bulk and
-itemized implementations: terminal kinds remain exact discriminants, but
-developers never declare separate `One` and `Many` hook phases.
+ADR-0132 makes Query read-only and moves writes to generated schema classes.
+ADR-0149 gives schema commands explicit `One` and `Many` names, while ADR-0152
+makes typed object inputs on schema-root `findOne`, `findMany`, `get`, `count`,
+and `exists` the canonical read contract. `QueryBuilder` remains an immutable,
+non-executing composition utility. ADR-0164 itemizes collection writes before
+public item Access and hooks, which use cardinality-free business kinds.
 
-Issues 347, 350, and 348 consolidate builder, context, and execution DX around
-one immutable `Query` class. Core first removes native user authority in favor
-of plugin-owned typed context values. Terminals then resolve the active Runtime
-scope or an explicitly supplied `UltimaBase` and context, with trusted
-backend-only master elevation. This removes `BoundQuery`, `context.query`,
-session handling in Query, and repeated context plumbing while preserving hook
-transactions, revocable leases, application isolation, and the transport
-authority boundary.
+Issues 347, 350, and 348 supplied the contextual execution and authority
+foundation that these later decisions refined. Reads and writes resolve the
+active Runtime scope or an explicitly supplied `UltimaBase` and context, with
+trusted backend-only master elevation. There is no `BoundQuery`, process-wide
+application singleton, session-owned Query, or mutable execution builder.
 
 Issue 349 completes the object-level DX with immutable `create`, `upsert`,
 `update`, and `delete` commands on the schema-specific draft or persisted
-instance. Collection operations remain on `Post.query()` and every instance
-command reaches the same Query and Runtime pipeline.
+instance. Collection operations remain on the generated schema class and every
+instance command reaches the same Runtime pipeline.
 
-Issue 351 participates in the active
-[ACL hardening and DX plan](../../CURRENT_PLAN.md). It distinguishes optional
+Issue 351 completed the first part of the now
+[paused ACL hardening and DX plan](../../CURRENT_PLAN.md). It distinguishes optional
 post-commit notifications from required event delivery so ACL, roles, and
 future feature plugins do not register synthetic no-op consumers.

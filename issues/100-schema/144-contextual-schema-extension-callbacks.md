@@ -1,10 +1,10 @@
 # 144: Contextualize schema extension callbacks from sibling fields
 
-- Status: completed
+- Status: done
 - Milestone: 1
 - Packages: `@ultimabase/core`, `@ultimabase/acl-permissions-plugin`
 - Depends on: 126, 143, 431
-- ADR: new ADR required if public declaration syntax changes
+- ADR: none required; public declaration syntax remained unchanged
 
 ## Goal
 

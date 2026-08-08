@@ -5,11 +5,11 @@ The issue backlog is the executable roadmap. This document only describes milest
 ## Current execution priority
 
 The Runtime-to-PostgreSQL vertical, native hook lifecycle, fundamental Access,
-transport-neutral relations, developer-defined stored roles, and persisted
-object ACL are complete. The active priority is the
-[ACL hardening and developer-experience consolidation plan](CURRENT_PLAN.md),
-which closes security, provider-ordering, callback-typing, cleanup, event, and
-maintainability findings before authentication builds on this foundation.
+transport-neutral relations, developer-defined stored roles, persisted object
+ACL, structured JSONB fields, and the schema-root Query and mutation API are
+complete foundations. No multi-issue objective is currently active. The
+[paused ACL hardening plan](CURRENT_PLAN.md) retains its exact resume point at
+issue 432 until the user explicitly reactivates it.
 
 Completed cross-milestone plans are retained under
 [`docs/plans/completed/`](docs/plans/completed/) so their decisions remain
@@ -53,10 +53,11 @@ Hono server, generated REST endpoints, GraphQL schema generation, cursor connect
 
 ## Milestone 7+ — Optional ecosystem
 
-Pointers and relations are complete transport-neutral foundations. Object
-fields, authentication, realtime, jobs, cache, gRPC, OpenAPI, CLI, code
-generation, SDKs, audit, observability, soft delete, tenant isolation, advanced
-fields, health, and administration remain issue-tracked extensions. New
+Pointers, relations, and JSONB-backed object fields are complete
+transport-neutral foundations. Authentication, realtime, jobs, cache, gRPC,
+OpenAPI, CLI, code generation, SDKs, audit, observability, soft delete, tenant
+isolation, advanced fields, health, and administration remain issue-tracked
+extensions. New
 packages are created only when implementation begins.
 
 ## First usable release

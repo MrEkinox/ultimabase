@@ -1,6 +1,6 @@
 # 353: Add structured JSON and object Query filters
 
-- Status: completed
+- Status: done
 - Milestone: 3
 - Packages: `@ultimabase/core`, `@ultimabase/postgres-plugin`
 - Depends on: 302, 303, 505

@@ -1,6 +1,6 @@
 # 416: Define typed Access filters
 
-- Status: completed
+- Status: done
 - Milestone: 4
 - Packages: `@ultimabase/core`
 - Depends on: 304, 401, 421

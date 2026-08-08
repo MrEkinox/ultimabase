@@ -103,7 +103,9 @@ const Article = Schema.define({
 			},
 			update: ({ originalItem, item, kind }) => {
 				expectTypeOf(originalItem).toEqualTypeOf<SchemaResult<typeof Article>>()
-				expectTypeOf(item).toEqualTypeOf<Readonly<InferObject<typeof Article>>>()
+				expectTypeOf(item).toEqualTypeOf<
+					Readonly<InferObject<typeof Article>>
+				>()
 				expectTypeOf(kind).toEqualTypeOf<'update'>()
 
 				return originalItem.authorId === item.authorId
@@ -113,15 +115,15 @@ const Article = Schema.define({
 				if (input.mode === 'create') {
 					expectTypeOf(input.originalItem).toEqualTypeOf<null>()
 					expectTypeOf(input.item).toEqualTypeOf<
-					SchemaPreparedDraft<typeof Article>
-				>()
+						SchemaPreparedDraft<typeof Article>
+					>()
 				} else {
 					expectTypeOf(input.originalItem).toEqualTypeOf<
-					SchemaResult<typeof Article>
-				>()
+						SchemaResult<typeof Article>
+					>()
 					expectTypeOf(input.item).toEqualTypeOf<
-					Readonly<InferObject<typeof Article>>
-				>()
+						Readonly<InferObject<typeof Article>>
+					>()
 				}
 
 				return true

@@ -158,7 +158,7 @@ Schema.define({
 	])(
 		'suggests the remaining schema Access $branch members',
 		({ access, expected }) => {
-		const completions = readMemberCompletions(`
+			const completions = readMemberCompletions(`
 import { Schema } from '../../src/schema/index.js'
 
 Schema.define({

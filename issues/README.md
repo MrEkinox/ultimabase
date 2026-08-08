@@ -13,6 +13,8 @@ in a different order without changing package dependency direction.
 - `planned`: valid work, but dependencies are not yet complete.
 - `in-progress`: an agent is actively working on it.
 - `done`: acceptance criteria and tests are complete.
+- `superseded`: a later accepted decision replaced the issue before its
+  original acceptance criteria were implemented.
 - `blocked`: an external decision or condition prevents progress.
 
 Agents should update status only when they are actually doing the work. Do not mark dependency issues done implicitly.

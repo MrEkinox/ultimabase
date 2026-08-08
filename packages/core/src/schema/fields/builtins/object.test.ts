@@ -388,6 +388,27 @@ describe('object fields and list metadata', () => {
 		)
 	})
 
+	it('rejects auto-incremented integers inside embedded objects', () => {
+		expect(() => {
+			Reflect.apply(objectField, undefined, [
+				{ fields: { sequence: intField({ autoIncrement: true }) } },
+			])
+		}).toThrow(
+			new TypeError(
+				'fields.sequence cannot use autoIncrement inside objectField',
+			),
+		)
+		expect(() => {
+			Reflect.apply(objectField, undefined, [
+				{ fields: { sequence: bigintField({ autoIncrement: true }) } },
+			])
+		}).toThrow(
+			new TypeError(
+				'fields.sequence cannot use autoIncrement inside objectField',
+			),
+		)
+	})
+
 	it('rejects malformed nested object definitions', () => {
 		const invalidShape = { kind: 42, options: {} }
 		const missingFields = { kind: 'object', options: {} } as const

@@ -2,7 +2,7 @@
 
 - Status: ready
 - Milestone: 7+
-- Packages: schema, core
+- Packages: `@ultimabase/core`, official adapter and transport plugins
 - Depends on: 125, 207, 210
 - ADR: required
 

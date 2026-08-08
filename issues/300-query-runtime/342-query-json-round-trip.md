@@ -1,10 +1,16 @@
 # 342: Add schema-aware Query JSON round trips
 
-- Status: planned
+- Status: superseded
 - Milestone: 3
 - Packages: `@ultimabase/core`
 - Depends on: 306, 347
-- ADR: ADR-0052, ADR-0058, ADR-0108, ADR-0109
+- ADR: ADR-0143, ADR-0152
+
+ADR-0143 deliberately excludes `toJSON()` because logical Query operands need
+transport-specific encoding, and ADR-0152 replaces executable Query terminals
+with canonical schema-root object inputs. REST and GraphQL must decode their
+wire values into those inputs instead of reviving this builder-owned JSON
+contract.
 
 ## Goal
 

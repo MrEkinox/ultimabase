@@ -57,9 +57,7 @@ interface DynamicRelationalQueryBuilder {
 }
 
 type PostgresIncludedValue =
-	| DatabaseLogicalRecord
-	| readonly DatabaseLogicalRecord[]
-	| null
+	DatabaseLogicalRecord | readonly DatabaseLogicalRecord[] | null
 
 const postgresIncludedValues = new WeakMap<
 	object,
@@ -437,7 +435,9 @@ const executePostgresRelationalReadRaw = async (
 
 	if (operation.kind === 'find-many') {
 		if (!isUnknownArray(raw)) {
-			throw new TypeError('PostgreSQL relational find-many must return an array')
+			throw new TypeError(
+				'PostgreSQL relational find-many must return an array',
+			)
 		}
 
 		return raw.map((record) =>

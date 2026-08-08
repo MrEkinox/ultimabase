@@ -1,6 +1,6 @@
 # 420: Define optional Access subject capabilities
 
-- Status: completed
+- Status: done
 - Milestone: 4
 - Packages: `@ultimabase/core`
 - Depends on: 350, 417

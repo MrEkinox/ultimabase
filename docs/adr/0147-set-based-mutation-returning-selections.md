@@ -3,6 +3,11 @@
 - Status: accepted
 - Date: 2026-08-06
 - Refines: ADR-0132, ADR-0144, ADR-0146
+- Refined by: ADR-0164
+
+ADR-0164 retains flat result selections, identifier-only default projections,
+and ordered model arrays, but replaces the set-based statement and
+operation-level hook lifecycle below with atomic item-oriented execution.
 
 ## Context
 

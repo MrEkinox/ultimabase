@@ -33,9 +33,7 @@ class RelationScopeDispatcher implements QueryExecutionDispatcher {
 				!('kind' in operation) ||
 				typeof operation.kind !== 'string'
 			) {
-				throw new TypeError(
-					'Expected one normalized schema operation',
-				)
+				throw new TypeError('Expected one normalized schema operation')
 			}
 
 			this.executions.push({ kind: operation.kind, operation, options, scope })

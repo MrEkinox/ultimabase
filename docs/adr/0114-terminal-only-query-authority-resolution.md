@@ -1,8 +1,11 @@
 # ADR-0114: Terminal-only Query authority resolution
 
-- Status: accepted
+- Status: superseded by ADR-0153
 - Date: 2026-08-03
 - Refines: ADR-0071, ADR-0108, ADR-0113
+
+ADR-0153 replaces Query-terminal-specific option names with the shared
+operation execution boundary. This record is retained only as history.
 
 ## Context
 

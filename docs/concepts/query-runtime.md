@@ -68,10 +68,12 @@ matching; a JSON or object target selects structural containment instead.
 JSONPath is the explicit advanced exception: its source is intentionally
 untyped, while its target and immutable variables remain checked portable data.
 
-Bulk creates and upserts are atomic by default. Bulk updates and deletes remain
-set-based and return identifier-only models by default. An explicit flat
-selection returns the requested post-update or pre-delete fields from that same
-database statement; the result length is the affected-row count.
+Every collection mutation is an ordered batch of singular item operations in
+one automatic transaction. `updateMany` accepts `{ where, data }` entries and
+`deleteMany` accepts unique target predicates; a missing target or failed item
+rolls back the complete batch. Results preserve input order and select only
+`id` by default. An explicit flat selection returns the requested persisted or
+deleted values for every item.
 
 Every mutation eventually executes inside an automatic adapter transaction.
 Database work started by a native hook through an ordinary schema command
@@ -81,10 +83,12 @@ and rejects asynchronous branches whose hook lease has closed. Reads do not
 open a transaction automatically; developers can still use an explicit
 transaction for a read-modify-write workflow.
 
-Terminal operations use distinct AST kinds for singular and bulk behavior.
-Create inputs, update expressions, and upsert target queries remain separate.
-Operation options never carry master authority; that authority can only come
-from a trusted Runtime request context.
+Terminal operations retain distinct internal AST kinds for singular and
+collection behavior. Create inputs, update expressions, and upsert target
+queries remain separate. Public item-oriented Access and hooks use the short
+business kind without cardinality. Trusted backend code may request audited
+master execution through operation options; transports cannot forge that
+authority.
 
 Request contexts distinguish source from authority. A REST, GraphQL, job, or
 custom transport may create anonymous or authenticated user state, but its
@@ -94,8 +98,9 @@ and raw credentials are not retained as context metadata.
 Master keys are verified by a `MasterAuthority` configured on the framework.
 Verification returns an opaque grant owned by that framework; passing it to
 `request.useMasterKey(grant, reason)` emits an audit-ready event before creating
-the master engine. Operation options and transport booleans still cannot select
-master authority.
+the master engine. Trusted schema commands may instead use the server-only
+`useMasterKey: true` option, which crosses the same framework-owned audit
+boundary. Transports must never derive either form from client input.
 
 Update inputs use one field-oriented `data` map. Direct values replace fields,
 `null` clears optional fields, and explicit `increment()` or `decrement()`
@@ -139,8 +144,10 @@ same validation-stage options.
 ## Native hook lifecycle
 
 Native schema and inline field declarations complement the low-level plugin
-hook API. A direct family handler covers singular and bulk variants, while the
-exact terminal `kind` remains available when behavior must differ:
+hook API. Field hooks expose only value-oriented `resolveInput`. Schema hooks
+group input transformation, operation observation, and transaction
+finalization. Direct and batched items use the same cardinality-free business
+kind:
 
 ```ts
 const UserSchema = Schema.define({
@@ -153,10 +160,17 @@ const UserSchema = Schema.define({
 		}),
 	},
 	hooks: {
-		beforeCreate: ({ operation }) => operation,
-		beforeUpdate: ({ operation }) => operation,
-		beforeUpsert: ({ operation }) => operation,
-		beforeRead: ({ query }) => query.limit(100),
+		resolveInput: {
+			update: ({ operation }) => operation,
+		},
+		beforeOperation: {
+			update: ({ originalItem, item }) => {
+				auditChange(originalItem, item)
+			},
+		},
+		afterOperation: {
+			create: ({ item }) => auditCreation(item),
+		},
 	},
 })
 ```
@@ -166,6 +180,6 @@ schema hooks. Plugins append to the same dispatcher with deterministic targets;
 they cannot replace developer hooks. Policy plugins use a final monotonic hook
 boundary: they may deny, append opaque adapter constraints, or narrow fields,
 but later hooks cannot reverse those decisions. Runtime never names concrete
-ACL, role, authentication, ownership, or community-provider behavior. Set-based
-`updateMany` and `deleteMany` stay set-based instead of loading every row for
-item callbacks.
+ACL, role, authentication, ownership, or community-provider behavior. Every
+generated-schema collection entry crosses the same field resolution, item
+Access, and operation-hook lifecycle as its singular counterpart.

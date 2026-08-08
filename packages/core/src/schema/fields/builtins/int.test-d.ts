@@ -31,7 +31,8 @@ test('preserves integer options and exact literals', () => {
 		FieldDefinition<'int', number, IntFieldOptions, FieldInferenceState>
 	>()
 	expectTypeOf(field.kind).toEqualTypeOf<'int'>()
-	expectTypeOf(field.options).toEqualTypeOf<Readonly<IntFieldOptions>>()
+	expectTypeOf(field.options).toExtend<Readonly<IntFieldOptions>>()
+	expectTypeOf(field.options.autoIncrement).toEqualTypeOf<true>()
 	expectTypeOf<FieldInferenceStateOf<typeof field>>().toEqualTypeOf<{
 		readonly create: 'optional'
 		readonly object: 'required'

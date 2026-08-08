@@ -4,7 +4,12 @@
 - Date: 2026-08-05
 - Supersedes: ADR-0110
 - Refines: ADR-0067, ADR-0069, ADR-0108, ADR-0114, ADR-0115
-- Refined by: ADR-0152
+- Refined by: ADR-0143, ADR-0145, ADR-0149, ADR-0152, ADR-0164
+
+The read-only Query and schema-owned write boundary remains accepted. Later
+records replace the callback-shaped predicates, concise command names,
+Query-owned read terminals, complete default mutation results, and set-based
+collection behavior shown in the historical examples below.
 
 ## Context
 

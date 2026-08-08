@@ -3,7 +3,11 @@
 - Status: accepted
 - Date: 2026-08-07
 - Refines: ADR-0118, ADR-0137, ADR-0141, ADR-0152
-- Refined by: ADR-0155, ADR-0159
+- Refined by: ADR-0155, ADR-0159, ADR-0161, ADR-0163
+
+ADR-0161 removes target field `resolveOutput`, and ADR-0163 removes parent and
+target schema read hooks. The unified Drizzle-backed inclusion, nested Access,
+and no-manufactured-target-lifecycle decisions remain accepted.
 
 ## Context
 

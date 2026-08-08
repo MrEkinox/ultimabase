@@ -4,7 +4,7 @@
 - Milestone: 1
 - Packages: schema, tooling
 - Depends on: 135
-- ADR: 0036
+- ADR: ADR-0036
 
 ## Goal
 

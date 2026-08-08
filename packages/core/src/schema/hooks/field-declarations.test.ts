@@ -92,7 +92,9 @@ describe('field hook declarations', () => {
 			getHookHandlerEntries(declarations, 'resolveInput')[0]?.handler,
 		).toBe(resolveInput)
 		expect(Object.isFrozen(declarations)).toBe(true)
-		expect(Reflect.set(declarations ?? {}, 'resolveInput', replacement)).toBe(false)
+		expect(Reflect.set(declarations ?? {}, 'resolveInput', replacement)).toBe(
+			false,
+		)
 	})
 
 	it('precomposes broad resolveInput hooks before their specific family', () => {
@@ -158,7 +160,9 @@ describe('field hook declarations', () => {
 
 	it('rejects removed and unknown hook phases with their complete path', () => {
 		expect(() =>
-			declareStringFieldFromUnknown({ hooks: { beforeOperation: () => undefined } }),
+			declareStringFieldFromUnknown({
+				hooks: { beforeOperation: () => undefined },
+			}),
 		).toThrow(new TypeError('Unknown field hook: hooks.beforeOperation'))
 	})
 

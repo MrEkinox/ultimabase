@@ -1,6 +1,6 @@
 # 711: Add PostgreSQL outbox plugin
 
-- Status: planned
+- Status: ready
 - Milestone: 7+
 - Packages: future `@ultimabase/postgres-outbox-plugin`
 - Depends on: 318, 508

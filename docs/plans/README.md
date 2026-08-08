@@ -1,13 +1,18 @@
 # Implementation plans
 
-`CURRENT_PLAN.md`, when present at the repository root, owns the active
-multi-issue objective. This directory preserves completed plans so
+`CURRENT_PLAN.md`, when present at the repository root, owns the active or
+explicitly paused multi-issue objective. This directory preserves completed plans so
 architectural context and verified developer flows are not lost when the active
 objective changes.
 
 ## Active
 
-- [ACL hardening and developer-experience consolidation](../../CURRENT_PLAN.md)
+No multi-issue objective is currently active.
+
+## Paused
+
+- [ACL hardening and developer-experience consolidation](../../CURRENT_PLAN.md),
+  resumable at issue 432 only after explicit user direction.
 
 ## Completed
 

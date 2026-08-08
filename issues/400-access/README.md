@@ -20,10 +20,10 @@ The four neutral levels are:
 - `field` for grouped item/filter/order disclosure plus create and update decisions.
 
 Access filters reuse the typed Core filter AST but remain separate from the
-developer Query. They combine with Query and `beforeFind` predicates through
-logical `AND` and cannot be inspected, replaced, or removed by business hooks.
-Access executes before effectful business hooks, while final field restrictions
-run after result transforms.
+developer Query. Runtime combines them with the developer predicate through
+logical `AND`; business hooks cannot inspect, replace, or remove them. Access
+executes before effectful business hooks, while final field restrictions run at
+the last output boundary before a result becomes public.
 
 Schema operation reads accept one shared rule or explicit `one`, `many`,
 `count`, and `exists` branches. Field reads accept one shared rule or explicit
@@ -83,11 +83,12 @@ The completed persisted-object ACL vertical is recorded in its
 10. [415 — Verify native Access and provider composition](415-access-plugin-composition.md)
 11. [427 — Verify the complete ACL PostgreSQL vertical](427-acl-postgres-e2e.md)
 
-## Active ACL hardening execution order
+## Paused ACL hardening execution order
 
-The post-implementation audit is tracked by the active
-[ACL hardening and DX plan](../../CURRENT_PLAN.md). It must finish before an
-authentication plugin or another persisted policy provider builds on ACL:
+The post-implementation audit is retained by the
+[paused ACL hardening and DX plan](../../CURRENT_PLAN.md). If reactivated, it
+resumes at issue 432 and must finish before an authentication plugin or another
+persisted policy provider builds on ACL:
 
 1. [429 — Enforce singular ACL management before authorization bypass](429-enforce-singular-acl-management.md)
 2. [430 — Resolve optional ACL subject providers lazily](430-resolve-optional-acl-providers-lazily.md)

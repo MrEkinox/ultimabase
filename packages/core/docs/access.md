@@ -180,18 +180,19 @@ database adapter. Developer filtering, ordering, and limits remain explicit
 Query options and cannot observe or remove the Access predicate.
 
 Mutation field rules reject the complete operation when a present create or
-update value is forbidden. Singular update and delete item rules receive the
-stable target selected by the transaction adapter before its single-use write
-handle executes. A value-dependent item rule on `updateMany` or `deleteMany`
-fails with a typed capability error rather than materializing an unbounded row
-set. Upsert item rules inspect the exact create or update branch materialized
-inside the transaction, so a denial rolls the write back. These item-oriented
-callbacks use a cardinality-free business `kind`; only early operation Access
-retains terminal names such as `update-one`.
+update value is forbidden. Update and delete item rules receive the stable
+target selected by the transaction adapter before its single-use write handle
+executes. Generated-schema `updateMany` and `deleteMany` commands are ordered
+batches of those singular targets, so Access runs once per entry with the same
+complete `originalItem` and candidate `item` contract. Upsert item rules inspect
+the exact create or update branch materialized inside the transaction, so a
+denial rolls the complete batch back. These item-oriented callbacks use a
+cardinality-free business `kind`; only early operation Access retains terminal
+names such as `update-one`.
 
-Field `read.item` rules project adapter records before output hooks. The same
-projection is enforced again after result transforms, so a hook cannot restore
-a forbidden value. Explicit selection, filtering, or ordering through a
+Field `read.item` rules project adapter records before they become public. The
+same projection is enforced again at the final output boundary. Explicit
+selection, filtering, or ordering through a
 statically forbidden field fails; default reads simply omit it. A row rejected
 by an Access filter appears nonexistent because the adapter never returns it.
 When a pointer is eagerly included, its field rule receives the declared

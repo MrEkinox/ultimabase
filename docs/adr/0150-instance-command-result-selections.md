@@ -1,6 +1,6 @@
 # ADR-0150: Instance command result selections
 
-- Status: Accepted
+- Status: accepted
 - Date: 2026-08-06
 
 ## Context

@@ -1,10 +1,10 @@
 # 431: Align ACL create and update input resolution data
 
-- Status: completed
+- Status: done
 - Milestone: 4
 - Packages: `@ultimabase/acl-permissions-plugin`, `@ultimabase/core`
 - Depends on: 429
-- ADR: new ADR required
+- ADR: ADR-0129
 
 ## Goal
 

@@ -85,6 +85,19 @@ plans retain the original immutable field definition by identity; the owning
 plugin claims its namespaced kind and contributes validation and adapter
 behavior without a second plugin-only plan representation.
 
+## Embedded object values
+
+`objectField` composes value fields into one logical structured value. Nested
+field input resolution and Access execute for every concrete object or list
+occurrence with deterministic child-before-parent traversal. The object has no
+independent schema identity, lifecycle, relationship graph, or hidden columns.
+
+Core therefore rejects pointer and relation children plus integer or bigint
+children using `autoIncrement`; those capabilities require top-level
+relationship or database-column ownership. PostgreSQL stores the remaining
+structured value in one JSONB column and rejects unsupported nested physical
+metadata during setup.
+
 ## Relationship targets
 
 Relationship fields retain zero-argument lazy schema callbacks as private field
@@ -177,8 +190,8 @@ setup export types, including definitions introduced through nested composition.
   selection-preserving object inputs without retaining execution state.
 - Generated schema classes own explicit `createOne`/`createMany`,
   `updateOne`/`updateMany`, `upsertOne`/`upsertMany`, and
-  `deleteOne`/`deleteMany` commands. Their filter-only `where` callbacks
-  normalize into the same
+  `deleteOne`/`deleteMany` commands. Their canonical object-shaped `where`
+  inputs normalize into the same
   Operation AST and Runtime bridge as reads. Reads and writes reuse the exact
   active request and hook lease, or accept `{ ultimabase }` outside a scope. No
   process-wide application singleton, request, authority, transaction, or
@@ -232,12 +245,14 @@ complete mutation values and have ignored return values. Business after-hooks
 may still abort before commit, while externally visible event handlers run only
 after commit succeeds.
 
-One schema handler may cover a full create, update, upsert, delete, or save
-family; reads expose Query options and Access rather than schema hooks. Public
+One schema handler may cover a full create, update, upsert, or delete family;
+reads expose Query options and Access rather than schema hooks. Public
 collection commands become ordered singular operations before Runtime invokes
-native hooks, so every mutation callback receives only `create-one`,
-`update-one`, `upsert-one`, or `delete-one`. Update and delete batches declare
-one unique target per item. Missing targets, hook failures, and persistence
+native hooks, so item-oriented callbacks receive cardinality-free `create`,
+`update`, `upsert`, or `delete` kinds. Early operation Access and callbacks that
+explicitly expose the normalized AST may still observe an exact singular
+terminal such as `update-one`. Update and delete batches declare one unique
+target per item. Missing targets, hook failures, and persistence
 failures reject and roll back the complete outer transaction; partial success
 is not public. Handler lists execute sequentially. Runtime rejects dangerous
 same-hook recursion and offers no general `skipHooks` bypass.

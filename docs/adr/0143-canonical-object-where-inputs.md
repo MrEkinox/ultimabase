@@ -3,7 +3,12 @@
 - Status: accepted
 - Date: 2026-08-06
 - Refines: ADR-0055, ADR-0132, ADR-0135, ADR-0136
-- Refined by: ADR-0157, ADR-0158, ADR-0160
+- Refined by: ADR-0152, ADR-0157, ADR-0158, ADR-0160, ADR-0164
+
+ADR-0152 makes schema-root object inputs the canonical execution surface, while
+ADR-0164 removes public set-based mutations and `where: "all"`. The
+object-shaped `WhereInput` and utility-only `WhereBuilder` decisions remain
+accepted.
 
 ## Context
 

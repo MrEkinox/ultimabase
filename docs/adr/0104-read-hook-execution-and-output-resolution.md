@@ -1,9 +1,13 @@
 # ADR-0104: Read hook execution and safe output resolution
 
-- Status: accepted
+- Status: superseded by ADR-0161 and ADR-0163
 - Date: 2026-08-02
 - Refines: ADR-0058, ADR-0067, ADR-0074, ADR-0089, ADR-0101, ADR-0102, ADR-0103
 - Refined by: ADR-0141, ADR-0142
+
+ADR-0161 removes field `resolveOutput`, and ADR-0163 removes native schema read
+hooks. Reads now use Query options for developer shaping and Access for
+mandatory restrictions; this record is retained only as history.
 
 ## Context
 

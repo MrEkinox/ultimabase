@@ -39,7 +39,8 @@ schema registry, or plugin instance is shared between Vitest workers.
 
 The native-hook PostgreSQL scenario uses this boundary to verify nested writes,
 rollback, post-commit delivery, opaque scope constraints, field restrictions,
-and set-based bulk behavior through built public package exports.
+and atomic item-oriented collection behavior through built public package
+exports.
 
 Planned APIs still include `createTestApplication`, `runAs`, transport
 executors, and broader adapter conformance suites.

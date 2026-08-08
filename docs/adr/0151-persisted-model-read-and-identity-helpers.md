@@ -1,8 +1,12 @@
 # ADR-0151: Persisted model read and identity helpers
 
-- Status: Accepted
+- Status: accepted
 - Date: 2026-08-06
-- Refined by: ADR-0152
+- Refined by: ADR-0152, ADR-0162
+
+ADR-0162 makes persisted-model `fetch` strict: a missing or inaccessible
+protected identity raises `NOT_FOUND` instead of returning `null`. The helper,
+selection, pointer, and equality decisions remain accepted.
 
 ## Context
 

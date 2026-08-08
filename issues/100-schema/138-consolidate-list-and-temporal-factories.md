@@ -4,7 +4,7 @@
 - Milestone: 1
 - Packages: schema
 - Depends on: 137
-- ADR: 0037
+- ADR: ADR-0037
 
 ## Goal
 

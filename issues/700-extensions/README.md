@@ -1,9 +1,9 @@
 # Milestone 7+ — Relations and planned extensions
 
-The active objective extracts transport-neutral pointers and relations from the
-future ecosystem backlog. It creates no new package: the logical declaration,
-Query, Access, hook, and Runtime contracts belong to `@ultimabase/core`, while
-physical foreign keys and join storage belong to `@ultimabase/postgres-plugin`.
+The completed transport-neutral pointer and relation objective created no new
+package: the logical declaration, Query, Access, hook, and Runtime contracts
+belong to `@ultimabase/core`, while physical foreign keys and join storage
+belong to `@ultimabase/postgres-plugin`.
 
 ## Completed relations vertical
 
@@ -31,6 +31,7 @@ contracts later rather than defining parallel relationship semantics.
 
 ## Other planned extensions
 
-Issues 703 through 736 preserve future product intent without creating empty
+Issue 703 completed the default JSONB-backed `objectField` vertical. Issues 704
+through 736 preserve future product intent without creating empty
 packages. They are not dependencies of the relations vertical unless an issue
 explicitly says otherwise.

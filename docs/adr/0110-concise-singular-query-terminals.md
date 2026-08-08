@@ -1,8 +1,11 @@
 # ADR-0110: Concise singular Query terminals
 
-- Status: accepted
+- Status: superseded by ADR-0132
 - Date: 2026-08-03
 - Refines: ADR-0059, ADR-0067, ADR-0069, ADR-0108
+
+ADR-0132 removes mutation terminals from Query and makes generated schema
+classes own writes. This record is retained only as history.
 
 ## Context
 

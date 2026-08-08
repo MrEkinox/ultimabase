@@ -114,9 +114,7 @@ describe('PostgreSQL query clause compiler', () => {
 				'018f0f8c-7b5a-7cc9-98db-123456789abc',
 			],
 		})
-		expect(render(where).sql).toMatch(
-			/< \$2.*is null.*or.*= \$3.*< \$4/u,
-		)
+		expect(render(where).sql).toMatch(/< \$2.*is null.*or.*= \$3.*< \$4/u)
 	})
 
 	it('uses id ascending for the first cursor page without explicit ordering', () => {

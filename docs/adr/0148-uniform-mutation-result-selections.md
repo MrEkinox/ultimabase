@@ -3,6 +3,11 @@
 - Status: accepted
 - Date: 2026-08-06
 - Refines: ADR-0145, ADR-0147
+- Refined by: ADR-0164
+
+ADR-0164 removes non-atomic successful-prefix results. The uniform mutation
+selection and command-envelope decisions remain accepted for atomic
+item-oriented collections.
 
 ## Context
 

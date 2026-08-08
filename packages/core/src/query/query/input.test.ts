@@ -109,9 +109,7 @@ describe('canonical read inputs', () => {
 				limit: 3,
 				pagination: { kind: 'offset-pagination', offset: 2 },
 				ordering: {
-					orders: [
-						{ direction: 'descending', field: 'createdAt' },
-					],
+					orders: [{ direction: 'descending', field: 'createdAt' }],
 				},
 				selection: { fields: [{ field: 'title' }] },
 				where: {
@@ -126,9 +124,9 @@ describe('canonical read inputs', () => {
 	})
 
 	it('keeps operation-specific inputs free of irrelevant clauses', () => {
-		expect(() =>
-			queryFromFindManyInput(Post, { skip: 10 } as never),
-		).toThrow('find-many input contains an unknown clause: skip')
+		expect(() => queryFromFindManyInput(Post, { skip: 10 } as never)).toThrow(
+			'find-many input contains an unknown clause: skip',
+		)
 		expect(() =>
 			queryFromCountInput(Post, { select: { id: true } } as never),
 		).toThrow('count input contains an unknown clause: select')

@@ -4,7 +4,7 @@
 - Milestone: 7+
 - Packages: pg-vector-plugin, schema
 - Depends on: 125
-- ADR: 0029
+- ADR: ADR-0029
 
 ## Goal
 

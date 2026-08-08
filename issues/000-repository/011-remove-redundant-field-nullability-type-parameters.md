@@ -1,10 +1,10 @@
 # 011: Remove redundant field nullability type parameters
 
-- Status: completed
+- Status: done
 - Milestone: 0
 - Packages: `@ultimabase/core`, tooling
 - Depends on: 009
-- ADR: 0133
+- ADR: ADR-0133
 
 ## Goal
 

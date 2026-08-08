@@ -1,6 +1,6 @@
 # 429: Enforce singular ACL management before authorization bypass
 
-- Status: completed
+- Status: done
 - Milestone: 4
 - Packages: `@ultimabase/acl-permissions-plugin`, `@ultimabase/core`
 - Depends on: 411, 427

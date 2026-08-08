@@ -1,6 +1,7 @@
 import { expectTypeOf, test } from 'vitest'
 
 import {
+	bigintField,
 	binaryField,
 	booleanField,
 	dateField,
@@ -177,6 +178,21 @@ test('rejects schema targets inside embedded objects', () => {
 		fields: {
 			// @ts-expect-error -- Relations require a top-level schema identity.
 			tags: relationField({ target: () => Target }),
+		},
+	})
+})
+
+test('rejects database-generated sequences inside embedded objects', () => {
+	objectField({
+		fields: {
+			// @ts-expect-error -- A PostgreSQL sequence requires its own column.
+			sequence: intField({ autoIncrement: true }),
+		},
+	})
+	objectField({
+		fields: {
+			// @ts-expect-error -- A PostgreSQL sequence cannot generate one JSONB property.
+			largeSequence: bigintField({ autoIncrement: true }),
 		},
 	})
 })

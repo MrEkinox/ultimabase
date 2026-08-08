@@ -1,10 +1,14 @@
 # 336: Add explicit itemized update and delete terminals
 
-- Status: planned
+- Status: superseded
 - Milestone: 3
 - Packages: `@ultimabase/core`, database adapters
 - Depends on: 334
 - ADR: ADR-0069, ADR-0089, ADR-0111
+
+ADR-0164 supersedes this opt-in/set-based split. Generated-schema
+`updateMany` and `deleteMany` are now ordered atomic batches of uniquely
+targeted singular item operations, with no separate itemized terminal family.
 
 ## Goal
 

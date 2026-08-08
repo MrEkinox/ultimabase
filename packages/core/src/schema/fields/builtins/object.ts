@@ -37,13 +37,20 @@ import type { FieldAccessDeclaration } from '../../access/contracts.js'
  */
 export type ObjectFields = Readonly<Record<string, GenericField>>
 
-/** Rejects relationship-capable fields from one embedded value boundary. */
-type EmbeddableObjectFields<TFields extends ObjectFields> = {
-	readonly [TName in keyof TFields]: TFields[TName] extends {
-		readonly kind: 'pointer' | 'relation'
-	}
+/** Keeps only fields whose behavior can execute inside one embedded value. */
+type EmbeddableObjectField<TField extends GenericField> = TField extends {
+	readonly kind: 'pointer' | 'relation'
+}
+	? never
+	: TField extends {
+				readonly kind: 'int' | 'bigint'
+				readonly options: { readonly autoIncrement: true }
+		  }
 		? never
-		: TFields[TName]
+		: TField
+
+type EmbeddableObjectFields<TFields extends ObjectFields> = {
+	readonly [TName in keyof TFields]: EmbeddableObjectField<TFields[TName]>
 }
 
 /**
@@ -76,6 +83,7 @@ export interface ObjectFieldOptions<
 	 *
 	 * Pointer and relation fields are schema relationships, so they must be declared
 	 * as top-level schema fields rather than embedded inside this stored value.
+	 * Database-generated integer sequences also require their own top-level column.
 	 *
 	 * @example `fields: { name: stringField(), active: booleanField() }`
 	 */
@@ -271,6 +279,16 @@ export function objectField(
 		if (field.kind === 'pointer' || field.kind === 'relation') {
 			throw new TypeError(
 				`fields.${name} cannot be a pointer or relation inside objectField`,
+			)
+		}
+
+		if (
+			(field.kind === 'int' || field.kind === 'bigint') &&
+			'autoIncrement' in field.options &&
+			field.options.autoIncrement === true
+		) {
+			throw new TypeError(
+				`fields.${name} cannot use autoIncrement inside objectField`,
 			)
 		}
 	}

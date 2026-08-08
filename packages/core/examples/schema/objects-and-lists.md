@@ -8,7 +8,9 @@ without widening the nested field map.
 
 Embedded objects contain stored value fields only. Pointers and relations need
 top-level schema identity, so declare them directly on the schema or model
-relationship attributes through an explicit relationship schema.
+relationship attributes through an explicit relationship schema. Auto-incremented
+integer fields also remain top-level because a database sequence cannot generate
+one property inside an embedded value.
 
 ```ts
 import { Schema, floatField, objectField, stringField } from '@ultimabase/core'

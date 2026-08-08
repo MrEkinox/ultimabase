@@ -97,14 +97,12 @@ Accepted records:
 - [ADR-0101: Compiled native hook dispatcher](0101-compiled-native-hook-dispatcher.md)
 - [ADR-0102: Policy-neutral monotonic enforcement plan](0102-policy-neutral-monotonic-enforcement.md)
 - [ADR-0103: Versioned adapter constraint compilers](0103-versioned-adapter-constraint-compilers.md)
-- [ADR-0104: Read hook execution and safe output resolution](0104-read-hook-execution-and-output-resolution.md)
 - [ADR-0105: Transaction hook finalization journal](0105-transaction-hook-journal.md)
 - [ADR-0106: Hook execution safety and diagnostics](0106-hook-execution-safety-and-diagnostics.md)
 - [ADR-0107: HookContext capabilities and named events](0107-hook-context-capabilities-and-events.md)
 - [ADR-0109: Constructible schema model classes](0109-constructible-schema-models.md)
 - [ADR-0112: Unique upsert targets seed create candidates](0112-upsert-target-seeds-create.md)
 - [ADR-0113: Plugin-owned authentication context](0113-plugin-owned-authentication-context.md)
-- [ADR-0114: Terminal-only Query authority resolution](0114-terminal-only-query-authority-resolution.md)
 - [ADR-0115: Immutable model commands and protected identity](0115-immutable-model-commands.md)
 - [ADR-0116: Fundamental Access system and policy providers](0116-fundamental-access-system.md)
 - [ADR-0117: Optional Access subject capabilities](0117-optional-access-subject-capabilities.md)
@@ -153,6 +151,7 @@ Accepted records:
 - [ADR-0162: Strict object target commands](0162-strict-object-target-commands.md)
 - [ADR-0163: Group schema hooks by mutation responsibility](0163-grouped-schema-mutation-hooks.md)
 - [ADR-0164: Atomic item-oriented mutation hooks](0164-atomic-item-oriented-mutation-hooks.md)
+- [ADR-0165: Embedded object fields contain value fields only](0165-embedded-object-field-contract.md)
 
 Superseded records:
 
@@ -166,6 +165,7 @@ Superseded records:
 - [ADR-0064: Mandatory deterministic Runtime pipeline](0064-mandatory-runtime-pipeline.md), superseded by ADR-0090.
 - [ADR-0092: Bound queries require executors](0092-bound-queries-require-executors.md), superseded by ADR-0108.
 - [ADR-0093: Immutable Schema constructor API](0093-schema-constructor-api.md), superseded by ADR-0109.
+- [ADR-0104: Read hook execution and safe output resolution](0104-read-hook-execution-and-output-resolution.md), superseded by ADR-0161 and ADR-0163.
 - [ADR-0108: Contextual Query terminal execution](0108-contextual-query-terminal-execution.md), superseded by ADR-0152.
 - [ADR-0110: Concise singular Query terminals](0110-concise-singular-query-terminals.md), superseded by ADR-0132.
 - [ADR-0111: Non-atomic bulk hook semantics](0111-non-atomic-bulk-hook-semantics.md), superseded by ADR-0164.

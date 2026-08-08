@@ -1,6 +1,6 @@
 # 412: Emit committed ACL change events
 
-- Status: completed
+- Status: done
 - Milestone: 4
 - Packages: `@ultimabase/acl-permissions-plugin`
 - Depends on: 328, 332, 411, 509

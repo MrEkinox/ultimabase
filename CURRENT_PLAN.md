@@ -1,9 +1,14 @@
-# Active plan: ACL hardening and developer-experience consolidation
+# Paused plan: ACL hardening and developer-experience consolidation
 
-- Status: ready
+- Status: paused
 - Started: 2026-08-04
 - Objective owner: `@ultimabase/core`, `@ultimabase/acl-permissions-plugin`, `@ultimabase/acl-postgres-plugin`, `@ultimabase/roles-plugin`, `@ultimabase/postgres-plugin`
 - Previous completed objective: [Persisted object ACL](docs/plans/completed/persisted-object-acl.md)
+
+This plan is not the current execution priority. Work completed after issue 351
+stabilized Query, mutation, relationship, Access, hook, and embedded-object
+contracts instead. Resume this plan at issue 432 only after the user explicitly
+reactivates the ACL objective.
 
 ## Objective
 
@@ -74,7 +79,7 @@ events, or mutation-shape invariants.
 ## Completion gate
 
 - Every issue and dependency is complete with a dedicated commit.
-- The master set-based ACL regression and both plugin orders are proven before later refactoring begins.
+- The master ACL regression and both plugin orders are proven before later refactoring begins.
 - Public extension callbacks expose concise schema-aware autocomplete and hover documentation.
 - PostgreSQL proves bounded and concurrency-safe reference cleanup, rollback, events, and application isolation.
 - Focused coverage distinguishes source unit paths from packed E2E behavior and records remaining intentional gaps.

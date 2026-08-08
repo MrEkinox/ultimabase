@@ -5,6 +5,11 @@
 - Refines: ADR-0004, ADR-0015, ADR-0059, ADR-0063, ADR-0068
 - Refined by: ADR-0089, ADR-0099, ADR-0100, ADR-0108, ADR-0111, ADR-0112, ADR-0164
 
+ADR-0164 replaces the public non-atomic and set-based collection mutation
+contract in this record. Generated schema collection commands are now ordered,
+atomic batches of singular item operations. The unique upsert-target decision
+remains accepted.
+
 ## Decision
 
 `BoundQuery` exposes `createMany`, `updateMany`, `deleteMany`,

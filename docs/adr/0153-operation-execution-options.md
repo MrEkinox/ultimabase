@@ -4,6 +4,11 @@
 - Date: 2026-08-07
 - Supersedes: ADR-0114
 - Refines: ADR-0132, ADR-0152
+- Refined by: ADR-0164
+
+ADR-0164 removes `BulkOperationOptions`, the public `atomic` property, and
+partial-success result inference. The shared `OperationOptions` naming and
+trusted execution boundary remain accepted.
 
 ## Context
 
