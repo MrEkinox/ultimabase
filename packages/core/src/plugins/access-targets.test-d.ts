@@ -102,7 +102,8 @@ test('infers exact schema and field Access policy targets', () => {
 					expectTypeOf(field).toEqualTypeOf<typeof schema.fields.endpoint>()
 
 					return {
-						update: ({ value }) => {
+						update: ({ originalValue, value }) => {
+							expectTypeOf(originalValue).toEqualTypeOf<URL | null>()
 							expectTypeOf(value).toEqualTypeOf<URL | null>()
 
 							return true

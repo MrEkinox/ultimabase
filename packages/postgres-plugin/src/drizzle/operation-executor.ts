@@ -7,7 +7,7 @@ import type {
 } from '@ultimabase/core'
 import type { SchemaDefinition } from '@ultimabase/core'
 import { isPlainRecord } from '@ultimabase/shared'
-import { and, count, eq, inArray, type SQL } from 'drizzle-orm'
+import { and, asc, count, eq, inArray, type SQL } from 'drizzle-orm'
 import { getTableConfig, type PgColumn } from 'drizzle-orm/pg-core'
 
 import type { CompiledPostgresSchema } from '../schema/contracts.js'
@@ -36,6 +36,7 @@ type RuntimeQuery = QueryAst<
 interface SelectOverrides {
 	readonly constraint?: SQL | undefined
 	readonly limit?: number
+	readonly stableOrdering?: true
 	readonly where?: SQL
 }
 
@@ -58,8 +59,16 @@ const buildSelect = (
 	if (where !== undefined) {
 		statement = statement.where(where)
 	}
-	if (clauses.orderBy.length > 0) {
-		statement = statement.orderBy(...clauses.orderBy)
+	const orderBy =
+		overrides.stableOrdering === true
+			? [
+					...clauses.orderBy,
+					asc(resolveCompiledPostgresField(schema, 'id').column),
+				]
+			: clauses.orderBy
+
+	if (orderBy.length > 0) {
+		statement = statement.orderBy(...orderBy)
 	}
 	if (limit !== undefined) {
 		statement = statement.limit(limit)
@@ -516,6 +525,34 @@ export const lockPostgresSingularMutationTarget = async (
 	).for('update')
 
 	return row === undefined ? null : readPostgresRecord(schema, row)
+}
+
+/** Locks complete set-based targets in one stable order for item hooks. */
+export const lockPostgresSetBasedMutationTargets = async (
+	client: PostgresDrizzleClient,
+	schema: CompiledPostgresSchema,
+	operation: Extract<
+		RuntimeOperation,
+		{ readonly kind: 'delete-many' | 'update-many' }
+	>,
+	constraint: SQL | undefined,
+	relationCompiler?: PostgresRelationPredicateCompiler,
+): Promise<readonly Readonly<Record<string, unknown>>[]> => {
+	const clauses = compilePostgresQueryClauses(
+		readBuiltInQuery(operation.query),
+		schema,
+		undefined,
+		relationCompiler,
+	)
+	const rows = await buildSelect(
+		client,
+		schema,
+		compilePostgresSelection(schema),
+		clauses,
+		{ constraint, stableOrdering: true },
+	).for('update')
+
+	return decodeRows(schema, rows)
 }
 
 const createPendingOperationError = (

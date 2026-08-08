@@ -11,10 +11,6 @@ import type {
 	DatabaseOperationExecutor,
 	DatabaseOperationOutcome,
 } from '../database/contracts.js'
-import {
-	isNonAtomicBulkOperation,
-	readNonAtomicBulkResult,
-} from './non-atomic-result.js'
 
 /** Carries identity and projection beside public values rather than inside them. */
 export interface RuntimeSchemaModelMetadata {
@@ -59,14 +55,7 @@ const collectResultRecords = (
 		return immutableArray([])
 	}
 
-	let records: unknown = result
-
-	if (isNonAtomicBulkOperation(operation)) {
-		records = readNonAtomicBulkResult(
-			result,
-			'Runtime protected model metadata',
-		).results
-	}
+	const records: unknown = result
 
 	if (collectionKinds.has(operation.kind)) {
 		if (!isUnknownArray(records)) {

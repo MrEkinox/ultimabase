@@ -16,7 +16,6 @@ export const schemaHookPhases = [
 	'afterCreate',
 	'beforeUpdate',
 	'afterUpdate',
-	'beforeUpsert',
 	'afterUpsert',
 	'beforeDelete',
 	'afterDelete',
@@ -45,7 +44,6 @@ const schemaHookGroups = {
 		create: 'beforeCreate',
 		delete: 'beforeDelete',
 		update: 'beforeUpdate',
-		upsert: 'beforeUpsert',
 	},
 	transaction: {
 		afterCommit: 'afterCommit',

@@ -279,9 +279,9 @@ const MissingRolePost = Schema.define({
 	fields: { title: stringField({ validation: { required: true } }) },
 	hooks: {
 		beforeOperation: {
-			create: ({ operation }) => {
+			create: ({ item }) => {
 				roleAwareBusinessHooks += 1
-				void operation
+				void item
 			},
 		},
 	},

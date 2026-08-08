@@ -142,8 +142,6 @@ export type {
 	QueryRelationshipPredicateNode,
 } from './filters/relation.js'
 export type {
-	AtomicBulkOperationOptions,
-	BulkOperationResult,
 	CountOperationAst,
 	CreateManyOperationAst,
 	CreateOneOperationAst,
@@ -161,9 +159,6 @@ export type {
 	OperationIncludedPointer,
 	OperationKind,
 	OperationObjectId,
-	NonAtomicBulkCompleted,
-	NonAtomicBulkResult,
-	NonAtomicBulkStopped,
 	UpdateManyOperationAst,
 	UpdateOneOperationAst,
 	UpsertManyOperationAst,
@@ -172,14 +167,7 @@ export type {
 	UniqueUpsertTargetNode,
 } from './operations/contracts.js'
 export type { QueryOperationExecutor } from './operations/executor.js'
-export type {
-	InferBulkOperationAtomicity,
-	InferBulkOperationResult,
-} from './operations/execution.js'
-export type {
-	BulkOperationOptions,
-	OperationOptions,
-} from './operations/options.js'
+export type { OperationOptions } from './operations/options.js'
 export type {
 	InferOperationRecordResult,
 	InferOperationResult,
@@ -196,7 +184,7 @@ export type {
 	SchemaCreateOneInput,
 	SchemaDeleteManyInput,
 	SchemaDeleteOneInput,
-	SchemaManyWhere,
+	SchemaUpdateManyItemInput,
 	SchemaUpdateManyInput,
 	SchemaUpdateOneInput,
 	SchemaUpsertOneInput,

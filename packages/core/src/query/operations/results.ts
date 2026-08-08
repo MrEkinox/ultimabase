@@ -7,7 +7,6 @@ import type {
 import type { QueryExpressionNode, QueryFieldName } from '../ast/contracts.js'
 import type { UpdateExpressionNode } from '../updates/contracts.js'
 import type {
-	BulkOperationResult,
 	CreateManyOperationAst,
 	CreateOneOperationAst,
 	DeleteManyOperationAst,
@@ -110,21 +109,17 @@ type InferOperationResultFor<
 									>
 							: TOperation extends CreateManyOperationAst<
 										infer TSchema,
-										infer TAtomic,
 										infer TSelectedField
 								  >
-								? BulkOperationResult<
-										[TSelectedField] extends [never]
-											? CompleteObjectResult<TSchema, TMode>
-											: QueryObjectResult<
-													TSchema,
-													TSelectedField,
-													TMode,
-													never,
-													TInclusionMode
-												>,
-										TAtomic
-									>
+								? readonly ([TSelectedField] extends [never]
+										? CompleteObjectResult<TSchema, TMode>
+										: QueryObjectResult<
+												TSchema,
+												TSelectedField,
+												TMode,
+												never,
+												TInclusionMode
+											>)[]
 								: TOperation extends UpdateOneOperationAst<
 											infer TSchema,
 											UpdateExpressionNode,
@@ -170,21 +165,17 @@ type InferOperationResultFor<
 														infer TSchema,
 														UpdateExpressionNode,
 														QueryExpressionNode,
-														infer TAtomic,
 														infer TSelectedField
 												  >
-												? BulkOperationResult<
-														[TSelectedField] extends [never]
-															? CompleteObjectResult<TSchema, TMode>
-															: QueryObjectResult<
-																	TSchema,
-																	TSelectedField,
-																	TMode,
-																	never,
-																	TInclusionMode
-																>,
-														TAtomic
-													>
+												? readonly ([TSelectedField] extends [never]
+														? CompleteObjectResult<TSchema, TMode>
+														: QueryObjectResult<
+																TSchema,
+																TSelectedField,
+																TMode,
+																never,
+																TInclusionMode
+															>)[]
 												: TOperation extends DeleteOneOperationAst<
 															infer TSchema,
 															QueryExpressionNode,

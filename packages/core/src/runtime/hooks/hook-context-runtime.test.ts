@@ -106,11 +106,11 @@ describe('HookContext Runtime capabilities', () => {
 			fields: { title: stringField({ validation: { required: true } }) },
 			hooks: {
 				beforeOperation: {
-					create: ({ context, operation }) => {
+					create: ({ context, item }) => {
 						escapedContext = context
 						expect(context.getValue(principal)).toBe('user-1')
 
-						void operation
+						void item
 					},
 				},
 			},
@@ -157,11 +157,11 @@ describe('HookContext Runtime capabilities', () => {
 			fields: { title: stringField({ validation: { required: true } }) },
 			hooks: {
 				beforeOperation: {
-					create: ({ context, operation }) => {
+					create: ({ context, item }) => {
 						nestedAccessModes.push(context.access.mode)
 						transactionIds.push(context.transactionId)
 
-						void operation
+						void item
 					},
 				},
 			},
@@ -171,7 +171,7 @@ describe('HookContext Runtime capabilities', () => {
 			fields: { title: stringField({ validation: { required: true } }) },
 			hooks: {
 				beforeOperation: {
-					create: ({ context, operation }) => {
+					create: ({ context, item }) => {
 						expect(context).toBeInstanceOf(HookContext)
 						expect(context.access).toStrictEqual({ mode: 'anonymous' })
 						expect(context.source).toBe('internal')
@@ -182,7 +182,7 @@ describe('HookContext Runtime capabilities', () => {
 							{},
 							{ useMasterKey: true },
 						)
-						void operation
+						void item
 					},
 				},
 			},
@@ -245,14 +245,14 @@ describe('HookContext Runtime capabilities', () => {
 			fields: { title: stringField({ validation: { required: true } }) },
 			hooks: {
 				beforeOperation: {
-					create: async ({ operation }) => {
+					create: async ({ item }) => {
 						try {
 							await AuditSchema.createOne({ data: { title: 'fails' } })
 						} catch {
 							// Catching nested work cannot make a failed transaction committable.
 						}
 
-						void operation
+						void item
 					},
 				},
 			},
@@ -290,12 +290,12 @@ describe('HookContext Runtime capabilities', () => {
 			fields: { title: stringField({ validation: { required: true } }) },
 			hooks: {
 				beforeOperation: {
-					create: ({ context, operation }) => {
+					create: ({ context, item }) => {
 						escapedContext = context
 						const query = new QueryBuilder(PostSchema)
 						runEscapedQuery = () => PostSchema.findMany(query.build())
 
-						void operation
+						void item
 					},
 				},
 			},
@@ -333,7 +333,7 @@ describe('HookContext Runtime capabilities', () => {
 			fields: { title: stringField({ validation: { required: true } }) },
 			hooks: {
 				beforeOperation: {
-					create: ({ operation }) => {
+					create: ({ item }) => {
 						// AsyncLocalStorage retains the hook guard even though this branch
 						// starts its query only after the hook callback has completed.
 						delayedQuery = (async () => {
@@ -341,7 +341,7 @@ describe('HookContext Runtime capabilities', () => {
 							return new PostSchema({ title: 'delayed' }).create({})
 						})()
 
-						void operation
+						void item
 					},
 				},
 			},
@@ -430,14 +430,14 @@ describe('HookContext Runtime capabilities', () => {
 			fields: { title: stringField({ validation: { required: true } }) },
 			hooks: {
 				beforeOperation: {
-					create: async ({ operation }) => {
+					create: async ({ item }) => {
 						try {
 							await ForeignSchema.findMany()
 						} catch (error: unknown) {
 							foreignError = error
 						}
 
-						void operation
+						void item
 					},
 				},
 			},
@@ -470,11 +470,11 @@ describe('HookContext Runtime capabilities', () => {
 			fields: { title: stringField({ validation: { required: true } }) },
 			hooks: {
 				beforeOperation: {
-					create: ({ context, operation }) => {
+					create: ({ context, item }) => {
 						context.emit(postCreatedEvent, mutablePayload)
 						mutablePayload.nested.title = 'mutated later'
 
-						void operation
+						void item
 					},
 				},
 			},
@@ -538,10 +538,10 @@ describe('HookContext Runtime capabilities', () => {
 			fields: { title: stringField({ validation: { required: true } }) },
 			hooks: {
 				beforeOperation: {
-					create: ({ context, operation }) => {
+					create: ({ context, item }) => {
 						context.emit(optionalEvent, { title: 'stored' })
 
-						void operation
+						void item
 					},
 				},
 			},
@@ -657,9 +657,9 @@ describe('HookContext Runtime capabilities', () => {
 			hooks: {
 				beforeOperation: {
 					create: [
-						({ context, operation }) => {
+						({ context, item }) => {
 							context.emit(discardedEvent, { title: 'discarded' })
-							void operation
+							void item
 						},
 						() => {
 							throw failure
@@ -700,9 +700,9 @@ describe('HookContext Runtime capabilities', () => {
 			fields: { title: stringField() },
 			hooks: {
 				beforeOperation: {
-					create: ({ context, operation }) => {
+					create: ({ context, item }) => {
 						context.emit(requiredEvent, {})
-						void operation
+						void item
 					},
 				},
 			},

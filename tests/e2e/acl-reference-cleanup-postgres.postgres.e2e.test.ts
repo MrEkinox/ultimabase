@@ -165,11 +165,6 @@ const principalOwnerPlugin = definePlugin({
 			hooks.schema(`principal-delete:${schema.className}`, schema, {
 				beforeOperation: {
 					delete: async (input) => {
-						if (input.kind === 'delete-many') {
-							throw new Error(
-								'Principal reference policy requires singular deletion',
-							)
-						}
 						await applyPrincipalPolicy(
 							input.context,
 							schema,
@@ -410,7 +405,7 @@ describe(
 							},
 						],
 					},
-					operation: 'update-one',
+					operation: 'update',
 					target: { className: ProtectedPrimary.className, id: primary.id },
 				},
 				{
@@ -427,19 +422,13 @@ describe(
 							},
 						],
 					},
-					operation: 'update-one',
+					operation: 'update',
 					target: {
 						className: ProtectedSecondary.className,
 						id: secondary.id,
 					},
 				},
 			])
-			await expect(
-				CascadePrincipal.deleteMany(
-					{ where: 'all' },
-					{ ultimabase, useMasterKey: true },
-				),
-			).rejects.toThrow('requires singular deletion')
 		})
 
 		it('lets RoleSchema own fail, preserve, and cascade behavior', async () => {
@@ -531,7 +520,7 @@ describe(
 							},
 						],
 					},
-					operation: 'update-one',
+					operation: 'update',
 					target: { className: ProtectedPrimary.className, id: cascadeRow.id },
 				},
 			])

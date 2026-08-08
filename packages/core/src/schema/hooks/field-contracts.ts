@@ -1,12 +1,12 @@
 import type { MaybePromise } from '@ultimabase/shared'
 
-import type { OperationKind } from '../../query/index.js'
 import type { GenericField } from '../fields/base/contract.js'
 import type { InferFields } from '../inference/types.js'
 import type { HookContext } from './hook-context.js'
 import type {
 	HookHandlerDeclaration,
 	SaveHookFamily,
+	SchemaMutationKind,
 } from './contracts.js'
 
 /** Identifies the schema inference shape used by one field hook value. */
@@ -37,28 +37,22 @@ export interface FieldHookTypes<TField extends GenericField> {
 }
 
 /** Groups terminals whose supplied values can pass through input hooks. */
-export type FieldInputHookKind =
-	| 'create-many'
-	| 'create-one'
-	| 'update-many'
-	| 'update-one'
-	| 'upsert-many'
-	| 'upsert-one'
-
-/** Groups supplied update values, including one set-based update expression. */
-export type FieldUpdateInputHookKind = Extract<
-	FieldInputHookKind,
-	'update-many' | 'update-one'
+export type FieldInputHookKind = Extract<
+	SchemaMutationKind,
+	'create' | 'update' | 'upsert'
 >
 
+/** Identifies supplied values from one itemized update operation. */
+export type FieldUpdateInputHookKind = Extract<FieldInputHookKind, 'update'>
+
 /** Identifies singular update values retained by field Access and output traversal. */
-export type FieldUpdateHookKind = 'update-one'
+export type FieldUpdateHookKind = 'update'
 
 /** Groups create terminals whose supplied values can be resolved in stable order. */
-export type FieldCreateHookKind = 'create-many' | 'create-one'
+export type FieldCreateHookKind = 'create'
 
 /** Groups upsert terminals whose supplied values retain their candidate branch. */
-export type FieldUpsertHookKind = 'upsert-many' | 'upsert-one'
+export type FieldUpsertHookKind = 'upsert'
 
 /** Groups terminals that can expose selected logical field values. */
 export type FieldOutputHookKind =
@@ -77,12 +71,12 @@ export type FieldOutputHookKind =
 /** Supplies one present logical value without exposing sibling schema fields. */
 export interface FieldValueHookInput<
 	TValue,
-	TKind extends OperationKind,
+	TKind extends FieldInputHookKind,
 	TMode extends FieldHookMode,
 > {
 	/** Carries immutable request identity and revocable hook capabilities. */
 	readonly context: HookContext
-	/** Retains the normalized terminal as a concise discriminant. */
+	/** Identifies the item-oriented mutation independently from cardinality. */
 	readonly kind: TKind
 	/** Distinguishes create and update branches, especially for an upsert. */
 	readonly mode: TMode
@@ -92,7 +86,7 @@ export interface FieldValueHookInput<
 
 type AvailableFieldHookInput<
 	TValue,
-	TKind extends OperationKind,
+	TKind extends FieldInputHookKind,
 	TMode extends FieldHookMode,
 > = [TValue] extends [never] ? never : FieldValueHookInput<TValue, TKind, TMode>
 
@@ -105,7 +99,7 @@ export type FieldInputHookInput<TField extends GenericField> =
 	  >
 	| AvailableFieldHookInput<
 			FieldHookTypes<TField>['update'],
-			FieldUpdateHookKind | 'update-many',
+			FieldUpdateHookKind,
 			'update'
 	  >
 	| AvailableFieldHookInput<

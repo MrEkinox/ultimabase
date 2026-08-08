@@ -3,7 +3,6 @@ import { describe, expect, it } from 'vitest'
 import { QueryBuilder } from '../query/query.js'
 
 import {
-	normalizeBulkOperationOptions,
 	normalizeOperationOptions,
 	runWithQueryExecution,
 	type QueryExecutionDispatcher,
@@ -87,7 +86,7 @@ describe('contextual operation execution', () => {
 		expect('engine' in reusable).toBe(false)
 	})
 
-	it('normalizes operation ownership and bulk grouping without entering the AST', () => {
+	it('normalizes operation ownership without entering the AST', () => {
 		const context = {}
 		const owner = {}
 		const terminal = normalizeOperationOptions({
@@ -95,34 +94,23 @@ describe('contextual operation execution', () => {
 			ultimabase: owner as never,
 			useMasterKey: true,
 		})
-		const bulk = normalizeBulkOperationOptions({
-			atomic: false,
-			ultimabase: owner as never,
-		})
 
 		expect(terminal).toStrictEqual({
 			context,
 			ultimabase: owner,
 			useMasterKey: true,
 		})
-		expect(bulk).toStrictEqual({
-			bulk: { atomic: false },
-			context: undefined,
-			ultimabase: owner,
-			useMasterKey: false,
-		})
 		expect(Object.isFrozen(terminal)).toBe(true)
-		expect(Object.isFrozen(bulk)).toBe(true)
 		const ast = new QueryBuilder(PostSchema).ast
 		expect('context' in ast).toBe(false)
 		expect('ultimabase' in ast).toBe(false)
 		expect('useMasterKey' in ast).toBe(false)
-		expect(() =>
-			normalizeOperationOptions({ unknown: true } as never),
-		).toThrow('operation options contain unknown key: unknown')
-		expect(() =>
-			normalizeBulkOperationOptions({ atomic: 'no' } as never),
-		).toThrow('bulk operation atomic option must be a boolean')
+		expect(() => normalizeOperationOptions({ unknown: true } as never)).toThrow(
+			'operation options contain unknown key: unknown',
+		)
+		expect(() => normalizeOperationOptions({ atomic: false } as never)).toThrow(
+			'operation options contain unknown key: atomic',
+		)
 		expect(() =>
 			normalizeOperationOptions({ context: 'forged' } as never),
 		).toThrow('operation context must be a RequestContext instance')

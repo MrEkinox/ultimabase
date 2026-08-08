@@ -113,14 +113,14 @@ const AuthorityRecordSchema = Schema.define({
 	},
 	hooks: {
 		beforeOperation: {
-			create: ({ context, operation }) => {
+			create: ({ context, item }) => {
 				// Snapshot revocable hook capabilities before the callback completes.
 				authorityObservations.push({
 					mode: context.access.mode,
 					principal: context.getValue(authorityPrincipal),
 				})
 
-				void operation
+				void item
 			},
 		},
 	},
@@ -134,16 +134,12 @@ const HookPostSchema = Schema.define({
 	},
 	hooks: {
 		beforeOperation: {
-			create: async ({ operation }) => {
-				if (operation.kind !== 'create-one') {
-					return
-				}
-
+			create: async ({ item }) => {
 				await new HookAuditSchema({
-					action: `create:${operation.input.title}`,
+					action: `create:${item.title}`,
 				}).create({})
 
-				if (operation.input.title === 'rollback') {
+				if (item.title === 'rollback') {
 					throw hookRollbackError
 				}
 			},
@@ -182,13 +178,8 @@ const packedQuery = new QueryBuilder(PostSchema).select({
 	id: true,
 	title: true,
 })
-const packedNonAtomicCreate = () =>
-	PostSchema.createMany(
-		{ data: [{ title: 'Packed bulk draft' }] },
-		{
-			atomic: false,
-		},
-	)
+const packedAtomicCreate = () =>
+	PostSchema.createMany({ data: [{ title: 'Packed bulk draft' }] })
 declare const packedContext: RequestContext
 const packedMasterFind = () =>
 	PostSchema.findMany(undefined, { useMasterKey: true })
@@ -217,7 +208,7 @@ const packedQueryDelete = () =>
 void packedDraft
 void packedModelDraft
 void packedQuery
-void packedNonAtomicCreate
+void packedAtomicCreate
 void packedMasterFind
 void packedContextFind
 void packedDraftCreate
@@ -268,7 +259,7 @@ afterAll(async () => {
 })
 
 describe('Runtime to PostgreSQL', { concurrent: false }, () => {
-	it('executes ordered bulk, recoverable prefixes, set writes, and unique upserts', async () => {
+	it('executes ordered atomic bulk, set writes, and unique upserts', async () => {
 		const ultimabase = new UltimaBase({
 			schemas: [BulkAccountSchema],
 			plugins: [
@@ -314,8 +305,10 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 			])
 			const bulkUpdated = await BulkAccountSchema.updateMany(
 				{
-					where: (where) => where.eq('tenantId', 'tenant-a'),
-					data: { visits: increment(2) },
+					data: ordered.map(({ id }) => ({
+						where: { id: { eq: id } },
+						data: { visits: increment(2) },
+					})),
 				},
 				{ ultimabase },
 			)
@@ -410,50 +403,6 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 				visits: 0,
 			})
 
-			const partial = await BulkAccountSchema.createMany(
-				{
-					data: [
-						{
-							email: 'prefix@example.com',
-							handle: 'prefix',
-							tenantId: 'tenant-d',
-						},
-						{
-							email: 'upsert@example.com',
-							handle: 'duplicate',
-							tenantId: 'tenant-d',
-						},
-						{
-							email: 'suffix@example.com',
-							handle: 'suffix',
-							tenantId: 'tenant-d',
-						},
-					],
-				},
-				{ atomic: false, ultimabase },
-			)
-
-			expect(partial.status).toBe('stopped')
-			if (partial.status === 'stopped') {
-				expect(partial.failedIndex).toBe(1)
-				expect(partial.results.map(({ email }) => email)).toStrictEqual([
-					'prefix@example.com',
-				])
-				expect(partial.error).toMatchObject({ code: 'VALIDATION_ERROR' })
-			}
-			await expect(
-				BulkAccountSchema.exists(
-					{ where: { email: { eq: 'prefix@example.com' } } },
-					{ ultimabase },
-				),
-			).resolves.toBe(true)
-			await expect(
-				BulkAccountSchema.exists(
-					{ where: { email: { eq: 'suffix@example.com' } } },
-					{ ultimabase },
-				),
-			).resolves.toBe(false)
-
 			await expect(
 				BulkAccountSchema.createMany(
 					{
@@ -511,7 +460,7 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 			])
 			await expect(
 				BulkAccountSchema.deleteMany(
-					{ where: (where) => where.eq('tenantId', 'tenant-d') },
+					{ where: [{ id: { eq: composite.id } }] },
 					{ ultimabase },
 				),
 			).resolves.toHaveLength(1)

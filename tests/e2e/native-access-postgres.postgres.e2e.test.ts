@@ -34,7 +34,7 @@ const AccessArticle = Schema.define({
 			upsert: ({ filter }) => filter.equalTo('published', true),
 		},
 		item: {
-			update: ({ item }) => !item.locked,
+			update: ({ originalItem }) => !originalItem.locked,
 		},
 		operation: {
 			create: ({ context }) => context.access.mode === 'master',
@@ -123,6 +123,7 @@ let ultimabase:
 let publicId = ''
 let privateId = ''
 let lockedId = ''
+let visibleDocumentIds: readonly string[] = []
 
 const getUltimaBase = () => {
 	if (ultimabase === undefined) {
@@ -187,7 +188,7 @@ beforeAll(async () => {
 	privateId = articles[1]?.id ?? ''
 	lockedId = articles[3]?.id ?? ''
 
-	await BulkDocument.createMany(
+	const documents = await BulkDocument.createMany(
 		{
 			data: [
 				{ key: 'visible-a', value: 1, visible: true },
@@ -197,6 +198,9 @@ beforeAll(async () => {
 		},
 		{ ultimabase, useMasterKey: true },
 	)
+	visibleDocumentIds = documents
+		.filter(({ visible }) => visible)
+		.map(({ id }) => id)
 })
 
 afterAll(async () => {
@@ -354,7 +358,12 @@ describe('native Access with PostgreSQL', () => {
 
 		await expect(
 			BulkDocument.updateMany(
-				{ where: 'all', data: { value: increment(10) } },
+				{
+					data: visibleDocumentIds.map((id) => ({
+						where: { id: { eq: id } },
+						data: { value: increment(10) },
+					})),
+				},
 				{ ultimabase: app },
 			),
 		).resolves.toHaveLength(2)
@@ -370,7 +379,10 @@ describe('native Access with PostgreSQL', () => {
 		).resolves.toMatchObject({ value: 12 })
 		await expect(BulkDocument.count({}, { ultimabase: app })).resolves.toBe(2)
 		await expect(
-			BulkDocument.deleteMany({ where: 'all' }, { ultimabase: app }),
+			BulkDocument.deleteMany(
+				{ where: visibleDocumentIds.map((id) => ({ id: { eq: id } })) },
+				{ ultimabase: app },
+			),
 		).resolves.toHaveLength(2)
 		await expect(BulkDocument.count({}, { ultimabase: app })).resolves.toBe(0)
 		await expect(

@@ -12,10 +12,6 @@ import type {
 import { Schema, type SchemaDefinition } from '../../schema/index.js'
 import { materializeSchemaModel } from '../../schema/schema/model.js'
 import type { RuntimeOperationResult } from '../pipeline/contracts.js'
-import {
-	isNonAtomicBulkOperation,
-	mapNonAtomicBulkResult,
-} from './non-atomic-result.js'
 import { readRuntimeSchemaModelMetadata } from './model-metadata.js'
 import { getOperationSchema } from './schema.js'
 import {
@@ -106,20 +102,6 @@ export const materializeOperationResult = <
 		case 'update-many':
 		case 'upsert-many': {
 			const schema = readOperationSchema(operation)
-
-			if (isNonAtomicBulkOperation(operation)) {
-				return mapNonAtomicBulkResult(
-					result,
-					'Runtime collection result',
-					(record, index) =>
-						materializeRecord(
-							schema,
-							record,
-							`Runtime result[${String(index)}]`,
-							operation,
-						),
-				) as InferOperationResult<TOperation>
-			}
 
 			if (!isUnknownArray(result)) {
 				throw new TypeError('Runtime collection result must be an array')

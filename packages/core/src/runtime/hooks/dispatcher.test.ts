@@ -1,14 +1,18 @@
 import { createApplication, definePlugin } from '../../foundation.js'
 import {
+	normalizeUpdateExpression,
 	QueryBuilder,
 	type CountOperationAst,
 	type CreateManyOperationAst,
 	type CreateOneOperationAst,
+	type DeleteManyOperationAst,
 	type ExistsOperationAst,
 	type FindManyOperationAst,
 	type FindOneOperationAst,
 	type GetOperationAst,
 	type QueryFilterNode,
+	type UpdateOneOperationAst,
+	type UpdateManyOperationAst,
 } from '../../query/index.js'
 import {
 	objectField,
@@ -16,7 +20,12 @@ import {
 	Schema,
 	stringField,
 } from '../../schema/index.js'
-import { immutableArray, immutableRecord } from '@ultimabase/shared'
+import { isSchemaModelInstance } from '../../schema/schema/model.js'
+import {
+	immutableArray,
+	immutableRecord,
+	isPlainRecord,
+} from '@ultimabase/shared'
 import { describe, expect, it } from 'vitest'
 
 import { RequestContext, requestSources } from '../context/request-context.js'
@@ -39,13 +48,32 @@ describe('native hook dispatcher', () => {
 	it('executes one immutable nested lifecycle in its fixed wrapping order', async () => {
 		const trace: string[] = []
 		const ignoredReplacement: { current?: unknown } = {}
+		let observedCreateItem: unknown
 		const record = (label: string): void => {
 			trace.push(label)
 		}
-		const observeBeforeCreate: () => void = () => {
+		const observeBeforeCreate = (input: unknown): void => {
+			if (!isPlainRecord(input)) {
+				throw new TypeError('Create observer input must be a plain object')
+			}
+
+			expect(Object.keys(input).sort()).toStrictEqual([
+				'context',
+				'item',
+				'kind',
+			])
+			expect(input.kind).toBe('create')
+
+			if (typeof input.item !== 'object' || input.item === null) {
+				throw new TypeError('Create observer item must be an object')
+			}
+
+			expect(typeof Reflect.get(input.item, 'get')).toBe('function')
+			observedCreateItem = input.item
 			record('schema:beforeCreate')
 
 			// Runtime ignores values returned by untyped JavaScript observers.
+			// @ts-expect-error -- The boundary test deliberately simulates untyped JavaScript.
 			return ignoredReplacement.current
 		}
 		const schema = Schema.define({
@@ -78,8 +106,17 @@ describe('native hook dispatcher', () => {
 						record('schema:afterCreate')
 					},
 				},
-				beforeOperation: { create: observeBeforeCreate },
-				resolveInput: ({ operation }) => {
+				beforeOperation: {
+					create: [
+						observeBeforeCreate,
+						({ item }) => {
+							expect(item).toBe(observedCreateItem)
+						},
+					],
+				},
+				resolveInput: ({ kind, operation, originalItem }) => {
+					expect(kind).toBe('create')
+					expect(originalItem).toBeNull()
 					if (operation.kind === 'create-one') {
 						record(`schema:resolve:${String(operation.input.profile?.name)}`)
 					}
@@ -109,6 +146,11 @@ describe('native hook dispatcher', () => {
 		operation = await stages.revalidate({ context, operation })
 		await stages.validate({ context, operation })
 		operation = await stages.schemaBefore({ context, operation })
+		operation = await stages.schemaResolveInput({
+			context,
+			operation,
+			target: undefined,
+		})
 		ignoredReplacement.current = immutableRecord({
 			...operation,
 			input: { ...operation.input, profile: { name: 'Ignored' } },
@@ -156,7 +198,125 @@ describe('native hook dispatcher', () => {
 		await application.dispose()
 	})
 
-	it('wraps one bulk operation while visiting item fields in stable order', async () => {
+	it('materializes persisted original items for every schema hook boundary', async () => {
+		let resolvedOriginal: object | undefined
+		let preparedOriginal: object | undefined
+		let persistedOriginal: object | undefined
+		const schema = Schema.define({
+			className: 'MaterializedOriginalArticle',
+			fields: { title: stringField() },
+			hooks: {
+				resolveInput: {
+					update: [
+						({ kind, operation, originalItem }) => {
+							expect(kind).toBe('update')
+							expect(originalItem.get('title')).toBe('Before')
+							resolvedOriginal = originalItem
+
+							return operation
+						},
+						({ kind, operation, originalItem }) => {
+							expect(kind).toBe('update')
+							expect(originalItem).toBe(resolvedOriginal)
+
+							return operation
+						},
+					],
+				},
+				beforeOperation: {
+					update: [
+						({ kind, originalItem }) => {
+							expect(kind).toBe('update')
+							expect(originalItem.get('title')).toBe('Before')
+							preparedOriginal = originalItem
+						},
+						({ kind, originalItem }) => {
+							expect(kind).toBe('update')
+							expect(originalItem).toBe(preparedOriginal)
+						},
+					],
+				},
+				afterOperation: {
+					update: [
+						({ kind, originalItem }) => {
+							expect(kind).toBe('update')
+							expect(originalItem.get('title')).toBe('Before')
+							persistedOriginal = originalItem
+						},
+						({ kind, originalItem }) => {
+							expect(kind).toBe('update')
+							expect(originalItem).toBe(persistedOriginal)
+						},
+					],
+				},
+			},
+		})
+		const application = await createApplication({
+			plugins: [],
+			schemas: [schema],
+		})
+		const stages = createNativeHookStages(application)
+		const query = new QueryBuilder(schema).ast
+		const operation = immutableRecord({
+			kind: 'update-one',
+			query,
+			update: normalizeUpdateExpression(schema, { title: 'After' }),
+		}) satisfies UpdateOneOperationAst<typeof schema>
+		const original = immutableRecord({
+			createdAt: fixedInstant.toISOString(),
+			id: generatedId,
+			title: 'Before',
+			updatedAt: fixedInstant.toISOString(),
+		})
+		const current = immutableRecord({ ...original, title: 'After' })
+		const resolved = await stages.schemaResolveInput({
+			context,
+			operation,
+			target: original,
+		})
+		const prepared = await stages.schemaPrepared({
+			context,
+			operation: resolved,
+			target: original,
+		})
+		const outcome = await stages.mutationOutcome({
+			context,
+			operation: prepared,
+			outcome: immutableRecord({
+				materializations: immutableArray([
+					immutableRecord({
+						current,
+						kind: 'update' as const,
+						previous: original,
+					}),
+				]),
+				result: current,
+			}),
+		})
+
+		await stages.schemaAfter({
+			context,
+			operation: prepared,
+			outcome,
+			result: outcome.result,
+		})
+
+		if (
+			resolvedOriginal === undefined ||
+			preparedOriginal === undefined ||
+			persistedOriginal === undefined
+		) {
+			throw new TypeError('Every original item hook boundary must execute')
+		}
+
+		expect(isSchemaModelInstance(schema, resolvedOriginal)).toBe(true)
+		expect(isSchemaModelInstance(schema, preparedOriginal)).toBe(true)
+		expect(isSchemaModelInstance(schema, persistedOriginal)).toBe(true)
+
+		await application.dispose()
+	})
+
+	it('does not expose low-level set operations to public item hooks', async () => {
 		const trace: string[] = []
 		const schema = Schema.define({
 			className: 'NativeBulkHooks',
@@ -172,13 +332,17 @@ describe('native hook dispatcher', () => {
 				}),
 			},
 			hooks: {
-				afterOperation: { create: () => {
-					trace.push('schema:after')
-				} },
-				beforeOperation: { create: ({ operation }) => {
-					trace.push('schema:before')
-					void operation
-				} },
+				afterOperation: {
+					create: () => {
+						trace.push('schema:after')
+					},
+				},
+				beforeOperation: {
+					create: ({ item }) => {
+						trace.push('schema:before')
+						void item
+					},
+				},
 			},
 		})
 		const application = await createApplication({
@@ -202,7 +366,6 @@ describe('native hook dispatcher', () => {
 		const operation = immutableRecord({
 			inputs: immutableArray([{ title: ' First ' }, { title: ' Second ' }]),
 			kind: 'create-many',
-			options: immutableRecord({ atomic: true }),
 			selection: new QueryBuilder(schema).ast.selection,
 			schema: new QueryBuilder(schema).ast.schema,
 		}) satisfies CreateManyOperationAst<typeof schema>
@@ -251,12 +414,44 @@ describe('native hook dispatcher', () => {
 			result: outcome.result,
 		})
 
-		expect(trace).toStrictEqual([
-			'field:resolve: First ',
-			'field:resolve: Second ',
-			'schema:before',
-			'schema:after',
-		])
+		expect(trace).toStrictEqual([])
+
+		await application.dispose()
+	})
+
+	it('does not request set targets for public item hooks', async () => {
+		const schema = Schema.define({
+			className: 'PreparedSetHookTargets',
+			fields: { title: stringField() },
+			hooks: {
+				afterOperation: { update: () => undefined },
+			},
+		})
+		const application = await createApplication({
+			plugins: [],
+			schemas: [schema],
+		})
+		const stages = createNativeHookStages(application)
+		const query = new QueryBuilder(schema).ast
+		const update = immutableRecord({
+			kind: 'update-many',
+			query,
+			update: normalizeUpdateExpression(schema, { title: 'Updated' }),
+		}) satisfies UpdateManyOperationAst<typeof schema>
+		const deletion = immutableRecord({
+			kind: 'delete-many',
+			query,
+		}) satisfies DeleteManyOperationAst<typeof schema>
+
+		expect(stages.requiresPreparedMutationItems(update)).toBe(false)
+		expect(stages.requiresPreparedMutationItems(deletion)).toBe(false)
+		await expect(
+			stages.schemaPrepared({
+				context,
+				operation: deletion,
+				target: undefined,
+			}),
+		).resolves.toStrictEqual(deletion)
 
 		await application.dispose()
 	})
@@ -275,26 +470,34 @@ describe('native hook dispatcher', () => {
 			className: 'NativeHookPluginOrder',
 			fields: { title },
 			hooks: {
-				afterOperation: { create: () => {
-					trace.push('schema:developer:after')
-				} },
-				beforeOperation: { create: ({ operation }) => {
-					trace.push('schema:developer:before')
-					void operation
-				} },
+				afterOperation: {
+					create: () => {
+						trace.push('schema:developer:after')
+					},
+				},
+				beforeOperation: {
+					create: ({ item }) => {
+						trace.push('schema:developer:before')
+						void item
+					},
+				},
 			},
 		})
 		const plugin = definePlugin({
 			name: 'fixture.native-hook-order',
 			setup: ({ hooks }) => {
 				hooks.schema('schema', schema, {
-					afterOperation: { create: () => {
-						trace.push('schema:plugin:after')
-					} },
-					beforeOperation: { create: ({ operation }) => {
-						trace.push('schema:plugin:before')
-						void operation
-					} },
+					afterOperation: {
+						create: () => {
+							trace.push('schema:plugin:after')
+						},
+					},
+					beforeOperation: {
+						create: ({ item }) => {
+							trace.push('schema:plugin:before')
+							void item
+						},
+					},
 				})
 				hooks.field('field', schema, ['title'], {
 					resolveInput: ({ value }) => {

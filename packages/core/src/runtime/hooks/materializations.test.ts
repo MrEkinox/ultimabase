@@ -2,7 +2,9 @@ import {
 	normalizeUpdateExpression,
 	QueryBuilder,
 	type CreateOneOperationAst,
+	type DeleteManyOperationAst,
 	type DeleteOneOperationAst,
+	type UpdateManyOperationAst,
 	type UpdateOneOperationAst,
 	type UpsertOneOperationAst,
 } from '../../query/index.js'
@@ -62,6 +64,32 @@ describe('parent mutation item materializations', () => {
 			},
 		])
 		expect(collectMutationBeforeItems(operation, null)).toStrictEqual([])
+	})
+
+	it('builds stable item pairs for prepared set-based targets', () => {
+		const second = { ...original, id: '00000000-0000-7000-8000-000000000002' }
+		const update = immutableRecord({
+			kind: 'update-many',
+			query,
+			update: normalizeUpdateExpression(schema, { title: 'After' }),
+		}) satisfies UpdateManyOperationAst<typeof schema>
+		const deletion = immutableRecord({
+			kind: 'delete-many',
+			query,
+		}) satisfies DeleteManyOperationAst<typeof schema>
+
+		expect(
+			collectMutationBeforeItems(update, undefined, [second, original]),
+		).toStrictEqual([
+			{ item: { ...second, title: 'After' }, originalItem: second },
+			{ item: { ...original, title: 'After' }, originalItem: original },
+		])
+		expect(
+			collectMutationBeforeItems(deletion, undefined, [second, original]),
+		).toStrictEqual([
+			{ item: null, originalItem: second },
+			{ item: null, originalItem: original },
+		])
 	})
 
 	it('exposes one delete preimage and keeps atomic upsert unresolved', () => {

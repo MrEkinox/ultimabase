@@ -224,11 +224,11 @@ The write surface is:
 - `createOne({ data, select? }, options?)`
 - `createMany({ data, select? }, options?)`
 - `updateOne({ where, data, select? }, options?)`
-- `updateMany({ where, data, select? }, options?)`
+- `updateMany({ data: [{ where, data }], select? }, options?)`
 - `upsertOne({ where, create, update, select? }, options?)`
 - `upsertMany({ data, select? }, options?)`
 - `deleteOne({ where, select? }, options?)`
-- `deleteMany({ where, select? }, options?)`
+- `deleteMany({ where: [where], select? }, options?)`
 
 The object form is the source of truth for reads, mutations, and future
 transports. Dynamic application code may use the public immutable utility
@@ -238,8 +238,10 @@ class, whose short methods build the exact same object contract:
 import { QueryBuilder, WhereBuilder } from '@ultimabase/core'
 
 const updated = await Post.updateMany({
-	where: { published: { eq: false } },
-	data: { published: true },
+	data: postIds.map((id) => ({
+		where: { id: { eq: id } },
+		data: { published: true },
+	})),
 	select: { id: true, published: true },
 })
 
@@ -274,12 +276,9 @@ fields and preserve the field's exact type: numbers for integer and float
 fields, strings for decimals, and bigint values for bigint fields. `unset()` is
 accepted only where `null` is accepted, so required fields cannot be cleared.
 
-An empty object or builder is rejected. A set-based command can deliberately
-target all rows only with the explicit value `where: 'all'`:
-
-```ts
-await Post.deleteMany({ where: 'all' }, { useMasterKey: true })
-```
+An empty object or builder is rejected. Collection updates and deletes require
+one unique predicate per item; this API intentionally has no implicit
+"all rows" target.
 
 `updateOne`, `deleteOne`, and `upsertOne` require an exact unique target: `id`, one
 unique field, or all fields of one declared unique composite index. This keeps
@@ -323,24 +322,26 @@ Use a separate `Post.findOne` or `Post.get` with `include` when an included
 pointer is required. This keeps relation I/O visible while allowing the write
 result itself to remain narrow.
 
-`updateMany` and `deleteMany` always return immutable model arrays from the
-same set-based database statement. Without `select`, they request only `id`;
-an explicit selection returns exactly those post-update or pre-delete fields.
-The array length is the affected-row count. They never materialize rows merely
-to execute per-object mutation hooks:
+`updateMany` and `deleteMany` return immutable model arrays in declaration
+order. Without `select`, they request only `id`; an explicit selection returns
+exactly those post-update or pre-delete fields. Every predicate must identify
+one existing target. A missing target raises `NOT_FOUND` and rolls back the
+complete batch together with all earlier item hooks and writes:
 
 ```ts
 const updated = await Post.updateMany({
-	where: { published: { eq: false } },
-	data: { published: true },
+	data: [
+		{ where: { id: { eq: firstId } }, data: { published: true } },
+		{ where: { id: { eq: secondId } }, data: { published: true } },
+	],
 })
-// [{ id }, ...]
+// [{ id: firstId }, { id: secondId }]
 
 const deleted = await Post.deleteMany({
-	where: { archived: { eq: true } },
+	where: [{ id: { eq: firstId } }, { id: { eq: secondId } }],
 	select: { id: true, title: true },
 })
-// [{ id, title }, ...]
+// Results retain the same target order.
 ```
 
 Runtime-issued models also expose identity-safe instance commands:
@@ -412,14 +413,13 @@ Core never accepts authentication credentials here. `useMasterKey: true`
 elevates through the application-owned `MasterAuthority`, and operation options
 never enter a Query or Operation AST.
 
-Singular commands use `OperationOptions`; bulk commands use
-`BulkOperationOptions`, which adds `atomic` to the same execution boundary.
+Every command uses the same `OperationOptions` execution boundary.
 
 ## Bulk writes
 
-Bulk create and upsert are atomic by default. `atomic: false` persists inputs in
-order, stops on the first persistence failure, and returns the successful prefix
-explicitly without disabling Runtime's mutation transaction:
+Every bulk command is an ordered batch of singular item operations inside one
+automatic transaction. It resolves to an immutable array only when every item
+and pre-commit hook succeeds:
 
 ```ts
 const imported = await Account.createMany(
@@ -427,18 +427,14 @@ const imported = await Account.createMany(
 		data: rows,
 		select: { id: true, email: true },
 	},
-	{
-		atomic: false,
-		ultimabase,
-	},
+	{ ultimabase },
 )
-
-if (imported.status === 'stopped') {
-	console.error(imported.failedIndex, imported.error)
-}
 ```
 
-Bulk upsert gives every item its own exact unique predicate:
+Update, upsert, and delete batches give every item its own exact unique
+predicate. Their hook lifecycle receives the same singular operation shape as
+`updateOne`, `upsertOne`, or `deleteOne`: the public `kind` is cardinality-free,
+while an exposed `operation.kind` remains the exact `*-one` terminal.
 
 ```ts
 const imported = await Account.upsertMany(

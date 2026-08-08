@@ -6,6 +6,10 @@ Inline `objectField` options remain contextually typed, so editors suggest
 `fields`, `typeName`, `list`, `validation`, defaults, indexes, and extensions
 without widening the nested field map.
 
+Embedded objects contain stored value fields only. Pointers and relations need
+top-level schema identity, so declare them directly on the schema or model
+relationship attributes through an explicit relationship schema.
+
 ```ts
 import { Schema, floatField, objectField, stringField } from '@ultimabase/core'
 
@@ -13,6 +17,7 @@ const addressFields = {
 	line1: stringField({ validation: { required: true } }),
 	line2: stringField(),
 	city: stringField({ validation: { required: true } }),
+	internalRoutingCode: stringField({ access: { read: false } }),
 	postalCode: stringField({ validation: { required: true } }),
 	countryCode: stringField({
 		validation: {
@@ -52,4 +57,6 @@ export const CustomerSchema = Schema.define({
 
 `previousAddresses` is a list of structured objects. `scoreMatrix` is a
 two-dimensional list, and additional `true` entries can express deeper finite
-dimensions.
+dimensions. Field output Access is applied to every concrete object occurrence,
+so `internalRoutingCode` is structurally omitted from both `shippingAddress`
+and every `previousAddresses` entry without removing any address from the list.

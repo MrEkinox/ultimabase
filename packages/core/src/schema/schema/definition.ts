@@ -13,11 +13,7 @@ import {
 } from '../extensions/definition.js'
 import type { GenericField } from '../fields/base/contract.js'
 import { assertFieldDefinition } from '../fields/base/definition.js'
-import type { InferBulkOperationResult } from '../../query/operations/execution.js'
-import type {
-	BulkOperationOptions,
-	OperationOptions,
-} from '../../query/operations/options.js'
+import type { OperationOptions } from '../../query/operations/options.js'
 import type {
 	SchemaCreateManyInput,
 	SchemaCreateOneInput,
@@ -308,37 +304,25 @@ export interface SchemaClass<
 		options?: OperationOptions,
 	): Promise<InferQueryResult<this>>
 	/**
-	 * Creates input rows in order and keeps them atomic by default.
-	 * Passing `{ atomic: false }` returns a discriminated result with either every
-	 * model or the successful prefix and first failed input index.
+	 * Creates input rows in order through one all-or-nothing transaction.
 	 *
-	 * @example `await Post.createMany({ data: inputs, select: { id: true, title: true } }, { atomic: false })`
+	 * @example `await Post.createMany({ data: inputs, select: { id: true, title: true } })`
 	 */
-	createMany<
-		const TSelection extends QuerySelection<this>,
-		const TOptions extends BulkOperationOptions | undefined = undefined,
-	>(
+	createMany<const TSelection extends QuerySelection<this>>(
 		input: SchemaCreateManyInput<this, TSelection>,
-		options?: TOptions & BulkOperationOptions,
+		options?: OperationOptions,
 	): Promise<
-		InferBulkOperationResult<
-			InferQueryResult<this, QuerySelectedField<this, TSelection>>,
-			TOptions
-		>
+		readonly InferQueryResult<this, QuerySelectedField<this, TSelection>>[]
 	>
 	/**
-	 * Creates ordered rows and returns their complete persisted models.
-	 * With `{ atomic: false }`, the discriminated result reports either every
-	 * model or the successful prefix and first failed input index.
+	 * Creates ordered rows in one all-or-nothing transaction and returns their complete persisted models.
 	 *
-	 * @example `await Post.createMany({ data: inputs }, { atomic: false })`
+	 * @example `await Post.createMany({ data: inputs })`
 	 */
-	createMany<
-		const TOptions extends BulkOperationOptions | undefined = undefined,
-	>(
+	createMany(
 		input: SchemaCreateManyInput<this>,
-		options?: TOptions & BulkOperationOptions,
-	): Promise<InferBulkOperationResult<InferQueryResult<this>, TOptions>>
+		options?: OperationOptions,
+	): Promise<readonly InferQueryResult<this>[]>
 	/**
 	 * Updates one unique target, or returns `null` when its where clause matches none.
 	 *
@@ -363,7 +347,7 @@ export interface SchemaClass<
 	/**
 	 * Updates every selected row and returns its requested post-update fields.
 	 *
-	 * @example `await Post.updateMany({ where: { draft: { eq: true } }, data, select: { id: true, title: true } })`
+	 * @example `await Post.updateMany({ data: [{ where: { id: { eq: postId } }, data }], select: { id: true, title: true } })`
 	 */
 	updateMany<const TSelection extends QuerySelection<this>>(
 		input: SchemaUpdateManyInput<this, TSelection>,
@@ -374,7 +358,7 @@ export interface SchemaClass<
 	/**
 	 * Updates every selected row and returns only its identifier by default.
 	 *
-	 * @example `await Post.updateMany({ where: { draft: { eq: true } }, data })`
+	 * @example `await Post.updateMany({ data: [{ where: { id: { eq: postId } }, data }] })`
 	 */
 	updateMany(
 		input: SchemaUpdateManyInput<this>,
@@ -404,31 +388,21 @@ export interface SchemaClass<
 	 *
 	 * @example `await Post.upsertMany({ data: items, select: { id: true, title: true } })`
 	 */
-	upsertMany<
-		const TSelection extends QuerySelection<this>,
-		const TOptions extends BulkOperationOptions | undefined = undefined,
-	>(
+	upsertMany<const TSelection extends QuerySelection<this>>(
 		input: SchemaUpsertManyInput<this, TSelection>,
-		options?: TOptions & BulkOperationOptions,
+		options?: OperationOptions,
 	): Promise<
-		InferBulkOperationResult<
-			InferQueryResult<this, QuerySelectedField<this, TSelection>>,
-			TOptions
-		>
+		readonly InferQueryResult<this, QuerySelectedField<this, TSelection>>[]
 	>
 	/**
-	 * Upserts ordered items and returns their complete persisted models.
-	 * With `{ atomic: false }`, the discriminated result reports either every
-	 * model or the successful prefix and first failed input index.
+	 * Upserts ordered items atomically and returns their complete persisted models.
 	 *
-	 * @example `await Post.upsertMany({ data: items }, { atomic: false })`
+	 * @example `await Post.upsertMany({ data: items })`
 	 */
-	upsertMany<
-		const TOptions extends BulkOperationOptions | undefined = undefined,
-	>(
+	upsertMany(
 		input: SchemaUpsertManyInput<this>,
-		options?: TOptions & BulkOperationOptions,
-	): Promise<InferBulkOperationResult<InferQueryResult<this>, TOptions>>
+		options?: OperationOptions,
+	): Promise<readonly InferQueryResult<this>[]>
 	/**
 	 * Deletes one unique target, or returns `null` when its where clause matches none.
 	 *
@@ -453,7 +427,7 @@ export interface SchemaClass<
 	/**
 	 * Deletes every selected row and returns its requested pre-delete fields.
 	 *
-	 * @example `await Post.deleteMany({ where: { archived: { eq: true } }, select: { id: true, title: true } })`
+	 * @example `await Post.deleteMany({ where: [{ id: { eq: postId } }], select: { id: true, title: true } })`
 	 */
 	deleteMany<const TSelection extends QuerySelection<this>>(
 		input: SchemaDeleteManyInput<this, TSelection>,
@@ -464,7 +438,7 @@ export interface SchemaClass<
 	/**
 	 * Deletes every selected row and returns only its identifier by default.
 	 *
-	 * @example `await Post.deleteMany({ where: 'all' })`
+	 * @example `await Post.deleteMany({ where: [{ id: { eq: postId } }] })`
 	 */
 	deleteMany(
 		input: SchemaDeleteManyInput<this>,

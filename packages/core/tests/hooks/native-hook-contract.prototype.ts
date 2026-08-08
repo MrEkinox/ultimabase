@@ -63,7 +63,7 @@ type PrototypeSchemaDefinition<
 type CreateOperation<TSchema extends SchemaDefinition> = Extract<
 	OperationAst<TSchema>,
 	{
-		readonly kind: 'create-many' | 'create-one'
+		readonly kind: 'create-one'
 	}
 >
 

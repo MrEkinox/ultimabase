@@ -56,16 +56,14 @@ export const hookTargetFixturePlugin = definePlugin({
 
 		void registry
 		hooks./* completion:hook-target-methods */ global('global', {
-			beforeOperation: { create: ({ operation }) => void operation },
+			beforeOperation: { create: ({ item }) => void item },
 		})
 		hooks.schema('schema', TargetSchema, {
 			beforeOperation: {
-				create: ({ operation }) => {
-					if (operation.kind === 'create-one') {
-						const /* hover:schema-title */ title = operation.input.title
+				create: ({ item }) => {
+					const /* hover:schema-title */ title = item.title
 
-						void title
-					}
+					void title
 				},
 			},
 		})
@@ -102,7 +100,7 @@ export const hookTargetFixturePlugin = definePlugin({
 
 			void mode
 			return {
-				beforeOperation: { create: ({ operation }) => void operation },
+				beforeOperation: { create: ({ item }) => void item },
 			}
 		})
 		hooks.fieldExtension('field-extension', fieldExtension, (context) => {

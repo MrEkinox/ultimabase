@@ -1,7 +1,6 @@
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 import {
 	QueryBuilder,
-	type CreateManyOperationAst,
 	type CountOperationAst,
 	type DeleteManyOperationAst,
 	type ExistsOperationAst,
@@ -190,119 +189,6 @@ describe('runtime field outputs', () => {
 		await expect(
 			transformOperationFieldOutputs(operation, result, () => undefined),
 		).resolves.toBe(result)
-	})
-
-	it('visits and replaces only the successful non-atomic prefix', async () => {
-		const operation = immutableRecord({
-			inputs: immutableArray([{ title: 'First' }, { title: 'Second' }]),
-			kind: 'create-many',
-			options: immutableRecord({ atomic: false }),
-			selection: new QueryBuilder(outputSchema).ast.selection,
-			schema: new QueryBuilder(outputSchema).ast.schema,
-		}) satisfies CreateManyOperationAst<typeof outputSchema, false>
-		const writeError = new Error('second input failed')
-		const result = immutableRecord({
-			error: writeError,
-			failedIndex: 1,
-			results: immutableArray([
-				immutableRecord({
-					bio: null,
-					createdAt: '2026-08-03T00:00:00.000Z',
-					id: '00000000-0000-7000-8000-000000000001',
-					nickname: null,
-					profile: null,
-					secret: null,
-					title: 'First',
-					updatedAt: '2026-08-03T00:00:00.000Z',
-				}),
-			]),
-			status: 'stopped',
-		})
-
-		expect(
-			describeOutputs(collectOperationFieldOutputs(operation, result)),
-		).toStrictEqual([
-			{
-				fieldPath: ['title'],
-				itemIndex: 0,
-				kind: 'create-many',
-				mode: 'object',
-				valuePath: ['results', 0, 'title'],
-			},
-			{
-				fieldPath: ['profile'],
-				itemIndex: 0,
-				kind: 'create-many',
-				mode: 'object',
-				valuePath: ['results', 0, 'profile'],
-			},
-			{
-				fieldPath: ['nickname'],
-				itemIndex: 0,
-				kind: 'create-many',
-				mode: 'object',
-				valuePath: ['results', 0, 'nickname'],
-			},
-			{
-				fieldPath: ['bio'],
-				itemIndex: 0,
-				kind: 'create-many',
-				mode: 'object',
-				valuePath: ['results', 0, 'bio'],
-			},
-			{
-				fieldPath: ['secret'],
-				itemIndex: 0,
-				kind: 'create-many',
-				mode: 'object',
-				valuePath: ['results', 0, 'secret'],
-			},
-			{
-				fieldPath: ['id'],
-				itemIndex: 0,
-				kind: 'create-many',
-				mode: 'object',
-				valuePath: ['results', 0, 'id'],
-			},
-			{
-				fieldPath: ['createdAt'],
-				itemIndex: 0,
-				kind: 'create-many',
-				mode: 'object',
-				valuePath: ['results', 0, 'createdAt'],
-			},
-			{
-				fieldPath: ['updatedAt'],
-				itemIndex: 0,
-				kind: 'create-many',
-				mode: 'object',
-				valuePath: ['results', 0, 'updatedAt'],
-			},
-		])
-
-		const transformed = await transformOperationFieldOutputs(
-			operation,
-			result,
-			({ value }) => (typeof value === 'string' ? value.toUpperCase() : value),
-		)
-
-		expect(transformed).toStrictEqual({
-			error: writeError,
-			failedIndex: 1,
-			results: [
-				{
-					bio: null,
-					createdAt: '2026-08-03T00:00:00.000Z',
-					id: '00000000-0000-7000-8000-000000000001',
-					nickname: null,
-					profile: null,
-					secret: null,
-					title: 'FIRST',
-					updatedAt: '2026-08-03T00:00:00.000Z',
-				},
-			],
-			status: 'stopped',
-		})
 	})
 
 	it('resolves selected set-based update and delete results without materializations', async () => {

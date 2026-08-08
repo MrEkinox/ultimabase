@@ -340,9 +340,10 @@ operation.
 
 `Schema.define({ hooks })` accepts the typed mutation lifecycle directly through
 four focused groups: input transformation, before-operation observers,
-after-operation observers, and transaction finalization. Each operation branch
-covers both singular and bulk terminals, while `operation.kind` narrows the
-exact terminal.
+after-operation observers, and transaction finalization. Collection commands
+are itemized before dispatch. Their public `kind` is the cardinality-free
+business family (`create`, `update`, `upsert`, or `delete`), while an exposed
+`operation.kind` remains the exact singular terminal such as `update-one`.
 
 ```ts
 const ArticleSchema = Schema.define({
@@ -369,10 +370,29 @@ const ArticleSchema = Schema.define({
 ```
 
 `resolveInput` is the only transforming schema hook and may throw to reject an
-input. Before- and after-operation handlers are observers: they may perform
+input. It receives the existing visible `originalItem` after Access approval
+and target preparation (`null` for a create candidate). Before- and
+after-operation handlers are observers: they may perform
 transactional work or throw, but Runtime ignores their return values. Read
 filtering belongs to Query options for developer choices and schema Access for
 mandatory restrictions; there are no schema read hooks.
+
+Every non-null `originalItem` is materialized as a complete immutable
+`SchemaResult` instance. It retains protected persisted identity and therefore
+supports `get()`, `toJSON()`, and the regular instance commands through the same
+Runtime pipeline.
+
+Before-operation branches cover create, update, and delete. After-operation
+branches additionally cover upsert, whose create or update branch is known only
+after the atomic database operation. Each observer runs once per affected item
+with complete selection-independent values. `beforeOperation.create` exposes
+only `context`, `kind: "create"`, and the candidate `item`; there is no constant
+`originalItem` or internal operation AST. The candidate is a
+`SchemaPreparedDraft`: an immutable instance of the generated schema class with
+normalized defaults and system fields, `get()`, and `toJSON()`, but without
+persistence commands in its public type. Its shape is identical for direct and
+batched commands. A missing directed batch target raises `NOT_FOUND` and rolls
+back the complete batch.
 
 The declaration record is copied and frozen outside enumerable schema metadata.
 Changing only hooks cannot alter validation plans, adapter schemas, or
@@ -396,7 +416,7 @@ hooks: {
 ```
 
 Only compatible family keys are suggested for a phase. Family handlers cover
-both singular and bulk terminals and retain the exact `kind` discriminant.
+direct and batched items while retaining the same business `kind` discriminant.
 For `resolveInput`, shared `all` handlers run before the matching family.
 Configuration property order never changes this nesting.
 
@@ -429,11 +449,11 @@ one value and supports direct handlers, non-empty lists, and compatible
 value. An omitted optional field runs no value hook. Structured and cross-field
 validation belongs to schema hooks.
 
-Set-based `updateMany` runs input resolution over its supplied update values.
-Set-based `deleteMany` has no field input to resolve. Mutation lifecycle,
-cross-field behavior, and transaction finalization belong to schema hooks,
-whose singular mutation callbacks receive complete `originalItem` and `item`
-pairs independently of selection. Field definitions and transports own output
+Every `updateMany` entry runs input resolution over its supplied update values.
+`deleteMany` has no field input to resolve. Mutation lifecycle, cross-field
+behavior, and transaction finalization belong to schema hooks, whose callbacks
+receive complete `originalItem` and `item` pairs independently of selection.
+Field definitions and transports own output
 representation, while diagnostics and infrastructure plugins own low-level
 failure observation.
 
@@ -827,6 +847,12 @@ objectField({
 	},
 })
 ```
+
+An object field is one embedded stored value, not an independently addressable
+schema record. Its children may therefore be value fields, including nested
+objects and lists, but not `pointerField` or `relationField`. Declare schema
+relationships as top-level fields; use an explicit relationship schema when the
+relationship itself needs additional structured data.
 
 `typeName` follows the same optional identity contract as enum fields. A
 generator may use it as the base for distinct output, create-input,

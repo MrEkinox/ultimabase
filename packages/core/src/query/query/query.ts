@@ -71,17 +71,11 @@ import type {
 } from '../operations/contracts.js'
 import {
 	executeOperation,
-	normalizeBulkOperationOptions,
 	normalizeOperationOptions,
-	type InferBulkOperationResult,
-	type InferBulkOperationAtomicity,
 	type QueryRelationPrivateScope,
 	type OperationPrivateScope,
 } from '../operations/execution.js'
-import type {
-	BulkOperationOptions,
-	OperationOptions,
-} from '../operations/options.js'
+import type { OperationOptions } from '../operations/options.js'
 import type { InferOperationResult } from '../operations/results.js'
 import { snapshotCreateInputs } from '../operations/bulk.js'
 import {
@@ -993,29 +987,18 @@ export const executeSchemaCreateOne = <const TSchema extends SchemaDefinition>(
 }
 
 /** Executes one ordered schema-owned bulk create command. */
-export const executeSchemaCreateMany = <
-	const TSchema extends SchemaDefinition,
-	const TOptions extends BulkOperationOptions | undefined = undefined,
->(
+export const executeSchemaCreateMany = <const TSchema extends SchemaDefinition>(
 	schema: TSchema,
 	input: SchemaCreateManyExecutionInput<TSchema>,
-	options?: TOptions & BulkOperationOptions,
-): Promise<
-	InferBulkOperationResult<
-		InferQueryResult<TSchema, QueryFieldName<TSchema>>,
-		TOptions
-	>
-> => {
-	const normalizedOptions = normalizeBulkOperationOptions<TOptions>(options)
+	options?: OperationOptions,
+): Promise<readonly InferQueryResult<TSchema, QueryFieldName<TSchema>>[]> => {
 	const operation: CreateManyOperationAst<
 		TSchema,
-		InferBulkOperationAtomicity<TOptions>,
 		QueryFieldName<TSchema>
 	> = immutableRecord({
 		kind: 'create-many',
 		schema: createQueryAst(schema).schema,
 		inputs: snapshotCreateInputs(input.data),
-		options: normalizedOptions.bulk,
 		selection:
 			input.select === undefined
 				? emptyQuerySelection
@@ -1024,12 +1007,10 @@ export const executeSchemaCreateMany = <
 
 	// The operation already fixes every selected field. This annotation only
 	// collapses the generic empty-schema branch retained by the conditional mapper.
-	return executeOperation(operation, normalizedOptions) as Promise<
-		InferBulkOperationResult<
-			InferQueryResult<TSchema, QueryFieldName<TSchema>>,
-			TOptions
-		>
-	>
+	return executeOperation(
+		operation,
+		normalizeOperationOptions(options),
+	) as Promise<readonly InferQueryResult<TSchema, QueryFieldName<TSchema>>[]>
 }
 
 /** Executes one singular update while retaining private QueryBuilder restrictions. */
@@ -1112,32 +1093,21 @@ export const executeQueryUpsertOne = <
 }
 
 /** Executes independently targeted upsert items without a container QueryBuilder. */
-export const executeSchemaUpsertMany = <
-	const TSchema extends SchemaDefinition,
-	const TOptions extends BulkOperationOptions | undefined = undefined,
->(
+export const executeSchemaUpsertMany = <const TSchema extends SchemaDefinition>(
 	schema: TSchema,
 	inputs: readonly UpsertManyItemInput<TSchema>[],
 	selection: QuerySelection<TSchema> | undefined,
-	options?: TOptions & BulkOperationOptions,
-): Promise<
-	InferBulkOperationResult<
-		InferQueryResult<TSchema, QueryFieldName<TSchema>>,
-		TOptions
-	>
-> => {
-	const normalizedOptions = normalizeBulkOperationOptions<TOptions>(options)
+	options?: OperationOptions,
+): Promise<readonly InferQueryResult<TSchema, QueryFieldName<TSchema>>[]> => {
 	const operation: UpsertManyOperationAst<
 		TSchema,
 		UpdateExpression<TSchema>,
 		QueryFilterNode<TSchema>,
-		InferBulkOperationAtomicity<TOptions>,
 		QueryFieldName<TSchema>
 	> = immutableRecord({
 		kind: 'upsert-many',
 		schema: createQueryAst(schema).schema,
 		items: normalizeUpsertItems(schema, inputs),
-		options: normalizedOptions.bulk,
 		selection:
 			selection === undefined
 				? emptyQuerySelection
@@ -1146,12 +1116,10 @@ export const executeSchemaUpsertMany = <
 
 	// The operation already fixes every selected field. This annotation only
 	// collapses the generic empty-schema branch retained by the conditional mapper.
-	return executeOperation(operation, normalizedOptions) as Promise<
-		InferBulkOperationResult<
-			InferQueryResult<TSchema, QueryFieldName<TSchema>>,
-			TOptions
-		>
-	>
+	return executeOperation(
+		operation,
+		normalizeOperationOptions(options),
+	) as Promise<readonly InferQueryResult<TSchema, QueryFieldName<TSchema>>[]>
 }
 
 /** Executes one singular delete while retaining private QueryBuilder restrictions. */

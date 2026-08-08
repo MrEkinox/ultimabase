@@ -81,6 +81,7 @@ const createRequest = (
 type FixtureRequest = ReturnType<typeof createRequest>['request']
 
 interface MutationFixture {
+	readonly adapterResult?: unknown
 	readonly execute: (request: FixtureRequest) => Promise<unknown>
 	readonly kind: SchemaMutationHookKind
 	readonly result: unknown
@@ -89,7 +90,7 @@ interface MutationFixture {
 /** Supplies the stable preimage required by singular prepared mutations. */
 const createMutationTarget = (
 	kind: SchemaMutationHookKind,
-): ReturnType<typeof articleRecord> | undefined => {
+): ReturnType<typeof articleRecord> | null | undefined => {
 	if (kind === 'update-one') {
 		return articleRecord('0198f090-2a50-7000-8000-000000000003', 'Before')
 	}
@@ -97,6 +98,7 @@ const createMutationTarget = (
 	if (kind === 'delete-one') {
 		return articleRecord('0198f090-2a50-7000-8000-000000000006', 'Deleted')
 	}
+	if (kind === 'upsert-one') return null
 
 	return undefined
 }
@@ -112,7 +114,11 @@ const mutationFixtures: readonly MutationFixture[] = [
 			),
 	},
 	{
-		kind: 'create-many',
+		kind: 'create-one',
+		adapterResult: articleRecord(
+			'0198f090-2a50-7000-8000-000000000002',
+			'Created',
+		),
 		result: [articleRecord('0198f090-2a50-7000-8000-000000000002', 'Created')],
 		execute: (request) =>
 			runWithRequestEngine(request, () =>
@@ -131,16 +137,18 @@ const mutationFixtures: readonly MutationFixture[] = [
 			),
 	},
 	{
-		kind: 'update-many',
-		result: [
-			{ id: '0198f090-2a50-7000-8000-000000000007' },
-			{ id: '0198f090-2a50-7000-8000-000000000008' },
-		],
+		kind: 'update-one',
+		adapterResult: { id: '0198f090-2a50-7000-8000-000000000007' },
+		result: [{ id: '0198f090-2a50-7000-8000-000000000007' }],
 		execute: (request) =>
 			runWithRequestEngine(request, () =>
 				articleSchema.updateMany({
-					where: (where) => where.eq('title', 'Before'),
-					data: { title: 'After' },
+					data: [
+						{
+							where: (where) => where.eq('title', 'Before'),
+							data: { title: 'After' },
+						},
+					],
 				}),
 			),
 	},
@@ -157,7 +165,11 @@ const mutationFixtures: readonly MutationFixture[] = [
 			),
 	},
 	{
-		kind: 'upsert-many',
+		kind: 'upsert-one',
+		adapterResult: articleRecord(
+			'0198f090-2a50-7000-8000-000000000005',
+			'Upserted',
+		),
 		result: [articleRecord('0198f090-2a50-7000-8000-000000000005', 'Upserted')],
 		execute: (request) =>
 			runWithRequestEngine(request, () =>
@@ -183,15 +195,13 @@ const mutationFixtures: readonly MutationFixture[] = [
 			),
 	},
 	{
-		kind: 'delete-many',
-		result: [
-			{ id: '0198f090-2a50-7000-8000-000000000009' },
-			{ id: '0198f090-2a50-7000-8000-000000000010' },
-		],
+		kind: 'delete-one',
+		adapterResult: { id: '0198f090-2a50-7000-8000-000000000009' },
+		result: [{ id: '0198f090-2a50-7000-8000-000000000009' }],
 		execute: (request) =>
 			runWithRequestEngine(request, () =>
 				articleSchema.deleteMany({
-					where: (where) => where.eq('title', 'Deleted'),
+					where: [(where) => where.eq('title', 'Deleted')],
 				}),
 			),
 	},
@@ -200,7 +210,7 @@ const mutationFixtures: readonly MutationFixture[] = [
 describe('automatic mutation transaction scope', () => {
 	it.each(mutationFixtures)(
 		'commits one automatic transaction for $kind',
-		async ({ execute, kind, result }) => {
+		async ({ adapterResult, execute, kind, result }) => {
 			const trace: string[] = []
 			const target = createMutationTarget(kind)
 			const { adapter, request } = createRequest(
@@ -208,7 +218,7 @@ describe('automatic mutation transaction scope', () => {
 					{
 						status: 'fulfilled',
 						...(target === undefined ? {} : { target }),
-						value: result,
+						value: adapterResult ?? result,
 					},
 				],
 				trace,

@@ -16,10 +16,11 @@ import {
 	type SchemaHooks,
 	type SchemaHookTypes,
 	type SchemaBeforeCommitResult,
+	type SchemaPreparedDraft,
+	type SchemaResult,
 } from '../index.js'
 import type {
 	InferQueryRecord,
-	NonAtomicBulkResult,
 	QueryBuilder,
 	QueryPointerResultInclusion,
 } from '../../query/index.js'
@@ -32,11 +33,15 @@ const ArticleSchema = Schema.define({
 	},
 	hooks: {
 		resolveInput: (input) => {
-			if (input.kind === 'create-one') {
+			if (input.kind === 'create') {
+				expectTypeOf(input.originalItem).toEqualTypeOf<null>()
 				expectTypeOf(input.operation.input.title).toEqualTypeOf<string>()
 			}
 
-			if (input.kind === 'update-one') {
+			if (input.kind === 'update') {
+				expectTypeOf(input.originalItem).toEqualTypeOf<
+					SchemaResult<typeof ArticleSchema>
+				>()
 				expectTypeOf(
 					input.operation.update.kind,
 				).toEqualTypeOf<'update-expression'>()
@@ -45,7 +50,7 @@ const ArticleSchema = Schema.define({
 			return input.operation
 		},
 		beforeOperation: {
-			create: ({ context, operation }) => {
+			create: ({ context, item, kind }) => {
 				expectTypeOf(context).toEqualTypeOf<HookContext>()
 				expectTypeOf(context.requestId).toBeString()
 				expectTypeOf(context.transactionId).toEqualTypeOf<string | undefined>()
@@ -59,30 +64,22 @@ const ArticleSchema = Schema.define({
 				void context.commit
 				// @ts-expect-error -- Business invariants cannot be bypassed.
 				void context.skipHooks
-				expectTypeOf(operation.kind).toEqualTypeOf<
-					'create-many' | 'create-one'
+				expectTypeOf(kind).toEqualTypeOf<'create'>()
+				expectTypeOf(item).toEqualTypeOf<
+					SchemaPreparedDraft<typeof ArticleSchema>
 				>()
+
+				void item
+			},
+			update: ({ kind, operation }) => {
+				expectTypeOf(kind).toEqualTypeOf<'update'>()
+				expectTypeOf(operation.kind).toEqualTypeOf<'update-one'>()
 
 				void operation
 			},
-			update: ({ operation }) => {
-				expectTypeOf(operation.kind).toEqualTypeOf<
-					'update-many' | 'update-one'
-				>()
-
-				void operation
-			},
-			upsert: ({ operation }) => {
-				expectTypeOf(operation.kind).toEqualTypeOf<
-					'upsert-many' | 'upsert-one'
-				>()
-
-				void operation
-			},
-			delete: ({ operation }) => {
-				expectTypeOf(operation.kind).toEqualTypeOf<
-					'delete-many' | 'delete-one'
-				>()
+			delete: ({ kind, operation }) => {
+				expectTypeOf(kind).toEqualTypeOf<'delete'>()
+				expectTypeOf(operation.kind).toEqualTypeOf<'delete-one'>()
 
 				void operation
 			},
@@ -90,6 +87,21 @@ const ArticleSchema = Schema.define({
 		transaction: {
 			beforeCommit: ({ changes }) => {
 				expectTypeOf(changes).toExtend<readonly unknown[]>()
+				for (const change of changes) {
+					expectTypeOf(change.kind).toEqualTypeOf<
+						'create' | 'delete' | 'update' | 'upsert'
+					>()
+					expectTypeOf(change.operation.kind).toEqualTypeOf<
+						| 'create-many'
+						| 'create-one'
+						| 'delete-many'
+						| 'delete-one'
+						| 'update-many'
+						| 'update-one'
+						| 'upsert-many'
+						| 'upsert-one'
+					>()
+				}
 			},
 			afterCommit: ({ changes }) => {
 				expectTypeOf(changes).toExtend<readonly unknown[]>()
@@ -131,7 +143,6 @@ test('keeps finalization results honest about selected fields', () => {
 	expectTypeOf<SchemaBeforeCommitResult<typeof ArticleSchema>>().toEqualTypeOf<
 		| Readonly<Partial<InferObject<typeof ArticleSchema>>>
 		| readonly Readonly<Partial<InferObject<typeof ArticleSchema>>>[]
-		| NonAtomicBulkResult<Readonly<Partial<InferObject<typeof ArticleSchema>>>>
 		| number
 		| null
 	>()
@@ -217,30 +228,28 @@ test('types ordered exact handlers and the remaining lifecycle families', () => 
 	const hooks: SchemaHooks<typeof ArticleSchema> = {
 		beforeOperation: {
 			create: [
-				({ operation }) => void operation,
-				({ operation }) => {
-					expectTypeOf(operation.kind).toEqualTypeOf<
-						'create-many' | 'create-one'
-					>()
+				({ item }) => void item,
+				({ kind }) => {
+					expectTypeOf(kind).toEqualTypeOf<'create'>()
 
-					void operation
+					void kind
 				},
 			],
 		},
 		resolveInput: {
 			all: ({ operation }) => operation,
 			create: [
-				({ operation }) => {
-					expectTypeOf(operation.kind).toEqualTypeOf<
-						'create-many' | 'create-one'
-					>()
+				({ operation, originalItem }) => {
+					expectTypeOf(operation.kind).toEqualTypeOf<'create-one'>()
+					expectTypeOf(originalItem).toEqualTypeOf<null>()
 
 					return operation
 				},
 			],
-			update: ({ operation }) => {
-				expectTypeOf(operation.kind).toEqualTypeOf<
-					'update-many' | 'update-one'
+			update: ({ operation, originalItem }) => {
+				expectTypeOf(operation.kind).toEqualTypeOf<'update-one'>()
+				expectTypeOf(originalItem).toEqualTypeOf<
+					SchemaResult<typeof ArticleSchema>
 				>()
 
 				return operation
@@ -260,57 +269,41 @@ test('narrows complete mutation items by terminal and lifecycle timing', () => {
 	const hooks: SchemaHooks<typeof ArticleSchema> = {
 		beforeOperation: {
 			create: (input) => {
-				if (input.kind === 'create-one') {
-					expectTypeOf(input.originalItem).toEqualTypeOf<null>()
-					expectTypeOf(input.item).toEqualTypeOf<
-						Readonly<InferObject<typeof ArticleSchema>>
-					>()
-				} else {
-					expectTypeOf(input.items[0]?.originalItem).toEqualTypeOf<
-						null | undefined
-					>()
-				}
+				expectTypeOf(input.kind).toEqualTypeOf<'create'>()
+				expectTypeOf(input.item).toEqualTypeOf<
+					SchemaPreparedDraft<typeof ArticleSchema>
+				>()
+				// @ts-expect-error -- Create observers do not expose a constant preimage.
+				void input.originalItem
+				// @ts-expect-error -- Create observers do not expose the internal terminal AST.
+				void input.operation
 			},
 			update: (input) => {
-				if (input.kind === 'update-one') {
-					expectTypeOf(input.originalItem).toEqualTypeOf<
-						Readonly<InferObject<typeof ArticleSchema>>
-					>()
-					expectTypeOf(input.item).toEqualTypeOf<
-						Readonly<InferObject<typeof ArticleSchema>>
-					>()
-				} else {
-					// Set-based writes do not materialize matching rows before execution.
-					// @ts-expect-error -- updateMany has no prepared item collection.
-					void input.items
-				}
+				expectTypeOf(input.kind).toEqualTypeOf<'update'>()
+				expectTypeOf(input.originalItem).toEqualTypeOf<
+					SchemaResult<typeof ArticleSchema>
+				>()
+				expectTypeOf(input.item).toEqualTypeOf<
+					Readonly<InferObject<typeof ArticleSchema>>
+				>()
 			},
 			delete: (input) => {
-				if (input.kind === 'delete-one') {
-					expectTypeOf(input.originalItem).toEqualTypeOf<
-						Readonly<InferObject<typeof ArticleSchema>>
-					>()
-					expectTypeOf(input.item).toEqualTypeOf<null>()
-				}
-			},
-			upsert: (input) => {
-				// Atomic upsert branch selection happens inside the database statement.
-				// @ts-expect-error -- no reliable preimage exists before an upsert.
-				void input.originalItem
+				expectTypeOf(input.kind).toEqualTypeOf<'delete'>()
+				expectTypeOf(input.originalItem).toEqualTypeOf<
+					SchemaResult<typeof ArticleSchema>
+				>()
+				expectTypeOf(input.item).toEqualTypeOf<null>()
 			},
 		},
 		afterOperation: {
 			upsert: (input) => {
-				if (input.kind === 'upsert-one') {
-					expectTypeOf(input.originalItem).toEqualTypeOf<Readonly<
-						InferObject<typeof ArticleSchema>
-					> | null>()
-					expectTypeOf(input.item).toEqualTypeOf<
-						Readonly<InferObject<typeof ArticleSchema>>
-					>()
-				} else {
-					expectTypeOf(input.items).toExtend<readonly unknown[]>()
-				}
+				expectTypeOf(input.kind).toEqualTypeOf<'upsert'>()
+				expectTypeOf(input.originalItem).toEqualTypeOf<SchemaResult<
+					typeof ArticleSchema
+				> | null>()
+				expectTypeOf(input.item).toEqualTypeOf<
+					Readonly<InferObject<typeof ArticleSchema>>
+				>()
 			},
 		},
 	}
@@ -349,6 +342,12 @@ test('rejects incompatible hook declarations and return values', () => {
 			create: [],
 		},
 	}
+	const invalidBeforeUpsert: SchemaHooks<typeof ArticleSchema> = {
+		beforeOperation: {
+			// @ts-expect-error -- Atomic upserts expose their branch only after persistence.
+			upsert: () => undefined,
+		},
+	}
 	const invalidEmptyFamily: SchemaHooks<typeof ArticleSchema> = {
 		// @ts-expect-error -- Family maps must declare at least one branch.
 		resolveInput: {},
@@ -364,6 +363,7 @@ test('rejects incompatible hook declarations and return values', () => {
 	expectTypeOf(effectOnlyHooks).toBeObject()
 	expectTypeOf(invalidFamilyHooks).toBeObject()
 	expectTypeOf(invalidEmptyList).toBeObject()
+	expectTypeOf(invalidBeforeUpsert).toBeObject()
 	expectTypeOf(invalidEmptyFamily).toBeObject()
 	expectTypeOf(invalidFamilyReturn).toBeObject()
 })

@@ -2,8 +2,7 @@ import { FrameworkError } from '@ultimabase/core'
 
 import { readPostgresDriverCode } from '../connection/driver-error.js'
 
-export type PostgresTransactionPhase =
-	'begin' | 'commit' | 'rollback' | 'savepoint'
+export type PostgresTransactionPhase = 'begin' | 'commit' | 'rollback'
 
 /** Removes SQL and connection diagnostics from transaction lifecycle failures. */
 export const createPostgresTransactionError = (

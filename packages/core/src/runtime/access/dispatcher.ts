@@ -9,7 +9,13 @@ import type {
 	QueryRelationFilterNode,
 	QueryExpressionNode,
 } from '../../query/index.js'
+import { applyUpdateExpressionToRecord } from '../../query/index.js'
 import { Schema, type SchemaDefinition } from '../../schema/index.js'
+import { isRelationUpdateExpression } from '../../schema/relations/mutation.js'
+import {
+	materializePreparedSchemaDraft,
+	materializeSchemaModel,
+} from '../../schema/schema/model.js'
 import {
 	combineAccessFilterResults,
 	createAccessFilter,
@@ -49,6 +55,11 @@ import {
 } from '../hooks/execution-descriptor.js'
 import type { HookExecutionRuntime } from '../hooks/execution-runtime.js'
 import { getApplicationHookExecutionRuntime } from '../hooks/execution-runtime.js'
+import {
+	collectOperationFieldInputs,
+	collectRecordFieldValues,
+	readRuntimeFieldValuePath,
+} from '../hooks/field-inputs.js'
 import { getOperationSchema } from '../operations/schema.js'
 import {
 	readOperationQueries,
@@ -58,10 +69,6 @@ import {
 	readRuntimeIncludedPointerValue,
 	transferRuntimeSchemaModelMetadata,
 } from '../operations/model-metadata.js'
-import {
-	isNonAtomicBulkOperation,
-	readNonAtomicBulkResult,
-} from '../operations/non-atomic-result.js'
 import type {
 	RuntimeMutationOutcomeStageInput,
 	RuntimeOperationStageInput,
@@ -114,6 +121,23 @@ const createItemizedCapabilityError = (
 				'This operation is unavailable with the configured access rules.',
 			internalDetails: {
 				kind: 'native-access-itemized-terminal-required',
+				operation,
+			},
+		},
+	)
+
+/** Reports a value-aware field rule that cannot observe a set-based candidate. */
+const createFieldItemizedCapabilityError = (
+	operation: OperationKind,
+): FrameworkError<'INTERNAL_ERROR'> =>
+	new FrameworkError(
+		'INTERNAL_ERROR',
+		`Native Access field update rules cannot protect set-based terminal ${operation}.`,
+		{
+			publicMessage:
+				'This operation is unavailable with the configured access rules.',
+			internalDetails: {
+				kind: 'native-access-field-itemized-terminal-required',
 				operation,
 			},
 		},
@@ -327,23 +351,6 @@ const collectFilterFields = (
 	}
 }
 
-const readPathValue = (
-	record: unknown,
-	path: readonly string[],
-): Readonly<{ present: boolean; value: unknown }> => {
-	let current: unknown = record
-
-	for (const segment of path) {
-		if (!isPlainRecord(current) || !Object.hasOwn(current, segment)) {
-			return immutableRecord({ present: false, value: undefined })
-		}
-
-		current = current[segment]
-	}
-
-	return immutableRecord({ present: true, value: current })
-}
-
 const readUpdateFieldValues = (
 	operation: ExecutableOperationAst,
 ): ReadonlyMap<string, unknown> => {
@@ -358,42 +365,170 @@ const readUpdateFieldValues = (
 					: []
 
 	for (const update of updates) {
-		if (!isPlainRecord(update) || !isUnknownArray(update.operations)) {
-			continue
-		}
-
-		for (const fieldOperation of update.operations) {
-			if (
-				isPlainRecord(fieldOperation) &&
-				typeof fieldOperation.field === 'string'
-			) {
-				values.set(fieldOperation.field, fieldOperation.value)
-			}
-		}
+		appendUpdateFieldValues(values, update)
 	}
 
 	return values
 }
 
-/** Reconstructs the schema-shaped update input promised to item Access callbacks. */
-const createItemUpdateInput = (
+/** Adds one exact update expression without conflating sibling bulk items. */
+const appendUpdateFieldValues = (
+	values: Map<string, unknown>,
 	update: unknown,
-): Readonly<Record<string, unknown>> => {
+): void => {
 	if (!isPlainRecord(update) || !isUnknownArray(update.operations)) {
-		throw new TypeError('Native Access requires a normalized update expression')
+		return
 	}
 
-	const entries: [string, unknown][] = []
+	for (const fieldOperation of update.operations) {
+		if (
+			isPlainRecord(fieldOperation) &&
+			typeof fieldOperation.field === 'string'
+		) {
+			values.set(fieldOperation.field, fieldOperation.value)
+		}
+	}
+}
 
-	for (const operation of update.operations) {
-		if (!isPlainRecord(operation) || typeof operation.field !== 'string') {
-			throw new TypeError('Native Access received an invalid update operation')
+const readExpressionUpdateFieldValues = (
+	update: unknown,
+): ReadonlyMap<string, unknown> => {
+	const values = new Map<string, unknown>()
+
+	appendUpdateFieldValues(values, update)
+
+	return values
+}
+
+/** Applies one scalar update without pretending relation deltas are embedded values. */
+const createUpdateCandidate = (
+	schema: SchemaDefinition,
+	operation: Extract<
+		ExecutableOperationAst,
+		{ readonly kind: 'update-one' | 'upsert-one' }
+	>,
+	originalItem: Readonly<Record<string, unknown>>,
+): Readonly<Record<string, unknown>> =>
+	isRelationUpdateExpression(operation.update)
+		? immutableRecord({ ...originalItem })
+		: applyUpdateExpressionToRecord(schema, originalItem, operation.update)
+
+interface AffectedFieldValuePair {
+	readonly field: FieldAccessPlan
+	readonly originalValue: unknown
+	readonly value: unknown
+}
+
+type RecordFieldValue = ReturnType<typeof collectRecordFieldValues>[number]
+
+const pathsEqual = (
+	left: readonly (number | string)[],
+	right: readonly (number | string)[],
+): boolean =>
+	left.length === right.length &&
+	left.every((segment, index) => segment === right[index])
+
+/** Correlates concrete nested values, including removed list items, by value path. */
+const collectAffectedFieldValuePairs = (
+	schemaPlan: SchemaAccessPlan,
+	originalValues: readonly RecordFieldValue[],
+	values: readonly RecordFieldValue[],
+	rootFieldName: string,
+): readonly AffectedFieldValuePair[] => {
+	const pairs: AffectedFieldValuePair[] = []
+
+	for (const field of schemaPlan.fields) {
+		if (field.path[0] !== rootFieldName || field.field.kind === 'relation') {
+			continue
 		}
 
-		entries.push([operation.field, operation.value])
+		const originalByPath = new Map(
+			originalValues
+				.filter(({ fieldPath }) => pathsEqual(fieldPath, field.path))
+				.map((entry) => [JSON.stringify(entry.valuePath), entry] as const),
+		)
+		const valueByPath = new Map(
+			values
+				.filter(({ fieldPath }) => pathsEqual(fieldPath, field.path))
+				.map((entry) => [JSON.stringify(entry.valuePath), entry] as const),
+		)
+		const valuePaths = new Set([
+			...originalByPath.keys(),
+			...valueByPath.keys(),
+		])
+
+		for (const valuePath of valuePaths) {
+			pairs.push(
+				immutableRecord({
+					field,
+					originalValue: originalByPath.get(valuePath)?.value ?? null,
+					value: valueByPath.get(valuePath)?.value ?? null,
+				}),
+			)
+		}
 	}
 
-	return immutableRecord(Object.fromEntries(entries))
+	return immutableArray(pairs)
+}
+
+/** Evaluates only callback rules after a locked target can produce final values. */
+const evaluatePreparedUpdateFieldRules = async (
+	runtime: HookExecutionRuntime,
+	request: RuntimeOperationStageInput<DatabaseOperationAst>,
+	schemaPlan: SchemaAccessPlan,
+	originalItem: Readonly<Record<string, unknown>>,
+	item: Readonly<Record<string, unknown>>,
+	kind: 'update' | 'upsert',
+	updateFields?: ReadonlyMap<string, unknown>,
+): Promise<void> => {
+	const operation = request.operation as unknown as ExecutableOperationAst
+	const originalValues = collectRecordFieldValues(
+		schemaPlan.schema.fields,
+		originalItem,
+		'parent-first',
+	)
+	const values = collectRecordFieldValues(
+		schemaPlan.schema.fields,
+		item,
+		'parent-first',
+	)
+
+	for (const [fieldName] of updateFields ?? readUpdateFieldValues(operation)) {
+		for (const {
+			field,
+			originalValue,
+			value,
+		} of collectAffectedFieldValuePairs(
+			schemaPlan,
+			originalValues,
+			values,
+			fieldName,
+		)) {
+			const rules = field.update.filter(
+				({ rule }) => typeof rule === 'function',
+			)
+			if (rules.length === 0) continue
+
+			await assertDecisionRules(
+				runtime,
+				request,
+				rules,
+				{
+					branch: 'update',
+					field,
+					phase: 'access-field-update',
+					schema: schemaPlan.schema,
+				},
+				immutableRecord({
+					context: request.context,
+					kind,
+					originalValue,
+					value,
+				}),
+				true,
+			)
+		}
+	}
 }
 
 const evaluateFieldReferenceRules = async (
@@ -454,51 +589,64 @@ const evaluateMutationFieldRules = async (
 	schemaPlan: SchemaAccessPlan,
 ): Promise<void> => {
 	const operation = request.operation as unknown as ExecutableOperationAst
-	const createInputs =
-		operation.kind === 'create-one'
-			? [operation.input]
-			: operation.kind === 'create-many'
-				? operation.inputs
-				: operation.kind === 'upsert-one'
-					? [operation.create]
-					: operation.kind === 'upsert-many'
-						? operation.items.map(({ create }) => create)
-						: []
+	const family = operationItemFamily(operation.kind)
 
-	for (const field of schemaPlan.fields) {
-		for (const input of createInputs) {
-			const value = readPathValue(input, field.path)
+	for (const input of collectOperationFieldInputs(
+		request.operation,
+		'parent-first',
+	)) {
+		if (input.mode !== 'create') continue
 
-			if (value.present) {
-				await assertDecisionRules(
-					runtime,
-					request,
-					field.create,
-					{
-						branch: 'create',
-						field,
-						phase: 'access-field-create',
-						schema: schemaPlan.schema,
-					},
-					immutableRecord({
-						context: request.context,
-						kind: request.operation.kind,
-						value: value.value,
-					}),
-					plan.defaults.field,
-				)
-			}
+		const field = plan.getField(schemaPlan.schema, input.fieldPath)
+
+		if (field?.field !== input.field) {
+			throw new TypeError(
+				'Native Access field traversal resolved an inconsistent create target',
+			)
 		}
+
+		await assertDecisionRules(
+			runtime,
+			request,
+			field.create,
+			{
+				branch: 'create',
+				field,
+				phase: 'access-field-create',
+				schema: schemaPlan.schema,
+			},
+			immutableRecord({
+				context: request.context,
+				kind: family === 'upsert' ? 'upsert' : 'create',
+				value: input.value,
+			}),
+			plan.defaults.field,
+		)
 	}
 
 	for (const [fieldName, value] of readUpdateFieldValues(operation)) {
-		const field = plan.getField(schemaPlan.schema, [fieldName])
+		const fields = schemaPlan.fields.filter(({ path }) => path[0] === fieldName)
 
-		if (field !== undefined) {
+		for (const field of fields) {
+			const relation = field.field.kind === 'relation'
+			const rules = relation
+				? field.update
+				: field.update.filter(({ rule }) => typeof rule === 'boolean')
+			const defaultDecision =
+				field.update.length === 0 ? plan.defaults.field : true
+
+			if (
+				operation.kind === 'update-many' &&
+				!relation &&
+				hasValueDependentRule(field.update, request)
+			) {
+				throw createFieldItemizedCapabilityError(operation.kind)
+			}
+
 			await assertDecisionRules(
 				runtime,
 				request,
-				field.update,
+				rules,
 				{
 					branch: 'update',
 					field,
@@ -507,10 +655,10 @@ const evaluateMutationFieldRules = async (
 				},
 				immutableRecord({
 					context: request.context,
-					kind: request.operation.kind,
+					kind: family === 'upsert' ? 'upsert' : 'update',
 					value,
 				}),
-				plan.defaults.field,
+				defaultDecision,
 			)
 		}
 	}
@@ -614,7 +762,7 @@ const evaluateCreateItems = async (
 				phase: 'access-item',
 				schema: schemaPlan.schema,
 			},
-			immutableRecord({ context: request.context, kind: operation.kind }),
+			immutableRecord({ context: request.context, kind: family }),
 			true,
 		)
 		return
@@ -624,6 +772,8 @@ const evaluateCreateItems = async (
 		operation.kind === 'create-one' ? [operation.input] : operation.inputs
 
 	for (const input of inputs) {
+		const item = materializePreparedSchemaDraft(schemaPlan.schema, input)
+
 		await assertDecisionRules(
 			runtime,
 			request,
@@ -635,10 +785,8 @@ const evaluateCreateItems = async (
 			},
 			immutableRecord({
 				context: request.context,
-				input,
-				item: input,
-				kind: operation.kind,
-				mode: 'create',
+				item,
+				kind: family,
 			}),
 			true,
 		)
@@ -704,39 +852,50 @@ const assertExplicitSelection = (
 	}
 }
 
-const removePath = (
-	record: Readonly<Record<string, unknown>>,
-	path: readonly string[],
-): Readonly<Record<string, unknown>> => {
-	const [head, ...tail] = path
+/** Omits one concrete property without ever changing surrounding list cardinality. */
+const removeConcreteFieldPath = (
+	value: unknown,
+	path: readonly (number | string)[],
+): unknown => {
+	const [segment, ...tail] = path
 
-	if (head === undefined || !Object.hasOwn(record, head)) {
-		return record
+	if (segment === undefined) {
+		throw new TypeError('Native Access cannot omit an empty field path')
+	}
+
+	if (typeof segment === 'number') {
+		if (
+			!isUnknownArray(value) ||
+			segment >= value.length ||
+			tail.length === 0
+		) {
+			throw new TypeError(
+				'Native Access cannot omit an invalid list field path',
+			)
+		}
+
+		const items = [...value]
+		items[segment] = removeConcreteFieldPath(items[segment], tail)
+
+		return immutableArray(items)
+	}
+
+	if (!isPlainRecord(value) || !Object.hasOwn(value, segment)) {
+		throw new TypeError('Native Access cannot omit an unavailable field path')
 	}
 
 	if (tail.length === 0) {
-		const result = immutableRecord(
+		return immutableRecord(
 			Object.fromEntries(
-				Object.entries(record).filter(([key]) => key !== head),
+				Object.entries(value).filter(([key]) => key !== segment),
 			),
 		)
-
-		transferRuntimeSchemaModelMetadata(record, result)
-
-		return result
 	}
 
-	const child = record[head]
-
-	if (!isPlainRecord(child)) {
-		return record
-	}
-
-	const result = immutableRecord({ ...record, [head]: removePath(child, tail) })
-
-	transferRuntimeSchemaModelMetadata(record, result)
-
-	return result
+	return immutableRecord({
+		...value,
+		[segment]: removeConcreteFieldPath(value[segment], tail),
+	})
 }
 
 const enforceRecordOutput = async (
@@ -747,21 +906,38 @@ const enforceRecordOutput = async (
 	record: Readonly<Record<string, unknown>>,
 ): Promise<Readonly<Record<string, unknown>>> => {
 	let projected = record
+	const values = collectRecordFieldValues(
+		schemaPlan.schema.fields,
+		record,
+		'parent-first',
+	)
 
-	for (const field of schemaPlan.fields) {
+	for (const value of values) {
+		const field = plan.getField(schemaPlan.schema, value.fieldPath)
+
+		if (field?.field !== value.field) {
+			throw new TypeError(
+				'Native Access field traversal resolved an inconsistent read target',
+			)
+		}
+
 		if (field.field.kind === 'relation') {
 			// Relation collections are absent from persisted rows. Their source rule is
 			// enforced once before eager traversal, before an adapter can load targets.
 			continue
 		}
 
-		const current = readPathValue(projected, field.path)
+		const current = readRuntimeFieldValuePath(projected, value.valuePath)
 
-		if (!current.present) {
+		// A denied parent makes every originally collected descendant unavailable.
+		if (!current.found) {
 			continue
 		}
-		const retained = readRuntimeIncludedPointerValue(projected, field.path)
-		const accessValue = retained.present ? retained.value : current.value
+		const retained = pathsEqual(value.fieldPath, value.valuePath)
+			? readRuntimeIncludedPointerValue(projected, field.path)
+			: undefined
+		const accessValue =
+			retained?.present === true ? retained.value : current.value
 
 		try {
 			await assertDecisionRules(
@@ -787,7 +963,17 @@ const enforceRecordOutput = async (
 				error instanceof FrameworkError &&
 				error.code === 'PERMISSION_DENIED'
 			) {
-				projected = removePath(projected, field.path)
+				const next = removeConcreteFieldPath(projected, value.valuePath)
+
+				if (!isPlainRecord(next)) {
+					throw new TypeError(
+						'Native Access field projection must preserve its root record',
+						{ cause: error },
+					)
+				}
+
+				transferRuntimeSchemaModelMetadata(projected, next)
+				projected = next
 				continue
 			}
 
@@ -817,39 +1003,6 @@ const enforceOutput = async <
 
 	if (unknownResult === null || typeof unknownResult !== 'object') {
 		return request.result
-	}
-
-	if (isNonAtomicBulkOperation(request.operation)) {
-		const bulk = readNonAtomicBulkResult(unknownResult, 'Native Access result')
-		const results: unknown[] = []
-
-		for (const record of bulk.results) {
-			results.push(
-				isPlainRecord(record)
-					? await enforceRecordOutput(
-							runtime,
-							operationInput,
-							plan,
-							schemaPlan,
-							record,
-						)
-					: record,
-			)
-		}
-
-		return (
-			bulk.status === 'completed'
-				? immutableRecord({
-						results: immutableArray(results),
-						status: 'completed',
-					})
-				: immutableRecord({
-						error: bulk.error,
-						failedIndex: bulk.failedIndex,
-						results: immutableArray(results),
-						status: 'stopped',
-					})
-		) as TResult
 	}
 
 	if (isUnknownArray(unknownResult)) {
@@ -1028,10 +1181,13 @@ export class NativeAccessRuntime {
 	>(request: RuntimePreparedMutationStageInput<TOperation>): Promise<void> {
 		if (
 			request.target === undefined ||
-			request.target === null ||
 			(request.operation.kind !== 'update-one' &&
-				request.operation.kind !== 'delete-one')
+				request.operation.kind !== 'delete-one' &&
+				request.operation.kind !== 'upsert-one')
 		) {
+			return
+		}
+		if (request.target === null && request.operation.kind !== 'upsert-one') {
 			return
 		}
 
@@ -1043,8 +1199,56 @@ export class NativeAccessRuntime {
 			)
 		}
 
-		const family = request.operation.kind === 'update-one' ? 'update' : 'delete'
+		const family =
+			request.operation.kind === 'update-one'
+				? 'update'
+				: request.operation.kind === 'delete-one'
+					? 'delete'
+					: 'upsert'
 		const operation = request.operation as unknown as ExecutableOperationAst
+		const upsertUpdate = family === 'upsert' && request.target !== null
+		let item: object | null
+		let originalItem: object | null
+
+		if (request.target === null) {
+			if (operation.kind !== 'upsert-one') {
+				throw new TypeError(
+					'Native Access missing target is valid only for an upsert create branch',
+				)
+			}
+
+			item = materializePreparedSchemaDraft(schemaPlan.schema, operation.create)
+			originalItem = null
+		} else {
+			originalItem = materializeSchemaModel(schemaPlan.schema, request.target)
+
+			if (operation.kind === 'delete-one') {
+				item = null
+			} else if (
+				operation.kind === 'update-one' ||
+				operation.kind === 'upsert-one'
+			) {
+				const candidate = createUpdateCandidate(
+					schemaPlan.schema,
+					operation,
+					request.target,
+				)
+				item = candidate
+				await evaluatePreparedUpdateFieldRules(
+					this.#runtime,
+					request,
+					schemaPlan,
+					request.target,
+					candidate,
+					family === 'upsert' ? 'upsert' : 'update',
+				)
+			} else {
+				throw new TypeError(
+					'Native Access received an invalid prepared mutation',
+				)
+			}
+		}
+
 		await assertDecisionRules(
 			this.#runtime,
 			request,
@@ -1056,12 +1260,14 @@ export class NativeAccessRuntime {
 			},
 			immutableRecord({
 				context: request.context,
-				...(family === 'update' && operation.kind === 'update-one'
-					? { input: createItemUpdateInput(operation.update) }
+				item,
+				kind: family,
+				originalItem,
+				...(family === 'upsert'
+					? {
+							mode: upsertUpdate ? ('update' as const) : ('create' as const),
+						}
 					: {}),
-				item: request.target,
-				kind: request.operation.kind,
-				...(family === 'update' ? { mode: 'update' as const } : {}),
 			}),
 			true,
 		)
@@ -1093,15 +1299,18 @@ export class NativeAccessRuntime {
 		}
 		const items =
 			operation.kind === 'upsert-one' ? [operation] : operation.items
-		const materializations: readonly Readonly<{
-			readonly kind: 'create' | 'update'
-			readonly current: Readonly<Record<string, unknown>>
-			readonly previous?: Readonly<Record<string, unknown>>
-		}>[] = request.outcome.materializations as unknown as readonly Readonly<{
-			readonly kind: 'create' | 'update'
-			readonly current: Readonly<Record<string, unknown>>
-			readonly previous?: Readonly<Record<string, unknown>>
-		}>[]
+		type UpsertMaterialization =
+			| Readonly<{
+					kind: 'create'
+					current: Readonly<Record<string, unknown>>
+			  }>
+			| Readonly<{
+					kind: 'update'
+					current: Readonly<Record<string, unknown>>
+					previous: Readonly<Record<string, unknown>>
+			  }>
+		const materializations = request.outcome
+			.materializations as unknown as readonly UpsertMaterialization[]
 
 		for (const [index, materialization] of materializations.entries()) {
 			const item = items[index]
@@ -1113,6 +1322,27 @@ export class NativeAccessRuntime {
 			}
 
 			const update = materialization.kind === 'update'
+			const accessItem = update
+				? materialization.current
+				: materializePreparedSchemaDraft(
+						schemaPlan.schema,
+						materialization.current,
+					)
+			const originalItem = update
+				? materializeSchemaModel(schemaPlan.schema, materialization.previous)
+				: null
+
+			if (update) {
+				await evaluatePreparedUpdateFieldRules(
+					this.#runtime,
+					request,
+					schemaPlan,
+					materialization.previous,
+					materialization.current,
+					'upsert',
+					readExpressionUpdateFieldValues(item.update),
+				)
+			}
 			await assertDecisionRules(
 				this.#runtime,
 				request,
@@ -1124,12 +1354,10 @@ export class NativeAccessRuntime {
 				},
 				immutableRecord({
 					context: request.context,
-					input: update ? createItemUpdateInput(item.update) : item.create,
-					item: update
-						? (materialization.previous ?? materialization.current)
-						: materialization.current,
-					kind: request.operation.kind,
+					item: accessItem,
+					kind: 'upsert',
 					mode: update ? ('update' as const) : ('create' as const),
+					originalItem,
 				}),
 				true,
 			)

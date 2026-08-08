@@ -96,7 +96,6 @@ describe('schema hook declarations', () => {
 				create: handler,
 				delete: handler,
 				update: handler,
-				upsert: handler,
 			},
 			resolveInput: handler,
 			transaction: { afterCommit: handler, beforeCommit: handler },

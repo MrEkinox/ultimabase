@@ -25,10 +25,6 @@ export type SchemaWhere<TSchema extends SchemaDefinition> =
 export type SchemaWhereFactory<TSchema extends SchemaDefinition> =
 	WhereCallback<TSchema> | WhereInput<TSchema>
 
-/** Requires an explicit opt-in before a set-based mutation targets every row. */
-export type SchemaManyWhere<TSchema extends SchemaDefinition> =
-	SchemaWhereFactory<TSchema> | 'all'
-
 interface SchemaCreateOneFields<TSchema extends SchemaDefinition> {
 	/** Supplies the schema-derived values for the new row. */
 	readonly data: InferCreateInput<TSchema>
@@ -99,14 +95,16 @@ export type SchemaUpdateOneExecutionInput<TSchema extends SchemaDefinition> =
 	SchemaUpdateOneFields<TSchema> &
 		Readonly<{ select?: QuerySelection<TSchema> }>
 
+/** Describes one independently targeted update inside an ordered atomic batch. */
+export type SchemaUpdateManyItemInput<TSchema extends SchemaDefinition> =
+	SchemaUpdateOneFields<TSchema>
+
 interface SchemaUpdateManyFields<TSchema extends SchemaDefinition> {
-	/** Selects matching rows, or targets every row only through the explicit `all` value. */
-	readonly where: SchemaManyWhere<TSchema>
-	/** Applies the same typed atomic expression to every matching row. */
-	readonly data: UpdateExpressionInput<TSchema> & {}
+	/** Supplies uniquely targeted updates in deterministic declaration order. */
+	readonly data: readonly SchemaUpdateManyItemInput<TSchema>[]
 }
 
-/** Updates matching rows and returns their selected post-update values. */
+/** Updates uniquely targeted rows in order and returns their selected values. */
 export type SchemaUpdateManyInput<
 	TSchema extends SchemaDefinition,
 	TSelection extends QuerySelection<TSchema> | undefined = undefined,
@@ -134,11 +132,11 @@ export type SchemaDeleteOneExecutionInput<TSchema extends SchemaDefinition> =
 		Readonly<{ select?: QuerySelection<TSchema> }>
 
 interface SchemaDeleteManyFields<TSchema extends SchemaDefinition> {
-	/** Selects matching rows, or targets every row only through the explicit `all` value. */
-	readonly where: SchemaManyWhere<TSchema>
+	/** Supplies unique targets in deterministic declaration order. */
+	readonly where: readonly SchemaWhereFactory<TSchema>[]
 }
 
-/** Deletes matching rows and returns their selected pre-delete values. */
+/** Deletes uniquely targeted rows in order and returns their selected values. */
 export type SchemaDeleteManyInput<
 	TSchema extends SchemaDefinition,
 	TSelection extends QuerySelection<TSchema> | undefined = undefined,

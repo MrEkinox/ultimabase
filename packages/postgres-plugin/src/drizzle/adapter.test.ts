@@ -127,7 +127,6 @@ class FixtureDriver implements PostgresDriverQueryClient, PostgresPoolClient {
 	readonly #responses: (Error | FixtureDriverResult)[] = []
 	readonly #transactionFailures = new Map<TransactionStatement, Error>()
 	readonly calls: RecordedDriverQuery[] = []
-	readonly savepointCalls: string[] = []
 	readonly transactionCalls: TransactionStatement[] = []
 	readonly releaseArguments: (Error | boolean | undefined)[] = []
 	releaseCalls = 0
@@ -165,17 +164,6 @@ class FixtureDriver implements PostgresDriverQueryClient, PostgresPoolClient {
 			return failure === undefined
 				? Promise.resolve({ rowCount: 0, rows: [] })
 				: Promise.reject(failure)
-		}
-
-		if (
-			typeof configuration === 'string' &&
-			(configuration.startsWith('SAVEPOINT ') ||
-				configuration.startsWith('ROLLBACK TO SAVEPOINT ') ||
-				configuration.startsWith('RELEASE SAVEPOINT '))
-		) {
-			this.savepointCalls.push(configuration)
-
-			return Promise.resolve({ rowCount: 0, rows: [] })
 		}
 
 		if (
@@ -1017,7 +1005,6 @@ describe('internal PostgreSQL database adapter', () => {
 			operation: {
 				inputs: [first, second],
 				kind: 'create-many',
-				options: { atomic: true },
 				selection: new QueryBuilder(articleSchema).select({
 					id: true,
 					title: true,
@@ -1049,7 +1036,6 @@ describe('internal PostgreSQL database adapter', () => {
 			operation: {
 				inputs: [],
 				kind: 'create-many',
-				options: { atomic: true },
 				selection: new QueryBuilder(articleSchema).ast.selection,
 				schema: new QueryBuilder(articleSchema).ast.schema,
 			},
@@ -1060,63 +1046,6 @@ describe('internal PostgreSQL database adapter', () => {
 		})
 		expect(driver.calls).toHaveLength(1)
 		await transaction.rollback()
-	})
-
-	it('returns a recovered non-atomic prefix and never attempts later inputs', async () => {
-		const fixture = createFixture()
-		const driver = getTransactionDriver(fixture)
-		const transaction = await fixture.adapter.beginTransaction()
-		const first = {
-			createdAt: timestamp,
-			id: firstId,
-			title: 'First',
-			updatedAt: timestamp,
-			views: 1,
-		}
-		const prepared = await transaction.prepare({
-			constraints: [],
-			operation: {
-				inputs: [
-					first,
-					{ ...first, id: secondId, title: 'Duplicate' },
-					{ ...first, id: '0198c3d4-1000-7000-8000-000000000003' },
-				],
-				kind: 'create-many',
-				options: { atomic: false },
-				selection: new QueryBuilder(articleSchema).select({
-					id: true,
-					title: true,
-				}).ast.selection,
-				schema: new QueryBuilder(articleSchema).ast.schema,
-			},
-		})
-
-		driver.respond([articleRow(null, 'First', 1, firstId)])
-		driver.fail(
-			Object.assign(new Error('private unique detail'), { code: '23505' }),
-		)
-		const outcome = await prepared.execute()
-
-		expect(outcome).toMatchObject({
-			materializations: [{ current: first, kind: 'create' }],
-			result: {
-				failedIndex: 1,
-				results: [{ id: firstId, title: 'First' }],
-				status: 'stopped',
-			},
-		})
-		expect(outcome.result).toMatchObject({
-			error: { code: 'VALIDATION_ERROR' },
-		})
-		expect(driver.calls).toHaveLength(2)
-		expect(driver.savepointCalls).toStrictEqual([
-			'SAVEPOINT ultimabase_bulk_0',
-			'RELEASE SAVEPOINT ultimabase_bulk_0',
-			'SAVEPOINT ultimabase_bulk_1',
-			'ROLLBACK TO SAVEPOINT ultimabase_bulk_1',
-			'RELEASE SAVEPOINT ultimabase_bulk_1',
-		])
-		await transaction.commit()
 	})
 
 	it('executes set-based update and delete once without materializations', async () => {
@@ -1173,6 +1102,105 @@ describe('internal PostgreSQL database adapter', () => {
 		await transaction.rollback()
 	})
 
+	it('prepares stable set-based item snapshots only when Runtime requests them', async () => {
+		const fixture = createFixture()
+		const driver = getTransactionDriver(fixture)
+		const transaction = await fixture.adapter.beginTransaction()
+		const query = new QueryBuilder(articleSchema)
+			.where((where) => where.gt('views', 0))
+			.select({ id: true, title: true })
+			.descending('views')
+		const first = {
+			createdAt: timestamp,
+			id: firstId,
+			note: null,
+			title: 'First',
+			updatedAt: timestamp,
+			views: 1,
+		}
+		const second = {
+			...first,
+			id: secondId,
+			title: 'Second',
+			views: 2,
+		}
+
+		driver.respond([
+			articleRow(null, 'Second', 2, secondId),
+			articleRow(null, 'First', 1, firstId),
+		])
+		const preparedUpdate = await transaction.prepare({
+			constraints: [],
+			operation: {
+				kind: 'update-many',
+				query: query.ast,
+				update: normalizeUpdateExpression(articleSchema, {
+					views: increment(1),
+				}),
+			},
+			prepareMutationItems: true,
+		})
+
+		expect(preparedUpdate.targets).toStrictEqual([second, first])
+		expect(driver.calls[0]?.text).toMatch(
+			/select .* order by .*views.*desc.*id.*asc.*for update/u,
+		)
+
+		// PostgreSQL RETURNING order is not guaranteed; the adapter restores lock order.
+		driver.respond([
+			articleRow(null, 'First', 2, firstId),
+			articleRow(null, 'Second', 3, secondId),
+		])
+		await expect(preparedUpdate.execute()).resolves.toStrictEqual({
+			materializations: [
+				{
+					current: { ...second, views: 3 },
+					kind: 'update',
+					previous: second,
+				},
+				{
+					current: { ...first, views: 2 },
+					kind: 'update',
+					previous: first,
+				},
+			],
+			result: [
+				{ id: secondId, title: 'Second' },
+				{ id: firstId, title: 'First' },
+			],
+		})
+		expect(driver.calls[1]?.text).toMatch(
+			/update .*where .*id.*in .* returning .*note.*title.*views/u,
+		)
+
+		driver.respond([
+			articleRow(null, 'Second', 3, secondId),
+			articleRow(null, 'First', 2, firstId),
+		])
+		const preparedDelete = await transaction.prepare({
+			constraints: [],
+			operation: { kind: 'delete-many', query: query.ast },
+			prepareMutationItems: true,
+		})
+
+		driver.respond([
+			articleRow(null, 'First', 2, firstId),
+			articleRow(null, 'Second', 3, secondId),
+		])
+		await expect(preparedDelete.execute()).resolves.toStrictEqual({
+			materializations: [
+				{ kind: 'delete', previous: { ...second, views: 3 } },
+				{ kind: 'delete', previous: { ...first, views: 2 } },
+			],
+			result: [
+				{ id: secondId, title: 'Second' },
+				{ id: firstId, title: 'First' },
+			],
+		})
+		expect(driver.calls).toHaveLength(4)
+		await transaction.rollback()
+	})
+
 	it('reports exact create and update branches for selection-aware upserts', async () => {
 		const fixture = createFixture()
 		const driver = getTransactionDriver(fixture)
@@ -1202,6 +1230,7 @@ describe('internal PostgreSQL database adapter', () => {
 			update,
 		}
 
+		driver.respond([])
 		driver.respond([])
 		driver.respond([articleRow(null, 'Created', 0, firstId)])
 		const preparedCreate = await transaction.prepare({
@@ -1270,7 +1299,6 @@ describe('internal PostgreSQL database adapter', () => {
 					item(secondId, { ...first, id: secondId }),
 				],
 				kind: 'upsert-many',
-				options: { atomic: true },
 				selection: new QueryBuilder(articleSchema).select({
 					id: true,
 					title: true,
@@ -1297,77 +1325,7 @@ describe('internal PostgreSQL database adapter', () => {
 				{ id: secondId, title: 'Second updated' },
 			],
 		})
-		expect(driver.savepointCalls).toStrictEqual([])
 		await transaction.rollback()
-	})
-
-	it('stops non-atomic upsert-many after recovering its first failed item', async () => {
-		const fixture = createFixture()
-		const driver = getTransactionDriver(fixture)
-		const transaction = await fixture.adapter.beginTransaction()
-		const first = {
-			createdAt: timestamp,
-			id: firstId,
-			title: 'First',
-			updatedAt: timestamp,
-			views: 0,
-		}
-		const update = normalizeUpdateExpression(articleSchema, {
-			title: 'Updated',
-		})
-		const item = (id: string) => ({
-			create: { ...first, id },
-			query: new QueryBuilder(articleSchema).where((where) =>
-				where.eq('id', id),
-			).ast,
-			target: {
-				fields: ['id'] as const,
-				kind: 'unique-upsert-target' as const,
-			},
-			update,
-		})
-		const prepared = await transaction.prepare({
-			constraints: [],
-			operation: {
-				items: [
-					item(firstId),
-					item(secondId),
-					item('0198c3d4-1000-7000-8000-000000000003'),
-				],
-				kind: 'upsert-many',
-				options: { atomic: false },
-				selection: new QueryBuilder(articleSchema).select({
-					id: true,
-					title: true,
-				}).ast.selection,
-				schema: new QueryBuilder(articleSchema).ast.schema,
-			},
-		})
-
-		driver.respond([])
-		driver.respond([articleRow(null, 'First', 0, firstId)])
-		driver.fail(
-			Object.assign(new Error('private connection detail'), { code: '08006' }),
-		)
-		const outcome = await prepared.execute()
-
-		expect(outcome).toMatchObject({
-			materializations: [{ current: first, kind: 'create' }],
-			result: {
-				failedIndex: 1,
-				results: [{ id: firstId, title: 'First' }],
-				status: 'stopped',
-			},
-		})
-		expect(driver.calls).toHaveLength(3)
-		expect(driver.savepointCalls).toStrictEqual([
-			'SAVEPOINT ultimabase_bulk_0',
-			'RELEASE SAVEPOINT ultimabase_bulk_0',
-			'SAVEPOINT ultimabase_bulk_1',
-			'ROLLBACK TO SAVEPOINT ultimabase_bulk_1',
-			'RELEASE SAVEPOINT ultimabase_bulk_1',
-		])
-		await transaction.commit()
 	})
 
 	it('reapplies constraints to prepared locks and final update or delete writes', async () => {
@@ -1479,11 +1437,13 @@ describe('internal PostgreSQL database adapter', () => {
 				title: 'Upsert updated',
 			}),
 		} as const satisfies UpsertOneOperationAst<typeof articleSchema>
+		const upsertCallOffset = driver.calls.length
+
+		driver.respond([])
 		const preparedUpsert = await transaction.prepare({
 			constraints,
 			operation: upsertOperation,
 		})
-		const upsertCallOffset = driver.calls.length
 
 		// The empty insert models a concurrent winner between the two target locks.
 		driver.respond([])
@@ -1492,14 +1452,17 @@ describe('internal PostgreSQL database adapter', () => {
 		driver.respond([articleRow('tenant-1', 'Upsert updated', 1, firstId)])
 		await preparedUpsert.execute()
 
-		const firstUpsertLock = driver.calls[upsertCallOffset]
-		const secondUpsertLock = driver.calls[upsertCallOffset + 2]
-		const upsertUpdate = driver.calls[upsertCallOffset + 3]
+		const upsertCalls = driver.calls.slice(upsertCallOffset)
+		const upsertLocks = upsertCalls.filter(({ text }) =>
+			text.includes('for update'),
+		)
+		const upsertUpdate = upsertCalls.at(-1)
 
-		for (const lockCall of [firstUpsertLock, secondUpsertLock]) {
-			expect(lockCall?.text).toMatch(/where .* and .*note.*for update/u)
-			expect(lockCall?.params).toContain('tenant-1')
+		for (const lockCall of upsertLocks) {
+			expect(lockCall.text).toMatch(/where .* and .*note.*for update/u)
+			expect(lockCall.params).toContain('tenant-1')
 		}
+		expect(upsertLocks).toHaveLength(3)
 		expect(upsertUpdate?.text).toMatch(/update .*where \(.*id.* and .*note/u)
 		expect(upsertUpdate?.params).toContain('tenant-1')
 		await transaction.rollback()

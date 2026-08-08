@@ -67,8 +67,28 @@ describe('packed @ultimabase/core native Access contract', () => {
 
 	it('preserves exact operation, item, context-value, and field inference', () => {
 		expect(readHoverDisplay('operation-kind')).toContain('"find-many"')
+		expect(readHoverDisplay('create-access-kind')).toContain('"create"')
+		expect(readHoverDisplay('update-access-kind')).toContain('"update"')
+		expect(readHoverDisplay('delete-access-kind')).toContain('"delete"')
+		expect(readHoverDisplay('field-create-kind')).toContain(
+			'"create" | "upsert"',
+		)
 		expect(readHoverDisplay('context-value')).toContain('Principal | undefined')
-		expect(readHoverDisplay('update-input')).toContain('authorId?: string')
+		expect(readHoverDisplay('field-original-value')).toContain('string')
+		expect(readHoverDisplay('field-update-value')).toContain('string')
+		const createItem = readHoverDisplay('create-access-item')
+		const originalUpdateItem = readHoverDisplay(
+			'update-original-access-item',
+		)
+		const updateItem = readHoverDisplay('update-access-item')
+
+		expect(createItem).toContain('readonly authorId: string')
+		expect(createItem).toContain('readonly get:')
+		expect(createItem).not.toContain('readonly update:')
+		expect(originalUpdateItem).toContain('readonly authorId: string')
+		expect(originalUpdateItem).toContain('readonly get:')
+		expect(updateItem).toContain('readonly authorId: string')
+		expect(updateItem).not.toContain('readonly get:')
 		expect(readHoverDisplay('field-value')).toContain('boolean')
 		const filterDisplay = readHoverDisplay('access-filter')
 

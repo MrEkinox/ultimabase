@@ -14,6 +14,9 @@ import {
 	intField,
 	jsonField,
 	objectField,
+	pointerField,
+	relationField,
+	Schema,
 	stringField,
 	timeField,
 	uuidField,
@@ -357,6 +360,32 @@ describe('object fields and list metadata', () => {
 				},
 			})
 		}).toThrow(new TypeError('fields.name must be a field definition'))
+	})
+
+	it('rejects pointer and relation fields inside embedded objects', () => {
+		const Target = Schema.define({
+			className: 'EmbeddedObjectRuntimeTarget',
+			fields: {},
+		})
+
+		expect(() => {
+			Reflect.apply(objectField, undefined, [
+				{ fields: { author: pointerField({ target: () => Target }) } },
+			])
+		}).toThrow(
+			new TypeError(
+				'fields.author cannot be a pointer or relation inside objectField',
+			),
+		)
+		expect(() => {
+			Reflect.apply(objectField, undefined, [
+				{ fields: { tags: relationField({ target: () => Target }) } },
+			])
+		}).toThrow(
+			new TypeError(
+				'fields.tags cannot be a pointer or relation inside objectField',
+			),
+		)
 	})
 
 	it('rejects malformed nested object definitions', () => {

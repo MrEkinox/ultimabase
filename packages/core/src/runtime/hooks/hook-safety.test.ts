@@ -73,17 +73,17 @@ describe('hook execution safety', () => {
 			hooks: {
 				beforeOperation: {
 					create: [
-						({ context, operation }) => {
+						({ context, item }) => {
 							trace.push('hook:first')
 							transactionIds.push(context.transactionId)
 							controller.abort()
 
-							void operation
+							void item
 						},
-						({ operation }) => {
+						({ item }) => {
 							trace.push('hook:second')
 
-							void operation
+							void item
 						},
 					],
 				},
@@ -173,11 +173,11 @@ describe('hook execution safety', () => {
 			fields: { title: stringField({ validation: { required: true } }) },
 			hooks: {
 				beforeOperation: {
-					create: ({ context, operation }) => {
+					create: ({ context, item }) => {
 						trace.push('hook:child')
 						transactionIds.push(context.transactionId)
 
-						void operation
+						void item
 					},
 				},
 			},
@@ -193,12 +193,12 @@ describe('hook execution safety', () => {
 					},
 				},
 				beforeOperation: {
-					create: async ({ context, operation }) => {
+					create: async ({ context, item }) => {
 						trace.push('hook:parent')
 						transactionIds.push(context.transactionId)
 						await childSchema.createOne({ data: { title: 'child' } })
 
-						void operation
+						void item
 					},
 				},
 			},
@@ -239,11 +239,11 @@ describe('hook execution safety', () => {
 			fields: { title: stringField({ validation: { required: true } }) },
 			hooks: {
 				beforeOperation: {
-					create: async ({ operation }) => {
+					create: async ({ item }) => {
 						trace.push('hook:beforeCreate')
 						await schema.createOne({ data: { title: 'nested' } })
 
-						void operation
+						void item
 					},
 				},
 			},

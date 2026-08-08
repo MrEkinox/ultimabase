@@ -117,7 +117,6 @@ describe('packed @ultimabase/core native field hooks', () => {
 
 	it('keeps exact values and compact field hovers after declaration emission', () => {
 		expect(readHoverDisplay('input-value')).toContain('string | null')
-		expect(readHoverDisplay('change-item-id')).toContain('string')
 		const fieldDisplay = readHoverDisplay('field-definition')
 
 		expect(fieldDisplay).toContain(
@@ -134,9 +133,7 @@ describe('packed @ultimabase/core native field hooks', () => {
 			'update',
 			'upsert',
 		])
-		expect(readHoverDisplay('field-create-family-kind')).toContain(
-			'FieldCreateHookKind',
-		)
+		expect(readHoverDisplay('field-create-family-kind')).toContain('"create"')
 		const display = readHoverDisplay('field-family-declaration')
 
 		expect(display).toContain('FieldResolveInputHookDeclaration<')

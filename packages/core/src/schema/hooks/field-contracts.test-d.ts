@@ -20,14 +20,7 @@ test('infers exact scalar input values and operation branches', () => {
 		hooks: {
 			resolveInput: (input) => {
 				expectTypeOf(input.value).toEqualTypeOf<string | null>()
-				expectTypeOf(input.kind).toEqualTypeOf<
-					| 'create-many'
-					| 'create-one'
-					| 'update-many'
-					| 'update-one'
-					| 'upsert-many'
-					| 'upsert-one'
-				>()
+				expectTypeOf(input.kind).toEqualTypeOf<'create' | 'update' | 'upsert'>()
 				expectTypeOf(input.mode).toEqualTypeOf<'create' | 'update'>()
 
 				return input.value

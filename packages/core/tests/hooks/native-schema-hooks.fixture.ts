@@ -25,38 +25,58 @@ export const ArticleSchema = Schema.define({
 			},
 			create: (input) => {
 				const /* hover:create-family-kind */ kind = input.operation.kind
+				const /* hover:create-input */ createInput = input.operation.input
 
 				void kind
-				if (input.kind === 'create-one') {
-					const /* hover:create-input */ createInput = input.operation.input
-
-					createInput.title.toUpperCase()
-				}
+				createInput.title.toUpperCase()
 
 				return input.operation
 			},
 			update: (input) => {
-				if (input.kind === 'update-one') {
-					const /* hover:update-expression */ update = input.operation.update
+				const /* hover:update-expression */ update = input.operation.update
 
-					void update.operations
-				}
+				void update.operations
 
 				return input.operation
 			},
 			upsert: ({ operation }) => operation,
 		},
 		/* hover:schema-family-declaration */ beforeOperation: {
-			create: [({ /* completion:schema-list-input */ ...input }) => void input],
-			update: ({ operation }) => void operation,
+			create: [
+				({ /* completion:schema-list-input */ ...input }) => void input,
+				({ kind }) => {
+					const /* hover:before-create-kind */ createKind = kind
+
+					void createKind
+				},
+				({ item }) => {
+					const /* hover:before-create-item */ preparedItem = item
+
+					preparedItem.title.toUpperCase()
+					preparedItem.get('views')
+				},
+			],
+			update: ({ operation, originalItem }) => {
+				const /* hover:before-update-original-item */ persistedItem =
+						originalItem
+
+				persistedItem.title.toUpperCase()
+				persistedItem.get('views')
+				void persistedItem.update({ data: { title: 'Updated again' } })
+				void persistedItem.delete({})
+				void operation
+			},
+			delete: ({ kind }) => {
+				const /* hover:before-delete-kind */ deleteKind = kind
+
+				void deleteKind
+			},
 		},
 		afterOperation: {
 			create: (input) => {
-				if (input.kind === 'create-one') {
-					const /* hover:create-result */ created = input.item
+				const /* hover:create-result */ created = input.item
 
-					created.title.toUpperCase()
-				}
+				created.title.toUpperCase()
 
 				void input.result
 			},

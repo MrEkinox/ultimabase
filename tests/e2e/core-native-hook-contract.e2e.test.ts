@@ -73,7 +73,6 @@ describe('packed @ultimabase/core native hook contract', () => {
 	it('preserves exact schema, result, and field callback values', () => {
 		expect(readHoverDisplay('create-input')).toContain('title: string;')
 		expect(readHoverDisplay('update-input')).toContain('title?: string;')
-		expect(readHoverDisplay('count-result')).toContain('number')
 		expect(readHoverDisplay('enum-value')).toContain('"draft" | "published"')
 		expect(readHoverDisplay('nullable-value')).toContain('string | null')
 		expect(readHoverDisplay('custom-value')).toContain('VectorValue')

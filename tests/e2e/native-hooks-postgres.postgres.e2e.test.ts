@@ -113,68 +113,54 @@ const HookArticleSchema = Schema.define({
 			create: (input) => {
 				const { operation } = input
 				trace('schema:developer:afterCreate')
-				if (input.kind === 'create-one') {
-					trace(`schema:developer:afterCreate:item:${input.item.title}`)
-				}
+				trace(`schema:developer:afterCreate:item:${input.item.title}`)
 
-				if (
-					operation.kind === 'create-one' &&
-					operation.input.title === 'Rollback after persistence'
-				) {
+				if (operation.input.title === 'Rollback after persistence') {
 					throw rollbackHookError
 				}
 			},
 			delete: (input) => {
 				trace('schema:developer:afterDelete')
-				if (input.kind === 'delete-one') {
-					trace(
-						`schema:developer:afterDelete:original:${input.originalItem.title}`,
-					)
-				}
+				trace(
+					`schema:developer:afterDelete:original:${input.originalItem.title}`,
+				)
 			},
 			update: (input) => {
 				trace('schema:developer:afterUpdate')
-				if (input.kind === 'update-one') {
-					trace(
-						`schema:developer:afterUpdate:pair:${input.originalItem.title}->${input.item.title}`,
-					)
-				}
+				trace(
+					`schema:developer:afterUpdate:pair:${input.originalItem.title}->${input.item.title}`,
+				)
 			},
 		},
 		beforeOperation: {
 			create: async (input) => {
 				const { context } = input
+
 				trace('schema:developer:beforeCreate')
 
-				if (input.kind === 'create-one') {
-					trace(`schema:developer:beforeCreate:item:${input.item.title}`)
-					await HookAuditSchema.createOne({
-						data: {
-							action: `create:${input.item.title}`,
-							scopeId: input.item.scopeId,
-						},
-					})
-					context.emit('native-hooks.article-created', {
+				trace(`schema:developer:beforeCreate:item:${input.item.title}`)
+				await HookAuditSchema.createOne({
+					data: {
+						action: `create:${input.item.title}`,
 						scopeId: input.item.scopeId,
-						title: input.item.title,
-					})
-				}
+					},
+				})
+				context.emit('native-hooks.article-created', {
+					scopeId: input.item.scopeId,
+					title: input.item.title,
+				})
 			},
 			delete: (input) => {
 				trace('schema:developer:beforeDelete')
-				if (input.kind === 'delete-one') {
-					trace(
-						`schema:developer:beforeDelete:original:${input.originalItem.title}`,
-					)
-				}
+				trace(
+					`schema:developer:beforeDelete:original:${input.originalItem.title}`,
+				)
 			},
 			update: (input) => {
 				trace('schema:developer:beforeUpdate')
-				if (input.kind === 'update-one') {
-					trace(
-						`schema:developer:beforeUpdate:pair:${input.originalItem.title}->${input.item.title}`,
-					)
-				}
+				trace(
+					`schema:developer:beforeUpdate:pair:${input.originalItem.title}->${input.item.title}`,
+				)
 			},
 		},
 		transaction: {
@@ -287,9 +273,9 @@ const behaviorPlugin = definePlugin({
 				},
 			},
 			beforeOperation: {
-				create: ({ operation }) => {
+				create: ({ item }) => {
 					trace('plugin:schema:beforeCreate')
-					void operation
+					void item
 				},
 			},
 		})
@@ -571,9 +557,10 @@ describe('native hooks with PostgreSQL', { concurrent: false }, () => {
 		])
 	})
 
-	it('keeps updateMany and deleteMany set-based without before item materialization', async () => {
+	it('runs updateMany and deleteMany hooks once per scoped item', async () => {
+		const idsByScope = new Map<string, string>()
 		for (const scopeId of ['scope-bulk-a', 'scope-bulk-b']) {
-			await runWithScope(scopeId, () =>
+			const created = await runWithScope(scopeId, () =>
 				HookArticleSchema.createOne({
 					data: {
 						profile: { slug: scopeId },
@@ -583,14 +570,23 @@ describe('native hooks with PostgreSQL', { concurrent: false }, () => {
 					},
 				}),
 			)
+			idsByScope.set(scopeId, created.id)
 		}
+		const scopedId = idsByScope.get('scope-bulk-a')
+
+		if (scopedId === undefined)
+			throw new TypeError('Missing scoped hook target')
 		hookTrace.length = 0
 
 		await expect(
 			runWithScope('scope-bulk-a', () =>
 				HookArticleSchema.updateMany({
-					where: (where) => where.eq('title', 'Bulk scoped target'),
-					data: { title: 'Bulk updated target' },
+					data: [
+						{
+							where: { id: { eq: scopedId } },
+							data: { title: 'Bulk updated target' },
+						},
+					],
 				}),
 			),
 		).resolves.toHaveLength(1)
@@ -598,15 +594,18 @@ describe('native hooks with PostgreSQL', { concurrent: false }, () => {
 
 		expect(updateTrace).toContain('schema:developer:beforeUpdate')
 		expect(updateTrace).toContain('schema:developer:afterUpdate')
-		expect(updateTrace).not.toContain(
+		expect(updateTrace).toContain(
 			'schema:developer:beforeUpdate:pair:Bulk scoped target->Bulk updated target',
+		)
+		expect(updateTrace).toContain(
+			'schema:developer:afterUpdate:pair:Bulk scoped target->Bulk updated target',
 		)
 
 		hookTrace.length = 0
 		await expect(
 			runWithScope('scope-bulk-a', () =>
 				HookArticleSchema.deleteMany({
-					where: (where) => where.eq('title', 'Bulk updated target'),
+					where: [{ id: { eq: scopedId } }],
 				}),
 			),
 		).resolves.toHaveLength(1)
@@ -614,9 +613,23 @@ describe('native hooks with PostgreSQL', { concurrent: false }, () => {
 
 		expect(deleteTrace).toContain('schema:developer:beforeDelete')
 		expect(deleteTrace).toContain('schema:developer:afterDelete')
-		expect(deleteTrace).not.toContain(
+		expect(deleteTrace).toContain(
 			'schema:developer:beforeDelete:original:Bulk updated target',
 		)
+		expect(deleteTrace).toContain(
+			'schema:developer:afterDelete:original:Bulk updated target',
+		)
+
+		hookTrace.length = 0
+		await expect(
+			runWithScope('scope-bulk-a', () =>
+				HookArticleSchema.deleteMany({
+					where: [{ id: { eq: scopedId } }],
+				}),
+			),
+		).rejects.toMatchObject({ code: 'NOT_FOUND' })
+		expect(hookTrace).not.toContain('schema:developer:beforeDelete')
+		expect(hookTrace).not.toContain('schema:developer:afterDelete')
 		await expect(
 			runWithScope('scope-bulk-b', () =>
 				HookArticleSchema.exists({

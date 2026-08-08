@@ -1,6 +1,6 @@
 # ADR-0111: Non-atomic bulk hook semantics
 
-- Status: accepted
+- Status: superseded by ADR-0164
 - Date: 2026-08-03
 - Refines: ADR-0069, ADR-0089, ADR-0099, ADR-0100, ADR-0105
 

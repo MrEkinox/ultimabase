@@ -1,7 +1,6 @@
 import type {
 	DatabaseLogicalRecord,
 	ExecutableOperationAst,
-	NonAtomicBulkResult,
 } from '@ultimabase/core'
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
@@ -11,7 +10,9 @@ type PostgresProjectedMutationOperation = Extract<
 		readonly kind:
 			| 'create-many'
 			| 'create-one'
+			| 'delete-many'
 			| 'delete-one'
+			| 'update-many'
 			| 'update-one'
 			| 'upsert-many'
 			| 'upsert-one'
@@ -20,7 +21,9 @@ type PostgresProjectedMutationOperation = Extract<
 
 type PostgresProjectedBulkMutationOperation = Extract<
 	PostgresProjectedMutationOperation,
-	{ readonly kind: 'create-many' | 'upsert-many' }
+	{
+		readonly kind: 'create-many' | 'delete-many' | 'update-many' | 'upsert-many'
+	}
 >
 
 /** Keeps full private records separate from one normalized public projection. */
@@ -62,20 +65,3 @@ export const projectPostgresRecords = (
 	immutableArray(
 		records.map((record) => projectPostgresRecord(record, operation)),
 	)
-
-/** Projects only the visible prefix of one non-atomic collection result. */
-export const projectPostgresNonAtomicResult = (
-	result: NonAtomicBulkResult<DatabaseLogicalRecord>,
-	operation: PostgresProjectedBulkMutationOperation,
-): NonAtomicBulkResult<DatabaseLogicalRecord> =>
-	result.status === 'completed'
-		? immutableRecord({
-				results: projectPostgresRecords(result.results, operation),
-				status: result.status,
-			})
-		: immutableRecord({
-				error: result.error,
-				failedIndex: result.failedIndex,
-				results: projectPostgresRecords(result.results, operation),
-				status: result.status,
-			})

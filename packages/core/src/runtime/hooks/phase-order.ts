@@ -2,6 +2,7 @@ import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
 import type { OperationKind } from '../../query/index.js'
 import type { SchemaHookPhase } from '../../schema/hooks/declarations.js'
+import type { SchemaMutationKind } from '../../schema/hooks/contracts.js'
 import type { HookOperationFamily } from '../../schema/hooks/family-keys.js'
 
 /** Captures the deterministic business phase nesting for one terminal operation. */
@@ -22,7 +23,7 @@ const createPhaseOrder = (
 		schemaBefore,
 	})
 
-type SaveBeforePhase = 'beforeCreate' | 'beforeUpdate' | 'beforeUpsert'
+type SaveBeforePhase = 'beforeCreate' | 'beforeUpdate'
 type SaveAfterPhase = 'afterCreate' | 'afterUpdate' | 'afterUpsert'
 
 /** Builds the repeated save nesting once so schema and field orders cannot drift. */
@@ -52,10 +53,11 @@ const updateManyOrder = createPhaseOrder(
 	updateOneOrder.schemaBefore,
 	updateOneOrder.schemaAfter,
 )
-const upsertOrder = createSavePhaseOrder(
+// Atomic upserts expose their resolved create/update branch only after persistence.
+const upsertOrder = createPhaseOrder(
 	'upsert',
-	'beforeUpsert',
-	'afterUpsert',
+	immutableArray([]),
+	immutableArray(['afterUpsert']),
 )
 const deleteOneOrder = createPhaseOrder(
 	'delete',
@@ -94,3 +96,16 @@ const nativeHookPhaseOrders = immutableRecord({
 export const getNativeHookPhaseOrder = (
 	kind: OperationKind,
 ): NativeHookPhaseOrder => nativeHookPhaseOrders[kind]
+
+/** Resolves the public item lifecycle name while rejecting read terminals. */
+export const getMutationHookKind = (
+	kind: OperationKind,
+): SchemaMutationKind => {
+	const family = nativeHookPhaseOrders[kind].family
+
+	if (family === 'read') {
+		throw new TypeError('Read terminals do not have a mutation hook kind')
+	}
+
+	return family
+}

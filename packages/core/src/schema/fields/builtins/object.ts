@@ -37,6 +37,15 @@ import type { FieldAccessDeclaration } from '../../access/contracts.js'
  */
 export type ObjectFields = Readonly<Record<string, GenericField>>
 
+/** Rejects relationship-capable fields from one embedded value boundary. */
+type EmbeddableObjectFields<TFields extends ObjectFields> = {
+	readonly [TName in keyof TFields]: TFields[TName] extends {
+		readonly kind: 'pointer' | 'relation'
+	}
+		? never
+		: TFields[TName]
+}
+
 /**
  * Builds the logical value represented by a structured field tree.
  */
@@ -65,9 +74,12 @@ export interface ObjectFieldOptions<
 	/**
 	 * Maps each object property to an existing UltimaBase field declaration.
 	 *
+	 * Pointer and relation fields are schema relationships, so they must be declared
+	 * as top-level schema fields rather than embedded inside this stored value.
+	 *
 	 * @example `fields: { name: stringField(), active: booleanField() }`
 	 */
-	readonly fields: TFields
+	readonly fields: EmbeddableObjectFields<TFields>
 	/**
 	 * Overrides the stable generated type name used by GraphQL and other schema generators.
 	 *
@@ -255,6 +267,12 @@ export function objectField(
 	for (const [name, field] of Object.entries(metadataOptions.fields)) {
 		assertNonEmptyString(name, 'object field name')
 		assertFieldDefinition(field, `fields.${name}`)
+
+		if (field.kind === 'pointer' || field.kind === 'relation') {
+			throw new TypeError(
+				`fields.${name} cannot be a pointer or relation inside objectField`,
+			)
+		}
 	}
 
 	const normalized = normalizeFieldOptions(

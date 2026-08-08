@@ -5,7 +5,6 @@ import {
 	stringField,
 	Schema,
 	type InferQueryResult,
-	type NonAtomicBulkResult,
 	type OperationOptions,
 	type RequestContext,
 	type UltimaBase,
@@ -49,58 +48,8 @@ test('preserves schema selection across every root read terminal', () => {
 		articleSchema.createOne({ data: { title: 'Created' } }, { ultimabase }),
 	).toEqualTypeOf<Promise<InferQueryResult<typeof articleSchema>>>()
 	expectTypeOf(
-		articleSchema.createMany(
-			{ data: [{ title: 'Created' }] },
-			{
-				atomic: false,
-				ultimabase,
-			},
-		),
-	).toEqualTypeOf<
-		Promise<NonAtomicBulkResult<InferQueryResult<typeof articleSchema>>>
-	>()
-	expectTypeOf(
-		articleSchema.createMany(
-			{ data: [{ title: 'Created' }] },
-			{
-				atomic: true,
-				ultimabase,
-			},
-		),
+		articleSchema.createMany({ data: [{ title: 'Created' }] }, { ultimabase }),
 	).toEqualTypeOf<Promise<readonly InferQueryResult<typeof articleSchema>[]>>()
-	const dynamicAtomic: boolean = Math.random() > 0.5
-
-	expectTypeOf(
-		articleSchema.createMany(
-			{ data: [{ title: 'Created' }] },
-			{
-				atomic: dynamicAtomic,
-				ultimabase,
-			},
-		),
-	).toEqualTypeOf<
-		Promise<
-			| readonly InferQueryResult<typeof articleSchema>[]
-			| NonAtomicBulkResult<InferQueryResult<typeof articleSchema>>
-		>
-	>()
-	const nonAtomicCreate = articleSchema.createMany(
-		{ data: [{ title: 'Created' }] },
-		{
-			atomic: false,
-			ultimabase,
-		},
-	)
-
-	void nonAtomicCreate.then((result) => {
-		if (result.status === 'stopped') {
-			expectTypeOf(result.failedIndex).toEqualTypeOf<number>()
-			expectTypeOf(result.error).toBeUnknown()
-		} else {
-			// @ts-expect-error -- Completed results never carry failure metadata.
-			void result.failedIndex
-		}
-	})
 	expectTypeOf(
 		articleSchema.upsertMany(
 			{
@@ -112,16 +61,18 @@ test('preserves schema selection across every root read terminal', () => {
 					},
 				],
 			},
-			{ atomic: false, ultimabase },
+			{ ultimabase },
 		),
-	).toEqualTypeOf<
-		Promise<NonAtomicBulkResult<InferQueryResult<typeof articleSchema>>>
-	>()
+	).toEqualTypeOf<Promise<readonly InferQueryResult<typeof articleSchema>[]>>()
 	expectTypeOf(
 		articleSchema.updateMany(
 			{
-				where: (where) => where.eq('title', 'Unique'),
-				data: { views: increment(1) },
+				data: [
+					{
+						where: (where) => where.eq('title', 'Unique'),
+						data: { views: increment(1) },
+					},
+				],
 			},
 			{ ultimabase },
 		),
@@ -139,7 +90,10 @@ test('preserves schema selection across every root read terminal', () => {
 		),
 	).toEqualTypeOf<Promise<InferQueryResult<typeof articleSchema>>>()
 	expectTypeOf(
-		articleSchema.deleteMany({ where: 'all' }, { ultimabase }),
+		articleSchema.deleteMany(
+			{ where: [{ id: { eq: 'article-1' } }] },
+			{ ultimabase },
+		),
 	).toEqualTypeOf<
 		Promise<readonly InferQueryResult<typeof articleSchema, 'id'>[]>
 	>()
@@ -167,10 +121,7 @@ test('preserves schema selection across every root read terminal', () => {
 	)
 	void articleSchema.createMany(
 		{ data: [{ title: 'Created' }] },
-		{
-			atomic: false,
-			...contextualMasterOptions,
-		},
+		contextualMasterOptions,
 	)
 	void articleSchema.updateOne(
 		{
@@ -181,8 +132,12 @@ test('preserves schema selection across every root read terminal', () => {
 	)
 	void articleSchema.updateMany(
 		{
-			where: (where) => where.eq('views', 0),
-			data: { views: increment(1) },
+			data: [
+				{
+					where: (where) => where.eq('id', 'article-1'),
+					data: { views: increment(1) },
+				},
+			],
 		},
 		contextOptions,
 	)
@@ -204,16 +159,19 @@ test('preserves schema selection across every root read terminal', () => {
 				},
 			],
 		},
-		{ atomic: true, ...contextualMasterOptions },
+		contextualMasterOptions,
 	)
 	void articleSchema.deleteOne(
 		{ where: (where) => where.eq('title', 'Unique') },
 		masterOptions,
 	)
-	void articleSchema.deleteMany({ where: 'all' }, contextualMasterOptions)
+	void articleSchema.deleteMany(
+		{ where: [{ id: { eq: 'article-1' } }] },
+		contextualMasterOptions,
+	)
 
-	// @ts-expect-error -- Read terminals accept only their final execution options.
-	void articleSchema.findMany(undefined, { atomic: false })
+	// @ts-expect-error -- Collection mutations are always atomic.
+	void articleSchema.createMany({ data: [] }, { atomic: false })
 	// @ts-expect-error -- Master selection is a positive trusted-code flag, not transport data.
 	void articleSchema.findMany(undefined, { useMasterKey: false })
 	// @ts-expect-error -- Read terminals remain credential-neutral.

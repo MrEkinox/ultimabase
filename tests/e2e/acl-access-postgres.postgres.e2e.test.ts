@@ -264,8 +264,12 @@ describe('ACL PostgreSQL Access constraints', { concurrent: false }, () => {
 		])
 		const aliceUpdated = await ProtectedPost.updateMany(
 			{
-				where: (where) => where.eq('title', 'alice'),
-				data: { marker: 'alice-updated' },
+				data: [
+					{
+						where: { id: { eq: requireRowId('alice') } },
+						data: { marker: 'alice-updated' },
+					},
+				],
 			},
 			{ context: alice, ultimabase: app },
 		)
@@ -290,7 +294,7 @@ describe('ACL PostgreSQL Access constraints', { concurrent: false }, () => {
 
 		await expect(
 			ProtectedPost.deleteMany(
-				{ where: (where) => where.eq('title', 'alice') },
+				{ where: [{ id: { eq: requireRowId('alice') } }] },
 				{ context: alice, ultimabase: app },
 			),
 		).resolves.toHaveLength(1)
@@ -305,7 +309,7 @@ describe('ACL PostgreSQL Access constraints', { concurrent: false }, () => {
 		).resolves.toBe(5)
 	})
 
-	it('keeps ACL replacement singular even for trusted master execution', async () => {
+	it('allows itemized master updates while rejecting ACL upserts', async () => {
 		const app = getApplication()
 		const deniedId = requireRowId('denied')
 		const replacement = new ACL().grantPublic('read', 'update')
@@ -313,7 +317,14 @@ describe('ACL PostgreSQL Access constraints', { concurrent: false }, () => {
 		const attempts = [
 			() =>
 				ProtectedPost.updateMany(
-					{ where: 'all', data: { acl: replacement } },
+					{
+						data: [
+							{
+								where: { id: { eq: deniedId } },
+								data: { acl: replacement },
+							},
+						],
+					},
 					masterOptions,
 				),
 			() =>
@@ -340,26 +351,21 @@ describe('ACL PostgreSQL Access constraints', { concurrent: false }, () => {
 				),
 		] as const
 
-		for (const attempt of attempts) {
+		const [updateManyAttempt, ...upsertAttempts] = attempts
+
+		await expect(updateManyAttempt()).resolves.toBeDefined()
+
+		for (const attempt of upsertAttempts) {
 			await expect(attempt()).rejects.toMatchObject({
 				code: 'VALIDATION_ERROR',
 			})
 		}
 
-		const unchanged = await ProtectedPost.findOne(
+		const persisted = await ProtectedPost.findOne(
 			{ where: { id: { eq: deniedId } }, select: { acl: true } },
 			masterOptions,
 		)
 
-		expect(unchanged?.acl).toStrictEqual(new ACL())
-		const updated = await ProtectedPost.updateOne(
-			{
-				where: (where) => where.eq('id', deniedId),
-				data: { acl: replacement },
-			},
-			masterOptions,
-		)
-
-		expect(updated?.acl).toStrictEqual(replacement)
+		expect(persisted?.acl).toStrictEqual(replacement)
 	})
 })

@@ -54,9 +54,7 @@ export interface AdapterIncludedPointerFixture {
 	readonly fieldPath: readonly string[]
 	readonly record: DatabaseLogicalRecord
 	readonly target:
-		| DatabaseLogicalRecord
-		| readonly DatabaseLogicalRecord[]
-		| null
+		DatabaseLogicalRecord | readonly DatabaseLogicalRecord[] | null
 }
 
 export interface RejectedAdapterResult extends AdapterMutationFixture {
@@ -93,10 +91,7 @@ const createRecordingCapabilities = (
 
 const recordingIncludedValues = new WeakMap<
 	object,
-	Map<
-		string,
-		DatabaseLogicalRecord | readonly DatabaseLogicalRecord[] | null
-	>
+	Map<string, DatabaseLogicalRecord | readonly DatabaseLogicalRecord[] | null>
 >()
 
 const retainQueuedInclusions = (result: QueuedAdapterResult): void => {
@@ -119,10 +114,7 @@ const readRecordingIncludedValue = (
 	record: Readonly<Record<string, unknown>>,
 	fieldPath: readonly string[],
 ):
-	| DatabaseLogicalRecord
-	| readonly DatabaseLogicalRecord[]
-	| null
-	| undefined =>
+	DatabaseLogicalRecord | readonly DatabaseLogicalRecord[] | null | undefined =>
 	recordingIncludedValues.get(record)?.get(JSON.stringify(fieldPath))
 
 /** Allows focused transaction tests to replace only effectful pipeline stages. */
@@ -220,7 +212,8 @@ const createLazyPreparedOperationFixture = <
 
 			return immutableRecord({
 				materializations: immutableArray(
-					(result.materializations ?? []) as readonly DatabaseMutationMaterialization<TOperation>[],
+					(result.materializations ??
+						[]) as readonly DatabaseMutationMaterialization<TOperation>[],
 				),
 				result: await resolveQueuedResult<TOperation>(result),
 			}) as unknown as DatabaseOperationOutcome<TOperation>
@@ -279,7 +272,6 @@ export class RecordingTransactionAdapter implements DatabaseTransactionAdapter {
 		if (
 			request.operation.kind === 'create-one' ||
 			request.operation.kind === 'create-many' ||
-			request.operation.kind === 'upsert-one' ||
 			request.operation.kind === 'upsert-many'
 		) {
 			return createLazyPreparedOperationFixture<TOperation>(
@@ -288,6 +280,20 @@ export class RecordingTransactionAdapter implements DatabaseTransactionAdapter {
 					this.#trace.push(`execute:${request.operation.kind}`)
 				},
 			)
+		}
+
+		if (request.operation.kind === 'upsert-one') {
+			const prepared = createLazyPreparedOperationFixture<TOperation>(
+				this.#results,
+				() => {
+					this.#trace.push(`execute:${request.operation.kind}`)
+				},
+			)
+
+			return immutableRecord({
+				...prepared,
+				target: null,
+			})
 		}
 
 		const result: QueuedAdapterResult = await takeQueuedResult(this.#results)

@@ -682,7 +682,6 @@ describe('createEnforcementStages', () => {
 			{
 				inputs: [blockedInput],
 				kind: 'create-many',
-				options: { atomic: true },
 				selection: query.selection,
 				schema,
 			},
@@ -698,7 +697,6 @@ describe('createEnforcementStages', () => {
 			{
 				items: [{ create: blockedInput, query, target, update }],
 				kind: 'upsert-many',
-				options: { atomic: true },
 				selection: query.selection,
 				schema,
 			},

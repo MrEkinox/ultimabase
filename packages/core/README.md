@@ -248,7 +248,9 @@ const visible = await Post.findMany({
 names are never parsed as paths. A `jsonField` accepts dynamic string
 segments and safe `JsonValue` operands. An `objectField` rejects unknown paths,
 keys, values, and unsupported terminal operators in TypeScript. Paths cannot
-traverse list fields. Since persisted typed objects contain every declared key,
+traverse list fields. Embedded object children are stored values, so pointer and
+relation fields must remain top-level schema fields. Since persisted typed
+objects contain every declared key,
 their root key checks are normally redundant; the same operators are primarily
 useful for dynamic JSON branches.
 
@@ -447,8 +449,7 @@ const imported = await PostSchema.createMany(
 )
 ```
 
-Singular reads and mutations accept `OperationOptions`. Bulk commands accept
-`BulkOperationOptions`, which adds `atomic` to the same authority options.
+Every read and mutation accepts the same `OperationOptions` authority boundary.
 
 The application-owned `MasterAuthority` audits the operation before it runs;
 the first configured key ID labels trusted operation elevations. Contexts and
@@ -472,9 +473,9 @@ The complete current Runtime mutation pipeline and database work started inside
 it commit or roll back together. Native schema, field, and plugin hooks execute
 inside this same active boundary. An explicit
 `RequestEngine.transaction()` is reused without nesting, while root reads
-remain non-transactional. Bulk `{ atomic: false }` stops at the first adapter
-persistence failure and returns the committed-prefix candidate explicitly. The
-prefix still commits only after every result and finalization hook succeeds.
+remain non-transactional. Collection mutations are ordered singular item
+operations inside one transaction: any missing target, input, persistence,
+business-hook, or finalization failure rolls back the complete batch.
 
 ```ts
 const imported = await PostSchema.createMany(
@@ -482,15 +483,8 @@ const imported = await PostSchema.createMany(
 		data: rows,
 		select: { id: true, title: true },
 	},
-	{
-		atomic: false,
-		ultimabase,
-	},
+	{ ultimabase },
 )
-
-if (imported.status === 'stopped') {
-	console.error(imported.failedIndex, imported.error)
-}
 ```
 
 Database plugins prepare each transaction-bound mutation through one opaque,
@@ -525,11 +519,13 @@ const deleted = await PostSchema.deleteOne(
 	{ ultimabase },
 )
 
-// Set-based mutations return only identifiers unless a projection is requested.
+// Itemized batches return only identifiers unless a projection is requested.
 const published = await PostSchema.updateMany(
 	{
-		where: { published: { eq: false } },
-		data: { published: true },
+		data: postIds.map((id) => ({
+			where: { id: { eq: id } },
+			data: { published: true },
+		})),
 		select: { id: true, published: true },
 	},
 	{ ultimabase },
@@ -540,9 +536,10 @@ const author = await updated?.author.findOne()
 ```
 
 This protocol belongs to database-adapter authors rather than application code.
-The root adapter starts the transaction; its transaction adapter stabilizes the
-target so the native dispatcher can run affected-field before hooks before
-Runtime consumes the prepared mutation exactly once.
+The root adapter starts the transaction. For update, delete, and upsert, its
+transaction adapter stabilizes the visible target before schema input
+resolution and item Access complete. Runtime then runs the item lifecycle and
+consumes the prepared mutation exactly once.
 
 Policy and value-object plugins may register `preparedOperation()` when an
 accepted `updateOne()` value depends on that locked target. The handler receives
@@ -550,7 +547,8 @@ the fully typed current object and may replace only values inside the existing
 normalized update shape. Runtime then repeats structural validation,
 value-dependent field Access, and item Access before the adapter executes the
 replacement. It cannot change the query, target, fields, operators, schema, or
-terminal kind, and it never runs for set-based mutations.
+terminal kind. Public collection commands are already itemized before this
+boundary, so each update entry uses the same singular lifecycle.
 
 ```ts
 import { Schema, UltimaBase, booleanField, stringField } from '@ultimabase/core'
@@ -618,7 +616,10 @@ the operation.
 
 Schemas now accept native declaration-only policies, and every built-in or
 plugin field accepts its own inline policy. One logical family covers singular
-and bulk terminals while `kind` remains available for exact narrowing:
+commands and every item from a collection command. Item-oriented mutation
+callbacks therefore expose the business `kind` (`create`, `update`, `upsert`,
+or `delete`) without cardinality. Early `operation` Access and an exposed
+`operation.kind` retain the exact normalized terminal such as `update-one`:
 
 ```ts
 const PostSchema = Schema.define({
@@ -632,12 +633,17 @@ const PostSchema = Schema.define({
 			read: ({ filter }) => filter.equalTo('published', true),
 		},
 		item: {
-			update: ({ input, item }) =>
-				input.authorId === undefined || input.authorId === item.authorId,
+			update: ({ originalItem, item }) =>
+				item.authorId === originalItem.authorId,
 		},
 	},
 	fields: {
-		authorId: stringField({ validation: { required: true } }),
+		authorId: stringField({
+			access: {
+				update: ({ originalValue, value }) => value === originalValue,
+			},
+			validation: { required: true },
+		}),
 		published: booleanField({
 			access: {
 				create: true,
@@ -659,6 +665,36 @@ An omitted rule does not create an implicit callback: the compiled application
 fallback decides operation and field access. Runtime executes every matching
 rule sequentially through the same cancellation, recursion, and diagnostic
 boundary as native hooks.
+
+Access callbacks are pure decisions and may be evaluated again after input
+transformation, target locking, or final upsert branch resolution. This keeps
+the decision attached to the value that is actually persisted.
+
+Field create Access traverses normalized objects parent-first. Nested fields in
+object lists are evaluated once per concrete entry, including multidimensional
+lists. Cross-field decisions use schema `item.create`, which receives the
+complete draft.
+
+Field output Access follows the same concrete traversal. A denied parent omits
+its complete property and skips descendant rules; a denied nested occurrence
+omits only that property from its object. Lists retain their elements, order,
+and dimensions. The omission is structural projection rather than persisted
+`null`.
+
+Schema `item` Access receives operation-specific materializations. Create
+decisions and the create branch of an upsert receive an immutable
+`SchemaPreparedDraft` with no persistence commands. Update receives the
+complete persisted `originalItem` plus an immutable plain `item` containing the
+final candidate after operators such as `increment` have been applied. Delete
+receives that persisted `originalItem` and `item: null`; upsert exposes the
+actual branch through `mode`. Every contribution for one decision observes the
+same materialized values.
+
+Generic field update Access follows the same rule through `originalValue` and
+the final `value`. Nested object fields are evaluated at their concrete paths,
+including each object-list entry; removing a nested value exposes `null` as its
+final canonical value. Relation fields intentionally keep their typed mutation
+delta because to-many relations are not embedded inside the parent object.
 
 An Access filter reuses the same field capabilities and normalized predicate
 nodes as `Query.where`, but keeps its dedicated policy-oriented builder and
@@ -784,28 +820,49 @@ const PostSchema = Schema.define({
 
 Every branch accepts one handler or a non-empty ordered handler list.
 `resolveInput` accepts the `all`, `create`, `update`, and `upsert` families.
-`beforeOperation` and `afterOperation` expose `create`, `update`, `upsert`, and
-`delete`; each branch covers both singular and bulk terminals.
+`beforeOperation` exposes `create`, `update`, and `delete`.
+`afterOperation` additionally exposes `upsert`. A collection command is
+itemized before hook dispatch. `beforeOperation.create` exposes the business
+discriminant `kind: "create"` and the complete candidate without leaking its
+internal `create-one` terminal. Its `item` is a `SchemaPreparedDraft`: a real
+immutable instance of the generated schema class with normalized defaults and
+system fields, `get()`, and `toJSON()`, but no persistence command in its public
+type.
 
-Singular mutation hooks receive complete selection-independent values.
-`beforeOperation.create` sees `originalItem: null` and `item`;
-`beforeOperation.update` sees `originalItem` and the candidate `item`;
-`beforeOperation.delete` sees `originalItem` and `item: null`. Matching
-after-operation hooks receive the persisted pair. Atomic upserts
-receive their pair only after persistence because the database chooses the
-branch. Mutation before-hooks may perform transactional work or throw, but
-their return value is ignored; operation transformations belong to
-`resolveInput` before target preparation.
+Mutation hooks receive complete selection-independent values per affected
+object, using the same shape for direct and batched commands.
+`beforeOperation.create` sees `context`, `kind: "create"`, and `item`;
+`beforeOperation.update` sees `kind: "update"`, `originalItem`, and the
+candidate `item`; `beforeOperation.delete` sees `kind: "delete"`,
+`originalItem`, and `item: null`. Matching
+after-operation hooks receive the persisted pair. Upserts receive their pair
+only after persistence because the database chooses the create or update
+branch atomically. Mutation before-hooks may perform transactional work or
+throw, but their return value is ignored. `resolveInput` receives
+`originalItem`: `null` for create, the visible locked object for update, and
+either for upsert. Every non-null `originalItem` is a complete immutable
+`SchemaResult` instance with protected persisted identity, `get()`, `toJSON()`,
+and the regular instance commands. Access approves the target before developer
+code observes it, then Runtime revalidates transformed values before
+persistence.
+
+The same short business `kind` is used by schema `item` Access, mutation field
+Access, field `resolveInput`, schema `resolveInput`, operation observers, and
+transaction changes. When a callback also receives `operation`, its
+`operation.kind` remains the exact internal terminal for diagnostics and AST
+narrowing.
 
 The constructor validates every phase, snapshots every list and family map, and
 keeps them in private identity-owned storage. Hooks never appear on
 `SchemaDefinition`, never affect input or object inference, and never enter
 validation plans, indexes, migrations, or physical diffs.
 
-After input resolution and structural revalidation, Runtime invokes the matching
-`beforeOperation` observer after reliable target preparation and the matching
-`afterOperation` observer after persistence. Both may perform transactional work
-or throw. Their return values are ignored; only `resolveInput` transforms data.
+After target-aware input resolution and structural revalidation, Runtime invokes
+the matching `beforeOperation` observer once per prepared item and the matching
+`afterOperation` observer once per persisted item. Both may perform
+transactional work or throw. Their return values are ignored; only
+`resolveInput` transforms data. Every batch shares one transaction, preserves
+declaration order, and rolls back when a target is missing or an item fails.
 
 Reads deliberately have no schema lifecycle hook. Query options define
 developer filtering and projection, while schema Access owns mandatory read
@@ -864,13 +921,9 @@ const PostSchema = Schema.define({
 	fields: { title: stringField() },
 	hooks: {
 		beforeOperation: {
-			create: async ({ context, operation }) => {
-				if (operation.kind === 'create-one') {
-					await AuditSchema.createOne({
-						data: { action: 'post.create' },
-					})
-					context.emit('post.created', { title: operation.input.title })
-				}
+			create: async ({ context, item, kind }) => {
+				await AuditSchema.createOne({ data: { action: kind } })
+				context.emit('post.created', { title: item.title })
 
 				console.log(context.requestId, context.transactionId)
 			},
@@ -985,7 +1038,7 @@ operation is available. Omitted input properties do not produce fake
 `undefined` executions. `resolveInput` may throw to reject a value; structured
 or cross-field validation belongs to schema hooks.
 
-Set-based `updateMany` may transform each supplied update value once, but
+Each `updateMany` entry transforms its supplied update values once, while
 `deleteMany` has no field input to resolve. For nested objects, siblings retain
 declaration order and input resolution visits children before their parent.
 Output representation, business validation, mutation lifecycle, transaction

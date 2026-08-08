@@ -4,10 +4,13 @@ import {
 	type CountOperationAst,
 	type CreateManyOperationAst,
 	type CreateOneOperationAst,
+	type DeleteManyOperationAst,
 	type FindManyOperationAst,
 	type QueryFilterNode,
 	type UpdateExpression,
+	type UpdateManyOperationAst,
 	type UpdateOneOperationAst,
+	type UpsertManyOperationAst,
 } from '../../query/index.js'
 import {
 	booleanField,
@@ -138,6 +141,44 @@ describe('runtime hook boundaries', () => {
 				expect.objectContaining({ path: ['input', 'published'] }),
 			)
 		}
+	})
+
+	it('accepts collection operation shapes without legacy atomic options', () => {
+		const schema = createFixtureSchema(() => 'Generated title')
+		const schemaNode = new QueryBuilder(schema).ast.schema
+		const selection = { fields: [], kind: 'selection' as const }
+		const create = immutableRecord({
+			inputs: [completeRecord],
+			kind: 'create-many',
+			selection,
+			schema: schemaNode,
+		}) satisfies CreateManyOperationAst<typeof schema>
+		const upsert = immutableRecord({
+			items: [
+				immutableRecord({
+					create: completeRecord,
+					query: new QueryBuilder(schema).where((where) =>
+						where.eq('id', generatedId),
+					).ast,
+					target: immutableRecord({
+						fields: ['id'],
+						kind: 'unique-upsert-target' as const,
+					}),
+					update: normalizeUpdateExpression(schema, { published: true }),
+				}),
+			],
+			kind: 'upsert-many',
+			selection,
+			schema: schemaNode,
+		}) satisfies UpsertManyOperationAst<typeof schema>
+		const boundaries = createRuntimeHookBoundaries()
+
+		expect(
+			boundaries.snapshotOperationReplacement(create, create),
+		).toStrictEqual(create)
+		expect(
+			boundaries.snapshotOperationReplacement(upsert, upsert),
+		).toStrictEqual(upsert)
 	})
 
 	it('rejects cross-terminal and cross-schema operation replacements', () => {
@@ -279,6 +320,43 @@ describe('runtime hook boundaries', () => {
 		).toThrow(expect.objectContaining({ code: 'VALIDATION_ERROR' }))
 	})
 
+	it('accepts optional complete materializations for set-based item hooks', () => {
+		const schema = createFixtureSchema(() => 'Generated title')
+		const query = new QueryBuilder(schema).select({ id: true }).ast
+		const update = immutableRecord({
+			kind: 'update-many',
+			query,
+			update: normalizeUpdateExpression(schema, { published: true }),
+		}) satisfies UpdateManyOperationAst<typeof schema>
+		const deletion = immutableRecord({
+			kind: 'delete-many',
+			query,
+		}) satisfies DeleteManyOperationAst<typeof schema>
+		const current = immutableRecord({ ...completeRecord, published: true })
+		const boundaries = createRuntimeHookBoundaries()
+
+		expect(
+			boundaries.snapshotMutationOutcome(update, {
+				materializations: [
+					{ current, kind: 'update', previous: completeRecord },
+				],
+				result: [{ id: generatedId }],
+			}),
+		).toMatchObject({ result: [{ id: generatedId }] })
+		expect(
+			boundaries.snapshotMutationOutcome(deletion, {
+				materializations: [{ kind: 'delete', previous: current }],
+				result: [{ id: generatedId }],
+			}),
+		).toMatchObject({ result: [{ id: generatedId }] })
+		expect(
+			boundaries.snapshotMutationOutcome(update, {
+				materializations: [],
+				result: [{ id: generatedId }],
+			}),
+		).toMatchObject({ materializations: [] })
+	})
+
 	it('preserves each scalar, collection, and nullable terminal result contract', () => {
 		const schema = createFixtureSchema(() => 'Generated title')
 		const selectedQuery = new QueryBuilder(schema).select({ id: true }).ast
@@ -375,71 +453,6 @@ describe('runtime hook boundaries', () => {
 			objectId: targetId,
 			selectedFields: ['name'],
 		})
-	})
-
-	it('validates complete and stopped non-atomic collection boundaries', () => {
-		const schema = createFixtureSchema(() => 'Generated title')
-		const operation = immutableRecord({
-			inputs: immutableArray([{}, {}]),
-			kind: 'create-many',
-			options: immutableRecord({ atomic: false }),
-			selection: new QueryBuilder(schema).ast.selection,
-			schema: new QueryBuilder(schema).ast.schema,
-		}) satisfies CreateManyOperationAst<typeof schema, false>
-		const boundaries = createRuntimeHookBoundaries()
-		const writeError = new Error('second input failed')
-		const completed = boundaries.snapshotResultReplacement(operation, {
-			results: [completeRecord, completeRecord],
-			status: 'completed',
-		})
-		const stopped = boundaries.snapshotResultReplacement(operation, {
-			error: writeError,
-			failedIndex: 1,
-			results: [completeRecord],
-			status: 'stopped',
-		})
-
-		expect(completed.status).toBe('completed')
-		expect(completed.results).toHaveLength(2)
-		expect(stopped).toMatchObject({ failedIndex: 1, status: 'stopped' })
-		expect(stopped.status === 'stopped' && stopped.error).toBe(writeError)
-		expect(Object.isFrozen(stopped)).toBe(true)
-		expect(Object.isFrozen(stopped.results)).toBe(true)
-		expect(() => {
-			boundaries.assertResultGrouping(operation, stopped, {
-				results: [completeRecord, completeRecord],
-				status: 'completed',
-			})
-		}).toThrow(expect.objectContaining({ code: 'VALIDATION_ERROR' }))
-		expect(() => {
-			boundaries.assertResultGrouping(operation, stopped, {
-				error: writeError,
-				failedIndex: 0,
-				results: [],
-				status: 'stopped',
-			})
-		}).toThrow(expect.objectContaining({ code: 'VALIDATION_ERROR' }))
-		expect(() => {
-			boundaries.assertResultGrouping(
-				immutableRecord({ kind: 'find-many' }),
-				[],
-				[],
-			)
-		}).not.toThrow()
-		expect(() =>
-			boundaries.snapshotResultReplacement(operation, {
-				error: writeError,
-				failedIndex: 0,
-				results: [completeRecord],
-				status: 'stopped',
-			}),
-		).toThrow(expect.objectContaining({ code: 'VALIDATION_ERROR' }))
-		expect(() =>
-			boundaries.snapshotResultReplacement(operation, {
-				results: [completeRecord],
-				status: 'completed',
-			}),
-		).toThrow(expect.objectContaining({ code: 'VALIDATION_ERROR' }))
 	})
 
 	it('converts business issues into one immutable path-prefixed framework error', () => {

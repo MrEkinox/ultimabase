@@ -1,4 +1,8 @@
-import { immutableArray, immutableRecord, isPlainRecord } from '@ultimabase/shared'
+import {
+	immutableArray,
+	immutableRecord,
+	isPlainRecord,
+} from '@ultimabase/shared'
 
 import {
 	applyUpdateExpressionToRecord,
@@ -21,7 +25,9 @@ export interface RuntimeMutationItemPair {
 	readonly item: DatabaseLogicalRecord | null
 }
 
-const emptyMutationItems: readonly RuntimeMutationItemPair[] = immutableArray([])
+const emptyMutationItems: readonly RuntimeMutationItemPair[] = immutableArray(
+	[],
+)
 
 const createItemPair = (
 	originalItem: DatabaseLogicalRecord | null,
@@ -32,18 +38,47 @@ const createItemPair = (
  * Builds the candidate snapshots available before persistence.
  *
  * Atomic upserts deliberately remain empty because their create/update branch
- * is not known until the database statement executes. Set-based updates and
- * deletes likewise avoid materializing every matching row.
+ * is not known until the database statement executes. Set-based targets exist
+ * only when Runtime requested them for declared item hooks.
  */
 export const collectMutationBeforeItems = (
 	operation: DatabaseMutationOperationAst,
 	target: DatabaseLogicalRecord | null | undefined,
+	targets?: readonly DatabaseLogicalRecord[],
 ): readonly RuntimeMutationItemPair[] => {
 	type RuntimeMutationOperation = Extract<
 		ExecutableOperationAst,
 		{ readonly kind: DatabaseMutationOperationKind }
 	>
 	const runtimeOperation = operation as unknown as RuntimeMutationOperation
+
+	const createUpdatePair = (
+		originalItem: DatabaseLogicalRecord,
+	): RuntimeMutationItemPair => {
+		const update: unknown =
+			runtimeOperation.kind === 'update-one' ||
+			runtimeOperation.kind === 'update-many'
+				? runtimeOperation.update
+				: undefined
+		const schema = getOperationSchema(runtimeOperation)
+
+		if (!Schema.is(schema)) {
+			throw new TypeError('Prepared update hooks require a declared schema')
+		}
+
+		const item =
+			isPlainRecord(update) && update.kind === 'update-expression'
+				? isRelationUpdateExpression(update)
+					? originalItem
+					: applyUpdateExpressionToRecord(
+							schema,
+							originalItem,
+							update as unknown as UpdateExpressionNode,
+						)
+				: originalItem
+
+		return createItemPair(originalItem, item)
+	}
 
 	switch (runtimeOperation.kind) {
 		case 'create-one':
@@ -59,25 +94,16 @@ export const collectMutationBeforeItems = (
 
 			if (target === null) return emptyMutationItems
 
-			const update: unknown = runtimeOperation.update
-			const schema = getOperationSchema(runtimeOperation)
-
-			if (!Schema.is(schema)) {
-				throw new TypeError('Prepared update hooks require a declared schema')
-			}
-			const item =
-				isPlainRecord(update) && update.kind === 'update-expression'
-					? isRelationUpdateExpression(update)
-						? target
-						: applyUpdateExpressionToRecord(
-							schema,
-							target,
-							update as unknown as UpdateExpressionNode,
-							)
-					: target
-
-			return immutableArray([createItemPair(target, item)])
+			return immutableArray([createUpdatePair(target)])
 		}
+		case 'update-many':
+			if (targets === undefined) {
+				throw new TypeError(
+					'Prepared set-based update hooks require a targets boundary',
+				)
+			}
+
+			return immutableArray(targets.map(createUpdatePair))
 		case 'delete-one':
 			if (target === undefined) {
 				throw new TypeError('Prepared delete hooks require a target boundary')
@@ -87,7 +113,15 @@ export const collectMutationBeforeItems = (
 				? emptyMutationItems
 				: immutableArray([createItemPair(target, null)])
 		case 'delete-many':
-		case 'update-many':
+			if (targets === undefined) {
+				throw new TypeError(
+					'Prepared set-based delete hooks require a targets boundary',
+				)
+			}
+
+			return immutableArray(
+				targets.map((current) => createItemPair(current, null)),
+			)
 		case 'upsert-many':
 		case 'upsert-one':
 			return emptyMutationItems

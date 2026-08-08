@@ -10,10 +10,7 @@ import type {
 	ExecutableOperationAst,
 	UpdateExpressionNode,
 } from '../../query/index.js'
-import type {
-	FieldHookMode,
-	FieldInputHookKind,
-} from '../../schema/hooks/field-contracts.js'
+import type { FieldHookMode } from '../../schema/hooks/field-contracts.js'
 import { Schema, type GenericField } from '../../schema/index.js'
 import { getFieldListDepth } from '../../schema/fields/base/options.js'
 import type { DatabaseOperationAst } from '../database/contracts.js'
@@ -21,6 +18,15 @@ import { getOperationSchema } from '../operations/schema.js'
 
 export type RuntimeFieldValuePathSegment = number | string
 export type RuntimeFieldVisitOrder = 'children-first' | 'parent-first'
+
+/** Retains low-level adapter AST kinds without exposing collection kinds to item hooks. */
+type RuntimeFieldInputKind =
+	| 'create-many'
+	| 'create-one'
+	| 'update-many'
+	| 'update-one'
+	| 'upsert-many'
+	| 'upsert-one'
 
 /** Identifies one present logical field value without flattening structural paths. */
 export interface RuntimeFieldValue {
@@ -33,7 +39,7 @@ export interface RuntimeFieldValue {
 /** Correlates one present field value with its exact mutation candidate. */
 export interface RuntimeFieldInputValue extends RuntimeFieldValue {
 	readonly itemIndex: number
-	readonly kind: FieldInputHookKind
+	readonly kind: RuntimeFieldInputKind
 	readonly mode: Extract<FieldHookMode, 'create' | 'update'>
 }
 
@@ -82,7 +88,7 @@ const appendFieldLocation = (
 	fieldPath: readonly string[],
 	operationPath: readonly RuntimeFieldValuePathSegment[],
 	itemIndex: number,
-	kind: FieldInputHookKind,
+	kind: RuntimeFieldInputKind,
 	mode: Extract<FieldHookMode, 'create' | 'update'>,
 	value: unknown,
 ): void => {
@@ -105,7 +111,7 @@ const collectFieldLocations = (
 	fieldPath: readonly string[],
 	operationPath: readonly RuntimeFieldValuePathSegment[],
 	itemIndex: number,
-	kind: FieldInputHookKind,
+	kind: RuntimeFieldInputKind,
 	mode: Extract<FieldHookMode, 'create' | 'update'>,
 	order: RuntimeFieldVisitOrder,
 	locations: RuntimeFieldInputLocation[],
@@ -157,7 +163,7 @@ const collectFieldMapLocations = (
 	parentFieldPath: readonly string[],
 	parentOperationPath: readonly RuntimeFieldValuePathSegment[],
 	itemIndex: number,
-	kind: FieldInputHookKind,
+	kind: RuntimeFieldInputKind,
 	mode: Extract<FieldHookMode, 'create' | 'update'>,
 	order: RuntimeFieldVisitOrder,
 	locations: RuntimeFieldInputLocation[],
@@ -187,7 +193,7 @@ function collectObjectChildLocations(
 	fieldPath: readonly string[],
 	operationPath: readonly RuntimeFieldValuePathSegment[],
 	itemIndex: number,
-	kind: FieldInputHookKind,
+	kind: RuntimeFieldInputKind,
 	mode: Extract<FieldHookMode, 'create' | 'update'>,
 	order: RuntimeFieldVisitOrder,
 	locations: RuntimeFieldInputLocation[],
@@ -294,7 +300,7 @@ const collectUpdateLocations = (
 	parentOperationPath: readonly RuntimeFieldValuePathSegment[],
 	itemIndex: number,
 	kind: Extract<
-		FieldInputHookKind,
+		RuntimeFieldInputKind,
 		'update-many' | 'update-one' | 'upsert-many' | 'upsert-one'
 	>,
 	order: RuntimeFieldVisitOrder,

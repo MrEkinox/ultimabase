@@ -142,6 +142,11 @@ terminal union for concise callback inference. In this example,
 `authenticatedPrincipal` is the nominal value token exported by the installed
 authentication plugin:
 
+Native schema `item` Access materializes its object before invoking developer or
+plugin rules. Create branches receive an immutable `SchemaPreparedDraft`;
+update and delete branches receive a persisted `SchemaResult`. Upsert follows
+the same distinction after its create or update mode is known.
+
 ```ts
 setup: ({ registries }) => {
 	registries.hooks.register(
@@ -248,11 +253,9 @@ Every business hook input includes one immutable Runtime-owned `HookContext`:
 
 ```ts
 beforeOperation: {
-	create: async ({ context, operation }) => {
-		if (operation.kind === 'create-one') {
-			await AuditSchema.createOne({ data: { action: 'article.create' } })
-			context.emit('article.creating', { title: operation.input.title })
-		}
+	create: async ({ context, item, kind }) => {
+		await AuditSchema.createOne({ data: { action: kind } })
+		context.emit('article.creating', { title: item.title })
 		logger.debug({
 			requestId: context.requestId,
 			transactionId: context.transactionId,
@@ -260,6 +263,13 @@ beforeOperation: {
 	}
 }
 ```
+
+The create candidate is an immutable `SchemaPreparedDraft` instance. It already
+contains normalized defaults and framework system fields and supports `get()`
+and `toJSON()`, while persistence commands remain unavailable before insertion.
+Any non-null `originalItem` exposed by schema input resolution or mutation
+observers is instead a complete persisted `SchemaResult` instance with protected
+identity and the regular instance commands.
 
 Root reads have no `transactionId`. Automatic mutations, explicit transactions,
 nested operations, and master elevation retain one framework-generated opaque
@@ -333,9 +343,10 @@ const ArticleSchema = Schema.define({
 ```
 
 An explicit transaction may touch several schemas. Each participating schema's
-transaction hooks run at most once with only its changes. Set-based
-`updateMany` and `deleteMany` remain schema-only and never load rows merely to
-manufacture per-item callbacks.
+transaction hooks run at most once with only its changes. Collection commands
+append their singular item operations to that ordered change summary. Each
+change exposes a cardinality-free business `kind`, while `change.operation.kind`
+retains the exact normalized singular terminal.
 
 If commit fails, Runtime attempts rollback. A failure from `afterCommit` or a
 post-commit event observes already committed state and never attempts rollback.
@@ -362,10 +373,8 @@ const ArticleSchema = Schema.define({
 	hooks: {
 		beforeOperation: {
 			create: async (input) => {
-				if (input.kind === 'create-one') {
-					await AuditSchema.createOne({ data: { action: 'article.create' } })
-					input.context.emit('article.created', { title: input.item.title })
-				}
+				await AuditSchema.createOne({ data: { action: 'article.create' } })
+				input.context.emit('article.created', { title: input.item.title })
 			},
 		},
 	},
@@ -447,23 +456,18 @@ and `exists`. Generated schema classes expose `createOne`/`createMany`,
 `deleteOne`/`deleteMany`.
 
 Every root mutation automatically uses the same adapter transaction lifecycle
-as `request.transaction()`. This includes singular and bulk create, update,
-upsert, and delete operations, including the set-based `updateMany` and
-`deleteMany` terminals. An operation already inside an explicit transaction
-reuses that exact scope without attempting a nested transaction. Root reads do
-not open a transaction.
+as `request.transaction()`. This includes singular commands and itemized create,
+update, upsert, and delete batches. An operation already inside an explicit
+transaction reuses that exact scope without attempting a nested transaction.
+Root reads do not open a transaction.
 
-The bulk `{ atomic: false }` option never bypasses this boundary. The adapter
-stops at the first persistence failure and returns the successful prefix plus
-its failure index. Runtime still owns one normalized operation and one outer
-transaction. After-operation observers and `transaction.beforeCommit` may
-abort and roll back that prefix; post-commit work is released once only after
-it commits.
-
-`updateMany` and `deleteMany` remain one set-based adapter statement with a
-selected `RETURNING` result. They return only `id` by default, expose the array
-length as the affected-row count, run operation hooks once, and never
-materialize matching objects merely to fabricate per-object mutation hooks.
+Collection mutations are always atomic. Runtime executes their ordered singular
+entries inside one outer transaction; any input, missing target, persistence,
+item-hook, or `transaction.beforeCommit` failure rolls back the complete batch.
+`updateMany` and `deleteMany` require one unique predicate per entry and return
+only `id` by default. Their item-oriented hook and Access callbacks receive the
+same short business `kind` as direct singular commands. Callbacks that expose
+the AST retain the exact `*-one` value in `operation.kind`.
 
 Automatic mutation transactions install their derived request engine in the
 active asynchronous scope before the operation pipeline runs. Runtime captures
@@ -568,7 +572,7 @@ const auditPlugin = () =>
 				afterOperation: { create: ({ item }) => void item },
 			})
 			hooks.schema('audit-articles', ArticleSchema, {
-				beforeOperation: { create: ({ operation }) => void operation },
+				beforeOperation: { create: ({ item }) => void item },
 			})
 			hooks.field('normalize-title', ArticleSchema, ['title'], {
 				resolveInput: ({ value }) => value.trim(),
@@ -622,6 +626,7 @@ transaction:
 
 ```ts
 interface ArticleCreatedEvent extends JsonObject {
+	readonly kind: 'create'
 	readonly title: string
 }
 
@@ -635,10 +640,8 @@ const ArticleSchema = Schema.define({
 	fields: { title: stringField({ validation: { required: true } }) },
 	hooks: {
 		beforeOperation: {
-			create: (input) => {
-				if (input.kind === 'create-one') {
-					input.context.emit(articleCreatedEvent, { title: input.item.title })
-				}
+			create: ({ context, item, kind }) => {
+				context.emit(articleCreatedEvent, { title: item.title, kind })
 			},
 		},
 	},

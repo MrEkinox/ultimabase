@@ -3,20 +3,16 @@ import {
 	intField,
 	stringField,
 	type InferCreateInput,
-	type SchemaResult,
 } from '../../schema/index.js'
 import { expect, expectTypeOf, test } from 'vitest'
 
 import {
 	QueryBuilder,
-	type AtomicBulkOperationOptions,
-	type BulkOperationResult,
 	type CreateManyOperationAst,
 	type CreateOneOperationAst,
 	type GetOperationAst,
 	type OperationAst,
 	type OperationKind,
-	type NonAtomicBulkResult,
 	type UpdateExpressionNode,
 	type UpdateManyOperationAst,
 	type UpdateOneOperationAst,
@@ -122,32 +118,13 @@ test('keeps update expressions separate from creation inputs', () => {
 	>().toEqualTypeOf<FixtureUpdateExpression>()
 })
 
-test('keeps master authority outside operation options', () => {
-	expectTypeOf<keyof AtomicBulkOperationOptions>().toEqualTypeOf<'atomic'>()
-
-	const validOptions: AtomicBulkOperationOptions = { atomic: true }
-	const invalidOptions: AtomicBulkOperationOptions = {
-		atomic: true,
-		// @ts-expect-error -- Authority belongs to trusted RequestContext creation.
-		useMasterKey: true,
-	}
-
-	expect(validOptions.atomic).toBe(true)
-	expect(invalidOptions.atomic).toBe(true)
-})
-
-test('correlates the bulk result with the normalized atomic literal', () => {
-	type Article = SchemaResult<typeof articleSchema>
-
-	expectTypeOf<BulkOperationResult<Article, true>>().toEqualTypeOf<
-		readonly Article[]
+test('keeps bulk atomicity intrinsic to the operation contract', () => {
+	expectTypeOf<'options'>().not.toExtend<
+		keyof CreateManyOperationAst<typeof articleSchema>
 	>()
-	expectTypeOf<BulkOperationResult<Article, false>>().toEqualTypeOf<
-		NonAtomicBulkResult<Article>
+	expectTypeOf<'options'>().not.toExtend<
+		keyof UpsertManyOperationAst<typeof articleSchema>
 	>()
-	expectTypeOf<
-		CreateManyOperationAst<typeof articleSchema, false>['options']['atomic']
-	>().toEqualTypeOf<false>()
 })
 
 test('forces exhaustive matching when a terminal kind is added', () => {

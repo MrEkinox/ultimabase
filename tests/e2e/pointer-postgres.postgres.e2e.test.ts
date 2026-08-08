@@ -58,7 +58,6 @@ const Post = Schema.define({
 
 				// The write has happened at this point, so this failure proves transaction rollback.
 				if (
-					operation.kind === 'update-one' &&
 					operation.update.operations.some(
 						(update) =>
 							update.kind === 'set' &&

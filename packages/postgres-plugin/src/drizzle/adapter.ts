@@ -34,10 +34,6 @@ import type {
 	PostgresPoolClient,
 } from '../connection/contracts.js'
 import type { PostgresSchemaCatalog } from '../schema/catalog.js'
-import {
-	createPostgresItemRecovery,
-	type PostgresItemRecovery,
-} from './item-recovery.js'
 import { createPostgresTransactionError } from './transaction-error.js'
 import { compilePostgresRowFilter } from '../query/filter-compiler.js'
 import { compilePostgresRelationPredicate } from '../query/relation-compiler.js'
@@ -235,7 +231,6 @@ class DrizzlePostgresTransactionAdapter implements DatabaseTransactionAdapter {
 	readonly #drizzle: PostgresDrizzleClient
 	readonly #schemas: PostgresSchemaCatalog
 	readonly #constraintCompilers: PostgresConstraintCompilerRegistry
-	readonly #itemRecovery: PostgresItemRecovery
 	#state:
 		'active' | 'committing' | 'rollback-required' | 'rolling-back' | 'closed' =
 		'active'
@@ -252,7 +247,6 @@ class DrizzlePostgresTransactionAdapter implements DatabaseTransactionAdapter {
 		)
 		this.#schemas = schemas
 		this.#constraintCompilers = constraintCompilers
-		this.#itemRecovery = createPostgresItemRecovery(client)
 	}
 
 	/** Exposes only identity retained for the exact projected adapter record. */
@@ -332,10 +326,10 @@ class DrizzlePostgresTransactionAdapter implements DatabaseTransactionAdapter {
 			schema,
 			request.operation,
 			constraintPredicate,
-			this.#itemRecovery,
 			() => {
 				this.#assertActive()
 			},
+			request.prepareMutationItems === true,
 			relation,
 			relationPredicateCompiler,
 		)

@@ -40,9 +40,3 @@ export interface OperationOptions {
 	 */
 	readonly useMasterKey?: true
 }
-
-/** Adds collection atomicity to the shared operation execution options. */
-export interface BulkOperationOptions extends OperationOptions {
-	/** Keeps every item all-or-nothing, or returns a stopped-prefix result. Defaults to `true`. */
-	readonly atomic?: boolean
-}

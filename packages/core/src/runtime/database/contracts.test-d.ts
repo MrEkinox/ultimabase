@@ -165,9 +165,9 @@ test('distinguishes root and transaction adapter capabilities', () => {
 	expectTypeOf<DatabaseAdapterCapabilities['pointers']>().toEqualTypeOf<
 		DatabasePointerCapability | undefined
 	>()
-	expectTypeOf<
-		DatabaseAdapterCapabilities['inclusions']
-	>().toEqualTypeOf<DatabaseInclusionCapability | undefined>()
+	expectTypeOf<DatabaseAdapterCapabilities['inclusions']>().toEqualTypeOf<
+		DatabaseInclusionCapability | undefined
+	>()
 	expectTypeOf<DatabaseAdapterCapabilities['relations']>().toEqualTypeOf<
 		DatabaseRelationCapability | undefined
 	>()
@@ -263,10 +263,10 @@ test('narrows preparation and materializations by mutation terminal', () => {
 	>().toEqualTypeOf<DatabaseDeleteMaterialization<ArticleLogicalRecord>>()
 	expectTypeOf<
 		DatabaseMutationMaterialization<UpdateManyOperation>
-	>().toBeNever()
+	>().toEqualTypeOf<DatabaseUpdateMaterialization<ArticleLogicalRecord>>()
 	expectTypeOf<
 		DatabaseMutationMaterialization<DeleteManyOperation>
-	>().toBeNever()
+	>().toEqualTypeOf<DatabaseDeleteMaterialization<ArticleLogicalRecord>>()
 	expectTypeOf<
 		DatabaseMutationMaterialization<UpsertOperation>
 	>().toEqualTypeOf<
@@ -279,11 +279,16 @@ test('narrows preparation and materializations by mutation terminal', () => {
 		null as unknown as PreparedDatabaseOperation<UpdateOperation>
 	const preparedCreate =
 		null as unknown as PreparedDatabaseOperation<CreateOperation>
+	const preparedUpdateMany =
+		null as unknown as PreparedDatabaseOperation<UpdateManyOperation>
 
 	expectTypeOf(
 		preparedUpdate.target,
 	).toEqualTypeOf<ArticleLogicalRecord | null>()
 	expectTypeOf(preparedCreate.target).toEqualTypeOf<undefined>()
+	expectTypeOf(preparedUpdateMany.targets).toEqualTypeOf<
+		readonly ArticleLogicalRecord[] | undefined
+	>()
 	expectTypeOf<
 		DatabaseOperationOutcome<CreateOperation>['materializations']
 	>().toEqualTypeOf<
@@ -291,7 +296,9 @@ test('narrows preparation and materializations by mutation terminal', () => {
 	>()
 	expectTypeOf<
 		DatabaseOperationOutcome<UpdateManyOperation>['materializations']
-	>().toEqualTypeOf<readonly []>()
+	>().toEqualTypeOf<
+		readonly DatabaseUpdateMaterialization<ArticleLogicalRecord>[]
+	>()
 	const read = {
 		kind: 'find-many',
 		query: new QueryBuilder(articleSchema).ast,

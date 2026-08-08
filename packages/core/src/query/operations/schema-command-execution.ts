@@ -10,31 +10,26 @@ import { createQueryAst } from '../ast/factory.js'
 import type { QueryWhereNode } from '../ast/contracts.js'
 import type { QueryFilterNode } from '../filters/logical.js'
 import { resolveWhereInput } from '../filters/where.js'
+import type { QueryBuilder } from '../query/query.js'
 import {
-	executeQueryDeleteMany,
 	executeQueryDeleteOne,
-	executeQueryUpdateMany,
 	executeQueryUpdateOne,
 	executeQueryUpsertOne,
 	executeSchemaCreateOne,
-	executeSchemaCreateMany,
-	executeSchemaUpsertMany,
 	hydrateQueryFromAst,
-	QueryBuilder,
 } from '../query/query.js'
-import { normalizeUniqueUpsertTarget } from './upsert.js'
-import type {
-	InferBulkOperationResult,
+import { normalizeUniqueUpsertTarget, normalizeUpsertInput } from './upsert.js'
+import {
+	executeOperationBatch,
+	normalizeOperationOptions,
 } from './execution.js'
-import type { BulkOperationOptions, OperationOptions } from './options.js'
+import type { OperationOptions } from './options.js'
 import type { InferQueryResult } from '../query/result.js'
-import type { UpsertManyItemInput } from './upsert.js'
 import type {
 	SchemaDeleteManyExecutionInput,
 	SchemaDeleteOneExecutionInput,
 	SchemaCreateManyExecutionInput,
 	SchemaCreateOneExecutionInput,
-	SchemaManyWhere,
 	SchemaUpdateManyExecutionInput,
 	SchemaUpdateOneExecutionInput,
 	SchemaUpsertOneExecutionInput,
@@ -42,11 +37,20 @@ import type {
 	SchemaWhereFactory,
 } from './schema-commands.js'
 import {
+	emptyQuerySelection,
 	normalizeQuerySelectedFields,
 	normalizeQuerySelection,
 	type QuerySelection,
 } from '../clauses/selection.js'
 import type { QueryFieldName } from '../ast/contracts.js'
+import type {
+	CreateOneOperationAst,
+	DeleteOneOperationAst,
+	UpdateOneOperationAst,
+	UpsertOneOperationAst,
+} from './contracts.js'
+import type { UpdateExpression } from '../updates/contracts.js'
+import { normalizeUpdateExpression } from '../updates/normalize.js'
 
 const assertExactCommandKeys: (
 	input: unknown,
@@ -77,6 +81,7 @@ const assertExactCommandKeys: (
 }
 
 const updateCommandKeys = new Set(['data', 'where'])
+const updateManyCommandKeys = new Set(['data'])
 const updateOneOptionalCommandKeys = new Set(['select'])
 const updateManyOptionalCommandKeys = new Set(['select'])
 const createCommandKeys = new Set(['data'])
@@ -120,14 +125,6 @@ const createSchemaWhereQuery = <const TSchema extends SchemaDefinition>(
 	return hydrateQueryFromAst<TSchema, never>(ast)
 }
 
-const createSchemaManyQuery = <const TSchema extends SchemaDefinition>(
-	schema: TSchema,
-	where: SchemaManyWhere<TSchema>,
-): QueryBuilder<TSchema> =>
-	where === 'all'
-		? new QueryBuilder(schema)
-		: createSchemaWhereQuery(schema, where)
-
 const assertUniqueSchemaWhere = <const TSchema extends SchemaDefinition>(
 	schema: TSchema,
 	query: QueryBuilder<TSchema>,
@@ -137,13 +134,16 @@ const assertUniqueSchemaWhere = <const TSchema extends SchemaDefinition>(
 	void normalizeUniqueUpsertTarget(schema, query.ast, path)
 }
 
-/** Applies the explicit bulk projection or the safe identifier-only default. */
-const createSchemaManyResultQuery = <const TSchema extends SchemaDefinition>(
+/** Applies one batch projection to an exact unique target. */
+const createSchemaBatchResultQuery = <const TSchema extends SchemaDefinition>(
 	schema: TSchema,
-	where: SchemaManyWhere<TSchema>,
+	where: SchemaWhereFactory<TSchema>,
 	selection: QuerySelection<TSchema> | undefined,
 ): QueryBuilder<TSchema, QueryFieldName<TSchema>> => {
-	const query = createSchemaManyQuery(schema, where)
+	const query = createSchemaWhereQuery(schema, where)
+
+	assertUniqueSchemaWhere(schema, query, 'schema batch item where')
+
 	const normalizedSelection =
 		selection === undefined
 			? normalizeQuerySelectedFields(schema, ['id' as QueryFieldName<TSchema>])
@@ -171,19 +171,11 @@ export const createSchemaRecord = <const TSchema extends SchemaDefinition>(
 }
 
 /** Creates ordered rows through the schema class. */
-export const createSchemaRecords = <
-	const TSchema extends SchemaDefinition,
-	const TOptions extends BulkOperationOptions | undefined = undefined,
->(
+export const createSchemaRecords = <const TSchema extends SchemaDefinition>(
 	schema: TSchema,
 	input: SchemaCreateManyExecutionInput<TSchema>,
-	options?: TOptions & BulkOperationOptions,
-): Promise<
-	InferBulkOperationResult<
-		InferQueryResult<TSchema, QueryFieldName<TSchema>>,
-		TOptions
-	>
-> => {
+	options?: OperationOptions,
+): Promise<readonly InferQueryResult<TSchema, QueryFieldName<TSchema>>[]> => {
 	assertExactCommandKeys(
 		input,
 		createCommandKeys,
@@ -195,7 +187,31 @@ export const createSchemaRecords = <
 		throw new TypeError('schema createMany data must be an array')
 	}
 
-	return executeSchemaCreateMany<TSchema, TOptions>(schema, input, options)
+	const selection =
+		input.select === undefined
+			? emptyQuerySelection
+			: normalizeQuerySelection(schema, input.select)
+	const schemaNode = createQueryAst(schema).schema
+	const entries = immutableArray(
+		input.data.map((data) => {
+			const operation: CreateOneOperationAst<
+				TSchema,
+				QueryFieldName<TSchema>
+			> = immutableRecord({
+				input: data,
+				kind: 'create-one',
+				schema: schemaNode,
+				selection,
+			})
+
+			return immutableRecord({ operation })
+		}),
+	)
+
+	return executeOperationBatch(
+		entries,
+		normalizeOperationOptions(options),
+	) as Promise<readonly InferQueryResult<TSchema, QueryFieldName<TSchema>>[]>
 }
 
 /** Updates one exact unique target through the schema class. */
@@ -228,7 +244,7 @@ export const updateSchemaRecord = <const TSchema extends SchemaDefinition>(
 	return executeQueryUpdateOne(selectedQuery, input.data, options)
 }
 
-/** Updates one explicit filtered set through the schema class. */
+/** Updates independently targeted rows through one atomic batch. */
 export const updateSchemaRecords = <const TSchema extends SchemaDefinition>(
 	schema: TSchema,
 	input: SchemaUpdateManyExecutionInput<TSchema>,
@@ -236,13 +252,47 @@ export const updateSchemaRecords = <const TSchema extends SchemaDefinition>(
 ): Promise<readonly object[]> => {
 	assertExactCommandKeys(
 		input,
-		updateCommandKeys,
+		updateManyCommandKeys,
 		'schema updateMany input',
 		updateManyOptionalCommandKeys,
 	)
-	const query = createSchemaManyResultQuery(schema, input.where, input.select)
+	const untrustedInputs: unknown = input.data
 
-	return executeQueryUpdateMany(query, input.data, options)
+	if (!isUnknownArray(untrustedInputs)) {
+		throw new TypeError('schema updateMany data must be an array')
+	}
+
+	const entries = immutableArray(
+		input.data.map((item, index) => {
+			assertExactCommandKeys(
+				item,
+				updateCommandKeys,
+				`schema updateMany data[${String(index)}]`,
+			)
+			const query = createSchemaBatchResultQuery(
+				schema,
+				item.where,
+				input.select,
+			)
+			const operation: UpdateOneOperationAst<
+				TSchema,
+				UpdateExpression<TSchema>,
+				QueryFilterNode<TSchema>,
+				QueryFieldName<TSchema>
+			> = immutableRecord({
+				kind: 'update-one',
+				query: query.ast,
+				update: normalizeUpdateExpression(schema, item.data),
+			})
+
+			return immutableRecord({ operation, requireResult: true as const })
+		}),
+	)
+
+	return executeOperationBatch(
+		entries,
+		normalizeOperationOptions(options),
+	) as unknown as Promise<readonly object[]>
 }
 
 /** Upserts one exact unique target through the schema class. */
@@ -282,19 +332,11 @@ export const upsertSchemaRecord = <const TSchema extends SchemaDefinition>(
 }
 
 /** Upserts independently targeted items through the schema class. */
-export const upsertSchemaRecords = <
-	const TSchema extends SchemaDefinition,
-	const TOptions extends BulkOperationOptions | undefined = undefined,
->(
+export const upsertSchemaRecords = <const TSchema extends SchemaDefinition>(
 	schema: TSchema,
 	input: SchemaUpsertManyExecutionInput<TSchema>,
-	options?: TOptions & BulkOperationOptions,
-): Promise<
-	InferBulkOperationResult<
-		InferQueryResult<TSchema, QueryFieldName<TSchema>>,
-		TOptions
-	>
-> => {
+	options?: OperationOptions,
+): Promise<readonly InferQueryResult<TSchema, QueryFieldName<TSchema>>[]> => {
 	assertExactCommandKeys(
 		input,
 		upsertManyCommandKeys,
@@ -307,28 +349,43 @@ export const upsertSchemaRecords = <
 		throw new TypeError('schema upsertMany data must be an array')
 	}
 
-	const normalizedInputs = immutableArray(
-		input.data.map((item, index): UpsertManyItemInput<TSchema> => {
+	const selection =
+		input.select === undefined
+			? emptyQuerySelection
+			: normalizeQuerySelection(schema, input.select)
+	const entries = immutableArray(
+		input.data.map((item, index) => {
 			assertExactCommandKeys(
 				item,
 				upsertCommandKeys,
 				`schema upsertMany data[${String(index)}]`,
 			)
 
-			return immutableRecord({
-				query: createSchemaWhereQuery(schema, item.where),
-				create: item.create,
-				update: item.update,
+			const query = createSchemaWhereQuery(schema, item.where)
+			const operation: UpsertOneOperationAst<
+				TSchema,
+				UpdateExpression<TSchema>,
+				QueryFilterNode<TSchema>,
+				QueryFieldName<TSchema>
+			> = immutableRecord({
+				...normalizeUpsertInput(schema, {
+					create: item.create,
+					update: item.update,
+				}),
+				kind: 'upsert-one',
+				query: immutableRecord({ ...query.ast, selection }),
+				target: normalizeUniqueUpsertTarget(
+					schema,
+					query.ast,
+					`schema upsertMany data[${String(index)}].where`,
+				),
 			})
+
+			return immutableRecord({ operation })
 		}),
 	)
 
-	return executeSchemaUpsertMany<TSchema, TOptions>(
-		schema,
-		normalizedInputs,
-		input.select,
-		options,
-	)
+	return executeOperationBatch(entries, normalizeOperationOptions(options))
 }
 
 /** Deletes one exact unique target through the schema class. */
@@ -361,7 +418,7 @@ export const deleteSchemaRecord = <const TSchema extends SchemaDefinition>(
 	return executeQueryDeleteOne(selectedQuery, options)
 }
 
-/** Deletes one explicit filtered set through the schema class. */
+/** Deletes independently targeted rows through one atomic batch. */
 export const deleteSchemaRecords = <const TSchema extends SchemaDefinition>(
 	schema: TSchema,
 	input: SchemaDeleteManyExecutionInput<TSchema>,
@@ -373,7 +430,27 @@ export const deleteSchemaRecords = <const TSchema extends SchemaDefinition>(
 		'schema deleteMany input',
 		deleteManyOptionalCommandKeys,
 	)
-	const query = createSchemaManyResultQuery(schema, input.where, input.select)
+	const untrustedTargets: unknown = input.where
 
-	return executeQueryDeleteMany(query, options)
+	if (!isUnknownArray(untrustedTargets)) {
+		throw new TypeError('schema deleteMany where must be an array')
+	}
+
+	const entries = immutableArray(
+		input.where.map((where) => {
+			const query = createSchemaBatchResultQuery(schema, where, input.select)
+			const operation: DeleteOneOperationAst<
+				TSchema,
+				QueryFilterNode<TSchema>,
+				QueryFieldName<TSchema>
+			> = immutableRecord({ kind: 'delete-one', query: query.ast })
+
+			return immutableRecord({ operation, requireResult: true as const })
+		}),
+	)
+
+	return executeOperationBatch(
+		entries,
+		normalizeOperationOptions(options),
+	) as unknown as Promise<readonly object[]>
 }

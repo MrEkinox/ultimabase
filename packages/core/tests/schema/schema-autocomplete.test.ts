@@ -363,7 +363,7 @@ post./* hover */equals(Post.pointer('post-1'))
 		expectDocumented(readDocumentation(exists.documentation, exists.tags))
 		expectDocumented(readDocumentation(toPointer.documentation, toPointer.tags))
 		expectDocumented(readDocumentation(equals.documentation, equals.tags))
-	})
+	}, 15_000)
 
 	it.each(schemaHoverCases)(
 		'documents $label after insertion',

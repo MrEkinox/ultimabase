@@ -37,12 +37,17 @@ const Article = Schema.define({
 			delete: ({ context }) => context.access.mode === 'master',
 		},
 		item: {
-			update: ({ input, item }) =>
-				input.authorId === undefined || input.authorId === item.authorId,
+			update: ({ originalItem, item }) =>
+				item.authorId === originalItem.authorId,
 		},
 	},
 	fields: {
-		authorId: stringField({ validation: { required: true } }),
+		authorId: stringField({
+			access: {
+				update: ({ originalValue, value }) => value === originalValue,
+			},
+			validation: { required: true },
+		}),
 		secret: stringField({
 			access: { read: { item: false, filter: false, order: false } },
 		}),
@@ -57,8 +62,33 @@ so an omitted count, filter, or ordering path cannot inherit a broader default.
 Callbacks receive an effect-free `AccessContext`: ordinary authority,
 cancellation, request identity, unforgeable capabilities, and typed context
 values. They cannot emit events, query a database, finalize transactions, or
-inspect transport metadata. The terminal `kind` remains available when a
-single family rule needs to distinguish singular and bulk behavior.
+inspect transport metadata. Early schema `operation` rules and read disclosure
+rules retain the exact terminal `kind` when cardinality matters. Item rules and
+mutation field rules instead receive `create`, `update`, `upsert`, or `delete`,
+because collection commands use the same callback once per item.
+
+Access callbacks must remain pure decisions. Runtime may evaluate a rule again
+after input transformation, target locking, or final upsert branch resolution
+to ensure that the decision protects the value that is actually persisted.
+
+Field create rules traverse normalized objects parent-first. A nested field in
+an object list is evaluated once per concrete list entry, including
+multidimensional lists. A `null` parent evaluates only the parent field. Rules
+that need siblings or the complete candidate belong in schema `item.create`.
+
+Field output rules use the same parent-first concrete traversal. Denying a
+parent omits its complete property and skips its descendants. Denying one
+nested occurrence omits only that property from that object; Runtime never
+removes or reorders surrounding list elements. This is structural projection,
+not persisted `null`, so list cardinality and data semantics remain unchanged.
+
+For updates, schema item rules receive the complete persisted `originalItem`
+and an immutable `item` containing the final candidate after update operators
+have been applied. Generic field rules receive the corresponding
+`originalValue` and final `value`. Nested object rules run at each concrete
+path, including object-list entries; a removed nested value is represented by
+the canonical `null`. Relation field rules keep their typed relation delta
+because those values are not embedded in the parent object.
 
 Declarations are validated and snapshotted without executing callbacks. They
 never appear in enumerable schema or field metadata and do not alter inferred
@@ -155,7 +185,9 @@ stable target selected by the transaction adapter before its single-use write
 handle executes. A value-dependent item rule on `updateMany` or `deleteMany`
 fails with a typed capability error rather than materializing an unbounded row
 set. Upsert item rules inspect the exact create or update branch materialized
-inside the transaction, so a denial rolls the write back.
+inside the transaction, so a denial rolls the write back. These item-oriented
+callbacks use a cardinality-free business `kind`; only early operation Access
+retains terminal names such as `update-one`.
 
 Field `read.item` rules project adapter records before output hooks. The same
 projection is enforced again after result transforms, so a hook cannot restore

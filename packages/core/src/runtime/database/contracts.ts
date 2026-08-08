@@ -189,6 +189,8 @@ export interface DatabaseOperationRequest<
 > {
 	readonly constraints: readonly TConstraint[]
 	readonly operation: TOperation
+	/** Requests stable complete preimages for item-oriented set-based mutation hooks. */
+	readonly prepareMutationItems?: true
 	/** Carries one Runtime-validated relation edge only to capable adapters. */
 	readonly relation?: DatabaseRelationScope
 	/** Keeps target Access monotonic and invisible to source QueryBuilder hooks. */
@@ -268,9 +270,9 @@ export type DatabaseMutationMaterialization<
 > = TOperation['kind'] extends infer TKind
 	? TKind extends 'create-many' | 'create-one'
 		? DatabaseCreateMaterialization<DatabaseMutationLogicalRecord<TOperation>>
-		: TKind extends 'update-one'
+		: TKind extends 'update-many' | 'update-one'
 			? DatabaseUpdateMaterialization<DatabaseMutationLogicalRecord<TOperation>>
-			: TKind extends 'delete-one'
+			: TKind extends 'delete-many' | 'delete-one'
 				? DatabaseDeleteMaterialization<
 						DatabaseMutationLogicalRecord<TOperation>
 					>
@@ -319,17 +321,11 @@ type DatabaseOperationOutcomeFor<
 		>
 	: TOperation['kind'] extends 'delete-one' | 'update-one'
 		? DatabaseSingularMutationOutcome<TOperation>
-		: TOperation['kind'] extends 'delete-many' | 'update-many'
-			? DatabaseMaterializedOutcome<
-					TOperation,
-					DatabaseOperationResult<TOperation>,
-					readonly []
-				>
-			: DatabaseMaterializedOutcome<
-					TOperation,
-					DatabaseOperationResult<TOperation>,
-					readonly DatabaseMutationMaterialization<TOperation>[]
-				>
+		: DatabaseMaterializedOutcome<
+				TOperation,
+				DatabaseOperationResult<TOperation>,
+				readonly DatabaseMutationMaterialization<TOperation>[]
+			>
 
 /** Separates the selected public result from cardinality-safe private snapshots. */
 export type DatabaseOperationOutcome<
@@ -351,17 +347,23 @@ interface PreparedDatabaseOperationHandle<
 	execute(operation?: TOperation): Promise<DatabaseOperationOutcome<TOperation>>
 }
 
-/** Adds the stable preimage only when a singular update or delete can have one. */
+/** Adds the stable visible preimage when one directed mutation can have one. */
 export type PreparedDatabaseOperation<
 	TOperation extends DatabaseMutationOperationAst,
 > = TOperation extends DatabaseMutationOperationAst
 	? PreparedDatabaseOperationHandle<TOperation> &
-			(TOperation['kind'] extends 'delete-one' | 'update-one'
+			(TOperation['kind'] extends 'delete-one' | 'update-one' | 'upsert-one'
 				? {
-						/** `null` means that the singular mutation matched no persisted object. */
+						/** `null` means that no visible persisted object existed at preparation. */
 						readonly target: DatabaseMutationLogicalRecord<TOperation> | null
 					}
-				: { readonly target?: never })
+				: { readonly target?: never }) &
+			(TOperation['kind'] extends 'delete-many' | 'update-many'
+				? {
+						/** Exists only when Runtime requested stable set-based item preimages. */
+						readonly targets?: readonly DatabaseMutationLogicalRecord<TOperation>[]
+					}
+				: { readonly targets?: never })
 	: never
 
 /** Executes one normalized operation while preserving its exact result type. */

@@ -136,7 +136,7 @@ describe('ACL committed events with PostgreSQL', { concurrent: false }, () => {
 				added: [{ permissions: ['read'], subject: { kind: 'public' } }],
 				removed: [],
 			},
-			operation: 'create-one',
+			operation: 'create',
 			target: { className: Post.className, id: created.id },
 		})
 		expect(committedRows).toContain(created.id)
@@ -178,7 +178,7 @@ describe('ACL committed events with PostgreSQL', { concurrent: false }, () => {
 					],
 					removed: [{ permissions: ['read'], subject: { kind: 'public' } }],
 				},
-				operation: 'update-one',
+				operation: 'update',
 				target: { className: Post.className, id: created.id },
 			},
 		])
@@ -230,8 +230,8 @@ describe('ACL committed events with PostgreSQL', { concurrent: false }, () => {
 
 		expect(events).toHaveLength(2)
 		expect(events.map(({ operation }) => operation)).toStrictEqual([
-			'create-many',
-			'create-many',
+			'create',
+			'create',
 		])
 		expect(events.map(({ target }) => target.id)).toStrictEqual(
 			created.map(({ id }) => id),

@@ -4,7 +4,11 @@ import { QueryBuilder } from '../../query/query/query.js'
 import { objectField } from '../fields/builtins/object.js'
 import { stringField } from '../fields/builtins/string.js'
 import { Schema } from './definition.js'
-import { isSchemaModelInstance, materializeSchemaModel } from './model.js'
+import {
+	isSchemaModelInstance,
+	materializePreparedSchemaDraft,
+	materializeSchemaModel,
+} from './model.js'
 
 const Post = Schema.define({
 	className: 'Post',
@@ -96,6 +100,47 @@ describe('schema model classes', () => {
 			new TypeError('Schema model classes cannot be subclassed'),
 		)
 		expect(Schema.is(ExtendedPost)).toBe(false)
+	})
+
+	it('materializes complete prepared drafts without persistence capabilities', () => {
+		const prepared = materializePreparedSchemaDraft(Post, {
+			createdAt: '2026-08-08T00:00:00.000Z',
+			id: '0198f090-2a50-7000-8000-000000000031',
+			profile: null,
+			summary: null,
+			title: 'Prepared',
+			updatedAt: '2026-08-08T00:00:00.000Z',
+		})
+
+		expect(prepared).toBeInstanceOf(Post)
+		expect(prepared.get('title')).toBe('Prepared')
+		expect(prepared.toJSON()).toStrictEqual({
+			createdAt: '2026-08-08T00:00:00.000Z',
+			id: '0198f090-2a50-7000-8000-000000000031',
+			profile: null,
+			summary: null,
+			title: 'Prepared',
+			updatedAt: '2026-08-08T00:00:00.000Z',
+		})
+		expect(Object.isFrozen(prepared)).toBe(true)
+		expect(isSchemaModelInstance(Post, prepared)).toBe(true)
+		expect(() => materializePreparedSchemaDraft(Post, [])).toThrow(
+			new TypeError(
+				'Prepared draft schema model values must be a plain object',
+			),
+		)
+
+		const create: unknown = Reflect.get(prepared, 'create')
+
+		if (typeof create !== 'function') {
+			throw new TypeError(
+				'Prepared draft prototype must expose guarded commands',
+			)
+		}
+
+		expect((): void => {
+			Reflect.apply(create, prepared, [{}])
+		}).toThrow(new TypeError('Schema model create requires draft model state'))
 	})
 
 	it('materializes only visible Runtime values as persisted class instances', () => {

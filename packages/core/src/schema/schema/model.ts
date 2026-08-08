@@ -25,10 +25,7 @@ import type {
 	SchemaUpsertManyExecutionInput,
 	SchemaWhereFactory,
 } from '../../query/operations/schema-commands.js'
-import type {
-	BulkOperationOptions,
-	OperationOptions,
-} from '../../query/operations/options.js'
+import type { OperationOptions } from '../../query/operations/options.js'
 import type { WhereInput } from '../../query/filters/where.js'
 import {
 	normalizeQuerySelection,
@@ -82,8 +79,8 @@ import type {
 	SchemaMetadata,
 } from './definition.js'
 
-/** Distinguishes caller-created drafts from Runtime-materialized persisted values. */
-type SchemaModelState = 'draft' | 'persisted'
+/** Distinguishes caller input, prepared candidates, and persisted values. */
+type SchemaModelState = 'draft' | 'prepared-draft' | 'persisted'
 
 /** Materializes public values and methods while retaining private model identity. */
 type Simplify<TValue> = {
@@ -584,6 +581,11 @@ export type SchemaDraft<TSchema extends SchemaDefinition> = Simplify<
 		>
 >
 
+/** Exposes one complete normalized candidate without persistence commands. */
+export type SchemaPreparedDraft<TSchema extends SchemaDefinition> = Simplify<
+	SchemaModelInstance<TSchema, 'prepared-draft', InferObject<TSchema>>
+>
+
 /** Infers one persisted schema-class instance with an exact visible shape. */
 export type SchemaResult<
 	TSchema extends SchemaDefinition,
@@ -610,6 +612,9 @@ interface SchemaModelRecord {
 
 const persistedModelConstructionKey: unique symbol = Symbol(
 	'ultimabase.persisted-schema-model-construction',
+)
+const preparedDraftConstructionKey: unique symbol = Symbol(
+	'ultimabase.prepared-draft-schema-model-construction',
 )
 const schemaModelRecords = new WeakMap<object, SchemaModelRecord>()
 const schemaModelClasses = new WeakSet<SchemaDefinition>()
@@ -1148,18 +1153,21 @@ const snapshotDraftValues = (
 	return immutableRecord(values)
 }
 
-const snapshotPersistedValues = (
+const snapshotMaterializedValues = (
 	definition: SchemaMetadata,
 	input: unknown,
+	materializationKind: 'Persisted' | 'Prepared draft',
 ): Readonly<Record<string, unknown>> => {
 	if (!isPlainRecord(input)) {
-		throw new TypeError('Persisted schema model values must be a plain object')
+		throw new TypeError(
+			`${materializationKind} schema model values must be a plain object`,
+		)
 	}
 
 	for (const key of Reflect.ownKeys(input)) {
 		if (typeof key !== 'string' || !Object.hasOwn(definition.fields, key)) {
 			throw new TypeError(
-				`Persisted schema model contains an unknown field: ${String(key)}`,
+				`${materializationKind} schema model contains an unknown field: ${String(key)}`,
 			)
 		}
 	}
@@ -1223,31 +1231,41 @@ export const createSchemaModelClass = <
 	class DefinedSchemaModel extends SchemaModelPrototype {
 		constructor(
 			input: unknown,
-			persistedConstructionKey?: symbol,
+			constructionKey?: symbol,
 			materialization?: SchemaModelMaterialization,
 		) {
 			if (new.target !== DefinedSchemaModel) {
 				throw new TypeError('Schema model classes cannot be subclassed')
 			}
 
-			const persisted =
-				persistedConstructionKey === persistedModelConstructionKey
+			const state: SchemaModelState =
+				constructionKey === persistedModelConstructionKey
+					? 'persisted'
+					: constructionKey === preparedDraftConstructionKey
+						? 'prepared-draft'
+						: 'draft'
 			const schema = DefinedSchemaModel as unknown as SchemaDefinition
-			const values = persisted
-				? snapshotPersistedValues(definition, input)
-				: snapshotDraftValues(developerFields, input)
-			const protectedState = persisted
-				? snapshotSchemaModelMaterialization(
-						definition,
-						values,
-						materialization,
-					)
-				: undefined
+			const values =
+				state === 'draft'
+					? snapshotDraftValues(developerFields, input)
+					: snapshotMaterializedValues(
+							definition,
+							input,
+							state === 'persisted' ? 'Persisted' : 'Prepared draft',
+						)
+			const protectedState =
+				state === 'persisted'
+					? snapshotSchemaModelMaterialization(
+							definition,
+							values,
+							materialization,
+						)
+					: undefined
 
 			super(
 				schema,
 				values,
-				persisted ? 'persisted' : 'draft',
+				state,
 				protectedState?.objectId,
 				protectedState?.selectedFields,
 			)
@@ -1334,10 +1352,10 @@ export const createSchemaModelClass = <
 			)
 		}
 
-		/** Creates ordered models through one atomic bulk operation by default. */
+		/** Creates ordered models through one all-or-nothing operation. */
 		static createMany(
 			input: SchemaCreateManyExecutionInput<SchemaDefinition>,
-			options?: BulkOperationOptions,
+			options?: OperationOptions,
 		): Promise<unknown> {
 			return createSchemaRecords(
 				DefinedSchemaModel as unknown as SchemaDefinition,
@@ -1385,7 +1403,7 @@ export const createSchemaModelClass = <
 		/** Upserts independently targeted inputs in order. */
 		static upsertMany(
 			input: SchemaUpsertManyExecutionInput<SchemaDefinition>,
-			options?: BulkOperationOptions,
+			options?: OperationOptions,
 		): Promise<unknown> {
 			return upsertSchemaRecords(
 				DefinedSchemaModel as unknown as SchemaDefinition,
@@ -1445,6 +1463,38 @@ export const createSchemaModelClass = <
 	return schema
 }
 
+type RuntimeSchemaModelConstructor = new (
+	input: unknown,
+	constructionKey: symbol,
+	materialization?: SchemaModelMaterialization,
+) => object
+
+/** Resolves only framework-created schema classes for private materialization. */
+const readRuntimeSchemaModelConstructor = (
+	schema: SchemaDefinition,
+): RuntimeSchemaModelConstructor => {
+	if (!schemaModelClasses.has(schema)) {
+		throw new TypeError('Schema model class was not created by Schema.define')
+	}
+
+	return schema as unknown as RuntimeSchemaModelConstructor
+}
+
+/** Materializes one complete pre-persistence candidate without write commands. */
+export const materializePreparedSchemaDraft = <
+	const TSchema extends SchemaDefinition,
+>(
+	schema: TSchema,
+	values: unknown,
+): SchemaPreparedDraft<TSchema> => {
+	const Model = readRuntimeSchemaModelConstructor(schema)
+
+	return new Model(
+		values,
+		preparedDraftConstructionKey,
+	) as SchemaPreparedDraft<TSchema>
+}
+
 /** Converts one final plain Runtime record into its exact generated schema class. */
 export const materializeSchemaModel = <
 	const TSchema extends SchemaDefinition,
@@ -1454,16 +1504,7 @@ export const materializeSchemaModel = <
 	values: TValues,
 	materialization?: SchemaModelMaterialization,
 ): SchemaResult<TSchema, TValues> => {
-	if (!schemaModelClasses.has(schema)) {
-		throw new TypeError('Schema model class was not created by Schema.define')
-	}
-
-	type PersistedSchemaConstructor = new (
-		input: unknown,
-		constructionKey: symbol,
-		materialization?: SchemaModelMaterialization,
-	) => object
-	const Model = schema as unknown as PersistedSchemaConstructor
+	const Model = readRuntimeSchemaModelConstructor(schema)
 
 	return new Model(
 		values,

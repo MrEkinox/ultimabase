@@ -14,8 +14,10 @@ import type {
 	OperationAstNode,
 } from '../../query/index.js'
 import {
+	registerOperationBatchExecutionHandler,
 	registerOperationExecutionHandler,
 	type NormalizedOperationOptions,
+	type OperationBatchEntry,
 	type OperationPrivateScope,
 } from '../../query/operations/execution.js'
 import { Schema, type SchemaDefinition } from '../../schema/index.js'
@@ -318,9 +320,50 @@ export class RequestEngine<
 		registerOperationExecutionHandler(this, (operation, options, scope) =>
 			this.#executeTerminal(operation, options, scope),
 		)
+		registerOperationBatchExecutionHandler(this, (entries, options) =>
+			this.#executeTerminalBatch(entries, options),
+		)
 
 		// A request engine cannot change application or authority after binding.
 		Object.freeze(this)
+	}
+
+	/** Keeps every directed batch item inside one shared transaction lifetime. */
+	async #executeTerminalBatch(
+		entries: readonly OperationBatchEntry[],
+		options: NormalizedOperationOptions,
+	): Promise<readonly unknown[]> {
+		if (entries.length === 0) {
+			return immutableArray([])
+		}
+
+		const executeItems = async (
+			engine: RequestEngine,
+		): Promise<readonly unknown[]> => {
+			const results: unknown[] = []
+
+			for (const entry of entries) {
+				const result = await engine.#executeTerminal(
+					entry.operation,
+					options,
+					undefined,
+				)
+
+				if (entry.requireResult === true && result === null) {
+					throw createProtectedObjectNotFoundError()
+				}
+
+				results.push(result)
+			}
+
+			return immutableArray(results)
+		}
+
+		if (this.#transactionLifetime !== undefined) {
+			return executeItems(this)
+		}
+
+		return this.transaction((transaction) => executeItems(transaction))
 	}
 
 	/** Resolves trusted terminal authority while retaining this engine's lifetime. */

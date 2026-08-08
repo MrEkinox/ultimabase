@@ -18,6 +18,7 @@ import type {
 } from './contribution-plan.js'
 import { createSchemaHookTarget } from './execution-descriptor.js'
 import type { HookExecutionRuntime } from './execution-runtime.js'
+import { getMutationHookKind } from './phase-order.js'
 import {
 	TransactionHookJournal,
 	type TransactionHookJournalEntry,
@@ -52,12 +53,12 @@ const throwObserverFailures = (
 const createSchemaCommitChange = (
 	entry: TransactionHookSuccessfulMutationEntry,
 ): Readonly<{
-	readonly kind: DatabaseMutationOperationAst['kind']
+	readonly kind: ReturnType<typeof getMutationHookKind>
 	readonly operation: DatabaseMutationOperationAst
 	readonly result: unknown
 }> =>
 	immutableRecord({
-		kind: entry.operation.kind,
+		kind: getMutationHookKind(entry.operation.kind),
 		operation: entry.operation,
 		result: entry.result,
 	})

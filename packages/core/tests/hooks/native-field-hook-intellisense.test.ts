@@ -168,9 +168,7 @@ describe('native field hook IntelliSense', () => {
 			'mode',
 			'value',
 		])
-		expect(readHoverDisplay('field-create-family-kind')).toContain(
-			'FieldCreateHookKind',
-		)
+		expect(readHoverDisplay('field-create-family-kind')).toContain('"create"')
 		expect(readHoverDisplay('field-list-value')).toContain('string | null')
 	})
 

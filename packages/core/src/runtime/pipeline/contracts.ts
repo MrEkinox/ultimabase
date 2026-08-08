@@ -218,6 +218,8 @@ export interface RuntimePreparedMutationStageInput<
 	TOperation extends DatabaseMutationOperationAst,
 > extends RuntimeOperationStageInput<TOperation> {
 	readonly target: DatabaseMutationLogicalRecord<TOperation> | null | undefined
+	/** Contains stable set-based preimages only when item hooks require them. */
+	readonly targets?: readonly DatabaseMutationLogicalRecord<TOperation>[]
 }
 
 /** Supplies complete private materializations separately from the public result. */
@@ -291,7 +293,14 @@ export type RuntimeMutationOutcomeTransformStage = <
 
 /** Groups the native dispatcher without changing low-level ADR-0070 stages. */
 export interface RuntimeNativeHookStages {
+	/** Requests adapter item preparation only when declared hooks consume it. */
+	readonly requiresPreparedMutationItems: (
+		operation: DatabaseMutationOperationAst,
+	) => boolean
+	/** Resolves exact field values before Access evaluates mutation input. */
 	readonly resolveInput: RuntimeOperationTransformStage
+	/** Resolves schema-wide mutation input after its visible target is stable. */
+	readonly schemaResolveInput: RuntimePreparedMutationTransformStage
 	readonly revalidate: RuntimeOperationTransformStage
 	readonly validate: RuntimeOperationGuardStage
 	readonly schemaBefore: RuntimeOperationTransformStage

@@ -113,10 +113,10 @@ describe('plugin hook targets', () => {
 		const extensionPaths: (readonly string[])[] = []
 
 		hooks.global('global', {
-			beforeOperation: { create: ({ operation }) => void operation },
+			beforeOperation: { create: ({ item }) => void item },
 		})
 		hooks.schema('schema', primarySchema, {
-			beforeOperation: { create: ({ operation }) => void operation },
+			beforeOperation: { create: ({ item }) => void item },
 		})
 		hooks.field('field', primarySchema, ['dotted.name'], {
 			resolveInput: ({ value }) => value,
@@ -197,7 +197,7 @@ describe('plugin hook targets', () => {
 		)
 
 		registries.forPlugin(ownerPlugin).hooks.schema('foreign', foreignSchema, {
-			beforeOperation: { create: ({ operation }) => void operation },
+			beforeOperation: { create: ({ item }) => void item },
 		})
 		registries.closeSetup()
 
@@ -258,7 +258,7 @@ describe('plugin hook targets', () => {
 		expect(
 			captureError(() => {
 				foreign.schemaExtension('foreign-extension', schemaExtension, () => ({
-					beforeOperation: { create: ({ operation }) => void operation },
+					beforeOperation: { create: ({ item }) => void item },
 				}))
 			}),
 		).toMatchObject({
@@ -330,12 +330,12 @@ describe('plugin hook targets', () => {
 		const second = registries.forPlugin('fixture.second').hooks
 
 		first.global('shared', {
-			beforeOperation: { create: ({ operation }) => void operation },
+			beforeOperation: { create: ({ item }) => void item },
 		})
 		expect(
 			captureError(() => {
 				first.schema('shared', primarySchema, {
-					beforeOperation: { create: ({ operation }) => void operation },
+					beforeOperation: { create: ({ item }) => void item },
 				})
 			}),
 		).toMatchObject({
@@ -343,7 +343,7 @@ describe('plugin hook targets', () => {
 			internalDetails: { kind: 'duplicate-plugin-local-contribution' },
 		})
 		second.global('shared', {
-			beforeOperation: { create: ({ operation }) => void operation },
+			beforeOperation: { create: ({ item }) => void item },
 		})
 
 		expect(
@@ -360,7 +360,7 @@ describe('plugin hook targets', () => {
 		registries.closeSetup()
 		expect(() => {
 			hooks.global('late', {
-				beforeOperation: { create: ({ operation }) => void operation },
+				beforeOperation: { create: ({ item }) => void item },
 			})
 		}).toThrow(
 			new TypeError('Plugin hooks can only be registered during setup'),
@@ -371,7 +371,7 @@ describe('plugin hook targets', () => {
 			hooks: {
 				connect: ({ hooks: lifecycleHooks }) => {
 					lifecycleHooks.global('too-late', {
-						beforeOperation: { create: ({ operation }) => void operation },
+						beforeOperation: { create: ({ item }) => void item },
 					})
 				},
 			},
@@ -396,10 +396,10 @@ describe('plugin hook targets', () => {
 				dependencies,
 				setup: ({ hooks }) => {
 					hooks.global('first', {
-						beforeOperation: { create: ({ operation }) => void operation },
+						beforeOperation: { create: ({ item }) => void item },
 					})
 					hooks.global('second', {
-						beforeOperation: { create: ({ operation }) => void operation },
+						beforeOperation: { create: ({ item }) => void item },
 					})
 				},
 			})
@@ -433,7 +433,7 @@ describe('plugin hook targets', () => {
 			name: 'fixture.coexisting-hooks',
 			setup: ({ hooks, registries }) => {
 				hooks.global('native', {
-					beforeOperation: { create: ({ operation }) => void operation },
+					beforeOperation: { create: ({ item }) => void item },
 				})
 				registries.hooks.register(
 					'fixture.low-level',

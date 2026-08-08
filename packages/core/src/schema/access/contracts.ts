@@ -18,16 +18,14 @@ import type {
 import type {
 	SchemaCreateHookKind,
 	SchemaDeleteHookKind,
+	SchemaMutationKind,
 	SchemaReadHookKind,
 	SchemaUpdateHookKind,
 	SchemaUpsertHookKind,
 } from '../hooks/contracts.js'
-import type {
-	InferCreateInput,
-	InferObject,
-	InferUpdateInput,
-} from '../inference/types.js'
+import type { InferObject } from '../inference/types.js'
 import type { SchemaDefinition } from '../schema/definition.js'
+import type { SchemaPreparedDraft, SchemaResult } from '../schema/model.js'
 
 /** Represents one immutable row predicate owned by the Access lifecycle. */
 export interface AccessFilter<TSchema extends SchemaDefinition> {
@@ -252,36 +250,41 @@ export interface SchemaFilterAccessInput<TSchema extends SchemaDefinition> {
 
 interface SchemaItemAccessBase<
 	TSchema extends SchemaDefinition,
-	TKind extends OperationKind,
+	TKind extends SchemaMutationKind,
+	TItem extends
+		Readonly<InferObject<TSchema>> | SchemaPreparedDraft<TSchema> | null,
 > {
 	/** Carries immutable authority and explicitly typed request capabilities. */
 	readonly context: AccessContext
-	/** Retains the exact terminal for cardinality-specific narrowing. */
+	/** Identifies the item-oriented mutation independently from cardinality. */
 	readonly kind: TKind
-	/** Carries the prepared object evaluated inside the operation transaction. */
-	readonly item: InferObject<TSchema>
+	/** Carries the immutable draft, candidate, or null produced by this family. */
+	readonly item: TItem
 }
 
-/** Correlates item checks with the exact input available to their family. */
+/** Correlates item checks with the materialized values available to their family. */
 export type SchemaItemAccessInput<
 	TSchema extends SchemaDefinition,
-	TKind extends
-		| SchemaCreateHookKind
-		| SchemaUpdateHookKind
-		| SchemaUpsertHookKind
-		| SchemaDeleteHookKind,
-> = TKind extends SchemaCreateHookKind
-	? SchemaItemAccessBase<TSchema, TKind> &
-			Readonly<{ input: InferCreateInput<TSchema>; mode: 'create' }>
-	: TKind extends SchemaUpdateHookKind
-		? SchemaItemAccessBase<TSchema, TKind> &
-				Readonly<{ input: InferUpdateInput<TSchema>; mode: 'update' }>
-		: TKind extends SchemaUpsertHookKind
-			? | (SchemaItemAccessBase<TSchema, TKind> &
-						Readonly<{ input: InferCreateInput<TSchema>; mode: 'create' }>)
-				| (SchemaItemAccessBase<TSchema, TKind> &
-						Readonly<{ input: InferUpdateInput<TSchema>; mode: 'update' }>)
-			: SchemaItemAccessBase<TSchema, TKind>
+	TKind extends SchemaMutationKind,
+> = TKind extends 'create'
+	? SchemaItemAccessBase<TSchema, TKind, SchemaPreparedDraft<TSchema>>
+	: TKind extends 'update'
+		? SchemaItemAccessBase<TSchema, TKind, Readonly<InferObject<TSchema>>> &
+				Readonly<{ originalItem: SchemaResult<TSchema> }>
+		: TKind extends 'upsert'
+			? | (SchemaItemAccessBase<TSchema, TKind, SchemaPreparedDraft<TSchema>> &
+						Readonly<{ mode: 'create'; originalItem: null }>)
+				| (SchemaItemAccessBase<
+						TSchema,
+						TKind,
+						Readonly<InferObject<TSchema>>
+				  > &
+						Readonly<{
+							mode: 'update'
+							originalItem: SchemaResult<TSchema>
+						}>)
+			: SchemaItemAccessBase<TSchema, TKind, null> &
+					Readonly<{ originalItem: SchemaResult<TSchema> }>
 
 /** Declares early allow-or-deny decisions by logical operation family. */
 export interface SchemaReadOperationAccess {
@@ -379,32 +382,24 @@ export interface SchemaFilterAccess<TSchema extends SchemaDefinition> {
 export interface SchemaItemAccess<TSchema extends SchemaDefinition> {
 	/**
 	 * Checks every prepared create item inside its transaction.
-	 * @example `create: ({ input }) => input.title.length > 0`
+	 * @example `create: ({ item }) => item.title.length > 0`
 	 */
-	readonly create?: AccessDecisionRule<
-		SchemaItemAccessInput<TSchema, SchemaCreateHookKind>
-	>
+	readonly create?: AccessDecisionRule<SchemaItemAccessInput<TSchema, 'create'>>
 	/**
-	 * Checks one materialized update target; set-based updates cannot use it.
-	 * @example `update: ({ item }) => item.locked === false`
+	 * Checks one persisted target and its final update candidate.
+	 * @example `update: ({ originalItem, item }) => !originalItem.locked && item.ownerId === originalItem.ownerId`
 	 */
-	readonly update?: AccessDecisionRule<
-		SchemaItemAccessInput<TSchema, SchemaUpdateHookKind>
-	>
+	readonly update?: AccessDecisionRule<SchemaItemAccessInput<TSchema, 'update'>>
 	/**
 	 * Checks the exact create or update branch selected by an upsert item.
 	 * @example `upsert: ({ mode }) => mode === "create"`
 	 */
-	readonly upsert?: AccessDecisionRule<
-		SchemaItemAccessInput<TSchema, SchemaUpsertHookKind>
-	>
+	readonly upsert?: AccessDecisionRule<SchemaItemAccessInput<TSchema, 'upsert'>>
 	/**
-	 * Checks one materialized delete target; set-based deletes cannot use it.
-	 * @example `delete: ({ item }) => item.archived === true`
+	 * Checks one persisted delete target while the resulting item is null.
+	 * @example `delete: ({ originalItem }) => originalItem.archived === true`
 	 */
-	readonly delete?: AccessDecisionRule<
-		SchemaItemAccessInput<TSchema, SchemaDeleteHookKind>
-	>
+	readonly delete?: AccessDecisionRule<SchemaItemAccessInput<TSchema, 'delete'>>
 }
 
 /** Groups schema-owned policies without introducing concrete permission concepts. */
@@ -420,16 +415,18 @@ export interface SchemaAccess<TSchema extends SchemaDefinition> {
 	 */
 	readonly filter?: SchemaFilterAccess<TSchema>
 	/**
-	 * Evaluates rules requiring one prepared input or materialized target.
-	 * @example `item: { update: ({ item }) => item.locked === false }`
+	 * Evaluates rules requiring one prepared draft or persisted candidate pair.
+	 * @example `item: { update: ({ originalItem, item }) => item.ownerId === originalItem.ownerId }`
 	 */
 	readonly item?: SchemaItemAccess<TSchema>
 }
 
-interface FieldAccessBaseInput<TKind extends OperationKind> {
+interface FieldAccessBaseInput<
+	TKind extends OperationKind | SchemaMutationKind,
+> {
 	/** Carries immutable authority and explicitly typed request capabilities. */
 	readonly context: AccessContext
-	/** Retains the exact terminal that reached this field decision. */
+	/** Identifies the relevant terminal or item-oriented mutation family. */
 	readonly kind: TKind
 }
 
@@ -443,9 +440,19 @@ export type FieldFilterAccessKind =
 /** Supplies one present logical field value to a value-aware Access rule. */
 export interface FieldValueAccessInput<
 	TValue,
-	TKind extends OperationKind,
+	TKind extends OperationKind | SchemaMutationKind,
 > extends FieldAccessBaseInput<TKind> {
 	/** Carries only this field's exact logical value. */
+	readonly value: TValue
+}
+
+/** Supplies one field's persisted and final candidate values to update Access. */
+export interface FieldUpdateAccessInput<TValue> extends FieldAccessBaseInput<
+	'update' | 'upsert'
+> {
+	/** Contains the field value visible before applying the update. */
+	readonly originalValue: TValue
+	/** Contains the final candidate value after applying every update operator. */
 	readonly value: TValue
 }
 
@@ -476,7 +483,7 @@ export type FieldReadAccessInput<TField extends GenericField> =
 /** Allows independent output, filter, and ordering disclosure decisions. */
 export interface FieldReadAccess<TField extends GenericField> {
 	/**
-	 * Controls whether one materialized output may expose this field value.
+	 * Controls each concrete output value and structurally omits denied properties.
 	 * @example `item: ({ value }) => value.length > 0`
 	 */
 	readonly item: AccessDecisionRule<
@@ -510,24 +517,18 @@ export interface FieldAccess<TField extends GenericField> {
 	 */
 	readonly read?: FieldReadAccessDeclaration<TField>
 	/**
-	 * Controls whether a present create input may set this field.
+	 * Controls each present concrete create value, including nested list entries.
 	 * @example `create: true`
 	 */
 	readonly create?: AccessDecisionRule<
-		FieldValueAccessInput<
-			FieldHookTypes<TField>['create'],
-			SchemaCreateHookKind | SchemaUpsertHookKind
-		>
+		FieldValueAccessInput<FieldHookTypes<TField>['create'], 'create' | 'upsert'>
 	>
 	/**
-	 * Controls whether a present update input may change this field.
-	 * @example `update: false`
+	 * Controls a field change through its persisted and final candidate values.
+	 * @example `update: ({ originalValue, value }) => value >= originalValue`
 	 */
 	readonly update?: AccessDecisionRule<
-		FieldValueAccessInput<
-			FieldHookTypes<TField>['update'],
-			SchemaUpdateHookKind | SchemaUpsertHookKind
-		>
+		FieldUpdateAccessInput<FieldHookTypes<TField>['object']>
 	>
 }
 

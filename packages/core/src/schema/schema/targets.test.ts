@@ -94,20 +94,18 @@ describe('lazy schema targets', () => {
 		])
 	})
 
-	it('reports nested source paths without flattening field names', () => {
+	it('rejects schema pointers inside embedded objects', () => {
 		const target = Schema.define({ className: 'NestedTarget', fields: {} })
-		const source = Schema.define({
-			className: 'NestedSource',
-			fields: {
-				profile: objectField({
-					fields: { owner: targetField(() => target) },
-				}),
-			},
-		})
-		const graph = new SchemaRegistry([source, target]).resolveSchemaTargets()
 
-		expect(graph.get(source, ['profile', 'owner'])).toBe(target)
-		expect(graph.get(source, ['profile.owner'])).toBeUndefined()
+		expect(() => {
+			Reflect.apply(objectField, undefined, [
+				{ fields: { owner: targetField(() => target) } },
+			])
+		}).toThrow(
+			new TypeError(
+				'fields.owner cannot be a pointer or relation inside objectField',
+			),
+		)
 	})
 
 	it.each([

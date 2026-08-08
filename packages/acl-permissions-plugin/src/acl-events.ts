@@ -6,6 +6,7 @@ import {
 	type HookEventHandler,
 	type JsonObject,
 	type PointerValue,
+	type SchemaMutationKind,
 } from '@ultimabase/core'
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
@@ -15,13 +16,11 @@ import { aclPermissions, type ACLPermission } from './acl-contracts.js'
 /** Names the committed event emitted for every persisted ACL change. */
 export const aclChangedEvent = 'ultimabase.acl.changed' as const
 
-/** Selects every materialized save terminal that may persist an ACL value. */
-export type ACLChangedOperation =
-	| 'create-many'
-	| 'create-one'
-	| 'update-one'
-	| 'upsert-many'
-	| 'upsert-one'
+/** Selects every item-oriented save operation that may persist an ACL value. */
+export type ACLChangedOperation = Extract<
+	SchemaMutationKind,
+	'create' | 'update' | 'upsert'
+>
 
 /** Identifies one optional plugin-owned principal without exposing its schema. */
 export interface ACLChangePrincipal extends JsonObject {

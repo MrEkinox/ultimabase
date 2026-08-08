@@ -74,6 +74,10 @@ class ACLRejectedWriteTransaction implements DatabaseTransactionAdapter {
 	commitCount = 0
 	rollbackCount = 0
 
+	constructor(
+		private readonly preparedTarget?: Readonly<Record<string, unknown>>,
+	) {}
+
 	execute<const TOperation extends DatabaseOperationAst>(
 		request: DatabaseOperationRequest<TOperation>,
 	): Promise<DatabaseOperationResult<TOperation>> {
@@ -89,6 +93,25 @@ class ACLRejectedWriteTransaction implements DatabaseTransactionAdapter {
 	): Promise<PreparedDatabaseOperation<TOperation>> {
 		void request
 		this.prepareCount += 1
+
+		if (
+			this.preparedTarget !== undefined &&
+			(request.operation.kind === 'update-one' ||
+				request.operation.kind === 'upsert-one')
+		) {
+			const prepared = {
+				execute: () =>
+					Promise.reject(
+						new TypeError('ACL limit fixture stops before database execution'),
+					),
+				target: this.preparedTarget,
+			}
+
+			// The discriminant above proves the conditional prepared-target contract.
+			return Promise.resolve(
+				prepared as unknown as PreparedDatabaseOperation<TOperation>,
+			)
+		}
 
 		return Promise.reject(
 			new TypeError('ACL limit fixture stops after adapter preparation'),
@@ -112,6 +135,10 @@ class ACLRejectedWriteAdapter implements DatabaseAdapter {
 	readonly kind = 'database-adapter' as const
 	readonly transactions: ACLRejectedWriteTransaction[] = []
 
+	constructor(
+		private readonly preparedTarget?: Readonly<Record<string, unknown>>,
+	) {}
+
 	execute<const TOperation extends DatabaseOperationAst>(
 		request: DatabaseOperationRequest<TOperation>,
 	): Promise<DatabaseOperationResult<TOperation>> {
@@ -123,7 +150,7 @@ class ACLRejectedWriteAdapter implements DatabaseAdapter {
 	}
 
 	beginTransaction(): Promise<DatabaseTransactionAdapter> {
-		const transaction = new ACLRejectedWriteTransaction()
+		const transaction = new ACLRejectedWriteTransaction(this.preparedTarget)
 		this.transactions.push(transaction)
 
 		return Promise.resolve(transaction)
@@ -517,7 +544,6 @@ describe('aclPlugin create input resolution', () => {
 		const operation = {
 			inputs: [{ title: 'First' }, { title: 'Second' }],
 			kind: 'create-many',
-			options: { atomic: true },
 			selection: new QueryBuilder(ProtectedPost).ast.selection,
 			schema: protectedPostNode,
 		} as const
@@ -636,7 +662,7 @@ describe('aclPlugin create input resolution', () => {
 			await ultimabase.start()
 			await expect(
 				BatchPost.createMany(
-					{ data: [{ title: 'Accepted' }, { title: 'Oversized' }] },
+					{ data: [{ title: 'Oversized' }, { title: 'Accepted' }] },
 					{
 						ultimabase,
 					},
@@ -898,8 +924,14 @@ describe('aclPlugin create input resolution', () => {
 		} satisfies Partial<FrameworkError>)
 	})
 
-	it('rejects non-singular ACL replacement through the complete runtime pipeline', async () => {
-		const adapter = new ACLRejectedWriteAdapter()
+	it('routes itemized update ACL replacement through its prepared lifecycle', async () => {
+		const adapter = new ACLRejectedWriteAdapter({
+			acl: new ACL(),
+			createdAt: '2026-08-04T00:00:00.000Z',
+			id: '0198a43e-2431-7000-8000-000000000031',
+			title: 'Existing',
+			updatedAt: '2026-08-04T00:00:00.000Z',
+		})
 		const databaseProvider = definePlugin({
 			name: 'fixture.acl-replacement-write-database',
 			slot: 'database-adapter',
@@ -920,10 +952,18 @@ describe('aclPlugin create input resolution', () => {
 
 		try {
 			await ultimabase.start()
+			const updateTarget = '0198a43e-2431-7000-8000-000000000031'
 			const attempts = [
 				() =>
 					ProtectedPost.updateMany(
-						{ where: 'all', data: { acl: replacement } },
+						{
+							data: [
+								{
+									where: { id: { eq: updateTarget } },
+									data: { acl: replacement },
+								},
+							],
+						},
 						masterOptions,
 					),
 				() =>
@@ -952,15 +992,26 @@ describe('aclPlugin create input resolution', () => {
 					),
 			] as const
 
-			for (const attempt of attempts) {
-				await expect(attempt()).rejects.toMatchObject({
-					code: 'VALIDATION_ERROR',
-				} satisfies Partial<FrameworkError>)
+			const expectedMessages = [
+				'Explicit ACL input requires acl({ resolveInput }) configuration',
+				'ACL replacement requires an itemized singular update.',
+				'ACL replacement requires an itemized singular update.',
+			] as const
+
+			for (const [index, attempt] of attempts.entries()) {
+				await expect(attempt()).rejects.toThrow(expectedMessages[index])
 			}
 
 			await expect(
 				ProtectedPost.updateMany(
-					{ where: 'all', data: { acl: replacement } },
+					{
+						data: [
+							{
+								where: { id: { eq: updateTarget } },
+								data: { acl: replacement },
+							},
+						],
+					},
 					{ ultimabase },
 				),
 			).rejects.toMatchObject({
@@ -968,11 +1019,16 @@ describe('aclPlugin create input resolution', () => {
 			} satisfies Partial<FrameworkError>)
 			expect(adapter.transactions).toHaveLength(4)
 			expect(
-				adapter.transactions.every(
-					({ prepareCount, rollbackCount }) =>
-						prepareCount === 0 && rollbackCount === 1,
-				),
-			).toBe(true)
+				adapter.transactions.map(({ prepareCount, rollbackCount }) => ({
+					prepareCount,
+					rollbackCount,
+				})),
+			).toStrictEqual([
+				{ prepareCount: 1, rollbackCount: 1 },
+				{ prepareCount: 0, rollbackCount: 1 },
+				{ prepareCount: 0, rollbackCount: 1 },
+				{ prepareCount: 0, rollbackCount: 1 },
+			])
 		} finally {
 			await ultimabase.dispose()
 		}

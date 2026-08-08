@@ -79,7 +79,6 @@ const queryableHookPhases: ReadonlySet<HookDiagnosticPhase> = new Set([
 	'beforeCreate',
 	'beforeDelete',
 	'beforeUpdate',
-	'beforeUpsert',
 	'before-operation',
 	'constraint',
 	'guard',

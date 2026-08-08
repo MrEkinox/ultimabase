@@ -4,15 +4,20 @@ import {
 	type CreateManyOperationAst,
 	type CreateOneOperationAst,
 	type FindManyOperationAst,
+	type UpsertManyOperationAst,
+	type UpsertOneOperationAst,
 	type UpdateManyOperationAst,
 	type UpdateOneOperationAst,
 } from '../../query/index.js'
 import {
 	Schema,
 	booleanField,
+	intField,
+	objectField,
 	relationField,
 	stringField,
 } from '../../schema/index.js'
+import { isSchemaModelInstance } from '../../schema/schema/model.js'
 import { describe, expect, it, vi } from 'vitest'
 
 import { createEnforcementStages } from '../enforcement/dispatcher.js'
@@ -32,8 +37,8 @@ const articleSchema = Schema.define({
 			update: ({ filter }) => filter.equalTo('published', true),
 		},
 		item: {
-			update: ({ input, item }) =>
-				input.title === 'Changed' && item.published === true,
+			update: ({ originalItem, item }) =>
+				item.title === 'Changed' && originalItem.published === true,
 		},
 		operation: {
 			read: {
@@ -197,12 +202,10 @@ describe('NativeAccessRuntime', () => {
 		).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
 		const selectedBulkCreate: CreateManyOperationAst<
 			typeof selectionSchema,
-			true,
 			'denied'
 		> = {
 			inputs: [{ title: 'Allowed input' }],
 			kind: 'create-many',
-			options: { atomic: true },
 			selection: new QueryBuilder(selectionSchema).select({ denied: true }).ast
 				.selection,
 			schema: new QueryBuilder(selectionSchema).ast.schema,
@@ -245,6 +248,644 @@ describe('NativeAccessRuntime', () => {
 				kind: 'native-access-itemized-terminal-required',
 			},
 		})
+		await application.dispose()
+	})
+
+	it('materializes draft and persisted schema item Access values once per decision', async () => {
+		const createItems: object[] = []
+		const updateItems: object[] = []
+		const updateOriginalItems: object[] = []
+		const itemKinds: string[] = []
+		const fieldKinds: string[] = []
+		const fieldValues: [number | null, number | null][] = []
+		const schema = Schema.define({
+			className: 'MaterializedAccessItem',
+			access: {
+				item: {
+					create: ({ item, kind }) => {
+						expect(item.get('title')).toBe('Draft')
+						createItems.push(item)
+						itemKinds.push(kind)
+
+						return true
+					},
+					update: ({ originalItem, item, kind }) => {
+						expect(originalItem.get('title')).toBe('Persisted')
+						expect(item.title).toBe('Updated')
+						expect(item.visits).toBe(15)
+						updateOriginalItems.push(originalItem)
+						updateItems.push(item)
+						itemKinds.push(kind)
+
+						return true
+					},
+				},
+			},
+			fields: {
+				visits: intField({
+					access: {
+						update: ({ originalValue, value }) => {
+							fieldValues.push([originalValue, value])
+
+							return value === null || value <= 20
+						},
+					},
+				}),
+				title: stringField({
+					access: {
+						create: ({ kind }) => {
+							fieldKinds.push(kind)
+
+							return true
+						},
+						update: ({ kind }) => {
+							fieldKinds.push(kind)
+
+							return true
+						},
+					},
+					validation: { required: true },
+				}),
+			},
+		})
+		const contribution = definePlugin({
+			name: 'fixture.materialized-access-item',
+			setup: ({ access }) => {
+				access.schema(
+					'materialized-items',
+					schema,
+					{
+						item: {
+							create: ({ item, kind }) => {
+								createItems.push(item)
+								itemKinds.push(kind)
+
+								return true
+							},
+							update: ({ originalItem, item, kind }) => {
+								updateOriginalItems.push(originalItem)
+								updateItems.push(item)
+								itemKinds.push(kind)
+
+								return true
+							},
+						},
+					},
+					{ master: 'enforce' },
+				)
+			},
+		})
+		const application = await createApplication({
+			schemas: [schema],
+			plugins: [contribution],
+		})
+		const stages = requireStages(createEnforcementStages(application))
+		const record = {
+			createdAt: '2026-08-03T00:00:00.000Z',
+			id: '0198a43e-2431-7000-8000-000000000020',
+			title: 'Draft',
+			updatedAt: '2026-08-03T00:00:00.000Z',
+			visits: 10,
+		} as const
+		const create = {
+			input: record,
+			kind: 'create-one',
+			selection: { fields: [], kind: 'selection' },
+			schema: new QueryBuilder(schema).ast.schema,
+		} satisfies CreateOneOperationAst<typeof schema>
+
+		await stages.evaluate({ context, operation: create })
+
+		const update = {
+			kind: 'update-one',
+			query: new QueryBuilder(schema).ast,
+			update: {
+				kind: 'update-expression',
+				operations: [
+					{ field: 'title', kind: 'set', value: 'Updated' },
+					{ field: 'visits', kind: 'increment', value: 5 },
+				],
+			},
+		} satisfies UpdateOneOperationAst<typeof schema>
+		const persisted = { ...record, title: 'Persisted' }
+		const enforcePreparedMutation = stages.enforcePreparedMutation
+		await stages.evaluate({ context, operation: update })
+
+		if (enforcePreparedMutation === undefined) {
+			throw new TypeError('Native Access prepared mutation stage is required')
+		}
+
+		await enforcePreparedMutation({
+			context,
+			operation: update,
+			target: persisted,
+		})
+
+		expect(createItems).toHaveLength(2)
+		expect(createItems[0]).toBe(createItems[1])
+		expect(updateItems).toHaveLength(2)
+		expect(updateItems[0]).toBe(updateItems[1])
+		expect(updateOriginalItems).toHaveLength(2)
+		expect(updateOriginalItems[0]).toBe(updateOriginalItems[1])
+		expect(itemKinds).toStrictEqual(['create', 'create', 'update', 'update'])
+		expect(fieldKinds).toStrictEqual(['create', 'update'])
+		expect(fieldValues).toStrictEqual([[10, 15]])
+		const [createItem] = createItems
+		const [updateItem] = updateItems
+
+		if (createItem === undefined || updateItem === undefined) {
+			throw new TypeError('Materialized Access item callbacks must execute')
+		}
+
+		expect(isSchemaModelInstance(schema, createItem)).toBe(true)
+		expect(isSchemaModelInstance(schema, updateItem)).toBe(false)
+		expect(Object.isFrozen(updateItem)).toBe(true)
+
+		await expect(
+			enforcePreparedMutation({
+				context,
+				operation: update,
+				target: { ...persisted, visits: 18 },
+			}),
+		).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
+		expect(fieldValues).toStrictEqual([
+			[10, 15],
+			[18, 23],
+		])
+
+		await application.dispose()
+	})
+
+	it('evaluates nested create Access once per concrete object-list value', async () => {
+		const trace: string[] = []
+		const schema = Schema.define({
+			className: 'NestedFieldCreateAccess',
+			fields: {
+				groups: objectField({
+					access: {
+						create: () => {
+							trace.push('groups')
+
+							return true
+						},
+					},
+					fields: {
+						label: stringField({
+							access: {
+								create: ({ value }) => {
+									trace.push(`label:${String(value)}`)
+
+									return value !== 'forbidden'
+								},
+							},
+						}),
+					},
+					list: [true, true],
+				}),
+			},
+		})
+		const application = await createApplication({
+			schemas: [schema],
+			plugins: [],
+		})
+		const stages = requireStages(createEnforcementStages(application))
+		const create = (label: string): CreateOneOperationAst<typeof schema> => ({
+			input: { groups: [[{ label: 'first' }], [{ label }]] },
+			kind: 'create-one',
+			selection: { fields: [], kind: 'selection' },
+			schema: new QueryBuilder(schema).ast.schema,
+		})
+
+		await stages.evaluate({ context, operation: create('second') })
+
+		expect(trace).toStrictEqual(['groups', 'label:first', 'label:second'])
+		trace.length = 0
+		await expect(
+			stages.evaluate({ context, operation: create('forbidden') }),
+		).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
+		expect(trace).toStrictEqual(['groups', 'label:first', 'label:forbidden'])
+		await application.dispose()
+	})
+
+	it('correlates final nested object values, including removed list entries', async () => {
+		const profileValues: [string | null, string | null][] = []
+		const groupValues: [string | null, string | null][] = []
+		const schema = Schema.define({
+			className: 'NestedFieldUpdateAccess',
+			fields: {
+				groups: objectField({
+					fields: {
+						label: stringField({
+							access: {
+								update: ({ originalValue, value }) => {
+									groupValues.push([originalValue, value])
+
+									return true
+								},
+							},
+						}),
+					},
+					list: true,
+				}),
+				profile: objectField({
+					fields: {
+						label: stringField({
+							access: {
+								update: ({ originalValue, value }) => {
+									profileValues.push([originalValue, value])
+
+									return true
+								},
+							},
+						}),
+					},
+				}),
+			},
+		})
+		const application = await createApplication({
+			schemas: [schema],
+			plugins: [],
+		})
+		const stages = requireStages(createEnforcementStages(application))
+		const operation = {
+			kind: 'update-one',
+			query: new QueryBuilder(schema).ast,
+			update: {
+				kind: 'update-expression',
+				operations: [
+					{
+						field: 'groups',
+						kind: 'set',
+						value: [{ label: 'Current first' }],
+					},
+					{
+						field: 'profile',
+						kind: 'set',
+						value: { label: 'Current profile' },
+					},
+				],
+			},
+		} satisfies UpdateOneOperationAst<typeof schema>
+		const target = {
+			createdAt: '2026-08-03T00:00:00.000Z',
+			groups: [{ label: 'Original first' }, { label: 'Removed second' }],
+			id: '0198a43e-2431-7000-8000-000000000030',
+			profile: { label: 'Original profile' },
+			updatedAt: '2026-08-03T00:00:00.000Z',
+		} as const
+
+		await stages.evaluate({ context, operation })
+		await stages.enforcePreparedMutation?.({ context, operation, target })
+
+		expect(profileValues).toStrictEqual([
+			['Original profile', 'Current profile'],
+		])
+		expect(groupValues).toStrictEqual([
+			['Original first', 'Current first'],
+			['Removed second', null],
+		])
+		await application.dispose()
+	})
+
+	it('requires itemization when nested field update Access depends on values', async () => {
+		const schema = Schema.define({
+			className: 'NestedFieldBulkAccess',
+			fields: {
+				profile: objectField({
+					fields: {
+						label: stringField({ access: { update: () => true } }),
+					},
+				}),
+			},
+		})
+		const application = await createApplication({
+			schemas: [schema],
+			plugins: [],
+		})
+		const stages = requireStages(createEnforcementStages(application))
+		const operation = {
+			kind: 'update-many',
+			query: new QueryBuilder(schema).ast,
+			update: {
+				kind: 'update-expression',
+				operations: [
+					{
+						field: 'profile',
+						kind: 'set',
+						value: { label: 'Updated' },
+					},
+				],
+			},
+		} satisfies UpdateManyOperationAst<typeof schema>
+
+		await expect(stages.evaluate({ context, operation })).rejects.toMatchObject(
+			{
+				code: 'INTERNAL_ERROR',
+				internalDetails: {
+					kind: 'native-access-field-itemized-terminal-required',
+				},
+			},
+		)
+		await application.dispose()
+	})
+
+	it('uses the materialized upsert branch and final values for Access', async () => {
+		const fieldValues: [number | null, number | null][] = []
+		const itemModes: string[] = []
+		const schema = Schema.define({
+			className: 'UpsertOutcomeAccess',
+			access: {
+				item: {
+					upsert: (input) => {
+						itemModes.push(input.mode)
+
+						if (input.mode === 'create') {
+							expect(input.originalItem).toBeNull()
+							expect(input.item.get('title')).toBe('Created')
+						} else {
+							expect(input.originalItem.get('title')).toBe('Original')
+							expect(input.item.title).toBe('Updated')
+							expect(input.item.visits).toBe(15)
+						}
+
+						return true
+					},
+				},
+			},
+			fields: {
+				title: stringField({ validation: { required: true } }),
+				visits: intField({
+					access: {
+						update: ({ originalValue, value }) => {
+							fieldValues.push([originalValue, value])
+
+							return true
+						},
+					},
+				}),
+			},
+		})
+		const application = await createApplication({
+			schemas: [schema],
+			plugins: [],
+		})
+		const stages = requireStages(createEnforcementStages(application))
+		const id = '0198a43e-2431-7000-8000-000000000040'
+		const operation = {
+			create: { title: 'Created', visits: 1 },
+			kind: 'upsert-one',
+			query: new QueryBuilder(schema).where((where) => where.eq('id', id)).ast,
+			target: { fields: ['id'], kind: 'unique-upsert-target' },
+			update: {
+				kind: 'update-expression',
+				operations: [
+					{ field: 'title', kind: 'set', value: 'Updated' },
+					{ field: 'visits', kind: 'increment', value: 5 },
+				],
+			},
+		} satisfies UpsertOneOperationAst<typeof schema>
+		const previous = {
+			createdAt: '2026-08-03T00:00:00.000Z',
+			id,
+			title: 'Original',
+			updatedAt: '2026-08-03T00:00:00.000Z',
+			visits: 10,
+		} as const
+		const updated = { ...previous, title: 'Updated', visits: 15 } as const
+		const created = {
+			...previous,
+			title: 'Created',
+			visits: 1,
+		} as const
+
+		await stages.enforceMutationOutcome?.({
+			context,
+			operation,
+			outcome: {
+				materializations: [{ current: updated, kind: 'update', previous }],
+				result: updated,
+			},
+		})
+		await stages.enforceMutationOutcome?.({
+			context,
+			operation,
+			outcome: {
+				materializations: [{ current: created, kind: 'create' }],
+				result: created,
+			},
+		})
+
+		expect(fieldValues).toStrictEqual([[10, 15]])
+		expect(itemModes).toStrictEqual(['update', 'create'])
+		await application.dispose()
+	})
+
+	it('keeps upsert-many field Access scoped to each matching item', async () => {
+		const firstValues: [number | null, number | null][] = []
+		const secondValues: [number | null, number | null][] = []
+		const schema = Schema.define({
+			className: 'BulkUpsertFieldAccess',
+			fields: {
+				first: intField({
+					access: {
+						update: ({ originalValue, value }) => {
+							firstValues.push([originalValue, value])
+
+							return true
+						},
+					},
+				}),
+				second: intField({
+					access: {
+						update: ({ originalValue, value }) => {
+							secondValues.push([originalValue, value])
+
+							return true
+						},
+					},
+				}),
+			},
+		})
+		const application = await createApplication({
+			schemas: [schema],
+			plugins: [],
+		})
+		const stages = requireStages(createEnforcementStages(application))
+		const firstId = '0198a43e-2431-7000-8000-000000000050'
+		const secondId = '0198a43e-2431-7000-8000-000000000051'
+		const operation = {
+			items: [
+				{
+					create: { first: 1 },
+					query: new QueryBuilder(schema).where((where) =>
+						where.eq('id', firstId),
+					).ast,
+					target: { fields: ['id'], kind: 'unique-upsert-target' },
+					update: {
+						kind: 'update-expression',
+						operations: [{ field: 'first', kind: 'increment', value: 1 }],
+					},
+				},
+				{
+					create: { second: 1 },
+					query: new QueryBuilder(schema).where((where) =>
+						where.eq('id', secondId),
+					).ast,
+					target: { fields: ['id'], kind: 'unique-upsert-target' },
+					update: {
+						kind: 'update-expression',
+						operations: [{ field: 'second', kind: 'increment', value: 1 }],
+					},
+				},
+			],
+			kind: 'upsert-many',
+			selection: { fields: [], kind: 'selection' },
+			schema: new QueryBuilder(schema).ast.schema,
+		} satisfies UpsertManyOperationAst<typeof schema>
+		const firstPrevious = {
+			createdAt: '2026-08-03T00:00:00.000Z',
+			first: 10,
+			id: firstId,
+			second: null,
+			updatedAt: '2026-08-03T00:00:00.000Z',
+		} as const
+		const secondPrevious = {
+			createdAt: '2026-08-03T00:00:00.000Z',
+			first: null,
+			id: secondId,
+			second: 20,
+			updatedAt: '2026-08-03T00:00:00.000Z',
+		} as const
+		const firstCurrent = { ...firstPrevious, first: 11 } as const
+		const secondCurrent = { ...secondPrevious, second: 21 } as const
+
+		await stages.enforceMutationOutcome?.({
+			context,
+			operation,
+			outcome: {
+				materializations: [
+					{ current: firstCurrent, kind: 'update', previous: firstPrevious },
+					{ current: secondCurrent, kind: 'update', previous: secondPrevious },
+				],
+				result: [firstCurrent, secondCurrent],
+			},
+		})
+
+		expect(firstValues).toStrictEqual([[10, 11]])
+		expect(secondValues).toStrictEqual([[20, 21]])
+		await application.dispose()
+	})
+
+	it('projects denied nested read values without changing list cardinality', async () => {
+		const trace: string[] = []
+		let blockedChildRuns = 0
+		const protectedFields = {
+			name: stringField(),
+			secret: stringField({
+				access: {
+					read: {
+						filter: true,
+						item: ({ value }) => {
+							trace.push(`secret:${String(value)}`)
+
+							return value !== 'hidden'
+						},
+						order: true,
+					},
+				},
+			}),
+		} as const
+		const schema = Schema.define({
+			className: 'NestedFieldReadAccess',
+			fields: {
+				blocked: objectField({
+					access: { read: false },
+					fields: {
+						secret: stringField({
+							access: {
+								read: {
+									filter: true,
+									item: () => {
+										blockedChildRuns += 1
+
+										return true
+									},
+									order: true,
+								},
+							},
+						}),
+					},
+				}),
+				groups: objectField({
+					access: {
+						read: {
+							filter: true,
+							item: () => {
+								trace.push('groups')
+
+								return true
+							},
+							order: true,
+						},
+					},
+					fields: protectedFields,
+					list: [true, true],
+				}),
+				profile: objectField({ fields: protectedFields }),
+			},
+		})
+		const application = await createApplication({
+			schemas: [schema],
+			plugins: [],
+		})
+		const stages = requireStages(createEnforcementStages(application))
+		const operation = {
+			kind: 'find-many',
+			query: new QueryBuilder(schema).ast,
+		} satisfies FindManyOperationAst<typeof schema>
+		const enforcement = await stages.evaluate({ context, operation })
+		const result = await stages.enforceSelectionResult({
+			context,
+			enforcement,
+			operation,
+			result: [
+				{
+					blocked: { secret: 'unreachable' },
+					createdAt: '2026-08-03T00:00:00.000Z',
+					groups: [
+						[
+							{ name: 'first', secret: 'visible' },
+							{ name: 'second', secret: 'hidden' },
+						],
+						[{ name: 'third', secret: 'hidden' }],
+					],
+					id: '0198a43e-2431-7000-8000-000000000060',
+					profile: { name: 'profile', secret: 'hidden' },
+					updatedAt: '2026-08-03T00:00:00.000Z',
+				},
+			],
+		})
+
+		expect(result).toStrictEqual([
+			{
+				createdAt: '2026-08-03T00:00:00.000Z',
+				groups: [
+					[{ name: 'first', secret: 'visible' }, { name: 'second' }],
+					[{ name: 'third' }],
+				],
+				id: '0198a43e-2431-7000-8000-000000000060',
+				profile: { name: 'profile' },
+				updatedAt: '2026-08-03T00:00:00.000Z',
+			},
+		])
+		expect(trace).toStrictEqual([
+			'groups',
+			'secret:visible',
+			'secret:hidden',
+			'secret:hidden',
+			'secret:hidden',
+		])
+		expect(blockedChildRuns).toBe(0)
 		await application.dispose()
 	})
 

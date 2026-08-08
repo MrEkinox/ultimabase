@@ -102,7 +102,6 @@ Accepted records:
 - [ADR-0106: Hook execution safety and diagnostics](0106-hook-execution-safety-and-diagnostics.md)
 - [ADR-0107: HookContext capabilities and named events](0107-hook-context-capabilities-and-events.md)
 - [ADR-0109: Constructible schema model classes](0109-constructible-schema-models.md)
-- [ADR-0111: Non-atomic bulk hook semantics](0111-non-atomic-bulk-hook-semantics.md)
 - [ADR-0112: Unique upsert targets seed create candidates](0112-upsert-target-seeds-create.md)
 - [ADR-0113: Plugin-owned authentication context](0113-plugin-owned-authentication-context.md)
 - [ADR-0114: Terminal-only Query authority resolution](0114-terminal-only-query-authority-resolution.md)
@@ -153,6 +152,7 @@ Accepted records:
 - [ADR-0161: Compact field operation hooks](0161-compact-field-operation-hooks.md)
 - [ADR-0162: Strict object target commands](0162-strict-object-target-commands.md)
 - [ADR-0163: Group schema hooks by mutation responsibility](0163-grouped-schema-mutation-hooks.md)
+- [ADR-0164: Atomic item-oriented mutation hooks](0164-atomic-item-oriented-mutation-hooks.md)
 
 Superseded records:
 
@@ -168,6 +168,7 @@ Superseded records:
 - [ADR-0093: Immutable Schema constructor API](0093-schema-constructor-api.md), superseded by ADR-0109.
 - [ADR-0108: Contextual Query terminal execution](0108-contextual-query-terminal-execution.md), superseded by ADR-0152.
 - [ADR-0110: Concise singular Query terminals](0110-concise-singular-query-terminals.md), superseded by ADR-0132.
+- [ADR-0111: Non-atomic bulk hook semantics](0111-non-atomic-bulk-hook-semantics.md), superseded by ADR-0164.
 - [ADR-0114: Terminal-only Query authority resolution](0114-terminal-only-query-authority-resolution.md), superseded by ADR-0153.
 - [ADR-0141: Explicit read hooks and eager pointer inclusion](0141-explicit-read-hooks-and-eager-pointer-inclusion.md), superseded by ADR-0163.
 - [ADR-0142: Explicit schema operation hooks](0142-explicit-schema-operation-hooks.md), superseded by ADR-0163.

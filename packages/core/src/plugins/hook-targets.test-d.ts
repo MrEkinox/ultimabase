@@ -49,19 +49,14 @@ test('infers setup hook targets and exact schema or field handlers', () => {
 		name: 'fixture.hooks',
 		setup: ({ hooks }) => {
 			hooks.global('global', {
-				beforeOperation: { create: ({ operation }) => void operation },
+				beforeOperation: { create: ({ item }) => void item },
 			})
 			hooks.schema('schema', schema, {
 				beforeOperation: {
-					create: ({ operation }) => {
-						if (operation.kind === 'create-one') {
-							expectTypeOf(operation.input.title).toEqualTypeOf<string>()
-						} else {
-							expectTypeOf(operation.inputs[0]?.title).toEqualTypeOf<
-								string | undefined
-							>()
-						}
-						void operation
+					create: ({ item, kind }) => {
+						expectTypeOf(item.title).toEqualTypeOf<string>()
+						expectTypeOf(kind).toEqualTypeOf<'create'>()
+						void item
 					},
 				},
 			})
@@ -94,7 +89,7 @@ test('infers setup hook targets and exact schema or field handlers', () => {
 			hooks.schemaExtension('schema-extension', schemaExtension, (context) => {
 				expectTypeOf(context.extension.config.mode).toEqualTypeOf<'strict'>()
 				return {
-					beforeOperation: { create: ({ operation }) => void operation },
+					beforeOperation: { create: ({ item }) => void item },
 				}
 			})
 			hooks.fieldExtension('field-extension', fieldExtension, (context) => {

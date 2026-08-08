@@ -233,15 +233,14 @@ may still abort before commit, while externally visible event handlers run only
 after commit succeeds.
 
 One schema handler may cover a full create, update, upsert, delete, or save
-family; reads expose Query options and Access rather than schema hooks. The
-exact terminal kind remains a discriminant. Handler lists execute sequentially.
-Create-many and upsert-many preserve stable input order, while
-set-based update-many and delete-many never materialize every row merely to run
-item callbacks. Non-atomic create and upsert stop at the first adapter
-persistence failure and expose the successful prefix through a discriminated
-result; hooks may still abort that prefix before the one outer transaction
-commits. Runtime rejects dangerous same-hook recursion and offers no general
-`skipHooks` bypass.
+family; reads expose Query options and Access rather than schema hooks. Public
+collection commands become ordered singular operations before Runtime invokes
+native hooks, so every mutation callback receives only `create-one`,
+`update-one`, `upsert-one`, or `delete-one`. Update and delete batches declare
+one unique target per item. Missing targets, hook failures, and persistence
+failures reject and roll back the complete outer transaction; partial success
+is not public. Handler lists execute sequentially. Runtime rejects dangerous
+same-hook recursion and offers no general `skipHooks` bypass.
 
 Runtime's structural validation stage caches Schema's compact create/update
 plans, traverses structured values, and delegates scalar snapshots and

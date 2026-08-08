@@ -174,11 +174,11 @@ describe('@ultimabase/core Schema and QueryBuilder declarations', () => {
 		expect(fetch.display).not.toContain('NonDefaultedStringField<')
 	})
 
-	it('preserves the discriminated non-atomic bulk result', () => {
-		const bulk = readFixtureQuickInfo('packedNonAtomicCreate = () =>')
+	it('preserves the atomic bulk array result', () => {
+		const bulk = readFixtureQuickInfo('packedAtomicCreate = () =>')
 
-		expect(bulk.display).toContain('NonAtomicBulkResult<')
-		expect(bulk.display).not.toContain('readonly SchemaResult<')
+		expect(bulk.display).toContain('Promise<readonly {')
+		expect(bulk.display).not.toContain("status: 'stopped'")
 	})
 
 	it('preserves field option documentation through package exports', () => {
@@ -328,9 +328,7 @@ describe('@ultimabase/core Runtime declarations', () => {
 	})
 
 	it('preserves ambient hook model typing without context plumbing', () => {
-		const result = readFixtureQuickInfo(
-			'create({})\n\n\t\t\tif (operation.input.title',
-		)
+		const result = readFixtureQuickInfo('create({})')
 
 		expect(result.display).toContain('create(input:')
 		expect(result.display).toContain('options?: OperationOptions')

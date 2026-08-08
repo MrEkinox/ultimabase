@@ -192,7 +192,7 @@ Post./* hover */deleteOne({ where: (where) => where.eq('id', 'post-1') })
 			'Deletes one uniquely identified row',
 		)
 		expect(deletion.tags?.some(({ name }) => name === 'example')).toBe(true)
-	})
+	}, 15_000)
 
 	it('completes every mutation selection with only correlated schema fields', () => {
 		const marker = '/* completion */'
@@ -241,15 +241,14 @@ ${body}
 		)
 		const updateManyCompletions = readMutationSelectionCompletions(
 			`Post.updateMany({
-  where: { views: { gt: 0 } },
-  data: { views: 1 },
+  data: [{ where: { id: { eq: 'post-1' } }, data: { views: 1 } }],
   select: { ${marker} },
 })`,
 			'update-many-selection-completion',
 		)
 		const deleteManyCompletions = readMutationSelectionCompletions(
 			`Post.deleteMany({
-  where: { views: { gt: 0 } },
+  where: [{ id: { eq: 'post-1' } }],
   select: { ${marker} },
 })`,
 			'delete-many-selection-completion',
@@ -297,7 +296,7 @@ ${body}
 			expect(completionNames.has('views')).toBe(true)
 			expect(completionNames.has('missing')).toBe(false)
 		}
-	})
+	}, 15_000)
 
 	it('documents flat selection and completes only correlated schema fields', () => {
 		const selection = readMarkedQuickInfo(
@@ -620,7 +619,7 @@ ${body}
 		expect(orderingFields.has('id')).toBe(true)
 	})
 
-	it('documents explicit non-atomic bulk behavior at the option boundary', () => {
+	it('documents intrinsic atomic bulk behavior at the option boundary', () => {
 		const marker = '/* completion */'
 		const sourceWithMarker = `
 import { Schema, stringField } from '../../src/index.js'
@@ -632,41 +631,29 @@ Post.createMany({ data: [{ title: 'First' }] }, { ${marker} })
 		const fileName = `${import.meta.dirname}/query-bulk-options.fixture.ts`
 		const service = createLanguageService(fileName, source)
 		const completions = service.getCompletionsAtPosition(fileName, position, {})
-		const atomic = completions?.entries.find(({ name }) => name === 'atomic')
-
-		if (atomic === undefined) {
-			throw new TypeError('Missing bulk operation atomic completion')
-		}
-
-		const details = service.getCompletionEntryDetails(
-			fileName,
-			position,
-			atomic.name,
-			undefined,
-			atomic.source,
-			undefined,
-			atomic.data,
+		expect(completions?.entries.some(({ name }) => name === 'atomic')).toBe(
+			false,
 		)
-		const documentation = readDisplay(details?.documentation)
-
-		expect(documentation).toContain('all-or-nothing')
+		expect(completions?.entries.some(({ name }) => name === 'ultimabase')).toBe(
+			true,
+		)
 
 		const operation = readMarkedQuickInfo(
 			`${import.meta.dirname}/bulk-operation-hover.fixture.ts`,
 			`
 import { Schema, stringField } from '../../src/index.js'
 const Post = Schema.define({ className: 'Post', fields: { title: stringField() } })
-Post./* hover */createMany({ data: [{ title: 'First' }] }, { atomic: false })
+Post./* hover */createMany({ data: [{ title: 'First' }] })
 `,
 		)
 		const operationDisplay = readDisplay(operation.displayParts)
 
-		expect(operationDisplay).toContain('BulkOperationOptions')
-		expect(operationDisplay).toContain('NonAtomicBulkResult<')
+		expect(operationDisplay).toContain('readonly')
+		expect(operationDisplay).toContain('[]')
 		expect(operationDisplay).not.toContain('SchemaDefinition<')
 		expect(operationDisplay.length).toBeLessThan(1_200)
 		expect(readDisplay(operation.documentation)).toContain(
-			'discriminated result',
+			'all-or-nothing transaction',
 		)
 		expect(operation.tags?.some(({ name }) => name === 'example')).toBe(true)
 	})

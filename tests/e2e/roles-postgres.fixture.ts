@@ -222,13 +222,21 @@ export const externalRoleReferencePlugin = definePlugin({
 						{ useMasterKey: true },
 					),
 				cleanup: async ({ reference }) => {
-					await ExternalRoleReference.deleteMany(
+					const rows = await ExternalRoleReference.findMany(
 						{
-							where: (where) =>
-								where.eq('subject', readReferenceValue(reference.value)),
+							where: {
+								subject: { eq: readReferenceValue(reference.value) },
+							},
+							select: { id: true },
 						},
 						{ useMasterKey: true },
 					)
+					if (rows.length > 0) {
+						await ExternalRoleReference.deleteMany(
+							{ where: rows.map(({ id }) => ({ id: { eq: id } })) },
+							{ useMasterKey: true },
+						)
+					}
 
 					if (rejectNextExternalCleanup) {
 						rejectNextExternalCleanup = false

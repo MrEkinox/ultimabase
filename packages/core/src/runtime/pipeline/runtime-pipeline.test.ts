@@ -2,6 +2,7 @@ import { FrameworkError } from '../../foundation.js'
 import {
 	QueryBuilder,
 	type FindManyOperationAst,
+	type UpdateManyOperationAst,
 	type UpdateOneOperationAst,
 } from '../../query/index.js'
 import { relationField, Schema, stringField } from '../../schema/index.js'
@@ -42,6 +43,7 @@ import type {
 	RuntimeNativeHookStages,
 	RuntimeOperationResult,
 	RuntimeOperationGuardStage,
+	RuntimePreparedMutationTransformStage,
 	RuntimeOperationStageInput,
 	RuntimeOperationTransformStage,
 	RuntimePipelineStages,
@@ -75,6 +77,15 @@ const articleUpdateOperation = {
 		operations: [{ field: 'title', kind: 'set', value: 'requested' }],
 	},
 } satisfies UpdateOneOperationAst<typeof articleSchema>
+
+const articleUpdateManyOperation = {
+	kind: 'update-many',
+	query: new QueryBuilder(articleSchema).ast,
+	update: {
+		kind: 'update-expression',
+		operations: [{ field: 'title', kind: 'set', value: 'requested' }],
+	},
+} satisfies UpdateManyOperationAst<typeof articleSchema>
 
 const relationPredicateTarget = Schema.define({
 	className: 'RuntimeRelationPredicateTarget',
@@ -203,7 +214,13 @@ const createResultEffect =
 
 /** Records the native dispatcher boundary independently from its hook contents. */
 const createNativeHookStages = (trace: string[]): RuntimeNativeHookStages => ({
+	requiresPreparedMutationItems: () => false,
 	resolveInput: createOperationTransform('native:resolveInput', trace),
+	schemaResolveInput: (input) => {
+		trace.push('native:schemaResolveInput')
+
+		return input.operation
+	},
 	revalidate: createOperationTransform('native:revalidate', trace),
 	validate: createGuard('native:validate', trace),
 	schemaBefore: createOperationTransform('native:schemaBefore', trace),
@@ -431,10 +448,23 @@ describe('RuntimePipeline', () => {
 			rollback: () => Promise.resolve(),
 		}
 		const enforcement = createEnforcementStages(trace)
+		let schemaResolveTarget: unknown
+		const schemaResolveInput: RuntimePreparedMutationTransformStage = (
+			input,
+		) => {
+			trace.push('native:schemaResolveInput')
+			schemaResolveTarget = input.target
+
+			return input.operation
+		}
+		const nativeHooks = {
+			...createNativeHookStages(trace),
+			schemaResolveInput,
+		}
 		const pipeline = new RuntimePipeline(
 			createStages(trace, transaction, {
 				enforcement,
-				nativeHooks: createNativeHookStages(trace),
+				nativeHooks,
 				preparedOperationHooks: (input) => ({
 					...input.operation,
 					update: {
@@ -456,9 +486,56 @@ describe('RuntimePipeline', () => {
 				operations: [{ field: 'title', kind: 'set', value: 'stored' }],
 			},
 		})
+		expect(schemaResolveTarget).toStrictEqual(target)
+		expect(trace.indexOf('enforcement:prepared')).toBeLessThan(
+			trace.indexOf('native:schemaResolveInput'),
+		)
 		expect(
 			trace.filter((entry) => entry === 'enforcement:reevaluate'),
 		).toHaveLength(2)
+	})
+
+	it('forwards the native item-hook target requirement to mutation preparation', async () => {
+		const trace: string[] = []
+		let preparedRequest: DatabaseOperationRequest | undefined
+		const transaction: DatabaseTransactionAdapter = {
+			kind: 'database-transaction-adapter',
+			prepare: <const TOperation extends DatabaseMutationOperationAst>(
+				request: DatabaseOperationRequest<TOperation>,
+			): Promise<PreparedDatabaseOperation<TOperation>> => {
+				preparedRequest = request
+
+				return Promise.resolve({
+					execute: () =>
+						Promise.resolve({ materializations: [], result: [] }) as Promise<
+							Awaited<
+								ReturnType<PreparedDatabaseOperation<TOperation>['execute']>
+							>
+						>,
+					targets: immutableArray([]),
+				} as unknown as PreparedDatabaseOperation<TOperation>)
+			},
+			execute: <const TOperation extends DatabaseOperationAst>(): Promise<
+				DatabaseOperationResult<TOperation>
+			> => Promise.reject(new TypeError('Unexpected direct execution')),
+			commit: () => Promise.resolve(),
+			rollback: () => Promise.resolve(),
+		}
+		const nativeHooks = {
+			...createNativeHookStages(trace),
+			requiresPreparedMutationItems: () => true,
+		}
+		const pipeline = new RuntimePipeline(
+			createStages(trace, transaction, { nativeHooks }),
+		)
+
+		await expect(
+			pipeline.execute({
+				context: requestContext,
+				operation: articleUpdateManyOperation,
+			}),
+		).resolves.toStrictEqual([])
+		expect(preparedRequest?.prepareMutationItems).toBe(true)
 	})
 
 	it('reapplies operation enforcement after hooks and restricts the final result', async () => {

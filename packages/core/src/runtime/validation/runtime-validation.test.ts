@@ -177,7 +177,6 @@ describe('runtime validation', () => {
 			kind: 'create-many',
 			schema: schemaNode,
 			inputs: [validCreateInput(), validCreateInput()],
-			options: { atomic: true },
 			selection: new QueryBuilder(validationSchema).ast.selection,
 		}
 
@@ -308,7 +307,6 @@ describe('runtime validation', () => {
 						update,
 					},
 				],
-				options: { atomic: true },
 				selection: query.ast.selection,
 			}
 
@@ -738,13 +736,11 @@ describe('runtime validation', () => {
 			kind: 'create-many',
 			schema: schemaNode,
 			inputs: {},
-			options: { atomic: true },
 		} as unknown as CreateManyOperationAst<typeof validationSchema>
 		const malformedUpsertMany = {
 			kind: 'upsert-many',
 			schema: schemaNode,
 			items: [null],
-			options: { atomic: true },
 		} as unknown as UpsertManyOperationAst<typeof validationSchema>
 		const nonArrayUpsertMany = {
 			...malformedUpsertMany,

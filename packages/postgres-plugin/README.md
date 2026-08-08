@@ -187,11 +187,12 @@ identifier. Their private materializations remain complete even when the public
 result is selected. Pointer and relation fields remain unloaded references.
 Handles are single-use and expire with their borrowed transaction client.
 
-Atomic create-many uses one ordered multi-row insert. Non-atomic create-many and
-upsert-many isolate each item with a PostgreSQL savepoint, stop at the first
-persistence failure, and leave the successful prefix available to the outer
-Runtime transaction. A hook or finalization failure can still roll that prefix
-back before commit.
+Generated schema collection commands execute ordered singular prepared
+operations on the same borrowed client. Every collection mutation is atomic,
+so a missing target or any item, hook, persistence, or finalization failure
+rolls back the complete batch. The adapter retains low-level multi-row and
+set-based AST support for internal capabilities, but native item hooks do not
+expose that path.
 
 ### Native hook transactions
 
@@ -202,12 +203,10 @@ typed query without receiving a pool, Drizzle client, or explicit transaction:
 ```ts
 hooks: {
 	beforeOperation: {
-		create: async ({ operation }) => {
-			if (operation.kind === 'create-one') {
-				await AuditSchema.createOne({
-					data: { action: `create:${operation.input.title}` },
-				})
-			}
+		create: async ({ item }) => {
+			await AuditSchema.createOne({
+				data: { action: `create:${item.title}` },
+			})
 		},
 	},
 	transaction: {
@@ -220,8 +219,8 @@ If a later business or finalization hook fails, PostgreSQL rolls back the audit
 row and primary row together. Schema `transaction.afterCommit` hooks plus named
 events are released only after a successful outer commit. The Docker-backed
 public-package E2E suite verifies this behavior alongside plugin ordering,
-opaque scope constraints, read restrictions, output resolution, and set-based bulk
-semantics.
+opaque scope constraints, read restrictions, output resolution, and atomic
+itemized batch semantics.
 
 ## CRUD, bulk, and upsert execution
 
@@ -274,11 +273,13 @@ read race.
 This public flow is implemented and covered by the root worker-isolated
 Testcontainers scenario. PostgreSQL temporal text is normalized back to
 Schema's canonical ISO representation before a result reaches developer code.
-Bulk operations and unique-target upserts are executable. Create and upsert
-results preserve developer input order, while update-many and delete-many remain
-single set-based statements using Drizzle `returning()` for the requested
-columns. Their default projection contains only `id`. Resumed opaque cursor
-tokens are not yet executable.
+Bulk operations and unique-target upserts are executable. Results preserve
+developer input order. Update-many and delete-many schema commands prepare one
+unique target at a time, expose the locked visible object to Access and
+`resolveInput`, and use Drizzle writes with `returning()` for the requested
+columns. Their default projection contains only `id`; a missing target aborts
+the shared transaction with `NOT_FOUND`. Resumed opaque cursor tokens are not
+yet executable.
 
 ```ts
 const imported = await ArticleSchema.createMany(
@@ -286,15 +287,8 @@ const imported = await ArticleSchema.createMany(
 		data: rows,
 		select: { id: true, title: true },
 	},
-	{
-		atomic: false,
-		ultimabase,
-	},
+	{ ultimabase },
 )
-
-if (imported.status === 'stopped') {
-	console.log(imported.failedIndex, imported.results)
-}
 
 const article = await ArticleSchema.upsertOne(
 	{

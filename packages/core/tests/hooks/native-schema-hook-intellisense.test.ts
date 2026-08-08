@@ -148,9 +148,7 @@ describe('native schema hook IntelliSense', () => {
 			'readonly title: string;',
 		)
 		expect(readHoverDisplay('transaction-changes')).toContain('readonly')
-		expect(readHoverDisplay('transaction-changes')).toContain(
-			'kind: "create-one"',
-		)
+		expect(readHoverDisplay('transaction-changes')).toContain('kind: "create"')
 	})
 
 	it('suggests and documents only compatible family branches', () => {
@@ -161,7 +159,6 @@ describe('native schema hook IntelliSense', () => {
 			'create',
 			'delete',
 			'update',
-			'upsert',
 		])
 		expect(save.entries.map(({ name }) => name).sort()).toStrictEqual([
 			'all',
@@ -194,12 +191,25 @@ describe('native schema hook IntelliSense', () => {
 
 		expect(listInput.entries.map(({ name }) => name).sort()).toStrictEqual([
 			'context',
+			'item',
 			'kind',
-			'operation',
 		])
-		expect(readHoverDisplay('create-family-kind')).toContain(
-			'"create-many" | "create-one"',
-		)
+		expect(readHoverDisplay('before-create-kind')).toContain('"create"')
+		expect(readHoverDisplay('before-delete-kind')).toContain('"delete"')
+		const preparedItem = readHoverDisplay('before-create-item')
+
+		expect(preparedItem).toContain('readonly title: string;')
+		expect(preparedItem).toContain('readonly id: string;')
+		expect(preparedItem).toContain('readonly get:')
+		expect(preparedItem).toContain('readonly toJSON:')
+		expect(preparedItem).not.toContain('readonly create:')
+		expect(preparedItem).not.toContain('readonly update:')
+		const originalItem = readHoverDisplay('before-update-original-item')
+
+		expect(originalItem).toContain('readonly title: string;')
+		expect(originalItem).toContain('readonly id: string;')
+		expect(originalItem).toContain('readonly get:')
+		expect(readHoverDisplay('create-family-kind')).toContain('"create-one"')
 		expect(readHoverDisplay('schema-list-operation')).toContain('OperationAst<')
 	})
 

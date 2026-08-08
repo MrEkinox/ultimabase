@@ -13,7 +13,7 @@ import {
 import { createFieldDefinition } from '../base/definition.js'
 import { assertFieldOptions } from '../base/options.js'
 import { splitFieldDeclarationOptions } from '../../hooks/field-declarations.js'
-import type { SchemaUpdateHookKind } from '../../hooks/contracts.js'
+import type { SchemaMutationKind } from '../../hooks/contracts.js'
 import type { RelationMutationDelta } from '../../relations/mutation.js'
 import type {
 	FieldDefinition,
@@ -80,7 +80,10 @@ export interface RelationFieldAccess<TTarget extends SchemaDefinition> {
 	readonly read?: AccessDecisionRule<RelationFieldReadAccessInput>
 	/** Controls one immutable connect, disconnect, set, or clear delta. */
 	readonly update?: AccessDecisionRule<
-		FieldValueAccessInput<RelationMutationDelta<TTarget>, SchemaUpdateHookKind>
+		FieldValueAccessInput<
+			RelationMutationDelta<TTarget>,
+			Extract<SchemaMutationKind, 'update' | 'upsert'>
+		>
 	>
 }
 

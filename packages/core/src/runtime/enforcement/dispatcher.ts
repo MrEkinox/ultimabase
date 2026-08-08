@@ -29,10 +29,6 @@ import type {
 	DatabaseOperationAst,
 	DatabaseOperationResult,
 } from '../database/contracts.js'
-import {
-	isNonAtomicBulkOperation,
-	mapNonAtomicBulkResult,
-} from '../operations/non-atomic-result.js'
 import { transferRuntimeSchemaModelMetadata } from '../operations/model-metadata.js'
 import { getOperationSchema } from '../operations/schema.js'
 import type {
@@ -500,7 +496,6 @@ const restrictResultRecord = (
 }
 
 const restrictResult = <const TResult>(
-	operation: DatabaseOperationAst,
 	result: TResult,
 	permittedFields: readonly string[] | undefined,
 ): TResult => {
@@ -509,17 +504,6 @@ const restrictResult = <const TResult>(
 	}
 
 	const unknownResult: unknown = result
-
-	if (isNonAtomicBulkOperation(operation)) {
-		return mapNonAtomicBulkResult(
-			unknownResult,
-			'Runtime restricted result',
-			(record) =>
-				isPlainRecord(record)
-					? restrictResultRecord(record, permittedFields)
-					: record,
-		) as TResult
-	}
 
 	if (isUnknownArray(unknownResult)) {
 		return immutableArray(
@@ -546,7 +530,7 @@ const enforceSelectionResult = <const TOperation extends DatabaseOperationAst>(
 ): DatabaseOperationResult<TOperation> => {
 	const snapshot = getEnforcementStateSnapshot(input.enforcement)
 
-	return restrictResult(input.operation, input.result, snapshot.selectionFields)
+	return restrictResult(input.result, snapshot.selectionFields)
 }
 
 /** Evaluates final output restrictions after business result replacement. */
@@ -600,7 +584,7 @@ const enforceResult = async <const TOperation extends DatabaseOperationAst>(
 						snapshot.selectionFields?.includes(field),
 					)
 
-	return restrictResult(input.operation, input.result, permittedFields)
+	return restrictResult(input.result, permittedFields)
 }
 
 /** Compiles native Access and optional low-level restrictions into one monotonic boundary. */

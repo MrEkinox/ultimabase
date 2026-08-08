@@ -4,12 +4,10 @@ import { FrameworkApplication } from '../../../application/framework-application
 import { definePlugin } from '../../../plugins/definition.js'
 import {
 	compileValidationPlans,
-	objectField,
 	pointerField,
 	relationField,
 	Schema,
 	SchemaRegistry,
-	SchemaRelationMappingError,
 	snapshotScalarFieldValue,
 	stringField,
 	type SchemaDefinition,
@@ -256,34 +254,6 @@ describe('relationField', () => {
 		expect(() =>
 			new SchemaRegistry([ReusedSource, ReusedTarget]).resolveSchemaTargets(),
 		).toThrow(expect.objectContaining({ reason: 'multiply-owned-mapping' }))
-	})
-
-	it('rejects nested relation storage with its exact structural path', () => {
-		const Target = Schema.define({
-			className: 'NestedRelationTarget',
-			fields: {},
-		})
-		const Source = Schema.define({
-			className: 'NestedRelationSource',
-			fields: {
-				profile: objectField({
-					fields: { targets: relationField({ target: () => Target }) },
-				}),
-			},
-		})
-		let thrown: unknown
-
-		try {
-			new SchemaRegistry([Source, Target]).resolveSchemaTargets()
-		} catch (error: unknown) {
-			thrown = error
-		}
-
-		expect(thrown).toBeInstanceOf(SchemaRelationMappingError)
-		expect(thrown).toMatchObject({
-			fieldPath: ['profile', 'targets'],
-			reason: 'incompatible-mapping',
-		})
 	})
 
 	it('rejects invalid topology before infrastructure connects', async () => {

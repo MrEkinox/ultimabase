@@ -574,7 +574,16 @@ interface ACLMutationItemPair {
 	readonly item: Readonly<Record<string, unknown>> | null
 }
 
+/** Accepts Runtime snapshots and exact generated instances at the hook boundary. */
+const isACLMutationItem = (
+	schema: SchemaDefinition,
+	value: unknown,
+): value is Readonly<Record<string, unknown>> =>
+	isPlainRecord(value) ||
+	(typeof schema === 'function' && value instanceof schema)
+
 const readACLMutationItems = (
+	schema: SchemaDefinition,
 	input: unknown,
 ): readonly ACLMutationItemPair[] => {
 	if (!isPlainRecord(input)) {
@@ -587,8 +596,9 @@ const readACLMutationItems = (
 				if (
 					!isPlainRecord(candidate) ||
 					(candidate.originalItem !== null &&
-						!isPlainRecord(candidate.originalItem)) ||
-					(candidate.item !== null && !isPlainRecord(candidate.item))
+						!isACLMutationItem(schema, candidate.originalItem)) ||
+					(candidate.item !== null &&
+						!isACLMutationItem(schema, candidate.item))
 				) {
 					throw new TypeError('ACL schema hook item pair is invalid')
 				}
@@ -604,8 +614,9 @@ const readACLMutationItems = (
 	if (
 		!Object.hasOwn(input, 'originalItem') ||
 		!Object.hasOwn(input, 'item') ||
-		(input.originalItem !== null && !isPlainRecord(input.originalItem)) ||
-		(input.item !== null && !isPlainRecord(input.item))
+		(input.originalItem !== null &&
+			!isACLMutationItem(schema, input.originalItem)) ||
+		(input.item !== null && !isACLMutationItem(schema, input.item))
 	) {
 		throw new TypeError('ACL singular schema hook item pair is invalid')
 	}
@@ -667,7 +678,7 @@ const snapshotACLUpdateInput = (
 	})
 }
 
-/** @internal Rejects set-based ACL replacement before adapter execution. */
+/** @internal Rejects ACL replacement without one certain itemized update target. */
 export const assertSingularACLReplacement = <TSchema extends SchemaDefinition>(
 	operation: ExecutableOperationAst<TSchema>,
 ): void => {
@@ -685,7 +696,10 @@ export const assertSingularACLReplacement = <TSchema extends SchemaDefinition>(
 	throw new FrameworkError(
 		'VALIDATION_ERROR',
 		'ACL replacement requires an itemized singular update.',
-		{ publicMessage: 'ACL values can only be replaced with updateOne().' },
+		{
+			publicMessage:
+				'ACL values can only be replaced with updateOne() or itemized updateMany().',
+		},
 	)
 }
 
@@ -786,7 +800,10 @@ export const aclPlugin = (options: ACLPluginOptions = {}): ACLPlugin => {
 				kind: ACLChangedOperation,
 				input: unknown,
 			): Promise<void> => {
-				for (const { item, originalItem } of readACLMutationItems(input)) {
+				for (const { item, originalItem } of readACLMutationItems(
+					schema,
+					input,
+				)) {
 					if (item === null) continue
 
 					const current = snapshotResolvedACL(item[aclFieldName], 'current acl')
@@ -829,9 +846,7 @@ export const aclPlugin = (options: ACLPluginOptions = {}): ACLPlugin => {
 							await emitACLChanges(input.context, schema, input.kind, input)
 						},
 						update: async (input) => {
-							if (input.kind === 'update-one') {
-								await emitACLChanges(input.context, schema, input.kind, input)
-							}
+							await emitACLChanges(input.context, schema, input.kind, input)
 						},
 						upsert: async (input) => {
 							await emitACLChanges(input.context, schema, input.kind, input)

@@ -3,7 +3,6 @@ import { expectTypeOf, test } from 'vitest'
 import { RequestContext } from '../../runtime/context/request-context.js'
 import { QueryBuilder } from '../../query/query/query.js'
 import type { InferQueryResult } from '../../query/query/result.js'
-import type { NonAtomicBulkResult } from '../../query/operations/contracts.js'
 import type { SchemaWhere } from '../../query/operations/schema-commands.js'
 import { booleanField } from '../fields/builtins/boolean.js'
 import { objectField } from '../fields/builtins/object.js'
@@ -11,10 +10,10 @@ import { pointerField } from '../fields/builtins/pointer.js'
 import { relationField } from '../fields/builtins/relation.js'
 import { stringField } from '../fields/builtins/string.js'
 import { definePluginField } from '../fields/plugin.js'
-import type { InferCreateInput } from '../inference/types.js'
+import type { InferCreateInput, InferObject } from '../inference/types.js'
 import type { Pointer } from '../relations/pointer.js'
 import { Schema } from './definition.js'
-import type { SchemaDraft, SchemaResult } from './model.js'
+import type { SchemaDraft, SchemaPreparedDraft, SchemaResult } from './model.js'
 
 const vectorField = definePluginField(
 	'fixture.vector',
@@ -139,6 +138,23 @@ test('infers exact immutable drafts from the generated constructor', () => {
 			// @ts-expect-error -- Upsert equality values retain their exact field types.
 			where.eq('title', 1),
 	})
+})
+
+test('exposes complete prepared drafts without persistence commands', () => {
+	type Prepared = SchemaPreparedDraft<typeof Post>
+
+	expectTypeOf<Prepared['id']>().toBeString()
+	expectTypeOf<Prepared['createdAt']>().toBeString()
+	expectTypeOf<Prepared['title']>().toBeString()
+	expectTypeOf<ReturnType<Prepared['toJSON']>>().toEqualTypeOf<
+		Readonly<InferObject<typeof Post>>
+	>()
+	expectTypeOf<Prepared>().not.toHaveProperty('create')
+	expectTypeOf<Prepared>().not.toHaveProperty('upsert')
+	expectTypeOf<Prepared>().not.toHaveProperty('update')
+	expectTypeOf<Prepared>().not.toHaveProperty('delete')
+	expectTypeOf<Prepared>().not.toHaveProperty('fetch')
+	expectTypeOf<Prepared>().not.toHaveProperty('exists')
 })
 
 test('exposes writes on the schema class and keeps QueryBuilder read-only', () => {
@@ -285,9 +301,8 @@ test('exposes writes on the schema class and keeps QueryBuilder read-only', () =
 		data: [{ title: 'First' }],
 		select: { missing: true },
 	})
-	expectTypeOf(
-		Post.createMany({ data: [{ title: 'First' }] }, { atomic: false }),
-	).toEqualTypeOf<Promise<NonAtomicBulkResult<InferQueryResult<typeof Post>>>>()
+	// @ts-expect-error -- Collection mutations are always atomic.
+	void Post.createMany({ data: [{ title: 'First' }] }, { atomic: false })
 	expectTypeOf(
 		Post.updateOne({
 			where: (where) => where.eq('id', 'post-1'),
@@ -318,14 +333,12 @@ test('exposes writes on the schema class and keeps QueryBuilder read-only', () =
 	})
 	expectTypeOf(
 		Post.updateMany({
-			where: { published: { eq: false } },
-			data: { published: true },
+			data: [{ where: { id: { eq: 'post-1' } }, data: { published: true } }],
 		}),
 	).toEqualTypeOf<Promise<readonly InferQueryResult<typeof Post, 'id'>[]>>()
 	expectTypeOf(
 		Post.updateMany({
-			where: { published: { eq: false } },
-			data: { published: true },
+			data: [{ where: { id: { eq: 'post-1' } }, data: { published: true } }],
 			select: { id: true, title: true },
 		}),
 	).toEqualTypeOf<
@@ -333,14 +346,12 @@ test('exposes writes on the schema class and keeps QueryBuilder read-only', () =
 	>()
 	// @ts-expect-error -- Bulk update selections reject undeclared fields.
 	void Post.updateMany({
-		where: 'all',
-		data: { published: true },
+		data: [{ where: { id: { eq: 'post-1' } }, data: { published: true } }],
 		select: { missing: true },
 	})
 	// @ts-expect-error -- Dynamic booleans cannot promise an exact bulk update result.
 	void Post.updateMany({
-		where: 'all',
-		data: { published: true },
+		data: [{ where: { id: { eq: 'post-1' } }, data: { published: true } }],
 		select: { title: dynamicSelection },
 	})
 	expectTypeOf(
@@ -367,22 +378,25 @@ test('exposes writes on the schema class and keeps QueryBuilder read-only', () =
 		where: { id: { eq: 'post-1' } },
 		select: { title: dynamicDeleteSelection },
 	})
-	expectTypeOf(Post.deleteMany({ where: 'all' })).toEqualTypeOf<
-		Promise<readonly InferQueryResult<typeof Post, 'id'>[]>
-	>()
+	expectTypeOf(
+		Post.deleteMany({ where: [{ id: { eq: 'post-1' } }] }),
+	).toEqualTypeOf<Promise<readonly InferQueryResult<typeof Post, 'id'>[]>>()
 	expectTypeOf(
 		Post.deleteMany({
-			where: 'all',
+			where: [{ id: { eq: 'post-1' } }],
 			select: { id: true, title: true },
 		}),
 	).toEqualTypeOf<
 		Promise<readonly InferQueryResult<typeof Post, 'id' | 'title'>[]>
 	>()
 	// @ts-expect-error -- Bulk delete selections reject undeclared fields.
-	void Post.deleteMany({ where: 'all', select: { missing: true } })
+	void Post.deleteMany({
+		where: [{ id: { eq: 'post-1' } }],
+		select: { missing: true },
+	})
 	// @ts-expect-error -- Dynamic booleans cannot promise an exact bulk delete result.
 	void Post.deleteMany({
-		where: 'all',
+		where: [{ id: { eq: 'post-1' } }],
 		select: { title: dynamicDeleteSelection },
 	})
 	expectTypeOf(

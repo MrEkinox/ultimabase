@@ -124,15 +124,14 @@ describe('schema command execution boundaries', () => {
 		).toThrow(new TypeError('selection.missing must reference a schema field'))
 		expect(() =>
 			updateSchemaRecords(Post, {
-				where: 'all',
-				data: { title: 'Updated' },
+				data: [{ where: { id: { eq: 'post-1' } }, data: { title: 'Updated' } }],
 				// This assertion models an untyped transport returning an unknown field.
 				select: { missing: true } as never,
 			}),
 		).toThrow(new TypeError('selection.missing must reference a schema field'))
 		expect(() =>
 			deleteSchemaRecords(Post, {
-				where: 'all',
+				where: [{ id: { eq: 'post-1' } }],
 				// This assertion models an untyped transport returning an unknown field.
 				select: { missing: true } as never,
 			}),

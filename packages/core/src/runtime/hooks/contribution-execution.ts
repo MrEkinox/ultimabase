@@ -7,6 +7,7 @@ import {
 import { Schema, type SchemaDefinition } from '../../schema/index.js'
 import type { DatabaseOperationAst } from '../database/contracts.js'
 import type { HookContext } from '../../schema/hooks/hook-context.js'
+import type { SchemaMutationKind } from '../../schema/hooks/contracts.js'
 import type { OperationKind } from '../../query/index.js'
 import type { RequestContext } from '../context/request-context.js'
 import { getOperationSchema } from '../operations/schema.js'
@@ -145,11 +146,13 @@ export const runHookObservers = async (
 /** Creates the compact public shape shared by schema operation hooks. */
 export const createSchemaOperationHookInput = <
 	const TOperation extends { readonly kind: string },
+	const TKind extends SchemaMutationKind,
 >(
 	operation: TOperation,
 	context: HookContext,
+	kind: TKind,
 ): Readonly<{
 	readonly context: HookContext
-	readonly kind: TOperation['kind']
+	readonly kind: TKind
 	readonly operation: TOperation
-}> => immutableRecord({ context, kind: operation.kind, operation })
+}> => immutableRecord({ context, kind, operation })

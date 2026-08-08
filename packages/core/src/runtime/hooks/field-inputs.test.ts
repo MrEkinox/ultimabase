@@ -181,7 +181,6 @@ describe('runtime field inputs', () => {
 		const operation = {
 			inputs: [first, second],
 			kind: 'create-many',
-			options: { atomic: true },
 			selection: new QueryBuilder(traversalSchema).ast.selection,
 			schema: schemaNode,
 		} satisfies CreateManyOperationAst<typeof traversalSchema>
@@ -291,7 +290,6 @@ describe('runtime field inputs', () => {
 				},
 			],
 			kind: 'upsert-many',
-			options: { atomic: true },
 			selection: query.ast.selection,
 			schema: schemaNode,
 		} satisfies UpsertManyOperationAst<typeof traversalSchema, typeof update>

@@ -1,7 +1,15 @@
-import { immutableArray, immutableRecord } from '@ultimabase/shared'
+import {
+	immutableArray,
+	immutableRecord,
+	isPlainRecord,
+} from '@ultimabase/shared'
 import type { SchemaHookPhase } from '../../schema/hooks/declarations.js'
 import type { HookContext } from '../../schema/hooks/hook-context.js'
 import type { SchemaDefinition } from '../../schema/index.js'
+import {
+	materializePreparedSchemaDraft,
+	materializeSchemaModel,
+} from '../../schema/schema/model.js'
 import type { PluginDefinition } from '../../foundation.js'
 import { FrameworkApplication } from '../../foundation.js'
 import type {
@@ -35,7 +43,7 @@ import {
 	collectMutationBeforeItems,
 	type RuntimeMutationItemPair,
 } from './materializations.js'
-import { getNativeHookPhaseOrder } from './phase-order.js'
+import { getMutationHookKind, getNativeHookPhaseOrder } from './phase-order.js'
 import { runHookEffects, runHookTransformChain } from './composition.js'
 import { createTransactionHookLifecycle } from './transaction-dispatcher.js'
 import {
@@ -51,77 +59,129 @@ const createSchemaResultInput = <const TOperation extends DatabaseOperationAst>(
 	operation: TOperation,
 	result: RuntimeOperationResult<TOperation>,
 	context: HookContext,
-	items: readonly RuntimeMutationItemPair[] | undefined,
+	item: RuntimeMutationItemPair,
+	materializedOriginalItem: object | null,
 ): Readonly<{
 	readonly context: HookContext
-	readonly kind: TOperation['kind']
+	readonly kind: ReturnType<typeof getMutationHookKind>
 	readonly operation: TOperation
 	readonly result: RuntimeOperationResult<TOperation>
 }> => {
-	const base = { context, kind: operation.kind, operation, result } as const
-
-	if (items === undefined) return immutableRecord(base)
-
-	switch (operation.kind) {
-		case 'create-one':
-		case 'delete-one':
-		case 'update-one':
-		case 'upsert-one': {
-			const pair = items[0]
-
-			if (pair === undefined) {
-				throw new TypeError(
-					'Singular mutation after-hooks require one materialized item pair',
-				)
-			}
-
-			return immutableRecord({ ...base, ...pair })
-		}
-		case 'create-many':
-		case 'delete-many':
-		case 'update-many':
-		case 'upsert-many':
-			return immutableRecord({ ...base, items })
-		case 'count':
-		case 'exists':
-		case 'find-many':
-		case 'find-one':
-		case 'get':
-			return immutableRecord(base)
-	}
+	return immutableRecord({
+		context,
+		...item,
+		originalItem: materializedOriginalItem,
+		kind: getMutationHookKind(operation.kind),
+		operation,
+		result,
+	})
 }
 
 const createSchemaPreparedInput = (
 	operation: DatabaseMutationOperationAst,
 	context: HookContext,
-	target: RuntimePreparedMutationStageInput<DatabaseMutationOperationAst>['target'],
+	item: RuntimeMutationItemPair,
+	preparedCreateItem?: object,
+	materializedOriginalItem?: object | null,
 ): unknown => {
-	const base = createSchemaOperationHookInput(operation, context)
-	const items = collectMutationBeforeItems(operation, target)
-
-	switch (operation.kind) {
-		case 'create-one':
-		case 'delete-one':
-		case 'update-one': {
-			const pair = items[0]
-
-			if (pair === undefined) {
-				throw new TypeError(
-					'Singular mutation before-hooks require one materialized item pair',
-				)
-			}
-
-			return immutableRecord({ ...base, ...pair })
+	if (operation.kind === 'create-one') {
+		if (preparedCreateItem === undefined) {
+			throw new TypeError('Prepared create hook requires one draft instance')
 		}
-		case 'create-many':
-			return immutableRecord({ ...base, items })
-		case 'delete-many':
-		case 'update-many':
-		case 'upsert-many':
-		case 'upsert-one':
-			return base
+
+		return immutableRecord({
+			context,
+			item: preparedCreateItem,
+			kind: 'create' as const,
+		})
 	}
+
+	const base = createSchemaOperationHookInput(
+		operation,
+		context,
+		getMutationHookKind(operation.kind),
+	)
+
+	if (materializedOriginalItem === undefined) {
+		throw new TypeError(
+			'Prepared mutation hook requires one materialized original item',
+		)
+	}
+
+	return immutableRecord({
+		...base,
+		...item,
+		originalItem: materializedOriginalItem,
+	})
 }
+
+/** Materializes one stable visible preimage without leaking adapter state. */
+const materializeSchemaResolveOriginalItem = (
+	operation: DatabaseMutationOperationAst,
+	schema: SchemaDefinition,
+	target: RuntimePreparedMutationStageInput<DatabaseMutationOperationAst>['target'],
+): object | null => {
+	if (
+		operation.kind === 'create-many' ||
+		operation.kind === 'update-many' ||
+		operation.kind === 'upsert-many'
+	) {
+		throw new TypeError(
+			'Schema resolveInput requires itemized mutation operations',
+		)
+	}
+
+	if (operation.kind === 'delete-one' || operation.kind === 'delete-many') {
+		throw new TypeError('Delete operations do not resolve mutation input')
+	}
+
+	if (operation.kind === 'create-one') return null
+
+	if (operation.kind === 'update-one' && !isPlainRecord(target)) {
+		throw new TypeError('Update resolveInput requires one prepared target')
+	}
+
+	if (
+		operation.kind === 'upsert-one' &&
+		target !== null &&
+		!isPlainRecord(target)
+	) {
+		throw new TypeError(
+			'Upsert resolveInput requires a prepared target snapshot',
+		)
+	}
+
+	if (target === null) return null
+
+	if (!isPlainRecord(target)) {
+		throw new TypeError('Schema resolveInput requires a prepared target')
+	}
+
+	return materializeSchemaModel(schema, target)
+}
+
+/** Exposes one stable materialized preimage to schema input resolution. */
+const createSchemaResolveInput = (
+	operation: DatabaseMutationOperationAst,
+	context: HookContext,
+	originalItem: object | null,
+): unknown => {
+	return immutableRecord({
+		...createSchemaOperationHookInput(
+			operation,
+			context,
+			getMutationHookKind(operation.kind),
+		),
+		originalItem,
+	})
+}
+
+/** Materializes a persisted hook preimage while preserving a missing create value. */
+const materializeSchemaOriginalItem = (
+	schema: SchemaDefinition,
+	originalItem: RuntimeMutationItemPair['originalItem'],
+): object | null =>
+	originalItem === null ? null : materializeSchemaModel(schema, originalItem)
 
 const resolveFieldInputs = async <
 	const TOperation extends DatabaseOperationAst,
@@ -133,6 +193,15 @@ const resolveFieldInputs = async <
 	const { operation } = input
 	const order = getNativeHookPhaseOrder(operation.kind)
 	const schema = requireDeclaredOperationSchema(operation)
+
+	if (
+		operation.kind === 'create-many' ||
+		operation.kind === 'update-many' ||
+		operation.kind === 'upsert-many'
+	) {
+		// Public collection commands are itemized before native hooks reach Runtime.
+		return operation
+	}
 
 	return transformOperationFieldInputs(operation, async (fieldInput) => {
 		const fieldPlan = plan.getField(schema, fieldInput.fieldPath)
@@ -154,7 +223,7 @@ const resolveFieldInputs = async <
 			invokeErasedHook(runtime, handler, input.context, (context) =>
 				immutableRecord({
 					context,
-					kind: fieldInput.kind,
+					kind: getMutationHookKind(operation.kind),
 					mode: fieldInput.mode,
 					value,
 				}),
@@ -164,12 +233,12 @@ const resolveFieldInputs = async <
 }
 
 const runSchemaTransformPhases = async <
-	const TOperation extends DatabaseOperationAst,
+	const TOperation extends DatabaseMutationOperationAst,
 >(
 	boundaries: RuntimeHookBoundaries,
 	plan: NativeHookContributionPlan,
 	runtime: HookExecutionRuntime,
-	input: RuntimeOperationStageInput<TOperation>,
+	input: RuntimePreparedMutationStageInput<TOperation>,
 	phases: readonly SchemaHookPhase[],
 	direction: 'after' | 'before',
 ): Promise<TOperation> => {
@@ -182,6 +251,11 @@ const runSchemaTransformPhases = async <
 	}
 
 	const family = getNativeHookPhaseOrder(input.operation.kind).family
+	const originalItem = materializeSchemaResolveOriginalItem(
+		input.operation,
+		schemaPlan.schema,
+		input.target,
+	)
 	let operation: TOperation = input.operation
 
 	for (const phase of phases) {
@@ -202,12 +276,15 @@ const runSchemaTransformPhases = async <
 					runtime,
 					handler,
 					input.context,
-					(context) => createSchemaOperationHookInput(current, context),
+					(context) => createSchemaResolveInput(current, context, originalItem),
 				)
 
 				return replacement === undefined
 					? undefined
-					: boundaries.snapshotOperationReplacement(current, replacement)
+					: boundaries.snapshotPreparedOperationReplacement(
+							current,
+							replacement,
+						)
 			},
 		)
 	}
@@ -223,6 +300,15 @@ const runSchemaPreparedPhases = async <
 	runtime: HookExecutionRuntime,
 	input: RuntimePreparedMutationStageInput<TOperation>,
 ): Promise<TOperation> => {
+	if (
+		input.operation.kind === 'create-many' ||
+		input.operation.kind === 'update-many' ||
+		input.operation.kind === 'upsert-many' ||
+		input.operation.kind === 'delete-many'
+	) {
+		return input.operation
+	}
+
 	if (
 		(input.operation.kind === 'update-one' ||
 			input.operation.kind === 'delete-one') &&
@@ -249,19 +335,46 @@ const runSchemaPreparedPhases = async <
 			createSchemaHookTarget(schemaPlan.schema.className),
 			order.family,
 		)
+		if (handlers.length === 0) continue
 
-		await runHookEffects(handlers, (handler) =>
-			invokeErasedHook<undefined>(runtime, handler, input.context, (context) =>
-				createSchemaPreparedInput(input.operation, context, input.target),
-			),
+		const items = collectMutationBeforeItems(
+			input.operation,
+			input.target,
+			input.targets,
 		)
+
+		for (const item of items) {
+			const preparedCreateItem =
+				input.operation.kind === 'create-one' && isPlainRecord(item.item)
+					? materializePreparedSchemaDraft(schemaPlan.schema, item.item)
+					: undefined
+			const materializedOriginalItem = materializeSchemaOriginalItem(
+				schemaPlan.schema,
+				item.originalItem,
+			)
+
+			await runHookEffects(handlers, (handler) =>
+				invokeErasedHook<undefined>(
+					runtime,
+					handler,
+					input.context,
+					(context) =>
+						createSchemaPreparedInput(
+							input.operation,
+							context,
+							item,
+							preparedCreateItem,
+							materializedOriginalItem,
+						),
+				),
+			)
+		}
 	}
 
 	return input.operation
 }
 
 const resolveInput = async <const TOperation extends DatabaseOperationAst>(
-	boundaries: RuntimeHookBoundaries,
 	plan: NativeHookContributionPlan,
 	runtime: HookExecutionRuntime,
 	input: RuntimeOperationStageInput<TOperation>,
@@ -274,11 +387,34 @@ const resolveInput = async <const TOperation extends DatabaseOperationAst>(
 
 	const fieldResolved = await resolveFieldInputs(plan, runtime, input)
 
+	return fieldResolved
+}
+
+/** Runs schema input resolution only after Access has hidden and locked the target. */
+const resolveSchemaInput = async <
+	const TOperation extends DatabaseMutationOperationAst,
+>(
+	boundaries: RuntimeHookBoundaries,
+	plan: NativeHookContributionPlan,
+	runtime: HookExecutionRuntime,
+	input: RuntimePreparedMutationStageInput<TOperation>,
+): Promise<TOperation> => {
+	if (
+		input.operation.kind === 'delete-one' ||
+		input.operation.kind === 'delete-many'
+	) {
+		return input.operation
+	}
+
+	if (input.operation.kind === 'update-one' && input.target === null) {
+		return input.operation
+	}
+
 	return runSchemaTransformPhases(
 		boundaries,
 		plan,
 		runtime,
-		immutableRecord({ ...input, operation: fieldResolved }),
+		input,
 		immutableArray(['resolveInput']),
 		'before',
 	)
@@ -307,7 +443,13 @@ const runSchemaResultPhases = async <
 		input.selectedFieldsOverride,
 	)
 
-	if (order.family === 'read') {
+	if (
+		order.family === 'read' ||
+		input.operation.kind === 'create-many' ||
+		input.operation.kind === 'update-many' ||
+		input.operation.kind === 'upsert-many' ||
+		input.operation.kind === 'delete-many'
+	) {
 		return result
 	}
 
@@ -319,15 +461,6 @@ const runSchemaResultPhases = async <
 
 	const items = collectMutationAfterItems(input.outcome)
 
-	if (
-		(input.operation.kind === 'update-one' ||
-			input.operation.kind === 'delete-one') &&
-		items.length === 0
-	) {
-		// A nullable where-based mutation has no item lifecycle when it matched no row.
-		return result
-	}
-
 	for (const phase of order.schemaAfter) {
 		const handlers = collectNestedHookHandlers(
 			schemaPlan.contributions,
@@ -338,11 +471,28 @@ const runSchemaResultPhases = async <
 			order.family,
 		)
 
-		await runHookEffects(handlers, (handler) =>
-			invokeErasedHook<undefined>(runtime, handler, input.context, (context) =>
-				createSchemaResultInput(input.operation, result, context, items),
-			),
-		)
+		for (const item of items) {
+			const materializedOriginalItem = materializeSchemaOriginalItem(
+				schemaPlan.schema,
+				item.originalItem,
+			)
+
+			await runHookEffects(handlers, (handler) =>
+				invokeErasedHook<undefined>(
+					runtime,
+					handler,
+					input.context,
+					(context) =>
+						createSchemaResultInput(
+							input.operation,
+							result,
+							context,
+							item,
+							materializedOriginalItem,
+						),
+				),
+			)
+		}
 	}
 
 	return result
@@ -368,7 +518,9 @@ export const createNativeHookStages = <
 			createTransactionHookLifecycle(plan, runtime),
 		mutationOutcome: (input) =>
 			boundaries.snapshotMutationOutcome(input.operation, input.outcome),
-		resolveInput: (input) => resolveInput(boundaries, plan, runtime, input),
+		// Public collection commands are itemized before native hook dispatch.
+		requiresPreparedMutationItems: () => false,
+		resolveInput: (input) => resolveInput(plan, runtime, input),
 		// Output representation belongs to field definitions and transports, not hooks.
 		resolveOutput: ({ result }) => result,
 		revalidate: (input) =>
@@ -376,6 +528,8 @@ export const createNativeHookStages = <
 		schemaAfter: (input) =>
 			runSchemaResultPhases(boundaries, plan, runtime, input),
 		schemaPrepared: (input) => runSchemaPreparedPhases(plan, runtime, input),
+		schemaResolveInput: (input) =>
+			resolveSchemaInput(boundaries, plan, runtime, input),
 		// Schema read hooks and schema validation are intentionally not public phases.
 		schemaBefore: ({ operation }) => operation,
 		validate: () => undefined,

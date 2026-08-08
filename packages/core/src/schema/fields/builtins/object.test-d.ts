@@ -9,6 +9,9 @@ import {
 	intField,
 	jsonField,
 	objectField,
+	pointerField,
+	relationField,
+	Schema,
 	stringField,
 	type FieldDefinition,
 	type FieldInferenceState,
@@ -155,5 +158,25 @@ test('rejects invalid list declarations and structured defaults', () => {
 			// @ts-expect-error -- Schema extensions cannot attach to individual fields.
 			defineSchemaExtension('fixture.list', {}),
 		],
+	})
+})
+
+test('rejects schema targets inside embedded objects', () => {
+	const Target = Schema.define({
+		className: 'EmbeddedObjectTarget',
+		fields: { name: stringField() },
+	})
+
+	objectField({
+		fields: {
+			// @ts-expect-error -- Embedded JSONB values cannot own pointer semantics.
+			author: pointerField({ target: () => Target }),
+		},
+	})
+	objectField({
+		fields: {
+			// @ts-expect-error -- Relations require a top-level schema identity.
+			tags: relationField({ target: () => Target }),
+		},
 	})
 })

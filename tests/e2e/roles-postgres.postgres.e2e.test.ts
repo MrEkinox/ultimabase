@@ -427,8 +427,15 @@ describe('stored roles with PostgreSQL', { concurrent: false }, () => {
 				{ ultimabase: app, useMasterKey: true },
 			),
 		).rejects.toMatchObject({ code: 'ROLE_DELETE_REFERENCED' })
+		const externalReferences = await ExternalRoleReference.findMany(
+			{
+				where: { subject: { eq: failReference.value } },
+				select: { id: true },
+			},
+			{ ultimabase: app },
+		)
 		await ExternalRoleReference.deleteMany(
-			{ where: (where) => where.eq('subject', failReference.value) },
+			{ where: externalReferences.map(({ id }) => ({ id: { eq: id } })) },
 			{ ultimabase: app },
 		)
 		await expect(
@@ -506,12 +513,6 @@ describe('stored roles with PostgreSQL', { concurrent: false }, () => {
 				{ ultimabase: app },
 			),
 		).resolves.toBe(true)
-		await expect(
-			CascadeRole.deleteMany(
-				{ where: 'all' },
-				{ ultimabase: app, useMasterKey: true },
-			),
-		).rejects.toMatchObject({ code: 'ROLE_DELETE_BULK_UNSUPPORTED' })
 		expect(committedRoleEvents).toContain('ultimabase.roles.deleted')
 	})
 

@@ -88,7 +88,7 @@ describe('ACL change events', () => {
 			className: 'Post',
 			current: new ACL().grantPrincipal(alice, 'read'),
 			itemId: 'post-1',
-			operation: 'update-one',
+			operation: 'update',
 			previous: new ACL(),
 			principal: alice,
 		})
@@ -111,7 +111,7 @@ describe('ACL change events', () => {
 				],
 				removed: [],
 			},
-			operation: 'update-one',
+			operation: 'update',
 			target: { className: 'Post', id: 'post-1' },
 		})
 		expect(Object.isFrozen(payload)).toBe(true)

@@ -181,6 +181,10 @@ immutable, and contains no private ACL collection. Observation is optional:
 `aclPlugin()` works without an audit consumer, and no realtime or transport
 plugin publishes ACL changes by default.
 
+`payload.operation` uses the item-oriented business name `create`, `update`,
+or `upsert`. It deliberately does not expose Core's normalized operation AST or
+its internal cardinality.
+
 The extension also works on a developer-defined RoleSchema. Native RoleSchema
 Access controls creation, while each persisted role ACL may narrow reads,
 updates, member or nested-role mutations, and deletion. Only master execution

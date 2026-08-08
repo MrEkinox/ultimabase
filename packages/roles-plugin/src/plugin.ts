@@ -30,7 +30,6 @@ import {
 } from './role-hierarchy.js'
 import {
 	applyRoleDeletionPolicy,
-	assertSingularRoleDeletion,
 	type NamedRoleReferenceCleanup,
 } from './role-deletion.js'
 import { createStoredRoleResolver } from './role-access.js'
@@ -258,10 +257,6 @@ export const rolesPlugin = (): RolesPlugin =>
 				hooks.schema(`membership-events:${schema.className}`, schema, {
 					beforeOperation: {
 						delete: async (input) => {
-							assertSingularRoleDeletion(input.operation)
-
-							if (input.kind !== 'delete-one') return
-
 							const roleName: unknown = Reflect.get(input.originalItem, 'name')
 
 							if (typeof roleName !== 'string') {

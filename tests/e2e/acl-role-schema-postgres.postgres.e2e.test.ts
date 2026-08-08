@@ -268,7 +268,7 @@ describe(
 					{ data: { acl: new ACL().grantPublic('read') } },
 					{ context, ultimabase: app },
 				),
-			).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
+			).rejects.toMatchObject({ code: 'NOT_FOUND' })
 			await expect(
 				requireFixture(deletable, 'deletable').delete(
 					{},

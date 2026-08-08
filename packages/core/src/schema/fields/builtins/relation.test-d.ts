@@ -90,7 +90,7 @@ test('types relation traversal and mutation Access without exposing row values',
 				return true
 			},
 			update: ({ kind, value }) => {
-				expectTypeOf(kind).toEqualTypeOf<'update-many' | 'update-one'>()
+				expectTypeOf(kind).toEqualTypeOf<'update' | 'upsert'>()
 				expectTypeOf(value.action).toEqualTypeOf<
 					'clear' | 'connect' | 'disconnect' | 'set'
 				>()

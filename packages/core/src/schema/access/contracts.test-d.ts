@@ -7,8 +7,9 @@ import {
 	type AccessFilter,
 	type InferCreateInput,
 	type InferObject,
-	type InferUpdateInput,
 	type SchemaAccess,
+	type SchemaPreparedDraft,
+	type SchemaResult,
 } from '../index.js'
 import { RequestContextValue, type AccessContext } from '../../access/index.js'
 import type { RequestContext } from '../../runtime/index.js'
@@ -94,36 +95,44 @@ const Article = Schema.define({
 			delete: false,
 		},
 		item: {
-			create: ({ input, item, mode }) => {
-				expectTypeOf(input).toEqualTypeOf<{
-					authorId: string
-					published?: boolean | null
-					title: string
-				}>()
-				expectTypeOf(item).toEqualTypeOf<InferObject<typeof Article>>()
-				expectTypeOf(mode).toEqualTypeOf<'create'>()
+			create: ({ item, kind }) => {
+				expectTypeOf(item).toEqualTypeOf<SchemaPreparedDraft<typeof Article>>()
+				expectTypeOf(kind).toEqualTypeOf<'create'>()
 
-				return input.authorId === item.authorId
+				return item.authorId.length > 0
 			},
-			update: ({ input, item }) => {
-				expectTypeOf(input).toEqualTypeOf<InferUpdateInput<typeof Article>>()
+			update: ({ originalItem, item, kind }) => {
+				expectTypeOf(originalItem).toEqualTypeOf<SchemaResult<typeof Article>>()
+				expectTypeOf(item).toEqualTypeOf<Readonly<InferObject<typeof Article>>>()
+				expectTypeOf(kind).toEqualTypeOf<'update'>()
 
-				return input.authorId === undefined || input.authorId === item.authorId
+				return originalItem.authorId === item.authorId
 			},
 			upsert: (input) => {
+				expectTypeOf(input.kind).toEqualTypeOf<'upsert'>()
 				if (input.mode === 'create') {
-					expectTypeOf(input.input).toEqualTypeOf<
-						InferCreateInput<typeof Article>
-					>()
+					expectTypeOf(input.originalItem).toEqualTypeOf<null>()
+					expectTypeOf(input.item).toEqualTypeOf<
+					SchemaPreparedDraft<typeof Article>
+				>()
 				} else {
-					expectTypeOf(input.input).toEqualTypeOf<
-						InferUpdateInput<typeof Article>
-					>()
+					expectTypeOf(input.originalItem).toEqualTypeOf<
+					SchemaResult<typeof Article>
+				>()
+					expectTypeOf(input.item).toEqualTypeOf<
+					Readonly<InferObject<typeof Article>>
+				>()
 				}
 
 				return true
 			},
-			delete: ({ item }) => item.authorId.length > 0,
+			delete: ({ originalItem, item, kind }) => {
+				expectTypeOf(originalItem).toEqualTypeOf<SchemaResult<typeof Article>>()
+				expectTypeOf(item).toEqualTypeOf<null>()
+				expectTypeOf(kind).toEqualTypeOf<'delete'>()
+
+				return originalItem.authorId.length > 0
+			},
 		},
 	},
 	fields: {
@@ -132,9 +141,7 @@ const Article = Schema.define({
 			access: {
 				create: ({ context, kind, value }) => {
 					expectTypeOf(context).toEqualTypeOf<AccessContext>()
-					expectTypeOf(kind).toEqualTypeOf<
-						'create-many' | 'create-one' | 'upsert-many' | 'upsert-one'
-					>()
+					expectTypeOf(kind).toEqualTypeOf<'create' | 'upsert'>()
 					expectTypeOf(value).toEqualTypeOf<boolean | null>()
 
 					return true
@@ -170,7 +177,9 @@ const Article = Schema.define({
 						return true
 					},
 				},
-				update: ({ value }): Promise<boolean> => {
+				update: ({ kind, originalValue, value }): Promise<boolean> => {
+					expectTypeOf(kind).toEqualTypeOf<'update' | 'upsert'>()
+					expectTypeOf(originalValue).toEqualTypeOf<boolean | null>()
 					expectTypeOf(value).toEqualTypeOf<boolean | null>()
 
 					return Promise.resolve(value !== null)

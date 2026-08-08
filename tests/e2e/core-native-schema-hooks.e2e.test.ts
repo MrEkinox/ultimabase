@@ -138,9 +138,9 @@ describe('packed @ultimabase/core native schema hooks', () => {
 			'update',
 			'upsert',
 		])
-		expect(readHoverDisplay('create-family-kind')).toContain(
-			'"create-many" | "create-one"',
-		)
+		expect(readHoverDisplay('create-family-kind')).toContain('"create-one"')
+		expect(readHoverDisplay('before-create-kind')).toContain('"create"')
+		expect(readHoverDisplay('before-delete-kind')).toContain('"delete"')
 		const display = readHoverDisplay('schema-family-declaration')
 
 		expect(display).toContain('SchemaBeforeOperationHooks<')

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import type { OperationKind } from '../../query/index.js'
-import { getNativeHookPhaseOrder } from './phase-order.js'
+import { getMutationHookKind, getNativeHookPhaseOrder } from './phase-order.js'
 
 const operationKinds = [
 	'count',
@@ -46,7 +46,7 @@ describe('native hook phase order', () => {
 		})
 		expect(getNativeHookPhaseOrder('upsert-many')).toMatchObject({
 			family: 'upsert',
-			schemaBefore: ['beforeUpsert'],
+			schemaBefore: [],
 			schemaAfter: ['afterUpsert'],
 		})
 	})
@@ -66,5 +66,15 @@ describe('native hook phase order', () => {
 		expect(getNativeHookPhaseOrder('delete-many').schemaAfter).toStrictEqual([
 			'afterDelete',
 		])
+	})
+
+	it('maps normalized mutation terminals to cardinality-free hook kinds', () => {
+		expect(getMutationHookKind('create-many')).toBe('create')
+		expect(getMutationHookKind('update-one')).toBe('update')
+		expect(getMutationHookKind('upsert-many')).toBe('upsert')
+		expect(getMutationHookKind('delete-one')).toBe('delete')
+		expect(() => getMutationHookKind('find-many')).toThrow(
+			'Read terminals do not have a mutation hook kind',
+		)
 	})
 })

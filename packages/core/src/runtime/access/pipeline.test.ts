@@ -15,8 +15,8 @@ const securedArticle = Schema.define({
 			update: ({ filter }) => filter.equalTo('published', true),
 		},
 		item: {
-			update: ({ input, item }) =>
-				input.title === 'Changed' && item.published === true,
+			update: ({ originalItem, item }) =>
+				item.title === 'Changed' && originalItem.published === true,
 		},
 		operation: { read: true, update: true },
 	},

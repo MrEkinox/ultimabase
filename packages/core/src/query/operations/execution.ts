@@ -5,45 +5,15 @@ import type { SchemaDefinition } from '../../schema/index.js'
 import type { QueryFilterExpression } from '../filters/logical.js'
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 
-import type {
-	AtomicBulkOperationOptions,
-	BulkOperationResult,
-	OperationAstNode,
-} from './contracts.js'
-import { normalizeBulkAtomicity } from './bulk.js'
-import type { BulkOperationOptions, OperationOptions } from './options.js'
+import type { OperationAstNode } from './contracts.js'
+import type { OperationOptions } from './options.js'
 import type { InferOperationResult } from './results.js'
-
-/** Infers the collection result selected by one public bulk option value. */
-export type InferBulkOperationResult<
-	TResult,
-	TOptions extends BulkOperationOptions | undefined,
-> = BulkOperationResult<TResult, InferBulkOperationAtomicity<TOptions>>
-
-/** Retains the normalized atomic literal selected by one bulk option value. */
-export type InferBulkOperationAtomicity<
-	TOptions extends BulkOperationOptions | undefined,
-> = [TOptions] extends [undefined]
-	? true
-	: 'atomic' extends keyof TOptions
-		? TOptions extends { readonly atomic: false }
-			? false
-			: TOptions extends { readonly atomic?: true }
-				? true
-				: boolean
-		: true
 
 /** @internal Carries validated server-only choices outside every operation AST. */
 export interface NormalizedOperationOptions {
 	readonly context: object | undefined
 	readonly ultimabase: object | undefined
 	readonly useMasterKey: boolean
-}
-
-interface NormalizedBulkOperationOptions<
-	TAtomic extends boolean = boolean,
-> extends NormalizedOperationOptions {
-	readonly bulk: AtomicBulkOperationOptions<TAtomic>
 }
 
 interface QueryExecutionOwnerRegistration {
@@ -59,6 +29,15 @@ interface ActiveQueryExecution {
 /** Erases schema variance only at the application-owned Runtime bridge. */
 export interface QueryExecutionDispatcher {
 	execute(operation: unknown): Promise<unknown>
+}
+
+/** @internal Describes one item inside an atomic schema-command batch. */
+export interface OperationBatchEntry<
+	TOperation extends OperationAstNode = OperationAstNode,
+> {
+	readonly operation: TOperation
+	/** Requires the directed mutation target to exist before the batch may commit. */
+	readonly requireResult?: true
 }
 
 /** @internal Carries one protected object predicate outside the transformable QueryBuilder AST. */
@@ -91,6 +70,12 @@ export type OperationExecutionHandler = (
 	scope: OperationPrivateScope | undefined,
 ) => Promise<unknown>
 
+/** Executes item operations through one Runtime-owned transaction boundary. */
+export type OperationBatchExecutionHandler = (
+	entries: readonly OperationBatchEntry[],
+	options: NormalizedOperationOptions,
+) => Promise<readonly unknown[]>
+
 /** Lets Runtime add one revocable boundary without exposing hook internals here. */
 export interface QueryExecutionGuard {
 	run<TResult>(operation: () => Promise<TResult>): Promise<TResult>
@@ -105,6 +90,10 @@ const operationExecutionHandlers = new WeakMap<
 	QueryExecutionDispatcher,
 	OperationExecutionHandler
 >()
+const operationBatchExecutionHandlers = new WeakMap<
+	QueryExecutionDispatcher,
+	OperationBatchExecutionHandler
+>()
 const emptyOperationOptions: NormalizedOperationOptions = immutableRecord({
 	context: undefined,
 	ultimabase: undefined,
@@ -113,15 +102,9 @@ const emptyOperationOptions: NormalizedOperationOptions = immutableRecord({
 
 const assertKnownOptionKeys = (
 	options: Readonly<Record<string, unknown>>,
-	bulk: boolean,
 ): void => {
 	for (const key of Object.keys(options)) {
-		if (
-			key !== 'context' &&
-			key !== 'ultimabase' &&
-			key !== 'useMasterKey' &&
-			(!bulk || key !== 'atomic')
-		) {
+		if (key !== 'context' && key !== 'ultimabase' && key !== 'useMasterKey') {
 			throw new TypeError(`operation options contain unknown key: ${key}`)
 		}
 	}
@@ -174,40 +157,9 @@ export const normalizeOperationOptions = (
 		throw new TypeError('operation options must be a plain object')
 	}
 
-	assertKnownOptionKeys(untrustedOptions, false)
+	assertKnownOptionKeys(untrustedOptions)
 
 	return normalizeOperationAuthority(untrustedOptions)
-}
-
-/** Normalizes bulk behavior and ownership through one shared public options object. */
-export const normalizeBulkOperationOptions = <
-	const TOptions extends BulkOperationOptions | undefined,
->(
-	options: TOptions | undefined,
-): NormalizedBulkOperationOptions<InferBulkOperationAtomicity<TOptions>> => {
-	if (options === undefined) {
-		return immutableRecord({
-			...emptyOperationOptions,
-			bulk: normalizeBulkAtomicity(undefined),
-		}) as NormalizedBulkOperationOptions<InferBulkOperationAtomicity<TOptions>>
-	}
-
-	const untrustedOptions: unknown = options
-
-	if (!isPlainRecord(untrustedOptions)) {
-		throw new TypeError('operation options must be a plain object')
-	}
-
-	assertKnownOptionKeys(untrustedOptions, true)
-	const operation = normalizeOperationAuthority(untrustedOptions)
-	const atomic: unknown = untrustedOptions.atomic
-
-	return immutableRecord({
-		...operation,
-		bulk: normalizeBulkAtomicity(
-			atomic === undefined ? undefined : { atomic: atomic as boolean },
-		),
-	}) as NormalizedBulkOperationOptions<InferBulkOperationAtomicity<TOptions>>
 }
 
 /** Registers one facade-owned root executor without creating a default application. */
@@ -232,6 +184,20 @@ export const registerOperationExecutionHandler = (
 	}
 
 	operationExecutionHandlers.set(executor, handler)
+}
+
+/** Registers one Runtime-owned atomic batch resolver for an erased executor. */
+export const registerOperationBatchExecutionHandler = (
+	executor: QueryExecutionDispatcher,
+	handler: OperationBatchExecutionHandler,
+): void => {
+	if (operationBatchExecutionHandlers.has(executor)) {
+		throw new TypeError(
+			'operation batch execution handler is already registered',
+		)
+	}
+
+	operationBatchExecutionHandlers.set(executor, handler)
 }
 
 /** Applies server-only options through Runtime while leaving the operation untouched. */
@@ -263,6 +229,28 @@ const dispatchOperation = (
 	}
 
 	return handler(operation, options, scope)
+}
+
+/** Routes one atomic item batch without exposing Runtime transactions to Query. */
+const dispatchOperationBatch = (
+	executor: QueryExecutionDispatcher,
+	entries: readonly OperationBatchEntry[],
+	options: NormalizedOperationOptions,
+): Promise<readonly unknown[]> => {
+	const handler = operationBatchExecutionHandlers.get(executor)
+
+	if (handler === undefined) {
+		throw new FrameworkError(
+			'MISSING_EXECUTION_CONTEXT',
+			'The active query executor cannot execute atomic operation batches.',
+			{
+				publicMessage: 'No request execution context is available.',
+				internalDetails: { reason: 'operation-batch-unavailable' },
+			},
+		)
+	}
+
+	return handler(entries, options)
 }
 
 /** Runs ordinary terminals through one exact request engine in this async branch. */
@@ -302,12 +290,12 @@ export const runWithQueryExecutionGuard = <TResult>(
 	// Authority resolution stays behind the same revocable hook lease.
 	registerOperationExecutionHandler(executor, (operation, options, scope) =>
 		guard.run(() =>
-			dispatchOperation(
-				requireParent().executor,
-				operation,
-				options,
-				scope,
-			),
+			dispatchOperation(requireParent().executor, operation, options, scope),
+		),
+	)
+	registerOperationBatchExecutionHandler(executor, (entries, options) =>
+		guard.run(() =>
+			dispatchOperationBatch(requireParent().executor, entries, options),
 		),
 	)
 
@@ -315,6 +303,59 @@ export const runWithQueryExecutionGuard = <TResult>(
 		immutableRecord({ application: parent?.application, executor }),
 		callback,
 	)
+}
+
+/** Executes ordered item operations inside one all-or-nothing Runtime transaction. */
+export const executeOperationBatch = <
+	const TOperation extends OperationAstNode,
+>(
+	entries: readonly OperationBatchEntry<TOperation>[],
+	options: NormalizedOperationOptions,
+): Promise<readonly InferOperationResult<TOperation>[]> => {
+	const active: ActiveQueryExecution | undefined =
+		activeQueryExecution.getStore()
+	const owner = options.ultimabase
+	const registration =
+		owner === undefined ? undefined : queryExecutionOwners.get(owner)
+
+	if (owner !== undefined && registration === undefined) {
+		throw new TypeError('operation ultimabase must be an UltimaBase instance')
+	}
+
+	if (active !== undefined) {
+		if (
+			registration !== undefined &&
+			active.application !== undefined &&
+			registration.application !== active.application
+		) {
+			throw new FrameworkError(
+				'VALIDATION_ERROR',
+				'Explicit query ownership cannot replace the active application.',
+				{ publicMessage: 'The requested schema is not available.' },
+			)
+		}
+
+		return dispatchOperationBatch(active.executor, entries, options) as Promise<
+			readonly InferOperationResult<TOperation>[]
+		>
+	}
+
+	if (registration === undefined) {
+		throw new FrameworkError(
+			'MISSING_EXECUTION_CONTEXT',
+			'No request is active. Pass { ultimabase } to this schema operation.',
+			{
+				publicMessage: 'No request execution context is available.',
+				internalDetails: { reason: 'query-executor-unavailable' },
+			},
+		)
+	}
+
+	const executor = registration.createRootExecutor()
+
+	return dispatchOperationBatch(executor, entries, options) as Promise<
+		readonly InferOperationResult<TOperation>[]
+	>
 }
 
 /** Resolves one terminal at call time without retaining execution in its QueryBuilder AST. */

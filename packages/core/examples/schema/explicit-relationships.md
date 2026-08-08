@@ -50,17 +50,11 @@ export const Membership = Schema.define({
 	indexes: [{ fields: ['project', 'member'], unique: true }],
 	hooks: {
 		beforeOperation: {
-			create: ({ operation }) => {
+			create: ({ item }) => {
 				// Cross-field edge invariants stay in the ordinary schema lifecycle.
-				if (
-					operation.kind === 'create-one' &&
-					operation.input.role === 'viewer' &&
-					(operation.input.position ?? 0) === 0
-				) {
+				if (item.role === 'viewer' && (item.position ?? 0) === 0) {
 					throw new TypeError('The first project member must be an editor')
 				}
-
-				void operation
 			},
 		},
 	},
