@@ -40,9 +40,12 @@ const articleSchema = Schema.define({
 		published: booleanField(),
 		secret: stringField({
 			access: {
-				create: false,
-				read: { filter: fieldFilter, order: fieldOrder, output: fieldItem },
-				update: true,
+				read: {
+					orderBy: fieldOrder,
+					output: fieldItem,
+					where: fieldFilter,
+				},
+				write: { create: false, update: true },
 			},
 		}),
 		title: stringField({ validation: { required: true } }),
@@ -72,7 +75,10 @@ describe('compiled Access plans', () => {
 		expect(fieldPlan?.read.filter[0]?.rule).toBe(fieldFilter)
 		expect(fieldPlan?.read.order[0]?.rule).toBe(fieldOrder)
 		expect(fieldPlan?.create[0]?.rule).toBe(false)
-		expect(fieldPlan?.update[0]?.rule).toBe(true)
+		expect(fieldPlan?.update.clear[0]?.rule).toBe(true)
+		expect(fieldPlan?.update.fill[0]?.rule).toBe(true)
+		expect(fieldPlan?.update.replace[0]?.rule).toBe(true)
+		expect(fieldPlan?.relationWrite).toStrictEqual([])
 		expect(oneRead).not.toHaveBeenCalled()
 		expect(developerFilter).not.toHaveBeenCalled()
 		expect(fieldItem).not.toHaveBeenCalled()
@@ -156,9 +162,9 @@ describe('compiled Access plans', () => {
 					['secret'],
 					{
 						read: {
-							filter: pluginFieldRule,
-							order: pluginFieldRule,
+							orderBy: pluginFieldRule,
 							output: pluginFieldRule,
+							where: pluginFieldRule,
 						},
 					},
 					{ master: 'enforce' },

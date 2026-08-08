@@ -77,7 +77,7 @@ non-transactional unless the developer explicitly opens a transaction.
 - `anonymous` and `master` are Core's only authority modes; authentication adds typed request context without adding another Core mode.
 - native schema Access controls whole-schema operations, row filters, and item decisions.
 - ACL applies to individual objects and never overrides native Access.
-- native field Access controls selection, filtering, ordering, create input, and update input.
+- native field Access controls output, `where`, `orderBy`, create input, and fill, replace, clear, or relation-write transitions.
 - roles may contain members and other roles without granting an operation by installation alone.
 - master is trusted server-side authority and is audited.
 

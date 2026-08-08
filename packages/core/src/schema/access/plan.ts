@@ -18,8 +18,12 @@ import type { SchemaDefinition } from '../schema/definition.js'
 import type {
 	FieldAccessDeclarations,
 	FieldReadAccessChannel,
+	FieldUpdateAccessTransition,
 } from './field-declarations.js'
-import { fieldReadAccessChannels } from './field-declarations.js'
+import {
+	fieldReadAccessChannels,
+	fieldUpdateAccessTransitions,
+} from './field-declarations.js'
 import type {
 	SchemaAccessDeclarations,
 	SchemaFilterAccessFamily,
@@ -84,7 +88,8 @@ export interface FieldAccessPlan {
 	readonly field: GenericField
 	readonly path: readonly string[]
 	readonly read: CompiledAccessRuleMap<FieldReadAccessChannel>
-	readonly update: readonly CompiledAccessRule[]
+	readonly relationWrite: readonly CompiledAccessRule[]
+	readonly update: CompiledAccessRuleMap<FieldUpdateAccessTransition>
 }
 
 /** Retains every normalized schema-level and field-level Access decision. */
@@ -117,10 +122,12 @@ type MutableAccessRuleMap<TKey extends string> = Record<
 >
 
 interface MutableFieldAccessPlan {
+	readonly create: CompiledAccessRule[]
 	readonly field: GenericField
 	readonly path: readonly string[]
-	readonly rules: MutableAccessRuleMap<'create' | 'update'>
 	readonly read: MutableAccessRuleMap<FieldReadAccessChannel>
+	readonly relationWrite: CompiledAccessRule[]
+	readonly update: MutableAccessRuleMap<FieldUpdateAccessTransition>
 }
 
 interface MutableSchemaAccessPlan {
@@ -305,12 +312,25 @@ const appendFieldDeclarations = (
 		}
 	}
 
-	for (const capability of ['create', 'update'] as const) {
-		const rule = declarations[capability]
+	if (declarations.create !== undefined) {
+		plan.create.push(createCompiledRule(declarations.create, source))
+	}
 
-		if (rule !== undefined) {
-			appendRule(plan.rules, capability, rule, source)
+	if (declarations.update !== undefined) {
+		for (const transition of fieldUpdateAccessTransitions) {
+			appendRule(
+				plan.update,
+				transition,
+				declarations.update[transition],
+				source,
+			)
 		}
+	}
+
+	if (declarations.relationWrite !== undefined) {
+		plan.relationWrite.push(
+			createCompiledRule(declarations.relationWrite, source),
+		)
 	}
 }
 
@@ -319,10 +339,12 @@ const createMutableSchemaPlan = (
 ): MutableSchemaAccessPlan => {
 	const fields = collectFieldTraversalEntries(schema.fields).map(
 		({ field, path }): MutableFieldAccessPlan => ({
+			create: [],
 			field,
 			path,
 			read: createMutableRuleMap(fieldReadAccessChannels),
-			rules: createMutableRuleMap(['create', 'update']),
+			relationWrite: [],
+			update: createMutableRuleMap(fieldUpdateAccessTransitions),
 		}),
 	)
 	const fieldsByPath = new Map<string, MutableFieldAccessPlan>()
@@ -432,11 +454,12 @@ const finalizeSchemaPlan = (
 
 	for (const fieldDraft of draft.fields) {
 		const fieldPlan: FieldAccessPlan = immutableRecord({
-			create: immutableArray(fieldDraft.rules.create),
+			create: immutableArray(fieldDraft.create),
 			field: fieldDraft.field,
 			path: fieldDraft.path,
 			read: finalizeRuleMap(fieldReadAccessChannels, fieldDraft.read),
-			update: immutableArray(fieldDraft.rules.update),
+			relationWrite: immutableArray(fieldDraft.relationWrite),
+			update: finalizeRuleMap(fieldUpdateAccessTransitions, fieldDraft.update),
 		})
 
 		fields.push(fieldPlan)

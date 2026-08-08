@@ -63,10 +63,13 @@ test('infers exact schema and field Access policy targets', () => {
 				schema,
 				['profile', 'displayName'],
 				{
-					create: ({ value }) => {
-						expectTypeOf(value).toEqualTypeOf<string | null>()
+					write: {
+						create: ({ value }) => {
+							expectTypeOf(value).toEqualTypeOf<string | null>()
 
-						return value !== null && value.length > 0
+							return value !== null && value.length > 0
+						},
+						update: true,
 					},
 				},
 				{ master: 'enforce' },
@@ -98,11 +101,26 @@ test('infers exact schema and field Access policy targets', () => {
 					expectTypeOf(field).toEqualTypeOf<typeof schema.fields.endpoint>()
 
 					return {
-						update: ({ originalValue, value }) => {
-							expectTypeOf(originalValue).toEqualTypeOf<URL | null>()
-							expectTypeOf(value).toEqualTypeOf<URL | null>()
+						write: {
+							create: true,
+							update: {
+								clear: ({ originalValue }) => {
+									expectTypeOf(originalValue).toEqualTypeOf<URL | null>()
 
-							return true
+									return true
+								},
+								fill: ({ value }) => {
+									expectTypeOf(value).toEqualTypeOf<URL>()
+
+									return true
+								},
+								replace: ({ originalValue, value }) => {
+									expectTypeOf(originalValue).toEqualTypeOf<URL>()
+									expectTypeOf(value).toEqualTypeOf<URL>()
+
+									return true
+								},
+							},
 						},
 					}
 				},

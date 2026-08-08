@@ -28,9 +28,10 @@ concise `allow` decision. A detailed object colocates `allow`, a private
 `where` restriction when the operation targets existing rows, and an `item`
 decision when Runtime has materialized the relevant values. Schema reads may
 use one shared allow rule or explicit `one`, `many`, `count`, and `exists`
-branches. Inline field reads use a direct boolean or the complete `output`,
-`filter`, and `order` object; `create` and `update` remain direct mutation
-decisions:
+branches. Inline fields separate disclosure (`read`) from value transitions
+(`write`). A detailed read uses the complete `output`, `where`, and `orderBy`
+object. A detailed write separates `create` from the update transitions
+`fill`, `replace`, and `clear`:
 
 ```ts
 const Article = Schema.define({
@@ -48,22 +49,30 @@ const Article = Schema.define({
 	fields: {
 		authorId: stringField({
 			access: {
-				update: ({ originalValue, value }) => value === originalValue,
+				write: {
+					create: true,
+					update: {
+						fill: true,
+						replace: ({ originalValue, value }) => value === originalValue,
+						clear: false,
+					},
+				},
 			},
 			validation: { required: true },
 		}),
 		secret: stringField({
-			access: { read: { output: false, filter: false, order: false } },
+			access: { read: { output: false, where: false, orderBy: false } },
 		}),
 	},
 })
 ```
 
 Using `read: true` or `read: false` applies the same decision to every schema
-read capability or field disclosure channel. The grouped forms require every
-branch so an omitted count, filter, or ordering path cannot inherit a broader
-default. Field callbacks must live under their exact channel; only a boolean
-may apply to all three channels at once.
+read capability or field disclosure channel. `write: true` and `write: false`
+likewise apply to create and every update transition. Detailed forms require
+every branch so an omitted count, predicate, ordering, or transition path
+cannot inherit a broader default. Field callbacks must live under their exact
+channel; only a boolean may apply to every channel in one group.
 
 Callbacks receive an effect-free `AccessContext`: ordinary authority,
 cancellation, request identity, unforgeable capabilities, and typed context
@@ -90,11 +99,12 @@ not persisted `null`, so list cardinality and data semantics remain unchanged.
 
 For updates, schema item rules receive the complete persisted `originalItem`
 and an immutable `item` containing the final candidate after update operators
-have been applied. Generic field rules receive the corresponding
-`originalValue` and final `value`. Nested object rules run at each concrete
-path, including object-list entries; a removed nested value is represented by
-the canonical `null`. Relation field rules keep their typed relation delta
-because those values are not embedded in the parent object.
+have been applied. Generic fields classify that transition as `fill`
+(`null` to non-null), `replace` (non-null to non-null), or `clear` (every final
+`null`, including `null` to `null`). `unset()` and direct `null` therefore share
+one rule. Nested object rules run at each concrete path, including object-list
+entries. Relation fields instead expose one `write({ change })` rule because
+their connect, disconnect, set, and clear deltas are not scalar values.
 
 Declarations are validated and snapshotted without executing callbacks. They
 never appear in enumerable schema or field metadata and do not alter inferred

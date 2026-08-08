@@ -58,8 +58,8 @@ const Article: ArticleSchema = Schema.define({
 
 					return true
 				},
-				update: ({ value }) => {
-					relationTrace.push(`article:tags:update:${value.action}`)
+				write: ({ change }) => {
+					relationTrace.push(`article:tags:update:${change.action}`)
 
 					return true
 				},
@@ -163,7 +163,7 @@ const PrivateArticle = Schema.define({
 	},
 	fields: {
 		tags: relationField({
-			access: { read: false, update: true },
+			access: { read: false, write: true },
 			target: () => Tag,
 		}),
 		title: stringField({ validation: { required: true } }),
@@ -175,7 +175,7 @@ const PrivatePointerPost = Schema.define({
 	fields: {
 		author: pointerField({
 			access: {
-				read: { filter: false, order: true, output: true },
+				read: { orderBy: true, output: true, where: false },
 			},
 			target: () => Author,
 		}),

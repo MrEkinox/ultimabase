@@ -24,7 +24,7 @@ const securedArticle = Schema.define({
 	fields: {
 		published: booleanField(),
 		secret: stringField({
-			access: { read: { filter: false, order: false, output: false } },
+			access: { read: { orderBy: false, output: false, where: false } },
 		}),
 		title: stringField({ validation: { required: true } }),
 	},

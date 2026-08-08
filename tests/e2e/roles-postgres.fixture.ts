@@ -145,9 +145,9 @@ export const ProtectedPost = Schema.define({
 		internalNote: stringField({
 			access: {
 				read: {
-					filter: anyOf(masterOnly, hasRole(AdministratorReference)),
-					order: anyOf(masterOnly, hasRole(AdministratorReference)),
+					orderBy: anyOf(masterOnly, hasRole(AdministratorReference)),
 					output: anyOf(masterOnly, hasRole(AdministratorReference)),
+					where: anyOf(masterOnly, hasRole(AdministratorReference)),
 				},
 			},
 		}),

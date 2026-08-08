@@ -175,14 +175,14 @@ Schema.define({
 		expectDocumentedNames(completions, expected)
 	})
 
-	it('offers only grouped read and mutation decisions on fields', () => {
+	it('offers only grouped read and write decisions on fields', () => {
 		const completions = readMemberCompletions(`
 import { stringField } from '../../src/schema/index.js'
 
 stringField({ access: { /* completion */ } })
 `)
 
-		expectDocumentedNames(completions, ['read', 'create', 'update'])
+		expectDocumentedNames(completions, ['read', 'write'])
 	})
 
 	it('documents every grouped field disclosure channel', () => {
@@ -192,7 +192,30 @@ import { stringField } from '../../src/schema/index.js'
 stringField({ access: { read: { /* completion */ } } })
 `)
 
-		expectDocumentedNames(completions, ['output', 'filter', 'order'])
+		expectDocumentedNames(completions, ['output', 'where', 'orderBy'])
+	})
+
+	it('documents the field write branches and update transitions', () => {
+		const writeCompletions = readMemberCompletions(`
+import { stringField } from '../../src/schema/index.js'
+
+stringField({ access: { write: { /* completion */ } } })
+`)
+		const updateCompletions = readMemberCompletions(`
+import { stringField } from '../../src/schema/index.js'
+
+stringField({
+	access: {
+		write: {
+			create: true,
+			update: { /* completion */ },
+		},
+	},
+})
+`)
+
+		expectDocumentedNames(writeCompletions, ['create', 'update'])
+		expectDocumentedNames(updateCompletions, ['fill', 'replace', 'clear'])
 	})
 
 	it('offers the shared where builder on dynamic schema Access restrictions', () => {

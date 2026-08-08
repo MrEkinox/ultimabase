@@ -422,7 +422,8 @@ const executeDatabaseOperation = async <
 	let operationTransformed = false
 	let finalConstraints = request.constraints
 	const prepareMutationItems =
-		nativeHooks?.requiresPreparedMutationItems(request.operation) === true
+		nativeHooks?.requiresPreparedMutationItems(request.operation) === true ||
+		enforcement?.requiresPreparedMutationItems?.(request.operation) === true
 	const prepareMutation = (
 		operation: TMutationOperation,
 		constraints: readonly DatabaseConstraintNode[],
@@ -536,7 +537,12 @@ const executeDatabaseOperation = async <
 			enforcementState !== undefined
 		) {
 			await enforcement.enforcePreparedMutation(
-				immutableRecord({ context, operation: executableOperation, target }),
+				immutableRecord({
+					context,
+					operation: executableOperation,
+					target,
+					...(targets === undefined ? {} : { targets }),
+				}),
 			)
 		}
 	}
@@ -625,7 +631,12 @@ const executeDatabaseOperation = async <
 			enforcementState !== undefined
 		) {
 			await enforcement.enforcePreparedMutation(
-				immutableRecord({ context, operation: executableOperation, target }),
+				immutableRecord({
+					context,
+					operation: executableOperation,
+					target,
+					...(targets === undefined ? {} : { targets }),
+				}),
 			)
 		}
 

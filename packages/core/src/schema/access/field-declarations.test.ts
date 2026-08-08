@@ -10,6 +10,7 @@ import {
 	type GenericField,
 } from '../index.js'
 import { getFieldAccessDeclarations } from '../fields/base/definition.js'
+import { normalizeRelationFieldAccessDeclarations } from './field-declarations.js'
 
 const declareStringFieldFromUnknown = (options: unknown): GenericField =>
 	Reflect.apply(stringField, undefined, [options]) as GenericField
@@ -20,14 +21,14 @@ describe('field Access declarations', () => {
 		[
 			'enum',
 			enumField({
-				access: { read: { filter: true, order: false, output: true } },
+				access: { read: { orderBy: false, output: true, where: true } },
 				values: ['draft', 'published'],
 			}),
 		],
 		[
 			'object',
 			objectField({
-				access: { read: { filter: true, order: false, output: true } },
+				access: { read: { orderBy: false, output: true, where: true } },
 				fields: { label: stringField() },
 			}),
 		],
@@ -44,7 +45,7 @@ describe('field Access declarations', () => {
 	it('supports plugin fields without exposing Access to plugin metadata', () => {
 		const field = definePluginField(
 			'fixture.slug',
-			{ access: { create: true }, validation: { required: true } },
+			{ access: { write: true }, validation: { required: true } },
 			{
 				snapshotValue: (value, path) => {
 					if (typeof value !== 'string') {
@@ -56,17 +57,20 @@ describe('field Access declarations', () => {
 			},
 		)
 
-		expect(getFieldAccessDeclarations(field)).toStrictEqual({ create: true })
+		expect(getFieldAccessDeclarations(field)).toStrictEqual({
+			create: true,
+			update: { clear: true, fill: true, replace: true },
+		})
 		expect(field.options).not.toHaveProperty('access')
 	})
 
 	it('copies complete read channels while preserving callback identity', () => {
 		const output = () => true
 		const read: {
-			filter: boolean
-			order: boolean
+			orderBy: boolean
 			output: typeof output
-		} = { filter: false, order: false, output }
+			where: boolean
+		} = { orderBy: false, output, where: false }
 		const access = { read }
 		const field = stringField({ access })
 		const declarations = getFieldAccessDeclarations(field)
@@ -79,6 +83,31 @@ describe('field Access declarations', () => {
 			order: false,
 		})
 		expect(Object.isFrozen(declarations?.read)).toBe(true)
+	})
+
+	it('copies complete write transitions while preserving callback identity', () => {
+		const fill = () => true
+		const write: {
+			create: boolean
+			update: {
+				clear: boolean
+				fill: typeof fill
+				replace: boolean
+			}
+		} = {
+			create: true,
+			update: { clear: false, fill, replace: true },
+		}
+		const field = stringField({ access: { write } })
+		const declarations = getFieldAccessDeclarations(field)
+
+		write.update.fill = () => false
+
+		expect(declarations).toStrictEqual({
+			create: true,
+			update: { clear: false, fill, replace: true },
+		})
+		expect(Object.isFrozen(declarations?.update)).toBe(true)
 	})
 
 	it('copies concise boolean read decisions', () => {
@@ -122,19 +151,42 @@ describe('field Access declarations', () => {
 	it.each([
 		[null, 'access must be a plain object'],
 		[[], 'access must be a plain object'],
+		[{ create: true }, 'Unknown Access rule: access.create'],
 		[{ delete: true }, 'Unknown Access rule: access.delete'],
 		[{ filter: true }, 'Unknown Access rule: access.filter'],
 		[{ order: false }, 'Unknown Access rule: access.order'],
+		[{ update: true }, 'Unknown Access rule: access.update'],
 		[{ read: 'allow' }, 'access.read must be a plain object'],
 		[
 			{ read: () => true },
-			'access.read must be a boolean or complete output/filter/order object',
+			'access.read must be a boolean or complete output/where/orderBy object',
 		],
 		[{ read: {} }, 'access.read.output is required'],
-		[{ read: { filter: true, output: true } }, 'access.read.order is required'],
 		[
-			{ read: { filter: true, order: false, output: true, unknown: true } },
+			{ read: { output: true, where: true } },
+			'access.read.orderBy is required',
+		],
+		[
+			{ read: { orderBy: false, output: true, unknown: true, where: true } },
 			'Unknown Access rule: access.read.unknown',
+		],
+		[
+			{ read: { filter: false, order: false, output: true } },
+			'Unknown Access rule: access.read.filter',
+		],
+		[
+			{ write: () => true },
+			'access.write must be a boolean or complete create/update object',
+		],
+		[{ write: {} }, 'access.write.create is required'],
+		[{ write: { create: true } }, 'access.write.update is required'],
+		[
+			{ write: { create: true, update: () => true } },
+			'access.write.update must be a boolean or complete fill/replace/clear object',
+		],
+		[
+			{ write: { create: true, update: { fill: true, replace: true } } },
+			'access.write.update.clear is required',
 		],
 	] as const)('rejects malformed inline declarations %#', (access, message) => {
 		expect(() => declareStringFieldFromUnknown({ access })).toThrow(
@@ -146,5 +198,11 @@ describe('field Access declarations', () => {
 		expect(() =>
 			declareStringFieldFromUnknown({ access: { [Symbol('read')]: true } }),
 		).toThrow(new TypeError('access contains an unsupported symbol key'))
+	})
+
+	it('rejects the legacy relation update capability', () => {
+		expect(() =>
+			normalizeRelationFieldAccessDeclarations({ update: true }),
+		).toThrow(new TypeError('Unknown relation Access rule: access.update'))
 	})
 })

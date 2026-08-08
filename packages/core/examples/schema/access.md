@@ -27,7 +27,14 @@ const Post = Schema.define({
 	fields: {
 		authorId: stringField({
 			access: {
-				update: ({ originalValue, value }) => value === originalValue,
+				write: {
+					create: true,
+					update: {
+						fill: true,
+						replace: ({ originalValue, value }) => value === originalValue,
+						clear: false,
+					},
+				},
 			},
 			validation: { required: true },
 		}),
@@ -35,7 +42,7 @@ const Post = Schema.define({
 		published: booleanField({ default: false }),
 		secret: stringField({
 			access: {
-				read: { output: false, filter: false, order: false },
+				read: { output: false, where: false, orderBy: false },
 			},
 		}),
 	},
@@ -49,3 +56,8 @@ contribution adds no restriction. Complete denial belongs to `allow: false`.
 Field `read: true` and `read: false` apply to output, filtering, and ordering
 together. When those channels differ, all three properties are required so an
 omitted indirect disclosure cannot inherit a broader fallback.
+
+Field `write: true` and `write: false` apply to create and every update
+transition. The detailed form distinguishes filling an empty field, replacing
+a non-null value, and clearing to canonical `null`. Direct `null` and `unset()`
+both use the `clear` rule.

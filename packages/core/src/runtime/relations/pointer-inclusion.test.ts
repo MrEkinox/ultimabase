@@ -193,7 +193,7 @@ describe('pointer Runtime execution', () => {
 			fields: {
 				target: pointerField({
 					access: {
-						read: { filter: true, order: true, output: () => false },
+						read: { orderBy: true, output: () => false, where: true },
 					},
 					target: () => target,
 				}),
@@ -238,13 +238,13 @@ describe('pointer Runtime execution', () => {
 				target: pointerField({
 					access: {
 						read: {
-							filter: true,
-							order: true,
+							orderBy: true,
 							output: ({ value }) => {
 								accessValues.push(value)
 
 								return true
 							},
+							where: true,
 						},
 					},
 					target: () => target,

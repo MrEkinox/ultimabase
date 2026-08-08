@@ -51,9 +51,11 @@ const AccessArticle = Schema.define({
 		rank: intField({ default: 0 }),
 		secret: stringField({
 			access: {
-				create: ({ context }) => context.access.mode === 'master',
-				read: { filter: false, order: false, output: false },
-				update: false,
+				read: { orderBy: false, output: false, where: false },
+				write: {
+					create: ({ context }) => context.access.mode === 'master',
+					update: false,
+				},
 			},
 		}),
 		title: stringField({

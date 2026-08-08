@@ -29,9 +29,9 @@ Schema.define({
 		title: stringField({
 			access: {
 				read: {
-					filter: editorAccess,
-					order: editorAccess,
+					orderBy: editorAccess,
 					output: editorAccess,
+					where: editorAccess,
 				},
 			},
 		}),

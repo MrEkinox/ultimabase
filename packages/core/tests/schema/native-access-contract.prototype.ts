@@ -83,18 +83,36 @@ export const AccessPost = Schema.define({
 		authorId: stringField({ validation: { required: true } }),
 		published: booleanField({
 			access: {
-				create: ({ /* hover:field-value */ value }) => value === true,
-				read: { filter: false, output: true, order: false },
-				update: false,
+				read: { orderBy: false, output: true, where: false },
+				write: {
+					create: ({ /* hover:field-value */ value }) => value === true,
+					update: false,
+				},
 			},
 		}),
 		title: stringField({
 			access: {
-				update: ({ originalValue, value }) => {
-					const /* hover:field-original-value */ previous = originalValue
-					const /* hover:field-update-value */ candidate = value
+				write: {
+					create: true,
+					update: {
+						clear: ({ originalValue }) => {
+							const /* hover:field-clear-original-value */ previous =
+									originalValue
 
-					return previous !== candidate
+							return previous.length > 0
+						},
+						fill: ({ value }) => {
+							const /* hover:field-fill-value */ candidate = value
+
+							return candidate.length > 0
+						},
+						replace: ({ originalValue, value }) => {
+							const /* hover:field-original-value */ previous = originalValue
+							const /* hover:field-update-value */ candidate = value
+
+							return previous !== candidate
+						},
+					},
 				},
 			},
 			validation: { required: true },

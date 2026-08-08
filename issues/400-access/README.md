@@ -17,12 +17,16 @@ The private compiled plan retains four neutral levels:
 - `operation` for an early allow or deny decision;
 - `filter` for database-enforced row restrictions;
 - `item` for create input or one prepared mutation target;
-- `field` for grouped output/filter/order disclosure plus create and update decisions.
+- `field` for grouped output/where/orderBy disclosure plus create and update-transition decisions.
 
 The public schema declaration is operation-oriented under ADR-0169: `read`,
 `create`, `update`, `upsert`, and `delete` colocate their applicable `allow`,
 `where`, and `item` stages. This authoring shape compiles into the same private
 levels above.
+
+ADR-0170 refines field authoring around `read` and `write`. Detailed reads use
+`output`, `where`, and `orderBy`; detailed writes distinguish initial `create`
+input from `fill`, `replace`, and `clear` update transitions.
 
 Access filters reuse the typed Core filter AST but remain separate from the
 developer Query. Runtime combines them with the developer predicate through
@@ -32,7 +36,7 @@ the last output boundary before a result becomes public.
 
 Schema reads accept one shared allow rule or explicit `one`, `many`, `count`,
 and `exists` branches. Field reads accept one shared boolean or the complete
-`output`, `filter`, and `order` disclosure object. Access callbacks omit
+`output`, `where`, and `orderBy` disclosure object. Access callbacks omit
 redundant terminal cardinality and operation discriminants.
 Neutral `allowAll`, `denyAll`, `allOperations`, and `allMutations` utilities
 reduce repetitive declarations without installing callbacks or policy concepts.
@@ -58,6 +62,7 @@ actually references the corresponding subject.
 7. [419 — Verify native Access against PostgreSQL](419-native-access-postgres-e2e.md)
 8. [420 — Define optional Access subject capabilities](420-optional-access-capabilities.md)
 9. [436 — Restructure Access declarations around operations](436-operation-oriented-access-declarations.md)
+10. [437 — Organize field Access around read and write capabilities](437-read-write-field-access.md)
 
 ## Completed stored-role execution order
 

@@ -237,14 +237,6 @@ export interface FieldValueAccessInput<TValue> extends FieldAccessInput {
 	readonly value: TValue
 }
 
-/** Supplies one field's persisted and final candidate values to update Access. */
-export interface FieldUpdateAccessInput<TValue> extends FieldAccessInput {
-	/** Contains the field value visible before applying the update. */
-	readonly originalValue: TValue
-	/** Contains the final candidate value after applying every update operator. */
-	readonly value: TValue
-}
-
 /** Describes every way one field can disclose information during a read. */
 export interface FieldReadAccess<TField extends GenericField> {
 	/**
@@ -255,50 +247,110 @@ export interface FieldReadAccess<TField extends GenericField> {
 		FieldValueAccessInput<FieldHookTypes<TField>['object']>
 	>
 	/**
-	 * Controls whether callers may reference this field in a row predicate.
-	 * @example `filter: false`
+	 * Controls whether callers may reference this field in a `where` predicate.
+	 * @example `where: false`
 	 */
-	readonly filter: AccessDecisionRule<FieldAccessInput>
+	readonly where: AccessDecisionRule<FieldAccessInput>
 	/**
-	 * Controls whether callers may order read results by this field.
-	 * @example `order: false`
+	 * Controls whether callers may reference this field in `orderBy`.
+	 * @example `orderBy: false`
 	 */
-	readonly order: AccessDecisionRule<FieldAccessInput>
+	readonly orderBy: AccessDecisionRule<FieldAccessInput>
 }
 
 /** Applies one boolean to every read channel or declares each channel explicitly. */
 export type FieldReadAccessDeclaration<TField extends GenericField> =
 	boolean | FieldReadAccess<TField>
 
-/** Controls one field independently from schema operation and item decisions. */
-export interface FieldAccess<TField extends GenericField> {
+/** Supplies the final non-null value that fills one previously empty field. */
+export interface FieldFillAccessInput<TValue> extends FieldAccessInput {
+	/** Contains the final candidate after every update operator is applied. */
+	readonly value: Exclude<TValue, null>
+}
+
+/** Supplies the persisted and final non-null values for one replacement. */
+export interface FieldReplaceAccessInput<TValue> extends FieldAccessInput {
+	/** Contains the non-null value visible before the update. */
+	readonly originalValue: Exclude<TValue, null>
+	/** Contains the final non-null candidate after every update operator. */
+	readonly value: Exclude<TValue, null>
+}
+
+/** Supplies the value visible before an update resolves to canonical null. */
+export interface FieldClearAccessInput<TValue> extends FieldAccessInput {
+	/** May itself be null when a caller explicitly clears an already empty field. */
+	readonly originalValue: TValue
+}
+
+/** Declares every update transition explicitly. */
+export interface FieldUpdateAccess<TField extends GenericField> {
 	/**
-	 * Controls output, filtering, and ordering together or by explicit channel.
-	 * @example `read: { output: true, filter: false, order: false }`
+	 * Controls updates from canonical null to a non-null value.
+	 * @example `fill: ({ value }) => value.length > 0`
 	 */
-	readonly read?: FieldReadAccessDeclaration<TField>
+	readonly fill: AccessDecisionRule<
+		FieldFillAccessInput<FieldHookTypes<TField>['object']>
+	>
 	/**
-	 * Controls each present concrete create value, including nested list entries.
-	 * @example `create: true`
+	 * Controls updates from one non-null value to another non-null value.
+	 * @example `replace: ({ originalValue, value }) => originalValue !== value`
 	 */
-	readonly create?: AccessDecisionRule<
+	readonly replace: AccessDecisionRule<
+		FieldReplaceAccessInput<FieldHookTypes<TField>['object']>
+	>
+	/**
+	 * Controls every update whose final candidate is canonical null.
+	 * @example `clear: false`
+	 */
+	readonly clear: AccessDecisionRule<
+		FieldClearAccessInput<FieldHookTypes<TField>['object']>
+	>
+}
+
+/** Applies one update decision to every transition or requires all three branches. */
+export type FieldUpdateAccessDeclaration<TField extends GenericField> =
+	boolean | FieldUpdateAccess<TField>
+
+/** Describes initial field input and every later value transition. */
+export interface FieldWriteAccess<TField extends GenericField> {
+	/**
+	 * Controls a present field supplied through the actual create branch.
+	 * @example `create: ({ value }) => value !== null`
+	 */
+	readonly create: AccessDecisionRule<
 		FieldValueAccessInput<FieldHookTypes<TField>['create']>
 	>
 	/**
-	 * Controls a field change through its persisted and final candidate values.
-	 * @example `update: ({ originalValue, value }) => value >= originalValue`
+	 * Controls all updates together or through fill, replace, and clear.
+	 * @example `update: { fill: true, replace: true, clear: false }`
 	 */
-	readonly update?: AccessDecisionRule<
-		FieldUpdateAccessInput<FieldHookTypes<TField>['object']>
-	>
+	readonly update: FieldUpdateAccessDeclaration<TField>
+}
+
+/** Applies one boolean to every write or declares create and update separately. */
+export type FieldWriteAccessDeclaration<TField extends GenericField> =
+	boolean | FieldWriteAccess<TField>
+
+/** Controls one field through its disclosure and value-transition boundaries. */
+export interface FieldAccess<TField extends GenericField> {
+	/**
+	 * Controls output, where predicates, and ordering together or explicitly.
+	 * @example `read: { output: true, where: false, orderBy: false }`
+	 */
+	readonly read?: FieldReadAccessDeclaration<TField>
+	/**
+	 * Controls every write together or through create and update transitions.
+	 * @example `write: { create: true, update: { fill: true, replace: true, clear: false } }`
+	 */
+	readonly write?: FieldWriteAccessDeclaration<TField>
 }
 
 /** Contextually types inline field rules without retaining them in metadata. */
 export interface FieldAccessDeclaration<TField extends GenericField> {
 	/**
-	 * Declares grouped read disclosure plus create and update decisions.
+	 * Declares grouped read disclosure and write-transition decisions.
 	 *
-	 * @example `access: { read: { output: true, filter: false, order: false } }`
+	 * @example `access: { read: { output: true, where: false, orderBy: false }, write: false }`
 	 */
 	readonly access?: FieldAccess<NoInfer<TField>>
 }

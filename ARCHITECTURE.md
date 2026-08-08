@@ -68,7 +68,14 @@ Schema.define({
 		read: true,
 	},
 	fields: {
-		title: stringField({ access: { update: isEditor } }),
+		title: stringField({
+			access: {
+				write: {
+					create: isEditor,
+					update: { fill: isEditor, replace: isEditor, clear: isEditor },
+				},
+			},
+		}),
 	},
 	extensions: [auditSchema({ category: 'content' })],
 })

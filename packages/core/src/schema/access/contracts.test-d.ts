@@ -118,26 +118,40 @@ const Article = Schema.define({
 		authorId: stringField({ validation: { required: true } }),
 		published: booleanField({
 			access: {
-				create: ({ context, value }) => {
-					expectTypeOf(context).toEqualTypeOf<AccessContext>()
-					expectTypeOf(value).toEqualTypeOf<boolean | null>()
-
-					return true
-				},
 				read: {
 					output: ({ value }) => {
 						expectTypeOf(value).toEqualTypeOf<boolean | null>()
 
 						return true
 					},
-					filter: ({ context }) => context.access.mode === 'master',
-					order: ({ context }) => context.access.mode === 'master',
+					where: ({ context }) => context.access.mode === 'master',
+					orderBy: ({ context }) => context.access.mode === 'master',
 				},
-				update: ({ originalValue, value }): Promise<boolean> => {
-					expectTypeOf(originalValue).toEqualTypeOf<boolean | null>()
-					expectTypeOf(value).toEqualTypeOf<boolean | null>()
+				write: {
+					create: ({ context, value }) => {
+						expectTypeOf(context).toEqualTypeOf<AccessContext>()
+						expectTypeOf(value).toEqualTypeOf<boolean | null>()
 
-					return Promise.resolve(value !== null)
+						return true
+					},
+					update: {
+						fill: ({ value }) => {
+							expectTypeOf(value).toEqualTypeOf<boolean>()
+
+							return true
+						},
+						replace: ({ originalValue, value }): Promise<boolean> => {
+							expectTypeOf(originalValue).toEqualTypeOf<boolean>()
+							expectTypeOf(value).toEqualTypeOf<boolean>()
+
+							return Promise.resolve(true)
+						},
+						clear: ({ originalValue }) => {
+							expectTypeOf(originalValue).toEqualTypeOf<boolean | null>()
+
+							return true
+						},
+					},
 				},
 			},
 		}),
@@ -203,6 +217,12 @@ test('rejects unsupported families and invalid callback results', () => {
 
 	stringField({
 		access: {
+			// @ts-expect-error -- writes are grouped under the write capability.
+			create: true,
+		},
+	})
+	stringField({
+		access: {
 			// @ts-expect-error -- field deletion is a schema or item decision.
 			delete: true,
 		},
@@ -216,7 +236,32 @@ test('rejects unsupported families and invalid callback results', () => {
 	stringField({
 		access: {
 			// @ts-expect-error -- grouped field reads require every disclosure channel.
-			read: { output: true, filter: false },
+			read: { output: true, where: false },
+		},
+	})
+	stringField({
+		access: {
+			read: {
+				// @ts-expect-error -- predicate disclosure is named after public where input.
+				filter: false,
+				order: false,
+				output: true,
+			},
+		},
+	})
+	stringField({
+		access: {
+			// @ts-expect-error -- detailed writes require create and update.
+			write: { create: true },
+		},
+	})
+	stringField({
+		access: {
+			write: {
+				create: true,
+				// @ts-expect-error -- detailed updates require every transition.
+				update: { fill: true, replace: true },
+			},
 		},
 	})
 	Schema.define({

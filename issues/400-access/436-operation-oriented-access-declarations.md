@@ -5,6 +5,7 @@
 - Packages: `@ultimabase/core`, official policy plugins
 - Depends on: 416, 417, 418, 421, 422
 - ADR: ADR-0169
+- Refined by: 437, ADR-0170
 
 ## Goal
 

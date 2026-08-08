@@ -55,13 +55,12 @@ const articleSchema = Schema.define({
 		published: booleanField(),
 		secret: stringField({
 			access: {
-				create: false,
 				read: {
-					filter: false,
-					order: false,
+					orderBy: false,
 					output: ({ value }) => value !== 'hidden',
+					where: false,
 				},
-				update: false,
+				write: false,
 			},
 		}),
 		title: stringField({ validation: { required: true } }),
@@ -167,10 +166,10 @@ describe('NativeAccessRuntime', () => {
 			},
 			fields: {
 				label: stringField({
-					access: { read: { filter: false, order: false, output: true } },
+					access: { read: { orderBy: false, output: true, where: false } },
 				}),
 				visible: booleanField({
-					access: { read: { filter: false, order: false, output: false } },
+					access: { read: { orderBy: false, output: false, where: false } },
 				}),
 			},
 		})
@@ -277,7 +276,7 @@ describe('NativeAccessRuntime', () => {
 		await application.dispose()
 	})
 
-	it('rejects forbidden mutation input and set-based item callbacks', async () => {
+	it('rejects forbidden mutation input and evaluates set-based item callbacks per target', async () => {
 		const application = await createApplication({
 			schemas: [articleSchema],
 			plugins: [],
@@ -301,14 +300,33 @@ describe('NativeAccessRuntime', () => {
 		await expect(
 			stages.evaluate({ context, operation: create }),
 		).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
+		await stages.evaluate({ context, operation: updateMany })
+		expect(stages.requiresPreparedMutationItems?.(updateMany)).toBe(true)
 		await expect(
-			stages.evaluate({ context, operation: updateMany }),
-		).rejects.toMatchObject({
-			code: 'INTERNAL_ERROR',
-			internalDetails: {
-				kind: 'native-access-itemized-terminal-required',
-			},
-		})
+			stages.enforcePreparedMutation?.({
+				context,
+				operation: updateMany,
+				target: undefined,
+				targets: [
+					{
+						createdAt: '2026-08-03T00:00:00.000Z',
+						id: '0198a43e-2431-7000-8000-000000000010',
+						published: true,
+						secret: null,
+						title: 'Original',
+						updatedAt: '2026-08-03T00:00:00.000Z',
+					},
+					{
+						createdAt: '2026-08-03T00:00:00.000Z',
+						id: '0198a43e-2431-7000-8000-000000000011',
+						published: false,
+						secret: null,
+						title: 'Original',
+						updatedAt: '2026-08-03T00:00:00.000Z',
+					},
+				],
+			}),
+		).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
 		await application.dispose()
 	})
 
@@ -347,17 +365,30 @@ describe('NativeAccessRuntime', () => {
 			fields: {
 				visits: intField({
 					access: {
-						update: ({ originalValue, value }) => {
-							fieldValues.push([originalValue, value])
+						write: {
+							create: true,
+							update: {
+								clear: true,
+								fill: true,
+								replace: ({ originalValue, value }) => {
+									fieldValues.push([originalValue, value])
 
-							return value === null || value <= 20
+									return value <= 20
+								},
+							},
 						},
 					},
 				}),
 				title: stringField({
 					access: {
-						create: (input) => !Object.hasOwn(input, 'kind'),
-						update: (input) => !Object.hasOwn(input, 'kind'),
+						write: {
+							create: (input) => !Object.hasOwn(input, 'kind'),
+							update: {
+								clear: true,
+								fill: true,
+								replace: (input) => !Object.hasOwn(input, 'kind'),
+							},
+						},
 					},
 					validation: { required: true },
 				}),
@@ -473,6 +504,98 @@ describe('NativeAccessRuntime', () => {
 		await application.dispose()
 	})
 
+	it('classifies asynchronous field writes from persisted and final values', async () => {
+		const trace: string[] = []
+		const schema = Schema.define({
+			className: 'FieldWriteTransitionAccess',
+			fields: {
+				count: intField({
+					access: {
+						write: {
+							create: async ({ value }) => {
+								await Promise.resolve()
+								trace.push(`create:${String(value)}`)
+
+								return true
+							},
+							update: {
+								clear: async ({ originalValue }) => {
+									await Promise.resolve()
+									trace.push(`clear:${String(originalValue)}`)
+
+									return true
+								},
+								fill: async ({ value }) => {
+									await Promise.resolve()
+									trace.push(`fill:${String(value)}`)
+
+									return true
+								},
+								replace: async ({ originalValue, value }) => {
+									await Promise.resolve()
+									trace.push(
+										`replace:${String(originalValue)}:${String(value)}`,
+									)
+
+									return true
+								},
+							},
+						},
+					},
+				}),
+			},
+		})
+		const application = await createApplication({
+			schemas: [schema],
+			plugins: [],
+		})
+		const stages = requireStages(createEnforcementStages(application))
+		const create = {
+			input: { count: 1 },
+			kind: 'create-one',
+			selection: { fields: [], kind: 'selection' },
+			schema: new QueryBuilder(schema).ast.schema,
+		} satisfies CreateOneOperationAst<typeof schema>
+		const update = (
+			operation: UpdateOneOperationAst<
+				typeof schema
+			>['update']['operations'][number],
+		): UpdateOneOperationAst<typeof schema> => ({
+			kind: 'update-one',
+			query: new QueryBuilder(schema).ast,
+			update: { kind: 'update-expression', operations: [operation] },
+		})
+		const record = (count: number | null) => ({
+			count,
+			createdAt: '2026-08-08T00:00:00.000Z',
+			id: '0198a43e-2431-7000-8000-000000000021',
+			updatedAt: '2026-08-08T00:00:00.000Z',
+		})
+		const fill = update({ field: 'count', kind: 'set', value: 2 })
+		const replace = update({ field: 'count', kind: 'increment', value: 3 })
+		const clear = update({ field: 'count', kind: 'set', value: null })
+
+		await stages.evaluate({ context, operation: create })
+		for (const [operation, target] of [
+			[fill, record(null)],
+			[replace, record(2)],
+			[clear, record(5)],
+			[clear, record(null)],
+		] as const) {
+			await stages.evaluate({ context, operation })
+			await stages.enforcePreparedMutation?.({ context, operation, target })
+		}
+
+		expect(trace).toStrictEqual([
+			'create:1',
+			'fill:2',
+			'replace:2:5',
+			'clear:5',
+			'clear:null',
+		])
+		await application.dispose()
+	})
+
 	it('evaluates nested create Access once per concrete object-list value', async () => {
 		const trace: string[] = []
 		const schema = Schema.define({
@@ -480,19 +603,25 @@ describe('NativeAccessRuntime', () => {
 			fields: {
 				groups: objectField({
 					access: {
-						create: () => {
-							trace.push('groups')
+						write: {
+							create: () => {
+								trace.push('groups')
 
-							return true
+								return true
+							},
+							update: true,
 						},
 					},
 					fields: {
 						label: stringField({
 							access: {
-								create: ({ value }) => {
-									trace.push(`label:${String(value)}`)
+								write: {
+									create: ({ value }) => {
+										trace.push(`label:${String(value)}`)
 
-									return value !== 'forbidden'
+										return value !== 'forbidden'
+									},
+									update: true,
 								},
 							},
 						}),
@@ -534,10 +663,21 @@ describe('NativeAccessRuntime', () => {
 					fields: {
 						label: stringField({
 							access: {
-								update: ({ originalValue, value }) => {
-									groupValues.push([originalValue, value])
+								write: {
+									create: true,
+									update: {
+										clear: ({ originalValue }) => {
+											groupValues.push([originalValue, null])
 
-									return true
+											return true
+										},
+										fill: true,
+										replace: ({ originalValue, value }) => {
+											groupValues.push([originalValue, value])
+
+											return true
+										},
+									},
 								},
 							},
 						}),
@@ -548,10 +688,17 @@ describe('NativeAccessRuntime', () => {
 					fields: {
 						label: stringField({
 							access: {
-								update: ({ originalValue, value }) => {
-									profileValues.push([originalValue, value])
+								write: {
+									create: true,
+									update: {
+										clear: true,
+										fill: true,
+										replace: ({ originalValue, value }) => {
+											profileValues.push([originalValue, value])
 
-									return true
+											return true
+										},
+									},
 								},
 							},
 						}),
@@ -604,13 +751,29 @@ describe('NativeAccessRuntime', () => {
 		await application.dispose()
 	})
 
-	it('requires itemization when nested field update Access depends on values', async () => {
+	it('evaluates nested field update Access for every prepared bulk target', async () => {
+		const values: [string, string][] = []
 		const schema = Schema.define({
 			className: 'NestedFieldBulkAccess',
 			fields: {
 				profile: objectField({
 					fields: {
-						label: stringField({ access: { update: () => true } }),
+						label: stringField({
+							access: {
+								write: {
+									create: true,
+									update: {
+										clear: true,
+										fill: true,
+										replace: ({ originalValue, value }) => {
+											values.push([originalValue, value])
+
+											return originalValue !== 'Denied'
+										},
+									},
+								},
+							},
+						}),
 					},
 				}),
 			},
@@ -635,14 +798,33 @@ describe('NativeAccessRuntime', () => {
 			},
 		} satisfies UpdateManyOperationAst<typeof schema>
 
-		await expect(stages.evaluate({ context, operation })).rejects.toMatchObject(
-			{
-				code: 'INTERNAL_ERROR',
-				internalDetails: {
-					kind: 'native-access-field-itemized-terminal-required',
-				},
-			},
-		)
+		await stages.evaluate({ context, operation })
+		expect(stages.requiresPreparedMutationItems?.(operation)).toBe(true)
+		await expect(
+			stages.enforcePreparedMutation?.({
+				context,
+				operation,
+				target: undefined,
+				targets: [
+					{
+						createdAt: '2026-08-03T00:00:00.000Z',
+						id: '0198a43e-2431-7000-8000-000000000031',
+						profile: { label: 'Allowed' },
+						updatedAt: '2026-08-03T00:00:00.000Z',
+					},
+					{
+						createdAt: '2026-08-03T00:00:00.000Z',
+						id: '0198a43e-2431-7000-8000-000000000032',
+						profile: { label: 'Denied' },
+						updatedAt: '2026-08-03T00:00:00.000Z',
+					},
+				],
+			}),
+		).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
+		expect(values).toStrictEqual([
+			['Allowed', 'Updated'],
+			['Denied', 'Updated'],
+		])
 		await application.dispose()
 	})
 
@@ -673,10 +855,17 @@ describe('NativeAccessRuntime', () => {
 				title: stringField({ validation: { required: true } }),
 				visits: intField({
 					access: {
-						update: ({ originalValue, value }) => {
-							fieldValues.push([originalValue, value])
+						write: {
+							create: true,
+							update: {
+								clear: true,
+								fill: true,
+								replace: ({ originalValue, value }) => {
+									fieldValues.push([originalValue, value])
 
-							return true
+									return true
+								},
+							},
 						},
 					},
 				}),
@@ -745,19 +934,33 @@ describe('NativeAccessRuntime', () => {
 			fields: {
 				first: intField({
 					access: {
-						update: ({ originalValue, value }) => {
-							firstValues.push([originalValue, value])
+						write: {
+							create: true,
+							update: {
+								clear: true,
+								fill: true,
+								replace: ({ originalValue, value }) => {
+									firstValues.push([originalValue, value])
 
-							return true
+									return true
+								},
+							},
 						},
 					},
 				}),
 				second: intField({
 					access: {
-						update: ({ originalValue, value }) => {
-							secondValues.push([originalValue, value])
+						write: {
+							create: true,
+							update: {
+								clear: true,
+								fill: true,
+								replace: ({ originalValue, value }) => {
+									secondValues.push([originalValue, value])
 
-							return true
+									return true
+								},
+							},
 						},
 					},
 				}),
@@ -841,13 +1044,13 @@ describe('NativeAccessRuntime', () => {
 			secret: stringField({
 				access: {
 					read: {
-						filter: true,
-						order: true,
+						orderBy: true,
 						output: ({ value }) => {
 							trace.push(`secret:${String(value)}`)
 
 							return value !== 'hidden'
 						},
+						where: true,
 					},
 				},
 			}),
@@ -861,13 +1064,13 @@ describe('NativeAccessRuntime', () => {
 						secret: stringField({
 							access: {
 								read: {
-									filter: true,
-									order: true,
+									orderBy: true,
 									output: () => {
 										blockedChildRuns += 1
 
 										return true
 									},
+									where: true,
 								},
 							},
 						}),
@@ -876,13 +1079,13 @@ describe('NativeAccessRuntime', () => {
 				groups: objectField({
 					access: {
 						read: {
-							filter: true,
-							order: true,
+							orderBy: true,
 							output: () => {
 								trace.push('groups')
 
 								return true
 							},
+							where: true,
 						},
 					},
 					fields: protectedFields,

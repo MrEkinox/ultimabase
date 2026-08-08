@@ -134,7 +134,7 @@ describe('plugin Access targets', () => {
 			({ path }) => {
 				extensionPaths.push(path)
 
-				return { update: false }
+				return { write: false }
 			},
 			{ master: 'bypass' },
 		)
@@ -144,7 +144,7 @@ describe('plugin Access targets', () => {
 			({ field }) => {
 				expect(field).toBe(vectorField)
 
-				return { create: true }
+				return { write: true }
 			},
 			{ master: 'enforce' },
 		)

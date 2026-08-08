@@ -170,7 +170,7 @@ export interface PluginAccessRegistry {
 	): void
 	/**
 	 * Expands field Access over one typed namespaced community field kind.
-	 * @example `access.fieldKind('vectors', vectorTarget, () => ({ update: false }), { master: 'enforce' })`
+	 * @example `access.fieldKind('vectors', vectorTarget, () => ({ write: false }), { master: 'enforce' })`
 	 */
 	fieldKind<TField extends GenericField>(
 		name: string,

@@ -639,15 +639,21 @@ const PostSchema = Schema.define({
 	fields: {
 		authorId: stringField({
 			access: {
-				update: ({ originalValue, value }) => value === originalValue,
+				write: {
+					create: true,
+					update: {
+						fill: true,
+						replace: ({ originalValue, value }) => value === originalValue,
+						clear: false,
+					},
+				},
 			},
 			validation: { required: true },
 		}),
 		published: booleanField({
 			access: {
-				create: true,
-				read: { output: true, filter: false, order: false },
-				update: false,
+				read: { output: true, where: false, orderBy: false },
+				write: { create: true, update: false },
 			},
 		}),
 		title: stringField({ validation: { required: true } }),
@@ -658,8 +664,8 @@ const PostSchema = Schema.define({
 These declarations are validated and retained privately; they do not enter
 schema metadata, validation plans, migrations, or inferred model values. A
 schema read may instead use one shared rule, and a field `read: false` denies
-output, filtering, and ordering together. Every grouped form is
-complete so indirect disclosure cannot inherit an accidentally broader rule.
+output, `where`, and `orderBy` together. Every grouped form is complete so
+indirect disclosure cannot inherit an accidentally broader rule.
 An omitted rule does not create an implicit callback: the compiled application
 fallback decides operation and field access. Runtime executes every matching
 rule sequentially through the same cancellation, recursion, and diagnostic
@@ -669,10 +675,13 @@ Access callbacks are pure decisions and may be evaluated again after input
 transformation, target locking, or final upsert branch resolution. This keeps
 the decision attached to the value that is actually persisted.
 
-Field create Access traverses normalized objects parent-first. Nested fields in
+Field write Access traverses normalized objects parent-first. `create` protects
+a supplied value on the actual create branch. Updates are classified from the
+persisted value and final candidate as `fill`, `replace`, or `clear`; a direct
+`null` and `unset()` therefore share the same `clear` decision. Nested fields in
 object lists are evaluated once per concrete entry, including multidimensional
-lists. Cross-field decisions use the schema's `create.item` rule, which receives
-the complete draft.
+lists. Cross-field decisions use schema item rules, which receive complete
+materialized candidates.
 
 Field output Access follows the same concrete traversal. A denied parent omits
 its complete property and skips descendant rules; a denied nested occurrence
@@ -689,11 +698,13 @@ receives only that persisted `originalItem`; upsert exposes the actual branch
 through `mode`. Every contribution for one decision observes the same
 materialized values.
 
-Generic field update Access follows the same rule through `originalValue` and
-the final `value`. Nested object fields are evaluated at their concrete paths,
-including each object-list entry; removing a nested value exposes `null` as its
-final canonical value. Relation fields intentionally keep their typed mutation
-delta because to-many relations are not embedded inside the parent object.
+Generic field write Access classifies final values as `fill`, `replace`, or
+`clear`. Replacement receives non-null `originalValue` and `value`; filling
+receives the final non-null `value`; clearing receives the possibly-null
+`originalValue`. Nested object fields are evaluated at their concrete paths,
+including each object-list entry. Relation fields intentionally expose their
+typed `change` delta because to-many relations are not embedded inside the
+parent object.
 
 An Access `where` rule uses the canonical `WhereInput` contract and normalized
 predicate nodes from `Query.where`, while remaining in private monotonic state.

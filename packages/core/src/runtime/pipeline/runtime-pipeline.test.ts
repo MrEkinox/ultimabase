@@ -562,6 +562,69 @@ describe('RuntimePipeline', () => {
 		expect(preparedRequest?.prepareMutationItems).toBe(true)
 	})
 
+	it('forwards Access bulk targets from preparation to enforcement', async () => {
+		const trace: string[] = []
+		const targets = immutableArray([
+			immutableRecord({
+				createdAt: '2026-08-08T00:00:00.000Z',
+				id: '0198f090-2a50-7000-8000-000000000082',
+				title: 'First',
+				updatedAt: '2026-08-08T00:00:00.000Z',
+			}),
+			immutableRecord({
+				createdAt: '2026-08-08T00:00:00.000Z',
+				id: '0198f090-2a50-7000-8000-000000000083',
+				title: 'Second',
+				updatedAt: '2026-08-08T00:00:00.000Z',
+			}),
+		])
+		let preparedRequest: DatabaseOperationRequest | undefined
+		let observedTargets: readonly unknown[] | undefined
+		const transaction: DatabaseTransactionAdapter = {
+			kind: 'database-transaction-adapter',
+			prepare: <const TOperation extends DatabaseMutationOperationAst>(
+				request: DatabaseOperationRequest<TOperation>,
+			): Promise<PreparedDatabaseOperation<TOperation>> => {
+				preparedRequest = request
+
+				return Promise.resolve({
+					execute: () =>
+						Promise.resolve({ materializations: [], result: [] }) as Promise<
+							Awaited<
+								ReturnType<PreparedDatabaseOperation<TOperation>['execute']>
+							>
+						>,
+					targets,
+				} as unknown as PreparedDatabaseOperation<TOperation>)
+			},
+			execute: <const TOperation extends DatabaseOperationAst>(): Promise<
+				DatabaseOperationResult<TOperation>
+			> => Promise.reject(new TypeError('Unexpected direct execution')),
+			commit: () => Promise.resolve(),
+			rollback: () => Promise.resolve(),
+		}
+		const enforcement: RuntimeEnforcementStages = {
+			...createEnforcementStages(trace),
+			enforcePreparedMutation: (input) => {
+				observedTargets = input.targets
+			},
+			requiresPreparedMutationItems: () => true,
+		}
+		const pipeline = new RuntimePipeline(
+			createStages(trace, transaction, { enforcement }),
+		)
+
+		await expect(
+			pipeline.execute({
+				context: requestContext,
+				operation: articleUpdateManyOperation,
+			}),
+		).resolves.toStrictEqual([])
+		expect(preparedRequest?.prepareMutationItems).toBe(true)
+		expect(observedTargets).toStrictEqual(targets)
+		expect(Object.isFrozen(observedTargets)).toBe(true)
+	})
+
 	it('enforces reads before observers and restricts the final result', async () => {
 		const trace: string[] = []
 		const executor = new TraceDatabaseExecutor(trace, [])

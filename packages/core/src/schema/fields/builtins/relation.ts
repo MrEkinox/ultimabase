@@ -3,7 +3,6 @@ import { assertNonEmptyString, immutableRecord } from '@ultimabase/shared'
 import type {
 	AccessDecisionRule,
 	FieldAccessInput,
-	FieldValueAccessInput,
 } from '../../access/contracts.js'
 import { normalizeRelationFieldAccessDeclarations } from '../../access/field-declarations.js'
 import {
@@ -70,14 +69,20 @@ export interface RelationFieldMetadataOptions<
 /** Supplies the protected source-field decision used by related reads. */
 export type RelationFieldReadAccessInput = FieldAccessInput
 
+/** Supplies one immutable connect, disconnect, set, or clear relation change. */
+export interface RelationFieldWriteAccessInput<
+	TTarget extends SchemaDefinition,
+> extends FieldAccessInput {
+	/** Contains the logical relation change requested by the update. */
+	readonly change: RelationMutationDelta<TTarget>
+}
+
 /** Controls relation traversal and logical edge mutation independently. */
 export interface RelationFieldAccess<TTarget extends SchemaDefinition> {
 	/** Controls whether callers may traverse this related collection. */
 	readonly read?: AccessDecisionRule<RelationFieldReadAccessInput>
 	/** Controls one immutable connect, disconnect, set, or clear delta. */
-	readonly update?: AccessDecisionRule<
-		FieldValueAccessInput<RelationMutationDelta<TTarget>>
-	>
+	readonly write?: AccessDecisionRule<RelationFieldWriteAccessInput<TTarget>>
 }
 
 /** Declares one transport-neutral to-many relationship. */
@@ -88,7 +93,7 @@ export interface RelationFieldOptions<
 > extends RelationFieldMetadataOptions<TMappedBy> {
 	/**
 	 * Declares relation traversal and mutation rules without exposing row values.
-	 * @example `access: { read: true, update: ({ context }) => context.access.mode === "master" }`
+	 * @example `access: { read: true, write: ({ context }) => context.access.mode === "master" }`
 	 */
 	readonly access?: RelationFieldAccess<TTarget>
 	/**

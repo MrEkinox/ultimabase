@@ -81,16 +81,24 @@ test('types relation traversal and mutation Access without exposing row values',
 
 				return true
 			},
-			update: ({ value }) => {
-				expectTypeOf(value.action).toEqualTypeOf<
+			write: ({ change }) => {
+				expectTypeOf(change.action).toEqualTypeOf<
 					'clear' | 'connect' | 'disconnect' | 'set'
 				>()
-				expectTypeOf(value.targets).items.toEqualTypeOf<
+				expectTypeOf(change.targets).items.toEqualTypeOf<
 					Pointer<typeof RelationTag>
 				>()
 
 				return true
 			},
+		},
+		target: () => RelationTag,
+	})
+
+	relationField({
+		access: {
+			// @ts-expect-error -- relation changes are grouped under write.
+			update: true,
 		},
 		target: () => RelationTag,
 	})

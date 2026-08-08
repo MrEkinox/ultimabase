@@ -31,6 +31,42 @@ const packedSource = packedFixture.replace(markerPattern, (marker) =>
 )
 const languageService = createLanguageService(packedFixtureFile, packedSource)
 
+/** Reads exact packed member suggestions without relying on source declarations. */
+const readPackedCompletions = (sourceWithMarker: string): readonly string[] => {
+	const marker = '/* completion */'
+	const position = sourceWithMarker.indexOf(marker)
+
+	if (position < 0) {
+		throw new TypeError('Missing packed Access completion marker')
+	}
+
+	const fileName = path.join(
+		repositoryRoot,
+		'tests/e2e/core-native-access-completion.packed.fixture.ts',
+	)
+	const service = createLanguageService(
+		fileName,
+		sourceWithMarker.replace(marker, ' '.repeat(marker.length)),
+	)
+	const completions = service.getCompletionsAtPosition(fileName, position, {
+		includeCompletionsWithInsertText: true,
+		triggerKind: ts.CompletionTriggerKind.Invoked,
+	})
+
+	if (completions === undefined) {
+		throw new TypeError('Missing packed Access completions')
+	}
+
+	return completions.entries
+		.filter(
+			(entry) =>
+				entry.kind === ts.ScriptElementKind.memberVariableElement ||
+				entry.kind === ts.ScriptElementKind.memberFunctionElement,
+		)
+		.map(({ name }) => name)
+		.sort()
+}
+
 /** Reads public QuickInfo after one stable packed-consumer marker. */
 const readHoverDisplay = (name: string): string => {
 	const marker = `/* hover:${name} */`
@@ -65,20 +101,16 @@ describe('packed @ultimabase/core native Access contract', () => {
 		).toStrictEqual([])
 	})
 
-	it('preserves operation, item, context-value, and field inference', () => {
+	it('preserves operation, item, context-value, and transition inference', () => {
 		const operationInput = readHoverDisplay('operation-access-input')
 
 		expect(operationInput).toContain('SchemaOperationAccessInput')
 		expect(operationInput).not.toContain('kind')
-		expect(readHoverDisplay('create-access-kind')).toContain('"create"')
-		expect(readHoverDisplay('update-access-kind')).toContain('"update"')
-		expect(readHoverDisplay('delete-access-kind')).toContain('"delete"')
-		expect(readHoverDisplay('field-create-kind')).toContain(
-			'"create" | "upsert"',
-		)
 		expect(readHoverDisplay('context-value')).toContain('Principal | undefined')
 		expect(readHoverDisplay('field-original-value')).toContain('string')
 		expect(readHoverDisplay('field-update-value')).toContain('string')
+		expect(readHoverDisplay('field-fill-value')).toContain('string')
+		expect(readHoverDisplay('field-clear-original-value')).toContain('string')
 		const createItem = readHoverDisplay('create-access-item')
 		const originalUpdateItem = readHoverDisplay('update-original-access-item')
 		const updateItem = readHoverDisplay('update-access-item')
@@ -95,6 +127,39 @@ describe('packed @ultimabase/core native Access contract', () => {
 
 		expect(whereDisplay).toContain('WhereBuilder<SchemaClass<"AccessPost"')
 		expect(whereDisplay).not.toContain('Query<')
+	})
+
+	it('offers the complete field Access hierarchy through packed exports', () => {
+		expect(
+			readPackedCompletions(`
+import { stringField } from '@ultimabase/core'
+
+stringField({ access: { /* completion */ } })
+`),
+		).toStrictEqual(['read', 'write'])
+		expect(
+			readPackedCompletions(`
+import { stringField } from '@ultimabase/core'
+
+stringField({ access: { read: { /* completion */ } } })
+`),
+		).toStrictEqual(['orderBy', 'output', 'where'])
+		expect(
+			readPackedCompletions(`
+import { stringField } from '@ultimabase/core'
+
+stringField({ access: { write: { /* completion */ } } })
+`),
+		).toStrictEqual(['create', 'update'])
+		expect(
+			readPackedCompletions(`
+import { stringField } from '@ultimabase/core'
+
+stringField({
+	access: { write: { create: true, update: { /* completion */ } } },
+})
+`),
+		).toStrictEqual(['clear', 'fill', 'replace'])
 	})
 
 	it('exposes concise documented Access helpers from the package root', () => {

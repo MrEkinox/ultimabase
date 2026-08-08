@@ -167,6 +167,10 @@ export interface RuntimeEnforcementStages {
 	readonly enforcePreparedMutation?: RuntimePreparedMutationEffectStage
 	/** Enforces the exact create or update branch materialized by a mutation. */
 	readonly enforceMutationOutcome?: RuntimeMutationOutcomeTransformStage
+	/** Requests stable set-based preimages when Access contains item-aware rules. */
+	readonly requiresPreparedMutationItems?: (
+		operation: DatabaseMutationOperationAst,
+	) => boolean
 }
 
 /** Transforms one adapter result while preserving operation result semantics. */

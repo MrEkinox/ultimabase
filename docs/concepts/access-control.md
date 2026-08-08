@@ -15,9 +15,10 @@ singular and collection reads, counts, existence checks, creates, updates,
 upserts, deletes, row visibility, and prepared items without installing a
 permission plugin.
 
-`field.access` controls item output, filtering, ordering, create input, and
-update input. Forbidden columns are not selected. Explicit forbidden field use
-returns a typed error.
+`field.access.read` controls output, `where`, and `orderBy`. `field.access.write`
+controls supplied create values and the update transitions `fill`, `replace`,
+and `clear`; relation fields instead authorize their typed change. Forbidden
+columns are not selected. Explicit forbidden field use returns a typed error.
 
 Every independent declaration and provider contribution combines monotonically
 through logical `AND`; no later policy can broaden an earlier restriction.

@@ -249,7 +249,7 @@ await user.relation('posts').clear()
 `connect` and `disconnect` require one pointer or a non-empty pointer tuple;
 `set` replaces the complete set and accepts an empty array; `clear` expresses
 that empty replacement directly. Duplicate or foreign pointers fail before a
-transaction starts. Once execution begins, source field update Access, schema
+transaction starts. Once execution begins, source field write Access, schema
 update hooks, target visibility, nested writes, and adapter execution share one
 automatic or inherited transaction. Missing and inaccessible sources or targets
 both surface as `NOT_FOUND`.

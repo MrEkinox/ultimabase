@@ -746,6 +746,8 @@ export const createEnforcementStages = <
 		enforceRelationRead: (input) => access.enforceRelationRead(input),
 		enforcePreparedMutation: (input) => access.enforcePreparedMutation(input),
 		enforceMutationOutcome: (input) => access.enforceMutationOutcome(input),
+		requiresPreparedMutationItems: (operation) =>
+			access.requiresPreparedMutationItems(operation),
 		enforceSelectionResult: enforceAccessSelectionResult,
 		enforceResult: enforceAccessResult,
 		reevaluate: async (input) => {

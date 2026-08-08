@@ -46,9 +46,11 @@ const createRelationRuntimeFixture = async (
 			name: stringField(),
 			targets: relationField({
 				access: {
-					update: ({ context, value }) => {
+					write: ({ context, change }) => {
 						accessModes.push(context.access.mode)
-						trace.push(`access:${value.action}:${String(value.targets.length)}`)
+						trace.push(
+							`access:${change.action}:${String(change.targets.length)}`,
+						)
 
 						return options.requiredAccessMode === undefined
 							? (options.allowUpdate ?? true)

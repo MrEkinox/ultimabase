@@ -5,6 +5,7 @@
 - Packages: `@ultimabase/core`
 - Depends on: 418, 742
 - ADR: ADR-0099, ADR-0100, ADR-0118
+- Refined by: ADR-0170
 
 ## Goal
 
