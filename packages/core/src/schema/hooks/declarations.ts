@@ -19,8 +19,6 @@ export const schemaHookPhases = [
 	'afterUpsert',
 	'beforeDelete',
 	'afterDelete',
-	'beforeCommit',
-	'afterCommit',
 ] as const
 
 /** Identifies every schema phase accepted at the declaration boundary. */
@@ -44,10 +42,6 @@ const schemaHookGroups = {
 		create: 'beforeCreate',
 		delete: 'beforeDelete',
 		update: 'beforeUpdate',
-	},
-	transaction: {
-		afterCommit: 'afterCommit',
-		beforeCommit: 'beforeCommit',
 	},
 } as const
 

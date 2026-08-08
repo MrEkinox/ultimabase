@@ -4,7 +4,6 @@ import {
 	compileValidationPlans,
 	Pointer,
 	Schema,
-	type HookValidationIssue,
 	type SchemaDefinition,
 	type SchemaValidationPlans,
 	type ValidationIssuePath,
@@ -622,12 +621,6 @@ export interface RuntimeHookBoundaries {
 		operation: TOperation,
 		outcome: unknown,
 	): DatabaseOperationOutcome<TOperation>
-
-	/** Converts accumulated business issues into one immutable framework error. */
-	throwHookValidationIssues(
-		issues: readonly HookValidationIssue[],
-		path?: ValidationIssuePath,
-	): void
 }
 
 /** Creates one application-scoped cache for hook boundary validation plans. */
@@ -1002,24 +995,6 @@ export const createRuntimeHookBoundaries = (): RuntimeHookBoundaries => {
 				replacement,
 				selectedFields,
 			) as unknown as RuntimeOperationResult<TOperation>
-		},
-		throwHookValidationIssues: (
-			issues: readonly HookValidationIssue[],
-			path: ValidationIssuePath = [],
-		): void => {
-			if (issues.length === 0) {
-				return
-			}
-
-			throwRuntimeValidationIssues(
-				issues.map((issue) =>
-					immutableRecord({
-						...issue,
-						path: immutableArray([...path, ...issue.path]),
-					}),
-				),
-				hookBoundaryErrorDescription,
-			)
 		},
 	})
 }

@@ -74,18 +74,11 @@ export const ArticleSchema = Schema.define({
 		},
 		afterOperation: {
 			create: (input) => {
-				const /* hover:create-result */ created = input.item
+				const /* hover:create-item */ created = input.item
+				const /* hover:create-item-update */ update = created.update
 
 				created.title.toUpperCase()
-
-				void input.result
-			},
-		},
-		transaction: {
-			afterCommit: ({ changes }) => {
-				const /* hover:transaction-changes */ committed = changes
-
-				void committed
+				void update
 			},
 		},
 	},

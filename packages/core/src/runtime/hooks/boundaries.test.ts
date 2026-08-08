@@ -18,7 +18,6 @@ import {
 	pointerField,
 	Schema,
 	stringField,
-	type HookValidationIssue,
 } from '../../schema/index.js'
 import { FrameworkError } from '../../foundation.js'
 import {
@@ -453,37 +452,5 @@ describe('runtime hook boundaries', () => {
 			objectId: targetId,
 			selectedFields: ['name'],
 		})
-	})
-
-	it('converts business issues into one immutable path-prefixed framework error', () => {
-		const boundaries = createRuntimeHookBoundaries()
-		const issues: readonly HookValidationIssue[] = [
-			{
-				code: 'article.invalid-title',
-				message: 'Title is reserved',
-				path: ['title'],
-			},
-		]
-
-		try {
-			boundaries.throwHookValidationIssues(issues, ['input'])
-			expect.unreachable('Expected hook validation to fail')
-		} catch (error: unknown) {
-			expect(error).toMatchObject({
-				code: 'VALIDATION_ERROR',
-				publicMessage: 'A hook returned an invalid value.',
-			})
-			const normalizedIssues = readIssues(error)
-
-			expect(normalizedIssues).toStrictEqual([
-				{
-					code: 'article.invalid-title',
-					message: 'Title is reserved',
-					path: ['input', 'title'],
-				},
-			])
-			expect(Object.isFrozen(readRawIssues(error))).toBe(true)
-			expect(Object.isFrozen(normalizedIssues[0]?.path)).toBe(true)
-		}
 	})
 })

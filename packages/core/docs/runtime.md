@@ -311,12 +311,12 @@ Root reads do not open an automatic transaction. A read inside
 engine; otherwise, hooks must not assume read-started database work can roll
 back with the read.
 
-## Transaction finalization hooks
+## Post-commit events
 
-Every automatic mutation and explicit transaction shares one finalization
-lifecycle. `beforeCommit` receives the successful mutations accumulated for its
-schema and may still abort the transaction. `afterCommit` receives the same
-per-schema summary once, only after the adapter confirms the outer commit:
+Schema operation hooks run inside the active mutation transaction. They may
+perform transactional work or throw to abort it. External work is queued with
+`context.emit()` and delivered only after the adapter confirms the outer
+commit:
 
 ```ts
 const ArticleSchema = Schema.define({
@@ -325,43 +325,24 @@ const ArticleSchema = Schema.define({
 		title: stringField({ validation: { required: true } }),
 	},
 	hooks: {
-		transaction: {
-			beforeCommit: ({ changes }) => {
-				// One immutable summary contains this schema's transaction changes.
-				console.log(changes.length)
-			},
-			afterCommit: ({ changes }) => {
-				// External work now observes committed database state.
-				publish(changes)
+		afterOperation: {
+			create: ({ context, item }) => {
+				context.emit('article.created', { id: item.id })
 			},
 		},
 	},
 })
 ```
 
-An explicit transaction may touch several schemas. Each participating schema's
-transaction hooks run at most once with only its changes. Collection commands
-append their singular item operations to that ordered change summary. Each
-change exposes a cardinality-free business `kind`, while `change.operation.kind`
-retains the exact normalized singular terminal.
+If the mutation rolls back, Runtime discards its buffered events. A named-event
+consumer runs after commit and cannot query through the expired transaction
+scope. A consumer failure observes already committed state and never attempts
+rollback. Independent consumers are still offered the event.
 
-If commit fails, Runtime attempts rollback. A failure from `afterCommit` or a
-post-commit event observes already committed state and never attempts rollback.
-
-The transaction-scoped request engine expires before finalization observers
-run. `transaction.beforeCommit`, `transaction.afterCommit`, low-level
-post-commit observers, and named-event consumers are explicitly non-queryable.
-They retain correlation, access, capability checks, and event emission where
-the transaction state still permits it. `beforeCommit` and `afterCommit` may
-queue named events before post-commit delivery begins; rollback and error
-observers cannot queue work for a transaction that will not commit.
-
-The official PostgreSQL adapter verifies this lifecycle through the same public
-API. A mutation started from `beforeOperation.create` reuses the primary
-transaction, so an `afterOperation.create` or `transaction.beforeCommit`
-failure rolls back both writes. Successful `transaction.afterCommit` handlers
-and named-event consumers run once only after PostgreSQL
-confirms the outer commit:
+The official PostgreSQL adapter verifies the same lifecycle. A mutation started
+from `beforeOperation.create` reuses the primary transaction, so an
+`afterOperation.create` failure rolls back both writes. Named-event consumers
+run only after PostgreSQL confirms the outer commit:
 
 ```ts
 const ArticleSchema = Schema.define({
@@ -460,7 +441,7 @@ Root reads do not open a transaction.
 
 Collection mutations are always atomic. Runtime executes their ordered singular
 entries inside one outer transaction; any input, missing target, persistence,
-item-hook, or `transaction.beforeCommit` failure rolls back the complete batch.
+or item-hook failure rolls back the complete batch.
 `updateMany` and `deleteMany` require one unique predicate per entry and return
 only `id` by default. Their item-oriented hook and Access callbacks receive the
 same short business `kind` as direct singular commands. Callbacks that expose

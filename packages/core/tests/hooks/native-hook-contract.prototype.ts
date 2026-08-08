@@ -88,11 +88,6 @@ interface PrototypeSchemaHooks<TSchema extends SchemaDefinition> {
 			readonly operation: CreateOperation<TSchema>
 		}) => MaybePromise<void>
 	}
-	readonly transaction?: {
-		readonly afterCommit?: (context: {
-			readonly changes: readonly InferObject<TSchema>[]
-		}) => MaybePromise<void>
-	}
 }
 
 type PrototypeSchemaOptions<
@@ -349,11 +344,6 @@ export const PostSchema = new PrototypeSchema({
 		afterOperation: {
 			create: ({ item }) => {
 				item.title.toUpperCase()
-			},
-		},
-		transaction: {
-			afterCommit: ({ changes }) => {
-				changes.at(0)?.title.toUpperCase()
 			},
 		},
 	},

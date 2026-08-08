@@ -182,12 +182,6 @@ describe('hook execution safety', () => {
 			className: 'NestedHookParent',
 			fields: { title: stringField({ validation: { required: true } }) },
 			hooks: {
-				transaction: {
-					afterCommit: ({ context }) => {
-						trace.push('hook:parent:afterCommit')
-						transactionIds.push(context.transactionId)
-					},
-				},
 				beforeOperation: {
 					create: async ({ context, item }) => {
 						trace.push('hook:parent')
@@ -218,7 +212,7 @@ describe('hook execution safety', () => {
 			parentSchema.createOne({ data: { title: 'parent' } }, { ultimabase }),
 		).resolves.toMatchObject({ title: 'parent' })
 
-		expect(transactionIds).toHaveLength(3)
+		expect(transactionIds).toHaveLength(2)
 		expect(transactionIds[0]).toBe(transactionIds[1])
 		expect(transactionIds[0]).toMatch(/^[0-9a-f-]{36}$/u)
 		expect(adapter.transactions).toHaveLength(1)

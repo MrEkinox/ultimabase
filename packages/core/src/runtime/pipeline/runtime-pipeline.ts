@@ -31,7 +31,6 @@ import type {
 	DatabaseTransactionAdapter,
 	PreparedDatabaseOperation,
 } from '../database/contracts.js'
-import type { HookErrorPhase } from '../../schema/hooks/contracts.js'
 import {
 	beginPipelineTransaction,
 	type RuntimePipelineTransactionScope,
@@ -45,7 +44,6 @@ import type {
 	RuntimeNativeHookStages,
 	RuntimeNativeDatabaseResultStageInput,
 	RuntimePreparedMutationTransformStage,
-	RuntimeNativeTransactionOperation,
 	RuntimeNativeResultStageInput,
 	RuntimeOperationResult,
 	RuntimePipelineRequest,
@@ -149,20 +147,7 @@ interface RuntimePreparedInclusion {
 /** Carries only mutable orchestration state that never crosses a hook boundary. */
 interface RuntimePipelineExecutionState {
 	operation: DatabaseOperationAst
-	readonly phase: HookErrorPhase
-	transactionOperation?: RuntimeNativeTransactionOperation
 }
-
-/** Preserves an operation failure when its error observer independently fails. */
-const combineExecutionErrors = (
-	error: unknown,
-	observerError: unknown,
-): AggregateError =>
-	new AggregateError(
-		[error, observerError],
-		'Runtime operation and its error observer both failed.',
-		{ cause: error },
-	)
 
 /** Identifies only the framework-owned denial that protected scopes may hide. */
 const isNativeAccessDenied = (error: unknown): boolean =>
@@ -1382,15 +1367,6 @@ export class RuntimePipeline {
 		})
 		const execution: RuntimePipelineExecutionState = {
 			operation: request.operation,
-			phase: 'operation',
-		}
-		const transactionLifecycle = this.#stages.nativeHooks?.transactionLifecycle
-
-		if (transactionLifecycle !== undefined) {
-			execution.transactionOperation = transactionLifecycle.start({
-				context,
-				operation: request.operation,
-			})
 		}
 
 		try {
@@ -1404,54 +1380,12 @@ export class RuntimePipeline {
 					request.operation.kind !== 'find-one' &&
 					request.operation.kind !== 'exists'
 				) {
-					const hiddenError = createProtectedObjectNotFoundError()
-
-					execution.transactionOperation?.fail(
-						execution.operation,
-						hiddenError,
-						execution.phase,
-					)
-
-					throw hiddenError
+					throw createProtectedObjectNotFoundError()
 				}
 
 				const missingResult = request.operation.kind === 'exists' ? false : null
 
-				// Expected target invisibility completes as an empty protected read.
-				execution.transactionOperation?.succeed(
-					execution.operation,
-					missingResult,
-				)
-
 				return missingResult as RuntimeOperationResult<TOperation>
-			}
-
-			execution.transactionOperation?.fail(
-				execution.operation,
-				error,
-				execution.phase,
-			)
-
-			if (
-				transactionLifecycle === undefined &&
-				this.#stages.nativeHooks?.onError !== undefined
-			) {
-				try {
-					await this.#stages.nativeHooks.onError(
-						immutableRecord({
-							context,
-							error,
-							operation: execution.operation,
-							phase: execution.phase,
-							transaction: immutableRecord({
-								rollback: 'not-applicable' as const,
-								status: 'not-started' as const,
-							}),
-						}),
-					)
-				} catch (observerError: unknown) {
-					throw combineExecutionErrors(error, observerError)
-				}
 			}
 
 			throw error
@@ -1654,12 +1588,6 @@ export class RuntimePipeline {
 		await this.#stages.commit(completedOperation)
 		await this.#stages.postCommitEvents(completedOperation)
 		execution.operation = operation
-		execution.transactionOperation?.succeed(
-			operation,
-			result,
-			databaseExecution.outcome,
-		)
-
 		return result
 	}
 }

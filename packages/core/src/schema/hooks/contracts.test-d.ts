@@ -3,27 +3,15 @@ import { expect, expectTypeOf, test } from 'vitest'
 import {
 	Schema,
 	intField,
-	pointerField,
 	stringField,
 	type InferCreateInput,
 	type InferObject,
 	type InferUpdateInput,
-	type HookValidationIssue,
-	type HookValidationIssueCode,
 	type HookContext,
-	type SchemaHookOperation,
-	type SchemaHookResult,
 	type SchemaHooks,
-	type SchemaHookTypes,
-	type SchemaBeforeCommitResult,
 	type SchemaPreparedDraft,
 	type SchemaResult,
 } from '../index.js'
-import type {
-	InferQueryRecord,
-	QueryBuilder,
-	QueryPointerResultInclusion,
-} from '../../query/index.js'
 
 const ArticleSchema = Schema.define({
 	className: 'HookedArticle',
@@ -84,112 +72,12 @@ const ArticleSchema = Schema.define({
 				void operation
 			},
 		},
-		transaction: {
-			beforeCommit: ({ changes }) => {
-				expectTypeOf(changes).toExtend<readonly unknown[]>()
-				for (const change of changes) {
-					expectTypeOf(change.kind).toEqualTypeOf<
-						'create' | 'delete' | 'update' | 'upsert'
-					>()
-					expectTypeOf(change.operation.kind).toEqualTypeOf<
-						| 'create-many'
-						| 'create-one'
-						| 'delete-many'
-						| 'delete-one'
-						| 'update-many'
-						| 'update-one'
-						| 'upsert-many'
-						| 'upsert-one'
-					>()
-				}
-			},
-			afterCommit: ({ changes }) => {
-				expectTypeOf(changes).toExtend<readonly unknown[]>()
-			},
-		},
 	},
 })
 
-test('exports compact schema hook inference contracts', () => {
-	type Types = SchemaHookTypes<typeof ArticleSchema>
-	type CountOperation = SchemaHookOperation<
-		typeof ArticleSchema,
-		'count',
-		never
-	>
-	type CountTypes = SchemaHookTypes<typeof ArticleSchema, never, CountOperation>
+test('exports the focused schema hook declaration contract', () => {
 	expect(ArticleSchema.className).toBe('HookedArticle')
-
-	expectTypeOf<Types['create']>().toEqualTypeOf<
-		InferCreateInput<typeof ArticleSchema>
-	>()
-	expectTypeOf<Types['update']>().toEqualTypeOf<
-		InferUpdateInput<typeof ArticleSchema>
-	>()
-	expectTypeOf<Types['object']>().toEqualTypeOf<
-		InferObject<typeof ArticleSchema>
-	>()
-	expectTypeOf<CountTypes['query']>().toEqualTypeOf<
-		QueryBuilder<typeof ArticleSchema>
-	>()
-	expectTypeOf<CountTypes['result']>().toEqualTypeOf<number>()
-	expectTypeOf<
-		SchemaHookResult<SchemaHookOperation<typeof ArticleSchema, 'count'>>
-	>().toEqualTypeOf<number>()
 	expectTypeOf<SchemaHooks<typeof ArticleSchema>>().toBeObject()
-})
-
-test('keeps finalization results honest about selected fields', () => {
-	expectTypeOf<SchemaBeforeCommitResult<typeof ArticleSchema>>().toEqualTypeOf<
-		| Readonly<Partial<InferObject<typeof ArticleSchema>>>
-		| readonly Readonly<Partial<InferObject<typeof ArticleSchema>>>[]
-		| number
-		| null
-	>()
-})
-
-test('preserves pointer inclusion types through read hook contracts', () => {
-	const target = Schema.define({
-		className: 'HookIncludedTarget',
-		fields: { name: stringField({ validation: { required: true } }) },
-	})
-	const source = Schema.define({
-		className: 'HookIncludedSource',
-		fields: {
-			target: pointerField({
-				target: () => target,
-				validation: { required: true },
-			}),
-		},
-	})
-	type Inclusion = QueryPointerResultInclusion<'target', typeof target, 'name'>
-	type IncludedFind = SchemaHookOperation<
-		typeof source,
-		'find-many',
-		'target',
-		Inclusion
-	>
-	type IncludedTypes = SchemaHookTypes<typeof source, 'target', IncludedFind>
-	expectTypeOf(source.className).toEqualTypeOf<'HookIncludedSource'>()
-
-	expectTypeOf<SchemaHookResult<IncludedFind>>().toEqualTypeOf<
-		readonly InferQueryRecord<typeof source, 'target', Inclusion>[]
-	>()
-	expectTypeOf<IncludedTypes['query']>().toEqualTypeOf<
-		QueryBuilder<typeof source, 'target', Inclusion>
-	>()
-})
-
-test('namespaces application-owned hook validation issues', () => {
-	const issue: HookValidationIssue = {
-		code: 'hook.article-title',
-		message: 'The title is invalid.',
-		path: ['title'],
-	}
-
-	expectTypeOf(issue.code).toEqualTypeOf<HookValidationIssueCode>()
-	expectTypeOf<'hook.article-title'>().toExtend<HookValidationIssueCode>()
-	expectTypeOf<'custom'>().not.toExtend<HookValidationIssueCode>()
 })
 
 test('keeps schema metadata and inferred values independent from hooks', () => {
@@ -255,11 +143,6 @@ test('types ordered exact handlers and the remaining lifecycle families', () => 
 				return operation
 			},
 		},
-		transaction: {
-			afterCommit: ({ changes }) => {
-				expectTypeOf(changes).toExtend<readonly unknown[]>()
-			},
-		},
 	}
 
 	expectTypeOf(hooks).toEqualTypeOf<SchemaHooks<typeof ArticleSchema>>()
@@ -296,13 +179,20 @@ test('narrows complete mutation items by terminal and lifecycle timing', () => {
 			},
 		},
 		afterOperation: {
+			create: (input) => {
+				expectTypeOf(input.item).toEqualTypeOf<
+					SchemaResult<typeof ArticleSchema>
+				>()
+				// @ts-expect-error -- Public result projections are not hook inputs.
+				void input.result
+			},
 			upsert: (input) => {
 				expectTypeOf(input.kind).toEqualTypeOf<'upsert'>()
 				expectTypeOf(input.originalItem).toEqualTypeOf<SchemaResult<
 					typeof ArticleSchema
 				> | null>()
 				expectTypeOf(input.item).toEqualTypeOf<
-					Readonly<InferObject<typeof ArticleSchema>>
+					SchemaResult<typeof ArticleSchema>
 				>()
 			},
 		},
@@ -358,6 +248,10 @@ test('rejects incompatible hook declarations and return values', () => {
 			create: () => 42,
 		},
 	}
+	const invalidTransactionHooks: SchemaHooks<typeof ArticleSchema> = {
+		// @ts-expect-error -- Commit observers use typed context events instead.
+		transaction: { afterCommit: () => undefined },
+	}
 
 	expectTypeOf(hooks).toBeObject()
 	expectTypeOf(effectOnlyHooks).toBeObject()
@@ -366,4 +260,5 @@ test('rejects incompatible hook declarations and return values', () => {
 	expectTypeOf(invalidBeforeUpsert).toBeObject()
 	expectTypeOf(invalidEmptyFamily).toBeObject()
 	expectTypeOf(invalidFamilyReturn).toBeObject()
+	expectTypeOf(invalidTransactionHooks).toBeObject()
 })

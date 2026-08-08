@@ -34,26 +34,6 @@ import {
 } from './role-deletion.js'
 import { createStoredRoleResolver } from './role-access.js'
 
-const masterOptions = Object.freeze({ useMasterKey: true })
-
-/** Materializes relation capabilities that adapter results do not expose inside after hooks. */
-const readUpdatedRoleModel = async (
-	schema: SchemaDefinition,
-	result: unknown,
-): Promise<object> => {
-	const roleId = readPersistedRoleId(result)
-	const role = await new Pointer(schema, roleId).findOne(
-		undefined,
-		masterOptions,
-	)
-
-	if (role === null) {
-		throw new TypeError('Updated role disappeared before hierarchy validation')
-	}
-
-	return role
-}
-
 /** Exposes the application-local role domains discovered during setup. */
 export interface RolesPluginExports {
 	readonly schemas: readonly SchemaDefinition[]
@@ -157,11 +137,11 @@ const readRoleRelationChanges = (
 	return immutableArray(changes)
 }
 
-/** Emits audit-ready data only after Runtime confirms the outer commit. */
+/** Queues audit-ready data for delivery only after Runtime confirms the commit. */
 const emitRoleRelationChanges = (
 	context: HookContext,
 	operation: unknown,
-	result: unknown,
+	item: unknown,
 ): void => {
 	const changes = readRoleRelationChanges(operation)
 
@@ -169,7 +149,7 @@ const emitRoleRelationChanges = (
 		return
 	}
 
-	const roleId = readPersistedRoleId(result)
+	const roleId = readPersistedRoleId(item)
 
 	for (const change of changes) {
 		if (change.field === 'members') {
@@ -275,21 +255,14 @@ export const rolesPlugin = (): RolesPlugin =>
 						},
 					},
 					afterOperation: {
-						update: async ({ operation, result }) => {
+						update: async ({ context, item, operation }) => {
 							const changes = readRoleRelationChanges(operation)
 
 							if (changes.some(({ field }) => field === 'roles')) {
-								await assertRoleHierarchyAcyclic(
-									await readUpdatedRoleModel(schema, result),
-								)
+								await assertRoleHierarchyAcyclic(item)
 							}
-						},
-					},
-					transaction: {
-						afterCommit: ({ changes, context }) => {
-							for (const { operation, result } of changes) {
-								emitRoleRelationChanges(context, operation, result)
-							}
+
+							emitRoleRelationChanges(context, operation, item)
 						},
 					},
 				})

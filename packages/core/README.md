@@ -808,8 +808,8 @@ still combine through the Runtime's monotonic `AND` boundary.
 ### Schema hooks
 
 Schemas can colocate typed mutation lifecycle declarations without installing a
-plugin. The public surface has four concepts: `resolveInput`,
-`beforeOperation`, `afterOperation`, and `transaction`:
+plugin. The public surface has three concepts: `resolveInput`,
+`beforeOperation`, and `afterOperation`:
 
 ```ts
 const PostSchema = Schema.define({
@@ -826,10 +826,10 @@ const PostSchema = Schema.define({
 			update: ({ originalItem, item }) => audit(originalItem, item),
 		},
 		afterOperation: {
-			create: ({ item }) => audit(item),
-		},
-		transaction: {
-			afterCommit: ({ changes }) => publish(changes),
+			create: ({ context, item }) => {
+				audit(item)
+				context.emit('post.created', { id: item.id })
+			},
 		},
 	},
 })
@@ -864,10 +864,11 @@ code observes it, then Runtime revalidates transformed values before
 persistence.
 
 The same short business `kind` is used by schema `item` Access, mutation field
-Access, field `resolveInput`, schema `resolveInput`, operation observers, and
-transaction changes. When a callback also receives `operation`, its
-`operation.kind` remains the exact internal terminal for diagnostics and AST
-narrowing.
+Access, field `resolveInput`, schema `resolveInput`, and operation observers.
+When a callback also receives `operation`, its `operation.kind` remains the
+exact internal terminal for diagnostics and relation mutation metadata. The AST
+is retained temporarily because relation handles cannot yet expose connect,
+disconnect, and replace actions through a materialized item.
 
 The constructor validates every phase, snapshots every list and family map, and
 keeps them in private identity-owned storage. Hooks never appear on
@@ -921,12 +922,11 @@ without replaying defaults or generators. `resolveInput` may throw for business
 validation. Operation observers run inside the automatic mutation transaction,
 so throwing rolls back database work performed earlier in the same request.
 
-Transaction finalization is explicit and ordered. Both
-`transaction.beforeCommit` and `transaction.afterCommit` receive one immutable
-per-schema `changes` summary. The former may abort; the latter runs only after
-the outer commit and is intended for external effects. See the
-[Runtime guide](docs/runtime.md#transaction-finalization-hooks) for the public
-contract and example.
+`afterOperation.item` is the complete persisted schema model, independently of
+the mutation command's `select`. It exposes the regular immutable model API;
+there is no separate selection-dependent `result` hook value. For post-commit
+effects, an operation hook calls `context.emit()`. Runtime buffers the event and
+delivers it only after the outer transaction commits.
 
 Every native and low-level business hook receives a safe execution `context`:
 

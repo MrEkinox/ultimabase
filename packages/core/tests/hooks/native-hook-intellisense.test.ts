@@ -94,7 +94,6 @@ describe('native hook contract prototype IntelliSense', () => {
 			'afterOperation',
 			'beforeOperation',
 			'resolveInput',
-			'transaction',
 		])
 		expect(readPropertyCompletions('field-options')).toContain('hooks')
 	})

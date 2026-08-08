@@ -4,7 +4,7 @@
 - Date: 2026-08-08
 - Refines: ADR-0089, ADR-0101, ADR-0104, ADR-0105, ADR-0161, ADR-0162
 - Supersedes: ADR-0141, ADR-0142
-- Refined by: ADR-0164
+- Refined by: ADR-0164, ADR-0172
 
 ## Context
 

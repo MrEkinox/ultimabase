@@ -97,7 +97,6 @@ Accepted records:
 - [ADR-0101: Compiled native hook dispatcher](0101-compiled-native-hook-dispatcher.md)
 - [ADR-0102: Policy-neutral monotonic enforcement plan](0102-policy-neutral-monotonic-enforcement.md)
 - [ADR-0103: Versioned adapter constraint compilers](0103-versioned-adapter-constraint-compilers.md)
-- [ADR-0105: Transaction hook finalization journal](0105-transaction-hook-journal.md)
 - [ADR-0106: Hook execution safety and diagnostics](0106-hook-execution-safety-and-diagnostics.md)
 - [ADR-0107: HookContext capabilities and named events](0107-hook-context-capabilities-and-events.md)
 - [ADR-0109: Constructible schema model classes](0109-constructible-schema-models.md)
@@ -158,6 +157,7 @@ Accepted records:
 - [ADR-0169: Operation-oriented Access declarations](0169-operation-oriented-access-declarations.md)
 - [ADR-0170: Read and write field Access](0170-read-write-field-access.md)
 - [ADR-0171: Field Access authorizes value transitions](0171-field-access-value-transitions.md)
+- [ADR-0172: Focus schema hook results on persisted items](0172-focused-schema-hook-results.md)
 
 Superseded records:
 
@@ -172,6 +172,7 @@ Superseded records:
 - [ADR-0092: Bound queries require executors](0092-bound-queries-require-executors.md), superseded by ADR-0108.
 - [ADR-0093: Immutable Schema constructor API](0093-schema-constructor-api.md), superseded by ADR-0109.
 - [ADR-0104: Read hook execution and safe output resolution](0104-read-hook-execution-and-output-resolution.md), superseded by ADR-0161 and ADR-0163.
+- [ADR-0105: Transaction hook finalization journal](0105-transaction-hook-journal.md), superseded by ADR-0172.
 - [ADR-0108: Contextual Query terminal execution](0108-contextual-query-terminal-execution.md), superseded by ADR-0152.
 - [ADR-0110: Concise singular Query terminals](0110-concise-singular-query-terminals.md), superseded by ADR-0132.
 - [ADR-0111: Non-atomic bulk hook semantics](0111-non-atomic-bulk-hook-semantics.md), superseded by ADR-0164.

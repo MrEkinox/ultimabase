@@ -64,22 +64,6 @@ describe('schema hook declarations', () => {
 		).toBe(secondHandler)
 	})
 
-	it('retains asynchronous handler identity without invoking it', () => {
-		let calls = 0
-		const afterCommit = (): Promise<void> => {
-			calls += 1
-
-			return Promise.resolve()
-		}
-		const schema = createSchema({ transaction: { afterCommit } })
-
-		expect(
-			getHookHandlerEntries(getSchemaHookDeclarations(schema), 'afterCommit')[0]
-				?.handler,
-		).toBe(afterCommit)
-		expect(calls).toBe(0)
-	})
-
 	it('accepts every declared phase without executing its handler', () => {
 		let calls = 0
 		const handler = () => {
@@ -98,7 +82,6 @@ describe('schema hook declarations', () => {
 				update: handler,
 			},
 			resolveInput: handler,
-			transaction: { afterCommit: handler, beforeCommit: handler },
 		}
 		const declarations = getSchemaHookDeclarations(createSchema(hooks))
 
@@ -178,6 +161,10 @@ describe('schema hook declarations', () => {
 		{
 			hooks: { beforeOperation: { create: [() => undefined, false] } },
 			message: 'hooks.beforeOperation.create[1] must be a function',
+		},
+		{
+			hooks: { transaction: { afterCommit: () => undefined } },
+			message: 'Unknown schema hook: hooks.transaction',
 		},
 	] as const)('rejects malformed hook declarations', ({ hooks, message }) => {
 		expect(() => createSchema(hooks as object)).toThrow(new TypeError(message))

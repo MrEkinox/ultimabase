@@ -1,22 +1,14 @@
 import type { MaybePromise } from '@ultimabase/shared'
 
 import type {
-	InferOperationRecordResult,
 	OperationAst,
 	OperationAstNode,
-	OperationIncludedField,
 	OperationKind,
-	QueryBuilder,
 	QueryFieldName,
 	QueryFilterNode,
 	UpdateExpression,
 } from '../../query/index.js'
-import type {
-	InferCreateInput,
-	InferObject,
-	InferUpdateInput,
-} from '../inference/types.js'
-import type { ValidationIssuePath } from '../plans/contracts.js'
+import type { InferObject } from '../inference/types.js'
 import type { SchemaDefinition } from '../schema/definition.js'
 import type { SchemaPreparedDraft, SchemaResult } from '../schema/model.js'
 import type { RelationUpdateExpression } from '../relations/mutation.js'
@@ -37,10 +29,6 @@ export type SchemaDeleteHookKind = 'delete-many' | 'delete-one'
 /** Groups every create, update, and upsert terminal. */
 export type SchemaSaveHookKind =
 	SchemaCreateHookKind | SchemaUpdateHookKind | SchemaUpsertHookKind
-
-/** Groups every read terminal for shared Access and operation typing. */
-export type SchemaReadHookKind =
-	'count' | 'exists' | 'find-many' | 'find-one' | 'get'
 
 /** Groups every terminal whose business work participates in a transaction. */
 export type SchemaMutationHookKind = SchemaDeleteHookKind | SchemaSaveHookKind
@@ -110,39 +98,6 @@ export type SchemaHookOperation<
 	{ readonly kind: TKind }
 >
 
-/** Infers the exact public result produced by one hook operation. */
-export type SchemaHookResult<TOperation extends OperationAstNode> =
-	InferOperationRecordResult<TOperation>
-
-/** Provides compact aliases for the schema values most hooks consume. */
-export interface SchemaHookTypes<
-	TSchema extends SchemaDefinition,
-	TSelectedField extends QueryFieldName<TSchema> = QueryFieldName<TSchema>,
-	TOperation extends SchemaHookOperation<
-		TSchema,
-		OperationKind,
-		TSelectedField,
-		unknown
-	> = SchemaHookOperation<TSchema, OperationKind, TSelectedField>,
-> {
-	/** The complete developer input accepted by create operations. */
-	readonly create: InferCreateInput<TSchema>
-	/** The partial developer input accepted by update operations. */
-	readonly update: InferUpdateInput<TSchema>
-	/** The complete immutable object returned after persistence. */
-	readonly object: InferObject<TSchema>
-	/** Every normalized terminal operation supported by the schema. */
-	readonly operation: TOperation
-	/** The immutable QueryBuilder retaining the current selected-field union. */
-	readonly query: QueryBuilder<
-		TSchema,
-		TSelectedField,
-		OperationIncludedField<TOperation>
-	>
-	/** The public result correlated with the current operation. */
-	readonly result: SchemaHookResult<TOperation>
-}
-
 /** Describes one operation before its adapter result exists. */
 export type SchemaOperationHookInput<
 	TOperation extends OperationAstNode & {
@@ -185,32 +140,11 @@ export type SchemaResolveInputHookInput<
 			}>
 	: never
 
-/** Keeps each operation correlated with its exact public result. */
-export type SchemaResultHookInput<
-	TOperation extends OperationAstNode & {
-		readonly kind: SchemaMutationHookKind
-	},
-> = TOperation extends OperationAstNode
-	? Readonly<{
-			/** Carries immutable request identity and revocable hook capabilities. */
-			context: HookContext
-			/** Identifies the item-oriented mutation independently from cardinality. */
-			kind: SchemaMutationKindForOperation<TOperation['kind']>
-			/** The immutable normalized operation that produced the result. */
-			operation: TOperation
-			/** The exact result for this operation and its selected fields. */
-			result: SchemaHookResult<TOperation>
-		}>
-	: never
-
 /** Correlates one complete logical object across a materialized mutation. */
 export interface SchemaMutationItemPair<
 	TSchema extends SchemaDefinition,
-	TOriginalItem extends SchemaResult<TSchema> | null =
-		SchemaResult<TSchema> | null,
-	TItem extends Readonly<InferObject<TSchema>> | null = Readonly<
-		InferObject<TSchema>
-	> | null,
+	TOriginalItem extends object | null = SchemaResult<TSchema> | null,
+	TItem extends object | null = Readonly<InferObject<TSchema>> | null,
 > {
 	/** Contains the object visible before persistence, or `null` for creation. */
 	readonly originalItem: TOriginalItem
@@ -225,13 +159,6 @@ type SchemaUpdateItemPair<TSchema extends SchemaDefinition> =
 	SchemaMutationItemPair<
 		TSchema,
 		SchemaResult<TSchema>,
-		Readonly<InferObject<TSchema>>
-	>
-
-type SchemaUpsertItemPair<TSchema extends SchemaDefinition> =
-	SchemaMutationItemPair<
-		TSchema,
-		SchemaResult<TSchema> | null,
 		Readonly<InferObject<TSchema>>
 	>
 
@@ -263,11 +190,19 @@ type SchemaAfterMutationItemsForKind<
 	TSchema extends SchemaDefinition,
 	TKind extends SchemaMutationHookKind,
 > = TKind extends SchemaCreateHookKind
-	? SchemaCreateItemPair<TSchema>
+	? SchemaMutationItemPair<TSchema, null, SchemaResult<TSchema>>
 	: TKind extends SchemaUpdateHookKind
-		? SchemaUpdateItemPair<TSchema>
+		? SchemaMutationItemPair<
+				TSchema,
+				SchemaResult<TSchema>,
+				SchemaResult<TSchema>
+			>
 		: TKind extends SchemaUpsertHookKind
-			? SchemaUpsertItemPair<TSchema>
+			? SchemaMutationItemPair<
+					TSchema,
+					SchemaResult<TSchema> | null,
+					SchemaResult<TSchema>
+				>
 			: TKind extends SchemaDeleteHookKind
 				? SchemaDeleteItemPair<TSchema>
 				: never
@@ -300,7 +235,7 @@ export type SchemaAfterMutationHookInput<
 		unknown
 	>,
 > = TOperation extends OperationAstNode
-	? SchemaResultHookInput<TOperation> &
+	? SchemaOperationHookInput<TOperation> &
 			SchemaAfterMutationItemsForKind<TSchema, TOperation['kind']>
 	: never
 
@@ -312,35 +247,6 @@ type SchemaBeforeMutationInputForKind<
 > = SchemaBeforeMutationHookInput<
 	TSchema,
 	SchemaHookOperation<TSchema, TKind, TSelectedField, TIncludedPointer>
->
-
-/** Uses the transport-neutral validation format for business hook failures. */
-export type HookValidationIssueCode = `${string}.${string}`
-
-/** Carries one immutable framework, plugin, or application hook issue. */
-export interface HookValidationIssue {
-	readonly code: HookValidationIssueCode
-	readonly message: string
-	readonly path: ValidationIssuePath
-}
-
-/**
- * Transforms or observes one compatible operation without relying on mutation.
- * Runtime validates that a replacement retains the exact incoming terminal.
- */
-export type SchemaBeforeHook<
-	TSchema extends SchemaDefinition,
-	TKind extends SchemaMutationHookKind,
-> = <
-	const TSelectedField extends QueryFieldName<TSchema>,
-	const TIncludedPointer = never,
->(
-	input: SchemaOperationHookInput<
-		SchemaHookOperation<TSchema, TKind, TSelectedField, TIncludedPointer>
-	>,
-) => MaybePromise<
-	| SchemaHookOperation<TSchema, TKind, TSelectedField, TIncludedPointer>
-	| undefined
 >
 
 /** Transforms one directed mutation after its visible preimage is stable. */
@@ -381,10 +287,7 @@ export type SchemaBeforeMutationHook<
 	>,
 ) => MaybePromise<void>
 
-/**
- * Observes or rejects one compatible result before transaction finalization.
- * Returning a value has no effect; persisted results remain framework-owned.
- */
+/** Observes or rejects one persisted mutation before the transaction commits. */
 export type SchemaAfterHook<
 	TSchema extends SchemaDefinition,
 	TKind extends SchemaMutationHookKind,
@@ -431,94 +334,6 @@ export type SchemaBeforeDeleteHook<TSchema extends SchemaDefinition> =
 export type SchemaAfterDeleteHook<TSchema extends SchemaDefinition> =
 	SchemaAfterHook<TSchema, 'delete-one'>
 
-/** Supplies all successful schema mutations before the outer commit. */
-export type SchemaBeforeCommitResult<TSchema extends SchemaDefinition> =
-	| Readonly<Partial<InferObject<TSchema>>>
-	| readonly Readonly<Partial<InferObject<TSchema>>>[]
-	| number
-	| null
-
-/** Keeps heterogeneous transaction changes honest about selected fields. */
-export type SchemaBeforeCommitChange<TSchema extends SchemaDefinition> =
-	SchemaHookOperation<
-		TSchema,
-		SchemaMutationHookKind
-	> extends infer TOperation extends OperationAstNode
-		? TOperation extends OperationAstNode
-			? Readonly<{
-					/** The item-oriented mutation name independently from cardinality. */
-					kind: SchemaMutationKindForOperation<
-						Extract<TOperation['kind'], SchemaMutationHookKind>
-					>
-					/** The completed immutable mutation. */
-					operation: TOperation
-					/** A result that never promises fields omitted by an earlier selection. */
-					result: SchemaBeforeCommitResult<TSchema>
-				}>
-			: never
-		: never
-
-/** Supplies all successful schema mutations before the outer commit. */
-export interface SchemaBeforeCommitInput<TSchema extends SchemaDefinition> {
-	/** Carries immutable request identity and revocable hook capabilities. */
-	readonly context: HookContext
-	/** Every mutation outcome buffered for this schema in execution order. */
-	readonly changes: readonly SchemaBeforeCommitChange<TSchema>[]
-}
-
-/** May still abort the outer transaction before persistence is finalized. */
-export type SchemaBeforeCommitHook<TSchema extends SchemaDefinition> = (
-	input: SchemaBeforeCommitInput<TSchema>,
-) => MaybePromise<void>
-
-/** Observes all successful schema mutations after the outer commit succeeds. */
-export type SchemaAfterCommitHook<TSchema extends SchemaDefinition> = (
-	input: SchemaBeforeCommitInput<TSchema>,
-) => MaybePromise<void>
-
-/** Identifies the stable public boundary at which an observed failure began. */
-export type HookErrorPhase =
-	| 'transaction-start'
-	| 'operation'
-	| 'before-commit'
-	| 'commit'
-	| 'rollback'
-	| 'after-rollback'
-	| 'after-commit'
-	| 'post-commit'
-
-/**
- * Describes the final transaction outcome known when an error hook runs.
- *
- * The discriminated union prevents consumers from observing impossible pairs,
- * such as a committed transaction that also reports a successful rollback.
- */
-export type HookErrorTransactionState =
-	| Readonly<{
-			/** No adapter transaction existed for this operation failure. */
-			status: 'not-started'
-			/** Rollback cannot apply when no transaction was opened. */
-			rollback: 'not-applicable'
-	  }>
-	| Readonly<{
-			/** The adapter confirmed that the transaction was discarded. */
-			status: 'rolled-back'
-			/** Confirms that rollback completed successfully. */
-			rollback: 'succeeded'
-	  }>
-	| Readonly<{
-			/** The transaction failed and its adapter rollback also failed. */
-			status: 'rollback-failed'
-			/** Reports the failed rollback without implying that data was discarded. */
-			rollback: 'failed'
-	  }>
-	| Readonly<{
-			/** Persistence committed before a finalization observer failed. */
-			status: 'committed'
-			/** A committed transaction must never be reported as rolled back. */
-			rollback: 'not-applicable'
-	  }>
-
 /** Declares input resolution directly, as a list, or by save family. */
 export type SchemaResolveInputHookDeclaration<
 	TSchema extends SchemaDefinition,
@@ -556,18 +371,6 @@ export interface SchemaAfterOperationHooks<TSchema extends SchemaDefinition> {
 	readonly delete?: SchemaExactHookDeclaration<SchemaAfterDeleteHook<TSchema>>
 }
 
-/** Groups transaction-wide hooks without exposing rollback or error internals. */
-export interface SchemaTransactionHooks<TSchema extends SchemaDefinition> {
-	/** Runs once before commit and may abort the outer transaction. */
-	readonly beforeCommit?: SchemaExactHookDeclaration<
-		SchemaBeforeCommitHook<TSchema>
-	>
-	/** Runs once after commit for external side effects. */
-	readonly afterCommit?: SchemaExactHookDeclaration<
-		SchemaAfterCommitHook<TSchema>
-	>
-}
-
 /**
  * Declares schema-owned business behavior without requiring a plugin.
  *
@@ -591,9 +394,4 @@ export interface SchemaHooks<TSchema extends SchemaDefinition> {
 	 * @example `afterOperation: { create: ({ item }) => audit(item) }`
 	 */
 	readonly afterOperation?: SchemaAfterOperationHooks<TSchema>
-	/**
-	 * Runs once per schema around the outer transaction commit.
-	 * @example `transaction: { afterCommit: ({ changes }) => publish(changes) }`
-	 */
-	readonly transaction?: SchemaTransactionHooks<TSchema>
 }

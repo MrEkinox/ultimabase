@@ -209,18 +209,19 @@ hooks: {
 			})
 		},
 	},
-	transaction: {
-		afterCommit: ({ changes }) => publish(changes),
+	afterOperation: {
+		create: ({ context, item }) => {
+			context.emit('audit.created', { id: item.id })
+		},
 	},
 }
 ```
 
-If a later business or finalization hook fails, PostgreSQL rolls back the audit
-row and primary row together. Schema `transaction.afterCommit` hooks plus named
-events are released only after a successful outer commit. The Docker-backed
-public-package E2E suite verifies this behavior alongside plugin ordering,
-opaque scope constraints, read restrictions, output resolution, and atomic
-itemized batch semantics.
+If a later business hook fails, PostgreSQL rolls back the audit row and primary
+row together. Named events are released only after a successful outer commit.
+The Docker-backed public-package E2E suite verifies this behavior alongside
+plugin ordering, opaque scope constraints, read restrictions, output
+resolution, and atomic itemized batch semantics.
 
 ## CRUD, bulk, and upsert execution
 

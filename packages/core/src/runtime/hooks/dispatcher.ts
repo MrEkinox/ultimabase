@@ -45,7 +45,6 @@ import {
 } from './materializations.js'
 import { getMutationHookKind, getNativeHookPhaseOrder } from './phase-order.js'
 import { runHookEffects, runHookTransformChain } from './composition.js'
-import { createTransactionHookLifecycle } from './transaction-dispatcher.js'
 import {
 	createFieldHookTarget,
 	createSchemaHookTarget,
@@ -55,25 +54,24 @@ import {
 	type HookExecutionRuntime,
 } from './execution-runtime.js'
 
-const createSchemaResultInput = <const TOperation extends DatabaseOperationAst>(
+const createSchemaAfterInput = <const TOperation extends DatabaseOperationAst>(
 	operation: TOperation,
-	result: RuntimeOperationResult<TOperation>,
 	context: HookContext,
-	item: RuntimeMutationItemPair,
 	materializedOriginalItem: object | null,
+	materializedItem: object | null,
 ): Readonly<{
 	readonly context: HookContext
+	readonly item: object | null
 	readonly kind: ReturnType<typeof getMutationHookKind>
 	readonly operation: TOperation
-	readonly result: RuntimeOperationResult<TOperation>
+	readonly originalItem: object | null
 }> => {
 	return immutableRecord({
 		context,
-		...item,
+		item: materializedItem,
 		originalItem: materializedOriginalItem,
 		kind: getMutationHookKind(operation.kind),
 		operation,
-		result,
 	})
 }
 
@@ -182,6 +180,13 @@ const materializeSchemaOriginalItem = (
 	originalItem: RuntimeMutationItemPair['originalItem'],
 ): object | null =>
 	originalItem === null ? null : materializeSchemaModel(schema, originalItem)
+
+/** Materializes a persisted postimage while preserving deletion as `null`. */
+const materializeSchemaItem = (
+	schema: SchemaDefinition,
+	item: RuntimeMutationItemPair['item'],
+): object | null =>
+	item === null ? null : materializeSchemaModel(schema, item)
 
 const resolveFieldInputs = async <
 	const TOperation extends DatabaseOperationAst,
@@ -474,6 +479,10 @@ const runSchemaResultPhases = async <
 				schemaPlan.schema,
 				item.originalItem,
 			)
+			const materializedItem = materializeSchemaItem(
+				schemaPlan.schema,
+				item.item,
+			)
 
 			await runHookEffects(handlers, (handler) =>
 				invokeErasedHook<undefined>(
@@ -481,12 +490,11 @@ const runSchemaResultPhases = async <
 					handler,
 					input.context,
 					(context) =>
-						createSchemaResultInput(
+						createSchemaAfterInput(
 							input.operation,
-							result,
 							context,
-							item,
 							materializedOriginalItem,
+							materializedItem,
 						),
 				),
 			)
@@ -512,8 +520,6 @@ export const createNativeHookStages = <
 	const runtime = getApplicationHookExecutionRuntime(application)
 
 	return immutableRecord({
-		createTransactionLifecycle: () =>
-			createTransactionHookLifecycle(plan, runtime),
 		mutationOutcome: (input) =>
 			boundaries.snapshotMutationOutcome(input.operation, input.outcome),
 		// Public collection commands are itemized before native hook dispatch.

@@ -249,9 +249,11 @@ removed the legacy named permission stages and stores owner-scoped
 contributions without executing them. Runtime reads immutable dependency-first
 snapshots and composes them with developer hooks. Schema `resolveInput`
 transforms mutation input; grouped before- and after-operation hooks observe
-complete mutation values and have ignored return values. Business after-hooks
-may still abort before commit, while externally visible event handlers run only
-after commit succeeds.
+complete mutation values and have ignored return values. After-operation items
+are complete persisted models independently of public result selection.
+Business after-hooks may still abort before commit, while `HookContext.emit()`
+buffers externally visible event data until commit succeeds. Schema transaction
+hooks and their duplicate result journal are not part of the public lifecycle.
 
 Mutation transformers complete before one final structural revalidation and
 value-dependent Access reevaluation. Low-level `beforeOperation()` is also an
@@ -271,6 +273,11 @@ target per item. Missing targets, hook failures, and persistence
 failures reject and roll back the complete outer transaction; partial success
 is not public. Handler lists execute sequentially. Runtime rejects dangerous
 same-hook recursion and offers no general `skipHooks` bypass.
+
+The normalized operation remains temporarily visible to relation-aware schema
+hooks because relation handles do not yet materialize connect, disconnect, and
+replace actions as model values. This exception is transport-neutral and does
+not expose adapters.
 
 Runtime's structural validation stage caches Schema's compact create/update
 plans, traverses structured values, and delegates scalar snapshots and

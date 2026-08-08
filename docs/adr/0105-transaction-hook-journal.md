@@ -1,6 +1,7 @@
 # ADR-0105: Transaction hook finalization journal
 
-- Status: accepted
+- Status: superseded
+- Superseded by: ADR-0172
 - Date: 2026-08-02
 - Refines: ADR-0015, ADR-0068, ADR-0089, ADR-0099, ADR-0100
 - Refined by: ADR-0111

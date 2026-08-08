@@ -339,8 +339,8 @@ operation.
 ## Native schema hook declarations
 
 `Schema.define({ hooks })` accepts the typed mutation lifecycle directly through
-four focused groups: input transformation, before-operation observers,
-after-operation observers, and transaction finalization. Collection commands
+three focused groups: input transformation, before-operation observers, and
+after-operation observers. Collection commands
 are itemized before dispatch. Their public `kind` is the cardinality-free
 business family (`create`, `update`, `upsert`, or `delete`), while an exposed
 `operation.kind` remains the exact singular terminal such as `update-one`.
@@ -385,7 +385,9 @@ Runtime pipeline.
 Before-operation branches cover create, update, and delete. After-operation
 branches additionally cover upsert, whose create or update branch is known only
 after the atomic database operation. Each observer runs once per affected item
-with complete selection-independent values. `beforeOperation.create` exposes
+with complete selection-independent values. A non-null `afterOperation.item`
+is a complete persisted `SchemaResult`, independently of the mutation result
+selection; there is no separate `result` hook value. `beforeOperation.create` exposes
 only `context`, `kind: "create"`, and the candidate `item`; there is no constant
 `originalItem` or internal operation AST. The candidate is a
 `SchemaPreparedDraft`: an immutable instance of the generated schema class with
@@ -450,9 +452,10 @@ value. An omitted optional field runs no value hook. Structured and cross-field
 validation belongs to schema hooks.
 
 Every `updateMany` entry runs input resolution over its supplied update values.
-`deleteMany` has no field input to resolve. Mutation lifecycle, cross-field
-behavior, and transaction finalization belong to schema hooks, whose callbacks
-receive complete `originalItem` and `item` pairs independently of selection.
+`deleteMany` has no field input to resolve. Mutation lifecycle and cross-field
+behavior belong to schema hooks, whose callbacks receive complete
+`originalItem` and `item` pairs independently of selection. Post-commit work is
+queued through `context.emit()` from an operation hook.
 Field definitions and transports own output
 representation, while diagnostics and infrastructure plugins own low-level
 failure observation.

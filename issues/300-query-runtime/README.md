@@ -71,3 +71,8 @@ Issue 351 completed the first part of the now
 [paused ACL hardening and DX plan](../../CURRENT_PLAN.md). It distinguishes optional
 post-commit notifications from required event delivery so ACL, roles, and
 future feature plugins do not register synthetic no-op consumers.
+
+Issue 354 focuses the public schema hook contract after the item-oriented
+mutation migration. After-operation hooks now receive complete persisted
+models independently of result selection, post-commit integrations use named
+events, and the redundant schema transaction-hook journal is removed.

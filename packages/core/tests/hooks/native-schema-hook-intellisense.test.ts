@@ -85,7 +85,6 @@ const schemaHookPhaseNames = [
 	'afterOperation',
 	'beforeOperation',
 	'resolveInput',
-	'transaction',
 ] as const
 
 describe('native schema hook IntelliSense', () => {
@@ -144,11 +143,8 @@ describe('native schema hook IntelliSense', () => {
 		expect(createInput).not.toContain('SchemaDefinition<')
 		expect(createInput).not.toContain('OPAQUE_PERMISSION_CONFIG_MUST_NOT_LEAK')
 		expect(readHoverDisplay('update-expression')).toContain('UpdateExpression<')
-		expect(readHoverDisplay('create-result')).toContain(
-			'readonly title: string;',
-		)
-		expect(readHoverDisplay('transaction-changes')).toContain('readonly')
-		expect(readHoverDisplay('transaction-changes')).toContain('kind: "create"')
+		expect(readHoverDisplay('create-item')).toContain('readonly title: string;')
+		expect(readHoverDisplay('create-item-update')).toContain('update')
 	})
 
 	it('suggests and documents only compatible family branches', () => {

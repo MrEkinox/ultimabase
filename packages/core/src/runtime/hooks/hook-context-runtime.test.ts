@@ -375,49 +375,6 @@ describe('HookContext Runtime capabilities', () => {
 		await ultimabase.dispose()
 	})
 
-	it('rejects ambient queries during transaction finalization', async () => {
-		const FinalizationReadSchema = Schema.define({
-			className: 'HookContextFinalizationRead',
-			fields: { title: stringField() },
-		})
-		const PostSchema = Schema.define({
-			className: 'HookContextFinalizationPost',
-			fields: { title: stringField({ validation: { required: true } }) },
-			hooks: {
-				transaction: {
-					beforeCommit: () => {
-						void FinalizationReadSchema.findMany()
-					},
-				},
-			},
-		})
-		const trace: string[] = []
-		const ultimabase = new UltimaBase({
-			plugins: [
-				createDatabasePlugin(
-					new RecordingDatabaseAdapter(
-						[
-							createMutationResult(
-								'0198a43e-2431-7000-8000-000000000204',
-								'stored',
-							),
-						],
-						trace,
-					),
-				),
-			],
-			schemas: [PostSchema, FinalizationReadSchema],
-		})
-
-		await ultimabase.start()
-		await expect(
-			PostSchema.createOne({ data: { title: 'stored' } }, { ultimabase }),
-		).rejects.toMatchObject({ code: 'MISSING_EXECUTION_CONTEXT' })
-		expect(trace.at(-1)).toBe('adapter:rollback')
-
-		await ultimabase.dispose()
-	})
-
 	it('keeps caught cross-application hook failures rollback-only', async () => {
 		const ForeignSchema = Schema.define({
 			className: 'HookContextForeign',
@@ -562,7 +519,7 @@ describe('HookContext Runtime capabilities', () => {
 		await ultimabase.dispose()
 	})
 
-	it('accepts after-commit emission and continues independent consumers', async () => {
+	it('delivers queued after-operation events after commit', async () => {
 		const trace: string[] = []
 		let nestedDeliveries = 0
 		const postCommittedEvent = defineEvent()('post.committed', {
@@ -574,9 +531,9 @@ describe('HookContext Runtime capabilities', () => {
 				title: stringField({ validation: { required: true } }),
 			},
 			hooks: {
-				transaction: {
-					afterCommit: ({ context }) => {
-						trace.push('hook:afterCommit')
+				afterOperation: {
+					create: ({ context }) => {
+						trace.push('hook:afterOperation')
 						context.emit(postCommittedEvent, {})
 					},
 				},
@@ -632,8 +589,9 @@ describe('HookContext Runtime capabilities', () => {
 			internalDetails: { reason: 'hook-event-queue-closed' },
 		})
 		expect(trace).toContain('adapter:commit')
-		expect(trace.slice(-3)).toStrictEqual([
-			'hook:afterCommit',
+		expect(trace.slice(-4)).toStrictEqual([
+			'hook:afterOperation',
+			'adapter:commit',
 			'event:failing',
 			'event:succeeding',
 		])

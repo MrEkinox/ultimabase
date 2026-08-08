@@ -195,6 +195,7 @@ describe('native hook dispatcher', () => {
 		let resolvedOriginal: object | undefined
 		let preparedOriginal: object | undefined
 		let persistedOriginal: object | undefined
+		let persistedItem: object | undefined
 		const schema = Schema.define({
 			className: 'MaterializedOriginalArticle',
 			fields: { title: stringField() },
@@ -231,14 +232,17 @@ describe('native hook dispatcher', () => {
 				},
 				afterOperation: {
 					update: [
-						({ kind, originalItem }) => {
+						({ item, kind, originalItem }) => {
 							expect(kind).toBe('update')
 							expect(originalItem.get('title')).toBe('Before')
+							expect(item.get('title')).toBe('After')
 							persistedOriginal = originalItem
+							persistedItem = item
 						},
-						({ kind, originalItem }) => {
+						({ item, kind, originalItem }) => {
 							expect(kind).toBe('update')
 							expect(originalItem).toBe(persistedOriginal)
+							expect(item).toBe(persistedItem)
 						},
 					],
 				},
@@ -297,7 +301,8 @@ describe('native hook dispatcher', () => {
 		if (
 			resolvedOriginal === undefined ||
 			preparedOriginal === undefined ||
-			persistedOriginal === undefined
+			persistedOriginal === undefined ||
+			persistedItem === undefined
 		) {
 			throw new TypeError('Every original item hook boundary must execute')
 		}
@@ -305,6 +310,7 @@ describe('native hook dispatcher', () => {
 		expect(isSchemaModelInstance(schema, resolvedOriginal)).toBe(true)
 		expect(isSchemaModelInstance(schema, preparedOriginal)).toBe(true)
 		expect(isSchemaModelInstance(schema, persistedOriginal)).toBe(true)
+		expect(isSchemaModelInstance(schema, persistedItem)).toBe(true)
 
 		await application.dispose()
 	})

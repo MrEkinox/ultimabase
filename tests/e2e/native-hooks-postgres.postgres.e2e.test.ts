@@ -161,14 +161,6 @@ const HookArticleSchema = Schema.define({
 				)
 			},
 		},
-		transaction: {
-			afterCommit: () => {
-				trace('schema:developer:afterCommit')
-			},
-			beforeCommit: () => {
-				trace('schema:developer:beforeCommit')
-			},
-		},
 		resolveInput: ({ operation }) => {
 			trace('schema:developer:resolveInput')
 
@@ -409,8 +401,6 @@ describe('native hooks with PostgreSQL', { concurrent: false }, () => {
 			'schema:developer:afterCreate',
 			'schema:developer:afterCreate:item:Create lifecycle',
 			'plugin:schema:afterCreate',
-			'schema:developer:beforeCommit',
-			'schema:developer:afterCommit',
 			'event:native-hooks.article-created',
 		])
 	})
@@ -449,7 +439,6 @@ describe('native hooks with PostgreSQL', { concurrent: false }, () => {
 		).resolves.toBe(false)
 		expect(committedEvents).toStrictEqual([])
 		expect(rollbackTrace).toContain('schema:developer:afterCreate')
-		expect(rollbackTrace).not.toContain('schema:developer:afterCommit')
 	})
 
 	it('keeps Access filters inside opaque scope and field restrictions', async () => {
@@ -535,8 +524,6 @@ describe('native hooks with PostgreSQL', { concurrent: false }, () => {
 			'schema:developer:beforeUpdate:pair:Write target->Updated target',
 			'schema:developer:afterUpdate',
 			'schema:developer:afterUpdate:pair:Write target->Updated target',
-			'schema:developer:beforeCommit',
-			'schema:developer:afterCommit',
 		])
 
 		hookTrace.length = 0
@@ -550,8 +537,6 @@ describe('native hooks with PostgreSQL', { concurrent: false }, () => {
 			'schema:developer:beforeDelete:original:Updated target',
 			'schema:developer:afterDelete',
 			'schema:developer:afterDelete:original:Updated target',
-			'schema:developer:beforeCommit',
-			'schema:developer:afterCommit',
 		])
 	})
 

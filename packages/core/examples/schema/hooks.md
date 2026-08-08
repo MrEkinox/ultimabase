@@ -55,8 +55,9 @@ export const AccountSchema = Schema.define({
 			],
 		},
 		afterOperation: {
-			update: ({ originalItem, item }) => {
+			update: ({ context, originalItem, item }) => {
 				console.log(originalItem, item)
+				context.emit('account.updated', { id: item.id })
 			},
 		},
 	},
@@ -73,6 +74,10 @@ and the complete candidate `item` without an internal operation AST. Mutation
 observers may throw, but do not replace the operation or result; use
 `resolveInput` for transformations. Reads are configured through Query options
 and mandatory schema Access filters rather than schema hooks.
+
+After-operation `item` values are complete persisted schema models regardless
+of the command's `select`. Hooks do not receive a separate public `result`.
+Calling `context.emit()` queues immutable data for delivery only after commit.
 
 All item-oriented mutation callbacks use `create`, `update`, `upsert`, or
 `delete` as `kind`. Callbacks that also expose `operation` keep the normalized
