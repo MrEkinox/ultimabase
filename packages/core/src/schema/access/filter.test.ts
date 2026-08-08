@@ -1,267 +1,150 @@
+import { describe, expect, it } from 'vitest'
+
 import {
 	Schema,
 	booleanField,
 	enumField,
 	intField,
 	objectField,
+	pointerField,
+	relationField,
 	stringField,
 } from '../index.js'
-import { describe, expect, it } from 'vitest'
-import { fieldPath } from '../../query/index.js'
-
-import type { AccessFilter } from './contracts.js'
+import { WhereBuilder } from '../../query/index.js'
 import {
-	combineAccessFilterResults,
-	createAccessFilter,
-	getAccessFilterExpression,
-	normalizeAccessFilterResult,
+	combineAccessWhereResults,
+	createAccessWhere,
+	normalizeAccessWhereResult,
 } from './filter.js'
 
-const articleSchema = Schema.define({
-	className: 'AccessFilterArticle',
+const Author = Schema.define({
+	className: 'AccessWhereAuthor',
+	fields: { active: booleanField(), name: stringField() },
+})
+const Tag = Schema.define({
+	className: 'AccessWhereTag',
+	fields: { label: stringField(), visible: booleanField() },
+})
+const Article = Schema.define({
+	className: 'AccessWhereArticle',
 	fields: {
 		aliases: stringField({ list: true }),
+		author: pointerField({ target: () => Author }),
 		metadata: objectField({ fields: { label: stringField() } }),
 		published: booleanField(),
 		score: intField(),
 		status: enumField({ values: ['draft', 'published'] }),
+		tags: relationField({ target: () => Tag }),
 		title: stringField(),
 		views: intField(),
 	},
 })
 
-describe('AccessFilter', () => {
-	it('builds every QueryBuilder predicate through one private implicit AND tree', () => {
-		const statuses: ('draft' | 'published')[] = ['draft', 'published']
-		const flags: ('case-insensitive' | 'multiline')[] = [
-			'case-insensitive',
-			'case-insensitive',
-			'multiline',
-		]
-		const filter = createAccessFilter(articleSchema)
-			.equalTo('published', true)
-			.notEqualTo('status', 'draft')
-			.greaterThan('views', 10)
-			.greaterThanOrEqualTo('views', 11)
-			.lessThan('views', 100)
-			.lessThanOrEqualTo('views', 99)
-			.between('views', 20, 80)
-			.notBetween('views', 40, 60)
-			.containedIn('status', statuses)
-			.notContainedIn('status', ['draft'])
-			.contains('title', 'Base')
-			.startsWith('title', 'Ultima')
-			.endsWith('title', 'Base')
-			.matches('title', { source: '^Ultima', flags })
-			.isNotNull('metadata')
-			.isNull('aliases')
-			.equalTo('score', null)
-
-		statuses.push('draft')
-		flags.push('multiline')
-
-		const expression = getAccessFilterExpression(articleSchema, filter)
+describe('Access where normalization', () => {
+	it('uses the public where object as the canonical policy input', () => {
+		const expression = normalizeAccessWhereResult(Article, {
+			metadata: {
+				at: [{ path: ['label'], eq: 'typed' }],
+				containedBy: { label: 'typed' },
+				contains: { label: 'typed' },
+				hasAllKeys: ['label'],
+				hasAnyKeys: ['label'],
+				hasKey: 'label',
+				jsonPathExists: { source: '$.label' },
+			},
+			published: { eq: true },
+			status: { in: ['draft', 'published'], ne: 'draft' },
+			title: {
+				contains: 'Base',
+				endsWith: 'Base',
+				matches: { flags: ['case-insensitive'], source: '^Ultima' },
+				startsWith: 'Ultima',
+			},
+			views: {
+				between: { lower: 10, upper: 100 },
+				gte: 10,
+				lt: 100,
+				notBetween: { lower: 40, upper: 60 },
+			},
+		})
 
 		expect(expression).toMatchObject({ kind: 'and' })
-		if (expression?.kind === 'and') {
-			expect(expression.expressions).toHaveLength(17)
-			expect(expression.expressions[6]).toStrictEqual({
-				field: 'views',
-				kind: 'between',
-				lower: 20,
-				upper: 80,
-			})
-			expect(expression.expressions[7]).toStrictEqual({
-				field: 'views',
-				kind: 'not-between',
-				lower: 40,
-				upper: 60,
-			})
-			expect(expression.expressions[8]).toStrictEqual({
-				field: 'status',
-				kind: 'in',
-				values: ['draft', 'published'],
-			})
-			expect(expression.expressions[13]).toStrictEqual({
-				field: 'title',
-				kind: 'regex',
-				pattern: {
-					flags: ['case-insensitive', 'multiline'],
-					source: '^Ultima',
-				},
-			})
-			expect(Object.isFrozen(expression.expressions)).toBe(true)
-		}
+		expect(Object.isFrozen(expression)).toBe(true)
 	})
 
-	it('composes nested logical branches without mutating their sources', () => {
-		const base = createAccessFilter(articleSchema)
-		const published = base.equalTo('published', true)
-		const popular = base.greaterThan('views', 100)
-		const discoverable = published.or(popular)
-		const moderated = discoverable.not(base.equalTo('status', 'draft'))
-		const combined = moderated.and(base.startsWith('title', 'Ultima'))
+	it('reuses the immutable WhereBuilder and its short operator names', () => {
+		const base = createAccessWhere(Article)
+		const expression = normalizeAccessWhereResult(
+			Article,
+			base
+				.eq('published', true)
+				.ne('status', 'draft')
+				.gte('views', 10)
+				.lt('views', 100)
+				.in('status', ['draft', 'published'])
+				.notIn('status', ['draft'])
+				.or({ title: { startsWith: 'public-' } }),
+		)
 
-		expect(getAccessFilterExpression(articleSchema, base)).toBeUndefined()
-		expect(getAccessFilterExpression(articleSchema, published)).toStrictEqual({
-			field: 'published',
-			kind: 'equal',
-			value: true,
-		})
-		expect(getAccessFilterExpression(articleSchema, combined)).toStrictEqual({
-			kind: 'and',
-			expressions: [
-				{
-					kind: 'or',
-					expressions: [
-						{ field: 'published', kind: 'equal', value: true },
-						{ field: 'views', kind: 'greater-than', value: 100 },
-					],
-				},
-				{
-					kind: 'not',
-					expression: { field: 'status', kind: 'equal', value: 'draft' },
-				},
-				{ field: 'title', kind: 'starts-with', value: 'Ultima' },
-			],
-		})
+		expect(expression).toMatchObject({ kind: 'or' })
+		expect(base.build()).toStrictEqual({})
 		expect(Object.isFrozen(base)).toBe(true)
-		expect(Object.isFrozen(combined)).toBe(true)
-		expect(Reflect.ownKeys(combined)).toStrictEqual([])
 	})
 
-	it('reuses structured QueryBuilder leaves without exposing private Access state', () => {
-		const filter = createAccessFilter(articleSchema)
-			.contains('metadata', { label: 'typed' })
-			.containedBy('metadata', { label: 'typed' })
-			.hasKey('metadata', 'label')
-			.hasAnyKeys('metadata', ['label'])
-			.hasAllKeys('metadata', ['label'])
-			.jsonPathExists('metadata', {
-				source: '$.items[*] ? (@.price > $minimum)',
-				variables: { minimum: 10 },
-			})
-			.jsonPathMatches('metadata', { source: '$.label == "typed"' })
-			.equalTo(fieldPath('metadata', ['label']), 'typed')
+	it('normalizes pointer and relation policies through the shared where contract', () => {
+		const expression = normalizeAccessWhereResult(
+			Article,
+			new WhereBuilder(Article)
+				.is('author', (author) => author.eq('active', true))
+				.some('tags', (tag) => tag.eq('visible', true))
+				.count('tags', {
+					gte: 2,
+					where: { label: { startsWith: 'core-' } },
+				}),
+		)
 
-		expect(getAccessFilterExpression(articleSchema, filter)).toMatchObject({
-			kind: 'and',
-			expressions: [
-				{ field: 'metadata', kind: 'contains', value: { label: 'typed' } },
-				{ field: 'metadata', kind: 'contained-by' },
-				{ field: 'metadata', kind: 'has-key', value: 'label' },
-				{ field: 'metadata', kind: 'has-any-keys', keys: ['label'] },
-				{ field: 'metadata', kind: 'has-all-keys', keys: ['label'] },
-				{
-					field: 'metadata',
-					kind: 'json-path-exists',
-					source: '$.items[*] ? (@.price > $minimum)',
-					variables: { minimum: 10 },
-				},
-				{
-					field: 'metadata',
-					kind: 'json-path-matches',
-					source: '$.label == "typed"',
-				},
-				{
-					field: 'metadata',
-					kind: 'equal',
-					path: ['label'],
-					value: 'typed',
-				},
-			],
-		})
+		expect(expression).toMatchObject({ kind: 'and' })
 	})
 
-	it('rejects forged and cross-schema filters at the private boundary', () => {
-		const commentSchema = Schema.define({
-			className: 'AccessFilterComment',
-			fields: { body: stringField() },
-		})
-		const articleFilter = createAccessFilter(articleSchema).equalTo(
-			'published',
+	it('keeps independent policy branches monotonic through AND', () => {
+		const expression = combineAccessWhereResults(Article, [
+			{ published: { eq: true } },
+			new WhereBuilder(Article).gt('views', 100),
 			true,
-		)
-		const commentFilter = createAccessFilter(commentSchema).equalTo(
-			'body',
-			'Comment',
-		)
+		])
 
-		expect(() => getAccessFilterExpression(articleSchema, {})).toThrow(
-			new TypeError('Access filter result must be an AccessFilter'),
-		)
-		expect(() =>
-			getAccessFilterExpression(articleSchema, commentFilter),
-		).toThrow(
-			new TypeError('Access filter result must use the supplied schema'),
-		)
-		expect(() =>
-			articleFilter.or(
-				commentFilter as unknown as AccessFilter<typeof articleSchema>,
-			),
-		).toThrow(new TypeError('logical Access filters must use the same schema'))
-	})
-
-	it('normalizes decisive callback results and combines policies only with AND', () => {
-		const published = createAccessFilter(articleSchema).equalTo(
-			'published',
-			true,
-		)
-		const popular = createAccessFilter(articleSchema).greaterThan('views', 100)
-
-		expect(normalizeAccessFilterResult(articleSchema, true)).toStrictEqual({
+		expect(expression).toMatchObject({ kind: 'and' })
+		expect(combineAccessWhereResults(Article, [])).toStrictEqual({
 			kind: 'constant',
 			value: true,
 		})
-		expect(normalizeAccessFilterResult(articleSchema, false)).toStrictEqual({
+		expect(normalizeAccessWhereResult(Article, false)).toStrictEqual({
 			kind: 'constant',
 			value: false,
 		})
-		expect(
-			normalizeAccessFilterResult(
-				articleSchema,
-				createAccessFilter(articleSchema),
-			),
-		).toStrictEqual({ kind: 'constant', value: true })
-		expect(
-			combineAccessFilterResults(articleSchema, [published, popular]),
-		).toStrictEqual({
-			kind: 'and',
-			expressions: [
-				{ field: 'published', kind: 'equal', value: true },
-				{ field: 'views', kind: 'greater-than', value: 100 },
-			],
-		})
-		expect(combineAccessFilterResults(articleSchema, [])).toStrictEqual({
-			kind: 'constant',
-			value: true,
-		})
-		expect(() => normalizeAccessFilterResult(articleSchema, undefined)).toThrow(
-			new TypeError('Access filter result must be an AccessFilter'),
-		)
-		expect(() => normalizeAccessFilterResult(articleSchema, {})).toThrow(
-			new TypeError('Access filter result must be an AccessFilter'),
-		)
 	})
 
-	it('retains QueryBuilder runtime validation at untyped boundaries', () => {
-		const filter = createAccessFilter(articleSchema)
+	it('rejects forged, callback, and cross-schema results', () => {
+		const Comment = Schema.define({
+			className: 'AccessWhereComment',
+			fields: { body: stringField() },
+		})
 
-		expect(() => {
-			// @ts-expect-error -- Runtime validation still protects JavaScript callers.
-			filter.equalTo('published', 'true')
-		}).toThrow(TypeError)
-		expect(() => {
-			// @ts-expect-error -- Membership candidates must remain arrays.
-			filter.containedIn('status', 'draft')
-		}).toThrow(new TypeError('query membership values must be an array'))
-		expect(() => {
-			// @ts-expect-error -- Ordered comparisons reject boolean fields.
-			filter.greaterThan('published', true)
-		}).toThrow(
+		expect(() => normalizeAccessWhereResult(Article, undefined)).toThrow(
 			new TypeError(
-				'query operator greater-than does not support boolean fields',
+				'Access filter result must be a boolean, WhereInput, or WhereBuilder',
 			),
 		)
+		expect(() => normalizeAccessWhereResult(Article, () => true)).toThrow(
+			new TypeError(
+				'Access filter result must be a boolean, WhereInput, or WhereBuilder',
+			),
+		)
+		expect(() =>
+			normalizeAccessWhereResult(
+				Article,
+				new WhereBuilder(Comment).eq('body', 'Comment'),
+			),
+		).toThrow(new TypeError('WhereBuilder must use the same schema definition'))
 	})
 })

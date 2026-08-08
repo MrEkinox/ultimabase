@@ -28,7 +28,10 @@ import { PgDialect } from 'drizzle-orm/pg-core'
 import { describe, expect, it } from 'vitest'
 
 import { compilePostgresSchema } from '../schema/schema-compiler.js'
-import { compilePostgresFilter } from './filter-compiler.js'
+import {
+	compilePostgresFilter,
+	compilePostgresRowFilter,
+} from './filter-compiler.js'
 import { PostgresSchemaCatalog } from '../schema/catalog.js'
 import { emptyPostgresConstraintCompilerRegistry } from '../constraints/compiler.js'
 import { createPostgresRelationPredicateCompiler } from './relation-predicate-compiler.js'
@@ -81,6 +84,53 @@ const renderQuery = (query: QueryBuilder<typeof FilterSchema>) => {
 }
 
 describe('PostgreSQL filter compiler', () => {
+	it('compiles relation predicates owned by a private Runtime row filter', () => {
+		const Target = Schema.define({
+			className: 'FilterAccessRelationTarget',
+			fields: { label: stringField(), visible: booleanField() },
+		})
+		const Source = Schema.define({
+			className: 'FilterAccessRelationSource',
+			fields: { targets: relationField({ target: () => Target }) },
+		})
+		const registry = new SchemaRegistry([Source, Target])
+		const catalog = new PostgresSchemaCatalog(
+			registry.values(),
+			registry.resolveSchemaTargets(),
+		)
+		const rowFilter = new QueryBuilder(Source).where({
+			targets: { some: { label: { eq: 'policy-value' } } },
+		}).ast.where?.expression
+		const targetAccess = new QueryBuilder(Target).where({
+			visible: { eq: true },
+		}).ast.where?.expression
+
+		if (rowFilter === undefined || targetAccess === undefined) {
+			throw new TypeError('Access relation compiler fixture is incomplete')
+		}
+
+		const [predicate] = collectQueryRelationPredicates(rowFilter)
+
+		if (predicate === undefined) {
+			throw new TypeError(
+				'Access relation compiler fixture requires a predicate',
+			)
+		}
+
+		const compiler = createPostgresRelationPredicateCompiler(
+			catalog,
+			emptyPostgresConstraintCompilerRegistry,
+			[{ constraints: [], predicate, rowFilter: targetAccess }],
+		)
+		const rendered = dialect.sqlToQuery(
+			compilePostgresRowFilter(rowFilter, catalog.get(Source), compiler),
+		)
+
+		expect(rendered.sql.toLowerCase()).toContain('exists')
+		expect(rendered.params).toContain('policy-value')
+		expect(rendered.params).toContain(true)
+	})
+
 	it('parameterizes correlated relation predicates and private target Access', () => {
 		const Target = Schema.define({
 			className: 'FilterRelationTarget',

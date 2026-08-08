@@ -370,7 +370,6 @@ const runSchemaPreparedPhases = async <
 			)
 		}
 	}
-
 }
 
 const resolveInput = async <const TOperation extends DatabaseOperationAst>(

@@ -57,7 +57,7 @@ test('infers exact schema and field Access policy targets', () => {
 				schema,
 				{
 					filter: {
-						read: ({ filter }) => filter.equalTo('title', 'Visible'),
+						read: ({ where }) => where.eq('title', 'Visible'),
 					},
 				},
 				{ master: 'enforce' },

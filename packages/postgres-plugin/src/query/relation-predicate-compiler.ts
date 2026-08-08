@@ -184,7 +184,7 @@ export const createPostgresRelationPredicateCompiler = (
 			const targetAccess =
 				scope.rowFilter === undefined
 					? undefined
-					: compilePostgresRowFilter(scope.rowFilter, target)
+					: compilePostgresRowFilter(scope.rowFilter, target, compile)
 			const sourceId = resolveCompiledPostgresField(source, 'id').column
 			const developerPredicate = compilePostgresFilter(
 				predicate.expression,
@@ -316,7 +316,7 @@ export const createPostgresRelationPredicateCompiler = (
 				const aliasedTargetAccess =
 					scope.rowFilter === undefined
 						? undefined
-						: compilePostgresRowFilter(scope.rowFilter, target)
+						: compilePostgresRowFilter(scope.rowFilter, target, compile)
 				const developerPredicate = compilePostgresFilter(
 					predicate.expression,
 					target,

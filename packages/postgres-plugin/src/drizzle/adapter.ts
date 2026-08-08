@@ -114,6 +114,7 @@ const compilePostgresRequestConstraint = (
 	constraintCompilers: PostgresConstraintCompilerRegistry,
 	schema: ReturnType<PostgresSchemaCatalog['get']>,
 	request: DatabaseOperationRequest,
+	relationCompiler?: ReturnType<typeof createPostgresRelationPredicateCompiler>,
 ): SQL | undefined => {
 	const contributed = compilePostgresConstraints(
 		constraintCompilers,
@@ -123,7 +124,7 @@ const compilePostgresRequestConstraint = (
 	const access =
 		request.rowFilter === undefined
 			? undefined
-			: compilePostgresRowFilter(request.rowFilter, schema)
+			: compilePostgresRowFilter(request.rowFilter, schema, relationCompiler)
 
 	return and(contributed, access)
 }
@@ -179,6 +180,11 @@ const executePostgresRequest = async <
 	request: DatabaseOperationRequest<TOperation>,
 ): Promise<DatabaseOperationResult<TOperation>> => {
 	const schema = schemas.get(readOperationSchema(request.operation))
+	const relationPredicateCompiler = createPostgresRelationPredicateCompiler(
+		schemas,
+		constraintCompilers,
+		request.relationPredicates ?? [],
+	)
 	assertConstraintOperationSupported(
 		request.operation,
 		request.constraints.length > 0 || request.rowFilter !== undefined,
@@ -197,6 +203,7 @@ const executePostgresRequest = async <
 		constraintCompilers,
 		schema,
 		request,
+		relationPredicateCompiler,
 	)
 	const relationPredicate = compilePostgresRequestRelation(
 		schemas,
@@ -204,11 +211,6 @@ const executePostgresRequest = async <
 		request,
 	)
 	const effectivePredicate = and(constraintPredicate, relationPredicate)
-	const relationPredicateCompiler = createPostgresRelationPredicateCompiler(
-		schemas,
-		constraintCompilers,
-		request.relationPredicates ?? [],
-	)
 	// Runtime guarantees the closed Operation AST union before the adapter boundary.
 	const operation = request.operation as unknown as ExecutableOperationAst
 	const result = await executePostgresOperation(
@@ -302,20 +304,21 @@ class DrizzlePostgresTransactionAdapter implements DatabaseTransactionAdapter {
 	): Promise<PreparedDatabaseOperation<TOperation>> {
 		this.#assertActive()
 		const schema = this.#schemas.get(readOperationSchema(request.operation))
-		const constraintPredicate = compilePostgresRequestConstraint(
-			this.#constraintCompilers,
-			schema,
-			request,
-		)
-		const relation =
-			request.relation === undefined
-				? undefined
-				: this.#schemas.getRelation(request.relation)
 		const relationPredicateCompiler = createPostgresRelationPredicateCompiler(
 			this.#schemas,
 			this.#constraintCompilers,
 			request.relationPredicates ?? [],
 		)
+		const constraintPredicate = compilePostgresRequestConstraint(
+			this.#constraintCompilers,
+			schema,
+			request,
+			relationPredicateCompiler,
+		)
+		const relation =
+			request.relation === undefined
+				? undefined
+				: this.#schemas.getRelation(request.relation)
 		assertConstraintOperationSupported(
 			request.operation,
 			request.constraints.length > 0 || request.rowFilter !== undefined,
@@ -343,6 +346,7 @@ class DrizzlePostgresTransactionAdapter implements DatabaseTransactionAdapter {
 						constraints: execution.constraints,
 						operation: execution.operation,
 					},
+					relationPredicateCompiler,
 				)
 			},
 			request.prepareMutationItems === true,

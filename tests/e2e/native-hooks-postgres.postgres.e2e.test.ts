@@ -85,7 +85,7 @@ const HookArticleSchema = Schema.define({
 	className: 'NativeHookPostgresArticle',
 	access: {
 		filter: {
-			read: ({ filter }) => filter.equalTo('published', true),
+			read: ({ where }) => where.eq('published', true),
 		},
 	},
 	fields: {

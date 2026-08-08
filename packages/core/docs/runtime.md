@@ -223,17 +223,16 @@ const ArticleSchema = Schema.define({
 	},
 	access: {
 		filter: {
-			read: ({ filter }) => filter.equalTo('published', true),
+			read: () => ({ published: { eq: true } }),
 		},
-	},
 	},
 })
 
 const articles = await runWithRequestEngine(request, () =>
-ArticleSchema.findMany({
-	orderBy: [{ createdAt: 'desc' }],
-	select: { id: true, title: true },
-}),
+	ArticleSchema.findMany({
+		orderBy: [{ createdAt: 'desc' }],
+		select: { id: true, title: true },
+	}),
 )
 
 // The exact result is readonly { id: string; title: string }[].

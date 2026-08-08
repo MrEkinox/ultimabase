@@ -141,7 +141,6 @@ export type {
 } from './fields/base/contract.js'
 export type {
 	AccessDecisionRule,
-	AccessFilter,
 	AccessFilterRule,
 	FieldAccess,
 	FieldAccessDeclaration,

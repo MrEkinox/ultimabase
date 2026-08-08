@@ -27,11 +27,10 @@ const AccessArticle = Schema.define({
 	className: 'NativeAccessArticleE2E',
 	access: {
 		filter: {
-			delete: ({ filter }) => filter.equalTo('published', true),
-			read: ({ filter }) =>
-				filter.equalTo('published', true).greaterThanOrEqualTo('rank', 0),
-			update: ({ filter }) => filter.equalTo('published', true),
-			upsert: ({ filter }) => filter.equalTo('published', true),
+			delete: ({ where }) => where.eq('published', true),
+			read: ({ where }) => where.eq('published', true).gte('rank', 0),
+			update: ({ where }) => where.eq('published', true),
+			upsert: ({ where }) => where.eq('published', true),
 		},
 		item: {
 			update: ({ originalItem }) => !originalItem.locked,
@@ -77,10 +76,10 @@ const BulkDocument = Schema.define({
 	className: 'NativeAccessBulkE2E',
 	access: {
 		filter: {
-			delete: ({ filter }) => filter.equalTo('visible', true),
-			read: ({ filter }) => filter.equalTo('visible', true),
-			update: ({ filter }) => filter.equalTo('visible', true),
-			upsert: ({ filter }) => filter.equalTo('visible', true),
+			delete: ({ where }) => where.eq('visible', true),
+			read: ({ where }) => where.eq('visible', true),
+			update: ({ where }) => where.eq('visible', true),
+			upsert: ({ where }) => where.eq('visible', true),
 		},
 		operation: {
 			create: ({ context }) => context.access.mode === 'master',
@@ -105,7 +104,7 @@ const pluginVisibility = definePlugin({
 			AccessArticle,
 			{
 				filter: {
-					read: ({ filter }) => filter.notEqualTo('title', 'plugin-hidden'),
+					read: ({ where }) => where.ne('title', 'plugin-hidden'),
 				},
 			},
 			{ master: 'enforce' },

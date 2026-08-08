@@ -355,11 +355,16 @@ const executeDatabaseOperation = async <
 	}
 
 	const executable = request.operation as unknown as ExecutableOperationAst
-	const predicates = readOperationQueries(executable).flatMap((query) =>
-		query.where === undefined
+	const predicates = [
+		...readOperationQueries(executable).flatMap((query) =>
+			query.where === undefined
+				? []
+				: [...collectQueryRelationPredicates(query.where.expression)],
+		),
+		...(request.rowFilter === undefined
 			? []
-			: [...collectQueryRelationPredicates(query.where.expression)],
-	)
+			: [...collectQueryRelationPredicates(request.rowFilter)]),
+	]
 
 	if (predicates.length > 0) {
 		const capability: unknown = executor.capabilities?.relationPredicates

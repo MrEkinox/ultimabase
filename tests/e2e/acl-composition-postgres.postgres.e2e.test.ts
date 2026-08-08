@@ -70,12 +70,10 @@ const Document = Schema.define({
 	className: 'ACLCompositionDocument',
 	access: {
 		filter: {
-			delete: ({ filter }) => filter.equalTo('nativeScope', 'allowed'),
-			read: ({ filter }) =>
-				filter
-					.equalTo('nativeScope', 'allowed')
-					.equalTo('hookScope', 'allowed'),
-			update: ({ filter }) => filter.equalTo('nativeScope', 'allowed'),
+			delete: ({ where }) => where.eq('nativeScope', 'allowed'),
+			read: ({ where }) =>
+				where.eq('nativeScope', 'allowed').eq('hookScope', 'allowed'),
+			update: ({ where }) => where.eq('nativeScope', 'allowed'),
 		},
 		operation: { create: true, delete: true, read: true, update: true },
 	},

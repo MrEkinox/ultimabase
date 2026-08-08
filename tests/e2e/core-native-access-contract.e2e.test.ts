@@ -88,10 +88,10 @@ describe('packed @ultimabase/core native Access contract', () => {
 		expect(updateItem).toContain('readonly authorId: string')
 		expect(updateItem).not.toContain('readonly get:')
 		expect(readHoverDisplay('field-value')).toContain('boolean')
-		const filterDisplay = readHoverDisplay('access-filter')
+		const whereDisplay = readHoverDisplay('access-where')
 
-		expect(filterDisplay).toContain('AccessFilter<SchemaClass<"AccessPost"')
-		expect(filterDisplay).not.toContain('Query<')
+		expect(whereDisplay).toContain('WhereBuilder<SchemaClass<"AccessPost"')
+		expect(whereDisplay).not.toContain('Query<')
 	})
 
 	it('exposes concise documented Access helpers from the package root', () => {

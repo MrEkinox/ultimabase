@@ -11,8 +11,8 @@ const securedArticle = Schema.define({
 	className: 'AccessPipelineArticle',
 	access: {
 		filter: {
-			read: ({ filter }) => filter.equalTo('published', true),
-			update: ({ filter }) => filter.equalTo('published', true),
+			read: ({ where }) => where.eq('published', true),
+			update: ({ where }) => where.eq('published', true),
 		},
 		item: {
 			update: ({ originalItem, item }) =>

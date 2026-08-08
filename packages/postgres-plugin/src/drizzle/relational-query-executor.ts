@@ -131,7 +131,7 @@ const compileRequestPredicate = (
 	const access =
 		request.rowFilter === undefined
 			? undefined
-			: compilePostgresRowFilter(request.rowFilter, schema)
+			: compilePostgresRowFilter(request.rowFilter, schema, relationCompiler)
 	let relation: SQL | undefined
 
 	if (request.relation !== undefined) {

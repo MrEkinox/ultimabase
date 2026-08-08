@@ -1,114 +1,96 @@
+import { expectTypeOf, test } from 'vitest'
+
 import {
 	Schema,
 	booleanField,
 	enumField,
 	intField,
 	objectField,
+	pointerField,
+	relationField,
 	stringField,
 } from '../index.js'
-import { expectTypeOf, test } from 'vitest'
-import { fieldPath } from '../../query/index.js'
+import type { WhereBuilder, WhereInput } from '../../query/index.js'
+import { createAccessWhere } from './filter.js'
 
-import type { AccessFilter } from './contracts.js'
-import { createAccessFilter } from './filter.js'
-
+const Author = Schema.define({
+	className: 'TypedAccessWhereAuthor',
+	fields: { active: booleanField(), name: stringField() },
+})
+const Tag = Schema.define({
+	className: 'TypedAccessWhereTag',
+	fields: { label: stringField(), visible: booleanField() },
+})
 const Article = Schema.define({
-	className: 'TypedAccessFilterArticle',
+	className: 'TypedAccessWhereArticle',
 	fields: {
 		aliases: stringField({ list: true }),
+		author: pointerField({ target: () => Author }),
 		metadata: objectField({ fields: { label: stringField() } }),
 		published: booleanField(),
 		score: intField(),
 		status: enumField({ values: ['draft', 'published'] }),
+		tags: relationField({ target: () => Tag }),
 		title: stringField(),
 		views: intField(),
 	},
 })
 
-test('correlates every Access predicate with exact schema capabilities', () => {
-	const filter = createAccessFilter(Article)
+test('types Access objects and builders through the public where contract', () => {
+	const where = createAccessWhere(Article)
+	const object = {
+		author: { is: { active: { eq: true } } },
+		published: { eq: true },
+		status: { in: ['draft', 'published'] },
+		tags: {
+			count: { gte: 2, where: { visible: { eq: true } } },
+			some: { label: { startsWith: 'core-' } },
+		},
+		views: { gte: 10 },
+	} as const satisfies WhereInput<typeof Article>
 
-	expectTypeOf(filter).toEqualTypeOf<AccessFilter<typeof Article>>()
-	expectTypeOf(
-		filter
-			.equalTo('published', true)
-			.notEqualTo('status', 'draft')
-			.greaterThan('views', 10)
-			.greaterThanOrEqualTo('views', 10)
-			.lessThan('views', 100)
-			.lessThanOrEqualTo('views', 100)
-			.between('views', 10, 100)
-			.notBetween('views', 10, 100)
-			.containedIn('status', ['draft', 'published'])
-			.notContainedIn('status', ['draft'])
-			.contains('title', 'Base')
-			.startsWith('title', 'Ultima')
-			.endsWith('title', 'Base')
-			.matches('title', {
-				flags: ['case-insensitive'],
-				source: '^Ultima',
-			})
-			.isNotNull('metadata')
-			.isNull('aliases'),
-	).toEqualTypeOf<AccessFilter<typeof Article>>()
-
-	filter.equalTo('score', null)
-	filter
-		.contains('metadata', { label: 'typed' })
-		.containedBy('metadata', { label: 'typed' })
-		.hasKey('metadata', 'label')
-		.hasAnyKeys('metadata', ['label'])
-		.hasAllKeys('metadata', ['label'])
-		.jsonPathExists('metadata', {
-			source: '$.items[*] ? (@.price > $minimum)',
-			variables: { minimum: 10 },
-		})
-		.jsonPathMatches('metadata', { source: '$.label == "typed"' })
-		.equalTo(fieldPath('metadata', ['label']), 'typed')
+	expectTypeOf(where).toEqualTypeOf<WhereBuilder<typeof Article>>()
+	expectTypeOf(object).toExtend<WhereInput<typeof Article>>()
+	where
+		.eq('score', null)
+		.is('author', (author) => author.eq('active', true))
+		.some('tags', (tag) => tag.eq('visible', true))
 
 	// @ts-expect-error -- Boolean operands remain booleans.
-	filter.equalTo('published', 'true')
+	where.eq('published', 'true')
 	// @ts-expect-error -- Enum operands remain their exact literal union.
-	filter.equalTo('status', 'archived')
+	where.eq('status', 'archived')
 	// @ts-expect-error -- Ordered comparisons reject boolean fields.
-	filter.greaterThan('published', true)
-	// @ts-expect-error -- Ordered comparisons reject nullable null operands.
-	filter.greaterThan('score', null)
-	// @ts-expect-error -- Range bounds reject nullable null operands.
-	filter.between('score', null, 100)
-	// @ts-expect-error -- Range filters reject unordered fields.
-	filter.notBetween('published', false, true)
-	// @ts-expect-error -- Membership values stay correlated with the enum.
-	filter.containedIn('status', ['archived'])
-	// @ts-expect-error -- String operators reject numeric fields.
-	filter.contains('views', '10')
-	// @ts-expect-error -- Typed objects reject undeclared containment properties.
-	filter.contains('metadata', { missing: true })
-	// @ts-expect-error -- Typed object key operators reject undeclared keys.
-	filter.hasKey('metadata', 'missing')
-	// @ts-expect-error -- JSONPath cannot target ordinary scalar fields.
-	filter.jsonPathExists('views', { source: '$' })
-	// @ts-expect-error -- Regex filters reject non-string fields.
-	filter.matches('views', { flags: [], source: '10' })
-	// @ts-expect-error -- Equality does not apply to list fields.
-	filter.equalTo('aliases', ['alias'])
-	expectTypeOf<'findMany'>().not.toExtend<keyof typeof filter>()
-	expectTypeOf<'select'>().not.toExtend<keyof typeof filter>()
-	expectTypeOf<'ascending'>().not.toExtend<keyof typeof filter>()
-	expectTypeOf<'limit'>().not.toExtend<keyof typeof filter>()
+	where.gt('published', true)
+	// @ts-expect-error -- Relation predicates retain target field inference.
+	where.some('tags', (tag) => tag.eq('missing', true))
+	// @ts-expect-error -- Pointer predicates retain target value inference.
+	where.is('author', (author) => author.eq('active', 'true'))
 })
 
-test('restricts logical composition to one exact schema identity type', () => {
-	const filter = createAccessFilter(Article)
-	const Comment = Schema.define({
-		className: 'TypedAccessFilterComment',
-		fields: { body: stringField() },
+test('contextually types direct Access where object results', () => {
+	Schema.define({
+		className: 'ContextualAccessWhereArticle',
+		access: {
+			filter: {
+				read: () => ({
+					published: { eq: true },
+					views: { gte: 10 },
+				}),
+				update: ({ where }) => where.eq('published', true),
+			},
+		},
+		fields: { published: booleanField(), views: intField() },
 	})
 
-	filter.and(filter.equalTo('published', true))
-	filter.or(filter.equalTo('published', false))
-	filter.not(filter.equalTo('status', 'draft'))
-
-	// @ts-expect-error -- Logical branches must use the same schema type.
-	filter.and(createAccessFilter(Comment).equalTo('body', 'Comment'))
+	Schema.define({
+		className: 'InvalidContextualAccessWhereArticle',
+		access: {
+			filter: {
+				// @ts-expect-error -- Direct policy objects retain exact field names.
+				read: () => ({ missing: { eq: true } }),
+			},
+		},
+		fields: { published: booleanField() },
+	})
 })

@@ -88,7 +88,7 @@ const Tag: TagSchema = Schema.define({
 	className: 'RelationE2ETag',
 	access: {
 		filter: {
-			read: ({ filter }) => filter.equalTo('visible', true),
+			read: ({ where }) => where.eq('visible', true),
 		},
 	},
 	fields: {
@@ -138,7 +138,7 @@ function resolvePost(): PostSchema {
 const Author: AuthorSchema = Schema.define({
 	className: 'RelationE2EAuthor',
 	access: {
-		filter: { read: ({ filter }) => filter.equalTo('visible', true) },
+		filter: { read: ({ where }) => where.eq('visible', true) },
 	},
 	fields: {
 		name: authorNameField,
@@ -160,6 +160,11 @@ const Post: PostSchema = Schema.define({
 
 const PrivateArticle = Schema.define({
 	className: 'RelationE2EPrivateArticle',
+	access: {
+		filter: {
+			read: () => ({ tags: { some: { visible: { eq: true } } } }),
+		},
+	},
 	fields: {
 		tags: relationField({
 			access: { read: false, update: true },
@@ -864,6 +869,12 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 		await article
 			.relation('tags')
 			.connect(Tag.pointer(tag.id), { ultimabase: app })
+		expect(
+			await PrivateArticle.findMany(
+				{ select: { id: true, title: true } },
+				{ ultimabase: app },
+			),
+		).toMatchObject([{ id: article.id, title: 'Private relation' }])
 		await expect(
 			article.relation('tags').findMany(undefined, { ultimabase: app }),
 		).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })

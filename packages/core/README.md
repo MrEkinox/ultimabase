@@ -632,7 +632,7 @@ const PostSchema = Schema.define({
 			delete: ({ context }) => context.access.mode === 'master',
 		},
 		filter: {
-			read: ({ filter }) => filter.equalTo('published', true),
+			read: ({ where }) => where.eq('published', true),
 		},
 		item: {
 			update: ({ originalItem, item }) =>
@@ -698,36 +698,45 @@ including each object-list entry; removing a nested value exposes `null` as its
 final canonical value. Relation fields intentionally keep their typed mutation
 delta because to-many relations are not embedded inside the parent object.
 
-An Access filter reuses the same field capabilities and normalized predicate
-nodes as `Query.where`, but keeps its dedicated policy-oriented builder and
-remains in private monotonic state. Developer query options can add filters,
-ordering, or limits but cannot inspect, replace, or remove Access filters. ACL
-and community policy plugins register contributions to this native system
-rather than business hooks.
+An Access filter uses the canonical `WhereInput` contract and normalized
+predicate nodes from `Query.where`, while remaining in private monotonic state.
+Developer query options can add filters, ordering, or limits but cannot inspect,
+replace, or remove Access filters. ACL and community policy plugins register
+contributions to this native system rather than business hooks.
 
-The callback receives one immutable schema-aware builder and no terminal
-`kind`, so `get`, `findOne`, `findMany`, `count`, and `exists` always observe
-the same protected row universe. It may return `true`, `false`, or one predicate branch. Every
-independent native or plugin contribution is later combined through `AND`:
+The callback receives one immutable schema-aware `WhereBuilder` utility and no
+terminal `kind`, so `get`, `findOne`, `findMany`, `count`, and `exists` always
+observe the same protected row universe. It may return `true`, `false`, a
+`WhereInput` object, or the supplied builder. Every independent native or
+plugin contribution is later combined through `AND`:
 
 ```ts
 filter: {
-	read: ({ context, filter }) => {
+	read: ({ context }) => {
 		const principal = context.getValue(authenticatedPrincipal)
 
 		return principal === undefined
-			? filter.equalTo('published', true)
-			: filter
-					.equalTo('published', true)
-					.or(filter.equalTo('authorId', principal.id))
+			? { published: { eq: true } }
+			: {
+					OR: [
+						{ published: { eq: true } },
+						{ authorId: { eq: principal.id } },
+					],
+				}
 	},
 }
 ```
 
-The builder deliberately has no selection, ordering, pagination, terminal, or
-execution method. Its equality, comparison, membership, string, regex,
-existence, and logical methods share `WhereInput` field capabilities and
-normalized predicate nodes without exposing the developer Query or its AST.
+The object form is the source of truth shared with future transports. The
+builder remains an immutable utility for dynamic composition and has no
+selection, ordering, pagination, terminal, or execution method. Its equality,
+comparison, membership, string, regex, relationship, and logical methods build
+the same `WhereInput` contract without exposing the developer Query or its AST.
+
+Relationship predicates declared by Access are trusted server policy. They may
+reference relation or target fields whose public field `filter` rule is false,
+while Runtime still applies the target schema's operation Access, row filters,
+plugin constraints, and recursively nested relationship policies.
 
 Application initialization compiles native declarations and owner-bound plugin
 policies once, before infrastructure connects. Plugins contribute through the
@@ -881,7 +890,7 @@ const ArticleSchema = Schema.define({
 	},
 	access: {
 		filter: {
-			read: ({ filter }) => filter.equalTo('published', true),
+			read: ({ where }) => where.eq('published', true),
 		},
 	},
 })

@@ -37,7 +37,7 @@ const pointerRuntimeUser = Schema.define({
 	className: 'PointerRuntimeUser',
 	access: {
 		filter: {
-			read: ({ filter }) => filter.equalTo('status', 'active'),
+			read: ({ where }) => where.eq('status', 'active'),
 		},
 	},
 	fields: {

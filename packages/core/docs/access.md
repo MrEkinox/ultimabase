@@ -135,7 +135,7 @@ const visibilityPlugin = definePlugin({
 			Post,
 			{
 				filter: {
-					read: ({ filter }) => filter.equalTo('published', true),
+					read: ({ where }) => where.eq('published', true),
 				},
 			},
 			{ master: 'enforce' },
@@ -143,6 +143,25 @@ const visibilityPlugin = definePlugin({
 	},
 })
 ```
+
+Schema row policies return the same typed object accepted by public `where`.
+The supplied `WhereBuilder` is only an immutable utility for dynamic branches:
+
+```ts
+access: {
+	filter: {
+		read: ({ context, where }) =>
+			context.access.mode === 'master'
+				? where.eq('status', 'published')
+				: { status: { eq: 'published' } },
+	},
+}
+```
+
+These predicates remain private and combine monotonically through `AND`.
+Relationship predicates may use fields hidden from public filtering because
+they are trusted server policy. Target operation Access, target row policies,
+plugin constraints, and nested relationship scopes still apply recursively.
 
 Every contribution explicitly selects `master: 'bypass'` or
 `master: 'enforce'`; Core never applies a permission-plugin-specific bypass.

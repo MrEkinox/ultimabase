@@ -52,8 +52,7 @@ export const AccessPost = Schema.define({
 			},
 		},
 		filter: {
-			read: ({ /* hover:access-filter */ filter }) =>
-				filter.equalTo('published', true),
+			read: ({ /* hover:access-where */ where }) => where.eq('published', true),
 		},
 		item: {
 			create: ({ item, kind }) => {
@@ -121,7 +120,7 @@ export const fixtureAccessProvider = definePlugin({
 		access.schema(
 			'published-posts',
 			AccessPost,
-			{ filter: { read: ({ filter }) => filter.equalTo('published', true) } },
+			{ filter: { read: ({ where }) => where.eq('published', true) } },
 			{ master: 'enforce' },
 		)
 	},

@@ -33,8 +33,8 @@ const articleSchema = Schema.define({
 	className: 'NativeAccessArticle',
 	access: {
 		filter: {
-			read: ({ filter }) => filter.equalTo('published', true),
-			update: ({ filter }) => filter.equalTo('published', true),
+			read: ({ where }) => where.eq('published', true),
+			update: ({ where }) => where.eq('published', true),
 		},
 		item: {
 			update: ({ originalItem, item }) =>
@@ -155,6 +155,69 @@ describe('NativeAccessRuntime', () => {
 		expect(enforced.operation.query.where).toBe(originalQuery.where)
 		expect(enforced.rowFilter).toMatchObject({
 			field: 'published',
+			kind: 'equal',
+			value: true,
+		})
+		await application.dispose()
+	})
+
+	it('plans trusted relational row filters without granting public field filtering', async () => {
+		const target = Schema.define({
+			className: 'NativeAccessPolicyTarget',
+			access: {
+				filter: { read: () => ({ visible: { eq: true } }) },
+			},
+			fields: {
+				label: stringField({
+					access: { read: { filter: false, item: true, order: false } },
+				}),
+				visible: booleanField({
+					access: { read: { filter: false, item: false, order: false } },
+				}),
+			},
+		})
+		const source = Schema.define({
+			className: 'NativeAccessPolicySource',
+			access: {
+				filter: {
+					read: () => ({
+						targets: { some: { label: { eq: 'policy-visible' } } },
+					}),
+				},
+			},
+			fields: {
+				targets: relationField({
+					access: { read: false },
+					target: () => target,
+				}),
+				title: stringField(),
+			},
+		})
+		const application = await createApplication({
+			schemas: [source, target],
+			plugins: [],
+		})
+		const stages = requireStages(createEnforcementStages(application))
+		const operation = {
+			kind: 'find-many',
+			query: new QueryBuilder(source).select({ title: true }).ast,
+		} as const
+		const enforcement = await stages.evaluate({ context, operation })
+		const enforced = await stages.enforceOperation({
+			context,
+			enforcement,
+			operation,
+		})
+		const [scope] = enforced.relationPredicates ?? []
+
+		expect(enforced.rowFilter).toMatchObject({
+			field: 'targets',
+			kind: 'relation-predicate',
+			operator: 'some',
+		})
+		expect(scope?.predicate).toBe(enforced.rowFilter)
+		expect(scope?.rowFilter).toMatchObject({
+			field: 'visible',
 			kind: 'equal',
 			value: true,
 		})

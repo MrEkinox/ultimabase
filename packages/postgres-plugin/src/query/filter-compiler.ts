@@ -560,4 +560,6 @@ export const compilePostgresFilter = <TSchema extends SchemaDefinition>(
 export const compilePostgresRowFilter = (
 	filter: DatabaseRowFilterNode,
 	schema: CompiledPostgresSchema,
-): SQL => compileRuntimeFilter(filter as RuntimeFilter, schema)
+	relationCompiler?: PostgresRelationPredicateCompiler,
+): SQL =>
+	compileRuntimeFilter(filter as RuntimeFilter, schema, relationCompiler)

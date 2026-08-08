@@ -31,7 +31,7 @@ describe('relation Runtime inclusion', () => {
 			className: 'RelationIncludedComment',
 			access: {
 				filter: {
-					read: ({ filter }) => filter.equalTo('status', 'visible'),
+					read: ({ where }) => where.eq('status', 'visible'),
 				},
 			},
 			fields: {

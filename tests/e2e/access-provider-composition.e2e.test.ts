@@ -150,10 +150,10 @@ const CombinedPost = Schema.define({
 	className: 'AccessCompositionPost',
 	access: {
 		filter: {
-			read: ({ filter }) =>
-				filter
-					.equalTo('nativeScope', 'native-allowed')
-					.equalTo('businessScope', 'business-allowed'),
+			read: ({ where }) =>
+				where
+					.eq('nativeScope', 'native-allowed')
+					.eq('businessScope', 'business-allowed'),
 		},
 		operation: { read: hasRole(editor) },
 	},
@@ -189,8 +189,7 @@ const communityPolicy = definePlugin({
 			CombinedPost,
 			{
 				filter: {
-					read: ({ filter }) =>
-						filter.equalTo('communityScope', 'community-allowed'),
+					read: ({ where }) => where.eq('communityScope', 'community-allowed'),
 				},
 			},
 			{ master: 'enforce' },

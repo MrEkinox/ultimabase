@@ -2,5 +2,6 @@
 '@ultimabase/core': minor
 ---
 
-Add the immutable schema-aware Access filter builder and its restricted typed
-predicate surface.
+Use canonical typed `WhereInput` objects for schema Access row policies, retain
+the immutable `WhereBuilder` utility for dynamic composition, and recursively
+apply target Access to relationship predicates.

@@ -1196,7 +1196,10 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 		return readWhereBuilderState(this).schema
 	}
 
-	/** Compares the visible cardinality of one relation. */
+	/**
+	 * Compares the visible cardinality of one relation.
+	 * @example `where.count('comments', { gte: 3 })`
+	 */
 	count<TFieldName extends SchemaRelationFieldName<TSchema>>(
 		fieldName: TFieldName,
 		input: WhereRelationCountInput<TSchema, TFieldName, readonly []>,
@@ -1208,7 +1211,10 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 		)
 	}
 
-	/** Requires one relation to contain no visible target. */
+	/**
+	 * Requires one relation to contain no visible target.
+	 * @example `where.isEmpty('comments')`
+	 */
 	isEmpty(fieldName: SchemaRelationFieldName<TSchema>): WhereBuilder<TSchema> {
 		return this.#append(
 			immutableRecord({
@@ -1217,7 +1223,10 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 		)
 	}
 
-	/** Requires one relation to contain at least one visible target. */
+	/**
+	 * Requires one relation to contain at least one visible target.
+	 * @example `where.isNotEmpty('comments')`
+	 */
 	isNotEmpty(
 		fieldName: SchemaRelationFieldName<TSchema>,
 	): WhereBuilder<TSchema> {
@@ -1228,7 +1237,10 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 		)
 	}
 
-	/** Compares one field or structured path for equality. */
+	/**
+	 * Compares one field or structured path for equality.
+	 * @example `where.eq('published', true)`
+	 */
 	eq<TTarget extends QueryFilterTarget<TSchema, 'equal'>>(
 		target: TTarget,
 		value: WhereBuilderOperand<TSchema, 'equal', TTarget>,
@@ -1236,7 +1248,10 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 		return this.#append(createWhereTargetInput(target, 'eq', value))
 	}
 
-	/** Compares one field or structured path for inequality. */
+	/**
+	 * Compares one field or structured path for inequality.
+	 * @example `where.ne('status', 'archived')`
+	 */
 	ne<TTarget extends QueryFilterTarget<TSchema, 'not-equal'>>(
 		target: TTarget,
 		value: WhereBuilderOperand<TSchema, 'not-equal', TTarget>,
@@ -1244,7 +1259,10 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 		return this.#append(createWhereTargetInput(target, 'ne', value))
 	}
 
-	/** Adds one strict lower bound. */
+	/**
+	 * Adds one strict lower bound.
+	 * @example `where.gt('views', 0)`
+	 */
 	gt<TTarget extends QueryFilterTarget<TSchema, 'greater-than'>>(
 		target: TTarget,
 		value: QueryFilterOperand<TSchema, 'greater-than', TTarget>,
@@ -1252,7 +1270,10 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 		return this.#append(createWhereTargetInput(target, 'gt', value))
 	}
 
-	/** Adds one inclusive lower bound. */
+	/**
+	 * Adds one inclusive lower bound.
+	 * @example `where.gte('views', 0)`
+	 */
 	gte<TTarget extends QueryFilterTarget<TSchema, 'greater-than-or-equal'>>(
 		target: TTarget,
 		value: QueryFilterOperand<TSchema, 'greater-than-or-equal', TTarget>,
@@ -1260,7 +1281,10 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 		return this.#append(createWhereTargetInput(target, 'gte', value))
 	}
 
-	/** Adds one strict upper bound. */
+	/**
+	 * Adds one strict upper bound.
+	 * @example `where.lt('views', 100)`
+	 */
 	lt<TTarget extends QueryFilterTarget<TSchema, 'less-than'>>(
 		target: TTarget,
 		value: QueryFilterOperand<TSchema, 'less-than', TTarget>,
@@ -1268,7 +1292,10 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 		return this.#append(createWhereTargetInput(target, 'lt', value))
 	}
 
-	/** Adds one inclusive upper bound. */
+	/**
+	 * Adds one inclusive upper bound.
+	 * @example `where.lte('views', 100)`
+	 */
 	lte<TTarget extends QueryFilterTarget<TSchema, 'less-than-or-equal'>>(
 		target: TTarget,
 		value: QueryFilterOperand<TSchema, 'less-than-or-equal', TTarget>,
@@ -1276,7 +1303,10 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 		return this.#append(createWhereTargetInput(target, 'lte', value))
 	}
 
-	/** Requires one inclusive interval. */
+	/**
+	 * Requires one inclusive interval.
+	 * @example `where.between('views', 10, 100)`
+	 */
 	between<TFieldName extends QueryFilterFieldName<TSchema, 'between'>>(
 		target: TFieldName,
 		lower: WhereComparisonValue<TSchema, TFieldName>,
@@ -1291,7 +1321,10 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 		)
 	}
 
-	/** Requires the inverse of one inclusive interval. */
+	/**
+	 * Requires the inverse of one inclusive interval.
+	 * @example `where.notBetween('views', 10, 100)`
+	 */
 	notBetween<TFieldName extends QueryFilterFieldName<TSchema, 'not-between'>>(
 		target: TFieldName,
 		lower: WhereComparisonValue<TSchema, TFieldName>,
@@ -1306,7 +1339,10 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 		)
 	}
 
-	/** Requires membership in one immutable candidate list. */
+	/**
+	 * Requires membership in one immutable candidate list.
+	 * @example `where.in('status', ['draft', 'published'])`
+	 */
 	in<TTarget extends QueryFilterTarget<TSchema, 'in'>>(
 		target: TTarget,
 		values: readonly WhereBuilderOperand<TSchema, 'in', TTarget>[],
@@ -1314,7 +1350,10 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 		return this.#append(createWhereTargetInput(target, 'in', values))
 	}
 
-	/** Excludes membership in one immutable candidate list. */
+	/**
+	 * Excludes membership in one immutable candidate list.
+	 * @example `where.notIn('status', ['archived'])`
+	 */
 	notIn<TTarget extends QueryFilterTarget<TSchema, 'not-in'>>(
 		target: TTarget,
 		values: readonly WhereBuilderOperand<TSchema, 'not-in', TTarget>[],
@@ -1322,7 +1361,10 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 		return this.#append(createWhereTargetInput(target, 'notIn', values))
 	}
 
-	/** Adds string or structural containment. */
+	/**
+	 * Adds string or structural containment.
+	 * @example `where.contains('title', 'Ultima')`
+	 */
 	contains<TTarget extends QueryFilterTarget<TSchema, 'contains'>>(
 		target: TTarget,
 		value: QueryFilterOperand<TSchema, 'contains', TTarget>,
@@ -1330,7 +1372,10 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 		return this.#append(createWhereTargetInput(target, 'contains', value))
 	}
 
-	/** Requires one structured target to be contained by the operand. */
+	/**
+	 * Requires one structured target to be contained by the operand.
+	 * @example `where.containedBy('metadata', { public: true })`
+	 */
 	containedBy<TTarget extends QueryFilterTarget<TSchema, 'contained-by'>>(
 		target: TTarget,
 		value: QueryFilterOperand<TSchema, 'contained-by', TTarget>,
@@ -1338,7 +1383,10 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 		return this.#append(createWhereTargetInput(target, 'containedBy', value))
 	}
 
-	/** Adds one prefix match. */
+	/**
+	 * Adds one prefix match.
+	 * @example `where.startsWith('title', 'Ultima')`
+	 */
 	startsWith<TTarget extends QueryFilterTarget<TSchema, 'starts-with'>>(
 		target: TTarget,
 		value: QueryFilterOperand<TSchema, 'starts-with', TTarget>,
@@ -1346,7 +1394,10 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 		return this.#append(createWhereTargetInput(target, 'startsWith', value))
 	}
 
-	/** Adds one suffix match. */
+	/**
+	 * Adds one suffix match.
+	 * @example `where.endsWith('title', 'Base')`
+	 */
 	endsWith<TTarget extends QueryFilterTarget<TSchema, 'ends-with'>>(
 		target: TTarget,
 		value: QueryFilterOperand<TSchema, 'ends-with', TTarget>,
@@ -1354,7 +1405,10 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 		return this.#append(createWhereTargetInput(target, 'endsWith', value))
 	}
 
-	/** Tests one structured key. */
+	/**
+	 * Tests one structured key.
+	 * @example `where.hasKey('metadata', 'published')`
+	 */
 	hasKey<TTarget extends QueryFilterTarget<TSchema, 'has-key'>>(
 		target: TTarget,
 		key: QueryFilterOperand<TSchema, 'has-key', TTarget>,
@@ -1362,7 +1416,10 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 		return this.#append(createWhereTargetInput(target, 'hasKey', key))
 	}
 
-	/** Tests whether any structured key exists. */
+	/**
+	 * Tests whether any structured key exists.
+	 * @example `where.hasAnyKeys('metadata', ['draft', 'published'])`
+	 */
 	hasAnyKeys<TTarget extends QueryFilterTarget<TSchema, 'has-any-keys'>>(
 		target: TTarget,
 		keys: readonly QueryFilterOperand<TSchema, 'has-any-keys', TTarget>[],
@@ -1370,7 +1427,10 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 		return this.#append(createWhereTargetInput(target, 'hasAnyKeys', keys))
 	}
 
-	/** Tests whether every structured key exists. */
+	/**
+	 * Tests whether every structured key exists.
+	 * @example `where.hasAllKeys('metadata', ['title', 'slug'])`
+	 */
 	hasAllKeys<TTarget extends QueryFilterTarget<TSchema, 'has-all-keys'>>(
 		target: TTarget,
 		keys: readonly QueryFilterOperand<TSchema, 'has-all-keys', TTarget>[],
@@ -1378,7 +1438,10 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 		return this.#append(createWhereTargetInput(target, 'hasAllKeys', keys))
 	}
 
-	/** Tests whether one JSONPath expression returns an item. */
+	/**
+	 * Tests whether one JSONPath expression returns an item.
+	 * @example `where.jsonPathExists('metadata', { source: '$.items[*]' })`
+	 */
 	jsonPathExists(
 		target: QueryFilterTarget<TSchema, 'json-path-exists'>,
 		expression: QueryJsonPathExpression,
@@ -1388,7 +1451,10 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 		)
 	}
 
-	/** Tests one JSONPath boolean expression. */
+	/**
+	 * Tests one JSONPath boolean expression.
+	 * @example `where.jsonPathMatches('metadata', { source: '$.published == true' })`
+	 */
 	jsonPathMatches(
 		target: QueryFilterTarget<TSchema, 'json-path-matches'>,
 		expression: QueryJsonPathExpression,
@@ -1398,7 +1464,10 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 		)
 	}
 
-	/** Adds one declarative regular expression. */
+	/**
+	 * Adds one declarative regular expression.
+	 * @example `where.matches('title', { source: '^Ultima' })`
+	 */
 	matches(
 		fieldName: QueryFilterFieldName<TSchema, 'regex'>,
 		pattern: QueryRegexPattern,
@@ -1406,27 +1475,42 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 		return this.#append(createWhereTargetInput(fieldName, 'matches', pattern))
 	}
 
-	/** Requires one field or structured path to contain null. */
+	/**
+	 * Requires one field or structured path to contain null.
+	 * @example `where.isNull('deletedAt')`
+	 */
 	isNull(target: QueryFilterTarget<TSchema, 'null'>): WhereBuilder<TSchema> {
 		return this.#append(createWhereTargetInput(target, 'isNull', true))
 	}
 
-	/** Requires one field or structured path to contain a non-null value. */
+	/**
+	 * Requires one field or structured path to contain a non-null value.
+	 * @example `where.isNotNull('publishedAt')`
+	 */
 	isNotNull(target: QueryFilterTarget<TSchema, 'null'>): WhereBuilder<TSchema> {
 		return this.#append(createWhereTargetInput(target, 'isNotNull', true))
 	}
 
-	/** Combines another filter through AND. */
+	/**
+	 * Combines another filter through AND.
+	 * @example `where.and({ published: { eq: true } })`
+	 */
 	and(input: WhereSource<TSchema>): WhereBuilder<TSchema> {
 		return this.#combine(input, 'and', false)
 	}
 
-	/** Combines another filter through OR. */
+	/**
+	 * Combines another filter through OR.
+	 * @example `where.or({ featured: { eq: true } })`
+	 */
 	or(input: WhereSource<TSchema>): WhereBuilder<TSchema> {
 		return this.#combine(input, 'or', false)
 	}
 
-	/** Negates another filter before combining it through AND. */
+	/**
+	 * Negates another filter before combining it through AND.
+	 * @example `where.not({ archived: { eq: true } })`
+	 */
 	not(input: WhereSource<TSchema>): WhereBuilder<TSchema> {
 		return this.#combine(input, 'and', true)
 	}
@@ -1442,7 +1526,10 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 		return this.#relation('some', fieldName, input)
 	}
 
-	/** Requires no related target to match. */
+	/**
+	 * Requires no related target to match.
+	 * @example `where.none('tags', { hidden: { eq: true } })`
+	 */
 	none<TFieldName extends SchemaRelationFieldName<TSchema>>(
 		fieldName: TFieldName,
 		input: WhereSource<SchemaRelationTarget<TSchema, TFieldName>>,
@@ -1450,7 +1537,10 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 		return this.#relation('none', fieldName, input)
 	}
 
-	/** Requires every related target to match. */
+	/**
+	 * Requires every related target to match.
+	 * @example `where.every('tags', { visible: { eq: true } })`
+	 */
 	every<TFieldName extends SchemaRelationFieldName<TSchema>>(
 		fieldName: TFieldName,
 		input: WhereSource<SchemaRelationTarget<TSchema, TFieldName>>,
@@ -1458,7 +1548,10 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 		return this.#relation('every', fieldName, input)
 	}
 
-	/** Requires the object referenced by one pointer to match the target filter. */
+	/**
+	 * Requires the object referenced by one pointer to match the target filter.
+	 * @example `where.is('author', { active: { eq: true } })`
+	 */
 	is<TFieldName extends SchemaPointerFieldName<TSchema>>(
 		fieldName: TFieldName,
 		input: WhereSource<SchemaPointerTarget<TSchema, TFieldName>>,
@@ -1466,7 +1559,10 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 		return this.#pointer('is', fieldName, input)
 	}
 
-	/** Requires the object referenced by one pointer not to match the target filter. */
+	/**
+	 * Requires the object referenced by one pointer not to match the target filter.
+	 * @example `where.isNot('author', { suspended: { eq: true } })`
+	 */
 	isNot<TFieldName extends SchemaPointerFieldName<TSchema>>(
 		fieldName: TFieldName,
 		input: WhereSource<SchemaPointerTarget<TSchema, TFieldName>>,
@@ -1474,7 +1570,10 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 		return this.#pointer('is-not', fieldName, input)
 	}
 
-	/** Returns the immutable object contract shared by direct and transport filters. */
+	/**
+	 * Returns the immutable object contract shared by direct and transport filters.
+	 * @example `new WhereBuilder(Post).eq('published', true).build()`
+	 */
 	build(): WhereInput<TSchema> {
 		const expression = readWhereBuilderState(this).expression
 

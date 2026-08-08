@@ -141,7 +141,7 @@ export const ProtectedPost = Schema.define({
 			),
 		},
 		filter: {
-			read: ({ filter }) => filter.equalTo('published', true),
+			read: ({ where }) => where.eq('published', true),
 		},
 	},
 	fields: {

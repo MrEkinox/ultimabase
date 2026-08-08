@@ -608,18 +608,40 @@ export const createEnforcementStages = <
 	>(
 		input: RuntimeOperationStageInput<TOperation>,
 		initialState: EnforcementState,
+		policyExpressions: readonly QueryExpressionNode[] = [],
 	): Promise<EnforcementState> => {
 		const executable = input.operation as unknown as ExecutableOperationAst
 		let state = initialState
+		const policyRowFilter = getEnforcementStateSnapshot(state).rowFilter
+		const expressions = [
+			...readOperationQueries(executable).flatMap((query) =>
+				query.where === undefined
+					? []
+					: [
+							immutableRecord({
+								expression: query.where.expression,
+								requireSourceFieldAccess: true,
+							}),
+						],
+			),
+			...(policyRowFilter === undefined
+				? []
+				: [
+						immutableRecord({
+							expression: policyRowFilter,
+							requireSourceFieldAccess: false,
+						}),
+					]),
+			...policyExpressions.map((expression) =>
+				immutableRecord({
+					expression,
+					requireSourceFieldAccess: false,
+				}),
+			),
+		]
 
-		for (const query of readOperationQueries(executable)) {
-			if (query.where === undefined) {
-				continue
-			}
-
-			for (const predicate of collectDirectRelationPredicates(
-				query.where.expression,
-			)) {
+		for (const { expression, requireSourceFieldAccess } of expressions) {
+			for (const predicate of collectDirectRelationPredicates(expression)) {
 				if (
 					getEnforcementStateSnapshot(state).relationPredicates.some(
 						(scope) => scope.predicate === predicate,
@@ -628,20 +650,29 @@ export const createEnforcementStages = <
 					continue
 				}
 
-				await access.enforceRelationPredicateRead(input, predicate)
+				// A policy-owned row filter is already trusted server code. Source field
+				// disclosure applies only to predicates supplied by the operation caller.
+				if (requireSourceFieldAccess) {
+					await access.enforceRelationPredicateRead(input, predicate)
+				}
 
+				const includePredicateInTargetQuery =
+					requireSourceFieldAccess &&
+					!(
+						predicate.kind === 'relation-count' &&
+						predicate.expression.kind === 'constant' &&
+						predicate.expression.value
+					)
 				const targetQuery = immutableRecord({
 					...createQueryAst(predicate.target.definition),
-					...(predicate.kind === 'relation-count' &&
-					predicate.expression.kind === 'constant' &&
-					predicate.expression.value
-						? {}
-						: {
+					...(includePredicateInTargetQuery
+						? {
 								where: immutableRecord({
 									kind: 'where' as const,
 									expression: predicate.expression,
 								}),
-							}),
+							}
+						: {}),
 				})
 				const targetOperation = immutableRecord({
 					kind: 'exists' as const,
@@ -662,7 +693,11 @@ export const createEnforcementStages = <
 					targetInput,
 					targetState,
 				)
-				targetState = await evaluateRelationPredicates(targetInput, targetState)
+				targetState = await evaluateRelationPredicates(
+					targetInput,
+					targetState,
+					requireSourceFieldAccess ? [] : [predicate.expression],
+				)
 
 				const targetSnapshot = getEnforcementStateSnapshot(targetState)
 				state = appendEnforcementRelationPredicates(state, [

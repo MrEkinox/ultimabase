@@ -192,7 +192,7 @@ stringField({ access: { read: { /* completion */ } } })
 		expectDocumentedNames(completions, ['item', 'filter', 'order'])
 	})
 
-	it('offers only documented predicates and logic on schema Access filters', () => {
+	it('offers the shared where builder on schema Access filters', () => {
 		const completions = readMemberCompletions(`
 import { Schema, booleanField, intField, stringField } from '../../src/schema/index.js'
 
@@ -200,8 +200,8 @@ Schema.define({
 	className: 'Article',
 	access: {
 		filter: {
-			read: ({ filter }) => {
-				filter./* completion */
+			read: ({ where }) => {
+				where./* completion */
 
 				return true
 			},
@@ -218,28 +218,37 @@ Schema.define({
 		expectDocumentedNames(completions, [
 			'and',
 			'between',
+			'build',
 			'containedBy',
-			'containedIn',
 			'contains',
+			'count',
 			'endsWith',
-			'equalTo',
-			'greaterThan',
-			'greaterThanOrEqualTo',
+			'eq',
+			'every',
+			'gt',
+			'gte',
 			'hasAllKeys',
 			'hasAnyKeys',
 			'hasKey',
+			'in',
+			'is',
+			'isEmpty',
+			'isNot',
+			'isNotEmpty',
 			'isNotNull',
 			'isNull',
 			'jsonPathExists',
 			'jsonPathMatches',
-			'lessThan',
-			'lessThanOrEqualTo',
+			'lt',
+			'lte',
 			'matches',
+			'ne',
+			'none',
 			'not',
 			'notBetween',
-			'notContainedIn',
-			'notEqualTo',
+			'notIn',
 			'or',
+			'some',
 			'startsWith',
 		])
 	})

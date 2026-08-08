@@ -25,7 +25,7 @@ const Post = Schema.define({
 			delete: ({ context }) => context.access.mode === 'master',
 		},
 		filter: {
-			read: ({ filter }) => filter.equalTo('published', true),
+			read: ({ where }) => where.eq('published', true),
 		},
 		item: {
 			update: ({ input, item }) => item.authorId === input.authorId,
@@ -34,9 +34,11 @@ const Post = Schema.define({
 	fields: {
 		secret: stringField({
 			access: {
-				read: ({ context }) => context.access.mode === 'master',
-				filter: false,
-				order: false,
+				read: {
+					item: ({ context }) => context.access.mode === 'master',
+					filter: false,
+					order: false,
+				},
 				create: true,
 				update: false,
 			},
@@ -73,9 +75,9 @@ const Post = Schema.define({
 - Operation rules receive only `context` and `kind`. Inputs belong to
   `item` rules, which avoids rebuilding the complete Query and Operation AST in
   every Access callback and keeps editor response times stable.
-- Issue 401 exposes the schema-aware `AccessFilter` boundary required by native
-  declarations. Issue 416 owns the complete immutable predicate builder and its
-  runtime normalization.
+- Issue 401 exposes the schema-aware row-policy boundary required by native
+  declarations. Issue 416 and ADR-0167 align it with the canonical `WhereInput`
+  contract and its immutable builder utility.
 
 ## Out of scope
 

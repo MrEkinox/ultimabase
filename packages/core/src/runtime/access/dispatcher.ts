@@ -17,8 +17,8 @@ import {
 	materializeSchemaModel,
 } from '../../schema/schema/model.js'
 import {
-	combineAccessFilterResults,
-	createAccessFilter,
+	combineAccessWhereResults,
+	createAccessWhere,
 } from '../../schema/access/filter.js'
 import {
 	getApplicationAccessPlan,
@@ -708,7 +708,7 @@ const evaluateOperationAndFilter = async (
 				},
 				immutableRecord({
 					context: request.context,
-					filter: createAccessFilter(schemaPlan.schema),
+					where: createAccessWhere(schemaPlan.schema),
 				}),
 			),
 		)
@@ -718,7 +718,7 @@ const evaluateOperationAndFilter = async (
 		? state
 		: appendEnforcementRowFilter(
 				state,
-				combineAccessFilterResults(schemaPlan.schema, results),
+				combineAccessWhereResults(schemaPlan.schema, results),
 			)
 }
 

@@ -4,13 +4,13 @@ import {
 	Schema,
 	booleanField,
 	stringField,
-	type AccessFilter,
 	type InferCreateInput,
 	type InferObject,
 	type SchemaAccess,
 	type SchemaPreparedDraft,
 	type SchemaResult,
 } from '../index.js'
+import type { WhereBuilder } from '../../query/index.js'
 import { RequestContextValue, type AccessContext } from '../../access/index.js'
 import type { RequestContext } from '../../runtime/index.js'
 
@@ -81,17 +81,17 @@ const Article = Schema.define({
 		},
 		filter: {
 			read: (input) => {
-				const { context, filter } = input
+				const { context, where } = input
 
-				expectTypeOf(filter).toEqualTypeOf<AccessFilter<typeof Article>>()
+				expectTypeOf(where).toEqualTypeOf<WhereBuilder<typeof Article>>()
 				expectTypeOf(context).toEqualTypeOf<AccessContext>()
 				// @ts-expect-error -- One filter defines every read terminal's row universe.
 				void input.kind
 
-				return filter.equalTo('published', true)
+				return { published: { eq: true } }
 			},
-			update: async ({ filter }) =>
-				Promise.resolve(filter.equalTo('published', false)),
+			update: async ({ where }) =>
+				Promise.resolve(where.eq('published', false)),
 			delete: false,
 		},
 		item: {

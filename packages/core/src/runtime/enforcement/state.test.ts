@@ -1,10 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { Schema, booleanField } from '../../schema/index.js'
-import {
-	createAccessFilter,
-	getAccessFilterExpression,
-} from '../../schema/access/filter.js'
+import { normalizeAccessWhereResult } from '../../schema/access/filter.js'
 import { databaseConstraint } from './definitions.js'
 import {
 	appendEnforcementConstraints,
@@ -83,18 +80,12 @@ describe('monotonic enforcement state', () => {
 	})
 
 	it('combines private row restrictions with AND without changing prior states', () => {
-		const published = getAccessFilterExpression(
-			rowSchema,
-			createAccessFilter(rowSchema).equalTo('published', true),
-		)
-		const hidden = getAccessFilterExpression(
-			rowSchema,
-			createAccessFilter(rowSchema).equalTo('published', false),
-		)
-
-		if (published === undefined || hidden === undefined) {
-			throw new TypeError('Fixture Access filters must contain expressions')
-		}
+		const published = normalizeAccessWhereResult(rowSchema, {
+			published: { eq: true },
+		})
+		const hidden = normalizeAccessWhereResult(rowSchema, {
+			published: { eq: false },
+		})
 
 		const empty = createEnforcementState()
 		const first = appendEnforcementRowFilter(empty, published)
