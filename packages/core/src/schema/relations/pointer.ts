@@ -17,7 +17,11 @@ import {
 	type QueryIncludedFieldFromInput,
 	type QuerySelectedFieldFromInput,
 } from '../../query/query/input.js'
-import { Schema, type SchemaDefinition } from '../schema/definition.js'
+import {
+	Schema,
+	type GeneratedSchemaReference,
+	type SchemaDefinition,
+} from '../schema/definition.js'
 
 /** Describes the stable transport-neutral JSON identity of one pointer. */
 export interface PointerJSON<TClassName extends string = string> {
@@ -46,6 +50,23 @@ export interface PointerValue extends PointerValueBrand {
 	/** Serializes the schema-qualified identity without loading its object. */
 	toJSON(): Readonly<PointerJSON>
 }
+
+/** Retains one pointer's exact logical target without retaining a local schema type. */
+export type PointerTarget<TClassName extends string> = PointerValue &
+	Readonly<{
+		toJSON(): Readonly<PointerJSON<TClassName>>
+	}>
+
+/**
+ * Exposes one generated pointer through the exact contract of its logical target.
+ *
+ * The generated registry knows a target by stable class name rather than by one
+ * application-local TypeScript variable. This alias preserves every ordinary
+ * Pointer capability without inventing a second runtime value or schema class.
+ */
+export type GeneratedPointerHandle<TClassName extends string> = Pointer<
+	GeneratedSchemaReference<TClassName>
+>
 
 const pointerInstances = new WeakSet<object>()
 

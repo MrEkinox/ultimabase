@@ -11,7 +11,9 @@ import {
 	type SchemaExtensionBindingContext,
 	type SchemaExtension,
 } from '../extensions/definition.js'
-import type { GenericField } from '../fields/base/contract.js'
+import type { FieldDefinition, GenericField } from '../fields/base/contract.js'
+import type { PointerField } from '../fields/builtins/pointer.js'
+import type { RelationField } from '../fields/builtins/relation.js'
 import { assertFieldDefinition } from '../fields/base/definition.js'
 import type { OperationOptions } from '../../query/operations/options.js'
 import type {
@@ -72,6 +74,13 @@ import {
 	type SchemaFieldBuilderDeclaration,
 } from './field-builder.js'
 import type { FieldBuilderMethodResolver } from './field-builder-methods.js'
+import type {
+	GeneratedFieldContract,
+	GeneratedRelationshipContract,
+	GeneratedSchemaContract,
+	GeneratedSchemaContractByName,
+	RequireGeneratedSchemaEntry,
+} from '../generated-contracts.js'
 
 /**
  * Collects named field definitions without erasing their concrete literals.
@@ -117,11 +126,36 @@ export type SchemaExtensionData<TFields extends SchemaFields> = InferFields<
 export type SchemaExtensionDeclaration<
 	TFields extends SchemaFields,
 	TExtensions extends SchemaExtensions,
+	TData extends Readonly<Record<string, unknown>> =
+		SchemaExtensionData<TFields>,
 > =
-	| TExtensions
-	| ((
-			context: SchemaExtensionBindingContext<SchemaExtensionData<TFields>>,
-	  ) => TExtensions)
+	TExtensions | ((context: SchemaExtensionBindingContext<TData>) => TExtensions)
+
+type GeneratedSchemaExtensionData<
+	TClassName extends string,
+	TFields extends SchemaFields,
+> = [GeneratedSchemaContractByName<TClassName>] extends [never]
+	? SchemaExtensionData<TFields>
+	: GeneratedSchemaContractByName<TClassName> extends infer TContract extends
+				GeneratedSchemaContract
+		? Readonly<{
+				[
+					TFieldName in keyof TContract['Fields'] as TFieldName extends ReservedSystemFieldName
+						? never
+						: TContract['Fields'][TFieldName] extends GeneratedFieldContract<
+									infer TObject
+							  >
+							? [TObject] extends [never]
+								? never
+								: TFieldName
+							: never
+				]: TContract['Fields'][TFieldName] extends GeneratedFieldContract<
+					infer TObject
+				>
+					? TObject
+					: never
+			}>
+		: SchemaExtensionData<TFields>
 
 /**
  * Describes the developer input accepted by `Schema.define()`.
@@ -163,7 +197,8 @@ export interface SchemaOptions<
 	 */
 	readonly extensions?: SchemaExtensionDeclaration<
 		NoInfer<TFields>,
-		TExtensions
+		TExtensions,
+		GeneratedSchemaExtensionData<TClassName, NoInfer<TFields>>
 	>
 	/**
 	 * Groups native allow, row, and prepared-item policies by operation.
@@ -233,12 +268,82 @@ type SchemaFieldsFromSource<TSource extends SchemaFieldSource> =
 			? SchemaFields
 			: Extract<TSource, SchemaFields>
 
+type GeneratedRelationshipTarget<TRelationship> =
+	TRelationship extends GeneratedRelationshipContract<
+		infer TTarget,
+		'one' | 'many'
+	>
+		? GeneratedSchemaReference<TTarget>
+		: never
+
+type GeneratedFieldDefinition<
+	TContract extends GeneratedSchemaContract,
+	TFieldName extends keyof TContract['Fields'],
+> = TFieldName extends keyof TContract['Pointers']
+	? PointerField<GeneratedRelationshipTarget<TContract['Pointers'][TFieldName]>>
+	: TFieldName extends keyof TContract['Relations']
+		? RelationField<
+				GeneratedRelationshipTarget<TContract['Relations'][TFieldName]>
+			>
+		: TContract['Fields'][TFieldName] extends GeneratedFieldContract<
+					infer TObject,
+					unknown,
+					unknown,
+					unknown,
+					unknown,
+					infer TKind,
+					infer TList
+			  >
+			? FieldDefinition<
+					TKind,
+					TObject,
+					object,
+					{
+						readonly create: 'required'
+						readonly list: TList
+						readonly nullable: false
+						readonly object: 'required'
+						readonly update: 'optional'
+					}
+				>
+			: GenericField
+
+/** Reconstructs only the compact field identities needed by the unchanged AST. */
+export type GeneratedSchemaFields<TClassName extends string> = [
+	GeneratedSchemaContractByName<TClassName>,
+] extends [never]
+	? SchemaFields
+	: GeneratedSchemaContractByName<TClassName> extends infer TContract extends
+				GeneratedSchemaContract
+		? Readonly<{
+				[
+					TFieldName in keyof TContract['Fields'] as TFieldName extends ReservedSystemFieldName
+						? never
+						: TFieldName
+				]: GeneratedFieldDefinition<TContract, TFieldName>
+			}>
+		: SchemaFields
+
+type SchemaFieldsForDeclaration<
+	TClassName extends string,
+	TSource extends SchemaFieldSource,
+> =
+	TSource extends SchemaFieldDeclaration<infer TFields>
+		? TFields
+		: TSource extends SchemaFieldBuilderDeclaration
+			? GeneratedSchemaFields<TClassName>
+			: SchemaFieldsFromSource<TSource>
+
 type SchemaDeclarationOptions<
 	TClassName extends string,
 	TSource extends SchemaFieldSource,
 	TExtensions extends SchemaExtensions,
 > = Omit<
-	SchemaOptions<TClassName, SchemaFieldsFromSource<TSource>, TExtensions>,
+	SchemaOptions<
+		TClassName,
+		SchemaFieldsForDeclaration<TClassName, TSource>,
+		TExtensions
+	>,
 	'fields'
 > & {
 	/**
@@ -247,6 +352,15 @@ type SchemaDeclarationOptions<
 	 */
 	readonly fields: TSource
 }
+
+type GeneratedBuilderSchemaRequirement<
+	TClassName extends string,
+	TSource extends SchemaFieldSource,
+> = TSource extends SchemaFieldDeclaration
+	? unknown
+	: TSource extends SchemaFieldBuilderDeclaration
+		? RequireGeneratedSchemaEntry<TClassName>
+		: unknown
 
 /**
  * Carries immutable schema metadata while retaining every declaration literal.
@@ -278,6 +392,12 @@ export interface SchemaDefinition<
 	/** The immutable transport-neutral metadata consumed by infrastructure. */
 	readonly definition: SchemaMetadata<TClassName, TFields, TExtensions>
 }
+
+/** Represents a generated relationship target by its stable logical name. */
+export type GeneratedSchemaReference<TClassName extends string> = SchemaClass<
+	TClassName,
+	GeneratedSchemaFields<TClassName>
+>
 
 /** Represents the constructible schema class registered by UltimaBase. */
 export interface SchemaClass<
@@ -710,7 +830,9 @@ const normalizeSchemaExtensions = <
 	const declaredExtensions =
 		typeof options.extensions === 'function'
 			? options.extensions(
-					createSchemaExtensionBindingContext<SchemaExtensionData<TFields>>(),
+					createSchemaExtensionBindingContext<
+						GeneratedSchemaExtensionData<TClassName, TFields>
+					>(),
 				)
 			: options.extensions
 
@@ -1209,8 +1331,13 @@ export class Schema {
 		const TExtensions extends SchemaExtensions = readonly [],
 	>(
 		options: SchemaDeclarationOptions<TClassName, TSource, TExtensions> &
+			GeneratedBuilderSchemaRequirement<TClassName, TSource> &
 			ReservedFieldCollision<NoInfer<SchemaFieldsFromSource<TSource>>>,
-	): SchemaClass<TClassName, SchemaFieldsFromSource<TSource>, TExtensions>
+	): SchemaClass<
+		TClassName,
+		SchemaFieldsForDeclaration<TClassName, TSource>,
+		TExtensions
+	>
 
 	static define<
 		const TClassName extends string,

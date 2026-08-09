@@ -43,7 +43,7 @@ import {
 	type RelationMutationTargets,
 	type RelationUpdateExpression,
 } from './mutation.js'
-import type { Pointer } from './pointer.js'
+import type { PointerTarget } from './pointer.js'
 
 /** Selects only top-level to-many fields declared by one exact schema. */
 export type SchemaRelationFieldName<TSchema extends SchemaDefinition> = {
@@ -78,7 +78,9 @@ const executeRelationMutation = async <
 >(
 	state: RelationState<TSource, TTarget>,
 	action: RelationMutationAction,
-	targets: Pointer<TTarget> | readonly Pointer<TTarget>[],
+	targets:
+		| PointerTarget<TTarget['className']>
+		| readonly PointerTarget<TTarget['className']>[],
 	options: RelationMutationOptions | undefined,
 ): Promise<void> => {
 	const sourceQuery = scopeQueryToObjectId(
@@ -308,7 +310,7 @@ export class Relation<
 	 * @example `await post.relation('tags').set([featured.pointer(), news.pointer()])`
 	 */
 	set(
-		targets: readonly Pointer<TTarget>[],
+		targets: readonly PointerTarget<TTarget['className']>[],
 		options?: RelationMutationOptions,
 	): Promise<void> {
 		return executeRelationMutation(this.getState(), 'set', targets, options)

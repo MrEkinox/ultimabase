@@ -156,7 +156,7 @@ export const createPackedCoreLanguageFixture = async (
 
 			if (parameter === undefined) {
 				throw new TypeError(
-					`Missing packed Core signature parameter: ${name}[${parameterIndex}]`,
+					`Missing packed Core signature parameter: ${name}[${String(parameterIndex)}]`,
 				)
 			}
 

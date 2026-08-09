@@ -501,7 +501,9 @@ const renderScalarValue = (
 		case 'plugin':
 			return context.imports.alias(value.reference)
 		case 'pointer':
-			return 'PointerValue'
+			return mode === 'object'
+				? `GeneratedPointerHandle<${quote(value.target)}>`
+				: 'PointerValue'
 		case 'relation':
 			return 'never'
 		case 'string':
@@ -850,8 +852,14 @@ const renderFieldContracts = (
 				: field.value.kind === 'json'
 					? 'GeneratedJsonPathWhere'
 					: 'never'
+		const list =
+			field.inference.list === false
+				? 'false'
+				: field.inference.list === true
+					? 'true'
+					: `readonly [${field.inference.list.map(() => 'true').join(', ')}]`
 
-		return `\treadonly ${quote(field.name)}: GeneratedFieldContract<${objectValue}, ${createValue}, ${updateValue}, ${renderRootWhere(field, context)}, ${paths}>`
+		return `\treadonly ${quote(field.name)}: GeneratedFieldContract<${objectValue}, ${createValue}, ${updateValue}, ${renderRootWhere(field, context)}, ${paths}, ${quote(field.kind)}, ${list}>`
 	})
 
 	return `Readonly<{\n${properties.join('\n')}\n}>`
@@ -881,6 +889,11 @@ const renderSchema = (
 ): string => {
 	const alias = context.identifiers.schema(schema)
 	const fieldNames = renderUnion(schema.fields.map(({ name }) => quote(name)))
+	const selectableFieldNames = renderUnion(
+		schema.fields
+			.filter(({ inference }) => inference.object !== 'forbidden')
+			.map(({ name }) => quote(name)),
+	)
 	const sections = [
 		...context.identifiers
 			.enumDefinitionsFor(schema)
@@ -895,7 +908,7 @@ const renderSchema = (
 		`export type ${alias}CreateInput = ${renderProperties(schema.fields, 'create', context)}`,
 		`export type ${alias}UpdateInput = ${renderProperties(schema.fields, 'update', context)}`,
 		renderWhere(schema, alias, context),
-		`export type ${alias}Select = GeneratedSelect<${fieldNames}>`,
+		`export type ${alias}Select = GeneratedSelect<${selectableFieldNames}>`,
 		`export type ${alias}OrderBy = GeneratedOrderBy<${fieldNames}>`,
 		`export type ${alias}Include = ${renderInclude(schema, context)}`,
 		`export type ${alias}Fields = ${renderFieldContracts(schema, context)}`,
@@ -922,6 +935,7 @@ const coreImports = [
 	'GeneratedOrderBy',
 	'GeneratedOrderedWhere',
 	'GeneratedPathWhere',
+	'GeneratedPointerHandle',
 	'GeneratedPointerInclude',
 	'GeneratedPointerWhere',
 	'GeneratedRelationInclude',
@@ -935,6 +949,7 @@ const coreImports = [
 	'GeneratedWhereBranches',
 	'JsonDocument',
 	'PointerValue',
+	'UltimaBaseGeneratedSchemas as CoreGeneratedSchemas',
 ] as const
 
 const renderFieldBuilder = (
@@ -966,7 +981,13 @@ const renderRegistry = (
 			`\treadonly ${quote(schema.className)}: ${context.identifiers.schema(schema)}Contract`,
 	)
 
-	return `export interface UltimaBaseGeneratedSchemas {\n${schemas.join('\n')}\n}\n\nexport interface UltimaBaseGeneratedApplication {\n\treadonly FieldBuilder: ApplicationFieldBuilder\n\treadonly fingerprint: ${quote(fingerprint)}\n\treadonly schemas: UltimaBaseGeneratedSchemas\n}\n\nexport declare const ultimaBaseGeneratedFingerprint: ${quote(fingerprint)}`
+	const fieldMethods = snapshot.fieldMethods.map(
+		(method) =>
+			`\t\treadonly ${quote(method.name)}: ${context.imports.alias(method.method)}`,
+	)
+	const renderedFieldMethods = fieldMethods.join('\n')
+
+	return `declare module '@ultimabase/core' {\n\tinterface UltimaBaseGeneratedRegistryState {\n\t\treadonly application: true\n\t}\n\tinterface UltimaBaseGeneratedSchemas {\n${schemas.map((schema) => `\t${schema}`).join('\n')}\n\t}\n\tinterface UltimaBaseGeneratedFieldBuilderMethods {\n${renderedFieldMethods}\n\t}\n\tinterface UltimaBaseGeneratedEmbeddedFieldBuilderMethods {\n${renderedFieldMethods}\n\t}\n}\n\nexport type UltimaBaseGeneratedSchemas = CoreGeneratedSchemas\n\nexport interface UltimaBaseGeneratedApplication {\n\treadonly FieldBuilder: ApplicationFieldBuilder\n\treadonly fingerprint: ${quote(fingerprint)}\n\treadonly schemas: CoreGeneratedSchemas\n}\n\nexport declare const ultimaBaseGeneratedFingerprint: ${quote(fingerprint)}`
 }
 
 const fingerprintSnapshot = (snapshot: TypegenApplicationSnapshot): string =>

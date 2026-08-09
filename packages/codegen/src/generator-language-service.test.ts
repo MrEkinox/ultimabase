@@ -35,6 +35,8 @@ const createGeneratedRegistry = (): string => {
 			const generatedField = field as GeneratedFixtureBuilder
 
 			field.string('title', { validation: { required: true } })
+			field.int('views')
+			field.int('scores', { list: true })
 			field.enum('status', {
 				typeName: 'SemanticStatus',
 				validation: { required: true },
@@ -152,6 +154,10 @@ const include: SemanticArticleInclude = {
 }
 const exactStatus: 'draft' | 'published' = item.status
 const exactVector: readonly number[] | null = item.embedding
+const pointerRead = item.author.findOne({
+  select: { name: true },
+  where: { name: { startsWith: 'A' } },
+})
 const hookItem: SemanticArticleHooks['item'] = item
 const accessWhere: SemanticArticleAccess['where'] = where
 
@@ -187,6 +193,7 @@ void invalidOrder
 void invalidSelection
 void invalidUpdate
 void order
+void pointerRead
 void selection
 void updateInput
 `
@@ -202,7 +209,13 @@ void updateInput
 		const service = createSourceLanguageService(fileName, source)
 
 		expect(registry).not.toMatch(/\bany\b/u)
-		expect(service.getSemanticDiagnostics(fileName)).toStrictEqual([])
+		expect(
+			service
+				.getSemanticDiagnostics(fileName)
+				.map(({ messageText }) =>
+					ts.flattenDiagnosticMessageText(messageText, '\n'),
+				),
+		).toStrictEqual([])
 		expect(
 			service
 				.getCompletionsAtPosition(fileName, selectPosition, {})
@@ -225,5 +238,298 @@ void updateInput
 
 		expect(display).toContain('SemanticArticleWhere')
 		expect(display.length).toBeLessThan(500)
+	})
+
+	it('drives the actual Core schema, Query, mutation, Access, and hook APIs', () => {
+		const registry = createGeneratedRegistry()
+		const publicSource = `${registry}
+import {
+  Schema,
+  defineContextualSchemaExtensionFactory,
+  defineSchemaExtension,
+  increment,
+  type SchemaExtension,
+  type SchemaExtensionContextKind,
+} from '@ultimabase/core'
+
+interface GeneratedExtensionOptions<TData extends Readonly<Record<string, unknown>>> {
+  readonly select: (data: TData) => string
+}
+type GeneratedExtension<TData extends Readonly<Record<string, unknown>>> =
+  SchemaExtension<'fixture.generated', GeneratedExtensionOptions<TData>>
+type GeneratedExtensionData<TData> =
+  TData extends Readonly<Record<string, unknown>> ? TData : never
+interface GeneratedExtensionKind extends SchemaExtensionContextKind {
+  readonly options: GeneratedExtensionOptions<GeneratedExtensionData<this['data']>>
+  readonly extension: GeneratedExtension<GeneratedExtensionData<this['data']>>
+}
+const generatedExtension =
+  defineContextualSchemaExtensionFactory<GeneratedExtensionKind>()(
+    <TData extends Readonly<Record<string, unknown>>>(
+      options: GeneratedExtensionOptions<TData>,
+    ): GeneratedExtension<TData> => defineSchemaExtension('fixture.generated', options),
+  )
+
+const SemanticAuthor = Schema.define({
+  className: 'SemanticAuthor',
+  fields(field) {
+    field.string('name', { validation: { required: true } })
+    field.relation('articles', { target: () => SemanticArticle })
+  },
+})
+
+const SemanticArticle = Schema.define({
+  className: 'SemanticArticle',
+  fields(field) {
+    field./* public-field-method */string('title', { validation: { required: true } })
+    field.enum('status', {
+      validation: { required: true },
+      values: ['draft', 'published'],
+    })
+    field.int('views')
+    field.int('scores', { list: true })
+    field.object('profile', {
+      fields(field) {
+        field.string('displayName', {
+          validation: { required: true },
+          access: {
+            read: {
+              output: ({ value }) => value.length > 0,
+              where: true,
+              orderBy: true,
+            },
+            write: true,
+          },
+          hooks: { resolveInput: ({ value }) => value.trim() },
+        })
+      },
+    })
+    field.pointer('author', {
+      target: () => SemanticAuthor,
+      validation: { required: true },
+    })
+    field.relation('related', { target: () => SemanticArticle })
+    field./* public-plugin-method */vector('embedding', { dimensions: 3 })
+  },
+  indexes: [{ fields: ['title', 'status'] }],
+  extensions: ({ bind }) => [
+    bind(generatedExtension, {
+      select: (data) => {
+        data./* public-extension-data */title
+        return data.title
+      },
+    }),
+  ],
+  access: {
+    update: {
+      where: { status: { eq: 'draft' } },
+      item: ({ item, originalItem }) => {
+        item./* public-access-item */embedding
+        return originalItem.status === 'draft' && item.status === 'published'
+      },
+    },
+  },
+  hooks: {
+    beforeOperation: {
+      update: ({ item, originalItem }) => {
+        item./* public-hook-item */profile
+        originalItem.status
+      },
+    },
+  },
+})
+
+const draft = new SemanticArticle({
+  author: SemanticAuthor.pointer('author-1'),
+  status: 'draft',
+  title: 'Generated public API',
+})
+const exactStatus: 'draft' | 'published' = draft.status
+declare const loadedArticle: SemanticArticleHooks['item']
+const authorRead = loadedArticle.author.findOne({
+  where: { /* public-pointer-where */ name: { startsWith: 'A' } },
+  select: { /* public-pointer-handle-select */ name: true },
+})
+type AuthorRead = Awaited<typeof authorRead>
+declare const loadedAuthor: NonNullable<AuthorRead>
+const exactAuthorName: string = loadedAuthor.name
+// @ts-expect-error -- The generated pointer handle exposes only Author fields.
+loadedAuthor.title
+
+const result = SemanticArticle.findMany({
+  where: { /* public-query-where */ status: { eq: 'draft' } },
+  select: { /* public-query-select */ title: true, status: true },
+  include: {
+    author: { select: { /* public-pointer-select */ name: true } },
+    related: { where: { status: { eq: 'published' } } },
+  },
+})
+const invalidObjectPath: SemanticArticleWhere = {
+  profile: {
+    at: [{
+      // @ts-expect-error -- Generated object occurrences retain exact paths.
+      path: ['missing'],
+      eq: 'invalid',
+    }],
+  },
+}
+
+SemanticArticle.updateOne({
+  where: { id: { eq: 'article-1' } },
+  data: { status: 'published', views: increment(1) },
+})
+
+SemanticArticle.updateOne({
+  where: { id: { eq: 'article-1' } },
+  // @ts-expect-error -- Generated numeric lists cannot use scalar increments.
+  data: { scores: increment(1) },
+})
+
+type LoadedArticle = NonNullable<Awaited<ReturnType<typeof SemanticArticle.findOne>>>
+declare const persistedArticle: LoadedArticle
+const related = persistedArticle.relation('related')
+const relatedRead = related.findMany({
+  where: { /* public-relation-where */ status: { eq: 'published' } },
+  select: { title: true },
+})
+related.connect(SemanticArticle.pointer('article-2'))
+// @ts-expect-error -- Relation mutations retain their exact target schema.
+related.connect(SemanticAuthor.pointer('author-2'))
+
+// @ts-expect-error -- A loaded registry rejects a stale schema name.
+Schema.define({ className: 'MissingGeneratedSchema', fields(field) { field.string('title') } })
+
+void exactStatus
+void exactAuthorName
+void authorRead
+void result
+void invalidObjectPath
+void relatedRead
+`
+		const fileName = path.join(
+			import.meta.dirname,
+			'generated-core-public-api.semantic.fixture.ts',
+		)
+		const service = createSourceLanguageService(fileName, publicSource)
+
+		expect(
+			service
+				.getSemanticDiagnostics(fileName)
+				.map(({ messageText }) =>
+					ts.flattenDiagnosticMessageText(messageText, '\n'),
+				),
+		).toStrictEqual([])
+
+		const completionNames = (marker: string): readonly string[] =>
+			service
+				.getCompletionsAtPosition(
+					fileName,
+					publicSource.indexOf(marker) + marker.length,
+					{},
+				)
+				?.entries.map(({ name }) => name) ?? []
+
+		expect(completionNames('/* public-field-method */')).toEqual(
+			expect.arrayContaining(['string', 'vector']),
+		)
+		expect(completionNames('/* public-plugin-method */')).toContain('vector')
+		expect(completionNames('/* public-access-item */')).toEqual(
+			expect.arrayContaining(['embedding', 'profile', 'status', 'title']),
+		)
+		expect(completionNames('/* public-hook-item */')).toEqual(
+			expect.arrayContaining(['embedding', 'profile', 'status', 'title']),
+		)
+		expect(completionNames('/* public-query-where */')).toEqual(
+			expect.arrayContaining(['AND', 'author', 'profile', 'related']),
+		)
+		expect(completionNames('/* public-query-select */')).toEqual(
+			expect.arrayContaining(['embedding', 'profile']),
+		)
+		expect(completionNames('/* public-query-select */')).not.toContain(
+			'related',
+		)
+		expect(completionNames('/* public-pointer-select */')).toEqual(
+			expect.arrayContaining(['createdAt', 'id', 'updatedAt']),
+		)
+		expect(completionNames('/* public-pointer-where */')).toEqual(
+			expect.arrayContaining(['AND', 'articles']),
+		)
+		expect(completionNames('/* public-pointer-handle-select */')).toEqual(
+			expect.arrayContaining(['createdAt', 'id', 'updatedAt']),
+		)
+		expect(completionNames('/* public-extension-data */')).toEqual(
+			expect.arrayContaining([
+				'author',
+				'embedding',
+				'profile',
+				'status',
+				'title',
+			]),
+		)
+		expect(completionNames('/* public-extension-data */')).not.toEqual(
+			expect.arrayContaining(['createdAt', 'id', 'related', 'updatedAt']),
+		)
+		expect(completionNames('/* public-relation-where */')).toEqual(
+			expect.arrayContaining(['AND', 'author', 'profile', 'related']),
+		)
+
+		service.dispose()
+	}, 15_000)
+
+	it('reports an actionable diagnostic for a missing generated schema entry', () => {
+		const registry = createGeneratedRegistry()
+		const source = `${registry}
+import { Schema } from '@ultimabase/core'
+
+Schema.define({
+  className: 'MissingGeneratedSchema',
+  fields(field) { field.string('title') },
+})
+`
+		const fileName = path.join(
+			import.meta.dirname,
+			'generated-missing-schema.semantic.fixture.ts',
+		)
+		const service = createSourceLanguageService(fileName, source)
+		const diagnostics = service
+			.getSemanticDiagnostics(fileName)
+			.map(({ messageText }) =>
+				ts.flattenDiagnosticMessageText(messageText, '\n'),
+			)
+
+		expect(diagnostics).toHaveLength(1)
+		expect(diagnostics[0]).toContain(
+			'UltimaBase generated schema is missing or stale; run ultimabase generate',
+		)
+
+		service.dispose()
+	})
+
+	it('rejects unknown generated sibling fields in schema indexes', () => {
+		const registry = createGeneratedRegistry()
+		const source = `${registry}
+import { Schema } from '@ultimabase/core'
+
+Schema.define({
+  className: 'SemanticAuthor',
+  fields(field) { field.string('name', { validation: { required: true } }) },
+  indexes: [{ fields: ['name', 'missing'] }],
+})
+`
+		const fileName = path.join(
+			import.meta.dirname,
+			'generated-invalid-index.semantic.fixture.ts',
+		)
+		const service = createSourceLanguageService(fileName, source)
+		const diagnostics = service
+			.getSemanticDiagnostics(fileName)
+			.map(({ messageText }) =>
+				ts.flattenDiagnosticMessageText(messageText, '\n'),
+			)
+
+		expect(diagnostics).toHaveLength(1)
+		expect(diagnostics[0]).toContain('Type \'"missing"\' is not assignable')
+
+		service.dispose()
 	})
 })

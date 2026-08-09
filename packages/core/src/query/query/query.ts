@@ -1005,12 +1005,7 @@ export const executeSchemaCreateMany = <const TSchema extends SchemaDefinition>(
 				: normalizeQuerySelection(schema, input.select),
 	})
 
-	// The operation already fixes every selected field. This annotation only
-	// collapses the generic empty-schema branch retained by the conditional mapper.
-	return executeOperation(
-		operation,
-		normalizeOperationOptions(options),
-	) as Promise<readonly InferQueryResult<TSchema, QueryFieldName<TSchema>>[]>
+	return executeOperation(operation, normalizeOperationOptions(options))
 }
 
 /** Executes one singular update while retaining private QueryBuilder restrictions. */
@@ -1114,12 +1109,7 @@ export const executeSchemaUpsertMany = <const TSchema extends SchemaDefinition>(
 				: normalizeQuerySelection(schema, selection),
 	})
 
-	// The operation already fixes every selected field. This annotation only
-	// collapses the generic empty-schema branch retained by the conditional mapper.
-	return executeOperation(
-		operation,
-		normalizeOperationOptions(options),
-	) as Promise<readonly InferQueryResult<TSchema, QueryFieldName<TSchema>>[]>
+	return executeOperation(operation, normalizeOperationOptions(options))
 }
 
 /** Executes one singular delete while retaining private QueryBuilder restrictions. */

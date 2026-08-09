@@ -1,4 +1,5 @@
 import { Schema, type SchemaDefinition } from '../../schema/index.js'
+import type { GeneratedSchemaValueOr } from '../../schema/generated-contracts.js'
 import { getFieldSchemaTarget } from '../../schema/fields/base/definition.js'
 import {
 	immutableRecord,
@@ -59,12 +60,16 @@ type OtherQueryFieldName<
 > = Exclude<QueryFieldName<TSchema>, TFieldName>
 
 /** Describes one ordered field while rejecting ambiguous multi-key objects. */
-export type QueryOrderByInput<TSchema extends SchemaDefinition> = {
+type InferredQueryOrderByInput<TSchema extends SchemaDefinition> = {
 	[TFieldName in QueryFieldName<TSchema>]: Readonly<
 		Record<TFieldName, QueryOrderByDirection> &
 			Partial<Record<OtherQueryFieldName<TSchema, TFieldName>, never>>
 	>
 }[QueryFieldName<TSchema>]
+
+/** Uses the compact generated ordering contract when available. */
+export type QueryOrderByInput<TSchema extends SchemaDefinition> =
+	GeneratedSchemaValueOr<TSchema, 'OrderBy', InferredQueryOrderByInput<TSchema>>
 
 /** Shapes one included pointer target without adding another execution boundary. */
 export type QueryPointerTargetInput<TSchema extends SchemaDefinition> =
@@ -86,7 +91,7 @@ export type QueryRelationTargetInput<TSchema extends SchemaDefinition> =
 	}>
 
 /** Correlates every optional eager inclusion with its exact target schema. */
-export type QueryIncludeInput<TSchema extends SchemaDefinition> = Readonly<{
+type InferredQueryIncludeInput<TSchema extends SchemaDefinition> = Readonly<{
 	readonly [
 		TFieldName in QueryIncludableFieldName<TSchema>
 	]?: TFieldName extends QueryPointerFieldName<TSchema>
@@ -95,6 +100,10 @@ export type QueryIncludeInput<TSchema extends SchemaDefinition> = Readonly<{
 			? QueryRelationTargetInput<QueryRelationTargetSchema<TSchema, TFieldName>>
 			: never
 }>
+
+/** Uses generated relationship shapes without recursively expanding field maps. */
+export type QueryIncludeInput<TSchema extends SchemaDefinition> =
+	GeneratedSchemaValueOr<TSchema, 'Include', InferredQueryIncludeInput<TSchema>>
 
 interface QueryProjectionInput<TSchema extends SchemaDefinition> {
 	/** Loads explicitly requested relationship targets through independently shaped reads. */

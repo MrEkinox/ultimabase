@@ -79,12 +79,13 @@ const application = await createApplication({
 ```
 
 The method belongs to this application's plugin graph. Another application
-without `pgVectorPlugin()` does not register it. Until the generated application
-contracts from the following issues are emitted, the example represents the
-target generated `FieldBuilder` surface rather than a method on Core's base
-`FieldBuilder` type.
+without `pgVectorPlugin()` does not register it. Once the generated declaration
+is included by TypeScript, its module augmentation exposes `field.vector()` on
+this application's FieldBuilder. Core's unaugmented base type remains neutral.
+The initial generation command and watch workflow are introduced by the next
+milestone issue.
 
 Existing field maps remain migration compatibility during this milestone. The
-generated application registry introduced by the following milestone issues
-will provide exact model, Query, Access, and hook contracts for builder-declared
-schemas without recursive field-map inference.
+generated application registry provides exact model, Query, mutation, Access,
+hook, extension, object-path, pointer, and relation contracts for
+builder-declared schemas without recursive field-map inference.

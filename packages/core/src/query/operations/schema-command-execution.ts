@@ -208,10 +208,7 @@ export const createSchemaRecords = <const TSchema extends SchemaDefinition>(
 		}),
 	)
 
-	return executeOperationBatch(
-		entries,
-		normalizeOperationOptions(options),
-	) as Promise<readonly InferQueryResult<TSchema, QueryFieldName<TSchema>>[]>
+	return executeOperationBatch(entries, normalizeOperationOptions(options))
 }
 
 /** Updates one exact unique target through the schema class. */

@@ -20,9 +20,20 @@ type PackedFieldBuilder = FieldBuilder & {
 }
 
 const selectMarker = '/* packed-generated-select */'
+const publicSelectMarker = '/* packed-public-select */'
+const accessMarker = '/* packed-access-item */'
+const pointerMarker = '/* packed-pointer-where */'
+const relationMarker = '/* packed-relation-where */'
 const hoverMarker = '/* packed-generated-hover */'
 const optionsMarker = '/* packed-codegen-options */'
 
+const Owner = Schema.define({
+	className: 'PackedGeneratedOwner',
+	fields(field) {
+		field.string('name', { validation: { required: true } })
+		field.relation('documents', { target: () => Document })
+	},
+})
 const Document = Schema.define({
 	className: 'PackedGeneratedDocument',
 	fields(field) {
@@ -33,12 +44,17 @@ const Document = Schema.define({
 			typeName: 'PackedDocumentStatus',
 			values: ['draft', 'published'],
 		})
+		field.pointer('owner', {
+			target: () => Owner,
+			validation: { required: true },
+		})
+		field.relation('related', { target: () => Document })
 		generatedField.vector('embedding', { dimensions: 3 })
 	},
 })
 const application = new FrameworkApplication({
 	plugins: [pgVectorPlugin()],
-	schemas: [Document],
+	schemas: [Owner, Document],
 })
 const generated = generateApplicationTypes({
 	application,
@@ -46,10 +62,41 @@ const generated = generateApplicationTypes({
 })
 const sourceWithMarkers = `${generated.contents}
 import { generateApplicationTypes as generatePackedApplicationTypes } from '@ultimabase/codegen'
+import { Schema } from '@ultimabase/core'
 import type { FrameworkApplication, PluginDefinition, SchemaDefinition } from '@ultimabase/core'
 import type { GenerateApplicationTypesOptions } from '@ultimabase/codegen'
 
 declare const packedApplication: FrameworkApplication<readonly SchemaDefinition[], readonly PluginDefinition[]>
+declare const packedOwner: PointerValue
+
+const PackedGeneratedOwner = Schema.define({
+  className: 'PackedGeneratedOwner',
+  fields(field) {
+    field.string('name', { validation: { required: true } })
+    field.relation('documents', { target: () => PackedGeneratedDocument })
+  },
+})
+const PackedGeneratedDocument = Schema.define({
+  className: 'PackedGeneratedDocument',
+  fields(field) {
+    field.string('title', { validation: { required: true } })
+    field.enum('status', { values: ['draft', 'published'] })
+    field.pointer('owner', {
+      target: () => PackedGeneratedOwner,
+      validation: { required: true },
+    })
+    field.relation('related', { target: () => PackedGeneratedDocument })
+    field.vector('embedding', { dimensions: 3 })
+  },
+  access: {
+    update: {
+      item: ({ item }) => {
+        item.${accessMarker}embedding
+        return item.status === 'published'
+      },
+    },
+  },
+})
 
 // @ts-expect-error -- The intentionally incomplete object drives option completion.
 const packedCompletionOptions: GenerateApplicationTypesOptions = {
@@ -65,7 +112,23 @@ const where: ${hoverMarker}PackedGeneratedDocumentWhere = {
   title: { contains: 'Generated' },
 }
 const select: PackedGeneratedDocumentSelect = { ${selectMarker} }
-const create: PackedGeneratedDocumentCreateInput = { title: 'Packed' }
+const create: PackedGeneratedDocumentCreateInput = {
+  owner: packedOwner,
+  title: 'Packed',
+}
+const publicRead = PackedGeneratedDocument.findMany({
+  where: { status: { eq: 'draft' } },
+  select: { ${publicSelectMarker}title: true },
+})
+declare const packedItem: PackedGeneratedDocumentHooks['item']
+const ownerRead = packedItem.owner.findOne({
+  where: { ${pointerMarker}name: { startsWith: 'A' } },
+})
+type PackedLoadedDocument = NonNullable<Awaited<ReturnType<typeof PackedGeneratedDocument.findOne>>>
+declare const packedLoadedDocument: PackedLoadedDocument
+const relatedRead = packedLoadedDocument.relation('related').findMany({
+  where: { ${relationMarker}status: { eq: 'published' } },
+})
 
 // @ts-expect-error -- The packed generator retains exact enum literals.
 const invalidStatus: PackedDocumentStatusEnum = 'archived'
@@ -74,14 +137,25 @@ void create
 void apiGenerated
 void packedCompletionOptions
 void invalidStatus
+void ownerRead
+void publicRead
+void relatedRead
 void select
 void where
 `
 const selectPosition = sourceWithMarkers.indexOf(selectMarker)
+const publicSelectPosition = sourceWithMarkers.indexOf(publicSelectMarker)
+const accessPosition = sourceWithMarkers.indexOf(accessMarker)
+const pointerPosition = sourceWithMarkers.indexOf(pointerMarker)
+const relationPosition = sourceWithMarkers.indexOf(relationMarker)
 const hoverPosition = sourceWithMarkers.indexOf(hoverMarker)
 const optionsPosition = sourceWithMarkers.indexOf(optionsMarker)
 const source = sourceWithMarkers
 	.replace(selectMarker, ' '.repeat(selectMarker.length))
+	.replace(publicSelectMarker, ' '.repeat(publicSelectMarker.length))
+	.replace(accessMarker, ' '.repeat(accessMarker.length))
+	.replace(pointerMarker, ' '.repeat(pointerMarker.length))
+	.replace(relationMarker, ' '.repeat(relationMarker.length))
 	.replace(hoverMarker, ' '.repeat(hoverMarker.length))
 	.replace(optionsMarker, ' '.repeat(optionsMarker.length))
 const fileName = path.join(
@@ -98,6 +172,27 @@ describe('packed @ultimabase/codegen generated contracts', () => {
 	})
 
 	it('preserves exact field completions and concise named hovers', () => {
+		expect(
+			service
+				.getCompletionsAtPosition(fileName, publicSelectPosition, {})
+				?.entries.map(({ name }) => name),
+		).toEqual(expect.arrayContaining(['embedding', 'owner', 'status']))
+		expect(
+			service
+				.getCompletionsAtPosition(fileName, accessPosition, {})
+				?.entries.map(({ name }) => name),
+		).toEqual(expect.arrayContaining(['embedding', 'owner', 'status', 'title']))
+		expect(
+			service
+				.getCompletionsAtPosition(fileName, pointerPosition, {})
+				?.entries.map(({ name }) => name),
+		).toEqual(expect.arrayContaining(['AND', 'documents']))
+		expect(
+			service
+				.getCompletionsAtPosition(fileName, relationPosition, {})
+				?.entries.map(({ name }) => name),
+		).toEqual(expect.arrayContaining(['AND', 'owner', 'related']))
+
 		expect(
 			service
 				.getCompletionsAtPosition(fileName, selectPosition, {})

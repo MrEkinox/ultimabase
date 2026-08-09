@@ -65,6 +65,11 @@ actually references the corresponding subject.
 10. [437 — Organize field Access around read and write capabilities](437-read-write-field-access.md)
 11. [438 — Authorize field writes only through value transitions](438-field-access-value-transitions.md)
 
+Future generated-schema work may add explicit sibling dependencies through
+[issue 439](439-field-access-sibling-dependencies.md). It is intentionally
+separate from the current field-value Access lifecycle because it requires a
+new adapter loading and non-disclosure contract.
+
 ## Completed stored-role execution order
 
 The completed stored-role objective is recorded in its

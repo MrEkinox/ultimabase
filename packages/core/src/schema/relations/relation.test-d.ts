@@ -9,7 +9,7 @@ import {
 	type RelationTag,
 } from '../fields/builtins/relation-fixture.test-support.js'
 import type { SchemaResult } from '../schema/model.js'
-import type { Pointer } from './pointer.js'
+import type { PointerTarget } from './pointer.js'
 import type {
 	Relation,
 	SchemaRelationFieldName,
@@ -48,15 +48,15 @@ test('infers exact owning and inverse relation handles from persisted models', (
 	type Clear = ArticleRelation['clear']
 
 	expectTypeOf<Parameters<Connect>[0]>().toEqualTypeOf<
-		| Pointer<typeof RelationTag>
-		| readonly [Pointer<typeof RelationTag>, ...Pointer<typeof RelationTag>[]]
+		| PointerTarget<'RelationTag'>
+		| readonly [PointerTarget<'RelationTag'>, ...PointerTarget<'RelationTag'>[]]
 	>()
 	expectTypeOf<Parameters<Connect>[1]>().toEqualTypeOf<
 		OperationOptions | undefined
 	>()
 	expectTypeOf<ReturnType<Connect>>().toEqualTypeOf<Promise<void>>()
 	expectTypeOf<Parameters<Set>[0]>().toEqualTypeOf<
-		readonly Pointer<typeof RelationTag>[]
+		readonly PointerTarget<'RelationTag'>[]
 	>()
 	expectTypeOf<ReturnType<Clear>>().toEqualTypeOf<Promise<void>>()
 	expectTypeOf(article.toJSON()).not.toHaveProperty('tags')

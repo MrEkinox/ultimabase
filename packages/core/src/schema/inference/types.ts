@@ -6,6 +6,7 @@ import type {
 	GenericField,
 } from '../fields/base/contract.js'
 import type { SchemaFields } from '../schema/definition.js'
+import type { GeneratedSchemaValueOr } from '../generated-contracts.js'
 
 export type InferenceMode = 'object' | 'create' | 'update'
 
@@ -121,29 +122,44 @@ export type InferFields<
  * Describes the common structural boundary accepted by public inference helpers.
  */
 interface InferableSchema {
+	readonly className?: string
 	readonly fields: SchemaFields
 }
+
+type GeneratedValueOrInferred<
+	TSchema extends InferableSchema,
+	TKey extends 'Create' | 'Item' | 'Update',
+	TFallback,
+> = TSchema extends { readonly className: string }
+	? GeneratedSchemaValueOr<TSchema, TKey, TFallback>
+	: TFallback
 
 /**
  * Infers the persisted object shape returned by UltimaBase.
  */
-export type InferObject<TSchema extends InferableSchema> = InferFields<
-	TSchema['fields'],
-	'object'
->
+export type InferObject<TSchema extends InferableSchema> =
+	GeneratedValueOrInferred<
+		TSchema,
+		'Item',
+		InferFields<TSchema['fields'], 'object'>
+	>
 
 /**
  * Infers developer-supplied values accepted when creating an object.
  */
-export type InferCreateInput<TSchema extends InferableSchema> = InferFields<
-	TSchema['fields'],
-	'create'
->
+export type InferCreateInput<TSchema extends InferableSchema> =
+	GeneratedValueOrInferred<
+		TSchema,
+		'Create',
+		InferFields<TSchema['fields'], 'create'>
+	>
 
 /**
  * Infers developer-supplied values accepted when updating an object.
  */
-export type InferUpdateInput<TSchema extends InferableSchema> = InferFields<
-	TSchema['fields'],
-	'update'
->
+export type InferUpdateInput<TSchema extends InferableSchema> =
+	GeneratedValueOrInferred<
+		TSchema,
+		'Update',
+		InferFields<TSchema['fields'], 'update'>
+	>

@@ -1,4 +1,5 @@
 import type { SchemaDefinition } from '../../schema/index.js'
+import type { GeneratedSchemaValueOr } from '../../schema/generated-contracts.js'
 import {
 	immutableArray,
 	immutableRecord,
@@ -27,8 +28,16 @@ import {
  * Post.findMany({ select: { internalNote: false } })
  * ```
  */
-export type QuerySelection<TSchema extends SchemaDefinition> = Readonly<
-	Partial<Record<QueryFieldName<TSchema>, boolean>>
+export type QuerySelection<TSchema extends SchemaDefinition> =
+	GeneratedSchemaValueOr<
+		TSchema,
+		'Select',
+		Readonly<Partial<Record<QueryFieldName<TSchema>, boolean>>>
+	>
+
+type QuerySelectableFieldName<TSchema extends SchemaDefinition> = Extract<
+	keyof QuerySelection<TSchema>,
+	string
 >
 
 type QuerySelectionKeyWithValue<TSelection, TValue extends boolean> = {
@@ -42,7 +51,7 @@ type QueryIncludedSelectionField<
 	TSelection,
 > = Extract<
 	QuerySelectionKeyWithValue<TSelection, true>,
-	QueryFieldName<TSchema>
+	QuerySelectableFieldName<TSchema>
 >
 
 type QueryExcludedSelectionField<
@@ -50,21 +59,24 @@ type QueryExcludedSelectionField<
 	TSelection,
 > = Extract<
 	QuerySelectionKeyWithValue<TSelection, false>,
-	QueryFieldName<TSchema>
+	QuerySelectableFieldName<TSchema>
 >
 
 /** Resolves the statically visible field union for one literal selection object. */
 export type QuerySelectedField<
 	TSchema extends SchemaDefinition,
 	TSelection,
-> = keyof TSelection extends never
-	? never
-	: [QueryIncludedSelectionField<TSchema, TSelection>] extends [never]
-		? Exclude<
-				QueryFieldName<TSchema>,
-				QueryExcludedSelectionField<TSchema, TSelection>
-			>
-		: QueryIncludedSelectionField<TSchema, TSelection>
+> = Extract<
+	keyof TSelection extends never
+		? never
+		: [QueryIncludedSelectionField<TSchema, TSelection>] extends [never]
+			? Exclude<
+					QuerySelectableFieldName<TSchema>,
+					QueryExcludedSelectionField<TSchema, TSelection>
+				>
+			: QueryIncludedSelectionField<TSchema, TSelection>,
+	QueryFieldName<TSchema>
+>
 
 /** Prevents dynamic booleans from producing a falsely exact result projection. */
 export type LiteralQuerySelection<TSelection> = {
@@ -78,7 +90,9 @@ export type ExactQuerySelection<
 	TSchema extends SchemaDefinition,
 	TSelection,
 > = TSelection &
-	Readonly<Record<Exclude<keyof TSelection, QueryFieldName<TSchema>>, never>>
+	Readonly<
+		Record<Exclude<keyof TSelection, QuerySelectableFieldName<TSchema>>, never>
+	>
 
 /** Shares the only selection that cannot carry schema-specific field names. */
 export const emptyQuerySelection: QuerySelectionNode<never> = immutableRecord({

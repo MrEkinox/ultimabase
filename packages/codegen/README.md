@@ -39,6 +39,14 @@ objects, and FieldBuilder methods. Compatible object and enum `typeName`
 identities are reused; incompatible identities and normalized TypeScript name
 collisions report both owners.
 
+The emitted declaration augments `@ultimabase/core` with one application-owned
+schema registry and the configured root and embedded FieldBuilder methods. Keep
+that file included by the application's TypeScript project. Core then resolves
+exact drafts, results, Query and mutation inputs, Access, hooks, contextual
+extensions, indexes, embedded paths, pointers, and relations directly from the
+generated contracts. A loaded registry rejects an unknown builder schema with
+an actionable `ultimabase generate` diagnostic.
+
 Every artifact embeds a deterministic SHA-256 fingerprint covering the Core
 generated-contract ABI, generator version, application identity, plugin field
 contracts, and resolved schema snapshot. `writeGeneratedTypeFile()` writes a

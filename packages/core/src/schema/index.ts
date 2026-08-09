@@ -46,7 +46,12 @@ export type {
 	RelationMappedFieldName,
 } from './fields/builtins/relation.js'
 export { Pointer, snapshotPointerValue } from './relations/pointer.js'
-export type { PointerJSON, PointerValue } from './relations/pointer.js'
+export type {
+	GeneratedPointerHandle,
+	PointerJSON,
+	PointerTarget,
+	PointerValue,
+} from './relations/pointer.js'
 export { Relation } from './relations/relation.js'
 export type {
 	SchemaRelationFieldName,
@@ -233,6 +238,8 @@ export type {
 	SchemaDefinition,
 	SchemaExtensionData,
 	SchemaExtensionDeclaration,
+	GeneratedSchemaReference,
+	GeneratedSchemaFields,
 	BuilderSchemaOptions,
 	DeferredSchemaOptions,
 	ImmediateSchemaOptions,
@@ -267,9 +274,19 @@ export type {
 	GeneratedFieldContract,
 	GeneratedObjectContract,
 	GeneratedRelationshipContract,
+	GeneratedSchemaContractByName,
+	GeneratedSchemaContractFor,
 	GeneratedSchemaAccessContract,
 	GeneratedSchemaContract,
 	GeneratedSchemaHookContract,
+	GeneratedSchemaValueOr,
+	HasUltimaBaseGeneratedRegistry,
+	RequireGeneratedSchemaEntry,
+	UltimaBaseGeneratedEmbeddedFieldBuilderMethods,
+	UltimaBaseGeneratedFieldBuilderMethods,
+	UltimaBaseGeneratedRegistryState,
+	UltimaBaseGeneratedSchemaName,
+	UltimaBaseGeneratedSchemas,
 } from './generated-contracts.js'
 export { generatedApplicationContractVersion } from './generated-contracts.js'
 export type {

@@ -8,6 +8,7 @@ import {
 	type SchemaRelationTarget,
 } from '../../schema/index.js'
 import { getFieldSchemaTarget } from '../../schema/fields/base/definition.js'
+import type { GeneratedSchemaValueOr } from '../../schema/generated-contracts.js'
 import {
 	immutableArray,
 	immutableRecord,
@@ -307,10 +308,12 @@ type WhereInputAtDepth<
 >
 
 /** Describes one schema-correlated, transport-neutral filter object. */
-export type WhereInput<TSchema extends SchemaDefinition> = WhereInputAtDepth<
-	TSchema,
-	readonly []
->
+export type WhereInput<TSchema extends SchemaDefinition> =
+	GeneratedSchemaValueOr<
+		TSchema,
+		'Where',
+		WhereInputAtDepth<TSchema, readonly []>
+	>
 
 /** Builds one where object through the immutable utility class. */
 export type WhereCallback<TSchema extends SchemaDefinition> = (

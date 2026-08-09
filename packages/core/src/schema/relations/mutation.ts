@@ -11,7 +11,7 @@ import type {
 } from '../../query/updates/contracts.js'
 import type { RelationField } from '../fields/builtins/relation.js'
 import type { SchemaDefinition } from '../schema/definition.js'
-import { Pointer } from './pointer.js'
+import { Pointer, type PointerTarget } from './pointer.js'
 import type {
 	SchemaRelationFieldName,
 	SchemaRelationTarget,
@@ -22,7 +22,11 @@ export type RelationMutationAction = 'clear' | 'connect' | 'disconnect' | 'set'
 
 /** Requires at least one exact target for additive and subtractive mutations. */
 export type RelationMutationTargets<TTarget extends SchemaDefinition> =
-	Pointer<TTarget> | readonly [Pointer<TTarget>, ...Pointer<TTarget>[]]
+	| PointerTarget<TTarget['className']>
+	| readonly [
+			PointerTarget<TTarget['className']>,
+			...PointerTarget<TTarget['className']>[],
+	  ]
 
 /** Carries one normalized relationship change to Access, hooks, and adapters. */
 export interface RelationMutationDelta<
@@ -91,7 +95,9 @@ export const isRelationUpdateExpression = (
 /** Snapshots exact pointers and rejects ambiguous duplicate target declarations. */
 const normalizeTargets = <TTarget extends SchemaDefinition>(
 	target: TTarget,
-	value: Pointer<TTarget> | readonly Pointer<TTarget>[],
+	value:
+		| PointerTarget<TTarget['className']>
+		| readonly PointerTarget<TTarget['className']>[],
 	allowEmpty: boolean,
 ): readonly Pointer<TTarget>[] => {
 	const candidates = Pointer.is(value) ? [value] : value
@@ -135,7 +141,9 @@ export const createRelationUpdateExpression = <
 	fieldName: TFieldName,
 	target: TTarget,
 	action: TAction,
-	values: Pointer<TTarget> | readonly Pointer<TTarget>[],
+	values:
+		| PointerTarget<TTarget['className']>
+		| readonly PointerTarget<TTarget['className']>[],
 ): RelationUpdateExpression<TSource, TFieldName, TAction, TTarget> => {
 	const field = source.fields[fieldName]
 

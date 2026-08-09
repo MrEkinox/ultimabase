@@ -144,6 +144,12 @@ The output contains no executable hook or Access callback, secret, request
 state, adapter, Drizzle value, physical database metadata, or infrastructure
 handle.
 
+Generated pointer and relation surfaces correlate a target through its stable
+application-local class name rather than an application source variable. This
+keeps generated declarations independent from local symbol names and schema
+extension tuples. Runtime relation mutations continue to verify the concrete
+registered target identity before normalizing their operation.
+
 This refines earlier inference decisions:
 
 - ADR-0088's compact inference state remains the field-factory and generator

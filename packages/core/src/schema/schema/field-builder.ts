@@ -63,6 +63,10 @@ import type {
 } from '../fields/base/factory.js'
 import type { SchemaDefinition, SchemaFields } from './definition.js'
 import type {
+	UltimaBaseGeneratedEmbeddedFieldBuilderMethods,
+	UltimaBaseGeneratedFieldBuilderMethods,
+} from '../generated-contracts.js'
+import type {
 	FieldBuilderMethodResolver,
 	OwnedFieldBuilderMethod,
 } from './field-builder-methods.js'
@@ -194,7 +198,8 @@ interface ScalarFieldBuilderMethods {
 }
 
 /** Collects top-level Core fields during application static compilation. */
-export interface FieldBuilder extends ScalarFieldBuilderMethods {
+export interface FieldBuilder
+	extends ScalarFieldBuilderMethods, UltimaBaseGeneratedFieldBuilderMethods {
 	/**
 	 * Declares one safe integer.
 	 *
@@ -252,7 +257,10 @@ export interface FieldBuilder extends ScalarFieldBuilderMethods {
 }
 
 /** Collects only value fields supported inside one embedded object. */
-export interface EmbeddedFieldBuilder extends ScalarFieldBuilderMethods {
+export interface EmbeddedFieldBuilder
+	extends
+		ScalarFieldBuilderMethods,
+		UltimaBaseGeneratedEmbeddedFieldBuilderMethods {
 	/**
 	 * Declares an embedded integer without database-generated sequences.
 	 *
