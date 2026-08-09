@@ -9,6 +9,7 @@ import {
 	pgVectorPlugin,
 	type VectorFieldBuilderMethod,
 } from '@ultimabase/pg-vector-plugin'
+import { RoleSchema, rolesPlugin } from '@ultimabase/roles-plugin'
 import * as ts from 'typescript'
 import { describe, expect, it } from 'vitest'
 
@@ -71,6 +72,31 @@ const createGeneratedRegistry = (): string => {
 	}).contents
 }
 
+const createGeneratedRoleRegistry = (): string => {
+	const Member = Schema.define({
+		className: 'SemanticRoleMember',
+		fields(field) {
+			field.string('name', { validation: { required: true } })
+		},
+	})
+	const Role = RoleSchema.define({
+		className: 'SemanticRole',
+		fields(field) {
+			field.string('description')
+		},
+		members: { schema: Member },
+	})
+	const application = new FrameworkApplication({
+		plugins: [rolesPlugin()],
+		schemas: [Member, Role],
+	})
+
+	return generateApplicationTypes({
+		application,
+		applicationId: 'fixture.semantic-role',
+	}).contents
+}
+
 const createSourceLanguageService = (
 	fileName: string,
 	source: string,
@@ -88,6 +114,7 @@ const createSourceLanguageService = (
 				'@ultimabase/pg-vector-plugin': [
 					'packages/pg-vector-plugin/src/index.ts',
 				],
+				'@ultimabase/roles-plugin': ['packages/roles-plugin/src/index.ts'],
 				'@ultimabase/shared': ['packages/shared/src/index.ts'],
 			},
 			strict: true,
@@ -238,6 +265,58 @@ void updateInput
 
 		expect(display).toContain('SemanticArticleWhere')
 		expect(display.length).toBeLessThan(500)
+	})
+
+	it('drives generated RoleSchema fields and persisted commands', () => {
+		const registry = createGeneratedRoleRegistry()
+		const source = `${registry}
+import { Schema } from '@ultimabase/core'
+import { RoleSchema } from '@ultimabase/roles-plugin'
+
+const Member = Schema.define({
+  className: 'SemanticRoleMember',
+  fields(field) {
+    field.string('name', { validation: { required: true } })
+  },
+})
+const AppRole = RoleSchema.define({
+  className: 'SemanticRole',
+  fields(field) {
+    field.string('description')
+  },
+  members: { schema: Member },
+})
+
+const draft = new AppRole({ description: 'Editors', name: 'editor' })
+const draftDescription: string | null | undefined = draft.description
+
+async function inspectRole() {
+  const role = await AppRole.findOne()
+
+  if (role !== null) {
+    const description: string | null = role.description
+    await role.addMember(Member.pointer('member-1'))
+    void description
+  }
+}
+
+void draft
+void draftDescription
+void inspectRole
+`
+		const fileName = path.join(
+			import.meta.dirname,
+			'generated-role-public-api.semantic.fixture.ts',
+		)
+		const service = createSourceLanguageService(fileName, source)
+
+		expect(
+			service
+				.getSemanticDiagnostics(fileName)
+				.map(({ messageText }) =>
+					ts.flattenDiagnosticMessageText(messageText, '\n'),
+				),
+		).toStrictEqual([])
 	})
 
 	it('drives the actual Core schema, Query, mutation, Access, and hook APIs', () => {

@@ -5,12 +5,12 @@ value. Schema hooks handle rules that compare fields or transform a complete
 operation.
 
 ```ts
-import { Schema, enumField, stringField } from '@ultimabase/core'
+import { Schema } from '@ultimabase/core'
 
 export const AccountSchema = Schema.define({
 	className: 'Account',
-	fields: {
-		email: stringField({
+	fields(field) {
+		field.string('email', {
 			validation: { required: true },
 			hooks: {
 				resolveInput: [
@@ -26,8 +26,8 @@ export const AccountSchema = Schema.define({
 					},
 				],
 			},
-		}),
-		status: enumField({
+		})
+		field.enum('status', {
 			values: ['pending', 'active'] as const,
 			default: 'pending',
 			hooks: {
@@ -36,7 +36,7 @@ export const AccountSchema = Schema.define({
 					return value
 				},
 			},
-		}),
+		})
 	},
 	// Cross-field rules use the complete schema-level operation.
 	hooks: {

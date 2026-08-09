@@ -5,7 +5,7 @@ boolean or callback is the concise `allow` form. Use the detailed form when an
 operation also needs a private row restriction or a materialized item decision:
 
 ```ts
-import { Schema, booleanField, stringField } from '@ultimabase/core'
+import { Schema } from '@ultimabase/core'
 
 const Post = Schema.define({
 	className: 'Post',
@@ -24,8 +24,8 @@ const Post = Schema.define({
 			item: ({ originalItem }) => originalItem.locked === false,
 		},
 	},
-	fields: {
-		authorId: stringField({
+	fields(field) {
+		field.string('authorId', {
 			access: {
 				write: {
 					fill: true,
@@ -34,14 +34,14 @@ const Post = Schema.define({
 				},
 			},
 			validation: { required: true },
-		}),
-		locked: booleanField({ default: false }),
-		published: booleanField({ default: false }),
-		secret: stringField({
+		})
+		field.boolean('locked', { default: false })
+		field.boolean('published', { default: false })
+		field.string('secret', {
 			access: {
 				read: { output: false, where: false, orderBy: false },
 			},
-		}),
+		})
 	},
 })
 ```

@@ -83,14 +83,12 @@ application.
 
 Callbacks are synchronous declarations. They may close over static values and
 lazy relationship targets, but cannot receive requests, services, adapters,
-transactions, or lifecycle state. Existing `fields: { ... }` maps still compile
-immediately as a migration-only compatibility path until the FieldBuilder
-repository migration. During the generated-types milestone, map declarations
-retain the legacy recursively inferred model contract; builder declarations gain
-their exact application model contract from the deterministic registry emitted
-by `@ultimabase/codegen`. The generator can already produce that registry from
-the infrastructure-free static compilation snapshot; the following milestone
-issue connects its named contracts to the production Core API surface.
+transactions, or lifecycle state. Field maps still compile immediately for
+framework-owned composition and isolated tests that need local inference, but
+they are not the ordinary application declaration syntax. Builder declarations
+gain their exact application model contract from the deterministic registry
+emitted by `@ultimabase/codegen`, and Core resolves public schema APIs through
+that registry.
 
 The root builder exposes every Core field kind. `field.object()` receives a
 path-aware embedded builder that omits `pointer` and `relation` and rejects
@@ -168,13 +166,13 @@ automatic target load:
 ```ts
 const PostSchema = Schema.define({
 	className: 'Post',
-	fields: {
-		author: pointerField({
+	fields(field) {
+		field.pointer('author', {
 			target: () => UserSchema,
 			validation: { required: true },
 			indexed: true,
 			onDelete: 'restrict',
-		}),
+		})
 	},
 })
 
@@ -204,8 +202,11 @@ an inverse backed by one exact pointer or owning relation on the target:
 ```ts
 const UserSchema = Schema.define({
 	className: 'User',
-	fields: {
-		posts: relationField({ target: () => PostSchema, mappedBy: 'author' }),
+	fields(field) {
+		field.relation('posts', {
+			target: () => PostSchema,
+			mappedBy: 'author',
+		})
 	},
 })
 ```
@@ -376,8 +377,8 @@ business family (`create`, `update`, `upsert`, or `delete`), while an exposed
 ```ts
 const ArticleSchema = Schema.define({
 	className: 'Article',
-	fields: {
-		title: stringField({ validation: { required: true } }),
+	fields(field) {
+		field.string('title', { validation: { required: true } })
 	},
 	hooks: {
 		resolveInput: {
@@ -459,15 +460,15 @@ schema values:
 ```ts
 const ProfileSchema = Schema.define({
 	className: 'Profile',
-	fields: {
-		displayName: stringField({
+	fields(field) {
+		field.string('displayName', {
 			hooks: {
 				resolveInput: [
 					({ value }) => value.trim(),
 					({ value }) => value.toLocaleLowerCase(),
 				],
 			},
-		}),
+		})
 	},
 })
 ```
@@ -578,16 +579,17 @@ interface without appearing as expanded literals in editor hovers.
 Enums still retain their exact value domain and objects retain their exact child
 field map because those structures determine the resulting JavaScript type.
 Field-specific aliases keep shared option and definition internals out of
-factory hovers while preserving these operation-relevant facts.
+builder-method and low-level factory hovers while preserving these
+operation-relevant facts.
 
 ## Indexes
 
 Single-field indexes stay next to their field:
 
 ```ts
-slug: stringField({
-	indexed: 'unique',
-})
+fields(field) {
+	field.string('slug', { indexed: 'unique' })
+}
 ```
 
 Schema-level declarations represent composite indexes and require at least two
@@ -596,9 +598,9 @@ distinct top-level fields:
 ```ts
 const PostSchema = Schema.define({
 	className: 'Post',
-	fields: {
-		authorId: stringField(),
-		slug: stringField({ indexed: 'unique' }),
+	fields(field) {
+		field.string('authorId')
+		field.string('slug', { indexed: 'unique' })
 	},
 	indexes: [
 		{ fields: ['authorId', 'createdAt'] },
@@ -854,29 +856,31 @@ Every developer field supports homogeneous lists without changing its field
 kind:
 
 ```ts
-stringField({ list: true })
-intField({ list: [true, true] })
+fields(field) {
+	field.string('tags', { list: true })
+	field.int('matrix', { list: [true, true] })
+}
 ```
 
-`objectField({ fields })` composes existing fields into one structured value:
+`field.object()` composes existing fields into one structured value:
 
 ```ts
-objectField({
-	typeName: 'Profile',
-	fields: {
-		displayName: stringField({
-			validation: {
-				required: true,
-			},
-		}),
-		preferences: objectField({
-			fields: {
-				darkMode: booleanField(),
-			},
-		}),
-		tags: stringField({ list: true }),
-	},
-})
+fields(field) {
+	field.object('profile', {
+		typeName: 'Profile',
+		fields(field) {
+			field.string('displayName', {
+				validation: { required: true },
+			})
+			field.object('preferences', {
+				fields(field) {
+					field.boolean('darkMode')
+				},
+			})
+			field.string('tags', { list: true })
+		},
+	})
+}
 ```
 
 An object field is one embedded stored value, not an independently addressable
@@ -929,9 +933,9 @@ the neutral schema binder:
 ```ts
 const Post = Schema.define({
 	className: 'Post',
-	fields: {
-		title: stringField({ validation: { required: true } }),
-		visibility: stringField(),
+	fields(field) {
+		field.string('title', { validation: { required: true } })
+		field.string('visibility')
 	},
 	extensions: ({ bind }) => [
 		bind(contentPolicy, {

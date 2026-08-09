@@ -5,17 +5,22 @@ import {
 	defineSchemaExtension,
 	type AccessRoleReferenceCarrier,
 	type AccessContext,
+	type FieldBuilder,
+	type GeneratedSchemaFields,
 	type Pointer,
+	type RequireGeneratedSchemaEntry,
 	type RelationField,
 	type SchemaAccess,
 	type SchemaClass,
 	type SchemaDefinition,
 	type SchemaExtension,
 	type SchemaFields,
+	type SchemaFieldBuilderDeclaration,
 	type SchemaHooks,
 	type SchemaFieldName,
 	type SchemaIndexOptions,
 	type SchemaModelCapabilityContext,
+	type SchemaOptions,
 	type SchemaResultCapabilityCarrier,
 	type ScalarFieldInferenceState,
 	type StringField,
@@ -78,6 +83,11 @@ type RoleNameField = ReturnType<typeof createRoleNameField>
 
 /** Names fields reserved for portable role semantics. */
 export type ReservedRoleFieldName = 'members' | 'name' | 'roles'
+
+type GeneratedRoleCustomFields<TClassName extends string> = Omit<
+	GeneratedSchemaFields<TClassName>,
+	ReservedRoleFieldName
+>
 
 type ReservedRoleFieldCollision<TFields extends SchemaFields> =
 	Extract<keyof TFields, ReservedRoleFieldName> extends never ? unknown : never
@@ -273,6 +283,24 @@ export interface RoleSchemaOptions<
 	>
 }
 
+/** Declares developer-owned role fields through the canonical FieldBuilder. */
+export type RoleSchemaBuilderOptions<
+	TClassName extends string,
+	TMemberSchema extends SchemaDefinition,
+	TExtensions extends readonly SchemaExtension<string, object>[],
+> = Omit<
+	RoleSchemaOptions<
+		TClassName,
+		TMemberSchema,
+		GeneratedRoleCustomFields<TClassName>,
+		TExtensions
+	>,
+	'fields'
+> & {
+	/** Adds ordinary application fields beside generated role fields. */
+	readonly fields: SchemaFieldBuilderDeclaration
+}
+
 /** Retains package-private declaration state without polluting schema metadata. */
 export interface RoleSchemaDeclaration {
 	readonly deletionPolicy: RoleReferenceDeletionPolicy
@@ -305,14 +333,31 @@ export class RoleSchema {
 	 * const AppRole = RoleSchema.define({
 	 *   className: 'Role',
 	 *   members: { schema: User },
-	 *   fields: { description: stringField() },
+	 *   fields(field) { field.string('description') },
 	 * })
 	 * ```
 	 */
 	static define<
 		const TClassName extends string,
 		const TMemberSchema extends SchemaDefinition,
-		const TCustomFields extends SchemaFields,
+		const TExtensions extends readonly SchemaExtension<string, object>[] =
+			readonly [],
+	>(
+		// The requirement is intentionally unknown only during the first-generation bootstrap.
+		options: RoleSchemaBuilderOptions<TClassName, TMemberSchema, TExtensions> &
+			// eslint-disable-next-line @typescript-eslint/no-redundant-type-constituents
+			RequireGeneratedSchemaEntry<TClassName>,
+	): RoleSchemaClass<
+		TClassName,
+		TMemberSchema,
+		GeneratedRoleCustomFields<TClassName>,
+		TExtensions
+	>
+
+	static define<
+		const TClassName extends string,
+		const TMemberSchema extends SchemaDefinition,
+		const TCustomFields extends SchemaFields = SchemaFields,
 		const TExtensions extends readonly SchemaExtension<string, object>[] =
 			readonly [],
 	>(
@@ -323,7 +368,19 @@ export class RoleSchema {
 			TExtensions
 		> &
 			ReservedRoleFieldCollision<NoInfer<TCustomFields>>,
-	): RoleSchemaClass<TClassName, TMemberSchema, TCustomFields, TExtensions> {
+	): RoleSchemaClass<TClassName, TMemberSchema, TCustomFields, TExtensions>
+
+	static define<
+		const TClassName extends string,
+		const TMemberSchema extends SchemaDefinition,
+		const TCustomFields extends SchemaFields,
+		const TExtensions extends readonly SchemaExtension<string, object>[] =
+			readonly [],
+	>(
+		options:
+			| RoleSchemaOptions<TClassName, TMemberSchema, TCustomFields, TExtensions>
+			| RoleSchemaBuilderOptions<TClassName, TMemberSchema, TExtensions>,
+	): unknown {
 		if (!Schema.is(options.members.schema)) {
 			throw new TypeError('members.schema must be created by Schema.define')
 		}
@@ -344,8 +401,13 @@ export class RoleSchema {
 			)
 		}
 
+		const customFields = options.fields
+
 		for (const fieldName of ['members', 'name', 'roles'] as const) {
-			if (Object.hasOwn(options.fields, fieldName)) {
+			if (
+				typeof customFields !== 'function' &&
+				Object.hasOwn(customFields, fieldName)
+			) {
 				throw new TypeError(`Reserved role field: ${fieldName}`)
 			}
 		}
@@ -370,21 +432,22 @@ export class RoleSchema {
 
 			return selfTargetState.roleSchema
 		}
-		const fields: RoleSchemaFields<
-			TMemberSchema,
-			RoleSchemaSelfDefinition<
-				TClassName,
-				TMemberSchema,
-				TCustomFields,
-				TExtensions
-			>,
-			TCustomFields
-		> = {
-			...options.fields,
-			name: createRoleNameField(),
-			members: relationField({ target: () => options.members.schema }),
-			roles: relationField({ target: selfTarget }),
-		}
+		const fields =
+			typeof customFields === 'function'
+				? (field: FieldBuilder): void => {
+						customFields(field)
+						field.add('name', createRoleNameField())
+						field.relation('members', {
+							target: () => options.members.schema,
+						})
+						field.relation('roles', { target: selfTarget })
+					}
+				: {
+						...customFields,
+						name: createRoleNameField(),
+						members: relationField({ target: () => options.members.schema }),
+						roles: relationField({ target: selfTarget }),
+					}
 		const extensions = [
 			...(options.extensions ?? []),
 			roleSchemaExtension,
@@ -395,87 +458,90 @@ export class RoleSchema {
 			TCustomFields,
 			TExtensions
 		>
-		const definedSchema = Schema.defineWithCapabilities(
-			{
-				className: options.className,
-				fields,
-				extensions,
-				...(options.indexes === undefined ? {} : { indexes: options.indexes }),
-				...(options.access === undefined ? {} : { access: options.access }),
-				...(options.hooks === undefined ? {} : { hooks: options.hooks }),
-			},
-			(context) => {
-				const exactSchema = context.schema as unknown as SelfSchema
-				const exactContext =
-					context as unknown as SchemaModelCapabilityContext<SelfSchema>
+		const createCapabilities = (
+			context: SchemaModelCapabilityContext<SchemaDefinition>,
+		) => {
+			const exactSchema = context.schema as unknown as SelfSchema
+			const exactContext =
+				context as unknown as SchemaModelCapabilityContext<SelfSchema>
 
-				function role<const TName extends string>(
-					name: TName,
-				): RoleReference<SelfSchema, RoleNameSelector<TName>>
-				function role<const TId extends string>(
-					selector: RoleIdSelector<TId>,
-				): RoleReference<SelfSchema, RoleIdSelector<TId>>
-				function role(
-					selector: string | RoleIdSelector,
-				): RoleReference<SelfSchema> {
-					return createRoleReference(
-						exactSchema,
-						typeof selector === 'string' ? { name: selector } : selector,
+			function role<const TName extends string>(
+				name: TName,
+			): RoleReference<SelfSchema, RoleNameSelector<TName>>
+			function role<const TId extends string>(
+				selector: RoleIdSelector<TId>,
+			): RoleReference<SelfSchema, RoleIdSelector<TId>>
+			function role(
+				selector: string | RoleIdSelector,
+			): RoleReference<SelfSchema> {
+				return createRoleReference(
+					exactSchema,
+					typeof selector === 'string' ? { name: selector } : selector,
+				)
+			}
+
+			const toAccessRoleReference = function (
+				this: object,
+			): RoleReference<SelfSchema, RoleIdSelector> {
+				exactContext.assertPersisted(this, 'toAccessRoleReference')
+
+				if (!('id' in this) || typeof this.id !== 'string') {
+					throw new TypeError(
+						'Persisted role has no valid framework identifier',
 					)
 				}
 
-				const toAccessRoleReference = function (
-					this: object,
-				): RoleReference<SelfSchema, RoleIdSelector> {
-					exactContext.assertPersisted(this, 'toAccessRoleReference')
+				// The neutral reference keeps ACL and other consumers independent from roles.
+				return createRoleReference(exactSchema, { id: this.id })
+			}
+			const resultCapabilities: AccessRoleReferenceCarrier &
+				RoleMemberCommands<SelfSchema, TMemberSchema> &
+				RoleHierarchyCommands<
+					SelfSchema,
+					RoleSchemaClass<TClassName, TMemberSchema, TCustomFields, TExtensions>
+				> = {
+				toAccessRoleReference,
+				...createRoleMemberCommands(exactContext, options.members.schema),
+				...createRoleHierarchyCommands<
+					SelfSchema,
+					RoleSchemaClass<TClassName, TMemberSchema, TCustomFields, TExtensions>
+				>(exactContext),
+			}
 
-					if (!('id' in this) || typeof this.id !== 'string') {
-						throw new TypeError(
-							'Persisted role has no valid framework identifier',
-						)
-					}
-
-					// The neutral reference keeps ACL and other consumers independent from roles.
-					return createRoleReference(exactSchema, { id: this.id })
-				}
-				const resultCapabilities: AccessRoleReferenceCarrier &
-					RoleMemberCommands<SelfSchema, TMemberSchema> &
-					RoleHierarchyCommands<
-						SelfSchema,
-						RoleSchemaClass<
-							TClassName,
-							TMemberSchema,
-							TCustomFields,
-							TExtensions
-						>
-					> = {
-					toAccessRoleReference,
-					...createRoleMemberCommands(exactContext, options.members.schema),
-					...createRoleHierarchyCommands<
-						SelfSchema,
-						RoleSchemaClass<
-							TClassName,
-							TMemberSchema,
-							TCustomFields,
-							TExtensions
-						>
-					>(exactContext),
-				}
-
-				return {
-					statics: { role } satisfies RoleSchemaStatics<SelfSchema>,
-					results: resultCapabilities,
-				}
-			},
+			return {
+				statics: { role } satisfies RoleSchemaStatics<SelfSchema>,
+				results: resultCapabilities,
+			}
+		}
+		const commonOptions = {
+			className: options.className,
+			fields,
+			extensions,
+			...(options.indexes === undefined ? {} : { indexes: options.indexes }),
+			...(options.access === undefined ? {} : { access: options.access }),
+			...(options.hooks === undefined ? {} : { hooks: options.hooks }),
+		}
+		// Public overloads retain exact map or generated builder types. This internal
+		// specialization deliberately crosses their union only after constructing the
+		// corresponding runtime declaration and capability factory together.
+		const schemaDefinition = Schema as unknown as {
+			readonly defineWithCapabilities: (
+				options: SchemaOptions,
+				factory: typeof createCapabilities,
+			) => SchemaDefinition
+		}
+		const definedSchema = schemaDefinition.defineWithCapabilities(
+			commonOptions as unknown as SchemaOptions,
+			createCapabilities,
 		)
 
 		// The exact public type mirrors the fields and statics attached above.
-		const roleSchema: RoleSchemaClass<
+		const roleSchema = definedSchema as unknown as RoleSchemaClass<
 			TClassName,
 			TMemberSchema,
 			TCustomFields,
 			TExtensions
-		> = definedSchema
+		>
 		selfTargetState.roleSchema = roleSchema
 		roleSchemaDeclarations.set(
 			roleSchema,

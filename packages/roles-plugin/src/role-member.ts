@@ -2,7 +2,6 @@ import type {
 	PersistedSchemaReference,
 	Pointer,
 	OperationOptions,
-	Relation,
 	SchemaDefinition,
 	SchemaModelCapabilityContext,
 } from '@ultimabase/core'
@@ -15,7 +14,16 @@ interface RoleMemberCommandReceiver<
 	TRoleSchema extends SchemaDefinition,
 	TMemberSchema extends SchemaDefinition,
 > extends PersistedSchemaReference<TRoleSchema> {
-	relation(fieldName: 'members'): Relation<TRoleSchema, TMemberSchema>
+	relation(fieldName: 'members'): {
+		connect(
+			member: Pointer<TMemberSchema>,
+			options?: OperationOptions,
+		): Promise<void>
+		disconnect(
+			member: Pointer<TMemberSchema>,
+			options?: OperationOptions,
+		): Promise<void>
+	}
 }
 
 /** Adds concise member aliases only to persisted role results. */

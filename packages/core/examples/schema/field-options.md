@@ -4,57 +4,42 @@ A schema can combine portable field metadata without choosing a database
 representation. Database plugins later translate these declarations for their
 own adapter. Every inline field declaration is contextually typed, so the
 editor suggests both common options and kind-specific options such as
-`autoIncrement`, `autoNow`, or `timezone`. Hovering a factory or option shows
-its value semantics, important restrictions, and a focused example.
+`autoIncrement`, `autoNow`, or `timezone`. Hovering a builder method or option
+shows its value semantics, important restrictions, and a focused example.
 
 ```ts
-import {
-	bigintField,
-	binaryField,
-	booleanField,
-	dateField,
-	dateTimeField,
-	decimalField,
-	Schema,
-	enumField,
-	floatField,
-	intField,
-	jsonField,
-	stringField,
-	timeField,
-	uuidField,
-} from '@ultimabase/core'
+import { Schema } from '@ultimabase/core'
 
 export const ProductSchema = Schema.define({
 	className: 'Product',
-	fields: {
-		externalId: uuidField({
+	fields(field) {
+		field.uuid('externalId', {
 			indexed: 'unique',
 			validation: { required: true, version: 7 },
-		}),
-		sequence: bigintField({ autoIncrement: true }),
-		name: stringField({
+		})
+		field.bigint('sequence', { autoIncrement: true })
+		field.string('name', {
 			validation: { required: true, length: { min: 1, max: 120 } },
-		}),
-		stock: intField({
+		})
+		field.int('stock', {
 			default: 0,
 			validation: { range: { min: 0 } },
-		}),
-		rating: floatField({
+		})
+		field.float('rating', {
 			validation: {
 				finite: true,
 				range: { min: 0, max: 5 },
 			},
-		}),
-		price: decimalField({
+		})
+		field.decimal('price', {
 			validation: {
 				required: true,
 				precision: 12,
 				scale: 2,
 				range: { min: '0.00' },
 			},
-		}),
-		status: enumField({
+		})
+		field.enum('status', {
 			typeName: 'ProductStatus',
 			values: {
 				Draft: 'draft',
@@ -62,16 +47,16 @@ export const ProductSchema = Schema.define({
 				Archived: 'archived',
 			},
 			default: 'draft',
-		}),
-		availableOn: dateField(),
-		dailyCutoff: timeField({ timezone: false }),
-		publishedAt: dateTimeField({ autoNow: true }),
-		tags: stringField({ list: true, default: [] }),
-		metadata: jsonField({ default: {} }),
-		attachment: binaryField({
+		})
+		field.date('availableOn')
+		field.time('dailyCutoff', { timezone: false })
+		field.dateTime('publishedAt', { autoNow: true })
+		field.string('tags', { list: true, default: [] })
+		field.json('metadata', { default: {} })
+		field.binary('attachment', {
 			validation: { length: { max: 5_000_000 } },
-		}),
-		isActive: booleanField({ default: true }),
+		})
+		field.boolean('isActive', { default: true })
 	},
 	indexes: [
 		// Composite indexes may include developer and framework-owned fields.

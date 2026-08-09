@@ -5,10 +5,7 @@ array to ordinary model values.
 
 ```ts
 import {
-	pointerField,
-	relationField,
 	Schema,
-	stringField,
 	type InferCreateInput,
 	type InferObject,
 	type SchemaResult,
@@ -16,23 +13,23 @@ import {
 
 export const UserSchema = Schema.define({
 	className: 'User',
-	fields: {
-		name: stringField({ validation: { required: true } }),
-		posts: relationField({
+	fields(field) {
+		field.string('name', { validation: { required: true } })
+		field.relation('posts', {
 			target: () => PostSchema,
 			mappedBy: 'author',
-		}),
+		})
 	},
 })
 
 export const PostSchema = Schema.define({
 	className: 'Post',
-	fields: {
-		author: pointerField({
+	fields(field) {
+		field.pointer('author', {
 			target: () => UserSchema,
 			validation: { required: true },
-		}),
-		title: stringField({ validation: { required: true } }),
+		})
+		field.string('title', { validation: { required: true } })
 	},
 })
 

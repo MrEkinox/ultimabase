@@ -6,7 +6,6 @@ retains the exact target schema in TypeScript.
 
 ```ts
 import {
-	pointerField,
 	Pointer,
 	Schema,
 	type InferCreateInput,
@@ -15,22 +14,22 @@ import {
 
 export const UserSchema = Schema.define({
 	className: 'User',
-	fields: {},
+	fields() {},
 })
 
 export const PostSchema = Schema.define({
 	className: 'Post',
-	fields: {
-		author: pointerField({
+	fields(field) {
+		field.pointer('author', {
 			target: () => UserSchema,
 			validation: { required: true },
 			indexed: true,
 			onDelete: 'restrict',
-		}),
-		reviewer: pointerField({
+		})
+		field.pointer('reviewer', {
 			target: () => UserSchema,
 			onDelete: 'setNull',
-		}),
+		})
 	},
 })
 

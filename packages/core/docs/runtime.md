@@ -217,9 +217,9 @@ belong to schema Access:
 ```ts
 const ArticleSchema = Schema.define({
 	className: 'Article',
-	fields: {
-		title: stringField({ validation: { required: true } }),
-		published: booleanField({ default: false }),
+	fields(field) {
+		field.string('title', { validation: { required: true } })
+		field.boolean('published', { default: false })
 	},
 	access: {
 		read: { where: { published: { eq: true } } },
@@ -321,8 +321,8 @@ commit:
 ```ts
 const ArticleSchema = Schema.define({
 	className: 'Article',
-	fields: {
-		title: stringField({ validation: { required: true } }),
+	fields(field) {
+		field.string('title', { validation: { required: true } })
 	},
 	hooks: {
 		afterOperation: {
@@ -347,7 +347,9 @@ run only after PostgreSQL confirms the outer commit:
 ```ts
 const ArticleSchema = Schema.define({
 	className: 'Article',
-	fields: { title: stringField({ validation: { required: true } }) },
+	fields(field) {
+		field.string('title', { validation: { required: true } })
+	},
 	hooks: {
 		beforeOperation: {
 			create: async (input) => {
@@ -615,7 +617,9 @@ const articleCreatedEvent = defineEvent<ArticleCreatedEvent>()(
 
 const ArticleSchema = Schema.define({
 	className: 'Article',
-	fields: { title: stringField({ validation: { required: true } }) },
+	fields(field) {
+		field.string('title', { validation: { required: true } })
+	},
 	hooks: {
 		beforeOperation: {
 			create: ({ context, item, kind }) => {

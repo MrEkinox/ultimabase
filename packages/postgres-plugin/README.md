@@ -313,22 +313,18 @@ Runtime-owned and are never executed by the compiler.
 ```ts
 import { createApplication } from '@ultimabase/core'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
-import {
-	bigintField,
-	dateTimeField,
-	Schema,
-	objectField,
-	stringField,
-} from '@ultimabase/core'
+import { Schema } from '@ultimabase/core'
 
 const EventSchema = Schema.define({
 	className: 'Event',
-	fields: {
-		title: stringField({ validation: { required: true } }),
-		attendees: bigintField({ list: true }),
-		metadata: objectField({
-			fields: { publishedAt: dateTimeField() },
-		}),
+	fields(field) {
+		field.string('title', { validation: { required: true } })
+		field.bigint('attendees', { list: true })
+		field.object('metadata', {
+			fields(field) {
+				field.dateTime('publishedAt')
+			},
+		})
 	},
 })
 
@@ -372,9 +368,9 @@ Field and composite indexes use the storage-neutral Schema API:
 ```ts
 const ArticleSchema = Schema.define({
 	className: 'Article',
-	fields: {
-		authorId: stringField(),
-		slug: stringField({ indexed: 'unique' }),
+	fields(field) {
+		field.string('authorId')
+		field.string('slug', { indexed: 'unique' })
 	},
 	indexes: [
 		{ fields: ['authorId', 'createdAt'] },
@@ -462,22 +458,24 @@ limit. Optional pointers use nullable columns, while `required`, `indexed`, and
 `RESTRICT`, `CASCADE`, or `SET NULL`.
 
 ```ts
-import { pointerField, Schema, stringField } from '@ultimabase/core'
+import { Schema } from '@ultimabase/core'
 
 const User = Schema.define({
 	className: 'User',
-	fields: { name: stringField() },
+	fields(field) {
+		field.string('name')
+	},
 })
 
 const Post = Schema.define({
 	className: 'Post',
-	fields: {
-		author: pointerField({
+	fields(field) {
+		field.pointer('author', {
 			target: () => User,
 			validation: { required: true },
 			indexed: true,
 			onDelete: 'cascade',
-		}),
+		})
 	},
 })
 
@@ -626,18 +624,18 @@ required pointers plus a composite unique index model a membership edge:
 ```ts
 const Membership = Schema.define({
 	className: 'Membership',
-	fields: {
-		member: pointerField({
+	fields(field) {
+		field.pointer('member', {
 			onDelete: 'cascade',
 			target: () => Member,
 			validation: { required: true },
-		}),
-		project: pointerField({
+		})
+		field.pointer('project', {
 			onDelete: 'cascade',
 			target: () => Project,
 			validation: { required: true },
-		}),
-		role: stringField({ validation: { required: true } }),
+		})
+		field.string('role', { validation: { required: true } })
 	},
 	indexes: [{ fields: ['project', 'member'], unique: true }],
 })
@@ -759,12 +757,12 @@ Use `postgresTable` when the database needs an exact identifier:
 
 ```ts
 import { postgresTable } from '@ultimabase/postgres-plugin'
-import { Schema, stringField } from '@ultimabase/core'
+import { Schema } from '@ultimabase/core'
 
 const ArticleSchema = Schema.define({
 	className: 'Article',
-	fields: {
-		title: stringField(),
+	fields(field) {
+		field.string('title')
 	},
 	extensions: [postgresTable({ name: 'ContentItems-v2' })],
 })

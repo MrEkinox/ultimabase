@@ -19,7 +19,16 @@ export type NestedRoleTarget<TRoleSchema extends SchemaDefinition> =
 interface RoleHierarchyCommandReceiver<
 	TRoleSchema extends SchemaDefinition,
 > extends PersistedSchemaReference<TRoleSchema> {
-	relation(fieldName: 'roles'): Relation<TRoleSchema, TRoleSchema>
+	relation(fieldName: 'roles'): {
+		connect(
+			role: Pointer<TRoleSchema>,
+			options?: OperationOptions,
+		): Promise<void>
+		disconnect(
+			role: Pointer<TRoleSchema>,
+			options?: OperationOptions,
+		): Promise<void>
+	}
 }
 
 /** Adds explicit hierarchy aliases only to persisted role results. */

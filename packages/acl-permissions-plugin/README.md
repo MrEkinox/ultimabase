@@ -42,9 +42,9 @@ input resolution and before structural revalidation:
 ```ts
 const Post = Schema.define({
 	className: 'Post',
-	fields: {
-		title: stringField({ validation: { required: true } }),
-		visibility: stringField(),
+	fields(field) {
+		field.string('title', { validation: { required: true } })
+		field.string('visibility')
 	},
 	extensions: ({ bind }) => [
 		bind(acl, {

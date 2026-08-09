@@ -38,9 +38,8 @@ const application = await createApplication({
 ```
 
 The plugin registers the runtime method before static schema compilation. The
-generated application contract introduced by the next milestone adds its exact
-`VectorFieldBuilderMethod` type to that application's builder; Core deliberately
-does not expose `vector` when the plugin is absent. The PostgreSQL package will
-later consume the plugin's database compiler to produce a real pgvector column.
-Until that milestone is implemented, this package deliberately contains no
-Drizzle or SQL dependency.
+generated application contract adds its exact `VectorFieldBuilderMethod` type
+to that application's builder; Core deliberately does not expose `vector` when
+the plugin is absent. The PostgreSQL package will later consume the plugin's
+database compiler to produce a real pgvector column. Until that milestone is
+implemented, this package deliberately contains no Drizzle or SQL dependency.

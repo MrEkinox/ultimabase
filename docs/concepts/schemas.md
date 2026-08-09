@@ -5,13 +5,13 @@ Schemas are explicit TypeScript classes registered in application configuration.
 ```ts
 const UserSchema = Schema.define({
 	className: 'User',
-	fields: () => ({
-		name: stringField({
+	fields(field) {
+		field.string('name', {
 			validation: {
 				required: true,
 			},
-		}),
-	}),
+		})
+	},
 	extensions: [],
 })
 ```
@@ -69,11 +69,11 @@ before plugin setup, closes registration, and exposes an immutable snapshot.
 Plugins receive a read-only compiled registry and cannot register additional
 schemas during setup.
 
-The callback form is synchronous and executes once per accepted application
+The builder callback is synchronous and executes once per accepted application
 compilation. Before compilation, only schema identity is available; model
-construction and field-dependent metadata fail explicitly. Existing
-object-shaped field maps remain temporary migration compatibility until the
-FieldBuilder migration.
+construction and field-dependent metadata fail explicitly. Internal tests and
+framework-owned composition may use lower-level field maps for local inference,
+but application declarations use the builder.
 
 Duplicate `className` values fail with `DuplicateSchemaError`; a failed
 registration never replaces the previously registered definition.

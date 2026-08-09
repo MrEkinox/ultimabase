@@ -247,3 +247,12 @@ measure separate representative processes before this project claims one.
   declarations.
 - Full regeneration and explicit stale-state failure favor correctness and
   understandable recovery over an unproven incremental implementation.
+
+## Issue 809 clarification
+
+The canonical application syntax remains the deferred `fields(field)` builder.
+Because UltimaBase has no published application surface to migrate, issue 809
+does not add a codemod or remove the field-map implementation. Internal tests
+and framework-owned composition may retain field maps when they require exact
+local inference across independent fixtures. Ordinary application documentation
+does not present that lower-level form as an alternative authoring style.

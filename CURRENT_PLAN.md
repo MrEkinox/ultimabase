@@ -49,6 +49,7 @@ active milestone.
 - The first implementation regenerates the complete application graph; incremental generation requires later measured evidence.
 - `field.custom()` is not introduced as the normal application DX.
 - Existing field factories remain the implementation foundation and plugin-author contract until a later decision explicitly narrows their exports.
+- Internal tests and framework-owned composition may retain field maps for local inference; ordinary application documentation uses FieldBuilder.
 - Embedded objects remain value trees: pointers, relations, and database-generated sequences stay top-level.
 - Every issue receives its own commit and no push occurs without explicit user confirmation.
 
@@ -80,7 +81,7 @@ semantics and the user validates the demonstrated editor behavior.
 
 ### Phase 3 — Repository migration
 
-9. [ ] [809 — Migrate schema declarations to FieldBuilder](issues/800-generated-types/809-field-builder-repository-migration.md)
+9. [x] [809 — Migrate schema declarations to FieldBuilder](issues/800-generated-types/809-field-builder-repository-migration.md)
 
 ### Phase 4 — Final proof
 
@@ -92,7 +93,7 @@ semantics and the user validates the demonstrated editor behavior.
 - After 802: present the ADR and the deliberate non-goals before production code.
 - After 805: demonstrate runtime field resolution and missing/conflicting plugin failures.
 - After 807: demonstrate source and packed-package autocomplete for Query, mutations, Access, hooks, objects, pointers, and relations.
-- After 809: review the public API examples before removing the old application declaration syntax.
+- After 809: review the public API examples while retaining field maps only for internal tests and framework-owned composition.
 
 ## Completion gate
 

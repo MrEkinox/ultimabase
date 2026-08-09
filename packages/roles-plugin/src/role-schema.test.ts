@@ -22,6 +22,34 @@ const User = Schema.define({
 })
 
 describe('RoleSchema', () => {
+	it('compiles canonical FieldBuilder declarations before adding role fields', async () => {
+		const BuilderRole = RoleSchema.define({
+			className: 'BuilderRole',
+			members: { schema: User },
+			fields(field) {
+				field.string('description')
+				field.int('priority', { default: 0 })
+			},
+		})
+		const application = await createApplication({
+			schemas: [User, BuilderRole],
+			plugins: [rolesPlugin()],
+		})
+
+		expect(Object.keys(BuilderRole.fields)).toEqual([
+			'description',
+			'priority',
+			'name',
+			'members',
+			'roles',
+			'id',
+			'createdAt',
+			'updatedAt',
+		])
+
+		await application.dispose()
+	})
+
 	it('creates one ordinary immutable schema class with generated role fields', () => {
 		const AppRole = RoleSchema.define({
 			className: 'AppRole',

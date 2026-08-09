@@ -15,7 +15,7 @@ FieldBuilder and plugin-owned methods will use, without pulling issues 804 and
 ## Acceptance criteria
 
 - [x] `Schema.define()` accepts and retains one immutable `fields: () => fieldMap` callback rather than requiring its final field map during module evaluation.
-- [x] Existing object-shaped field maps remain a documented migration-only compatibility path until issue 809.
+- [x] Existing object-shaped field maps remain the local-inference foundation that issue 809 later restricts to internal tests and framework-owned composition.
 - [x] Application static compilation resolves deferred schema callbacks before plugin setup or infrastructure lifecycle work.
 - [x] Each field callback executes exactly once per accepted compilation boundary and produces one immutable deterministic field map.
 - [x] Reusing one schema class across isolated applications follows the model and metadata semantics selected by the ADR without first-application leakage.

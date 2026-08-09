@@ -152,12 +152,12 @@ kind:
 ```ts
 const UserSchema = Schema.define({
 	className: 'User',
-	fields: {
-		email: stringField({
+	fields(field) {
+		field.string('email', {
 			hooks: {
 				resolveInput: ({ value }) => value.trim().toLowerCase(),
 			},
-		}),
+		})
 	},
 	hooks: {
 		resolveInput: {

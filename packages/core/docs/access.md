@@ -46,8 +46,8 @@ const Article = Schema.define({
 		},
 		delete: ({ context }) => context.access.mode === 'master',
 	},
-	fields: {
-		authorId: stringField({
+	fields(field) {
+		field.string('authorId', {
 			access: {
 				write: {
 					fill: true,
@@ -56,10 +56,10 @@ const Article = Schema.define({
 				},
 			},
 			validation: { required: true },
-		}),
-		secret: stringField({
+		})
+		field.string('secret', {
 			access: { read: { output: false, where: false, orderBy: false } },
-		}),
+		})
 	},
 })
 ```
@@ -304,7 +304,9 @@ const Post = Schema.define({
 	access: {
 		read: ({ context }) => context.getValue(principal) !== undefined,
 	},
-	fields: { title: stringField() },
+	fields(field) {
+		field.string('title')
+	},
 })
 ```
 

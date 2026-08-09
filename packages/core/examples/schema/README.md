@@ -6,8 +6,8 @@ TypeScript snippets:
 - [`basic-schema.md`](basic-schema.md) introduces a schema and inferred types;
 - [`field-builder.md`](field-builder.md) introduces the canonical
   `fields(field) { ... }` declaration and restricted embedded builders;
-- object-shaped field maps remain temporary migration compatibility until the
-  repository migration is complete;
+- object-shaped field maps are reserved for internal tests and framework-owned
+  composition that require local inference;
 - [`field-options.md`](field-options.md) covers built-in fields, validation
   metadata, defaults, generation, and indexes;
 - [`objects-and-lists.md`](objects-and-lists.md) composes reusable nested fields

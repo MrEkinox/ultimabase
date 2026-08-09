@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+	booleanField,
 	createApplication,
 	intField,
+	objectField,
 	pointerField,
 	Schema,
 	SchemaCompilationError,
@@ -13,6 +15,50 @@ import {
 } from '../../index.js'
 
 describe('FieldBuilder', () => {
+	it('compiles the same metadata as the internal field-map foundation', () => {
+		const reusableSlug = stringField({
+			indexed: 'unique',
+			validation: { required: true },
+		})
+		const WithMap = Schema.define({
+			className: 'MetadataFromFieldMap',
+			fields: {
+				published: booleanField({ default: false }),
+				profile: objectField({
+					fields: {
+						displayName: stringField({
+							validation: { length: { max: 80 } },
+						}),
+					},
+					typeName: 'BuilderMetadataProfile',
+				}),
+				slug: reusableSlug,
+				title: stringField({ validation: { required: true } }),
+			},
+		})
+		const WithBuilder = Schema.define({
+			className: 'MetadataFromFieldBuilder',
+			fields(field) {
+				field.boolean('published', { default: false })
+				field.object('profile', {
+					fields(field) {
+						field.string('displayName', {
+							validation: { length: { max: 80 } },
+						})
+					},
+					typeName: 'BuilderMetadataProfile',
+				})
+				field.add('slug', reusableSlug)
+				field.string('title', { validation: { required: true } })
+			},
+		})
+
+		new SchemaRegistry([WithMap]).compileSchemas()
+		new SchemaRegistry([WithBuilder]).compileSchemas()
+
+		expect(WithBuilder.fields).toStrictEqual(WithMap.fields)
+	})
+
 	it('delegates every built-in method to the existing immutable factories', async () => {
 		const Target = Schema.define({ className: 'BuilderTarget', fields: {} })
 		const reusable = stringField({ validation: { required: true } })

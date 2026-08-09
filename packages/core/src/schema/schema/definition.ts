@@ -172,7 +172,8 @@ export interface SchemaOptions<
 	 */
 	readonly className: TClassName
 	/**
-	 * Declares fields through the canonical name-first builder or a migration field map.
+	 * Declares fields through the canonical name-first builder.
+	 * Field maps remain available for internal tests and framework-owned composition.
 	 * Framework-owned `id`, `createdAt`, and `updatedAt` fields are added automatically.
 	 *
 	 * @example `fields(field) { field.string('title'); field.boolean('published') }`
@@ -220,14 +221,14 @@ export interface SchemaOptions<
 	>
 }
 
-/** Preserves the existing map declaration during the milestone migration. */
+/** Preserves exact local inference for internal tests and framework composition. */
 export type ImmediateSchemaOptions<
 	TClassName extends string,
 	TFields extends SchemaFields,
 	TExtensions extends SchemaExtensions,
 > = Omit<SchemaOptions<TClassName, TFields, TExtensions>, 'fields'> & {
 	/**
-	 * Maps developer field names to reusable UltimaBase field definitions.
+	 * Maps internal field names to reusable UltimaBase field definitions.
 	 * @example `fields: { title: stringField() }`
 	 */
 	readonly fields: TFields
@@ -1284,9 +1285,9 @@ const assertNoReservedFieldCollision = (
  * ```ts
  * const Post = Schema.define({
  *   className: "Post",
- *   fields: {
- *     title: stringField({ validation: { required: true } }),
- *     published: booleanField({ default: false }),
+ *   fields(field) {
+ *     field.string("title", { validation: { required: true } })
+ *     field.boolean("published", { default: false })
  *   },
  * })
  *

@@ -5,9 +5,7 @@ framework-owned `id`, `createdAt`, and `updatedAt` fields.
 
 ```ts
 import {
-	booleanField,
 	Schema,
-	stringField,
 	type InferCreateInput,
 	type InferObject,
 	type InferUpdateInput,
@@ -15,28 +13,28 @@ import {
 
 export const UserSchema = Schema.define({
 	className: 'User',
-	fields: () => ({
-		username: stringField({
+	fields(field) {
+		field.string('username', {
 			indexed: 'unique',
 			validation: {
 				required: true,
 				length: { min: 3, max: 32 },
 				match: /^[a-z0-9_]+$/u,
 			},
-		}),
-		displayName: stringField({
+		})
+		field.string('displayName', {
 			validation: {
 				required: true,
 				length: { min: 1, max: 80 },
 			},
-		}),
-		bio: stringField({
+		})
+		field.string('bio', {
 			validation: {
 				length: { max: 500 },
 			},
-		}),
-		isActive: booleanField({ default: true }),
-	}),
+		})
+		field.boolean('isActive', { default: true })
+	},
 })
 
 // Application initialization compiles the callback before plugin setup.
@@ -51,7 +49,8 @@ export type UpdateUserInput = InferUpdateInput<typeof UserSchema>
 
 The callback is retained during module evaluation. Application static
 compilation executes it once before plugin setup and freezes the resulting
-field map. Until compilation succeeds, only schema identity such as
+field registry. The generated application contract supplies its exact public
+TypeScript model. Until compilation succeeds, only schema identity such as
 `UserSchema.className` is available; constructing a model or reading its fields
 throws `SchemaCompilationError`.
 
@@ -89,13 +88,17 @@ projection without enabling per-object mutation hooks:
 
 ```ts
 const renamedUsers = await UserSchema.updateMany({
-	where: { displayName: { eq: null } },
-	data: { displayName: 'Anonymous' },
+	data: [
+		{
+			where: { id: { eq: userId } },
+			data: { displayName: 'Anonymous' },
+		},
+	],
 })
 // [{ id }, ...]
 
 const removedUsers = await UserSchema.deleteMany({
-	where: { displayName: { eq: 'Anonymous' } },
+	where: [{ id: { eq: userId } }],
 	select: { id: true, username: true },
 })
 // [{ id, username }, ...]

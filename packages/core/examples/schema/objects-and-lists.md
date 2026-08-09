@@ -1,8 +1,8 @@
 # Objects and lists
 
-Object fields compose existing field declarations. Reusing one field map keeps
-nested contracts consistent without sharing mutable schema state.
-Inline `objectField` options remain contextually typed, so editors suggest
+Object fields compose existing field declarations. Reusing one embedded builder
+callback keeps nested contracts consistent without sharing mutable schema state.
+Inline `field.object` options remain contextually typed, so editors suggest
 `fields`, `typeName`, `list`, `validation`, defaults, indexes, and extensions
 without widening the nested field map.
 
@@ -13,46 +13,46 @@ integer fields also remain top-level because a database sequence cannot generate
 one property inside an embedded value.
 
 ```ts
-import { Schema, floatField, objectField, stringField } from '@ultimabase/core'
+import { Schema, type EmbeddedFieldBuilder } from '@ultimabase/core'
 
-const addressFields = {
-	line1: stringField({ validation: { required: true } }),
-	line2: stringField(),
-	city: stringField({ validation: { required: true } }),
-	internalRoutingCode: stringField({ access: { read: false } }),
-	postalCode: stringField({ validation: { required: true } }),
-	countryCode: stringField({
+const addressFields = (field: EmbeddedFieldBuilder): void => {
+	field.string('line1', { validation: { required: true } })
+	field.string('line2')
+	field.string('city', { validation: { required: true } })
+	field.string('internalRoutingCode', { access: { read: false } })
+	field.string('postalCode', { validation: { required: true } })
+	field.string('countryCode', {
 		validation: {
 			required: true,
 			length: { min: 2, max: 2 },
 			match: /^[A-Z]{2}$/u,
 		},
-	}),
+	})
 }
 
 export const CustomerSchema = Schema.define({
 	className: 'Customer',
-	fields: {
-		name: stringField({ validation: { required: true } }),
-		shippingAddress: objectField({
+	fields(field) {
+		field.string('name', { validation: { required: true } })
+		field.object('shippingAddress', {
 			typeName: 'Address',
 			fields: addressFields,
 			validation: { required: true },
-		}),
-		previousAddresses: objectField({
+		})
+		field.object('previousAddresses', {
 			typeName: 'PreviousAddress',
 			fields: addressFields,
 			list: true,
-		}),
-		preferences: objectField({
+		})
+		field.object('preferences', {
 			typeName: 'CustomerPreferences',
-			fields: {
-				locale: stringField({ default: 'en' }),
-				favoriteTags: stringField({ list: true }),
+			fields(field) {
+				field.string('locale', { default: 'en' })
+				field.string('favoriteTags', { list: true })
 			},
-		}),
+		})
 		// A true tuple declares one list wrapper for each tuple item.
-		scoreMatrix: floatField({ list: [true, true] }),
+		field.float('scoreMatrix', { list: [true, true] })
 	},
 })
 ```

@@ -1,30 +1,49 @@
 # 809: Migrate schema declarations to FieldBuilder
 
-- Status: planned
+- Status: done
 - Milestone: 8
-- Packages: all schema-declaring packages, examples, tests
+- Packages: public schema examples, documentation, schema specializations
 - Depends on: 807
 - ADR: [ADR-0173](../../docs/adr/0173-generated-schema-authoring.md)
 
 ## Goal
 
-Move the repository and documented application DX from `fields: { ... }` maps
-to the canonical Nexus-style `fields(field) { ... }` declaration after the
-generated contract is complete.
+Move the documented application DX from `fields: { ... }` maps to the canonical
+Nexus-style `fields(field) { ... }` declaration after the generated contract is
+complete. Internal tests and framework-owned composition may retain field maps
+when they need local TypeScript inference without one generated application
+registry.
 
 ## Acceptance criteria
 
-- [ ] A reviewed codemod handles ordinary fields, options, nested objects, pointers, relations, reusable definitions, schema specializations, and plugin-owned fields without changing declaration order.
-- [ ] Core, official plugins, root tests, PostgreSQL E2E fixtures, examples, and documentation use the canonical builder syntax.
-- [ ] The pg-vector proof uses `field.vector()` and no application-facing example requires `field.custom()`.
-- [ ] Existing Access, hook, validation, default, index, extension, relationship, Query, and mutation behavior remains unchanged.
-- [ ] The old application-facing field-map overload is removed only after source and packed language-service fixtures prove the replacement.
-- [ ] Low-level factories retained for plugin authors have explicit documentation and do not compete with the canonical application autocomplete surface.
-- [ ] README, Architecture, package READMEs, schema examples, ADR indexes, issue references, and generated-file guidance describe one current syntax.
-- [ ] Repository-owned generated declarations are produced through the public `@ultimabase/codegen` API without depending on a CLI command.
-- [ ] Unrelated user-owned working-tree changes remain untouched throughout the migration.
+- [x] Public Core and official-plugin examples and documentation use the canonical builder syntax.
+- [x] Test-only and framework-owned field maps remain an explicit local-inference foundation and are not presented as the ordinary application syntax.
+- [x] The pg-vector proof uses `field.vector()` and no application-facing example requires `field.custom()`.
+- [x] Existing Access, hook, validation, default, index, extension, relationship, Query, and mutation behavior remains unchanged.
+- [x] `Schema.define()` keeps the field-map overload for internal tests while its documentation and ordinary application examples present only FieldBuilder.
+- [x] Low-level factories retained for plugin authors have explicit documentation and do not compete with the canonical application autocomplete surface.
+- [x] README, Architecture, package READMEs, schema examples, ADR indexes, issue references, and generated-file guidance describe one current syntax.
+- [x] Repository-owned generated declarations are produced through the public `@ultimabase/codegen` API without depending on a CLI command.
+- [x] Unrelated user-owned working-tree changes remain untouched throughout the migration.
 
 ## Tests
 
-- [ ] Every migrated package passes focused runtime, compile-time, language-service, and public-export tests.
-- [ ] A before/after runtime metadata snapshot proves the codemod preserved schema definitions.
+- [x] Every migrated public example and specialized declaration passes focused runtime, compile-time, language-service, and public-export tests.
+- [x] A before/after runtime metadata comparison proves the manual repository migration preserved schema definitions.
+
+No codemod is introduced: UltimaBase has no published application declaration
+surface to migrate yet, so maintaining a general source transformer would add
+cost without a current consumer.
+
+## Evidence
+
+Core, plugin, conceptual, and architecture documentation now present
+`fields(field)` as the application syntax. `RoleSchema.define()` accepts the
+same builder declaration before adding its reserved role fields, while its map
+overload and Core's map foundation remain available to internal tests.
+
+Focused metadata, role specialization, generated-language-service, and packed
+FieldBuilder/pg-vector/codegen tests pass. Repository `typecheck`, unit/type
+tests, lint, and build also pass. The complete packed E2E command still exposes
+one unrelated stale hook-hover expectation: its fixture no longer contains the
+historical `hover:create-result` marker.

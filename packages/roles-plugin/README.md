@@ -7,13 +7,13 @@ parallel role repository. Applications keep control of custom fields, indexes,
 Access, hooks, adapter extensions, and trusted server queries.
 
 ```ts
-import { Schema, UltimaBase, intField, stringField } from '@ultimabase/core'
+import { Schema, UltimaBase } from '@ultimabase/core'
 import { RoleSchema, hasRole, rolesPlugin } from '@ultimabase/roles-plugin'
 
 const User = Schema.define({
 	className: 'User',
-	fields: {
-		email: stringField({ validation: { required: true } }),
+	fields(field) {
+		field.string('email', { validation: { required: true } })
 	},
 })
 
@@ -21,9 +21,9 @@ const AppRole = RoleSchema.define({
 	className: 'Role',
 	members: { schema: User },
 	deletion: { references: 'fail' },
-	fields: {
-		description: stringField(),
-		priority: intField({ default: 0 }),
+	fields(field) {
+		field.string('description')
+		field.int('priority', { default: 0 })
 	},
 	access: {
 		read: true,
@@ -40,7 +40,9 @@ const Post = Schema.define({
 	access: {
 		update: hasRole(EditorReference),
 	},
-	fields: { title: stringField() },
+	fields(field) {
+		field.string('title')
+	},
 })
 
 const ultimabase = new UltimaBase({

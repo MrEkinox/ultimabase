@@ -5,47 +5,41 @@ This keeps the edge queryable, hookable, and permission-aware without exposing
 database join tables.
 
 ```ts
-import {
-	enumField,
-	intField,
-	pointerField,
-	Schema,
-	stringField,
-} from '@ultimabase/core'
+import { Schema } from '@ultimabase/core'
 
 export const Member = Schema.define({
 	className: 'Member',
-	fields: {
-		name: stringField({ validation: { required: true } }),
+	fields(field) {
+		field.string('name', { validation: { required: true } })
 	},
 })
 
 export const Project = Schema.define({
 	className: 'Project',
-	fields: {
-		title: stringField({ validation: { required: true } }),
+	fields(field) {
+		field.string('title', { validation: { required: true } })
 	},
 })
 
 export const Membership = Schema.define({
 	className: 'Membership',
-	fields: {
-		member: pointerField({
+	fields(field) {
+		field.pointer('member', {
 			onDelete: 'cascade',
 			target: () => Member,
 			validation: { required: true },
-		}),
-		position: intField({ default: 0 }),
-		project: pointerField({
+		})
+		field.int('position', { default: 0 })
+		field.pointer('project', {
 			onDelete: 'cascade',
 			target: () => Project,
 			validation: { required: true },
-		}),
-		role: enumField({
+		})
+		field.enum('role', {
 			validation: { required: true },
 			values: ['editor', 'viewer'] as const,
-		}),
-		internalNote: stringField({ access: { read: false } }),
+		})
+		field.string('internalNote', { access: { read: false } })
 	},
 	indexes: [{ fields: ['project', 'member'], unique: true }],
 	hooks: {

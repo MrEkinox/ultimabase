@@ -82,10 +82,11 @@ The method belongs to this application's plugin graph. Another application
 without `pgVectorPlugin()` does not register it. Once the generated declaration
 is included by TypeScript, its module augmentation exposes `field.vector()` on
 this application's FieldBuilder. Core's unaugmented base type remains neutral.
-The initial generation command and watch workflow are introduced by the next
-milestone issue.
+Applications currently generate that declaration through the public
+`@ultimabase/codegen` API. A future CLI may automate generation and watch mode.
 
-Existing field maps remain migration compatibility during this milestone. The
-generated application registry provides exact model, Query, mutation, Access,
-hook, extension, object-path, pointer, and relation contracts for
-builder-declared schemas without recursive field-map inference.
+Field maps remain an internal local-inference foundation for isolated tests and
+framework-owned composition. The generated application registry provides exact
+model, Query, mutation, Access, hook, extension, object-path, pointer, and
+relation contracts for builder-declared schemas without recursive field-map
+inference.

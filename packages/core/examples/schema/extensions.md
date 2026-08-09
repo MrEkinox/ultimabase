@@ -32,9 +32,9 @@ const searchMetadata = defineFieldExtension(
 
 export const PostSchema = Schema.define({
 	className: 'Post',
-	fields: {
-		title: stringField(),
-		draftNotes: stringField({ extensions: [searchMetadata] }),
+	fields(field) {
+		field.string('title')
+		field.string('draftNotes', { extensions: [searchMetadata] })
 	},
 	extensions: [contentCategory],
 })
@@ -78,9 +78,9 @@ const contentPolicy =
 
 const ProtectedPost = Schema.define({
 	className: 'ProtectedPost',
-	fields: {
-		title: stringField({ validation: { required: true } }),
-		visibility: stringField(),
+	fields(field) {
+		field.string('title', { validation: { required: true } })
+		field.string('visibility')
 	},
 	extensions: ({ bind }) => [
 		bind(contentPolicy, {
@@ -116,7 +116,9 @@ const ownership = defineSchemaExtension(
 
 const OwnedPost = Schema.define({
 	className: 'OwnedPost',
-	fields: { title: stringField() },
+	fields(field) {
+		field.string('title')
+	},
 	extensions: [ownership],
 })
 

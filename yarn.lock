@@ -1504,6 +1504,7 @@ __metadata:
   dependencies:
     "@ultimabase/core": "workspace:^"
     "@ultimabase/pg-vector-plugin": "workspace:^"
+    "@ultimabase/roles-plugin": "workspace:^"
     "@ultimabase/shared": "workspace:^"
     jiti: "npm:^2.6.1"
     tsdown: "npm:^0.22.14"
@@ -1604,7 +1605,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@ultimabase/roles-plugin@workspace:packages/roles-plugin":
+"@ultimabase/roles-plugin@workspace:^, @ultimabase/roles-plugin@workspace:packages/roles-plugin":
   version: 0.0.0-use.local
   resolution: "@ultimabase/roles-plugin@workspace:packages/roles-plugin"
   dependencies:
