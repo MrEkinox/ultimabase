@@ -29,6 +29,7 @@ describe('@ultimabase/core public entry point', () => {
 			'RequestEngine',
 			'RuntimePipeline',
 			'Schema',
+			'SchemaCompilationError',
 			'SchemaRegistry',
 			'SchemaRelationMappingError',
 			'SchemaTargetResolutionError',

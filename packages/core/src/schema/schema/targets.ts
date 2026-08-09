@@ -12,7 +12,11 @@ import {
 	type PendingSchemaRelation,
 	type ResolvedSchemaRelation,
 } from '../relations/mapping.js'
-import { Schema, type SchemaDefinition } from './definition.js'
+import {
+	Schema,
+	type SchemaDefinition,
+	type SchemaFields,
+} from './definition.js'
 import type { SchemaRegistry } from './registry.js'
 
 /** Lazily returns one exact schema class after module declarations are complete. */
@@ -261,12 +265,16 @@ const resolveTarget = (
 /** Compiles every field-owned lazy target after application schema setup closes. */
 export const compileSchemaTargetGraph = (
 	registry: SchemaRegistry,
+	readFields: (schema: SchemaDefinition) => SchemaFields = (schema) =>
+		schema.fields,
 ): SchemaTargetGraph => {
 	const entries: ResolvedSchemaTarget[] = []
 	const pendingRelations: PendingSchemaRelation[] = []
 
 	for (const source of registry.values()) {
-		for (const { field, path } of collectFieldTraversalEntries(source.fields)) {
+		for (const { field, path } of collectFieldTraversalEntries(
+			readFields(source),
+		)) {
 			const target = getFieldSchemaTarget(field)
 
 			if (target === undefined) {
@@ -295,6 +303,6 @@ export const compileSchemaTargetGraph = (
 
 	return new ImmutableSchemaTargetGraph(
 		entries,
-		compileSchemaRelations(pendingRelations, entries),
+		compileSchemaRelations(pendingRelations, entries, readFields),
 	)
 }

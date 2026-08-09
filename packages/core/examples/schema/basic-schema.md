@@ -15,7 +15,7 @@ import {
 
 export const UserSchema = Schema.define({
 	className: 'User',
-	fields: {
+	fields: () => ({
 		username: stringField({
 			indexed: 'unique',
 			validation: {
@@ -36,8 +36,10 @@ export const UserSchema = Schema.define({
 			},
 		}),
 		isActive: booleanField({ default: true }),
-	},
+	}),
 })
+
+// Application initialization compiles the callback before plugin setup.
 
 // Persisted objects include generated system fields and resolved defaults.
 export type User = InferObject<typeof UserSchema>
@@ -46,6 +48,12 @@ export type User = InferObject<typeof UserSchema>
 export type CreateUserInput = InferCreateInput<typeof UserSchema>
 export type UpdateUserInput = InferUpdateInput<typeof UserSchema>
 ```
+
+The callback is retained during module evaluation. Application static
+compilation executes it once before plugin setup and freezes the resulting
+field map. Until compilation succeeds, only schema identity such as
+`UserSchema.className` is available; constructing a model or reading its fields
+throws `SchemaCompilationError`.
 
 `User` is an immutable persisted snapshot. `CreateUserInput` requires
 `username` and `displayName` but omits system fields, while `UpdateUserInput`

@@ -34,12 +34,37 @@ Detailed guides remain focused by domain:
 - [request authority](docs/access.md);
 - [Runtime, engines, transactions, and hooks](docs/runtime.md).
 
-## Pointers and lazy relationship targets
+## Static schema compilation and lazy relationship targets
 
-Core resolves relationship targets only after declaration-only plugin setup has
-finished. A plugin may therefore register a schema during setup, while a lazy
-callback can safely reference a class declared later in the module. Resolution
-then closes schema registration and produces one immutable graph owned by the
+`Schema.define()` may retain a synchronous field-map callback instead of
+resolving fields during module evaluation. `createApplication()` compiles every
+configured schema atomically before plugin setup or infrastructure lifecycle
+work. Setup receives the resulting read-only schema registry; plugins cannot
+register late schemas:
+
+```ts
+const PostSchema = Schema.define({
+	className: 'Post',
+	fields: () => ({
+		title: stringField({ validation: { required: true } }),
+	}),
+})
+
+const application = await createApplication({
+	schemas: [PostSchema],
+	plugins: [],
+})
+```
+
+Before compilation, `PostSchema.className` is available, but field-dependent
+metadata and `new PostSchema(...)` fail with `SchemaCompilationError`. The
+callback executes once for an accepted application compilation and its result
+becomes immutable schema metadata. Existing `fields: { ... }` maps remain a
+migration-only compatibility path until the repository moves to FieldBuilder.
+
+Pointer and relation target callbacks can still safely reference a class
+declared later in the module. Static compilation resolves them after every
+configured field callback, then publishes one immutable graph owned by the
 application:
 
 ```ts
@@ -57,12 +82,12 @@ class in every inferred model:
 ```ts
 const PostSchema = Schema.define({
 	className: 'Post',
-	fields: {
+	fields: () => ({
 		author: pointerField({
 			target: () => UserSchema,
 			validation: { required: true },
 		}),
-	},
+	}),
 })
 
 const author = UserSchema.pointer('0198f090-2a50-7000-8000-000000000034')

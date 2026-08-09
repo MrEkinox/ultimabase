@@ -22,9 +22,10 @@ export type UpdateUserInput = InferUpdateInput<typeof UserSchema>
 // Every application owns an isolated registry with deterministic order.
 export const schemas = new SchemaRegistry([UserSchema, ProductSchema])
 
-// Framework application setup performs this once after plugin declarations.
-// The graph is empty until pointerField and relationField declarations exist.
-export const schemaTargets = schemas.resolveSchemaTargets()
+// Framework application initialization performs this before plugin setup.
+// Plugin setup receives this completed registry through a read-only contract.
+schemas.compileSchemas()
+export const schemaTargets = schemas.schemaTargets
 
 export const userPlans = compileValidationPlans(UserSchema)
 
@@ -33,8 +34,11 @@ const usernamePresence = userPlans.create.fields.username?.presence
 const updateUnknownFieldPolicy = userPlans.update.unknownFields
 ```
 
-The registry does not create global state. Resolving targets closes further
-schema registration and returns one application-local immutable graph.
+The registry does not create global state. Atomic compilation resolves every
+deferred field map and relationship target, closes further schema registration,
+and publishes one application-local immutable graph. Application code normally
+lets `createApplication()` own this boundary instead of invoking
+`compileSchemas()` directly.
 `compileValidationPlans` retains the original field definitions and describes
 presence, nullability, objects, and lists without invoking defaults or
 validating request data itself.

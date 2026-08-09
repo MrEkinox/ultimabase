@@ -291,6 +291,6 @@ describe('relationField', () => {
 		await expect(application.start()).rejects.toMatchObject({
 			code: 'SCHEMA_RELATION_MAPPING_FAILED',
 		})
-		expect(events).toStrictEqual(['setup'])
+		expect(events).toStrictEqual([])
 	})
 })

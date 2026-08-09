@@ -222,7 +222,7 @@ export type {
 	FloatRangeValidationOptions,
 	FloatValidationOptions,
 } from './fields/builtins/float.js'
-export { Schema } from './schema/definition.js'
+export { Schema, SchemaCompilationError } from './schema/definition.js'
 export type {
 	SchemaClass,
 	SchemaClassCapabilities,
@@ -230,10 +230,14 @@ export type {
 	SchemaDefinition,
 	SchemaExtensionData,
 	SchemaExtensionDeclaration,
+	DeferredSchemaOptions,
+	ImmediateSchemaOptions,
 	ResolvedSchemaFields,
 	SchemaExtensionFields as ResolvedSchemaExtensionFields,
 	SchemaExtensions,
+	SchemaFieldDeclaration,
 	SchemaFields,
+	SchemaCompilationFailureReason,
 	SchemaMetadata,
 	SchemaOptions,
 	SchemaStaticCapabilities,
@@ -316,6 +320,7 @@ export type {
 	SchemaIndexOptions,
 } from './schema/indexes.js'
 export { DuplicateSchemaError, SchemaRegistry } from './schema/registry.js'
+export type { CompiledSchemaRegistry } from './schema/registry.js'
 export { SchemaTargetResolutionError } from './schema/targets.js'
 export type {
 	ResolvedSchemaTarget,

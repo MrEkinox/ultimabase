@@ -59,22 +59,32 @@ and ordered extension tuple:
 ```ts
 const PostSchema = Schema.define({
 	className: 'Post',
-	fields: {
+	fields: () => ({
 		title: stringField({
 			validation: {
 				required: true,
 			},
 		}),
 		published: booleanField({ default: false }),
-	},
+	}),
 	extensions: [permissionsExtension],
 })
 ```
 
-The returned value is the final schema-specific class. Its `definition`,
-`className`, `fields`, `indexes`, and `extensions` static properties are frozen.
-Infrastructure reads `definition`, while Query and Runtime retain the exact
-class identity registered by the application.
+The returned value is the final schema-specific class. Its `className` is
+available immediately. `createApplication()` executes each configured field
+callback once during an infrastructure-free static compilation phase, then
+freezes `definition`, `fields`, `indexes`, and `extensions`. Before that phase,
+field-dependent static metadata and model construction throw an actionable
+`SchemaCompilationError`. Infrastructure reads the compiled `definition`,
+while Query and Runtime retain the exact class identity registered by the
+application.
+
+Callbacks are synchronous declarations. They may close over static values and
+lazy relationship targets, but cannot receive requests, services, adapters,
+transactions, or lifecycle state. Existing `fields: { ... }` maps still compile
+immediately as a migration-only compatibility path until the FieldBuilder
+repository migration.
 
 The public constructor and field factories also protect JavaScript callers at
 runtime. Schema names, field maps, field definitions, common option flags,
@@ -103,11 +113,12 @@ output representation. Inclusion itself does not run a target schema lifecycle;
 reads expose no schema hooks. `relationField` stores no model value and
 therefore accepts no field hooks.
 
-An application resolves field-owned callbacks after plugin setup and before
-infrastructure lifecycle phases. This ordering permits a plugin to register a
-schema during setup and supports circular module declarations without a global
-registry. The resulting `SchemaTargetGraph` is immutable and application-local.
-It identifies an edge by exact source class identity and structural field path.
+An application compiles every configured schema and resolves field-owned target
+callbacks before plugin setup or infrastructure lifecycle phases. Plugin setup
+receives a read-only view of the completed registry and cannot register a late
+schema. Circular module declarations remain possible without a global registry.
+The resulting `SchemaTargetGraph` is immutable and application-local. It
+identifies an edge by exact source class identity and structural field path.
 
 ```ts
 const application = await createApplication({
@@ -119,12 +130,11 @@ application.schemaTargets.get(PostSchema, ['author'])
 ```
 
 Relationship fields populate this graph while keeping callbacks out of public
-field metadata. Application developers never
-call `SchemaRegistry.resolveSchemaTargets()` during normal UltimaBase setup; the
-framework owns that lifecycle. Adapter and framework plugin authors may read
-the completed graph through the application or the captured schema registry
-after setup. Target callbacks must be pure declarations and are invoked once
-per application graph.
+field metadata. Application developers normally let the framework own
+`SchemaRegistry.compileSchemas()`. Adapter and framework plugin authors may
+read the completed graph through the application or their read-only setup
+registry. Target callbacks must be pure declarations and are invoked once per
+accepted application compilation.
 
 Resolution rejects callbacks that throw or return a non-schema, unregistered,
 or foreign schema identity. Duplicate class names remain the registry's

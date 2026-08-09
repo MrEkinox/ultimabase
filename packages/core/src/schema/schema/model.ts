@@ -1219,14 +1219,28 @@ const snapshotSchemaModelMaterialization = (
 	return immutableRecord({ objectId, selectedFields })
 }
 
-/** Creates one final schema-specific class around immutable neutral metadata. */
+/** Resolves metadata only after an application's static schema compilation. */
+export interface SchemaModelDefinitionReader<
+	TClassName extends string,
+	TFields extends SchemaFields,
+	TExtensions extends SchemaExtensions,
+> {
+	readonly className: TClassName
+	readonly readDefinition: () => SchemaMetadata<
+		TClassName,
+		TFields,
+		TExtensions
+	>
+	readonly readDeveloperFields: () => TFields
+}
+
+/** Creates one final schema-specific class around deferred neutral metadata. */
 export const createSchemaModelClass = <
 	const TClassName extends string,
 	const TFields extends SchemaFields,
 	const TExtensions extends SchemaExtensions,
 >(
-	definition: SchemaMetadata<TClassName, TFields, TExtensions>,
-	developerFields: TFields,
+	reader: SchemaModelDefinitionReader<TClassName, TFields, TExtensions>,
 ): SchemaClass<TClassName, TFields, TExtensions> => {
 	class DefinedSchemaModel extends SchemaModelPrototype {
 		constructor(
@@ -1245,9 +1259,10 @@ export const createSchemaModelClass = <
 						? 'prepared-draft'
 						: 'draft'
 			const schema = DefinedSchemaModel as unknown as SchemaDefinition
+			const definition = reader.readDefinition()
 			const values =
 				state === 'draft'
-					? snapshotDraftValues(developerFields, input)
+					? snapshotDraftValues(reader.readDeveloperFields(), input)
 					: snapshotMaterializedValues(
 							definition,
 							input,
@@ -1444,14 +1459,26 @@ export const createSchemaModelClass = <
 
 	Object.defineProperty(DefinedSchemaModel, 'name', {
 		configurable: false,
-		value: definition.className,
+		value: reader.className,
 	})
 	Object.defineProperties(DefinedSchemaModel, {
-		definition: { enumerable: true, value: definition },
-		className: { enumerable: true, value: definition.className },
-		fields: { enumerable: true, value: definition.fields },
-		indexes: { enumerable: true, value: definition.indexes },
-		extensions: { enumerable: true, value: definition.extensions },
+		definition: { enumerable: true, get: reader.readDefinition },
+		className: { enumerable: true, value: reader.className },
+		fields: {
+			enumerable: true,
+			get: (): SchemaMetadata<TClassName, TFields, TExtensions>['fields'] =>
+				reader.readDefinition().fields,
+		},
+		indexes: {
+			enumerable: true,
+			get: (): SchemaMetadata<TClassName, TFields, TExtensions>['indexes'] =>
+				reader.readDefinition().indexes,
+		},
+		extensions: {
+			enumerable: true,
+			get: (): SchemaMetadata<TClassName, TFields, TExtensions>['extensions'] =>
+				reader.readDefinition().extensions,
+		},
 	})
 
 	const schema = DefinedSchemaModel as unknown as SchemaClass<

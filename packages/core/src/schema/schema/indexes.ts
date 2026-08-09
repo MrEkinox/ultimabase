@@ -102,6 +102,26 @@ function assertSchemaIndexes(
 	}
 }
 
+/** Snapshots composite declarations before deferred schema fields resolve. */
+export const snapshotSchemaIndexOptions = (
+	indexes: readonly SchemaIndexOptions[] | undefined,
+): readonly SchemaIndexOptions[] | undefined => {
+	assertSchemaIndexes(indexes)
+
+	if (indexes === undefined) {
+		return undefined
+	}
+
+	return immutableArray(
+		indexes.map((index) =>
+			immutableRecord({
+				fields: immutableArray(index.fields),
+				...(index.unique === undefined ? {} : { unique: index.unique }),
+			}),
+		),
+	)
+}
+
 const readFieldIndex = (options: object): boolean | 'unique' => {
 	if (!('indexed' in options) || options.indexed === false) {
 		return false

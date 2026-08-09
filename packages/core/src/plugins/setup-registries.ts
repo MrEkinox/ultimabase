@@ -1,4 +1,4 @@
-import type { SchemaRegistry } from '../schema/index.js'
+import type { CompiledSchemaRegistry, SchemaRegistry } from '../schema/index.js'
 import {
 	assertNonEmptyString,
 	immutableArray,
@@ -223,7 +223,7 @@ export interface PluginContributionRegistries {
 
 /** Supplies one plugin with application state and owner-bound contribution views. */
 export interface PluginSetupContext {
-	readonly schemas: SchemaRegistry
+	readonly schemas: CompiledSchemaRegistry
 	readonly services: PluginServiceRegistry
 	readonly registries: PluginContributionRegistries
 	/** Registers native Access policies with ownership fixed to this plugin. */

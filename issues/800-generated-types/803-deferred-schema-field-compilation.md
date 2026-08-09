@@ -1,6 +1,6 @@
 # 803: Compile deferred schema field declarations
 
-- Status: planned
+- Status: done
 - Milestone: 8
 - Packages: `@ultimabase/core`
 - Depends on: 802
@@ -8,22 +8,35 @@
 
 ## Goal
 
-Implement the accepted application schema-compilation phase so plugin-owned
-field methods are registered before Core resolves and freezes static schema
-field callbacks.
+Implement the accepted application schema-compilation phase that later
+FieldBuilder and plugin-owned methods will use, without pulling issues 804 and
+805 into this foundation.
 
 ## Acceptance criteria
 
-- [ ] `Schema.define()` retains one immutable field declaration callback rather than requiring its final field map during module evaluation.
-- [ ] Application compilation executes pure plugin declaration contributions before resolving any schema field callback.
-- [ ] Each field callback executes exactly once per accepted compilation boundary and produces one immutable deterministic field map.
-- [ ] Declaration registries are application-owned, record plugin ownership, and reject duplicate or incompatible method identities.
-- [ ] Missing plugin field methods fail with a precise schema path before infrastructure connects.
-- [ ] Reusing one schema class across isolated applications follows the model and metadata semantics selected by the ADR without first-application leakage.
-- [ ] Indexes, extensions, Access, hooks, target resolution, validation plans, and schema hashes observe only the final frozen field map.
-- [ ] Plugin declaration code cannot access adapters, requests, transactions, or infrastructure lifecycle state.
+- [x] `Schema.define()` accepts and retains one immutable `fields: () => fieldMap` callback rather than requiring its final field map during module evaluation.
+- [x] Existing object-shaped field maps remain a documented migration-only compatibility path until issue 809.
+- [x] Application static compilation resolves deferred schema callbacks before plugin setup or infrastructure lifecycle work.
+- [x] Each field callback executes exactly once per accepted compilation boundary and produces one immutable deterministic field map.
+- [x] Reusing one schema class across isolated applications follows the model and metadata semantics selected by the ADR without first-application leakage.
+- [x] Indexes, extensions, Access, hooks, target resolution, validation plans, and schema hashes observe only the final frozen field map.
+- [x] Plugin setup receives a read-only view of the already compiled schemas and cannot register a late schema.
+- [x] The temporary callback contract cannot access adapters, requests, transactions, services, or infrastructure lifecycle state.
 
 ## Tests
 
-- [ ] Runtime tests cover ordering, callback count, immutability, missing methods, conflicts, repeated compilation, and two applications.
-- [ ] Type tests preserve the accepted unresolved and compiled schema boundaries without `any`.
+- [x] Runtime tests cover ordering, callback count, immutability, compilation failures, repeated compilation, setup ordering, and two applications.
+- [x] Type tests preserve the accepted unresolved and compiled schema boundaries without `any`.
+
+Plugin-owned method registration, ownership conflicts, and missing-method
+diagnostics remain in issue 805, after issue 804 introduces the canonical
+FieldBuilder surface.
+
+## Evidence
+
+Core compiles deferred callbacks into one frozen application graph before
+plugin setup, while setup sees the `CompiledSchemaRegistry` read-only contract.
+Focused compilation and language-service tests cover the unresolved boundary,
+atomic publication, compatible class reuse, circular targets, exact callback
+inference, and editor documentation. Repository-wide typecheck, lint, build,
+and unit/type tests pass.

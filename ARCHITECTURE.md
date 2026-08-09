@@ -109,10 +109,11 @@ metadata during setup.
 ## Relationship targets
 
 Relationship fields retain zero-argument lazy schema callbacks as private field
-capabilities rather than physical metadata. Declaration-only plugin setup may
-register additional schemas. Core then resolves every callback by exact class
-identity, freezes one application-local logical graph, and closes further
-schema registration before `connect` or another infrastructure phase.
+capabilities rather than physical metadata. Core compiles every configured
+schema callback, resolves every relationship callback by exact class identity,
+freezes one application-local logical graph, and closes schema registration
+before plugin setup, `connect`, or another infrastructure phase. Plugin setup
+receives only a read-only view of that compiled schema registry.
 
 The graph stores only source schema identity, structural field path, and target
 schema identity. It contains no foreign-key column, join-table name, transport

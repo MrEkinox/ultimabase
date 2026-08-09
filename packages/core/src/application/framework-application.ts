@@ -212,7 +212,7 @@ export class FrameworkApplication<
 		return this.#lifecycle.state
 	}
 
-	/** Reads the immutable application-local relationship graph after setup. */
+	/** Reads the immutable application-local relationship graph after static compilation. */
 	get schemaTargets(): SchemaTargetGraph {
 		return this.schemas.schemaTargets
 	}
@@ -306,8 +306,8 @@ export class FrameworkApplication<
 
 	async #performInitialize(): Promise<this> {
 		try {
+			this.schemas.compileSchemas()
 			await this.#lifecycle.setup()
-			this.schemas.resolveSchemaTargets()
 			validateExtensionHandlers(
 				this.schemas.values(),
 				this.#setupRegistries.extensions,

@@ -1,6 +1,14 @@
 import { immutableArray } from '@ultimabase/shared'
 
-import { Schema, type SchemaDefinition } from './definition.js'
+import {
+	finalizeSchemaCompilation,
+	prepareSchemaCompilation,
+	Schema,
+	validateSchemaCompilation,
+	type PreparedSchemaCompilation,
+	type SchemaCompiledTargetIdentity,
+	type SchemaDefinition,
+} from './definition.js'
 import { compileSchemaTargetGraph, type SchemaTargetGraph } from './targets.js'
 
 type SchemaMatchingClassName<
@@ -29,6 +37,15 @@ export class DuplicateSchemaError extends Error {
 		this.name = 'DuplicateSchemaError'
 		this.className = className
 	}
+}
+
+/** Exposes only compiled application schemas to plugin setup. */
+export interface CompiledSchemaRegistry {
+	readonly schemaTargets: SchemaTargetGraph
+	readonly size: number
+	get(className: string): SchemaDefinition | undefined
+	has(className: string): boolean
+	values(): readonly SchemaDefinition[]
 }
 
 /**
@@ -60,9 +77,7 @@ export class SchemaRegistry<
 	 */
 	register(schema: SchemaDefinition): void {
 		if (this.#schemaTargets !== undefined) {
-			throw new TypeError(
-				'Cannot register schemas after relationship targets are resolved',
-			)
+			throw new TypeError('Cannot register schemas after static compilation')
 		}
 
 		if (!Schema.is(schema)) {
@@ -101,14 +116,67 @@ export class SchemaRegistry<
 		return immutableArray([...this.#schemasByClassName.values()])
 	}
 
-	/** Resolves every lazy relationship target and closes schema registration. */
-	resolveSchemaTargets(): SchemaTargetGraph {
-		this.#schemaTargets ??= compileSchemaTargetGraph(this)
+	/** Compiles every deferred declaration atomically before plugin setup starts. */
+	compileSchemas(): SchemaTargetGraph {
+		if (this.#schemaTargets !== undefined) {
+			return this.#schemaTargets
+		}
 
-		return this.#schemaTargets
+		const prepared = this.values().map((schema) =>
+			prepareSchemaCompilation(schema),
+		)
+		const preparedBySchema = new Map<
+			SchemaDefinition,
+			PreparedSchemaCompilation
+		>(prepared.map((candidate) => [candidate.schema, candidate]))
+		const schemaTargets = compileSchemaTargetGraph(this, (schema) => {
+			const candidate = preparedBySchema.get(schema)
+
+			if (candidate === undefined) {
+				throw new TypeError(
+					`Schema compilation candidate is missing: ${schema.className}`,
+				)
+			}
+
+			return candidate.definition.fields
+		})
+		const targetsBySchema = new Map<
+			SchemaDefinition,
+			SchemaCompiledTargetIdentity[]
+		>()
+
+		for (const target of schemaTargets.values()) {
+			const targets = targetsBySchema.get(target.source) ?? []
+
+			targets.push({ fieldPath: target.fieldPath, target: target.target })
+			targetsBySchema.set(target.source, targets)
+		}
+
+		for (const candidate of prepared) {
+			validateSchemaCompilation(
+				candidate,
+				targetsBySchema.get(candidate.schema) ?? [],
+			)
+		}
+
+		for (const candidate of prepared) {
+			finalizeSchemaCompilation(
+				candidate,
+				targetsBySchema.get(candidate.schema) ?? [],
+			)
+		}
+
+		this.#schemaTargets = schemaTargets
+
+		return schemaTargets
 	}
 
-	/** Reads the immutable target graph after application declaration setup. */
+	/** Resolves every lazy relationship target and closes schema registration. */
+	resolveSchemaTargets(): SchemaTargetGraph {
+		return this.compileSchemas()
+	}
+
+	/** Reads the immutable target graph after application static compilation. */
 	get schemaTargets(): SchemaTargetGraph {
 		if (this.#schemaTargets === undefined) {
 			throw new TypeError('Schema targets have not been resolved')

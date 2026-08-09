@@ -63,9 +63,7 @@ describe('lazy schema targets', () => {
 		expect(() => {
 			registry.register(target)
 		}).toThrow(
-			new TypeError(
-				'Cannot register schemas after relationship targets are resolved',
-			),
+			new TypeError('Cannot register schemas after static compilation'),
 		)
 	})
 
@@ -228,7 +226,7 @@ describe('lazy schema targets', () => {
 		)
 	})
 
-	it('resolves plugin-registered schemas before infrastructure starts', async () => {
+	it('resolves configured schemas before plugin setup and infrastructure', async () => {
 		const events: string[] = []
 		const target = Schema.define({ className: 'PluginTarget', fields: {} })
 		const source = Schema.define({
@@ -236,10 +234,10 @@ describe('lazy schema targets', () => {
 			fields: { target: targetField(() => target) },
 		})
 		const plugin = definePlugin({
-			name: 'fixture.schema-provider',
+			name: 'fixture.schema-observer',
 			setup: ({ schemas }) => {
 				events.push('setup')
-				schemas.register(target)
+				expect(schemas.schemaTargets.get(source, ['target'])).toBe(target)
 			},
 			hooks: {
 				connect: () => {
@@ -248,7 +246,7 @@ describe('lazy schema targets', () => {
 			},
 		})
 		const application = await createApplication({
-			schemas: [source],
+			schemas: [source, target],
 			plugins: [plugin],
 		})
 
@@ -289,11 +287,11 @@ describe('lazy schema targets', () => {
 			reason: 'unregistered-target',
 			sourceClassName: 'FailingSource',
 		})
-		expect(events).toStrictEqual(['setup', 'dispose'])
+		expect(events).toStrictEqual([])
 	})
 
 	it.concurrent(
-		'keeps resolved graphs isolated between applications',
+		'rejects one shared schema class when its target changes between applications',
 		async () => {
 			const firstTarget = Schema.define({
 				className: 'IsolatedTarget',
@@ -314,28 +312,23 @@ describe('lazy schema targets', () => {
 			})
 
 			currentTarget = secondTarget
-			const secondApplication = await createApplication({
-				schemas: [source, secondTarget],
-				plugins: [],
+			await expect(
+				createApplication({
+					schemas: [source, secondTarget],
+					plugins: [],
+				}),
+			).rejects.toMatchObject({
+				className: 'IsolatedSource',
+				reason: 'incompatible-definition',
 			})
-
-			expect(firstApplication.schemaTargets).not.toBe(
-				secondApplication.schemaTargets,
-			)
 			expect(firstApplication.schemaTargets.get(source, ['target'])).toBe(
 				firstTarget,
-			)
-			expect(secondApplication.schemaTargets.get(source, ['target'])).toBe(
-				secondTarget,
 			)
 			expect(source.fields.target.options).toStrictEqual({
 				onDelete: 'restrict',
 			})
 
-			await Promise.all([
-				firstApplication.dispose(),
-				secondApplication.dispose(),
-			])
+			await firstApplication.dispose()
 		},
 	)
 })

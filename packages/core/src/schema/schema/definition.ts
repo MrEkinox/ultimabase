@@ -52,6 +52,7 @@ import {
 } from './model.js'
 import {
 	normalizeSchemaIndexes,
+	snapshotSchemaIndexOptions,
 	type SchemaFieldName,
 	type SchemaIndexDefinition,
 	type SchemaIndexOptions,
@@ -71,6 +72,11 @@ import { declareSchemaAccess } from '../access/declarations.js'
  * Collects named field definitions without erasing their concrete literals.
  */
 export type SchemaFields = Readonly<Record<string, GenericField>>
+
+/** Defers field factory execution until one application compiles its schemas. */
+export type SchemaFieldDeclaration<
+	TFields extends SchemaFields = SchemaFields,
+> = () => TFields
 
 /**
  * Collects schema-scoped plugin metadata in deterministic declaration order.
@@ -127,12 +133,12 @@ export interface SchemaOptions<
 	 */
 	readonly className: TClassName
 	/**
-	 * Maps developer field names to reusable UltimaBase field definitions.
+	 * Declares developer fields now or defers their factories until application compilation.
 	 * Framework-owned `id`, `createdAt`, and `updatedAt` fields are added automatically.
 	 *
-	 * @example `fields: { title: stringField(), published: booleanField() }`
+	 * @example `fields: () => ({ title: stringField(), published: booleanField() })`
 	 */
-	readonly fields: TFields
+	readonly fields: TFields | SchemaFieldDeclaration<TFields>
 	/**
 	 * Declares adapter-neutral composite indexes containing at least two fields.
 	 * Single-field indexes belong on the corresponding field through `indexed`.
@@ -171,6 +177,54 @@ export interface SchemaOptions<
 	readonly hooks?: SchemaHooks<
 		SchemaClass<NoInfer<TClassName>, NoInfer<TFields>, NoInfer<TExtensions>>
 	>
+}
+
+/** Preserves the existing map declaration during the milestone migration. */
+export type ImmediateSchemaOptions<
+	TClassName extends string,
+	TFields extends SchemaFields,
+	TExtensions extends SchemaExtensions,
+> = Omit<SchemaOptions<TClassName, TFields, TExtensions>, 'fields'> & {
+	/**
+	 * Maps developer field names to reusable UltimaBase field definitions.
+	 * @example `fields: { title: stringField() }`
+	 */
+	readonly fields: TFields
+}
+
+/** Declares a field map that resolves during application static compilation. */
+export type DeferredSchemaOptions<
+	TClassName extends string,
+	TFields extends SchemaFields,
+	TExtensions extends SchemaExtensions,
+> = Omit<SchemaOptions<TClassName, TFields, TExtensions>, 'fields'> & {
+	/**
+	 * Defers the field map until application static compilation.
+	 * @example `fields: () => ({ title: stringField() })`
+	 */
+	readonly fields: SchemaFieldDeclaration<TFields>
+}
+
+type SchemaFieldSource = SchemaFields | SchemaFieldDeclaration
+
+type SchemaFieldsFromSource<TSource extends SchemaFieldSource> =
+	TSource extends SchemaFieldDeclaration<infer TFields>
+		? TFields
+		: Extract<TSource, SchemaFields>
+
+type SchemaDeclarationOptions<
+	TClassName extends string,
+	TSource extends SchemaFieldSource,
+	TExtensions extends SchemaExtensions,
+> = Omit<
+	SchemaOptions<TClassName, SchemaFieldsFromSource<TSource>, TExtensions>,
+	'fields'
+> & {
+	/**
+	 * Declares developer fields immediately or defers them until static compilation.
+	 * @example `fields: () => ({ title: stringField() })`
+	 */
+	readonly fields: TSource
 }
 
 /**
@@ -509,6 +563,85 @@ const reservedModelFieldNames = new Set([
 	'upsert',
 ])
 
+/** Explains why a deferred schema cannot expose its final runtime definition. */
+export type SchemaCompilationFailureReason =
+	| 'callback-threw'
+	| 'incompatible-definition'
+	| 'invalid-result'
+	| 'not-compiled'
+
+/** Reports one deterministic static schema-compilation failure. */
+export class SchemaCompilationError extends Error {
+	readonly code = 'SCHEMA_COMPILATION_FAILED' as const
+	readonly className: string
+	readonly reason: SchemaCompilationFailureReason
+
+	constructor(
+		reason: SchemaCompilationFailureReason,
+		className: string,
+		message: string,
+		options?: ErrorOptions,
+	) {
+		super(message, options)
+		this.name = 'SchemaCompilationError'
+		this.className = className
+		this.reason = reason
+		Object.freeze(this)
+	}
+}
+
+interface NormalizedSchemaDeclaration {
+	readonly className: string
+	readonly extensions: SchemaExtensions
+	readonly fields: SchemaFields | SchemaFieldDeclaration
+	readonly indexes: readonly SchemaIndexOptions[] | undefined
+	readonly deferred: boolean
+}
+
+interface CompiledSchemaRecord {
+	readonly definition: SchemaMetadata
+	readonly developerFields: SchemaFields
+	readonly targets: readonly SchemaCompiledTargetIdentity[] | undefined
+}
+
+/** Retains one resolved target without coupling compilation to the target graph implementation. */
+export interface SchemaCompiledTargetIdentity {
+	readonly fieldPath: readonly string[]
+	readonly target: SchemaDefinition
+}
+
+/** Holds one application-local candidate until the complete graph validates. */
+export interface PreparedSchemaCompilation {
+	readonly definition: SchemaMetadata
+	readonly developerFields: SchemaFields
+	readonly schema: SchemaDefinition
+}
+
+const schemaDeclarations = new WeakMap<
+	SchemaDefinition,
+	NormalizedSchemaDeclaration
+>()
+const compiledSchemaRecords = new WeakMap<
+	SchemaDefinition,
+	CompiledSchemaRecord
+>()
+
+const readCompiledSchemaRecord = (
+	schema: SchemaDefinition,
+): CompiledSchemaRecord => {
+	const record = compiledSchemaRecords.get(schema)
+
+	if (record === undefined) {
+		throw new SchemaCompilationError(
+			'not-compiled',
+			schema.className,
+			`Schema ${schema.className} has not been compiled by an application`,
+		)
+	}
+
+	return record
+}
+
 const defineSchemaStaticCapabilities = <
 	const TSchema extends object,
 	const TCapabilities extends SchemaStaticCapabilities,
@@ -545,6 +678,328 @@ const defineSchemaStaticCapabilities = <
 	return schema as TSchema & TCapabilities
 }
 
+const normalizeSchemaExtensions = <
+	TClassName extends string,
+	TFields extends SchemaFields,
+	TExtensions extends SchemaExtensions,
+>(
+	options: SchemaOptions<TClassName, TFields, TExtensions>,
+): readonly [...TExtensions] => {
+	const declaredExtensions =
+		typeof options.extensions === 'function'
+			? options.extensions(
+					createSchemaExtensionBindingContext<SchemaExtensionData<TFields>>(),
+				)
+			: options.extensions
+
+	return (
+		declaredExtensions === undefined
+			? emptySchemaExtensions
+			: defineExtensions(declaredExtensions)
+	) as readonly [...TExtensions]
+}
+
+const assertSchemaFields: (
+	fields: unknown,
+	className: string,
+	deferred: boolean,
+) => asserts fields is SchemaFields = (fields, className, deferred) => {
+	if (!isPlainRecord(fields)) {
+		throw new SchemaCompilationError(
+			'invalid-result',
+			className,
+			`Schema ${className} fields declaration must return a plain object`,
+		)
+	}
+
+	assertNoReservedFieldCollision(fields)
+	const fieldPath = deferred ? `${className}.fields` : 'fields'
+	const fieldNamePath = deferred
+		? `${className} schema field name`
+		: 'schema field name'
+
+	for (const [name, field] of Object.entries(fields)) {
+		assertNonEmptyString(name, fieldNamePath)
+		assertFieldDefinition(field, `${fieldPath}.${name}`)
+	}
+}
+
+const compileSchemaRecord = (
+	declaration: NormalizedSchemaDeclaration,
+	developerFieldsInput: unknown,
+): CompiledSchemaRecord => {
+	assertSchemaFields(
+		developerFieldsInput,
+		declaration.className,
+		declaration.deferred,
+	)
+	const developerFields = immutableRecord(developerFieldsInput)
+	const extensionFields = collectSchemaExtensionFields(
+		developerFields,
+		declaration.extensions,
+	)
+	const declaredFields = immutableRecord({
+		...developerFields,
+		...extensionFields,
+	})
+	const fields = immutableRecord({
+		...declaredFields,
+		...systemFields,
+	})
+	const indexes = normalizeSchemaIndexes(declaredFields, declaration.indexes)
+	const definition = immutableRecord({
+		className: declaration.className,
+		fields,
+		indexes,
+		extensions: declaration.extensions,
+	})
+
+	return immutableRecord({
+		definition,
+		developerFields,
+		targets: undefined,
+	})
+}
+
+const executeSchemaFieldDeclaration = (
+	declaration: NormalizedSchemaDeclaration,
+): unknown => {
+	if (typeof declaration.fields !== 'function') {
+		return declaration.fields
+	}
+
+	try {
+		return declaration.fields()
+	} catch (cause: unknown) {
+		throw new SchemaCompilationError(
+			'callback-threw',
+			declaration.className,
+			`Schema ${declaration.className} fields declaration threw during compilation`,
+			{ cause },
+		)
+	}
+}
+
+const areDeclarationValuesCompatible = (
+	left: unknown,
+	right: unknown,
+	seen: WeakMap<object, WeakSet<object>> = new WeakMap(),
+): boolean => {
+	if (Object.is(left, right)) return true
+
+	if (typeof left === 'function' || typeof right === 'function') {
+		return typeof left === 'function' && typeof right === 'function'
+	}
+
+	if (
+		typeof left !== 'object' ||
+		left === null ||
+		typeof right !== 'object' ||
+		right === null
+	) {
+		return false
+	}
+
+	const seenRights = seen.get(left)
+
+	if (seenRights?.has(right) === true) return true
+	if (seenRights === undefined) {
+		seen.set(left, new WeakSet([right]))
+	} else {
+		seenRights.add(right)
+	}
+
+	if (left instanceof Date || right instanceof Date) {
+		return (
+			left instanceof Date &&
+			right instanceof Date &&
+			left.getTime() === right.getTime()
+		)
+	}
+
+	if (left instanceof RegExp || right instanceof RegExp) {
+		return (
+			left instanceof RegExp &&
+			right instanceof RegExp &&
+			left.source === right.source &&
+			left.flags === right.flags
+		)
+	}
+
+	if (ArrayBuffer.isView(left) || ArrayBuffer.isView(right)) {
+		if (!ArrayBuffer.isView(left) || !ArrayBuffer.isView(right)) return false
+
+		const leftBytes = new Uint8Array(
+			left.buffer,
+			left.byteOffset,
+			left.byteLength,
+		)
+		const rightBytes = new Uint8Array(
+			right.buffer,
+			right.byteOffset,
+			right.byteLength,
+		)
+
+		return (
+			leftBytes.length === rightBytes.length &&
+			leftBytes.every((value, index) => value === rightBytes[index])
+		)
+	}
+
+	if (Array.isArray(left) || Array.isArray(right)) {
+		return (
+			Array.isArray(left) &&
+			Array.isArray(right) &&
+			left.length === right.length &&
+			left.every((value: unknown, index: number) =>
+				areDeclarationValuesCompatible(value, right[index], seen),
+			)
+		)
+	}
+
+	if (Object.getPrototypeOf(left) !== Object.getPrototypeOf(right)) return false
+
+	const leftKeys = Reflect.ownKeys(left)
+	const rightKeys = Reflect.ownKeys(right)
+
+	return (
+		leftKeys.length === rightKeys.length &&
+		leftKeys.every(
+			(key) =>
+				Object.hasOwn(right, key) &&
+				areDeclarationValuesCompatible(
+					Reflect.get(left, key),
+					Reflect.get(right, key),
+					seen,
+				),
+		)
+	)
+}
+
+const assertCompatibleTargets = (
+	className: string,
+	canonical: readonly SchemaCompiledTargetIdentity[],
+	candidate: readonly SchemaCompiledTargetIdentity[],
+): void => {
+	const compatible =
+		canonical.length === candidate.length &&
+		canonical.every((target, index) => {
+			const candidateTarget = candidate[index]
+
+			if (candidateTarget === undefined) {
+				return false
+			}
+
+			return (
+				target.target === candidateTarget.target &&
+				areDeclarationValuesCompatible(
+					target.fieldPath,
+					candidateTarget.fieldPath,
+				)
+			)
+		})
+
+	if (!compatible) {
+		throw new SchemaCompilationError(
+			'incompatible-definition',
+			className,
+			`Schema ${className} compiled differently in another application`,
+		)
+	}
+}
+
+/** Resolves one application-local candidate without publishing partial metadata. */
+export const prepareSchemaCompilation = (
+	schema: SchemaDefinition,
+): PreparedSchemaCompilation => {
+	const declaration = schemaDeclarations.get(schema)
+
+	if (declaration === undefined) {
+		throw new TypeError('schema must be a class created by Schema.define')
+	}
+
+	const existingRecord = compiledSchemaRecords.get(schema)
+	const candidate =
+		!declaration.deferred && existingRecord !== undefined
+			? existingRecord
+			: compileSchemaRecord(
+					declaration,
+					executeSchemaFieldDeclaration(declaration),
+				)
+
+	if (
+		existingRecord !== undefined &&
+		!areDeclarationValuesCompatible(
+			existingRecord.definition,
+			candidate.definition,
+		)
+	) {
+		throw new SchemaCompilationError(
+			'incompatible-definition',
+			schema.className,
+			`Schema ${schema.className} compiled differently in another application`,
+		)
+	}
+
+	return immutableRecord({
+		definition: candidate.definition,
+		developerFields: candidate.developerFields,
+		schema,
+	})
+}
+
+/** Publishes one candidate only after the complete application graph validates. */
+export const validateSchemaCompilation = (
+	prepared: PreparedSchemaCompilation,
+	targets: readonly SchemaCompiledTargetIdentity[],
+): void => {
+	const existingRecord = compiledSchemaRecords.get(prepared.schema)
+
+	if (existingRecord?.targets !== undefined) {
+		assertCompatibleTargets(
+			prepared.schema.className,
+			existingRecord.targets,
+			targets,
+		)
+	}
+}
+
+/** Publishes one candidate only after the complete application graph validates. */
+export const finalizeSchemaCompilation = (
+	prepared: PreparedSchemaCompilation,
+	targets: readonly SchemaCompiledTargetIdentity[],
+): void => {
+	validateSchemaCompilation(prepared, targets)
+	const existingRecord = compiledSchemaRecords.get(prepared.schema)
+	const immutableTargets = immutableArray(
+		targets.map((target) =>
+			immutableRecord({
+				fieldPath: immutableArray(target.fieldPath),
+				target: target.target,
+			}),
+		),
+	)
+
+	if (existingRecord === undefined) {
+		compiledSchemaRecords.set(
+			prepared.schema,
+			immutableRecord({
+				definition: prepared.definition,
+				developerFields: prepared.developerFields,
+				targets: immutableTargets,
+			}),
+		)
+		return
+	}
+
+	if (existingRecord.targets === undefined) {
+		compiledSchemaRecords.set(
+			prepared.schema,
+			immutableRecord({ ...existingRecord, targets: immutableTargets }),
+		)
+	}
+}
+
 const defineSchemaModel = <
 	const TClassName extends string,
 	const TFields extends SchemaFields,
@@ -558,54 +1013,41 @@ const defineSchemaModel = <
 
 	assertNonEmptyString(options.className, 'className')
 
-	if (!isPlainRecord(options.fields)) {
+	if (typeof options.fields !== 'function' && !isPlainRecord(options.fields)) {
 		throw new TypeError('fields must be an object')
 	}
 
-	assertNoReservedFieldCollision(options.fields)
-
-	for (const [name, field] of Object.entries(options.fields)) {
-		assertNonEmptyString(name, 'schema field name')
-		assertFieldDefinition(field, `fields.${name}`)
-	}
-
-	const declaredExtensions =
-		typeof options.extensions === 'function'
-			? options.extensions(
-					createSchemaExtensionBindingContext<SchemaExtensionData<TFields>>(),
-				)
-			: options.extensions
-	const extensions = (
-		declaredExtensions === undefined
-			? emptySchemaExtensions
-			: defineExtensions(declaredExtensions)
-	) as readonly [...TExtensions]
-	const extensionFields = collectSchemaExtensionFields(
-		options.fields,
+	const extensions = normalizeSchemaExtensions(options)
+	const declaration: NormalizedSchemaDeclaration = immutableRecord({
+		className: options.className,
+		deferred: typeof options.fields === 'function',
 		extensions,
-	)
-	const declaredFields = immutableRecord({
-		...options.fields,
-		...extensionFields,
-	}) as ResolvedSchemaFields<TFields, TExtensions>
-	const fields = immutableRecord({
-		...declaredFields,
-		...systemFields,
-	}) as ResolvedSchemaFields<TFields, TExtensions> & Readonly<SystemFields>
-	const indexes = normalizeSchemaIndexes(
-		declaredFields,
-		options.indexes,
-	) as readonly SchemaIndexDefinition<
-		SchemaFieldName<ResolvedSchemaFields<TFields, TExtensions>>
-	>[]
-	const definition: SchemaMetadata<TClassName, TFields, TExtensions> =
-		immutableRecord({
-			className: options.className,
-			fields,
-			indexes,
-			extensions,
-		})
-	const schema = createSchemaModelClass(definition, options.fields)
+		fields: options.fields,
+		indexes: snapshotSchemaIndexOptions(options.indexes),
+	})
+	// Readers close over the final class, which is assigned only after construction.
+	// eslint-disable-next-line prefer-const
+	let schemaIdentity: SchemaClass<TClassName, TFields, TExtensions> | undefined
+	const schema = createSchemaModelClass({
+		className: options.className,
+		readDefinition: () => {
+			if (schemaIdentity === undefined) {
+				throw new TypeError('Schema identity is not available')
+			}
+
+			return readCompiledSchemaRecord(schemaIdentity)
+				.definition as SchemaMetadata<TClassName, TFields, TExtensions>
+		},
+		readDeveloperFields: () => {
+			if (schemaIdentity === undefined) {
+				throw new TypeError('Schema identity is not available')
+			}
+
+			return readCompiledSchemaRecord(schemaIdentity).developerFields as TFields
+		},
+	})
+	schemaIdentity = schema
+	schemaDeclarations.set(schema, declaration)
 
 	// Keep provenance out of public enumeration while sharing it across package copies.
 	Object.defineProperty(schema, schemaDefinitionMarker, {
@@ -617,6 +1059,11 @@ const defineSchemaModel = <
 	// Behavioral capabilities follow Schema identity without entering metadata.
 	declareSchemaAccess(schema, options.access)
 	declareSchemaHooks(schema, options.hooks)
+
+	if (!declaration.deferred) {
+		const record = compileSchemaRecord(declaration, declaration.fields)
+		compiledSchemaRecords.set(schema, record)
+	}
 
 	return schema
 }
@@ -656,7 +1103,9 @@ const collectSchemaExtensionFields = (
 	return immutableRecord(Object.fromEntries(entries))
 }
 
-const assertNoReservedFieldCollision = (fields: SchemaFields): void => {
+const assertNoReservedFieldCollision = (
+	fields: Readonly<Record<string, unknown>>,
+): void => {
 	for (const name of reservedSystemFieldNames) {
 		if (Object.hasOwn(fields, name)) {
 			throw new TypeError(`Reserved schema field: ${name}`)
@@ -728,6 +1177,15 @@ export class Schema {
 	 */
 	static define<
 		const TClassName extends string,
+		const TSource extends SchemaFieldSource,
+		const TExtensions extends SchemaExtensions = readonly [],
+	>(
+		options: SchemaDeclarationOptions<TClassName, TSource, TExtensions> &
+			ReservedFieldCollision<NoInfer<SchemaFieldsFromSource<TSource>>>,
+	): SchemaClass<TClassName, SchemaFieldsFromSource<TSource>, TExtensions>
+
+	static define<
+		const TClassName extends string,
 		const TFields extends SchemaFields,
 		const TExtensions extends SchemaExtensions = readonly [],
 	>(
@@ -750,6 +1208,36 @@ export class Schema {
 	 *
 	 * @example `Schema.defineWithStatics(options, (schema) => ({ byId: (id) => schema.pointer(id) }))`
 	 */
+	static defineWithStatics<
+		const TClassName extends string,
+		const TFields extends SchemaFields,
+		const TExtensions extends SchemaExtensions = readonly [],
+		const TCapabilities extends SchemaStaticCapabilities =
+			SchemaStaticCapabilities,
+	>(
+		options: ImmediateSchemaOptions<TClassName, TFields, TExtensions>,
+		createCapabilities: SchemaStaticCapabilityFactory<
+			SchemaClass<TClassName, TFields, TExtensions>,
+			TCapabilities
+		>,
+	): SchemaClass<TClassName, TFields, TExtensions> & TCapabilities
+
+	// Separate overloads preserve exact generic field maps for package-owned schemas.
+	static defineWithStatics<
+		const TClassName extends string,
+		const TFields extends SchemaFields,
+		const TExtensions extends SchemaExtensions = readonly [],
+		const TCapabilities extends SchemaStaticCapabilities =
+			SchemaStaticCapabilities,
+	>(
+		// eslint-disable-next-line @typescript-eslint/unified-signatures
+		options: DeferredSchemaOptions<TClassName, TFields, TExtensions>,
+		createCapabilities: SchemaStaticCapabilityFactory<
+			SchemaClass<TClassName, TFields, TExtensions>,
+			TCapabilities
+		>,
+	): SchemaClass<TClassName, TFields, TExtensions> & TCapabilities
+
 	static defineWithStatics<
 		const TClassName extends string,
 		const TFields extends SchemaFields,
@@ -781,6 +1269,42 @@ export class Schema {
 	 * persisted identity at runtime. Packages retain ordinary QueryBuilder and relation
 	 * execution rather than receiving an adapter or application escape hatch.
 	 */
+	static defineWithCapabilities<
+		const TClassName extends string,
+		const TFields extends SchemaFields,
+		const TExtensions extends SchemaExtensions = readonly [],
+		const TStatics extends SchemaStaticCapabilities = SchemaStaticCapabilities,
+		const TResults extends object = object,
+	>(
+		options: ImmediateSchemaOptions<TClassName, TFields, TExtensions>,
+		createCapabilities: SchemaClassCapabilityFactory<
+			SchemaClass<TClassName, TFields, TExtensions>,
+			TStatics,
+			TResults
+		>,
+	): SchemaClass<TClassName, TFields, TExtensions> &
+		TStatics &
+		SchemaResultCapabilityCarrier<TResults>
+
+	// Separate overloads preserve exact generic field maps for package-owned schemas.
+	static defineWithCapabilities<
+		const TClassName extends string,
+		const TFields extends SchemaFields,
+		const TExtensions extends SchemaExtensions = readonly [],
+		const TStatics extends SchemaStaticCapabilities = SchemaStaticCapabilities,
+		const TResults extends object = object,
+	>(
+		// eslint-disable-next-line @typescript-eslint/unified-signatures
+		options: DeferredSchemaOptions<TClassName, TFields, TExtensions>,
+		createCapabilities: SchemaClassCapabilityFactory<
+			SchemaClass<TClassName, TFields, TExtensions>,
+			TStatics,
+			TResults
+		>,
+	): SchemaClass<TClassName, TFields, TExtensions> &
+		TStatics &
+		SchemaResultCapabilityCarrier<TResults>
+
 	static defineWithCapabilities<
 		const TClassName extends string,
 		const TFields extends SchemaFields,

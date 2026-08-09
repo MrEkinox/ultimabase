@@ -64,7 +64,7 @@ semantics and the user validates the demonstrated editor behavior.
 
 ### Phase 1 — Static compilation foundation
 
-3. [ ] [803 — Compile deferred schema field declarations](issues/800-generated-types/803-deferred-schema-field-compilation.md)
+3. [x] [803 — Compile deferred schema field declarations](issues/800-generated-types/803-deferred-schema-field-compilation.md)
 4. [ ] [804 — Add the Nexus-style FieldBuilder](issues/800-generated-types/804-nexus-field-builder.md)
 5. [ ] [805 — Register plugin-owned FieldBuilder methods](issues/800-generated-types/805-plugin-field-builder-methods.md)
 

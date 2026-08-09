@@ -1,7 +1,7 @@
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
 import type { GenericField } from '../fields/base/contract.js'
-import type { SchemaDefinition } from '../schema/definition.js'
+import type { SchemaDefinition, SchemaFields } from '../schema/definition.js'
 import type { ResolvedSchemaTarget } from '../schema/targets.js'
 
 /** Identifies how one relation reaches its adapter-owned edge storage. */
@@ -92,6 +92,8 @@ const mappedRelationKey = (
 export const compileSchemaRelations = (
 	pendingRelations: readonly PendingSchemaRelation[],
 	targets: readonly ResolvedSchemaTarget[],
+	readFields: (schema: SchemaDefinition) => SchemaFields = (schema) =>
+		schema.fields,
 ): readonly ResolvedSchemaRelation[] => {
 	const targetByLocation = new Map<string, SchemaDefinition>()
 	const owningFieldLocations = new Map<GenericField, string>()
@@ -144,7 +146,7 @@ export const compileSchemaRelations = (
 			continue
 		}
 
-		const mappedField = relation.target.fields[relation.mappedBy]
+		const mappedField = readFields(relation.target)[relation.mappedBy]
 
 		if (mappedField === undefined) {
 			throw new SchemaRelationMappingError(

@@ -177,8 +177,8 @@ export const postgresPlugin = (
 		name: postgresPluginName,
 		slot: 'database-adapter',
 		setup: ({ constraintCompilers, registries, schemas, services }) => {
-			// PostgreSQL needs the closed logical graph before compiling circular foreign keys.
-			const schemaTargets = schemas.resolveSchemaTargets()
+			// Static application compilation closes circular targets before plugin setup.
+			const schemaTargets = schemas.schemaTargets
 
 			registries.extensions.register(
 				extensionHandlerKey('field', postgresColumnExtensionName),
