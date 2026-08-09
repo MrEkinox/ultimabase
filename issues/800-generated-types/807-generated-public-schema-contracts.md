@@ -4,7 +4,7 @@
 - Milestone: 8
 - Packages: `@ultimabase/core`
 - Depends on: 806
-- ADR: issue 802 ADR
+- ADR: [ADR-0173](../../docs/adr/0173-generated-schema-authoring.md)
 
 ## Goal
 

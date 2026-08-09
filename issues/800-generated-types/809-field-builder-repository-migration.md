@@ -4,7 +4,7 @@
 - Milestone: 8
 - Packages: all schema-declaring packages, examples, tests
 - Depends on: 807, 808
-- ADR: issue 802 ADR
+- ADR: [ADR-0173](../../docs/adr/0173-generated-schema-authoring.md)
 
 ## Goal
 

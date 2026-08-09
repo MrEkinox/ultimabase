@@ -3,7 +3,7 @@
 - Status: active
 - Started: 2026-08-09
 - Objective owner: `@ultimabase/core`, `@ultimabase/pg-vector-plugin`, future codegen and CLI packages
-- Governing decision: new ADR required after issue 801 proves the architecture
+- Governing decision: [ADR-0173](docs/adr/0173-generated-schema-authoring.md)
 - Paused objective: [ACL hardening and developer-experience consolidation](docs/plans/paused/acl-hardening-and-developer-experience-consolidation.md)
 
 ## Objective
@@ -56,7 +56,7 @@ one complete generation before watching or running the application.
 ### Phase 0 — Blocking proof and decision
 
 1. [x] [801 — Prove deferred schema compilation and typegen bootstrap](issues/800-generated-types/801-deferred-schema-typegen-proof.md)
-2. [ ] [802 — Decide generated schema authoring architecture](issues/800-generated-types/802-generated-schema-authoring-adr.md)
+2. [x] [802 — Decide generated schema authoring architecture](issues/800-generated-types/802-generated-schema-authoring-adr.md)
 
 Issue 801 is a stop point. Production implementation must not begin unless the
 prototype preserves the agreed model-construction and application-isolation

@@ -158,6 +158,7 @@ Accepted records:
 - [ADR-0170: Read and write field Access](0170-read-write-field-access.md)
 - [ADR-0171: Field Access authorizes value transitions](0171-field-access-value-transitions.md)
 - [ADR-0172: Focus schema hook results on persisted items](0172-focused-schema-hook-results.md)
+- [ADR-0173: Generated schema authoring and static compilation](0173-generated-schema-authoring.md)
 
 Superseded records:
 

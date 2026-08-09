@@ -68,8 +68,9 @@ packages are created only when implementation begins.
 Deferred schema field compilation, plugin-contributed FieldBuilder methods,
 Nexus-style declarations, compact generated application contracts, deterministic
 typegen commands, watch mode, startup regeneration, and measured TypeScript
-editor performance. This milestone changes developer tooling without moving
-plugin, database, transport, or runtime responsibilities into Core.
+editor performance. [ADR-0173](docs/adr/0173-generated-schema-authoring.md)
+governs this milestone. It changes developer tooling without moving plugin,
+database, transport, or runtime responsibilities into Core.
 
 ## First usable release
 

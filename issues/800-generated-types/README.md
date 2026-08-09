@@ -10,6 +10,9 @@ field-method declarations before Core resolves schema callbacks, while the
 generated registry gives TypeScript compact application-specific model, Query,
 mutation, Access, hook, object, pointer, and relation contracts.
 
+[ADR-0173](../../docs/adr/0173-generated-schema-authoring.md) governs the
+declaration, static-compilation, isolation, and generated-cache boundaries.
+
 ## Execution order
 
 1. [801 — Prove deferred schema compilation and typegen bootstrap](801-deferred-schema-typegen-proof.md)

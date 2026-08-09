@@ -4,7 +4,7 @@
 - Milestone: 8
 - Packages: `@ultimabase/core`, `@ultimabase/pg-vector-plugin`
 - Depends on: 804
-- ADR: issue 802 ADR
+- ADR: [ADR-0173](../../docs/adr/0173-generated-schema-authoring.md)
 
 ## Goal
 
