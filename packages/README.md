@@ -31,6 +31,8 @@ developer reads their exports.
 
 ## Development tooling
 
+- `codegen`: static application loading, deterministic compact schema
+  declarations, fingerprints, and atomic output replacement.
 - `testing`
 
 No package may import another package through its source directory.

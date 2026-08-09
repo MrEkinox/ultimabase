@@ -195,6 +195,8 @@ export class FrameworkApplication<
 	readonly #lifecycle: PluginLifecycleManager
 	readonly #pluginGraph: PluginGraph
 	readonly #fieldBuilderMethods = new FieldBuilderMethodRegistry()
+	#schemaCompilationState: 'compiled' | 'compiling' | 'failed' | 'idle' = 'idle'
+	#schemaCompilationError: unknown
 	#initializePromise: Promise<this> | undefined
 	#startPromise: Promise<void> | undefined
 
@@ -292,6 +294,48 @@ export class FrameworkApplication<
 		return this.#initializePromise
 	}
 
+	/**
+	 * Compiles the pure application schema graph without running plugin setup.
+	 *
+	 * Code generators use this boundary to inspect static declarations without
+	 * opening services, adapters, transports, or another infrastructure resource.
+	 */
+	compileSchemas(): this {
+		if (this.#schemaCompilationState === 'compiled') {
+			return this
+		}
+
+		if (this.#schemaCompilationState === 'failed') {
+			throw this.#schemaCompilationError
+		}
+
+		if (this.#schemaCompilationState === 'compiling') {
+			throw new TypeError('Application schema compilation is already running')
+		}
+
+		this.#schemaCompilationState = 'compiling'
+
+		try {
+			for (const plugin of this.#pluginGraph) {
+				runPluginFieldBuilderDeclaration(
+					plugin.definition,
+					this.#fieldBuilderMethods.forPlugin(plugin.definition.name),
+				)
+			}
+
+			this.#fieldBuilderMethods.close()
+			this.schemas.compileSchemas(this.#fieldBuilderMethods)
+			this.#schemaCompilationState = 'compiled'
+
+			return this
+		} catch (error: unknown) {
+			this.#schemaCompilationError = error
+			this.#schemaCompilationState = 'failed'
+
+			throw error
+		}
+	}
+
 	/** Starts infrastructure through the deterministic plugin lifecycle. */
 	start(): Promise<void> {
 		this.#startPromise ??= this.#performStart()
@@ -319,15 +363,7 @@ export class FrameworkApplication<
 
 	async #performInitialize(): Promise<this> {
 		try {
-			for (const plugin of this.#pluginGraph) {
-				runPluginFieldBuilderDeclaration(
-					plugin.definition,
-					this.#fieldBuilderMethods.forPlugin(plugin.definition.name),
-				)
-			}
-
-			this.#fieldBuilderMethods.close()
-			this.schemas.compileSchemas(this.#fieldBuilderMethods)
+			this.compileSchemas()
 			await this.#lifecycle.setup()
 			validateExtensionHandlers(
 				this.schemas.values(),

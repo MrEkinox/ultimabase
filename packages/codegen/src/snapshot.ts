@@ -1,0 +1,384 @@
+import {
+	readFieldInferenceState,
+	type FieldInferenceState,
+	type FrameworkApplication,
+	type GenericField,
+	type PluginDefinition,
+	type SchemaDefinition,
+} from '@ultimabase/core'
+import {
+	immutableArray,
+	immutableRecord,
+	isPlainRecord,
+	isUnknownArray,
+} from '@ultimabase/shared'
+
+import { SchemaTypegenError } from './errors.js'
+
+export interface TypegenReference {
+	readonly exportName: string
+	readonly module: string
+}
+
+export type TypegenValueNode =
+	| { readonly kind: 'bigint' }
+	| { readonly kind: 'boolean' }
+	| { readonly kind: 'bytes' }
+	| {
+			readonly kind: 'enum'
+			readonly typeName: string | undefined
+			readonly values: readonly string[]
+	  }
+	| { readonly kind: 'json' }
+	| {
+			readonly fields: readonly TypegenFieldSnapshot[]
+			readonly kind: 'object'
+			readonly typeName: string | undefined
+	  }
+	| { readonly kind: 'number' }
+	| { readonly kind: 'plugin'; readonly reference: TypegenReference }
+	| { readonly kind: 'pointer'; readonly target: string }
+	| {
+			readonly kind: 'relation'
+			readonly mappedBy: string | undefined
+			readonly target: string
+	  }
+	| { readonly kind: 'string' }
+
+export interface TypegenFieldSnapshot {
+	readonly description: string | undefined
+	readonly inference: FieldInferenceState
+	readonly kind: string
+	readonly name: string
+	readonly path: readonly string[]
+	readonly value: TypegenValueNode
+}
+
+export interface TypegenSchemaSnapshot {
+	readonly className: string
+	readonly fields: readonly TypegenFieldSnapshot[]
+}
+
+export interface TypegenFieldMethodSnapshot {
+	readonly fieldKind: string
+	readonly method: TypegenReference
+	readonly name: string
+	readonly owner: string
+	readonly value: TypegenReference
+}
+
+export interface TypegenApplicationSnapshot {
+	readonly applicationId: string
+	readonly fieldMethods: readonly TypegenFieldMethodSnapshot[]
+	readonly schemas: readonly TypegenSchemaSnapshot[]
+	readonly version: 1
+}
+
+interface PluginValueReference extends TypegenReference {
+	readonly owner: string
+}
+
+const readDescription = (field: GenericField): string | undefined =>
+	'description' in field.options &&
+	typeof field.options.description === 'string'
+		? field.options.description
+		: undefined
+
+const readEnumValues = (
+	field: GenericField,
+	path: string,
+): readonly string[] => {
+	const values: unknown =
+		'values' in field.options ? field.options.values : undefined
+
+	if (isUnknownArray(values)) {
+		if (!values.every((value) => typeof value === 'string')) {
+			throw new SchemaTypegenError(
+				'unsupported-field-kind',
+				`Enum field ${path} contains a non-string value`,
+				{ path },
+			)
+		}
+
+		return immutableArray([...values].sort())
+	}
+
+	if (isPlainRecord(values)) {
+		const resolved = Object.values(values)
+
+		if (!resolved.every((value) => typeof value === 'string')) {
+			throw new SchemaTypegenError(
+				'unsupported-field-kind',
+				`Enum field ${path} contains a non-string mapping`,
+				{ path },
+			)
+		}
+
+		return immutableArray([...resolved].sort())
+	}
+
+	throw new SchemaTypegenError(
+		'unsupported-field-kind',
+		`Enum field ${path} has no stable values`,
+		{ path },
+	)
+}
+
+const readOptionalString = (
+	value: unknown,
+	path: string,
+): string | undefined => {
+	if (value === undefined) {
+		return undefined
+	}
+
+	if (typeof value !== 'string') {
+		throw new SchemaTypegenError(
+			'unsupported-field-kind',
+			`${path} must be a string`,
+			{ path },
+		)
+	}
+
+	return value
+}
+
+const createPluginValueReferences = (
+	application: FrameworkApplication<
+		readonly SchemaDefinition[],
+		readonly PluginDefinition[]
+	>,
+): ReadonlyMap<string, PluginValueReference> => {
+	const references = new Map<string, PluginValueReference>()
+
+	for (const method of application.fieldBuilderMethods) {
+		const existing = references.get(method.fieldKind)
+		const candidate = immutableRecord({
+			exportName: method.typegen.valueType,
+			module: method.typegen.module,
+			owner: method.owner,
+		})
+
+		if (
+			existing !== undefined &&
+			(existing.exportName !== candidate.exportName ||
+				existing.module !== candidate.module)
+		) {
+			throw new SchemaTypegenError(
+				'malformed-plugin-contribution',
+				`Field kind "${method.fieldKind}" from "${method.owner}" conflicts with the value type declared by "${existing.owner}"`,
+				{ owner: method.owner },
+			)
+		}
+
+		references.set(method.fieldKind, candidate)
+	}
+
+	return references
+}
+
+interface SnapshotContext {
+	readonly application: FrameworkApplication<
+		readonly SchemaDefinition[],
+		readonly PluginDefinition[]
+	>
+	readonly pluginValues: ReadonlyMap<string, PluginValueReference>
+}
+
+const snapshotValue = (
+	field: GenericField,
+	schema: SchemaDefinition,
+	path: readonly string[],
+	context: SnapshotContext,
+): TypegenValueNode => {
+	const displayPath = `${schema.className}.${path.join('.')}`
+
+	switch (field.kind) {
+		case 'bigint':
+			return immutableRecord({ kind: 'bigint' })
+		case 'binary':
+			return immutableRecord({ kind: 'bytes' })
+		case 'boolean':
+			return immutableRecord({ kind: 'boolean' })
+		case 'date':
+		case 'dateTime':
+		case 'decimal':
+		case 'string':
+		case 'time':
+		case 'uuid':
+			return immutableRecord({ kind: 'string' })
+		case 'enum':
+			return immutableRecord({
+				kind: 'enum',
+				typeName: readOptionalString(
+					'typeName' in field.options ? field.options.typeName : undefined,
+					`${displayPath}.typeName`,
+				),
+				values: readEnumValues(field, displayPath),
+			})
+		case 'float':
+		case 'int':
+			return immutableRecord({ kind: 'number' })
+		case 'json':
+			return immutableRecord({ kind: 'json' })
+		case 'object': {
+			const fields: unknown =
+				'fields' in field.options ? field.options.fields : undefined
+
+			if (!isPlainRecord(fields)) {
+				throw new SchemaTypegenError(
+					'unsupported-field-kind',
+					`Object field ${displayPath} has no stable child fields`,
+					{ path: displayPath },
+				)
+			}
+
+			return immutableRecord({
+				fields: snapshotFields(fields, schema, path, context),
+				kind: 'object',
+				typeName: readOptionalString(
+					'typeName' in field.options ? field.options.typeName : undefined,
+					`${displayPath}.typeName`,
+				),
+			})
+		}
+		case 'pointer':
+		case 'relation': {
+			const target = context.application.schemaTargets.get(schema, path)
+
+			if (target === undefined) {
+				throw new SchemaTypegenError(
+					'unsupported-field-kind',
+					`Relationship field ${displayPath} has no resolved target`,
+					{ path: displayPath },
+				)
+			}
+
+			return field.kind === 'pointer'
+				? immutableRecord({ kind: 'pointer', target: target.className })
+				: immutableRecord({
+						kind: 'relation',
+						mappedBy: readOptionalString(
+							'mappedBy' in field.options ? field.options.mappedBy : undefined,
+							`${displayPath}.mappedBy`,
+						),
+						target: target.className,
+					})
+		}
+		default: {
+			const reference = context.pluginValues.get(field.kind)
+
+			if (reference === undefined) {
+				throw new SchemaTypegenError(
+					'unsupported-field-kind',
+					`Field ${displayPath} uses "${field.kind}" without a configured typegen contribution`,
+					{ path: displayPath },
+				)
+			}
+
+			return immutableRecord({
+				kind: 'plugin',
+				reference: immutableRecord({
+					exportName: reference.exportName,
+					module: reference.module,
+				}),
+			})
+		}
+	}
+}
+
+const snapshotFields = (
+	fields: Readonly<Record<string, unknown>>,
+	schema: SchemaDefinition,
+	parentPath: readonly string[],
+	context: SnapshotContext,
+): readonly TypegenFieldSnapshot[] =>
+	immutableArray(
+		Object.entries(fields)
+			.sort(([left], [right]) => left.localeCompare(right))
+			.map(([name, candidate]) => {
+				if (
+					typeof candidate !== 'object' ||
+					candidate === null ||
+					!('kind' in candidate) ||
+					!('options' in candidate) ||
+					typeof candidate.kind !== 'string' ||
+					typeof candidate.options !== 'object' ||
+					candidate.options === null
+				) {
+					const invalidPath = `${schema.className}.${[...parentPath, name].join('.')}`
+
+					throw new SchemaTypegenError(
+						'unsupported-field-kind',
+						`Field ${invalidPath} is not a compiled logical field`,
+						{ path: invalidPath },
+					)
+				}
+
+				const field = candidate as GenericField
+				const path = immutableArray([...parentPath, name])
+
+				return immutableRecord({
+					description: readDescription(field),
+					inference: readFieldInferenceState(field),
+					kind: field.kind,
+					name,
+					path,
+					value: snapshotValue(field, schema, path, context),
+				})
+			}),
+	)
+
+/** Compiles one application into an inert, deterministic generation snapshot. */
+export const createTypegenSnapshot = (
+	application: FrameworkApplication<
+		readonly SchemaDefinition[],
+		readonly PluginDefinition[]
+	>,
+	applicationId: string,
+): TypegenApplicationSnapshot => {
+	if (applicationId.trim() === '') {
+		throw new TypeError('applicationId must be a non-empty string')
+	}
+
+	application.compileSchemas()
+
+	const pluginValues = createPluginValueReferences(application)
+	const context: SnapshotContext = { application, pluginValues }
+	const fieldMethods = immutableArray(
+		[...application.fieldBuilderMethods]
+			.sort((left, right) => left.name.localeCompare(right.name))
+			.map((method) =>
+				immutableRecord({
+					fieldKind: method.fieldKind,
+					method: immutableRecord({
+						exportName: method.typegen.methodType,
+						module: method.typegen.module,
+					}),
+					name: method.name,
+					owner: method.owner,
+					value: immutableRecord({
+						exportName: method.typegen.valueType,
+						module: method.typegen.module,
+					}),
+				}),
+			),
+	)
+	const schemas = immutableArray(
+		[...application.schemas.values()]
+			.sort((left, right) => left.className.localeCompare(right.className))
+			.map((schema) =>
+				immutableRecord({
+					className: schema.className,
+					fields: snapshotFields(schema.fields, schema, [], context),
+				}),
+			),
+	)
+
+	return immutableRecord({
+		applicationId,
+		fieldMethods,
+		schemas,
+		version: 1,
+	})
+}

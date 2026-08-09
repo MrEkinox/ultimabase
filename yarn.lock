@@ -1498,6 +1498,20 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@ultimabase/codegen@workspace:packages/codegen":
+  version: 0.0.0-use.local
+  resolution: "@ultimabase/codegen@workspace:packages/codegen"
+  dependencies:
+    "@ultimabase/core": "workspace:^"
+    "@ultimabase/pg-vector-plugin": "workspace:^"
+    "@ultimabase/shared": "workspace:^"
+    jiti: "npm:^2.6.1"
+    tsdown: "npm:^0.22.14"
+    typescript: "npm:^6.0.3"
+    vitest: "npm:4.1.10"
+  languageName: unknown
+  linkType: soft
+
 "@ultimabase/core@workspace:^, @ultimabase/core@workspace:packages/core":
   version: 0.0.0-use.local
   resolution: "@ultimabase/core@workspace:packages/core"
@@ -1539,7 +1553,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@ultimabase/pg-vector-plugin@workspace:packages/pg-vector-plugin":
+"@ultimabase/pg-vector-plugin@workspace:^, @ultimabase/pg-vector-plugin@workspace:packages/pg-vector-plugin":
   version: 0.0.0-use.local
   resolution: "@ultimabase/pg-vector-plugin@workspace:packages/pg-vector-plugin"
   dependencies:

@@ -9,24 +9,23 @@ It takes inspiration from the simplicity of Parse Server while deliberately repl
 ## Intended developer experience
 
 ```ts
-import { Schema, UltimaBase, booleanField, stringField } from '@ultimabase/core'
+import { Schema, UltimaBase } from '@ultimabase/core'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 
 export const UserSchema = Schema.define({
 	className: 'User',
-	fields: {
-		name: stringField({
+	fields(field) {
+		field.string('name', {
 			validation: {
 				required: true,
 			},
-		}),
-		isActive: booleanField({
+		})
+		field.boolean('isActive', {
 			default: true,
-		}),
+		})
 	},
 })
 
-const draft = new UserSchema({ name: 'Ada' })
 const activeUsersInput = { where: { isActive: { eq: true } } } as const
 ```
 
@@ -46,6 +45,8 @@ const ultimabase = new UltimaBase({
 })
 
 await ultimabase.start()
+
+const draft = new UserSchema({ name: 'Ada' })
 ```
 
 ```ts

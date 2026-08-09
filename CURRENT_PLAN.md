@@ -70,7 +70,7 @@ semantics and the user validates the demonstrated editor behavior.
 
 ### Phase 2 — Generated application contracts
 
-6. [ ] [806 — Generate compact application schema types](issues/800-generated-types/806-compact-schema-typegen.md)
+6. [x] [806 — Generate compact application schema types](issues/800-generated-types/806-compact-schema-typegen.md)
 7. [ ] [807 — Drive public schema APIs from generated contracts](issues/800-generated-types/807-generated-public-schema-contracts.md)
 
 ### Phase 3 — Commands and continuous regeneration

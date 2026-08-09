@@ -192,7 +192,10 @@ export type {
 	HookEventContract,
 	HookEventDelivery,
 } from './hooks/hook-context.js'
-export { assertFieldOptions } from './fields/base/options.js'
+export {
+	assertFieldOptions,
+	readFieldInferenceState,
+} from './fields/base/options.js'
 export type {
 	InferCreateInput,
 	InferObject,
@@ -259,6 +262,16 @@ export type {
 	OwnedFieldBuilderMethod,
 	PluginFieldBuilderDeclaration,
 } from './schema/field-builder-methods.js'
+export type {
+	GeneratedApplicationContract,
+	GeneratedFieldContract,
+	GeneratedObjectContract,
+	GeneratedRelationshipContract,
+	GeneratedSchemaAccessContract,
+	GeneratedSchemaContract,
+	GeneratedSchemaHookContract,
+} from './generated-contracts.js'
+export { generatedApplicationContractVersion } from './generated-contracts.js'
 export type {
 	CompactSchemaModelUpdateInput,
 	PersistedSchemaModel,

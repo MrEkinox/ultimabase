@@ -218,6 +218,26 @@ export type {
 	QueryRelationTargetInput,
 	QuerySelectedFieldFromInput,
 } from './query/input.js'
+export type {
+	GeneratedDeepPartial,
+	GeneratedEqualityWhere,
+	GeneratedJsonPathVariables,
+	GeneratedJsonPathWhere,
+	GeneratedNullableWhere,
+	GeneratedOrderBy,
+	GeneratedOrderedWhere,
+	GeneratedPathWhere,
+	GeneratedPointerInclude,
+	GeneratedPointerWhere,
+	GeneratedRelationCountWhere,
+	GeneratedRelationInclude,
+	GeneratedRelationWhere,
+	GeneratedSelect,
+	GeneratedStringWhere,
+	GeneratedStructuralWhere,
+	GeneratedWhere,
+	GeneratedWhereBranches,
+} from './generated-contracts.js'
 export { QueryBuilder } from './query/query.js'
 export type { QueryPointerTargetBuilder } from './query/query.js'
 export type { QueryScope } from './query/scope.js'

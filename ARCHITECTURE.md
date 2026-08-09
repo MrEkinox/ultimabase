@@ -5,11 +5,14 @@
 ```text
 static schemas
       ↓
-SchemaRegistry
+pure plugin field declarations
       ↓
-typed extensions + plugin declaration setup
+application-owned SchemaRegistry compilation
       ↓
 application-local relationship target graph
+      ├──────────────→ inert codegen snapshot → compact TypeScript registry
+      ↓
+typed extensions + plugin setup
       ↓
 Query / Operation AST
       ↓
@@ -36,6 +39,7 @@ An arrow means “imports or depends on” and always points toward a foundation
 
 ```text
 core ─────────────────→ shared
+codegen ──────────────→ core, shared
 pg-vector-plugin ─────→ core, shared
 roles-plugin ─────────→ core
 acl-permissions-plugin → core
@@ -51,6 +55,14 @@ testing ──────────────→ core, shared
 
 Concrete plugins depend on Core's public contracts. Core never depends back on
 concrete plugins.
+
+`@ultimabase/codegen` is development tooling rather than a plugin. It invokes
+only Core's synchronous static-compilation boundary, snapshots logical schema
+facts and plugin type references, and emits deterministic declarations. It
+does not run plugin setup, resolve services, connect adapters, or serialize
+Access and hook callbacks. Production Runtime consumes the independently
+recompiled Core schema graph; generated files remain replaceable TypeScript
+caches rather than runtime schema truth.
 
 The internal Access domain remains a neutral home for request-authority and
 shared policy contracts. Runtime using those contracts does not install or

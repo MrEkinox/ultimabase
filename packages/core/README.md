@@ -105,10 +105,19 @@ const plugin = definePlugin({
 Registrations are isolated per application and reject built-in overrides,
 duplicates, unstable declarations, and factories returning another field kind.
 `declareFields` receives no services or runtime state and must return
-synchronously. Generated application declarations will add the contributed
-method to that application's `FieldBuilder`; Core's base `FieldBuilder` does
+synchronously. The generated application declaration emitted by
+`@ultimabase/codegen` adds the contributed method to that application's
+`FieldBuilder`; Core's base `FieldBuilder` does
 not expose plugin methods globally. Calling a missing method through untyped or
 stale code fails during static schema compilation before plugin setup.
+
+Framework tooling can call `application.compileSchemas()` to run exactly this
+synchronous static phase without plugin setup or infrastructure. The method is
+idempotent after success and rethrows the original failure after an unsuccessful
+attempt. `@ultimabase/codegen` uses it to emit the application-owned FieldBuilder,
+model, operation, relationship, Access, and hook contracts. Wiring those named
+contracts into every Core public API is the following generated-types issue;
+the base recursive inference remains active until then.
 
 Pointer and relation target callbacks can still safely reference a class
 declared later in the module. Static compilation resolves them after every

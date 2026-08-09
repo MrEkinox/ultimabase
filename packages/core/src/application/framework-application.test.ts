@@ -14,6 +14,58 @@ const applicationSchema = Schema.define({
 })
 
 describe('FrameworkApplication', () => {
+	it('compiles static schemas without running plugin setup', () => {
+		let setupCalls = 0
+		const StaticSchema = Schema.define({
+			className: 'StaticCompilationOnly',
+			fields: { title: stringField() },
+		})
+		const application = new FrameworkApplication({
+			plugins: [
+				definePlugin({
+					name: 'fixture.static-only',
+					setup: () => {
+						setupCalls += 1
+					},
+				}),
+			],
+			schemas: [StaticSchema],
+		})
+
+		expect(application.compileSchemas()).toBe(application)
+		expect(application.compileSchemas()).toBe(application)
+		expect(StaticSchema.fields.title.kind).toBe('string')
+		expect(setupCalls).toBe(0)
+		expect(application.state).toBe('idle')
+	})
+
+	it('retains one static compilation failure without replaying declarations', () => {
+		let declarationCalls = 0
+		const Invalid = Schema.define({
+			className: 'FailedStaticCompilation',
+			fields() {
+				declarationCalls += 1
+				throw new TypeError('fixture static compilation failed')
+			},
+		})
+		const application = new FrameworkApplication({
+			plugins: [],
+			schemas: [Invalid],
+		})
+
+		expect(() => application.compileSchemas()).toThrow(
+			expect.objectContaining({
+				cause: new TypeError('fixture static compilation failed'),
+			}),
+		)
+		expect(() => application.compileSchemas()).toThrow(
+			expect.objectContaining({
+				cause: new TypeError('fixture static compilation failed'),
+			}),
+		)
+		expect(declarationCalls).toBe(1)
+	})
+
 	it('initializes declarations without starting infrastructure', async () => {
 		const events: string[] = []
 		const child = definePlugin({

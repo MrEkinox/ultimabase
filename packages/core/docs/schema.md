@@ -87,8 +87,10 @@ transactions, or lifecycle state. Existing `fields: { ... }` maps still compile
 immediately as a migration-only compatibility path until the FieldBuilder
 repository migration. During the generated-types milestone, map declarations
 retain the legacy recursively inferred model contract; builder declarations gain
-their exact application model contract from the generated registry introduced by
-the following milestone issues.
+their exact application model contract from the deterministic registry emitted
+by `@ultimabase/codegen`. The generator can already produce that registry from
+the infrastructure-free static compilation snapshot; the following milestone
+issue connects its named contracts to the production Core API surface.
 
 The root builder exposes every Core field kind. `field.object()` receives a
 path-aware embedded builder that omits `pointer` and `relation` and rejects
