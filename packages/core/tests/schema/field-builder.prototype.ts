@@ -2,16 +2,16 @@ import { Schema } from '../../src/index.js'
 
 Schema.define({
 	className: 'PackedFieldBuilder',
-	fields(field) {
-		field./* completion:root-builder */ string('root')
-		field./* hover:string-builder */ string('title', {
+	fields: (field) => ({
+		root: field./* completion:root-builder */ string(),
+		title: field./* hover:string-builder */ string({
 			/* completion:string-options */
-		})
-		field.string(/* signature:string-name */ 'signatureName')
-		field.object('profile', {
-			fields(field) {
-				field./* completion:nested-builder */ string('nested')
-			},
-		})
-	},
+		}),
+		signatureName: field.string(),
+		profile: field.object({
+			fields: (field) => ({
+				nested: field./* completion:nested-builder */ string(),
+			}),
+		}),
+	}),
 })

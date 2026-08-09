@@ -2,11 +2,9 @@ import { expectTypeOf, test } from 'vitest'
 
 import {
 	FrameworkApplication,
-	pointerField,
 	Schema,
 	SchemaRegistry,
 	SchemaTargetResolutionError,
-	stringField,
 	type PointerField,
 	type SchemaClass,
 	type SchemaDefinition,
@@ -17,11 +15,11 @@ import {
 
 const userSchema = Schema.define({
 	className: 'User',
-	fields: { name: stringField() },
+	fields: (field) => ({ name: field.string() }),
 })
 const postSchema = Schema.define({
 	className: 'Post',
-	fields: { title: stringField() },
+	fields: (field) => ({ title: field.string() }),
 })
 
 type RecursiveUserSchema = SchemaClass<
@@ -31,7 +29,8 @@ type RecursiveUserSchema = SchemaClass<
 			RecursivePostSchema,
 			ScalarFieldInferenceState<false, false, false, false>
 		>
-	}>
+	}>,
+	readonly []
 >
 
 type RecursivePostSchema = SchemaClass<
@@ -41,7 +40,8 @@ type RecursivePostSchema = SchemaClass<
 			RecursiveUserSchema,
 			ScalarFieldInferenceState<false, false, false, false>
 		>
-	}>
+	}>,
+	readonly []
 >
 
 test('preserves one exact schema through a lazy target callback', () => {
@@ -64,17 +64,17 @@ test('supports exact mutually recursive target contracts', () => {
 
 	const recursiveUser: RecursiveUserSchema = Schema.define({
 		className: 'RecursiveUser',
-		fields: {
-			posts: pointerField({ target: resolveRecursivePost }),
-		},
+		fields: (field) => ({
+			posts: field.pointer({ target: resolveRecursivePost }),
+		}),
 	})
 	const recursivePost: RecursivePostSchema = Schema.define({
 		className: 'RecursivePost',
-		fields: {
-			author: pointerField({
+		fields: (field) => ({
+			author: field.pointer({
 				target: (): RecursiveUserSchema => recursiveUser,
 			}),
-		},
+		}),
 	})
 
 	expectTypeOf(recursiveUser.fields.posts).toEqualTypeOf<

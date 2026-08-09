@@ -1,5 +1,5 @@
 import { FrameworkApplication, FrameworkError } from '../../foundation.js'
-import { Schema, stringField } from '../../schema/index.js'
+import { Schema } from '../../schema/index.js'
 import { describe, expect, it } from 'vitest'
 
 import type { DatabaseOperationExecutor } from '../database/contracts.js'
@@ -18,7 +18,7 @@ import { requestSources } from './request-context.js'
 
 const articleSchema = Schema.define({
 	className: 'ScopedArticle',
-	fields: { title: stringField() },
+	fields: (field) => ({ title: field.string() }),
 })
 
 const unusedDatabaseOperation: DatabaseOperationExecutor = {

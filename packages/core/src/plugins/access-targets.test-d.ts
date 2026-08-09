@@ -7,8 +7,6 @@ import {
 	definePlugin,
 	definePluginField,
 	defineSchemaExtension,
-	objectField,
-	stringField,
 } from '../index.js'
 
 const schemaExtension = defineSchemaExtension(
@@ -23,7 +21,7 @@ const fieldExtension = defineFieldExtension(
 )
 const schema = Schema.define({
 	className: 'TypedPluginAccessTarget',
-	fields: {
+	fields: (field) => ({
 		endpoint: definePluginField(
 			'fixture.access-url',
 			{},
@@ -31,11 +29,11 @@ const schema = Schema.define({
 				snapshotValue: (value: unknown): URL => new URL(String(value)),
 			},
 		),
-		profile: objectField({
-			fields: { displayName: stringField() },
+		profile: field.object({
+			fields: (field) => ({ displayName: field.string() }),
 		}),
-		title: stringField({ validation: { required: true } }),
-	},
+		title: field.string({ validation: { required: true } }),
+	}),
 	extensions: [schemaExtension],
 })
 const urlTarget =

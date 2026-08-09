@@ -7,8 +7,10 @@ import { createLanguageService } from '../../../tooling/vitest/typescript-langua
 
 const optionsMarker = '/* codegen-options */'
 const hoverMarker = '/* codegen-hover */'
+const pluginOptionsMarker = '/* codegen-plugin-options */'
+const pluginHoverMarker = '/* codegen-plugin-hover */'
 const sourceWithMarkers = `
-import { generateApplicationTypes } from './index.js'
+import { codegenPlugin, generateApplicationTypes } from './index.js'
 import type { GenerateApplicationTypesOptions } from './index.js'
 import type { FrameworkApplication, PluginDefinition, SchemaDefinition } from '@ultimabase/core'
 
@@ -23,15 +25,23 @@ const generated = ${hoverMarker}generateApplicationTypes({
   application,
   applicationId: 'main',
 })
+const plugin = ${pluginHoverMarker}codegenPlugin({
+  ${pluginOptionsMarker}
+})
 
 void completionOptions
 void generated
+void plugin
 `
 const optionsPosition = sourceWithMarkers.indexOf(optionsMarker)
 const hoverPosition = sourceWithMarkers.indexOf(hoverMarker)
+const pluginOptionsPosition = sourceWithMarkers.indexOf(pluginOptionsMarker)
+const pluginHoverPosition = sourceWithMarkers.indexOf(pluginHoverMarker)
 const source = sourceWithMarkers
 	.replace(optionsMarker, ' '.repeat(optionsMarker.length))
 	.replace(hoverMarker, ' '.repeat(hoverMarker.length))
+	.replace(pluginOptionsMarker, ' '.repeat(pluginOptionsMarker.length))
+	.replace(pluginHoverMarker, ' '.repeat(pluginHoverMarker.length))
 const fileName = path.join(
 	import.meta.dirname,
 	'codegen-public-api.source.fixture.ts',
@@ -77,6 +87,47 @@ describe('@ultimabase/codegen source declarations', () => {
 		)
 		expect(ts.displayPartsToString(hover?.documentation)).toContain(
 			'deterministic, callback-free',
+		)
+	})
+
+	it('documents automatic startup generation and its output options', () => {
+		expect(service.getSemanticDiagnostics(fileName)).toStrictEqual([])
+
+		const completions = service.getCompletionsAtPosition(
+			fileName,
+			pluginOptionsPosition,
+			{},
+		)
+		const outputPath = completions?.entries.find(
+			({ name }) => name === 'outputPath',
+		)
+
+		if (outputPath === undefined) {
+			throw new TypeError('Missing outputPath completion')
+		}
+
+		const details = service.getCompletionEntryDetails(
+			fileName,
+			pluginOptionsPosition,
+			outputPath.name,
+			undefined,
+			outputPath.source,
+			undefined,
+			outputPath.data,
+		)
+		const hover = service.getQuickInfoAtPosition(
+			fileName,
+			pluginHoverPosition + pluginHoverMarker.length,
+		)
+
+		expect(ts.displayPartsToString(details?.documentation)).toContain(
+			'declaration replaced atomically',
+		)
+		expect(ts.displayPartsToString(hover?.displayParts)).toContain(
+			'CodegenPlugin',
+		)
+		expect(ts.displayPartsToString(hover?.documentation)).toContain(
+			'before infrastructure starts',
 		)
 	})
 })

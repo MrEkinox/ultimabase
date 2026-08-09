@@ -1,4 +1,4 @@
-import { Schema, stringField } from '../../schema/index.js'
+import { Schema } from '../../schema/index.js'
 import { describe, expect, it } from 'vitest'
 import { QueryBuilder } from '../query/query.js'
 
@@ -10,7 +10,7 @@ import {
 
 const PostSchema = Schema.define({
 	className: 'ContextualQueryPost',
-	fields: { title: stringField() },
+	fields: (field) => ({ title: field.string() }),
 })
 
 /** Records the exact terminal routed into one active execution scope. */

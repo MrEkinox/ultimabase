@@ -3,8 +3,11 @@ import { describe, expect, it } from 'vitest'
 
 import { ACL } from './acl.js'
 
-const User = Schema.define({ className: 'ACLJSONUser', fields: {} })
-const Service = Schema.define({ className: 'ACLJSONService', fields: {} })
+const User = Schema.define({ className: 'ACLJSONUser', fields: () => ({}) })
+const Service = Schema.define({
+	className: 'ACLJSONService',
+	fields: () => ({}),
+})
 const user = User.pointer('shared-id')
 const service = Service.pointer('shared-id')
 const editor = new AccessSubjectReference('role', 'role:editor')

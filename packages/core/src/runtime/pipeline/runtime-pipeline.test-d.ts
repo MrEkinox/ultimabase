@@ -1,5 +1,5 @@
 import { QueryBuilder, type FindManyOperationAst } from '../../query/index.js'
-import { Schema, stringField } from '../../schema/index.js'
+import { Schema } from '../../schema/index.js'
 import { expectTypeOf, test } from 'vitest'
 
 import { RequestContext, requestSources } from '../context/request-context.js'
@@ -13,9 +13,9 @@ import { RuntimePipeline } from './runtime-pipeline.js'
 
 const articleSchema = Schema.define({
 	className: 'Article',
-	fields: {
-		title: stringField({ validation: { required: true } }),
-	},
+	fields: (field) => ({
+		title: field.string({ validation: { required: true } }),
+	}),
 })
 
 const operation = {

@@ -10,13 +10,13 @@ const fieldMarker = '/* relation-field */'
 const sourceWithMarkers = `
 import { pointerField, relationField, Schema, stringField } from '../../src/index.js'
 
-const User = Schema.define({ className: 'RelationAutocompleteUser', fields: {} })
+const User = Schema.define({ className: 'RelationAutocompleteUser', fields: () => ({}) })
 const Post = Schema.define({
   className: 'RelationAutocompletePost',
-  fields: {
+  fields: () => ({
     author: pointerField({ target: () => User }),
     title: stringField(),
-  },
+  }),
 })
 relationField({ target: () => Post, ${optionMarker} })
 relationField({ target: () => Post, mappedBy: '${mappedByMarker}' })

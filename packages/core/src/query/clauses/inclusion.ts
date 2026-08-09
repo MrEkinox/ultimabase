@@ -1,8 +1,12 @@
 import type { SchemaDefinition } from '../../schema/index.js'
+import type { GeneratedSchemaRelationshipTargetName } from '../../schema/generated-contracts.js'
 import { getFieldSchemaTarget } from '../../schema/fields/base/definition.js'
 import type { PointerField } from '../../schema/fields/builtins/pointer.js'
 import type { RelationField } from '../../schema/fields/builtins/relation.js'
-import { Schema } from '../../schema/schema/definition.js'
+import {
+	Schema,
+	type GeneratedSchemaReference,
+} from '../../schema/schema/definition.js'
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 
 import type {
@@ -39,36 +43,49 @@ export type QueryRelationFieldName<TSchema extends SchemaDefinition> = {
 export type QueryIncludableFieldName<TSchema extends SchemaDefinition> =
 	QueryPointerFieldName<TSchema> | QueryRelationFieldName<TSchema>
 
+type GeneratedRelationshipTargetOr<
+	TSchema extends SchemaDefinition,
+	TFieldName extends string,
+	TFallback extends SchemaDefinition,
+> = [GeneratedSchemaRelationshipTargetName<TSchema, TFieldName>] extends [never]
+	? TFallback
+	: GeneratedSchemaReference<
+			GeneratedSchemaRelationshipTargetName<TSchema, TFieldName>
+		>
+
 /** Resolves the target schema encoded by one exact pointer field value. */
 export type QueryPointerTargetSchema<
 	TSchema extends SchemaDefinition,
 	TFieldName extends QueryPointerFieldName<TSchema>,
-> = TSchema['fields'][TFieldName] extends {
-	readonly kind: 'pointer'
-}
-	? TSchema['fields'][TFieldName] extends PointerField<infer TTarget>
+> = GeneratedRelationshipTargetOr<
+	TSchema,
+	TFieldName,
+	TSchema['fields'][TFieldName] extends PointerField<infer TTarget>
 		? TTarget
 		: never
-	: never
+>
 
 /** Resolves the target schema encoded by one exact relation field value. */
 export type QueryRelationTargetSchema<
 	TSchema extends SchemaDefinition,
 	TFieldName extends QueryRelationFieldName<TSchema>,
-> =
+> = GeneratedRelationshipTargetOr<
+	TSchema,
+	TFieldName,
 	TSchema['fields'][TFieldName] extends RelationField<infer TTarget>
 		? TTarget
 		: never
+>
 
 /** Resolves the target schema encoded by any includable relationship field. */
 export type QueryInclusionTargetSchema<
 	TSchema extends SchemaDefinition,
 	TFieldName extends QueryIncludableFieldName<TSchema>,
 > =
-	TSchema['fields'][TFieldName] extends PointerField<infer TTarget>
-		? TTarget
-		: TSchema['fields'][TFieldName] extends RelationField<infer TTarget>
-			? TTarget
+	TFieldName extends QueryPointerFieldName<TSchema>
+		? QueryPointerTargetSchema<TSchema, TFieldName>
+		: TFieldName extends QueryRelationFieldName<TSchema>
+			? QueryRelationTargetSchema<TSchema, TFieldName>
 			: never
 
 /** Describes one caller-owned inclusion before immutable normalization. */

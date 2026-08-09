@@ -1,4 +1,8 @@
-import type { CompiledSchemaRegistry, SchemaRegistry } from '../schema/index.js'
+import type {
+	CompiledSchemaRegistry,
+	OwnedFieldBuilderMethod,
+	SchemaRegistry,
+} from '../schema/index.js'
 import {
 	assertNonEmptyString,
 	immutableArray,
@@ -24,6 +28,9 @@ import {
 	ServiceRegistry,
 	type PluginServiceRegistry,
 } from '../services/service-registry.js'
+
+const emptyFieldBuilderMethods: readonly OwnedFieldBuilderMethod[] =
+	immutableArray([])
 
 /** Records immutable setup metadata together with the plugin that contributed it. */
 export interface PluginContribution {
@@ -224,6 +231,8 @@ export interface PluginContributionRegistries {
 /** Supplies one plugin with application state and owner-bound contribution views. */
 export interface PluginSetupContext {
 	readonly schemas: CompiledSchemaRegistry
+	/** Exposes the compiled application-local FieldBuilder method graph to tooling plugins. */
+	readonly fieldBuilderMethods: readonly OwnedFieldBuilderMethod[]
 	readonly services: PluginServiceRegistry
 	readonly registries: PluginContributionRegistries
 	/** Registers native Access policies with ownership fixed to this plugin. */
@@ -261,6 +270,8 @@ export class PluginSetupRegistries {
 	constructor(
 		readonly schemas: SchemaRegistry,
 		services: ServiceRegistry = new ServiceRegistry(),
+		readonly fieldBuilderMethods: () => readonly OwnedFieldBuilderMethod[] = () =>
+			emptyFieldBuilderMethods,
 	) {
 		this.services = services
 		this.#contributionRegistries = immutableRecord({
@@ -344,6 +355,7 @@ export class PluginSetupRegistries {
 
 		const context = immutableRecord({
 			schemas: this.schemas,
+			fieldBuilderMethods: this.fieldBuilderMethods(),
 			services: this.services.forPlugin(pluginName),
 			access: createPluginAccessRegistry({
 				isOpen: (): boolean => this.#setupOpen,

@@ -1,14 +1,14 @@
-import { Schema, intField, stringField } from '../../schema/index.js'
+import { Schema } from '../../schema/index.js'
 import { expect, expectTypeOf, test } from 'vitest'
 
 import { QueryBuilder, type QueryScope } from '../index.js'
 
 const postSchema = Schema.define({
 	className: 'Post',
-	fields: {
-		title: stringField(),
-		views: intField(),
-	},
+	fields: (field) => ({
+		title: field.string(),
+		views: field.int(),
+	}),
 })
 
 test('preserves exact schema and projection through reusable scopes', () => {
@@ -26,7 +26,7 @@ test('preserves exact schema and projection through reusable scopes', () => {
 
 	const commentSchema = Schema.define({
 		className: 'Comment',
-		fields: { body: stringField() },
+		fields: (field) => ({ body: field.string() }),
 	})
 	const comments: QueryScope<typeof commentSchema> = (query) =>
 		query.where((where) => where.contains('body', 'typed'))

@@ -127,16 +127,18 @@ describe('field Access declarations', () => {
 	it('keeps field Access outside compiled validation plans', () => {
 		const plain = Schema.define({
 			className: 'PlainFieldAccess',
-			fields: { title: stringField({ validation: { required: true } }) },
+			fields: (field) => ({
+				title: field.string({ validation: { required: true } }),
+			}),
 		})
 		const protectedSchema = Schema.define({
 			className: 'ProtectedFieldAccess',
-			fields: {
-				title: stringField({
+			fields: (field) => ({
+				title: field.string({
 					access: { read: false },
 					validation: { required: true },
 				}),
-			},
+			}),
 		})
 
 		expect(

@@ -12,19 +12,19 @@ import { RoleSchema, hasRole, rolesPlugin } from '@ultimabase/roles-plugin'
 
 const User = Schema.define({
 	className: 'User',
-	fields(field) {
-		field.string('email', { validation: { required: true } })
-	},
+	fields: (field) => ({
+		email: field.string({ validation: { required: true } }),
+	}),
 })
 
 const AppRole = RoleSchema.define({
 	className: 'Role',
 	members: { schema: User },
 	deletion: { references: 'fail' },
-	fields(field) {
-		field.string('description')
-		field.int('priority', { default: 0 })
-	},
+	fields: (field) => ({
+		description: field.string(),
+		priority: field.int({ default: 0 }),
+	}),
 	access: {
 		read: true,
 		create: ({ context }) => context.access.mode === 'master',
@@ -40,9 +40,9 @@ const Post = Schema.define({
 	access: {
 		update: hasRole(EditorReference),
 	},
-	fields(field) {
-		field.string('title')
-	},
+	fields: (field) => ({
+		title: field.string(),
+	}),
 })
 
 const ultimabase = new UltimaBase({

@@ -1,13 +1,13 @@
-import { Schema, stringField } from '../../schema/index.js'
+import { Schema } from '../../schema/index.js'
 import { describe, expect, it } from 'vitest'
 
 import { normalizeQueryCursorOrdering } from './ordering.js'
 
 const postSchema = Schema.define({
 	className: 'Post',
-	fields: {
-		title: stringField(),
-	},
+	fields: (field) => ({
+		title: field.string(),
+	}),
 })
 
 describe('normalizeQueryCursorOrdering', () => {

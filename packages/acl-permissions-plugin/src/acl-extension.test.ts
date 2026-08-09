@@ -1,8 +1,4 @@
-import {
-	getPluginFieldStorageCodec,
-	Schema,
-	stringField,
-} from '@ultimabase/core'
+import { getPluginFieldStorageCodec, Schema } from '@ultimabase/core'
 import { describe, expect, it, vi } from 'vitest'
 
 import {
@@ -19,7 +15,7 @@ describe('acl schema extension', () => {
 		const extension = acl()
 		const schema = Schema.define({
 			className: 'ProtectedPost',
-			fields: { title: stringField() },
+			fields: (field) => ({ title: field.string() }),
 			extensions: [extension],
 		})
 
@@ -94,7 +90,7 @@ describe('acl schema extension', () => {
 		expect(() =>
 			Schema.define({
 				className: 'InvalidProtectedPost',
-				fields: { acl: stringField() },
+				fields: (field) => ({ acl: field.string() }),
 				extensions: [acl()],
 			}),
 		).toThrow(new TypeError('Reserved schema extension field: acl'))

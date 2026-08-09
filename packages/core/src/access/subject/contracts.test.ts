@@ -14,10 +14,13 @@ import {
 	resolveAccessRoleReference,
 } from './contracts.js'
 
-const Principal = Schema.define({ className: 'AccessPrincipal', fields: {} })
+const Principal = Schema.define({
+	className: 'AccessPrincipal',
+	fields: () => ({}),
+})
 const ForeignPrincipal = Schema.define({
 	className: 'AccessPrincipal',
-	fields: {},
+	fields: () => ({}),
 })
 const principal = Principal.pointer('principal-id')
 const principalValue = new RequestContextValue<string>(

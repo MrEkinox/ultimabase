@@ -1,4 +1,4 @@
-import { Schema, stringField } from '../../schema/index.js'
+import { Schema } from '../../schema/index.js'
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -11,7 +11,9 @@ import {
 
 const articleSchema = Schema.define({
 	className: 'HookDefinitionArticle',
-	fields: { title: stringField({ validation: { required: true } }) },
+	fields: (field) => ({
+		title: field.string({ validation: { required: true } }),
+	}),
 })
 
 describe('runtime contribution definitions', () => {

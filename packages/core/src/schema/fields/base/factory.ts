@@ -232,7 +232,7 @@ export interface CompactScalarFieldBuilderMethod<
 	 *
 	 * @param name Stable logical field name within its containing schema or object.
 	 * @param options Existing factory options, including validation, Access, and hooks.
-	 * @example `field.string('title', { default: 'Untitled' })`
+	 * @example `field.string({ default: 'Untitled' })`
 	 */
 	<
 		const TRequired extends boolean = false,
@@ -255,7 +255,7 @@ export interface CompactScalarFieldBuilderMethod<
 	 *
 	 * @param name Stable logical field name within its containing schema or object.
 	 * @param options Existing factory options, including validation, Access, and hooks.
-	 * @example `field.string('title')`
+	 * @example `field.string()`
 	 */
 	<
 		const TRequired extends boolean = false,
@@ -361,7 +361,7 @@ export interface GeneratedCompactScalarFieldBuilderMethod<
 	 *
 	 * @param name Stable logical field name within its containing schema or object.
 	 * @param options Existing factory options, including validation, Access, and hooks.
-	 * @example `field.int('views', { default: 0 })`
+	 * @example `field.int({ default: 0 })`
 	 */
 	<
 		const TRequired extends boolean = false,
@@ -394,7 +394,7 @@ export interface GeneratedCompactScalarFieldBuilderMethod<
 	 *
 	 * @param name Stable logical field name within its containing schema or object.
 	 * @param options Existing factory options, including validation, Access, and hooks.
-	 * @example `field.int('sequence', { autoIncrement: true })`
+	 * @example `field.int({ autoIncrement: true })`
 	 */
 	<
 		const TRequired extends boolean = false,

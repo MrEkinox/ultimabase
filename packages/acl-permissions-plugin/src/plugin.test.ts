@@ -43,7 +43,9 @@ const masterContext = Object.freeze({
 }) as unknown as HookContext
 const ProtectedPost = Schema.define({
 	className: 'ProtectedPluginPost',
-	fields: { title: stringField({ validation: { required: true } }) },
+	fields: (field) => ({
+		title: field.string({ validation: { required: true } }),
+	}),
 	extensions: [acl()],
 })
 const protectedPostNode = new QueryBuilder(ProtectedPost).ast.schema
@@ -254,7 +256,7 @@ describe('aclPlugin create input resolution', () => {
 	it('adds private row constraints, hides ACL output, and resolves the principal once', async () => {
 		const Principal = Schema.define({
 			className: 'ACLPluginPrincipal',
-			fields: {},
+			fields: () => ({}),
 		})
 		const currentPrincipal = new Pointer(
 			Principal,
@@ -371,7 +373,7 @@ describe('aclPlugin create input resolution', () => {
 	it('requires a provider during setup for statically declared role grants', async () => {
 		const StaticRolePost = Schema.define({
 			className: 'ACLStaticRoleRequirementPost',
-			fields: { title: stringField() },
+			fields: (field) => ({ title: field.string() }),
 			extensions: [
 				acl({
 					default: new ACL().grantRole(
@@ -430,7 +432,7 @@ describe('aclPlugin create input resolution', () => {
 		)
 		const DynamicRolePost = Schema.define({
 			className: 'ACLDynamicRoleRequirementPost',
-			fields: { title: stringField() },
+			fields: (field) => ({ title: field.string() }),
 			extensions: [
 				acl({ default: () => new ACL().grantRole(dynamicRole, 'read') }),
 			],
@@ -506,7 +508,9 @@ describe('aclPlugin create input resolution', () => {
 		const extension = acl()
 		const PrivatePost = Schema.define({
 			className: 'ACLPrivateContextualPost',
-			fields: { title: stringField({ validation: { required: true } }) },
+			fields: (field) => ({
+				title: field.string({ validation: { required: true } }),
+			}),
 			extensions: [privateExtension, extension],
 		})
 		const defaultFactory = vi.fn(({ data }: ACLDefaultInput) =>
@@ -571,7 +575,7 @@ describe('aclPlugin create input resolution', () => {
 	it('checks static and asynchronous defaults before persistence', async () => {
 		const Principal = Schema.define({
 			className: 'ACLDefaultLimitPrincipal',
-			fields: {},
+			fields: () => ({}),
 		})
 		const oversized = new ACL()
 			.grantPrincipal(Principal.pointer('first'), 'read')
@@ -612,14 +616,16 @@ describe('aclPlugin create input resolution', () => {
 	it('rolls back oversized batches and honors a wider schema override', async () => {
 		const Principal = Schema.define({
 			className: 'ACLBatchLimitPrincipal',
-			fields: {},
+			fields: () => ({}),
 		})
 		const twoPrincipals = new ACL()
 			.grantPrincipal(Principal.pointer('first'), 'read')
 			.grantPrincipal(Principal.pointer('second'), 'read')
 		const BatchPost = Schema.define({
 			className: 'ACLBatchLimitPost',
-			fields: { title: stringField({ validation: { required: true } }) },
+			fields: (field) => ({
+				title: field.string({ validation: { required: true } }),
+			}),
 			extensions: [
 				acl({
 					default: ({ data }) => {
@@ -637,7 +643,9 @@ describe('aclPlugin create input resolution', () => {
 		})
 		const OverridePost = Schema.define({
 			className: 'ACLSchemaLimitOverridePost',
-			fields: { title: stringField({ validation: { required: true } }) },
+			fields: (field) => ({
+				title: field.string({ validation: { required: true } }),
+			}),
 			extensions: [
 				acl({
 					default: twoPrincipals,
@@ -805,7 +813,7 @@ describe('aclPlugin create input resolution', () => {
 	it('applies entry limits to master create and update resolution', async () => {
 		const Principal = Schema.define({
 			className: 'ACLMasterLimitPrincipal',
-			fields: {},
+			fields: () => ({}),
 		})
 		const oversized = new ACL()
 			.grantPrincipal(Principal.pointer('first'), 'read')

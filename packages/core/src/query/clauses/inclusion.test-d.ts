@@ -1,9 +1,4 @@
-import {
-	pointerField,
-	relationField,
-	Schema,
-	stringField,
-} from '../../schema/index.js'
+import { Schema } from '../../schema/index.js'
 import { expectTypeOf, test } from 'vitest'
 
 import { QueryBuilder } from '../query/query.js'
@@ -15,18 +10,20 @@ import {
 
 const userSchema = Schema.define({
 	className: 'TypedIncludedUser',
-	fields: { name: stringField() },
+	fields: (field) => ({ name: field.string() }),
 })
 const postSchema = Schema.define({
 	className: 'TypedIncludedPost',
-	fields: {
-		author: pointerField({ target: () => userSchema }),
-		title: stringField(),
-	},
+	fields: (field) => ({
+		author: field.pointer({ target: () => userSchema }),
+		title: field.string(),
+	}),
 })
 const teamSchema = Schema.define({
 	className: 'TypedIncludedTeam',
-	fields: { members: relationField({ target: () => userSchema }) },
+	fields: (field) => ({
+		members: field.relation({ target: () => userSchema }),
+	}),
 })
 
 test('correlates pointer keys with their exact target query', () => {

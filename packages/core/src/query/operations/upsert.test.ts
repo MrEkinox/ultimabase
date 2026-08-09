@@ -1,4 +1,4 @@
-import { Schema, intField, stringField } from '../../schema/index.js'
+import { Schema } from '../../schema/index.js'
 import { describe, expect, it } from 'vitest'
 
 import { QueryBuilder } from '../query/query.js'
@@ -13,18 +13,18 @@ import {
 
 const accountSchema = Schema.define({
 	className: 'UpsertAccount',
-	fields: {
-		email: stringField({ indexed: 'unique' }),
-		tenantId: stringField(),
-		handle: stringField(),
-		visits: intField({ default: 0 }),
-	},
+	fields: (field) => ({
+		email: field.string({ indexed: 'unique' }),
+		tenantId: field.string(),
+		handle: field.string(),
+		visits: field.int({ default: 0 }),
+	}),
 	indexes: [{ fields: ['tenantId', 'handle'], unique: true }],
 })
 
 const foreignSchema = Schema.define({
 	className: 'ForeignAccount',
-	fields: { email: stringField({ indexed: 'unique' }) },
+	fields: (field) => ({ email: field.string({ indexed: 'unique' }) }),
 })
 
 const createInput = { email: 'dev@ultimabase.dev' }

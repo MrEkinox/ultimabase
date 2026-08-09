@@ -1,14 +1,14 @@
-import { booleanField, Schema, stringField } from '../../schema/index.js'
+import { Schema } from '../../schema/index.js'
 import { describe, expect, it } from 'vitest'
 
 import { createQueryAst } from './factory.js'
 
 const postSchema = Schema.define({
 	className: 'Post',
-	fields: {
-		title: stringField(),
-		published: booleanField({ default: false }),
-	},
+	fields: (field) => ({
+		title: field.string(),
+		published: field.boolean({ default: false }),
+	}),
 })
 
 describe('createQueryAst', () => {

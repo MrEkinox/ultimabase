@@ -1,4 +1,4 @@
-import { SchemaRegistry, Schema, stringField } from '../schema/index.js'
+import { SchemaRegistry, Schema } from '../schema/index.js'
 import { describe, expect, it } from 'vitest'
 
 import { createServiceToken } from '../services/service-token.js'
@@ -10,7 +10,7 @@ import {
 
 const applicationSchema = Schema.define({
 	className: 'ApplicationFixture',
-	fields: { name: stringField() },
+	fields: (field) => ({ name: field.string() }),
 })
 
 describe('FrameworkApplication', () => {
@@ -18,7 +18,7 @@ describe('FrameworkApplication', () => {
 		let setupCalls = 0
 		const StaticSchema = Schema.define({
 			className: 'StaticCompilationOnly',
-			fields: { title: stringField() },
+			fields: (field) => ({ title: field.string() }),
 		})
 		const application = new FrameworkApplication({
 			plugins: [
@@ -39,26 +39,18 @@ describe('FrameworkApplication', () => {
 		expect(application.state).toBe('idle')
 	})
 
-	it('retains one static compilation failure without replaying declarations', () => {
+	it('reports one declaration failure without replaying its callback', () => {
 		let declarationCalls = 0
-		const Invalid = Schema.define({
-			className: 'FailedStaticCompilation',
-			fields() {
-				declarationCalls += 1
-				throw new TypeError('fixture static compilation failed')
-			},
-		})
-		const application = new FrameworkApplication({
-			plugins: [],
-			schemas: [Invalid],
-		})
 
-		expect(() => application.compileSchemas()).toThrow(
-			expect.objectContaining({
-				cause: new TypeError('fixture static compilation failed'),
+		expect(() =>
+			Schema.define({
+				className: 'FailedStaticCompilation',
+				fields() {
+					declarationCalls += 1
+					throw new TypeError('fixture static compilation failed')
+				},
 			}),
-		)
-		expect(() => application.compileSchemas()).toThrow(
+		).toThrow(
 			expect.objectContaining({
 				cause: new TypeError('fixture static compilation failed'),
 			}),
@@ -231,11 +223,11 @@ describe('FrameworkApplication', () => {
 	it('checks schema ownership by exact application identity', () => {
 		const matchingClassSchema = Schema.define({
 			className: 'ApplicationFixture',
-			fields: { name: stringField() },
+			fields: (field) => ({ name: field.string() }),
 		})
 		const unknownClassSchema = Schema.define({
 			className: 'UnknownFixture',
-			fields: { name: stringField() },
+			fields: (field) => ({ name: field.string() }),
 		})
 		const application = new FrameworkApplication({
 			schemas: [applicationSchema],

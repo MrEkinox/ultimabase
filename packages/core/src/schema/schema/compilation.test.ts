@@ -2,9 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import { createApplication, definePlugin } from '../../foundation.js'
 import {
-	pointerField,
 	Schema,
-	SchemaCompilationError,
 	SchemaRegistry,
 	stringField,
 	type SchemaDefinition,
@@ -12,17 +10,16 @@ import {
 } from '../index.js'
 
 describe('deferred schema compilation', () => {
-	it('keeps field callbacks unresolved until application compilation', async () => {
+	it('captures field callbacks once and materializes Core fields immediately', async () => {
 		const events: string[] = []
 		let callbackCalls = 0
 		const DeferredPost = Schema.define({
 			className: 'DeferredPost',
-			fields: () => {
+			fields: (field) => {
 				callbackCalls += 1
 				events.push('fields')
-
 				return {
-					title: stringField({ validation: { required: true } }),
+					title: field.string({ validation: { required: true } }),
 				}
 			},
 			indexes: [{ fields: ['title', 'createdAt'] }],
@@ -40,16 +37,11 @@ describe('deferred schema compilation', () => {
 			},
 		})
 
-		expect(callbackCalls).toBe(0)
+		expect(callbackCalls).toBe(1)
 		expect(DeferredPost.className).toBe('DeferredPost')
-		expect(() => DeferredPost.fields).toThrow(
-			expect.objectContaining({
-				code: 'SCHEMA_COMPILATION_FAILED',
-				reason: 'not-compiled',
-			}),
-		)
-		expect(() => new DeferredPost({ title: 'Before compilation' })).toThrow(
-			SchemaCompilationError,
+		expect(DeferredPost.fields.title.kind).toBe('string')
+		expect(new DeferredPost({ title: 'Before compilation' }).title).toBe(
+			'Before compilation',
 		)
 
 		const application = await createApplication({
@@ -70,35 +62,27 @@ describe('deferred schema compilation', () => {
 		await application.dispose()
 	})
 
-	it('publishes no partial schema when another callback fails', async () => {
+	it('rejects an invalid callback without affecting prior declarations', () => {
 		const First = Schema.define({
 			className: 'AtomicFirst',
-			fields: () => ({ title: stringField() }),
+			fields: (field) => ({ title: field.string() }),
 		})
-		const Invalid = Schema.define({
-			className: 'AtomicInvalid',
-			fields: () => 'invalid' as unknown as SchemaFields,
-		})
-
-		await expect(
-			createApplication({ plugins: [], schemas: [First, Invalid] }),
-		).rejects.toMatchObject({
-			className: 'AtomicInvalid',
-			reason: 'invalid-result',
-		})
-		expect(() => First.definition).toThrow(
-			expect.objectContaining({ reason: 'not-compiled' }),
-		)
+		expect(() =>
+			Schema.define({
+				className: 'AtomicInvalid',
+				fields: () => 'invalid' as unknown as SchemaFields,
+			}),
+		).toThrow(new TypeError('AtomicInvalid.fields must return a field map'))
+		expect(First.fields.title.kind).toBe('string')
 	})
 
-	it('recompiles a shared class per application and rejects incompatible results', async () => {
+	it('reuses one captured declaration across applications', async () => {
 		let callbackCalls = 0
 		let incompatible = false
 		const Shared = Schema.define({
 			className: 'SharedDeferredSchema',
 			fields: () => {
 				callbackCalls += 1
-
 				return incompatible
 					? { changed: stringField() }
 					: { title: stringField() }
@@ -109,32 +93,27 @@ describe('deferred schema compilation', () => {
 		const canonicalDefinition = Shared.definition
 		const second = await createApplication({ plugins: [], schemas: [Shared] })
 
-		expect(callbackCalls).toBe(2)
+		expect(callbackCalls).toBe(1)
 		expect(Shared.definition).toBe(canonicalDefinition)
 
 		incompatible = true
-		await expect(
-			createApplication({ plugins: [], schemas: [Shared] }),
-		).rejects.toMatchObject({
-			className: 'SharedDeferredSchema',
-			reason: 'incompatible-definition',
-		})
-		expect(callbackCalls).toBe(3)
+		const third = await createApplication({ plugins: [], schemas: [Shared] })
+		expect(callbackCalls).toBe(1)
 		expect(Shared.fields).toHaveProperty('title')
 		expect(Shared.fields).not.toHaveProperty('changed')
 
 		await first.dispose()
 		await second.dispose()
+		await third.dispose()
 	})
 
 	it('executes one callback once when one registry is compiled repeatedly', () => {
 		let callbackCalls = 0
 		const Deferred = Schema.define({
 			className: 'RepeatedDeferredSchema',
-			fields: () => {
+			fields: (field) => {
 				callbackCalls += 1
-
-				return { title: stringField() }
+				return { title: field.string() }
 			},
 		})
 		const registry = new SchemaRegistry([Deferred])
@@ -152,15 +131,15 @@ describe('deferred schema compilation', () => {
 		}
 		const Left: SchemaDefinition = Schema.define({
 			className: 'DeferredLeft',
-			fields: () => ({
+			fields: (field) => ({
 				...leftFields,
-				right: pointerField({ target: () => Right }),
+				right: field.pointer({ target: () => Right }),
 			}),
 		})
 		const Right: SchemaDefinition = Schema.define({
 			className: 'DeferredRight',
-			fields: () => ({
-				left: pointerField({ target: () => Left }),
+			fields: (field) => ({
+				left: field.pointer({ target: () => Left }),
 			}),
 		})
 		const registry = new SchemaRegistry([Left, Right])
@@ -178,7 +157,9 @@ describe('deferred schema compilation', () => {
 	it('keeps object-shaped field maps as temporary immediate compatibility', () => {
 		const Legacy = Schema.define({
 			className: 'LegacyImmediateSchema',
-			fields: { title: stringField({ validation: { required: true } }) },
+			fields: (field) => ({
+				title: field.string({ validation: { required: true } }),
+			}),
 		})
 
 		expect(Legacy.fields.title.kind).toBe('string')

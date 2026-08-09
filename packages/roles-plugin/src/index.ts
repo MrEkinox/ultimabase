@@ -39,7 +39,6 @@ export type {
 	RoleDeletionOptions,
 	RoleMemberOptions,
 	RoleReferenceDeletionPolicy,
-	RoleSchemaBuilderOptions,
 	RoleSchemaClass,
 	RoleSchemaFields,
 	RoleSchemaOptions,

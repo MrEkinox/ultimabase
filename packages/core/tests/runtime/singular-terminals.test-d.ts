@@ -1,8 +1,6 @@
 import {
 	increment,
-	intField,
 	QueryBuilder,
-	stringField,
 	Schema,
 	type InferQueryResult,
 	type OperationOptions,
@@ -13,10 +11,10 @@ import { expectTypeOf, test } from 'vitest'
 
 const articleSchema = Schema.define({
 	className: 'TypedTerminalArticle',
-	fields: {
-		title: stringField({ validation: { required: true } }),
-		views: intField(),
-	},
+	fields: (field) => ({
+		title: field.string({ validation: { required: true } }),
+		views: field.int(),
+	}),
 })
 
 declare const ultimabase: UltimaBase<

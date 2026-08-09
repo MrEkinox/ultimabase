@@ -6,7 +6,6 @@ import { createLanguageService } from '../../../tooling/vitest/typescript-langua
 const methodMarker = '/* vector-method */'
 const hoverMarker = '/* vector-hover */'
 const optionsMarker = '/* vector-options */'
-const nameMarker = '/* vector-name */'
 const sourceWithMarkers = `
 import type { FieldBuilder } from '@ultimabase/core'
 import type { VectorFieldBuilderMethod } from '../src/index.js'
@@ -14,11 +13,10 @@ import type { VectorFieldBuilderMethod } from '../src/index.js'
 declare const field: FieldBuilder & { readonly vector: VectorFieldBuilderMethod }
 declare const validOptions: { readonly dimensions: 3 }
 
-field.${methodMarker}vector('first', { dimensions: 3 })
-field.${hoverMarker}vector('embedding', { ${optionsMarker}...validOptions })
-field.vector(${nameMarker} 'signatureName', { dimensions: 3 })
+field.${methodMarker}vector({ dimensions: 3 })
+field.${hoverMarker}vector({ ${optionsMarker}...validOptions })
 `
-const markers = [methodMarker, hoverMarker, optionsMarker, nameMarker] as const
+const markers = [methodMarker, hoverMarker, optionsMarker] as const
 const positions = new Map<string, number>()
 let source = sourceWithMarkers
 
@@ -96,18 +94,6 @@ describe('pg-vector FieldBuilder IntelliSense', () => {
 		expect(optionNames).toContain('dimensions')
 		expect(optionNames).toContain('validation')
 		expect(optionNames).toContain('hooks')
-
-		const signature = service.getSignatureHelpItems(
-			fileName,
-			readPosition(nameMarker),
-			undefined,
-		)
-		const nameParameter =
-			signature?.items[signature.selectedItemIndex]?.parameters[0]
-
-		expect(ts.displayPartsToString(nameParameter?.documentation)).toContain(
-			'Stable logical field name',
-		)
 	})
 
 	it('has no semantic diagnostics', () => {

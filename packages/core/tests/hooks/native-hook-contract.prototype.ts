@@ -313,12 +313,12 @@ const permissionsExtension = defineSchemaExtension('fixture.permissions', {
 
 export const PostSchema = new PrototypeSchema({
 	className: 'Post',
-	fields: {
+	fields: () => ({
 		email: emailField,
 		status: statusField,
 		title: coreStringField({ validation: { required: true } }),
 		views: coreIntField(),
-	},
+	}),
 	extensions: [permissionsExtension],
 	hooks: {
 		resolveInput: {
@@ -352,11 +352,11 @@ export const PostSchema = new PrototypeSchema({
 // Completion-only declarations exercise the contextual option surfaces.
 new PrototypeSchema({
 	/* completion:schema-options */ className: 'CompletionOptions',
-	fields: {},
+	fields: () => ({}),
 })
 new PrototypeSchema({
 	className: 'Completion',
-	fields: {},
+	fields: () => ({}),
 	hooks: {/* completion:schema-hooks */},
 })
 stringField({/* completion:field-options */})

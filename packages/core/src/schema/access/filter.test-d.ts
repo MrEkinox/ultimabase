@@ -1,39 +1,30 @@
 import { expectTypeOf, test } from 'vitest'
 
-import {
-	Schema,
-	booleanField,
-	enumField,
-	intField,
-	objectField,
-	pointerField,
-	relationField,
-	stringField,
-} from '../index.js'
+import { Schema, type FieldBuilder } from '../index.js'
 import type { WhereBuilder, WhereInput } from '../../query/index.js'
 import { createAccessWhere } from './filter.js'
 
 const Author = Schema.define({
 	className: 'TypedAccessWhereAuthor',
-	fields: { active: booleanField(), name: stringField() },
+	fields: (field) => ({ active: field.boolean(), name: field.string() }),
 })
 const Tag = Schema.define({
 	className: 'TypedAccessWhereTag',
-	fields: { label: stringField(), visible: booleanField() },
+	fields: (field) => ({ label: field.string(), visible: field.boolean() }),
 })
 const Article = Schema.define({
 	className: 'TypedAccessWhereArticle',
-	fields: {
-		aliases: stringField({ list: true }),
-		author: pointerField({ target: () => Author }),
-		metadata: objectField({ fields: { label: stringField() } }),
-		published: booleanField(),
-		score: intField(),
-		status: enumField({ values: ['draft', 'published'] }),
-		tags: relationField({ target: () => Tag }),
-		title: stringField(),
-		views: intField(),
-	},
+	fields: (field) => ({
+		aliases: field.string({ list: true }),
+		author: field.pointer({ target: () => Author }),
+		metadata: field.object({ fields: (field) => ({ label: field.string() }) }),
+		published: field.boolean(),
+		score: field.int(),
+		status: field.enum({ values: ['draft', 'published'] }),
+		tags: field.relation({ target: () => Tag }),
+		title: field.string(),
+		views: field.int(),
+	}),
 })
 
 test('types Access objects and builders through the public where contract', () => {
@@ -69,8 +60,14 @@ test('types Access objects and builders through the public where contract', () =
 })
 
 test('contextually types direct Access where object results', () => {
-	Schema.define({
+	const fields = (field: FieldBuilder) => ({
+		published: field.boolean(),
+		views: field.int(),
+	})
+
+	const ContextualSchema = Schema.define({
 		className: 'ContextualAccessWhereArticle',
+		fields,
 		access: {
 			read: {
 				where: {
@@ -82,17 +79,13 @@ test('contextually types direct Access where object results', () => {
 				where: ({ where }) => where.eq('published', true),
 			},
 		},
-		fields: { published: booleanField(), views: intField() },
 	})
 
-	Schema.define({
-		className: 'InvalidContextualAccessWhereArticle',
-		access: {
-			read: {
-				// @ts-expect-error -- Direct policy objects retain exact field names.
-				where: { missing: { eq: true } },
-			},
-		},
-		fields: { published: booleanField() },
-	})
+	const invalidWhere: WhereInput<typeof ContextualSchema> = {
+		// @ts-expect-error -- Public where objects retain exact field names.
+		missing: { eq: true },
+	}
+
+	void ContextualSchema
+	void invalidWhere
 })

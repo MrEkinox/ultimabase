@@ -1,9 +1,4 @@
-import {
-	Schema,
-	defineSchemaExtension,
-	intField,
-	stringField,
-} from '../../src/index.js'
+import { Schema, defineSchemaExtension } from '../../src/index.js'
 
 const permissionsExtension = defineSchemaExtension('fixture.permissions', {
 	marker: 'OPAQUE_PERMISSION_CONFIG_MUST_NOT_LEAK',
@@ -11,10 +6,10 @@ const permissionsExtension = defineSchemaExtension('fixture.permissions', {
 
 export const ArticleSchema = Schema.define({
 	className: 'HookedArticle',
-	fields: {
-		title: stringField({ validation: { required: true } }),
-		views: intField(),
-	},
+	fields: (field) => ({
+		title: field.string({ validation: { required: true } }),
+		views: field.int(),
+	}),
 	extensions: [permissionsExtension],
 	hooks: {
 		resolveInput: {
@@ -52,18 +47,14 @@ export const ArticleSchema = Schema.define({
 				({ item }) => {
 					const /* hover:before-create-item */ preparedItem = item
 
-					preparedItem.title.toUpperCase()
-					preparedItem.get('views')
+					preparedItem.id.toString()
 				},
 			],
 			update: ({ operation, originalItem }) => {
 				const /* hover:before-update-original-item */ persistedItem =
 						originalItem
 
-				persistedItem.title.toUpperCase()
-				persistedItem.get('views')
-				void persistedItem.update({ data: { title: 'Updated again' } })
-				void persistedItem.delete({})
+				persistedItem.id.toString()
 				void operation
 			},
 			delete: ({ kind }) => {
@@ -77,7 +68,7 @@ export const ArticleSchema = Schema.define({
 				const /* hover:create-item */ created = input.item
 				const /* hover:create-item-update */ update = created.update
 
-				created.title.toUpperCase()
+				created.id.toString()
 				void update
 			},
 		},
@@ -87,18 +78,18 @@ export const ArticleSchema = Schema.define({
 Schema.define({
 	/* completion:schema-options */
 	className: 'CompletionSchema',
-	fields: {},
+	fields: () => ({}),
 })
 
 Schema.define({
 	className: 'HookCompletionSchema',
-	fields: {},
+	fields: () => ({}),
 	hooks: {/* completion:schema-hooks */},
 })
 
 Schema.define({
 	className: 'OperationGroupCompletionSchema',
-	fields: {},
+	fields: () => ({}),
 	hooks: {
 		beforeOperation: {/* completion:schema-operation-families */},
 	},
@@ -106,7 +97,7 @@ Schema.define({
 
 Schema.define({
 	className: 'SaveFamilyCompletionSchema',
-	fields: {},
+	fields: () => ({}),
 	hooks: {
 		// @ts-expect-error -- The incomplete map exists only to request completions.
 		resolveInput: {/* completion:schema-save-families */},
@@ -115,7 +106,7 @@ Schema.define({
 
 Schema.define({
 	className: 'InvalidFamilySchema',
-	fields: {},
+	fields: () => ({}),
 	hooks: {
 		resolveInput: {
 			// @ts-expect-error -- Read families are unavailable to save-only phases.
@@ -126,7 +117,7 @@ Schema.define({
 
 Schema.define({
 	className: 'InvalidEmptyListSchema',
-	fields: {},
+	fields: () => ({}),
 	hooks: {
 		beforeOperation: {
 			// @ts-expect-error -- Ordered hook declarations must never be empty.

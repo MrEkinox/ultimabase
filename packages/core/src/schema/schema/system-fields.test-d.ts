@@ -20,7 +20,7 @@ type FieldsWithOption<TFields, TOption extends PropertyKey, TValue> = {
 test('exposes system values in every schema field map', () => {
 	const schema = Schema.define({
 		className: 'Post',
-		fields: {},
+		fields: () => ({}),
 	})
 
 	expectTypeOf<keyof typeof schema.fields>().toEqualTypeOf<
@@ -40,7 +40,7 @@ test('exposes system values in every schema field map', () => {
 test('marks generated and immutable fields for create and update inference', () => {
 	const schema = Schema.define({
 		className: 'Post',
-		fields: {},
+		fields: () => ({}),
 	})
 
 	// Issue 112 can derive input exclusions from metadata instead of reserved names.

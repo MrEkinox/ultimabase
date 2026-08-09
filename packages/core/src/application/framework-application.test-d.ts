@@ -1,4 +1,4 @@
-import { Schema, stringField } from '../schema/index.js'
+import { Schema } from '../schema/index.js'
 import { expectTypeOf, test } from 'vitest'
 
 import {
@@ -15,7 +15,7 @@ import {
 test('infers schemas and top-level plugin exports from application options', async () => {
 	const schema = Schema.define({
 		className: 'TypedApplication',
-		fields: { name: stringField() },
+		fields: (field) => ({ name: field.string() }),
 	})
 	const plugin = definePlugin({
 		name: 'fixture.database',

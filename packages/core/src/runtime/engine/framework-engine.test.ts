@@ -5,7 +5,7 @@ import {
 	type CreateOneOperationAst,
 	type FindManyOperationAst,
 } from '../../query/index.js'
-import { Schema, stringField } from '../../schema/index.js'
+import { Schema } from '../../schema/index.js'
 import { describe, expect, it } from 'vitest'
 
 import { RequestContext, requestSources } from '../context/request-context.js'
@@ -27,16 +27,16 @@ import { createPreparedOperationFixture } from '../../../tests/runtime/fixtures/
 
 const articleSchema = Schema.define({
 	className: 'Article',
-	fields: {
-		title: stringField({ validation: { required: true } }),
-	},
+	fields: (field) => ({
+		title: field.string({ validation: { required: true } }),
+	}),
 })
 
 const matchingClassSchema = Schema.define({
 	className: 'Article',
-	fields: {
-		title: stringField({ validation: { required: true } }),
-	},
+	fields: (field) => ({
+		title: field.string({ validation: { required: true } }),
+	}),
 })
 
 const principalValue = new RequestContextValue<string>(

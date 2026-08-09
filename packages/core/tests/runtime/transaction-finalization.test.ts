@@ -1,7 +1,6 @@
 import {
 	FrameworkApplication,
 	Schema,
-	stringField,
 	type SchemaDefinition,
 } from '../../src/index.js'
 import {
@@ -98,12 +97,12 @@ describe('native transaction hook finalization', () => {
 		const trace: string[] = []
 		const schema = Schema.define({
 			className: 'TransactionFinalizationMissingWhereTarget',
-			fields: {
-				title: stringField({
+			fields: (field) => ({
+				title: field.string({
 					indexed: 'unique',
 					validation: { required: true },
 				}),
-			},
+			}),
 			hooks: {
 				afterOperation: {
 					delete: () => {
@@ -168,9 +167,9 @@ describe('native transaction hook finalization', () => {
 		const record = createRecord(generatedIds[0], 'Commit failure')
 		const schema = Schema.define({
 			className: 'TransactionFinalizationCommitFailure',
-			fields: {
-				title: stringField({ validation: { required: true } }),
-			},
+			fields: (field) => ({
+				title: field.string({ validation: { required: true } }),
+			}),
 		})
 		const { application, request } = await createRequest(
 			schema,

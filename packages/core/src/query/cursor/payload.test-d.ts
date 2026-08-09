@@ -1,4 +1,4 @@
-import { Schema, stringField } from '../../schema/index.js'
+import { Schema } from '../../schema/index.js'
 import { expect, expectTypeOf, test } from 'vitest'
 
 import {
@@ -13,9 +13,9 @@ import {
 
 const postSchema = Schema.define({
 	className: 'Post',
-	fields: {
-		title: stringField(),
-	},
+	fields: (field) => ({
+		title: field.string(),
+	}),
 })
 
 test('keeps cursor payload fields correlated with the schema', () => {

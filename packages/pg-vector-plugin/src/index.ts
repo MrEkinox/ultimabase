@@ -83,16 +83,14 @@ export interface VectorFieldBuilderMethod {
 	/**
 	 * Declares one fixed-dimension logical vector.
 	 *
-	 * @param name Stable logical field name within its containing schema or object.
 	 * @param options Existing vector factory options with an exact dimension.
-	 * @example `field.vector('embedding', { dimensions: 1536 })`
+	 * @example `embedding: field.vector({ dimensions: 1536 })`
 	 */
 	// The callable interface preserves its public name and JSDoc in TypeScript hovers.
 	// eslint-disable-next-line @typescript-eslint/prefer-function-type
 	<const TDimensions extends number, const TOptions extends VectorFieldOptions>(
-		name: string,
 		options: VectorFieldDeclarationOptions<TOptions, TDimensions>,
-	): void
+	): ResolvedVectorField<TOptions, TDimensions>
 }
 
 /**

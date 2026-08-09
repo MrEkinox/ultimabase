@@ -1,10 +1,4 @@
-import {
-	Schema,
-	intField,
-	jsonField,
-	objectField,
-	stringField,
-} from '../../schema/index.js'
+import { Schema } from '../../schema/index.js'
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -21,17 +15,20 @@ import {
 
 const fixtureSchema = Schema.define({
 	className: 'Fixture',
-	fields: {
-		title: stringField(),
-		requiredTitle: stringField({ validation: { required: true } }),
-		count: intField(),
-		tags: stringField({ list: true }),
-		metadata: objectField({
-			fields: { aliases: stringField({ list: true }), label: stringField() },
+	fields: (field) => ({
+		title: field.string(),
+		requiredTitle: field.string({ validation: { required: true } }),
+		count: field.int(),
+		tags: field.string({ list: true }),
+		metadata: field.object({
+			fields: (field) => ({
+				aliases: field.string({ list: true }),
+				label: field.string(),
+			}),
 		}),
-		payload: jsonField(),
-		documents: jsonField({ list: true }),
-	},
+		payload: field.json(),
+		documents: field.json({ list: true }),
+	}),
 })
 
 describe('query filter factories', () => {

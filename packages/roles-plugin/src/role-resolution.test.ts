@@ -10,7 +10,7 @@ import type { RoleReferenceResolutionError } from './role-resolution.js'
 
 const RoleFixture = Schema.define({
 	className: 'ResolvedRoleFixture',
-	fields: {},
+	fields: () => ({}),
 })
 
 describe('role reference resolution', () => {

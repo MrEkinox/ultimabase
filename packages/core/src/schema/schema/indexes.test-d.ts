@@ -1,9 +1,7 @@
 import { expectTypeOf, test } from 'vitest'
 
 import {
-	relationField,
 	Schema,
-	stringField,
 	type SchemaIndexDefinition,
 	type SchemaIndexOptions,
 } from '../index.js'
@@ -11,10 +9,10 @@ import {
 test('checks composite fields and exposes one normalized index type', () => {
 	const schema = Schema.define({
 		className: 'Post',
-		fields: {
-			authorId: stringField(),
-			slug: stringField({ indexed: 'unique' }),
-		},
+		fields: (field) => ({
+			authorId: field.string(),
+			slug: field.string({ indexed: 'unique' }),
+		}),
 		indexes: [
 			{ fields: ['authorId', 'createdAt'] },
 			{ fields: ['authorId', 'slug'], unique: true },
@@ -36,14 +34,14 @@ test('checks composite fields and exposes one normalized index type', () => {
 test('rejects invalid composite declarations statically', () => {
 	const RelationTarget = Schema.define({
 		className: 'IndexRelationTarget',
-		fields: {},
+		fields: () => ({}),
 	})
 
 	Schema.define({
 		className: 'UnknownField',
-		fields: {
-			title: stringField(),
-		},
+		fields: (field) => ({
+			title: field.string(),
+		}),
 		indexes: [
 			// @ts-expect-error -- Composite index fields must exist in the schema.
 			{ fields: ['title', 'missing'] },
@@ -52,9 +50,9 @@ test('rejects invalid composite declarations statically', () => {
 
 	Schema.define({
 		className: 'ShortIndex',
-		fields: {
-			title: stringField(),
-		},
+		fields: (field) => ({
+			title: field.string(),
+		}),
 		indexes: [
 			// @ts-expect-error -- Single-field indexes belong on the field definition.
 			{ fields: ['title'] },
@@ -63,10 +61,10 @@ test('rejects invalid composite declarations statically', () => {
 
 	Schema.define({
 		className: 'InvalidUnique',
-		fields: {
-			slug: stringField(),
-			title: stringField(),
-		},
+		fields: (field) => ({
+			slug: field.string(),
+			title: field.string(),
+		}),
 		indexes: [
 			{
 				fields: ['slug', 'title'],
@@ -78,10 +76,10 @@ test('rejects invalid composite declarations statically', () => {
 
 	Schema.define({
 		className: 'RelationIndex',
-		fields: {
-			title: stringField(),
-			targets: relationField({ target: () => RelationTarget }),
-		},
+		fields: (field) => ({
+			title: field.string(),
+			targets: field.relation({ target: () => RelationTarget }),
+		}),
 		indexes: [
 			// @ts-expect-error -- Relation handles have no source-table column to index.
 			{ fields: ['title', 'targets'] },

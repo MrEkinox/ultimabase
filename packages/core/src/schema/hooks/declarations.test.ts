@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { Schema, compileValidationPlans, stringField } from '../index.js'
+import { Schema, compileValidationPlans } from '../index.js'
 import {
 	getSchemaHookDeclarations,
 	schemaHookPhases,
@@ -11,9 +11,9 @@ import { getHookHandlerEntries } from './normalization.js'
 const createSchema = (hooks?: object) =>
 	Schema.define({
 		className: 'HookedArticle',
-		fields: {
-			title: stringField({ validation: { required: true } }),
-		},
+		fields: (field) => ({
+			title: field.string({ validation: { required: true } }),
+		}),
 		// Tests deliberately cross the untrusted JavaScript declaration boundary.
 		...(hooks === undefined ? {} : { hooks }),
 	})

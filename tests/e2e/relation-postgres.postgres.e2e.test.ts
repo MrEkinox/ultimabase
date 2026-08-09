@@ -1,10 +1,9 @@
 import {
 	booleanField,
-	pointerField,
-	relationField,
 	Schema,
 	stringField,
 	UltimaBase,
+	type FieldBuilder,
 	type PointerField,
 	type RelationField,
 	type ScalarFieldInferenceState,
@@ -48,26 +47,29 @@ function resolveTag(): TagSchema {
 	return Tag
 }
 
-const Article: ArticleSchema = Schema.define({
-	className: 'RelationE2EArticle',
-	fields: {
-		tags: relationField({
-			access: {
-				read: () => {
-					relationTrace.push('article:tags:read')
-
-					return true
-				},
-				write: ({ change }) => {
-					relationTrace.push(`article:tags:update:${change.action}`)
-
-					return true
-				},
+const articleFields = (field: FieldBuilder) => ({
+	tags: field.relation({
+		access: {
+			read: () => {
+				relationTrace.push('article:tags:read')
+				return true
 			},
-			target: resolveTag,
-		}),
-		title: articleTitleField,
-	},
+			write: ({ change }) => {
+				relationTrace.push(`article:tags:update:${change.action}`)
+				return true
+			},
+		},
+		target: resolveTag,
+	}),
+	title: articleTitleField,
+})
+
+const Article = Schema.define<
+	'RelationE2EArticle',
+	ReturnType<typeof articleFields>
+>({
+	className: 'RelationE2EArticle',
+	fields: articleFields,
 	hooks: {
 		afterOperation: {
 			update: ({ operation }) => {
@@ -84,18 +86,20 @@ const Article: ArticleSchema = Schema.define({
 	},
 })
 
-const Tag: TagSchema = Schema.define({
+const tagFields = (field: FieldBuilder) => ({
+	articles: field.relation({
+		mappedBy: 'tags',
+		target: (): ArticleSchema => Article,
+	}),
+	label: tagLabelField,
+	visible: tagVisibleField,
+})
+
+const Tag = Schema.define<'RelationE2ETag', ReturnType<typeof tagFields>>({
 	className: 'RelationE2ETag',
+	fields: tagFields,
 	access: {
 		read: { where: ({ where }) => where.eq('visible', true) },
-	},
-	fields: {
-		articles: relationField({
-			mappedBy: 'tags',
-			target: (): ArticleSchema => Article,
-		}),
-		label: tagLabelField,
-		visible: tagVisibleField,
 	},
 })
 
@@ -133,54 +137,61 @@ function resolvePost(): PostSchema {
 	return Post
 }
 
-const Author: AuthorSchema = Schema.define({
+const authorFields = (field: FieldBuilder) => ({
+	name: authorNameField,
+	posts: field.relation({ mappedBy: 'author', target: resolvePost }),
+	visible: authorVisibleField,
+})
+
+const Author = Schema.define<
+	'RelationE2EAuthor',
+	ReturnType<typeof authorFields>
+>({
 	className: 'RelationE2EAuthor',
+	fields: authorFields,
 	access: {
 		read: { where: ({ where }) => where.eq('visible', true) },
 	},
-	fields: {
-		name: authorNameField,
-		posts: relationField({ mappedBy: 'author', target: resolvePost }),
-		visible: authorVisibleField,
-	},
 })
 
-const Post: PostSchema = Schema.define({
+const Post = Schema.define({
 	className: 'RelationE2EPost',
-	fields: {
-		author: pointerField({
+	fields: (field) => ({
+		author: field.pointer({
 			onDelete: 'setNull',
 			target: (): AuthorSchema => Author,
 		}),
 		title: postTitleField,
-	},
+	}),
+}) satisfies PostSchema
+
+const privateArticleFields = (field: FieldBuilder) => ({
+	tags: field.relation({
+		access: { read: false, write: true },
+		target: () => Tag,
+	}),
+	title: field.string({ validation: { required: true } }),
 })
 
 const PrivateArticle = Schema.define({
 	className: 'RelationE2EPrivateArticle',
+	fields: privateArticleFields,
 	access: {
 		read: { where: { tags: { some: { visible: { eq: true } } } } },
-	},
-	fields: {
-		tags: relationField({
-			access: { read: false, write: true },
-			target: () => Tag,
-		}),
-		title: stringField({ validation: { required: true } }),
 	},
 })
 
 const PrivatePointerPost = Schema.define({
 	className: 'RelationE2EPrivatePointerPost',
-	fields: {
-		author: pointerField({
+	fields: (field) => ({
+		author: field.pointer({
 			access: {
 				read: { orderBy: true, output: true, where: false },
 			},
 			target: () => Author,
 		}),
-		title: stringField({ validation: { required: true } }),
-	},
+		title: field.string({ validation: { required: true } }),
+	}),
 })
 
 const relationSchemas = [
@@ -630,7 +641,7 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 				await tags.findMany(
 					{
 						where: { label: { eq: 'alpha' } },
-						orderBy: [{ label: 'asc' }],
+						orderBy: { label: 'asc' },
 						limit: 1,
 						cursor: true,
 						select: { label: true },
@@ -752,7 +763,7 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 								in: ['include-alpha', 'include-zeta', 'include-hidden'],
 							},
 						},
-						orderBy: [{ label: 'desc' }],
+						orderBy: { label: 'desc' },
 						limit: 1,
 						select: { label: true },
 						include: {
@@ -803,11 +814,11 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 		const authors = await Author.findMany(
 			{
 				where: { id: { in: [author.id, otherAuthor.id] } },
-				orderBy: [{ name: 'asc' }],
+				orderBy: { name: 'asc' },
 				select: { name: true },
 				include: {
 					posts: {
-						orderBy: [{ title: 'desc' }],
+						orderBy: { title: 'desc' },
 						limit: 1,
 						offset: 1,
 						select: { title: true },

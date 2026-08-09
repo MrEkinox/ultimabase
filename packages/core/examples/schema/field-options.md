@@ -12,34 +12,34 @@ import { Schema } from '@ultimabase/core'
 
 export const ProductSchema = Schema.define({
 	className: 'Product',
-	fields(field) {
-		field.uuid('externalId', {
+	fields: (field) => ({
+		externalId: field.uuid({
 			indexed: 'unique',
 			validation: { required: true, version: 7 },
-		})
-		field.bigint('sequence', { autoIncrement: true })
-		field.string('name', {
+		}),
+		sequence: field.bigint({ autoIncrement: true }),
+		name: field.string({
 			validation: { required: true, length: { min: 1, max: 120 } },
-		})
-		field.int('stock', {
+		}),
+		stock: field.int({
 			default: 0,
 			validation: { range: { min: 0 } },
-		})
-		field.float('rating', {
+		}),
+		rating: field.float({
 			validation: {
 				finite: true,
 				range: { min: 0, max: 5 },
 			},
-		})
-		field.decimal('price', {
+		}),
+		price: field.decimal({
 			validation: {
 				required: true,
 				precision: 12,
 				scale: 2,
 				range: { min: '0.00' },
 			},
-		})
-		field.enum('status', {
+		}),
+		status: field.enum({
 			typeName: 'ProductStatus',
 			values: {
 				Draft: 'draft',
@@ -47,17 +47,17 @@ export const ProductSchema = Schema.define({
 				Archived: 'archived',
 			},
 			default: 'draft',
-		})
-		field.date('availableOn')
-		field.time('dailyCutoff', { timezone: false })
-		field.dateTime('publishedAt', { autoNow: true })
-		field.string('tags', { list: true, default: [] })
-		field.json('metadata', { default: {} })
-		field.binary('attachment', {
-			validation: { length: { max: 5_000_000 } },
-		})
-		field.boolean('isActive', { default: true })
-	},
+		}),
+		availableOn: field.date(),
+		dailyCutoff: field.time({ timezone: false }),
+		publishedAt: field.dateTime({ autoNow: true }),
+		tags: field.string({ list: true, default: [] }),
+		metadata: field.json({ default: {} }),
+		attachment: field.binary({
+			validation: { length: { max: 5000000 } },
+		}),
+		isActive: field.boolean({ default: true }),
+	}),
 	indexes: [
 		// Composite indexes may include developer and framework-owned fields.
 		{ fields: ['status', 'createdAt'] },

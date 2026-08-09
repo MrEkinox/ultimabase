@@ -5,11 +5,9 @@ import {
 	type FieldAtPath,
 	type FieldValue,
 	type GenericField,
-	objectField,
 	Schema,
 	type SchemaDefinition,
 	type SchemaFieldPath,
-	stringField,
 } from '../index.js'
 
 const customNormalizers = {
@@ -18,17 +16,17 @@ const customNormalizers = {
 
 const schema = Schema.define({
 	className: 'TypedFieldPath',
-	fields: {
-		'dotted.name': stringField(),
-		profile: objectField({
+	fields: (field) => ({
+		'dotted.name': field.string(),
+		profile: field.object({
 			list: true,
-			fields: {
-				email: stringField({ validation: { required: true } }),
+			fields: (field) => ({
+				email: field.string({ validation: { required: true } }),
 				provider: definePluginField('fixture.url', {}, customNormalizers),
-			},
+			}),
 		}),
-		title: stringField(),
-	},
+		title: field.string(),
+	}),
 })
 
 test('infers exact top-level, nested, custom, listed-object, and system paths', () => {

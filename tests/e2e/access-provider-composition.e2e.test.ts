@@ -6,7 +6,6 @@ import {
 	accessRoleResolverServiceToken,
 	databaseAdapterServiceToken,
 	definePlugin,
-	stringField,
 	type DatabaseAdapter,
 	type DatabaseMutationOperationAst,
 	type DatabaseOperationAst,
@@ -115,25 +114,25 @@ const databasePlugin = (adapter: DatabaseAdapter) =>
 
 const NativeDocument = Schema.define({
 	className: 'AccessCompositionNativeDocument',
+	fields: (field) => ({
+		secret: field.string({ access: { read: false } }),
+		title: field.string({ validation: { required: true } }),
+	}),
 	access: { read: true },
-	fields: {
-		secret: stringField({ access: { read: false } }),
-		title: stringField({ validation: { required: true } }),
-	},
 })
 
 const Principal = Schema.define({
 	className: 'AccessCompositionPrincipal',
-	fields: {},
+	fields: () => ({}),
 })
 const RoleOnly = RoleSchema.define({
 	className: 'AccessCompositionRoleOnly',
-	fields: {},
+	fields: () => ({}),
 	members: { schema: Principal },
 })
 const ACLRole = RoleSchema.define({
 	className: 'AccessCompositionACLRole',
-	fields: {},
+	fields: () => ({}),
 	members: { schema: Principal },
 	extensions: [acl()],
 })
@@ -141,13 +140,22 @@ const ACLRole = RoleSchema.define({
 const publicACL = new ACL().grantPublic('read')
 const PublicACLPost = Schema.define({
 	className: 'AccessCompositionPublicACLPost',
-	fields: { title: stringField({ validation: { required: true } }) },
+	fields: (field) => ({
+		title: field.string({ validation: { required: true } }),
+	}),
 	extensions: [acl({ default: publicACL })],
 })
 
 const roleACL = new ACL().grantRole(editor, 'read')
 const CombinedPost = Schema.define({
 	className: 'AccessCompositionPost',
+	fields: (field) => ({
+		businessScope: field.string(),
+		communityScope: field.string(),
+		nativeScope: field.string(),
+		secret: field.string({ access: { read: false } }),
+		title: field.string({ validation: { required: true } }),
+	}),
 	access: {
 		read: {
 			allow: hasRole(editor),
@@ -156,13 +164,6 @@ const CombinedPost = Schema.define({
 					.eq('nativeScope', 'native-allowed')
 					.eq('businessScope', 'business-allowed'),
 		},
-	},
-	fields: {
-		businessScope: stringField(),
-		communityScope: stringField(),
-		nativeScope: stringField(),
-		secret: stringField({ access: { read: false } }),
-		title: stringField({ validation: { required: true } }),
 	},
 	// A callback defers role discovery so this fixture can prove runtime composition.
 	extensions: [acl({ default: () => roleACL })],
@@ -275,7 +276,9 @@ const runCombinedComposition = async (
 let roleAwareBusinessHooks = 0
 const MissingRolePost = Schema.define({
 	className: 'AccessCompositionMissingRolePost',
-	fields: { title: stringField({ validation: { required: true } }) },
+	fields: (field) => ({
+		title: field.string({ validation: { required: true } }),
+	}),
 	hooks: {
 		beforeOperation: {
 			create: ({ item }) => {

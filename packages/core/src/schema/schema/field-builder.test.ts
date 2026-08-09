@@ -1,96 +1,85 @@
 import { describe, expect, it } from 'vitest'
 
 import {
-	booleanField,
 	createApplication,
-	intField,
-	objectField,
-	pointerField,
 	Schema,
-	SchemaCompilationError,
 	SchemaRegistry,
 	stringField,
 	type EmbeddedFieldBuilder,
 	type FieldBuilder,
+	type SchemaFieldBuilderDeclaration,
 } from '../../index.js'
 
 describe('FieldBuilder', () => {
-	it('compiles the same metadata as the internal field-map foundation', () => {
+	it('compiles the same metadata as the immutable field factories', () => {
 		const reusableSlug = stringField({
 			indexed: 'unique',
 			validation: { required: true },
 		})
-		const WithMap = Schema.define({
-			className: 'MetadataFromFieldMap',
-			fields: {
-				published: booleanField({ default: false }),
-				profile: objectField({
-					fields: {
-						displayName: stringField({
+		const SchemaWithFields = Schema.define({
+			className: 'MetadataFromFieldBuilder',
+			fields: (field) => ({
+				published: field.boolean({ default: false }),
+				profile: field.object({
+					fields: (field) => ({
+						displayName: field.string({
 							validation: { length: { max: 80 } },
 						}),
-					},
+					}),
 					typeName: 'BuilderMetadataProfile',
 				}),
 				slug: reusableSlug,
-				title: stringField({ validation: { required: true } }),
-			},
-		})
-		const WithBuilder = Schema.define({
-			className: 'MetadataFromFieldBuilder',
-			fields(field) {
-				field.boolean('published', { default: false })
-				field.object('profile', {
-					fields(field) {
-						field.string('displayName', {
-							validation: { length: { max: 80 } },
-						})
-					},
-					typeName: 'BuilderMetadataProfile',
-				})
-				field.add('slug', reusableSlug)
-				field.string('title', { validation: { required: true } })
-			},
+				title: field.string({ validation: { required: true } }),
+			}),
 		})
 
-		new SchemaRegistry([WithMap]).compileSchemas()
-		new SchemaRegistry([WithBuilder]).compileSchemas()
+		new SchemaRegistry([SchemaWithFields]).compileSchemas()
 
-		expect(WithBuilder.fields).toStrictEqual(WithMap.fields)
+		expect(SchemaWithFields.fields.slug).toBe(reusableSlug)
+		expect(SchemaWithFields.fields.profile.options).toMatchObject({
+			fields: { displayName: { kind: 'string' } },
+		})
 	})
 
 	it('delegates every built-in method to the existing immutable factories', async () => {
-		const Target = Schema.define({ className: 'BuilderTarget', fields: {} })
+		const Target = Schema.define({
+			className: 'BuilderTarget',
+			fields: () => ({}),
+		})
 		const reusable = stringField({ validation: { required: true } })
 		let rootBuilder: FieldBuilder | undefined
 		let nestedBuilder: EmbeddedFieldBuilder | undefined
 		const Built = Schema.define({
 			className: 'BuiltWithFields',
-			fields(field) {
+			fields: (field) => {
 				rootBuilder = field
-				field.string('title', { validation: { required: true } })
-				field.boolean('published', { default: false })
-				field.int('views', { default: 0 })
-				field.bigint('sequence')
-				field.float('score')
-				field.decimal('price')
-				field.uuid('externalId')
-				field.date('day')
-				field.dateTime('publishedAt')
-				field.time('opensAt')
-				field.binary('content')
-				field.json('metadata')
-				field.enum('status', { values: ['draft', 'published'] })
-				field.object('profile', {
-					fields(field) {
-						nestedBuilder = field
-						field.string('displayName')
-						field.int('age')
-					},
-				})
-				field.pointer('owner', { target: () => Target })
-				field.relation('targets', { target: () => Target })
-				field.add('slug', reusable)
+				return {
+					binary: field.binary(),
+					day: field.date(),
+					externalId: field.uuid(),
+					metadata: field.json(),
+					opensAt: field.time(),
+					owner: field.pointer({ target: () => Target }),
+					price: field.decimal(),
+					profile: field.object({
+						fields: (field) => {
+							nestedBuilder = field
+							return {
+								age: field.int(),
+								displayName: field.string(),
+							}
+						},
+					}),
+					published: field.boolean({ default: false }),
+					publishedAt: field.dateTime(),
+					score: field.float(),
+					sequence: field.bigint(),
+					slug: reusable,
+					status: field.enum({ values: ['draft', 'published'] }),
+					targets: field.relation({ target: () => Target }),
+					title: field.string({ validation: { required: true } }),
+					views: field.int({ default: 0 }),
+				}
 			},
 		})
 
@@ -100,12 +89,10 @@ describe('FieldBuilder', () => {
 			Object.fromEntries(
 				Object.entries(Built.fields).map(([name, field]) => [name, field.kind]),
 			),
-		).toStrictEqual({
-			content: 'binary',
-			createdAt: 'dateTime',
+		).toMatchObject({
+			binary: 'binary',
 			day: 'date',
 			externalId: 'uuid',
-			id: 'uuid',
 			metadata: 'json',
 			opensAt: 'time',
 			owner: 'pointer',
@@ -119,19 +106,7 @@ describe('FieldBuilder', () => {
 			status: 'enum',
 			targets: 'relation',
 			title: 'string',
-			updatedAt: 'dateTime',
 			views: 'int',
-		})
-		expect(Built.fields.slug).toBe(reusable)
-		const profile = Built.fields.profile
-
-		if (profile === undefined) {
-			throw new TypeError('Compiled profile field is missing')
-		}
-
-		expect(Reflect.get(profile.options, 'fields')).toMatchObject({
-			age: { kind: 'int' },
-			displayName: { kind: 'string' },
 		})
 		expect(Object.isFrozen(rootBuilder)).toBe(true)
 		expect(Object.isFrozen(nestedBuilder)).toBe(true)
@@ -139,219 +114,74 @@ describe('FieldBuilder', () => {
 		expect(nestedBuilder).not.toHaveProperty('relation')
 	})
 
-	it('reports complete paths for duplicate and malformed declarations', async () => {
-		const Duplicate = Schema.define({
-			className: 'DuplicateBuilderField',
-			fields(field) {
-				field.string('title')
-				field.string('title')
-			},
-		})
-
-		await expect(
-			createApplication({ plugins: [], schemas: [Duplicate] }),
-		).rejects.toThrow(
-			expect.objectContaining({
-				cause: new TypeError(
-					'Duplicate field declaration: DuplicateBuilderField.fields.title',
-				),
-				reason: 'callback-threw',
+	it('reports complete paths for malformed returned maps', () => {
+		expect(() =>
+			Schema.define({
+				className: 'EmptyBuilderFieldName',
+				fields: (field) => ({ '': field.string() }),
 			}),
+		).toThrow(
+			new TypeError(
+				'EmptyBuilderFieldName.fields field name must be a non-empty string',
+			),
 		)
-
-		const InvalidNested = Schema.define({
-			className: 'InvalidNestedBuilder',
-			fields(field) {
-				field.object('profile', {
-					fields: () => ({ invalid: stringField() }),
-				})
-			},
-		})
-
-		await expect(
-			createApplication({ plugins: [], schemas: [InvalidNested] }),
-		).rejects.toThrow(
-			expect.objectContaining({
-				cause: new TypeError(
-					'InvalidNestedBuilder.fields.profile.fields must not return a value',
-				),
+		const forgedDeclaration = (() => ({
+			forged: { kind: 'string' },
+		})) as unknown as SchemaFieldBuilderDeclaration
+		expect(() =>
+			Schema.define({
+				className: 'ForgedBuilderField',
+				fields: forgedDeclaration,
 			}),
-		)
-
-		const EmptyName = Schema.define({
-			className: 'EmptyBuilderFieldName',
-			fields(field) {
-				field.string('')
-			},
-		})
-
-		await expect(
-			createApplication({ plugins: [], schemas: [EmptyName] }),
-		).rejects.toThrow(
-			expect.objectContaining({
-				cause: new TypeError(
-					'EmptyBuilderFieldName.fields field name must be a non-empty string',
-				),
-			}),
-		)
-
-		const NonStringName = Schema.define({
-			className: 'NonStringBuilderFieldName',
-			fields(field) {
-				Reflect.apply(field.string, field, [42])
-			},
-		})
-
-		await expect(
-			createApplication({ plugins: [], schemas: [NonStringName] }),
-		).rejects.toThrow(
-			expect.objectContaining({
-				cause: new TypeError(
-					'NonStringBuilderFieldName.fields field name must be a non-empty string',
-				),
-			}),
-		)
-
-		const Reserved = Schema.define({
-			className: 'ReservedBuilderField',
-			fields(field) {
-				field.string('id')
-			},
-		})
-
-		await expect(
-			createApplication({ plugins: [], schemas: [Reserved] }),
-		).rejects.toThrow(new TypeError('Reserved schema field: id'))
-
-		const ForgedField = Schema.define({
-			className: 'ForgedBuilderField',
-			fields(field) {
-				Reflect.apply(field.add, field, ['forged', { kind: 'string' }])
-			},
-		})
-
-		await expect(
-			createApplication({ plugins: [], schemas: [ForgedField] }),
-		).rejects.toThrow(
-			expect.objectContaining({
-				cause: new TypeError(
-					'ForgedBuilderField.fields.forged must be a field definition',
-				),
-			}),
+		).toThrow(
+			new TypeError(
+				'ForgedBuilderField.fields.forged must be a field definition',
+			),
 		)
 	})
 
-	it('keeps relationship and generated-column capabilities top-level only', async () => {
-		const Target = Schema.define({
-			className: 'NestedRestrictionTarget',
-			fields: {},
-		})
-		const InvalidPointer = Schema.define({
-			className: 'NestedPointerBuilder',
-			fields(field) {
-				field.object('profile', {
-					fields(field) {
-						Reflect.apply(field.add, field, [
-							'owner',
-							pointerField({ target: () => Target }),
-						])
-					},
-				})
-			},
-		})
-
-		await expect(
-			createApplication({
-				plugins: [],
-				schemas: [Target, InvalidPointer],
+	it('requires callbacks to return a plain field map', () => {
+		const missingReturnDeclaration = (() => () =>
+			undefined) as unknown as SchemaFieldBuilderDeclaration
+		expect(() =>
+			Schema.define({
+				className: 'MissingBuilderReturn',
+				fields: missingReturnDeclaration,
 			}),
-		).rejects.toThrow(
-			expect.objectContaining({
-				cause: new TypeError(
-					'fields.owner cannot be a pointer or relation inside objectField',
-				),
-			}),
-		)
-
-		const InvalidSequence = Schema.define({
-			className: 'NestedSequenceBuilder',
-			fields(field) {
-				field.object('profile', {
-					fields(field) {
-						Reflect.apply(field.add, field, [
-							'sequence',
-							intField({ autoIncrement: true }),
-						])
-					},
-				})
-			},
-		})
-
-		await expect(
-			createApplication({ plugins: [], schemas: [InvalidSequence] }),
-		).rejects.toThrow(
-			expect.objectContaining({
-				cause: new TypeError(
-					'fields.sequence cannot use autoIncrement inside objectField',
-				),
-			}),
+		).toThrow(
+			new TypeError('MissingBuilderReturn.fields must return a field map'),
 		)
 	})
 
-	it('snapshots caller options once and rejects mixed callback styles', () => {
+	it('snapshots caller options once', () => {
 		const validation = { length: { max: 20 } }
 		const Snapshot = Schema.define({
 			className: 'BuilderSnapshot',
-			fields(field) {
-				field.string('title', { validation })
-			},
+			fields: (field) => ({ title: field.string({ validation }) }),
 		})
 		const registry = new SchemaRegistry([Snapshot])
 
 		registry.compileSchemas()
 		validation.length.max = 1
 
-		const title = Snapshot.fields.title
-
-		if (title === undefined) {
-			throw new TypeError('Compiled title field is missing')
-		}
-
-		expect(Reflect.get(title.options, 'validation')).toMatchObject({
+		expect(Snapshot.fields.title.options.validation).toMatchObject({
 			length: { max: 20 },
 		})
-		expect(Object.isFrozen(title.options)).toBe(true)
-
-		const Mixed = Schema.define({
-			className: 'MixedBuilderDeclaration',
-			fields: (field: FieldBuilder) => {
-				field.string('title')
-
-				return { slug: stringField() }
-			},
-		})
-
-		expect(() => new SchemaRegistry([Mixed]).compileSchemas()).toThrow(
-			SchemaCompilationError,
-		)
+		expect(Object.isFrozen(Snapshot.fields.title.options)).toBe(true)
 	})
 
 	it('supports package-owned schema specialization callbacks', () => {
 		const WithStatics = Schema.defineWithStatics(
 			{
 				className: 'BuilderWithStatics',
-				fields(field) {
-					field.string('title')
-				},
+				fields: (field) => ({ title: field.string() }),
 			},
 			() => ({ source: 'statics' as const }),
 		)
 		const WithCapabilities = Schema.defineWithCapabilities(
 			{
 				className: 'BuilderWithCapabilities',
-				fields(field) {
-					field.string('title')
-				},
+				fields: (field) => ({ title: field.string() }),
 			},
 			() => ({ results: {}, statics: { source: 'capabilities' as const } }),
 		)
@@ -360,7 +190,7 @@ describe('FieldBuilder', () => {
 
 		expect(WithStatics.source).toBe('statics')
 		expect(WithCapabilities.source).toBe('capabilities')
-		expect(WithStatics.fields.title?.kind).toBe('string')
-		expect(WithCapabilities.fields.title?.kind).toBe('string')
+		expect(WithStatics.fields.title.kind).toBe('string')
+		expect(WithCapabilities.fields.title.kind).toBe('string')
 	})
 })

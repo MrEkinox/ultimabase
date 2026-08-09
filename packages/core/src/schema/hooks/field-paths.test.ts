@@ -12,11 +12,11 @@ const listedProfile = objectField({
 })
 const schema = Schema.define({
 	className: 'RuntimeFieldPath',
-	fields: {
+	fields: (field) => ({
 		'profile.email': dottedEmail,
 		profile: listedProfile,
-		title: stringField(),
-	},
+		title: field.string(),
+	}),
 })
 const widenedSchema: SchemaDefinition = schema
 

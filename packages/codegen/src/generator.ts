@@ -17,8 +17,10 @@ import {
 	type TypegenSchemaSnapshot,
 } from './snapshot.js'
 
-const generatorVersion = 1
+const generatorVersion = 6
 const quote = (value: string): string => JSON.stringify(value)
+const propertyName = (value: string): string =>
+	/^[$A-Z_a-z][$0-9A-Z_a-z]*$/u.test(value) ? value : quote(value)
 const TypeScriptKeywords = new Set([
 	'break',
 	'case',
@@ -236,22 +238,27 @@ class GeneratedIdentifiers {
 
 			for (const suffix of [
 				'Access',
-				'Contract',
 				'CreateInput',
-				'Fields',
 				'Hooks',
 				'Include',
 				'Item',
-				'Objects',
-				'OrderBy',
-				'Pointers',
-				'Relations',
+				'OrderByInput',
 				'Select',
+				'TypeInfo',
 				'UpdateInput',
-				'Where',
-				'WhereFields',
+				'WhereInput',
 			]) {
 				this.#claim(`${alias}${suffix}`, `schema ${schema.className}`)
+			}
+
+			for (const suffix of [
+				'Contract',
+				'Fields',
+				'Objects',
+				'Pointers',
+				'Relations',
+			]) {
+				this.#claim(`__${alias}${suffix}`, `schema ${schema.className}`)
 			}
 
 			this.#schemas.set(schema, alias)
@@ -361,7 +368,7 @@ class GeneratedIdentifiers {
 			const explicitTypeName = field.value.typeName
 			const base =
 				explicitTypeName === undefined
-					? `${schemaAlias}_${field.path.map(fieldIdentifier).join('_')}`
+					? `${schemaAlias}${field.path.map(fieldIdentifier).join('')}`
 					: typeIdentifier(explicitTypeName)
 			const reused =
 				explicitTypeName === undefined
@@ -376,9 +383,10 @@ class GeneratedIdentifiers {
 					continue
 				}
 
-				const alias = `${base}Enum`
+				const alias = base
 
 				this.#claim(alias, ownerPath)
+				this.#claim(`${alias}Filter`, ownerPath)
 
 				const descriptor = immutableRecord({ alias, field, ownerPath, schema })
 
@@ -403,9 +411,17 @@ class GeneratedIdentifiers {
 				continue
 			}
 
-			const alias = `${base}Object`
+			const alias = base
 
-			for (const suffix of ['CreateInput', 'Item', 'Paths', 'UpdateInput']) {
+			this.#claim(alias, ownerPath)
+
+			for (const suffix of [
+				'CreateInput',
+				'Filter',
+				'PathFilter',
+				'PathValueFilter',
+				'UpdateInput',
+			]) {
 				this.#claim(`${alias}${suffix}`, ownerPath)
 			}
 
@@ -502,8 +518,8 @@ const renderScalarValue = (
 			return context.imports.alias(value.reference)
 		case 'pointer':
 			return mode === 'object'
-				? `GeneratedPointerHandle<${quote(value.target)}>`
-				: 'PointerValue'
+				? `Core.GeneratedPointerHandle<${quote(value.target)}>`
+				: 'Core.PointerValue'
 		case 'relation':
 			return 'never'
 		case 'string':
@@ -514,7 +530,7 @@ const renderScalarValue = (
 				mode === 'update' && field.inference.list !== false ? 'create' : mode
 			const suffix =
 				objectMode === 'object'
-					? 'Item'
+					? ''
 					: objectMode === 'create'
 						? 'CreateInput'
 						: 'UpdateInput'
@@ -539,7 +555,7 @@ const renderFieldValue = (
 	let rendered = renderScalarValue(field, mode, context)
 
 	for (let index = 0; index < listDepth(field); index += 1) {
-		rendered = `readonly (${rendered})[]`
+		rendered = `ReadonlyArray<${rendered}>`
 	}
 
 	return field.inference.nullable ? `${rendered} | null` : rendered
@@ -560,13 +576,13 @@ const renderProperties = (
 		const optional = mode === 'object' || presence === 'required' ? '' : '?'
 
 		return [
-			`${renderDocumentation(field.description)}\treadonly ${quote(field.name)}${optional}: ${renderFieldValue(field, mode, context)}`,
+			`${renderDocumentation(field.description)}\treadonly ${propertyName(field.name)}${optional}: ${renderFieldValue(field, mode, context)}`,
 		]
 	})
 
 	return properties.length === 0
-		? 'Readonly<Record<never, never>>'
-		: `Readonly<{\n${properties.join('\n')}\n}>`
+		? 'Record<never, never>'
+		: `{\n${properties.join('\n')}\n}`
 }
 
 const equalityKinds = new Set([
@@ -596,39 +612,77 @@ const orderedKinds = new Set([
 	'time',
 ])
 
+const renderEqualityProperties = (value: string): string =>
+	`\treadonly eq?: ${value}
+\treadonly in?: ReadonlyArray<${value}>
+\treadonly ne?: ${value}
+\treadonly notIn?: ReadonlyArray<${value}>`
+
+const renderOrderedProperties = (value: string): string =>
+	`\treadonly between?: { readonly lower: ${value}; readonly upper: ${value} }
+\treadonly gt?: ${value}
+\treadonly gte?: ${value}
+\treadonly lt?: ${value}
+\treadonly lte?: ${value}
+\treadonly notBetween?: { readonly lower: ${value}; readonly upper: ${value} }`
+
+const nullProperties = `\treadonly isNotNull?: true
+\treadonly isNull?: true`
+
+const renderStructuralProperties = (value: string, key: string): string =>
+	`\treadonly containedBy?: ${value}
+\treadonly contains?: ${value}
+\treadonly hasAllKeys?: ReadonlyArray<${key}>
+\treadonly hasAnyKeys?: ReadonlyArray<${key}>
+\treadonly hasKey?: ${key}
+\treadonly jsonPathExists?: JsonPathExpression
+\treadonly jsonPathMatches?: JsonPathExpression`
+
+const renderNamedFilter = (
+	name: string,
+	properties: readonly string[],
+): string => `export type ${name} = {\n${properties.join('\n')}\n}`
+
 const renderPathOperators = (
 	field: TypegenFieldSnapshot,
 	context: RenderContext,
 ): string => {
-	const operators = ['GeneratedNullableWhere']
-
 	if (listDepth(field) > 0) {
-		return operators.join(' & ')
-	}
-
-	if (equalityKinds.has(field.kind) && field.kind !== 'pointer') {
-		operators.unshift(
-			`GeneratedEqualityWhere<${renderFieldValue(field, 'object', context)}>`,
-		)
+		return 'NullFilter'
 	}
 
 	if (field.kind === 'string') {
-		operators.push('GeneratedStringWhere<string>')
+		return 'StringPathFilter'
 	}
 
 	if (field.value.kind === 'json') {
-		operators.push('GeneratedStructuralWhere<JsonDocument>')
+		return 'JsonPathValueFilter'
 	}
 
 	if (field.value.kind === 'object') {
-		const item = `${context.identifiers.object(field).alias}Item`
+		const item = context.identifiers.object(field).alias
 
-		operators.push(
-			`GeneratedStructuralWhere<GeneratedDeepPartial<${item}>, Extract<keyof ${item}, string>>`,
-		)
+		return `${item}PathValueFilter`
 	}
 
-	return operators.join(' & ')
+	if (field.value.kind === 'enum') {
+		return `${context.identifiers.enum(field).alias}Filter`
+	}
+
+	const pathFilter = new Map([
+		['bigint', 'BigIntPathFilter'],
+		['binary', 'BinaryPathFilter'],
+		['boolean', 'BooleanPathFilter'],
+		['date', 'DateTimePathFilter'],
+		['dateTime', 'DateTimePathFilter'],
+		['decimal', 'DecimalPathFilter'],
+		['float', 'FloatPathFilter'],
+		['int', 'IntPathFilter'],
+		['time', 'DateTimePathFilter'],
+		['uuid', 'IDPathFilter'],
+	]).get(field.kind)
+
+	return pathFilter ?? 'NullFilter'
 }
 
 const pathTuple = (path: readonly string[]): string =>
@@ -641,7 +695,7 @@ const collectObjectPathTypes = (
 ): readonly string[] =>
 	fields.flatMap((field) => {
 		const path = [...parentPath, field.name]
-		const own = `GeneratedPathWhere<${pathTuple(path)}, ${renderPathOperators(field, context)}>`
+		const own = `Readonly<{ readonly path: ${pathTuple(path)} } & ${renderPathOperators(field, context)}>`
 
 		if (listDepth(field) > 0) {
 			return [own]
@@ -654,7 +708,7 @@ const collectObjectPathTypes = (
 		if (field.value.kind === 'json') {
 			return [
 				own,
-				`GeneratedJsonPathWhere<readonly [${path.map(quote).join(', ')}, string, ...string[]]>`,
+				`JsonPathFilter<readonly [${path.map(quote).join(', ')}, string, ...string[]]>`,
 			]
 		}
 
@@ -674,7 +728,7 @@ const renderRootWhere = (
 			)
 		}
 
-		return `GeneratedRelationWhere<${context.identifiers.schema(target)}Where>`
+		return `RelationFilter<${context.identifiers.schema(target)}WhereInput>`
 	}
 
 	if (field.value.kind === 'pointer') {
@@ -686,48 +740,56 @@ const renderRootWhere = (
 			)
 		}
 
-		return `GeneratedPointerWhere<${context.identifiers.schema(target)}Where> & GeneratedNullableWhere`
+		return `PointerFilter<${context.identifiers.schema(target)}WhereInput>`
 	}
-
-	const operators = ['GeneratedNullableWhere']
 
 	if (listDepth(field) > 0) {
-		return operators.join(' & ')
-	}
-
-	if (equalityKinds.has(field.kind)) {
-		operators.unshift(
-			`GeneratedEqualityWhere<${renderFieldValue(field, 'object', context)}>`,
-		)
-	}
-
-	if (orderedKinds.has(field.kind)) {
-		operators.push(
-			`GeneratedOrderedWhere<${renderScalarValue(field, 'object', context)}>`,
-		)
+		return 'NullFilter'
 	}
 
 	if (field.kind === 'string') {
-		operators.push('GeneratedStringWhere<string>')
+		return 'StringFilter'
+	}
+
+	if (field.kind === 'boolean') {
+		return 'BooleanFilter'
+	}
+
+	if (field.kind === 'uuid') {
+		return 'IDFilter'
+	}
+
+	if (
+		field.kind === 'date' ||
+		field.kind === 'dateTime' ||
+		field.kind === 'time'
+	) {
+		return 'DateTimeFilter'
+	}
+
+	if (field.value.kind === 'enum') {
+		return `${context.identifiers.enum(field).alias}Filter`
 	}
 
 	if (field.value.kind === 'json') {
-		operators.push(
-			'GeneratedStructuralWhere<JsonDocument>',
-			'Readonly<{ readonly at?: readonly GeneratedJsonPathWhere[] }>',
-		)
+		return 'JsonFilter'
 	}
 
 	if (field.value.kind === 'object') {
 		const descriptor = context.identifiers.object(field)
 
-		operators.push(
-			`GeneratedStructuralWhere<GeneratedDeepPartial<${descriptor.alias}Item>, Extract<keyof ${descriptor.alias}Item, string>>`,
-			`Readonly<{ readonly at?: readonly ${descriptor.alias}Paths[] }>`,
-		)
+		return `${descriptor.alias}Filter`
 	}
 
-	return operators.join(' & ')
+	return (
+		new Map([
+			['bigint', 'BigIntFilter'],
+			['binary', 'BinaryFilter'],
+			['decimal', 'DecimalFilter'],
+			['float', 'FloatFilter'],
+			['int', 'IntFilter'],
+		]).get(field.kind) ?? 'NullFilter'
+	)
 }
 
 const renderWhere = (
@@ -737,10 +799,10 @@ const renderWhere = (
 ): string => {
 	const properties = schema.fields.map(
 		(field) =>
-			`\treadonly ${quote(field.name)}?: ${renderRootWhere(field, context)}`,
+			`\treadonly ${propertyName(field.name)}?: ${renderRootWhere(field, context)}`,
 	)
 
-	return `export interface ${alias}WhereFields {\n${properties.join('\n')}\n}\n\nexport interface ${alias}Where extends ${alias}WhereFields, GeneratedWhereBranches<${alias}Where> {}`
+	return `export type ${alias}WhereInput = {\n\treadonly AND?: ReadonlyArray<${alias}WhereInput>\n\treadonly OR?: ReadonlyArray<${alias}WhereInput>\n\treadonly NOT?: ${alias}WhereInput\n${properties.join('\n')}\n}`
 }
 
 const renderObject = (
@@ -760,10 +822,25 @@ const renderObject = (
 	)
 
 	return [
-		`export type ${descriptor.alias}Item = ${renderProperties(descriptor.field.value.fields, 'object', context)}`,
+		`export type ${descriptor.alias} = ${renderProperties(descriptor.field.value.fields, 'object', context)}`,
 		`export type ${descriptor.alias}CreateInput = ${renderProperties(descriptor.field.value.fields, 'create', context)}`,
 		`export type ${descriptor.alias}UpdateInput = ${renderProperties(descriptor.field.value.fields, 'update', context)}`,
-		`export type ${descriptor.alias}Paths = ${renderUnion(paths)}`,
+		`export type ${descriptor.alias}PathFilter = ${renderUnion(paths)}`,
+		renderNamedFilter(`${descriptor.alias}PathValueFilter`, [
+			nullProperties,
+			renderStructuralProperties(
+				`${descriptor.alias}UpdateInput | null`,
+				`Extract<keyof ${descriptor.alias}, string>`,
+			),
+		]),
+		renderNamedFilter(`${descriptor.alias}Filter`, [
+			nullProperties,
+			renderStructuralProperties(
+				`${descriptor.alias}UpdateInput | null`,
+				`Extract<keyof ${descriptor.alias}, string>`,
+			),
+			`\treadonly at?: ReadonlyArray<${descriptor.alias}PathFilter>`,
+		]),
 	].join('\n\n')
 }
 
@@ -774,29 +851,24 @@ const renderEnum = (descriptor: EnumDescriptor): string => {
 
 	return `export type ${descriptor.alias} = ${renderUnion(
 		descriptor.field.value.values.map(quote),
-	)}`
+	)}\n\n${renderNamedFilter(`${descriptor.alias}Filter`, [
+		renderEqualityProperties(`${descriptor.alias} | null`),
+		nullProperties,
+	])}`
 }
 
-const renderRelationships = (
+const hasRelationships = (schema: TypegenSchemaSnapshot): boolean =>
+	schema.fields.some(
+		({ value }) => value.kind === 'pointer' || value.kind === 'relation',
+	)
+
+const includeType = (
 	schema: TypegenSchemaSnapshot,
-	kind: 'pointer' | 'relation',
-): string => {
-	const properties = schema.fields.flatMap((field) => {
-		if (field.value.kind !== kind) {
-			return []
-		}
-
-		const cardinality = kind === 'pointer' ? 'one' : 'many'
-
-		return [
-			`\treadonly ${quote(field.name)}: GeneratedRelationshipContract<${quote(field.value.target)}, ${quote(cardinality)}>`,
-		]
-	})
-
-	return properties.length === 0
-		? 'Readonly<Record<never, never>>'
-		: `Readonly<{\n${properties.join('\n')}\n}>`
-}
+	context: RenderContext,
+): string =>
+	hasRelationships(schema)
+		? `${context.identifiers.schema(schema)}Include`
+		: 'never'
 
 const renderInclude = (
 	schema: TypegenSchemaSnapshot,
@@ -818,82 +890,40 @@ const renderInclude = (
 		const targetAlias = context.identifiers.schema(target)
 		const include =
 			field.value.kind === 'pointer'
-				? `GeneratedPointerInclude<${targetAlias}Select, ${targetAlias}Include>`
-				: `GeneratedRelationInclude<${targetAlias}Where, ${targetAlias}Select, ${targetAlias}OrderBy, ${targetAlias}Include>`
+				? `{ readonly include?: ${includeType(target, context)}; readonly select?: ${targetAlias}Select }`
+				: `{ readonly include?: ${includeType(target, context)}; readonly limit?: number; readonly offset?: number; readonly orderBy?: ${targetAlias}OrderByInput; readonly select?: ${targetAlias}Select; readonly where?: ${targetAlias}WhereInput }`
 
-		return [`\treadonly ${quote(field.name)}?: ${include}`]
+		return [`\treadonly ${propertyName(field.name)}?: ${include}`]
 	})
 
-	return properties.length === 0
-		? 'Readonly<Record<never, never>>'
-		: `Readonly<{\n${properties.join('\n')}\n}>`
+	return properties.length === 0 ? 'never' : `{\n${properties.join('\n')}\n}`
 }
 
-const renderFieldContracts = (
-	schema: TypegenSchemaSnapshot,
-	context: RenderContext,
-): string => {
-	const properties = schema.fields.map((field) => {
-		const objectValue =
-			field.inference.object === 'forbidden'
-				? 'never'
-				: renderFieldValue(field, 'object', context)
-		const createValue =
-			field.inference.create === 'forbidden'
-				? 'never'
-				: renderFieldValue(field, 'create', context)
-		const updateValue =
-			field.inference.update === 'forbidden'
-				? 'never'
-				: renderFieldValue(field, 'update', context)
-		const paths =
-			field.value.kind === 'object'
-				? `${context.identifiers.object(field).alias}Paths`
-				: field.value.kind === 'json'
-					? 'GeneratedJsonPathWhere'
-					: 'never'
-		const list =
-			field.inference.list === false
-				? 'false'
-				: field.inference.list === true
-					? 'true'
-					: `readonly [${field.inference.list.map(() => 'true').join(', ')}]`
+const renderSelect = (schema: TypegenSchemaSnapshot): string => {
+	const properties = schema.fields.flatMap((field) =>
+		field.inference.object === 'forbidden'
+			? []
+			: [
+					`${renderDocumentation(field.description)}\treadonly ${propertyName(field.name)}?: boolean`,
+				],
+	)
 
-		return `\treadonly ${quote(field.name)}: GeneratedFieldContract<${objectValue}, ${createValue}, ${updateValue}, ${renderRootWhere(field, context)}, ${paths}, ${quote(field.kind)}, ${list}>`
-	})
-
-	return `Readonly<{\n${properties.join('\n')}\n}>`
+	return `{\n${properties.join('\n')}\n}`
 }
 
-const renderObjectContracts = (
-	schema: TypegenSchemaSnapshot,
-	context: RenderContext,
-): string => {
-	const objects = context.identifiers.objectFieldsFor(schema)
+const renderOrderBy = (schema: TypegenSchemaSnapshot): string => {
+	const properties = schema.fields.map(
+		(field) => `\treadonly ${propertyName(field.name)}?: OrderDirection | null`,
+	)
 
-	if (objects.length === 0) {
-		return 'Readonly<Record<never, never>>'
-	}
-
-	return `Readonly<{\n${objects
-		.map(
-			({ descriptor, field }) =>
-				`\treadonly ${quote(field.path.join('.'))}: GeneratedObjectContract<${descriptor.alias}Item, ${descriptor.alias}CreateInput, ${descriptor.alias}UpdateInput, ${descriptor.alias}Paths>`,
-		)
-		.join('\n')}\n}>`
+	return `{\n${properties.join('\n')}\n}`
 }
 
-const renderSchema = (
+const renderSchemaPublic = (
 	schema: TypegenSchemaSnapshot,
 	context: RenderContext,
 ): string => {
 	const alias = context.identifiers.schema(schema)
-	const fieldNames = renderUnion(schema.fields.map(({ name }) => quote(name)))
-	const selectableFieldNames = renderUnion(
-		schema.fields
-			.filter(({ inference }) => inference.object !== 'forbidden')
-			.map(({ name }) => quote(name)),
-	)
 	const sections = [
 		...context.identifiers
 			.enumDefinitionsFor(schema)
@@ -908,49 +938,256 @@ const renderSchema = (
 		`export type ${alias}CreateInput = ${renderProperties(schema.fields, 'create', context)}`,
 		`export type ${alias}UpdateInput = ${renderProperties(schema.fields, 'update', context)}`,
 		renderWhere(schema, alias, context),
-		`export type ${alias}Select = GeneratedSelect<${selectableFieldNames}>`,
-		`export type ${alias}OrderBy = GeneratedOrderBy<${fieldNames}>`,
-		`export type ${alias}Include = ${renderInclude(schema, context)}`,
-		`export type ${alias}Fields = ${renderFieldContracts(schema, context)}`,
-		`export type ${alias}Objects = ${renderObjectContracts(schema, context)}`,
-		`export type ${alias}Pointers = ${renderRelationships(schema, 'pointer')}`,
-		`export type ${alias}Relations = ${renderRelationships(schema, 'relation')}`,
-		`export type ${alias}Access = GeneratedSchemaAccessContract<${alias}Item, ${alias}CreateInput, ${alias}UpdateInput, ${alias}Where, ${alias}OrderBy>`,
-		`export type ${alias}Hooks = GeneratedSchemaHookContract<${alias}Item, ${alias}CreateInput, ${alias}UpdateInput>`,
-		`export interface ${alias}Contract {\n\treadonly Access: ${alias}Access\n\treadonly Create: ${alias}CreateInput\n\treadonly FieldBuilder: ApplicationFieldBuilder\n\treadonly Fields: ${alias}Fields\n\treadonly Hooks: ${alias}Hooks\n\treadonly Include: ${alias}Include\n\treadonly Item: ${alias}Item\n\treadonly Objects: ${alias}Objects\n\treadonly OrderBy: ${alias}OrderBy\n\treadonly Pointers: ${alias}Pointers\n\treadonly Relations: ${alias}Relations\n\treadonly Select: ${alias}Select\n\treadonly Update: ${alias}UpdateInput\n\treadonly Where: ${alias}Where\n}`,
+		`export type ${alias}Select = ${renderSelect(schema)}`,
+		`export type ${alias}OrderByInput = ${renderOrderBy(schema)}`,
+		`export type ${alias}Access = {\n\treadonly create: ${alias}CreateInput\n\treadonly item: ${alias}Item\n\treadonly orderBy: ${alias}OrderByInput\n\treadonly update: ${alias}UpdateInput\n\treadonly where: ${alias}WhereInput\n}`,
+		`export type ${alias}Hooks = {\n\treadonly create: ${alias}CreateInput\n\treadonly item: ${alias}Item\n\treadonly originalItem: ${alias}Item\n\treadonly update: ${alias}UpdateInput\n}`,
 	)
+
+	if (hasRelationships(schema)) {
+		sections.splice(
+			sections.length - 2,
+			0,
+			`export type ${alias}Include = ${renderInclude(schema, context)}`,
+		)
+	}
 
 	return sections.join('\n\n')
 }
 
-const coreImports = [
-	'EmbeddedFieldBuilder',
-	'FieldBuilder',
-	'GeneratedDeepPartial',
-	'GeneratedEqualityWhere',
-	'GeneratedFieldContract',
-	'GeneratedJsonPathWhere',
-	'GeneratedNullableWhere',
-	'GeneratedObjectContract',
-	'GeneratedOrderBy',
-	'GeneratedOrderedWhere',
-	'GeneratedPathWhere',
-	'GeneratedPointerHandle',
-	'GeneratedPointerInclude',
-	'GeneratedPointerWhere',
-	'GeneratedRelationInclude',
-	'GeneratedRelationshipContract',
-	'GeneratedRelationWhere',
-	'GeneratedSchemaAccessContract',
-	'GeneratedSchemaHookContract',
-	'GeneratedSelect',
-	'GeneratedStringWhere',
-	'GeneratedStructuralWhere',
-	'GeneratedWhereBranches',
-	'JsonDocument',
-	'PointerValue',
-	'UltimaBaseGeneratedSchemas as CoreGeneratedSchemas',
-] as const
+const collectNestedFields = (
+	fields: readonly TypegenFieldSnapshot[],
+): readonly TypegenFieldSnapshot[] =>
+	fields.flatMap((field) => [
+		field,
+		...(field.value.kind === 'object'
+			? collectNestedFields(field.value.fields)
+			: []),
+	])
+
+const renderSharedTypes = (snapshot: TypegenApplicationSnapshot): string => {
+	const rootFields = snapshot.schemas.flatMap(({ fields }) => fields)
+	const nestedFields = snapshot.schemas.flatMap(({ fields }) =>
+		fields.flatMap((field) =>
+			field.value.kind === 'object'
+				? collectNestedFields(field.value.fields)
+				: [],
+		),
+	)
+	const allFields = [...rootFields, ...nestedFields]
+	const definitions: string[] = [`export type OrderDirection = "asc" | "desc"`]
+	const hasRootKind = (kind: string): boolean =>
+		rootFields.some((field) => field.kind === kind && listDepth(field) === 0)
+	const hasNestedKind = (kind: string): boolean =>
+		nestedFields.some((field) => field.kind === kind && listDepth(field) === 0)
+
+	if (
+		allFields.some(
+			(field) =>
+				listDepth(field) > 0 ||
+				(!equalityKinds.has(field.kind) &&
+					field.value.kind !== 'object' &&
+					field.value.kind !== 'relation'),
+		)
+	) {
+		definitions.push(renderNamedFilter('NullFilter', [nullProperties]))
+	}
+
+	const scalarFilters = [
+		{ kind: 'bigint', name: 'BigIntFilter', value: 'bigint | null' },
+		{ kind: 'binary', name: 'BinaryFilter', value: 'Uint8Array | null' },
+		{ kind: 'decimal', name: 'DecimalFilter', value: 'string | null' },
+		{ kind: 'float', name: 'FloatFilter', value: 'number | null' },
+		{ kind: 'int', name: 'IntFilter', value: 'number | null' },
+	] as const
+
+	for (const { kind, name, value } of scalarFilters) {
+		if (hasRootKind(kind)) {
+			definitions.push(
+				renderNamedFilter(name, [
+					renderEqualityProperties(value),
+					...(orderedKinds.has(kind) ? [renderOrderedProperties(value)] : []),
+					nullProperties,
+				]),
+			)
+		}
+
+		if (hasNestedKind(kind)) {
+			definitions.push(
+				renderNamedFilter(name.replace('Filter', 'PathFilter'), [
+					renderEqualityProperties(value),
+					nullProperties,
+				]),
+			)
+		}
+	}
+
+	const equalityPathFilters = [
+		{ kind: 'boolean', name: 'BooleanPathFilter', value: 'boolean | null' },
+		{ kind: 'date', name: 'DateTimePathFilter', value: 'string | null' },
+		{ kind: 'dateTime', name: 'DateTimePathFilter', value: 'string | null' },
+		{ kind: 'time', name: 'DateTimePathFilter', value: 'string | null' },
+		{ kind: 'uuid', name: 'IDPathFilter', value: 'string | null' },
+	] as const
+	const emittedPathFilters = new Set<string>()
+
+	for (const { kind, name, value } of equalityPathFilters) {
+		if (hasNestedKind(kind) && !emittedPathFilters.has(name)) {
+			emittedPathFilters.add(name)
+			definitions.push(
+				renderNamedFilter(name, [
+					renderEqualityProperties(value),
+					nullProperties,
+				]),
+			)
+		}
+	}
+
+	if (hasRootKind('string') || hasNestedKind('string')) {
+		definitions.push(
+			`export type RegexFlag = "case-insensitive" | "dot-matches-newline" | "multiline"`,
+			renderNamedFilter('RegexPattern', [
+				'\treadonly source: string',
+				'\treadonly flags: ReadonlyArray<RegexFlag>',
+			]),
+		)
+	}
+
+	if (hasNestedKind('string')) {
+		definitions.push(
+			renderNamedFilter('StringPathFilter', [
+				renderEqualityProperties('string | null'),
+				'\treadonly contains?: string | null',
+				'\treadonly endsWith?: string | null',
+				'\treadonly matches?: RegexPattern',
+				'\treadonly startsWith?: string | null',
+				nullProperties,
+			]),
+		)
+	}
+
+	if (hasRootKind('string')) {
+		definitions.push(
+			renderNamedFilter('StringFilter', [
+				renderEqualityProperties('string | null'),
+				renderOrderedProperties('string | null'),
+				'\treadonly contains?: string | null',
+				'\treadonly endsWith?: string | null',
+				'\treadonly matches?: RegexPattern',
+				'\treadonly startsWith?: string | null',
+				nullProperties,
+			]),
+		)
+	}
+
+	if (hasRootKind('boolean')) {
+		definitions.push(
+			renderNamedFilter('BooleanFilter', [
+				renderEqualityProperties('boolean | null'),
+				nullProperties,
+			]),
+		)
+	}
+
+	if (hasRootKind('uuid')) {
+		definitions.push(
+			renderNamedFilter('IDFilter', [
+				renderEqualityProperties('string | null'),
+				nullProperties,
+			]),
+		)
+	}
+
+	if (hasRootKind('date') || hasRootKind('dateTime') || hasRootKind('time')) {
+		definitions.push(
+			renderNamedFilter('DateTimeFilter', [
+				renderEqualityProperties('string | null'),
+				renderOrderedProperties('string | null'),
+				nullProperties,
+			]),
+		)
+	}
+
+	const hasJsonField = allFields.some(({ value }) => value.kind === 'json')
+	const hasObjectField = allFields.some(({ value }) => value.kind === 'object')
+
+	if (hasJsonField || hasObjectField) {
+		definitions.push(
+			`export type JsonValue = boolean | number | string | null | JsonObject | ReadonlyArray<JsonValue>`,
+			`export type JsonObject = { readonly [key: string]: JsonValue }`,
+			renderNamedFilter('JsonPathExpression', [
+				'\treadonly source: string',
+				'\treadonly variables?: JsonObject',
+			]),
+		)
+	}
+
+	if (hasJsonField) {
+		definitions.push(
+			`export type JsonDocument = JsonObject`,
+			renderNamedFilter(
+				'JsonPathFilter<TPath extends readonly [string, ...string[]] = readonly [string, ...string[]]>',
+				[
+					'\treadonly path: TPath',
+					renderEqualityProperties('JsonValue'),
+					renderStructuralProperties('JsonValue', 'string'),
+					nullProperties,
+				],
+			),
+		)
+	}
+
+	if (rootFields.some(({ value }) => value.kind === 'json')) {
+		definitions.push(
+			renderNamedFilter('JsonFilter', [
+				renderEqualityProperties('JsonDocument | null'),
+				renderStructuralProperties('JsonDocument | null', 'string'),
+				nullProperties,
+				'\treadonly at?: ReadonlyArray<JsonPathFilter>',
+			]),
+		)
+	}
+
+	if (nestedFields.some(({ value }) => value.kind === 'json')) {
+		definitions.push(
+			renderNamedFilter('JsonPathValueFilter', [
+				renderEqualityProperties('JsonDocument | null'),
+				renderStructuralProperties('JsonDocument | null', 'string'),
+				nullProperties,
+			]),
+		)
+	}
+
+	if (rootFields.some(({ value }) => value.kind === 'pointer')) {
+		definitions.push(
+			renderNamedFilter('PointerFilter<TWhere>', [
+				renderEqualityProperties('string | null'),
+				'\treadonly is?: TWhere',
+				'\treadonly isNot?: TWhere',
+				nullProperties,
+			]),
+		)
+	}
+
+	if (rootFields.some(({ value }) => value.kind === 'relation')) {
+		definitions.push(
+			renderNamedFilter('RelationFilter<TWhere>', [
+				`\treadonly count?: {
+${renderEqualityProperties('number | null').replaceAll('\t', '\t\t')}
+${renderOrderedProperties('number | null').replaceAll('\t', '\t\t')}
+\t\treadonly where?: TWhere
+\t}`,
+				'\treadonly every?: TWhere',
+				'\treadonly isEmpty?: true',
+				'\treadonly isNotEmpty?: true',
+				'\treadonly none?: TWhere',
+				'\treadonly some?: TWhere',
+			]),
+		)
+	}
+
+	return definitions.join('\n\n')
+}
 
 const renderFieldBuilder = (
 	snapshot: TypegenApplicationSnapshot,
@@ -958,36 +1195,93 @@ const renderFieldBuilder = (
 ): string => {
 	const methods = snapshot.fieldMethods.map(
 		(method) =>
-			`\treadonly ${quote(method.name)}: ${imports.alias(method.method)}`,
+			`\treadonly ${propertyName(method.name)}: ${imports.alias(method.method)}`,
 	)
-	const extension =
-		methods.length === 0
-			? 'Readonly<Record<never, never>>'
-			: `{\n${methods.join('\n')}\n}`
+
+	if (methods.length === 0) {
+		return ''
+	}
 
 	return [
-		`export type ApplicationFieldBuilder = FieldBuilder & ${extension}`,
-		`export type ApplicationEmbeddedFieldBuilder = EmbeddedFieldBuilder & ${extension}`,
+		`export type ApplicationFieldBuilder = Core.FieldBuilder & {\n${methods.join('\n')}\n}`,
+		`export type ApplicationEmbeddedFieldBuilder = Core.EmbeddedFieldBuilder & {\n${methods.join('\n')}\n}`,
 	].join('\n')
+}
+
+const renderTypeInfo = (
+	snapshot: TypegenApplicationSnapshot,
+	context: RenderContext,
+): string => {
+	const schemas = snapshot.schemas.map((schema) => {
+		const alias = context.identifiers.schema(schema)
+		const fields = renderUnion(schema.fields.map(({ name }) => quote(name)))
+		const relationships = schema.fields.flatMap((field) =>
+			field.value.kind === 'pointer' || field.value.kind === 'relation'
+				? [
+						`\t\t\t\treadonly ${propertyName(field.name)}: ${quote(field.value.target)}`,
+					]
+				: [],
+		)
+		const relationshipMap =
+			relationships.length === 0
+				? ''
+				: `\t\t\treadonly relationships: {\n${relationships.join('\n')}\n\t\t\t}\n`
+		const include = hasRelationships(schema)
+			? `\t\t\t\treadonly include: ${alias}Include\n`
+			: ''
+
+		return `\texport namespace ${alias} {
+\t\texport type Item = ${alias}Item
+\t\texport type TypeInfo = {
+\t\t\treadonly key: ${quote(schema.className)}
+\t\t\treadonly fields: ${fields}
+\t\t\treadonly item: Item
+${relationshipMap}\t\t\treadonly inputs: {
+\t\t\t\treadonly create: ${alias}CreateInput
+${include}\t\t\t\treadonly orderBy: ${alias}OrderByInput
+\t\t\t\treadonly select: ${alias}Select
+\t\t\t\treadonly update: ${alias}UpdateInput
+\t\t\t\treadonly where: ${alias}WhereInput
+\t\t\t}
+\t\t}
+\t}`
+	})
+	const registry = snapshot.schemas.map(
+		(schema) =>
+			`\t\treadonly ${quote(schema.className)}: Schemas.${context.identifiers.schema(schema)}.TypeInfo`,
+	)
+
+	return `export declare namespace Schemas {
+${schemas.join('\n')}
+}
+
+export type TypeInfo = {
+\treadonly schemas: {
+${registry.join('\n')}
+\t}
+}`
 }
 
 const renderRegistry = (
 	snapshot: TypegenApplicationSnapshot,
 	context: RenderContext,
-	fingerprint: string,
 ): string => {
 	const schemas = snapshot.schemas.map(
 		(schema) =>
-			`\treadonly ${quote(schema.className)}: ${context.identifiers.schema(schema)}Contract`,
+			`\t\treadonly ${quote(schema.className)}: Schemas.${context.identifiers.schema(schema)}.TypeInfo`,
 	)
 
 	const fieldMethods = snapshot.fieldMethods.map(
 		(method) =>
-			`\t\treadonly ${quote(method.name)}: ${context.imports.alias(method.method)}`,
+			`\t\treadonly ${propertyName(method.name)}: ${context.imports.alias(method.method)}`,
 	)
 	const renderedFieldMethods = fieldMethods.join('\n')
+	const builderMethods =
+		renderedFieldMethods === ''
+			? ''
+			: `\n\tinterface UltimaBaseGeneratedFieldBuilderMethods {\n${renderedFieldMethods}\n\t}\n\tinterface UltimaBaseGeneratedEmbeddedFieldBuilderMethods {\n${renderedFieldMethods}\n\t}`
 
-	return `declare module '@ultimabase/core' {\n\tinterface UltimaBaseGeneratedRegistryState {\n\t\treadonly application: true\n\t}\n\tinterface UltimaBaseGeneratedSchemas {\n${schemas.map((schema) => `\t${schema}`).join('\n')}\n\t}\n\tinterface UltimaBaseGeneratedFieldBuilderMethods {\n${renderedFieldMethods}\n\t}\n\tinterface UltimaBaseGeneratedEmbeddedFieldBuilderMethods {\n${renderedFieldMethods}\n\t}\n}\n\nexport type UltimaBaseGeneratedSchemas = CoreGeneratedSchemas\n\nexport interface UltimaBaseGeneratedApplication {\n\treadonly FieldBuilder: ApplicationFieldBuilder\n\treadonly fingerprint: ${quote(fingerprint)}\n\treadonly schemas: CoreGeneratedSchemas\n}\n\nexport declare const ultimaBaseGeneratedFingerprint: ${quote(fingerprint)}`
+	return `declare module '@ultimabase/core' {\n\tinterface UltimaBaseGeneratedRegistryState {\n\t\treadonly application: true\n\t}\n\tinterface UltimaBaseGeneratedSchemas {\n${schemas.join('\n')}\n\t}${builderMethods}\n}`
 }
 
 const fingerprintSnapshot = (snapshot: TypegenApplicationSnapshot): string =>
@@ -1020,14 +1314,10 @@ export interface GenerateApplicationTypesOptions {
 	readonly applicationId: string
 }
 
-/** Emits one deterministic, callback-free application declaration registry. */
-export const generateApplicationTypes = (
-	options: GenerateApplicationTypesOptions,
+/** Renders one previously validated static snapshot without touching application state. */
+export const generateApplicationTypesFromSnapshot = (
+	snapshot: TypegenApplicationSnapshot,
 ): GeneratedApplicationTypes => {
-	const snapshot = createTypegenSnapshot(
-		options.application,
-		options.applicationId,
-	)
 	const fingerprint = fingerprintSnapshot(snapshot)
 	const imports = new ReferenceImports(snapshot)
 	const identifiers = new GeneratedIdentifiers(snapshot)
@@ -1035,16 +1325,31 @@ export const generateApplicationTypes = (
 		snapshot.schemas.map((schema) => [schema.className, schema]),
 	)
 	const context: RenderContext = { identifiers, imports, schemasByName }
-	const pluginImports = imports.render()
-	const sections = [
-		`// Generated by @ultimabase/codegen. Do not edit.\n// @ultimabase/schema-fingerprint sha256:${fingerprint}`,
-		`import type {\n${coreImports.map((name) => `\t${name},`).join('\n')}\n} from '@ultimabase/core'`,
-		pluginImports,
+	const generatedSections = [
+		...snapshot.schemas.map((schema) => renderSchemaPublic(schema, context)),
+		renderSharedTypes(snapshot),
 		renderFieldBuilder(snapshot, imports),
-		...snapshot.schemas.map((schema) => renderSchema(schema, context)),
-		renderRegistry(snapshot, context, fingerprint),
+		renderTypeInfo(snapshot, context),
+		'// Framework registry',
+		renderRegistry(snapshot, context),
+	].filter((section) => section !== '')
+	const sections = [
+		`/* eslint-disable */\n\n// Generated by @ultimabase/codegen. Do not edit.\n// @ultimabase/schema-fingerprint sha256:${fingerprint}`,
+		generatedSections.some((section) => section.includes('Core.'))
+			? `import type * as Core from '@ultimabase/core'`
+			: '',
+		imports.render(),
+		...generatedSections,
 	].filter((section) => section !== '')
 	const contents = `${sections.join('\n\n')}\n`
 
 	return immutableRecord({ contents, fingerprint, snapshot })
 }
+
+/** Emits one deterministic, callback-free application declaration registry. */
+export const generateApplicationTypes = (
+	options: GenerateApplicationTypesOptions,
+): GeneratedApplicationTypes =>
+	generateApplicationTypesFromSnapshot(
+		createTypegenSnapshot(options.application, options.applicationId),
+	)

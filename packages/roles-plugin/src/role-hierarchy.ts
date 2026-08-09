@@ -163,7 +163,7 @@ const readRolesRelation = (value: unknown): Relation => {
 /** Reads exact child roles in stable identifier order inside the active transaction. */
 const readChildRoles = async (role: unknown): Promise<readonly unknown[]> =>
 	readRolesRelation(role).findMany(
-		{ select: { id: true }, orderBy: [{ id: 'asc' }] },
+		{ select: { id: true }, orderBy: { id: 'asc' } },
 		{ useMasterKey: true },
 	)
 

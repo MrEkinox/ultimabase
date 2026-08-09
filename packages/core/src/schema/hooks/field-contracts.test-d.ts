@@ -12,7 +12,7 @@ import type {
 
 const Target = Schema.define({
 	className: 'FieldHookTarget',
-	fields: { label: stringField() },
+	fields: (field) => ({ label: field.string() }),
 })
 
 test('infers exact scalar input values and operation branches', () => {

@@ -60,7 +60,7 @@ const editorModel: AccessRoleReferenceCarrier = {
 }
 const PrincipalSchema = Schema.define({
 	className: 'TypedAccessPrincipal',
-	fields: {},
+	fields: () => ({}),
 })
 const principalPointer = PrincipalSchema.pointer('principal-id')
 const principalResolver: AccessPrincipalResolver<typeof principalPointer> = {

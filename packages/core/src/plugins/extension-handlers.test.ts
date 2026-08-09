@@ -2,8 +2,6 @@ import {
 	defineFieldExtension,
 	Schema,
 	defineSchemaExtension,
-	objectField,
-	stringField,
 } from '../schema/index.js'
 import { describe, expect, it } from 'vitest'
 
@@ -25,14 +23,14 @@ const fieldVisibility = defineFieldExtension(
 
 const protectedSchema = Schema.define({
 	className: 'ProtectedPost',
-	fields: {
-		title: stringField({ extensions: [fieldVisibility] }),
-		metadata: objectField({
-			fields: {
-				secret: stringField({ extensions: [fieldVisibility] }),
-			},
+	fields: (field) => ({
+		title: field.string({ extensions: [fieldVisibility] }),
+		metadata: field.object({
+			fields: (field) => ({
+				secret: field.string({ extensions: [fieldVisibility] }),
+			}),
 		}),
-	},
+	}),
 	extensions: [schemaPermissions],
 })
 
@@ -103,13 +101,13 @@ describe('extension handler validation', () => {
 		})
 		const fieldOnlySchema = Schema.define({
 			className: 'NestedPost',
-			fields: {
-				metadata: objectField({
-					fields: {
-						secret: stringField({ extensions: [fieldVisibility] }),
-					},
+			fields: (field) => ({
+				metadata: field.object({
+					fields: (field) => ({
+						secret: field.string({ extensions: [fieldVisibility] }),
+					}),
 				}),
-			},
+			}),
 		})
 
 		await expect(

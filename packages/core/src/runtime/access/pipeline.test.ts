@@ -1,5 +1,5 @@
 import { definePlugin } from '../../foundation.js'
-import { Schema, booleanField, stringField } from '../../schema/index.js'
+import { Schema } from '../../schema/index.js'
 import { describe, expect, it } from 'vitest'
 
 import { RecordingDatabaseAdapter } from '../../../tests/runtime/fixtures/recording-database-adapter.js'
@@ -9,6 +9,13 @@ import { UltimaBase } from '../application/ultima-base.js'
 
 const securedArticle = Schema.define({
 	className: 'AccessPipelineArticle',
+	fields: (field) => ({
+		published: field.boolean(),
+		secret: field.string({
+			access: { read: { orderBy: false, output: false, where: false } },
+		}),
+		title: field.string({ validation: { required: true } }),
+	}),
 	access: {
 		read: {
 			allow: true,
@@ -20,13 +27,6 @@ const securedArticle = Schema.define({
 			item: ({ originalItem, item }) =>
 				item.title === 'Changed' && originalItem.published === true,
 		},
-	},
-	fields: {
-		published: booleanField(),
-		secret: stringField({
-			access: { read: { orderBy: false, output: false, where: false } },
-		}),
-		title: stringField({ validation: { required: true } }),
 	},
 })
 

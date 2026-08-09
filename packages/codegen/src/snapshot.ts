@@ -1,8 +1,10 @@
 import {
 	readFieldInferenceState,
+	type CompiledSchemaRegistry,
 	type FieldInferenceState,
 	type FrameworkApplication,
 	type GenericField,
+	type OwnedFieldBuilderMethod,
 	type PluginDefinition,
 	type SchemaDefinition,
 } from '@ultimabase/core'
@@ -144,14 +146,11 @@ const readOptionalString = (
 }
 
 const createPluginValueReferences = (
-	application: FrameworkApplication<
-		readonly SchemaDefinition[],
-		readonly PluginDefinition[]
-	>,
+	fieldBuilderMethods: readonly OwnedFieldBuilderMethod[],
 ): ReadonlyMap<string, PluginValueReference> => {
 	const references = new Map<string, PluginValueReference>()
 
-	for (const method of application.fieldBuilderMethods) {
+	for (const method of fieldBuilderMethods) {
 		const existing = references.get(method.fieldKind)
 		const candidate = immutableRecord({
 			exportName: method.typegen.valueType,
@@ -178,11 +177,8 @@ const createPluginValueReferences = (
 }
 
 interface SnapshotContext {
-	readonly application: FrameworkApplication<
-		readonly SchemaDefinition[],
-		readonly PluginDefinition[]
-	>
 	readonly pluginValues: ReadonlyMap<string, PluginValueReference>
+	readonly schemas: CompiledSchemaRegistry
 }
 
 const snapshotValue = (
@@ -244,7 +240,7 @@ const snapshotValue = (
 		}
 		case 'pointer':
 		case 'relation': {
-			const target = context.application.schemaTargets.get(schema, path)
+			const target = context.schemas.schemaTargets.get(schema, path)
 
 			if (target === undefined) {
 				throw new SchemaTypegenError(
@@ -329,22 +325,27 @@ const snapshotFields = (
 			}),
 	)
 
-/** Compiles one application into an inert, deterministic generation snapshot. */
-export const createTypegenSnapshot = (
-	application: FrameworkApplication<
-		readonly SchemaDefinition[],
-		readonly PluginDefinition[]
-	>,
+export interface CompiledTypegenApplication {
+	readonly fieldBuilderMethods: readonly OwnedFieldBuilderMethod[]
+	readonly schemas: CompiledSchemaRegistry
+}
+
+/** Converts an already compiled application graph into an inert snapshot. */
+export const createCompiledTypegenSnapshot = (
+	application: CompiledTypegenApplication,
 	applicationId: string,
 ): TypegenApplicationSnapshot => {
 	if (applicationId.trim() === '') {
 		throw new TypeError('applicationId must be a non-empty string')
 	}
 
-	application.compileSchemas()
-
-	const pluginValues = createPluginValueReferences(application)
-	const context: SnapshotContext = { application, pluginValues }
+	const pluginValues = createPluginValueReferences(
+		application.fieldBuilderMethods,
+	)
+	const context: SnapshotContext = {
+		pluginValues,
+		schemas: application.schemas,
+	}
 	const fieldMethods = immutableArray(
 		[...application.fieldBuilderMethods]
 			.sort((left, right) => left.name.localeCompare(right.name))
@@ -381,4 +382,17 @@ export const createTypegenSnapshot = (
 		schemas,
 		version: 1,
 	})
+}
+
+/** Compiles one application into an inert, deterministic generation snapshot. */
+export const createTypegenSnapshot = (
+	application: FrameworkApplication<
+		readonly SchemaDefinition[],
+		readonly PluginDefinition[]
+	>,
+	applicationId: string,
+): TypegenApplicationSnapshot => {
+	application.compileSchemas()
+
+	return createCompiledTypegenSnapshot(application, applicationId)
 }

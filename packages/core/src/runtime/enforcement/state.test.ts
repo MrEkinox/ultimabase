@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { Schema, booleanField } from '../../schema/index.js'
+import { Schema } from '../../schema/index.js'
 import { normalizeAccessWhereResult } from '../../schema/access/filter.js'
 import { databaseConstraint } from './definitions.js'
 import {
@@ -13,7 +13,7 @@ import {
 
 const rowSchema = Schema.define({
 	className: 'EnforcementRows',
-	fields: { published: booleanField() },
+	fields: (field) => ({ published: field.boolean() }),
 })
 
 describe('monotonic enforcement state', () => {

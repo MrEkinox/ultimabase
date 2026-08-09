@@ -1,4 +1,4 @@
-import { QueryBuilder, Schema, stringField } from '../../../src/index.js'
+import { QueryBuilder, Schema } from '../../../src/index.js'
 import type { DeleteOneOperationAst } from '../../../src/query/index.js'
 import { describe, expect, it } from 'vitest'
 
@@ -9,7 +9,7 @@ import {
 
 const articleSchema = Schema.define({
 	className: 'RecordingAdapterArticle',
-	fields: { title: stringField() },
+	fields: (field) => ({ title: field.string() }),
 })
 
 const deleteOperation = {

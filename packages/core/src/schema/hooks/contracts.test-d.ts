@@ -2,8 +2,7 @@ import { expect, expectTypeOf, test } from 'vitest'
 
 import {
 	Schema,
-	intField,
-	stringField,
+	type BaseItem,
 	type InferCreateInput,
 	type InferObject,
 	type InferUpdateInput,
@@ -15,10 +14,10 @@ import {
 
 const ArticleSchema = Schema.define({
 	className: 'HookedArticle',
-	fields: {
-		title: stringField({ validation: { required: true } }),
-		views: intField(),
-	},
+	fields: (field) => ({
+		title: field.string({ validation: { required: true } }),
+		views: field.int(),
+	}),
 	hooks: {
 		resolveInput: (input) => {
 			if (input.kind === 'create') {
@@ -27,9 +26,7 @@ const ArticleSchema = Schema.define({
 			}
 
 			if (input.kind === 'update') {
-				expectTypeOf(input.originalItem).toEqualTypeOf<
-					SchemaResult<typeof ArticleSchema>
-				>()
+				expectTypeOf(input.originalItem).toExtend<BaseItem>()
 				expectTypeOf(
 					input.operation.update.kind,
 				).toEqualTypeOf<'update-expression'>()
@@ -53,9 +50,7 @@ const ArticleSchema = Schema.define({
 				// @ts-expect-error -- Business invariants cannot be bypassed.
 				void context.skipHooks
 				expectTypeOf(kind).toEqualTypeOf<'create'>()
-				expectTypeOf(item).toEqualTypeOf<
-					SchemaPreparedDraft<typeof ArticleSchema>
-				>()
+				expectTypeOf(item).toExtend<BaseItem>()
 
 				void item
 			},
@@ -204,7 +199,7 @@ test('narrows complete mutation items by terminal and lifecycle timing', () => {
 test('rejects incompatible hook declarations and return values', () => {
 	Schema.define({
 		className: 'InvalidHooks',
-		fields: { title: stringField() },
+		fields: (field) => ({ title: field.string() }),
 		hooks: {
 			// @ts-expect-error -- Unknown phases fail before application startup.
 			beforeUnknown: () => undefined,

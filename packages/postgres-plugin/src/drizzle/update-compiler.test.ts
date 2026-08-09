@@ -4,7 +4,7 @@ import {
 	increment,
 	normalizeUpdateExpression,
 } from '@ultimabase/core'
-import { decimalField, Schema, intField, stringField } from '@ultimabase/core'
+import { Schema } from '@ultimabase/core'
 import { SQL } from 'drizzle-orm'
 import { PgDialect } from 'drizzle-orm/pg-core'
 import { describe, expect, it } from 'vitest'
@@ -15,12 +15,12 @@ import { compilePostgresUpdate } from './update-compiler.js'
 
 const updateSchemaDefinition = Schema.define({
 	className: 'UpdateFixture',
-	fields: {
-		balance: decimalField(),
-		note: stringField(),
-		title: stringField(),
-		views: intField(),
-	},
+	fields: (field) => ({
+		balance: field.decimal(),
+		note: field.string(),
+		title: field.string(),
+		views: field.int(),
+	}),
 })
 const updateSchema = compilePostgresSchema(updateSchemaDefinition)
 const dialect = new PgDialect()

@@ -77,14 +77,14 @@ test('derives decimal create, object, and update shapes from compact state', () 
 	const extension = defineFieldExtension('fixture.decimal', {})
 	const schema = Schema.define({
 		className: 'DecimalState',
-		fields: {
-			required: decimalField({ validation: { required: true } }),
-			defaulted: decimalField({ default: '0.00' }),
-			nullable: decimalField(),
-			immutable: decimalField({ immutable: true }),
-			matrix: decimalField({ list: [true, true] }),
-			extended: decimalField({ extensions: [extension] }),
-		},
+		fields: (field) => ({
+			required: field.decimal({ validation: { required: true } }),
+			defaulted: field.decimal({ default: '0.00' }),
+			nullable: field.decimal(),
+			immutable: field.decimal({ immutable: true }),
+			matrix: field.decimal({ list: [true, true] }),
+			extended: field.decimal({ extensions: [extension] }),
+		}),
 	})
 
 	expectTypeOf(schema.className).toEqualTypeOf<'DecimalState'>()

@@ -1,11 +1,4 @@
-import {
-	booleanField,
-	intField,
-	objectField,
-	relationField,
-	Schema,
-	stringField,
-} from '../../schema/index.js'
+import { Schema } from '../../schema/index.js'
 import { expectTypeOf, test } from 'vitest'
 
 import { QueryBuilder } from '../query/query.js'
@@ -14,19 +7,21 @@ import type { WhereBuilder } from './where.js'
 
 const Target = Schema.define({
 	className: 'TypedRelationPredicateTarget',
-	fields: {
-		active: booleanField(),
-		label: stringField(),
-		metadata: objectField({ fields: { category: stringField() } }),
-		score: intField(),
-	},
+	fields: (field) => ({
+		active: field.boolean(),
+		label: field.string(),
+		metadata: field.object({
+			fields: (field) => ({ category: field.string() }),
+		}),
+		score: field.int(),
+	}),
 })
 const Source = Schema.define({
 	className: 'TypedRelationPredicateSource',
-	fields: {
-		name: stringField(),
-		targets: relationField({ target: () => Target }),
-	},
+	fields: (field) => ({
+		name: field.string(),
+		targets: field.relation({ target: () => Target }),
+	}),
 })
 
 test('exposes only exact target filter capabilities inside relation predicates', () => {

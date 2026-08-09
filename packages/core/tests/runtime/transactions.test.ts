@@ -1,6 +1,6 @@
 import { QueryBuilder, RequestCapability, increment } from '../../src/index.js'
 import { FrameworkApplication, FrameworkError } from '../../src/index.js'
-import { Schema, intField, stringField } from '../../src/index.js'
+import { Schema } from '../../src/index.js'
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -19,10 +19,10 @@ import {
 
 const articleSchema = Schema.define({
 	className: 'TransactionArticle',
-	fields: {
-		title: stringField({ validation: { required: true } }),
-		views: intField({ default: 0 }),
-	},
+	fields: (field) => ({
+		title: field.string({ validation: { required: true } }),
+		views: field.int({ default: 0 }),
+	}),
 })
 
 const fixtureInstant = '2026-08-02T00:00:00.000Z'

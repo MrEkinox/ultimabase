@@ -1,23 +1,4 @@
-import {
-	bigintField,
-	binaryField,
-	booleanField,
-	dateField,
-	dateTimeField,
-	decimalField,
-	definePluginField,
-	Schema,
-	enumField,
-	floatField,
-	intField,
-	jsonField,
-	objectField,
-	pointerField,
-	stringField,
-	timeField,
-	uuidField,
-	type Pointer,
-} from '../../schema/index.js'
+import { definePluginField, Schema, type Pointer } from '../../schema/index.js'
 import { expect, expectTypeOf, test } from 'vitest'
 
 import type {
@@ -45,31 +26,31 @@ const vectorField = definePluginField(
 
 const pointerTargetSchema = Schema.define({
 	className: 'FilterPointerTarget',
-	fields: {},
+	fields: () => ({}),
 })
 
 const filterSchema = Schema.define({
 	className: 'FilterMatrix',
-	fields: {
-		exactInteger: bigintField(),
-		attachment: binaryField(),
-		active: booleanField(),
-		calendarDay: dateField(),
-		created: dateTimeField(),
-		price: decimalField(),
-		status: enumField({ values: ['draft', 'published'] }),
-		ratio: floatField(),
-		count: intField(),
-		payload: jsonField(),
-		profile: objectField({ fields: { name: stringField() } }),
-		author: pointerField({ target: () => pointerTargetSchema }),
-		title: stringField(),
-		aliases: stringField({ list: true }),
-		reminder: timeField(),
-		externalId: uuidField(),
-		nullableCount: intField(),
+	fields: (field) => ({
+		exactInteger: field.bigint(),
+		attachment: field.binary(),
+		active: field.boolean(),
+		calendarDay: field.date(),
+		created: field.dateTime(),
+		price: field.decimal(),
+		status: field.enum({ values: ['draft', 'published'] }),
+		ratio: field.float(),
+		count: field.int(),
+		payload: field.json(),
+		profile: field.object({ fields: (field) => ({ name: field.string() }) }),
+		author: field.pointer({ target: () => pointerTargetSchema }),
+		title: field.string(),
+		aliases: field.string({ list: true }),
+		reminder: field.time(),
+		externalId: field.uuid(),
+		nullableCount: field.int(),
 		vector: vectorField,
-	},
+	}),
 })
 
 type EqualityOperators =

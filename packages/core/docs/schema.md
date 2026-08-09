@@ -60,14 +60,14 @@ options:
 ```ts
 const PostSchema = Schema.define({
 	className: 'Post',
-	fields(field) {
-		field.string('title', {
+	fields: (field) => ({
+		title: field.string({
 			validation: {
 				required: true,
 			},
-		})
-		field.boolean('published', { default: false })
-	},
+		}),
+		published: field.boolean({ default: false }),
+	}),
 	extensions: [permissionsExtension],
 })
 ```
@@ -96,11 +96,9 @@ database-generated integer sequences. Methods call the same public field
 factories internally rather than reproducing option normalization, validation,
 hooks, Access, defaults, or inference rules.
 
-`field.add(name, definition)` is the explicit low-level composition path for
-framework and plugin authors reusing a prebuilt field definition. It applies the
-same provenance, duplicate-name, reserved-name, and embedded-capability checks.
-Normal application code should use named builder methods; Core intentionally does
-not expose `field.custom()` as ordinary schema DX.
+Framework and plugin authors may reuse the immutable low-level field factories
+internally. Normal application code uses named builder methods; Core
+intentionally does not expose `field.custom()` as ordinary schema DX.
 
 The public constructor and field factories also protect JavaScript callers at
 runtime. Schema names, field maps, field definitions, common option flags,
@@ -166,14 +164,14 @@ automatic target load:
 ```ts
 const PostSchema = Schema.define({
 	className: 'Post',
-	fields(field) {
-		field.pointer('author', {
+	fields: (field) => ({
+		author: field.pointer({
 			target: () => UserSchema,
 			validation: { required: true },
 			indexed: true,
 			onDelete: 'restrict',
-		})
-	},
+		}),
+	}),
 })
 
 const author = UserSchema.pointer('0198f090-2a50-7000-8000-000000000034')
@@ -202,12 +200,12 @@ an inverse backed by one exact pointer or owning relation on the target:
 ```ts
 const UserSchema = Schema.define({
 	className: 'User',
-	fields(field) {
-		field.relation('posts', {
+	fields: (field) => ({
+		posts: field.relation({
 			target: () => PostSchema,
 			mappedBy: 'author',
-		})
-	},
+		}),
+	}),
 })
 ```
 
@@ -243,7 +241,7 @@ const user = await UserSchema.get(
 const posts = user.relation('posts')
 const recentPosts = await posts.findMany({
 	select: { id: true, title: true },
-	orderBy: [{ createdAt: 'desc' }],
+	orderBy: { createdAt: 'desc' },
 	limit: 20,
 	cursor: true,
 })
@@ -377,9 +375,9 @@ business family (`create`, `update`, `upsert`, or `delete`), while an exposed
 ```ts
 const ArticleSchema = Schema.define({
 	className: 'Article',
-	fields(field) {
-		field.string('title', { validation: { required: true } })
-	},
+	fields: (field) => ({
+		title: field.string({ validation: { required: true } }),
+	}),
 	hooks: {
 		resolveInput: {
 			create: ({ operation }) => operation,
@@ -460,16 +458,16 @@ schema values:
 ```ts
 const ProfileSchema = Schema.define({
 	className: 'Profile',
-	fields(field) {
-		field.string('displayName', {
+	fields: (field) => ({
+		displayName: field.string({
 			hooks: {
 				resolveInput: [
 					({ value }) => value.trim(),
 					({ value }) => value.toLocaleLowerCase(),
 				],
 			},
-		})
-	},
+		}),
+	}),
 })
 ```
 
@@ -587,9 +585,9 @@ operation-relevant facts.
 Single-field indexes stay next to their field:
 
 ```ts
-fields(field) {
-	field.string('slug', { indexed: 'unique' })
-}
+fields: (field) => ({
+	slug: field.string({ indexed: 'unique' }),
+})
 ```
 
 Schema-level declarations represent composite indexes and require at least two
@@ -598,10 +596,10 @@ distinct top-level fields:
 ```ts
 const PostSchema = Schema.define({
 	className: 'Post',
-	fields(field) {
-		field.string('authorId')
-		field.string('slug', { indexed: 'unique' })
-	},
+	fields: (field) => ({
+		authorId: field.string(),
+		slug: field.string({ indexed: 'unique' }),
+	}),
 	indexes: [
 		{ fields: ['authorId', 'createdAt'] },
 		{ fields: ['authorId', 'slug'], unique: true },
@@ -856,31 +854,31 @@ Every developer field supports homogeneous lists without changing its field
 kind:
 
 ```ts
-fields(field) {
-	field.string('tags', { list: true })
-	field.int('matrix', { list: [true, true] })
-}
+fields: (field) => ({
+	tags: field.string({ list: true }),
+	matrix: field.int({ list: [true, true] }),
+})
 ```
 
 `field.object()` composes existing fields into one structured value:
 
 ```ts
-fields(field) {
-	field.object('profile', {
+fields: (field) => ({
+	profile: field.object({
 		typeName: 'Profile',
-		fields(field) {
-			field.string('displayName', {
+		fields: (field) => ({
+			displayName: field.string({
 				validation: { required: true },
-			})
-			field.object('preferences', {
-				fields(field) {
-					field.boolean('darkMode')
-				},
-			})
-			field.string('tags', { list: true })
-		},
-	})
-}
+			}),
+			preferences: field.object({
+				fields: (field) => ({
+					darkMode: field.boolean(),
+				}),
+			}),
+			tags: field.string({ list: true }),
+		}),
+	}),
+})
 ```
 
 An object field is one embedded stored value, not an independently addressable
@@ -933,10 +931,10 @@ the neutral schema binder:
 ```ts
 const Post = Schema.define({
 	className: 'Post',
-	fields(field) {
-		field.string('title', { validation: { required: true } })
-		field.string('visibility')
-	},
+	fields: (field) => ({
+		title: field.string({ validation: { required: true } }),
+		visibility: field.string(),
+	}),
 	extensions: ({ bind }) => [
 		bind(contentPolicy, {
 			resolve: ({ data }) => data.visibility ?? data.title,

@@ -1,14 +1,4 @@
-import {
-	booleanField,
-	Schema,
-	enumField,
-	intField,
-	jsonField,
-	objectField,
-	pointerField,
-	stringField,
-	type Pointer,
-} from '../../schema/index.js'
+import { Schema, type Pointer } from '../../schema/index.js'
 import { expect, expectTypeOf, test } from 'vitest'
 
 import type * as publicQuery from '../index.js'
@@ -25,32 +15,32 @@ import type { InferQueryResult } from './result.js'
 
 const postSchema = Schema.define({
 	className: 'Post',
-	fields: {
-		title: stringField(),
-		published: booleanField(),
-		views: intField(),
-		score: intField(),
-		status: enumField({ values: ['draft', 'published'] }),
-		aliases: stringField({ list: true }),
-		metadata: objectField({ fields: { label: stringField() } }),
-		payload: jsonField(),
-	},
+	fields: (field) => ({
+		title: field.string(),
+		published: field.boolean(),
+		views: field.int(),
+		score: field.int(),
+		status: field.enum({ values: ['draft', 'published'] }),
+		aliases: field.string({ list: true }),
+		metadata: field.object({ fields: (field) => ({ label: field.string() }) }),
+		payload: field.json(),
+	}),
 })
 
 const includedUserSchema = Schema.define({
 	className: 'TypedQueryUser',
-	fields: { name: stringField(), active: booleanField() },
+	fields: (field) => ({ name: field.string(), active: field.boolean() }),
 })
 const includedPostSchema = Schema.define({
 	className: 'TypedQueryPost',
-	fields: {
-		author: pointerField({
+	fields: (field) => ({
+		author: field.pointer({
 			target: () => includedUserSchema,
 			validation: { required: true },
 		}),
-		reviewer: pointerField({ target: () => includedUserSchema }),
-		title: stringField(),
-	},
+		reviewer: field.pointer({ target: () => includedUserSchema }),
+		title: field.string(),
+	}),
 })
 
 test('preserves schema, AST, and chain result types', () => {

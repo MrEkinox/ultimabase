@@ -7,7 +7,7 @@ import {
 	type FindManyOperationAst,
 	type QueryExpressionNode,
 } from '../../query/index.js'
-import { Schema, stringField } from '../../schema/index.js'
+import { Schema } from '../../schema/index.js'
 import type { DatabaseOperationResult } from '../database/contracts.js'
 import {
 	collectOperationFieldOutputs,
@@ -17,10 +17,10 @@ import {
 
 const schema = Schema.define({
 	className: 'FieldOutputTypes',
-	fields: {
-		title: stringField(),
-		secret: stringField(),
-	},
+	fields: (field) => ({
+		title: field.string(),
+		secret: field.string(),
+	}),
 })
 const findOperation: FindManyOperationAst<
 	typeof schema,

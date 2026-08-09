@@ -1,22 +1,7 @@
 import {
-	bigintField,
-	binaryField,
-	booleanField,
-	dateField,
-	dateTimeField,
-	decimalField,
 	definePluginField,
 	Schema,
-	enumField,
-	floatField,
-	intField,
-	jsonField,
-	objectField,
 	Pointer,
-	pointerField,
-	stringField,
-	timeField,
-	uuidField,
 	SchemaRegistry,
 	type SchemaDefinition,
 } from '@ultimabase/core'
@@ -70,10 +55,13 @@ describe('PostgreSQL primitive schema compiler', () => {
 	})
 
 	it('rejects pointer compilation without a closed application graph', () => {
-		const User = Schema.define({ className: 'DetachedUser', fields: {} })
+		const User = Schema.define({
+			className: 'DetachedUser',
+			fields: () => ({}),
+		})
 		const Post = Schema.define({
 			className: 'DetachedPost',
-			fields: { author: pointerField({ target: () => User }) },
+			fields: (field) => ({ author: field.pointer({ target: () => User }) }),
 		})
 
 		expect(() => compilePostgresSchema(Post)).toThrow(
@@ -87,22 +75,21 @@ describe('PostgreSQL primitive schema compiler', () => {
 		const rightReference: { current?: SchemaDefinition } = {}
 		const Left = Schema.define({
 			className: 'CircularLeft',
-			fields: {
-				right: pointerField({
+			fields: (field) => ({
+				right: field.pointer({
 					target: () => {
 						if (rightReference.current === undefined) {
 							throw new TypeError('Circular right schema is unavailable')
 						}
-
 						return rightReference.current
 					},
 				}),
-			},
+			}),
 		})
 
 		const Right = Schema.define({
 			className: 'CircularRight',
-			fields: { left: pointerField({ target: () => Left }) },
+			fields: (field) => ({ left: field.pointer({ target: () => Left }) }),
 		})
 
 		// The lazy target closes the cycle only after both declarations exist.
@@ -122,28 +109,30 @@ describe('PostgreSQL primitive schema compiler', () => {
 		const runtimeDefault = vi.fn(() => 'runtime')
 		const schema = Schema.define({
 			className: 'PrimitiveFixture',
-			fields: {
-				active: booleanField({ default: true }),
-				amount: decimalField({
+			fields: (field) => ({
+				active: field.boolean({ default: true }),
+				amount: field.decimal({
 					validation: { precision: 12, scale: 4 },
 				}),
-				birthday: dateField(),
-				blob: binaryField({ default: Uint8Array.from([1, 2]) }),
-				count: intField(),
-				counter: intField({ autoIncrement: true }),
-				document: jsonField({ default: { valid: true } }),
-				eventAt: dateTimeField({ timezone: false }),
-				huge: bigintField({ default: 9_007_199_254_740_993n }),
-				labels: stringField({ list: true, default: ['one', 'two'] }),
-				optional: stringField(),
-				profile: objectField({ fields: { name: stringField() } }),
-				rating: floatField({ default: 4.5 }),
-				required: stringField({ validation: { required: true } }),
-				runtime: stringField({ default: runtimeDefault }),
-				status: enumField({ values: { Draft: 'draft', Live: 'live' } }),
-				token: uuidField(),
-				wakeAt: timeField({ timezone: true }),
-			},
+				birthday: field.date(),
+				blob: field.binary({ default: Uint8Array.from([1, 2]) }),
+				count: field.int(),
+				counter: field.int({ autoIncrement: true }),
+				document: field.json({ default: { valid: true } }),
+				eventAt: field.dateTime({ timezone: false }),
+				huge: field.bigint({ default: 9007199254740993n }),
+				labels: field.string({ list: true, default: ['one', 'two'] }),
+				optional: field.string(),
+				profile: field.object({
+					fields: (field) => ({ name: field.string() }),
+				}),
+				rating: field.float({ default: 4.5 }),
+				required: field.string({ validation: { required: true } }),
+				runtime: field.string({ default: runtimeDefault }),
+				status: field.enum({ values: { Draft: 'draft', Live: 'live' } }),
+				token: field.uuid(),
+				wakeAt: field.time({ timezone: true }),
+			}),
 		})
 		const compiled = compilePostgresSchema(schema)
 		const tableConfig = getTableConfig(compiled.table)
@@ -209,11 +198,11 @@ describe('PostgreSQL primitive schema compiler', () => {
 	it('keeps optional nullable fields physically nullable', () => {
 		const schema = Schema.define({
 			className: 'NullableFixture',
-			fields: {
-				nullable: stringField({
+			fields: (field) => ({
+				nullable: field.string({
 					default: 'fallback',
 				}),
-			},
+			}),
 		})
 		const column = getTableConfig(
 			compilePostgresSchema(schema).table,
@@ -229,20 +218,20 @@ describe('PostgreSQL primitive schema compiler', () => {
 	it('keeps structured defaults logical and lets the Drizzle column encode them', () => {
 		const schema = Schema.define({
 			className: 'StructuredDefaultFixture',
-			fields: {
-				profile: objectField({
-					fields: {
-						avatar: binaryField(),
-						count: bigintField(),
-						seenAt: dateTimeField(),
-					},
+			fields: (field) => ({
+				profile: field.object({
+					fields: (field) => ({
+						avatar: field.binary(),
+						count: field.bigint(),
+						seenAt: field.dateTime(),
+					}),
 					default: {
 						avatar: Uint8Array.from([255]),
 						count: 42n,
 						seenAt: '2026-08-01T10:00:00.000Z',
 					},
 				}),
-			},
+			}),
 		})
 		const column = getTableConfig(
 			compilePostgresSchema(schema).table,
@@ -267,11 +256,11 @@ describe('PostgreSQL primitive schema compiler', () => {
 	it('rejects nested indexes, unsupported plugin fields, and invalid sequence combinations', () => {
 		const nestedIndexSchema = Schema.define({
 			className: 'NestedIndexFixture',
-			fields: {
-				profile: objectField({
-					fields: { email: stringField({ indexed: true }) },
+			fields: (field) => ({
+				profile: field.object({
+					fields: (field) => ({ email: field.string({ indexed: true }) }),
 				}),
-			},
+			}),
 		})
 		const pluginField = definePluginField(
 			'fixture.custom',
@@ -288,11 +277,13 @@ describe('PostgreSQL primitive schema compiler', () => {
 		)
 		const pluginSchema = Schema.define({
 			className: 'PluginFieldFixture',
-			fields: { custom: pluginField },
+			fields: () => ({ custom: pluginField }),
 		})
 		const invalidSequenceSchema = Schema.define({
 			className: 'InvalidSequenceFixture',
-			fields: { sequence: intField({ autoIncrement: true, default: 1 }) },
+			fields: (field) => ({
+				sequence: field.int({ autoIncrement: true, default: 1 }),
+			}),
 		})
 
 		expect(() => compilePostgresSchema(nestedIndexSchema)).toThrow(
@@ -315,35 +306,35 @@ describe('PostgreSQL primitive schema compiler', () => {
 	it('rejects ambiguous or nested PostgreSQL rename metadata', () => {
 		const duplicateSource = Schema.define({
 			className: 'DuplicateRenameFixture',
-			fields: {
-				first: stringField({
+			fields: (field) => ({
+				first: field.string({
 					extensions: [postgresColumn({ renamedFrom: 'legacy' })],
 				}),
-				second: stringField({
+				second: field.string({
 					extensions: [postgresColumn({ renamedFrom: 'legacy' })],
 				}),
-			},
+			}),
 		})
 		const declaredSource = Schema.define({
 			className: 'DeclaredRenameFixture',
-			fields: {
-				legacy: stringField(),
-				title: stringField({
+			fields: (field) => ({
+				legacy: field.string(),
+				title: field.string({
 					extensions: [postgresColumn({ renamedFrom: 'legacy' })],
 				}),
-			},
+			}),
 		})
 		const nestedRename = Schema.define({
 			className: 'NestedRenameFixture',
-			fields: {
-				profile: objectField({
-					fields: {
-						title: stringField({
+			fields: (field) => ({
+				profile: field.object({
+					fields: (field) => ({
+						title: field.string({
 							extensions: [postgresColumn({ renamedFrom: 'headline' })],
 						}),
-					},
+					}),
 				}),
-			},
+			}),
 		})
 
 		expect(() => compilePostgresSchema(duplicateSource)).toThrow(

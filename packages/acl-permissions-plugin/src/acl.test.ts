@@ -8,10 +8,10 @@ import { describe, expect, it } from 'vitest'
 import { ACL } from './acl.js'
 import { aclPermissions } from './acl-contracts.js'
 
-const User = Schema.define({ className: 'ACLUser', fields: {} })
+const User = Schema.define({ className: 'ACLUser', fields: () => ({}) })
 const ServiceAccount = Schema.define({
 	className: 'ACLServiceAccount',
-	fields: {},
+	fields: () => ({}),
 })
 const alice = User.pointer('shared-id')
 const service = ServiceAccount.pointer('shared-id')

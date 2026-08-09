@@ -21,6 +21,9 @@ test('types owner-bound setup registries without erasing service contracts', () 
 	context.registries.commands.register('fixture.command', () => true)
 
 	expectTypeOf(context).toEqualTypeOf<PluginSetupContext>()
+	expectTypeOf(context.fieldBuilderMethods).toEqualTypeOf<
+		PluginSetupContext['fieldBuilderMethods']
+	>()
 	expectTypeOf(context.services).toEqualTypeOf<PluginServiceRegistry>()
 	expectTypeOf(context.services.get(PortServiceToken)).toEqualTypeOf<number>()
 	expectTypeOf(

@@ -17,8 +17,8 @@ import {
 
 const bigintSchema = Schema.define({
 	className: 'BigintRecord',
-	fields: {
-		sequence: bigintField({
+	fields: (field) => ({
+		sequence: field.bigint({
 			validation: {
 				required: true,
 				range: {
@@ -27,9 +27,9 @@ const bigintSchema = Schema.define({
 			},
 			autoIncrement: true,
 		}),
-		balance: bigintField({ default: 0n }),
-		relatedIds: bigintField({ list: true }),
-	},
+		balance: field.bigint({ default: 0n }),
+		relatedIds: field.bigint({ list: true }),
+	}),
 })
 
 test('preserves bigint literals and operation-specific inference', () => {

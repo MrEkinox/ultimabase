@@ -1,67 +1,42 @@
 import {
+	assertNonEmptyString,
+	immutableArray,
 	immutableRecord,
 	isPlainRecord,
-	assertNonEmptyString,
+	isUnknownArray,
 } from '@ultimabase/shared'
 
 import {
 	bigintField,
 	type BigintFieldOptions,
 } from '../fields/builtins/bigint.js'
-import {
-	binaryField,
-	type BinaryFieldOptions,
-} from '../fields/builtins/binary.js'
-import {
-	booleanField,
-	type BooleanFieldOptions,
-} from '../fields/builtins/boolean.js'
-import { dateField, type DateFieldOptions } from '../fields/builtins/date.js'
-import {
-	dateTimeField,
-	type DateTimeFieldOptions,
-} from '../fields/builtins/date-time.js'
-import {
-	decimalField,
-	type DecimalFieldOptions,
-} from '../fields/builtins/decimal.js'
-import {
-	enumField,
-	type EnumFieldBuilderMethod,
-} from '../fields/builtins/enum.js'
-import { floatField, type FloatFieldOptions } from '../fields/builtins/float.js'
+import { binaryField } from '../fields/builtins/binary.js'
+import { booleanField } from '../fields/builtins/boolean.js'
+import { dateField } from '../fields/builtins/date.js'
+import { dateTimeField } from '../fields/builtins/date-time.js'
+import { decimalField } from '../fields/builtins/decimal.js'
+import { enumField } from '../fields/builtins/enum.js'
+import { floatField } from '../fields/builtins/float.js'
 import { intField, type IntFieldOptions } from '../fields/builtins/int.js'
-import {
-	jsonField,
-	type JsonDocument,
-	type JsonFieldOptions,
-} from '../fields/builtins/json.js'
+import { jsonField } from '../fields/builtins/json.js'
 import {
 	objectField,
+	type DefaultedObjectField,
+	type DefaultedObjectFieldOptions,
+	type NonDefaultedObjectField,
+	type NonDefaultedObjectFieldOptions,
 	type ObjectFieldOptions,
+	type ObjectFields,
 } from '../fields/builtins/object.js'
-import {
-	pointerField,
-	type PointerFieldBuilderMethod,
-} from '../fields/builtins/pointer.js'
-import {
-	relationField,
-	type RelationFieldOptions,
-	type RelationMappedFieldName,
-} from '../fields/builtins/relation.js'
-import {
-	stringField,
-	type StringFieldOptions,
-} from '../fields/builtins/string.js'
-import { timeField, type TimeFieldOptions } from '../fields/builtins/time.js'
-import { uuidField, type UuidFieldOptions } from '../fields/builtins/uuid.js'
-import type { GenericField } from '../fields/base/contract.js'
+import { pointerField } from '../fields/builtins/pointer.js'
+import { relationField } from '../fields/builtins/relation.js'
+import { stringField } from '../fields/builtins/string.js'
+import { timeField } from '../fields/builtins/time.js'
+import { uuidField } from '../fields/builtins/uuid.js'
+import type { FieldListOption, GenericField } from '../fields/base/contract.js'
 import { assertFieldDefinition } from '../fields/base/definition.js'
-import type {
-	CompactScalarFieldBuilderMethod,
-	GeneratedCompactScalarFieldBuilderMethod,
-} from '../fields/base/factory.js'
-import type { SchemaDefinition, SchemaFields } from './definition.js'
+import type { CompactScalarFieldFactory } from '../fields/base/factory.js'
+import type { SchemaFields } from './definition.js'
 import type {
 	UltimaBaseGeneratedEmbeddedFieldBuilderMethods,
 	UltimaBaseGeneratedFieldBuilderMethods,
@@ -79,218 +54,187 @@ type EmbeddedBigintFieldOptions = Omit<BigintFieldOptions, 'autoIncrement'> & {
 	readonly autoIncrement?: false
 }
 
-type EmbeddableField<TField extends GenericField> = TField extends {
-	readonly kind: 'pointer' | 'relation'
-}
-	? never
-	: TField extends {
-				readonly kind: 'int' | 'bigint'
-				readonly options: { readonly autoIncrement: true }
-		  }
-		? never
-		: TField
+type EmbeddedIntFieldFactory = CompactScalarFieldFactory<
+	'int',
+	number,
+	EmbeddedIntFieldOptions
+>
 
-/** Replaces an embedded field map with one restricted nested declaration. */
-export type ObjectFieldBuilderOptions = Omit<ObjectFieldOptions, 'fields'> & {
-	/** Declares embedded fields with their complete logical path. */
-	readonly fields: (field: EmbeddedFieldBuilder) => void
+type EmbeddedBigintFieldFactory = CompactScalarFieldFactory<
+	'bigint',
+	bigint,
+	EmbeddedBigintFieldOptions
+>
+
+/** Declares nested fields through the same map-returning shape as a schema. */
+export type ObjectFieldBuilderOptions<
+	TFields extends ObjectFields = ObjectFields,
+> = Omit<ObjectFieldOptions<TFields>, 'fields'> & {
+	readonly fields: (field: EmbeddedFieldBuilder) => TFields
+}
+
+type DefaultedObjectFieldBuilderOptions<
+	TFields extends ObjectFields,
+	TRequired extends boolean,
+	TList extends FieldListOption,
+	TImmutable extends boolean,
+> = Omit<
+	DefaultedObjectFieldOptions<TFields, TRequired, TList, TImmutable>,
+	'fields'
+> & {
+	readonly fields: (field: EmbeddedFieldBuilder) => TFields
+}
+
+type NonDefaultedObjectFieldBuilderOptions<
+	TFields extends ObjectFields,
+	TRequired extends boolean,
+	TList extends FieldListOption,
+	TImmutable extends boolean,
+> = Omit<
+	NonDefaultedObjectFieldOptions<TFields, TRequired, TList, TImmutable>,
+	'fields'
+> & {
+	readonly fields: (field: EmbeddedFieldBuilder) => TFields
+}
+
+interface ObjectFieldBuilderMethod {
+	<
+		const TFields extends ObjectFields,
+		const TRequired extends boolean = false,
+		const TList extends FieldListOption = false,
+		const TImmutable extends boolean = false,
+	>(
+		options: DefaultedObjectFieldBuilderOptions<
+			TFields,
+			TRequired,
+			TList,
+			TImmutable
+		>,
+	): DefaultedObjectField<TFields, TRequired, TList, TImmutable>
+	<
+		const TFields extends ObjectFields,
+		const TRequired extends boolean = false,
+		const TList extends FieldListOption = false,
+		const TImmutable extends boolean = false,
+	>(
+		options: NonDefaultedObjectFieldBuilderOptions<
+			TFields,
+			TRequired,
+			TList,
+			TImmutable
+		>,
+	): NonDefaultedObjectField<TFields, TRequired, TList, TImmutable>
 }
 
 interface ScalarFieldBuilderMethods {
 	/**
 	 * Declares one UTF-16 string.
-	 *
-	 * @example `field.string('title')`
+	 * @example `field.string({ validation: { required: true } })`
 	 */
-	readonly string: CompactScalarFieldBuilderMethod<string, StringFieldOptions>
+	readonly string: typeof stringField
 	/**
 	 * Declares one boolean.
-	 *
-	 * @example `field.boolean('published', { default: false })`
+	 * @example `field.boolean({ default: false })`
 	 */
-	readonly boolean: CompactScalarFieldBuilderMethod<
-		boolean,
-		BooleanFieldOptions
-	>
+	readonly boolean: typeof booleanField
 	/**
 	 * Declares one floating-point number.
-	 *
-	 * @example `field.float('score')`
+	 * @example `field.float()`
 	 */
-	readonly float: CompactScalarFieldBuilderMethod<number, FloatFieldOptions>
+	readonly float: typeof floatField
 	/**
 	 * Declares one exact decimal string.
-	 *
-	 * @example `field.decimal('price')`
+	 * @example `field.decimal()`
 	 */
-	readonly decimal: CompactScalarFieldBuilderMethod<string, DecimalFieldOptions>
+	readonly decimal: typeof decimalField
 	/**
 	 * Declares one UUID string.
-	 *
-	 * @example `field.uuid('externalId')`
+	 * @example `field.uuid()`
 	 */
-	readonly uuid: CompactScalarFieldBuilderMethod<string, UuidFieldOptions>
+	readonly uuid: typeof uuidField
 	/**
 	 * Declares one calendar date.
-	 *
-	 * @example `field.date('birthday')`
+	 * @example `field.date()`
 	 */
-	readonly date: GeneratedCompactScalarFieldBuilderMethod<
-		string,
-		DateFieldOptions,
-		'autoNow',
-		true
-	>
+	readonly date: typeof dateField
 	/**
 	 * Declares one timestamp.
-	 *
-	 * @example `field.dateTime('publishedAt')`
+	 * @example `field.dateTime()`
 	 */
-	readonly dateTime: GeneratedCompactScalarFieldBuilderMethod<
-		string,
-		DateTimeFieldOptions,
-		'autoNow',
-		true
-	>
+	readonly dateTime: typeof dateTimeField
 	/**
 	 * Declares one time of day.
-	 *
-	 * @example `field.time('opensAt')`
+	 * @example `field.time()`
 	 */
-	readonly time: GeneratedCompactScalarFieldBuilderMethod<
-		string,
-		TimeFieldOptions,
-		'autoNow',
-		true
-	>
+	readonly time: typeof timeField
 	/**
 	 * Declares immutable binary data.
-	 *
-	 * @example `field.binary('content')`
+	 * @example `field.binary()`
 	 */
-	readonly binary: CompactScalarFieldBuilderMethod<
-		Uint8Array,
-		BinaryFieldOptions
-	>
+	readonly binary: typeof binaryField
 	/**
 	 * Declares one arbitrary JSON document.
-	 *
-	 * @example `field.json('metadata')`
+	 * @example `field.json()`
 	 */
-	readonly json: CompactScalarFieldBuilderMethod<JsonDocument, JsonFieldOptions>
+	readonly json: typeof jsonField
 	/**
 	 * Declares one closed string domain.
-	 *
-	 * @example `field.enum('status', { values: ['draft', 'published'] })`
+	 * @example `field.enum({ values: ['draft', 'published'] })`
 	 */
-	readonly enum: EnumFieldBuilderMethod
+	readonly enum: typeof enumField
 	/**
 	 * Declares one embedded structured value.
-	 *
-	 * @example `field.object('profile', { fields(field) { field.string('name') } })`
+	 * @example `field.object({ fields: (nested) => ({ label: nested.string() }) })`
 	 */
-	readonly object: (
-		/** Stable logical field name within its containing schema or object. */
-		name: string,
-		/** Existing object options with a restricted nested declaration. */
-		options: ObjectFieldBuilderOptions,
-	) => void
+	readonly object: ObjectFieldBuilderMethod
 }
 
-/** Collects top-level Core fields during application static compilation. */
+/** Provides top-level factories while the returned object owns field names. */
 export interface FieldBuilder
 	extends ScalarFieldBuilderMethods, UltimaBaseGeneratedFieldBuilderMethods {
 	/**
-	 * Declares one safe integer.
-	 *
-	 * @example `field.int('views', { default: 0 })`
+	 * Declares one integer number.
+	 * @example `field.int({ default: 0 })`
 	 */
-	readonly int: GeneratedCompactScalarFieldBuilderMethod<
-		number,
-		IntFieldOptions,
-		'autoIncrement',
-		false
-	>
+	readonly int: typeof intField
 	/**
-	 * Declares one native bigint.
-	 *
-	 * @example `field.bigint('sequence')`
+	 * Declares one arbitrary-precision integer.
+	 * @example `field.bigint()`
 	 */
-	readonly bigint: GeneratedCompactScalarFieldBuilderMethod<
-		bigint,
-		BigintFieldOptions,
-		'autoIncrement',
-		false
-	>
+	readonly bigint: typeof bigintField
 	/**
-	 * Declares one exact lazy reference.
-	 *
-	 * @example `field.pointer('author', { target: () => User })`
+	 * Declares one typed pointer to another schema.
+	 * @example `field.pointer({ target: () => User })`
 	 */
-	readonly pointer: PointerFieldBuilderMethod
+	readonly pointer: typeof pointerField
 	/**
-	 * Declares one independently queryable to-many relationship.
-	 *
-	 * @example `field.relation('posts', { target: () => Post })`
+	 * Declares one inverse to-many relationship.
+	 * @example `field.relation({ target: () => Post, mappedBy: 'author' })`
 	 */
-	readonly relation: <
-		const TTarget extends SchemaDefinition,
-		const TMappedBy extends RelationMappedFieldName<TTarget> | undefined =
-			undefined,
-	>(
-		/** Stable logical field name within the containing schema. */
-		name: string,
-		/** Declares the exact lazy target and relation behavior. */
-		options: RelationFieldOptions<TTarget, TMappedBy>,
-	) => void
-	/**
-	 * Adds one prebuilt low-level field definition.
-	 *
-	 * @example `field.add('slug', reusableSlugField)`
-	 */
-	readonly add: (
-		/** Stable logical field name within the containing schema. */
-		name: string,
-		/** Immutable definition returned by a low-level field factory. */
-		field: GenericField,
-	) => void
+	readonly relation: typeof relationField
 }
 
-/** Collects only value fields supported inside one embedded object. */
+/** Provides only value-field factories accepted inside an embedded object. */
 export interface EmbeddedFieldBuilder
 	extends
 		ScalarFieldBuilderMethods,
 		UltimaBaseGeneratedEmbeddedFieldBuilderMethods {
 	/**
-	 * Declares an embedded integer without database-generated sequences.
-	 *
-	 * @example `field.int('count')`
+	 * Declares one embedded integer number.
+	 * @example `field.int()`
 	 */
-	readonly int: CompactScalarFieldBuilderMethod<number, EmbeddedIntFieldOptions>
+	readonly int: EmbeddedIntFieldFactory
 	/**
-	 * Declares an embedded bigint without database-generated sequences.
-	 *
-	 * @example `field.bigint('count')`
+	 * Declares one embedded arbitrary-precision integer.
+	 * @example `field.bigint()`
 	 */
-	readonly bigint: CompactScalarFieldBuilderMethod<
-		bigint,
-		EmbeddedBigintFieldOptions
-	>
-	/**
-	 * Adds one prebuilt value field after enforcing embedded-field restrictions.
-	 *
-	 * @example `field.add('slug', reusableSlugField)`
-	 */
-	readonly add: <const TField extends GenericField>(
-		/** Stable logical field name within the containing object. */
-		name: string,
-		/** Prebuilt value field accepted by embedded-object restrictions. */
-		field: EmbeddableField<TField>,
-	) => void
+	readonly bigint: EmbeddedBigintFieldFactory
 }
 
-/** Names the canonical Nexus-style schema field callback. */
-export type SchemaFieldBuilderDeclaration = (field: FieldBuilder) => void
+/** Names the canonical map-returning schema field declaration. */
+export type SchemaFieldBuilderDeclaration<
+	TFields extends SchemaFields = SchemaFields,
+> = (field: FieldBuilder) => TFields
 
 type UnknownCallable = (...arguments_: readonly unknown[]) => unknown
 
@@ -313,13 +257,72 @@ const invokeFieldFactory = (
 	return field
 }
 
-interface FieldCollector {
-	readonly builder: FieldBuilder | EmbeddedFieldBuilder
-	readonly size: () => number
-	readonly snapshot: () => SchemaFields
+type RuntimeFieldBuilderMethod = (options?: unknown) => GenericField
+
+interface CapturedFieldBuilderCall {
+	readonly methodName: string
+	readonly options: unknown
 }
 
-type RuntimeFieldBuilderMethod = (name: unknown, options?: unknown) => void
+const capturedFieldBuilderCalls = new WeakSet<object>()
+
+/** Identifies the one expected failure when an application omitted a used field plugin. */
+export class FieldBuilderMethodUnavailableError extends TypeError {}
+
+/** Separates developer callback failures from validation of its returned map. */
+export class FieldBuilderDeclarationExecutionError extends Error {
+	constructor(cause: unknown) {
+		super('FieldBuilder declaration threw', { cause })
+		this.name = 'FieldBuilderDeclarationExecutionError'
+	}
+}
+
+/** Detaches delayed plugin options from caller-owned plain data. */
+const snapshotCapturedOptionValue = (value: unknown): unknown => {
+	if (isUnknownArray(value)) {
+		return immutableArray(value.map(snapshotCapturedOptionValue))
+	}
+
+	if (value instanceof Date) {
+		return Object.freeze(new Date(value.getTime()))
+	}
+
+	if (value instanceof RegExp) {
+		return Object.freeze(new RegExp(value.source, value.flags))
+	}
+
+	if (!isPlainRecord(value)) {
+		return value
+	}
+
+	const snapshot: Record<string, unknown> = {}
+
+	for (const [key, nestedValue] of Object.entries(value)) {
+		snapshot[key] = snapshotCapturedOptionValue(nestedValue)
+	}
+
+	return immutableRecord(snapshot)
+}
+
+const createCapturedFieldBuilderCall = (
+	methodName: string,
+	options: unknown,
+): GenericField => {
+	const call = immutableRecord({ methodName, options })
+
+	capturedFieldBuilderCalls.add(call)
+
+	// The public builder method retains its concrete return type while compilation
+	// privately replaces this opaque declaration with the plugin's real field.
+	return call as unknown as GenericField
+}
+
+const isCapturedFieldBuilderCall = (
+	value: unknown,
+): value is CapturedFieldBuilderCall =>
+	typeof value === 'object' &&
+	value !== null &&
+	capturedFieldBuilderCalls.has(value)
 
 const createRuntimeBuilder = <TBuilder extends object>(
 	builder: TBuilder,
@@ -340,7 +343,7 @@ const createRuntimeBuilder = <TBuilder extends object>(
 			}
 
 			return (): never => {
-				throw new TypeError(
+				throw new FieldBuilderMethodUnavailableError(
 					`${path} FieldBuilder method "${property}" is unavailable; configure the plugin that declares it`,
 				)
 			}
@@ -348,227 +351,320 @@ const createRuntimeBuilder = <TBuilder extends object>(
 	})
 }
 
-const createFieldCollector = (
-	rootPath: string,
-	embedded: boolean,
-	fieldMethods?: FieldBuilderMethodResolver,
-): FieldCollector => {
-	const fields = new Map<string, GenericField>()
-	const declareField = (nameValue: unknown, field: unknown): void => {
-		assertNonEmptyString(nameValue, `${rootPath} field name`)
-		const path = `${rootPath}.${nameValue}`
-
-		if (fields.has(nameValue)) {
-			throw new TypeError(`Duplicate field declaration: ${path}`)
-		}
-
-		assertFieldDefinition(field, path)
-		fields.set(nameValue, field)
-	}
-	const fromFactory = (
-		name: string,
-		factory: unknown,
-		options: unknown,
-	): void => {
-		const path = `${rootPath}.${name}`
-
-		declareField(name, invokeFieldFactory(factory, options, path))
-	}
-	const fromPluginFactory = (
-		method: OwnedFieldBuilderMethod,
-		name: unknown,
-		options: unknown,
-	): void => {
-		assertNonEmptyString(name, `${rootPath} field name`)
-		const path = `${rootPath}.${name}`
-		const field = invokeFieldFactory(method.factory, options, path)
-
-		if (field.kind !== method.fieldKind) {
-			throw new TypeError(
-				`${path} FieldBuilder method "${method.name}" from "${method.owner}" returned kind "${field.kind}" instead of "${method.fieldKind}"`,
-			)
-		}
-
-		declareField(name, field)
-	}
-	const add = (name: string, field: GenericField): void => {
-		declareField(name, field)
-	}
-	const object = (name: string, optionsValue: unknown): void => {
-		const path = `${rootPath}.${name}`
-
+const createCapturedObjectMethod = (path: string): ObjectFieldBuilderMethod => {
+	const method = (optionsValue: unknown): GenericField => {
 		if (!isPlainRecord(optionsValue)) {
-			throw new TypeError(`${path} options must be a plain object`)
+			throw new TypeError(`${path}.object options must be a plain object`)
 		}
 
 		const { fields: declaration, ...options } = optionsValue
+		const fields = captureFieldBuilderCallback(
+			declaration,
+			`${path}.object.fields`,
+			true,
+		)
 
-		if (typeof declaration !== 'function') {
-			throw new TypeError(`${path}.fields must be a function`)
+		return createCapturedFieldBuilderCall(
+			'object',
+			immutableRecord({
+				...(snapshotCapturedOptionValue(options) as Readonly<
+					Record<string, unknown>
+				>),
+				fields,
+			}),
+		)
+	}
+
+	return method as ObjectFieldBuilderMethod
+}
+
+const createCapturedFieldBuilder = (
+	path: string,
+	embedded: boolean,
+): FieldBuilder | EmbeddedFieldBuilder => {
+	const method =
+		(methodName: string): RuntimeFieldBuilderMethod =>
+		(options) =>
+			createCapturedFieldBuilderCall(
+				methodName,
+				snapshotCapturedOptionValue(options),
+			)
+	const scalarMethods: ScalarFieldBuilderMethods = {
+		binary: method('binary') as typeof binaryField,
+		boolean: method('boolean') as typeof booleanField,
+		date: method('date') as typeof dateField,
+		dateTime: method('dateTime') as typeof dateTimeField,
+		decimal: method('decimal') as typeof decimalField,
+		enum: method('enum') as typeof enumField,
+		float: method('float') as typeof floatField,
+		json: method('json') as typeof jsonField,
+		object: createCapturedObjectMethod(path),
+		string: method('string') as typeof stringField,
+		time: method('time') as typeof timeField,
+		uuid: method('uuid') as typeof uuidField,
+	}
+	const known = embedded
+		? {
+				...scalarMethods,
+				bigint: method('bigint') as EmbeddedBigintFieldFactory,
+				int: method('int') as EmbeddedIntFieldFactory,
+			}
+		: {
+				...scalarMethods,
+				bigint: method('bigint') as typeof bigintField,
+				int: method('int') as typeof intField,
+				pointer: method('pointer') as typeof pointerField,
+				relation: method('relation') as typeof relationField,
+			}
+
+	return new Proxy(immutableRecord(known), {
+		get: (record, property, receiver): unknown => {
+			if (typeof property !== 'string' || Reflect.has(record, property)) {
+				return Reflect.get(record, property, receiver)
+			}
+
+			if (embedded && (property === 'pointer' || property === 'relation')) {
+				return undefined
+			}
+
+			return method(property)
+		},
+	})
+}
+
+const createPluginMethods = (
+	path: string,
+	fieldMethods?: FieldBuilderMethodResolver,
+): Readonly<Record<string, RuntimeFieldBuilderMethod>> => {
+	const methods: Record<string, RuntimeFieldBuilderMethod> = {}
+
+	for (const method of fieldMethods?.values() ?? []) {
+		methods[method.name] = (options): GenericField =>
+			invokePluginFieldFactory(method, options, path)
+	}
+
+	return immutableRecord(methods)
+}
+
+const invokePluginFieldFactory = (
+	method: OwnedFieldBuilderMethod,
+	options: unknown,
+	path: string,
+): GenericField => {
+	const field = invokeFieldFactory(
+		method.factory,
+		options,
+		`${path}.${method.name}`,
+	)
+
+	if (field.kind !== method.fieldKind) {
+		throw new TypeError(
+			`${path} FieldBuilder method "${method.name}" from "${method.owner}" returned kind "${field.kind}" instead of "${method.fieldKind}"`,
+		)
+	}
+
+	return field
+}
+
+const createObjectMethod = (
+	path: string,
+	fieldMethods?: FieldBuilderMethodResolver,
+): ObjectFieldBuilderMethod => {
+	const method = (optionsValue: unknown): GenericField => {
+		if (!isPlainRecord(optionsValue)) {
+			throw new TypeError(`${path}.object options must be a plain object`)
 		}
 
-		const nestedFields = executeFieldBuilderCallback(
+		const { fields: declaration, ...options } = optionsValue
+		const fields = executeFieldBuilderCallback(
 			declaration,
-			`${path}.fields`,
+			`${path}.object.fields`,
 			true,
 			fieldMethods,
 		)
 
-		fromFactory(name, objectField, { ...options, fields: nestedFields })
+		return objectField({ ...options, fields })
 	}
-	const enumMethod: EnumFieldBuilderMethod = (
-		name,
-		options,
-		...invalidOptions: readonly never[]
-	) => {
-		void invalidOptions
-		fromFactory(name, enumField, options)
-	}
-	const scalarMethods: ScalarFieldBuilderMethods = {
-		binary: (name, options) => {
-			fromFactory(name, binaryField, options)
-		},
-		boolean: (name, options) => {
-			fromFactory(name, booleanField, options)
-		},
-		date: (name, options) => {
-			fromFactory(name, dateField, options)
-		},
-		dateTime: (name, options) => {
-			fromFactory(name, dateTimeField, options)
-		},
-		decimal: (name, options) => {
-			fromFactory(name, decimalField, options)
-		},
-		enum: enumMethod,
-		float: (name, options) => {
-			fromFactory(name, floatField, options)
-		},
-		json: (name, options) => {
-			fromFactory(name, jsonField, options)
-		},
-		object,
-		string: (name, options) => {
-			fromFactory(name, stringField, options)
-		},
-		time: (name, options) => {
-			fromFactory(name, timeField, options)
-		},
-		uuid: (name, options) => {
-			fromFactory(name, uuidField, options)
-		},
-	}
-	const pluginMethods: Record<string, RuntimeFieldBuilderMethod> = {}
 
-	for (const method of fieldMethods?.values() ?? []) {
-		pluginMethods[method.name] = (name, options): void => {
-			fromPluginFactory(method, name, options)
-		}
+	return method as ObjectFieldBuilderMethod
+}
+
+const createFieldBuilder = (
+	path: string,
+	embedded: boolean,
+	fieldMethods?: FieldBuilderMethodResolver,
+): FieldBuilder | EmbeddedFieldBuilder => {
+	const scalarMethods: ScalarFieldBuilderMethods = {
+		binary: binaryField,
+		boolean: booleanField,
+		date: dateField,
+		dateTime: dateTimeField,
+		decimal: decimalField,
+		enum: enumField,
+		float: floatField,
+		json: jsonField,
+		object: createObjectMethod(path, fieldMethods),
+		string: stringField,
+		time: timeField,
+		uuid: uuidField,
 	}
+	const pluginMethods = createPluginMethods(path, fieldMethods)
 
 	if (embedded) {
-		const builder = createRuntimeBuilder<EmbeddedFieldBuilder>(
+		return createRuntimeBuilder<EmbeddedFieldBuilder>(
 			{
 				...scalarMethods,
-				add,
-				bigint: (name, options) => {
-					fromFactory(name, bigintField, options)
-				},
-				int: (name, options) => {
-					fromFactory(name, intField, options)
-				},
+				bigint: bigintField as EmbeddedBigintFieldFactory,
+				int: intField as EmbeddedIntFieldFactory,
 			},
 			pluginMethods,
-			rootPath,
+			path,
 			true,
 		)
-
-		return {
-			builder,
-			size: () => fields.size,
-			snapshot: () => immutableRecord(Object.fromEntries(fields)),
-		}
 	}
 
-	const pointer: PointerFieldBuilderMethod = (
-		name,
-		options,
-		...invalidOptions: readonly never[]
-	) => {
-		void invalidOptions
-		fromFactory(name, pointerField, options)
-	}
-	const relation: FieldBuilder['relation'] = (name, options) => {
-		fromFactory(name, relationField, options)
-	}
-	const builder = createRuntimeBuilder<FieldBuilder>(
+	return createRuntimeBuilder<FieldBuilder>(
 		{
 			...scalarMethods,
-			add,
-			bigint: (name, options) => {
-				fromFactory(name, bigintField, options)
-			},
-			int: (name, options) => {
-				fromFactory(name, intField, options)
-			},
-			pointer,
-			relation,
+			bigint: bigintField,
+			int: intField,
+			pointer: pointerField,
+			relation: relationField,
 		},
 		pluginMethods,
-		rootPath,
+		path,
 		false,
 	)
+}
 
-	return {
-		builder,
-		size: () => fields.size,
-		snapshot: () => immutableRecord(Object.fromEntries(fields)),
+const assertCapturedFieldMap: (
+	value: unknown,
+	path: string,
+) => asserts value is Readonly<Record<string, unknown>> = (value, path) => {
+	if (!isPlainRecord(value)) {
+		throw new TypeError(`${path} must return a field map`)
+	}
+
+	for (const [name, field] of Object.entries(value)) {
+		assertNonEmptyString(name, `${path} field name`)
+
+		if (!isCapturedFieldBuilderCall(field)) {
+			assertFieldDefinition(field, `${path}.${name}`)
+		}
 	}
 }
 
-/** Executes one root or nested builder callback and snapshots its collected map. */
+/** Executes one declaration exactly once and snapshots its unresolved field calls. */
+export const captureFieldBuilderCallback = (
+	declaration: unknown,
+	path: string,
+	embedded = false,
+): Readonly<Record<string, unknown>> => {
+	if (!isUnknownCallable(declaration)) {
+		throw new TypeError(`${path} must be a function`)
+	}
+
+	let returned: unknown
+
+	try {
+		returned = declaration(createCapturedFieldBuilder(path, embedded))
+	} catch (cause: unknown) {
+		throw new FieldBuilderDeclarationExecutionError(cause)
+	}
+
+	assertCapturedFieldMap(returned, path)
+
+	return immutableRecord(returned)
+}
+
+const resolveCapturedFieldBuilderCall = (
+	call: CapturedFieldBuilderCall,
+	fieldPath: string,
+	fieldMethods: FieldBuilderMethodResolver | undefined,
+): GenericField => {
+	if (call.methodName === 'object') {
+		if (!isPlainRecord(call.options)) {
+			throw new TypeError(`${fieldPath}.object options must be a plain object`)
+		}
+
+		const { fields: capturedFields, ...options } = call.options
+		const fields = resolveCapturedFieldMap(
+			capturedFields,
+			`${fieldPath}.object.fields`,
+			true,
+			fieldMethods,
+		)
+
+		return invokeFieldFactory(
+			objectField,
+			{ ...options, fields },
+			`${fieldPath}.object`,
+		)
+	}
+
+	const builder = createFieldBuilder(fieldPath, false, fieldMethods)
+	const factory = Reflect.get(builder, call.methodName) as unknown
+
+	return invokeFieldFactory(
+		factory,
+		call.options,
+		`${fieldPath}.${call.methodName}`,
+	)
+}
+
+/** Materializes one captured map after the application has declared plugin methods. */
+export const resolveCapturedFieldMap = (
+	captured: unknown,
+	path: string,
+	embedded = false,
+	fieldMethods?: FieldBuilderMethodResolver,
+): SchemaFields => {
+	assertCapturedFieldMap(captured, path)
+	const fields: Record<string, GenericField> = {}
+
+	for (const [name, field] of Object.entries(captured)) {
+		if (isCapturedFieldBuilderCall(field)) {
+			if (
+				embedded &&
+				(field.methodName === 'pointer' || field.methodName === 'relation')
+			) {
+				throw new TypeError(
+					`${path}.${name} cannot be a pointer or relation inside objectField`,
+				)
+			}
+
+			fields[name] = resolveCapturedFieldBuilderCall(
+				field,
+				`${path}.${name}`,
+				fieldMethods,
+			)
+			continue
+		}
+
+		fields[name] = field as GenericField
+	}
+
+	return immutableRecord(fields)
+}
+
+/** Executes and materializes one declaration for lower-level compatibility callers. */
 export const executeFieldBuilderCallback = (
 	declaration: unknown,
 	path: string,
 	embedded = false,
 	fieldMethods?: FieldBuilderMethodResolver,
-): SchemaFields => {
-	if (!isUnknownCallable(declaration)) {
-		throw new TypeError(`${path} must be a function`)
-	}
+): SchemaFields =>
+	resolveCapturedFieldMap(
+		captureFieldBuilderCallback(declaration, path, embedded),
+		path,
+		embedded,
+		fieldMethods,
+	)
 
-	const collector = createFieldCollector(path, embedded, fieldMethods)
-	const returned = declaration(collector.builder)
-
-	if (returned !== undefined) {
-		throw new TypeError(`${path} must not return a value`)
-	}
-
-	return collector.snapshot()
-}
-
-/** Executes either the migration callback or the canonical builder declaration. */
+/** Executes the canonical map-returning schema declaration. */
 export const executeSchemaFieldsCallback = (
 	declaration: unknown,
 	path: string,
 	fieldMethods?: FieldBuilderMethodResolver,
-): unknown => {
-	if (!isUnknownCallable(declaration)) {
-		throw new TypeError(`${path} must be a function`)
-	}
-
-	const collector = createFieldCollector(path, false, fieldMethods)
-	const returned = declaration(collector.builder)
-
-	if (returned === undefined) {
-		return collector.snapshot()
-	}
-
-	if (collector.size() > 0) {
-		throw new TypeError(
-			`${path} cannot combine FieldBuilder methods with a returned field map`,
-		)
-	}
-
-	return returned
-}
+): SchemaFields =>
+	executeFieldBuilderCallback(declaration, path, false, fieldMethods)

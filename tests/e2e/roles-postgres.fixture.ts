@@ -7,13 +7,10 @@ import {
 	allMutations,
 	allOf,
 	anyOf,
-	booleanField,
 	defineAccessReferenceCleanup,
 	definePlugin,
-	intField,
 	not,
 	onEvent,
-	stringField,
 	type AccessContext,
 } from '@ultimabase/core'
 import {
@@ -43,9 +40,9 @@ export const currentRoleMemberId = new RequestContextValue<string>(
 
 export const RoleMember = Schema.define({
 	className: 'RoleE2EMember',
-	fields: {
-		email: stringField({ indexed: 'unique', validation: { required: true } }),
-	},
+	fields: (field) => ({
+		email: field.string({ indexed: 'unique', validation: { required: true } }),
+	}),
 })
 
 const masterOnly = ({
@@ -75,10 +72,10 @@ export const AppRole = RoleSchema.define({
 		},
 	},
 	deletion: { references: 'fail' },
-	fields: {
-		description: stringField(),
-		priority: intField({ default: 0 }),
-	},
+	fields: (field) => ({
+		description: field.string(),
+		priority: field.int({ default: 0 }),
+	}),
 	indexes: [{ fields: ['priority', 'createdAt'] }],
 	access: protectedRoleOperations,
 	hooks: {
@@ -96,7 +93,7 @@ export const FailRole = RoleSchema.define({
 	className: 'RoleE2EFailRole',
 	members: { schema: RoleMember },
 	deletion: { references: 'fail' },
-	fields: {},
+	fields: () => ({}),
 	access: protectedRoleOperations,
 })
 
@@ -104,7 +101,7 @@ export const PreserveRole = RoleSchema.define({
 	className: 'RoleE2EPreserveRole',
 	members: { schema: RoleMember },
 	deletion: { references: 'preserve' },
-	fields: {},
+	fields: () => ({}),
 	access: { ...protectedRoleOperations, delete: true },
 })
 
@@ -112,7 +109,7 @@ export const CascadeRole = RoleSchema.define({
 	className: 'RoleE2ECascadeRole',
 	members: { schema: RoleMember },
 	deletion: { references: 'cascade' },
-	fields: {},
+	fields: () => ({}),
 	access: {
 		// Native Access permits deletion so the plugin's master-only cascade guard is exercised.
 		...protectedRoleOperations,
@@ -125,6 +122,19 @@ export const AdministratorReference = AppRole.role('administrator')
 
 export const ProtectedPost = Schema.define({
 	className: 'RoleE2EProtectedPost',
+	fields: (field) => ({
+		internalNote: field.string({
+			access: {
+				read: {
+					orderBy: anyOf(masterOnly, hasRole(AdministratorReference)),
+					output: anyOf(masterOnly, hasRole(AdministratorReference)),
+					where: anyOf(masterOnly, hasRole(AdministratorReference)),
+				},
+			},
+		}),
+		published: field.boolean({ default: false }),
+		title: field.string({ validation: { required: true } }),
+	}),
 	access: {
 		create: masterOnly,
 		delete: hasRole(AdministratorReference),
@@ -141,27 +151,14 @@ export const ProtectedPost = Schema.define({
 			),
 		),
 	},
-	fields: {
-		internalNote: stringField({
-			access: {
-				read: {
-					orderBy: anyOf(masterOnly, hasRole(AdministratorReference)),
-					output: anyOf(masterOnly, hasRole(AdministratorReference)),
-					where: anyOf(masterOnly, hasRole(AdministratorReference)),
-				},
-			},
-		}),
-		published: booleanField({ default: false }),
-		title: stringField({ validation: { required: true } }),
-	},
 })
 
 /** Exposes neutral external references used to verify all deletion policies. */
 export const ExternalRoleReference = Schema.define({
 	className: 'RoleE2EExternalReference',
-	fields: {
-		subject: stringField({ indexed: true, validation: { required: true } }),
-	},
+	fields: (field) => ({
+		subject: field.string({ indexed: true, validation: { required: true } }),
+	}),
 })
 
 export let missingProviderHookCalls = 0
@@ -172,19 +169,18 @@ export const resetMissingProviderHookCalls = (): void => {
 
 export const MissingProviderPost = Schema.define({
 	className: 'RoleE2EMissingProviderPost',
+	fields: (field) => ({
+		title: field.string({ validation: { required: true } }),
+	}),
 	access: {
 		create: true,
 		read: true,
 		update: hasRole(EditorReference),
 	},
-	fields: {
-		title: stringField({ validation: { required: true } }),
-	},
 	hooks: {
 		beforeOperation: {
 			update: ({ operation }) => {
 				missingProviderHookCalls += 1
-
 				void operation
 			},
 		},

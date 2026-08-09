@@ -1,13 +1,7 @@
 import { createApplication, definePlugin } from '../../foundation.js'
 import { beforeOperation } from './definitions.js'
 import { getHookHandlerEntries } from '../../schema/hooks/normalization.js'
-import {
-	objectField,
-	Schema,
-	stringField,
-	type SchemaBeforeCreateHook,
-	type SchemaClass,
-} from '../../schema/index.js'
+import { objectField, Schema, stringField } from '../../schema/index.js'
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -53,17 +47,10 @@ const planFields = {
 	}),
 	'dotted.name': stringField(),
 }
-type PlanSchemaDefinition = SchemaClass<
-	'HookContributionPlan',
-	typeof planFields,
-	readonly []
->
-
 /** Creates distinct transform identities while preserving each exact operation. */
-const createSchemaHandler =
-	(): SchemaBeforeCreateHook<PlanSchemaDefinition> => () => {
-		invocationCount += 1
-	}
+const createSchemaHandler = () => () => {
+	invocationCount += 1
+}
 
 const developerSchemaHandler = createSchemaHandler()
 const baseSchemaHandler = createSchemaHandler()
@@ -72,7 +59,7 @@ const dependentSchemaHandler = createSchemaHandler()
 
 const planSchema = Schema.define({
 	className: 'HookContributionPlan',
-	fields: planFields,
+	fields: () => planFields,
 	hooks: { beforeOperation: { create: developerSchemaHandler } },
 })
 
@@ -211,7 +198,7 @@ describe('native hook contribution plan', () => {
 		const fieldPlan = plan.getField(planSchema, ['profile', 'email'])
 		const foreignSchema = Schema.define({
 			className: 'ForeignContributionPlan',
-			fields: { title: stringField() },
+			fields: (field) => ({ title: field.string() }),
 		})
 
 		expect(Object.isFrozen(plan)).toBe(true)

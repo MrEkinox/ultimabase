@@ -2,9 +2,7 @@ import {
 	databaseAdapterServiceToken,
 	definePlugin,
 	MasterAuthority,
-	relationField,
 	Schema,
-	stringField,
 	UltimaBase,
 	type Pointer,
 } from '../../src/index.js'
@@ -38,20 +36,19 @@ const createRelationRuntimeFixture = async (
 	const trace: string[] = []
 	const Target = Schema.define({
 		className: 'RelationMutationTarget',
-		fields: { label: stringField() },
+		fields: (field) => ({ label: field.string() }),
 	})
 	const Source = Schema.define({
 		className: 'RelationMutationSource',
-		fields: {
-			name: stringField(),
-			targets: relationField({
+		fields: (field) => ({
+			name: field.string(),
+			targets: field.relation({
 				access: {
 					write: ({ context, change }) => {
 						accessModes.push(context.access.mode)
 						trace.push(
 							`access:${change.action}:${String(change.targets.length)}`,
 						)
-
 						return options.requiredAccessMode === undefined
 							? (options.allowUpdate ?? true)
 							: context.access.mode === options.requiredAccessMode
@@ -59,7 +56,7 @@ const createRelationRuntimeFixture = async (
 				},
 				target: () => Target,
 			}),
-		},
+		}),
 		hooks: {
 			beforeOperation: {
 				update: ({ operation }) => {

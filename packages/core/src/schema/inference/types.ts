@@ -6,7 +6,10 @@ import type {
 	GenericField,
 } from '../fields/base/contract.js'
 import type { SchemaFields } from '../schema/definition.js'
-import type { GeneratedSchemaValueOr } from '../generated-contracts.js'
+import type {
+	GeneratedSchemaItemFallbackOr,
+	GeneratedSchemaValueOr,
+} from '../generated-contracts.js'
 
 export type InferenceMode = 'object' | 'create' | 'update'
 
@@ -141,7 +144,10 @@ export type InferObject<TSchema extends InferableSchema> =
 	GeneratedValueOrInferred<
 		TSchema,
 		'Item',
-		InferFields<TSchema['fields'], 'object'>
+		GeneratedSchemaItemFallbackOr<
+			TSchema,
+			InferFields<TSchema['fields'], 'object'>
+		>
 	>
 
 /**

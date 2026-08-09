@@ -14,13 +14,7 @@ import {
 	type UpdateOneOperationAst,
 	type UpsertOneOperationAst,
 } from '@ultimabase/core'
-import {
-	Schema,
-	SchemaRegistry,
-	intField,
-	pointerField,
-	stringField,
-} from '@ultimabase/core'
+import { Schema, SchemaRegistry } from '@ultimabase/core'
 import { isPlainRecord, isUnknownArray } from '@ultimabase/shared'
 import {
 	createRuntimeValidationStage,
@@ -44,20 +38,22 @@ import { PostgresSchemaCatalog } from '../schema/catalog.js'
 
 const articleSchema = Schema.define({
 	className: 'Article',
-	fields: {
-		note: stringField(),
-		title: stringField({ validation: { required: true } }),
-		views: intField(),
-	},
+	fields: (field) => ({
+		note: field.string(),
+		title: field.string({ validation: { required: true } }),
+		views: field.int(),
+	}),
 })
 
 const pointerUserSchema = Schema.define({
 	className: 'AdapterPointerUser',
-	fields: { name: stringField() },
+	fields: (field) => ({ name: field.string() }),
 })
 const pointerPostSchema = Schema.define({
 	className: 'AdapterPointerPost',
-	fields: { author: pointerField({ target: () => pointerUserSchema }) },
+	fields: (field) => ({
+		author: field.pointer({ target: () => pointerUserSchema }),
+	}),
 })
 const pointerRegistry = new SchemaRegistry([
 	pointerUserSchema,

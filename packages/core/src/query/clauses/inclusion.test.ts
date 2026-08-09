@@ -1,4 +1,4 @@
-import { pointerField, Schema, stringField } from '../../schema/index.js'
+import { Schema } from '../../schema/index.js'
 import { describe, expect, it } from 'vitest'
 
 import { QueryBuilder } from '../query/query.js'
@@ -6,16 +6,19 @@ import { normalizeQueryInclusion } from './inclusion.js'
 
 const userSchema = Schema.define({
 	className: 'IncludedUser',
-	fields: { name: stringField(), email: stringField() },
+	fields: (field) => ({ name: field.string(), email: field.string() }),
 })
-const otherSchema = Schema.define({ className: 'OtherTarget', fields: {} })
+const otherSchema = Schema.define({
+	className: 'OtherTarget',
+	fields: () => ({}),
+})
 const postSchema = Schema.define({
 	className: 'IncludedPost',
-	fields: {
-		author: pointerField({ target: () => userSchema }),
-		reviewer: pointerField({ target: () => userSchema }),
-		title: stringField(),
-	},
+	fields: (field) => ({
+		author: field.pointer({ target: () => userSchema }),
+		reviewer: field.pointer({ target: () => userSchema }),
+		title: field.string(),
+	}),
 })
 
 describe('normalizeQueryInclusion', () => {

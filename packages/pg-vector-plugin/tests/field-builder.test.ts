@@ -21,16 +21,18 @@ describe('pg-vector FieldBuilder method', () => {
 		let declarations = 0
 		const Document = Schema.define({
 			className: 'VectorBuilderDocument',
-			fields(field) {
+			fields: (field) => {
 				declarations += 1
-				vectorBuilder(field).vector('embedding', {
-					dimensions: 3,
-					validation: { required: true },
-				})
+				return {
+					embedding: vectorBuilder(field).vector({
+						dimensions: 3,
+						validation: { required: true },
+					}),
+				}
 			},
 		})
 
-		expect(declarations).toBe(0)
+		expect(declarations).toBe(1)
 		const application = await createApplication({
 			plugins: [pgVectorPlugin()],
 			schemas: [Document],
@@ -43,8 +45,8 @@ describe('pg-vector FieldBuilder method', () => {
 
 		expect(declarations).toBe(1)
 		expect(embedding).toStrictEqual(expected)
-		expect(embedding?.kind).toBe(vectorFieldKind)
-		expect(embedding?.options).toMatchObject({ dimensions: 3 })
+		expect(embedding.kind).toBe(vectorFieldKind)
+		expect(embedding.options).toMatchObject({ dimensions: 3 })
 		expect(Object.isFrozen(embedding)).toBe(true)
 		expect(application.fieldBuilderMethods).toStrictEqual([
 			expect.objectContaining({
@@ -63,10 +65,10 @@ describe('pg-vector FieldBuilder method', () => {
 	it('reports a missing plugin before the schema can compile', async () => {
 		const Missing = Schema.define({
 			className: 'MissingVectorBuilderPlugin',
-			fields(field) {
+			fields: (field) => ({
 				// The generated-like cast simulates stale output after plugin removal.
-				vectorBuilder(field).vector('embedding', { dimensions: 3 })
-			},
+				embedding: vectorBuilder(field).vector({ dimensions: 3 }),
+			}),
 		})
 
 		await expect(
@@ -74,7 +76,7 @@ describe('pg-vector FieldBuilder method', () => {
 		).rejects.toThrow(
 			expect.objectContaining({
 				cause: new TypeError(
-					'MissingVectorBuilderPlugin.fields FieldBuilder method "vector" is unavailable; configure the plugin that declares it',
+					'MissingVectorBuilderPlugin.fields.embedding FieldBuilder method "vector" is unavailable; configure the plugin that declares it',
 				),
 			}),
 		)
@@ -83,9 +85,9 @@ describe('pg-vector FieldBuilder method', () => {
 	it('keeps vector option validation on the existing factory', async () => {
 		const Invalid = Schema.define({
 			className: 'InvalidVectorBuilderOptions',
-			fields(field) {
-				vectorBuilder(field).vector('embedding', { dimensions: 0 })
-			},
+			fields: (field) => ({
+				embedding: vectorBuilder(field).vector({ dimensions: 0 }),
+			}),
 		})
 
 		await expect(
@@ -103,9 +105,9 @@ describe('pg-vector FieldBuilder method', () => {
 	it('removes the runtime method from an application without the plugin', async () => {
 		const Empty = Schema.define({
 			className: 'VectorlessBuilderApplication',
-			fields(field) {
-				field.string('title')
-			},
+			fields: (field) => ({
+				title: field.string(),
+			}),
 		})
 		const application = await createApplication({
 			plugins: [],

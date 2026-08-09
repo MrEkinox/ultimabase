@@ -1,15 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import {
-	Schema,
-	booleanField,
-	enumField,
-	intField,
-	objectField,
-	pointerField,
-	relationField,
-	stringField,
-} from '../index.js'
+import { Schema } from '../index.js'
 import { WhereBuilder } from '../../query/index.js'
 import {
 	combineAccessWhereResults,
@@ -19,25 +10,25 @@ import {
 
 const Author = Schema.define({
 	className: 'AccessWhereAuthor',
-	fields: { active: booleanField(), name: stringField() },
+	fields: (field) => ({ active: field.boolean(), name: field.string() }),
 })
 const Tag = Schema.define({
 	className: 'AccessWhereTag',
-	fields: { label: stringField(), visible: booleanField() },
+	fields: (field) => ({ label: field.string(), visible: field.boolean() }),
 })
 const Article = Schema.define({
 	className: 'AccessWhereArticle',
-	fields: {
-		aliases: stringField({ list: true }),
-		author: pointerField({ target: () => Author }),
-		metadata: objectField({ fields: { label: stringField() } }),
-		published: booleanField(),
-		score: intField(),
-		status: enumField({ values: ['draft', 'published'] }),
-		tags: relationField({ target: () => Tag }),
-		title: stringField(),
-		views: intField(),
-	},
+	fields: (field) => ({
+		aliases: field.string({ list: true }),
+		author: field.pointer({ target: () => Author }),
+		metadata: field.object({ fields: (field) => ({ label: field.string() }) }),
+		published: field.boolean(),
+		score: field.int(),
+		status: field.enum({ values: ['draft', 'published'] }),
+		tags: field.relation({ target: () => Tag }),
+		title: field.string(),
+		views: field.int(),
+	}),
 })
 
 describe('Access where normalization', () => {
@@ -127,7 +118,7 @@ describe('Access where normalization', () => {
 	it('rejects forged, callback, and cross-schema results', () => {
 		const Comment = Schema.define({
 			className: 'AccessWhereComment',
-			fields: { body: stringField() },
+			fields: (field) => ({ body: field.string() }),
 		})
 
 		expect(() => normalizeAccessWhereResult(Article, undefined)).toThrow(

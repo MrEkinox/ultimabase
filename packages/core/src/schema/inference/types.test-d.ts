@@ -1,19 +1,7 @@
 import { expectTypeOf, test } from 'vitest'
 
 import {
-	binaryField,
-	booleanField,
-	dateField,
-	dateTimeField,
-	decimalField,
 	Schema,
-	enumField,
-	floatField,
-	intField,
-	jsonField,
-	objectField,
-	stringField,
-	timeField,
 	type InferCreateInput,
 	type InferObject,
 	type InferUpdateInput,
@@ -22,45 +10,45 @@ import {
 
 const primitiveSchema = Schema.define({
 	className: 'PrimitiveMatrix',
-	fields: {
-		requiredText: stringField({
+	fields: (field) => ({
+		requiredText: field.string({
 			validation: { required: true },
 		}),
-		optionalText: stringField(),
-		nullableText: stringField(),
-		defaultedFlag: booleanField({
+		optionalText: field.string(),
+		nullableText: field.string(),
+		defaultedFlag: field.boolean({
 			default: false,
 		}),
-		requiredDefault: stringField({
+		requiredDefault: field.string({
 			validation: { required: true },
 			default: 'generated',
 		}),
-		immutableText: stringField({
+		immutableText: field.string({
 			validation: { required: true },
 			immutable: true,
 		}),
-		sequence: intField({
+		sequence: field.int({
 			autoIncrement: true,
 		}),
-		ratio: floatField(),
-		status: enumField({
+		ratio: field.float(),
+		status: field.enum({
 			values: {
 				Draft: 'draft',
 				Published: 'published',
 			},
 			validation: { required: true },
 		}),
-		publishedAt: dateField(),
-		processedAt: dateTimeField(),
-		automaticDate: dateField({
+		publishedAt: field.date(),
+		processedAt: field.dateTime(),
+		automaticDate: field.date({
 			autoNow: true,
 			validation: { required: true },
 		}),
-		reminderTime: timeField(),
-		payload: jsonField(),
-		attachment: binaryField(),
-		price: decimalField(),
-	},
+		reminderTime: field.time(),
+		payload: field.json(),
+		attachment: field.binary(),
+		price: field.decimal(),
+	}),
 })
 
 test('infers the complete primitive output matrix', () => {
@@ -158,35 +146,35 @@ test('makes mutable developer fields optional in update inputs', () => {
 
 const compositeSchema = Schema.define({
 	className: 'CompositeMatrix',
-	fields: {
-		profile: objectField({
+	fields: (field) => ({
+		profile: field.object({
 			validation: { required: true },
-			fields: {
-				name: stringField({
+			fields: (field) => ({
+				name: field.string({
 					validation: { required: true },
 				}),
-				bio: stringField(),
-				active: booleanField({
+				bio: field.string(),
+				active: field.boolean({
 					default: true,
 				}),
-				internalCode: stringField({
+				internalCode: field.string({
 					immutable: true,
 				}),
-			},
+			}),
 		}),
-		members: objectField({
+		members: field.object({
 			list: true,
 			validation: { required: true },
-			fields: {
-				name: stringField({
+			fields: (field) => ({
+				name: field.string({
 					validation: { required: true },
 				}),
-				verified: booleanField({
+				verified: field.boolean({
 					default: false,
 				}),
-			},
+			}),
 		}),
-	},
+	}),
 })
 
 test('recursively infers object list fields for every operation', () => {

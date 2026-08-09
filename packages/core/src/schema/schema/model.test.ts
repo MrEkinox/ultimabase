@@ -1,8 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
 import { QueryBuilder } from '../../query/query/query.js'
-import { objectField } from '../fields/builtins/object.js'
-import { stringField } from '../fields/builtins/string.js'
 import { Schema } from './definition.js'
 import {
 	isSchemaModelInstance,
@@ -12,15 +10,15 @@ import {
 
 const Post = Schema.define({
 	className: 'Post',
-	fields: {
-		title: stringField({ validation: { required: true } }),
-		summary: stringField(),
-		profile: objectField({
-			fields: {
-				displayName: stringField({ validation: { required: true } }),
-			},
+	fields: (field) => ({
+		title: field.string({ validation: { required: true } }),
+		summary: field.string(),
+		profile: field.object({
+			fields: (field) => ({
+				displayName: field.string({ validation: { required: true } }),
+			}),
 		}),
-	},
+	}),
 })
 
 describe('schema model classes', () => {
@@ -303,7 +301,10 @@ describe('schema model classes', () => {
 				selectedFields: ['title'],
 			},
 		)
-		const Other = Schema.define({ className: 'OtherIdentity', fields: {} })
+		const Other = Schema.define({
+			className: 'OtherIdentity',
+			fields: () => ({}),
+		})
 		const otherSchema = materializeSchemaModel(
 			Other,
 			{},
@@ -343,9 +344,12 @@ describe('schema model classes', () => {
 	})
 
 	it('attaches specialization commands only to trusted persisted models', () => {
-		const Target = Schema.define({ className: 'CapabilityTarget', fields: {} })
+		const Target = Schema.define({
+			className: 'CapabilityTarget',
+			fields: () => ({}),
+		})
 		const Specialized = Schema.defineWithCapabilities(
-			{ className: 'CapabilitySource', fields: {} },
+			{ className: 'CapabilitySource', fields: () => ({}) },
 			(context) => ({
 				statics: { kind: 'specialized' as const },
 				results: {

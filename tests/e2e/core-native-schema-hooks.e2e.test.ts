@@ -126,9 +126,10 @@ describe('packed @ultimabase/core native schema hooks', () => {
 		expect(createInput).toContain('title: string;')
 		expect(createInput).not.toContain('SchemaDefinition<')
 		expect(createInput).not.toContain('OPAQUE_PERMISSION_CONFIG_MUST_NOT_LEAK')
-		expect(readHoverDisplay('create-result')).toContain(
-			'readonly title: string;',
+		expect(readHoverDisplay('create-item')).toContain(
+			'readonly [x: string]: unknown;',
 		)
+		expect(readHoverDisplay('create-item')).toContain('toString(): string;')
 	})
 
 	it('preserves family composition and concise aliases after emission', () => {

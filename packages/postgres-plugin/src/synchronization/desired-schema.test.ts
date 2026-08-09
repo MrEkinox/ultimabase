@@ -1,4 +1,4 @@
-import { Schema, intField, stringField } from '@ultimabase/core'
+import { Schema } from '@ultimabase/core'
 import { describe, expect, it } from 'vitest'
 import { getTableConfig } from 'drizzle-orm/pg-core'
 
@@ -29,14 +29,14 @@ describe('desired PostgreSQL schema', () => {
 		const schema = compilePostgresSchema(
 			Schema.define({
 				className: 'Article',
-				fields: {
-					sequence: intField({ autoIncrement: true }),
-					title: stringField({
+				fields: (field) => ({
+					sequence: field.int({ autoIncrement: true }),
+					title: field.string({
 						default: "editor's draft",
 						extensions: [postgresColumn({ renamedFrom: 'headline' })],
 						indexed: 'unique',
 					}),
-				},
+				}),
 			}),
 		)
 

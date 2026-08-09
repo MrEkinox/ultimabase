@@ -1,11 +1,4 @@
-import {
-	Schema,
-	intField,
-	pointerField,
-	stringField,
-	type Pointer,
-	type SchemaResult,
-} from '../../schema/index.js'
+import { Schema, type Pointer, type SchemaResult } from '../../schema/index.js'
 import { expectTypeOf, test } from 'vitest'
 
 import type { QueryFilterNode } from '../filters/logical.js'
@@ -39,10 +32,10 @@ import type {
 
 const schema = Schema.define({
 	className: 'ResultArticle',
-	fields: {
-		title: stringField({ validation: { required: true } }),
-		views: intField(),
-	},
+	fields: (field) => ({
+		title: field.string({ validation: { required: true } }),
+		views: field.int(),
+	}),
 })
 
 type SelectedResult = InferQueryResult<typeof schema, 'id' | 'title'>
@@ -125,17 +118,19 @@ test('maps every terminal AST to selection-aware singular and bulk results', () 
 test('distinguishes adapter pointers from hydrated Runtime inclusions', () => {
 	const user = Schema.define({
 		className: 'ResultIncludedUser',
-		fields: { name: stringField({ validation: { required: true } }) },
+		fields: (field) => ({
+			name: field.string({ validation: { required: true } }),
+		}),
 	})
 	const post = Schema.define({
 		className: 'ResultIncludedPost',
-		fields: {
-			author: pointerField({
+		fields: (field) => ({
+			author: field.pointer({
 				target: () => user,
 				validation: { required: true },
 			}),
-			title: stringField({ validation: { required: true } }),
-		},
+			title: field.string({ validation: { required: true } }),
+		}),
 	})
 	type Inclusion = QueryPointerResultInclusion<'author', typeof user, 'name'>
 	type Operation = FindManyOperationAst<

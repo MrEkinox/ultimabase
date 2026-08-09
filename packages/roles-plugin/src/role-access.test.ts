@@ -17,16 +17,19 @@ import { getRoleReferenceState } from './role-reference.js'
 import { RoleSchema } from './role-schema.js'
 import { rolesPlugin } from './plugin.js'
 
-const Member = Schema.define({ className: 'AccessRoleMember', fields: {} })
+const Member = Schema.define({
+	className: 'AccessRoleMember',
+	fields: () => ({}),
+})
 const AppRole = RoleSchema.define({
 	className: 'AccessAppRole',
 	members: { schema: Member },
-	fields: {},
+	fields: () => ({}),
 })
 const OtherRole = RoleSchema.define({
 	className: 'AccessOtherRole',
 	members: { schema: Member },
-	fields: {},
+	fields: () => ({}),
 })
 const editorId = '123e4567-e89b-42d3-a456-426614174001'
 const administratorId = '123e4567-e89b-42d3-a456-426614174002'

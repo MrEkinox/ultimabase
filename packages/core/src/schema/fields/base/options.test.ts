@@ -40,7 +40,7 @@ describe('readFieldInferenceState', () => {
 	it('describes generated and relation fields without inventing values', () => {
 		const Target = Schema.define({
 			className: 'InferenceStateTarget',
-			fields: {},
+			fields: () => ({}),
 		})
 
 		expect(

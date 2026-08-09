@@ -14,7 +14,7 @@ import {
 	type UpdateOneOperationAst,
 	type UpdateManyOperationAst,
 } from '../../query/index.js'
-import { objectField, Schema, stringField } from '../../schema/index.js'
+import { Schema, stringField } from '../../schema/index.js'
 import { isSchemaModelInstance } from '../../schema/schema/model.js'
 import {
 	immutableArray,
@@ -73,28 +73,26 @@ describe('native hook dispatcher', () => {
 		}
 		const schema = Schema.define({
 			className: 'NativeHookArticle',
-			fields: {
-				profile: objectField({
-					fields: {
-						name: stringField({
+			fields: (field) => ({
+				profile: field.object({
+					fields: (field) => ({
+						name: field.string({
 							hooks: {
 								resolveInput: ({ value }) => {
 									record(`name:resolve:${String(value)}`)
-
 									return value === null ? null : value.trim()
 								},
 							},
 						}),
-					},
+					}),
 					hooks: {
 						resolveInput: ({ value }) => {
 							record(`profile:resolve:${String(value?.name)}`)
-
 							return value
 						},
 					},
 				}),
-			},
+			}),
 			hooks: {
 				afterOperation: {
 					create: () => {
@@ -198,7 +196,7 @@ describe('native hook dispatcher', () => {
 		let persistedItem: object | undefined
 		const schema = Schema.define({
 			className: 'MaterializedOriginalArticle',
-			fields: { title: stringField() },
+			fields: (field) => ({ title: field.string() }),
 			hooks: {
 				resolveInput: {
 					update: [
@@ -319,17 +317,16 @@ describe('native hook dispatcher', () => {
 		const trace: string[] = []
 		const schema = Schema.define({
 			className: 'NativeBulkHooks',
-			fields: {
-				title: stringField({
+			fields: (field) => ({
+				title: field.string({
 					hooks: {
 						resolveInput: ({ value }) => {
 							trace.push(`field:resolve:${String(value)}`)
-
 							return value === null ? null : value.trim()
 						},
 					},
 				}),
-			},
+			}),
 			hooks: {
 				afterOperation: {
 					create: () => {
@@ -421,7 +418,7 @@ describe('native hook dispatcher', () => {
 	it('does not request set targets for public item hooks', async () => {
 		const schema = Schema.define({
 			className: 'PreparedSetHookTargets',
-			fields: { title: stringField() },
+			fields: (field) => ({ title: field.string() }),
 			hooks: {
 				afterOperation: { update: () => undefined },
 			},
@@ -467,7 +464,7 @@ describe('native hook dispatcher', () => {
 		})
 		const schema = Schema.define({
 			className: 'NativeHookPluginOrder',
-			fields: { title },
+			fields: () => ({ title }),
 			hooks: {
 				afterOperation: {
 					create: () => {
@@ -559,10 +556,10 @@ describe('native hook dispatcher', () => {
 		const trace: string[] = []
 		const schema = Schema.define({
 			className: 'NativeHookRead',
-			fields: {
-				hidden: stringField(),
-				title: stringField(),
-			},
+			fields: (field) => ({
+				hidden: field.string(),
+				title: field.string(),
+			}),
 		})
 		const application = await createApplication({
 			plugins: [],

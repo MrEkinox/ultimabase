@@ -1,10 +1,5 @@
 import { definePlugin } from '../../foundation.js'
-import {
-	Pointer,
-	pointerField,
-	Schema,
-	stringField,
-} from '../../schema/index.js'
+import { Pointer, Schema } from '../../schema/index.js'
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -30,32 +25,34 @@ const createDatabasePlugin = (adapter: DatabaseAdapter) =>
 
 const pointerRuntimeOrganization = Schema.define({
 	className: 'PointerRuntimeOrganization',
-	fields: { name: stringField({ validation: { required: true } }) },
+	fields: (field) => ({
+		name: field.string({ validation: { required: true } }),
+	}),
 })
 
 const pointerRuntimeUser = Schema.define({
 	className: 'PointerRuntimeUser',
-	access: {
-		read: { where: ({ where }) => where.eq('status', 'active') },
-	},
-	fields: {
-		name: stringField({ validation: { required: true } }),
-		organization: pointerField({
+	fields: (field) => ({
+		name: field.string({ validation: { required: true } }),
+		organization: field.pointer({
 			target: () => pointerRuntimeOrganization,
 		}),
-		status: stringField({ validation: { required: true } }),
+		status: field.string({ validation: { required: true } }),
+	}),
+	access: {
+		read: { where: ({ where }) => where.eq('status', 'active') },
 	},
 })
 
 const pointerRuntimePost = Schema.define({
 	className: 'PointerRuntimePost',
-	fields: {
-		author: pointerField({
+	fields: (field) => ({
+		author: field.pointer({
 			target: () => pointerRuntimeUser,
 			validation: { required: true },
 		}),
-		title: stringField({ validation: { required: true } }),
-	},
+		title: field.string({ validation: { required: true } }),
+	}),
 })
 
 const createPostResult = (
@@ -186,18 +183,18 @@ describe('pointer Runtime execution', () => {
 	it('does not load a source pointer hidden by field Access', async () => {
 		const target = Schema.define({
 			className: 'PointerRuntimeHiddenTarget',
-			fields: { name: stringField() },
+			fields: (field) => ({ name: field.string() }),
 		})
 		const source = Schema.define({
 			className: 'PointerRuntimeHiddenSource',
-			fields: {
-				target: pointerField({
+			fields: (field) => ({
+				target: field.pointer({
 					access: {
 						read: { orderBy: true, output: () => false, where: true },
 					},
 					target: () => target,
 				}),
-			},
+			}),
 		})
 		const pointer = target.pointer('0198a43e-2431-7000-8000-000000000403')
 		const adapter = new RecordingDatabaseAdapter(
@@ -230,18 +227,17 @@ describe('pointer Runtime execution', () => {
 		const accessValues: unknown[] = []
 		const target = Schema.define({
 			className: 'PointerRuntimeAccessTarget',
-			fields: { name: stringField() },
+			fields: (field) => ({ name: field.string() }),
 		})
 		const source = Schema.define({
 			className: 'PointerRuntimeAccessSource',
-			fields: {
-				target: pointerField({
+			fields: (field) => ({
+				target: field.pointer({
 					access: {
 						read: {
 							orderBy: true,
 							output: ({ value }) => {
 								accessValues.push(value)
-
 								return true
 							},
 							where: true,
@@ -249,7 +245,7 @@ describe('pointer Runtime execution', () => {
 					},
 					target: () => target,
 				}),
-			},
+			}),
 		})
 		const pointer = target.pointer('0198a43e-2431-7000-8000-000000000408')
 		const sourceRecord = { target: pointer }
@@ -296,16 +292,16 @@ describe('pointer Runtime execution', () => {
 	it('makes denied and missing targets equally null while preserving master access', async () => {
 		const restrictedTarget = Schema.define({
 			className: 'PointerRuntimeRestrictedTarget',
+			fields: (field) => ({ name: field.string() }),
 			access: {
 				read: ({ context }) => context.access.mode === 'master',
 			},
-			fields: { name: stringField() },
 		})
 		const restrictedSource = Schema.define({
 			className: 'PointerRuntimeRestrictedSource',
-			fields: {
-				target: pointerField({ target: () => restrictedTarget }),
-			},
+			fields: (field) => ({
+				target: field.pointer({ target: () => restrictedTarget }),
+			}),
 		})
 		const targetPointer = restrictedTarget.pointer(
 			'0198a43e-2431-7000-8000-000000000404',
@@ -377,11 +373,11 @@ describe('pointer Runtime execution', () => {
 	it('returns the hydrated parent pointer without a schema result transform', async () => {
 		const target = Schema.define({
 			className: 'PointerRuntimeAuthoritativeTarget',
-			fields: { name: stringField() },
+			fields: (field) => ({ name: field.string() }),
 		})
 		const source = Schema.define({
 			className: 'PointerRuntimeAuthoritativeSource',
-			fields: { target: pointerField({ target: () => target }) },
+			fields: (field) => ({ target: field.pointer({ target: () => target }) }),
 		})
 		const pointer = target.pointer('0198a43e-2431-7000-8000-000000000407')
 		const sourceRecord = { target: pointer }
@@ -426,14 +422,14 @@ describe('pointer Runtime execution', () => {
 	it('returns an unloaded pointer from a complete mutation result', async () => {
 		const failingTarget = Schema.define({
 			className: 'PointerRuntimeFailingTarget',
-			fields: { name: stringField() },
+			fields: (field) => ({ name: field.string() }),
 		})
 		const mutationSource = Schema.define({
 			className: 'PointerRuntimeMutationSource',
-			fields: {
-				target: pointerField({ target: () => failingTarget }),
-				title: stringField(),
-			},
+			fields: (field) => ({
+				target: field.pointer({ target: () => failingTarget }),
+				title: field.string(),
+			}),
 		})
 		const target = failingTarget.pointer('0198a43e-2431-7000-8000-000000000405')
 		const current = {

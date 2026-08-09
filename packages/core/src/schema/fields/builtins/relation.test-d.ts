@@ -54,7 +54,10 @@ test('preserves exact owning and inverse targets without row values', () => {
 })
 
 test('restricts mappedBy to compatible target relationship fields', () => {
-	const Target = Schema.define({ className: 'RelationTypeTarget', fields: {} })
+	const Target = Schema.define({
+		className: 'RelationTypeTarget',
+		fields: () => ({}),
+	})
 
 	relationField({ target: () => RelationPost, mappedBy: 'author' })
 	relationField({ target: () => RelationArticle, mappedBy: 'tags' })

@@ -19,7 +19,7 @@ const feed = await Post.findMany(
 			OR: [{ published: { eq: true } }, { views: { gt: 1_000 } }],
 		},
 		select: { id: true, title: true, createdAt: true },
-		orderBy: [{ createdAt: 'desc' }],
+		orderBy: { createdAt: 'desc' },
 		limit: 25,
 		cursor: true,
 	},
@@ -36,6 +36,16 @@ const offsetPage = await Post.findMany(
 `limit` defines the page size. `cursor: true` starts cursor pagination and
 `cursor: string` resumes from an opaque cursor. `offset` selects offset
 pagination and cannot be combined with `cursor`.
+
+`orderBy` is one schema-correlated object. Every direction is optional and may
+be `asc`, `desc`, or `null`; `null` is ignored like an absent property. When
+several fields are present, their property order defines ordering priority:
+
+```ts
+const stableFeed = await Post.findMany({
+	orderBy: { createdAt: 'desc', id: 'asc' },
+})
+```
 
 Relation inclusions accept the same `offset` name. The adapter applies it
 independently to every parent collection; relation inclusion does not accept a

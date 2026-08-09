@@ -6,8 +6,6 @@ import {
 	defineFieldExtension,
 	definePluginField,
 	defineSchemaExtension,
-	objectField,
-	stringField,
 } from '../schema/index.js'
 import {
 	defineFieldKindAccessTarget,
@@ -48,18 +46,20 @@ const vectorKindTarget = defineFieldKindAccessTarget<typeof vectorField>(
 )
 const primarySchema = Schema.define({
 	className: 'PluginAccessTarget',
-	fields: {
-		'dotted.name': stringField({ extensions: [fieldExtension] }),
-		profile: objectField({
-			fields: { email: stringField({ extensions: [fieldExtension] }) },
+	fields: (field) => ({
+		'dotted.name': field.string({ extensions: [fieldExtension] }),
+		profile: field.object({
+			fields: (field) => ({
+				email: field.string({ extensions: [fieldExtension] }),
+			}),
 		}),
 		vector: vectorField,
-	},
+	}),
 	extensions: [schemaExtension],
 })
 const secondarySchema = Schema.define({
 	className: 'SecondaryPluginAccessTarget',
-	fields: { title: stringField() },
+	fields: (field) => ({ title: field.string() }),
 })
 
 const invokeMethod = (
@@ -190,7 +190,7 @@ describe('plugin Access targets', () => {
 	it('rejects foreign schemas, extensions, forged targets, and late writes', () => {
 		const foreignSchema = Schema.define({
 			className: primarySchema.className,
-			fields: { title: stringField() },
+			fields: (field) => ({ title: field.string() }),
 		})
 		const registries = new PluginSetupRegistries(
 			new SchemaRegistry([primarySchema]),

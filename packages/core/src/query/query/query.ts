@@ -303,6 +303,22 @@ const getFieldQueryTarget = (
 	return Schema.is(target) ? target : undefined
 }
 
+/** Serializes normalized AST priorities through deterministic property order. */
+const buildQueryOrderByInput = (
+	orders: readonly Readonly<{
+		readonly direction: QueryOrderDirection
+		readonly field: string
+	}>[],
+): Readonly<Record<string, 'asc' | 'desc'>> =>
+	immutableRecord(
+		Object.fromEntries(
+			orders.map((order) => [
+				order.field,
+				order.direction === 'ascending' ? 'asc' : 'desc',
+			]),
+		),
+	)
+
 /** Rebuilds the projection subset allowed inside one canonical pointer include. */
 const buildQueryProjectionInput = <const TSchema extends SchemaDefinition>(
 	ast: QueryBuilderAst<TSchema>,
@@ -333,15 +349,7 @@ const buildQueryProjectionInput = <const TSchema extends SchemaDefinition>(
 			? {}
 			: { include: immutableRecord(include) }),
 		...(kind === 'relation' && ast.ordering.orders.length > 0
-			? {
-					orderBy: immutableArray(
-						ast.ordering.orders.map((order) =>
-							immutableRecord({
-								[order.field]: order.direction === 'ascending' ? 'asc' : 'desc',
-							}),
-						),
-					),
-				}
+			? { orderBy: buildQueryOrderByInput(ast.ordering.orders) }
 			: {}),
 		...(kind === 'relation' && ast.limit !== undefined
 			? { limit: ast.limit }
@@ -672,16 +680,7 @@ export class QueryBuilder<
 				: { include: immutableRecord(include) }),
 			...(this.ast.ordering.orders.length === 0
 				? {}
-				: {
-						orderBy: immutableArray(
-							this.ast.ordering.orders.map((order) =>
-								immutableRecord({
-									[order.field]:
-										order.direction === 'ascending' ? 'asc' : 'desc',
-								}),
-							),
-						),
-					}),
+				: { orderBy: buildQueryOrderByInput(this.ast.ordering.orders) }),
 			...(this.ast.limit === undefined ? {} : { limit: this.ast.limit }),
 			...(this.ast.pagination?.kind === 'offset-pagination'
 				? { offset: this.ast.pagination.offset }

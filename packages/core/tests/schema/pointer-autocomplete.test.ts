@@ -10,7 +10,7 @@ const fieldMarker = '/* pointer-field */'
 const sourceWithMarkers = `
 import { pointerField, Schema } from '../../src/index.js'
 
-const User = Schema.define({ className: 'PointerAutocompleteUser', fields: {} })
+const User = Schema.define({ className: 'PointerAutocompleteUser', fields: () => ({}) })
 pointerField({ ${optionMarker} })
 const ${fieldMarker}author = pointerField({ target: () => User })
 pointerField({ target: () => User, validation: { ${validationMarker} } })

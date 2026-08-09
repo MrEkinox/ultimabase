@@ -11,7 +11,7 @@ import {
 
 const Principal = Schema.define({
 	className: 'OptionalAccessPrincipal',
-	fields: {},
+	fields: () => ({}),
 })
 const firstPrincipal = Principal.pointer('first-principal')
 const secondPrincipal = Principal.pointer('second-principal')

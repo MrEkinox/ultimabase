@@ -210,7 +210,11 @@ export class FrameworkApplication<
 
 		const graph = new PluginGraph(normalizePlugins(options.plugins))
 		this.#pluginGraph = graph
-		this.#setupRegistries = new PluginSetupRegistries(this.schemas)
+		this.#setupRegistries = new PluginSetupRegistries(
+			this.schemas,
+			undefined,
+			() => this.fieldBuilderMethods,
+		)
 
 		this.#lifecycle = new PluginLifecycleManager(graph, this.#setupRegistries)
 

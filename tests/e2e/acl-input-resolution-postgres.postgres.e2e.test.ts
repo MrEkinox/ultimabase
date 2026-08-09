@@ -6,13 +6,10 @@ import {
 	type ACLNormalizedUpdateInput,
 } from '@ultimabase/acl-permissions-plugin'
 import {
-	decimalField,
 	decrement,
 	increment,
-	intField,
 	MasterAuthority,
 	Schema,
-	stringField,
 	UltimaBase,
 } from '@ultimabase/core'
 import { postgresPlugin, postgresTable } from '@ultimabase/postgres-plugin'
@@ -44,14 +41,14 @@ let resolutionCount = 0
 
 const ResolutionPost = Schema.define({
 	className: 'ACLInputResolutionPost',
-	fields: {
-		balance: decimalField({ default: '10.00' }),
-		labels: stringField({ default: ['current'], list: true }),
-		note: stringField(),
-		status: stringField({ default: 'unchanged' }),
-		title: stringField({ validation: { required: true } }),
-		views: intField({ default: 2 }),
-	},
+	fields: (field) => ({
+		balance: field.decimal({ default: '10.00' }),
+		labels: field.string({ default: ['current'], list: true }),
+		note: field.string(),
+		status: field.string({ default: 'unchanged' }),
+		title: field.string({ validation: { required: true } }),
+		views: field.int({ default: 2 }),
+	}),
 	extensions: [
 		acl({
 			default: emptyACL,

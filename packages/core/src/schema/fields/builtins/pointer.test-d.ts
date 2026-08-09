@@ -11,23 +11,26 @@ import {
 } from '../../index.js'
 import type { InferQueryResult } from '../../../query/index.js'
 
-const userSchema = Schema.define({ className: 'PointerFieldUser', fields: {} })
+const userSchema = Schema.define({
+	className: 'PointerFieldUser',
+	fields: () => ({}),
+})
 const postSchema = Schema.define({
 	className: 'PointerFieldPost',
-	fields: {
-		author: pointerField({
+	fields: (field) => ({
+		author: field.pointer({
 			target: () => userSchema,
 			validation: { required: true },
 		}),
-		reviewer: pointerField({
+		reviewer: field.pointer({
 			target: () => userSchema,
 			onDelete: 'setNull',
 		}),
-		owner: pointerField({
+		owner: field.pointer({
 			target: () => userSchema,
 			immutable: true,
 		}),
-	},
+	}),
 })
 
 test('infers exact pointer values across every model mode', () => {
@@ -63,7 +66,7 @@ test('infers exact pointer values across every model mode', () => {
 test('rejects incompatible pointer declarations and target values', () => {
 	const otherSchema = Schema.define({
 		className: 'OtherPointerTarget',
-		fields: {},
+		fields: () => ({}),
 	})
 
 	// @ts-expect-error -- Collections use relationField instead of pointer lists.

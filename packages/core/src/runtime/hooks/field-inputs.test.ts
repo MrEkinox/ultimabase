@@ -8,12 +8,7 @@ import {
 	type UpsertManyOperationAst,
 	type UpsertOneOperationAst,
 } from '../../query/index.js'
-import {
-	intField,
-	objectField,
-	Schema,
-	stringField,
-} from '../../schema/index.js'
+import { Schema } from '../../schema/index.js'
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -25,28 +20,28 @@ import {
 
 const traversalSchema = Schema.define({
 	className: 'FieldInputTraversal',
-	fields: {
-		'literal.name': stringField(),
-		count: intField(),
-		profile: objectField({
-			fields: {
-				displayName: stringField(),
-				contact: objectField({
-					fields: { email: stringField() },
+	fields: (field) => ({
+		'literal.name': field.string(),
+		count: field.int(),
+		profile: field.object({
+			fields: (field) => ({
+				displayName: field.string(),
+				contact: field.object({
+					fields: (field) => ({ email: field.string() }),
 				}),
-			},
+			}),
 		}),
-		groups: objectField({
+		groups: field.object({
 			list: [true, true],
-			fields: {
-				label: stringField(),
-				details: objectField({
-					fields: { code: stringField() },
+			fields: (field) => ({
+				label: field.string(),
+				details: field.object({
+					fields: (field) => ({ code: field.string() }),
 				}),
-			},
+			}),
 		}),
-		removable: stringField(),
-	},
+		removable: field.string(),
+	}),
 })
 
 const schemaNode = new QueryBuilder(traversalSchema).ast.schema

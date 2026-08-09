@@ -1,13 +1,6 @@
 import { Buffer } from 'node:buffer'
 
-import {
-	binaryField,
-	enumField,
-	intField,
-	Pointer,
-	Schema,
-	stringField,
-} from '@ultimabase/core'
+import { Pointer, Schema } from '@ultimabase/core'
 import { describe, expect, it } from 'vitest'
 
 import { createPostgresPointerFixture } from '../schema/pointer-fixture.test-support.js'
@@ -21,14 +14,14 @@ import { preparePostgresRecord, readPostgresRecord } from './record.js'
 const recordSchema = compilePostgresSchema(
 	Schema.define({
 		className: 'RecordFixture',
-		fields: {
-			alias: stringField(),
-			note: stringField(),
-			payload: binaryField({ validation: { required: true } }),
-			status: enumField({ values: ['draft', 'published'] }),
-			title: stringField({ validation: { required: true } }),
-			views: intField(),
-		},
+		fields: (field) => ({
+			alias: field.string(),
+			note: field.string(),
+			payload: field.binary({ validation: { required: true } }),
+			status: field.enum({ values: ['draft', 'published'] }),
+			title: field.string({ validation: { required: true } }),
+			views: field.int(),
+		}),
 	}),
 )
 

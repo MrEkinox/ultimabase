@@ -13,28 +13,28 @@ import {
 
 export const UserSchema = Schema.define({
 	className: 'User',
-	fields(field) {
-		field.string('username', {
+	fields: (field) => ({
+		username: field.string({
 			indexed: 'unique',
 			validation: {
 				required: true,
 				length: { min: 3, max: 32 },
 				match: /^[a-z0-9_]+$/u,
 			},
-		})
-		field.string('displayName', {
+		}),
+		displayName: field.string({
 			validation: {
 				required: true,
 				length: { min: 1, max: 80 },
 			},
-		})
-		field.string('bio', {
+		}),
+		bio: field.string({
 			validation: {
 				length: { max: 500 },
 			},
-		})
-		field.boolean('isActive', { default: true })
-	},
+		}),
+		isActive: field.boolean({ default: true }),
+	}),
 })
 
 // Application initialization compiles the callback before plugin setup.

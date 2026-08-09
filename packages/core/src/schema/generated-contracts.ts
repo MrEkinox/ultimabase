@@ -1,7 +1,5 @@
-import type { FieldListOption } from './fields/base/contract.js'
-
 /** Invalidates generated fingerprints when Core's shared typegen ABI changes. */
-export const generatedApplicationContractVersion = 2 as const
+export const generatedApplicationContractVersion = 5 as const
 
 /* eslint-disable @typescript-eslint/no-empty-object-type -- These interfaces are intentionally empty declaration-merging targets. */
 /**
@@ -23,101 +21,58 @@ export interface UltimaBaseGeneratedEmbeddedFieldBuilderMethods {}
 export interface UltimaBaseGeneratedRegistryState {}
 /* eslint-enable @typescript-eslint/no-empty-object-type */
 
-/** Carries one field's exact generated values without executable behavior. */
-export interface GeneratedFieldContract<
-	TObject = unknown,
-	TCreate = unknown,
-	TUpdate = unknown,
-	TWhere = unknown,
-	TPath = unknown,
-	TKind extends string = string,
-	TList extends FieldListOption = FieldListOption,
-> {
-	readonly create: TCreate
-	readonly kind: TKind
-	readonly list: TList
-	readonly object: TObject
-	readonly paths: TPath
-	readonly update: TUpdate
-	readonly where: TWhere
+declare const generatedSchemaItemFallbackType: unique symbol
+
+/** Supplies the safe item shape used while a schema declaration is being authored. */
+export interface GeneratedSchemaItemFallback<TItem extends object> {
+	readonly [generatedSchemaItemFallbackType]?: TItem
 }
 
-/** Names one embedded object's exact generated operation shapes. */
-export interface GeneratedObjectContract<TObject, TCreate, TUpdate, TPath> {
-	readonly create: TCreate
-	readonly object: TObject
-	readonly paths: TPath
-	readonly update: TUpdate
-}
+/** Reads an authoring fallback without affecting ordinary inferred schema models. */
+export type GeneratedSchemaItemFallbackOr<TSchema, TFallback> =
+	TSchema extends GeneratedSchemaItemFallback<infer TItem> ? TItem : TFallback
 
-/** Records a generated relationship target without loading it. */
-export interface GeneratedRelationshipContract<
-	TTarget extends string,
-	TCardinality extends 'many' | 'one',
-> {
-	readonly cardinality: TCardinality
-	readonly target: TTarget
-}
-
-/** Supplies exact value shapes later consumed by generated schema Access typing. */
-export interface GeneratedSchemaAccessContract<
-	TItem,
-	TCreate,
-	TUpdate,
-	TWhere,
-	TOrderBy,
-> {
-	readonly create: TCreate
-	readonly item: TItem
-	readonly orderBy: TOrderBy
-	readonly update: TUpdate
-	readonly where: TWhere
-}
-
-/** Supplies exact value shapes later consumed by generated schema hook typing. */
-export interface GeneratedSchemaHookContract<TItem, TCreate, TUpdate> {
-	readonly create: TCreate
-	readonly item: TItem
-	readonly originalItem: TItem
-	readonly update: TUpdate
+/** Groups the public operation inputs generated for one schema. */
+export interface GeneratedSchemaInputsContract {
+	readonly create: unknown
+	readonly include?: unknown
+	readonly orderBy: unknown
+	readonly select: unknown
+	readonly update: unknown
+	readonly where: unknown
 }
 
 /** Structural boundary implemented by every generated application schema entry. */
 export interface GeneratedSchemaContract {
-	readonly Access: GeneratedSchemaAccessContract<
-		unknown,
-		unknown,
-		unknown,
-		unknown,
-		unknown
-	>
-	readonly Create: unknown
-	readonly FieldBuilder: object
-	readonly Fields: Readonly<Record<string, GeneratedFieldContract>>
-	readonly Hooks: GeneratedSchemaHookContract<unknown, unknown, unknown>
-	readonly Include: unknown
-	readonly Item: unknown
-	readonly Objects: Readonly<
-		Record<string, GeneratedObjectContract<unknown, unknown, unknown, unknown>>
-	>
-	readonly OrderBy: unknown
-	readonly Pointers: Readonly<
-		Record<string, GeneratedRelationshipContract<string, 'one'>>
-	>
-	readonly Relations: Readonly<
-		Record<string, GeneratedRelationshipContract<string, 'many'>>
-	>
-	readonly Select: unknown
-	readonly Update: unknown
-	readonly Where: unknown
+	readonly fields: string
+	readonly inputs: GeneratedSchemaInputsContract
+	readonly item: unknown
+	readonly key: string
+	readonly relationships?: Readonly<Record<string, string>>
 }
 
-/** Structural boundary implemented by one deterministic generated application. */
-export interface GeneratedApplicationContract {
-	readonly FieldBuilder: object
-	readonly fingerprint: string
-	readonly schemas: Readonly<Record<string, GeneratedSchemaContract>>
-}
+/** Names the public value projections Core reads from generated type information. */
+export type GeneratedSchemaValueKey =
+	'Create' | 'Include' | 'Item' | 'OrderBy' | 'Select' | 'Update' | 'Where'
+
+type GeneratedSchemaValue<
+	TContract extends GeneratedSchemaContract,
+	TKey extends GeneratedSchemaValueKey,
+> = TKey extends 'Item'
+	? TContract['item']
+	: TKey extends 'Create'
+		? TContract['inputs']['create']
+		: TKey extends 'Include'
+			? TContract['inputs'] extends { readonly include: infer TInclude }
+				? TInclude
+				: never
+			: TKey extends 'OrderBy'
+				? TContract['inputs']['orderBy']
+				: TKey extends 'Select'
+					? TContract['inputs']['select']
+					: TKey extends 'Update'
+						? TContract['inputs']['update']
+						: TContract['inputs']['where']
 
 /** Reports whether the current TypeScript project loaded a generated registry. */
 export type HasUltimaBaseGeneratedRegistry =
@@ -145,15 +100,33 @@ export type GeneratedSchemaContractFor<
 	TSchema extends { readonly className: string },
 > = GeneratedSchemaContractForLiteral<TSchema['className']>
 
+/** Reads an exact generated relationship target without inspecting local callbacks. */
+export type GeneratedSchemaRelationshipTargetName<
+	TSchema extends { readonly className: string },
+	TFieldName extends string,
+> =
+	GeneratedSchemaContractFor<TSchema> extends infer TContract extends
+		GeneratedSchemaContract
+		? TContract extends {
+				readonly relationships: infer TRelationships extends Readonly<
+					Record<string, string>
+				>
+			}
+			? TFieldName extends keyof TRelationships
+				? Extract<TRelationships[TFieldName], string>
+				: never
+			: never
+		: never
+
 /** Selects generated data when available and preserves Core's broad internal fallback. */
 export type GeneratedSchemaValueOr<
 	TSchema extends { readonly className: string },
-	TKey extends keyof GeneratedSchemaContract,
+	TKey extends GeneratedSchemaValueKey,
 	TFallback,
 > = [GeneratedSchemaContractFor<TSchema>] extends [never]
 	? TFallback
 	: GeneratedSchemaContractFor<TSchema> extends GeneratedSchemaContract
-		? GeneratedSchemaContractFor<TSchema>[TKey]
+		? GeneratedSchemaValue<GeneratedSchemaContractFor<TSchema>, TKey>
 		: TFallback
 
 /**
@@ -163,8 +136,8 @@ export type GeneratedSchemaValueOr<
 export type RequireGeneratedSchemaEntry<TClassName extends string> =
 	HasUltimaBaseGeneratedRegistry extends true
 		? TClassName extends UltimaBaseGeneratedSchemaName
-			? unknown
+			? Readonly<Record<never, never>>
 			: Readonly<{
 					'UltimaBase generated schema is missing or stale; regenerate it with @ultimabase/codegen': never
 				}>
-		: unknown
+		: Readonly<Record<never, never>>

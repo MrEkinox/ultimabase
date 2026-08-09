@@ -18,7 +18,7 @@ import {
 test('narrows shared scalar plans through the plugin handler', async () => {
 	const schema = Schema.define({
 		className: 'Document',
-		fields: { embedding: vectorField({ dimensions: 3 }) },
+		fields: () => ({ embedding: vectorField({ dimensions: 3 }) }),
 	})
 	const plan = compileValidationPlans(schema).create.fields.embedding
 	const configuredPlugin = pgVectorPlugin()

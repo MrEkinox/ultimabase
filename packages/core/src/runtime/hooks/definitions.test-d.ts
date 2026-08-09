@@ -1,4 +1,4 @@
-import { Schema, stringField } from '../../schema/index.js'
+import { Schema } from '../../schema/index.js'
 import { expectTypeOf, test } from 'vitest'
 
 import type { CreateOneOperationAst } from '../../query/index.js'
@@ -15,7 +15,9 @@ import {
 
 const articleSchema = Schema.define({
 	className: 'TypedHookArticle',
-	fields: { title: stringField({ validation: { required: true } }) },
+	fields: (field) => ({
+		title: field.string({ validation: { required: true } }),
+	}),
 })
 
 test('infers schema and operation discriminants inside contribution handlers', () => {

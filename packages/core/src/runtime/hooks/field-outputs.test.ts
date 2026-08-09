@@ -10,7 +10,7 @@ import {
 	normalizeUpdateExpression,
 	type UpdateManyOperationAst,
 } from '../../query/index.js'
-import { objectField, Schema, stringField } from '../../schema/index.js'
+import { Schema } from '../../schema/index.js'
 import { describe, expect, it, vi } from 'vitest'
 
 import {
@@ -21,20 +21,20 @@ import {
 
 const outputSchema = Schema.define({
 	className: 'FieldOutputTraversal',
-	fields: {
-		title: stringField(),
-		profile: objectField({
-			fields: {
-				displayName: stringField(),
-				contact: objectField({
-					fields: { email: stringField() },
+	fields: (field) => ({
+		title: field.string(),
+		profile: field.object({
+			fields: (field) => ({
+				displayName: field.string(),
+				contact: field.object({
+					fields: (field) => ({ email: field.string() }),
 				}),
-			},
+			}),
 		}),
-		nickname: stringField(),
-		bio: stringField(),
-		secret: stringField(),
-	},
+		nickname: field.string(),
+		bio: field.string(),
+		secret: field.string(),
+	}),
 })
 
 const describeOutputs = (outputs: readonly RuntimeFieldOutputValue[]) =>

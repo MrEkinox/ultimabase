@@ -8,7 +8,7 @@ import {
 	type UpdateOneOperationAst,
 	type UpsertOneOperationAst,
 } from '../../query/index.js'
-import { Schema, stringField, type InferObject } from '../../schema/index.js'
+import { Schema, type InferObject } from '../../schema/index.js'
 import { immutableRecord } from '@ultimabase/shared'
 import { describe, expect, it } from 'vitest'
 
@@ -20,7 +20,9 @@ import {
 
 const schema = Schema.define({
 	className: 'MutationItemPairs',
-	fields: { title: stringField({ validation: { required: true } }) },
+	fields: (field) => ({
+		title: field.string({ validation: { required: true } }),
+	}),
 })
 const schemaNode = new QueryBuilder(schema).ast.schema
 const query = new QueryBuilder(schema).ast

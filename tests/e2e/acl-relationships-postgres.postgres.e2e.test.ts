@@ -8,10 +8,7 @@ import {
 	UltimaBase,
 	accessPrincipalResolverServiceToken,
 	definePlugin,
-	pointerField,
-	relationField,
 	requestSources,
-	stringField,
 } from '@ultimabase/core'
 import { postgresPlugin, postgresTable } from '@ultimabase/postgres-plugin'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
@@ -33,7 +30,9 @@ const currentMemberId = new RequestContextValue<string>(
 )
 const Member = Schema.define({
 	className: 'ACLRelationshipMember',
-	fields: { name: stringField({ validation: { required: true } }) },
+	fields: (field) => ({
+		name: field.string({ validation: { required: true } }),
+	}),
 	extensions: [postgresTable({ name: 'acl_relationship_members' })],
 })
 const identityPlugin = definePlugin({
@@ -51,7 +50,9 @@ const identityPlugin = definePlugin({
 const emptyACL = new ACL()
 const Author = Schema.define({
 	className: 'ACLRelationshipAuthor',
-	fields: { name: stringField({ validation: { required: true } }) },
+	fields: (field) => ({
+		name: field.string({ validation: { required: true } }),
+	}),
 	extensions: [
 		acl({
 			default: emptyACL,
@@ -63,7 +64,9 @@ const Author = Schema.define({
 })
 const Tag = Schema.define({
 	className: 'ACLRelationshipTag',
-	fields: { label: stringField({ validation: { required: true } }) },
+	fields: (field) => ({
+		label: field.string({ validation: { required: true } }),
+	}),
 	extensions: [
 		acl({
 			default: emptyACL,
@@ -75,11 +78,11 @@ const Tag = Schema.define({
 })
 const Article = Schema.define({
 	className: 'ACLRelationshipArticle',
-	fields: {
-		author: pointerField({ target: () => Author }),
-		tags: relationField({ target: () => Tag }),
-		title: stringField({ validation: { required: true } }),
-	},
+	fields: (field) => ({
+		author: field.pointer({ target: () => Author }),
+		tags: field.relation({ target: () => Tag }),
+		title: field.string({ validation: { required: true } }),
+	}),
 	extensions: [
 		acl({
 			default: emptyACL,
@@ -238,7 +241,7 @@ describe(
 			const context = aliceRequest('acl-relationships-pointers')
 			const rows = await Article.findMany(
 				{
-					orderBy: [{ title: 'asc' }],
+					orderBy: { title: 'asc' },
 					include: { author: { select: { name: true } } },
 				},
 				{ context, ultimabase: app },

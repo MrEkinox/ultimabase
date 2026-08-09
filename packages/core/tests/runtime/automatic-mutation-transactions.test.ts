@@ -2,7 +2,7 @@ import {
 	FrameworkApplication,
 	type SchemaMutationHookKind,
 } from '../../src/index.js'
-import { Schema, stringField } from '../../src/index.js'
+import { Schema } from '../../src/index.js'
 import { isPlainRecord } from '@ultimabase/shared'
 import { describe, expect, it } from 'vitest'
 
@@ -22,12 +22,12 @@ import {
 
 const articleSchema = Schema.define({
 	className: 'AutomaticTransactionArticle',
-	fields: {
-		title: stringField({
+	fields: (field) => ({
+		title: field.string({
 			indexed: 'unique',
 			validation: { required: true },
 		}),
-	},
+	}),
 })
 
 const fixtureInstant = '2026-08-02T00:00:00.000Z'

@@ -135,7 +135,7 @@ describe('native schema hook IntelliSense', () => {
 		}
 	})
 
-	it('materializes useful callback values without plugin metadata', () => {
+	it('uses exact inputs and safe BaseItem values without generated metadata', () => {
 		const createInput = readHoverDisplay('create-input')
 
 		expect(createInput).toContain('title: string;')
@@ -143,7 +143,10 @@ describe('native schema hook IntelliSense', () => {
 		expect(createInput).not.toContain('SchemaDefinition<')
 		expect(createInput).not.toContain('OPAQUE_PERMISSION_CONFIG_MUST_NOT_LEAK')
 		expect(readHoverDisplay('update-expression')).toContain('UpdateExpression<')
-		expect(readHoverDisplay('create-item')).toContain('readonly title: string;')
+		expect(readHoverDisplay('create-item')).toContain(
+			'readonly [x: string]: unknown;',
+		)
+		expect(readHoverDisplay('create-item')).toContain('toString(): string;')
 		expect(readHoverDisplay('create-item-update')).toContain('update')
 	})
 
@@ -194,16 +197,16 @@ describe('native schema hook IntelliSense', () => {
 		expect(readHoverDisplay('before-delete-kind')).toContain('"delete"')
 		const preparedItem = readHoverDisplay('before-create-item')
 
-		expect(preparedItem).toContain('readonly title: string;')
-		expect(preparedItem).toContain('readonly id: string;')
+		expect(preparedItem).toContain('readonly [x: string]: unknown;')
+		expect(preparedItem).toContain('toString(): string;')
 		expect(preparedItem).toContain('readonly get:')
 		expect(preparedItem).toContain('readonly toJSON:')
 		expect(preparedItem).not.toContain('readonly create:')
 		expect(preparedItem).not.toContain('readonly update:')
 		const originalItem = readHoverDisplay('before-update-original-item')
 
-		expect(originalItem).toContain('readonly title: string;')
-		expect(originalItem).toContain('readonly id: string;')
+		expect(originalItem).toContain('readonly [x: string]: unknown;')
+		expect(originalItem).toContain('toString(): string;')
 		expect(originalItem).toContain('readonly get:')
 		expect(readHoverDisplay('create-family-kind')).toContain('"create-one"')
 		expect(readHoverDisplay('schema-list-operation')).toContain('OperationAst<')

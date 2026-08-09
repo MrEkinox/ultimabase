@@ -2,20 +2,16 @@ import {
 	FrameworkError,
 	Schema,
 	UltimaBase,
-	booleanField,
 	constraint,
 	databaseConstraint,
 	definePlugin,
 	definePluginField,
 	guard,
-	intField,
-	objectField,
 	onEvent,
 	requestSources,
 	restrictOutput,
 	restrictSelection,
 	runWithRequestEngine,
-	stringField,
 } from '@ultimabase/core'
 import {
 	postgresConstraintCompiler,
@@ -34,6 +30,20 @@ const rollbackHookError = new Error('native hook rollback fixture')
 
 const trace = (label: string): void => {
 	hookTrace.push(label)
+}
+
+/** Narrows one generated-item fallback field used by this no-codegen fixture. */
+const readItemString = (
+	item: Readonly<Record<string, unknown>>,
+	field: string,
+): string => {
+	const value = item[field]
+
+	if (typeof value !== 'string') {
+		throw new TypeError(`Hook item field "${field}" must be a string`)
+	}
+
+	return value
 }
 
 /** Reads one request scope without trusting opaque metadata values. */
@@ -75,44 +85,44 @@ const profileSlugField = definePluginField(
 )
 const HookAuditSchema = Schema.define({
 	className: 'NativeHookPostgresAudit',
-	fields: {
-		action: stringField({ validation: { required: true } }),
-		scopeId: stringField({ validation: { required: true } }),
-	},
+	fields: (field) => ({
+		action: field.string({ validation: { required: true } }),
+		scopeId: field.string({ validation: { required: true } }),
+	}),
 })
 
 const HookArticleSchema = Schema.define({
 	className: 'NativeHookPostgresArticle',
-	access: {
-		read: { where: ({ where }) => where.eq('published', true) },
-	},
-	fields: {
-		scopeId: stringField({ validation: { required: true } }),
-		title: stringField({
+	fields: (field) => ({
+		scopeId: field.string({ validation: { required: true } }),
+		title: field.string({
 			hooks: {
 				resolveInput: ({ value }) => {
 					trace('field:title:developer:resolveInput')
-
 					return value.trim()
 				},
 			},
 			validation: { required: true },
 		}),
-		secret: stringField(),
-		profile: objectField({
-			fields: { slug: profileSlugField },
+		secret: field.string(),
+		profile: field.object({
+			fields: () => ({ slug: profileSlugField }),
 			validation: { required: true },
 		}),
-		published: booleanField({ default: false }),
-		revision: intField({ default: 0 }),
+		published: field.boolean({ default: false }),
+		revision: field.int({ default: 0 }),
+	}),
+	access: {
+		read: { where: ({ where }) => where.eq('published', true) },
 	},
 	hooks: {
 		afterOperation: {
 			create: (input) => {
 				const { operation } = input
 				trace('schema:developer:afterCreate')
-				trace(`schema:developer:afterCreate:item:${input.item.title}`)
-
+				trace(
+					`schema:developer:afterCreate:item:${readItemString(input.item, 'title')}`,
+				)
 				if (operation.input.title === 'Rollback after persistence') {
 					throw rollbackHookError
 				}
@@ -120,50 +130,54 @@ const HookArticleSchema = Schema.define({
 			delete: (input) => {
 				trace('schema:developer:afterDelete')
 				trace(
-					`schema:developer:afterDelete:original:${input.originalItem.title}`,
+					`schema:developer:afterDelete:original:${readItemString(input.originalItem, 'title')}`,
 				)
 			},
 			update: (input) => {
 				trace('schema:developer:afterUpdate')
 				trace(
-					`schema:developer:afterUpdate:pair:${input.originalItem.title}->${input.item.title}`,
+					`schema:developer:afterUpdate:pair:${readItemString(input.originalItem, 'title')}->${readItemString(input.item, 'title')}`,
 				)
 			},
 		},
 		beforeOperation: {
 			create: async (input) => {
 				const { context } = input
+				const scopeId = input.item.scopeId
+				const title = input.item.title
+
+				if (typeof scopeId !== 'string' || typeof title !== 'string') {
+					throw new TypeError('Prepared hook item must contain string fields')
+				}
 
 				trace('schema:developer:beforeCreate')
-
-				trace(`schema:developer:beforeCreate:item:${input.item.title}`)
+				trace(`schema:developer:beforeCreate:item:${title}`)
 				await HookAuditSchema.createOne({
 					data: {
-						action: `create:${input.item.title}`,
-						scopeId: input.item.scopeId,
+						action: `create:${title}`,
+						scopeId,
 					},
 				})
 				context.emit('native-hooks.article-created', {
-					scopeId: input.item.scopeId,
-					title: input.item.title,
+					scopeId,
+					title,
 				})
 			},
 			delete: (input) => {
 				trace('schema:developer:beforeDelete')
 				trace(
-					`schema:developer:beforeDelete:original:${input.originalItem.title}`,
+					`schema:developer:beforeDelete:original:${readItemString(input.originalItem, 'title')}`,
 				)
 			},
 			update: (input) => {
 				trace('schema:developer:beforeUpdate')
 				trace(
-					`schema:developer:beforeUpdate:pair:${input.originalItem.title}->${input.item.title}`,
+					`schema:developer:beforeUpdate:pair:${readItemString(input.originalItem, 'title')}->${readItemString(input.item, 'title')}`,
 				)
 			},
 		},
 		resolveInput: ({ operation }) => {
 			trace('schema:developer:resolveInput')
-
 			return operation
 		},
 	},

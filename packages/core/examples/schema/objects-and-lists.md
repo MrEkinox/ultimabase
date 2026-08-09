@@ -15,45 +15,44 @@ one property inside an embedded value.
 ```ts
 import { Schema, type EmbeddedFieldBuilder } from '@ultimabase/core'
 
-const addressFields = (field: EmbeddedFieldBuilder): void => {
-	field.string('line1', { validation: { required: true } })
-	field.string('line2')
-	field.string('city', { validation: { required: true } })
-	field.string('internalRoutingCode', { access: { read: false } })
-	field.string('postalCode', { validation: { required: true } })
-	field.string('countryCode', {
+const addressFields = (field: EmbeddedFieldBuilder) => ({
+	line1: field.string({ validation: { required: true } }),
+	line2: field.string(),
+	city: field.string({ validation: { required: true } }),
+	internalRoutingCode: field.string({ access: { read: false } }),
+	postalCode: field.string({ validation: { required: true } }),
+	countryCode: field.string({
 		validation: {
 			required: true,
 			length: { min: 2, max: 2 },
 			match: /^[A-Z]{2}$/u,
 		},
-	})
-}
+	}),
+})
 
 export const CustomerSchema = Schema.define({
 	className: 'Customer',
-	fields(field) {
-		field.string('name', { validation: { required: true } })
-		field.object('shippingAddress', {
+	fields: (field) => ({
+		name: field.string({ validation: { required: true } }),
+		shippingAddress: field.object({
 			typeName: 'Address',
 			fields: addressFields,
 			validation: { required: true },
-		})
-		field.object('previousAddresses', {
+		}),
+		previousAddresses: field.object({
 			typeName: 'PreviousAddress',
 			fields: addressFields,
 			list: true,
-		})
-		field.object('preferences', {
+		}),
+		preferences: field.object({
 			typeName: 'CustomerPreferences',
-			fields(field) {
-				field.string('locale', { default: 'en' })
-				field.string('favoriteTags', { list: true })
-			},
-		})
-		// A true tuple declares one list wrapper for each tuple item.
-		field.float('scoreMatrix', { list: [true, true] })
-	},
+			fields: (field) => ({
+				locale: field.string({ default: 'en' }),
+				favoriteTags: field.string({ list: true }),
+			}),
+		}),
+		scoreMatrix: field.float({ list: [true, true] }),
+	}),
 })
 ```
 

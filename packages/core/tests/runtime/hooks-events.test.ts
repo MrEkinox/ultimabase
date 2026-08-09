@@ -4,7 +4,7 @@ import {
 	type FrameworkApplication,
 	type PluginDefinition,
 } from '../../src/index.js'
-import { Schema, stringField, type SchemaDefinition } from '../../src/index.js'
+import { Schema, type SchemaDefinition } from '../../src/index.js'
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -26,12 +26,16 @@ import {
 
 const articleSchema = Schema.define({
 	className: 'HookArticle',
-	fields: { title: stringField({ validation: { required: true } }) },
+	fields: (field) => ({
+		title: field.string({ validation: { required: true } }),
+	}),
 })
 
 const foreignSchema = Schema.define({
 	className: 'HookForeign',
-	fields: { title: stringField({ validation: { required: true } }) },
+	fields: (field) => ({
+		title: field.string({ validation: { required: true } }),
+	}),
 })
 
 /** Produces the complete persisted shape expected by create-operation hooks. */

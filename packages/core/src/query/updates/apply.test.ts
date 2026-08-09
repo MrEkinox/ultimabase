@@ -1,10 +1,4 @@
-import {
-	Schema,
-	bigintField,
-	decimalField,
-	intField,
-	stringField,
-} from '../../schema/index.js'
+import { Schema } from '../../schema/index.js'
 import { describe, expect, it } from 'vitest'
 
 import { applyUpdateExpressionToRecord } from './apply.js'
@@ -13,13 +7,13 @@ import { decrement, increment } from './operators.js'
 
 const Account = Schema.define({
 	className: 'AppliedUpdateAccount',
-	fields: {
-		balance: decimalField(),
-		labels: stringField({ list: true }),
-		legacy: stringField(),
-		sequence: bigintField(),
-		visits: intField(),
-	},
+	fields: (field) => ({
+		balance: field.decimal(),
+		labels: field.string({ list: true }),
+		legacy: field.string(),
+		sequence: field.bigint(),
+		visits: field.int(),
+	}),
 })
 
 describe('applyUpdateExpressionToRecord', () => {

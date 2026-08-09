@@ -1,14 +1,14 @@
-import { booleanField, Schema, stringField } from '../../schema/index.js'
+import { Schema } from '../../schema/index.js'
 import { expect, expectTypeOf, test } from 'vitest'
 
 import { normalizeQuerySelection } from './selection.js'
 
 const postSchema = Schema.define({
 	className: 'Post',
-	fields: {
-		title: stringField(),
-		published: booleanField(),
-	},
+	fields: (field) => ({
+		title: field.string(),
+		published: field.boolean(),
+	}),
 })
 
 test('correlates selected fields with developer and framework schema fields', () => {

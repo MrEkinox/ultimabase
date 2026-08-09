@@ -1,5 +1,5 @@
 import { definePlugin } from '../../foundation.js'
-import { Schema, stringField } from '../../schema/index.js'
+import { Schema } from '../../schema/index.js'
 import { expectTypeOf, test } from 'vitest'
 
 import {
@@ -11,11 +11,11 @@ import type { InferQueryResult } from '../../query/index.js'
 
 const articleSchema = Schema.define({
 	className: 'TypedUltimaBaseArticle',
-	fields: { title: stringField() },
+	fields: (field) => ({ title: field.string() }),
 })
 const otherSchema = Schema.define({
 	className: 'TypedOtherUltimaBaseArticle',
-	fields: { name: stringField() },
+	fields: (field) => ({ name: field.string() }),
 })
 declare const adapter: DatabaseAdapter
 const databasePlugin = definePlugin({

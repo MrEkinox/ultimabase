@@ -1,4 +1,4 @@
-import { Schema, stringField } from '@ultimabase/core'
+import { Schema } from '@ultimabase/core'
 import { getTableConfig } from 'drizzle-orm/pg-core'
 import { describe, expect, it } from 'vitest'
 
@@ -22,7 +22,7 @@ describe('PostgreSQL index compiler', () => {
 	it('uses GIN for non-unique codec-backed JSONB fields', () => {
 		const schema = Schema.define({
 			className: 'IndexedPluginValue',
-			fields: { value: createStoredPluginField() },
+			fields: () => ({ value: createStoredPluginField() }),
 		})
 		const [compiledIndex] = getTableConfig(
 			compilePostgresSchema(schema).table,
@@ -38,11 +38,11 @@ describe('PostgreSQL index compiler', () => {
 	it('compiles ordinary, unique, and composite indexes in normalized order', () => {
 		const schema = Schema.define({
 			className: 'Article',
-			fields: {
-				authorId: stringField(),
-				slug: stringField({ indexed: 'unique' }),
-				title: stringField({ indexed: true }),
-			},
+			fields: (field) => ({
+				authorId: field.string(),
+				slug: field.string({ indexed: 'unique' }),
+				title: field.string({ indexed: true }),
+			}),
 			indexes: [
 				{ fields: ['authorId', 'createdAt'] },
 				{ fields: ['authorId', 'slug'], unique: true },
@@ -73,10 +73,10 @@ describe('PostgreSQL index compiler', () => {
 	it('retains unique composite columns as a future upsert conflict target', () => {
 		const schema = Schema.define({
 			className: 'Membership',
-			fields: {
-				organizationId: stringField(),
-				userId: stringField(),
-			},
+			fields: (field) => ({
+				organizationId: field.string(),
+				userId: field.string(),
+			}),
 			indexes: [{ fields: ['organizationId', 'userId'], unique: true }],
 		})
 		const target = getTableConfig(
@@ -93,10 +93,10 @@ describe('PostgreSQL index compiler', () => {
 	it('rejects duplicate normalized definitions instead of creating duplicate DDL', () => {
 		const schema = Schema.define({
 			className: 'DuplicateIndex',
-			fields: {
-				organizationId: stringField(),
-				userId: stringField(),
-			},
+			fields: (field) => ({
+				organizationId: field.string(),
+				userId: field.string(),
+			}),
 			indexes: [
 				{ fields: ['organizationId', 'userId'] },
 				{ fields: ['organizationId', 'userId'] },

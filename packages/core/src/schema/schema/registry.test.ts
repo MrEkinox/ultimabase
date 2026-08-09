@@ -1,18 +1,13 @@
 import { describe, expect, it } from 'vitest'
 
-import {
-	DuplicateSchemaError,
-	SchemaRegistry,
-	Schema,
-	stringField,
-} from '../index.js'
+import { DuplicateSchemaError, SchemaRegistry, Schema } from '../index.js'
 
 const createFixtureSchema = (className: string, fieldName: string) =>
 	Schema.define({
 		className,
-		fields: {
-			[fieldName]: stringField(),
-		},
+		fields: (field) => ({
+			[fieldName]: field.string(),
+		}),
 	})
 
 describe('SchemaRegistry', () => {

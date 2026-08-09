@@ -12,13 +12,7 @@ import {
 	type UpdateOneOperationAst,
 	type UpsertManyOperationAst,
 } from '../../query/index.js'
-import {
-	booleanField,
-	jsonField,
-	pointerField,
-	Schema,
-	stringField,
-} from '../../schema/index.js'
+import { Schema } from '../../schema/index.js'
 import { FrameworkError } from '../../foundation.js'
 import {
 	immutableArray,
@@ -47,11 +41,11 @@ const requestContext = RequestContext.anonymous({
 const createFixtureSchema = (defaultTitle: () => string) =>
 	Schema.define({
 		className: 'BoundaryArticle',
-		fields: {
-			metadata: jsonField(),
-			published: booleanField({ default: false }),
-			title: stringField({ default: defaultTitle }),
-		},
+		fields: (field) => ({
+			metadata: field.json(),
+			published: field.boolean({ default: false }),
+			title: field.string({ default: defaultTitle }),
+		}),
 	})
 
 const completeRecord = immutableRecord({
@@ -410,11 +404,11 @@ describe('runtime hook boundaries', () => {
 		const targetId = '00000000-0000-7000-8000-000000000002'
 		const target = Schema.define({
 			className: 'BoundaryIncludedTarget',
-			fields: { name: stringField() },
+			fields: (field) => ({ name: field.string() }),
 		})
 		const source = Schema.define({
 			className: 'BoundaryIncludedSource',
-			fields: { target: pointerField({ target: () => target }) },
+			fields: (field) => ({ target: field.pointer({ target: () => target }) }),
 		})
 		const targetQuery = new QueryBuilder(target).select({ name: true })
 		const operation = immutableRecord({

@@ -10,7 +10,7 @@ import {
 	type UpdateExpression,
 	type UpdateOneOperationAst,
 } from '../../query/index.js'
-import { Schema, intField, stringField } from '../../schema/index.js'
+import { Schema } from '../../schema/index.js'
 import { immutableRecord } from '@ultimabase/shared'
 import { describe, expect, it } from 'vitest'
 
@@ -35,10 +35,10 @@ import {
 
 const articleSchema = Schema.define({
 	className: 'Article',
-	fields: {
-		title: stringField({ validation: { required: true } }),
-		views: intField(),
-	},
+	fields: (field) => ({
+		title: field.string({ validation: { required: true } }),
+		views: field.int(),
+	}),
 })
 
 type FixtureResultByKind = Readonly<Partial<Record<OperationKind, unknown>>>

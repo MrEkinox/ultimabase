@@ -1,11 +1,7 @@
 import { Schema, type SchemaDefinition } from '../../schema/index.js'
 import type { GeneratedSchemaValueOr } from '../../schema/generated-contracts.js'
 import { getFieldSchemaTarget } from '../../schema/fields/base/definition.js'
-import {
-	immutableRecord,
-	isPlainRecord,
-	isUnknownArray,
-} from '@ultimabase/shared'
+import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 
 import type {
 	QueryAst,
@@ -14,6 +10,8 @@ import type {
 	QueryWhereNode,
 } from '../ast/contracts.js'
 import { createQueryAst } from '../ast/factory.js'
+import { parseQueryFieldName } from '../ast/schema.js'
+import type { GeneratedOrderBy } from '../generated-contracts.js'
 import type {
 	ExactQuerySelection,
 	LiteralQuerySelection,
@@ -54,18 +52,9 @@ import type {
 /** Uses concise transport-facing directions independently from AST vocabulary. */
 export type QueryOrderByDirection = 'asc' | 'desc'
 
-type OtherQueryFieldName<
-	TSchema extends SchemaDefinition,
-	TFieldName extends QueryFieldName<TSchema>,
-> = Exclude<QueryFieldName<TSchema>, TFieldName>
-
-/** Describes one ordered field while rejecting ambiguous multi-key objects. */
-type InferredQueryOrderByInput<TSchema extends SchemaDefinition> = {
-	[TFieldName in QueryFieldName<TSchema>]: Readonly<
-		Record<TFieldName, QueryOrderByDirection> &
-			Partial<Record<OtherQueryFieldName<TSchema, TFieldName>, never>>
-	>
-}[QueryFieldName<TSchema>]
+/** Maps every readable field to one optional transport-facing direction. */
+type InferredQueryOrderByInput<TSchema extends SchemaDefinition> =
+	GeneratedOrderBy<QueryFieldName<TSchema>>
 
 /** Uses the compact generated ordering contract when available. */
 export type QueryOrderByInput<TSchema extends SchemaDefinition> =
@@ -85,7 +74,7 @@ export type QueryRelationTargetInput<TSchema extends SchemaDefinition> =
 		readonly limit?: number
 		/** Applies the same offset independently to every ordered parent collection. */
 		readonly offset?: number
-		readonly orderBy?: readonly QueryOrderByInput<TSchema>[]
+		readonly orderBy?: QueryOrderByInput<TSchema>
 		readonly select?: QuerySelection<TSchema>
 		readonly where?: WhereInput<TSchema>
 	}>
@@ -131,7 +120,7 @@ interface FindManyBaseInput<TSchema extends SchemaDefinition>
 	/** Limits the number of returned models. */
 	readonly limit?: number
 	/** Applies deterministic priority ordering from left to right. */
-	readonly orderBy?: readonly QueryOrderByInput<TSchema>[]
+	readonly orderBy?: QueryOrderByInput<TSchema>
 }
 
 type QueryPaginationInput =
@@ -154,7 +143,7 @@ export type FindManyInput<TSchema extends SchemaDefinition> =
 export interface FindOneInput<TSchema extends SchemaDefinition>
 	extends QueryFilteredInput<TSchema>, QueryProjectionInput<TSchema> {
 	/** Applies deterministic priority ordering from left to right. */
-	readonly orderBy?: readonly QueryOrderByInput<TSchema>[]
+	readonly orderBy?: QueryOrderByInput<TSchema>
 }
 
 /** Describes one exact identifier read and its result projection. */
@@ -449,38 +438,21 @@ const applyQueryOrdering = <const TSchema extends SchemaDefinition>(
 	ast: QueryInputAst<TSchema>,
 	input: unknown,
 ): QueryInputAst<TSchema> => {
-	if (!isUnknownArray(input)) {
-		throw new TypeError('query.orderBy must be an array')
+	if (!isPlainRecord(input)) {
+		throw new TypeError('query.orderBy must be an object')
 	}
 
 	const orders: QueryOrderInput<QueryFieldName<TSchema>>[] = []
 
-	for (const [index, item] of input.entries()) {
-		if (!isPlainRecord(item)) {
-			throw new TypeError(`query.orderBy[${String(index)}] must be an object`)
+	for (const [fieldName, direction] of Object.entries(input)) {
+		if (direction === null) {
+			parseQueryFieldName(schema, fieldName, `query.orderBy.${fieldName}`)
+			continue
 		}
-
-		const entries = Object.entries(item)
-
-		if (entries.length !== 1) {
-			throw new TypeError(
-				`query.orderBy[${String(index)}] must contain exactly one field`,
-			)
-		}
-
-		const entry = entries[0]
-
-		if (entry === undefined) {
-			throw new TypeError(
-				`query.orderBy[${String(index)}] must contain exactly one field`,
-			)
-		}
-
-		const [fieldName, direction] = entry
 
 		if (direction !== 'asc' && direction !== 'desc') {
 			throw new TypeError(
-				`query.orderBy[${String(index)}].${fieldName} must be asc or desc`,
+				`query.orderBy.${fieldName} must be asc, desc, or null`,
 			)
 		}
 

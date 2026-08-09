@@ -1,5 +1,5 @@
 import { definePlugin, FrameworkError } from '../../foundation.js'
-import { Schema, stringField } from '../../schema/index.js'
+import { Schema } from '../../schema/index.js'
 import { describe, expect, it } from 'vitest'
 
 import { RequestContext, requestSources } from '../context/request-context.js'
@@ -67,9 +67,9 @@ describe('hook execution safety', () => {
 		const transactionIds: (string | undefined)[] = []
 		const schema = Schema.define({
 			className: 'CancelledHookArticle',
-			fields: {
-				title: stringField({ validation: { required: true } }),
-			},
+			fields: (field) => ({
+				title: field.string({ validation: { required: true } }),
+			}),
 			hooks: {
 				beforeOperation: {
 					create: [
@@ -132,7 +132,7 @@ describe('hook execution safety', () => {
 		const trace: string[] = []
 		const schema = Schema.define({
 			className: 'PreCancelledHookArticle',
-			fields: { title: stringField() },
+			fields: (field) => ({ title: field.string() }),
 		})
 		const adapter = new RecordingDatabaseAdapter([], trace)
 		const ultimabase = new UltimaBase({
@@ -166,7 +166,9 @@ describe('hook execution safety', () => {
 		const transactionIds: (string | undefined)[] = []
 		const childSchema = Schema.define({
 			className: 'NestedHookChild',
-			fields: { title: stringField({ validation: { required: true } }) },
+			fields: (field) => ({
+				title: field.string({ validation: { required: true } }),
+			}),
 			hooks: {
 				beforeOperation: {
 					create: ({ context, item }) => {
@@ -180,7 +182,9 @@ describe('hook execution safety', () => {
 		})
 		const parentSchema = Schema.define({
 			className: 'NestedHookParent',
-			fields: { title: stringField({ validation: { required: true } }) },
+			fields: (field) => ({
+				title: field.string({ validation: { required: true } }),
+			}),
 			hooks: {
 				beforeOperation: {
 					create: async ({ context, item }) => {
@@ -226,7 +230,9 @@ describe('hook execution safety', () => {
 		const trace: string[] = []
 		const schema = Schema.define({
 			className: 'RecursiveHookArticle',
-			fields: { title: stringField({ validation: { required: true } }) },
+			fields: (field) => ({
+				title: field.string({ validation: { required: true } }),
+			}),
 			hooks: {
 				beforeOperation: {
 					create: async ({ item }) => {
@@ -263,7 +269,9 @@ describe('hook execution safety', () => {
 		const trace: string[] = []
 		const schema = Schema.define({
 			className: 'RecursiveLowLevelArticle',
-			fields: { title: stringField({ validation: { required: true } }) },
+			fields: (field) => ({
+				title: field.string({ validation: { required: true } }),
+			}),
 		})
 		const defineRecursivePlugin = () =>
 			definePlugin({
@@ -306,7 +314,7 @@ describe('hook execution safety', () => {
 		let observerHadRequestAuthority = false
 		const schema = Schema.define({
 			className: 'ObservedHookArticle',
-			fields: { title: stringField() },
+			fields: (field) => ({ title: field.string() }),
 		})
 		const adapter = new RecordingDatabaseAdapter(
 			[{ status: 'fulfilled', value: [] }],

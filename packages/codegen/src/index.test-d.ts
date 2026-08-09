@@ -7,20 +7,23 @@ import {
 import { expectTypeOf, test } from 'vitest'
 
 import {
+	codegenPlugin,
 	generateApplicationTypes,
 	loadTypegenApplication,
 	readGeneratedTypeFingerprint,
 	writeGeneratedTypeFile,
 	writeGeneratedTypeFiles,
+	type CodegenPlugin,
+	type CodegenPluginExports,
 	type GeneratedApplicationTypes,
 	type TypegenApplicationSnapshot,
 } from './index.js'
 
 const Document = Schema.define({
 	className: 'CodegenPublicTypeDocument',
-	fields(field) {
-		field.string('title')
-	},
+	fields: (field) => ({
+		title: field.string(),
+	}),
 })
 const application = new FrameworkApplication({
 	plugins: [],
@@ -61,4 +64,20 @@ test('exposes precise generation, loading, and atomic writer contracts', () => {
 		}),
 	).toEqualTypeOf<Promise<void>>()
 	expectTypeOf(writeGeneratedTypeFiles([])).toEqualTypeOf<Promise<void>>()
+})
+
+test('exposes automatic startup generation as a typed application plugin', () => {
+	const plugin = codegenPlugin({
+		applicationId: 'fixture.public-types',
+		outputPath: './generated.d.ts',
+	})
+	const generatedApplication = new FrameworkApplication({
+		plugins: [plugin],
+		schemas: [Document],
+	})
+
+	expectTypeOf(plugin).toEqualTypeOf<CodegenPlugin>()
+	expectTypeOf(
+		generatedApplication.getPlugin('@ultimabase/codegen'),
+	).toEqualTypeOf<Readonly<CodegenPluginExports>>()
 })

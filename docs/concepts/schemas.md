@@ -5,13 +5,13 @@ Schemas are explicit TypeScript classes registered in application configuration.
 ```ts
 const UserSchema = Schema.define({
 	className: 'User',
-	fields(field) {
-		field.string('name', {
+	fields: (field) => ({
+		name: field.string({
 			validation: {
 				required: true,
 			},
-		})
-	},
+		}),
+	}),
 	extensions: [],
 })
 ```

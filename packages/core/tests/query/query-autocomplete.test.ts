@@ -18,7 +18,7 @@ describe('QueryBuilder IntelliSense', () => {
 import { Schema, stringField } from '../../src/index.js'
 import { QueryBuilder } from '../../src/query/index.js'
 
-const PostSchema = Schema.define({ className: 'Post', fields: { title: stringField() } })
+const PostSchema = Schema.define({ className: 'Post', fields: () => ({ title: stringField() }) })
 const identified = new QueryBuilder(PostSchema)./* hover */where({ id: { eq: '0194f292-0dd9-7c2d-a0a3-a2f755a3d90a' } })
 `,
 		)
@@ -37,7 +37,7 @@ const identified = new QueryBuilder(PostSchema)./* hover */where({ id: { eq: '01
 		const sourceWithMarker = `
 import { Schema, UltimaBase, stringField } from '../../src/index.js'
 
-const Post = Schema.define({ className: 'Post', fields: { title: stringField() } })
+const Post = Schema.define({ className: 'Post', fields: () => ({ title: stringField() }) })
 const ultimabase = new UltimaBase({ schemas: [Post], plugins: [] })
 Post.findMany(undefined, { ${marker} })
 void ultimabase
@@ -88,7 +88,7 @@ void ultimabase
 			`${import.meta.dirname}/schema-operation-hover.fixture.ts`,
 			`
 import { Schema, stringField } from '../../src/index.js'
-const Post = Schema.define({ className: 'Post', fields: { title: stringField() } })
+const Post = Schema.define({ className: 'Post', fields: () => ({ title: stringField() }) })
 Post./* hover */findMany()
 `,
 		)
@@ -105,7 +105,7 @@ Post./* hover */findMany()
 		const marker = '/* completion */'
 		const sourceWithMarker = `
 import { QueryBuilder, Schema, stringField } from '../../src/index.js'
-const Post = Schema.define({ className: 'Post', fields: { title: stringField() } })
+const Post = Schema.define({ className: 'Post', fields: () => ({ title: stringField() }) })
 new QueryBuilder(Post).${marker}
 `
 		const position = sourceWithMarker.indexOf(marker)
@@ -169,7 +169,7 @@ new QueryBuilder(Post).${marker}
 			`${import.meta.dirname}/query-update-alias-hover.fixture.ts`,
 			`
 import { Schema, increment, intField } from '../../src/index.js'
-const Post = Schema.define({ className: 'Post', fields: { views: intField() } })
+const Post = Schema.define({ className: 'Post', fields: () => ({ views: intField() }) })
 Post./* hover */updateOne({ where: (where) => where.eq('id', 'post-1'), data: { views: increment(1) } })
 `,
 		)
@@ -177,7 +177,7 @@ Post./* hover */updateOne({ where: (where) => where.eq('id', 'post-1'), data: { 
 			`${import.meta.dirname}/query-delete-alias-hover.fixture.ts`,
 			`
 import { Schema, stringField } from '../../src/index.js'
-const Post = Schema.define({ className: 'Post', fields: { title: stringField() } })
+const Post = Schema.define({ className: 'Post', fields: () => ({ title: stringField() }) })
 Post./* hover */deleteOne({ where: (where) => where.eq('id', 'post-1') })
 `,
 		)
@@ -202,7 +202,7 @@ Post./* hover */deleteOne({ where: (where) => where.eq('id', 'post-1') })
 		): Set<string> => {
 			const sourceWithMarker = `
 import { Schema, intField, stringField } from '../../src/index.js'
-const Post = Schema.define({ className: 'Post', fields: { title: stringField(), views: intField() } })
+const Post = Schema.define({ className: 'Post', fields: () => ({ title: stringField(), views: intField() }) })
 ${body}
 `
 			const position = sourceWithMarker.indexOf(marker)
@@ -303,7 +303,7 @@ ${body}
 			`${import.meta.dirname}/query-selection-hover.fixture.ts`,
 			`
 import { QueryBuilder, Schema, stringField } from '../../src/index.js'
-const Post = Schema.define({ className: 'Post', fields: { title: stringField(), secret: stringField() } })
+const Post = Schema.define({ className: 'Post', fields: () => ({ title: stringField(), secret: stringField() }) })
 new QueryBuilder(Post)./* hover */select({ title: true })
 `,
 		)
@@ -321,7 +321,7 @@ new QueryBuilder(Post)./* hover */select({ title: true })
 		const marker = '/* completion */'
 		const sourceWithMarker = `
 import { QueryBuilder, Schema, stringField } from '../../src/index.js'
-const Post = Schema.define({ className: 'Post', fields: { title: stringField(), secret: stringField() } })
+const Post = Schema.define({ className: 'Post', fields: () => ({ title: stringField(), secret: stringField() }) })
 new QueryBuilder(Post).select({ ${marker} })
 `
 		const position = sourceWithMarker.indexOf(marker)
@@ -340,7 +340,7 @@ new QueryBuilder(Post).select({ ${marker} })
 
 		const canonicalSourceWithMarker = `
 import { Schema, stringField } from '../../src/index.js'
-const Post = Schema.define({ className: 'Post', fields: { title: stringField(), secret: stringField() } })
+const Post = Schema.define({ className: 'Post', fields: () => ({ title: stringField(), secret: stringField() }) })
 Post.findMany({ select: { ${marker} } })
 `
 		const canonicalPosition = canonicalSourceWithMarker.indexOf(marker)
@@ -369,7 +369,7 @@ Post.findMany({ select: { ${marker} } })
 
 		const continuedSourceWithMarker = `
 import { QueryBuilder, Schema, stringField } from '../../src/index.js'
-const Post = Schema.define({ className: 'Post', fields: { title: stringField(), secret: stringField() } })
+const Post = Schema.define({ className: 'Post', fields: () => ({ title: stringField(), secret: stringField() }) })
 new QueryBuilder(Post).select({ title: true, ${marker} })
 `
 		const continuedPosition = continuedSourceWithMarker.indexOf(marker)
@@ -404,9 +404,9 @@ new QueryBuilder(Post).select({ title: true, ${marker} })
 		): Set<string> => {
 			const sourceWithMarker = `
 import { Schema, booleanField, intField, pointerField, relationField, stringField } from '../../src/index.js'
-const Tag = Schema.define({ className: 'Tag', fields: { label: stringField() } })
-const Author = Schema.define({ className: 'Author', fields: { active: booleanField(), name: stringField() } })
-const Post = Schema.define({ className: 'Post', fields: { author: pointerField({ target: () => Author }), published: booleanField(), tags: relationField({ target: () => Tag }), views: intField() } })
+const Tag = Schema.define({ className: 'Tag', fields: () => ({ label: stringField() }) })
+const Author = Schema.define({ className: 'Author', fields: () => ({ active: booleanField(), name: stringField() }) })
+const Post = Schema.define({ className: 'Post', fields: () => ({ author: pointerField({ target: () => Author }), published: booleanField(), tags: relationField({ target: () => Tag }), views: intField() }) })
 ${body}
 `
 			const position = sourceWithMarker.indexOf(marker)
@@ -524,15 +524,15 @@ ${body}
 		): Set<string> => {
 			const sourceWithMarker = `
 import { QueryBuilder, Schema, pointerField, relationField, stringField } from '../../src/index.js'
-const Author = Schema.define({ className: 'Author', fields: { name: stringField() } })
+const Author = Schema.define({ className: 'Author', fields: () => ({ name: stringField() }) })
 const Post = Schema.define({
   className: 'Post',
-  fields: {
+  fields: () => ({
     author: pointerField({ target: () => Author }),
     title: stringField(),
-  },
+  }),
 })
-const Feed = Schema.define({ className: 'Feed', fields: { posts: relationField({ target: () => Post }) } })
+const Feed = Schema.define({ className: 'Feed', fields: () => ({ posts: relationField({ target: () => Post }) }) })
 ${body}
 `
 			const position = sourceWithMarker.indexOf(marker)
@@ -573,7 +573,7 @@ ${body}
 			'query-relation-include-builder-completion',
 		)
 		const orderingFields = readCompletions(
-			`Post.findMany({ orderBy: [{ ${marker} }] })`,
+			`Post.findMany({ orderBy: { ${marker} } })`,
 			'query-canonical-ordering-completion',
 		)
 
@@ -623,7 +623,7 @@ ${body}
 		const marker = '/* completion */'
 		const sourceWithMarker = `
 import { Schema, stringField } from '../../src/index.js'
-const Post = Schema.define({ className: 'Post', fields: { title: stringField() } })
+const Post = Schema.define({ className: 'Post', fields: () => ({ title: stringField() }) })
 Post.createMany({ data: [{ title: 'First' }] }, { ${marker} })
 `
 		const position = sourceWithMarker.indexOf(marker)
@@ -642,7 +642,7 @@ Post.createMany({ data: [{ title: 'First' }] }, { ${marker} })
 			`${import.meta.dirname}/bulk-operation-hover.fixture.ts`,
 			`
 import { Schema, stringField } from '../../src/index.js'
-const Post = Schema.define({ className: 'Post', fields: { title: stringField() } })
+const Post = Schema.define({ className: 'Post', fields: () => ({ title: stringField() }) })
 Post./* hover */createMany({ data: [{ title: 'First' }] })
 `,
 		)
@@ -663,8 +663,8 @@ Post./* hover */createMany({ data: [{ title: 'First' }] })
 			`${import.meta.dirname}/query-pointer-include-hover.fixture.ts`,
 			`
 import { QueryBuilder, Schema, pointerField, stringField } from '../../src/index.js'
-const User = Schema.define({ className: 'User', fields: { name: stringField(), email: stringField() } })
-const Post = Schema.define({ className: 'Post', fields: { author: pointerField({ target: () => User }), title: stringField() } })
+const User = Schema.define({ className: 'User', fields: () => ({ name: stringField(), email: stringField() }) })
+const Post = Schema.define({ className: 'Post', fields: () => ({ author: pointerField({ target: () => User }), title: stringField() }) })
 new QueryBuilder(Post)./* hover */include('author', (query) => query.select({ name: true }))
 `,
 		)
@@ -681,8 +681,8 @@ new QueryBuilder(Post)./* hover */include('author', (query) => query.select({ na
 		const marker = '/* completion */'
 		const sourceWithMarker = `
 import { QueryBuilder, Schema, pointerField, stringField } from '../../src/index.js'
-const User = Schema.define({ className: 'User', fields: { name: stringField(), email: stringField() } })
-const Post = Schema.define({ className: 'Post', fields: { author: pointerField({ target: () => User }), title: stringField() } })
+const User = Schema.define({ className: 'User', fields: () => ({ name: stringField(), email: stringField() }) })
+const Post = Schema.define({ className: 'Post', fields: () => ({ author: pointerField({ target: () => User }), title: stringField() }) })
 new QueryBuilder(Post).include('author', (query) => query.select({ ${marker}: true }))
 `
 		const position = sourceWithMarker.indexOf(marker)
@@ -701,8 +701,8 @@ new QueryBuilder(Post).include('author', (query) => query.select({ ${marker}: tr
 		const relationMarker = '/* relation completion */'
 		const relationSourceWithMarker = `
 import { QueryBuilder, Schema, relationField, stringField } from '../../src/index.js'
-const Post = Schema.define({ className: 'Post', fields: { title: stringField(), body: stringField() } })
-const User = Schema.define({ className: 'User', fields: { name: stringField(), posts: relationField({ target: () => Post }) } })
+const Post = Schema.define({ className: 'Post', fields: () => ({ title: stringField(), body: stringField() }) })
+const User = Schema.define({ className: 'User', fields: () => ({ name: stringField(), posts: relationField({ target: () => Post }) }) })
 new QueryBuilder(User).include('posts', (query) => query.select({ ${relationMarker}: true }))
 `
 		const relationPosition = relationSourceWithMarker.indexOf(relationMarker)

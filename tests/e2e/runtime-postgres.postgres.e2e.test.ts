@@ -3,31 +3,17 @@ import {
 	postgresPlugin,
 } from '@ultimabase/postgres-plugin'
 import {
-	bigintField,
-	binaryField,
-	booleanField,
 	databaseAdapterServiceToken,
 	type DatabaseTransactionAdapter,
-	dateField,
-	dateTimeField,
-	decimalField,
 	Schema,
-	enumField,
-	floatField,
-	intField,
 	increment,
-	jsonField,
 	normalizeUpdateExpression,
-	objectField,
 	QueryBuilder,
 	RequestContext,
 	RequestContextValue,
 	requestSources,
 	type SchemaResult,
 	runWithRequestEngine,
-	stringField,
-	timeField,
-	uuidField,
 	MasterAuthority,
 } from '@ultimabase/core'
 import { UltimaBase } from '@ultimabase/core'
@@ -40,56 +26,56 @@ import {
 
 const PostSchema = Schema.define({
 	className: 'RuntimePost',
-	fields: {
-		attachment: binaryField(),
-		calendarDay: dateField(),
-		eventAt: dateTimeField(),
-		exactAmount: decimalField({ validation: { precision: 12, scale: 2 } }),
-		externalId: uuidField({ validation: { version: 4 } }),
-		hugeCount: bigintField(),
-		labels: stringField({ list: true }),
-		metadata: jsonField(),
-		profile: objectField({
-			fields: {
-				displayName: stringField({ validation: { required: true } }),
-				level: intField(),
-			},
+	fields: (field) => ({
+		attachment: field.binary(),
+		calendarDay: field.date(),
+		eventAt: field.dateTime(),
+		exactAmount: field.decimal({ validation: { precision: 12, scale: 2 } }),
+		externalId: field.uuid({ validation: { version: 4 } }),
+		hugeCount: field.bigint(),
+		labels: field.string({ list: true }),
+		metadata: field.json(),
+		profile: field.object({
+			fields: (field) => ({
+				displayName: field.string({ validation: { required: true } }),
+				level: field.int(),
+			}),
 		}),
-		published: booleanField({ default: false }),
-		rating: floatField(),
-		status: enumField({ values: ['draft', 'published'] }),
-		title: stringField({ validation: { required: true } }),
-		views: intField({ default: 0 }),
-		wakeAt: timeField(),
-	},
+		published: field.boolean({ default: false }),
+		rating: field.float(),
+		status: field.enum({ values: ['draft', 'published'] }),
+		title: field.string({ validation: { required: true } }),
+		views: field.int({ default: 0 }),
+		wakeAt: field.time(),
+	}),
 })
 
 const HookAuditSchema = Schema.define({
 	className: 'RuntimeHookAudit',
-	fields: {
-		action: stringField({ validation: { required: true } }),
-	},
+	fields: (field) => ({
+		action: field.string({ validation: { required: true } }),
+	}),
 })
 
 const BulkAccountSchema = Schema.define({
 	className: 'RuntimeBulkAccount',
-	fields: {
-		email: stringField({
+	fields: (field) => ({
+		email: field.string({
 			indexed: 'unique',
 			validation: { required: true },
 		}),
-		handle: stringField({ validation: { required: true } }),
-		tenantId: stringField({ validation: { required: true } }),
-		visits: intField({ default: 0 }),
-	},
+		handle: field.string({ validation: { required: true } }),
+		tenantId: field.string({ validation: { required: true } }),
+		visits: field.int({ default: 0 }),
+	}),
 	indexes: [{ fields: ['tenantId', 'handle'], unique: true }],
 })
 
 const AfterReadIdentitySchema = Schema.define({
 	className: 'RuntimeAfterReadIdentity',
-	fields: {
-		title: stringField({ validation: { required: true } }),
-	},
+	fields: (field) => ({
+		title: field.string({ validation: { required: true } }),
+	}),
 })
 
 const authorityPrincipal = new RequestContextValue<string>(
@@ -108,9 +94,9 @@ const authorityObservations: Readonly<{
 }>[] = []
 const AuthorityRecordSchema = Schema.define({
 	className: 'RuntimeAuthorityRecord',
-	fields: {
-		title: stringField({ validation: { required: true } }),
-	},
+	fields: (field) => ({
+		title: field.string({ validation: { required: true } }),
+	}),
 	hooks: {
 		beforeOperation: {
 			create: ({ context, item }) => {
@@ -129,17 +115,23 @@ const AuthorityRecordSchema = Schema.define({
 const hookRollbackError = new Error('rollback HookContext nested write')
 const HookPostSchema = Schema.define({
 	className: 'RuntimeHookPost',
-	fields: {
-		title: stringField({ validation: { required: true } }),
-	},
+	fields: (field) => ({
+		title: field.string({ validation: { required: true } }),
+	}),
 	hooks: {
 		beforeOperation: {
 			create: async ({ item }) => {
+				const title = item.title
+
+				if (typeof title !== 'string') {
+					throw new TypeError('Runtime hook item title must be a string')
+				}
+
 				await new HookAuditSchema({
-					action: `create:${item.title}`,
+					action: `create:${title}`,
 				}).create({})
 
-				if (item.title === 'rollback') {
+				if (title === 'rollback') {
 					throw hookRollbackError
 				}
 			},
@@ -171,7 +163,7 @@ const allFieldValues = {
 const packedDraft = new PostSchema({ title: 'Packed draft' })
 const PackedModelSchema = Schema.define({
 	className: 'PackedModel',
-	fields: { title: stringField() },
+	fields: (field) => ({ title: field.string() }),
 })
 const packedModelDraft = new PackedModelSchema({ title: 'Packed model draft' })
 const packedQuery = new QueryBuilder(PostSchema).select({
@@ -633,7 +625,7 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 			}
 
 			const ordered = await AfterReadIdentitySchema.findMany(
-				{ orderBy: [{ title: 'asc' }], select: { title: true } },
+				{ orderBy: { title: 'asc' }, select: { title: true } },
 				{ ultimabase },
 			)
 			const selected = ordered[0]

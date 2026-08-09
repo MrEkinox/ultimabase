@@ -7,7 +7,6 @@ import {
 } from '../../index.js'
 import { definePlugin } from '../../plugins/definition.js'
 import { objectField } from '../fields/builtins/object.js'
-import { stringField } from '../fields/builtins/string.js'
 import { Schema } from './definition.js'
 import type { SchemaDefinition } from './definition.js'
 import { SchemaRegistry } from './registry.js'
@@ -21,17 +20,17 @@ describe('lazy schema targets', () => {
 	it('resolves direct targets lazily into one immutable graph', () => {
 		const target = Schema.define({
 			className: 'Target',
-			fields: { name: stringField() },
+			fields: (field) => ({ name: field.string() }),
 		})
 		let invocationCount = 0
 		const source = Schema.define({
 			className: 'Source',
-			fields: {
+			fields: () => ({
 				target: targetField(() => {
 					invocationCount += 1
 					return target
 				}),
-			},
+			}),
 		})
 		const registry = new SchemaRegistry([source, target])
 
@@ -74,11 +73,11 @@ describe('lazy schema targets', () => {
 
 		const first: SchemaDefinition = Schema.define({
 			className: 'First',
-			fields: { second: targetField(resolveSecondTarget) },
+			fields: () => ({ second: targetField(resolveSecondTarget) }),
 		})
 		const second: SchemaDefinition = Schema.define({
 			className: 'Second',
-			fields: { first: targetField((): SchemaDefinition => first) },
+			fields: () => ({ first: targetField((): SchemaDefinition => first) }),
 		})
 		const graph = new SchemaRegistry([first, second]).resolveSchemaTargets()
 
@@ -93,7 +92,10 @@ describe('lazy schema targets', () => {
 	})
 
 	it('rejects schema pointers inside embedded objects', () => {
-		const target = Schema.define({ className: 'NestedTarget', fields: {} })
+		const target = Schema.define({
+			className: 'NestedTarget',
+			fields: () => ({}),
+		})
 
 		expect(() => {
 			Reflect.apply(objectField, undefined, [
@@ -124,10 +126,10 @@ describe('lazy schema targets', () => {
 	])('reports $reason with the exact field path', (fixture) => {
 		const source = Schema.define({
 			className: 'InvalidSource',
-			fields: {
+			fields: () => ({
 				// @ts-expect-error -- Runtime resolution protects JavaScript callers.
 				target: targetField(fixture.target),
-			},
+			}),
 		})
 		let thrown: unknown
 
@@ -151,23 +153,23 @@ describe('lazy schema targets', () => {
 	it('distinguishes unregistered and foreign schema identities', () => {
 		const unregistered = Schema.define({
 			className: 'UnregisteredTarget',
-			fields: {},
+			fields: () => ({}),
 		})
 		const missingSource = Schema.define({
 			className: 'MissingSource',
-			fields: { target: targetField(() => unregistered) },
+			fields: () => ({ target: targetField(() => unregistered) }),
 		})
 		const foreign = Schema.define({
 			className: 'SharedTarget',
-			fields: { foreign: stringField() },
+			fields: (field) => ({ foreign: field.string() }),
 		})
 		const local = Schema.define({
 			className: 'SharedTarget',
-			fields: { local: stringField() },
+			fields: (field) => ({ local: field.string() }),
 		})
 		const foreignSource = Schema.define({
 			className: 'ForeignSource',
-			fields: { target: targetField(() => foreign) },
+			fields: () => ({ target: targetField(() => foreign) }),
 		})
 
 		expect(() =>
@@ -191,10 +193,10 @@ describe('lazy schema targets', () => {
 	it('guards malformed target declarations and graph lookups', () => {
 		const invalidSource = Schema.define({
 			className: 'InvalidCallbackSource',
-			fields: {
+			fields: () => ({
 				// @ts-expect-error -- Runtime resolution protects JavaScript callers.
 				target: targetField('not-a-function'),
-			},
+			}),
 		})
 
 		expect(() =>
@@ -207,7 +209,10 @@ describe('lazy schema targets', () => {
 			}),
 		)
 
-		const schema = Schema.define({ className: 'EmptyGraph', fields: {} })
+		const schema = Schema.define({
+			className: 'EmptyGraph',
+			fields: () => ({}),
+		})
 		const graph = new SchemaRegistry([schema]).resolveSchemaTargets()
 
 		expect(graph.size).toBe(0)
@@ -228,10 +233,13 @@ describe('lazy schema targets', () => {
 
 	it('resolves configured schemas before plugin setup and infrastructure', async () => {
 		const events: string[] = []
-		const target = Schema.define({ className: 'PluginTarget', fields: {} })
+		const target = Schema.define({
+			className: 'PluginTarget',
+			fields: () => ({}),
+		})
 		const source = Schema.define({
 			className: 'PluginSource',
-			fields: { target: targetField(() => target) },
+			fields: () => ({ target: targetField(() => target) }),
 		})
 		const plugin = definePlugin({
 			name: 'fixture.schema-observer',
@@ -259,10 +267,13 @@ describe('lazy schema targets', () => {
 
 	it('fails target resolution before infrastructure and cleans setup', async () => {
 		const events: string[] = []
-		const missing = Schema.define({ className: 'MissingTarget', fields: {} })
+		const missing = Schema.define({
+			className: 'MissingTarget',
+			fields: () => ({}),
+		})
 		const source = Schema.define({
 			className: 'FailingSource',
-			fields: { target: targetField(() => missing) },
+			fields: () => ({ target: targetField(() => missing) }),
 		})
 		const plugin = definePlugin({
 			name: 'fixture.target-failure',
@@ -295,16 +306,16 @@ describe('lazy schema targets', () => {
 		async () => {
 			const firstTarget = Schema.define({
 				className: 'IsolatedTarget',
-				fields: { first: stringField() },
+				fields: (field) => ({ first: field.string() }),
 			})
 			const secondTarget = Schema.define({
 				className: 'IsolatedTarget',
-				fields: { second: stringField() },
+				fields: (field) => ({ second: field.string() }),
 			})
 			let currentTarget: SchemaDefinition = firstTarget
 			const source = Schema.define({
 				className: 'IsolatedSource',
-				fields: { target: targetField(() => currentTarget) },
+				fields: () => ({ target: targetField(() => currentTarget) }),
 			})
 			const firstApplication = await createApplication({
 				schemas: [source, firstTarget],

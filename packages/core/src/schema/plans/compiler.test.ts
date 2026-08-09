@@ -2,12 +2,9 @@ import { describe, expect, it, vi } from 'vitest'
 
 import {
 	binaryField,
-	booleanField,
 	compileValidationPlans,
-	dateField,
 	definePluginField,
 	Schema,
-	intField,
 	objectField,
 	stringField,
 	type FieldDefinition,
@@ -18,26 +15,26 @@ describe('validation plans', () => {
 		const runtimeDefault = vi.fn(() => 'generated')
 		const schema = Schema.define({
 			className: 'ScalarPlan',
-			fields: {
-				name: stringField({
+			fields: (field) => ({
+				name: field.string({
 					validation: {
 						required: true,
 						length: { min: 2, max: 40 },
 						match: /^[a-z]+$/u,
 					},
 				}),
-				nickname: stringField(),
-				active: booleanField({ default: true }),
-				generated: stringField({ default: runtimeDefault }),
-				automaticDate: dateField({
+				nickname: field.string(),
+				active: field.boolean({ default: true }),
+				generated: field.string({ default: runtimeDefault }),
+				automaticDate: field.date({
 					autoNow: true,
 					validation: { required: true },
 				}),
-				immutableCode: stringField({
+				immutableCode: field.string({
 					validation: { required: true },
 					immutable: true,
 				}),
-			},
+			}),
 		})
 
 		const plans = compileValidationPlans(schema)
@@ -81,22 +78,22 @@ describe('validation plans', () => {
 	it('compiles system fields and structured children recursively', () => {
 		const schema = Schema.define({
 			className: 'StructuredPlan',
-			fields: {
-				profile: objectField({
+			fields: (field) => ({
+				profile: field.object({
 					validation: { required: true },
-					fields: {
-						displayName: stringField({
+					fields: (field) => ({
+						displayName: field.string({
 							validation: { required: true },
 						}),
-						internalCode: stringField({ immutable: true }),
-					},
+						internalCode: field.string({ immutable: true }),
+					}),
 				}),
-				tags: stringField({
+				tags: field.string({
 					list: true,
 					default: ['generated'],
 				}),
-				matrix: intField({ list: [true, true] }),
-			},
+				matrix: field.int({ list: [true, true] }),
+			}),
 		})
 
 		const plans = compileValidationPlans(schema)
@@ -165,7 +162,7 @@ describe('validation plans', () => {
 		)
 		const schema = Schema.define({
 			className: 'DeferredPlan',
-			fields: { generated },
+			fields: () => ({ generated }),
 		})
 		const plans = compileValidationPlans(schema)
 
@@ -182,7 +179,7 @@ describe('validation plans', () => {
 		})
 		const schema = Schema.define({
 			className: 'ListedObjectPlan',
-			fields: { listedObject },
+			fields: () => ({ listedObject }),
 		})
 
 		expect(
@@ -205,7 +202,7 @@ describe('validation plans', () => {
 		})
 		const schema = Schema.define({
 			className: 'FrozenPlan',
-			fields: { structured: structuredField },
+			fields: () => ({ structured: structuredField }),
 		})
 
 		const plans = compileValidationPlans(schema)
@@ -234,7 +231,7 @@ describe('validation plans', () => {
 		)
 		const schema = Schema.define({
 			className: 'PluginPlan',
-			fields: { custom: customField },
+			fields: () => ({ custom: customField }),
 		})
 
 		expect(compileValidationPlans(schema).create.fields.custom).toStrictEqual({
@@ -255,8 +252,12 @@ describe('validation plans', () => {
 		expect(() =>
 			Schema.define({
 				className: 'MalformedListPlan',
-				fields: { value: malformedListField },
+				fields: () => ({ value: malformedListField }),
 			}),
-		).toThrow(new TypeError('fields.value must be created by a field factory'))
+		).toThrow(
+			new TypeError(
+				'MalformedListPlan.fields.value must be created by a field factory',
+			),
+		)
 	})
 })

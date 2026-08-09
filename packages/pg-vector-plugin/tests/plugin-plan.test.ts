@@ -4,6 +4,7 @@ import {
 	compileValidationPlans,
 	createApplication,
 	Schema,
+	SchemaRegistry,
 } from '@ultimabase/core'
 
 import {
@@ -29,8 +30,9 @@ describe('pgVectorPlugin field plans', () => {
 
 		const schema = Schema.define({
 			className: 'DetachedVectorOptions',
-			fields: { embedding: field },
+			fields: () => ({ embedding: field }),
 		})
+		new SchemaRegistry([schema]).compileSchemas()
 		const plan = compileValidationPlans(schema).create.fields.embedding
 
 		if (plan === undefined || !isVectorFieldValidationPlan(plan)) {
@@ -47,13 +49,13 @@ describe('pgVectorPlugin field plans', () => {
 		})
 		const schema = Schema.define({
 			className: 'Document',
-			fields: { embedding: field },
+			fields: () => ({ embedding: field }),
 		})
-		const plan = compileValidationPlans(schema).create.fields.embedding
 		const application = await createApplication({
 			plugins: [pgVectorPlugin()],
 			schemas: [schema],
 		})
+		const plan = compileValidationPlans(schema).create.fields.embedding
 		const plugin = application.getPlugin('pg-vector')
 
 		expect(plugin.fieldKind).toBe(vectorFieldKind)
@@ -72,15 +74,15 @@ describe('pgVectorPlugin field plans', () => {
 	it('validates runtime values through the associated plugin definition', async () => {
 		const schema = Schema.define({
 			className: 'Document',
-			fields: {
+			fields: () => ({
 				embedding: vectorField({ dimensions: 2 }),
-			},
+			}),
 		})
-		const plan = compileValidationPlans(schema).create.fields.embedding
 		const application = await createApplication({
 			plugins: [pgVectorPlugin()],
 			schemas: [schema],
 		})
+		const plan = compileValidationPlans(schema).create.fields.embedding
 		const plugin = application.getPlugin('pg-vector')
 
 		if (plan === undefined || !plugin.handles(plan)) {

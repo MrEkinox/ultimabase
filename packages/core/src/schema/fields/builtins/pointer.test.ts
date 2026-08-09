@@ -8,7 +8,10 @@ import {
 	snapshotScalarFieldValue,
 } from '../../index.js'
 
-const userSchema = Schema.define({ className: 'PointerFieldUser', fields: {} })
+const userSchema = Schema.define({
+	className: 'PointerFieldUser',
+	fields: () => ({}),
+})
 
 describe('pointerField', () => {
 	it('keeps its lazy target private and normalizes the safe delete policy', () => {
@@ -16,7 +19,7 @@ describe('pointerField', () => {
 		const field = pointerField({ target })
 		const source = Schema.define({
 			className: 'PointerFieldPost',
-			fields: { author: field },
+			fields: () => ({ author: field }),
 		})
 		const graph = new SchemaRegistry([
 			source,
@@ -56,7 +59,10 @@ describe('pointerField', () => {
 			snapshotScalarFieldValue(
 				field,
 				new Pointer(
-					Schema.define({ className: 'WrongPointerTarget', fields: {} }),
+					Schema.define({
+						className: 'WrongPointerTarget',
+						fields: () => ({}),
+					}),
 					'user-1',
 				),
 				'input.author',

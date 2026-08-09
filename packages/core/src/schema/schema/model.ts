@@ -27,6 +27,10 @@ import type {
 } from '../../query/operations/schema-commands.js'
 import type { OperationOptions } from '../../query/operations/options.js'
 import type { WhereInput } from '../../query/filters/where.js'
+import type {
+	QueryRelationFieldName,
+	QueryRelationTargetSchema,
+} from '../../query/clauses/inclusion.js'
 import {
 	normalizeQuerySelection,
 	type QuerySelection,
@@ -69,7 +73,6 @@ import {
 	createRelationHandle,
 	type Relation,
 	type SchemaRelationFieldName,
-	type SchemaRelationTarget,
 } from '../relations/relation.js'
 import type {
 	SchemaClass,
@@ -526,9 +529,9 @@ interface SchemaResultRelationCommands<TSchema extends SchemaDefinition> {
 	 *
 	 * @example `const tags = post.relation('tags')`
 	 */
-	relation<const TFieldName extends SchemaRelationFieldName<TSchema>>(
+	relation<const TFieldName extends QueryRelationFieldName<TSchema>>(
 		fieldName: TFieldName,
-	): Relation<TSchema, SchemaRelationTarget<TSchema, TFieldName>>
+	): Relation<TSchema, QueryRelationTargetSchema<TSchema, TFieldName>>
 }
 
 /** Omits the relation method entirely when a schema declares no to-many fields. */

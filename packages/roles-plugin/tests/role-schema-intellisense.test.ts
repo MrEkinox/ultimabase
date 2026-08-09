@@ -15,18 +15,18 @@ const source = `
 import { Schema, stringField } from '@ultimabase/core'
 import { RoleSchema, hasRole } from '../src/index.js'
 
-const User = Schema.define({ className: 'User', fields: {} })
+const User = Schema.define({ className: 'User', fields: () => ({}) })
 const AppRole = RoleSchema.define({
   className: 'Role',
   members: { schema: User },
-  fields: { description: stringField() },
+  fields: () => ({ description: stringField() }),
   deletion: { /* deletion-hover */references: 'fail' },
 })
 
 RoleSchema.define({
   className: 'CompletedRole',
   members: { schema: User },
-  fields: {},
+  fields: () => ({}),
   deletion: { /* deletion-complete */ },
 })
 

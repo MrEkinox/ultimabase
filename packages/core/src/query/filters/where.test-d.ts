@@ -1,43 +1,34 @@
 import { expectTypeOf, test } from 'vitest'
 
-import {
-	Schema,
-	booleanField,
-	intField,
-	jsonField,
-	objectField,
-	pointerField,
-	relationField,
-	stringField,
-} from '../../schema/index.js'
+import { Schema } from '../../schema/index.js'
 import { fieldPath } from './factory.js'
 import { WhereBuilder, type WhereInput } from './where.js'
 
 const Tag = Schema.define({
 	className: 'WhereTag',
-	fields: {
-		archived: booleanField(),
-		label: stringField(),
-	},
+	fields: (field) => ({
+		archived: field.boolean(),
+		label: field.string(),
+	}),
 })
 
 const Post = Schema.define({
 	className: 'WherePost',
-	fields: {
-		author: pointerField({ target: () => Tag }),
-		metadata: jsonField(),
-		profile: objectField({
-			fields: {
-				contact: objectField({
-					fields: { email: stringField() },
+	fields: (field) => ({
+		author: field.pointer({ target: () => Tag }),
+		metadata: field.json(),
+		profile: field.object({
+			fields: (field) => ({
+				contact: field.object({
+					fields: (field) => ({ email: field.string() }),
 				}),
-			},
+			}),
 		}),
-		published: booleanField(),
-		tags: relationField({ target: () => Tag }),
-		title: stringField(),
-		views: intField(),
-	},
+		published: field.boolean(),
+		tags: field.relation({ target: () => Tag }),
+		title: field.string(),
+		views: field.int(),
+	}),
 })
 
 test('correlates where object operators with exact schema fields', () => {

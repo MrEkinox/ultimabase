@@ -1,11 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import {
-	pointerField,
-	relationField,
-	Schema,
-	stringField,
-} from '../../schema/index.js'
+import { Schema } from '../../schema/index.js'
 import {
 	queryFromCountInput,
 	queryFromFindManyInput,
@@ -16,26 +11,28 @@ import { QueryBuilder } from './query.js'
 
 const Author = Schema.define({
 	className: 'ReadInputAuthor',
-	fields: { name: stringField({ validation: { required: true } }) },
+	fields: (field) => ({
+		name: field.string({ validation: { required: true } }),
+	}),
 })
 
 const Post = Schema.define({
 	className: 'ReadInputPost',
-	fields: {
-		author: pointerField({
+	fields: (field) => ({
+		author: field.pointer({
 			target: () => Author,
 			validation: { required: true },
 		}),
-		title: stringField({ validation: { required: true } }),
-	},
+		title: field.string({ validation: { required: true } }),
+	}),
 })
 
 const Feed = Schema.define({
 	className: 'ReadInputFeed',
-	fields: {
-		name: stringField(),
-		posts: relationField({ target: () => Post }),
-	},
+	fields: (field) => ({
+		name: field.string(),
+		posts: field.relation({ target: () => Post }),
+	}),
 })
 
 describe('canonical read inputs', () => {
@@ -48,7 +45,7 @@ describe('canonical read inputs', () => {
 				},
 			},
 			limit: 20,
-			orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
+			orderBy: { createdAt: 'desc', id: 'asc' },
 			select: { id: true, title: true },
 			where: { title: { contains: 'TypeScript' } },
 		})
@@ -91,7 +88,7 @@ describe('canonical read inputs', () => {
 			include: {
 				posts: {
 					where: { title: { contains: 'TypeScript' } },
-					orderBy: [{ createdAt: 'desc' }],
+					orderBy: { createdAt: 'desc' },
 					limit: 3,
 					offset: 2,
 					select: { title: true },
@@ -136,7 +133,7 @@ describe('canonical read inputs', () => {
 		expect(() =>
 			queryFromFindManyInput(Post, {
 				include: {
-					author: { orderBy: [{ name: 'asc' }] },
+					author: { orderBy: { name: 'asc' } },
 				},
 			} as never),
 		).toThrow('pointer-target input contains an unknown clause: orderBy')
@@ -160,12 +157,25 @@ describe('canonical read inputs', () => {
 		)
 	})
 
-	it('rejects ambiguous ordering and competing pagination strategies', () => {
+	it('normalizes object ordering and rejects invalid values and pagination', () => {
+		expect(
+			queryFromFindManyInput(Post, {
+				orderBy: { createdAt: 'desc', id: null, title: 'asc' },
+			}).ast.ordering.orders,
+		).toStrictEqual([
+			{ direction: 'descending', field: 'createdAt', kind: 'order' },
+			{ direction: 'ascending', field: 'title', kind: 'order' },
+		])
 		expect(() =>
 			queryFromFindManyInput(Post, {
-				orderBy: [{ createdAt: 'desc', id: 'asc' }],
+				orderBy: [{ createdAt: 'desc' }],
 			} as never),
-		).toThrow('query.orderBy[0] must contain exactly one field')
+		).toThrow('query.orderBy must be an object')
+		expect(() =>
+			queryFromFindManyInput(Post, {
+				orderBy: { createdAt: 'sideways' },
+			} as never),
+		).toThrow('query.orderBy.createdAt must be asc, desc, or null')
 		expect(() =>
 			queryFromFindManyInput(Post, {
 				cursor: 'cursor',

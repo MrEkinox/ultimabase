@@ -7,31 +7,23 @@ const rootMarker = '/* root-builder */'
 const nestedMarker = '/* nested-builder */'
 const optionMarker = '/* string-options */'
 const hoverMarker = '/* string-hover */'
-const nameMarker = '/* string-name */'
 const sourceWithMarkers = `
 import { Schema } from '../../src/index.js'
 
 Schema.define({
   className: 'FieldBuilderAutocomplete',
-  fields(field) {
-	field.${rootMarker}string('root')
-    field.${hoverMarker}string('title', { ${optionMarker} })
-	field.string(${nameMarker} 'signatureName')
-    field.object('profile', {
-      fields(nested) {
-		nested.${nestedMarker}string('nested')
-      },
-    })
-  },
+  fields: (field) => ({
+	root: field.${rootMarker}string(),
+    title: field.${hoverMarker}string({ ${optionMarker} }),
+    profile: field.object({
+      fields: (nested) => ({
+		nested: nested.${nestedMarker}string(),
+      }),
+    }),
+  }),
 })
 `
-const markers = [
-	rootMarker,
-	nestedMarker,
-	optionMarker,
-	hoverMarker,
-	nameMarker,
-] as const
+const markers = [rootMarker, nestedMarker, optionMarker, hoverMarker] as const
 const positions = new Map<string, number>()
 let source = sourceWithMarkers
 
@@ -48,6 +40,23 @@ for (const marker of markers) {
 
 const fileName = `${import.meta.dirname}/field-builder-autocomplete.fixture.ts`
 const service = createLanguageService(fileName, source)
+const documentedMarker = '/* documented-builder */'
+const documentedSourceWithMarker = `
+import type { FieldBuilder } from '../../src/index.js'
+
+declare const builder: FieldBuilder
+builder.${documentedMarker}
+`
+const documentedPosition = documentedSourceWithMarker.indexOf(documentedMarker)
+const documentedSource = documentedSourceWithMarker.replace(
+	documentedMarker,
+	' '.repeat(documentedMarker.length),
+)
+const documentedFileName = `${import.meta.dirname}/documented-field-builder.fixture.ts`
+const documentedService = createLanguageService(
+	documentedFileName,
+	documentedSource,
+)
 
 const readPosition = (marker: string): number => {
 	const position = positions.get(marker)
@@ -99,7 +108,6 @@ const expectDocumented = (
 }
 
 const rootMethodNames = [
-	'add',
 	'bigint',
 	'binary',
 	'boolean',
@@ -126,8 +134,34 @@ describe('FieldBuilder IntelliSense', () => {
 			rootMethodNames,
 		)
 
-		for (const entry of entries) {
-			expectDocumented(entry, readPosition(rootMarker))
+		const documentedEntries = documentedService
+			.getCompletionsAtPosition(documentedFileName, documentedPosition, {
+				includeCompletionsWithInsertText: true,
+			})
+			?.entries.filter(
+				(entry) => entry.kind === ts.ScriptElementKind.memberVariableElement,
+			)
+
+		if (documentedEntries === undefined) {
+			throw new TypeError('Missing documented FieldBuilder completions')
+		}
+
+		for (const entry of documentedEntries) {
+			const details = documentedService.getCompletionEntryDetails(
+				documentedFileName,
+				documentedPosition,
+				entry.name,
+				undefined,
+				entry.source,
+				undefined,
+				entry.data,
+			)
+
+			expect(
+				ts.displayPartsToString(details?.documentation).trim(),
+				`${entry.name} completion documentation`,
+			).not.toBe('')
+			expect(details?.tags?.some(({ name }) => name === 'example')).toBe(true)
 		}
 	})
 
@@ -150,12 +184,7 @@ describe('FieldBuilder IntelliSense', () => {
 		)
 		const display = ts.displayPartsToString(quickInfo?.displayParts)
 
-		expect(display).toContain('name: string')
 		expect(display).toContain('StringFieldOptions')
-		expect(ts.displayPartsToString(quickInfo?.documentation).trim()).not.toBe(
-			'',
-		)
-		expect(quickInfo?.tags?.some(({ name }) => name === 'example')).toBe(true)
 
 		const optionEntries = readMemberCompletions(optionMarker)
 
@@ -163,18 +192,6 @@ describe('FieldBuilder IntelliSense', () => {
 		for (const entry of optionEntries) {
 			expectDocumented(entry, readPosition(optionMarker))
 		}
-
-		const signature = service.getSignatureHelpItems(
-			fileName,
-			readPosition(nameMarker),
-			undefined,
-		)
-		const nameParameter =
-			signature?.items[signature.selectedItemIndex]?.parameters[0]
-
-		expect(ts.displayPartsToString(nameParameter?.documentation)).toContain(
-			'Stable logical field name',
-		)
 	})
 
 	it('has no semantic diagnostics', () => {

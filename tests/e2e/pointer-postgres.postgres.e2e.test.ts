@@ -4,10 +4,8 @@ import {
 	Pointer,
 	Schema,
 	UltimaBase,
-	pointerField,
 	requestSources,
 	runWithRequestEngine,
-	stringField,
 	type PointerField,
 	type ScalarFieldInferenceState,
 	type SchemaClass,
@@ -36,21 +34,21 @@ const generatePointerId = (): string => {
 
 const User = Schema.define({
 	className: 'PointerE2EUser',
-	fields: {
-		name: stringField({ validation: { required: true } }),
-	},
+	fields: (field) => ({
+		name: field.string({ validation: { required: true } }),
+	}),
 })
 
 const Post = Schema.define({
 	className: 'PointerE2EPost',
-	fields: {
-		author: pointerField({
+	fields: (field) => ({
+		author: field.pointer({
 			indexed: true,
 			target: () => User,
 			validation: { required: true },
 		}),
-		title: stringField({ validation: { required: true } }),
-	},
+		title: field.string({ validation: { required: true } }),
+	}),
 	hooks: {
 		afterOperation: {
 			update: ({ operation }) => {
@@ -81,78 +79,88 @@ const Post = Schema.define({
 
 const UniqueTarget = Schema.define({
 	className: 'PointerE2EUniqueTarget',
-	fields: { label: stringField({ validation: { required: true } }) },
+	fields: (field) => ({
+		label: field.string({ validation: { required: true } }),
+	}),
 })
 const UniqueSource = Schema.define({
 	className: 'PointerE2EUniqueSource',
-	fields: {
-		target: pointerField({
+	fields: (field) => ({
+		target: field.pointer({
 			indexed: 'unique',
 			target: () => UniqueTarget,
 			validation: { required: true },
 		}),
-	},
+	}),
 })
 
 const RestrictedTarget = Schema.define({
 	className: 'PointerE2ERestrictedTarget',
-	fields: { label: stringField({ validation: { required: true } }) },
+	fields: (field) => ({
+		label: field.string({ validation: { required: true } }),
+	}),
 })
 const RestrictedSource = Schema.define({
 	className: 'PointerE2ERestrictedSource',
-	fields: {
-		target: pointerField({
+	fields: (field) => ({
+		target: field.pointer({
 			onDelete: 'restrict',
 			target: () => RestrictedTarget,
 			validation: { required: true },
 		}),
-	},
+	}),
 })
 
 const CascadeTarget = Schema.define({
 	className: 'PointerE2ECascadeTarget',
-	fields: { label: stringField({ validation: { required: true } }) },
+	fields: (field) => ({
+		label: field.string({ validation: { required: true } }),
+	}),
 })
 const CascadeSource = Schema.define({
 	className: 'PointerE2ECascadeSource',
-	fields: {
-		target: pointerField({
+	fields: (field) => ({
+		target: field.pointer({
 			onDelete: 'cascade',
 			target: () => CascadeTarget,
 			validation: { required: true },
 		}),
-	},
+	}),
 })
 
 const NullableTarget = Schema.define({
 	className: 'PointerE2ENullableTarget',
-	fields: { label: stringField({ validation: { required: true } }) },
+	fields: (field) => ({
+		label: field.string({ validation: { required: true } }),
+	}),
 })
 const NullableSource = Schema.define({
 	className: 'PointerE2ENullableSource',
-	fields: {
-		target: pointerField({
+	fields: (field) => ({
+		target: field.pointer({
 			onDelete: 'setNull',
 			target: () => NullableTarget,
 		}),
-	},
+	}),
 })
 
 const PrivateTarget = Schema.define({
 	className: 'PointerE2EPrivateTarget',
+	fields: (field) => ({
+		label: field.string({ validation: { required: true } }),
+	}),
 	access: {
 		read: ({ context }) => context.access.mode === 'master',
 	},
-	fields: { label: stringField({ validation: { required: true } }) },
 })
 const PrivateSource = Schema.define({
 	className: 'PointerE2EPrivateSource',
-	fields: {
-		target: pointerField({
+	fields: (field) => ({
+		target: field.pointer({
 			target: () => PrivateTarget,
 			validation: { required: true },
 		}),
-	},
+	}),
 })
 
 type CircularPointerState = ScalarFieldInferenceState<
@@ -182,21 +190,21 @@ function resolveCircularRight(): CircularRightSchema {
 
 const CircularLeft: CircularLeftSchema = Schema.define({
 	className: 'PointerE2ECircularLeft',
-	fields: {
-		right: pointerField({
+	fields: (field) => ({
+		right: field.pointer({
 			onDelete: 'setNull',
 			target: resolveCircularRight,
 		}),
-	},
+	}),
 })
 const CircularRight: CircularRightSchema = Schema.define({
 	className: 'PointerE2ECircularRight',
-	fields: {
-		left: pointerField({
+	fields: (field) => ({
+		left: field.pointer({
 			onDelete: 'setNull',
 			target: (): CircularLeftSchema => CircularLeft,
 		}),
-	},
+	}),
 })
 
 const pointerSchemas = [

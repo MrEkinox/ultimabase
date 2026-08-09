@@ -165,7 +165,7 @@ test('rejects invalid list declarations and structured defaults', () => {
 test('rejects schema targets inside embedded objects', () => {
 	const Target = Schema.define({
 		className: 'EmbeddedObjectTarget',
-		fields: { name: stringField() },
+		fields: (field) => ({ name: field.string() }),
 	})
 
 	objectField({

@@ -2,16 +2,15 @@ import { expectTypeOf, test } from 'vitest'
 
 import { RequestContextValue } from '../../access/request/context-value.js'
 import { Schema } from '../schema/definition.js'
-import { stringField } from '../fields/builtins/string.js'
 import type { InferQueryResult } from '../../query/query/result.js'
 import type { HookContext } from './hook-context.js'
 
 const AuditSchema = Schema.define({
 	className: 'TypedHookContextAudit',
-	fields: {
-		action: stringField({ validation: { required: true } }),
-		secret: stringField(),
-	},
+	fields: (field) => ({
+		action: field.string({ validation: { required: true } }),
+		secret: field.string(),
+	}),
 })
 
 declare const context: HookContext

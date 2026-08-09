@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import { Schema, stringField } from '../../schema/index.js'
+import { Schema } from '../../schema/index.js'
 import {
 	constraint,
 	databaseConstraint,
@@ -14,9 +14,9 @@ import {
 
 const postSchema = Schema.define({
 	className: 'EnforcementPost',
-	fields: {
-		title: stringField(),
-	},
+	fields: (field) => ({
+		title: field.string(),
+	}),
 })
 
 describe('policy-neutral enforcement definitions', () => {

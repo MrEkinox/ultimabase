@@ -56,13 +56,15 @@ testing ──────────────→ core, shared
 Concrete plugins depend on Core's public contracts. Core never depends back on
 concrete plugins.
 
-`@ultimabase/codegen` is development tooling rather than a plugin. It invokes
-only Core's synchronous static-compilation boundary, snapshots logical schema
-facts and plugin type references, and emits deterministic declarations. It
-does not run plugin setup, resolve services, connect adapters, or serialize
-Access and hook callbacks. Production Runtime consumes the independently
-recompiled Core schema graph; generated files remain replaceable TypeScript
-caches rather than runtime schema truth.
+`@ultimabase/codegen` is development tooling whose optional `codegenPlugin()`
+integrates generation with application initialization. Core supplies that
+plugin a read-only compiled schema and FieldBuilder method graph; the tooling
+package snapshots those logical facts and atomically emits deterministic
+declarations during setup, before any infrastructure connection. Core never
+imports codegen. The generator does not resolve services, connect adapters, or
+serialize Access and hook callbacks. Production Runtime consumes the
+independently recompiled Core schema graph; generated files remain replaceable
+TypeScript caches rather than runtime schema truth.
 
 The internal Access domain remains a neutral home for request-authority and
 shared policy contracts. Runtime using those contracts does not install or
@@ -79,8 +81,8 @@ Schema.define({
 	access: {
 		read: true,
 	},
-	fields(field) {
-		field.string('title', {
+	fields: (field) => ({
+		title: field.string({
 			access: {
 				write: {
 					fill: isEditor,
@@ -88,8 +90,8 @@ Schema.define({
 					clear: isEditor,
 				},
 			},
-		})
-	},
+		}),
+	}),
 	extensions: [auditSchema({ category: 'content' })],
 })
 ```

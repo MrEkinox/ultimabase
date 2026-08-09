@@ -1,4 +1,4 @@
-import { Schema, booleanField, stringField } from '../../schema/index.js'
+import { Schema } from '../../schema/index.js'
 import { describe, expect, it } from 'vitest'
 
 import { WhereBuilder } from '../filters/where.js'
@@ -16,16 +16,16 @@ import type { SchemaWhere } from './schema-commands.js'
 
 const Post = Schema.define({
 	className: 'SchemaCommandPost',
-	fields: {
-		published: booleanField(),
-		slug: stringField({ indexed: 'unique' }),
-		title: stringField(),
-	},
+	fields: (field) => ({
+		published: field.boolean(),
+		slug: field.string({ indexed: 'unique' }),
+		title: field.string(),
+	}),
 })
 
 const ForeignPost = Schema.define({
 	className: 'ForeignSchemaCommandPost',
-	fields: { title: stringField() },
+	fields: (field) => ({ title: field.string() }),
 })
 
 describe('schema command execution boundaries', () => {

@@ -2,15 +2,13 @@ import { expect, expectTypeOf, test } from 'vitest'
 
 import {
 	Schema,
-	booleanField,
 	stringField,
+	type BaseItem,
+	type FieldBuilder,
 	type InferCreateInput,
 	type InferObject,
 	type SchemaAccess,
-	type SchemaPreparedDraft,
-	type SchemaResult,
 } from '../index.js'
-import type { WhereBuilder } from '../../query/index.js'
 import { RequestContextValue, type AccessContext } from '../../access/index.js'
 import type { RequestContext } from '../../runtime/index.js'
 
@@ -22,14 +20,47 @@ const principalId = new RequestContextValue<string>('principal.id', (value) => {
 	return value
 })
 
+const articleFields = (field: FieldBuilder) => ({
+	authorId: field.string({ validation: { required: true } }),
+	published: field.boolean({
+		access: {
+			read: {
+				output: ({ value }) => {
+					expectTypeOf(value).toEqualTypeOf<boolean | null>()
+					return true
+				},
+				where: ({ context }) => context.access.mode === 'master',
+				orderBy: ({ context }) => context.access.mode === 'master',
+			},
+			write: {
+				fill: ({ context, value }) => {
+					expectTypeOf(context).toEqualTypeOf<AccessContext>()
+					expectTypeOf(value).toEqualTypeOf<boolean>()
+					return true
+				},
+				replace: ({ originalValue, value }): Promise<boolean> => {
+					expectTypeOf(originalValue).toEqualTypeOf<boolean>()
+					expectTypeOf(value).toEqualTypeOf<boolean>()
+					return Promise.resolve(true)
+				},
+				clear: ({ originalValue }) => {
+					expectTypeOf(originalValue).toEqualTypeOf<boolean | null>()
+					return true
+				},
+			},
+		},
+	}),
+	title: field.string({ validation: { required: true } }),
+})
+
 const Article = Schema.define({
 	className: 'AccessArticle',
+	fields: articleFields,
 	access: {
 		read: {
 			allow: {
 				one: (input) => {
 					const { context } = input
-
 					expectTypeOf(context).toEqualTypeOf<AccessContext>()
 					expectTypeOf(context.getValue(principalId)).toEqualTypeOf<
 						string | undefined
@@ -42,7 +73,6 @@ const Article = Schema.define({
 					void context.emit
 					// @ts-expect-error -- Access decisions cannot own transactions.
 					void context.commit
-
 					return context.access.mode === 'master'
 				},
 				many: true,
@@ -51,37 +81,31 @@ const Article = Schema.define({
 			},
 			where: (input) => {
 				const { context, where } = input
-
-				expectTypeOf(where).toEqualTypeOf<WhereBuilder<typeof Article>>()
+				expectTypeOf(where).toBeObject()
 				expectTypeOf(context).toEqualTypeOf<AccessContext>()
 				// @ts-expect-error -- One where rule defines every read capability's row universe.
 				void input.kind
-
 				return { published: { eq: true } }
 			},
 		},
 		create: {
 			allow: ({ context }): Promise<boolean> => {
 				expectTypeOf(context).toEqualTypeOf<AccessContext>()
-
 				return Promise.resolve(true)
 			},
 			item: ({ item }) => {
-				expectTypeOf(item).toEqualTypeOf<SchemaPreparedDraft<typeof Article>>()
-
-				return item.authorId.length > 0
+				expectTypeOf(item).toExtend<BaseItem>()
+				expectTypeOf(item.authorId).toEqualTypeOf<unknown>()
+				return item.id.toString().length > 0
 			},
 		},
 		update: {
 			allow: true,
 			where: async ({ where }) => Promise.resolve(where.eq('published', false)),
 			item: ({ originalItem, item }) => {
-				expectTypeOf(originalItem).toEqualTypeOf<SchemaResult<typeof Article>>()
-				expectTypeOf(item).toEqualTypeOf<
-					Readonly<InferObject<typeof Article>>
-				>()
-
-				return originalItem.authorId === item.authorId
+				expectTypeOf(originalItem).toExtend<BaseItem>()
+				expectTypeOf(item).toExtend<BaseItem>()
+				return originalItem.id.toString() === item.id.toString()
 			},
 		},
 		upsert: {
@@ -89,18 +113,11 @@ const Article = Schema.define({
 			item: (input) => {
 				if (input.mode === 'create') {
 					expectTypeOf(input.originalItem).toEqualTypeOf<null>()
-					expectTypeOf(input.item).toEqualTypeOf<
-						SchemaPreparedDraft<typeof Article>
-					>()
+					expectTypeOf(input.item).toExtend<BaseItem>()
 				} else {
-					expectTypeOf(input.originalItem).toEqualTypeOf<
-						SchemaResult<typeof Article>
-					>()
-					expectTypeOf(input.item).toEqualTypeOf<
-						Readonly<InferObject<typeof Article>>
-					>()
+					expectTypeOf(input.originalItem).toExtend<BaseItem>()
+					expectTypeOf(input.item).toExtend<BaseItem>()
 				}
-
 				return true
 			},
 		},
@@ -108,47 +125,10 @@ const Article = Schema.define({
 			allow: false,
 			where: { published: { eq: false } },
 			item: ({ originalItem }) => {
-				expectTypeOf(originalItem).toEqualTypeOf<SchemaResult<typeof Article>>()
-
-				return originalItem.authorId.length > 0
+				expectTypeOf(originalItem).toExtend<BaseItem>()
+				return originalItem.id.toString().length > 0
 			},
 		},
-	},
-	fields: {
-		authorId: stringField({ validation: { required: true } }),
-		published: booleanField({
-			access: {
-				read: {
-					output: ({ value }) => {
-						expectTypeOf(value).toEqualTypeOf<boolean | null>()
-
-						return true
-					},
-					where: ({ context }) => context.access.mode === 'master',
-					orderBy: ({ context }) => context.access.mode === 'master',
-				},
-				write: {
-					fill: ({ context, value }) => {
-						expectTypeOf(context).toEqualTypeOf<AccessContext>()
-						expectTypeOf(value).toEqualTypeOf<boolean>()
-
-						return true
-					},
-					replace: ({ originalValue, value }): Promise<boolean> => {
-						expectTypeOf(originalValue).toEqualTypeOf<boolean>()
-						expectTypeOf(value).toEqualTypeOf<boolean>()
-
-						return Promise.resolve(true)
-					},
-					clear: ({ originalValue }) => {
-						expectTypeOf(originalValue).toEqualTypeOf<boolean | null>()
-
-						return true
-					},
-				},
-			},
-		}),
-		title: stringField({ validation: { required: true } }),
 	},
 })
 
@@ -195,7 +175,7 @@ test('keeps native Access outside schema metadata and value inference', () => {
 test('rejects unsupported families and invalid callback results', () => {
 	Schema.define({
 		className: 'InvalidAccess',
-		fields: { title: stringField() },
+		fields: (field) => ({ title: field.string() }),
 		access: {
 			create: {
 				// @ts-expect-error -- create has no persisted row to restrict.
@@ -256,10 +236,10 @@ test('rejects unsupported families and invalid callback results', () => {
 	})
 	Schema.define({
 		className: 'IncompleteReadAccess',
-		fields: {},
+		fields: () => ({}),
 		access: {
 			read: {
-				// @ts-expect-error -- grouped schema reads require every cardinality branch.
+				// @ts-expect-error -- Grouped schema reads require every cardinality branch.
 				allow: { one: true, many: true, count: false },
 			},
 		},

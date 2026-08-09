@@ -4,12 +4,10 @@ import { FrameworkApplication } from '../../../application/framework-application
 import { definePlugin } from '../../../plugins/definition.js'
 import {
 	compileValidationPlans,
-	pointerField,
 	relationField,
 	Schema,
 	SchemaRegistry,
 	snapshotScalarFieldValue,
-	stringField,
 	type SchemaDefinition,
 } from '../../index.js'
 import {
@@ -119,27 +117,27 @@ describe('relationField', () => {
 	it('rejects missing and incompatible inverse mappings', () => {
 		const Target = Schema.define({
 			className: 'InvalidRelationTarget',
-			fields: { scalar: stringField() },
+			fields: (field) => ({ scalar: field.string() }),
 		})
 		const MissingSource = Schema.define({
 			className: 'MissingRelationSource',
-			fields: {
-				inverse: relationField({
+			fields: (field) => ({
+				inverse: field.relation({
 					target: () => Target,
 					// @ts-expect-error -- Runtime resolution protects JavaScript declarations.
 					mappedBy: 'missing',
 				}),
-			},
+			}),
 		})
 		const IncompatibleSource = Schema.define({
 			className: 'IncompatibleRelationSource',
-			fields: {
-				inverse: relationField({
+			fields: (field) => ({
+				inverse: field.relation({
 					target: () => Target,
 					// @ts-expect-error -- Runtime resolution rejects scalar mappings.
 					mappedBy: 'scalar',
 				}),
-			},
+			}),
 		})
 
 		expect(() =>
@@ -160,24 +158,26 @@ describe('relationField', () => {
 	it('rejects wrong targets and inverse-to-inverse cycles', () => {
 		const ExpectedSource = Schema.define({
 			className: 'ExpectedRelationSource',
-			fields: {},
+			fields: () => ({}),
 		})
 		const OtherSource = Schema.define({
 			className: 'OtherRelationSource',
-			fields: {},
+			fields: () => ({}),
 		})
 		const PointerTarget = Schema.define({
 			className: 'WrongRelationPointerTarget',
-			fields: { owner: pointerField({ target: () => OtherSource }) },
+			fields: (field) => ({
+				owner: field.pointer({ target: () => OtherSource }),
+			}),
 		})
 		const WrongSource = Schema.define({
 			className: 'WrongRelationSource',
-			fields: {
-				inverse: relationField({
+			fields: (field) => ({
+				inverse: field.relation({
 					target: () => PointerTarget,
 					mappedBy: 'owner',
 				}),
-			},
+			}),
 		})
 
 		expect(() =>
@@ -191,23 +191,23 @@ describe('relationField', () => {
 
 		const Left: SchemaDefinition = Schema.define({
 			className: 'InverseCycleLeft',
-			fields: {
-				left: relationField({
+			fields: (field) => ({
+				left: field.relation({
 					target: () => Right,
 					// @ts-expect-error -- Runtime rejects inverse-to-inverse cycles.
 					mappedBy: 'right',
 				}),
-			},
+			}),
 		})
 		const Right: SchemaDefinition = Schema.define({
 			className: 'InverseCycleRight',
-			fields: {
-				right: relationField({
+			fields: (field) => ({
+				right: field.relation({
 					target: () => Left,
 					// @ts-expect-error -- Runtime rejects inverse-to-inverse cycles.
 					mappedBy: 'left',
 				}),
-			},
+			}),
 		})
 
 		expect(() =>
@@ -219,22 +219,22 @@ describe('relationField', () => {
 		const owningField = relationField({ target: () => Inverse })
 		const Owner: SchemaDefinition = Schema.define({
 			className: 'AmbiguousRelationOwner',
-			fields: { targets: owningField },
+			fields: () => ({ targets: owningField }),
 		})
 		const Inverse = Schema.define({
 			className: 'AmbiguousRelationInverse',
-			fields: {
-				first: relationField({
+			fields: (field) => ({
+				first: field.relation({
 					target: () => Owner,
 					// @ts-expect-error -- Generic runtime fixture bypasses exact mappedBy inference.
 					mappedBy: 'targets',
 				}),
-				second: relationField({
+				second: field.relation({
 					target: () => Owner,
 					// @ts-expect-error -- The graph rejects a second inverse for one owner.
 					mappedBy: 'targets',
 				}),
-			},
+			}),
 		})
 
 		expect(() =>
@@ -243,12 +243,12 @@ describe('relationField', () => {
 
 		const ReusedTarget = Schema.define({
 			className: 'ReusedRelationTarget',
-			fields: {},
+			fields: () => ({}),
 		})
 		const reusedField = relationField({ target: () => ReusedTarget })
 		const ReusedSource = Schema.define({
 			className: 'ReusedRelationOwner',
-			fields: { first: reusedField, second: reusedField },
+			fields: () => ({ first: reusedField, second: reusedField }),
 		})
 
 		expect(() =>
@@ -260,17 +260,17 @@ describe('relationField', () => {
 		const events: string[] = []
 		const Target = Schema.define({
 			className: 'RelationLifecycleTarget',
-			fields: { scalar: stringField() },
+			fields: (field) => ({ scalar: field.string() }),
 		})
 		const Source = Schema.define({
 			className: 'RelationLifecycleSource',
-			fields: {
-				inverse: relationField({
+			fields: (field) => ({
+				inverse: field.relation({
 					target: () => Target,
 					// @ts-expect-error -- Runtime setup rejects incompatible mappings.
 					mappedBy: 'scalar',
 				}),
-			},
+			}),
 		})
 		const infrastructure = definePlugin({
 			name: 'fixture.relation-infrastructure',

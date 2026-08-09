@@ -19,7 +19,7 @@ import {
 	type ACLRoleJSON,
 } from './index.js'
 
-const User = Schema.define({ className: 'TypedACLUser', fields: {} })
+const User = Schema.define({ className: 'TypedACLUser', fields: () => ({}) })
 const principal = User.pointer('principal-id')
 const role = new AccessSubjectReference('role', 'role:editor')
 const persistedRole: AccessRoleReferenceCarrier = {

@@ -232,6 +232,7 @@ export type {
 } from './fields/builtins/float.js'
 export { Schema, SchemaCompilationError } from './schema/definition.js'
 export type {
+	BaseItem,
 	SchemaClass,
 	SchemaClassCapabilities,
 	SchemaClassCapabilityFactory,
@@ -239,14 +240,9 @@ export type {
 	SchemaExtensionData,
 	SchemaExtensionDeclaration,
 	GeneratedSchemaReference,
-	GeneratedSchemaFields,
-	BuilderSchemaOptions,
-	DeferredSchemaOptions,
-	ImmediateSchemaOptions,
 	ResolvedSchemaFields,
 	SchemaExtensionFields as ResolvedSchemaExtensionFields,
 	SchemaExtensions,
-	SchemaFieldDeclaration,
 	SchemaFields,
 	SchemaCompilationFailureReason,
 	SchemaMetadata,
@@ -270,15 +266,14 @@ export type {
 	PluginFieldBuilderDeclaration,
 } from './schema/field-builder-methods.js'
 export type {
-	GeneratedApplicationContract,
-	GeneratedFieldContract,
-	GeneratedObjectContract,
-	GeneratedRelationshipContract,
 	GeneratedSchemaContractByName,
 	GeneratedSchemaContractFor,
-	GeneratedSchemaAccessContract,
 	GeneratedSchemaContract,
-	GeneratedSchemaHookContract,
+	GeneratedSchemaItemFallback,
+	GeneratedSchemaItemFallbackOr,
+	GeneratedSchemaInputsContract,
+	GeneratedSchemaRelationshipTargetName,
+	GeneratedSchemaValueKey,
 	GeneratedSchemaValueOr,
 	HasUltimaBaseGeneratedRegistry,
 	RequireGeneratedSchemaEntry,

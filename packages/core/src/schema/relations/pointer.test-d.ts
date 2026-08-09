@@ -8,8 +8,14 @@ import {
 	type InferQueryResult,
 } from '../../index.js'
 
-const userSchema = Schema.define({ className: 'PointerUser', fields: {} })
-const otherSchema = Schema.define({ className: 'PointerOther', fields: {} })
+const userSchema = Schema.define({
+	className: 'PointerUser',
+	fields: () => ({}),
+})
+const otherSchema = Schema.define({
+	className: 'PointerOther',
+	fields: () => ({}),
+})
 
 test('preserves exact schema identity through construction and convenience', () => {
 	const direct = new Pointer(userSchema, 'user-1')

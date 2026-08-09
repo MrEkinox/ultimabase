@@ -1,13 +1,4 @@
-import {
-	bigintField,
-	dateTimeField,
-	decimalField,
-	Schema,
-	floatField,
-	intField,
-	objectField,
-	stringField,
-} from '../../schema/index.js'
+import { Schema } from '../../schema/index.js'
 import { describe, expect, it } from 'vitest'
 
 import { decrement, increment, unset } from './operators.js'
@@ -16,24 +7,24 @@ import type { UpdateExpressionInput } from './contracts.js'
 
 const accountSchema = Schema.define({
 	className: 'Account',
-	fields: {
-		name: stringField({ validation: { required: true } }),
-		nickname: stringField(),
-		visits: intField(),
-		rating: floatField(),
-		balance: decimalField(),
-		sequence: bigintField(),
-		serial: intField({ autoIncrement: true }),
-		refreshedAt: dateTimeField({ autoNow: true }),
-		scores: intField({ list: true }),
-		operationLike: objectField({
-			fields: {
-				kind: stringField({ validation: { required: true } }),
-				value: intField({ validation: { required: true } }),
-			},
+	fields: (field) => ({
+		name: field.string({ validation: { required: true } }),
+		nickname: field.string(),
+		visits: field.int(),
+		rating: field.float(),
+		balance: field.decimal(),
+		sequence: field.bigint(),
+		serial: field.int({ autoIncrement: true }),
+		refreshedAt: field.dateTime({ autoNow: true }),
+		scores: field.int({ list: true }),
+		operationLike: field.object({
+			fields: (field) => ({
+				kind: field.string({ validation: { required: true } }),
+				value: field.int({ validation: { required: true } }),
+			}),
 		}),
-		lockedCounter: intField({ immutable: true }),
-	},
+		lockedCounter: field.int({ immutable: true }),
+	}),
 })
 
 describe('normalizeUpdateExpression', () => {

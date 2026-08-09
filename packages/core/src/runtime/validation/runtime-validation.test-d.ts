@@ -1,5 +1,5 @@
 import { QueryBuilder, type CreateOneOperationAst } from '../../query/index.js'
-import { Schema, stringField } from '../../schema/index.js'
+import { Schema } from '../../schema/index.js'
 import type { MaybePromise } from '@ultimabase/shared'
 import { expectTypeOf } from 'vitest'
 
@@ -13,9 +13,9 @@ import type { RuntimeOperationTransformStage } from '../pipeline/contracts.js'
 
 const schema = Schema.define({
 	className: 'TypedRuntimeValidation',
-	fields: {
-		title: stringField({ validation: { required: true } }),
-	},
+	fields: (field) => ({
+		title: field.string({ validation: { required: true } }),
+	}),
 })
 const operation: CreateOneOperationAst<typeof schema> = {
 	kind: 'create-one',

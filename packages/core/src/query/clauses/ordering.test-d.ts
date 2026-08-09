@@ -1,13 +1,13 @@
-import { Schema, stringField } from '../../schema/index.js'
+import { Schema } from '../../schema/index.js'
 import { expect, expectTypeOf, test } from 'vitest'
 
 import { normalizeQueryOrdering } from './ordering.js'
 
 const postSchema = Schema.define({
 	className: 'Post',
-	fields: {
-		title: stringField(),
-	},
+	fields: (field) => ({
+		title: field.string(),
+	}),
 })
 
 test('correlates ordering fields and directions with the schema', () => {

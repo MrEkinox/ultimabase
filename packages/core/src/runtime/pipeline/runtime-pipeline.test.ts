@@ -5,7 +5,7 @@ import {
 	type UpdateManyOperationAst,
 	type UpdateOneOperationAst,
 } from '../../query/index.js'
-import { relationField, Schema, stringField } from '../../schema/index.js'
+import { Schema } from '../../schema/index.js'
 import {
 	immutableArray,
 	immutableRecord,
@@ -57,9 +57,9 @@ import { readRuntimeSchemaModelMetadata } from '../operations/model-metadata.js'
 
 const articleSchema = Schema.define({
 	className: 'Article',
-	fields: {
-		title: stringField({ validation: { required: true } }),
-	},
+	fields: (field) => ({
+		title: field.string({ validation: { required: true } }),
+	}),
 })
 
 const articleOperation = {
@@ -89,13 +89,13 @@ const articleUpdateManyOperation = {
 
 const relationPredicateTarget = Schema.define({
 	className: 'RuntimeRelationPredicateTarget',
-	fields: { label: stringField() },
+	fields: (field) => ({ label: field.string() }),
 })
 const relationPredicateSource = Schema.define({
 	className: 'RuntimeRelationPredicateSource',
-	fields: {
-		targets: relationField({ target: () => relationPredicateTarget }),
-	},
+	fields: (field) => ({
+		targets: field.relation({ target: () => relationPredicateTarget }),
+	}),
 })
 const relationPredicateOperation = {
 	kind: 'find-many',

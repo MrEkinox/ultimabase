@@ -120,18 +120,10 @@ export type GeneratedSelect<TFieldName extends string> = Readonly<
 	Partial<Record<TFieldName, boolean>>
 >
 
-type OtherGeneratedFieldName<
-	TFieldName extends string,
-	TSelected extends TFieldName,
-> = Exclude<TFieldName, TSelected>
-
-/** Keeps every generated order object limited to one field. */
-export type GeneratedOrderBy<TFieldName extends string> = {
-	readonly [TSelected in TFieldName]: Readonly<
-		Record<TSelected, QueryOrderByDirection> &
-			Partial<Record<OtherGeneratedFieldName<TFieldName, TSelected>, never>>
-	>
-}[TFieldName]
+/** Maps every generated field to one optional transport-facing direction. */
+export type GeneratedOrderBy<TFieldName extends string> = Readonly<
+	Partial<Record<TFieldName, QueryOrderByDirection | null>>
+>
 
 /** Shapes one singular generated inclusion target. */
 export interface GeneratedPointerInclude<TSelect, TInclude> {
@@ -148,7 +140,7 @@ export interface GeneratedRelationInclude<
 > extends GeneratedPointerInclude<TSelect, TInclude> {
 	readonly limit?: number
 	readonly offset?: number
-	readonly orderBy?: readonly TOrderBy[]
+	readonly orderBy?: TOrderBy
 	readonly where?: TWhere
 }
 

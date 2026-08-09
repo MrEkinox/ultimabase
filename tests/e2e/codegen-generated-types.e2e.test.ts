@@ -4,6 +4,7 @@ import {
 	FrameworkApplication,
 	Schema,
 	type FieldBuilder,
+	type SchemaDefinition,
 } from '@ultimabase/core'
 import { generateApplicationTypes } from '@ultimabase/codegen'
 import {
@@ -29,27 +30,30 @@ const optionsMarker = '/* packed-codegen-options */'
 
 const Owner = Schema.define({
 	className: 'PackedGeneratedOwner',
-	fields(field) {
-		field.string('name', { validation: { required: true } })
-		field.relation('documents', { target: () => Document })
-	},
+	fields: (field) => ({
+		documents: field.relation({ target: (): SchemaDefinition => Document }),
+		name: field.string({ validation: { required: true } }),
+	}),
 })
 const Document = Schema.define({
 	className: 'PackedGeneratedDocument',
-	fields(field) {
+	fields: (field) => {
 		const generatedField = field as PackedFieldBuilder
-
-		field.string('title', { validation: { required: true } })
-		field.enum('status', {
-			typeName: 'PackedDocumentStatus',
-			values: ['draft', 'published'],
-		})
-		field.pointer('owner', {
-			target: () => Owner,
-			validation: { required: true },
-		})
-		field.relation('related', { target: () => Document })
-		generatedField.vector('embedding', { dimensions: 3 })
+		return {
+			embedding: generatedField.vector({ dimensions: 3 }),
+			owner: field.pointer({
+				target: (): SchemaDefinition => Owner,
+				validation: { required: true },
+			}),
+			related: field.relation({
+				target: (): SchemaDefinition => Document,
+			}),
+			status: field.enum({
+				typeName: 'PackedDocumentStatus',
+				values: ['draft', 'published'],
+			}),
+			title: field.string({ validation: { required: true } }),
+		}
 	},
 })
 const application = new FrameworkApplication({
@@ -67,27 +71,27 @@ import type { FrameworkApplication, PluginDefinition, SchemaDefinition } from '@
 import type { GenerateApplicationTypesOptions } from '@ultimabase/codegen'
 
 declare const packedApplication: FrameworkApplication<readonly SchemaDefinition[], readonly PluginDefinition[]>
-declare const packedOwner: PointerValue
+declare const packedOwner: Core.PointerValue
 
 const PackedGeneratedOwner = Schema.define({
   className: 'PackedGeneratedOwner',
-  fields(field) {
-    field.string('name', { validation: { required: true } })
-    field.relation('documents', { target: () => PackedGeneratedDocument })
-  },
+  fields: (field) => ({
+    documents: field.relation({ target: (): SchemaDefinition => PackedGeneratedDocument }),
+    name: field.string({ validation: { required: true } }),
+  }),
 })
 const PackedGeneratedDocument = Schema.define({
   className: 'PackedGeneratedDocument',
-  fields(field) {
-    field.string('title', { validation: { required: true } })
-    field.enum('status', { values: ['draft', 'published'] })
-    field.pointer('owner', {
-      target: () => PackedGeneratedOwner,
+  fields: (field) => ({
+    embedding: field.vector({ dimensions: 3 }),
+    owner: field.pointer({
+      target: (): SchemaDefinition => PackedGeneratedOwner,
       validation: { required: true },
-    })
-    field.relation('related', { target: () => PackedGeneratedDocument })
-    field.vector('embedding', { dimensions: 3 })
-  },
+    }),
+    related: field.relation({ target: (): SchemaDefinition => PackedGeneratedDocument }),
+    status: field.enum({ values: ['draft', 'published'] }),
+    title: field.string({ validation: { required: true } }),
+  }),
   access: {
     update: {
       item: ({ item }) => {
@@ -107,7 +111,7 @@ const apiGenerated = generatePackedApplicationTypes({
   application: packedApplication,
   applicationId: 'packed',
 })
-const where: ${hoverMarker}PackedGeneratedDocumentWhere = {
+const where: ${hoverMarker}PackedGeneratedDocumentWhereInput = {
   status: { eq: 'draft' },
   title: { contains: 'Generated' },
 }
@@ -131,7 +135,7 @@ const relatedRead = packedLoadedDocument.relation('related').findMany({
 })
 
 // @ts-expect-error -- The packed generator retains exact enum literals.
-const invalidStatus: PackedDocumentStatusEnum = 'archived'
+const invalidStatus: PackedDocumentStatus = 'archived'
 
 void create
 void apiGenerated
@@ -205,8 +209,10 @@ describe('packed @ultimabase/codegen generated contracts', () => {
 		)
 		const display = ts.displayPartsToString(hover?.displayParts)
 
-		expect(display).toContain('PackedGeneratedDocumentWhere')
-		expect(display.length).toBeLessThan(500)
+		expect(display).toContain('PackedGeneratedDocumentWhereInput')
+		// The readable recursive declaration remains compact when consumed from
+		// the packed package, without relying on source-only alias behavior.
+		expect(display.length).toBeLessThan(1_000)
 
 		const applicationId = service
 			.getCompletionsAtPosition(fileName, optionsPosition, {})

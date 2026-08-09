@@ -8,13 +8,12 @@ import {
 	accessRoleResolverServiceToken,
 	createApplication,
 	definePlugin,
-	stringField,
 	type AccessRoleResolver,
 } from '../index.js'
 
 const Article = Schema.define({
 	className: 'OptionalAccessCapabilityArticle',
-	fields: { title: stringField() },
+	fields: (field) => ({ title: field.string() }),
 })
 const editor = new AccessSubjectReference('role', 'editor')
 const compatibleResolver: AccessRoleResolver = {

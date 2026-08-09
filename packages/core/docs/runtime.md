@@ -217,10 +217,10 @@ belong to schema Access:
 ```ts
 const ArticleSchema = Schema.define({
 	className: 'Article',
-	fields(field) {
-		field.string('title', { validation: { required: true } })
-		field.boolean('published', { default: false })
-	},
+	fields: (field) => ({
+		title: field.string({ validation: { required: true } }),
+		published: field.boolean({ default: false }),
+	}),
 	access: {
 		read: { where: { published: { eq: true } } },
 	},
@@ -228,7 +228,7 @@ const ArticleSchema = Schema.define({
 
 const articles = await runWithRequestEngine(request, () =>
 	ArticleSchema.findMany({
-		orderBy: [{ createdAt: 'desc' }],
+		orderBy: { createdAt: 'desc' },
 		select: { id: true, title: true },
 	}),
 )
@@ -321,9 +321,9 @@ commit:
 ```ts
 const ArticleSchema = Schema.define({
 	className: 'Article',
-	fields(field) {
-		field.string('title', { validation: { required: true } })
-	},
+	fields: (field) => ({
+		title: field.string({ validation: { required: true } }),
+	}),
 	hooks: {
 		afterOperation: {
 			create: ({ context, item }) => {
@@ -347,9 +347,9 @@ run only after PostgreSQL confirms the outer commit:
 ```ts
 const ArticleSchema = Schema.define({
 	className: 'Article',
-	fields(field) {
-		field.string('title', { validation: { required: true } })
-	},
+	fields: (field) => ({
+		title: field.string({ validation: { required: true } }),
+	}),
 	hooks: {
 		beforeOperation: {
 			create: async (input) => {
@@ -421,7 +421,7 @@ const request = framework.withContext(context)
 
 const publishedArticles = ArticleSchema.findMany({
 	where: { status: { eq: 'published' } },
-	orderBy: [{ createdAt: 'desc' }],
+	orderBy: { createdAt: 'desc' },
 	limit: 20,
 })
 ```
@@ -617,9 +617,9 @@ const articleCreatedEvent = defineEvent<ArticleCreatedEvent>()(
 
 const ArticleSchema = Schema.define({
 	className: 'Article',
-	fields(field) {
-		field.string('title', { validation: { required: true } })
-	},
+	fields: (field) => ({
+		title: field.string({ validation: { required: true } }),
+	}),
 	hooks: {
 		beforeOperation: {
 			create: ({ context, item, kind }) => {

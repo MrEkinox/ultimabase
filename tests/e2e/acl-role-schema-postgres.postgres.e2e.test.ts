@@ -9,7 +9,6 @@ import {
 	accessPrincipalResolverServiceToken,
 	definePlugin,
 	requestSources,
-	stringField,
 } from '@ultimabase/core'
 import { postgresPlugin, postgresTable } from '@ultimabase/postgres-plugin'
 import { RoleSchema, rolesPlugin } from '@ultimabase/roles-plugin'
@@ -32,7 +31,9 @@ const currentMemberId = new RequestContextValue<string>(
 )
 const Member = Schema.define({
 	className: 'ACLRoleSchemaMember',
-	fields: { email: stringField({ validation: { required: true } }) },
+	fields: (field) => ({
+		email: field.string({ validation: { required: true } }),
+	}),
 	extensions: [postgresTable({ name: 'acl_role_schema_members' })],
 })
 const identityPlugin = definePlugin({
@@ -51,7 +52,7 @@ const emptyACL = new ACL()
 const AppRole = RoleSchema.define({
 	className: 'ACLProtectedAppRole',
 	deletion: { references: 'fail' },
-	fields: { description: stringField() },
+	fields: (field) => ({ description: field.string() }),
 	members: {
 		resolveCurrent: ({ context }) => {
 			const id = context.getValue(currentMemberId)

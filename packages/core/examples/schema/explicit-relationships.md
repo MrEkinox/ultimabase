@@ -9,38 +9,38 @@ import { Schema } from '@ultimabase/core'
 
 export const Member = Schema.define({
 	className: 'Member',
-	fields(field) {
-		field.string('name', { validation: { required: true } })
-	},
+	fields: (field) => ({
+		name: field.string({ validation: { required: true } }),
+	}),
 })
 
 export const Project = Schema.define({
 	className: 'Project',
-	fields(field) {
-		field.string('title', { validation: { required: true } })
-	},
+	fields: (field) => ({
+		title: field.string({ validation: { required: true } }),
+	}),
 })
 
 export const Membership = Schema.define({
 	className: 'Membership',
-	fields(field) {
-		field.pointer('member', {
+	fields: (field) => ({
+		member: field.pointer({
 			onDelete: 'cascade',
 			target: () => Member,
 			validation: { required: true },
-		})
-		field.int('position', { default: 0 })
-		field.pointer('project', {
+		}),
+		position: field.int({ default: 0 }),
+		project: field.pointer({
 			onDelete: 'cascade',
 			target: () => Project,
 			validation: { required: true },
-		})
-		field.enum('role', {
+		}),
+		role: field.enum({
 			validation: { required: true },
 			values: ['editor', 'viewer'] as const,
-		})
-		field.string('internalNote', { access: { read: false } })
-	},
+		}),
+		internalNote: field.string({ access: { read: false } }),
+	}),
 	indexes: [{ fields: ['project', 'member'], unique: true }],
 	hooks: {
 		beforeOperation: {
@@ -73,7 +73,7 @@ const projectMembers = await Membership.findMany({
 	where: { project: { eq: projectId } },
 	include: { member: { select: { id: true, name: true } } },
 	select: { id: true, member: true, position: true, role: true },
-	orderBy: [{ position: 'asc' }],
+	orderBy: { position: 'asc' },
 })
 ```
 

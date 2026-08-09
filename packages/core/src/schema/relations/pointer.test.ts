@@ -8,8 +8,14 @@ import {
 	type OperationPrivateScope,
 } from '../../query/operations/execution.js'
 
-const userSchema = Schema.define({ className: 'PointerUser', fields: {} })
-const otherSchema = Schema.define({ className: 'PointerOther', fields: {} })
+const userSchema = Schema.define({
+	className: 'PointerUser',
+	fields: () => ({}),
+})
+const otherSchema = Schema.define({
+	className: 'PointerOther',
+	fields: () => ({}),
+})
 const targetId = '0198f090-2a50-7000-8000-000000000034'
 
 describe('Pointer', () => {

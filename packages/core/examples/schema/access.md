@@ -24,8 +24,8 @@ const Post = Schema.define({
 			item: ({ originalItem }) => originalItem.locked === false,
 		},
 	},
-	fields(field) {
-		field.string('authorId', {
+	fields: (field) => ({
+		authorId: field.string({
 			access: {
 				write: {
 					fill: true,
@@ -34,15 +34,15 @@ const Post = Schema.define({
 				},
 			},
 			validation: { required: true },
-		})
-		field.boolean('locked', { default: false })
-		field.boolean('published', { default: false })
-		field.string('secret', {
+		}),
+		locked: field.boolean({ default: false }),
+		published: field.boolean({ default: false }),
+		secret: field.string({
 			access: {
 				read: { output: false, where: false, orderBy: false },
 			},
-		})
-	},
+		}),
+	}),
 })
 ```
 

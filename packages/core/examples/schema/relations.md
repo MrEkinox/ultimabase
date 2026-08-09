@@ -13,24 +13,24 @@ import {
 
 export const UserSchema = Schema.define({
 	className: 'User',
-	fields(field) {
-		field.string('name', { validation: { required: true } })
-		field.relation('posts', {
+	fields: (field) => ({
+		name: field.string({ validation: { required: true } }),
+		posts: field.relation({
 			target: () => PostSchema,
 			mappedBy: 'author',
-		})
-	},
+		}),
+	}),
 })
 
 export const PostSchema = Schema.define({
 	className: 'Post',
-	fields(field) {
-		field.pointer('author', {
+	fields: (field) => ({
+		author: field.pointer({
 			target: () => UserSchema,
 			validation: { required: true },
-		})
-		field.string('title', { validation: { required: true } })
-	},
+		}),
+		title: field.string({ validation: { required: true } }),
+	}),
 })
 
 export type User = InferObject<typeof UserSchema>
@@ -51,7 +51,7 @@ const users = await UserSchema.findMany({
 	include: {
 		posts: {
 			where: { title: { contains: 'TypeScript' } },
-			orderBy: [{ createdAt: 'desc' }],
+			orderBy: { createdAt: 'desc' },
 			limit: 10,
 			select: { id: true, title: true },
 		},
@@ -74,7 +74,7 @@ declare const user: SchemaResult<typeof UserSchema>
 
 const recentPosts = await user.relation('posts').findMany({
 	select: { id: true, title: true },
-	orderBy: [{ createdAt: 'desc' }],
+	orderBy: { createdAt: 'desc' },
 	limit: 20,
 	cursor: true,
 })

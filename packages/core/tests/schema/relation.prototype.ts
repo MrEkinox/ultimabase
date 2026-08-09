@@ -1,21 +1,15 @@
-import {
-	QueryBuilder,
-	relationField,
-	Schema,
-	stringField,
-	type SchemaResult,
-} from '../../src/index.js'
+import { QueryBuilder, Schema, type SchemaResult } from '../../src/index.js'
 
 const PackedRelationTag = Schema.define({
 	className: 'PackedRelationTag',
-	fields: { label: stringField() },
+	fields: (field) => ({ label: field.string() }),
 })
 const PackedRelationArticle = Schema.define({
 	className: 'PackedRelationArticle',
-	fields: {
-		tags: relationField({ target: () => PackedRelationTag }),
-		title: stringField(),
-	},
+	fields: (field) => ({
+		tags: field.relation({ target: () => PackedRelationTag }),
+		title: field.string(),
+	}),
 })
 
 declare const article: SchemaResult<typeof PackedRelationArticle>

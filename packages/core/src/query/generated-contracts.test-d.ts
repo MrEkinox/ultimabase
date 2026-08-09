@@ -36,12 +36,16 @@ test('keeps generated shared operators named and exact', () => {
 
 	// @ts-expect-error -- Shared selection contracts reject unknown fields.
 	const invalidSelect: GeneratedSelect<'id'> = { missing: true }
-	const invalidOrder: GeneratedOrderBy<'id' | 'title'> = {
+	const multipleOrders: GeneratedOrderBy<'id' | 'title'> = {
 		id: 'asc',
-		// @ts-expect-error -- Shared order contracts accept exactly one field per object.
 		title: 'desc',
 	}
+	const nullableOrder = { id: null } as const satisfies GeneratedOrderBy<'id'>
+	// @ts-expect-error -- Shared order contracts reject unknown fields.
+	const invalidOrder: GeneratedOrderBy<'id'> = { missing: 'asc' }
 
+	void multipleOrders
+	void nullableOrder
 	void invalidOrder
 	void invalidSelect
 })

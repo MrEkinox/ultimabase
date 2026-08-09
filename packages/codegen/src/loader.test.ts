@@ -44,10 +44,10 @@ const SetupGuard = definePlugin({
 
 const Document = Schema.define({
   className: 'LoadedTypegenDocument',
-  fields(field) {
-    field.string('title', { validation: { required: true } })
-    field.vector('embedding', { dimensions: 3 })
-  },
+  fields: (field) => ({
+    title: field.string({ validation: { required: true } }),
+    embedding: field.vector({ dimensions: 3 }),
+  }),
 })
 
 export const ultimabase = new UltimaBase({
@@ -65,10 +65,10 @@ export const ultimabase = new UltimaBase({
 		})
 
 		expect(generated.contents).toContain(
-			'readonly "vector": Plugin0_VectorFieldBuilderMethod',
+			'readonly vector: Plugin0_VectorFieldBuilderMethod',
 		)
 		expect(generated.contents).toContain(
-			'readonly "embedding": Plugin0_VectorValue | null',
+			'readonly embedding: Plugin0_VectorValue | null',
 		)
 	})
 

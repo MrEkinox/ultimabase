@@ -3,11 +3,8 @@ import {
 	MasterAuthority,
 	Schema,
 	UltimaBase,
-	booleanField,
 	definePlugin,
 	increment,
-	intField,
-	stringField,
 } from '@ultimabase/core'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
@@ -18,13 +15,32 @@ import {
 
 const AccessAudit = Schema.define({
 	className: 'NativeAccessAudit',
-	fields: {
-		action: stringField({ validation: { required: true } }),
-	},
+	fields: (field) => ({
+		action: field.string({ validation: { required: true } }),
+	}),
 })
 
 const AccessArticle = Schema.define({
 	className: 'NativeAccessArticleE2E',
+	fields: (field) => ({
+		locked: field.boolean({ default: false }),
+		published: field.boolean({ default: false }),
+		rank: field.int({ default: 0 }),
+		secret: field.string({
+			access: {
+				read: { orderBy: false, output: false, where: false },
+				write: {
+					fill: ({ context }) => context.access.mode === 'master',
+					replace: false,
+					clear: false,
+				},
+			},
+		}),
+		title: field.string({
+			indexed: 'unique',
+			validation: { required: true },
+		}),
+	}),
 	access: {
 		read: {
 			allow: { count: true, exists: true, many: true, one: true },
@@ -44,32 +60,12 @@ const AccessArticle = Schema.define({
 			where: ({ where }) => where.eq('published', true),
 		},
 	},
-	fields: {
-		locked: booleanField({ default: false }),
-		published: booleanField({ default: false }),
-		rank: intField({ default: 0 }),
-		secret: stringField({
-			access: {
-				read: { orderBy: false, output: false, where: false },
-				write: {
-					fill: ({ context }) => context.access.mode === 'master',
-					replace: false,
-					clear: false,
-				},
-			},
-		}),
-		title: stringField({
-			indexed: 'unique',
-			validation: { required: true },
-		}),
-	},
 	hooks: {
 		beforeOperation: {
 			update: async ({ operation }) => {
 				await AccessAudit.createOne({
 					data: { action: `update:${operation.kind}` },
 				})
-
 				void operation
 			},
 		},
@@ -78,17 +74,17 @@ const AccessArticle = Schema.define({
 
 const BulkDocument = Schema.define({
 	className: 'NativeAccessBulkE2E',
+	fields: (field) => ({
+		key: field.string({ indexed: 'unique', validation: { required: true } }),
+		value: field.int({ default: 0 }),
+		visible: field.boolean({ default: false }),
+	}),
 	access: {
 		create: ({ context }) => context.access.mode === 'master',
 		delete: { allow: true, where: ({ where }) => where.eq('visible', true) },
 		read: { allow: true, where: ({ where }) => where.eq('visible', true) },
 		update: { allow: true, where: ({ where }) => where.eq('visible', true) },
 		upsert: { allow: true, where: ({ where }) => where.eq('visible', true) },
-	},
-	fields: {
-		key: stringField({ indexed: 'unique', validation: { required: true } }),
-		value: intField({ default: 0 }),
-		visible: booleanField({ default: false }),
 	},
 })
 
@@ -205,7 +201,7 @@ describe('native Access with PostgreSQL', () => {
 	it('composes native, plugin, and developer predicates in SQL', async () => {
 		const app = getUltimaBase()
 		const rows = await AccessArticle.findMany(
-			{ where: { rank: { gt: 0 } }, orderBy: [{ rank: 'asc' }] },
+			{ where: { rank: { gt: 0 } }, orderBy: { rank: 'asc' } },
 			{ ultimabase: app },
 		)
 
@@ -251,7 +247,7 @@ describe('native Access with PostgreSQL', () => {
 		).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })
 		await expect(
 			AccessArticle.findMany(
-				{ orderBy: [{ secret: 'asc' }] },
+				{ orderBy: { secret: 'asc' } },
 				{ ultimabase: app },
 			),
 		).rejects.toMatchObject({ code: 'PERMISSION_DENIED' })

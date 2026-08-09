@@ -13,18 +13,18 @@ import {
 
 const uuidSchema = Schema.define({
 	className: 'UuidRecord',
-	fields: {
-		ownerId: uuidField({
+	fields: (field) => ({
+		ownerId: field.uuid({
 			validation: {
 				required: true,
 				version: 7,
 			},
 		}),
-		externalId: uuidField({
+		externalId: field.uuid({
 			default: '550e8400-e29b-41d4-a716-446655440000',
 		}),
-		relatedIds: uuidField({ list: true }),
-	},
+		relatedIds: field.uuid({ list: true }),
+	}),
 })
 
 test('preserves UUID literals and operation-specific inference', () => {

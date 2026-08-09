@@ -1,12 +1,4 @@
-import {
-	enumField,
-	intField,
-	pointerField,
-	requestSources,
-	Schema,
-	stringField,
-	UltimaBase,
-} from '@ultimabase/core'
+import { requestSources, Schema, UltimaBase } from '@ultimabase/core'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
@@ -19,34 +11,38 @@ const membershipTrace: string[] = []
 
 const Member = Schema.define({
 	className: 'ExplicitEdgeMember',
-	fields: { name: stringField({ validation: { required: true } }) },
+	fields: (field) => ({
+		name: field.string({ validation: { required: true } }),
+	}),
 })
 
 const Project = Schema.define({
 	className: 'ExplicitEdgeProject',
-	fields: { title: stringField({ validation: { required: true } }) },
+	fields: (field) => ({
+		title: field.string({ validation: { required: true } }),
+	}),
 })
 
 const Membership = Schema.define({
 	className: 'ExplicitEdgeMembership',
-	fields: {
-		internalNote: stringField({ access: { read: false } }),
-		member: pointerField({
+	fields: (field) => ({
+		internalNote: field.string({ access: { read: false } }),
+		member: field.pointer({
 			onDelete: 'cascade',
 			target: () => Member,
 			validation: { required: true },
 		}),
-		position: intField({ default: 0 }),
-		project: pointerField({
+		position: field.int({ default: 0 }),
+		project: field.pointer({
 			onDelete: 'cascade',
 			target: () => Project,
 			validation: { required: true },
 		}),
-		role: enumField({
+		role: field.enum({
 			validation: { required: true },
 			values: ['editor', 'viewer'] as const,
 		}),
-	},
+	}),
 	hooks: {
 		afterOperation: {
 			create: ({ operation }) => {

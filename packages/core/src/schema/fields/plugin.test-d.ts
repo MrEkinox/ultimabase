@@ -100,7 +100,7 @@ test('makes hook-resolved required plugin fields optional only during create inp
 	expectTypeOf(field.kind).toEqualTypeOf<'fixture.deferred'>()
 	const schema = Schema.define({
 		className: 'DeferredPost',
-		fields: { generated: field },
+		fields: () => ({ generated: field }),
 	})
 	const draft = new schema({})
 

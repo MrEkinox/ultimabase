@@ -256,9 +256,11 @@ export const normalizeSchemaAccessDeclarations = (
 }
 
 /** Attaches one normalized declaration to the exact Schema identity. */
-export const declareSchemaAccess = <TSchema extends SchemaDefinition>(
-	schema: TSchema,
-	access: SchemaAccess<TSchema> | undefined,
+export const declareSchemaAccess = <
+	TDeclarationSchema extends SchemaDefinition,
+>(
+	schema: SchemaDefinition,
+	access: SchemaAccess<TDeclarationSchema> | undefined,
 ): void => {
 	const declarations = normalizeSchemaAccessDeclarations(access)
 

@@ -9,7 +9,7 @@ import type {
 	InferQueryResult,
 } from '../../query/index.js'
 import { QueryBuilder } from '../../query/index.js'
-import { Schema, stringField } from '../../schema/index.js'
+import { Schema } from '../../schema/index.js'
 import { expectTypeOf, test } from 'vitest'
 
 import { MasterAuthority } from '../master/master-authority.js'
@@ -20,11 +20,11 @@ import { FrameworkEngine, type RequestEngine } from './framework-engine.js'
 
 const schema = Schema.define({
 	className: 'TypedArticle',
-	fields: { title: stringField() },
+	fields: (field) => ({ title: field.string() }),
 })
 const authorSchema = Schema.define({
 	className: 'TypedAuthor',
-	fields: { name: stringField() },
+	fields: (field) => ({ name: field.string() }),
 })
 const application = new FrameworkApplication({
 	schemas: [schema],

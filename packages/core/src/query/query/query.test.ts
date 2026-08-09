@@ -6,8 +6,6 @@ import {
 	intField,
 	jsonField,
 	objectField,
-	pointerField,
-	relationField,
 	stringField,
 } from '../../schema/index.js'
 import { describe, expect, it } from 'vitest'
@@ -33,24 +31,27 @@ const postFields = {
 	attachment: binaryField(),
 }
 
-const postSchema = Schema.define({ className: 'Post', fields: postFields })
+const postSchema = Schema.define({
+	className: 'Post',
+	fields: () => postFields,
+})
 const includedUserSchema = Schema.define({
 	className: 'QueryIncludedUser',
-	fields: { name: stringField(), active: booleanField() },
+	fields: (field) => ({ name: field.string(), active: field.boolean() }),
 })
 const includedPostSchema = Schema.define({
 	className: 'QueryIncludedPost',
-	fields: {
-		author: pointerField({ target: () => includedUserSchema }),
-		title: stringField(),
-	},
+	fields: (field) => ({
+		author: field.pointer({ target: () => includedUserSchema }),
+		title: field.string(),
+	}),
 })
 const includedFeedSchema = Schema.define({
 	className: 'QueryIncludedFeed',
-	fields: {
-		posts: relationField({ target: () => includedPostSchema }),
-		title: stringField(),
-	},
+	fields: (field) => ({
+		posts: field.relation({ target: () => includedPostSchema }),
+		title: field.string(),
+	}),
 })
 
 describe('QueryBuilder', () => {
@@ -229,7 +230,7 @@ describe('QueryBuilder', () => {
 				posts: {
 					limit: 4,
 					offset: 2,
-					orderBy: [{ createdAt: 'desc' }],
+					orderBy: { createdAt: 'desc' },
 					select: { title: true },
 					where: { title: { ne: 'Archived' } },
 				},
@@ -548,7 +549,7 @@ describe('QueryBuilder', () => {
 	it('rejects malformed scope results at the JavaScript boundary', () => {
 		const commentSchema = Schema.define({
 			className: 'Comment',
-			fields: { body: stringField() },
+			fields: (field) => ({ body: field.string() }),
 		})
 
 		expect(() =>
@@ -571,7 +572,7 @@ describe('QueryBuilder', () => {
 		// The same shape but a different definition proves that identity is enforced.
 		const otherPostSchema = Schema.define({
 			className: 'Post',
-			fields: postFields,
+			fields: () => postFields,
 		})
 
 		expect(() =>

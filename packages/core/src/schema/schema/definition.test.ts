@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
 	defineContextualSchemaExtensionFactory,
 	Schema,
+	SchemaRegistry,
 	defineSchemaExtension,
 	stringField,
 	type SchemaExtension,
@@ -67,9 +68,10 @@ describe('schema definitions', () => {
 		const extensions = [extension]
 		const schema = Schema.define({
 			className: 'Post',
-			fields,
+			fields: () => fields,
 			extensions,
 		})
+		new SchemaRegistry([schema]).compileSchemas()
 
 		fields.summary = stringField()
 		extensions.push(extension)
@@ -105,10 +107,11 @@ describe('schema definitions', () => {
 	it('normalizes omitted extensions to one immutable empty list', () => {
 		const schema = Schema.define({
 			className: 'Post',
-			fields: {
-				title: stringField(),
-			},
+			fields: (field) => ({
+				title: field.string(),
+			}),
 		})
+		new SchemaRegistry([schema]).compileSchemas()
 
 		// Consumers can inspect extensions without branching on optional metadata.
 		expect(schema.extensions).toStrictEqual([])
@@ -119,7 +122,9 @@ describe('schema definitions', () => {
 		runtimeContextualFactoryCalls = 0
 		const schema = Schema.define({
 			className: 'ContextualPost',
-			fields: { title: stringField({ validation: { required: true } }) },
+			fields: (field) => ({
+				title: field.string({ validation: { required: true } }),
+			}),
 			extensions: (context) => {
 				expect(Object.isFrozen(context)).toBe(true)
 
@@ -130,13 +135,14 @@ describe('schema definitions', () => {
 				]
 			},
 		})
+		new SchemaRegistry([schema]).compileSchemas()
 
 		expect(runtimeContextualFactoryCalls).toBe(1)
 		expect(Object.isFrozen(runtimeContextualExtension)).toBe(true)
-		expect(schema.extensions[0].name).toBe('fixture.runtime-contextual')
-		expect(schema.extensions[0].config.readTitle({ title: 'Visible' })).toBe(
-			'Visible',
-		)
+		const [extension] = schema.extensions
+
+		expect(extension.name).toBe('fixture.runtime-contextual')
+		expect(extension.config.readTitle({ title: 'Visible' })).toBe('Visible')
 		expect(Object.isFrozen(schema.extensions)).toBe(true)
 	})
 
@@ -153,27 +159,32 @@ describe('schema definitions', () => {
 		)
 		const schema = Schema.define({
 			className: 'ExtendedPost',
-			fields: { title: stringField() },
+			fields: (field) => ({ title: field.string() }),
 			extensions: [extension],
 		})
+		new SchemaRegistry([schema]).compileSchemas()
 
 		expect(schema.fields.privateValue).toBe(privateValue)
 		expect(schema.indexes).toContainEqual({
 			fields: ['privateValue'],
 			unique: false,
 		})
-		expect(() =>
-			Schema.define({
+		expect(() => {
+			const collidingSchema = Schema.define({
 				className: 'CollidingPost',
-				fields: { privateValue: stringField() },
+				fields: (field) => ({ privateValue: field.string() }),
 				extensions: [extension],
-			}),
-		).toThrow(new TypeError('Reserved schema extension field: privateValue'))
+			})
+			new SchemaRegistry([collidingSchema]).compileSchemas()
+		}).toThrow(new TypeError('Reserved schema extension field: privateValue'))
 	})
 
 	it('finalizes package-owned static schema capabilities without wrapping identity', () => {
 		const schema = Schema.defineWithStatics(
-			{ className: 'SpecializedPost', fields: { title: stringField() } },
+			{
+				className: 'SpecializedPost',
+				fields: (field) => ({ title: field.string() }),
+			},
 			(exactSchema) => ({
 				byId: (id: string) => exactSchema.pointer(id),
 			}),
@@ -188,13 +199,13 @@ describe('schema definitions', () => {
 	it('rejects invalid or colliding package-owned static capabilities', () => {
 		expect(() =>
 			Schema.defineWithStatics(
-				{ className: 'InvalidStaticFactory', fields: {} },
+				{ className: 'InvalidStaticFactory', fields: () => ({}) },
 				true as unknown as () => object,
 			),
 		).toThrow(new TypeError('createCapabilities must be a function'))
 		expect(() =>
 			Schema.defineWithStatics(
-				{ className: 'InvalidStaticResult', fields: {} },
+				{ className: 'InvalidStaticResult', fields: () => ({}) },
 				() => [],
 			),
 		).toThrow(
@@ -202,7 +213,7 @@ describe('schema definitions', () => {
 		)
 		expect(() =>
 			Schema.defineWithStatics(
-				{ className: 'CollidingStatic', fields: {} },
+				{ className: 'CollidingStatic', fields: () => ({}) },
 				() => ({ findMany: true }),
 			),
 		).toThrow(new TypeError('Reserved schema static capability: findMany'))
@@ -216,12 +227,13 @@ describe('schema definitions', () => {
 				[name]: field,
 			}
 
-			expect(() =>
-				Schema.define({
+			expect(() => {
+				const schema = Schema.define({
 					className: 'Invalid',
-					fields,
-				}),
-			).toThrow(new TypeError(`Reserved schema field: ${name}`))
+					fields: () => fields,
+				})
+				new SchemaRegistry([schema]).compileSchemas()
+			}).toThrow(new TypeError(`Reserved schema field: ${name}`))
 		},
 	)
 
@@ -235,11 +247,12 @@ describe('schema definitions', () => {
 		'update',
 		'upsert',
 	])('rejects the reserved model member %s', (name) => {
-		expect(() =>
-			Schema.define({
+		expect(() => {
+			const schema = Schema.define({
 				className: 'InvalidModel',
-				fields: { [name]: stringField() },
-			}),
-		).toThrow(new TypeError(`Reserved schema model field: ${name}`))
+				fields: (field) => ({ [name]: field.string() }),
+			})
+			new SchemaRegistry([schema]).compileSchemas()
+		}).toThrow(new TypeError(`Reserved schema model field: ${name}`))
 	})
 })

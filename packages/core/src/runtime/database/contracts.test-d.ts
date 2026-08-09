@@ -15,12 +15,7 @@ import {
 	type UpsertManyOperationAst,
 	type UpsertOneOperationAst,
 } from '../../query/index.js'
-import {
-	Schema,
-	intField,
-	stringField,
-	type InferObject,
-} from '../../schema/index.js'
+import { Schema, type InferObject } from '../../schema/index.js'
 import { expectTypeOf, test } from 'vitest'
 
 import {
@@ -55,10 +50,10 @@ import {
 
 const articleSchema = Schema.define({
 	className: 'Article',
-	fields: {
-		title: stringField({ validation: { required: true } }),
-		views: intField(),
-	},
+	fields: (field) => ({
+		title: field.string({ validation: { required: true } }),
+		views: field.int(),
+	}),
 })
 
 type ArticleRecord = DatabaseObjectRecord<typeof articleSchema>

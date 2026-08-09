@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 
 import { createApplication } from '../../application/framework-application.js'
 import { definePlugin } from '../../plugins/definition.js'
-import { Schema, booleanField, stringField } from '../index.js'
+import { Schema, type FieldBuilder } from '../index.js'
 import {
 	compileApplicationAccessPlan,
 	getApplicationAccessPlan,
@@ -19,8 +19,24 @@ const fieldItem = vi.fn(() => true)
 const fieldFilter = vi.fn(() => false)
 const fieldOrder = vi.fn(() => false)
 
+const articleFields = (field: FieldBuilder) => ({
+	published: field.boolean(),
+	secret: field.string({
+		access: {
+			read: {
+				orderBy: fieldOrder,
+				output: fieldItem,
+				where: fieldFilter,
+			},
+			write: { clear: true, fill: false, replace: true },
+		},
+	}),
+	title: field.string({ validation: { required: true } }),
+})
+
 const articleSchema = Schema.define({
 	className: 'CompiledAccessArticle',
+	fields: articleFields,
 	access: {
 		read: {
 			allow: {
@@ -35,20 +51,6 @@ const articleSchema = Schema.define({
 			allow: developerUpdate,
 			item: developerItem,
 		},
-	},
-	fields: {
-		published: booleanField(),
-		secret: stringField({
-			access: {
-				read: {
-					orderBy: fieldOrder,
-					output: fieldItem,
-					where: fieldFilter,
-				},
-				write: { clear: true, fill: false, replace: true },
-			},
-		}),
-		title: stringField({ validation: { required: true } }),
 	},
 })
 
@@ -189,9 +191,11 @@ describe('compiled Access plans', () => {
 			pluginFieldRule,
 			fieldOrder,
 		])
-		expect(
-			plan.getFields(articleSchema, articleSchema.fields.secret),
-		).toStrictEqual([fieldPlan])
+		const secretField = articleSchema.fields.secret
+
+		expect(plan.getFields(articleSchema, secretField)).toStrictEqual([
+			fieldPlan,
+		])
 		expect(plan.getField(articleSchema, ['missing'])).toBeUndefined()
 	})
 

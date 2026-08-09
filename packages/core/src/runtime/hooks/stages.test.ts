@@ -4,7 +4,7 @@ import {
 	definePlugin,
 } from '../../foundation.js'
 import { QueryBuilder } from '../../query/index.js'
-import { Schema, stringField } from '../../schema/index.js'
+import { Schema } from '../../schema/index.js'
 import { describe, expect, it, vi } from 'vitest'
 
 import { RequestContext, requestSources } from '../context/request-context.js'
@@ -26,12 +26,16 @@ import { createRuntimeHookStages } from './stages.js'
 
 const articleSchema = Schema.define({
 	className: 'HookStageArticle',
-	fields: { title: stringField({ validation: { required: true } }) },
+	fields: (field) => ({
+		title: field.string({ validation: { required: true } }),
+	}),
 })
 
 const foreignSchema = Schema.define({
 	className: 'HookStageForeign',
-	fields: { title: stringField({ validation: { required: true } }) },
+	fields: (field) => ({
+		title: field.string({ validation: { required: true } }),
+	}),
 })
 
 const context = RequestContext.anonymous({

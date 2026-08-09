@@ -9,6 +9,12 @@ export type {
 	GenerateApplicationTypesOptions,
 	GeneratedApplicationTypes,
 } from './generator.js'
+export { codegenPlugin } from './plugin.js'
+export type {
+	CodegenPlugin,
+	CodegenPluginExports,
+	CodegenPluginOptions,
+} from './plugin.js'
 export { loadTypegenApplication } from './loader.js'
 export type { LoadTypegenApplicationOptions } from './loader.js'
 export {

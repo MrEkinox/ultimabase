@@ -1,9 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import {
-	relationField,
 	Schema,
-	stringField,
 	type FieldDefinition,
 	type SchemaIndexOptions,
 } from '../index.js'
@@ -13,12 +11,12 @@ describe('schema indexes', () => {
 	it('normalizes field and composite indexes in deterministic order', () => {
 		const schema = Schema.define({
 			className: 'Post',
-			fields: {
-				title: stringField({ indexed: true }),
-				slug: stringField({ indexed: 'unique' }),
-				summary: stringField({ indexed: false }),
-				authorId: stringField(),
-			},
+			fields: (field) => ({
+				title: field.string({ indexed: true }),
+				slug: field.string({ indexed: 'unique' }),
+				summary: field.string({ indexed: false }),
+				authorId: field.string(),
+			}),
 			indexes: [
 				{ fields: ['authorId', 'createdAt'] },
 				{ fields: ['authorId', 'slug'], unique: true },
@@ -49,10 +47,10 @@ describe('schema indexes', () => {
 		]
 		const schema = Schema.define({
 			className: 'Post',
-			fields: {
-				category: stringField(),
-				title: stringField(),
-			},
+			fields: (field) => ({
+				category: field.string(),
+				title: field.string(),
+			}),
 			indexes,
 		})
 
@@ -67,9 +65,9 @@ describe('schema indexes', () => {
 	it('normalizes omitted declarations to one immutable empty list', () => {
 		const schema = Schema.define({
 			className: 'Post',
-			fields: {
-				title: stringField(),
-			},
+			fields: (field) => ({
+				title: field.string(),
+			}),
 		})
 
 		expect(schema.indexes).toStrictEqual([])
@@ -79,15 +77,15 @@ describe('schema indexes', () => {
 	it('rejects unknown and repeated composite fields', () => {
 		const relationTarget = Schema.define({
 			className: 'RuntimeIndexRelationTarget',
-			fields: {},
+			fields: () => ({}),
 		})
 
 		expect(() =>
 			Schema.define({
 				className: 'UnknownIndexField',
-				fields: {
-					title: stringField(),
-				},
+				fields: (field) => ({
+					title: field.string(),
+				}),
 				indexes: [
 					// @ts-expect-error -- Runtime validation also protects JavaScript callers.
 					{ fields: ['title', 'missing'] },
@@ -98,9 +96,9 @@ describe('schema indexes', () => {
 		expect(() =>
 			Schema.define({
 				className: 'RepeatedIndexField',
-				fields: {
-					title: stringField(),
-				},
+				fields: (field) => ({
+					title: field.string(),
+				}),
 				indexes: [{ fields: ['title', 'title'] }],
 			}),
 		).toThrow(new TypeError('Duplicate index field: title'))
@@ -108,10 +106,10 @@ describe('schema indexes', () => {
 		expect(() =>
 			Schema.define({
 				className: 'RelationIndexField',
-				fields: {
-					title: stringField(),
-					targets: relationField({ target: () => relationTarget }),
-				},
+				fields: (field) => ({
+					title: field.string(),
+					targets: field.relation({ target: () => relationTarget }),
+				}),
 				indexes: [
 					// @ts-expect-error -- Runtime validation protects JavaScript callers.
 					{ fields: ['title', 'targets'] },
@@ -124,7 +122,7 @@ describe('schema indexes', () => {
 		expect(() =>
 			Schema.define({
 				className: 'InvalidIndexesContainer',
-				fields: {},
+				fields: () => ({}),
 				// @ts-expect-error -- Runtime validation protects JavaScript callers.
 				indexes: {},
 			}),
@@ -133,7 +131,7 @@ describe('schema indexes', () => {
 		expect(() =>
 			Schema.define({
 				className: 'InvalidIndexEntry',
-				fields: {},
+				fields: () => ({}),
 				// @ts-expect-error -- Runtime validation protects JavaScript callers.
 				indexes: [null],
 			}),
@@ -142,7 +140,7 @@ describe('schema indexes', () => {
 		expect(() =>
 			Schema.define({
 				className: 'InvalidIndexFields',
-				fields: { idPart: stringField() },
+				fields: (field) => ({ idPart: field.string() }),
 				indexes: [
 					{
 						// @ts-expect-error -- Runtime validation protects JavaScript callers.
@@ -155,7 +153,7 @@ describe('schema indexes', () => {
 		expect(() =>
 			Schema.define({
 				className: 'InvalidIndexFieldName',
-				fields: { idPart: stringField(), tenant: stringField() },
+				fields: (field) => ({ idPart: field.string(), tenant: field.string() }),
 				indexes: [
 					{
 						// @ts-expect-error -- Runtime validation protects JavaScript callers.
@@ -168,9 +166,9 @@ describe('schema indexes', () => {
 		expect(() =>
 			Schema.define({
 				className: 'ShortIndex',
-				fields: {
-					title: stringField(),
-				},
+				fields: (field) => ({
+					title: field.string(),
+				}),
 				indexes: [
 					// @ts-expect-error -- Composite indexes require two fields statically.
 					{ fields: ['title'] },
@@ -181,10 +179,10 @@ describe('schema indexes', () => {
 		expect(() =>
 			Schema.define({
 				className: 'InvalidUnique',
-				fields: {
-					slug: stringField(),
-					title: stringField(),
-				},
+				fields: (field) => ({
+					slug: field.string(),
+					title: field.string(),
+				}),
 				indexes: [
 					{
 						fields: ['slug', 'title'],
@@ -206,9 +204,13 @@ describe('schema indexes', () => {
 		expect(() =>
 			Schema.define({
 				className: 'InvalidFieldIndex',
-				fields: { title: invalidIndexedField },
+				fields: () => ({ title: invalidIndexedField }),
 			}),
-		).toThrow(new TypeError('fields.title must be created by a field factory'))
+		).toThrow(
+			new TypeError(
+				'InvalidFieldIndex.fields.title must be created by a field factory',
+			),
+		)
 		expect(() =>
 			normalizeSchemaIndexes({ title: invalidIndexedField }, undefined),
 		).toThrow(new TypeError('indexed must be a boolean or "unique"'))

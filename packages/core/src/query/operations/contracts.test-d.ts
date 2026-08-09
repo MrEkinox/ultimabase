@@ -1,9 +1,4 @@
-import {
-	Schema,
-	intField,
-	stringField,
-	type InferCreateInput,
-} from '../../schema/index.js'
+import { Schema, type InferCreateInput } from '../../schema/index.js'
 import { expect, expectTypeOf, test } from 'vitest'
 
 import {
@@ -22,11 +17,11 @@ import {
 
 const articleSchema = Schema.define({
 	className: 'Article',
-	fields: {
-		title: stringField({ validation: { required: true } }),
-		views: intField(),
-		slug: stringField({ immutable: true }),
-	},
+	fields: (field) => ({
+		title: field.string({ validation: { required: true } }),
+		views: field.int(),
+		slug: field.string({ immutable: true }),
+	}),
 })
 
 interface FixtureUpdateExpression extends UpdateExpressionNode {

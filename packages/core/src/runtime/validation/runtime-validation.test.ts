@@ -11,25 +11,9 @@ import {
 	type UpsertOneOperationAst,
 } from '../../query/index.js'
 import {
-	bigintField,
-	binaryField,
-	booleanField,
-	dateField,
-	dateTimeField,
-	decimalField,
 	definePluginField,
 	compileValidationPlans,
 	Schema,
-	enumField,
-	floatField,
-	intField,
-	jsonField,
-	objectField,
-	pointerField,
-	relationField,
-	stringField,
-	timeField,
-	uuidField,
 } from '../../schema/index.js'
 import { createRelationUpdateExpression } from '../../schema/relations/mutation.js'
 import { isPlainRecord, isUnknownArray } from '@ultimabase/shared'
@@ -51,55 +35,55 @@ const runtimeDefault = vi.fn(() => 42)
 const binaryDefault = new Uint8Array([1, 2, 3])
 const validationSchema = Schema.define({
 	className: 'RuntimeValidation',
-	fields: {
-		title: stringField({
+	fields: (field) => ({
+		title: field.string({
 			validation: { required: true, length: { min: 2 } },
 		}),
-		immutableCode: stringField({
+		immutableCode: field.string({
 			indexed: 'unique',
 			immutable: true,
 			validation: { required: true },
 		}),
-		note: stringField(),
-		sequence: intField({ default: runtimeDefault }),
-		state: stringField({ default: 'draft' }),
-		payload: binaryField({ default: binaryDefault }),
-		score: intField({ validation: { range: { min: 0, max: 10 } } }),
-		serial: intField({
+		note: field.string(),
+		sequence: field.int({ default: runtimeDefault }),
+		state: field.string({ default: 'draft' }),
+		payload: field.binary({ default: binaryDefault }),
+		score: field.int({ validation: { range: { min: 0, max: 10 } } }),
+		serial: field.int({
 			autoIncrement: true,
 			validation: { required: true },
 		}),
-		day: dateField({ autoNow: true, validation: { required: true } }),
-		localTime: timeField({ autoNow: true }),
-		zonedTime: timeField({ autoNow: true, timezone: true }),
-		localMoment: dateTimeField({ autoNow: true, timezone: false }),
-		zonedMoment: dateTimeField({ autoNow: true }),
-		profile: objectField({
+		day: field.date({ autoNow: true, validation: { required: true } }),
+		localTime: field.time({ autoNow: true }),
+		zonedTime: field.time({ autoNow: true, timezone: true }),
+		localMoment: field.dateTime({ autoNow: true, timezone: false }),
+		zonedMoment: field.dateTime({ autoNow: true }),
+		profile: field.object({
 			validation: { required: true },
-			fields: {
-				name: stringField({ validation: { required: true } }),
-				level: intField({ default: 1 }),
-			},
+			fields: (field) => ({
+				name: field.string({ validation: { required: true } }),
+				level: field.int({ default: 1 }),
+			}),
 		}),
-		items: objectField({
+		items: field.object({
 			list: true,
-			fields: {
-				label: stringField({ validation: { required: true } }),
-			},
+			fields: (field) => ({
+				label: field.string({ validation: { required: true } }),
+			}),
 		}),
-	},
+	}),
 })
 
 const schemaNode = new QueryBuilder(validationSchema).ast.schema
 const relationValidationTarget = Schema.define({
 	className: 'RuntimeRelationValidationTarget',
-	fields: {},
+	fields: () => ({}),
 })
 const relationValidationSource = Schema.define({
 	className: 'RuntimeRelationValidationSource',
-	fields: {
-		targets: relationField({ target: () => relationValidationTarget }),
-	},
+	fields: (field) => ({
+		targets: field.relation({ target: () => relationValidationTarget }),
+	}),
 })
 const requestContext = RequestContext.anonymous({
 	requestId: 'runtime-validation',
@@ -214,10 +198,10 @@ describe('runtime validation', () => {
 	it('canonicalizes optional fields without materializing forbidden relations', async () => {
 		const schema = Schema.define({
 			className: 'RuntimeOptionalWithoutRelation',
-			fields: {
-				note: stringField(),
-				targets: relationField({ target: () => relationValidationTarget }),
-			},
+			fields: (field) => ({
+				note: field.string(),
+				targets: field.relation({ target: () => relationValidationTarget }),
+			}),
 		})
 		const operation: CreateOneOperationAst<typeof schema> = {
 			kind: 'create-one',
@@ -604,7 +588,7 @@ describe('runtime validation', () => {
 	it('reports every scalar, null, list, and object shape through stable codes', async () => {
 		const pointerTarget = Schema.define({
 			className: 'InvalidScalarPointerTarget',
-			fields: {},
+			fields: () => ({}),
 		})
 		const customField = definePluginField(
 			'fixture.rejecting',
@@ -617,28 +601,30 @@ describe('runtime validation', () => {
 		)
 		const scalarSchema = Schema.define({
 			className: 'InvalidScalars',
-			fields: {
-				bigint: bigintField(),
-				binary: binaryField(),
-				boolean: booleanField(),
-				date: dateField(),
-				dateTime: dateTimeField(),
-				decimal: decimalField(),
-				enum: enumField({ values: ['allowed'] }),
-				float: floatField(),
-				int: intField(),
-				json: jsonField(),
-				string: stringField(),
-				time: timeField(),
-				uuid: uuidField(),
+			fields: (field) => ({
+				bigint: field.bigint(),
+				binary: field.binary(),
+				boolean: field.boolean(),
+				date: field.date(),
+				dateTime: field.dateTime(),
+				decimal: field.decimal(),
+				enum: field.enum({ values: ['allowed'] }),
+				float: field.float(),
+				int: field.int(),
+				json: field.json(),
+				string: field.string(),
+				time: field.time(),
+				uuid: field.uuid(),
 				custom: customField,
-				nullable: stringField(),
-				nonNullable: stringField({ validation: { required: true } }),
-				list: stringField({ list: true }),
-				object: objectField({ fields: { child: stringField() } }),
-				pointer: pointerField({ target: () => pointerTarget }),
-				badDefault: stringField({ default: () => 1 as never }),
-			},
+				nullable: field.string(),
+				nonNullable: field.string({ validation: { required: true } }),
+				list: field.string({ list: true }),
+				object: field.object({
+					fields: (field) => ({ child: field.string() }),
+				}),
+				pointer: field.pointer({ target: () => pointerTarget }),
+				badDefault: field.string({ default: () => 1 as never }),
+			}),
 		})
 		const operation = {
 			kind: 'create-one',

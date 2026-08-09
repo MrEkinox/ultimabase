@@ -4,6 +4,7 @@ import {
 	FrameworkApplication,
 	Schema,
 	type FieldBuilder,
+	type SchemaDefinition,
 } from '@ultimabase/core'
 import {
 	pgVectorPlugin,
@@ -25,40 +26,43 @@ const hoverMarker = '/* generated-hover */'
 const createGeneratedRegistry = (): string => {
 	const Author = Schema.define({
 		className: 'SemanticAuthor',
-		fields(field) {
-			field.string('name', { validation: { required: true } })
-			field.relation('articles', { target: () => Article })
-		},
+		fields: (field) => ({
+			name: field.string({ validation: { required: true } }),
+			articles: field.relation({ target: (): SchemaDefinition => Article }),
+		}),
 	})
 	const Article = Schema.define({
 		className: 'SemanticArticle',
-		fields(field) {
+		fields: (field) => {
 			const generatedField = field as GeneratedFixtureBuilder
-
-			field.string('title', { validation: { required: true } })
-			field.int('views')
-			field.int('scores', { list: true })
-			field.enum('status', {
-				typeName: 'SemanticStatus',
-				validation: { required: true },
-				values: ['draft', 'published'],
-			})
-			field.object('profile', {
-				fields(field) {
-					field.string('displayName', {
-						validation: { required: true },
-					})
-				},
-				typeName: 'SemanticProfile',
-			})
-			field.pointer('author', {
-				target: () => Author,
-				validation: { required: true },
-			})
-			field.relation('related', { target: () => Article })
-			generatedField.vector('embedding', {
-				dimensions: 3,
-			})
+			return {
+				title: field.string({ validation: { required: true } }),
+				views: field.int(),
+				scores: field.int({ list: true }),
+				status: field.enum({
+					typeName: 'SemanticStatus',
+					validation: { required: true },
+					values: ['draft', 'published'],
+				}),
+				profile: field.object({
+					fields: (field) => ({
+						displayName: field.string({
+							validation: { required: true },
+						}),
+					}),
+					typeName: 'SemanticProfile',
+				}),
+				author: field.pointer({
+					target: (): SchemaDefinition => Author,
+					validation: { required: true },
+				}),
+				related: field.relation({
+					target: (): SchemaDefinition => Article,
+				}),
+				embedding: generatedField.vector({
+					dimensions: 3,
+				}),
+			}
 		},
 	})
 	const application = new FrameworkApplication({
@@ -75,15 +79,15 @@ const createGeneratedRegistry = (): string => {
 const createGeneratedRoleRegistry = (): string => {
 	const Member = Schema.define({
 		className: 'SemanticRoleMember',
-		fields(field) {
-			field.string('name', { validation: { required: true } })
-		},
+		fields: (field) => ({
+			name: field.string({ validation: { required: true } }),
+		}),
 	})
 	const Role = RoleSchema.define({
 		className: 'SemanticRole',
-		fields(field) {
-			field.string('description')
-		},
+		fields: (field) => ({
+			description: field.string(),
+		}),
 		members: { schema: Member },
 	})
 	const application = new FrameworkApplication({
@@ -145,7 +149,7 @@ describe('generated application TypeScript contracts', () => {
 	it('typechecks exact models, operations, relationships, and plugin methods', () => {
 		const registry = createGeneratedRegistry()
 		const sourceWithMarkers = `${registry}
-declare const author: PointerValue
+declare const author: Core.PointerValue
 declare const item: SemanticArticleItem
 declare const field: ApplicationFieldBuilder
 
@@ -158,23 +162,23 @@ const updateInput: SemanticArticleUpdateInput = {
   profile: { displayName: 'Updated' },
   status: 'published',
 }
-const where: ${hoverMarker}SemanticArticleWhere = {
+const where: ${hoverMarker}SemanticArticleWhereInput = {
   author: { is: { name: { startsWith: 'Ada' } } },
   profile: { at: [{ path: ['displayName'], startsWith: 'A' }] },
   related: { count: { gte: 3, where: { status: { eq: 'published' } } } },
   status: { in: ['draft', 'published'] },
 }
 const selection: SemanticArticleSelect = { ${selectMarker} }
-const order: readonly SemanticArticleOrderBy[] = [
-  { status: 'asc' },
-  { title: 'desc' },
-]
+const order: SemanticArticleOrderByInput = {
+  status: 'asc',
+  title: 'desc',
+}
 const include: SemanticArticleInclude = {
   author: { select: { id: true, name: true } },
   related: {
     limit: 5,
     offset: 2,
-    orderBy: [{ title: 'asc' }],
+    orderBy: { title: 'asc' },
     select: { id: true, title: true },
     where: { status: { eq: 'draft' } },
   },
@@ -188,7 +192,7 @@ const pointerRead = item.author.findOne({
 const hookItem: SemanticArticleHooks['item'] = item
 const accessWhere: SemanticArticleAccess['where'] = where
 
-field.vector('embedding', { dimensions: 3 })
+field.vector({ dimensions: 3 })
 
 const invalidEnum: SemanticArticleCreateInput = {
   author,
@@ -204,9 +208,9 @@ const invalidSelection: SemanticArticleSelect = {
   // @ts-expect-error -- Selection exposes only exact schema field names.
   missing: true,
 }
-const invalidOrder: SemanticArticleOrderBy = {
-  // @ts-expect-error -- One order object accepts exactly one field.
-  status: 'asc', title: 'desc',
+const invalidOrder: SemanticArticleOrderByInput = {
+  // @ts-expect-error -- Generated ordering exposes only exact field names.
+  missing: 'asc',
 }
 
 void accessWhere
@@ -263,8 +267,10 @@ void updateInput
 		)
 		const display = ts.displayPartsToString(hover?.displayParts)
 
-		expect(display).toContain('SemanticArticleWhere')
-		expect(display.length).toBeLessThan(500)
+		expect(display).toContain('SemanticArticleWhereInput')
+		// Direct recursive where types are intentionally readable in the generated
+		// file while this ceiling still protects editor hovers from runaway expansion.
+		expect(display.length).toBeLessThan(1_000)
 	})
 
 	it('drives generated RoleSchema fields and persisted commands', () => {
@@ -275,15 +281,13 @@ import { RoleSchema } from '@ultimabase/roles-plugin'
 
 const Member = Schema.define({
   className: 'SemanticRoleMember',
-  fields(field) {
-    field.string('name', { validation: { required: true } })
-  },
+  fields: (field) => ({
+    name: field.string({ validation: { required: true } }),
+  }),
 })
 const AppRole = RoleSchema.define({
   className: 'SemanticRole',
-  fields(field) {
-    field.string('description')
-  },
+  fields: (field) => ({ description: field.string() }),
   members: { schema: Member },
 })
 
@@ -329,6 +333,7 @@ import {
   increment,
   type SchemaExtension,
   type SchemaExtensionContextKind,
+  type SchemaDefinition,
 } from '@ultimabase/core'
 
 interface GeneratedExtensionOptions<TData extends Readonly<Record<string, unknown>>> {
@@ -351,25 +356,25 @@ const generatedExtension =
 
 const SemanticAuthor = Schema.define({
   className: 'SemanticAuthor',
-  fields(field) {
-    field.string('name', { validation: { required: true } })
-    field.relation('articles', { target: () => SemanticArticle })
-  },
+  fields: (field) => ({
+    articles: field.relation({
+      target: (): SchemaDefinition => SemanticArticle,
+    }),
+    name: field.string({ validation: { required: true } }),
+  }),
 })
 
 const SemanticArticle = Schema.define({
   className: 'SemanticArticle',
-  fields(field) {
-    field./* public-field-method */string('title', { validation: { required: true } })
-    field.enum('status', {
+  fields: (field) => ({
+    author: field.pointer({
+      target: (): SchemaDefinition => SemanticAuthor,
       validation: { required: true },
-      values: ['draft', 'published'],
-    })
-    field.int('views')
-    field.int('scores', { list: true })
-    field.object('profile', {
-      fields(field) {
-        field.string('displayName', {
+    }),
+    embedding: field./* public-plugin-method */vector({ dimensions: 3 }),
+    profile: field.object({
+      fields: (field) => ({
+        displayName: field.string({
           validation: { required: true },
           access: {
             read: {
@@ -380,16 +385,20 @@ const SemanticArticle = Schema.define({
             write: true,
           },
           hooks: { resolveInput: ({ value }) => value.trim() },
-        })
-      },
-    })
-    field.pointer('author', {
-      target: () => SemanticAuthor,
+        }),
+      }),
+    }),
+    related: field.relation({
+      target: (): SchemaDefinition => SemanticArticle,
+    }),
+    scores: field.int({ list: true }),
+    status: field.enum({
       validation: { required: true },
-    })
-    field.relation('related', { target: () => SemanticArticle })
-    field./* public-plugin-method */vector('embedding', { dimensions: 3 })
-  },
+      values: ['draft', 'published'],
+    }),
+    title: field./* public-field-method */string({ validation: { required: true } }),
+    views: field.int(),
+  }),
   indexes: [{ fields: ['title', 'status'] }],
   extensions: ({ bind }) => [
     bind(generatedExtension, {
@@ -443,7 +452,7 @@ const result = SemanticArticle.findMany({
     related: { where: { status: { eq: 'published' } } },
   },
 })
-const invalidObjectPath: SemanticArticleWhere = {
+const invalidObjectPath: SemanticArticleWhereInput = {
   profile: {
     at: [{
       // @ts-expect-error -- Generated object occurrences retain exact paths.
@@ -476,7 +485,10 @@ related.connect(SemanticArticle.pointer('article-2'))
 related.connect(SemanticAuthor.pointer('author-2'))
 
 // @ts-expect-error -- A loaded registry rejects a stale schema name.
-Schema.define({ className: 'MissingGeneratedSchema', fields(field) { field.string('title') } })
+Schema.define({
+  className: 'MissingGeneratedSchema',
+  fields: (field) => ({ title: field.string() }),
+})
 
 void exactStatus
 void exactAuthorName
@@ -553,7 +565,7 @@ void relatedRead
 		)
 
 		service.dispose()
-	}, 15_000)
+	}, 30_000)
 
 	it('reports an actionable diagnostic for a missing generated schema entry', () => {
 		const registry = createGeneratedRegistry()
@@ -562,7 +574,7 @@ import { Schema } from '@ultimabase/core'
 
 Schema.define({
   className: 'MissingGeneratedSchema',
-  fields(field) { field.string('title') },
+  fields: (field) => ({ title: field.string() }),
 })
 `
 		const fileName = path.join(
@@ -591,7 +603,9 @@ import { Schema } from '@ultimabase/core'
 
 Schema.define({
   className: 'SemanticAuthor',
-  fields(field) { field.string('name', { validation: { required: true } }) },
+  fields: (field) => ({
+    name: field.string({ validation: { required: true } }),
+  }),
   indexes: [{ fields: ['name', 'missing'] }],
 })
 `

@@ -3,7 +3,6 @@ import {
 	Pointer,
 	QueryBuilder,
 	Schema,
-	stringField,
 	type AccessContext,
 	type AccessPrincipalResolver,
 	type AccessRoleResolver,
@@ -23,12 +22,12 @@ import {
 
 const Principal = Schema.define({
 	className: 'ACLAccessPrincipal',
-	fields: { name: stringField() },
+	fields: (field) => ({ name: field.string() }),
 })
 const ProtectedRecord = Schema.define({
 	className: 'ACLAccessProtectedRecord',
 	extensions: [acl()],
-	fields: { name: stringField() },
+	fields: (field) => ({ name: field.string() }),
 })
 const principal = new Pointer(Principal, '0198a43e-2431-7000-8000-000000000011')
 const context: AccessContext = {

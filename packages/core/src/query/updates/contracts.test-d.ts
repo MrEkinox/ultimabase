@@ -1,13 +1,4 @@
-import {
-	bigintField,
-	dateTimeField,
-	decimalField,
-	Schema,
-	floatField,
-	intField,
-	objectField,
-	stringField,
-} from '../../schema/index.js'
+import { Schema } from '../../schema/index.js'
 import { expect, expectTypeOf, test } from 'vitest'
 
 import {
@@ -24,22 +15,24 @@ import {
 
 const articleSchema = Schema.define({
 	className: 'Article',
-	fields: {
-		title: stringField({ validation: { required: true } }),
-		summary: stringField(),
-		status: stringField({ default: 'draft' }),
-		views: intField(),
-		rating: floatField(),
-		balance: decimalField(),
-		sequence: bigintField(),
-		serial: intField({ autoIncrement: true }),
-		scores: intField({ list: true }),
-		publishedAt: dateTimeField({ autoNow: true }),
-		metadata: objectField({
-			fields: { label: stringField({ validation: { required: true } }) },
+	fields: (field) => ({
+		title: field.string({ validation: { required: true } }),
+		summary: field.string(),
+		status: field.string({ default: 'draft' }),
+		views: field.int(),
+		rating: field.float(),
+		balance: field.decimal(),
+		sequence: field.bigint(),
+		serial: field.int({ autoIncrement: true }),
+		scores: field.int({ list: true }),
+		publishedAt: field.dateTime({ autoNow: true }),
+		metadata: field.object({
+			fields: (field) => ({
+				label: field.string({ validation: { required: true } }),
+			}),
 		}),
-		lockedCounter: intField({ immutable: true }),
-	},
+		lockedCounter: field.int({ immutable: true }),
+	}),
 })
 
 test('infers mutable and numeric fields independently', () => {

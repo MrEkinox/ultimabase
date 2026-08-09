@@ -5,7 +5,7 @@ Plugin-owned vector fields for PostgreSQL pgvector integrations.
 The package proves the complete custom-field boundary:
 
 - `pgVectorPlugin()` contributes the application-local
-  `field.vector(name, { dimensions })` declaration method;
+  `field.vector({ dimensions })` declaration method;
 - `vectorField({ dimensions })` remains its immutable field-factory foundation;
 - `@ultimabase/core` retains it through the common scalar validation plan;
 - `pgVectorPlugin()` narrows `plan.field.kind`, then reads and validates the
@@ -19,16 +19,16 @@ idempotent, so declaration-time static defaults own detached vector values.
 ```ts
 const DocumentSchema = Schema.define({
 	className: 'Document',
-	fields(field) {
-		field.vector('embedding', {
+	fields: (field) => ({
+		embedding: field.vector({
 			dimensions: 1536,
 			validation: { required: true },
 			hooks: {
 				// The value is inferred as readonly number[].
 				resolveInput: ({ value }) => value,
 			},
-		})
-	},
+		}),
+	}),
 })
 
 const application = await createApplication({

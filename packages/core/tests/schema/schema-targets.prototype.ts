@@ -2,14 +2,13 @@ import {
 	FrameworkApplication,
 	Schema,
 	SchemaTargetResolutionError,
-	stringField,
 	type SchemaTarget,
 	type SchemaTargetGraph,
 } from '../../src/index.js'
 
 const TargetUserSchema = Schema.define({
 	className: 'TargetUser',
-	fields: { name: stringField() },
+	fields: (field) => ({ name: field.string() }),
 })
 
 const /* hover:schema-target */ exactTarget: SchemaTarget<

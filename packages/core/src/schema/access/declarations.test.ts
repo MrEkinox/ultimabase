@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { compileValidationPlans, Schema, stringField } from '../index.js'
+import { compileValidationPlans, Schema } from '../index.js'
 import {
 	getSchemaAccessDeclarations,
 	normalizeSchemaAccessDeclarations,
@@ -9,9 +9,9 @@ import {
 const createSchema = (access?: object) =>
 	Schema.define({
 		className: 'AccessArticle',
-		fields: {
-			title: stringField({ validation: { required: true } }),
-		},
+		fields: (field) => ({
+			title: field.string({ validation: { required: true } }),
+		}),
 		// Tests deliberately cross the untrusted JavaScript declaration boundary.
 		...(access === undefined ? {} : { access }),
 	})

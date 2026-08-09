@@ -1498,7 +1498,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@ultimabase/codegen@workspace:packages/codegen":
+"@ultimabase/codegen@workspace:^, @ultimabase/codegen@workspace:packages/codegen":
   version: 0.0.0-use.local
   resolution: "@ultimabase/codegen@workspace:packages/codegen"
   dependencies:
@@ -1523,6 +1523,18 @@ __metadata:
     typescript: "npm:^6.0.3"
     uuid: "npm:^14.0.1"
     vitest: "npm:4.1.10"
+  languageName: unknown
+  linkType: soft
+
+"@ultimabase/example-todo-backend@workspace:examples/todo-backend":
+  version: 0.0.0-use.local
+  resolution: "@ultimabase/example-todo-backend@workspace:examples/todo-backend"
+  dependencies:
+    "@types/node": "npm:^24.0.0"
+    "@ultimabase/codegen": "workspace:^"
+    "@ultimabase/core": "workspace:^"
+    "@ultimabase/postgres-plugin": "workspace:^"
+    typescript: "npm:^6.0.3"
   languageName: unknown
   linkType: soft
 

@@ -1,5 +1,5 @@
 import { definePlugin } from '../../src/index.js'
-import { Schema, stringField } from '../../src/index.js'
+import { Schema } from '../../src/index.js'
 import { databaseAdapterServiceToken, UltimaBase } from '../../src/index.js'
 import { describe, expect, it } from 'vitest'
 
@@ -7,7 +7,7 @@ import { RecordingDatabaseAdapter } from './fixtures/recording-database-adapter.
 
 const publicArticleSchema = Schema.define({
 	className: 'PublicAssembledArticle',
-	fields: { title: stringField() },
+	fields: (field) => ({ title: field.string() }),
 })
 
 // This integration boundary intentionally imports every framework API publicly.

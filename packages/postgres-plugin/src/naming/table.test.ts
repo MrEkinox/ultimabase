@@ -7,7 +7,7 @@ import { postgresPluginName, postgresTableExtensionName } from '../constants.js'
 import { postgresTable, resolvePostgresTableName } from './table.js'
 
 const schemaNamed = (className: string) =>
-	Schema.define({ className, fields: {} })
+	Schema.define({ className, fields: () => ({}) })
 
 describe('PostgreSQL table naming', () => {
 	it.each([
@@ -24,7 +24,7 @@ describe('PostgreSQL table naming', () => {
 		const extension = postgresTable({ name })
 		const schema = Schema.define({
 			className: 'IgnoredClassName',
-			fields: {},
+			fields: () => ({}),
 			extensions: [extension],
 		})
 
@@ -37,7 +37,7 @@ describe('PostgreSQL table naming', () => {
 	it('lets Drizzle escape an unrestricted override as one identifier', () => {
 		const schema = Schema.define({
 			className: 'AuditLog',
-			fields: {},
+			fields: () => ({}),
 			extensions: [postgresTable({ name: 'Tenant.Logs "archive"' })],
 		})
 		const table = pgTable(resolvePostgresTableName(schema), {
@@ -86,7 +86,7 @@ describe('PostgreSQL table naming', () => {
 		)
 		const schema = Schema.define({
 			className: 'Post',
-			fields: {},
+			fields: () => ({}),
 			extensions: [forgedExtension],
 		})
 

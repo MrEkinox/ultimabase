@@ -141,7 +141,7 @@ type CompactObjectFieldOptions<
 		>
 	>
 
-type DefaultedObjectFieldOptions<
+export type DefaultedObjectFieldOptions<
 	TFields extends ObjectFields,
 	TRequired extends boolean,
 	TList extends FieldListOption,
@@ -152,7 +152,7 @@ type DefaultedObjectFieldOptions<
 	>
 }
 
-type NonDefaultedObjectFieldOptions<
+export type NonDefaultedObjectFieldOptions<
 	TFields extends ObjectFields,
 	TRequired extends boolean,
 	TList extends FieldListOption,
@@ -174,14 +174,14 @@ type ResolvedObjectField<
 	ScalarFieldInferenceState<TRequired, TList, TImmutable, THasDefault>
 >
 
-type DefaultedObjectField<
+export type DefaultedObjectField<
 	TFields extends ObjectFields,
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
 > = ResolvedObjectField<TFields, TRequired, TList, TImmutable, true>
 
-type NonDefaultedObjectField<
+export type NonDefaultedObjectField<
 	TFields extends ObjectFields,
 	TRequired extends boolean,
 	TList extends FieldListOption,

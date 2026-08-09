@@ -1,42 +1,35 @@
 import { describe, expect, it } from 'vitest'
 
-import {
-	Schema,
-	booleanField,
-	intField,
-	jsonField,
-	objectField,
-	pointerField,
-	relationField,
-	stringField,
-} from '../../schema/index.js'
+import { Schema } from '../../schema/index.js'
 import { fieldPath } from './factory.js'
 import { QueryBuilder } from '../query/query.js'
 import { WhereBuilder, normalizeWhereInput } from './where.js'
 
 const Tag = Schema.define({
 	className: 'RuntimeWhereTag',
-	fields: {
-		archived: booleanField(),
-		label: stringField(),
-	},
+	fields: (field) => ({
+		archived: field.boolean(),
+		label: field.string(),
+	}),
 })
 
 const Post = Schema.define({
 	className: 'RuntimeWherePost',
-	fields: {
-		author: pointerField({ target: () => Tag }),
-		metadata: jsonField(),
-		profile: objectField({
-			fields: {
-				contact: objectField({ fields: { email: stringField() } }),
-			},
+	fields: (field) => ({
+		author: field.pointer({ target: () => Tag }),
+		metadata: field.json(),
+		profile: field.object({
+			fields: (field) => ({
+				contact: field.object({
+					fields: (field) => ({ email: field.string() }),
+				}),
+			}),
 		}),
-		published: booleanField(),
-		tags: relationField({ target: () => Tag }),
-		title: stringField(),
-		views: intField(),
-	},
+		published: field.boolean(),
+		tags: field.relation({ target: () => Tag }),
+		title: field.string(),
+		views: field.int(),
+	}),
 })
 
 describe('WhereInput', () => {

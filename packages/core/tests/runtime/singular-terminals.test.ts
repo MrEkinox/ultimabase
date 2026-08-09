@@ -1,5 +1,5 @@
 import { FrameworkApplication, increment } from '../../src/index.js'
-import { Schema, intField, stringField } from '../../src/index.js'
+import { Schema } from '../../src/index.js'
 import { describe, expect, it } from 'vitest'
 
 import { requestSources } from '../../src/runtime/context/request-context.js'
@@ -13,13 +13,13 @@ import {
 
 const articleSchema = Schema.define({
 	className: 'TerminalArticle',
-	fields: {
-		title: stringField({
+	fields: (field) => ({
+		title: field.string({
 			indexed: 'unique',
 			validation: { required: true },
 		}),
-		views: intField(),
-	},
+		views: field.int(),
+	}),
 })
 
 describe('read terminals and singular schema commands', () => {

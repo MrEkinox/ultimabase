@@ -9,25 +9,23 @@ import { Schema } from '@ultimabase/core'
 
 export const AccountSchema = Schema.define({
 	className: 'Account',
-	fields(field) {
-		field.string('email', {
+	fields: (field) => ({
+		email: field.string({
 			validation: { required: true },
 			hooks: {
 				resolveInput: [
 					({ value }) => value.trim(),
 					({ value }) => {
 						const normalized = value.toLowerCase()
-
 						if (!normalized.includes('@')) {
 							throw new TypeError('Invalid email')
 						}
-
 						return normalized
 					},
 				],
 			},
-		})
-		field.enum('status', {
+		}),
+		status: field.enum({
 			values: ['pending', 'active'] as const,
 			default: 'pending',
 			hooks: {
@@ -36,8 +34,8 @@ export const AccountSchema = Schema.define({
 					return value
 				},
 			},
-		})
-	},
+		}),
+	}),
 	// Cross-field rules use the complete schema-level operation.
 	hooks: {
 		resolveInput: {

@@ -1,11 +1,6 @@
 import { RequestCapability, RequestContextValue } from '../../access/index.js'
 import { definePlugin } from '../../foundation.js'
-import {
-	HookContext,
-	Schema,
-	stringField,
-	type JsonObject,
-} from '../../schema/index.js'
+import { HookContext, Schema, type JsonObject } from '../../schema/index.js'
 import { describe, expect, it } from 'vitest'
 import { QueryBuilder } from '../../query/query/query.js'
 
@@ -103,7 +98,9 @@ describe('HookContext Runtime capabilities', () => {
 		)
 		const PostSchema = Schema.define({
 			className: 'HookContextPrincipalPost',
-			fields: { title: stringField({ validation: { required: true } }) },
+			fields: (field) => ({
+				title: field.string({ validation: { required: true } }),
+			}),
 			hooks: {
 				beforeOperation: {
 					create: ({ context, item }) => {
@@ -154,7 +151,9 @@ describe('HookContext Runtime capabilities', () => {
 		const auditReasons: string[] = []
 		const AuditSchema = Schema.define({
 			className: 'HookContextAudit',
-			fields: { title: stringField({ validation: { required: true } }) },
+			fields: (field) => ({
+				title: field.string({ validation: { required: true } }),
+			}),
 			hooks: {
 				beforeOperation: {
 					create: ({ context, item }) => {
@@ -168,7 +167,9 @@ describe('HookContext Runtime capabilities', () => {
 		})
 		const PostSchema = Schema.define({
 			className: 'HookContextPost',
-			fields: { title: stringField({ validation: { required: true } }) },
+			fields: (field) => ({
+				title: field.string({ validation: { required: true } }),
+			}),
 			hooks: {
 				beforeOperation: {
 					create: ({ context, item }) => {
@@ -238,11 +239,15 @@ describe('HookContext Runtime capabilities', () => {
 		const trace: string[] = []
 		const AuditSchema = Schema.define({
 			className: 'HookContextFailedAudit',
-			fields: { title: stringField({ validation: { required: true } }) },
+			fields: (field) => ({
+				title: field.string({ validation: { required: true } }),
+			}),
 		})
 		const PostSchema = Schema.define({
 			className: 'HookContextFailedPost',
-			fields: { title: stringField({ validation: { required: true } }) },
+			fields: (field) => ({
+				title: field.string({ validation: { required: true } }),
+			}),
 			hooks: {
 				beforeOperation: {
 					create: async ({ item }) => {
@@ -286,7 +291,9 @@ describe('HookContext Runtime capabilities', () => {
 		const capability = new RequestCapability('fixture.escaped-context')
 		const PostSchema = Schema.define({
 			className: 'HookContextEscapedPost',
-			fields: { title: stringField({ validation: { required: true } }) },
+			fields: (field) => ({
+				title: field.string({ validation: { required: true } }),
+			}),
 			hooks: {
 				beforeOperation: {
 					create: ({ context, item }) => {
@@ -329,7 +336,9 @@ describe('HookContext Runtime capabilities', () => {
 		})
 		const PostSchema = Schema.define({
 			className: 'HookContextDelayedBranchPost',
-			fields: { title: stringField({ validation: { required: true } }) },
+			fields: (field) => ({
+				title: field.string({ validation: { required: true } }),
+			}),
 			hooks: {
 				beforeOperation: {
 					create: ({ item }) => {
@@ -378,12 +387,14 @@ describe('HookContext Runtime capabilities', () => {
 	it('keeps caught cross-application hook failures rollback-only', async () => {
 		const ForeignSchema = Schema.define({
 			className: 'HookContextForeign',
-			fields: { title: stringField() },
+			fields: (field) => ({ title: field.string() }),
 		})
 		let foreignError: unknown
 		const PostSchema = Schema.define({
 			className: 'HookContextCrossApplicationPost',
-			fields: { title: stringField({ validation: { required: true } }) },
+			fields: (field) => ({
+				title: field.string({ validation: { required: true } }),
+			}),
 			hooks: {
 				beforeOperation: {
 					create: async ({ item }) => {
@@ -423,7 +434,9 @@ describe('HookContext Runtime capabilities', () => {
 		})
 		const PostSchema = Schema.define({
 			className: 'HookContextEventPost',
-			fields: { title: stringField({ validation: { required: true } }) },
+			fields: (field) => ({
+				title: field.string({ validation: { required: true } }),
+			}),
 			hooks: {
 				beforeOperation: {
 					create: ({ context, item }) => {
@@ -491,7 +504,9 @@ describe('HookContext Runtime capabilities', () => {
 		})
 		const PostSchema = Schema.define({
 			className: 'HookContextUnobservedEventPost',
-			fields: { title: stringField({ validation: { required: true } }) },
+			fields: (field) => ({
+				title: field.string({ validation: { required: true } }),
+			}),
 			hooks: {
 				beforeOperation: {
 					create: ({ context, item }) => {
@@ -527,9 +542,9 @@ describe('HookContext Runtime capabilities', () => {
 		})
 		const PostSchema = Schema.define({
 			className: 'HookContextAfterCommitEventPost',
-			fields: {
-				title: stringField({ validation: { required: true } }),
-			},
+			fields: (field) => ({
+				title: field.string({ validation: { required: true } }),
+			}),
 			hooks: {
 				afterOperation: {
 					create: ({ context }) => {
@@ -610,7 +625,9 @@ describe('HookContext Runtime capabilities', () => {
 		)
 		const PostSchema = Schema.define({
 			className: 'HookContextDiscardedEventPost',
-			fields: { title: stringField({ validation: { required: true } }) },
+			fields: (field) => ({
+				title: field.string({ validation: { required: true } }),
+			}),
 			hooks: {
 				beforeOperation: {
 					create: [
@@ -654,7 +671,7 @@ describe('HookContext Runtime capabilities', () => {
 		})
 		const MissingConsumerSchema = Schema.define({
 			className: 'HookContextMissingConsumer',
-			fields: { title: stringField() },
+			fields: (field) => ({ title: field.string() }),
 			hooks: {
 				beforeOperation: {
 					create: ({ context, item }) => {

@@ -9,7 +9,6 @@ import {
 	accessPrincipalResolverServiceToken,
 	definePlugin,
 	requestSources,
-	stringField,
 } from '@ultimabase/core'
 import { postgresPlugin, postgresTable } from '@ultimabase/postgres-plugin'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
@@ -21,11 +20,11 @@ import {
 
 const PrincipalA = Schema.define({
 	className: 'ACLCompositionPrincipalA',
-	fields: {},
+	fields: () => ({}),
 })
 const PrincipalB = Schema.define({
 	className: 'ACLCompositionPrincipalB',
-	fields: {},
+	fields: () => ({}),
 })
 const principalId = new RequestContextValue<string>(
 	'fixture.acl-composition.principal-id',
@@ -68,6 +67,29 @@ const identityPlugin = definePlugin({
 const emptyACL = new ACL()
 const Document = Schema.define({
 	className: 'ACLCompositionDocument',
+	fields: (field) => ({
+		hookScope: field.string({ default: 'allowed' }),
+		nativeScope: field.string({ default: 'allowed' }),
+		secret: field.string({ access: { read: false } }),
+		title: field.string({
+			hooks: { resolveInput: ({ value }) => value.trim().toLowerCase() },
+			validation: { required: true },
+		}),
+	}),
+	extensions: [
+		acl({
+			default: ({ data, principal }) => {
+				const initial =
+					data.title === 'public' ? emptyACL.grantPublic('read') : emptyACL
+				return principal === undefined
+					? initial
+					: initial.grantPrincipal(principal, 'read', 'update', 'delete')
+			},
+			// Returning undefined on create deliberately delegates to the configured default.
+			resolveInput: ({ currentAcl, inputAcl }) => inputAcl ?? currentAcl,
+		}),
+		postgresTable({ name: 'acl_composition_documents' }),
+	],
 	access: {
 		create: true,
 		delete: {
@@ -84,30 +106,6 @@ const Document = Schema.define({
 			where: ({ where }) => where.eq('nativeScope', 'allowed'),
 		},
 	},
-	fields: {
-		hookScope: stringField({ default: 'allowed' }),
-		nativeScope: stringField({ default: 'allowed' }),
-		secret: stringField({ access: { read: false } }),
-		title: stringField({
-			hooks: { resolveInput: ({ value }) => value.trim().toLowerCase() },
-			validation: { required: true },
-		}),
-	},
-	extensions: [
-		acl({
-			default: ({ data, principal }) => {
-				const initial =
-					data.title === 'public' ? emptyACL.grantPublic('read') : emptyACL
-
-				return principal === undefined
-					? initial
-					: initial.grantPrincipal(principal, 'read', 'update', 'delete')
-			},
-			// Returning undefined on create deliberately delegates to the configured default.
-			resolveInput: ({ currentAcl, inputAcl }) => inputAcl ?? currentAcl,
-		}),
-		postgresTable({ name: 'acl_composition_documents' }),
-	],
 })
 
 const sharedPrincipalId = '0198a43e-2431-7000-8000-000000000610'

@@ -7,7 +7,10 @@ import {
 	normalizeRoleName,
 } from './role-reference.js'
 
-const RoleFixture = Schema.define({ className: 'ReferenceRole', fields: {} })
+const RoleFixture = Schema.define({
+	className: 'ReferenceRole',
+	fields: () => ({}),
+})
 
 describe('role references', () => {
 	it('normalizes names with one locale-independent identity strategy', () => {

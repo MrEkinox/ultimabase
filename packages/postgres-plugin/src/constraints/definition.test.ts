@@ -7,13 +7,13 @@ import {
 	compilePostgresConstraintPredicate,
 	postgresConstraintCompiler,
 } from './definition.js'
-import { Schema, stringField } from '@ultimabase/core'
+import { Schema } from '@ultimabase/core'
 import { compilePostgresSchema } from '../schema/schema-compiler.js'
 
 const schema = compilePostgresSchema(
 	Schema.define({
 		className: 'ConstraintArticle',
-		fields: { tenantId: stringField() },
+		fields: (field) => ({ tenantId: field.string() }),
 	}),
 )
 const dialect = new PgDialect()

@@ -6,7 +6,7 @@ describe('system fields', () => {
 	it('adds immutable UUID v7 and date-time metadata to every schema', () => {
 		const schema = Schema.define({
 			className: 'Post',
-			fields: {},
+			fields: () => ({}),
 		})
 
 		expect(schema.fields).toStrictEqual({
@@ -48,8 +48,8 @@ describe('system fields', () => {
 	})
 
 	it('reuses stable system metadata without sharing schema field maps', () => {
-		const first = Schema.define({ className: 'First', fields: {} })
-		const second = Schema.define({ className: 'Second', fields: {} })
+		const first = Schema.define({ className: 'First', fields: () => ({}) })
+		const second = Schema.define({ className: 'Second', fields: () => ({}) })
 
 		// System definitions are safe shared values, while each schema owns its field map.
 		expect(first.fields).not.toBe(second.fields)

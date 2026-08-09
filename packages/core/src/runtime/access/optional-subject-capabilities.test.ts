@@ -8,7 +8,6 @@ import {
 	databaseAdapterServiceToken,
 	definePlugin,
 	requestSources,
-	stringField,
 } from '../../index.js'
 import { RecordingDatabaseAdapter } from '../../../tests/runtime/fixtures/recording-database-adapter.js'
 
@@ -34,11 +33,13 @@ const principal = new RequestContextValue<FixturePrincipal>(
 
 const PrivateNote = Schema.define({
 	className: 'OptionalSubjectPrivateNote',
+	fields: (field) => ({
+		title: field.string({ validation: { required: true } }),
+	}),
 	access: {
 		// An absent plugin-owned principal denies rather than granting anonymous access.
 		read: ({ context }) => context.getValue(principal) !== undefined,
 	},
-	fields: { title: stringField({ validation: { required: true } }) },
 })
 
 const row = {

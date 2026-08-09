@@ -1,25 +1,25 @@
 import { describe, expect, it } from 'vitest'
 
-import { objectField, Schema, stringField } from '../index.js'
+import { Schema } from '../index.js'
 import { collectFieldTraversalEntries } from './traversal.js'
 
 describe('field traversal', () => {
 	it('collects immutable paths in parent-first depth-first declaration order', () => {
 		const schema = Schema.define({
 			className: 'TraversalFixture',
-			fields: {
-				'display.name': stringField(),
-				profile: objectField({
+			fields: (field) => ({
+				'display.name': field.string(),
+				profile: field.object({
 					list: true,
-					fields: {
-						'email.address': stringField(),
-						contact: objectField({
-							fields: { phone: stringField() },
+					fields: (field) => ({
+						'email.address': field.string(),
+						contact: field.object({
+							fields: (field) => ({ phone: field.string() }),
 						}),
-					},
+					}),
 				}),
-				status: stringField(),
-			},
+				status: field.string(),
+			}),
 		})
 
 		const entries = collectFieldTraversalEntries(schema.fields)

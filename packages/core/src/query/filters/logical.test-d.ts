@@ -1,4 +1,4 @@
-import { booleanField, Schema, intField } from '../../schema/index.js'
+import { Schema } from '../../schema/index.js'
 import { assertNever } from '@ultimabase/shared'
 import { expect, expectTypeOf, test } from 'vitest'
 
@@ -11,10 +11,10 @@ import type {
 
 const accountSchema = Schema.define({
 	className: 'Account',
-	fields: {
-		active: booleanField(),
-		age: intField(),
-	},
+	fields: (field) => ({
+		active: field.boolean(),
+		age: field.int(),
+	}),
 })
 
 interface FixtureLeaf extends QueryExpressionNode {

@@ -3,7 +3,7 @@ import {
 	queryCursorVersion,
 	type QueryCursorPayload,
 } from '@ultimabase/core'
-import { dateTimeField, Schema, intField, stringField } from '@ultimabase/core'
+import { Schema } from '@ultimabase/core'
 import { PgDialect } from 'drizzle-orm/pg-core'
 import { describe, expect, it } from 'vitest'
 
@@ -12,11 +12,11 @@ import { compilePostgresQueryClauses } from './clause-compiler.js'
 
 const ArticleSchema = Schema.define({
 	className: 'Article',
-	fields: {
-		created: dateTimeField(),
-		rank: intField(),
-		title: stringField(),
-	},
+	fields: (field) => ({
+		created: field.dateTime(),
+		rank: field.int(),
+		title: field.string(),
+	}),
 })
 
 const compiledSchema = compilePostgresSchema(ArticleSchema)

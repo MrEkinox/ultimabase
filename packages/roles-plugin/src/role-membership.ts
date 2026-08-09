@@ -110,7 +110,7 @@ export const resolveStoredRoleMembership = async (
 	const directRoles = await lookupSchema.findMany(
 		{
 			where: { members: { some: { id: { eq: member.id } } } },
-			orderBy: [{ id: 'asc' }],
+			orderBy: { id: 'asc' },
 		},
 		{ useMasterKey: true },
 	)
@@ -121,7 +121,7 @@ export const resolveStoredRoleMembership = async (
 		return lookupSchema.findMany(
 			{
 				where: { roles: { some: { id: { eq: roleId } } } },
-				orderBy: [{ id: 'asc' }],
+				orderBy: { id: 'asc' },
 			},
 			{ useMasterKey: true },
 		)

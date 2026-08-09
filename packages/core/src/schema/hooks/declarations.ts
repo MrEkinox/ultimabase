@@ -146,9 +146,9 @@ export const normalizeSchemaHookDeclarations = (
 }
 
 /** Attaches one normalized declaration to the exact Schema identity. */
-export const declareSchemaHooks = <TSchema extends SchemaDefinition>(
-	schema: TSchema,
-	hooks: SchemaHooks<TSchema> | undefined,
+export const declareSchemaHooks = <TDeclarationSchema extends SchemaDefinition>(
+	schema: SchemaDefinition,
+	hooks: SchemaHooks<TDeclarationSchema> | undefined,
 ): void => {
 	const declarations = normalizeSchemaHookDeclarations(hooks)
 

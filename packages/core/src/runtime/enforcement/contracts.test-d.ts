@@ -1,7 +1,7 @@
 import { expectTypeOf, test } from 'vitest'
 
 import type { CreateOneOperationAst } from '../../query/index.js'
-import { Schema, booleanField, stringField } from '../../schema/index.js'
+import { Schema } from '../../schema/index.js'
 import type { DatabaseConstraintNode } from '../database/contracts.js'
 import type { RuntimeOperationResult } from '../pipeline/contracts.js'
 import type { EnforcementOperation } from './contracts.js'
@@ -16,10 +16,10 @@ import {
 
 const postSchema = Schema.define({
 	className: 'EnforcementTypePost',
-	fields: {
-		published: booleanField(),
-		title: stringField(),
-	},
+	fields: (field) => ({
+		published: field.boolean(),
+		title: field.string(),
+	}),
 })
 
 test('preserves exact schemas, operation kinds, constraints, and results', () => {

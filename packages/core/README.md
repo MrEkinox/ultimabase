@@ -46,15 +46,15 @@ registry; plugins cannot register late schemas or field methods:
 ```ts
 const PostSchema = Schema.define({
 	className: 'Post',
-	fields(field) {
-		field.string('title', { validation: { required: true } })
-		field.boolean('published', { default: false })
-		field.object('metadata', {
-			fields(field) {
-				field.string('source')
-			},
-		})
-	},
+	fields: (field) => ({
+		title: field.string({ validation: { required: true } }),
+		published: field.boolean({ default: false }),
+		metadata: field.object({
+			fields: (field) => ({
+				source: field.string(),
+			}),
+		}),
+	}),
 })
 
 const application = await createApplication({
@@ -66,17 +66,16 @@ const application = await createApplication({
 Before compilation, `PostSchema.className` is available, but field-dependent
 metadata and `new PostSchema(...)` fail with `SchemaCompilationError`. The
 callback executes once for an accepted application compilation and its result
-becomes immutable schema metadata. Field maps remain a low-level local-inference
-foundation for framework composition and isolated tests; ordinary applications
-use FieldBuilder.
+becomes immutable schema metadata. Applications, tests, and framework-owned
+schemas use the same map-returning FieldBuilder declaration.
 Every builder method delegates to the corresponding immutable field factory, so
 validation, defaults, Access, hooks, and adapter metadata keep one implementation.
 Embedded builders deliberately omit pointers, relations, and generated database
 sequences.
 
-Framework and plugin authors may compose one already-created field through
-`field.add(name, definition)`. Application schemas normally use the named
-built-in methods; there is no general application-facing `field.custom()`.
+Framework and plugin authors may still compose the immutable low-level field
+factories internally. Application schemas use named builder methods; there is
+no general application-facing `field.custom()`.
 
 A plugin can contribute one application-local named method without Core knowing
 its field kind. Its declaration records the existing field factory plus compact
@@ -124,6 +123,11 @@ ordinary local inference, while a missing builder-schema entry reports that the
 developer must regenerate the application schema types through
 `@ultimabase/codegen` instead of widening silently.
 
+Tooling configured in the plugin graph receives the same compiled schema
+registry plus an immutable application-local FieldBuilder method snapshot during
+setup. This lets `codegenPlugin()` regenerate before infrastructure connects
+without introducing a Core dependency on the codegen package.
+
 Generated pointer and relation handles correlate targets by their stable schema
 name. Runtime values remain ordinary `Pointer` and `Relation` instances, and
 relation mutations still verify the exact registered schema identity before
@@ -149,12 +153,12 @@ target class in every generated model:
 ```ts
 const PostSchema = Schema.define({
 	className: 'Post',
-	fields(field) {
-		field.pointer('author', {
+	fields: (field) => ({
+		author: field.pointer({
 			target: () => UserSchema,
 			validation: { required: true },
-		})
-	},
+		}),
+	}),
 })
 
 const author = UserSchema.pointer('0198f090-2a50-7000-8000-000000000034')
@@ -245,12 +249,12 @@ An inverse names one exact pointer or owning relation on its target through
 ```ts
 const UserSchema = Schema.define({
 	className: 'User',
-	fields(field) {
-		field.relation('posts', {
+	fields: (field) => ({
+		posts: field.relation({
 			target: () => PostSchema,
 			mappedBy: 'author',
-		})
-	},
+		}),
+	}),
 })
 ```
 
@@ -268,7 +272,7 @@ const users = await UserSchema.findMany({
 	select: { id: true },
 	include: {
 		posts: {
-			orderBy: [{ createdAt: 'desc' }],
+			orderBy: { createdAt: 'desc' },
 			offset: 10,
 			limit: 10,
 			select: { id: true },
@@ -292,7 +296,7 @@ Persisted models expose only their declared to-many fields through an immutable
 const posts = user.relation('posts')
 const recentPosts = await posts.findMany({
 	select: { id: true, title: true },
-	orderBy: [{ createdAt: 'desc' }],
+	orderBy: { createdAt: 'desc' },
 	limit: 20,
 	cursor: true,
 })
@@ -420,20 +424,20 @@ pointer fields instead of hiding metadata behind `relationField`:
 ```ts
 const Membership = Schema.define({
 	className: 'Membership',
-	fields(field) {
-		field.pointer('member', {
+	fields: (field) => ({
+		member: field.pointer({
 			target: () => Member,
 			validation: { required: true },
-		})
-		field.pointer('project', {
+		}),
+		project: field.pointer({
 			target: () => Project,
 			validation: { required: true },
-		})
-		field.enum('role', {
+		}),
+		role: field.enum({
 			values: ['editor', 'viewer'] as const,
 			validation: { required: true },
-		})
-	},
+		}),
+	}),
 	indexes: [{ fields: ['project', 'member'], unique: true }],
 })
 ```
@@ -652,10 +656,10 @@ import { Schema, UltimaBase } from '@ultimabase/core'
 
 const PostSchema = Schema.define({
 	className: 'Post',
-	fields(field) {
-		field.string('title', { validation: { required: true } })
-		field.boolean('published', { default: false })
-	},
+	fields: (field) => ({
+		title: field.string({ validation: { required: true } }),
+		published: field.boolean({ default: false }),
+	}),
 })
 
 const ultimabase = new UltimaBase({
@@ -731,8 +735,8 @@ const PostSchema = Schema.define({
 		},
 		delete: ({ context }) => context.access.mode === 'master',
 	},
-	fields(field) {
-		field.string('authorId', {
+	fields: (field) => ({
+		authorId: field.string({
 			access: {
 				write: {
 					fill: true,
@@ -741,15 +745,15 @@ const PostSchema = Schema.define({
 				},
 			},
 			validation: { required: true },
-		})
-		field.boolean('published', {
+		}),
+		published: field.boolean({
 			access: {
 				read: { output: true, where: false, orderBy: false },
 				write: false,
 			},
-		})
-		field.string('title', { validation: { required: true } })
-	},
+		}),
+		title: field.string({ validation: { required: true } }),
+	}),
 })
 ```
 
@@ -909,9 +913,9 @@ plugin. The public surface has three concepts: `resolveInput`,
 ```ts
 const PostSchema = Schema.define({
 	className: 'Post',
-	fields(field) {
-		field.string('title', { validation: { required: true } })
-	},
+	fields: (field) => ({
+		title: field.string({ validation: { required: true } }),
+	}),
 	hooks: {
 		resolveInput: {
 			all: ({ operation }) => operation,
@@ -984,12 +988,12 @@ filters:
 ```ts
 const ArticleSchema = Schema.define({
 	className: 'Article',
-	fields(field) {
-		field.string('title', {
+	fields: (field) => ({
+		title: field.string({
 			validation: { required: true },
-		})
-		field.boolean('published', { default: false })
-	},
+		}),
+		published: field.boolean({ default: false }),
+	}),
 	access: {
 		read: { where: ({ where }) => where.eq('published', true) },
 	},
@@ -1028,9 +1032,9 @@ Every native and low-level business hook receives a safe execution `context`:
 ```ts
 const PostSchema = Schema.define({
 	className: 'Post',
-	fields(field) {
-		field.string('title')
-	},
+	fields: (field) => ({
+		title: field.string(),
+	}),
 	hooks: {
 		beforeOperation: {
 			create: async ({ context, item, kind }) => {
@@ -1105,24 +1109,22 @@ list dimensions, nested objects, and community field values:
 ```ts
 const UserSchema = Schema.define({
 	className: 'User',
-	fields(field) {
-		field.string('email', {
+	fields: (field) => ({
+		email: field.string({
 			hooks: {
 				resolveInput: [
 					({ value }) => {
 						const normalized = value.trim()
-
 						if (!normalized.includes('@')) {
 							throw new TypeError('Invalid email')
 						}
-
 						return normalized
 					},
 					({ value }) => value.toLowerCase(),
 				],
 			},
-		})
-	},
+		}),
+	}),
 })
 ```
 

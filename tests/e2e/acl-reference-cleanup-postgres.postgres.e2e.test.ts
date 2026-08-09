@@ -14,7 +14,6 @@ import {
 	createAccessPrincipalReference,
 	definePlugin,
 	isAccessReferenceCleanup,
-	stringField,
 	type AccessContext,
 	type AccessReferenceCleanup,
 	type SchemaDefinition,
@@ -33,15 +32,21 @@ type ReferencePolicy = 'cascade' | 'fail' | 'preserve'
 
 const FailPrincipal = Schema.define({
 	className: 'ACLReferenceFailPrincipal',
-	fields: { name: stringField({ validation: { required: true } }) },
+	fields: (field) => ({
+		name: field.string({ validation: { required: true } }),
+	}),
 })
 const PreservePrincipal = Schema.define({
 	className: 'ACLReferencePreservePrincipal',
-	fields: { name: stringField({ validation: { required: true } }) },
+	fields: (field) => ({
+		name: field.string({ validation: { required: true } }),
+	}),
 })
 const CascadePrincipal = Schema.define({
 	className: 'ACLReferenceCascadePrincipal',
-	fields: { name: stringField({ validation: { required: true } }) },
+	fields: (field) => ({
+		name: field.string({ validation: { required: true } }),
+	}),
 })
 const principalPolicies = immutableArray([
 	immutableRecord({ policy: 'fail' as const, schema: FailPrincipal }),
@@ -53,19 +58,19 @@ const FailRole = RoleSchema.define({
 	className: 'ACLReferenceFailRole',
 	members: { schema: FailPrincipal },
 	deletion: { references: 'fail' },
-	fields: {},
+	fields: () => ({}),
 })
 const PreserveRole = RoleSchema.define({
 	className: 'ACLReferencePreserveRole',
 	members: { schema: FailPrincipal },
 	deletion: { references: 'preserve' },
-	fields: {},
+	fields: () => ({}),
 })
 const CascadeRole = RoleSchema.define({
 	className: 'ACLReferenceCascadeRole',
 	members: { schema: FailPrincipal },
 	deletion: { references: 'cascade' },
-	fields: {},
+	fields: () => ({}),
 })
 
 const emptyACL = new ACL()
@@ -73,7 +78,9 @@ const committedACLChanges: ACLChangedEvent[] = []
 let rejectNextSecondaryCleanup = false
 const ProtectedPrimary = Schema.define({
 	className: 'ACLReferenceProtectedPrimary',
-	fields: { title: stringField({ validation: { required: true } }) },
+	fields: (field) => ({
+		title: field.string({ validation: { required: true } }),
+	}),
 	extensions: [
 		acl({
 			default: emptyACL,
@@ -85,7 +92,17 @@ const ProtectedPrimary = Schema.define({
 })
 const ProtectedSecondary = Schema.define({
 	className: 'ACLReferenceProtectedSecondary',
-	fields: { title: stringField({ validation: { required: true } }) },
+	fields: (field) => ({
+		title: field.string({ validation: { required: true } }),
+	}),
+	extensions: [
+		acl({
+			default: emptyACL,
+			resolveInput: ({ currentAcl, inputAcl }) =>
+				inputAcl ?? currentAcl ?? emptyACL,
+		}),
+		postgresTable({ name: 'acl_reference_secondary' }),
+	],
 	hooks: {
 		beforeOperation: {
 			update: ({ operation }) => {
@@ -97,14 +114,6 @@ const ProtectedSecondary = Schema.define({
 			},
 		},
 	},
-	extensions: [
-		acl({
-			default: emptyACL,
-			resolveInput: ({ currentAcl, inputAcl }) =>
-				inputAcl ?? currentAcl ?? emptyACL,
-		}),
-		postgresTable({ name: 'acl_reference_secondary' }),
-	],
 })
 
 const readPrincipalCleanups = (

@@ -1,27 +1,22 @@
-import {
-	pointerField,
-	Schema,
-	SchemaRegistry,
-	stringField,
-} from '@ultimabase/core'
+import { Schema, SchemaRegistry } from '@ultimabase/core'
 import type { SchemaDefinition, SchemaTargetGraph } from '@ultimabase/core'
 
 import { PostgresSchemaCatalog } from './catalog.js'
 
 const User: SchemaDefinition = Schema.define({
 	className: 'PointerUser',
-	fields: { name: stringField() },
+	fields: (field) => ({ name: field.string() }),
 })
 const Post: SchemaDefinition = Schema.define({
 	className: 'PointerPost',
-	fields: {
-		author: pointerField({
+	fields: (field) => ({
+		author: field.pointer({
 			indexed: 'unique',
 			onDelete: 'cascade',
 			target: () => User,
 			validation: { required: true },
 		}),
-	},
+	}),
 })
 
 interface PostgresPointerFixture {

@@ -15,10 +15,10 @@ const principal = new RequestContextValue<string>('fixture.principal', (value) =
 
 const AuditSchema = Schema.define({
   className: 'HookContextIntelliSenseAudit',
-  fields: {
+  fields: () => ({
     action: stringField({ validation: { required: true } }),
     secret: stringField(),
-  },
+  }),
 })
 
 declare const context: HookContext

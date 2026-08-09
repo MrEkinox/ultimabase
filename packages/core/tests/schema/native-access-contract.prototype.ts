@@ -3,10 +3,8 @@ import {
 	Schema,
 	allMutations,
 	allowAll,
-	booleanField,
 	definePlugin,
 	denyAll,
-	stringField,
 } from '../../src/index.js'
 
 interface Principal {
@@ -36,6 +34,40 @@ export const readOnlyOperations = {
 
 export const AccessPost = Schema.define({
 	className: 'AccessPost',
+	fields: (field) => ({
+		authorId: field.string({ validation: { required: true } }),
+		published: field.boolean({
+			access: {
+				read: { orderBy: false, output: true, where: false },
+				write: {
+					fill: ({ /* hover:field-value */ value }) => value,
+					replace: false,
+					clear: false,
+				},
+			},
+		}),
+		title: field.string({
+			access: {
+				write: {
+					clear: ({ originalValue }) => {
+						const /* hover:field-clear-original-value */ previous =
+								originalValue
+						return previous.length > 0
+					},
+					fill: ({ value }) => {
+						const /* hover:field-fill-value */ candidate = value
+						return candidate.length > 0
+					},
+					replace: ({ originalValue, value }) => {
+						const /* hover:field-original-value */ previous = originalValue
+						const /* hover:field-update-value */ candidate = value
+						return previous !== candidate
+					},
+				},
+			},
+			validation: { required: true },
+		}),
+	}),
 	access: {
 		read: {
 			allow: {
@@ -45,7 +77,6 @@ export const AccessPost = Schema.define({
 					const /* hover:context-value */ current = context.getValue(principal)
 					// @ts-expect-error -- Operation Access exposes no internal terminal kind.
 					void input.kind
-
 					return current !== undefined
 				},
 				count: false,
@@ -57,9 +88,7 @@ export const AccessPost = Schema.define({
 		create: {
 			item: ({ item }) => {
 				const /* hover:create-access-item */ draft = item
-
 				draft.get('authorId')
-
 				return true
 			},
 		},
@@ -67,54 +96,15 @@ export const AccessPost = Schema.define({
 			item: ({ originalItem, item }) => {
 				const /* hover:update-original-access-item */ persisted = originalItem
 				const /* hover:update-access-item */ candidate = item
-
 				persisted.get('authorId')
 				void persisted.update({ data: { title: 'Updated' } })
-				candidate.title.toUpperCase()
-
-				return persisted.authorId === candidate.authorId
+				candidate.id.toString()
+				return persisted.id.toString() === candidate.id.toString()
 			},
 		},
 		delete: {
-			item: ({ originalItem }) => originalItem.authorId.length > 0,
+			item: ({ originalItem }) => originalItem.id.toString().length > 0,
 		},
-	},
-	fields: {
-		authorId: stringField({ validation: { required: true } }),
-		published: booleanField({
-			access: {
-				read: { orderBy: false, output: true, where: false },
-				write: {
-					fill: ({ /* hover:field-value */ value }) => value,
-					replace: false,
-					clear: false,
-				},
-			},
-		}),
-		title: stringField({
-			access: {
-				write: {
-					clear: ({ originalValue }) => {
-						const /* hover:field-clear-original-value */ previous =
-								originalValue
-
-						return previous.length > 0
-					},
-					fill: ({ value }) => {
-						const /* hover:field-fill-value */ candidate = value
-
-						return candidate.length > 0
-					},
-					replace: ({ originalValue, value }) => {
-						const /* hover:field-original-value */ previous = originalValue
-						const /* hover:field-update-value */ candidate = value
-
-						return previous !== candidate
-					},
-				},
-			},
-			validation: { required: true },
-		}),
 	},
 })
 

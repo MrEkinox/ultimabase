@@ -13,12 +13,12 @@ import {
 
 interface FixtureFieldOptions extends FieldOptions<string> {
 	readonly marker?: string
+	readonly nested?: Readonly<{ readonly label: string }>
 }
 
 type FixtureFieldBuilderMethod = (
-	name: string,
 	options?: FixtureFieldOptions,
-) => void
+) => ReturnType<typeof alphaField>
 
 type FixtureFieldBuilder = FieldBuilder & {
 	readonly alpha: FixtureFieldBuilderMethod
@@ -93,9 +93,11 @@ describe('plugin FieldBuilder methods', () => {
 		})
 		const Document = Schema.define({
 			className: 'PluginMethodDocument',
-			fields(field) {
+			fields: (field) => {
 				trace.push('fields')
-				fixtureBuilder(field).alpha('value', { marker: 'ordered' })
+				return {
+					value: fixtureBuilder(field).alpha({ marker: 'ordered' }),
+				}
 			},
 		})
 
@@ -104,8 +106,8 @@ describe('plugin FieldBuilder methods', () => {
 			schemas: [Document],
 		})
 
-		expect(trace).toStrictEqual(['declare', 'fields', 'setup:fixture.alpha'])
-		expect(Document.fields.value?.options).toMatchObject({ marker: 'ordered' })
+		expect(trace).toStrictEqual(['fields', 'declare', 'setup:fixture.alpha'])
+		expect(Document.fields.value.options).toMatchObject({ marker: 'ordered' })
 		expect(application.fieldBuilderMethods).toStrictEqual([
 			expect.objectContaining({
 				fieldKind: 'fixture.alpha',
@@ -124,10 +126,10 @@ describe('plugin FieldBuilder methods', () => {
 	it('fails precisely when no configured plugin declares a used method', async () => {
 		const Missing = Schema.define({
 			className: 'MissingPluginMethod',
-			fields(field) {
+			fields: (field) => ({
 				// The generated-like cast simulates stale output after plugin removal.
-				fixtureBuilder(field).alpha('value')
-			},
+				value: fixtureBuilder(field).alpha(),
+			}),
 		})
 
 		await expect(
@@ -135,7 +137,7 @@ describe('plugin FieldBuilder methods', () => {
 		).rejects.toThrow(
 			expect.objectContaining({
 				cause: new TypeError(
-					'MissingPluginMethod.fields FieldBuilder method "alpha" is unavailable; configure the plugin that declares it',
+					'MissingPluginMethod.fields.value FieldBuilder method "alpha" is unavailable; configure the plugin that declares it',
 				),
 				code: 'SCHEMA_COMPILATION_FAILED',
 				reason: 'callback-threw',
@@ -147,22 +149,18 @@ describe('plugin FieldBuilder methods', () => {
 		let sharedDeclarations = 0
 		const Shared = Schema.define({
 			className: 'SharedPluginMethod',
-			fields(field) {
+			fields: (field) => {
 				sharedDeclarations += 1
-				fixtureBuilder(field).alpha('value')
+				return { value: fixtureBuilder(field).alpha() }
 			},
 		})
 		const Alpha = Schema.define({
 			className: 'IsolatedAlphaMethod',
-			fields(field) {
-				fixtureBuilder(field).alpha('value')
-			},
+			fields: (field) => ({ value: fixtureBuilder(field).alpha() }),
 		})
 		const Beta = Schema.define({
 			className: 'IsolatedBetaMethod',
-			fields(field) {
-				fixtureBuilder(field).beta('value')
-			},
+			fields: (field) => ({ value: fixtureBuilder(field).beta() }),
 		})
 		const alphaApplication = await createApplication({
 			plugins: [alphaPlugin()],
@@ -183,8 +181,8 @@ describe('plugin FieldBuilder methods', () => {
 		expect(betaApplication.fieldBuilderMethods.map(({ name }) => name)).toEqual(
 			['beta'],
 		)
-		expect(Alpha.fields.value?.kind).toBe('fixture.alpha')
-		expect(Beta.fields.value?.kind).toBe('fixture.beta')
+		expect(Alpha.fields.value.kind).toBe('fixture.alpha')
+		expect(Beta.fields.value.kind).toBe('fixture.beta')
 		expect(sharedDeclarations).toBe(1)
 
 		await expect(
@@ -192,19 +190,47 @@ describe('plugin FieldBuilder methods', () => {
 		).rejects.toThrow(
 			expect.objectContaining({
 				cause: new TypeError(
-					'SharedPluginMethod.fields FieldBuilder method "alpha" is unavailable; configure the plugin that declares it',
+					'SharedPluginMethod.fields.value FieldBuilder method "alpha" is unavailable; configure the plugin that declares it',
 				),
 			}),
 		)
-		expect(sharedDeclarations).toBe(2)
+		expect(sharedDeclarations).toBe(1)
+	})
+
+	it('snapshots delayed plugin options at declaration time', async () => {
+		const options = {
+			marker: 'declared',
+			nested: { label: 'declared' },
+		}
+		const Snapshot = Schema.define({
+			className: 'PluginMethodOptionSnapshot',
+			fields: (field) => ({
+				value: fixtureBuilder(field).alpha(options),
+			}),
+		})
+
+		options.marker = 'mutated'
+		options.nested.label = 'mutated'
+
+		await createApplication({
+			plugins: [alphaPlugin()],
+			schemas: [Snapshot],
+		})
+
+		expect(Snapshot.fields.value.options).toMatchObject({
+			marker: 'declared',
+			nested: { label: 'declared' },
+		})
+		expect(Object.isFrozen(Snapshot.fields.value.options.nested)).toBe(true)
 	})
 
 	it('rejects built-in overrides and duplicate owners before fields resolve', async () => {
 		let declarations = 0
 		const Unresolved = Schema.define({
 			className: 'ConflictingPluginMethod',
-			fields() {
+			fields: () => {
 				declarations += 1
+				return {}
 			},
 		})
 		const override = defineFieldBuilderMethod({
@@ -225,7 +251,7 @@ describe('plugin FieldBuilder methods', () => {
 		).rejects.toThrow(
 			'FieldBuilder method "string" from "fixture.override-plugin" conflicts with "@ultimabase/core"',
 		)
-		expect(declarations).toBe(0)
+		expect(declarations).toBe(1)
 
 		await expect(
 			createApplication({
@@ -243,15 +269,13 @@ describe('plugin FieldBuilder methods', () => {
 		).rejects.toThrow(
 			'FieldBuilder method "alpha" from "fixture.duplicate-plugin" conflicts with "fixture.alpha-plugin"',
 		)
-		expect(declarations).toBe(0)
+		expect(declarations).toBe(1)
 	})
 
 	it('rejects incompatible factories and asynchronous declarations', async () => {
 		const WrongKind = Schema.define({
 			className: 'WrongPluginMethodKind',
-			fields(field) {
-				fixtureBuilder(field).alpha('value')
-			},
+			fields: (field) => ({ value: fixtureBuilder(field).alpha() }),
 		})
 		const incompatibleMethod = defineFieldBuilderMethod({
 			factory: betaField,

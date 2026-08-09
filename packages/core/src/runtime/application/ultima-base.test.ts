@@ -1,6 +1,6 @@
 import { definePlugin } from '../../foundation.js'
 import { RequestContextValue } from '../../access/index.js'
-import { Schema, stringField } from '../../schema/index.js'
+import { Schema } from '../../schema/index.js'
 import { describe, expect, it } from 'vitest'
 import { QueryBuilder } from '../../query/query/query.js'
 
@@ -18,12 +18,12 @@ import { UltimaBase } from './ultima-base.js'
 
 const articleSchema = Schema.define({
 	className: 'UltimaBaseArticle',
-	fields: {
-		title: stringField({
+	fields: (field) => ({
+		title: field.string({
 			indexed: 'unique',
 			validation: { required: true },
 		}),
-	},
+	}),
 })
 
 const principalValue = new RequestContextValue<string>(
@@ -418,7 +418,7 @@ describe('UltimaBase', () => {
 		)
 		const otherSchema = Schema.define({
 			className: 'OtherUltimaBaseArticle',
-			fields: { title: stringField() },
+			fields: (field) => ({ title: field.string() }),
 		})
 		const secondAdapter = new RecordingDatabaseAdapter([], [])
 		const first = new UltimaBase({

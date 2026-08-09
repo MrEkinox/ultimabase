@@ -1,14 +1,10 @@
 import {
-	relationField,
 	Schema,
 	stringField,
 	defineSchemaExtension,
 	type AccessRoleReferenceCarrier,
 	type AccessContext,
-	type FieldBuilder,
-	type GeneratedSchemaFields,
 	type Pointer,
-	type RequireGeneratedSchemaEntry,
 	type RelationField,
 	type SchemaAccess,
 	type SchemaClass,
@@ -83,11 +79,6 @@ type RoleNameField = ReturnType<typeof createRoleNameField>
 
 /** Names fields reserved for portable role semantics. */
 export type ReservedRoleFieldName = 'members' | 'name' | 'roles'
-
-type GeneratedRoleCustomFields<TClassName extends string> = Omit<
-	GeneratedSchemaFields<TClassName>,
-	ReservedRoleFieldName
->
 
 type ReservedRoleFieldCollision<TFields extends SchemaFields> =
 	Extract<keyof TFields, ReservedRoleFieldName> extends never ? unknown : never
@@ -253,7 +244,7 @@ export interface RoleSchemaOptions<
 	/** Selects the exact member domain and optional request-local resolver. */
 	readonly members: RoleMemberOptions<TMemberSchema>
 	/** Adds ordinary application fields beside generated role fields. */
-	readonly fields: TCustomFields
+	readonly fields: SchemaFieldBuilderDeclaration<TCustomFields>
 	/** Owns the default external-reference behavior for every role deletion. */
 	readonly deletion?: RoleDeletionOptions
 	/** Declares adapter-neutral composite indexes for custom and generated scalar fields. */
@@ -281,24 +272,6 @@ export interface RoleSchemaOptions<
 	readonly hooks?: SchemaHooks<
 		RoleSchemaBaseClass<TClassName, TMemberSchema, TCustomFields, TExtensions>
 	>
-}
-
-/** Declares developer-owned role fields through the canonical FieldBuilder. */
-export type RoleSchemaBuilderOptions<
-	TClassName extends string,
-	TMemberSchema extends SchemaDefinition,
-	TExtensions extends readonly SchemaExtension<string, object>[],
-> = Omit<
-	RoleSchemaOptions<
-		TClassName,
-		TMemberSchema,
-		GeneratedRoleCustomFields<TClassName>,
-		TExtensions
-	>,
-	'fields'
-> & {
-	/** Adds ordinary application fields beside generated role fields. */
-	readonly fields: SchemaFieldBuilderDeclaration
 }
 
 /** Retains package-private declaration state without polluting schema metadata. */
@@ -333,27 +306,10 @@ export class RoleSchema {
 	 * const AppRole = RoleSchema.define({
 	 *   className: 'Role',
 	 *   members: { schema: User },
-	 *   fields(field) { field.string('description') },
+	 *   fields: (field) => ({ description: field.string() }),
 	 * })
 	 * ```
 	 */
-	static define<
-		const TClassName extends string,
-		const TMemberSchema extends SchemaDefinition,
-		const TExtensions extends readonly SchemaExtension<string, object>[] =
-			readonly [],
-	>(
-		// The requirement is intentionally unknown only during the first-generation bootstrap.
-		options: RoleSchemaBuilderOptions<TClassName, TMemberSchema, TExtensions> &
-			// eslint-disable-next-line @typescript-eslint/no-redundant-type-constituents
-			RequireGeneratedSchemaEntry<TClassName>,
-	): RoleSchemaClass<
-		TClassName,
-		TMemberSchema,
-		GeneratedRoleCustomFields<TClassName>,
-		TExtensions
-	>
-
 	static define<
 		const TClassName extends string,
 		const TMemberSchema extends SchemaDefinition,
@@ -377,9 +333,12 @@ export class RoleSchema {
 		const TExtensions extends readonly SchemaExtension<string, object>[] =
 			readonly [],
 	>(
-		options:
-			| RoleSchemaOptions<TClassName, TMemberSchema, TCustomFields, TExtensions>
-			| RoleSchemaBuilderOptions<TClassName, TMemberSchema, TExtensions>,
+		options: RoleSchemaOptions<
+			TClassName,
+			TMemberSchema,
+			TCustomFields,
+			TExtensions
+		>,
 	): unknown {
 		if (!Schema.is(options.members.schema)) {
 			throw new TypeError('members.schema must be created by Schema.define')
@@ -399,17 +358,6 @@ export class RoleSchema {
 			throw new TypeError(
 				'deletion.references must be "fail", "preserve", or "cascade"',
 			)
-		}
-
-		const customFields = options.fields
-
-		for (const fieldName of ['members', 'name', 'roles'] as const) {
-			if (
-				typeof customFields !== 'function' &&
-				Object.hasOwn(customFields, fieldName)
-			) {
-				throw new TypeError(`Reserved role field: ${fieldName}`)
-			}
 		}
 
 		const selfTargetState: {
@@ -432,22 +380,22 @@ export class RoleSchema {
 
 			return selfTargetState.roleSchema
 		}
-		const fields =
-			typeof customFields === 'function'
-				? (field: FieldBuilder): void => {
-						customFields(field)
-						field.add('name', createRoleNameField())
-						field.relation('members', {
-							target: () => options.members.schema,
-						})
-						field.relation('roles', { target: selfTarget })
-					}
-				: {
-						...customFields,
-						name: createRoleNameField(),
-						members: relationField({ target: () => options.members.schema }),
-						roles: relationField({ target: selfTarget }),
-					}
+		const fields: SchemaFieldBuilderDeclaration = (field) => {
+			const customFields = options.fields(field)
+
+			for (const fieldName of ['members', 'name', 'roles'] as const) {
+				if (Object.hasOwn(customFields, fieldName)) {
+					throw new TypeError(`Reserved role field: ${fieldName}`)
+				}
+			}
+
+			return {
+				...customFields,
+				name: createRoleNameField(),
+				members: field.relation({ target: () => options.members.schema }),
+				roles: field.relation({ target: selfTarget }),
+			}
+		}
 		const extensions = [
 			...(options.extensions ?? []),
 			roleSchemaExtension,

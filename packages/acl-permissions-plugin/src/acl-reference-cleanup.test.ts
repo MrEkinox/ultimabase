@@ -11,7 +11,7 @@ import {
 
 const Principal = Schema.define({
 	className: 'ACLReferenceCleanupPrincipal',
-	fields: {},
+	fields: () => ({}),
 })
 const alice = Principal.pointer('alice')
 const bob = Principal.pointer('bob')

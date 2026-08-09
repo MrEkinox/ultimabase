@@ -1,12 +1,4 @@
-import {
-	bigintField,
-	binaryField,
-	dateTimeField,
-	jsonField,
-	Schema,
-	objectField,
-	stringField,
-} from '@ultimabase/core'
+import { Schema } from '@ultimabase/core'
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -25,16 +17,16 @@ describe('PostgreSQL Drizzle column value mapping', () => {
 	it('round-trips schema-guided JSONB values without losing native scalars', () => {
 		const schema = Schema.define({
 			className: 'CodecFixture',
-			fields: {
-				profile: objectField({
-					fields: {
-						avatar: binaryField(),
-						loginAt: dateTimeField(),
-						nestedCounts: bigintField({ list: [true, true] }),
-						nickname: stringField(),
-					},
+			fields: (field) => ({
+				profile: field.object({
+					fields: (field) => ({
+						avatar: field.binary(),
+						loginAt: field.dateTime(),
+						nestedCounts: field.bigint({ list: [true, true] }),
+						nickname: field.string(),
+					}),
 				}),
-			},
+			}),
 		})
 		const column = compilePostgresSchema(schema).fields.profile?.column
 
@@ -75,7 +67,7 @@ describe('PostgreSQL Drizzle column value mapping', () => {
 	it('delegates top-level binary values to Drizzle bytea mapping', () => {
 		const schema = Schema.define({
 			className: 'BinaryCodecFixture',
-			fields: { payload: binaryField() },
+			fields: (field) => ({ payload: field.binary() }),
 		})
 		const column = compilePostgresSchema(schema).fields.payload?.column
 
@@ -95,7 +87,7 @@ describe('PostgreSQL Drizzle column value mapping', () => {
 	it('snapshots top-level JSON values before exposing driver data', () => {
 		const schema = Schema.define({
 			className: 'JsonCodecFixture',
-			fields: { metadata: jsonField() },
+			fields: (field) => ({ metadata: field.json() }),
 		})
 		const column = compilePostgresSchema(schema).fields.metadata?.column
 
@@ -120,7 +112,7 @@ describe('PostgreSQL Drizzle column value mapping', () => {
 	it('round-trips portable plugin codecs through top-level JSONB columns', () => {
 		const schema = Schema.define({
 			className: 'PluginCodecFixture',
-			fields: { protectedValue: createStoredPluginField() },
+			fields: () => ({ protectedValue: createStoredPluginField() }),
 		})
 		const field = compilePostgresSchema(schema).fields.protectedValue
 
@@ -173,13 +165,13 @@ describe('PostgreSQL Drizzle column value mapping', () => {
 	it('rejects corrupted JSONB structures instead of returning partial values', () => {
 		const schema = Schema.define({
 			className: 'CorruptCodecFixture',
-			fields: {
-				profile: objectField({
-					fields: {
-						count: bigintField({ validation: { required: true } }),
-					},
+			fields: (field) => ({
+				profile: field.object({
+					fields: (field) => ({
+						count: field.bigint({ validation: { required: true } }),
+					}),
 				}),
-			},
+			}),
 		})
 		const column = compilePostgresSchema(schema).fields.profile?.column
 

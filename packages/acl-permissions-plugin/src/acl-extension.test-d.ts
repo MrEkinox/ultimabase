@@ -1,9 +1,6 @@
 import {
 	definePluginField,
-	objectField,
-	pointerField,
 	Schema,
-	stringField,
 	type InferCreateInput,
 	type InferObject,
 	type InferUpdateInput,
@@ -24,9 +21,9 @@ test('adds concise ACL types to schema object, create, and update inference', ()
 	const protectedObjects = acl()
 	const Post = Schema.define({
 		className: 'ProtectedPost',
-		fields: {
-			title: stringField({ validation: { required: true } }),
-		},
+		fields: (field) => ({
+			title: field.string({ validation: { required: true } }),
+		}),
 		extensions: [protectedObjects],
 	})
 
@@ -85,7 +82,9 @@ test('preserves explicit data contracts and discriminates shared input resolutio
 test('contextually infers exact sibling fields without a manual data generic', () => {
 	const Author = Schema.define({
 		className: 'ContextualACLAuthor',
-		fields: { name: stringField({ validation: { required: true } }) },
+		fields: (field) => ({
+			name: field.string({ validation: { required: true } }),
+		}),
 	})
 	const customField = definePluginField(
 		'fixture.contextual-acl',
@@ -94,22 +93,22 @@ test('contextually infers exact sibling fields without a manual data generic', (
 	)
 	const Post = Schema.define({
 		className: 'ContextualACLPost',
-		fields: {
-			author: pointerField({
+		fields: (field) => ({
+			author: field.pointer({
 				target: () => Author,
 				validation: { required: true },
 			}),
 			custom: customField,
-			profile: objectField({
-				fields: {
-					displayName: stringField({ validation: { required: true } }),
-				},
+			profile: field.object({
+				fields: (field) => ({
+					displayName: field.string({ validation: { required: true } }),
+				}),
 				typeName: 'ContextualACLProfile',
 			}),
-			tags: stringField({ list: true }),
-			title: stringField({ validation: { required: true } }),
-			visibility: stringField(),
-		},
+			tags: field.string({ list: true }),
+			title: field.string({ validation: { required: true } }),
+			visibility: field.string(),
+		}),
 		extensions: ({ bind }) => [
 			bind(acl, {
 				default: ({ data }) => {

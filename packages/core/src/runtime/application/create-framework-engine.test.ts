@@ -3,7 +3,7 @@ import {
 	definePlugin,
 	FrameworkApplication,
 } from '../../foundation.js'
-import { Schema, stringField } from '../../schema/index.js'
+import { Schema } from '../../schema/index.js'
 import { describe, expect, it } from 'vitest'
 
 import { runWithRequestEngine } from '../context/active-framework-context.js'
@@ -25,12 +25,12 @@ import { createFrameworkEngine } from './create-framework-engine.js'
 
 const articleSchema = Schema.define({
 	className: 'AssembledArticle',
-	fields: {
-		title: stringField({
+	fields: (field) => ({
+		title: field.string({
 			hooks: { resolveInput: ({ value }) => value.trim() },
 			validation: { required: true },
 		}),
-	},
+	}),
 })
 
 const databasePlugin = (adapter: DatabaseAdapter) =>
@@ -259,10 +259,10 @@ describe('createFrameworkEngine', () => {
 		const trace: string[] = []
 		const schema = Schema.define({
 			className: 'AssembledReadArticle',
-			fields: {
-				secret: stringField(),
-				title: stringField(),
-			},
+			fields: (field) => ({
+				secret: field.string(),
+				title: field.string(),
+			}),
 		})
 		const adapter = new RecordingDatabaseAdapter(
 			[
@@ -361,9 +361,9 @@ describe('createFrameworkEngine', () => {
 		const trace: string[] = []
 		const schema = Schema.define({
 			className: 'RejectedNativeHookArticle',
-			fields: {
-				title: stringField({ validation: { required: true } }),
-			},
+			fields: (field) => ({
+				title: field.string({ validation: { required: true } }),
+			}),
 			hooks: {
 				beforeOperation: {
 					create: () => {
@@ -406,12 +406,12 @@ describe('createFrameworkEngine', () => {
 		const adapter = new RecordingDatabaseAdapter([], trace)
 		const transformedSchema = Schema.define({
 			className: 'SecuritySensitiveTransformArticle',
-			fields: {
-				title: stringField({
+			fields: (field) => ({
+				title: field.string({
 					hooks: { resolveInput: () => 'blocked' },
 					validation: { required: true },
 				}),
-			},
+			}),
 		})
 		const enforcementPlugin = definePlugin({
 			name: 'fixture.security-sensitive-guard',

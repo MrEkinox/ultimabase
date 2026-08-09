@@ -200,7 +200,7 @@ describe('stored roles with PostgreSQL', { concurrent: false }, () => {
 		const selected = await AppRole.findMany(
 			{
 				where: { priority: { gte: 10 } },
-				orderBy: [{ priority: 'asc' }],
+				orderBy: { priority: 'asc' },
 				select: { id: true, name: true, priority: true },
 			},
 			{ ultimabase: app, useMasterKey: true },

@@ -3,7 +3,7 @@
 - Status: active
 - Started: 2026-08-09
 - Objective owner: `@ultimabase/core`, `@ultimabase/codegen`, `@ultimabase/pg-vector-plugin`
-- Governing decision: [ADR-0173](docs/adr/0173-generated-schema-authoring.md)
+- Governing decisions: [ADR-0173](docs/adr/0173-generated-schema-authoring.md), refined by [ADR-0175](docs/adr/0175-map-returning-schema-fields.md)
 - Paused objective: [ACL hardening and developer-experience consolidation](docs/plans/paused/acl-hardening-and-developer-experience-consolidation.md)
 
 ## Objective
@@ -19,37 +19,38 @@ The target developer experience is:
 ```ts
 const Document = Schema.define({
 	className: 'Document',
-	fields(field) {
-		field.string('title', {
+	fields: (field) => ({
+		title: field.string({
 			validation: { required: true },
-		})
-		field.vector('embedding', {
+		}),
+		embedding: field.vector({
 			dimensions: 1536,
-		})
-	},
+		}),
+	}),
 })
 ```
 
-The developer installs and configures the vector plugin, then generates the
-application contract through `@ultimabase/codegen`. The first unresolved plugin
-method may be temporarily reported by TypeScript; successful generation adds
-its exact method and schema types. A future CLI may automate generation, watch,
-and startup verification, but those commands are deliberately outside this
-active milestone.
+The developer installs and configures the vector and codegen plugins.
+`UltimaBase.start()` regenerates the application contract through
+`@ultimabase/codegen`; the first unresolved plugin method may be temporarily
+reported by TypeScript, then successful generation adds its exact method and
+schema types. A future CLI provides explicit manual generation, check mode, and
+watch mode, but those commands are deliberately outside this active milestone.
 
 ## Frozen constraints
 
-- Static TypeScript schema declarations remain the source of truth; generated files are deterministic caches.
+- Static TypeScript schema declarations remain the runtime source of truth; generated `TypeInfo` is the source of precise application typing.
+- Before generation, Core exposes safe bootstrap contracts such as `BaseItem` instead of recursively reconstructing the application type graph.
 - Core never names a plugin field method or imports its implementation.
 - Plugin declaration contributions are synchronous, pure, deterministic, owner-scoped, and application-local.
-- Schema field callbacks resolve only after plugin field methods have been registered.
+- Schema field callbacks execute once during `Schema.define()` and capture immutable method calls; plugin-owned calls materialize only after the application has registered their methods.
 - Public generated declarations use compact named types instead of reproducing the current recursive conditional inference graph.
 - Generated output contains no database credentials, runtime request state, Drizzle metadata, or executable business callbacks.
 - Missing plugins, duplicate field methods, incompatible generated identities, and stale output fail explicitly.
 - The first implementation regenerates the complete application graph; incremental generation requires later measured evidence.
 - `field.custom()` is not introduced as the normal application DX.
 - Existing field factories remain the implementation foundation and plugin-author contract until a later decision explicitly narrows their exports.
-- Internal tests and framework-owned composition may retain field maps for local inference; ordinary application documentation uses FieldBuilder.
+- Application code, internal tests, and framework-owned schemas use the same map-returning FieldBuilder declaration.
 - Embedded objects remain value trees: pointers, relations, and database-generated sequences stay top-level.
 - Every issue receives its own commit and no push occurs without explicit user confirmation.
 
@@ -77,7 +78,7 @@ semantics and the user validates the demonstrated editor behavior.
 
 ### Deferred — Commands and continuous regeneration
 
-- [ ] [808 — Add schema generation commands and watch mode](issues/800-generated-types/808-typegen-cli-watch-start.md) — deferred by product decision on 2026-08-09
+- [ ] [808 — Add manual schema generation commands and watch mode](issues/800-generated-types/808-typegen-cli-watch-start.md) — deferred by product decision on 2026-08-09
 
 ### Phase 3 — Repository migration
 
@@ -93,7 +94,7 @@ semantics and the user validates the demonstrated editor behavior.
 - After 802: present the ADR and the deliberate non-goals before production code.
 - After 805: demonstrate runtime field resolution and missing/conflicting plugin failures.
 - After 807: demonstrate source and packed-package autocomplete for Query, mutations, Access, hooks, objects, pointers, and relations.
-- After 809: review the public API examples while retaining field maps only for internal tests and framework-owned composition.
+- After 809: review one map-returning FieldBuilder syntax across application, test, and framework-owned declarations.
 
 ## Completion gate
 
@@ -102,4 +103,4 @@ semantics and the user validates the demonstrated editor behavior.
 - TypeScript stable releases receive exact completions without depending on TypeScript 7-only contextual behavior.
 - A representative large-schema fixture records typecheck time, completion latency, hover quality, and TypeScript process memory before and after migration.
 - Core, plugin, packed-package, PostgreSQL E2E, typecheck, test, lint, formatting, constraints, and build checks pass.
-- Documentation describes explicit first generation, stale output, plugin removal, and read-only consumption while naming automatic watch and startup regeneration as deferred.
+- Documentation describes startup generation, stale output, plugin removal, and read-only consumption while naming only manual CLI and watch commands as deferred.

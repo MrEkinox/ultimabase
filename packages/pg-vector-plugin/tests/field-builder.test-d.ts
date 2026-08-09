@@ -14,7 +14,7 @@ declare const generatedField: FieldBuilder & {
 }
 
 test('types the generated vector method with the existing exact options', () => {
-	generatedField.vector('embedding', {
+	generatedField.vector({
 		dimensions: 3,
 		validation: { required: true },
 		hooks: {
@@ -26,19 +26,19 @@ test('types the generated vector method with the existing exact options', () => 
 		},
 	})
 
-	generatedField.vector('embeddings', {
+	generatedField.vector({
 		dimensions: 3,
 		list: true,
 	})
 
 	// @ts-expect-error -- Dimensions remain numeric metadata.
-	generatedField.vector('invalidDimensions', { dimensions: 'three' })
-	generatedField.vector('invalidDefault', {
+	generatedField.vector({ dimensions: 'three' })
+	generatedField.vector({
 		dimensions: 2,
 		// @ts-expect-error -- Defaults retain the vector's numeric value type.
 		default: ['one', 'two'],
 	})
-	generatedField.vector('invalidNullable', {
+	generatedField.vector({
 		dimensions: 2,
 		validation: {
 			// @ts-expect-error -- Nullability remains derived from required presence.

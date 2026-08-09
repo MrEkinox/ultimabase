@@ -6,9 +6,7 @@ import {
 	definePlugin,
 	definePluginField,
 	defineSchemaExtension,
-	objectField,
 	Schema,
-	stringField,
 } from '../index.js'
 
 const schemaExtension = defineSchemaExtension(
@@ -26,19 +24,19 @@ const urlNormalizers = {
 }
 const schema = Schema.define({
 	className: 'PluginHookTarget',
-	fields: {
+	fields: (field) => ({
 		endpoint: definePluginField('fixture.url', {}, urlNormalizers),
-		profile: objectField({
-			fields: {
-				displayName: stringField(),
-			},
+		profile: field.object({
+			fields: (field) => ({
+				displayName: field.string(),
+			}),
 		}),
-		tags: stringField({
+		tags: field.string({
 			list: true,
 			extensions: [fieldExtension],
 		}),
-		title: stringField({ validation: { required: true } }),
-	},
+		title: field.string({ validation: { required: true } }),
+	}),
 	extensions: [schemaExtension],
 })
 const urlKindTarget =

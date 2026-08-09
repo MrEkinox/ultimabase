@@ -3,6 +3,7 @@
 - Status: accepted
 - Date: 2026-08-09
 - Refines: ADR-0002, ADR-0022, ADR-0029, ADR-0048, ADR-0050, ADR-0088, ADR-0109, ADR-0130
+- Refined by: ADR-0175
 
 ## Context
 
@@ -136,6 +137,13 @@ embedded objects, pointers, and relations. Core public APIs look up those
 contracts by the literal schema class name, so application code does not pass a
 manual type registry or write a generic such as `<TypeInfo, 'Document'>`.
 
+Each `Schemas.<Name>.TypeInfo` entry is the source of truth for the public item
+and operation inputs. The Core module augmentation references that entry rather
+than repeating its types. It adds only private field metadata that cannot be
+recovered reliably from TypeScript value shapes: logical kind, list depth, and
+relationship target/cardinality. Access and hook views are derived from the
+same item and input types instead of being stored again in the registry.
+
 The generated registry preserves the runtime schema's exact enum literals,
 required and optional state, list depth, immutable and generated fields, nested
 objects, relationship targets, and plugin logical values. Shared public
@@ -199,7 +207,16 @@ recompiles the static graph in memory and verifies the shipped fingerprint; it
 does not write into source, package, or installation directories. Missing,
 incomplete, or stale artifacts fail with an actionable diagnostic.
 
-The future codegen package owns application discovery, deterministic emission,
+In writable development environments, the application configures
+`codegenPlugin()` from `@ultimabase/codegen`. `UltimaBase.start()` first compiles
+the static graph, then the plugin atomically regenerates the complete declaration
+during setup before any infrastructure connection. Core exposes only the
+read-only compiled schema and application-local FieldBuilder method graph to
+the plugin and never imports codegen. The future CLI remains a separate manual
+entry point for generation, check mode, and watch mode; it is not required for
+normal startup generation.
+
+The codegen package owns application discovery, deterministic emission,
 atomic replacement, and conflict diagnostics. Core owns only the static
 compilation snapshot and neutral contribution contracts. Issue 806 supersedes
 the earlier generic-orchestrator issue 718 with the smallest orchestrator needed

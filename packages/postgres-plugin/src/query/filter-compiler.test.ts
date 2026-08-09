@@ -2,28 +2,9 @@ import {
 	collectQueryRelationPredicates,
 	fieldPath,
 	QueryBuilder,
-	relationField,
 	type QueryFilterNode,
 } from '@ultimabase/core'
-import {
-	bigintField,
-	binaryField,
-	booleanField,
-	dateField,
-	dateTimeField,
-	decimalField,
-	Schema,
-	enumField,
-	floatField,
-	intField,
-	jsonField,
-	objectField,
-	pointerField,
-	stringField,
-	SchemaRegistry,
-	timeField,
-	uuidField,
-} from '@ultimabase/core'
+import { Schema, SchemaRegistry } from '@ultimabase/core'
 import { PgDialect } from 'drizzle-orm/pg-core'
 import { describe, expect, it } from 'vitest'
 
@@ -44,27 +25,27 @@ import {
 
 const FilterSchema = Schema.define({
 	className: 'FilterFixture',
-	fields: {
-		active: booleanField(),
-		attachment: binaryField(),
-		birthday: dateField(),
-		count: intField(),
-		eventAt: dateTimeField(),
-		exact: decimalField(),
-		huge: bigintField(),
-		metadata: jsonField(),
-		profile: objectField({
-			fields: {
-				label: stringField(),
-				stats: objectField({ fields: { exact: bigintField() } }),
-			},
+	fields: (field) => ({
+		active: field.boolean(),
+		attachment: field.binary(),
+		birthday: field.date(),
+		count: field.int(),
+		eventAt: field.dateTime(),
+		exact: field.decimal(),
+		huge: field.bigint(),
+		metadata: field.json(),
+		profile: field.object({
+			fields: (field) => ({
+				label: field.string(),
+				stats: field.object({ fields: (field) => ({ exact: field.bigint() }) }),
+			}),
 		}),
-		rating: floatField(),
-		status: enumField({ values: ['draft', 'published'] }),
-		title: stringField(),
-		token: uuidField(),
-		wakeAt: timeField(),
-	},
+		rating: field.float(),
+		status: field.enum({ values: ['draft', 'published'] }),
+		title: field.string(),
+		token: field.uuid(),
+		wakeAt: field.time(),
+	}),
 })
 
 const compiledSchema = compilePostgresSchema(FilterSchema)
@@ -87,11 +68,13 @@ describe('PostgreSQL filter compiler', () => {
 	it('compiles relation predicates owned by a private Runtime row filter', () => {
 		const Target = Schema.define({
 			className: 'FilterAccessRelationTarget',
-			fields: { label: stringField(), visible: booleanField() },
+			fields: (field) => ({ label: field.string(), visible: field.boolean() }),
 		})
 		const Source = Schema.define({
 			className: 'FilterAccessRelationSource',
-			fields: { targets: relationField({ target: () => Target }) },
+			fields: (field) => ({
+				targets: field.relation({ target: () => Target }),
+			}),
 		})
 		const registry = new SchemaRegistry([Source, Target])
 		const catalog = new PostgresSchemaCatalog(
@@ -134,11 +117,13 @@ describe('PostgreSQL filter compiler', () => {
 	it('parameterizes correlated relation predicates and private target Access', () => {
 		const Target = Schema.define({
 			className: 'FilterRelationTarget',
-			fields: { label: stringField(), visible: booleanField() },
+			fields: (field) => ({ label: field.string(), visible: field.boolean() }),
 		})
 		const Source = Schema.define({
 			className: 'FilterRelationSource',
-			fields: { targets: relationField({ target: () => Target }) },
+			fields: (field) => ({
+				targets: field.relation({ target: () => Target }),
+			}),
 		})
 		const registry = new SchemaRegistry([Source, Target])
 		const catalog = new PostgresSchemaCatalog(
@@ -181,11 +166,11 @@ describe('PostgreSQL filter compiler', () => {
 	it('compiles pointer target traversal with target Access through Drizzle relations', () => {
 		const Target = Schema.define({
 			className: 'FilterPointerPredicateTarget',
-			fields: { label: stringField(), visible: booleanField() },
+			fields: (field) => ({ label: field.string(), visible: field.boolean() }),
 		})
 		const Source = Schema.define({
 			className: 'FilterPointerPredicateSource',
-			fields: { target: pointerField({ target: () => Target }) },
+			fields: (field) => ({ target: field.pointer({ target: () => Target }) }),
 		})
 		const registry = new SchemaRegistry([Source, Target])
 		const catalog = new PostgresSchemaCatalog(
@@ -311,10 +296,13 @@ describe('PostgreSQL filter compiler', () => {
 	})
 
 	it('parameterizes pointer predicates as target UUIDs', () => {
-		const User = Schema.define({ className: 'FilterPointerUser', fields: {} })
+		const User = Schema.define({
+			className: 'FilterPointerUser',
+			fields: () => ({}),
+		})
 		const Post = Schema.define({
 			className: 'FilterPointerPost',
-			fields: { author: pointerField({ target: () => User }) },
+			fields: (field) => ({ author: field.pointer({ target: () => User }) }),
 		})
 		const registry = new SchemaRegistry([User, Post])
 		const catalog = new PostgresSchemaCatalog(

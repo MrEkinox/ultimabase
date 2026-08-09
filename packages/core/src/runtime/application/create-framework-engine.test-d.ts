@@ -1,5 +1,5 @@
 import { definePlugin, type FrameworkApplication } from '../../foundation.js'
-import { Schema, stringField } from '../../schema/index.js'
+import { Schema } from '../../schema/index.js'
 import { expectTypeOf, test } from 'vitest'
 
 import {
@@ -11,7 +11,7 @@ import { createFrameworkEngine } from './create-framework-engine.js'
 
 const schema = Schema.define({
 	className: 'AssembledTypedArticle',
-	fields: { title: stringField() },
+	fields: (field) => ({ title: field.string() }),
 })
 declare const adapter: DatabaseAdapter
 const databasePlugin = definePlugin({

@@ -117,7 +117,7 @@ import { Schema } from '../../src/schema/index.js'
 
 Schema.define({
 	className: 'Article',
-	fields: {},
+	fields: () => ({}),
 	access: { /* completion */ },
 })
 `)
@@ -137,7 +137,7 @@ import { Schema } from '../../src/schema/index.js'
 
 Schema.define({
 	className: 'Article',
-	fields: {},
+	fields: () => ({}),
 	access: { read: { allow: { /* completion */ } } },
 })
 `)
@@ -167,7 +167,7 @@ import { Schema } from '../../src/schema/index.js'
 
 Schema.define({
 	className: 'Article',
-	fields: {},
+	fields: () => ({}),
 	access: { ${access} },
 })
 `)
@@ -220,11 +220,11 @@ Schema.define({
 			},
 		},
 	},
-	fields: {
+	fields: () => ({
 		published: booleanField(),
 		title: stringField(),
 		views: intField(),
-	},
+	}),
 })
 `)
 

@@ -1,6 +1,6 @@
 import { createHmac, timingSafeEqual } from 'node:crypto'
 
-import { Schema, stringField } from '../../schema/index.js'
+import { Schema } from '../../schema/index.js'
 import { describe, expect, it } from 'vitest'
 
 import type { QueryCursorCodec, QueryCursorPayload } from './contracts.js'
@@ -15,9 +15,9 @@ import { normalizeQueryOrdering } from '../clauses/ordering.js'
 
 const postSchema = Schema.define({
 	className: 'Post',
-	fields: {
-		title: stringField(),
-	},
+	fields: (field) => ({
+		title: field.string(),
+	}),
 })
 
 /** Provides a native integrity check without becoming a production codec. */

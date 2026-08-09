@@ -2,7 +2,6 @@ import {
 	QueryBuilder,
 	Schema,
 	createApplication,
-	intField,
 	stringField,
 } from '@ultimabase/core'
 import type { FrameworkError } from '@ultimabase/core'
@@ -18,7 +17,9 @@ import {
 
 const User = Schema.define({
 	className: 'RoleUser',
-	fields: { email: stringField({ validation: { required: true } }) },
+	fields: (field) => ({
+		email: field.string({ validation: { required: true } }),
+	}),
 })
 
 describe('RoleSchema', () => {
@@ -26,10 +27,10 @@ describe('RoleSchema', () => {
 		const BuilderRole = RoleSchema.define({
 			className: 'BuilderRole',
 			members: { schema: User },
-			fields(field) {
-				field.string('description')
-				field.int('priority', { default: 0 })
-			},
+			fields: (field) => ({
+				description: field.string(),
+				priority: field.int({ default: 0 }),
+			}),
 		})
 		const application = await createApplication({
 			schemas: [User, BuilderRole],
@@ -54,10 +55,10 @@ describe('RoleSchema', () => {
 		const AppRole = RoleSchema.define({
 			className: 'AppRole',
 			members: { schema: User },
-			fields: {
-				description: stringField(),
-				priority: intField({ default: 0 }),
-			},
+			fields: (field) => ({
+				description: field.string(),
+				priority: field.int({ default: 0 }),
+			}),
 			indexes: [{ fields: ['priority', 'createdAt'] }],
 		})
 		const draft = new AppRole({ name: 'editor', description: 'Editors' })
@@ -88,7 +89,7 @@ describe('RoleSchema', () => {
 		const CascadingRole = RoleSchema.define({
 			className: 'CascadingRole',
 			members: { schema: User },
-			fields: {},
+			fields: () => ({}),
 			deletion: { references: 'cascade' },
 		})
 
@@ -99,7 +100,7 @@ describe('RoleSchema', () => {
 			RoleSchema.define({
 				className: 'InvalidDeletionRole',
 				members: { schema: User },
-				fields: {},
+				fields: () => ({}),
 				deletion: {
 					references: 'remove' as unknown as 'fail',
 				},
@@ -120,13 +121,20 @@ describe('RoleSchema', () => {
 			RoleSchema.define({
 				className: 'InvalidRole',
 				members: { schema: User },
-				fields,
+				fields: () => fields,
 			}),
-		).toThrow(new TypeError('Reserved role field: name'))
+		).toThrow(
+			expect.objectContaining({
+				cause: new TypeError('Reserved role field: name'),
+			}),
+		)
 	})
 
 	it('requires its plugin only when a role schema is registered', async () => {
-		const Plain = Schema.define({ className: 'PlainRoleFixture', fields: {} })
+		const Plain = Schema.define({
+			className: 'PlainRoleFixture',
+			fields: () => ({}),
+		})
 		const plainApplication = await createApplication({
 			schemas: [Plain],
 			plugins: [],
@@ -137,7 +145,7 @@ describe('RoleSchema', () => {
 		const AppRole = RoleSchema.define({
 			className: 'OwnedRole',
 			members: { schema: User },
-			fields: {},
+			fields: () => ({}),
 		})
 
 		await expect(
@@ -151,12 +159,12 @@ describe('RoleSchema', () => {
 		const FirstRole = RoleSchema.define({
 			className: 'FirstRoleDomain',
 			members: { schema: User },
-			fields: {},
+			fields: () => ({}),
 		})
 		const SecondRole = RoleSchema.define({
 			className: 'SecondRoleDomain',
 			members: { schema: User },
-			fields: {},
+			fields: () => ({}),
 		})
 		const firstPlugin = rolesPlugin()
 		const secondPlugin = rolesPlugin()

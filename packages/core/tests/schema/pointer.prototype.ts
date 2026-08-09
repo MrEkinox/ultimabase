@@ -8,7 +8,7 @@ import {
 
 const PointerUser = Schema.define({
 	className: 'PointerUser',
-	fields: {},
+	fields: () => ({}),
 })
 
 const /* hover:pointer-field */ authorField = pointerField({
@@ -17,7 +17,7 @@ const /* hover:pointer-field */ authorField = pointerField({
 	})
 const PointerPost = Schema.define({
 	className: 'PointerPost',
-	fields: { author: authorField },
+	fields: () => ({ author: authorField }),
 })
 const /* hover:pointer-value */ author = PointerUser.pointer('user-1')
 

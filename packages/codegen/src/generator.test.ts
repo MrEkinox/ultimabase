@@ -5,6 +5,7 @@ import {
 	FrameworkApplication,
 	Schema,
 	type FieldBuilder,
+	type SchemaDefinition,
 } from '@ultimabase/core'
 import {
 	pgVectorPlugin,
@@ -32,54 +33,58 @@ const createFixture = (reverseOrder = false) => {
 	})
 	const Author = Schema.define({
 		className: 'TypegenAuthor',
-		fields(field) {
-			field.string('name', { validation: { required: true } })
-			field.relation('articles', { target: () => Article })
-		},
+		fields: (field) => ({
+			name: field.string({ validation: { required: true } }),
+			articles: field.relation({ target: (): SchemaDefinition => Article }),
+		}),
 	})
 	const Article = Schema.define({
 		className: 'TypegenArticle',
-		fields(field) {
-			field.string('title', {
-				description: 'The public title.',
-				indexed: true,
-				validation: { required: true },
-			})
-			field.string('slug', { default: 'draft', immutable: true })
-			field.int('matrix', { list: [true, true] })
-			field.enum('status', {
-				typeName: 'PublicationStatus',
-				validation: { required: true },
-				values: ['published', 'draft'],
-			})
-			field.object('billingAddress', {
-				fields(field) {
-					field.string('city', { validation: { required: true } })
-					field.enum('country', {
-						typeName: 'CountryCode',
-						values: ['FR', 'US'],
-					})
-				},
-				typeName: 'PostalAddress',
-			})
-			field.object('shippingAddress', {
-				fields(field) {
-					field.string('city', { validation: { required: true } })
-					field.enum('country', {
-						typeName: 'CountryCode',
-						values: ['US', 'FR'],
-					})
-				},
-				typeName: 'PostalAddress',
-			})
-			field.json('metadata')
-			field.pointer('author', {
-				target: () => Author,
-				validation: { required: true },
-			})
-			field.relation('related', { target: () => Article })
-
-			fixtureFieldBuilder(field).vector('embedding', { dimensions: 3 })
+		fields: (field) => {
+			const generatedField = fixtureFieldBuilder(field)
+			return {
+				title: field.string({
+					description: 'The public title.',
+					indexed: true,
+					validation: { required: true },
+				}),
+				slug: field.string({ default: 'draft', immutable: true }),
+				matrix: field.int({ list: [true, true] }),
+				status: field.enum({
+					typeName: 'PublicationStatus',
+					validation: { required: true },
+					values: ['published', 'draft'],
+				}),
+				billingAddress: field.object({
+					fields: (field) => ({
+						city: field.string({ validation: { required: true } }),
+						country: field.enum({
+							typeName: 'CountryCode',
+							values: ['FR', 'US'],
+						}),
+					}),
+					typeName: 'PostalAddress',
+				}),
+				shippingAddress: field.object({
+					fields: (field) => ({
+						city: field.string({ validation: { required: true } }),
+						country: field.enum({
+							typeName: 'CountryCode',
+							values: ['US', 'FR'],
+						}),
+					}),
+					typeName: 'PostalAddress',
+				}),
+				metadata: field.json(),
+				author: field.pointer({
+					target: (): SchemaDefinition => Author,
+					validation: { required: true },
+				}),
+				related: field.relation({
+					target: (): SchemaDefinition => Article,
+				}),
+				embedding: generatedField.vector({ dimensions: 3 }),
+			}
 		},
 		hooks: {
 			beforeOperation: {
@@ -121,6 +126,35 @@ describe('generateApplicationTypes', () => {
 		)
 		expect(first.fingerprint).toMatch(/^[a-f0-9]{64}$/u)
 		expect(first.contents).not.toContain('schema-hook-secret-must-not-run')
+		expect(first.contents).not.toContain('export type DeepPartial<TValue>')
+		expect(first.contents).not.toContain('export type SchemaAccess<TItem')
+		expect(first.contents).not.toContain('Core.GeneratedOrderBy')
+		expect(first.contents).toContain(
+			'export type OrderDirection = "asc" | "desc"',
+		)
+		expect(first.contents).toContain(
+			'export type TypegenArticleOrderByInput = {',
+		)
+		const typeInfoRegistry = first.contents.slice(
+			first.contents.indexOf('export declare namespace Schemas'),
+			first.contents.indexOf('// Framework registry'),
+		)
+
+		expect(typeInfoRegistry).toContain('readonly item: Item')
+		expect(typeInfoRegistry).not.toContain('readonly access:')
+		expect(typeInfoRegistry).not.toContain('readonly hooks:')
+		expect(first.contents).not.toContain('GeneratedFieldContract')
+		expect(first.contents).not.toContain('Metadata')
+		expect(first.contents).toContain(
+			'readonly "TypegenArticle": Schemas.TypegenArticle.TypeInfo',
+		)
+		expect(first.contents).toContain('export type StringFilter = {')
+		expect(
+			first.contents.indexOf('export type TypegenArticleItem'),
+		).toBeLessThan(first.contents.indexOf('export type StringFilter'))
+		expect(first.contents.indexOf('export type StringFilter')).toBeLessThan(
+			first.contents.indexOf('// Framework registry'),
+		)
 		const serializedSnapshot = JSON.stringify(first.snapshot)
 
 		expect(serializedSnapshot).not.toContain('beforeOperation')
@@ -257,37 +291,29 @@ describe('generateApplicationTypes', () => {
 		`)
 
 		expect(
-			generated.contents.match(/export type PostalAddressObjectItem/gu),
+			generated.contents.match(/export type PostalAddress =/gu),
 		).toHaveLength(1)
 		expect(
-			generated.contents.match(/export type CountryCodeEnum/gu),
+			generated.contents.match(/export type CountryCode =/gu),
 		).toHaveLength(1)
 		expect(generated.contents).toContain(
-			'readonly "billingAddress": GeneratedObjectContract<PostalAddressObjectItem',
+			'readonly matrix: ReadonlyArray<ReadonlyArray<number>> | null',
+		)
+		expect(generated.contents).toContain('readonly status: PublicationStatus')
+		expect(generated.contents).toContain(
+			'readonly embedding: Plugin0_VectorValue | null',
 		)
 		expect(generated.contents).toContain(
-			'readonly "shippingAddress": GeneratedObjectContract<PostalAddressObjectItem',
+			'readonly author: Core.GeneratedPointerHandle<"TypegenAuthor">',
 		)
 		expect(generated.contents).toContain(
-			'readonly "matrix": readonly (readonly (number)[])[] | null',
-		)
-		expect(generated.contents).toContain(
-			'readonly "status": PublicationStatusEnum',
-		)
-		expect(generated.contents).toContain(
-			'readonly "embedding": Plugin0_VectorValue | null',
-		)
-		expect(generated.contents).toContain(
-			'readonly "author": GeneratedRelationshipContract<"TypegenAuthor", "one">',
-		)
-		expect(generated.contents).toContain(
-			'readonly "related": GeneratedRelationshipContract<"TypegenArticle", "many">',
+			'readonly related?: { readonly include?:',
 		)
 	})
 
 	it('reports normalized schema and incompatible named identity collisions', () => {
-		const First = Schema.define({ className: 'Typegen-A', fields: {} })
-		const Second = Schema.define({ className: 'Typegen_A', fields: {} })
+		const First = Schema.define({ className: 'Typegen-A', fields: () => ({}) })
+		const Second = Schema.define({ className: 'Typegen_A', fields: () => ({}) })
 		const schemaCollision = new FrameworkApplication({
 			plugins: [],
 			schemas: [First, Second],
@@ -309,20 +335,20 @@ describe('generateApplicationTypes', () => {
 
 		const Compatible = Schema.define({
 			className: 'TypegenCompatibleIdentity',
-			fields(field) {
-				field.object('first', {
-					fields(field) {
-						field.string('value')
-					},
+			fields: (field) => ({
+				first: field.object({
+					fields: (field) => ({
+						value: field.string(),
+					}),
 					typeName: 'SharedIdentity',
-				})
-				field.object('second', {
-					fields(field) {
-						field.int('value')
-					},
+				}),
+				second: field.object({
+					fields: (field) => ({
+						value: field.int(),
+					}),
 					typeName: 'SharedIdentity',
-				})
-			},
+				}),
+			}),
 		})
 		const identityCollision = new FrameworkApplication({
 			plugins: [],
@@ -353,9 +379,9 @@ describe('generateApplicationTypes', () => {
 		)
 		const Orphan = Schema.define({
 			className: 'TypegenOrphanPluginField',
-			fields(field) {
-				field.add('value', orphan)
-			},
+			fields: () => ({
+				value: orphan,
+			}),
 		})
 		const application = new FrameworkApplication({
 			plugins: [],
@@ -418,7 +444,7 @@ describe('generateApplicationTypes', () => {
 		})
 		const Empty = Schema.define({
 			className: 'TypegenPluginContributionConflict',
-			fields: {},
+			fields: () => ({}),
 		})
 		const application = new FrameworkApplication({
 			plugins: [firstPlugin, secondPlugin],

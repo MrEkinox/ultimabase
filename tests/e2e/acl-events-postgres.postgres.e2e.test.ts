@@ -11,7 +11,6 @@ import {
 	Schema,
 	UltimaBase,
 	definePlugin,
-	stringField,
 } from '@ultimabase/core'
 import { postgresPlugin, postgresTable } from '@ultimabase/postgres-plugin'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
@@ -24,7 +23,9 @@ import {
 let rejectNextUpdate = false
 const Post = Schema.define({
 	className: 'ACLChangeEventPost',
-	fields: { title: stringField({ validation: { required: true } }) },
+	fields: (field) => ({
+		title: field.string({ validation: { required: true } }),
+	}),
 	hooks: {
 		afterOperation: {
 			update: () => {

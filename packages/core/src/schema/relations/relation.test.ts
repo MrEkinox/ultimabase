@@ -127,7 +127,7 @@ describe('Relation handles', () => {
 				relation.findMany({
 					where: { id: { eq: articleId } },
 					select: { id: true },
-					orderBy: [{ createdAt: 'asc' }],
+					orderBy: { createdAt: 'asc' },
 					limit: 20,
 				}),
 			).resolves.toStrictEqual([])

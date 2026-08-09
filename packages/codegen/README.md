@@ -7,6 +7,31 @@ inert snapshot, emits one compact TypeScript declaration, and can replace that
 file atomically. It never runs plugin setup, connects infrastructure, reads
 database credentials, or serializes Access and hook callbacks.
 
+## Automatic startup generation
+
+Configure the development tooling once in the application plugin graph:
+
+```ts
+import { codegenPlugin } from '@ultimabase/codegen'
+import { UltimaBase } from '@ultimabase/core'
+
+const ultimabase = new UltimaBase({
+	plugins: [codegenPlugin()],
+	schemas: [Todo],
+})
+
+await ultimabase.start()
+```
+
+Static schema compilation completes first, then `codegenPlugin()` atomically
+replaces `.ultimabase/schema.generated.d.ts` before any plugin connects to
+infrastructure. `applicationId` and `outputPath` remain configurable for
+multi-application repositories. Core receives only a neutral read-only static
+graph and never depends on this tooling package.
+
+The lower-level API remains available for build integrations and for the future
+manual CLI:
+
 ```ts
 import {
 	generateApplicationTypes,
@@ -39,6 +64,19 @@ objects, and FieldBuilder methods. Compatible object and enum `typeName`
 identities are reused; incompatible identities and normalized TypeScript name
 collisions report both owners.
 
+The emitted file is application-facing rather than an opaque implementation
+dump. Concrete named types such as `TodoItem`, `TodoCreateInput`,
+`TodoWhereInput`, and `TodoSelect` appear first, followed by a central
+`Schemas`/`TypeInfo` map. The lower-level Core augmentation remains available
+for inference but is isolated in a framework registry section at the bottom.
+Each schema `TypeInfo` is the source of truth for its item and operation inputs;
+the framework section references it and adds only logical field kind, list, and
+relationship metadata that cannot be recovered safely from those value types.
+Access and hook contracts are derived instead of duplicated in that registry.
+Each schema also receives a concrete object-shaped `TodoOrderByInput` whose
+optional fields use the generated local `OrderDirection` union; generated
+application code never exposes the Core ordering helper.
+
 The emitted declaration augments `@ultimabase/core` with one application-owned
 schema registry and the configured root and embedded FieldBuilder methods. Keep
 that file included by the application's TypeScript project. Core then resolves
@@ -55,7 +93,8 @@ complete sibling temporary file and atomically renames it over the destination.
 `writeGeneratedTypeFiles()` additionally rejects duplicate resolved output
 paths before writing any file.
 
-Command-line generation, watch mode, and startup verification are deferred.
-This package currently exposes the side-effect-free compiler, TypeScript
-loader, fingerprint, and atomic writer for explicit build integrations and
-repository-owned generation scripts.
+Command-line generation, check mode, and watch mode are deferred. They will
+allow developers to request generation manually without starting the
+application. This package currently exposes automatic startup generation plus
+the side-effect-free compiler, TypeScript loader, fingerprint, and atomic
+writer for explicit build integrations.

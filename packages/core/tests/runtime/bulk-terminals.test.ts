@@ -4,7 +4,7 @@ import {
 	type FrameworkError,
 	type SchemaMutationHookKind,
 } from '../../src/index.js'
-import { Schema, intField, stringField } from '../../src/index.js'
+import { Schema } from '../../src/index.js'
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -21,13 +21,13 @@ import {
 
 const accountSchema = Schema.define({
 	className: 'BulkAccount',
-	fields: {
-		email: stringField({
+	fields: (field) => ({
+		email: field.string({
 			indexed: 'unique',
 			validation: { required: true },
 		}),
-		visits: intField({ default: 0 }),
-	},
+		visits: field.int({ default: 0 }),
+	}),
 })
 
 const fixtureInstant = '2026-08-02T00:00:00.000Z'

@@ -4,11 +4,6 @@ import { RequestContext } from '../../runtime/context/request-context.js'
 import { QueryBuilder } from '../../query/query/query.js'
 import type { InferQueryResult } from '../../query/query/result.js'
 import type { SchemaWhere } from '../../query/operations/schema-commands.js'
-import { booleanField } from '../fields/builtins/boolean.js'
-import { objectField } from '../fields/builtins/object.js'
-import { pointerField } from '../fields/builtins/pointer.js'
-import { relationField } from '../fields/builtins/relation.js'
-import { stringField } from '../fields/builtins/string.js'
 import { definePluginField } from '../fields/plugin.js'
 import type { InferCreateInput, InferObject } from '../inference/types.js'
 import type { Pointer } from '../relations/pointer.js'
@@ -29,49 +24,51 @@ const vectorField = definePluginField(
 
 const Post = Schema.define({
 	className: 'Post',
-	fields: {
-		title: stringField({ validation: { required: true } }),
-		published: booleanField({ default: false }),
-		profile: objectField({
-			fields: {
-				displayName: stringField({ validation: { required: true } }),
-			},
+	fields: (field) => ({
+		title: field.string({ validation: { required: true } }),
+		published: field.boolean({ default: false }),
+		profile: field.object({
+			fields: (field) => ({
+				displayName: field.string({ validation: { required: true } }),
+			}),
 		}),
-		tags: stringField({ list: true }),
+		tags: field.string({ list: true }),
 		embedding: vectorField,
-	},
+	}),
 })
 
 const Author = Schema.define({
 	className: 'Author',
-	fields: { name: stringField({ validation: { required: true } }) },
+	fields: (field) => ({
+		name: field.string({ validation: { required: true } }),
+	}),
 })
 
 const Article = Schema.define({
 	className: 'Article',
-	fields: {
-		author: pointerField({
+	fields: (field) => ({
+		author: field.pointer({
 			target: () => Author,
 			validation: { required: true },
 		}),
-		title: stringField({ validation: { required: true } }),
-	},
+		title: field.string({ validation: { required: true } }),
+	}),
 })
 
 const Comment = Schema.define({
 	className: 'Comment',
-	fields: {
-		body: stringField({ validation: { required: true } }),
-		author: pointerField({ target: () => Author }),
-	},
+	fields: (field) => ({
+		body: field.string({ validation: { required: true } }),
+		author: field.pointer({ target: () => Author }),
+	}),
 })
 
 const Discussion = Schema.define({
 	className: 'Discussion',
-	fields: {
-		comments: relationField({ target: () => Comment }),
-		title: stringField({ validation: { required: true } }),
-	},
+	fields: (field) => ({
+		comments: field.relation({ target: () => Comment }),
+		title: field.string({ validation: { required: true } }),
+	}),
 })
 
 test('infers exact immutable drafts from the generated constructor', () => {
@@ -169,7 +166,7 @@ test('exposes writes on the schema class and keeps QueryBuilder read-only', () =
 		Post.findMany({
 			where: { published: { eq: true } },
 			select: { id: true, title: true },
-			orderBy: [{ createdAt: 'desc' }],
+			orderBy: { createdAt: 'desc' },
 			limit: 20,
 		}),
 	).toEqualTypeOf<
@@ -208,7 +205,7 @@ test('exposes writes on the schema class and keeps QueryBuilder read-only', () =
 				comments: {
 					select: { body: true },
 					where: { body: { ne: '' } },
-					orderBy: [{ createdAt: 'desc' }],
+					orderBy: { createdAt: 'desc' },
 					limit: 5,
 					offset: 10,
 					include: { author: { select: { name: true } } },
@@ -257,9 +254,8 @@ test('exposes writes on the schema class and keeps QueryBuilder read-only', () =
 	// @ts-expect-error -- Dynamic flags cannot promise an exact read result.
 	void Post.findMany({ select: { title: dynamicReadSelection } })
 	// @ts-expect-error -- Ordering exposes only declared schema fields.
-	void Post.findMany({ orderBy: [{ missing: 'asc' }] })
-	// @ts-expect-error -- One ordering object cannot contain competing priorities.
-	void Post.findMany({ orderBy: [{ title: 'asc', createdAt: 'desc' }] })
+	void Post.findMany({ orderBy: { missing: 'asc' } })
+	void Post.findMany({ orderBy: { title: 'asc', createdAt: 'desc' } })
 	// @ts-expect-error -- Included targets retain exact field selection.
 	void Article.findMany({ include: { author: { select: { missing: true } } } })
 
@@ -452,7 +448,10 @@ test('exposes writes on the schema class and keeps QueryBuilder read-only', () =
 
 test('infers package-owned commands only on persisted results', async () => {
 	const Specialized = Schema.defineWithCapabilities(
-		{ className: 'TypedCapability', fields: { title: stringField() } },
+		{
+			className: 'TypedCapability',
+			fields: (field) => ({ title: field.string() }),
+		},
 		() => ({
 			statics: { category: 'fixture' as const },
 			results: {
@@ -478,9 +477,9 @@ test('infers package-owned commands only on persisted results', async () => {
 test('distinguishes draft and persisted states for the same visible fields', () => {
 	const Minimal = Schema.define({
 		className: 'Minimal',
-		fields: {
-			title: stringField({ validation: { required: true } }),
-		},
+		fields: (field) => ({
+			title: field.string({ validation: { required: true } }),
+		}),
 	})
 	expectTypeOf(Minimal.className).toEqualTypeOf<'Minimal'>()
 

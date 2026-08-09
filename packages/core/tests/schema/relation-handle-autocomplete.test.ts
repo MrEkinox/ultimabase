@@ -12,14 +12,14 @@ import { relationField, Schema, stringField, type SchemaResult } from '../../src
 
 const Tag = Schema.define({
   className: 'RelationHandleTag',
-  fields: { label: stringField() },
+  fields: () => ({ label: stringField() }),
 })
 const Post = Schema.define({
   className: 'RelationHandlePost',
-  fields: {
+  fields: () => ({
     relatedTags: relationField({ target: () => Tag }),
     title: stringField(),
-  },
+  }),
 })
 declare const post: SchemaResult<typeof Post>
 post./* method */relation('${completionMarker}')

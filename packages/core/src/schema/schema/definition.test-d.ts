@@ -1,7 +1,6 @@
 import { expectTypeOf, test } from 'vitest'
 
 import {
-	booleanField,
 	defineContextualSchemaExtensionFactory,
 	defineFieldExtension,
 	Schema,
@@ -53,14 +52,14 @@ test('preserves schema, field, and extension literals', () => {
 	})
 	const schema = Schema.define({
 		className: 'Post',
-		fields: {
-			title: stringField({
+		fields: (field) => ({
+			title: field.string({
 				validation: {
 					required: true,
 				},
 			}),
-			published: booleanField({ default: false }),
-		},
+			published: field.boolean({ default: false }),
+		}),
 		extensions: [permissions],
 	})
 
@@ -89,7 +88,7 @@ test('preserves schema, field, and extension literals', () => {
 test('normalizes absent extensions to an empty tuple', () => {
 	const schema = Schema.define({
 		className: 'Post',
-		fields: {},
+		fields: () => ({}),
 	})
 
 	expectTypeOf(schema.extensions).toEqualTypeOf<readonly []>()
@@ -105,7 +104,7 @@ test('includes extension-owned fields in schema and draft inference', () => {
 	)
 	const schema = Schema.define({
 		className: 'ExtendedPost',
-		fields: { title: stringField() },
+		fields: (field) => ({ title: field.string() }),
 		extensions: [storage],
 	})
 
@@ -116,11 +115,11 @@ test('includes extension-owned fields in schema and draft inference', () => {
 test('binds community extension callbacks to exact sibling fields', () => {
 	const schema = Schema.define({
 		className: 'ContextualPost',
-		fields: {
-			published: booleanField({ default: false }),
-			title: stringField({ validation: { required: true } }),
-			visibility: stringField(),
-		},
+		fields: (field) => ({
+			published: field.boolean({ default: false }),
+			title: field.string({ validation: { required: true } }),
+			visibility: field.string(),
+		}),
 		extensions: ({ bind }) => [
 			bind(contextualFixture, {
 				select: (data) => {
@@ -141,8 +140,10 @@ test('binds community extension callbacks to exact sibling fields', () => {
 		],
 	})
 
-	expectTypeOf(schema.extensions[0].name).toEqualTypeOf<'fixture.contextual'>()
-	expectTypeOf(schema.extensions[0].config.select).parameter(0).toEqualTypeOf<
+	const [extension] = schema.extensions
+
+	expectTypeOf(extension.name).toEqualTypeOf<'fixture.contextual'>()
+	expectTypeOf(extension.config.select).parameter(0).toEqualTypeOf<
 		Readonly<{
 			published: boolean | null
 			title: string
@@ -153,7 +154,10 @@ test('binds community extension callbacks to exact sibling fields', () => {
 
 test('preserves package-owned static capability inference', () => {
 	const schema = Schema.defineWithStatics(
-		{ className: 'SpecializedPost', fields: { title: stringField() } },
+		{
+			className: 'SpecializedPost',
+			fields: (field) => ({ title: field.string() }),
+		},
 		(exactSchema) => ({
 			byId: (id: string) => exactSchema.pointer(id),
 		}),
@@ -169,7 +173,10 @@ test('preserves package-owned static capability inference', () => {
 })
 
 test('narrows untrusted values through Schema.define identity', () => {
-	const value: unknown = Schema.define({ className: 'Post', fields: {} })
+	const value: unknown = Schema.define({
+		className: 'Post',
+		fields: () => ({}),
+	})
 
 	if (Schema.is(value)) {
 		expectTypeOf(value).toExtend<SchemaDefinition>()
@@ -184,41 +191,41 @@ test('rejects reserved fields and incompatible metadata', () => {
 	// @ts-expect-error -- UltimaBase owns the id field.
 	Schema.define({
 		className: 'InvalidId',
-		fields: {
-			id: stringField(),
-		},
+		fields: (field) => ({
+			id: field.string(),
+		}),
 	})
 	// @ts-expect-error -- UltimaBase owns the createdAt field.
 	Schema.define({
 		className: 'InvalidCreatedAt',
-		fields: {
-			createdAt: stringField(),
-		},
+		fields: (field) => ({
+			createdAt: field.string(),
+		}),
 	})
 	// @ts-expect-error -- UltimaBase owns the updatedAt field.
 	Schema.define({
 		className: 'InvalidUpdatedAt',
-		fields: {
-			updatedAt: stringField(),
-		},
+		fields: (field) => ({
+			updatedAt: field.string(),
+		}),
 	})
 	// @ts-expect-error -- Where logical keys cannot collide with schema fields.
 	Schema.define({
 		className: 'InvalidWhereLogicalKey',
-		fields: {
-			AND: stringField(),
-		},
+		fields: (field) => ({
+			AND: field.string(),
+		}),
 	})
 	Schema.define({
 		className: 'InvalidField',
-		fields: {
+		fields: () => ({
 			// @ts-expect-error -- Schema properties must use field definitions.
 			title: 'string',
-		},
+		}),
 	})
 	Schema.define({
 		className: 'InvalidExtension',
-		fields: {},
+		fields: () => ({}),
 		extensions: [
 			// @ts-expect-error -- Field extensions cannot attach to a schema.
 			defineFieldExtension('fixture.field', {}),

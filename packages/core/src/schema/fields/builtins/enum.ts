@@ -144,7 +144,7 @@ type NonDefaultedEnumField<
 /**
  * Declares one closed string domain while preserving its exact values.
  *
- * @example `field.enum('status', { values: ['draft', 'published'] })`
+ * @example `status: field.enum({ values: ['draft', 'published'] })`
  */
 export type EnumFieldBuilderMethod = <
 	const TValues extends EnumValues,

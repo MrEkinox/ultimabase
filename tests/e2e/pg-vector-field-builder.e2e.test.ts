@@ -7,7 +7,7 @@ import { createLanguageService } from '../../tooling/vitest/typescript-language-
 const methodMarker = '/* packed-vector-method */'
 const hoverMarker = '/* packed-vector-hover */'
 const optionsMarker = '/* packed-vector-options */'
-const nameMarker = '/* packed-vector-name */'
+const signatureMarker = '/* packed-vector-signature */'
 const sourceWithMarkers = `
 import type { FieldBuilder } from '@ultimabase/core'
 import type { VectorFieldBuilderMethod, VectorValue } from '@ultimabase/pg-vector-plugin'
@@ -16,12 +16,17 @@ declare const field: FieldBuilder & { readonly vector: VectorFieldBuilderMethod 
 declare const validOptions: { readonly dimensions: 3 }
 declare const value: VectorValue
 
-field.${methodMarker}vector('first', { dimensions: 3 })
-field.${hoverMarker}vector('embedding', { ${optionsMarker}...validOptions })
-field.vector(${nameMarker} 'signatureName', { dimensions: 3 })
+field.${methodMarker}vector({ dimensions: 3 })
+field.${hoverMarker}vector({ ${optionsMarker}...validOptions })
+field.vector(${signatureMarker} { dimensions: 3 })
 void value
 `
-const markers = [methodMarker, hoverMarker, optionsMarker, nameMarker] as const
+const markers = [
+	methodMarker,
+	hoverMarker,
+	optionsMarker,
+	signatureMarker,
+] as const
 const positions = new Map<string, number>()
 let source = sourceWithMarkers
 
@@ -108,7 +113,7 @@ describe('packed @ultimabase/pg-vector-plugin FieldBuilder contract', () => {
 		)
 	})
 
-	it('retains hover and name-parameter help', () => {
+	it('retains hover and options-parameter help', () => {
 		const hover = service.getQuickInfoAtPosition(
 			fileName,
 			readPosition(hoverMarker) + hoverMarker.length,
@@ -123,14 +128,14 @@ describe('packed @ultimabase/pg-vector-plugin FieldBuilder contract', () => {
 
 		const signature = service.getSignatureHelpItems(
 			fileName,
-			readPosition(nameMarker),
+			readPosition(signatureMarker),
 			undefined,
 		)
-		const nameParameter =
+		const optionsParameter =
 			signature?.items[signature.selectedItemIndex]?.parameters[0]
 
-		expect(ts.displayPartsToString(nameParameter?.documentation)).toContain(
-			'Stable logical field name',
+		expect(ts.displayPartsToString(optionsParameter?.documentation)).toContain(
+			'Existing vector factory options',
 		)
 	})
 })

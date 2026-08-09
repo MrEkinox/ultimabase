@@ -317,15 +317,15 @@ import { Schema } from '@ultimabase/core'
 
 const EventSchema = Schema.define({
 	className: 'Event',
-	fields(field) {
-		field.string('title', { validation: { required: true } })
-		field.bigint('attendees', { list: true })
-		field.object('metadata', {
-			fields(field) {
-				field.dateTime('publishedAt')
-			},
-		})
-	},
+	fields: (field) => ({
+		title: field.string({ validation: { required: true } }),
+		attendees: field.bigint({ list: true }),
+		metadata: field.object({
+			fields: (field) => ({
+				publishedAt: field.dateTime(),
+			}),
+		}),
+	}),
 })
 
 const databaseUrl = process.env.DATABASE_URL
@@ -368,10 +368,10 @@ Field and composite indexes use the storage-neutral Schema API:
 ```ts
 const ArticleSchema = Schema.define({
 	className: 'Article',
-	fields(field) {
-		field.string('authorId')
-		field.string('slug', { indexed: 'unique' })
-	},
+	fields: (field) => ({
+		authorId: field.string(),
+		slug: field.string({ indexed: 'unique' }),
+	}),
 	indexes: [
 		{ fields: ['authorId', 'createdAt'] },
 		{ fields: ['authorId', 'slug'], unique: true },
@@ -462,21 +462,21 @@ import { Schema } from '@ultimabase/core'
 
 const User = Schema.define({
 	className: 'User',
-	fields(field) {
-		field.string('name')
-	},
+	fields: (field) => ({
+		name: field.string(),
+	}),
 })
 
 const Post = Schema.define({
 	className: 'Post',
-	fields(field) {
-		field.pointer('author', {
+	fields: (field) => ({
+		author: field.pointer({
 			target: () => User,
 			validation: { required: true },
 			indexed: true,
 			onDelete: 'cascade',
-		})
-	},
+		}),
+	}),
 })
 
 const author = User.pointer('0198f090-2a50-7000-8000-000000000034')
@@ -525,7 +525,7 @@ await tags.connect([Tag.pointer(firstTagId), Tag.pointer(secondTagId)], {
 const selected = await tags.findMany(
 	{
 		select: { id: true, label: true },
-		orderBy: [{ label: 'asc' }],
+		orderBy: { label: 'asc' },
 		limit: 20,
 		cursor: true,
 	},
@@ -546,7 +546,7 @@ const articles = await Article.findMany({
 	include: {
 		tags: {
 			where: { label: { ne: 'archived' } },
-			orderBy: [{ label: 'asc' }],
+			orderBy: { label: 'asc' },
 			offset: 10,
 			limit: 20,
 			select: { id: true, label: true },
@@ -624,19 +624,19 @@ required pointers plus a composite unique index model a membership edge:
 ```ts
 const Membership = Schema.define({
 	className: 'Membership',
-	fields(field) {
-		field.pointer('member', {
+	fields: (field) => ({
+		member: field.pointer({
 			onDelete: 'cascade',
 			target: () => Member,
 			validation: { required: true },
-		})
-		field.pointer('project', {
+		}),
+		project: field.pointer({
 			onDelete: 'cascade',
 			target: () => Project,
 			validation: { required: true },
-		})
-		field.string('role', { validation: { required: true } })
-	},
+		}),
+		role: field.string({ validation: { required: true } }),
+	}),
 	indexes: [{ fields: ['project', 'member'], unique: true }],
 })
 ```
@@ -761,9 +761,9 @@ import { Schema } from '@ultimabase/core'
 
 const ArticleSchema = Schema.define({
 	className: 'Article',
-	fields(field) {
-		field.string('title')
-	},
+	fields: (field) => ({
+		title: field.string(),
+	}),
 	extensions: [postgresTable({ name: 'ContentItems-v2' })],
 })
 ```

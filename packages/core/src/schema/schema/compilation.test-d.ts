@@ -6,14 +6,14 @@ import {
 	stringField,
 	type InferCreateInput,
 	type SchemaDefinition,
-	type SchemaFieldDeclaration,
+	type SchemaFieldBuilderDeclaration,
 } from '../../index.js'
 
 const DeferredArticle = Schema.define({
 	className: 'DeferredArticle',
-	fields: () => ({
-		slug: stringField({ validation: { required: true } }),
-		title: stringField(),
+	fields: (field) => ({
+		slug: field.string({ validation: { required: true } }),
+		title: field.string(),
 	}),
 	indexes: [{ fields: ['slug', 'createdAt'], unique: true }],
 })
@@ -30,8 +30,8 @@ test('infers exact schema contracts from a deferred field-map callback', () => {
 	expectTypeOf(DeferredArticle.fields.title.kind).toEqualTypeOf<'string'>()
 })
 
-test('names the temporary deferred declaration contract without widening fields', () => {
-	const declaration: SchemaFieldDeclaration<{
+test('names the field builder declaration contract without widening fields', () => {
+	const declaration: SchemaFieldBuilderDeclaration<{
 		readonly title: ReturnType<typeof stringField>
 	}> = () => ({ title: stringField() })
 	const Deferred = Schema.define({

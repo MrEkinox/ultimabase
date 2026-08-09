@@ -4,22 +4,21 @@ import {
 	DuplicateSchemaError,
 	SchemaRegistry,
 	Schema,
-	stringField,
 	type SchemaDefinition,
 } from '../index.js'
 
 const userSchema = Schema.define({
 	className: 'User',
-	fields: {
-		name: stringField(),
-	},
+	fields: (field) => ({
+		name: field.string(),
+	}),
 })
 
 const postSchema = Schema.define({
 	className: 'Post',
-	fields: {
-		title: stringField(),
-	},
+	fields: (field) => ({
+		title: field.string(),
+	}),
 })
 
 test('preserves literal schema types from constructor declarations', () => {

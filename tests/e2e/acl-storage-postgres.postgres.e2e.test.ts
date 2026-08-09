@@ -1,10 +1,5 @@
 import { ACL, acl, aclPlugin } from '@ultimabase/acl-permissions-plugin'
-import {
-	MasterAuthority,
-	Schema,
-	stringField,
-	UltimaBase,
-} from '@ultimabase/core'
+import { MasterAuthority, Schema, UltimaBase } from '@ultimabase/core'
 import { postgresPlugin, postgresTable } from '@ultimabase/postgres-plugin'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
@@ -15,11 +10,11 @@ import {
 
 const PrincipalA = Schema.define({
 	className: 'ACLStoragePrincipalA',
-	fields: {},
+	fields: () => ({}),
 })
 const PrincipalB = Schema.define({
 	className: 'ACLStoragePrincipalB',
-	fields: {},
+	fields: () => ({}),
 })
 const sharedId = '0198a43e-2431-7000-8000-000000000050'
 const initialACL = new ACL()
@@ -28,7 +23,9 @@ const initialACL = new ACL()
 	.grantPrincipal(PrincipalB.pointer(sharedId), 'delete')
 const StoredPost = Schema.define({
 	className: 'ACLStoragePost',
-	fields: { title: stringField({ validation: { required: true } }) },
+	fields: (field) => ({
+		title: field.string({ validation: { required: true } }),
+	}),
 	extensions: [
 		acl({
 			default: initialACL,

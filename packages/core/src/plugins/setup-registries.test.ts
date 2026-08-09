@@ -2,7 +2,6 @@ import {
 	SchemaRegistry,
 	Schema,
 	defineSchemaExtension,
-	stringField,
 } from '../schema/index.js'
 import { describe, expect, it } from 'vitest'
 
@@ -100,6 +99,8 @@ describe('PluginSetupRegistries', () => {
 		}
 
 		expect(context.schemas).toBe(schemas)
+		expect(context.fieldBuilderMethods).toStrictEqual([])
+		expect(Object.isFrozen(context.fieldBuilderMethods)).toBe(true)
 		expect(setupRegistries.services.ownerOf(PortServiceToken)).toBe(
 			'fixture.plugin',
 		)
@@ -118,7 +119,7 @@ describe('PluginSetupRegistries', () => {
 		const permissions = defineSchemaExtension('fixture.permissions', {})
 		const schema = Schema.define({
 			className: 'Post',
-			fields: { title: stringField() },
+			fields: (field) => ({ title: field.string() }),
 			extensions: [permissions],
 		})
 		const setupRegistries = new PluginSetupRegistries(

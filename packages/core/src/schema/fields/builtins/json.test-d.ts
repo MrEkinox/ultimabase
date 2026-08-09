@@ -35,10 +35,10 @@ test('exposes a safe recursive JSON value', () => {
 test('uses root null for optional JSON fields', () => {
 	const schema = Schema.define({
 		className: 'JsonDocuments',
-		fields: {
-			document: jsonField(),
-			nullableDocument: jsonField(),
-		},
+		fields: (field) => ({
+			document: field.json(),
+			nullableDocument: field.json(),
+		}),
 	})
 
 	expectTypeOf(schema.className).toEqualTypeOf<'JsonDocuments'>()

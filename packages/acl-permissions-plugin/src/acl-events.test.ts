@@ -10,7 +10,7 @@ import {
 	onACLChange,
 } from './acl-events.js'
 
-const User = Schema.define({ className: 'ACLChangeUser', fields: {} })
+const User = Schema.define({ className: 'ACLChangeUser', fields: () => ({}) })
 const alice = User.pointer('alice')
 const bob = User.pointer('bob')
 const editor = new AccessSubjectReference('role', 'role-editor')

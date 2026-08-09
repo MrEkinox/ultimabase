@@ -7,10 +7,8 @@ import {
 	defineFieldExtension,
 	definePluginField,
 	defineSchemaExtension,
-	objectField,
 	Schema,
 	SchemaRegistry,
-	stringField,
 } from '../schema/index.js'
 import { definePlugin } from './definition.js'
 import {
@@ -76,22 +74,22 @@ const invokeMethod = (
 
 const primarySchema = Schema.define({
 	className: 'PluginHookTarget',
-	fields: {
-		'dotted.name': stringField({ extensions: [fieldExtension] }),
-		profile: objectField({
+	fields: (field) => ({
+		'dotted.name': field.string({ extensions: [fieldExtension] }),
+		profile: field.object({
 			list: true,
-			fields: {
-				email: stringField({ extensions: [fieldExtension] }),
-			},
+			fields: (field) => ({
+				email: field.string({ extensions: [fieldExtension] }),
+			}),
 		}),
 		vector: vectorField,
-	},
+	}),
 	extensions: [schemaExtension],
 })
 
 const secondarySchema = Schema.define({
 	className: 'SecondaryPluginHookTarget',
-	fields: { title: stringField() },
+	fields: (field) => ({ title: field.string() }),
 })
 
 const resolvedContributions = (registries: PluginSetupRegistries) => {
@@ -190,7 +188,7 @@ describe('plugin hook targets', () => {
 	it('requires exact application schema identity', () => {
 		const foreignSchema = Schema.define({
 			className: primarySchema.className,
-			fields: { title: stringField() },
+			fields: (field) => ({ title: field.string() }),
 		})
 		const registries = new PluginSetupRegistries(
 			new SchemaRegistry([primarySchema]),

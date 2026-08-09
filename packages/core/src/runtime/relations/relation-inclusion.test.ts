@@ -1,5 +1,5 @@
 import { definePlugin } from '../../foundation.js'
-import { relationField, Schema, stringField } from '../../schema/index.js'
+import { Schema } from '../../schema/index.js'
 import { describe, expect, it } from 'vitest'
 
 import { RecordingDatabaseAdapter } from '../../../tests/runtime/fixtures/recording-database-adapter.js'
@@ -23,45 +23,43 @@ describe('relation Runtime inclusion', () => {
 		const relationAccessTrace: string[] = []
 		const reply = Schema.define({
 			className: 'RelationIncludedReply',
-			fields: {
-				body: stringField({ validation: { required: true } }),
-			},
+			fields: (field) => ({
+				body: field.string({ validation: { required: true } }),
+			}),
 		})
 		const comment = Schema.define({
 			className: 'RelationIncludedComment',
-			access: {
-				read: { where: ({ where }) => where.eq('status', 'visible') },
-			},
-			fields: {
-				body: stringField({ validation: { required: true } }),
-				replies: relationField({
+			fields: (field) => ({
+				body: field.string({ validation: { required: true } }),
+				replies: field.relation({
 					access: {
 						read: () => {
 							relationAccessTrace.push('comment:replies')
-
 							return true
 						},
 					},
 					target: () => reply,
 				}),
-				status: stringField(),
+				status: field.string(),
+			}),
+			access: {
+				read: { where: ({ where }) => where.eq('status', 'visible') },
 			},
 		})
 		const discussion = Schema.define({
 			className: 'RelationIncludedDiscussion',
-			fields: {
-				comments: relationField({
+			fields: (field) => ({
+				comments: field.relation({
 					access: {
 						read: () => {
 							relationAccessTrace.push('discussion:comments')
-
 							return true
 						},
 					},
 					target: () => comment,
 				}),
-				title: stringField(),
-			},
+				title: field.string(),
+			}),
 		})
 		const sourceRecord = { title: 'Runtime relations' }
 		const commentRecord = { body: 'first' }
@@ -102,7 +100,7 @@ describe('relation Runtime inclusion', () => {
 							include: { replies: { select: { body: true } } },
 							limit: 2,
 							offset: 3,
-							orderBy: [{ createdAt: 'desc' }],
+							orderBy: { createdAt: 'desc' },
 							select: { body: true },
 							where: { body: { ne: '' } },
 						},
@@ -146,25 +144,25 @@ describe('relation Runtime inclusion', () => {
 	it('rejects denied source traversal and hides a denied target as an empty collection', async () => {
 		const target = Schema.define({
 			className: 'RelationIncludedRestrictedTarget',
+			fields: (field) => ({ name: field.string() }),
 			access: { read: false },
-			fields: { name: stringField() },
 		})
 		const deniedSource = Schema.define({
 			className: 'RelationIncludedDeniedSource',
-			fields: {
-				name: stringField(),
-				targets: relationField({
+			fields: (field) => ({
+				name: field.string(),
+				targets: field.relation({
 					access: { read: false },
 					target: () => target,
 				}),
-			},
+			}),
 		})
 		const allowedSource = Schema.define({
 			className: 'RelationIncludedAllowedSource',
-			fields: {
-				name: stringField(),
-				targets: relationField({ target: () => target }),
-			},
+			fields: (field) => ({
+				name: field.string(),
+				targets: field.relation({ target: () => target }),
+			}),
 		})
 		const deniedRecord = { name: 'denied' }
 		const allowedRecord = { name: 'allowed' }
@@ -213,14 +211,14 @@ describe('relation Runtime inclusion', () => {
 	it('fails before database execution when the adapter omits inclusion support', async () => {
 		const target = Schema.define({
 			className: 'RelationIncludedCapabilityTarget',
-			fields: { name: stringField() },
+			fields: (field) => ({ name: field.string() }),
 		})
 		const source = Schema.define({
 			className: 'RelationIncludedCapabilitySource',
-			fields: {
-				name: stringField(),
-				targets: relationField({ target: () => target }),
-			},
+			fields: (field) => ({
+				name: field.string(),
+				targets: field.relation({ target: () => target }),
+			}),
 		})
 		const adapter = new RecordingDatabaseAdapter(
 			[{ status: 'fulfilled', value: [{ name: 'source' }] }],

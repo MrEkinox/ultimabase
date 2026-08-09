@@ -98,42 +98,42 @@ const schemaHoverCases: readonly SchemaHoverCase[] = [
 	{
 		label: 'access',
 		source:
-			"Schema.define({ className: 'Post', /* hover */access: { read: true }, fields: { title: stringField() } })",
+			"Schema.define({ className: 'Post', /* hover */access: { read: true }, fields: () => ({ title: stringField() }) })",
 	},
 	{
 		label: 'className',
 		source:
-			"Schema.define({ /* hover */className: 'Post', fields: { title: stringField() } })",
+			"Schema.define({ /* hover */className: 'Post', fields: () => ({ title: stringField() }) })",
 	},
 	{
 		label: 'fields',
 		source:
-			"Schema.define({ className: 'Post', /* hover */fields: { title: stringField() } })",
+			"Schema.define({ className: 'Post', /* hover */fields: () => ({ title: stringField() }) })",
 	},
 	{
 		label: 'indexes',
 		source:
-			"Schema.define({ className: 'Post', fields: { title: stringField() }, /* hover */indexes: [{ fields: ['title', 'createdAt'] }] })",
+			"Schema.define({ className: 'Post', fields: () => ({ title: stringField() }), /* hover */indexes: [{ fields: ['title', 'createdAt'] }] })",
 	},
 	{
 		label: 'extensions',
 		source:
-			"Schema.define({ className: 'Post', fields: {}, /* hover */extensions: [defineSchemaExtension('fixture.schema', {})] })",
+			"Schema.define({ className: 'Post', fields: () => ({}), /* hover */extensions: [defineSchemaExtension('fixture.schema', {})] })",
 	},
 	{
 		label: 'hooks',
 		source:
-			"Schema.define({ className: 'Post', fields: {}, /* hover */hooks: { beforeOperation: { create: () => {} } } })",
+			"Schema.define({ className: 'Post', fields: () => ({}), /* hover */hooks: { beforeOperation: { create: () => {} } } })",
 	},
 	{
 		label: 'indexes.fields',
 		source:
-			"Schema.define({ className: 'Post', fields: { title: stringField() }, indexes: [{ /* hover */fields: ['title', 'createdAt'] }] })",
+			"Schema.define({ className: 'Post', fields: () => ({ title: stringField() }), indexes: [{ /* hover */fields: ['title', 'createdAt'] }] })",
 	},
 	{
 		label: 'indexes.unique',
 		source:
-			"Schema.define({ className: 'Post', fields: { title: stringField() }, indexes: [{ fields: ['title', 'createdAt'], /* hover */unique: true }] })",
+			"Schema.define({ className: 'Post', fields: () => ({ title: stringField() }), indexes: [{ fields: ['title', 'createdAt'], /* hover */unique: true }] })",
 	},
 ]
 
@@ -177,7 +177,7 @@ import { Schema, stringField } from '../../src/schema/index.js'
 
 Schema.define({
 	className: 'Post',
-	fields: { title: stringField() },
+	fields: () => ({ title: stringField() }),
 	indexes: [{ /* completion */ }],
 })
 `)
@@ -215,7 +215,7 @@ import { Schema, stringField } from '../../src/schema/index.js'
 
 const PostSchema = /* hover */Schema.define({
 	className: 'Post',
-	fields: { title: stringField() },
+	fields: () => ({ title: stringField() }),
 })
 `),
 		)
@@ -237,7 +237,7 @@ import { Schema, stringField } from '../../src/schema/index.js'
 
 const Post = Schema.define({
 	className: 'Post',
-	fields: { title: stringField({ validation: { required: true } }) },
+	fields: () => ({ title: stringField({ validation: { required: true } }) }),
 })
 const draft = /* hover */new Post({ title: 'Hello' })
 void draft
@@ -247,7 +247,7 @@ import { Schema, stringField } from '../../src/schema/index.js'
 
 const Post = Schema.define({
 	className: 'Post',
-	fields: { title: stringField({ validation: { required: true } }) },
+	fields: () => ({ title: stringField({ validation: { required: true } }) }),
 })
 const query = Post./* hover */findMany({ select: { id: true, title: true } })
 void query
@@ -271,7 +271,7 @@ void query
 import { Schema, stringField } from '../../src/schema/index.js'
 const Post = Schema.define({
 	className: 'Post',
-	fields: { title: stringField({ validation: { required: true } }) },
+	fields: () => ({ title: stringField({ validation: { required: true } }) }),
 })
 new Post({ title: 'Hello' })./* completion */
 `)
@@ -280,7 +280,7 @@ new Post({ title: 'Hello' })./* completion */
 import { Schema, stringField, type SchemaResult } from '../../src/schema/index.js'
 const Post = Schema.define({
 	className: 'Post',
-	fields: { title: stringField({ validation: { required: true } }) },
+	fields: () => ({ title: stringField({ validation: { required: true } }) }),
 })
 declare const post: SchemaResult<typeof Post, { readonly title: string }>
 post./* completion */
@@ -308,36 +308,36 @@ post./* completion */
 
 		const create = readMarkedQuickInfo(`
 import { Schema, stringField } from '../../src/schema/index.js'
-const Post = Schema.define({ className: 'Post', fields: { title: stringField() } })
+const Post = Schema.define({ className: 'Post', fields: () => ({ title: stringField() }) })
 new Post({ title: 'Hello' })./* hover */create({})
 `)
 		const update = readMarkedQuickInfo(`
 import { Schema, stringField, type SchemaResult } from '../../src/schema/index.js'
-const Post = Schema.define({ className: 'Post', fields: { title: stringField() } })
+const Post = Schema.define({ className: 'Post', fields: () => ({ title: stringField() }) })
 declare const post: SchemaResult<typeof Post, { readonly title: string }>
 post./* hover */update({ data: { title: 'Updated' } })
 `)
 		const fetch = readMarkedQuickInfo(`
 import { Schema, stringField, type SchemaResult } from '../../src/schema/index.js'
-const Post = Schema.define({ className: 'Post', fields: { title: stringField() } })
+const Post = Schema.define({ className: 'Post', fields: () => ({ title: stringField() }) })
 declare const post: SchemaResult<typeof Post, { readonly title: string }>
 post./* hover */fetch({ select: { title: true } })
 `)
 		const exists = readMarkedQuickInfo(`
 import { Schema, stringField, type SchemaResult } from '../../src/schema/index.js'
-const Post = Schema.define({ className: 'Post', fields: { title: stringField() } })
+const Post = Schema.define({ className: 'Post', fields: () => ({ title: stringField() }) })
 declare const post: SchemaResult<typeof Post, { readonly title: string }>
 post./* hover */exists()
 `)
 		const toPointer = readMarkedQuickInfo(`
 import { Schema, stringField, type SchemaResult } from '../../src/schema/index.js'
-const Post = Schema.define({ className: 'Post', fields: { title: stringField() } })
+const Post = Schema.define({ className: 'Post', fields: () => ({ title: stringField() }) })
 declare const post: SchemaResult<typeof Post, { readonly title: string }>
 post./* hover */toPointer()
 `)
 		const equals = readMarkedQuickInfo(`
 import { Schema, stringField, type SchemaResult } from '../../src/schema/index.js'
-const Post = Schema.define({ className: 'Post', fields: { title: stringField() } })
+const Post = Schema.define({ className: 'Post', fields: () => ({ title: stringField() }) })
 declare const post: SchemaResult<typeof Post, { readonly title: string }>
 post./* hover */equals(Post.pointer('post-1'))
 `)

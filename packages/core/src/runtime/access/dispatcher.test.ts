@@ -9,14 +9,7 @@ import {
 	type UpdateManyOperationAst,
 	type UpdateOneOperationAst,
 } from '../../query/index.js'
-import {
-	Schema,
-	booleanField,
-	intField,
-	objectField,
-	relationField,
-	stringField,
-} from '../../schema/index.js'
+import { Schema, stringField, type FieldBuilder } from '../../schema/index.js'
 import { isSchemaModelInstance } from '../../schema/schema/model.js'
 import { describe, expect, it, vi } from 'vitest'
 
@@ -31,6 +24,20 @@ import type { RuntimeEnforcementStages } from '../pipeline/contracts.js'
 const accessTrace: string[] = []
 const articleSchema = Schema.define({
 	className: 'NativeAccessArticle',
+	fields: (field) => ({
+		published: field.boolean(),
+		secret: field.string({
+			access: {
+				read: {
+					orderBy: false,
+					output: ({ value }) => value !== 'hidden',
+					where: false,
+				},
+				write: false,
+			},
+		}),
+		title: field.string({ validation: { required: true } }),
+	}),
 	access: {
 		read: {
 			allow: {
@@ -50,20 +57,6 @@ const articleSchema = Schema.define({
 			item: ({ originalItem, item }) =>
 				item.title === 'Changed' && originalItem.published === true,
 		},
-	},
-	fields: {
-		published: booleanField(),
-		secret: stringField({
-			access: {
-				read: {
-					orderBy: false,
-					output: ({ value }) => value !== 'hidden',
-					where: false,
-				},
-				write: false,
-			},
-		}),
-		title: stringField({ validation: { required: true } }),
 	},
 })
 
@@ -93,15 +86,15 @@ describe('NativeAccessRuntime', () => {
 	it('never materializes relation handles when field Access narrows select-all', async () => {
 		const target = Schema.define({
 			className: 'NativeAccessSelectionTarget',
-			fields: { label: stringField() },
+			fields: (field) => ({ label: field.string() }),
 		})
 		const source = Schema.define({
 			className: 'NativeAccessSelectionSource',
-			fields: {
-				denied: stringField({ access: { read: false } }),
-				targets: relationField({ target: () => target }),
-				title: stringField(),
-			},
+			fields: (field) => ({
+				denied: field.string({ access: { read: false } }),
+				targets: field.relation({ target: () => target }),
+				title: field.string(),
+			}),
 		})
 		const application = await createApplication({
 			schemas: [source, target],
@@ -159,35 +152,37 @@ describe('NativeAccessRuntime', () => {
 	})
 
 	it('plans trusted relational row filters without granting public field filtering', async () => {
+		const targetFields = (field: FieldBuilder) => ({
+			label: field.string({
+				access: { read: { orderBy: false, output: true, where: false } },
+			}),
+			visible: field.boolean({
+				access: { read: { orderBy: false, output: false, where: false } },
+			}),
+		})
 		const target = Schema.define({
 			className: 'NativeAccessPolicyTarget',
+			fields: targetFields,
 			access: {
 				read: { where: { visible: { eq: true } } },
 			},
-			fields: {
-				label: stringField({
-					access: { read: { orderBy: false, output: true, where: false } },
-				}),
-				visible: booleanField({
-					access: { read: { orderBy: false, output: false, where: false } },
-				}),
-			},
+		})
+		const sourceFields = (field: FieldBuilder) => ({
+			targets: field.relation({
+				access: { read: false },
+				target: () => target,
+			}),
+			title: field.string(),
 		})
 		const source = Schema.define({
 			className: 'NativeAccessPolicySource',
+			fields: sourceFields,
 			access: {
 				read: {
 					where: {
 						targets: { some: { label: { eq: 'policy-visible' } } },
 					},
 				},
-			},
-			fields: {
-				targets: relationField({
-					access: { read: false },
-					target: () => target,
-				}),
-				title: stringField(),
 			},
 		})
 		const application = await createApplication({
@@ -224,10 +219,10 @@ describe('NativeAccessRuntime', () => {
 	it('denies operation and indirect field disclosure before database work', async () => {
 		const selectionSchema = Schema.define({
 			className: 'NativeAccessBulkSelection',
-			fields: {
-				denied: stringField({ access: { read: false } }),
-				title: stringField(),
-			},
+			fields: (field) => ({
+				denied: field.string({ access: { read: false } }),
+				title: field.string(),
+			}),
 		})
 		const application = await createApplication({
 			schemas: [articleSchema, selectionSchema],
@@ -337,6 +332,30 @@ describe('NativeAccessRuntime', () => {
 		const fieldValues: [number | null, number | null][] = []
 		const schema = Schema.define({
 			className: 'MaterializedAccessItem',
+			fields: (field) => ({
+				visits: field.int({
+					access: {
+						write: {
+							clear: true,
+							fill: true,
+							replace: ({ originalValue, value }) => {
+								fieldValues.push([originalValue, value])
+								return value <= 20
+							},
+						},
+					},
+				}),
+				title: field.string({
+					access: {
+						write: {
+							clear: true,
+							fill: (input) => !Object.hasOwn(input, 'kind'),
+							replace: (input) => !Object.hasOwn(input, 'kind'),
+						},
+					},
+					validation: { required: true },
+				}),
+			}),
 			access: {
 				create: {
 					item: (input) => {
@@ -344,7 +363,6 @@ describe('NativeAccessRuntime', () => {
 						expect(item.get('title')).toBe('Draft')
 						expect(input).not.toHaveProperty('kind')
 						createItems.push(item)
-
 						return true
 					},
 				},
@@ -357,35 +375,9 @@ describe('NativeAccessRuntime', () => {
 						expect(input).not.toHaveProperty('kind')
 						updateOriginalItems.push(originalItem)
 						updateItems.push(item)
-
 						return true
 					},
 				},
-			},
-			fields: {
-				visits: intField({
-					access: {
-						write: {
-							clear: true,
-							fill: true,
-							replace: ({ originalValue, value }) => {
-								fieldValues.push([originalValue, value])
-
-								return value <= 20
-							},
-						},
-					},
-				}),
-				title: stringField({
-					access: {
-						write: {
-							clear: true,
-							fill: (input) => !Object.hasOwn(input, 'kind'),
-							replace: (input) => !Object.hasOwn(input, 'kind'),
-						},
-					},
-					validation: { required: true },
-				}),
 			},
 		})
 		const contribution = definePlugin({
@@ -502,32 +494,29 @@ describe('NativeAccessRuntime', () => {
 		const trace: string[] = []
 		const schema = Schema.define({
 			className: 'FieldWriteTransitionAccess',
-			fields: {
-				count: intField({
+			fields: (field) => ({
+				count: field.int({
 					access: {
 						write: {
 							clear: async ({ originalValue }) => {
 								await Promise.resolve()
 								trace.push(`clear:${String(originalValue)}`)
-
 								return true
 							},
 							fill: async ({ value }) => {
 								await Promise.resolve()
 								trace.push(`fill:${String(value)}`)
-
 								return true
 							},
 							replace: async ({ originalValue, value }) => {
 								await Promise.resolve()
 								trace.push(`replace:${String(originalValue)}:${String(value)}`)
-
 								return true
 							},
 						},
 					},
 				}),
-			},
+			}),
 		})
 		const application = await createApplication({
 			schemas: [schema],
@@ -589,26 +578,24 @@ describe('NativeAccessRuntime', () => {
 		const trace: string[] = []
 		const schema = Schema.define({
 			className: 'NestedFieldCreateAccess',
-			fields: {
-				groups: objectField({
+			fields: (field) => ({
+				groups: field.object({
 					access: {
 						write: {
 							fill: () => {
 								trace.push('groups')
-
 								return true
 							},
 							clear: true,
 							replace: true,
 						},
 					},
-					fields: {
-						label: stringField({
+					fields: (field) => ({
+						label: field.string({
 							access: {
 								write: {
 									fill: ({ value }) => {
 										trace.push(`label:${value}`)
-
 										return value !== 'forbidden'
 									},
 									clear: true,
@@ -616,10 +603,10 @@ describe('NativeAccessRuntime', () => {
 								},
 							},
 						}),
-					},
+					}),
 					list: [true, true],
 				}),
-			},
+			}),
 		})
 		const application = await createApplication({
 			schemas: [schema],
@@ -649,47 +636,44 @@ describe('NativeAccessRuntime', () => {
 		const groupValues: [string | null, string | null][] = []
 		const schema = Schema.define({
 			className: 'NestedFieldUpdateAccess',
-			fields: {
-				groups: objectField({
-					fields: {
-						label: stringField({
+			fields: (field) => ({
+				groups: field.object({
+					fields: (field) => ({
+						label: field.string({
 							access: {
 								write: {
 									clear: ({ originalValue }) => {
 										groupValues.push([originalValue, null])
-
 										return true
 									},
 									fill: true,
 									replace: ({ originalValue, value }) => {
 										groupValues.push([originalValue, value])
-
 										return true
 									},
 								},
 							},
 						}),
-					},
+					}),
 					list: true,
 				}),
-				profile: objectField({
-					fields: {
-						label: stringField({
+				profile: field.object({
+					fields: (field) => ({
+						label: field.string({
 							access: {
 								write: {
 									clear: true,
 									fill: true,
 									replace: ({ originalValue, value }) => {
 										profileValues.push([originalValue, value])
-
 										return true
 									},
 								},
 							},
 						}),
-					},
+					}),
 				}),
-			},
+			}),
 		})
 		const application = await createApplication({
 			schemas: [schema],
@@ -740,25 +724,24 @@ describe('NativeAccessRuntime', () => {
 		const values: [string, string][] = []
 		const schema = Schema.define({
 			className: 'NestedFieldBulkAccess',
-			fields: {
-				profile: objectField({
-					fields: {
-						label: stringField({
+			fields: (field) => ({
+				profile: field.object({
+					fields: (field) => ({
+						label: field.string({
 							access: {
 								write: {
 									clear: true,
 									fill: true,
 									replace: ({ originalValue, value }) => {
 										values.push([originalValue, value])
-
 										return originalValue !== 'Denied'
 									},
 								},
 							},
 						}),
-					},
+					}),
 				}),
-			},
+			}),
 		})
 		const application = await createApplication({
 			schemas: [schema],
@@ -815,11 +798,25 @@ describe('NativeAccessRuntime', () => {
 		const itemModes: string[] = []
 		const schema = Schema.define({
 			className: 'UpsertOutcomeAccess',
+			fields: (field) => ({
+				title: field.string({ validation: { required: true } }),
+				visits: field.int({
+					access: {
+						write: {
+							clear: true,
+							fill: true,
+							replace: ({ originalValue, value }) => {
+								fieldValues.push([originalValue, value])
+								return true
+							},
+						},
+					},
+				}),
+			}),
 			access: {
 				upsert: {
 					item: (input) => {
 						itemModes.push(input.mode)
-
 						if (input.mode === 'create') {
 							expect(input.originalItem).toBeNull()
 							expect(input.item.get('title')).toBe('Created')
@@ -828,26 +825,9 @@ describe('NativeAccessRuntime', () => {
 							expect(input.item.title).toBe('Updated')
 							expect(input.item.visits).toBe(15)
 						}
-
 						return true
 					},
 				},
-			},
-			fields: {
-				title: stringField({ validation: { required: true } }),
-				visits: intField({
-					access: {
-						write: {
-							clear: true,
-							fill: true,
-							replace: ({ originalValue, value }) => {
-								fieldValues.push([originalValue, value])
-
-								return true
-							},
-						},
-					},
-				}),
 			},
 		})
 		const application = await createApplication({
@@ -910,34 +890,32 @@ describe('NativeAccessRuntime', () => {
 		const secondValues: [number | null, number | null][] = []
 		const schema = Schema.define({
 			className: 'BulkUpsertFieldAccess',
-			fields: {
-				first: intField({
+			fields: (field) => ({
+				first: field.int({
 					access: {
 						write: {
 							clear: true,
 							fill: true,
 							replace: ({ originalValue, value }) => {
 								firstValues.push([originalValue, value])
-
 								return true
 							},
 						},
 					},
 				}),
-				second: intField({
+				second: field.int({
 					access: {
 						write: {
 							clear: true,
 							fill: true,
 							replace: ({ originalValue, value }) => {
 								secondValues.push([originalValue, value])
-
 								return true
 							},
 						},
 					},
 				}),
-			},
+			}),
 		})
 		const application = await createApplication({
 			schemas: [schema],
@@ -1030,42 +1008,40 @@ describe('NativeAccessRuntime', () => {
 		} as const
 		const schema = Schema.define({
 			className: 'NestedFieldReadAccess',
-			fields: {
-				blocked: objectField({
+			fields: (field) => ({
+				blocked: field.object({
 					access: { read: false },
-					fields: {
-						secret: stringField({
+					fields: (field) => ({
+						secret: field.string({
 							access: {
 								read: {
 									orderBy: true,
 									output: () => {
 										blockedChildRuns += 1
-
 										return true
 									},
 									where: true,
 								},
 							},
 						}),
-					},
+					}),
 				}),
-				groups: objectField({
+				groups: field.object({
 					access: {
 						read: {
 							orderBy: true,
 							output: () => {
 								trace.push('groups')
-
 								return true
 							},
 							where: true,
 						},
 					},
-					fields: protectedFields,
+					fields: () => protectedFields,
 					list: [true, true],
 				}),
-				profile: objectField({ fields: protectedFields }),
-			},
+				profile: field.object({ fields: () => protectedFields }),
+			}),
 		})
 		const application = await createApplication({
 			schemas: [schema],
@@ -1226,13 +1202,13 @@ describe('NativeAccessRuntime', () => {
 		const trace: string[] = []
 		const schema = Schema.define({
 			className: 'SequentialAccess',
+			fields: (field) => ({ title: field.string() }),
 			access: {
 				read: () => {
 					trace.push('developer')
 					return Promise.resolve(true)
 				},
 			},
-			fields: { title: stringField() },
 		})
 		const application = await createApplication({
 			schemas: [schema],
@@ -1253,7 +1229,7 @@ describe('NativeAccessRuntime', () => {
 	it('honors contribution-owned master bypass without weakening enforced rules', async () => {
 		const schema = Schema.define({
 			className: 'MasterAccess',
-			fields: { title: stringField() },
+			fields: (field) => ({ title: field.string() }),
 		})
 		const bypass = definePlugin({
 			name: 'fixture.master-bypass',
@@ -1303,8 +1279,8 @@ describe('NativeAccessRuntime', () => {
 		})
 		const schema = Schema.define({
 			className: 'CancelledAccess',
+			fields: (field) => ({ title: field.string() }),
 			access: { read: () => true },
-			fields: { title: stringField() },
 		})
 		const application = await createApplication({
 			schemas: [schema],

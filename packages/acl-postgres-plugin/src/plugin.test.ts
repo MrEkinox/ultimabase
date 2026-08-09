@@ -12,7 +12,7 @@ import { aclPostgresPlugin, aclPostgresPluginName } from './plugin.js'
 
 const Protected = Schema.define({
 	className: 'ACLPostgresPluginFixture',
-	fields: {},
+	fields: () => ({}),
 	extensions: [acl()],
 })
 

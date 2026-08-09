@@ -1,5 +1,5 @@
 import { FrameworkError } from '@ultimabase/core'
-import { Schema, stringField } from '@ultimabase/core'
+import { Schema } from '@ultimabase/core'
 import { describe, expect, it } from 'vitest'
 
 import type {
@@ -55,7 +55,7 @@ class PolicyFixturePool implements PostgresPool {
 
 const ArticleSchema = Schema.define({
 	className: 'Article',
-	fields: { title: stringField() },
+	fields: (field) => ({ title: field.string() }),
 })
 
 describe('direct PostgreSQL schema preparation', () => {

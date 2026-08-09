@@ -1,11 +1,7 @@
 import { expectTypeOf, test } from 'vitest'
 
 import {
-	enumField,
-	intField,
-	pointerField,
 	Schema,
-	stringField,
 	type InferCreateInput,
 	type InferObject,
 	type Pointer,
@@ -14,33 +10,37 @@ import {
 
 const Member = Schema.define({
 	className: 'TypedEdgeMember',
-	fields: { name: stringField({ validation: { required: true } }) },
+	fields: (field) => ({
+		name: field.string({ validation: { required: true } }),
+	}),
 })
 
 const Project = Schema.define({
 	className: 'TypedEdgeProject',
-	fields: { title: stringField({ validation: { required: true } }) },
+	fields: (field) => ({
+		title: field.string({ validation: { required: true } }),
+	}),
 })
 
 const Membership = Schema.define({
 	className: 'TypedEdgeMembership',
-	fields: {
-		member: pointerField({
+	fields: (field) => ({
+		member: field.pointer({
 			onDelete: 'cascade',
 			target: () => Member,
 			validation: { required: true },
 		}),
-		position: intField({ default: 0 }),
-		project: pointerField({
+		position: field.int({ default: 0 }),
+		project: field.pointer({
 			onDelete: 'cascade',
 			target: () => Project,
 			validation: { required: true },
 		}),
-		role: enumField({
+		role: field.enum({
 			validation: { required: true },
 			values: ['editor', 'viewer'] as const,
 		}),
-	},
+	}),
 	indexes: [{ fields: ['project', 'member'], unique: true }],
 })
 

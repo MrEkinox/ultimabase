@@ -14,23 +14,23 @@ import {
 
 export const UserSchema = Schema.define({
 	className: 'User',
-	fields() {},
+	fields: (field) => ({}),
 })
 
 export const PostSchema = Schema.define({
 	className: 'Post',
-	fields(field) {
-		field.pointer('author', {
+	fields: (field) => ({
+		author: field.pointer({
 			target: () => UserSchema,
 			validation: { required: true },
 			indexed: true,
 			onDelete: 'restrict',
-		})
-		field.pointer('reviewer', {
+		}),
+		reviewer: field.pointer({
 			target: () => UserSchema,
 			onDelete: 'setNull',
-		})
-	},
+		}),
+	}),
 })
 
 const author = UserSchema.pointer('0198f090-2a50-7000-8000-000000000034')

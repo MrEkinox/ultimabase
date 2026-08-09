@@ -1,6 +1,4 @@
 import {
-	booleanField,
-	relationField,
 	Schema,
 	stringField,
 	type RelationField,
@@ -14,21 +12,21 @@ import { QueryBuilder } from '../query/query.js'
 
 const Member = Schema.define({
 	className: 'RelationPredicateMember',
-	fields: { active: booleanField(), name: stringField() },
+	fields: (field) => ({ active: field.boolean(), name: field.string() }),
 })
 const Team = Schema.define({
 	className: 'RelationPredicateTeam',
-	fields: {
-		members: relationField({ target: () => Member }),
-		name: stringField(),
-	},
+	fields: (field) => ({
+		members: field.relation({ target: () => Member }),
+		name: field.string(),
+	}),
 })
 const Company = Schema.define({
 	className: 'RelationPredicateCompany',
-	fields: {
-		name: stringField(),
-		teams: relationField({ target: () => Team }),
-	},
+	fields: (field) => ({
+		name: field.string(),
+		teams: field.relation({ target: () => Team }),
+	}),
 })
 
 const recursiveNameField = stringField()
@@ -43,10 +41,10 @@ type RecursiveSchema = SchemaClass<
 const resolveRecursiveSchema = (): RecursiveSchema => Recursive
 const Recursive: RecursiveSchema = Schema.define({
 	className: 'RecursiveRelationPredicate',
-	fields: {
-		children: relationField({ target: resolveRecursiveSchema }),
+	fields: (field) => ({
+		children: field.relation({ target: resolveRecursiveSchema }),
 		name: recursiveNameField,
-	},
+	}),
 })
 
 const nestRecursivePredicate = (

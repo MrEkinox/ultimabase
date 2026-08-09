@@ -124,16 +124,18 @@ describe('field hook declarations', () => {
 	it('keeps declaration-only callbacks out of compiled validation plans', () => {
 		const withoutHooks = Schema.define({
 			className: 'WithoutFieldHooks',
-			fields: { title: stringField({ validation: { required: true } }) },
+			fields: (field) => ({
+				title: field.string({ validation: { required: true } }),
+			}),
 		})
 		const withHooks = Schema.define({
 			className: 'WithFieldHooks',
-			fields: {
-				title: stringField({
+			fields: (field) => ({
+				title: field.string({
 					validation: { required: true },
 					hooks: { resolveInput: ({ value }) => value },
 				}),
-			},
+			}),
 		})
 
 		const plainPlan = compileValidationPlans(withoutHooks)

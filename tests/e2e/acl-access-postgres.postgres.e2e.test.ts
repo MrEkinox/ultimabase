@@ -10,7 +10,6 @@ import {
 	RequestContextValue,
 	requestSources,
 	Schema,
-	stringField,
 	UltimaBase,
 } from '@ultimabase/core'
 import { postgresPlugin, postgresTable } from '@ultimabase/postgres-plugin'
@@ -24,7 +23,7 @@ import {
 
 const Principal = Schema.define({
 	className: 'ACLAccessPrincipal',
-	fields: {},
+	fields: () => ({}),
 })
 const currentPrincipalId = new RequestContextValue<string>(
 	'fixture.acl.principal-id',
@@ -77,10 +76,10 @@ const identityPlugin = definePlugin({
 const emptyACL = new ACL()
 const ProtectedPost = Schema.define({
 	className: 'ACLAccessPost',
-	fields: {
-		marker: stringField({ default: 'original' }),
-		title: stringField({ validation: { required: true } }),
-	},
+	fields: (field) => ({
+		marker: field.string({ default: 'original' }),
+		title: field.string({ validation: { required: true } }),
+	}),
 	extensions: [
 		acl({
 			default: emptyACL,
@@ -216,7 +215,7 @@ describe('ACL PostgreSQL Access constraints', { concurrent: false }, () => {
 		])
 		const visibleTitles = (context: RequestContext) =>
 			ProtectedPost.findMany(
-				{ orderBy: [{ title: 'asc' }], select: { title: true } },
+				{ orderBy: { title: 'asc' }, select: { title: true } },
 				{ context, ultimabase: app },
 			).then((rows) => rows.map(({ title }) => title))
 

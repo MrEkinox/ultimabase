@@ -1,35 +1,36 @@
 # FieldBuilder declarations
 
-`fields(field) { ... }` is the canonical application declaration. Every method
-takes the logical name first and the existing field-factory options second:
+`fields: (field) => ({ ... })` is the canonical declaration. The returned map
+owns logical field names, while every method accepts the existing field-factory
+options:
 
 ```ts
 import { Schema } from '@ultimabase/core'
 
 export const UserSchema = Schema.define({
 	className: 'User',
-	fields(field) {
-		field.string('username', {
+	fields: (field) => ({
+		username: field.string({
 			indexed: 'unique',
 			validation: {
 				required: true,
 				length: { min: 3, max: 32 },
 			},
-		})
-		field.boolean('active', { default: true })
-		field.enum('status', {
+		}),
+		active: field.boolean({ default: true }),
+		status: field.enum({
 			values: ['invited', 'active', 'disabled'],
 			default: 'invited',
-		})
-		field.object('profile', {
-			fields(field) {
-				field.string('displayName', {
+		}),
+		profile: field.object({
+			fields: (field) => ({
+				displayName: field.string({
 					validation: { length: { max: 80 } },
-				})
-				field.date('birthday')
-			},
-		})
-	},
+				}),
+				birthday: field.date(),
+			}),
+		}),
+	}),
 })
 ```
 
@@ -43,19 +44,19 @@ Relationship targets remain lazy and exact at the declaration boundary:
 ```ts
 const PostSchema = Schema.define({
 	className: 'Post',
-	fields(field) {
-		field.string('title', { validation: { required: true } })
-		field.pointer('author', {
+	fields: (field) => ({
+		title: field.string({ validation: { required: true } }),
+		author: field.pointer({
 			target: () => UserSchema,
 			validation: { required: true },
-		})
-	},
+		}),
+	}),
 })
 ```
 
-Framework and plugin authors can reuse a low-level definition with
-`field.add('name', definition)`. Applications should prefer named methods; a
-general `field.custom()` is deliberately not part of the application API.
+Framework and plugin authors can continue to compose the low-level immutable
+field factories internally. A general `field.custom()` is deliberately not
+part of the application API.
 
 Configured plugins may add equally concise methods. For example,
 `pgVectorPlugin()` contributes `field.vector()` before schema compilation:
@@ -63,13 +64,13 @@ Configured plugins may add equally concise methods. For example,
 ```ts
 const DocumentSchema = Schema.define({
 	className: 'Document',
-	fields(field) {
-		field.string('title', { validation: { required: true } })
-		field.vector('embedding', {
+	fields: (field) => ({
+		title: field.string({ validation: { required: true } }),
+		embedding: field.vector({
 			dimensions: 1536,
 			validation: { required: true },
-		})
-	},
+		}),
+	}),
 })
 
 const application = await createApplication({
@@ -82,11 +83,11 @@ The method belongs to this application's plugin graph. Another application
 without `pgVectorPlugin()` does not register it. Once the generated declaration
 is included by TypeScript, its module augmentation exposes `field.vector()` on
 this application's FieldBuilder. Core's unaugmented base type remains neutral.
-Applications currently generate that declaration through the public
-`@ultimabase/codegen` API. A future CLI may automate generation and watch mode.
+Applications regenerate that declaration through `codegenPlugin()` during
+startup. A future CLI will expose manual generation and watch mode.
 
-Field maps remain an internal local-inference foundation for isolated tests and
-framework-owned composition. The generated application registry provides exact
+The same map-returning declaration is used by applications, tests, and
+framework-owned schemas. The generated application registry provides exact
 model, Query, mutation, Access, hook, extension, object-path, pointer, and
 relation contracts for builder-declared schemas without recursive field-map
 inference.

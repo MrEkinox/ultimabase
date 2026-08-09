@@ -1,6 +1,4 @@
 import {
-	pointerField,
-	relationField,
 	Schema,
 	type PointerField,
 	type RelationField,
@@ -34,17 +32,17 @@ function resolveTag(): PostgresRelationTagSchema {
 export const PostgresRelationArticle: PostgresRelationArticleSchema =
 	Schema.define({
 		className: 'PostgresRelationArticle',
-		fields: { tags: relationField({ target: resolveTag }) },
+		fields: (field) => ({ tags: field.relation({ target: resolveTag }) }),
 	})
 
 export const PostgresRelationTag: PostgresRelationTagSchema = Schema.define({
 	className: 'PostgresRelationTag',
-	fields: {
-		articles: relationField({
+	fields: (field) => ({
+		articles: field.relation({
 			target: (): PostgresRelationArticleSchema => PostgresRelationArticle,
 			mappedBy: 'tags',
 		}),
-	},
+	}),
 })
 
 export type PostgresRelationAuthorSchema = SchemaClass<
@@ -74,17 +72,17 @@ function resolvePost(): PostgresRelationPostSchema {
 export const PostgresRelationAuthor: PostgresRelationAuthorSchema =
 	Schema.define({
 		className: 'PostgresRelationAuthor',
-		fields: {
-			posts: relationField({ target: resolvePost, mappedBy: 'author' }),
-		},
+		fields: (field) => ({
+			posts: field.relation({ target: resolvePost, mappedBy: 'author' }),
+		}),
 	})
 
 export const PostgresRelationPost: PostgresRelationPostSchema = Schema.define({
 	className: 'PostgresRelationPost',
-	fields: {
-		author: pointerField({
+	fields: (field) => ({
+		author: field.pointer({
 			target: (): PostgresRelationAuthorSchema => PostgresRelationAuthor,
 			validation: { required: true },
 		}),
-	},
+	}),
 })

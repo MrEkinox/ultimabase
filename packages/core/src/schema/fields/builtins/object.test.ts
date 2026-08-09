@@ -365,7 +365,7 @@ describe('object fields and list metadata', () => {
 	it('rejects pointer and relation fields inside embedded objects', () => {
 		const Target = Schema.define({
 			className: 'EmbeddedObjectRuntimeTarget',
-			fields: {},
+			fields: () => ({}),
 		})
 
 		expect(() => {

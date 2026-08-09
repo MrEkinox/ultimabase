@@ -165,7 +165,7 @@ type CompatiblePointerOptions<
 /**
  * Declares one exact lazy schema reference.
  *
- * @example `field.pointer('author', { target: () => User })`
+ * @example `author: field.pointer({ target: () => User })`
  */
 export type PointerFieldBuilderMethod = <
 	const TTarget extends SchemaDefinition,

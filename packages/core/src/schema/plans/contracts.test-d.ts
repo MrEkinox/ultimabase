@@ -4,8 +4,6 @@ import {
 	compileValidationPlans,
 	definePluginField,
 	Schema,
-	objectField,
-	stringField,
 	type ArrayValidationPlan,
 	type FieldOptions,
 	type FieldValidationOptions,
@@ -24,11 +22,11 @@ import {
 test('exports structural operation and field plans', () => {
 	const schema = Schema.define({
 		className: 'User',
-		fields: {
-			name: stringField({ validation: { required: true } }),
-			profile: objectField({ fields: { bio: stringField() } }),
-			tags: stringField({ list: true }),
-		},
+		fields: (field) => ({
+			name: field.string({ validation: { required: true } }),
+			profile: field.object({ fields: (field) => ({ bio: field.string() }) }),
+			tags: field.string({ list: true }),
+		}),
 	})
 	const plans = compileValidationPlans(schema)
 	const namePlan = plans.create.fields.name

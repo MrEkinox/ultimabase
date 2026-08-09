@@ -9,7 +9,7 @@ import {
 	type ExecutableOperationAst,
 	type FindManyOperationAst,
 } from '../../query/index.js'
-import { Schema, stringField } from '../../schema/index.js'
+import { Schema } from '../../schema/index.js'
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 import { describe, expect, it, vi } from 'vitest'
 
@@ -35,15 +35,15 @@ import { createEnforcementStages } from './dispatcher.js'
 
 const articleSchema = Schema.define({
 	className: 'EnforcedArticle',
-	fields: {
-		secret: stringField(),
-		title: stringField({ validation: { required: true } }),
-	},
+	fields: (field) => ({
+		secret: field.string(),
+		title: field.string({ validation: { required: true } }),
+	}),
 })
 
 const foreignSchema = Schema.define({
 	className: 'ForeignEnforcedArticle',
-	fields: { title: stringField() },
+	fields: (field) => ({ title: field.string() }),
 })
 
 const context = RequestContext.anonymous({

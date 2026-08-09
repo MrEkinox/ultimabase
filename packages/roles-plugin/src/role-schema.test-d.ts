@@ -1,8 +1,6 @@
 import {
 	QueryBuilder,
 	Schema,
-	intField,
-	stringField,
 	type AccessRoleReferenceCarrier,
 	type InferCreateInput,
 	type SchemaRelationTarget,
@@ -13,20 +11,24 @@ import { RoleSchema, hasRole } from './index.js'
 
 const User = Schema.define({
 	className: 'TypedRoleUser',
-	fields: { email: stringField({ validation: { required: true } }) },
+	fields: (field) => ({
+		email: field.string({ validation: { required: true } }),
+	}),
 })
 const AppRole = RoleSchema.define({
 	className: 'TypedAppRole',
 	members: { schema: User },
-	fields: { description: stringField(), priority: intField({ default: 0 }) },
+	fields: (field) => ({
+		description: field.string(),
+		priority: field.int({ default: 0 }),
+	}),
 })
 const editorAccess = hasRole(AppRole.role('editor'))
 
 Schema.define({
 	className: 'RoleProtectedPost',
-	access: { update: editorAccess },
-	fields: {
-		title: stringField({
+	fields: (field) => ({
+		title: field.string({
 			access: {
 				read: {
 					orderBy: editorAccess,
@@ -35,20 +37,21 @@ Schema.define({
 				},
 			},
 		}),
-	},
+	}),
+	access: { update: editorAccess },
 })
 
 RoleSchema.define({
 	className: 'TypedPreservedRole',
 	members: { schema: User },
-	fields: {},
+	fields: () => ({}),
 	deletion: { references: 'preserve' },
 })
 
 RoleSchema.define({
 	className: 'TypedInvalidDeletionRole',
 	members: { schema: User },
-	fields: {},
+	fields: () => ({}),
 	deletion: {
 		// @ts-expect-error -- Deletion behavior is one closed schema-owned policy.
 		references: 'remove',
@@ -134,13 +137,13 @@ test('rejects reserved role fields and unrelated member values', () => {
 	RoleSchema.define({
 		className: 'InvalidRoleName',
 		members: { schema: User },
-		fields: { name: stringField() },
+		fields: (field) => ({ name: field.string() }),
 	})
 
 	// @ts-expect-error -- RoleSchema owns its direct member relation.
 	RoleSchema.define({
 		className: 'InvalidRoleMembers',
 		members: { schema: User },
-		fields: { members: stringField() },
+		fields: (field) => ({ members: field.string() }),
 	})
 })
