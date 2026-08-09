@@ -1,123 +1,41 @@
-import { readFile } from 'node:fs/promises'
 import path from 'node:path'
-import * as ts from 'typescript'
 import { describe, expect, it } from 'vitest'
 
-import { createLanguageService } from '../../tooling/vitest/typescript-language-service.js'
+import { createPackedCoreLanguageFixture } from './packed-core-language-service.js'
 
 const repositoryRoot = path.resolve(import.meta.dirname, '../..')
 const sourceFixtureFile = path.join(
 	repositoryRoot,
 	'packages/core/tests/hooks/native-schema-hooks.fixture.ts',
 )
-const packedFixtureFile = path.join(
-	repositoryRoot,
-	'tests/e2e/core-native-schema-hooks.packed.fixture.ts',
+const languageFixture = await createPackedCoreLanguageFixture(
+	sourceFixtureFile,
+	'core-native-schema-hooks.packed.fixture.ts',
 )
-const sourceFixture = await readFile(sourceFixtureFile, 'utf8')
-const packedFixture = sourceFixture.replaceAll(
-	"'../../src/index.js'",
-	"'@ultimabase/core'",
-)
-const markerPattern = /\/\* (completion|hover):[a-z-]+ \*\//gu
-const positions = new Map<string, number>()
-
-for (const match of packedFixture.matchAll(markerPattern)) {
-	positions.set(match[0], match.index)
-}
-
-const source = packedFixture.replace(markerPattern, (marker) =>
-	' '.repeat(marker.length),
-)
-const service = createLanguageService(packedFixtureFile, source)
-
-/** Resolves one marker shared by source and packed declaration tests. */
-const readMarkerPosition = (marker: string): number => {
-	const position = positions.get(marker)
-
-	if (position === undefined) {
-		throw new TypeError(`Missing packed schema hook marker: ${marker}`)
-	}
-
-	return position
-}
-
-/** Reads the first token following a removed hover marker. */
-const readHoverDisplay = (name: string): string => {
-	const marker = `/* hover:${name} */`
-	let position = readMarkerPosition(marker) + marker.length
-
-	while (/\s/u.test(source[position] ?? '')) {
-		position += 1
-	}
-
-	const quickInfo = service.getQuickInfoAtPosition(packedFixtureFile, position)
-
-	if (quickInfo === undefined) {
-		throw new TypeError(`Missing packed schema hook hover: ${name}`)
-	}
-
-	return ts.displayPartsToString(quickInfo.displayParts)
-}
-
-/** Reads contextual member names from emitted declaration completions. */
-const readMemberCompletionNames = (name: string): string[] => {
-	const position = readMarkerPosition(`/* completion:${name} */`)
-	const completions = service.getCompletionsAtPosition(
-		packedFixtureFile,
-		position,
-		{ includeCompletionsWithInsertText: true },
-	)
-
-	if (completions === undefined) {
-		throw new TypeError(`Missing packed schema completions: ${name}`)
-	}
-
-	return completions.entries
-		.filter(
-			(entry) => entry.kind === ts.ScriptElementKind.memberVariableElement,
-		)
+const readHoverDisplay = (name: string): string =>
+	languageFixture.readHover(name).display
+const readMemberCompletionNames = (name: string): readonly string[] =>
+	languageFixture
+		.readMemberCompletions(name)
 		.map(({ name: entryName }) => entryName)
 		.sort()
-}
 
 describe('packed @ultimabase/core native schema hooks', () => {
 	it('type-checks through public package declarations', () => {
-		expect(service.getSemanticDiagnostics(packedFixtureFile)).toStrictEqual([])
+		expect(languageFixture.diagnostics()).toStrictEqual([])
 	})
 
 	it('preserves phase completion documentation', () => {
-		const position = readMarkerPosition('/* completion:schema-hooks */')
-		const completions = service.getCompletionsAtPosition(
-			packedFixtureFile,
-			position,
-			{ includeCompletionsWithInsertText: true },
-		)
-
-		if (completions === undefined) {
-			throw new TypeError('Missing packed schema hook completions')
-		}
-
-		const beforeOperation = completions.entries.find(
-			({ name }) => name === 'beforeOperation',
-		)
+		const beforeOperation = languageFixture
+			.readMemberCompletions('schema-hooks')
+			.find(({ name }) => name === 'beforeOperation')
 
 		if (beforeOperation === undefined) {
 			throw new TypeError('Missing packed beforeOperation completion')
 		}
 
-		const details = service.getCompletionEntryDetails(
-			packedFixtureFile,
-			position,
-			beforeOperation.name,
-			undefined,
-			beforeOperation.source,
-			undefined,
-			beforeOperation.data,
-		)
-
-		expect(ts.displayPartsToString(details?.documentation).trim()).not.toBe('')
-		expect(details?.tags?.some(({ name }) => name === 'example')).toBe(true)
+		expect(beforeOperation.documentation.trim()).not.toBe('')
+		expect(beforeOperation.hasExample).toBe(true)
 	})
 
 	it('keeps callback values precise and compact after declaration emission', () => {

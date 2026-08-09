@@ -13,12 +13,14 @@ boundary must preserve exact TypeScript inference without placing callback
 functions in physical schema metadata or coupling declaration code to Runtime
 execution.
 
-The issue 324 prototype exercises the intended constructor and field-factory
+The issue 324 prototype exercised the intended constructor and field-factory
 syntax through both source declarations and the built `@ultimabase/core`
-package. It proves that schema callbacks can infer create, update, object,
-Query, operation, and correlated result shapes. Inline callbacks infer scalar,
-enum, object, multidimensional list, nullable, and plugin-defined logical
-values without access to sibling fields.
+package. It proved that schema callbacks could infer create, update, object,
+Query, operation, and correlated result shapes. Inline callbacks inferred
+scalar, enum, object, multidimensional list, nullable, and plugin-defined
+logical values without access to sibling fields. The prototype was removed
+after the production native field and schema hook language-service suites
+superseded its regression coverage.
 
 ## Decision
 

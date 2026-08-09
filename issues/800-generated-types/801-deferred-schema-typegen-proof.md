@@ -44,10 +44,11 @@ const Document = Schema.define({
 
 ## Evidence
 
-The disposable implementation, measured observations, and blocking
-model-construction result are documented in
-[`tooling/prototypes/generated-schema-authoring`](../../tooling/prototypes/generated-schema-authoring/README.md).
+The disposable implementation established the measured observations and
+blocking model-construction result recorded by this issue and ADR-0173. It was
+removed after the production schema-compilation, plugin FieldBuilder, codegen,
+and packed-consumer regression suites superseded the proof.
 
 The user validated the demonstrated post-compilation model-construction
-boundary on 2026-08-09. Issue 802 can now formalize it without changing the
-production API during this proof.
+boundary on 2026-08-09. Issue 802 then formalized the production architecture
+without retaining a second prototype implementation.

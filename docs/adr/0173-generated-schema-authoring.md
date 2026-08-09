@@ -239,15 +239,21 @@ This decision does not introduce:
 
 ## Evidence
 
-The disposable [issue-801 prototype](../../tooling/prototypes/generated-schema-authoring/README.md)
-records the lifecycle boundary, stable-TypeScript editor observations, first
-generation through transpilation, plugin isolation, deterministic conflicts,
-and compatible schema reuse. Its focused
-[runtime and language-service test](../../tests/e2e/generated-schema-authoring-prototype.e2e.test.ts)
-proves those properties without changing production exports.
+[Issue 801](../../issues/800-generated-types/801-deferred-schema-typegen-proof.md)
+records the disposable proof that established the lifecycle boundary,
+stable-TypeScript editor behavior, first generation through transpilation,
+plugin isolation, deterministic conflicts, and compatible schema reuse. The
+prototype implementation was removed after the production contracts superseded
+it. Those contracts are protected by the focused
+[schema compilation](../../packages/core/src/schema/schema/compilation.test.ts),
+[plugin FieldBuilder](../../packages/core/src/schema/schema/plugin-field-builder-methods.test.ts),
+[codegen loader](../../packages/codegen/src/loader.test.ts), and
+[generated public type](../../tests/e2e/codegen-generated-types.e2e.test.ts)
+regression suites.
 
-The prototype does not prove a TypeScript memory improvement. Issue 810 must
-measure separate representative processes before this project claims one.
+The historical prototype did not prove a TypeScript memory improvement. Issue
+810 must measure separate representative processes before this project claims
+one.
 
 ## Consequences
 

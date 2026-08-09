@@ -37,6 +37,8 @@ weakening TypeScript editor inference.
 
 ## Result
 
-The compile-time prototype and ADR-0096 prove the declaration boundary without
-shipping a partial production API. Production schema hook storage begins in
-issue 325, while field hook storage remains owned by issue 326.
+The compile-time prototype and ADR-0096 proved the declaration boundary without
+shipping a partial production API. Production schema hook storage began in
+issue 325, while field hook storage remained owned by issue 326. The prototype
+fixtures were removed after the production source and packed-package native
+field and schema hook suites superseded them.

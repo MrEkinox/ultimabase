@@ -21,6 +21,7 @@ export interface PackedCoreLanguageFixture {
 	readonly readMemberCompletions: (
 		name: string,
 	) => readonly PackedCoreCompletion[]
+	readonly readStringCompletions: (name: string) => readonly string[]
 	readonly readHover: (name: string) => PackedCoreQuickInfo
 	readonly readSignatureParameterDocumentation: (
 		name: string,
@@ -105,6 +106,32 @@ export const createPackedCoreLanguageFixture = async (
 						name: entry.name,
 					}
 				})
+		},
+		readStringCompletions: (name): readonly string[] => {
+			const marker = `/* completion:${name} */`
+			const markerPosition = markerPositions.get(marker)
+
+			if (markerPosition === undefined) {
+				throw new TypeError(`Missing packed Core marker: ${marker}`)
+			}
+
+			let position = markerPosition + marker.length
+
+			while (/\s/u.test(packedSource[position] ?? '')) {
+				position += 1
+			}
+
+			const completions = languageService.getCompletionsAtPosition(
+				packedFixtureFile,
+				position + 1,
+				{ includeCompletionsWithInsertText: true },
+			)
+
+			if (completions === undefined) {
+				throw new TypeError(`Missing packed Core completions: ${name}`)
+			}
+
+			return completions.entries.map(({ name: entryName }) => entryName)
 		},
 		readHover: (name): PackedCoreQuickInfo => {
 			const marker = `/* hover:${name} */`
