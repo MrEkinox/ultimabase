@@ -222,6 +222,59 @@ export interface CompactScalarFieldFactory<
 	>
 }
 
+/** Reuses compact scalar option inference for one name-first builder method. */
+export interface CompactScalarFieldBuilderMethod<
+	TValue,
+	TOptions extends FieldOptions<TValue>,
+> {
+	/**
+	 * Declares one scalar field with the existing factory options.
+	 *
+	 * @param name Stable logical field name within its containing schema or object.
+	 * @param options Existing factory options, including validation, Access, and hooks.
+	 * @example `field.string('title', { default: 'Untitled' })`
+	 */
+	<
+		const TRequired extends boolean = false,
+		const TList extends FieldListOption = false,
+		const TImmutable extends boolean = false,
+	>(
+		/** Stable logical field name within its containing schema or object. */
+		name: string,
+		/** Existing factory options, including validation, Access, and hooks. */
+		options: DefaultedCompactScalarFieldOptions<
+			TOptions,
+			TValue,
+			TRequired,
+			TList,
+			TImmutable
+		>,
+	): void
+	/**
+	 * Declares one scalar field without a default value.
+	 *
+	 * @param name Stable logical field name within its containing schema or object.
+	 * @param options Existing factory options, including validation, Access, and hooks.
+	 * @example `field.string('title')`
+	 */
+	<
+		const TRequired extends boolean = false,
+		const TList extends FieldListOption = false,
+		const TImmutable extends boolean = false,
+	>(
+		/** Stable logical field name within its containing schema or object. */
+		name: string,
+		/** Existing factory options, including validation, Access, and hooks. */
+		options?: NonDefaultedCompactScalarFieldOptions<
+			TOptions,
+			TValue,
+			TRequired,
+			TList,
+			TImmutable
+		>,
+	): void
+}
+
 /** Preserves one adapter-generated option in addition to common scalar state. */
 export interface GeneratedCompactScalarFieldFactory<
 	TKind extends string,
@@ -294,6 +347,81 @@ export interface GeneratedCompactScalarFieldFactory<
 		false,
 		THasGeneratedValue
 	>
+}
+
+/** Reuses generated scalar option inference for one name-first builder method. */
+export interface GeneratedCompactScalarFieldBuilderMethod<
+	TValue,
+	TOptions extends FieldOptions<TValue>,
+	TGenerationKey extends keyof TOptions & string,
+	TExclusiveGeneration extends boolean,
+> {
+	/**
+	 * Declares one generated-capable scalar field with an explicit default.
+	 *
+	 * @param name Stable logical field name within its containing schema or object.
+	 * @param options Existing factory options, including validation, Access, and hooks.
+	 * @example `field.int('views', { default: 0 })`
+	 */
+	<
+		const TRequired extends boolean = false,
+		const TList extends FieldListOption = false,
+		const TImmutable extends boolean = false,
+		const THasGeneratedValue extends boolean = false,
+	>(
+		/** Stable logical field name within its containing schema or object. */
+		name: string,
+		/** Existing factory options, including validation, Access, and hooks. */
+		options: DefaultedCompactScalarFieldOptions<
+			TOptions,
+			TValue,
+			TRequired,
+			TList,
+			TImmutable,
+			GeneratedScalarOption<TGenerationKey, THasGeneratedValue>
+		>,
+		...invalidOptions: InvalidOptionsArguments<
+			CompatibleGeneratedScalarOptions<
+				THasGeneratedValue,
+				TList,
+				true,
+				TExclusiveGeneration
+			>
+		>
+	): void
+	/**
+	 * Declares one generated-capable scalar field without an explicit default.
+	 *
+	 * @param name Stable logical field name within its containing schema or object.
+	 * @param options Existing factory options, including validation, Access, and hooks.
+	 * @example `field.int('sequence', { autoIncrement: true })`
+	 */
+	<
+		const TRequired extends boolean = false,
+		const TList extends FieldListOption = false,
+		const TImmutable extends boolean = false,
+		const THasGeneratedValue extends boolean = false,
+	>(
+		/** Stable logical field name within its containing schema or object. */
+		name: string,
+		/** Existing factory options, including validation, Access, and hooks. */
+		options?: NonDefaultedCompactScalarFieldOptions<
+			TOptions,
+			TValue,
+			TRequired,
+			TList,
+			TImmutable,
+			GeneratedScalarOption<TGenerationKey, THasGeneratedValue>
+		>,
+		...invalidOptions: InvalidOptionsArguments<
+			CompatibleGeneratedScalarOptions<
+				THasGeneratedValue,
+				TList,
+				false,
+				TExclusiveGeneration
+			>
+		>
+	): void
 }
 
 /** Shares compact runtime construction across regular and generated contracts. */

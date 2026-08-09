@@ -52,21 +52,22 @@ cross-domain behavior and public-export checks.
 
 ## Schema definitions
 
-`Schema.define(options)` combines existing field definitions into immutable schema
-metadata while preserving the exact class name, field keys, field kinds,
-and ordered extension tuple:
+`Schema.define(options)` records one synchronous Nexus-style declaration and
+later compiles its existing immutable field definitions. The logical name comes
+first, while the second argument is the corresponding factory's documented
+options:
 
 ```ts
 const PostSchema = Schema.define({
 	className: 'Post',
-	fields: () => ({
-		title: stringField({
+	fields(field) {
+		field.string('title', {
 			validation: {
 				required: true,
 			},
-		}),
-		published: booleanField({ default: false }),
-	}),
+		})
+		field.boolean('published', { default: false })
+	},
 	extensions: [permissionsExtension],
 })
 ```
@@ -84,7 +85,22 @@ Callbacks are synchronous declarations. They may close over static values and
 lazy relationship targets, but cannot receive requests, services, adapters,
 transactions, or lifecycle state. Existing `fields: { ... }` maps still compile
 immediately as a migration-only compatibility path until the FieldBuilder
-repository migration.
+repository migration. During the generated-types milestone, map declarations
+retain the legacy recursively inferred model contract; builder declarations gain
+their exact application model contract from the generated registry introduced by
+the following milestone issues.
+
+The root builder exposes every Core field kind. `field.object()` receives a
+path-aware embedded builder that omits `pointer` and `relation` and rejects
+database-generated integer sequences. Methods call the same public field
+factories internally rather than reproducing option normalization, validation,
+hooks, Access, defaults, or inference rules.
+
+`field.add(name, definition)` is the explicit low-level composition path for
+framework and plugin authors reusing a prebuilt field definition. It applies the
+same provenance, duplicate-name, reserved-name, and embedded-capability checks.
+Normal application code should use named builder methods; Core intentionally does
+not expose `field.custom()` as ordinary schema DX.
 
 The public constructor and field factories also protect JavaScript callers at
 runtime. Schema names, field maps, field definitions, common option flags,

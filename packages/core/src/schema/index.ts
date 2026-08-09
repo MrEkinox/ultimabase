@@ -230,6 +230,7 @@ export type {
 	SchemaDefinition,
 	SchemaExtensionData,
 	SchemaExtensionDeclaration,
+	BuilderSchemaOptions,
 	DeferredSchemaOptions,
 	ImmediateSchemaOptions,
 	ResolvedSchemaFields,
@@ -243,6 +244,12 @@ export type {
 	SchemaStaticCapabilities,
 	SchemaStaticCapabilityFactory,
 } from './schema/definition.js'
+export type {
+	EmbeddedFieldBuilder,
+	FieldBuilder,
+	ObjectFieldBuilderOptions,
+	SchemaFieldBuilderDeclaration,
+} from './schema/field-builder.js'
 export type {
 	CompactSchemaModelUpdateInput,
 	PersistedSchemaModel,

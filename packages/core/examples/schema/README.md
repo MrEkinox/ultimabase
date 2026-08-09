@@ -4,8 +4,10 @@ These examples demonstrate the public `@ultimabase/core` Schema API through focu
 TypeScript snippets:
 
 - [`basic-schema.md`](basic-schema.md) introduces a schema and inferred types;
-- deferred `fields: () => ({ ... })` callbacks are the compilation-ready
-  declaration form; object-shaped maps remain temporary migration compatibility;
+- [`field-builder.md`](field-builder.md) introduces the canonical
+  `fields(field) { ... }` declaration and restricted embedded builders;
+- object-shaped field maps remain temporary migration compatibility until the
+  repository migration is complete;
 - [`field-options.md`](field-options.md) covers built-in fields, validation
   metadata, defaults, generation, and indexes;
 - [`objects-and-lists.md`](objects-and-lists.md) composes reusable nested fields

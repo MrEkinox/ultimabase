@@ -67,6 +67,10 @@ import type { SchemaHooks } from '../hooks/contracts.js'
 import { declareSchemaHooks } from '../hooks/declarations.js'
 import type { SchemaAccess } from '../access/contracts.js'
 import { declareSchemaAccess } from '../access/declarations.js'
+import {
+	executeSchemaFieldsCallback,
+	type SchemaFieldBuilderDeclaration,
+} from './field-builder.js'
 
 /**
  * Collects named field definitions without erasing their concrete literals.
@@ -133,12 +137,13 @@ export interface SchemaOptions<
 	 */
 	readonly className: TClassName
 	/**
-	 * Declares developer fields now or defers their factories until application compilation.
+	 * Declares fields through the canonical name-first builder or a migration field map.
 	 * Framework-owned `id`, `createdAt`, and `updatedAt` fields are added automatically.
 	 *
-	 * @example `fields: () => ({ title: stringField(), published: booleanField() })`
+	 * @example `fields(field) { field.string('title'); field.boolean('published') }`
 	 */
-	readonly fields: TFields | SchemaFieldDeclaration<TFields>
+	readonly fields:
+		TFields | SchemaFieldDeclaration<TFields> | SchemaFieldBuilderDeclaration
 	/**
 	 * Declares adapter-neutral composite indexes containing at least two fields.
 	 * Single-field indexes belong on the corresponding field through `indexed`.
@@ -205,12 +210,27 @@ export type DeferredSchemaOptions<
 	readonly fields: SchemaFieldDeclaration<TFields>
 }
 
-type SchemaFieldSource = SchemaFields | SchemaFieldDeclaration
+/** Declares fields imperatively through the canonical name-first builder. */
+export type BuilderSchemaOptions<
+	TClassName extends string,
+	TExtensions extends SchemaExtensions,
+> = Omit<SchemaOptions<TClassName, SchemaFields, TExtensions>, 'fields'> & {
+	/**
+	 * Collects fields during application static compilation.
+	 * @example `fields(field) { field.string('title') }`
+	 */
+	readonly fields: SchemaFieldBuilderDeclaration
+}
+
+type SchemaFieldSource =
+	SchemaFields | SchemaFieldDeclaration | SchemaFieldBuilderDeclaration
 
 type SchemaFieldsFromSource<TSource extends SchemaFieldSource> =
 	TSource extends SchemaFieldDeclaration<infer TFields>
 		? TFields
-		: Extract<TSource, SchemaFields>
+		: TSource extends SchemaFieldBuilderDeclaration
+			? SchemaFields
+			: Extract<TSource, SchemaFields>
 
 type SchemaDeclarationOptions<
 	TClassName extends string,
@@ -593,7 +613,8 @@ export class SchemaCompilationError extends Error {
 interface NormalizedSchemaDeclaration {
 	readonly className: string
 	readonly extensions: SchemaExtensions
-	readonly fields: SchemaFields | SchemaFieldDeclaration
+	readonly fields:
+		SchemaFields | SchemaFieldDeclaration | SchemaFieldBuilderDeclaration
 	readonly indexes: readonly SchemaIndexOptions[] | undefined
 	readonly deferred: boolean
 }
@@ -769,7 +790,10 @@ const executeSchemaFieldDeclaration = (
 	}
 
 	try {
-		return declaration.fields()
+		return executeSchemaFieldsCallback(
+			declaration.fields,
+			`${declaration.className}.fields`,
+		)
 	} catch (cause: unknown) {
 		throw new SchemaCompilationError(
 			'callback-threw',
@@ -1171,7 +1195,7 @@ export class Schema {
 	 * ```ts
 	 * const Post = Schema.define({
 	 *   className: "Post",
-	 *   fields: { title: stringField() },
+	 *   fields(field) { field.string("title") },
 	 * })
 	 * ```
 	 */
@@ -1221,6 +1245,19 @@ export class Schema {
 			TCapabilities
 		>,
 	): SchemaClass<TClassName, TFields, TExtensions> & TCapabilities
+
+	static defineWithStatics<
+		const TClassName extends string,
+		const TExtensions extends SchemaExtensions = readonly [],
+		const TCapabilities extends SchemaStaticCapabilities =
+			SchemaStaticCapabilities,
+	>(
+		options: BuilderSchemaOptions<TClassName, TExtensions>,
+		createCapabilities: SchemaStaticCapabilityFactory<
+			SchemaClass<TClassName, SchemaFields, TExtensions>,
+			TCapabilities
+		>,
+	): SchemaClass<TClassName, SchemaFields, TExtensions> & TCapabilities
 
 	// Separate overloads preserve exact generic field maps for package-owned schemas.
 	static defineWithStatics<
@@ -1283,6 +1320,22 @@ export class Schema {
 			TResults
 		>,
 	): SchemaClass<TClassName, TFields, TExtensions> &
+		TStatics &
+		SchemaResultCapabilityCarrier<TResults>
+
+	static defineWithCapabilities<
+		const TClassName extends string,
+		const TExtensions extends SchemaExtensions = readonly [],
+		const TStatics extends SchemaStaticCapabilities = SchemaStaticCapabilities,
+		const TResults extends object = object,
+	>(
+		options: BuilderSchemaOptions<TClassName, TExtensions>,
+		createCapabilities: SchemaClassCapabilityFactory<
+			SchemaClass<TClassName, SchemaFields, TExtensions>,
+			TStatics,
+			TResults
+		>,
+	): SchemaClass<TClassName, SchemaFields, TExtensions> &
 		TStatics &
 		SchemaResultCapabilityCarrier<TResults>
 

@@ -36,8 +36,8 @@ Detailed guides remain focused by domain:
 
 ## Static schema compilation and lazy relationship targets
 
-`Schema.define()` may retain a synchronous field-map callback instead of
-resolving fields during module evaluation. `createApplication()` compiles every
+`Schema.define()` retains a synchronous field declaration instead of resolving
+fields during module evaluation. `createApplication()` compiles every
 configured schema atomically before plugin setup or infrastructure lifecycle
 work. Setup receives the resulting read-only schema registry; plugins cannot
 register late schemas:
@@ -45,9 +45,15 @@ register late schemas:
 ```ts
 const PostSchema = Schema.define({
 	className: 'Post',
-	fields: () => ({
-		title: stringField({ validation: { required: true } }),
-	}),
+	fields(field) {
+		field.string('title', { validation: { required: true } })
+		field.boolean('published', { default: false })
+		field.object('metadata', {
+			fields(field) {
+				field.string('source')
+			},
+		})
+	},
 })
 
 const application = await createApplication({
@@ -61,6 +67,14 @@ metadata and `new PostSchema(...)` fail with `SchemaCompilationError`. The
 callback executes once for an accepted application compilation and its result
 becomes immutable schema metadata. Existing `fields: { ... }` maps remain a
 migration-only compatibility path until the repository moves to FieldBuilder.
+Every builder method delegates to the corresponding immutable field factory, so
+validation, defaults, Access, hooks, and adapter metadata keep one implementation.
+Embedded builders deliberately omit pointers, relations, and generated database
+sequences.
+
+Framework and plugin authors may compose one already-created field through
+`field.add(name, definition)`. Application schemas normally use the named
+built-in methods; there is no general application-facing `field.custom()`.
 
 Pointer and relation target callbacks can still safely reference a class
 declared later in the module. Static compilation resolves them after every

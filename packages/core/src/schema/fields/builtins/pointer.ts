@@ -162,6 +162,31 @@ type CompatiblePointerOptions<
 		: object
 	: object
 
+/**
+ * Declares one exact lazy schema reference.
+ *
+ * @example `field.pointer('author', { target: () => User })`
+ */
+export type PointerFieldBuilderMethod = <
+	const TTarget extends SchemaDefinition,
+	const TRequired extends boolean = false,
+	const TImmutable extends boolean = false,
+	const TOnDelete extends PointerReferentialAction = 'restrict',
+>(
+	/** Stable logical field name within the containing schema. */
+	name: string,
+	/** Declares the exact lazy target and pointer behavior. */
+	options: CompactPointerFieldOptions<
+		TTarget,
+		TRequired,
+		TImmutable,
+		TOnDelete
+	>,
+	...invalidOptions: InvalidOptionsArguments<
+		CompatiblePointerOptions<TRequired, TOnDelete>
+	>
+) => void
+
 interface PointerFieldMetadataInput extends FieldOptionsBase<
 	FieldValidationOptions,
 	false
