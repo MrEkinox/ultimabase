@@ -3,7 +3,7 @@
 - Status: active
 - Started: 2026-08-09
 - Objective owner: `@ultimabase/core`, `@ultimabase/codegen`, `@ultimabase/pg-vector-plugin`
-- Governing decisions: [ADR-0173](docs/adr/0173-generated-schema-authoring.md), refined by [ADR-0175](docs/adr/0175-map-returning-schema-fields.md)
+- Governing decisions: [ADR-0173](docs/adr/0173-generated-schema-authoring.md), refined by [ADR-0175](docs/adr/0175-map-returning-schema-fields.md) and [ADR-0176](docs/adr/0176-one-dimensional-field-lists.md)
 - Paused objective: [ACL hardening and developer-experience consolidation](docs/plans/paused/acl-hardening-and-developer-experience-consolidation.md)
 
 ## Objective
@@ -86,7 +86,8 @@ semantics and the user validates the demonstrated editor behavior.
 
 ### Phase 4 — Final proof
 
-10. [ ] [810 — Verify generated schema authoring DX and performance](issues/800-generated-types/810-generated-schema-dx-verification.md)
+10. [x] [811 — Generate one-dimensional field-list filters](issues/800-generated-types/811-one-dimensional-list-filters.md)
+11. [ ] [810 — Verify generated schema authoring DX and performance](issues/800-generated-types/810-generated-schema-dx-verification.md)
 
 ## Supervision checkpoints
 

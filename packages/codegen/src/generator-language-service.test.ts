@@ -39,6 +39,11 @@ const createGeneratedRegistry = (): string => {
 				title: field.string({ validation: { required: true } }),
 				views: field.int(),
 				scores: field.int({ list: true }),
+				statuses: field.enum({
+					list: true,
+					typeName: 'SemanticStatus',
+					values: ['draft', 'published'],
+				}),
 				status: field.enum({
 					typeName: 'SemanticStatus',
 					validation: { required: true },
@@ -52,6 +57,15 @@ const createGeneratedRegistry = (): string => {
 					}),
 					typeName: 'SemanticProfile',
 				}),
+				profiles: field.object({
+					fields: (field) => ({
+						displayName: field.string({
+							validation: { required: true },
+						}),
+					}),
+					list: true,
+					typeName: 'SemanticProfile',
+				}),
 				author: field.pointer({
 					target: (): SchemaDefinition => Author,
 					validation: { required: true },
@@ -61,6 +75,10 @@ const createGeneratedRegistry = (): string => {
 				}),
 				embedding: generatedField.vector({
 					dimensions: 3,
+				}),
+				embeddings: generatedField.vector({
+					dimensions: 3,
+					list: true,
 				}),
 			}
 		},
@@ -166,6 +184,16 @@ const where: ${hoverMarker}SemanticArticleWhereInput = {
   author: { is: { name: { startsWith: 'Ada' } } },
   profile: { at: [{ path: ['displayName'], startsWith: 'A' }] },
   related: { count: { gte: 3, where: { status: { eq: 'published' } } } },
+  scores: {
+    eq: [10, 20],
+    has: 10,
+    hasEvery: [10, 20],
+    hasSome: [30],
+    isEmpty: true,
+  },
+  statuses: { has: 'published' },
+  profiles: { has: { displayName: 'Ada' } },
+  embeddings: { has: [0, 1, 0] },
   status: { in: ['draft', 'published'] },
 }
 const selection: SemanticArticleSelect = { ${selectMarker} }
@@ -212,6 +240,12 @@ const invalidOrder: SemanticArticleOrderByInput = {
   // @ts-expect-error -- Generated ordering exposes only exact field names.
   missing: 'asc',
 }
+const invalidListFilter: SemanticArticleWhereInput = {
+  scores: {
+    // @ts-expect-error -- Generated array filters retain their exact element type.
+    has: '10',
+  },
+}
 
 void accessWhere
 void createInput
@@ -221,6 +255,7 @@ void hookItem
 void include
 void invalidEnum
 void invalidOrder
+void invalidListFilter
 void invalidSelection
 void invalidUpdate
 void order

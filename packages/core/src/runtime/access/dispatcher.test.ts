@@ -604,7 +604,7 @@ describe('NativeAccessRuntime', () => {
 							},
 						}),
 					}),
-					list: [true, true],
+					list: true,
 				}),
 			}),
 		})
@@ -614,7 +614,7 @@ describe('NativeAccessRuntime', () => {
 		})
 		const stages = requireStages(createEnforcementStages(application))
 		const create = (label: string): CreateOneOperationAst<typeof schema> => ({
-			input: { groups: [[{ label: 'first' }], [{ label }]] },
+			input: { groups: [{ label: 'first' }, { label }] },
 			kind: 'create-one',
 			selection: { fields: [], kind: 'selection' },
 			schema: new QueryBuilder(schema).ast.schema,
@@ -1038,7 +1038,7 @@ describe('NativeAccessRuntime', () => {
 						},
 					},
 					fields: () => protectedFields,
-					list: [true, true],
+					list: true,
 				}),
 				profile: field.object({ fields: () => protectedFields }),
 			}),
@@ -1062,11 +1062,9 @@ describe('NativeAccessRuntime', () => {
 					blocked: { secret: 'unreachable' },
 					createdAt: '2026-08-03T00:00:00.000Z',
 					groups: [
-						[
-							{ name: 'first', secret: 'visible' },
-							{ name: 'second', secret: 'hidden' },
-						],
-						[{ name: 'third', secret: 'hidden' }],
+						{ name: 'first', secret: 'visible' },
+						{ name: 'second', secret: 'hidden' },
+						{ name: 'third', secret: 'hidden' },
 					],
 					id: '0198a43e-2431-7000-8000-000000000060',
 					profile: { name: 'profile', secret: 'hidden' },
@@ -1079,8 +1077,9 @@ describe('NativeAccessRuntime', () => {
 			{
 				createdAt: '2026-08-03T00:00:00.000Z',
 				groups: [
-					[{ name: 'first', secret: 'visible' }, { name: 'second' }],
-					[{ name: 'third' }],
+					{ name: 'first', secret: 'visible' },
+					{ name: 'second' },
+					{ name: 'third' },
 				],
 				id: '0198a43e-2431-7000-8000-000000000060',
 				profile: { name: 'profile' },

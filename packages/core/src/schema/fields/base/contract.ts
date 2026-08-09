@@ -4,11 +4,9 @@ import type { DefaultFactory, FieldDefault } from './defaults.js'
 declare const fieldValueMarker: unique symbol
 declare const fieldInferenceMarker: unique symbol
 
-/**
- * Describes one or more homogeneous list wrappers around a field value.
- */
-export type FieldList = true | readonly [true, ...true[]]
-export type FieldListOption = false | FieldList
+/** Describes one homogeneous list wrapper around a field value. */
+export type FieldList = true
+export type FieldListOption = boolean
 
 /** Describes whether one operation exposes a declared field property. */
 export type FieldInferencePresence = 'forbidden' | 'optional' | 'required'
@@ -51,21 +49,12 @@ export interface ScalarFieldInferenceState<
 	readonly list: TList
 }
 
-type ApplyFieldListTuple<
-	TValue,
-	TList extends readonly true[],
-> = TList extends readonly [true, ...infer TRest extends readonly true[]]
-	? readonly ApplyFieldListTuple<TValue, TRest>[]
-	: TValue
-
 /**
- * Applies declarative list metadata to one field's scalar value.
+ * Applies the optional one-dimensional list wrapper to a field's scalar value.
  */
 export type FieldListValue<TValue, TList> = TList extends true
 	? readonly TValue[]
-	: TList extends readonly true[]
-		? ApplyFieldListTuple<TValue, TList>
-		: TValue
+	: TValue
 
 /**
  * Derives the complete value from one field's scalar type and exact options.
@@ -75,14 +64,11 @@ export type FieldOptionsValue<TValue, TOptions> = FieldListValue<
 	TOptions extends { readonly list: infer TList } ? TList : false
 >
 
-type RecursiveFieldListValue<TValue> =
-	TValue | readonly RecursiveFieldListValue<TValue>[]
-
 type FieldOptionsDefaultValue<
 	TValue,
 	TList extends FieldListOption,
 > = FieldListOption extends TList
-	? RecursiveFieldListValue<TValue>
+	? TValue | readonly TValue[]
 	: FieldListValue<TValue, TList>
 
 /**
@@ -144,10 +130,9 @@ export interface FieldOptionsBase<
 	TList extends FieldListOption = FieldListOption,
 > extends FieldMetadataOptions<TValidation> {
 	/**
-	 * Wraps the scalar in one or more list dimensions. `true` creates one dimension.
+	 * Wraps the scalar in one homogeneous list when enabled.
 	 *
 	 * @example `list: true`
-	 * @example `list: [true, true]` creates a two-dimensional list.
 	 */
 	readonly list?: TList
 }

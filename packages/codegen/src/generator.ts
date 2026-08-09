@@ -23,7 +23,7 @@ import {
 	type TypegenApplicationSnapshot,
 } from './snapshot.js'
 
-const generatorVersion = 6
+const generatorVersion = 7
 
 const fingerprintSnapshot = (snapshot: TypegenApplicationSnapshot): string =>
 	createHash('sha256')
@@ -68,7 +68,7 @@ export const generateApplicationTypesFromSnapshot = (
 	const context: RenderContext = { identifiers, imports, schemasByName }
 	const generatedSections = [
 		...snapshot.schemas.map((schema) => renderSchemaPublic(schema, context)),
-		renderSharedTypes(snapshot),
+		renderSharedTypes(snapshot, context),
 		renderFieldBuilder(snapshot, context),
 		renderTypeInfo(snapshot, context),
 		'// Framework registry',

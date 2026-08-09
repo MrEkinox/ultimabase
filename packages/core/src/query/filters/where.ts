@@ -23,6 +23,7 @@ import { parseQueryFieldName } from '../ast/schema.js'
 import {
 	createQueryJsonPathFilter,
 	createQueryKeyFilter,
+	createQueryListFilter,
 	createQueryMembershipFilter,
 	createQueryNullFilter,
 	createQueryRangeFilter,
@@ -56,6 +57,9 @@ import type {
 	QueryJsonPathFilterNode,
 	QueryKeyFilterNode,
 	QueryKeysFilterNode,
+	QueryListEmptyFilterNode,
+	QueryListHasFilterNode,
+	QueryListMembershipFilterNode,
 	QueryMembershipFilterNode,
 	QueryNullFilterNode,
 	QueryPrimitiveFilterNode,
@@ -126,49 +130,69 @@ type WhereOperatorsForNode<TNode> =
 								endsWith?: TValue
 								startsWith?: TValue
 							}>
-						: TNode extends QueryStructuralContainmentFilterNode<
+						: TNode extends QueryListHasFilterNode<
 									string,
 									infer TValue,
 									readonly string[] | undefined
 							  >
-							? Readonly<{
-									containedBy?: TValue
-									contains?: TValue
-								}>
-							: TNode extends QueryKeyFilterNode<
+							? Readonly<{ has?: TValue }>
+							: TNode extends QueryListMembershipFilterNode<
 										string,
-										infer TKey,
+										infer TValue,
 										readonly string[] | undefined
 								  >
-								? Readonly<{ hasKey?: TKey }>
-								: TNode extends QueryKeysFilterNode<
+								? Readonly<{
+										hasEvery?: readonly TValue[]
+										hasSome?: readonly TValue[]
+									}>
+								: TNode extends QueryListEmptyFilterNode<
 											string,
-											infer TKey,
 											readonly string[] | undefined
 									  >
-									? Readonly<{
-											hasAllKeys?: readonly TKey[]
-											hasAnyKeys?: readonly TKey[]
-										}>
-									: TNode extends QueryJsonPathFilterNode<
+									? Readonly<{ isEmpty?: true }>
+									: TNode extends QueryStructuralContainmentFilterNode<
 												string,
+												infer TValue,
 												readonly string[] | undefined
 										  >
 										? Readonly<{
-												jsonPathExists?: QueryJsonPathExpression
-												jsonPathMatches?: QueryJsonPathExpression
+												containedBy?: TValue
+												contains?: TValue
 											}>
-										: TNode extends QueryRegexFilterNode
-											? Readonly<{ matches?: QueryRegexPattern }>
-											: TNode extends QueryNullFilterNode<
+										: TNode extends QueryKeyFilterNode<
+													string,
+													infer TKey,
+													readonly string[] | undefined
+											  >
+											? Readonly<{ hasKey?: TKey }>
+											: TNode extends QueryKeysFilterNode<
 														string,
+														infer TKey,
 														readonly string[] | undefined
 												  >
 												? Readonly<{
-														isNotNull?: true
-														isNull?: true
+														hasAllKeys?: readonly TKey[]
+														hasAnyKeys?: readonly TKey[]
 													}>
-												: unknown
+												: TNode extends QueryJsonPathFilterNode<
+															string,
+															readonly string[] | undefined
+													  >
+													? Readonly<{
+															jsonPathExists?: QueryJsonPathExpression
+															jsonPathMatches?: QueryJsonPathExpression
+														}>
+													: TNode extends QueryRegexFilterNode
+														? Readonly<{ matches?: QueryRegexPattern }>
+														: TNode extends QueryNullFilterNode<
+																	string,
+																	readonly string[] | undefined
+															  >
+															? Readonly<{
+																	isNotNull?: true
+																	isNull?: true
+																}>
+															: unknown
 
 type RootPrimitiveNode<
 	TSchema extends SchemaDefinition,
@@ -614,6 +638,23 @@ const normalizeWhereOperator = <TSchema extends SchemaDefinition>(
 					),
 				),
 			)
+		case 'has':
+			return createQueryListFilter(schema, 'list-has', target, operand)
+		case 'hasSome':
+		case 'hasEvery':
+			if (!isUnknownArray(operand)) {
+				throw new TypeError(`${path} must be an array`)
+			}
+
+			return createQueryListFilter(
+				schema,
+				operator === 'hasSome' ? 'list-has-some' : 'list-has-every',
+				target,
+				operand,
+			)
+		case 'isEmpty':
+			assertEnabledWhereFlag(operand, path)
+			return createQueryListFilter(schema, 'list-empty', target)
 		case 'contains':
 			return createQueryStructuralFilter(
 				schema,
@@ -694,7 +735,10 @@ const normalizeWhereFieldOperators = <TSchema extends SchemaDefinition>(
 	let expression: QueryFilterNode<TSchema> | undefined
 
 	for (const [operator, operand] of Object.entries(input)) {
-		if (operator === 'isEmpty' || operator === 'isNotEmpty') {
+		if (
+			(operator === 'isEmpty' || operator === 'isNotEmpty') &&
+			schema.fields[fieldName]?.kind === 'relation'
+		) {
 			assertEnabledWhereFlag(operand, `where.${fieldName}.${operator}`)
 			expression = combineWhereExpressions(
 				expression,
@@ -921,6 +965,14 @@ const shortOperatorForKind = (kind: string): string => {
 			return 'notBetween'
 		case 'not-in':
 			return 'notIn'
+		case 'list-has':
+			return 'has'
+		case 'list-has-every':
+			return 'hasEvery'
+		case 'list-has-some':
+			return 'hasSome'
+		case 'list-empty':
+			return 'isEmpty'
 		case 'contained-by':
 			return 'containedBy'
 		case 'starts-with':
@@ -950,6 +1002,9 @@ type SerializableWherePrimitive =
 	| QueryJsonPathFilterNode
 	| QueryKeyFilterNode
 	| QueryKeysFilterNode
+	| QueryListEmptyFilterNode
+	| QueryListHasFilterNode
+	| QueryListMembershipFilterNode
 	| QueryMembershipFilterNode
 	| QueryNullFilterNode
 	| QueryRangeFilterNode
@@ -1026,7 +1081,12 @@ const serializeWhereLeaf = (
 			lower: expression.lower,
 			upper: expression.upper,
 		})
-	} else if (expression.kind === 'in' || expression.kind === 'not-in') {
+	} else if (
+		expression.kind === 'in' ||
+		expression.kind === 'not-in' ||
+		expression.kind === 'list-has-every' ||
+		expression.kind === 'list-has-some'
+	) {
 		operand = immutableArray(
 			expression.values.map((value) => (Pointer.is(value) ? value.id : value)),
 		)
@@ -1047,7 +1107,7 @@ const serializeWhereLeaf = (
 		})
 	} else if (expression.kind === 'regex') {
 		operand = expression.pattern
-	} else if (expression.kind === 'null') {
+	} else if (expression.kind === 'null' || expression.kind === 'list-empty') {
 		operand = true
 	} else if ('value' in expression) {
 		operand = Pointer.is(expression.value)
@@ -1215,15 +1275,52 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 	}
 
 	/**
-	 * Requires one relation to contain no visible target.
-	 * @example `where.isEmpty('comments')`
+	 * Requires one relation or one-dimensional field list to be empty.
+	 * @example `where.isEmpty('tags')`
 	 */
-	isEmpty(fieldName: SchemaRelationFieldName<TSchema>): WhereBuilder<TSchema> {
+	isEmpty(
+		fieldName:
+			| QueryFilterFieldName<TSchema, 'list-empty'>
+			| SchemaRelationFieldName<TSchema>,
+	): WhereBuilder<TSchema> {
 		return this.#append(
 			immutableRecord({
 				[fieldName]: immutableRecord({ isEmpty: true }),
 			}) as unknown as WhereInput<TSchema>,
 		)
+	}
+
+	/**
+	 * Requires one field list to contain an exact element.
+	 * @example `where.has('tags', 'typescript')`
+	 */
+	has<TTarget extends QueryFilterTarget<TSchema, 'list-has'>>(
+		target: TTarget,
+		value: QueryFilterOperand<TSchema, 'list-has', TTarget>,
+	): WhereBuilder<TSchema> {
+		return this.#append(createWhereTargetInput(target, 'has', value))
+	}
+
+	/**
+	 * Requires one field list to contain at least one requested element.
+	 * @example `where.hasSome('tags', ['typescript', 'node'])`
+	 */
+	hasSome<TTarget extends QueryFilterTarget<TSchema, 'list-has-some'>>(
+		target: TTarget,
+		values: readonly QueryFilterOperand<TSchema, 'list-has-some', TTarget>[],
+	): WhereBuilder<TSchema> {
+		return this.#append(createWhereTargetInput(target, 'hasSome', values))
+	}
+
+	/**
+	 * Requires one field list to contain every requested element.
+	 * @example `where.hasEvery('tags', ['backend', 'typescript'])`
+	 */
+	hasEvery<TTarget extends QueryFilterTarget<TSchema, 'list-has-every'>>(
+		target: TTarget,
+		values: readonly QueryFilterOperand<TSchema, 'list-has-every', TTarget>[],
+	): WhereBuilder<TSchema> {
+		return this.#append(createWhereTargetInput(target, 'hasEvery', values))
 	}
 
 	/**

@@ -4,7 +4,8 @@ import type {
 } from '../../snapshot.js'
 import { propertyName } from '../syntax.js'
 import type { RenderContext } from '../types.js'
-import { listDepth } from '../values.js'
+import { isListField } from '../values.js'
+import { arrayFilterName } from './arrays.js'
 
 const renderRootWhere = (
 	field: TypegenFieldSnapshot,
@@ -34,8 +35,8 @@ const renderRootWhere = (
 		return `PointerFilter<${context.identifiers.schema(target)}WhereInput>`
 	}
 
-	if (listDepth(field) > 0) {
-		return 'NullFilter'
+	if (isListField(field)) {
+		return arrayFilterName(field, context)
 	}
 
 	if (field.kind === 'string') {

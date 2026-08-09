@@ -551,7 +551,7 @@ operation-specific presence rules.
 ## Generic field contract
 
 - `FieldValidationOptions` exposes `required` plus field-specific constraints. Optional fields persist as `null`; `required: true` makes their persisted value non-null.
-- `FieldOptions<TValue, TValidation>` adds typed defaults, homogeneous lists, field-value immutability, `indexed`, descriptions, and field extensions without introducing database-specific metadata. `list: true` creates one list level, a tuple such as `list: [true, true]` creates nested lists, and `false` disables list wrapping explicitly. `indexed: true` requests a regular index, `indexed: "unique"` requests a unique index, and `false` disables indexing explicitly.
+- `FieldOptions<TValue, TValidation>` adds typed defaults, homogeneous lists, field-value immutability, `indexed`, descriptions, and field extensions without introducing database-specific metadata. `list: true` creates one list level and `false` disables list wrapping explicitly. Nested arrays belong in `jsonField()`. `indexed: true` requests a regular index, `indexed: "unique"` requests a unique index, and `false` disables indexing explicitly.
 - `FieldDefinition<TKind, TValue, TOptions, TInference>` preserves the literal field kind, its base value type, immutable runtime options, and a type-only operation state for later schema inference.
 
 Concrete field factories construct, validate, and freeze their runtime metadata
@@ -856,7 +856,8 @@ kind:
 ```ts
 fields: (field) => ({
 	tags: field.string({ list: true }),
-	matrix: field.int({ list: [true, true] }),
+	weights: field.int({ list: true }),
+	matrix: field.json(),
 })
 ```
 
@@ -894,9 +895,9 @@ column and cannot be embedded.
 generator may use it as the base for distinct output, create-input,
 update-input, filter, or other generated type names.
 
-`list: true` wraps the scalar or object value once. A non-empty tuple containing
-only `true` values declares its exact depth, so `list: [true, true]` represents a
-list of lists. The tuple and static list defaults are copied and frozen.
+`list: true` wraps the scalar or object value exactly once. Static list defaults
+are copied and frozen. Multidimensional or heterogeneous array documents must
+use `jsonField()` instead of hiding an untyped nested shape behind a value field.
 An optional list has the complete value `readonly T[] | null`; list elements
 remain non-null. Object definitions may nest to any finite depth, and child definitions
 remain reusable immutable values. Factory provenance and immutable construction

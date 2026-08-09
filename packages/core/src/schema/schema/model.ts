@@ -916,7 +916,7 @@ const createPersistedModelQuery = (
 	const query = selectSchemaModelQuery(
 		createSchemaModelQuery(record.schema).where({
 			id: { eq: record.objectId },
-		} as WhereInput<typeof record.schema>),
+		} as unknown as WhereInput<typeof record.schema>),
 		selection,
 	)
 

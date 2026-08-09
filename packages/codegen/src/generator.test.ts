@@ -49,7 +49,7 @@ const createFixture = (reverseOrder = false) => {
 					validation: { required: true },
 				}),
 				slug: field.string({ default: 'draft', immutable: true }),
-				matrix: field.int({ list: [true, true] }),
+				matrix: field.int({ list: true }),
 				status: field.enum({
 					typeName: 'PublicationStatus',
 					validation: { required: true },
@@ -243,10 +243,7 @@ describe('generateApplicationTypes', () => {
 			  {
 			    "inference": {
 			      "create": "optional",
-			      "list": [
-			        true,
-			        true,
-			      ],
+			      "list": true,
 			      "nullable": true,
 			      "object": "required",
 			      "update": "optional",
@@ -297,8 +294,10 @@ describe('generateApplicationTypes', () => {
 			generated.contents.match(/export type CountryCode =/gu),
 		).toHaveLength(1)
 		expect(generated.contents).toContain(
-			'readonly matrix: ReadonlyArray<ReadonlyArray<number>> | null',
+			'readonly matrix: ReadonlyArray<number> | null',
 		)
+		expect(generated.contents).toContain('export type ArrayIntFilter = {')
+		expect(generated.contents).toContain('readonly matrix?: ArrayIntFilter')
 		expect(generated.contents).toContain('readonly status: PublicationStatus')
 		expect(generated.contents).toContain(
 			'readonly embedding: Plugin0_VectorValue | null',

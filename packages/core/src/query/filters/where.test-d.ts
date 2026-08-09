@@ -25,6 +25,7 @@ const Post = Schema.define({
 			}),
 		}),
 		published: field.boolean(),
+		labels: field.string({ list: true }),
 		tags: field.relation({ target: () => Tag }),
 		title: field.string(),
 		views: field.int(),
@@ -34,6 +35,13 @@ const Post = Schema.define({
 test('correlates where object operators with exact schema fields', () => {
 	const input = {
 		published: { eq: false },
+		labels: {
+			eq: ['typescript'],
+			has: 'typescript',
+			hasEvery: ['backend', 'typescript'],
+			hasSome: ['node'],
+			isEmpty: true,
+		},
 		views: { between: { lower: 10, upper: 100 }, gte: 0 },
 		title: { contains: 'typed', startsWith: 'T' },
 		profile: {
@@ -76,6 +84,12 @@ test('correlates where object operators with exact schema fields', () => {
 	const invalidBoolean: WhereInput<typeof Post> = { published: { gte: true } }
 	// @ts-expect-error -- Numeric operands retain the exact field value type.
 	const invalidNumber: WhereInput<typeof Post> = { views: { eq: '10' } }
+	const invalidListItem: WhereInput<typeof Post> = {
+		labels: {
+			// @ts-expect-error -- List membership retains the exact element type.
+			has: 42,
+		},
+	}
 	const invalidRelationNull: WhereInput<typeof Post> = {
 		// @ts-expect-error -- Relation emptiness uses some or none rather than nullability.
 		tags: { isNull: true },
@@ -113,6 +127,7 @@ test('correlates where object operators with exact schema fields', () => {
 	void unknownField
 	void invalidBoolean
 	void invalidNumber
+	void invalidListItem
 	void invalidRelationNull
 	void invalidPath
 	void invalidPointerIdentity
@@ -132,6 +147,10 @@ test('keeps the public builder short, immutable, and schema-correlated', () => {
 			gte: 1,
 		})
 		.isNotEmpty('tags')
+		.has('labels', 'typescript')
+		.hasSome('labels', ['typescript', 'node'])
+		.hasEvery('labels', ['backend'])
+		.isEmpty('labels')
 		.some('tags', (tag) => tag.eq('label', 'typescript'))
 		.eq('author', 'author-id')
 		.is('author', { archived: { eq: false } })

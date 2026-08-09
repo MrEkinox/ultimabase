@@ -46,10 +46,9 @@ export const assertValidTypeName = (typeName: unknown): void => {
 	}
 }
 
-type NormalizedFieldList = false | readonly true[] | true | undefined
+type NormalizedFieldList = boolean | undefined
 
-const invalidListMessage =
-	'list must be true, false, or a non-empty list of true values'
+const invalidListMessage = 'list must be true or false'
 
 /** Keeps list validation identical for declaration and later depth reads. */
 const readFieldList = (list: unknown): NormalizedFieldList => {
@@ -57,26 +56,17 @@ const readFieldList = (list: unknown): NormalizedFieldList => {
 		return list
 	}
 
-	if (
-		!isUnknownArray(list) ||
-		list.length === 0 ||
-		!list.every((entry): entry is true => entry === true)
-	) {
-		throw new TypeError(invalidListMessage)
-	}
-
-	return list
+	throw new TypeError(invalidListMessage)
 }
 
 const normalizeList = (list: unknown): NormalizedFieldList => {
 	const normalized = readFieldList(list)
 
-	// A copied tuple prevents caller mutations from changing the declared list depth.
-	return isUnknownArray(normalized) ? immutableArray(normalized) : normalized
+	return normalized
 }
 
 const readListDepth = (list: NormalizedFieldList): number =>
-	list === true ? 1 : isUnknownArray(list) ? list.length : 0
+	list === true ? 1 : 0
 
 /**
  * Returns the number of homogeneous list wrappers declared by field metadata.
@@ -260,9 +250,7 @@ export const readFieldInferenceState = (
 	const normalizedList = normalizeList(
 		'list' in field.options ? field.options.list : undefined,
 	)
-	const list: FieldListOption = isUnknownArray(normalizedList)
-		? immutableArray([true, ...normalizedList.slice(1)] as const)
-		: (normalizedList ?? false)
+	const list: FieldListOption = normalizedList ?? false
 	const generated = 'generatedOn' in field.options
 	const relation = field.kind === 'relation'
 

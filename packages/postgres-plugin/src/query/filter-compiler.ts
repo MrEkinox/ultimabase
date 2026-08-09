@@ -65,6 +65,16 @@ type RuntimeRangeFilter = RuntimeFilterTarget &
 type RuntimeMembershipFilter = RuntimeFilterTarget &
 	Readonly<{ kind: 'in' | 'not-in'; values: readonly unknown[] }>
 
+type RuntimeListFilter = RuntimeFilterTarget &
+	Readonly<
+		| { kind: 'list-empty' }
+		| { kind: 'list-has'; value: unknown }
+		| {
+				kind: 'list-has-every' | 'list-has-some'
+				values: readonly unknown[]
+		  }
+	>
+
 type RuntimeStringOrContainmentFilter = RuntimeFilterTarget &
 	Readonly<{
 		kind: 'contained-by' | 'contains' | 'ends-with' | 'starts-with'
@@ -105,6 +115,7 @@ type RuntimePrimitiveFilter =
 	| RuntimeJsonPathFilter
 	| RuntimeKeyFilter
 	| RuntimeKeysFilter
+	| RuntimeListFilter
 	| RuntimeMembershipFilter
 	| RuntimeNullFilter
 	| RuntimeRangeFilter
@@ -250,9 +261,78 @@ const compileEquality = (
 			: isNotNull(target.field.column)
 	}
 
+	if (target.plan?.kind === 'array') {
+		const value = sql`${encodePathValue(target, filter.value)}::jsonb`
+
+		return filter.kind === 'equal'
+			? eq(target.jsonb, value)
+			: ne(target.jsonb, value)
+	}
+
 	return filter.kind === 'equal'
 		? eq(target.field.column, filter.value)
 		: ne(target.field.column, filter.value)
+}
+
+const encodeListValue = (
+	target: PostgresFilterTarget,
+	value: unknown,
+): string => {
+	if (target.plan?.kind !== 'array') {
+		throw new TypeError('PostgreSQL list filters require an array plan')
+	}
+
+	return stringifyJsonbParameter(
+		createPostgresValueCodec(target.plan.items, true).encode(value),
+	)
+}
+
+const compileListElementEquality = (
+	target: PostgresFilterTarget,
+	value: unknown,
+): SQL => {
+	const encoded = encodeListValue(target, value)
+
+	// Element equality avoids JSONB containment's partial-object semantics.
+	return sql`EXISTS (
+		SELECT 1
+		FROM jsonb_array_elements(
+			CASE
+				WHEN jsonb_typeof(${target.jsonb}) = 'array' THEN ${target.jsonb}
+				ELSE '[]'::jsonb
+			END
+		) AS list_element(value)
+		WHERE list_element.value = ${encoded}::jsonb
+	)`
+}
+
+const compileList = (
+	filter: RuntimeListFilter,
+	target: PostgresFilterTarget,
+): SQL => {
+	if (filter.kind === 'list-empty') {
+		return eq(target.jsonb, sql`${stringifyJsonbParameter([])}::jsonb`)
+	}
+
+	if (filter.kind === 'list-has') {
+		return compileListElementEquality(target, filter.value)
+	}
+
+	if (filter.kind === 'list-has-every') {
+		return (
+			and(
+				...filter.values.map((value) =>
+					compileListElementEquality(target, value),
+				),
+			) ?? trueExpression
+		)
+	}
+
+	const expressions = filter.values.map((value) =>
+		compileListElementEquality(target, value),
+	)
+
+	return or(...expressions) ?? falseExpression
 }
 
 const compileMembership = (
@@ -459,6 +539,11 @@ const compilePrimitive = (
 		case 'in':
 		case 'not-in':
 			return compileMembership(filter, target)
+		case 'list-empty':
+		case 'list-has':
+		case 'list-has-every':
+		case 'list-has-some':
+			return compileList(filter, target)
 		case 'contains':
 			if (isStructuredTarget(target)) {
 				return compileStructural(filter, target)

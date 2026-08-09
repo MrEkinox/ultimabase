@@ -82,7 +82,7 @@ test('derives decimal create, object, and update shapes from compact state', () 
 			defaulted: field.decimal({ default: '0.00' }),
 			nullable: field.decimal(),
 			immutable: field.decimal({ immutable: true }),
-			matrix: field.decimal({ list: [true, true] }),
+			matrix: field.decimal({ list: true }),
 			extended: field.decimal({ extensions: [extension] }),
 		}),
 	})
@@ -93,7 +93,7 @@ test('derives decimal create, object, and update shapes from compact state', () 
 		defaulted?: string | null
 		nullable?: string | null
 		immutable?: string | null
-		matrix?: readonly (readonly string[])[] | null
+		matrix?: readonly string[] | null
 		extended?: string | null
 	}>()
 	expectTypeOf<InferObject<typeof schema>>().toEqualTypeOf<{
@@ -104,14 +104,14 @@ test('derives decimal create, object, and update shapes from compact state', () 
 		readonly defaulted: string | null
 		readonly nullable: string | null
 		readonly immutable: string | null
-		readonly matrix: readonly (readonly string[])[] | null
+		readonly matrix: readonly string[] | null
 		readonly extended: string | null
 	}>()
 	expectTypeOf<InferUpdateInput<typeof schema>>().toEqualTypeOf<{
 		required?: string
 		defaulted?: string | null
 		nullable?: string | null
-		matrix?: readonly (readonly string[])[] | null
+		matrix?: readonly string[] | null
 		extended?: string | null
 	}>()
 	// Runtime extensions retain their public option contract without changing shapes.

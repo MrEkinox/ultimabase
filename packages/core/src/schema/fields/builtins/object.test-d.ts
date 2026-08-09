@@ -23,15 +23,12 @@ import {
 	type ObjectFieldValue,
 } from '../../index.js'
 
-test('infers list values through finite nesting', () => {
+test('infers one-dimensional list values', () => {
 	const strings = stringField({
 		list: true,
 		default: ['first', 'second'],
 	})
-	const matrix = intField({
-		list: [true, true],
-		default: [[1, 2]],
-	})
+	const numbers = intField({ list: true, default: [1, 2] })
 	const scalar = booleanField({ list: false })
 	const dates = dateField({ list: true })
 	const statuses = enumField({
@@ -43,7 +40,7 @@ test('infers list values through finite nesting', () => {
 	expectTypeOf(strings).toExtend<
 		FieldDefinition<'string', string, object, FieldInferenceState>
 	>()
-	expectTypeOf(matrix).toExtend<
+	expectTypeOf(numbers).toExtend<
 		FieldDefinition<'int', number, object, FieldInferenceState>
 	>()
 	expectTypeOf<FieldValue<typeof strings>>().toEqualTypeOf<readonly string[]>()
@@ -59,9 +56,7 @@ test('infers list values through finite nesting', () => {
 	expectTypeOf(payloads).toExtend<
 		FieldDefinition<'json', JsonDocument, object, FieldInferenceState>
 	>()
-	expectTypeOf<FieldValue<typeof matrix>>().toEqualTypeOf<
-		readonly (readonly number[])[]
-	>()
+	expectTypeOf<FieldValue<typeof numbers>>().toEqualTypeOf<readonly number[]>()
 	expectTypeOf<FieldValue<typeof scalar>>().toEqualTypeOf<boolean>()
 	expectTypeOf<FieldValue<typeof dates>>().toEqualTypeOf<readonly string[]>()
 	expectTypeOf<FieldValue<typeof statuses>>().toEqualTypeOf<
@@ -70,9 +65,9 @@ test('infers list values through finite nesting', () => {
 	expectTypeOf<FieldValue<typeof payloads>>().toEqualTypeOf<
 		readonly JsonDocument[]
 	>()
-	expectTypeOf<
-		FieldListValue<string, readonly [true, true, true]>
-	>().toEqualTypeOf<readonly (readonly (readonly string[])[])[]>()
+	expectTypeOf<FieldListValue<string, true>>().toEqualTypeOf<
+		readonly string[]
+	>()
 })
 
 test('infers object list values from reusable fields', () => {
@@ -122,10 +117,10 @@ test('rejects invalid list declarations and structured defaults', () => {
 	stringField({ list: [] })
 	// @ts-expect-error -- List depth entries only describe list wrappers.
 	stringField({ list: [true, false] })
+	// @ts-expect-error -- Multidimensional values belong in jsonField.
+	stringField({ list: [true, true] })
 	// @ts-expect-error -- List defaults must preserve the scalar field type.
 	booleanField({ list: true, default: [true, 'false'] })
-	// @ts-expect-error -- Nested list defaults must preserve every dimension.
-	stringField({ list: [true, true], default: ['flat'] })
 	objectField({
 		fields: {
 			// @ts-expect-error -- Object properties must be field definitions.

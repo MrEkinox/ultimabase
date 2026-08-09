@@ -1,5 +1,5 @@
 import type { TypegenFieldSnapshot } from '../../snapshot.js'
-import { listDepth } from '../values.js'
+import { isListField } from '../values.js'
 import {
 	nullProperties,
 	orderedKinds,
@@ -15,9 +15,9 @@ export const renderScalarFilters = (
 ): readonly string[] => {
 	const definitions: string[] = []
 	const hasRootKind = (kind: string): boolean =>
-		rootFields.some((field) => field.kind === kind && listDepth(field) === 0)
+		rootFields.some((field) => field.kind === kind && !isListField(field))
 	const hasNestedKind = (kind: string): boolean =>
-		nestedFields.some((field) => field.kind === kind && listDepth(field) === 0)
+		nestedFields.some((field) => field.kind === kind && !isListField(field))
 	const scalarFilters = [
 		{ kind: 'bigint', name: 'BigIntFilter', value: 'bigint | null' },
 		{ kind: 'binary', name: 'BinaryFilter', value: 'Uint8Array | null' },

@@ -161,6 +161,7 @@ Accepted records:
 - [ADR-0173: Generated schema authoring and static compilation](0173-generated-schema-authoring.md)
 - [ADR-0174: Object-shaped ordering inputs](0174-object-ordering-inputs.md)
 - [ADR-0175: Map-returning schema fields and generated typing authority](0175-map-returning-schema-fields.md)
+- [ADR-0176: One-dimensional field lists and generated array filters](0176-one-dimensional-field-lists.md)
 
 Superseded records:
 

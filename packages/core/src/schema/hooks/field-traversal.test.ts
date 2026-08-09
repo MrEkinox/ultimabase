@@ -7,7 +7,7 @@ describe('field hook declaration traversal', () => {
 	it('collects nested resolveInput declarations in parent-first depth-first order', () => {
 		const fields = {
 			profile: objectField({
-				list: [true, true],
+				list: true,
 				fields: {
 					displayName: stringField({
 						hooks: { resolveInput: ({ value }) => value },

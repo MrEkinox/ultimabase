@@ -5,6 +5,7 @@ import {
 	createQueryNullFilter,
 	createQueryJsonPathFilter,
 	createQueryKeyFilter,
+	createQueryListFilter,
 	createQueryMembershipFilter,
 	createQueryRangeFilter,
 	createQueryRegexFilter,
@@ -83,11 +84,12 @@ describe('query filter factories', () => {
 		).toThrow(
 			new TypeError('query operator equal does not support object fields'),
 		)
+		expect(
+			createQueryValueFilter(fixtureSchema, 'equal', 'tags', ['tag']),
+		).toStrictEqual({ kind: 'equal', field: 'tags', value: ['tag'] })
 		expect(() =>
 			createQueryValueFilter(fixtureSchema, 'equal', 'tags', 'tag'),
-		).toThrow(
-			new TypeError('query operator equal does not support list fields'),
-		)
+		).toThrow(new TypeError('query filter value must be a list'))
 		expect(
 			createQueryRangeFilter(fixtureSchema, 'between', 'count', 1, 10),
 		).toStrictEqual({
@@ -111,6 +113,41 @@ describe('query filter factories', () => {
 			// @ts-expect-error -- Runtime normalization rejects non-boolean null state.
 			createQueryNullFilter(fixtureSchema, 'title', 'true')
 		}).toThrow(new TypeError('query null value must be a boolean'))
+	})
+
+	it('validates and snapshots one-dimensional list filters', () => {
+		const values = ['typescript', 'node']
+		const filter = createQueryListFilter(
+			fixtureSchema,
+			'list-has-some',
+			'tags',
+			values,
+		)
+
+		expect(filter).toStrictEqual({
+			field: 'tags',
+			kind: 'list-has-some',
+			values,
+		})
+		expect(Object.isFrozen(filter)).toBe(true)
+		values[0] = 'changed'
+		expect(filter).toStrictEqual({
+			field: 'tags',
+			kind: 'list-has-some',
+			values: ['typescript', 'node'],
+		})
+		expect(
+			createQueryListFilter(fixtureSchema, 'list-has', 'tags', 'typed'),
+		).toStrictEqual({ field: 'tags', kind: 'list-has', value: 'typed' })
+		expect(
+			createQueryListFilter(fixtureSchema, 'list-empty', 'tags'),
+		).toStrictEqual({ field: 'tags', kind: 'list-empty' })
+		expect(() =>
+			createQueryListFilter(fixtureSchema, 'list-has', 'tags', null),
+		).toThrow(new TypeError('query list value must not be null'))
+		expect(() =>
+			createQueryListFilter(fixtureSchema, 'list-has', 'title', 'typed'),
+		).toThrow(new TypeError('query operator list-has requires a list field'))
 	})
 
 	it('rejects a forged schema entry without a declared field definition', () => {

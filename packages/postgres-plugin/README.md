@@ -306,7 +306,7 @@ const article = await ArticleSchema.upsertOne(
 
 Plugin setup now compiles every application schema into one private Drizzle
 table catalog. Primitive scalars use their corresponding PostgreSQL types;
-objects, JSON values, and lists of any depth use JSONB. Static defaults become
+objects, JSON values, and one-dimensional field lists use JSONB. Static defaults become
 column metadata, while developer functions and framework timestamps remain
 Runtime-owned and are never executed by the compiler.
 
@@ -671,6 +671,14 @@ const query = new QueryBuilder(ArticleSchema).where({
 Developer values and regex sources never become SQL text. `contains`,
 `startsWith`, and `endsWith` escape PostgreSQL `LIKE` wildcards (`%`, `_`) and
 the escape character, so they retain literal substring semantics.
+
+One-dimensional field lists are stored as JSONB and compile their portable
+`eq`, `ne`, `has`, `hasSome`, `hasEvery`, `isEmpty`, and null predicates through
+parameterized JSONB comparisons and exact element predicates. The field storage
+codec runs for every operand, so bigint, binary, enum, and typed object elements
+preserve the same logical-to-driver mapping as persisted list values. Exact
+element equality deliberately avoids JSONB containment's partial-object
+semantics.
 
 For `jsonField` and `objectField`, the same `contains` builder means structural
 containment. PostgreSQL compiles the shared structured AST to JSONB operators;

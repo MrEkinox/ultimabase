@@ -37,7 +37,7 @@ const renderScalarValue = (
 		case 'object': {
 			const descriptor = context.identifiers.object(field)
 			const objectMode =
-				mode === 'update' && field.inference.list !== false ? 'create' : mode
+				mode === 'update' && field.inference.list ? 'create' : mode
 			const suffix =
 				objectMode === 'object'
 					? ''
@@ -50,23 +50,16 @@ const renderScalarValue = (
 	}
 }
 
-export const listDepth = (field: TypegenFieldSnapshot): number =>
-	field.inference.list === true
-		? 1
-		: field.inference.list === false
-			? 0
-			: field.inference.list.length
+export const isListField = (field: TypegenFieldSnapshot): boolean =>
+	field.inference.list
 
 export const renderFieldValue = (
 	field: TypegenFieldSnapshot,
 	mode: FieldValueMode,
 	context: RenderContext,
 ): string => {
-	let rendered = renderScalarValue(field, mode, context)
-
-	for (let index = 0; index < listDepth(field); index += 1) {
-		rendered = `ReadonlyArray<${rendered}>`
-	}
+	const scalar = renderScalarValue(field, mode, context)
+	const rendered = isListField(field) ? `ReadonlyArray<${scalar}>` : scalar
 
 	return field.inference.nullable ? `${rendered} | null` : rendered
 }

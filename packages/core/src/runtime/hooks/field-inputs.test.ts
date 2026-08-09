@@ -32,7 +32,7 @@ const traversalSchema = Schema.define({
 			}),
 		}),
 		groups: field.object({
-			list: [true, true],
+			list: true,
 			fields: (field) => ({
 				label: field.string(),
 				details: field.object({
@@ -54,12 +54,10 @@ const createInput = (suffix: string) => ({
 		contact: { email: `${suffix}@example.com` },
 	},
 	groups: [
-		[
-			{
-				label: `group-${suffix}`,
-				details: { code: `code-${suffix}` },
-			},
-		],
+		{
+			label: `group-${suffix}`,
+			details: { code: `code-${suffix}` },
+		},
 	],
 	removable: `remove-${suffix}`,
 })
@@ -74,7 +72,7 @@ const describeInputs = (inputs: readonly RuntimeFieldInputValue[]) =>
 	}))
 
 describe('runtime field inputs', () => {
-	it('traverses nested objects and multidimensional lists in both lifecycle orders', () => {
+	it('traverses nested objects and object lists in both lifecycle orders', () => {
 		const operation = {
 			input: createInput('one'),
 			kind: 'create-one',
@@ -118,7 +116,7 @@ describe('runtime field inputs', () => {
 		expect(
 			childrenFirst.find(({ fieldPath }) => fieldPath.at(-1) === 'code')
 				?.valuePath,
-		).toStrictEqual(['input', 'groups', 0, 0, 'details', 'code'])
+		).toStrictEqual(['input', 'groups', 0, 'details', 'code'])
 		expect(Object.isFrozen(childrenFirst)).toBe(true)
 		expect(Object.isFrozen(childrenFirst[0]?.fieldPath)).toBe(true)
 	})
@@ -155,7 +153,12 @@ describe('runtime field inputs', () => {
 				contact: { email: 'TRANSFORM@EXAMPLE.COM' },
 				displayName: 'NAME-TRANSFORM',
 			},
-			groups: [[{ label: 'GROUP-TRANSFORM' }]],
+			groups: [
+				{
+					details: { code: 'CODE-TRANSFORM' },
+					label: 'GROUP-TRANSFORM',
+				},
+			],
 		})
 		expect(operation.input).toBe(input)
 		expect(operation.input.profile.displayName).toBe('name-transform')

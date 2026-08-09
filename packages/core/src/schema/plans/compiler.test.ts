@@ -92,7 +92,7 @@ describe('validation plans', () => {
 					list: true,
 					default: ['generated'],
 				}),
-				matrix: field.int({ list: [true, true] }),
+				matrix: field.int({ list: true }),
 			}),
 		})
 
@@ -139,14 +139,9 @@ describe('validation plans', () => {
 		expect(plans.create.fields.matrix).toMatchObject({
 			kind: 'array',
 			items: {
-				kind: 'array',
+				kind: 'scalar',
 				presence: 'required',
 				nullable: false,
-				items: {
-					kind: 'scalar',
-					presence: 'required',
-					nullable: false,
-				},
 			},
 		})
 	})

@@ -7,6 +7,7 @@ import type {
 	QueryMembershipFilterOperator,
 	QueryJsonPathFilterOperator,
 	QueryKeyFilterOperator,
+	QueryListFilterOperator,
 	QueryPrimitiveFilterNode,
 	QueryPrimitiveFilterOperator,
 	QueryRangeFilterOperator,
@@ -61,6 +62,9 @@ type OrderedOperators =
 
 type StringOperators = OrderedOperators | QueryStringFilterOperator | 'regex'
 
+type ListOperators =
+	QueryEqualityFilterOperator | QueryListFilterOperator | 'null'
+
 type StructuredOperators =
 	| QueryJsonPathFilterOperator
 	| QueryKeyFilterOperator
@@ -88,7 +92,7 @@ test('restricts every built-in field kind to its portable operators', () => {
 	>()
 	expectTypeOf<Operators<'author'>>().toEqualTypeOf<EqualityOperators>()
 	expectTypeOf<Operators<'title'>>().toEqualTypeOf<StringOperators>()
-	expectTypeOf<Operators<'aliases'>>().toEqualTypeOf<'null'>()
+	expectTypeOf<Operators<'aliases'>>().toEqualTypeOf<ListOperators>()
 	expectTypeOf<Operators<'reminder'>>().toEqualTypeOf<OrderedOperators>()
 	expectTypeOf<Operators<'externalId'>>().toEqualTypeOf<EqualityOperators>()
 	expectTypeOf<Operators<'vector'>>().toEqualTypeOf<'null'>()
@@ -188,6 +192,25 @@ test('correlates operands with exact inferred field values', () => {
 		readonly kind: 'equal'
 		readonly field: 'aliases'
 		readonly value: readonly ['alias']
+	}>().toExtend<Filters>()
+	expectTypeOf<{
+		readonly kind: 'list-has'
+		readonly field: 'aliases'
+		readonly value: 'alias'
+	}>().toExtend<Filters>()
+	expectTypeOf<{
+		readonly kind: 'list-has-every'
+		readonly field: 'aliases'
+		readonly values: readonly ['first', 'second']
+	}>().toExtend<Filters>()
+	expectTypeOf<{
+		readonly kind: 'list-empty'
+		readonly field: 'aliases'
+	}>().toExtend<Filters>()
+	expectTypeOf<{
+		readonly kind: 'list-has'
+		readonly field: 'aliases'
+		readonly value: 42
 	}>().not.toExtend<Filters>()
 	expectTypeOf<{
 		readonly kind: 'equal'

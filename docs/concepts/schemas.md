@@ -40,10 +40,11 @@ framework or a default. Update inputs contain only mutable,
 developer-controlled values, all optional. Nullable fields accept `null` in
 every applicable shape, and object fields apply these rules recursively.
 
-Every developer field accepts `list: true` for one homogeneous list level.
-Non-empty tuples such as `list: [true, true]` preserve nested list depth without
-introducing a separate array field kind. Field nullability applies to the
-complete list; list elements remain non-null.
+Every developer value field accepts `list: true` for one homogeneous,
+one-dimensional list. `list: false` keeps the scalar value explicitly. Field
+nullability applies to the complete list; list elements remain non-null. Data
+that intentionally contains nested arrays belongs in `jsonField()` so its
+unstructured shape is explicit.
 
 Enum and object fields may declare an optional generator-neutral `typeName`.
 Explicit names provide stable reusable type identity; when omitted, generators
@@ -55,7 +56,7 @@ Field extensions remain opaque runtime metadata and never alter inferred
 object, create-input, or update-input shapes. Plugins that introduce a distinct
 logical value expose a plugin-defined field with that value type instead.
 
-Built-in field factories retain only the normalized booleans and list depth
+Built-in field factories retain only the normalized booleans and list state
 needed for operation inference. Runtime constraints and literal defaults remain
 available in immutable field options without being repeated in editor hovers;
 enum domains and object child maps stay exact because they define value shapes.
@@ -98,8 +99,8 @@ instead of being reconstructed in a parallel plan model. Compilation never
 invokes runtime default factories.
 
 Object fields add recursively compiled children and reject unknown properties.
-List metadata compiles into one or more array wrappers around the original
-scalar or object node. Runtime later executes this structural plan and returns
+List metadata compiles into one array wrapper around the original scalar or
+object node. Runtime later executes this structural plan and returns
 `ValidationIssue` objects with stable codes and nested paths.
 
 Runtime reads defaults or framework generation metadata from the retained field,

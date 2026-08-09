@@ -3,7 +3,7 @@
 - Status: planned
 - Milestone: 8
 - Packages: all milestone packages
-- Depends on: 809
+- Depends on: 811
 - ADR: [ADR-0173](../../docs/adr/0173-generated-schema-authoring.md)
 
 ## Goal

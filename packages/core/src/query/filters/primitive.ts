@@ -56,6 +56,10 @@ export type QueryRangeFilterOperator = 'between' | 'not-between'
 
 export type QueryMembershipFilterOperator = 'in' | 'not-in'
 
+/** Represents membership and emptiness checks for one-dimensional field lists. */
+export type QueryListFilterOperator =
+	'list-empty' | 'list-has' | 'list-has-every' | 'list-has-some'
+
 export type QueryStringFilterOperator = 'contains' | 'starts-with' | 'ends-with'
 
 /** Represents JSONB-style structural containment and its inverse. */
@@ -75,6 +79,7 @@ export type QueryBuiltInFilterOperator =
 	| QueryEqualityFilterOperator
 	| QueryJsonPathFilterOperator
 	| QueryKeyFilterOperator
+	| QueryListFilterOperator
 	| QueryMembershipFilterOperator
 	| QueryRangeFilterOperator
 	| QueryStringFilterOperator
@@ -144,6 +149,37 @@ export type QueryMembershipFilterNode<
 		kind: QueryMembershipFilterOperator
 		field: TFieldName
 		values: readonly TValue[]
+	}> &
+	QueryFilterPathProperty<TPath>
+
+/** Tests whether a field list contains one exact logical element. */
+export type QueryListHasFilterNode<
+	TFieldName extends string = string,
+	TValue = unknown,
+	TPath extends readonly string[] | undefined = undefined,
+> = QueryValueFilterNode<'list-has', TFieldName, TValue, TPath>
+
+/** Tests whether a field list contains some or every requested element. */
+export type QueryListMembershipFilterNode<
+	TFieldName extends string = string,
+	TValue = unknown,
+	TPath extends readonly string[] | undefined = undefined,
+> = QueryExpressionNode &
+	Readonly<{
+		kind: 'list-has-every' | 'list-has-some'
+		field: TFieldName
+		values: readonly TValue[]
+	}> &
+	QueryFilterPathProperty<TPath>
+
+/** Tests whether a non-null field list contains no elements. */
+export type QueryListEmptyFilterNode<
+	TFieldName extends string = string,
+	TPath extends readonly string[] | undefined = undefined,
+> = QueryExpressionNode &
+	Readonly<{
+		kind: 'list-empty'
+		field: TFieldName
 	}> &
 	QueryFilterPathProperty<TPath>
 
@@ -300,6 +336,29 @@ type QueryScalarPrimitiveFilterNode<
 		| QueryOrderedPrimitiveFilterNode<TSchema, TFieldName>
 		| QueryStringPrimitiveFilterNode<TSchema, TFieldName>
 
+type QueryListItemValue<
+	TSchema extends SchemaDefinition,
+	TFieldName extends QueryFieldName<TSchema>,
+> =
+	Exclude<
+		QueryFilterValue<TSchema, TFieldName>,
+		null
+	> extends readonly (infer TItem)[]
+		? TItem
+		: never
+
+type QueryListPrimitiveFilterNode<
+	TSchema extends SchemaDefinition,
+	TFieldName extends QueryFieldName<TSchema>,
+> =
+	| QueryEqualityFilterNode<TFieldName, QueryFilterValue<TSchema, TFieldName>>
+	| QueryListEmptyFilterNode<TFieldName>
+	| QueryListHasFilterNode<TFieldName, QueryListItemValue<TSchema, TFieldName>>
+	| QueryListMembershipFilterNode<
+			TFieldName,
+			QueryListItemValue<TSchema, TFieldName>
+	  >
+
 type QueryEqualityPrimitiveFilterNode<
 	TSchema extends SchemaDefinition,
 	TFieldName extends QueryFieldName<TSchema>,
@@ -354,7 +413,7 @@ type QueryPrimitiveFilterForField<
 			| (IsScalarQueryField<TSchema, TFieldName> extends true
 					? | QueryScalarPrimitiveFilterNode<TSchema, TFieldName>
 						| QueryStructuredPrimitiveFilterNode<TSchema, TFieldName>
-					: never)
+					: QueryListPrimitiveFilterNode<TSchema, TFieldName>)
 
 type QueryStructuredPrimitiveFilterNode<
 	TSchema extends SchemaDefinition,
@@ -389,7 +448,22 @@ type QueryPathFilterForDefinition<
 > =
 	| QueryNullFilterNode<TRootFieldName, TPath>
 	| (FieldInferenceStateOf<TField>['list'] extends FieldList
-			? never
+			? | QueryEqualityFilterNode<
+						TRootFieldName,
+						readonly FieldScalarValue<TField>[] | null,
+						TPath
+				  >
+				| QueryListEmptyFilterNode<TRootFieldName, TPath>
+				| QueryListHasFilterNode<
+						TRootFieldName,
+						FieldScalarValue<TField>,
+						TPath
+				  >
+				| QueryListMembershipFilterNode<
+						TRootFieldName,
+						FieldScalarValue<TField>,
+						TPath
+				  >
 			: | (TField['kind'] extends QueryEqualityFieldKind
 						? | QueryEqualityFilterNode<
 									TRootFieldName,

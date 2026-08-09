@@ -22,15 +22,15 @@ describe('readFieldInferenceState', () => {
 		expect(
 			readFieldInferenceState(
 				stringField({
-					default: [['draft']] as const,
+					default: ['draft'] as const,
 					immutable: true,
-					list: [true, true],
+					list: true,
 					validation: { required: true },
 				}),
 			),
 		).toStrictEqual({
 			create: 'optional',
-			list: [true, true],
+			list: true,
 			nullable: false,
 			object: 'required',
 			update: 'forbidden',

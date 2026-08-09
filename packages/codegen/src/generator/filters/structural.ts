@@ -1,20 +1,21 @@
 import type { TypegenFieldSnapshot } from '../../snapshot.js'
 import { quote } from '../syntax.js'
 import type { RenderContext } from '../types.js'
-import { listDepth } from '../values.js'
+import { isListField } from '../values.js'
 import {
 	nullProperties,
 	renderEqualityProperties,
 	renderNamedFilter,
 	renderStructuralProperties,
 } from './operators.js'
+import { arrayFilterName } from './arrays.js'
 
 export const renderPathOperators = (
 	field: TypegenFieldSnapshot,
 	context: RenderContext,
 ): string => {
-	if (listDepth(field) > 0) {
-		return 'NullFilter'
+	if (isListField(field)) {
+		return arrayFilterName(field, context)
 	}
 
 	if (field.kind === 'string') {
@@ -63,7 +64,7 @@ export const collectObjectPathTypes = (
 		const path = [...parentPath, field.name]
 		const own = `Readonly<{ readonly path: ${pathTuple(path)} } & ${renderPathOperators(field, context)}>`
 
-		if (listDepth(field) > 0) {
+		if (isListField(field)) {
 			return [own]
 		}
 

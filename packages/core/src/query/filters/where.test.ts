@@ -26,6 +26,7 @@ const Post = Schema.define({
 			}),
 		}),
 		published: field.boolean(),
+		labels: field.string({ list: true }),
 		tags: field.relation({ target: () => Tag }),
 		title: field.string(),
 		views: field.int(),
@@ -35,6 +36,11 @@ const Post = Schema.define({
 describe('WhereInput', () => {
 	it('normalizes fields, logic, paths, and relations into the existing AST', () => {
 		const query = new QueryBuilder(Post).where({
+			labels: {
+				has: 'typescript',
+				hasEvery: ['backend', 'typescript'],
+				isEmpty: true,
+			},
 			published: { eq: false },
 			views: { gte: 0, lt: 100 },
 			profile: {
@@ -54,11 +60,26 @@ describe('WhereInput', () => {
 			'ada@example.com',
 		)
 		expect(JSON.stringify(query.ast.where?.expression)).toContain(
+			'list-has-every',
+		)
+		expect(JSON.stringify(query.ast.where?.expression)).toContain(
 			'relation-predicate',
 		)
 		expect(JSON.stringify(query.ast.where?.expression)).toContain(
 			'relation-count',
 		)
+	})
+
+	it('rejects list operators on scalars and malformed list operands', () => {
+		expect(() =>
+			normalizeWhereInput(Post, { title: { has: 'typed' } } as never),
+		).toThrow('requires a list field')
+		expect(() =>
+			normalizeWhereInput(Post, { labels: { hasSome: 'typed' } } as never),
+		).toThrow('where.labels.hasSome must be an array')
+		expect(() =>
+			normalizeWhereInput(Post, { labels: { isEmpty: false } } as never),
+		).toThrow('where.labels.isEmpty must be true')
 	})
 
 	it('uses WhereBuilder only as an immutable producer of the same object contract', () => {
@@ -217,7 +238,7 @@ describe('WhereInput', () => {
 		).toThrow('where.tags.isEmpty must be true')
 		expect(() =>
 			normalizeWhereInput(Post, { title: { isEmpty: true } } as never),
-		).toThrow('where.title.none requires a relation field')
+		).toThrow('query operator list-empty requires a list field')
 		expect(() =>
 			normalizeWhereInput(Post, { tags: { count: { gte: -1 } } }),
 		).toThrow('must be a non-negative safe integer')

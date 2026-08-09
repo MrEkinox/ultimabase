@@ -77,6 +77,13 @@ Each schema also receives a concrete object-shaped `TodoOrderByInput` whose
 optional fields use the generated local `OrderDirection` union; generated
 application code never exposes the Core ordering helper.
 
+Listed fields receive concrete element-aware declarations such as
+`ArrayStringFilter`, `ArrayIntFilter`, and named enum/object variants. These
+filters expose complete-list `eq`/`ne`, `has`, `hasSome`, `hasEvery`,
+`isEmpty`, and complete-value null checks without rebuilding field value types
+through Core conditionals. Fields are strictly one-dimensional; nested arrays
+are represented explicitly by `jsonField()`.
+
 The emitted declaration augments `@ultimabase/core` with one application-owned
 schema registry and the configured root and embedded FieldBuilder methods. Keep
 that file included by the application's TypeScript project. Core then resolves

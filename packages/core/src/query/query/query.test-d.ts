@@ -232,8 +232,9 @@ test('correlates every filter field with its exact operand type', () => {
 	)
 	// @ts-expect-error -- Regex filters reject non-string fields.
 	query.where((where) => where.matches('views', { source: '10', flags: [] }))
-	// @ts-expect-error -- Equality does not apply to list fields.
 	query.where((where) => where.eq('aliases', ['alias']))
+	query.where((where) => where.has('aliases', 'alias'))
+	query.where((where) => where.hasSome('aliases', ['alias']))
 	// @ts-expect-error -- Range filters do not apply to list fields.
 	query.where((where) => where.between('aliases', ['a'], ['z']))
 })

@@ -3,6 +3,7 @@
 - Status: accepted
 - Date: 2026-07-31
 - Supersedes: ADR-0017
+- Superseded in part by: ADR-0176 one-dimensional field lists
 
 ## Decision
 

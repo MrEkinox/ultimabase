@@ -316,6 +316,26 @@ values inside the interval, while `notBetween` keeps values strictly outside
 it. Both remain first-class
 transport-neutral AST nodes rather than expanding into logical branches.
 
+One-dimensional field lists expose exact element-aware filters:
+
+```ts
+const matching = await Post.findMany({
+	where: {
+		tags: {
+			has: 'typescript',
+			hasEvery: ['backend', 'typescript'],
+			isEmpty: true,
+		},
+	},
+})
+```
+
+`eq` and `ne` compare the complete list, `has` tests one element, and
+`hasSome`/`hasEvery` test candidate sets. `isEmpty: true` applies only to a
+non-null empty list; `isNull` and `isNotNull` retain complete-value nullability
+semantics. Multidimensional data uses `jsonField()` and its structural or
+JSONPath filters instead of typed list operators.
+
 Structured filters use the same flat vocabulary for dynamic JSON and typed
 objects. Object containment accepts recursive partial values, and object keys
 and paths retain exact autocomplete:
@@ -775,8 +795,8 @@ Field write Access traverses normalized objects parent-first. `create` protects
 a supplied value on the actual create branch. Updates are classified from the
 persisted value and final candidate as `fill`, `replace`, or `clear`; a direct
 `null` and `unset()` therefore share the same `clear` decision. Nested fields in
-object lists are evaluated once per concrete entry, including multidimensional
-lists. Cross-field decisions use schema item rules, which receive complete
+object lists are evaluated once per concrete entry. Cross-field decisions use
+schema item rules, which receive complete
 materialized candidates.
 
 Field output Access follows the same concrete traversal. A denied parent omits

@@ -592,11 +592,11 @@ describe('QueryBuilder', () => {
 		}).toThrow(new TypeError('where.missing must reference a schema field'))
 		expect(() => {
 			new QueryBuilder(postSchema).where((where) =>
-				// @ts-expect-error -- List fields expose only presence operators.
-				where.eq('aliases', ['alias']),
+				// @ts-expect-error -- List fields do not expose scalar ordering operators.
+				where.gt('aliases', ['alias']),
 			)
 		}).toThrow(
-			new TypeError('query operator equal does not support list fields'),
+			new TypeError('query operator greater-than does not support list fields'),
 		)
 		expect(() => {
 			// @ts-expect-error -- Boolean fields do not support ordered comparisons.

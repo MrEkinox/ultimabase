@@ -22,7 +22,7 @@ describe('PostgreSQL Drizzle column value mapping', () => {
 					fields: (field) => ({
 						avatar: field.binary(),
 						loginAt: field.dateTime(),
-						nestedCounts: field.bigint({ list: [true, true] }),
+						nestedCounts: field.bigint({ list: true }),
 						nickname: field.string(),
 					}),
 				}),
@@ -38,7 +38,7 @@ describe('PostgreSQL Drizzle column value mapping', () => {
 		const logical = {
 			avatar,
 			loginAt: '2026-08-01T12:30:45.123+02:00',
-			nestedCounts: [[1n, 9_007_199_254_740_993n]],
+			nestedCounts: [1n, 9_007_199_254_740_993n],
 		}
 		const encoded = mapPostgresColumnToDriver(column, logical)
 		const decoded = mapPostgresColumnFromDriver(column, encoded)
@@ -46,7 +46,7 @@ describe('PostgreSQL Drizzle column value mapping', () => {
 		expect(encoded).toStrictEqual({
 			avatar: 'AH//',
 			loginAt: logical.loginAt,
-			nestedCounts: [['1', '9007199254740993']],
+			nestedCounts: ['1', '9007199254740993'],
 		})
 		expect(decoded).toStrictEqual({ ...logical, nickname: null })
 		expect(decoded).not.toBe(logical)

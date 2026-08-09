@@ -51,13 +51,14 @@ export const CustomerSchema = Schema.define({
 				favoriteTags: field.string({ list: true }),
 			}),
 		}),
-		scoreMatrix: field.float({ list: [true, true] }),
+		scores: field.float({ list: true }),
+		scoreMatrix: field.json(),
 	}),
 })
 ```
 
-`previousAddresses` is a list of structured objects. `scoreMatrix` is a
-two-dimensional list, and additional `true` entries can express deeper finite
-dimensions. Field output Access is applied to every concrete object occurrence,
+`previousAddresses` is a list of structured objects. `scores` is a typed
+one-dimensional number list. A multidimensional `scoreMatrix` uses JSON so its
+nested array shape is explicit. Field output Access is applied to every concrete object occurrence,
 so `internalRoutingCode` is structurally omitted from both `shippingAddress`
 and every `previousAddresses` entry without removing any address from the list.

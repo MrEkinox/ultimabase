@@ -29,6 +29,7 @@ import {
 	type QueryJsonPathExpression,
 	type QueryJsonPathFilterOperator,
 	type QueryKeyFilterOperator,
+	type QueryListFilterOperator,
 	type QueryMembershipFilterOperator,
 	type QueryPrimitiveFilterNode,
 	type QueryRangeFilterOperator,
@@ -235,6 +236,10 @@ const assertOperatorSupport = (
 	}
 
 	if (hasListShape(field)) {
+		if (operator === 'equal' || operator === 'not-equal') {
+			return
+		}
+
 		throw new TypeError(
 			`query operator ${operator} does not support list fields`,
 		)
@@ -380,7 +385,39 @@ const snapshotQueryValue = (
 		return null
 	}
 
+	if (hasListShape(field)) {
+		return snapshotQueryList(field, value, path)
+	}
+
 	return snapshotScalarFieldValue(field, value, path)
+}
+
+const snapshotQueryListElement = (
+	field: RuntimeQueryField,
+	value: unknown,
+	path: string,
+): unknown => {
+	if (value === null) {
+		throw new TypeError(`${path} must not be null`)
+	}
+
+	return snapshotScalarFieldValue(field, value, path)
+}
+
+const snapshotQueryList = (
+	field: RuntimeQueryField,
+	value: unknown,
+	path: string,
+): readonly unknown[] => {
+	if (!isUnknownArray(value)) {
+		throw new TypeError(`${path} must be a list`)
+	}
+
+	return immutableArray(
+		value.map((item, index) =>
+			snapshotQueryListElement(field, item, `${path}[${String(index)}]`),
+		),
+	)
 }
 
 const snapshotQueryNonNullValue = (
@@ -516,6 +553,42 @@ export const createQueryMembershipFilter = <
 		kind: operator,
 		...queryTargetProperties(resolved),
 		values: immutableArray(normalizedValues),
+	}) as QueryPrimitiveFilterNode<TSchema>
+}
+
+/** Creates one immutable filter over a one-dimensional logical field list. */
+export const createQueryListFilter = <const TSchema extends SchemaDefinition>(
+	schema: TSchema,
+	operator: QueryListFilterOperator,
+	target: unknown,
+	operand?: unknown,
+): QueryPrimitiveFilterNode<TSchema> => {
+	const resolved = resolveQueryTarget(schema, target)
+	const field = resolved.terminalField
+
+	if (field === undefined || !hasListShape(field)) {
+		throw new TypeError(`query operator ${operator} requires a list field`)
+	}
+
+	if (operator === 'list-empty') {
+		return immutableRecord({
+			kind: operator,
+			...queryTargetProperties(resolved),
+		}) as QueryPrimitiveFilterNode<TSchema>
+	}
+
+	if (operator === 'list-has') {
+		return immutableRecord({
+			kind: operator,
+			...queryTargetProperties(resolved),
+			value: snapshotQueryListElement(field, operand, 'query list value'),
+		}) as QueryPrimitiveFilterNode<TSchema>
+	}
+
+	return immutableRecord({
+		kind: operator,
+		...queryTargetProperties(resolved),
+		values: snapshotQueryList(field, operand, 'query list values'),
 	}) as QueryPrimitiveFilterNode<TSchema>
 }
 

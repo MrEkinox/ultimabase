@@ -84,8 +84,8 @@ after input transformation, target locking, or final upsert branch resolution
 to ensure that the decision protects the value that is actually persisted.
 
 Field create rules traverse normalized objects parent-first. A nested field in
-an object list is evaluated once per concrete list entry, including
-multidimensional lists. A `null` parent evaluates only the parent field. Rules
+an object list is evaluated once per concrete list entry. A `null` parent
+evaluates only the parent field. Rules
 that need siblings or the complete candidate belong in schema `create.item`.
 
 Field output rules use the same parent-first concrete traversal. Denying a

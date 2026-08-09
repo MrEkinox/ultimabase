@@ -59,16 +59,6 @@ describe('object fields and list metadata', () => {
 		expect(Object.isFrozen(field.options.validation)).toBe(true)
 	})
 
-	it('copies and freezes nested list depth metadata', () => {
-		const depth: [true, true] = [true, true]
-		const field = stringField({ list: depth })
-
-		depth.pop()
-
-		expect(field.options.list).toStrictEqual([true, true])
-		expect(Object.isFrozen(field.options.list)).toBe(true)
-	})
-
 	it('copies the field map of a structured object', () => {
 		const fields = {
 			name: stringField(),
@@ -99,19 +89,19 @@ describe('object fields and list metadata', () => {
 		}).toThrow(new TypeError('typeName must be a non-empty string'))
 	})
 
-	it('supports finite list nesting on primitive and object fields', () => {
+	it('supports one-dimensional lists on primitive and object fields', () => {
 		const field = objectField({
 			list: true,
 			fields: {
 				name: stringField(),
-				groups: stringField({ list: [true, true] }),
+				groups: stringField({ list: true }),
 			},
 		})
 
 		expect(field.kind).toBe('object')
 		expect(field.options.list).toBe(true)
 		expect(field.options.fields.groups.kind).toBe('string')
-		expect(field.options.fields.groups.options.list).toStrictEqual([true, true])
+		expect(field.options.fields.groups.options.list).toBe(true)
 	})
 
 	it('snapshots and freezes structured list defaults', () => {
@@ -325,20 +315,17 @@ describe('object fields and list metadata', () => {
 		expect(() => {
 			// @ts-expect-error -- Runtime coverage intentionally crosses the list boundary.
 			stringField({ list: [] })
-		}).toThrow(
-			new TypeError(
-				'list must be true, false, or a non-empty list of true values',
-			),
-		)
+		}).toThrow(new TypeError('list must be true or false'))
 
 		expect(() => {
 			// @ts-expect-error -- Runtime coverage protects each untyped list entry.
 			stringField({ list: [true, false] })
-		}).toThrow(
-			new TypeError(
-				'list must be true, false, or a non-empty list of true values',
-			),
-		)
+		}).toThrow(new TypeError('list must be true or false'))
+
+		expect(() => {
+			// @ts-expect-error -- Multidimensional values belong in jsonField.
+			stringField({ list: [true, true] })
+		}).toThrow(new TypeError('list must be true or false'))
 	})
 
 	it('rejects scalar defaults for list fields at runtime', () => {

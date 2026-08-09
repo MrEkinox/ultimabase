@@ -33,6 +33,7 @@ const FilterSchema = Schema.define({
 		eventAt: field.dateTime(),
 		exact: field.decimal(),
 		huge: field.bigint(),
+		hugeValues: field.bigint({ list: true }),
 		metadata: field.json(),
 		profile: field.object({
 			fields: (field) => ({
@@ -43,6 +44,7 @@ const FilterSchema = Schema.define({
 		rating: field.float(),
 		status: field.enum({ values: ['draft', 'published'] }),
 		title: field.string(),
+		tags: field.string({ list: true }),
 		token: field.uuid(),
 		wakeAt: field.time(),
 	}),
@@ -65,6 +67,33 @@ const renderQuery = (query: QueryBuilder<typeof FilterSchema>) => {
 }
 
 describe('PostgreSQL filter compiler', () => {
+	it('compiles one-dimensional list filters through parameterized JSONB operators', () => {
+		const query = new QueryBuilder(FilterSchema).where({
+			hugeValues: { has: 42n },
+			tags: {
+				eq: ['backend', 'typescript'],
+				has: 'typescript',
+				hasEvery: ['backend', 'typescript'],
+				hasSome: ['node', 'runtime'],
+				isEmpty: true,
+			},
+		})
+		const rendered = renderQuery(query)
+
+		expect(rendered.sql).toContain('jsonb_array_elements')
+		expect(rendered.sql).toContain(' = ')
+		expect(rendered.params).toEqual(
+			expect.arrayContaining([
+				'"42"',
+				'["backend","typescript"]',
+				'"typescript"',
+				'"node"',
+				'"runtime"',
+				'[]',
+			]),
+		)
+	})
+
 	it('compiles relation predicates owned by a private Runtime row filter', () => {
 		const Target = Schema.define({
 			className: 'FilterAccessRelationTarget',

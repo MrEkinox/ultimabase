@@ -62,9 +62,7 @@ describe('runtime declaration boundaries', () => {
 			stringField({ validation: [] })
 		}).toThrow(new TypeError('validation must be an object'))
 		expect(() => getFieldListDepth({ list: 'invalid' })).toThrow(
-			new TypeError(
-				'list must be true, false, or a non-empty list of true values',
-			),
+			new TypeError('list must be true or false'),
 		)
 	})
 

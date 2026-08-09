@@ -837,6 +837,36 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 				{ id: created.id, title: 'First real E2E' },
 			])
 
+			const listed = await PostSchema.findMany(
+				{
+					where: {
+						id: { eq: created.id },
+						labels: {
+							eq: ['typed', 'postgres'],
+							has: 'typed',
+							hasEvery: ['typed', 'postgres'],
+							hasSome: ['missing', 'postgres'],
+						},
+					},
+					select: { id: true },
+				},
+				{ ultimabase },
+			)
+
+			expect(listed.map((post) => post.id)).toStrictEqual([created.id])
+			expect(
+				await PostSchema.findMany(
+					{
+						where: {
+							id: { eq: created.id },
+							labels: { isEmpty: true },
+						},
+						select: { id: true },
+					},
+					{ ultimabase },
+				),
+			).toStrictEqual([])
+
 			const updated = await PostSchema.updateOne(
 				{
 					where: (where) => where.eq('id', created.id),

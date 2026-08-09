@@ -10,8 +10,8 @@ TypeScript snippets:
   composition that require local inference;
 - [`field-options.md`](field-options.md) covers built-in fields, validation
   metadata, defaults, generation, and indexes;
-- [`objects-and-lists.md`](objects-and-lists.md) composes reusable nested fields
-  and multidimensional lists;
+- [`objects-and-lists.md`](objects-and-lists.md) composes reusable nested fields,
+  typed one-dimensional lists, and explicit JSON matrices;
 - [`pointers.md`](pointers.md) declares exact single-object references and
   immutable logical pointer values;
 - [`relations.md`](relations.md) declares owning and inverse to-many topology
