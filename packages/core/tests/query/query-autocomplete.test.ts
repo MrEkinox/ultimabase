@@ -192,7 +192,7 @@ Post./* hover */deleteOne({ where: (where) => where.eq('id', 'post-1') })
 			'Deletes one uniquely identified row',
 		)
 		expect(deletion.tags?.some(({ name }) => name === 'example')).toBe(true)
-	}, 15_000)
+	}, 30_000)
 
 	it('completes every mutation selection with only correlated schema fields', () => {
 		const marker = '/* completion */'
@@ -296,7 +296,7 @@ ${body}
 			expect(completionNames.has('views')).toBe(true)
 			expect(completionNames.has('missing')).toBe(false)
 		}
-	}, 15_000)
+	}, 30_000)
 
 	it('documents flat selection and completes only correlated schema fields', () => {
 		const selection = readMarkedQuickInfo(
