@@ -26,19 +26,18 @@ const AccessAudit = Schema.define({
 const AccessArticle = Schema.define({
 	className: 'NativeAccessArticleE2E',
 	access: {
-		create: ({ context }) => context.access.mode === 'master',
-		delete: {
-			allow: true,
-			where: ({ where }) => where.eq('published', true),
-		},
 		read: {
 			allow: { count: true, exists: true, many: true, one: true },
 			where: ({ where }) => where.eq('published', true).gte('rank', 0),
 		},
+		create: ({ context }) => context.access.mode === 'master',
 		update: {
-			allow: true,
 			where: ({ where }) => where.eq('published', true),
 			item: ({ originalItem }) => !originalItem.locked,
+		},
+		delete: {
+			allow: true,
+			where: ({ where }) => where.eq('published', true),
 		},
 		upsert: {
 			allow: true,

@@ -1,0 +1,6 @@
+{
+	"$schema": "https://json.schemastore.org/tsconfig",
+	"extends": "../tooling/tsconfig/test.json",
+	// Keep root E2E files in an explicit editor project so contextual schema types remain available.
+	"include": ["./e2e/**/*.ts"]
+}

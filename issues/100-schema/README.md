@@ -3,7 +3,7 @@
 Implement schema contracts and inference before Core or Runtime behavior.
 
 Issue 144 completed the callback-inference phase of the now
-[paused ACL hardening and DX plan](../../CURRENT_PLAN.md). It generalizes
+[paused ACL hardening and DX plan](../../docs/plans/paused/acl-hardening-and-developer-experience-consolidation.md). It generalizes
 schema-aware callback inference for every typed extension; ACL supplies the
 first concrete proof without becoming a Core dependency.
 

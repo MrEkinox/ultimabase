@@ -7,9 +7,12 @@ The issue backlog is the executable roadmap. This document only describes milest
 The Runtime-to-PostgreSQL vertical, native hook lifecycle, fundamental Access,
 transport-neutral relations, developer-defined stored roles, persisted object
 ACL, structured JSONB fields, and the schema-root Query and mutation API are
-complete foundations. No multi-issue objective is currently active. The
-[paused ACL hardening plan](CURRENT_PLAN.md) retains its exact resume point at
-issue 432 until the user explicitly reactivates it.
+complete foundations. The active
+[generated schema authoring plan](CURRENT_PLAN.md) replaces recursively inferred
+application contracts with deterministic generated types and a Nexus-style
+field builder. The separately
+[paused ACL hardening plan](docs/plans/paused/acl-hardening-and-developer-experience-consolidation.md)
+retains its exact resume point at issue 432.
 
 Completed cross-milestone plans are retained under
 [`docs/plans/completed/`](docs/plans/completed/) so their decisions remain
@@ -59,6 +62,14 @@ OpenAPI, CLI, code generation, SDKs, audit, observability, soft delete, tenant
 isolation, advanced fields, health, and administration remain issue-tracked
 extensions. New
 packages are created only when implementation begins.
+
+## Milestone 8 — Generated schema authoring and developer tooling
+
+Deferred schema field compilation, plugin-contributed FieldBuilder methods,
+Nexus-style declarations, compact generated application contracts, deterministic
+typegen commands, watch mode, startup regeneration, and measured TypeScript
+editor performance. This milestone changes developer tooling without moving
+plugin, database, transport, or runtime responsibilities into Core.
 
 ## First usable release
 

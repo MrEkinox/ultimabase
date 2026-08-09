@@ -98,7 +98,7 @@ The completed persisted-object ACL vertical is recorded in its
 ## Paused ACL hardening execution order
 
 The post-implementation audit is retained by the
-[paused ACL hardening and DX plan](../../CURRENT_PLAN.md). If reactivated, it
+[paused ACL hardening and DX plan](../../docs/plans/paused/acl-hardening-and-developer-experience-consolidation.md). If reactivated, it
 resumes at issue 432 and must finish before an authentication plugin or another
 persisted policy provider builds on ACL:
 
