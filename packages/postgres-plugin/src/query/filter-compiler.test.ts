@@ -264,8 +264,16 @@ describe('PostgreSQL filter compiler', () => {
 						where: {
 							id: { ne: '018f0f8c-7b5a-7cc9-98db-123456789abc' },
 						},
-						gte: 2,
-						lt: 5,
+						eq: 2,
+						ne: 3,
+						gt: 0,
+						gte: 1,
+						lt: 10,
+						lte: 9,
+						in: [1, 2],
+						notIn: [4, 5],
+						between: { lower: 1, upper: 5 },
+						notBetween: { lower: 6, upper: 8 },
 					},
 				},
 			}),
@@ -282,11 +290,32 @@ describe('PostgreSQL filter compiler', () => {
 		expect(join.sql).toContain(
 			'"source_id" = "postgres_relation_articles"."id"',
 		)
-		expect(join.sql).toContain('having ((count(*) >= $2) and (count(*) < $3))')
+		expect(join.sql).toContain('count(*) = $2')
+		expect(join.sql).toContain('count(*) <> $3')
+		expect(join.sql).toContain('count(*) > $4')
+		expect(join.sql).toContain('count(*) >= $5')
+		expect(join.sql).toContain('count(*) < $6')
+		expect(join.sql).toContain('count(*) <= $7')
+		expect(join.sql).toContain('count(*) in ($8, $9)')
+		expect(join.sql).toContain('count(*) not in ($10, $11)')
+		expect(join.sql).toContain('count(*) between $12 and $13')
+		expect(join.sql).toContain('count(*) not between $14 and $15')
 		expect(join.params).toStrictEqual([
 			'018f0f8c-7b5a-7cc9-98db-123456789abc',
 			2,
+			3,
+			0,
+			1,
+			10,
+			9,
+			1,
+			2,
+			4,
 			5,
+			1,
+			5,
+			6,
+			8,
 		])
 		expect(pointer.sql).toContain('select count(*)')
 		expect(pointer.sql).not.toContain('inner join')

@@ -122,7 +122,6 @@ export {
 	isQueryRelationCountNode,
 	isQueryRelationPredicateNode,
 	queryRelationPredicateMaxDepth,
-	RelationPredicate,
 } from './filters/relation.js'
 export type {
 	QueryRelationCountForSchema,

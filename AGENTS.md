@@ -65,6 +65,7 @@ Run or update `yarn constraints` when dependency constraints exist. If a request
 - Never use `any`, whether explicit, implicit, hidden behind an assertion, or exposed through a public API. Use `unknown` plus validation at untrusted boundaries.
 - Type variables and boundaries as precisely as possible. Keep inference when it already produces a precise, verifiable type.
 - Treat autocomplete and hover documentation as part of every public TypeScript API. Prefer named option interfaces, add English JSDoc with focused examples, and protect important editor behavior through TypeScript language-service tests against source and compiled package exports.
+- Replacing a public API requires a removal audit in the same change: delete every superseded implementation and barrel export unless an accepted ADR explicitly preserves compatibility, then protect the canonical replacement with focused runtime or type tests.
 - Every code contribution must include comments written in English. Explain intent, invariants, security boundaries, and non-obvious decisions rather than restating the implementation.
 - Avoid code duplication whenever practical. Reuse focused functions, variables, types, and modules for shared behavior or invariants without abstracting coincidental similarities.
 - Prefer a suitable standard, native, or established-library solution over custom code. Add code only when existing alternatives cannot correctly satisfy the requirement.

@@ -22,7 +22,6 @@ describe('@ultimabase/core public entry point', () => {
 			'QueryBuilder',
 			'QueryCursorError',
 			'Relation',
-			'RelationPredicate',
 			'RequestCapability',
 			'RequestContext',
 			'RequestContextValue',

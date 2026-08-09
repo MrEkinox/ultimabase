@@ -62,6 +62,18 @@ const config: ViteUserConfig = defineConfig({
 			include: ['packages/*/src/**/*.ts'],
 			provider: 'v8',
 			reporter: ['text', 'json', 'html'],
+			thresholds: {
+				'packages/core/src/query/filters/relation.ts': {
+					branches: 98,
+					functions: 100,
+					lines: 98,
+					statements: 98,
+				},
+				branches: 80,
+				functions: 90,
+				lines: 88,
+				statements: 88,
+			},
 		},
 		fileParallelism: true,
 		pool: 'forks',

@@ -51,8 +51,8 @@ jobs:
       - name: Lint
         run: yarn lint
 
-      - name: Run unit and type tests
-        run: yarn test
+      - name: Run unit and type tests with coverage
+        run: yarn test:coverage
 
       - name: Verify Docker access
         # Testcontainers will use the same Docker daemon in future integration tests.
