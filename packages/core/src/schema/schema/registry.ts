@@ -10,6 +10,7 @@ import {
 	type SchemaDefinition,
 } from './definition.js'
 import { compileSchemaTargetGraph, type SchemaTargetGraph } from './targets.js'
+import type { FieldBuilderMethodResolver } from './field-builder-methods.js'
 
 type SchemaMatchingClassName<
 	TSchemas extends readonly SchemaDefinition[],
@@ -117,13 +118,13 @@ export class SchemaRegistry<
 	}
 
 	/** Compiles every deferred declaration atomically before plugin setup starts. */
-	compileSchemas(): SchemaTargetGraph {
+	compileSchemas(fieldMethods?: FieldBuilderMethodResolver): SchemaTargetGraph {
 		if (this.#schemaTargets !== undefined) {
 			return this.#schemaTargets
 		}
 
 		const prepared = this.values().map((schema) =>
-			prepareSchemaCompilation(schema),
+			prepareSchemaCompilation(schema, fieldMethods),
 		)
 		const preparedBySchema = new Map<
 			SchemaDefinition,

@@ -2,13 +2,15 @@
 
 Plugin-owned vector fields for PostgreSQL pgvector integrations.
 
-The package currently proves the complete custom-field boundary:
+The package proves the complete custom-field boundary:
 
-- `vectorField({ dimensions })` creates a namespaced logical field;
+- `pgVectorPlugin()` contributes the application-local
+  `field.vector(name, { dimensions })` declaration method;
+- `vectorField({ dimensions })` remains its immutable field-factory foundation;
 - `@ultimabase/core` retains it through the common scalar validation plan;
 - `pgVectorPlugin()` narrows `plan.field.kind`, then reads and validates the
   exact vector field without Schema understanding vector configuration;
-- the public value remains an immutable `readonly number[]` snapshot.
+- `VectorValue` remains an immutable `readonly number[]` snapshot.
 
 The field validates the options container before reading `dimensions` and uses
 Schema's `snapshotValue` contract. Its snapshot is pure, deterministic, and
@@ -17,20 +19,28 @@ idempotent, so declaration-time static defaults own detached vector values.
 ```ts
 const DocumentSchema = Schema.define({
 	className: 'Document',
-	fields: {
-		embedding: vectorField({
+	fields(field) {
+		field.vector('embedding', {
 			dimensions: 1536,
 			validation: { required: true },
 			hooks: {
 				// The value is inferred as readonly number[].
 				resolveInput: ({ value }) => value,
 			},
-		}),
+		})
 	},
+})
+
+const application = await createApplication({
+	schemas: [DocumentSchema],
+	plugins: [pgVectorPlugin()],
 })
 ```
 
-The future Core plugin registry will register the static handler returned by
-`pgVectorPlugin()`. The PostgreSQL package will then consume its database
-compiler to produce a real pgvector column. Until those milestones are
-implemented, this package deliberately contains no Drizzle or SQL dependency.
+The plugin registers the runtime method before static schema compilation. The
+generated application contract introduced by the next milestone adds its exact
+`VectorFieldBuilderMethod` type to that application's builder; Core deliberately
+does not expose `vector` when the plugin is absent. The PostgreSQL package will
+later consume the plugin's database compiler to produce a real pgvector column.
+Until that milestone is implemented, this package deliberately contains no
+Drizzle or SQL dependency.

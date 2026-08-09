@@ -250,6 +250,15 @@ export type {
 	ObjectFieldBuilderOptions,
 	SchemaFieldBuilderDeclaration,
 } from './schema/field-builder.js'
+export { defineFieldBuilderMethod } from './schema/field-builder-methods.js'
+export type {
+	FieldBuilderMethodDefinition,
+	FieldBuilderMethodFactory,
+	FieldBuilderMethodRegistrar,
+	FieldBuilderMethodTypegen,
+	OwnedFieldBuilderMethod,
+	PluginFieldBuilderDeclaration,
+} from './schema/field-builder-methods.js'
 export type {
 	CompactSchemaModelUpdateInput,
 	PersistedSchemaModel,

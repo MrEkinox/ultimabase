@@ -37,10 +37,11 @@ Detailed guides remain focused by domain:
 ## Static schema compilation and lazy relationship targets
 
 `Schema.define()` retains a synchronous field declaration instead of resolving
-fields during module evaluation. `createApplication()` compiles every
-configured schema atomically before plugin setup or infrastructure lifecycle
-work. Setup receives the resulting read-only schema registry; plugins cannot
-register late schemas:
+fields during module evaluation. `createApplication()` first runs the pure,
+synchronous `declareFields` callback of every plugin in dependency order, then
+compiles every configured schema atomically before plugin setup or
+infrastructure lifecycle work. Setup receives the resulting read-only schema
+registry; plugins cannot register late schemas or field methods:
 
 ```ts
 const PostSchema = Schema.define({
@@ -75,6 +76,39 @@ sequences.
 Framework and plugin authors may compose one already-created field through
 `field.add(name, definition)`. Application schemas normally use the named
 built-in methods; there is no general application-facing `field.custom()`.
+
+A plugin can contribute one application-local named method without Core knowing
+its field kind. Its declaration records the existing field factory plus compact
+type-generation references:
+
+```ts
+const vectorMethod = defineFieldBuilderMethod({
+	name: 'vector',
+	fieldKind: 'pg-vector.vector',
+	factory: vectorField,
+	typegen: {
+		module: '@ultimabase/pg-vector-plugin',
+		methodType: 'VectorFieldBuilderMethod',
+		valueType: 'VectorValue',
+	},
+})
+
+const plugin = definePlugin({
+	name: 'pg-vector',
+	declareFields(fields) {
+		fields.register(vectorMethod)
+	},
+	setup: () => ({ ready: true }),
+})
+```
+
+Registrations are isolated per application and reject built-in overrides,
+duplicates, unstable declarations, and factories returning another field kind.
+`declareFields` receives no services or runtime state and must return
+synchronously. Generated application declarations will add the contributed
+method to that application's `FieldBuilder`; Core's base `FieldBuilder` does
+not expose plugin methods globally. Calling a missing method through untyped or
+stale code fails during static schema compilation before plugin setup.
 
 Pointer and relation target callbacks can still safely reference a class
 declared later in the module. Static compilation resolves them after every

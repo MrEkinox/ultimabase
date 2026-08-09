@@ -27,7 +27,7 @@
 		"test:e2e": "yarn build && yarn test:e2e:built",
 		"test:e2e:built": "vitest run --project e2e --project postgres-e2e --passWithNoTests",
 		"test:pack": "yarn build && yarn test:pack:built",
-		"test:pack:built": "vitest run --project e2e tests/e2e/package-archives.e2e.test.ts tests/e2e/core-native-access-contract.e2e.test.ts tests/e2e/core-native-hook-contract.e2e.test.ts tests/e2e/core-native-schema-hooks.e2e.test.ts tests/e2e/core-native-field-hooks.e2e.test.ts tests/e2e/core-field-builder.e2e.test.ts tests/e2e/core-pointer.e2e.test.ts tests/e2e/core-relations.e2e.test.ts tests/e2e/core-schema-targets.e2e.test.ts",
+		"test:pack:built": "vitest run --project e2e tests/e2e/package-archives.e2e.test.ts tests/e2e/core-native-access-contract.e2e.test.ts tests/e2e/core-native-hook-contract.e2e.test.ts tests/e2e/core-native-schema-hooks.e2e.test.ts tests/e2e/core-native-field-hooks.e2e.test.ts tests/e2e/core-field-builder.e2e.test.ts tests/e2e/pg-vector-field-builder.e2e.test.ts tests/e2e/core-pointer.e2e.test.ts tests/e2e/core-relations.e2e.test.ts tests/e2e/core-schema-targets.e2e.test.ts",
 		"test:types": "vitest run --project types",
 		"test:watch": "vitest --project unit --watch",
 		"typecheck": "tsc --build tsconfig.json tooling/tsconfig/test.json"

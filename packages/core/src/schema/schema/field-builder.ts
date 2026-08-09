@@ -62,6 +62,10 @@ import type {
 	GeneratedCompactScalarFieldBuilderMethod,
 } from '../fields/base/factory.js'
 import type { SchemaDefinition, SchemaFields } from './definition.js'
+import type {
+	FieldBuilderMethodResolver,
+	OwnedFieldBuilderMethod,
+} from './field-builder-methods.js'
 
 type EmbeddedIntFieldOptions = Omit<IntFieldOptions, 'autoIncrement'> & {
 	readonly autoIncrement?: false
@@ -307,9 +311,39 @@ interface FieldCollector {
 	readonly snapshot: () => SchemaFields
 }
 
+type RuntimeFieldBuilderMethod = (name: unknown, options?: unknown) => void
+
+const createRuntimeBuilder = <TBuilder extends object>(
+	builder: TBuilder,
+	pluginMethods: Readonly<Record<string, RuntimeFieldBuilderMethod>>,
+	path: string,
+	embedded: boolean,
+): TBuilder => {
+	const target = immutableRecord({ ...builder, ...pluginMethods })
+
+	return new Proxy(target, {
+		get: (record, property, receiver): unknown => {
+			if (typeof property !== 'string' || Reflect.has(record, property)) {
+				return Reflect.get(record, property, receiver)
+			}
+
+			if (embedded && (property === 'pointer' || property === 'relation')) {
+				return undefined
+			}
+
+			return (): never => {
+				throw new TypeError(
+					`${path} FieldBuilder method "${property}" is unavailable; configure the plugin that declares it`,
+				)
+			}
+		},
+	})
+}
+
 const createFieldCollector = (
 	rootPath: string,
 	embedded: boolean,
+	fieldMethods?: FieldBuilderMethodResolver,
 ): FieldCollector => {
 	const fields = new Map<string, GenericField>()
 	const declareField = (nameValue: unknown, field: unknown): void => {
@@ -332,6 +366,23 @@ const createFieldCollector = (
 
 		declareField(name, invokeFieldFactory(factory, options, path))
 	}
+	const fromPluginFactory = (
+		method: OwnedFieldBuilderMethod,
+		name: unknown,
+		options: unknown,
+	): void => {
+		assertNonEmptyString(name, `${rootPath} field name`)
+		const path = `${rootPath}.${name}`
+		const field = invokeFieldFactory(method.factory, options, path)
+
+		if (field.kind !== method.fieldKind) {
+			throw new TypeError(
+				`${path} FieldBuilder method "${method.name}" from "${method.owner}" returned kind "${field.kind}" instead of "${method.fieldKind}"`,
+			)
+		}
+
+		declareField(name, field)
+	}
 	const add = (name: string, field: GenericField): void => {
 		declareField(name, field)
 	}
@@ -352,6 +403,7 @@ const createFieldCollector = (
 			declaration,
 			`${path}.fields`,
 			true,
+			fieldMethods,
 		)
 
 		fromFactory(name, objectField, { ...options, fields: nestedFields })
@@ -398,18 +450,30 @@ const createFieldCollector = (
 			fromFactory(name, uuidField, options)
 		},
 	}
+	const pluginMethods: Record<string, RuntimeFieldBuilderMethod> = {}
+
+	for (const method of fieldMethods?.values() ?? []) {
+		pluginMethods[method.name] = (name, options): void => {
+			fromPluginFactory(method, name, options)
+		}
+	}
 
 	if (embedded) {
-		const builder: EmbeddedFieldBuilder = immutableRecord({
-			...scalarMethods,
-			add,
-			bigint: (name, options) => {
-				fromFactory(name, bigintField, options)
+		const builder = createRuntimeBuilder<EmbeddedFieldBuilder>(
+			{
+				...scalarMethods,
+				add,
+				bigint: (name, options) => {
+					fromFactory(name, bigintField, options)
+				},
+				int: (name, options) => {
+					fromFactory(name, intField, options)
+				},
 			},
-			int: (name, options) => {
-				fromFactory(name, intField, options)
-			},
-		})
+			pluginMethods,
+			rootPath,
+			true,
+		)
 
 		return {
 			builder,
@@ -429,18 +493,23 @@ const createFieldCollector = (
 	const relation: FieldBuilder['relation'] = (name, options) => {
 		fromFactory(name, relationField, options)
 	}
-	const builder: FieldBuilder = immutableRecord({
-		...scalarMethods,
-		add,
-		bigint: (name, options) => {
-			fromFactory(name, bigintField, options)
+	const builder = createRuntimeBuilder<FieldBuilder>(
+		{
+			...scalarMethods,
+			add,
+			bigint: (name, options) => {
+				fromFactory(name, bigintField, options)
+			},
+			int: (name, options) => {
+				fromFactory(name, intField, options)
+			},
+			pointer,
+			relation,
 		},
-		int: (name, options) => {
-			fromFactory(name, intField, options)
-		},
-		pointer,
-		relation,
-	})
+		pluginMethods,
+		rootPath,
+		false,
+	)
 
 	return {
 		builder,
@@ -454,12 +523,13 @@ export const executeFieldBuilderCallback = (
 	declaration: unknown,
 	path: string,
 	embedded = false,
+	fieldMethods?: FieldBuilderMethodResolver,
 ): SchemaFields => {
 	if (!isUnknownCallable(declaration)) {
 		throw new TypeError(`${path} must be a function`)
 	}
 
-	const collector = createFieldCollector(path, embedded)
+	const collector = createFieldCollector(path, embedded, fieldMethods)
 	const returned = declaration(collector.builder)
 
 	if (returned !== undefined) {
@@ -473,12 +543,13 @@ export const executeFieldBuilderCallback = (
 export const executeSchemaFieldsCallback = (
 	declaration: unknown,
 	path: string,
+	fieldMethods?: FieldBuilderMethodResolver,
 ): unknown => {
 	if (!isUnknownCallable(declaration)) {
 		throw new TypeError(`${path} must be a function`)
 	}
 
-	const collector = createFieldCollector(path, false)
+	const collector = createFieldCollector(path, false, fieldMethods)
 	const returned = declaration(collector.builder)
 
 	if (returned === undefined) {

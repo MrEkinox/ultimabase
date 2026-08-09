@@ -162,6 +162,15 @@ current plugin name to services, extension handlers, operators, hooks,
 generators, transports, pipelines, events, and commands without trusting
 plugin code to declare its own owner.
 
+Before schema compilation, the application runs each plugin's synchronous
+`declareFields` callback in the same dependency-first graph order. These pure
+declarations may register application-local FieldBuilder methods backed by an
+existing namespaced field factory and compact type-generation references. Core
+records plugin ownership but never names the contributed field kind. Built-in
+overrides, duplicates, unstable declarations, and mismatched factory results
+fail before plugin setup. Generated declarations expose only methods present in
+the application's plugin graph; the base Core FieldBuilder remains neutral.
+
 The lifecycle manager first completes every setup callback, leaving a validation
 boundary before infrastructure changes. It then runs connect, schema
 preparation, runtime start, and transport start in graph order. Stop and dispose

@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
-import { compileValidationPlans, Schema } from '@ultimabase/core'
+import {
+	compileValidationPlans,
+	createApplication,
+	Schema,
+} from '@ultimabase/core'
 
 import {
 	isVectorFieldValidationPlan,
@@ -36,7 +40,7 @@ describe('pgVectorPlugin field plans', () => {
 		expect(plan.field.options.default).toStrictEqual([1, 2])
 	})
 
-	it('claims and reads a vector plan preserved by Schema', () => {
+	it('claims and reads a vector plan preserved by Schema', async () => {
 		const field = vectorField({
 			dimensions: 3,
 			validation: { required: true },
@@ -46,7 +50,11 @@ describe('pgVectorPlugin field plans', () => {
 			fields: { embedding: field },
 		})
 		const plan = compileValidationPlans(schema).create.fields.embedding
-		const plugin = pgVectorPlugin()
+		const application = await createApplication({
+			plugins: [pgVectorPlugin()],
+			schemas: [schema],
+		})
+		const plugin = application.getPlugin('pg-vector')
 
 		expect(plugin.fieldKind).toBe(vectorFieldKind)
 		expect(plan).toStrictEqual({
@@ -61,7 +69,7 @@ describe('pgVectorPlugin field plans', () => {
 		)
 	})
 
-	it('validates runtime values through the associated plugin definition', () => {
+	it('validates runtime values through the associated plugin definition', async () => {
 		const schema = Schema.define({
 			className: 'Document',
 			fields: {
@@ -69,7 +77,11 @@ describe('pgVectorPlugin field plans', () => {
 			},
 		})
 		const plan = compileValidationPlans(schema).create.fields.embedding
-		const plugin = pgVectorPlugin()
+		const application = await createApplication({
+			plugins: [pgVectorPlugin()],
+			schemas: [schema],
+		})
+		const plugin = application.getPlugin('pg-vector')
 
 		if (plan === undefined || !plugin.handles(plan)) {
 			throw new TypeError('Expected Schema to preserve the vector plugin plan')
@@ -87,8 +99,12 @@ describe('pgVectorPlugin field plans', () => {
 		)
 	})
 
-	it('does not claim another plugin field kind', () => {
-		const plugin = pgVectorPlugin()
+	it('does not claim another plugin field kind', async () => {
+		const application = await createApplication({
+			plugins: [pgVectorPlugin()],
+			schemas: [],
+		})
+		const plugin = application.getPlugin('pg-vector')
 		const foreignPlan = {
 			kind: 'scalar',
 			field: { kind: 'fixture.foreign', options: {} },

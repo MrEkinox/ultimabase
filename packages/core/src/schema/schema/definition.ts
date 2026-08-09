@@ -71,6 +71,7 @@ import {
 	executeSchemaFieldsCallback,
 	type SchemaFieldBuilderDeclaration,
 } from './field-builder.js'
+import type { FieldBuilderMethodResolver } from './field-builder-methods.js'
 
 /**
  * Collects named field definitions without erasing their concrete literals.
@@ -784,6 +785,7 @@ const compileSchemaRecord = (
 
 const executeSchemaFieldDeclaration = (
 	declaration: NormalizedSchemaDeclaration,
+	fieldMethods?: FieldBuilderMethodResolver,
 ): unknown => {
 	if (typeof declaration.fields !== 'function') {
 		return declaration.fields
@@ -793,6 +795,7 @@ const executeSchemaFieldDeclaration = (
 		return executeSchemaFieldsCallback(
 			declaration.fields,
 			`${declaration.className}.fields`,
+			fieldMethods,
 		)
 	} catch (cause: unknown) {
 		throw new SchemaCompilationError(
@@ -935,6 +938,7 @@ const assertCompatibleTargets = (
 /** Resolves one application-local candidate without publishing partial metadata. */
 export const prepareSchemaCompilation = (
 	schema: SchemaDefinition,
+	fieldMethods?: FieldBuilderMethodResolver,
 ): PreparedSchemaCompilation => {
 	const declaration = schemaDeclarations.get(schema)
 
@@ -948,7 +952,7 @@ export const prepareSchemaCompilation = (
 			? existingRecord
 			: compileSchemaRecord(
 					declaration,
-					executeSchemaFieldDeclaration(declaration),
+					executeSchemaFieldDeclaration(declaration, fieldMethods),
 				)
 
 	if (

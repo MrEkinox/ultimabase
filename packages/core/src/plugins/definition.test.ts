@@ -1,9 +1,14 @@
 import { describe, expect, it } from 'vitest'
 
-import { definePlugin } from '../index.js'
+import {
+	defineFieldBuilderMethod,
+	definePlugin,
+	stringField,
+} from '../index.js'
 
 describe('definePlugin', () => {
 	it('creates immutable static definitions without running callbacks', () => {
+		let declarationCalls = 0
 		let setupCalls = 0
 		let hookCalls = 0
 		const dependencies = ['services']
@@ -19,6 +24,21 @@ describe('definePlugin', () => {
 			dependencies,
 			optionalDependencies: ['cache'],
 			conflicts: ['fixture.other-database'],
+			declareFields: (fields) => {
+				declarationCalls += 1
+				fields.register(
+					defineFieldBuilderMethod({
+						factory: stringField,
+						fieldKind: 'fixture.text',
+						name: 'text',
+						typegen: {
+							methodType: 'TextFieldBuilderMethod',
+							module: '@fixture/text-plugin',
+							valueType: 'TextValue',
+						},
+					}),
+				)
+			},
 			setup: () => {
 				setupCalls += 1
 
@@ -31,6 +51,7 @@ describe('definePlugin', () => {
 
 		expect(setupCalls).toBe(0)
 		expect(hookCalls).toBe(0)
+		expect(declarationCalls).toBe(0)
 		expect(plugin).toMatchObject({
 			name: 'fixture.database',
 			slot: 'database-adapter',
@@ -40,6 +61,7 @@ describe('definePlugin', () => {
 			conflicts: ['fixture.other-database'],
 		})
 		expect(plugin.setup).toBeTypeOf('function')
+		expect(plugin.declareFields).toBeTypeOf('function')
 		expect(plugin.hooks?.connect).toBe(hooks.connect)
 		expect(Object.isFrozen(plugin)).toBe(true)
 		expect(Object.isFrozen(plugin.dependencies)).toBe(true)
@@ -77,6 +99,13 @@ describe('definePlugin', () => {
 		expect(() => definePlugin({ name: 'fixture', version: '' })).toThrow(
 			new TypeError('version must be a non-empty string'),
 		)
+		expect(() => {
+			definePlugin({
+				name: 'fixture',
+				// @ts-expect-error -- Static field declarations must remain callable.
+				declareFields: 'later',
+			})
+		}).toThrow(new TypeError('declareFields must be a function'))
 		expect(() => {
 			definePlugin({
 				name: 'fixture',

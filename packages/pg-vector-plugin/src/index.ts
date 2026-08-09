@@ -1,6 +1,8 @@
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
 import {
 	assertFieldOptions,
+	defineFieldBuilderMethod,
+	definePlugin,
 	definePluginField,
 	type FieldHookDeclaration,
 	type FieldListOption,
@@ -8,10 +10,14 @@ import {
 	type FieldOptionsWithoutNullable,
 	type FieldValidationOptions,
 	type FieldValidationPlan,
+	type FrameworkPlugin,
 	type PluginFieldDefinition,
 	type ScalarValidationPlan,
 	type ValidatedFieldOptions,
 } from '@ultimabase/core'
+
+/** Names the immutable logical value shared by generation and runtime. */
+export type VectorValue = readonly number[]
 
 /**
  * Namespaces the logical kind so independent community packages cannot collide.
@@ -28,7 +34,12 @@ export type VectorValidationOptions = FieldValidationOptions
  */
 export type VectorFieldOptions<
 	TList extends FieldListOption = FieldListOption,
-> = FieldOptions<readonly number[], VectorValidationOptions, TList> & {
+> = FieldOptions<VectorValue, VectorValidationOptions, TList> & {
+	/**
+	 * Fixes the number of finite components accepted by this logical vector.
+	 *
+	 * @example `dimensions: 1536`
+	 */
 	readonly dimensions: number
 }
 
@@ -37,7 +48,7 @@ export type VectorFieldOptions<
  */
 export type VectorField<
 	TOptions extends VectorFieldOptions = VectorFieldOptions,
-> = PluginFieldDefinition<typeof vectorFieldKind, readonly number[], TOptions>
+> = PluginFieldDefinition<typeof vectorFieldKind, VectorValue, TOptions>
 
 type VectorFieldMetadata<
 	TOptions extends VectorFieldOptions,
@@ -51,9 +62,38 @@ type ResolvedVectorField<
 	TDimensions extends number,
 > = PluginFieldDefinition<
 	typeof vectorFieldKind,
-	readonly number[],
+	VectorValue,
 	VectorFieldMetadata<TOptions, TDimensions>
 >
+
+type VectorFieldDeclarationOptions<
+	TOptions extends VectorFieldOptions,
+	TDimensions extends number,
+> = TOptions & {
+	readonly dimensions: TDimensions
+} & FieldHookDeclaration<ResolvedVectorField<NoInfer<TOptions>, TDimensions>> &
+	(FieldOptionsWithoutNullable<
+		ValidatedFieldOptions<NoInfer<TOptions>, VectorValue>
+	> extends never
+		? never
+		: unknown)
+
+/** Adds the exact vector factory contract to a generated FieldBuilder. */
+export interface VectorFieldBuilderMethod {
+	/**
+	 * Declares one fixed-dimension logical vector.
+	 *
+	 * @param name Stable logical field name within its containing schema or object.
+	 * @param options Existing vector factory options with an exact dimension.
+	 * @example `field.vector('embedding', { dimensions: 1536 })`
+	 */
+	// The callable interface preserves its public name and JSDoc in TypeScript hovers.
+	// eslint-disable-next-line @typescript-eslint/prefer-function-type
+	<const TDimensions extends number, const TOptions extends VectorFieldOptions>(
+		name: string,
+		options: VectorFieldDeclarationOptions<TOptions, TDimensions>,
+	): void
+}
 
 /**
  * Narrows the shared scalar plan back to the vector plugin's exact contract.
@@ -63,8 +103,7 @@ export type VectorFieldValidationPlan = ScalarValidationPlan<VectorField>
 /**
  * Defines the static field-plan capability that Core will later register globally.
  */
-export interface PgVectorPluginDefinition {
-	readonly name: 'pg-vector'
+export interface PgVectorPluginExports {
 	readonly fieldKind: typeof vectorFieldKind
 	readonly handles: (
 		plan: FieldValidationPlan,
@@ -74,6 +113,17 @@ export interface PgVectorPluginDefinition {
 		plan: VectorFieldValidationPlan,
 	) => readonly number[]
 }
+
+/** Names the exact configured plugin contract retained by application lookup. */
+export type PgVectorPlugin = FrameworkPlugin<
+	'pg-vector',
+	Readonly<PgVectorPluginExports>,
+	undefined,
+	undefined,
+	undefined,
+	undefined,
+	never
+>
 
 function assertValidDimensions(
 	dimensions: unknown,
@@ -120,16 +170,7 @@ export function vectorField<
 	const TDimensions extends number,
 	const TOptions extends VectorFieldOptions,
 >(
-	options: TOptions & {
-		readonly dimensions: TDimensions
-	} & FieldHookDeclaration<
-			ResolvedVectorField<NoInfer<TOptions>, TDimensions>
-		> &
-		(FieldOptionsWithoutNullable<
-			ValidatedFieldOptions<NoInfer<TOptions>, readonly number[]>
-		> extends never
-			? never
-			: unknown),
+	options: VectorFieldDeclarationOptions<TOptions, TDimensions>,
 ): ResolvedVectorField<TOptions, TDimensions>
 
 export function vectorField(
@@ -156,14 +197,30 @@ export const isVectorFieldValidationPlan = (
 ): plan is VectorFieldValidationPlan =>
 	plan.kind === 'scalar' && plan.field.kind === vectorFieldKind
 
-/**
- * Returns the static handler definition consumed by the future global plugin registry.
- */
-export const pgVectorPlugin = (): Readonly<PgVectorPluginDefinition> =>
-	immutableRecord({
+const vectorFieldBuilderMethod = defineFieldBuilderMethod({
+	factory: vectorField,
+	fieldKind: vectorFieldKind,
+	name: 'vector',
+	typegen: {
+		methodType: 'VectorFieldBuilderMethod',
+		module: '@ultimabase/pg-vector-plugin',
+		valueType: 'VectorValue',
+	},
+})
+
+const pgVectorPluginExports: Readonly<PgVectorPluginExports> = immutableRecord({
+	fieldKind: vectorFieldKind,
+	handles: isVectorFieldValidationPlan,
+	validate: (value, plan) =>
+		snapshotVector(value, 'value', plan.field.options.dimensions),
+})
+
+/** Declares the vector builder method before returning its validation handler. */
+export const pgVectorPlugin = (): PgVectorPlugin =>
+	definePlugin({
 		name: 'pg-vector',
-		fieldKind: vectorFieldKind,
-		handles: isVectorFieldValidationPlan,
-		validate: (value, plan) =>
-			snapshotVector(value, 'value', plan.field.options.dimensions),
+		declareFields: (fields) => {
+			fields.register(vectorFieldBuilderMethod)
+		},
+		setup: () => pgVectorPluginExports,
 	})

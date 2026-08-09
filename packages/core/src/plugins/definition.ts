@@ -8,6 +8,10 @@ import {
 } from '@ultimabase/shared'
 
 import type { PluginSetupContext } from './setup-registries.js'
+import type {
+	FieldBuilderMethodRegistrar,
+	PluginFieldBuilderDeclaration,
+} from '../schema/schema/field-builder-methods.js'
 
 export type { PluginSetupContext } from './setup-registries.js'
 
@@ -46,6 +50,7 @@ export interface PluginLifecycleHooks<TExports> {
 export type PluginLifecyclePhase = keyof PluginLifecycleHooks<unknown>
 
 interface PluginRuntimeDefinition {
+	readonly declareFields: PluginFieldBuilderDeclaration | undefined
 	readonly setup: PluginSetup | undefined
 	runHook(
 		phase: PluginLifecyclePhase,
@@ -90,6 +95,7 @@ export interface FrameworkPlugin<
 	readonly dependencies?: TDependencies
 	readonly optionalDependencies?: TOptionalDependencies
 	readonly conflicts?: TConflicts
+	readonly declareFields?: PluginFieldBuilderDeclaration
 	readonly setup?: (context: PluginSetupContext) => TSetupResult
 	readonly hooks?: PluginLifecycleHooks<Awaited<TSetupResult>>
 	readonly plugins?: TPlugins
@@ -116,6 +122,8 @@ export interface DefinePluginOptions<
 	readonly dependencies?: TDependencies
 	readonly optionalDependencies?: TOptionalDependencies
 	readonly conflicts?: TConflicts
+	/** Declares owner-scoped FieldBuilder methods before schema compilation. */
+	readonly declareFields?: PluginFieldBuilderDeclaration
 	readonly setup?: (context: PluginSetupContext) => TSetupResult
 	readonly hooks?: PluginLifecycleHooks<Awaited<TSetupResult>>
 	readonly plugins?: TPlugins
@@ -170,6 +178,30 @@ export const runPluginSetup = (
 	plugin: PluginDefinition,
 	context: PluginSetupContext,
 ): MaybePromise<unknown> => getPluginRuntimeDefinition(plugin).setup?.(context)
+
+/** Runs one pure synchronous field-method declaration before schema compilation. */
+export const runPluginFieldBuilderDeclaration = (
+	plugin: PluginDefinition,
+	fields: FieldBuilderMethodRegistrar,
+): void => {
+	const declaration = getPluginRuntimeDefinition(plugin).declareFields
+
+	if (declaration === undefined) {
+		return
+	}
+
+	// Keep the runtime boundary defensive for declarations loaded from JavaScript.
+	const invokeDeclaration = declaration as (
+		fields: FieldBuilderMethodRegistrar,
+	) => unknown
+	const returned = invokeDeclaration(fields)
+
+	if (returned !== undefined) {
+		throw new TypeError(
+			`Plugin "${plugin.name}" declareFields must be synchronous and return nothing`,
+		)
+	}
+}
 
 /** Invokes one lifecycle hook paired with the exports created by the same definition. */
 export const runPluginLifecycleHook = (
@@ -267,7 +299,15 @@ export const definePlugin = <
 		throw new TypeError('setup must be a function')
 	}
 
+	if (
+		options.declareFields !== undefined &&
+		typeof options.declareFields !== 'function'
+	) {
+		throw new TypeError('declareFields must be a function')
+	}
+
 	const runtimeDefinition = immutableRecord({
+		declareFields: options.declareFields,
 		setup: options.setup,
 		runHook: (
 			phase: PluginLifecyclePhase,
@@ -309,6 +349,9 @@ export const definePlugin = <
 			: {
 					conflicts: normalizePluginNames(options.conflicts, 'conflicts'),
 				}),
+		...(options.declareFields === undefined
+			? {}
+			: { declareFields: options.declareFields }),
 		...(options.setup === undefined ? {} : { setup: options.setup }),
 		...(options.hooks === undefined
 			? {}

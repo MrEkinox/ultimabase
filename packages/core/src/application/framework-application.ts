@@ -13,6 +13,7 @@ import {
 import {
 	type PluginDefinition,
 	type PluginExports,
+	runPluginFieldBuilderDeclaration,
 } from '../plugins/definition.js'
 import { validateExtensionHandlers } from '../plugins/extension-handlers.js'
 import { PluginGraph } from '../plugins/graph.js'
@@ -28,6 +29,10 @@ import type {
 } from '../plugins/setup-registries.js'
 import type { ServiceToken } from '../services/service-token.js'
 import { compileApplicationAccessPlan } from '../schema/access/plan.js'
+import {
+	FieldBuilderMethodRegistry,
+	type OwnedFieldBuilderMethod,
+} from '../schema/schema/field-builder-methods.js'
 
 /** Recursively retains top-level and composition-nested plugin definitions. */
 export type ConfiguredPlugin<TPlugins extends readonly PluginDefinition[]> =
@@ -188,6 +193,8 @@ export class FrameworkApplication<
 	readonly accessDefaults: FrameworkAccessDefaultPolicy
 	readonly #setupRegistries: PluginSetupRegistries
 	readonly #lifecycle: PluginLifecycleManager
+	readonly #pluginGraph: PluginGraph
+	readonly #fieldBuilderMethods = new FieldBuilderMethodRegistry()
 	#initializePromise: Promise<this> | undefined
 	#startPromise: Promise<void> | undefined
 
@@ -200,6 +207,7 @@ export class FrameworkApplication<
 		this.accessDefaults = normalizeAccessDefaults(options.access)
 
 		const graph = new PluginGraph(normalizePlugins(options.plugins))
+		this.#pluginGraph = graph
 		this.#setupRegistries = new PluginSetupRegistries(this.schemas)
 
 		this.#lifecycle = new PluginLifecycleManager(graph, this.#setupRegistries)
@@ -215,6 +223,11 @@ export class FrameworkApplication<
 	/** Reads the immutable application-local relationship graph after static compilation. */
 	get schemaTargets(): SchemaTargetGraph {
 		return this.schemas.schemaTargets
+	}
+
+	/** Reads the immutable plugin method graph after static declaration completes. */
+	get fieldBuilderMethods(): readonly OwnedFieldBuilderMethod[] {
+		return this.#fieldBuilderMethods.values()
 	}
 
 	/** Checks exact schema identity so Runtime engines cannot cross applications. */
@@ -306,7 +319,15 @@ export class FrameworkApplication<
 
 	async #performInitialize(): Promise<this> {
 		try {
-			this.schemas.compileSchemas()
+			for (const plugin of this.#pluginGraph) {
+				runPluginFieldBuilderDeclaration(
+					plugin.definition,
+					this.#fieldBuilderMethods.forPlugin(plugin.definition.name),
+				)
+			}
+
+			this.#fieldBuilderMethods.close()
+			this.schemas.compileSchemas(this.#fieldBuilderMethods)
 			await this.#lifecycle.setup()
 			validateExtensionHandlers(
 				this.schemas.values(),

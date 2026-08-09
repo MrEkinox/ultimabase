@@ -2,14 +2,30 @@ import { expectTypeOf, test } from 'vitest'
 
 import {
 	definePlugin,
+	defineFieldBuilderMethod,
+	stringField,
 	type PluginExports,
+	type PluginFieldBuilderDeclaration,
 	type PluginLifecycleHook,
 } from '../index.js'
 
 test('preserves literal names and synchronous setup exports', () => {
+	const method = defineFieldBuilderMethod({
+		factory: stringField,
+		fieldKind: 'fixture.text',
+		name: 'text',
+		typegen: {
+			methodType: 'TextFieldBuilderMethod',
+			module: '@fixture/text-plugin',
+			valueType: 'TextValue',
+		},
+	})
 	const plugin = definePlugin({
 		name: 'fixture.database',
 		slot: 'database-adapter',
+		declareFields: (fields) => {
+			fields.register(method)
+		},
 		setup: ({ services, schemas }) => {
 			expectTypeOf(services.size).toEqualTypeOf<number>()
 			expectTypeOf(schemas.size).toEqualTypeOf<number>()
@@ -27,6 +43,9 @@ test('preserves literal names and synchronous setup exports', () => {
 
 	expectTypeOf(plugin.name).toEqualTypeOf<'fixture.database'>()
 	expectTypeOf(plugin.slot).toEqualTypeOf<'database-adapter' | undefined>()
+	expectTypeOf(plugin.declareFields).toEqualTypeOf<
+		PluginFieldBuilderDeclaration | undefined
+	>()
 	expectTypeOf<PluginExports<typeof plugin>>().toEqualTypeOf<{
 		readonly dialect: 'postgres'
 	}>()
@@ -70,4 +89,6 @@ test('keeps definitions immutable and rejects incompatible metadata', () => {
 	definePlugin({ name: 'fixture.invalid', dependencies: [42] })
 	// @ts-expect-error -- Setup must remain callable.
 	definePlugin({ name: 'fixture.invalid', setup: true })
+	// @ts-expect-error -- Static field declarations must remain callable.
+	definePlugin({ name: 'fixture.invalid', declareFields: true })
 })
