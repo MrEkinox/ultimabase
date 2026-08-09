@@ -43,6 +43,7 @@ export default defineConfig(
 			// Package test helpers share the same strict project as executable tests.
 			'packages/*/tests/**/*.ts',
 			'tests/e2e/**/*.ts',
+			'tooling/prototypes/generated-schema-authoring/**/*.ts',
 			'tooling/vitest/typescript-language-service.ts',
 		],
 		languageOptions: {

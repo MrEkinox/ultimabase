@@ -1,6 +1,6 @@
 # 801: Prove deferred schema compilation and typegen bootstrap
 
-- Status: ready
+- Status: done
 - Milestone: 8
 - Packages: `@ultimabase/core`, `@ultimabase/pg-vector-plugin`, prototype tooling only
 - Depends on: 125, 145, 207, 728
@@ -27,17 +27,27 @@ const Document = Schema.define({
 
 ## Acceptance criteria
 
-- [ ] A disposable prototype records field callbacks without resolving plugin methods during module evaluation.
-- [ ] A pure plugin declaration phase registers `vector` before the prototype resolves schema fields.
-- [ ] The generator loads the application through transpilation even when `field.vector()` is initially absent from TypeScript's generated registry.
-- [ ] One generated declaration makes `field.vector()`, model values, Query selection, Access, and hooks complete exactly on the supported stable TypeScript version.
-- [ ] Nested objects, enum literals, pointers, relations, and one plugin-defined scalar preserve exact types without `any`.
-- [ ] The proof explicitly resolves the behavior of `new Model()`, static schema metadata, schemas reused by two applications, and schemas compiled with a missing or conflicting plugin.
-- [ ] Generated declarations remain application-scoped and do not leak one application's plugin methods into another generated project.
-- [ ] The prototype records baseline and generated TypeScript memory, typecheck, and completion observations without presenting an unmeasured performance claim as proven.
-- [ ] Production code and public exports remain unchanged until the user validates the demonstrated result.
+- [x] A disposable prototype records field callbacks without resolving plugin methods during module evaluation.
+- [x] A pure plugin declaration phase registers `vector` before the prototype resolves schema fields.
+- [x] The generator loads the application through transpilation even when `field.vector()` is initially absent from TypeScript's generated registry.
+- [x] One generated declaration makes `field.vector()`, model values, Query selection, Access, and hooks complete exactly on the supported stable TypeScript version.
+- [x] Nested objects, enum literals, pointers, relations, and one plugin-defined scalar preserve exact types without `any`.
+- [x] The proof explicitly resolves the behavior of `new Model()`, static schema metadata, schemas reused by two applications, and schemas compiled with a missing or conflicting plugin.
+- [x] Generated declarations remain application-scoped and do not leak one application's plugin methods into another generated project.
+- [x] The prototype records baseline and generated TypeScript memory, typecheck, and completion observations without presenting an unmeasured performance claim as proven.
+- [x] Production code and public exports remain unchanged until the user validates the demonstrated result.
 
 ## Tests
 
-- [ ] Focused runtime fixtures cover deterministic declaration ordering and conflict failures.
-- [ ] TypeScript language-service fixtures cover completions, hovers, unknown fields, and the first-generation bootstrap on the supported stable compiler.
+- [x] Focused runtime fixtures cover deterministic declaration ordering and conflict failures.
+- [x] TypeScript language-service fixtures cover completions, hovers, unknown fields, and the first-generation bootstrap on the supported stable compiler.
+
+## Evidence
+
+The disposable implementation, measured observations, and blocking
+model-construction result are documented in
+[`tooling/prototypes/generated-schema-authoring`](../../tooling/prototypes/generated-schema-authoring/README.md).
+
+The user validated the demonstrated post-compilation model-construction
+boundary on 2026-08-09. Issue 802 can now formalize it without changing the
+production API during this proof.

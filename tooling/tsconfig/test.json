@@ -15,6 +15,7 @@
 		"../../packages/*/src/**/*.test-d.ts",
 		"../../packages/*/tests/**/*.ts",
 		"../../tests/e2e/**/*.ts",
+		"../prototypes/generated-schema-authoring/**/*.ts",
 		"../vitest/typescript-language-service.ts"
 	]
 }

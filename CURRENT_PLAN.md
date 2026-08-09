@@ -55,7 +55,7 @@ one complete generation before watching or running the application.
 
 ### Phase 0 — Blocking proof and decision
 
-1. [ ] [801 — Prove deferred schema compilation and typegen bootstrap](issues/800-generated-types/801-deferred-schema-typegen-proof.md)
+1. [x] [801 — Prove deferred schema compilation and typegen bootstrap](issues/800-generated-types/801-deferred-schema-typegen-proof.md)
 2. [ ] [802 — Decide generated schema authoring architecture](issues/800-generated-types/802-generated-schema-authoring-adr.md)
 
 Issue 801 is a stop point. Production implementation must not begin unless the
