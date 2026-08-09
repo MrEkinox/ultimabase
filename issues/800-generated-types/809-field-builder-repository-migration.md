@@ -3,7 +3,7 @@
 - Status: planned
 - Milestone: 8
 - Packages: all schema-declaring packages, examples, tests
-- Depends on: 807, 808
+- Depends on: 807
 - ADR: [ADR-0173](../../docs/adr/0173-generated-schema-authoring.md)
 
 ## Goal
@@ -21,6 +21,7 @@ generated contract is complete.
 - [ ] The old application-facing field-map overload is removed only after source and packed language-service fixtures prove the replacement.
 - [ ] Low-level factories retained for plugin authors have explicit documentation and do not compete with the canonical application autocomplete surface.
 - [ ] README, Architecture, package READMEs, schema examples, ADR indexes, issue references, and generated-file guidance describe one current syntax.
+- [ ] Repository-owned generated declarations are produced through the public `@ultimabase/codegen` API without depending on a CLI command.
 - [ ] Unrelated user-owned working-tree changes remain untouched throughout the migration.
 
 ## Tests

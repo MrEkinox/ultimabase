@@ -2,7 +2,7 @@
 
 - Status: active
 - Started: 2026-08-09
-- Objective owner: `@ultimabase/core`, `@ultimabase/pg-vector-plugin`, future codegen and CLI packages
+- Objective owner: `@ultimabase/core`, `@ultimabase/codegen`, `@ultimabase/pg-vector-plugin`
 - Governing decision: [ADR-0173](docs/adr/0173-generated-schema-authoring.md)
 - Paused objective: [ACL hardening and developer-experience consolidation](docs/plans/paused/acl-hardening-and-developer-experience-consolidation.md)
 
@@ -30,11 +30,12 @@ const Document = Schema.define({
 })
 ```
 
-The developer installs and configures the vector plugin, then runs
-`ultimabase generate`. The first unresolved plugin method may be temporarily
-reported by TypeScript; successful generation adds its exact method and schema
-types. `generate --watch`, development startup, and source-mode startup perform
-one complete generation before watching or running the application.
+The developer installs and configures the vector plugin, then generates the
+application contract through `@ultimabase/codegen`. The first unresolved plugin
+method may be temporarily reported by TypeScript; successful generation adds
+its exact method and schema types. A future CLI may automate generation, watch,
+and startup verification, but those commands are deliberately outside this
+active milestone.
 
 ## Frozen constraints
 
@@ -73,15 +74,15 @@ semantics and the user validates the demonstrated editor behavior.
 6. [x] [806 — Generate compact application schema types](issues/800-generated-types/806-compact-schema-typegen.md)
 7. [x] [807 — Drive public schema APIs from generated contracts](issues/800-generated-types/807-generated-public-schema-contracts.md)
 
-### Phase 3 — Commands and continuous regeneration
+### Deferred — Commands and continuous regeneration
 
-8. [ ] [808 — Add schema generation commands and watch mode](issues/800-generated-types/808-typegen-cli-watch-start.md)
+- [ ] [808 — Add schema generation commands and watch mode](issues/800-generated-types/808-typegen-cli-watch-start.md) — deferred by product decision on 2026-08-09
 
-### Phase 4 — Repository migration
+### Phase 3 — Repository migration
 
 9. [ ] [809 — Migrate schema declarations to FieldBuilder](issues/800-generated-types/809-field-builder-repository-migration.md)
 
-### Phase 5 — Final proof
+### Phase 4 — Final proof
 
 10. [ ] [810 — Verify generated schema authoring DX and performance](issues/800-generated-types/810-generated-schema-dx-verification.md)
 
@@ -91,14 +92,13 @@ semantics and the user validates the demonstrated editor behavior.
 - After 802: present the ADR and the deliberate non-goals before production code.
 - After 805: demonstrate runtime field resolution and missing/conflicting plugin failures.
 - After 807: demonstrate source and packed-package autocomplete for Query, mutations, Access, hooks, objects, pointers, and relations.
-- After 808: demonstrate `generate`, `generate --check`, `generate --watch`, and generation-before-start behavior.
 - After 809: review the public API examples before removing the old application declaration syntax.
 
 ## Completion gate
 
-- Every issue and dependency is complete with a dedicated commit.
+- Every active issue and dependency is complete with a dedicated commit; deferred issue 808 remains outside this gate.
 - One deterministic generated registry powers field methods and public schema operation types without `any`.
 - TypeScript stable releases receive exact completions without depending on TypeScript 7-only contextual behavior.
 - A representative large-schema fixture records typecheck time, completion latency, hover quality, and TypeScript process memory before and after migration.
 - Core, plugin, packed-package, PostgreSQL E2E, typecheck, test, lint, formatting, constraints, and build checks pass.
-- Documentation describes first generation, watch mode, stale output, plugin removal, startup regeneration, and read-only production artifacts.
+- Documentation describes explicit first generation, stale output, plugin removal, and read-only consumption while naming automatic watch and startup regeneration as deferred.

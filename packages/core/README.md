@@ -120,7 +120,8 @@ declaration is part of the TypeScript project, `Schema.define()` and every publi
 read, mutation, Access, hook, extension, pointer, and relation surface resolve
 the compact contract by literal `className`. Existing field maps keep their
 ordinary local inference, while a missing builder-schema entry reports that the
-developer must run `ultimabase generate` instead of widening silently.
+developer must regenerate the application schema types through
+`@ultimabase/codegen` instead of widening silently.
 
 Generated pointer and relation handles correlate targets by their stable schema
 name. Runtime values remain ordinary `Pointer` and `Relation` instances, and

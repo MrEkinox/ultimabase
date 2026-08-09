@@ -165,6 +165,6 @@ export type RequireGeneratedSchemaEntry<TClassName extends string> =
 		? TClassName extends UltimaBaseGeneratedSchemaName
 			? unknown
 			: Readonly<{
-					'UltimaBase generated schema is missing or stale; run ultimabase generate': never
+					'UltimaBase generated schema is missing or stale; regenerate it with @ultimabase/codegen': never
 				}>
 		: unknown

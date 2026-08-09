@@ -45,7 +45,8 @@ that file included by the application's TypeScript project. Core then resolves
 exact drafts, results, Query and mutation inputs, Access, hooks, contextual
 extensions, indexes, embedded paths, pointers, and relations directly from the
 generated contracts. A loaded registry rejects an unknown builder schema with
-an actionable `ultimabase generate` diagnostic.
+an actionable diagnostic directing the developer to regenerate through this
+package.
 
 Every artifact embeds a deterministic SHA-256 fingerprint covering the Core
 generated-contract ABI, generator version, application identity, plugin field
@@ -54,7 +55,7 @@ complete sibling temporary file and atomically renames it over the destination.
 `writeGeneratedTypeFiles()` additionally rejects duplicate resolved output
 paths before writing any file.
 
-The command-line `generate`, `generate --check`, and `generate --watch`
-workflows belong to the following CLI issue. This package exposes the
-side-effect-free compiler, TypeScript loader, fingerprint, and atomic writer
-that those commands will orchestrate.
+Command-line generation, watch mode, and startup verification are deferred.
+This package currently exposes the side-effect-free compiler, TypeScript
+loader, fingerprint, and atomic writer for explicit build integrations and
+repository-owned generation scripts.

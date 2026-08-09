@@ -22,9 +22,11 @@ declaration, static-compilation, isolation, and generated-cache boundaries.
 5. [805 — Register plugin-owned FieldBuilder methods](805-plugin-field-builder-methods.md)
 6. [806 — Generate compact application schema types](806-compact-schema-typegen.md)
 7. [807 — Drive public schema APIs from generated contracts](807-generated-public-schema-contracts.md)
-8. [808 — Add schema generation commands and watch mode](808-typegen-cli-watch-start.md)
-9. [809 — Migrate schema declarations to FieldBuilder](809-field-builder-repository-migration.md)
-10. [810 — Verify generated schema authoring DX and performance](810-generated-schema-dx-verification.md)
+8. [809 — Migrate schema declarations to FieldBuilder](809-field-builder-repository-migration.md)
+9. [810 — Verify generated schema authoring DX and performance](810-generated-schema-dx-verification.md)
+
+[808 — Add schema generation commands and watch mode](808-typegen-cli-watch-start.md)
+is deferred and no longer blocks this milestone.
 
 The exact active sequence, frozen constraints, and supervision checkpoints live
 in [`CURRENT_PLAN.md`](../../CURRENT_PLAN.md).

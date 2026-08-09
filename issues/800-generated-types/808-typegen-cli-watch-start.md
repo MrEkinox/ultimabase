@@ -1,7 +1,7 @@
 # 808: Add schema generation commands and watch mode
 
-- Status: planned
-- Milestone: 8
+- Status: deferred
+- Milestone: future
 - Packages: future CLI package, future codegen package
 - Depends on: 806, 207
 - ADR: [ADR-0173](../../docs/adr/0173-generated-schema-authoring.md)
@@ -11,6 +11,13 @@
 Provide the developer command cycle for deterministic full schema generation,
 continuous regeneration, CI verification, and generation before application
 startup.
+
+## Deferral
+
+Product review on 2026-08-09 deferred every CLI command. The generated-schema
+milestone continues through the public `@ultimabase/codegen` API and committed
+deterministic artifacts. This issue retains the accepted future command
+requirements without blocking the repository FieldBuilder migration.
 
 ## Acceptance criteria
 
