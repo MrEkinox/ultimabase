@@ -8,11 +8,14 @@ The Runtime-to-PostgreSQL vertical, native hook lifecycle, fundamental Access,
 transport-neutral relations, developer-defined stored roles, persisted object
 ACL, structured JSONB fields, and the schema-root Query and mutation API are
 complete foundations. The active
-[generated schema authoring plan](CURRENT_PLAN.md) replaces recursively inferred
-application contracts with deterministic generated types and a Nexus-style
-field builder. The separately
-[paused ACL hardening plan](docs/plans/paused/acl-hardening-and-developer-experience-consolidation.md)
-retains its exact resume point at issue 432.
+[pre-feature codebase consolidation plan](CURRENT_PLAN.md) tightens existing
+Schema and public API boundaries, removes empty package shells, and separates
+focused Query, schema-model, Runtime, and native Access responsibilities without
+adding a product capability.
+
+The ACL hardening plan remains paused at issue 432. Generated schema authoring
+and type contracts remain paused at the final DX and performance verification
+issue 810. Neither paused objective is part of the active maintenance milestone.
 
 Completed cross-milestone plans are retained under
 [`docs/plans/completed/`](docs/plans/completed/) so their decisions remain
@@ -71,6 +74,14 @@ typegen commands, watch mode, startup regeneration, and measured TypeScript
 editor performance. [ADR-0173](docs/adr/0173-generated-schema-authoring.md)
 governs this milestone. It changes developer tooling without moving plugin,
 database, transport, or runtime responsibilities into Core.
+
+## Milestone 12 — Pre-feature codebase consolidation
+
+Repository truth, strict built-in field declarations, reserved-name parity,
+actionable field diagnostics, direct pre-release alias removal, and focused
+internal Query, schema-model, Runtime, and native Access responsibility splits.
+This milestone adds no product capability and leaves ACL hardening and Typegen
+performance verification paused.
 
 ## First usable release
 

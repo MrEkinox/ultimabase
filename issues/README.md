@@ -33,6 +33,7 @@ Agents should update status only when they are actually doing the work. Do not m
 - [`900-mutation-projections/`](900-mutation-projections/README.md)
 - [`1000-singular-id-aliases/`](1000-singular-id-aliases/README.md)
 - [`1100-typegen-package/`](1100-typegen-package/README.md)
+- [`1200-maintenance-consolidation/`](1200-maintenance-consolidation/README.md)
 
 ## Assignment prompt
 

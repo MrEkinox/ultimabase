@@ -7,7 +7,8 @@ priority changes.
 
 ## Active
 
-No multi-issue objective is active.
+- [Pre-feature codebase consolidation](../../CURRENT_PLAN.md), tracked as
+  milestone 12 and starting at issue 1201.
 
 ## Paused
 
