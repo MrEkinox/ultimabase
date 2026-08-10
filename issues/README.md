@@ -30,6 +30,7 @@ Agents should update status only when they are actually doing the work. Do not m
 - [`600-transports/`](600-transports/README.md)
 - [`700-extensions/`](700-extensions/README.md)
 - [`800-generated-types/`](800-generated-types/README.md)
+- [`900-mutation-projections/`](900-mutation-projections/README.md)
 
 ## Assignment prompt
 

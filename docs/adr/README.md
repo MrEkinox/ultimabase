@@ -165,6 +165,7 @@ Accepted records:
 - [ADR-0177: Flat generated schema registry](0177-flat-generated-schema-registry.md)
 - [ADR-0178: Object-only schema mutation predicates](0178-object-only-mutation-where-inputs.md)
 - [ADR-0179: Name-based application relationship targets](0179-name-based-relationship-targets.md)
+- [ADR-0180: Transaction-bound mutation relationship projections](0180-mutation-relationship-projections.md)
 
 Superseded records:
 

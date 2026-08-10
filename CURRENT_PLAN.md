@@ -1,107 +1,50 @@
-# Active plan: generated schema authoring and type contracts
+# Active plan: mutation relationship projections
 
 - Status: active
-- Started: 2026-08-09
-- Objective owner: `@ultimabase/core`, `@ultimabase/codegen`, `@ultimabase/pg-vector-plugin`
-- Governing decisions: [ADR-0173](docs/adr/0173-generated-schema-authoring.md), refined by [ADR-0175](docs/adr/0175-map-returning-schema-fields.md), [ADR-0176](docs/adr/0176-one-dimensional-field-lists.md), [ADR-0177](docs/adr/0177-flat-generated-schema-registry.md), and [ADR-0179](docs/adr/0179-name-based-relationship-targets.md)
-- Paused objective: [ACL hardening and developer-experience consolidation](docs/plans/paused/acl-hardening-and-developer-experience-consolidation.md)
+- Started: 2026-08-10
+- Objective owner: `@ultimabase/core`, `@ultimabase/codegen`, `@ultimabase/postgres-plugin`
+- Governing decision: [ADR-0180](docs/adr/0180-mutation-relationship-projections.md)
+- Paused objective: [Generated schema authoring and type contracts](docs/plans/paused/generated-schema-authoring-and-type-contracts.md)
 
 ## Objective
 
-Replace application-facing field maps and recursively inferred public types with
-a Nexus-style declaration builder plus deterministic generated application
-types. Plugins must be able to contribute methods such as `field.vector()`
-without Core naming the field kind, using one declaration phase before schema
-fields are resolved.
-
-The target developer experience is:
-
-```ts
-const Document = Schema.define({
-	className: 'Document',
-	fields: (field) => ({
-		title: field.string({
-			validation: { required: true },
-		}),
-		embedding: field.vector({
-			dimensions: 1536,
-		}),
-	}),
-})
-```
-
-The developer installs and configures the vector and codegen plugins.
-`UltimaBase.start()` regenerates the application contract through
-`@ultimabase/codegen`; the first unresolved plugin method may be temporarily
-reported by TypeScript, then successful generation adds its exact method and
-schema types. A future CLI provides explicit manual generation, check mode, and
-watch mode, but those commands are deliberately outside this active milestone.
+Expose the generated nested `include` contract on `createOne`, `createMany`,
+`updateOne`, and `updateMany`. Singular writes perform one transaction-bound
+result projection. Itemized collection writes retain one lifecycle per item but
+group their final relationship projection by persisted identifiers.
 
 ## Frozen constraints
 
-- Static TypeScript schema declarations remain the runtime source of truth; each generated `Schemas.<Name>` contract is the source of precise application typing.
-- Before generation, Core exposes safe bootstrap contracts such as `BaseItem` instead of recursively reconstructing the application type graph.
-- Core never names a plugin field method or imports its implementation.
-- Plugin declaration contributions are synchronous, pure, deterministic, owner-scoped, and application-local.
-- Schema field callbacks execute once during `Schema.define()` and capture immutable method calls; plugin-owned calls materialize only after the application has registered their methods.
-- Public generated declarations use compact named types instead of reproducing the current recursive conditional inference graph.
-- Generated output contains no database credentials, runtime request state, Drizzle metadata, or executable business callbacks.
-- Missing plugins, duplicate field methods, incompatible generated identities, and stale output fail explicitly.
-- The first implementation regenerates the complete application graph; incremental generation requires later measured evidence.
-- `field.custom()` is not introduced as the normal application DX.
-- Existing field factories remain the implementation foundation and plugin-author contract until a later decision explicitly narrows their exports.
-- Application code, internal tests, and framework-owned schemas use the same map-returning FieldBuilder declaration.
-- Embedded objects remain value trees: pointers, relations, and database-generated sequences stay top-level.
-- Every issue receives its own commit and no push occurs without explicit user confirmation.
+- The object input remains the public and transport-neutral source of truth.
+- Generated `inputs.include` types drive autocomplete and exact result shapes.
+- Root mutation Access, resolveInput, and hooks execute exactly once per item.
+- Included targets use the existing read Access, field restrictions, and nested inclusion pipeline without target schema hooks.
+- Follow-up projection occurs inside the automatic mutation transaction and uses persisted IDs rather than mutable input predicates.
+- Collection mutation results preserve declaration order independently from database return order.
+- A collection include must not issue one root result read per item.
+- Mutations without include perform no follow-up result query.
+- Core remains adapter-neutral; PostgreSQL reuses Drizzle's relational query builder instead of custom relational SQL.
+- Delete, upsert, nested writes, and transport-specific mutation shapes remain out of scope.
+- Each issue receives a dedicated commit and no push occurs without explicit user confirmation.
 
 ## Execution order
 
-### Phase 0 — Blocking proof and decision
-
-1. [x] [801 — Prove deferred schema compilation and typegen bootstrap](issues/800-generated-types/801-deferred-schema-typegen-proof.md)
-2. [x] [802 — Decide generated schema authoring architecture](issues/800-generated-types/802-generated-schema-authoring-adr.md)
-
-Issue 801 is a stop point. Production implementation must not begin unless the
-prototype preserves the agreed model-construction and application-isolation
-semantics and the user validates the demonstrated editor behavior.
-
-### Phase 1 — Static compilation foundation
-
-3. [x] [803 — Compile deferred schema field declarations](issues/800-generated-types/803-deferred-schema-field-compilation.md)
-4. [x] [804 — Add the Nexus-style FieldBuilder](issues/800-generated-types/804-nexus-field-builder.md)
-5. [x] [805 — Register plugin-owned FieldBuilder methods](issues/800-generated-types/805-plugin-field-builder-methods.md)
-
-### Phase 2 — Generated application contracts
-
-6. [x] [806 — Generate compact application schema types](issues/800-generated-types/806-compact-schema-typegen.md)
-7. [x] [807 — Drive public schema APIs from generated contracts](issues/800-generated-types/807-generated-public-schema-contracts.md)
-
-### Deferred — Commands and continuous regeneration
-
-- [ ] [808 — Add manual schema generation commands and watch mode](issues/800-generated-types/808-typegen-cli-watch-start.md) — deferred by product decision on 2026-08-09
-
-### Phase 3 — Repository migration
-
-9. [x] [809 — Migrate schema declarations to FieldBuilder](issues/800-generated-types/809-field-builder-repository-migration.md)
-
-### Phase 4 — Final proof
-
-10. [x] [811 — Generate one-dimensional field-list filters](issues/800-generated-types/811-one-dimensional-list-filters.md)
-11. [ ] [810 — Verify generated schema authoring DX and performance](issues/800-generated-types/810-generated-schema-dx-verification.md)
+1. [x] [901 — Decide mutation relationship projection semantics](issues/900-mutation-projections/901-mutation-relationship-projection-adr.md)
+2. [ ] [902 — Project singular create and update results](issues/900-mutation-projections/902-singular-mutation-includes.md)
+3. [ ] [903 — Group collection mutation projections](issues/900-mutation-projections/903-grouped-mutation-includes.md)
+4. [ ] [904 — Verify generated and PostgreSQL mutation include DX](issues/900-mutation-projections/904-mutation-includes-verification.md)
 
 ## Supervision checkpoints
 
-- After 801: demonstrate `field.vector()`, first-generation bootstrap, exact Access/hooks typing, nested objects, relations, model construction, and two isolated applications.
-- After 802: present the ADR and the deliberate non-goals before production code.
-- After 805: demonstrate runtime field resolution and missing/conflicting plugin failures.
-- After 807: demonstrate source and packed-package autocomplete for Query, mutations, Access, hooks, objects, pointers, and relations.
-- After 809: review one map-returning FieldBuilder syntax across application, test, and framework-owned declarations.
+- After 901: validate the precise projection timing and hook/Access boundaries.
+- During 902: stop if an adapter-specific mutation include path would be required instead of a portable result read.
+- During 903: stop if grouping requires changing the accepted item-oriented hook lifecycle.
+- After 904: demonstrate the generated TypeScript DX and observed PostgreSQL query cardinality.
 
 ## Completion gate
 
-- Every active issue and dependency is complete with a dedicated commit; deferred issue 808 remains outside this gate.
-- One deterministic generated registry powers field methods and public schema operation types without `any`.
-- TypeScript stable releases receive exact completions without depending on TypeScript 7-only contextual behavior.
-- A representative large-schema fixture records typecheck time, completion latency, hover quality, and TypeScript process memory before and after migration.
-- Core, plugin, packed-package, PostgreSQL E2E, typecheck, test, lint, formatting, constraints, and build checks pass.
-- Documentation describes startup generation, stale output, plugin removal, and read-only consumption while naming only manual CLI and watch commands as deferred.
+- All four commands accept exact nested includes and return exact generated models.
+- Singular and grouped collection projections run inside the mutation transaction.
+- Runtime and PostgreSQL tests prove Access, hooks, ordering, rollback, and no-include fast paths.
+- Source and packed language-service tests protect autocomplete and compact hovers.
+- Core, codegen, PostgreSQL, E2E, typecheck, test, lint, constraints, and build checks pass.

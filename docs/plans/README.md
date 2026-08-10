@@ -7,10 +7,12 @@ priority changes.
 
 ## Active
 
-- [Generated schema authoring and type contracts](../../CURRENT_PLAN.md)
+- [Mutation relationship projections](../../CURRENT_PLAN.md)
 
 ## Paused
 
+- [Generated schema authoring and type contracts](paused/generated-schema-authoring-and-type-contracts.md),
+  resumable at issue 810 after this active milestone or explicit user direction.
 - [ACL hardening and developer-experience consolidation](paused/acl-hardening-and-developer-experience-consolidation.md),
   resumable at issue 432 only after explicit user direction.
 
