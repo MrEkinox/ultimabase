@@ -7,8 +7,7 @@ priority changes.
 
 ## Active
 
-- [Pre-feature codebase consolidation](../../CURRENT_PLAN.md), tracked as
-  milestone 12 and starting at issue 1201.
+- None.
 
 ## Paused
 
@@ -19,6 +18,7 @@ priority changes.
 
 ## Completed
 
+- [Pre-feature codebase consolidation](completed/pre-feature-codebase-consolidation.md)
 - [Explicit Typegen package identity](completed/explicit-typegen-package-identity.md)
 - [Singular identifier target aliases](completed/singular-identifier-target-aliases.md)
 - [Mutation relationship projections](completed/mutation-relationship-projections.md)

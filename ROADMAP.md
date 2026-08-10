@@ -7,11 +7,12 @@ The issue backlog is the executable roadmap. This document only describes milest
 The Runtime-to-PostgreSQL vertical, native hook lifecycle, fundamental Access,
 transport-neutral relations, developer-defined stored roles, persisted object
 ACL, structured JSONB fields, and the schema-root Query and mutation API are
-complete foundations. The active
-[pre-feature codebase consolidation plan](CURRENT_PLAN.md) tightens existing
-Schema and public API boundaries, removes empty package shells, and separates
-focused Query, schema-model, Runtime, and native Access responsibilities without
-adding a product capability.
+complete foundations. The
+[pre-feature codebase consolidation plan](docs/plans/completed/pre-feature-codebase-consolidation.md)
+has also completed its strict Schema and public API boundaries, empty-package
+cleanup, and focused Query, schema-model, Runtime, and native Access splits
+without adding a product capability. No cross-milestone plan is currently
+active.
 
 The ACL hardening plan remains paused at issue 432. Generated schema authoring
 and type contracts remain paused at the final DX and performance verification
