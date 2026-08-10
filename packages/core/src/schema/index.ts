@@ -274,6 +274,7 @@ export type {
 	SchemaTypeInfoFor,
 	SchemaTypeInfo,
 	SchemaTypeInfoCarrier,
+	SchemaTypeInfoSource,
 	SchemaInputsTypeInfo,
 	SchemaNumericFieldName,
 	SchemaRelationshipTypeInfo,

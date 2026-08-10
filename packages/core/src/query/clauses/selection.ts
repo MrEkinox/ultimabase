@@ -1,5 +1,8 @@
 import type { SchemaDefinition } from '../../schema/index.js'
-import type { SchemaTypeValue } from '../../schema/type-info.js'
+import type {
+	SchemaTypeInfoSource,
+	SchemaTypeValue,
+} from '../../schema/type-info.js'
 import {
 	immutableArray,
 	immutableRecord,
@@ -28,12 +31,10 @@ import {
  * Post.findMany({ select: { internalNote: false } })
  * ```
  */
-export type QuerySelection<TSchema extends SchemaDefinition> = SchemaTypeValue<
-	TSchema,
-	'Select'
->
+export type QuerySelection<TSchema extends SchemaTypeInfoSource> =
+	SchemaTypeValue<TSchema, 'Select'>
 
-type QuerySelectableFieldName<TSchema extends SchemaDefinition> = Extract<
+type QuerySelectableFieldName<TSchema extends SchemaTypeInfoSource> = Extract<
 	keyof QuerySelection<TSchema>,
 	string
 >
@@ -45,7 +46,7 @@ type QuerySelectionKeyWithValue<TSelection, TValue extends boolean> = {
 }[keyof TSelection]
 
 type QueryIncludedSelectionField<
-	TSchema extends SchemaDefinition,
+	TSchema extends SchemaTypeInfoSource,
 	TSelection,
 > = Extract<
 	QuerySelectionKeyWithValue<TSelection, true>,
@@ -53,7 +54,7 @@ type QueryIncludedSelectionField<
 >
 
 type QueryExcludedSelectionField<
-	TSchema extends SchemaDefinition,
+	TSchema extends SchemaTypeInfoSource,
 	TSelection,
 > = Extract<
 	QuerySelectionKeyWithValue<TSelection, false>,
@@ -62,7 +63,7 @@ type QueryExcludedSelectionField<
 
 /** Resolves the statically visible field union for one literal selection object. */
 export type QuerySelectedField<
-	TSchema extends SchemaDefinition,
+	TSchema extends SchemaTypeInfoSource,
 	TSelection,
 > = Extract<
 	keyof TSelection extends never
@@ -85,7 +86,7 @@ export type LiteralQuerySelection<TSelection> = {
 
 /** Rejects keys that are not fields of the correlated schema. */
 export type ExactQuerySelection<
-	TSchema extends SchemaDefinition,
+	TSchema extends SchemaTypeInfoSource,
 	TSelection,
 > = TSelection &
 	Readonly<

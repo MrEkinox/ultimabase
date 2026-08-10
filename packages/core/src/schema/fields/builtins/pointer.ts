@@ -13,6 +13,7 @@ import type { SchemaTarget } from '../../schema/targets.js'
 import type {
 	SchemaRelationshipFieldName,
 	SchemaRelationshipTargetName,
+	SchemaTypeInfoSource,
 } from '../../type-info.js'
 import type {
 	FieldDefinition,
@@ -78,12 +79,12 @@ export type PointerField<
 >
 
 /** Selects only top-level pointer fields declared by one exact schema. */
-export type SchemaPointerFieldName<TSchema extends SchemaDefinition> =
+export type SchemaPointerFieldName<TSchema extends SchemaTypeInfoSource> =
 	SchemaRelationshipFieldName<TSchema, 'pointer'>
 
 /** Resolves the exact target schema retained by one pointer field. */
 export type SchemaPointerTarget<
-	TSchema extends SchemaDefinition,
+	TSchema extends SchemaTypeInfoSource,
 	TFieldName extends SchemaPointerFieldName<TSchema>,
 > =
 	string extends SchemaRelationshipTargetName<TSchema, TFieldName>

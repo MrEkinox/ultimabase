@@ -64,6 +64,10 @@ export interface SchemaTypeInfoCarrier<TContract extends SchemaTypeInfo> {
 	readonly [schemaTypeInfoType]?: TContract
 }
 
+/** Supplies either one generated contract or one runtime schema identity. */
+export type SchemaTypeInfoSource =
+	SchemaTypeInfo | Readonly<{ readonly className: string }>
+
 /** Minimal operation inputs exposed before code generation has run. */
 export interface BaseSchemaInputsTypeInfo {
 	readonly create: Readonly<Record<string, unknown>>
@@ -138,16 +142,22 @@ type SchemaTypeInfoForLiteral<TClassName extends string> =
 	string extends TClassName ? never : SchemaTypeInfoByName<TClassName>
 
 /** Resolves an exact generated entry only for a literal registered class name. */
-export type SchemaTypeInfoFor<TSchema extends { readonly className: string }> =
-	TSchema extends SchemaTypeInfoCarrier<infer TContract extends SchemaTypeInfo>
-		? TContract
-		: [SchemaTypeInfoForLiteral<TSchema['className']>] extends [never]
-			? BaseSchemaTypeInfo<TSchema['className']>
-			: SchemaTypeInfoForLiteral<TSchema['className']>
+export type SchemaTypeInfoFor<TSource extends SchemaTypeInfoSource> =
+	TSource extends SchemaTypeInfo
+		? TSource
+		: TSource extends SchemaTypeInfoCarrier<
+					infer TContract extends SchemaTypeInfo
+			  >
+			? TContract
+			: TSource extends { readonly className: infer TClassName extends string }
+				? [SchemaTypeInfoForLiteral<TClassName>] extends [never]
+					? BaseSchemaTypeInfo<TClassName>
+					: SchemaTypeInfoForLiteral<TClassName>
+				: never
 
 /** Reads an exact generated relationship target without inspecting local callbacks. */
 export type SchemaRelationshipTargetName<
-	TSchema extends { readonly className: string },
+	TSchema extends SchemaTypeInfoSource,
 	TFieldName extends string,
 > =
 	SchemaTypeInfoFor<TSchema> extends {
@@ -161,13 +171,12 @@ export type SchemaRelationshipTargetName<
 		: never
 
 /** Reads generated scalar numeric fields that accept atomic deltas. */
-export type SchemaNumericFieldName<
-	TSchema extends { readonly className: string },
-> = Extract<SchemaTypeInfoFor<TSchema>['numericFields'], string>
+export type SchemaNumericFieldName<TSchema extends SchemaTypeInfoSource> =
+	Extract<SchemaTypeInfoFor<TSchema>['numericFields'], string>
 
 /** Selects generated relationship fields by their logical cardinality. */
 export type SchemaRelationshipFieldName<
-	TSchema extends { readonly className: string },
+	TSchema extends SchemaTypeInfoSource,
 	TKind extends SchemaRelationshipTypeInfo['kind'],
 > =
 	SchemaTypeInfoFor<TSchema> extends {
@@ -189,7 +198,7 @@ export type SchemaRelationshipFieldName<
 
 /** Reads one public value from a schema's generated or base type information. */
 export type SchemaTypeValue<
-	TSchema extends { readonly className: string },
+	TSchema extends SchemaTypeInfoSource,
 	TKey extends SchemaTypeValueKey,
 > = SchemaTypeValueFromTypeInfo<SchemaTypeInfoFor<TSchema>, TKey>
 
@@ -200,7 +209,11 @@ export type SchemaTypeValue<
 export type RequireGeneratedSchemaEntry<TClassName extends string> =
 	HasUltimaBaseGeneratedRegistry extends true
 		? TClassName extends UltimaBaseGeneratedSchemaName
-			? Readonly<Record<never, never>>
+			? UltimaBaseGeneratedSchemas[TClassName] extends SchemaTypeInfo
+				? Readonly<Record<never, never>>
+				: Readonly<{
+						'UltimaBase generated schema is incompatible or stale; regenerate it with @ultimabase/codegen': never
+					}>
 			: Readonly<{
 					'UltimaBase generated schema is missing or stale; regenerate it with @ultimabase/codegen': never
 				}>

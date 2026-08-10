@@ -37,6 +37,7 @@ import { getFieldSchemaTarget } from '../fields/base/definition.js'
 import type {
 	SchemaRelationshipFieldName,
 	SchemaRelationshipTargetName,
+	SchemaTypeInfoSource,
 } from '../type-info.js'
 import {
 	Schema,
@@ -52,12 +53,12 @@ import {
 } from './mutation.js'
 import type { PointerTarget } from './pointer.js'
 
-export type SchemaRelationFieldName<TSchema extends SchemaDefinition> =
+export type SchemaRelationFieldName<TSchema extends SchemaTypeInfoSource> =
 	SchemaRelationshipFieldName<TSchema, 'relation'>
 
 /** Resolves the exact target schema retained by one relation field. */
 export type SchemaRelationTarget<
-	TSchema extends SchemaDefinition,
+	TSchema extends SchemaTypeInfoSource,
 	TFieldName extends SchemaRelationFieldName<TSchema>,
 > =
 	string extends SchemaRelationshipTargetName<TSchema, TFieldName>

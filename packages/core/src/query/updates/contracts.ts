@@ -1,5 +1,9 @@
-import type { SchemaUpdateData, SchemaDefinition } from '../../schema/index.js'
-import type { SchemaNumericFieldName } from '../../schema/type-info.js'
+import type { SchemaUpdateData } from '../../schema/index.js'
+import type {
+	SchemaNumericFieldName,
+	SchemaTypeInfoFor,
+	SchemaTypeInfoSource,
+} from '../../schema/type-info.js'
 import type { DecrementUpdateValue, IncrementUpdateValue } from './operators.js'
 
 /** Leaves concrete update expressions structurally extensible for Operation AST. */
@@ -8,11 +12,11 @@ export interface UpdateExpressionNode {
 }
 
 /** Selects every schema field that developer update inference keeps mutable. */
-export type UpdateFieldName<TSchema extends SchemaDefinition> =
+export type UpdateFieldName<TSchema extends SchemaTypeInfoSource> =
 	keyof SchemaUpdateData<TSchema> & string
 
 type UpdateFieldValue<
-	TSchema extends SchemaDefinition,
+	TSchema extends SchemaTypeInfoSource,
 	TFieldName extends string,
 > = TFieldName extends keyof SchemaUpdateData<TSchema>
 	? Exclude<SchemaUpdateData<TSchema>[TFieldName], undefined>
@@ -26,18 +30,16 @@ export const numericUpdateFieldKinds = [
 	'int',
 ] as const
 
-export type NumericUpdateFieldName<TSchema extends SchemaDefinition> = Extract<
-	SchemaNumericFieldName<TSchema>,
-	UpdateFieldName<TSchema>
->
+export type NumericUpdateFieldName<TSchema extends SchemaTypeInfoSource> =
+	Extract<SchemaNumericFieldName<TSchema>, UpdateFieldName<TSchema>>
 
 /** Correlates every mutable field with its exact schema-derived replacement value. */
-export type UpdateSetInput<TSchema extends SchemaDefinition> = Readonly<
+export type UpdateSetInput<TSchema extends SchemaTypeInfoSource> = Readonly<
 	SchemaUpdateData<TSchema>
 >
 
 /** Correlates numeric fields with non-null deltas of their exact scalar type. */
-export type NumericUpdateInput<TSchema extends SchemaDefinition> = {
+export type NumericUpdateInput<TSchema extends SchemaTypeInfoSource> = {
 	readonly [TFieldName in NumericUpdateFieldName<TSchema>]?: Exclude<
 		UpdateFieldValue<TSchema, TFieldName>,
 		null
@@ -77,8 +79,8 @@ export type CompactUpdateExpressionInput<
  * Correlates each mutable field with either its replacement value or one
  * supported operation value, while requiring at least one changed field.
  */
-export type UpdateExpressionInput<TSchema extends SchemaDefinition> =
-	string extends TSchema['className']
+export type UpdateExpressionInput<TSchema extends SchemaTypeInfoSource> =
+	string extends SchemaTypeInfoFor<TSchema>['key']
 		? Readonly<Record<string, unknown>>
 		: CompactUpdateExpressionInput<
 				SimplifyUpdateInput<UpdateSetInput<TSchema>>,
@@ -95,7 +97,7 @@ interface UpdateFieldOperationNode<
 
 /** Replaces one mutable field with an exact schema-derived update value. */
 export type SetUpdateOperationNode<
-	TSchema extends SchemaDefinition,
+	TSchema extends SchemaTypeInfoSource,
 	TFieldName extends UpdateFieldName<TSchema> = UpdateFieldName<TSchema>,
 > =
 	TFieldName extends UpdateFieldName<TSchema>
@@ -105,7 +107,7 @@ export type SetUpdateOperationNode<
 		: never
 
 type NumericUpdateOperationNode<
-	TSchema extends SchemaDefinition,
+	TSchema extends SchemaTypeInfoSource,
 	TKind extends 'decrement' | 'increment',
 	TFieldName extends NumericUpdateFieldName<TSchema> =
 		NumericUpdateFieldName<TSchema>,
@@ -118,27 +120,27 @@ type NumericUpdateOperationNode<
 
 /** Adds one exact numeric delta without reading the value in application code. */
 export type IncrementUpdateOperationNode<
-	TSchema extends SchemaDefinition,
+	TSchema extends SchemaTypeInfoSource,
 	TFieldName extends NumericUpdateFieldName<TSchema> =
 		NumericUpdateFieldName<TSchema>,
 > = NumericUpdateOperationNode<TSchema, 'increment', TFieldName>
 
 /** Subtracts one exact numeric delta without reading the current value first. */
 export type DecrementUpdateOperationNode<
-	TSchema extends SchemaDefinition,
+	TSchema extends SchemaTypeInfoSource,
 	TFieldName extends NumericUpdateFieldName<TSchema> =
 		NumericUpdateFieldName<TSchema>,
 > = NumericUpdateOperationNode<TSchema, 'decrement', TFieldName>
 
 /** Enumerates every atomic field operation accepted by one update expression. */
-export type UpdateOperationNode<TSchema extends SchemaDefinition> =
+export type UpdateOperationNode<TSchema extends SchemaTypeInfoSource> =
 	| SetUpdateOperationNode<TSchema>
 	| IncrementUpdateOperationNode<TSchema>
 	| DecrementUpdateOperationNode<TSchema>
 
 /** Stores normalized operations in deterministic own-property enumeration order. */
 export interface UpdateExpression<
-	TSchema extends SchemaDefinition,
+	TSchema extends SchemaTypeInfoSource,
 > extends UpdateExpressionNode {
 	readonly kind: 'update-expression'
 	readonly operations: readonly UpdateOperationNode<TSchema>[]

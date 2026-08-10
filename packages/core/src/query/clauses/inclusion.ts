@@ -2,6 +2,7 @@ import type { SchemaDefinition } from '../../schema/index.js'
 import type {
 	SchemaRelationshipFieldName,
 	SchemaRelationshipTargetName,
+	SchemaTypeInfoSource,
 } from '../../schema/type-info.js'
 import { getFieldSchemaTarget } from '../../schema/fields/base/definition.js'
 import { Schema, type SchemaReference } from '../../schema/schema/definition.js'
@@ -15,18 +16,18 @@ import type {
 } from '../ast/contracts.js'
 import { parseQueryFieldName } from '../ast/schema.js'
 
-export type QueryPointerFieldName<TSchema extends SchemaDefinition> =
+export type QueryPointerFieldName<TSchema extends SchemaTypeInfoSource> =
 	SchemaRelationshipFieldName<TSchema, 'pointer'>
 
-export type QueryRelationFieldName<TSchema extends SchemaDefinition> =
+export type QueryRelationFieldName<TSchema extends SchemaTypeInfoSource> =
 	SchemaRelationshipFieldName<TSchema, 'relation'>
 
 /** Selects every field that can own one eager-loading branch. */
-export type QueryIncludableFieldName<TSchema extends SchemaDefinition> =
+export type QueryIncludableFieldName<TSchema extends SchemaTypeInfoSource> =
 	QueryPointerFieldName<TSchema> | QueryRelationFieldName<TSchema>
 
 type RelationshipTarget<
-	TSchema extends SchemaDefinition,
+	TSchema extends SchemaTypeInfoSource,
 	TFieldName extends string,
 > =
 	string extends SchemaRelationshipTargetName<TSchema, TFieldName>
@@ -35,19 +36,19 @@ type RelationshipTarget<
 
 /** Resolves the target schema encoded by one exact pointer field value. */
 export type QueryPointerTargetSchema<
-	TSchema extends SchemaDefinition,
+	TSchema extends SchemaTypeInfoSource,
 	TFieldName extends QueryPointerFieldName<TSchema>,
 > = RelationshipTarget<TSchema, TFieldName>
 
 /** Resolves the target schema encoded by one exact relation field value. */
 export type QueryRelationTargetSchema<
-	TSchema extends SchemaDefinition,
+	TSchema extends SchemaTypeInfoSource,
 	TFieldName extends QueryRelationFieldName<TSchema>,
 > = RelationshipTarget<TSchema, TFieldName>
 
 /** Resolves the target schema encoded by any includable relationship field. */
 export type QueryInclusionTargetSchema<
-	TSchema extends SchemaDefinition,
+	TSchema extends SchemaTypeInfoSource,
 	TFieldName extends QueryIncludableFieldName<TSchema>,
 > =
 	TFieldName extends QueryPointerFieldName<TSchema>
@@ -58,7 +59,7 @@ export type QueryInclusionTargetSchema<
 
 /** Describes one caller-owned inclusion before immutable normalization. */
 export interface QueryPointerInclusionInput<
-	TSchema extends SchemaDefinition,
+	TSchema extends SchemaTypeInfoSource,
 	TFieldName extends QueryPointerFieldName<TSchema> =
 		QueryPointerFieldName<TSchema>,
 > {
@@ -67,19 +68,20 @@ export interface QueryPointerInclusionInput<
 }
 
 /** Describes one caller-owned relation branch before immutable normalization. */
-export type QueryRelationInclusionInput<TSchema extends SchemaDefinition> = {
-	[TFieldName in QueryRelationFieldName<TSchema>]: {
-		readonly field: TFieldName
-		readonly query: QueryAst<QueryRelationTargetSchema<TSchema, TFieldName>>
-	}
-}[QueryRelationFieldName<TSchema>]
+export type QueryRelationInclusionInput<TSchema extends SchemaTypeInfoSource> =
+	{
+		[TFieldName in QueryRelationFieldName<TSchema>]: {
+			readonly field: TFieldName
+			readonly query: QueryAst<QueryRelationTargetSchema<TSchema, TFieldName>>
+		}
+	}[QueryRelationFieldName<TSchema>]
 
 /** Describes every caller-owned eager branch before immutable normalization. */
-export type QueryInclusionInput<TSchema extends SchemaDefinition> =
+export type QueryInclusionInput<TSchema extends SchemaTypeInfoSource> =
 	QueryPointerInclusionInput<TSchema> | QueryRelationInclusionInput<TSchema>
 
 /** Correlates every pointer key with the exact AST of its declared target. */
-export type QueryPointerInclusionNode<TSchema extends SchemaDefinition> = {
+export type QueryPointerInclusionNode<TSchema extends SchemaTypeInfoSource> = {
 	[TFieldName in QueryPointerFieldName<TSchema>]: QueryIncludedPointerNode<
 		TFieldName,
 		QueryAst<QueryPointerTargetSchema<TSchema, TFieldName>>
@@ -87,14 +89,14 @@ export type QueryPointerInclusionNode<TSchema extends SchemaDefinition> = {
 }[QueryPointerFieldName<TSchema>]
 
 /** Retains the field-correlated union throughout one source QueryBuilder AST. */
-export type QueryPointerInclusionAst<TSchema extends SchemaDefinition> =
+export type QueryPointerInclusionAst<TSchema extends SchemaTypeInfoSource> =
 	QueryInclusionNode<
 		QueryPointerFieldName<TSchema>,
 		QueryPointerInclusionNode<TSchema>
 	>
 
 /** Correlates every relation key with the exact AST of its declared target. */
-export type QueryRelationInclusionNode<TSchema extends SchemaDefinition> = {
+export type QueryRelationInclusionNode<TSchema extends SchemaTypeInfoSource> = {
 	[TFieldName in QueryRelationFieldName<TSchema>]: QueryIncludedRelationNode<
 		TFieldName,
 		QueryAst<QueryRelationTargetSchema<TSchema, TFieldName>>
@@ -102,11 +104,11 @@ export type QueryRelationInclusionNode<TSchema extends SchemaDefinition> = {
 }[QueryRelationFieldName<TSchema>]
 
 /** Correlates every includable field with its exact target AST and cardinality. */
-export type QueryFieldInclusionNode<TSchema extends SchemaDefinition> =
+export type QueryFieldInclusionNode<TSchema extends SchemaTypeInfoSource> =
 	QueryPointerInclusionNode<TSchema> | QueryRelationInclusionNode<TSchema>
 
 /** Retains the field-correlated union throughout one source Query AST. */
-export type QueryInclusionAst<TSchema extends SchemaDefinition> =
+export type QueryInclusionAst<TSchema extends SchemaTypeInfoSource> =
 	QueryInclusionNode<
 		QueryIncludableFieldName<TSchema>,
 		QueryFieldInclusionNode<TSchema>

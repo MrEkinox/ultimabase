@@ -3,6 +3,7 @@ import type {
 	SchemaItem,
 	SchemaDefinition,
 } from '../../schema/index.js'
+import type { SchemaTypeInfoSource } from '../../schema/type-info.js'
 
 import type {
 	QueryAst,
@@ -47,7 +48,7 @@ export interface UniqueUpsertTargetNode<
 }
 
 /** Infers the framework identifier type retained by the exact schema. */
-export type OperationObjectId<TSchema extends SchemaDefinition> =
+export type OperationObjectId<TSchema extends SchemaTypeInfoSource> =
 	SchemaItem<TSchema> extends { readonly id: infer TId }
 		? TId extends string
 			? TId

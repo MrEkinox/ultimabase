@@ -1,5 +1,9 @@
 import { Schema, type SchemaDefinition } from '../../schema/index.js'
-import type { SchemaTypeValue } from '../../schema/type-info.js'
+import type {
+	SchemaTypeInfo,
+	SchemaTypeInfoSource,
+	SchemaTypeValue,
+} from '../../schema/type-info.js'
 import { getFieldSchemaTarget } from '../../schema/fields/base/definition.js'
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 
@@ -52,18 +56,18 @@ import type {
 export type QueryOrderByDirection = 'asc' | 'desc'
 
 /** Uses the compact generated ordering contract when available. */
-export type QueryOrderByInput<TSchema extends SchemaDefinition> =
+export type QueryOrderByInput<TSchema extends SchemaTypeInfoSource> =
 	SchemaTypeValue<TSchema, 'OrderBy'>
 
 /** Shapes one included pointer target without adding another execution boundary. */
-export type QueryPointerTargetInput<TSchema extends SchemaDefinition> =
+export type QueryPointerTargetInput<TSchema extends SchemaTypeInfoSource> =
 	Readonly<{
 		readonly include?: QueryIncludeInput<TSchema>
 		readonly select?: QuerySelection<TSchema>
 	}>
 
 /** Shapes one included to-many target without adding another execution boundary. */
-export type QueryRelationTargetInput<TSchema extends SchemaDefinition> =
+export type QueryRelationTargetInput<TSchema extends SchemaTypeInfoSource> =
 	Readonly<{
 		readonly include?: QueryIncludeInput<TSchema>
 		readonly limit?: number
@@ -75,10 +79,10 @@ export type QueryRelationTargetInput<TSchema extends SchemaDefinition> =
 	}>
 
 /** Uses the generated relationship input without reconstructing schema fields. */
-export type QueryIncludeInput<TSchema extends SchemaDefinition> =
+export type QueryIncludeInput<TSchema extends SchemaTypeInfoSource> =
 	SchemaTypeValue<TSchema, 'Include'>
 
-interface QueryProjectionInput<TSchema extends SchemaDefinition> {
+interface QueryProjectionInput<TSchema extends SchemaTypeInfoSource> {
 	/** Loads explicitly requested relationship targets through independently shaped reads. */
 	readonly include?: QueryIncludeInput<TSchema>
 	/** Projects result fields through literal inclusion or exclusion flags. */
@@ -94,12 +98,12 @@ interface QueryBuilderInputIdentity<TSelectedField, TIncludedField> {
 	}>
 }
 
-interface QueryFilteredInput<TSchema extends SchemaDefinition> {
+interface QueryFilteredInput<TSchema extends SchemaTypeInfoSource> {
 	/** Restricts the visible row universe through the canonical object filter. */
 	readonly where?: WhereInput<TSchema>
 }
 
-interface FindManyBaseInput<TSchema extends SchemaDefinition>
+interface FindManyBaseInput<TSchema extends SchemaTypeInfoSource>
 	extends QueryFilteredInput<TSchema>, QueryProjectionInput<TSchema> {
 	/** Limits the number of returned models. */
 	readonly limit?: number
@@ -120,11 +124,11 @@ type QueryPaginationInput =
 	  }>
 
 /** Describes one complete collection read without retaining execution state. */
-export type FindManyInput<TSchema extends SchemaDefinition> =
+export type FindManyInput<TSchema extends SchemaTypeInfoSource> =
 	FindManyBaseInput<TSchema> & QueryPaginationInput
 
 /** Describes one first-match read with optional deterministic ordering. */
-export interface FindOneInput<TSchema extends SchemaDefinition>
+export interface FindOneInput<TSchema extends SchemaTypeInfoSource>
 	extends QueryFilteredInput<TSchema>, QueryProjectionInput<TSchema> {
 	/** Applies deterministic priority ordering from left to right. */
 	readonly orderBy?: QueryOrderByInput<TSchema>
@@ -132,22 +136,22 @@ export interface FindOneInput<TSchema extends SchemaDefinition>
 
 /** Describes one exact identifier read and its result projection. */
 export interface GetInput<
-	TSchema extends SchemaDefinition,
+	TSchema extends SchemaTypeInfoSource,
 > extends QueryProjectionInput<TSchema> {
 	/** Selects the framework-owned object identity. */
 	readonly id: OperationObjectId<TSchema>
 }
 
 /** Describes one filtered count without irrelevant projection clauses. */
-export type CountInput<TSchema extends SchemaDefinition> =
+export type CountInput<TSchema extends SchemaTypeInfoSource> =
 	QueryFilteredInput<TSchema>
 
 /** Describes one filtered existence check without loading model values. */
-export type ExistsInput<TSchema extends SchemaDefinition> =
+export type ExistsInput<TSchema extends SchemaTypeInfoSource> =
 	QueryFilteredInput<TSchema>
 
 type ExactSelectionForInput<
-	TSchema extends SchemaDefinition,
+	TSchema extends SchemaTypeInfoSource,
 	TInput,
 > = TInput extends { readonly select: infer TSelection }
 	? Readonly<{
@@ -159,7 +163,7 @@ type ExactSelectionForInput<
 	: unknown
 
 type ExactInclusionTargetInput<
-	TSchema extends SchemaDefinition,
+	TSchema extends SchemaTypeInfoSource,
 	TInput,
 	TContract,
 > = TInput extends TContract
@@ -170,7 +174,7 @@ type ExactInclusionTargetInput<
 	: never
 
 type ExactIncludeValue<
-	TSchema extends SchemaDefinition,
+	TSchema extends SchemaTypeInfoSource,
 	TFieldName extends QueryIncludableFieldName<TSchema>,
 	TInclude,
 > = TFieldName extends keyof TInclude
@@ -191,7 +195,10 @@ type ExactIncludeValue<
 			: never
 	: never
 
-type ExactQueryInclude<TSchema extends SchemaDefinition, TInclude> = TInclude &
+type ExactQueryInclude<
+	TSchema extends SchemaTypeInfoSource,
+	TInclude,
+> = TInclude &
 	Readonly<
 		Record<Exclude<keyof TInclude, QueryIncludableFieldName<TSchema>>, never>
 	> &
@@ -202,7 +209,7 @@ type ExactQueryInclude<TSchema extends SchemaDefinition, TInclude> = TInclude &
 	}>
 
 type ExactIncludeForInput<
-	TSchema extends SchemaDefinition,
+	TSchema extends SchemaTypeInfoSource,
 	TInput,
 > = TInput extends { readonly include: infer TInclude }
 	? Readonly<{
@@ -216,7 +223,7 @@ type ExactIncludeForInput<
  * the literal projection needed to infer the exact result model.
  */
 export type ExactReadInput<
-	TSchema extends SchemaDefinition,
+	TSchema extends SchemaTypeInfoSource,
 	TInput,
 	TContract,
 > =
@@ -237,15 +244,125 @@ export type ExactReadInput<
 				ExactSelectionForInput<TSchema, TInput> &
 				ExactIncludeForInput<TSchema, TInput>
 
+type ExactReadSelectionInput<
+	TContract extends SchemaTypeInfo,
+	TSelection extends TContract['inputs']['select'] | undefined,
+> = [TSelection] extends [TContract['inputs']['select']]
+	? Readonly<{
+			readonly select: TContract['inputs']['select'] &
+				TSelection &
+				Readonly<
+					Record<
+						Exclude<keyof TSelection, keyof TContract['inputs']['select']>,
+						never
+					>
+				> &
+				LiteralQuerySelection<TSelection>
+		}>
+	: Readonly<{ readonly select?: never }>
+
+type ExactGeneratedValue<TInput, TContract> = TInput extends readonly unknown[]
+	? TInput extends TContract
+		? TInput
+		: never
+	: TInput extends object
+		? TContract extends object
+			? TInput &
+					Readonly<Record<Exclude<keyof TInput, keyof TContract>, never>> &
+					Readonly<{
+						readonly [
+							TKey in Extract<keyof TInput, keyof TContract>
+						]: ExactGeneratedValue<TInput[TKey], NonNullable<TContract[TKey]>>
+					}>
+			: never
+		: TInput extends TContract
+			? TInput
+			: never
+
+type GeneratedIncludeInput<TContract extends SchemaTypeInfo> =
+	TContract['inputs'] extends { readonly include: infer TInclude }
+		? TInclude
+		: never
+
+type ExactReadInclusionInput<
+	TContract extends SchemaTypeInfo,
+	TInclude extends GeneratedIncludeInput<TContract> | undefined,
+> = [TInclude] extends [GeneratedIncludeInput<TContract>]
+	? Readonly<{
+			readonly include: ExactGeneratedValue<
+				TInclude,
+				GeneratedIncludeInput<TContract>
+			>
+		}>
+	: Readonly<{ readonly include?: never }>
+
+interface ExactFindManyFields<TContract extends SchemaTypeInfo> {
+	/** Limits the number of returned models. */
+	readonly limit?: number
+	/** Applies deterministic priority ordering from left to right. */
+	readonly orderBy?: TContract['inputs']['orderBy']
+	/** Restricts the visible row universe through the generated schema filter. */
+	readonly where?: TContract['inputs']['where']
+}
+
+type ExactFindManyProjectionInput<
+	TContract extends SchemaTypeInfo,
+	TSelection extends TContract['inputs']['select'] | undefined,
+	TInclude extends GeneratedIncludeInput<TContract> | undefined,
+> = ExactFindManyFields<TContract> &
+	ExactReadSelectionInput<TContract, TSelection> &
+	ExactReadInclusionInput<TContract, TInclude>
+
+interface ExactFindOneFields<TContract extends SchemaTypeInfo> {
+	/** Applies deterministic priority ordering from left to right. */
+	readonly orderBy?: TContract['inputs']['orderBy']
+	/** Restricts the visible row universe through the generated schema filter. */
+	readonly where?: TContract['inputs']['where']
+}
+
+/** Describes one exact first-match read from its generated contract. */
+export type ExactGeneratedFindOneInput<
+	TContract extends SchemaTypeInfo,
+	TSelection extends TContract['inputs']['select'] | undefined = undefined,
+	TInclude extends GeneratedIncludeInput<TContract> | undefined = undefined,
+> = ExactFindOneFields<TContract> &
+	ExactReadSelectionInput<TContract, TSelection> &
+	ExactReadInclusionInput<TContract, TInclude>
+
+/** Describes one exact identifier read from its generated contract. */
+export type ExactGeneratedGetInput<
+	TContract extends SchemaTypeInfo,
+	TSelection extends TContract['inputs']['select'] | undefined = undefined,
+	TInclude extends GeneratedIncludeInput<TContract> | undefined = undefined,
+> = Readonly<{ readonly id: OperationObjectId<TContract> }> &
+	ExactReadSelectionInput<TContract, TSelection> &
+	ExactReadInclusionInput<TContract, TInclude>
+
+/** Describes one exact collection read using cursor pagination. */
+export type ExactCursorFindManyInput<
+	TContract extends SchemaTypeInfo,
+	TSelection extends TContract['inputs']['select'] | undefined = undefined,
+	TInclude extends GeneratedIncludeInput<TContract> | undefined = undefined,
+> = ExactFindManyProjectionInput<TContract, TSelection, TInclude> &
+	Readonly<{ readonly cursor: true | string; readonly offset?: never }>
+
+/** Describes one exact collection read using optional offset pagination. */
+export type ExactOffsetFindManyInput<
+	TContract extends SchemaTypeInfo,
+	TSelection extends TContract['inputs']['select'] | undefined = undefined,
+	TInclude extends GeneratedIncludeInput<TContract> | undefined = undefined,
+> = ExactFindManyProjectionInput<TContract, TSelection, TInclude> &
+	Readonly<{ readonly cursor?: never; readonly offset?: number }>
+
 type SelectedFieldFromInput<
-	TSchema extends SchemaDefinition,
+	TSchema extends SchemaTypeInfoSource,
 	TInput,
 > = TInput extends { readonly select: infer TSelection }
 	? QuerySelectedField<TSchema, TSelection>
 	: never
 
 type IncludedFieldFromInput<
-	TSchema extends SchemaDefinition,
+	TSchema extends SchemaTypeInfoSource,
 	TInput,
 > = TInput extends { readonly include: infer TInclude }
 	? Extract<keyof TInclude, QueryPointerFieldName<TSchema>>
@@ -253,7 +370,7 @@ type IncludedFieldFromInput<
 
 /** Resolves the exact visible field union produced by one canonical read input. */
 export type QuerySelectedFieldFromInput<
-	TSchema extends SchemaDefinition,
+	TSchema extends SchemaTypeInfoSource,
 	TInput,
 > =
 	TInput extends QueryBuilderInputIdentity<infer TSelectedField, unknown>
@@ -264,7 +381,7 @@ export type QuerySelectedFieldFromInput<
 				| IncludedFieldFromInput<TSchema, TInput>
 
 type PointerInclusionForField<
-	TSchema extends SchemaDefinition,
+	TSchema extends SchemaTypeInfoSource,
 	TInclude,
 	TFieldName extends QueryPointerFieldName<TSchema>,
 > = TFieldName extends keyof TInclude
@@ -285,7 +402,7 @@ type PointerInclusionForField<
 	: never
 
 type RelationInclusionForField<
-	TSchema extends SchemaDefinition,
+	TSchema extends SchemaTypeInfoSource,
 	TInclude,
 	TFieldName extends QueryRelationFieldName<TSchema>,
 > = TFieldName extends keyof TInclude
@@ -307,7 +424,7 @@ type RelationInclusionForField<
 
 /** Resolves every exact nested eager result produced by one read input. */
 export type QueryIncludedFieldFromInput<
-	TSchema extends SchemaDefinition,
+	TSchema extends SchemaTypeInfoSource,
 	TInput,
 > =
 	TInput extends QueryBuilderInputIdentity<unknown, infer TIncludedField>
@@ -333,13 +450,13 @@ export type QueryIncludedFieldFromInput<
 
 /** @deprecated Use `QueryIncludedFieldFromInput`. */
 export type QueryIncludedPointerFromInput<
-	TSchema extends SchemaDefinition,
+	TSchema extends SchemaTypeInfoSource,
 	TInput,
 > = QueryIncludedFieldFromInput<TSchema, TInput>
 
 /** Retains exact builder result inference without adding runtime metadata. */
 export type QueryBuilderInput<
-	TSchema extends SchemaDefinition,
+	TSchema extends SchemaTypeInfoSource,
 	TSelectedField extends QueryFieldName<TSchema>,
 	TIncludedField,
 > = FindManyInput<TSchema> &

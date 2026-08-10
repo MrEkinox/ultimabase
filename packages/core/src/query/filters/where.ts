@@ -8,7 +8,10 @@ import {
 	type SchemaRelationTarget,
 } from '../../schema/index.js'
 import { getFieldSchemaTarget } from '../../schema/fields/base/definition.js'
-import type { SchemaTypeValue } from '../../schema/type-info.js'
+import type {
+	SchemaTypeInfoSource,
+	SchemaTypeValue,
+} from '../../schema/type-info.js'
 import {
 	immutableArray,
 	immutableRecord,
@@ -72,7 +75,7 @@ export const whereLogicalKeys = ['AND', 'OR', 'NOT'] as const
 export type WhereLogicalKey = (typeof whereLogicalKeys)[number]
 
 /** Describes one schema-correlated, transport-neutral filter object. */
-export type WhereInput<TSchema extends SchemaDefinition> = SchemaTypeValue<
+export type WhereInput<TSchema extends SchemaTypeInfoSource> = SchemaTypeValue<
 	TSchema,
 	'Where'
 >

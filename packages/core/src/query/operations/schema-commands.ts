@@ -1,4 +1,5 @@
 import type { SchemaCreateData, SchemaDefinition } from '../../schema/index.js'
+import type { SchemaTypeInfoSource } from '../../schema/type-info.js'
 
 import type {
 	ExactQuerySelection,
@@ -17,25 +18,25 @@ export type SchemaWhere<TSchema extends SchemaDefinition> =
  *
  * @example `{ id: { eq: postId } }`
  */
-export type SchemaWhereInput<TSchema extends SchemaDefinition> =
+export type SchemaWhereInput<TSchema extends SchemaTypeInfoSource> =
 	WhereInput<TSchema>
 
 /** @deprecated Use `SchemaWhereInput`. */
-export type SchemaWhereFactory<TSchema extends SchemaDefinition> =
+export type SchemaWhereFactory<TSchema extends SchemaTypeInfoSource> =
 	SchemaWhereInput<TSchema>
 
-interface SchemaCreateOneFields<TSchema extends SchemaDefinition> {
+interface SchemaCreateOneFields<TSchema extends SchemaTypeInfoSource> {
 	/** Supplies the schema-derived values for the new row. */
 	readonly data: SchemaCreateData<TSchema>
 }
 
-interface SchemaCreateManyFields<TSchema extends SchemaDefinition> {
+interface SchemaCreateManyFields<TSchema extends SchemaTypeInfoSource> {
 	/** Supplies the ordered schema-derived values for the new rows. */
 	readonly data: readonly SchemaCreateData<TSchema>[]
 }
 
 type SchemaResultSelection<
-	TSchema extends SchemaDefinition,
+	TSchema extends SchemaTypeInfoSource,
 	TSelection extends QuerySelection<TSchema> | undefined,
 > = [TSelection] extends [QuerySelection<TSchema>]
 	? Readonly<{
@@ -48,27 +49,29 @@ type SchemaResultSelection<
 
 /** Creates one row with an optional exact result projection. */
 export type SchemaCreateOneInput<
-	TSchema extends SchemaDefinition,
+	TSchema extends SchemaTypeInfoSource,
 	TSelection extends QuerySelection<TSchema> | undefined = undefined,
 > = SchemaCreateOneFields<TSchema> & SchemaResultSelection<TSchema, TSelection>
 
 /** @internal Erases literal selection inference only at the execution boundary. */
-export type SchemaCreateOneExecutionInput<TSchema extends SchemaDefinition> =
-	SchemaCreateOneFields<TSchema> &
-		Readonly<{ select?: QuerySelection<TSchema> }>
+export type SchemaCreateOneExecutionInput<
+	TSchema extends SchemaTypeInfoSource,
+> = SchemaCreateOneFields<TSchema> &
+	Readonly<{ select?: QuerySelection<TSchema> }>
 
 /** Creates ordered rows with one optional projection shared by every result. */
 export type SchemaCreateManyInput<
-	TSchema extends SchemaDefinition,
+	TSchema extends SchemaTypeInfoSource,
 	TSelection extends QuerySelection<TSchema> | undefined = undefined,
 > = SchemaCreateManyFields<TSchema> & SchemaResultSelection<TSchema, TSelection>
 
 /** @internal Erases literal selection inference only at the execution boundary. */
-export type SchemaCreateManyExecutionInput<TSchema extends SchemaDefinition> =
-	SchemaCreateManyFields<TSchema> &
-		Readonly<{ select?: QuerySelection<TSchema> }>
+export type SchemaCreateManyExecutionInput<
+	TSchema extends SchemaTypeInfoSource,
+> = SchemaCreateManyFields<TSchema> &
+	Readonly<{ select?: QuerySelection<TSchema> }>
 
-interface SchemaUpdateOneFields<TSchema extends SchemaDefinition> {
+interface SchemaUpdateOneFields<TSchema extends SchemaTypeInfoSource> {
 	/**
 	 * Selects exactly one row by `id`, one unique field, or one complete unique index.
 	 *
@@ -85,68 +88,72 @@ interface SchemaUpdateOneFields<TSchema extends SchemaDefinition> {
 
 /** Updates one uniquely identified row with an optional exact result projection. */
 export type SchemaUpdateOneInput<
-	TSchema extends SchemaDefinition,
+	TSchema extends SchemaTypeInfoSource,
 	TSelection extends QuerySelection<TSchema> | undefined = undefined,
 > = SchemaUpdateOneFields<TSchema> & SchemaResultSelection<TSchema, TSelection>
 
 /** @internal Erases literal selection inference only at the execution boundary. */
-export type SchemaUpdateOneExecutionInput<TSchema extends SchemaDefinition> =
-	SchemaUpdateOneFields<TSchema> &
-		Readonly<{ select?: QuerySelection<TSchema> }>
+export type SchemaUpdateOneExecutionInput<
+	TSchema extends SchemaTypeInfoSource,
+> = SchemaUpdateOneFields<TSchema> &
+	Readonly<{ select?: QuerySelection<TSchema> }>
 
 /** Describes one independently targeted update inside an ordered atomic batch. */
-export type SchemaUpdateManyItemInput<TSchema extends SchemaDefinition> =
+export type SchemaUpdateManyItemInput<TSchema extends SchemaTypeInfoSource> =
 	SchemaUpdateOneFields<TSchema>
 
-interface SchemaUpdateManyFields<TSchema extends SchemaDefinition> {
+interface SchemaUpdateManyFields<TSchema extends SchemaTypeInfoSource> {
 	/** Supplies uniquely targeted updates in deterministic declaration order. */
 	readonly data: readonly SchemaUpdateManyItemInput<TSchema>[]
 }
 
 /** Updates uniquely targeted rows in order and returns their selected values. */
 export type SchemaUpdateManyInput<
-	TSchema extends SchemaDefinition,
+	TSchema extends SchemaTypeInfoSource,
 	TSelection extends QuerySelection<TSchema> | undefined = undefined,
 > = SchemaUpdateManyFields<TSchema> & SchemaResultSelection<TSchema, TSelection>
 
 /** @internal Erases literal selection inference only at the execution boundary. */
-export type SchemaUpdateManyExecutionInput<TSchema extends SchemaDefinition> =
-	SchemaUpdateManyFields<TSchema> &
-		Readonly<{ select?: QuerySelection<TSchema> }>
+export type SchemaUpdateManyExecutionInput<
+	TSchema extends SchemaTypeInfoSource,
+> = SchemaUpdateManyFields<TSchema> &
+	Readonly<{ select?: QuerySelection<TSchema> }>
 
-interface SchemaDeleteOneFields<TSchema extends SchemaDefinition> {
+interface SchemaDeleteOneFields<TSchema extends SchemaTypeInfoSource> {
 	/** Selects exactly one row by `id`, one unique field, or one complete unique index. */
 	readonly where: SchemaWhereInput<TSchema>
 }
 
 /** Deletes one uniquely identified row with an optional exact result projection. */
 export type SchemaDeleteOneInput<
-	TSchema extends SchemaDefinition,
+	TSchema extends SchemaTypeInfoSource,
 	TSelection extends QuerySelection<TSchema> | undefined = undefined,
 > = SchemaDeleteOneFields<TSchema> & SchemaResultSelection<TSchema, TSelection>
 
 /** @internal Erases literal selection inference only at the execution boundary. */
-export type SchemaDeleteOneExecutionInput<TSchema extends SchemaDefinition> =
-	SchemaDeleteOneFields<TSchema> &
-		Readonly<{ select?: QuerySelection<TSchema> }>
+export type SchemaDeleteOneExecutionInput<
+	TSchema extends SchemaTypeInfoSource,
+> = SchemaDeleteOneFields<TSchema> &
+	Readonly<{ select?: QuerySelection<TSchema> }>
 
-interface SchemaDeleteManyFields<TSchema extends SchemaDefinition> {
+interface SchemaDeleteManyFields<TSchema extends SchemaTypeInfoSource> {
 	/** Supplies unique targets in deterministic declaration order. */
 	readonly where: readonly SchemaWhereInput<TSchema>[]
 }
 
 /** Deletes uniquely targeted rows in order and returns their selected values. */
 export type SchemaDeleteManyInput<
-	TSchema extends SchemaDefinition,
+	TSchema extends SchemaTypeInfoSource,
 	TSelection extends QuerySelection<TSchema> | undefined = undefined,
 > = SchemaDeleteManyFields<TSchema> & SchemaResultSelection<TSchema, TSelection>
 
 /** @internal Erases literal selection inference only at the execution boundary. */
-export type SchemaDeleteManyExecutionInput<TSchema extends SchemaDefinition> =
-	SchemaDeleteManyFields<TSchema> &
-		Readonly<{ select?: QuerySelection<TSchema> }>
+export type SchemaDeleteManyExecutionInput<
+	TSchema extends SchemaTypeInfoSource,
+> = SchemaDeleteManyFields<TSchema> &
+	Readonly<{ select?: QuerySelection<TSchema> }>
 
-interface SchemaUpsertOneFields<TSchema extends SchemaDefinition> {
+interface SchemaUpsertOneFields<TSchema extends SchemaTypeInfoSource> {
 	/** Selects the conflict target through `id` or one complete unique index. */
 	readonly where: SchemaWhereInput<TSchema>
 	/** Supplies the complete create branch when no target exists. */
@@ -157,31 +164,33 @@ interface SchemaUpsertOneFields<TSchema extends SchemaDefinition> {
 
 /** Creates one row or updates its unique target with an optional result projection. */
 export type SchemaUpsertOneInput<
-	TSchema extends SchemaDefinition,
+	TSchema extends SchemaTypeInfoSource,
 	TSelection extends QuerySelection<TSchema> | undefined = undefined,
 > = SchemaUpsertOneFields<TSchema> & SchemaResultSelection<TSchema, TSelection>
 
 /** @internal Erases literal selection inference only at the execution boundary. */
-export type SchemaUpsertOneExecutionInput<TSchema extends SchemaDefinition> =
-	SchemaUpsertOneFields<TSchema> &
-		Readonly<{ select?: QuerySelection<TSchema> }>
+export type SchemaUpsertOneExecutionInput<
+	TSchema extends SchemaTypeInfoSource,
+> = SchemaUpsertOneFields<TSchema> &
+	Readonly<{ select?: QuerySelection<TSchema> }>
 
 /** Describes one independently targeted item inside an ordered bulk upsert. */
-export type SchemaUpsertManyItemInput<TSchema extends SchemaDefinition> =
+export type SchemaUpsertManyItemInput<TSchema extends SchemaTypeInfoSource> =
 	SchemaUpsertOneFields<TSchema>
 
-interface SchemaUpsertManyFields<TSchema extends SchemaDefinition> {
+interface SchemaUpsertManyFields<TSchema extends SchemaTypeInfoSource> {
 	/** Supplies independently targeted items in deterministic declaration order. */
 	readonly data: readonly SchemaUpsertManyItemInput<TSchema>[]
 }
 
 /** Upserts ordered items with one optional projection shared by every result. */
 export type SchemaUpsertManyInput<
-	TSchema extends SchemaDefinition,
+	TSchema extends SchemaTypeInfoSource,
 	TSelection extends QuerySelection<TSchema> | undefined = undefined,
 > = SchemaUpsertManyFields<TSchema> & SchemaResultSelection<TSchema, TSelection>
 
 /** @internal Erases literal selection inference only at the execution boundary. */
-export type SchemaUpsertManyExecutionInput<TSchema extends SchemaDefinition> =
-	SchemaUpsertManyFields<TSchema> &
-		Readonly<{ select?: QuerySelection<TSchema> }>
+export type SchemaUpsertManyExecutionInput<
+	TSchema extends SchemaTypeInfoSource,
+> = SchemaUpsertManyFields<TSchema> &
+	Readonly<{ select?: QuerySelection<TSchema> }>

@@ -15,9 +15,11 @@ import type {
 } from '../../query/operations/schema-commands.js'
 import type { OperationOptions } from '../../query/operations/options.js'
 import type {
-	CountInput,
+	ExactCursorFindManyInput,
+	ExactGeneratedFindOneInput,
+	ExactGeneratedGetInput,
+	ExactOffsetFindManyInput,
 	ExactReadInput,
-	ExistsInput,
 	FindManyInput,
 	FindOneInput,
 	GetInput,
@@ -25,7 +27,11 @@ import type {
 	QuerySelectedFieldFromInput,
 } from '../../query/query/input.js'
 import type { QueryResult } from '../../query/query/result.js'
-import type { SchemaTypeInfo, SchemaTypeInfoCarrier } from '../type-info.js'
+import type {
+	HasUltimaBaseGeneratedRegistry,
+	SchemaTypeInfo,
+	SchemaTypeInfoCarrier,
+} from '../type-info.js'
 import type { SchemaDefinition } from './definition.js'
 
 type SchemaMutationKind =
@@ -39,76 +45,247 @@ type SchemaMutationKind =
 	| 'upsert-one'
 
 type SchemaMutationInput<
-	TSchema extends SchemaDefinition,
+	TContract extends SchemaTypeInfo,
 	TKind extends SchemaMutationKind,
-	TSelection extends QuerySelection<TSchema> | undefined = undefined,
+	TSelection extends QuerySelection<TContract> | undefined = undefined,
 > = TKind extends 'create-one'
-	? SchemaCreateOneInput<TSchema, TSelection>
+	? SchemaCreateOneInput<TContract, TSelection>
 	: TKind extends 'create-many'
-		? SchemaCreateManyInput<TSchema, TSelection>
+		? SchemaCreateManyInput<TContract, TSelection>
 		: TKind extends 'update-one'
-			? SchemaUpdateOneInput<TSchema, TSelection>
+			? SchemaUpdateOneInput<TContract, TSelection>
 			: TKind extends 'update-many'
-				? SchemaUpdateManyInput<TSchema, TSelection>
+				? SchemaUpdateManyInput<TContract, TSelection>
 				: TKind extends 'upsert-one'
-					? SchemaUpsertOneInput<TSchema, TSelection>
+					? SchemaUpsertOneInput<TContract, TSelection>
 					: TKind extends 'upsert-many'
-						? SchemaUpsertManyInput<TSchema, TSelection>
+						? SchemaUpsertManyInput<TContract, TSelection>
 						: TKind extends 'delete-one'
-							? SchemaDeleteOneInput<TSchema, TSelection>
-							: SchemaDeleteManyInput<TSchema, TSelection>
+							? SchemaDeleteOneInput<TContract, TSelection>
+							: SchemaDeleteManyInput<TContract, TSelection>
 
 type SchemaMutationSelectedField<
-	TSchema extends SchemaDefinition,
+	TContract extends SchemaTypeInfo,
 	TKind extends SchemaMutationKind,
 	TSelection,
-> = [TSelection] extends [QuerySelection<TSchema>]
-	? QuerySelectedField<TSchema, TSelection>
+> = [TSelection] extends [QuerySelection<TContract>]
+	? Extract<
+			QuerySelectedField<TContract, TSelection>,
+			QueryFieldName<TContract>
+		>
 	: TKind extends 'delete-many' | 'update-many'
-		? Extract<'id', QueryFieldName<TSchema>>
+		? Extract<'id', QueryFieldName<TContract>>
 		: never
 
 type SchemaMutationResult<
-	TSchema extends SchemaDefinition,
+	TContract extends SchemaTypeInfo,
 	TKind extends SchemaMutationKind,
 	TSelection,
+	TSchema extends SchemaDefinition,
 > = TKind extends 'create-many' | 'delete-many' | 'update-many' | 'upsert-many'
 	? readonly QueryResult<
 			TSchema,
-			SchemaMutationSelectedField<TSchema, TKind, TSelection>
+			Extract<
+				SchemaMutationSelectedField<TContract, TKind, TSelection>,
+				QueryFieldName<TSchema>
+			>
 		>[]
 	: TKind extends 'delete-one' | 'update-one'
 		? QueryResult<
 				TSchema,
-				SchemaMutationSelectedField<TSchema, TKind, TSelection>
+				Extract<
+					SchemaMutationSelectedField<TContract, TKind, TSelection>,
+					QueryFieldName<TSchema>
+				>
 			> | null
 		: QueryResult<
 				TSchema,
-				SchemaMutationSelectedField<TSchema, TKind, TSelection>
+				Extract<
+					SchemaMutationSelectedField<TContract, TKind, TSelection>,
+					QueryFieldName<TSchema>
+				>
 			>
+
+type SchemaFindManyResult<
+	TSchema extends SchemaDefinition,
+	TSelection,
+	TInclude,
+> = Promise<
+	readonly QueryResult<
+		TSchema,
+		QuerySelectedFieldFromInput<
+			TSchema,
+			SchemaFindManyProjection<TSelection, TInclude>
+		>,
+		QueryIncludedFieldFromInput<
+			TSchema,
+			SchemaFindManyProjection<TSelection, TInclude>
+		>
+	>[]
+>
+
+type SchemaReadResult<
+	TSchema extends SchemaDefinition,
+	TSelection,
+	TInclude,
+> = QueryResult<
+	TSchema,
+	QuerySelectedFieldFromInput<
+		TSchema,
+		SchemaFindManyProjection<TSelection, TInclude>
+	>,
+	QueryIncludedFieldFromInput<
+		TSchema,
+		SchemaFindManyProjection<TSelection, TInclude>
+	>
+>
+
+type SchemaGeneratedInclude<TContract extends SchemaTypeInfo> =
+	TContract['inputs'] extends { readonly include: infer TInclude }
+		? TInclude
+		: never
+
+type SchemaFindManyProjection<TSelection, TInclude> = Readonly<
+	([TSelection] extends [undefined]
+		? object
+		: { readonly select: TSelection }) &
+		([TInclude] extends [undefined] ? object : { readonly include: TInclude })
+>
+
+type GeneratedCursorFindManyInput<
+	TContract extends SchemaTypeInfo,
+	TSelection extends TContract['inputs']['select'] | undefined,
+	TInclude extends SchemaGeneratedInclude<TContract> | undefined,
+> = HasUltimaBaseGeneratedRegistry extends true
+	? ExactCursorFindManyInput<TContract, TSelection, TInclude>
+	: never
+
+type GeneratedOffsetFindManyInput<
+	TContract extends SchemaTypeInfo,
+	TSelection extends TContract['inputs']['select'] | undefined,
+	TInclude extends SchemaGeneratedInclude<TContract> | undefined,
+> = HasUltimaBaseGeneratedRegistry extends true
+	? ExactOffsetFindManyInput<TContract, TSelection, TInclude>
+	: never
+
+type BootstrapFindManyInput<
+	TSchema extends SchemaDefinition,
+	TInput,
+> = HasUltimaBaseGeneratedRegistry extends true
+	? never
+	: ExactReadInput<TSchema, TInput, FindManyInput<TSchema>>
+
+type GeneratedFindOneInput<
+	TContract extends SchemaTypeInfo,
+	TSelection extends TContract['inputs']['select'] | undefined,
+	TInclude extends SchemaGeneratedInclude<TContract> | undefined,
+> = HasUltimaBaseGeneratedRegistry extends true
+	? ExactGeneratedFindOneInput<TContract, TSelection, TInclude>
+	: never
+
+type GeneratedGetInput<
+	TContract extends SchemaTypeInfo,
+	TSelection extends TContract['inputs']['select'] | undefined,
+	TInclude extends SchemaGeneratedInclude<TContract> | undefined,
+> = HasUltimaBaseGeneratedRegistry extends true
+	? ExactGeneratedGetInput<TContract, TSelection, TInclude>
+	: never
+
+type BootstrapFindOneInput<
+	TSchema extends SchemaDefinition,
+	TInput,
+> = HasUltimaBaseGeneratedRegistry extends true
+	? never
+	: ExactReadInput<TSchema, TInput, FindOneInput<TSchema>>
+
+type BootstrapGetInput<
+	TSchema extends SchemaDefinition,
+	TInput,
+> = HasUltimaBaseGeneratedRegistry extends true
+	? never
+	: ExactReadInput<TSchema, TInput, GetInput<TSchema>>
+
+/** Uses the generated filter directly without retaining schema field definitions. */
+type SchemaFilteredInput<TContract extends SchemaTypeInfo> = Readonly<{
+	readonly where?: TContract['inputs']['where']
+}>
 
 /** Executes one generated mutation kind without reconstructing schema fields. */
 export interface SchemaMutationMethod<
-	TSchema extends SchemaDefinition,
+	TContract extends SchemaTypeInfo,
 	TKind extends SchemaMutationKind,
+	TSchema extends SchemaDefinition,
 > {
 	/** Executes this mutation and returns the requested generated projection. */
-	<const TSelection extends QuerySelection<TSchema>>(
-		input: SchemaMutationInput<TSchema, TKind, TSelection>,
+	<const TSelection extends QuerySelection<TContract>>(
+		input: SchemaMutationInput<TContract, TKind, TSelection>,
 		options?: OperationOptions,
-	): Promise<SchemaMutationResult<TSchema, TKind, TSelection>>
+	): Promise<SchemaMutationResult<TContract, TKind, TSelection, TSchema>>
 	/** Executes this mutation with its generated default projection. */
 	(
-		input: SchemaMutationInput<TSchema, TKind>,
+		input: SchemaMutationInput<TContract, TKind>,
 		options?: OperationOptions,
-	): Promise<SchemaMutationResult<TSchema, TKind, undefined>>
+	): Promise<SchemaMutationResult<TContract, TKind, undefined, TSchema>>
 }
 
 /** Executes one generated collection read with its exact selected result. */
-export interface SchemaFindManyMethod<TSchema extends SchemaDefinition> {
-	/** Reads matching rows through the active request and exact generated input. */
+export interface SchemaFindManyMethod<
+	TContract extends SchemaTypeInfo,
+	TSchema extends SchemaDefinition,
+> {
+	/** Reads matching rows with exact field and eager projections. */
+	<
+		const TSelection extends TContract['inputs']['select'],
+		const TInclude extends SchemaGeneratedInclude<TContract>,
+	>(
+		input: GeneratedCursorFindManyInput<TContract, TSelection, TInclude>,
+		options?: OperationOptions,
+	): SchemaFindManyResult<TSchema, TSelection, TInclude>
+	/** Reads matching rows with one exact field projection. */
+	<const TSelection extends TContract['inputs']['select']>(
+		input: GeneratedCursorFindManyInput<TContract, TSelection, undefined>,
+		options?: OperationOptions,
+	): SchemaFindManyResult<TSchema, TSelection, undefined>
+	/** Reads matching rows with one exact eager projection. */
+	<const TInclude extends SchemaGeneratedInclude<TContract>>(
+		input: GeneratedCursorFindManyInput<TContract, undefined, TInclude>,
+		options?: OperationOptions,
+	): SchemaFindManyResult<TSchema, undefined, TInclude>
+	/** Reads matching rows without narrowing the generated projection. */
+	(
+		input: GeneratedCursorFindManyInput<TContract, undefined, undefined>,
+		options?: OperationOptions,
+	): SchemaFindManyResult<TSchema, undefined, undefined>
+	/** Reads offset-paginated rows with exact field and eager projections. */
+	<
+		const TSelection extends TContract['inputs']['select'],
+		const TInclude extends SchemaGeneratedInclude<TContract>,
+	>(
+		// eslint-disable-next-line @typescript-eslint/unified-signatures -- Separate pagination overloads preserve generated aliases in editor hovers.
+		input: GeneratedOffsetFindManyInput<TContract, TSelection, TInclude>,
+		options?: OperationOptions,
+	): SchemaFindManyResult<TSchema, TSelection, TInclude>
+	/** Reads offset-paginated rows with one exact field projection. */
+	<const TSelection extends TContract['inputs']['select']>(
+		// eslint-disable-next-line @typescript-eslint/unified-signatures -- Separate pagination overloads preserve generated aliases in editor hovers.
+		input: GeneratedOffsetFindManyInput<TContract, TSelection, undefined>,
+		options?: OperationOptions,
+	): SchemaFindManyResult<TSchema, TSelection, undefined>
+	/** Reads offset-paginated rows with one exact eager projection. */
+	<const TInclude extends SchemaGeneratedInclude<TContract>>(
+		// eslint-disable-next-line @typescript-eslint/unified-signatures -- Separate pagination overloads preserve generated aliases in editor hovers.
+		input: GeneratedOffsetFindManyInput<TContract, undefined, TInclude>,
+		options?: OperationOptions,
+	): SchemaFindManyResult<TSchema, undefined, TInclude>
+	/** Reads offset-paginated rows without narrowing the generated projection. */
+	(
+		// eslint-disable-next-line @typescript-eslint/unified-signatures -- Separate pagination overloads preserve generated aliases in editor hovers.
+		input: GeneratedOffsetFindManyInput<TContract, undefined, undefined>,
+		options?: OperationOptions,
+	): SchemaFindManyResult<TSchema, undefined, undefined>
+	/** Preserves the safe pre-codegen QueryBuilder contract for internal schemas. */
 	<const TInput extends FindManyInput<TSchema>>(
-		input: ExactReadInput<TSchema, TInput, FindManyInput<TSchema>>,
+		input: BootstrapFindManyInput<TSchema, TInput>,
 		options?: OperationOptions,
 	): Promise<
 		readonly QueryResult<
@@ -125,10 +302,36 @@ export interface SchemaFindManyMethod<TSchema extends SchemaDefinition> {
 }
 
 /** Executes one generated first-match read with its exact selected result. */
-export interface SchemaFindOneMethod<TSchema extends SchemaDefinition> {
-	/** Reads the first matching row through the exact generated input. */
+export interface SchemaFindOneMethod<
+	TContract extends SchemaTypeInfo,
+	TSchema extends SchemaDefinition,
+> {
+	/** Reads the first matching row with exact field and eager projections. */
+	<
+		const TSelection extends TContract['inputs']['select'],
+		const TInclude extends SchemaGeneratedInclude<TContract>,
+	>(
+		input: GeneratedFindOneInput<TContract, TSelection, TInclude>,
+		options?: OperationOptions,
+	): Promise<SchemaReadResult<TSchema, TSelection, TInclude> | null>
+	/** Reads the first matching row with one exact field projection. */
+	<const TSelection extends TContract['inputs']['select']>(
+		input: GeneratedFindOneInput<TContract, TSelection, undefined>,
+		options?: OperationOptions,
+	): Promise<SchemaReadResult<TSchema, TSelection, undefined> | null>
+	/** Reads the first matching row with one exact eager projection. */
+	<const TInclude extends SchemaGeneratedInclude<TContract>>(
+		input: GeneratedFindOneInput<TContract, undefined, TInclude>,
+		options?: OperationOptions,
+	): Promise<SchemaReadResult<TSchema, undefined, TInclude> | null>
+	/** Reads the first matching row without narrowing its projection. */
+	(
+		input: GeneratedFindOneInput<TContract, undefined, undefined>,
+		options?: OperationOptions,
+	): Promise<SchemaReadResult<TSchema, undefined, undefined> | null>
+	/** Preserves the safe pre-codegen QueryBuilder contract for internal schemas. */
 	<const TInput extends FindOneInput<TSchema>>(
-		input: ExactReadInput<TSchema, TInput, FindOneInput<TSchema>>,
+		input: BootstrapFindOneInput<TSchema, TInput>,
 		options?: OperationOptions,
 	): Promise<QueryResult<
 		TSchema,
@@ -144,52 +347,79 @@ export interface SchemaFindOneMethod<TSchema extends SchemaDefinition> {
 
 /** Executes one generated identifier read with its exact selected result. */
 /** Reads one required row by identifier through the exact generated input. */
-export type SchemaGetMethod<TSchema extends SchemaDefinition> = <
-	const TInput extends GetInput<TSchema>,
->(
-	input: ExactReadInput<TSchema, TInput, GetInput<TSchema>>,
-	options?: OperationOptions,
-) => Promise<
-	QueryResult<
-		TSchema,
-		QuerySelectedFieldFromInput<TSchema, TInput>,
-		QueryIncludedFieldFromInput<TSchema, TInput>
+export interface SchemaGetMethod<
+	TContract extends SchemaTypeInfo,
+	TSchema extends SchemaDefinition,
+> {
+	/** Reads one identifier with exact field and eager projections. */
+	<
+		const TSelection extends TContract['inputs']['select'],
+		const TInclude extends SchemaGeneratedInclude<TContract>,
+	>(
+		input: GeneratedGetInput<TContract, TSelection, TInclude>,
+		options?: OperationOptions,
+	): Promise<SchemaReadResult<TSchema, TSelection, TInclude>>
+	/** Reads one identifier with one exact field projection. */
+	<const TSelection extends TContract['inputs']['select']>(
+		input: GeneratedGetInput<TContract, TSelection, undefined>,
+		options?: OperationOptions,
+	): Promise<SchemaReadResult<TSchema, TSelection, undefined>>
+	/** Reads one identifier with one exact eager projection. */
+	<const TInclude extends SchemaGeneratedInclude<TContract>>(
+		input: GeneratedGetInput<TContract, undefined, TInclude>,
+		options?: OperationOptions,
+	): Promise<SchemaReadResult<TSchema, undefined, TInclude>>
+	/** Reads one identifier without narrowing its projection. */
+	(
+		input: GeneratedGetInput<TContract, undefined, undefined>,
+		options?: OperationOptions,
+	): Promise<SchemaReadResult<TSchema, undefined, undefined>>
+	/** Preserves the safe pre-codegen QueryBuilder contract for internal schemas. */
+	<const TInput extends GetInput<TSchema>>(
+		input: BootstrapGetInput<TSchema, TInput>,
+		options?: OperationOptions,
+	): Promise<
+		QueryResult<
+			TSchema,
+			QuerySelectedFieldFromInput<TSchema, TInput>,
+			QueryIncludedFieldFromInput<TSchema, TInput>
+		>
 	>
->
+}
 
 /** Public static schema operations driven by one complete generated contract. */
 export interface SchemaAPI<TContract extends SchemaTypeInfo>
 	extends SchemaDefinition<TContract['key']>, SchemaTypeInfoCarrier<TContract> {
 	/** Counts rows matching the generated schema filter. */
 	readonly count: (
-		input?: CountInput<this>,
+		input?: SchemaFilteredInput<TContract>,
 		options?: OperationOptions,
 	) => Promise<number>
 	/** Creates input rows in order through one atomic operation. */
-	readonly createMany: SchemaMutationMethod<this, 'create-many'>
+	readonly createMany: SchemaMutationMethod<TContract, 'create-many', this>
 	/** Creates one row and returns its generated model projection. */
-	readonly createOne: SchemaMutationMethod<this, 'create-one'>
+	readonly createOne: SchemaMutationMethod<TContract, 'create-one', this>
 	/** Deletes ordered unique targets through one atomic operation. */
-	readonly deleteMany: SchemaMutationMethod<this, 'delete-many'>
+	readonly deleteMany: SchemaMutationMethod<TContract, 'delete-many', this>
 	/** Deletes one unique target or returns `null` when none matches. */
-	readonly deleteOne: SchemaMutationMethod<this, 'delete-one'>
+	readonly deleteOne: SchemaMutationMethod<TContract, 'delete-one', this>
 	/** Tests whether at least one row matches the generated schema filter. */
 	readonly exists: (
-		input?: ExistsInput<this>,
+		input?: SchemaFilteredInput<TContract>,
 		options?: OperationOptions,
 	) => Promise<boolean>
 	/** Reads every matching row through one exact generated input contract. */
-	readonly findMany: SchemaFindManyMethod<this>
+	readonly findMany: SchemaFindManyMethod<TContract, this>
 	/** Reads the first matching row or returns `null`. */
-	readonly findOne: SchemaFindOneMethod<this>
+	readonly findOne: SchemaFindOneMethod<TContract, this>
 	/** Reads one required row by identifier. */
-	readonly get: SchemaGetMethod<this>
+	readonly get: SchemaGetMethod<TContract, this>
 	/** Updates ordered unique targets through one atomic operation. */
-	readonly updateMany: SchemaMutationMethod<this, 'update-many'>
+	readonly updateMany: SchemaMutationMethod<TContract, 'update-many', this>
 	/** Updates one unique target or returns `null` when none matches. */
-	readonly updateOne: SchemaMutationMethod<this, 'update-one'>
+	readonly updateOne: SchemaMutationMethod<TContract, 'update-one', this>
 	/** Creates or updates ordered unique targets through one atomic operation. */
-	readonly upsertMany: SchemaMutationMethod<this, 'upsert-many'>
+	readonly upsertMany: SchemaMutationMethod<TContract, 'upsert-many', this>
 	/** Creates or updates one unique target. */
-	readonly upsertOne: SchemaMutationMethod<this, 'upsert-one'>
+	readonly upsertOne: SchemaMutationMethod<TContract, 'upsert-one', this>
 }

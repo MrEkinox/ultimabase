@@ -672,7 +672,7 @@ void relatedRead
 			expect.arrayContaining(['AND', 'author', 'profile', 'related']),
 		)
 		expect(quickInfo('/* public-query-where-hover */')).toContain(
-			'where: SemanticArticleWhereInput',
+			'where?: SemanticArticleWhereInput',
 		)
 		for (const marker of [
 			'/* public-count-hover */',
