@@ -1,36 +1,20 @@
-import type { ScalarFieldInferenceState } from '../base/contract.js'
-import { type PointerField } from './pointer.js'
-import { type RelationField } from './relation.js'
-import { Schema, type SchemaClass } from '../../schema/definition.js'
+import { Schema, type SchemaReference } from '../../schema/definition.js'
 
-type RequiredPointerState = ScalarFieldInferenceState<true, false, false, false>
-
-/** Exact circular fixture for an inverse one-to-many pointer topology. */
-export type RelationAuthorSchema = SchemaClass<
-	'RelationAuthor',
-	Readonly<{
-		readonly posts: RelationField<RelationPostSchema, 'author'>
-	}>,
-	readonly []
->
-
-/** Exact circular fixture for the owning side of a one-to-many topology. */
-export type RelationPostSchema = SchemaClass<
-	'RelationPost',
-	Readonly<{
-		readonly author: PointerField<RelationAuthorSchema, RequiredPointerState>
-	}>,
-	readonly []
->
+export type RelationAuthorSchema = SchemaReference<'RelationAuthor'>
+export type RelationPostSchema = SchemaReference<'RelationPost'>
 
 function resolveRelationPost(): RelationPostSchema {
 	return RelationPost
 }
 
+/** Declares one inverse one-to-many topology without pretending codegen ran. */
 export const RelationAuthor: RelationAuthorSchema = Schema.define({
 	className: 'RelationAuthor',
 	fields: (field) => ({
-		posts: field.relation({ target: resolveRelationPost, mappedBy: 'author' }),
+		posts: field.relation({
+			target: resolveRelationPost,
+			mappedBy: 'author',
+		}),
 	}),
 })
 
@@ -44,28 +28,14 @@ export const RelationPost: RelationPostSchema = Schema.define({
 	}),
 })
 
-/** Exact circular fixture for one owning many-to-many side. */
-export type RelationArticleSchema = SchemaClass<
-	'RelationArticle',
-	Readonly<{
-		readonly tags: RelationField<RelationTagSchema, undefined>
-	}>,
-	readonly []
->
-
-/** Exact circular fixture for one inverse many-to-many side. */
-export type RelationTagSchema = SchemaClass<
-	'RelationTag',
-	Readonly<{
-		readonly articles: RelationField<RelationArticleSchema, 'tags'>
-	}>,
-	readonly []
->
+export type RelationArticleSchema = SchemaReference<'RelationArticle'>
+export type RelationTagSchema = SchemaReference<'RelationTag'>
 
 function resolveRelationTag(): RelationTagSchema {
 	return RelationTag
 }
 
+/** Declares one many-to-many topology without adding a generated test contract. */
 export const RelationArticle: RelationArticleSchema = Schema.define({
 	className: 'RelationArticle',
 	fields: (field) => ({

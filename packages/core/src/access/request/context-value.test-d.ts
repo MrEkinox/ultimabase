@@ -2,7 +2,7 @@ import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 import { expectTypeOf, test } from 'vitest'
 
 import {
-	type InferRequestContextValue,
+	type RequestContextValueType,
 	RequestContextValue,
 } from './context-value.js'
 
@@ -26,7 +26,7 @@ test('retains the exact plugin-owned value type nominally', () => {
 		principal.snapshot(value)
 
 	expectTypeOf<
-		InferRequestContextValue<typeof principal>
+		RequestContextValueType<typeof principal>
 	>().toEqualTypeOf<FixturePrincipal>()
 	expectTypeOf(snapshot).parameter(0).toEqualTypeOf<unknown>()
 	expectTypeOf(snapshot).returns.toEqualTypeOf<FixturePrincipal>()

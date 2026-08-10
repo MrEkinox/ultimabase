@@ -18,15 +18,11 @@ const developerFieldHandler = ({
 	invocationCount += 1
 	return value
 }
-const baseFieldHandler = ({ value }: { readonly value: string | null }) => {
+const baseFieldHandler = ({ value }: { readonly value: unknown }) => {
 	invocationCount += 1
 	return value
 }
-const dependentFieldHandler = ({
-	value,
-}: {
-	readonly value: string | null
-}) => {
+const dependentFieldHandler = ({ value }: { readonly value: unknown }) => {
 	invocationCount += 1
 	return value
 }

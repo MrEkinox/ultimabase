@@ -4,15 +4,23 @@ import type { FieldAccessDeclaration } from '../../access/contracts.js'
 import type { FieldHooks } from '../../hooks/field-contracts.js'
 import { splitFieldDeclarationOptions } from '../../hooks/field-declarations.js'
 import { snapshotPointerValue, type Pointer } from '../../relations/pointer.js'
-import { Schema, type SchemaDefinition } from '../../schema/definition.js'
+import {
+	Schema,
+	type SchemaDefinition,
+	type SchemaReference,
+} from '../../schema/definition.js'
 import type { SchemaTarget } from '../../schema/targets.js'
 import type {
+	SchemaRelationshipFieldName,
+	SchemaRelationshipTargetName,
+} from '../../type-info.js'
+import type {
 	FieldDefinition,
-	FieldInferenceState,
+	FieldTypegenState,
 	FieldOptionsBase,
 	FieldValidationOptions,
 	InvalidOptionsArguments,
-	ScalarFieldInferenceState,
+	ScalarFieldTypegenState,
 } from '../base/contract.js'
 import { createFieldDefinition } from '../base/definition.js'
 import {
@@ -61,33 +69,26 @@ export interface PointerFieldOptions<
 /** Carries one exact target schema through every operation-specific model. */
 export type PointerField<
 	TTarget extends SchemaDefinition = SchemaDefinition,
-	TInference extends FieldInferenceState = FieldInferenceState,
+	TTypegen extends FieldTypegenState = FieldTypegenState,
 > = FieldDefinition<
 	'pointer',
 	Pointer<TTarget>,
 	PointerFieldMetadataOptions,
-	TInference
+	TTypegen
 >
 
 /** Selects only top-level pointer fields declared by one exact schema. */
-export type SchemaPointerFieldName<TSchema extends SchemaDefinition> = {
-	readonly [
-		TFieldName in keyof TSchema['fields'] & string
-	]: TSchema['fields'][TFieldName] extends {
-		readonly kind: 'pointer'
-	}
-		? TFieldName
-		: never
-}[keyof TSchema['fields'] & string]
+export type SchemaPointerFieldName<TSchema extends SchemaDefinition> =
+	SchemaRelationshipFieldName<TSchema, 'pointer'>
 
 /** Resolves the exact target schema retained by one pointer field. */
 export type SchemaPointerTarget<
 	TSchema extends SchemaDefinition,
 	TFieldName extends SchemaPointerFieldName<TSchema>,
 > =
-	TSchema['fields'][TFieldName] extends PointerField<infer TTarget>
-		? TTarget
-		: never
+	string extends SchemaRelationshipTargetName<TSchema, TFieldName>
+		? SchemaDefinition
+		: SchemaReference<SchemaRelationshipTargetName<TSchema, TFieldName>>
 
 type ResolvedPointerField<
 	TTarget extends SchemaDefinition,
@@ -95,7 +96,7 @@ type ResolvedPointerField<
 	TImmutable extends boolean,
 > = PointerField<
 	TTarget,
-	ScalarFieldInferenceState<TRequired, false, TImmutable, false>
+	ScalarFieldTypegenState<TRequired, false, TImmutable, false>
 >
 
 /** Keeps presence literals inferable while preserving option-level editor help. */

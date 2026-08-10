@@ -67,12 +67,16 @@ describe('validation plans', () => {
 		expect(plans.update.fields.immutableCode?.presence).toBe('forbidden')
 
 		// Scalar constraints and defaults remain available from one source of truth.
-		expect(schema.fields.name.options.validation).toMatchObject({
-			length: { min: 2, max: 40 },
-			match: /^[a-z]+$/u,
+		expect(schema.fields.name?.options).toMatchObject({
+			validation: {
+				length: { min: 2, max: 40 },
+				match: /^[a-z]+$/u,
+			},
 		})
-		expect(schema.fields.active.options.default).toBe(true)
-		expect(schema.fields.generated.options.default).toBe(runtimeDefault)
+		expect(schema.fields.active?.options).toMatchObject({ default: true })
+		expect(schema.fields.generated?.options).toMatchObject({
+			default: runtimeDefault,
+		})
 	})
 
 	it('compiles system fields and structured children recursively', () => {

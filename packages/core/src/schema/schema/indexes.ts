@@ -8,7 +8,7 @@ import {
 
 import type { SchemaFields } from './definition.js'
 import type {
-	FieldInferenceStateOf,
+	FieldTypegenStateOf,
 	GenericField,
 } from '../fields/base/contract.js'
 import {
@@ -26,7 +26,7 @@ type IndexableDeclaredFieldName<TFields extends object> =
 				[
 					TFieldName in keyof TFields & string
 				]: TFields[TFieldName] extends GenericField
-					? FieldInferenceStateOf<
+					? FieldTypegenStateOf<
 							TFields[TFieldName]
 						>['object'] extends 'forbidden'
 						? never

@@ -1,8 +1,8 @@
 import { createServiceToken } from '../../foundation.js'
 import type { ServiceToken } from '../../foundation.js'
 import type {
-	InferOperationSourceRecordResult,
-	InferQueryRecord,
+	OperationSourceRecordResult,
+	QueryRecord,
 	OperationAstNode,
 	OperationKind,
 	QueryFieldName,
@@ -10,7 +10,7 @@ import type {
 	QueryRelationFilterNode,
 	QuerySchemaNode,
 } from '../../query/index.js'
-import type { InferObject, SchemaDefinition } from '../../schema/index.js'
+import type { SchemaItem, SchemaDefinition } from '../../schema/index.js'
 import { immutableRecord } from '@ultimabase/shared'
 
 /** Selects the portable pointer protocol currently understood by Core Runtime. */
@@ -208,7 +208,7 @@ export interface DatabaseOperationRequest<
 export type DatabaseObjectRecord<
 	TSchema extends SchemaDefinition,
 	TSelectedField extends QueryFieldName<TSchema> = never,
-> = InferQueryRecord<TSchema, TSelectedField>
+> = QueryRecord<TSchema, TSelectedField>
 
 /**
  * Reuses the operation result contract so adapters and public terminals
@@ -216,8 +216,8 @@ export type DatabaseObjectRecord<
  */
 export type DatabaseOperationResult<TOperation extends OperationAstNode> =
 	TOperation['kind'] extends 'get'
-		? InferOperationSourceRecordResult<TOperation> | null
-		: InferOperationSourceRecordResult<TOperation>
+		? OperationSourceRecordResult<TOperation> | null
+		: OperationSourceRecordResult<TOperation>
 
 /** Carries one complete adapter-decoded object without exposing physical rows. */
 export type DatabaseLogicalRecord = Readonly<Record<string, unknown>>
@@ -236,7 +236,7 @@ export type DatabaseMutationLogicalRecord<
 	TOperation extends DatabaseMutationOperationAst,
 > = [DatabaseMutationSchema<TOperation>] extends [never]
 	? DatabaseLogicalRecord
-	: Readonly<InferObject<DatabaseMutationSchema<TOperation>>>
+	: Readonly<SchemaItem<DatabaseMutationSchema<TOperation>>>
 
 /** Describes one materialized create independently from public selection. */
 export interface DatabaseCreateMaterialization<

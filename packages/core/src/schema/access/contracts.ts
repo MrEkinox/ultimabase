@@ -4,7 +4,7 @@ import type { AccessContext } from '../../access/index.js'
 import type { WhereBuilder, WhereInput } from '../../query/index.js'
 import type { GenericField } from '../fields/base/contract.js'
 import type { FieldHookTypes } from '../hooks/field-contracts.js'
-import type { InferObject } from '../inference/types.js'
+import type { SchemaItem } from '../schema/values.js'
 import type { SchemaDefinition } from '../schema/definition.js'
 import type { SchemaPreparedDraft, SchemaResult } from '../schema/model.js'
 
@@ -50,7 +50,7 @@ export type SchemaItemAccessInput<
 	: TKind extends 'update'
 		? Readonly<{
 				context: AccessContext
-				item: Readonly<InferObject<TSchema>>
+				item: Readonly<SchemaItem<TSchema>>
 				originalItem: SchemaResult<TSchema>
 			}>
 		: TKind extends 'upsert'
@@ -62,7 +62,7 @@ export type SchemaItemAccessInput<
 				  }>
 				| Readonly<{
 						context: AccessContext
-						item: Readonly<InferObject<TSchema>>
+						item: Readonly<SchemaItem<TSchema>>
 						mode: 'update'
 						originalItem: SchemaResult<TSchema>
 				  }>

@@ -7,7 +7,7 @@ import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 
 import type { OperationAstNode } from './contracts.js'
 import type { OperationOptions } from './options.js'
-import type { InferOperationResult } from './results.js'
+import type { OperationResult } from './results.js'
 
 /** @internal Carries validated server-only choices outside every operation AST. */
 export interface NormalizedOperationOptions {
@@ -311,7 +311,7 @@ export const executeOperationBatch = <
 >(
 	entries: readonly OperationBatchEntry<TOperation>[],
 	options: NormalizedOperationOptions,
-): Promise<readonly InferOperationResult<TOperation>[]> => {
+): Promise<readonly OperationResult<TOperation>[]> => {
 	const active: ActiveQueryExecution | undefined =
 		activeQueryExecution.getStore()
 	const owner = options.ultimabase
@@ -336,7 +336,7 @@ export const executeOperationBatch = <
 		}
 
 		return dispatchOperationBatch(active.executor, entries, options) as Promise<
-			readonly InferOperationResult<TOperation>[]
+			readonly OperationResult<TOperation>[]
 		>
 	}
 
@@ -354,7 +354,7 @@ export const executeOperationBatch = <
 	const executor = registration.createRootExecutor()
 
 	return dispatchOperationBatch(executor, entries, options) as Promise<
-		readonly InferOperationResult<TOperation>[]
+		readonly OperationResult<TOperation>[]
 	>
 }
 
@@ -363,7 +363,7 @@ export const executeOperation = <const TOperation extends OperationAstNode>(
 	operation: TOperation,
 	options: NormalizedOperationOptions,
 	scope?: OperationPrivateScope,
-): Promise<InferOperationResult<TOperation>> => {
+): Promise<OperationResult<TOperation>> => {
 	const active: ActiveQueryExecution | undefined =
 		activeQueryExecution.getStore()
 	const owner = options.ultimabase
@@ -392,7 +392,7 @@ export const executeOperation = <const TOperation extends OperationAstNode>(
 			operation,
 			options,
 			scope,
-		) as Promise<InferOperationResult<TOperation>>
+		) as Promise<OperationResult<TOperation>>
 	}
 
 	if (registration === undefined) {
@@ -411,5 +411,5 @@ export const executeOperation = <const TOperation extends OperationAstNode>(
 		operation,
 		options,
 		scope,
-	) as Promise<InferOperationResult<TOperation>>
+	) as Promise<OperationResult<TOperation>>
 }

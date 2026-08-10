@@ -130,7 +130,12 @@ describe('schema definitions', () => {
 
 				return [
 					context.bind(runtimeContextualExtension, {
-						readTitle: ({ title }) => title,
+						readTitle: ({ title }) => {
+							if (typeof title !== 'string') {
+								throw new TypeError('Expected a string title')
+							}
+							return title
+						},
 					}),
 				]
 			},
@@ -140,9 +145,22 @@ describe('schema definitions', () => {
 		expect(runtimeContextualFactoryCalls).toBe(1)
 		expect(Object.isFrozen(runtimeContextualExtension)).toBe(true)
 		const [extension] = schema.extensions
+		const extensionConfig: unknown = extension?.config
+		if (
+			extension === undefined ||
+			typeof extensionConfig !== 'object' ||
+			extensionConfig === null ||
+			!('readTitle' in extensionConfig) ||
+			typeof extensionConfig.readTitle !== 'function'
+		) {
+			throw new TypeError('Expected the contextual extension to be compiled')
+		}
 
 		expect(extension.name).toBe('fixture.runtime-contextual')
-		expect(extension.config.readTitle({ title: 'Visible' })).toBe('Visible')
+		const readTitle = extensionConfig.readTitle as (input: {
+			readonly title: string
+		}) => unknown
+		expect(readTitle({ title: 'Visible' })).toBe('Visible')
 		expect(Object.isFrozen(schema.extensions)).toBe(true)
 	})
 

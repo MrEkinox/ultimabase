@@ -296,7 +296,6 @@ describe('query filter factories', () => {
 			createQueryJsonPathFilter(
 				fixtureSchema,
 				'json-path-exists',
-				// @ts-expect-error -- Runtime validation rejects structured list roots.
 				'documents',
 				{ source: '$[*]' },
 			),

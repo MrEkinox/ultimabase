@@ -118,10 +118,11 @@ attempt. `@ultimabase/codegen` uses it to emit the application-owned FieldBuilde
 model, operation, relationship, Access, and hook contracts. When that generated
 declaration is part of the TypeScript project, `Schema.define()` and every public
 read, mutation, Access, hook, extension, pointer, and relation surface resolve
-the compact contract by literal `className`. Existing field maps keep their
-ordinary local inference, while a missing builder-schema entry reports that the
-developer must regenerate the application schema types through
-`@ultimabase/codegen` instead of widening silently.
+the compact contract by literal `className`. Without that generated entry, Core
+keeps only the safe `BaseItem` bootstrap contract and broad object inputs; it
+does not reconstruct local field-map inference. Regeneration through
+`@ultimabase/codegen` replaces those bootstrap types with the exact application
+contract.
 
 Tooling configured in the plugin graph receives the same compiled schema
 registry plus an immutable application-local FieldBuilder method snapshot during

@@ -13,33 +13,6 @@ import {
 } from '../extensions/definition.js'
 import type { GenericField } from '../fields/base/contract.js'
 import { assertFieldDefinition } from '../fields/base/definition.js'
-import type { OperationOptions } from '../../query/operations/options.js'
-import type {
-	SchemaCreateManyInput,
-	SchemaCreateOneInput,
-	SchemaDeleteManyInput,
-	SchemaDeleteOneInput,
-	SchemaUpdateManyInput,
-	SchemaUpdateOneInput,
-	SchemaUpsertOneInput,
-	SchemaUpsertManyInput,
-} from '../../query/operations/schema-commands.js'
-import type { InferQueryResult } from '../../query/query/result.js'
-import type {
-	CountInput,
-	ExactReadInput,
-	ExistsInput,
-	FindManyInput,
-	FindOneInput,
-	GetInput,
-	QueryIncludedFieldFromInput,
-	QuerySelectedFieldFromInput,
-} from '../../query/query/input.js'
-import type {
-	QuerySelectedField,
-	QuerySelection,
-} from '../../query/clauses/selection.js'
-import type { InferCreateInput, InferFields } from '../inference/types.js'
 import type { Pointer } from '../relations/pointer.js'
 import {
 	createSchemaModelCapabilityContext,
@@ -76,20 +49,21 @@ import {
 } from './field-builder.js'
 import type { FieldBuilderMethodResolver } from './field-builder-methods.js'
 import type {
-	GeneratedSchemaItemFallback,
+	BaseSchemaTypeInfo,
+	SchemaTypeInfo,
+	SchemaTypeInfoByNameOrBase,
 	RequireGeneratedSchemaEntry,
-} from '../generated-contracts.js'
+} from '../type-info.js'
+import type { SchemaAPI } from './schema-api.js'
+import type { SchemaItem } from './values.js'
+
+export type { BaseItem } from '../type-info.js'
+export type { SchemaAPI } from './schema-api.js'
 
 /**
  * Collects named field definitions without erasing their concrete literals.
  */
 export type SchemaFields = Readonly<Record<string, GenericField>>
-
-/** Keeps hooks and Access safe before application type generation has run. */
-export type BaseItem = Readonly<{
-	readonly id: { toString(): string }
-	readonly [key: string]: unknown
-}>
 
 /**
  * Collects schema-scoped plugin metadata in deterministic declaration order.
@@ -115,18 +89,18 @@ export type ResolvedSchemaFields<
 	TExtensions extends SchemaExtensions,
 > = Readonly<TFields> & Readonly<SchemaExtensionFields<TExtensions>>
 
-/** Infers the developer-field snapshot supplied to contextual schema extensions. */
-export type SchemaExtensionData<TFields extends SchemaFields> = InferFields<
-	TFields,
-	'object'
+/** Reads developer-owned persisted values supplied to contextual extensions. */
+export type SchemaExtensionData<TClassName extends string> = Omit<
+	SchemaItem<SchemaReference<TClassName>>,
+	ReservedSystemFieldName
 >
 
 /** Supports ordinary extension tuples and sibling-field-aware declarations. */
 export type SchemaExtensionDeclaration<
-	TFields extends SchemaFields,
 	TExtensions extends SchemaExtensions,
-	TData extends Readonly<Record<string, unknown>> =
-		SchemaExtensionData<TFields>,
+	TData extends Readonly<Record<string, unknown>> = Readonly<
+		Record<string, unknown>
+	>,
 > =
 	TExtensions | ((context: SchemaExtensionBindingContext<TData>) => TExtensions)
 
@@ -168,9 +142,8 @@ export interface SchemaOptions<
 	 * @example `extensions: [permissionsExtension]`
 	 */
 	readonly extensions?: SchemaExtensionDeclaration<
-		NoInfer<TFields>,
 		TExtensions,
-		SchemaExtensionData<NoInfer<TFields>>
+		SchemaExtensionData<NoInfer<TClassName>>
 	>
 	/**
 	 * Groups native allow, row, and prepared-item policies by operation.
@@ -178,20 +151,14 @@ export interface SchemaOptions<
 	 *
 	 * @example `access: { delete: ({ context }) => context.access.mode === "master" }`
 	 */
-	readonly access?: SchemaAccess<
-		SchemaClass<NoInfer<TClassName>, NoInfer<TFields>, NoInfer<TExtensions>> &
-			GeneratedSchemaItemFallback<BaseItem>
-	>
+	readonly access?: SchemaAccess<SchemaReference<NoInfer<TClassName>>>
 	/**
 	 * Declares immutable schema lifecycle behavior without requiring a plugin.
 	 * Hook functions stay outside physical schema metadata and migration plans.
 	 *
 	 * @example `hooks: { beforeOperation: { update: ({ item }) => audit(item) } }`
 	 */
-	readonly hooks?: SchemaHooks<
-		SchemaClass<NoInfer<TClassName>, NoInfer<TFields>, NoInfer<TExtensions>> &
-			GeneratedSchemaItemFallback<BaseItem>
-	>
+	readonly hooks?: SchemaHooks<SchemaReference<NoInfer<TClassName>>>
 }
 
 /**
@@ -225,258 +192,20 @@ export interface SchemaDefinition<
 	readonly definition: SchemaMetadata<TClassName, TFields, TExtensions>
 }
 
-/** Represents a generated relationship target by its stable logical name. */
-export type GeneratedSchemaReference<TClassName extends string> =
-	SchemaClass<TClassName>
-
-/** Represents the constructible schema class registered by UltimaBase. */
+/** Represents one public schema class driven by its complete generated contract. */
 export interface SchemaClass<
-	TClassName extends string = string,
-	TFields extends SchemaFields = SchemaFields,
-	TExtensions extends SchemaExtensions = SchemaExtensions,
-> extends SchemaDefinition<TClassName, TFields, TExtensions> {
-	/** Creates one immutable typed draft without performing database I/O. */
-	new (
-		input: InferCreateInput<SchemaDefinition<TClassName, TFields, TExtensions>>,
-	): SchemaDraft<this>
-	/**
-	 * Reads matching rows from one canonical object input.
-	 *
-	 * The command inherits the active request or accepts explicit root options.
-	 *
-	 * @example `await Post.findMany({ where: { published: { eq: true } } }, { ultimabase })`
-	 */
-	findMany<const TInput extends FindManyInput<this>>(
-		input: ExactReadInput<this, TInput, FindManyInput<this>>,
-		options?: OperationOptions,
-	): Promise<
-		readonly InferQueryResult<
-			this,
-			QuerySelectedFieldFromInput<this, TInput>,
-			QueryIncludedFieldFromInput<this, TInput>
-		>[]
-	>
-	/** Reads every visible row when no clauses are supplied. */
-	findMany(
-		input?: undefined,
-		options?: OperationOptions,
-	): Promise<readonly InferQueryResult<this>[]>
-	/**
-	 * Reads the first matching row or `null` from one canonical object input.
-	 *
-	 * @example `await Post.findOne({ orderBy: { createdAt: 'desc' } })`
-	 */
-	findOne<const TInput extends FindOneInput<this>>(
-		input: ExactReadInput<this, TInput, FindOneInput<this>>,
-		options?: OperationOptions,
-	): Promise<InferQueryResult<
-		this,
-		QuerySelectedFieldFromInput<this, TInput>,
-		QueryIncludedFieldFromInput<this, TInput>
-	> | null>
-	/** Reads the first visible row when no clauses are supplied. */
-	findOne(
-		input?: undefined,
-		options?: OperationOptions,
-	): Promise<InferQueryResult<this> | null>
-	/**
-	 * Reads one exact identifier with its requested projection.
-	 *
-	 * @example `await Post.get({ id: postId, select: { title: true } })`
-	 * @throws `FrameworkError` with code `NOT_FOUND` when the object is absent.
-	 */
-	get<const TInput extends GetInput<this>>(
-		input: ExactReadInput<this, TInput, GetInput<this>>,
-		options?: OperationOptions,
-	): Promise<
-		InferQueryResult<
-			this,
-			QuerySelectedFieldFromInput<this, TInput>,
-			QueryIncludedFieldFromInput<this, TInput>
-		>
-	>
-	/**
-	 * Counts rows matching the canonical object filter.
-	 *
-	 * @example `await Post.count({ where: { published: { eq: true } } })`
-	 */
-	count(input?: CountInput<this>, options?: OperationOptions): Promise<number>
-	/**
-	 * Tests whether one row matches the canonical object filter.
-	 *
-	 * @example `await Post.exists({ where: { slug: { eq: 'release' } } })`
-	 */
-	exists(
-		input?: ExistsInput<this>,
-		options?: OperationOptions,
-	): Promise<boolean>
-	/**
-	 * Creates one row and returns its selected model fields.
-	 *
-	 * @example `await Post.createOne({ data: { title: 'Hello' }, select: { id: true, title: true } })`
-	 */
-	createOne<const TSelection extends QuerySelection<this>>(
-		input: SchemaCreateOneInput<this, TSelection>,
-		options?: OperationOptions,
-	): Promise<InferQueryResult<this, QuerySelectedField<this, TSelection>>>
-	/**
-	 * Creates one row and returns its complete persisted model.
-	 *
-	 * @example `await Post.createOne({ data: { title: 'Hello' } })`
-	 */
-	createOne(
-		input: SchemaCreateOneInput<this>,
-		options?: OperationOptions,
-	): Promise<InferQueryResult<this>>
-	/**
-	 * Creates input rows in order through one all-or-nothing transaction.
-	 *
-	 * @example `await Post.createMany({ data: inputs, select: { id: true, title: true } })`
-	 */
-	createMany<const TSelection extends QuerySelection<this>>(
-		input: SchemaCreateManyInput<this, TSelection>,
-		options?: OperationOptions,
-	): Promise<
-		readonly InferQueryResult<this, QuerySelectedField<this, TSelection>>[]
-	>
-	/**
-	 * Creates ordered rows in one all-or-nothing transaction and returns their complete persisted models.
-	 *
-	 * @example `await Post.createMany({ data: inputs })`
-	 */
-	createMany(
-		input: SchemaCreateManyInput<this>,
-		options?: OperationOptions,
-	): Promise<readonly InferQueryResult<this>[]>
-	/**
-	 * Updates one unique target, or returns `null` when its where clause matches none.
-	 *
-	 * @example `await Post.updateOne({ where: { id: { eq: id } }, data, select: { id: true, title: true } })`
-	 */
-	updateOne<const TSelection extends QuerySelection<this>>(
-		input: SchemaUpdateOneInput<this, TSelection>,
-		options?: OperationOptions,
-	): Promise<InferQueryResult<
-		this,
-		QuerySelectedField<this, TSelection>
-	> | null>
-	/**
-	 * Updates one unique target and returns its complete model.
-	 *
-	 * @example `await Post.updateOne({ where: { id: { eq: id } }, data })`
-	 */
-	updateOne(
-		input: SchemaUpdateOneInput<this>,
-		options?: OperationOptions,
-	): Promise<InferQueryResult<this> | null>
-	/**
-	 * Updates every selected row and returns its requested post-update fields.
-	 *
-	 * @example `await Post.updateMany({ data: [{ where: { id: { eq: postId } }, data }], select: { id: true, title: true } })`
-	 */
-	updateMany<const TSelection extends QuerySelection<this>>(
-		input: SchemaUpdateManyInput<this, TSelection>,
-		options?: OperationOptions,
-	): Promise<
-		readonly InferQueryResult<this, QuerySelectedField<this, TSelection>>[]
-	>
-	/**
-	 * Updates every selected row and returns only its identifier by default.
-	 *
-	 * @example `await Post.updateMany({ data: [{ where: { id: { eq: postId } }, data }] })`
-	 */
-	updateMany(
-		input: SchemaUpdateManyInput<this>,
-		options?: OperationOptions,
-	): Promise<
-		readonly InferQueryResult<
-			this,
-			Extract<'id', QuerySelectedField<this, { readonly id: true }>>
-		>[]
-	>
-	/**
-	 * Creates or updates one row selected by an exact unique target.
-	 *
-	 * @example `await Post.upsertOne({ where: { id: { eq: id } }, create, update, select: { id: true, title: true } })`
-	 */
-	upsertOne<const TSelection extends QuerySelection<this>>(
-		input: SchemaUpsertOneInput<this, TSelection>,
-		options?: OperationOptions,
-	): Promise<InferQueryResult<this, QuerySelectedField<this, TSelection>>>
-	/** Creates or updates one unique target and returns its complete model. */
-	upsertOne(
-		input: SchemaUpsertOneInput<this>,
-		options?: OperationOptions,
-	): Promise<InferQueryResult<this>>
-	/**
-	 * Upserts independently targeted inputs in declaration order.
-	 *
-	 * @example `await Post.upsertMany({ data: items, select: { id: true, title: true } })`
-	 */
-	upsertMany<const TSelection extends QuerySelection<this>>(
-		input: SchemaUpsertManyInput<this, TSelection>,
-		options?: OperationOptions,
-	): Promise<
-		readonly InferQueryResult<this, QuerySelectedField<this, TSelection>>[]
-	>
-	/**
-	 * Upserts ordered items atomically and returns their complete persisted models.
-	 *
-	 * @example `await Post.upsertMany({ data: items })`
-	 */
-	upsertMany(
-		input: SchemaUpsertManyInput<this>,
-		options?: OperationOptions,
-	): Promise<readonly InferQueryResult<this>[]>
-	/**
-	 * Deletes one unique target, or returns `null` when its where clause matches none.
-	 *
-	 * @example `await Post.deleteOne({ where: { id: { eq: id } }, select: { id: true, title: true } })`
-	 */
-	deleteOne<const TSelection extends QuerySelection<this>>(
-		input: SchemaDeleteOneInput<this, TSelection>,
-		options?: OperationOptions,
-	): Promise<InferQueryResult<
-		this,
-		QuerySelectedField<this, TSelection>
-	> | null>
-	/**
-	 * Deletes one uniquely identified row and returns its complete model.
-	 *
-	 * @example `await Post.deleteOne({ where: { id: { eq: id } } })`
-	 */
-	deleteOne(
-		input: SchemaDeleteOneInput<this>,
-		options?: OperationOptions,
-	): Promise<InferQueryResult<this> | null>
-	/**
-	 * Deletes every selected row and returns its requested pre-delete fields.
-	 *
-	 * @example `await Post.deleteMany({ where: [{ id: { eq: postId } }], select: { id: true, title: true } })`
-	 */
-	deleteMany<const TSelection extends QuerySelection<this>>(
-		input: SchemaDeleteManyInput<this, TSelection>,
-		options?: OperationOptions,
-	): Promise<
-		readonly InferQueryResult<this, QuerySelectedField<this, TSelection>>[]
-	>
-	/**
-	 * Deletes every selected row and returns only its identifier by default.
-	 *
-	 * @example `await Post.deleteMany({ where: [{ id: { eq: postId } }] })`
-	 */
-	deleteMany(
-		input: SchemaDeleteManyInput<this>,
-		options?: OperationOptions,
-	): Promise<
-		readonly InferQueryResult<
-			this,
-			Extract<'id', QuerySelectedField<this, { readonly id: true }>>
-		>[]
-	>
-	/** Creates one immutable pointer to an object of this exact schema. */
+	TContract extends SchemaTypeInfo = BaseSchemaTypeInfo<string>,
+> extends SchemaAPI<TContract> {
+	/** Creates one immutable draft from the generated create input. */
+	new (input: TContract['inputs']['create']): SchemaDraft<this>
+	/** Creates one immutable pointer to this schema. */
 	pointer(id: string): Pointer<this>
 }
+
+/** Resolves one public schema class by its generated logical contract. */
+export type SchemaReference<TClassName extends string> = SchemaClass<
+	SchemaTypeInfoByNameOrBase<TClassName>
+>
 
 /** Collects additional static capabilities owned by a schema specialization. */
 export type SchemaStaticCapabilities = object
@@ -658,7 +387,9 @@ const normalizeSchemaExtensions = <
 	const declaredExtensions =
 		typeof options.extensions === 'function'
 			? options.extensions(
-					createSchemaExtensionBindingContext<SchemaExtensionData<TFields>>(),
+					createSchemaExtensionBindingContext<
+						SchemaExtensionData<TClassName>
+					>(),
 				)
 			: options.extensions
 
@@ -972,7 +703,7 @@ const defineSchemaModel = <
 	const TExtensions extends SchemaExtensions,
 >(
 	options: SchemaOptions<TClassName, TFields, TExtensions>,
-): SchemaClass<TClassName, TFields, TExtensions> => {
+): SchemaReference<TClassName> => {
 	if (!isPlainRecord(options)) {
 		throw new TypeError('schema options must be an object')
 	}
@@ -1012,27 +743,29 @@ const defineSchemaModel = <
 	})
 	// Readers close over the final class, which is assigned only after construction.
 	// eslint-disable-next-line prefer-const
-	let schemaIdentity: SchemaClass<TClassName, TFields, TExtensions> | undefined
-	const schema: SchemaClass<TClassName, TFields, TExtensions> =
-		createSchemaModelClass<TClassName, TFields, TExtensions>({
-			className: options.className,
-			readDefinition: () => {
-				if (schemaIdentity === undefined) {
-					throw new TypeError('Schema identity is not available')
-				}
+	let schemaIdentity: SchemaReference<TClassName> | undefined
+	const schema: SchemaReference<TClassName> = createSchemaModelClass<
+		TClassName,
+		TFields,
+		TExtensions
+	>({
+		className: options.className,
+		readDefinition: () => {
+			if (schemaIdentity === undefined) {
+				throw new TypeError('Schema identity is not available')
+			}
 
-				return readCompiledSchemaRecord(schemaIdentity)
-					.definition as SchemaMetadata<TClassName, TFields, TExtensions>
-			},
-			readDeveloperFields: () => {
-				if (schemaIdentity === undefined) {
-					throw new TypeError('Schema identity is not available')
-				}
+			return readCompiledSchemaRecord(schemaIdentity)
+				.definition as SchemaMetadata<TClassName, TFields, TExtensions>
+		},
+		readDeveloperFields: () => {
+			if (schemaIdentity === undefined) {
+				throw new TypeError('Schema identity is not available')
+			}
 
-				return readCompiledSchemaRecord(schemaIdentity)
-					.developerFields as TFields
-			},
-		})
+			return readCompiledSchemaRecord(schemaIdentity).developerFields as TFields
+		},
+	})
 	schemaIdentity = schema
 	schemaDeclarations.set(schema, declaration)
 
@@ -1185,11 +918,13 @@ export class Schema {
 		options: SchemaOptions<TClassName, TFields, TExtensions> &
 			RequireGeneratedSchemaEntry<TClassName> &
 			ReservedFieldCollision<NoInfer<TFields>>,
-	): SchemaClass<NoInfer<TClassName>, TFields, TExtensions> {
+	): SchemaReference<NoInfer<TClassName>> {
 		const schema = defineSchemaModel<TClassName, TFields, TExtensions>(options)
 		finalizeSchemaModelClass(schema)
 		Object.freeze(schema)
 
+		// Field literals compile the runtime graph but generated contracts own the
+		// application-facing class type after this declaration boundary.
 		return schema
 	}
 
@@ -1211,10 +946,10 @@ export class Schema {
 	>(
 		options: SchemaOptions<TClassName, TFields, TExtensions>,
 		createCapabilities: SchemaStaticCapabilityFactory<
-			SchemaClass<TClassName, TFields, TExtensions>,
+			SchemaReference<TClassName>,
 			TCapabilities
 		>,
-	): SchemaClass<TClassName, TFields, TExtensions> & TCapabilities {
+	): SchemaReference<TClassName> & TCapabilities {
 		const schema = defineSchemaModel<TClassName, TFields, TExtensions>(options)
 		const specializedSchema = defineSchemaStaticCapabilities(
 			schema,
@@ -1242,11 +977,11 @@ export class Schema {
 	>(
 		options: SchemaOptions<TClassName, TFields, TExtensions>,
 		createCapabilities: SchemaClassCapabilityFactory<
-			SchemaClass<TClassName, TFields, TExtensions>,
+			SchemaReference<TClassName>,
 			TStatics,
 			TResults
 		>,
-	): SchemaClass<TClassName, TFields, TExtensions> &
+	): SchemaReference<TClassName> &
 		TStatics &
 		SchemaResultCapabilityCarrier<TResults> {
 		if (typeof createCapabilities !== 'function') {

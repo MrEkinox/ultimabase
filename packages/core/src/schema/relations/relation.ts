@@ -6,7 +6,7 @@ import type {
 	UpdateOneOperationAst,
 } from '../../query/operations/contracts.js'
 import type { OperationOptions } from '../../query/operations/options.js'
-import type { InferQueryResult } from '../../query/query/result.js'
+import type { QueryResult } from '../../query/query/result.js'
 import {
 	executeQueryCount,
 	executeQueryExists,
@@ -33,9 +33,16 @@ import {
 	type QueryIncludedFieldFromInput,
 	type QuerySelectedFieldFromInput,
 } from '../../query/query/input.js'
-import type { RelationField } from '../fields/builtins/relation.js'
 import { getFieldSchemaTarget } from '../fields/base/definition.js'
-import { Schema, type SchemaDefinition } from '../schema/definition.js'
+import type {
+	SchemaRelationshipFieldName,
+	SchemaRelationshipTargetName,
+} from '../type-info.js'
+import {
+	Schema,
+	type SchemaReference,
+	type SchemaDefinition,
+} from '../schema/definition.js'
 import {
 	createRelationUpdateExpression,
 	type RelationMutationAction,
@@ -45,21 +52,17 @@ import {
 } from './mutation.js'
 import type { PointerTarget } from './pointer.js'
 
-/** Selects only top-level to-many fields declared by one exact schema. */
-export type SchemaRelationFieldName<TSchema extends SchemaDefinition> = {
-	readonly [
-		TFieldName in keyof TSchema['fields'] & string
-	]: TSchema['fields'][TFieldName] extends RelationField ? TFieldName : never
-}[keyof TSchema['fields'] & string]
+export type SchemaRelationFieldName<TSchema extends SchemaDefinition> =
+	SchemaRelationshipFieldName<TSchema, 'relation'>
 
 /** Resolves the exact target schema retained by one relation field. */
 export type SchemaRelationTarget<
 	TSchema extends SchemaDefinition,
 	TFieldName extends SchemaRelationFieldName<TSchema>,
 > =
-	TSchema['fields'][TFieldName] extends RelationField<infer TTarget>
-		? TTarget
-		: never
+	string extends SchemaRelationshipTargetName<TSchema, TFieldName>
+		? SchemaDefinition
+		: SchemaReference<SchemaRelationshipTargetName<TSchema, TFieldName>>
 
 interface RelationState<
 	TSource extends SchemaDefinition,
@@ -177,7 +180,7 @@ export class Relation<
 		input: ExactReadInput<TTarget, TInput, FindManyInput<TTarget>>,
 		options?: OperationOptions,
 	): Promise<
-		readonly InferQueryResult<
+		readonly QueryResult<
 			TTarget,
 			QuerySelectedFieldFromInput<TTarget, TInput>,
 			QueryIncludedFieldFromInput<TTarget, TInput>
@@ -187,7 +190,7 @@ export class Relation<
 	findMany(
 		input?: undefined,
 		options?: OperationOptions,
-	): Promise<readonly InferQueryResult<TTarget>[]>
+	): Promise<readonly QueryResult<TTarget>[]>
 	findMany(
 		input: FindManyInput<TTarget> = {},
 		options?: OperationOptions,
@@ -205,7 +208,7 @@ export class Relation<
 	findOne<const TInput extends FindOneInput<TTarget>>(
 		input: ExactReadInput<TTarget, TInput, FindOneInput<TTarget>>,
 		options?: OperationOptions,
-	): Promise<InferQueryResult<
+	): Promise<QueryResult<
 		TTarget,
 		QuerySelectedFieldFromInput<TTarget, TInput>,
 		QueryIncludedFieldFromInput<TTarget, TInput>
@@ -214,7 +217,7 @@ export class Relation<
 	findOne(
 		input?: undefined,
 		options?: OperationOptions,
-	): Promise<InferQueryResult<TTarget> | null>
+	): Promise<QueryResult<TTarget> | null>
 	findOne(
 		input: FindOneInput<TTarget> = {},
 		options?: OperationOptions,
@@ -232,7 +235,7 @@ export class Relation<
 	get<const TInput extends GetInput<TTarget>>(
 		input: ExactReadInput<TTarget, TInput, GetInput<TTarget>>,
 		options?: OperationOptions,
-	): Promise<InferQueryResult<
+	): Promise<QueryResult<
 		TTarget,
 		QuerySelectedFieldFromInput<TTarget, TInput>,
 		QueryIncludedFieldFromInput<TTarget, TInput>

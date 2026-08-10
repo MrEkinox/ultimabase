@@ -1,6 +1,6 @@
 import type {
-	InferCreateInput,
-	InferObject,
+	SchemaCreateData,
+	SchemaItem,
 	SchemaDefinition,
 } from '../../schema/index.js'
 
@@ -48,7 +48,11 @@ export interface UniqueUpsertTargetNode<
 
 /** Infers the framework identifier type retained by the exact schema. */
 export type OperationObjectId<TSchema extends SchemaDefinition> =
-	InferObject<TSchema> extends { readonly id: infer TId } ? TId : string
+	SchemaItem<TSchema> extends { readonly id: infer TId }
+		? TId extends string
+			? TId
+			: string
+		: string
 
 type OperationQuery<
 	TSchema extends SchemaDefinition,
@@ -153,7 +157,7 @@ export interface CreateOneOperationAst<
 	TSelectedField extends QueryFieldName<TSchema> = never,
 > extends SelectedSchemaOperationAst<TSchema, TSelectedField> {
 	readonly kind: 'create-one'
-	readonly input: InferCreateInput<TSchema>
+	readonly input: SchemaCreateData<TSchema>
 }
 
 /** Creates one ordered all-or-nothing collection. */
@@ -162,7 +166,7 @@ export interface CreateManyOperationAst<
 	TSelectedField extends QueryFieldName<TSchema> = never,
 > extends SelectedSchemaOperationAst<TSchema, TSelectedField> {
 	readonly kind: 'create-many'
-	readonly inputs: readonly InferCreateInput<TSchema>[]
+	readonly inputs: readonly SchemaCreateData<TSchema>[]
 }
 
 /** Applies one atomic update expression to at most one selected object. */
@@ -208,7 +212,7 @@ export interface UpsertOneOperationAst<
 > {
 	readonly kind: 'upsert-one'
 	readonly target: UniqueUpsertTargetNode<TSchema>
-	readonly create: InferCreateInput<TSchema>
+	readonly create: SchemaCreateData<TSchema>
 	readonly update: TUpdate
 }
 
@@ -220,7 +224,7 @@ export interface UpsertOperationItem<
 > {
 	readonly query: OperationQuery<TSchema, TFilter>
 	readonly target: UniqueUpsertTargetNode<TSchema>
-	readonly create: InferCreateInput<TSchema>
+	readonly create: SchemaCreateData<TSchema>
 	readonly update: TUpdate
 }
 

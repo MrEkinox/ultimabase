@@ -54,7 +54,7 @@ describe('Runtime result materialization', () => {
 		} as unknown as CreateOneOperationAst<typeof ResultSchema>
 		const result = {
 			title: 'Created',
-		} as DatabaseOperationResult<typeof operation>
+		} as unknown as DatabaseOperationResult<typeof operation>
 
 		expect(() => materializeOperationResult(operation, result)).toThrow(
 			new TypeError('Runtime result references an invalid schema model class'),

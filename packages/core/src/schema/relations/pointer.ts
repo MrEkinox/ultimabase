@@ -2,7 +2,7 @@ import { assertNonEmptyString, immutableRecord } from '@ultimabase/shared'
 
 import type { OperationOptions } from '../../query/operations/options.js'
 import type { OperationObjectId } from '../../query/operations/contracts.js'
-import type { InferQueryResult } from '../../query/query/result.js'
+import type { QueryResult } from '../../query/query/result.js'
 import {
 	executeQueryExists,
 	executeQueryFindOne,
@@ -19,7 +19,7 @@ import {
 } from '../../query/query/input.js'
 import {
 	Schema,
-	type GeneratedSchemaReference,
+	type SchemaReference,
 	type SchemaDefinition,
 } from '../schema/definition.js'
 
@@ -65,7 +65,7 @@ export type PointerTarget<TClassName extends string> = PointerValue &
  * Pointer capability without inventing a second runtime value or schema class.
  */
 export type GeneratedPointerHandle<TClassName extends string> = Pointer<
-	GeneratedSchemaReference<TClassName>
+	SchemaReference<TClassName>
 >
 
 const pointerInstances = new WeakSet<object>()
@@ -135,7 +135,7 @@ export class Pointer<
 	findOne<const TInput extends FindOneInput<TSchema>>(
 		input: ExactReadInput<TSchema, TInput, FindOneInput<TSchema>>,
 		options?: OperationOptions,
-	): Promise<InferQueryResult<
+	): Promise<QueryResult<
 		TSchema,
 		QuerySelectedFieldFromInput<TSchema, TInput>,
 		QueryIncludedFieldFromInput<TSchema, TInput>
@@ -144,7 +144,7 @@ export class Pointer<
 	findOne(
 		input?: undefined,
 		options?: OperationOptions,
-	): Promise<InferQueryResult<TSchema> | null>
+	): Promise<QueryResult<TSchema> | null>
 	findOne(
 		input: FindOneInput<TSchema> = {},
 		options?: OperationOptions,

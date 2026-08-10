@@ -19,20 +19,28 @@ const UserSchema = Schema.define({
 `className` is unique within an application. Registration fails on duplicates.
 
 `Schema.define()` returns the registered model class. `new UserSchema(input)`
-creates an immutable draft without I/O, schema-root methods execute typed
-object-input reads, and Runtime results are exact `UserSchema` instances whose direct
-properties and `toJSON()` contain only visible fields.
+creates an immutable draft without I/O, schema-root methods execute object-input
+reads, and Runtime results are `UserSchema` instances whose direct properties
+and `toJSON()` contain only visible fields.
 
-The schema package owns primitives and inference. Advanced capabilities use typed schema or field extensions so the schema package remains independent from their implementations.
+Static schema declarations own runtime metadata. The generated application
+registry owns precise public item, input, query, Access, and hook types. Advanced
+capabilities use schema or field extensions so Core remains independent from
+their implementations.
 
-System fields are reserved and excluded from create/update inputs. Output,
-create-input, and update-input inference are separate contracts:
+System fields are reserved and excluded from create/update inputs. Generated
+output, create-input, and update-input contracts remain separate:
 
 ```ts
-type User = InferObject<typeof UserSchema>
-type CreateUserInput = InferCreateInput<typeof UserSchema>
-type UpdateUserInput = InferUpdateInput<typeof UserSchema>
+type User = Schemas.User.Item
+type CreateUserInput = Schemas.User.Inputs['create']
+type UpdateUserInput = Schemas.User.Inputs['update']
 ```
+
+Before code generation, models intentionally expose only `BaseItem`: a stable
+identifier with `toString()` plus unknown application fields. Core does not infer
+the field map as a fallback. Runtime-oriented tests must narrow those unknown
+values; generated-contract tests prove the exact replacement separately.
 
 Persisted outputs contain required, defaulted, auto-incremented, and generated
 values. Create inputs require only values that cannot be supplied by the
@@ -52,19 +60,19 @@ derive deterministic names from the schema and field path. Schema validates
 only that an explicit name is non-empty. GraphQL and other generators own their
 syntax, derived suffixes, and collision detection.
 
-Field extensions remain opaque runtime metadata and never alter inferred
+Field extensions remain opaque runtime metadata and never alter generated
 object, create-input, or update-input shapes. Plugins that introduce a distinct
 logical value expose a plugin-defined field with that value type instead.
 
 Built-in field factories retain only the normalized booleans and list state
-needed for operation inference. Runtime constraints and literal defaults remain
+needed by runtime metadata and code generation. Runtime constraints and literal defaults remain
 available in immutable field options without being repeated in editor hovers;
 enum domains and object child maps stay exact because they define value shapes.
 
 ## Registration
 
 Each application owns a separate `SchemaRegistry`. Constructor-provided schemas
-retain literal-name lookup inference and preserve configuration order.
+preserve literal-name lookup and configuration order.
 Application initialization compiles all deferred field callbacks atomically
 before plugin setup, closes registration, and exposes an immutable snapshot.
 Plugins receive a read-only compiled registry and cannot register additional
@@ -72,9 +80,9 @@ schemas during setup.
 
 The builder callback is synchronous and executes once per accepted application
 compilation. Before compilation, only schema identity is available; model
-construction and field-dependent metadata fail explicitly. Internal tests and
-framework-owned composition may use lower-level field maps for local inference,
-but application declarations use the builder.
+construction and field-dependent metadata fail explicitly. Internal tests,
+framework-owned schemas, and application declarations all use the same builder
+shape. Exact application field types still come only from the generated registry.
 
 Duplicate `className` values fail with `DuplicateSchemaError`; a failed
 registration never replaces the previously registered definition.

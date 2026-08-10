@@ -335,7 +335,7 @@ describe('lazy schema targets', () => {
 			expect(firstApplication.schemaTargets.get(source, ['target'])).toBe(
 				firstTarget,
 			)
-			expect(source.fields.target.options).toStrictEqual({
+			expect(source.fields.target?.options).toStrictEqual({
 				onDelete: 'restrict',
 			})
 

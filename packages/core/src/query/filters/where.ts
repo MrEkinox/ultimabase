@@ -8,7 +8,7 @@ import {
 	type SchemaRelationTarget,
 } from '../../schema/index.js'
 import { getFieldSchemaTarget } from '../../schema/fields/base/definition.js'
-import type { GeneratedSchemaValueOr } from '../../schema/generated-contracts.js'
+import type { SchemaTypeValue } from '../../schema/type-info.js'
 import {
 	immutableArray,
 	immutableRecord,
@@ -18,7 +18,6 @@ import {
 
 import { createQueryAst } from '../ast/factory.js'
 import type { QueryFieldName } from '../ast/contracts.js'
-import type { OperationObjectId } from '../operations/contracts.js'
 import { parseQueryFieldName } from '../ast/schema.js'
 import {
 	createQueryJsonPathFilter,
@@ -41,18 +40,16 @@ import {
 	queryRelationPredicateMaxDepth,
 	type QueryRelationCountInput,
 	type QueryRelationFilterNode,
+	type QueryRelationPredicateNode,
 	type QueryRelationPredicateOperator,
 	type QueryRelationQuantifierOperator,
-	type QueryRelationshipPredicateNode,
+	type QueryPointerPredicateNode,
 } from './relation.js'
 import type {
 	QueryComparisonFilterNode,
 	QueryEqualityFilterNode,
 	QueryFieldPath,
-	QueryFilterFieldName,
-	QueryFilterOperand,
 	QueryFilterTarget,
-	QueryFilterValue,
 	QueryJsonPathExpression,
 	QueryJsonPathFilterNode,
 	QueryKeyFilterNode,
@@ -62,7 +59,6 @@ import type {
 	QueryListMembershipFilterNode,
 	QueryMembershipFilterNode,
 	QueryNullFilterNode,
-	QueryPrimitiveFilterNode,
 	QueryRangeFilterNode,
 	QueryRegexFilterNode,
 	QueryRegexPattern,
@@ -75,269 +71,113 @@ export const whereLogicalKeys = ['AND', 'OR', 'NOT'] as const
 
 export type WhereLogicalKey = (typeof whereLogicalKeys)[number]
 
-type Simplify<TValue> = { readonly [TKey in keyof TValue]: TValue[TKey] } & {}
-
-type UnionToIntersection<TValue> = (
-	TValue extends unknown ? (value: TValue) => void : never
-) extends (value: infer TIntersection) => void
-	? TIntersection
-	: never
-
-type WhereIdentityOperand<TValue> = [Extract<TValue, Pointer>] extends [never]
-	? TValue
-	: Extract<TValue, Pointer> extends Pointer<infer TTarget>
-		? OperationObjectId<TTarget>
-		: TValue
-
-type WhereOperatorsForNode<TNode> =
-	TNode extends QueryEqualityFilterNode<
-		string,
-		infer TValue,
-		readonly string[] | undefined
-	>
-		? Readonly<{
-				eq?: WhereIdentityOperand<TValue>
-				ne?: WhereIdentityOperand<TValue>
-			}>
-		: TNode extends QueryComparisonFilterNode<string, infer TValue>
-			? Readonly<{
-					gt?: TValue
-					gte?: TValue
-					lt?: TValue
-					lte?: TValue
-				}>
-			: TNode extends QueryRangeFilterNode<string, infer TValue>
-				? Readonly<{
-						between?: Readonly<{ lower: TValue; upper: TValue }>
-						notBetween?: Readonly<{ lower: TValue; upper: TValue }>
-					}>
-				: TNode extends QueryMembershipFilterNode<
-							string,
-							infer TValue,
-							readonly string[] | undefined
-					  >
-					? Readonly<{
-							in?: readonly WhereIdentityOperand<TValue>[]
-							notIn?: readonly WhereIdentityOperand<TValue>[]
-						}>
-					: TNode extends QueryStringFilterNode<
-								string,
-								infer TValue,
-								readonly string[] | undefined
-						  >
-						? Readonly<{
-								contains?: TValue
-								endsWith?: TValue
-								startsWith?: TValue
-							}>
-						: TNode extends QueryListHasFilterNode<
-									string,
-									infer TValue,
-									readonly string[] | undefined
-							  >
-							? Readonly<{ has?: TValue }>
-							: TNode extends QueryListMembershipFilterNode<
-										string,
-										infer TValue,
-										readonly string[] | undefined
-								  >
-								? Readonly<{
-										hasEvery?: readonly TValue[]
-										hasSome?: readonly TValue[]
-									}>
-								: TNode extends QueryListEmptyFilterNode<
-											string,
-											readonly string[] | undefined
-									  >
-									? Readonly<{ isEmpty?: true }>
-									: TNode extends QueryStructuralContainmentFilterNode<
-												string,
-												infer TValue,
-												readonly string[] | undefined
-										  >
-										? Readonly<{
-												containedBy?: TValue
-												contains?: TValue
-											}>
-										: TNode extends QueryKeyFilterNode<
-													string,
-													infer TKey,
-													readonly string[] | undefined
-											  >
-											? Readonly<{ hasKey?: TKey }>
-											: TNode extends QueryKeysFilterNode<
-														string,
-														infer TKey,
-														readonly string[] | undefined
-												  >
-												? Readonly<{
-														hasAllKeys?: readonly TKey[]
-														hasAnyKeys?: readonly TKey[]
-													}>
-												: TNode extends QueryJsonPathFilterNode<
-															string,
-															readonly string[] | undefined
-													  >
-													? Readonly<{
-															jsonPathExists?: QueryJsonPathExpression
-															jsonPathMatches?: QueryJsonPathExpression
-														}>
-													: TNode extends QueryRegexFilterNode
-														? Readonly<{ matches?: QueryRegexPattern }>
-														: TNode extends QueryNullFilterNode<
-																	string,
-																	readonly string[] | undefined
-															  >
-															? Readonly<{
-																	isNotNull?: true
-																	isNull?: true
-																}>
-															: unknown
-
-type RootPrimitiveNode<
-	TSchema extends SchemaDefinition,
-	TFieldName extends QueryFieldName<TSchema>,
-> =
-	QueryPrimitiveFilterNode<TSchema, TFieldName> extends infer TNode
-		? TNode extends { readonly path: readonly string[] }
-			? never
-			: TNode
-		: never
-
-type PathPrimitiveNode<
-	TSchema extends SchemaDefinition,
-	TFieldName extends QueryFieldName<TSchema>,
-> = Extract<
-	QueryPrimitiveFilterNode<TSchema, TFieldName>,
-	{ readonly path: readonly [string, ...string[]] }
->
-
-type NodesAtPath<TNode, TPath extends readonly string[]> = TNode extends {
-	readonly path: infer TNodePath extends readonly string[]
-}
-	? TNodePath extends TPath
-		? TPath extends TNodePath
-			? TNode
-			: never
-		: never
-	: never
-
-type WherePathCondition<
-	TSchema extends SchemaDefinition,
-	TFieldName extends QueryFieldName<TSchema>,
-	TNode = PathPrimitiveNode<TSchema, TFieldName>,
-> = TNode extends { readonly path: infer TPath extends readonly string[] }
-	? Simplify<
-			Readonly<{ path: TPath }> &
-				UnionToIntersection<WhereOperatorsForNode<NodesAtPath<TNode, TPath>>>
-		>
-	: never
-
-type WhereRelationCountInput<
-	TSchema extends SchemaDefinition,
-	TFieldName extends SchemaRelationFieldName<TSchema>,
-	TDepth extends readonly unknown[],
-> = QueryRelationCountInput &
-	(TDepth['length'] extends typeof queryRelationPredicateMaxDepth
-		? Readonly<{ where?: never }>
-		: Readonly<{
-				/** Filters visible relation targets before evaluating the cardinality comparisons. */
-				where?: WhereInputAtDepth<
-					SchemaRelationTarget<TSchema, TFieldName>,
-					readonly [...TDepth, unknown]
-				>
-			}>)
-
-type WhereRelationOperators<
-	TSchema extends SchemaDefinition,
-	TFieldName extends QueryFieldName<TSchema>,
-	TDepth extends readonly unknown[],
-> =
-	TFieldName extends SchemaRelationFieldName<TSchema>
-		? Readonly<{
-				count?: WhereRelationCountInput<TSchema, TFieldName, TDepth>
-				isEmpty?: true
-				isNotEmpty?: true
-			}> &
-				(TDepth['length'] extends typeof queryRelationPredicateMaxDepth
-					? unknown
-					: Readonly<{
-							every?: WhereInputAtDepth<
-								SchemaRelationTarget<TSchema, TFieldName>,
-								readonly [...TDepth, unknown]
-							>
-							none?: WhereInputAtDepth<
-								SchemaRelationTarget<TSchema, TFieldName>,
-								readonly [...TDepth, unknown]
-							>
-							some?: WhereInputAtDepth<
-								SchemaRelationTarget<TSchema, TFieldName>,
-								readonly [...TDepth, unknown]
-							>
-						}>)
-		: unknown
-
-type WherePointerOperators<
-	TSchema extends SchemaDefinition,
-	TFieldName extends QueryFieldName<TSchema>,
-	TDepth extends readonly unknown[],
-> =
-	TFieldName extends SchemaPointerFieldName<TSchema>
-		? TDepth['length'] extends typeof queryRelationPredicateMaxDepth
-			? unknown
-			: Readonly<{
-					is?: WhereInputAtDepth<
-						SchemaPointerTarget<TSchema, TFieldName>,
-						readonly [...TDepth, unknown]
-					>
-					isNot?: WhereInputAtDepth<
-						SchemaPointerTarget<TSchema, TFieldName>,
-						readonly [...TDepth, unknown]
-					>
-				}>
-		: unknown
-
-type WhereFieldInput<
-	TSchema extends SchemaDefinition,
-	TFieldName extends QueryFieldName<TSchema>,
-	TDepth extends readonly unknown[],
-> = Simplify<
-	UnionToIntersection<
-		WhereOperatorsForNode<RootPrimitiveNode<TSchema, TFieldName>>
-	> &
-		([PathPrimitiveNode<TSchema, TFieldName>] extends [never]
-			? unknown
-			: Readonly<{
-					at?: readonly WherePathCondition<TSchema, TFieldName>[]
-				}>) &
-		WhereRelationOperators<TSchema, TFieldName, TDepth> &
-		WherePointerOperators<TSchema, TFieldName, TDepth>
->
-
-type WhereInputAtDepth<
-	TSchema extends SchemaDefinition,
-	TDepth extends readonly unknown[],
-> = Readonly<
-	{
-		readonly [TFieldName in QueryFieldName<TSchema>]?: WhereFieldInput<
-			TSchema,
-			TFieldName,
-			TDepth
-		>
-	} & {
-		readonly AND?: readonly WhereInputAtDepth<TSchema, TDepth>[]
-		readonly NOT?: WhereInputAtDepth<TSchema, TDepth>
-		readonly OR?: readonly WhereInputAtDepth<TSchema, TDepth>[]
-	}
->
-
 /** Describes one schema-correlated, transport-neutral filter object. */
-export type WhereInput<TSchema extends SchemaDefinition> =
-	GeneratedSchemaValueOr<
-		TSchema,
-		'Where',
-		WhereInputAtDepth<TSchema, readonly []>
+export type WhereInput<TSchema extends SchemaDefinition> = SchemaTypeValue<
+	TSchema,
+	'Where'
+>
+
+type WhereFieldName<TSchema extends SchemaDefinition> = Exclude<
+	Extract<keyof WhereInput<TSchema>, string>,
+	WhereLogicalKey
+>
+
+type WhereFieldFilter<
+	TSchema extends SchemaDefinition,
+	TFieldName extends string,
+> = TFieldName extends keyof WhereInput<TSchema>
+	? NonNullable<WhereInput<TSchema>[TFieldName]>
+	: unknown
+
+type WhereOperatorFieldName<
+	TSchema extends SchemaDefinition,
+	TOperator extends string,
+> =
+	string extends WhereFieldName<TSchema>
+		? string
+		: {
+				[
+					TFieldName in WhereFieldName<TSchema>
+				]: TOperator extends keyof WhereFieldFilter<TSchema, TFieldName>
+					? TFieldName
+					: never
+			}[WhereFieldName<TSchema>]
+
+type WherePathEntry<
+	TSchema extends SchemaDefinition,
+	TFieldName extends WhereFieldName<TSchema>,
+> =
+	WhereFieldFilter<TSchema, TFieldName> extends {
+		readonly at?: readonly (infer TEntry)[]
+	}
+		? TEntry
+		: never
+
+type WherePathTargetForEntry<
+	TFieldName extends string,
+	TOperator extends string,
+	TEntry,
+> = TEntry extends {
+	readonly path: infer TPath extends readonly [string, ...string[]]
+}
+	? TOperator extends keyof TEntry
+		? QueryFieldPath<TFieldName, TPath>
+		: never
+	: never
+
+type WherePathTarget<
+	TSchema extends SchemaDefinition,
+	TOperator extends string,
+> =
+	string extends WhereFieldName<TSchema>
+		? QueryFieldPath<string, readonly [string, ...string[]]>
+		: {
+				[TFieldName in WhereFieldName<TSchema>]: WherePathTargetForEntry<
+					TFieldName,
+					TOperator,
+					WherePathEntry<TSchema, TFieldName>
+				>
+			}[WhereFieldName<TSchema>]
+
+type WhereBuilderTarget<
+	TSchema extends SchemaDefinition,
+	TOperator extends string,
+> =
+	| WhereOperatorFieldName<TSchema, TOperator>
+	| WherePathTarget<TSchema, TOperator>
+
+type WhereTargetFilter<TSchema extends SchemaDefinition, TTarget> =
+	TTarget extends QueryFieldPath<
+		infer TFieldName extends WhereFieldName<TSchema>,
+		infer TPath
 	>
+		? Extract<WherePathEntry<TSchema, TFieldName>, { readonly path: TPath }>
+		: TTarget extends WhereFieldName<TSchema>
+			? WhereFieldFilter<TSchema, TTarget>
+			: never
+
+type WhereBuilderOperand<
+	TSchema extends SchemaDefinition,
+	TOperator extends string,
+	TTarget,
+> =
+	string extends WhereFieldName<TSchema>
+		? unknown
+		: TOperator extends keyof WhereTargetFilter<TSchema, TTarget>
+			? Exclude<WhereTargetFilter<TSchema, TTarget>[TOperator], undefined>
+			: unknown
+
+type WhereRangeBound<
+	TSchema extends SchemaDefinition,
+	TOperator extends 'between' | 'notBetween',
+	TFieldName extends WhereOperatorFieldName<TSchema, TOperator>,
+> =
+	WhereBuilderOperand<TSchema, TOperator, TFieldName> extends {
+		readonly lower: infer TLower
+		readonly upper: infer TUpper
+	}
+		? TLower & TUpper
+		: unknown
 
 /** Builds one where object through the immutable utility class. */
 export type WhereCallback<TSchema extends SchemaDefinition> = (
@@ -352,17 +192,6 @@ interface WhereBuilderState<TSchema extends SchemaDefinition> {
 	readonly expression: QueryFilterNode<TSchema> | undefined
 	readonly schema: TSchema
 }
-
-type WhereComparisonValue<
-	TSchema extends SchemaDefinition,
-	TFieldName extends QueryFieldName<TSchema>,
-> = Exclude<QueryFilterValue<TSchema, TFieldName>, null>
-
-type WhereBuilderOperand<
-	TSchema extends SchemaDefinition,
-	TOperator extends 'equal' | 'in' | 'not-equal' | 'not-in',
-	TTarget extends QueryFilterTarget<TSchema, TOperator>,
-> = WhereIdentityOperand<QueryFilterOperand<TSchema, TOperator, TTarget>>
 
 const whereBuilderStates = new WeakMap<object, unknown>()
 
@@ -401,7 +230,9 @@ const normalizeWhereRelationship = <TSchema extends SchemaDefinition>(
 	input: unknown,
 	relationDepth: number,
 	ancestors: WeakSet<object>,
-): QueryRelationshipPredicateNode => {
+):
+	| QueryPointerPredicateNode<TSchema, QueryFieldName<TSchema>>
+	| QueryRelationPredicateNode<TSchema, QueryFieldName<TSchema>> => {
 	if (relationDepth >= queryRelationPredicateMaxDepth) {
 		throw createQueryRelationDepthError()
 	}
@@ -456,10 +287,8 @@ const normalizeWhereRelationCount = <TSchema extends SchemaDefinition>(
 	}
 	const relationFieldName =
 		fieldName as unknown as SchemaRelationFieldName<TSchema>
-	const exactTarget = target as unknown as SchemaRelationTarget<
-		TSchema,
-		typeof relationFieldName
-	>
+	type RelationTarget = SchemaRelationTarget<TSchema, typeof relationFieldName>
+	const exactTarget = target as unknown as RelationTarget
 
 	const hasWhere = Object.hasOwn(input, 'where')
 	const comparisonEntries = Object.entries(input).filter(
@@ -493,7 +322,7 @@ const normalizeWhereRelationCount = <TSchema extends SchemaDefinition>(
 		throw createQueryRelationDepthError()
 	}
 
-	const expression = hasWhere
+	const expression: QueryFilterNode<RelationTarget> = hasWhere
 		? normalizeWhereRecord(
 				exactTarget,
 				input.where,
@@ -749,7 +578,7 @@ const normalizeWhereFieldOperators = <TSchema extends SchemaDefinition>(
 					immutableRecord({}),
 					relationDepth,
 					ancestors,
-				) as QueryFilterNode<TSchema>,
+				) as unknown as QueryFilterNode<TSchema>,
 			)
 			continue
 		}
@@ -843,7 +672,7 @@ const normalizeWhereFieldOperators = <TSchema extends SchemaDefinition>(
 					operand,
 					relationDepth,
 					ancestors,
-				) as QueryFilterNode<TSchema>,
+				) as unknown as QueryFilterNode<TSchema>,
 			)
 			continue
 		}
@@ -1167,8 +996,7 @@ export const whereInputFromQueryFilter = <
 	const TSchema extends SchemaDefinition,
 >(
 	expression: QueryFilterNode<TSchema>,
-): WhereInput<TSchema> =>
-	serializeWhereExpression(expression) as unknown as WhereInput<TSchema>
+): WhereInput<TSchema> => serializeWhereExpression(expression)
 
 const resolveWhereBuilderInput = <TSchema extends SchemaDefinition>(
 	schema: TSchema,
@@ -1219,7 +1047,7 @@ const createWhereTargetInput = <TSchema extends SchemaDefinition>(
 	if (typeof target === 'string') {
 		return immutableRecord({
 			[target]: immutableRecord({ [operator]: operand }),
-		}) as unknown as WhereInput<TSchema>
+		})
 	}
 
 	if (
@@ -1237,7 +1065,7 @@ const createWhereTargetInput = <TSchema extends SchemaDefinition>(
 				immutableRecord({ path: target.path, [operator]: operand }),
 			]),
 		}),
-	}) as unknown as WhereInput<TSchema>
+	})
 }
 
 /** Builds schema-correlated where objects without becoming a second AST source. */
@@ -1263,14 +1091,14 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 	 * Compares the visible cardinality of one relation.
 	 * @example `where.count('comments', { gte: 3 })`
 	 */
-	count<TFieldName extends SchemaRelationFieldName<TSchema>>(
+	count<TFieldName extends WhereOperatorFieldName<TSchema, 'count'>>(
 		fieldName: TFieldName,
-		input: WhereRelationCountInput<TSchema, TFieldName, readonly []>,
+		input: WhereBuilderOperand<TSchema, 'count', TFieldName>,
 	): WhereBuilder<TSchema> {
 		return this.#append(
 			immutableRecord({
 				[fieldName]: immutableRecord({ count: input }),
-			}) as unknown as WhereInput<TSchema>,
+			}),
 		)
 	}
 
@@ -1279,14 +1107,12 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 	 * @example `where.isEmpty('tags')`
 	 */
 	isEmpty(
-		fieldName:
-			| QueryFilterFieldName<TSchema, 'list-empty'>
-			| SchemaRelationFieldName<TSchema>,
+		fieldName: WhereOperatorFieldName<TSchema, 'isEmpty'>,
 	): WhereBuilder<TSchema> {
 		return this.#append(
 			immutableRecord({
 				[fieldName]: immutableRecord({ isEmpty: true }),
-			}) as unknown as WhereInput<TSchema>,
+			}),
 		)
 	}
 
@@ -1294,9 +1120,9 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 	 * Requires one field list to contain an exact element.
 	 * @example `where.has('tags', 'typescript')`
 	 */
-	has<TTarget extends QueryFilterTarget<TSchema, 'list-has'>>(
+	has<TTarget extends WhereBuilderTarget<TSchema, 'has'>>(
 		target: TTarget,
-		value: QueryFilterOperand<TSchema, 'list-has', TTarget>,
+		value: WhereBuilderOperand<TSchema, 'has', TTarget>,
 	): WhereBuilder<TSchema> {
 		return this.#append(createWhereTargetInput(target, 'has', value))
 	}
@@ -1305,9 +1131,9 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 	 * Requires one field list to contain at least one requested element.
 	 * @example `where.hasSome('tags', ['typescript', 'node'])`
 	 */
-	hasSome<TTarget extends QueryFilterTarget<TSchema, 'list-has-some'>>(
+	hasSome<TTarget extends WhereBuilderTarget<TSchema, 'hasSome'>>(
 		target: TTarget,
-		values: readonly QueryFilterOperand<TSchema, 'list-has-some', TTarget>[],
+		values: WhereBuilderOperand<TSchema, 'hasSome', TTarget>,
 	): WhereBuilder<TSchema> {
 		return this.#append(createWhereTargetInput(target, 'hasSome', values))
 	}
@@ -1316,9 +1142,9 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 	 * Requires one field list to contain every requested element.
 	 * @example `where.hasEvery('tags', ['backend', 'typescript'])`
 	 */
-	hasEvery<TTarget extends QueryFilterTarget<TSchema, 'list-has-every'>>(
+	hasEvery<TTarget extends WhereBuilderTarget<TSchema, 'hasEvery'>>(
 		target: TTarget,
-		values: readonly QueryFilterOperand<TSchema, 'list-has-every', TTarget>[],
+		values: WhereBuilderOperand<TSchema, 'hasEvery', TTarget>,
 	): WhereBuilder<TSchema> {
 		return this.#append(createWhereTargetInput(target, 'hasEvery', values))
 	}
@@ -1328,12 +1154,12 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 	 * @example `where.isNotEmpty('comments')`
 	 */
 	isNotEmpty(
-		fieldName: SchemaRelationFieldName<TSchema>,
+		fieldName: WhereOperatorFieldName<TSchema, 'isNotEmpty'>,
 	): WhereBuilder<TSchema> {
 		return this.#append(
 			immutableRecord({
 				[fieldName]: immutableRecord({ isNotEmpty: true }),
-			}) as unknown as WhereInput<TSchema>,
+			}),
 		)
 	}
 
@@ -1341,9 +1167,9 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 	 * Compares one field or structured path for equality.
 	 * @example `where.eq('published', true)`
 	 */
-	eq<TTarget extends QueryFilterTarget<TSchema, 'equal'>>(
+	eq<TTarget extends WhereBuilderTarget<TSchema, 'eq'>>(
 		target: TTarget,
-		value: WhereBuilderOperand<TSchema, 'equal', TTarget>,
+		value: WhereBuilderOperand<TSchema, 'eq', TTarget>,
 	): WhereBuilder<TSchema> {
 		return this.#append(createWhereTargetInput(target, 'eq', value))
 	}
@@ -1352,9 +1178,9 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 	 * Compares one field or structured path for inequality.
 	 * @example `where.ne('status', 'archived')`
 	 */
-	ne<TTarget extends QueryFilterTarget<TSchema, 'not-equal'>>(
+	ne<TTarget extends WhereBuilderTarget<TSchema, 'ne'>>(
 		target: TTarget,
-		value: WhereBuilderOperand<TSchema, 'not-equal', TTarget>,
+		value: WhereBuilderOperand<TSchema, 'ne', TTarget>,
 	): WhereBuilder<TSchema> {
 		return this.#append(createWhereTargetInput(target, 'ne', value))
 	}
@@ -1363,9 +1189,9 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 	 * Adds one strict lower bound.
 	 * @example `where.gt('views', 0)`
 	 */
-	gt<TTarget extends QueryFilterTarget<TSchema, 'greater-than'>>(
+	gt<TTarget extends WhereBuilderTarget<TSchema, 'gt'>>(
 		target: TTarget,
-		value: QueryFilterOperand<TSchema, 'greater-than', TTarget>,
+		value: WhereBuilderOperand<TSchema, 'gt', TTarget>,
 	): WhereBuilder<TSchema> {
 		return this.#append(createWhereTargetInput(target, 'gt', value))
 	}
@@ -1374,9 +1200,9 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 	 * Adds one inclusive lower bound.
 	 * @example `where.gte('views', 0)`
 	 */
-	gte<TTarget extends QueryFilterTarget<TSchema, 'greater-than-or-equal'>>(
+	gte<TTarget extends WhereBuilderTarget<TSchema, 'gte'>>(
 		target: TTarget,
-		value: QueryFilterOperand<TSchema, 'greater-than-or-equal', TTarget>,
+		value: WhereBuilderOperand<TSchema, 'gte', TTarget>,
 	): WhereBuilder<TSchema> {
 		return this.#append(createWhereTargetInput(target, 'gte', value))
 	}
@@ -1385,9 +1211,9 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 	 * Adds one strict upper bound.
 	 * @example `where.lt('views', 100)`
 	 */
-	lt<TTarget extends QueryFilterTarget<TSchema, 'less-than'>>(
+	lt<TTarget extends WhereBuilderTarget<TSchema, 'lt'>>(
 		target: TTarget,
-		value: QueryFilterOperand<TSchema, 'less-than', TTarget>,
+		value: WhereBuilderOperand<TSchema, 'lt', TTarget>,
 	): WhereBuilder<TSchema> {
 		return this.#append(createWhereTargetInput(target, 'lt', value))
 	}
@@ -1396,9 +1222,9 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 	 * Adds one inclusive upper bound.
 	 * @example `where.lte('views', 100)`
 	 */
-	lte<TTarget extends QueryFilterTarget<TSchema, 'less-than-or-equal'>>(
+	lte<TTarget extends WhereBuilderTarget<TSchema, 'lte'>>(
 		target: TTarget,
-		value: QueryFilterOperand<TSchema, 'less-than-or-equal', TTarget>,
+		value: WhereBuilderOperand<TSchema, 'lte', TTarget>,
 	): WhereBuilder<TSchema> {
 		return this.#append(createWhereTargetInput(target, 'lte', value))
 	}
@@ -1407,10 +1233,10 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 	 * Requires one inclusive interval.
 	 * @example `where.between('views', 10, 100)`
 	 */
-	between<TFieldName extends QueryFilterFieldName<TSchema, 'between'>>(
+	between<TFieldName extends WhereOperatorFieldName<TSchema, 'between'>>(
 		target: TFieldName,
-		lower: WhereComparisonValue<TSchema, TFieldName>,
-		upper: WhereComparisonValue<TSchema, TFieldName>,
+		lower: WhereRangeBound<TSchema, 'between', TFieldName>,
+		upper: WhereRangeBound<TSchema, 'between', TFieldName>,
 	): WhereBuilder<TSchema> {
 		return this.#append(
 			createWhereTargetInput(
@@ -1425,10 +1251,10 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 	 * Requires the inverse of one inclusive interval.
 	 * @example `where.notBetween('views', 10, 100)`
 	 */
-	notBetween<TFieldName extends QueryFilterFieldName<TSchema, 'not-between'>>(
+	notBetween<TFieldName extends WhereOperatorFieldName<TSchema, 'notBetween'>>(
 		target: TFieldName,
-		lower: WhereComparisonValue<TSchema, TFieldName>,
-		upper: WhereComparisonValue<TSchema, TFieldName>,
+		lower: WhereRangeBound<TSchema, 'notBetween', TFieldName>,
+		upper: WhereRangeBound<TSchema, 'notBetween', TFieldName>,
 	): WhereBuilder<TSchema> {
 		return this.#append(
 			createWhereTargetInput(
@@ -1443,9 +1269,9 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 	 * Requires membership in one immutable candidate list.
 	 * @example `where.in('status', ['draft', 'published'])`
 	 */
-	in<TTarget extends QueryFilterTarget<TSchema, 'in'>>(
+	in<TTarget extends WhereBuilderTarget<TSchema, 'in'>>(
 		target: TTarget,
-		values: readonly WhereBuilderOperand<TSchema, 'in', TTarget>[],
+		values: WhereBuilderOperand<TSchema, 'in', TTarget>,
 	): WhereBuilder<TSchema> {
 		return this.#append(createWhereTargetInput(target, 'in', values))
 	}
@@ -1454,9 +1280,9 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 	 * Excludes membership in one immutable candidate list.
 	 * @example `where.notIn('status', ['archived'])`
 	 */
-	notIn<TTarget extends QueryFilterTarget<TSchema, 'not-in'>>(
+	notIn<TTarget extends WhereBuilderTarget<TSchema, 'notIn'>>(
 		target: TTarget,
-		values: readonly WhereBuilderOperand<TSchema, 'not-in', TTarget>[],
+		values: WhereBuilderOperand<TSchema, 'notIn', TTarget>,
 	): WhereBuilder<TSchema> {
 		return this.#append(createWhereTargetInput(target, 'notIn', values))
 	}
@@ -1465,9 +1291,9 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 	 * Adds string or structural containment.
 	 * @example `where.contains('title', 'Ultima')`
 	 */
-	contains<TTarget extends QueryFilterTarget<TSchema, 'contains'>>(
+	contains<TTarget extends WhereBuilderTarget<TSchema, 'contains'>>(
 		target: TTarget,
-		value: QueryFilterOperand<TSchema, 'contains', TTarget>,
+		value: WhereBuilderOperand<TSchema, 'contains', TTarget>,
 	): WhereBuilder<TSchema> {
 		return this.#append(createWhereTargetInput(target, 'contains', value))
 	}
@@ -1476,9 +1302,9 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 	 * Requires one structured target to be contained by the operand.
 	 * @example `where.containedBy('metadata', { public: true })`
 	 */
-	containedBy<TTarget extends QueryFilterTarget<TSchema, 'contained-by'>>(
+	containedBy<TTarget extends WhereBuilderTarget<TSchema, 'containedBy'>>(
 		target: TTarget,
-		value: QueryFilterOperand<TSchema, 'contained-by', TTarget>,
+		value: WhereBuilderOperand<TSchema, 'containedBy', TTarget>,
 	): WhereBuilder<TSchema> {
 		return this.#append(createWhereTargetInput(target, 'containedBy', value))
 	}
@@ -1487,9 +1313,9 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 	 * Adds one prefix match.
 	 * @example `where.startsWith('title', 'Ultima')`
 	 */
-	startsWith<TTarget extends QueryFilterTarget<TSchema, 'starts-with'>>(
+	startsWith<TTarget extends WhereBuilderTarget<TSchema, 'startsWith'>>(
 		target: TTarget,
-		value: QueryFilterOperand<TSchema, 'starts-with', TTarget>,
+		value: WhereBuilderOperand<TSchema, 'startsWith', TTarget>,
 	): WhereBuilder<TSchema> {
 		return this.#append(createWhereTargetInput(target, 'startsWith', value))
 	}
@@ -1498,9 +1324,9 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 	 * Adds one suffix match.
 	 * @example `where.endsWith('title', 'Base')`
 	 */
-	endsWith<TTarget extends QueryFilterTarget<TSchema, 'ends-with'>>(
+	endsWith<TTarget extends WhereBuilderTarget<TSchema, 'endsWith'>>(
 		target: TTarget,
-		value: QueryFilterOperand<TSchema, 'ends-with', TTarget>,
+		value: WhereBuilderOperand<TSchema, 'endsWith', TTarget>,
 	): WhereBuilder<TSchema> {
 		return this.#append(createWhereTargetInput(target, 'endsWith', value))
 	}
@@ -1509,9 +1335,9 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 	 * Tests one structured key.
 	 * @example `where.hasKey('metadata', 'published')`
 	 */
-	hasKey<TTarget extends QueryFilterTarget<TSchema, 'has-key'>>(
+	hasKey<TTarget extends WhereBuilderTarget<TSchema, 'hasKey'>>(
 		target: TTarget,
-		key: QueryFilterOperand<TSchema, 'has-key', TTarget>,
+		key: WhereBuilderOperand<TSchema, 'hasKey', TTarget>,
 	): WhereBuilder<TSchema> {
 		return this.#append(createWhereTargetInput(target, 'hasKey', key))
 	}
@@ -1520,9 +1346,9 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 	 * Tests whether any structured key exists.
 	 * @example `where.hasAnyKeys('metadata', ['draft', 'published'])`
 	 */
-	hasAnyKeys<TTarget extends QueryFilterTarget<TSchema, 'has-any-keys'>>(
+	hasAnyKeys<TTarget extends WhereBuilderTarget<TSchema, 'hasAnyKeys'>>(
 		target: TTarget,
-		keys: readonly QueryFilterOperand<TSchema, 'has-any-keys', TTarget>[],
+		keys: WhereBuilderOperand<TSchema, 'hasAnyKeys', TTarget>,
 	): WhereBuilder<TSchema> {
 		return this.#append(createWhereTargetInput(target, 'hasAnyKeys', keys))
 	}
@@ -1531,9 +1357,9 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 	 * Tests whether every structured key exists.
 	 * @example `where.hasAllKeys('metadata', ['title', 'slug'])`
 	 */
-	hasAllKeys<TTarget extends QueryFilterTarget<TSchema, 'has-all-keys'>>(
+	hasAllKeys<TTarget extends WhereBuilderTarget<TSchema, 'hasAllKeys'>>(
 		target: TTarget,
-		keys: readonly QueryFilterOperand<TSchema, 'has-all-keys', TTarget>[],
+		keys: WhereBuilderOperand<TSchema, 'hasAllKeys', TTarget>,
 	): WhereBuilder<TSchema> {
 		return this.#append(createWhereTargetInput(target, 'hasAllKeys', keys))
 	}
@@ -1543,7 +1369,7 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 	 * @example `where.jsonPathExists('metadata', { source: '$.items[*]' })`
 	 */
 	jsonPathExists(
-		target: QueryFilterTarget<TSchema, 'json-path-exists'>,
+		target: WhereBuilderTarget<TSchema, 'jsonPathExists'>,
 		expression: QueryJsonPathExpression,
 	): WhereBuilder<TSchema> {
 		return this.#append(
@@ -1556,7 +1382,7 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 	 * @example `where.jsonPathMatches('metadata', { source: '$.published == true' })`
 	 */
 	jsonPathMatches(
-		target: QueryFilterTarget<TSchema, 'json-path-matches'>,
+		target: WhereBuilderTarget<TSchema, 'jsonPathMatches'>,
 		expression: QueryJsonPathExpression,
 	): WhereBuilder<TSchema> {
 		return this.#append(
@@ -1569,7 +1395,7 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 	 * @example `where.matches('title', { source: '^Ultima' })`
 	 */
 	matches(
-		fieldName: QueryFilterFieldName<TSchema, 'regex'>,
+		fieldName: WhereOperatorFieldName<TSchema, 'matches'>,
 		pattern: QueryRegexPattern,
 	): WhereBuilder<TSchema> {
 		return this.#append(createWhereTargetInput(fieldName, 'matches', pattern))
@@ -1579,7 +1405,7 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 	 * Requires one field or structured path to contain null.
 	 * @example `where.isNull('deletedAt')`
 	 */
-	isNull(target: QueryFilterTarget<TSchema, 'null'>): WhereBuilder<TSchema> {
+	isNull(target: WhereBuilderTarget<TSchema, 'isNull'>): WhereBuilder<TSchema> {
 		return this.#append(createWhereTargetInput(target, 'isNull', true))
 	}
 
@@ -1587,7 +1413,9 @@ export class WhereBuilder<TSchema extends SchemaDefinition> {
 	 * Requires one field or structured path to contain a non-null value.
 	 * @example `where.isNotNull('publishedAt')`
 	 */
-	isNotNull(target: QueryFilterTarget<TSchema, 'null'>): WhereBuilder<TSchema> {
+	isNotNull(
+		target: WhereBuilderTarget<TSchema, 'isNotNull'>,
+	): WhereBuilder<TSchema> {
 		return this.#append(createWhereTargetInput(target, 'isNotNull', true))
 	}
 

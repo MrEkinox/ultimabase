@@ -1,9 +1,5 @@
-import type {
-	FieldInferenceStateOf,
-	FieldList,
-	InferUpdateInput,
-	SchemaDefinition,
-} from '../../schema/index.js'
+import type { SchemaUpdateData, SchemaDefinition } from '../../schema/index.js'
+import type { SchemaNumericFieldName } from '../../schema/type-info.js'
 import type { DecrementUpdateValue, IncrementUpdateValue } from './operators.js'
 
 /** Leaves concrete update expressions structurally extensible for Operation AST. */
@@ -13,28 +9,14 @@ export interface UpdateExpressionNode {
 
 /** Selects every schema field that developer update inference keeps mutable. */
 export type UpdateFieldName<TSchema extends SchemaDefinition> =
-	keyof InferUpdateInput<TSchema> & string
+	keyof SchemaUpdateData<TSchema> & string
 
 type UpdateFieldValue<
 	TSchema extends SchemaDefinition,
-	TFieldName extends UpdateFieldName<TSchema>,
-> = TFieldName extends keyof InferUpdateInput<TSchema>
-	? Exclude<InferUpdateInput<TSchema>[TFieldName], undefined>
+	TFieldName extends string,
+> = TFieldName extends keyof SchemaUpdateData<TSchema>
+	? Exclude<SchemaUpdateData<TSchema>[TFieldName], undefined>
 	: never
-
-type UpdateFieldDefinition<
-	TSchema extends SchemaDefinition,
-	TFieldName extends UpdateFieldName<TSchema>,
-> = TSchema['fields'][TFieldName]
-
-type IsScalarUpdateField<
-	TSchema extends SchemaDefinition,
-	TFieldName extends UpdateFieldName<TSchema>,
-> = FieldInferenceStateOf<
-	UpdateFieldDefinition<TSchema, TFieldName>
->['list'] extends FieldList
-	? false
-	: true
 
 /** Lists built-in scalar kinds with portable addition and subtraction semantics. */
 export const numericUpdateFieldKinds = [
@@ -44,25 +26,14 @@ export const numericUpdateFieldKinds = [
 	'int',
 ] as const
 
-type NumericUpdateFieldKind = (typeof numericUpdateFieldKinds)[number]
-
-/** Selects mutable scalar numeric fields while excluding numeric lists. */
-export type NumericUpdateFieldName<TSchema extends SchemaDefinition> = {
-	[TFieldName in UpdateFieldName<TSchema>]: IsScalarUpdateField<
-		TSchema,
-		TFieldName
-	> extends true
-		? UpdateFieldDefinition<TSchema, TFieldName> extends {
-				readonly kind: NumericUpdateFieldKind
-			}
-			? TFieldName
-			: never
-		: never
-}[UpdateFieldName<TSchema>]
+export type NumericUpdateFieldName<TSchema extends SchemaDefinition> = Extract<
+	SchemaNumericFieldName<TSchema>,
+	UpdateFieldName<TSchema>
+>
 
 /** Correlates every mutable field with its exact schema-derived replacement value. */
 export type UpdateSetInput<TSchema extends SchemaDefinition> = Readonly<
-	InferUpdateInput<TSchema>
+	SchemaUpdateData<TSchema>
 >
 
 /** Correlates numeric fields with non-null deltas of their exact scalar type. */

@@ -2,16 +2,16 @@ import { describe, expect, it } from 'vitest'
 
 import {
 	intField,
-	readFieldInferenceState,
+	readFieldTypegenState,
 	relationField,
 	Schema,
 	stringField,
 } from '../../../index.js'
 
-describe('readFieldInferenceState', () => {
+describe('readFieldTypegenState', () => {
 	it('describes required, defaulted, immutable, and listed scalar fields', () => {
 		expect(
-			readFieldInferenceState(stringField({ validation: { required: true } })),
+			readFieldTypegenState(stringField({ validation: { required: true } })),
 		).toStrictEqual({
 			create: 'required',
 			list: false,
@@ -20,7 +20,7 @@ describe('readFieldInferenceState', () => {
 			update: 'optional',
 		})
 		expect(
-			readFieldInferenceState(
+			readFieldTypegenState(
 				stringField({
 					default: ['draft'] as const,
 					immutable: true,
@@ -44,14 +44,14 @@ describe('readFieldInferenceState', () => {
 		})
 
 		expect(
-			readFieldInferenceState(intField({ autoIncrement: true })),
+			readFieldTypegenState(intField({ autoIncrement: true })),
 		).toMatchObject({
 			create: 'optional',
 			nullable: false,
 			update: 'optional',
 		})
 		expect(
-			readFieldInferenceState(relationField({ target: () => Target })),
+			readFieldTypegenState(relationField({ target: () => Target })),
 		).toStrictEqual({
 			create: 'forbidden',
 			list: false,

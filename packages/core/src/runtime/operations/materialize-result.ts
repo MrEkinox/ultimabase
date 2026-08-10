@@ -5,7 +5,7 @@ import {
 } from '@ultimabase/shared'
 
 import type {
-	InferOperationResult,
+	OperationResult,
 	OperationAstNode,
 	OperationKind,
 } from '../../query/index.js'
@@ -92,11 +92,11 @@ export const materializeOperationResult = <
 >(
 	operation: TOperation,
 	result: RuntimeOperationResult<TOperation>,
-): InferOperationResult<TOperation> => {
+): OperationResult<TOperation> => {
 	switch (operation.kind) {
 		case 'count':
 		case 'exists':
-			return result as unknown as InferOperationResult<TOperation>
+			return result as unknown as OperationResult<TOperation>
 		case 'create-many':
 		case 'delete-many':
 		case 'update-many':
@@ -116,7 +116,7 @@ export const materializeOperationResult = <
 						operation,
 					),
 				),
-			) as InferOperationResult<TOperation>
+			) as OperationResult<TOperation>
 		}
 		case 'find-many': {
 			if (!isUnknownArray(result)) {
@@ -134,27 +134,27 @@ export const materializeOperationResult = <
 						operation,
 					),
 				),
-			) as InferOperationResult<TOperation>
+			) as OperationResult<TOperation>
 		}
 		case 'delete-one':
 		case 'find-one':
 		case 'get':
 		case 'update-one':
 			if (result === null) {
-				return null as InferOperationResult<TOperation>
+				return null as OperationResult<TOperation>
 			}
 			return materializeRecord(
 				readOperationSchema(operation),
 				result,
 				'Runtime result',
 				operation,
-			) as InferOperationResult<TOperation>
+			) as OperationResult<TOperation>
 		case 'create-one':
 		case 'upsert-one':
 			return materializeRecord(
 				readOperationSchema(operation),
 				result,
 				'Runtime result',
-			) as InferOperationResult<TOperation>
+			) as OperationResult<TOperation>
 	}
 }

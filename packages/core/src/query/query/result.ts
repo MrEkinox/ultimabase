@@ -1,5 +1,5 @@
 import type {
-	InferObject,
+	SchemaItem,
 	SchemaDefinition,
 	SchemaResult,
 } from '../../schema/index.js'
@@ -69,7 +69,7 @@ type MaterializeIncludedPointer<TValue, TInclusion> =
 		infer TNestedInclusion
 	>
 		? TValue extends Pointer<TTargetSchema>
-			? InferQueryResult<TTargetSchema, TSelectedField, TNestedInclusion> | null
+			? QueryResult<TTargetSchema, TSelectedField, TNestedInclusion> | null
 			: TValue
 		: TValue
 
@@ -83,7 +83,7 @@ type MaterializeIncludedRelation<TInclusion> =
 		? Readonly<
 				Record<
 					TFieldName,
-					readonly InferQueryResult<
+					readonly QueryResult<
 						TTargetSchema,
 						TSelectedField,
 						TNestedInclusion
@@ -115,34 +115,40 @@ type SelectedQueryRecord<
 	TSchema extends SchemaDefinition,
 	TSelectedField extends QueryFieldName<TSchema>,
 > = [TSelectedField] extends [never]
-	? InferObject<TSchema>
+	? SchemaItem<TSchema>
 	: Simplify<
 			Pick<
-				InferObject<TSchema>,
-				Extract<TSelectedField, keyof InferObject<TSchema>>
+				SchemaItem<TSchema>,
+				Extract<TSelectedField, keyof SchemaItem<TSchema>>
 			>
 		>
 
 /** Infers one neutral persisted record or its exact selected projection. */
-export type InferQueryRecord<
+export type QueryRecord<
 	TSchema extends SchemaDefinition,
 	TSelectedField extends QueryFieldName<TSchema> = never,
 	TIncludedPointer = never,
-> = [TIncludedPointer] extends [never]
-	? SelectedQueryRecord<TSchema, TSelectedField>
-	: ApplyInclusions<
-			SelectedQueryRecord<TSchema, TSelectedField>,
-			TIncludedPointer
-		>
+> =
+	string extends QueryFieldName<TSchema>
+		? Readonly<Record<string, unknown>>
+		: [TIncludedPointer] extends [never]
+			? SelectedQueryRecord<TSchema, TSelectedField>
+			: ApplyInclusions<
+					SelectedQueryRecord<TSchema, TSelectedField>,
+					TIncludedPointer
+				>
 
 /** Infers one schema-class result with only its statically visible fields. */
-export type InferQueryResult<
+export type QueryResult<
 	TSchema extends SchemaDefinition,
 	TSelectedField extends QueryFieldName<TSchema> = never,
 	TIncludedPointer = never,
-> = Simplify<
-	SchemaResult<
-		TSchema,
-		InferQueryRecord<TSchema, TSelectedField, TIncludedPointer>
-	>
->
+> =
+	string extends QueryFieldName<TSchema>
+		? Simplify<SchemaResult<TSchema, SchemaItem<TSchema>>>
+		: Simplify<
+				SchemaResult<
+					TSchema,
+					QueryRecord<TSchema, TSelectedField, TIncludedPointer>
+				>
+			>

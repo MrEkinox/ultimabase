@@ -324,7 +324,7 @@ describe('createRuntimeHookStages', () => {
 						'fixture.invalid-prepared',
 						preparedOperation({
 							schema: articleSchema,
-							handler: (() => ({ operation: replacement })) as never,
+							handler: () => ({ operation: replacement }),
 						}),
 					)
 				},

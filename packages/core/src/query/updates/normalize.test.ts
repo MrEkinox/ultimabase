@@ -3,7 +3,6 @@ import { describe, expect, it } from 'vitest'
 
 import { decrement, increment, unset } from './operators.js'
 import { normalizeUpdateExpression } from './normalize.js'
-import type { UpdateExpressionInput } from './contracts.js'
 
 const accountSchema = Schema.define({
 	className: 'Account',
@@ -87,14 +86,12 @@ describe('normalizeUpdateExpression', () => {
 		}).toThrow(new TypeError('update expression must be an object'))
 		expect(() => {
 			normalizeUpdateExpression(accountSchema, {
-				// @ts-expect-error -- Unknown fields cannot enter the normalized AST.
 				multiply: increment(2),
 			})
 		}).toThrow(
 			new TypeError('update increment field must reference a schema field'),
 		)
 		expect(() => {
-			// @ts-expect-error -- At least one changed field is required statically.
 			normalizeUpdateExpression(accountSchema, {})
 		}).toThrow(
 			new TypeError('update expression must contain at least one operation'),
@@ -103,20 +100,18 @@ describe('normalizeUpdateExpression', () => {
 			// This assertion simulates an untyped JavaScript boundary.
 			normalizeUpdateExpression(accountSchema, {
 				name: undefined,
-			} as unknown as UpdateExpressionInput<typeof accountSchema>)
+			})
 		}).toThrow(new TypeError('update value must not be undefined'))
 	})
 
 	it('rejects unknown, immutable, and system fields', () => {
 		expect(() => {
 			normalizeUpdateExpression(accountSchema, {
-				// @ts-expect-error -- Unknown fields are rejected statically and at runtime.
 				missing: true,
 			})
 		}).toThrow(new TypeError('update field must reference a schema field'))
 		expect(() => {
 			normalizeUpdateExpression(accountSchema, {
-				// @ts-expect-error -- Immutable fields cannot be updated.
 				lockedCounter: 1,
 			})
 		}).toThrow(
@@ -124,7 +119,6 @@ describe('normalizeUpdateExpression', () => {
 		)
 		expect(() => {
 			normalizeUpdateExpression(accountSchema, {
-				// @ts-expect-error -- System fields cannot be updated.
 				updatedAt: '2026-07-31T12:00:00.000Z',
 			})
 		}).toThrow(
@@ -135,7 +129,6 @@ describe('normalizeUpdateExpression', () => {
 	it('restricts arithmetic to scalar numeric fields and exact deltas', () => {
 		expect(() => {
 			normalizeUpdateExpression(accountSchema, {
-				// @ts-expect-error -- Strings do not expose arithmetic operations.
 				name: increment(1),
 			})
 		}).toThrow(
@@ -145,7 +138,6 @@ describe('normalizeUpdateExpression', () => {
 		)
 		expect(() => {
 			normalizeUpdateExpression(accountSchema, {
-				// @ts-expect-error -- Numeric lists are replaced directly instead.
 				scores: increment(1),
 			})
 		}).toThrow(
@@ -155,7 +147,6 @@ describe('normalizeUpdateExpression', () => {
 		)
 		expect(() => {
 			normalizeUpdateExpression(accountSchema, {
-				// @ts-expect-error -- Integer deltas must remain safe integers.
 				visits: increment('1'),
 			})
 		}).toThrow(new TypeError('update increment value must be a safe integer'))

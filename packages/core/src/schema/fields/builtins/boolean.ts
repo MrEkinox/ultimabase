@@ -4,7 +4,7 @@ import {
 } from '../base/options.js'
 import type {
 	FieldDefinition,
-	FieldInferenceState,
+	FieldTypegenState,
 	FieldListOption,
 	FieldOptions,
 	FieldValidationOptions,
@@ -31,8 +31,8 @@ export type BooleanFieldOptions = FieldOptions<boolean>
  * Carries the boolean value type and exact options through schema inference.
  */
 export type BooleanField<
-	TInference extends FieldInferenceState = FieldInferenceState,
-> = FieldDefinition<'boolean', boolean, BooleanFieldOptions, TInference>
+	TTypegen extends FieldTypegenState = FieldTypegenState,
+> = FieldDefinition<'boolean', boolean, BooleanFieldOptions, TTypegen>
 
 /** Provides boolean-specific names for the shared compact scalar contract. */
 type DefaultedBooleanFieldOptions<

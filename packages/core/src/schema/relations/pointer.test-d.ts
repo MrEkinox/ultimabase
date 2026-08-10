@@ -5,7 +5,7 @@ import {
 	Schema,
 	type PointerJSON,
 	type PointerValue,
-	type InferQueryResult,
+	type QueryResult,
 } from '../../index.js'
 
 const userSchema = Schema.define({
@@ -30,7 +30,7 @@ test('preserves exact schema identity through construction and convenience', () 
 	>()
 	expectTypeOf(direct).toExtend<PointerValue>()
 	expectTypeOf(direct.findOne({ select: { id: true } })).toEqualTypeOf<
-		Promise<InferQueryResult<typeof userSchema, 'id'> | null>
+		Promise<QueryResult<typeof userSchema, 'id'> | null>
 	>()
 
 	// @ts-expect-error -- The erased boundary remains nominal to Core Pointer values.

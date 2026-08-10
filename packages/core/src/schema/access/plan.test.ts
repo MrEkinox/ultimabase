@@ -192,6 +192,9 @@ describe('compiled Access plans', () => {
 			fieldOrder,
 		])
 		const secretField = articleSchema.fields.secret
+		if (secretField === undefined) {
+			throw new TypeError('Expected the secret field to be compiled')
+		}
 
 		expect(plan.getFields(articleSchema, secretField)).toStrictEqual([
 			fieldPlan,

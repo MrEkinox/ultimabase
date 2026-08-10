@@ -154,6 +154,9 @@ describe('ACL committed events with PostgreSQL', { concurrent: false }, () => {
 			},
 			{ ultimabase: getApplication(), useMasterKey: true },
 		)
+		if (!(created.acl instanceof ACL)) {
+			throw new TypeError('Expected the created ACL to be materialized')
+		}
 		const replacement = created.acl
 			.revokePublic('read')
 			.grantAuthenticated('update')
@@ -161,7 +164,7 @@ describe('ACL committed events with PostgreSQL', { concurrent: false }, () => {
 
 		await Post.updateOne(
 			{
-				where: (where) => where.eq('id', created.id),
+				where: { id: { eq: created.id } },
 				data: { acl: replacement },
 			},
 			{ ultimabase: getApplication(), useMasterKey: true },
@@ -186,7 +189,7 @@ describe('ACL committed events with PostgreSQL', { concurrent: false }, () => {
 
 		await Post.updateOne(
 			{
-				where: (where) => where.eq('id', created.id),
+				where: { id: { eq: created.id } },
 				data: { acl: ACL.fromJSON(replacement.toJSON()) },
 			},
 			{ ultimabase: getApplication(), useMasterKey: true },
@@ -199,13 +202,16 @@ describe('ACL committed events with PostgreSQL', { concurrent: false }, () => {
 			{ data: { title: 'rollback' } },
 			{ ultimabase: getApplication(), useMasterKey: true },
 		)
+		if (!(created.acl instanceof ACL)) {
+			throw new TypeError('Expected the created ACL to be materialized')
+		}
 		const start = committedChanges.length
 
 		rejectNextUpdate = true
 		await expect(
 			Post.updateOne(
 				{
-					where: (where) => where.eq('id', created.id),
+					where: { id: { eq: created.id } },
 					data: { acl: created.acl.grantAuthenticated('update') },
 				},
 				{ ultimabase: getApplication(), useMasterKey: true },
@@ -217,8 +223,11 @@ describe('ACL committed events with PostgreSQL', { concurrent: false }, () => {
 			{ where: { id: { eq: created.id } }, select: { acl: true } },
 			{ ultimabase: getApplication(), useMasterKey: true },
 		)
+		if (!(persisted?.acl instanceof ACL)) {
+			throw new TypeError('Expected the persisted ACL to be materialized')
+		}
 
-		expect(persisted?.acl.toJSON()).toStrictEqual(created.acl.toJSON())
+		expect(persisted.acl.toJSON()).toStrictEqual(created.acl.toJSON())
 	})
 
 	it('emits one deterministic event per create-many item', async () => {

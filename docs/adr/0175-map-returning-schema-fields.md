@@ -60,6 +60,9 @@ Once code generation runs, the exact generated item replaces this fallback.
 A loaded generated registry rejects schema names that are missing or stale.
 Core does not attempt to reconstruct the complete application graph as a
 fallback because doing so recreates the inference cycle this decision removes.
+Schema specializations such as `RoleSchema.define()` follow the same boundary:
+they retain explicit plugin capabilities and runtime metadata, but custom field
+values remain bootstrap-unknown until the generated schema entry exists.
 
 ### Declaration and resolution lifecycle
 

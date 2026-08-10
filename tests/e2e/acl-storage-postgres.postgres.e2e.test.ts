@@ -78,6 +78,9 @@ describe('ACL JSONB storage', { concurrent: false }, () => {
 				{ data: { title: 'Protected' } },
 				{ ultimabase, useMasterKey: true },
 			)
+			if (!(created.acl instanceof ACL)) {
+				throw new TypeError('Expected the created ACL to be materialized')
+			}
 			const createdRow = await getFixture().pool.query<{
 				readonly acl: unknown
 			}>('SELECT acl FROM acl_storage_posts WHERE id = $1', [created.id])
@@ -94,13 +97,16 @@ describe('ACL JSONB storage', { concurrent: false }, () => {
 				.grantAuthenticated('read')
 			const updated = await StoredPost.updateOne(
 				{
-					where: (where) => where.eq('id', created.id),
+					where: { id: { eq: created.id } },
 					data: { acl: replacement },
 				},
 				{ ultimabase, useMasterKey: true },
 			)
+			if (!(updated?.acl instanceof ACL)) {
+				throw new TypeError('Expected the updated ACL to be materialized')
+			}
 
-			expect(updated?.acl.toJSON()).toStrictEqual(replacement.toJSON())
+			expect(updated.acl.toJSON()).toStrictEqual(replacement.toJSON())
 			const indexes = await getFixture().pool.query<{
 				readonly indexdef: string
 				readonly indexname: string
@@ -134,7 +140,7 @@ describe('ACL JSONB storage', { concurrent: false }, () => {
 			expect(queryPlan.every((line) => !line.includes('Join'))).toBe(true)
 
 			await StoredPost.deleteOne(
-				{ where: (where) => where.eq('id', created.id) },
+				{ where: { id: { eq: created.id } } },
 				{ ultimabase, useMasterKey: true },
 			)
 			const remaining = await getFixture().pool.query<{

@@ -5,8 +5,8 @@ import {
 	defineSchemaExtension,
 	floatField,
 	type FieldDefinition,
-	type FieldInferenceState,
-	type FieldInferenceStateOf,
+	type FieldTypegenState,
+	type FieldTypegenStateOf,
 	type FloatField,
 	type FloatFieldOptions,
 	type FloatValidationOptions,
@@ -28,12 +28,12 @@ test('preserves float options and exact literals', () => {
 	})
 
 	expectTypeOf(field).toExtend<
-		FieldDefinition<'float', number, FloatFieldOptions, FieldInferenceState>
+		FieldDefinition<'float', number, FloatFieldOptions, FieldTypegenState>
 	>()
 	expectTypeOf(field).toExtend<FloatField>()
 	expectTypeOf(field.kind).toEqualTypeOf<'float'>()
 	expectTypeOf(field.options).toEqualTypeOf<Readonly<FloatFieldOptions>>()
-	expectTypeOf<FieldInferenceStateOf<typeof field>>().toEqualTypeOf<{
+	expectTypeOf<FieldTypegenStateOf<typeof field>>().toEqualTypeOf<{
 		readonly create: 'optional'
 		readonly object: 'required'
 		readonly update: 'optional'

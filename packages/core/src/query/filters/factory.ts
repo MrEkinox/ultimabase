@@ -485,7 +485,7 @@ export const createQueryValueFilter = <const TSchema extends SchemaDefinition>(
 		kind: operator,
 		...queryTargetProperties(resolved),
 		value: snapshot,
-	}) as QueryPrimitiveFilterNode<TSchema>
+	})
 }
 
 /** Creates one immutable inclusive range filter with two non-null bounds. */
@@ -553,7 +553,7 @@ export const createQueryMembershipFilter = <
 		kind: operator,
 		...queryTargetProperties(resolved),
 		values: immutableArray(normalizedValues),
-	}) as QueryPrimitiveFilterNode<TSchema>
+	})
 }
 
 /** Creates one immutable filter over a one-dimensional logical field list. */
@@ -574,7 +574,7 @@ export const createQueryListFilter = <const TSchema extends SchemaDefinition>(
 		return immutableRecord({
 			kind: operator,
 			...queryTargetProperties(resolved),
-		}) as QueryPrimitiveFilterNode<TSchema>
+		})
 	}
 
 	if (operator === 'list-has') {
@@ -582,14 +582,14 @@ export const createQueryListFilter = <const TSchema extends SchemaDefinition>(
 			kind: operator,
 			...queryTargetProperties(resolved),
 			value: snapshotQueryListElement(field, operand, 'query list value'),
-		}) as QueryPrimitiveFilterNode<TSchema>
+		})
 	}
 
 	return immutableRecord({
 		kind: operator,
 		...queryTargetProperties(resolved),
 		values: snapshotQueryList(field, operand, 'query list values'),
-	}) as QueryPrimitiveFilterNode<TSchema>
+	})
 }
 
 /** Creates one structural containment leaf for JSON and typed object values. */
@@ -617,7 +617,7 @@ export const createQueryStructuralFilter = <
 		kind: operator,
 		...queryTargetProperties(resolved),
 		value: snapshotStructuralValue(field, value, 'query filter value'),
-	}) as QueryPrimitiveFilterNode<TSchema>
+	})
 }
 
 /** Creates one immutable top-level key or key-collection predicate. */
@@ -646,7 +646,7 @@ export const createQueryKeyFilter = <
 			kind: operator,
 			...queryTargetProperties(resolved),
 			value: keys,
-		}) as QueryPrimitiveFilterNode<TSchema>
+		})
 	}
 
 	const untrustedKeys: unknown = keys
@@ -662,7 +662,7 @@ export const createQueryKeyFilter = <
 		kind: operator,
 		...queryTargetProperties(resolved),
 		keys: immutableArray(untrustedKeys),
-	}) as QueryPrimitiveFilterNode<TSchema>
+	})
 }
 
 /** Creates one immutable advanced JSONPath leaf without interpreting its source. */
@@ -728,7 +728,7 @@ export const createQueryJsonPathFilter = <
 		...(normalizedVariables === undefined
 			? {}
 			: { variables: normalizedVariables }),
-	}) as QueryPrimitiveFilterNode<TSchema>
+	})
 }
 
 /** Normalizes declarative regex data without creating executable RegExp state. */
@@ -805,5 +805,5 @@ export const createQueryNullFilter = <const TSchema extends SchemaDefinition>(
 		kind: 'null',
 		...queryTargetProperties(resolved),
 		isNull,
-	}) as QueryPrimitiveFilterNode<TSchema>
+	})
 }

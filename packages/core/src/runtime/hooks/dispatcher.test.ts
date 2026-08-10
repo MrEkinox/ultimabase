@@ -111,7 +111,10 @@ describe('native hook dispatcher', () => {
 					expect(kind).toBe('create')
 					expect(originalItem).toBeNull()
 					if (operation.kind === 'create-one') {
-						record(`schema:resolve:${String(operation.input.profile?.name)}`)
+						const profile: unknown = operation.input.profile
+						record(
+							`schema:resolve:${String(isPlainRecord(profile) ? profile.name : undefined)}`,
+						)
 					}
 
 					return operation
@@ -176,7 +179,10 @@ describe('native hook dispatcher', () => {
 			result: outcome.result,
 		})
 
-		expect(result.profile?.name).toBe('Ada')
+		const resultProfile: unknown = result.profile
+		expect(isPlainRecord(resultProfile) ? resultProfile.name : undefined).toBe(
+			'Ada',
+		)
 		expect(Object.isFrozen(result)).toBe(true)
 		expect(trace).toStrictEqual([
 			'name:resolve:  Ada  ',

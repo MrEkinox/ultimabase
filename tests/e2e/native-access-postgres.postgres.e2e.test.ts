@@ -173,9 +173,9 @@ beforeAll(async () => {
 		},
 		{ ultimabase, useMasterKey: true },
 	)
-	publicId = articles[0]?.id ?? ''
-	privateId = articles[1]?.id ?? ''
-	lockedId = articles[3]?.id ?? ''
+	publicId = articles[0]?.id.toString() ?? ''
+	privateId = articles[1]?.id.toString() ?? ''
+	lockedId = articles[3]?.id.toString() ?? ''
 
 	const documents = await BulkDocument.createMany(
 		{
@@ -189,7 +189,7 @@ beforeAll(async () => {
 	)
 	visibleDocumentIds = documents
 		.filter(({ visible }) => visible)
-		.map(({ id }) => id)
+		.map(({ id }) => id.toString())
 })
 
 afterAll(async () => {
@@ -254,7 +254,7 @@ describe('native Access with PostgreSQL', () => {
 		await expect(
 			AccessArticle.updateOne(
 				{
-					where: (where) => where.eq('id', publicId),
+					where: { id: { eq: publicId } },
 					data: { secret: 'changed' },
 				},
 				{ ultimabase: app },
@@ -301,7 +301,7 @@ describe('native Access with PostgreSQL', () => {
 		const app = getUltimaBase()
 		await expect(
 			AccessArticle.deleteOne(
-				{ where: (where) => where.eq('id', privateId) },
+				{ where: { id: { eq: privateId } } },
 				{ ultimabase: app },
 			),
 		).resolves.toBeNull()
@@ -325,7 +325,7 @@ describe('native Access with PostgreSQL', () => {
 		await expect(
 			AccessArticle.updateOne(
 				{
-					where: (where) => where.eq('id', lockedId),
+					where: { id: { eq: lockedId } },
 					data: { title: 'must-rollback' },
 				},
 				{ ultimabase: app },
@@ -359,7 +359,7 @@ describe('native Access with PostgreSQL', () => {
 		await expect(
 			BulkDocument.upsertOne(
 				{
-					where: (where) => where.eq('key', 'visible-a'),
+					where: { key: { eq: 'visible-a' } },
 					create: { key: 'visible-a', value: 0, visible: true },
 					update: { value: increment(1) },
 				},

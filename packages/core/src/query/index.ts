@@ -172,9 +172,9 @@ export type {
 export type { QueryOperationExecutor } from './operations/executor.js'
 export type { OperationOptions } from './operations/options.js'
 export type {
-	InferOperationRecordResult,
-	InferOperationResult,
-	InferOperationSourceRecordResult,
+	OperationRecordResult,
+	OperationResult,
+	OperationSourceRecordResult,
 } from './operations/results.js'
 export { normalizeUniqueUpsertTarget } from './operations/upsert.js'
 export type {
@@ -194,11 +194,13 @@ export type {
 	SchemaUpsertManyInput,
 	SchemaUpsertManyItemInput,
 	SchemaWhere,
+	// eslint-disable-next-line @typescript-eslint/no-deprecated -- Public compatibility re-export remains intentionally deprecated.
 	SchemaWhereFactory,
+	SchemaWhereInput,
 } from './operations/schema-commands.js'
 export type {
-	InferQueryRecord,
-	InferQueryResult,
+	QueryRecord,
+	QueryResult,
 	QueryPointerResultInclusion,
 	QueryRelationResultInclusion,
 	QueryResultInclusion,
@@ -221,26 +223,6 @@ export type {
 	QueryRelationTargetInput,
 	QuerySelectedFieldFromInput,
 } from './query/input.js'
-export type {
-	GeneratedDeepPartial,
-	GeneratedEqualityWhere,
-	GeneratedJsonPathVariables,
-	GeneratedJsonPathWhere,
-	GeneratedNullableWhere,
-	GeneratedOrderBy,
-	GeneratedOrderedWhere,
-	GeneratedPathWhere,
-	GeneratedPointerInclude,
-	GeneratedPointerWhere,
-	GeneratedRelationCountWhere,
-	GeneratedRelationInclude,
-	GeneratedRelationWhere,
-	GeneratedSelect,
-	GeneratedStringWhere,
-	GeneratedStructuralWhere,
-	GeneratedWhere,
-	GeneratedWhereBranches,
-} from './generated-contracts.js'
 export { QueryBuilder } from './query/query.js'
 export type { QueryPointerTargetBuilder } from './query/query.js'
 export type { QueryScope } from './query/scope.js'

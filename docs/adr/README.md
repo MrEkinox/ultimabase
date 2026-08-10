@@ -163,6 +163,7 @@ Accepted records:
 - [ADR-0175: Map-returning schema fields and generated typing authority](0175-map-returning-schema-fields.md)
 - [ADR-0176: One-dimensional field lists and generated array filters](0176-one-dimensional-field-lists.md)
 - [ADR-0177: Flat generated schema registry](0177-flat-generated-schema-registry.md)
+- [ADR-0178: Object-only schema mutation predicates](0178-object-only-mutation-where-inputs.md)
 
 Superseded records:
 

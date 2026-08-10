@@ -1,15 +1,11 @@
-import type { InferCreateInput, SchemaDefinition } from '../../schema/index.js'
+import type { SchemaCreateData, SchemaDefinition } from '../../schema/index.js'
 
 import type {
 	ExactQuerySelection,
 	LiteralQuerySelection,
 	QuerySelection,
 } from '../clauses/selection.js'
-import type {
-	WhereBuilder,
-	WhereCallback,
-	WhereInput,
-} from '../filters/where.js'
+import type { WhereBuilder, WhereInput } from '../filters/where.js'
 import type { UpdateExpressionInput } from '../updates/contracts.js'
 
 /** Exposes typed immutable filters without selection, ordering, or execution methods. */
@@ -17,22 +13,25 @@ export type SchemaWhere<TSchema extends SchemaDefinition> =
 	WhereBuilder<TSchema>
 
 /**
- * Builds one schema-aware mutation predicate.
+ * Describes one canonical schema-aware mutation predicate.
  *
  * @example `{ id: { eq: postId } }`
- * @example `(where) => where.eq('published', false)`
  */
+export type SchemaWhereInput<TSchema extends SchemaDefinition> =
+	WhereInput<TSchema>
+
+/** @deprecated Use `SchemaWhereInput`. */
 export type SchemaWhereFactory<TSchema extends SchemaDefinition> =
-	WhereCallback<TSchema> | WhereInput<TSchema>
+	SchemaWhereInput<TSchema>
 
 interface SchemaCreateOneFields<TSchema extends SchemaDefinition> {
 	/** Supplies the schema-derived values for the new row. */
-	readonly data: InferCreateInput<TSchema>
+	readonly data: SchemaCreateData<TSchema>
 }
 
 interface SchemaCreateManyFields<TSchema extends SchemaDefinition> {
 	/** Supplies the ordered schema-derived values for the new rows. */
-	readonly data: readonly InferCreateInput<TSchema>[]
+	readonly data: readonly SchemaCreateData<TSchema>[]
 }
 
 type SchemaResultSelection<
@@ -73,9 +72,9 @@ interface SchemaUpdateOneFields<TSchema extends SchemaDefinition> {
 	/**
 	 * Selects exactly one row by `id`, one unique field, or one complete unique index.
 	 *
-	 * @example `(where) => where.eq('id', postId)`
+	 * @example `{ id: { eq: postId } }`
 	 */
-	readonly where: SchemaWhereFactory<TSchema>
+	readonly where: SchemaWhereInput<TSchema>
 	/**
 	 * Applies typed atomic field operations when the target exists.
 	 *
@@ -117,7 +116,7 @@ export type SchemaUpdateManyExecutionInput<TSchema extends SchemaDefinition> =
 
 interface SchemaDeleteOneFields<TSchema extends SchemaDefinition> {
 	/** Selects exactly one row by `id`, one unique field, or one complete unique index. */
-	readonly where: SchemaWhereFactory<TSchema>
+	readonly where: SchemaWhereInput<TSchema>
 }
 
 /** Deletes one uniquely identified row with an optional exact result projection. */
@@ -133,7 +132,7 @@ export type SchemaDeleteOneExecutionInput<TSchema extends SchemaDefinition> =
 
 interface SchemaDeleteManyFields<TSchema extends SchemaDefinition> {
 	/** Supplies unique targets in deterministic declaration order. */
-	readonly where: readonly SchemaWhereFactory<TSchema>[]
+	readonly where: readonly SchemaWhereInput<TSchema>[]
 }
 
 /** Deletes uniquely targeted rows in order and returns their selected values. */
@@ -149,9 +148,9 @@ export type SchemaDeleteManyExecutionInput<TSchema extends SchemaDefinition> =
 
 interface SchemaUpsertOneFields<TSchema extends SchemaDefinition> {
 	/** Selects the conflict target through `id` or one complete unique index. */
-	readonly where: SchemaWhereFactory<TSchema>
+	readonly where: SchemaWhereInput<TSchema>
 	/** Supplies the complete create branch when no target exists. */
-	readonly create: InferCreateInput<TSchema>
+	readonly create: SchemaCreateData<TSchema>
 	/** Applies typed atomic operations when the target already exists. */
 	readonly update: UpdateExpressionInput<TSchema> & {}
 }

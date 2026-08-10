@@ -142,7 +142,7 @@ const aliceRequest = (requestId: string): RequestContext =>
 	RequestContext.anonymous({
 		requestId,
 		source: requestSources.internal,
-	}).withValue(currentMemberId, requireFixture(alice, 'alice').id)
+	}).withValue(currentMemberId, requireFixture(alice, 'alice').id.toString())
 
 beforeAll(async () => {
 	fixture = await createPostgresWorkerFixture()
@@ -169,7 +169,7 @@ beforeAll(async () => {
 		{ data: { name: 'Alice' } },
 		{ ultimabase: app, useMasterKey: true },
 	)
-	const alicePointer = Member.pointer(alice.id)
+	const alicePointer = Member.pointer(alice.id.toString())
 	const readACL = new ACL().grantPrincipal(alicePointer, 'read')
 	const editableACL = readACL.grantPrincipal(alicePointer, 'update')
 
@@ -196,19 +196,23 @@ beforeAll(async () => {
 			data: [
 				{
 					acl: editableACL,
-					author: Author.pointer(requireFixture(visibleAuthor, 'author').id),
+					author: Author.pointer(
+						requireFixture(visibleAuthor, 'author').id.toString(),
+					),
 					title: 'Visible article',
 				},
 				{
 					acl: readACL,
 					author: Author.pointer(
-						requireFixture(hiddenAuthor, 'hidden author').id,
+						requireFixture(hiddenAuthor, 'hidden author').id.toString(),
 					),
 					title: 'Hidden author article',
 				},
 				{
 					acl: emptyACL,
-					author: Author.pointer(requireFixture(visibleAuthor, 'author').id),
+					author: Author.pointer(
+						requireFixture(visibleAuthor, 'author').id.toString(),
+					),
 					title: 'Hidden article',
 				},
 			],
@@ -220,8 +224,8 @@ beforeAll(async () => {
 		.relation('tags')
 		.connect(
 			[
-				Tag.pointer(requireFixture(visibleTag, 'visible tag').id),
-				Tag.pointer(requireFixture(hiddenTag, 'hidden tag').id),
+				Tag.pointer(requireFixture(visibleTag, 'visible tag').id.toString()),
+				Tag.pointer(requireFixture(hiddenTag, 'hidden tag').id.toString()),
 			],
 			{ ultimabase: app, useMasterKey: true },
 		)
@@ -252,12 +256,16 @@ describe(
 				'Visible article',
 			])
 			expect(rows[0]?.author).toBeNull()
-			expect(rows[1]?.author?.toJSON()).toStrictEqual({
+			const includedAuthor = rows[1]?.author
+			if (!(includedAuthor instanceof Author)) {
+				throw new TypeError('Expected the visible author to be included')
+			}
+			expect(includedAuthor.toJSON()).toStrictEqual({
 				name: 'Visible author',
 			})
 			await expect(
 				Author.pointer(
-					requireFixture(hiddenAuthor, 'hidden author').id,
+					requireFixture(hiddenAuthor, 'hidden author').id.toString(),
 				).findOne(undefined, { context, ultimabase: app }),
 			).resolves.toBeNull()
 			const protectedInclusion = await Article.findMany(
@@ -304,10 +312,13 @@ describe(
 					.findMany(undefined, { context, ultimabase: app }),
 			).resolves.toStrictEqual([])
 			await expect(
-				tags.connect(Tag.pointer(requireFixture(hiddenTag, 'hidden tag').id), {
-					context,
-					ultimabase: app,
-				}),
+				tags.connect(
+					Tag.pointer(requireFixture(hiddenTag, 'hidden tag').id.toString()),
+					{
+						context,
+						ultimabase: app,
+					},
+				),
 			).rejects.toMatchObject({ code: 'NOT_FOUND' })
 		})
 	},

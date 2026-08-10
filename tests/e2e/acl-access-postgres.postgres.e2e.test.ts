@@ -274,14 +274,14 @@ describe('ACL PostgreSQL Access constraints', { concurrent: false }, () => {
 		)
 		const deniedUpdate = await ProtectedPost.updateOne(
 			{
-				where: (where) => where.eq('id', requireRowId('bob')),
+				where: { id: { eq: requireRowId('bob') } },
 				data: { marker: 'forbidden' },
 			},
 			{ context: alice, ultimabase: app },
 		)
 		const editorUpdated = await ProtectedPost.updateOne(
 			{
-				where: (where) => where.eq('id', requireRowId('editor')),
+				where: { id: { eq: requireRowId('editor') } },
 				data: { marker: 'editor-updated' },
 			},
 			{ context: editor, ultimabase: app },
@@ -299,7 +299,7 @@ describe('ACL PostgreSQL Access constraints', { concurrent: false }, () => {
 		).resolves.toHaveLength(1)
 		await expect(
 			ProtectedPost.deleteOne(
-				{ where: (where) => where.eq('id', requireRowId('editor')) },
+				{ where: { id: { eq: requireRowId('editor') } } },
 				{ context: editor, ultimabase: app },
 			),
 		).resolves.toMatchObject({ title: 'editor' })
@@ -329,7 +329,7 @@ describe('ACL PostgreSQL Access constraints', { concurrent: false }, () => {
 			() =>
 				ProtectedPost.upsertOne(
 					{
-						where: (where) => where.eq('id', deniedId),
+						where: { id: { eq: deniedId } },
 						create: { title: 'unexpected-upsert' },
 						update: { acl: replacement },
 					},
@@ -341,7 +341,7 @@ describe('ACL PostgreSQL Access constraints', { concurrent: false }, () => {
 						data: [
 							{
 								create: { title: 'unexpected-bulk-upsert' },
-								where: (where) => where.eq('id', deniedId),
+								where: { id: { eq: deniedId } },
 								update: { acl: replacement },
 							},
 						],

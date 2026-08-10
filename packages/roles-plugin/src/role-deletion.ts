@@ -8,7 +8,6 @@ import {
 	type HookEventContract,
 	type JsonObject,
 	type OperationOptions,
-	type RelationField,
 	type SchemaClass,
 	type SchemaDefinition,
 } from '@ultimabase/core'
@@ -64,12 +63,7 @@ export interface NamedRoleReferenceCleanup {
 	readonly name: string
 }
 
-type RoleDeletionLookupSchema = SchemaClass<
-	string,
-	Readonly<{
-		readonly roles: RelationField<RoleDeletionLookupSchema>
-	}>
->
+type RoleDeletionLookupSchema = SchemaClass
 
 const masterOptions: OperationOptions = Object.freeze({
 	useMasterKey: true,

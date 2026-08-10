@@ -300,7 +300,7 @@ describe('UltimaBase', () => {
 			const upserted = await importedDraft.upsert(
 				{
 					update: { title: 'Upserted' },
-					where: (where) => where.eq('title', 'Imported'),
+					where: { title: { eq: 'Imported' } },
 				},
 				{ ultimabase },
 			)

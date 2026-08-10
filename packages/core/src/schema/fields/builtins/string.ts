@@ -3,7 +3,7 @@ import { immutableRecord } from '@ultimabase/shared'
 import { normalizeFieldOptions } from '../base/options.js'
 import type {
 	FieldDefinition,
-	FieldInferenceState,
+	FieldTypegenState,
 	FieldListOption,
 	FieldOptions,
 } from '../base/contract.js'
@@ -46,8 +46,8 @@ export type StringFieldOptions = FieldOptions<string, StringValidationOptions>
  * Carries the string value type and exact options through later schema inference.
  */
 export type StringField<
-	TInference extends FieldInferenceState = FieldInferenceState,
-> = FieldDefinition<'string', string, StringFieldOptions, TInference>
+	TTypegen extends FieldTypegenState = FieldTypegenState,
+> = FieldDefinition<'string', string, StringFieldOptions, TTypegen>
 
 /** Provides string-specific names for the shared compact scalar contract. */
 type DefaultedStringFieldOptions<

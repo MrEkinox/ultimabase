@@ -91,7 +91,7 @@ export class GeneratedIdentifiers {
 					: field.value
 
 		return JSON.stringify({
-			inference: field.inference,
+			typegen: field.typegen,
 			kind: field.kind,
 			name: field.name,
 			value,

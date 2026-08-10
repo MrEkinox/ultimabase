@@ -81,7 +81,7 @@ const createOrderedPlugins = (trace: string[]) => {
 						return {
 							result: {
 								...input.result,
-								title: `${input.result.title}:dependency`,
+								title: `${String(input.result.title)}:dependency`,
 							},
 						}
 					},
@@ -105,7 +105,7 @@ const createOrderedPlugins = (trace: string[]) => {
 					schema: articleSchema,
 					operations: ['create-one'],
 					handler: (input) => {
-						trace.push(`event:dependency:${input.result.title}`)
+						trace.push(`event:dependency:${String(input.result.title)}`)
 					},
 				}),
 			)
@@ -153,7 +153,9 @@ const createOrderedPlugins = (trace: string[]) => {
 					schema: articleSchema,
 					operations: ['create-one'],
 					handler: (input) => {
-						trace.push(`schema-before:consumer:${input.operation.input.title}`)
+						trace.push(
+							`schema-before:consumer:${String(input.operation.input.title)}`,
+						)
 					},
 				}),
 			)
@@ -163,7 +165,7 @@ const createOrderedPlugins = (trace: string[]) => {
 					schema: articleSchema,
 					operations: ['create-one'],
 					handler: (input) => {
-						trace.push(`schema-after:consumer:${input.result.title}`)
+						trace.push(`schema-after:consumer:${String(input.result.title)}`)
 
 						return { result: input.result }
 					},
@@ -186,7 +188,7 @@ const createOrderedPlugins = (trace: string[]) => {
 					schema: articleSchema,
 					operations: ['create-one'],
 					handler: (input) => {
-						trace.push(`event:consumer:${input.result.title}`)
+						trace.push(`event:consumer:${String(input.result.title)}`)
 					},
 				}),
 			)

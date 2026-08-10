@@ -8,7 +8,7 @@ import type {
 	QueryFilterNode,
 	UpdateExpression,
 } from '../../query/index.js'
-import type { InferObject } from '../inference/types.js'
+import type { SchemaItem } from '../schema/values.js'
 import type { SchemaDefinition } from '../schema/definition.js'
 import type { SchemaPreparedDraft, SchemaResult } from '../schema/model.js'
 import type { RelationUpdateExpression } from '../relations/mutation.js'
@@ -144,7 +144,7 @@ export type SchemaResolveInputHookInput<
 export interface SchemaMutationItemPair<
 	TSchema extends SchemaDefinition,
 	TOriginalItem extends object | null = SchemaResult<TSchema> | null,
-	TItem extends object | null = Readonly<InferObject<TSchema>> | null,
+	TItem extends object | null = Readonly<SchemaItem<TSchema>> | null,
 > {
 	/** Contains the object visible before persistence, or `null` for creation. */
 	readonly originalItem: TOriginalItem
@@ -153,13 +153,13 @@ export interface SchemaMutationItemPair<
 }
 
 type SchemaCreateItemPair<TSchema extends SchemaDefinition> =
-	SchemaMutationItemPair<TSchema, null, Readonly<InferObject<TSchema>>>
+	SchemaMutationItemPair<TSchema, null, Readonly<SchemaItem<TSchema>>>
 
 type SchemaUpdateItemPair<TSchema extends SchemaDefinition> =
 	SchemaMutationItemPair<
 		TSchema,
 		SchemaResult<TSchema>,
-		Readonly<InferObject<TSchema>>
+		Readonly<SchemaItem<TSchema>>
 	>
 
 type SchemaDeleteItemPair<TSchema extends SchemaDefinition> =

@@ -1,4 +1,4 @@
-import type { InferCreateInput, SchemaDefinition } from '../../schema/index.js'
+import type { SchemaCreateData, SchemaDefinition } from '../../schema/index.js'
 import {
 	immutableArray,
 	immutableRecord,
@@ -25,7 +25,7 @@ export interface UpsertTargetQuery<TSchema extends SchemaDefinition> {
 
 /** Keeps create and update behavior explicit when the unique target is absent or present. */
 export type UpsertInput<TSchema extends SchemaDefinition> = {
-	readonly create: InferCreateInput<TSchema>
+	readonly create: SchemaCreateData<TSchema>
 	readonly update: UpdateExpressionInput<TSchema> & {}
 } & {}
 
@@ -36,7 +36,7 @@ export type UpsertManyItemInput<TSchema extends SchemaDefinition> =
 	}
 
 interface NormalizedUpsertInput<TSchema extends SchemaDefinition> {
-	readonly create: InferCreateInput<TSchema>
+	readonly create: SchemaCreateData<TSchema>
 	readonly update: UpdateExpression<TSchema>
 }
 
@@ -49,7 +49,7 @@ const createUniqueUpsertTarget = <const TSchema extends SchemaDefinition>(
 	immutableRecord({
 		kind: 'unique-upsert-target',
 		fields,
-	}) as UniqueUpsertTargetNode<TSchema>
+	})
 
 const hasSameFields = (
 	left: readonly string[],

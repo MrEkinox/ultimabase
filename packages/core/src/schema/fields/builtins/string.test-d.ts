@@ -5,8 +5,8 @@ import {
 	defineSchemaExtension,
 	stringField,
 	type FieldDefinition,
-	type FieldInferenceState,
-	type FieldInferenceStateOf,
+	type FieldTypegenState,
+	type FieldTypegenStateOf,
 	type StringField,
 	type StringFieldOptions,
 	type StringValidationOptions,
@@ -29,11 +29,11 @@ test('retains only string metadata that affects inference', () => {
 	})
 
 	expectTypeOf(field).toExtend<
-		FieldDefinition<'string', string, StringFieldOptions, FieldInferenceState>
+		FieldDefinition<'string', string, StringFieldOptions, FieldTypegenState>
 	>()
 	expectTypeOf(field.kind).toEqualTypeOf<'string'>()
 	expectTypeOf(field.options).toEqualTypeOf<Readonly<StringFieldOptions>>()
-	expectTypeOf<FieldInferenceStateOf<typeof field>>().toEqualTypeOf<{
+	expectTypeOf<FieldTypegenStateOf<typeof field>>().toEqualTypeOf<{
 		readonly create: 'optional'
 		readonly object: 'required'
 		readonly update: 'forbidden'
@@ -52,10 +52,10 @@ test('represents optional, nullable, and defaulted variants independently', () =
 	expectTypeOf(defaulted).toExtend<StringField>()
 	expectTypeOf(optional.options).toEqualTypeOf<Readonly<StringFieldOptions>>()
 	expectTypeOf<
-		FieldInferenceStateOf<typeof nullable>['nullable']
+		FieldTypegenStateOf<typeof nullable>['nullable']
 	>().toEqualTypeOf<true>()
 	expectTypeOf<
-		FieldInferenceStateOf<typeof defaulted>['object']
+		FieldTypegenStateOf<typeof defaulted>['object']
 	>().toEqualTypeOf<'required'>()
 })
 

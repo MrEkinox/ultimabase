@@ -34,7 +34,7 @@ describe('FrameworkApplication', () => {
 
 		expect(application.compileSchemas()).toBe(application)
 		expect(application.compileSchemas()).toBe(application)
-		expect(StaticSchema.fields.title.kind).toBe('string')
+		expect(StaticSchema.fields.title?.kind).toBe('string')
 		expect(setupCalls).toBe(0)
 		expect(application.state).toBe('idle')
 	})

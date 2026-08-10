@@ -6,9 +6,9 @@ import {
 	UltimaBase,
 	requestSources,
 	runWithRequestEngine,
-	type PointerField,
-	type ScalarFieldInferenceState,
-	type SchemaClass,
+	type BaseItem,
+	type OperationOptions,
+	type SchemaReference,
 } from '@ultimabase/core'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
@@ -38,6 +38,17 @@ const User = Schema.define({
 		name: field.string({ validation: { required: true } }),
 	}),
 })
+
+const isUpdatableIncludedUser = (
+	value: unknown,
+): value is InstanceType<typeof User> &
+	Readonly<{
+		update: (
+			input: Readonly<{ data: Readonly<{ name: string }> }>,
+			options?: OperationOptions,
+		) => Promise<BaseItem>
+	}> =>
+	value instanceof User && typeof Reflect.get(value, 'update') === 'function'
 
 const Post = Schema.define({
 	className: 'PointerE2EPost',
@@ -163,26 +174,8 @@ const PrivateSource = Schema.define({
 	}),
 })
 
-type CircularPointerState = ScalarFieldInferenceState<
-	false,
-	false,
-	false,
-	false
->
-type CircularLeftSchema = SchemaClass<
-	'PointerE2ECircularLeft',
-	Readonly<{
-		readonly right: PointerField<CircularRightSchema, CircularPointerState>
-	}>,
-	readonly []
->
-type CircularRightSchema = SchemaClass<
-	'PointerE2ECircularRight',
-	Readonly<{
-		readonly left: PointerField<CircularLeftSchema, CircularPointerState>
-	}>,
-	readonly []
->
+type CircularLeftSchema = SchemaReference<'PointerE2ECircularLeft'>
+type CircularRightSchema = SchemaReference<'PointerE2ECircularRight'>
 
 function resolveCircularRight(): CircularRightSchema {
 	return CircularRight
@@ -291,7 +284,7 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 		await Post.createOne(
 			{
 				data: {
-					author: User.pointer(author.id),
+					author: User.pointer(author.id.toString()),
 					title: 'Cursor order fixture',
 				},
 			},
@@ -301,7 +294,7 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 		await Post.createOne(
 			{
 				data: {
-					author: User.pointer(author.id),
+					author: User.pointer(author.id.toString()),
 					title: 'Cursor order fixture',
 				},
 			},
@@ -320,10 +313,11 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 		)
 
 		expect(page.map(({ id }) => id)).toStrictEqual([lowerId, higherId])
-		expect(page.map(({ author: included }) => included?.name)).toStrictEqual([
-			'Cursor author',
-			'Cursor author',
-		])
+		expect(
+			page.map(({ author: included }) =>
+				included instanceof User ? included.name : undefined,
+			),
+		).toStrictEqual(['Cursor author', 'Cursor author'])
 	})
 
 	it('executes public CRUD, model commands, selection-aware inclusion, and hooks', async () => {
@@ -337,13 +331,18 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 			{ data: { name: 'Grace' } },
 			{ ultimabase: app },
 		)
-		const firstPointer = User.pointer(firstAuthor.id)
-		const secondPointer = User.pointer(secondAuthor.id)
+		const firstPointer = User.pointer(firstAuthor.id.toString())
+		const secondPointer = User.pointer(secondAuthor.id.toString())
 		const created = await new Post({
 			author: firstPointer,
 			title: 'Typed pointer',
 		}).create({}, { ultimabase: app })
 
+		if (!Pointer.is(created.author)) {
+			throw new TypeError(
+				'Expected the created author pointer to be materialized',
+			)
+		}
 		expect(created.author).toBeInstanceOf(Pointer)
 		expect(created.author.equals(firstPointer)).toBe(true)
 
@@ -357,11 +356,10 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 		)
 
 		expect(included?.title).toBe('Typed pointer')
-		expect(included?.author?.toJSON()).toStrictEqual({ name: 'Ada' })
-
-		if (included?.author === null || included?.author === undefined) {
+		if (!isUpdatableIncludedUser(included?.author)) {
 			throw new TypeError('Expected an included author model')
 		}
+		expect(included.author.toJSON()).toStrictEqual({ name: 'Ada' })
 
 		const renamedAuthor = await included.author.update(
 			{ data: { name: 'Ada Lovelace' } },
@@ -382,6 +380,11 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 			{ data: { author: secondPointer, title: 'Updated pointer' } },
 			{ ultimabase: app },
 		)
+		if (!Pointer.is(updated.author)) {
+			throw new TypeError(
+				'Expected the updated author pointer to be materialized',
+			)
+		}
 
 		expect(updated.author.equals(secondPointer)).toBe(true)
 		expect(pointerTrace).toEqual(
@@ -391,7 +394,7 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 		await expect(
 			Post.updateOne(
 				{
-					where: (where) => where.eq('id', created.id),
+					where: { id: { eq: created.id } },
 					data: {
 						author: firstPointer,
 						title: 'rollback-pointer',
@@ -408,11 +411,21 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 			},
 			{ ultimabase: app },
 		)
+		if (!Pointer.is(afterRollback?.author)) {
+			throw new TypeError(
+				'Expected the persisted author pointer to be materialized',
+			)
+		}
 
-		expect(afterRollback?.author.equals(secondPointer)).toBe(true)
-		expect(afterRollback?.title).toBe('Updated pointer')
+		expect(afterRollback.author.equals(secondPointer)).toBe(true)
+		expect(afterRollback.title).toBe('Updated pointer')
 
 		const deleted = await updated.delete({}, { ultimabase: app })
+		if (!Pointer.is(deleted.author)) {
+			throw new TypeError(
+				'Expected the deleted author pointer to be materialized',
+			)
+		}
 
 		expect(deleted.author.equals(secondPointer)).toBe(true)
 		await expect(
@@ -426,7 +439,7 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 			{ data: { label: 'unique' } },
 			{ ultimabase: app },
 		)
-		const targetPointer = UniqueTarget.pointer(target.id)
+		const targetPointer = UniqueTarget.pointer(target.id.toString())
 
 		await UniqueSource.createOne(
 			{ data: { target: targetPointer } },
@@ -472,7 +485,7 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 
 			return Post.createOne({
 				data: {
-					author: User.pointer(author.id),
+					author: User.pointer(author.id.toString()),
 					title: 'Committed post',
 				},
 			})
@@ -488,7 +501,7 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 
 				await Post.createOne({
 					data: {
-						author: User.pointer(author.id),
+						author: User.pointer(author.id.toString()),
 						title: 'Rolled back post',
 					},
 				})
@@ -515,13 +528,17 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 			{ ultimabase: app },
 		)
 		const restrictedSource = await RestrictedSource.createOne(
-			{ data: { target: RestrictedTarget.pointer(restrictedTarget.id) } },
+			{
+				data: {
+					target: RestrictedTarget.pointer(restrictedTarget.id.toString()),
+				},
+			},
 			{ ultimabase: app },
 		)
 
 		await expect(
 			RestrictedTarget.deleteOne(
-				{ where: (where) => where.eq('id', restrictedTarget.id) },
+				{ where: { id: { eq: restrictedTarget.id } } },
 				{ ultimabase: app },
 			),
 		).rejects.toMatchObject({
@@ -540,12 +557,12 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 			{ ultimabase: app },
 		)
 		const cascadeSource = await CascadeSource.createOne(
-			{ data: { target: CascadeTarget.pointer(cascadeTarget.id) } },
+			{ data: { target: CascadeTarget.pointer(cascadeTarget.id.toString()) } },
 			{ ultimabase: app },
 		)
 
 		await CascadeTarget.deleteOne(
-			{ where: (where) => where.eq('id', cascadeTarget.id) },
+			{ where: { id: { eq: cascadeTarget.id } } },
 			{ ultimabase: app },
 		)
 		await expect(
@@ -560,12 +577,14 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 			{ ultimabase: app },
 		)
 		const nullableSource = await NullableSource.createOne(
-			{ data: { target: NullableTarget.pointer(nullableTarget.id) } },
+			{
+				data: { target: NullableTarget.pointer(nullableTarget.id.toString()) },
+			},
 			{ ultimabase: app },
 		)
 
 		await NullableTarget.deleteOne(
-			{ where: (where) => where.eq('id', nullableTarget.id) },
+			{ where: { id: { eq: nullableTarget.id } } },
 			{ ultimabase: app },
 		)
 		const detached = await NullableSource.findOne(
@@ -587,7 +606,7 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 			{ ultimabase: app },
 		)
 		const source = await PrivateSource.createOne(
-			{ data: { target: PrivateTarget.pointer(target.id) } },
+			{ data: { target: PrivateTarget.pointer(target.id.toString()) } },
 			{ ultimabase: app },
 		)
 		const query = {
@@ -605,7 +624,7 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 			{ ultimabase: app },
 		)
 		const detachedSource = await NullableSource.createOne(
-			{ data: { target: NullableTarget.pointer(deletedTarget.id) } },
+			{ data: { target: NullableTarget.pointer(deletedTarget.id.toString()) } },
 			{ ultimabase: app },
 		)
 
@@ -621,27 +640,37 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 
 		expect(denied?.target).toBeNull()
 		expect(denied?.target).toBe(detached?.target)
-		expect(allowed?.target?.toJSON()).toStrictEqual({ label: 'private' })
+		if (!(allowed?.target instanceof PrivateTarget)) {
+			throw new TypeError(
+				'Expected the private target to be included for master',
+			)
+		}
+		expect(allowed.target.toJSON()).toStrictEqual({ label: 'private' })
 	})
 
 	it('persists and cleans circular pointers without transport infrastructure', async () => {
 		const app = getUltimaBase()
 		const left = await CircularLeft.createOne({ data: {} }, { ultimabase: app })
 		const right = await CircularRight.createOne(
-			{ data: { left: CircularLeft.pointer(left.id) } },
+			{ data: { left: CircularLeft.pointer(left.id.toString()) } },
 			{ ultimabase: app },
 		)
 		const updatedLeft = await CircularLeft.updateOne(
 			{
-				where: (where) => where.eq('id', left.id),
-				data: { right: new Pointer(CircularRight, right.id) },
+				where: { id: { eq: left.id } },
+				data: { right: new Pointer(CircularRight, right.id.toString()) },
 			},
 			{ ultimabase: app },
 		)
+		if (!Pointer.is(updatedLeft?.right)) {
+			throw new TypeError(
+				'Expected the circular right pointer to be materialized',
+			)
+		}
 
-		expect(updatedLeft?.right?.id).toBe(right.id)
+		expect(updatedLeft.right.id).toBe(right.id)
 		await CircularLeft.deleteOne(
-			{ where: (where) => where.eq('id', left.id) },
+			{ where: { id: { eq: left.id } } },
 			{ ultimabase: app },
 		)
 		const detachedRight = await CircularRight.findOne(

@@ -2,7 +2,7 @@ import {
 	increment,
 	QueryBuilder,
 	Schema,
-	type InferQueryResult,
+	type QueryResult,
 	type OperationOptions,
 	type RequestContext,
 	type UltimaBase,
@@ -27,74 +27,68 @@ test('preserves schema selection across every root read terminal', () => {
 	const input = { select: { id: true, title: true } } as const
 
 	expectTypeOf(articleSchema.findMany(input)).toEqualTypeOf<
-		Promise<readonly InferQueryResult<typeof articleSchema, 'id' | 'title'>[]>
+		Promise<readonly QueryResult<typeof articleSchema, 'id' | 'title'>[]>
 	>()
 	expectTypeOf(articleSchema.findOne(input)).toEqualTypeOf<
-		Promise<InferQueryResult<typeof articleSchema, 'id' | 'title'> | null>
+		Promise<QueryResult<typeof articleSchema, 'id' | 'title'> | null>
 	>()
 	expectTypeOf(
 		articleSchema.get({ id: 'article-1', select: input.select }),
-	).toEqualTypeOf<
-		Promise<InferQueryResult<typeof articleSchema, 'id' | 'title'>>
-	>()
+	).toEqualTypeOf<Promise<QueryResult<typeof articleSchema, 'id' | 'title'>>>()
 	expectTypeOf(articleSchema.count()).toEqualTypeOf<Promise<number>>()
 	expectTypeOf(articleSchema.exists()).toEqualTypeOf<Promise<boolean>>()
 	expectTypeOf(articleSchema.findMany(input, { ultimabase })).toEqualTypeOf<
-		Promise<readonly InferQueryResult<typeof articleSchema, 'id' | 'title'>[]>
+		Promise<readonly QueryResult<typeof articleSchema, 'id' | 'title'>[]>
 	>()
 	expectTypeOf(
 		articleSchema.createOne({ data: { title: 'Created' } }, { ultimabase }),
-	).toEqualTypeOf<Promise<InferQueryResult<typeof articleSchema>>>()
+	).toEqualTypeOf<Promise<QueryResult<typeof articleSchema>>>()
 	expectTypeOf(
 		articleSchema.createMany({ data: [{ title: 'Created' }] }, { ultimabase }),
-	).toEqualTypeOf<Promise<readonly InferQueryResult<typeof articleSchema>[]>>()
+	).toEqualTypeOf<Promise<readonly QueryResult<typeof articleSchema>[]>>()
 	expectTypeOf(
 		articleSchema.upsertMany(
 			{
 				data: [
 					{
 						create: { title: 'Unique' },
-						where: (where) => where.eq('title', 'Unique'),
+						where: { title: { eq: 'Unique' } },
 						update: { views: increment(1) },
 					},
 				],
 			},
 			{ ultimabase },
 		),
-	).toEqualTypeOf<Promise<readonly InferQueryResult<typeof articleSchema>[]>>()
+	).toEqualTypeOf<Promise<readonly QueryResult<typeof articleSchema>[]>>()
 	expectTypeOf(
 		articleSchema.updateMany(
 			{
 				data: [
 					{
-						where: (where) => where.eq('title', 'Unique'),
+						where: { title: { eq: 'Unique' } },
 						data: { views: increment(1) },
 					},
 				],
 			},
 			{ ultimabase },
 		),
-	).toEqualTypeOf<
-		Promise<readonly InferQueryResult<typeof articleSchema, 'id'>[]>
-	>()
+	).toEqualTypeOf<Promise<readonly QueryResult<typeof articleSchema, 'id'>[]>>()
 	expectTypeOf(
 		articleSchema.upsertOne(
 			{
-				where: (where) => where.eq('title', 'Unique'),
+				where: { title: { eq: 'Unique' } },
 				create: { title: 'Unique' },
 				update: { views: increment(1) },
 			},
 			{ ultimabase },
 		),
-	).toEqualTypeOf<Promise<InferQueryResult<typeof articleSchema>>>()
+	).toEqualTypeOf<Promise<QueryResult<typeof articleSchema>>>()
 	expectTypeOf(
 		articleSchema.deleteMany(
 			{ where: [{ id: { eq: 'article-1' } }] },
 			{ ultimabase },
 		),
-	).toEqualTypeOf<
-		Promise<readonly InferQueryResult<typeof articleSchema, 'id'>[]>
-	>()
+	).toEqualTypeOf<Promise<readonly QueryResult<typeof articleSchema, 'id'>[]>>()
 
 	const masterOptions = { useMasterKey: true } as const
 	const contextOptions = { context, ultimabase } as const
@@ -123,7 +117,7 @@ test('preserves schema selection across every root read terminal', () => {
 	)
 	void articleSchema.updateOne(
 		{
-			where: (where) => where.eq('title', 'Unique'),
+			where: { title: { eq: 'Unique' } },
 			data: { views: increment(1) },
 		},
 		masterOptions,
@@ -132,7 +126,7 @@ test('preserves schema selection across every root read terminal', () => {
 		{
 			data: [
 				{
-					where: (where) => where.eq('id', 'article-1'),
+					where: { id: { eq: 'article-1' } },
 					data: { views: increment(1) },
 				},
 			],
@@ -141,7 +135,7 @@ test('preserves schema selection across every root read terminal', () => {
 	)
 	void articleSchema.upsertOne(
 		{
-			where: (where) => where.eq('title', 'Unique'),
+			where: { title: { eq: 'Unique' } },
 			create: { title: 'Unique' },
 			update: { views: increment(1) },
 		},
@@ -152,7 +146,7 @@ test('preserves schema selection across every root read terminal', () => {
 			data: [
 				{
 					create: { title: 'Unique' },
-					where: (where) => where.eq('title', 'Unique'),
+					where: { title: { eq: 'Unique' } },
 					update: { views: increment(1) },
 				},
 			],
@@ -160,7 +154,7 @@ test('preserves schema selection across every root read terminal', () => {
 		contextualMasterOptions,
 	)
 	void articleSchema.deleteOne(
-		{ where: (where) => where.eq('title', 'Unique') },
+		{ where: { title: { eq: 'Unique' } } },
 		masterOptions,
 	)
 	void articleSchema.deleteMany(

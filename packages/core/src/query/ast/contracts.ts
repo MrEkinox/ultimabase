@@ -1,10 +1,11 @@
 import type { SchemaDefinition } from '../../schema/index.js'
+import type { SchemaTypeInfoFor } from '../../schema/type-info.js'
 
 import type { QueryCursor } from '../cursor/contracts.js'
 
 /** Extracts every developer and framework-owned field name from one schema. */
 export type QueryFieldName<TSchema extends SchemaDefinition> = Extract<
-	keyof TSchema['fields'],
+	SchemaTypeInfoFor<TSchema>['fields'],
 	string
 >
 

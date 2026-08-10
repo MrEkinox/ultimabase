@@ -14,7 +14,7 @@ import {
 } from '../base/options.js'
 import type {
 	FieldDefinition,
-	FieldInferenceState,
+	FieldTypegenState,
 	FieldListOption,
 	FieldOptions,
 	InvalidOptionsArguments,
@@ -64,12 +64,12 @@ export interface EnumFieldOptions<TValues extends EnumValues = EnumValues>
  */
 export type EnumField<
 	TValues extends EnumValues = EnumValues,
-	TInference extends FieldInferenceState = FieldInferenceState,
+	TTypegen extends FieldTypegenState = FieldTypegenState,
 > = FieldDefinition<
 	'enum',
 	EnumValue<TValues>,
 	EnumFieldOptions<TValues>,
-	TInference
+	TTypegen
 >
 
 type NonEmptyMapping<TValues extends EnumValues> =

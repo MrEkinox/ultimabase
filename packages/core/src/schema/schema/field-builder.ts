@@ -40,7 +40,7 @@ import type { SchemaFields } from './definition.js'
 import type {
 	UltimaBaseGeneratedEmbeddedFieldBuilderMethods,
 	UltimaBaseGeneratedFieldBuilderMethods,
-} from '../generated-contracts.js'
+} from '../type-info.js'
 import type {
 	FieldBuilderMethodResolver,
 	OwnedFieldBuilderMethod,

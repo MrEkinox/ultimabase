@@ -1,7 +1,7 @@
 import { assertFieldOptions, normalizeFieldOptions } from '../base/options.js'
 import type {
 	FieldDefinition,
-	FieldInferenceState,
+	FieldTypegenState,
 	FieldListOption,
 	FieldOptions,
 	InvalidOptionsArguments,
@@ -52,8 +52,8 @@ export interface BigintFieldOptions extends FieldOptions<
  * Carries an exact bigint value and its options through schema inference.
  */
 export type BigintField<
-	TInference extends FieldInferenceState = FieldInferenceState,
-> = FieldDefinition<'bigint', bigint, BigintFieldOptions, TInference>
+	TTypegen extends FieldTypegenState = FieldTypegenState,
+> = FieldDefinition<'bigint', bigint, BigintFieldOptions, TTypegen>
 
 /** Provides bigint-specific names for compact sequence inference. */
 type DefaultedBigintFieldOptions<

@@ -1,28 +1,8 @@
-import {
-	Schema,
-	type PointerField,
-	type RelationField,
-	type ScalarFieldInferenceState,
-	type SchemaClass,
-} from '@ultimabase/core'
+import { Schema, type SchemaReference } from '@ultimabase/core'
 
-type RequiredPointerState = ScalarFieldInferenceState<true, false, false, false>
-
-export type PostgresRelationArticleSchema = SchemaClass<
-	'PostgresRelationArticle',
-	Readonly<{
-		readonly tags: RelationField<PostgresRelationTagSchema, undefined>
-	}>,
-	readonly []
->
-
-export type PostgresRelationTagSchema = SchemaClass<
-	'PostgresRelationTag',
-	Readonly<{
-		readonly articles: RelationField<PostgresRelationArticleSchema, 'tags'>
-	}>,
-	readonly []
->
+export type PostgresRelationArticleSchema =
+	SchemaReference<'PostgresRelationArticle'>
+export type PostgresRelationTagSchema = SchemaReference<'PostgresRelationTag'>
 
 function resolveTag(): PostgresRelationTagSchema {
 	return PostgresRelationTag
@@ -45,24 +25,9 @@ export const PostgresRelationTag: PostgresRelationTagSchema = Schema.define({
 	}),
 })
 
-export type PostgresRelationAuthorSchema = SchemaClass<
-	'PostgresRelationAuthor',
-	Readonly<{
-		readonly posts: RelationField<PostgresRelationPostSchema, 'author'>
-	}>,
-	readonly []
->
-
-export type PostgresRelationPostSchema = SchemaClass<
-	'PostgresRelationPost',
-	Readonly<{
-		readonly author: PointerField<
-			PostgresRelationAuthorSchema,
-			RequiredPointerState
-		>
-	}>,
-	readonly []
->
+export type PostgresRelationAuthorSchema =
+	SchemaReference<'PostgresRelationAuthor'>
+export type PostgresRelationPostSchema = SchemaReference<'PostgresRelationPost'>
 
 function resolvePost(): PostgresRelationPostSchema {
 	return PostgresRelationPost

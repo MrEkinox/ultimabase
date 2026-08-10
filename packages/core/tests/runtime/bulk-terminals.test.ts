@@ -184,12 +184,12 @@ describe('bulk and upsert terminals', () => {
 			accountSchema.upsertMany({
 				data: [
 					{
-						where: (where) => where.eq('email', 'first@example.com'),
+						where: { email: { eq: 'first@example.com' } },
 						create: { email: 'first@example.com' },
 						update: { visits: increment(1) },
 					},
 					{
-						where: (where) => where.eq('email', 'second@example.com'),
+						where: { email: { eq: 'second@example.com' } },
 						create: { email: 'second@example.com' },
 						update: { visits: increment(1) },
 					},

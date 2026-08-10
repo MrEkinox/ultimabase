@@ -4,10 +4,7 @@ import {
 	stringField,
 	UltimaBase,
 	type FieldBuilder,
-	type PointerField,
-	type RelationField,
-	type ScalarFieldInferenceState,
-	type SchemaClass,
+	type SchemaReference,
 } from '@ultimabase/core'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
@@ -24,24 +21,8 @@ const tagLabelField = stringField({ validation: { required: true } })
 const tagVisibleField = booleanField({ default: true })
 const articleTitleField = stringField({ validation: { required: true } })
 
-type ArticleSchema = SchemaClass<
-	'RelationE2EArticle',
-	Readonly<{
-		readonly title: typeof articleTitleField
-		readonly tags: RelationField<TagSchema, undefined>
-	}>,
-	readonly []
->
-
-type TagSchema = SchemaClass<
-	'RelationE2ETag',
-	Readonly<{
-		readonly label: typeof tagLabelField
-		readonly articles: RelationField<ArticleSchema, 'tags'>
-		readonly visible: typeof tagVisibleField
-	}>,
-	readonly []
->
+type ArticleSchema = SchemaReference<'RelationE2EArticle'>
+type TagSchema = SchemaReference<'RelationE2ETag'>
 
 function resolveTag(): TagSchema {
 	return Tag
@@ -103,35 +84,12 @@ const Tag = Schema.define<'RelationE2ETag', ReturnType<typeof tagFields>>({
 	},
 })
 
-type OptionalPointerState = ScalarFieldInferenceState<
-	false,
-	false,
-	false,
-	false
->
-
 const authorNameField = stringField({ validation: { required: true } })
 const authorVisibleField = booleanField({ default: true })
 const postTitleField = stringField({ validation: { required: true } })
 
-type AuthorSchema = SchemaClass<
-	'RelationE2EAuthor',
-	Readonly<{
-		readonly name: typeof authorNameField
-		readonly posts: RelationField<PostSchema, 'author'>
-		readonly visible: typeof authorVisibleField
-	}>,
-	readonly []
->
-
-type PostSchema = SchemaClass<
-	'RelationE2EPost',
-	Readonly<{
-		readonly author: PointerField<AuthorSchema, OptionalPointerState>
-		readonly title: typeof postTitleField
-	}>,
-	readonly []
->
+type AuthorSchema = SchemaReference<'RelationE2EAuthor'>
+type PostSchema = SchemaReference<'RelationE2EPost'>
 
 function resolvePost(): PostSchema {
 	return Post
@@ -292,15 +250,19 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 		await mixed
 			.relation('tags')
 			.connect(
-				[Tag.pointer(alpha.id), Tag.pointer(beta.id), Tag.pointer(hidden.id)],
+				[
+					Tag.pointer(alpha.id.toString()),
+					Tag.pointer(beta.id.toString()),
+					Tag.pointer(hidden.id.toString()),
+				],
 				{ ultimabase: app },
 			)
 		await gammaOnly
 			.relation('tags')
-			.connect(Tag.pointer(gamma.id), { ultimabase: app })
+			.connect(Tag.pointer(gamma.id.toString()), { ultimabase: app })
 		await Tag.updateOne(
 			{
-				where: (where) => where.eq('id', hidden.id),
+				where: { id: { eq: hidden.id } },
 				data: { visible: false },
 			},
 			{ ultimabase: app },
@@ -478,7 +440,12 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 			{ ultimabase: app },
 		)
 		const post = await Post.createOne(
-			{ data: { author: Author.pointer(author.id), title: 'Predicate post' } },
+			{
+				data: {
+					author: Author.pointer(author.id.toString()),
+					title: 'Predicate post',
+				},
+			},
 			{ ultimabase: app },
 		)
 		const hiddenAuthor = await Author.createOne(
@@ -488,7 +455,7 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 		const hiddenPost = await Post.createOne(
 			{
 				data: {
-					author: Author.pointer(hiddenAuthor.id),
+					author: Author.pointer(hiddenAuthor.id.toString()),
 					title: 'Hidden predicate post',
 				},
 			},
@@ -629,10 +596,13 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 
 		const tags = article.relation('tags')
 
-		await tags.connect([Tag.pointer(alpha.id), Tag.pointer(beta.id)], {
-			ultimabase: app,
-		})
-		await tags.connect(Tag.pointer(alpha.id), { ultimabase: app })
+		await tags.connect(
+			[Tag.pointer(alpha.id.toString()), Tag.pointer(beta.id.toString())],
+			{
+				ultimabase: app,
+			},
+		)
+		await tags.connect(Tag.pointer(alpha.id.toString()), { ultimabase: app })
 
 		expect(await tags.count(undefined, { ultimabase: app })).toBe(2)
 		expect(await tags.exists(undefined, { ultimabase: app })).toBe(true)
@@ -655,13 +625,16 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 		).toBe(1)
 		expect(relationTrace).toEqual(expect.arrayContaining(['article:tags:read']))
 
-		await tags.set([Tag.pointer(beta.id), Tag.pointer(gamma.id)], {
-			ultimabase: app,
-		})
+		await tags.set(
+			[Tag.pointer(beta.id.toString()), Tag.pointer(gamma.id.toString())],
+			{
+				ultimabase: app,
+			},
+		)
 		expect(
 			await alpha.relation('articles').count(undefined, { ultimabase: app }),
 		).toBe(0)
-		await tags.disconnect(Tag.pointer(beta.id), { ultimabase: app })
+		await tags.disconnect(Tag.pointer(beta.id.toString()), { ultimabase: app })
 		expect(
 			(await tags.findMany(undefined, { ultimabase: app })).map(
 				({ label }) => label,
@@ -670,7 +643,7 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 
 		rejectNextRelationUpdate = true
 		await expect(
-			tags.connect(Tag.pointer(alpha.id), { ultimabase: app }),
+			tags.connect(Tag.pointer(alpha.id.toString()), { ultimabase: app }),
 		).rejects.toBe(rollbackError)
 		expect(await tags.count(undefined, { ultimabase: app })).toBe(1)
 
@@ -683,16 +656,16 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 		)
 		const inverseArticles = inverseTag.relation('articles')
 
-		await inverseArticles.connect(Article.pointer(article.id), {
+		await inverseArticles.connect(Article.pointer(article.id.toString()), {
 			ultimabase: app,
 		})
 		expect(await tags.count(undefined, { ultimabase: app })).toBe(1)
-		await inverseArticles.disconnect(Article.pointer(article.id), {
+		await inverseArticles.disconnect(Article.pointer(article.id.toString()), {
 			ultimabase: app,
 		})
 		expect(await tags.count(undefined, { ultimabase: app })).toBe(0)
 
-		await tags.connect(Tag.pointer(gamma.id), { ultimabase: app })
+		await tags.connect(Tag.pointer(gamma.id.toString()), { ultimabase: app })
 		await gamma.delete({}, { ultimabase: app })
 		expect(await tags.count(undefined, { ultimabase: app })).toBe(0)
 
@@ -700,7 +673,9 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 			{ data: { label: 'cleanup' } },
 			{ ultimabase: app },
 		)
-		await tags.connect(Tag.pointer(cleanupTag.id), { ultimabase: app })
+		await tags.connect(Tag.pointer(cleanupTag.id.toString()), {
+			ultimabase: app,
+		})
 		await article.delete({}, { ultimabase: app })
 		expect(
 			await cleanupTag
@@ -741,7 +716,11 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 		await article
 			.relation('tags')
 			.connect(
-				[Tag.pointer(alpha.id), Tag.pointer(zeta.id), Tag.pointer(hidden.id)],
+				[
+					Tag.pointer(alpha.id.toString()),
+					Tag.pointer(zeta.id.toString()),
+					Tag.pointer(hidden.id.toString()),
+				],
 				{ ultimabase: app },
 			)
 		await Tag.updateOne(
@@ -780,10 +759,21 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 		)
 
 		expect(articles).toHaveLength(1)
-		expect(articles[0]?.tags).toHaveLength(1)
-		expect(articles[0]?.tags[0]?.label).toBe('include-zeta')
-		expect(articles[0]?.tags[0]?.articles).toHaveLength(1)
-		expect(articles[0]?.tags[0]?.articles[0]?.title).toBe('Included relations')
+		const includedTags = articles[0]?.tags
+		if (!Array.isArray(includedTags) || !(includedTags[0] instanceof Tag)) {
+			throw new TypeError('Expected one included tag model')
+		}
+		const nestedArticles = includedTags[0].articles
+		if (
+			!Array.isArray(nestedArticles) ||
+			!(nestedArticles[0] instanceof Article)
+		) {
+			throw new TypeError('Expected one nested included article model')
+		}
+		expect(includedTags).toHaveLength(1)
+		expect(includedTags[0].label).toBe('include-zeta')
+		expect(nestedArticles).toHaveLength(1)
+		expect(nestedArticles[0].title).toBe('Included relations')
 		expect(relationTrace).toStrictEqual(['article:tags:read'])
 
 		const author = await Author.createOne(
@@ -797,14 +787,20 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 		await Post.createMany(
 			{
 				data: [
-					{ author: Author.pointer(author.id), title: 'Included first' },
-					{ author: Author.pointer(author.id), title: 'Included second' },
 					{
-						author: Author.pointer(otherAuthor.id),
+						author: Author.pointer(author.id.toString()),
+						title: 'Included first',
+					},
+					{
+						author: Author.pointer(author.id.toString()),
+						title: 'Included second',
+					},
+					{
+						author: Author.pointer(otherAuthor.id.toString()),
 						title: 'Other first',
 					},
 					{
-						author: Author.pointer(otherAuthor.id),
+						author: Author.pointer(otherAuthor.id.toString()),
 						title: 'Other second',
 					},
 				],
@@ -829,8 +825,18 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 		)
 
 		expect(authors).toHaveLength(2)
-		expect(authors[0]?.posts[0]?.title).toBe('Included first')
-		expect(authors[1]?.posts[0]?.title).toBe('Other first')
+		const firstPosts = authors[0]?.posts
+		const secondPosts = authors[1]?.posts
+		if (
+			!Array.isArray(firstPosts) ||
+			!(firstPosts[0] instanceof Post) ||
+			!Array.isArray(secondPosts) ||
+			!(secondPosts[0] instanceof Post)
+		) {
+			throw new TypeError('Expected one included post model per author')
+		}
+		expect(firstPosts[0].title).toBe('Included first')
+		expect(secondPosts[0].title).toBe('Other first')
 	})
 
 	it('reuses pointer storage for inverse relation reads and mutations', async () => {
@@ -840,7 +846,12 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 			{ ultimabase: app },
 		)
 		const post = await Post.createOne(
-			{ data: { author: Author.pointer(author.id), title: 'Pointers' } },
+			{
+				data: {
+					author: Author.pointer(author.id.toString()),
+					title: 'Pointers',
+				},
+			},
 			{ ultimabase: app },
 		)
 		const posts = author.relation('posts')
@@ -853,10 +864,16 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 
 		expect(included).toHaveLength(1)
 		expect(included[0]?.title).toBe('Pointers')
-		expect(included[0]?.author?.toJSON()).toStrictEqual({ name: 'Ada' })
-		await posts.disconnect(Post.pointer(post.id), { ultimabase: app })
+		const includedAuthor = included[0]?.author
+		if (!(includedAuthor instanceof Author)) {
+			throw new TypeError('Expected the relation post author to be included')
+		}
+		expect(includedAuthor.toJSON()).toStrictEqual({ name: 'Ada' })
+		await posts.disconnect(Post.pointer(post.id.toString()), {
+			ultimabase: app,
+		})
 		expect(await posts.count(undefined, { ultimabase: app })).toBe(0)
-		await posts.connect(Post.pointer(post.id), { ultimabase: app })
+		await posts.connect(Post.pointer(post.id.toString()), { ultimabase: app })
 		expect(await posts.count(undefined, { ultimabase: app })).toBe(1)
 	})
 
@@ -873,7 +890,7 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 
 		await article
 			.relation('tags')
-			.connect(Tag.pointer(tag.id), { ultimabase: app })
+			.connect(Tag.pointer(tag.id.toString()), { ultimabase: app })
 		expect(
 			await PrivateArticle.findMany(
 				{ select: { id: true, title: true } },
@@ -906,7 +923,7 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 		await PrivatePointerPost.createOne(
 			{
 				data: {
-					author: Author.pointer(author.id),
+					author: Author.pointer(author.id.toString()),
 					title: 'Private pointer source',
 				},
 			},

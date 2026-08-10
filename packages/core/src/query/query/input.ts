@@ -1,5 +1,5 @@
 import { Schema, type SchemaDefinition } from '../../schema/index.js'
-import type { GeneratedSchemaValueOr } from '../../schema/generated-contracts.js'
+import type { SchemaTypeValue } from '../../schema/type-info.js'
 import { getFieldSchemaTarget } from '../../schema/fields/base/definition.js'
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 
@@ -11,7 +11,6 @@ import type {
 } from '../ast/contracts.js'
 import { createQueryAst } from '../ast/factory.js'
 import { parseQueryFieldName } from '../ast/schema.js'
-import type { GeneratedOrderBy } from '../generated-contracts.js'
 import type {
 	ExactQuerySelection,
 	LiteralQuerySelection,
@@ -52,13 +51,9 @@ import type {
 /** Uses concise transport-facing directions independently from AST vocabulary. */
 export type QueryOrderByDirection = 'asc' | 'desc'
 
-/** Maps every readable field to one optional transport-facing direction. */
-type InferredQueryOrderByInput<TSchema extends SchemaDefinition> =
-	GeneratedOrderBy<QueryFieldName<TSchema>>
-
 /** Uses the compact generated ordering contract when available. */
 export type QueryOrderByInput<TSchema extends SchemaDefinition> =
-	GeneratedSchemaValueOr<TSchema, 'OrderBy', InferredQueryOrderByInput<TSchema>>
+	SchemaTypeValue<TSchema, 'OrderBy'>
 
 /** Shapes one included pointer target without adding another execution boundary. */
 export type QueryPointerTargetInput<TSchema extends SchemaDefinition> =
@@ -79,20 +74,9 @@ export type QueryRelationTargetInput<TSchema extends SchemaDefinition> =
 		readonly where?: WhereInput<TSchema>
 	}>
 
-/** Correlates every optional eager inclusion with its exact target schema. */
-type InferredQueryIncludeInput<TSchema extends SchemaDefinition> = Readonly<{
-	readonly [
-		TFieldName in QueryIncludableFieldName<TSchema>
-	]?: TFieldName extends QueryPointerFieldName<TSchema>
-		? QueryPointerTargetInput<QueryPointerTargetSchema<TSchema, TFieldName>>
-		: TFieldName extends QueryRelationFieldName<TSchema>
-			? QueryRelationTargetInput<QueryRelationTargetSchema<TSchema, TFieldName>>
-			: never
-}>
-
-/** Uses generated relationship shapes without recursively expanding field maps. */
+/** Uses the generated relationship input without reconstructing schema fields. */
 export type QueryIncludeInput<TSchema extends SchemaDefinition> =
-	GeneratedSchemaValueOr<TSchema, 'Include', InferredQueryIncludeInput<TSchema>>
+	SchemaTypeValue<TSchema, 'Include'>
 
 interface QueryProjectionInput<TSchema extends SchemaDefinition> {
 	/** Loads explicitly requested relationship targets through independently shaped reads. */
@@ -226,24 +210,32 @@ type ExactIncludeForInput<
 		}>
 	: unknown
 
-/** Rejects unknown clauses and imprecise nested projections on one read input. */
+/**
+ * Rejects unknown clauses and imprecise nested projections on one read input.
+ * `NoInfer` keeps generated clause aliases visible while `TInput` still retains
+ * the literal projection needed to infer the exact result model.
+ */
 export type ExactReadInput<
 	TSchema extends SchemaDefinition,
 	TInput,
 	TContract,
-> = TInput &
-	Readonly<
-		Record<
-			Exclude<
-				keyof TInput,
-				| (TContract extends unknown ? keyof TContract : never)
-				| typeof queryBuilderInputType
-			>,
-			never
-		>
-	> &
-	ExactSelectionForInput<TSchema, TInput> &
-	ExactIncludeForInput<TSchema, TInput>
+> =
+	string extends QueryFieldName<TSchema>
+		? NoInfer<TContract> & TInput
+		: NoInfer<TContract> &
+				TInput &
+				Readonly<
+					Record<
+						Exclude<
+							keyof TInput,
+							| (TContract extends unknown ? keyof TContract : never)
+							| typeof queryBuilderInputType
+						>,
+						never
+					>
+				> &
+				ExactSelectionForInput<TSchema, TInput> &
+				ExactIncludeForInput<TSchema, TInput>
 
 type SelectedFieldFromInput<
 	TSchema extends SchemaDefinition,
@@ -459,7 +451,7 @@ const applyQueryOrdering = <const TSchema extends SchemaDefinition>(
 		orders.push({
 			direction:
 				direction === 'asc' ? ('ascending' as const) : ('descending' as const),
-			field: fieldName as QueryFieldName<TSchema>,
+			field: fieldName,
 		})
 	}
 

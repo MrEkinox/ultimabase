@@ -210,45 +210,6 @@ describe('ACL IntelliSense', () => {
 		)
 	})
 
-	it('exposes concise schema-aware callback completions and hovers', () => {
-		const completionMarker = '/* schema-data-complete */'
-		const completions = service.getCompletionsAtPosition(
-			fixtureFile,
-			markerPosition(completionMarker) + completionMarker.length,
-			{},
-		)
-		const names = completions?.entries.map(({ name }) => name) ?? []
-		const titleMarker = '/* schema-title-hover */'
-		const title = service.getQuickInfoAtPosition(
-			fixtureFile,
-			markerPosition(titleMarker) + titleMarker.length,
-		)
-		const visibilityMarker = '/* schema-visibility-hover */'
-		const visibility = service.getQuickInfoAtPosition(
-			fixtureFile,
-			markerPosition(visibilityMarker) + visibilityMarker.length,
-		)
-		const inputMarker = '/* schema-input-hover */'
-		const input = service.getQuickInfoAtPosition(
-			fixtureFile,
-			markerPosition(inputMarker) + inputMarker.length,
-		)
-
-		expect(names).toEqual(expect.arrayContaining(['title', 'visibility']))
-		expect(names).not.toEqual(
-			expect.arrayContaining(['acl', 'createdAt', 'id', 'updatedAt']),
-		)
-		expect(ts.displayPartsToString(title?.displayParts)).toContain(
-			'const title: string',
-		)
-		expect(ts.displayPartsToString(visibility?.displayParts)).toContain(
-			'const visibility: string | null',
-		)
-		expect(ts.displayPartsToString(input?.displayParts)).toContain(
-			'readonly title: string',
-		)
-	})
-
 	it('documents plugin defaults and completes every limit option', () => {
 		const hoverMarker = '/* plugin-hover */'
 		const hover = service.getQuickInfoAtPosition(

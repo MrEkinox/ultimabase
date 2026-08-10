@@ -9,7 +9,7 @@ import {
 import { isStaticDefault } from './defaults.js'
 import { defineExtensions } from '../../extensions/definition.js'
 import type {
-	FieldInferenceState,
+	FieldTypegenState,
 	FieldListOption,
 	FieldOptions,
 	FieldValidationOptions,
@@ -244,9 +244,9 @@ export const isRequiredOnCreate = (field: GenericField): boolean =>
  * Keeping this derivation in Schema prevents generators from duplicating the
  * required, generated, immutable, nullable, and list-presence rules.
  */
-export const readFieldInferenceState = (
+export const readFieldTypegenState = (
 	field: GenericField,
-): FieldInferenceState => {
+): FieldTypegenState => {
 	const normalizedList = normalizeList(
 		'list' in field.options ? field.options.list : undefined,
 	)

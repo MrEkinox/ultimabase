@@ -1,5 +1,5 @@
 import type {
-	InferObject,
+	SchemaItem,
 	SchemaDefinition,
 	SchemaResult,
 } from '../../schema/index.js'
@@ -21,7 +21,7 @@ import type {
 	UpsertManyOperationAst,
 	UpsertOneOperationAst,
 } from './contracts.js'
-import type { InferQueryRecord, InferQueryResult } from '../query/result.js'
+import type { QueryRecord, QueryResult } from '../query/result.js'
 
 type OperationResultMode = 'model' | 'record'
 type OperationInclusionMode = 'hydrated' | 'pointer'
@@ -33,8 +33,8 @@ type QueryObjectResult<
 	TIncludedPointer,
 	TInclusionMode extends OperationInclusionMode,
 > = TMode extends 'model'
-	? InferQueryResult<TSchema, TSelectedField, TIncludedPointer>
-	: InferQueryRecord<
+	? QueryResult<TSchema, TSelectedField, TIncludedPointer>
+	: QueryRecord<
 			TSchema,
 			TSelectedField,
 			TInclusionMode extends 'hydrated' ? TIncludedPointer : never
@@ -43,10 +43,10 @@ type QueryObjectResult<
 type CompleteObjectResult<
 	TSchema extends SchemaDefinition,
 	TMode extends OperationResultMode,
-> = TMode extends 'model' ? SchemaResult<TSchema> : InferObject<TSchema>
+> = TMode extends 'model' ? SchemaResult<TSchema> : SchemaItem<TSchema>
 
 /** Maps every terminal to either its neutral Runtime record or public model result. */
-type InferOperationResultFor<
+type OperationResultFor<
 	TOperation extends OperationAstNode,
 	TMode extends OperationResultMode,
 	TInclusionMode extends OperationInclusionMode,
@@ -204,14 +204,13 @@ type InferOperationResultFor<
 														: never
 
 /** Maps every normalized terminal intent to its exact public model result. */
-export type InferOperationResult<TOperation extends OperationAstNode> =
-	InferOperationResultFor<TOperation, 'model', 'hydrated'>
+export type OperationResult<TOperation extends OperationAstNode> =
+	OperationResultFor<TOperation, 'model', 'hydrated'>
 
 /** Maps every normalized terminal to its exact hydrated Runtime record. */
-export type InferOperationRecordResult<TOperation extends OperationAstNode> =
-	InferOperationResultFor<TOperation, 'record', 'hydrated'>
+export type OperationRecordResult<TOperation extends OperationAstNode> =
+	OperationResultFor<TOperation, 'record', 'hydrated'>
 
 /** Maps every normalized terminal to the adapter record before pointer hydration. */
-export type InferOperationSourceRecordResult<
-	TOperation extends OperationAstNode,
-> = InferOperationResultFor<TOperation, 'record', 'pointer'>
+export type OperationSourceRecordResult<TOperation extends OperationAstNode> =
+	OperationResultFor<TOperation, 'record', 'pointer'>

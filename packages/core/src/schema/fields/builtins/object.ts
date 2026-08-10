@@ -18,16 +18,16 @@ import {
 import { isRequiredOnCreate } from '../base/options.js'
 import type {
 	FieldDefinition,
-	FieldInferenceState,
+	FieldTypegenState,
 	FieldListOption,
 	FieldListValue,
 	FieldOptions,
 	FieldOptionsBase,
 	GenericField,
-	ScalarFieldInferenceState,
+	ScalarFieldTypegenState,
 } from '../base/contract.js'
 import type { FieldDefault } from '../base/defaults.js'
-import type { InferFields } from '../../inference/types.js'
+import type { FieldValueMap } from '../base/value-map.js'
 import type { FieldHookDeclaration } from '../../hooks/field-contracts.js'
 import { splitFieldDeclarationOptions } from '../../hooks/field-declarations.js'
 import type { FieldAccessDeclaration } from '../../access/contracts.js'
@@ -59,9 +59,9 @@ type EmbeddableObjectFields<TFields extends ObjectFields> = {
 export type ObjectFieldValue<TFields extends ObjectFields> =
 	ObjectFields extends TFields
 		? Readonly<Record<string, unknown>>
-		: InferFields<TFields, 'object'>
+		: FieldValueMap<TFields, 'object'>
 
-type ObjectFieldCreateValue<TFields extends ObjectFields> = InferFields<
+type ObjectFieldCreateValue<TFields extends ObjectFields> = FieldValueMap<
 	TFields,
 	'create'
 >
@@ -101,12 +101,12 @@ export interface ObjectFieldOptions<
  */
 export type ObjectField<
 	TFields extends ObjectFields = ObjectFields,
-	TInference extends FieldInferenceState = FieldInferenceState,
+	TTypegen extends FieldTypegenState = FieldTypegenState,
 > = FieldDefinition<
 	'object',
 	ObjectFieldValue<TFields>,
 	ObjectFieldOptions<TFields>,
-	TInference
+	TTypegen
 >
 
 /** Keeps nested fields exact while widening runtime-only object metadata. */
@@ -171,7 +171,7 @@ type ResolvedObjectField<
 	'object',
 	ObjectFieldValue<TFields>,
 	ObjectFieldOptions<TFields>,
-	ScalarFieldInferenceState<TRequired, TList, TImmutable, THasDefault>
+	ScalarFieldTypegenState<TRequired, TList, TImmutable, THasDefault>
 >
 
 export type DefaultedObjectField<

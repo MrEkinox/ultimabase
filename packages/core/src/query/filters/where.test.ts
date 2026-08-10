@@ -72,13 +72,13 @@ describe('WhereInput', () => {
 
 	it('rejects list operators on scalars and malformed list operands', () => {
 		expect(() =>
-			normalizeWhereInput(Post, { title: { has: 'typed' } } as never),
+			normalizeWhereInput(Post, { title: { has: 'typed' } }),
 		).toThrow('requires a list field')
 		expect(() =>
-			normalizeWhereInput(Post, { labels: { hasSome: 'typed' } } as never),
+			normalizeWhereInput(Post, { labels: { hasSome: 'typed' } }),
 		).toThrow('where.labels.hasSome must be an array')
 		expect(() =>
-			normalizeWhereInput(Post, { labels: { isEmpty: false } } as never),
+			normalizeWhereInput(Post, { labels: { isEmpty: false } }),
 		).toThrow('where.labels.isEmpty must be true')
 	})
 
@@ -131,11 +131,11 @@ describe('WhereInput', () => {
 		expect(() =>
 			normalizeWhereInput(Post, {
 				author: { eq: Tag.pointer('author-id') },
-			} as never),
+			}),
 		).toThrow('must be a target object id')
-		expect(() =>
-			normalizeWhereInput(Post, { author: { eq: null } } as never),
-		).toThrow('must be a target object id')
+		expect(() => normalizeWhereInput(Post, { author: { eq: null } })).toThrow(
+			'must be a target object id',
+		)
 	})
 
 	it('accepts the short callback builder without exposing a second vocabulary', () => {
@@ -222,22 +222,22 @@ describe('WhereInput', () => {
 		expect(() =>
 			normalizeWhereInput(Post, {
 				published: { gte: false },
-			} as never),
+			}),
 		).toThrow('does not support boolean fields')
+		expect(() => normalizeWhereInput(Post, { missing: { eq: true } })).toThrow(
+			'must reference a schema field',
+		)
+		expect(() => normalizeWhereInput(Post, { tags: { isNull: true } })).toThrow(
+			'query operator null does not support relation fields',
+		)
 		expect(() =>
-			normalizeWhereInput(Post, { missing: { eq: true } } as never),
-		).toThrow('must reference a schema field')
-		expect(() =>
-			normalizeWhereInput(Post, { tags: { isNull: true } } as never),
+			normalizeWhereInput(Post, { tags: { isNotNull: true } }),
 		).toThrow('query operator null does not support relation fields')
 		expect(() =>
-			normalizeWhereInput(Post, { tags: { isNotNull: true } } as never),
-		).toThrow('query operator null does not support relation fields')
-		expect(() =>
-			normalizeWhereInput(Post, { tags: { isEmpty: false } } as never),
+			normalizeWhereInput(Post, { tags: { isEmpty: false } }),
 		).toThrow('where.tags.isEmpty must be true')
 		expect(() =>
-			normalizeWhereInput(Post, { title: { isEmpty: true } } as never),
+			normalizeWhereInput(Post, { title: { isEmpty: true } }),
 		).toThrow('query operator list-empty requires a list field')
 		expect(() =>
 			normalizeWhereInput(Post, { tags: { count: { gte: -1 } } }),
@@ -254,7 +254,7 @@ describe('WhereInput', () => {
 		expect(() =>
 			normalizeWhereInput(Post, {
 				tags: { count: { missing: 1 } },
-			} as never),
+			}),
 		).toThrow('is not a supported where operator')
 
 		const circular: Record<string, unknown> = {}

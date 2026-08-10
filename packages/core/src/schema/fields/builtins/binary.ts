@@ -1,7 +1,7 @@
 import { normalizeFieldOptions } from '../base/options.js'
 import type {
 	FieldDefinition,
-	FieldInferenceState,
+	FieldTypegenState,
 	FieldListOption,
 	FieldOptions,
 } from '../base/contract.js'
@@ -39,8 +39,8 @@ export type BinaryFieldOptions = FieldOptions<
  * Carries native bytes and exact options through schema inference.
  */
 export type BinaryField<
-	TInference extends FieldInferenceState = FieldInferenceState,
-> = FieldDefinition<'binary', Uint8Array, BinaryFieldOptions, TInference>
+	TTypegen extends FieldTypegenState = FieldTypegenState,
+> = FieldDefinition<'binary', Uint8Array, BinaryFieldOptions, TTypegen>
 
 /** Provides binary-specific names for the shared compact scalar contract. */
 type DefaultedBinaryFieldOptions<

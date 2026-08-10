@@ -19,9 +19,8 @@ export type AccessSubjectValue<
 > = RequestContextValue<TSubject, TName>
 
 /** Extracts the exact subject value carried by a nominal context token. */
-export type InferAccessSubjectValue<
-	TToken extends AccessSubjectValue<unknown>,
-> = TToken extends AccessSubjectValue<infer TSubject> ? TSubject : never
+export type AccessSubjectValueOf<TToken extends AccessSubjectValue<unknown>> =
+	TToken extends AccessSubjectValue<infer TSubject> ? TSubject : never
 
 /** Supplies the immutable request surface to one optional principal provider. */
 export interface AccessPrincipalResolutionInput {
@@ -316,7 +315,7 @@ export const accessRoleResolverServiceToken: ServiceToken<AccessRoleResolver> =
 	createServiceToken<AccessRoleResolver>('ultimabase.access.role-resolver')
 
 /** Extracts the exact resolved value supplied by one neutral resolver. */
-export type InferResolvedAccessSubject<TResolver> =
+export type ResolvedAccessSubject<TResolver> =
 	TResolver extends AccessSubjectResolver<unknown, infer TSubject>
 		? TSubject
 		: never

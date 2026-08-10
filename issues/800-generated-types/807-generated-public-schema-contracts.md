@@ -37,8 +37,7 @@ type-only promise and is tracked separately by
 
 Generated declarations now augment Core with one application-owned schema and
 FieldBuilder registry. Literal schema names select compact model, operation,
-Access, hook, extension, object-path, pointer, and relation contracts while
-field-map declarations retain their existing local inference. Generated
+Access, hook, extension, object-path, pointer, and relation contracts. Generated
 pointer handles and relation mutation inputs correlate targets by stable class
 name; the unchanged Runtime still verifies concrete schema identity.
 
@@ -47,3 +46,7 @@ packed exports, including plugin methods, nested field rules, numeric update
 operators, relationship reads and mutations, stale schema diagnostics, and
 index rejection. Repository typecheck, unit/type tests, lint, formatting,
 constraints, build, and the focused packed-package E2E test pass.
+
+ADR-0175 later removed the remaining local field-map inference. Runtime tests
+now narrow bootstrap values explicitly; issue 810 owns the generated-contract
+proof that exact application types replace `BaseItem`.

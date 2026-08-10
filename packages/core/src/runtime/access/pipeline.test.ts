@@ -172,8 +172,9 @@ describe('native Access pipeline integration', () => {
 			await expect(
 				securedArticle.updateOne(
 					{
-						where: (where) =>
-							where.eq('id', '0198a43e-2431-7000-8000-000000000002'),
+						where: {
+							id: { eq: '0198a43e-2431-7000-8000-000000000002' },
+						},
 						data: { title: 'Changed' },
 					},
 					{ ultimabase },

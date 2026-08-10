@@ -13,18 +13,15 @@ import { createFieldDefinition } from '../base/definition.js'
 import { assertFieldOptions } from '../base/options.js'
 import { splitFieldDeclarationOptions } from '../../hooks/field-declarations.js'
 import type { RelationMutationDelta } from '../../relations/mutation.js'
-import type {
-	FieldDefinition,
-	FieldInferenceState,
-	GenericField,
-} from '../base/contract.js'
+import type { FieldDefinition, FieldTypegenState } from '../base/contract.js'
 import type { SchemaDefinition } from '../../schema/definition.js'
 import type { SchemaTarget } from '../../schema/targets.js'
+import type { SchemaRelationshipFieldName } from '../../type-info.js'
 
 declare const relationTargetMarker: unique symbol
 
 /** Omits relation collections from ordinary row values and mutation inputs. */
-export interface RelationFieldInferenceState extends FieldInferenceState {
+export interface RelationFieldTypegenState extends FieldTypegenState {
 	readonly create: 'forbidden'
 	readonly object: 'forbidden'
 	readonly update: 'forbidden'
@@ -32,18 +29,9 @@ export interface RelationFieldInferenceState extends FieldInferenceState {
 	readonly list: false
 }
 
-type RelationshipField = GenericField & {
-	readonly kind: 'pointer' | 'relation'
-}
-
 /** Selects target fields that can own one inverse relationship. */
-export type RelationMappedFieldName<TTarget extends SchemaDefinition> = {
-	[
-		TFieldName in keyof TTarget['fields'] & string
-	]: TTarget['fields'][TFieldName] extends RelationshipField
-		? TFieldName
-		: never
-}[keyof TTarget['fields'] & string]
+export type RelationMappedFieldName<TTarget extends SchemaDefinition> =
+	SchemaRelationshipFieldName<TTarget, 'pointer' | 'relation'>
 
 /** Stores only stable adapter-neutral relation metadata. */
 export interface RelationFieldMetadataOptions<
@@ -111,7 +99,7 @@ export interface RelationField<
 	'relation',
 	never,
 	RelationFieldMetadataOptions<TMappedBy>,
-	RelationFieldInferenceState
+	RelationFieldTypegenState
 > {
 	readonly [relationTargetMarker]?: TTarget
 }

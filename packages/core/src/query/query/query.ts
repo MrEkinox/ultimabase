@@ -2,6 +2,7 @@ import {
 	Schema,
 	type GenericField,
 	type SchemaDefinition,
+	type SchemaRelationshipTargetName,
 } from '../../schema/index.js'
 import { getFieldSchemaTarget } from '../../schema/fields/base/definition.js'
 import { immutableArray, immutableRecord } from '@ultimabase/shared'
@@ -76,7 +77,7 @@ import {
 	type OperationPrivateScope,
 } from '../operations/execution.js'
 import type { OperationOptions } from '../operations/options.js'
-import type { InferOperationResult } from '../operations/results.js'
+import type { OperationResult } from '../operations/results.js'
 import { snapshotCreateInputs } from '../operations/bulk.js'
 import {
 	normalizeUniqueUpsertTarget,
@@ -95,7 +96,7 @@ import type {
 } from '../updates/contracts.js'
 import { normalizeUpdateExpression } from '../updates/normalize.js'
 import type {
-	InferQueryResult,
+	QueryResult,
 	QueryPointerResultInclusion,
 	QueryRelationResultInclusion,
 } from './result.js'
@@ -212,9 +213,13 @@ type QueryInclusionTargetBuilder<
 	TSchema extends SchemaDefinition,
 	TFieldName extends QueryIncludableFieldName<TSchema>,
 > =
-	TFieldName extends QueryPointerFieldName<TSchema>
-		? QueryPointerTargetBuilder<QueryInclusionTargetSchema<TSchema, TFieldName>>
-		: QueryBuilder<QueryInclusionTargetSchema<TSchema, TFieldName>>
+	string extends SchemaRelationshipTargetName<TSchema, TFieldName>
+		? QueryBuilder<QueryInclusionTargetSchema<TSchema, TFieldName>>
+		: TFieldName extends QueryPointerFieldName<TSchema>
+			? QueryPointerTargetBuilder<
+					QueryInclusionTargetSchema<TSchema, TFieldName>
+				>
+			: QueryBuilder<QueryInclusionTargetSchema<TSchema, TFieldName>>
 
 type QueryInclusionTargetResult<
 	TSchema extends SchemaDefinition,
@@ -224,17 +229,23 @@ type QueryInclusionTargetResult<
 	>,
 	TIncludedField,
 > =
-	TFieldName extends QueryPointerFieldName<TSchema>
-		? QueryPointerTargetBuilder<
+	string extends SchemaRelationshipTargetName<TSchema, TFieldName>
+		? QueryBuilder<
 				QueryInclusionTargetSchema<TSchema, TFieldName>,
 				TSelectedField,
 				TIncludedField
 			>
-		: QueryBuilder<
-				QueryInclusionTargetSchema<TSchema, TFieldName>,
-				TSelectedField,
-				TIncludedField
-			>
+		: TFieldName extends QueryPointerFieldName<TSchema>
+			? QueryPointerTargetBuilder<
+					QueryInclusionTargetSchema<TSchema, TFieldName>,
+					TSelectedField,
+					TIncludedField
+				>
+			: QueryBuilder<
+					QueryInclusionTargetSchema<TSchema, TFieldName>,
+					TSelectedField,
+					TIncludedField
+				>
 
 /**
  * Shapes one singular inclusion without exposing collection filtering clauses.
@@ -796,7 +807,7 @@ export const scopeQueryToObjectId = <
 		...(options.nativeAccessDeniedAsMissing === undefined
 			? {}
 			: { nativeAccessDeniedAsMissing: true as const }),
-		objectId: String(id),
+		objectId: id,
 		rowFilter,
 	})
 
@@ -866,7 +877,7 @@ export const executeQueryWithPrivateScope = <
 	query: QueryExecutionInput<TSchema, TSelectedField, TIncludedPointer>,
 	operation: TOperation,
 	options?: OperationOptions,
-): Promise<InferOperationResult<TOperation>> =>
+): Promise<OperationResult<TOperation>> =>
 	executeOperation(
 		operation,
 		normalizeOperationOptions(options),
@@ -882,7 +893,7 @@ export const executeQueryFindMany = <
 	query: QueryExecutionInput<TSchema, TSelectedField, TIncludedPointer>,
 	options?: OperationOptions,
 ): Promise<
-	readonly InferQueryResult<TSchema, TSelectedField, TIncludedPointer>[]
+	readonly QueryResult<TSchema, TSelectedField, TIncludedPointer>[]
 > => {
 	const operation: FindManyOperationAst<
 		TSchema,
@@ -902,11 +913,7 @@ export const executeQueryFindOne = <
 >(
 	query: QueryExecutionInput<TSchema, TSelectedField, TIncludedPointer>,
 	options?: OperationOptions,
-): Promise<InferQueryResult<
-	TSchema,
-	TSelectedField,
-	TIncludedPointer
-> | null> => {
+): Promise<QueryResult<TSchema, TSelectedField, TIncludedPointer> | null> => {
 	const operation: FindOneOperationAst<
 		TSchema,
 		QueryFilterNode<TSchema>,
@@ -926,7 +933,7 @@ export const executeQueryGet = <
 	query: QueryExecutionInput<TSchema, TSelectedField, TIncludedPointer>,
 	id: OperationObjectId<TSchema>,
 	options?: OperationOptions,
-): Promise<InferQueryResult<TSchema, TSelectedField, TIncludedPointer>> => {
+): Promise<QueryResult<TSchema, TSelectedField, TIncludedPointer>> => {
 	const operation: GetOperationAst<
 		TSchema,
 		QueryFilterNode<TSchema>,
@@ -990,7 +997,7 @@ export const executeSchemaCreateMany = <const TSchema extends SchemaDefinition>(
 	schema: TSchema,
 	input: SchemaCreateManyExecutionInput<TSchema>,
 	options?: OperationOptions,
-): Promise<readonly InferQueryResult<TSchema, QueryFieldName<TSchema>>[]> => {
+): Promise<readonly QueryResult<TSchema, QueryFieldName<TSchema>>[]> => {
 	const operation: CreateManyOperationAst<
 		TSchema,
 		QueryFieldName<TSchema>
@@ -1016,11 +1023,7 @@ export const executeQueryUpdateOne = <
 	query: QueryExecutionInput<TSchema, TSelectedField, TIncludedPointer>,
 	input: UpdateExpressionInput<TSchema> & {},
 	options?: OperationOptions,
-): Promise<InferQueryResult<
-	TSchema,
-	TSelectedField,
-	TIncludedPointer
-> | null> => {
+): Promise<QueryResult<TSchema, TSelectedField, TIncludedPointer> | null> => {
 	const operation: UpdateOneOperationAst<
 		TSchema,
 		UpdateExpression<TSchema>,
@@ -1044,7 +1047,7 @@ export const executeQueryUpdateMany = <
 	query: QueryBuilder<TSchema, TSelectedField>,
 	input: UpdateExpressionInput<TSchema> & {},
 	options?: OperationOptions,
-): Promise<readonly InferQueryResult<TSchema, TSelectedField>[]> => {
+): Promise<readonly QueryResult<TSchema, TSelectedField>[]> => {
 	const operation: UpdateManyOperationAst<
 		TSchema,
 		UpdateExpression<TSchema>,
@@ -1068,7 +1071,7 @@ export const executeQueryUpsertOne = <
 	query: QueryBuilder<TSchema, TSelectedField, TIncludedPointer>,
 	input: UpsertInput<TSchema> & {},
 	options?: OperationOptions,
-): Promise<InferQueryResult<TSchema, TSelectedField, TIncludedPointer>> => {
+): Promise<QueryResult<TSchema, TSelectedField, TIncludedPointer>> => {
 	const normalizedInput = normalizeUpsertInput(query.schema, input)
 	const operation: UpsertOneOperationAst<
 		TSchema,
@@ -1092,7 +1095,7 @@ export const executeSchemaUpsertMany = <const TSchema extends SchemaDefinition>(
 	inputs: readonly UpsertManyItemInput<TSchema>[],
 	selection: QuerySelection<TSchema> | undefined,
 	options?: OperationOptions,
-): Promise<readonly InferQueryResult<TSchema, QueryFieldName<TSchema>>[]> => {
+): Promise<readonly QueryResult<TSchema, QueryFieldName<TSchema>>[]> => {
 	const operation: UpsertManyOperationAst<
 		TSchema,
 		UpdateExpression<TSchema>,
@@ -1119,11 +1122,7 @@ export const executeQueryDeleteOne = <
 >(
 	query: QueryExecutionInput<TSchema, TSelectedField, TIncludedPointer>,
 	options?: OperationOptions,
-): Promise<InferQueryResult<
-	TSchema,
-	TSelectedField,
-	TIncludedPointer
-> | null> => {
+): Promise<QueryResult<TSchema, TSelectedField, TIncludedPointer> | null> => {
 	const operation: DeleteOneOperationAst<
 		TSchema,
 		QueryFilterNode<TSchema>,
@@ -1141,7 +1140,7 @@ export const executeQueryDeleteMany = <
 >(
 	query: QueryBuilder<TSchema, TSelectedField>,
 	options?: OperationOptions,
-): Promise<readonly InferQueryResult<TSchema, TSelectedField>[]> => {
+): Promise<readonly QueryResult<TSchema, TSelectedField>[]> => {
 	const operation: DeleteManyOperationAst<
 		TSchema,
 		QueryFilterNode<TSchema>,

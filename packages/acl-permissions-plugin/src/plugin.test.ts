@@ -977,8 +977,9 @@ describe('aclPlugin create input resolution', () => {
 				() =>
 					ProtectedPost.upsertOne(
 						{
-							where: (where) =>
-								where.eq('id', '0198a43e-2431-7000-8000-000000000032'),
+							where: {
+								id: { eq: '0198a43e-2431-7000-8000-000000000032' },
+							},
 							create: { title: 'Created' },
 							update: { acl: replacement },
 						},
@@ -990,8 +991,9 @@ describe('aclPlugin create input resolution', () => {
 							data: [
 								{
 									create: { title: 'Created' },
-									where: (where) =>
-										where.eq('id', '0198a43e-2431-7000-8000-000000000033'),
+									where: {
+										id: { eq: '0198a43e-2431-7000-8000-000000000033' },
+									},
 									update: { acl: replacement },
 								},
 							],

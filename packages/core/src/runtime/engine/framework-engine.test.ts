@@ -138,7 +138,7 @@ const createPipeline = (
 }
 
 const createFixtureFramework = (
-	schema: typeof articleSchema | typeof matchingClassSchema,
+	schema: typeof articleSchema,
 	fixtureResult: unknown = [],
 	contexts: RequestContext[] = [],
 	masterAuthority?: MasterAuthority,

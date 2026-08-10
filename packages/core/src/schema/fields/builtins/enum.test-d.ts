@@ -7,8 +7,8 @@ import {
 	type EnumFieldOptions,
 	type EnumValue,
 	type FieldDefinition,
-	type FieldInferenceState,
-	type FieldInferenceStateOf,
+	type FieldTypegenState,
+	type FieldTypegenStateOf,
 } from '../../index.js'
 
 enum NativeStatus {
@@ -38,7 +38,7 @@ test('infers a literal union from an inline list without as const', () => {
 			'enum',
 			'draft' | 'published' | 'archived',
 			EnumFieldOptions<readonly ['draft', 'published', 'archived']>,
-			FieldInferenceState
+			FieldTypegenState
 		>
 	>()
 	expectTypeOf(field.kind).toEqualTypeOf<'enum'>()
@@ -46,7 +46,7 @@ test('infers a literal union from an inline list without as const', () => {
 		readonly ['draft', 'published', 'archived']
 	>()
 	expectTypeOf<
-		FieldInferenceStateOf<typeof field>['object']
+		FieldTypegenStateOf<typeof field>['object']
 	>().toEqualTypeOf<'required'>()
 })
 
@@ -66,7 +66,7 @@ test('infers persisted values from a symbolic mapping', () => {
 			EnumFieldOptions<
 				Readonly<{ readonly Draft: 'draft'; readonly Published: 'published' }>
 			>,
-			FieldInferenceState
+			FieldTypegenState
 		>
 	>()
 	expectTypeOf(field.options.values.Draft).toEqualTypeOf<'draft'>()
@@ -83,7 +83,7 @@ test('accepts native string enums without numeric reverse mappings', () => {
 			'enum',
 			NativeStatus,
 			EnumFieldOptions<typeof NativeStatus>,
-			FieldInferenceState
+			FieldTypegenState
 		>
 	>()
 })
@@ -125,6 +125,6 @@ test('rejects invalid enum sources and metadata', () => {
 		FieldDefinition<'enum', string>['options']
 	>()
 	expectTypeOf<EnumField>().toExtend<
-		FieldDefinition<'enum', string, EnumFieldOptions, FieldInferenceState>
+		FieldDefinition<'enum', string, EnumFieldOptions, FieldTypegenState>
 	>()
 })

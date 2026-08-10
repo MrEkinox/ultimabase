@@ -4,7 +4,7 @@ import { assertNonEmptyString } from '@ultimabase/shared'
 export type RequestContextValueSnapshot<TValue> = (value: unknown) => TValue
 
 /** Extracts the exact value carried by one nominal request-context token. */
-export type InferRequestContextValue<
+export type RequestContextValueType<
 	TToken extends RequestContextValue<unknown>,
 > = TToken extends RequestContextValue<infer TValue> ? TValue : never
 

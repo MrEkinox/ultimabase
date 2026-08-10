@@ -143,12 +143,18 @@ describe('pointer Runtime execution', () => {
 				{ ultimabase },
 			)
 
-			expect(posts[0]?.author).toBeInstanceOf(pointerRuntimeUser)
-			expect(posts[0]?.author?.name).toBe('Ada')
-			expect(posts[0]?.author?.organization).toBeInstanceOf(
-				pointerRuntimeOrganization,
-			)
-			expect(posts[0]?.author?.organization?.name).toBe('Ultima Labs')
+			const includedAuthor: unknown = posts[0]?.author
+			expect(includedAuthor).toBeInstanceOf(pointerRuntimeUser)
+			if (!(includedAuthor instanceof pointerRuntimeUser)) {
+				throw new TypeError('Expected an included user model')
+			}
+			expect(includedAuthor.name).toBe('Ada')
+			const includedOrganization: unknown = includedAuthor.organization
+			expect(includedOrganization).toBeInstanceOf(pointerRuntimeOrganization)
+			if (!(includedOrganization instanceof pointerRuntimeOrganization)) {
+				throw new TypeError('Expected an included organization model')
+			}
+			expect(includedOrganization.name).toBe('Ultima Labs')
 			expect(directAuthor?.name).toBe('Ada')
 			expect(adapter.rootRequests).toHaveLength(2)
 			expect(
@@ -280,7 +286,11 @@ describe('pointer Runtime execution', () => {
 				{ ultimabase },
 			)
 
-			expect(result[0]?.target?.name).toBe('Hydrated target')
+			const includedTarget: unknown = result[0]?.target
+			if (!(includedTarget instanceof target)) {
+				throw new TypeError('Expected the target model to be hydrated')
+			}
+			expect(includedTarget.name).toBe('Hydrated target')
 			expect(accessValues).toHaveLength(2)
 			expect(accessValues.every((value) => Pointer.is(value))).toBe(true)
 			expect(accessValues).toStrictEqual([pointer, pointer])
@@ -361,7 +371,11 @@ describe('pointer Runtime execution', () => {
 			})
 
 			expect(denied[0]?.target).toBeNull()
-			expect(allowed[0]?.target?.name).toBe('Visible to master')
+			const allowedTarget: unknown = allowed[0]?.target
+			if (!(allowedTarget instanceof restrictedTarget)) {
+				throw new TypeError('Expected the restricted target for master access')
+			}
+			expect(allowedTarget.name).toBe('Visible to master')
 			expect(missing[0]?.target).toBeNull()
 			expect(denied[0]?.toJSON()).toStrictEqual(missing[0]?.toJSON())
 			expect(adapter.rootRequests).toHaveLength(3)
@@ -412,7 +426,11 @@ describe('pointer Runtime execution', () => {
 				{ ultimabase },
 			)
 
-			expect(result[0]?.target?.name).toBe('Hydrated before afterRead')
+			const includedTarget: unknown = result[0]?.target
+			if (!(includedTarget instanceof target)) {
+				throw new TypeError('Expected the authoritative target model')
+			}
+			expect(includedTarget.name).toBe('Hydrated before afterRead')
 			expect(adapter.rootRequests).toHaveLength(1)
 		} finally {
 			await ultimabase.dispose()
@@ -462,7 +480,7 @@ describe('pointer Runtime execution', () => {
 			await ultimabase.start()
 			const updated = await mutationSource.updateOne(
 				{
-					where: (where) => where.eq('id', current.id),
+					where: { id: { eq: current.id } },
 					data: { title: 'Updated' },
 				},
 				{ ultimabase },
@@ -470,7 +488,7 @@ describe('pointer Runtime execution', () => {
 
 			expect(updated?.target).toBe(target)
 
-			if (updated?.target === undefined || updated.target === null) {
+			if (!Pointer.is(updated?.target)) {
 				throw new TypeError('Expected the complete mutation result pointer')
 			}
 

@@ -6,8 +6,8 @@ import {
 	type BooleanField,
 	type BooleanFieldOptions,
 	type FieldDefinition,
-	type FieldInferenceState,
-	type FieldInferenceStateOf,
+	type FieldTypegenState,
+	type FieldTypegenStateOf,
 } from '../../index.js'
 
 test('preserves boolean defaults and common option literals', () => {
@@ -21,16 +21,11 @@ test('preserves boolean defaults and common option literals', () => {
 	})
 
 	expectTypeOf(field).toExtend<
-		FieldDefinition<
-			'boolean',
-			boolean,
-			BooleanFieldOptions,
-			FieldInferenceState
-		>
+		FieldDefinition<'boolean', boolean, BooleanFieldOptions, FieldTypegenState>
 	>()
 	expectTypeOf(field.kind).toEqualTypeOf<'boolean'>()
 	expectTypeOf(field.options).toEqualTypeOf<Readonly<BooleanFieldOptions>>()
-	expectTypeOf<FieldInferenceStateOf<typeof field>>().toEqualTypeOf<{
+	expectTypeOf<FieldTypegenStateOf<typeof field>>().toEqualTypeOf<{
 		readonly create: 'optional'
 		readonly object: 'required'
 		readonly update: 'forbidden'

@@ -18,8 +18,8 @@ import {
 	type AccessRoleResolver,
 	type AccessSubjectResolver,
 	type AccessSubjectValue,
-	type InferAccessSubjectValue,
-	type InferResolvedAccessSubject,
+	type AccessSubjectValueOf,
+	type ResolvedAccessSubject,
 	type PointerValue,
 	type ServiceToken,
 } from '../../index.js'
@@ -85,7 +85,7 @@ test('infers plugin-owned principals and resolved subjects exactly', () => {
 	void resolver
 	expectTypeOf(principal).toExtend<AccessSubjectValue<FixturePrincipal>>()
 	expectTypeOf<
-		InferAccessSubjectValue<typeof principal>
+		AccessSubjectValueOf<typeof principal>
 	>().toEqualTypeOf<FixturePrincipal>()
 	expectTypeOf(editor).toEqualTypeOf<AccessSubjectReference<'role', 'editor'>>()
 	expectTypeOf(editor).toExtend<AccessRoleReference<'editor'>>()
@@ -93,7 +93,7 @@ test('infers plugin-owned principals and resolved subjects exactly', () => {
 		resolveAccessRoleReference(editorModel),
 	).toEqualTypeOf<AccessRoleReference>()
 	expectTypeOf<
-		InferResolvedAccessSubject<typeof resolver>
+		ResolvedAccessSubject<typeof resolver>
 	>().toEqualTypeOf<FixtureRole>()
 	expectTypeOf(accessRoleResolverServiceToken).toEqualTypeOf<
 		ServiceToken<AccessRoleResolver>

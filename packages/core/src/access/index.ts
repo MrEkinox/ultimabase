@@ -9,7 +9,7 @@ export type { AccessContext } from './request/context.js'
 export { RequestCapability } from './request/capability.js'
 export { RequestContextValue } from './request/context-value.js'
 export type {
-	InferRequestContextValue,
+	RequestContextValueType,
 	RequestContextValueSnapshot,
 } from './request/context-value.js'
 export {
@@ -34,8 +34,8 @@ export type {
 	AccessSubjectValue,
 	AccessPrincipalResolutionInput,
 	AccessPrincipalResolver,
-	InferAccessSubjectValue,
-	InferResolvedAccessSubject,
+	AccessSubjectValueOf,
+	ResolvedAccessSubject,
 	ResolveAccessPrincipalOptions,
 } from './subject/contracts.js'
 export {

@@ -38,7 +38,7 @@ export { relationField } from './fields/builtins/relation.js'
 export type {
 	RelationField,
 	RelationFieldAccess,
-	RelationFieldInferenceState,
+	RelationFieldTypegenState,
 	RelationFieldMetadataOptions,
 	RelationFieldOptions,
 	RelationFieldReadAccessInput,
@@ -128,9 +128,9 @@ export type {
 } from './extensions/definition.js'
 export type {
 	FieldDefinition,
-	FieldInferencePresence,
-	FieldInferenceState,
-	FieldInferenceStateOf,
+	FieldTypegenPresence,
+	FieldTypegenState,
+	FieldTypegenStateOf,
 	GenericField,
 	FieldList,
 	FieldListOption,
@@ -141,8 +141,8 @@ export type {
 	FieldValidationOptions,
 	FieldOptionsWithoutNullable,
 	FieldValue,
-	ResolveFieldInferenceState,
-	ScalarFieldInferenceState,
+	ResolveFieldTypegenState,
+	ScalarFieldTypegenState,
 	ValidatedFieldOptions,
 } from './fields/base/contract.js'
 export type {
@@ -199,13 +199,8 @@ export type {
 } from './hooks/hook-context.js'
 export {
 	assertFieldOptions,
-	readFieldInferenceState,
+	readFieldTypegenState,
 } from './fields/base/options.js'
-export type {
-	InferCreateInput,
-	InferObject,
-	InferUpdateInput,
-} from './inference/types.js'
 export { intField } from './fields/builtins/int.js'
 export type {
 	IntField,
@@ -232,14 +227,20 @@ export type {
 } from './fields/builtins/float.js'
 export { Schema, SchemaCompilationError } from './schema/definition.js'
 export type {
+	SchemaCreateData,
+	SchemaItem,
+	SchemaUpdateData,
+} from './schema/values.js'
+export type {
 	BaseItem,
+	SchemaAPI,
 	SchemaClass,
 	SchemaClassCapabilities,
 	SchemaClassCapabilityFactory,
 	SchemaDefinition,
 	SchemaExtensionData,
 	SchemaExtensionDeclaration,
-	GeneratedSchemaReference,
+	SchemaReference,
 	ResolvedSchemaFields,
 	SchemaExtensionFields as ResolvedSchemaExtensionFields,
 	SchemaExtensions,
@@ -266,15 +267,20 @@ export type {
 	PluginFieldBuilderDeclaration,
 } from './schema/field-builder-methods.js'
 export type {
-	GeneratedSchemaContractByName,
-	GeneratedSchemaContractFor,
-	GeneratedSchemaContract,
-	GeneratedSchemaItemFallback,
-	GeneratedSchemaItemFallbackOr,
-	GeneratedSchemaInputsContract,
-	GeneratedSchemaRelationshipTargetName,
-	GeneratedSchemaValueKey,
-	GeneratedSchemaValueOr,
+	BaseSchemaTypeInfo,
+	BaseSchemaInputsTypeInfo,
+	SchemaTypeInfoByName,
+	SchemaTypeInfoByNameOrBase,
+	SchemaTypeInfoFor,
+	SchemaTypeInfo,
+	SchemaTypeInfoCarrier,
+	SchemaInputsTypeInfo,
+	SchemaNumericFieldName,
+	SchemaRelationshipTypeInfo,
+	SchemaRelationshipFieldName,
+	SchemaRelationshipTargetName,
+	SchemaTypeValueKey,
+	SchemaTypeValue,
 	HasUltimaBaseGeneratedRegistry,
 	RequireGeneratedSchemaEntry,
 	UltimaBaseGeneratedEmbeddedFieldBuilderMethods,
@@ -282,8 +288,8 @@ export type {
 	UltimaBaseGeneratedRegistryState,
 	UltimaBaseGeneratedSchemaName,
 	UltimaBaseGeneratedSchemas,
-} from './generated-contracts.js'
-export { generatedApplicationContractVersion } from './generated-contracts.js'
+} from './type-info.js'
+export { generatedApplicationContractVersion } from './type-info.js'
 export type {
 	CompactSchemaModelUpdateInput,
 	PersistedSchemaModel,
@@ -320,7 +326,7 @@ export type {
 	FieldUpdateInputHookKind,
 	FieldUpsertHookKind,
 	FieldValueHookInput,
-	InferPresentFieldValue,
+	PresentFieldValue,
 } from './hooks/field-contracts.js'
 export type {
 	SchemaAfterCreateHook,

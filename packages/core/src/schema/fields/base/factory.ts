@@ -4,7 +4,7 @@ import type {
 	FieldListValue,
 	FieldOptions,
 	InvalidOptionsArguments,
-	ScalarFieldInferenceState,
+	ScalarFieldTypegenState,
 } from './contract.js'
 import type { FieldDefault } from './defaults.js'
 import {
@@ -53,7 +53,7 @@ export type DefaultedCompactScalarFieldOptions<
 				'field',
 				TValue,
 				TOptions,
-				ScalarFieldInferenceState<TRequired, TList, TImmutable, true>
+				ScalarFieldTypegenState<TRequired, TList, TImmutable, true>
 			>
 		>
 	> &
@@ -63,7 +63,7 @@ export type DefaultedCompactScalarFieldOptions<
 				'field',
 				TValue,
 				TOptions,
-				ScalarFieldInferenceState<TRequired, TList, TImmutable, true>
+				ScalarFieldTypegenState<TRequired, TList, TImmutable, true>
 			>
 		>
 	>
@@ -83,7 +83,7 @@ export type NonDefaultedCompactScalarFieldOptions<
 				'field',
 				TValue,
 				TOptions,
-				ScalarFieldInferenceState<TRequired, TList, TImmutable, false>
+				ScalarFieldTypegenState<TRequired, TList, TImmutable, false>
 			>
 		>
 	> &
@@ -93,7 +93,7 @@ export type NonDefaultedCompactScalarFieldOptions<
 				'field',
 				TValue,
 				TOptions,
-				ScalarFieldInferenceState<TRequired, TList, TImmutable, false>
+				ScalarFieldTypegenState<TRequired, TList, TImmutable, false>
 			>
 		>
 	>
@@ -112,7 +112,7 @@ export type CompactScalarFieldDefinition<
 	TKind,
 	TValue,
 	TOptions,
-	ScalarFieldInferenceState<
+	ScalarFieldTypegenState<
 		TRequired,
 		TList,
 		TImmutable,
@@ -200,7 +200,7 @@ export interface CompactScalarFieldFactory<
 		TKind,
 		TValue,
 		TOptions,
-		ScalarFieldInferenceState<TRequired, TList, TImmutable, true>
+		ScalarFieldTypegenState<TRequired, TList, TImmutable, true>
 	>
 	<
 		const TRequired extends boolean = false,
@@ -218,7 +218,7 @@ export interface CompactScalarFieldFactory<
 		TKind,
 		TValue,
 		TOptions,
-		ScalarFieldInferenceState<TRequired, TList, TImmutable, false>
+		ScalarFieldTypegenState<TRequired, TList, TImmutable, false>
 	>
 }
 

@@ -7,8 +7,8 @@ import {
 	type DateTimeFieldOptions,
 	type DateTimeValidationOptions,
 	type FieldDefinition,
-	type FieldInferenceState,
-	type FieldInferenceStateOf,
+	type FieldTypegenState,
+	type FieldTypegenStateOf,
 } from '../../index.js'
 
 test('preserves date-time options and exact literals', () => {
@@ -25,18 +25,13 @@ test('preserves date-time options and exact literals', () => {
 	})
 
 	expectTypeOf(field).toExtend<
-		FieldDefinition<
-			'dateTime',
-			string,
-			DateTimeFieldOptions,
-			FieldInferenceState
-		>
+		FieldDefinition<'dateTime', string, DateTimeFieldOptions, FieldTypegenState>
 	>()
 	expectTypeOf(field).toExtend<DateTimeField>()
 	expectTypeOf(field.kind).toEqualTypeOf<'dateTime'>()
 	expectTypeOf(field.options).toEqualTypeOf<Readonly<DateTimeFieldOptions>>()
 	expectTypeOf<
-		FieldInferenceStateOf<typeof field>['object']
+		FieldTypegenStateOf<typeof field>['object']
 	>().toEqualTypeOf<'required'>()
 })
 

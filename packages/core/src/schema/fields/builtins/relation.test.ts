@@ -34,7 +34,7 @@ describe('relationField', () => {
 			kind: 'relation',
 			options: { mappedBy: 'author' },
 		})
-		expect(RelationArticle.fields.tags.options).not.toHaveProperty('target')
+		expect(RelationArticle.fields.tags?.options).not.toHaveProperty('target')
 		expect(graph.getRelation(RelationArticle, ['tags'])).toStrictEqual({
 			fieldPath: ['tags'],
 			ownership: 'owning',
@@ -71,9 +71,11 @@ describe('relationField', () => {
 			presence: 'forbidden',
 		})
 		expect(plans.update.fields.tags?.presence).toBe('forbidden')
-		expect(() =>
-			snapshotScalarFieldValue(RelationArticle.fields.tags, [], 'input.tags'),
-		).toThrow(
+		const tags = RelationArticle.fields.tags
+		if (tags === undefined) {
+			throw new TypeError('Expected the tags relation field to be compiled')
+		}
+		expect(() => snapshotScalarFieldValue(tags, [], 'input.tags')).toThrow(
 			new TypeError(
 				'input.tags is a relation handle and cannot contain an embedded value',
 			),
@@ -124,7 +126,6 @@ describe('relationField', () => {
 			fields: (field) => ({
 				inverse: field.relation({
 					target: () => Target,
-					// @ts-expect-error -- Runtime resolution protects JavaScript declarations.
 					mappedBy: 'missing',
 				}),
 			}),
@@ -134,7 +135,6 @@ describe('relationField', () => {
 			fields: (field) => ({
 				inverse: field.relation({
 					target: () => Target,
-					// @ts-expect-error -- Runtime resolution rejects scalar mappings.
 					mappedBy: 'scalar',
 				}),
 			}),
@@ -194,7 +194,6 @@ describe('relationField', () => {
 			fields: (field) => ({
 				left: field.relation({
 					target: () => Right,
-					// @ts-expect-error -- Runtime rejects inverse-to-inverse cycles.
 					mappedBy: 'right',
 				}),
 			}),
@@ -204,7 +203,6 @@ describe('relationField', () => {
 			fields: (field) => ({
 				right: field.relation({
 					target: () => Left,
-					// @ts-expect-error -- Runtime rejects inverse-to-inverse cycles.
 					mappedBy: 'left',
 				}),
 			}),
@@ -226,12 +224,10 @@ describe('relationField', () => {
 			fields: (field) => ({
 				first: field.relation({
 					target: () => Owner,
-					// @ts-expect-error -- Generic runtime fixture bypasses exact mappedBy inference.
 					mappedBy: 'targets',
 				}),
 				second: field.relation({
 					target: () => Owner,
-					// @ts-expect-error -- The graph rejects a second inverse for one owner.
 					mappedBy: 'targets',
 				}),
 			}),
@@ -267,7 +263,6 @@ describe('relationField', () => {
 			fields: (field) => ({
 				inverse: field.relation({
 					target: () => Target,
-					// @ts-expect-error -- Runtime setup rejects incompatible mappings.
 					mappedBy: 'scalar',
 				}),
 			}),

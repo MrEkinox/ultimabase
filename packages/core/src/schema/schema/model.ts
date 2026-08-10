@@ -23,7 +23,7 @@ import type {
 	SchemaUpdateOneExecutionInput,
 	SchemaUpsertOneExecutionInput,
 	SchemaUpsertManyExecutionInput,
-	SchemaWhereFactory,
+	SchemaWhereInput,
 } from '../../query/operations/schema-commands.js'
 import type { OperationOptions } from '../../query/operations/options.js'
 import type { WhereInput } from '../../query/filters/where.js'
@@ -67,7 +67,7 @@ import type {
 } from '../../query/updates/contracts.js'
 import { snapshotDeclaredFieldValue } from '../fields/base/definition.js'
 import { isFieldNullable, isRequiredOnCreate } from '../fields/base/options.js'
-import type { InferCreateInput, InferObject } from '../inference/types.js'
+import type { SchemaCreateData, SchemaItem } from './values.js'
 import { Pointer, type PointerValue } from '../relations/pointer.js'
 import {
 	createRelationHandle,
@@ -80,6 +80,7 @@ import type {
 	SchemaExtensions,
 	SchemaFields,
 	SchemaMetadata,
+	SchemaReference,
 } from './definition.js'
 
 /** Distinguishes caller input, prepared candidates, and persisted values. */
@@ -192,7 +193,7 @@ type SchemaModelResultSelection<
 
 export interface SchemaDraftUpsertFields<TSchema extends SchemaDefinition> {
 	/** Builds the exact equality target that Runtime verifies against a unique index. */
-	readonly where: SchemaWhereFactory<TSchema>
+	readonly where: SchemaWhereInput<TSchema>
 	/** Applies this exact atomic update when the unique target already exists. */
 	readonly update: UpdateExpressionInput<TSchema> & {}
 }
@@ -200,10 +201,10 @@ export interface SchemaDraftUpsertFields<TSchema extends SchemaDefinition> {
 /** Combines a draft's create values with one unique target, update, and projection. */
 export type SchemaDraftUpsertInput<
 	TSchema extends SchemaDefinition,
-	TSelection extends SchemaModelSelection<InferObject<TSchema>> | undefined =
+	TSelection extends SchemaModelSelection<SchemaItem<TSchema>> | undefined =
 		undefined,
 > = SchemaDraftUpsertFields<TSchema> &
-	SchemaModelResultSelection<InferObject<TSchema>, TSelection>
+	SchemaModelResultSelection<SchemaItem<TSchema>, TSelection>
 
 /** Names one exact field-oriented update without retaining field definitions in hovers. */
 export type CompactSchemaModelUpdateInput<
@@ -570,10 +571,10 @@ type SchemaModelInstance<
 
 /** Infers the immutable draft produced by a schema class constructor. */
 export type SchemaDraft<TSchema extends SchemaDefinition> = Simplify<
-	SchemaModelInstance<TSchema, 'draft', InferCreateInput<TSchema>> &
+	SchemaModelInstance<TSchema, 'draft', SchemaCreateData<TSchema>> &
 		SchemaDraftCommands<
 			TSchema['className'],
-			InferObject<TSchema>,
+			SchemaItem<TSchema>,
 			CompactSchemaModelUpdateInput<
 				Simplify<UpdateSetInput<TSchema>>,
 				Simplify<NumericUpdateInput<TSchema>>
@@ -586,18 +587,18 @@ export type SchemaDraft<TSchema extends SchemaDefinition> = Simplify<
 
 /** Exposes one complete normalized candidate without persistence commands. */
 export type SchemaPreparedDraft<TSchema extends SchemaDefinition> = Simplify<
-	SchemaModelInstance<TSchema, 'prepared-draft', InferObject<TSchema>>
+	SchemaModelInstance<TSchema, 'prepared-draft', SchemaItem<TSchema>>
 >
 
 /** Infers one persisted schema-class instance with an exact visible shape. */
 export type SchemaResult<
 	TSchema extends SchemaDefinition,
-	TValues extends object = InferObject<TSchema>,
+	TValues extends object = SchemaItem<TSchema>,
 > = PersistedSchemaModelWithPointer<
 	SchemaModelPointerIdentity<Pointer<TSchema>>,
 	TSchema['className'],
 	TValues,
-	InferObject<TSchema>,
+	SchemaItem<TSchema>,
 	CompactSchemaModelUpdateInput<
 		Simplify<UpdateSetInput<TSchema>>,
 		Simplify<NumericUpdateInput<TSchema>>
@@ -778,7 +779,7 @@ export const finalizeSchemaModelClass = (schema: SchemaDefinition): void => {
 interface NormalizedSchemaDraftUpsertInput {
 	readonly select?: QuerySelection<SchemaDefinition>
 	readonly update: UpdateExpressionInput<SchemaDefinition> & {}
-	readonly where: SchemaWhereFactory<SchemaDefinition>
+	readonly where: SchemaWhereInput<SchemaDefinition>
 }
 
 interface NormalizedSchemaModelSelectionInput {
@@ -899,7 +900,7 @@ const readSchemaDraftUpsertInput = (
 			? { select: input.select as QuerySelection<SchemaDefinition> }
 			: {}),
 		update: input.update as UpdateExpressionInput<SchemaDefinition> & {},
-		where: input.where as SchemaWhereFactory<SchemaDefinition>,
+		where: input.where as SchemaWhereInput<SchemaDefinition>,
 	})
 }
 
@@ -1244,7 +1245,7 @@ export const createSchemaModelClass = <
 	const TExtensions extends SchemaExtensions,
 >(
 	reader: SchemaModelDefinitionReader<TClassName, TFields, TExtensions>,
-): SchemaClass<TClassName, TFields, TExtensions> => {
+): SchemaReference<TClassName> => {
 	class DefinedSchemaModel extends SchemaModelPrototype {
 		constructor(
 			input: unknown,
@@ -1484,11 +1485,7 @@ export const createSchemaModelClass = <
 		},
 	})
 
-	const schema = DefinedSchemaModel as unknown as SchemaClass<
-		TClassName,
-		TFields,
-		TExtensions
-	>
+	const schema = DefinedSchemaModel as unknown as SchemaReference<TClassName>
 	schemaModelClasses.add(schema)
 	return schema
 }

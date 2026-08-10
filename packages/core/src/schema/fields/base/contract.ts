@@ -2,29 +2,29 @@ import type { FieldExtension } from '../../extensions/definition.js'
 import type { DefaultFactory, FieldDefault } from './defaults.js'
 
 declare const fieldValueMarker: unique symbol
-declare const fieldInferenceMarker: unique symbol
+declare const fieldTypegenMarker: unique symbol
 
 /** Describes one homogeneous list wrapper around a field value. */
 export type FieldList = true
 export type FieldListOption = boolean
 
 /** Describes whether one operation exposes a declared field property. */
-export type FieldInferencePresence = 'forbidden' | 'optional' | 'required'
+export type FieldTypegenPresence = 'forbidden' | 'optional' | 'required'
 
 /**
  * Carries only the normalized facts that affect operation-specific inference.
  * Runtime options remain available on the field without retaining their literals.
  */
-export interface FieldInferenceState {
-	readonly create: FieldInferencePresence
-	readonly object: FieldInferencePresence
-	readonly update: Exclude<FieldInferencePresence, 'required'>
+export interface FieldTypegenState {
+	readonly create: FieldTypegenPresence
+	readonly object: FieldTypegenPresence
+	readonly update: Exclude<FieldTypegenPresence, 'required'>
 	readonly nullable: boolean
 	readonly list: FieldListOption
 }
 
 /** Builds the compact state shared by scalar fields without automatic generation. */
-export interface ScalarFieldInferenceState<
+export interface ScalarFieldTypegenState<
 	TRequired extends boolean,
 	TList extends FieldListOption,
 	TImmutable extends boolean,
@@ -273,7 +273,7 @@ type ResolveUpdatePresence<TOptions> =
 			: 'optional'
 
 /** Converts exact legacy options into the compact field inference contract. */
-export interface ResolveFieldInferenceState<TOptions extends object> {
+export interface ResolveFieldTypegenState<TOptions extends object> {
 	readonly create: ResolveCreatePresence<TOptions>
 	readonly object: ResolveObjectPresence
 	readonly update: ResolveUpdatePresence<TOptions>
@@ -290,12 +290,12 @@ export interface FieldDefinition<
 	TKind extends string,
 	TValue,
 	TOptions extends object = FieldOptions<TValue>,
-	TInference extends FieldInferenceState = ResolveFieldInferenceState<TOptions>,
+	TTypegen extends FieldTypegenState = ResolveFieldTypegenState<TOptions>,
 > {
 	readonly kind: TKind
 	readonly options: Readonly<TOptions>
 	readonly [fieldValueMarker]?: TValue
-	readonly [fieldInferenceMarker]?: TInference
+	readonly [fieldTypegenMarker]?: TTypegen
 }
 
 /**
@@ -317,14 +317,14 @@ export type FieldScalarValue<TField> = TField extends {
 	: unknown
 
 /** Extracts the compact operation state carried by a declared field. */
-export type FieldInferenceStateOf<TField> = TField extends {
-	readonly [fieldInferenceMarker]?: infer TInference extends FieldInferenceState
+export type FieldTypegenStateOf<TField> = TField extends {
+	readonly [fieldTypegenMarker]?: infer TTypegen extends FieldTypegenState
 }
-	? TInference
+	? TTypegen
 	: never
 
 /** Extracts the complete value carried by a field and its list metadata. */
 export type FieldValue<TField> = FieldListValue<
 	FieldScalarValue<TField>,
-	FieldInferenceStateOf<TField>['list']
+	FieldTypegenStateOf<TField>['list']
 >

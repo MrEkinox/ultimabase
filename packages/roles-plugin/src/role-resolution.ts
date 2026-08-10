@@ -4,7 +4,6 @@ import {
 	type SchemaClass,
 	type SchemaDefinition,
 	type SchemaResult,
-	type StringField,
 } from '@ultimabase/core'
 
 import {
@@ -15,10 +14,7 @@ import {
 } from './role-reference.js'
 import { readPersistedRoleId } from './role-hierarchy.js'
 
-type RoleLookupSchema = SchemaClass<
-	string,
-	Readonly<{ readonly name: StringField }>
->
+type RoleLookupSchema = SchemaClass
 
 /** Reports strict stored-role lookup failures without leaking adapter details. */
 export class RoleReferenceResolutionError extends Error {
@@ -61,7 +57,7 @@ const requireRoleReferenceState = <
 
 /** Selects one unique match while treating absent or corrupt storage explicitly. */
 export const resolveUniqueRoleNameMatch = <
-	TRole extends { readonly id: string },
+	TRole extends { readonly id: { toString(): string } },
 >(
 	name: string,
 	matches: readonly TRole[],
@@ -159,5 +155,7 @@ export const resolveRoleReference = async <
 		)
 	}
 
-	return role
+	// Runtime preserves the exact schema identity; this generic bridge only hides
+	// the bootstrap BaseItem branch that TypeScript cannot reduce for TSchema.
+	return role as unknown as SchemaResult<TSchema>
 }

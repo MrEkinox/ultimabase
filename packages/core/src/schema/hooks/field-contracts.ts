@@ -1,7 +1,7 @@
 import type { MaybePromise } from '@ultimabase/shared'
 
 import type { GenericField } from '../fields/base/contract.js'
-import type { InferFields } from '../inference/types.js'
+import type { FieldValueMap } from '../fields/base/value-map.js'
 import type { HookContext } from './hook-context.js'
 import type {
 	HookHandlerDeclaration,
@@ -21,19 +21,21 @@ type ReadPresentFieldValue<TFields> = TFields extends {
 	: never
 
 /** Infers a field value only when that operation mode can actually provide it. */
-export type InferPresentFieldValue<
+export type PresentFieldValue<
 	TField extends GenericField,
 	TMode extends FieldHookMode,
-> = ReadPresentFieldValue<InferFields<{ readonly value: TField }, TMode>>
+> = string extends TField['kind']
+	? unknown
+	: ReadPresentFieldValue<FieldValueMap<{ readonly value: TField }, TMode>>
 
 /** Gives reusable names to the exact values available to inline field hooks. */
 export interface FieldHookTypes<TField extends GenericField> {
 	/** The exact value accepted when this field is present in a create input. */
-	readonly create: InferPresentFieldValue<TField, 'create'>
+	readonly create: PresentFieldValue<TField, 'create'>
 	/** The exact immutable value read from a persisted object. */
-	readonly object: InferPresentFieldValue<TField, 'object'>
+	readonly object: PresentFieldValue<TField, 'object'>
 	/** The exact value accepted when this field is writable in an update. */
-	readonly update: InferPresentFieldValue<TField, 'update'>
+	readonly update: PresentFieldValue<TField, 'update'>
 }
 
 /** Groups terminals whose supplied values can pass through input hooks. */

@@ -75,12 +75,10 @@ describe('schema model classes', () => {
 		expect(() => new Post(null as unknown as { title: string })).toThrow(
 			new TypeError('Schema model input must be a plain object'),
 		)
-		expect(() => new Post({} as { title: string })).toThrow(
+		expect(() => new Post({})).toThrow(
 			new TypeError('Schema model input field is required: title'),
 		)
-		expect(
-			() => new Post({ title: 'Hello', unknown: true } as { title: string }),
-		).toThrow(
+		expect(() => new Post({ title: 'Hello', unknown: true })).toThrow(
 			new TypeError('Schema model input contains an unknown field: unknown'),
 		)
 		const symbolField = Symbol('unknown')

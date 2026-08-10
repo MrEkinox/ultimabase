@@ -55,7 +55,7 @@ const resolveMutableField = <const TSchema extends SchemaDefinition>(
 	}
 
 	// Plugin inference may impose stricter rules that Runtime validates through its handler.
-	return [fieldName as UpdateFieldName<TSchema>, field]
+	return [fieldName, field]
 }
 
 const resolveNumericField = <const TSchema extends SchemaDefinition>(

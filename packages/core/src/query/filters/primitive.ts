@@ -1,10 +1,4 @@
 import type {
-	FieldScalarValue,
-	FieldInferenceStateOf,
-	FieldList,
-	GenericField,
-	InferObject,
-	JsonDocument,
 	JsonObject,
 	JsonValue,
 	SchemaDefinition,
@@ -30,8 +24,6 @@ export const queryEqualityFieldKinds = [
 	'uuid',
 ] as const
 
-type QueryEqualityFieldKind = (typeof queryEqualityFieldKinds)[number]
-
 /** Keeps runtime checks and type-level ordering capabilities from drifting apart. */
 export const queryOrderedFieldKinds = [
 	'bigint',
@@ -43,8 +35,6 @@ export const queryOrderedFieldKinds = [
 	'string',
 	'time',
 ] as const
-
-type QueryOrderedFieldKind = (typeof queryOrderedFieldKinds)[number]
 
 export type QueryEqualityFilterOperator = 'equal' | 'not-equal'
 
@@ -272,448 +262,65 @@ export interface QueryFieldPath<
 	readonly path: TPath
 }
 
-type QueryFieldDefinition<
+/**
+ * Lists portable primitive leaves without reconstructing field capabilities.
+ *
+ * Generated Where contracts and WhereBuilder provide the application-facing
+ * operator precision. These AST nodes stay intentionally broad because runtime
+ * field metadata is the authority that validates normalized external input.
+ */
+export interface QueryPrimitiveFilterNode<
 	TSchema extends SchemaDefinition,
-	TFieldName extends QueryFieldName<TSchema>,
-> = TSchema['fields'][TFieldName]
+	TFieldName extends QueryFieldName<TSchema> = QueryFieldName<TSchema>,
+> extends QueryExpressionNode {
+	readonly field: TFieldName
+	readonly isNull?: boolean
+	readonly keys?: readonly string[]
+	readonly kind: QueryBuiltInFilterOperator
+	readonly lower?: unknown
+	readonly path?: readonly [string, ...string[]]
+	readonly pattern?: QueryRegexPattern
+	readonly source?: string
+	readonly upper?: unknown
+	readonly value?: unknown
+	readonly values?: readonly unknown[]
+	readonly variables?: JsonObject
+}
 
-type QueryFieldValueForDefinition<TField extends GenericField> =
-	FieldInferenceStateOf<TField>['nullable'] extends true
-		? FieldScalarValue<TField> | null
-		: FieldScalarValue<TField>
-
-type QueryDeepPartial<TValue> = TValue extends readonly (infer TItem)[]
-	? readonly QueryDeepPartial<TItem>[]
-	: TValue extends Readonly<Record<string, unknown>>
-		? { readonly [TKey in keyof TValue]?: QueryDeepPartial<TValue[TKey]> }
-		: TValue
-
-type QueryStructuralValueForDefinition<TField extends GenericField> =
-	TField extends { readonly kind: 'json' }
-		? JsonDocument
-		: TField extends { readonly kind: 'object' }
-			? QueryDeepPartial<Exclude<FieldScalarValue<TField>, null>>
-			: never
-
-type QueryStructuralKeyForDefinition<TField extends GenericField> =
-	TField extends { readonly kind: 'object' }
-		? Extract<keyof Exclude<FieldScalarValue<TField>, null>, string>
-		: string
-
-type QueryFieldKind<
-	TSchema extends SchemaDefinition,
-	TFieldName extends QueryFieldName<TSchema>,
-> =
-	QueryFieldDefinition<TSchema, TFieldName> extends {
-		readonly kind: infer TKind extends string
-	}
-		? TKind
-		: never
-
-type IsScalarQueryField<
-	TSchema extends SchemaDefinition,
-	TFieldName extends QueryFieldName<TSchema>,
-> = FieldInferenceStateOf<
-	QueryFieldDefinition<TSchema, TFieldName>
->['list'] extends FieldList
-	? false
-	: true
-
-/** Infers the persisted field value while excluding optional-property absence. */
+/** Keeps bootstrap filter values unknown until runtime validation. */
 export type QueryFilterValue<
 	TSchema extends SchemaDefinition,
 	TFieldName extends QueryFieldName<TSchema>,
-> = TFieldName extends keyof InferObject<TSchema>
-	? Exclude<InferObject<TSchema>[TFieldName], undefined>
-	: never
+> = TFieldName extends QueryFieldName<TSchema> ? unknown : never
 
-type QueryScalarPrimitiveFilterNode<
-	TSchema extends SchemaDefinition,
-	TFieldName extends QueryFieldName<TSchema>,
-> = [QueryFilterValue<TSchema, TFieldName>] extends [never]
-	? never
-	: | QueryEqualityPrimitiveFilterNode<TSchema, TFieldName>
-		| QueryOrderedPrimitiveFilterNode<TSchema, TFieldName>
-		| QueryStringPrimitiveFilterNode<TSchema, TFieldName>
-
-type QueryListItemValue<
-	TSchema extends SchemaDefinition,
-	TFieldName extends QueryFieldName<TSchema>,
-> =
-	Exclude<
-		QueryFilterValue<TSchema, TFieldName>,
-		null
-	> extends readonly (infer TItem)[]
-		? TItem
-		: never
-
-type QueryListPrimitiveFilterNode<
-	TSchema extends SchemaDefinition,
-	TFieldName extends QueryFieldName<TSchema>,
-> =
-	| QueryEqualityFilterNode<TFieldName, QueryFilterValue<TSchema, TFieldName>>
-	| QueryListEmptyFilterNode<TFieldName>
-	| QueryListHasFilterNode<TFieldName, QueryListItemValue<TSchema, TFieldName>>
-	| QueryListMembershipFilterNode<
-			TFieldName,
-			QueryListItemValue<TSchema, TFieldName>
-	  >
-
-type QueryEqualityPrimitiveFilterNode<
-	TSchema extends SchemaDefinition,
-	TFieldName extends QueryFieldName<TSchema>,
-> =
-	QueryFieldKind<TSchema, TFieldName> extends QueryEqualityFieldKind
-		? | QueryEqualityFilterNode<
-					TFieldName,
-					QueryFilterValue<TSchema, TFieldName>
-			  >
-			| QueryMembershipFilterNode<
-					TFieldName,
-					QueryFilterValue<TSchema, TFieldName>
-			  >
-		: never
-
-type QueryOrderedPrimitiveFilterNode<
-	TSchema extends SchemaDefinition,
-	TFieldName extends QueryFieldName<TSchema>,
-> =
-	QueryFieldKind<TSchema, TFieldName> extends QueryOrderedFieldKind
-		? | QueryComparisonFilterNode<
-					TFieldName,
-					Exclude<QueryFilterValue<TSchema, TFieldName>, null>
-			  >
-			| QueryRangeFilterNode<
-					TFieldName,
-					Exclude<QueryFilterValue<TSchema, TFieldName>, null>
-			  >
-		: never
-
-type QueryStringPrimitiveFilterNode<
-	TSchema extends SchemaDefinition,
-	TFieldName extends QueryFieldName<TSchema>,
-> =
-	QueryFieldKind<TSchema, TFieldName> extends 'string'
-		? Extract<QueryFilterValue<TSchema, TFieldName>, string> extends never
-			? never
-			: | QueryStringFilterNode<
-						TFieldName,
-						Extract<QueryFilterValue<TSchema, TFieldName>, string>
-				  >
-				| QueryRegexFilterNode<TFieldName>
-		: never
-
-type QueryPrimitiveFilterForField<
-	TSchema extends SchemaDefinition,
-	TFieldName extends QueryFieldName<TSchema>,
-> =
-	QueryFieldKind<TSchema, TFieldName> extends 'relation'
-		? never
-		: | QueryNullFilterNode<TFieldName>
-			| (IsScalarQueryField<TSchema, TFieldName> extends true
-					? | QueryScalarPrimitiveFilterNode<TSchema, TFieldName>
-						| QueryStructuredPrimitiveFilterNode<TSchema, TFieldName>
-					: QueryListPrimitiveFilterNode<TSchema, TFieldName>)
-
-type QueryStructuredPrimitiveFilterNode<
-	TSchema extends SchemaDefinition,
-	TFieldName extends QueryFieldName<TSchema>,
-> =
-	QueryFieldKind<TSchema, TFieldName> extends 'json' | 'object'
-		? | QueryStructuralContainmentFilterNode<
-					TFieldName,
-					QueryStructuralValueForDefinition<
-						Extract<QueryFieldDefinition<TSchema, TFieldName>, GenericField>
-					>
-			  >
-			| QueryKeyFilterNode<
-					TFieldName,
-					QueryStructuralKeyForDefinition<
-						Extract<QueryFieldDefinition<TSchema, TFieldName>, GenericField>
-					>
-			  >
-			| QueryKeysFilterNode<
-					TFieldName,
-					QueryStructuralKeyForDefinition<
-						Extract<QueryFieldDefinition<TSchema, TFieldName>, GenericField>
-					>
-			  >
-			| QueryJsonPathFilterNode<TFieldName>
-		: never
-
-type QueryPathFilterForDefinition<
-	TField extends GenericField,
-	TRootFieldName extends string,
-	TPath extends readonly [string, ...string[]],
-> =
-	| QueryNullFilterNode<TRootFieldName, TPath>
-	| (FieldInferenceStateOf<TField>['list'] extends FieldList
-			? | QueryEqualityFilterNode<
-						TRootFieldName,
-						readonly FieldScalarValue<TField>[] | null,
-						TPath
-				  >
-				| QueryListEmptyFilterNode<TRootFieldName, TPath>
-				| QueryListHasFilterNode<
-						TRootFieldName,
-						FieldScalarValue<TField>,
-						TPath
-				  >
-				| QueryListMembershipFilterNode<
-						TRootFieldName,
-						FieldScalarValue<TField>,
-						TPath
-				  >
-			: | (TField['kind'] extends QueryEqualityFieldKind
-						? | QueryEqualityFilterNode<
-									TRootFieldName,
-									QueryFieldValueForDefinition<TField>,
-									TPath
-							  >
-							| QueryMembershipFilterNode<
-									TRootFieldName,
-									QueryFieldValueForDefinition<TField>,
-									TPath
-							  >
-						: never)
-				| (TField['kind'] extends 'string'
-						? QueryStringFilterNode<
-								TRootFieldName,
-								Extract<QueryFieldValueForDefinition<TField>, string>,
-								TPath
-							>
-						: never)
-				| (TField['kind'] extends 'json' | 'object'
-						? | QueryStructuralContainmentFilterNode<
-									TRootFieldName,
-									TField['kind'] extends 'json'
-										? JsonDocument
-										: QueryStructuralValueForDefinition<TField>,
-									TPath
-							  >
-							| QueryKeyFilterNode<
-									TRootFieldName,
-									QueryStructuralKeyForDefinition<TField>,
-									TPath
-							  >
-							| QueryKeysFilterNode<
-									TRootFieldName,
-									QueryStructuralKeyForDefinition<TField>,
-									TPath
-							  >
-							| QueryJsonPathFilterNode<TRootFieldName, TPath>
-						: never))
-
-type QueryDynamicJsonPathFilterNode<
-	TRootFieldName extends string,
-	TPath extends readonly [string, ...string[]],
-> =
-	| QueryEqualityFilterNode<TRootFieldName, JsonValue, TPath>
-	| QueryMembershipFilterNode<TRootFieldName, JsonValue, TPath>
-	| QueryNullFilterNode<TRootFieldName, TPath>
-	| QueryStructuralContainmentFilterNode<TRootFieldName, JsonValue, TPath>
-	| QueryKeyFilterNode<TRootFieldName, string, TPath>
-	| QueryKeysFilterNode<TRootFieldName, string, TPath>
-	| QueryJsonPathFilterNode<TRootFieldName, TPath>
-
-type MaximumQueryFieldPathDepth = 12
-
-type AppendQueryFieldPath<
-	TParentPath extends readonly string[],
-	TName extends string,
-> = TParentPath extends readonly []
-	? readonly [TName]
-	: TParentPath extends readonly [
-				infer TFirst extends string,
-				...infer TRest extends string[],
-		  ]
-		? readonly [TFirst, ...TRest, TName]
-		: never
-
-type AppendDynamicQueryFieldPath<
-	TParentPath extends readonly string[],
-	TName extends string,
-> =
-	AppendQueryFieldPath<TParentPath, TName> extends readonly [
-		infer TFirst extends string,
-		...infer TRest extends string[],
-	]
-		? readonly [TFirst, ...TRest, string, ...string[]]
-		: never
-
-type QueryObjectPathFilterNode<
-	TFields extends Readonly<Record<string, GenericField>>,
-	TRootFieldName extends string,
-	TParentPath extends readonly string[] = readonly [],
-	TDepth extends readonly unknown[] = readonly [],
-> = {
-	readonly [TName in Extract<keyof TFields, string>]:
-		| QueryPathFilterForDefinition<
-				TFields[TName],
-				TRootFieldName,
-				AppendQueryFieldPath<TParentPath, TName>
-		  >
-		| (TFields[TName] extends {
-				readonly kind: 'object'
-				readonly options: {
-					readonly fields: infer TChildren extends Readonly<
-						Record<string, GenericField>
-					>
-				}
-		  }
-				? FieldInferenceStateOf<TFields[TName]>['list'] extends FieldList
-					? never
-					: TDepth['length'] extends MaximumQueryFieldPathDepth
-						? never
-						: QueryObjectPathFilterNode<
-								TChildren,
-								TRootFieldName,
-								AppendQueryFieldPath<TParentPath, TName>,
-								readonly [...TDepth, unknown]
-							>
-				: never)
-		| (TFields[TName] extends { readonly kind: 'json' }
-				? FieldInferenceStateOf<TFields[TName]>['list'] extends FieldList
-					? never
-					: QueryDynamicJsonPathFilterNode<
-							TRootFieldName,
-							AppendDynamicQueryFieldPath<TParentPath, TName>
-						>
-				: never)
-}[Extract<keyof TFields, string>]
-
-type QueryPathPrimitiveFilterForField<
-	TSchema extends SchemaDefinition,
-	TFieldName extends QueryFieldName<TSchema>,
-> =
-	QueryFieldDefinition<TSchema, TFieldName> extends infer TField extends
-		GenericField
-		? FieldInferenceStateOf<TField>['list'] extends FieldList
-			? never
-			: TField extends { readonly kind: 'json' }
-				? QueryDynamicJsonPathFilterNode<
-						TFieldName,
-						readonly [string, ...string[]]
-					>
-				: TField extends {
-							readonly kind: 'object'
-							readonly options: {
-								readonly fields: infer TFields extends Readonly<
-									Record<string, GenericField>
-								>
-							}
-					  }
-					? QueryObjectPathFilterNode<TFields, TFieldName>
-					: never
-		: never
-
-type QueryPathPrimitiveFilterNode<TSchema extends SchemaDefinition> = {
-	readonly [
-		TFieldName in QueryFieldName<TSchema>
-	]: QueryPathPrimitiveFilterForField<TSchema, TFieldName>
-}[QueryFieldName<TSchema>]
-
-/** Builds the field-correlated union consumed by QueryBuilder and transport normalizers. */
-export type QueryPrimitiveFilterNode<
-	TSchema extends SchemaDefinition,
-	TFieldName extends QueryFieldName<TSchema> = QueryFieldName<TSchema>,
-> =
-	| (TFieldName extends QueryFieldName<TSchema>
-			? QueryPrimitiveFilterForField<TSchema, TFieldName>
-			: never)
-	| (TFieldName extends QueryFieldName<TSchema>
-			? QueryPathPrimitiveFilterForField<TSchema, TFieldName>
-			: never)
-
-/** Extracts only operators that are legal for the selected schema field. */
+/** Lists every portable primitive operator accepted by the AST boundary. */
 export type QueryPrimitiveFilterOperator<
 	TSchema extends SchemaDefinition,
 	TFieldName extends QueryFieldName<TSchema>,
-> = QueryPrimitiveFilterForField<TSchema, TFieldName>['kind']
+> =
+	TFieldName extends QueryFieldName<TSchema>
+		? QueryBuiltInFilterOperator
+		: never
 
-/** Selects schema fields that support one exact primitive filter operator. */
+/** Selects fields without reconstructing their capabilities from local definitions. */
 export type QueryFilterFieldName<
 	TSchema extends SchemaDefinition,
 	TOperator extends QueryBuiltInFilterOperator,
-> = {
-	[
-		TFieldName in QueryFieldName<TSchema>
-	]: TOperator extends QueryPrimitiveFilterOperator<TSchema, TFieldName>
-		? TFieldName
-		: never
-}[QueryFieldName<TSchema>]
-
-type QueryFilterTargetForNode<TNode> = TNode extends {
-	readonly field: infer TFieldName extends string
-	readonly path: infer TPath extends readonly [string, ...string[]]
-}
-	? QueryFieldPath<TFieldName, TPath>
-	: TNode extends { readonly field: infer TFieldName extends string }
-		? TFieldName
-		: never
-
-type QueryFilterTargetForUnion<TNode, TOperator> = TNode extends {
-	readonly kind: infer TKind
-}
-	? TOperator extends TKind
-		? QueryFilterTargetForNode<TNode>
-		: never
+> = TOperator extends QueryBuiltInFilterOperator
+	? QueryFieldName<TSchema>
 	: never
 
-/** Selects root fields and typed nested paths that support one operator. */
+/** Selects one root field or structured path for runtime capability validation. */
 export type QueryFilterTarget<
 	TSchema extends SchemaDefinition,
 	TOperator extends QueryBuiltInFilterOperator,
-> =
-	| QueryFilterFieldName<TSchema, TOperator>
-	| QueryFilterTargetForUnion<QueryPathPrimitiveFilterNode<TSchema>, TOperator>
+> = TOperator extends QueryBuiltInFilterOperator
+	? QueryFieldName<TSchema> | QueryFieldPath<QueryFieldName<TSchema>>
+	: never
 
-type QueryFilterNodeForTarget<
-	TSchema extends SchemaDefinition,
-	TOperator extends QueryBuiltInFilterOperator,
-	TTarget,
-> =
-	QueryPrimitiveFilterNode<TSchema> extends infer TNode
-		? TNode extends {
-				readonly kind: infer TKind
-				readonly field: infer TFieldName
-			}
-			? TOperator extends TKind
-				? TTarget extends QueryFieldPath<
-						infer TTargetFieldName,
-						infer TTargetPath
-					>
-					? TNode extends {
-							readonly field: TTargetFieldName
-							readonly path: TTargetPath
-						}
-						? TNode
-						: never
-					: TFieldName extends TTarget
-						? TNode extends { readonly path: readonly string[] }
-							? never
-							: TNode
-						: never
-				: never
-			: never
-		: never
-
-/** Resolves the exact single operand accepted by one target and operator. */
+/** Keeps low-level AST operands unknown; generated authoring APIs remain exact. */
 export type QueryFilterOperand<
 	TSchema extends SchemaDefinition,
 	TOperator extends QueryBuiltInFilterOperator,
 	TTarget extends QueryFilterTarget<TSchema, TOperator>,
-> =
-	QueryFilterNodeForTarget<TSchema, TOperator, TTarget> extends {
-		readonly value: infer TValue
-	}
-		? TValue
-		: QueryFilterNodeForTarget<TSchema, TOperator, TTarget> extends {
-					readonly values: readonly (infer TValue)[]
-			  }
-			? TValue
-			: QueryFilterNodeForTarget<TSchema, TOperator, TTarget> extends {
-						readonly keys: readonly (infer TValue)[]
-				  }
-				? TValue
-				: never
+> = TTarget extends QueryFilterTarget<TSchema, TOperator> ? unknown : never

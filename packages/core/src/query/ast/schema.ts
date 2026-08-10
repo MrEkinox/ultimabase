@@ -24,5 +24,5 @@ export const parseQueryFieldName = <TSchema extends SchemaDefinition>(
 		throw new TypeError(`${path} must reference a schema field`)
 	}
 
-	return fieldName as QueryFieldName<TSchema>
+	return fieldName
 }

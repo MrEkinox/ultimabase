@@ -1,5 +1,5 @@
 import type { SchemaDefinition } from '../../schema/index.js'
-import type { GeneratedSchemaValueOr } from '../../schema/generated-contracts.js'
+import type { SchemaTypeValue } from '../../schema/type-info.js'
 import {
 	immutableArray,
 	immutableRecord,
@@ -28,12 +28,10 @@ import {
  * Post.findMany({ select: { internalNote: false } })
  * ```
  */
-export type QuerySelection<TSchema extends SchemaDefinition> =
-	GeneratedSchemaValueOr<
-		TSchema,
-		'Select',
-		Readonly<Partial<Record<QueryFieldName<TSchema>, boolean>>>
-	>
+export type QuerySelection<TSchema extends SchemaDefinition> = SchemaTypeValue<
+	TSchema,
+	'Select'
+>
 
 type QuerySelectableFieldName<TSchema extends SchemaDefinition> = Extract<
 	keyof QuerySelection<TSchema>,

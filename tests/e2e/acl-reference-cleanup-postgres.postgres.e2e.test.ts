@@ -177,7 +177,7 @@ const principalOwnerPlugin = definePlugin({
 						await applyPrincipalPolicy(
 							input.context,
 							schema,
-							input.originalItem.id,
+							input.originalItem.id.toString(),
 							policy,
 							readCleanups(),
 						)
@@ -280,7 +280,7 @@ describe(
 				{
 					data: {
 						acl: new ACL().grantPrincipal(
-							FailPrincipal.pointer(fail.id),
+							FailPrincipal.pointer(fail.id.toString()),
 							'read',
 						),
 						title: 'principal-fail',
@@ -292,7 +292,7 @@ describe(
 				{
 					data: {
 						acl: new ACL().grantPrincipal(
-							PreservePrincipal.pointer(preserve.id),
+							PreservePrincipal.pointer(preserve.id.toString()),
 							'read',
 						),
 						title: 'principal-preserve',
@@ -309,13 +309,15 @@ describe(
 			).resolves.toMatchObject({ id: preserve.id })
 			expect(
 				(
-					await readACL(ProtectedPrimary, failRow.id, ultimabase)
-				).permissionsForPrincipal(FailPrincipal.pointer(fail.id)),
+					await readACL(ProtectedPrimary, failRow.id.toString(), ultimabase)
+				).permissionsForPrincipal(FailPrincipal.pointer(fail.id.toString())),
 			).toStrictEqual(['read'])
 			expect(
 				(
-					await readACL(ProtectedPrimary, preserveRow.id, ultimabase)
-				).permissionsForPrincipal(PreservePrincipal.pointer(preserve.id)),
+					await readACL(ProtectedPrimary, preserveRow.id.toString(), ultimabase)
+				).permissionsForPrincipal(
+					PreservePrincipal.pointer(preserve.id.toString()),
+				),
 			).toStrictEqual(['read'])
 		})
 
@@ -330,7 +332,11 @@ describe(
 			)
 			const value = new ACL()
 				.grantPublic('read')
-				.grantPrincipal(CascadePrincipal.pointer(cascade.id), 'read', 'update')
+				.grantPrincipal(
+					CascadePrincipal.pointer(cascade.id.toString()),
+					'read',
+					'update',
+				)
 				.grantPrincipal(unrelated, 'delete')
 			const primary = await ProtectedPrimary.createOne(
 				{ data: { acl: value, title: 'principal-cascade-primary' } },
@@ -358,13 +364,17 @@ describe(
 			).resolves.toBe(true)
 			expect(
 				(
-					await readACL(ProtectedPrimary, primary.id, ultimabase)
-				).permissionsForPrincipal(CascadePrincipal.pointer(cascade.id)),
+					await readACL(ProtectedPrimary, primary.id.toString(), ultimabase)
+				).permissionsForPrincipal(
+					CascadePrincipal.pointer(cascade.id.toString()),
+				),
 			).toStrictEqual(['read', 'update'])
 			expect(
 				(
-					await readACL(ProtectedSecondary, secondary.id, ultimabase)
-				).permissionsForPrincipal(CascadePrincipal.pointer(cascade.id)),
+					await readACL(ProtectedSecondary, secondary.id.toString(), ultimabase)
+				).permissionsForPrincipal(
+					CascadePrincipal.pointer(cascade.id.toString()),
+				),
 			).toStrictEqual(['read', 'update'])
 
 			await expect(
@@ -372,23 +382,23 @@ describe(
 			).resolves.toMatchObject({ id: cascade.id })
 			const cleanedPrimary = await readACL(
 				ProtectedPrimary,
-				primary.id,
+				primary.id.toString(),
 				ultimabase,
 			)
 			const cleanedSecondary = await readACL(
 				ProtectedSecondary,
-				secondary.id,
+				secondary.id.toString(),
 				ultimabase,
 			)
 
 			expect(
 				cleanedPrimary.permissionsForPrincipal(
-					CascadePrincipal.pointer(cascade.id),
+					CascadePrincipal.pointer(cascade.id.toString()),
 				),
 			).toStrictEqual([])
 			expect(
 				cleanedSecondary.permissionsForPrincipal(
-					CascadePrincipal.pointer(cascade.id),
+					CascadePrincipal.pointer(cascade.id.toString()),
 				),
 			).toStrictEqual([])
 			expect(cleanedPrimary.permissionsForPrincipal(unrelated)).toStrictEqual([
@@ -454,9 +464,13 @@ describe(
 				{},
 				{ ultimabase, useMasterKey: true },
 			)
-			const failReference = FailRole.role({ id: fail.id })
-			const preserveReference = PreserveRole.role({ id: preserve.id })
-			const cascadeReference = CascadeRole.role({ id: cascade.id })
+			const failReference = FailRole.role({ id: fail.id.toString() })
+			const preserveReference = PreserveRole.role({
+				id: preserve.id.toString(),
+			})
+			const cascadeReference = CascadeRole.role({
+				id: cascade.id.toString(),
+			})
 			const failRow = await ProtectedPrimary.createOne(
 				{
 					data: {
@@ -500,15 +514,19 @@ describe(
 			).resolves.toMatchObject({ id: cascade.id })
 			expect(
 				(
-					await readACL(ProtectedPrimary, failRow.id, ultimabase)
+					await readACL(ProtectedPrimary, failRow.id.toString(), ultimabase)
 				).permissionsForRole(failReference),
 			).toStrictEqual(['read'])
 			expect(
 				(
-					await readACL(ProtectedPrimary, preserveRow.id, ultimabase)
+					await readACL(ProtectedPrimary, preserveRow.id.toString(), ultimabase)
 				).permissionsForRole(preserveReference),
 			).toStrictEqual(['read'])
-			const cleaned = await readACL(ProtectedPrimary, cascadeRow.id, ultimabase)
+			const cleaned = await readACL(
+				ProtectedPrimary,
+				cascadeRow.id.toString(),
+				ultimabase,
+			)
 
 			expect(cleaned.permissionsForRole(cascadeReference)).toStrictEqual([])
 			expect(cleaned.permissionsForRole(failReference)).toStrictEqual([
@@ -548,7 +566,7 @@ describe(
 				const principal = await new CascadePrincipal({
 					name: 'isolated',
 				}).create({}, { ultimabase: first, useMasterKey: true })
-				const pointer = CascadePrincipal.pointer(principal.id)
+				const pointer = CascadePrincipal.pointer(principal.id.toString())
 				const firstRow = await ProtectedPrimary.createOne(
 					{
 						data: {
@@ -571,12 +589,12 @@ describe(
 				await principal.delete({}, { ultimabase: first, useMasterKey: true })
 				expect(
 					(
-						await readACL(ProtectedPrimary, firstRow.id, first)
+						await readACL(ProtectedPrimary, firstRow.id.toString(), first)
 					).permissionsForPrincipal(pointer),
 				).toStrictEqual([])
 				expect(
 					(
-						await readACL(ProtectedPrimary, secondRow.id, second)
+						await readACL(ProtectedPrimary, secondRow.id.toString(), second)
 					).permissionsForPrincipal(pointer),
 				).toStrictEqual(['read'])
 			} finally {

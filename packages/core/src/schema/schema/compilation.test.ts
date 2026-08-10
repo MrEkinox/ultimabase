@@ -39,7 +39,7 @@ describe('deferred schema compilation', () => {
 
 		expect(callbackCalls).toBe(1)
 		expect(DeferredPost.className).toBe('DeferredPost')
-		expect(DeferredPost.fields.title.kind).toBe('string')
+		expect(DeferredPost.fields.title?.kind).toBe('string')
 		expect(new DeferredPost({ title: 'Before compilation' }).title).toBe(
 			'Before compilation',
 		)
@@ -51,7 +51,7 @@ describe('deferred schema compilation', () => {
 
 		expect(callbackCalls).toBe(1)
 		expect(events).toStrictEqual(['fields', 'setup:string'])
-		expect(DeferredPost.fields.title.kind).toBe('string')
+		expect(DeferredPost.fields.title?.kind).toBe('string')
 		expect(DeferredPost.indexes).toContainEqual({
 			fields: ['title', 'createdAt'],
 			unique: false,
@@ -73,7 +73,7 @@ describe('deferred schema compilation', () => {
 				fields: () => 'invalid' as unknown as SchemaFields,
 			}),
 		).toThrow(new TypeError('AtomicInvalid.fields must return a field map'))
-		expect(First.fields.title.kind).toBe('string')
+		expect(First.fields.title?.kind).toBe('string')
 	})
 
 	it('reuses one captured declaration across applications', async () => {
@@ -162,7 +162,7 @@ describe('deferred schema compilation', () => {
 			}),
 		})
 
-		expect(Legacy.fields.title.kind).toBe('string')
+		expect(Legacy.fields.title?.kind).toBe('string')
 		expect(new Legacy({ title: 'Still supported' }).title).toBe(
 			'Still supported',
 		)

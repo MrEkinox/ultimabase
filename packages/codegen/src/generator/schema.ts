@@ -116,7 +116,7 @@ const renderInclude = (
 
 const renderSelect = (schema: TypegenSchemaSnapshot): string => {
 	const properties = schema.fields.flatMap((field) =>
-		field.inference.object === 'forbidden'
+		field.typegen.object === 'forbidden'
 			? []
 			: [
 					`${renderDocumentation(field.description)}\treadonly ${propertyName(field.name)}?: boolean`,

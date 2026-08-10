@@ -7,18 +7,17 @@ import {
 	type Pointer,
 	type RelationField,
 	type SchemaAccess,
-	type SchemaClass,
+	type SchemaReference,
 	type SchemaDefinition,
 	type SchemaExtension,
 	type SchemaFields,
 	type SchemaFieldBuilderDeclaration,
 	type SchemaHooks,
-	type SchemaFieldName,
 	type SchemaIndexOptions,
 	type SchemaModelCapabilityContext,
 	type SchemaOptions,
 	type SchemaResultCapabilityCarrier,
-	type ScalarFieldInferenceState,
+	type ScalarFieldTypegenState,
 	type StringField,
 } from '@ultimabase/core'
 
@@ -64,7 +63,7 @@ const roleSchemaExtension: SchemaExtension<
 )
 
 const createRoleNameField = (): StringField<
-	ScalarFieldInferenceState<true, false, false, false>
+	ScalarFieldTypegenState<true, false, false, false>
 > =>
 	stringField({
 		indexed: 'unique',
@@ -79,9 +78,6 @@ type RoleNameField = ReturnType<typeof createRoleNameField>
 
 /** Names fields reserved for portable role semantics. */
 export type ReservedRoleFieldName = 'members' | 'name' | 'roles'
-
-type ReservedRoleFieldCollision<TFields extends SchemaFields> =
-	Extract<keyof TFields, ReservedRoleFieldName> extends never ? unknown : never
 
 /** Resolves the current request member without coupling roles to authentication. */
 export interface RoleCurrentMemberInput {
@@ -142,25 +138,8 @@ export type RoleSchemaFields<
 	}>
 
 /** Represents the self target retained by the generated nested-role relation. */
-export type RoleSchemaSelfDefinition<
-	TClassName extends string,
-	TMemberSchema extends SchemaDefinition,
-	TCustomFields extends SchemaFields,
-	TExtensions extends readonly SchemaExtension<string, object>[],
-> = SchemaDefinition<
-	TClassName,
-	RoleSchemaFields<
-		TMemberSchema,
-		RoleSchemaSelfDefinition<
-			TClassName,
-			TMemberSchema,
-			TCustomFields,
-			TExtensions
-		>,
-		TCustomFields
-	>,
-	readonly [...TExtensions, typeof roleSchemaExtension]
->
+export type RoleSchemaSelfDefinition<TClassName extends string> =
+	SchemaReference<TClassName>
 
 /** Adds lightweight reference construction to one exact generated schema class. */
 export interface RoleSchemaStatics<TSchema extends SchemaDefinition> {
@@ -175,103 +154,42 @@ export interface RoleSchemaStatics<TSchema extends SchemaDefinition> {
 }
 
 /** Represents one exact constructible role schema declared by the application. */
-type RoleSchemaBaseClass<
-	TClassName extends string = string,
-	TMemberSchema extends SchemaDefinition = SchemaDefinition,
-	TCustomFields extends SchemaFields = SchemaFields,
-	TExtensions extends readonly SchemaExtension<string, object>[] = readonly [],
-> = SchemaClass<
-	TClassName,
-	RoleSchemaFields<
-		TMemberSchema,
-		RoleSchemaSelfDefinition<
-			TClassName,
-			TMemberSchema,
-			TCustomFields,
-			TExtensions
-		>,
-		TCustomFields
-	>,
-	readonly [...TExtensions, typeof roleSchemaExtension]
->
+type RoleSchemaBaseClass<TClassName extends string = string> =
+	SchemaReference<TClassName>
 
 /** Represents one exact constructible role schema declared by the application. */
 export type RoleSchemaClass<
 	TClassName extends string = string,
 	TMemberSchema extends SchemaDefinition = SchemaDefinition,
-	TCustomFields extends SchemaFields = SchemaFields,
-	TExtensions extends readonly SchemaExtension<string, object>[] = readonly [],
-> = RoleSchemaBaseClass<TClassName, TMemberSchema, TCustomFields, TExtensions> &
-	RoleSchemaStatics<
-		RoleSchemaSelfDefinition<
-			TClassName,
-			TMemberSchema,
-			TCustomFields,
-			TExtensions
-		>
-	> &
+> = RoleSchemaBaseClass<TClassName> &
+	RoleSchemaStatics<RoleSchemaSelfDefinition<TClassName>> &
 	SchemaResultCapabilityCarrier<
 		AccessRoleReferenceCarrier &
-			RoleMemberCommands<
-				RoleSchemaSelfDefinition<
-					TClassName,
-					TMemberSchema,
-					TCustomFields,
-					TExtensions
-				>,
-				TMemberSchema
-			> &
-			RoleHierarchyCommands<
-				RoleSchemaSelfDefinition<
-					TClassName,
-					TMemberSchema,
-					TCustomFields,
-					TExtensions
-				>,
-				RoleSchemaClass<TClassName, TMemberSchema, TCustomFields, TExtensions>
-			>
+			RoleMemberCommands<RoleSchemaSelfDefinition<TClassName>, TMemberSchema> &
+			RoleHierarchyCommands<RoleSchemaSelfDefinition<TClassName>>
 	>
 
 /** Declares the developer-owned portion of a role-aware schema. */
 export interface RoleSchemaOptions<
 	TClassName extends string,
 	TMemberSchema extends SchemaDefinition,
-	TCustomFields extends SchemaFields,
-	TExtensions extends readonly SchemaExtension<string, object>[],
 > {
 	/** Declares the stable logical name used by queries and adapters. */
 	readonly className: TClassName
 	/** Selects the exact member domain and optional request-local resolver. */
 	readonly members: RoleMemberOptions<TMemberSchema>
 	/** Adds ordinary application fields beside generated role fields. */
-	readonly fields: SchemaFieldBuilderDeclaration<TCustomFields>
+	readonly fields: SchemaFieldBuilderDeclaration
 	/** Owns the default external-reference behavior for every role deletion. */
 	readonly deletion?: RoleDeletionOptions
 	/** Declares adapter-neutral composite indexes for custom and generated scalar fields. */
-	readonly indexes?: readonly SchemaIndexOptions<
-		SchemaFieldName<
-			RoleSchemaFields<
-				TMemberSchema,
-				RoleSchemaSelfDefinition<
-					TClassName,
-					TMemberSchema,
-					TCustomFields,
-					TExtensions
-				>,
-				TCustomFields
-			>
-		>
-	>[]
+	readonly indexes?: readonly SchemaIndexOptions[]
 	/** Attaches ordinary plugin-owned schema metadata before the roles extension. */
-	readonly extensions?: TExtensions
+	readonly extensions?: readonly SchemaExtension<string, object>[]
 	/** Protects role administration through native schema Access. */
-	readonly access?: SchemaAccess<
-		RoleSchemaBaseClass<TClassName, TMemberSchema, TCustomFields, TExtensions>
-	>
+	readonly access?: SchemaAccess<RoleSchemaBaseClass<TClassName>>
 	/** Adds ordinary schema lifecycle behavior to role persistence. */
-	readonly hooks?: SchemaHooks<
-		RoleSchemaBaseClass<TClassName, TMemberSchema, TCustomFields, TExtensions>
-	>
+	readonly hooks?: SchemaHooks<RoleSchemaBaseClass<TClassName>>
 }
 
 /** Retains package-private declaration state without polluting schema metadata. */
@@ -313,33 +231,14 @@ export class RoleSchema {
 	static define<
 		const TClassName extends string,
 		const TMemberSchema extends SchemaDefinition,
-		const TCustomFields extends SchemaFields = SchemaFields,
-		const TExtensions extends readonly SchemaExtension<string, object>[] =
-			readonly [],
 	>(
-		options: RoleSchemaOptions<
-			TClassName,
-			TMemberSchema,
-			TCustomFields,
-			TExtensions
-		> &
-			ReservedRoleFieldCollision<NoInfer<TCustomFields>>,
-	): RoleSchemaClass<TClassName, TMemberSchema, TCustomFields, TExtensions>
+		options: RoleSchemaOptions<TClassName, TMemberSchema>,
+	): RoleSchemaClass<TClassName, TMemberSchema>
 
 	static define<
 		const TClassName extends string,
 		const TMemberSchema extends SchemaDefinition,
-		const TCustomFields extends SchemaFields,
-		const TExtensions extends readonly SchemaExtension<string, object>[] =
-			readonly [],
-	>(
-		options: RoleSchemaOptions<
-			TClassName,
-			TMemberSchema,
-			TCustomFields,
-			TExtensions
-		>,
-	): unknown {
+	>(options: RoleSchemaOptions<TClassName, TMemberSchema>): unknown {
 		if (!Schema.is(options.members.schema)) {
 			throw new TypeError('members.schema must be created by Schema.define')
 		}
@@ -361,19 +260,9 @@ export class RoleSchema {
 		}
 
 		const selfTargetState: {
-			roleSchema?: RoleSchemaClass<
-				TClassName,
-				TMemberSchema,
-				TCustomFields,
-				TExtensions
-			>
+			roleSchema?: RoleSchemaClass<TClassName, TMemberSchema>
 		} = {}
-		const selfTarget = (): RoleSchemaSelfDefinition<
-			TClassName,
-			TMemberSchema,
-			TCustomFields,
-			TExtensions
-		> => {
+		const selfTarget = (): RoleSchemaSelfDefinition<TClassName> => {
 			if (selfTargetState.roleSchema === undefined) {
 				throw new TypeError('Role schema self target is not initialized')
 			}
@@ -396,16 +285,8 @@ export class RoleSchema {
 				roles: field.relation({ target: selfTarget }),
 			}
 		}
-		const extensions = [
-			...(options.extensions ?? []),
-			roleSchemaExtension,
-		] as readonly [...TExtensions, typeof roleSchemaExtension]
-		type SelfSchema = RoleSchemaSelfDefinition<
-			TClassName,
-			TMemberSchema,
-			TCustomFields,
-			TExtensions
-		>
+		const extensions = [...(options.extensions ?? []), roleSchemaExtension]
+		type SelfSchema = RoleSchemaSelfDefinition<TClassName>
 		const createCapabilities = (
 			context: SchemaModelCapabilityContext<SchemaDefinition>,
 		) => {
@@ -444,16 +325,10 @@ export class RoleSchema {
 			}
 			const resultCapabilities: AccessRoleReferenceCarrier &
 				RoleMemberCommands<SelfSchema, TMemberSchema> &
-				RoleHierarchyCommands<
-					SelfSchema,
-					RoleSchemaClass<TClassName, TMemberSchema, TCustomFields, TExtensions>
-				> = {
+				RoleHierarchyCommands<SelfSchema> = {
 				toAccessRoleReference,
 				...createRoleMemberCommands(exactContext, options.members.schema),
-				...createRoleHierarchyCommands<
-					SelfSchema,
-					RoleSchemaClass<TClassName, TMemberSchema, TCustomFields, TExtensions>
-				>(exactContext),
+				...createRoleHierarchyCommands<SelfSchema>(exactContext),
 			}
 
 			return {
@@ -486,9 +361,7 @@ export class RoleSchema {
 		// The exact public type mirrors the fields and statics attached above.
 		const roleSchema = definedSchema as unknown as RoleSchemaClass<
 			TClassName,
-			TMemberSchema,
-			TCustomFields,
-			TExtensions
+			TMemberSchema
 		>
 		selfTargetState.roleSchema = roleSchema
 		roleSchemaDeclarations.set(

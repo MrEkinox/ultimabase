@@ -37,7 +37,7 @@ const renderScalarValue = (
 		case 'object': {
 			const descriptor = context.identifiers.object(field)
 			const objectMode =
-				mode === 'update' && field.inference.list ? 'create' : mode
+				mode === 'update' && field.typegen.list ? 'create' : mode
 			const suffix =
 				objectMode === 'object'
 					? ''
@@ -51,7 +51,7 @@ const renderScalarValue = (
 }
 
 export const isListField = (field: TypegenFieldSnapshot): boolean =>
-	field.inference.list
+	field.typegen.list
 
 export const renderFieldValue = (
 	field: TypegenFieldSnapshot,
@@ -61,7 +61,7 @@ export const renderFieldValue = (
 	const scalar = renderScalarValue(field, mode, context)
 	const rendered = isListField(field) ? `ReadonlyArray<${scalar}>` : scalar
 
-	return field.inference.nullable ? `${rendered} | null` : rendered
+	return field.typegen.nullable ? `${rendered} | null` : rendered
 }
 
 export const renderProperties = (
@@ -70,7 +70,7 @@ export const renderProperties = (
 	context: RenderContext,
 ): string => {
 	const properties = fields.flatMap((field) => {
-		const presence = field.inference[mode]
+		const presence = field.typegen[mode]
 
 		if (presence === 'forbidden') {
 			return []

@@ -101,13 +101,17 @@ const createGeneratedRoleRegistry = (): string => {
 			name: field.string({ validation: { required: true } }),
 		}),
 	})
-	const Role = RoleSchema.define({
+	const roleCandidate: unknown = RoleSchema.define({
 		className: 'SemanticRole',
 		fields: (field) => ({
 			description: field.string(),
 		}),
 		members: { schema: Member },
 	})
+	if (!Schema.is(roleCandidate)) {
+		throw new TypeError('Expected the semantic role schema to be defined')
+	}
+	const Role = roleCandidate
 	const application = new FrameworkApplication({
 		plugins: [rolesPlugin()],
 		schemas: [Member, Role],
@@ -472,7 +476,7 @@ const draft = new SemanticArticle({
 const exactStatus: 'draft' | 'published' = draft.status
 declare const loadedArticle: SemanticArticleHooks['item']
 const authorRead = loadedArticle.author.findOne({
-  where: { /* public-pointer-where */ name: { startsWith: 'A' } },
+  /* public-pointer-where-hover */where: { /* public-pointer-where */ name: { startsWith: 'A' } },
   select: { /* public-pointer-handle-select */ name: true },
 })
 type AuthorRead = Awaited<typeof authorRead>
@@ -481,8 +485,8 @@ const exactAuthorName: string = loadedAuthor.name
 // @ts-expect-error -- The generated pointer handle exposes only Author fields.
 loadedAuthor.title
 
-const result = SemanticArticle.findMany({
-  where: { /* public-query-where */ status: { eq: 'draft' } },
+const result = SemanticArticle./* public-find-many-hover */findMany({
+  /* public-query-where-hover */where: { /* public-query-where */ status: { eq: 'draft' } },
   select: { /* public-query-select */ title: true, status: true },
   include: {
     author: { select: { /* public-pointer-select */ name: true } },
@@ -499,9 +503,68 @@ const invalidObjectPath: SemanticArticleWhereInput = {
   },
 }
 
-SemanticArticle.updateOne({
-  where: { id: { eq: 'article-1' } },
+SemanticArticle./* public-update-one-hover */updateOne({
+  /* public-update-where-hover */where: { id: { eq: 'article-1' } },
   data: { status: 'published', views: increment(1) },
+})
+
+SemanticArticle./* public-delete-one-hover */deleteOne({
+  /* public-delete-where-hover */where: { id: { eq: 'article-1' } },
+})
+
+SemanticArticle./* public-count-hover */count({
+  /* public-count-where-hover */where: { status: { eq: 'draft' } },
+})
+
+SemanticArticle./* public-create-one-hover */createOne({
+  data: {
+    author: SemanticAuthor.pointer('author-1'),
+    status: 'draft',
+    title: 'Created',
+  },
+})
+SemanticArticle./* public-create-many-hover */createMany({
+  data: [{
+    author: SemanticAuthor.pointer('author-1'),
+    status: 'draft',
+    title: 'Created',
+  }],
+})
+SemanticArticle./* public-find-one-hover */findOne({
+  where: { status: { eq: 'draft' } },
+})
+SemanticArticle./* public-get-hover */get({ id: 'article-1' })
+SemanticArticle./* public-exists-hover */exists({
+  where: { status: { eq: 'draft' } },
+})
+SemanticArticle./* public-update-many-hover */updateMany({
+  data: [{
+    where: { id: { eq: 'article-1' } },
+    data: { status: 'published' },
+  }],
+})
+SemanticArticle./* public-upsert-one-hover */upsertOne({
+  where: { id: { eq: 'article-1' } },
+  create: {
+    author: SemanticAuthor.pointer('author-1'),
+    status: 'draft',
+    title: 'Upserted',
+  },
+  update: { status: 'published' },
+})
+SemanticArticle./* public-upsert-many-hover */upsertMany({
+  data: [{
+    where: { id: { eq: 'article-1' } },
+    create: {
+      author: SemanticAuthor.pointer('author-1'),
+      status: 'draft',
+      title: 'Upserted',
+    },
+    update: { status: 'published' },
+  }],
+})
+SemanticArticle./* public-delete-many-hover */deleteMany({
+  where: [{ id: { eq: 'article-1' } }],
 })
 
 SemanticArticle.updateOne({
@@ -514,7 +577,7 @@ type LoadedArticle = NonNullable<Awaited<ReturnType<typeof SemanticArticle.findO
 declare const persistedArticle: LoadedArticle
 const related = persistedArticle.relation('related')
 const relatedRead = related.findMany({
-  where: { /* public-relation-where */ status: { eq: 'published' } },
+  /* public-relation-where-hover */where: { /* public-relation-where */ status: { eq: 'published' } },
   select: { title: true },
 })
 related.connect(SemanticArticle.pointer('article-2'))
@@ -556,6 +619,14 @@ void relatedRead
 					{},
 				)
 				?.entries.map(({ name }) => name) ?? []
+		const quickInfo = (marker: string): string => {
+			const info = service.getQuickInfoAtPosition(
+				fileName,
+				publicSource.indexOf(marker) + marker.length,
+			)
+
+			return ts.displayPartsToString(info?.displayParts)
+		}
 
 		expect(completionNames('/* public-field-method */')).toEqual(
 			expect.arrayContaining(['string', 'vector']),
@@ -599,6 +670,51 @@ void relatedRead
 		)
 		expect(completionNames('/* public-relation-where */')).toEqual(
 			expect.arrayContaining(['AND', 'author', 'profile', 'related']),
+		)
+		expect(quickInfo('/* public-query-where-hover */')).toContain(
+			'where: SemanticArticleWhereInput',
+		)
+		for (const marker of [
+			'/* public-count-hover */',
+			'/* public-create-many-hover */',
+			'/* public-create-one-hover */',
+			'/* public-delete-many-hover */',
+			'/* public-delete-one-hover */',
+			'/* public-exists-hover */',
+			'/* public-find-many-hover */',
+			'/* public-find-one-hover */',
+			'/* public-get-hover */',
+			'/* public-update-many-hover */',
+			'/* public-update-one-hover */',
+			'/* public-upsert-many-hover */',
+			'/* public-upsert-one-hover */',
+		]) {
+			const hover = quickInfo(marker)
+
+			expect(hover).toContain('SchemaAPI<Schemas.SemanticArticle>')
+			expect(hover).not.toContain('GenericField')
+			expect(hover).not.toContain('NonDefaulted')
+		}
+		expect(quickInfo('/* public-pointer-where-hover */')).toContain(
+			'where: SemanticAuthorWhereInput',
+		)
+		expect(quickInfo('/* public-relation-where-hover */')).toContain(
+			'where: SemanticArticleWhereInput',
+		)
+		expect(quickInfo('/* public-update-where-hover */')).toContain(
+			'SemanticArticleWhereInput',
+		)
+		expect(quickInfo('/* public-update-where-hover */')).not.toContain(
+			'SchemaWhereFactory',
+		)
+		expect(quickInfo('/* public-delete-where-hover */')).toContain(
+			'SemanticArticleWhereInput',
+		)
+		expect(quickInfo('/* public-delete-where-hover */')).not.toContain(
+			'SchemaWhereFactory',
+		)
+		expect(quickInfo('/* public-count-where-hover */')).toContain(
+			'where?: SemanticArticleWhereInput',
 		)
 
 		service.dispose()

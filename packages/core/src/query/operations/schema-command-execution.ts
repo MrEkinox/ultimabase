@@ -24,7 +24,7 @@ import {
 	normalizeOperationOptions,
 } from './execution.js'
 import type { OperationOptions } from './options.js'
-import type { InferQueryResult } from '../query/result.js'
+import type { QueryResult } from '../query/result.js'
 import type {
 	SchemaDeleteManyExecutionInput,
 	SchemaDeleteOneExecutionInput,
@@ -34,7 +34,7 @@ import type {
 	SchemaUpdateOneExecutionInput,
 	SchemaUpsertOneExecutionInput,
 	SchemaUpsertManyExecutionInput,
-	SchemaWhereFactory,
+	SchemaWhereInput,
 } from './schema-commands.js'
 import {
 	emptyQuerySelection,
@@ -102,7 +102,7 @@ const isEmptyWhereExpression = <TSchema extends SchemaDefinition>(
 /** Converts one canonical where source into the ordinary immutable QueryBuilder AST. */
 const createSchemaWhereQuery = <const TSchema extends SchemaDefinition>(
 	schema: TSchema,
-	where: SchemaWhereFactory<TSchema>,
+	where: SchemaWhereInput<TSchema>,
 ): QueryBuilder<TSchema> => {
 	const expression = resolveWhereInput(schema, where)
 
@@ -137,7 +137,7 @@ const assertUniqueSchemaWhere = <const TSchema extends SchemaDefinition>(
 /** Applies one batch projection to an exact unique target. */
 const createSchemaBatchResultQuery = <const TSchema extends SchemaDefinition>(
 	schema: TSchema,
-	where: SchemaWhereFactory<TSchema>,
+	where: SchemaWhereInput<TSchema>,
 	selection: QuerySelection<TSchema> | undefined,
 ): QueryBuilder<TSchema, QueryFieldName<TSchema>> => {
 	const query = createSchemaWhereQuery(schema, where)
@@ -146,7 +146,7 @@ const createSchemaBatchResultQuery = <const TSchema extends SchemaDefinition>(
 
 	const normalizedSelection =
 		selection === undefined
-			? normalizeQuerySelectedFields(schema, ['id' as QueryFieldName<TSchema>])
+			? normalizeQuerySelectedFields(schema, ['id'])
 			: normalizeQuerySelection(schema, selection)
 
 	return hydrateQueryFromAst<TSchema, QueryFieldName<TSchema>>(
@@ -175,7 +175,7 @@ export const createSchemaRecords = <const TSchema extends SchemaDefinition>(
 	schema: TSchema,
 	input: SchemaCreateManyExecutionInput<TSchema>,
 	options?: OperationOptions,
-): Promise<readonly InferQueryResult<TSchema, QueryFieldName<TSchema>>[]> => {
+): Promise<readonly QueryResult<TSchema, QueryFieldName<TSchema>>[]> => {
 	assertExactCommandKeys(
 		input,
 		createCommandKeys,
@@ -333,7 +333,7 @@ export const upsertSchemaRecords = <const TSchema extends SchemaDefinition>(
 	schema: TSchema,
 	input: SchemaUpsertManyExecutionInput<TSchema>,
 	options?: OperationOptions,
-): Promise<readonly InferQueryResult<TSchema, QueryFieldName<TSchema>>[]> => {
+): Promise<readonly QueryResult<TSchema, QueryFieldName<TSchema>>[]> => {
 	assertExactCommandKeys(
 		input,
 		upsertManyCommandKeys,

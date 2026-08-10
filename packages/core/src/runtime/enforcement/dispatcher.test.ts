@@ -593,10 +593,13 @@ describe('createEnforcementStages', () => {
 					constraint({
 						schema: articleSchema,
 						operations: ['create-one'],
-						handler: ({ operation }) =>
-							databaseConstraint('fixture.input-title', 1, {
-								title: operation.input.title,
-							}),
+						handler: ({ operation }) => {
+							const title: unknown = operation.input.title
+							if (typeof title !== 'string') {
+								throw new TypeError('Expected a string title constraint')
+							}
+							return databaseConstraint('fixture.input-title', 1, { title })
+						},
 					}),
 				)
 			},

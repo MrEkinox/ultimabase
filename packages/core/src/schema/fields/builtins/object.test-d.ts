@@ -15,7 +15,7 @@ import {
 	Schema,
 	stringField,
 	type FieldDefinition,
-	type FieldInferenceState,
+	type FieldTypegenState,
 	type FieldListValue,
 	type FieldValue,
 	type JsonDocument,
@@ -38,23 +38,23 @@ test('infers one-dimensional list values', () => {
 	const payloads = jsonField({ list: true })
 
 	expectTypeOf(strings).toExtend<
-		FieldDefinition<'string', string, object, FieldInferenceState>
+		FieldDefinition<'string', string, object, FieldTypegenState>
 	>()
 	expectTypeOf(numbers).toExtend<
-		FieldDefinition<'int', number, object, FieldInferenceState>
+		FieldDefinition<'int', number, object, FieldTypegenState>
 	>()
 	expectTypeOf<FieldValue<typeof strings>>().toEqualTypeOf<readonly string[]>()
 	expectTypeOf(scalar).toExtend<
-		FieldDefinition<'boolean', boolean, object, FieldInferenceState>
+		FieldDefinition<'boolean', boolean, object, FieldTypegenState>
 	>()
 	expectTypeOf(dates).toExtend<
-		FieldDefinition<'date', string, object, FieldInferenceState>
+		FieldDefinition<'date', string, object, FieldTypegenState>
 	>()
 	expectTypeOf(statuses).toExtend<
-		FieldDefinition<'enum', 'draft' | 'published', object, FieldInferenceState>
+		FieldDefinition<'enum', 'draft' | 'published', object, FieldTypegenState>
 	>()
 	expectTypeOf(payloads).toExtend<
-		FieldDefinition<'json', JsonDocument, object, FieldInferenceState>
+		FieldDefinition<'json', JsonDocument, object, FieldTypegenState>
 	>()
 	expectTypeOf<FieldValue<typeof numbers>>().toEqualTypeOf<readonly number[]>()
 	expectTypeOf<FieldValue<typeof scalar>>().toEqualTypeOf<boolean>()
@@ -107,7 +107,7 @@ test('infers object list values from reusable fields', () => {
 			'object',
 			Readonly<Record<string, unknown>>,
 			ObjectField['options'],
-			FieldInferenceState
+			FieldTypegenState
 		>
 	>()
 })

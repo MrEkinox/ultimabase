@@ -381,17 +381,30 @@ describe('runtime hook boundaries', () => {
 			schema: new QueryBuilder(schema).ast.schema,
 		}) satisfies CreateOneOperationAst<typeof schema>
 		const boundaries = createRuntimeHookBoundaries()
-		const found = boundaries.snapshotResultReplacement(findOperation, [
+		const found: unknown = boundaries.snapshotResultReplacement(findOperation, [
 			{ id: generatedId },
 		])
 
 		expect(found).toStrictEqual([{ id: generatedId }])
+		if (!isUnknownArray(found)) {
+			throw new TypeError('Expected an immutable collection result')
+		}
+		const first: unknown = found[0]
+		if (!isPlainRecord(first)) {
+			throw new TypeError('Expected an immutable record result')
+		}
 		expect(Object.isFrozen(found)).toBe(true)
-		expect(Object.isFrozen(found[0])).toBe(true)
-		expect(boundaries.snapshotResultReplacement(countOperation, 2)).toBe(2)
-		expect(
-			boundaries.snapshotResultReplacement(updateOperation, null),
-		).toBeNull()
+		expect(Object.isFrozen(first)).toBe(true)
+		const countResult: unknown = boundaries.snapshotResultReplacement(
+			countOperation,
+			2,
+		)
+		expect(countResult).toBe(2)
+		const updateResult: unknown = boundaries.snapshotResultReplacement(
+			updateOperation,
+			null,
+		)
+		expect(updateResult).toBeNull()
 		expect(() =>
 			boundaries.snapshotResultReplacement(countOperation, -1),
 		).toThrow(expect.objectContaining({ code: 'VALIDATION_ERROR' }))
@@ -415,7 +428,7 @@ describe('runtime hook boundaries', () => {
 			kind: 'find-many',
 			query: new QueryBuilder(source)
 				.select({ target: true })
-				.include('target', () => targetQuery).ast,
+				.include('target', (query) => query.select({ name: true })).ast,
 		}) satisfies FindManyOperationAst<typeof source>
 		const targetOperation = immutableRecord({
 			kind: 'find-one',

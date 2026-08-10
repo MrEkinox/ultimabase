@@ -29,10 +29,19 @@ export const renderSchemas = (
 	const schemas = snapshot.schemas.map((schema) => {
 		const alias = context.identifiers.schema(schema)
 		const fields = renderUnion(schema.fields.map(({ name }) => quote(name)))
+		const numericFields = renderUnion(
+			schema.fields
+				.filter(
+					(field) =>
+						!field.typegen.list &&
+						['bigint', 'decimal', 'float', 'int'].includes(field.kind),
+				)
+				.map(({ name }) => quote(name)),
+		)
 		const relationships = schema.fields.flatMap((field) =>
 			field.value.kind === 'pointer' || field.value.kind === 'relation'
 				? [
-						`\t\t\treadonly ${propertyName(field.name)}: ${quote(field.value.target)}`,
+						`\t\t\treadonly ${propertyName(field.name)}: { readonly kind: ${quote(field.value.kind)}; readonly target: ${quote(field.value.target)} }`,
 					]
 				: [],
 		)
@@ -48,6 +57,7 @@ export const renderSchemas = (
 \t\treadonly key: ${quote(schema.className)}
 \t\treadonly fields: ${fields}
 \t\treadonly item: ${alias}Item
+\t\treadonly numericFields: ${numericFields}
 ${relationshipMap}\t\treadonly inputs: {
 \t\t\treadonly create: ${alias}CreateInput
 ${include}\t\t\treadonly orderBy: ${alias}OrderByInput

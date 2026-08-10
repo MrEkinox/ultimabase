@@ -8,7 +8,7 @@ import {
 	type UpdateOneOperationAst,
 	type UpsertOneOperationAst,
 } from '../../query/index.js'
-import { Schema, type InferObject } from '../../schema/index.js'
+import { Schema, type SchemaItem } from '../../schema/index.js'
 import { immutableRecord } from '@ultimabase/shared'
 import { describe, expect, it } from 'vitest'
 
@@ -26,13 +26,13 @@ const schema = Schema.define({
 })
 const schemaNode = new QueryBuilder(schema).ast.schema
 const query = new QueryBuilder(schema).ast
-const original: InferObject<typeof schema> = {
+const original: SchemaItem<typeof schema> = {
 	createdAt: '2026-08-08T10:00:00.000Z',
 	id: '00000000-0000-7000-8000-000000000001',
 	title: 'Before',
 	updatedAt: '2026-08-08T10:00:00.000Z',
 }
-const current: InferObject<typeof schema> = {
+const current: SchemaItem<typeof schema> = {
 	...original,
 	title: 'After',
 	updatedAt: '2026-08-08T10:01:00.000Z',

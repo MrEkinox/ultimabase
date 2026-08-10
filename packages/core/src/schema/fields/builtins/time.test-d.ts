@@ -4,8 +4,8 @@ import {
 	defineSchemaExtension,
 	timeField,
 	type FieldDefinition,
-	type FieldInferenceState,
-	type FieldInferenceStateOf,
+	type FieldTypegenState,
+	type FieldTypegenStateOf,
 	type TimeField,
 	type TimeFieldOptions,
 	type TimeValidationOptions,
@@ -25,13 +25,13 @@ test('preserves time options and exact literals', () => {
 	})
 
 	expectTypeOf(field).toExtend<
-		FieldDefinition<'time', string, TimeFieldOptions, FieldInferenceState>
+		FieldDefinition<'time', string, TimeFieldOptions, FieldTypegenState>
 	>()
 	expectTypeOf(field).toExtend<TimeField>()
 	expectTypeOf(field.kind).toEqualTypeOf<'time'>()
 	expectTypeOf(field.options).toEqualTypeOf<Readonly<TimeFieldOptions>>()
 	expectTypeOf<
-		FieldInferenceStateOf<typeof field>['object']
+		FieldTypegenStateOf<typeof field>['object']
 	>().toEqualTypeOf<'required'>()
 })
 

@@ -43,7 +43,9 @@ describe('system fields', () => {
 		for (const field of Object.values(schema.fields)) {
 			expect(Object.isFrozen(field)).toBe(true)
 			expect(Object.isFrozen(field.options)).toBe(true)
-			expect(Object.isFrozen(field.options.validation)).toBe(true)
+			if ('validation' in field.options) {
+				expect(Object.isFrozen(field.options.validation)).toBe(true)
+			}
 		}
 	})
 

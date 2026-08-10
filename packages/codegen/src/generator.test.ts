@@ -188,8 +188,8 @@ describe('generateApplicationTypes', () => {
 						'status',
 					].includes(name),
 				)
-				.map(({ inference, name, value }) => ({
-					inference,
+				.map(({ typegen, name, value }) => ({
+					typegen,
 					name,
 					value:
 						value.kind === 'object'
@@ -199,42 +199,42 @@ describe('generateApplicationTypes', () => {
 		).toMatchInlineSnapshot(`
 			[
 			  {
-			    "inference": {
+			    "name": "author",
+			    "typegen": {
 			      "create": "required",
 			      "list": false,
 			      "nullable": false,
 			      "object": "required",
 			      "update": "optional",
 			    },
-			    "name": "author",
 			    "value": {
 			      "kind": "pointer",
 			      "target": "TypegenAuthor",
 			    },
 			  },
 			  {
-			    "inference": {
+			    "name": "billingAddress",
+			    "typegen": {
 			      "create": "optional",
 			      "list": false,
 			      "nullable": true,
 			      "object": "required",
 			      "update": "optional",
 			    },
-			    "name": "billingAddress",
 			    "value": {
 			      "kind": "object",
 			      "typeName": "PostalAddress",
 			    },
 			  },
 			  {
-			    "inference": {
+			    "name": "embedding",
+			    "typegen": {
 			      "create": "optional",
 			      "list": false,
 			      "nullable": true,
 			      "object": "required",
 			      "update": "optional",
 			    },
-			    "name": "embedding",
 			    "value": {
 			      "kind": "plugin",
 			      "reference": {
@@ -244,40 +244,40 @@ describe('generateApplicationTypes', () => {
 			    },
 			  },
 			  {
-			    "inference": {
+			    "name": "matrix",
+			    "typegen": {
 			      "create": "optional",
 			      "list": true,
 			      "nullable": true,
 			      "object": "required",
 			      "update": "optional",
 			    },
-			    "name": "matrix",
 			    "value": {
 			      "kind": "number",
 			    },
 			  },
 			  {
-			    "inference": {
+			    "name": "slug",
+			    "typegen": {
 			      "create": "optional",
 			      "list": false,
 			      "nullable": true,
 			      "object": "required",
 			      "update": "forbidden",
 			    },
-			    "name": "slug",
 			    "value": {
 			      "kind": "string",
 			    },
 			  },
 			  {
-			    "inference": {
+			    "name": "status",
+			    "typegen": {
 			      "create": "required",
 			      "list": false,
 			      "nullable": false,
 			      "object": "required",
 			      "update": "optional",
 			    },
-			    "name": "status",
 			    "value": {
 			      "kind": "enum",
 			      "typeName": "PublicationStatus",

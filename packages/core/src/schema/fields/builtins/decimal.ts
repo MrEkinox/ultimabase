@@ -3,7 +3,7 @@ import { immutableRecord } from '@ultimabase/shared'
 import { normalizeFieldOptions } from '../base/options.js'
 import type {
 	FieldDefinition,
-	FieldInferenceState,
+	FieldTypegenState,
 	FieldListOption,
 	FieldOptions,
 	FieldValidationOptions,
@@ -57,8 +57,8 @@ export type DecimalFieldOptions = FieldOptions<string, DecimalValidationOptions>
  * Carries exact decimal strings and their compact operation state.
  */
 export type DecimalField<
-	TInference extends FieldInferenceState = FieldInferenceState,
-> = FieldDefinition<'decimal', string, DecimalFieldOptions, TInference>
+	TTypegen extends FieldTypegenState = FieldTypegenState,
+> = FieldDefinition<'decimal', string, DecimalFieldOptions, TTypegen>
 
 /** Keeps the defaulted decimal input readable in editor signatures. */
 type DefaultedDecimalFieldOptions<

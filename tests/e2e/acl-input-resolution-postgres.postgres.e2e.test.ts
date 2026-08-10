@@ -145,7 +145,7 @@ beforeAll(async () => {
 		{ ultimabase, useMasterKey: true },
 	)
 
-	postId = created.id
+	postId = created.id.toString()
 }, 30_000)
 
 afterAll(async () => {
@@ -175,7 +175,7 @@ describe('ACL input resolution with PostgreSQL', { concurrent: false }, () => {
 
 		const updated = await ResolutionPost.updateOne(
 			{
-				where: (where) => where.eq('id', id),
+				where: { id: { eq: id } },
 				data: {
 					acl: replacement,
 					labels: ['stable', 'typed'],
@@ -249,7 +249,7 @@ describe('ACL input resolution with PostgreSQL', { concurrent: false }, () => {
 		await expect(
 			ResolutionPost.updateOne(
 				{
-					where: (where) => where.eq('id', id),
+					where: { id: { eq: id } },
 					data: {
 						balance: decrement('0.25'),
 						views: decrement(1),
@@ -290,7 +290,7 @@ describe('ACL input resolution with PostgreSQL', { concurrent: false }, () => {
 		await expect(
 			ResolutionPost.updateOne(
 				{
-					where: (where) => where.eq('id', id),
+					where: { id: { eq: id } },
 					data: { status: 'ordinary' },
 				},
 				masterOptions,

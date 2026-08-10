@@ -1,6 +1,5 @@
 import {
 	type Pointer,
-	type RelationField,
 	type SchemaClass,
 	type SchemaDefinition,
 } from '@ultimabase/core'
@@ -13,18 +12,7 @@ import {
 	roleHierarchyMaxVisitedRoles,
 } from './role-hierarchy.js'
 
-type MembershipMemberSchema = SchemaDefinition<
-	string,
-	Readonly<Record<never, never>>
->
-
-type MembershipRoleSchema = SchemaClass<
-	string,
-	Readonly<{
-		readonly members: RelationField<MembershipMemberSchema>
-		readonly roles: RelationField<MembershipRoleSchema>
-	}>
->
+type MembershipRoleSchema = SchemaClass
 
 /** Retains one request-local, duplicate-free stored membership closure. */
 export interface RoleMembershipSnapshot {

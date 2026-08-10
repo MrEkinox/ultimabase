@@ -529,7 +529,7 @@ describe('native hooks with PostgreSQL', { concurrent: false }, () => {
 
 		await runWithScope('scope-write', () =>
 			HookArticleSchema.updateOne({
-				where: (where) => where.eq('id', created.id),
+				where: { id: { eq: created.id } },
 				data: { title: 'Updated target' },
 			}),
 		)
@@ -543,7 +543,7 @@ describe('native hooks with PostgreSQL', { concurrent: false }, () => {
 		hookTrace.length = 0
 		await runWithScope('scope-write', () =>
 			HookArticleSchema.deleteOne({
-				where: (where) => where.eq('id', created.id),
+				where: { id: { eq: created.id } },
 			}),
 		)
 		expectTraceSubsequence([
@@ -567,7 +567,7 @@ describe('native hooks with PostgreSQL', { concurrent: false }, () => {
 					},
 				}),
 			)
-			idsByScope.set(scopeId, created.id)
+			idsByScope.set(scopeId, created.id.toString())
 		}
 		const scopedId = idsByScope.get('scope-bulk-a')
 

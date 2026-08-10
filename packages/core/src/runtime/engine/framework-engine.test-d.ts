@@ -4,10 +4,7 @@ import type {
 } from '../../access/index.js'
 import { RequestContextValue } from '../../access/index.js'
 import { FrameworkApplication } from '../../foundation.js'
-import type {
-	FindManyOperationAst,
-	InferQueryResult,
-} from '../../query/index.js'
+import type { FindManyOperationAst, QueryResult } from '../../query/index.js'
 import { QueryBuilder } from '../../query/index.js'
 import { Schema } from '../../schema/index.js'
 import { expectTypeOf, test } from 'vitest'
@@ -91,7 +88,7 @@ test('preserves application, context, query, and operation result types', () => 
 	>()
 	expectTypeOf(query).toEqualTypeOf<QueryBuilder<typeof schema>>()
 	expectTypeOf(scoped.execute(operation)).toEqualTypeOf<
-		Promise<readonly InferQueryResult<typeof schema>[]>
+		Promise<readonly QueryResult<typeof schema>[]>
 	>()
 	expectTypeOf(
 		scoped.transaction((transaction) => {
@@ -112,7 +109,7 @@ test('keeps bound terminal types exact in multi-schema applications', () => {
 		runWithRequestEngine(request, () =>
 			schema.createOne({ data: { title: 'Typed article' } }),
 		),
-	).toEqualTypeOf<Promise<InferQueryResult<typeof schema>>>()
+	).toEqualTypeOf<Promise<QueryResult<typeof schema>>>()
 })
 
 test('retains trusted master request types through opaque grants', async () => {

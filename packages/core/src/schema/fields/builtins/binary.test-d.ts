@@ -9,8 +9,8 @@ import {
 	type BinaryFieldOptions,
 	type BinaryValidationOptions,
 	type FieldDefinition,
-	type FieldInferenceState,
-	type FieldInferenceStateOf,
+	type FieldTypegenState,
+	type FieldTypegenStateOf,
 	type FieldValue,
 } from '../../index.js'
 
@@ -29,17 +29,12 @@ test('preserves binary options and native byte values', () => {
 	})
 
 	expectTypeOf(field).toExtend<
-		FieldDefinition<
-			'binary',
-			Uint8Array,
-			BinaryFieldOptions,
-			FieldInferenceState
-		>
+		FieldDefinition<'binary', Uint8Array, BinaryFieldOptions, FieldTypegenState>
 	>()
 	expectTypeOf(field).toExtend<BinaryField>()
 	expectTypeOf(field.kind).toEqualTypeOf<'binary'>()
 	expectTypeOf(field.options).toEqualTypeOf<Readonly<BinaryFieldOptions>>()
-	expectTypeOf<FieldInferenceStateOf<typeof field>>().toEqualTypeOf<{
+	expectTypeOf<FieldTypegenStateOf<typeof field>>().toEqualTypeOf<{
 		readonly create: 'optional'
 		readonly object: 'required'
 		readonly update: 'optional'

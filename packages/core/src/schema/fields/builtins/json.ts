@@ -10,7 +10,7 @@ import {
 } from '../base/options.js'
 import type {
 	FieldDefinition,
-	FieldInferenceState,
+	FieldTypegenState,
 	FieldListOption,
 	FieldOptions,
 } from '../base/contract.js'
@@ -46,9 +46,8 @@ export type JsonFieldOptions = FieldOptions<JsonDocument>
 /**
  * Carries the portable root JSON document contract through schema inference.
  */
-export type JsonField<
-	TInference extends FieldInferenceState = FieldInferenceState,
-> = FieldDefinition<'json', JsonDocument, JsonFieldOptions, TInference>
+export type JsonField<TTypegen extends FieldTypegenState = FieldTypegenState> =
+	FieldDefinition<'json', JsonDocument, JsonFieldOptions, TTypegen>
 
 /** Provides JSON-specific names for the shared compact scalar contract. */
 type DefaultedJsonFieldOptions<

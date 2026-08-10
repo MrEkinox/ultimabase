@@ -1,7 +1,7 @@
 import { normalizeFieldOptions } from '../base/options.js'
 import type {
 	FieldDefinition,
-	FieldInferenceState,
+	FieldTypegenState,
 	FieldListOption,
 	InvalidOptionsArguments,
 } from '../base/contract.js'
@@ -40,9 +40,8 @@ export type DateFieldOptions = TemporalFieldOptions
 /**
  * Carries a calendar-day string and exact options through schema inference.
  */
-export type DateField<
-	TInference extends FieldInferenceState = FieldInferenceState,
-> = FieldDefinition<'date', string, DateFieldOptions, TInference>
+export type DateField<TTypegen extends FieldTypegenState = FieldTypegenState> =
+	FieldDefinition<'date', string, DateFieldOptions, TTypegen>
 
 /** Provides date-specific names for compact auto-now inference. */
 type DefaultedDateFieldOptions<

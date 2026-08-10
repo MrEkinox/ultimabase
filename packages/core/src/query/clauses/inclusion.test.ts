@@ -48,7 +48,6 @@ describe('normalizeQueryInclusion', () => {
 	it('rejects non-pointer fields and queries for another target', () => {
 		expect(() =>
 			normalizeQueryInclusion(postSchema, [
-				// @ts-expect-error -- Runtime validation protects transport normalizers.
 				{ field: 'title', query: new QueryBuilder(userSchema).ast },
 			]),
 		).toThrow(
@@ -60,7 +59,6 @@ describe('normalizeQueryInclusion', () => {
 			normalizeQueryInclusion(postSchema, [
 				{
 					field: 'author',
-					// @ts-expect-error -- Runtime identity checks complement target inference.
 					query: new QueryBuilder(otherSchema).ast,
 				},
 			]),

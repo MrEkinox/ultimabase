@@ -36,7 +36,7 @@ describe('FieldBuilder', () => {
 		new SchemaRegistry([SchemaWithFields]).compileSchemas()
 
 		expect(SchemaWithFields.fields.slug).toBe(reusableSlug)
-		expect(SchemaWithFields.fields.profile.options).toMatchObject({
+		expect(SchemaWithFields.fields.profile?.options).toMatchObject({
 			fields: { displayName: { kind: 'string' } },
 		})
 	})
@@ -164,10 +164,10 @@ describe('FieldBuilder', () => {
 		registry.compileSchemas()
 		validation.length.max = 1
 
-		expect(Snapshot.fields.title.options.validation).toMatchObject({
-			length: { max: 20 },
+		expect(Snapshot.fields.title?.options).toMatchObject({
+			validation: { length: { max: 20 } },
 		})
-		expect(Object.isFrozen(Snapshot.fields.title.options)).toBe(true)
+		expect(Object.isFrozen(Snapshot.fields.title?.options ?? {})).toBe(true)
 	})
 
 	it('supports package-owned schema specialization callbacks', () => {
@@ -190,7 +190,7 @@ describe('FieldBuilder', () => {
 
 		expect(WithStatics.source).toBe('statics')
 		expect(WithCapabilities.source).toBe('capabilities')
-		expect(WithStatics.fields.title.kind).toBe('string')
-		expect(WithCapabilities.fields.title.kind).toBe('string')
+		expect(WithStatics.fields.title?.kind).toBe('string')
+		expect(WithCapabilities.fields.title?.kind).toBe('string')
 	})
 })

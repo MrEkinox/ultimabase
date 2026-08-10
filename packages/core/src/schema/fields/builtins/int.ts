@@ -1,7 +1,7 @@
 import { assertFieldOptions, normalizeFieldOptions } from '../base/options.js'
 import type {
 	FieldDefinition,
-	FieldInferenceState,
+	FieldTypegenState,
 	FieldListOption,
 	FieldOptions,
 	InvalidOptionsArguments,
@@ -51,9 +51,8 @@ export interface IntFieldOptions extends FieldOptions<
 /**
  * Carries a safe integer and its exact options through schema inference.
  */
-export type IntField<
-	TInference extends FieldInferenceState = FieldInferenceState,
-> = FieldDefinition<'int', number, IntFieldOptions, TInference>
+export type IntField<TTypegen extends FieldTypegenState = FieldTypegenState> =
+	FieldDefinition<'int', number, IntFieldOptions, TTypegen>
 
 /** Provides integer-specific names for compact sequence inference. */
 type DefaultedIntFieldOptions<

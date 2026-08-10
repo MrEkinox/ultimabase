@@ -10,7 +10,7 @@ import type {
 } from '../../access/index.js'
 import type {
 	ExecutableOperationAst,
-	InferOperationResult,
+	OperationResult,
 	OperationAstNode,
 } from '../../query/index.js'
 import {
@@ -454,7 +454,7 @@ export class RequestEngine<
 	/** Executes a normalized operation through this request's mandatory pipeline. */
 	async execute<
 		const TOperation extends ExecutableOperationAst<TSchemas[number]>,
-	>(operation: TOperation): Promise<InferOperationResult<TOperation>> {
+	>(operation: TOperation): Promise<OperationResult<TOperation>> {
 		return this.#executeOperation(operation)
 	}
 
@@ -467,7 +467,7 @@ export class RequestEngine<
 		nativeAccessDeniedAsMissing?: true,
 		privateObjectId?: string,
 		relationScope?: DatabaseRelationScope,
-	): Promise<InferOperationResult<TOperation>> {
+	): Promise<OperationResult<TOperation>> {
 		this.framework.assertOwnsSchema(getOperationSchema(operation))
 		throwIfOperationCancelled(this.context.signal, {
 			operationKind: operation.kind,
@@ -480,7 +480,7 @@ export class RequestEngine<
 		) {
 			// Every root mutation reuses the exact public transaction lifecycle.
 			return this.transaction(async (transaction) => {
-				let result: InferOperationResult<TOperation>
+				let result: OperationResult<TOperation>
 
 				try {
 					result = await transaction.#executeOperation(

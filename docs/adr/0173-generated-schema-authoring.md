@@ -279,3 +279,7 @@ does not add a codemod or remove the field-map implementation. Internal tests
 and framework-owned composition may retain field maps when they require exact
 local inference across independent fixtures. Ordinary application documentation
 does not present that lower-level form as an alternative authoring style.
+
+ADR-0175 subsequently supersedes this local-inference exception. Every schema
+now uses the same map-returning builder, while `BaseItem` is the only no-codegen
+item fallback and generated contracts provide all precise application fields.

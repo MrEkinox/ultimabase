@@ -1,5 +1,6 @@
 import {
 	Schema,
+	type SchemaClass,
 	type SchemaDefinition,
 	type SchemaPointerFieldName,
 	type SchemaPointerTarget,
@@ -61,9 +62,9 @@ export interface QueryRelationCountInput {
 
 /** Filters one source object by rows reachable through one declared relation. */
 export interface QueryRelationPredicateNode<
-	TSource extends SchemaDefinition = SchemaDefinition,
+	TSource extends SchemaDefinition = SchemaClass,
 	TFieldName extends string = string,
-	TTarget extends SchemaDefinition = SchemaDefinition,
+	TTarget extends SchemaDefinition = SchemaClass,
 > extends QueryExpressionNode {
 	readonly kind: 'relation-predicate'
 	readonly operator: QueryRelationPredicateOperator
@@ -75,16 +76,16 @@ export interface QueryRelationPredicateNode<
 
 /** Traverses one pointer while avoiding recursive public AST expansion for circular schemas. */
 export interface QueryPointerPredicateNode<
-	TSource extends SchemaDefinition = SchemaDefinition,
+	TSource extends SchemaDefinition = SchemaClass,
 	TFieldName extends string = string,
-	TTarget extends SchemaDefinition = SchemaDefinition,
+	TTarget extends SchemaDefinition = SchemaClass,
 > extends QueryExpressionNode {
 	readonly kind: 'relation-predicate'
 	readonly operator: QueryPointerPredicateOperator
 	readonly field: TFieldName
 	readonly source: QuerySchemaNode<TSource>
 	readonly target: QuerySchemaNode<TTarget>
-	readonly expression: QueryFilterNode<SchemaDefinition>
+	readonly expression: QueryFilterNode<SchemaClass>
 }
 
 /** Lists both collection and pointer target predicates sharing one AST discriminant. */
@@ -120,9 +121,9 @@ export type QueryRelationCountComparison =
 
 /** Compares one filtered visible relation cardinality without duplicating its aggregate. */
 export interface QueryRelationCountNode<
-	TSource extends SchemaDefinition = SchemaDefinition,
+	TSource extends SchemaDefinition = SchemaClass,
 	TFieldName extends string = string,
-	TTarget extends SchemaDefinition = SchemaDefinition,
+	TTarget extends SchemaDefinition = SchemaClass,
 > extends QueryRelationCountBase<TSource, TFieldName, TTarget> {
 	readonly comparisons: readonly QueryRelationCountComparison[]
 	readonly expression: QueryFilterNode<TTarget>

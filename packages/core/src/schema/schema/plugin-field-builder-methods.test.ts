@@ -107,7 +107,7 @@ describe('plugin FieldBuilder methods', () => {
 		})
 
 		expect(trace).toStrictEqual(['fields', 'declare', 'setup:fixture.alpha'])
-		expect(Document.fields.value.options).toMatchObject({ marker: 'ordered' })
+		expect(Document.fields.value?.options).toMatchObject({ marker: 'ordered' })
 		expect(application.fieldBuilderMethods).toStrictEqual([
 			expect.objectContaining({
 				fieldKind: 'fixture.alpha',
@@ -181,8 +181,8 @@ describe('plugin FieldBuilder methods', () => {
 		expect(betaApplication.fieldBuilderMethods.map(({ name }) => name)).toEqual(
 			['beta'],
 		)
-		expect(Alpha.fields.value.kind).toBe('fixture.alpha')
-		expect(Beta.fields.value.kind).toBe('fixture.beta')
+		expect(Alpha.fields.value?.kind).toBe('fixture.alpha')
+		expect(Beta.fields.value?.kind).toBe('fixture.beta')
 		expect(sharedDeclarations).toBe(1)
 
 		await expect(
@@ -217,11 +217,20 @@ describe('plugin FieldBuilder methods', () => {
 			schemas: [Snapshot],
 		})
 
-		expect(Snapshot.fields.value.options).toMatchObject({
+		expect(Snapshot.fields.value?.options).toMatchObject({
 			marker: 'declared',
 			nested: { label: 'declared' },
 		})
-		expect(Object.isFrozen(Snapshot.fields.value.options.nested)).toBe(true)
+		const snapshotOptions = Snapshot.fields.value?.options
+		if (
+			snapshotOptions === undefined ||
+			!('nested' in snapshotOptions) ||
+			typeof snapshotOptions.nested !== 'object' ||
+			snapshotOptions.nested === null
+		) {
+			throw new TypeError('Expected nested plugin field options')
+		}
+		expect(Object.isFrozen(snapshotOptions.nested)).toBe(true)
 	})
 
 	it('rejects built-in overrides and duplicate owners before fields resolve', async () => {

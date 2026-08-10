@@ -7,8 +7,8 @@ import {
 	type DateFieldOptions,
 	type DateValidationOptions,
 	type FieldDefinition,
-	type FieldInferenceState,
-	type FieldInferenceStateOf,
+	type FieldTypegenState,
+	type FieldTypegenStateOf,
 } from '../../index.js'
 
 test('infers calendar-day values and range boundaries', () => {
@@ -25,12 +25,12 @@ test('infers calendar-day values and range boundaries', () => {
 	})
 
 	expectTypeOf(field).toExtend<
-		FieldDefinition<'date', string, DateFieldOptions, FieldInferenceState>
+		FieldDefinition<'date', string, DateFieldOptions, FieldTypegenState>
 	>()
 	expectTypeOf(field.kind).toEqualTypeOf<'date'>()
 	expectTypeOf(field.options).toEqualTypeOf<Readonly<DateFieldOptions>>()
 	expectTypeOf<
-		FieldInferenceStateOf<typeof field>['object']
+		FieldTypegenStateOf<typeof field>['object']
 	>().toEqualTypeOf<'required'>()
 })
 

@@ -210,7 +210,7 @@ describe('read terminals and singular schema commands', () => {
 			})
 			await expect(
 				articleSchema.updateOne({
-					where: (where) => where.eq('title', 'Updated target'),
+					where: { title: { eq: 'Updated target' } },
 					data: { views: increment(1) },
 				}),
 			).resolves.toBeNull()
@@ -223,7 +223,7 @@ describe('read terminals and singular schema commands', () => {
 			expect(selectedUpdateResult).toBeInstanceOf(articleSchema)
 			expect(selectedUpdateResult?.toJSON()).toStrictEqual(selectedUpdate)
 			const upsertedResult = await articleSchema.upsertOne({
-				where: (where) => where.eq('title', 'Upserted'),
+				where: { title: { eq: 'Upserted' } },
 				create: { title: 'Upserted' },
 				update: { title: 'Upserted' },
 			})
@@ -231,7 +231,7 @@ describe('read terminals and singular schema commands', () => {
 			expect(upsertedResult).toBeInstanceOf(articleSchema)
 			expect(upsertedResult.toJSON()).toStrictEqual(upserted)
 			const deletedOneResult = await articleSchema.deleteOne({
-				where: (where) => where.eq('title', 'Deleted target'),
+				where: { title: { eq: 'Deleted target' } },
 				select: { id: true, title: true },
 			})
 

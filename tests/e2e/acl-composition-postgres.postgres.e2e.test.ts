@@ -190,12 +190,17 @@ describe(
 				},
 				{ ultimabase: app, useMasterKey: true },
 			)
+			if (!(persisted?.acl instanceof ACL)) {
+				throw new TypeError(
+					'Expected the persisted document ACL to be materialized',
+				)
+			}
 
 			expect(owned.title).toBe('owned')
 			expect(owned).not.toHaveProperty('acl')
 			expect(owned).not.toHaveProperty('secret')
-			expect(persisted?.title).toBe('owned')
-			expect(persisted?.acl.toJSON()).toStrictEqual(
+			expect(persisted.title).toBe('owned')
+			expect(persisted.acl.toJSON()).toStrictEqual(
 				new ACL()
 					.grantPrincipal(
 						PrincipalA.pointer(sharedPrincipalId),

@@ -11,12 +11,12 @@ import {
 } from './base/options.js'
 import type {
 	FieldDefinition,
-	FieldInferenceState,
+	FieldTypegenState,
 	FieldOptions,
 	FieldOptionsWithoutNullable,
 	FieldValidationOptions,
 	InvalidOptionsArguments,
-	ResolveFieldInferenceState,
+	ResolveFieldTypegenState,
 	ValidatedFieldOptions,
 } from './base/contract.js'
 import type { FieldHookDeclaration } from '../hooks/field-contracts.js'
@@ -39,22 +39,22 @@ export type PluginFieldDefinition<
 	TKind extends string = string,
 	TValue = unknown,
 	TOptions extends object = FieldOptions<TValue>,
-	TInference extends FieldInferenceState = ResolveFieldInferenceState<TOptions>,
-> = FieldDefinition<TKind, TValue, TOptions, TInference>
+	TTypegen extends FieldTypegenState = ResolveFieldTypegenState<TOptions>,
+> = FieldDefinition<TKind, TValue, TOptions, TTypegen>
 
-type DeferredPluginFieldInference<TOptions extends object> = Omit<
-	ResolveFieldInferenceState<TOptions>,
+type DeferredPluginFieldTypegen<TOptions extends object> = Omit<
+	ResolveFieldTypegenState<TOptions>,
 	'create'
 > & {
 	readonly create: 'optional'
 }
 
-type PluginFieldInference<
+type PluginFieldTypegen<
 	TOptions extends object,
 	TDeferred extends boolean,
 > = TDeferred extends true
-	? DeferredPluginFieldInference<TOptions>
-	: ResolveFieldInferenceState<TOptions>
+	? DeferredPluginFieldTypegen<TOptions>
+	: ResolveFieldTypegenState<TOptions>
 
 /**
  * Lets a plugin normalize its own constraints and scalar values through Schema.
@@ -164,7 +164,7 @@ export const definePluginField = <
 	TKind,
 	TValue,
 	PluginFieldMetadata<TOptions>,
-	PluginFieldInference<PluginFieldMetadata<TOptions>, TDeferred>
+	PluginFieldTypegen<PluginFieldMetadata<TOptions>, TDeferred>
 > => {
 	// The rest parameter keeps invalid plugin metadata out of the public call contract.
 	void invalidOptions

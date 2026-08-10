@@ -3,7 +3,7 @@ import { immutableRecord } from '@ultimabase/shared'
 import { normalizeFieldOptions } from '../base/options.js'
 import type {
 	FieldDefinition,
-	FieldInferenceState,
+	FieldTypegenState,
 	FieldListOption,
 	FieldOptions,
 	FieldValidationOptions,
@@ -41,9 +41,8 @@ export type UuidFieldOptions = FieldOptions<string, UuidValidationOptions>
 /**
  * Carries the UUID value and exact options through schema inference.
  */
-export type UuidField<
-	TInference extends FieldInferenceState = FieldInferenceState,
-> = FieldDefinition<'uuid', string, UuidFieldOptions, TInference>
+export type UuidField<TTypegen extends FieldTypegenState = FieldTypegenState> =
+	FieldDefinition<'uuid', string, UuidFieldOptions, TTypegen>
 
 /** Provides UUID-specific names for the shared compact scalar contract. */
 type DefaultedUuidFieldOptions<

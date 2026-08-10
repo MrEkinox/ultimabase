@@ -131,7 +131,7 @@ const mutationFixtures: readonly MutationFixture[] = [
 		execute: (request) =>
 			runWithRequestEngine(request, () =>
 				articleSchema.updateOne({
-					where: (where) => where.eq('title', 'Before'),
+					where: { title: { eq: 'Before' } },
 					data: { title: 'After' },
 				}),
 			),
@@ -145,7 +145,7 @@ const mutationFixtures: readonly MutationFixture[] = [
 				articleSchema.updateMany({
 					data: [
 						{
-							where: (where) => where.eq('title', 'Before'),
+							where: { title: { eq: 'Before' } },
 							data: { title: 'After' },
 						},
 					],
@@ -158,7 +158,7 @@ const mutationFixtures: readonly MutationFixture[] = [
 		execute: (request) =>
 			runWithRequestEngine(request, () =>
 				articleSchema.upsertOne({
-					where: (where) => where.eq('title', 'Upserted'),
+					where: { title: { eq: 'Upserted' } },
 					create: { title: 'Upserted' },
 					update: { title: 'Upserted' },
 				}),
@@ -176,7 +176,7 @@ const mutationFixtures: readonly MutationFixture[] = [
 				articleSchema.upsertMany({
 					data: [
 						{
-							where: (where) => where.eq('title', 'Upserted'),
+							where: { title: { eq: 'Upserted' } },
 							create: { title: 'Upserted' },
 							update: { title: 'Upserted' },
 						},
@@ -190,7 +190,7 @@ const mutationFixtures: readonly MutationFixture[] = [
 		execute: (request) =>
 			runWithRequestEngine(request, () =>
 				articleSchema.deleteOne({
-					where: (where) => where.eq('title', 'Deleted'),
+					where: { title: { eq: 'Deleted' } },
 				}),
 			),
 	},
@@ -201,7 +201,7 @@ const mutationFixtures: readonly MutationFixture[] = [
 		execute: (request) =>
 			runWithRequestEngine(request, () =>
 				articleSchema.deleteMany({
-					where: [(where) => where.eq('title', 'Deleted')],
+					where: [{ title: { eq: 'Deleted' } }],
 				}),
 			),
 	},

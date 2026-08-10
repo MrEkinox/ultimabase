@@ -96,7 +96,7 @@ describe('RequestEngine transactions', () => {
 					})
 
 					await articleSchema.updateOne({
-						where: (where) => where.eq('id', article.id),
+						where: { id: { eq: article.id } },
 						data: { views: increment(1) },
 					})
 

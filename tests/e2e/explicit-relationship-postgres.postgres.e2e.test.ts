@@ -46,7 +46,7 @@ const Membership = Schema.define({
 	hooks: {
 		afterOperation: {
 			create: ({ operation }) => {
-				membershipTrace.push(`created:${operation.input.role}`)
+				membershipTrace.push(`created:${String(operation.input.role)}`)
 			},
 		},
 		beforeOperation: {
@@ -125,8 +125,8 @@ describe(
 				{
 					data: {
 						internalNote: 'private edge data',
-						member: Member.pointer(member.id),
-						project: Project.pointer(project.id),
+						member: Member.pointer(member.id.toString()),
+						project: Project.pointer(project.id.toString()),
 						role: 'editor',
 					},
 				},
@@ -176,9 +176,9 @@ describe(
 				Membership.createOne(
 					{
 						data: {
-							member: Member.pointer(member.id),
+							member: Member.pointer(member.id.toString()),
 							position: 1,
-							project: Project.pointer(project.id),
+							project: Project.pointer(project.id.toString()),
 							role: 'viewer',
 						},
 					},
@@ -192,8 +192,8 @@ describe(
 				Membership.createOne(
 					{
 						data: {
-							member: Member.pointer(member.id),
-							project: Project.pointer(project.id),
+							member: Member.pointer(member.id.toString()),
+							project: Project.pointer(project.id.toString()),
 							role: 'viewer',
 						},
 					},
@@ -221,8 +221,8 @@ describe(
 			await Membership.createOne(
 				{
 					data: {
-						member: Member.pointer(member.id),
-						project: Project.pointer(project.id),
+						member: Member.pointer(member.id.toString()),
+						project: Project.pointer(project.id.toString()),
 						role: 'editor',
 					},
 				},
@@ -264,8 +264,8 @@ describe(
 
 					await Membership.createOne({
 						data: {
-							member: Member.pointer(rolledBackMember.id),
-							project: Project.pointer(rolledBackProject.id),
+							member: Member.pointer(rolledBackMember.id.toString()),
+							project: Project.pointer(rolledBackProject.id.toString()),
 							role: 'editor',
 						},
 					})

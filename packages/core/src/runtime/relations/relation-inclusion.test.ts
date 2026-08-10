@@ -1,5 +1,6 @@
 import { definePlugin } from '../../foundation.js'
 import { Schema } from '../../schema/index.js'
+import { isUnknownArray } from '@ultimabase/shared'
 import { describe, expect, it } from 'vitest'
 
 import { RecordingDatabaseAdapter } from '../../../tests/runtime/fixtures/recording-database-adapter.js'
@@ -109,11 +110,26 @@ describe('relation Runtime inclusion', () => {
 				{ ultimabase },
 			)
 
-			expect(results[0]?.comments).toHaveLength(1)
-			expect(results[0]?.comments[0]).toBeInstanceOf(comment)
-			expect(results[0]?.comments[0]?.body).toBe('first')
-			expect(results[0]?.comments[0]?.replies[0]).toBeInstanceOf(reply)
-			expect(results[0]?.comments[0]?.replies[0]?.body).toBe('nested')
+			const comments: unknown = results[0]?.comments
+			expect(comments).toHaveLength(1)
+			if (!isUnknownArray(comments)) {
+				throw new TypeError('Expected an included comment collection')
+			}
+			const firstComment: unknown = comments[0]
+			expect(firstComment).toBeInstanceOf(comment)
+			if (!(firstComment instanceof comment)) {
+				throw new TypeError('Expected an included comment model')
+			}
+			expect(firstComment.body).toBe('first')
+			const replies: unknown = firstComment.replies
+			if (!isUnknownArray(replies)) {
+				throw new TypeError('Expected an included reply collection')
+			}
+			expect(replies[0]).toBeInstanceOf(reply)
+			if (!(replies[0] instanceof reply)) {
+				throw new TypeError('Expected an included reply model')
+			}
+			expect(replies[0].body).toBe('nested')
 			expect(JSON.stringify(results[0])).toBe(
 				'{"title":"Runtime relations","comments":[{"body":"first","replies":[{"body":"nested"}]}]}',
 			)

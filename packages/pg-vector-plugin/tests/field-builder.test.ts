@@ -38,6 +38,9 @@ describe('pg-vector FieldBuilder method', () => {
 			schemas: [Document],
 		})
 		const embedding = Document.fields.embedding
+		if (embedding === undefined) {
+			throw new TypeError('Expected the generated vector field')
+		}
 		const expected = vectorField({
 			dimensions: 3,
 			validation: { required: true },

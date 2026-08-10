@@ -1,7 +1,7 @@
 import type { SchemaDefinition } from '../../schema/index.js'
 
 import type { ExecutableOperationAst } from './contracts.js'
-import type { InferOperationResult } from './results.js'
+import type { OperationResult } from './results.js'
 
 /** Defines the neutral execution shape required by contextual operations. */
 export interface QueryOperationExecutor<
@@ -9,5 +9,5 @@ export interface QueryOperationExecutor<
 > {
 	execute<const TOperation extends ExecutableOperationAst<TSchema>>(
 		operation: TOperation,
-	): Promise<InferOperationResult<TOperation>>
+	): Promise<OperationResult<TOperation>>
 }

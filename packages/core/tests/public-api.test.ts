@@ -132,7 +132,7 @@ describe('@ultimabase/core public entry point', () => {
 			'preparedOperation',
 			'queryCursorVersion',
 			'queryRelationPredicateMaxDepth',
-			'readFieldInferenceState',
+			'readFieldTypegenState',
 			'relationField',
 			'requestSources',
 			'resolveAccessPrincipal',

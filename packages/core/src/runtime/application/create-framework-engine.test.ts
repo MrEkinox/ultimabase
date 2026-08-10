@@ -422,7 +422,7 @@ describe('createFrameworkEngine', () => {
 						schema: transformedSchema,
 						operations: ['create-one'],
 						handler: ({ operation }) => {
-							trace.push(`guard:${operation.input.title}`)
+							trace.push(`guard:${String(operation.input.title)}`)
 
 							if (operation.input.title === 'blocked') {
 								throw denial

@@ -59,7 +59,6 @@ describe('normalizeQueryOrdering', () => {
 		}).toThrow(new TypeError('query.orders[0] must be an object'))
 		expect(() => {
 			normalizeQueryOrdering(postSchema, [
-				// @ts-expect-error -- Runtime normalization rejects undeclared fields.
 				{ field: 'missing', direction: 'ascending' },
 			])
 		}).toThrow(

@@ -17,6 +17,7 @@ application isolation before declaring the migration complete.
 - [ ] A representative large-schema fixture records TypeScript process memory, typecheck duration, completion latency, and hover output before and after generated contracts.
 - [ ] The result demonstrates whether generated named types materially reduce recursive inference cost; documentation reports measurements rather than promising a fixed memory reduction.
 - [ ] Stable TypeScript source and packed-package consumers complete built-in and plugin field methods, schema fields, select, where, include, Access, hooks, and mutations exactly.
+- [ ] Generated-contract tests prove that each schema's exact item type replaces `BaseItem`, while a no-codegen fixture exposes only the documented bootstrap identity and unknown application fields.
 - [ ] First generation through the public codegen API, stale output, plugin installation/removal, clean checkout, and read-only consumption of committed declarations are verified end to end.
 - [ ] Two applications and parallel workers retain isolated plugin method registries and schema graphs.
 - [ ] Generated output is deterministic across operating-system paths and repeated clean runs.

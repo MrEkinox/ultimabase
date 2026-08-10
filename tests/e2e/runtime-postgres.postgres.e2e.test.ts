@@ -189,12 +189,12 @@ const packedModelFetch = () => packedResult.fetch({ select: { title: true } })
 const packedModelPointer = () => packedResult.toPointer()
 const packedQueryUpdate = () =>
 	PostSchema.updateOne({
-		where: (where) => where.eq('id', 'packed-post'),
+		where: { id: { eq: 'packed-post' } },
 		data: { title: 'Packed query update' },
 	})
 const packedQueryDelete = () =>
 	PostSchema.deleteOne(
-		{ where: (where) => where.eq('id', 'packed-post') },
+		{ where: { id: { eq: 'packed-post' } } },
 		{ context: packedContext },
 	)
 void packedDraft
@@ -311,7 +311,7 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 
 			const createdUpsert = await BulkAccountSchema.upsertOne(
 				{
-					where: (where) => where.eq('email', 'upsert@example.com'),
+					where: { email: { eq: 'upsert@example.com' } },
 					create: {
 						email: 'upsert@example.com',
 						handle: 'upsert',
@@ -329,7 +329,7 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 
 			const updatedUpsert = await BulkAccountSchema.upsertOne(
 				{
-					where: (where) => where.eq('email', 'upsert@example.com'),
+					where: { email: { eq: 'upsert@example.com' } },
 					create: {
 						email: 'upsert@example.com',
 						handle: 'upsert',
@@ -378,8 +378,10 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 
 			const composite = await BulkAccountSchema.upsertOne(
 				{
-					where: (where) =>
-						where.eq('handle', 'composite').eq('tenantId', 'tenant-c'),
+					where: {
+						handle: { eq: 'composite' },
+						tenantId: { eq: 'tenant-c' },
+					},
 					create: {
 						email: 'composite@example.com',
 						handle: 'composite',
@@ -424,7 +426,7 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 			const concurrent = await Promise.all([
 				BulkAccountSchema.upsertOne(
 					{
-						where: (where) => where.eq('email', 'concurrent@example.com'),
+						where: { email: { eq: 'concurrent@example.com' } },
 						create: {
 							email: 'concurrent@example.com',
 							handle: 'concurrent',
@@ -436,7 +438,7 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 				),
 				BulkAccountSchema.upsertOne(
 					{
-						where: (where) => where.eq('email', 'concurrent@example.com'),
+						where: { email: { eq: 'concurrent@example.com' } },
 						create: {
 							email: 'concurrent@example.com',
 							handle: 'concurrent',
@@ -526,7 +528,9 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 			expect(pointer.schema).toBe(BulkAccountSchema)
 			expect(pointer.id).toBe(created.id)
 			expect(selected.equals(created)).toBe(true)
-			expect(selected.equals(BulkAccountSchema.pointer(created.id))).toBe(true)
+			expect(
+				selected.equals(BulkAccountSchema.pointer(created.id.toString())),
+			).toBe(true)
 
 			const updated = await selected.update(
 				{
@@ -869,7 +873,7 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 
 			const updated = await PostSchema.updateOne(
 				{
-					where: (where) => where.eq('id', created.id),
+					where: { id: { eq: created.id } },
 					data: {
 						views: increment(2),
 						published: true,
@@ -889,7 +893,7 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 
 			const deleted = await PostSchema.deleteOne(
 				{
-					where: (where) => where.eq('id', created.id),
+					where: { id: { eq: created.id } },
 					select: { id: true, title: true },
 				},
 				{ ultimabase },
@@ -1006,7 +1010,7 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 
 			await runWithRequestEngine(request, () =>
 				PostSchema.deleteOne({
-					where: (where) => where.eq('id', committed.id),
+					where: { id: { eq: committed.id } },
 				}),
 			)
 		} finally {

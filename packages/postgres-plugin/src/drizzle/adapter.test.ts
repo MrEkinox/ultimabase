@@ -668,7 +668,13 @@ describe('internal PostgreSQL database adapter', () => {
 			'name'
 		> = {
 			kind: 'find-one',
-			query: inclusion.query,
+			// This runtime fixture deliberately runs without an application type file.
+			// The target identity was checked above and is restored only for this test operation.
+			query: inclusion.query as unknown as FindOneOperationAst<
+				typeof pointerUserSchema,
+				QueryExpressionNode,
+				'name'
+			>['query'],
 		}
 
 		const secret = 'select private_value from internal_table'

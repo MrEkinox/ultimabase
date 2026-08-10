@@ -2,7 +2,7 @@ import { assertOptionalBoolean } from '@ultimabase/shared'
 import { assertFieldOptions, normalizeFieldOptions } from '../base/options.js'
 import type {
 	FieldDefinition,
-	FieldInferenceState,
+	FieldTypegenState,
 	FieldListOption,
 	FieldOptions,
 } from '../base/contract.js'
@@ -44,9 +44,8 @@ export type FloatFieldOptions = FieldOptions<number, FloatValidationOptions>
 /**
  * Carries a floating-point number and exact options through schema inference.
  */
-export type FloatField<
-	TInference extends FieldInferenceState = FieldInferenceState,
-> = FieldDefinition<'float', number, FloatFieldOptions, TInference>
+export type FloatField<TTypegen extends FieldTypegenState = FieldTypegenState> =
+	FieldDefinition<'float', number, FloatFieldOptions, TTypegen>
 
 /** Provides float-specific names for the shared compact scalar contract. */
 type DefaultedFloatFieldOptions<

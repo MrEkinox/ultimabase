@@ -62,7 +62,6 @@ describe('normalizeQuerySelection', () => {
 			normalizeQuerySelection(postSchema, { title: 'yes' })
 		}).toThrow(new TypeError('selection.title must be a boolean'))
 		expect(() => {
-			// @ts-expect-error -- Runtime normalization rejects undeclared fields.
 			normalizeQuerySelection(postSchema, { missing: true })
 		}).toThrow(new TypeError('selection.missing must reference a schema field'))
 		expect(() =>

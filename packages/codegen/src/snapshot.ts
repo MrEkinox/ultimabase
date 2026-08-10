@@ -1,7 +1,7 @@
 import {
-	readFieldInferenceState,
+	readFieldTypegenState,
 	type CompiledSchemaRegistry,
-	type FieldInferenceState,
+	type FieldTypegenState,
 	type FrameworkApplication,
 	type GenericField,
 	type OwnedFieldBuilderMethod,
@@ -49,7 +49,7 @@ export type TypegenValueNode =
 
 export interface TypegenFieldSnapshot {
 	readonly description: string | undefined
-	readonly inference: FieldInferenceState
+	readonly typegen: FieldTypegenState
 	readonly kind: string
 	readonly name: string
 	readonly path: readonly string[]
@@ -316,7 +316,7 @@ const snapshotFields = (
 
 				return immutableRecord({
 					description: readDescription(field),
-					inference: readFieldInferenceState(field),
+					typegen: readFieldTypegenState(field),
 					kind: field.kind,
 					name,
 					path,

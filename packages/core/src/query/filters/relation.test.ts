@@ -1,8 +1,8 @@
 import {
 	Schema,
 	stringField,
-	type RelationField,
-	type SchemaClass,
+	type SchemaDefinition,
+	type SchemaReference,
 } from '../../schema/index.js'
 import { describe, expect, it } from 'vitest'
 
@@ -43,14 +43,7 @@ const Company = Schema.define({
 })
 
 const recursiveNameField = stringField()
-type RecursiveSchema = SchemaClass<
-	'RecursiveRelationPredicate',
-	Readonly<{
-		readonly children: RelationField<RecursiveSchema, undefined>
-		readonly name: typeof recursiveNameField
-	}>,
-	readonly []
->
+type RecursiveSchema = SchemaReference<'RecursiveRelationPredicate'>
 const resolveRecursiveSchema = (): RecursiveSchema => Recursive
 const Recursive: RecursiveSchema = Schema.define({
 	className: 'RecursiveRelationPredicate',
@@ -61,9 +54,9 @@ const Recursive: RecursiveSchema = Schema.define({
 })
 
 const nestRecursivePredicate = (
-	predicate: WhereBuilder<RecursiveSchema>,
+	predicate: WhereBuilder<SchemaDefinition>,
 	remaining: number,
-): WhereBuilder<RecursiveSchema> =>
+): WhereBuilder<SchemaDefinition> =>
 	remaining === 0
 		? predicate
 		: predicate.some('children', (child) =>

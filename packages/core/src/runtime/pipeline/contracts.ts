@@ -1,6 +1,6 @@
 import type { MaybePromise } from '@ultimabase/shared'
 import type {
-	InferOperationRecordResult,
+	OperationRecordResult,
 	OperationAstNode,
 } from '../../query/index.js'
 
@@ -66,7 +66,7 @@ export interface RuntimeEnforcementOperationResult<
 
 /** Represents the post-hydration record shape observed by result hooks. */
 export type RuntimeOperationResult<TOperation extends OperationAstNode> =
-	InferOperationRecordResult<TOperation>
+	OperationRecordResult<TOperation>
 
 /** Supplies pre-hydration adapter records to projection and scalar resolution. */
 export interface RuntimeDatabaseResultStageInput<

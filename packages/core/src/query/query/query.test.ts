@@ -10,11 +10,7 @@ import {
 } from '../../schema/index.js'
 import { describe, expect, it } from 'vitest'
 
-import {
-	hydrateQueryFromAst,
-	QueryBuilder,
-	type QueryPointerTargetBuilder,
-} from './query.js'
+import { hydrateQueryFromAst, QueryBuilder } from './query.js'
 import { fieldPath } from '../filters/factory.js'
 import { WhereBuilder } from '../filters/where.js'
 import type { QueryScope } from './scope.js'
@@ -270,12 +266,8 @@ describe('QueryBuilder', () => {
 		expect(JSON.stringify(selected.ast)).toContain('"field":"author"')
 		expect(JSON.stringify(selected.ast)).not.toContain('authorId')
 		expect(() =>
-			new QueryBuilder(includedPostSchema).include(
-				'author',
-				() =>
-					new QueryBuilder(includedUserSchema).where({
-						active: { eq: true },
-					}) as unknown as QueryPointerTargetBuilder<typeof includedUserSchema>,
+			new QueryBuilder(includedPostSchema).include('author', (query) =>
+				query.where({ active: { eq: true } }),
 			),
 		).toThrow(
 			new TypeError('pointer-target input contains an unknown clause: where'),
@@ -292,11 +284,7 @@ describe('QueryBuilder', () => {
 			),
 		)
 		expect(() =>
-			new QueryBuilder(includedPostSchema).include(
-				// @ts-expect-error -- Runtime validation rejects non-pointer fields.
-				'title',
-				(query) => query,
-			),
+			new QueryBuilder(includedPostSchema).include('title', (query) => query),
 		).toThrow(
 			new TypeError(
 				'query inclusion field must reference a pointer or relation field',
@@ -587,19 +575,16 @@ describe('QueryBuilder', () => {
 				.where(new WhereBuilder(otherPostSchema).eq('title', 'Post')),
 		).toThrow(new TypeError('WhereBuilder must use the same schema definition'))
 		expect(() => {
-			// @ts-expect-error -- Runtime validation rejects unknown fields.
 			new QueryBuilder(postSchema).where((where) => where.eq('missing', true))
 		}).toThrow(new TypeError('where.missing must reference a schema field'))
 		expect(() => {
 			new QueryBuilder(postSchema).where((where) =>
-				// @ts-expect-error -- List fields do not expose scalar ordering operators.
 				where.gt('aliases', ['alias']),
 			)
 		}).toThrow(
 			new TypeError('query operator greater-than does not support list fields'),
 		)
 		expect(() => {
-			// @ts-expect-error -- Boolean fields do not support ordered comparisons.
 			new QueryBuilder(postSchema).where((where) => where.gt('published', true))
 		}).toThrow(
 			new TypeError(
@@ -607,18 +592,15 @@ describe('QueryBuilder', () => {
 			),
 		)
 		expect(() => {
-			// @ts-expect-error -- Runtime rejects nullable comparison operands.
 			new QueryBuilder(postSchema).where((where) => where.gt('score', null))
 		}).toThrow(new TypeError('query filter value must not be null'))
 		expect(() => {
 			new QueryBuilder(postSchema).where((where) =>
-				// @ts-expect-error -- Runtime rejects nullable range bounds.
 				where.between('score', null, 10),
 			)
 		}).toThrow(new TypeError('query range lower bound must not be null'))
 		expect(() => {
 			new QueryBuilder(postSchema).where((where) =>
-				// @ts-expect-error -- Numeric fields do not support string operators.
 				where.contains('views', '10'),
 			)
 		}).toThrow(
@@ -626,12 +608,10 @@ describe('QueryBuilder', () => {
 		)
 		expect(() => {
 			new QueryBuilder(postSchema).where((where) =>
-				// @ts-expect-error -- Runtime field normalizers reject invalid operands.
 				where.eq('published', 'true'),
 			)
 		}).toThrow(TypeError)
 		expect(() => {
-			// @ts-expect-error -- Runtime validation rejects non-string identifiers.
 			new QueryBuilder(postSchema).where({ id: { eq: 42 } })
 		}).toThrow(new TypeError('query filter value must be a string'))
 	})

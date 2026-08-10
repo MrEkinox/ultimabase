@@ -115,7 +115,7 @@ const aliceRequest = (requestId: string): RequestContext =>
 	RequestContext.anonymous({
 		requestId,
 		source: requestSources.internal,
-	}).withValue(currentMemberId, requireFixture(alice, 'alice').id)
+	}).withValue(currentMemberId, requireFixture(alice, 'alice').id.toString())
 
 beforeAll(async () => {
 	fixture = await createPostgresWorkerFixture()
@@ -143,7 +143,9 @@ beforeAll(async () => {
 		{ data: [{ email: 'alice@example.test' }, { email: 'bob@example.test' }] },
 		{ ultimabase: app, useMasterKey: true },
 	)
-	const alicePointer = Member.pointer(requireFixture(alice, 'alice').id)
+	const alicePointer = Member.pointer(
+		requireFixture(alice, 'alice').id.toString(),
+	)
 	const aliceRead = new ACL().grantPrincipal(alicePointer, 'read')
 	const aliceUpdate = aliceRead.grantPrincipal(alicePointer, 'update')
 
@@ -163,7 +165,7 @@ beforeAll(async () => {
 		{
 			data: {
 				acl: new ACL().grantRole(
-					AppRole.role({ id: editor.id }),
+					AppRole.role({ id: editor.id.toString() }),
 					'read',
 					'update',
 				),
@@ -221,10 +223,17 @@ describe(
 				{ where: { id: { eq: current.id } }, select: { acl: true } },
 				{ ultimabase: app, useMasterKey: true },
 			)
+			if (!(persistedACL?.acl instanceof ACL)) {
+				throw new TypeError(
+					'Expected the persisted role ACL to be materialized',
+				)
+			}
 
 			expect(
-				persistedACL?.acl.permissionsForRole(
-					AppRole.role({ id: requireFixture(editor, 'editor').id }),
+				persistedACL.acl.permissionsForRole(
+					AppRole.role({
+						id: requireFixture(editor, 'editor').id.toString(),
+					}),
 				),
 			).toStrictEqual(['read', 'update'])
 			await expect(
