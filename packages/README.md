@@ -19,6 +19,12 @@ optional infrastructure and policy behavior remains in plugins.
 - `acl-postgres-plugin`
 - `pg-vector-plugin`
 - `postgres-plugin`
+
+## Planned plugin packages
+
+The accepted names below remain issue-tracked but do not have workspace
+directories until implementation begins:
+
 - `postgres-migrations-plugin`
 - `server-hono-plugin`
 - `rest-plugin`

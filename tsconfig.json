@@ -23,11 +23,6 @@
 		{ "path": "./packages/acl-permissions-plugin" },
 		{ "path": "./packages/acl-postgres-plugin" },
 		{ "path": "./packages/postgres-plugin" },
-		{ "path": "./packages/postgres-migrations-plugin" },
-		{ "path": "./packages/server-hono-plugin" },
-		{ "path": "./packages/rest-plugin" },
-		{ "path": "./packages/graphql-plugin" },
-		{ "path": "./packages/graphql-yoga-plugin" },
 		{ "path": "./packages/testing" }
 	]
 }

@@ -45,16 +45,23 @@ roles-plugin ─────────→ core
 acl-permissions-plugin → core
 postgres-plugin ──────→ core
 acl-postgres-plugin ──→ acl-permissions-plugin, postgres-plugin, core
-postgres-migrations-plugin → postgres-plugin, core
-server-hono-plugin ───→ core
-rest-plugin ──────────→ core
-graphql-plugin ───────→ core
-graphql-yoga-plugin ──→ graphql-plugin, core
 testing ──────────────→ core, shared
 ```
 
 Concrete plugins depend on Core's public contracts. Core never depends back on
 concrete plugins.
+
+The accepted future package identities below are issue-tracked architecture,
+not current workspaces. Each package is created only when its first
+implementation issue starts:
+
+```text
+postgres-migrations-plugin → postgres-plugin, core
+server-hono-plugin ────────→ core
+rest-plugin ───────────────→ core
+graphql-plugin ────────────→ core
+graphql-yoga-plugin ───────→ graphql-plugin, core
+```
 
 `@ultimabase/typegen` is development tooling whose optional `typegenPlugin()`
 integrates generation with application initialization. Core supplies that

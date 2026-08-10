@@ -1,14 +1,9 @@
 ---
 '@ultimabase/core': major
 '@ultimabase/acl-permissions-plugin': patch
-'@ultimabase/graphql-plugin': patch
-'@ultimabase/graphql-yoga-plugin': patch
 '@ultimabase/pg-vector-plugin': patch
 '@ultimabase/postgres-plugin': patch
-'@ultimabase/postgres-migrations-plugin': patch
-'@ultimabase/rest-plugin': patch
 '@ultimabase/roles-plugin': patch
-'@ultimabase/server-hono-plugin': patch
 '@ultimabase/testing': patch
 ---
 

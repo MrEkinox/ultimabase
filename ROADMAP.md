@@ -52,10 +52,14 @@ indexed PostgreSQL JSONB storage; SQL compilation; and audit events.
 ## Milestone 5 — PostgreSQL vertical
 
 Drizzle-backed adapter, schema compilation, introspection, direct schema synchronization, PostgreSQL migrations, and Testcontainers.
+The migration package remains planned and gains a workspace only when issue 513
+starts implementation.
 
 ## Milestone 6 — REST and GraphQL vertical
 
 Hono server, generated REST endpoints, GraphQL schema generation, cursor connections, Yoga integration, custom schema merging, and developer explorers.
+These transport packages remain planned and gain workspaces only when their
+implementation issues start.
 
 ## Milestone 7+ — Optional ecosystem
 

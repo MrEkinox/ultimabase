@@ -1,6 +1,6 @@
 # 1203: Reject unknown built-in field options
 
-- Status: planned
+- Status: ready
 - Milestone: 12
 - Packages: `@ultimabase/core`
 - Depends on: 1202
