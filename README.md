@@ -9,7 +9,7 @@ It takes inspiration from the simplicity of Parse Server while deliberately repl
 ## Intended developer experience
 
 ```ts
-import { codegenPlugin } from '@ultimabase/codegen'
+import { typegenPlugin } from '@ultimabase/typegen'
 import { Schema, UltimaBase } from '@ultimabase/core'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 
@@ -34,7 +34,7 @@ const activeUsersInput = { where: { isActive: { eq: true } } } as const
 const ultimabase = new UltimaBase({
 	schemas: [UserSchema],
 	plugins: [
-		codegenPlugin(),
+		typegenPlugin(),
 		postgresPlugin({
 			url: env.DATABASE_URL,
 		}),

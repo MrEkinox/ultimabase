@@ -32,7 +32,7 @@ const trace = (label: string): void => {
 	hookTrace.push(label)
 }
 
-/** Narrows one generated-item fallback field used by this no-codegen fixture. */
+/** Narrows one generated-item fallback field used by this no-Typegen fixture. */
 const readItemString = (
 	item: Readonly<Record<string, unknown>>,
 	field: string,

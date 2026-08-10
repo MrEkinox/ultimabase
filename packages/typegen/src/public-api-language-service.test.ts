@@ -5,10 +5,10 @@ import { describe, expect, it } from 'vitest'
 
 import { createLanguageService } from '../../../tooling/vitest/typescript-language-service.js'
 
-const optionsMarker = '/* codegen-options */'
-const hoverMarker = '/* codegen-hover */'
-const pluginOptionsMarker = '/* codegen-plugin-options */'
-const pluginHoverMarker = '/* codegen-plugin-hover */'
+const optionsMarker = '/* typegen-options */'
+const hoverMarker = '/* typegen-hover */'
+const pluginOptionsMarker = '/* typegen-plugin-options */'
+const pluginHoverMarker = '/* typegen-plugin-hover */'
 const sourceWithMarkers = `
 import { typegenPlugin, generateApplicationTypes } from './index.js'
 import type { GenerateApplicationTypesOptions } from './index.js'
@@ -44,7 +44,7 @@ const source = sourceWithMarkers
 	.replace(pluginHoverMarker, ' '.repeat(pluginHoverMarker.length))
 const fileName = path.join(
 	import.meta.dirname,
-	'codegen-public-api.source.fixture.ts',
+	'typegen-public-api.source.fixture.ts',
 )
 const service = createLanguageService(fileName, source)
 

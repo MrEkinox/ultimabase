@@ -1,4 +1,4 @@
-# @ultimabase/codegen
+# @ultimabase/typegen
 
 Deterministic generated application contracts for UltimaBase schemas.
 
@@ -12,18 +12,18 @@ database credentials, or serializes Access and hook callbacks.
 Configure the development tooling once in the application plugin graph:
 
 ```ts
-import { codegenPlugin } from '@ultimabase/codegen'
+import { typegenPlugin } from '@ultimabase/typegen'
 import { UltimaBase } from '@ultimabase/core'
 
 const ultimabase = new UltimaBase({
-	plugins: [codegenPlugin()],
+	plugins: [typegenPlugin()],
 	schemas: [Todo],
 })
 
 await ultimabase.start()
 ```
 
-Static schema compilation completes first, then `codegenPlugin()` atomically
+Static schema compilation completes first, then `typegenPlugin()` atomically
 replaces `.ultimabase/schema.generated.d.ts` before any plugin connects to
 infrastructure. `applicationId` and `outputPath` remain configurable for
 multi-application repositories. Core receives only a neutral read-only static
@@ -37,7 +37,7 @@ import {
 	generateApplicationTypes,
 	loadTypegenApplication,
 	writeGeneratedTypeFile,
-} from '@ultimabase/codegen'
+} from '@ultimabase/typegen'
 
 const application = await loadTypegenApplication({
 	sourcePath: './src/ultimabase.ts',

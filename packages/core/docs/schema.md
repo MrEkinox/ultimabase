@@ -87,7 +87,7 @@ transactions, or lifecycle state. Field maps still compile immediately for
 framework-owned composition and isolated tests that need local inference, but
 they are not the ordinary application declaration syntax. Builder declarations
 gain their exact application model contract from the deterministic registry
-emitted by `@ultimabase/codegen`, and Core resolves public schema APIs through
+emitted by `@ultimabase/typegen`, and Core resolves public schema APIs through
 that registry.
 
 The root builder exposes every Core field kind. `field.object()` receives a

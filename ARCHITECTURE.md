@@ -10,7 +10,7 @@ pure plugin field declarations
 application-owned SchemaRegistry compilation
       ↓
 application-local relationship target graph
-      ├──────────────→ inert codegen snapshot → compact TypeScript registry
+      ├──────────────→ inert Typegen snapshot → compact TypeScript registry
       ↓
 typed extensions + plugin setup
       ↓
@@ -39,7 +39,7 @@ An arrow means “imports or depends on” and always points toward a foundation
 
 ```text
 core ─────────────────→ shared
-codegen ──────────────→ core, shared
+typegen ──────────────→ core, shared
 pg-vector-plugin ─────→ core, shared
 roles-plugin ─────────→ core
 acl-permissions-plugin → core
@@ -56,12 +56,12 @@ testing ──────────────→ core, shared
 Concrete plugins depend on Core's public contracts. Core never depends back on
 concrete plugins.
 
-`@ultimabase/codegen` is development tooling whose optional `codegenPlugin()`
+`@ultimabase/typegen` is development tooling whose optional `typegenPlugin()`
 integrates generation with application initialization. Core supplies that
 plugin a read-only compiled schema and FieldBuilder method graph; the tooling
 package snapshots those logical facts and atomically emits deterministic
 declarations during setup, before any infrastructure connection. Core never
-imports codegen. The generator does not resolve services, connect adapters, or
+imports Typegen. The generator does not resolve services, connect adapters, or
 serialize Access and hook callbacks. Production Runtime consumes the
 independently recompiled Core schema graph; generated files remain replaceable
 TypeScript caches rather than runtime schema truth.

@@ -31,7 +31,7 @@ developer reads their exports.
 
 ## Development tooling
 
-- `codegen`: static application loading, deterministic compact schema
+- `typegen`: static application loading, deterministic compact schema
   declarations, fingerprints, and atomic output replacement.
 - `testing`
 

@@ -139,7 +139,7 @@ describe('@ultimabase/core Schema and QueryBuilder declarations', () => {
 		)
 	})
 
-	it('keeps the no-codegen draft fallback minimal and exposes QueryBuilder', () => {
+	it('keeps the no-Typegen draft fallback minimal and exposes QueryBuilder', () => {
 		const draft = readFixtureQuickInfo('packedDraft = new PostSchema')
 		const query = readFixtureQuickInfo(
 			'packedQuery = new QueryBuilder(PostSchema)',
@@ -197,7 +197,7 @@ describe('@ultimabase/core Schema and QueryBuilder declarations', () => {
 		)
 	})
 
-	it('keeps no-codegen mutation hovers on the minimal generated fallback', () => {
+	it('keeps no-Typegen mutation hovers on the minimal generated fallback', () => {
 		const created = readFixtureQuickInfo('created = await PostSchema')
 		const selected = readFixtureQuickInfo('selectedCreate = await PostSchema')
 		const deleted = readFixtureQuickInfo('deleted = await PostSchema')

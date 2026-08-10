@@ -106,7 +106,7 @@ Registrations are isolated per application and reject built-in overrides,
 duplicates, unstable declarations, and factories returning another field kind.
 `declareFields` receives no services or runtime state and must return
 synchronously. The generated application declaration emitted by
-`@ultimabase/codegen` adds the contributed method to that application's
+`@ultimabase/typegen` adds the contributed method to that application's
 `FieldBuilder`; Core's base `FieldBuilder` does
 not expose plugin methods globally. Calling a missing method through untyped or
 stale code fails during static schema compilation before plugin setup.
@@ -114,20 +114,20 @@ stale code fails during static schema compilation before plugin setup.
 Framework tooling can call `application.compileSchemas()` to run exactly this
 synchronous static phase without plugin setup or infrastructure. The method is
 idempotent after success and rethrows the original failure after an unsuccessful
-attempt. `@ultimabase/codegen` uses it to emit the application-owned FieldBuilder,
+attempt. `@ultimabase/typegen` uses it to emit the application-owned FieldBuilder,
 model, operation, relationship, Access, and hook contracts. When that generated
 declaration is part of the TypeScript project, `Schema.define()` and every public
 read, mutation, Access, hook, extension, pointer, and relation surface resolve
 the compact contract by literal `className`. Without that generated entry, Core
 keeps only the safe `BaseItem` bootstrap contract and broad object inputs; it
 does not reconstruct local field-map inference. Regeneration through
-`@ultimabase/codegen` replaces those bootstrap types with the exact application
+`@ultimabase/typegen` replaces those bootstrap types with the exact application
 contract.
 
 Tooling configured in the plugin graph receives the same compiled schema
 registry plus an immutable application-local FieldBuilder method snapshot during
-setup. This lets `codegenPlugin()` regenerate before infrastructure connects
-without introducing a Core dependency on the codegen package.
+setup. This lets `typegenPlugin()` regenerate before infrastructure connects
+without introducing a Core dependency on the Typegen package.
 
 Generated pointer and relation handles correlate targets by their stable schema
 name. Runtime values remain ordinary `Pointer` and `Relation` instances, and

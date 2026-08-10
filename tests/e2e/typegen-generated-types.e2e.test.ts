@@ -30,7 +30,7 @@ const pluginHookItemMarker = '/* packed-plugin-hook-item */'
 const pointerMarker = '/* packed-pointer-where */'
 const relationMarker = '/* packed-relation-where */'
 const hoverMarker = '/* packed-generated-hover */'
-const optionsMarker = '/* packed-codegen-options */'
+const optionsMarker = '/* packed-typegen-options */'
 const createOneOptionsMarker = '/* packed-create-one-options */'
 const createManyOptionsMarker = '/* packed-create-many-options */'
 const updateOneOptionsMarker = '/* packed-update-one-options */'
@@ -73,7 +73,7 @@ const application = new FrameworkApplication({
 })
 const generated = generateApplicationTypes({
 	application,
-	applicationId: 'fixture.packed-codegen',
+	applicationId: 'fixture.packed-typegen',
 })
 const sourceWithMarkers = `${generated.contents}
 import { generateApplicationTypes as generatePackedApplicationTypes } from '@ultimabase/typegen'
@@ -368,7 +368,7 @@ const source = sourceWithMarkers
 	.replace(updateOneHoverMarker, ' '.repeat(updateOneHoverMarker.length))
 const fileName = path.join(
 	import.meta.dirname,
-	'codegen-generated-types.packed.fixture.ts',
+	'typegen-generated-types.packed.fixture.ts',
 )
 const service = createLanguageService(fileName, source)
 

@@ -2,7 +2,7 @@
 
 - Status: deferred
 - Milestone: future
-- Packages: future CLI package, `@ultimabase/codegen`
+- Packages: future CLI package, `@ultimabase/typegen`
 - Depends on: 806, 207
 - ADR: [ADR-0173](../../docs/adr/0173-generated-schema-authoring.md)
 
@@ -14,12 +14,12 @@ regeneration, and CI verification without starting the application.
 ## Deferral
 
 Product review on 2026-08-09 deferred every CLI command. The generated-schema
-milestone continues through the public `@ultimabase/codegen` API and committed
+milestone continues through the public `@ultimabase/typegen` API and committed
 deterministic artifacts. This issue retains the accepted future command
 requirements without blocking the repository FieldBuilder migration.
 
 Automatic writable-development generation is not deferred: a configured
-`codegenPlugin()` regenerates during `UltimaBase.start()`. The future CLI reuses
+`typegenPlugin()` regenerates during `UltimaBase.start()`. The future CLI reuses
 the same generator when developers explicitly request generation without a
 runtime start.
 

@@ -84,7 +84,7 @@ The method belongs to this application's plugin graph. Another application
 without `pgVectorPlugin()` does not register it. Once the generated declaration
 is included by TypeScript, its module augmentation exposes `field.vector()` on
 this application's FieldBuilder. Core's unaugmented base type remains neutral.
-Applications regenerate that declaration through `codegenPlugin()` during
+Applications regenerate that declaration through `typegenPlugin()` during
 startup. A future CLI will expose manual generation and watch mode.
 
 The same map-returning declaration is used by applications, tests, and

@@ -3,7 +3,7 @@
 - Status: accepted
 - Date: 2026-08-09
 - Refines: ADR-0002, ADR-0022, ADR-0029, ADR-0048, ADR-0050, ADR-0088, ADR-0109, ADR-0130
-- Refined by: ADR-0175, ADR-0177
+- Refined by: ADR-0175, ADR-0177, ADR-0184
 
 ## Context
 
@@ -223,6 +223,11 @@ the earlier generic-orchestrator issue 718 with the smallest orchestrator needed
 for this concrete schema registry; arbitrary generator extension points are not
 introduced without another proven consumer.
 
+ADR-0184 later renamed this package to `@ultimabase/typegen` and its automatic
+integration to `typegenPlugin()` without changing the generation boundary
+accepted here. The former names above remain as the historical wording of this
+decision.
+
 ### Non-goals
 
 This decision does not introduce:
@@ -247,8 +252,8 @@ prototype implementation was removed after the production contracts superseded
 it. Those contracts are protected by the focused
 [schema compilation](../../packages/core/src/schema/schema/compilation.test.ts),
 [plugin FieldBuilder](../../packages/core/src/schema/schema/plugin-field-builder-methods.test.ts),
-[codegen loader](../../packages/codegen/src/loader.test.ts), and
-[generated public type](../../tests/e2e/codegen-generated-types.e2e.test.ts)
+[type-generation loader](../../packages/typegen/src/loader.test.ts), and
+[generated public type](../../tests/e2e/typegen-generated-types.e2e.test.ts)
 regression suites.
 
 The historical prototype did not prove a TypeScript memory improvement. Issue

@@ -20,7 +20,7 @@ import {
 } from './index.js'
 
 const Document = Schema.define({
-	className: 'CodegenPublicTypeDocument',
+	className: 'TypegenPublicTypeDocument',
 	fields: (field) => ({
 		title: field.string(),
 	}),

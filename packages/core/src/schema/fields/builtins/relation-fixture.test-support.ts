@@ -4,7 +4,7 @@ import { SchemaRegistry } from '../../schema/registry.js'
 export type RelationAuthorSchema = SchemaReference<'RelationAuthor'>
 export type RelationPostSchema = SchemaReference<'RelationPost'>
 
-/** Declares one inverse one-to-many topology without pretending codegen ran. */
+/** Declares one inverse one-to-many topology without pretending Typegen ran. */
 export const RelationAuthor: RelationAuthorSchema = Schema.define({
 	className: 'RelationAuthor',
 	fields: (field) => ({
