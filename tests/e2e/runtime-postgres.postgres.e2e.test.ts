@@ -535,9 +535,7 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 			expect(pointer.schema).toBe(BulkAccountSchema)
 			expect(pointer.id).toBe(created.id)
 			expect(selected.equals(created)).toBe(true)
-			expect(
-				selected.equals(BulkAccountSchema.pointer(created.id.toString())),
-			).toBe(true)
+			expect(selected.equals(BulkAccountSchema.pointer(created.id))).toBe(true)
 
 			const updated = await selected.update(
 				{
@@ -881,7 +879,7 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 
 			const updated = await PostSchema.updateOne(
 				{
-					id: created.id.toString(),
+					id: created.id,
 					data: {
 						views: increment(2),
 						published: true,
@@ -901,7 +899,7 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 
 			const deleted = await PostSchema.deleteOne(
 				{
-					id: created.id.toString(),
+					id: created.id,
 					select: { id: true, title: true },
 				},
 				{ ultimabase },

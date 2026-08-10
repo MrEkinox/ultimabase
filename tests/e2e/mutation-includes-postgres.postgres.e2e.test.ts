@@ -188,7 +188,7 @@ describe('mutation relationship projections with PostgreSQL', () => {
 		const created = await Post.createOne(
 			{
 				data: {
-					author: Author.pointer(author.id.toString()),
+					author: Author.pointer(author.id),
 					title: 'Singular post',
 				},
 				select: { title: true },
@@ -240,7 +240,7 @@ describe('mutation relationship projections with PostgreSQL', () => {
 		)
 		await article
 			.relation('tags')
-			.connect(Tag.pointer(tag.id.toString()), { ultimabase: app })
+			.connect(Tag.pointer(tag.id), { ultimabase: app })
 
 		countingPool.reset()
 		const updated = await Article.updateOne(
@@ -297,11 +297,11 @@ describe('mutation relationship projections with PostgreSQL', () => {
 			{
 				data: [
 					{
-						author: Author.pointer(firstAuthor.id.toString()),
+						author: Author.pointer(firstAuthor.id),
 						title: 'Grouped first post',
 					},
 					{
-						author: Author.pointer(secondAuthor.id.toString()),
+						author: Author.pointer(secondAuthor.id),
 						title: 'Grouped second post',
 					},
 				],
@@ -379,11 +379,11 @@ describe('mutation relationship projections with PostgreSQL', () => {
 					{
 						data: [
 							{
-								author: Author.pointer(author.id.toString()),
+								author: Author.pointer(author.id),
 								title: 'Rollback first',
 							},
 							{
-								author: Author.pointer(author.id.toString()),
+								author: Author.pointer(author.id),
 								title: 'Rollback second',
 							},
 						],

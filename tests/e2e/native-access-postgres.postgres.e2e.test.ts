@@ -173,9 +173,9 @@ beforeAll(async () => {
 		},
 		{ ultimabase, useMasterKey: true },
 	)
-	publicId = articles[0]?.id.toString() ?? ''
-	privateId = articles[1]?.id.toString() ?? ''
-	lockedId = articles[3]?.id.toString() ?? ''
+	publicId = articles[0]?.id ?? ''
+	privateId = articles[1]?.id ?? ''
+	lockedId = articles[3]?.id ?? ''
 
 	const documents = await BulkDocument.createMany(
 		{
@@ -189,7 +189,7 @@ beforeAll(async () => {
 	)
 	visibleDocumentIds = documents
 		.filter(({ visible }) => visible)
-		.map(({ id }) => id.toString())
+		.map(({ id }) => id)
 })
 
 afterAll(async () => {

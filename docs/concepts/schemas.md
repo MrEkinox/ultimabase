@@ -38,8 +38,8 @@ type UpdateUserInput = Schemas.User.Inputs['update']
 ```
 
 Before code generation, models intentionally expose only `BaseItem`: a stable
-identifier with `toString()` plus unknown application fields. Core does not infer
-the field map as a fallback. Runtime-oriented tests must narrow those unknown
+string identifier plus unknown application fields. Core does not infer the
+field map as a fallback. Runtime-oriented tests must narrow those unknown
 values; generated-contract tests prove the exact replacement separately.
 
 Persisted outputs contain required, defaulted, auto-incremented, and generated

@@ -145,7 +145,7 @@ beforeAll(async () => {
 		{ ultimabase, useMasterKey: true },
 	)
 
-	postId = created.id.toString()
+	postId = created.id
 }, 30_000)
 
 afterAll(async () => {

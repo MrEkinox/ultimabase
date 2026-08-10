@@ -211,7 +211,7 @@ describe('@ultimabase/core Schema and QueryBuilder declarations', () => {
 		// Exact application fields come only from the generated application contract.
 		for (const result of [created, selected, deleted, bulkUpdated]) {
 			expect(result.display).toContain('readonly [x: string]: unknown;')
-			expect(result.display).toContain('toString(): string;')
+			expect(result.display).toContain('readonly id: string;')
 			expect(result.display).not.toContain('readonly externalId:')
 			expect(result.display).not.toContain('NonDefaultedStringField<')
 		}
@@ -271,7 +271,7 @@ describe('@ultimabase/core Schema and QueryBuilder declarations', () => {
 		const found = readFixtureQuickInfo('found = await PostSchema')
 
 		expect(found.display).toContain('readonly [x: string]: unknown;')
-		expect(found.display).toContain('toString(): string;')
+		expect(found.display).toContain('readonly id: string;')
 		expect(found.display).not.toContain('readonly title: string;')
 		expect(found.display).not.toContain('NonDefaultedStringField<')
 	})

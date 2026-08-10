@@ -567,7 +567,7 @@ describe('native hooks with PostgreSQL', { concurrent: false }, () => {
 					},
 				}),
 			)
-			idsByScope.set(scopeId, created.id.toString())
+			idsByScope.set(scopeId, created.id)
 		}
 		const scopedId = idsByScope.get('scope-bulk-a')
 

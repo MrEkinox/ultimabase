@@ -276,7 +276,7 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 		await Post.createOne(
 			{
 				data: {
-					author: User.pointer(author.id.toString()),
+					author: User.pointer(author.id),
 					title: 'Cursor order fixture',
 				},
 			},
@@ -286,7 +286,7 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 		await Post.createOne(
 			{
 				data: {
-					author: User.pointer(author.id.toString()),
+					author: User.pointer(author.id),
 					title: 'Cursor order fixture',
 				},
 			},
@@ -323,8 +323,8 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 			{ data: { name: 'Grace' } },
 			{ ultimabase: app },
 		)
-		const firstPointer = User.pointer(firstAuthor.id.toString())
-		const secondPointer = User.pointer(secondAuthor.id.toString())
+		const firstPointer = User.pointer(firstAuthor.id)
+		const secondPointer = User.pointer(secondAuthor.id)
 		const created = await new Post({
 			author: firstPointer,
 			title: 'Typed pointer',
@@ -437,7 +437,7 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 			{ data: { label: 'unique' } },
 			{ ultimabase: app },
 		)
-		const targetPointer = UniqueTarget.pointer(target.id.toString())
+		const targetPointer = UniqueTarget.pointer(target.id)
 
 		await UniqueSource.createOne(
 			{ data: { target: targetPointer } },
@@ -483,7 +483,7 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 
 			return Post.createOne({
 				data: {
-					author: User.pointer(author.id.toString()),
+					author: User.pointer(author.id),
 					title: 'Committed post',
 				},
 			})
@@ -499,7 +499,7 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 
 				await Post.createOne({
 					data: {
-						author: User.pointer(author.id.toString()),
+						author: User.pointer(author.id),
 						title: 'Rolled back post',
 					},
 				})
@@ -528,7 +528,7 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 		const restrictedSource = await RestrictedSource.createOne(
 			{
 				data: {
-					target: RestrictedTarget.pointer(restrictedTarget.id.toString()),
+					target: RestrictedTarget.pointer(restrictedTarget.id),
 				},
 			},
 			{ ultimabase: app },
@@ -555,7 +555,7 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 			{ ultimabase: app },
 		)
 		const cascadeSource = await CascadeSource.createOne(
-			{ data: { target: CascadeTarget.pointer(cascadeTarget.id.toString()) } },
+			{ data: { target: CascadeTarget.pointer(cascadeTarget.id) } },
 			{ ultimabase: app },
 		)
 
@@ -576,7 +576,7 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 		)
 		const nullableSource = await NullableSource.createOne(
 			{
-				data: { target: NullableTarget.pointer(nullableTarget.id.toString()) },
+				data: { target: NullableTarget.pointer(nullableTarget.id) },
 			},
 			{ ultimabase: app },
 		)
@@ -604,7 +604,7 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 			{ ultimabase: app },
 		)
 		const source = await PrivateSource.createOne(
-			{ data: { target: PrivateTarget.pointer(target.id.toString()) } },
+			{ data: { target: PrivateTarget.pointer(target.id) } },
 			{ ultimabase: app },
 		)
 		const query = {
@@ -622,7 +622,7 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 			{ ultimabase: app },
 		)
 		const detachedSource = await NullableSource.createOne(
-			{ data: { target: NullableTarget.pointer(deletedTarget.id.toString()) } },
+			{ data: { target: NullableTarget.pointer(deletedTarget.id) } },
 			{ ultimabase: app },
 		)
 
@@ -653,13 +653,13 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 		const app = getUltimaBase()
 		const left = await CircularLeft.createOne({ data: {} }, { ultimabase: app })
 		const right = await CircularRight.createOne(
-			{ data: { left: CircularLeft.pointer(left.id.toString()) } },
+			{ data: { left: CircularLeft.pointer(left.id) } },
 			{ ultimabase: app },
 		)
 		const updatedLeft = await CircularLeft.updateOne(
 			{
 				where: { id: { eq: left.id } },
-				data: { right: new Pointer(CircularRight, right.id.toString()) },
+				data: { right: new Pointer(CircularRight, right.id) },
 			},
 			{ ultimabase: app },
 		)

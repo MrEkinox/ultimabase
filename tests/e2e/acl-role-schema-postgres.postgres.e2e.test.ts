@@ -115,7 +115,7 @@ const aliceRequest = (requestId: string): RequestContext =>
 	RequestContext.anonymous({
 		requestId,
 		source: requestSources.internal,
-	}).withValue(currentMemberId, requireFixture(alice, 'alice').id.toString())
+	}).withValue(currentMemberId, requireFixture(alice, 'alice').id)
 
 beforeAll(async () => {
 	fixture = await createPostgresWorkerFixture()
@@ -143,9 +143,7 @@ beforeAll(async () => {
 		{ data: [{ email: 'alice@example.test' }, { email: 'bob@example.test' }] },
 		{ ultimabase: app, useMasterKey: true },
 	)
-	const alicePointer = Member.pointer(
-		requireFixture(alice, 'alice').id.toString(),
-	)
+	const alicePointer = Member.pointer(requireFixture(alice, 'alice').id)
 	const aliceRead = new ACL().grantPrincipal(alicePointer, 'read')
 	const aliceUpdate = aliceRead.grantPrincipal(alicePointer, 'update')
 
@@ -165,7 +163,7 @@ beforeAll(async () => {
 		{
 			data: {
 				acl: new ACL().grantRole(
-					AppRole.role({ id: editor.id.toString() }),
+					AppRole.role({ id: editor.id }),
 					'read',
 					'update',
 				),
@@ -232,7 +230,7 @@ describe(
 			expect(
 				persistedACL.acl.permissionsForRole(
 					AppRole.role({
-						id: requireFixture(editor, 'editor').id.toString(),
+						id: requireFixture(editor, 'editor').id,
 					}),
 				),
 			).toStrictEqual(['read', 'update'])

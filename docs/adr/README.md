@@ -168,6 +168,7 @@ Accepted records:
 - [ADR-0180: Transaction-bound mutation relationship projections](0180-mutation-relationship-projections.md)
 - [ADR-0181: Every model projection exposes its identifier](0181-implicit-result-identifiers.md)
 - [ADR-0182: Singular mutations accept an identifier target alias](0182-singular-id-target-aliases.md)
+- [ADR-0183: Bootstrap model identifiers are strings](0183-bootstrap-model-string-identifiers.md)
 
 Superseded records:
 

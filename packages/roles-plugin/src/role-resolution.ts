@@ -57,7 +57,7 @@ const requireRoleReferenceState = <
 
 /** Selects one unique match while treating absent or corrupt storage explicitly. */
 export const resolveUniqueRoleNameMatch = <
-	TRole extends { readonly id: { toString(): string } },
+	TRole extends { readonly id: string },
 >(
 	name: string,
 	matches: readonly TRole[],

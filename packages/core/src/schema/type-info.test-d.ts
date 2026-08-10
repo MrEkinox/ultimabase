@@ -24,7 +24,7 @@ test('uses only the safe BaseItem contract before code generation', () => {
 	expectTypeOf<SchemaItem<typeof BootstrapTodo>>().toEqualTypeOf<BaseItem>()
 
 	const item = null as unknown as SchemaItem<typeof BootstrapTodo>
-	expectTypeOf(item.id.toString()).toBeString()
+	expectTypeOf(item.id).toBeString()
 	expectTypeOf(item.title).toBeUnknown()
 	expectTypeOf(item.completed).toBeUnknown()
 })

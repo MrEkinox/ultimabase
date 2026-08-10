@@ -58,9 +58,9 @@ const Administrator = await new AppRole({ name: 'administrator' }).create(
 	{},
 	{ ultimabase, useMasterKey: true },
 )
-const EditorById = AppRole.role({ id: Editor.id.toString() })
+const EditorById = AppRole.role({ id: Editor.id })
 
-await Editor.addMember(User.pointer(user.id.toString()), {
+await Editor.addMember(User.pointer(user.id), {
 	ultimabase,
 	useMasterKey: true,
 })
