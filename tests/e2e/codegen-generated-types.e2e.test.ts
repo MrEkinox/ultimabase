@@ -22,6 +22,11 @@ type PackedFieldBuilder = FieldBuilder & {
 const selectMarker = '/* packed-generated-select */'
 const publicSelectMarker = '/* packed-public-select */'
 const accessMarker = '/* packed-access-item */'
+const fieldHookMarker = '/* packed-field-hook */'
+const schemaHookMarker = '/* packed-schema-hook */'
+const schemaHookItemMarker = '/* packed-schema-hook-item */'
+const pluginHookRegistryMarker = '/* packed-plugin-hook-registry */'
+const pluginHookItemMarker = '/* packed-plugin-hook-item */'
 const pointerMarker = '/* packed-pointer-where */'
 const relationMarker = '/* packed-relation-where */'
 const hoverMarker = '/* packed-generated-hover */'
@@ -69,7 +74,7 @@ const generated = generateApplicationTypes({
 })
 const sourceWithMarkers = `${generated.contents}
 import { generateApplicationTypes as generatePackedApplicationTypes } from '@ultimabase/codegen'
-import { Schema } from '@ultimabase/core'
+import { Schema, definePlugin } from '@ultimabase/core'
 import type { FrameworkApplication, PluginDefinition, SchemaDefinition } from '@ultimabase/core'
 import type { GenerateApplicationTypesOptions } from '@ultimabase/codegen'
 
@@ -93,7 +98,12 @@ const PackedGeneratedDocument = Schema.define({
     }),
     related: field.relation({ target: 'PackedGeneratedDocument' }),
     status: field.enum({ values: ['draft', 'published'] }),
-    title: field.string({ validation: { required: true } }),
+    title: field.string({
+      hooks: {
+        ${fieldHookMarker}resolveInput: ({ value }) => value.trim(),
+      },
+      validation: { required: true },
+    }),
   }),
   access: {
     update: {
@@ -102,6 +112,30 @@ const PackedGeneratedDocument = Schema.define({
         return item.status === 'published'
       },
     },
+  },
+  hooks: {
+    ${schemaHookMarker}beforeOperation: {
+      update: ({ item, originalItem }) => {
+        item.${schemaHookItemMarker}embedding
+        originalItem.status
+      },
+    },
+  },
+})
+const packedHookPlugin = definePlugin({
+  name: 'fixture.packed-generated-hooks',
+  setup: ({ hooks }) => {
+    hooks.${pluginHookRegistryMarker}schema(
+      'document-update',
+      PackedGeneratedDocument,
+      {
+        beforeOperation: {
+          update: ({ item }) => {
+            item.${pluginHookItemMarker}title
+          },
+        },
+      },
+    )
   },
 })
 
@@ -247,6 +281,7 @@ void packedCompletionOptions
 void invalidStatus
 void invalidIdentifierSelection
 void ownerRead
+void packedHookPlugin
 void publicRead
 void relatedRead
 void projectedCreate
@@ -259,6 +294,13 @@ void where
 const selectPosition = sourceWithMarkers.indexOf(selectMarker)
 const publicSelectPosition = sourceWithMarkers.indexOf(publicSelectMarker)
 const accessPosition = sourceWithMarkers.indexOf(accessMarker)
+const fieldHookPosition = sourceWithMarkers.indexOf(fieldHookMarker)
+const schemaHookPosition = sourceWithMarkers.indexOf(schemaHookMarker)
+const schemaHookItemPosition = sourceWithMarkers.indexOf(schemaHookItemMarker)
+const pluginHookRegistryPosition = sourceWithMarkers.indexOf(
+	pluginHookRegistryMarker,
+)
+const pluginHookItemPosition = sourceWithMarkers.indexOf(pluginHookItemMarker)
 const pointerPosition = sourceWithMarkers.indexOf(pointerMarker)
 const relationPosition = sourceWithMarkers.indexOf(relationMarker)
 const hoverPosition = sourceWithMarkers.indexOf(hoverMarker)
@@ -273,6 +315,14 @@ const source = sourceWithMarkers
 	.replace(selectMarker, ' '.repeat(selectMarker.length))
 	.replace(publicSelectMarker, ' '.repeat(publicSelectMarker.length))
 	.replace(accessMarker, ' '.repeat(accessMarker.length))
+	.replace(fieldHookMarker, ' '.repeat(fieldHookMarker.length))
+	.replace(schemaHookMarker, ' '.repeat(schemaHookMarker.length))
+	.replace(schemaHookItemMarker, ' '.repeat(schemaHookItemMarker.length))
+	.replace(
+		pluginHookRegistryMarker,
+		' '.repeat(pluginHookRegistryMarker.length),
+	)
+	.replace(pluginHookItemMarker, ' '.repeat(pluginHookItemMarker.length))
 	.replace(pointerMarker, ' '.repeat(pointerMarker.length))
 	.replace(relationMarker, ' '.repeat(relationMarker.length))
 	.replace(hoverMarker, ' '.repeat(hoverMarker.length))
@@ -291,10 +341,63 @@ describe('packed @ultimabase/codegen generated contracts', () => {
 	it('emits a stable registry that typechecks through package exports', () => {
 		expect(generated.fingerprint).toMatch(/^[a-f0-9]{64}$/u)
 		expect(generated.contents).not.toMatch(/\bany\b/u)
-		expect(service.getSemanticDiagnostics(fileName)).toStrictEqual([])
+		expect(
+			service
+				.getSemanticDiagnostics(fileName)
+				.map(({ messageText }) =>
+					ts.flattenDiagnosticMessageText(messageText, '\n'),
+				),
+		).toStrictEqual([])
 	})
 
 	it('preserves exact field completions and concise named hovers', () => {
+		expect(
+			service
+				.getCompletionsAtPosition(
+					fileName,
+					fieldHookPosition + fieldHookMarker.length,
+					{},
+				)
+				?.entries.map(({ name }) => name),
+		).toContain('resolveInput')
+		expect(
+			service
+				.getCompletionsAtPosition(
+					fileName,
+					schemaHookPosition + schemaHookMarker.length,
+					{},
+				)
+				?.entries.map(({ name }) => name),
+		).toEqual(
+			expect.arrayContaining([
+				'afterOperation',
+				'beforeOperation',
+				'resolveInput',
+			]),
+		)
+		expect(
+			service
+				.getCompletionsAtPosition(fileName, schemaHookItemPosition, {})
+				?.entries.map(({ name }) => name),
+		).toEqual(expect.arrayContaining(['embedding', 'owner', 'status', 'title']))
+		expect(
+			service
+				.getCompletionsAtPosition(fileName, pluginHookRegistryPosition, {})
+				?.entries.map(({ name }) => name)
+				.sort(),
+		).toStrictEqual([
+			'field',
+			'fieldExtension',
+			'fieldKind',
+			'global',
+			'schema',
+			'schemaExtension',
+		])
+		expect(
+			service
+				.getCompletionsAtPosition(fileName, pluginHookItemPosition, {})
+				?.entries.map(({ name }) => name),
+		).toEqual(expect.arrayContaining(['embedding', 'owner', 'status', 'title']))
 		expect(
 			service
 				.getCompletionsAtPosition(fileName, publicSelectPosition, {})

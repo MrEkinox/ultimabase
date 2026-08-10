@@ -1,10 +1,10 @@
-# Active plan: mutation relationship projections
+# Completed plan: mutation relationship projections
 
 - Status: complete
 - Started: 2026-08-10
 - Objective owner: `@ultimabase/core`, `@ultimabase/codegen`, `@ultimabase/postgres-plugin`
-- Governing decision: [ADR-0180](docs/adr/0180-mutation-relationship-projections.md)
-- Paused objective: [Generated schema authoring and type contracts](docs/plans/paused/generated-schema-authoring-and-type-contracts.md)
+- Governing decision: [ADR-0180](../../adr/0180-mutation-relationship-projections.md)
+- Paused objective: [Generated schema authoring and type contracts](../paused/generated-schema-authoring-and-type-contracts.md)
 
 ## Objective
 
@@ -30,10 +30,10 @@ group their final relationship projection by persisted identifiers.
 
 ## Execution order
 
-1. [x] [901 — Decide mutation relationship projection semantics](issues/900-mutation-projections/901-mutation-relationship-projection-adr.md)
-2. [x] [902 — Project singular create and update results](issues/900-mutation-projections/902-singular-mutation-includes.md)
-3. [x] [903 — Group collection mutation projections](issues/900-mutation-projections/903-grouped-mutation-includes.md)
-4. [x] [904 — Verify generated and PostgreSQL mutation include DX](issues/900-mutation-projections/904-mutation-includes-verification.md)
+1. [x] [901 — Decide mutation relationship projection semantics](../../../issues/900-mutation-projections/901-mutation-relationship-projection-adr.md)
+2. [x] [902 — Project singular create and update results](../../../issues/900-mutation-projections/902-singular-mutation-includes.md)
+3. [x] [903 — Group collection mutation projections](../../../issues/900-mutation-projections/903-grouped-mutation-includes.md)
+4. [x] [904 — Verify generated and PostgreSQL mutation include DX](../../../issues/900-mutation-projections/904-mutation-includes-verification.md)
 
 ## Supervision checkpoints
 

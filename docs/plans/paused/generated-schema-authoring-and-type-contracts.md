@@ -11,6 +11,6 @@ DX and performance verification owned by issue 810. The generated registry is
 already the source of precise application typing, repository schemas use the
 map-returning FieldBuilder, and relationship targets use generated schema names.
 
-Resume only after the mutation relationship projection milestone is complete or
-after explicit user direction. The milestone execution order remains documented
-in [`issues/800-generated-types/README.md`](../../../issues/800-generated-types/README.md).
+Resume only after explicit user direction. The mutation relationship projection
+milestone is complete, and this plan's execution order remains documented in
+[`issues/800-generated-types/README.md`](../../../issues/800-generated-types/README.md).

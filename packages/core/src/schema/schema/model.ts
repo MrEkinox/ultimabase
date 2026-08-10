@@ -530,8 +530,9 @@ interface SchemaResultRelationCommands<TSchema extends SchemaDefinition> {
 	/**
 	 * Returns an independently queryable immutable relationship handle.
 	 *
-	 * Only declared relation fields are suggested. The handle retains protected
-	 * source identity even when the visible result projection omits `id`.
+	 * Only declared relation fields are suggested. The handle uses Runtime's
+	 * protected identity as a defensive correlation check instead of trusting a
+	 * caller-visible value as mutation authority.
 	 *
 	 * @example `const tags = post.relation('tags')`
 	 */
