@@ -4,7 +4,6 @@ import {
 	FrameworkApplication,
 	Schema,
 	type FieldBuilder,
-	type SchemaDefinition,
 } from '@ultimabase/core'
 import {
 	pgVectorPlugin,
@@ -22,13 +21,14 @@ type GeneratedFixtureBuilder = FieldBuilder & {
 
 const selectMarker = '/* generated-select */'
 const hoverMarker = '/* generated-hover */'
+const targetMarker = '/* generated-target */'
 
 const createGeneratedRegistry = (): string => {
 	const Author = Schema.define({
 		className: 'SemanticAuthor',
 		fields: (field) => ({
 			name: field.string({ validation: { required: true } }),
-			articles: field.relation({ target: (): SchemaDefinition => Article }),
+			articles: field.relation({ target: 'SemanticArticle' }),
 		}),
 	})
 	const Article = Schema.define({
@@ -67,11 +67,11 @@ const createGeneratedRegistry = (): string => {
 					typeName: 'SemanticProfile',
 				}),
 				author: field.pointer({
-					target: (): SchemaDefinition => Author,
+					target: 'SemanticAuthor',
 					validation: { required: true },
 				}),
 				related: field.relation({
-					target: (): SchemaDefinition => Article,
+					target: 'SemanticArticle',
 				}),
 				embedding: generatedField.vector({
 					dimensions: 3,
@@ -227,6 +227,14 @@ const schemaItem: Schemas.SemanticArticle['item'] = item
 const schemaCreate: Schemas.SemanticArticle['inputs']['create'] = createInput
 
 field.vector({ dimensions: 3 })
+field.pointer({ target: 'SemanticAuthor' })
+field.relation({ target: 'SemanticArticle' })
+// @ts-expect-error -- The incomplete literal drives generated target completion.
+field.pointer({ target: '${targetMarker}' })
+field.pointer({
+  // @ts-expect-error -- Generated registries reject unknown relationship targets.
+  target: 'MissingSemanticSchema',
+})
 
 const invalidEnum: SemanticArticleCreateInput = {
   author,
@@ -271,9 +279,11 @@ void updateInput
 `
 		const selectPosition = sourceWithMarkers.indexOf(selectMarker)
 		const hoverPosition = sourceWithMarkers.indexOf(hoverMarker)
+		const targetPosition = sourceWithMarkers.indexOf(targetMarker)
 		const source = sourceWithMarkers
 			.replace(selectMarker, ' '.repeat(selectMarker.length))
 			.replace(hoverMarker, ' '.repeat(hoverMarker.length))
+			.replace(targetMarker, ' '.repeat(targetMarker.length))
 		const fileName = path.join(
 			import.meta.dirname,
 			'generated-application.semantic.fixture.ts',
@@ -301,6 +311,11 @@ void updateInput
 				'title',
 			]),
 		)
+		expect(
+			service
+				.getCompletionsAtPosition(fileName, targetPosition, {})
+				?.entries.map(({ name }) => name),
+		).toEqual(expect.arrayContaining(['SemanticArticle', 'SemanticAuthor']))
 
 		const hover = service.getQuickInfoAtPosition(
 			fileName,
@@ -374,7 +389,6 @@ import {
   increment,
   type SchemaExtension,
   type SchemaExtensionContextKind,
-  type SchemaDefinition,
 } from '@ultimabase/core'
 
 interface GeneratedExtensionOptions<TData extends Readonly<Record<string, unknown>>> {
@@ -399,7 +413,7 @@ const SemanticAuthor = Schema.define({
   className: 'SemanticAuthor',
   fields: (field) => ({
     articles: field.relation({
-      target: (): SchemaDefinition => SemanticArticle,
+      target: 'SemanticArticle',
     }),
     name: field.string({ validation: { required: true } }),
   }),
@@ -409,7 +423,7 @@ const SemanticArticle = Schema.define({
   className: 'SemanticArticle',
   fields: (field) => ({
     author: field.pointer({
-      target: (): SchemaDefinition => SemanticAuthor,
+      target: 'SemanticAuthor',
       validation: { required: true },
     }),
     embedding: field./* public-plugin-method */vector({ dimensions: 3 }),
@@ -430,7 +444,7 @@ const SemanticArticle = Schema.define({
       }),
     }),
     related: field.relation({
-      target: (): SchemaDefinition => SemanticArticle,
+      target: 'SemanticArticle',
     }),
     scores: field.int({ list: true }),
     status: field.enum({

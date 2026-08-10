@@ -1,4 +1,5 @@
 import {
+	assertNonEmptyString,
 	immutableArray,
 	immutableRecord,
 	isUnknownArray,
@@ -22,6 +23,31 @@ import type { SchemaRegistry } from './registry.js'
 /** Lazily returns one exact schema class after module declarations are complete. */
 export type SchemaTarget<TSchema extends SchemaDefinition = SchemaDefinition> =
 	() => TSchema
+
+const namedSchemaTargets = new WeakMap<SchemaTarget, string>()
+
+/** Creates one private exact target callback from an application schema name. */
+export const createNamedSchemaTarget = (
+	className: string,
+	target: SchemaDefinition | undefined,
+): SchemaTarget => {
+	assertNonEmptyString(className, 'Schema target name')
+
+	const namedTarget = (): SchemaDefinition => {
+		if (target === undefined) {
+			throw new TypeError(`Schema target is not registered: ${className}`)
+		}
+
+		return target
+	}
+
+	namedSchemaTargets.set(namedTarget, className)
+
+	return namedTarget
+}
+
+const readNamedSchemaTarget = (target: SchemaTarget): string | undefined =>
+	namedSchemaTargets.get(target)
 
 /** Explains why one lazy target could not join an application's schema graph. */
 export type SchemaTargetResolutionReason =
@@ -212,6 +238,24 @@ const resolveTarget = (
 			fieldPath,
 			`Schema target at ${location} must be a function`,
 		)
+	}
+
+	const namedTarget = readNamedSchemaTarget(target as SchemaTarget)
+
+	if (namedTarget !== undefined) {
+		const registeredTarget = registry.get(namedTarget)
+
+		if (registeredTarget === undefined) {
+			throw new SchemaTargetResolutionError(
+				'unregistered-target',
+				source.className,
+				fieldPath,
+				`Schema target at ${location} names unregistered schema ${namedTarget}`,
+				{ targetClassName: namedTarget },
+			)
+		}
+
+		return registeredTarget
 	}
 
 	let resolvedTarget: unknown

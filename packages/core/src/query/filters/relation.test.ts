@@ -1,8 +1,8 @@
 import {
 	Schema,
+	SchemaRegistry,
 	stringField,
 	type SchemaDefinition,
-	type SchemaReference,
 } from '../../schema/index.js'
 import { describe, expect, it } from 'vitest'
 
@@ -29,29 +29,29 @@ const Member = Schema.define({
 const Team = Schema.define({
 	className: 'RelationPredicateTeam',
 	fields: (field) => ({
-		members: field.relation({ target: () => Member }),
+		members: field.relation({ target: 'RelationPredicateMember' }),
 		name: field.string(),
 	}),
 })
 const Company = Schema.define({
 	className: 'RelationPredicateCompany',
 	fields: (field) => ({
-		lead: field.pointer({ target: () => Team }),
+		lead: field.pointer({ target: 'RelationPredicateTeam' }),
 		name: field.string(),
-		teams: field.relation({ target: () => Team }),
+		teams: field.relation({ target: 'RelationPredicateTeam' }),
 	}),
 })
 
 const recursiveNameField = stringField()
-type RecursiveSchema = SchemaReference<'RecursiveRelationPredicate'>
-const resolveRecursiveSchema = (): RecursiveSchema => Recursive
-const Recursive: RecursiveSchema = Schema.define({
+const Recursive = Schema.define({
 	className: 'RecursiveRelationPredicate',
 	fields: (field) => ({
-		children: field.relation({ target: resolveRecursiveSchema }),
+		children: field.relation({ target: 'RecursiveRelationPredicate' }),
 		name: recursiveNameField,
 	}),
 })
+
+new SchemaRegistry([Member, Team, Company, Recursive]).resolveSchemaTargets()
 
 const nestRecursivePredicate = (
 	predicate: WhereBuilder<SchemaDefinition>,

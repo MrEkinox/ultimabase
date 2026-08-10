@@ -54,7 +54,7 @@ const createRelationRuntimeFixture = async (
 							: context.access.mode === options.requiredAccessMode
 					},
 				},
-				target: () => Target,
+				target: 'RelationMutationTarget',
 			}),
 		}),
 		hooks: {

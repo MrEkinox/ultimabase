@@ -14,6 +14,7 @@ import {
 	definePluginField,
 	compileValidationPlans,
 	Schema,
+	SchemaRegistry,
 } from '../../schema/index.js'
 import { createRelationUpdateExpression } from '../../schema/relations/mutation.js'
 import { isPlainRecord, isUnknownArray } from '@ultimabase/shared'
@@ -82,9 +83,13 @@ const relationValidationTarget = Schema.define({
 const relationValidationSource = Schema.define({
 	className: 'RuntimeRelationValidationSource',
 	fields: (field) => ({
-		targets: field.relation({ target: () => relationValidationTarget }),
+		targets: field.relation({ target: 'RuntimeRelationValidationTarget' }),
 	}),
 })
+new SchemaRegistry([
+	relationValidationTarget,
+	relationValidationSource,
+]).resolveSchemaTargets()
 const requestContext = RequestContext.anonymous({
 	requestId: 'runtime-validation',
 	source: requestSources.internal,
@@ -200,9 +205,15 @@ describe('runtime validation', () => {
 			className: 'RuntimeOptionalWithoutRelation',
 			fields: (field) => ({
 				note: field.string(),
-				targets: field.relation({ target: () => relationValidationTarget }),
+				targets: field.relation({
+					target: 'RuntimeRelationValidationTarget',
+				}),
 			}),
 		})
+		new SchemaRegistry([
+			relationValidationTarget,
+			schema,
+		]).resolveSchemaTargets()
 		const operation: CreateOneOperationAst<typeof schema> = {
 			kind: 'create-one',
 			selection: { fields: [], kind: 'selection' },
@@ -622,10 +633,11 @@ describe('runtime validation', () => {
 				object: field.object({
 					fields: (field) => ({ child: field.string() }),
 				}),
-				pointer: field.pointer({ target: () => pointerTarget }),
+				pointer: field.pointer({ target: 'InvalidScalarPointerTarget' }),
 				badDefault: field.string({ default: () => 1 as never }),
 			}),
 		})
+		new SchemaRegistry([pointerTarget, scalarSchema]).resolveSchemaTargets()
 		const operation = {
 			kind: 'create-one',
 			selection: { fields: [], kind: 'selection' },

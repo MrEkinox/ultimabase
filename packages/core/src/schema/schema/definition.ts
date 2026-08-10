@@ -44,7 +44,9 @@ import {
 	captureFieldBuilderCallback,
 	FieldBuilderDeclarationExecutionError,
 	FieldBuilderMethodUnavailableError,
+	FieldBuilderTargetUnavailableError,
 	resolveCapturedFieldMap,
+	type FieldBuilderTargetResolver,
 	type SchemaFieldBuilderDeclaration,
 } from './field-builder.js'
 import type { FieldBuilderMethodResolver } from './field-builder-methods.js'
@@ -456,6 +458,7 @@ const compileSchemaRecord = (
 const executeSchemaFieldDeclaration = (
 	declaration: NormalizedSchemaDeclaration,
 	fieldMethods?: FieldBuilderMethodResolver,
+	resolveTarget?: FieldBuilderTargetResolver,
 ): unknown => {
 	try {
 		return resolveCapturedFieldMap(
@@ -463,6 +466,7 @@ const executeSchemaFieldDeclaration = (
 			`${declaration.className}.fields`,
 			false,
 			fieldMethods,
+			resolveTarget,
 		)
 	} catch (cause: unknown) {
 		throw new SchemaCompilationError(
@@ -611,6 +615,7 @@ const assertCompatibleTargets = (
 export const prepareSchemaCompilation = (
 	schema: SchemaDefinition,
 	fieldMethods?: FieldBuilderMethodResolver,
+	resolveTarget?: FieldBuilderTargetResolver,
 ): PreparedSchemaCompilation => {
 	const declaration = schemaDeclarations.get(schema)
 
@@ -621,7 +626,7 @@ export const prepareSchemaCompilation = (
 	const existingRecord = compiledSchemaRecords.get(schema)
 	const candidate = compileSchemaRecord(
 		declaration,
-		executeSchemaFieldDeclaration(declaration, fieldMethods),
+		executeSchemaFieldDeclaration(declaration, fieldMethods, resolveTarget),
 	)
 
 	if (
@@ -794,7 +799,8 @@ const defineSchemaModel = <
 	} catch (error: unknown) {
 		if (!(
 			error instanceof SchemaCompilationError &&
-			error.cause instanceof FieldBuilderMethodUnavailableError
+			(error.cause instanceof FieldBuilderMethodUnavailableError ||
+				error.cause instanceof FieldBuilderTargetUnavailableError)
 		)) {
 			throw error
 		}

@@ -1,5 +1,5 @@
 /** Invalidates generated fingerprints when Core's shared typegen ABI changes. */
-export const generatedApplicationContractVersion = 7 as const
+export const generatedApplicationContractVersion = 8 as const
 
 /** Minimal identity implemented by every generated persisted item. */
 export interface SchemaItemType {
@@ -122,6 +122,12 @@ export type UltimaBaseGeneratedSchemaName = Extract<
 	keyof UltimaBaseGeneratedSchemas,
 	string
 >
+
+/** Suggests generated schema names while keeping first-generation declarations writable. */
+export type SchemaDeclarationTargetName =
+	HasUltimaBaseGeneratedRegistry extends true
+		? UltimaBaseGeneratedSchemaName
+		: string
 
 /** Reads one exact generated entry without widening an unknown schema name. */
 export type SchemaTypeInfoByName<TClassName extends string> =

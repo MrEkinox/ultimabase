@@ -8,7 +8,6 @@ import {
 	runWithRequestEngine,
 	type BaseItem,
 	type OperationOptions,
-	type SchemaReference,
 } from '@ultimabase/core'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
@@ -55,7 +54,7 @@ const Post = Schema.define({
 	fields: (field) => ({
 		author: field.pointer({
 			indexed: true,
-			target: () => User,
+			target: 'PointerE2EUser',
 			validation: { required: true },
 		}),
 		title: field.string({ validation: { required: true } }),
@@ -99,7 +98,7 @@ const UniqueSource = Schema.define({
 	fields: (field) => ({
 		target: field.pointer({
 			indexed: 'unique',
-			target: () => UniqueTarget,
+			target: 'PointerE2EUniqueTarget',
 			validation: { required: true },
 		}),
 	}),
@@ -116,7 +115,7 @@ const RestrictedSource = Schema.define({
 	fields: (field) => ({
 		target: field.pointer({
 			onDelete: 'restrict',
-			target: () => RestrictedTarget,
+			target: 'PointerE2ERestrictedTarget',
 			validation: { required: true },
 		}),
 	}),
@@ -133,7 +132,7 @@ const CascadeSource = Schema.define({
 	fields: (field) => ({
 		target: field.pointer({
 			onDelete: 'cascade',
-			target: () => CascadeTarget,
+			target: 'PointerE2ECascadeTarget',
 			validation: { required: true },
 		}),
 	}),
@@ -150,7 +149,7 @@ const NullableSource = Schema.define({
 	fields: (field) => ({
 		target: field.pointer({
 			onDelete: 'setNull',
-			target: () => NullableTarget,
+			target: 'PointerE2ENullableTarget',
 		}),
 	}),
 })
@@ -168,34 +167,27 @@ const PrivateSource = Schema.define({
 	className: 'PointerE2EPrivateSource',
 	fields: (field) => ({
 		target: field.pointer({
-			target: () => PrivateTarget,
+			target: 'PointerE2EPrivateTarget',
 			validation: { required: true },
 		}),
 	}),
 })
 
-type CircularLeftSchema = SchemaReference<'PointerE2ECircularLeft'>
-type CircularRightSchema = SchemaReference<'PointerE2ECircularRight'>
-
-function resolveCircularRight(): CircularRightSchema {
-	return CircularRight
-}
-
-const CircularLeft: CircularLeftSchema = Schema.define({
+const CircularLeft = Schema.define({
 	className: 'PointerE2ECircularLeft',
 	fields: (field) => ({
 		right: field.pointer({
 			onDelete: 'setNull',
-			target: resolveCircularRight,
+			target: 'PointerE2ECircularRight',
 		}),
 	}),
 })
-const CircularRight: CircularRightSchema = Schema.define({
+const CircularRight = Schema.define({
 	className: 'PointerE2ECircularRight',
 	fields: (field) => ({
 		left: field.pointer({
 			onDelete: 'setNull',
-			target: (): CircularLeftSchema => CircularLeft,
+			target: 'PointerE2ECircularLeft',
 		}),
 	}),
 })

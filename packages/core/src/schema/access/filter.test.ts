@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { Schema } from '../index.js'
+import { Schema, SchemaRegistry } from '../index.js'
 import { WhereBuilder } from '../../query/index.js'
 import {
 	combineAccessWhereResults,
@@ -20,16 +20,18 @@ const Article = Schema.define({
 	className: 'AccessWhereArticle',
 	fields: (field) => ({
 		aliases: field.string({ list: true }),
-		author: field.pointer({ target: () => Author }),
+		author: field.pointer({ target: 'AccessWhereAuthor' }),
 		metadata: field.object({ fields: (field) => ({ label: field.string() }) }),
 		published: field.boolean(),
 		score: field.int(),
 		status: field.enum({ values: ['draft', 'published'] }),
-		tags: field.relation({ target: () => Tag }),
+		tags: field.relation({ target: 'AccessWhereTag' }),
 		title: field.string(),
 		views: field.int(),
 	}),
 })
+
+new SchemaRegistry([Author, Tag, Article]).resolveSchemaTargets()
 
 describe('Access where normalization', () => {
 	it('uses the public where object as the canonical policy input', () => {

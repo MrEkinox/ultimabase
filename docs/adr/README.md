@@ -164,6 +164,7 @@ Accepted records:
 - [ADR-0176: One-dimensional field lists and generated array filters](0176-one-dimensional-field-lists.md)
 - [ADR-0177: Flat generated schema registry](0177-flat-generated-schema-registry.md)
 - [ADR-0178: Object-only schema mutation predicates](0178-object-only-mutation-where-inputs.md)
+- [ADR-0179: Name-based application relationship targets](0179-name-based-relationship-targets.md)
 
 Superseded records:
 

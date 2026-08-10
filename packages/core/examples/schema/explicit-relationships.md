@@ -26,13 +26,13 @@ export const Membership = Schema.define({
 	fields: (field) => ({
 		member: field.pointer({
 			onDelete: 'cascade',
-			target: () => Member,
+			target: 'Member',
 			validation: { required: true },
 		}),
 		position: field.int({ default: 0 }),
 		project: field.pointer({
 			onDelete: 'cascade',
-			target: () => Project,
+			target: 'Project',
 			validation: { required: true },
 		}),
 		role: field.enum({

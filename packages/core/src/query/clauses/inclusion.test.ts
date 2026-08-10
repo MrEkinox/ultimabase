@@ -1,4 +1,4 @@
-import { Schema } from '../../schema/index.js'
+import { Schema, SchemaRegistry } from '../../schema/index.js'
 import { describe, expect, it } from 'vitest'
 
 import { QueryBuilder } from '../query/query.js'
@@ -15,11 +15,13 @@ const otherSchema = Schema.define({
 const postSchema = Schema.define({
 	className: 'IncludedPost',
 	fields: (field) => ({
-		author: field.pointer({ target: () => userSchema }),
-		reviewer: field.pointer({ target: () => userSchema }),
+		author: field.pointer({ target: 'IncludedUser' }),
+		reviewer: field.pointer({ target: 'IncludedUser' }),
 		title: field.string(),
 	}),
 })
+
+new SchemaRegistry([userSchema, otherSchema, postSchema]).resolveSchemaTargets()
 
 describe('normalizeQueryInclusion', () => {
 	it('keeps first field order while the last duplicate target query wins', () => {

@@ -4,7 +4,7 @@ import { codegenPlugin } from '@ultimabase/codegen'
 import { UltimaBase } from '@ultimabase/core'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 
-import { Todo } from './schema.ts'
+import { Todo, TodoUser } from './schema.ts'
 
 const databaseUrl = process.env.DATABASE_URL
 
@@ -28,5 +28,5 @@ export const ultimabase = new UltimaBase({
 			url: databaseUrl,
 		}),
 	],
-	schemas: [Todo],
+	schemas: [TodoUser, Todo],
 })

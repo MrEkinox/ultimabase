@@ -4,7 +4,6 @@ import {
 	FrameworkApplication,
 	Schema,
 	type FieldBuilder,
-	type SchemaDefinition,
 } from '@ultimabase/core'
 import { generateApplicationTypes } from '@ultimabase/codegen'
 import {
@@ -31,7 +30,7 @@ const optionsMarker = '/* packed-codegen-options */'
 const Owner = Schema.define({
 	className: 'PackedGeneratedOwner',
 	fields: (field) => ({
-		documents: field.relation({ target: (): SchemaDefinition => Document }),
+		documents: field.relation({ target: 'PackedGeneratedDocument' }),
 		name: field.string({ validation: { required: true } }),
 	}),
 })
@@ -42,11 +41,11 @@ const Document = Schema.define({
 		return {
 			embedding: generatedField.vector({ dimensions: 3 }),
 			owner: field.pointer({
-				target: (): SchemaDefinition => Owner,
+				target: 'PackedGeneratedOwner',
 				validation: { required: true },
 			}),
 			related: field.relation({
-				target: (): SchemaDefinition => Document,
+				target: 'PackedGeneratedDocument',
 			}),
 			status: field.enum({
 				typeName: 'PackedDocumentStatus',
@@ -76,7 +75,7 @@ declare const packedOwner: Core.PointerValue
 const PackedGeneratedOwner = Schema.define({
   className: 'PackedGeneratedOwner',
   fields: (field) => ({
-    documents: field.relation({ target: (): SchemaDefinition => PackedGeneratedDocument }),
+    documents: field.relation({ target: 'PackedGeneratedDocument' }),
     name: field.string({ validation: { required: true } }),
   }),
 })
@@ -85,10 +84,10 @@ const PackedGeneratedDocument = Schema.define({
   fields: (field) => ({
     embedding: field.vector({ dimensions: 3 }),
     owner: field.pointer({
-      target: (): SchemaDefinition => PackedGeneratedOwner,
+      target: 'PackedGeneratedOwner',
       validation: { required: true },
     }),
-    related: field.relation({ target: (): SchemaDefinition => PackedGeneratedDocument }),
+    related: field.relation({ target: 'PackedGeneratedDocument' }),
     status: field.enum({ values: ['draft', 'published'] }),
     title: field.string({ validation: { required: true } }),
   }),

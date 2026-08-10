@@ -35,7 +35,7 @@ const pointerRuntimeUser = Schema.define({
 	fields: (field) => ({
 		name: field.string({ validation: { required: true } }),
 		organization: field.pointer({
-			target: () => pointerRuntimeOrganization,
+			target: 'PointerRuntimeOrganization',
 		}),
 		status: field.string({ validation: { required: true } }),
 	}),
@@ -48,7 +48,7 @@ const pointerRuntimePost = Schema.define({
 	className: 'PointerRuntimePost',
 	fields: (field) => ({
 		author: field.pointer({
-			target: () => pointerRuntimeUser,
+			target: 'PointerRuntimeUser',
 			validation: { required: true },
 		}),
 		title: field.string({ validation: { required: true } }),
@@ -198,7 +198,7 @@ describe('pointer Runtime execution', () => {
 					access: {
 						read: { orderBy: true, output: () => false, where: true },
 					},
-					target: () => target,
+					target: 'PointerRuntimeHiddenTarget',
 				}),
 			}),
 		})
@@ -249,7 +249,7 @@ describe('pointer Runtime execution', () => {
 							where: true,
 						},
 					},
-					target: () => target,
+					target: 'PointerRuntimeAccessTarget',
 				}),
 			}),
 		})
@@ -310,7 +310,9 @@ describe('pointer Runtime execution', () => {
 		const restrictedSource = Schema.define({
 			className: 'PointerRuntimeRestrictedSource',
 			fields: (field) => ({
-				target: field.pointer({ target: () => restrictedTarget }),
+				target: field.pointer({
+					target: 'PointerRuntimeRestrictedTarget',
+				}),
 			}),
 		})
 		const targetPointer = restrictedTarget.pointer(
@@ -391,7 +393,9 @@ describe('pointer Runtime execution', () => {
 		})
 		const source = Schema.define({
 			className: 'PointerRuntimeAuthoritativeSource',
-			fields: (field) => ({ target: field.pointer({ target: () => target }) }),
+			fields: (field) => ({
+				target: field.pointer({ target: 'PointerRuntimeAuthoritativeTarget' }),
+			}),
 		})
 		const pointer = target.pointer('0198a43e-2431-7000-8000-000000000407')
 		const sourceRecord = { target: pointer }
@@ -445,7 +449,7 @@ describe('pointer Runtime execution', () => {
 		const mutationSource = Schema.define({
 			className: 'PointerRuntimeMutationSource',
 			fields: (field) => ({
-				target: field.pointer({ target: () => failingTarget }),
+				target: field.pointer({ target: 'PointerRuntimeFailingTarget' }),
 				title: field.string(),
 			}),
 		})

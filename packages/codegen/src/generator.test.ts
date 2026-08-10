@@ -5,7 +5,6 @@ import {
 	FrameworkApplication,
 	Schema,
 	type FieldBuilder,
-	type SchemaDefinition,
 } from '@ultimabase/core'
 import {
 	pgVectorPlugin,
@@ -35,7 +34,7 @@ const createFixture = (reverseOrder = false) => {
 		className: 'TypegenAuthor',
 		fields: (field) => ({
 			name: field.string({ validation: { required: true } }),
-			articles: field.relation({ target: (): SchemaDefinition => Article }),
+			articles: field.relation({ target: 'TypegenArticle' }),
 		}),
 	})
 	const Article = Schema.define({
@@ -77,11 +76,11 @@ const createFixture = (reverseOrder = false) => {
 				}),
 				metadata: field.json(),
 				author: field.pointer({
-					target: (): SchemaDefinition => Author,
+					target: 'TypegenAuthor',
 					validation: { required: true },
 				}),
 				related: field.relation({
-					target: (): SchemaDefinition => Article,
+					target: 'TypegenArticle',
 				}),
 				embedding: generatedField.vector({ dimensions: 3 }),
 			}

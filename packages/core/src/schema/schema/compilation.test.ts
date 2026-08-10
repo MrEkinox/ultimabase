@@ -5,7 +5,6 @@ import {
 	Schema,
 	SchemaRegistry,
 	stringField,
-	type SchemaDefinition,
 	type SchemaFields,
 } from '../index.js'
 
@@ -129,21 +128,24 @@ describe('deferred schema compilation', () => {
 		const leftFields: Record<string, ReturnType<typeof stringField>> = {
 			label: stringField(),
 		}
-		const Left: SchemaDefinition = Schema.define({
+		const Left = Schema.define({
 			className: 'DeferredLeft',
 			fields: (field) => ({
 				...leftFields,
-				right: field.pointer({ target: () => Right }),
+				right: field.pointer({ target: 'DeferredRight' }),
 			}),
 		})
-		const Right: SchemaDefinition = Schema.define({
+		const Right = Schema.define({
 			className: 'DeferredRight',
 			fields: (field) => ({
-				left: field.pointer({ target: () => Left }),
+				left: field.pointer({ target: 'DeferredLeft' }),
 			}),
 		})
 		const registry = new SchemaRegistry([Left, Right])
 
+		expect(() => Left.fields).toThrow(
+			expect.objectContaining({ reason: 'not-compiled' }),
+		)
 		const targets = registry.compileSchemas()
 		leftFields.changed = stringField()
 
@@ -152,6 +154,23 @@ describe('deferred schema compilation', () => {
 		expect(Left.fields).toHaveProperty('label')
 		expect(Left.fields).not.toHaveProperty('changed')
 		expect(Object.isFrozen(Left.fields)).toBe(true)
+	})
+
+	it('rejects an unregistered named target with its declared schema name', () => {
+		const Source = Schema.define({
+			className: 'NamedTargetSource',
+			fields: (field) => ({
+				target: field.pointer({ target: 'MissingNamedTarget' }),
+			}),
+		})
+
+		expect(() => new SchemaRegistry([Source]).compileSchemas()).toThrow(
+			expect.objectContaining({
+				fieldPath: ['target'],
+				reason: 'unregistered-target',
+				targetClassName: 'MissingNamedTarget',
+			}),
+		)
 	})
 
 	it('keeps object-shaped field maps as temporary immediate compatibility', () => {

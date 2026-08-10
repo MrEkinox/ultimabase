@@ -52,7 +52,7 @@ const pointerUserSchema = Schema.define({
 const pointerPostSchema = Schema.define({
 	className: 'AdapterPointerPost',
 	fields: (field) => ({
-		author: field.pointer({ target: () => pointerUserSchema }),
+		author: field.pointer({ target: 'AdapterPointerUser' }),
 	}),
 })
 const pointerRegistry = new SchemaRegistry([

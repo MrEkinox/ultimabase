@@ -79,8 +79,8 @@ const Tag = Schema.define({
 const Article = Schema.define({
 	className: 'ACLRelationshipArticle',
 	fields: (field) => ({
-		author: field.pointer({ target: () => Author }),
-		tags: field.relation({ target: () => Tag }),
+		author: field.pointer({ target: 'ACLRelationshipAuthor' }),
+		tags: field.relation({ target: 'ACLRelationshipTag' }),
 		title: field.string({ validation: { required: true } }),
 	}),
 	extensions: [

@@ -92,7 +92,7 @@ describe('NativeAccessRuntime', () => {
 			className: 'NativeAccessSelectionSource',
 			fields: (field) => ({
 				denied: field.string({ access: { read: false } }),
-				targets: field.relation({ target: () => target }),
+				targets: field.relation({ target: 'NativeAccessSelectionTarget' }),
 				title: field.string(),
 			}),
 		})
@@ -170,7 +170,7 @@ describe('NativeAccessRuntime', () => {
 		const sourceFields = (field: FieldBuilder) => ({
 			targets: field.relation({
 				access: { read: false },
-				target: () => target,
+				target: 'NativeAccessPolicyTarget',
 			}),
 			title: field.string(),
 		})

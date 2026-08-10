@@ -34,7 +34,7 @@ Detailed guides remain focused by domain:
 - [request authority](docs/access.md);
 - [Runtime, engines, transactions, and hooks](docs/runtime.md).
 
-## Static schema compilation and lazy relationship targets
+## Static schema compilation and relationship targets
 
 `Schema.define()` retains a synchronous field declaration instead of resolving
 fields during module evaluation. `createApplication()` first runs the pure,
@@ -134,10 +134,10 @@ name. Runtime values remain ordinary `Pointer` and `Relation` instances, and
 relation mutations still verify the exact registered schema identity before
 creating an operation.
 
-Pointer and relation target callbacks can still safely reference a class
-declared later in the module. Static compilation resolves them after every
-configured field callback, then publishes one immutable graph owned by the
-application:
+Pointer and relation declarations name their target schema without referencing
+another module-level constant. Static compilation resolves those names after
+every schema has been registered, then publishes one immutable graph owned by
+the application:
 
 ```ts
 const application = await createApplication({
@@ -156,7 +156,7 @@ const PostSchema = Schema.define({
 	className: 'Post',
 	fields: (field) => ({
 		author: field.pointer({
-			target: () => UserSchema,
+			target: 'User',
 			validation: { required: true },
 		}),
 	}),
@@ -252,7 +252,7 @@ const UserSchema = Schema.define({
 	className: 'User',
 	fields: (field) => ({
 		posts: field.relation({
-			target: () => PostSchema,
+			target: 'Post',
 			mappedBy: 'author',
 		}),
 	}),
@@ -447,11 +447,11 @@ const Membership = Schema.define({
 	className: 'Membership',
 	fields: (field) => ({
 		member: field.pointer({
-			target: () => Member,
+			target: 'Member',
 			validation: { required: true },
 		}),
 		project: field.pointer({
-			target: () => Project,
+			target: 'Project',
 			validation: { required: true },
 		}),
 		role: field.enum({

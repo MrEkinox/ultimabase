@@ -5,7 +5,7 @@ import {
 	type UpdateManyOperationAst,
 	type UpdateOneOperationAst,
 } from '../../query/index.js'
-import { Schema } from '../../schema/index.js'
+import { Schema, SchemaRegistry } from '../../schema/index.js'
 import {
 	immutableArray,
 	immutableRecord,
@@ -94,9 +94,13 @@ const relationPredicateTarget = Schema.define({
 const relationPredicateSource = Schema.define({
 	className: 'RuntimeRelationPredicateSource',
 	fields: (field) => ({
-		targets: field.relation({ target: () => relationPredicateTarget }),
+		targets: field.relation({ target: 'RuntimeRelationPredicateTarget' }),
 	}),
 })
+new SchemaRegistry([
+	relationPredicateTarget,
+	relationPredicateSource,
+]).resolveSchemaTargets()
 const relationPredicateOperation = {
 	kind: 'find-many',
 	query: new QueryBuilder(relationPredicateSource).where((where) =>

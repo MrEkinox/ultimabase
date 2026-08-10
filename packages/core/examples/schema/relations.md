@@ -16,7 +16,7 @@ export const UserSchema = Schema.define({
 	fields: (field) => ({
 		name: field.string({ validation: { required: true } }),
 		posts: field.relation({
-			target: () => PostSchema,
+			target: 'Post',
 			mappedBy: 'author',
 		}),
 	}),
@@ -26,7 +26,7 @@ export const PostSchema = Schema.define({
 	className: 'Post',
 	fields: (field) => ({
 		author: field.pointer({
-			target: () => UserSchema,
+			target: 'User',
 			validation: { required: true },
 		}),
 		title: field.string({ validation: { required: true } }),

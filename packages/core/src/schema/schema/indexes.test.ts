@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import {
 	Schema,
+	SchemaRegistry,
 	type FieldDefinition,
 	type SchemaIndexOptions,
 } from '../index.js'
@@ -103,18 +104,23 @@ describe('schema indexes', () => {
 			}),
 		).toThrow(new TypeError('Duplicate index field: title'))
 
-		expect(() =>
-			Schema.define({
-				className: 'RelationIndexField',
-				fields: (field) => ({
-					title: field.string(),
-					targets: field.relation({ target: () => relationTarget }),
-				}),
-				indexes: [
-					// @ts-expect-error -- Runtime validation protects JavaScript callers.
-					{ fields: ['title', 'targets'] },
-				],
+		const relationIndexSchema = Schema.define({
+			className: 'RelationIndexField',
+			fields: (field) => ({
+				title: field.string(),
+				targets: field.relation({ target: 'RuntimeIndexRelationTarget' }),
 			}),
+			indexes: [
+				// @ts-expect-error -- Runtime validation protects JavaScript callers.
+				{ fields: ['title', 'targets'] },
+			],
+		})
+
+		expect(() =>
+			new SchemaRegistry([
+				relationIndexSchema,
+				relationTarget,
+			]).resolveSchemaTargets(),
 		).toThrow(new TypeError('Unknown index field: targets'))
 	})
 

@@ -29,13 +29,13 @@ const Membership = Schema.define({
 		internalNote: field.string({ access: { read: false } }),
 		member: field.pointer({
 			onDelete: 'cascade',
-			target: () => Member,
+			target: 'ExplicitEdgeMember',
 			validation: { required: true },
 		}),
 		position: field.int({ default: 0 }),
 		project: field.pointer({
 			onDelete: 'cascade',
-			target: () => Project,
+			target: 'ExplicitEdgeProject',
 			validation: { required: true },
 		}),
 		role: field.enum({

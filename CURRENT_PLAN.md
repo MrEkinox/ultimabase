@@ -3,7 +3,7 @@
 - Status: active
 - Started: 2026-08-09
 - Objective owner: `@ultimabase/core`, `@ultimabase/codegen`, `@ultimabase/pg-vector-plugin`
-- Governing decisions: [ADR-0173](docs/adr/0173-generated-schema-authoring.md), refined by [ADR-0175](docs/adr/0175-map-returning-schema-fields.md), [ADR-0176](docs/adr/0176-one-dimensional-field-lists.md), and [ADR-0177](docs/adr/0177-flat-generated-schema-registry.md)
+- Governing decisions: [ADR-0173](docs/adr/0173-generated-schema-authoring.md), refined by [ADR-0175](docs/adr/0175-map-returning-schema-fields.md), [ADR-0176](docs/adr/0176-one-dimensional-field-lists.md), [ADR-0177](docs/adr/0177-flat-generated-schema-registry.md), and [ADR-0179](docs/adr/0179-name-based-relationship-targets.md)
 - Paused objective: [ACL hardening and developer-experience consolidation](docs/plans/paused/acl-hardening-and-developer-experience-consolidation.md)
 
 ## Objective

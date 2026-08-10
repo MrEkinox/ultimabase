@@ -28,15 +28,22 @@ import {
 	type ObjectFieldOptions,
 	type ObjectFields,
 } from '../fields/builtins/object.js'
-import { pointerField } from '../fields/builtins/pointer.js'
-import { relationField } from '../fields/builtins/relation.js'
+import {
+	pointerField,
+	type NamedPointerFieldBuilderMethod,
+} from '../fields/builtins/pointer.js'
+import {
+	relationField,
+	type NamedRelationFieldBuilderMethod,
+} from '../fields/builtins/relation.js'
 import { stringField } from '../fields/builtins/string.js'
 import { timeField } from '../fields/builtins/time.js'
 import { uuidField } from '../fields/builtins/uuid.js'
 import type { FieldListOption, GenericField } from '../fields/base/contract.js'
 import { assertFieldDefinition } from '../fields/base/definition.js'
 import type { CompactScalarFieldFactory } from '../fields/base/factory.js'
-import type { SchemaFields } from './definition.js'
+import type { SchemaDefinition, SchemaFields } from './definition.js'
+import { createNamedSchemaTarget } from './targets.js'
 import type {
 	UltimaBaseGeneratedEmbeddedFieldBuilderMethods,
 	UltimaBaseGeneratedFieldBuilderMethods,
@@ -204,14 +211,14 @@ export interface FieldBuilder
 	readonly bigint: typeof bigintField
 	/**
 	 * Declares one typed pointer to another schema.
-	 * @example `field.pointer({ target: () => User })`
+	 * @example `field.pointer({ target: "User" })`
 	 */
-	readonly pointer: typeof pointerField
+	readonly pointer: NamedPointerFieldBuilderMethod
 	/**
 	 * Declares one inverse to-many relationship.
-	 * @example `field.relation({ target: () => Post, mappedBy: 'author' })`
+	 * @example `field.relation({ target: "Post", mappedBy: 'author' })`
 	 */
-	readonly relation: typeof relationField
+	readonly relation: NamedRelationFieldBuilderMethod
 }
 
 /** Provides only value-field factories accepted inside an embedded object. */
@@ -268,6 +275,14 @@ const capturedFieldBuilderCalls = new WeakSet<object>()
 
 /** Identifies the one expected failure when an application omitted a used field plugin. */
 export class FieldBuilderMethodUnavailableError extends TypeError {}
+
+/** Defers named relationship materialization until an application registry exists. */
+export class FieldBuilderTargetUnavailableError extends TypeError {}
+
+/** Resolves one declared target name against the current application registry. */
+export type FieldBuilderTargetResolver = (
+	className: string,
+) => SchemaDefinition | undefined
 
 /** Separates developer callback failures from validation of its returned map. */
 export class FieldBuilderDeclarationExecutionError extends Error {
@@ -413,8 +428,8 @@ const createCapturedFieldBuilder = (
 				...scalarMethods,
 				bigint: method('bigint') as typeof bigintField,
 				int: method('int') as typeof intField,
-				pointer: method('pointer') as typeof pointerField,
-				relation: method('relation') as typeof relationField,
+				pointer: method('pointer') as NamedPointerFieldBuilderMethod,
+				relation: method('relation') as NamedRelationFieldBuilderMethod,
 			}
 
 	return new Proxy(immutableRecord(known), {
@@ -493,6 +508,7 @@ const createFieldBuilder = (
 	path: string,
 	embedded: boolean,
 	fieldMethods?: FieldBuilderMethodResolver,
+	resolveTarget?: FieldBuilderTargetResolver,
 ): FieldBuilder | EmbeddedFieldBuilder => {
 	const scalarMethods: ScalarFieldBuilderMethods = {
 		binary: binaryField,
@@ -523,13 +539,48 @@ const createFieldBuilder = (
 		)
 	}
 
+	const namedTargetOptions = (
+		options: unknown,
+	): Readonly<Record<string, unknown>> => {
+		if (!isPlainRecord(options)) {
+			throw new TypeError(`${path} relationship options must be a plain object`)
+		}
+
+		const { target, ...rest } = options
+
+		assertNonEmptyString(target, `${path} target`)
+
+		if (resolveTarget === undefined) {
+			throw new FieldBuilderTargetUnavailableError(
+				`${path} target requires an application schema registry`,
+			)
+		}
+
+		return immutableRecord({
+			...rest,
+			target: createNamedSchemaTarget(target, resolveTarget(target)),
+		})
+	}
+	const namedPointer = ((options: unknown): GenericField =>
+		invokeFieldFactory(
+			pointerField,
+			namedTargetOptions(options),
+			`${path}.pointer`,
+		)) as NamedPointerFieldBuilderMethod
+	const namedRelation = ((options: unknown): GenericField =>
+		invokeFieldFactory(
+			relationField,
+			namedTargetOptions(options),
+			`${path}.relation`,
+		)) as NamedRelationFieldBuilderMethod
+
 	return createRuntimeBuilder<FieldBuilder>(
 		{
 			...scalarMethods,
 			bigint: bigintField,
 			int: intField,
-			pointer: pointerField,
-			relation: relationField,
+			pointer: namedPointer,
+			relation: namedRelation,
 		},
 		pluginMethods,
 		path,
@@ -581,6 +632,7 @@ const resolveCapturedFieldBuilderCall = (
 	call: CapturedFieldBuilderCall,
 	fieldPath: string,
 	fieldMethods: FieldBuilderMethodResolver | undefined,
+	resolveTarget: FieldBuilderTargetResolver | undefined,
 ): GenericField => {
 	if (call.methodName === 'object') {
 		if (!isPlainRecord(call.options)) {
@@ -593,6 +645,7 @@ const resolveCapturedFieldBuilderCall = (
 			`${fieldPath}.object.fields`,
 			true,
 			fieldMethods,
+			resolveTarget,
 		)
 
 		return invokeFieldFactory(
@@ -602,7 +655,12 @@ const resolveCapturedFieldBuilderCall = (
 		)
 	}
 
-	const builder = createFieldBuilder(fieldPath, false, fieldMethods)
+	const builder = createFieldBuilder(
+		fieldPath,
+		false,
+		fieldMethods,
+		resolveTarget,
+	)
 	const factory = Reflect.get(builder, call.methodName) as unknown
 
 	return invokeFieldFactory(
@@ -618,6 +676,7 @@ export const resolveCapturedFieldMap = (
 	path: string,
 	embedded = false,
 	fieldMethods?: FieldBuilderMethodResolver,
+	resolveTarget?: FieldBuilderTargetResolver,
 ): SchemaFields => {
 	assertCapturedFieldMap(captured, path)
 	const fields: Record<string, GenericField> = {}
@@ -637,6 +696,7 @@ export const resolveCapturedFieldMap = (
 				field,
 				`${path}.${name}`,
 				fieldMethods,
+				resolveTarget,
 			)
 			continue
 		}
@@ -653,12 +713,14 @@ export const executeFieldBuilderCallback = (
 	path: string,
 	embedded = false,
 	fieldMethods?: FieldBuilderMethodResolver,
+	resolveTarget?: FieldBuilderTargetResolver,
 ): SchemaFields =>
 	resolveCapturedFieldMap(
 		captureFieldBuilderCallback(declaration, path, embedded),
 		path,
 		embedded,
 		fieldMethods,
+		resolveTarget,
 	)
 
 /** Executes the canonical map-returning schema declaration. */
@@ -666,5 +728,12 @@ export const executeSchemaFieldsCallback = (
 	declaration: unknown,
 	path: string,
 	fieldMethods?: FieldBuilderMethodResolver,
+	resolveTarget?: FieldBuilderTargetResolver,
 ): SchemaFields =>
-	executeFieldBuilderCallback(declaration, path, false, fieldMethods)
+	executeFieldBuilderCallback(
+		declaration,
+		path,
+		false,
+		fieldMethods,
+		resolveTarget,
+	)

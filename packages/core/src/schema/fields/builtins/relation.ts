@@ -15,8 +15,12 @@ import { splitFieldDeclarationOptions } from '../../hooks/field-declarations.js'
 import type { RelationMutationDelta } from '../../relations/mutation.js'
 import type { FieldDefinition, FieldTypegenState } from '../base/contract.js'
 import type { SchemaDefinition } from '../../schema/definition.js'
+import type { SchemaReference } from '../../schema/definition.js'
 import type { SchemaTarget } from '../../schema/targets.js'
-import type { SchemaRelationshipFieldName } from '../../type-info.js'
+import type {
+	SchemaDeclarationTargetName,
+	SchemaRelationshipFieldName,
+} from '../../type-info.js'
 
 declare const relationTargetMarker: unique symbol
 
@@ -103,6 +107,28 @@ export interface RelationField<
 > {
 	readonly [relationTargetMarker]?: TTarget
 }
+
+type NamedRelationFieldOptions<
+	TTargetName extends SchemaDeclarationTargetName,
+	TMappedBy extends
+		RelationMappedFieldName<SchemaReference<TTargetName>> | undefined,
+> = Omit<
+	RelationFieldOptions<SchemaReference<TTargetName>, TMappedBy>,
+	'target'
+> & {
+	/** Names the target schema registered in the same application. */
+	readonly target: TTargetName
+}
+
+/** Declares one application relation without introducing a value-level schema cycle. */
+export type NamedRelationFieldBuilderMethod = <
+	const TTargetName extends SchemaDeclarationTargetName,
+	const TMappedBy extends
+		RelationMappedFieldName<SchemaReference<TTargetName>> | undefined =
+		undefined,
+>(
+	options: NamedRelationFieldOptions<TTargetName, TMappedBy>,
+) => RelationField<SchemaReference<TTargetName>, TMappedBy>
 
 const unsupportedRelationOptionKeys = [
 	'default',

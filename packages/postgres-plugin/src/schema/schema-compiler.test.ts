@@ -1,9 +1,9 @@
 import {
 	definePluginField,
+	pointerField,
 	Schema,
 	Pointer,
 	SchemaRegistry,
-	type SchemaDefinition,
 } from '@ultimabase/core'
 import { getTableConfig, type PgColumn } from 'drizzle-orm/pg-core'
 import { describe, expect, it, vi } from 'vitest'
@@ -61,7 +61,9 @@ describe('PostgreSQL primitive schema compiler', () => {
 		})
 		const Post = Schema.define({
 			className: 'DetachedPost',
-			fields: (field) => ({ author: field.pointer({ target: () => User }) }),
+			fields: () => ({
+				author: pointerField({ target: () => User }),
+			}),
 		})
 
 		expect(() => compilePostgresSchema(Post)).toThrow(
@@ -72,28 +74,19 @@ describe('PostgreSQL primitive schema compiler', () => {
 	})
 
 	it('resolves circular pointer tables before Drizzle evaluates foreign keys', () => {
-		const rightReference: { current?: SchemaDefinition } = {}
 		const Left = Schema.define({
 			className: 'CircularLeft',
 			fields: (field) => ({
-				right: field.pointer({
-					target: () => {
-						if (rightReference.current === undefined) {
-							throw new TypeError('Circular right schema is unavailable')
-						}
-						return rightReference.current
-					},
-				}),
+				right: field.pointer({ target: 'CircularRight' }),
 			}),
 		})
 
 		const Right = Schema.define({
 			className: 'CircularRight',
-			fields: (field) => ({ left: field.pointer({ target: () => Left }) }),
+			fields: (field) => ({
+				left: field.pointer({ target: 'CircularLeft' }),
+			}),
 		})
-
-		// The lazy target closes the cycle only after both declarations exist.
-		rightReference.current = Right
 
 		const registry = new SchemaRegistry([Left, Right])
 		const catalog = new PostgresSchemaCatalog(

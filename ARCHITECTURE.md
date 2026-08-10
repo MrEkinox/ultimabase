@@ -122,12 +122,13 @@ metadata during setup.
 
 ## Relationship targets
 
-Relationship fields retain zero-argument lazy schema callbacks as private field
-capabilities rather than physical metadata. Core compiles every configured
-schema callback, resolves every relationship callback by exact class identity,
-freezes one application-local logical graph, and closes schema registration
-before plugin setup, `connect`, or another infrastructure phase. Plugin setup
-receives only a read-only view of that compiled schema registry.
+Application relationship fields declare the stable class name of their target.
+Core resolves every name against the complete application registry, retains the
+exact registered class as a private field capability, freezes one
+application-local logical graph, and closes schema registration before plugin
+setup, `connect`, or another infrastructure phase. Plugin setup receives only a
+read-only view of that compiled schema registry. Low-level field factories may
+still use lazy class callbacks for framework-owned composition.
 
 The graph stores only source schema identity, structural field path, and target
 schema identity. It contains no foreign-key column, join-table name, transport

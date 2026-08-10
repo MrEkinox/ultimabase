@@ -1,8 +1,8 @@
 # Pointer fields
 
-`pointerField` represents one object reference without selecting a database or
-transport representation. Its lazy callback supports circular declarations and
-retains the exact target schema in TypeScript.
+`field.pointer()` represents one object reference without selecting a database
+or transport representation. Its schema-name target supports circular
+declarations, while code generation restores the exact target type.
 
 ```ts
 import {
@@ -21,13 +21,13 @@ export const PostSchema = Schema.define({
 	className: 'Post',
 	fields: (field) => ({
 		author: field.pointer({
-			target: () => UserSchema,
+			target: 'User',
 			validation: { required: true },
 			indexed: true,
 			onDelete: 'restrict',
 		}),
 		reviewer: field.pointer({
-			target: () => UserSchema,
+			target: 'User',
 			onDelete: 'setNull',
 		}),
 	}),

@@ -2,6 +2,7 @@ import {
 	binaryField,
 	booleanField,
 	Schema,
+	SchemaRegistry,
 	enumField,
 	intField,
 	jsonField,
@@ -38,17 +39,23 @@ const includedUserSchema = Schema.define({
 const includedPostSchema = Schema.define({
 	className: 'QueryIncludedPost',
 	fields: (field) => ({
-		author: field.pointer({ target: () => includedUserSchema }),
+		author: field.pointer({ target: 'QueryIncludedUser' }),
 		title: field.string(),
 	}),
 })
 const includedFeedSchema = Schema.define({
 	className: 'QueryIncludedFeed',
 	fields: (field) => ({
-		posts: field.relation({ target: () => includedPostSchema }),
+		posts: field.relation({ target: 'QueryIncludedPost' }),
 		title: field.string(),
 	}),
 })
+
+new SchemaRegistry([
+	includedUserSchema,
+	includedPostSchema,
+	includedFeedSchema,
+]).resolveSchemaTargets()
 
 describe('QueryBuilder', () => {
 	it('hydrates one internal immutable shell without rebuilding its normalized AST', () => {

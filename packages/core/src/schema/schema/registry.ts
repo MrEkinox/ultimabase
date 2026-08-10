@@ -124,7 +124,9 @@ export class SchemaRegistry<
 		}
 
 		const prepared = this.values().map((schema) =>
-			prepareSchemaCompilation(schema, fieldMethods),
+			prepareSchemaCompilation(schema, fieldMethods, (className) =>
+				this.get(className),
+			),
 		)
 		const preparedBySchema = new Map<
 			SchemaDefinition,

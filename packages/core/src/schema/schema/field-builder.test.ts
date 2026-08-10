@@ -59,7 +59,7 @@ describe('FieldBuilder', () => {
 					externalId: field.uuid(),
 					metadata: field.json(),
 					opensAt: field.time(),
-					owner: field.pointer({ target: () => Target }),
+					owner: field.pointer({ target: 'BuilderTarget' }),
 					price: field.decimal(),
 					profile: field.object({
 						fields: (field) => {
@@ -76,7 +76,7 @@ describe('FieldBuilder', () => {
 					sequence: field.bigint(),
 					slug: reusable,
 					status: field.enum({ values: ['draft', 'published'] }),
-					targets: field.relation({ target: () => Target }),
+					targets: field.relation({ target: 'BuilderTarget' }),
 					title: field.string({ validation: { required: true } }),
 					views: field.int({ default: 0 }),
 				}

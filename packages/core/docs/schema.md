@@ -81,8 +81,8 @@ field-dependent static metadata and model construction throw an actionable
 while Query and Runtime retain the exact class identity registered by the
 application.
 
-Callbacks are synchronous declarations. They may close over static values and
-lazy relationship targets, but cannot receive requests, services, adapters,
+Callbacks are synchronous declarations. They may close over static values, but
+cannot receive requests, services, adapters,
 transactions, or lifecycle state. Field maps still compile immediately for
 framework-owned composition and isolated tests that need local inference, but
 they are not the ordinary application declaration syntax. Builder declarations
@@ -110,16 +110,19 @@ objects that only imitate the public metadata shape.
 Field definitions carry private factory provenance, so a structurally similar
 object cannot bypass validation or provide a forged snapshot capability.
 
-## Lazy relationship targets
+## Relationship target names
 
-`SchemaTarget<TSchema>` represents the zero-argument callback consumed by
-`pointerField` and `relationField`. The callback keeps the exact
-target class in TypeScript while deferring its value until every application
-schema declaration is available:
+Application `field.pointer()` and `field.relation()` calls use the stable target
+schema name. This avoids value-level cycles between module constants while the
+generated registry preserves the exact target type:
 
 ```ts
-const targetUser: SchemaTarget<typeof UserSchema> = () => UserSchema
+author: field.pointer({ target: 'User' })
 ```
+
+Framework-owned low-level `pointerField` and `relationField` composition may
+still use `SchemaTarget<TSchema>` callbacks. Application code does not need a
+`SchemaReference`, resolver function, or local type annotation.
 
 `pointerField` supports input resolution through its one field hook. Pointer
 disclosure belongs to field Access, while field definitions and transports own
@@ -166,7 +169,7 @@ const PostSchema = Schema.define({
 	className: 'Post',
 	fields: (field) => ({
 		author: field.pointer({
-			target: () => UserSchema,
+			target: 'User',
 			validation: { required: true },
 			indexed: true,
 			onDelete: 'restrict',
@@ -202,7 +205,7 @@ const UserSchema = Schema.define({
 	className: 'User',
 	fields: (field) => ({
 		posts: field.relation({
-			target: () => PostSchema,
+			target: 'Post',
 			mappedBy: 'author',
 		}),
 	}),

@@ -39,7 +39,8 @@ reuse the existing immutable field factories, so the same validation, defaults,
 Access, hooks, and metadata apply. The embedded builder intentionally has no
 `pointer` or `relation` methods and does not accept `autoIncrement: true`.
 
-Relationship targets remain lazy and exact at the declaration boundary:
+Relationship targets use stable schema names and resolve to exact registered
+classes during application compilation:
 
 ```ts
 const PostSchema = Schema.define({
@@ -47,7 +48,7 @@ const PostSchema = Schema.define({
 	fields: (field) => ({
 		title: field.string({ validation: { required: true } }),
 		author: field.pointer({
-			target: () => UserSchema,
+			target: 'User',
 			validation: { required: true },
 		}),
 	}),

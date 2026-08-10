@@ -102,7 +102,7 @@ describe('PostgreSQL filter compiler', () => {
 		const Source = Schema.define({
 			className: 'FilterAccessRelationSource',
 			fields: (field) => ({
-				targets: field.relation({ target: () => Target }),
+				targets: field.relation({ target: 'FilterAccessRelationTarget' }),
 			}),
 		})
 		const registry = new SchemaRegistry([Source, Target])
@@ -151,7 +151,7 @@ describe('PostgreSQL filter compiler', () => {
 		const Source = Schema.define({
 			className: 'FilterRelationSource',
 			fields: (field) => ({
-				targets: field.relation({ target: () => Target }),
+				targets: field.relation({ target: 'FilterRelationTarget' }),
 			}),
 		})
 		const registry = new SchemaRegistry([Source, Target])
@@ -199,7 +199,9 @@ describe('PostgreSQL filter compiler', () => {
 		})
 		const Source = Schema.define({
 			className: 'FilterPointerPredicateSource',
-			fields: (field) => ({ target: field.pointer({ target: () => Target }) }),
+			fields: (field) => ({
+				target: field.pointer({ target: 'FilterPointerPredicateTarget' }),
+			}),
 		})
 		const registry = new SchemaRegistry([Source, Target])
 		const catalog = new PostgresSchemaCatalog(
@@ -360,7 +362,9 @@ describe('PostgreSQL filter compiler', () => {
 		})
 		const Post = Schema.define({
 			className: 'FilterPointerPost',
-			fields: (field) => ({ author: field.pointer({ target: () => User }) }),
+			fields: (field) => ({
+				author: field.pointer({ target: 'FilterPointerUser' }),
+			}),
 		})
 		const registry = new SchemaRegistry([User, Post])
 		const catalog = new PostgresSchemaCatalog(

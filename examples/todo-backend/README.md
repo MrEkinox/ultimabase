@@ -1,7 +1,8 @@
 # Todo backend
 
-A minimal backend-only UltimaBase application with one `Todo` schema,
-PostgreSQL persistence, automatic generated types, and typed CRUD helpers.
+A backend-only UltimaBase application with a comprehensive `Todo` schema,
+an associated `TodoUser`, PostgreSQL persistence, automatic generated types,
+and typed CRUD helpers.
 
 ## Start it
 
@@ -19,10 +20,13 @@ DATABASE_URL=postgres://postgres:postgres@localhost:5432/ultimabase_todo \
 PostgreSQL connects. The future CLI will expose the same complete generation as
 an explicit manual command; this example does not call the generator itself.
 
-The generated declaration is included by this example's `tsconfig.json`, so it
-provides exact completion for `Todo` models, create/update data, filters,
-selections, Access, hooks, objects, and enum values. After startup, verify the
-application source against that declaration with:
+The generated declaration is included by this example's `tsconfig.json`. The
+schema deliberately exercises every built-in scalar field, every supported
+one-dimensional list, nested objects, enums, a pointer, and an inverse
+relation. Its output therefore exposes exact models, create/update data,
+scalar and array filters, selections, includes, Access, hooks, and structured
+path types. After startup, verify the application source against that
+declaration with:
 
 ```sh
 yarn workspace @ultimabase/example-todo-backend typecheck

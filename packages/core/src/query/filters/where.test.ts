@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { Schema } from '../../schema/index.js'
+import { Schema, SchemaRegistry } from '../../schema/index.js'
 import { fieldPath } from './factory.js'
 import { QueryBuilder } from '../query/query.js'
 import { WhereBuilder, normalizeWhereInput } from './where.js'
@@ -16,7 +16,7 @@ const Tag = Schema.define({
 const Post = Schema.define({
 	className: 'RuntimeWherePost',
 	fields: (field) => ({
-		author: field.pointer({ target: () => Tag }),
+		author: field.pointer({ target: 'RuntimeWhereTag' }),
 		metadata: field.json(),
 		profile: field.object({
 			fields: (field) => ({
@@ -27,11 +27,13 @@ const Post = Schema.define({
 		}),
 		published: field.boolean(),
 		labels: field.string({ list: true }),
-		tags: field.relation({ target: () => Tag }),
+		tags: field.relation({ target: 'RuntimeWhereTag' }),
 		title: field.string(),
 		views: field.int(),
 	}),
 })
+
+new SchemaRegistry([Tag, Post]).resolveSchemaTargets()
 
 describe('WhereInput', () => {
 	it('normalizes fields, logic, paths, and relations into the existing AST', () => {

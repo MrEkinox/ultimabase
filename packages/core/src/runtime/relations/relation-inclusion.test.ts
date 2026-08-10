@@ -39,7 +39,7 @@ describe('relation Runtime inclusion', () => {
 							return true
 						},
 					},
-					target: () => reply,
+					target: 'RelationIncludedReply',
 				}),
 				status: field.string(),
 			}),
@@ -57,7 +57,7 @@ describe('relation Runtime inclusion', () => {
 							return true
 						},
 					},
-					target: () => comment,
+					target: 'RelationIncludedComment',
 				}),
 				title: field.string(),
 			}),
@@ -169,7 +169,7 @@ describe('relation Runtime inclusion', () => {
 				name: field.string(),
 				targets: field.relation({
 					access: { read: false },
-					target: () => target,
+					target: 'RelationIncludedRestrictedTarget',
 				}),
 			}),
 		})
@@ -177,7 +177,9 @@ describe('relation Runtime inclusion', () => {
 			className: 'RelationIncludedAllowedSource',
 			fields: (field) => ({
 				name: field.string(),
-				targets: field.relation({ target: () => target }),
+				targets: field.relation({
+					target: 'RelationIncludedRestrictedTarget',
+				}),
 			}),
 		})
 		const deniedRecord = { name: 'denied' }
@@ -233,7 +235,9 @@ describe('relation Runtime inclusion', () => {
 			className: 'RelationIncludedCapabilitySource',
 			fields: (field) => ({
 				name: field.string(),
-				targets: field.relation({ target: () => target }),
+				targets: field.relation({
+					target: 'RelationIncludedCapabilityTarget',
+				}),
 			}),
 		})
 		const adapter = new RecordingDatabaseAdapter(

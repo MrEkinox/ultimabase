@@ -13,7 +13,7 @@ const Post: SchemaDefinition = Schema.define({
 		author: field.pointer({
 			indexed: 'unique',
 			onDelete: 'cascade',
-			target: () => User,
+			target: 'PointerUser',
 			validation: { required: true },
 		}),
 	}),

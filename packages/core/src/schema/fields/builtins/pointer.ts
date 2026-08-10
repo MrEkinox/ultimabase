@@ -11,6 +11,7 @@ import {
 } from '../../schema/definition.js'
 import type { SchemaTarget } from '../../schema/targets.js'
 import type {
+	SchemaDeclarationTargetName,
 	SchemaRelationshipFieldName,
 	SchemaRelationshipTargetName,
 	SchemaTypeInfoSource,
@@ -163,6 +164,42 @@ type CompatiblePointerOptions<
 		? never
 		: object
 	: object
+
+type NamedCompactPointerFieldOptions<
+	TTargetName extends SchemaDeclarationTargetName,
+	TRequired extends boolean,
+	TImmutable extends boolean,
+	TOnDelete extends PointerReferentialAction,
+> = Omit<
+	CompactPointerFieldOptions<
+		SchemaReference<TTargetName>,
+		TRequired,
+		TImmutable,
+		TOnDelete
+	>,
+	'target'
+> & {
+	/** Names the target schema registered in the same application. */
+	readonly target: TTargetName
+}
+
+/** Declares one application pointer without introducing a value-level schema cycle. */
+export type NamedPointerFieldBuilderMethod = <
+	const TTargetName extends SchemaDeclarationTargetName,
+	const TRequired extends boolean = false,
+	const TImmutable extends boolean = false,
+	const TOnDelete extends PointerReferentialAction = 'restrict',
+>(
+	options: NamedCompactPointerFieldOptions<
+		TTargetName,
+		TRequired,
+		TImmutable,
+		TOnDelete
+	>,
+	...invalidOptions: InvalidOptionsArguments<
+		CompatiblePointerOptions<TRequired, TOnDelete>
+	>
+) => ResolvedPointerField<SchemaReference<TTargetName>, TRequired, TImmutable>
 
 /**
  * Declares one exact lazy schema reference.

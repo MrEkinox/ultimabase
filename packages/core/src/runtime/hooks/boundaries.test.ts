@@ -12,7 +12,7 @@ import {
 	type UpdateOneOperationAst,
 	type UpsertManyOperationAst,
 } from '../../query/index.js'
-import { Schema } from '../../schema/index.js'
+import { Schema, SchemaRegistry } from '../../schema/index.js'
 import { FrameworkError } from '../../foundation.js'
 import {
 	immutableArray,
@@ -421,8 +421,11 @@ describe('runtime hook boundaries', () => {
 		})
 		const source = Schema.define({
 			className: 'BoundaryIncludedSource',
-			fields: (field) => ({ target: field.pointer({ target: () => target }) }),
+			fields: (field) => ({
+				target: field.pointer({ target: 'BoundaryIncludedTarget' }),
+			}),
 		})
+		new SchemaRegistry([target, source]).resolveSchemaTargets()
 		const targetQuery = new QueryBuilder(target).select({ name: true })
 		const operation = immutableRecord({
 			kind: 'find-many',

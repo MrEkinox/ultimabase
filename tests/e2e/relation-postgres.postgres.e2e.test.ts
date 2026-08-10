@@ -4,7 +4,6 @@ import {
 	stringField,
 	UltimaBase,
 	type FieldBuilder,
-	type SchemaReference,
 } from '@ultimabase/core'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
@@ -21,13 +20,6 @@ const tagLabelField = stringField({ validation: { required: true } })
 const tagVisibleField = booleanField({ default: true })
 const articleTitleField = stringField({ validation: { required: true } })
 
-type ArticleSchema = SchemaReference<'RelationE2EArticle'>
-type TagSchema = SchemaReference<'RelationE2ETag'>
-
-function resolveTag(): TagSchema {
-	return Tag
-}
-
 const articleFields = (field: FieldBuilder) => ({
 	tags: field.relation({
 		access: {
@@ -40,7 +32,7 @@ const articleFields = (field: FieldBuilder) => ({
 				return true
 			},
 		},
-		target: resolveTag,
+		target: 'RelationE2ETag',
 	}),
 	title: articleTitleField,
 })
@@ -70,7 +62,7 @@ const Article = Schema.define<
 const tagFields = (field: FieldBuilder) => ({
 	articles: field.relation({
 		mappedBy: 'tags',
-		target: (): ArticleSchema => Article,
+		target: 'RelationE2EArticle',
 	}),
 	label: tagLabelField,
 	visible: tagVisibleField,
@@ -88,16 +80,9 @@ const authorNameField = stringField({ validation: { required: true } })
 const authorVisibleField = booleanField({ default: true })
 const postTitleField = stringField({ validation: { required: true } })
 
-type AuthorSchema = SchemaReference<'RelationE2EAuthor'>
-type PostSchema = SchemaReference<'RelationE2EPost'>
-
-function resolvePost(): PostSchema {
-	return Post
-}
-
 const authorFields = (field: FieldBuilder) => ({
 	name: authorNameField,
-	posts: field.relation({ mappedBy: 'author', target: resolvePost }),
+	posts: field.relation({ mappedBy: 'author', target: 'RelationE2EPost' }),
 	visible: authorVisibleField,
 })
 
@@ -117,16 +102,16 @@ const Post = Schema.define({
 	fields: (field) => ({
 		author: field.pointer({
 			onDelete: 'setNull',
-			target: (): AuthorSchema => Author,
+			target: 'RelationE2EAuthor',
 		}),
 		title: postTitleField,
 	}),
-}) satisfies PostSchema
+})
 
 const privateArticleFields = (field: FieldBuilder) => ({
 	tags: field.relation({
 		access: { read: false, write: true },
-		target: () => Tag,
+		target: 'RelationE2ETag',
 	}),
 	title: field.string({ validation: { required: true } }),
 })
@@ -146,7 +131,7 @@ const PrivatePointerPost = Schema.define({
 			access: {
 				read: { orderBy: true, output: true, where: false },
 			},
-			target: () => Author,
+			target: 'RelationE2EAuthor',
 		}),
 		title: field.string({ validation: { required: true } }),
 	}),

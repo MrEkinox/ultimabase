@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { Schema } from '../../schema/index.js'
+import { Schema, SchemaRegistry } from '../../schema/index.js'
 import {
 	queryFromCountInput,
 	queryFromFindManyInput,
@@ -20,7 +20,7 @@ const Post = Schema.define({
 	className: 'ReadInputPost',
 	fields: (field) => ({
 		author: field.pointer({
-			target: () => Author,
+			target: 'ReadInputAuthor',
 			validation: { required: true },
 		}),
 		title: field.string({ validation: { required: true } }),
@@ -31,9 +31,11 @@ const Feed = Schema.define({
 	className: 'ReadInputFeed',
 	fields: (field) => ({
 		name: field.string(),
-		posts: field.relation({ target: () => Post }),
+		posts: field.relation({ target: 'ReadInputPost' }),
 	}),
 })
+
+new SchemaRegistry([Author, Post, Feed]).resolveSchemaTargets()
 
 describe('canonical read inputs', () => {
 	it('normalizes one complete object directly into an immutable Query AST', () => {

@@ -125,7 +125,7 @@ describe('relationField', () => {
 			className: 'MissingRelationSource',
 			fields: (field) => ({
 				inverse: field.relation({
-					target: () => Target,
+					target: 'InvalidRelationTarget',
 					mappedBy: 'missing',
 				}),
 			}),
@@ -134,7 +134,7 @@ describe('relationField', () => {
 			className: 'IncompatibleRelationSource',
 			fields: (field) => ({
 				inverse: field.relation({
-					target: () => Target,
+					target: 'InvalidRelationTarget',
 					mappedBy: 'scalar',
 				}),
 			}),
@@ -167,14 +167,14 @@ describe('relationField', () => {
 		const PointerTarget = Schema.define({
 			className: 'WrongRelationPointerTarget',
 			fields: (field) => ({
-				owner: field.pointer({ target: () => OtherSource }),
+				owner: field.pointer({ target: 'OtherRelationSource' }),
 			}),
 		})
 		const WrongSource = Schema.define({
 			className: 'WrongRelationSource',
 			fields: (field) => ({
 				inverse: field.relation({
-					target: () => PointerTarget,
+					target: 'WrongRelationPointerTarget',
 					mappedBy: 'owner',
 				}),
 			}),
@@ -193,7 +193,7 @@ describe('relationField', () => {
 			className: 'InverseCycleLeft',
 			fields: (field) => ({
 				left: field.relation({
-					target: () => Right,
+					target: 'InverseCycleRight',
 					mappedBy: 'right',
 				}),
 			}),
@@ -202,7 +202,7 @@ describe('relationField', () => {
 			className: 'InverseCycleRight',
 			fields: (field) => ({
 				right: field.relation({
-					target: () => Left,
+					target: 'InverseCycleLeft',
 					mappedBy: 'left',
 				}),
 			}),
@@ -223,11 +223,11 @@ describe('relationField', () => {
 			className: 'AmbiguousRelationInverse',
 			fields: (field) => ({
 				first: field.relation({
-					target: () => Owner,
+					target: 'AmbiguousRelationOwner',
 					mappedBy: 'targets',
 				}),
 				second: field.relation({
-					target: () => Owner,
+					target: 'AmbiguousRelationOwner',
 					mappedBy: 'targets',
 				}),
 			}),
@@ -262,7 +262,7 @@ describe('relationField', () => {
 			className: 'RelationLifecycleSource',
 			fields: (field) => ({
 				inverse: field.relation({
-					target: () => Target,
+					target: 'RelationLifecycleTarget',
 					mappedBy: 'scalar',
 				}),
 			}),

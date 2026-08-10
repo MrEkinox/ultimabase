@@ -1,5 +1,6 @@
 import {
 	Schema,
+	relationField,
 	stringField,
 	defineSchemaExtension,
 	type AccessRoleReferenceCarrier,
@@ -281,8 +282,8 @@ export class RoleSchema {
 			return {
 				...customFields,
 				name: createRoleNameField(),
-				members: field.relation({ target: () => options.members.schema }),
-				roles: field.relation({ target: selfTarget }),
+				members: relationField({ target: () => options.members.schema }),
+				roles: relationField({ target: selfTarget }),
 			}
 		}
 		const extensions = [...(options.extensions ?? []), roleSchemaExtension]
