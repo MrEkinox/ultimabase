@@ -3,7 +3,7 @@
 - Status: active
 - Started: 2026-08-09
 - Objective owner: `@ultimabase/core`, `@ultimabase/codegen`, `@ultimabase/pg-vector-plugin`
-- Governing decisions: [ADR-0173](docs/adr/0173-generated-schema-authoring.md), refined by [ADR-0175](docs/adr/0175-map-returning-schema-fields.md) and [ADR-0176](docs/adr/0176-one-dimensional-field-lists.md)
+- Governing decisions: [ADR-0173](docs/adr/0173-generated-schema-authoring.md), refined by [ADR-0175](docs/adr/0175-map-returning-schema-fields.md), [ADR-0176](docs/adr/0176-one-dimensional-field-lists.md), and [ADR-0177](docs/adr/0177-flat-generated-schema-registry.md)
 - Paused objective: [ACL hardening and developer-experience consolidation](docs/plans/paused/acl-hardening-and-developer-experience-consolidation.md)
 
 ## Objective
@@ -39,7 +39,7 @@ watch mode, but those commands are deliberately outside this active milestone.
 
 ## Frozen constraints
 
-- Static TypeScript schema declarations remain the runtime source of truth; generated `TypeInfo` is the source of precise application typing.
+- Static TypeScript schema declarations remain the runtime source of truth; each generated `Schemas.<Name>` contract is the source of precise application typing.
 - Before generation, Core exposes safe bootstrap contracts such as `BaseItem` instead of recursively reconstructing the application type graph.
 - Core never names a plugin field method or imports its implementation.
 - Plugin declaration contributions are synchronous, pure, deterministic, owner-scoped, and application-local.

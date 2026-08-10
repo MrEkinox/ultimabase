@@ -42,7 +42,6 @@ export class GeneratedIdentifiers {
 				'Item',
 				'OrderByInput',
 				'Select',
-				'TypeInfo',
 				'UpdateInput',
 				'WhereInput',
 			]) {

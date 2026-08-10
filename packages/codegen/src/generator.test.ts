@@ -135,18 +135,21 @@ describe('generateApplicationTypes', () => {
 		expect(first.contents).toContain(
 			'export type TypegenArticleOrderByInput = {',
 		)
-		const typeInfoRegistry = first.contents.slice(
+		const schemaRegistry = first.contents.slice(
 			first.contents.indexOf('export declare namespace Schemas'),
 			first.contents.indexOf('// Framework registry'),
 		)
 
-		expect(typeInfoRegistry).toContain('readonly item: Item')
-		expect(typeInfoRegistry).not.toContain('readonly access:')
-		expect(typeInfoRegistry).not.toContain('readonly hooks:')
+		expect(schemaRegistry).toContain('export type TypegenArticle = {')
+		expect(schemaRegistry).toContain('readonly item: TypegenArticleItem')
+		expect(schemaRegistry).not.toContain('export type Item =')
+		expect(schemaRegistry).not.toContain('export type TypeInfo =')
+		expect(schemaRegistry).not.toContain('readonly access:')
+		expect(schemaRegistry).not.toContain('readonly hooks:')
 		expect(first.contents).not.toContain('GeneratedFieldContract')
 		expect(first.contents).not.toContain('Metadata')
 		expect(first.contents).toContain(
-			'readonly "TypegenArticle": Schemas.TypegenArticle.TypeInfo',
+			'readonly "TypegenArticle": Schemas.TypegenArticle',
 		)
 		expect(first.contents).toContain('export type StringFilter = {')
 		expect(

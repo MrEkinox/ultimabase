@@ -66,12 +66,13 @@ collisions report both owners.
 
 The emitted file is application-facing rather than an opaque implementation
 dump. Concrete named types such as `TodoItem`, `TodoCreateInput`,
-`TodoWhereInput`, and `TodoSelect` appear first, followed by a central
-`Schemas`/`TypeInfo` map. The lower-level Core augmentation remains available
-for inference but is isolated in a framework registry section at the bottom.
-Each schema `TypeInfo` is the source of truth for its item and operation inputs;
-the framework section references it and adds only logical field kind, list, and
-relationship metadata that cannot be recovered safely from those value types.
+`TodoWhereInput`, and `TodoSelect` appear first, followed by one flat `Schemas`
+namespace. Each `Schemas.<Name>` type is the source of truth for its item and
+operation inputs; there is no duplicate application-wide `TypeInfo` map or
+nested per-schema `Item` alias. The lower-level Core augmentation references
+those schema types and is isolated in a framework registry section at the
+bottom. It adds only logical field kind, list, and relationship metadata that
+cannot be recovered safely from the public value types.
 Access and hook contracts are derived instead of duplicated in that registry.
 Each schema also receives a concrete object-shaped `TodoOrderByInput` whose
 optional fields use the generated local `OrderDirection` union; generated

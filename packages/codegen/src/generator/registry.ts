@@ -22,7 +22,7 @@ export const renderFieldBuilder = (
 	].join('\n')
 }
 
-export const renderTypeInfo = (
+export const renderSchemas = (
 	snapshot: TypegenApplicationSnapshot,
 	context: RenderContext,
 ): string => {
@@ -32,47 +32,34 @@ export const renderTypeInfo = (
 		const relationships = schema.fields.flatMap((field) =>
 			field.value.kind === 'pointer' || field.value.kind === 'relation'
 				? [
-						`\t\t\t\treadonly ${propertyName(field.name)}: ${quote(field.value.target)}`,
+						`\t\t\treadonly ${propertyName(field.name)}: ${quote(field.value.target)}`,
 					]
 				: [],
 		)
 		const relationshipMap =
 			relationships.length === 0
 				? ''
-				: `\t\t\treadonly relationships: {\n${relationships.join('\n')}\n\t\t\t}\n`
+				: `\t\treadonly relationships: {\n${relationships.join('\n')}\n\t\t}\n`
 		const include = hasRelationships(schema)
-			? `\t\t\t\treadonly include: ${alias}Include\n`
+			? `\t\t\treadonly include: ${alias}Include\n`
 			: ''
 
-		return `\texport namespace ${alias} {
-\t\texport type Item = ${alias}Item
-\t\texport type TypeInfo = {
-\t\t\treadonly key: ${quote(schema.className)}
-\t\t\treadonly fields: ${fields}
-\t\t\treadonly item: Item
-${relationshipMap}\t\t\treadonly inputs: {
-\t\t\t\treadonly create: ${alias}CreateInput
-${include}\t\t\t\treadonly orderBy: ${alias}OrderByInput
-\t\t\t\treadonly select: ${alias}Select
-\t\t\t\treadonly update: ${alias}UpdateInput
-\t\t\t\treadonly where: ${alias}WhereInput
-\t\t\t}
+		return `\texport type ${alias} = {
+\t\treadonly key: ${quote(schema.className)}
+\t\treadonly fields: ${fields}
+\t\treadonly item: ${alias}Item
+${relationshipMap}\t\treadonly inputs: {
+\t\t\treadonly create: ${alias}CreateInput
+${include}\t\t\treadonly orderBy: ${alias}OrderByInput
+\t\t\treadonly select: ${alias}Select
+\t\t\treadonly update: ${alias}UpdateInput
+\t\t\treadonly where: ${alias}WhereInput
 \t\t}
 \t}`
 	})
-	const registry = snapshot.schemas.map(
-		(schema) =>
-			`\t\treadonly ${quote(schema.className)}: Schemas.${context.identifiers.schema(schema)}.TypeInfo`,
-	)
 
 	return `export declare namespace Schemas {
 ${schemas.join('\n')}
-}
-
-export type TypeInfo = {
-\treadonly schemas: {
-${registry.join('\n')}
-\t}
 }`
 }
 
@@ -82,7 +69,7 @@ export const renderRegistry = (
 ): string => {
 	const schemas = snapshot.schemas.map(
 		(schema) =>
-			`\t\treadonly ${quote(schema.className)}: Schemas.${context.identifiers.schema(schema)}.TypeInfo`,
+			`\t\treadonly ${quote(schema.className)}: Schemas.${context.identifiers.schema(schema)}`,
 	)
 
 	const fieldMethods = snapshot.fieldMethods.map(

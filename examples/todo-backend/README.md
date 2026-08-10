@@ -30,8 +30,8 @@ yarn workspace @ultimabase/example-todo-backend typecheck
 
 The declaration deliberately reads like an application type file: concrete
 types such as `TodoItem`, `TodoCreateInput`, `TodoWhereInput`, and
-`TodoPriority` come first, followed by the central `Schemas`/`TypeInfo`
-registry. Framework-only contracts are isolated at the bottom. The CRUD helper
+`TodoPriority` come first, followed by the flat `Schemas` registry.
+Framework-only contracts are isolated at the bottom. The CRUD helper
 imports `TodoCreateInput` directly, so the example cannot drift from its schema.
 
 The PostgreSQL `override` schema policy is intentionally convenient for this

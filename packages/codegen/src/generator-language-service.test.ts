@@ -219,6 +219,8 @@ const pointerRead = item.author.findOne({
 })
 const hookItem: SemanticArticleHooks['item'] = item
 const accessWhere: SemanticArticleAccess['where'] = where
+const schemaItem: Schemas.SemanticArticle['item'] = item
+const schemaCreate: Schemas.SemanticArticle['inputs']['create'] = createInput
 
 field.vector({ dimensions: 3 })
 
