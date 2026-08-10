@@ -84,6 +84,11 @@ Each schema also receives a concrete object-shaped `TodoOrderByInput` whose
 optional fields use the generated local `OrderDirection` union; generated
 application code never exposes the Core ordering helper.
 
+Generated schema commands retain the same named inputs while exposing concise
+singular identifier aliases. `updateOne({ id, data })` and `deleteOne({ id })`
+are typed as mutually exclusive alternatives to their canonical `where` forms;
+Core normalizes the alias to `{ id: { eq: id } }` before Query construction.
+
 Listed fields receive concrete element-aware declarations such as
 `ArrayStringFilter`, `ArrayIntFilter`, and named enum/object variants. These
 filters expose complete-list `eq`/`ne`, `has`, `hasSome`, `hasEvery`,

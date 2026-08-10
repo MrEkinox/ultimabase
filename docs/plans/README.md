@@ -7,7 +7,7 @@ priority changes.
 
 ## Active
 
-- [Singular identifier target aliases](../../CURRENT_PLAN.md)
+No multi-issue objective is active.
 
 ## Paused
 
@@ -18,6 +18,7 @@ priority changes.
 
 ## Completed
 
+- [Singular identifier target aliases](completed/singular-identifier-target-aliases.md)
 - [Mutation relationship projections](completed/mutation-relationship-projections.md)
 - [Runtime-to-PostgreSQL E2E](completed/runtime-postgres-e2e.md)
 - [Native hooks and contextual execution](completed/native-hooks-and-contextual-execution.md)

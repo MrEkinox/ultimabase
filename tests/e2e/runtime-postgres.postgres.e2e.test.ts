@@ -189,14 +189,11 @@ const packedModelFetch = () => packedResult.fetch({ select: { title: true } })
 const packedModelPointer = () => packedResult.toPointer()
 const packedQueryUpdate = () =>
 	PostSchema.updateOne({
-		where: { id: { eq: 'packed-post' } },
+		id: 'packed-post',
 		data: { title: 'Packed query update' },
 	})
 const packedQueryDelete = () =>
-	PostSchema.deleteOne(
-		{ where: { id: { eq: 'packed-post' } } },
-		{ context: packedContext },
-	)
+	PostSchema.deleteOne({ id: 'packed-post' }, { context: packedContext })
 void packedDraft
 void packedModelDraft
 void packedQuery
@@ -884,7 +881,7 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 
 			const updated = await PostSchema.updateOne(
 				{
-					where: { id: { eq: created.id } },
+					id: created.id.toString(),
 					data: {
 						views: increment(2),
 						published: true,
@@ -904,7 +901,7 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 
 			const deleted = await PostSchema.deleteOne(
 				{
-					where: { id: { eq: created.id } },
+					id: created.id.toString(),
 					select: { id: true, title: true },
 				},
 				{ ultimabase },

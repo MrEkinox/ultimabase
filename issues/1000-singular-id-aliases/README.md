@@ -10,5 +10,5 @@ continues to receive the ordinary `where` form.
 1. [1001 — Add singular identifier target aliases](1001-singular-id-target-aliases.md)
 2. [1002 — Verify generated and packed identifier alias DX](1002-singular-id-alias-verification.md)
 
-The active constraints and supervision stop points live in
-[`CURRENT_PLAN.md`](../../CURRENT_PLAN.md).
+The completed constraints and validation evidence live in the
+[archived milestone plan](../../docs/plans/completed/singular-identifier-target-aliases.md).

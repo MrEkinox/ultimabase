@@ -533,13 +533,21 @@ const invalidObjectPath: SemanticArticleWhereInput = {
 }
 
 const projectedUpdate = SemanticArticle./* public-update-one-hover */updateOne({
-  /* public-update-where-hover */where: { id: { eq: 'article-1' } },
+  /* public-update-id-hover */id: 'article-1',
   data: { status: 'published', views: increment(1) },
   select: { title: true },
   include: { author: { select: { name: true } } },
 })
 
 SemanticArticle./* public-delete-one-hover */deleteOne({
+  /* public-delete-id-hover */id: 'article-1',
+})
+
+SemanticArticle.updateOne({
+  /* public-update-where-hover */where: { id: { eq: 'article-1' } },
+  data: { title: 'Canonical update' },
+})
+SemanticArticle.deleteOne({
   /* public-delete-where-hover */where: { id: { eq: 'article-1' } },
 })
 
@@ -639,6 +647,13 @@ SemanticArticle.updateOne({
   data: { title: 'Completion update' },
   /* public-update-one-options */
 })
+// @ts-expect-error -- The incomplete target drives both singular target completions.
+SemanticArticle.updateOne({
+  /* public-update-one-target */
+  data: { title: 'Target completion' },
+})
+// @ts-expect-error -- The incomplete target drives both singular target completions.
+SemanticArticle.deleteOne({ /* public-delete-one-target */ })
 SemanticArticle.updateMany({
   data: [{
     where: { id: { eq: 'article-1' } },
@@ -674,6 +689,18 @@ SemanticArticle.updateOne({
   where: { id: { eq: 'article-1' } },
   // @ts-expect-error -- Generated numeric lists cannot use scalar increments.
   data: { scores: increment(1) },
+})
+
+// @ts-expect-error -- Generated singular targets are mutually exclusive.
+SemanticArticle.updateOne({
+  id: 'article-1',
+  where: { id: { eq: 'article-1' } },
+  data: { title: 'Invalid target' },
+})
+// @ts-expect-error -- Generated singular targets are mutually exclusive.
+SemanticArticle.deleteOne({
+  id: 'article-1',
+  where: { id: { eq: 'article-1' } },
 })
 
 type LoadedArticle = NonNullable<Awaited<ReturnType<typeof SemanticArticle.findOne>>>
@@ -783,6 +810,14 @@ void relatedRead
 		]) {
 			expect(completionNames(marker)).toContain('include')
 		}
+		for (const marker of [
+			'/* public-delete-one-target */',
+			'/* public-update-one-target */',
+		]) {
+			expect(completionNames(marker)).toEqual(
+				expect.arrayContaining(['id', 'where']),
+			)
+		}
 		expect(quickInfo('/* public-query-where-hover */')).toContain(
 			'where?: SemanticArticleWhereInput',
 		)
@@ -819,12 +854,14 @@ void relatedRead
 		expect(quickInfo('/* public-update-where-hover */')).not.toContain(
 			'SchemaWhereFactory',
 		)
+		expect(quickInfo('/* public-update-id-hover */')).toContain('id: string')
 		expect(quickInfo('/* public-delete-where-hover */')).toContain(
 			'SemanticArticleWhereInput',
 		)
 		expect(quickInfo('/* public-delete-where-hover */')).not.toContain(
 			'SchemaWhereFactory',
 		)
+		expect(quickInfo('/* public-delete-id-hover */')).toContain('id: string')
 		expect(quickInfo('/* public-count-where-hover */')).toContain(
 			'where?: SemanticArticleWhereInput',
 		)

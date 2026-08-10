@@ -35,6 +35,9 @@ const createOneOptionsMarker = '/* packed-create-one-options */'
 const createManyOptionsMarker = '/* packed-create-many-options */'
 const updateOneOptionsMarker = '/* packed-update-one-options */'
 const updateManyOptionsMarker = '/* packed-update-many-options */'
+const updateOneTargetMarker = '/* packed-update-one-target */'
+const deleteOneTargetMarker = '/* packed-delete-one-target */'
+const updateOneHoverMarker = '/* packed-update-one-hover */'
 
 const Owner = Schema.define({
 	className: 'PackedGeneratedOwner',
@@ -192,11 +195,15 @@ const projectedCreates = PackedGeneratedDocument.createMany({
   select: { title: true },
   include: { owner: { select: { name: true } } },
 })
-const projectedUpdate = PackedGeneratedDocument.updateOne({
-  where: { id: { eq: 'document-1' } },
+const projectedUpdate = PackedGeneratedDocument.${updateOneHoverMarker}updateOne({
+  id: 'document-1',
   data: { title: 'Updated projection' },
   select: { title: true },
   include: { owner: { select: { name: true } } },
+})
+const projectedDelete = PackedGeneratedDocument.deleteOne({
+  id: 'document-1',
+  select: { title: true },
 })
 const projectedUpdates = PackedGeneratedDocument.updateMany({
   data: [{
@@ -260,16 +267,35 @@ PackedGeneratedDocument.createMany({
   ${createManyOptionsMarker}
 })
 PackedGeneratedDocument.updateOne({
-  where: { id: { eq: 'document-1' } },
+  id: 'document-1',
   data: { title: 'Update completion' },
   ${updateOneOptionsMarker}
 })
+// @ts-expect-error -- The incomplete target drives both singular target completions.
+PackedGeneratedDocument.updateOne({
+  ${updateOneTargetMarker}
+  data: { title: 'Target completion' },
+})
+// @ts-expect-error -- The incomplete target drives both singular target completions.
+PackedGeneratedDocument.deleteOne({ ${deleteOneTargetMarker} })
 PackedGeneratedDocument.updateMany({
   data: [{
     where: { id: { eq: 'document-1' } },
     data: { title: 'Update collection completion' },
   }],
   ${updateManyOptionsMarker}
+})
+
+// @ts-expect-error -- Packed singular targets remain mutually exclusive.
+PackedGeneratedDocument.updateOne({
+  id: 'document-1',
+  where: { id: { eq: 'document-1' } },
+  data: { title: 'Invalid target' },
+})
+// @ts-expect-error -- Packed singular targets remain mutually exclusive.
+PackedGeneratedDocument.deleteOne({
+  id: 'document-1',
+  where: { id: { eq: 'document-1' } },
 })
 
 // @ts-expect-error -- The packed generator retains exact enum literals.
@@ -288,6 +314,7 @@ void projectedCreate
 void projectedCreates
 void projectedUpdate
 void projectedUpdates
+void projectedDelete
 void select
 void where
 `
@@ -311,6 +338,11 @@ const mutationOptionPositions = [
 	updateOneOptionsMarker,
 	updateManyOptionsMarker,
 ].map((marker) => sourceWithMarkers.indexOf(marker))
+const mutationTargetPositions = [
+	updateOneTargetMarker,
+	deleteOneTargetMarker,
+].map((marker) => sourceWithMarkers.indexOf(marker))
+const updateOneHoverPosition = sourceWithMarkers.indexOf(updateOneHoverMarker)
 const source = sourceWithMarkers
 	.replace(selectMarker, ' '.repeat(selectMarker.length))
 	.replace(publicSelectMarker, ' '.repeat(publicSelectMarker.length))
@@ -331,6 +363,9 @@ const source = sourceWithMarkers
 	.replace(createManyOptionsMarker, ' '.repeat(createManyOptionsMarker.length))
 	.replace(updateOneOptionsMarker, ' '.repeat(updateOneOptionsMarker.length))
 	.replace(updateManyOptionsMarker, ' '.repeat(updateManyOptionsMarker.length))
+	.replace(updateOneTargetMarker, ' '.repeat(updateOneTargetMarker.length))
+	.replace(deleteOneTargetMarker, ' '.repeat(deleteOneTargetMarker.length))
+	.replace(updateOneHoverMarker, ' '.repeat(updateOneHoverMarker.length))
 const fileName = path.join(
 	import.meta.dirname,
 	'codegen-generated-types.packed.fixture.ts',
@@ -441,6 +476,13 @@ describe('packed @ultimabase/codegen generated contracts', () => {
 					?.entries.map(({ name }) => name),
 			).toContain('include')
 		}
+		for (const position of mutationTargetPositions) {
+			expect(
+				service
+					.getCompletionsAtPosition(fileName, position, {})
+					?.entries.map(({ name }) => name),
+			).toEqual(expect.arrayContaining(['id', 'where']))
+		}
 
 		const hover = service.getQuickInfoAtPosition(
 			fileName,
@@ -452,6 +494,19 @@ describe('packed @ultimabase/codegen generated contracts', () => {
 		// The readable recursive declaration remains compact when consumed from
 		// the packed package, without relying on source-only alias behavior.
 		expect(display.length).toBeLessThan(1_000)
+
+		const updateOneHover = service.getQuickInfoAtPosition(
+			fileName,
+			updateOneHoverPosition + updateOneHoverMarker.length,
+		)
+		const updateOneDisplay = ts.displayPartsToString(
+			updateOneHover?.displayParts,
+		)
+
+		expect(updateOneDisplay).toContain(
+			'SchemaAPI<Schemas.PackedGeneratedDocument>',
+		)
+		expect(updateOneDisplay).not.toContain('NonDefaulted')
 
 		const applicationId = service
 			.getCompletionsAtPosition(fileName, optionsPosition, {})
