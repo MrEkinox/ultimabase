@@ -50,7 +50,8 @@ type SchemaResultProjection<
 		ExactQuerySelection<TSchema, TSelection> &
 		LiteralQuerySelection<TSelection>
 }> &
-	ExactGeneratedInclusionInput<TSchema, TInclude>
+	ExactGeneratedInclusionInput<TSchema, TInclude> &
+	Readonly<{ readonly include?: TInclude }>
 
 type SchemaResultSelection<
 	TSchema extends SchemaTypeInfoSource,
@@ -84,13 +85,19 @@ export type SchemaCreateOneExecutionInput<
 export type SchemaCreateManyInput<
 	TSchema extends SchemaTypeInfoSource,
 	TSelection extends QuerySelection<TSchema> | undefined = undefined,
-> = SchemaCreateManyFields<TSchema> & SchemaResultSelection<TSchema, TSelection>
+	TInclude extends SchemaTypeInfoFor<TSchema>['inputs']['include'] | undefined =
+		undefined,
+> = SchemaCreateManyFields<TSchema> &
+	SchemaResultProjection<TSchema, TSelection, TInclude>
 
 /** @internal Erases literal selection inference only at the execution boundary. */
 export type SchemaCreateManyExecutionInput<
 	TSchema extends SchemaTypeInfoSource,
 > = SchemaCreateManyFields<TSchema> &
-	Readonly<{ select?: QuerySelection<TSchema> }>
+	Readonly<{
+		include?: SchemaTypeInfoFor<TSchema>['inputs']['include']
+		select?: QuerySelection<TSchema>
+	}>
 
 interface SchemaUpdateOneFields<TSchema extends SchemaTypeInfoSource> {
 	/**
@@ -138,13 +145,19 @@ interface SchemaUpdateManyFields<TSchema extends SchemaTypeInfoSource> {
 export type SchemaUpdateManyInput<
 	TSchema extends SchemaTypeInfoSource,
 	TSelection extends QuerySelection<TSchema> | undefined = undefined,
-> = SchemaUpdateManyFields<TSchema> & SchemaResultSelection<TSchema, TSelection>
+	TInclude extends SchemaTypeInfoFor<TSchema>['inputs']['include'] | undefined =
+		undefined,
+> = SchemaUpdateManyFields<TSchema> &
+	SchemaResultProjection<TSchema, TSelection, TInclude>
 
 /** @internal Erases literal selection inference only at the execution boundary. */
 export type SchemaUpdateManyExecutionInput<
 	TSchema extends SchemaTypeInfoSource,
 > = SchemaUpdateManyFields<TSchema> &
-	Readonly<{ select?: QuerySelection<TSchema> }>
+	Readonly<{
+		include?: SchemaTypeInfoFor<TSchema>['inputs']['include']
+		select?: QuerySelection<TSchema>
+	}>
 
 interface SchemaDeleteOneFields<TSchema extends SchemaTypeInfoSource> {
 	/** Selects exactly one row by `id`, one unique field, or one complete unique index. */

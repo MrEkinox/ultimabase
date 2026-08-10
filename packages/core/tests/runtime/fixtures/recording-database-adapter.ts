@@ -14,6 +14,7 @@ import type {
 	DatabaseUpdateMaterialization,
 	PreparedDatabaseOperation,
 	PreparedDatabaseOperationExecution,
+	RuntimeEnforcementStages,
 	RuntimePipelineStages,
 } from '../../../src/runtime/index.js'
 import {
@@ -413,6 +414,7 @@ export const createRecordingPipeline = (
 	databaseOperation: DatabaseAdapter,
 	trace: string[],
 	hookStages: RecordingPipelineHookStages = {},
+	enforcement?: RuntimeEnforcementStages,
 ): RuntimePipeline => {
 	const stages: RuntimePipelineStages = {
 		normalization: (input) => input.operation,
@@ -423,6 +425,7 @@ export const createRecordingPipeline = (
 		schemaAfterHooks: (input) => input.result,
 		globalAfterHooks: (input) => input.result,
 		...hookStages,
+		...(enforcement === undefined ? {} : { enforcement }),
 		commit: (input) => {
 			trace.push(`pipeline:commit:${input.operation.kind}`)
 		},

@@ -60,7 +60,9 @@ import { collectQueryRelationPredicates } from '../../query/filters/relation.js'
 import {
 	createQueryAst,
 	type ExecutableOperationAst,
+	type FindManyOperationAst,
 	type GetOperationAst,
+	type QueryMembershipFilterNode,
 } from '../../query/index.js'
 import {
 	readOperationQueries,
@@ -143,6 +145,37 @@ interface RuntimeDatabaseExecution<TOperation extends DatabaseOperationAst> {
 	readonly result: DatabaseOperationResult<TOperation>
 }
 
+/** Carries one common eager projection after every item mutation has finalized. */
+export interface RuntimeMutationBatchProjectionRequest {
+	readonly context: RequestContext
+	readonly objectIds: readonly string[]
+	readonly operation: FindManyOperationAst<SchemaDefinition>
+	readonly results: readonly Readonly<Record<string, unknown>>[]
+}
+
+type RuntimeMutationBatchProjector = (
+	request: RuntimeMutationBatchProjectionRequest,
+) => Promise<readonly Readonly<Record<string, unknown>>[]>
+
+const runtimeMutationBatchProjectors = new WeakMap<
+	RuntimePipeline,
+	RuntimeMutationBatchProjector
+>()
+
+/** Executes one Runtime-owned grouped projection without widening the public class API. */
+export const projectRuntimeMutationBatch = (
+	pipeline: RuntimePipeline,
+	request: RuntimeMutationBatchProjectionRequest,
+): Promise<readonly Readonly<Record<string, unknown>>[]> => {
+	const projector = runtimeMutationBatchProjectors.get(pipeline)
+
+	if (projector === undefined) {
+		throw new TypeError('Runtime mutation batch projector is unavailable')
+	}
+
+	return projector(request)
+}
+
 /** Retains target policy beside one adapter-ready nested read. */
 interface RuntimePreparedInclusion {
 	readonly database: DatabaseInclusionPlan
@@ -185,6 +218,26 @@ const isMutationOperation = (
 		case 'upsert-many':
 		case 'upsert-one':
 			return true
+	}
+}
+
+/** Rejects eager loading unless the adapter implements the complete side channel. */
+const assertDatabaseInclusionCapability = (
+	executor: DatabaseOperationExecutor,
+): void => {
+	const capability: unknown = executor.capabilities?.inclusions
+
+	if (
+		!isPlainRecord(capability) ||
+		capability.kind !== 'inclusions' ||
+		capability.version !== databaseInclusionCapabilityVersion ||
+		typeof executor.readIncludedValue !== 'function'
+	) {
+		throw new FrameworkError(
+			'INTERNAL_ERROR',
+			`Database adapter must implement inclusion capability version ${String(databaseInclusionCapabilityVersion)}.`,
+			{ publicMessage: 'Relationship inclusion is not available.' },
+		)
 	}
 }
 
@@ -403,20 +456,7 @@ const executeDatabaseOperation = async <
 	assertRelationMutationCapability(executor, request.operation)
 
 	if (request.inclusions !== undefined) {
-		const capability: unknown = executor.capabilities?.inclusions
-
-		if (
-			!isPlainRecord(capability) ||
-			capability.kind !== 'inclusions' ||
-			capability.version !== databaseInclusionCapabilityVersion ||
-			typeof executor.readIncludedValue !== 'function'
-		) {
-			throw new FrameworkError(
-				'INTERNAL_ERROR',
-				`Database adapter must implement inclusion capability version ${String(databaseInclusionCapabilityVersion)}.`,
-				{ publicMessage: 'Relationship inclusion is not available.' },
-			)
-		}
+		assertDatabaseInclusionCapability(executor)
 	}
 
 	if (request.relation !== undefined) {
@@ -1072,9 +1112,130 @@ export class RuntimePipeline {
 			...(nativeHooks === undefined ? {} : { nativeHooks }),
 			...(enforcement === undefined ? {} : { enforcement }),
 		})
+		runtimeMutationBatchProjectors.set(this, (request) =>
+			this.#projectMutationBatch(request),
+		)
 
 		// Pipeline configuration cannot change after application initialization.
 		Object.freeze(this)
+	}
+
+	/** Loads all included source values once and restores original batch ordering. */
+	async #projectMutationBatch(
+		request: RuntimeMutationBatchProjectionRequest,
+	): Promise<readonly Readonly<Record<string, unknown>>[]> {
+		if (request.objectIds.length !== request.results.length) {
+			throw new TypeError(
+				'Mutation batch projection identities must match result cardinality',
+			)
+		}
+
+		if (request.objectIds.length === 0) return immutableArray([])
+
+		const expectedIds = new Set<string>()
+
+		for (const id of request.objectIds) {
+			assertNonEmptyString(id, 'Mutation batch projection object id')
+
+			if (expectedIds.has(id)) {
+				throw new TypeError(
+					`Mutation batch contains duplicate object id: ${id}`,
+				)
+			}
+
+			expectedIds.add(id)
+		}
+
+		const expression: QueryMembershipFilterNode<'id', string> = immutableRecord(
+			{
+				field: 'id',
+				kind: 'in',
+				values: immutableArray(request.objectIds),
+			},
+		)
+		const operation: FindManyOperationAst<SchemaDefinition> = immutableRecord({
+			...request.operation,
+			query: immutableRecord({
+				...request.operation.query,
+				limit: undefined,
+				ordering: createQueryAst(request.operation.query.schema.definition)
+					.ordering,
+				pagination: undefined,
+				where: immutableRecord({ expression, kind: 'where' as const }),
+			}),
+		})
+		const inclusions = await this.#prepareInclusions(request.context, operation)
+
+		if (inclusions.length === 0) return immutableArray(request.results)
+
+		assertDatabaseInclusionCapability(this.#stages.databaseOperation)
+		const rawResult: unknown = await this.#stages.databaseOperation.execute(
+			immutableRecord({
+				constraints: emptyConstraints,
+				inclusions: immutableArray(inclusions.map(({ database }) => database)),
+				operation,
+			}),
+		)
+
+		if (!isUnknownArray(rawResult)) {
+			throw new TypeError('Mutation batch projection must return an array')
+		}
+
+		const sources = new Map<string, Readonly<Record<string, unknown>>>()
+
+		for (const candidate of rawResult) {
+			if (!isPlainRecord(candidate)) {
+				throw new TypeError('Mutation batch projection must return records')
+			}
+
+			const identity =
+				this.#stages.databaseOperation.readObjectIdentity?.(candidate) ??
+				candidate.id
+
+			assertNonEmptyString(identity, 'Mutation batch projected object id')
+
+			if (!expectedIds.has(identity)) {
+				throw new TypeError(
+					`Mutation batch projected an unknown object id: ${identity}`,
+				)
+			}
+
+			if (sources.has(identity)) {
+				throw new TypeError(
+					`Mutation batch projected duplicate object id: ${identity}`,
+				)
+			}
+
+			sources.set(identity, candidate)
+		}
+
+		if (sources.size !== expectedIds.size) {
+			throw new TypeError(
+				'Mutation batch projection omitted a persisted object',
+			)
+		}
+
+		return immutableArray(
+			await Promise.all(
+				request.results.map((result, index) => {
+					const id = request.objectIds[index]
+					const source = id === undefined ? undefined : sources.get(id)
+
+					if (source === undefined) {
+						throw new TypeError(
+							'Mutation batch projection could not restore result order',
+						)
+					}
+
+					return this.#hydrateIncludedRecord(
+						request.context,
+						result,
+						source,
+						inclusions,
+					)
+				}),
+			),
+		)
 	}
 
 	/**

@@ -564,12 +564,14 @@ projectedUpdate.then((article) => {
   void title
   void authorName
 })
-SemanticArticle./* public-create-many-hover */createMany({
+const projectedCreates = SemanticArticle./* public-create-many-hover */createMany({
   data: [{
     author: SemanticAuthor.pointer('author-1'),
     status: 'draft',
     title: 'Created',
   }],
+  select: { title: true },
+  include: { author: { select: { name: true } } },
 })
 SemanticArticle./* public-find-one-hover */findOne({
   where: { status: { eq: 'draft' } },
@@ -578,11 +580,32 @@ SemanticArticle./* public-get-hover */get({ id: 'article-1' })
 SemanticArticle./* public-exists-hover */exists({
   where: { status: { eq: 'draft' } },
 })
-SemanticArticle./* public-update-many-hover */updateMany({
+const projectedUpdates = SemanticArticle./* public-update-many-hover */updateMany({
   data: [{
     where: { id: { eq: 'article-1' } },
     data: { status: 'published' },
   }],
+  include: { author: { select: { name: true } } },
+})
+projectedCreates.then((articles) => {
+  const article = articles[0]
+  if (article === undefined || article.author === null) return
+  const title: string = article.title
+  const authorName: string = article.author.name
+  // @ts-expect-error -- Common collection selection excludes other scalars.
+  article.status
+  void title
+  void authorName
+})
+projectedUpdates.then((articles) => {
+  const article = articles[0]
+  if (article === undefined || article.author === null) return
+  const id: string = article.id
+  const authorName: string = article.author.name
+  // @ts-expect-error -- updateMany still defaults its scalar projection to id.
+  article.title
+  void id
+  void authorName
 })
 SemanticArticle./* public-upsert-one-hover */upsertOne({
   where: { id: { eq: 'article-1' } },

@@ -5,7 +5,7 @@ import type { SchemaDefinition } from '../../schema/index.js'
 import type { QueryFilterExpression } from '../filters/logical.js'
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 
-import type { OperationAstNode } from './contracts.js'
+import type { FindManyOperationAst, OperationAstNode } from './contracts.js'
 import type { OperationOptions } from './options.js'
 import type { OperationResult } from './results.js'
 
@@ -38,6 +38,11 @@ export interface OperationBatchEntry<
 	readonly operation: TOperation
 	/** Requires the directed mutation target to exist before the batch may commit. */
 	readonly requireResult?: true
+}
+
+/** @internal Carries one result projection shared by every item in an atomic batch. */
+export interface OperationBatchProjection {
+	readonly operation: FindManyOperationAst<SchemaDefinition>
 }
 
 /** @internal Carries one protected object predicate outside the transformable QueryBuilder AST. */
@@ -74,6 +79,7 @@ export type OperationExecutionHandler = (
 export type OperationBatchExecutionHandler = (
 	entries: readonly OperationBatchEntry[],
 	options: NormalizedOperationOptions,
+	projection: OperationBatchProjection | undefined,
 ) => Promise<readonly unknown[]>
 
 /** Lets Runtime add one revocable boundary without exposing hook internals here. */
@@ -236,6 +242,7 @@ const dispatchOperationBatch = (
 	executor: QueryExecutionDispatcher,
 	entries: readonly OperationBatchEntry[],
 	options: NormalizedOperationOptions,
+	projection: OperationBatchProjection | undefined,
 ): Promise<readonly unknown[]> => {
 	const handler = operationBatchExecutionHandlers.get(executor)
 
@@ -250,7 +257,7 @@ const dispatchOperationBatch = (
 		)
 	}
 
-	return handler(entries, options)
+	return handler(entries, options, projection)
 }
 
 /** Runs ordinary terminals through one exact request engine in this async branch. */
@@ -293,10 +300,17 @@ export const runWithQueryExecutionGuard = <TResult>(
 			dispatchOperation(requireParent().executor, operation, options, scope),
 		),
 	)
-	registerOperationBatchExecutionHandler(executor, (entries, options) =>
-		guard.run(() =>
-			dispatchOperationBatch(requireParent().executor, entries, options),
-		),
+	registerOperationBatchExecutionHandler(
+		executor,
+		(entries, options, projection) =>
+			guard.run(() =>
+				dispatchOperationBatch(
+					requireParent().executor,
+					entries,
+					options,
+					projection,
+				),
+			),
 	)
 
 	return activeQueryExecution.run(
@@ -311,6 +325,7 @@ export const executeOperationBatch = <
 >(
 	entries: readonly OperationBatchEntry<TOperation>[],
 	options: NormalizedOperationOptions,
+	projection?: OperationBatchProjection,
 ): Promise<readonly OperationResult<TOperation>[]> => {
 	const active: ActiveQueryExecution | undefined =
 		activeQueryExecution.getStore()
@@ -335,9 +350,12 @@ export const executeOperationBatch = <
 			)
 		}
 
-		return dispatchOperationBatch(active.executor, entries, options) as Promise<
-			readonly OperationResult<TOperation>[]
-		>
+		return dispatchOperationBatch(
+			active.executor,
+			entries,
+			options,
+			projection,
+		) as Promise<readonly OperationResult<TOperation>[]>
 	}
 
 	if (registration === undefined) {
@@ -353,9 +371,12 @@ export const executeOperationBatch = <
 
 	const executor = registration.createRootExecutor()
 
-	return dispatchOperationBatch(executor, entries, options) as Promise<
-		readonly OperationResult<TOperation>[]
-	>
+	return dispatchOperationBatch(
+		executor,
+		entries,
+		options,
+		projection,
+	) as Promise<readonly OperationResult<TOperation>[]>
 }
 
 /** Resolves one terminal at call time without retaining execution in its QueryBuilder AST. */

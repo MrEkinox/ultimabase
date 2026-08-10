@@ -61,7 +61,8 @@ type SchemaMutationResult<
 	TSchema,
 	Extract<
 		[TSelection] extends [undefined]
-			? TDefaultField
+			? | TDefaultField
+				| Extract<keyof NonNullable<TInclude>, QueryFieldName<TContract>>
 			: QuerySelectedFieldFromInput<
 					TContract,
 					SchemaProjection<TSelection, TInclude>
@@ -88,10 +89,14 @@ export interface SchemaAPI<TContract extends SchemaTypeInfo>
 	/** Creates ordered rows and returns their requested projections. */
 	createMany<
 		const TSelection extends QuerySelection<TContract> | undefined = undefined,
+		const TInclude extends TContract['inputs']['include'] | undefined =
+			undefined,
 	>(
-		input: SchemaCreateManyInput<TContract, TSelection>,
+		input: SchemaCreateManyInput<TContract, TSelection, TInclude>,
 		options?: OperationOptions,
-	): Promise<readonly SchemaMutationResult<TContract, this, TSelection>[]>
+	): Promise<
+		readonly SchemaMutationResult<TContract, this, TSelection, TInclude>[]
+	>
 
 	/** Creates one row and returns its requested projection. */
 	createOne<
@@ -186,15 +191,17 @@ export interface SchemaAPI<TContract extends SchemaTypeInfo>
 	/** Updates ordered unique targets and returns `id` unless explicitly projected. */
 	updateMany<
 		const TSelection extends QuerySelection<TContract> | undefined = undefined,
+		const TInclude extends TContract['inputs']['include'] | undefined =
+			undefined,
 	>(
-		input: SchemaUpdateManyInput<TContract, TSelection>,
+		input: SchemaUpdateManyInput<TContract, TSelection, TInclude>,
 		options?: OperationOptions,
 	): Promise<
 		readonly SchemaMutationResult<
 			TContract,
 			this,
 			TSelection,
-			undefined,
+			TInclude,
 			Extract<'id', QueryFieldName<TContract>>
 		>[]
 	>

@@ -18,6 +18,7 @@ import {
 	registerOperationExecutionHandler,
 	type NormalizedOperationOptions,
 	type OperationBatchEntry,
+	type OperationBatchProjection,
 	type OperationPrivateScope,
 } from '../../query/operations/execution.js'
 import { Schema, type SchemaDefinition } from '../../schema/index.js'
@@ -47,8 +48,12 @@ import {
 } from '../master/master-authority.js'
 import { getOperationSchema } from '../operations/schema.js'
 import { materializeOperationResult } from '../operations/materialize-result.js'
+import { readRuntimeSchemaModelMetadata } from '../operations/model-metadata.js'
 import type { RuntimeOperationResult } from '../pipeline/contracts.js'
-import { RuntimePipeline } from '../pipeline/runtime-pipeline.js'
+import {
+	projectRuntimeMutationBatch,
+	RuntimePipeline,
+} from '../pipeline/runtime-pipeline.js'
 import { runRequestTransaction } from '../transactions/run-transaction.js'
 import { requiresAutomaticMutationTransaction } from '../transactions/automatic-mutation.js'
 import {
@@ -100,6 +105,12 @@ export interface FrameworkEngineOptions<
 	readonly application: FrameworkApplication<TSchemas, TPlugins>
 	readonly masterAuthority?: MasterAuthority
 	readonly pipeline: RuntimePipeline
+}
+
+/** Retains the effective authority beside one unmaterialized terminal result. */
+interface RuntimeTerminalExecution {
+	readonly context: RequestContext
+	readonly result: unknown
 }
 
 const frameworkMasterAuthorities = new WeakMap<
@@ -320,8 +331,10 @@ export class RequestEngine<
 		registerOperationExecutionHandler(this, (operation, options, scope) =>
 			this.#executeTerminal(operation, options, scope),
 		)
-		registerOperationBatchExecutionHandler(this, (entries, options) =>
-			this.#executeTerminalBatch(entries, options),
+		registerOperationBatchExecutionHandler(
+			this,
+			(entries, options, projection) =>
+				this.#executeTerminalBatch(entries, options, projection),
 		)
 
 		// A request engine cannot change application or authority after binding.
@@ -332,6 +345,7 @@ export class RequestEngine<
 	async #executeTerminalBatch(
 		entries: readonly OperationBatchEntry[],
 		options: NormalizedOperationOptions,
+		projection: OperationBatchProjection | undefined,
 	): Promise<readonly unknown[]> {
 		if (entries.length === 0) {
 			return immutableArray([])
@@ -341,22 +355,113 @@ export class RequestEngine<
 			engine: RequestEngine,
 		): Promise<readonly unknown[]> => {
 			const results: unknown[] = []
+			const objectIds: string[] = []
+			let projectionContext: RequestContext | undefined
 
 			for (const entry of entries) {
-				const result = await engine.#executeTerminal(
-					entry.operation,
-					options,
-					undefined,
-				)
+				let result: unknown
+
+				if (projection === undefined) {
+					result = await engine.#executeTerminal(
+						entry.operation,
+						options,
+						undefined,
+					)
+				} else {
+					const execution = await engine.#executeTerminal(
+						entry.operation,
+						options,
+						undefined,
+						true,
+					)
+
+					result = execution.result
+					projectionContext = execution.context
+				}
 
 				if (entry.requireResult === true && result === null) {
 					throw createProtectedObjectNotFoundError()
 				}
 
 				results.push(result)
+
+				if (projection !== undefined) {
+					if (!isPlainRecord(result)) {
+						throw new TypeError(
+							'Mutation batch projection requires record results',
+						)
+					}
+
+					const identity = readRuntimeSchemaModelMetadata(result)?.objectId
+
+					if (typeof identity !== 'string') {
+						throw new TypeError(
+							'Mutation batch result is missing its persisted object id',
+						)
+					}
+
+					objectIds.push(identity)
+				}
 			}
 
-			return immutableArray(results)
+			if (projection === undefined) return immutableArray(results)
+			if (projectionContext === undefined) {
+				throw new TypeError(
+					'Mutation batch projection is missing its effective request context',
+				)
+			}
+
+			const records = immutableArray(
+				results.map((result) => {
+					if (!isPlainRecord(result)) {
+						throw new TypeError(
+							'Mutation batch projection requires record results',
+						)
+					}
+
+					return result
+				}),
+			)
+			const projected = await projectRuntimeMutationBatch(engine.#pipeline, {
+				context: projectionContext,
+				objectIds: immutableArray(objectIds),
+				operation: projection.operation,
+				results: records,
+			})
+
+			return immutableArray(
+				projected.map((result, index) => {
+					const entry = entries[index]
+
+					if (entry === undefined) {
+						throw new TypeError(
+							'Mutation batch projection lost its operation entry',
+						)
+					}
+
+					const operation = entry.operation as ExecutableOperationAst
+					const projectedOperation: ExecutableOperationAst =
+						operation.kind === 'create-one'
+							? immutableRecord({
+									...operation,
+									inclusion: projection.operation.query.inclusion,
+								})
+							: operation.kind === 'update-one'
+								? immutableRecord({
+										...operation,
+										query: immutableRecord({
+											...operation.query,
+											inclusion: projection.operation.query.inclusion,
+										}),
+									})
+								: operation
+
+					return materializeOperationResult(
+						projectedOperation,
+						result as RuntimeOperationResult<typeof projectedOperation>,
+					)
+				}),
+			)
 		}
 
 		if (this.#transactionLifetime !== undefined) {
@@ -371,6 +476,19 @@ export class RequestEngine<
 		operation: unknown,
 		options: NormalizedOperationOptions,
 		scope: OperationPrivateScope | undefined,
+		returnRuntimeResult: true,
+	): Promise<RuntimeTerminalExecution>
+	async #executeTerminal(
+		operation: unknown,
+		options: NormalizedOperationOptions,
+		scope: OperationPrivateScope | undefined,
+		returnRuntimeResult?: undefined,
+	): Promise<unknown>
+	async #executeTerminal(
+		operation: unknown,
+		options: NormalizedOperationOptions,
+		scope: OperationPrivateScope | undefined,
+		returnRuntimeResult?: true,
 	): Promise<unknown> {
 		const normalizedOperation = operation as ExecutableOperationAst<
 			TSchemas[number]
@@ -436,13 +554,31 @@ export class RequestEngine<
 					)
 
 		// Structural normalization guarantees an executable operation for this schema.
-		return engine.#executeOperation(
-			normalizedOperation,
-			scope?.kind === 'row-filter' ? scope.rowFilter : undefined,
+		const rowFilter = scope?.kind === 'row-filter' ? scope.rowFilter : undefined
+		const deniedAsMissing =
 			scope?.kind === 'row-filter'
 				? scope.nativeAccessDeniedAsMissing
-				: undefined,
-			scope?.kind === 'row-filter' ? scope.objectId : undefined,
+				: undefined
+		const objectId = scope?.kind === 'row-filter' ? scope.objectId : undefined
+
+		if (returnRuntimeResult === true) {
+			return immutableRecord({
+				context: engine.context,
+				result: await engine.#executeRuntimeOperation(
+					normalizedOperation,
+					rowFilter,
+					deniedAsMissing,
+					objectId,
+					relationScope,
+				),
+			})
+		}
+
+		return engine.#executeOperation(
+			normalizedOperation,
+			rowFilter,
+			deniedAsMissing,
+			objectId,
 			relationScope,
 		)
 	}
@@ -468,6 +604,27 @@ export class RequestEngine<
 		privateObjectId?: string,
 		relationScope?: DatabaseRelationScope,
 	): Promise<OperationResult<TOperation>> {
+		const result = await this.#executeRuntimeOperation(
+			operation,
+			rowFilter,
+			nativeAccessDeniedAsMissing,
+			privateObjectId,
+			relationScope,
+		)
+
+		return materializeOperationResult(operation, result)
+	}
+
+	/** Runs one complete lifecycle while retaining its unmaterialized Runtime result. */
+	async #executeRuntimeOperation<
+		const TOperation extends ExecutableOperationAst<TSchemas[number]>,
+	>(
+		operation: TOperation,
+		rowFilter?: DatabaseRowFilterNode,
+		nativeAccessDeniedAsMissing?: true,
+		privateObjectId?: string,
+		relationScope?: DatabaseRelationScope,
+	): Promise<RuntimeOperationResult<TOperation>> {
 		this.framework.assertOwnsSchema(getOperationSchema(operation))
 		throwIfOperationCancelled(this.context.signal, {
 			operationKind: operation.kind,
@@ -480,10 +637,10 @@ export class RequestEngine<
 		) {
 			// Every root mutation reuses the exact public transaction lifecycle.
 			return this.transaction(async (transaction) => {
-				let result: OperationResult<TOperation>
+				let result: RuntimeOperationResult<TOperation>
 
 				try {
-					result = await transaction.#executeOperation(
+					result = await transaction.#executeRuntimeOperation(
 						operation,
 						rowFilter,
 						nativeAccessDeniedAsMissing,
@@ -573,7 +730,7 @@ export class RequestEngine<
 			throw error
 		}
 
-		return materializeOperationResult(operation, result)
+		return result
 	}
 
 	/** Produces an audited master engine from an authority-owned opaque grant. */
