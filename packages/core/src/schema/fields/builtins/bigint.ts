@@ -1,4 +1,11 @@
-import { assertFieldOptions, normalizeFieldOptions } from '../base/options.js'
+import {
+	assertFieldOptions,
+	fieldOptionKeys,
+	fieldValidationOptionKeys,
+	normalizeFieldOptions,
+	orderedRangeOptionKeys,
+	type BuiltInFieldOptionsContract,
+} from '../base/options.js'
 import type {
 	FieldDefinition,
 	FieldTypegenState,
@@ -54,6 +61,13 @@ export interface BigintFieldOptions extends FieldOptions<
 export type BigintField<
 	TTypegen extends FieldTypegenState = FieldTypegenState,
 > = FieldDefinition<'bigint', bigint, BigintFieldOptions, TTypegen>
+
+const bigintFieldOptionsContract: BuiltInFieldOptionsContract = {
+	kind: 'bigint',
+	optionKeys: [...fieldOptionKeys, 'autoIncrement'],
+	validationOptionKeys: [...fieldValidationOptionKeys, 'range'],
+	nestedValidation: [{ key: 'range', optionKeys: orderedRangeOptionKeys }],
+}
 
 /** Provides bigint-specific names for compact sequence inference. */
 type DefaultedBigintFieldOptions<
@@ -171,6 +185,7 @@ const normalizeBigintFieldOptions = <const TOptions extends BigintFieldOptions>(
 		options,
 		normalizeBigintValidation,
 		normalizeBigintValue,
+		bigintFieldOptionsContract,
 	)
 }
 

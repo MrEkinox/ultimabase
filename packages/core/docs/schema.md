@@ -563,6 +563,12 @@ the public declarations readable and make future documentation local to the
 property it describes. Inline options remain contextually typed through one
 exact-options generic, so editors suggest the complete option set while
 TypeScript preserves literal values and nested object-field inference.
+Built-in factories also validate JavaScript-shaped declarations against an
+explicit option contract for their exact kind. Unknown root and nested
+validation keys fail with the kind and complete option path before metadata is
+snapshotted. The shared Core normalizer deliberately does not impose these
+built-in allowlists on `definePluginField()`: plugin-owned option and validation
+keys remain the responsibility of the plugin normalizer.
 Dependent rules such as `autoNow` with a default or list are checked outside
 the contextual option object. Hover information
 documents every built-in factory and option with a focused declaration example.

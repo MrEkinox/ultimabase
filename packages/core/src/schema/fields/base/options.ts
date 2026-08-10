@@ -25,6 +25,100 @@ export const emptyFieldOptions: EmptyFieldOptions = immutableRecord({})
 
 type NormalizeStaticValue = (value: unknown, path: string) => unknown
 
+/** Lists the portable metadata keys shared by fields without a default contract. */
+export const fieldOptionsBaseKeys: readonly string[] = [
+	'description',
+	'extensions',
+	'immutable',
+	'indexed',
+	'list',
+	'validation',
+]
+
+/** Lists the portable metadata keys shared by regular value fields. */
+export const fieldOptionKeys: readonly string[] = [
+	...fieldOptionsBaseKeys,
+	'default',
+]
+
+/** Lists the presence key shared by every built-in validation contract. */
+export const fieldValidationOptionKeys: readonly string[] = ['required']
+
+/** Lists the boundaries shared by ordered length, value, and temporal ranges. */
+export const orderedRangeOptionKeys: readonly string[] = ['max', 'min']
+
+/** Describes one nested record owned by a built-in validation contract. */
+export interface BuiltInNestedValidationOptionsContract {
+	readonly key: string
+	readonly optionKeys: readonly string[]
+}
+
+/** Describes every metadata key owned by one built-in field kind. */
+export interface BuiltInFieldOptionsContract {
+	readonly kind: string
+	readonly optionKeys: readonly string[]
+	readonly validationOptionKeys: readonly string[]
+	readonly nestedValidation?: readonly BuiltInNestedValidationOptionsContract[]
+}
+
+const formatOptionPath = (parent: string, key: PropertyKey): string => {
+	const segment = String(key)
+
+	return parent === '' ? segment : `${parent}.${segment}`
+}
+
+const assertKnownOptionKeys = (
+	value: Readonly<Record<string, unknown>>,
+	allowedKeys: readonly string[],
+	kind: string,
+	path: string,
+): void => {
+	for (const key of Reflect.ownKeys(value)) {
+		if (typeof key !== 'string' || !allowedKeys.includes(key)) {
+			throw new TypeError(
+				`Unknown ${kind} field option: ${formatOptionPath(path, key)}`,
+			)
+		}
+	}
+}
+
+/** Rejects metadata that no built-in field normalizer owns. */
+export const assertBuiltInFieldOptions = (
+	options: Readonly<Record<string, unknown>>,
+	contract: BuiltInFieldOptionsContract,
+): void => {
+	assertKnownOptionKeys(options, contract.optionKeys, contract.kind, '')
+
+	if (!isPlainRecord(options.validation)) {
+		return
+	}
+
+	// Nullability is an intentionally rejected legacy key, not an accidental typo.
+	if (Object.hasOwn(options.validation, 'nullable')) {
+		throw new TypeError('validation.nullable is not supported')
+	}
+
+	assertKnownOptionKeys(
+		options.validation,
+		contract.validationOptionKeys,
+		contract.kind,
+		'validation',
+	)
+
+	for (const nested of contract.nestedValidation ?? []) {
+		const value = options.validation[nested.key]
+
+		if (isPlainRecord(value)) {
+			assertKnownOptionKeys(
+				value,
+				nested.optionKeys,
+				contract.kind,
+				`validation.${nested.key}`,
+			)
+		}
+	}
+}
+
 /** Ensures field factories and community plugins can safely read options. */
 export function assertFieldOptions(
 	options: unknown,
@@ -173,8 +267,13 @@ export const normalizeFieldOptions = <
 	options: TOptions,
 	normalizeValidation: (validation: TValidation) => Readonly<TValidation>,
 	normalizeStaticValue: NormalizeStaticValue,
+	builtInContract?: BuiltInFieldOptionsContract,
 ): Readonly<TOptions> => {
 	assertFieldOptions(options)
+
+	if (builtInContract !== undefined) {
+		assertBuiltInFieldOptions(options, builtInContract)
+	}
 
 	assertCommonFieldMetadata(options)
 

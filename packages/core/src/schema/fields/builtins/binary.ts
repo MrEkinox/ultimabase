@@ -1,4 +1,10 @@
-import { normalizeFieldOptions } from '../base/options.js'
+import {
+	fieldOptionKeys,
+	fieldValidationOptionKeys,
+	normalizeFieldOptions,
+	orderedRangeOptionKeys,
+	type BuiltInFieldOptionsContract,
+} from '../base/options.js'
 import type {
 	FieldDefinition,
 	FieldTypegenState,
@@ -41,6 +47,13 @@ export type BinaryFieldOptions = FieldOptions<
 export type BinaryField<
 	TTypegen extends FieldTypegenState = FieldTypegenState,
 > = FieldDefinition<'binary', Uint8Array, BinaryFieldOptions, TTypegen>
+
+const binaryFieldOptionsContract: BuiltInFieldOptionsContract = {
+	kind: 'binary',
+	optionKeys: fieldOptionKeys,
+	validationOptionKeys: [...fieldValidationOptionKeys, 'length'],
+	nestedValidation: [{ key: 'length', optionKeys: orderedRangeOptionKeys }],
+}
 
 /** Provides binary-specific names for the shared compact scalar contract. */
 type DefaultedBinaryFieldOptions<
@@ -129,7 +142,12 @@ export const snapshotBinaryValue = (
 const normalizeBinaryFieldOptions = <const TOptions extends BinaryFieldOptions>(
 	options: TOptions,
 ): Readonly<TOptions> =>
-	normalizeFieldOptions(options, normalizeLengthValidation, snapshotBinaryValue)
+	normalizeFieldOptions(
+		options,
+		normalizeLengthValidation,
+		snapshotBinaryValue,
+		binaryFieldOptionsContract,
+	)
 
 /**
  * Declares native binary data as a `Uint8Array`; adapters choose its transport and storage encoding.

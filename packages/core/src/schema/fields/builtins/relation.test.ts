@@ -113,7 +113,7 @@ describe('relationField', () => {
 	])('rejects unsupported %s metadata', (key, options) => {
 		expect(() => {
 			relationField(options)
-		}).toThrow(new TypeError(`relationField does not support ${key}`))
+		}).toThrow(new TypeError(`Unknown relation field option: ${key}`))
 	})
 
 	it('rejects missing and incompatible inverse mappings', () => {

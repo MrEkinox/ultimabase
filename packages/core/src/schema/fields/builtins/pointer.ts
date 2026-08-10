@@ -27,8 +27,11 @@ import type {
 import { createFieldDefinition } from '../base/definition.js'
 import {
 	assertFieldOptions,
+	fieldOptionsBaseKeys,
+	fieldValidationOptionKeys,
 	normalizeFieldOptions,
 	normalizeFlatValidation,
+	type BuiltInFieldOptionsContract,
 } from '../base/options.js'
 
 /** Defines portable behavior when a referenced target object is deleted. */
@@ -78,6 +81,12 @@ export type PointerField<
 	PointerFieldMetadataOptions,
 	TTypegen
 >
+
+const pointerFieldOptionsContract: BuiltInFieldOptionsContract = {
+	kind: 'pointer',
+	optionKeys: [...fieldOptionsBaseKeys, 'onDelete'],
+	validationOptionKeys: fieldValidationOptionKeys,
+}
 
 /** Selects only top-level pointer fields declared by one exact schema. */
 export type SchemaPointerFieldName<TSchema extends SchemaTypeInfoSource> =
@@ -259,6 +268,7 @@ const normalizePointerMetadata = (
 		options,
 		normalizeFlatValidation,
 		snapshotPointerValue,
+		pointerFieldOptionsContract,
 	)
 
 	return immutableRecord({ ...normalized, onDelete })

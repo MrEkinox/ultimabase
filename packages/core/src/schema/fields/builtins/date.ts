@@ -1,4 +1,10 @@
-import { normalizeFieldOptions } from '../base/options.js'
+import {
+	fieldOptionKeys,
+	fieldValidationOptionKeys,
+	normalizeFieldOptions,
+	orderedRangeOptionKeys,
+	type BuiltInFieldOptionsContract,
+} from '../base/options.js'
 import type {
 	FieldDefinition,
 	FieldTypegenState,
@@ -42,6 +48,13 @@ export type DateFieldOptions = TemporalFieldOptions
  */
 export type DateField<TTypegen extends FieldTypegenState = FieldTypegenState> =
 	FieldDefinition<'date', string, DateFieldOptions, TTypegen>
+
+const dateFieldOptionsContract: BuiltInFieldOptionsContract = {
+	kind: 'date',
+	optionKeys: [...fieldOptionKeys, 'autoNow'],
+	validationOptionKeys: [...fieldValidationOptionKeys, 'range'],
+	nestedValidation: [{ key: 'range', optionKeys: orderedRangeOptionKeys }],
+}
 
 /** Provides date-specific names for compact auto-now inference. */
 type DefaultedDateFieldOptions<
@@ -173,6 +186,7 @@ const normalizeDateFieldOptions = <const TOptions extends DateFieldOptions>(
 		options,
 		normalizeDateValidation,
 		normalizeCalendarDate,
+		dateFieldOptionsContract,
 	)
 }
 

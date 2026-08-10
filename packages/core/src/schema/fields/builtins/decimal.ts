@@ -1,6 +1,12 @@
 import { immutableRecord } from '@ultimabase/shared'
 
-import { normalizeFieldOptions } from '../base/options.js'
+import {
+	fieldOptionKeys,
+	fieldValidationOptionKeys,
+	normalizeFieldOptions,
+	orderedRangeOptionKeys,
+	type BuiltInFieldOptionsContract,
+} from '../base/options.js'
 import type {
 	FieldDefinition,
 	FieldTypegenState,
@@ -59,6 +65,18 @@ export type DecimalFieldOptions = FieldOptions<string, DecimalValidationOptions>
 export type DecimalField<
 	TTypegen extends FieldTypegenState = FieldTypegenState,
 > = FieldDefinition<'decimal', string, DecimalFieldOptions, TTypegen>
+
+const decimalFieldOptionsContract: BuiltInFieldOptionsContract = {
+	kind: 'decimal',
+	optionKeys: fieldOptionKeys,
+	validationOptionKeys: [
+		...fieldValidationOptionKeys,
+		'precision',
+		'range',
+		'scale',
+	],
+	nestedValidation: [{ key: 'range', optionKeys: orderedRangeOptionKeys }],
+}
 
 /** Keeps the defaulted decimal input readable in editor signatures. */
 type DefaultedDecimalFieldOptions<
@@ -275,6 +293,7 @@ const normalizeDecimalFieldOptions = <
 		options,
 		normalizeDecimalValidation,
 		normalizeDecimalValue,
+		decimalFieldOptionsContract,
 	)
 
 /**

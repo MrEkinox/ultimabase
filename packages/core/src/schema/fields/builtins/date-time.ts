@@ -5,6 +5,12 @@ import type {
 	InvalidOptionsArguments,
 } from '../base/contract.js'
 import {
+	fieldOptionKeys,
+	fieldValidationOptionKeys,
+	orderedRangeOptionKeys,
+	type BuiltInFieldOptionsContract,
+} from '../base/options.js'
+import {
 	type CompactScalarFieldDefinition,
 	type CompatibleGeneratedScalarOptions,
 	createConfiguredGeneratedCompactScalarFieldFactory,
@@ -41,6 +47,13 @@ export type DateTimeFieldOptions = TimezoneTemporalFieldOptions
 export type DateTimeField<
 	TTypegen extends FieldTypegenState = FieldTypegenState,
 > = FieldDefinition<'dateTime', string, DateTimeFieldOptions, TTypegen>
+
+const dateTimeFieldOptionsContract: BuiltInFieldOptionsContract = {
+	kind: 'dateTime',
+	optionKeys: [...fieldOptionKeys, 'autoNow', 'timezone'],
+	validationOptionKeys: [...fieldValidationOptionKeys, 'range'],
+	nestedValidation: [{ key: 'range', optionKeys: orderedRangeOptionKeys }],
+}
 
 /** Provides date-time-specific names for compact auto-now inference. */
 type DefaultedDateTimeFieldOptions<
@@ -191,6 +204,7 @@ export const compareZonedDateTimeValues: TemporalValueComparator = (
 
 const resolveDateTimeFieldConfiguration =
 	createTemporalFieldConfigurationResolver<DateTimeFieldOptions>(
+		dateTimeFieldOptionsContract,
 		true,
 		createDateTimeNormalizer,
 		compareZonedDateTimeValues,

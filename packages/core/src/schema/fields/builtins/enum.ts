@@ -9,8 +9,11 @@ import { createFieldDefinition } from '../base/definition.js'
 import {
 	assertFieldOptions,
 	assertValidTypeName,
+	fieldOptionKeys,
+	fieldValidationOptionKeys,
 	normalizeFieldOptions,
 	normalizeFlatValidation,
+	type BuiltInFieldOptionsContract,
 } from '../base/options.js'
 import type {
 	FieldDefinition,
@@ -71,6 +74,12 @@ export type EnumField<
 	EnumFieldOptions<TValues>,
 	TTypegen
 >
+
+const enumFieldOptionsContract: BuiltInFieldOptionsContract = {
+	kind: 'enum',
+	optionKeys: [...fieldOptionKeys, 'typeName', 'values'],
+	validationOptionKeys: fieldValidationOptionKeys,
+}
 
 type NonEmptyMapping<TValues extends EnumValues> =
 	TValues extends readonly string[]
@@ -266,6 +275,7 @@ const normalizeEnumFieldOptions = (
 		options,
 		normalizeFlatValidation,
 		(value, path) => snapshotEnumValue(enumSource.values, value, path),
+		enumFieldOptionsContract,
 	)
 
 	return immutableRecord({

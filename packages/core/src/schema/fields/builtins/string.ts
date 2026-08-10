@@ -1,6 +1,12 @@
 import { immutableRecord } from '@ultimabase/shared'
 
-import { normalizeFieldOptions } from '../base/options.js'
+import {
+	fieldOptionKeys,
+	fieldValidationOptionKeys,
+	normalizeFieldOptions,
+	orderedRangeOptionKeys,
+	type BuiltInFieldOptionsContract,
+} from '../base/options.js'
 import type {
 	FieldDefinition,
 	FieldTypegenState,
@@ -48,6 +54,13 @@ export type StringFieldOptions = FieldOptions<string, StringValidationOptions>
 export type StringField<
 	TTypegen extends FieldTypegenState = FieldTypegenState,
 > = FieldDefinition<'string', string, StringFieldOptions, TTypegen>
+
+const stringFieldOptionsContract: BuiltInFieldOptionsContract = {
+	kind: 'string',
+	optionKeys: fieldOptionKeys,
+	validationOptionKeys: [...fieldValidationOptionKeys, 'length', 'match'],
+	nestedValidation: [{ key: 'length', optionKeys: orderedRangeOptionKeys }],
+}
 
 /** Provides string-specific names for the shared compact scalar contract. */
 type DefaultedStringFieldOptions<
@@ -147,6 +160,7 @@ const normalizeStringFieldOptions = <const TOptions extends StringFieldOptions>(
 		options,
 		normalizeStringValidation,
 		normalizeStringValue,
+		stringFieldOptionsContract,
 	)
 
 /**

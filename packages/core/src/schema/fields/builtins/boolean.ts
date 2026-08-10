@@ -1,6 +1,9 @@
 import {
+	fieldOptionKeys,
+	fieldValidationOptionKeys,
 	normalizeFieldOptions,
 	normalizeFlatValidation,
+	type BuiltInFieldOptionsContract,
 } from '../base/options.js'
 import type {
 	FieldDefinition,
@@ -33,6 +36,12 @@ export type BooleanFieldOptions = FieldOptions<boolean>
 export type BooleanField<
 	TTypegen extends FieldTypegenState = FieldTypegenState,
 > = FieldDefinition<'boolean', boolean, BooleanFieldOptions, TTypegen>
+
+const booleanFieldOptionsContract: BuiltInFieldOptionsContract = {
+	kind: 'boolean',
+	optionKeys: fieldOptionKeys,
+	validationOptionKeys: fieldValidationOptionKeys,
+}
 
 /** Provides boolean-specific names for the shared compact scalar contract. */
 type DefaultedBooleanFieldOptions<
@@ -108,7 +117,12 @@ const normalizeBooleanFieldOptions = <
 >(
 	options: TOptions,
 ): Readonly<TOptions> =>
-	normalizeFieldOptions(options, normalizeFlatValidation, normalizeBooleanValue)
+	normalizeFieldOptions(
+		options,
+		normalizeFlatValidation,
+		normalizeBooleanValue,
+		booleanFieldOptionsContract,
+	)
 
 /**
  * Declares a `true` or `false` value.

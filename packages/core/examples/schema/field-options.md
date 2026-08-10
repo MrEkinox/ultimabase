@@ -72,3 +72,11 @@ accepts `null` at its root.
 `decimalField` uses strings to preserve exact base-10 values. Temporal fields
 also use explicit strings: `dateField` stores a calendar day, `timeField` a
 time of day, and `dateTimeField` a complete date and time.
+
+Built-in factories protect JavaScript and dynamically assembled declarations
+with the same exact option contracts exposed to TypeScript. Unknown root and
+nested validation keys report the field kind and complete path. For example,
+`stringField({ validation: { requred: true } })` throws
+`Unknown string field option: validation.requred` instead of retaining the
+misspelled metadata. Plugin fields retain their own option contracts and
+normalizers; Core does not apply a built-in allowlist to plugin-owned keys.

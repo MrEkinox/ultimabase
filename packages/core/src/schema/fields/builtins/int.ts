@@ -1,4 +1,11 @@
-import { assertFieldOptions, normalizeFieldOptions } from '../base/options.js'
+import {
+	assertFieldOptions,
+	fieldOptionKeys,
+	fieldValidationOptionKeys,
+	normalizeFieldOptions,
+	orderedRangeOptionKeys,
+	type BuiltInFieldOptionsContract,
+} from '../base/options.js'
 import type {
 	FieldDefinition,
 	FieldTypegenState,
@@ -53,6 +60,13 @@ export interface IntFieldOptions extends FieldOptions<
  */
 export type IntField<TTypegen extends FieldTypegenState = FieldTypegenState> =
 	FieldDefinition<'int', number, IntFieldOptions, TTypegen>
+
+const intFieldOptionsContract: BuiltInFieldOptionsContract = {
+	kind: 'int',
+	optionKeys: [...fieldOptionKeys, 'autoIncrement'],
+	validationOptionKeys: [...fieldValidationOptionKeys, 'range'],
+	nestedValidation: [{ key: 'range', optionKeys: orderedRangeOptionKeys }],
+}
 
 /** Provides integer-specific names for compact sequence inference. */
 type DefaultedIntFieldOptions<
@@ -164,6 +178,7 @@ const normalizeIntFieldOptions = <const TOptions extends IntFieldOptions>(
 		options,
 		normalizeIntValidation,
 		normalizeSafeIntegerValue,
+		intFieldOptionsContract,
 	)
 }
 

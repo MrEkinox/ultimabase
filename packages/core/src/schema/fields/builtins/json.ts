@@ -5,8 +5,11 @@ import {
 } from '@ultimabase/shared'
 
 import {
+	fieldOptionKeys,
+	fieldValidationOptionKeys,
 	normalizeFieldOptions,
 	normalizeFlatValidation,
+	type BuiltInFieldOptionsContract,
 } from '../base/options.js'
 import type {
 	FieldDefinition,
@@ -48,6 +51,12 @@ export type JsonFieldOptions = FieldOptions<JsonDocument>
  */
 export type JsonField<TTypegen extends FieldTypegenState = FieldTypegenState> =
 	FieldDefinition<'json', JsonDocument, JsonFieldOptions, TTypegen>
+
+const jsonFieldOptionsContract: BuiltInFieldOptionsContract = {
+	kind: 'json',
+	optionKeys: fieldOptionKeys,
+	validationOptionKeys: fieldValidationOptionKeys,
+}
 
 /** Provides JSON-specific names for the shared compact scalar contract. */
 type DefaultedJsonFieldOptions<
@@ -193,7 +202,12 @@ const snapshotJsonDocument = (value: unknown, path: string): JsonDocument => {
 const normalizeJsonFieldOptions = <const TOptions extends JsonFieldOptions>(
 	options: TOptions,
 ): Readonly<TOptions> =>
-	normalizeFieldOptions(options, normalizeFlatValidation, snapshotJsonDocument)
+	normalizeFieldOptions(
+		options,
+		normalizeFlatValidation,
+		snapshotJsonDocument,
+		jsonFieldOptionsContract,
+	)
 
 /**
  * Declares an unstructured JSON object or array containing portable JSON values.

@@ -73,6 +73,11 @@ validation, defaults, Access, hooks, and adapter metadata keep one implementatio
 Embedded builders deliberately omit pointers, relations, and generated database
 sequences.
 
+Every built-in factory rejects unknown root and nested validation options at
+runtime with the exact field kind and option path, including declarations
+assembled through JavaScript. Plugin-defined fields retain plugin-owned option
+and validation keys; their normalizer remains the owning validation boundary.
+
 Framework and plugin authors may still compose the immutable low-level field
 factories internally. Application schemas use named builder methods; there is
 no general application-facing `field.custom()`.

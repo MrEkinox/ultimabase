@@ -78,9 +78,7 @@ describe('floatField', () => {
 		expect(() => {
 			// @ts-expect-error -- Runtime validation protects untyped callers.
 			floatField({ autoIncrement: true })
-		}).toThrow(
-			new TypeError('autoIncrement is only available on integer fields'),
-		)
+		}).toThrow(new TypeError('Unknown float field option: autoIncrement'))
 	})
 
 	it.each([

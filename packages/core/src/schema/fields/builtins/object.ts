@@ -12,8 +12,11 @@ import {
 import {
 	assertFieldOptions,
 	assertValidTypeName,
+	fieldOptionKeys,
+	fieldValidationOptionKeys,
 	normalizeFieldOptions,
 	normalizeFlatValidation,
+	type BuiltInFieldOptionsContract,
 } from '../base/options.js'
 import { isRequiredOnCreate } from '../base/options.js'
 import type {
@@ -108,6 +111,12 @@ export type ObjectField<
 	ObjectFieldOptions<TFields>,
 	TTypegen
 >
+
+const objectFieldOptionsContract: BuiltInFieldOptionsContract = {
+	kind: 'object',
+	optionKeys: [...fieldOptionKeys, 'fields', 'typeName'],
+	validationOptionKeys: fieldValidationOptionKeys,
+}
 
 /** Keeps nested fields exact while widening runtime-only object metadata. */
 type CompactObjectFieldOptions<
@@ -297,6 +306,7 @@ export function objectField(
 		metadataOptions,
 		normalizeFlatValidation,
 		(value, path) => snapshotObjectValue(value, metadataOptions.fields, path),
+		objectFieldOptionsContract,
 	)
 
 	// The field map is detached while reusable immutable child definitions keep identity.

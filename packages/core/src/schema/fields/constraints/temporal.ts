@@ -2,7 +2,11 @@ import { assertOptionalBoolean, immutableRecord } from '@ultimabase/shared'
 
 import type { FieldOptions, FieldValidationOptions } from '../base/contract.js'
 import type { ScalarFieldConfigurationResolver } from '../base/factory.js'
-import { assertFieldOptions, normalizeFieldOptions } from '../base/options.js'
+import {
+	assertFieldOptions,
+	normalizeFieldOptions,
+	type BuiltInFieldOptionsContract,
+} from '../base/options.js'
 import {
 	normalizeOrderedRange,
 	type OrderedRange,
@@ -131,6 +135,7 @@ export const assertTemporalAutoNow = (options: object): void => {
  */
 export const createTemporalFieldConfigurationResolver =
 	<TOptions extends TimezoneTemporalFieldOptions>(
+		optionsContract: BuiltInFieldOptionsContract,
 		defaultTimezone: boolean,
 		createNormalizer: (timezone: boolean) => TemporalValueNormalizer,
 		compareZonedValues: TemporalValueComparator,
@@ -156,6 +161,7 @@ export const createTemporalFieldConfigurationResolver =
 						timezone ? compareZonedValues : compareCanonicalTemporalValues,
 					),
 				snapshotValue,
+				optionsContract,
 			)
 
 		// The same normalizer governs defaults, ranges, and later snapshots.

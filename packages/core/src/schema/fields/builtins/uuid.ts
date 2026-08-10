@@ -1,6 +1,11 @@
 import { immutableRecord } from '@ultimabase/shared'
 
-import { normalizeFieldOptions } from '../base/options.js'
+import {
+	fieldOptionKeys,
+	fieldValidationOptionKeys,
+	normalizeFieldOptions,
+	type BuiltInFieldOptionsContract,
+} from '../base/options.js'
 import type {
 	FieldDefinition,
 	FieldTypegenState,
@@ -43,6 +48,12 @@ export type UuidFieldOptions = FieldOptions<string, UuidValidationOptions>
  */
 export type UuidField<TTypegen extends FieldTypegenState = FieldTypegenState> =
 	FieldDefinition<'uuid', string, UuidFieldOptions, TTypegen>
+
+const uuidFieldOptionsContract: BuiltInFieldOptionsContract = {
+	kind: 'uuid',
+	optionKeys: fieldOptionKeys,
+	validationOptionKeys: [...fieldValidationOptionKeys, 'version'],
+}
 
 /** Provides UUID-specific names for the shared compact scalar contract. */
 type DefaultedUuidFieldOptions<
@@ -132,7 +143,12 @@ const normalizeUuidValidation = (
 const normalizeUuidFieldOptions = <const TOptions extends UuidFieldOptions>(
 	options: TOptions,
 ): Readonly<TOptions> =>
-	normalizeFieldOptions(options, normalizeUuidValidation, normalizeStringValue)
+	normalizeFieldOptions(
+		options,
+		normalizeUuidValidation,
+		normalizeStringValue,
+		uuidFieldOptionsContract,
+	)
 
 /**
  * Declares a canonical UUID string with optional version validation.

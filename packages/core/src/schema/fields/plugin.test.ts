@@ -5,8 +5,20 @@ import {
 	definePluginField,
 	defineFieldExtension,
 	getPluginFieldStorageCodec,
+	type FieldOptions,
 	type FieldValidationOptions,
 } from '../index.js'
+
+interface FixtureValidationOptions extends FieldValidationOptions {
+	readonly dimensions?: number
+}
+
+interface FixtureFieldOptions extends FieldOptions<
+	string,
+	FixtureValidationOptions
+> {
+	readonly storageProfile?: string
+}
 
 const normalizeValidation = (
 	validation: FieldValidationOptions,
@@ -63,6 +75,30 @@ describe('plugin fields', () => {
 		// Schema owns common metadata even when the plugin omits a custom normalizer.
 		expect(field.options.validation.required).toBe(true)
 		expect(Object.isFrozen(field.options.validation)).toBe(true)
+	})
+
+	it('leaves plugin-owned option keys to the plugin normalizer', () => {
+		const field = definePluginField<
+			string,
+			'fixture.owned-options',
+			FixtureValidationOptions,
+			FixtureFieldOptions
+		>(
+			'fixture.owned-options',
+			{
+				storageProfile: 'compact',
+				validation: { dimensions: 3, required: true },
+			},
+			{
+				normalizeValidation: (validation) => immutableRecord(validation),
+				snapshotValue,
+			},
+		)
+
+		expect(field.options).toStrictEqual({
+			storageProfile: 'compact',
+			validation: { dimensions: 3, required: true },
+		})
 	})
 
 	it('keeps versioned storage codecs private and reapplies scalar snapshots', () => {

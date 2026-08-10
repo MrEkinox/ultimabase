@@ -1,5 +1,11 @@
 import { assertOptionalBoolean } from '@ultimabase/shared'
-import { assertFieldOptions, normalizeFieldOptions } from '../base/options.js'
+import {
+	fieldOptionKeys,
+	fieldValidationOptionKeys,
+	normalizeFieldOptions,
+	orderedRangeOptionKeys,
+	type BuiltInFieldOptionsContract,
+} from '../base/options.js'
 import type {
 	FieldDefinition,
 	FieldTypegenState,
@@ -46,6 +52,13 @@ export type FloatFieldOptions = FieldOptions<number, FloatValidationOptions>
  */
 export type FloatField<TTypegen extends FieldTypegenState = FieldTypegenState> =
 	FieldDefinition<'float', number, FloatFieldOptions, TTypegen>
+
+const floatFieldOptionsContract: BuiltInFieldOptionsContract = {
+	kind: 'float',
+	optionKeys: fieldOptionKeys,
+	validationOptionKeys: [...fieldValidationOptionKeys, 'finite', 'range'],
+	nestedValidation: [{ key: 'range', optionKeys: orderedRangeOptionKeys }],
+}
 
 /** Provides float-specific names for the shared compact scalar contract. */
 type DefaultedFloatFieldOptions<
@@ -131,16 +144,11 @@ const normalizeFloatValidation = (
 const normalizeFloatFieldOptions = <const TOptions extends FloatFieldOptions>(
 	options: TOptions,
 ): Readonly<TOptions> => {
-	assertFieldOptions(options)
-
-	if ('autoIncrement' in options) {
-		throw new TypeError('autoIncrement is only available on integer fields')
-	}
-
 	return normalizeFieldOptions(
 		options,
 		normalizeFloatValidation,
 		normalizeNumberValue,
+		floatFieldOptionsContract,
 	)
 }
 

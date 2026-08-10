@@ -10,7 +10,11 @@ import {
 	type FieldExtension,
 } from '../../extensions/definition.js'
 import { createFieldDefinition } from '../base/definition.js'
-import { assertFieldOptions } from '../base/options.js'
+import {
+	assertBuiltInFieldOptions,
+	assertFieldOptions,
+	type BuiltInFieldOptionsContract,
+} from '../base/options.js'
 import { splitFieldDeclarationOptions } from '../../hooks/field-declarations.js'
 import type { RelationMutationDelta } from '../../relations/mutation.js'
 import type { FieldDefinition, FieldTypegenState } from '../base/contract.js'
@@ -130,21 +134,11 @@ export type NamedRelationFieldBuilderMethod = <
 	options: NamedRelationFieldOptions<TTargetName, TMappedBy>,
 ) => RelationField<SchemaReference<TTargetName>, TMappedBy>
 
-const unsupportedRelationOptionKeys = [
-	'default',
-	'hooks',
-	'immutable',
-	'indexed',
-	'list',
-	'validation',
-] as const
-const relationOptionKeys = new Set([
-	'access',
-	'description',
-	'extensions',
-	'mappedBy',
-	'target',
-])
+const relationFieldOptionsContract: BuiltInFieldOptionsContract = {
+	kind: 'relation',
+	optionKeys: ['access', 'description', 'extensions', 'mappedBy', 'target'],
+	validationOptionKeys: [],
+}
 
 const snapshotRelationValue = (_value: unknown, path: string): never => {
 	throw new TypeError(
@@ -200,18 +194,7 @@ export const relationField = <
 	options: RelationFieldOptions<TTarget, TMappedBy>,
 ): RelationField<TTarget, TMappedBy> => {
 	assertFieldOptions(options)
-
-	for (const key of unsupportedRelationOptionKeys) {
-		if (Object.hasOwn(options, key)) {
-			throw new TypeError(`relationField does not support ${key}`)
-		}
-	}
-
-	for (const key of Reflect.ownKeys(options)) {
-		if (typeof key !== 'string' || !relationOptionKeys.has(key)) {
-			throw new TypeError(`Unknown relationField option: ${String(key)}`)
-		}
-	}
+	assertBuiltInFieldOptions(options, relationFieldOptionsContract)
 
 	const { target, ...declarationOptions } = options
 
