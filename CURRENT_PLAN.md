@@ -46,7 +46,7 @@ central implementation responsibilities into focused internal modules.
 ### Phase 3 — Focused Core internals
 
 7. [x] [1207 — Centralize guarded Query-expression traversal](issues/1200-maintenance-consolidation/1207-centralize-query-expression-traversal.md)
-8. [ ] [1208 — Separate schema-model contracts from runtime materialization](issues/1200-maintenance-consolidation/1208-separate-schema-model-contracts-and-runtime.md)
+8. [x] [1208 — Separate schema-model contracts from runtime materialization](issues/1200-maintenance-consolidation/1208-separate-schema-model-contracts-and-runtime.md)
 9. [ ] [1209 — Decompose Runtime pipeline orchestration](issues/1200-maintenance-consolidation/1209-decompose-runtime-pipeline-orchestration.md)
 10. [ ] [1210 — Decompose native Access dispatch responsibilities](issues/1200-maintenance-consolidation/1210-decompose-native-access-dispatcher.md)
 

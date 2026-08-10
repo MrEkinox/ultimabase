@@ -185,6 +185,53 @@ describe('schema model classes', () => {
 		)
 	})
 
+	it('keeps construction provenance private and rejects mixed identities', async () => {
+		const lookalikeConstructionKey = Symbol(
+			'ultimabase.persisted-schema-model-construction',
+		)
+		const DynamicPost = Post as unknown as new (
+			input: unknown,
+			constructionKey: symbol,
+			materialization: Readonly<{ objectId: string }>,
+		) => object
+		const forged = new DynamicPost(
+			{ title: 'Still a draft' },
+			lookalikeConstructionKey,
+			{ objectId: '0198f090-2a50-7000-8000-000000000037' },
+		)
+		const toJSON: unknown = Reflect.get(forged, 'toJSON')
+		const update: unknown = Reflect.get(forged, 'update')
+
+		if (typeof toJSON !== 'function' || typeof update !== 'function') {
+			throw new TypeError('Schema model prototype commands are unavailable')
+		}
+
+		expect(isSchemaModelInstance(Post, forged)).toBe(true)
+		expect(Reflect.apply(toJSON, forged, [])).toStrictEqual({
+			title: 'Still a draft',
+		})
+		await expect(
+			Reflect.apply(update, forged, [{ data: { title: 'Forged' } }]),
+		).rejects.toThrow(
+			new TypeError('Schema model update requires persisted model state'),
+		)
+
+		expect(() =>
+			materializeSchemaModel(
+				Post,
+				{
+					id: '0198f090-2a50-7000-8000-000000000038',
+					title: 'Visible identity',
+				},
+				{ objectId: '0198f090-2a50-7000-8000-000000000039' },
+			),
+		).toThrow(
+			new TypeError(
+				'Persisted schema model visible id does not match protected identity',
+			),
+		)
+	})
+
 	it('keeps lifecycle commands behind trusted draft and persisted state', async () => {
 		const draft = new Post({ title: 'Draft' })
 		const persisted = materializeSchemaModel(Post, {
