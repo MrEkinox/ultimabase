@@ -1,10 +1,10 @@
-# Active plan: explicit Typegen package identity
+# Completed plan: explicit Typegen package identity
 
-- Status: active
+- Status: complete
 - Started: 2026-08-10
 - Objective owner: `@ultimabase/typegen`, `@ultimabase/core`
-- Governing decision: [ADR-0184](docs/adr/0184-typegen-package-identity.md)
-- Paused objective: [Generated schema authoring and type contracts](docs/plans/paused/generated-schema-authoring-and-type-contracts.md)
+- Governing decision: [ADR-0184](../../adr/0184-typegen-package-identity.md)
+- Paused objective: [Generated schema authoring and type contracts](../paused/generated-schema-authoring-and-type-contracts.md)
 
 ## Objective
 
@@ -25,9 +25,9 @@ prove the unchanged generation lifecycle through source and packed consumers.
 
 ## Execution order
 
-1. [x] [1101 — Rename the public Typegen package and plugin API](issues/1100-typegen-package/1101-rename-typegen-package.md)
-2. [x] [1102 — Migrate Typegen terminology and repository documentation](issues/1100-typegen-package/1102-migrate-typegen-terminology.md)
-3. [ ] [1103 — Verify source and packed Typegen DX](issues/1100-typegen-package/1103-verify-typegen-dx.md)
+1. [x] [1101 — Rename the public Typegen package and plugin API](../../../issues/1100-typegen-package/1101-rename-typegen-package.md)
+2. [x] [1102 — Migrate Typegen terminology and repository documentation](../../../issues/1100-typegen-package/1102-migrate-typegen-terminology.md)
+3. [x] [1103 — Verify source and packed Typegen DX](../../../issues/1100-typegen-package/1103-verify-typegen-dx.md)
 
 ## Supervision checkpoints
 
@@ -43,3 +43,14 @@ prove the unchanged generation lifecycle through source and packed consumers.
 - Generated declarations and fingerprints retain their established semantics.
 - Source and packed language-service tests protect the renamed public API.
 - Typecheck, unit/type tests, package archives, lint, constraints, formatting, and build pass.
+
+## Final validation
+
+- `@ultimabase/typegen` exposes `typegenPlugin()` and precise Typegen contracts
+  through source and built package exports; no compatibility alias exists.
+- The checked-in Todo declaration is byte-for-byte equal to a fresh automatic
+  startup generation and uses the new package banner.
+- Typegen: 7 files, 21 tests, no type errors.
+- Repository unit and type suites: 279 files, 1,752 tests.
+- Packed packages: 5 files, 52 tests.
+- Build, typecheck, lint, constraints, and formatting all pass.

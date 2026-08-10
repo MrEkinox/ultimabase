@@ -1,3 +1,5 @@
+import { mkdtemp, readFile, rm } from 'node:fs/promises'
+import os from 'node:os'
 import path from 'node:path'
 
 import {
@@ -5,7 +7,8 @@ import {
 	Schema,
 	type FieldBuilder,
 } from '@ultimabase/core'
-import { generateApplicationTypes } from '@ultimabase/typegen'
+import { generateApplicationTypes, typegenPlugin } from '@ultimabase/typegen'
+import * as Typegen from '@ultimabase/typegen'
 import {
 	pgVectorPlugin,
 	type VectorFieldBuilderMethod,
@@ -13,6 +16,7 @@ import {
 import * as ts from 'typescript'
 import { describe, expect, it } from 'vitest'
 
+import { Todo, TodoUser } from '../../examples/todo-backend/src/schema.js'
 import { createLanguageService } from '../../tooling/vitest/typescript-language-service.js'
 
 type PackedFieldBuilder = FieldBuilder & {
@@ -31,6 +35,8 @@ const pointerMarker = '/* packed-pointer-where */'
 const relationMarker = '/* packed-relation-where */'
 const hoverMarker = '/* packed-generated-hover */'
 const optionsMarker = '/* packed-typegen-options */'
+const pluginOptionsMarker = '/* packed-typegen-plugin-options */'
+const pluginHoverMarker = '/* packed-typegen-plugin-hover */'
 const createOneOptionsMarker = '/* packed-create-one-options */'
 const createManyOptionsMarker = '/* packed-create-many-options */'
 const updateOneOptionsMarker = '/* packed-update-one-options */'
@@ -76,10 +82,10 @@ const generated = generateApplicationTypes({
 	applicationId: 'fixture.packed-typegen',
 })
 const sourceWithMarkers = `${generated.contents}
-import { generateApplicationTypes as generatePackedApplicationTypes } from '@ultimabase/typegen'
+import { generateApplicationTypes as generatePackedApplicationTypes, typegenPlugin as packedTypegenPlugin } from '@ultimabase/typegen'
 import { Schema, definePlugin } from '@ultimabase/core'
 import type { FrameworkApplication, PluginDefinition, SchemaDefinition } from '@ultimabase/core'
-import type { GenerateApplicationTypesOptions } from '@ultimabase/typegen'
+import type { GenerateApplicationTypesOptions, TypegenPluginOptions } from '@ultimabase/typegen'
 
 declare const packedApplication: FrameworkApplication<readonly SchemaDefinition[], readonly PluginDefinition[]>
 declare const packedOwner: Core.PointerValue
@@ -151,6 +157,10 @@ const apiGenerated = generatePackedApplicationTypes({
   application: packedApplication,
   applicationId: 'packed',
 })
+const packedPluginOptions: TypegenPluginOptions = {
+  ${pluginOptionsMarker}
+}
+const packedTypegen = ${pluginHoverMarker}packedTypegenPlugin(packedPluginOptions)
 const where: ${hoverMarker}PackedGeneratedDocumentWhereInput = {
   status: { eq: 'draft' },
   title: { contains: 'Generated' },
@@ -304,6 +314,7 @@ const invalidStatus: PackedDocumentStatus = 'archived'
 void create
 void apiGenerated
 void packedCompletionOptions
+void packedTypegen
 void invalidStatus
 void invalidIdentifierSelection
 void ownerRead
@@ -332,6 +343,8 @@ const pointerPosition = sourceWithMarkers.indexOf(pointerMarker)
 const relationPosition = sourceWithMarkers.indexOf(relationMarker)
 const hoverPosition = sourceWithMarkers.indexOf(hoverMarker)
 const optionsPosition = sourceWithMarkers.indexOf(optionsMarker)
+const pluginOptionsPosition = sourceWithMarkers.indexOf(pluginOptionsMarker)
+const pluginHoverPosition = sourceWithMarkers.indexOf(pluginHoverMarker)
 const mutationOptionPositions = [
 	createOneOptionsMarker,
 	createManyOptionsMarker,
@@ -359,6 +372,8 @@ const source = sourceWithMarkers
 	.replace(relationMarker, ' '.repeat(relationMarker.length))
 	.replace(hoverMarker, ' '.repeat(hoverMarker.length))
 	.replace(optionsMarker, ' '.repeat(optionsMarker.length))
+	.replace(pluginOptionsMarker, ' '.repeat(pluginOptionsMarker.length))
+	.replace(pluginHoverMarker, ' '.repeat(pluginHoverMarker.length))
 	.replace(createOneOptionsMarker, ' '.repeat(createOneOptionsMarker.length))
 	.replace(createManyOptionsMarker, ' '.repeat(createManyOptionsMarker.length))
 	.replace(updateOneOptionsMarker, ' '.repeat(updateOneOptionsMarker.length))
@@ -373,6 +388,50 @@ const fileName = path.join(
 const service = createLanguageService(fileName, source)
 
 describe('packed @ultimabase/typegen generated contracts', () => {
+	it('exports the Typegen identity and no former plugin alias', () => {
+		expect(Typegen.typegenPlugin).toBe(typegenPlugin)
+		expect(Typegen).not.toHaveProperty('codegenPlugin')
+	})
+
+	it('regenerates the Todo declaration during application startup', async () => {
+		const directory = await mkdtemp(
+			path.join(os.tmpdir(), 'ultimabase-packed-typegen-'),
+		)
+		const outputPath = path.join(
+			directory,
+			'.ultimabase',
+			'schema.generated.d.ts',
+		)
+		const application = new FrameworkApplication({
+			plugins: [
+				typegenPlugin({
+					applicationId: 'todo-backend',
+					outputPath,
+				}),
+			],
+			schemas: [TodoUser, Todo],
+		})
+
+		try {
+			await application.start()
+
+			const generatedTodo = await readFile(outputPath, 'utf8')
+			const committedTodo = await readFile(
+				new URL(
+					'../../examples/todo-backend/.ultimabase/schema.generated.d.ts',
+					import.meta.url,
+				),
+				'utf8',
+			)
+
+			expect(generatedTodo).toBe(committedTodo)
+			expect(generatedTodo).toContain('Generated by @ultimabase/typegen')
+		} finally {
+			await application.dispose()
+			await rm(directory, { force: true, recursive: true })
+		}
+	})
+
 	it('emits a stable registry that typechecks through package exports', () => {
 		expect(generated.fingerprint).toMatch(/^[a-f0-9]{64}$/u)
 		expect(generated.contents).not.toMatch(/\bany\b/u)
@@ -528,6 +587,21 @@ describe('packed @ultimabase/typegen generated contracts', () => {
 
 		expect(ts.displayPartsToString(details?.documentation)).toContain(
 			'Isolates fingerprints',
+		)
+
+		expect(
+			service
+				.getCompletionsAtPosition(fileName, pluginOptionsPosition, {})
+				?.entries.map(({ name }) => name),
+		).toEqual(expect.arrayContaining(['applicationId', 'outputPath']))
+
+		const pluginHover = service.getQuickInfoAtPosition(
+			fileName,
+			pluginHoverPosition + pluginHoverMarker.length,
+		)
+
+		expect(ts.displayPartsToString(pluginHover?.displayParts)).toContain(
+			'TypegenPlugin',
 		)
 	})
 })
