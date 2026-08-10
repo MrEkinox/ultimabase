@@ -10,5 +10,5 @@ is intentionally direct because the framework has not been released publicly.
 2. [1102 — Migrate Typegen terminology and repository documentation](1102-migrate-typegen-terminology.md)
 3. [1103 — Verify source and packed Typegen DX](1103-verify-typegen-dx.md)
 
-The active constraints and supervision stop points live in
-[`CURRENT_PLAN.md`](../../CURRENT_PLAN.md).
+The completed constraints and validation evidence live in the
+[archived milestone plan](../../docs/plans/completed/explicit-typegen-package-identity.md).

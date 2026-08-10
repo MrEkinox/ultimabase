@@ -1,6 +1,6 @@
 # 1101: Rename the public Typegen package and plugin API
 
-- Status: completed
+- Status: done
 - Milestone: 11
 - Packages: `@ultimabase/typegen`, `@ultimabase/core`
 - Depends on: none

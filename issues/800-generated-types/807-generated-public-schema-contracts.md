@@ -1,6 +1,6 @@
 # 807: Drive public schema APIs from generated contracts
 
-- Status: completed
+- Status: done
 - Milestone: 8
 - Packages: `@ultimabase/core`, `@ultimabase/codegen`
 - Depends on: 806

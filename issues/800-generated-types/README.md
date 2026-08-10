@@ -29,5 +29,7 @@ declaration, static-compilation, isolation, and generated-cache boundaries.
 [808 — Add schema generation commands and watch mode](808-typegen-cli-watch-start.md)
 is deferred and no longer blocks this milestone.
 
-The exact active sequence, frozen constraints, and supervision checkpoints live
-in [`CURRENT_PLAN.md`](../../CURRENT_PLAN.md).
+The remaining verification sequence, frozen constraints, and supervision
+checkpoints live in the
+[paused generated-schema plan](../../docs/plans/paused/generated-schema-authoring-and-type-contracts.md),
+which resumes at issue 810 only after explicit user direction.

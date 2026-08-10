@@ -33,7 +33,7 @@ central implementation responsibilities into focused internal modules.
 
 ### Phase 1 — Repository truth
 
-1. [ ] [1201 — Reconcile active planning metadata](issues/1200-maintenance-consolidation/1201-reconcile-active-planning-metadata.md)
+1. [x] [1201 — Reconcile active planning metadata](issues/1200-maintenance-consolidation/1201-reconcile-active-planning-metadata.md)
 2. [ ] [1202 — Remove empty publishable plugin shells](issues/1200-maintenance-consolidation/1202-remove-empty-plugin-package-shells.md)
 
 ### Phase 2 — Schema and public API hardening

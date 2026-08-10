@@ -1,6 +1,6 @@
 # 1103: Verify source and packed Typegen DX
 
-- Status: completed
+- Status: done
 - Milestone: 11
 - Packages: `@ultimabase/typegen`, repository E2E
 - Depends on: 1102

@@ -16,5 +16,5 @@ plugins continue consuming the portable Query and inclusion plans.
 3. [903 — Group collection mutation projections](903-grouped-mutation-includes.md)
 4. [904 — Verify generated and PostgreSQL mutation include DX](904-mutation-includes-verification.md)
 
-The active constraints and supervision stop points live in
-[`CURRENT_PLAN.md`](../../CURRENT_PLAN.md).
+The completed constraints and validation evidence live in the
+[archived milestone plan](../../docs/plans/completed/mutation-relationship-projections.md).
