@@ -125,6 +125,11 @@ const OwnedPost = Schema.define({
 OwnedPost.fields.ownerKey // StringField
 ```
 
+Here, “reserved” means owned by the extension rather than by application code.
+An exact extension map still cannot use framework-reserved system, Query
+logical, or model-capability names. TypeScript rejects those literal collisions;
+dynamic plugin maps retain the equivalent runtime check.
+
 Developer fields, framework fields, and fields contributed by separate
 extensions cannot share a name. A plugin may defer one required contributed
 value until its `resolveInput` hook; structural revalidation then guarantees

@@ -13,6 +13,10 @@ import type {
 	SchemaTypeValue,
 } from '../../schema/type-info.js'
 import {
+	reservedQueryLogicalFieldNames,
+	type ReservedQueryLogicalFieldName,
+} from '../../schema/schema/reserved-field-names.js'
+import {
 	immutableArray,
 	immutableRecord,
 	isPlainRecord,
@@ -70,9 +74,10 @@ import type {
 } from './primitive.js'
 
 /** Reserves transport-friendly logical names outside schema field space. */
-export const whereLogicalKeys = ['AND', 'OR', 'NOT'] as const
+export const whereLogicalKeys: typeof reservedQueryLogicalFieldNames =
+	reservedQueryLogicalFieldNames
 
-export type WhereLogicalKey = (typeof whereLogicalKeys)[number]
+export type WhereLogicalKey = ReservedQueryLogicalFieldName
 
 /** Describes one schema-correlated, transport-neutral filter object. */
 export type WhereInput<TSchema extends SchemaTypeInfoSource> = SchemaTypeValue<

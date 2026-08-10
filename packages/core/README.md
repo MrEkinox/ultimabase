@@ -78,6 +78,11 @@ runtime with the exact field kind and option path, including declarations
 assembled through JavaScript. Plugin-defined fields retain plugin-owned option
 and validation keys; their normalizer remains the owning validation boundary.
 
+Exact schema and extension field maps also reject names reserved by system
+fields, Query logical operators, or immutable model capabilities in TypeScript.
+Those same canonical name declarations drive runtime checks for dynamic plugin
+maps that cannot provide a sound literal-key guarantee.
+
 Framework and plugin authors may still compose the immutable low-level field
 factories internally. Application schemas use named builder methods; there is
 no general application-facing `field.custom()`.

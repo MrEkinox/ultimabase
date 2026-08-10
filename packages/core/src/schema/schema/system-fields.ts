@@ -76,13 +76,13 @@ export interface SystemFields {
 /**
  * Identifies names that developer declarations cannot shadow.
  */
-export type ReservedSystemFieldName = keyof SystemFields
-
 export const reservedSystemFieldNames: readonly [
 	'id',
 	'createdAt',
 	'updatedAt',
 ] = immutableArray(['id', 'createdAt', 'updatedAt'])
+
+export type ReservedSystemFieldName = (typeof reservedSystemFieldNames)[number]
 
 const requiredSystemValidation: Readonly<{ readonly required: true }> =
 	immutableRecord({ required: true })

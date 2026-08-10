@@ -496,9 +496,19 @@ Callback declarations are
 stored in private field capabilities and never appear in field metadata,
 validation plans, indexes, migrations, or physical schema diffs.
 
-`id`, `createdAt`, and `updatedAt` are reserved for UltimaBase system fields.
-Developer declarations using those keys fail both TypeScript checking and
-runtime declaration.
+Schema reserves three current name families:
+
+- `id`, `createdAt`, and `updatedAt` for framework system fields;
+- `AND`, `OR`, and `NOT` for Query logical operators;
+- `create`, `delete`, `get`, `relation`, `then`, `toJSON`, `update`, and
+  `upsert` for immutable schema-model capabilities.
+
+Exact developer and extension field maps using any of these names fail both
+TypeScript checking and runtime declaration. A plugin may construct a dynamic
+`Record<string, GenericField>` whose keys cannot be proven statically; Schema
+keeps the same runtime rejection for that boundary rather than claiming a false
+compile-time guarantee. The canonical immutable declarations drive the static
+collision type, Query logical keys, and runtime guards together.
 
 ## System fields
 

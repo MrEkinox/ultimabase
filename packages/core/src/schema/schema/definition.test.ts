@@ -9,6 +9,11 @@ import {
 	type SchemaExtension,
 	type SchemaExtensionContextKind,
 } from '../index.js'
+import {
+	reservedQueryLogicalFieldNames,
+	reservedSchemaModelFieldNames,
+} from './reserved-field-names.js'
+import { reservedSystemFieldNames } from './system-fields.js'
 
 interface RuntimeContextualOptions<
 	TData extends Readonly<Record<string, unknown>>,
@@ -237,7 +242,7 @@ describe('schema definitions', () => {
 		).toThrow(new TypeError('Reserved schema static capability: findMany'))
 	})
 
-	it.each(['id', 'createdAt', 'updatedAt', 'AND', 'OR', 'NOT'] as const)(
+	it.each([...reservedSystemFieldNames, ...reservedQueryLogicalFieldNames])(
 		'rejects the reserved %s field',
 		(name) => {
 			const field = stringField()
@@ -255,22 +260,40 @@ describe('schema definitions', () => {
 		},
 	)
 
+	it.each(reservedSchemaModelFieldNames)(
+		'rejects the reserved model member %s',
+		(name) => {
+			expect(() => {
+				const schema = Schema.define({
+					className: 'InvalidModel',
+					fields: (field) => ({ [name]: field.string() }),
+				})
+				new SchemaRegistry([schema]).compileSchemas()
+			}).toThrow(new TypeError(`Reserved schema model field: ${name}`))
+		},
+	)
+
 	it.each([
-		'create',
-		'delete',
-		'get',
-		'relation',
-		'then',
-		'toJSON',
-		'update',
-		'upsert',
-	])('rejects the reserved model member %s', (name) => {
+		...reservedSystemFieldNames,
+		...reservedQueryLogicalFieldNames,
+		...reservedSchemaModelFieldNames,
+	])('rejects the reserved dynamic extension field %s at runtime', (name) => {
 		expect(() => {
+			const field = stringField()
+			const fields: Record<string, typeof field> = { [name]: field }
+			const extension = defineSchemaExtension(
+				`fixture.reserved.${name}`,
+				{},
+				'fixture.reserved',
+				{ fields },
+			)
 			const schema = Schema.define({
-				className: 'InvalidModel',
-				fields: (field) => ({ [name]: field.string() }),
+				className: `ReservedExtension${name}`,
+				fields: () => ({}),
+				extensions: [extension],
 			})
+
 			new SchemaRegistry([schema]).compileSchemas()
-		}).toThrow(new TypeError(`Reserved schema model field: ${name}`))
+		}).toThrow(new TypeError(`Reserved schema extension field: ${name}`))
 	})
 })

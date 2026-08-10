@@ -15,3 +15,21 @@ Schema.define({
 		}),
 	}),
 })
+
+// @ts-expect-error -- Packed declarations reject framework system fields.
+Schema.define({
+	className: 'PackedReservedSystemField',
+	fields: (field) => ({ id: field.string() }),
+})
+
+// @ts-expect-error -- Packed declarations reject Query logical keys.
+Schema.define({
+	className: 'PackedReservedQueryField',
+	fields: (field) => ({ AND: field.string() }),
+})
+
+// @ts-expect-error -- Packed declarations reject schema-model capabilities.
+Schema.define({
+	className: 'PackedReservedModelField',
+	fields: (field) => ({ create: field.string() }),
+})

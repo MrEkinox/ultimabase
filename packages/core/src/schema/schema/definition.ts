@@ -58,6 +58,11 @@ import type {
 } from '../type-info.js'
 import type { SchemaAPI } from './schema-api.js'
 import type { SchemaItem } from './values.js'
+import {
+	isReservedQueryLogicalFieldName,
+	isReservedSchemaModelFieldName,
+	type ReservedSchemaFieldCollision,
+} from './reserved-field-names.js'
 
 export type { BaseItem } from '../type-info.js'
 export type { SchemaAPI } from './schema-api.js'
@@ -236,34 +241,11 @@ export type SchemaClassCapabilityFactory<
 	context: SchemaModelCapabilityContext<TSchema>,
 ) => SchemaClassCapabilities<TStatics, TResults>
 
-type ReservedWhereLogicalFieldName = 'AND' | 'NOT' | 'OR'
-
-type ReservedFieldCollision<TFields extends SchemaFields> =
-	string extends keyof TFields
-		? unknown
-		: Extract<
-					keyof TFields,
-					ReservedSystemFieldName | ReservedWhereLogicalFieldName
-			  > extends never
-			? unknown
-			: never
-
 // A versioned global symbol preserves constructor provenance across package copies.
 const schemaDefinitionMarker = Symbol.for(
 	'@ultimabase/core/schema-definition/v1',
 )
 const emptySchemaExtensions: readonly [] = immutableArray([])
-const reservedWhereLogicalFieldNames = new Set(['AND', 'NOT', 'OR'])
-const reservedModelFieldNames = new Set([
-	'create',
-	'delete',
-	'get',
-	'relation',
-	'then',
-	'toJSON',
-	'update',
-	'upsert',
-])
 
 /** Explains why a deferred schema cannot expose its final runtime definition. */
 export type SchemaCompilationFailureReason =
@@ -830,8 +812,8 @@ const collectSchemaExtensionFields = (
 				reservedSystemFieldNames.some(
 					(reservedName) => reservedName === name,
 				) ||
-				reservedWhereLogicalFieldNames.has(name) ||
-				reservedModelFieldNames.has(name)
+				isReservedQueryLogicalFieldName(name) ||
+				isReservedSchemaModelFieldName(name)
 			) {
 				throw new TypeError(`Reserved schema extension field: ${name}`)
 			}
@@ -854,11 +836,11 @@ const assertNoReservedFieldCollision = (
 	}
 
 	for (const name of Object.keys(fields)) {
-		if (reservedWhereLogicalFieldNames.has(name)) {
+		if (isReservedQueryLogicalFieldName(name)) {
 			throw new TypeError(`Reserved schema field: ${name}`)
 		}
 
-		if (reservedModelFieldNames.has(name)) {
+		if (isReservedSchemaModelFieldName(name)) {
 			throw new TypeError(`Reserved schema model field: ${name}`)
 		}
 	}
@@ -923,7 +905,7 @@ export class Schema {
 	>(
 		options: SchemaOptions<TClassName, TFields, TExtensions> &
 			RequireGeneratedSchemaEntry<TClassName> &
-			ReservedFieldCollision<NoInfer<TFields>>,
+			ReservedSchemaFieldCollision<NoInfer<TFields>>,
 	): SchemaReference<NoInfer<TClassName>> {
 		const schema = defineSchemaModel<TClassName, TFields, TExtensions>(options)
 		finalizeSchemaModelClass(schema)

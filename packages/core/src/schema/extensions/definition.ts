@@ -7,6 +7,7 @@ import {
 } from '@ultimabase/shared'
 
 import type { GenericField } from '../fields/base/contract.js'
+import type { ReservedSchemaFieldCollision } from '../schema/reserved-field-names.js'
 
 /**
  * Identifies where an extension may be attached and keeps both namespaces independent.
@@ -206,7 +207,8 @@ export function defineSchemaExtension<
 	name: TName,
 	config: TConfig,
 	pluginName: TPluginName,
-	contributions: SchemaExtensionContributions<TFields>,
+	contributions: SchemaExtensionContributions<TFields> &
+		ReservedSchemaFieldCollision<NoInfer<TFields>>,
 ): SchemaExtension<TName, TConfig, TPluginName, TFields>
 
 export function defineSchemaExtension(

@@ -39,6 +39,12 @@ reuse the existing immutable field factories, so the same validation, defaults,
 Access, hooks, and metadata apply. The embedded builder intentionally has no
 `pointer` or `relation` methods and does not accept `autoIncrement: true`.
 
+Literal field names cannot shadow framework system fields (`id`, `createdAt`,
+`updatedAt`), Query logical keys (`AND`, `OR`, `NOT`), or model capabilities
+such as `create`, `get`, `relation`, `then`, and `toJSON`. TypeScript rejects
+these names directly in `Schema.define()`, and the same runtime guard protects
+dynamically assembled field maps and plugin contributions.
+
 Relationship targets use stable schema names and resolve to exact registered
 classes during application compilation:
 
