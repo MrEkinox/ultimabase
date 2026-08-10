@@ -16,6 +16,7 @@ import {
 	isQueryRelationCountNode,
 	isQueryRelationPredicateNode,
 } from '../../query/index.js'
+import { traverseQueryExpression } from '../../query/filters/traversal.js'
 import { Schema, type SchemaDefinition } from '../../schema/index.js'
 import {
 	immutableArray,
@@ -75,43 +76,19 @@ interface OwnedEnforcementContribution {
 const collectDirectRelationPredicates = (
 	expression: QueryExpressionNode,
 ): readonly QueryRelationFilterNode[] => {
-	if (
-		isQueryRelationCountNode(expression) ||
-		isQueryRelationPredicateNode(expression)
-	) {
-		return immutableArray([expression])
-	}
-
-	const candidate: unknown = expression
-
-	if (!isPlainRecord(candidate)) {
-		return immutableArray([])
-	}
-
 	const collected: QueryRelationFilterNode[] = []
 
-	if (isUnknownArray(candidate.expressions)) {
-		for (const child of candidate.expressions) {
-			if (isPlainRecord(child) && typeof child.kind === 'string') {
-				collected.push(
-					...collectDirectRelationPredicates(
-						child as unknown as QueryExpressionNode,
-					),
-				)
-			}
+	traverseQueryExpression(expression, (candidate) => {
+		if (
+			isQueryRelationCountNode(candidate) ||
+			isQueryRelationPredicateNode(candidate)
+		) {
+			collected.push(candidate)
+			return 'skip'
 		}
-	}
 
-	if (
-		isPlainRecord(candidate.expression) &&
-		typeof candidate.expression.kind === 'string'
-	) {
-		collected.push(
-			...collectDirectRelationPredicates(
-				candidate.expression as unknown as QueryExpressionNode,
-			),
-		)
-	}
+		return 'continue'
+	})
 
 	return immutableArray(collected)
 }

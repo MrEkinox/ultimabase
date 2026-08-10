@@ -129,6 +129,22 @@ describe.each(packageFixtures)('$name archive', ({ directory, name }) => {
 })
 
 describe('@ultimabase/core Schema and QueryBuilder declarations', () => {
+	it('keeps Query-expression traversal implementation private', async () => {
+		const declarations = await readFile(
+			path.join(packagesDirectory, 'core', 'dist', 'index.d.ts'),
+			'utf8',
+		)
+
+		for (const internalName of [
+			'GuardedQueryExpressionNode',
+			'QueryExpressionTraversalDirective',
+			'QueryExpressionVisitor',
+			'traverseQueryExpression',
+		]) {
+			expect(declarations).not.toContain(internalName)
+		}
+	})
+
 	it('exposes the documented Schema definition factory', () => {
 		const schema = readFixtureQuickInfo('define({')
 

@@ -11,6 +11,7 @@ import type {
 	UpdateExpressionNode,
 } from '../../query/index.js'
 import { applyUpdateExpressionToRecord } from '../../query/index.js'
+import { traverseQueryExpression } from '../../query/filters/traversal.js'
 import { Schema, type SchemaDefinition } from '../../schema/index.js'
 import { isRelationUpdateExpression } from '../../schema/relations/mutation.js'
 import {
@@ -277,46 +278,26 @@ const collectFilterFields = (
 	expression: QueryExpressionNode,
 	fields: Set<string>,
 ): void => {
-	const candidate: unknown = expression
+	traverseQueryExpression(expression, (candidate) => {
+		// Collection fields cross a dedicated item boundary; pointer traversal still
+		// uses the ordinary source field filter channel before target Access runs.
+		if (candidate.kind === 'relation-predicate') {
+			if (
+				(candidate.operator === 'is' || candidate.operator === 'is-not') &&
+				typeof candidate.field === 'string'
+			) {
+				fields.add(candidate.field)
+			}
 
-	if (!isPlainRecord(candidate)) {
-		return
-	}
+			return 'skip'
+		}
 
-	// Collection fields cross a dedicated item boundary; pointer traversal still
-	// uses the ordinary source field filter channel before target Access runs.
-	if (candidate.kind === 'relation-predicate') {
-		if (
-			(candidate.operator === 'is' || candidate.operator === 'is-not') &&
-			typeof candidate.field === 'string'
-		) {
+		if (typeof candidate.field === 'string') {
 			fields.add(candidate.field)
 		}
 
-		return
-	}
-
-	if (typeof candidate.field === 'string') {
-		fields.add(candidate.field)
-	}
-
-	if (isUnknownArray(candidate.expressions)) {
-		for (const child of candidate.expressions) {
-			if (isPlainRecord(child) && typeof child.kind === 'string') {
-				collectFilterFields(child as unknown as QueryExpressionNode, fields)
-			}
-		}
-	}
-
-	if (
-		isPlainRecord(candidate.expression) &&
-		typeof candidate.expression.kind === 'string'
-	) {
-		collectFilterFields(
-			candidate.expression as unknown as QueryExpressionNode,
-			fields,
-		)
-	}
+		return 'continue'
+	})
 }
 
 const readUpdateFieldValues = (

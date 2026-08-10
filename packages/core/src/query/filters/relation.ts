@@ -25,6 +25,7 @@ import type {
 	QueryMembershipFilterOperator,
 	QueryRangeFilterOperator,
 } from './primitive.js'
+import { traverseQueryExpression } from './traversal.js'
 
 /** Bounds portable relation recursion before an adapter sees the QueryBuilder AST. */
 export const queryRelationPredicateMaxDepth = 8 as const
@@ -427,89 +428,27 @@ export const isQueryRelationPredicateNode = (
 	isPlainRecord(value.expression) &&
 	typeof value.expression.kind === 'string'
 
-const collectRelationPredicateNodes = (
-	expression: QueryExpressionNode,
-	depth: number,
-	ancestors: WeakSet<object>,
-	collected: QueryRelationFilterNode[],
-): void => {
-	if (depth > queryRelationPredicateMaxDepth) {
-		throw createQueryRelationDepthError()
-	}
-
-	if (ancestors.has(expression)) {
-		throw new TypeError(
-			'relation predicate must not contain circular references',
-		)
-	}
-
-	ancestors.add(expression)
-
-	try {
-		if (isQueryRelationCountNode(expression)) {
-			collected.push(expression)
-			collectRelationPredicateNodes(
-				expression.expression,
-				depth + 1,
-				ancestors,
-				collected,
-			)
-			return
-		}
-
-		if (isQueryRelationPredicateNode(expression)) {
-			collected.push(expression)
-			collectRelationPredicateNodes(
-				expression.expression,
-				depth + 1,
-				ancestors,
-				collected,
-			)
-			return
-		}
-
-		const candidate: unknown = expression
-
-		if (!isPlainRecord(candidate)) {
-			return
-		}
-
-		if (isUnknownArray(candidate.expressions)) {
-			for (const child of candidate.expressions) {
-				if (isPlainRecord(child) && typeof child.kind === 'string') {
-					collectRelationPredicateNodes(
-						child as unknown as QueryExpressionNode,
-						depth,
-						ancestors,
-						collected,
-					)
-				}
-			}
-		}
-
-		if (
-			isPlainRecord(candidate.expression) &&
-			typeof candidate.expression.kind === 'string'
-		) {
-			collectRelationPredicateNodes(
-				candidate.expression as unknown as QueryExpressionNode,
-				depth,
-				ancestors,
-				collected,
-			)
-		}
-	} finally {
-		ancestors.delete(expression)
-	}
-}
-
 /** Collects relation leaves in deterministic depth-first declaration order. */
 export const collectQueryRelationPredicates = (
 	expression: QueryExpressionNode,
 ): readonly QueryRelationFilterNode[] => {
 	const collected: QueryRelationFilterNode[] = []
 
-	collectRelationPredicateNodes(expression, 1, new WeakSet<object>(), collected)
+	traverseQueryExpression(expression, (candidate, targetDepth) => {
+		if (targetDepth > queryRelationPredicateMaxDepth) {
+			throw createQueryRelationDepthError()
+		}
+
+		if (
+			isQueryRelationCountNode(candidate) ||
+			isQueryRelationPredicateNode(candidate)
+		) {
+			collected.push(candidate)
+			return 'target'
+		}
+
+		return 'continue'
+	})
 
 	return Object.freeze(collected)
 }
