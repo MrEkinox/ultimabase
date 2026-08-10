@@ -271,6 +271,33 @@ describe('NativeAccessRuntime', () => {
 		await application.dispose()
 	})
 
+	it('rejects malformed JavaScript decision results at the Access boundary', async () => {
+		const schema = Schema.define({
+			className: 'MalformedAccessDecision',
+			fields: (field) => ({ title: field.string() }),
+			access: {
+				// Runtime validation protects JavaScript declarations that bypass types.
+				read: (() => 'allow') as never,
+			},
+		})
+		const application = await createApplication({
+			schemas: [schema],
+			plugins: [],
+		})
+		const stages = requireStages(createEnforcementStages(application))
+		const operation: FindManyOperationAst<typeof schema> = {
+			kind: 'find-many',
+			query: new QueryBuilder(schema).ast,
+		}
+
+		await expect(stages.evaluate({ context, operation })).rejects.toThrow(
+			new TypeError(
+				'Native Access access-operation rule must return a boolean',
+			),
+		)
+		await application.dispose()
+	})
+
 	it('rejects forbidden mutation input and evaluates set-based item callbacks per target', async () => {
 		const application = await createApplication({
 			schemas: [articleSchema],

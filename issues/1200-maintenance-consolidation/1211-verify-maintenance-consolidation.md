@@ -1,6 +1,6 @@
 # 1211: Verify the maintenance consolidation
 
-- Status: planned
+- Status: ready
 - Milestone: 12
 - Packages: repository, `@ultimabase/core`, `@ultimabase/typegen`, implemented official plugins
 - Depends on: 1210

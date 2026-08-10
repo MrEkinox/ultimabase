@@ -165,6 +165,25 @@ describe('@ultimabase/core Schema, QueryBuilder, and Runtime declarations', () =
 		}
 	})
 
+	it('keeps native Access dispatch implementation private', async () => {
+		const declarations = await readFile(
+			path.join(packagesDirectory, 'core', 'dist', 'index.d.ts'),
+			'utf8',
+		)
+
+		for (const internalName of [
+			'NativeAccessRuntime',
+			'AccessRuleIdentity',
+			'accessFieldPathsEqual',
+			'enforceAccessOutput',
+			'enforceAccessPreparedMutation',
+			'evaluateAccessMutationFieldRules',
+			'evaluateAccessOperationAndFilter',
+		]) {
+			expect(declarations).not.toContain(internalName)
+		}
+	})
+
 	it('exposes the documented Schema definition factory', () => {
 		const schema = readFixtureQuickInfo('define({')
 
