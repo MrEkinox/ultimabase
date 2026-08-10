@@ -1,0 +1,49 @@
+import {
+	bigintField,
+	dateField,
+	dateTimeField,
+	enumField,
+	intField,
+	pointerField,
+	Schema,
+	stringField,
+	timeField,
+} from '../../src/index.js'
+
+const targetSchema = Schema.define({
+	className: 'FieldOptionDiagnosticTarget',
+	fields: () => ({}),
+})
+
+enumField({ values: [] })
+enumField({ values: {} })
+
+pointerField({
+	target: () => targetSchema,
+	validation: { required: true },
+	onDelete: 'setNull',
+})
+
+dateField({ autoNow: true, default: '2026-08-10' })
+timeField({ autoNow: true, list: true })
+dateTimeField({ autoNow: true, default: '2026-08-10T12:00:00.000Z' })
+
+intField({ autoIncrement: 'sequence' })
+bigintField({ autoIncrement: 1 })
+
+intField({ list: true, default: 1 })
+bigintField({ list: true, default: 1n })
+stringField({ list: true, default: 'one' })
+
+Schema.define({
+	className: 'FieldBuilderOptionDiagnostics',
+	fields: (field) => ({
+		generated: field.date({ autoNow: true, list: true }),
+		requiredPointer: field.pointer({
+			target: 'FieldOptionDiagnosticTarget',
+			validation: { required: true },
+			onDelete: 'setNull',
+		}),
+		listDefault: field.string({ list: true, default: 'one' }),
+	}),
+})

@@ -2,7 +2,6 @@ import type {
 	FieldDefinition,
 	FieldTypegenState,
 	FieldListOption,
-	InvalidOptionsArguments,
 } from '../base/contract.js'
 import {
 	fieldOptionKeys,
@@ -68,7 +67,8 @@ type DefaultedDateTimeFieldOptions<
 	TList,
 	TImmutable,
 	GeneratedScalarOption<'autoNow', TAutoNow>
->
+> &
+	CompatibleGeneratedScalarOptions<'autoNow', TAutoNow, TList, true, true>
 
 type NonDefaultedDateTimeFieldOptions<
 	TRequired extends boolean,
@@ -82,7 +82,8 @@ type NonDefaultedDateTimeFieldOptions<
 	TList,
 	TImmutable,
 	GeneratedScalarOption<'autoNow', TAutoNow>
->
+> &
+	CompatibleGeneratedScalarOptions<'autoNow', TAutoNow, TList, false, true>
 
 type ResolvedDateTimeField<
 	TRequired extends boolean,
@@ -128,9 +129,6 @@ interface DateTimeFieldFactory {
 			TImmutable,
 			TAutoNow
 		>,
-		...invalidOptions: InvalidOptionsArguments<
-			CompatibleGeneratedScalarOptions<TAutoNow, TList, true, true>
-		>
 	): DefaultedDateTimeField<TRequired, TList, TImmutable, TAutoNow>
 	<
 		const TRequired extends boolean = false,
@@ -144,9 +142,6 @@ interface DateTimeFieldFactory {
 			TImmutable,
 			TAutoNow
 		>,
-		...invalidOptions: InvalidOptionsArguments<
-			CompatibleGeneratedScalarOptions<TAutoNow, TList, false, true>
-		>
 	): NonDefaultedDateTimeField<TRequired, TList, TImmutable, TAutoNow>
 }
 

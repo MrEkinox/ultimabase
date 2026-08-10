@@ -190,13 +190,6 @@ type FieldOptionsAreCompatible<TOptions extends object, TValue> =
 export type ValidatedFieldOptions<TOptions extends object, TValue> =
 	FieldOptionsAreCompatible<TOptions, TValue> extends true ? TOptions : never
 
-/** Converts a failed type-level validation into an impossible call argument. */
-export type InvalidOptionsArguments<TValidatedOptions> = [
-	TValidatedOptions,
-] extends [never]
-	? [invalidOptions: never]
-	: []
-
 type FieldOptionsList<TOptions> = TOptions extends {
 	readonly list: infer TList extends FieldList
 }

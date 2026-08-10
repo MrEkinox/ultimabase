@@ -80,3 +80,9 @@ nested validation keys report the field kind and complete path. For example,
 `Unknown string field option: validation.requred` instead of retaining the
 misspelled metadata. Plugin fields retain their own option contracts and
 normalizers; Core does not apply a built-in allowlist to plugin-owned keys.
+
+Invalid combinations are rejected on the option object itself. Editor
+diagnostics identify `values` for an empty enum domain, `onDelete` for a
+required pointer using `setNull`, and the temporal field option contract when
+`autoNow: true` is combined with `default` or `list: true`. No extra positional
+argument is part of any field factory API.

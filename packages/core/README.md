@@ -78,6 +78,13 @@ runtime with the exact field kind and option path, including declarations
 assembled through JavaScript. Plugin-defined fields retain plugin-owned option
 and validation keys; their normalizer remains the owning validation boundary.
 
+TypeScript reports invalid option combinations on the primary option contract.
+For example, empty enum domains identify `values`, required pointers using
+`onDelete: "setNull"` identify `onDelete`, and temporal generation conflicts
+identify the corresponding `Defaulted*FieldOptions` contract. These diagnostics
+never request a synthetic positional argument. Valid zero-argument calls and
+option completion retain their compact factory signatures.
+
 Exact schema and extension field maps also reject names reserved by system
 fields, Query logical operators, or immutable model capabilities in TypeScript.
 Those same canonical name declarations drive runtime checks for dynamic plugin

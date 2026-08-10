@@ -11,7 +11,6 @@ import type {
 	FieldTypegenState,
 	FieldListOption,
 	FieldOptions,
-	InvalidOptionsArguments,
 } from '../base/contract.js'
 import {
 	type CompactScalarFieldDefinition,
@@ -81,7 +80,14 @@ type DefaultedIntFieldOptions<
 	TList,
 	TImmutable,
 	GeneratedScalarOption<'autoIncrement', TAutoIncrement>
->
+> &
+	CompatibleGeneratedScalarOptions<
+		'autoIncrement',
+		TAutoIncrement,
+		TList,
+		true,
+		false
+	>
 
 type NonDefaultedIntFieldOptions<
 	TRequired extends boolean,
@@ -95,7 +101,14 @@ type NonDefaultedIntFieldOptions<
 	TList,
 	TImmutable,
 	GeneratedScalarOption<'autoIncrement', TAutoIncrement>
->
+> &
+	CompatibleGeneratedScalarOptions<
+		'autoIncrement',
+		TAutoIncrement,
+		TList,
+		false,
+		false
+	>
 
 type ResolvedIntField<
 	TRequired extends boolean,
@@ -141,9 +154,6 @@ interface IntFieldFactory {
 			TImmutable,
 			TAutoIncrement
 		>,
-		...invalidOptions: InvalidOptionsArguments<
-			CompatibleGeneratedScalarOptions<TAutoIncrement, TList, true, false>
-		>
 	): DefaultedIntField<TRequired, TList, TImmutable, TAutoIncrement>
 	<
 		const TRequired extends boolean = false,
@@ -157,9 +167,6 @@ interface IntFieldFactory {
 			TImmutable,
 			TAutoIncrement
 		>,
-		...invalidOptions: InvalidOptionsArguments<
-			CompatibleGeneratedScalarOptions<TAutoIncrement, TList, false, false>
-		>
 	): NonDefaultedIntField<TRequired, TList, TImmutable, TAutoIncrement>
 }
 

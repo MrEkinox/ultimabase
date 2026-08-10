@@ -20,7 +20,6 @@ import type {
 	FieldTypegenState,
 	FieldListOption,
 	FieldOptions,
-	InvalidOptionsArguments,
 } from '../base/contract.js'
 import {
 	type CompactScalarFieldDefinition,
@@ -91,7 +90,7 @@ type NonEmptyMapping<TValues extends EnumValues> =
 			: TValues
 
 type CompatibleEnumFieldOptions<TValues extends EnumValues> =
-	NonEmptyMapping<TValues> extends never ? never : object
+	NonEmptyMapping<TValues> extends never ? { readonly values: never } : object
 
 /** Preserves the enum domain while naming only operation-relevant options. */
 type DefaultedEnumFieldOptions<
@@ -105,7 +104,8 @@ type DefaultedEnumFieldOptions<
 	TRequired,
 	TList,
 	TImmutable
->
+> &
+	CompatibleEnumFieldOptions<TValues>
 
 type NonDefaultedEnumFieldOptions<
 	TValues extends EnumValues,
@@ -118,7 +118,8 @@ type NonDefaultedEnumFieldOptions<
 	TRequired,
 	TList,
 	TImmutable
->
+> &
+	CompatibleEnumFieldOptions<TValues>
 
 type ResolvedEnumField<
 	TValues extends EnumValues,
@@ -167,9 +168,6 @@ export type EnumFieldBuilderMethod = <
 	options:
 		| DefaultedEnumFieldOptions<TValues, TRequired, TList, TImmutable>
 		| NonDefaultedEnumFieldOptions<TValues, TRequired, TList, TImmutable>,
-	...invalidOptions: InvalidOptionsArguments<
-		CompatibleEnumFieldOptions<TValues>
-	>
 ) => void
 
 const isString = (value: unknown): value is string => typeof value === 'string'
@@ -303,9 +301,6 @@ export function enumField<
 	const TImmutable extends boolean = false,
 >(
 	options: DefaultedEnumFieldOptions<TValues, TRequired, TList, TImmutable>,
-	...invalidOptions: InvalidOptionsArguments<
-		CompatibleEnumFieldOptions<TValues>
-	>
 ): DefaultedEnumField<TValues, TRequired, TList, TImmutable>
 
 export function enumField<
@@ -315,17 +310,9 @@ export function enumField<
 	const TImmutable extends boolean = false,
 >(
 	options: NonDefaultedEnumFieldOptions<TValues, TRequired, TList, TImmutable>,
-	...invalidOptions: InvalidOptionsArguments<
-		CompatibleEnumFieldOptions<TValues>
-	>
 ): NonDefaultedEnumField<TValues, TRequired, TList, TImmutable>
 
-export function enumField(
-	options: EnumFieldOptions,
-	...invalidOptions: readonly never[]
-): EnumField {
-	// The rest parameter exists only to keep invalid generic calls uncallable.
-	void invalidOptions
+export function enumField(options: EnumFieldOptions): EnumField {
 	const { access, hooks, metadataOptions } =
 		splitFieldDeclarationOptions(options)
 	const normalized = normalizeEnumFieldOptions(metadataOptions)

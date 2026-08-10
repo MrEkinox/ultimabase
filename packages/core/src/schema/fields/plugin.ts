@@ -15,7 +15,6 @@ import type {
 	FieldOptions,
 	FieldOptionsWithoutNullable,
 	FieldValidationOptions,
-	InvalidOptionsArguments,
 	ResolveFieldTypegenState,
 	ValidatedFieldOptions,
 } from './base/contract.js'
@@ -140,6 +139,9 @@ export const definePluginField = <
 >(
 	kind: AvailablePluginFieldKind<TKind>,
 	options: TOptions &
+		FieldOptionsWithoutNullable<
+			ValidatedFieldOptions<NoInfer<TOptions>, TValue>
+		> &
 		FieldHookDeclaration<
 			PluginFieldDefinition<
 				TKind,
@@ -155,19 +157,12 @@ export const definePluginField = <
 			>
 		>,
 	normalizers: PluginFieldNormalizers<TValue, TValidation, TDeferred>,
-	...invalidOptions: InvalidOptionsArguments<
-		FieldOptionsWithoutNullable<
-			ValidatedFieldOptions<NoInfer<TOptions>, TValue>
-		>
-	>
 ): PluginFieldDefinition<
 	TKind,
 	TValue,
 	PluginFieldMetadata<TOptions>,
 	PluginFieldTypegen<PluginFieldMetadata<TOptions>, TDeferred>
 > => {
-	// The rest parameter keeps invalid plugin metadata out of the public call contract.
-	void invalidOptions
 	assertPluginFieldKind(kind, 'Plugin field kind')
 
 	if (

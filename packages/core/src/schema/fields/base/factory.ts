@@ -3,7 +3,6 @@ import type {
 	FieldListOption,
 	FieldListValue,
 	FieldOptions,
-	InvalidOptionsArguments,
 	ScalarFieldTypegenState,
 } from './contract.js'
 import type { FieldDefault } from './defaults.js'
@@ -153,17 +152,76 @@ type CompatibleGeneratedValue<
 		: object
 	: object
 
+/** Projects an invalid generated-value combination onto its conflicting option. */
 export type CompatibleGeneratedScalarOptions<
+	TGenerationKey extends PropertyKey,
 	THasGeneratedValue extends boolean,
 	TList extends FieldListOption,
 	THasDefault extends boolean,
 	TExclusiveGeneration extends boolean,
-> = CompatibleGeneratedValue<
-	THasGeneratedValue,
+> =
+	CompatibleGeneratedValue<
+		THasGeneratedValue,
+		TList,
+		THasDefault,
+		TExclusiveGeneration
+	> extends never
+		? THasDefault extends true
+			? Readonly<Partial<Record<TGenerationKey, false>>>
+			: { readonly list?: false }
+		: object
+
+/** Names a generated scalar input with a default so editor signatures stay compact. */
+type DefaultedGeneratedScalarFieldOptions<
+	TOptions extends object,
+	TValue,
+	TRequired extends boolean,
+	TList extends FieldListOption,
+	TImmutable extends boolean,
+	TGenerationKey extends PropertyKey,
+	THasGeneratedValue extends boolean,
+	TExclusiveGeneration extends boolean,
+> = DefaultedCompactScalarFieldOptions<
+	TOptions,
+	TValue,
+	TRequired,
 	TList,
-	THasDefault,
-	TExclusiveGeneration
->
+	TImmutable,
+	GeneratedScalarOption<TGenerationKey, THasGeneratedValue>
+> &
+	CompatibleGeneratedScalarOptions<
+		TGenerationKey,
+		THasGeneratedValue,
+		TList,
+		true,
+		TExclusiveGeneration
+	>
+
+/** Names a generated scalar input without a default for concise editor signatures. */
+type NonDefaultedGeneratedScalarFieldOptions<
+	TOptions extends object,
+	TValue,
+	TRequired extends boolean,
+	TList extends FieldListOption,
+	TImmutable extends boolean,
+	TGenerationKey extends PropertyKey,
+	THasGeneratedValue extends boolean,
+	TExclusiveGeneration extends boolean,
+> = NonDefaultedCompactScalarFieldOptions<
+	TOptions,
+	TValue,
+	TRequired,
+	TList,
+	TImmutable,
+	GeneratedScalarOption<TGenerationKey, THasGeneratedValue>
+> &
+	CompatibleGeneratedScalarOptions<
+		TGenerationKey,
+		THasGeneratedValue,
+		TList,
+		false,
+		TExclusiveGeneration
+	>
 
 /** Carries option-dependent construction behavior without exposing capabilities. */
 export interface ScalarFieldConfiguration<TOptions extends object> {
@@ -289,22 +347,16 @@ export interface GeneratedCompactScalarFieldFactory<
 		const TImmutable extends boolean = false,
 		const THasGeneratedValue extends boolean = false,
 	>(
-		options: DefaultedCompactScalarFieldOptions<
+		options: DefaultedGeneratedScalarFieldOptions<
 			TOptions,
 			TValue,
 			TRequired,
 			TList,
 			TImmutable,
-			GeneratedScalarOption<TGenerationKey, THasGeneratedValue>
+			TGenerationKey,
+			THasGeneratedValue,
+			TExclusiveGeneration
 		>,
-		...invalidOptions: InvalidOptionsArguments<
-			CompatibleGeneratedScalarOptions<
-				THasGeneratedValue,
-				TList,
-				true,
-				TExclusiveGeneration
-			>
-		>
 	): CompactScalarFieldDefinition<
 		TKind,
 		TValue,
@@ -321,22 +373,16 @@ export interface GeneratedCompactScalarFieldFactory<
 		const TImmutable extends boolean = false,
 		const THasGeneratedValue extends boolean = false,
 	>(
-		options?: NonDefaultedCompactScalarFieldOptions<
+		options?: NonDefaultedGeneratedScalarFieldOptions<
 			TOptions,
 			TValue,
 			TRequired,
 			TList,
 			TImmutable,
-			GeneratedScalarOption<TGenerationKey, THasGeneratedValue>
+			TGenerationKey,
+			THasGeneratedValue,
+			TExclusiveGeneration
 		>,
-		...invalidOptions: InvalidOptionsArguments<
-			CompatibleGeneratedScalarOptions<
-				THasGeneratedValue,
-				TList,
-				false,
-				TExclusiveGeneration
-			>
-		>
 	): CompactScalarFieldDefinition<
 		TKind,
 		TValue,
@@ -372,22 +418,16 @@ export interface GeneratedCompactScalarFieldBuilderMethod<
 		/** Stable logical field name within its containing schema or object. */
 		name: string,
 		/** Existing factory options, including validation, Access, and hooks. */
-		options: DefaultedCompactScalarFieldOptions<
+		options: DefaultedGeneratedScalarFieldOptions<
 			TOptions,
 			TValue,
 			TRequired,
 			TList,
 			TImmutable,
-			GeneratedScalarOption<TGenerationKey, THasGeneratedValue>
+			TGenerationKey,
+			THasGeneratedValue,
+			TExclusiveGeneration
 		>,
-		...invalidOptions: InvalidOptionsArguments<
-			CompatibleGeneratedScalarOptions<
-				THasGeneratedValue,
-				TList,
-				true,
-				TExclusiveGeneration
-			>
-		>
 	): void
 	/**
 	 * Declares one generated-capable scalar field without an explicit default.
@@ -405,22 +445,16 @@ export interface GeneratedCompactScalarFieldBuilderMethod<
 		/** Stable logical field name within its containing schema or object. */
 		name: string,
 		/** Existing factory options, including validation, Access, and hooks. */
-		options?: NonDefaultedCompactScalarFieldOptions<
+		options?: NonDefaultedGeneratedScalarFieldOptions<
 			TOptions,
 			TValue,
 			TRequired,
 			TList,
 			TImmutable,
-			GeneratedScalarOption<TGenerationKey, THasGeneratedValue>
+			TGenerationKey,
+			THasGeneratedValue,
+			TExclusiveGeneration
 		>,
-		...invalidOptions: InvalidOptionsArguments<
-			CompatibleGeneratedScalarOptions<
-				THasGeneratedValue,
-				TList,
-				false,
-				TExclusiveGeneration
-			>
-		>
 	): void
 }
 
@@ -431,12 +465,8 @@ const createCompactScalarFieldImplementation =
 		resolveConfiguration: ScalarFieldConfigurationResolver<TOptions>,
 	): ((
 		options?: TOptions,
-		...invalidOptions: readonly never[]
 	) => FieldDefinition<TKind, TValue, TOptions, never>) =>
-	(options?: TOptions, ...invalidOptions: readonly never[]) => {
-		// Invalid-option rest arguments exist only at the compile-time boundary.
-		void invalidOptions
-
+	(options?: TOptions) => {
 		if (options === undefined) {
 			const { snapshotValue } = resolveConfiguration(emptyFieldOptions)
 

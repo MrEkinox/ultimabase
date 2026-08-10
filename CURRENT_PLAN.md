@@ -40,7 +40,7 @@ central implementation responsibilities into focused internal modules.
 
 3. [x] [1203 — Reject unknown built-in field options](issues/1200-maintenance-consolidation/1203-reject-unknown-schema-field-options.md)
 4. [x] [1204 — Align static and runtime reserved field names](issues/1200-maintenance-consolidation/1204-align-reserved-schema-field-names.md)
-5. [ ] [1205 — Improve invalid field-option diagnostics](issues/1200-maintenance-consolidation/1205-improve-field-option-diagnostics.md)
+5. [x] [1205 — Improve invalid field-option diagnostics](issues/1200-maintenance-consolidation/1205-improve-field-option-diagnostics.md)
 6. [ ] [1206 — Remove deprecated Query compatibility aliases](issues/1200-maintenance-consolidation/1206-remove-deprecated-query-aliases.md)
 
 ### Phase 3 — Focused Core internals

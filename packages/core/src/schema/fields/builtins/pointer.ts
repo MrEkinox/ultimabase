@@ -21,7 +21,6 @@ import type {
 	FieldTypegenState,
 	FieldOptionsBase,
 	FieldValidationOptions,
-	InvalidOptionsArguments,
 	ScalarFieldTypegenState,
 } from '../base/contract.js'
 import { createFieldDefinition } from '../base/definition.js'
@@ -170,9 +169,18 @@ type CompatiblePointerOptions<
 	TOnDelete extends PointerReferentialAction,
 > = TOnDelete extends 'setNull'
 	? TRequired extends true
-		? never
+		? { readonly onDelete?: Exclude<PointerReferentialAction, 'setNull'> }
 		: object
 	: object
+
+/** Names the statically compatible pointer input for concise editor signatures. */
+type CompatibleCompactPointerFieldOptions<
+	TTarget extends SchemaDefinition,
+	TRequired extends boolean,
+	TImmutable extends boolean,
+	TOnDelete extends PointerReferentialAction,
+> = CompactPointerFieldOptions<TTarget, TRequired, TImmutable, TOnDelete> &
+	CompatiblePointerOptions<TRequired, TOnDelete>
 
 type NamedCompactPointerFieldOptions<
 	TTargetName extends SchemaDeclarationTargetName,
@@ -180,7 +188,7 @@ type NamedCompactPointerFieldOptions<
 	TImmutable extends boolean,
 	TOnDelete extends PointerReferentialAction,
 > = Omit<
-	CompactPointerFieldOptions<
+	CompatibleCompactPointerFieldOptions<
 		SchemaReference<TTargetName>,
 		TRequired,
 		TImmutable,
@@ -205,9 +213,6 @@ export type NamedPointerFieldBuilderMethod = <
 		TImmutable,
 		TOnDelete
 	>,
-	...invalidOptions: InvalidOptionsArguments<
-		CompatiblePointerOptions<TRequired, TOnDelete>
-	>
 ) => ResolvedPointerField<SchemaReference<TTargetName>, TRequired, TImmutable>
 
 /**
@@ -224,15 +229,12 @@ export type PointerFieldBuilderMethod = <
 	/** Stable logical field name within the containing schema. */
 	name: string,
 	/** Declares the exact lazy target and pointer behavior. */
-	options: CompactPointerFieldOptions<
+	options: CompatibleCompactPointerFieldOptions<
 		TTarget,
 		TRequired,
 		TImmutable,
 		TOnDelete
 	>,
-	...invalidOptions: InvalidOptionsArguments<
-		CompatiblePointerOptions<TRequired, TOnDelete>
-	>
 ) => void
 
 interface PointerFieldMetadataInput extends FieldOptionsBase<
@@ -311,23 +313,17 @@ export function pointerField<
 	const TImmutable extends boolean = false,
 	const TOnDelete extends PointerReferentialAction = 'restrict',
 >(
-	options: CompactPointerFieldOptions<
+	options: CompatibleCompactPointerFieldOptions<
 		TTarget,
 		TRequired,
 		TImmutable,
 		TOnDelete
 	>,
-	...invalidOptions: InvalidOptionsArguments<
-		CompatiblePointerOptions<TRequired, TOnDelete>
-	>
 ): ResolvedPointerField<TTarget, TRequired, TImmutable>
 
 export function pointerField<const TTarget extends SchemaDefinition>(
 	options: PointerFieldOptions<TTarget>,
-	...invalidOptions: readonly never[]
 ): PointerField<TTarget> {
-	// The rest parameter exists only to reject contradictory generic options.
-	void invalidOptions
 	assertFieldOptions(options)
 
 	if ('default' in options) {
