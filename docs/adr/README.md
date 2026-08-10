@@ -167,6 +167,7 @@ Accepted records:
 - [ADR-0179: Name-based application relationship targets](0179-name-based-relationship-targets.md)
 - [ADR-0180: Transaction-bound mutation relationship projections](0180-mutation-relationship-projections.md)
 - [ADR-0181: Every model projection exposes its identifier](0181-implicit-result-identifiers.md)
+- [ADR-0182: Singular mutations accept an identifier target alias](0182-singular-id-target-aliases.md)
 
 Superseded records:
 

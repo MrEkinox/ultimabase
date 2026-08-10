@@ -94,6 +94,42 @@ describe('schema command execution boundaries', () => {
 
 		expect(() =>
 			updateSchemaRecord(Post, {
+				data: { title: 'Updated' },
+			} as never),
+		).toThrow(
+			new TypeError(
+				'schema updateOne input must contain exactly one of id or where',
+			),
+		)
+		expect(() =>
+			updateSchemaRecord(Post, {
+				id: 'post-1',
+				where: { id: { eq: 'post-1' } },
+				data: { title: 'Updated' },
+			} as never),
+		).toThrow(
+			new TypeError(
+				'schema updateOne input must contain exactly one of id or where',
+			),
+		)
+		expect(() => deleteSchemaRecord(Post, {} as never)).toThrow(
+			new TypeError(
+				'schema deleteOne input must contain exactly one of id or where',
+			),
+		)
+		expect(() =>
+			deleteSchemaRecord(Post, {
+				id: 'post-1',
+				where: { id: { eq: 'post-1' } },
+			} as never),
+		).toThrow(
+			new TypeError(
+				'schema deleteOne input must contain exactly one of id or where',
+			),
+		)
+
+		expect(() =>
+			updateSchemaRecord(Post, {
 				where: { id: { eq: 'post-1' } },
 				data: { title: 'Updated' },
 				// This assertion models an untyped transport returning an unknown field.

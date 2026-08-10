@@ -52,6 +52,7 @@ import type {
 	CreateOneOperationAst,
 	DeleteOneOperationAst,
 	FindManyOperationAst,
+	OperationObjectId,
 	UpdateOneOperationAst,
 	UpsertOneOperationAst,
 } from './contracts.js'
@@ -88,13 +89,20 @@ const assertExactCommandKeys: (
 
 const updateCommandKeys = new Set(['data', 'where'])
 const updateManyCommandKeys = new Set(['data'])
-const updateOneOptionalCommandKeys = new Set(['include', 'select'])
+const updateOneCommandKeys = new Set(['data'])
+const updateOneOptionalCommandKeys = new Set([
+	'id',
+	'include',
+	'select',
+	'where',
+])
 const updateManyOptionalCommandKeys = new Set(['include', 'select'])
 const createCommandKeys = new Set(['data'])
 const createOneOptionalCommandKeys = new Set(['include', 'select'])
 const createManyOptionalCommandKeys = new Set(['include', 'select'])
 const deleteCommandKeys = new Set(['where'])
-const deleteOneOptionalCommandKeys = new Set(['select'])
+const deleteOneCommandKeys = new Set<string>()
+const deleteOneOptionalCommandKeys = new Set(['id', 'select', 'where'])
 const deleteManyOptionalCommandKeys = new Set(['select'])
 const upsertCommandKeys = new Set(['create', 'update', 'where'])
 const upsertOptionalCommandKeys = new Set(['select'])
@@ -104,6 +112,47 @@ const upsertManyOptionalCommandKeys = new Set(['select'])
 const isEmptyWhereExpression = <TSchema extends SchemaDefinition>(
 	expression: QueryFilterNode<TSchema>,
 ): boolean => expression.kind === 'constant' && expression.value
+
+/** Creates the canonical direct filter represented by one singular identifier alias. */
+const createSchemaObjectIdWhere = <const TSchema extends SchemaDefinition>(
+	id: OperationObjectId<TSchema>,
+): SchemaWhereInput<TSchema> =>
+	immutableRecord({
+		id: immutableRecord({ eq: id }),
+	})
+
+/** Resolves one exclusive public target before constructing a Query or operation AST. */
+const normalizeSchemaSingularTarget = <const TSchema extends SchemaDefinition>(
+	input:
+		| SchemaUpdateOneExecutionInput<TSchema>
+		| SchemaDeleteOneExecutionInput<TSchema>,
+	path: string,
+): SchemaWhereInput<TSchema> => {
+	const hasId = Object.hasOwn(input, 'id')
+	const hasWhere = Object.hasOwn(input, 'where')
+
+	if (hasId === hasWhere) {
+		throw new TypeError(`${path} must contain exactly one of id or where`)
+	}
+
+	if (hasWhere) {
+		const where = input.where
+
+		if (where === undefined) {
+			throw new TypeError(`${path}.where must be an object`)
+		}
+
+		return where
+	}
+
+	const id: unknown = input.id
+
+	if (typeof id !== 'string') {
+		throw new TypeError(`${path}.id must be a string`)
+	}
+
+	return createSchemaObjectIdWhere<TSchema>(id as OperationObjectId<TSchema>)
+}
 
 /** Converts one canonical where source into the ordinary immutable QueryBuilder AST. */
 const createSchemaWhereQuery = <const TSchema extends SchemaDefinition>(
@@ -249,11 +298,12 @@ export const updateSchemaRecord = <const TSchema extends SchemaDefinition>(
 ): Promise<object | null> => {
 	assertExactCommandKeys(
 		input,
-		updateCommandKeys,
+		updateOneCommandKeys,
 		'schema updateOne input',
 		updateOneOptionalCommandKeys,
 	)
-	const query = createSchemaWhereQuery(schema, input.where)
+	const where = normalizeSchemaSingularTarget(input, 'schema updateOne input')
+	const query = createSchemaWhereQuery(schema, where)
 
 	assertUniqueSchemaWhere(schema, query, 'schema updateOne where')
 
@@ -443,11 +493,12 @@ export const deleteSchemaRecord = <const TSchema extends SchemaDefinition>(
 ): Promise<object | null> => {
 	assertExactCommandKeys(
 		input,
-		deleteCommandKeys,
+		deleteOneCommandKeys,
 		'schema deleteOne input',
 		deleteOneOptionalCommandKeys,
 	)
-	const query = createSchemaWhereQuery(schema, input.where)
+	const where = normalizeSchemaSingularTarget(input, 'schema deleteOne input')
+	const query = createSchemaWhereQuery(schema, where)
 
 	assertUniqueSchemaWhere(schema, query, 'schema deleteOne where')
 

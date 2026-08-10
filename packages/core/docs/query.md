@@ -213,7 +213,7 @@ const created = await Post.createOne(
 
 const updated = await Post.updateOne(
 	{
-		where: { id: { eq: created.id } },
+		id: created.id,
 		data: { title: 'Updated' },
 		select: { id: true, title: true },
 	},
@@ -222,7 +222,7 @@ const updated = await Post.updateOne(
 
 const deleted = await Post.deleteOne(
 	{
-		where: { id: { eq: created.id } },
+		id: created.id,
 		select: { id: true, title: true },
 	},
 	{ ultimabase },
@@ -233,11 +233,11 @@ The write surface is:
 
 - `createOne({ data, select? }, options?)`
 - `createMany({ data, select? }, options?)`
-- `updateOne({ where, data, select? }, options?)`
+- `updateOne({ id | where, data, select? }, options?)`
 - `updateMany({ data: [{ where, data }], select? }, options?)`
 - `upsertOne({ where, create, update, select? }, options?)`
 - `upsertMany({ data, select? }, options?)`
-- `deleteOne({ where, select? }, options?)`
+- `deleteOne({ id | where, select? }, options?)`
 - `deleteMany({ where: [where], select? }, options?)`
 
 The object form is the source of truth for reads, mutations, and future
@@ -271,7 +271,7 @@ alias for the same canonical `null` clear:
 import { decrement, increment, unset } from '@ultimabase/core'
 
 await Post.updateOne({
-	where: { id: { eq: postId } },
+	id: postId,
 	data: {
 		title: 'Updated',
 		views: increment(2),
@@ -290,11 +290,13 @@ An empty object or builder is rejected. Collection updates and deletes require
 one unique predicate per item; this API intentionally has no implicit
 "all rows" target.
 
-`updateOne`, `deleteOne`, and `upsertOne` require an exact unique target: `id`, one
-unique field, or all fields of one declared unique composite index. This keeps
-singular cardinality independent from ordering, pagination, or adapter-specific
-behavior. A where-based `updateOne` or `deleteOne` returns `null` when no target
-matches and does not run its schema item lifecycle hooks.
+`updateOne` and `deleteOne` accept exactly one of a top-level `id` alias or the
+canonical `where` object. The alias normalizes to `{ id: { eq: id } }` before
+Query construction. Their `where` form and `upsertOne` require an exact unique
+target: `id`, one unique field, or all fields of one declared unique composite
+index. This keeps singular cardinality independent from ordering, pagination,
+or adapter-specific behavior. A schema-root `updateOne` or `deleteOne` returns
+`null` when no target matches and does not run its schema item lifecycle hooks.
 
 ## Mutation results and relationships
 
@@ -312,13 +314,13 @@ const created = await Post.createOne({
 })
 
 const post = await Post.updateOne({
-	where: { id: { eq: postId } },
+	id: postId,
 	data: { title: 'Updated' },
 	select: { id: true, title: true, author: true },
 })
 
 const deleted = await Post.deleteOne({
-	where: { id: { eq: postId } },
+	id: postId,
 	select: { id: true, title: true },
 })
 

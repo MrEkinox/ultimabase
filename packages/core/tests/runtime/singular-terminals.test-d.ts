@@ -134,6 +134,18 @@ test('preserves schema selection across every root read terminal', () => {
 		},
 		masterOptions,
 	)
+	expectTypeOf(
+		articleSchema.updateOne(
+			{
+				id: 'article-1',
+				data: { views: increment(1) },
+				select: { id: true, title: true },
+			},
+			contextOptions,
+		),
+	).toEqualTypeOf<
+		Promise<QueryResult<typeof articleSchema, 'id' | 'title'> | null>
+	>()
 	void articleSchema.updateMany(
 		{
 			data: [
@@ -169,6 +181,14 @@ test('preserves schema selection across every root read terminal', () => {
 		{ where: { title: { eq: 'Unique' } } },
 		masterOptions,
 	)
+	expectTypeOf(
+		articleSchema.deleteOne(
+			{ id: 'article-1', select: { id: true, title: true } },
+			contextOptions,
+		),
+	).toEqualTypeOf<
+		Promise<QueryResult<typeof articleSchema, 'id' | 'title'> | null>
+	>()
 	void articleSchema.deleteMany(
 		{ where: [{ id: { eq: 'article-1' } }] },
 		contextualMasterOptions,
@@ -186,6 +206,21 @@ test('preserves schema selection across every root read terminal', () => {
 	void articleSchema.updateOne([{ views: increment(1) }])
 	// @ts-expect-error -- Singular delete commands require their target wrapper.
 	void articleSchema.deleteOne([])
+	// @ts-expect-error -- Singular updates accept exactly one target form.
+	void articleSchema.updateOne({ data: { views: 1 } })
+	// @ts-expect-error -- Identifier aliases and canonical filters are mutually exclusive.
+	void articleSchema.updateOne({
+		id: 'article-1',
+		where: { id: { eq: 'article-1' } },
+		data: { views: 1 },
+	})
+	// @ts-expect-error -- Singular deletes accept exactly one target form.
+	void articleSchema.deleteOne({})
+	// @ts-expect-error -- Identifier aliases and canonical filters are mutually exclusive.
+	void articleSchema.deleteOne({
+		id: 'article-1',
+		where: { id: { eq: 'article-1' } },
+	})
 	// @ts-expect-error -- Terminal ownership never becomes a QueryBuilder constructor option.
 	new QueryBuilder(articleSchema, { ultimabase })
 })

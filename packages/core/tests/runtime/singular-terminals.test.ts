@@ -1,4 +1,8 @@
-import { FrameworkApplication, increment } from '../../src/index.js'
+import {
+	FrameworkApplication,
+	increment,
+	type ExecutableOperationAst,
+} from '../../src/index.js'
 import { Schema } from '../../src/index.js'
 import { describe, expect, it } from 'vitest'
 
@@ -23,6 +27,67 @@ const articleSchema = Schema.define({
 })
 
 describe('read terminals and singular schema commands', () => {
+	it('normalizes singular identifier aliases into canonical where operations', async () => {
+		const objectId = '0198f090-2a50-7000-8000-000000000019'
+		const results: readonly QueuedAdapterResult[] = [
+			{ status: 'fulfilled', target: null, value: null },
+			{ status: 'fulfilled', target: null, value: null },
+			{ status: 'fulfilled', target: null, value: null },
+			{ status: 'fulfilled', target: null, value: null },
+		]
+		const adapter = new RecordingDatabaseAdapter(results, [])
+		const framework = new FrameworkEngine({
+			application: new FrameworkApplication({
+				schemas: [articleSchema],
+				plugins: [],
+			}),
+			pipeline: createRecordingPipeline(adapter, []),
+		})
+		const request = framework.anonymous({
+			requestId: 'singular-id-aliases',
+			source: requestSources.internal,
+		})
+
+		await runWithRequestEngine(request, async () => {
+			await expect(
+				articleSchema.updateOne({ id: objectId, data: { views: 1 } }),
+			).resolves.toBeNull()
+			await expect(
+				articleSchema.updateOne({
+					where: { id: { eq: objectId } },
+					data: { views: 1 },
+				}),
+			).resolves.toBeNull()
+			await expect(
+				articleSchema.deleteOne({ id: objectId }),
+			).resolves.toBeNull()
+			await expect(
+				articleSchema.deleteOne({ where: { id: { eq: objectId } } }),
+			).resolves.toBeNull()
+		})
+
+		const operations = adapter.transactions.flatMap((transaction) =>
+			transaction.requests.map(
+				({ operation }) => operation as unknown as ExecutableOperationAst,
+			),
+		)
+		const whereNodes = operations.map((operation) =>
+			operation.kind === 'update-one' || operation.kind === 'delete-one'
+				? operation.query.where
+				: undefined,
+		)
+
+		expect(operations.map(({ kind }) => kind)).toStrictEqual([
+			'update-one',
+			'update-one',
+			'delete-one',
+			'delete-one',
+		])
+		expect(whereNodes[0]).toStrictEqual(whereNodes[1])
+		expect(whereNodes[2]).toStrictEqual(whereNodes[3])
+		expect(whereNodes[0]).toStrictEqual(whereNodes[2])
+	})
+
 	it('rejects missing targets for get and persisted model commands', async () => {
 		const trace: string[] = []
 		const persisted = {

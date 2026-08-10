@@ -633,7 +633,7 @@ const created = await PostSchema.createOne(
 
 const updated = await PostSchema.updateOne(
 	{
-		where: { id: { eq: postId } },
+		id: postId,
 		data: { title: 'Updated' },
 		select: { title: true },
 		include: { author: { select: { name: true } } },
@@ -643,7 +643,7 @@ const updated = await PostSchema.updateOne(
 
 const deleted = await PostSchema.deleteOne(
 	{
-		where: { id: { eq: postId } },
+		id: postId,
 		select: { id: true, title: true },
 	},
 	{ ultimabase },
@@ -735,9 +735,10 @@ the same exact result selections as their static read or mutation equivalents.
 was not selected. All instance commands remain immutable conveniences: a
 mutation starts without the receiver's read selection and returns a new model.
 `get`, `fetch`, `update`, and `delete` target one exact identity and throw
-`NOT_FOUND` when it no longer exists. Schema `updateOne({ where })` and
-`deleteOne({ where })` remain nullable conditional mutations and skip their item
-lifecycle hooks when no row matches.
+`NOT_FOUND` when it no longer exists. Schema `updateOne` and `deleteOne` accept
+exactly one of `id` or `where`; `id` is only a concise alias for
+`where: { id: { eq: id } }`. They remain nullable conditional mutations and
+skip their item lifecycle hooks when no row matches.
 Collection reads and writes live on the generated schema class. Models
 deliberately expose no mutable `save()` method.
 

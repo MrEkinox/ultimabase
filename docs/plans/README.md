@@ -7,7 +7,7 @@ priority changes.
 
 ## Active
 
-No multi-issue objective is active.
+- [Singular identifier target aliases](../../CURRENT_PLAN.md)
 
 ## Paused
 

@@ -12,6 +12,7 @@ import type {
 import type { WhereBuilder, WhereInput } from '../filters/where.js'
 import type { UpdateExpressionInput } from '../updates/contracts.js'
 import type { ExactGeneratedInclusionInput } from '../query/input.js'
+import type { OperationObjectId } from './contracts.js'
 
 /** Exposes typed immutable filters without selection, ordering, or execution methods. */
 export type SchemaWhere<TSchema extends SchemaDefinition> =
@@ -103,13 +104,23 @@ export type SchemaCreateManyExecutionInput<
 		select?: QuerySelection<TSchema>
 	}>
 
-interface SchemaUpdateOneFields<TSchema extends SchemaTypeInfoSource> {
-	/**
-	 * Selects exactly one row by `id`, one unique field, or one complete unique index.
-	 *
-	 * @example `{ id: { eq: postId } }`
-	 */
-	readonly where: SchemaWhereInput<TSchema>
+type SchemaSingularTarget<TSchema extends SchemaTypeInfoSource> =
+	| Readonly<{
+			/** Targets one row through the same schema-aware identifier accepted by `get`. */
+			readonly id: OperationObjectId<TSchema>
+			readonly where?: never
+	  }>
+	| Readonly<{
+			readonly id?: never
+			/**
+			 * Selects exactly one row by `id`, one unique field, or one complete unique index.
+			 *
+			 * @example `{ id: { eq: postId } }`
+			 */
+			readonly where: SchemaWhereInput<TSchema>
+	  }>
+
+interface SchemaUpdateFields<TSchema extends SchemaTypeInfoSource> {
 	/**
 	 * Applies typed atomic field operations when the target exists.
 	 *
@@ -117,6 +128,9 @@ interface SchemaUpdateOneFields<TSchema extends SchemaTypeInfoSource> {
 	 */
 	readonly data: UpdateExpressionInput<TSchema> & {}
 }
+
+type SchemaUpdateOneFields<TSchema extends SchemaTypeInfoSource> =
+	SchemaUpdateFields<TSchema> & SchemaSingularTarget<TSchema>
 
 /** Updates one uniquely identified row with an optional exact result projection. */
 export type SchemaUpdateOneInput<
@@ -138,7 +152,11 @@ export type SchemaUpdateOneExecutionInput<
 
 /** Describes one independently targeted update inside an ordered atomic batch. */
 export type SchemaUpdateManyItemInput<TSchema extends SchemaTypeInfoSource> =
-	SchemaUpdateOneFields<TSchema>
+	SchemaUpdateFields<TSchema> &
+		Readonly<{
+			/** Selects one exact unique target inside the batch. */
+			readonly where: SchemaWhereInput<TSchema>
+		}>
 
 interface SchemaUpdateManyFields<TSchema extends SchemaTypeInfoSource> {
 	/** Supplies uniquely targeted updates in deterministic declaration order. */
@@ -163,10 +181,8 @@ export type SchemaUpdateManyExecutionInput<
 		select?: QuerySelection<TSchema>
 	}>
 
-interface SchemaDeleteOneFields<TSchema extends SchemaTypeInfoSource> {
-	/** Selects exactly one row by `id`, one unique field, or one complete unique index. */
-	readonly where: SchemaWhereInput<TSchema>
-}
+type SchemaDeleteOneFields<TSchema extends SchemaTypeInfoSource> =
+	SchemaSingularTarget<TSchema>
 
 /** Deletes one uniquely identified row with an optional exact result projection. */
 export type SchemaDeleteOneInput<
