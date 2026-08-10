@@ -92,7 +92,7 @@ interface QueryProjectionInput<TSchema extends SchemaTypeInfoSource> {
 declare const queryBuilderInputType: unique symbol
 
 interface QueryBuilderInputIdentity<TSelectedField, TIncludedField> {
-	readonly [queryBuilderInputType]?: Readonly<{
+	readonly [queryBuilderInputType]: Readonly<{
 		readonly includedField: TIncludedField
 		readonly selectedField: TSelectedField
 	}>
@@ -247,10 +247,13 @@ export type ExactReadInput<
 type ExactReadSelectionInput<
 	TContract extends SchemaTypeInfo,
 	TSelection extends TContract['inputs']['select'] | undefined,
-> = [TSelection] extends [TContract['inputs']['select']]
+> = string extends TContract['fields']
 	? Readonly<{
-			readonly select: TContract['inputs']['select'] &
-				TSelection &
+			readonly select?: TSelection & TContract['inputs']['select']
+		}>
+	: Readonly<{
+			readonly select?: TSelection &
+				TContract['inputs']['select'] &
 				Readonly<
 					Record<
 						Exclude<keyof TSelection, keyof TContract['inputs']['select']>,
@@ -259,7 +262,6 @@ type ExactReadSelectionInput<
 				> &
 				LiteralQuerySelection<TSelection>
 		}>
-	: Readonly<{ readonly select?: never }>
 
 type ExactGeneratedValue<TInput, TContract> = TInput extends readonly unknown[]
 	? TInput extends TContract
@@ -279,22 +281,21 @@ type ExactGeneratedValue<TInput, TContract> = TInput extends readonly unknown[]
 			? TInput
 			: never
 
-type GeneratedIncludeInput<TContract extends SchemaTypeInfo> =
-	TContract['inputs'] extends { readonly include: infer TInclude }
-		? TInclude
-		: never
-
 type ExactReadInclusionInput<
 	TContract extends SchemaTypeInfo,
-	TInclude extends GeneratedIncludeInput<TContract> | undefined,
-> = [TInclude] extends [GeneratedIncludeInput<TContract>]
+	TInclude extends TContract['inputs']['include'] | undefined,
+> = string extends TContract['fields']
 	? Readonly<{
-			readonly include: ExactGeneratedValue<
-				TInclude,
-				GeneratedIncludeInput<TContract>
-			>
+			readonly include?: TInclude & NonNullable<TContract['inputs']['include']>
 		}>
-	: Readonly<{ readonly include?: never }>
+	: Readonly<{
+			readonly include?: NonNullable<TContract['inputs']['include']> &
+				TInclude &
+				ExactGeneratedValue<
+					TInclude,
+					NonNullable<TContract['inputs']['include']>
+				>
+		}>
 
 interface ExactFindManyFields<TContract extends SchemaTypeInfo> {
 	/** Limits the number of returned models. */
@@ -308,7 +309,7 @@ interface ExactFindManyFields<TContract extends SchemaTypeInfo> {
 type ExactFindManyProjectionInput<
 	TContract extends SchemaTypeInfo,
 	TSelection extends TContract['inputs']['select'] | undefined,
-	TInclude extends GeneratedIncludeInput<TContract> | undefined,
+	TInclude extends TContract['inputs']['include'] | undefined,
 > = ExactFindManyFields<TContract> &
 	ExactReadSelectionInput<TContract, TSelection> &
 	ExactReadInclusionInput<TContract, TInclude>
@@ -324,7 +325,7 @@ interface ExactFindOneFields<TContract extends SchemaTypeInfo> {
 export type ExactGeneratedFindOneInput<
 	TContract extends SchemaTypeInfo,
 	TSelection extends TContract['inputs']['select'] | undefined = undefined,
-	TInclude extends GeneratedIncludeInput<TContract> | undefined = undefined,
+	TInclude extends TContract['inputs']['include'] | undefined = undefined,
 > = ExactFindOneFields<TContract> &
 	ExactReadSelectionInput<TContract, TSelection> &
 	ExactReadInclusionInput<TContract, TInclude>
@@ -333,7 +334,7 @@ export type ExactGeneratedFindOneInput<
 export type ExactGeneratedGetInput<
 	TContract extends SchemaTypeInfo,
 	TSelection extends TContract['inputs']['select'] | undefined = undefined,
-	TInclude extends GeneratedIncludeInput<TContract> | undefined = undefined,
+	TInclude extends TContract['inputs']['include'] | undefined = undefined,
 > = Readonly<{ readonly id: OperationObjectId<TContract> }> &
 	ExactReadSelectionInput<TContract, TSelection> &
 	ExactReadInclusionInput<TContract, TInclude>
@@ -342,7 +343,7 @@ export type ExactGeneratedGetInput<
 export type ExactCursorFindManyInput<
 	TContract extends SchemaTypeInfo,
 	TSelection extends TContract['inputs']['select'] | undefined = undefined,
-	TInclude extends GeneratedIncludeInput<TContract> | undefined = undefined,
+	TInclude extends TContract['inputs']['include'] | undefined = undefined,
 > = ExactFindManyProjectionInput<TContract, TSelection, TInclude> &
 	Readonly<{ readonly cursor: true | string; readonly offset?: never }>
 
@@ -350,7 +351,7 @@ export type ExactCursorFindManyInput<
 export type ExactOffsetFindManyInput<
 	TContract extends SchemaTypeInfo,
 	TSelection extends TContract['inputs']['select'] | undefined = undefined,
-	TInclude extends GeneratedIncludeInput<TContract> | undefined = undefined,
+	TInclude extends TContract['inputs']['include'] | undefined = undefined,
 > = ExactFindManyProjectionInput<TContract, TSelection, TInclude> &
 	Readonly<{ readonly cursor?: never; readonly offset?: number }>
 

@@ -38,14 +38,13 @@ interface SchemaCreateManyFields<TSchema extends SchemaTypeInfoSource> {
 type SchemaResultSelection<
 	TSchema extends SchemaTypeInfoSource,
 	TSelection extends QuerySelection<TSchema> | undefined,
-> = [TSelection] extends [QuerySelection<TSchema>]
-	? Readonly<{
-			/** Projects returned models through the same flat contract as `QueryBuilder.select`. */
-			select: QuerySelection<TSchema> &
-				ExactQuerySelection<TSchema, TSelection> &
-				LiteralQuerySelection<TSelection>
-		}>
-	: Readonly<{ select?: never }>
+> = Readonly<{
+	/** Projects returned models through the same flat contract as `QueryBuilder.select`. */
+	readonly select?: TSelection &
+		QuerySelection<TSchema> &
+		ExactQuerySelection<TSchema, TSelection> &
+		LiteralQuerySelection<TSelection>
+}>
 
 /** Creates one row with an optional exact result projection. */
 export type SchemaCreateOneInput<
