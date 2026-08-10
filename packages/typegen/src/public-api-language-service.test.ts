@@ -10,7 +10,7 @@ const hoverMarker = '/* codegen-hover */'
 const pluginOptionsMarker = '/* codegen-plugin-options */'
 const pluginHoverMarker = '/* codegen-plugin-hover */'
 const sourceWithMarkers = `
-import { codegenPlugin, generateApplicationTypes } from './index.js'
+import { typegenPlugin, generateApplicationTypes } from './index.js'
 import type { GenerateApplicationTypesOptions } from './index.js'
 import type { FrameworkApplication, PluginDefinition, SchemaDefinition } from '@ultimabase/core'
 
@@ -25,7 +25,7 @@ const generated = ${hoverMarker}generateApplicationTypes({
   application,
   applicationId: 'main',
 })
-const plugin = ${pluginHoverMarker}codegenPlugin({
+const plugin = ${pluginHoverMarker}typegenPlugin({
   ${pluginOptionsMarker}
 })
 
@@ -48,7 +48,7 @@ const fileName = path.join(
 )
 const service = createLanguageService(fileName, source)
 
-describe('@ultimabase/codegen source declarations', () => {
+describe('@ultimabase/typegen source declarations', () => {
 	it('documents exact generator options and result hovers', () => {
 		expect(service.getSemanticDiagnostics(fileName)).toStrictEqual([])
 
@@ -124,7 +124,7 @@ describe('@ultimabase/codegen source declarations', () => {
 			'declaration replaced atomically',
 		)
 		expect(ts.displayPartsToString(hover?.displayParts)).toContain(
-			'CodegenPlugin',
+			'TypegenPlugin',
 		)
 		expect(ts.displayPartsToString(hover?.documentation)).toContain(
 			'before infrastructure starts',

@@ -169,6 +169,7 @@ Accepted records:
 - [ADR-0181: Every model projection exposes its identifier](0181-implicit-result-identifiers.md)
 - [ADR-0182: Singular mutations accept an identifier target alias](0182-singular-id-target-aliases.md)
 - [ADR-0183: Bootstrap model identifiers are strings](0183-bootstrap-model-string-identifiers.md)
+- [ADR-0184: Type generation uses an explicit package identity](0184-typegen-package-identity.md)
 
 Superseded records:
 

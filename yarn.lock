@@ -1498,21 +1498,6 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@ultimabase/codegen@workspace:^, @ultimabase/codegen@workspace:packages/codegen":
-  version: 0.0.0-use.local
-  resolution: "@ultimabase/codegen@workspace:packages/codegen"
-  dependencies:
-    "@ultimabase/core": "workspace:^"
-    "@ultimabase/pg-vector-plugin": "workspace:^"
-    "@ultimabase/roles-plugin": "workspace:^"
-    "@ultimabase/shared": "workspace:^"
-    jiti: "npm:^2.6.1"
-    tsdown: "npm:^0.22.14"
-    typescript: "npm:^6.0.3"
-    vitest: "npm:4.1.10"
-  languageName: unknown
-  linkType: soft
-
 "@ultimabase/core@workspace:^, @ultimabase/core@workspace:packages/core":
   version: 0.0.0-use.local
   resolution: "@ultimabase/core@workspace:packages/core"
@@ -1531,9 +1516,9 @@ __metadata:
   resolution: "@ultimabase/example-todo-backend@workspace:examples/todo-backend"
   dependencies:
     "@types/node": "npm:^24.0.0"
-    "@ultimabase/codegen": "workspace:^"
     "@ultimabase/core": "workspace:^"
     "@ultimabase/postgres-plugin": "workspace:^"
+    "@ultimabase/typegen": "workspace:^"
     typescript: "npm:^6.0.3"
   languageName: unknown
   linkType: soft
@@ -1659,6 +1644,21 @@ __metadata:
     "@testcontainers/postgresql": "npm:^12.0.4"
     "@ultimabase/core": "workspace:^"
     "@ultimabase/shared": "workspace:^"
+    tsdown: "npm:^0.22.14"
+    typescript: "npm:^6.0.3"
+    vitest: "npm:4.1.10"
+  languageName: unknown
+  linkType: soft
+
+"@ultimabase/typegen@workspace:^, @ultimabase/typegen@workspace:packages/typegen":
+  version: 0.0.0-use.local
+  resolution: "@ultimabase/typegen@workspace:packages/typegen"
+  dependencies:
+    "@ultimabase/core": "workspace:^"
+    "@ultimabase/pg-vector-plugin": "workspace:^"
+    "@ultimabase/roles-plugin": "workspace:^"
+    "@ultimabase/shared": "workspace:^"
+    jiti: "npm:^2.6.1"
     tsdown: "npm:^0.22.14"
     typescript: "npm:^6.0.3"
     vitest: "npm:4.1.10"

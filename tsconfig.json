@@ -17,7 +17,7 @@
 	"references": [
 		{ "path": "./packages/shared" },
 		{ "path": "./packages/core" },
-		{ "path": "./packages/codegen" },
+		{ "path": "./packages/typegen" },
 		{ "path": "./packages/pg-vector-plugin" },
 		{ "path": "./packages/roles-plugin" },
 		{ "path": "./packages/acl-permissions-plugin" },

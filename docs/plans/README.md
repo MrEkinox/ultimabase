@@ -7,7 +7,7 @@ priority changes.
 
 ## Active
 
-No multi-issue objective is active.
+- [Explicit Typegen package identity](../../CURRENT_PLAN.md)
 
 ## Paused
 

@@ -892,7 +892,7 @@ Schema.define({
 
 		expect(diagnostics).toHaveLength(1)
 		expect(diagnostics[0]).toContain(
-			'UltimaBase generated schema is missing or stale; regenerate it with @ultimabase/codegen',
+			'UltimaBase generated schema is missing or stale; regenerate it with @ultimabase/typegen',
 		)
 
 		service.dispose()

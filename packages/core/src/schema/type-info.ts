@@ -217,9 +217,9 @@ export type RequireGeneratedSchemaEntry<TClassName extends string> =
 			? UltimaBaseGeneratedSchemas[TClassName] extends SchemaTypeInfo
 				? Readonly<Record<never, never>>
 				: Readonly<{
-						'UltimaBase generated schema is incompatible or stale; regenerate it with @ultimabase/codegen': never
+						'UltimaBase generated schema is incompatible or stale; regenerate it with @ultimabase/typegen': never
 					}>
 			: Readonly<{
-					'UltimaBase generated schema is missing or stale; regenerate it with @ultimabase/codegen': never
+					'UltimaBase generated schema is missing or stale; regenerate it with @ultimabase/typegen': never
 				}>
 		: Readonly<Record<never, never>>

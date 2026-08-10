@@ -9,11 +9,11 @@ export type {
 	GenerateApplicationTypesOptions,
 	GeneratedApplicationTypes,
 } from './generator.js'
-export { codegenPlugin } from './plugin.js'
+export { typegenPlugin } from './plugin.js'
 export type {
-	CodegenPlugin,
-	CodegenPluginExports,
-	CodegenPluginOptions,
+	TypegenPlugin,
+	TypegenPluginExports,
+	TypegenPluginOptions,
 } from './plugin.js'
 export { loadTypegenApplication } from './loader.js'
 export type { LoadTypegenApplicationOptions } from './loader.js'

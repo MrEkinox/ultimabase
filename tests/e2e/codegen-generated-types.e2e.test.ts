@@ -5,7 +5,7 @@ import {
 	Schema,
 	type FieldBuilder,
 } from '@ultimabase/core'
-import { generateApplicationTypes } from '@ultimabase/codegen'
+import { generateApplicationTypes } from '@ultimabase/typegen'
 import {
 	pgVectorPlugin,
 	type VectorFieldBuilderMethod,
@@ -76,10 +76,10 @@ const generated = generateApplicationTypes({
 	applicationId: 'fixture.packed-codegen',
 })
 const sourceWithMarkers = `${generated.contents}
-import { generateApplicationTypes as generatePackedApplicationTypes } from '@ultimabase/codegen'
+import { generateApplicationTypes as generatePackedApplicationTypes } from '@ultimabase/typegen'
 import { Schema, definePlugin } from '@ultimabase/core'
 import type { FrameworkApplication, PluginDefinition, SchemaDefinition } from '@ultimabase/core'
-import type { GenerateApplicationTypesOptions } from '@ultimabase/codegen'
+import type { GenerateApplicationTypesOptions } from '@ultimabase/typegen'
 
 declare const packedApplication: FrameworkApplication<readonly SchemaDefinition[], readonly PluginDefinition[]>
 declare const packedOwner: Core.PointerValue
@@ -372,7 +372,7 @@ const fileName = path.join(
 )
 const service = createLanguageService(fileName, source)
 
-describe('packed @ultimabase/codegen generated contracts', () => {
+describe('packed @ultimabase/typegen generated contracts', () => {
 	it('emits a stable registry that typechecks through package exports', () => {
 		expect(generated.fingerprint).toMatch(/^[a-f0-9]{64}$/u)
 		expect(generated.contents).not.toMatch(/\bany\b/u)

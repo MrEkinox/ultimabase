@@ -7,14 +7,14 @@ import {
 import { expectTypeOf, test } from 'vitest'
 
 import {
-	codegenPlugin,
+	typegenPlugin,
 	generateApplicationTypes,
 	loadTypegenApplication,
 	readGeneratedTypeFingerprint,
 	writeGeneratedTypeFile,
 	writeGeneratedTypeFiles,
-	type CodegenPlugin,
-	type CodegenPluginExports,
+	type TypegenPlugin,
+	type TypegenPluginExports,
 	type GeneratedApplicationTypes,
 	type TypegenApplicationSnapshot,
 } from './index.js'
@@ -67,7 +67,7 @@ test('exposes precise generation, loading, and atomic writer contracts', () => {
 })
 
 test('exposes automatic startup generation as a typed application plugin', () => {
-	const plugin = codegenPlugin({
+	const plugin = typegenPlugin({
 		applicationId: 'fixture.public-types',
 		outputPath: './generated.d.ts',
 	})
@@ -76,8 +76,8 @@ test('exposes automatic startup generation as a typed application plugin', () =>
 		schemas: [Document],
 	})
 
-	expectTypeOf(plugin).toEqualTypeOf<CodegenPlugin>()
+	expectTypeOf(plugin).toEqualTypeOf<TypegenPlugin>()
 	expectTypeOf(
-		generatedApplication.getPlugin('@ultimabase/codegen'),
-	).toEqualTypeOf<Readonly<CodegenPluginExports>>()
+		generatedApplication.getPlugin('@ultimabase/typegen'),
+	).toEqualTypeOf<Readonly<TypegenPluginExports>>()
 })

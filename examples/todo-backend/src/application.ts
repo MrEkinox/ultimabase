@@ -1,6 +1,6 @@
 import { fileURLToPath } from 'node:url'
 
-import { codegenPlugin } from '@ultimabase/codegen'
+import { typegenPlugin } from '@ultimabase/typegen'
 import { UltimaBase } from '@ultimabase/core'
 import { postgresPlugin } from '@ultimabase/postgres-plugin'
 
@@ -19,7 +19,7 @@ const generatedTypesPath = fileURLToPath(
 /** Owns the Todo schema, automatic type generation, and PostgreSQL lifecycle. */
 export const ultimabase = new UltimaBase({
 	plugins: [
-		codegenPlugin({
+		typegenPlugin({
 			applicationId: 'todo-backend',
 			outputPath: generatedTypesPath,
 		}),
