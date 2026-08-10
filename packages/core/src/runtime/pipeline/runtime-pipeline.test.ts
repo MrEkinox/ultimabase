@@ -529,6 +529,97 @@ describe('RuntimePipeline', () => {
 		])
 	})
 
+	it('preserves the complete mandatory mutation stage order', async () => {
+		const trace: string[] = []
+		const target = immutableRecord({
+			createdAt: '2026-08-11T00:00:00.000Z',
+			id: '0198f090-2a50-7000-8000-000000000081',
+			title: 'stored',
+			updatedAt: '2026-08-11T00:00:00.000Z',
+		})
+		const transaction: DatabaseTransactionAdapter = {
+			kind: 'database-transaction-adapter',
+			prepare: <const TOperation extends DatabaseMutationOperationAst>() => {
+				trace.push('database:prepare')
+
+				return Promise.resolve(
+					createPreparedOperationFixture<TOperation>({
+						execute: () =>
+							Promise.resolve(
+								target as unknown as DatabaseOperationResult<TOperation>,
+							),
+						onExecute: () => {
+							trace.push('database:execute')
+						},
+						target,
+					}),
+				)
+			},
+			execute: <const TOperation extends DatabaseOperationAst>(): Promise<
+				DatabaseOperationResult<TOperation>
+			> => Promise.reject(new TypeError('Unexpected direct execution')),
+			commit: () => Promise.resolve(),
+			rollback: () => Promise.resolve(),
+		}
+		const enforcement: RuntimeEnforcementStages = {
+			...createEnforcementStages(trace),
+			enforcePreparedMutation: () => {
+				trace.push('enforcement:prepared')
+			},
+			enforceMutationOutcome: (input) => {
+				trace.push('enforcement:mutation-outcome')
+
+				return input.outcome
+			},
+		}
+		const pipeline = new RuntimePipeline(
+			createStages(trace, transaction, {
+				enforcement,
+				nativeHooks: createNativeHookStages(trace),
+				preparedOperationHooks: (input) => {
+					trace.push('preparedOperation')
+
+					return immutableRecord({ ...input.operation })
+				},
+			}),
+		)
+
+		await pipeline.execute({
+			context: requestContext,
+			operation: articleUpdateOperation,
+		})
+
+		expect(trace).toStrictEqual([
+			'normalization',
+			'structuralValidation',
+			'enforcement:evaluate',
+			'enforcement:operation',
+			'database:prepare',
+			'enforcement:prepared',
+			'native:resolveInput',
+			'native:schemaResolveInput',
+			'preparedOperation',
+			'native:revalidate',
+			'enforcement:reevaluate',
+			'enforcement:operation',
+			'enforcement:prepared',
+			'globalBeforeHooks',
+			'schemaBeforeHooks',
+			'native:schemaPrepared',
+			'database:execute',
+			'enforcement:mutation-outcome',
+			'native:mutationOutcome',
+			'enforcement:selection-result',
+			'native:resolveOutput',
+			'native:schemaAfter',
+			'schemaAfterHooks',
+			'globalAfterHooks',
+			'enforcement:result',
+			'commit',
+			'postCommitEvents',
+		])
+	})
+
 	it('forwards the native item-hook target requirement to mutation preparation', async () => {
 		const trace: string[] = []
 		let preparedRequest: DatabaseOperationRequest | undefined

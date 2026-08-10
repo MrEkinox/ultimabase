@@ -128,7 +128,7 @@ describe.each(packageFixtures)('$name archive', ({ directory, name }) => {
 	})
 })
 
-describe('@ultimabase/core Schema and QueryBuilder declarations', () => {
+describe('@ultimabase/core Schema, QueryBuilder, and Runtime declarations', () => {
 	it('keeps Query-expression traversal implementation private', async () => {
 		const declarations = await readFile(
 			path.join(packagesDirectory, 'core', 'dist', 'index.d.ts'),
@@ -140,6 +140,26 @@ describe('@ultimabase/core Schema and QueryBuilder declarations', () => {
 			'QueryExpressionTraversalDirective',
 			'QueryExpressionVisitor',
 			'traverseQueryExpression',
+		]) {
+			expect(declarations).not.toContain(internalName)
+		}
+	})
+
+	it('keeps Runtime orchestration implementation private', async () => {
+		const declarations = await readFile(
+			path.join(packagesDirectory, 'core', 'dist', 'index.d.ts'),
+			'utf8',
+		)
+
+		for (const internalName of [
+			'RuntimeDatabaseExecution',
+			'RuntimeDatabaseExecutionRequest',
+			'RuntimeInclusionProjector',
+			'RuntimePreparedInclusion',
+			'createRuntimeOperationInput',
+			'executeRuntimeDatabaseOperation',
+			'retainRuntimeMutationBatchProjector',
+			'snapshotRuntimeConstraints',
 		]) {
 			expect(declarations).not.toContain(internalName)
 		}
