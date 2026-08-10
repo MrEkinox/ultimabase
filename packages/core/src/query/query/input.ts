@@ -1,6 +1,7 @@
 import { Schema, type SchemaDefinition } from '../../schema/index.js'
 import type {
 	SchemaTypeInfo,
+	SchemaTypeInfoFor,
 	SchemaTypeInfoSource,
 	SchemaTypeValue,
 } from '../../schema/type-info.js'
@@ -283,7 +284,7 @@ type ExactGeneratedValue<TInput, TContract> = TInput extends readonly unknown[]
 
 type ExactReadInclusionInput<
 	TContract extends SchemaTypeInfo,
-	TInclude extends TContract['inputs']['include'] | undefined,
+	TInclude,
 > = string extends TContract['fields']
 	? Readonly<{
 			readonly include?: TInclude & NonNullable<TContract['inputs']['include']>
@@ -296,6 +297,12 @@ type ExactReadInclusionInput<
 					NonNullable<TContract['inputs']['include']>
 				>
 		}>
+
+/** Reuses exact generated nested inclusion validation outside read terminals. */
+export type ExactGeneratedInclusionInput<
+	TSchema extends SchemaTypeInfoSource,
+	TInclude extends SchemaTypeInfoFor<TSchema>['inputs']['include'] | undefined,
+> = ExactReadInclusionInput<SchemaTypeInfoFor<TSchema>, TInclude>
 
 interface ExactFindManyFields<TContract extends SchemaTypeInfo> {
 	/** Limits the number of returned models. */

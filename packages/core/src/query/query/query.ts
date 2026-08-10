@@ -90,6 +90,7 @@ import type {
 	SchemaCreateManyExecutionInput,
 	SchemaCreateOneExecutionInput,
 } from '../operations/schema-commands.js'
+import { queryFromFindOneInput } from './input.js'
 import type {
 	UpdateExpression,
 	UpdateExpressionInput,
@@ -976,6 +977,10 @@ export const executeSchemaCreateOne = <const TSchema extends SchemaDefinition>(
 	input: SchemaCreateOneExecutionInput<TSchema>,
 	options?: OperationOptions,
 ): Promise<object> => {
+	const projection = queryFromFindOneInput(schema, {
+		...(input.include === undefined ? {} : { include: input.include }),
+		...(input.select === undefined ? {} : { select: input.select }),
+	})
 	const operation: CreateOneOperationAst<
 		TSchema,
 		QueryFieldName<TSchema>
@@ -983,10 +988,8 @@ export const executeSchemaCreateOne = <const TSchema extends SchemaDefinition>(
 		kind: 'create-one',
 		schema: createQueryAst(schema).schema,
 		input: input.data,
-		selection:
-			input.select === undefined
-				? emptyQuerySelection
-				: normalizeQuerySelection(schema, input.select),
+		inclusion: projection.ast.inclusion,
+		selection: projection.ast.selection,
 	})
 
 	return executeOperation(operation, normalizeOperationOptions(options))

@@ -102,9 +102,7 @@ type SchemaTypeValueFromTypeInfo<
 	: TKey extends 'Create'
 		? TContract['inputs']['create']
 		: TKey extends 'Include'
-			? TContract['inputs'] extends { readonly include: infer TInclude }
-				? TInclude
-				: never
+			? NonNullable<TContract['inputs']['include']>
 			: TKey extends 'OrderBy'
 				? TContract['inputs']['orderBy']
 				: TKey extends 'Select'

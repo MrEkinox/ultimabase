@@ -1,5 +1,8 @@
 import type { SchemaCreateData, SchemaDefinition } from '../../schema/index.js'
-import type { SchemaTypeInfoSource } from '../../schema/type-info.js'
+import type {
+	SchemaTypeInfoFor,
+	SchemaTypeInfoSource,
+} from '../../schema/type-info.js'
 
 import type {
 	ExactQuerySelection,
@@ -8,6 +11,7 @@ import type {
 } from '../clauses/selection.js'
 import type { WhereBuilder, WhereInput } from '../filters/where.js'
 import type { UpdateExpressionInput } from '../updates/contracts.js'
+import type { ExactGeneratedInclusionInput } from '../query/input.js'
 
 /** Exposes typed immutable filters without selection, ordering, or execution methods. */
 export type SchemaWhere<TSchema extends SchemaDefinition> =
@@ -35,11 +39,23 @@ interface SchemaCreateManyFields<TSchema extends SchemaTypeInfoSource> {
 	readonly data: readonly SchemaCreateData<TSchema>[]
 }
 
+type SchemaResultProjection<
+	TSchema extends SchemaTypeInfoSource,
+	TSelection extends QuerySelection<TSchema> | undefined,
+	TInclude extends SchemaTypeInfoFor<TSchema>['inputs']['include'] | undefined,
+> = Readonly<{
+	/** Projects returned models through the same flat contract as `QueryBuilder.select`. */
+	readonly select?: TSelection &
+		QuerySelection<TSchema> &
+		ExactQuerySelection<TSchema, TSelection> &
+		LiteralQuerySelection<TSelection>
+}> &
+	ExactGeneratedInclusionInput<TSchema, TInclude>
+
 type SchemaResultSelection<
 	TSchema extends SchemaTypeInfoSource,
 	TSelection extends QuerySelection<TSchema> | undefined,
 > = Readonly<{
-	/** Projects returned models through the same flat contract as `QueryBuilder.select`. */
 	readonly select?: TSelection &
 		QuerySelection<TSchema> &
 		ExactQuerySelection<TSchema, TSelection> &
@@ -50,13 +66,19 @@ type SchemaResultSelection<
 export type SchemaCreateOneInput<
 	TSchema extends SchemaTypeInfoSource,
 	TSelection extends QuerySelection<TSchema> | undefined = undefined,
-> = SchemaCreateOneFields<TSchema> & SchemaResultSelection<TSchema, TSelection>
+	TInclude extends SchemaTypeInfoFor<TSchema>['inputs']['include'] | undefined =
+		undefined,
+> = SchemaCreateOneFields<TSchema> &
+	SchemaResultProjection<TSchema, TSelection, TInclude>
 
 /** @internal Erases literal selection inference only at the execution boundary. */
 export type SchemaCreateOneExecutionInput<
 	TSchema extends SchemaTypeInfoSource,
 > = SchemaCreateOneFields<TSchema> &
-	Readonly<{ select?: QuerySelection<TSchema> }>
+	Readonly<{
+		include?: SchemaTypeInfoFor<TSchema>['inputs']['include']
+		select?: QuerySelection<TSchema>
+	}>
 
 /** Creates ordered rows with one optional projection shared by every result. */
 export type SchemaCreateManyInput<
@@ -89,13 +111,19 @@ interface SchemaUpdateOneFields<TSchema extends SchemaTypeInfoSource> {
 export type SchemaUpdateOneInput<
 	TSchema extends SchemaTypeInfoSource,
 	TSelection extends QuerySelection<TSchema> | undefined = undefined,
-> = SchemaUpdateOneFields<TSchema> & SchemaResultSelection<TSchema, TSelection>
+	TInclude extends SchemaTypeInfoFor<TSchema>['inputs']['include'] | undefined =
+		undefined,
+> = SchemaUpdateOneFields<TSchema> &
+	SchemaResultProjection<TSchema, TSelection, TInclude>
 
 /** @internal Erases literal selection inference only at the execution boundary. */
 export type SchemaUpdateOneExecutionInput<
 	TSchema extends SchemaTypeInfoSource,
 > = SchemaUpdateOneFields<TSchema> &
-	Readonly<{ select?: QuerySelection<TSchema> }>
+	Readonly<{
+		include?: SchemaTypeInfoFor<TSchema>['inputs']['include']
+		select?: QuerySelection<TSchema>
+	}>
 
 /** Describes one independently targeted update inside an ordered atomic batch. */
 export type SchemaUpdateManyItemInput<TSchema extends SchemaTypeInfoSource> =

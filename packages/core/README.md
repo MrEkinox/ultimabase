@@ -611,13 +611,18 @@ Database plugins prepare each transaction-bound mutation through one opaque,
 single-use handle. Its execution keeps the projected public result separate
 from the complete logical materializations supplied to schema lifecycle hooks.
 Every model-returning schema mutation accepts the same flat selection contract
-as schema reads; no write command performs implicit relation loading:
+as schema reads. `createOne()` and `updateOne()` also accept the generated
+`include` contract. The write completes first, then Runtime projects its
+persisted ID through one ordinary relationship read in the same transaction.
+This internal read does not replay root mutation Access or lifecycle hooks, and
+it is omitted entirely when no relationship is requested:
 
 ```ts
 const created = await PostSchema.createOne(
 	{
-		data: { title: 'Created' },
+		data: { author: authorPointer, title: 'Created' },
 		select: { id: true, title: true },
+		include: { author: { select: { id: true, name: true } } },
 	},
 	{ ultimabase },
 )
@@ -626,7 +631,8 @@ const updated = await PostSchema.updateOne(
 	{
 		where: { id: { eq: postId } },
 		data: { title: 'Updated' },
-		select: { id: true, title: true, author: true },
+		select: { id: true, title: true },
+		include: { author: { select: { id: true, name: true } } },
 	},
 	{ ultimabase },
 )
@@ -651,8 +657,8 @@ const published = await PostSchema.updateMany(
 	{ ultimabase },
 )
 
-// Pointer and relation fields remain unloaded references until queried.
-const author = await updated?.author.findOne()
+// Explicitly included targets are materialized with their nested projection.
+const authorName = updated?.author?.name
 ```
 
 This protocol belongs to database-adapter authors rather than application code.

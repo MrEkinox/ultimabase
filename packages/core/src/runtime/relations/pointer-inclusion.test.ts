@@ -508,6 +508,208 @@ describe('pointer Runtime execution', () => {
 		}
 	})
 
+	it('loads create and update inclusions by persisted id inside their transaction', async () => {
+		const target = pointerRuntimeUser.pointer(
+			'0198a43e-2431-7000-8000-000000000409',
+		)
+		const created = {
+			author: target,
+			createdAt: '2026-08-10T12:00:00.000Z',
+			id: '0198a43e-2431-7000-8000-000000000410',
+			title: 'Created with author',
+			updatedAt: '2026-08-10T12:00:00.000Z',
+		}
+		const updated = { ...created, title: 'Updated with author' }
+		const createdProjection = { author: target, title: created.title }
+		const updatedProjection = { author: target, title: updated.title }
+		const trace: string[] = []
+		const adapter = new RecordingDatabaseAdapter(
+			[
+				{
+					materializations: [{ current: created, kind: 'create' }],
+					status: 'fulfilled',
+					value: createdProjection,
+				},
+				{
+					inclusions: [
+						{
+							fieldPath: ['author'],
+							record: createdProjection,
+							target: { name: 'Ada' },
+						},
+					],
+					status: 'fulfilled',
+					value: createdProjection,
+				},
+				{
+					materializations: [
+						{ current: updated, kind: 'update', previous: created },
+					],
+					status: 'fulfilled',
+					target: created,
+					value: updatedProjection,
+				},
+				{
+					inclusions: [
+						{
+							fieldPath: ['author'],
+							record: updatedProjection,
+							target: { name: 'Grace' },
+						},
+					],
+					status: 'fulfilled',
+					value: updatedProjection,
+				},
+			],
+			trace,
+		)
+		const ultimabase = new UltimaBase({
+			plugins: [createDatabasePlugin(adapter)],
+			schemas: [
+				pointerRuntimeOrganization,
+				pointerRuntimeUser,
+				pointerRuntimePost,
+			],
+		})
+		const projection = {
+			include: { author: { select: { name: true } } },
+			select: { title: true },
+		} as const
+
+		try {
+			await ultimabase.start()
+			const createResult = await pointerRuntimePost.createOne(
+				{ data: { author: target, title: created.title }, ...projection },
+				{ ultimabase },
+			)
+			const updateResult = await pointerRuntimePost.updateOne(
+				{
+					data: { title: updated.title },
+					where: { id: { eq: created.id } },
+					...projection,
+				},
+				{ ultimabase },
+			)
+
+			expect(createResult.title).toBe(created.title)
+			const createdAuthor: unknown = createResult.author
+			expect(createdAuthor).toBeInstanceOf(pointerRuntimeUser)
+			if (!(createdAuthor instanceof pointerRuntimeUser)) {
+				throw new TypeError('Expected the created author model')
+			}
+			expect(createdAuthor.name).toBe('Ada')
+			expect(updateResult?.title).toBe(updated.title)
+			const updatedAuthor: unknown = updateResult?.author
+			expect(updatedAuthor).toBeInstanceOf(pointerRuntimeUser)
+			if (!(updatedAuthor instanceof pointerRuntimeUser)) {
+				throw new TypeError('Expected the updated author model')
+			}
+			expect(updatedAuthor.name).toBe('Grace')
+			expect(trace).toStrictEqual([
+				'adapter:begin',
+				'prepare:create-one',
+				'execute:create-one',
+				'execute:get',
+				'adapter:commit',
+				'adapter:begin',
+				'prepare:update-one',
+				'execute:update-one',
+				'execute:get',
+				'adapter:commit',
+			])
+			expect(adapter.rootRequests).toHaveLength(0)
+			expect(adapter.transactions[0]?.requests[1]?.operation).toMatchObject({
+				id: created.id,
+				kind: 'get',
+			})
+			expect(adapter.transactions[1]?.requests[1]?.operation).toMatchObject({
+				id: created.id,
+				kind: 'get',
+			})
+		} finally {
+			await ultimabase.dispose()
+		}
+	})
+
+	it('keeps denied mutation targets null without replaying source lifecycle hooks', async () => {
+		let beforeCreates = 0
+		let afterCreates = 0
+		const targetSchema = Schema.define({
+			className: 'PointerRuntimeDeniedMutationTarget',
+			fields: (field) => ({ name: field.string() }),
+			access: { read: () => false },
+		})
+		const sourceSchema = Schema.define({
+			className: 'PointerRuntimeDeniedMutationSource',
+			fields: (field) => ({
+				target: field.pointer({ target: 'PointerRuntimeDeniedMutationTarget' }),
+				title: field.string(),
+			}),
+			hooks: {
+				afterOperation: {
+					create: () => {
+						afterCreates += 1
+					},
+				},
+				beforeOperation: {
+					create: () => {
+						beforeCreates += 1
+					},
+				},
+			},
+		})
+		const target = targetSchema.pointer('0198a43e-2431-7000-8000-000000000411')
+		const current = {
+			createdAt: '2026-08-10T12:00:00.000Z',
+			id: '0198a43e-2431-7000-8000-000000000412',
+			target,
+			title: 'Protected target',
+			updatedAt: '2026-08-10T12:00:00.000Z',
+		}
+		const projection = { target, title: current.title }
+		const trace: string[] = []
+		const adapter = new RecordingDatabaseAdapter(
+			[
+				{
+					materializations: [{ current, kind: 'create' }],
+					status: 'fulfilled',
+					value: projection,
+				},
+				{ status: 'fulfilled', value: projection },
+			],
+			trace,
+		)
+		const ultimabase = new UltimaBase({
+			plugins: [createDatabasePlugin(adapter)],
+			schemas: [targetSchema, sourceSchema],
+		})
+
+		try {
+			await ultimabase.start()
+			const result = await sourceSchema.createOne(
+				{
+					data: { target, title: current.title },
+					include: { target: { select: { name: true } } },
+					select: { title: true },
+				},
+				{ ultimabase },
+			)
+
+			expect(result.target).toBeNull()
+			expect(beforeCreates).toBe(1)
+			expect(afterCreates).toBe(1)
+			expect(trace).toStrictEqual([
+				'adapter:begin',
+				'prepare:create-one',
+				'execute:create-one',
+				'execute:get',
+				'adapter:commit',
+			])
+		} finally {
+			await ultimabase.dispose()
+		}
+	})
+
 	it('rejects pointer schemas when the adapter omits the versioned capability', async () => {
 		const adapter = new RecordingDatabaseAdapter([], [])
 

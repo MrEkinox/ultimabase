@@ -96,15 +96,22 @@ type OperationResultFor<
 						? boolean
 						: TOperation extends CreateOneOperationAst<
 									infer TSchema,
-									infer TSelectedField
+									infer TSelectedField,
+									unknown
 							  >
 							? [TSelectedField] extends [never]
-								? CompleteObjectResult<TSchema, TMode>
+								? QueryObjectResult<
+										TSchema,
+										TSelectedField,
+										TMode,
+										OperationIncludedField<TOperation>,
+										TInclusionMode
+									>
 								: QueryObjectResult<
 										TSchema,
 										TSelectedField,
 										TMode,
-										never,
+										OperationIncludedField<TOperation>,
 										TInclusionMode
 									>
 							: TOperation extends CreateManyOperationAst<

@@ -30,7 +30,7 @@ group their final relationship projection by persisted identifiers.
 ## Execution order
 
 1. [x] [901 — Decide mutation relationship projection semantics](issues/900-mutation-projections/901-mutation-relationship-projection-adr.md)
-2. [ ] [902 — Project singular create and update results](issues/900-mutation-projections/902-singular-mutation-includes.md)
+2. [x] [902 — Project singular create and update results](issues/900-mutation-projections/902-singular-mutation-includes.md)
 3. [ ] [903 — Group collection mutation projections](issues/900-mutation-projections/903-grouped-mutation-includes.md)
 4. [ ] [904 — Verify generated and PostgreSQL mutation include DX](issues/900-mutation-projections/904-mutation-includes-verification.md)
 

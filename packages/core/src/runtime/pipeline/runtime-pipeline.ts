@@ -8,7 +8,7 @@ import {
 
 import { FrameworkError } from '../../foundation.js'
 import { isRelationUpdateExpression } from '../../schema/relations/mutation.js'
-import { Pointer, Schema } from '../../schema/index.js'
+import { Pointer, Schema, type SchemaDefinition } from '../../schema/index.js'
 import { RequestContext } from '../context/request-context.js'
 import { assertDatabaseConstraintVersion } from '../../plugins/constraint-compilers.js'
 import {
@@ -57,8 +57,16 @@ import {
 import { throwIfOperationCancelled } from '../hooks/cancellation.js'
 import { normalizeLogicalFilter } from '../../query/filters/logical.js'
 import { collectQueryRelationPredicates } from '../../query/filters/relation.js'
-import type { ExecutableOperationAst } from '../../query/index.js'
-import { readOperationQueries } from '../operations/queries.js'
+import {
+	createQueryAst,
+	type ExecutableOperationAst,
+	type GetOperationAst,
+} from '../../query/index.js'
+import {
+	readOperationQueries,
+	readOperationResultInclusion,
+	readOperationResultSelection,
+} from '../operations/queries.js'
 import { getOperationSchema } from '../operations/schema.js'
 import { createProtectedObjectNotFoundError } from '../operations/target-errors.js'
 import {
@@ -127,6 +135,8 @@ const combineDatabaseRowFilters = (
 
 interface RuntimeDatabaseExecution<TOperation extends DatabaseOperationAst> {
 	readonly enforcement?: EnforcementState
+	/** Retains the adapter-owned source row that carries eager relationship values. */
+	readonly inclusionSource?: DatabaseOperationResult<TOperation>
 	readonly objectIdentities: readonly unknown[]
 	readonly operation: TOperation
 	readonly outcome?: DatabaseOperationOutcome<DatabaseMutationOperationAst>
@@ -176,6 +186,92 @@ const isMutationOperation = (
 		case 'upsert-one':
 			return true
 	}
+}
+
+/** Builds one private id read from the exact public mutation projection. */
+const createMutationInclusionRead = (
+	operation: Extract<
+		ExecutableOperationAst,
+		{ readonly kind: 'create-one' | 'update-one' }
+	>,
+	id: string,
+): GetOperationAst<SchemaDefinition> => {
+	const query =
+		operation.kind === 'create-one'
+			? createQueryAst(operation.schema.definition)
+			: operation.query
+
+	return immutableRecord({
+		id,
+		kind: 'get' as const,
+		query: immutableRecord({
+			...query,
+			inclusion: readOperationResultInclusion(operation),
+			selection: readOperationResultSelection(operation),
+			// The persisted identity is authoritative even when an update changes its predicate.
+			where: undefined,
+		}),
+	})
+}
+
+/** Reads the persisted singular mutation identity from private materialization data. */
+const readMutationProjectionIdentity = (
+	executor: DatabaseOperationExecutor,
+	outcome: DatabaseOperationOutcome<DatabaseMutationOperationAst>,
+): string | undefined => {
+	const materialization = outcome.materializations[0]
+
+	if (materialization === undefined || !('current' in materialization)) {
+		return undefined
+	}
+
+	const identity =
+		executor.readObjectIdentity?.(materialization.current) ??
+		materialization.current.id
+
+	assertNonEmptyString(identity, 'Mutation projection object id')
+
+	return identity
+}
+
+/** Loads only eager relationship source values without replaying the root pipeline. */
+const loadSingularMutationInclusionSource = async <
+	const TOperation extends DatabaseOperationAst,
+>(
+	executor: DatabaseOperationExecutor,
+	operation: TOperation,
+	outcome: DatabaseOperationOutcome<DatabaseMutationOperationAst>,
+	inclusions: readonly DatabaseInclusionPlan[] | undefined,
+): Promise<DatabaseOperationResult<TOperation> | undefined> => {
+	if (
+		inclusions === undefined ||
+		(operation.kind !== 'create-one' && operation.kind !== 'update-one')
+	) {
+		return undefined
+	}
+
+	const identity = readMutationProjectionIdentity(executor, outcome)
+
+	if (identity === undefined) return undefined
+
+	const executable = operation as unknown as Extract<
+		ExecutableOperationAst,
+		{ readonly kind: 'create-one' | 'update-one' }
+	>
+	const projected: unknown = await executor.execute(
+		immutableRecord({
+			constraints: emptyConstraints,
+			inclusions,
+			operation: createMutationInclusionRead(executable, identity),
+		}),
+	)
+
+	if (!isPlainRecord(projected)) {
+		throw new TypeError('Mutation inclusion projection must return one record')
+	}
+
+	// The private get uses the same schema and projection as the singular mutation.
+	return projected as DatabaseOperationResult<TOperation>
 }
 
 /** Rejects mutation execution that escaped the mandatory transaction scope. */
@@ -649,11 +745,18 @@ const executeDatabaseOperation = async <
 			immutableRecord({ context, operation: request.operation, outcome }),
 		)
 	}
+	const inclusionSource = await loadSingularMutationInclusionSource(
+		executor,
+		executableOperation,
+		outcome,
+		request.inclusions,
+	)
 
 	return immutableRecord({
 		...(enforcementState === undefined
 			? {}
 			: { enforcement: enforcementState }),
+		...(inclusionSource === undefined ? {} : { inclusionSource }),
 		objectIdentities: collectDatabaseObjectIdentities(
 			executor,
 			request.operation,
@@ -662,7 +765,8 @@ const executeDatabaseOperation = async <
 		),
 		outcome,
 		operation: executableOperation,
-		result: outcome.result,
+		// With eager loading, the transaction-bound get is the authoritative result.
+		result: inclusionSource ?? outcome.result,
 	})
 }
 
@@ -1536,7 +1640,7 @@ export class RuntimePipeline {
 				context,
 				operation,
 				databaseResult,
-				databaseExecution.result,
+				databaseExecution.inclusionSource ?? databaseExecution.result,
 				inclusions,
 			)
 		// Identity follows exact records through result hooks instead of being

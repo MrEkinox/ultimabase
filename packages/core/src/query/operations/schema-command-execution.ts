@@ -18,6 +18,7 @@ import {
 	executeSchemaCreateOne,
 	hydrateQueryFromAst,
 } from '../query/query.js'
+import { queryFromFindOneInput } from '../query/input.js'
 import { normalizeUniqueUpsertTarget, normalizeUpsertInput } from './upsert.js'
 import {
 	executeOperationBatch,
@@ -82,10 +83,10 @@ const assertExactCommandKeys: (
 
 const updateCommandKeys = new Set(['data', 'where'])
 const updateManyCommandKeys = new Set(['data'])
-const updateOneOptionalCommandKeys = new Set(['select'])
+const updateOneOptionalCommandKeys = new Set(['include', 'select'])
 const updateManyOptionalCommandKeys = new Set(['select'])
 const createCommandKeys = new Set(['data'])
-const createOneOptionalCommandKeys = new Set(['select'])
+const createOneOptionalCommandKeys = new Set(['include', 'select'])
 const createManyOptionalCommandKeys = new Set(['select'])
 const deleteCommandKeys = new Set(['where'])
 const deleteOneOptionalCommandKeys = new Set(['select'])
@@ -227,14 +228,19 @@ export const updateSchemaRecord = <const TSchema extends SchemaDefinition>(
 
 	assertUniqueSchemaWhere(schema, query, 'schema updateOne where')
 
-	if (input.select === undefined) {
+	if (input.select === undefined && input.include === undefined) {
 		return executeQueryUpdateOne(query, input.data, options)
 	}
+	const projection = queryFromFindOneInput(schema, {
+		...(input.include === undefined ? {} : { include: input.include }),
+		...(input.select === undefined ? {} : { select: input.select }),
+	})
 
 	const selectedQuery = hydrateQueryFromAst<TSchema, QueryFieldName<TSchema>>(
 		immutableRecord({
 			...query.ast,
-			selection: normalizeQuerySelection(schema, input.select),
+			inclusion: projection.ast.inclusion,
+			selection: projection.ast.selection,
 		}),
 	)
 

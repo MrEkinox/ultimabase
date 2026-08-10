@@ -1,8 +1,5 @@
 import type { QueryFieldName } from '../../query/ast/contracts.js'
-import type {
-	QuerySelectedField,
-	QuerySelection,
-} from '../../query/clauses/selection.js'
+import type { QuerySelection } from '../../query/clauses/selection.js'
 import type {
 	SchemaCreateManyInput,
 	SchemaCreateOneInput,
@@ -58,15 +55,20 @@ type SchemaMutationResult<
 	TContract extends SchemaTypeInfo,
 	TSchema extends SchemaDefinition,
 	TSelection extends QuerySelection<TContract> | undefined,
+	TInclude extends TContract['inputs']['include'] | undefined = undefined,
 	TDefaultField extends QueryFieldName<TContract> = never,
 > = QueryResult<
 	TSchema,
 	Extract<
 		[TSelection] extends [undefined]
 			? TDefaultField
-			: QuerySelectedField<TContract, TSelection>,
+			: QuerySelectedFieldFromInput<
+					TContract,
+					SchemaProjection<TSelection, TInclude>
+				>,
 		QueryFieldName<TSchema>
-	>
+	>,
+	QueryIncludedFieldFromInput<TContract, SchemaProjection<TSelection, TInclude>>
 >
 
 /** Uses the generated filter directly without retaining schema field definitions. */
@@ -94,10 +96,12 @@ export interface SchemaAPI<TContract extends SchemaTypeInfo>
 	/** Creates one row and returns its requested projection. */
 	createOne<
 		const TSelection extends QuerySelection<TContract> | undefined = undefined,
+		const TInclude extends TContract['inputs']['include'] | undefined =
+			undefined,
 	>(
-		input: SchemaCreateOneInput<TContract, TSelection>,
+		input: SchemaCreateOneInput<TContract, TSelection, TInclude>,
 		options?: OperationOptions,
-	): Promise<SchemaMutationResult<TContract, this, TSelection>>
+	): Promise<SchemaMutationResult<TContract, this, TSelection, TInclude>>
 
 	/** Deletes ordered unique targets and returns `id` unless explicitly projected. */
 	deleteMany<
@@ -110,6 +114,7 @@ export interface SchemaAPI<TContract extends SchemaTypeInfo>
 			TContract,
 			this,
 			TSelection,
+			undefined,
 			Extract<'id', QueryFieldName<TContract>>
 		>[]
 	>
@@ -189,6 +194,7 @@ export interface SchemaAPI<TContract extends SchemaTypeInfo>
 			TContract,
 			this,
 			TSelection,
+			undefined,
 			Extract<'id', QueryFieldName<TContract>>
 		>[]
 	>
@@ -196,10 +202,12 @@ export interface SchemaAPI<TContract extends SchemaTypeInfo>
 	/** Updates one unique target or returns `null` when none matches. */
 	updateOne<
 		const TSelection extends QuerySelection<TContract> | undefined = undefined,
+		const TInclude extends TContract['inputs']['include'] | undefined =
+			undefined,
 	>(
-		input: SchemaUpdateOneInput<TContract, TSelection>,
+		input: SchemaUpdateOneInput<TContract, TSelection, TInclude>,
 		options?: OperationOptions,
-	): Promise<SchemaMutationResult<TContract, this, TSelection> | null>
+	): Promise<SchemaMutationResult<TContract, this, TSelection, TInclude> | null>
 
 	/** Creates or updates ordered unique targets. */
 	upsertMany<

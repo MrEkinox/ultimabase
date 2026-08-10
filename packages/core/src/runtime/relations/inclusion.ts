@@ -1,4 +1,5 @@
 import {
+	type ExecutableOperationAst,
 	type FindManyOperationAst,
 	type FindOneOperationAst,
 	type QueryAst,
@@ -12,6 +13,7 @@ import {
 	isPlainRecord,
 	isUnknownArray,
 } from '@ultimabase/shared'
+import { readOperationResultInclusion } from '../operations/queries.js'
 
 import type { DatabaseOperationAst } from '../database/contracts.js'
 
@@ -42,6 +44,7 @@ const emptyInclusions: readonly RuntimeInclusion[] = immutableArray([])
 const operationReturnsRecords = (operation: DatabaseOperationAst): boolean => {
 	switch (operation.kind) {
 		case 'delete-one':
+		case 'create-one':
 		case 'find-many':
 		case 'find-one':
 		case 'get':
@@ -50,7 +53,6 @@ const operationReturnsRecords = (operation: DatabaseOperationAst): boolean => {
 			return true
 		case 'count':
 		case 'create-many':
-		case 'create-one':
 		case 'delete-many':
 		case 'exists':
 		case 'update-many':
@@ -63,17 +65,13 @@ const operationReturnsRecords = (operation: DatabaseOperationAst): boolean => {
 export const readInclusions = (
 	operation: DatabaseOperationAst,
 ): readonly RuntimeInclusion[] => {
-	if (!operationReturnsRecords(operation) || !('query' in operation)) {
+	if (!operationReturnsRecords(operation)) {
 		return emptyInclusions
 	}
 
-	const query: unknown = operation.query
-
-	if (!isPlainRecord(query) || !isPlainRecord(query.inclusion)) {
-		return emptyInclusions
-	}
-
-	const fields: unknown = query.inclusion.fields
+	const fields: unknown = readOperationResultInclusion(
+		operation as ExecutableOperationAst,
+	).fields
 
 	if (!isUnknownArray(fields) || fields.length === 0) {
 		return emptyInclusions

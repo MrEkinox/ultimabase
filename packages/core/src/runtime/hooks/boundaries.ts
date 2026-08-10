@@ -101,8 +101,9 @@ const assertExactKeys = (
 	keys: readonly string[],
 	path: ValidationIssuePath,
 	description: Readonly<RuntimeValidationErrorDescription> = hookBoundaryErrorDescription,
+	optionalKeys: readonly string[] = immutableArray([]),
 ): void => {
-	const expectedKeys = new Set(keys)
+	const expectedKeys = new Set([...keys, ...optionalKeys])
 
 	for (const key of Object.keys(value)) {
 		if (!expectedKeys.has(key)) {
@@ -124,6 +125,10 @@ const assertExactKeys = (
 		}
 	}
 }
+
+/** Lists normalized properties that are valid but absent from older operation shapes. */
+const readOptionalOperationKeys = (kind: OperationKind): readonly string[] =>
+	kind === 'create-one' ? immutableArray(['inclusion']) : immutableArray([])
 
 const isMutationOperation = (
 	operation: DatabaseOperationAst,
@@ -191,6 +196,16 @@ const assertSameQueryResultShape = (
 			throwBoundaryIssue(
 				['operation', 'selection'],
 				'Hook must retain the exact create selection',
+			)
+		}
+
+		if (
+			original.kind === 'create-one' &&
+			!isDeepStrictEqual(original.inclusion, replacement.inclusion)
+		) {
+			throwBoundaryIssue(
+				['operation', 'inclusion'],
+				'Hook must retain the exact create inclusion',
 			)
 		}
 
@@ -676,9 +691,13 @@ export const createRuntimeHookBoundaries = (): RuntimeHookBoundaries => {
 			)
 		}
 
-		assertExactKeys(replacement, readOperationKeys(operation.kind), [
-			'operation',
-		])
+		assertExactKeys(
+			replacement,
+			readOperationKeys(operation.kind),
+			['operation'],
+			hookBoundaryErrorDescription,
+			readOptionalOperationKeys(operation.kind),
+		)
 
 		const originalSchema = readOperationSchema(operation, [
 			'operation',

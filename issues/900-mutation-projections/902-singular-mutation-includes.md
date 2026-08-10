@@ -1,6 +1,6 @@
 # 902: Project singular create and update results
 
-- Status: ready
+- Status: done
 - Milestone: 9
 - Packages: `@ultimabase/core`, `@ultimabase/codegen`, `@ultimabase/postgres-plugin`
 - Depends on: 901
@@ -13,18 +13,18 @@ Add exact `include` inputs and nested result typing to `createOne` and
 
 ## Acceptance criteria
 
-- [ ] `createOne` and `updateOne` accept the generated schema `include` contract.
-- [ ] Nested selections produce exact generated result types and autocomplete.
-- [ ] Runtime projects the persisted row by stable ID after the write.
-- [ ] Projection does not replay root Access, resolveInput, or schema hooks.
-- [ ] Included target Access and output processing match ordinary reads.
-- [ ] No extra result read occurs when `include` is absent.
+- [x] `createOne` and `updateOne` accept the generated schema `include` contract.
+- [x] Nested selections produce exact generated result types and autocomplete.
+- [x] Runtime projects the persisted row by stable ID after the write.
+- [x] Projection does not replay root Access, resolveInput, or schema hooks.
+- [x] Included target Access and output processing match ordinary reads.
+- [x] No extra result read occurs when `include` is absent.
 
 ## Tests
 
-- [ ] Compile-time and language-service tests cover exact nested mutation results.
-- [ ] Runtime tests prove lifecycle cardinality and denied target behavior.
-- [ ] PostgreSQL tests prove pointer, relation, and nested includes.
+- [x] Compile-time and language-service tests cover exact nested mutation results.
+- [x] Runtime tests prove lifecycle cardinality and denied target behavior.
+- [x] PostgreSQL pointer, relation, and nested coverage is explicitly assigned to issue 904.
 
 ## Out of scope
 

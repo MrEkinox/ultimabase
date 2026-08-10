@@ -517,9 +517,11 @@ const invalidObjectPath: SemanticArticleWhereInput = {
   },
 }
 
-SemanticArticle./* public-update-one-hover */updateOne({
+const projectedUpdate = SemanticArticle./* public-update-one-hover */updateOne({
   /* public-update-where-hover */where: { id: { eq: 'article-1' } },
   data: { status: 'published', views: increment(1) },
+  select: { title: true },
+  include: { author: { select: { name: true } } },
 })
 
 SemanticArticle./* public-delete-one-hover */deleteOne({
@@ -530,12 +532,37 @@ SemanticArticle./* public-count-hover */count({
   /* public-count-where-hover */where: { status: { eq: 'draft' } },
 })
 
-SemanticArticle./* public-create-one-hover */createOne({
+const projectedCreate = SemanticArticle./* public-create-one-hover */createOne({
   data: {
     author: SemanticAuthor.pointer('author-1'),
     status: 'draft',
     title: 'Created',
   },
+  select: { title: true },
+  include: { author: { select: { name: true } } },
+})
+projectedCreate.then((article) => {
+  if (article.author === null) return
+  const title: string = article.title
+  const authorName: string = article.author.name
+  // @ts-expect-error -- Mutation selection excludes unselected scalar fields.
+  article.status
+  // @ts-expect-error -- Nested mutation inclusion preserves its own selection.
+  article.author.id
+  void title
+  void authorName
+})
+projectedUpdate.then((article) => {
+  if (article === null) return
+  if (article.author === null) return
+  const title: string = article.title
+  const authorName: string = article.author.name
+  // @ts-expect-error -- Mutation selection excludes unselected scalar fields.
+  article.status
+  // @ts-expect-error -- Nested mutation inclusion preserves its own selection.
+  article.author.id
+  void title
+  void authorName
 })
 SemanticArticle./* public-create-many-hover */createMany({
   data: [{

@@ -88,6 +88,15 @@ interface SelectedSchemaOperationAst<
 	readonly [operationSelectionType]?: TSelectedField
 }
 
+interface IncludedSelectedSchemaOperationAst<
+	TSchema extends SchemaDefinition,
+	TSelectedField extends QueryFieldName<TSchema>,
+	TIncludedField,
+> extends SelectedSchemaOperationAst<TSchema, TSelectedField> {
+	readonly inclusion?: QueryAst<TSchema>['inclusion']
+	readonly [operationInclusionType]?: TIncludedField
+}
+
 /** Reads every object selected by one query. */
 export interface FindManyOperationAst<
 	TSchema extends SchemaDefinition,
@@ -156,7 +165,12 @@ export interface ExistsOperationAst<
 export interface CreateOneOperationAst<
 	TSchema extends SchemaDefinition,
 	TSelectedField extends QueryFieldName<TSchema> = never,
-> extends SelectedSchemaOperationAst<TSchema, TSelectedField> {
+	TIncludedField = never,
+> extends IncludedSelectedSchemaOperationAst<
+	TSchema,
+	TSelectedField,
+	TIncludedField
+> {
 	readonly kind: 'create-one'
 	readonly input: SchemaCreateData<TSchema>
 }

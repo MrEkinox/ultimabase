@@ -150,6 +150,12 @@ export const materializeOperationResult = <
 				operation,
 			) as OperationResult<TOperation>
 		case 'create-one':
+			return materializeRecord(
+				readOperationSchema(operation),
+				result,
+				'Runtime result',
+				operation,
+			) as OperationResult<TOperation>
 		case 'upsert-one':
 			return materializeRecord(
 				readOperationSchema(operation),
