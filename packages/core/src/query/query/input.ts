@@ -456,12 +456,6 @@ export type QueryIncludedFieldFromInput<
 				  }[Extract<keyof TInclude, QueryRelationFieldName<TSchema>>]
 			: never
 
-/** @deprecated Use `QueryIncludedFieldFromInput`. */
-export type QueryIncludedPointerFromInput<
-	TSchema extends SchemaTypeInfoSource,
-	TInput,
-> = QueryIncludedFieldFromInput<TSchema, TInput>
-
 /** Retains exact builder result inference without adding runtime metadata. */
 export type QueryBuilderInput<
 	TSchema extends SchemaTypeInfoSource,

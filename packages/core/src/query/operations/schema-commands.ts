@@ -26,10 +26,6 @@ export type SchemaWhere<TSchema extends SchemaDefinition> =
 export type SchemaWhereInput<TSchema extends SchemaTypeInfoSource> =
 	WhereInput<TSchema>
 
-/** @deprecated Use `SchemaWhereInput`. */
-export type SchemaWhereFactory<TSchema extends SchemaTypeInfoSource> =
-	SchemaWhereInput<TSchema>
-
 interface SchemaCreateOneFields<TSchema extends SchemaTypeInfoSource> {
 	/** Supplies the schema-derived values for the new row. */
 	readonly data: SchemaCreateData<TSchema>

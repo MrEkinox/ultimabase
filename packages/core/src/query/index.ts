@@ -158,8 +158,6 @@ export type {
 	OperationAst,
 	OperationAstNode,
 	OperationIncludedField,
-	// eslint-disable-next-line @typescript-eslint/no-deprecated -- Public compatibility re-export remains intentionally deprecated.
-	OperationIncludedPointer,
 	OperationKind,
 	OperationObjectId,
 	UpdateManyOperationAst,
@@ -194,8 +192,6 @@ export type {
 	SchemaUpsertManyInput,
 	SchemaUpsertManyItemInput,
 	SchemaWhere,
-	// eslint-disable-next-line @typescript-eslint/no-deprecated -- Public compatibility re-export remains intentionally deprecated.
-	SchemaWhereFactory,
 	SchemaWhereInput,
 } from './operations/schema-commands.js'
 export type {
@@ -214,8 +210,6 @@ export type {
 	GetInput,
 	QueryIncludeInput,
 	QueryIncludedFieldFromInput,
-	// eslint-disable-next-line @typescript-eslint/no-deprecated -- Public compatibility re-export remains intentionally deprecated.
-	QueryIncludedPointerFromInput,
 	QueryBuilderInput,
 	QueryOrderByDirection,
 	QueryOrderByInput,

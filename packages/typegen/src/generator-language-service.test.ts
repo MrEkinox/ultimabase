@@ -851,15 +851,9 @@ void relatedRead
 		expect(quickInfo('/* public-update-where-hover */')).toContain(
 			'SemanticArticleWhereInput',
 		)
-		expect(quickInfo('/* public-update-where-hover */')).not.toContain(
-			'SchemaWhereFactory',
-		)
 		expect(quickInfo('/* public-update-id-hover */')).toContain('id: string')
 		expect(quickInfo('/* public-delete-where-hover */')).toContain(
 			'SemanticArticleWhereInput',
-		)
-		expect(quickInfo('/* public-delete-where-hover */')).not.toContain(
-			'SchemaWhereFactory',
 		)
 		expect(quickInfo('/* public-delete-id-hover */')).toContain('id: string')
 		expect(quickInfo('/* public-count-where-hover */')).toContain(

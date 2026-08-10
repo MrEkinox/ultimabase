@@ -32,10 +32,6 @@ export type OperationIncludedField<TOperation extends OperationAstNode> =
 		? Exclude<TOperation[typeof operationInclusionType], undefined>
 		: never
 
-/** @deprecated Use `OperationIncludedField`. */
-export type OperationIncludedPointer<TOperation extends OperationAstNode> =
-	OperationIncludedField<TOperation>
-
 /** Identifies the declared key an adapter must use for conflict detection. */
 export interface UniqueUpsertTargetNode<
 	TSchema extends SchemaDefinition = SchemaDefinition,

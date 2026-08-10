@@ -1,6 +1,6 @@
 # 1207: Centralize guarded Query-expression traversal
 
-- Status: planned
+- Status: ready
 - Milestone: 12
 - Packages: `@ultimabase/core`
 - Depends on: 1206
