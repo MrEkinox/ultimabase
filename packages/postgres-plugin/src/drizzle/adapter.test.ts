@@ -380,7 +380,9 @@ describe('internal PostgreSQL database adapter', () => {
 			operation: titleOnly,
 		})
 
-		expect(projected).toStrictEqual([{ title: 'Private identity' }])
+		expect(projected).toStrictEqual([
+			{ id: firstId, title: 'Private identity' },
+		])
 		const projectedRecord = projected[0]
 
 		if (projectedRecord === undefined) {

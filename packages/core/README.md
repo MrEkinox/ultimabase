@@ -212,8 +212,10 @@ it. Target Access still applies and may make an inaccessible pointer `null`.
 
 `select` is flat and schema-correlated. Any `true` flag selects only the fields
 marked `true`; an object containing only `false` flags selects every other
-field. `{}` keeps the complete result shape. Relationship result shaping stays
-explicit through `include`.
+field. `{}` keeps the complete result shape. Every returned model always
+contains `id`, including nested pointer and relation results, so an explicit
+selection adds it implicitly. `id: false` is rejected rather than silently
+ignored. Relationship result shaping stays explicit through `include`.
 
 Runtime evaluates target Access, applies target constraints, and validates
 selected targets. Inclusion does not manufacture a target schema lifecycle;
@@ -623,8 +625,8 @@ hooks, and they are omitted entirely when no relationship is requested:
 const created = await PostSchema.createOne(
 	{
 		data: { author: authorPointer, title: 'Created' },
-		select: { id: true, title: true },
-		include: { author: { select: { id: true, name: true } } },
+		select: { title: true },
+		include: { author: { select: { name: true } } },
 	},
 	{ ultimabase },
 )
@@ -633,8 +635,8 @@ const updated = await PostSchema.updateOne(
 	{
 		where: { id: { eq: postId } },
 		data: { title: 'Updated' },
-		select: { id: true, title: true },
-		include: { author: { select: { id: true, name: true } } },
+		select: { title: true },
+		include: { author: { select: { name: true } } },
 	},
 	{ ultimabase },
 )

@@ -17,6 +17,18 @@ const articleSchema = Schema.define({
 	}),
 })
 
+const bootstrapAuthorSchema = Schema.define({
+	className: 'BootstrapTerminalAuthor',
+	fields: (field) => ({ name: field.string() }),
+})
+const bootstrapPostSchema = Schema.define({
+	className: 'BootstrapTerminalPost',
+	fields: (field) => ({
+		author: field.pointer({ target: 'BootstrapTerminalAuthor' }),
+		title: field.string(),
+	}),
+})
+
 declare const ultimabase: UltimaBase<
 	readonly [typeof articleSchema],
 	readonly []
@@ -176,4 +188,32 @@ test('preserves schema selection across every root read terminal', () => {
 	void articleSchema.deleteOne([])
 	// @ts-expect-error -- Terminal ownership never becomes a QueryBuilder constructor option.
 	new QueryBuilder(articleSchema, { ultimabase })
+})
+
+test('keeps mutation includes executable before code generation', () => {
+	const include = { author: { select: { name: true } } } as const
+	void bootstrapAuthorSchema
+
+	void bootstrapPostSchema.createOne({
+		data: { title: 'Created' },
+		include,
+	})
+	void bootstrapPostSchema.createMany({
+		data: [{ title: 'Created' }],
+		include,
+	})
+	void bootstrapPostSchema.updateOne({
+		where: { id: { eq: 'post-1' } },
+		data: { title: 'Updated' },
+		include,
+	})
+	void bootstrapPostSchema.updateMany({
+		data: [
+			{
+				where: { id: { eq: 'post-1' } },
+				data: { title: 'Updated' },
+			},
+		],
+		include,
+	})
 })

@@ -437,18 +437,23 @@ describe('runtime hook boundaries', () => {
 			kind: 'find-one',
 			query: targetQuery.ast,
 		})
-		const includedTarget = immutableRecord({ name: 'Ada' })
+		const includedTarget = immutableRecord({ id: targetId, name: 'Ada' })
 
 		retainRuntimeSchemaModelMetadata(
 			targetOperation,
 			immutableArray([targetId]),
 			includedTarget,
-			immutableArray(['name']),
+			immutableArray(['name', 'id']),
 		)
 
 		const snapshot = createRuntimeHookBoundaries().snapshotResultReplacement(
 			operation,
-			immutableArray([immutableRecord({ target: includedTarget })]),
+			immutableArray([
+				immutableRecord({
+					id: '00000000-0000-7000-8000-000000000003',
+					target: includedTarget,
+				}),
+			]),
 		)
 		const snapshotTarget: unknown = snapshot[0]?.target
 
@@ -460,7 +465,7 @@ describe('runtime hook boundaries', () => {
 
 		expect(readRuntimeSchemaModelMetadata(snapshotTarget)).toStrictEqual({
 			objectId: targetId,
-			selectedFields: ['name'],
+			selectedFields: ['name', 'id'],
 		})
 	})
 })

@@ -114,6 +114,7 @@ describe('QueryBuilder', () => {
 		])
 		expect(replacedSelection.ast.selection.fields).toStrictEqual([
 			{ kind: 'selected-field', field: 'views' },
+			{ kind: 'selected-field', field: 'id' },
 		])
 		expect(ordered.ast.ordering.orders).toStrictEqual([
 			{ kind: 'order', field: 'createdAt', direction: 'descending' },
@@ -197,7 +198,10 @@ describe('QueryBuilder', () => {
 		expect(replaced.ast.inclusion.fields).toHaveLength(1)
 		expect(
 			replaced.ast.inclusion.fields[0]?.query.selection.fields,
-		).toStrictEqual([{ kind: 'selected-field', field: 'name' }])
+		).toStrictEqual([
+			{ kind: 'selected-field', field: 'name' },
+			{ kind: 'selected-field', field: 'id' },
+		])
 		expect(Object.isFrozen(included.ast.inclusion)).toBe(true)
 		expect(Object.isFrozen(included.ast.inclusion.fields)).toBe(true)
 		expect(Object.isFrozen(included.ast.inclusion.fields[0])).toBe(true)
@@ -225,7 +229,7 @@ describe('QueryBuilder', () => {
 				ordering: {
 					orders: [{ direction: 'descending', field: 'createdAt' }],
 				},
-				selection: { fields: [{ field: 'title' }] },
+				selection: { fields: [{ field: 'title' }, { field: 'id' }] },
 			},
 		})
 		expect(included.build()).toStrictEqual({
@@ -234,7 +238,7 @@ describe('QueryBuilder', () => {
 					limit: 4,
 					offset: 2,
 					orderBy: { createdAt: 'desc' },
-					select: { title: true },
+					select: { id: true, title: true },
 					where: { title: { ne: 'Archived' } },
 				},
 			},

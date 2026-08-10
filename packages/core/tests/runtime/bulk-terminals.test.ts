@@ -128,7 +128,7 @@ describe('bulk and upsert terminals', () => {
 				{
 					materializations: [{ current, kind: 'create' }],
 					status: 'fulfilled',
-					value: { email: current.email },
+					value: { email: current.email, id: current.id },
 				},
 			],
 			trace,
@@ -141,7 +141,10 @@ describe('bulk and upsert terminals', () => {
 			}),
 		)
 
-		expect(result[0]?.toJSON()).toStrictEqual({ email: current.email })
+		expect(result[0]?.toJSON()).toStrictEqual({
+			email: current.email,
+			id: current.id,
+		})
 		expect(result[0]?.get('email')).toBe(current.email)
 	})
 
@@ -174,12 +177,20 @@ describe('bulk and upsert terminals', () => {
 		const updateTrace: string[] = []
 		const createHookKinds: string[] = []
 		const updateHookKinds: string[] = []
-		const firstCreateResult = { email: first.email, manager: firstManager }
-		const secondCreateResult = { email: second.email, manager: secondManager }
+		const firstCreateResult = {
+			email: first.email,
+			id: first.id,
+			manager: firstManager,
+		}
+		const secondCreateResult = {
+			email: second.email,
+			id: second.id,
+			manager: secondManager,
+		}
 		const firstUpdateResult = { id: first.id, manager: firstManager }
 		const secondUpdateResult = { id: second.id, manager: secondManager }
-		const firstCreateProjection = { ...firstCreateResult, id: first.id }
-		const secondCreateProjection = { ...secondCreateResult, id: second.id }
+		const firstCreateProjection = firstCreateResult
+		const secondCreateProjection = secondCreateResult
 		const { adapter: createAdapter, request: createRequestEngine } =
 			createRequest(
 				[
@@ -198,12 +209,12 @@ describe('bulk and upsert terminals', () => {
 							{
 								fieldPath: ['manager'],
 								record: secondCreateProjection,
-								target: { name: 'Second manager' },
+								target: { id: secondManager.id, name: 'Second manager' },
 							},
 							{
 								fieldPath: ['manager'],
 								record: firstCreateProjection,
-								target: { name: 'First manager' },
+								target: { id: firstManager.id, name: 'First manager' },
 							},
 						],
 						status: 'fulfilled',
@@ -245,12 +256,12 @@ describe('bulk and upsert terminals', () => {
 						{
 							fieldPath: ['manager'],
 							record: secondUpdateResult,
-							target: { name: 'Second manager' },
+							target: { id: secondManager.id, name: 'Second manager' },
 						},
 						{
 							fieldPath: ['manager'],
 							record: firstUpdateResult,
-							target: { name: 'First manager' },
+							target: { id: firstManager.id, name: 'First manager' },
 						},
 					],
 					status: 'fulfilled',
@@ -365,8 +376,8 @@ describe('bulk and upsert terminals', () => {
 			),
 			manager,
 		}
-		const mutationResult = { email: created.email, manager }
-		const projectionResult = { ...mutationResult, id: created.id }
+		const mutationResult = { email: created.email, id: created.id, manager }
+		const projectionResult = mutationResult
 		const { request } = createRequest(
 			[
 				{
@@ -379,7 +390,7 @@ describe('bulk and upsert terminals', () => {
 						{
 							fieldPath: ['manager'],
 							record: projectionResult,
-							target: { name: 'Context manager' },
+							target: { id: manager.id, name: 'Context manager' },
 						},
 					],
 					status: 'fulfilled',
@@ -433,8 +444,8 @@ describe('bulk and upsert terminals', () => {
 			),
 			manager,
 		}
-		const firstResult = { email: first.email, manager }
-		const secondResult = { email: second.email, manager }
+		const firstResult = { email: first.email, id: first.id, manager }
+		const secondResult = { email: second.email, id: second.id, manager }
 		const { adapter, request } = createRequest(
 			[
 				{
@@ -449,7 +460,7 @@ describe('bulk and upsert terminals', () => {
 				},
 				{
 					status: 'fulfilled',
-					value: [{ ...firstResult, id: first.id }],
+					value: [firstResult],
 				},
 			],
 			trace,
@@ -484,7 +495,7 @@ describe('bulk and upsert terminals', () => {
 			),
 			manager,
 		}
-		const mutationResult = { email: created.email, manager }
+		const mutationResult = { email: created.email, id: created.id, manager }
 		const unknownId = '0198f090-2a50-7000-8000-000000000111'
 		const { adapter, request } = createRequest(
 			[

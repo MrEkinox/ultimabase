@@ -62,9 +62,18 @@ describe('relation Runtime inclusion', () => {
 				title: field.string(),
 			}),
 		})
-		const sourceRecord = { title: 'Runtime relations' }
-		const commentRecord = { body: 'first' }
-		const replyRecord = { body: 'nested' }
+		const sourceRecord = {
+			id: '0198a43e-2431-7000-8000-000000000501',
+			title: 'Runtime relations',
+		}
+		const commentRecord = {
+			body: 'first',
+			id: '0198a43e-2431-7000-8000-000000000502',
+		}
+		const replyRecord = {
+			body: 'nested',
+			id: '0198a43e-2431-7000-8000-000000000503',
+		}
 		const adapter = new RecordingDatabaseAdapter(
 			[
 				{
@@ -131,7 +140,7 @@ describe('relation Runtime inclusion', () => {
 			}
 			expect(replies[0].body).toBe('nested')
 			expect(JSON.stringify(results[0])).toBe(
-				'{"title":"Runtime relations","comments":[{"body":"first","replies":[{"body":"nested"}]}]}',
+				`{"title":"Runtime relations","id":"${sourceRecord.id}","comments":[{"body":"first","id":"${commentRecord.id}","replies":[{"body":"nested","id":"${replyRecord.id}"}]}]}`,
 			)
 			expect(relationAccessTrace).toStrictEqual([
 				'discussion:comments',
@@ -146,7 +155,7 @@ describe('relation Runtime inclusion', () => {
 						query: {
 							limit: 2,
 							pagination: { kind: 'offset-pagination', offset: 3 },
-							selection: { fields: [{ field: 'body' }] },
+							selection: { fields: [{ field: 'body' }, { field: 'id' }] },
 						},
 					},
 					rowFilter: { field: 'status', kind: 'equal', value: 'visible' },
@@ -182,8 +191,14 @@ describe('relation Runtime inclusion', () => {
 				}),
 			}),
 		})
-		const deniedRecord = { name: 'denied' }
-		const allowedRecord = { name: 'allowed' }
+		const deniedRecord = {
+			id: '0198a43e-2431-7000-8000-000000000504',
+			name: 'denied',
+		}
+		const allowedRecord = {
+			id: '0198a43e-2431-7000-8000-000000000505',
+			name: 'allowed',
+		}
 		const adapter = new RecordingDatabaseAdapter(
 			[
 				{ status: 'fulfilled', value: [deniedRecord] },

@@ -1,5 +1,5 @@
 /** Invalidates generated fingerprints when Core's shared typegen ABI changes. */
-export const generatedApplicationContractVersion = 8 as const
+export const generatedApplicationContractVersion = 9 as const
 
 /** Minimal identity implemented by every generated persisted item. */
 export interface SchemaItemType {
@@ -73,7 +73,8 @@ export interface BaseSchemaInputsTypeInfo {
 	readonly create: Readonly<Record<string, unknown>>
 	readonly include: Readonly<Record<string, unknown>>
 	readonly orderBy: Readonly<Record<string, 'asc' | 'desc' | null>>
-	readonly select: Readonly<Record<string, boolean>>
+	readonly select: Readonly<Record<string, boolean>> &
+		Readonly<{ readonly id?: true }>
 	readonly update: Readonly<Record<string, unknown>>
 	readonly where: Readonly<Record<string, unknown>>
 }

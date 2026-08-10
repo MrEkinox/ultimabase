@@ -637,12 +637,14 @@ describe('native hook dispatcher', () => {
 
 		await executeRead(
 			operations[0],
-			immutableArray([immutableRecord({ title: 'visible' })]),
-			[{ title: 'visible' }],
+			immutableArray([immutableRecord({ id: generatedId, title: 'visible' })]),
+			[{ id: generatedId, title: 'visible' }],
 		)
-		await executeRead(operations[1], immutableRecord({ title: 'visible' }), {
-			title: 'visible',
-		})
+		await executeRead(
+			operations[1],
+			immutableRecord({ id: generatedId, title: 'visible' }),
+			{ id: generatedId, title: 'visible' },
+		)
 		await executeRead(operations[2], null, null)
 		await executeRead(operations[3], 2, 2)
 		await executeRead(operations[4], true, true)

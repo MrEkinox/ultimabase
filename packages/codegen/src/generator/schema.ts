@@ -119,7 +119,7 @@ const renderSelect = (schema: TypegenSchemaSnapshot): string => {
 		field.typegen.object === 'forbidden'
 			? []
 			: [
-					`${renderDocumentation(field.description)}\treadonly ${propertyName(field.name)}?: boolean`,
+					`${renderDocumentation(field.description)}\treadonly ${propertyName(field.name)}?: ${field.name === 'id' ? 'true' : 'boolean'}`,
 				],
 	)
 

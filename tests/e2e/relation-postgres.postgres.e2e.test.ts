@@ -604,7 +604,7 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 					{ ultimabase: app },
 				)
 			).map((tag) => tag.toJSON()),
-		).toStrictEqual([{ label: 'alpha' }])
+		).toStrictEqual([{ id: alpha.id, label: 'alpha' }])
 		expect(
 			await alpha.relation('articles').count(undefined, { ultimabase: app }),
 		).toBe(1)
@@ -853,7 +853,10 @@ describe('relation vertical with PostgreSQL', { concurrent: false }, () => {
 		if (!(includedAuthor instanceof Author)) {
 			throw new TypeError('Expected the relation post author to be included')
 		}
-		expect(includedAuthor.toJSON()).toStrictEqual({ name: 'Ada' })
+		expect(includedAuthor.toJSON()).toStrictEqual({
+			id: author.id,
+			name: 'Ada',
+		})
 		await posts.disconnect(Post.pointer(post.id.toString()), {
 			ultimabase: app,
 		})

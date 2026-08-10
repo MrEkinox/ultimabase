@@ -50,8 +50,12 @@ type SchemaResultProjection<
 		ExactQuerySelection<TSchema, TSelection> &
 		LiteralQuerySelection<TSelection>
 }> &
-	ExactGeneratedInclusionInput<TSchema, TInclude> &
-	Readonly<{ readonly include?: TInclude }>
+	(string extends SchemaTypeInfoFor<TSchema>['fields']
+		? Readonly<{
+				readonly include?: SchemaTypeInfoFor<TSchema>['inputs']['include']
+			}>
+		: ExactGeneratedInclusionInput<TSchema, TInclude> &
+				Readonly<{ readonly include?: TInclude }>)
 
 type SchemaResultSelection<
 	TSchema extends SchemaTypeInfoSource,

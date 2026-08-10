@@ -139,16 +139,16 @@ describe('@ultimabase/core Schema and QueryBuilder declarations', () => {
 		)
 	})
 
-	it('preserves constructible drafts and the optional QueryBuilder', () => {
+	it('keeps the no-codegen draft fallback minimal and exposes QueryBuilder', () => {
 		const draft = readFixtureQuickInfo('packedDraft = new PostSchema')
 		const query = readFixtureQuickInfo(
 			'packedQuery = new QueryBuilder(PostSchema)',
 		)
 
-		expect(draft.display).toContain('readonly title: string;')
-		expect(draft.display).not.toContain('readonly id: string;')
+		expect(draft.display).toContain('readonly [x: string]: unknown;')
+		expect(draft.display).not.toContain('readonly title: string;')
 		expect(query.display).toContain('QueryBuilder<')
-		expect(query.display).toContain('QuerySelectionKeyWithValue<')
+		expect(query.display).not.toContain('NonDefaultedStringField<')
 	})
 
 	it('preserves compact immutable model persistence commands', () => {
@@ -197,7 +197,7 @@ describe('@ultimabase/core Schema and QueryBuilder declarations', () => {
 		)
 	})
 
-	it('materializes mutation result properties in editor hovers', () => {
+	it('keeps no-codegen mutation hovers on the minimal generated fallback', () => {
 		const created = readFixtureQuickInfo('created = await PostSchema')
 		const selected = readFixtureQuickInfo('selectedCreate = await PostSchema')
 		const deleted = readFixtureQuickInfo('deleted = await PostSchema')
@@ -207,26 +207,17 @@ describe('@ultimabase/core Schema and QueryBuilder declarations', () => {
 		const create = readFixtureQuickInfo(
 			'createOne(\n\t\t\t\t{ data: allFieldValues },',
 		)
-		const selectedValues = selected.display.split('get:')[0] ?? ''
-		const deletedValues = deleted.display.split('get:')[0] ?? ''
-		const bulkUpdatedValues = bulkUpdated.display.split('get:')[0] ?? ''
 
-		// This guards the declaration experience seen through Query and Runtime exports.
-		expect(created.display).toContain('readonly externalId: string | null;')
-		expect(created.display).toContain('readonly metadata: JsonDocument | null;')
-		expect(created.display).not.toContain('Simplify<')
-		expect(created.display).not.toContain('ObjectRequiredFields<')
-		expect(created.display).not.toContain('ObjectOptionalFields<')
-		expect(selectedValues).toContain('readonly id: string;')
-		expect(selectedValues).toContain('readonly title: string;')
-		expect(selectedValues).not.toContain('readonly metadata:')
-		expect(deletedValues).toContain('readonly id: string;')
-		expect(deletedValues).toContain('readonly title: string;')
-		expect(deletedValues).not.toContain('readonly metadata:')
-		expect(bulkUpdatedValues).toContain('readonly id: string;')
-		expect(bulkUpdatedValues).not.toContain('readonly tenantId:')
+		// Exact application fields come only from the generated application contract.
+		for (const result of [created, selected, deleted, bulkUpdated]) {
+			expect(result.display).toContain('readonly [x: string]: unknown;')
+			expect(result.display).toContain('toString(): string;')
+			expect(result.display).not.toContain('readonly externalId:')
+			expect(result.display).not.toContain('NonDefaultedStringField<')
+		}
 		// Contextual execution stays in the optional final argument.
-		expect(create.display).toContain('.createOne(input: SchemaCreateOneInput<')
+		expect(create.display).toContain('.createOne<')
+		expect(create.display).toContain('input: SchemaCreateOneInput<')
 		expect(create.display).toContain('options?: OperationOptions')
 		expect(create.display).not.toContain('create(this:')
 	})
@@ -244,20 +235,19 @@ describe('@ultimabase/core Schema and QueryBuilder declarations', () => {
 		expect(select.display).toContain('select<{')
 		expect(select.display).toContain('id: true')
 		expect(select.display).toContain('title: true')
-		// Schema reads must not repeat the complete class as an explicit `this`.
+		// Schema reads use the deliberate minimal contract before code generation.
 		expect(find.display).toContain(
-			'.findMany(input?: undefined, options?: OperationOptions): Promise<',
+			'ExactOffsetFindManyInput<BaseSchemaTypeInfo<"RuntimePost">',
 		)
-		expect(deletion.display).toContain('.deleteOne(input:')
+		expect(deletion.display).toContain('.deleteOne<')
+		expect(deletion.display).toContain('input: SchemaDeleteOneInput<')
 		expect(deletion.display).toContain('options?: OperationOptions')
-		expect(deletion.documentation).toContain(
-			'Deletes one uniquely identified row',
-		)
-		expect(count.display).toContain('.count(input?: CountInput<')
+		expect(deletion.documentation).toContain('Deletes one unique target')
+		expect(count.display).toContain('.count(input?: Readonly<{')
 		expect(count.display).toContain(
 			'options?: OperationOptions): Promise<number>',
 		)
-		expect(exists.display).toContain('.exists(input?: ExistsInput<')
+		expect(exists.display).toContain('.exists(input?: Readonly<{')
 		expect(exists.display).toContain(
 			'options?: OperationOptions): Promise<boolean>',
 		)
@@ -277,31 +267,23 @@ describe('@ultimabase/core Schema and QueryBuilder declarations', () => {
 		expect(context.documentation).toContain('plugin-derived context')
 	})
 
-	it('materializes only selected fields in editor hovers', () => {
+	it('does not infer selected application fields without code generation', () => {
 		const found = readFixtureQuickInfo('found = await PostSchema')
 
-		// Selected terminals must not expose the complete schema behind a Pick alias.
-		expect(found.display).toContain('readonly id: string;')
-		expect(found.display).toContain('readonly title: string;')
-		expect(found.display).not.toContain('readonly published: boolean;')
-		expect(found.display).not.toContain('readonly views: number;')
-		expect(found.display).not.toContain('Pick<')
+		expect(found.display).toContain('readonly [x: string]: unknown;')
+		expect(found.display).toContain('toString(): string;')
+		expect(found.display).not.toContain('readonly title: string;')
+		expect(found.display).not.toContain('NonDefaultedStringField<')
 	})
 
-	it('materializes unified update data in editor hovers', () => {
+	it('keeps update data generic until code generation supplies its contract', () => {
 		const update = readFixtureQuickInfo(
 			"data: { title: 'Packed query update' }",
 		)
 		const inputDisplay = update.display
 
-		// Developers should see field values and operations instead of the complete schema.
-		expect(inputDisplay).toContain(
-			'readonly attachment: Uint8Array<ArrayBufferLike> | null;',
-		)
-		expect(inputDisplay).toContain(
-			'readonly exactAmount?: string | IncrementUpdateValue<string>',
-		)
-		expect(inputDisplay).toContain('DecrementUpdateValue<string> | null;')
+		expect(inputDisplay).toContain('readonly [x: string]: unknown;')
+		expect(inputDisplay).not.toContain('readonly attachment:')
 		expect(inputDisplay).not.toContain('UpdateExpressionInput<')
 		expect(inputDisplay).not.toContain('SchemaDefinition<')
 		expect(inputDisplay).not.toContain('NonDefaultedIntField<')

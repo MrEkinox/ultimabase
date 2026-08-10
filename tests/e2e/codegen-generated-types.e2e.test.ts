@@ -26,6 +26,10 @@ const pointerMarker = '/* packed-pointer-where */'
 const relationMarker = '/* packed-relation-where */'
 const hoverMarker = '/* packed-generated-hover */'
 const optionsMarker = '/* packed-codegen-options */'
+const createOneOptionsMarker = '/* packed-create-one-options */'
+const createManyOptionsMarker = '/* packed-create-many-options */'
+const updateOneOptionsMarker = '/* packed-update-one-options */'
+const updateManyOptionsMarker = '/* packed-update-many-options */'
 
 const Owner = Schema.define({
 	className: 'PackedGeneratedOwner',
@@ -123,6 +127,18 @@ const publicRead = PackedGeneratedDocument.findMany({
   where: { status: { eq: 'draft' } },
   select: { ${publicSelectMarker}title: true },
 })
+publicRead.then((documents) => {
+  const document = documents[0]
+  if (document === undefined) return
+  const id: string = document.id
+  const title: string = document.title
+  void id
+  void title
+})
+const invalidIdentifierSelection: PackedGeneratedDocumentSelect = {
+  // @ts-expect-error -- Stable model identifiers cannot be omitted.
+  id: false,
+}
 declare const packedItem: PackedGeneratedDocumentHooks['item']
 const ownerRead = packedItem.owner.findOne({
   where: { ${pointerMarker}name: { startsWith: 'A' } },
@@ -132,6 +148,95 @@ declare const packedLoadedDocument: PackedLoadedDocument
 const relatedRead = packedLoadedDocument.relation('related').findMany({
   where: { ${relationMarker}status: { eq: 'published' } },
 })
+const projectedCreate = PackedGeneratedDocument.createOne({
+  data: { owner: packedOwner, title: 'Created projection' },
+  select: { title: true },
+  include: { owner: { select: { name: true } } },
+})
+const projectedCreates = PackedGeneratedDocument.createMany({
+  data: [{ owner: packedOwner, title: 'Created collection projection' }],
+  select: { title: true },
+  include: { owner: { select: { name: true } } },
+})
+const projectedUpdate = PackedGeneratedDocument.updateOne({
+  where: { id: { eq: 'document-1' } },
+  data: { title: 'Updated projection' },
+  select: { title: true },
+  include: { owner: { select: { name: true } } },
+})
+const projectedUpdates = PackedGeneratedDocument.updateMany({
+  data: [{
+    where: { id: { eq: 'document-1' } },
+    data: { title: 'Updated collection projection' },
+  }],
+  include: { owner: { select: { name: true } } },
+})
+projectedCreate.then((document) => {
+  if (document.owner === null) return
+	const id: string = document.id
+  const title: string = document.title
+	const ownerId: string = document.owner.id
+  const ownerName: string = document.owner.name
+  // @ts-expect-error -- Packed mutation projections exclude unselected scalars.
+  document.status
+	void id
+  void ownerName
+	void ownerId
+  void title
+})
+projectedCreates.then((documents) => {
+  const document = documents[0]
+  if (document === undefined || document.owner === null) return
+	const id: string = document.id
+  const title: string = document.title
+	const ownerId: string = document.owner.id
+  const ownerName: string = document.owner.name
+	void id
+  void ownerName
+	void ownerId
+  void title
+})
+projectedUpdate.then((document) => {
+  if (document === null || document.owner === null) return
+	const id: string = document.id
+	const ownerId: string = document.owner.id
+  const ownerName: string = document.owner.name
+	void id
+	void ownerId
+  void ownerName
+})
+projectedUpdates.then((documents) => {
+  const document = documents[0]
+  if (document === undefined || document.owner === null) return
+  const id: string = document.id
+	const ownerId: string = document.owner.id
+  const ownerName: string = document.owner.name
+  // @ts-expect-error -- Packed updateMany keeps its default scalar id projection.
+  document.title
+  void id
+	void ownerId
+  void ownerName
+})
+PackedGeneratedDocument.createOne({
+  data: { owner: packedOwner, title: 'Create completion' },
+  ${createOneOptionsMarker}
+})
+PackedGeneratedDocument.createMany({
+  data: [{ owner: packedOwner, title: 'Create collection completion' }],
+  ${createManyOptionsMarker}
+})
+PackedGeneratedDocument.updateOne({
+  where: { id: { eq: 'document-1' } },
+  data: { title: 'Update completion' },
+  ${updateOneOptionsMarker}
+})
+PackedGeneratedDocument.updateMany({
+  data: [{
+    where: { id: { eq: 'document-1' } },
+    data: { title: 'Update collection completion' },
+  }],
+  ${updateManyOptionsMarker}
+})
 
 // @ts-expect-error -- The packed generator retains exact enum literals.
 const invalidStatus: PackedDocumentStatus = 'archived'
@@ -140,9 +245,14 @@ void create
 void apiGenerated
 void packedCompletionOptions
 void invalidStatus
+void invalidIdentifierSelection
 void ownerRead
 void publicRead
 void relatedRead
+void projectedCreate
+void projectedCreates
+void projectedUpdate
+void projectedUpdates
 void select
 void where
 `
@@ -153,6 +263,12 @@ const pointerPosition = sourceWithMarkers.indexOf(pointerMarker)
 const relationPosition = sourceWithMarkers.indexOf(relationMarker)
 const hoverPosition = sourceWithMarkers.indexOf(hoverMarker)
 const optionsPosition = sourceWithMarkers.indexOf(optionsMarker)
+const mutationOptionPositions = [
+	createOneOptionsMarker,
+	createManyOptionsMarker,
+	updateOneOptionsMarker,
+	updateManyOptionsMarker,
+].map((marker) => sourceWithMarkers.indexOf(marker))
 const source = sourceWithMarkers
 	.replace(selectMarker, ' '.repeat(selectMarker.length))
 	.replace(publicSelectMarker, ' '.repeat(publicSelectMarker.length))
@@ -161,6 +277,10 @@ const source = sourceWithMarkers
 	.replace(relationMarker, ' '.repeat(relationMarker.length))
 	.replace(hoverMarker, ' '.repeat(hoverMarker.length))
 	.replace(optionsMarker, ' '.repeat(optionsMarker.length))
+	.replace(createOneOptionsMarker, ' '.repeat(createOneOptionsMarker.length))
+	.replace(createManyOptionsMarker, ' '.repeat(createManyOptionsMarker.length))
+	.replace(updateOneOptionsMarker, ' '.repeat(updateOneOptionsMarker.length))
+	.replace(updateManyOptionsMarker, ' '.repeat(updateManyOptionsMarker.length))
 const fileName = path.join(
 	import.meta.dirname,
 	'codegen-generated-types.packed.fixture.ts',
@@ -201,6 +321,23 @@ describe('packed @ultimabase/codegen generated contracts', () => {
 				.getCompletionsAtPosition(fileName, selectPosition, {})
 				?.entries.map(({ name }) => name),
 		).toEqual(expect.arrayContaining(['embedding', 'id', 'status', 'title']))
+		for (const [index, position] of mutationOptionPositions.entries()) {
+			const marker = [
+				createOneOptionsMarker,
+				createManyOptionsMarker,
+				updateOneOptionsMarker,
+				updateManyOptionsMarker,
+			][index]
+
+			if (marker === undefined) {
+				throw new TypeError('Missing packed mutation completion marker')
+			}
+			expect(
+				service
+					.getCompletionsAtPosition(fileName, position + marker.length, {})
+					?.entries.map(({ name }) => name),
+			).toContain('include')
+		}
 
 		const hover = service.getQuickInfoAtPosition(
 			fileName,

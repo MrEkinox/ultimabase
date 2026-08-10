@@ -261,6 +261,7 @@ describe(
 				throw new TypeError('Expected the visible author to be included')
 			}
 			expect(includedAuthor.toJSON()).toStrictEqual({
+				id: includedAuthor.id,
 				name: 'Visible author',
 			})
 			await expect(

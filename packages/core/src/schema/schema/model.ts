@@ -147,7 +147,8 @@ interface SchemaModelMethods<TValues extends object> {
 
 /** Describes one flat instance result projection without retaining field definitions. */
 export type SchemaModelSelection<TValues extends object> = Readonly<
-	Partial<Record<Extract<keyof TValues, string>, boolean>>
+	Partial<Record<Exclude<Extract<keyof TValues, string>, 'id'>, boolean>> &
+		('id' extends keyof TValues ? { readonly id?: true } : object)
 >
 
 type SchemaModelSelectionKeyWithValue<TSelection, TValue extends boolean> = {
@@ -161,12 +162,16 @@ type SchemaModelSelectedField<
 	TSelection,
 > = keyof TSelection extends never
 	? never
-	: [SchemaModelSelectionKeyWithValue<TSelection, true>] extends [never]
-		? Exclude<
-				Extract<keyof TValues, string>,
-				SchemaModelSelectionKeyWithValue<TSelection, false>
-			>
-		: Extract<SchemaModelSelectionKeyWithValue<TSelection, true>, keyof TValues>
+	: | ([SchemaModelSelectionKeyWithValue<TSelection, true>] extends [never]
+				? Exclude<
+						Extract<keyof TValues, string>,
+						SchemaModelSelectionKeyWithValue<TSelection, false>
+					>
+				: Extract<
+						SchemaModelSelectionKeyWithValue<TSelection, true>,
+						keyof TValues
+					>)
+		| Extract<'id', keyof TValues>
 
 type LiteralSchemaModelSelection<TSelection> = {
 	readonly [TKey in keyof TSelection]: boolean extends TSelection[TKey]

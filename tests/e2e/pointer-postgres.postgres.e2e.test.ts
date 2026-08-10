@@ -351,7 +351,10 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 		if (!isUpdatableIncludedUser(included?.author)) {
 			throw new TypeError('Expected an included author model')
 		}
-		expect(included.author.toJSON()).toStrictEqual({ name: 'Ada' })
+		expect(included.author.toJSON()).toStrictEqual({
+			id: firstAuthor.id,
+			name: 'Ada',
+		})
 
 		const renamedAuthor = await included.author.update(
 			{ data: { name: 'Ada Lovelace' } },
@@ -365,7 +368,10 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 			{ ultimabase: app },
 		)
 
-		expect(directAuthor?.toJSON()).toStrictEqual({ name: 'Ada Lovelace' })
+		expect(directAuthor?.toJSON()).toStrictEqual({
+			id: firstAuthor.id,
+			name: 'Ada Lovelace',
+		})
 
 		pointerTrace.length = 0
 		const updated = await created.update(
@@ -637,7 +643,10 @@ describe('pointer vertical with PostgreSQL', { concurrent: false }, () => {
 				'Expected the private target to be included for master',
 			)
 		}
-		expect(allowed.target.toJSON()).toStrictEqual({ label: 'private' })
+		expect(allowed.target.toJSON()).toStrictEqual({
+			id: target.id,
+			label: 'private',
+		})
 	})
 
 	it('persists and cleans circular pointers without transport infrastructure', async () => {

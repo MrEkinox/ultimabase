@@ -83,11 +83,11 @@ Singular CRUD, bulk operations, upserts, and explicit Runtime transactions
 execute through this adapter. Every mutation uses Runtime's transaction-bound
 prepared-operation protocol; no bulk item opens a side transaction.
 
-For an object selection that omits `id`, PostgreSQL fetches the identifier into
-an adapter-private side channel and returns only the developer's requested
-fields. Core uses that protected identity for immutable model `update` and
-`delete` commands without exposing it through hooks, properties, `get()`, or
-`toJSON()`.
+Core's canonical projection always selects `id`, even when application code
+does not mention it. PostgreSQL therefore returns one visible stable identifier
+on every root and nested model. Adapter-private identity metadata remains only
+as a defensive correlation check for immutable commands and mutation
+lifecycles; it no longer hides the identifier from hooks or serialized models.
 
 Every adapter request carries Core's policy-neutral `constraints` array and an
 optional framework-owned `rowFilter`. The latter contains native Access
@@ -281,6 +281,14 @@ unique target at a time, expose the locked visible object to Access and
 columns. Their default projection contains only `id`; a missing target aborts
 the shared transaction with `NOT_FOUND`. Resumed opaque cursor tokens are not
 yet executable.
+
+When `createOne`, `createMany`, `updateOne`, or `updateMany` requests an
+`include`, PostgreSQL performs the scalar write first and reuses Drizzle's
+relational query builder inside the same transaction. A singular command adds
+one relationship projection query. A non-empty collection shares one grouped
+`WHERE id IN (...)` projection across every result and restores declaration
+order afterward. Without `include`, no projection query is added. Target-lock
+reads required by item-oriented updates remain separate from that projection.
 
 ```ts
 const imported = await ArticleSchema.createMany(

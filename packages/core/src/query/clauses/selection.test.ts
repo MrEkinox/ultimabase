@@ -50,6 +50,10 @@ describe('normalizeQuerySelection', () => {
 		expect(Object.isFrozen(selection)).toBe(true)
 		expect(Object.isFrozen(selection.fields)).toBe(true)
 		expect(Object.isFrozen(selection.fields[0])).toBe(true)
+		expect(selection.fields).toStrictEqual([
+			{ kind: 'selected-field', field: 'title' },
+			{ kind: 'selected-field', field: 'id' },
+		])
 	})
 
 	it('rejects malformed selections and unknown fields at runtime', () => {
@@ -68,10 +72,19 @@ describe('normalizeQuerySelection', () => {
 			normalizeQuerySelection(postSchema, {
 				title: false,
 				published: false,
+				// @ts-expect-error -- Runtime rejects JavaScript callers too.
 				id: false,
 				createdAt: false,
 				updatedAt: false,
 			}),
-		).toThrow(new TypeError('query selection must retain at least one field'))
+		).toThrow(new TypeError('selection.id cannot be false'))
+		expect(
+			normalizeQuerySelection(postSchema, {
+				title: false,
+				published: false,
+				createdAt: false,
+				updatedAt: false,
+			}).fields,
+		).toStrictEqual([{ kind: 'selected-field', field: 'id' }])
 	})
 })

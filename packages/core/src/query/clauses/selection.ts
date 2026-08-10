@@ -27,7 +27,7 @@ import {
  *
  * @example
  * ```ts
- * Post.findMany({ select: { id: true, title: true } })
+ * Post.findMany({ select: { title: true } }) // result contains `id` and `title`
  * Post.findMany({ select: { internalNote: false } })
  * ```
  */
@@ -68,12 +68,13 @@ export type QuerySelectedField<
 > = Extract<
 	keyof TSelection extends never
 		? never
-		: [QueryIncludedSelectionField<TSchema, TSelection>] extends [never]
-			? Exclude<
-					QuerySelectableFieldName<TSchema>,
-					QueryExcludedSelectionField<TSchema, TSelection>
-				>
-			: QueryIncludedSelectionField<TSchema, TSelection>,
+		: | ([QueryIncludedSelectionField<TSchema, TSelection>] extends [never]
+					? Exclude<
+							QuerySelectableFieldName<TSchema>,
+							QueryExcludedSelectionField<TSchema, TSelection>
+						>
+					: QueryIncludedSelectionField<TSchema, TSelection>)
+			| Extract<'id', QuerySelectableFieldName<TSchema>>,
 	QueryFieldName<TSchema>
 >
 
@@ -130,6 +131,18 @@ export const normalizeQuerySelectedFields = <
 		)
 	}
 
+	// Every public model exposes its stable identity independently from the
+	// caller's scalar projection. Keeping this invariant in the canonical AST
+	// also makes adapters and nested inclusions follow the same rule.
+	if (!knownFieldNames.has('id') && Object.hasOwn(schema.fields, 'id')) {
+		selectedFields.push(
+			immutableRecord({
+				kind: 'selected-field',
+				field: parseQueryFieldName(schema, 'id', 'selection.id'),
+			}),
+		)
+	}
+
 	return immutableRecord({
 		kind: 'selection',
 		fields: immutableArray(selectedFields),
@@ -170,6 +183,10 @@ export const normalizeQuerySelection = <const TSchema extends SchemaDefinition>(
 
 		if (typeof selected !== 'boolean') {
 			throw new TypeError(`selection.${fieldName} must be a boolean`)
+		}
+
+		if (fieldName === 'id' && !selected) {
+			throw new TypeError('selection.id cannot be false')
 		}
 
 		normalizedEntries.push({ field: normalizedFieldName, selected })

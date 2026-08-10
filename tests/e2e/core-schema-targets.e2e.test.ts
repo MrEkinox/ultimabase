@@ -23,7 +23,7 @@ describe('packed @ultimabase/core schema target contracts', () => {
 	it('preserves concise target, graph, and diagnostic hovers', () => {
 		const targetDisplay = readHoverDisplay('schema-target')
 
-		expect(targetDisplay).toContain('SchemaTarget<SchemaClass<"TargetUser"')
+		expect(targetDisplay).toContain('SchemaTarget<SchemaReference<"TargetUser"')
 		expect(targetDisplay).not.toContain('any')
 		expect(readHoverDisplay('target-graph')).toContain('SchemaTargetGraph')
 		expect(readHoverDisplay('resolved-target')).toContain(

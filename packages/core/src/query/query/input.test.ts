@@ -100,6 +100,7 @@ describe('canonical read inputs', () => {
 
 		expect(query.ast.selection.fields).toStrictEqual([
 			{ field: 'name', kind: 'selected-field' },
+			{ field: 'id', kind: 'selected-field' },
 		])
 		expect(query.ast.inclusion.fields[0]).toMatchObject({
 			field: 'posts',
@@ -110,7 +111,7 @@ describe('canonical read inputs', () => {
 				ordering: {
 					orders: [{ direction: 'descending', field: 'createdAt' }],
 				},
-				selection: { fields: [{ field: 'title' }] },
+				selection: { fields: [{ field: 'title' }, { field: 'id' }] },
 				where: {
 					expression: {
 						field: 'title',

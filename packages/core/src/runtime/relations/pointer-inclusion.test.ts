@@ -57,7 +57,11 @@ const pointerRuntimePost = Schema.define({
 
 const createPostResult = (
 	author: Pointer<typeof pointerRuntimeUser>,
-): Readonly<Record<string, unknown>> => ({ author, title: 'Runtime pointers' })
+): Readonly<Record<string, unknown>> => ({
+	author,
+	id: '0198a43e-2431-7000-8000-000000000400',
+	title: 'Runtime pointers',
+})
 
 /** Verifies that both monotonic scopes reach an adapter without relying on order. */
 const expectTargetRowFilter = (
@@ -89,8 +93,11 @@ describe('pointer Runtime execution', () => {
 			'0198a43e-2431-7000-8000-000000000402',
 		)
 		const post = createPostResult(author)
-		const includedAuthor = { name: 'Ada', organization }
-		const includedOrganization = { name: 'Ultima Labs' }
+		const includedAuthor = { id: author.id, name: 'Ada', organization }
+		const includedOrganization = {
+			id: organization.id,
+			name: 'Ultima Labs',
+		}
 		const adapter = new RecordingDatabaseAdapter(
 			[
 				{
@@ -109,7 +116,7 @@ describe('pointer Runtime execution', () => {
 					status: 'fulfilled',
 					value: [post],
 				},
-				{ status: 'fulfilled', value: { name: 'Ada' } },
+				{ status: 'fulfilled', value: { id: author.id, name: 'Ada' } },
 			],
 			[],
 		)
@@ -163,7 +170,11 @@ describe('pointer Runtime execution', () => {
 				kind: 'find-one',
 				query: {
 					selection: {
-						fields: [{ field: 'name' }, { field: 'organization' }],
+						fields: [
+							{ field: 'name' },
+							{ field: 'id' },
+							{ field: 'organization' },
+						],
 					},
 				},
 			})
@@ -204,7 +215,17 @@ describe('pointer Runtime execution', () => {
 		})
 		const pointer = target.pointer('0198a43e-2431-7000-8000-000000000403')
 		const adapter = new RecordingDatabaseAdapter(
-			[{ status: 'fulfilled', value: [{ target: pointer }] }],
+			[
+				{
+					status: 'fulfilled',
+					value: [
+						{
+							id: '0198a43e-2431-7000-8000-000000000413',
+							target: pointer,
+						},
+					],
+				},
+			],
 			[],
 		)
 		const ultimabase = new UltimaBase({
@@ -254,7 +275,10 @@ describe('pointer Runtime execution', () => {
 			}),
 		})
 		const pointer = target.pointer('0198a43e-2431-7000-8000-000000000408')
-		const sourceRecord = { target: pointer }
+		const sourceRecord = {
+			id: '0198a43e-2431-7000-8000-000000000414',
+			target: pointer,
+		}
 		const adapter = new RecordingDatabaseAdapter(
 			[
 				{
@@ -262,7 +286,7 @@ describe('pointer Runtime execution', () => {
 						{
 							fieldPath: ['target'],
 							record: sourceRecord,
-							target: { name: 'Hydrated target' },
+							target: { id: pointer.id, name: 'Hydrated target' },
 						},
 					],
 					status: 'fulfilled',
@@ -318,7 +342,10 @@ describe('pointer Runtime execution', () => {
 		const targetPointer = restrictedTarget.pointer(
 			'0198a43e-2431-7000-8000-000000000404',
 		)
-		const sourceResult = { target: targetPointer }
+		const sourceResult = {
+			id: '0198a43e-2431-7000-8000-000000000415',
+			target: targetPointer,
+		}
 		const results: readonly QueuedAdapterResult[] = [
 			{ status: 'fulfilled', value: [sourceResult] },
 			{
@@ -326,7 +353,7 @@ describe('pointer Runtime execution', () => {
 					{
 						fieldPath: ['target'],
 						record: sourceResult,
-						target: { name: 'Visible to master' },
+						target: { id: targetPointer.id, name: 'Visible to master' },
 					},
 				],
 				status: 'fulfilled',
@@ -398,7 +425,10 @@ describe('pointer Runtime execution', () => {
 			}),
 		})
 		const pointer = target.pointer('0198a43e-2431-7000-8000-000000000407')
-		const sourceRecord = { target: pointer }
+		const sourceRecord = {
+			id: '0198a43e-2431-7000-8000-000000000416',
+			target: pointer,
+		}
 		const adapter = new RecordingDatabaseAdapter(
 			[
 				{
@@ -406,7 +436,10 @@ describe('pointer Runtime execution', () => {
 						{
 							fieldPath: ['target'],
 							record: sourceRecord,
-							target: { name: 'Hydrated before afterRead' },
+							target: {
+								id: pointer.id,
+								name: 'Hydrated before afterRead',
+							},
 						},
 					],
 					status: 'fulfilled',
@@ -520,8 +553,16 @@ describe('pointer Runtime execution', () => {
 			updatedAt: '2026-08-10T12:00:00.000Z',
 		}
 		const updated = { ...created, title: 'Updated with author' }
-		const createdProjection = { author: target, title: created.title }
-		const updatedProjection = { author: target, title: updated.title }
+		const createdProjection = {
+			author: target,
+			id: created.id,
+			title: created.title,
+		}
+		const updatedProjection = {
+			author: target,
+			id: updated.id,
+			title: updated.title,
+		}
 		const trace: string[] = []
 		const adapter = new RecordingDatabaseAdapter(
 			[
@@ -535,7 +576,7 @@ describe('pointer Runtime execution', () => {
 						{
 							fieldPath: ['author'],
 							record: createdProjection,
-							target: { name: 'Ada' },
+							target: { id: target.id, name: 'Ada' },
 						},
 					],
 					status: 'fulfilled',
@@ -554,7 +595,7 @@ describe('pointer Runtime execution', () => {
 						{
 							fieldPath: ['author'],
 							record: updatedProjection,
-							target: { name: 'Grace' },
+							target: { id: target.id, name: 'Grace' },
 						},
 					],
 					status: 'fulfilled',
@@ -666,7 +707,7 @@ describe('pointer Runtime execution', () => {
 			title: 'Protected target',
 			updatedAt: '2026-08-10T12:00:00.000Z',
 		}
-		const projection = { target, title: current.title }
+		const projection = { id: current.id, target, title: current.title }
 		const trace: string[] = []
 		const adapter = new RecordingDatabaseAdapter(
 			[

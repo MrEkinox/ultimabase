@@ -324,6 +324,7 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 			)
 			expect(createdUpsert.toJSON()).toStrictEqual({
 				email: 'upsert@example.com',
+				id: createdUpsert.id,
 				visits: 0,
 			})
 
@@ -342,6 +343,7 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 			)
 			expect(updatedUpsert.toJSON()).toStrictEqual({
 				email: 'upsert@example.com',
+				id: updatedUpsert.id,
 				visits: 1,
 			})
 
@@ -372,8 +374,16 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 				{ ultimabase },
 			)
 			expect(bulkUpserted.map((account) => account.toJSON())).toStrictEqual([
-				{ email: 'upsert@example.com', visits: 2 },
-				{ email: 'bulk-upsert@example.com', visits: 0 },
+				{
+					email: 'upsert@example.com',
+					id: bulkUpserted[0]?.id,
+					visits: 2,
+				},
+				{
+					email: 'bulk-upsert@example.com',
+					id: bulkUpserted[1]?.id,
+					visits: 0,
+				},
 			])
 
 			const composite = await BulkAccountSchema.upsertOne(
@@ -563,6 +573,7 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 			})
 			expect(selected.toJSON()).toStrictEqual({
 				email: 'model-create@example.com',
+				id: created.id,
 			})
 			expect(fetched.toJSON()).toStrictEqual({
 				email: 'model-create@example.com',
@@ -578,7 +589,7 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 				email: 'model-create@example.com',
 				id: created.id,
 			})
-			expect(selected).not.toHaveProperty('id')
+			expect(selected.id).toBe(created.id)
 			expect(updated.id).toBe(created.id)
 			expect(deleted.id).toBe(created.id)
 			expect(auditReasons).toStrictEqual([
@@ -753,7 +764,7 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 				true,
 			)
 			expect(audits.map((audit) => audit.toJSON())).toStrictEqual([
-				{ action: 'create:commit' },
+				{ action: 'create:commit', id: audits[0]?.id },
 			])
 
 			await expect(

@@ -1,6 +1,6 @@
 # Active plan: mutation relationship projections
 
-- Status: active
+- Status: complete
 - Started: 2026-08-10
 - Objective owner: `@ultimabase/core`, `@ultimabase/codegen`, `@ultimabase/postgres-plugin`
 - Governing decision: [ADR-0180](docs/adr/0180-mutation-relationship-projections.md)
@@ -23,6 +23,7 @@ group their final relationship projection by persisted identifiers.
 - Collection mutation results preserve declaration order independently from database return order.
 - A collection include must not issue one root result read per item.
 - Mutations without include perform no follow-up result query.
+- Every root and nested model projection exposes `id` even when `select` omits it.
 - Core remains adapter-neutral; PostgreSQL reuses Drizzle's relational query builder instead of custom relational SQL.
 - Delete, upsert, nested writes, and transport-specific mutation shapes remain out of scope.
 - Each issue receives a dedicated commit and no push occurs without explicit user confirmation.
@@ -32,7 +33,7 @@ group their final relationship projection by persisted identifiers.
 1. [x] [901 — Decide mutation relationship projection semantics](issues/900-mutation-projections/901-mutation-relationship-projection-adr.md)
 2. [x] [902 — Project singular create and update results](issues/900-mutation-projections/902-singular-mutation-includes.md)
 3. [x] [903 — Group collection mutation projections](issues/900-mutation-projections/903-grouped-mutation-includes.md)
-4. [ ] [904 — Verify generated and PostgreSQL mutation include DX](issues/900-mutation-projections/904-mutation-includes-verification.md)
+4. [x] [904 — Verify generated and PostgreSQL mutation include DX](issues/900-mutation-projections/904-mutation-includes-verification.md)
 
 ## Supervision checkpoints
 
@@ -48,3 +49,11 @@ group their final relationship projection by persisted identifiers.
 - Runtime and PostgreSQL tests prove Access, hooks, ordering, rollback, and no-include fast paths.
 - Source and packed language-service tests protect autocomplete and compact hovers.
 - Core, codegen, PostgreSQL, E2E, typecheck, test, lint, constraints, and build checks pass.
+
+## Final validation
+
+- Core: 195 files, 1,394 tests, no type errors.
+- Repository unit and type suites: 279 files, 1,751 tests.
+- Packed packages: 5 files, 50 tests.
+- Cross-package and PostgreSQL E2E: 25 files, 127 tests.
+- Typecheck, lint, constraints, formatting, and build all pass.

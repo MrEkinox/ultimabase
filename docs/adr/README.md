@@ -166,6 +166,7 @@ Accepted records:
 - [ADR-0178: Object-only schema mutation predicates](0178-object-only-mutation-where-inputs.md)
 - [ADR-0179: Name-based application relationship targets](0179-name-based-relationship-targets.md)
 - [ADR-0180: Transaction-bound mutation relationship projections](0180-mutation-relationship-projections.md)
+- [ADR-0181: Every model projection exposes its identifier](0181-implicit-result-identifiers.md)
 
 Superseded records:
 

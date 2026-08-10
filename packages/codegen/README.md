@@ -64,6 +64,12 @@ objects, and FieldBuilder methods. Compatible object and enum `typeName`
 identities are reused; incompatible identities and normalized TypeScript name
 collisions report both owners.
 
+Generated `Select` contracts mark `id` as `id?: true`: every root or nested
+model result contains its stable identifier even when the developer selects
+only other fields, while `id: false` is rejected by TypeScript. The same
+generated `include` types drive exact relationship projections on reads and on
+`createOne`, `createMany`, `updateOne`, and `updateMany`.
+
 The emitted file is application-facing rather than an opaque implementation
 dump. Concrete named types such as `TodoItem`, `TodoCreateInput`,
 `TodoWhereInput`, and `TodoSelect` appear first, followed by one flat `Schemas`

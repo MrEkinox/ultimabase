@@ -482,11 +482,12 @@ const SemanticArticle = Schema.define({
   },
 })
 
-const draft = new SemanticArticle({
+const createInput: SemanticArticleCreateInput = {
   author: SemanticAuthor.pointer('author-1'),
   status: 'draft',
   title: 'Generated public API',
-})
+}
+const draft = new SemanticArticle(createInput)
 const exactStatus: 'draft' | 'published' = draft.status
 declare const loadedArticle: SemanticArticleHooks['item']
 const authorRead = loadedArticle.author.findOne({
@@ -507,6 +508,20 @@ const result = SemanticArticle./* public-find-many-hover */findMany({
     related: { where: { status: { eq: 'published' } } },
   },
 })
+result.then((articles) => {
+  const article = articles[0]
+	if (article === undefined || article.author === null) return
+	const id: string = article.id
+	const authorId: string = article.author.id
+	const relatedId: string | undefined = article.related[0]?.id
+	void id
+	void authorId
+	void relatedId
+})
+const invalidIdentifierSelection: SemanticArticleSelect = {
+  // @ts-expect-error -- Stable model identifiers cannot be omitted.
+  id: false,
+}
 const invalidObjectPath: SemanticArticleWhereInput = {
   profile: {
     at: [{
@@ -543,25 +558,29 @@ const projectedCreate = SemanticArticle./* public-create-one-hover */createOne({
 })
 projectedCreate.then((article) => {
   if (article.author === null) return
+	const id: string = article.id
   const title: string = article.title
+	const authorId: string = article.author.id
   const authorName: string = article.author.name
   // @ts-expect-error -- Mutation selection excludes unselected scalar fields.
   article.status
-  // @ts-expect-error -- Nested mutation inclusion preserves its own selection.
-  article.author.id
+	void id
   void title
+	void authorId
   void authorName
 })
 projectedUpdate.then((article) => {
   if (article === null) return
   if (article.author === null) return
+	const id: string = article.id
   const title: string = article.title
+	const authorId: string = article.author.id
   const authorName: string = article.author.name
   // @ts-expect-error -- Mutation selection excludes unselected scalar fields.
   article.status
-  // @ts-expect-error -- Nested mutation inclusion preserves its own selection.
-  article.author.id
+	void id
   void title
+	void authorId
   void authorName
 })
 const projectedCreates = SemanticArticle./* public-create-many-hover */createMany({
@@ -590,22 +609,42 @@ const projectedUpdates = SemanticArticle./* public-update-many-hover */updateMan
 projectedCreates.then((articles) => {
   const article = articles[0]
   if (article === undefined || article.author === null) return
+	const id: string = article.id
   const title: string = article.title
+	const authorId: string = article.author.id
   const authorName: string = article.author.name
   // @ts-expect-error -- Common collection selection excludes other scalars.
   article.status
+	void id
   void title
+	void authorId
   void authorName
 })
 projectedUpdates.then((articles) => {
   const article = articles[0]
   if (article === undefined || article.author === null) return
   const id: string = article.id
+	const authorId: string = article.author.id
   const authorName: string = article.author.name
   // @ts-expect-error -- updateMany still defaults its scalar projection to id.
   article.title
   void id
+	void authorId
   void authorName
+})
+SemanticArticle.createOne({ data: createInput, /* public-create-one-options */ })
+SemanticArticle.createMany({ data: [createInput], /* public-create-many-options */ })
+SemanticArticle.updateOne({
+  where: { id: { eq: 'article-1' } },
+  data: { title: 'Completion update' },
+  /* public-update-one-options */
+})
+SemanticArticle.updateMany({
+  data: [{
+    where: { id: { eq: 'article-1' } },
+    data: { title: 'Completion update' },
+  }],
+  /* public-update-many-options */
 })
 SemanticArticle./* public-upsert-one-hover */upsertOne({
   where: { id: { eq: 'article-1' } },
@@ -658,6 +697,7 @@ void exactStatus
 void exactAuthorName
 void authorRead
 void result
+void invalidIdentifierSelection
 void invalidObjectPath
 void relatedRead
 `
@@ -735,6 +775,14 @@ void relatedRead
 		expect(completionNames('/* public-relation-where */')).toEqual(
 			expect.arrayContaining(['AND', 'author', 'profile', 'related']),
 		)
+		for (const marker of [
+			'/* public-create-many-options */',
+			'/* public-create-one-options */',
+			'/* public-update-many-options */',
+			'/* public-update-one-options */',
+		]) {
+			expect(completionNames(marker)).toContain('include')
+		}
 		expect(quickInfo('/* public-query-where-hover */')).toContain(
 			'where?: SemanticArticleWhereInput',
 		)

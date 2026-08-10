@@ -90,7 +90,7 @@ type MaterializeIncludedRelation<TInclusion> =
 					>[]
 				>
 			>
-		: unknown
+		: never
 
 type UnionToIntersection<TValue> = (
 	TValue extends unknown ? (value: TValue) => void : never
@@ -119,7 +119,7 @@ type SelectedQueryRecord<
 	: Simplify<
 			Pick<
 				SchemaItem<TSchema>,
-				Extract<TSelectedField, keyof SchemaItem<TSchema>>
+				Extract<TSelectedField | 'id', keyof SchemaItem<TSchema>>
 			>
 		>
 

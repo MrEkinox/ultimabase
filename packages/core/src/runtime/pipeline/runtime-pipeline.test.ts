@@ -295,8 +295,14 @@ const createStages = (
 
 describe('RuntimePipeline', () => {
 	it('keeps protected identities attached when result hooks filter a find', async () => {
-		const first = immutableRecord({ title: 'First' })
-		const second = immutableRecord({ title: 'Second' })
+		const first = immutableRecord({
+			id: '0198f090-2a50-7000-8000-000000000091',
+			title: 'First',
+		})
+		const second = immutableRecord({
+			id: '0198f090-2a50-7000-8000-000000000092',
+			title: 'Second',
+		})
 		const identities = new WeakMap<object, string>([
 			[first, '0198f090-2a50-7000-8000-000000000091'],
 			[second, '0198f090-2a50-7000-8000-000000000092'],

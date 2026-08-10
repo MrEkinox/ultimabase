@@ -63,6 +63,9 @@ type SchemaMutationResult<
 		[TSelection] extends [undefined]
 			? | TDefaultField
 				| Extract<keyof NonNullable<TInclude>, QueryFieldName<TContract>>
+				| ([TInclude] extends [undefined]
+						? never
+						: Extract<'id', QueryFieldName<TContract>>)
 			: QuerySelectedFieldFromInput<
 					TContract,
 					SchemaProjection<TSelection, TInclude>
@@ -108,7 +111,7 @@ export interface SchemaAPI<TContract extends SchemaTypeInfo>
 		options?: OperationOptions,
 	): Promise<SchemaMutationResult<TContract, this, TSelection, TInclude>>
 
-	/** Deletes ordered unique targets and returns `id` unless explicitly projected. */
+	/** Deletes ordered unique targets and always retains each result `id`. */
 	deleteMany<
 		const TSelection extends QuerySelection<TContract> | undefined = undefined,
 	>(
@@ -188,7 +191,7 @@ export interface SchemaAPI<TContract extends SchemaTypeInfo>
 		options?: OperationOptions,
 	): Promise<SchemaReadResult<TContract, this, TSelection, TInclude>>
 
-	/** Updates ordered unique targets and returns `id` unless explicitly projected. */
+	/** Updates ordered unique targets and always retains each result `id`. */
 	updateMany<
 		const TSelection extends QuerySelection<TContract> | undefined = undefined,
 		const TInclude extends TContract['inputs']['include'] | undefined =
