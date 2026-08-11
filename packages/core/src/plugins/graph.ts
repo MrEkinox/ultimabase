@@ -290,7 +290,8 @@ const connectDependency = (node: GraphNode, dependency: GraphNode): void => {
 const connectGraphNodes = (
 	nodesByPluginId: ReadonlyMap<string, readonly GraphNode[]>,
 ): void => {
-	for (const node of allGraphNodes(nodesByPluginId)) {
+	const nodes = allGraphNodes(nodesByPluginId)
+	for (const node of nodes) {
 		const identity = node.plugin.definition.manifest.identity
 
 		for (const conflictId of node.plugin.definition.conflicts ?? []) {
@@ -333,6 +334,26 @@ const connectGraphNodes = (
 				false,
 			)
 			if (dependency !== undefined) connectDependency(node, dependency)
+		}
+	}
+
+	for (const consumer of nodes) {
+		const requirements = [
+			...consumer.plugin.definition.manifest.capabilities.requires,
+			...consumer.plugin.definition.manifest.capabilities.optional,
+		]
+
+		for (const requirement of requirements) {
+			for (const provider of nodes) {
+				if (provider === consumer) continue
+
+				const capabilities = provider.plugin.definition.manifest.capabilities
+				const providesToken = [
+					...capabilities.provides,
+					...capabilities.replaces,
+				].some(({ token }) => token === requirement.token)
+				if (providesToken) connectDependency(consumer, provider)
+			}
 		}
 	}
 }

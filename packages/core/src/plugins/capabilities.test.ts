@@ -11,22 +11,34 @@ import { definePlugin } from './definition.js'
 import { PluginGraph } from './graph.js'
 import { normalizePlugins } from './normalization.js'
 
-const declarationToken = defineCapability<{
+interface AuditEndpoint {
 	readonly endpoint: string
-}>()({
+}
+
+const declarationToken = defineCapability<
+	AuditEndpoint,
+	readonly AuditEndpoint[]
+>()({
 	capabilityId: 'fixture.audit-sink',
 	version: '1.2.0',
 	cardinality: 'multiple',
 	lifetime: 'declaration',
+	compose: (providers) => providers,
 })
 
-const applicationToken = defineCapability<{
+interface MessageSink {
 	readonly write: (message: string) => Promise<void>
-}>()({
+}
+
+const applicationToken = defineCapability<
+	MessageSink,
+	readonly MessageSink[]
+>()({
 	capabilityId: 'fixture.message-sink',
 	version: '2.0.0',
 	cardinality: 'pipeline',
 	lifetime: 'application',
+	compose: (providers) => providers,
 })
 
 describe('capability declarations', () => {
@@ -36,6 +48,7 @@ describe('capability declarations', () => {
 			version: '1.0.0',
 			cardinality: 'single',
 			lifetime: 'application',
+			compose: ([provider]) => provider,
 		})
 
 		expect(declarationToken).toStrictEqual({
@@ -55,20 +68,30 @@ describe('capability declarations', () => {
 
 	it('snapshots declaration values and keeps application providers inert', () => {
 		const source = { endpoint: 'https://audit.example' }
-		const declarationProvider = provideCapability(declarationToken, source)
-		const applicationProvider = provideCapability(applicationToken)
+		const declarationProvider = provideCapability(declarationToken, {
+			contributionId: 'primary',
+			value: source,
+		})
+		const applicationProvider = provideCapability(applicationToken, {
+			contributionId: 'primary',
+			create: () => ({
+				value: { write: () => Promise.resolve() },
+			}),
+		})
 
 		source.endpoint = 'https://changed.example'
 
 		expect(declarationProvider).toStrictEqual({
 			kind: 'capability-provider',
 			token: declarationToken,
+			contributionId: 'primary',
 			value: { endpoint: 'https://audit.example' },
 		})
 		expect(Object.isFrozen(declarationProvider.value)).toBe(true)
 		expect(applicationProvider).toStrictEqual({
 			kind: 'capability-provider',
 			token: applicationToken,
+			contributionId: 'primary',
 		})
 		expect('value' in applicationProvider).toBe(false)
 	})
@@ -80,6 +103,7 @@ describe('capability declarations', () => {
 				version: '1.0.0',
 				cardinality: 'single',
 				lifetime: 'declaration',
+				compose: ([provider]) => provider,
 			}),
 		).toThrow(
 			new TypeError('capabilityId must be a namespaced capability identifier'),
@@ -90,6 +114,7 @@ describe('capability declarations', () => {
 				version: 'v1.0.0',
 				cardinality: 'single',
 				lifetime: 'declaration',
+				compose: ([provider]) => provider,
 			}),
 		).toThrow(
 			new TypeError('capability version must be a canonical semantic version'),
@@ -101,9 +126,12 @@ describe('capability declarations', () => {
 		)
 		expect(() =>
 			provideCapability(declarationToken, {
-				// Runtime validation protects JavaScript callers from non-JSON values.
-				endpoint: new Date(),
-			} as unknown as { readonly endpoint: string }),
+				contributionId: 'invalid',
+				value: {
+					// Runtime validation protects JavaScript callers from non-JSON values.
+					endpoint: new Date(),
+				} as unknown as { readonly endpoint: string },
+			}),
 		).toThrow(
 			new TypeError(
 				'capability provider value.endpoint must contain only plain JSON objects',
@@ -114,7 +142,10 @@ describe('capability declarations', () => {
 				{
 					...declarationToken,
 				},
-				{ endpoint: 'https://audit.example' },
+				{
+					contributionId: 'forged',
+					value: { endpoint: 'https://audit.example' },
+				},
 			),
 		).toThrow(
 			new TypeError(
@@ -134,7 +165,8 @@ describe('CapabilityInventory', () => {
 			capabilities: {
 				provides: [
 					provideCapability(declarationToken, {
-						endpoint: 'https://audit.example',
+						contributionId: 'primary',
+						value: { endpoint: 'https://audit.example' },
 					}),
 				],
 			},
@@ -159,7 +191,11 @@ describe('CapabilityInventory', () => {
 
 		expect(present.capabilities.entries).toHaveLength(1)
 		expect(present.capabilities.entries[0]?.providers).toStrictEqual([
-			{ owner: { pluginId: 'fixture.audit-provider' } },
+			{
+				kind: 'provider',
+				owner: { pluginId: 'fixture.audit-provider' },
+				contributionId: 'primary',
+			},
 		])
 		expect(
 			present.capabilities.isPrivilegeActive(
@@ -204,13 +240,19 @@ describe('CapabilityInventory', () => {
 			version: '1.2.0',
 			cardinality: 'multiple',
 			lifetime: 'declaration',
+			compose: (providers) => providers[0] ?? { endpoint: 'absent' },
 		})
 		const first = definePlugin({
 			pluginId: 'fixture.first-provider',
 			version: '1.0.0',
 			core: '^0.0.0',
 			capabilities: {
-				provides: [provideCapability(declarationToken, { endpoint: 'first' })],
+				provides: [
+					provideCapability(declarationToken, {
+						contributionId: 'first',
+						value: { endpoint: 'first' },
+					}),
+				],
 			},
 		})
 		const second = definePlugin({
@@ -218,7 +260,12 @@ describe('CapabilityInventory', () => {
 			version: '1.0.0',
 			core: '^0.0.0',
 			capabilities: {
-				provides: [provideCapability(duplicateToken, { endpoint: 'second' })],
+				provides: [
+					provideCapability(duplicateToken, {
+						contributionId: 'second',
+						value: { endpoint: 'second' },
+					}),
+				],
 			},
 		})
 

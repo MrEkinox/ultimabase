@@ -10,6 +10,7 @@ import {
 } from '@ultimabase/shared'
 
 import { FrameworkError } from '../errors/framework-error.js'
+import type { PluginCapabilityReader } from './capabilities.js'
 import {
 	createPluginConstraintCompilerRegistry,
 	type PluginConstraintCompilerRegistry,
@@ -32,6 +33,11 @@ import { formatPluginIdentity, type PluginIdentity } from './manifest.js'
 
 const emptyFieldBuilderMethods: readonly OwnedFieldBuilderMethod[] =
 	immutableArray([])
+const emptyCapabilityReader: PluginCapabilityReader = immutableRecord({
+	get: () => {
+		throw new TypeError('No capability graph is configured')
+	},
+})
 
 const toPluginIdentity = (owner: PluginIdentity | string): PluginIdentity => {
 	if (typeof owner === 'string') {
@@ -277,6 +283,8 @@ export interface PluginSetupContext {
 	readonly schemas: CompiledSchemaRegistry
 	/** Exposes the compiled application-local FieldBuilder method graph to tooling plugins. */
 	readonly fieldBuilderMethods: readonly OwnedFieldBuilderMethod[]
+	/** Reads only exact capability requirements declared by this plugin. */
+	readonly capabilities: PluginCapabilityReader
 	readonly services: PluginServiceRegistry
 	readonly registries: PluginContributionRegistries
 	/** Registers native Access policies with ownership fixed to this plugin. */
@@ -319,6 +327,9 @@ export class PluginSetupRegistries {
 		services: ServiceRegistry = new ServiceRegistry(),
 		readonly fieldBuilderMethods: () => readonly OwnedFieldBuilderMethod[] = () =>
 			emptyFieldBuilderMethods,
+		readonly capabilitiesForPlugin: (
+			owner: PluginIdentity,
+		) => PluginCapabilityReader = () => emptyCapabilityReader,
 	) {
 		this.services = services
 		this.#contributionRegistries = immutableRecord({
@@ -408,6 +419,7 @@ export class PluginSetupRegistries {
 		const context = immutableRecord({
 			schemas: this.schemas,
 			fieldBuilderMethods: this.fieldBuilderMethods(),
+			capabilities: this.capabilitiesForPlugin(owner),
 			services: this.services.forPlugin(formatPluginIdentity(owner)),
 			access: createPluginAccessRegistry({
 				isOpen: (): boolean => this.#setupOpen,

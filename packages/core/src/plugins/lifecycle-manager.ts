@@ -1,5 +1,6 @@
 import { immutableRecord } from '@ultimabase/shared'
 
+import { ApplicationCapabilityHost } from './capability-host.js'
 import type { NormalizedPlugin } from './normalization.js'
 import {
 	runPluginLifecycleHook,
@@ -84,6 +85,7 @@ const throwLifecycleFailure = (
 export class PluginLifecycleManager {
 	readonly #graph: PluginGraph
 	readonly #registries: PluginSetupRegistries
+	readonly #capabilities: ApplicationCapabilityHost
 	readonly #initializedPlugins: InitializedPlugin[] = []
 	readonly #exportsByDefinition = new Map<PluginDefinition, unknown>()
 	readonly #activePlugins = new Set<PluginDefinition>()
@@ -93,9 +95,16 @@ export class PluginLifecycleManager {
 	#disposePromise: Promise<void> | undefined
 	#state: PluginLifecycleState = 'idle'
 
-	constructor(graph: PluginGraph, registries: PluginSetupRegistries) {
+	constructor(
+		graph: PluginGraph,
+		registries: PluginSetupRegistries,
+		capabilities: ApplicationCapabilityHost = new ApplicationCapabilityHost(
+			graph,
+		),
+	) {
 		this.#graph = graph
 		this.#registries = registries
+		this.#capabilities = capabilities
 	}
 
 	get state(): PluginLifecycleState {
@@ -177,6 +186,7 @@ export class PluginLifecycleManager {
 		this.#state = 'setting-up'
 
 		try {
+			await this.#capabilities.materialize()
 			for (const plugin of this.#graph) {
 				const setupContext = this.#registries.forPlugin(
 					plugin.definition.manifest.identity,
@@ -275,6 +285,10 @@ export class PluginLifecycleManager {
 
 			errors.push(...(await this.#disposeInitializedPlugins()))
 			await collectFailure(
+				async (): Promise<void> => this.#capabilities.dispose(),
+				errors,
+			)
+			await collectFailure(
 				async (): Promise<void> => this.#registries.services.dispose(),
 				errors,
 			)
@@ -288,6 +302,10 @@ export class PluginLifecycleManager {
 		const errors = await this.#stopActivePlugins()
 
 		errors.push(...(await this.#disposeInitializedPlugins()))
+		await collectFailure(
+			async (): Promise<void> => this.#capabilities.dispose(),
+			errors,
+		)
 		await collectFailure(
 			async (): Promise<void> => this.#registries.services.dispose(),
 			errors,
@@ -332,6 +350,13 @@ export class PluginLifecycleManager {
 					initializedPlugin.context,
 				)
 			}, errors)
+			await collectFailure(
+				async (): Promise<void> =>
+					this.#capabilities.disposeOwner(
+						initializedPlugin.plugin.definition.manifest.identity,
+					),
+				errors,
+			)
 		}
 
 		this.#initializedPlugins.length = 0

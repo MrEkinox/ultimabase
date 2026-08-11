@@ -24,8 +24,16 @@ test('preserves exact provider, consumer, protocol, and manifest types', () => {
 		version: '3.1.0',
 		cardinality: 'single',
 		lifetime: 'application',
+		compose: ([provider]) => ({
+			record: (message) => provider.write({ message }),
+		}),
 	})
-	const provider = provideCapability(token)
+	const provider = provideCapability(token, {
+		contributionId: 'primary',
+		create: () => ({
+			value: { write: () => Promise.resolve() },
+		}),
+	})
 	const required = requireCapability(token, '^3.0.0')
 	const optional = optionalCapability(token, '^3.1.0')
 	const plugin = definePlugin({
@@ -68,22 +76,34 @@ test('rejects values and provider phases that do not match the token', () => {
 		version: '1.0.0',
 		cardinality: 'single',
 		lifetime: 'declaration',
+		compose: ([provider]) => provider,
 	})
 	const applicationToken = defineCapability<AuditProvider>()({
 		capabilityId: 'fixture.audit-runtime',
 		version: '1.0.0',
 		cardinality: 'single',
 		lifetime: 'application',
+		compose: ([provider]) => provider,
 	})
 
-	provideCapability(declarationToken, { format: 'json' })
+	provideCapability(declarationToken, {
+		contributionId: 'json',
+		value: { format: 'json' },
+	})
 	// @ts-expect-error -- Declaration providers require their exact value.
-	provideCapability(declarationToken)
-	// @ts-expect-error -- Provider values retain their exact protocol shape.
-	provideCapability(declarationToken, { format: 'text' })
-	provideCapability(applicationToken)
-	// @ts-expect-error -- Application factories and values arrive only in issue 1404.
+	provideCapability(declarationToken, { contributionId: 'missing' })
+	provideCapability(declarationToken, {
+		contributionId: 'invalid',
+		// @ts-expect-error -- Provider values retain their exact protocol shape.
+		value: { format: 'text' },
+	})
 	provideCapability(applicationToken, {
-		write: () => Promise.resolve(),
+		contributionId: 'runtime',
+		create: () => ({ value: { write: () => Promise.resolve() } }),
+	})
+	provideCapability(applicationToken, {
+		contributionId: 'invalid',
+		// @ts-expect-error -- Application providers require factories, not static values.
+		value: { write: () => Promise.resolve() },
 	})
 })

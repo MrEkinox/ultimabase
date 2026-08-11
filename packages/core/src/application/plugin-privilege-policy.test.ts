@@ -21,6 +21,7 @@ const optionalAuditToken = defineCapability<{
 	version: '1.0.0',
 	cardinality: 'single',
 	lifetime: 'application',
+	compose: ([provider]) => provider,
 })
 
 interface CapturedFrameworkError {
@@ -279,7 +280,16 @@ describe('plugin privilege policy', () => {
 			pluginId: 'fixture.audit-provider',
 			version: '1.0.0',
 			core: '^0.0.0',
-			capabilities: { provides: [provideCapability(optionalAuditToken)] },
+			capabilities: {
+				provides: [
+					provideCapability(optionalAuditToken, {
+						contributionId: 'primary',
+						create: () => ({
+							value: { record: () => undefined },
+						}),
+					}),
+				],
+			},
 		})
 		const consumer = definePlugin({
 			pluginId: 'fixture.active-conditional-typegen',

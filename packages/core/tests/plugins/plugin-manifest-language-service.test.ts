@@ -97,6 +97,13 @@ describe('plugin manifest source language service', () => {
 		expect(readHover('manifest')).toContain('interface PluginManifest')
 		expect(readHover('capability')).toContain('interface CapabilityToken')
 		expect(readHover('provider-value')).toContain('readonly endpoint: string;')
+		expect(readHover('decorator')).toContain('CapabilityDecoratorDeclaration')
+		expect(readHover('replacement')).toContain(
+			'CapabilityReplacementDeclaration',
+		)
+		expect(readHover('capability-chain')).toContain(
+			'interface CapabilityProviderChainInspection',
+		)
 		expect(readHover('policy')).toContain('interface PluginPrivilegePolicy')
 		expect(readHover('report')).toContain('interface PluginPrivilegeReport')
 	})

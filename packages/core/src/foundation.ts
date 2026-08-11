@@ -43,27 +43,40 @@ export type {
 export { ServiceRegistry } from './services/service-registry.js'
 export { definePlugin } from './plugins/definition.js'
 export {
+	decorateCapability,
 	defineCapability,
 	optionalCapability,
 	provideCapability,
+	replaceCapability,
 	requireCapability,
 } from './plugins/capabilities.js'
 export type {
+	ApplicationCapabilityFactory,
+	ApplicationCapabilityFactoryContext,
+	ApplicationCapabilityResource,
 	CapabilityCardinality,
+	CapabilityComposer,
+	CapabilityCompositionInput,
+	CapabilityContributionTarget,
 	CapabilityConsumerValue,
+	CapabilityDecoratorDeclaration,
 	CapabilityLifetime,
 	CapabilityProviderDeclaration,
 	CapabilityProviderValue,
+	CapabilityReplacementDeclaration,
 	CapabilityRequirement,
 	CapabilityToken,
 	DefineCapabilityFactory,
 	DefineCapabilityOptions,
 	PluginCapabilityDeclarationOptions,
 	PluginCapabilityDeclarations,
+	PluginCapabilityReader,
 } from './plugins/capabilities.js'
 export { CapabilityInventory } from './plugins/capability-inventory.js'
 export type {
 	CapabilityInventoryEntry,
+	CapabilityDecoratorInspection,
+	CapabilityProviderChainInspection,
 	CapabilityProviderInspection,
 	CapabilityRequirementInspection,
 } from './plugins/capability-inventory.js'

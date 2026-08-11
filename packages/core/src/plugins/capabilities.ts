@@ -4,10 +4,12 @@ import {
 	immutableRecord,
 	isPlainRecord,
 	isUnknownArray,
+	type MaybePromise,
 } from '@ultimabase/shared'
 import { satisfies, valid, validRange } from 'semver'
 
 import { snapshotJsonValue } from '../schema/fields/builtins/json.js'
+import type { PluginIdentity } from './manifest.js'
 
 /** Determines how compatible provider declarations compose in one application. */
 export type CapabilityCardinality = 'single' | 'multiple' | 'pipeline'
@@ -51,8 +53,25 @@ export type CapabilityProviderValue<TToken extends CapabilityToken> =
 export type CapabilityConsumerValue<TToken extends CapabilityToken> =
 	TToken[typeof capabilityConsumerType]
 
+/** Supplies the cardinality-specific final provider sequence to one protocol. */
+export type CapabilityCompositionInput<
+	TProvider,
+	TCardinality extends CapabilityCardinality,
+> = TCardinality extends 'single' ? readonly [TProvider] : readonly TProvider[]
+
+/** Converts the selected provider sequence into the exact public consumer view. */
+export type CapabilityComposer<
+	TProvider,
+	TConsumer,
+	TCardinality extends CapabilityCardinality,
+> = (
+	providers: CapabilityCompositionInput<TProvider, TCardinality>,
+) => TConsumer
+
 /** Configures one static, independently versioned protocol identity. */
 export interface DefineCapabilityOptions<
+	TProvider,
+	TConsumer,
 	TCapabilityId extends string,
 	TVersion extends string,
 	TCardinality extends CapabilityCardinality,
@@ -66,6 +85,8 @@ export interface DefineCapabilityOptions<
 	readonly cardinality: TCardinality
 	/** Declares whether values are static facts or application-local resources. */
 	readonly lifetime: TLifetime
+	/** Deterministically converts final ordered providers into one consumer view. */
+	readonly compose: CapabilityComposer<TProvider, TConsumer, TCardinality>
 }
 
 /** Creates exact token metadata after the protocol selects its value types. */
@@ -76,6 +97,8 @@ export type DefineCapabilityFactory<TProvider, TConsumer = TProvider> = <
 	const TLifetime extends CapabilityLifetime,
 >(
 	options: DefineCapabilityOptions<
+		TProvider,
+		TConsumer,
 		TCapabilityId,
 		TVersion,
 		TCardinality,
@@ -93,11 +116,16 @@ export type DefineCapabilityFactory<TProvider, TConsumer = TProvider> = <
 const capabilityIdPattern =
 	/^(?:@[a-z0-9][a-z0-9._-]*\/[a-z0-9][a-z0-9._-]*|[a-z0-9][a-z0-9-]*(?:\.[a-z0-9][a-z0-9-]*)+)$/
 const capabilityTokens = new WeakSet<object>()
+const capabilityComposers = new WeakMap<
+	object,
+	(providers: readonly unknown[]) => unknown
+>()
 const defineCapabilityOptionKeys = new Set([
 	'capabilityId',
 	'version',
 	'cardinality',
 	'lifetime',
+	'compose',
 ])
 
 /** Defines one nominal capability protocol without installing a provider. */
@@ -113,6 +141,8 @@ export const defineCapability =
 		const TLifetime extends CapabilityLifetime,
 	>(
 		options: DefineCapabilityOptions<
+			TProvider,
+			TConsumer,
 			TCapabilityId,
 			TVersion,
 			TCardinality,
@@ -171,6 +201,10 @@ export const defineCapability =
 			)
 		}
 
+		if (typeof options.compose !== 'function') {
+			throw new TypeError('capability compose must be a function')
+		}
+
 		const token = immutableRecord({
 			kind: 'capability-token' as const,
 			capabilityId: options.capabilityId,
@@ -180,6 +214,10 @@ export const defineCapability =
 		})
 
 		capabilityTokens.add(token)
+		capabilityComposers.set(
+			token,
+			options.compose as (providers: readonly unknown[]) => unknown,
+		)
 
 		// The private provenance set supplies the nominal runtime half of the type brand.
 		return token as CapabilityToken<
@@ -192,6 +230,24 @@ export const defineCapability =
 		>
 	}
 
+/** Runs the trusted token-owned composition without exposing it through inspection. */
+export const composeCapability = <TToken extends CapabilityToken>(
+	token: TToken,
+	providers: CapabilityCompositionInput<
+		CapabilityProviderValue<TToken>,
+		TToken['cardinality']
+	>,
+): CapabilityConsumerValue<TToken> => {
+	assertCapabilityToken(token, 'capability composition token')
+	const compose = capabilityComposers.get(token)
+
+	if (compose === undefined) {
+		throw new TypeError('Unknown capability composer')
+	}
+
+	return compose(providers)
+}
+
 /** Rejects structurally forged tokens at plugin declaration boundaries. */
 export const assertCapabilityToken: (
 	value: unknown,
@@ -202,7 +258,44 @@ export const assertCapabilityToken: (
 	}
 }
 
-/** Declares one static provider without selecting or composing it. */
+/** Identifies one exact owner-local capability contribution. */
+export interface CapabilityContributionTarget {
+	readonly owner: PluginIdentity
+	readonly contributionId: string
+}
+
+/** Owns one application provider value and its optional deterministic cleanup. */
+export interface ApplicationCapabilityResource<TProvider> {
+	readonly value: TProvider
+	readonly dispose?: () => MaybePromise<void>
+}
+
+/** Reads only capability requirements declared by the current plugin owner. */
+export interface PluginCapabilityReader {
+	get<TToken extends CapabilityToken, TRange extends string>(
+		requirement: CapabilityRequirement<TToken, false, TRange>,
+	): CapabilityConsumerValue<TToken>
+	get<TToken extends CapabilityToken, TRange extends string>(
+		requirement: CapabilityRequirement<TToken, true, TRange>,
+	): CapabilityConsumerValue<TToken> | undefined
+}
+
+/** Supplies an application provider with owner-bound declared capability reads. */
+export interface ApplicationCapabilityFactoryContext {
+	readonly capabilities: PluginCapabilityReader
+}
+
+/** Creates one application-local provider without exposing it in static metadata. */
+export type ApplicationCapabilityFactory<TProvider> = (
+	context: ApplicationCapabilityFactoryContext,
+) => MaybePromise<ApplicationCapabilityResource<TProvider>>
+
+interface CapabilityContributionBase<TToken extends CapabilityToken> {
+	readonly token: TToken
+	readonly contributionId: string
+}
+
+/** Declares one exact provider without selecting or composing it. */
 export type CapabilityProviderDeclaration<
 	TToken extends CapabilityToken = CapabilityToken,
 > =
@@ -217,46 +310,316 @@ export type CapabilityProviderDeclaration<
 		? TLifetime extends 'declaration'
 			? Readonly<{
 					kind: 'capability-provider'
-					token: TToken
-					value: TProvider
-				}>
+				}> &
+					CapabilityContributionBase<TToken> &
+					Readonly<{
+						value: TProvider
+					}>
 			: Readonly<{
 					kind: 'capability-provider'
-					token: TToken
-				}>
+				}> &
+					CapabilityContributionBase<TToken>
 		: never
 
 const capabilityProviders = new WeakSet<object>()
+const applicationCapabilityFactories = new WeakMap<
+	object,
+	ApplicationCapabilityFactory<unknown>
+>()
+
+type ProvideCapabilityOptions<TToken extends CapabilityToken> =
+	TToken['lifetime'] extends 'declaration'
+		? Readonly<{
+				contributionId: string
+				value: CapabilityProviderValue<TToken>
+			}>
+		: Readonly<{
+				contributionId: string
+				create: ApplicationCapabilityFactory<CapabilityProviderValue<TToken>>
+			}>
+
+const assertContributionId: (
+	value: unknown,
+	path: string,
+) => asserts value is string = (value, path) => {
+	assertNonEmptyString(value, path)
+}
+
+const assertExactOptions = (
+	value: Readonly<Record<PropertyKey, unknown>>,
+	keys: ReadonlySet<string>,
+	path: string,
+): void => {
+	for (const key of Reflect.ownKeys(value)) {
+		if (typeof key !== 'string' || !keys.has(key)) {
+			throw new TypeError(`${path} contains unknown option: ${String(key)}`)
+		}
+	}
+}
 
 /** Declares one exact provider while keeping application resources inert. */
 export const provideCapability = <const TToken extends CapabilityToken>(
 	token: TToken,
-	...values: TToken['lifetime'] extends 'declaration'
-		? readonly [value: CapabilityProviderValue<TToken>]
-		: readonly []
+	options: ProvideCapabilityOptions<TToken>,
 ): CapabilityProviderDeclaration<TToken> => {
 	assertCapabilityToken(token, 'capability provider token')
-
-	if (token.lifetime === 'declaration' && values.length !== 1) {
-		throw new TypeError('declaration capability providers require a value')
+	const untrustedOptions: unknown = options
+	if (!isPlainRecord(untrustedOptions)) {
+		throw new TypeError('capability provider options must be a plain object')
 	}
 
-	if (token.lifetime === 'application' && values.length !== 0) {
-		throw new TypeError(
-			'application capability providers must not declare a value before materialization',
+	assertContributionId(options.contributionId, 'contributionId')
+
+	if (token.lifetime === 'declaration') {
+		assertExactOptions(
+			untrustedOptions,
+			new Set(['contributionId', 'value']),
+			'capability provider options',
 		)
+	} else {
+		assertExactOptions(
+			untrustedOptions,
+			new Set(['contributionId', 'create']),
+			'capability provider options',
+		)
+		if (typeof untrustedOptions.create !== 'function') {
+			throw new TypeError(
+				'application capability provider create must be a function',
+			)
+		}
 	}
 
 	const provider = immutableRecord({
 		kind: 'capability-provider' as const,
 		token,
+		contributionId: options.contributionId,
 		...(token.lifetime === 'declaration'
-			? { value: snapshotJsonValue(values[0], 'capability provider value') }
+			? {
+					value: snapshotJsonValue(
+						untrustedOptions.value,
+						'capability provider value',
+					),
+				}
 			: {}),
 	})
 
 	capabilityProviders.add(provider)
+	if (token.lifetime === 'application') {
+		applicationCapabilityFactories.set(
+			provider,
+			untrustedOptions.create as ApplicationCapabilityFactory<unknown>,
+		)
+	}
 	return provider as CapabilityProviderDeclaration<TToken>
+}
+
+type DecoratableCapabilityToken = CapabilityToken<
+	unknown,
+	unknown,
+	string,
+	string,
+	'single' | 'pipeline'
+>
+
+/** Declares one owner-bound wrapper around the complete consumer view. */
+export interface CapabilityDecoratorDeclaration<
+	TToken extends DecoratableCapabilityToken = DecoratableCapabilityToken,
+> extends CapabilityContributionBase<TToken> {
+	readonly kind: 'capability-decorator'
+}
+
+const capabilityDecorators = new WeakSet<object>()
+const capabilityDecoratorFunctions = new WeakMap<
+	object,
+	(consumer: unknown) => unknown
+>()
+
+/** Declares a deterministic complete-view decorator for single or pipeline tokens. */
+export const decorateCapability = <
+	const TToken extends DecoratableCapabilityToken,
+>(
+	token: TToken,
+	options: Readonly<{
+		contributionId: string
+		decorate: (
+			consumer: CapabilityConsumerValue<TToken>,
+		) => CapabilityConsumerValue<TToken>
+	}>,
+): CapabilityDecoratorDeclaration<TToken> => {
+	assertCapabilityToken(token, 'capability decorator token')
+	if ((token as CapabilityToken).cardinality === 'multiple') {
+		throw new TypeError('multiple capabilities cannot be decorated')
+	}
+
+	const untrustedOptions: unknown = options
+	if (!isPlainRecord(untrustedOptions)) {
+		throw new TypeError('capability decorator options must be a plain object')
+	}
+	assertExactOptions(
+		untrustedOptions,
+		new Set(['contributionId', 'decorate']),
+		'capability decorator options',
+	)
+	assertContributionId(options.contributionId, 'contributionId')
+	if (typeof options.decorate !== 'function') {
+		throw new TypeError('capability decorator decorate must be a function')
+	}
+
+	const decorator = immutableRecord({
+		kind: 'capability-decorator' as const,
+		token,
+		contributionId: options.contributionId,
+	})
+	capabilityDecorators.add(decorator)
+	capabilityDecoratorFunctions.set(decorator, options.decorate)
+	return decorator
+}
+
+/** Declares one privileged replacement with its own provider provenance. */
+export type CapabilityReplacementDeclaration<
+	TToken extends CapabilityToken = CapabilityToken,
+> = CapabilityContributionBase<TToken> &
+	Readonly<{
+		kind: 'capability-replacement'
+		target: CapabilityContributionTarget
+	}> &
+	(TToken['lifetime'] extends 'declaration'
+		? Readonly<{ value: CapabilityProviderValue<TToken> }>
+		: Readonly<Record<never, never>>)
+
+const capabilityReplacements = new WeakSet<object>()
+
+type ReplaceCapabilityOptions<TToken extends CapabilityToken> = Readonly<{
+	contributionId: string
+	target: CapabilityContributionTarget
+}> &
+	(TToken['lifetime'] extends 'declaration'
+		? Readonly<{ value: CapabilityProviderValue<TToken> }>
+		: Readonly<{
+				create: ApplicationCapabilityFactory<CapabilityProviderValue<TToken>>
+			}>)
+
+const snapshotContributionTarget = (
+	target: unknown,
+): CapabilityContributionTarget => {
+	if (!isPlainRecord(target)) {
+		throw new TypeError('capability replacement target must be a plain object')
+	}
+	assertExactOptions(
+		target,
+		new Set(['contributionId', 'owner']),
+		'capability replacement target',
+	)
+	assertContributionId(target.contributionId, 'target.contributionId')
+	if (!isPlainRecord(target.owner)) {
+		throw new TypeError(
+			'capability replacement target.owner must be a plain object',
+		)
+	}
+	assertExactOptions(
+		target.owner,
+		new Set(['instanceId', 'pluginId']),
+		'capability replacement target.owner',
+	)
+	assertNonEmptyString(target.owner.pluginId, 'target.owner.pluginId')
+	if (target.owner.instanceId !== undefined) {
+		assertNonEmptyString(target.owner.instanceId, 'target.owner.instanceId')
+	}
+
+	return immutableRecord({
+		owner: immutableRecord({
+			pluginId: target.owner.pluginId,
+			...(target.owner.instanceId === undefined
+				? {}
+				: { instanceId: target.owner.instanceId }),
+		}),
+		contributionId: target.contributionId,
+	})
+}
+
+/** Declares an exact owner-targeted provider replacement. */
+export const replaceCapability = <const TToken extends CapabilityToken>(
+	token: TToken,
+	options: ReplaceCapabilityOptions<TToken>,
+): CapabilityReplacementDeclaration<TToken> => {
+	assertCapabilityToken(token, 'capability replacement token')
+	const untrustedOptions: unknown = options
+	if (!isPlainRecord(untrustedOptions)) {
+		throw new TypeError('capability replacement options must be a plain object')
+	}
+	assertContributionId(options.contributionId, 'contributionId')
+	const target = snapshotContributionTarget(options.target)
+
+	if (token.lifetime === 'declaration') {
+		assertExactOptions(
+			untrustedOptions,
+			new Set(['contributionId', 'target', 'value']),
+			'capability replacement options',
+		)
+	} else {
+		assertExactOptions(
+			untrustedOptions,
+			new Set(['contributionId', 'create', 'target']),
+			'capability replacement options',
+		)
+		if (typeof untrustedOptions.create !== 'function') {
+			throw new TypeError(
+				'application capability replacement create must be a function',
+			)
+		}
+	}
+
+	const replacement = immutableRecord({
+		kind: 'capability-replacement' as const,
+		token,
+		contributionId: options.contributionId,
+		target,
+		...(token.lifetime === 'declaration'
+			? {
+					value: snapshotJsonValue(
+						untrustedOptions.value,
+						'capability replacement value',
+					),
+				}
+			: {}),
+	})
+
+	capabilityReplacements.add(replacement)
+	if (token.lifetime === 'application') {
+		applicationCapabilityFactories.set(
+			replacement,
+			untrustedOptions.create as ApplicationCapabilityFactory<unknown>,
+		)
+	}
+	return replacement as CapabilityReplacementDeclaration<TToken>
+}
+
+/** Runs one hidden application provider or replacement factory. */
+export const runApplicationCapabilityFactory = (
+	declaration: CapabilityProviderDeclaration | CapabilityReplacementDeclaration,
+	context: ApplicationCapabilityFactoryContext,
+): MaybePromise<ApplicationCapabilityResource<unknown>> => {
+	const factory = applicationCapabilityFactories.get(declaration)
+	if (factory === undefined) {
+		throw new TypeError('Capability declaration has no application factory')
+	}
+
+	return factory(context)
+}
+
+/** Applies one hidden decorator to an already composed consumer view. */
+export const runCapabilityDecorator = <
+	TToken extends DecoratableCapabilityToken,
+>(
+	declaration: CapabilityDecoratorDeclaration<TToken>,
+	consumer: CapabilityConsumerValue<TToken>,
+): CapabilityConsumerValue<TToken> => {
+	const decorate = capabilityDecoratorFunctions.get(declaration)
+	if (decorate === undefined) {
+		throw new TypeError('Unknown capability decorator')
+	}
+
+	return decorate(consumer)
 }
 
 /** Declares one compatible capability use without reading a provider. */
@@ -337,6 +700,26 @@ export const assertCapabilityProviderDeclaration: (
 	}
 }
 
+/** Rejects forged decorator declarations at manifest boundaries. */
+export const assertCapabilityDecoratorDeclaration: (
+	value: unknown,
+	path: string,
+) => asserts value is CapabilityDecoratorDeclaration = (value, path) => {
+	if (!isPlainRecord(value) || !capabilityDecorators.has(value)) {
+		throw new TypeError(`${path} must be created by decorateCapability`)
+	}
+}
+
+/** Rejects forged replacement declarations at manifest boundaries. */
+export const assertCapabilityReplacementDeclaration: (
+	value: unknown,
+	path: string,
+) => asserts value is CapabilityReplacementDeclaration = (value, path) => {
+	if (!isPlainRecord(value) || !capabilityReplacements.has(value)) {
+		throw new TypeError(`${path} must be created by replaceCapability`)
+	}
+}
+
 /** Rejects forged requirements at manifest boundaries. */
 export const assertCapabilityRequirement: (
 	value: unknown,
@@ -367,12 +750,18 @@ export const assertOptionalCapabilityRequirement: (
 export interface PluginCapabilityDeclarations<
 	TProvides extends readonly CapabilityProviderDeclaration[] =
 		readonly CapabilityProviderDeclaration[],
+	TDecorates extends readonly CapabilityDecoratorDeclaration[] =
+		readonly CapabilityDecoratorDeclaration[],
+	TReplaces extends readonly CapabilityReplacementDeclaration[] =
+		readonly CapabilityReplacementDeclaration[],
 	TRequires extends readonly CapabilityRequirement<CapabilityToken, false>[] =
 		readonly CapabilityRequirement<CapabilityToken, false>[],
 	TOptional extends readonly CapabilityRequirement<CapabilityToken, true>[] =
 		readonly CapabilityRequirement<CapabilityToken, true>[],
 > {
 	readonly provides: TProvides
+	readonly decorates: TDecorates
+	readonly replaces: TReplaces
 	readonly requires: TRequires
 	readonly optional: TOptional
 }
@@ -380,6 +769,8 @@ export interface PluginCapabilityDeclarations<
 /** Accepts omitted capability groups while preserving exact declaration tuples. */
 export interface PluginCapabilityDeclarationOptions {
 	readonly provides?: readonly CapabilityProviderDeclaration[]
+	readonly decorates?: readonly CapabilityDecoratorDeclaration[]
+	readonly replaces?: readonly CapabilityReplacementDeclaration[]
 	readonly requires?: readonly CapabilityRequirement<CapabilityToken, false>[]
 	readonly optional?: readonly CapabilityRequirement<CapabilityToken, true>[]
 }
@@ -388,6 +779,20 @@ type NormalizedProviders<TOptions> =
 	TOptions extends PluginCapabilityDeclarationOptions
 		? TOptions['provides'] extends readonly CapabilityProviderDeclaration[]
 			? readonly [...TOptions['provides']]
+			: readonly []
+		: readonly []
+
+type NormalizedDecorators<TOptions> =
+	TOptions extends PluginCapabilityDeclarationOptions
+		? TOptions['decorates'] extends readonly CapabilityDecoratorDeclaration[]
+			? readonly [...TOptions['decorates']]
+			: readonly []
+		: readonly []
+
+type NormalizedReplacements<TOptions> =
+	TOptions extends PluginCapabilityDeclarationOptions
+		? TOptions['replaces'] extends readonly CapabilityReplacementDeclaration[]
+			? readonly [...TOptions['replaces']]
 			: readonly []
 		: readonly []
 
@@ -415,6 +820,8 @@ type NormalizedOptionalRequirements<TOptions> =
 export type NormalizedPluginCapabilityDeclarations<TOptions> =
 	PluginCapabilityDeclarations<
 		NormalizedProviders<TOptions>,
+		NormalizedDecorators<TOptions>,
+		NormalizedReplacements<TOptions>,
 		NormalizedRequirements<TOptions>,
 		NormalizedOptionalRequirements<TOptions>
 	>
@@ -457,6 +864,8 @@ export const normalizeCapabilityDeclarations = (
 	if (options === undefined) {
 		return immutableRecord({
 			provides: immutableArray([]),
+			decorates: immutableArray([]),
+			replaces: immutableArray([]),
 			requires: immutableArray([]),
 			optional: immutableArray([]),
 		})
@@ -468,7 +877,13 @@ export const normalizeCapabilityDeclarations = (
 	}
 
 	for (const key of Object.keys(untrustedOptions)) {
-		if (key !== 'provides' && key !== 'requires' && key !== 'optional') {
+		if (
+			key !== 'provides' &&
+			key !== 'decorates' &&
+			key !== 'replaces' &&
+			key !== 'requires' &&
+			key !== 'optional'
+		) {
 			throw new TypeError(`capabilities contains unknown option: ${key}`)
 		}
 	}
@@ -477,6 +892,16 @@ export const normalizeCapabilityDeclarations = (
 		options.provides,
 		'capabilities.provides',
 		assertCapabilityProviderDeclaration,
+	)
+	const decorates = normalizeCapabilityArray(
+		options.decorates,
+		'capabilities.decorates',
+		assertCapabilityDecoratorDeclaration,
+	)
+	const replaces = normalizeCapabilityArray(
+		options.replaces,
+		'capabilities.replaces',
+		assertCapabilityReplacementDeclaration,
 	)
 	const requires = normalizeCapabilityArray(
 		options.requires,
@@ -507,6 +932,8 @@ export const normalizeCapabilityDeclarations = (
 
 	return immutableRecord({
 		provides,
+		decorates,
+		replaces,
 		requires,
 		optional,
 	})

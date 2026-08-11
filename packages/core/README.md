@@ -1392,6 +1392,7 @@ const dialectCapability = defineCapability<{
 	version: '1.0.0',
 	cardinality: 'single',
 	lifetime: 'declaration',
+	compose: ([provider]) => provider,
 })
 
 export const databasePlugin = () =>
@@ -1409,7 +1410,12 @@ export const databasePlugin = () =>
 		slot: 'database-adapter',
 		dependencies: [{ pluginId: 'fixture.config', version: '^1.0.0' }],
 		capabilities: {
-			provides: [provideCapability(dialectCapability, { dialect: 'postgres' })],
+			provides: [
+				provideCapability(dialectCapability, {
+					contributionId: 'postgres',
+					value: { dialect: 'postgres' },
+				}),
+			],
 		},
 		setup: ({ services }) => {
 			const database = createDatabase()
@@ -1464,12 +1470,43 @@ const consumer = definePlugin({
 
 `defineCapability<Provider, Consumer>()` creates a nominal token with its own
 protocol version, `single`, `multiple`, or `pipeline` cardinality, and
-`declaration` or `application` lifetime. Declaration providers copy and deeply
-freeze a portable JSON value. Application providers declare only ownership and
-their exact value type at this stage; application-local factories, composition,
-and consumer reads are introduced by issue 1404. Required and optional uses are
-always explicit, and a conditional privilege must reference the same optional
-requirement object listed by its manifest.
+`declaration` or `application` lifetime. Its required `compose` function turns
+the final ordered provider tuple or list into the exact consumer view while
+remaining outside serializable inspection metadata. Declaration providers copy
+and deeply freeze a portable JSON `value`. Application providers instead expose
+an inert `create` factory that runs once per application before plugin setup and
+returns `{ value, dispose? }`.
+
+Every provider has one stable owner-local `contributionId`. A privileged
+`replaceCapability` targets one exact structured owner and contribution while
+preserving the original position; replacement chains remain inspectable through
+`PluginGraph.capabilities`. `decorateCapability` wraps the complete consumer
+view for `single` and `pipeline` tokens, with the earliest dependency outermost.
+`multiple` providers remain independent and cannot be decorated.
+
+Plugins read only the exact `requireCapability(...)` or
+`optionalCapability(...)` objects listed in their manifest:
+
+```ts
+const auditRequirement = requireCapability(auditCapability, '^1.0.0')
+
+definePlugin({
+	pluginId: 'fixture.audit-consumer',
+	version: '1.0.0',
+	core: '^0.0.0',
+	capabilities: { requires: [auditRequirement] },
+	setup: ({ capabilities }) => {
+		const audit = capabilities.get(auditRequirement)
+		return { audit }
+	},
+})
+```
+
+Structurally recreated or undeclared requirements fail without probing the
+installed graph. Capability requirements also establish lifecycle order.
+Application resources are isolated per application and disposed after their
+owner's plugin `dispose` hook. A conditional privilege must reference the same
+optional requirement object listed by its manifest.
 
 `pluginPrivileges` evaluates cumulative denials before field declarations,
 schema compilation, Typegen, setup, or infrastructure work. Core-controlled

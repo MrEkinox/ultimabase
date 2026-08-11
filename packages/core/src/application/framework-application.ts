@@ -14,6 +14,8 @@ import {
 	type PluginDefinition,
 	runPluginFieldBuilderDeclaration,
 } from '../plugins/definition.js'
+import { composeDeclarationCapabilities } from '../plugins/capability-inventory.js'
+import { ApplicationCapabilityHost } from '../plugins/capability-host.js'
 import { validateExtensionHandlers } from '../plugins/extension-handlers.js'
 import { PluginGraph } from '../plugins/graph.js'
 import {
@@ -202,17 +204,24 @@ export class FrameworkApplication<
 		this.pluginPrivilegeReport = privilegePolicy.report
 		emitPluginPrivilegeReport(privilegePolicy.logger, privilegePolicy.report)
 		assertPluginPrivilegesAllowed(privilegePolicy.report)
+		composeDeclarationCapabilities(graph.capabilities)
 
 		this.schemas = new SchemaRegistry(options.schemas)
 		this.accessDefaults = normalizeAccessDefaults(options.access)
 		this.#pluginGraph = graph
+		const capabilityHost = new ApplicationCapabilityHost(graph)
 		this.#setupRegistries = new PluginSetupRegistries(
 			this.schemas,
 			undefined,
 			() => this.fieldBuilderMethods,
+			(owner) => capabilityHost.forPlugin(owner),
 		)
 
-		this.#lifecycle = new PluginLifecycleManager(graph, this.#setupRegistries)
+		this.#lifecycle = new PluginLifecycleManager(
+			graph,
+			this.#setupRegistries,
+			capabilityHost,
+		)
 
 		// Public application identity is stable while private lifecycle state may advance.
 		Object.freeze(this)

@@ -79,6 +79,47 @@ The exact registrars are privilege-scoped. The static callback cannot read
 secrets, services, adapters, clocks, or network state. Setup may materialize
 application capabilities but cannot register an undeclared or denied power.
 
+The workflow `declare(...)` and operation-handler surface above is the accepted
+milestone target; issues 1405 through 1417 deliver those domain-specific hosts.
+The capability kernel available after issue 1404 declares resource factories
+statically and exposes only exact requirement reads during setup:
+
+```ts
+const auditRequirement = requireCapability(auditCapability, '^1.0.0')
+
+definePlugin({
+	pluginId: 'community.audit-provider',
+	version: '1.0.0',
+	core: '^0.0.0',
+	capabilities: {
+		provides: [
+			provideCapability(auditCapability, {
+				contributionId: 'primary',
+				create: () => ({
+					value: createAuditProvider(),
+					dispose: () => closeAuditProvider(),
+				}),
+			}),
+		],
+	},
+})
+
+definePlugin({
+	pluginId: 'community.audit-consumer',
+	version: '1.0.0',
+	core: '^0.0.0',
+	capabilities: { requires: [auditRequirement] },
+	setup: ({ capabilities }) => {
+		const audit = capabilities.get(auditRequirement)
+		return { audit }
+	},
+})
+```
+
+The token's required `compose` function converts final ordered providers into
+the consumer view. Replacements target one structured owner and contribution
+ID; decorators wrap only complete `single` or `pipeline` consumer views.
+
 Complex TypeScript contracts use a structured Typegen contribution. They never
 inject an executable callback into generated output:
 
