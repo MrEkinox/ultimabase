@@ -1,9 +1,11 @@
 import {
 	AccessSubjectReference,
 	Schema,
-	accessRoleResolverServiceToken,
+	accessRoleResolverCapability,
 	createApplication,
 	definePlugin,
+	provideCapability,
+	requireCapability,
 	type AccessContext,
 } from '@ultimabase/core'
 import { describe, expect, it, vi, type Mock } from 'vitest'
@@ -16,6 +18,22 @@ import {
 import { getRoleReferenceState } from './role-reference.js'
 import { RoleSchema } from './role-schema.js'
 import { rolesPlugin } from './plugin.js'
+
+const roleResolverRequirement = requireCapability(
+	accessRoleResolverCapability,
+	'^1.0.0',
+)
+
+const roleResolverConsumer = <const TPluginId extends string>(
+	pluginId: TPluginId,
+) =>
+	definePlugin({
+		version: '0.0.0',
+		core: '^0.0.0',
+		pluginId,
+		capabilities: { requires: [roleResolverRequirement] },
+		setup: ({ capabilities }) => capabilities.get(roleResolverRequirement),
+	})
 
 const Member = Schema.define({
 	className: 'AccessRoleMember',
@@ -201,21 +219,23 @@ describe('stored role Access integration', () => {
 	})
 
 	it('provides the neutral resolver for zero or multiple discovered domains', async () => {
+		const emptyConsumer = roleResolverConsumer('fixture.empty-role-consumer')
+		const roleConsumer = roleResolverConsumer('fixture.role-consumer')
 		const emptyApplication = await createApplication({
 			schemas: [],
-			plugins: [rolesPlugin()],
+			plugins: [rolesPlugin(), emptyConsumer],
 		})
 		const roleApplication = await createApplication({
 			schemas: [Member, AppRole, OtherRole],
-			plugins: [rolesPlugin()],
+			plugins: [rolesPlugin(), roleConsumer],
 		})
 
 		expect(
-			emptyApplication.getService(accessRoleResolverServiceToken),
-		).toHaveProperty('hasRole')
+			typeof emptyApplication.getPlugin('fixture.empty-role-consumer').hasRole,
+		).toBe('function')
 		expect(
-			roleApplication.getService(accessRoleResolverServiceToken),
-		).toHaveProperty('hasRole')
+			typeof roleApplication.getPlugin('fixture.role-consumer').hasRole,
+		).toBe('function')
 
 		await Promise.all([emptyApplication.dispose(), roleApplication.dispose()])
 	})
@@ -228,16 +248,22 @@ describe('stored role Access integration', () => {
 			version: '0.0.0',
 			core: '^0.0.0',
 			pluginId: 'fixture.community-role-provider',
-			setup: ({ services }) => {
-				services.provide(accessRoleResolverServiceToken, communityResolver)
+			capabilities: {
+				provides: [
+					provideCapability(accessRoleResolverCapability, {
+						contributionId: 'community-role-resolver',
+						create: () => ({ value: communityResolver }),
+					}),
+				],
 			},
 		})
+		const consumer = roleResolverConsumer('fixture.community-role-consumer')
 		const application = await createApplication({
 			schemas: [],
-			plugins: [communityProvider],
+			plugins: [communityProvider, consumer],
 		})
 
-		expect(application.getService(accessRoleResolverServiceToken)).toBe(
+		expect(application.getPlugin('fixture.community-role-consumer')).toBe(
 			communityResolver,
 		)
 		await application.dispose()

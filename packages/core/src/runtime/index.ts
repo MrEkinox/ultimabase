@@ -20,6 +20,7 @@ export type { CreateFrameworkEngineOptions } from './application/create-framewor
 // UltimaBase is the regular class-based facade over Core composition and Runtime execution.
 export { UltimaBase } from './application/ultima-base.js'
 export type { UltimaBaseOptions } from './application/ultima-base.js'
+export { requireCurrentAccessRoleResolver } from './access/subject-capabilities.js'
 // Applications create request-bound engines; opaque grants protect master construction.
 export { FrameworkEngine, RequestEngine } from './engine/framework-engine.js'
 export type {
@@ -28,7 +29,7 @@ export type {
 } from './engine/framework-engine.js'
 // Database plugins implement this neutral boundary without leaking their query builders.
 export {
-	databaseAdapterServiceToken,
+	databaseAdapterCapability,
 	databaseInclusionCapability,
 	databaseInclusionCapabilityVersion,
 	databasePointerCapability,
@@ -142,7 +143,7 @@ export type {
 	HookEventHandlerInput,
 	OnEventOptions,
 } from './hooks/events.js'
-export { hookDiagnosticsObserverServiceToken } from './hooks/diagnostics.js'
+export { hookDiagnosticsObserverCapability } from './hooks/diagnostics.js'
 export type {
 	HookDiagnosticEvent,
 	HookDiagnosticOwner,

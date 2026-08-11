@@ -45,13 +45,17 @@ export interface DatabaseConstraintCompilerContribution {
 	readonly ownerPlugin: string
 }
 
-/** Registers compiler identities while setup binds ownership to the current plugin. */
-export interface PluginConstraintCompilerRegistry {
+/** Reads owner-attributed compiler identities without exposing registration. */
+export interface DatabaseConstraintCompilerReader {
 	readonly size: number
-	/** Registers one adapter-created compiler definition exactly once. */
-	register(definition: DatabaseConstraintCompilerDefinition): void
 	/** Reads an immutable application-local snapshot in registration order. */
 	values(): readonly DatabaseConstraintCompilerContribution[]
+}
+
+/** Registers compiler identities while setup binds ownership to the current plugin. */
+export interface PluginConstraintCompilerRegistry extends DatabaseConstraintCompilerReader {
+	/** Registers one adapter-created compiler definition exactly once. */
+	register(definition: DatabaseConstraintCompilerDefinition): void
 }
 
 interface StoredConstraintCompilerContribution {
@@ -60,6 +64,7 @@ interface StoredConstraintCompilerContribution {
 }
 
 interface CreatePluginConstraintCompilerRegistryOptions {
+	readonly assertPrivilege: () => void
 	readonly isOpen: () => boolean
 	readonly ownerPlugin: string
 	readonly register: (name: string, value: unknown) => void
@@ -188,6 +193,21 @@ const readContributions = (
 		}),
 	)
 
+/** Creates one stable read-only view over live compiler contributions. */
+export const createDatabaseConstraintCompilerReader = (
+	values: () => readonly StoredConstraintCompilerContribution[],
+): DatabaseConstraintCompilerReader => {
+	const readValues = (): readonly DatabaseConstraintCompilerContribution[] =>
+		readContributions(values())
+
+	return Object.freeze({
+		get size(): number {
+			return readValues().length
+		},
+		values: readValues,
+	})
+}
+
 const sameIdentity = (
 	left: DatabaseConstraintCompilerDefinition,
 	right: DatabaseConstraintCompilerDefinition,
@@ -233,6 +253,8 @@ export const createPluginConstraintCompilerRegistry = (
 					'Database constraint compilers can only be registered during plugin setup',
 				)
 			}
+
+			options.assertPrivilege()
 
 			if (!isDatabaseConstraintCompilerDefinition(definition)) {
 				throw new TypeError(

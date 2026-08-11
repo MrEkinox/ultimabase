@@ -26,7 +26,7 @@ import {
 import type { AvailablePluginFieldKind } from '../schema/fields/base/kinds.js'
 import { collectFieldTraversalEntries } from '../schema/fields/traversal.js'
 import type { SchemaRegistry } from '../schema/schema/registry.js'
-import type { PluginContribution } from './setup-registries.js'
+import type { OwnedPluginContribution } from './setup-registries.js'
 import {
 	assertOwnedPluginExtension,
 	createPluginFieldKindTarget,
@@ -231,7 +231,7 @@ type AccessRegistration =
 
 type AccessRegistrationInput = AccessRegistration extends infer TRegistration
 	? TRegistration extends AccessRegistration
-		? Omit<TRegistration, 'localName' | 'ownerPlugin'>
+		? Omit<TRegistration, 'localName' | 'ownerInstanceId' | 'ownerPlugin'>
 		: never
 	: never
 
@@ -255,6 +255,7 @@ export interface ResolvedPluginAccessContribution {
 	readonly localName: string
 	readonly master: PluginAccessMasterBehavior
 	readonly ownerPlugin: string
+	readonly ownerInstanceId?: string
 	readonly schemas: readonly ResolvedPluginSchemaAccess[]
 	readonly targetKind: PluginAccessTargetKind
 }
@@ -325,14 +326,18 @@ const createAccessDefinition = (
 }
 
 interface CreatePluginAccessRegistryOptions {
+	readonly assertPrivilege: () => void
 	readonly isOpen: () => boolean
+	readonly ownerInstanceId?: string
 	readonly ownerPlugin: string
 	readonly register: (name: string, value: unknown) => void
 }
 
 /** Creates one immutable Access facade whose writes cannot forge ownership. */
 export const createPluginAccessRegistry = ({
+	assertPrivilege,
 	isOpen,
+	ownerInstanceId,
 	ownerPlugin,
 	register,
 }: CreatePluginAccessRegistryOptions): PluginAccessRegistry => {
@@ -344,11 +349,17 @@ export const createPluginAccessRegistry = ({
 			throw new TypeError('Plugin Access can only be registered during setup')
 		}
 
+		assertPrivilege()
 		assertNonEmptyString(name, 'plugin Access name')
 		register(
 			name,
 			createAccessDefinition(
-				immutableRecord({ ...registration, localName: name, ownerPlugin }),
+				immutableRecord({
+					...registration,
+					localName: name,
+					ownerPlugin,
+					...(ownerInstanceId === undefined ? {} : { ownerInstanceId }),
+				}),
 			),
 		)
 	}
@@ -457,7 +468,7 @@ const createFieldMatch = (
 /** Resolves every opaque Access selector before infrastructure starts. */
 export const resolvePluginAccessTargets = (
 	schemas: SchemaRegistry,
-	contributions: readonly PluginContribution[],
+	contributions: readonly OwnedPluginContribution[],
 ): void => {
 	for (const contribution of contributions) {
 		const definition = contribution.value
@@ -600,6 +611,9 @@ export const resolvePluginAccessTargets = (
 				localName: registration.localName,
 				master: registration.master,
 				ownerPlugin: registration.ownerPlugin,
+				...(registration.ownerInstanceId === undefined
+					? {}
+					: { ownerInstanceId: registration.ownerInstanceId }),
 				schemas: immutableArray(schemaMatches),
 				targetKind: registration.targetKind,
 			}),

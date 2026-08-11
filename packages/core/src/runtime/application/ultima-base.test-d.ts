@@ -2,11 +2,8 @@ import { definePlugin } from '../../foundation.js'
 import { Schema } from '../../schema/index.js'
 import { expectTypeOf, test } from 'vitest'
 
-import {
-	databaseAdapterServiceToken,
-	type DatabaseAdapter,
-	UltimaBase,
-} from '../index.js'
+import { type DatabaseAdapter, UltimaBase } from '../index.js'
+import { provideTestDatabaseAdapter } from '../../../tests/runtime/fixtures/database-adapter-capability.js'
 import type { QueryResult } from '../../query/index.js'
 
 const articleSchema = Schema.define({
@@ -22,9 +19,10 @@ const databasePlugin = definePlugin({
 	version: '0.0.0',
 	core: '^0.0.0',
 	pluginId: 'fixture.typed-ultimabase-database',
-	setup: ({ services }) => {
-		services.provide(databaseAdapterServiceToken, adapter)
-
+	capabilities: {
+		provides: [provideTestDatabaseAdapter(adapter)],
+	},
+	setup: () => {
 		return { dialect: 'fixture' as const }
 	},
 })

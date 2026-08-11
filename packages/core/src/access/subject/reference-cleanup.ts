@@ -1,9 +1,14 @@
 import {
 	assertNonEmptyString,
+	immutableArray,
 	immutableRecord,
 	type MaybePromise,
 } from '@ultimabase/shared'
 
+import {
+	defineCapability,
+	type CapabilityToken,
+} from '../../plugins/capabilities.js'
 import type { AccessContext } from '../request/context.js'
 import type { AccessSubjectReference } from './contracts.js'
 
@@ -39,16 +44,23 @@ const accessReferenceCleanups = new WeakSet<object>()
 /**
  * Defines an explicit, provider-neutral reference cleanup contribution.
  *
- * Register the returned value in `registries.commands`; a subject provider can
- * discover it without importing the consumer that owns the persisted data.
+ * Provide the returned value through `accessReferenceCleanupCapability`; a
+ * subject provider can discover it without importing the consumer that owns
+ * the persisted data.
  *
  * @example
  * ```ts
- * registries.commands.register('acl.role-references', defineAccessReferenceCleanup({
- *   kind: 'role',
- *   hasReferences: ({ reference }) => aclStore.hasSubject(reference.value),
- *   cleanup: ({ reference }) => aclStore.removeSubject(reference.value),
- * }))
+ * provideCapability(accessReferenceCleanupCapability, {
+ *   contributionId: 'acl.role-references',
+ *   create: () => ({ value: {
+ *     name: 'acl.role-references',
+ *     cleanup: defineAccessReferenceCleanup({
+ *       kind: 'role',
+ *       hasReferences: ({ reference }) => aclStore.hasSubject(reference.value),
+ *       cleanup: ({ reference }) => aclStore.removeSubject(reference.value),
+ *     }),
+ *   } }),
+ * })
  * ```
  */
 export const defineAccessReferenceCleanup = <
@@ -81,3 +93,40 @@ export const isAccessReferenceCleanup = (
 	typeof value === 'object' &&
 	value !== null &&
 	accessReferenceCleanups.has(value)
+
+/** Retains one stable local name beside a validated reference cleanup. */
+export interface NamedAccessReferenceCleanup {
+	readonly cleanup: AccessReferenceCleanup
+	readonly name: string
+}
+
+/** Composes independent subject-reference cleanup providers in graph order. */
+export const accessReferenceCleanupCapability: CapabilityToken<
+	NamedAccessReferenceCleanup,
+	readonly NamedAccessReferenceCleanup[],
+	'ultimabase.access.reference-cleanup',
+	'1.0.0',
+	'multiple',
+	'application'
+> = defineCapability<
+	NamedAccessReferenceCleanup,
+	readonly NamedAccessReferenceCleanup[]
+>()({
+	capabilityId: 'ultimabase.access.reference-cleanup',
+	version: '1.0.0',
+	cardinality: 'multiple',
+	lifetime: 'application',
+	compose: (providers) =>
+		immutableArray(
+			providers.map((provider) => {
+				assertNonEmptyString(provider.name, 'reference cleanup name')
+				if (!isAccessReferenceCleanup(provider.cleanup)) {
+					throw new TypeError(
+						'reference cleanup capability requires a factory-created cleanup',
+					)
+				}
+
+				return immutableRecord(provider)
+			}),
+		),
+})

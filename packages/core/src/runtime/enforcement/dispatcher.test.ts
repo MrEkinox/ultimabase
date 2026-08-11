@@ -51,6 +51,13 @@ const context = RequestContext.anonymous({
 	source: requestSources.internal,
 })
 
+const runtimeConstrainPrivileges = [
+	{
+		name: 'runtime:constrain',
+		reason: 'Registers enforcement contributions for Runtime tests.',
+	},
+] as const
+
 const createOperation = (
 	input: CreateOneOperationAst<typeof articleSchema>['input'] = {
 		title: 'Allowed',
@@ -79,8 +86,9 @@ describe('createEnforcementStages', () => {
 			version: '0.0.0',
 			core: '^0.0.0',
 			pluginId: 'fixture.enforcement-master-behavior',
-			setup: ({ registries }) => {
-				registries.hooks.register(
+			privileges: runtimeConstrainPrivileges,
+			setup: ({ runtime }) => {
+				runtime.register(
 					'fixture.master-bypassed',
 					guard({
 						handler: () => {
@@ -89,7 +97,7 @@ describe('createEnforcementStages', () => {
 						master: 'bypass',
 					}),
 				)
-				registries.hooks.register(
+				runtime.register(
 					'fixture.master-enforced',
 					guard({
 						handler: () => {
@@ -97,7 +105,7 @@ describe('createEnforcementStages', () => {
 						},
 					}),
 				)
-				registries.hooks.register(
+				runtime.register(
 					'fixture.master-output-bypassed',
 					restrictOutput({
 						handler: () => {
@@ -108,7 +116,7 @@ describe('createEnforcementStages', () => {
 						master: 'bypass',
 					}),
 				)
-				registries.hooks.register(
+				runtime.register(
 					'fixture.master-output-enforced',
 					restrictOutput({
 						handler: () => {
@@ -168,8 +176,9 @@ describe('createEnforcementStages', () => {
 				version: '0.0.0',
 				core: '^0.0.0',
 				pluginId: name,
-				setup: ({ registries }) => {
-					registries.hooks.register(
+				privileges: runtimeConstrainPrivileges,
+				setup: ({ runtime }) => {
+					runtime.register(
 						`${name}.constraint`,
 						constraint({
 							handler: () =>
@@ -222,8 +231,9 @@ describe('createEnforcementStages', () => {
 			version: '0.0.0',
 			core: '^0.0.0',
 			pluginId: 'fixture.monotonic-enforcement',
-			setup: ({ registries }) => {
-				registries.hooks.register(
+			privileges: runtimeConstrainPrivileges,
+			setup: ({ runtime }) => {
+				runtime.register(
 					'fixture.guard',
 					guard({
 						schema: articleSchema,
@@ -234,7 +244,7 @@ describe('createEnforcementStages', () => {
 						},
 					}),
 				)
-				registries.hooks.register(
+				runtime.register(
 					'fixture.tenant',
 					constraint({
 						schema: articleSchema,
@@ -247,7 +257,7 @@ describe('createEnforcementStages', () => {
 						},
 					}),
 				)
-				registries.hooks.register(
+				runtime.register(
 					'fixture.visibility',
 					constraint({
 						handler: () => {
@@ -259,23 +269,23 @@ describe('createEnforcementStages', () => {
 						},
 					}),
 				)
-				registries.hooks.register(
+				runtime.register(
 					'fixture.input-broad',
 					restrictInput({ handler: () => ['title', 'secret'] }),
 				)
-				registries.hooks.register(
+				runtime.register(
 					'fixture.input-narrow',
 					restrictInput({ handler: () => ['title'] }),
 				)
-				registries.hooks.register(
+				runtime.register(
 					'fixture.selection-broad',
 					restrictSelection({ handler: () => ['id', 'title', 'secret'] }),
 				)
-				registries.hooks.register(
+				runtime.register(
 					'fixture.selection-narrow',
 					restrictSelection({ handler: () => ['id', 'title'] }),
 				)
-				registries.hooks.register(
+				runtime.register(
 					'fixture.output-broad',
 					restrictOutput({
 						handler: (input) => {
@@ -285,7 +295,7 @@ describe('createEnforcementStages', () => {
 						},
 					}),
 				)
-				registries.hooks.register(
+				runtime.register(
 					'fixture.output-narrow',
 					restrictOutput({ handler: () => ['title'] }),
 				)
@@ -386,8 +396,9 @@ describe('createEnforcementStages', () => {
 			version: '0.0.0',
 			core: '^0.0.0',
 			pluginId: 'fixture.input-enforcement',
-			setup: ({ registries }) => {
-				registries.hooks.register(
+			privileges: runtimeConstrainPrivileges,
+			setup: ({ runtime }) => {
+				runtime.register(
 					'fixture.only-title',
 					restrictInput({ handler: () => ['title'] }),
 				)
@@ -423,15 +434,16 @@ describe('createEnforcementStages', () => {
 			version: '0.0.0',
 			core: '^0.0.0',
 			pluginId: 'fixture.selection-enforcement',
-			setup: ({ registries }) => {
-				registries.hooks.register(
+			privileges: runtimeConstrainPrivileges,
+			setup: ({ runtime }) => {
+				runtime.register(
 					'fixture.selection-broad',
 					restrictSelection({
 						schema: articleSchema,
 						handler: () => ['id', 'title'],
 					}),
 				)
-				registries.hooks.register(
+				runtime.register(
 					'fixture.selection-narrow',
 					restrictSelection({
 						schema: articleSchema,
@@ -548,8 +560,9 @@ describe('createEnforcementStages', () => {
 			version: '0.0.0',
 			core: '^0.0.0',
 			pluginId: 'fixture.denied-enforcement',
-			setup: ({ registries }) => {
-				registries.hooks.register(
+			privileges: runtimeConstrainPrivileges,
+			setup: ({ runtime }) => {
+				runtime.register(
 					'fixture.denied',
 					guard({
 						handler: () => {
@@ -557,7 +570,7 @@ describe('createEnforcementStages', () => {
 						},
 					}),
 				)
-				registries.hooks.register(
+				runtime.register(
 					'fixture.not-reached',
 					guard({ handler: laterHandler }),
 				)
@@ -586,8 +599,9 @@ describe('createEnforcementStages', () => {
 			version: '0.0.0',
 			core: '^0.0.0',
 			pluginId: 'fixture.cancelled-enforcement',
-			setup: ({ registries }) => {
-				registries.hooks.register(
+			privileges: runtimeConstrainPrivileges,
+			setup: ({ runtime }) => {
+				runtime.register(
 					'fixture.cancel-request',
 					guard({
 						handler: () => {
@@ -595,7 +609,7 @@ describe('createEnforcementStages', () => {
 						},
 					}),
 				)
-				registries.hooks.register(
+				runtime.register(
 					'fixture.not-reached-after-cancellation',
 					guard({ handler: laterHandler }),
 				)
@@ -633,8 +647,9 @@ describe('createEnforcementStages', () => {
 			version: '0.0.0',
 			core: '^0.0.0',
 			pluginId: 'fixture.recursive-enforcement',
-			setup: ({ registries }) => {
-				registries.hooks.register(
+			privileges: runtimeConstrainPrivileges,
+			setup: ({ runtime }) => {
+				runtime.register(
 					'fixture.recursive-guard',
 					guard({
 						handler: async (input) => {
@@ -671,8 +686,9 @@ describe('createEnforcementStages', () => {
 			version: '0.0.0',
 			core: '^0.0.0',
 			pluginId: 'fixture.value-derived-enforcement',
-			setup: ({ registries }) => {
-				registries.hooks.register(
+			privileges: runtimeConstrainPrivileges,
+			setup: ({ runtime }) => {
+				runtime.register(
 					'fixture.title-constraint',
 					constraint({
 						schema: articleSchema,
@@ -733,8 +749,9 @@ describe('createEnforcementStages', () => {
 			version: '0.0.0',
 			core: '^0.0.0',
 			pluginId: 'fixture.all-mutation-inputs',
-			setup: ({ registries }) => {
-				registries.hooks.register(
+			privileges: runtimeConstrainPrivileges,
+			setup: ({ runtime }) => {
+				runtime.register(
 					'fixture.title-only',
 					restrictInput({
 						schema: articleSchema,
@@ -836,8 +853,9 @@ describe('createEnforcementStages', () => {
 				version: '0.0.0',
 				core: '^0.0.0',
 				pluginId: 'fixture.invalid-enforcement',
-				setup: ({ registries }) => {
-					registries.hooks.register('fixture.invalid', definition)
+				privileges: runtimeConstrainPrivileges,
+				setup: ({ runtime }) => {
+					runtime.register('fixture.invalid', definition)
 				},
 			})
 			const application = await createApplication({
@@ -861,8 +879,9 @@ describe('createEnforcementStages', () => {
 			version: '0.0.0',
 			core: '^0.0.0',
 			pluginId: 'fixture.foreign-enforcement',
-			setup: ({ registries }) => {
-				registries.hooks.register(
+			privileges: runtimeConstrainPrivileges,
+			setup: ({ runtime }) => {
+				runtime.register(
 					'fixture.foreign',
 					guard({ schema: foreignSchema, handler: vi.fn() }),
 				)

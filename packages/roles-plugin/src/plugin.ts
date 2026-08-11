@@ -1,10 +1,14 @@
 import {
 	definePlugin,
 	defineEvent,
-	extensionHandlerKey,
-	isAccessReferenceCleanup,
 	Pointer,
-	accessRoleResolverServiceToken,
+	accessReferenceCleanupCapability,
+	accessRoleResolverCapability,
+	optionalCapability,
+	provideCapability,
+	type CapabilityProviderDeclaration,
+	type CapabilityRequirement,
+	type CompiledSchemaRegistry,
 	type HookContext,
 	type HookEventContract,
 	type JsonObject,
@@ -19,11 +23,7 @@ import {
 	isUnknownArray,
 } from '@ultimabase/shared'
 
-import {
-	getRoleSchemaDeclaration,
-	rolesPluginName,
-	roleSchemaExtensionName,
-} from './role-schema.js'
+import { getRoleSchemaDeclaration, rolesPluginName } from './role-schema.js'
 import {
 	assertRoleHierarchyAcyclic,
 	readPersistedRoleId,
@@ -33,6 +33,25 @@ import {
 	type NamedRoleReferenceCleanup,
 } from './role-deletion.js'
 import { createStoredRoleResolver } from './role-access.js'
+
+const optionalReferenceCleanups = optionalCapability(
+	accessReferenceCleanupCapability,
+	'^1.0.0',
+	{ phase: 'setup' },
+)
+const readRoleSchemas = (
+	schemas: CompiledSchemaRegistry,
+): readonly SchemaDefinition[] =>
+	schemas
+		.values()
+		.filter((schema) => getRoleSchemaDeclaration(schema) !== undefined)
+
+const roleResolverProvider = provideCapability(accessRoleResolverCapability, {
+	contributionId: 'stored-roles',
+	create: ({ schemas }) => ({
+		value: createStoredRoleResolver(readRoleSchemas(schemas)),
+	}),
+})
 
 /** Exposes the application-local role domains discovered during setup. */
 export interface RolesPluginExports {
@@ -181,7 +200,32 @@ export type RolesPlugin = FrameworkPlugin<
 	undefined,
 	undefined,
 	undefined,
-	never
+	undefined,
+	'0.0.0',
+	'^0.0.0',
+	readonly [
+		Readonly<{
+			readonly name: 'runtime:intercept'
+			readonly reason: 'Maintains role references through native schema hooks.'
+		}>,
+		Readonly<{
+			readonly name: 'event:publish'
+			readonly reason: 'Publishes committed role membership and hierarchy changes.'
+		}>,
+	],
+	undefined,
+	Readonly<{
+		readonly provides: readonly [
+			CapabilityProviderDeclaration<typeof accessRoleResolverCapability>,
+		]
+		readonly optional: readonly [
+			CapabilityRequirement<
+				typeof accessReferenceCleanupCapability,
+				true,
+				'^1.0.0'
+			>,
+		]
+	}>
 >
 
 /**
@@ -195,37 +239,38 @@ export const rolesPlugin = (): RolesPlugin =>
 		version: '0.0.0',
 		core: '^0.0.0',
 		pluginId: rolesPluginName,
-		setup: ({ hooks, registries, schemas, services }) => {
-			registries.extensions.register(
-				extensionHandlerKey('schema', roleSchemaExtensionName),
-				getRoleSchemaDeclaration,
-			)
-
-			const roleSchemas = schemas
-				.values()
-				.filter((schema) => getRoleSchemaDeclaration(schema) !== undefined)
-
-			services.provide(
-				accessRoleResolverServiceToken,
-				createStoredRoleResolver(roleSchemas),
-			)
+		privileges: [
+			{
+				name: 'runtime:intercept',
+				reason: 'Maintains role references through native schema hooks.',
+			},
+			{
+				name: 'event:publish',
+				reason: 'Publishes committed role membership and hierarchy changes.',
+			},
+		],
+		capabilities: {
+			optional: [optionalReferenceCleanups],
+			provides: [roleResolverProvider],
+		},
+		setup: ({ capabilities, hooks, schemas }) => {
+			const roleSchemas = readRoleSchemas(schemas)
 			const readReferenceCleanups = (): readonly NamedRoleReferenceCleanup[] =>
 				immutableArray(
-					registries.commands.values().flatMap((contribution) => {
-						if (
-							!isAccessReferenceCleanup(contribution.value) ||
-							contribution.value.kind !== 'role'
-						) {
-							return []
-						}
+					(capabilities.get(optionalReferenceCleanups) ?? []).flatMap(
+						(contribution) => {
+							if (contribution.cleanup.kind !== 'role') {
+								return []
+							}
 
-						return [
-							immutableRecord({
-								cleanup: contribution.value,
-								name: contribution.name,
-							}),
-						]
-					}),
+							return [
+								immutableRecord({
+									cleanup: contribution.cleanup,
+									name: contribution.name,
+								}),
+							]
+						},
+					),
 				)
 
 			for (const schema of roleSchemas) {

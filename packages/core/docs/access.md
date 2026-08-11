@@ -143,6 +143,12 @@ const visibilityPlugin = definePlugin({
 	pluginId: 'example.visibility',
 	version: '1.0.0',
 	core: '^0.0.0',
+	privileges: [
+		{
+			name: 'runtime:constrain',
+			reason: 'Contributes a monotonic visibility policy.',
+		},
+	],
 	setup: ({ access }) => {
 		access.schema(
 			'published-posts',
@@ -312,21 +318,33 @@ const Post = Schema.define({
 })
 ```
 
-Static resolver capabilities use a neutral service token. `require()` records
-the dependency without requiring the provider to appear earlier in plugin
-configuration:
+Static resolver capabilities use a versioned application capability. A declared
+requirement records the dependency without requiring the provider to appear
+earlier in plugin configuration:
 
 ```ts
+const roleResolverRequirement = requireCapability(
+	accessRoleResolverCapability,
+	'^1.0.0',
+)
+
 const rolePolicy = definePlugin({
 	pluginId: 'example.role-policy',
 	version: '1.0.0',
 	core: '^0.0.0',
-	setup: ({ access, services }) => {
-		const roles = services.require(accessRoleResolverServiceToken)
+	privileges: [
+		{
+			name: 'runtime:constrain',
+			reason: 'Applies role-aware mutation Access.',
+		},
+	],
+	capabilities: { requires: [roleResolverRequirement] },
+	setup: ({ access, capabilities }) => {
+		const roles = capabilities.get(roleResolverRequirement)
 
 		access.schema('editors', Post, {
 			update: ({ context }) =>
-				roles.get().hasRole({
+				roles.hasRole({
 					context,
 					role: new AccessSubjectReference('role', 'editor'),
 				}),
@@ -335,8 +353,8 @@ const rolePolicy = definePlugin({
 })
 ```
 
-The requirement is validated after all plugin setup callbacks and before any
-database connection, migration, runtime, or transport starts. An ACL or
+The requirement is validated before capability materialization or plugin setup.
+An ACL or
 community policy only declares it when its normalized configuration actually
 contains a role. An official role plugin and a community provider are
 interchangeable when they provide the exported neutral token; duplicate

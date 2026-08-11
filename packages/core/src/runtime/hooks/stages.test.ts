@@ -80,7 +80,9 @@ describe('createRuntimeHookStages', () => {
 		})
 
 		expect(() => createRuntimeHookStages(application)).toThrow(
-			new TypeError('Application contributions require completed plugin setup'),
+			new TypeError(
+				'Application capabilities require completed materialization',
+			),
 		)
 		await application.dispose()
 	})
@@ -90,18 +92,18 @@ describe('createRuntimeHookStages', () => {
 			version: '0.0.0',
 			core: '^0.0.0',
 			pluginId: 'fixture.invalid-hook',
-			setup: ({ registries }) => {
-				registries.hooks.register('fixture.invalid', () => undefined)
+			setup: ({ runtime }) => {
+				runtime.register('fixture.invalid', (() => undefined) as never)
 			},
 		})
-		const application = await createApplication({
-			schemas: [articleSchema],
-			plugins: [plugin],
-		})
-
-		expect(() => createRuntimeHookStages(application)).toThrow(
+		await expect(
+			createApplication({
+				schemas: [articleSchema],
+				plugins: [plugin],
+			}),
+		).rejects.toThrow(
 			new TypeError(
-				'Plugin "fixture.invalid-hook" registered invalid runtime hooks contribution "fixture.invalid"',
+				'Runtime contributions must be created by a Runtime interception or enforcement factory',
 			),
 		)
 	})
@@ -111,10 +113,10 @@ describe('createRuntimeHookStages', () => {
 			version: '0.0.0',
 			core: '^0.0.0',
 			pluginId: 'fixture.event-in-hooks',
-			setup: ({ registries }) => {
-				registries.hooks.register(
+			setup: ({ runtime }) => {
+				runtime.register(
 					'fixture.wrong-event',
-					postCommitEvent({ handler: () => undefined }),
+					postCommitEvent({ handler: () => undefined }) as never,
 				)
 			},
 		})
@@ -122,25 +124,23 @@ describe('createRuntimeHookStages', () => {
 			version: '0.0.0',
 			core: '^0.0.0',
 			pluginId: 'fixture.hook-in-events',
-			setup: ({ registries }) => {
-				registries.events.register(
+			setup: ({ events }) => {
+				events.register(
 					'fixture.wrong-hook',
 					beforeOperation({
 						handler: () => undefined,
-					}),
+					}) as never,
 				)
 			},
 		})
 
 		for (const plugin of [eventInHooks, hookInEvents]) {
-			const application = await createApplication({
-				schemas: [articleSchema],
-				plugins: [plugin],
-			})
-
-			expect(() => createRuntimeHookStages(application)).toThrow(
-				/wrong registry/u,
-			)
+			await expect(
+				createApplication({
+					schemas: [articleSchema],
+					plugins: [plugin],
+				}),
+			).rejects.toThrow(/contributions must be created by/u)
 		}
 	})
 
@@ -149,8 +149,14 @@ describe('createRuntimeHookStages', () => {
 			version: '0.0.0',
 			core: '^0.0.0',
 			pluginId: 'fixture.foreign-hook',
-			setup: ({ registries }) => {
-				registries.hooks.register(
+			privileges: [
+				{
+					name: 'runtime:intercept',
+					reason: 'Registers low-level Runtime hooks for tests.',
+				},
+			],
+			setup: ({ runtime }) => {
+				runtime.register(
 					'fixture.foreign',
 					beforeOperation({
 						schema: foreignSchema,
@@ -176,8 +182,14 @@ describe('createRuntimeHookStages', () => {
 			version: '0.0.0',
 			core: '^0.0.0',
 			pluginId: 'fixture.invalid-output',
-			setup: ({ registries }) => {
-				registries.hooks.register(
+			privileges: [
+				{
+					name: 'runtime:intercept',
+					reason: 'Registers low-level Runtime hooks for tests.',
+				},
+			],
+			setup: ({ runtime }) => {
+				runtime.register(
 					'fixture.invalid-before-output',
 					beforeOperation({
 						operations: ['create-one'],
@@ -185,7 +197,7 @@ describe('createRuntimeHookStages', () => {
 							input.operation) as never,
 					}),
 				)
-				registries.hooks.register(
+				runtime.register(
 					'fixture.invalid-after-output',
 					afterOperation({
 						operations: ['create-one'],
@@ -229,8 +241,14 @@ describe('createRuntimeHookStages', () => {
 			version: '0.0.0',
 			core: '^0.0.0',
 			pluginId: 'fixture.before-replacement',
-			setup: ({ registries }) => {
-				registries.hooks.register(
+			privileges: [
+				{
+					name: 'runtime:intercept',
+					reason: 'Registers low-level Runtime hooks for tests.',
+				},
+			],
+			setup: ({ runtime }) => {
+				runtime.register(
 					'fixture.before-replacement',
 					beforeOperation({
 						operations: ['update-one'],
@@ -262,8 +280,14 @@ describe('createRuntimeHookStages', () => {
 			version: '0.0.0',
 			core: '^0.0.0',
 			pluginId: 'fixture.prepared-value',
-			setup: ({ registries }) => {
-				registries.hooks.register(
+			privileges: [
+				{
+					name: 'runtime:intercept',
+					reason: 'Registers low-level Runtime hooks for tests.',
+				},
+			],
+			setup: ({ runtime }) => {
+				runtime.register(
 					'fixture.prepared-value',
 					preparedOperation({
 						schema: articleSchema,
@@ -335,8 +359,14 @@ describe('createRuntimeHookStages', () => {
 				version: '0.0.0',
 				core: '^0.0.0',
 				pluginId: `fixture.invalid-prepared-${String(index)}`,
-				setup: ({ registries }) => {
-					registries.hooks.register(
+				privileges: [
+					{
+						name: 'runtime:intercept',
+						reason: 'Registers low-level Runtime hooks for tests.',
+					},
+				],
+				setup: ({ runtime }) => {
+					runtime.register(
 						'fixture.invalid-prepared',
 						preparedOperation({
 							schema: articleSchema,

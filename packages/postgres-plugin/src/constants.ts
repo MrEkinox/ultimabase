@@ -6,7 +6,3 @@ export const postgresTableExtensionName = 'postgres.table' as const
 
 /** Names PostgreSQL-owned physical metadata attached to one field. */
 export const postgresColumnExtensionName = 'postgres.column' as const
-
-/** Reserves the one setup contribution that may replace direct preparation. */
-export const postgresSchemaPreparationClaimName =
-	'postgres.schema-preparation' as const

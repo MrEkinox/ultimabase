@@ -5,11 +5,11 @@ import {
 	RequestContextValue,
 	Schema,
 	UltimaBase,
-	databaseAdapterServiceToken,
 	definePlugin,
 	requestSources,
 } from '../../index.js'
 import { RecordingDatabaseAdapter } from '../../../tests/runtime/fixtures/recording-database-adapter.js'
+import { provideTestDatabaseAdapter } from '../../../tests/runtime/fixtures/database-adapter-capability.js'
 
 interface FixturePrincipal {
 	readonly id: string
@@ -59,9 +59,8 @@ describe('dynamic Access subject capabilities', () => {
 			version: '0.0.0',
 			core: '^0.0.0',
 			pluginId: 'fixture.optional-subject-database',
-			slot: 'database-adapter',
-			setup: ({ services }) => {
-				services.provide(databaseAdapterServiceToken, adapter)
+			capabilities: {
+				provides: [provideTestDatabaseAdapter(adapter)],
 			},
 		})
 		const ultimabase = new UltimaBase({

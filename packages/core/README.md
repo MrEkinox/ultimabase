@@ -11,7 +11,7 @@ Responsibilities:
 - isolated `FrameworkApplication` instances;
 - plugin definitions and global plugin graph;
 - nested plugin normalization;
-- typed service tokens and registries;
+- versioned declaration and application capabilities;
 - lifecycle phases;
 - request engines, validation, transactions, hooks, and database contracts;
 - the public `UltimaBase` application facade.
@@ -24,7 +24,7 @@ remain plugins above this package.
 
 One package does not mean one monolithic source folder. The implementation keeps
 explicit `schema`, `query`, `access`, and `runtime` domains alongside application
-orchestration, plugins, services, and errors. Internal folders are not exported
+orchestration, plugins, capabilities, and errors. Internal folders are not exported
 as package subpaths; every supported API comes from `@ultimabase/core`.
 
 Detailed guides remain focused by domain:
@@ -541,22 +541,26 @@ nominal `RequestContextValue<T>` identities. An authentication provider may
 publish one exact current principal without becoming a Core dependency:
 
 ```ts
-services.provide(accessPrincipalResolverServiceToken, {
-	resolveCurrent: ({ context }) => context.getValue(authenticatedPrincipal),
+provideCapability(accessPrincipalResolverCapability, {
+	contributionId: 'authenticated-principal',
+	create: () => ({
+		value: {
+			resolveCurrent: ({ context }) => context.getValue(authenticatedPrincipal),
+		},
+	}),
 })
 ```
 
-Access providers retrieve this service optionally and call
+Access providers declare the capability as optional and call
 `resolveAccessPrincipal()`. The helper rejects forged Pointers and schemas not
 owned by the consuming application. An absent provider or absent request-local
 identity returns `undefined`; neither creates authenticated authority.
 
-Role-aware configuration may conditionally call
-`services.require(accessRoleResolverServiceToken)` and capture the returned
-typed reference in an Access rule. Core validates that requirement after all
-plugin setup callbacks and before infrastructure starts, so provider
-configuration order is irrelevant. Applications with no role-aware policy
-require no resolver at all.
+Role-aware configuration declares an optional or required
+`accessRoleResolverCapability` requirement and captures the returned typed
+resolver in an Access rule. Core validates requirements before capability
+materialization and plugin setup, so provider configuration order is
+irrelevant. Applications with no role-aware policy require no resolver at all.
 
 ## Read and mutation execution authority
 
@@ -1114,8 +1118,12 @@ credentials, adapters, commit/rollback controls, and hook bypasses.
 for delivery only after commit. A plugin registers an explicit consumer:
 
 ```ts
-setup: ({ registries }) => {
-	registries.events.register(
+privileges: [{
+	name: 'runtime:observe',
+	reason: 'Delivers committed post events to the search index.',
+}],
+setup: ({ events }) => {
+	events.register(
 		'posts.created',
 		onEvent({
 			name: 'post.created',
@@ -1136,15 +1144,18 @@ nested work and retain the active transaction. Cancellation produces
 `OPERATION_CANCELLED`, waits for the currently running callback to settle, stops
 later pre-commit hooks, and rolls an active transaction back.
 
-One optional plugin may provide `hookDiagnosticsObserverServiceToken` to receive
+One optional plugin may provide `hookDiagnosticsObserverCapability` to receive
 redacted immutable timing events:
 
 ```ts
-setup: ({ services }) => {
-	services.provide(hookDiagnosticsObserverServiceToken, (event) => {
-		metrics.observe(event.phase, event.durationMs, event.status)
-	})
-}
+provideCapability(hookDiagnosticsObserverCapability, {
+	contributionId: 'metrics',
+	create: () => ({
+		value: (event) => {
+			metrics.observe(event.phase, event.durationMs, event.status)
+		},
+	}),
+})
 ```
 
 The observer runs outside request-engine scope and receives no operation input,
@@ -1215,8 +1226,8 @@ schema concerns rather than additional field hook phases.
 ## Policy-neutral enforcement primitives
 
 Core currently exposes five protected factories without adding policy names to
-Runtime. Definitions are registered in the same owner-scoped hook registry as
-other plugin contributions:
+Runtime. Definitions are registered through the exact privilege-scoped
+`runtime` facade:
 
 ```ts
 const tenantPlugin = (tenantId: string) =>
@@ -1224,15 +1235,21 @@ const tenantPlugin = (tenantId: string) =>
 		pluginId: 'example.tenant',
 		version: '1.0.0',
 		core: '^0.0.0',
-		setup: ({ registries }) => {
-			registries.hooks.register(
+		privileges: [
+			{
+				name: 'runtime:constrain',
+				reason: 'Applies tenant row and field restrictions.',
+			},
+		],
+		setup: ({ runtime }) => {
+			runtime.register(
 				'tenant-row-filter',
 				constraint({
 					schema: PostSchema,
 					handler: () => databaseConstraint('example.tenant', 1, { tenantId }),
 				}),
 			)
-			registries.hooks.register(
+			runtime.register(
 				'tenant-visible-fields',
 				restrictSelection({
 					schema: PostSchema,
@@ -1283,27 +1300,17 @@ const application = await createApplication({
 await application.start()
 ```
 
-Every application owns its schema registry, services, contribution registries,
-plugin exports, and lifecycle state. No singleton or global mutable registry is
-created. `application.getPlugin('fixture.database')` resolves the setup export
+Every application owns its schema registry, materialized capabilities, exact
+Core contribution stores, plugin exports, and lifecycle state. No singleton or
+global mutable registry is created. `application.getPlugin('fixture.database')` resolves the setup export
 using the configured literal plugin ID; nested plugin definitions participate
 in the same typed lookup. Repeated configurations use the structured
 `{ pluginId, instanceId }` overload instead.
 
-Framework packages consume plugin-provided services through the application's
-read-only lookup boundary:
-
-```ts
-const database = application.getService(DatabaseServiceToken)
-const optionalCache = application.getOptionalService(CacheServiceToken)
-```
-
-The token determines the exact return type. Required lookup reports a
-`SERVICE_NOT_FOUND` framework error when no plugin provided the token, while
-optional lookup returns `undefined`. Both methods become available after plugin
-setup and remain usable while the application is stopped, but fail before setup
-or after disposal. They do not expose registration, replacement, enumeration,
-ownership, or service disposal.
+Plugins consume only capability requirements declared in their own manifest.
+Application code reaches deliberately public application-local behavior through
+typed plugin exports returned by `application.getPlugin(...)`; there is no
+general service lookup or capability-enumeration escape hatch.
 
 Runtime also uses `application.ownsSchema(schema)` to verify exact object
 identity. A separately declared schema with the same `className` is not owned by
@@ -1313,7 +1320,7 @@ boundaries accidentally.
 `new FrameworkApplication(options)` remains available for advanced composition.
 It validates static schema and graph configuration synchronously but leaves setup
 lazy until `initialize()` or `start()` is called. A stopped application cannot be
-restarted; disposal permanently releases its plugin and service resources.
+restarted; disposal permanently releases its plugin and capability resources.
 
 ## Framework errors
 
@@ -1335,49 +1342,20 @@ includes only its code, retryability, `publicMessage`, and `publicDetails`.
 Transports map that payload to HTTP, GraphQL, or other protocol-specific error
 formats without adding transport metadata to Core.
 
-## Service tokens
+## Cross-plugin integration
 
-`createServiceToken<TService>(debugName)` replaces untyped service names with
-one immutable identity carrying the exact service contract:
+Versioned capabilities are the only public cross-plugin integration host.
+Declaration capabilities expose immutable facts before compilation; application
+capabilities materialize one application-local `{ value, dispose? }` resource
+before setup. Consumers can read only the exact required or optional capability
+objects listed in their manifest. Cardinality and explicit replacement or
+decoration rules reject ambiguous providers instead of using string names or
+last-writer-wins behavior.
 
-```ts
-export interface DatabaseService {
-	query(sql: string): Promise<readonly unknown[]>
-}
-
-export const DatabaseServiceToken = createServiceToken<DatabaseService>(
-	'ultimabase.database',
-)
-```
-
-The debug name exists only for logs and errors. Creating another token with the
-same name produces a different identity; consumers must import and share the
-exported token value. Every token accepts one provider per application, and the
-service registry rejects duplicate provision rather than replacing an existing
-service through plugin order.
-
-`ServiceRegistry` stores those values per application and distinguishes required
-from optional lookup:
-
-```ts
-const services = new ServiceRegistry()
-
-services.provide(DatabaseServiceToken, database)
-
-const requiredDatabase = services.get(DatabaseServiceToken)
-const optionalCache = services.getOptional(CacheServiceToken)
-```
-
-Direct registry access is intended for application internals and plugin setup.
-Plugin authors register through the owner-scoped `services` value supplied to
-their setup callback. Application consumers use `application.getService(...)`
-or `application.getOptionalService(...)` instead, so they cannot mutate or
-dispose the application-owned registry.
-
-Providing the same token twice is an error and never replaces the original
-value. Each registry is isolated and has no global state. Calling `dispose()`
-clears its references and releases services implementing `Symbol.dispose` or
-`Symbol.asyncDispose` once, in reverse registration order.
+Legacy service tokens and string slots have no compatibility bridge. A former
+exclusive service maps to a `single` application capability, while behavior
+intended for application developers is exposed through the owning plugin's
+typed setup export.
 
 ## Plugin definitions
 
@@ -1407,7 +1385,6 @@ export const databasePlugin = () =>
 			},
 		],
 		environment: ['environment:network'],
-		slot: 'database-adapter',
 		dependencies: [{ pluginId: 'fixture.config', version: '^1.0.0' }],
 		capabilities: {
 			provides: [
@@ -1417,16 +1394,7 @@ export const databasePlugin = () =>
 				}),
 			],
 		},
-		setup: ({ services }) => {
-			const database = createDatabase()
-
-			services.provide(DatabaseServiceToken, database)
-
-			return { database }
-		},
-		hooks: {
-			connect: ({ pluginExports }) => pluginExports.database.connect(),
-		},
+		setup: () => ({ dialect: 'postgres' as const }),
 	})
 ```
 
@@ -1439,9 +1407,8 @@ ownership and severity; wildcard requests are invalid.
 
 Manifest literals and setup exports retain their exact types for plugin lookup.
 Setup, declaration, and lifecycle callbacks remain private to Core and do not
-run during manifest inspection. The optional `slot` reserves one exclusive
-architectural role. Required dependencies, optional dependencies, conflicts,
-hooks, and nested definitions are copied and frozen. Nested plugins remain
+run during manifest inspection. Required dependencies, optional dependencies,
+conflicts, hooks, and nested definitions are copied and frozen. Nested plugins remain
 global graph entries with their own manifest and privileges; their placement
 under `plugins` is composition syntax and grants no inherited power.
 
@@ -1503,10 +1470,22 @@ definePlugin({
 ```
 
 Structurally recreated or undeclared requirements fail without probing the
-installed graph. Capability requirements also establish lifecycle order.
-Application resources are isolated per application and disposed after their
-owner's plugin `dispose` hook. A conditional privilege must reference the same
-optional requirement object listed by its manifest.
+installed graph. The default `materialization` phase establishes provider-first
+factory and lifecycle order. Peer plugins that only need each other's values in
+`setup` may opt out of that graph edge explicitly:
+
+```ts
+const peerRequirement = optionalCapability(peerCapability, '^1.0.0', {
+	phase: 'setup',
+})
+```
+
+Core still validates the provider and version before materializing all
+application capabilities, but setup-phase requirements cannot be read by an
+application capability factory and do not establish `connect`, `stop`, or
+`dispose` order. Application resources are isolated per application and
+disposed after their owner's plugin `dispose` hook. A conditional privilege
+must reference the same optional requirement object listed by its manifest.
 
 `pluginPrivileges` evaluates cumulative denials before field declarations,
 schema compilation, Typegen, setup, or infrastructure work. Core-controlled
@@ -1552,12 +1531,13 @@ without plugin options, credentials, capability values, or stack traces.
 metadata without running plugin code. Children receive implicit parent
 dependencies, source order is retained, and the exact same definition can be
 reused safely. Repeated configurations of one stable ID require distinct,
-explicit instance IDs. A duplicate structured identity or two plugins sharing
-one exclusive slot fail with `PLUGIN_CONFLICT`.
+explicit instance IDs. A duplicate structured identity fails with
+`PLUGIN_CONFLICT`; exclusive provider selection belongs to `single`
+capabilities.
 
 `new PluginGraph(normalizedPlugins)` validates required and optional
 dependencies, capability availability and nominal identity, semantic versions,
-explicit conflicts, duplicate entries, exclusive slots, and cycles. It exposes
+explicit conflicts, duplicate entries, and cycles. It exposes
 the deterministic dependency-first order through `graph.plugins` and iteration:
 
 ```ts
@@ -1577,46 +1557,46 @@ Missing optional dependencies and capabilities remain inspectably inactive.
 Graph construction remains static, exposes no declaration capability values,
 and never executes setup or lifecycle hooks.
 
-## Plugin setup registries
+## Setup facades and migration map
 
-`PluginSetupRegistries` groups every application-owned setup boundary. A
-plugin receives a stable context whose writes automatically record its
-structured identity:
+Plugin setup exposes only exact Core-owned facades: `hooks`, `access`,
+`runtime`, `events`, `pipeline`, and `constraintCompilers`. Each facade accepts
+only its nominal definition type, records the exact plugin and instance owner,
+checks its dedicated privilege, and closes when setup finishes. Their backing
+stores are private to Core; applications cannot enumerate or mutate them.
 
-```ts
-const setupRegistries = new PluginSetupRegistries(schemaRegistry)
-const context = setupRegistries.forPlugin({ pluginId: 'fixture.database' })
+Milestone 14 maps the removed generic paths as follows:
 
-context.services.provide(DatabaseServiceToken, database)
-context.registries.commands.register('fixture.reindex', reindexCommand)
-```
+- exclusive string slots become canonical `single` capabilities;
+- public service tokens become application capabilities;
+- native Hooks and Access retain the exact `hooks` and `access` facades;
+- low-level interception, policy enforcement, post-commit events, and fixed
+  pipeline stages use `runtime`, `events`, and `pipeline` respectively;
+- database constraint compilers retain their exact adapter-authorized facade;
+- cross-plugin commands become domain capabilities, such as
+  `accessReferenceCleanupCapability`;
+- extension claims disappear because compiled schemas already retain owner
+  provenance; and
+- unused operator, generator, and transport registry categories are removed
+  without replacement.
 
-Extensions, operators, hooks, generators, transports, pipelines, events, and
-commands use isolated `ContributionRegistry` instances. Duplicate names within
-one category fail instead of replacing the first owner. Setup contexts only
-collect declarations; infrastructure work begins in later lifecycle phases.
-
-After setup completes, framework packages can read immutable contribution
-snapshots through `application.getContributions('hooks')` and the other
-categories. Their insertion order is the resolved plugin graph order: required
-dependencies first, then configuration position. Reading during setup or after
-disposal fails, and the returned values do not expose a writable registry.
-Core's Runtime domain uses this boundary to compose hook and event declarations
-without application orchestration depending on their concrete contracts.
-
-Independent subject consumers can register deletion participation without
-importing the provider that resolves that subject. The nominal factory prevents
-arbitrary command values from being mistaken for cleanup behavior:
+Independent subject consumers provide deletion participation without importing
+the provider that resolves that subject:
 
 ```ts
-context.registries.commands.register(
-	'acl.role-references',
-	defineAccessReferenceCleanup({
-		kind: 'role',
-		hasReferences: ({ reference }) => aclStore.hasSubject(reference.value),
-		cleanup: ({ reference }) => aclStore.removeSubject(reference.value),
+provideCapability(accessReferenceCleanupCapability, {
+	contributionId: 'acl.role-references',
+	create: () => ({
+		value: {
+			name: 'acl.role-references',
+			cleanup: defineAccessReferenceCleanup({
+				kind: 'role',
+				hasReferences: ({ reference }) => aclStore.hasSubject(reference.value),
+				cleanup: ({ reference }) => aclStore.removeSubject(reference.value),
+			}),
+		},
 	}),
-)
+})
 ```
 
 Both callbacks execute only when the subject provider explicitly discovers the
@@ -1768,32 +1748,12 @@ validation plans, and migration metadata. Private Schema capabilities retain
 immutable declarations by exact identity; Runtime reads them internally and
 creates no neutral handler when a phase is absent.
 
-Extension handlers use a scope-qualified identity so schema and field names stay
-independent:
-
-```ts
-const contentMetadataPlugin = definePlugin({
-	pluginId: '@example/content-metadata',
-	version: '1.0.0',
-	core: '^0.0.0',
-	setup: ({ registries }) => {
-		registries.extensions.register(
-			extensionHandlerKey('schema', 'content-category'),
-			contentCategoryHandler,
-		)
-		registries.extensions.register(
-			extensionHandlerKey('field', 'search-metadata'),
-			searchMetadataHandler,
-		)
-	},
-})
-```
-
-Application initialization checks every schema and nested field extension after
-all setup callbacks and before `connect`. The setup context supplies the handler
-owner, so a plugin cannot claim another plugin's identity. Missing or wrongly
-owned handlers fail with `PLUGIN_EXTENSION_HANDLER_MISSING`; duplicate handler
-keys retain the shared `PLUGIN_CONFLICT` contribution policy.
+Schema and field extension factories retain their scope-qualified owner directly
+in the compiled graph. Application initialization checks that every owner is an
+installed plugin after setup and before `connect`; there is no parallel handler
+claim registry. A plugin therefore cannot claim another plugin's extension
+identity, and removing an owner leaves a deterministic orphaned-extension
+configuration error.
 
 ## Plugin lifecycle
 

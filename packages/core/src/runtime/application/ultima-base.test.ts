@@ -5,15 +5,13 @@ import { describe, expect, it } from 'vitest'
 import { QueryBuilder } from '../../query/query/query.js'
 
 import type { HookContext } from '../../schema/index.js'
-import {
-	databaseAdapterServiceToken,
-	type DatabaseAdapter,
-} from '../database/contracts.js'
+import { type DatabaseAdapter } from '../database/contracts.js'
 import { beforeOperation } from '../hooks/definitions.js'
 import { RequestContext, requestSources } from '../context/request-context.js'
 import { runWithRequestEngine } from '../context/active-framework-context.js'
 import { MasterAuthority } from '../master/master-authority.js'
 import { RecordingDatabaseAdapter } from '../../../tests/runtime/fixtures/recording-database-adapter.js'
+import { provideTestDatabaseAdapter } from '../../../tests/runtime/fixtures/database-adapter-capability.js'
 import { UltimaBase } from './ultima-base.js'
 
 const articleSchema = Schema.define({
@@ -48,13 +46,20 @@ const createDatabasePlugin = (
 		version: '0.0.0',
 		core: '^0.0.0',
 		pluginId: 'fixture.ultimabase-database',
-		slot: 'database-adapter',
-		setup: ({ registries, services }) => {
+		privileges: [
+			{
+				name: 'runtime:intercept',
+				reason: 'Exercises low-level request context observation.',
+			},
+		],
+		capabilities: {
+			provides: [provideTestDatabaseAdapter(adapter)],
+		},
+		setup: ({ runtime }) => {
 			options.trace?.push('setup')
-			services.provide(databaseAdapterServiceToken, adapter)
 
 			if (options.onContext !== undefined) {
-				registries.hooks.register(
+				runtime.register(
 					'fixture.ultimabase-context',
 					beforeOperation({
 						schema: articleSchema,
@@ -501,9 +506,11 @@ describe('UltimaBase', () => {
 			plugins: [plugin],
 		})
 
-		await expect(ultimabase.start()).rejects.toMatchObject({
-			code: 'SERVICE_NOT_FOUND',
-		})
+		await expect(ultimabase.start()).rejects.toThrow(
+			new TypeError(
+				'databaseAdapterCapability must resolve to a DatabaseAdapter',
+			),
+		)
 		expect(ultimabase.state).toBe('disposed')
 		expect(trace).toStrictEqual(['setup', 'dispose'])
 	})

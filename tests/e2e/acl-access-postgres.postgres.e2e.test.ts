@@ -2,8 +2,6 @@ import { aclPostgresPlugin } from '@ultimabase/acl-postgres-plugin'
 import { ACL, acl, aclPlugin } from '@ultimabase/acl-permissions-plugin'
 import {
 	AccessSubjectReference,
-	accessPrincipalResolverServiceToken,
-	accessRoleResolverServiceToken,
 	definePlugin,
 	MasterAuthority,
 	RequestContext,
@@ -20,6 +18,10 @@ import {
 	createPostgresWorkerFixture,
 	type PostgresWorkerFixture,
 } from './postgres-worker-fixture.js'
+import {
+	provideTestPrincipalResolver,
+	provideTestRoleResolver,
+} from './access-capability-fixtures.js'
 
 const Principal = Schema.define({
 	className: 'ACLAccessPrincipal',
@@ -52,27 +54,27 @@ const identityPlugin = definePlugin({
 	version: '0.0.0',
 	core: '^0.0.0',
 	pluginId: 'fixture.acl-identity',
-	setup: ({ services }) => {
-		services.provide(accessPrincipalResolverServiceToken, {
-			resolveCurrent: ({ context }) => {
-				const principalId = context.getValue(currentPrincipalId)
+	capabilities: {
+		provides: [
+			provideTestPrincipalResolver({
+				resolveCurrent: ({ context }) => {
+					const principalId = context.getValue(currentPrincipalId)
 
-				return principalId === undefined
-					? undefined
-					: Principal.pointer(principalId)
-			},
-		})
-		services.provide(accessRoleResolverServiceToken, {
-			hasRole: ({ context, role }) =>
-				context.getValue(currentRoleIds)?.includes(role.value) ?? false,
-			resolveCurrentRoles: ({ context }) =>
-				(context.getValue(currentRoleIds) ?? []).map(
-					(role) => new AccessSubjectReference('role', role),
-				),
-			resolvePersistentRole: ({ role }) => role,
-		})
-
-		return undefined
+					return principalId === undefined
+						? undefined
+						: Principal.pointer(principalId)
+				},
+			}),
+			provideTestRoleResolver({
+				hasRole: ({ context, role }) =>
+					context.getValue(currentRoleIds)?.includes(role.value) ?? false,
+				resolveCurrentRoles: ({ context }) =>
+					(context.getValue(currentRoleIds) ?? []).map(
+						(role) => new AccessSubjectReference('role', role),
+					),
+				resolvePersistentRole: ({ role }) => role,
+			}),
+		],
 	},
 })
 const emptyACL = new ACL()

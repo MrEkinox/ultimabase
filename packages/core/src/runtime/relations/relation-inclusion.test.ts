@@ -4,20 +4,17 @@ import { isUnknownArray } from '@ultimabase/shared'
 import { describe, expect, it } from 'vitest'
 
 import { RecordingDatabaseAdapter } from '../../../tests/runtime/fixtures/recording-database-adapter.js'
+import { provideTestDatabaseAdapter } from '../../../tests/runtime/fixtures/database-adapter-capability.js'
 import { UltimaBase } from '../application/ultima-base.js'
-import {
-	databaseAdapterServiceToken,
-	type DatabaseAdapter,
-} from '../database/contracts.js'
+import { type DatabaseAdapter } from '../database/contracts.js'
 
 const createDatabasePlugin = (adapter: DatabaseAdapter) =>
 	definePlugin({
 		version: '0.0.0',
 		core: '^0.0.0',
 		pluginId: 'fixture.relation-inclusion-database',
-		slot: 'database-adapter',
-		setup: ({ services }) => {
-			services.provide(databaseAdapterServiceToken, adapter)
+		capabilities: {
+			provides: [provideTestDatabaseAdapter(adapter)],
 		},
 	})
 

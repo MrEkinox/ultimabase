@@ -46,7 +46,7 @@ backend code may request audited `{ useMasterKey: true }`. These server-only
 options never enter the Query or Operation AST. Schema, selection, input, and
 result inference remain exact.
 
-`ultimabase.application` exposes advanced Core service and plugin lookup.
+`ultimabase.application` exposes typed plugin setup exports.
 `ultimabase.engine` exposes explicit anonymous, plugin-derived, master, and
 transport request composition after startup. `stop()` closes existing queries and cannot
 be restarted; `dispose()` or `Symbol.asyncDispose` permanently releases every
@@ -56,7 +56,7 @@ owned resource.
 
 `createFrameworkEngine(application)` remains the lower-level bridge from Core
 plugin setup to Runtime execution. The ADR-0076 assembly resolves the application-scoped
-`databaseAdapterServiceToken`, installs structural validation, composes hooks
+`databaseAdapterCapability`, installs structural validation, composes hooks
 and events, and compiles monotonic enforcement only when a plugin contributed
 it:
 
@@ -88,7 +88,7 @@ during assembly, before any operation can execute.
 
 Plugins use `runtimePipelineStage()` only for the general `normalization` and
 `commit` positions. Policies instead register protected enforcement definitions
-in the shared hook registry:
+through the exact `runtime` facade:
 
 ```ts
 const tenantPlugin = (tenantId: string) =>
@@ -96,8 +96,14 @@ const tenantPlugin = (tenantId: string) =>
 		pluginId: 'example.tenant-access',
 		version: '1.0.0',
 		core: '^0.0.0',
-		setup: ({ registries }) => {
-			registries.hooks.register(
+		privileges: [
+			{
+				name: 'runtime:constrain',
+				reason: 'Applies tenant row and selection restrictions.',
+			},
+		],
+		setup: ({ runtime }) => {
+			runtime.register(
 				'example.tenant-constraint',
 				constraint({
 					schema: ArticleSchema,
@@ -105,7 +111,7 @@ const tenantPlugin = (tenantId: string) =>
 					handler: () => databaseConstraint('example.tenant', 1, { tenantId }),
 				}),
 			)
-			registries.hooks.register(
+			runtime.register(
 				'example.tenant-selection',
 				restrictSelection({
 					schema: ArticleSchema,
@@ -150,8 +156,8 @@ update and delete branches receive a persisted `SchemaResult`. Upsert follows
 the same distinction after its create or update mode is known.
 
 ```ts
-setup: ({ registries }) => {
-	registries.hooks.register(
+setup: ({ runtime }) => {
+	runtime.register(
 		'articles.guard-create',
 		guard({
 			schema: ArticleSchema,
@@ -166,14 +172,14 @@ setup: ({ registries }) => {
 			},
 		}),
 	)
-	registries.hooks.register(
+	runtime.register(
 		'articles.visible-fields',
 		restrictSelection({
 			schema: ArticleSchema,
 			handler: () => ['id', 'title', 'published'],
 		}),
 	)
-	registries.hooks.register(
+	runtime.register(
 		'articles.safe-output',
 		restrictOutput({
 			schema: ArticleSchema,
@@ -299,7 +305,7 @@ re-entry by exact declaration, owner, target, phase, and handler position.
 that reaches another phase, field, or schema remains supported and shares the
 current transaction engine.
 
-Plugins may provide one application-wide `hookDiagnosticsObserverServiceToken`.
+Plugins may provide one application-wide `hookDiagnosticsObserverCapability`.
 Events contain static owner and target identity, phase, operation kind,
 request/transaction identifiers, duration, status, and an optional stable
 framework error code. Delivery runs outside both hook-stack and active-engine
@@ -637,8 +643,14 @@ const searchPlugin = definePlugin({
 	pluginId: 'example.search',
 	version: '1.0.0',
 	core: '^0.0.0',
-	setup: ({ registries }) => {
-		registries.events.register(
+	privileges: [
+		{
+			name: 'runtime:observe',
+			reason: 'Updates the search index after commit.',
+		},
+	],
+	setup: ({ events }) => {
+		events.register(
 			'articles.created',
 			onEvent({
 				name: 'article.created',
@@ -662,11 +674,11 @@ committed observers. Every matching consumer still runs if a sibling fails;
 failures are reported after commit and never trigger rollback. A root read may
 emit only inside an explicit transaction regardless of delivery mode.
 
-### Legacy low-level definitions
+### Low-level Runtime definitions
 
-ADR-0070's opaque before/after factories remain the existing low-level plugin
+ADR-0070's opaque before/after factories remain the low-level plugin
 foundation while the native dispatcher is completed. Plugins register those
-definitions through the generic Core setup registries. A schema is optional for
+definitions through exact privilege-scoped facades. A schema is optional for
 global behavior, while `operations` narrows the terminal kinds handled by a
 contribution:
 
@@ -676,8 +688,18 @@ const articleAutomationPlugin = () =>
 		pluginId: 'example.article-automation',
 		version: '1.0.0',
 		core: '^0.0.0',
-		setup: ({ registries }) => {
-			registries.hooks.register(
+		privileges: [
+			{
+				name: 'runtime:intercept',
+				reason: 'Audits article mutations.',
+			},
+			{
+				name: 'runtime:observe',
+				reason: 'Updates the search index after commit.',
+			},
+		],
+		setup: ({ events, runtime }) => {
+			runtime.register(
 				'articles.audit-create',
 				beforeOperation({
 					schema: ArticleSchema,
@@ -686,7 +708,7 @@ const articleAutomationPlugin = () =>
 				}),
 			)
 
-			registries.events.register(
+			events.register(
 				'articles.search-index',
 				postCommitEvent({
 					schema: ArticleSchema,

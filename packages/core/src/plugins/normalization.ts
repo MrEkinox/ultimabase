@@ -7,15 +7,11 @@ import {
 
 import { assertPluginDefinition, type PluginDefinition } from './definition.js'
 import {
-	formatPluginIdentity,
 	isSamePluginIdentity,
 	type PluginDependency,
 	type PluginIdentity,
 } from './manifest.js'
-import {
-	createDuplicatePluginError,
-	createExclusiveSlotConflictError,
-} from './plugin-errors.js'
+import { createDuplicatePluginError } from './plugin-errors.js'
 
 declare const normalizedPluginBrand: unique symbol
 
@@ -61,18 +57,6 @@ const throwDuplicateDefinition = (identity: PluginIdentity): never => {
 	throw createDuplicatePluginError(identity, 'definition')
 }
 
-const throwExclusiveSlotConflict = (
-	slot: string,
-	firstPluginName: string,
-	secondPluginName: string,
-): never => {
-	throw createExclusiveSlotConflictError(
-		slot,
-		firstPluginName,
-		secondPluginName,
-	)
-}
-
 const snapshotNormalizedPlugin = (
 	plugin: MutableNormalizedPlugin,
 ): NormalizedPlugin => {
@@ -101,7 +85,6 @@ export const normalizePlugins = (
 
 	const normalizedPlugins: MutableNormalizedPlugin[] = []
 	const pluginsById = new Map<string, MutableNormalizedPlugin[]>()
-	const pluginsBySlot = new Map<string, PluginDefinition>()
 
 	const visitPlugin = (
 		untrustedPlugin: unknown,
@@ -136,20 +119,6 @@ export const normalizePlugins = (
 				))
 		) {
 			throwDuplicateDefinition(identity)
-		}
-
-		if (untrustedPlugin.slot !== undefined) {
-			const slotOwner = pluginsBySlot.get(untrustedPlugin.slot)
-
-			if (slotOwner !== undefined) {
-				throwExclusiveSlotConflict(
-					untrustedPlugin.slot,
-					formatPluginIdentity(slotOwner.manifest.identity),
-					formatPluginIdentity(identity),
-				)
-			}
-
-			pluginsBySlot.set(untrustedPlugin.slot, untrustedPlugin)
 		}
 
 		const normalizedPlugin: MutableNormalizedPlugin = {

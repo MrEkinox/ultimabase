@@ -6,7 +6,6 @@ import {
 	RequestContextValue,
 	Schema,
 	UltimaBase,
-	accessPrincipalResolverServiceToken,
 	definePlugin,
 	requestSources,
 } from '@ultimabase/core'
@@ -17,6 +16,7 @@ import {
 	createPostgresWorkerFixture,
 	type PostgresWorkerFixture,
 } from './postgres-worker-fixture.js'
+import { provideTestPrincipalResolver } from './access-capability-fixtures.js'
 
 const PrincipalA = Schema.define({
 	className: 'ACLCompositionPrincipalA',
@@ -51,18 +51,20 @@ const identityPlugin = definePlugin({
 	version: '0.0.0',
 	core: '^0.0.0',
 	pluginId: 'fixture.acl-composition.identity',
-	setup: ({ services }) => {
-		services.provide(accessPrincipalResolverServiceToken, {
-			resolveCurrent: ({ context }) => {
-				const id = context.getValue(principalId)
+	capabilities: {
+		provides: [
+			provideTestPrincipalResolver({
+				resolveCurrent: ({ context }) => {
+					const id = context.getValue(principalId)
 
-				if (id === undefined) return undefined
+					if (id === undefined) return undefined
 
-				return context.getValue(principalSchema) === 'b'
-					? PrincipalB.pointer(id)
-					: PrincipalA.pointer(id)
-			},
-		})
+					return context.getValue(principalSchema) === 'b'
+						? PrincipalB.pointer(id)
+						: PrincipalA.pointer(id)
+				},
+			}),
+		],
 	},
 })
 

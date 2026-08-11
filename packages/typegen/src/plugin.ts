@@ -1,6 +1,12 @@
 import path from 'node:path'
 
-import { definePlugin, type FrameworkPlugin } from '@ultimabase/core'
+import {
+	definePlugin,
+	provideCapability,
+	typegenEmitterCapability,
+	type CapabilityProviderDeclaration,
+	type FrameworkPlugin,
+} from '@ultimabase/core'
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 
 import { generateApplicationTypesFromSnapshot } from './generator.js'
@@ -10,6 +16,12 @@ import { writeGeneratedTypeFile } from './writer.js'
 const typegenPluginName = '@ultimabase/typegen' as const
 const defaultApplicationId = 'main'
 const defaultOutputPath = '.ultimabase/schema.generated.d.ts'
+const typegenEmitterProvider: CapabilityProviderDeclaration<
+	typeof typegenEmitterCapability
+> = provideCapability(typegenEmitterCapability, {
+	contributionId: 'emitter',
+	value: { kind: 'typegen-emitter' },
+})
 
 /** Configures automatic full type generation during application startup. */
 export interface TypegenPluginOptions {
@@ -25,6 +37,11 @@ export interface TypegenPluginExports {
 	readonly outputPath: string
 }
 
+interface NormalizedTypegenPluginOptions {
+	readonly applicationId: string
+	readonly outputPath: string
+}
+
 /** Represents automatic startup generation for one application registry. */
 export type TypegenPlugin = FrameworkPlugin<
 	typeof typegenPluginName,
@@ -33,13 +50,13 @@ export type TypegenPlugin = FrameworkPlugin<
 	undefined,
 	undefined,
 	undefined,
-	'schema-typegen'
+	undefined,
+	'0.0.0',
+	'^0.0.0',
+	undefined,
+	undefined,
+	Readonly<{ readonly provides: readonly [typeof typegenEmitterProvider] }>
 >
-
-interface NormalizedTypegenPluginOptions {
-	readonly applicationId: string
-	readonly outputPath: string
-}
 
 const normalizeOptions = (
 	options: TypegenPluginOptions | undefined,
@@ -78,7 +95,9 @@ const createTypegenPlugin = (
 		version: '0.0.0',
 		core: '^0.0.0',
 		pluginId: typegenPluginName,
-		slot: 'schema-typegen',
+		capabilities: {
+			provides: [typegenEmitterProvider],
+		},
 		setup: async ({ fieldBuilderMethods, schemas }) => {
 			const generated = generateApplicationTypesFromSnapshot(
 				createCompiledTypegenSnapshot(

@@ -84,7 +84,6 @@ export interface PluginDefinition {
 	readonly [pluginSetupExportsBrand]: unknown
 	readonly [pluginRuntimeDefinition]: PluginRuntimeDefinition
 	readonly manifest: PluginManifest
-	readonly slot?: string
 	readonly dependencies?: readonly PluginDependency[] | undefined
 	readonly optionalDependencies?: readonly PluginDependency[] | undefined
 	readonly conflicts?: readonly string[] | undefined
@@ -103,7 +102,6 @@ export interface FrameworkPlugin<
 		readonly string[] | undefined,
 	TPlugins extends readonly PluginDefinition[] | undefined =
 		readonly PluginDefinition[] | undefined,
-	TSlot extends string = string,
 	TInstanceId extends string | undefined = string | undefined,
 	TVersion extends string = string,
 	TCoreRange extends string = string,
@@ -128,7 +126,6 @@ export interface FrameworkPlugin<
 			: readonly [],
 		NormalizedPluginCapabilityDeclarations<TCapabilities>
 	>
-	readonly slot?: TSlot
 	readonly dependencies?: TDependencies
 	readonly optionalDependencies?: TOptionalDependencies
 	readonly conflicts?: TConflicts
@@ -147,7 +144,6 @@ export interface DefinePluginOptions<
 	TOptionalDependencies extends readonly PluginDependency[] | undefined,
 	TConflicts extends readonly string[] | undefined,
 	TPlugins extends readonly PluginDefinition[] | undefined,
-	TSlot extends string,
 	TInstanceId extends string | undefined,
 	TVersion extends string,
 	TCoreRange extends string,
@@ -169,7 +165,6 @@ export interface DefinePluginOptions<
 	readonly environment?: TEnvironment
 	/** Declares inert typed providers and explicit required or optional capability uses. */
 	readonly capabilities?: TCapabilities
-	readonly slot?: TSlot
 	readonly dependencies?: TDependencies
 	readonly optionalDependencies?: TOptionalDependencies
 	readonly conflicts?: TConflicts
@@ -190,6 +185,22 @@ const lifecycleHookNames = [
 ] as const
 
 const declaredPlugins = new WeakSet<object>()
+const definePluginOptionKeys = new Set([
+	'capabilities',
+	'conflicts',
+	'core',
+	'declareFields',
+	'dependencies',
+	'environment',
+	'hooks',
+	'instanceId',
+	'optionalDependencies',
+	'pluginId',
+	'plugins',
+	'privileges',
+	'setup',
+	'version',
+])
 
 const isLifecycleHookName = (value: string): boolean =>
 	lifecycleHookNames.some((hookName) => hookName === value)
@@ -365,7 +376,6 @@ export const definePlugin = <
 		undefined,
 	const TConflicts extends readonly string[] | undefined = undefined,
 	const TPlugins extends readonly PluginDefinition[] | undefined = undefined,
-	const TSlot extends string = never,
 	const TInstanceId extends string | undefined = undefined,
 	const TVersion extends string = string,
 	const TCoreRange extends string = string,
@@ -383,7 +393,6 @@ export const definePlugin = <
 		TOptionalDependencies,
 		TConflicts,
 		TPlugins,
-		TSlot,
 		TInstanceId,
 		TVersion,
 		TCoreRange,
@@ -398,7 +407,6 @@ export const definePlugin = <
 	TOptionalDependencies,
 	TConflicts,
 	TPlugins,
-	TSlot,
 	TInstanceId,
 	TVersion,
 	TCoreRange,
@@ -410,6 +418,12 @@ export const definePlugin = <
 
 	if (!isPlainRecord(untrustedOptions)) {
 		throw new TypeError('plugin options must be a plain object')
+	}
+
+	for (const key of Object.keys(untrustedOptions)) {
+		if (!definePluginOptionKeys.has(key)) {
+			throw new TypeError(`plugin options contain unknown option: ${key}`)
+		}
 	}
 
 	const manifest = normalizePluginManifest({
@@ -429,10 +443,6 @@ export const definePlugin = <
 			? {}
 			: { capabilities: options.capabilities }),
 	})
-
-	if (options.slot !== undefined) {
-		assertNonEmptyString(options.slot, 'slot')
-	}
 
 	if (options.setup !== undefined && typeof options.setup !== 'function') {
 		throw new TypeError('setup must be a function')
@@ -470,7 +480,6 @@ export const definePlugin = <
 	const plugin = immutableRecord({
 		[pluginRuntimeDefinition]: runtimeDefinition,
 		manifest,
-		...(options.slot === undefined ? {} : { slot: options.slot }),
 		...(options.dependencies === undefined
 			? {}
 			: {
@@ -507,7 +516,6 @@ export const definePlugin = <
 		TOptionalDependencies,
 		TConflicts,
 		TPlugins,
-		TSlot,
 		TInstanceId,
 		TVersion,
 		TCoreRange,

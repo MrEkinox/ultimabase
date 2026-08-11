@@ -5,6 +5,7 @@ import type {
 	FrameworkApplication,
 } from '../../application/framework-application.js'
 import type { PluginDefinition } from '../../plugins/definition.js'
+import { readApplicationAccessContributions } from '../../plugins/setup-registries.js'
 import {
 	getResolvedPluginAccessContribution,
 	type PluginAccessMasterBehavior,
@@ -66,6 +67,7 @@ export interface PluginAccessSource {
 	readonly localName: string
 	readonly master: PluginAccessMasterBehavior
 	readonly ownerPlugin: string
+	readonly ownerInstanceId?: string
 	readonly targetKind: PluginAccessTargetKind
 }
 
@@ -359,6 +361,9 @@ const createPluginSource = (
 		localName: resolved.localName,
 		master: resolved.master,
 		ownerPlugin: resolved.ownerPlugin,
+		...(resolved.ownerInstanceId === undefined
+			? {}
+			: { ownerInstanceId: resolved.ownerInstanceId }),
 		targetKind: resolved.targetKind,
 	})
 
@@ -369,7 +374,7 @@ const appendPluginContributions = (
 	>,
 	plansBySchema: WeakMap<object, MutableSchemaAccessPlan>,
 ): void => {
-	for (const contribution of application.getContributions('access')) {
+	for (const contribution of readApplicationAccessContributions(application)) {
 		const resolved = getResolvedPluginAccessContribution(contribution.value)
 
 		if (resolved === undefined) {

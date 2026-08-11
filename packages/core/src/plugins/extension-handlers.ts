@@ -1,38 +1,15 @@
-import {
-	type ExtensionDefinition,
-	type ExtensionScope,
-	type FieldExtension,
-	type SchemaDefinition,
+import type {
+	ExtensionDefinition,
+	ExtensionScope,
+	FieldExtension,
+	SchemaDefinition,
 } from '../schema/index.js'
-import { assertNonEmptyString, isUnknownArray } from '@ultimabase/shared'
+import { isUnknownArray } from '@ultimabase/shared'
 
 import { FrameworkError } from '../errors/framework-error.js'
 import type { GenericField } from '../schema/fields/base/contract.js'
 import { collectFieldTraversalEntries } from '../schema/fields/traversal.js'
-import type {
-	ContributionRegistry,
-	PluginContribution,
-} from './setup-registries.js'
-
-/** Names one schema or field extension handler without merging their scopes. */
-export type ExtensionHandlerKey = `${ExtensionScope}:${string}`
-
-/** Creates the shared identity used for handler registration and validation. */
-export const extensionHandlerKey = <
-	const TScope extends ExtensionScope,
-	const TExtensionName extends string,
->(
-	scope: TScope,
-	extensionName: TExtensionName,
-): `${TScope}:${TExtensionName}` => {
-	if (scope !== 'schema' && scope !== 'field') {
-		throw new TypeError(`Unknown extension scope: ${String(scope)}`)
-	}
-
-	assertNonEmptyString(extensionName, 'extensionName')
-
-	return `${scope}:${extensionName}`
-}
+import type { PluginGraph } from './graph.js'
 
 interface FieldWithExtensions {
 	readonly extensions: readonly FieldExtension<string, object>[]
@@ -41,17 +18,10 @@ interface FieldWithExtensions {
 const hasFieldExtensions = (options: object): options is FieldWithExtensions =>
 	'extensions' in options && isUnknownArray(options.extensions)
 
-const getHandler = (
-	handlers: ContributionRegistry,
-	extension: ExtensionDefinition<ExtensionScope, string, object>,
-): PluginContribution | undefined =>
-	handlers.get(extensionHandlerKey(extension.scope, extension.name))
-
 const throwMissingHandler = (
 	schemaClassName: string,
 	extension: ExtensionDefinition<ExtensionScope, string, object>,
 	fieldPath: string | undefined,
-	actualPluginName: string | undefined,
 ): never => {
 	const location =
 		fieldPath === undefined
@@ -69,32 +39,24 @@ const throwMissingHandler = (
 				...(fieldPath === undefined ? {} : { fieldPath }),
 				extensionName: extension.name,
 				expectedPluginName: extension.pluginName,
-				...(actualPluginName === undefined ? {} : { actualPluginName }),
 			},
 		},
 	)
 }
 
 const validateExtension = (
-	handlers: ContributionRegistry,
+	installedPluginIds: ReadonlySet<string>,
 	schemaClassName: string,
 	extension: ExtensionDefinition<ExtensionScope, string, object>,
 	fieldPath?: string,
 ): void => {
-	const handler = getHandler(handlers, extension)
-
-	if (handler?.ownerPlugin !== extension.pluginName) {
-		throwMissingHandler(
-			schemaClassName,
-			extension,
-			fieldPath,
-			handler?.ownerPlugin,
-		)
+	if (!installedPluginIds.has(extension.pluginName)) {
+		throwMissingHandler(schemaClassName, extension, fieldPath)
 	}
 }
 
 const validateField = (
-	handlers: ContributionRegistry,
+	installedPluginIds: ReadonlySet<string>,
 	schemaClassName: string,
 	fieldPath: readonly string[],
 	field: GenericField,
@@ -104,7 +66,7 @@ const validateField = (
 	if (hasFieldExtensions(field.options)) {
 		for (const extension of field.options.extensions) {
 			validateExtension(
-				handlers,
+				installedPluginIds,
 				schemaClassName,
 				extension,
 				serializedFieldPath,
@@ -113,18 +75,23 @@ const validateField = (
 	}
 }
 
-/** Ensures every declared extension is claimed by its expected setup owner. */
-export const validateExtensionHandlers = (
+/** Ensures every declared extension belongs to one installed plugin identity. */
+export const validateExtensionOwners = (
 	schemas: readonly SchemaDefinition[],
-	handlers: ContributionRegistry,
+	graph: PluginGraph,
 ): void => {
+	const installedPluginIds = new Set(
+		graph.plugins.map(
+			({ definition }) => definition.manifest.identity.pluginId,
+		),
+	)
 	for (const schema of schemas) {
 		for (const extension of schema.extensions) {
-			validateExtension(handlers, schema.className, extension)
+			validateExtension(installedPluginIds, schema.className, extension)
 		}
 
 		for (const { field, path } of collectFieldTraversalEntries(schema.fields)) {
-			validateField(handlers, schema.className, path, field)
+			validateField(installedPluginIds, schema.className, path, field)
 		}
 	}
 }

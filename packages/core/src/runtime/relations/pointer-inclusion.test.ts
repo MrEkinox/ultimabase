@@ -6,9 +6,9 @@ import {
 	RecordingDatabaseAdapter,
 	type QueuedAdapterResult,
 } from '../../../tests/runtime/fixtures/recording-database-adapter.js'
+import { provideTestDatabaseAdapter } from '../../../tests/runtime/fixtures/database-adapter-capability.js'
 import { UltimaBase } from '../application/ultima-base.js'
 import {
-	databaseAdapterServiceToken,
 	type DatabaseAdapter,
 	type DatabaseRowFilterNode,
 } from '../database/contracts.js'
@@ -19,9 +19,8 @@ const createDatabasePlugin = (adapter: DatabaseAdapter) =>
 		version: '0.0.0',
 		core: '^0.0.0',
 		pluginId: 'fixture.pointer-runtime-database',
-		slot: 'database-adapter',
-		setup: ({ services }) => {
-			services.provide(databaseAdapterServiceToken, adapter)
+		capabilities: {
+			provides: [provideTestDatabaseAdapter(adapter)],
 		},
 	})
 

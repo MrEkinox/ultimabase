@@ -179,44 +179,31 @@ describe('normalizePlugins', () => {
 		).toThrow(FrameworkError)
 	})
 
-	it('rejects distinct plugins occupying the same exclusive slot', () => {
+	it('does not infer exclusivity from unrelated plugin identities', () => {
 		const postgres = definePlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
 			pluginId: 'fixture.postgres',
-			slot: 'database-adapter',
 		})
 		const sql = definePlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
 			pluginId: 'fixture.sql',
-			slot: 'database-adapter',
 		})
 
-		const error = expectFrameworkError(
-			captureFrameworkError(() => normalizePlugins([postgres, sql])),
-		)
-
-		expect(error.code).toBe('PLUGIN_CONFLICT')
-		expect(error.internalDetails).toStrictEqual({
-			kind: 'exclusive-slot',
-			slot: 'database-adapter',
-			pluginNames: ['fixture.postgres', 'fixture.sql'],
-		})
+		expect(normalizePlugins([postgres, sql])).toHaveLength(2)
 	})
 
-	it('accepts distinct exclusive slots', () => {
+	it('accepts independent plugin identities', () => {
 		const database = definePlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
 			pluginId: 'fixture.database',
-			slot: 'database-adapter',
 		})
 		const transport = definePlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
 			pluginId: 'fixture.transport',
-			slot: 'http-server',
 		})
 
 		expect(normalizePlugins([database, transport])).toHaveLength(2)

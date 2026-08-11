@@ -79,11 +79,13 @@ export const applicationHookOwner: HookDiagnosticOwner = immutableRecord({
 export const createPluginHookOwner = (
 	pluginName: string,
 	contributionName: string,
+	pluginInstanceId?: string,
 ): HookDiagnosticOwner =>
 	immutableRecord({
 		contributionName,
 		kind: 'plugin' as const,
 		pluginName,
+		...(pluginInstanceId === undefined ? {} : { pluginInstanceId }),
 	})
 
 /** Detaches one field path before it can enter diagnostics or recursion keys. */

@@ -208,9 +208,19 @@ const scopePolicyPlugin = definePlugin({
 	version: '0.0.0',
 	core: '^0.0.0',
 	pluginId: 'fixture.native-hooks-scope-policy',
-	setup: ({ constraintCompilers, registries }) => {
+	privileges: [
+		{
+			name: 'adapter:consume',
+			reason: 'Compiles the fixture PostgreSQL scope constraint.',
+		},
+		{
+			name: 'runtime:constrain',
+			reason: 'Applies the fixture scope guard and narrowing restrictions.',
+		},
+	],
+	setup: ({ constraintCompilers, runtime }) => {
 		constraintCompilers.register(scopeConstraintCompiler)
-		registries.hooks.register(
+		runtime.register(
 			'fixture.native-hooks-guard',
 			guard({
 				schema: HookArticleSchema,
@@ -220,7 +230,7 @@ const scopePolicyPlugin = definePlugin({
 				},
 			}),
 		)
-		registries.hooks.register(
+		runtime.register(
 			'fixture.native-hooks-constraint',
 			constraint({
 				handler: ({ context, operation }) => {
@@ -244,7 +254,7 @@ const scopePolicyPlugin = definePlugin({
 				schema: HookArticleSchema,
 			}),
 		)
-		registries.hooks.register(
+		runtime.register(
 			'fixture.native-hooks-selection',
 			restrictSelection({
 				// Selection hides the scope identity before output hooks observe a record.
@@ -253,7 +263,7 @@ const scopePolicyPlugin = definePlugin({
 				schema: HookArticleSchema,
 			}),
 		)
-		registries.hooks.register(
+		runtime.register(
 			'fixture.native-hooks-output',
 			restrictOutput({
 				handler: ({ operation }) => {
@@ -275,7 +285,17 @@ const behaviorPlugin = definePlugin({
 	dependencies: [
 		{ pluginId: 'fixture.native-hooks-scope-policy', version: '^0.0.0' },
 	],
-	setup: ({ hooks, registries }) => {
+	privileges: [
+		{
+			name: 'runtime:intercept',
+			reason: 'Registers the fixture schema lifecycle hooks.',
+		},
+		{
+			name: 'runtime:observe',
+			reason: 'Observes committed native-hook events for the E2E fixture.',
+		},
+	],
+	setup: ({ events, hooks }) => {
 		hooks.schema('article-lifecycle', HookArticleSchema, {
 			afterOperation: {
 				create: () => {
@@ -289,7 +309,7 @@ const behaviorPlugin = definePlugin({
 				},
 			},
 		})
-		registries.events.register(
+		events.register(
 			'fixture.native-hooks-created-event',
 			onEvent({
 				name: 'native-hooks.article-created',

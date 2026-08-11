@@ -51,8 +51,18 @@ const createOrderedPlugins = (trace: string[]) => {
 		version: '0.0.0',
 		core: '^0.0.0',
 		pluginId: 'fixture.hooks.dependency',
-		setup: ({ registries }) => {
-			registries.hooks.register(
+		privileges: [
+			{
+				name: 'runtime:intercept',
+				reason: 'Registers low-level Runtime hooks for tests.',
+			},
+			{
+				name: 'runtime:observe',
+				reason: 'Registers post-commit observers for tests.',
+			},
+		],
+		setup: ({ events, runtime }) => {
+			runtime.register(
 				'fixture.dependency.global-before',
 				beforeOperation({
 					operations: ['create-one'],
@@ -62,7 +72,7 @@ const createOrderedPlugins = (trace: string[]) => {
 					},
 				}),
 			)
-			registries.hooks.register(
+			runtime.register(
 				'fixture.dependency.schema-before',
 				beforeOperation({
 					schema: articleSchema,
@@ -72,7 +82,7 @@ const createOrderedPlugins = (trace: string[]) => {
 					},
 				}),
 			)
-			registries.hooks.register(
+			runtime.register(
 				'fixture.dependency.schema-after',
 				afterOperation({
 					schema: articleSchema,
@@ -89,7 +99,7 @@ const createOrderedPlugins = (trace: string[]) => {
 					},
 				}),
 			)
-			registries.hooks.register(
+			runtime.register(
 				'fixture.dependency.global-after',
 				afterOperation({
 					operations: ['create-one'],
@@ -101,7 +111,7 @@ const createOrderedPlugins = (trace: string[]) => {
 					},
 				}),
 			)
-			registries.events.register(
+			events.register(
 				'fixture.dependency.event',
 				postCommitEvent({
 					schema: articleSchema,
@@ -112,7 +122,7 @@ const createOrderedPlugins = (trace: string[]) => {
 				}),
 			)
 			// These valid contributions prove schema and operation filters skip non-matches.
-			registries.hooks.register(
+			runtime.register(
 				'fixture.dependency.foreign-before',
 				beforeOperation({
 					schema: foreignSchema,
@@ -122,7 +132,7 @@ const createOrderedPlugins = (trace: string[]) => {
 					},
 				}),
 			)
-			registries.hooks.register(
+			runtime.register(
 				'fixture.dependency.foreign-after',
 				afterOperation({
 					schema: foreignSchema,
@@ -140,9 +150,19 @@ const createOrderedPlugins = (trace: string[]) => {
 		version: '0.0.0',
 		core: '^0.0.0',
 		pluginId: 'fixture.hooks.consumer',
+		privileges: [
+			{
+				name: 'runtime:intercept',
+				reason: 'Registers low-level Runtime hooks for tests.',
+			},
+			{
+				name: 'runtime:observe',
+				reason: 'Registers post-commit observers for tests.',
+			},
+		],
 		dependencies: [{ pluginId: 'fixture.hooks.dependency', version: '^0.0.0' }],
-		setup: ({ registries }) => {
-			registries.hooks.register(
+		setup: ({ events, runtime }) => {
+			runtime.register(
 				'fixture.consumer.global-before',
 				beforeOperation({
 					operations: ['create-one'],
@@ -151,7 +171,7 @@ const createOrderedPlugins = (trace: string[]) => {
 					},
 				}),
 			)
-			registries.hooks.register(
+			runtime.register(
 				'fixture.consumer.schema-before',
 				beforeOperation({
 					schema: articleSchema,
@@ -163,7 +183,7 @@ const createOrderedPlugins = (trace: string[]) => {
 					},
 				}),
 			)
-			registries.hooks.register(
+			runtime.register(
 				'fixture.consumer.schema-after',
 				afterOperation({
 					schema: articleSchema,
@@ -175,7 +195,7 @@ const createOrderedPlugins = (trace: string[]) => {
 					},
 				}),
 			)
-			registries.hooks.register(
+			runtime.register(
 				'fixture.consumer.global-after',
 				afterOperation({
 					operations: ['create-one'],
@@ -186,7 +206,7 @@ const createOrderedPlugins = (trace: string[]) => {
 					},
 				}),
 			)
-			registries.events.register(
+			events.register(
 				'fixture.consumer.event',
 				postCommitEvent({
 					schema: articleSchema,
@@ -196,7 +216,7 @@ const createOrderedPlugins = (trace: string[]) => {
 					},
 				}),
 			)
-			registries.events.register(
+			events.register(
 				'fixture.consumer.update-event',
 				postCommitEvent({
 					operations: ['update-one'],
@@ -328,8 +348,18 @@ describe('Runtime hooks and post-commit events', () => {
 			version: '0.0.0',
 			core: '^0.0.0',
 			pluginId: 'fixture.hooks.abort',
-			setup: ({ registries }) => {
-				registries.hooks.register(
+			privileges: [
+				{
+					name: 'runtime:intercept',
+					reason: 'Registers a low-level Runtime hook for tests.',
+				},
+				{
+					name: 'runtime:observe',
+					reason: 'Registers a post-commit observer for tests.',
+				},
+			],
+			setup: ({ events, runtime }) => {
+				runtime.register(
 					'fixture.abort.after',
 					afterOperation({
 						schema: articleSchema,
@@ -340,7 +370,7 @@ describe('Runtime hooks and post-commit events', () => {
 						},
 					}),
 				)
-				registries.events.register(
+				events.register(
 					'fixture.abort.event',
 					postCommitEvent({
 						handler: () => {

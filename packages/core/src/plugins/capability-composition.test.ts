@@ -295,8 +295,9 @@ describe('capability composition', () => {
 				provides: [
 					provideCapability(token, {
 						contributionId: 'primary',
-						create: () => {
-							events.push('create')
+						create: ({ schemas }) => {
+							events.push(`create:${String(schemas.size)}`)
+							void schemas.schemaTargets
 							return {
 								value: { endpoint: 'local' },
 								dispose: () => {
@@ -340,7 +341,7 @@ describe('capability composition', () => {
 		await application.dispose()
 
 		expect(events).toStrictEqual([
-			'create',
+			'create:0',
 			'provider-setup',
 			'consumer-setup:local',
 			'consumer-dispose',
@@ -632,6 +633,194 @@ describe('capability composition', () => {
 
 		await expect(cyclicApplication.initialize()).rejects.toMatchObject({
 			code: 'PLUGIN_CAPABILITY_CONFLICT',
+		})
+	})
+
+	it('supports mutual setup-phase capability consumption without lifecycle cycles', async () => {
+		const firstToken = defineCapability<string>()({
+			capabilityId: 'fixture.peer-first',
+			version: '1.0.0',
+			cardinality: 'single',
+			lifetime: 'application',
+			compose: ([value]) => value,
+		})
+		const secondToken = defineCapability<string>()({
+			capabilityId: 'fixture.peer-second',
+			version: '1.0.0',
+			cardinality: 'single',
+			lifetime: 'application',
+			compose: ([value]) => value,
+		})
+		const firstReadsSecond = requireCapability(secondToken, '^1.0.0', {
+			phase: 'setup',
+		})
+		const secondReadsFirst = requireCapability(firstToken, '^1.0.0', {
+			phase: 'setup',
+		})
+		const observed: string[] = []
+		const first = definePlugin({
+			pluginId: 'fixture.peer-first-plugin',
+			version: '1.0.0',
+			core: '^0.0.0',
+			capabilities: {
+				provides: [
+					provideCapability(firstToken, {
+						contributionId: 'first',
+						create: () => ({ value: 'first' }),
+					}),
+				],
+				requires: [firstReadsSecond],
+			},
+			setup: ({ capabilities }) => {
+				observed.push(`first:${capabilities.get(firstReadsSecond)}`)
+			},
+		})
+		const second = definePlugin({
+			pluginId: 'fixture.peer-second-plugin',
+			version: '1.0.0',
+			core: '^0.0.0',
+			capabilities: {
+				provides: [
+					provideCapability(secondToken, {
+						contributionId: 'second',
+						create: () => ({ value: 'second' }),
+					}),
+				],
+				requires: [secondReadsFirst],
+			},
+			setup: ({ capabilities }) => {
+				observed.push(`second:${capabilities.get(secondReadsFirst)}`)
+			},
+		})
+		const graph = new PluginGraph(normalizePlugins([first, second]))
+		const application = new FrameworkApplication({
+			schemas: [],
+			plugins: [first, second],
+			pluginPrivileges: { logger: false },
+		})
+
+		await application.initialize()
+
+		expect(observed).toStrictEqual(['first:second', 'second:first'])
+		expect(
+			graph.capabilities.entries.flatMap((entry) =>
+				entry.requirements.map(({ requirement }) => requirement.phase),
+			),
+		).toStrictEqual(['setup', 'setup'])
+		await application.dispose()
+	})
+
+	it('keeps mutual materialization requirements as lifecycle cycles', () => {
+		const firstToken = defineCapability<string>()({
+			capabilityId: 'fixture.materialization-cycle-first',
+			version: '1.0.0',
+			cardinality: 'single',
+			lifetime: 'application',
+			compose: ([value]) => value,
+		})
+		const secondToken = defineCapability<string>()({
+			capabilityId: 'fixture.materialization-cycle-second',
+			version: '1.0.0',
+			cardinality: 'single',
+			lifetime: 'application',
+			compose: ([value]) => value,
+		})
+		const first = definePlugin({
+			pluginId: 'fixture.materialization-cycle-first-plugin',
+			version: '1.0.0',
+			core: '^0.0.0',
+			capabilities: {
+				provides: [
+					provideCapability(firstToken, {
+						contributionId: 'first',
+						create: () => ({ value: 'first' }),
+					}),
+				],
+				requires: [requireCapability(secondToken, '^1.0.0')],
+			},
+		})
+		const second = definePlugin({
+			pluginId: 'fixture.materialization-cycle-second-plugin',
+			version: '1.0.0',
+			core: '^0.0.0',
+			capabilities: {
+				provides: [
+					provideCapability(secondToken, {
+						contributionId: 'second',
+						create: () => ({ value: 'second' }),
+					}),
+				],
+				requires: [requireCapability(firstToken, '^1.0.0')],
+			},
+		})
+
+		expect(
+			captureFrameworkError(
+				() => new PluginGraph(normalizePlugins([first, second])),
+			).code,
+		).toBe('PLUGIN_DEPENDENCY_CYCLE')
+	})
+
+	it('rejects setup-phase reads from application capability factories', async () => {
+		const dependencyToken = defineCapability<string>()({
+			capabilityId: 'fixture.setup-only-dependency',
+			version: '1.0.0',
+			cardinality: 'single',
+			lifetime: 'application',
+			compose: ([value]) => value,
+		})
+		const consumerToken = defineCapability<string>()({
+			capabilityId: 'fixture.setup-only-consumer',
+			version: '1.0.0',
+			cardinality: 'single',
+			lifetime: 'application',
+			compose: ([value]) => value,
+		})
+		const setupRequirement = requireCapability(dependencyToken, '^1.0.0', {
+			phase: 'setup',
+		})
+		const dependency = definePlugin({
+			pluginId: 'fixture.setup-only-provider',
+			version: '1.0.0',
+			core: '^0.0.0',
+			capabilities: {
+				provides: [
+					provideCapability(dependencyToken, {
+						contributionId: 'dependency',
+						create: () => ({ value: 'dependency' }),
+					}),
+				],
+			},
+		})
+		const consumer = definePlugin({
+			pluginId: 'fixture.setup-only-factory',
+			version: '1.0.0',
+			core: '^0.0.0',
+			capabilities: {
+				provides: [
+					provideCapability(consumerToken, {
+						contributionId: 'consumer',
+						create: ({ capabilities }) => ({
+							value: capabilities.get(setupRequirement),
+						}),
+					}),
+				],
+				requires: [setupRequirement],
+			},
+		})
+		const application = new FrameworkApplication({
+			schemas: [],
+			plugins: [dependency, consumer],
+			pluginPrivileges: { logger: false },
+		})
+
+		await expect(application.initialize()).rejects.toMatchObject({
+			code: 'PLUGIN_CAPABILITY_MISSING',
+			internalDetails: {
+				kind: 'setup-capability-factory-read',
+				plugin: 'fixture.setup-only-factory',
+				capabilityId: 'fixture.setup-only-dependency',
+			},
 		})
 	})
 

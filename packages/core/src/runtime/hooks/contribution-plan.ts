@@ -2,6 +2,7 @@ import {
 	FrameworkApplication,
 	type PluginDefinition,
 } from '../../foundation.js'
+import { readApplicationHookContributions } from '../../plugins/setup-registries.js'
 import {
 	getResolvedPluginHookContribution,
 	type PluginHookTargetKind,
@@ -29,6 +30,7 @@ export interface PluginHookContribution<TDeclarations extends object> {
 	readonly kind: 'plugin'
 	readonly localName: string
 	readonly ownerPlugin: string
+	readonly ownerInstanceId?: string
 	readonly targetKind: PluginHookTargetKind
 }
 
@@ -102,6 +104,7 @@ const encodeFieldPath = (path: readonly string[]): string =>
 
 const createPluginContribution = <TDeclarations extends object>(
 	ownerPlugin: string,
+	ownerInstanceId: string | undefined,
 	localName: string,
 	targetKind: PluginHookTargetKind,
 	declarations: TDeclarations,
@@ -111,6 +114,7 @@ const createPluginContribution = <TDeclarations extends object>(
 		kind: 'plugin',
 		localName,
 		ownerPlugin,
+		...(ownerInstanceId === undefined ? {} : { ownerInstanceId }),
 		targetKind,
 	})
 
@@ -175,7 +179,7 @@ const appendPluginContributions = (
 	>,
 	plansBySchema: WeakMap<object, MutableSchemaPlan>,
 ): void => {
-	for (const contribution of application.getContributions('hooks')) {
+	for (const contribution of readApplicationHookContributions(application)) {
 		const resolved = getResolvedPluginHookContribution(contribution.value)
 
 		// ADR-0070 low-level contributions keep their existing Runtime path.
@@ -195,6 +199,7 @@ const appendPluginContributions = (
 			schemaPlan.plugins.push(
 				createPluginContribution(
 					resolved.ownerPlugin,
+					resolved.ownerInstanceId,
 					resolved.localName,
 					resolved.targetKind,
 					match.declarations,
@@ -217,6 +222,7 @@ const appendPluginContributions = (
 			fieldPlan.plugins.push(
 				createPluginContribution(
 					resolved.ownerPlugin,
+					resolved.ownerInstanceId,
 					resolved.localName,
 					resolved.targetKind,
 					match.declarations,

@@ -1,10 +1,9 @@
 import {
 	AccessSubjectReference,
-	accessRoleResolverServiceToken,
-	getCurrentApplication,
 	getCurrentEngine,
 	getCurrentRequest,
 	Pointer,
+	requireCurrentAccessRoleResolver,
 	type AccessContext,
 	type AccessDecisionInput,
 	type AccessRoleReference,
@@ -59,9 +58,7 @@ export const hasRole = (role: AccessRoleReference): RoleAccessDecision => {
 	}
 
 	return async ({ context }): Promise<boolean> =>
-		getCurrentApplication()
-			.getService(accessRoleResolverServiceToken)
-			.hasRole({ context, role })
+		requireCurrentAccessRoleResolver().hasRole({ context, role })
 }
 
 /** Supplies storage work behind an injectable boundary for deterministic tests. */

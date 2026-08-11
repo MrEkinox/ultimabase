@@ -53,15 +53,21 @@ const policyPlugin = definePlugin({
 	version: '0.0.0',
 	core: '^0.0.0',
 	pluginId: 'fixture.relation-enforcement',
-	setup: ({ registries }) => {
-		registries.hooks.register(
+	privileges: [
+		{
+			name: 'runtime:constrain',
+			reason: 'Registers relation enforcement contributions for Runtime tests.',
+		},
+	],
+	setup: ({ runtime }) => {
+		runtime.register(
 			'target-constraint',
 			constraint({
 				handler: () => databaseConstraint('fixture.target-visibility', 1, {}),
 				schema: targetSchema,
 			}),
 		)
-		registries.hooks.register(
+		runtime.register(
 			'leaf-constraint',
 			constraint({
 				handler: () => databaseConstraint('fixture.leaf-visibility', 1, {}),

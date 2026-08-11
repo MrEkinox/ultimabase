@@ -98,6 +98,12 @@ describe('compiled Access plans', () => {
 			version: '0.0.0',
 			core: '^0.0.0',
 			pluginId: 'fixture.access-first',
+			privileges: [
+				{
+					name: 'runtime:constrain',
+					reason: 'Registers Access contributions for plan tests.',
+				},
+			],
 			setup: ({ access }) => {
 				access.schema(
 					'first',
@@ -111,6 +117,12 @@ describe('compiled Access plans', () => {
 			version: '0.0.0',
 			core: '^0.0.0',
 			pluginId: 'fixture.access-second',
+			privileges: [
+				{
+					name: 'runtime:constrain',
+					reason: 'Registers Access contributions for plan tests.',
+				},
+			],
 			dependencies: [{ pluginId: 'fixture.access-first', version: '^0.0.0' }],
 			setup: ({ access }) => {
 				access.schema(
@@ -162,6 +174,12 @@ describe('compiled Access plans', () => {
 			version: '0.0.0',
 			core: '^0.0.0',
 			pluginId: 'fixture.access-field',
+			privileges: [
+				{
+					name: 'runtime:constrain',
+					reason: 'Registers Access contributions for plan tests.',
+				},
+			],
 			setup: ({ access }) => {
 				access.field(
 					'secret-field',

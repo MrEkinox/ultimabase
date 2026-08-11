@@ -5,15 +5,18 @@ import {
 	Pointer,
 	QueryBuilder,
 	Schema,
-	accessPrincipalResolverServiceToken,
-	accessRoleResolverServiceToken,
+	accessPrincipalResolverCapability,
+	accessRoleResolverCapability,
 	createApplication,
-	databaseAdapterServiceToken,
+	databaseAdapterCapability,
 	definePlugin,
 	defineSchemaExtension,
+	provideCapability,
 	stringField,
 	UltimaBase,
 	type DatabaseAdapter,
+	type AccessPrincipalResolver,
+	type AccessRoleResolver,
 	type DatabaseMutationOperationAst,
 	type DatabaseOperationAst,
 	type DatabaseOperationRequest,
@@ -32,6 +35,24 @@ import {
 	resolveCreateOperationACL,
 	resolvePreparedOperationACL,
 } from './plugin.js'
+
+const databaseAdapterProvider = (adapter: DatabaseAdapter) =>
+	provideCapability(databaseAdapterCapability, {
+		contributionId: 'database-adapter',
+		create: () => ({ value: adapter }),
+	})
+
+const principalResolverProvider = (resolver: AccessPrincipalResolver) =>
+	provideCapability(accessPrincipalResolverCapability, {
+		contributionId: 'principal-resolver',
+		create: () => ({ value: resolver }),
+	})
+
+const roleResolverProvider = (resolver: AccessRoleResolver) =>
+	provideCapability(accessRoleResolverCapability, {
+		contributionId: 'role-resolver',
+		create: () => ({ value: resolver }),
+	})
 
 const context = Object.freeze({
 	access: { mode: 'anonymous' },
@@ -180,21 +201,22 @@ const createRoleProviderFixture = (
 		version: '0.0.0',
 		core: '^0.0.0',
 		pluginId: `fixture.acl-role-provider.${suffix}`,
-		setup: ({ services }) => {
-			services.provide(accessRoleResolverServiceToken, {
-				hasRole: ({ role: candidate }) => candidate.value === role.value,
-				resolveCurrentRoles: () => [role],
-				resolvePersistentRole: ({ role: candidate }) => candidate,
-			})
+		capabilities: {
+			provides: [
+				roleResolverProvider({
+					hasRole: ({ role: candidate }) => candidate.value === role.value,
+					resolveCurrentRoles: () => [role],
+					resolvePersistentRole: ({ role: candidate }) => candidate,
+				}),
+			],
 		},
 	})
 	const databaseProvider = definePlugin({
 		version: '0.0.0',
 		core: '^0.0.0',
 		pluginId: `fixture.acl-role-database.${suffix}`,
-		slot: 'database-adapter',
-		setup: ({ services }) => {
-			services.provide(databaseAdapterServiceToken, adapter)
+		capabilities: {
+			provides: [databaseAdapterProvider(adapter)],
 		},
 	})
 	const aclProvider = aclPlugin()
@@ -283,19 +305,20 @@ describe('aclPlugin create input resolution', () => {
 			version: '0.0.0',
 			core: '^0.0.0',
 			pluginId: 'fixture.acl-principal-provider',
-			setup: ({ services }) => {
-				services.provide(accessPrincipalResolverServiceToken, {
-					resolveCurrent,
-				})
+			capabilities: {
+				provides: [
+					principalResolverProvider({
+						resolveCurrent,
+					}),
+				],
 			},
 		})
 		const databaseProvider = definePlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
 			pluginId: 'fixture.acl-read-database',
-			slot: 'database-adapter',
-			setup: ({ services }) => {
-				services.provide(databaseAdapterServiceToken, adapter)
+			capabilities: {
+				provides: [databaseAdapterProvider(adapter)],
 			},
 		})
 		const ultimabase = new UltimaBase({
@@ -410,10 +433,10 @@ describe('aclPlugin create input resolution', () => {
 		})
 
 		await expect(ultimabase.start()).rejects.toMatchObject({
-			code: 'SERVICE_NOT_FOUND',
+			code: 'PLUGIN_CAPABILITY_MISSING',
 			internalDetails: {
-				requiredBy: 'ultimabase.acl',
-				service: 'ultimabase.access.role-resolver',
+				capabilityId: 'ultimabase.access.role-resolver',
+				kind: 'acl-role-resolver-required',
 			},
 		} satisfies Partial<FrameworkError>)
 		expect(infrastructureStarted).toBe(false)
@@ -422,12 +445,14 @@ describe('aclPlugin create input resolution', () => {
 			version: '0.0.0',
 			core: '^0.0.0',
 			pluginId: 'fixture.acl-static-role-provider',
-			setup: ({ services }) => {
-				services.provide(accessRoleResolverServiceToken, {
-					hasRole: () => false,
-					resolveCurrentRoles: () => [],
-					resolvePersistentRole: ({ role }) => role,
-				})
+			capabilities: {
+				provides: [
+					roleResolverProvider({
+						hasRole: () => false,
+						resolveCurrentRoles: () => [],
+						resolvePersistentRole: ({ role }) => role,
+					}),
+				],
 			},
 		})
 		const resolved = await createApplication({
@@ -456,9 +481,8 @@ describe('aclPlugin create input resolution', () => {
 			version: '0.0.0',
 			core: '^0.0.0',
 			pluginId: 'fixture.acl-dynamic-role-database',
-			slot: 'database-adapter',
-			setup: ({ services }) => {
-				services.provide(databaseAdapterServiceToken, adapter)
+			capabilities: {
+				provides: [databaseAdapterProvider(adapter)],
 			},
 		})
 		const ultimabase = new UltimaBase({
@@ -674,9 +698,8 @@ describe('aclPlugin create input resolution', () => {
 			version: '0.0.0',
 			core: '^0.0.0',
 			pluginId: 'fixture.acl-limit-write-database',
-			slot: 'database-adapter',
-			setup: ({ services }) => {
-				services.provide(databaseAdapterServiceToken, adapter)
+			capabilities: {
+				provides: [databaseAdapterProvider(adapter)],
 			},
 		})
 		const ultimabase = new UltimaBase({
@@ -962,9 +985,8 @@ describe('aclPlugin create input resolution', () => {
 			version: '0.0.0',
 			core: '^0.0.0',
 			pluginId: 'fixture.acl-replacement-write-database',
-			slot: 'database-adapter',
-			setup: ({ services }) => {
-				services.provide(databaseAdapterServiceToken, adapter)
+			capabilities: {
+				provides: [databaseAdapterProvider(adapter)],
 			},
 		})
 		const ultimabase = new UltimaBase({

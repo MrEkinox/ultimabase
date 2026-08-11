@@ -12,10 +12,7 @@ import {
 	assertNormalizedPlugin,
 	type NormalizedPlugin,
 } from './normalization.js'
-import {
-	createDuplicatePluginError,
-	createExclusiveSlotConflictError,
-} from './plugin-errors.js'
+import { createDuplicatePluginError } from './plugin-errors.js'
 import { CapabilityInventory } from './capability-inventory.js'
 
 interface GraphNode {
@@ -172,7 +169,6 @@ const createGraphNodes = (
 	plugins: readonly NormalizedPlugin[],
 ): GraphNodesByPluginId => {
 	const nodesByPluginId: GraphNodesByPluginId = new Map()
-	const pluginsBySlot = new Map<string, NormalizedPlugin>()
 
 	for (const [inputIndex, plugin] of plugins.entries()) {
 		const identity = plugin.definition.manifest.identity
@@ -194,20 +190,6 @@ const createGraphNodes = (
 				))
 		) {
 			throw createDuplicatePluginError(identity, 'graph')
-		}
-
-		if (plugin.definition.slot !== undefined) {
-			const slotOwner = pluginsBySlot.get(plugin.definition.slot)
-
-			if (slotOwner !== undefined) {
-				throw createExclusiveSlotConflictError(
-					plugin.definition.slot,
-					formatPluginIdentity(slotOwner.definition.manifest.identity),
-					formatPluginIdentity(identity),
-				)
-			}
-
-			pluginsBySlot.set(plugin.definition.slot, plugin)
 		}
 
 		configuredInstances.push({
@@ -344,6 +326,8 @@ const connectGraphNodes = (
 		]
 
 		for (const requirement of requirements) {
+			if (requirement.phase === 'setup') continue
+
 			for (const provider of nodes) {
 				if (provider === consumer) continue
 

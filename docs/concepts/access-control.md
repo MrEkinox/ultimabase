@@ -51,7 +51,7 @@ failure in any protected schema rolls back the entire operation.
 Role schemas have UUIDs, unique normalized names, developer-defined fields,
 exact member schemas, and role members. Nested membership cycles are rejected.
 Authentication may provide one exact current-principal Pointer and roles may
-provide membership through separate neutral Core services. Installing either
+provide membership through separate neutral Core capabilities. Installing either
 provider grants no operation by itself, and ACL imports neither concrete
 package. Principal resolution returns `undefined` when its optional provider or
 request-local identity is absent, and rejects forged or foreign-application

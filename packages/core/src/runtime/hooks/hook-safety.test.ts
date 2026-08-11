@@ -1,10 +1,14 @@
-import { definePlugin, FrameworkError } from '../../foundation.js'
+import {
+	definePlugin,
+	FrameworkError,
+	provideCapability,
+} from '../../foundation.js'
 import { Schema } from '../../schema/index.js'
 import { describe, expect, it } from 'vitest'
 
 import { RequestContext, requestSources } from '../context/request-context.js'
 import {
-	databaseAdapterServiceToken,
+	databaseAdapterCapability,
 	type DatabaseAdapter,
 } from '../database/contracts.js'
 import {
@@ -18,7 +22,7 @@ import {
 } from '../../../tests/runtime/fixtures/recording-database-adapter.js'
 import { beforeOperation } from './definitions.js'
 import {
-	hookDiagnosticsObserverServiceToken,
+	hookDiagnosticsObserverCapability,
 	type HookDiagnosticEvent,
 	type HookDiagnosticsObserver,
 } from './diagnostics.js'
@@ -31,13 +35,21 @@ const createDatabasePlugin = (
 		version: '0.0.0',
 		core: '^0.0.0',
 		pluginId: 'fixture.hook-safety-database',
-		slot: 'database-adapter',
-		setup: ({ services }) => {
-			services.provide(databaseAdapterServiceToken, adapter)
-
-			if (observer !== undefined) {
-				services.provide(hookDiagnosticsObserverServiceToken, observer)
-			}
+		capabilities: {
+			provides: [
+				provideCapability(databaseAdapterCapability, {
+					contributionId: 'database-adapter',
+					create: () => ({ value: adapter }),
+				}),
+				...(observer === undefined
+					? []
+					: [
+							provideCapability(hookDiagnosticsObserverCapability, {
+								contributionId: 'observer',
+								create: () => ({ value: observer }),
+							}),
+						]),
+			],
 		},
 	})
 
@@ -280,8 +292,14 @@ describe('hook execution safety', () => {
 				version: '0.0.0',
 				core: '^0.0.0',
 				pluginId: 'fixture.recursive-low-level-hook',
-				setup: ({ registries }) => {
-					registries.hooks.register(
+				privileges: [
+					{
+						name: 'runtime:intercept',
+						reason: 'Registers a low-level Runtime hook for safety tests.',
+					},
+				],
+				setup: ({ runtime }) => {
+					runtime.register(
 						'fixture.recursive-before-operation',
 						beforeOperation({
 							handler: async () => {
@@ -345,8 +363,14 @@ describe('hook execution safety', () => {
 			version: '0.0.0',
 			core: '^0.0.0',
 			pluginId: 'fixture.observed-low-level-hook',
-			setup: ({ registries }) => {
-				registries.hooks.register(
+			privileges: [
+				{
+					name: 'runtime:intercept',
+					reason: 'Registers a low-level Runtime hook for safety tests.',
+				},
+			],
+			setup: ({ runtime }) => {
+				runtime.register(
 					'fixture.observed-before',
 					beforeOperation({
 						schema,

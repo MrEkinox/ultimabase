@@ -5,7 +5,6 @@ import {
 	FrameworkError,
 	frameworkErrorCodes,
 	type FrameworkApplication,
-	type PluginContribution,
 	type PluginDefinition,
 } from '../../foundation.js'
 import type {
@@ -14,6 +13,13 @@ import type {
 	SchemaDefinition,
 } from '../../schema/index.js'
 import { runWithQueryExecutionGuard } from '../../query/operations/execution.js'
+import { readApplicationCapability } from '../../plugins/application-capability-access.js'
+import type { PluginIdentity } from '../../plugins/manifest.js'
+import {
+	assertApplicationPluginPrivilege,
+	readApplicationEventContributions,
+	type OwnedPluginContribution,
+} from '../../plugins/setup-registries.js'
 import {
 	immutableArray,
 	immutableRecord,
@@ -28,7 +34,7 @@ import {
 } from '../transactions/transaction-execution-storage.js'
 import { throwIfOperationCancelled } from './cancellation.js'
 import {
-	hookDiagnosticsObserverServiceToken,
+	hookDiagnosticsObserverCapability,
 	type HookDiagnosticEvent,
 	type HookDiagnosticPhase,
 	type HookDiagnosticsObserver,
@@ -104,7 +110,7 @@ const createExecutionCorrelation = (
 	})
 
 interface OwnedHookEventHandler {
-	readonly contribution: PluginContribution
+	readonly contribution: OwnedPluginContribution
 	readonly implementation: HookEventImplementation
 }
 
@@ -155,7 +161,7 @@ const collectHookEventHandlers = (
 
 	const handlers: OwnedHookEventHandler[] = []
 
-	for (const contribution of application.getContributions('events')) {
+	for (const contribution of readApplicationEventContributions(application)) {
 		const implementation = getHookEventImplementation(contribution.value)
 
 		if (implementation !== undefined) {
@@ -203,6 +209,7 @@ const createRecursionError = (
 
 /** Owns one application's immutable hook stack and safe diagnostic observer. */
 export class HookExecutionRuntime {
+	readonly #assertEventPublish: ((owner: PluginIdentity) => void) | undefined
 	readonly #eventHandlers: readonly OwnedHookEventHandler[]
 	readonly #observer: HookDiagnosticsObserver | undefined
 	readonly #storage = new AsyncLocalStorage<HookExecutionState>()
@@ -219,6 +226,16 @@ export class HookExecutionRuntime {
 		}
 
 		this.#eventHandlers = collectHookEventHandlers(application)
+		this.#assertEventPublish =
+			application === undefined
+				? undefined
+				: (owner): void => {
+						assertApplicationPluginPrivilege(
+							application,
+							owner,
+							'event:publish',
+						)
+					}
 		this.#observer = observer
 		Object.freeze(this)
 	}
@@ -349,6 +366,16 @@ export class HookExecutionRuntime {
 
 	/** Queues one named event on the exact transaction inherited by this hook. */
 	#emit(emission: HookContextEmission): void {
+		const owner = emission.hook.owner
+		if (owner.kind === 'plugin') {
+			this.#assertEventPublish?.({
+				pluginId: owner.pluginName,
+				...(owner.pluginInstanceId === undefined
+					? {}
+					: { instanceId: owner.pluginInstanceId }),
+			})
+		}
+
 		const transactionId = getCurrentTransactionId()
 
 		if (transactionId === undefined) {
@@ -425,6 +452,7 @@ export class HookExecutionRuntime {
 				owner: createPluginHookOwner(
 					contribution.ownerPlugin,
 					contribution.name,
+					contribution.ownerInstanceId,
 				),
 				phase: 'event',
 				target: globalHookTarget,
@@ -519,7 +547,7 @@ export const getApplicationHookExecutionRuntime = <
 	}
 
 	const runtime = new HookExecutionRuntime(
-		application.getOptionalService(hookDiagnosticsObserverServiceToken),
+		readApplicationCapability(application, hookDiagnosticsObserverCapability),
 		application,
 	)
 

@@ -1,8 +1,12 @@
 import {
 	FrameworkApplication,
-	type PluginContribution,
 	type PluginDefinition,
 } from '../../foundation.js'
+import {
+	readApplicationEventContributions,
+	readApplicationRuntimeContributions,
+	type OwnedPluginContribution,
+} from '../../plugins/setup-registries.js'
 import type { SchemaDefinition } from '../../schema/index.js'
 import {
 	immutableArray,
@@ -50,7 +54,7 @@ type RuntimeContributionImplementation = NonNullable<
 >
 
 interface OwnedRuntimeContribution {
-	readonly contribution: PluginContribution
+	readonly contribution: OwnedPluginContribution
 	readonly implementation: RuntimeContributionImplementation
 }
 
@@ -64,7 +68,11 @@ const createRuntimeContributionDescriptor = (
 		handler: (input) => implementation.run(input),
 		handlerIndex: 0,
 		operationKind: operation.kind,
-		owner: createPluginHookOwner(contribution.ownerPlugin, contribution.name),
+		owner: createPluginHookOwner(
+			contribution.ownerPlugin,
+			contribution.name,
+			contribution.ownerInstanceId,
+		),
 		phase: implementation.kind,
 		target:
 			implementation.schema === undefined
@@ -234,7 +242,12 @@ const readContributions = (
 ): readonly OwnedRuntimeContribution[] => {
 	const ownedContributions: OwnedRuntimeContribution[] = []
 
-	for (const contribution of application.getContributions(category)) {
+	const contributions =
+		category === 'events'
+			? readApplicationEventContributions(application)
+			: readApplicationRuntimeContributions(application)
+
+	for (const contribution of contributions) {
 		if (
 			category === 'events' &&
 			getHookEventImplementation(contribution.value) !== undefined

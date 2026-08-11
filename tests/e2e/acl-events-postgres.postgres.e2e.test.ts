@@ -62,8 +62,14 @@ const eventObserverPlugin = definePlugin({
 	version: '0.0.0',
 	core: '^0.0.0',
 	pluginId: 'fixture.acl-change-events',
-	setup: ({ registries }) => {
-		registries.events.register(
+	privileges: [
+		{
+			name: 'runtime:observe',
+			reason: 'Observes committed ACL changes for the E2E fixture.',
+		},
+	],
+	setup: ({ events }) => {
+		events.register(
 			'fixture.capture-acl-change',
 			onACLChange(async ({ event }) => {
 				const row = await getFixture().pool.query<{ readonly id: string }>(

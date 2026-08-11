@@ -5,9 +5,12 @@ import {
 	FrameworkApplication,
 	FrameworkError,
 	Schema,
-	accessRoleResolverServiceToken,
+	accessRoleResolverCapability,
 	createApplication,
 	definePlugin,
+	optionalCapability,
+	provideCapability,
+	requireCapability,
 	type AccessRoleResolver,
 } from '../index.js'
 
@@ -19,12 +22,21 @@ const editor = new AccessSubjectReference('role', 'editor')
 const compatibleResolver: AccessRoleResolver = {
 	hasRole: ({ role }) => Promise.resolve(role.value === editor.value),
 }
+const optionalRoleResolver = optionalCapability(
+	accessRoleResolverCapability,
+	'^1.0.0',
+)
+const requiredRoleResolver = requireCapability(
+	accessRoleResolverCapability,
+	'^1.0.0',
+)
 
 const unusedConsumer = definePlugin({
 	version: '0.0.0',
 	core: '^0.0.0',
 	pluginId: 'fixture.access.consumer.unused',
-	setup: ({ services }) => services.getOptional(accessRoleResolverServiceToken),
+	capabilities: { optional: [optionalRoleResolver] },
+	setup: ({ capabilities }) => capabilities.get(optionalRoleResolver),
 })
 
 const createRoleConsumer = () =>
@@ -32,14 +44,21 @@ const createRoleConsumer = () =>
 		version: '0.0.0',
 		core: '^0.0.0',
 		pluginId: 'fixture.access.consumer.required',
-		setup: ({ access, services }) => {
-			const roles = services.require(accessRoleResolverServiceToken)
+		privileges: [
+			{
+				name: 'runtime:constrain',
+				reason: 'Exercises capability-backed Access policy registration.',
+			},
+		],
+		capabilities: { requires: [requiredRoleResolver] },
+		setup: ({ access, capabilities }) => {
+			const roles = capabilities.get(requiredRoleResolver)
 
 			access.schema(
 				'editor-read',
 				Article,
 				{
-					read: ({ context }) => roles.get().hasRole({ context, role: editor }),
+					read: ({ context }) => roles.hasRole({ context, role: editor }),
 				},
 				{ master: 'enforce' },
 			)
@@ -56,8 +75,13 @@ const createProvider = <const TName extends string>(
 		version: '0.0.0',
 		core: '^0.0.0',
 		pluginId: name,
-		setup: ({ services }) => {
-			services.provide(accessRoleResolverServiceToken, resolver)
+		capabilities: {
+			provides: [
+				provideCapability(accessRoleResolverCapability, {
+					contributionId: 'role-resolver',
+					create: () => ({ value: resolver }),
+				}),
+			],
 		},
 	})
 
@@ -72,7 +96,7 @@ describe('optional Access capabilities', () => {
 		await application.dispose()
 	})
 
-	it('fails setup before infrastructure starts when a requirement is missing', async () => {
+	it('fails setup before infrastructure starts when a requirement is missing', () => {
 		let infrastructureStarted = false
 		const consumer = createRoleConsumer()
 		const infrastructure = definePlugin({
@@ -86,18 +110,13 @@ describe('optional Access capabilities', () => {
 			},
 		})
 
-		const application = new FrameworkApplication({
-			schemas: [Article],
-			plugins: [consumer, infrastructure],
-		})
-
-		await expect(application.start()).rejects.toMatchObject({
-			code: 'SERVICE_NOT_FOUND',
-			internalDetails: {
-				requiredBy: 'fixture.access.consumer.required',
-				service: 'ultimabase.access.role-resolver',
-			},
-		})
+		expect(
+			() =>
+				new FrameworkApplication({
+					schemas: [Article],
+					plugins: [consumer, infrastructure],
+				}),
+		).toThrow(expect.objectContaining({ code: 'PLUGIN_CAPABILITY_MISSING' }))
 		expect(infrastructureStarted).toBe(false)
 	})
 
@@ -118,12 +137,12 @@ describe('optional Access capabilities', () => {
 				'fixture.access.consumer.required',
 			)
 
-			expect(requiredResolver.get()).toBe(compatibleResolver)
+			expect(requiredResolver).toBe(compatibleResolver)
 			await application.dispose()
 		},
 	)
 
-	it('rejects duplicate providers without replacing the first service', async () => {
+	it('rejects duplicate providers without replacing the first capability', async () => {
 		const first = createProvider('fixture.roles.first', compatibleResolver)
 		const second = createProvider('fixture.roles.second', compatibleResolver)
 		let failure: unknown
@@ -135,7 +154,7 @@ describe('optional Access capabilities', () => {
 		}
 
 		expect(failure).toBeInstanceOf(FrameworkError)
-		expect(failure).toMatchObject({ code: 'SERVICE_ALREADY_PROVIDED' })
+		expect(failure).toMatchObject({ code: 'PLUGIN_CAPABILITY_CONFLICT' })
 	})
 
 	it('keeps compatible providers and requirements application-local', async () => {
@@ -160,10 +179,10 @@ describe('optional Access capabilities', () => {
 			],
 		})
 
-		expect(first.getPlugin('fixture.access.consumer.required').get()).toBe(
+		expect(first.getPlugin('fixture.access.consumer.required')).toBe(
 			firstResolver,
 		)
-		expect(second.getPlugin('fixture.access.consumer.required').get()).toBe(
+		expect(second.getPlugin('fixture.access.consumer.required')).toBe(
 			secondResolver,
 		)
 

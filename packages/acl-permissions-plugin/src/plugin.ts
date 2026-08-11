@@ -2,19 +2,24 @@ import { isDeepStrictEqual } from 'node:util'
 
 import {
 	AccessSubjectReference,
-	accessPrincipalResolverServiceToken,
-	accessRoleResolverServiceToken,
+	accessReferenceCleanupCapability,
+	accessPrincipalResolverCapability,
+	accessRoleResolverCapability,
 	applyUpdateExpressionToRecord,
 	constraint,
 	defineFieldKindAccessTarget,
 	definePlugin,
-	extensionHandlerKey,
 	FrameworkError,
 	getCurrentEngine,
 	getCurrentRequest,
 	guard,
+	optionalCapability,
 	preparedOperation,
+	provideCapability,
 	type AccessRoleResolver,
+	type CapabilityProviderDeclaration,
+	type CapabilityRequirement,
+	type CompiledSchemaRegistry,
 	type ExecutableOperationAst,
 	type FrameworkPlugin,
 	type HookContext,
@@ -69,6 +74,55 @@ import {
 	type ACLField,
 } from './acl-extension.js'
 
+const optionalPrincipalResolver = optionalCapability(
+	accessPrincipalResolverCapability,
+	'^1.0.0',
+	{ phase: 'setup' },
+)
+const optionalRoleResolver = optionalCapability(
+	accessRoleResolverCapability,
+	'^1.0.0',
+	{ phase: 'setup' },
+)
+
+const readProtectedSchemas = (
+	schemas: CompiledSchemaRegistry,
+): readonly SchemaDefinition[] =>
+	schemas
+		.values()
+		.filter((schema) =>
+			schema.extensions.some(
+				(extension) => extension.name === aclSchemaExtensionName,
+			),
+		)
+
+const principalReferenceCleanupProvider = provideCapability(
+	accessReferenceCleanupCapability,
+	{
+		contributionId: 'principal-references',
+		create: ({ schemas }) => ({
+			value: immutableRecord({
+				cleanup: createACLReferenceCleanups(readProtectedSchemas(schemas))
+					.principal,
+				name: 'acl-principal-reference-cleanup',
+			}),
+		}),
+	},
+)
+
+const roleReferenceCleanupProvider = provideCapability(
+	accessReferenceCleanupCapability,
+	{
+		contributionId: 'role-references',
+		create: ({ schemas }) => ({
+			value: immutableRecord({
+				cleanup: createACLReferenceCleanups(readProtectedSchemas(schemas)).role,
+				name: 'acl-role-reference-cleanup',
+			}),
+		}),
+	},
+)
+
 type ACLCreateOperation = Extract<
 	ExecutableOperationAst,
 	{ readonly kind: 'create-many' | 'create-one' | 'upsert-many' | 'upsert-one' }
@@ -109,7 +163,42 @@ export type ACLPlugin = FrameworkPlugin<
 	undefined,
 	undefined,
 	undefined,
-	never
+	undefined,
+	'0.0.0',
+	'^0.0.0',
+	readonly [
+		Readonly<{
+			readonly name: 'runtime:constrain'
+			readonly reason: 'Applies deny-only ACL guards and adapter constraints.'
+		}>,
+		Readonly<{
+			readonly name: 'runtime:intercept'
+			readonly reason: 'Resolves ACL input and publishes committed ACL changes.'
+		}>,
+		Readonly<{
+			readonly name: 'event:publish'
+			readonly reason: 'Publishes committed ACL change notifications.'
+		}>,
+	],
+	undefined,
+	Readonly<{
+		readonly optional: readonly [
+			CapabilityRequirement<
+				typeof accessPrincipalResolverCapability,
+				true,
+				'^1.0.0'
+			>,
+			CapabilityRequirement<
+				typeof accessRoleResolverCapability,
+				true,
+				'^1.0.0'
+			>,
+		]
+		readonly provides: readonly [
+			CapabilityProviderDeclaration<typeof accessReferenceCleanupCapability>,
+			CapabilityProviderDeclaration<typeof accessReferenceCleanupCapability>,
+		]
+	}>
 >
 
 const snapshotResolvedACL = (value: unknown, path: string): ACL => {
@@ -726,18 +815,29 @@ export const aclPlugin = (options: ACLPluginOptions = {}): ACLPlugin => {
 		version: '0.0.0',
 		core: '^0.0.0',
 		pluginId: aclPluginName,
-		setup: ({ access, hooks, registries, schemas, services }) => {
-			registries.extensions.register(
-				extensionHandlerKey('schema', aclSchemaExtensionName),
-				true,
-			)
-			const protectedSchemas = schemas
-				.values()
-				.filter((schema) =>
-					schema.extensions.some(
-						(extension) => extension.name === aclSchemaExtensionName,
-					),
-				)
+		privileges: [
+			{
+				name: 'runtime:constrain',
+				reason: 'Applies deny-only ACL guards and adapter constraints.',
+			},
+			{
+				name: 'runtime:intercept',
+				reason: 'Resolves ACL input and publishes committed ACL changes.',
+			},
+			{
+				name: 'event:publish',
+				reason: 'Publishes committed ACL change notifications.',
+			},
+		],
+		capabilities: {
+			optional: [optionalPrincipalResolver, optionalRoleResolver],
+			provides: [
+				principalReferenceCleanupProvider,
+				roleReferenceCleanupProvider,
+			],
+		},
+		setup: ({ access, capabilities, hooks, runtime, schemas }) => {
+			const protectedSchemas = readProtectedSchemas(schemas)
 			const hasDeclaredRoleGrant = protectedSchemas.some((schema) => {
 				const extension = schema.extensions.find(
 					(candidate) => candidate.name === aclSchemaExtensionName,
@@ -749,16 +849,25 @@ export const aclPlugin = (options: ACLPluginOptions = {}): ACLPlugin => {
 				)
 			})
 
-			if (hasDeclaredRoleGrant) {
-				// Deferred requirements validate after every plugin setup, regardless of graph order.
-				services.require(accessRoleResolverServiceToken)
+			const capabilityRoleResolver = capabilities.get(optionalRoleResolver)
+			if (hasDeclaredRoleGrant && capabilityRoleResolver === undefined) {
+				throw new FrameworkError(
+					'PLUGIN_CAPABILITY_MISSING',
+					'ACL role grants require an active access role resolver capability.',
+					{
+						internalDetails: {
+							capabilityId: accessRoleResolverCapability.capabilityId,
+							kind: 'acl-role-resolver-required',
+						},
+					},
+				)
 			}
 			const subjectCache = new WeakMap<
 				object,
 				ReturnType<typeof resolveACLAccessSubjects>
 			>()
 			const readRoleResolver = (): AccessRoleResolver | undefined =>
-				services.getOptional(accessRoleResolverServiceToken)
+				capabilityRoleResolver
 			const readPersistentRoleResolver = ():
 				PersistentRoleResolver | undefined => {
 				const roleResolver = readRoleResolver()
@@ -784,7 +893,7 @@ export const aclPlugin = (options: ACLPluginOptions = {}): ACLPlugin => {
 				const resolution = resolveACLAccessSubjects(
 					// Subject providers receive the original request, not a derived hook view.
 					getCurrentRequest(),
-					services.getOptional(accessPrincipalResolverServiceToken),
+					capabilities.get(optionalPrincipalResolver),
 					readRoleResolver(),
 					(schema) => schemas.get(schema.className) === schema,
 				)
@@ -895,17 +1004,6 @@ export const aclPlugin = (options: ACLPluginOptions = {}): ACLPlugin => {
 				{ master: 'bypass' },
 			)
 
-			const referenceCleanups = createACLReferenceCleanups(protectedSchemas)
-
-			registries.commands.register(
-				'acl-principal-reference-cleanup',
-				referenceCleanups.principal,
-			)
-			registries.commands.register(
-				'acl-role-reference-cleanup',
-				referenceCleanups.role,
-			)
-
 			for (const schema of protectedSchemas) {
 				const extension = schema.extensions.find(
 					(candidate) => candidate.name === aclSchemaExtensionName,
@@ -917,7 +1015,7 @@ export const aclPlugin = (options: ACLPluginOptions = {}): ACLPlugin => {
 				const schemaConfig = extension.config as ACLSchemaExtensionConfig
 				const schemaLimits = resolveSchemaLimits(schemaConfig)
 
-				registries.hooks.register(
+				runtime.register(
 					`acl-replacement-shape:${schema.className}`,
 					guard({
 						handler: ({ operation }) => {
@@ -928,7 +1026,7 @@ export const aclPlugin = (options: ACLPluginOptions = {}): ACLPlugin => {
 						schema,
 					}),
 				)
-				registries.hooks.register(
+				runtime.register(
 					`acl-input:${schema.className}`,
 					preparedOperation({
 						handler: async ({ context, operation, target }) => {
@@ -951,7 +1049,7 @@ export const aclPlugin = (options: ACLPluginOptions = {}): ACLPlugin => {
 						schema,
 					}),
 				)
-				registries.hooks.register(
+				runtime.register(
 					`acl-reference-rows:${schema.className}`,
 					constraint<
 						typeof schema,
@@ -971,7 +1069,7 @@ export const aclPlugin = (options: ACLPluginOptions = {}): ACLPlugin => {
 						schema,
 					}),
 				)
-				registries.hooks.register(
+				runtime.register(
 					`acl-rows:${schema.className}`,
 					constraint<
 						typeof schema,

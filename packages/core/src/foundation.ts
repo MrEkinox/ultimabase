@@ -34,13 +34,6 @@ export type {
 	FrameworkErrorOptions,
 	FrameworkErrorPayload,
 } from './errors/framework-error.js'
-export { createServiceToken } from './services/service-token.js'
-export type { ServiceToken } from './services/service-token.js'
-export type {
-	PluginServiceRegistry,
-	RequiredPluginService,
-} from './services/service-registry.js'
-export { ServiceRegistry } from './services/service-registry.js'
 export { definePlugin } from './plugins/definition.js'
 export {
 	decorateCapability,
@@ -49,6 +42,7 @@ export {
 	provideCapability,
 	replaceCapability,
 	requireCapability,
+	typegenEmitterCapability,
 } from './plugins/capabilities.js'
 export type {
 	ApplicationCapabilityFactory,
@@ -71,6 +65,7 @@ export type {
 	PluginCapabilityDeclarationOptions,
 	PluginCapabilityDeclarations,
 	PluginCapabilityReader,
+	TypegenEmitterCapability,
 } from './plugins/capabilities.js'
 export { CapabilityInventory } from './plugins/capability-inventory.js'
 export type {
@@ -84,6 +79,7 @@ export { defineDatabaseConstraintCompiler } from './plugins/constraint-compilers
 export type {
 	DatabaseConstraintCompilerContribution,
 	DatabaseConstraintCompilerDefinition,
+	DatabaseConstraintCompilerReader,
 	DefineDatabaseConstraintCompilerOptions,
 	PluginConstraintCompilerRegistry,
 } from './plugins/constraint-compilers.js'
@@ -146,17 +142,9 @@ export type {
 	PluginPrivilegeRequest,
 	PluginPrivilegeSeverity,
 } from './plugins/manifest.js'
-export { extensionHandlerKey } from './plugins/extension-handlers.js'
-export type { ExtensionHandlerKey } from './plugins/extension-handlers.js'
-export { PluginLifecycleManager } from './plugins/lifecycle-manager.js'
 export type { PluginLifecycleState } from './plugins/lifecycle-manager.js'
-export {
-	ContributionRegistry,
-	PluginSetupRegistries,
-} from './plugins/setup-registries.js'
 export type {
-	PluginContribution,
-	PluginContributionCategory,
-	PluginContributionRegistries,
-	PluginContributionRegistry,
-} from './plugins/setup-registries.js'
+	PluginEventContributionHost,
+	PluginRuntimeContributionHost,
+	PluginRuntimePipelineHost,
+} from './plugins/runtime-contribution-hosts.js'

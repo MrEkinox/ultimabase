@@ -3,9 +3,10 @@ import {
 	AccessSubjectReference,
 	Schema,
 	UltimaBase,
-	accessRoleResolverServiceToken,
-	databaseAdapterServiceToken,
+	accessRoleResolverCapability,
+	databaseAdapterCapability,
 	definePlugin,
+	provideCapability,
 	type DatabaseAdapter,
 	type DatabaseMutationOperationAst,
 	type DatabaseOperationAst,
@@ -108,9 +109,13 @@ const databasePlugin = (adapter: DatabaseAdapter) =>
 		version: '0.0.0',
 		core: '^0.0.0',
 		pluginId: 'fixture.composition.database',
-		slot: 'database-adapter',
-		setup: ({ services }) => {
-			services.provide(databaseAdapterServiceToken, adapter)
+		capabilities: {
+			provides: [
+				provideCapability(databaseAdapterCapability, {
+					contributionId: 'database-adapter',
+					create: () => ({ value: adapter }),
+				}),
+			],
 		},
 	})
 
@@ -176,13 +181,19 @@ const createRoleProvider = (allowed: boolean) =>
 		version: '0.0.0',
 		core: '^0.0.0',
 		pluginId: 'community.composition.roles',
-		setup: ({ services }) => {
-			// The neutral token, not the plugin name, makes this provider compatible.
-			services.provide(accessRoleResolverServiceToken, {
-				hasRole: ({ role }) => allowed && role.value === editor.value,
-				resolveCurrentRoles: () => (allowed ? [editor] : []),
-				resolvePersistentRole: ({ role }) => role,
-			})
+		capabilities: {
+			provides: [
+				provideCapability(accessRoleResolverCapability, {
+					contributionId: 'role-resolver',
+					create: () => ({
+						value: {
+							hasRole: ({ role }) => allowed && role.value === editor.value,
+							resolveCurrentRoles: () => (allowed ? [editor] : []),
+							resolvePersistentRole: ({ role }) => role,
+						},
+					}),
+				}),
+			],
 		},
 	})
 
@@ -190,6 +201,12 @@ const communityPolicy = definePlugin({
 	version: '0.0.0',
 	core: '^0.0.0',
 	pluginId: 'community.composition.policy',
+	privileges: [
+		{
+			name: 'runtime:constrain',
+			reason: 'Contributes one monotonic community Access policy.',
+		},
+	],
 	setup: ({ access }) => {
 		access.schema(
 			'community-scope',
@@ -406,7 +423,7 @@ describe('Access provider composition', () => {
 			await expect(
 				CombinedPost.findMany(undefined, { ultimabase: readApplication }),
 			).rejects.toMatchObject({
-				code: 'SERVICE_NOT_FOUND',
+				code: 'PLUGIN_CAPABILITY_MISSING',
 			} satisfies Partial<FrameworkError>)
 			expect(readAdapter.requests).toHaveLength(0)
 

@@ -4,8 +4,8 @@ import {
 	AccessSubjectReference,
 	RequestContextValue,
 	Schema,
-	accessPrincipalResolverServiceToken,
-	accessRoleResolverServiceToken,
+	accessPrincipalResolverCapability,
+	accessRoleResolverCapability,
 	createAccessPrincipalReference,
 	parseAccessPrincipalReference,
 	resolveAccessPrincipal,
@@ -21,7 +21,7 @@ import {
 	type AccessSubjectValueOf,
 	type ResolvedAccessSubject,
 	type PointerValue,
-	type ServiceToken,
+	type CapabilityToken,
 } from '../../index.js'
 
 interface FixturePrincipal {
@@ -95,11 +95,25 @@ test('infers plugin-owned principals and resolved subjects exactly', () => {
 	expectTypeOf<
 		ResolvedAccessSubject<typeof resolver>
 	>().toEqualTypeOf<FixtureRole>()
-	expectTypeOf(accessRoleResolverServiceToken).toEqualTypeOf<
-		ServiceToken<AccessRoleResolver>
+	expectTypeOf(accessRoleResolverCapability).toEqualTypeOf<
+		CapabilityToken<
+			AccessRoleResolver,
+			AccessRoleResolver,
+			'ultimabase.access.role-resolver',
+			'1.0.0',
+			'single',
+			'application'
+		>
 	>()
-	expectTypeOf(accessPrincipalResolverServiceToken).toEqualTypeOf<
-		ServiceToken<AccessPrincipalResolver>
+	expectTypeOf(accessPrincipalResolverCapability).toEqualTypeOf<
+		CapabilityToken<
+			AccessPrincipalResolver,
+			AccessPrincipalResolver,
+			'ultimabase.access.principal-resolver',
+			'1.0.0',
+			'single',
+			'application'
+		>
 	>()
 	expectTypeOf<AccessPrincipalResolver['resolveCurrent']>().toBeFunction()
 	expectTypeOf(

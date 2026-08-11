@@ -3,7 +3,7 @@ import { Schema } from '../../schema/index.js'
 import { describe, expect, it } from 'vitest'
 
 import { RecordingDatabaseAdapter } from '../../../tests/runtime/fixtures/recording-database-adapter.js'
-import { databaseAdapterServiceToken } from '../database/contracts.js'
+import { provideTestDatabaseAdapter } from '../../../tests/runtime/fixtures/database-adapter-capability.js'
 import { afterOperation, beforeOperation } from '../hooks/definitions.js'
 import { UltimaBase } from '../application/ultima-base.js'
 
@@ -39,10 +39,17 @@ const createAdapterPlugin = (
 		version: '0.0.0',
 		core: '^0.0.0',
 		pluginId: 'fixture.native-access-database',
-		slot: 'database-adapter',
-		setup: ({ registries, services }) => {
-			services.provide(databaseAdapterServiceToken, adapter)
-			registries.hooks.register(
+		privileges: [
+			{
+				name: 'runtime:intercept',
+				reason: 'Exercises low-level Runtime observation around native Access.',
+			},
+		],
+		capabilities: {
+			provides: [provideTestDatabaseAdapter(adapter)],
+		},
+		setup: ({ runtime }) => {
+			runtime.register(
 				'fixture.observe-business-query',
 				beforeOperation({
 					handler: ({ operation }) => {
@@ -56,7 +63,7 @@ const createAdapterPlugin = (
 					schema: securedArticle,
 				}),
 			)
-			registries.hooks.register(
+			runtime.register(
 				'fixture.observe-projected-result',
 				afterOperation({
 					handler: ({ result }) => {

@@ -97,7 +97,11 @@ const createRuleDescriptor = (
 	const owner =
 		rule.source.kind === 'developer'
 			? applicationHookOwner
-			: createPluginHookOwner(rule.source.ownerPlugin, rule.source.localName)
+			: createPluginHookOwner(
+					rule.source.ownerPlugin,
+					rule.source.localName,
+					rule.source.ownerInstanceId,
+				)
 	const target =
 		identity.field === undefined
 			? createSchemaHookTarget(schema.className)

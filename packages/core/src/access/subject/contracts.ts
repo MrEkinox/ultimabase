@@ -7,8 +7,10 @@ import {
 
 import type { RequestContextValue } from '../request/context-value.js'
 import type { AccessContext } from '../request/context.js'
-import { createServiceToken } from '../../services/service-token.js'
-import type { ServiceToken } from '../../services/service-token.js'
+import {
+	defineCapability,
+	type CapabilityToken,
+} from '../../plugins/capabilities.js'
 import { Pointer, type PointerValue } from '../../schema/relations/pointer.js'
 import type { SchemaDefinition } from '../../schema/schema/definition.js'
 
@@ -56,7 +58,7 @@ export interface ResolveAccessPrincipalOptions {
  * ```ts
  * const principal = await resolveAccessPrincipal({
  *   context,
- *   resolver: services.getOptional(accessPrincipalResolverServiceToken),
+ *   resolver: capabilities.get(optionalPrincipalResolver),
  *   ownsSchema: (schema) => schemas.get(schema.className) === schema,
  * })
  * ```
@@ -86,10 +88,20 @@ export const resolveAccessPrincipal = async (
 }
 
 /** Identifies the optional principal provider without naming authentication. */
-export const accessPrincipalResolverServiceToken: ServiceToken<AccessPrincipalResolver> =
-	createServiceToken<AccessPrincipalResolver>(
-		'ultimabase.access.principal-resolver',
-	)
+export const accessPrincipalResolverCapability: CapabilityToken<
+	AccessPrincipalResolver,
+	AccessPrincipalResolver,
+	'ultimabase.access.principal-resolver',
+	'1.0.0',
+	'single',
+	'application'
+> = defineCapability<AccessPrincipalResolver>()({
+	capabilityId: 'ultimabase.access.principal-resolver',
+	version: '1.0.0',
+	cardinality: 'single',
+	lifetime: 'application',
+	compose: ([provider]) => provider,
+})
 
 /**
  * Identifies one policy-domain subject without naming its provider plugin.
@@ -308,11 +320,23 @@ export interface AccessRoleResolver {
 /**
  * Identifies the optional neutral role resolver shared by permission providers.
  *
- * A CLP or ACL plugin requires this token only when its configured policy
+ * A CLP or ACL plugin requires this capability only when its configured policy
  * contains a role subject.
  */
-export const accessRoleResolverServiceToken: ServiceToken<AccessRoleResolver> =
-	createServiceToken<AccessRoleResolver>('ultimabase.access.role-resolver')
+export const accessRoleResolverCapability: CapabilityToken<
+	AccessRoleResolver,
+	AccessRoleResolver,
+	'ultimabase.access.role-resolver',
+	'1.0.0',
+	'single',
+	'application'
+> = defineCapability<AccessRoleResolver>()({
+	capabilityId: 'ultimabase.access.role-resolver',
+	version: '1.0.0',
+	cardinality: 'single',
+	lifetime: 'application',
+	compose: ([provider]) => provider,
+})
 
 /** Extracts the exact resolved value supplied by one neutral resolver. */
 export type ResolvedAccessSubject<TResolver> =

@@ -489,6 +489,12 @@ describe('native hook dispatcher', () => {
 			version: '0.0.0',
 			core: '^0.0.0',
 			pluginId: 'fixture.native-hook-order',
+			privileges: [
+				{
+					name: 'runtime:intercept',
+					reason: 'Registers native field hooks for dispatcher tests.',
+				},
+			],
 			setup: ({ hooks }) => {
 				hooks.schema('schema', schema, {
 					afterOperation: {

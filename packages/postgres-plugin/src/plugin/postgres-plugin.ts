@@ -1,27 +1,28 @@
 import {
+	databaseAdapterCapability,
 	definePlugin,
-	extensionHandlerKey,
+	optionalCapability,
+	provideCapability,
+	requireCapability,
+	type CapabilityProviderDeclaration,
+	type CapabilityRequirement,
 	type FrameworkPlugin,
 } from '@ultimabase/core'
-import { databaseAdapterServiceToken } from '@ultimabase/core'
 import { immutableRecord, isPlainRecord } from '@ultimabase/shared'
 import { Pool } from 'pg'
 
 import {
-	postgresConnectionServiceToken,
+	postgresConnectionCapability,
 	type PostgresConnectionService,
 	type PostgresPool,
 } from '../connection/contracts.js'
-import { createManagedPostgresConnection } from '../connection/managed-connection.js'
 import {
-	postgresColumnExtensionName,
-	postgresPluginName,
-	postgresSchemaPreparationClaimName,
-	postgresTableExtensionName,
-} from '../constants.js'
+	createManagedPostgresConnection,
+	type ManagedPostgresConnection,
+} from '../connection/managed-connection.js'
+import { postgresPluginName } from '../constants.js'
+import { postgresSchemaPreparationCapability } from '../schema-preparation-capability.js'
 import { createPostgresDatabaseAdapter } from '../drizzle/adapter.js'
-import { resolvePostgresRenamedFrom } from '../naming/column.js'
-import { resolvePostgresTableName } from '../naming/table.js'
 import { PostgresSchemaCatalog } from '../schema/catalog.js'
 import type { PostgresSchemaPolicy } from '../synchronization/contracts.js'
 import { prepareDirectPostgresSchema } from '../synchronization/preparer.js'
@@ -51,6 +52,23 @@ export interface PostgresPluginExports {
 	readonly connection: PostgresConnectionService
 }
 
+type PostgresPluginCapabilities = Readonly<{
+	readonly provides: readonly [
+		CapabilityProviderDeclaration<typeof postgresConnectionCapability>,
+		CapabilityProviderDeclaration<typeof databaseAdapterCapability>,
+	]
+	readonly requires: readonly [
+		CapabilityRequirement<typeof postgresConnectionCapability, false, '^1.0.0'>,
+	]
+	readonly optional: readonly [
+		CapabilityRequirement<
+			typeof postgresSchemaPreparationCapability,
+			true,
+			'^1.0.0'
+		>,
+	]
+}>
+
 export type PostgresPlugin = FrameworkPlugin<
 	typeof postgresPluginName,
 	Readonly<PostgresPluginExports>,
@@ -58,7 +76,17 @@ export type PostgresPlugin = FrameworkPlugin<
 	undefined,
 	undefined,
 	undefined,
-	'database-adapter'
+	undefined,
+	'0.0.0',
+	'^0.0.0',
+	readonly [
+		Readonly<{
+			readonly name: 'adapter:consume'
+			readonly reason: string
+		}>,
+	],
+	undefined,
+	PostgresPluginCapabilities
 >
 
 const postgresPluginOptionKeys = new Set(['pool', 'schemaPolicy', 'url'])
@@ -78,6 +106,10 @@ const prepareSchemaByExports = new WeakMap<
 	Readonly<PostgresPluginExports>,
 	PrepareSchema
 >()
+const optionalSchemaPreparation = optionalCapability(
+	postgresSchemaPreparationCapability,
+	'^1.0.0',
+)
 
 const isObjectLike = (value: unknown): value is object =>
 	(typeof value === 'object' && value !== null) || typeof value === 'function'
@@ -163,7 +195,7 @@ const createConnectionSourceFactory = (
 	return () => ({ ownsPool: false, pool })
 }
 
-/** Creates the official database-slot plugin without opening a connection. */
+/** Creates the official database capability provider without opening a connection. */
 export const postgresPlugin = (
 	options: PostgresPluginOptions,
 ): PostgresPlugin => {
@@ -172,46 +204,91 @@ export const postgresPlugin = (
 	assertPostgresPluginOptions(untrustedOptions)
 	const createConnectionSource = createConnectionSourceFactory(untrustedOptions)
 	const schemaPolicy = untrustedOptions.schemaPolicy ?? 'override'
+	const connectionRequirement = requireCapability(
+		postgresConnectionCapability,
+		'^1.0.0',
+	)
+	const connections = new WeakMap<object, ManagedPostgresConnection>()
+	const catalogs = new WeakMap<object, PostgresSchemaCatalog>()
+	const connectionProvider = provideCapability(postgresConnectionCapability, {
+		contributionId: 'connection',
+		create: ({ schemas }) => {
+			const { ownsPool, pool } = createConnectionSource()
+			const connection = createManagedPostgresConnection(pool, ownsPool)
+			connections.set(schemas, connection)
+
+			return {
+				value: connection,
+				dispose: async () => {
+					connections.delete(schemas)
+					catalogs.delete(schemas)
+					await connection.close()
+				},
+			}
+		},
+	})
+	const adapterProvider = provideCapability(databaseAdapterCapability, {
+		contributionId: 'database-adapter',
+		create: ({ capabilities, constraintCompilers, schemas }) => {
+			void capabilities.get(connectionRequirement)
+			const connection = connections.get(schemas)
+			if (connection === undefined) {
+				throw new TypeError('PostgreSQL connection capability is unavailable')
+			}
+
+			const schemaCatalog = new PostgresSchemaCatalog(
+				schemas.values(),
+				schemas.schemaTargets,
+			)
+			catalogs.set(schemas, schemaCatalog)
+
+			return {
+				value: createPostgresDatabaseAdapter(
+					connection.getPool(),
+					schemaCatalog,
+					constraintCompilers,
+				),
+			}
+		},
+	})
 
 	return definePlugin({
 		version: '0.0.0',
 		core: '^0.0.0',
 		pluginId: postgresPluginName,
-		slot: 'database-adapter',
-		setup: ({ constraintCompilers, registries, schemas, services }) => {
-			// Static application compilation closes circular targets before plugin setup.
-			const schemaTargets = schemas.schemaTargets
-
-			registries.extensions.register(
-				extensionHandlerKey('field', postgresColumnExtensionName),
-				resolvePostgresRenamedFrom,
+		privileges: [
+			{
+				name: 'adapter:consume',
+				reason:
+					'Compiles protected database constraints for the PostgreSQL adapter.',
+			},
+		],
+		capabilities: {
+			optional: [optionalSchemaPreparation],
+			provides: [connectionProvider, adapterProvider],
+			requires: [connectionRequirement],
+		},
+		setup: ({ capabilities, schemas }) => {
+			const connection: PostgresConnectionService = capabilities.get(
+				connectionRequirement,
 			)
-			registries.extensions.register(
-				extensionHandlerKey('schema', postgresTableExtensionName),
-				resolvePostgresTableName,
-			)
-			// Compile declaration-only metadata before allocating an owned connection pool.
-			const schemaCatalog = new PostgresSchemaCatalog(
-				schemas.values(),
-				schemaTargets,
-			)
-			const { ownsPool, pool } = createConnectionSource()
-			const managedConnection = createManagedPostgresConnection(pool, ownsPool)
-			const adapter = createPostgresDatabaseAdapter(
-				managedConnection.getPool(),
-				schemaCatalog,
-				constraintCompilers,
-			)
-			const connection: PostgresConnectionService = managedConnection
-
-			services.provide(postgresConnectionServiceToken, connection)
-			services.provide(databaseAdapterServiceToken, adapter)
+			const managedConnection = connections.get(schemas)
+			const schemaCatalog = catalogs.get(schemas)
+			if (managedConnection === undefined || schemaCatalog === undefined) {
+				throw new TypeError(
+					'PostgreSQL capabilities are unavailable during setup',
+				)
+			}
 
 			// Runtime-only preparation stays keyed by this application's public export object.
 			const pluginExports = immutableRecord({ connection })
 
 			prepareSchemaByExports.set(pluginExports, () =>
-				prepareDirectPostgresSchema(pool, schemaCatalog, schemaPolicy),
+				prepareDirectPostgresSchema(
+					managedConnection.getPool(),
+					schemaCatalog,
+					schemaPolicy,
+				),
 			)
 
 			// Setup exports safe lifecycle control; credentials and driver objects remain private.
@@ -219,8 +296,8 @@ export const postgresPlugin = (
 		},
 		hooks: {
 			connect: ({ pluginExports }) => pluginExports.connection.connect(),
-			prepareSchema: ({ pluginExports, registries }) => {
-				if (registries.pipelines.has(postgresSchemaPreparationClaimName)) {
+			prepareSchema: ({ capabilities, pluginExports }) => {
+				if (capabilities.get(optionalSchemaPreparation) !== undefined) {
 					return
 				}
 

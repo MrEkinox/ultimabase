@@ -64,6 +64,18 @@ describe('capability declarations', () => {
 		expect(JSON.parse(JSON.stringify(declarationToken))).toStrictEqual(
 			declarationToken,
 		)
+
+		const materializationRequirement = requireCapability(
+			applicationToken,
+			'^2.0.0',
+		)
+		const setupRequirement = optionalCapability(applicationToken, '^2.0.0', {
+			phase: 'setup',
+		})
+
+		expect(materializationRequirement.phase).toBe('materialization')
+		expect(setupRequirement.phase).toBe('setup')
+		expect(Object.isFrozen(setupRequirement)).toBe(true)
 	})
 
 	it('snapshots declaration values and keeps application providers inert', () => {
@@ -122,6 +134,25 @@ describe('capability declarations', () => {
 		expect(() => requireCapability(declarationToken, '^2.0.0')).toThrow(
 			new TypeError(
 				'Capability token fixture.audit-sink@1.2.0 does not satisfy its declared range ^2.0.0',
+			),
+		)
+		expect(() =>
+			optionalCapability(applicationToken, '^2.0.0', {
+				phase: 'invalid',
+			} as never),
+		).toThrow(
+			new TypeError(
+				'capability requirement phase must be materialization or setup',
+			),
+		)
+		expect(() =>
+			requireCapability(applicationToken, '^2.0.0', {
+				phase: 'setup',
+				unexpected: true,
+			} as never),
+		).toThrow(
+			new TypeError(
+				'capability requirement options contains unknown option: unexpected',
 			),
 		)
 		expect(() =>

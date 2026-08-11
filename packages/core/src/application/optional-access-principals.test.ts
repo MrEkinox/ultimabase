@@ -3,9 +3,11 @@ import { describe, expect, it } from 'vitest'
 import {
 	FrameworkError,
 	Schema,
-	accessPrincipalResolverServiceToken,
+	accessPrincipalResolverCapability,
 	createApplication,
 	definePlugin,
+	optionalCapability,
+	provideCapability,
 	type AccessPrincipalResolver,
 } from '../index.js'
 
@@ -15,16 +17,17 @@ const Principal = Schema.define({
 })
 const firstPrincipal = Principal.pointer('first-principal')
 const secondPrincipal = Principal.pointer('second-principal')
+const optionalPrincipalResolver = optionalCapability(
+	accessPrincipalResolverCapability,
+	'^1.0.0',
+)
 
 const optionalConsumer = definePlugin({
 	version: '0.0.0',
 	core: '^0.0.0',
 	pluginId: 'fixture.access.principal-consumer',
-	setup:
-		({ services }) =>
-		// Deferred lookup keeps optional providers independent from setup order.
-		() =>
-			services.getOptional(accessPrincipalResolverServiceToken),
+	capabilities: { optional: [optionalPrincipalResolver] },
+	setup: ({ capabilities }) => capabilities.get(optionalPrincipalResolver),
 })
 
 const createProvider = <const TName extends string>(
@@ -35,8 +38,13 @@ const createProvider = <const TName extends string>(
 		version: '0.0.0',
 		core: '^0.0.0',
 		pluginId: name,
-		setup: ({ services }) => {
-			services.provide(accessPrincipalResolverServiceToken, resolver)
+		capabilities: {
+			provides: [
+				provideCapability(accessPrincipalResolverCapability, {
+					contributionId: 'principal-resolver',
+					create: () => ({ value: resolver }),
+				}),
+			],
 		},
 	})
 
@@ -48,7 +56,7 @@ describe('optional Access principal providers', () => {
 		})
 
 		expect(
-			application.getPlugin('fixture.access.principal-consumer')(),
+			application.getPlugin('fixture.access.principal-consumer'),
 		).toBeUndefined()
 		await application.dispose()
 	})
@@ -68,7 +76,7 @@ describe('optional Access principal providers', () => {
 				plugins: [optionalConsumer, provider],
 			})
 
-			expect(application.getPlugin('fixture.access.principal-consumer')()).toBe(
+			expect(application.getPlugin('fixture.access.principal-consumer')).toBe(
 				resolver,
 			)
 			await application.dispose()
@@ -93,7 +101,7 @@ describe('optional Access principal providers', () => {
 		}
 
 		expect(failure).toBeInstanceOf(FrameworkError)
-		expect(failure).toMatchObject({ code: 'SERVICE_ALREADY_PROVIDED' })
+		expect(failure).toMatchObject({ code: 'PLUGIN_CAPABILITY_CONFLICT' })
 	})
 
 	it('keeps resolver instances isolated between applications', async () => {
@@ -118,10 +126,10 @@ describe('optional Access principal providers', () => {
 			],
 		})
 
-		expect(first.getService(accessPrincipalResolverServiceToken)).toBe(
+		expect(first.getPlugin('fixture.access.principal-consumer')).toBe(
 			firstResolver,
 		)
-		expect(second.getService(accessPrincipalResolverServiceToken)).toBe(
+		expect(second.getPlugin('fixture.access.principal-consumer')).toBe(
 			secondResolver,
 		)
 

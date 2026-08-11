@@ -17,6 +17,18 @@ export type ACLPostgresPlugin = FrameworkPlugin<
 	readonly [
 		Readonly<{ pluginId: typeof aclPluginName; version: '^0.0.0' }>,
 		Readonly<{ pluginId: typeof postgresPluginName; version: '^0.0.0' }>,
+	],
+	undefined,
+	undefined,
+	undefined,
+	undefined,
+	'0.0.0',
+	'^0.0.0',
+	readonly [
+		Readonly<{
+			readonly name: 'adapter:consume'
+			readonly reason: 'Compiles ACL constraints for the PostgreSQL adapter.'
+		}>,
 	]
 >
 
@@ -30,6 +42,12 @@ export const aclPostgresPlugin = (): ACLPostgresPlugin =>
 		version: '0.0.0',
 		core: '^0.0.0',
 		pluginId: aclPostgresPluginName,
+		privileges: [
+			{
+				name: 'adapter:consume',
+				reason: 'Compiles ACL constraints for the PostgreSQL adapter.',
+			},
+		],
 		setup: ({ constraintCompilers }) => {
 			constraintCompilers.register(aclPostgresConstraintCompiler)
 			constraintCompilers.register(aclReferencePostgresConstraintCompiler)

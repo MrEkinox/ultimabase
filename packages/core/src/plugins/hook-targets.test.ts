@@ -16,7 +16,11 @@ import {
 	getResolvedPluginHookContribution,
 	isPluginHookTargetDefinition,
 } from './hook-targets.js'
-import { PluginSetupRegistries } from './setup-registries.js'
+import {
+	PluginSetupRegistries,
+	readApplicationHookContributions,
+	readApplicationRuntimeContributions,
+} from './setup-registries.js'
 
 const ownerPlugin = 'fixture.hook-owner'
 const schemaExtension = defineSchemaExtension(
@@ -97,7 +101,7 @@ const resolvedContributions = (registries: PluginSetupRegistries) => {
 	registries.resolveHookTargets()
 
 	return registries
-		.getContributions('hooks')
+		.getHookContributions()
 		.map(({ value }) => getResolvedPluginHookContribution(value))
 		.filter((value) => value !== undefined)
 }
@@ -398,6 +402,12 @@ describe('plugin hook targets', () => {
 				version: '0.0.0',
 				core: '^0.0.0',
 				pluginId: name,
+				privileges: [
+					{
+						name: 'runtime:intercept',
+						reason: 'Exercises native hook ordering.',
+					},
+				],
 				dependencies,
 				setup: ({ hooks }) => {
 					hooks.global('first', {
@@ -428,9 +438,9 @@ describe('plugin hook targets', () => {
 		})
 
 		expect(
-			application
-				.getContributions('hooks')
-				.map(({ name, ownerPlugin: owner }) => `${owner}:${name}`),
+			readApplicationHookContributions(application).map(
+				({ name, ownerPlugin: owner }) => `${owner}:${name}`,
+			),
 		).toStrictEqual([
 			'fixture.order-independent:first',
 			'fixture.order-independent:second',
@@ -448,11 +458,17 @@ describe('plugin hook targets', () => {
 			version: '0.0.0',
 			core: '^0.0.0',
 			pluginId: 'fixture.coexisting-hooks',
-			setup: ({ hooks, registries }) => {
+			privileges: [
+				{
+					name: 'runtime:intercept',
+					reason: 'Exercises native and low-level hook coexistence.',
+				},
+			],
+			setup: ({ hooks, runtime }) => {
 				hooks.global('native', {
 					beforeOperation: { create: ({ item }) => void item },
 				})
-				registries.hooks.register(
+				runtime.register(
 					'fixture.low-level',
 					beforeOperation({ handler: () => undefined }),
 				)
@@ -466,8 +482,14 @@ describe('plugin hook targets', () => {
 			schemas: [secondarySchema],
 			plugins: [plugin],
 		})
-		const firstContributions = first.getContributions('hooks')
-		const secondContributions = second.getContributions('hooks')
+		const firstContributions = [
+			...readApplicationHookContributions(first),
+			...readApplicationRuntimeContributions(first),
+		]
+		const secondContributions = [
+			...readApplicationHookContributions(second),
+			...readApplicationRuntimeContributions(second),
+		]
 
 		expect(firstContributions.map(({ name }) => name)).toStrictEqual([
 			'native',

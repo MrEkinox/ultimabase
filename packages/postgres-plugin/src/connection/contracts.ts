@@ -1,4 +1,4 @@
-import { createServiceToken, type ServiceToken } from '@ultimabase/core'
+import { defineCapability, type CapabilityToken } from '@ultimabase/core'
 
 /** Describes the lifecycle state visible without exposing the driver pool. */
 export type PostgresConnectionState = 'closed' | 'connected' | 'idle'
@@ -31,7 +31,17 @@ export interface PostgresConnectionService {
 }
 
 /** Identifies the application-scoped PostgreSQL connection managed by the plugin. */
-export const postgresConnectionServiceToken: ServiceToken<PostgresConnectionService> =
-	createServiceToken<PostgresConnectionService>(
-		'ultimabase.postgres-connection',
-	)
+export const postgresConnectionCapability: CapabilityToken<
+	PostgresConnectionService,
+	PostgresConnectionService,
+	'ultimabase.postgres-connection',
+	'1.0.0',
+	'single',
+	'application'
+> = defineCapability<PostgresConnectionService>()({
+	capabilityId: 'ultimabase.postgres-connection',
+	version: '1.0.0',
+	cardinality: 'single',
+	lifetime: 'application',
+	compose: ([provider]) => provider,
+})

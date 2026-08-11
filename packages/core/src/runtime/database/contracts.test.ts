@@ -1,4 +1,3 @@
-import { ServiceRegistry } from '../../foundation.js'
 import {
 	QueryBuilder,
 	type CountOperationAst,
@@ -15,7 +14,6 @@ import { immutableRecord } from '@ultimabase/shared'
 import { describe, expect, it } from 'vitest'
 
 import {
-	databaseAdapterServiceToken,
 	databaseInclusionCapability,
 	databaseInclusionCapabilityVersion,
 	databasePointerCapability,
@@ -286,14 +284,5 @@ describe('database adapter contracts', () => {
 		expect(outcome.materializations).toStrictEqual([
 			{ kind: 'update', previous, current },
 		])
-	})
-
-	it('registers one adapter through the application service token', () => {
-		const adapter = new InMemoryAdapterFake({})
-		const registry = new ServiceRegistry()
-
-		registry.provide(databaseAdapterServiceToken, adapter)
-
-		expect(registry.get(databaseAdapterServiceToken)).toBe(adapter)
 	})
 })

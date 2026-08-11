@@ -1,5 +1,7 @@
-import { createServiceToken } from '../../foundation.js'
-import type { ServiceToken } from '../../foundation.js'
+import {
+	defineCapability,
+	type CapabilityToken,
+} from '../../plugins/capabilities.js'
 import type {
 	OperationSourceRecordResult,
 	QueryRecord,
@@ -412,6 +414,18 @@ export interface DatabaseTransactionAdapter extends DatabaseOperationExecutor {
 	rollback(): Promise<void>
 }
 
-/** Identifies the single database adapter service owned by each application. */
-export const databaseAdapterServiceToken: ServiceToken<DatabaseAdapter> =
-	createServiceToken<DatabaseAdapter>('ultimabase.database-adapter')
+/** Identifies the single database adapter implementation owned by each application. */
+export const databaseAdapterCapability: CapabilityToken<
+	DatabaseAdapter,
+	DatabaseAdapter,
+	'ultimabase.database-adapter',
+	'1.0.0',
+	'single',
+	'application'
+> = defineCapability<DatabaseAdapter>()({
+	capabilityId: 'ultimabase.database-adapter',
+	version: '1.0.0',
+	cardinality: 'single',
+	lifetime: 'application',
+	compose: ([provider]) => provider,
+})

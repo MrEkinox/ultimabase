@@ -2,10 +2,8 @@ import { definePlugin, type FrameworkApplication } from '../../foundation.js'
 import { Schema } from '../../schema/index.js'
 import { expectTypeOf, test } from 'vitest'
 
-import {
-	databaseAdapterServiceToken,
-	type DatabaseAdapter,
-} from '../database/contracts.js'
+import type { DatabaseAdapter } from '../database/contracts.js'
+import { provideTestDatabaseAdapter } from '../../../tests/runtime/fixtures/database-adapter-capability.js'
 import type { FrameworkEngine } from '../engine/framework-engine.js'
 import { createFrameworkEngine } from './create-framework-engine.js'
 
@@ -18,9 +16,8 @@ const databasePlugin = definePlugin({
 	version: '0.0.0',
 	core: '^0.0.0',
 	pluginId: 'fixture.assembled-database',
-	setup: ({ services }) => {
-		// The declaration fixture only needs to retain the plugin tuple relationship.
-		services.provide(databaseAdapterServiceToken, adapter)
+	capabilities: {
+		provides: [provideTestDatabaseAdapter(adapter)],
 	},
 })
 

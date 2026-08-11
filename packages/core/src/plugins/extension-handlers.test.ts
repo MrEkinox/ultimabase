@@ -1,13 +1,12 @@
 import {
 	defineFieldExtension,
-	Schema,
 	defineSchemaExtension,
+	Schema,
 } from '../schema/index.js'
 import { describe, expect, it } from 'vitest'
 
 import { createApplication } from '../application/framework-application.js'
 import { definePlugin } from './definition.js'
-import { extensionHandlerKey } from './extension-handlers.js'
 
 const permissionsPluginName = 'fixture.permissions'
 const schemaPermissions = defineSchemaExtension(
@@ -34,23 +33,13 @@ const protectedSchema = Schema.define({
 	extensions: [schemaPermissions],
 })
 
-describe('extension handler validation', () => {
-	it('accepts handlers registered by the expected plugin owner', async () => {
+describe('extension owner validation', () => {
+	it('accepts extensions owned by an installed plugin identity', async () => {
 		const events: string[] = []
 		const plugin = definePlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
 			pluginId: permissionsPluginName,
-			setup: ({ registries }) => {
-				registries.extensions.register(
-					extensionHandlerKey('schema', schemaPermissions.name),
-					{ apply: () => true },
-				)
-				registries.extensions.register(
-					extensionHandlerKey('field', fieldVisibility.name),
-					{ apply: () => true },
-				)
-			},
 			hooks: {
 				connect: () => {
 					events.push('connect')
@@ -63,14 +52,13 @@ describe('extension handler validation', () => {
 			plugins: [plugin],
 		})
 
-		// Application creation validates declarations but does not connect infrastructure.
 		expect(events).toStrictEqual([])
 		await application.start()
 		expect(events).toStrictEqual(['connect'])
 		await application.dispose()
 	})
 
-	it('reports missing schema handlers with the expected plugin', async () => {
+	it('reports a missing schema-extension owner', async () => {
 		await expect(
 			createApplication({ schemas: [protectedSchema], plugins: [] }),
 		).rejects.toMatchObject({
@@ -87,21 +75,11 @@ describe('extension handler validation', () => {
 		})
 	})
 
-	it('reports nested field paths and a wrongly claimed handler owner', async () => {
+	it('reports nested field paths without accepting an unrelated plugin', async () => {
 		const wrongOwner = definePlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
 			pluginId: 'fixture.wrong-owner',
-			setup: ({ registries }) => {
-				registries.extensions.register(
-					extensionHandlerKey('schema', schemaPermissions.name),
-					{},
-				)
-				registries.extensions.register(
-					extensionHandlerKey('field', fieldVisibility.name),
-					{},
-				)
-			},
 		})
 		const fieldOnlySchema = Schema.define({
 			className: 'NestedPost',
@@ -127,39 +105,6 @@ describe('extension handler validation', () => {
 				fieldPath: 'metadata.secret',
 				extensionName: 'fixture.field-visibility',
 				expectedPluginName: permissionsPluginName,
-				actualPluginName: 'fixture.wrong-owner',
-			},
-		})
-	})
-
-	it('rejects duplicate handlers through the shared contribution policy', async () => {
-		const registerHandler = (pluginName: string) =>
-			definePlugin({
-				version: '0.0.0',
-				core: '^0.0.0',
-				pluginId: pluginName,
-				setup: ({ registries }) => {
-					registries.extensions.register(
-						extensionHandlerKey('schema', schemaPermissions.name),
-						{},
-					)
-				},
-			})
-
-		await expect(
-			createApplication({
-				schemas: [],
-				plugins: [
-					registerHandler('fixture.first'),
-					registerHandler('fixture.second'),
-				],
-			}),
-		).rejects.toMatchObject({
-			code: 'PLUGIN_CONFLICT',
-			internalDetails: {
-				kind: 'duplicate-contribution',
-				contributionName: 'schema:fixture.class-permissions',
-				pluginNames: ['fixture.first', 'fixture.second'],
 			},
 		})
 	})
@@ -190,19 +135,6 @@ describe('extension handler validation', () => {
 					expect.objectContaining({ message: 'cleanup failed' }),
 				],
 			}),
-		)
-	})
-
-	it('validates handler key inputs for JavaScript callers', () => {
-		expect(extensionHandlerKey('schema', 'fixture.permissions')).toBe(
-			'schema:fixture.permissions',
-		)
-		expect(() => {
-			// @ts-expect-error -- Runtime validation rejects unknown scopes.
-			extensionHandlerKey('object', 'fixture.permissions')
-		}).toThrow(new TypeError('Unknown extension scope: object'))
-		expect(() => extensionHandlerKey('field', '')).toThrow(
-			new TypeError('extensionName must be a non-empty string'),
 		)
 	})
 })

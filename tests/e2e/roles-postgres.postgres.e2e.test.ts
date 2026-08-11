@@ -1,6 +1,5 @@
 import {
 	RequestContext,
-	accessRoleResolverServiceToken,
 	requestSources,
 	runWithRequestEngine,
 } from '@ultimabase/core'
@@ -29,6 +28,7 @@ import {
 	rejectNextRoleReferenceCleanup,
 	resetMissingProviderHookCalls,
 	roleDeveloperHookTrace,
+	roleResolverConsumerPluginName,
 	roleResolutionTrace,
 } from './roles-postgres.fixture.js'
 import {
@@ -392,7 +392,7 @@ describe('stored roles with PostgreSQL', { concurrent: false }, () => {
 			'roles-e2e-stable-reference',
 		)
 		const request = app.engine.withContext(context)
-		const resolver = app.application.getService(accessRoleResolverServiceToken)
+		const resolver = app.application.getPlugin(roleResolverConsumerPluginName)
 
 		await expect(
 			runWithRequestEngine(request, () =>
@@ -544,7 +544,7 @@ describe('stored roles with PostgreSQL', { concurrent: false }, () => {
 					},
 					{ ultimabase: missing },
 				),
-			).rejects.toMatchObject({ code: 'SERVICE_NOT_FOUND' })
+			).rejects.toMatchObject({ code: 'PLUGIN_CAPABILITY_MISSING' })
 			expect(missingProviderHookCalls).toBe(0)
 		} finally {
 			await missing.dispose()
@@ -573,15 +573,15 @@ describe('stored roles with PostgreSQL', { concurrent: false }, () => {
 		}
 	})
 
-	it('isolates role services between applications and hides transport metadata', async () => {
+	it('isolates role capabilities between applications and hides transport metadata', async () => {
 		const first = getApplication()
 		const second = createRoleApplication(getFixture().connectionUri, 'ignore')
 		await second.start()
 
 		try {
 			expect(
-				second.application.getService(accessRoleResolverServiceToken),
-			).not.toBe(first.application.getService(accessRoleResolverServiceToken))
+				second.application.getPlugin(roleResolverConsumerPluginName),
+			).not.toBe(first.application.getPlugin(roleResolverConsumerPluginName))
 			await expect(
 				AppRole.count(undefined, {
 					ultimabase: second,

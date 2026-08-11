@@ -1,9 +1,10 @@
 import { definePlugin } from '../../src/index.js'
 import { Schema } from '../../src/index.js'
-import { databaseAdapterServiceToken, UltimaBase } from '../../src/index.js'
+import { UltimaBase } from '../../src/index.js'
 import { describe, expect, it } from 'vitest'
 
 import { RecordingDatabaseAdapter } from './fixtures/recording-database-adapter.js'
+import { provideTestDatabaseAdapter } from './fixtures/database-adapter-capability.js'
 
 const publicArticleSchema = Schema.define({
 	className: 'PublicAssembledArticle',
@@ -29,9 +30,8 @@ describe('public application Runtime assembly', () => {
 			version: '0.0.0',
 			core: '^0.0.0',
 			pluginId: 'fixture.public-assembled-database',
-			slot: 'database-adapter',
-			setup: ({ services }) => {
-				services.provide(databaseAdapterServiceToken, adapter)
+			capabilities: {
+				provides: [provideTestDatabaseAdapter(adapter)],
 			},
 		})
 		const ultimabase = new UltimaBase({

@@ -1,8 +1,5 @@
 import { createApplication } from '@ultimabase/core'
-import {
-	postgresConnectionServiceToken,
-	postgresPlugin,
-} from '@ultimabase/postgres-plugin'
+import { postgresPlugin, postgresPluginName } from '@ultimabase/postgres-plugin'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import {
@@ -35,7 +32,7 @@ describe('PostgreSQL connection lifecycle', { concurrent: false }, () => {
 			schemas: [],
 			plugins: [postgresPlugin({ url: getFixture().connectionUri })],
 		})
-		const connection = application.getService(postgresConnectionServiceToken)
+		const connection = application.getPlugin(postgresPluginName).connection
 
 		try {
 			expect(connection.state).toBe('idle')

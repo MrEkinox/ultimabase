@@ -1,7 +1,6 @@
 import { SchemaRegistry, Schema } from '../schema/index.js'
 import { describe, expect, it } from 'vitest'
 
-import { createServiceToken } from '../services/service-token.js'
 import { definePlugin } from '../plugins/definition.js'
 import {
 	createApplication,
@@ -124,27 +123,17 @@ describe('FrameworkApplication', () => {
 	})
 
 	it.concurrent(
-		'keeps schemas, services, and plugin exports application-scoped',
+		'keeps schemas and plugin exports application-scoped',
 		async () => {
-			interface MarkerService {
-				readonly applicationId: number
-			}
-
-			const MarkerServiceToken = createServiceToken<MarkerService>(
-				'fixture.application-marker',
-			)
 			let applicationId = 0
 			const plugin = definePlugin({
 				version: '0.0.0',
 				core: '^0.0.0',
 				pluginId: 'fixture.isolation',
-				setup: ({ services, registries }) => {
+				setup: () => {
 					const marker = { applicationId: applicationId++ }
 
-					services.provide(MarkerServiceToken, marker)
-					registries.commands.register('fixture.command', marker)
-
-					return { marker, services, commands: registries.commands }
+					return { marker }
 				},
 			})
 
@@ -157,21 +146,6 @@ describe('FrameworkApplication', () => {
 
 			expect(first.schemas).not.toBe(second.schemas)
 			expect(firstExports.marker).not.toBe(secondExports.marker)
-			expect(first.getService(MarkerServiceToken)).toBe(firstExports.marker)
-			expect(second.getService(MarkerServiceToken)).toBe(secondExports.marker)
-			expect(firstExports.services.get(MarkerServiceToken)).toBe(
-				firstExports.marker,
-			)
-			expect(secondExports.services.get(MarkerServiceToken)).toBe(
-				secondExports.marker,
-			)
-			expect(firstExports.commands.get('fixture.command')?.value).toBe(
-				firstExports.marker,
-			)
-			expect(secondExports.commands.get('fixture.command')?.value).toBe(
-				secondExports.marker,
-			)
-
 			await Promise.all([first.dispose(), second.dispose()])
 		},
 	)
@@ -215,60 +189,6 @@ describe('FrameworkApplication', () => {
 		)
 
 		await application.dispose()
-	})
-
-	it('exposes required and optional service lookup only after setup', async () => {
-		interface MarkerService {
-			readonly value: string
-		}
-
-		const MarkerServiceToken = createServiceToken<MarkerService>(
-			'fixture.application-service',
-		)
-		const MissingServiceToken = createServiceToken<MarkerService>(
-			'fixture.missing-service',
-		)
-		const marker = { value: 'available' }
-		const plugin = definePlugin({
-			version: '0.0.0',
-			core: '^0.0.0',
-			pluginId: 'fixture.application-service',
-			setup: ({ services }) => {
-				services.provide(MarkerServiceToken, marker)
-			},
-		})
-		const application = new FrameworkApplication({
-			schemas: [applicationSchema],
-			plugins: [plugin],
-		})
-
-		expect(() => application.getService(MarkerServiceToken)).toThrow(
-			new TypeError('Application services require completed plugin setup'),
-		)
-		expect(() => application.getOptionalService(MarkerServiceToken)).toThrow(
-			new TypeError('Application services require completed plugin setup'),
-		)
-
-		await application.initialize()
-
-		expect(application.getService(MarkerServiceToken)).toBe(marker)
-		expect(application.getOptionalService(MarkerServiceToken)).toBe(marker)
-		expect(application.getOptionalService(MissingServiceToken)).toBeUndefined()
-		expect(() => application.getService(MissingServiceToken)).toThrow(
-			expect.objectContaining({
-				code: 'SERVICE_NOT_FOUND',
-				message: 'Service not found: fixture.missing-service',
-			}),
-		)
-
-		await application.dispose()
-
-		expect(() => application.getService(MarkerServiceToken)).toThrow(
-			new TypeError('Application services are no longer available'),
-		)
-		expect(() => application.getOptionalService(MarkerServiceToken)).toThrow(
-			new TypeError('Application services are no longer available'),
-		)
 	})
 
 	it('checks schema ownership by exact application identity', () => {
@@ -337,9 +257,6 @@ describe('FrameworkApplication', () => {
 		})
 
 		expect(application.state).toBe('idle')
-		expect(() => application.getContributions('hooks')).toThrow(
-			new TypeError('Application contributions require completed plugin setup'),
-		)
 		expect(() => application.getPlugin('fixture.lazy')).toThrow(
 			new TypeError('Plugin setup has not completed: fixture.lazy'),
 		)
@@ -348,18 +265,16 @@ describe('FrameworkApplication', () => {
 			initialized: true,
 		})
 		await application.dispose()
-		expect(() => application.getContributions('hooks')).toThrow(
-			new TypeError('Application contributions are no longer available'),
-		)
 	})
 
-	it('retains dependency-first contribution order after setup', async () => {
+	it('retains dependency-first setup order', async () => {
+		const order: string[] = []
 		const dependency = definePlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
 			pluginId: 'fixture.contribution-dependency',
-			setup: ({ registries }) => {
-				registries.hooks.register('fixture.dependency.before', 'dependency')
+			setup: () => {
+				order.push('dependency')
 			},
 		})
 		const consumer = definePlugin({
@@ -372,8 +287,8 @@ describe('FrameworkApplication', () => {
 					version: '^0.0.0',
 				},
 			],
-			setup: ({ registries }) => {
-				registries.hooks.register('fixture.consumer.before', 'consumer')
+			setup: () => {
+				order.push('consumer')
 			},
 		})
 		const application = await createApplication({
@@ -381,9 +296,8 @@ describe('FrameworkApplication', () => {
 			plugins: [consumer, dependency],
 		})
 
-		expect(
-			application.getContributions('hooks').map(({ name }) => name),
-		).toStrictEqual(['fixture.dependency.before', 'fixture.consumer.before'])
+		expect(order).toStrictEqual(['dependency', 'consumer'])
+		await application.dispose()
 	})
 
 	it('protects JavaScript callers from malformed option containers', () => {

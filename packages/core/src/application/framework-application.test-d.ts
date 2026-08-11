@@ -3,14 +3,12 @@ import { expectTypeOf, test } from 'vitest'
 
 import {
 	createApplication,
-	createServiceToken,
 	definePlugin,
 	type ConfiguredPluginExports,
 	type ConfiguredPluginId,
 	type ConfiguredPluginIdentity,
 	type ConfiguredPluginIdentityExports,
 	type FrameworkApplication,
-	type PluginContribution,
 	type PluginDefinition,
 } from '../index.js'
 
@@ -50,9 +48,6 @@ test('infers schemas and top-level plugin exports from application options', asy
 	expectTypeOf(application.getPlugin('fixture.database')).toEqualTypeOf<{
 		dialect: 'postgres'
 	}>()
-	expectTypeOf(application.getContributions('hooks')).toEqualTypeOf<
-		readonly PluginContribution[]
-	>()
 	// @ts-expect-error -- Only configured literal plugin IDs are addressable.
 	application.getPlugin('fixture.missing')
 })
@@ -142,35 +137,14 @@ test('infers setup exports from exact repeated plugin identities', async () => {
 	application.getPlugin({ pluginId: 'fixture.repeated', instanceId: 'missing' })
 })
 
-test('infers exact required and optional application service contracts', async () => {
-	interface DatabaseService {
-		readonly dialect: 'postgres'
-	}
-
-	const DatabaseServiceToken = createServiceToken<DatabaseService>(
-		'fixture.database-service',
-	)
-	const plugin = definePlugin({
-		version: '0.0.0',
-		core: '^0.0.0',
-		pluginId: 'fixture.database-service',
-		setup: ({ services }) => {
-			services.provide(DatabaseServiceToken, { dialect: 'postgres' })
-		},
-	})
-	const application = await createApplication({
-		schemas: [],
-		plugins: [plugin],
-	})
-
-	expectTypeOf(
-		application.getService(DatabaseServiceToken),
-	).toEqualTypeOf<DatabaseService>()
-	expectTypeOf(
-		application.getOptionalService(DatabaseServiceToken),
-	).toEqualTypeOf<DatabaseService | undefined>()
-	// Application consumers receive no writable or disposable registry surface.
-	expectTypeOf(application).not.toHaveProperty('services')
-	expectTypeOf(application).not.toHaveProperty('provide')
-	expectTypeOf(application).not.toHaveProperty('disposeServices')
+test('does not expose legacy setup resource lookup', () => {
+	expectTypeOf<
+		FrameworkApplication<readonly [], readonly []>
+	>().not.toHaveProperty('getService')
+	expectTypeOf<
+		FrameworkApplication<readonly [], readonly []>
+	>().not.toHaveProperty('getOptionalService')
+	expectTypeOf<
+		FrameworkApplication<readonly [], readonly []>
+	>().not.toHaveProperty('getContributions')
 })

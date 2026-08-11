@@ -27,7 +27,6 @@ describe('definePlugin', () => {
 		const plugin = definePlugin({
 			core: '^0.0.0',
 			pluginId: 'fixture.database',
-			slot: 'database-adapter',
 			version: '1.0.0',
 			privileges,
 			environment,
@@ -83,7 +82,6 @@ describe('definePlugin', () => {
 				],
 				environment: ['environment:network'],
 			},
-			slot: 'database-adapter',
 			dependencies: [{ pluginId: 'fixture.services', version: '^0.0.0' }],
 			optionalDependencies: [{ pluginId: 'fixture.cache', version: '^0.0.0' }],
 			conflicts: ['fixture.other-database'],
@@ -136,9 +134,10 @@ describe('definePlugin', () => {
 				version: '0.0.0',
 				core: '^0.0.0',
 				pluginId: 'fixture.plugin',
+				// @ts-expect-error -- String slots were removed in favor of single capabilities.
 				slot: '',
 			}),
-		).toThrow(new TypeError('slot must be a non-empty string'))
+		).toThrow(new TypeError('plugin options contain unknown option: slot'))
 		expect(() =>
 			definePlugin({ core: '^0.0.0', pluginId: 'fixture.plugin', version: '' }),
 		).toThrow(new TypeError('version must be a non-empty string'))

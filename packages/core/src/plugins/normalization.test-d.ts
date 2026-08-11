@@ -11,11 +11,10 @@ test('exposes immutable normalized plugin metadata', () => {
 		version: '0.0.0',
 		core: '^0.0.0',
 		pluginId: 'fixture.database',
-		slot: 'database-adapter',
 	})
 	const normalized = normalizePlugins([plugin])
 
-	expectTypeOf(plugin.slot).toEqualTypeOf<'database-adapter' | undefined>()
+	expectTypeOf(plugin).not.toHaveProperty('slot')
 	expectTypeOf(normalized).toEqualTypeOf<readonly NormalizedPlugin[]>()
 
 	// @ts-expect-error -- Normalization results are immutable snapshots.

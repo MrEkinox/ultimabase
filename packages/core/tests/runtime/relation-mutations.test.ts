@@ -1,5 +1,4 @@
 import {
-	databaseAdapterServiceToken,
 	definePlugin,
 	MasterAuthority,
 	Schema,
@@ -10,6 +9,7 @@ import { isPlainRecord } from '@ultimabase/shared'
 import { describe, expect, it } from 'vitest'
 
 import { RecordingDatabaseAdapter } from './fixtures/recording-database-adapter.js'
+import { provideTestDatabaseAdapter } from './fixtures/database-adapter-capability.js'
 import {
 	RelationAuthor,
 	RelationPost,
@@ -133,10 +133,9 @@ const createRelationRuntimeFixture = async (
 		version: '0.0.0',
 		core: '^0.0.0',
 		pluginId: 'fixture.relation-mutation-database',
-		setup: ({ services }) => {
-			services.provide(databaseAdapterServiceToken, adapter)
+		capabilities: {
+			provides: [provideTestDatabaseAdapter(adapter)],
 		},
-		slot: 'database-adapter',
 	})
 	const ultimabase = new UltimaBase({
 		...(options.requiredAccessMode === 'master'
@@ -417,10 +416,9 @@ describe('relation mutation Runtime execution', () => {
 			version: '0.0.0',
 			core: '^0.0.0',
 			pluginId: 'fixture.inverse-pointer-relation-database',
-			setup: ({ services }) => {
-				services.provide(databaseAdapterServiceToken, adapter)
+			capabilities: {
+				provides: [provideTestDatabaseAdapter(adapter)],
 			},
-			slot: 'database-adapter',
 		})
 		const ultimabase = new UltimaBase({
 			plugins: [database],

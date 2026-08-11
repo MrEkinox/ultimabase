@@ -10,10 +10,12 @@ import {
 } from '@ultimabase/shared'
 
 import {
-	databaseAdapterServiceToken,
+	databaseAdapterCapability,
 	databasePointerCapabilityVersion,
 	type DatabaseAdapter,
 } from '../database/contracts.js'
+import { readApplicationCapability } from '../../plugins/application-capability-access.js'
+import { readApplicationPipelineContributions } from '../../plugins/setup-registries.js'
 import { FrameworkEngine } from '../engine/framework-engine.js'
 import { createEnforcementStages } from '../enforcement/dispatcher.js'
 import { createRuntimeHookStages } from '../hooks/stages.js'
@@ -133,7 +135,7 @@ const assertDatabaseAdapter: (
 		typeof adapter.beginTransaction !== 'function'
 	) {
 		throw new TypeError(
-			'databaseAdapterServiceToken must resolve to a DatabaseAdapter',
+			'databaseAdapterCapability must resolve to a DatabaseAdapter',
 		)
 	}
 }
@@ -186,7 +188,9 @@ const collectRuntimePipelineStages = (
 	const normalization: RuntimeOperationTransformStage[] = []
 	const commit: RuntimeResultEffectStage[] = []
 
-	for (const contribution of application.getContributions('pipelines')) {
+	for (const contribution of readApplicationPipelineContributions(
+		application,
+	)) {
 		const implementation = getRuntimePipelineStageImplementation(
 			contribution.value,
 		)
@@ -266,8 +270,9 @@ export const createFrameworkEngine = <
 	const normalizedOptions = normalizeCreateFrameworkEngineOptions(options)
 	assertApplicationIsUsable(application)
 
-	const databaseAdapter: unknown = application.getService(
-		databaseAdapterServiceToken,
+	const databaseAdapter: unknown = readApplicationCapability(
+		application,
+		databaseAdapterCapability,
 	)
 
 	assertDatabaseAdapter(databaseAdapter)

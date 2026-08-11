@@ -6,7 +6,6 @@ import {
 	RequestContextValue,
 	Schema,
 	UltimaBase,
-	accessPrincipalResolverServiceToken,
 	definePlugin,
 	requestSources,
 } from '@ultimabase/core'
@@ -18,6 +17,7 @@ import {
 	createPostgresWorkerFixture,
 	type PostgresWorkerFixture,
 } from './postgres-worker-fixture.js'
+import { provideTestPrincipalResolver } from './access-capability-fixtures.js'
 
 const currentMemberId = new RequestContextValue<string>(
 	'fixture.acl-role-schema.member-id',
@@ -40,14 +40,16 @@ const identityPlugin = definePlugin({
 	version: '0.0.0',
 	core: '^0.0.0',
 	pluginId: 'fixture.acl-role-schema.identity',
-	setup: ({ services }) => {
-		services.provide(accessPrincipalResolverServiceToken, {
-			resolveCurrent: ({ context }) => {
-				const id = context.getValue(currentMemberId)
+	capabilities: {
+		provides: [
+			provideTestPrincipalResolver({
+				resolveCurrent: ({ context }) => {
+					const id = context.getValue(currentMemberId)
 
-				return id === undefined ? undefined : Member.pointer(id)
-			},
-		})
+					return id === undefined ? undefined : Member.pointer(id)
+				},
+			}),
+		],
 	},
 })
 const emptyACL = new ACL()

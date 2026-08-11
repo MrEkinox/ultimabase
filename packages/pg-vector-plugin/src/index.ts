@@ -120,7 +120,7 @@ export type PgVectorPlugin = FrameworkPlugin<
 	undefined,
 	undefined,
 	undefined,
-	never
+	undefined
 >
 
 function assertValidDimensions(

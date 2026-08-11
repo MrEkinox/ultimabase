@@ -1,5 +1,3 @@
-import { immutableArray } from '@ultimabase/shared'
-
 import { FrameworkError } from '../errors/framework-error.js'
 import { formatPluginIdentity, type PluginIdentity } from './manifest.js'
 
@@ -20,24 +18,6 @@ export const createDuplicatePluginError = (
 					? {}
 					: { instanceId: identity.instanceId }),
 				source,
-			},
-		},
-	)
-
-/** Creates the same exclusive-role diagnostic during normalization and resolution. */
-export const createExclusiveSlotConflictError = (
-	slot: string,
-	firstPluginName: string,
-	secondPluginName: string,
-): FrameworkError<'PLUGIN_CONFLICT'> =>
-	new FrameworkError(
-		'PLUGIN_CONFLICT',
-		`Plugins "${firstPluginName}" and "${secondPluginName}" both occupy exclusive slot "${slot}".`,
-		{
-			internalDetails: {
-				kind: 'exclusive-slot',
-				slot,
-				pluginNames: immutableArray([firstPluginName, secondPluginName]),
 			},
 		},
 	)

@@ -25,6 +25,7 @@ import type { SchemaRegistry } from '../schema/schema/registry.js'
 export interface PluginDeclarationTargetProvenance {
 	readonly localName: string
 	readonly ownerPlugin: string
+	readonly ownerInstanceId?: string
 }
 
 /** Retains one typed namespaced field kind for plugin target expansion. */

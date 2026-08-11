@@ -30,6 +30,7 @@ export type HookContextOwner =
 	| Readonly<{
 			readonly kind: 'plugin'
 			readonly pluginName: string
+			readonly pluginInstanceId?: string
 			readonly contributionName: string
 	  }>
 

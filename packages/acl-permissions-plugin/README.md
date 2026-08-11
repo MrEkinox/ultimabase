@@ -161,8 +161,14 @@ const aclAuditPlugin = definePlugin({
 	pluginId: 'app.acl-audit',
 	version: '1.0.0',
 	core: '^0.0.0',
-	setup: ({ registries }) => {
-		registries.events.register(
+	privileges: [
+		{
+			name: 'runtime:observe',
+			reason: 'Records committed ACL changes.',
+		},
+	],
+	setup: ({ events }) => {
+		events.register(
 			'record-acl-change',
 			onACLChange(({ event }) => {
 				console.log(

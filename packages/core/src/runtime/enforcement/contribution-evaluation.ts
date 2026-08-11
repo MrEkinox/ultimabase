@@ -1,8 +1,11 @@
 import type {
 	FrameworkApplication,
-	PluginContribution,
 	PluginDefinition,
 } from '../../foundation.js'
+import {
+	readApplicationRuntimeContributions,
+	type OwnedPluginContribution,
+} from '../../plugins/setup-registries.js'
 import { Schema, type SchemaDefinition } from '../../schema/index.js'
 import {
 	immutableArray,
@@ -38,7 +41,7 @@ import {
 
 /** @internal Associates one protected implementation with its setup owner. */
 export interface OwnedEnforcementContribution {
-	readonly contribution: PluginContribution
+	readonly contribution: OwnedPluginContribution
 	readonly implementation: EnforcementContributionImplementation
 }
 
@@ -52,7 +55,11 @@ export const createEnforcementExecutionDescriptor = (
 		handler: (input) => implementation.run(input),
 		handlerIndex: 0,
 		operationKind: operation.kind,
-		owner: createPluginHookOwner(contribution.ownerPlugin, contribution.name),
+		owner: createPluginHookOwner(
+			contribution.ownerPlugin,
+			contribution.name,
+			contribution.ownerInstanceId,
+		),
 		phase: implementation.kind,
 		target:
 			implementation.schema === undefined
@@ -83,7 +90,7 @@ export const readEnforcementContributions = (
 ): readonly OwnedEnforcementContribution[] => {
 	const contributions: OwnedEnforcementContribution[] = []
 
-	for (const contribution of application.getContributions('hooks')) {
+	for (const contribution of readApplicationRuntimeContributions(application)) {
 		const implementation = getEnforcementContributionImplementation(
 			contribution.value,
 		)
@@ -111,7 +118,7 @@ export const readEnforcementContributions = (
 export const normalizeEnforcementRestrictedFields = (
 	fields: unknown,
 	schema: SchemaDefinition,
-	contribution: PluginContribution,
+	contribution: OwnedPluginContribution,
 ): readonly string[] => {
 	if (!isUnknownArray(fields)) {
 		throw new TypeError(

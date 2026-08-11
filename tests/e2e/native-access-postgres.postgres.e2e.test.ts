@@ -92,6 +92,12 @@ const pluginVisibility = definePlugin({
 	version: '0.0.0',
 	core: '^0.0.0',
 	pluginId: 'fixture.native-access-visibility',
+	privileges: [
+		{
+			name: 'runtime:constrain',
+			reason: 'Contributes a monotonic visibility policy for the E2E fixture.',
+		},
+	],
 	setup: ({ access }) => {
 		access.schema(
 			'hide-plugin-rows',

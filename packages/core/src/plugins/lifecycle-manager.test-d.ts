@@ -5,10 +5,10 @@ import {
 	definePlugin,
 	normalizePlugins,
 	PluginGraph,
-	PluginLifecycleManager,
-	PluginSetupRegistries,
 	type PluginLifecycleState,
 } from '../index.js'
+import { PluginLifecycleManager } from './lifecycle-manager.js'
+import { PluginSetupRegistries } from './setup-registries.js'
 
 test('exposes promise-based lifecycle operations and unknown runtime exports', () => {
 	const plugin = definePlugin({

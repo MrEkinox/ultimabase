@@ -9,6 +9,8 @@ import {
 import { satisfies, valid, validRange } from 'semver'
 
 import { snapshotJsonValue } from '../schema/fields/builtins/json.js'
+import type { CompiledSchemaRegistry } from '../schema/index.js'
+import type { DatabaseConstraintCompilerReader } from './constraint-compilers.js'
 import type { PluginIdentity } from './manifest.js'
 
 /** Determines how compatible provider declarations compose in one application. */
@@ -230,6 +232,27 @@ export const defineCapability =
 		>
 	}
 
+/** Marks the one plugin responsible for emitting generated application contracts. */
+export interface TypegenEmitterCapability {
+	readonly kind: 'typegen-emitter'
+}
+
+/** Replaces the legacy schema-typegen string slot with one nominal protocol. */
+export const typegenEmitterCapability: CapabilityToken<
+	TypegenEmitterCapability,
+	TypegenEmitterCapability,
+	'ultimabase.typegen-emitter',
+	'1.0.0',
+	'single',
+	'declaration'
+> = defineCapability<TypegenEmitterCapability>()({
+	capabilityId: 'ultimabase.typegen-emitter',
+	version: '1.0.0',
+	cardinality: 'single',
+	lifetime: 'declaration',
+	compose: ([provider]) => provider,
+})
+
 /** Runs the trusted token-owned composition without exposing it through inspection. */
 export const composeCapability = <TToken extends CapabilityToken>(
 	token: TToken,
@@ -283,6 +306,10 @@ export interface PluginCapabilityReader {
 /** Supplies an application provider with owner-bound declared capability reads. */
 export interface ApplicationCapabilityFactoryContext {
 	readonly capabilities: PluginCapabilityReader
+	/** Reads live owner-attributed compilers only with active adapter consumption authority. */
+	readonly constraintCompilers: DatabaseConstraintCompilerReader
+	/** Reads the complete compiled application schema graph without mutating it. */
+	readonly schemas: CompiledSchemaRegistry
 }
 
 /** Creates one application-local provider without exposing it in static metadata. */
@@ -623,28 +650,69 @@ export const runCapabilityDecorator = <
 }
 
 /** Declares one compatible capability use without reading a provider. */
+export type CapabilityRequirementPhase = 'materialization' | 'setup'
+
 export interface CapabilityRequirement<
 	TToken extends CapabilityToken = CapabilityToken,
 	TOptional extends boolean = boolean,
 	TRange extends string = string,
+	TPhase extends CapabilityRequirementPhase = CapabilityRequirementPhase,
 > {
 	readonly kind: 'capability-requirement'
 	readonly token: TToken
 	readonly version: TRange
 	readonly optional: TOptional
+	/** Selects provider-first materialization or order-independent setup access. */
+	readonly phase: TPhase
 }
 
 const capabilityRequirements = new WeakSet<object>()
+const capabilityRequirementOptionKeys = new Set(['phase'])
+
+/** Selects when an application capability requirement may be consumed. */
+export interface CapabilityRequirementOptions<
+	TPhase extends CapabilityRequirementPhase = CapabilityRequirementPhase,
+> {
+	readonly phase: TPhase
+}
+
+const normalizeCapabilityRequirementPhase = (
+	options: CapabilityRequirementOptions | undefined,
+): CapabilityRequirementPhase => {
+	if (options === undefined) return 'materialization'
+
+	const untrustedOptions: unknown = options
+	if (!isPlainRecord(untrustedOptions)) {
+		throw new TypeError('capability requirement options must be a plain object')
+	}
+	assertExactOptions(
+		untrustedOptions,
+		capabilityRequirementOptionKeys,
+		'capability requirement options',
+	)
+	if (
+		untrustedOptions.phase !== 'materialization' &&
+		untrustedOptions.phase !== 'setup'
+	) {
+		throw new TypeError(
+			'capability requirement phase must be materialization or setup',
+		)
+	}
+
+	return untrustedOptions.phase
+}
 
 const createCapabilityRequirement = <
 	const TToken extends CapabilityToken,
 	const TOptional extends boolean,
 	const TRange extends string,
+	const TPhase extends CapabilityRequirementPhase,
 >(
 	token: TToken,
 	version: TRange,
 	optional: TOptional,
-): CapabilityRequirement<TToken, TOptional, TRange> => {
+	phase: TPhase,
+): CapabilityRequirement<TToken, TOptional, TRange, TPhase> => {
 	assertCapabilityToken(token, 'capability requirement token')
 	assertNonEmptyString(version, 'capability requirement version')
 	if (validRange(version) === null) {
@@ -664,6 +732,7 @@ const createCapabilityRequirement = <
 		token,
 		version,
 		optional,
+		phase,
 	})
 
 	capabilityRequirements.add(requirement)
@@ -674,21 +743,35 @@ const createCapabilityRequirement = <
 export const requireCapability = <
 	const TToken extends CapabilityToken,
 	const TRange extends string,
+	const TPhase extends CapabilityRequirementPhase = 'materialization',
 >(
 	token: TToken,
 	version: TRange,
-): CapabilityRequirement<TToken, false, TRange> =>
-	createCapabilityRequirement(token, version, false)
+	options?: CapabilityRequirementOptions<TPhase>,
+): CapabilityRequirement<TToken, false, TRange, TPhase> =>
+	createCapabilityRequirement(
+		token,
+		version,
+		false,
+		normalizeCapabilityRequirementPhase(options) as TPhase,
+	)
 
 /** Declares a capability that may be absent but must never be probed implicitly. */
 export const optionalCapability = <
 	const TToken extends CapabilityToken,
 	const TRange extends string,
+	const TPhase extends CapabilityRequirementPhase = 'materialization',
 >(
 	token: TToken,
 	version: TRange,
-): CapabilityRequirement<TToken, true, TRange> =>
-	createCapabilityRequirement(token, version, true)
+	options?: CapabilityRequirementOptions<TPhase>,
+): CapabilityRequirement<TToken, true, TRange, TPhase> =>
+	createCapabilityRequirement(
+		token,
+		version,
+		true,
+		normalizeCapabilityRequirementPhase(options) as TPhase,
+	)
 
 /** Rejects forged provider declarations at manifest boundaries. */
 export const assertCapabilityProviderDeclaration: (

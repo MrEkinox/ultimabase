@@ -247,10 +247,11 @@ compatible; otherwise compilation fails. Plugin-created schemas and
 application-specific commands remain reachable through the application-owned
 `ultimabase.schema(nameOrClass)` handle without mutating exported classes.
 
-The existing `declareFields`, string slots, plugin service registry, and named
-setup contribution registries are transitional inputs to this generalized host.
-Milestone 14 replaces them without preserving duplicate public extension
-mechanisms or unprivileged escape hatches.
+Milestone 14 removed string slots, the plugin service registry, and generic
+named setup contribution registries. Versioned capabilities are the only public
+cross-plugin host; native Hooks, Access, Runtime stages, events, pipelines, and
+constraint compilers retain only exact Core-owned privilege-scoped facades with
+private application storage.
 
 The lifecycle manager first completes every setup callback, leaving a validation
 boundary before infrastructure changes. It then runs connect, schema

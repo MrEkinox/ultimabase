@@ -3,7 +3,8 @@ import {
 	RequestContextValue,
 	Schema,
 	UltimaBase,
-	accessRoleResolverServiceToken,
+	accessReferenceCleanupCapability,
+	accessRoleResolverCapability,
 	allMutations,
 	allOf,
 	anyOf,
@@ -11,6 +12,8 @@ import {
 	definePlugin,
 	not,
 	onEvent,
+	provideCapability,
+	requireCapability,
 	type AccessContext,
 } from '@ultimabase/core'
 import {
@@ -199,56 +202,72 @@ export const rejectNextRoleReferenceCleanup = (): void => {
 const readReferenceValue = (value: string | number): string =>
 	typeof value === 'string' ? value : String(value)
 
+const externalRoleReferenceCleanup = defineAccessReferenceCleanup({
+	kind: 'role',
+	hasReferences: ({ reference }) =>
+		ExternalRoleReference.exists(
+			{
+				where: {
+					subject: { eq: readReferenceValue(reference.value) },
+				},
+			},
+			{ useMasterKey: true },
+		),
+	cleanup: async ({ reference }) => {
+		const rows = await ExternalRoleReference.findMany(
+			{
+				where: {
+					subject: { eq: readReferenceValue(reference.value) },
+				},
+				select: { id: true },
+			},
+			{ useMasterKey: true },
+		)
+		if (rows.length > 0) {
+			await ExternalRoleReference.deleteMany(
+				{ where: rows.map(({ id }) => ({ id: { eq: id } })) },
+				{ useMasterKey: true },
+			)
+		}
+
+		if (rejectNextExternalCleanup) {
+			rejectNextExternalCleanup = false
+			throw new Error('external role cleanup rollback fixture')
+		}
+	},
+})
+
 /** Owns external-reference cleanup without importing a roles implementation. */
 export const externalRoleReferencePlugin = definePlugin({
 	version: '0.0.0',
 	core: '^0.0.0',
 	pluginId: 'fixture.external-role-references',
-	setup: ({ registries }) => {
-		registries.commands.register(
-			'fixture.external-role-reference-cleanup',
-			defineAccessReferenceCleanup({
-				kind: 'role',
-				hasReferences: ({ reference }) =>
-					ExternalRoleReference.exists(
-						{
-							where: {
-								subject: { eq: readReferenceValue(reference.value) },
-							},
-						},
-						{ useMasterKey: true },
-					),
-				cleanup: async ({ reference }) => {
-					const rows = await ExternalRoleReference.findMany(
-						{
-							where: {
-								subject: { eq: readReferenceValue(reference.value) },
-							},
-							select: { id: true },
-						},
-						{ useMasterKey: true },
-					)
-					if (rows.length > 0) {
-						await ExternalRoleReference.deleteMany(
-							{ where: rows.map(({ id }) => ({ id: { eq: id } })) },
-							{ useMasterKey: true },
-						)
-					}
-
-					if (rejectNextExternalCleanup) {
-						rejectNextExternalCleanup = false
-						throw new Error('external role cleanup rollback fixture')
-					}
-				},
+	privileges: [
+		{
+			name: 'runtime:observe',
+			reason: 'Observes committed role events for the E2E fixture.',
+		},
+	],
+	capabilities: {
+		provides: [
+			provideCapability(accessReferenceCleanupCapability, {
+				contributionId: 'external-role-reference-cleanup',
+				create: () => ({
+					value: {
+						cleanup: externalRoleReferenceCleanup,
+						name: 'fixture.external-role-reference-cleanup',
+					},
+				}),
 			}),
-		)
-
+		],
+	},
+	setup: ({ events }) => {
 		for (const eventName of [
 			roleDeletedEvent,
 			roleHierarchyChangedEvent,
 			roleMembershipChangedEvent,
 		]) {
-			registries.events.register(
+			events.register(
 				`fixture.observe:${eventName}`,
 				onEvent({
 					name: eventName,
@@ -259,6 +278,20 @@ export const externalRoleReferencePlugin = definePlugin({
 			)
 		}
 	},
+})
+
+const roleResolverRequirement = requireCapability(
+	accessRoleResolverCapability,
+	'^1.0.0',
+)
+export const roleResolverConsumerPluginName =
+	'fixture.roles.resolver-consumer' as const
+const roleResolverConsumerPlugin = definePlugin({
+	version: '0.0.0',
+	core: '^0.0.0',
+	pluginId: roleResolverConsumerPluginName,
+	capabilities: { requires: [roleResolverRequirement] },
+	setup: ({ capabilities }) => capabilities.get(roleResolverRequirement),
 })
 
 export const roleSchemas = [
@@ -286,6 +319,7 @@ export const createRoleApplication = (
 		plugins: [
 			externalRoleReferencePlugin,
 			rolesPlugin(),
+			roleResolverConsumerPlugin,
 			postgresPlugin({ schemaPolicy, url: connectionUri }),
 		],
 		schemas: roleSchemas,
@@ -304,10 +338,13 @@ export const createProviderBoundaryApplication = (
 		version: '0.0.0',
 		core: '^0.0.0',
 		pluginId: 'fixture.community-role-provider-e2e',
-		setup: ({ services }) => {
-			services.provide(accessRoleResolverServiceToken, {
-				hasRole: () => true,
-			})
+		capabilities: {
+			provides: [
+				provideCapability(accessRoleResolverCapability, {
+					contributionId: 'community-role-resolver',
+					create: () => ({ value: { hasRole: () => true } }),
+				}),
+			],
 		},
 	})
 

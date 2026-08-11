@@ -10,6 +10,7 @@ import {
 	requireCapability,
 	type CapabilityDecoratorDeclaration,
 	type CapabilityReplacementDeclaration,
+	type CompiledSchemaRegistry,
 } from '../index.js'
 
 interface Provider {
@@ -30,9 +31,16 @@ test('preserves exact provider, decorator, replacement, factory, and reader type
 	})
 	const required = requireCapability(token, '^1.0.0')
 	const optional = optionalCapability(token, '^1.0.0')
+	const setupOptional = optionalCapability(token, '^1.0.0', {
+		phase: 'setup',
+	})
+	expectTypeOf(required.phase).toEqualTypeOf<'materialization'>()
+	expectTypeOf(optional.phase).toEqualTypeOf<'materialization'>()
+	expectTypeOf(setupOptional.phase).toEqualTypeOf<'setup'>()
 	const provider = provideCapability(token, {
 		contributionId: 'primary',
-		create: ({ capabilities }) => {
+		create: ({ capabilities, schemas }) => {
+			expectTypeOf(schemas).toEqualTypeOf<CompiledSchemaRegistry>()
 			expectTypeOf(capabilities.get(required)).toEqualTypeOf<Consumer>()
 			expectTypeOf(capabilities.get(optional)).toEqualTypeOf<
 				Consumer | undefined

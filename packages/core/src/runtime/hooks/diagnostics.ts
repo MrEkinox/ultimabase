@@ -1,8 +1,8 @@
+import { type FrameworkErrorCode } from '../../foundation.js'
 import {
-	createServiceToken,
-	type FrameworkErrorCode,
-	type ServiceToken,
-} from '../../foundation.js'
+	defineCapability,
+	type CapabilityToken,
+} from '../../plugins/capabilities.js'
 import type { OperationKind } from '../../query/index.js'
 import type { FieldHookPhase } from '../../schema/hooks/field-declarations.js'
 import type { SchemaHookPhase } from '../../schema/hooks/declarations.js'
@@ -74,7 +74,17 @@ export type HookDiagnosticsObserver = (
 ) => MaybePromise<void>
 
 /** Lets one optional plugin provide the application-wide diagnostic sink. */
-export const hookDiagnosticsObserverServiceToken: ServiceToken<HookDiagnosticsObserver> =
-	createServiceToken<HookDiagnosticsObserver>(
-		'ultimabase.hook-diagnostics-observer',
-	)
+export const hookDiagnosticsObserverCapability: CapabilityToken<
+	HookDiagnosticsObserver,
+	HookDiagnosticsObserver,
+	'ultimabase.hook-diagnostics-observer',
+	'1.0.0',
+	'single',
+	'application'
+> = defineCapability<HookDiagnosticsObserver>()({
+	capabilityId: 'ultimabase.hook-diagnostics-observer',
+	version: '1.0.0',
+	cardinality: 'single',
+	lifetime: 'application',
+	compose: ([provider]) => provider,
+})

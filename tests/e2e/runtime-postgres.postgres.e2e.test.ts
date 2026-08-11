@@ -1,9 +1,9 @@
+import { postgresPlugin, postgresPluginName } from '@ultimabase/postgres-plugin'
 import {
-	postgresConnectionServiceToken,
-	postgresPlugin,
-} from '@ultimabase/postgres-plugin'
-import {
-	databaseAdapterServiceToken,
+	databaseAdapterCapability,
+	definePlugin,
+	requireCapability,
+	type DatabaseAdapter,
 	type DatabaseTransactionAdapter,
 	Schema,
 	increment,
@@ -23,6 +23,19 @@ import {
 	createPostgresWorkerFixture,
 	type PostgresWorkerFixture,
 } from './postgres-worker-fixture.js'
+
+const databaseAdapterRequirement = requireCapability(
+	databaseAdapterCapability,
+	'^1.0.0',
+)
+const databaseAdapterConsumerPlugin = definePlugin({
+	version: '0.0.0',
+	core: '^0.0.0',
+	pluginId: 'fixture.runtime-postgres.adapter-consumer',
+	capabilities: { requires: [databaseAdapterRequirement] },
+	setup: ({ capabilities }): DatabaseAdapter =>
+		capabilities.get(databaseAdapterRequirement),
+})
 
 const PostSchema = Schema.define({
 	className: 'RuntimePost',
@@ -807,9 +820,8 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 			validation: { clock, timezone: 'UTC' },
 		})
 		await ultimabase.start()
-		const connection = ultimabase.application.getService(
-			postgresConnectionServiceToken,
-		)
+		const connection =
+			ultimabase.application.getPlugin(postgresPluginName).connection
 
 		try {
 			// One live row exercises every built-in field kind across the public boundary.
@@ -1032,12 +1044,13 @@ describe('Runtime to PostgreSQL', { concurrent: false }, () => {
 					schemaPolicy: 'override',
 					url: getFixture().connectionUri,
 				}),
+				databaseAdapterConsumerPlugin,
 			],
 			validation: { clock: () => new Date(createInstant), timezone: 'UTC' },
 		})
 		await ultimabase.start()
-		const adapter = ultimabase.application.getService(
-			databaseAdapterServiceToken,
+		const adapter = ultimabase.application.getPlugin(
+			'fixture.runtime-postgres.adapter-consumer',
 		)
 		const transactions: DatabaseTransactionAdapter[] = []
 

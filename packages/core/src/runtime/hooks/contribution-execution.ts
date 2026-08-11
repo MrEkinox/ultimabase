@@ -64,6 +64,7 @@ const collectContributionHandlers = <TPhase extends string>(
 				: createPluginHookOwner(
 						contribution.ownerPlugin,
 						contribution.localName,
+						contribution.ownerInstanceId,
 					)
 
 		for (const {

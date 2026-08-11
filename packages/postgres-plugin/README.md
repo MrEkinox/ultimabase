@@ -17,10 +17,7 @@ The current implementation accepts either a connection URL or an existing
 borrowed client to the pool.
 
 ```ts
-import {
-	postgresConnectionServiceToken,
-	postgresPlugin,
-} from '@ultimabase/postgres-plugin'
+import { postgresPlugin, postgresPluginName } from '@ultimabase/postgres-plugin'
 import { UltimaBase } from '@ultimabase/core'
 
 const databaseUrl = process.env.DATABASE_URL
@@ -35,9 +32,8 @@ const ultimabase = new UltimaBase({
 })
 
 await ultimabase.start()
-const connection = ultimabase.application.getService(
-	postgresConnectionServiceToken,
-)
+const connection =
+	ultimabase.application.getPlugin(postgresPluginName).connection
 console.log(connection.state) // 'connected'
 await ultimabase.dispose()
 console.log(connection.state) // 'closed'
@@ -66,8 +62,8 @@ not re-exported by this package.
 
 ## Internal database adapter
 
-Plugin setup wraps the configured query client with Drizzle and registers
-Runtime's `databaseAdapterServiceToken`. This means an application using
+The plugin materializes Core's canonical `databaseAdapterCapability` from the
+configured query client and keeps Drizzle private. This means an application using
 `postgresPlugin` is assembled automatically by the `UltimaBase` facade. The
 lower-level engine remains available for transports and advanced composition:
 
@@ -454,9 +450,10 @@ const title = stringField({
 })
 ```
 
-An official migration plugin claims `postgresSchemaPreparationClaimName`
-during setup. This suppresses direct synchronization so exactly one
-database-specific implementation owns the preparation phase.
+An official migration plugin provides the single declaration capability
+`postgresSchemaPreparationCapability`. PostgreSQL then suppresses direct
+synchronization so exactly one database-specific implementation owns the
+preparation phase.
 
 ## Pointer storage
 

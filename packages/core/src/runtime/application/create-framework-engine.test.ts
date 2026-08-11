@@ -7,10 +7,7 @@ import { Schema } from '../../schema/index.js'
 import { describe, expect, it } from 'vitest'
 
 import { runWithRequestEngine } from '../context/active-framework-context.js'
-import {
-	databaseAdapterServiceToken,
-	type DatabaseAdapter,
-} from '../database/contracts.js'
+import { type DatabaseAdapter } from '../database/contracts.js'
 import {
 	constraint,
 	databaseConstraint,
@@ -21,6 +18,7 @@ import { beforeOperation, postCommitEvent } from '../hooks/definitions.js'
 import { MasterAuthority } from '../master/master-authority.js'
 import { runtimePipelineStage } from '../pipeline/definitions.js'
 import { RecordingDatabaseAdapter } from '../../../tests/runtime/fixtures/recording-database-adapter.js'
+import { provideTestDatabaseAdapter } from '../../../tests/runtime/fixtures/database-adapter-capability.js'
 import { createFrameworkEngine } from './create-framework-engine.js'
 
 const articleSchema = Schema.define({
@@ -38,9 +36,8 @@ const databasePlugin = (adapter: DatabaseAdapter) =>
 		version: '0.0.0',
 		core: '^0.0.0',
 		pluginId: 'fixture.assembled-database',
-		slot: 'database-adapter',
-		setup: ({ services }) => {
-			services.provide(databaseAdapterServiceToken, adapter)
+		capabilities: {
+			provides: [provideTestDatabaseAdapter(adapter)],
 		},
 	})
 
@@ -77,8 +74,14 @@ describe('createFrameworkEngine', () => {
 			version: '0.0.0',
 			core: '^0.0.0',
 			pluginId: 'fixture.pipeline-dependency',
-			setup: ({ registries }) => {
-				registries.pipelines.register(
+			privileges: [
+				{
+					name: 'runtime:intercept',
+					reason: 'Exercises ordered Runtime pipeline handlers.',
+				},
+			],
+			setup: ({ pipeline }) => {
+				pipeline.register(
 					'fixture.dependency-normalization',
 					runtimePipelineStage({
 						stage: 'normalization',
@@ -89,7 +92,7 @@ describe('createFrameworkEngine', () => {
 						},
 					}),
 				)
-				registries.pipelines.register(
+				pipeline.register(
 					'fixture.dependency-commit',
 					runtimePipelineStage({
 						stage: 'commit',
@@ -107,8 +110,14 @@ describe('createFrameworkEngine', () => {
 			dependencies: [
 				{ pluginId: 'fixture.pipeline-dependency', version: '^0.0.0' },
 			],
-			setup: ({ registries }) => {
-				registries.pipelines.register(
+			privileges: [
+				{
+					name: 'runtime:intercept',
+					reason: 'Exercises ordered Runtime pipeline handlers.',
+				},
+			],
+			setup: ({ pipeline }) => {
+				pipeline.register(
 					'fixture.consumer-normalization',
 					runtimePipelineStage({
 						stage: 'normalization',
@@ -119,7 +128,7 @@ describe('createFrameworkEngine', () => {
 						},
 					}),
 				)
-				registries.pipelines.register(
+				pipeline.register(
 					'fixture.consumer-commit',
 					runtimePipelineStage({
 						stage: 'commit',
@@ -134,8 +143,18 @@ describe('createFrameworkEngine', () => {
 			version: '0.0.0',
 			core: '^0.0.0',
 			pluginId: 'fixture.assembled-automation',
-			setup: ({ registries }) => {
-				registries.hooks.register(
+			privileges: [
+				{
+					name: 'runtime:intercept',
+					reason: 'Exercises low-level before-operation hooks.',
+				},
+				{
+					name: 'runtime:observe',
+					reason: 'Exercises post-commit observers.',
+				},
+			],
+			setup: ({ events, runtime }) => {
+				runtime.register(
 					'fixture.trim-title',
 					beforeOperation({
 						schema: articleSchema,
@@ -145,7 +164,7 @@ describe('createFrameworkEngine', () => {
 						},
 					}),
 				)
-				registries.events.register(
+				events.register(
 					'fixture.created-event',
 					postCommitEvent({
 						schema: articleSchema,
@@ -161,8 +180,14 @@ describe('createFrameworkEngine', () => {
 			version: '0.0.0',
 			core: '^0.0.0',
 			pluginId: 'fixture.assembled-enforcement',
-			setup: ({ registries }) => {
-				registries.hooks.register(
+			privileges: [
+				{
+					name: 'runtime:constrain',
+					reason: 'Exercises monotonic Runtime enforcement.',
+				},
+			],
+			setup: ({ runtime }) => {
+				runtime.register(
 					'fixture.create-guard',
 					guard({
 						schema: articleSchema,
@@ -172,7 +197,7 @@ describe('createFrameworkEngine', () => {
 						},
 					}),
 				)
-				registries.hooks.register(
+				runtime.register(
 					'fixture.tenant-constraint',
 					constraint({
 						schema: articleSchema,
@@ -289,8 +314,14 @@ describe('createFrameworkEngine', () => {
 			version: '0.0.0',
 			core: '^0.0.0',
 			pluginId: 'fixture.assembled-read-policy',
-			setup: ({ registries }) => {
-				registries.hooks.register(
+			privileges: [
+				{
+					name: 'runtime:constrain',
+					reason: 'Exercises read constraints and selection narrowing.',
+				},
+			],
+			setup: ({ runtime }) => {
+				runtime.register(
 					'fixture.read-constraint',
 					constraint({
 						handler: () =>
@@ -301,7 +332,7 @@ describe('createFrameworkEngine', () => {
 						schema,
 					}),
 				)
-				registries.hooks.register(
+				runtime.register(
 					'fixture.read-selection',
 					restrictSelection({
 						handler: () => ['title'],
@@ -431,8 +462,14 @@ describe('createFrameworkEngine', () => {
 			version: '0.0.0',
 			core: '^0.0.0',
 			pluginId: 'fixture.security-sensitive-guard',
-			setup: ({ registries }) => {
-				registries.hooks.register(
+			privileges: [
+				{
+					name: 'runtime:constrain',
+					reason: 'Exercises value-dependent enforcement.',
+				},
+			],
+			setup: ({ runtime }) => {
+				runtime.register(
 					'fixture.guard-title',
 					guard({
 						schema: transformedSchema,
@@ -482,16 +519,17 @@ describe('createFrameworkEngine', () => {
 		})
 
 		expect(() => createFrameworkEngine(missingAdapterApplication)).toThrow(
-			expect.objectContaining({ code: 'SERVICE_NOT_FOUND' }),
+			new TypeError(
+				'databaseAdapterCapability must resolve to a DatabaseAdapter',
+			),
 		)
 
 		const invalidAdapterPlugin = definePlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
 			pluginId: 'fixture.invalid-adapter',
-			setup: ({ services }) => {
-				// Runtime validation protects JavaScript plugins that violate the service contract.
-				services.provide(databaseAdapterServiceToken, {} as never)
+			capabilities: {
+				provides: [provideTestDatabaseAdapter({} as never)],
 			},
 		})
 		const invalidAdapterApplication = await createApplication({
@@ -501,7 +539,7 @@ describe('createFrameworkEngine', () => {
 
 		expect(() => createFrameworkEngine(invalidAdapterApplication)).toThrow(
 			new TypeError(
-				'databaseAdapterServiceToken must resolve to a DatabaseAdapter',
+				'databaseAdapterCapability must resolve to a DatabaseAdapter',
 			),
 		)
 
@@ -510,27 +548,33 @@ describe('createFrameworkEngine', () => {
 			version: '0.0.0',
 			core: '^0.0.0',
 			pluginId: 'fixture.invalid-pipeline',
-			setup: ({ registries }) => {
-				registries.pipelines.register('fixture.forged-stage', {
+			privileges: [
+				{
+					name: 'runtime:intercept',
+					reason: 'Exercises forged Runtime pipeline rejection.',
+				},
+			],
+			setup: ({ pipeline }) => {
+				pipeline.register('fixture.forged-stage', {
 					stage: 'unknown',
-				})
+				} as never)
 			},
 		})
-		const invalidPipelineApplication = await createApplication({
-			schemas: [articleSchema],
-			plugins: [invalidPipelinePlugin, databasePlugin(adapter)],
-		})
 
-		expect(() => createFrameworkEngine(invalidPipelineApplication)).toThrow(
+		await expect(
+			createApplication({
+				schemas: [articleSchema],
+				plugins: [invalidPipelinePlugin, databasePlugin(adapter)],
+			}),
+		).rejects.toThrow(
 			new TypeError(
-				'Plugin "fixture.invalid-pipeline" registered invalid runtime pipeline contribution "fixture.forged-stage"',
+				'Runtime pipeline contributions must be created by runtimePipelineStage',
 			),
 		)
 
 		await Promise.all([
 			missingAdapterApplication.dispose(),
 			invalidAdapterApplication.dispose(),
-			invalidPipelineApplication.dispose(),
 		])
 	})
 

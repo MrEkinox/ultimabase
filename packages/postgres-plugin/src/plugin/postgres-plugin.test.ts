@@ -1,8 +1,9 @@
-import { createApplication, definePlugin } from '@ultimabase/core'
 import {
-	createFrameworkEngine,
-	databaseAdapterServiceToken,
+	createApplication,
+	definePlugin,
+	provideCapability,
 } from '@ultimabase/core'
+import { createFrameworkEngine } from '@ultimabase/core'
 import { Schema } from '@ultimabase/core'
 import { Pool } from 'pg'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -11,9 +12,8 @@ import type {
 	PostgresPool,
 	PostgresPoolClient,
 } from '../connection/contracts.js'
-import { postgresConnectionServiceToken } from '../connection/contracts.js'
-import { postgresSchemaPreparationClaimName } from '../constants.js'
 import { postgresTable } from '../naming/table.js'
+import { postgresSchemaPreparationCapability } from '../schema-preparation-capability.js'
 import { postgresPlugin } from './postgres-plugin.js'
 
 /** Supplies a pg-compatible boundary so lifecycle behavior stays focused. */
@@ -64,19 +64,12 @@ describe('postgresPlugin', () => {
 			schemas: [],
 			plugins: [postgresPlugin({ pool })],
 		})
-		const connection = application.getService(postgresConnectionServiceToken)
-		const adapter = application.getService(databaseAdapterServiceToken)
+		const connection = application.getPlugin(
+			'@ultimabase/postgres-plugin',
+		).connection
 
 		expect(application.state).toBe('ready')
 		expect(connection.state).toBe('idle')
-		expect(adapter.kind).toBe('database-adapter')
-		expect(adapter.capabilities).toStrictEqual({
-			pointers: { kind: 'pointers', version: 1 },
-			inclusions: { kind: 'inclusions', version: 1 },
-			relationPredicates: { kind: 'relation-predicates', version: 4 },
-			relations: { kind: 'relations', version: 1 },
-		})
-		expect(adapter).not.toHaveProperty('getClient')
 		expect(() => createFrameworkEngine(application)).not.toThrow()
 		expect(pool.connectCalls).toBe(0)
 
@@ -198,8 +191,13 @@ describe('postgresPlugin', () => {
 			version: '0.0.0',
 			core: '^0.0.0',
 			pluginId: 'fixture.postgres-migrations',
-			setup: ({ registries }) => {
-				registries.pipelines.register(postgresSchemaPreparationClaimName, true)
+			capabilities: {
+				provides: [
+					provideCapability(postgresSchemaPreparationCapability, {
+						contributionId: 'migration-owned-preparation',
+						value: { kind: 'postgres-schema-preparation' },
+					}),
+				],
 			},
 		})
 		const application = await createApplication({

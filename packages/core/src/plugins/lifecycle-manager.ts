@@ -100,6 +100,8 @@ export class PluginLifecycleManager {
 		registries: PluginSetupRegistries,
 		capabilities: ApplicationCapabilityHost = new ApplicationCapabilityHost(
 			graph,
+			registries.schemas,
+			registries.getConstraintCompilerReader(),
 		),
 	) {
 		this.#graph = graph
@@ -288,10 +290,6 @@ export class PluginLifecycleManager {
 				async (): Promise<void> => this.#capabilities.dispose(),
 				errors,
 			)
-			await collectFailure(
-				async (): Promise<void> => this.#registries.services.dispose(),
-				errors,
-			)
 			this.#state = 'disposed'
 		}
 
@@ -304,10 +302,6 @@ export class PluginLifecycleManager {
 		errors.push(...(await this.#disposeInitializedPlugins()))
 		await collectFailure(
 			async (): Promise<void> => this.#capabilities.dispose(),
-			errors,
-		)
-		await collectFailure(
-			async (): Promise<void> => this.#registries.services.dispose(),
 			errors,
 		)
 		this.#state = 'disposed'

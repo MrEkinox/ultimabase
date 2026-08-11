@@ -12,7 +12,9 @@ import {
 import { FrameworkError } from '../errors/framework-error.js'
 import type { PluginCapabilityReader } from './capabilities.js'
 import {
+	createDatabaseConstraintCompilerReader,
 	createPluginConstraintCompilerRegistry,
+	type DatabaseConstraintCompilerReader,
 	type PluginConstraintCompilerRegistry,
 } from './constraint-compilers.js'
 import {
@@ -26,10 +28,18 @@ import {
 	type PluginAccessRegistry,
 } from './access-targets.js'
 import {
-	ServiceRegistry,
-	type PluginServiceRegistry,
-} from '../services/service-registry.js'
-import { formatPluginIdentity, type PluginIdentity } from './manifest.js'
+	createPluginEventContributionHost,
+	createPluginRuntimeContributionHost,
+	createPluginRuntimePipelineHost,
+	type PluginEventContributionHost,
+	type PluginRuntimeContributionHost,
+	type PluginRuntimePipelineHost,
+} from './runtime-contribution-hosts.js'
+import {
+	formatPluginIdentity,
+	type PluginIdentity,
+	type PluginPrivilege,
+} from './manifest.js'
 
 const emptyFieldBuilderMethods: readonly OwnedFieldBuilderMethod[] =
 	immutableArray([])
@@ -53,81 +63,25 @@ const toPluginIdentity = (owner: PluginIdentity | string): PluginIdentity => {
 	return owner
 }
 
-/** Records immutable setup metadata together with the plugin that contributed it. */
-export interface PluginContribution {
+/** @internal Records immutable setup metadata with its structured owner. */
+export interface OwnedPluginContribution {
 	readonly name: string
 	readonly ownerPlugin: string
 	readonly ownerInstanceId?: string
 	readonly value: unknown
 }
 
-/** Names every setup contribution category addressable after initialization. */
-export type PluginContributionCategory =
-	| 'access'
-	| 'commands'
-	| 'events'
-	| 'extensions'
-	| 'generators'
-	| 'hooks'
-	| 'operators'
-	| 'pipelines'
-	| 'transports'
-
-/** Exposes one contribution category while binding writes to the current plugin. */
-export interface PluginContributionRegistry {
-	readonly size: number
-	register(name: string, value: unknown): void
-	has(name: string): boolean
-	get(name: string): PluginContribution | undefined
-	values(): readonly PluginContribution[]
-}
-
-type PluginLocalContributionRegistrar = (
-	owner: PluginIdentity,
-	name: string,
-	value: unknown,
-) => void
-
-// The typed hook facade reaches plugin-local storage without widening the public class API.
-const pluginLocalContributionRegistrars = new WeakMap<
-	ContributionRegistry,
-	PluginLocalContributionRegistrar
->()
-
-/** Stores one named contribution category for exactly one application. */
-export class ContributionRegistry {
-	readonly #contributions = new Map<string, PluginContribution>()
-	readonly #orderedContributions: PluginContribution[] = []
+/** @internal Stores one exact contribution protocol for one application. */
+class OwnedContributionStore {
+	readonly #contributions = new Map<string, OwnedPluginContribution>()
+	readonly #orderedContributions: OwnedPluginContribution[] = []
 	readonly #ownerLocalNames = new Map<
 		string,
 		Map<string | undefined, Set<string>>
 	>()
 
-	constructor() {
-		pluginLocalContributionRegistrars.set(this, (owner, name, value): void => {
-			this.#registerPluginLocal(owner, name, value)
-		})
-	}
-
 	get size(): number {
 		return this.#orderedContributions.length
-	}
-
-	forPlugin(ownerInput: PluginIdentity | string): PluginContributionRegistry {
-		const owner = toPluginIdentity(ownerInput)
-		const getSize = (): number => this.size
-
-		return Object.freeze({
-			get size(): number {
-				return getSize()
-			},
-			register: (name: string, value: unknown): void => {
-				this.#registerOwnedContribution(owner, name, value)
-			},
-			has: (name: string): boolean => this.has(name),
-			get: (name: string): PluginContribution | undefined => this.get(name),
-			values: (): readonly PluginContribution[] => this.values(),
-		})
 	}
 
 	has(name: string): boolean {
@@ -136,21 +90,17 @@ export class ContributionRegistry {
 		return this.#contributions.has(name)
 	}
 
-	get(name: string): PluginContribution | undefined {
+	get(name: string): OwnedPluginContribution | undefined {
 		assertNonEmptyString(name, 'contribution name')
 
 		return this.#contributions.get(name)
 	}
 
-	values(): readonly PluginContribution[] {
+	values(): readonly OwnedPluginContribution[] {
 		return immutableArray(this.#orderedContributions)
 	}
 
-	#registerPluginLocal(
-		owner: PluginIdentity,
-		name: string,
-		value: unknown,
-	): void {
+	registerLocal(owner: PluginIdentity, name: string, value: unknown): void {
 		assertNonEmptyString(name, 'contribution name')
 		const names = this.#ownerLocalContributionNames(owner)
 
@@ -168,11 +118,7 @@ export class ContributionRegistry {
 		names.add(name)
 	}
 
-	#registerOwnedContribution(
-		owner: PluginIdentity,
-		name: string,
-		value: unknown,
-	): void {
+	registerUnique(owner: PluginIdentity, name: string, value: unknown): void {
 		assertNonEmptyString(name, 'contribution name')
 		const names = this.#ownerLocalContributionNames(owner)
 		this.#assertOwnerLocalIdentityAvailable(owner, name, names)
@@ -251,33 +197,6 @@ export class ContributionRegistry {
 	}
 }
 
-const registerPluginLocalContribution = (
-	registry: ContributionRegistry,
-	owner: PluginIdentity,
-	name: string,
-	value: unknown,
-): void => {
-	const register = pluginLocalContributionRegistrars.get(registry)
-
-	if (register === undefined) {
-		throw new TypeError('Unknown contribution registry')
-	}
-
-	register(owner, name, value)
-}
-
-/** Groups every non-service contribution category exposed during plugin setup. */
-export interface PluginContributionRegistries {
-	readonly extensions: PluginContributionRegistry
-	readonly operators: PluginContributionRegistry
-	readonly hooks: PluginContributionRegistry
-	readonly generators: PluginContributionRegistry
-	readonly transports: PluginContributionRegistry
-	readonly pipelines: PluginContributionRegistry
-	readonly events: PluginContributionRegistry
-	readonly commands: PluginContributionRegistry
-}
-
 /** Supplies one plugin with application state and owner-bound contribution views. */
 export interface PluginSetupContext {
 	readonly schemas: CompiledSchemaRegistry
@@ -285,35 +204,28 @@ export interface PluginSetupContext {
 	readonly fieldBuilderMethods: readonly OwnedFieldBuilderMethod[]
 	/** Reads only exact capability requirements declared by this plugin. */
 	readonly capabilities: PluginCapabilityReader
-	readonly services: PluginServiceRegistry
-	readonly registries: PluginContributionRegistries
 	/** Registers native Access policies with ownership fixed to this plugin. */
 	readonly access: PluginAccessRegistry
 	/** Registers native hooks with ownership fixed to the current setup plugin. */
 	readonly hooks: PluginHookRegistry
 	/** Registers adapter constraint compilers with owner-derived provenance. */
 	readonly constraintCompilers: PluginConstraintCompilerRegistry
+	/** Registers low-level Runtime interception and monotonic enforcement definitions. */
+	readonly runtime: PluginRuntimeContributionHost
+	/** Registers post-commit observers and named event consumers. */
+	readonly events: PluginEventContributionHost
+	/** Registers handlers for the fixed Runtime pipeline positions. */
+	readonly pipeline: PluginRuntimePipelineHost
 }
 
 /** Owns all mutable setup registries for one isolated application instance. */
 export class PluginSetupRegistries {
-	readonly services: ServiceRegistry
-	readonly extensions: ContributionRegistry = new ContributionRegistry()
-	readonly operators: ContributionRegistry = new ContributionRegistry()
-	readonly hooks: ContributionRegistry = new ContributionRegistry()
-	readonly generators: ContributionRegistry = new ContributionRegistry()
-	readonly transports: ContributionRegistry = new ContributionRegistry()
-	readonly pipelines: ContributionRegistry = new ContributionRegistry()
-	readonly events: ContributionRegistry = new ContributionRegistry()
-	readonly commands: ContributionRegistry = new ContributionRegistry()
-	// Access definitions stay behind their typed facade and cannot be forged through registries.
-	readonly access: ContributionRegistry = new ContributionRegistry()
-	// Compiler identities reuse contribution storage behind a narrower typed facade.
-	readonly constraintCompilers: ContributionRegistry =
-		new ContributionRegistry()
-	readonly #contributionRegistries: Readonly<
-		Record<PluginContributionCategory, ContributionRegistry>
-	>
+	readonly #hooks = new OwnedContributionStore()
+	readonly #runtime = new OwnedContributionStore()
+	readonly #events = new OwnedContributionStore()
+	readonly #pipeline = new OwnedContributionStore()
+	readonly #access = new OwnedContributionStore()
+	readonly #constraintCompilers = new OwnedContributionStore()
 	readonly #contexts = new Map<
 		string,
 		Map<string | undefined, PluginSetupContext>
@@ -321,41 +233,58 @@ export class PluginSetupRegistries {
 	#setupOpen = true
 	#hookTargetsResolved = false
 	#accessTargetsResolved = false
+	readonly #constraintCompilerReader: DatabaseConstraintCompilerReader
 
 	constructor(
 		readonly schemas: SchemaRegistry,
-		services: ServiceRegistry = new ServiceRegistry(),
 		readonly fieldBuilderMethods: () => readonly OwnedFieldBuilderMethod[] = () =>
 			emptyFieldBuilderMethods,
 		readonly capabilitiesForPlugin: (
 			owner: PluginIdentity,
 		) => PluginCapabilityReader = () => emptyCapabilityReader,
+		readonly assertPrivilegeForPlugin: (
+			owner: PluginIdentity,
+			privilege: PluginPrivilege,
+		) => void = () => undefined,
 	) {
-		this.services = services
-		this.#contributionRegistries = immutableRecord({
-			access: this.access,
-			commands: this.commands,
-			events: this.events,
-			extensions: this.extensions,
-			generators: this.generators,
-			hooks: this.hooks,
-			operators: this.operators,
-			pipelines: this.pipelines,
-			transports: this.transports,
-		})
+		this.#constraintCompilerReader = createDatabaseConstraintCompilerReader(
+			() => this.#constraintCompilers.values(),
+		)
 	}
 
-	/** Returns an immutable insertion-ordered snapshot without exposing scoped writes. */
-	getContributions(
-		category: PluginContributionCategory,
-	): readonly PluginContribution[] {
-		assertNonEmptyString(category, 'contribution category')
+	/** Supplies capability factories with live compilers but no registration method. */
+	getConstraintCompilerReader(): DatabaseConstraintCompilerReader {
+		return this.#constraintCompilerReader
+	}
 
-		if (!Object.hasOwn(this.#contributionRegistries, category)) {
-			throw new TypeError(`Unknown contribution category: ${category}`)
-		}
+	/** @internal Reads native hook declarations for application compilation. */
+	getHookContributions(): readonly OwnedPluginContribution[] {
+		return this.#hooks.values()
+	}
 
-		return this.#contributionRegistries[category].values()
+	/** @internal Reads low-level Runtime and enforcement definitions. */
+	getRuntimeContributions(): readonly OwnedPluginContribution[] {
+		return this.#runtime.values()
+	}
+
+	/** @internal Reads post-commit Runtime and named event definitions. */
+	getEventContributions(): readonly OwnedPluginContribution[] {
+		return this.#events.values()
+	}
+
+	/** @internal Reads fixed-position Runtime pipeline definitions. */
+	getPipelineContributions(): readonly OwnedPluginContribution[] {
+		return this.#pipeline.values()
+	}
+
+	/** @internal Reads native Access declarations for application compilation. */
+	getAccessContributions(): readonly OwnedPluginContribution[] {
+		return this.#access.values()
+	}
+
+	/** @internal Enforces one active privilege for a later Core-owned facade. */
+	assertPrivilege(owner: PluginIdentity, privilege: PluginPrivilege): void {
+		this.assertPrivilegeForPlugin(owner, privilege)
 	}
 
 	/** Closes typed setup-only facades before any infrastructure lifecycle phase. */
@@ -365,7 +294,6 @@ export class PluginSetupRegistries {
 		}
 
 		this.#setupOpen = false
-		this.services.validateRequirements()
 	}
 
 	/** Closes setup after a plugin failure without masking the original error. */
@@ -383,7 +311,7 @@ export class PluginSetupRegistries {
 			return
 		}
 
-		resolvePluginHookTargets(this.schemas, this.hooks.values())
+		resolvePluginHookTargets(this.schemas, this.#hooks.values())
 		this.#hookTargetsResolved = true
 	}
 
@@ -397,7 +325,7 @@ export class PluginSetupRegistries {
 			return
 		}
 
-		resolvePluginAccessTargets(this.schemas, this.access.values())
+		resolvePluginAccessTargets(this.schemas, this.#access.values())
 		this.#accessTargetsResolved = true
 	}
 
@@ -420,43 +348,69 @@ export class PluginSetupRegistries {
 			schemas: this.schemas,
 			fieldBuilderMethods: this.fieldBuilderMethods(),
 			capabilities: this.capabilitiesForPlugin(owner),
-			services: this.services.forPlugin(formatPluginIdentity(owner)),
 			access: createPluginAccessRegistry({
+				assertPrivilege: () => {
+					this.assertPrivilegeForPlugin(owner, 'runtime:constrain')
+				},
 				isOpen: (): boolean => this.#setupOpen,
+				...(owner.instanceId === undefined
+					? {}
+					: { ownerInstanceId: owner.instanceId }),
 				ownerPlugin: owner.pluginId,
 				register: (name: string, value: unknown): void => {
-					registerPluginLocalContribution(this.access, owner, name, value)
+					this.#access.registerLocal(owner, name, value)
 				},
 			}),
 			constraintCompilers: createPluginConstraintCompilerRegistry({
+				assertPrivilege: () => {
+					this.assertPrivilegeForPlugin(owner, 'adapter:consume')
+				},
 				isOpen: (): boolean => this.#setupOpen,
 				ownerPlugin: owner.pluginId,
 				register: (name: string, value: unknown): void => {
-					registerPluginLocalContribution(
-						this.constraintCompilers,
-						owner,
-						name,
-						value,
-					)
+					this.#constraintCompilers.registerLocal(owner, name, value)
 				},
-				values: () => this.constraintCompilers.values(),
+				values: () => this.#constraintCompilers.values(),
 			}),
 			hooks: createPluginHookRegistry({
+				assertPrivilege: () => {
+					this.assertPrivilegeForPlugin(owner, 'runtime:intercept')
+				},
 				isOpen: (): boolean => this.#setupOpen,
+				...(owner.instanceId === undefined
+					? {}
+					: { ownerInstanceId: owner.instanceId }),
 				ownerPlugin: owner.pluginId,
 				register: (name: string, value: unknown): void => {
-					registerPluginLocalContribution(this.hooks, owner, name, value)
+					this.#hooks.registerLocal(owner, name, value)
 				},
 			}),
-			registries: immutableRecord({
-				extensions: this.extensions.forPlugin(owner),
-				operators: this.operators.forPlugin(owner),
-				hooks: this.hooks.forPlugin(owner),
-				generators: this.generators.forPlugin(owner),
-				transports: this.transports.forPlugin(owner),
-				pipelines: this.pipelines.forPlugin(owner),
-				events: this.events.forPlugin(owner),
-				commands: this.commands.forPlugin(owner),
+			runtime: createPluginRuntimeContributionHost({
+				assertPrivilege: (privilege) => {
+					this.assertPrivilegeForPlugin(owner, privilege)
+				},
+				isOpen: (): boolean => this.#setupOpen,
+				register: (name, value): void => {
+					this.#runtime.registerUnique(owner, name, value)
+				},
+			}),
+			events: createPluginEventContributionHost({
+				assertPrivilege: (privilege) => {
+					this.assertPrivilegeForPlugin(owner, privilege)
+				},
+				isOpen: (): boolean => this.#setupOpen,
+				register: (name, value): void => {
+					this.#events.registerUnique(owner, name, value)
+				},
+			}),
+			pipeline: createPluginRuntimePipelineHost({
+				assertPrivilege: (privilege) => {
+					this.assertPrivilegeForPlugin(owner, privilege)
+				},
+				isOpen: (): boolean => this.#setupOpen,
+				register: (name, value): void => {
+					this.#pipeline.registerUnique(owner, name, value)
+				},
 			}),
 		})
 
@@ -464,4 +418,72 @@ export class PluginSetupRegistries {
 
 		return context
 	}
+}
+
+const setupRegistriesByApplication = new WeakMap<
+	object,
+	PluginSetupRegistries
+>()
+
+/** @internal Binds private Core readers without exposing setup storage publicly. */
+export const bindApplicationSetupRegistries = (
+	application: object,
+	registries: PluginSetupRegistries,
+): void => {
+	if (setupRegistriesByApplication.has(application)) {
+		throw new TypeError('Application setup registries are already bound')
+	}
+
+	setupRegistriesByApplication.set(application, registries)
+}
+
+const readApplicationSetupRegistries = (
+	application: object,
+): PluginSetupRegistries => {
+	const registries = setupRegistriesByApplication.get(application)
+
+	if (registries === undefined) {
+		throw new TypeError('Application setup registries are unavailable')
+	}
+
+	return registries
+}
+
+/** @internal Reads only native hook declarations. */
+export const readApplicationHookContributions = (
+	application: object,
+): readonly OwnedPluginContribution[] =>
+	readApplicationSetupRegistries(application).getHookContributions()
+
+/** @internal Reads only low-level Runtime and enforcement definitions. */
+export const readApplicationRuntimeContributions = (
+	application: object,
+): readonly OwnedPluginContribution[] =>
+	readApplicationSetupRegistries(application).getRuntimeContributions()
+
+/** @internal Reads only post-commit Runtime and named event definitions. */
+export const readApplicationEventContributions = (
+	application: object,
+): readonly OwnedPluginContribution[] =>
+	readApplicationSetupRegistries(application).getEventContributions()
+
+/** @internal Reads only fixed-position Runtime pipeline definitions. */
+export const readApplicationPipelineContributions = (
+	application: object,
+): readonly OwnedPluginContribution[] =>
+	readApplicationSetupRegistries(application).getPipelineContributions()
+
+/** @internal Reads only native Access declarations. */
+export const readApplicationAccessContributions = (
+	application: object,
+): readonly OwnedPluginContribution[] =>
+	readApplicationSetupRegistries(application).getAccessContributions()
+
+/** @internal Enforces one exact plugin-instance privilege during Runtime work. */
+export const assertApplicationPluginPrivilege = (
+	application: object,
+	owner: PluginIdentity,
+	privilege: PluginPrivilege,
+): void => {
+	readApplicationSetupRegistries(application).assertPrivilege(owner, privilege)
 }

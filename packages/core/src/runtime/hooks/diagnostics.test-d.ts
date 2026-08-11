@@ -1,14 +1,21 @@
 import {
-	hookDiagnosticsObserverServiceToken,
+	hookDiagnosticsObserverCapability,
+	type CapabilityToken,
 	type HookDiagnosticEvent,
 	type HookDiagnosticsObserver,
-	type ServiceToken,
 } from '../../index.js'
 import { expectTypeOf, test } from 'vitest'
 
 test('exports one precise redacted diagnostic observer contract', () => {
-	expectTypeOf(hookDiagnosticsObserverServiceToken).toEqualTypeOf<
-		ServiceToken<HookDiagnosticsObserver>
+	expectTypeOf(hookDiagnosticsObserverCapability).toEqualTypeOf<
+		CapabilityToken<
+			HookDiagnosticsObserver,
+			HookDiagnosticsObserver,
+			'ultimabase.hook-diagnostics-observer',
+			'1.0.0',
+			'single',
+			'application'
+		>
 	>()
 
 	const observer: HookDiagnosticsObserver = (event) => {

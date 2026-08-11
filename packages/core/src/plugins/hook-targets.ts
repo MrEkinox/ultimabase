@@ -28,7 +28,7 @@ import {
 import { collectFieldTraversalEntries } from '../schema/fields/traversal.js'
 import type { AvailablePluginFieldKind } from '../schema/fields/base/kinds.js'
 import type { SchemaRegistry } from '../schema/schema/registry.js'
-import type { PluginContribution } from './setup-registries.js'
+import type { OwnedPluginContribution } from './setup-registries.js'
 import {
 	assertOwnedPluginExtension,
 	createPluginFieldKindTarget,
@@ -156,6 +156,7 @@ export interface PluginHookRegistry {
 interface BaseHookRegistration {
 	readonly localName: string
 	readonly ownerPlugin: string
+	readonly ownerInstanceId?: string
 	readonly targetKind: PluginHookTargetKind
 }
 
@@ -211,7 +212,7 @@ type HookRegistration =
 
 type HookRegistrationInput = HookRegistration extends infer TRegistration
 	? TRegistration extends HookRegistration
-		? Omit<TRegistration, 'localName' | 'ownerPlugin'>
+		? Omit<TRegistration, 'localName' | 'ownerInstanceId' | 'ownerPlugin'>
 		: never
 	: never
 
@@ -234,6 +235,7 @@ export interface ResolvedPluginHookContribution {
 	readonly fields: readonly ResolvedPluginFieldHooks[]
 	readonly localName: string
 	readonly ownerPlugin: string
+	readonly ownerInstanceId?: string
 	readonly schemas: readonly ResolvedPluginSchemaHooks[]
 	readonly targetKind: PluginHookTargetKind
 }
@@ -283,14 +285,18 @@ const assertExtensionTarget: (
 }
 
 interface CreatePluginHookRegistryOptions {
+	readonly assertPrivilege: () => void
 	readonly isOpen: () => boolean
+	readonly ownerInstanceId?: string
 	readonly ownerPlugin: string
 	readonly register: (name: string, value: unknown) => void
 }
 
 /** Creates one immutable hook facade whose writes cannot forge plugin ownership. */
 export const createPluginHookRegistry = ({
+	assertPrivilege,
 	isOpen,
+	ownerInstanceId,
 	ownerPlugin,
 	register,
 }: CreatePluginHookRegistryOptions): PluginHookRegistry => {
@@ -302,6 +308,7 @@ export const createPluginHookRegistry = ({
 			throw new TypeError('Plugin hooks can only be registered during setup')
 		}
 
+		assertPrivilege()
 		assertNonEmptyString(name, 'plugin hook name')
 		register(
 			name,
@@ -310,6 +317,7 @@ export const createPluginHookRegistry = ({
 					...registration,
 					localName: name,
 					ownerPlugin,
+					...(ownerInstanceId === undefined ? {} : { ownerInstanceId }),
 				}),
 			),
 		)
@@ -446,7 +454,7 @@ const getFieldExtensions = (
 /** Resolves every opaque native target after setup but before infrastructure starts. */
 export const resolvePluginHookTargets = (
 	schemas: SchemaRegistry,
-	contributions: readonly PluginContribution[],
+	contributions: readonly OwnedPluginContribution[],
 ): void => {
 	for (const contribution of contributions) {
 		const definition = contribution.value
@@ -580,6 +588,9 @@ export const resolvePluginHookTargets = (
 				fields: immutableArray(fieldMatches),
 				localName: registration.localName,
 				ownerPlugin: registration.ownerPlugin,
+				...(registration.ownerInstanceId === undefined
+					? {}
+					: { ownerInstanceId: registration.ownerInstanceId }),
 				schemas: immutableArray(schemaMatches),
 				targetKind: registration.targetKind,
 			}),

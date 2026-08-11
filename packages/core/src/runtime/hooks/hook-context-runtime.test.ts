@@ -8,10 +8,8 @@ import { UltimaBase } from '../application/ultima-base.js'
 import { RequestContext, requestSources } from '../context/request-context.js'
 import { runWithRequestEngine } from '../context/active-framework-context.js'
 import { MasterAuthority } from '../master/master-authority.js'
-import {
-	databaseAdapterServiceToken,
-	type DatabaseAdapter,
-} from '../database/contracts.js'
+import { type DatabaseAdapter } from '../database/contracts.js'
+import { provideTestDatabaseAdapter } from '../../../tests/runtime/fixtures/database-adapter-capability.js'
 import {
 	RecordingDatabaseAdapter,
 	type QueuedAdapterResult,
@@ -23,23 +21,39 @@ const createDatabasePlugin = (adapter: DatabaseAdapter) =>
 		version: '0.0.0',
 		core: '^0.0.0',
 		pluginId: 'fixture.hook-context-database',
-		slot: 'database-adapter',
-		setup: ({ services }) => {
-			services.provide(databaseAdapterServiceToken, adapter)
+		capabilities: {
+			provides: [provideTestDatabaseAdapter(adapter)],
 		},
 	})
 
 const createEventPlugin = (
 	name: string,
-	events: Readonly<Record<string, Pick<HookEventDefinition, 'kind' | 'name'>>>,
+	definitions: Readonly<
+		Record<string, Pick<HookEventDefinition, 'kind' | 'name'>>
+	>,
+	publishesEvents = false,
 ) =>
 	definePlugin({
 		version: '0.0.0',
 		core: '^0.0.0',
 		pluginId: name,
-		setup: ({ registries }) => {
-			for (const [eventName, event] of Object.entries(events)) {
-				registries.events.register(eventName, event)
+		privileges: [
+			{
+				name: 'runtime:observe',
+				reason: 'Registers named event consumers for HookContext tests.',
+			},
+			...(publishesEvents
+				? ([
+						{
+							name: 'event:publish',
+							reason: 'Publishes a nested event for HookContext tests.',
+						},
+					] as const)
+				: []),
+		],
+		setup: ({ events }) => {
+			for (const [eventName, event] of Object.entries(definitions)) {
+				events.register(eventName, event as HookEventDefinition)
 			}
 		},
 	})
@@ -468,8 +482,14 @@ describe('HookContext Runtime capabilities', () => {
 			version: '0.0.0',
 			core: '^0.0.0',
 			pluginId: 'fixture.second-event-consumer',
-			setup: ({ registries }) => {
-				registries.events.register(
+			privileges: [
+				{
+					name: 'runtime:observe',
+					reason: 'Registers a named event consumer for HookContext tests.',
+				},
+			],
+			setup: ({ events }) => {
+				events.register(
 					'second',
 					onEvent({
 						handler: ({ context, event }) => {
@@ -579,6 +599,7 @@ describe('HookContext Runtime capabilities', () => {
 					name: 'post.recursive',
 				}),
 			},
+			true,
 		)
 		const succeedingConsumer = createEventPlugin(
 			'fixture.succeeding-committed-consumer',

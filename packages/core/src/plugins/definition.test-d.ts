@@ -30,12 +30,10 @@ test('preserves literal manifests and synchronous setup exports', () => {
 				reason: 'Uses the configured database adapter.',
 			},
 		] as const,
-		slot: 'database-adapter',
 		declareFields: (fields) => {
 			fields.register(method)
 		},
-		setup: ({ services, schemas }) => {
-			expectTypeOf(services.size).toEqualTypeOf<number>()
+		setup: ({ schemas }) => {
 			expectTypeOf(schemas.size).toEqualTypeOf<number>()
 
 			return { dialect: 'postgres' as const }
@@ -59,7 +57,7 @@ test('preserves literal manifests and synchronous setup exports', () => {
 		plugin.manifest.privileges[0].name,
 	).toEqualTypeOf<'adapter:consume'>()
 	expectTypeOf<'adapter:consume'>().toExtend<PluginPrivilege>()
-	expectTypeOf(plugin.slot).toEqualTypeOf<'database-adapter' | undefined>()
+	expectTypeOf(plugin).not.toHaveProperty('slot')
 	expectTypeOf(plugin).not.toHaveProperty('declareFields')
 	expectTypeOf(plugin).not.toHaveProperty('setup')
 	expectTypeOf(plugin).not.toHaveProperty('hooks')

@@ -180,6 +180,7 @@ Accepted records:
 - [ADR-0192: Schema transformations, model surfaces, and plugin upgrades](0192-schema-transformations-model-surfaces-and-upgrades.md)
 - [ADR-0193: Plugin operation, transport, adapter, and Typegen bridges](0193-plugin-operation-transport-and-adapter-bridges.md)
 - [ADR-0194: Optional engine contract packages and unprotected transports](0194-optional-engine-contract-packages.md)
+- [ADR-0195: Setup-phase capability requirements support peer composition](0195-setup-phase-capability-requirements.md)
 
 Superseded records:
 

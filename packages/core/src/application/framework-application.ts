@@ -16,20 +16,23 @@ import {
 } from '../plugins/definition.js'
 import { composeDeclarationCapabilities } from '../plugins/capability-inventory.js'
 import { ApplicationCapabilityHost } from '../plugins/capability-host.js'
-import { validateExtensionHandlers } from '../plugins/extension-handlers.js'
+import { bindApplicationCapabilityHost } from '../plugins/application-capability-access.js'
+import { validateExtensionOwners } from '../plugins/extension-handlers.js'
+import { FrameworkError } from '../errors/framework-error.js'
 import { PluginGraph } from '../plugins/graph.js'
 import {
 	PluginLifecycleManager,
 	type PluginLifecycleState,
 } from '../plugins/lifecycle-manager.js'
 import { normalizePlugins } from '../plugins/normalization.js'
-import type { PluginIdentity } from '../plugins/manifest.js'
-import { PluginSetupRegistries } from '../plugins/setup-registries.js'
-import type {
-	PluginContribution,
-	PluginContributionCategory,
+import {
+	formatPluginIdentity,
+	type PluginIdentity,
+} from '../plugins/manifest.js'
+import {
+	bindApplicationSetupRegistries,
+	PluginSetupRegistries,
 } from '../plugins/setup-registries.js'
-import type { ServiceToken } from '../services/service-token.js'
 import { compileApplicationAccessPlan } from '../schema/access/plan.js'
 import {
 	FieldBuilderMethodRegistry,
@@ -209,13 +212,53 @@ export class FrameworkApplication<
 		this.schemas = new SchemaRegistry(options.schemas)
 		this.accessDefaults = normalizeAccessDefaults(options.access)
 		this.#pluginGraph = graph
-		const capabilityHost = new ApplicationCapabilityHost(graph)
-		this.#setupRegistries = new PluginSetupRegistries(
+		const capabilityHostReference: {
+			current: ApplicationCapabilityHost | undefined
+		} = { current: undefined }
+		const setupRegistries = new PluginSetupRegistries(
 			this.schemas,
-			undefined,
 			() => this.fieldBuilderMethods,
-			(owner) => capabilityHost.forPlugin(owner),
+			(owner) => {
+				const host = capabilityHostReference.current
+				if (host === undefined) {
+					throw new TypeError('Application capability host is unavailable')
+				}
+				return host.forPlugin(owner)
+			},
+			(owner, privilege) => {
+				const plugin = graph.get(owner)
+				const request = plugin?.definition.manifest.privileges.find(
+					(candidate) => candidate.name === privilege,
+				)
+
+				if (
+					plugin === undefined ||
+					request === undefined ||
+					!graph.capabilities.isPrivilegeActive(owner, request)
+				) {
+					throw new FrameworkError(
+						'PLUGIN_PRIVILEGE_DENIED',
+						`Plugin "${formatPluginIdentity(owner)}" requires active privilege "${privilege}" for this Core facade.`,
+						{
+							internalDetails: {
+								kind: 'inactive-plugin-privilege',
+								plugin: formatPluginIdentity(owner),
+								privilege,
+							},
+						},
+					)
+				}
+			},
 		)
+		const capabilityHost = new ApplicationCapabilityHost(
+			graph,
+			this.schemas,
+			setupRegistries.getConstraintCompilerReader(),
+		)
+		capabilityHostReference.current = capabilityHost
+		bindApplicationCapabilityHost(this, capabilityHost)
+		bindApplicationSetupRegistries(this, setupRegistries)
+		this.#setupRegistries = setupRegistries
 
 		this.#lifecycle = new PluginLifecycleManager(
 			graph,
@@ -250,50 +293,6 @@ export class FrameworkApplication<
 		const registeredSchema: unknown = this.schemas.get(schema.className)
 
 		return registeredSchema === schema
-	}
-
-	/** Resolves one required setup-provided service without exposing registry mutation. */
-	getService<TService>(token: ServiceToken<TService>): TService {
-		this.#assertSetupResourceAvailable('services')
-
-		return this.#setupRegistries.services.get(token)
-	}
-
-	/** Resolves one optional setup-provided service without exposing registry mutation. */
-	getOptionalService<TService>(
-		token: ServiceToken<TService>,
-	): TService | undefined {
-		this.#assertSetupResourceAvailable('services')
-
-		return this.#setupRegistries.services.getOptional(token)
-	}
-
-	/** Reads completed plugin declarations without exposing owner-scoped writers. */
-	getContributions(
-		category: PluginContributionCategory,
-	): readonly PluginContribution[] {
-		this.#assertSetupResourceAvailable('contributions')
-
-		return this.#setupRegistries.getContributions(category)
-	}
-
-	/** Keeps every setup-owned read boundary aligned with application lifecycle state. */
-	#assertSetupResourceAvailable(resource: 'contributions' | 'services'): void {
-		if (
-			this.#lifecycle.state === 'idle' ||
-			this.#lifecycle.state === 'setting-up'
-		) {
-			throw new TypeError(
-				`Application ${resource} require completed plugin setup`,
-			)
-		}
-
-		if (
-			this.#lifecycle.state === 'disposing' ||
-			this.#lifecycle.state === 'disposed'
-		) {
-			throw new TypeError(`Application ${resource} are no longer available`)
-		}
 	}
 
 	/** Completes declaration-only plugin setup before the application is returned. */
@@ -381,10 +380,7 @@ export class FrameworkApplication<
 		try {
 			this.compileSchemas()
 			await this.#lifecycle.setup()
-			validateExtensionHandlers(
-				this.schemas.values(),
-				this.#setupRegistries.extensions,
-			)
+			validateExtensionOwners(this.schemas.values(), this.#pluginGraph)
 			this.#setupRegistries.resolveHookTargets()
 			this.#setupRegistries.resolveAccessTargets()
 			compileApplicationAccessPlan(this)

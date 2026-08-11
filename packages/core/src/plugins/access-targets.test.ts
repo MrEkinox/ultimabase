@@ -91,7 +91,7 @@ const resolvedContributions = (registries: PluginSetupRegistries) => {
 	registries.resolveAccessTargets()
 
 	return registries
-		.getContributions('access')
+		.getAccessContributions()
 		.map(({ value }) => getResolvedPluginAccessContribution(value))
 		.filter((value) => value !== undefined)
 }
@@ -299,18 +299,6 @@ describe('plugin Access targets', () => {
 				kind: 'duplicate-plugin-local-contribution',
 			},
 		})
-
-		const forged = new PluginSetupRegistries(
-			new SchemaRegistry([primarySchema]),
-		)
-		forged.access.forPlugin(ownerPlugin).register('forged', {
-			master: 'enforce',
-			targetKind: 'global',
-		})
-		forged.closeSetup()
-		expect(() => {
-			forged.resolveAccessTargets()
-		}).toThrow(new TypeError('Plugin Access contribution "forged" is forged'))
 	})
 
 	it('brands only definitions produced by the typed setup facade', () => {
@@ -320,7 +308,7 @@ describe('plugin Access targets', () => {
 		const access = registries.forPlugin(ownerPlugin).access
 
 		access.global('branded', { read: true }, { master: 'enforce' })
-		const value = registries.getContributions('access')[0]?.value
+		const value = registries.getAccessContributions()[0]?.value
 
 		expect(isPluginAccessTargetDefinition(value)).toBe(true)
 		expect(

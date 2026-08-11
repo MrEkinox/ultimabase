@@ -3,7 +3,6 @@ import { Pool } from 'pg'
 import { expectTypeOf, test } from 'vitest'
 
 import type { PostgresConnectionService } from '../connection/contracts.js'
-import { postgresConnectionServiceToken } from '../connection/contracts.js'
 import {
 	postgresPlugin,
 	type PostgresPlugin,
@@ -21,14 +20,14 @@ test('accepts URL and pg-compatible existing-pool configuration', async () => {
 		plugins: [urlPlugin],
 	})
 	const pluginExports = application.getPlugin('@ultimabase/postgres-plugin')
-	const connection = application.getService(postgresConnectionServiceToken)
+	const connection = pluginExports.connection
 
 	expectTypeOf(urlPlugin).toEqualTypeOf<PostgresPlugin>()
 	expectTypeOf(poolPlugin).toEqualTypeOf<PostgresPlugin>()
 	expectTypeOf(
 		urlPlugin.manifest.identity.pluginId,
 	).toEqualTypeOf<'@ultimabase/postgres-plugin'>()
-	expectTypeOf(urlPlugin.slot).toEqualTypeOf<'database-adapter' | undefined>()
+	expectTypeOf(urlPlugin.manifest.capabilities.provides).toHaveProperty('0')
 	expectTypeOf(pluginExports).toEqualTypeOf<Readonly<PostgresPluginExports>>()
 	expectTypeOf(connection).toEqualTypeOf<PostgresConnectionService>()
 	expectTypeOf(connection).not.toHaveProperty('pool')

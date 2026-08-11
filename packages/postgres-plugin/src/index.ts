@@ -1,4 +1,4 @@
-export { postgresConnectionServiceToken } from './connection/contracts.js'
+export { postgresConnectionCapability } from './connection/contracts.js'
 export { postgresPluginName } from './constants.js'
 export type {
 	PostgresConnectionService,
@@ -18,7 +18,8 @@ export type {
 	PostgresConstraintSqlTag,
 } from './constraints/definition.js'
 export { postgresPlugin } from './plugin/postgres-plugin.js'
-export { postgresSchemaPreparationClaimName } from './constants.js'
+export { postgresSchemaPreparationCapability } from './schema-preparation-capability.js'
+export type { PostgresSchemaPreparationCapability } from './schema-preparation-capability.js'
 
 export { postgresColumn } from './naming/column.js'
 export type {

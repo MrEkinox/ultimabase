@@ -302,32 +302,27 @@ describe('PluginGraph', () => {
 		})
 	})
 
-	it('rejects slot collisions across separately normalized configurations', () => {
+	it('composes unrelated plugins without implicit string slots', () => {
 		const postgres = definePlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
 			pluginId: 'fixture.postgres',
-			slot: 'database-adapter',
 		})
 		const sql = definePlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
 			pluginId: 'fixture.sql',
-			slot: 'database-adapter',
 		})
 
-		const error = expectFrameworkError(
-			captureFrameworkError(
-				() => new PluginGraph([...normalize([postgres]), ...normalize([sql])]),
-			),
-		)
+		const graph = new PluginGraph([
+			...normalize([postgres]),
+			...normalize([sql]),
+		])
 
-		expect(error.code).toBe('PLUGIN_CONFLICT')
-		expect(error.internalDetails).toStrictEqual({
-			kind: 'exclusive-slot',
-			slot: 'database-adapter',
-			pluginNames: ['fixture.postgres', 'fixture.sql'],
-		})
+		expect(pluginIds(graph.plugins)).toStrictEqual([
+			'fixture.postgres',
+			'fixture.sql',
+		])
 	})
 
 	it('reports a deterministic dependency cycle path', () => {

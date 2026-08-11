@@ -149,6 +149,12 @@ describe('PluginConstraintCompilerRegistry', () => {
 				version: '0.0.0',
 				core: '^0.0.0',
 				pluginId: 'fixture.compiler-owner',
+				privileges: [
+					{
+						name: 'adapter:consume',
+						reason: 'Registers a database constraint compiler for tests.',
+					},
+				],
 				setup: ({ constraintCompilers }) => {
 					constraintCompilers.register(tenantCompiler)
 
@@ -180,6 +186,12 @@ describe('PluginConstraintCompilerRegistry', () => {
 				version: '0.0.0',
 				core: '^0.0.0',
 				pluginId: name,
+				privileges: [
+					{
+						name: 'adapter:consume',
+						reason: 'Registers a database constraint compiler for tests.',
+					},
+				],
 				setup: ({ constraintCompilers }) => {
 					constraintCompilers.register(tenantCompiler)
 				},

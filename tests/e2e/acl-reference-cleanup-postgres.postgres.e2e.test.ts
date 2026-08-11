@@ -11,11 +11,13 @@ import {
 	Pointer,
 	Schema,
 	UltimaBase,
+	accessReferenceCleanupCapability,
 	createAccessPrincipalReference,
 	definePlugin,
-	isAccessReferenceCleanup,
+	optionalCapability,
 	type AccessContext,
 	type AccessReferenceCleanup,
+	type NamedAccessReferenceCleanup,
 	type SchemaDefinition,
 } from '@ultimabase/core'
 import { postgresPlugin, postgresTable } from '@ultimabase/postgres-plugin'
@@ -117,15 +119,20 @@ const ProtectedSecondary = Schema.define({
 })
 
 const readPrincipalCleanups = (
-	values: () => readonly Readonly<{ readonly value: unknown }>[],
+	values: readonly NamedAccessReferenceCleanup[],
 ): readonly AccessReferenceCleanup<'principal'>[] =>
 	immutableArray(
-		values().flatMap(({ value }) =>
-			isAccessReferenceCleanup(value) && value.kind === 'principal'
-				? [value as AccessReferenceCleanup<'principal'>]
+		values.flatMap(({ cleanup }) =>
+			cleanup.kind === 'principal'
+				? [cleanup as AccessReferenceCleanup<'principal'>]
 				: [],
 		),
 	)
+
+const optionalReferenceCleanups = optionalCapability(
+	accessReferenceCleanupCapability,
+	'^1.0.0',
+)
 
 const applyPrincipalPolicy = async (
 	context: AccessContext,
@@ -162,15 +169,26 @@ const principalOwnerPlugin = definePlugin({
 	version: '0.0.0',
 	core: '^0.0.0',
 	pluginId: 'fixture.acl-principal-owner',
-	setup: ({ hooks, registries }) => {
-		registries.events.register(
+	privileges: [
+		{
+			name: 'runtime:intercept',
+			reason: 'Enforces principal reference deletion policies in schema hooks.',
+		},
+		{
+			name: 'runtime:observe',
+			reason: 'Observes committed ACL changes for the E2E fixture.',
+		},
+	],
+	capabilities: { optional: [optionalReferenceCleanups] },
+	setup: ({ capabilities, events, hooks }) => {
+		events.register(
 			'fixture.observe:acl-change',
 			onACLChange(({ event }) => {
 				committedACLChanges.push(event.payload)
 			}),
 		)
 		const readCleanups = () =>
-			readPrincipalCleanups(() => registries.commands.values())
+			readPrincipalCleanups(capabilities.get(optionalReferenceCleanups) ?? [])
 
 		for (const { policy, schema } of principalPolicies) {
 			hooks.schema(`principal-delete:${schema.className}`, schema, {

@@ -411,6 +411,12 @@ describe('NativeAccessRuntime', () => {
 			version: '0.0.0',
 			core: '^0.0.0',
 			pluginId: 'fixture.materialized-access-item',
+			privileges: [
+				{
+					name: 'runtime:constrain',
+					reason: 'Registers Access contributions for Runtime tests.',
+				},
+			],
 			setup: ({ access }) => {
 				access.schema(
 					'materialized-items',
@@ -1263,6 +1269,12 @@ describe('NativeAccessRuntime', () => {
 			version: '0.0.0',
 			core: '^0.0.0',
 			pluginId: 'fixture.master-bypass',
+			privileges: [
+				{
+					name: 'runtime:constrain',
+					reason: 'Registers Access contributions for Runtime tests.',
+				},
+			],
 			setup: ({ access }) => {
 				access.schema(
 					'deny-anonymous',

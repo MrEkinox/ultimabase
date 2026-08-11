@@ -63,7 +63,13 @@ const basePlugin = definePlugin({
 	version: '0.0.0',
 	core: '^0.0.0',
 	pluginId: 'fixture.plan-base',
-	setup: ({ hooks, registries }) => {
+	privileges: [
+		{
+			name: 'runtime:intercept',
+			reason: 'Registers native hook contributions for plan tests.',
+		},
+	],
+	setup: ({ hooks, runtime }) => {
 		hooks.schema('schema-first', planSchema, {
 			beforeOperation: { create: baseSchemaHandler },
 		})
@@ -78,7 +84,7 @@ const basePlugin = definePlugin({
 		})
 
 		// Low-level ADR-0070 hooks remain outside the native declaration plan.
-		registries.hooks.register(
+		runtime.register(
 			'fixture.plan-low-level',
 			beforeOperation({ handler: () => undefined }),
 		)
@@ -89,6 +95,12 @@ const dependentPlugin = definePlugin({
 	version: '0.0.0',
 	core: '^0.0.0',
 	pluginId: 'fixture.plan-dependent',
+	privileges: [
+		{
+			name: 'runtime:intercept',
+			reason: 'Registers native hook contributions for plan tests.',
+		},
+	],
 	dependencies: [{ pluginId: 'fixture.plan-base', version: '^0.0.0' }],
 	setup: ({ hooks }) => {
 		hooks.schema('schema-dependent', planSchema, {
