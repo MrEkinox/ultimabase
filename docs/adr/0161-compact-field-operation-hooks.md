@@ -3,7 +3,7 @@
 - Status: accepted
 - Date: 2026-08-08
 - Refines: ADR-0089, ADR-0096, ADR-0100, ADR-0101, ADR-0104, ADR-0105, ADR-0141, ADR-0142
-- Refined by: ADR-0163, ADR-0164
+- Refined by: ADR-0163, ADR-0164, ADR-0194
 
 ADR-0164 replaces the set-based lifecycle table and exact hook names below with
 one item-oriented, cardinality-free mutation lifecycle. The decision that field

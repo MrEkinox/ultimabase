@@ -5,12 +5,17 @@ Every publishable workspace uses the `@ultimabase/*` scope and exposes only deli
 ## Foundations
 
 - `shared`: dependency-light primitives.
-- `core`: static schemas, immutable queries, request authority, application and
-  plugin orchestration, CRUD Runtime, hooks, and transactions.
+- `core`: schema and query contracts, request authority, privilege and
+  capability orchestration, protected CRUD Runtime, persistence plans, and
+  transactions.
 
 Core keeps those responsibilities in separate internal domains while exposing
 one cohesive public package. This avoids cycles between inseparable contracts;
 optional infrastructure and policy behavior remains in plugins.
+
+The currently implemented native Hooks and Access domains remain in Core only
+during the milestone 15 migration. Their accepted package destination is listed
+below.
 
 ## Official plugins
 
@@ -30,6 +35,14 @@ directories until implementation begins:
 - `rest-plugin`
 - `graphql-plugin`
 - `graphql-yoga-plugin`
+- `hooks-plugin`
+- `access-plugin`
+
+The optional engines use contract-only non-plugin packages that install no
+behavior and are created with their first complete consumer issues:
+
+- `hooks-contracts`
+- `access-contracts`
 
 Every plugin uses the `-plugin` suffix in both its workspace directory and its
 published package name. This makes optional capabilities recognizable before a
@@ -38,10 +51,18 @@ developer reads their exports.
 ## Development tooling
 
 - `typegen`: static application loading, deterministic compact schema
-  declarations, fingerprints, and atomic output replacement.
-- `testing`
+  declarations, plugin contributions, fingerprints, and atomic output
+  replacement. It emits no generated Runtime client.
+- `plugin-kit`: planned public plugin-authoring helpers shared by official and
+  community plugins; its workspace begins with issue 1411.
+- `testing`: application test utilities plus planned plugin conformance
+  fixtures and assertions.
 
 No package may import another package through its source directory.
+
+Core does not import `plugin-kit`, `hooks-contracts`, or `access-contracts`.
+Official and community engines import the appropriate contract package, while
+only application configuration installs a `-plugin` implementation.
 
 ## Local development
 

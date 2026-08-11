@@ -7,7 +7,7 @@ priority changes.
 
 ## Active
 
-- None.
+- [Trusted open plugin kernel and optional official capabilities](../../CURRENT_PLAN.md)
 
 ## Paused
 

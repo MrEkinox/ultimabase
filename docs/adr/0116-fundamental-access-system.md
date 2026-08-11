@@ -4,6 +4,7 @@
 - Date: 2026-08-03
 - Refines: ADR-0006, ADR-0089, ADR-0090, ADR-0102, ADR-0113
 - Refined by: ADR-0120, ADR-0122, ADR-0168, ADR-0169
+- Partially superseded by: ADR-0189
 
 ## Context
 
@@ -18,6 +19,11 @@ Access is a fundamental UltimaBase capability even when no permission plugin is
 installed. CLP, ACL, field permissions, tenancy, soft deletion, and community
 policies are providers for that capability rather than separate execution
 systems.
+
+ADR-0189 later accepts moving this product lifecycle and its public vocabulary
+into an optional official Access plugin. The monotonic security semantics below
+remain compatibility requirements while Core retains only generic protected
+constraints and master authority.
 
 ## Decision
 

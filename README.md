@@ -63,15 +63,24 @@ users[0]?.toJSON() // A detached immutable object.
 
 ## Principles
 
-- Static schemas are the source of truth.
-- Concrete capabilities are plugins.
+- Developer declarations plus authorized deterministic plugin contributions
+  form the authoritative compiled application graph.
+- Concrete product capabilities are plugins; Core is the trusted,
+  privilege-aware application and execution kernel.
 - Publishable plugin packages use the explicit `-plugin` directory and package-name suffix.
-- Core contains the inseparable Schema, Query, Access, application, and Runtime domains while remaining independent from infrastructure implementations.
+- Core contains Schema, Query, application orchestration, protected execution,
+  persistence-plan, master-authority, and Runtime mechanisms while remaining
+  independent from concrete product and infrastructure implementations.
 - REST and GraphQL use one operation AST and one runtime pipeline.
 - UltimaBase, Schema, Query, ACL, and Role domain objects use immutable classes.
-- Access is a fundamental Core lifecycle with native schema and field rules.
-  ACL contributes persisted per-object policies, while roles and authentication
-  provide optional request subjects consumed by Access decisions.
+- Hooks and Access are optional official plugin capabilities in the accepted
+  target architecture. ACL contributes persisted per-object policies through
+  the installed Access capability, while roles and authentication provide
+  optional request subjects. Core keeps anonymous and trusted master authority.
+- Typegen may include plugin-owned contracts but generates declarations only;
+  JavaScript applications run without Typegen or a generated client.
+- Stable plugin operations and application-specific model surfaces execute
+  through application-owned handles rather than mutating exported schema classes.
 - PostgreSQL synchronization and PostgreSQL migrations are separate capabilities.
 - The framework targets Node.js 24+, ESM, TypeScript, and an Apache-2.0 license.
 
@@ -80,6 +89,7 @@ users[0]?.toJSON() // A detached immutable object.
 - [`ARCHITECTURE.md`](ARCHITECTURE.md): system boundaries and dependency graph.
 - [`ROADMAP.md`](ROADMAP.md): milestone order.
 - [`docs/`](docs/README.md): concepts, specifications, and ADRs.
+- [`docs/concepts/open-plugin-authoring.md`](docs/concepts/open-plugin-authoring.md): accepted open-plugin authoring and consumption target.
 - [`issues/`](issues/README.md): atomic implementation backlog.
 - [`packages/`](packages/README.md): publishable `@ultimabase/*` packages.
 - [`apps/`](apps/README.md): development playground and benchmarks.

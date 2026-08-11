@@ -4,6 +4,7 @@
 - Date: 2026-08-01
 - Refines: ADR-0015, ADR-0068, ADR-0069, ADR-0070, ADR-0076, ADR-0088
 - Refined by: ADR-0090, ADR-0093, ADR-0095, ADR-0096, ADR-0097, ADR-0099, ADR-0100, ADR-0101, ADR-0102, ADR-0104, ADR-0105, ADR-0111, ADR-0142, ADR-0161, ADR-0163, ADR-0164, ADR-0172
+- Partially superseded by: ADR-0189
 
 ADR-0090 replaces the permission-specific named stages and ordering references
 in this record with policy-neutral monotonic hook effects. The remaining native
@@ -11,8 +12,11 @@ schema, field, transaction, bulk, and lifecycle decisions stay accepted.
 ADR-0095 consolidates the foundational packages, and ADR-0096 fixes the native
 declaration, inference, and identity-owned storage boundary. ADR-0161 and
 ADR-0163 replace the public field and schema hook phase lists below; ADR-0164
-replaces their set-based and cardinality-specific mutation semantics. This
-record retains the native, deterministic, application-owned hook foundation.
+replaces their set-based and cardinality-specific mutation semantics. ADR-0189
+later accepts extracting this native, deterministic, application-owned hook
+foundation into an optional official plugin. The ordering, typing, and
+transactional semantics below remain compatibility requirements during that
+migration.
 
 ## Context
 

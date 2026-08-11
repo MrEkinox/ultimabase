@@ -35,6 +35,8 @@ Agents should update status only when they are actually doing the work. Do not m
 - [`1100-typegen-package/`](1100-typegen-package/README.md)
 - [`1200-maintenance-consolidation/`](1200-maintenance-consolidation/README.md)
 - [`1300-query-enforcement-consolidation/`](1300-query-enforcement-consolidation/README.md)
+- [`1400-open-plugin-kernel/`](1400-open-plugin-kernel/README.md)
+- [`1500-optional-hooks-access/`](1500-optional-hooks-access/README.md)
 
 ## Assignment prompt
 

@@ -3,6 +3,7 @@
 - Status: accepted
 - Date: 2026-08-04
 - Supersedes in part: ADR-0006, ADR-0090, ADR-0116
+- Partially superseded by: ADR-0194
 
 ## Context
 

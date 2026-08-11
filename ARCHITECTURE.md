@@ -3,35 +3,39 @@
 ## System shape
 
 ```text
-static schemas
-      ↓
-pure plugin field declarations
-      ↓
-application-owned SchemaRegistry compilation
-      ↓
-application-local relationship target graph
-      ├──────────────→ inert Typegen snapshot → compact TypeScript registry
-      ↓
-typed extensions + plugin setup
-      ↓
-Query / Operation AST
-      ↓
-compiled AccessPlan
-      ↓
-Runtime pipeline
-      ↓
-database adapter
-      ↓
-transport serialization and post-commit events
+developer declarations + pure authorized plugin declarations
+                              ↓
+privilege policy → deterministic capability graph
+                              ↓
+compiled application graph + owner provenance
+                  ├───────────→ optional Typegen → inert .d.ts contracts
+                              ↓
+logical Query / operation
+                              ↓
+capability middleware + protected constraints
+                              ↓
+rewritable physical persistence plan
+                              ↓
+database adapter → result middleware → post-commit delivery
 ```
 
 UltimaBase separates contracts, orchestration, and implementations inside one
 foundational package:
 
-- Core's `schema`, `query`, and `access` domains define data and authority contracts.
-- Core's application domain owns plugins, services, lifecycle, and errors.
-- Core's `runtime` domain executes CRUD, transactions, hooks, and policy-neutral enforcement effects.
-- official plugins provide database, transport, HTTP server, migrations, and permission implementations.
+- Core's `schema` and `query` domains define portable data and operation contracts.
+- Core's application domain owns structured plugin and instance identity,
+  privileges, versioned capabilities, static compilation, private resource
+  materialization, lifecycle, and diagnostics.
+- Core's `runtime` domain executes logical operations, protected constraints,
+  physical persistence plans, transactions, master authority, and generic
+  middleware.
+- official plugins provide Hooks, Access, database, transport, HTTP server,
+  migrations, and policy implementations through the same public kernel as
+  community plugins.
+
+ADRs 0186 through 0194 define this accepted target. Milestones 14 and 15 are
+active implementation work, so the current source still contains native Hooks
+and Access compatibility domains until their removal audit completes.
 
 ## Package dependency graph
 
@@ -39,6 +43,7 @@ An arrow means “imports or depends on” and always points toward a foundation
 
 ```text
 core ─────────────────→ shared
+plugin-kit ───────────→ core, shared
 typegen ──────────────→ core, shared
 pg-vector-plugin ─────→ core, shared
 roles-plugin ─────────→ core
@@ -61,26 +66,44 @@ server-hono-plugin ────────→ core
 rest-plugin ───────────────→ core
 graphql-plugin ────────────→ core
 graphql-yoga-plugin ───────→ graphql-plugin, core
+hooks-contracts ───────────→ shared
+access-contracts ──────────→ shared
+hooks-plugin ──────────────→ hooks-contracts, plugin-kit, core
+access-plugin ─────────────→ access-contracts, plugin-kit, core
+acl-permissions-plugin ────→ access-contracts, core
 ```
 
-`@ultimabase/typegen` is development tooling whose optional `typegenPlugin()`
-integrates generation with application initialization. Core supplies that
-plugin a read-only compiled schema and FieldBuilder method graph; the tooling
-package snapshots those logical facts and atomically emits deterministic
-declarations during setup, before any infrastructure connection. Core never
-imports Typegen. The generator does not resolve services, connect adapters, or
-serialize Access and hook callbacks. Production Runtime consumes the
-independently recompiled Core schema graph; generated files remain replaceable
-TypeScript caches rather than runtime schema truth.
+`hooks-contracts` and `access-contracts` are dependency-light non-plugin
+packages. They contain protocol tokens and types only, install no behavior, and
+are not imported by Core. Official implementations and community alternatives
+share those identities without depending on one another.
 
-The internal Access domain remains a neutral home for request-authority and
-shared policy contracts. Runtime using those contracts does not install or
-name ACL, role, authentication, or community-provider behavior.
+`@ultimabase/plugin-kit` is the planned public authoring toolbox. It packages
+reusable declaration builders, selectors, capability helpers, provenance-aware
+composition helpers, Typegen descriptors, and diagnostics without weakening a
+Core validation boundary. Core never imports it. Official plugins use the same
+toolbox where it removes real duplication, while `@ultimabase/testing` owns
+conformance fixtures and assertions.
+
+`@ultimabase/typegen` is optional development tooling. It snapshots the final
+compiled application graph and accepts owner-scoped plugin contributions as
+references, structured declarations, or separately owned deterministic output.
+It emits replaceable `.d.ts` contracts and deterministic non-executable metadata
+only, before infrastructure connection; it never generates JavaScript or a
+Runtime client. Core never imports Typegen, and JavaScript applications execute
+the same compiled graph without generated artifacts.
+
+Core retains request authority and generic protected constraint contracts. The
+official Access plugin owns Access vocabulary and compilation; Runtime does not
+install or name Access, ACL, role, authentication, or a community policy engine
+when no such capability is present.
 
 ## Schema extensions
 
 Core's Schema domain only knows the generic `SchemaExtension` and
-`FieldExtension` contracts. Plugins contribute typed extension objects:
+`FieldExtension` contracts. Plugins contribute typed extension objects. The
+current compatibility example below uses native `access`; after milestone 15
+the same option exists only when `accessPlugin()` contributes its namespace:
 
 ```ts
 Schema.define({
@@ -168,30 +191,66 @@ graphqlYogaPlugin({
 })
 ```
 
-The child is still registered globally. Dependencies determine setup order, then configuration position breaks ties. Teardown uses the reverse order.
+The child is still registered globally. Dependencies determine setup order,
+then configuration position breaks ties. Teardown uses the reverse order. Every
+plugin has one stable namespaced ID and may have an explicit instance ID; the
+same plugin can be configured several times only through distinct instance
+identities.
 
-Plugins occupying mutually exclusive architectural roles declare the same
-`slot`. Normalization rejects multiple definitions for slots such as
-`database-adapter` before any plugin is initialized.
+Each plugin definition contains a static manifest with its structured identity,
+package and Core compatibility, requested privileges with reasons, environment
+claims, provided and required capability tokens, and replacement intent. An
+application may deny privileges globally, by plugin ID, or for an exact
+instance. The default console logger reports every plugin and requested power,
+then one typed diagnostic aggregates denials before declarations, Typegen,
+setup, connections, Runtime, or transports can produce effects.
+
+Plugins are trusted in-process Node.js code. Privileges govern UltimaBase-owned
+facades and make powers inspectable; separate environmental claims describe
+direct filesystem, network, process, or native-code behavior that Core cannot
+verify. Neither mechanism is an operating-system sandbox. Critical privileges
+include complete schema or Runtime replacement, raw adapter access, Typegen
+replacement, and authority elevation. Master credential verification and grant
+creation remain Core-owned and cannot be manufactured by transport input.
+
+Versioned capabilities replace public architectural string slots. A `single`
+capability accepts one provider, a `multiple` capability accepts independent
+providers, and a `pipeline` capability composes handlers. Tokens also distinguish
+pure `declaration` values from resource-backed `application` implementations
+materialized during setup.
 
 `PluginGraph` validates the combined normalized configuration again, resolves
 required and present optional dependencies, rejects explicit conflicts and
 cycles, and exposes one stable dependency-first order without initializing
 plugins.
 
-Each application owns its setup registries. Plugin-scoped views attach the
-current plugin name to services, extension handlers, operators, hooks,
-generators, transports, pipelines, events, and commands without trusting
-plugin code to declare its own owner.
+Each application owns its capability host and private resource store.
+Plugin-scoped views attach the actual owner and instance to every declaration,
+transform, middleware, constraint, codec, persistence rewrite, Typegen
+contribution, event, and command. Plugin code cannot self-assert a different
+owner.
 
-Before schema compilation, the application runs each plugin's synchronous
-`declareFields` callback in the same dependency-first graph order. These pure
-declarations may register application-local FieldBuilder methods backed by an
-existing namespaced field factory and compact type-generation references. Core
-records plugin ownership but never names the contributed field kind. Built-in
-overrides, duplicates, unstable declarations, and mismatched factory results
-fail before plugin setup. Generated declarations expose only methods present in
-the application's plugin graph; the base Core FieldBuilder remains neutral.
+Before application compilation, Core invokes each authorized plugin's
+synchronous static declaration callback in dependency-first order. The public
+host may add schemas, FieldBuilder methods and logical kinds, namespaced schema
+or field options, immutable schema patches, model methods, custom operations,
+query extensions, and Typegen descriptors. Cross-owner changes require an
+explicit privilege. Declarations are pure, deterministic, and separated from
+secrets, services, adapters, requests, clocks, and network state.
+
+Developer declarations and authorized plugin contributions compile into one
+immutable application graph with per-contribution provenance. Each plugin's
+selectors observe the graph completed by earlier plugins and freeze targets
+before that plugin's patches. Conflicts never silently use last-writer-wins. A
+schema class may be reused by applications only when its final plugin surface is
+compatible; otherwise compilation fails. Plugin-created schemas and
+application-specific commands remain reachable through the application-owned
+`ultimabase.schema(nameOrClass)` handle without mutating exported classes.
+
+The existing `declareFields`, string slots, plugin service registry, and named
+setup contribution registries are transitional inputs to this generalized host.
+Milestone 14 replaces them without preserving duplicate public extension
+mechanisms or unprivileged escape hatches.
 
 The lifecycle manager first completes every setup callback, leaving a validation
 boundary before infrastructure changes. It then runs connect, schema
@@ -236,6 +295,13 @@ setup export types, including definitions introduced through nested composition.
   active request and hook lease, or accept `{ ultimabase }` outside a scope. No
   process-wide application singleton, request, authority, transaction, or
   adapter enters the Query AST.
+- `ultimabase.operation(tokenOrName).execute(input)` resolves stable or dynamic
+  custom operations through the same RequestEngine. It works in JavaScript
+  without Typegen; generated declarations narrow known tokens and literal names.
+- `ultimabase.schema(nameOrClass)` returns an application schema handle.
+  Application-conditional schema commands and query extensions live on that
+  handle, while instance-like commands use an immutable model handle. Exported
+  schema classes and prototypes are never mutated per application.
 
 ADR-0109 and issue 339 replace the former schema instance plus plain-result
 split with one class returned by `Schema.define()`. The class is the registered
@@ -251,34 +317,35 @@ selection, filtering, ordering, and pagination as immutable discriminated
 nodes. It contains no request, GraphQL, SQL, adapter, or execution state;
 transports normalize into it and adapters compile it behind Runtime contracts.
 
-Hooks are a native Runtime lifecycle, not a plugin or schema extension. Schemas
-declare precisely typed operation-family hooks, fields declare hooks over their
-exact logical values, and plugins append contributions through the same
-application-owned dispatcher. Plugin targets may be global, an exact schema, a
-typed field path, an extension, or a namespaced field kind. Contributions never
-replace developer hooks.
+The current source implements Hooks as a native Runtime lifecycle. ADR-0189
+accepts its migration to `@ultimabase/hooks-plugin`, which will own the typed
+schema and field options, dispatcher, phases, diagnostics, and recursion rules
+through public capabilities. Its official implementation preserves the
+existing operation-family typing, deterministic contribution order,
+transaction behavior, and developer hooks; applications may omit it entirely
+or install a community alternative with a different authoring experience.
 
 Hook callbacks are retained through private Schema-domain capabilities keyed by
 exact declaration identity. They never enter field options, extensions,
-validation plans, schema hashes, or migration metadata. Core's Runtime domain
-reads those declarations internally; absent hooks create no neutral stage.
+validation plans, schema hashes, or migration metadata. The official Hooks
+capability reads those declarations after extraction; without an installed
+Hooks capability, Core creates no neutral hook stage.
 
 Runtime does not name ACL, roles, authenticated users, ownership, or another
-concrete policy domain. Core's fundamental Access domain compiles native schema
-and field declarations plus plugin-provided policies into `operation`,
-`filter`, `item`, and `field` decisions. The compiler lowers those decisions
-into the existing policy-neutral `guard`, `constraint`, `restrictInput`,
-`restrictSelection`, and `restrictOutput` enforcement primitives. Guards may
-only deny, adapter constraints accumulate with logical `AND`, and field
-restrictions only narrow. Enforcement state remains separate from transformable
-operations so later business hooks cannot broaden it. An application with no
-Access declaration or provider follows its configured global default without
-installing placeholder callbacks.
+concrete policy domain. After milestone 15, the official Access plugin compiles
+its schema and field declarations plus provider policies into `operation`,
+`filter`, `item`, and `field` decisions. It lowers those decisions into Core's
+generic protected `guard`, `constraint`, `restrictInput`, `restrictSelection`,
+and `restrictOutput` primitives. Guards may only deny, adapter constraints
+accumulate with logical `AND`, and field restrictions only narrow. Protected
+state remains separate from transformable operations so later middleware cannot
+broaden it. With no Access capability, Core installs no default decision or
+placeholder callback; master authority remains independently available.
 
-The existing Runtime hook factories remain the low-level implementation
-foundation beside native declarations and policy-neutral enforcement. Core has
-removed the legacy named permission stages and stores owner-scoped
-contributions without executing them. Runtime reads immutable dependency-first
+During migration, the existing Runtime hook factories remain the compatibility
+implementation beside native declarations and policy-neutral enforcement. The
+official plugins must replace that private coupling with public capability
+middleware before native surfaces are removed. Runtime reads immutable dependency-first
 snapshots and composes them with developer hooks. Schema `resolveInput`
 transforms mutation input; grouped before- and after-operation hooks observe
 complete mutation values and have ignored return values. After-operation items
@@ -288,11 +355,15 @@ buffers externally visible event data until commit succeeds. Schema transaction
 hooks and their duplicate result journal are not part of the public lifecycle.
 
 Mutation transformers complete before one final structural revalidation and
-value-dependent Access reevaluation. Low-level `beforeOperation()` is also an
+value-dependent policy reevaluation. Low-level `beforeOperation()` is also an
 observer; only the target-aware `preparedOperation()` boundary may replace
-normalized update values. Prepared adapters lock with the initial protected
-request, then receive the final operation and cumulative constraints for the
-actual write so a later restriction cannot remain only in Runtime memory.
+normalized logical values. Core then derives a separate physical persistence
+plan. A plugin with `persistence:rewrite` may replace that plan—for example,
+soft delete may write tombstone fields—but the logical delete still determines
+Hooks, Access, audit, relationship, and result semantics. Protected constraints
+remain outside the replaceable plan. Prepared adapters lock with the initial
+protected request, then receive the final plan and cumulative constraints for
+the actual write so a later restriction cannot remain only in Runtime memory.
 
 One schema handler may cover a full create, update, upsert, or delete family;
 reads expose Query options and Access rather than schema hooks. Public
@@ -329,9 +400,9 @@ master mode. Runtime verifies raw master credentials into framework-owned
 opaque grants, audits their use, and creates master engines without retaining
 the credential in request state.
 
-## Access control
+## Optional Access capability
 
-Access is a fundamental Core lifecycle with four neutral levels:
+The official `@ultimabase/access-plugin` preserves four neutral levels:
 
 ```text
 operation decision
@@ -350,7 +421,7 @@ Query. Query predicates and every Access provider
 constraint combine through logical `AND`; a business hook cannot inspect or
 remove the private Access state.
 
-Persisted object ACL is one optional provider for this lifecycle. Its immutable
+Persisted object ACL is one optional provider for this plugin lifecycle. Its immutable
 value stores public, authenticated, exact schema-qualified principal, and
 schema-qualified role grants for `read`, `update`, and `delete`. The reserved
 ACL field itself is visible and mutable only under trusted master execution;
@@ -361,9 +432,9 @@ roles plugin. Missing identity fails closed while applications using only
 public and audited master behavior require neither provider.
 
 The `acl()` schema extension owns row-aware defaults and shared create/update
-input resolution through generic extension-targeted hooks. `aclPlugin()` owns
-monotonic Access contributions and declares master bypass. Runtime has no ACL
-stage or subject vocabulary. PostgreSQL stores one indexed JSONB ACL document
+input resolution through public capability middleware. `aclPlugin()` owns
+monotonic Access contributions and declares master bypass. Core Runtime has no
+ACL stage or subject vocabulary. PostgreSQL stores one indexed JSONB ACL document
 on each protected row and combines its opaque containment constraint with every
 other predicate in one statement. This physical representation requires no
 ACL-specific join and remains private to the adapter. The optional
@@ -382,13 +453,22 @@ structured-diff event for post-commit delivery.
 This observer never participates in authorization, emits nothing on rollback,
 and is not published by realtime or transport plugins by default.
 
-Native schema Access is the generalized class-level permission system, and
-native field Access controls field disclosure and mutation. ACL is an optional
-persisted per-object provider. Roles and authentication supply optional typed
-subject capabilities and grant nothing by themselves. Core Access contains no
-built-in ACL, user, owner, or role rule. Each native declaration or provider
-decides whether audited master authority bypasses its own policy; Runtime has no
-permission-specific bypass branch.
+The official schema Access surface is the generalized class-level permission
+system, and its field Access surface controls field disclosure and mutation.
+ACL is an optional persisted per-object provider. Roles and authentication
+supply optional typed subject capabilities and grant nothing by themselves.
+The Access plugin contains no built-in ACL, user, owner, or role rule. Each
+declaration or provider decides whether audited master authority bypasses its
+own policy; Core Runtime has no permission-specific bypass branch. A community
+Access engine may expose different syntax while using the same protected
+constraint contracts.
+
+The official and alternative policy engines share protocol identity from
+`@ultimabase/access-contracts`; Hooks engines use
+`@ultimabase/hooks-contracts`. Importing either contracts package installs no
+engine. A public transport without a compatible policy engine remains supported
+but emits `UNPROTECTED_PUBLIC_TRANSPORT` unless its configuration explicitly
+acknowledges unprotected exposure.
 
 ## Database and migrations
 
@@ -397,6 +477,14 @@ Drizzle and PostgreSQL imports exist only inside PostgreSQL packages.
 Without a migration plugin, `postgresPlugin` follows a configurable schema policy: `override`, `fail`, or `ignore`.
 
 With `postgresMigrationPlugin`, startup schema preparation is claimed by the migration plugin. It owns `_ultimabase_schema`, migration history, snapshots, SQL generation, destructive policies, and drift detection.
+
+Persisted schemas, fields, indexes, codecs, and physical contributions retain
+their plugin and instance owner, package and protocol version, stable
+contribution ID, and normalized static options in snapshots and migration
+plans. Plugin upgrades contribute explicit logical migration intent. Removing a
+plugin produces orphaned provenance and never implies an automatic drop;
+destructive cleanup remains an explicit migration decision whose artifact can
+be reviewed after the plugin package is absent.
 
 ## HTTP and GraphQL
 

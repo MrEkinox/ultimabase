@@ -24,12 +24,23 @@ Before changing code:
 ## Product rules
 
 - UltimaBase is a modern TypeScript backend framework inspired by Parse Server DX, not a compatible clone.
-- Static TypeScript schema declarations are the source of truth.
+- Developer TypeScript declarations plus authorized deterministic plugin
+  contributions form the authoritative compiled application graph. Generated
+  Typegen files are replaceable declarations, never Runtime truth.
 - The developer never writes Drizzle directly.
 - Concrete capabilities are plugins. The Core must not depend on PostgreSQL, Drizzle, Hono, GraphQL, Yoga, authentication providers, Redis, or job systems.
+- Plugin identity is structured as a stable plugin ID plus an optional explicit
+  instance ID. Multiple configurations of one plugin are legal only when their
+  instance identities and capability contracts make composition unambiguous.
 - REST and GraphQL normalize into the same operation/query AST and execute through the same runtime pipeline.
-- Native schema Access controls class operations. ACL controls individual objects. Native field Access controls field selection and mutation.
-- ACL providers contribute monotonic policies through the Access registry. Roles and authentication provide optional request subjects but grant nothing by themselves. Runtime must not name, configure, bypass, or install neutral stages for concrete providers.
+- ADR-0189 is the accepted target: Hooks and Access become optional official
+  plugins built on the same public kernel as community alternatives. Until
+  milestone 15 completes, preserve current native behavior issue by issue and
+  do not add new Core-specific Hooks or Access extension paths.
+- ACL providers contribute monotonic policies through the selected Access
+  capability. Roles and authentication provide optional request subjects but
+  grant nothing by themselves. Core Runtime must not name, configure, bypass,
+  or install neutral stages for concrete providers.
 - Core authority modes are `anonymous` and `master`. Authentication, user identity, sessions, and user schemas belong to optional plugins; there is no `user` or `system` Core mode.
 - Master access is trusted server-side authority and must never be forgeable from transport input.
 
@@ -39,16 +50,27 @@ Dependencies point toward foundations. In the diagram, `A -> B` means that A may
 
 ```text
 core -> shared
-official plugins -> core/shared
+plugin-kit -> core/shared
+hooks-contracts/access-contracts -> shared
+hooks-plugin -> hooks-contracts/plugin-kit/core
+access-plugin -> access-contracts/plugin-kit/core
+ACL providers -> access-contracts/core
+other official plugins -> plugin-kit/core/shared
 ```
 
-Schema, Query, Access, application orchestration, and Runtime are internal Core
-domains rather than separate packages. Their source folders preserve the same
-logical direction without creating published-package cycles.
+Schema, Query, application orchestration, protected constraints, persistence
+plans, and Runtime are internal Core domains rather than separate packages.
+Their source folders preserve the same logical direction without creating
+published-package cycles. `plugin-kit` is a public convenience layer for plugin
+authors; Core must never import it. `hooks-contracts` and `access-contracts` are
+behaviorless protocol packages used by implementations and providers; Core must
+never import them, and importing them must install no Runtime stage.
 
 Key prohibitions:
 
 - `core` must not import a concrete plugin or infrastructure library.
+- `core` must not import `plugin-kit`, `hooks-contracts`, or
+  `access-contracts`; those packages depend toward foundations.
 - Core's Runtime domain must not import Drizzle, PostgreSQL, Hono, Yoga, or GraphQL.
 - transport packages must not issue SQL or bypass the runtime.
 - database-specific migration logic stays in a database-specific migration plugin.
@@ -77,17 +99,63 @@ Run or update `yarn constraints` when dependency constraints exist. If a request
   `packages/<name>-plugin` directory and its `@ultimabase/<name>-plugin` package
   name. Packages that are not plugins must not use this suffix.
 - A plugin factory returns a static typed definition.
+- A manifest declares structured plugin and optional instance identity,
+  compatibility ranges, requested privileges with reasons, environmental
+  claims, dependencies, capabilities, and explicit replacement intent.
+- Every requested privilege from ADR-0191's closed vocabulary is validated and
+  reported before any plugin static declaration, Typegen, setup, connection,
+  Runtime, or transport effect.
+- Privileges are denied globally, by plugin ID, or by exact instance. Unknown
+  policy targets are configuration errors. The default console logger reports
+  installed plugins, privileges, reasons, severity, and claims unless the
+  developer explicitly replaces or silences that diagnostic sink.
+- Environmental claims describe direct filesystem, network, process, and native
+  behavior that in-process JavaScript cannot be forced to declare. Privileges
+  and claims are inspectable policy, not an operating-system sandbox.
+- Plugins declare versioned application-local capabilities and may provide,
+  require, decorate, or explicitly replace them only with the matching
+  privilege and deterministic conflict rules.
+- Capability cardinality and composition are fixed: `single` has one provider,
+  `multiple` has ordered independent providers, and `pipeline` has ordered
+  handlers. Decoration and replacement follow ADR-0190 and never silently use
+  last-writer-wins. Tokens declare `declaration` or `application` lifetime;
+  resource-backed application values are materialized and disposed by Core.
 - Nested plugins are configuration sugar over one global plugin graph.
 - Parent setup precedes child setup; child teardown precedes parent teardown.
 - Dependencies and configuration order determine deterministic plugin and hook ordering.
-- Duplicate plugins with conflicting options are errors unless a future ADR introduces explicit instances.
-- Schema and field plugins contribute typed extensions. Core's Schema domain must not know concrete ACL, role, authentication, or community-provider configuration.
-- Hooks are a native framework capability, not a plugin or schema extension. Plugins append hook contributions through the application dispatcher; they never replace developer hooks.
-- Policy plugins use generic deny-only guards, append-only adapter constraints, and narrowing field restrictions. Later hooks must never broaden accumulated enforcement.
+- Duplicate plugin IDs without explicit distinct instances are errors.
+- Authorized plugins may contribute schemas, field kinds, namespaced options,
+  immutable patches, model surfaces, operations, Typegen declarations, Runtime
+  middleware, protected constraints, and persistence-plan rewrites. Static
+  contributions remain pure, synchronous, deterministic, and infrastructure-free.
+- Query extensions, Runtime observers, migration intent, and filesystem reads
+  use their own exact privileges; broader neighboring privileges never imply
+  them.
+- `@ultimabase/plugin-kit` contains reusable authoring helpers only. Official
+  plugins use it when suitable, and its helpers must not bypass ownership,
+  privilege, validation, or provenance checks enforced by Core.
+- Versioned capabilities are the only public cross-plugin integration host.
+  Milestone 14 removes public string slots, service lookup, named setup
+  registries, and generic contribution registries instead of preserving parallel
+  escape hatches.
+- Plugin-created schemas, operations, and application-specific model commands
+  are reached through application-owned handles. Plugins never mutate an
+  exported schema class or prototype.
+- Typegen may consume the compiled graph and owner-scoped plugin contributions,
+  but may emit only declarations and deterministic inert metadata. JavaScript
+  applications execute the same graph without Typegen or a generated client.
+- Hooks and Access are migrating to optional official plugins. Their existing
+  ordering, typing, transactional, and monotonic security semantics remain
+  requirements during extraction, but community alternatives may expose a
+  different developer experience through the same public kernel.
+- Policy capabilities use generic deny-only guards, append-only adapter
+  constraints, and narrowing field restrictions. Later middleware must never
+  broaden accumulated enforcement.
 
 ## Runtime order
 
-Preserve this pipeline unless an ADR changes it:
+Preserve this current compatibility pipeline while milestones 14 and 15 expose
+and extract it through public capabilities:
 
 ```text
 normalization
@@ -111,6 +179,11 @@ normalization
 → afterCommit and post-commit events
 ```
 
+Keep the logical operation separate from its physical persistence plan. A
+privileged plugin may rewrite the physical plan, but logical Access, hooks,
+audit, result, and relationship semantics still observe the original operation.
+Protected constraints never enter the replaceable plan and can only narrow.
+
 Every mutation and its hook-started database work use one automatic transaction;
 reads do not unless the developer opens one explicitly. Hooks are ordered by
 plugin dependencies, then plugin position, then registration order. Business
@@ -131,6 +204,9 @@ Runtime; an absent policy plugin contributes nothing.
 - Applications must remain isolated so tests can run in parallel.
 - Test builders for immutability.
 - Test public package exports and prohibit deep imports.
+- Test capability ownership, deterministic order, two explicit instances of one
+  plugin, replacement and decoration conflicts, lifecycle cleanup, upgrades,
+  orphaned contributions, and the absence of legacy registry bypasses.
 - Every bug fix includes a regression test.
 
 Before finishing an issue, run the narrowest relevant commands, then the broader checks justified by the change:

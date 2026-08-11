@@ -171,6 +171,15 @@ Accepted records:
 - [ADR-0183: Bootstrap model identifiers are strings](0183-bootstrap-model-string-identifiers.md)
 - [ADR-0184: Type generation uses an explicit package identity](0184-typegen-package-identity.md)
 - [ADR-0185: Generated schema aliases expose canonical values only](0185-canonical-generated-schema-aliases.md)
+- [ADR-0186: Trusted open plugin kernel and declared privileges](0186-trusted-open-plugin-kernel.md)
+- [ADR-0187: Plugin-owned application compilation and Typegen contributions](0187-plugin-owned-application-compilation-and-typegen.md)
+- [ADR-0188: Plugin operations and rewritable persistence plans](0188-plugin-operations-and-persistence-plans.md)
+- [ADR-0189: Hooks and Access become optional official plugins](0189-optional-hooks-and-access-plugins.md)
+- [ADR-0190: Capability host lifecycle and legacy convergence](0190-capability-host-lifecycle-and-legacy-convergence.md)
+- [ADR-0191: Plugin privilege taxonomy, reporting, and diagnostics](0191-plugin-privilege-taxonomy-and-diagnostics.md)
+- [ADR-0192: Schema transformations, model surfaces, and plugin upgrades](0192-schema-transformations-model-surfaces-and-upgrades.md)
+- [ADR-0193: Plugin operation, transport, adapter, and Typegen bridges](0193-plugin-operation-transport-and-adapter-bridges.md)
+- [ADR-0194: Optional engine contract packages and unprotected transports](0194-optional-engine-contract-packages.md)
 
 Superseded records:
 

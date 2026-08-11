@@ -4,7 +4,7 @@ The issue backlog is the executable roadmap. This document only describes milest
 
 ## Current execution priority
 
-The Runtime-to-PostgreSQL vertical, native hook lifecycle, fundamental Access,
+The Runtime-to-PostgreSQL vertical, current native hook lifecycle, fundamental Access,
 transport-neutral relations, developer-defined stored roles, persisted object
 ACL, structured JSONB fields, and the schema-root Query and mutation API are
 complete foundations. The
@@ -14,8 +14,10 @@ cleanup, and focused Query, schema-model, Runtime, and native Access splits
 without adding a product capability. The
 [Query execution and enforcement consolidation plan](docs/plans/completed/query-execution-and-enforcement-consolidation.md)
 has likewise removed dead internal helpers and focused Query execution plus
-policy-neutral Enforcement ownership without changing public behavior. No
-cross-milestone plan is currently active.
+policy-neutral Enforcement ownership without changing public behavior. The
+[trusted open plugin kernel and optional official capabilities plan](CURRENT_PLAN.md)
+is now active. It first opens a privilege-aware public capability kernel, then
+uses that kernel to extract Hooks and Access into optional official plugins.
 
 The ACL hardening plan remains paused at issue 432. Generated schema authoring
 and type contracts remain paused at the final DX and performance verification
@@ -40,18 +42,22 @@ Primitive fields, schema registry, system fields, defaults, naming, typed schema
 
 Service tokens, plugin graph, nested plugins, lifecycle, isolated applications, typed errors, and deterministic ordering.
 
-## Milestone 3 — Query and runtime
+## Milestone 3 — Query and runtime foundations
 
 Operation AST, immutable `Query`, CRUD including bulk and upsert, RequestEngine,
-automatic mutation transactions, native schema and field hooks, plugin hook
-targets, policy-neutral monotonic enforcement, cursor pagination, and master
-access.
+automatic mutation transactions, the currently implemented schema and field
+hook lifecycle, policy-neutral monotonic enforcement, cursor pagination, and
+Core master access. Milestone 15 preserves the accepted behavior while moving
+the optional Hooks product out of Core.
 
-## Milestone 4 — Fundamental Access and persisted policy providers
+## Milestone 4 — Access foundations and persisted policy providers
 
 Native operation, filter, item, and field Access; compiled provider
 contributions; developer-defined stored roles and role hierarchy; object ACL;
 indexed PostgreSQL JSONB storage; SQL compilation; and audit events.
+Milestone 15 migrates the optional Access product and providers onto the open
+kernel while Core retains only generic protected constraints and master
+authority.
 
 ## Milestone 5 — PostgreSQL vertical
 
@@ -98,8 +104,29 @@ authoring from framework-owned scopes and execution, and focused internal
 ownership for monotonic Enforcement contribution, relation, input, selection,
 and output behavior. This milestone adds no public API or product capability.
 
+## Milestone 14 — Trusted open plugin kernel
+
+Declared privileges and visible startup policy, explicit plugin instances,
+versioned declaration and application capabilities, removal of legacy public
+slots/services/registries, plugin-owned static schema transformation and
+upgrades, dynamic schemas and operation handles, explicit transport and adapter
+bridges, Typegen participation, Runtime middleware, rewritable persistence
+plans, and public plugin authoring plus conformance toolboxes. Official and
+community plugins use the same contracts. JavaScript applications continue to
+run without Typegen or a generated client.
+
+## Milestone 15 — Optional Hooks and Access plugins
+
+Extract the existing Hooks and Access products into contract-only protocol
+packages plus official `@ultimabase/hooks-plugin` and
+`@ultimabase/access-plugin` implementations, migrate ACL and policy
+integrations, and prove that applications can run without either system or
+install community alternatives. Core keeps anonymous and audited master
+authority.
+
 ## First usable release
 
 The first release must support full primitive-field CRUD, bulk operations,
-upserts, REST, GraphQL, PostgreSQL, cursor pagination, native typed hooks,
-automatic mutation transactions, and parallel integration tests.
+upserts, REST, GraphQL, PostgreSQL, cursor pagination, optional official typed
+Hooks and Access plugins, automatic mutation transactions, and parallel
+integration tests.
