@@ -20,7 +20,9 @@ import { defineEvent, onEvent, type HookEventDefinition } from './events.js'
 
 const createDatabasePlugin = (adapter: DatabaseAdapter) =>
 	definePlugin({
-		name: 'fixture.hook-context-database',
+		version: '0.0.0',
+		core: '^0.0.0',
+		pluginId: 'fixture.hook-context-database',
 		slot: 'database-adapter',
 		setup: ({ services }) => {
 			services.provide(databaseAdapterServiceToken, adapter)
@@ -32,7 +34,9 @@ const createEventPlugin = (
 	events: Readonly<Record<string, Pick<HookEventDefinition, 'kind' | 'name'>>>,
 ) =>
 	definePlugin({
-		name,
+		version: '0.0.0',
+		core: '^0.0.0',
+		pluginId: name,
 		setup: ({ registries }) => {
 			for (const [eventName, event] of Object.entries(events)) {
 				registries.events.register(eventName, event)
@@ -459,7 +463,9 @@ describe('HookContext Runtime capabilities', () => {
 		})
 		const secondConsumer = definePlugin({
 			dependencies: ['fixture.first-event-consumer'],
-			name: 'fixture.second-event-consumer',
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.second-event-consumer',
 			setup: ({ registries }) => {
 				registries.events.register(
 					'second',

@@ -174,7 +174,9 @@ export const postgresPlugin = (
 	const schemaPolicy = untrustedOptions.schemaPolicy ?? 'override'
 
 	return definePlugin({
-		name: postgresPluginName,
+		version: '0.0.0',
+		core: '^0.0.0',
+		pluginId: postgresPluginName,
 		slot: 'database-adapter',
 		setup: ({ constraintCompilers, registries, schemas, services }) => {
 			// Static application compilation closes circular targets before plugin setup.

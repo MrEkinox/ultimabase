@@ -111,7 +111,9 @@ const vectorMethod = defineFieldBuilderMethod({
 })
 
 const plugin = definePlugin({
-	name: 'pg-vector',
+	pluginId: '@ultimabase/pg-vector-plugin',
+	version: '1.0.0',
+	core: '^0.0.0',
 	declareFields(fields) {
 		fields.register(vectorMethod)
 	},
@@ -1219,7 +1221,9 @@ other plugin contributions:
 ```ts
 const tenantPlugin = (tenantId: string) =>
 	definePlugin({
-		name: 'example.tenant',
+		pluginId: 'example.tenant',
+		version: '1.0.0',
+		core: '^0.0.0',
 		setup: ({ registries }) => {
 			registries.hooks.register(
 				'tenant-row-filter',
@@ -1282,8 +1286,9 @@ await application.start()
 Every application owns its schema registry, services, contribution registries,
 plugin exports, and lifecycle state. No singleton or global mutable registry is
 created. `application.getPlugin('fixture.database')` resolves the setup export
-using the configured literal plugin name; nested plugin definitions participate
-in the same typed lookup.
+using the configured literal plugin ID; nested plugin definitions participate
+in the same typed lookup. Repeated configurations use the structured
+`{ pluginId, instanceId }` overload instead.
 
 Framework packages consume plugin-provided services through the application's
 read-only lookup boundary:
@@ -1382,7 +1387,16 @@ lifecycle work:
 ```ts
 export const databasePlugin = () =>
 	definePlugin({
-		name: 'fixture.database',
+		pluginId: 'fixture.database',
+		version: '1.0.0',
+		core: '^0.0.0',
+		privileges: [
+			{
+				name: 'adapter:consume',
+				reason: 'Uses the configured database adapter.',
+			},
+		],
+		environment: ['environment:network'],
 		slot: 'database-adapter',
 		dependencies: ['fixture.config'],
 		setup: ({ services }) => {
@@ -1398,16 +1412,26 @@ export const databasePlugin = () =>
 	})
 ```
 
-Names and setup exports retain their exact types for future plugin lookup.
-The optional `slot` reserves one exclusive architectural role. Required
-dependencies, optional dependencies, conflicts, hooks, and nested definitions
-are copied and frozen. Nested plugins remain global graph entries; their
-placement under `plugins` is composition syntax.
+The manifest snapshots a namespaced stable `pluginId`, an optional explicit
+`instanceId`, the plugin's canonical semantic version, its supported Core
+range, exact requested privileges with reasons, and direct Node.js environment
+claims. Enforceable privileges and informational environment claims are
+separate contracts. The closed privilege vocabulary has documented Core facade
+ownership and severity; wildcard requests are invalid.
+
+Manifest literals and setup exports retain their exact types for plugin lookup.
+Setup, declaration, and lifecycle callbacks remain private to Core and do not
+run during manifest inspection. The optional `slot` reserves one exclusive
+architectural role. Required dependencies, optional dependencies, conflicts,
+hooks, and nested definitions are copied and frozen. Nested plugins remain
+global graph entries with their own manifest and privileges; their placement
+under `plugins` is composition syntax and grants no inherited power.
 
 `normalizePlugins(definitions)` resolves that syntax into immutable flat
 metadata without running plugin code. Children receive implicit parent
 dependencies, source order is retained, and the exact same definition can be
-reused safely. Separate definitions with the same name or two plugins sharing
+reused safely. Repeated configurations of one stable ID require distinct,
+explicit instance IDs. A duplicate structured identity or two plugins sharing
 one exclusive slot fail with `PLUGIN_CONFLICT`.
 
 `new PluginGraph(normalizedPlugins)` validates required and optional
@@ -1419,7 +1443,7 @@ cycles. It exposes the deterministic dependency-first order through
 const graph = new PluginGraph(normalizePlugins(configuredPlugins))
 
 for (const plugin of graph) {
-	console.log(plugin.definition.name)
+	console.log(plugin.definition.manifest.identity)
 }
 ```
 
@@ -1430,11 +1454,12 @@ and never executes setup or lifecycle hooks.
 ## Plugin setup registries
 
 `PluginSetupRegistries` groups every application-owned setup boundary. A
-plugin receives a stable context whose writes automatically record its name:
+plugin receives a stable context whose writes automatically record its
+structured identity:
 
 ```ts
 const setupRegistries = new PluginSetupRegistries(schemaRegistry)
-const context = setupRegistries.forPlugin('fixture.database')
+const context = setupRegistries.forPlugin({ pluginId: 'fixture.database' })
 
 context.services.provide(DatabaseServiceToken, database)
 context.registries.commands.register('fixture.reindex', reindexCommand)
@@ -1539,7 +1564,9 @@ const vectorHookTarget = defineFieldKindHookTarget<VectorField>(vectorFieldKind)
 
 const behaviorPlugin = () =>
 	definePlugin({
-		name: 'example.behavior',
+		pluginId: 'example.behavior',
+		version: '1.0.0',
+		core: '^0.0.0',
 		setup: ({ hooks }) => {
 			hooks.global('audit-creates', {
 				afterOperation: { create: ({ item }) => void item },
@@ -1620,7 +1647,9 @@ independent:
 
 ```ts
 const contentMetadataPlugin = definePlugin({
-	name: '@example/content-metadata',
+	pluginId: '@example/content-metadata',
+	version: '1.0.0',
+	core: '^0.0.0',
 	setup: ({ registries }) => {
 		registries.extensions.register(
 			extensionHandlerKey('schema', 'content-category'),

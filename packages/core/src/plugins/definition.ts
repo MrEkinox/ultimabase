@@ -12,6 +12,13 @@ import type {
 	FieldBuilderMethodRegistrar,
 	PluginFieldBuilderDeclaration,
 } from '../schema/schema/field-builder-methods.js'
+import {
+	formatPluginIdentity,
+	normalizePluginManifest,
+	type PluginEnvironmentClaim,
+	type PluginManifest,
+	type PluginPrivilegeRequest,
+} from './manifest.js'
 
 export type { PluginSetupContext } from './setup-registries.js'
 
@@ -59,6 +66,7 @@ interface PluginRuntimeDefinition {
 }
 
 declare const pluginDefinitionBrand: unique symbol
+declare const pluginSetupExportsBrand: unique symbol
 const pluginRuntimeDefinition: unique symbol = Symbol(
 	'ultimabase.plugin-runtime-definition',
 )
@@ -66,8 +74,9 @@ const pluginRuntimeDefinition: unique symbol = Symbol(
 /** Identifies definitions whose runtime provenance was validated by Core. */
 export interface PluginDefinition {
 	readonly [pluginDefinitionBrand]: true
+	readonly [pluginSetupExportsBrand]: unknown
 	readonly [pluginRuntimeDefinition]: PluginRuntimeDefinition
-	readonly name: string
+	readonly manifest: PluginManifest
 	readonly slot?: string
 	readonly dependencies?: readonly string[] | undefined
 	readonly optionalDependencies?: readonly string[] | undefined
@@ -77,7 +86,7 @@ export interface PluginDefinition {
 
 /** Carries every exact declaration type into later graph and lookup stages. */
 export interface FrameworkPlugin<
-	TName extends string = string,
+	TPluginId extends string = string,
 	TSetupResult = unknown,
 	TDependencies extends readonly string[] | undefined =
 		readonly string[] | undefined,
@@ -88,37 +97,66 @@ export interface FrameworkPlugin<
 	TPlugins extends readonly PluginDefinition[] | undefined =
 		readonly PluginDefinition[] | undefined,
 	TSlot extends string = string,
+	TInstanceId extends string | undefined = string | undefined,
+	TVersion extends string = string,
+	TCoreRange extends string = string,
+	TPrivileges extends readonly PluginPrivilegeRequest[] | undefined =
+		readonly PluginPrivilegeRequest[] | undefined,
+	TEnvironment extends readonly PluginEnvironmentClaim[] | undefined =
+		readonly PluginEnvironmentClaim[] | undefined,
 > extends PluginDefinition {
-	readonly name: TName
+	readonly [pluginSetupExportsBrand]: Awaited<TSetupResult>
+	readonly manifest: PluginManifest<
+		TPluginId,
+		TInstanceId,
+		TVersion,
+		TCoreRange,
+		TPrivileges extends readonly PluginPrivilegeRequest[]
+			? readonly [...TPrivileges]
+			: readonly [],
+		TEnvironment extends readonly PluginEnvironmentClaim[]
+			? readonly [...TEnvironment]
+			: readonly []
+	>
 	readonly slot?: TSlot
-	readonly version?: string
 	readonly dependencies?: TDependencies
 	readonly optionalDependencies?: TOptionalDependencies
 	readonly conflicts?: TConflicts
-	readonly declareFields?: PluginFieldBuilderDeclaration
-	readonly setup?: (context: PluginSetupContext) => TSetupResult
-	readonly hooks?: PluginLifecycleHooks<Awaited<TSetupResult>>
 	readonly plugins?: TPlugins
 }
 
 /** Extracts one plugin's initialized export contract without executing setup. */
-export type PluginExports<TPlugin> =
-	TPlugin extends FrameworkPlugin<string, infer TSetupResult>
-		? Awaited<TSetupResult>
-		: never
+export type PluginExports<TPlugin> = TPlugin extends PluginDefinition
+	? TPlugin[typeof pluginSetupExportsBrand]
+	: never
 
 export interface DefinePluginOptions<
-	TName extends string,
+	TPluginId extends string,
 	TSetupResult,
 	TDependencies extends readonly string[] | undefined,
 	TOptionalDependencies extends readonly string[] | undefined,
 	TConflicts extends readonly string[] | undefined,
 	TPlugins extends readonly PluginDefinition[] | undefined,
 	TSlot extends string,
+	TInstanceId extends string | undefined,
+	TVersion extends string,
+	TCoreRange extends string,
+	TPrivileges extends readonly PluginPrivilegeRequest[] | undefined,
+	TEnvironment extends readonly PluginEnvironmentClaim[] | undefined,
 > {
-	readonly name: TName
+	/** Stable namespaced identity shared by every configured instance. @example "community.workflow" */
+	readonly pluginId: TPluginId
+	/** Distinguishes repeated configurations without deriving identity from options. @example "primary" */
+	readonly instanceId?: TInstanceId
+	/** Declares the plugin package's canonical semantic version. @example "1.2.0" */
+	readonly version: TVersion
+	/** Declares the supported `@ultimabase/core` semantic-version range. @example "^1.0.0" */
+	readonly core: TCoreRange
+	/** Requests only the exact Core-owned powers used by this plugin. @example `[{ name: 'runtime:observe', reason: 'Records operation timings.' }]` */
+	readonly privileges?: TPrivileges
+	/** Reports direct Node.js powers separately from enforceable Core facades. @example `['environment:network']` */
+	readonly environment?: TEnvironment
 	readonly slot?: TSlot
-	readonly version?: string
 	readonly dependencies?: TDependencies
 	readonly optionalDependencies?: TOptionalDependencies
 	readonly conflicts?: TConflicts
@@ -198,7 +236,7 @@ export const runPluginFieldBuilderDeclaration = (
 
 	if (returned !== undefined) {
 		throw new TypeError(
-			`Plugin "${plugin.name}" declareFields must be synchronous and return nothing`,
+			`Plugin "${formatPluginIdentity(plugin.manifest.identity)}" declareFields must be synchronous and return nothing`,
 		)
 	}
 }
@@ -253,31 +291,48 @@ const normalizeLifecycleHooks = <const THooks extends object>(
 
 /** Creates immutable plugin metadata without initializing its runtime work. */
 export const definePlugin = <
-	const TName extends string,
+	const TPluginId extends string,
 	const TSetupResult = undefined,
 	const TDependencies extends readonly string[] | undefined = undefined,
 	const TOptionalDependencies extends readonly string[] | undefined = undefined,
 	const TConflicts extends readonly string[] | undefined = undefined,
 	const TPlugins extends readonly PluginDefinition[] | undefined = undefined,
 	const TSlot extends string = never,
+	const TInstanceId extends string | undefined = undefined,
+	const TVersion extends string = string,
+	const TCoreRange extends string = string,
+	const TPrivileges extends readonly PluginPrivilegeRequest[] | undefined =
+		undefined,
+	const TEnvironment extends readonly PluginEnvironmentClaim[] | undefined =
+		undefined,
 >(
 	options: DefinePluginOptions<
-		TName,
+		TPluginId,
 		TSetupResult,
 		TDependencies,
 		TOptionalDependencies,
 		TConflicts,
 		TPlugins,
-		TSlot
+		TSlot,
+		TInstanceId,
+		TVersion,
+		TCoreRange,
+		TPrivileges,
+		TEnvironment
 	>,
 ): FrameworkPlugin<
-	TName,
+	TPluginId,
 	TSetupResult,
 	TDependencies,
 	TOptionalDependencies,
 	TConflicts,
 	TPlugins,
-	TSlot
+	TSlot,
+	TInstanceId,
+	TVersion,
+	TCoreRange,
+	TPrivileges,
+	TEnvironment
 > => {
 	const untrustedOptions: unknown = options
 
@@ -285,14 +340,23 @@ export const definePlugin = <
 		throw new TypeError('plugin options must be a plain object')
 	}
 
-	assertNonEmptyString(options.name, 'name')
+	const manifest = normalizePluginManifest({
+		pluginId: options.pluginId,
+		...(options.instanceId === undefined
+			? {}
+			: { instanceId: options.instanceId }),
+		version: options.version,
+		core: options.core,
+		...(options.privileges === undefined
+			? {}
+			: { privileges: options.privileges }),
+		...(options.environment === undefined
+			? {}
+			: { environment: options.environment }),
+	})
 
 	if (options.slot !== undefined) {
 		assertNonEmptyString(options.slot, 'slot')
-	}
-
-	if (options.version !== undefined) {
-		assertNonEmptyString(options.version, 'version')
 	}
 
 	if (options.setup !== undefined && typeof options.setup !== 'function') {
@@ -306,6 +370,11 @@ export const definePlugin = <
 		throw new TypeError('declareFields must be a function')
 	}
 
+	const lifecycleHooks =
+		options.hooks === undefined
+			? undefined
+			: normalizeLifecycleHooks(options.hooks)
+
 	const runtimeDefinition = immutableRecord({
 		declareFields: options.declareFields,
 		setup: options.setup,
@@ -313,7 +382,7 @@ export const definePlugin = <
 			phase: PluginLifecyclePhase,
 			context: PluginLifecycleContext<unknown>,
 		): MaybePromise<void> => {
-			const hook = options.hooks?.[phase]
+			const hook = lifecycleHooks?.[phase]
 
 			if (hook === undefined) {
 				return undefined
@@ -325,9 +394,8 @@ export const definePlugin = <
 	})
 	const plugin = immutableRecord({
 		[pluginRuntimeDefinition]: runtimeDefinition,
-		name: options.name,
+		manifest,
 		...(options.slot === undefined ? {} : { slot: options.slot }),
-		...(options.version === undefined ? {} : { version: options.version }),
 		...(options.dependencies === undefined
 			? {}
 			: {
@@ -349,13 +417,6 @@ export const definePlugin = <
 			: {
 					conflicts: normalizePluginNames(options.conflicts, 'conflicts'),
 				}),
-		...(options.declareFields === undefined
-			? {}
-			: { declareFields: options.declareFields }),
-		...(options.setup === undefined ? {} : { setup: options.setup }),
-		...(options.hooks === undefined
-			? {}
-			: { hooks: normalizeLifecycleHooks(options.hooks) }),
 		...(options.plugins === undefined
 			? {}
 			: { plugins: normalizeNestedPlugins(options.plugins) }),
@@ -365,12 +426,17 @@ export const definePlugin = <
 
 	// Each optional container was copied through the generic-preserving normalizer above.
 	return plugin as FrameworkPlugin<
-		TName,
+		TPluginId,
 		TSetupResult,
 		TDependencies,
 		TOptionalDependencies,
 		TConflicts,
 		TPlugins,
-		TSlot
+		TSlot,
+		TInstanceId,
+		TVersion,
+		TCoreRange,
+		TPrivileges,
+		TEnvironment
 	>
 }

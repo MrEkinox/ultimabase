@@ -130,7 +130,9 @@ const createRelationRuntimeFixture = async (
 		},
 	)
 	const database = definePlugin({
-		name: 'fixture.relation-mutation-database',
+		version: '0.0.0',
+		core: '^0.0.0',
+		pluginId: 'fixture.relation-mutation-database',
 		setup: ({ services }) => {
 			services.provide(databaseAdapterServiceToken, adapter)
 		},
@@ -412,7 +414,9 @@ describe('relation mutation Runtime execution', () => {
 			trace,
 		)
 		const database = definePlugin({
-			name: 'fixture.inverse-pointer-relation-database',
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.inverse-pointer-relation-database',
 			setup: ({ services }) => {
 				services.provide(databaseAdapterServiceToken, adapter)
 			},

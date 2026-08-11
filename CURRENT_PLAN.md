@@ -54,9 +54,9 @@ optional official plugins while keeping Core master authority unchanged.
 
 ### Phase 1 — Manifests, privileges, and capability graph
 
-1. [ ] [1401 — Add plugin manifests and declared privileges](issues/1400-open-plugin-kernel/1401-plugin-manifests-and-privileges.md)
-2. [ ] [1402 — Enforce application privilege policy and startup reporting](issues/1400-open-plugin-kernel/1402-privilege-policy-and-reporting.md)
-3. [ ] [1403 — Add versioned capability tokens and requirements](issues/1400-open-plugin-kernel/1403-versioned-capability-tokens.md)
+1. [x] [1401 — Add plugin manifests and declared privileges](issues/1400-open-plugin-kernel/1401-plugin-manifests-and-privileges.md)
+2. [ ] [1403 — Add versioned capability tokens and requirements](issues/1400-open-plugin-kernel/1403-versioned-capability-tokens.md)
+3. [ ] [1402 — Enforce application privilege policy and startup reporting](issues/1400-open-plugin-kernel/1402-privilege-policy-and-reporting.md)
 4. [ ] [1404 — Compose capability providers, decorators, and replacements](issues/1400-open-plugin-kernel/1404-capability-composition.md)
 5. [ ] [1415 — Converge legacy services, slots, and setup registries](issues/1400-open-plugin-kernel/1415-converge-legacy-plugin-host.md)
 
@@ -95,7 +95,7 @@ optional official plugins while keeping Core master authority unchanged.
 
 ## Supervision checkpoints
 
-- After 1402: review the complete privilege vocabulary, default policy, startup report, conditional Typegen privileges, and failure diagnostics before exposing privileged facades.
+- After 1402: review the complete privilege vocabulary, default policy, startup report, capability-conditioned Typegen privileges, and failure diagnostics before exposing privileged facades.
 - After 1404: review capability identity, version compatibility, cardinality, decoration, replacement, and dependency semantics before changing schema compilation.
 - After 1415: verify every public slot, service, and generic setup registry has one privilege-aware replacement before opening schema declarations.
 - During 1406: stop on any silent cross-owner mutation, nondeterministic selector, global schema leak, or automatic destructive removal.

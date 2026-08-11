@@ -35,7 +35,9 @@ const articleSchema = Schema.define({
 
 const databasePlugin = (adapter: DatabaseAdapter) =>
 	definePlugin({
-		name: 'fixture.assembled-database',
+		version: '0.0.0',
+		core: '^0.0.0',
+		pluginId: 'fixture.assembled-database',
 		slot: 'database-adapter',
 		setup: ({ services }) => {
 			services.provide(databaseAdapterServiceToken, adapter)
@@ -72,7 +74,9 @@ describe('createFrameworkEngine', () => {
 			trace,
 		)
 		const dependency = definePlugin({
-			name: 'fixture.pipeline-dependency',
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.pipeline-dependency',
 			setup: ({ registries }) => {
 				registries.pipelines.register(
 					'fixture.dependency-normalization',
@@ -97,7 +101,9 @@ describe('createFrameworkEngine', () => {
 			},
 		})
 		const consumer = definePlugin({
-			name: 'fixture.pipeline-consumer',
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.pipeline-consumer',
 			dependencies: ['fixture.pipeline-dependency'],
 			setup: ({ registries }) => {
 				registries.pipelines.register(
@@ -123,7 +129,9 @@ describe('createFrameworkEngine', () => {
 			},
 		})
 		const automation = definePlugin({
-			name: 'fixture.assembled-automation',
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.assembled-automation',
 			setup: ({ registries }) => {
 				registries.hooks.register(
 					'fixture.trim-title',
@@ -148,7 +156,9 @@ describe('createFrameworkEngine', () => {
 			},
 		})
 		const enforcement = definePlugin({
-			name: 'fixture.assembled-enforcement',
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.assembled-enforcement',
 			setup: ({ registries }) => {
 				registries.hooks.register(
 					'fixture.create-guard',
@@ -274,7 +284,9 @@ describe('createFrameworkEngine', () => {
 			trace,
 		)
 		const policy = definePlugin({
-			name: 'fixture.assembled-read-policy',
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.assembled-read-policy',
 			setup: ({ registries }) => {
 				registries.hooks.register(
 					'fixture.read-constraint',
@@ -414,7 +426,9 @@ describe('createFrameworkEngine', () => {
 			}),
 		})
 		const enforcementPlugin = definePlugin({
-			name: 'fixture.security-sensitive-guard',
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.security-sensitive-guard',
 			setup: ({ registries }) => {
 				registries.hooks.register(
 					'fixture.guard-title',
@@ -470,7 +484,9 @@ describe('createFrameworkEngine', () => {
 		)
 
 		const invalidAdapterPlugin = definePlugin({
-			name: 'fixture.invalid-adapter',
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.invalid-adapter',
 			setup: ({ services }) => {
 				// Runtime validation protects JavaScript plugins that violate the service contract.
 				services.provide(databaseAdapterServiceToken, {} as never)
@@ -489,7 +505,9 @@ describe('createFrameworkEngine', () => {
 
 		const adapter = new RecordingDatabaseAdapter([], [])
 		const invalidPipelinePlugin = definePlugin({
-			name: 'fixture.invalid-pipeline',
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.invalid-pipeline',
 			setup: ({ registries }) => {
 				registries.pipelines.register('fixture.forged-stage', {
 					stage: 'unknown',

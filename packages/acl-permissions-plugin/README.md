@@ -158,7 +158,9 @@ import {
 import { definePlugin } from '@ultimabase/core'
 
 const aclAuditPlugin = definePlugin({
-	name: 'app.acl-audit',
+	pluginId: 'app.acl-audit',
+	version: '1.0.0',
+	core: '^0.0.0',
 	setup: ({ registries }) => {
 		registries.events.register(
 			'record-acl-change',

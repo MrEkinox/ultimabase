@@ -22,6 +22,7 @@ import {
 	type PluginLifecycleState,
 } from '../plugins/lifecycle-manager.js'
 import { normalizePlugins } from '../plugins/normalization.js'
+import type { PluginIdentity } from '../plugins/manifest.js'
 import { PluginSetupRegistries } from '../plugins/setup-registries.js'
 import type {
 	PluginContribution,
@@ -47,20 +48,56 @@ export type ConfiguredPlugin<TPlugins extends readonly PluginDefinition[]> =
 				: never
 			: never
 
-/** Lists the literal names addressable through one application configuration. */
-export type ConfiguredPluginName<TPlugins extends readonly PluginDefinition[]> =
-	ConfiguredPlugin<TPlugins>['name']
+/** Lists the literal stable IDs addressable through one application configuration. */
+export type ConfiguredPluginId<TPlugins extends readonly PluginDefinition[]> =
+	ConfiguredPlugin<TPlugins>['manifest']['identity']['pluginId']
 
-/** Resolves setup exports for one configured literal plugin name. */
+/** Lists the structured identities addressable through one application configuration. */
+export type ConfiguredPluginIdentity<
+	TPlugins extends readonly PluginDefinition[],
+> = ConfiguredPlugin<TPlugins>['manifest']['identity']
+
+type ConfiguredPluginById<
+	TPlugins extends readonly PluginDefinition[],
+	TPluginId extends ConfiguredPluginId<TPlugins>,
+> =
+	ConfiguredPlugin<TPlugins> extends infer TPlugin
+		? TPlugin extends PluginDefinition
+			? TPlugin['manifest']['identity']['pluginId'] extends TPluginId
+				? TPlugin
+				: never
+			: never
+		: never
+
+/** Resolves setup exports for one configured literal plugin ID. */
 export type ConfiguredPluginExports<
 	TPlugins extends readonly PluginDefinition[],
-	TName extends ConfiguredPluginName<TPlugins>,
+	TPluginId extends ConfiguredPluginId<TPlugins>,
 > =
-	string extends ConfiguredPluginName<TPlugins>
+	string extends ConfiguredPluginId<TPlugins>
 		? unknown
-		: PluginExports<
-				Extract<ConfiguredPlugin<TPlugins>, { readonly name: TName }>
-			>
+		: PluginExports<ConfiguredPluginById<TPlugins, TPluginId>>
+
+type ConfiguredPluginByIdentity<
+	TPlugins extends readonly PluginDefinition[],
+	TIdentity extends ConfiguredPluginIdentity<TPlugins>,
+> =
+	ConfiguredPlugin<TPlugins> extends infer TPlugin
+		? TPlugin extends PluginDefinition
+			? TIdentity extends TPlugin['manifest']['identity']
+				? TPlugin
+				: never
+			: never
+		: never
+
+/** Resolves setup exports for one exact configured plugin identity. */
+export type ConfiguredPluginIdentityExports<
+	TPlugins extends readonly PluginDefinition[],
+	TIdentity extends ConfiguredPluginIdentity<TPlugins>,
+> =
+	PluginIdentity extends ConfiguredPluginIdentity<TPlugins>
+		? unknown
+		: PluginExports<ConfiguredPluginByIdentity<TPlugins, TIdentity>>
 
 /** Captures every static input needed to construct one isolated application. */
 export interface FrameworkApplicationOptions<
@@ -323,7 +360,9 @@ export class FrameworkApplication<
 			for (const plugin of this.#pluginGraph) {
 				runPluginFieldBuilderDeclaration(
 					plugin.definition,
-					this.#fieldBuilderMethods.forPlugin(plugin.definition.name),
+					this.#fieldBuilderMethods.forPlugin(
+						plugin.definition.manifest.identity.pluginId,
+					),
 				)
 			}
 
@@ -357,12 +396,17 @@ export class FrameworkApplication<
 		return this.#lifecycle.dispose()
 	}
 
-	/** Retrieves one plugin's setup output by its exact configured name. */
-	getPlugin<const TName extends ConfiguredPluginName<TPlugins>>(
-		pluginName: TName,
-	): ConfiguredPluginExports<TPlugins, TName> {
+	/** Retrieves one plugin's setup output when its stable ID is unambiguous. */
+	getPlugin<const TPluginId extends ConfiguredPluginId<TPlugins>>(
+		pluginId: TPluginId,
+	): ConfiguredPluginExports<TPlugins, TPluginId>
+	/** Retrieves one plugin instance's setup output by its exact structured identity. */
+	getPlugin<const TIdentity extends ConfiguredPluginIdentity<TPlugins>>(
+		identity: TIdentity,
+	): ConfiguredPluginIdentityExports<TPlugins, TIdentity>
+	getPlugin(identity: PluginIdentity | ConfiguredPluginId<TPlugins>): unknown {
 		// The public return type restores the tuple relationship erased by the lifecycle map.
-		return this.#lifecycle.getPluginExports(pluginName)
+		return this.#lifecycle.getPluginExports(identity)
 	}
 
 	async #performInitialize(): Promise<this> {

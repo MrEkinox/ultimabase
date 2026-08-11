@@ -268,7 +268,9 @@ describe('relationField', () => {
 			}),
 		})
 		const infrastructure = definePlugin({
-			name: 'fixture.relation-infrastructure',
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.relation-infrastructure',
 			setup: () => {
 				events.push('setup')
 			},

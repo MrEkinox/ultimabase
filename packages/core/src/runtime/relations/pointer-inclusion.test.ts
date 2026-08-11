@@ -16,7 +16,9 @@ import { MasterAuthority } from '../master/master-authority.js'
 
 const createDatabasePlugin = (adapter: DatabaseAdapter) =>
 	definePlugin({
-		name: 'fixture.pointer-runtime-database',
+		version: '0.0.0',
+		core: '^0.0.0',
+		pluginId: 'fixture.pointer-runtime-database',
 		slot: 'database-adapter',
 		setup: ({ services }) => {
 			services.provide(databaseAdapterServiceToken, adapter)

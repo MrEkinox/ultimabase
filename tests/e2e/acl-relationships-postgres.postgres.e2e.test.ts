@@ -36,7 +36,9 @@ const Member = Schema.define({
 	extensions: [postgresTable({ name: 'acl_relationship_members' })],
 })
 const identityPlugin = definePlugin({
-	name: 'fixture.acl-relationships.identity',
+	version: '0.0.0',
+	core: '^0.0.0',
+	pluginId: 'fixture.acl-relationships.identity',
 	setup: ({ services }) => {
 		services.provide(accessPrincipalResolverServiceToken, {
 			resolveCurrent: ({ context }) => {

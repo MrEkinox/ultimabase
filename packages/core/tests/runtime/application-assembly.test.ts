@@ -26,7 +26,9 @@ describe('public application Runtime assembly', () => {
 			[],
 		)
 		const plugin = definePlugin({
-			name: 'fixture.public-assembled-database',
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.public-assembled-database',
 			slot: 'database-adapter',
 			setup: ({ services }) => {
 				services.provide(databaseAdapterServiceToken, adapter)

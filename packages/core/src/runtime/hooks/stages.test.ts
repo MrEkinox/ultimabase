@@ -87,7 +87,9 @@ describe('createRuntimeHookStages', () => {
 
 	it('rejects values not created by Runtime contribution factories', async () => {
 		const plugin = definePlugin({
-			name: 'fixture.invalid-hook',
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.invalid-hook',
 			setup: ({ registries }) => {
 				registries.hooks.register('fixture.invalid', () => undefined)
 			},
@@ -106,7 +108,9 @@ describe('createRuntimeHookStages', () => {
 
 	it('rejects contribution kinds registered in the wrong Core category', async () => {
 		const eventInHooks = definePlugin({
-			name: 'fixture.event-in-hooks',
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.event-in-hooks',
 			setup: ({ registries }) => {
 				registries.hooks.register(
 					'fixture.wrong-event',
@@ -115,7 +119,9 @@ describe('createRuntimeHookStages', () => {
 			},
 		})
 		const hookInEvents = definePlugin({
-			name: 'fixture.hook-in-events',
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.hook-in-events',
 			setup: ({ registries }) => {
 				registries.events.register(
 					'fixture.wrong-hook',
@@ -140,7 +146,9 @@ describe('createRuntimeHookStages', () => {
 
 	it('rejects schema scopes outside the owning application', async () => {
 		const plugin = definePlugin({
-			name: 'fixture.foreign-hook',
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.foreign-hook',
 			setup: ({ registries }) => {
 				registries.hooks.register(
 					'fixture.foreign',
@@ -165,7 +173,9 @@ describe('createRuntimeHookStages', () => {
 
 	it('requires before observers to return nothing and exact after replacements', async () => {
 		const plugin = definePlugin({
-			name: 'fixture.invalid-output',
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.invalid-output',
 			setup: ({ registries }) => {
 				registries.hooks.register(
 					'fixture.invalid-before-output',
@@ -216,7 +226,9 @@ describe('createRuntimeHookStages', () => {
 
 	it('rejects every attempted low-level before-operation replacement', async () => {
 		const plugin = definePlugin({
-			name: 'fixture.before-replacement',
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.before-replacement',
 			setup: ({ registries }) => {
 				registries.hooks.register(
 					'fixture.before-replacement',
@@ -247,7 +259,9 @@ describe('createRuntimeHookStages', () => {
 	it('resolves only update values against one locked singular target', async () => {
 		const handler = vi.fn()
 		const plugin = definePlugin({
-			name: 'fixture.prepared-value',
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.prepared-value',
 			setup: ({ registries }) => {
 				registries.hooks.register(
 					'fixture.prepared-value',
@@ -318,7 +332,9 @@ describe('createRuntimeHookStages', () => {
 
 		for (const [index, replacement] of invalidReplacements.entries()) {
 			const plugin = definePlugin({
-				name: `fixture.invalid-prepared-${String(index)}`,
+				version: '0.0.0',
+				core: '^0.0.0',
+				pluginId: `fixture.invalid-prepared-${String(index)}`,
 				setup: ({ registries }) => {
 					registries.hooks.register(
 						'fixture.invalid-prepared',

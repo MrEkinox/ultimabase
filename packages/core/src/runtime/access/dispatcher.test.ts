@@ -408,7 +408,9 @@ describe('NativeAccessRuntime', () => {
 			},
 		})
 		const contribution = definePlugin({
-			name: 'fixture.materialized-access-item',
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.materialized-access-item',
 			setup: ({ access }) => {
 				access.schema(
 					'materialized-items',
@@ -1258,7 +1260,9 @@ describe('NativeAccessRuntime', () => {
 			fields: (field) => ({ title: field.string() }),
 		})
 		const bypass = definePlugin({
-			name: 'fixture.master-bypass',
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.master-bypass',
 			setup: ({ access }) => {
 				access.schema(
 					'deny-anonymous',

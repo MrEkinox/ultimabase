@@ -9,7 +9,9 @@ export {
 export type {
 	ConfiguredPlugin,
 	ConfiguredPluginExports,
-	ConfiguredPluginName,
+	ConfiguredPluginId,
+	ConfiguredPluginIdentity,
+	ConfiguredPluginIdentityExports,
 	FrameworkAccessDefaultPolicy,
 	FrameworkAccessOptions,
 	FrameworkApplicationOptions,
@@ -77,6 +79,21 @@ export type {
 export { normalizePlugins } from './plugins/normalization.js'
 export type { NormalizedPlugin } from './plugins/normalization.js'
 export { PluginGraph } from './plugins/graph.js'
+export {
+	formatPluginIdentity,
+	isSamePluginIdentity,
+	pluginPrivilegeMetadata,
+} from './plugins/manifest.js'
+export type {
+	PluginEnvironmentClaim,
+	PluginIdentity,
+	PluginManifest,
+	PluginPrivilege,
+	PluginPrivilegeFacade,
+	PluginPrivilegeMetadata,
+	PluginPrivilegeRequest,
+	PluginPrivilegeSeverity,
+} from './plugins/manifest.js'
 export { extensionHandlerKey } from './plugins/extension-handlers.js'
 export type { ExtensionHandlerKey } from './plugins/extension-handlers.js'
 export { PluginLifecycleManager } from './plugins/lifecycle-manager.js'

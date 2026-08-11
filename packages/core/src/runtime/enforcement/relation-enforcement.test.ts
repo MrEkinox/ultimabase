@@ -50,7 +50,9 @@ const requireStages = (
 }
 
 const policyPlugin = definePlugin({
-	name: 'fixture.relation-enforcement',
+	version: '0.0.0',
+	core: '^0.0.0',
+	pluginId: 'fixture.relation-enforcement',
 	setup: ({ registries }) => {
 		registries.hooks.register(
 			'target-constraint',

@@ -26,7 +26,7 @@ test('narrows shared scalar plans through the plugin handler', async () => {
 		plugins: [configuredPlugin],
 		schemas: [schema],
 	})
-	const plugin = application.getPlugin('pg-vector')
+	const plugin = application.getPlugin('@ultimabase/pg-vector-plugin')
 
 	expectTypeOf(configuredPlugin).toEqualTypeOf<PgVectorPlugin>()
 	expectTypeOf(plugin).toEqualTypeOf<Readonly<PgVectorPluginExports>>()

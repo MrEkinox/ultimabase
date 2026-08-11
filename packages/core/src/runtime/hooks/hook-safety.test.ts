@@ -28,7 +28,9 @@ const createDatabasePlugin = (
 	observer?: HookDiagnosticsObserver,
 ) =>
 	definePlugin({
-		name: 'fixture.hook-safety-database',
+		version: '0.0.0',
+		core: '^0.0.0',
+		pluginId: 'fixture.hook-safety-database',
 		slot: 'database-adapter',
 		setup: ({ services }) => {
 			services.provide(databaseAdapterServiceToken, adapter)
@@ -275,7 +277,9 @@ describe('hook execution safety', () => {
 		})
 		const defineRecursivePlugin = () =>
 			definePlugin({
-				name: 'fixture.recursive-low-level-hook',
+				version: '0.0.0',
+				core: '^0.0.0',
+				pluginId: 'fixture.recursive-low-level-hook',
 				setup: ({ registries }) => {
 					registries.hooks.register(
 						'fixture.recursive-before-operation',
@@ -338,7 +342,9 @@ describe('hook execution safety', () => {
 			throw new Error('diagnostic observer failure')
 		}
 		const runtimePlugin = definePlugin({
-			name: 'fixture.observed-low-level-hook',
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.observed-low-level-hook',
 			setup: ({ registries }) => {
 				registries.hooks.register(
 					'fixture.observed-before',

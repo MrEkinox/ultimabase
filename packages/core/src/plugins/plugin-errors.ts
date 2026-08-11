@@ -1,20 +1,24 @@
 import { immutableArray } from '@ultimabase/shared'
 
 import { FrameworkError } from '../errors/framework-error.js'
+import { formatPluginIdentity, type PluginIdentity } from './manifest.js'
 
 export type DuplicatePluginSource = 'definition' | 'graph'
 
 /** Creates one stable duplicate diagnostic shared by both graph boundaries. */
 export const createDuplicatePluginError = (
-	pluginName: string,
+	identity: PluginIdentity,
 	source: DuplicatePluginSource,
 ): FrameworkError<'PLUGIN_DUPLICATE'> =>
 	new FrameworkError(
 		'PLUGIN_DUPLICATE',
-		`Plugin "${pluginName}" was declared more than once.`,
+		`Plugin "${formatPluginIdentity(identity)}" was declared more than once.`,
 		{
 			internalDetails: {
-				pluginName,
+				pluginId: identity.pluginId,
+				...(identity.instanceId === undefined
+					? {}
+					: { instanceId: identity.instanceId }),
 				source,
 			},
 		},

@@ -192,7 +192,9 @@ export type RolesPlugin = FrameworkPlugin<
  */
 export const rolesPlugin = (): RolesPlugin =>
 	definePlugin({
-		name: rolesPluginName,
+		version: '0.0.0',
+		core: '^0.0.0',
+		pluginId: rolesPluginName,
 		setup: ({ hooks, registries, schemas, services }) => {
 			registries.extensions.register(
 				extensionHandlerKey('schema', roleSchemaExtensionName),

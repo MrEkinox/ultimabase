@@ -12,7 +12,9 @@ import {
 
 const createDatabasePlugin = (adapter: DatabaseAdapter) =>
 	definePlugin({
-		name: 'fixture.relation-inclusion-database',
+		version: '0.0.0',
+		core: '^0.0.0',
+		pluginId: 'fixture.relation-inclusion-database',
 		slot: 'database-adapter',
 		setup: ({ services }) => {
 			services.provide(databaseAdapterServiceToken, adapter)

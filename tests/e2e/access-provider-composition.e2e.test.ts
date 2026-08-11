@@ -105,7 +105,9 @@ class CompositionWriteAdapter implements DatabaseAdapter {
 
 const databasePlugin = (adapter: DatabaseAdapter) =>
 	definePlugin({
-		name: 'fixture.composition.database',
+		version: '0.0.0',
+		core: '^0.0.0',
+		pluginId: 'fixture.composition.database',
 		slot: 'database-adapter',
 		setup: ({ services }) => {
 			services.provide(databaseAdapterServiceToken, adapter)
@@ -171,7 +173,9 @@ const CombinedPost = Schema.define({
 
 const createRoleProvider = (allowed: boolean) =>
 	definePlugin({
-		name: 'community.composition.roles',
+		version: '0.0.0',
+		core: '^0.0.0',
+		pluginId: 'community.composition.roles',
 		setup: ({ services }) => {
 			// The neutral token, not the plugin name, makes this provider compatible.
 			services.provide(accessRoleResolverServiceToken, {
@@ -183,7 +187,9 @@ const createRoleProvider = (allowed: boolean) =>
 	})
 
 const communityPolicy = definePlugin({
-	name: 'community.composition.policy',
+	version: '0.0.0',
+	core: '^0.0.0',
+	pluginId: 'community.composition.policy',
 	setup: ({ access }) => {
 		access.schema(
 			'community-scope',
@@ -228,7 +234,9 @@ const runCombinedComposition = async (
 	const plugins = nested
 		? [
 				definePlugin({
-					name: 'fixture.composition.bundle',
+					version: '0.0.0',
+					core: '^0.0.0',
+					pluginId: 'fixture.composition.bundle',
 					plugins: [roleProvider, communityPolicy, aclProvider],
 				}),
 				database,

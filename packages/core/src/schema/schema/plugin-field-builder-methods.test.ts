@@ -62,7 +62,9 @@ const betaMethod = defineFieldBuilderMethod({
 
 const alphaPlugin = () =>
 	definePlugin({
-		name: 'fixture.alpha-plugin',
+		version: '0.0.0',
+		core: '^0.0.0',
+		pluginId: 'fixture.alpha-plugin',
 		declareFields: (fields) => {
 			fields.register(alphaMethod)
 		},
@@ -70,7 +72,9 @@ const alphaPlugin = () =>
 
 const betaPlugin = () =>
 	definePlugin({
-		name: 'fixture.beta-plugin',
+		version: '0.0.0',
+		core: '^0.0.0',
+		pluginId: 'fixture.beta-plugin',
 		declareFields: (fields) => {
 			fields.register(betaMethod)
 		},
@@ -80,7 +84,9 @@ describe('plugin FieldBuilder methods', () => {
 	it('declares owned methods before schema compilation and plugin setup', async () => {
 		const trace: string[] = []
 		const plugin = definePlugin({
-			name: 'fixture.ordered-plugin',
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.ordered-plugin',
 			declareFields: (fields) => {
 				trace.push('declare')
 				fields.register(alphaMethod)
@@ -249,7 +255,9 @@ describe('plugin FieldBuilder methods', () => {
 			typegen: alphaMethod.typegen,
 		})
 		const overridePlugin = definePlugin({
-			name: 'fixture.override-plugin',
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.override-plugin',
 			declareFields: (fields) => {
 				fields.register(override)
 			},
@@ -267,7 +275,9 @@ describe('plugin FieldBuilder methods', () => {
 				plugins: [
 					alphaPlugin(),
 					definePlugin({
-						name: 'fixture.duplicate-plugin',
+						version: '0.0.0',
+						core: '^0.0.0',
+						pluginId: 'fixture.duplicate-plugin',
 						declareFields: (fields) => {
 							fields.register(alphaMethod)
 						},
@@ -293,7 +303,9 @@ describe('plugin FieldBuilder methods', () => {
 			typegen: alphaMethod.typegen,
 		})
 		const incompatiblePlugin = definePlugin({
-			name: 'fixture.incompatible-plugin',
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.incompatible-plugin',
 			declareFields: (fields) => {
 				fields.register(incompatibleMethod)
 			},
@@ -313,7 +325,9 @@ describe('plugin FieldBuilder methods', () => {
 		)
 
 		const asynchronousPlugin = definePlugin({
-			name: 'fixture.async-plugin',
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.async-plugin',
 			// @ts-expect-error -- Runtime still rejects declarations loaded from JavaScript.
 			declareFields: async (fields) => {
 				fields.register(alphaMethod)
@@ -345,7 +359,9 @@ describe('plugin FieldBuilder methods', () => {
 		const application = await createApplication({
 			plugins: [
 				definePlugin({
-					name: 'fixture.snapshot-plugin',
+					version: '0.0.0',
+					core: '^0.0.0',
+					pluginId: 'fixture.snapshot-plugin',
 					declareFields: (fields) => {
 						fields.register(method)
 					},
@@ -362,7 +378,9 @@ describe('plugin FieldBuilder methods', () => {
 		)
 
 		const untrustedPlugin = definePlugin({
-			name: 'fixture.untrusted-plugin',
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.untrusted-plugin',
 			declareFields: (fields) => {
 				const untrusted = {
 					factory: alphaField,

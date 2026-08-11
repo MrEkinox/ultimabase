@@ -36,7 +36,9 @@ const createAdapterPlugin = (
 	observedHookResults: unknown[],
 ) =>
 	definePlugin({
-		name: 'fixture.native-access-database',
+		version: '0.0.0',
+		core: '^0.0.0',
+		pluginId: 'fixture.native-access-database',
 		slot: 'database-adapter',
 		setup: ({ registries, services }) => {
 			services.provide(databaseAdapterServiceToken, adapter)

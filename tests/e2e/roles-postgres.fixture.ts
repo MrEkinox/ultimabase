@@ -201,7 +201,9 @@ const readReferenceValue = (value: string | number): string =>
 
 /** Owns external-reference cleanup without importing a roles implementation. */
 export const externalRoleReferencePlugin = definePlugin({
-	name: 'fixture.external-role-references',
+	version: '0.0.0',
+	core: '^0.0.0',
+	pluginId: 'fixture.external-role-references',
 	setup: ({ registries }) => {
 		registries.commands.register(
 			'fixture.external-role-reference-cleanup',
@@ -299,7 +301,9 @@ export const createProviderBoundaryApplication = (
 	provider: 'community' | 'missing',
 ) => {
 	const communityProvider = definePlugin({
-		name: 'fixture.community-role-provider-e2e',
+		version: '0.0.0',
+		core: '^0.0.0',
+		pluginId: 'fixture.community-role-provider-e2e',
 		setup: ({ services }) => {
 			services.provide(accessRoleResolverServiceToken, {
 				hasRole: () => true,

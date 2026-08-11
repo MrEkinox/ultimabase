@@ -21,13 +21,17 @@ const compatibleResolver: AccessRoleResolver = {
 }
 
 const unusedConsumer = definePlugin({
-	name: 'fixture.access.consumer.unused',
+	version: '0.0.0',
+	core: '^0.0.0',
+	pluginId: 'fixture.access.consumer.unused',
 	setup: ({ services }) => services.getOptional(accessRoleResolverServiceToken),
 })
 
 const createRoleConsumer = () =>
 	definePlugin({
-		name: 'fixture.access.consumer.required',
+		version: '0.0.0',
+		core: '^0.0.0',
+		pluginId: 'fixture.access.consumer.required',
 		setup: ({ access, services }) => {
 			const roles = services.require(accessRoleResolverServiceToken)
 
@@ -49,7 +53,9 @@ const createProvider = <const TName extends string>(
 	resolver: AccessRoleResolver,
 ) =>
 	definePlugin({
-		name,
+		version: '0.0.0',
+		core: '^0.0.0',
+		pluginId: name,
 		setup: ({ services }) => {
 			services.provide(accessRoleResolverServiceToken, resolver)
 		},
@@ -70,7 +76,9 @@ describe('optional Access capabilities', () => {
 		let infrastructureStarted = false
 		const consumer = createRoleConsumer()
 		const infrastructure = definePlugin({
-			name: 'fixture.infrastructure',
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.infrastructure',
 			hooks: {
 				connect: () => {
 					infrastructureStarted = true

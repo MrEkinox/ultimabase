@@ -60,7 +60,9 @@ const planSchema = Schema.define({
 })
 
 const basePlugin = definePlugin({
-	name: 'fixture.plan-base',
+	version: '0.0.0',
+	core: '^0.0.0',
+	pluginId: 'fixture.plan-base',
 	setup: ({ hooks, registries }) => {
 		hooks.schema('schema-first', planSchema, {
 			beforeOperation: { create: baseSchemaHandler },
@@ -84,7 +86,9 @@ const basePlugin = definePlugin({
 })
 
 const dependentPlugin = definePlugin({
-	name: 'fixture.plan-dependent',
+	version: '0.0.0',
+	core: '^0.0.0',
+	pluginId: 'fixture.plan-dependent',
 	dependencies: ['fixture.plan-base'],
 	setup: ({ hooks }) => {
 		hooks.schema('schema-dependent', planSchema, {

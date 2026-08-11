@@ -76,7 +76,9 @@ describe('createEnforcementStages', () => {
 	it('skips only contributions that explicitly declare trusted master bypass', async () => {
 		const trace: string[] = []
 		const plugin = definePlugin({
-			name: 'fixture.enforcement-master-behavior',
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.enforcement-master-behavior',
 			setup: ({ registries }) => {
 				registries.hooks.register(
 					'fixture.master-bypassed',
@@ -163,7 +165,9 @@ describe('createEnforcementStages', () => {
 	it('preserves configuration order across independent policy plugins', async () => {
 		const createPolicyPlugin = (name: string, value: string) =>
 			definePlugin({
-				name,
+				version: '0.0.0',
+				core: '^0.0.0',
+				pluginId: name,
 				setup: ({ registries }) => {
 					registries.hooks.register(
 						`${name}.constraint`,
@@ -215,7 +219,9 @@ describe('createEnforcementStages', () => {
 		const observedInputs: unknown[] = []
 		const observedOutputInputs: unknown[] = []
 		const plugin = definePlugin({
-			name: 'fixture.monotonic-enforcement',
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.monotonic-enforcement',
 			setup: ({ registries }) => {
 				registries.hooks.register(
 					'fixture.guard',
@@ -377,7 +383,9 @@ describe('createEnforcementStages', () => {
 
 	it('rejects restricted mutation input with a stable permission error', async () => {
 		const plugin = definePlugin({
-			name: 'fixture.input-enforcement',
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.input-enforcement',
 			setup: ({ registries }) => {
 				registries.hooks.register(
 					'fixture.only-title',
@@ -412,7 +420,9 @@ describe('createEnforcementStages', () => {
 
 	it('materializes the intersection over explicit query selections', async () => {
 		const plugin = definePlugin({
-			name: 'fixture.selection-enforcement',
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.selection-enforcement',
 			setup: ({ registries }) => {
 				registries.hooks.register(
 					'fixture.selection-broad',
@@ -535,7 +545,9 @@ describe('createEnforcementStages', () => {
 		)
 		const laterHandler = vi.fn()
 		const plugin = definePlugin({
-			name: 'fixture.denied-enforcement',
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.denied-enforcement',
 			setup: ({ registries }) => {
 				registries.hooks.register(
 					'fixture.denied',
@@ -571,7 +583,9 @@ describe('createEnforcementStages', () => {
 		const controller = new AbortController()
 		const laterHandler = vi.fn()
 		const plugin = definePlugin({
-			name: 'fixture.cancelled-enforcement',
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.cancelled-enforcement',
 			setup: ({ registries }) => {
 				registries.hooks.register(
 					'fixture.cancel-request',
@@ -616,7 +630,9 @@ describe('createEnforcementStages', () => {
 			current: undefined,
 		}
 		const plugin = definePlugin({
-			name: 'fixture.recursive-enforcement',
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.recursive-enforcement',
 			setup: ({ registries }) => {
 				registries.hooks.register(
 					'fixture.recursive-guard',
@@ -652,7 +668,9 @@ describe('createEnforcementStages', () => {
 
 	it('retains pre-transform constraints when reevaluating transformed values', async () => {
 		const plugin = definePlugin({
-			name: 'fixture.value-derived-enforcement',
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.value-derived-enforcement',
 			setup: ({ registries }) => {
 				registries.hooks.register(
 					'fixture.title-constraint',
@@ -712,7 +730,9 @@ describe('createEnforcementStages', () => {
 
 	it('rejects excluded input across every create, update, and upsert shape', async () => {
 		const plugin = definePlugin({
-			name: 'fixture.all-mutation-inputs',
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.all-mutation-inputs',
 			setup: ({ registries }) => {
 				registries.hooks.register(
 					'fixture.title-only',
@@ -813,7 +833,9 @@ describe('createEnforcementStages', () => {
 		'rejects invalid %s from JavaScript plugins',
 		async (_label, definition, message) => {
 			const plugin = definePlugin({
-				name: 'fixture.invalid-enforcement',
+				version: '0.0.0',
+				core: '^0.0.0',
+				pluginId: 'fixture.invalid-enforcement',
 				setup: ({ registries }) => {
 					registries.hooks.register('fixture.invalid', definition)
 				},
@@ -836,7 +858,9 @@ describe('createEnforcementStages', () => {
 
 	it('rejects foreign schema scopes during application assembly', async () => {
 		const plugin = definePlugin({
-			name: 'fixture.foreign-enforcement',
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.foreign-enforcement',
 			setup: ({ registries }) => {
 				registries.hooks.register(
 					'fixture.foreign',

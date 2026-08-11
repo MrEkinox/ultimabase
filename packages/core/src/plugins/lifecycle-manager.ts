@@ -4,10 +4,12 @@ import type { NormalizedPlugin } from './normalization.js'
 import {
 	runPluginLifecycleHook,
 	runPluginSetup,
+	type PluginDefinition,
 	type PluginLifecycleContext,
 	type PluginLifecyclePhase,
 } from './definition.js'
 import type { PluginGraph } from './graph.js'
+import { formatPluginIdentity, type PluginIdentity } from './manifest.js'
 import type { PluginSetupRegistries } from './setup-registries.js'
 
 const startupPhases = [
@@ -83,8 +85,8 @@ export class PluginLifecycleManager {
 	readonly #graph: PluginGraph
 	readonly #registries: PluginSetupRegistries
 	readonly #initializedPlugins: InitializedPlugin[] = []
-	readonly #exportsByName = new Map<string, unknown>()
-	readonly #activePluginNames = new Set<string>()
+	readonly #exportsByDefinition = new Map<PluginDefinition, unknown>()
+	readonly #activePlugins = new Set<PluginDefinition>()
 	#setupPromise: Promise<void> | undefined
 	#startPromise: Promise<void> | undefined
 	#stopPromise: Promise<void> | undefined
@@ -148,12 +150,27 @@ export class PluginLifecycleManager {
 	}
 
 	/** Returns setup output without weakening the unknown runtime boundary. */
-	getPluginExports(pluginName: string): unknown {
-		if (!this.#exportsByName.has(pluginName)) {
-			throw new TypeError(`Plugin setup has not completed: ${pluginName}`)
+	getPluginExports(identity: PluginIdentity | string): unknown {
+		if (
+			typeof identity === 'string' &&
+			this.#graph.plugins.filter(
+				({ definition }) => definition.manifest.identity.pluginId === identity,
+			).length > 1
+		) {
+			throw new TypeError(
+				`Plugin ID is ambiguous; provide pluginId and instanceId: ${identity}`,
+			)
 		}
 
-		return this.#exportsByName.get(pluginName)
+		const plugin = this.#graph.get(identity)?.definition
+		const label =
+			typeof identity === 'string' ? identity : formatPluginIdentity(identity)
+
+		if (plugin === undefined || !this.#exportsByDefinition.has(plugin)) {
+			throw new TypeError(`Plugin setup has not completed: ${label}`)
+		}
+
+		return this.#exportsByDefinition.get(plugin)
 	}
 
 	async #performSetup(): Promise<void> {
@@ -161,8 +178,9 @@ export class PluginLifecycleManager {
 
 		try {
 			for (const plugin of this.#graph) {
-				const pluginName = plugin.definition.name
-				const setupContext = this.#registries.forPlugin(pluginName)
+				const setupContext = this.#registries.forPlugin(
+					plugin.definition.manifest.identity,
+				)
 				const pluginExports = await runPluginSetup(
 					plugin.definition,
 					setupContext,
@@ -172,7 +190,7 @@ export class PluginLifecycleManager {
 					pluginExports,
 				})
 
-				this.#exportsByName.set(pluginName, pluginExports)
+				this.#exportsByDefinition.set(plugin.definition, pluginExports)
 				this.#initializedPlugins.push({ plugin, context })
 			}
 
@@ -200,7 +218,7 @@ export class PluginLifecycleManager {
 						phase,
 						initializedPlugin.context,
 					)
-					this.#activePluginNames.add(initializedPlugin.plugin.definition.name)
+					this.#activePlugins.add(initializedPlugin.plugin.definition)
 				}
 			}
 
@@ -283,9 +301,9 @@ export class PluginLifecycleManager {
 		const errors: unknown[] = []
 
 		for (const initializedPlugin of reverse(this.#initializedPlugins)) {
-			const pluginName = initializedPlugin.plugin.definition.name
+			const plugin = initializedPlugin.plugin.definition
 
-			if (!this.#activePluginNames.has(pluginName)) {
+			if (!this.#activePlugins.has(plugin)) {
 				continue
 			}
 
@@ -298,7 +316,7 @@ export class PluginLifecycleManager {
 			}, errors)
 		}
 
-		this.#activePluginNames.clear()
+		this.#activePlugins.clear()
 
 		return errors
 	}
@@ -317,7 +335,7 @@ export class PluginLifecycleManager {
 		}
 
 		this.#initializedPlugins.length = 0
-		this.#exportsByName.clear()
+		this.#exportsByDefinition.clear()
 
 		return errors
 	}

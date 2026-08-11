@@ -25,10 +25,12 @@
 	},
 	"dependencies": {
 		"@ultimabase/shared": "workspace:^",
+		"semver": "^7.7.3",
 		"uuid": "^14.0.1"
 	},
 	"devDependencies": {
 		"@types/node": "^24.0.0",
+		"@types/semver": "^7.7.1",
 		"tsdown": "^0.22.14",
 		"typescript": "^6.0.3",
 		"vitest": "4.1.10"

@@ -6,7 +6,9 @@ import {
 	createServiceToken,
 	definePlugin,
 	type ConfiguredPluginExports,
-	type ConfiguredPluginName,
+	type ConfiguredPluginId,
+	type ConfiguredPluginIdentity,
+	type ConfiguredPluginIdentityExports,
 	type FrameworkApplication,
 	type PluginContribution,
 	type PluginDefinition,
@@ -18,7 +20,9 @@ test('infers schemas and top-level plugin exports from application options', asy
 		fields: (field) => ({ name: field.string() }),
 	})
 	const plugin = definePlugin({
-		name: 'fixture.database',
+		version: '0.0.0',
+		core: '^0.0.0',
+		pluginId: 'fixture.database',
 		setup: () => Promise.resolve({ dialect: 'postgres' as const }),
 	})
 	const application = await createApplication({
@@ -49,17 +53,21 @@ test('infers schemas and top-level plugin exports from application options', asy
 	expectTypeOf(application.getContributions('hooks')).toEqualTypeOf<
 		readonly PluginContribution[]
 	>()
-	// @ts-expect-error -- Only configured literal plugin names are addressable.
+	// @ts-expect-error -- Only configured literal plugin IDs are addressable.
 	application.getPlugin('fixture.missing')
 })
 
-test('includes nested composition plugins in literal-name lookup', async () => {
+test('includes nested composition plugins in literal-ID lookup', async () => {
 	const child = definePlugin({
-		name: 'fixture.child',
+		version: '0.0.0',
+		core: '^0.0.0',
+		pluginId: 'fixture.child',
 		setup: () => ({ child: true as const }),
 	})
 	const parent = definePlugin({
-		name: 'fixture.parent',
+		version: '0.0.0',
+		core: '^0.0.0',
+		pluginId: 'fixture.parent',
 		plugins: [child] as const,
 	})
 	const application = await createApplication({
@@ -67,7 +75,7 @@ test('includes nested composition plugins in literal-name lookup', async () => {
 		plugins: [parent],
 	})
 
-	expectTypeOf<ConfiguredPluginName<readonly [typeof parent]>>().toEqualTypeOf<
+	expectTypeOf<ConfiguredPluginId<readonly [typeof parent]>>().toEqualTypeOf<
 		'fixture.parent' | 'fixture.child'
 	>()
 	expectTypeOf<
@@ -84,8 +92,54 @@ test('includes nested composition plugins in literal-name lookup', async () => {
 test('keeps widened plugin collections safe at runtime boundaries', () => {
 	type WidenedPlugins = readonly PluginDefinition[]
 
-	expectTypeOf<ConfiguredPluginName<WidenedPlugins>>().toEqualTypeOf<string>()
+	expectTypeOf<ConfiguredPluginId<WidenedPlugins>>().toEqualTypeOf<string>()
 	expectTypeOf<ConfiguredPluginExports<WidenedPlugins, string>>().toBeUnknown()
+})
+
+test('infers setup exports from exact repeated plugin identities', async () => {
+	const primary = definePlugin({
+		pluginId: 'fixture.repeated',
+		instanceId: 'primary',
+		version: '1.0.0',
+		core: '^0.0.0',
+		setup: () => ({ connection: 'primary' as const }),
+	})
+	const analytics = definePlugin({
+		pluginId: 'fixture.repeated',
+		instanceId: 'analytics',
+		version: '1.0.0',
+		core: '^0.0.0',
+		setup: () => ({ connection: 'analytics' as const }),
+	})
+	const application = await createApplication({
+		schemas: [],
+		plugins: [primary, analytics],
+	})
+
+	type Identities = ConfiguredPluginIdentity<
+		readonly [typeof primary, typeof analytics]
+	>
+	expectTypeOf<Identities>().toExtend<
+		| { readonly pluginId: 'fixture.repeated'; readonly instanceId?: 'primary' }
+		| {
+				readonly pluginId: 'fixture.repeated'
+				readonly instanceId?: 'analytics'
+		  }
+	>()
+	expectTypeOf<
+		ConfiguredPluginIdentityExports<
+			readonly [typeof primary, typeof analytics],
+			{ readonly pluginId: 'fixture.repeated'; readonly instanceId: 'primary' }
+		>
+	>().toEqualTypeOf<{ readonly connection: 'primary' }>()
+	expectTypeOf(
+		application.getPlugin({
+			pluginId: 'fixture.repeated',
+			instanceId: 'analytics',
+		}),
+	).toEqualTypeOf<{ readonly connection: 'analytics' }>()
+	// @ts-expect-error -- Exact instance lookup rejects unconfigured instance IDs.
+	application.getPlugin({ pluginId: 'fixture.repeated', instanceId: 'missing' })
 })
 
 test('infers exact required and optional application service contracts', async () => {
@@ -97,7 +151,9 @@ test('infers exact required and optional application service contracts', async (
 		'fixture.database-service',
 	)
 	const plugin = definePlugin({
-		name: 'fixture.database-service',
+		version: '0.0.0',
+		core: '^0.0.0',
+		pluginId: 'fixture.database-service',
 		setup: ({ services }) => {
 			services.provide(DatabaseServiceToken, { dialect: 'postgres' })
 		},

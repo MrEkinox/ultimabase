@@ -486,7 +486,9 @@ describe('native hook dispatcher', () => {
 			},
 		})
 		const plugin = definePlugin({
-			name: 'fixture.native-hook-order',
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.native-hook-order',
 			setup: ({ hooks }) => {
 				hooks.schema('schema', schema, {
 					afterOperation: {

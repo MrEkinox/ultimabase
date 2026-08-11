@@ -56,7 +56,9 @@ describe('dynamic Access subject capabilities', () => {
 			[],
 		)
 		const database = definePlugin({
-			name: 'fixture.optional-subject-database',
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.optional-subject-database',
 			slot: 'database-adapter',
 			setup: ({ services }) => {
 				services.provide(databaseAdapterServiceToken, adapter)

@@ -89,7 +89,9 @@ const BulkDocument = Schema.define({
 })
 
 const pluginVisibility = definePlugin({
-	name: 'fixture.native-access-visibility',
+	version: '0.0.0',
+	core: '^0.0.0',
+	pluginId: 'fixture.native-access-visibility',
 	setup: ({ access }) => {
 		access.schema(
 			'hide-plugin-rows',

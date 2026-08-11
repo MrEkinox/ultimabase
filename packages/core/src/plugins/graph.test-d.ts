@@ -8,7 +8,11 @@ import {
 } from '../index.js'
 
 test('exposes immutable ordered graph metadata', () => {
-	const plugin = definePlugin({ name: 'fixture.plugin' })
+	const plugin = definePlugin({
+		version: '0.0.0',
+		core: '^0.0.0',
+		pluginId: 'fixture.plugin',
+	})
 	const graph = new PluginGraph(normalizePlugins([plugin]))
 
 	expectTypeOf(graph.size).toEqualTypeOf<number>()

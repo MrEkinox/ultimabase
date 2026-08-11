@@ -12,7 +12,9 @@ import {
 
 test('exposes promise-based lifecycle operations and unknown runtime exports', () => {
 	const plugin = definePlugin({
-		name: 'fixture.plugin',
+		version: '0.0.0',
+		core: '^0.0.0',
+		pluginId: 'fixture.plugin',
 		setup: () => ({ ready: true as const }),
 	})
 	const lifecycle = new PluginLifecycleManager(

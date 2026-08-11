@@ -15,7 +15,9 @@ const schema = Schema.define({
 })
 declare const adapter: DatabaseAdapter
 const databasePlugin = definePlugin({
-	name: 'fixture.assembled-database',
+	version: '0.0.0',
+	core: '^0.0.0',
+	pluginId: 'fixture.assembled-database',
 	setup: ({ services }) => {
 		// The declaration fixture only needs to retain the plugin tuple relationship.
 		services.provide(databaseAdapterServiceToken, adapter)
@@ -32,7 +34,7 @@ test('preserves exact application tuples through public engine assembly', () => 
 
 	expectTypeOf(schema.className).toEqualTypeOf<'AssembledTypedArticle'>()
 	expectTypeOf(
-		databasePlugin.name,
+		databasePlugin.manifest.identity.pluginId,
 	).toEqualTypeOf<'fixture.assembled-database'>()
 	expectTypeOf(framework).toEqualTypeOf<
 		FrameworkEngine<readonly [typeof schema], readonly [typeof databasePlugin]>

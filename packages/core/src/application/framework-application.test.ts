@@ -23,7 +23,9 @@ describe('FrameworkApplication', () => {
 		const application = new FrameworkApplication({
 			plugins: [
 				definePlugin({
-					name: 'fixture.static-only',
+					version: '0.0.0',
+					core: '^0.0.0',
+					pluginId: 'fixture.static-only',
 					setup: () => {
 						setupCalls += 1
 					},
@@ -61,7 +63,9 @@ describe('FrameworkApplication', () => {
 	it('initializes declarations without starting infrastructure', async () => {
 		const events: string[] = []
 		const child = definePlugin({
-			name: 'fixture.child',
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.child',
 			setup: () => {
 				events.push('setup:child')
 
@@ -74,7 +78,9 @@ describe('FrameworkApplication', () => {
 			},
 		})
 		const parent = definePlugin({
-			name: 'fixture.parent',
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.parent',
 			plugins: [child],
 			setup: () => {
 				events.push('setup:parent')
@@ -129,7 +135,9 @@ describe('FrameworkApplication', () => {
 			)
 			let applicationId = 0
 			const plugin = definePlugin({
-				name: 'fixture.isolation',
+				version: '0.0.0',
+				core: '^0.0.0',
+				pluginId: 'fixture.isolation',
 				setup: ({ services, registries }) => {
 					const marker = { applicationId: applicationId++ }
 
@@ -168,6 +176,47 @@ describe('FrameworkApplication', () => {
 		},
 	)
 
+	it('isolates repeated plugin instances by structured identity', async () => {
+		const primary = definePlugin({
+			pluginId: 'fixture.repeated',
+			instanceId: 'primary',
+			version: '1.0.0',
+			core: '^0.0.0',
+			setup: () => ({ instance: 'primary' as const }),
+		})
+		const analytics = definePlugin({
+			pluginId: 'fixture.repeated',
+			instanceId: 'analytics',
+			version: '1.0.0',
+			core: '^0.0.0',
+			setup: () => ({ instance: 'analytics' as const }),
+		})
+		const application = await createApplication({
+			schemas: [],
+			plugins: [primary, analytics],
+		})
+
+		expect(
+			application.getPlugin({
+				pluginId: 'fixture.repeated',
+				instanceId: 'primary',
+			}),
+		).toStrictEqual({ instance: 'primary' })
+		expect(
+			application.getPlugin({
+				pluginId: 'fixture.repeated',
+				instanceId: 'analytics',
+			}),
+		).toStrictEqual({ instance: 'analytics' })
+		expect(() => application.getPlugin('fixture.repeated')).toThrow(
+			new TypeError(
+				'Plugin ID is ambiguous; provide pluginId and instanceId: fixture.repeated',
+			),
+		)
+
+		await application.dispose()
+	})
+
 	it('exposes required and optional service lookup only after setup', async () => {
 		interface MarkerService {
 			readonly value: string
@@ -181,7 +230,9 @@ describe('FrameworkApplication', () => {
 		)
 		const marker = { value: 'available' }
 		const plugin = definePlugin({
-			name: 'fixture.application-service',
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.application-service',
 			setup: ({ services }) => {
 				services.provide(MarkerServiceToken, marker)
 			},
@@ -243,7 +294,9 @@ describe('FrameworkApplication', () => {
 	it('validates graph configuration before plugin setup or transports', async () => {
 		const events: string[] = []
 		const plugin = definePlugin({
-			name: 'fixture.invalid',
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.invalid',
 			dependencies: ['fixture.missing'],
 			setup: () => {
 				events.push('setup')
@@ -273,7 +326,9 @@ describe('FrameworkApplication', () => {
 
 	it('supports direct construction while keeping setup lazy until requested', async () => {
 		const plugin = definePlugin({
-			name: 'fixture.lazy',
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.lazy',
 			setup: () => ({ initialized: true }),
 		})
 		const application = new FrameworkApplication({
@@ -300,13 +355,17 @@ describe('FrameworkApplication', () => {
 
 	it('retains dependency-first contribution order after setup', async () => {
 		const dependency = definePlugin({
-			name: 'fixture.contribution-dependency',
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.contribution-dependency',
 			setup: ({ registries }) => {
 				registries.hooks.register('fixture.dependency.before', 'dependency')
 			},
 		})
 		const consumer = definePlugin({
-			name: 'fixture.contribution-consumer',
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.contribution-consumer',
 			dependencies: ['fixture.contribution-dependency'],
 			setup: ({ registries }) => {
 				registries.hooks.register('fixture.consumer.before', 'consumer')

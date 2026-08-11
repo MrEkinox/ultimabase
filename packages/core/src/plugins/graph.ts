@@ -2,6 +2,11 @@ import { immutableArray, isUnknownArray } from '@ultimabase/shared'
 
 import { FrameworkError } from '../errors/framework-error.js'
 import {
+	formatPluginIdentity,
+	isSamePluginIdentity,
+	type PluginIdentity,
+} from './manifest.js'
+import {
 	assertNormalizedPlugin,
 	type NormalizedPlugin,
 } from './normalization.js'
@@ -13,47 +18,102 @@ import {
 interface GraphNode {
 	readonly plugin: NormalizedPlugin
 	readonly inputIndex: number
-	readonly dependencyNames: Set<string>
 	readonly dependencies: GraphNode[]
 	readonly dependents: GraphNode[]
 	indegree: number
 }
 
+type GraphNodesByPluginId = Map<string, GraphNode[]>
+
 const compareConfigurationOrder = (left: GraphNode, right: GraphNode): number =>
 	left.plugin.configurationIndex - right.plugin.configurationIndex ||
 	left.inputIndex - right.inputIndex
 
-const throwDuplicatePlugin = (pluginName: string): never => {
-	throw createDuplicatePluginError(pluginName, 'graph')
-}
+const allGraphNodes = (
+	nodesByPluginId: ReadonlyMap<string, readonly GraphNode[]>,
+): readonly GraphNode[] =>
+	[...nodesByPluginId.values()].flatMap((nodes) => nodes)
+
+const findNodeByIdentity = (
+	nodesByPluginId: ReadonlyMap<string, readonly GraphNode[]>,
+	identity: PluginIdentity,
+): GraphNode | undefined =>
+	nodesByPluginId
+		.get(identity.pluginId)
+		?.find(({ plugin }) =>
+			isSamePluginIdentity(plugin.definition.manifest.identity, identity),
+		)
 
 const throwMissingDependency = (
-	pluginName: string,
-	dependencyName: string,
+	pluginIdentity: PluginIdentity,
+	dependencyId: string,
 ): never => {
+	const plugin = formatPluginIdentity(pluginIdentity)
+
 	throw new FrameworkError(
 		'PLUGIN_DEPENDENCY_MISSING',
-		`Plugin "${pluginName}" requires missing plugin "${dependencyName}".`,
+		`Plugin "${plugin}" requires missing plugin "${dependencyId}".`,
 		{
 			internalDetails: {
-				pluginName,
-				dependencyName,
+				pluginId: pluginIdentity.pluginId,
+				...(pluginIdentity.instanceId === undefined
+					? {}
+					: { instanceId: pluginIdentity.instanceId }),
+				dependencyId,
+			},
+		},
+	)
+}
+
+const assertRequiredDependency: (
+	dependency: GraphNode | undefined,
+	pluginIdentity: PluginIdentity,
+	dependencyId: string,
+) => asserts dependency is GraphNode = (
+	dependency,
+	pluginIdentity,
+	dependencyId,
+) => {
+	if (dependency === undefined) {
+		throwMissingDependency(pluginIdentity, dependencyId)
+	}
+}
+
+const throwAmbiguousDependency = (
+	pluginIdentity: PluginIdentity,
+	dependencyId: string,
+): never => {
+	const plugin = formatPluginIdentity(pluginIdentity)
+
+	throw new FrameworkError(
+		'PLUGIN_CONFLICT',
+		`Plugin "${plugin}" must target an exact instance of repeated plugin "${dependencyId}".`,
+		{
+			internalDetails: {
+				kind: 'ambiguous-plugin-dependency',
+				pluginId: pluginIdentity.pluginId,
+				dependencyId,
 			},
 		},
 	)
 }
 
 const throwExplicitConflict = (
-	pluginName: string,
-	conflictingPluginName: string,
+	pluginIdentity: PluginIdentity,
+	conflictingPluginId: string,
 ): never => {
+	const plugin = formatPluginIdentity(pluginIdentity)
+
 	throw new FrameworkError(
 		'PLUGIN_CONFLICT',
-		`Plugin "${pluginName}" conflicts with "${conflictingPluginName}".`,
+		`Plugin "${plugin}" conflicts with "${conflictingPluginId}".`,
 		{
 			internalDetails: {
 				kind: 'explicit-conflict',
-				pluginNames: immutableArray([pluginName, conflictingPluginName]),
+				pluginIds: immutableArray([
+					pluginIdentity.pluginId,
+					conflictingPluginId,
+				]),
 			},
 		},
 	)
@@ -62,11 +122,9 @@ const throwExplicitConflict = (
 const findCyclePath = (
 	unresolvedNodes: readonly GraphNode[],
 ): readonly string[] => {
-	const unresolvedNames = new Set(
-		unresolvedNodes.map(({ plugin }) => plugin.definition.name),
-	)
-	const path: string[] = []
-	const pathIndexes = new Map<string, number>()
+	const unresolved = new Set(unresolvedNodes)
+	const path: GraphNode[] = []
+	const pathIndexes = new Map<GraphNode, number>()
 	// Kahn's remainder is non-empty and every remaining node depends on another remainder node.
 	const orderedUnresolvedNodes = [...unresolvedNodes].sort(
 		compareConfigurationOrder,
@@ -74,18 +132,21 @@ const findCyclePath = (
 	let currentNode = orderedUnresolvedNodes[0]
 
 	for (;;) {
-		const currentName = currentNode.plugin.definition.name
-		const repeatedIndex = pathIndexes.get(currentName)
+		const repeatedIndex = pathIndexes.get(currentNode)
 
 		if (repeatedIndex !== undefined) {
-			return immutableArray([...path.slice(repeatedIndex), currentName])
+			return immutableArray(
+				[...path.slice(repeatedIndex), currentNode].map(({ plugin }) =>
+					formatPluginIdentity(plugin.definition.manifest.identity),
+				),
+			)
 		}
 
-		pathIndexes.set(currentName, path.length)
-		path.push(currentName)
+		pathIndexes.set(currentNode, path.length)
+		path.push(currentNode)
 
 		const unresolvedDependencies = currentNode.dependencies.filter(
-			({ plugin }) => unresolvedNames.has(plugin.definition.name),
+			(dependency) => unresolved.has(dependency),
 		) as [GraphNode, ...GraphNode[]]
 
 		currentNode = unresolvedDependencies[0]
@@ -106,15 +167,30 @@ const throwDependencyCycle = (unresolvedNodes: readonly GraphNode[]): never => {
 
 const createGraphNodes = (
 	plugins: readonly NormalizedPlugin[],
-): Map<string, GraphNode> => {
-	const nodesByName = new Map<string, GraphNode>()
+): GraphNodesByPluginId => {
+	const nodesByPluginId: GraphNodesByPluginId = new Map()
 	const pluginsBySlot = new Map<string, NormalizedPlugin>()
 
 	for (const [inputIndex, plugin] of plugins.entries()) {
-		const pluginName = plugin.definition.name
+		const identity = plugin.definition.manifest.identity
+		const configuredInstances = nodesByPluginId.get(identity.pluginId) ?? []
+		const duplicate = configuredInstances.some(({ plugin: candidate }) =>
+			isSamePluginIdentity(candidate.definition.manifest.identity, identity),
+		)
 
-		if (nodesByName.has(pluginName)) {
-			throwDuplicatePlugin(pluginName)
+		if (duplicate) {
+			throw createDuplicatePluginError(identity, 'graph')
+		}
+
+		if (
+			configuredInstances.length > 0 &&
+			(identity.instanceId === undefined ||
+				configuredInstances.some(
+					({ plugin: candidate }) =>
+						candidate.definition.manifest.identity.instanceId === undefined,
+				))
+		) {
+			throw createDuplicatePluginError(identity, 'graph')
 		}
 
 		if (plugin.definition.slot !== undefined) {
@@ -123,79 +199,115 @@ const createGraphNodes = (
 			if (slotOwner !== undefined) {
 				throw createExclusiveSlotConflictError(
 					plugin.definition.slot,
-					slotOwner.definition.name,
-					pluginName,
+					formatPluginIdentity(slotOwner.definition.manifest.identity),
+					formatPluginIdentity(identity),
 				)
 			}
 
 			pluginsBySlot.set(plugin.definition.slot, plugin)
 		}
 
-		nodesByName.set(pluginName, {
+		configuredInstances.push({
 			plugin,
 			inputIndex,
-			dependencyNames: new Set(),
 			dependencies: [],
 			dependents: [],
 			indegree: 0,
 		})
+		nodesByPluginId.set(identity.pluginId, configuredInstances)
 	}
 
-	return nodesByName
+	return nodesByPluginId
+}
+
+const resolveNamedDependency = (
+	nodesByPluginId: ReadonlyMap<string, readonly GraphNode[]>,
+	pluginIdentity: PluginIdentity,
+	dependencyId: string,
+	required: boolean,
+): GraphNode | undefined => {
+	const candidates = nodesByPluginId.get(dependencyId) ?? []
+
+	if (candidates.length === 0) {
+		if (required) throwMissingDependency(pluginIdentity, dependencyId)
+		return undefined
+	}
+
+	if (candidates.length > 1) {
+		throwAmbiguousDependency(pluginIdentity, dependencyId)
+	}
+
+	return candidates[0]
+}
+
+const connectDependency = (node: GraphNode, dependency: GraphNode): void => {
+	if (node.dependencies.includes(dependency)) return
+
+	node.dependencies.push(dependency)
+	dependency.dependents.push(node)
+	node.indegree += 1
 }
 
 const connectGraphNodes = (
-	nodesByName: ReadonlyMap<string, GraphNode>,
+	nodesByPluginId: ReadonlyMap<string, readonly GraphNode[]>,
 ): void => {
-	for (const node of nodesByName.values()) {
-		const pluginName = node.plugin.definition.name
+	for (const node of allGraphNodes(nodesByPluginId)) {
+		const identity = node.plugin.definition.manifest.identity
 
-		for (const conflictName of node.plugin.definition.conflicts ?? []) {
-			if (nodesByName.has(conflictName)) {
-				throwExplicitConflict(pluginName, conflictName)
+		for (const conflictId of node.plugin.definition.conflicts ?? []) {
+			if (nodesByPluginId.has(conflictId)) {
+				throwExplicitConflict(identity, conflictId)
 			}
 		}
 
-		for (const dependencyName of node.plugin.dependencies) {
-			if (!nodesByName.has(dependencyName)) {
-				throwMissingDependency(pluginName, dependencyName)
-			}
-
-			node.dependencyNames.add(dependencyName)
+		for (const dependencyId of node.plugin.dependencies) {
+			const dependency = resolveNamedDependency(
+				nodesByPluginId,
+				identity,
+				dependencyId,
+				true,
+			)
+			assertRequiredDependency(dependency, identity, dependencyId)
+			connectDependency(node, dependency)
 		}
 
-		for (const optionalDependencyName of node.plugin.definition
+		for (const parentIdentity of node.plugin.parentIdentities) {
+			const parent = findNodeByIdentity(nodesByPluginId, parentIdentity)
+			assertRequiredDependency(
+				parent,
+				identity,
+				formatPluginIdentity(parentIdentity),
+			)
+			connectDependency(node, parent)
+		}
+
+		for (const optionalDependencyId of node.plugin.definition
 			.optionalDependencies ?? []) {
-			if (nodesByName.has(optionalDependencyName)) {
-				node.dependencyNames.add(optionalDependencyName)
-			}
-		}
-	}
-
-	for (const node of nodesByName.values()) {
-		for (const [dependencyName, dependencyNode] of nodesByName) {
-			if (!node.dependencyNames.has(dependencyName)) {
-				continue
-			}
-
-			node.dependencies.push(dependencyNode)
-			dependencyNode.dependents.push(node)
-			node.indegree += 1
+			const dependency = resolveNamedDependency(
+				nodesByPluginId,
+				identity,
+				optionalDependencyId,
+				false,
+			)
+			if (dependency !== undefined) connectDependency(node, dependency)
 		}
 	}
 }
 
 const orderGraphNodes = (
-	nodesByName: ReadonlyMap<string, GraphNode>,
+	nodesByPluginId: ReadonlyMap<string, readonly GraphNode[]>,
 ): readonly NormalizedPlugin[] => {
-	const readyNodes = [...nodesByName.values()]
+	const nodes = allGraphNodes(nodesByPluginId)
+	const readyNodes = nodes
 		.filter(({ indegree }) => indegree === 0)
 		.sort(compareConfigurationOrder)
 	const orderedPlugins: NormalizedPlugin[] = []
+	const orderedNodes = new Set<GraphNode>()
 	let readyNode: GraphNode | undefined
 
 	while ((readyNode = readyNodes.shift()) !== undefined) {
 		orderedPlugins.push(readyNode.plugin)
+		orderedNodes.add(readyNode)
 
 		for (const dependent of readyNode.dependents) {
 			dependent.indegree -= 1
@@ -207,13 +319,11 @@ const orderGraphNodes = (
 		}
 	}
 
-	if (orderedPlugins.length !== nodesByName.size) {
-		const orderedNames = new Set(
-			orderedPlugins.map(({ definition }) => definition.name),
-		)
-		const unresolvedNodes = [...nodesByName.values()].filter(
-			({ plugin }) => !orderedNames.has(plugin.definition.name),
-		) as [GraphNode, ...GraphNode[]]
+	if (orderedPlugins.length !== nodes.length) {
+		const unresolvedNodes = nodes.filter((node) => !orderedNodes.has(node)) as [
+			GraphNode,
+			...GraphNode[],
+		]
 
 		throwDependencyCycle(unresolvedNodes)
 	}
@@ -224,7 +334,7 @@ const orderGraphNodes = (
 /** Owns one validated deterministic plugin order without initializing plugins. */
 export class PluginGraph implements Iterable<NormalizedPlugin> {
 	readonly plugins: readonly NormalizedPlugin[]
-	readonly #pluginsByName: ReadonlyMap<string, NormalizedPlugin>
+	readonly #pluginsById: ReadonlyMap<string, readonly NormalizedPlugin[]>
 
 	constructor(plugins: readonly NormalizedPlugin[]) {
 		const untrustedPlugins: unknown = plugins
@@ -237,12 +347,22 @@ export class PluginGraph implements Iterable<NormalizedPlugin> {
 			assertNormalizedPlugin(plugin, `plugins[${String(pluginIndex)}]`)
 		}
 
-		const nodesByName = createGraphNodes(plugins)
+		const nodesByPluginId = createGraphNodes(plugins)
 
-		connectGraphNodes(nodesByName)
-		this.plugins = orderGraphNodes(nodesByName)
-		this.#pluginsByName = new Map(
-			this.plugins.map((plugin) => [plugin.definition.name, plugin]),
+		connectGraphNodes(nodesByPluginId)
+		this.plugins = orderGraphNodes(nodesByPluginId)
+		const pluginsById = new Map<string, NormalizedPlugin[]>()
+		for (const plugin of this.plugins) {
+			const pluginId = plugin.definition.manifest.identity.pluginId
+			const instances = pluginsById.get(pluginId) ?? []
+			instances.push(plugin)
+			pluginsById.set(pluginId, instances)
+		}
+		this.#pluginsById = new Map(
+			[...pluginsById].map(([pluginId, instances]) => [
+				pluginId,
+				immutableArray(instances),
+			]),
 		)
 
 		Object.freeze(this)
@@ -252,12 +372,22 @@ export class PluginGraph implements Iterable<NormalizedPlugin> {
 		return this.plugins.length
 	}
 
-	get(pluginName: string): NormalizedPlugin | undefined {
-		return this.#pluginsByName.get(pluginName)
+	get(identity: PluginIdentity | string): NormalizedPlugin | undefined {
+		const instances = this.#pluginsById.get(
+			typeof identity === 'string' ? identity : identity.pluginId,
+		)
+
+		if (typeof identity === 'string') {
+			return instances?.length === 1 ? instances[0] : undefined
+		}
+
+		return instances?.find(({ definition }) =>
+			isSamePluginIdentity(definition.manifest.identity, identity),
+		)
 	}
 
-	has(pluginName: string): boolean {
-		return this.#pluginsByName.has(pluginName)
+	has(identity: PluginIdentity | string): boolean {
+		return this.get(identity) !== undefined
 	}
 
 	[Symbol.iterator](): Iterator<NormalizedPlugin> {

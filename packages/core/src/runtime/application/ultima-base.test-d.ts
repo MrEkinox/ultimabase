@@ -19,7 +19,9 @@ const otherSchema = Schema.define({
 })
 declare const adapter: DatabaseAdapter
 const databasePlugin = definePlugin({
-	name: 'fixture.typed-ultimabase-database',
+	version: '0.0.0',
+	core: '^0.0.0',
+	pluginId: 'fixture.typed-ultimabase-database',
 	setup: ({ services }) => {
 		services.provide(databaseAdapterServiceToken, adapter)
 
@@ -45,7 +47,7 @@ test('preserves exact schema and plugin tuples behind the concise facade', () =>
 		Promise<readonly QueryResult<typeof articleSchema>[]>
 	>()
 	expectTypeOf(
-		ultimabase.application.getPlugin(databasePlugin.name),
+		ultimabase.application.getPlugin(databasePlugin.manifest.identity.pluginId),
 	).toEqualTypeOf<{
 		readonly dialect: 'fixture'
 	}>()

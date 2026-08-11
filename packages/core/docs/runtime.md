@@ -93,7 +93,9 @@ in the shared hook registry:
 ```ts
 const tenantPlugin = (tenantId: string) =>
 	definePlugin({
-		name: 'example.tenant-access',
+		pluginId: 'example.tenant-access',
+		version: '1.0.0',
+		core: '^0.0.0',
 		setup: ({ registries }) => {
 			registries.hooks.register(
 				'example.tenant-constraint',
@@ -546,7 +548,9 @@ the same declaration contracts through an owner-bound `hooks` facade:
 ```ts
 const auditPlugin = () =>
 	definePlugin({
-		name: 'example.audit',
+		pluginId: 'example.audit',
+		version: '1.0.0',
+		core: '^0.0.0',
 		setup: ({ hooks }) => {
 			hooks.global('measure-creates', {
 				afterOperation: { create: ({ item }) => void item },
@@ -630,7 +634,9 @@ const ArticleSchema = Schema.define({
 })
 
 const searchPlugin = definePlugin({
-	name: 'example.search',
+	pluginId: 'example.search',
+	version: '1.0.0',
+	core: '^0.0.0',
 	setup: ({ registries }) => {
 		registries.events.register(
 			'articles.created',
@@ -667,7 +673,9 @@ contribution:
 ```ts
 const articleAutomationPlugin = () =>
 	definePlugin({
-		name: 'example.article-automation',
+		pluginId: 'example.article-automation',
+		version: '1.0.0',
+		core: '^0.0.0',
 		setup: ({ registries }) => {
 			registries.hooks.register(
 				'articles.audit-create',

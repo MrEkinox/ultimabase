@@ -49,7 +49,9 @@ const currentRoleIds = new RequestContextValue<readonly string[]>(
 	},
 )
 const identityPlugin = definePlugin({
-	name: 'fixture.acl-identity',
+	version: '0.0.0',
+	core: '^0.0.0',
+	pluginId: 'fixture.acl-identity',
 	setup: ({ services }) => {
 		services.provide(accessPrincipalResolverServiceToken, {
 			resolveCurrent: ({ context }) => {

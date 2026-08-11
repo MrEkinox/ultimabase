@@ -59,7 +59,9 @@ const getFixture = (): PostgresWorkerFixture => {
 
 /** Captures the public event and proves its row is visible only after commit. */
 const eventObserverPlugin = definePlugin({
-	name: 'fixture.acl-change-events',
+	version: '0.0.0',
+	core: '^0.0.0',
+	pluginId: 'fixture.acl-change-events',
 	setup: ({ registries }) => {
 		registries.events.register(
 			'fixture.capture-acl-change',

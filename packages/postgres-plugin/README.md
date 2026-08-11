@@ -123,7 +123,9 @@ const tenantRows = postgresConstraintCompiler({
 })
 
 const tenantPostgresPlugin = definePlugin({
-	name: 'example.tenant-postgres',
+	pluginId: 'example.tenant-postgres',
+	version: '1.0.0',
+	core: '^0.0.0',
 	setup: ({ constraintCompilers }) => {
 		constraintCompilers.register(tenantRows)
 	},

@@ -7,6 +7,11 @@ import {
 
 import { assertPluginDefinition, type PluginDefinition } from './definition.js'
 import {
+	formatPluginIdentity,
+	isSamePluginIdentity,
+	type PluginIdentity,
+} from './manifest.js'
+import {
 	createDuplicatePluginError,
 	createExclusiveSlotConflictError,
 } from './plugin-errors.js'
@@ -18,14 +23,14 @@ export interface NormalizedPlugin {
 	readonly [normalizedPluginBrand]: true
 	readonly definition: PluginDefinition
 	readonly configurationIndex: number
-	readonly parentNames: readonly string[]
+	readonly parentIdentities: readonly PluginIdentity[]
 	readonly dependencies: readonly string[]
 }
 
 interface MutableNormalizedPlugin {
 	readonly definition: PluginDefinition
 	readonly configurationIndex: number
-	readonly parentNames: string[]
+	readonly parentIdentities: PluginIdentity[]
 	readonly dependencies: string[]
 }
 
@@ -40,14 +45,19 @@ export const assertNormalizedPlugin: (
 	}
 }
 
-const addUniqueName = (names: string[], name: string): void => {
-	if (!names.includes(name)) {
-		names.push(name)
+const addUniqueIdentity = (
+	identities: PluginIdentity[],
+	identity: PluginIdentity,
+): void => {
+	if (
+		!identities.some((candidate) => isSamePluginIdentity(candidate, identity))
+	) {
+		identities.push(identity)
 	}
 }
 
-const throwDuplicateDefinition = (name: string): never => {
-	throw createDuplicatePluginError(name, 'definition')
+const throwDuplicateDefinition = (identity: PluginIdentity): never => {
+	throw createDuplicatePluginError(identity, 'definition')
 }
 
 const throwExclusiveSlotConflict = (
@@ -68,7 +78,7 @@ const snapshotNormalizedPlugin = (
 	const snapshot = immutableRecord({
 		definition: plugin.definition,
 		configurationIndex: plugin.configurationIndex,
-		parentNames: immutableArray(plugin.parentNames),
+		parentIdentities: immutableArray(plugin.parentIdentities),
 		dependencies: immutableArray(plugin.dependencies),
 	})
 
@@ -89,29 +99,42 @@ export const normalizePlugins = (
 	}
 
 	const normalizedPlugins: MutableNormalizedPlugin[] = []
-	const pluginsByName = new Map<string, MutableNormalizedPlugin>()
+	const pluginsById = new Map<string, MutableNormalizedPlugin[]>()
 	const pluginsBySlot = new Map<string, PluginDefinition>()
 
 	const visitPlugin = (
 		untrustedPlugin: unknown,
 		path: string,
-		parentName?: string,
+		parentIdentity?: PluginIdentity,
 	): void => {
 		assertPluginDefinition(untrustedPlugin, path)
-
-		const existingPlugin = pluginsByName.get(untrustedPlugin.name)
+		const identity = untrustedPlugin.manifest.identity
+		const configuredInstances = pluginsById.get(identity.pluginId) ?? []
+		const existingPlugin = configuredInstances.find(({ definition }) =>
+			isSamePluginIdentity(definition.manifest.identity, identity),
+		)
 
 		if (existingPlugin !== undefined) {
 			if (existingPlugin.definition !== untrustedPlugin) {
-				throwDuplicateDefinition(untrustedPlugin.name)
+				throwDuplicateDefinition(identity)
 			}
 
-			if (parentName !== undefined) {
-				addUniqueName(existingPlugin.parentNames, parentName)
-				addUniqueName(existingPlugin.dependencies, parentName)
+			if (parentIdentity !== undefined) {
+				addUniqueIdentity(existingPlugin.parentIdentities, parentIdentity)
 			}
 
 			return
+		}
+
+		if (
+			configuredInstances.length > 0 &&
+			(identity.instanceId === undefined ||
+				configuredInstances.some(
+					({ definition }) =>
+						definition.manifest.identity.instanceId === undefined,
+				))
+		) {
+			throwDuplicateDefinition(identity)
 		}
 
 		if (untrustedPlugin.slot !== undefined) {
@@ -120,8 +143,8 @@ export const normalizePlugins = (
 			if (slotOwner !== undefined) {
 				throwExclusiveSlotConflict(
 					untrustedPlugin.slot,
-					slotOwner.name,
-					untrustedPlugin.name,
+					formatPluginIdentity(slotOwner.manifest.identity),
+					formatPluginIdentity(identity),
 				)
 			}
 
@@ -131,17 +154,17 @@ export const normalizePlugins = (
 		const normalizedPlugin: MutableNormalizedPlugin = {
 			definition: untrustedPlugin,
 			configurationIndex: normalizedPlugins.length,
-			parentNames: [],
+			parentIdentities: [],
 			dependencies: [...(untrustedPlugin.dependencies ?? [])],
 		}
 
-		if (parentName !== undefined) {
-			normalizedPlugin.parentNames.push(parentName)
-			addUniqueName(normalizedPlugin.dependencies, parentName)
+		if (parentIdentity !== undefined) {
+			normalizedPlugin.parentIdentities.push(parentIdentity)
 		}
 
 		normalizedPlugins.push(normalizedPlugin)
-		pluginsByName.set(untrustedPlugin.name, normalizedPlugin)
+		configuredInstances.push(normalizedPlugin)
+		pluginsById.set(identity.pluginId, configuredInstances)
 
 		for (const [childIndex, childPlugin] of (
 			untrustedPlugin.plugins ?? []
@@ -149,7 +172,7 @@ export const normalizePlugins = (
 			visitPlugin(
 				childPlugin,
 				`${path}.plugins[${String(childIndex)}]`,
-				untrustedPlugin.name,
+				identity,
 			)
 		}
 	}

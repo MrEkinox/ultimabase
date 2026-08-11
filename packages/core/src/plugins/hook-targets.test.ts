@@ -365,7 +365,9 @@ describe('plugin hook targets', () => {
 		)
 
 		const plugin = definePlugin({
-			name: 'fixture.late-lifecycle',
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.late-lifecycle',
 			hooks: {
 				connect: ({ hooks: lifecycleHooks }) => {
 					lifecycleHooks.global('too-late', {
@@ -390,7 +392,9 @@ describe('plugin hook targets', () => {
 			dependencies?: readonly string[],
 		) =>
 			definePlugin({
-				name,
+				version: '0.0.0',
+				core: '^0.0.0',
+				pluginId: name,
 				dependencies,
 				setup: ({ hooks }) => {
 					hooks.global('first', {
@@ -402,8 +406,12 @@ describe('plugin hook targets', () => {
 				},
 			})
 		const base = createOrderedPlugin('fixture.order-base')
-		const first = createOrderedPlugin('fixture.order-first', [base.name])
-		const second = createOrderedPlugin('fixture.order-second', [base.name])
+		const first = createOrderedPlugin('fixture.order-first', [
+			base.manifest.identity.pluginId,
+		])
+		const second = createOrderedPlugin('fixture.order-second', [
+			base.manifest.identity.pluginId,
+		])
 		const independent = createOrderedPlugin('fixture.order-independent')
 		const application = await createApplication({
 			schemas: [secondarySchema],
@@ -428,7 +436,9 @@ describe('plugin hook targets', () => {
 
 	it('keeps applications isolated and coexists with ADR-0070 hooks', async () => {
 		const plugin = definePlugin({
-			name: 'fixture.coexisting-hooks',
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.coexisting-hooks',
 			setup: ({ hooks, registries }) => {
 				hooks.global('native', {
 					beforeOperation: { create: ({ item }) => void item },

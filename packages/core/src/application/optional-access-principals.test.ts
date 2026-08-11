@@ -17,7 +17,9 @@ const firstPrincipal = Principal.pointer('first-principal')
 const secondPrincipal = Principal.pointer('second-principal')
 
 const optionalConsumer = definePlugin({
-	name: 'fixture.access.principal-consumer',
+	version: '0.0.0',
+	core: '^0.0.0',
+	pluginId: 'fixture.access.principal-consumer',
 	setup:
 		({ services }) =>
 		// Deferred lookup keeps optional providers independent from setup order.
@@ -30,7 +32,9 @@ const createProvider = <const TName extends string>(
 	resolver: AccessPrincipalResolver,
 ) =>
 	definePlugin({
-		name,
+		version: '0.0.0',
+		core: '^0.0.0',
+		pluginId: name,
 		setup: ({ services }) => {
 			services.provide(accessPrincipalResolverServiceToken, resolver)
 		},

@@ -177,7 +177,9 @@ const createRoleProviderFixture = (
 		},
 	])
 	const roleProvider = definePlugin({
-		name: `fixture.acl-role-provider.${suffix}`,
+		version: '0.0.0',
+		core: '^0.0.0',
+		pluginId: `fixture.acl-role-provider.${suffix}`,
 		setup: ({ services }) => {
 			services.provide(accessRoleResolverServiceToken, {
 				hasRole: ({ role: candidate }) => candidate.value === role.value,
@@ -187,7 +189,9 @@ const createRoleProviderFixture = (
 		},
 	})
 	const databaseProvider = definePlugin({
-		name: `fixture.acl-role-database.${suffix}`,
+		version: '0.0.0',
+		core: '^0.0.0',
+		pluginId: `fixture.acl-role-database.${suffix}`,
 		slot: 'database-adapter',
 		setup: ({ services }) => {
 			services.provide(databaseAdapterServiceToken, adapter)
@@ -207,7 +211,9 @@ const createRoleProviderFixture = (
 			plugins = [
 				aclProvider,
 				definePlugin({
-					name: `fixture.acl-role-parent.${suffix}`,
+					version: '0.0.0',
+					core: '^0.0.0',
+					pluginId: `fixture.acl-role-parent.${suffix}`,
 					plugins: [roleProvider],
 				}),
 				databaseProvider,
@@ -274,7 +280,9 @@ describe('aclPlugin create input resolution', () => {
 		])
 		const resolveCurrent = vi.fn(() => currentPrincipal)
 		const identityProvider = definePlugin({
-			name: 'fixture.acl-principal-provider',
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.acl-principal-provider',
 			setup: ({ services }) => {
 				services.provide(accessPrincipalResolverServiceToken, {
 					resolveCurrent,
@@ -282,7 +290,9 @@ describe('aclPlugin create input resolution', () => {
 			},
 		})
 		const databaseProvider = definePlugin({
-			name: 'fixture.acl-read-database',
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.acl-read-database',
 			slot: 'database-adapter',
 			setup: ({ services }) => {
 				services.provide(databaseAdapterServiceToken, adapter)
@@ -385,7 +395,9 @@ describe('aclPlugin create input resolution', () => {
 		})
 		let infrastructureStarted = false
 		const infrastructure = definePlugin({
-			name: 'fixture.acl-static-role-infrastructure',
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.acl-static-role-infrastructure',
 			hooks: {
 				connect: () => {
 					infrastructureStarted = true
@@ -407,7 +419,9 @@ describe('aclPlugin create input resolution', () => {
 		expect(infrastructureStarted).toBe(false)
 
 		const roleProvider = definePlugin({
-			name: 'fixture.acl-static-role-provider',
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.acl-static-role-provider',
 			setup: ({ services }) => {
 				services.provide(accessRoleResolverServiceToken, {
 					hasRole: () => false,
@@ -439,7 +453,9 @@ describe('aclPlugin create input resolution', () => {
 		})
 		const adapter = new ACLRejectedWriteAdapter()
 		const databaseProvider = definePlugin({
-			name: 'fixture.acl-dynamic-role-database',
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.acl-dynamic-role-database',
 			slot: 'database-adapter',
 			setup: ({ services }) => {
 				services.provide(databaseAdapterServiceToken, adapter)
@@ -655,7 +671,9 @@ describe('aclPlugin create input resolution', () => {
 		})
 		const adapter = new ACLRejectedWriteAdapter()
 		const databaseProvider = definePlugin({
-			name: 'fixture.acl-limit-write-database',
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.acl-limit-write-database',
 			slot: 'database-adapter',
 			setup: ({ services }) => {
 				services.provide(databaseAdapterServiceToken, adapter)
@@ -941,7 +959,9 @@ describe('aclPlugin create input resolution', () => {
 			updatedAt: '2026-08-04T00:00:00.000Z',
 		})
 		const databaseProvider = definePlugin({
-			name: 'fixture.acl-replacement-write-database',
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.acl-replacement-write-database',
 			slot: 'database-adapter',
 			setup: ({ services }) => {
 				services.provide(databaseAdapterServiceToken, adapter)

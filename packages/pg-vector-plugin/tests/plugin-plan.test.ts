@@ -56,7 +56,7 @@ describe('pgVectorPlugin field plans', () => {
 			schemas: [schema],
 		})
 		const plan = compileValidationPlans(schema).create.fields.embedding
-		const plugin = application.getPlugin('pg-vector')
+		const plugin = application.getPlugin('@ultimabase/pg-vector-plugin')
 
 		expect(plugin.fieldKind).toBe(vectorFieldKind)
 		expect(plan).toStrictEqual({
@@ -83,7 +83,7 @@ describe('pgVectorPlugin field plans', () => {
 			schemas: [schema],
 		})
 		const plan = compileValidationPlans(schema).create.fields.embedding
-		const plugin = application.getPlugin('pg-vector')
+		const plugin = application.getPlugin('@ultimabase/pg-vector-plugin')
 
 		if (plan === undefined || !plugin.handles(plan)) {
 			throw new TypeError('Expected Schema to preserve the vector plugin plan')
@@ -106,7 +106,7 @@ describe('pgVectorPlugin field plans', () => {
 			plugins: [pgVectorPlugin()],
 			schemas: [],
 		})
-		const plugin = application.getPlugin('pg-vector')
+		const plugin = application.getPlugin('@ultimabase/pg-vector-plugin')
 		const foreignPlan = {
 			kind: 'scalar',
 			field: { kind: 'fixture.foreign', options: {} },

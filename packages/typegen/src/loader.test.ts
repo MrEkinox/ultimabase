@@ -36,7 +36,9 @@ import { definePlugin, Schema, UltimaBase } from '@ultimabase/core'
 import { pgVectorPlugin } from '@ultimabase/pg-vector-plugin'
 
 const SetupGuard = definePlugin({
-  name: 'fixture.loader-setup-guard',
+  pluginId: 'fixture.loader-setup-guard',
+  version: '0.0.0',
+  core: '^0.0.0',
   setup() {
     throw new TypeError('typegen loader must not run plugin setup')
   },

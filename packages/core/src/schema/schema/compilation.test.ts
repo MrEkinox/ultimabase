@@ -24,7 +24,9 @@ describe('deferred schema compilation', () => {
 			indexes: [{ fields: ['title', 'createdAt'] }],
 		})
 		const observer = definePlugin({
-			name: 'fixture.compiled-schema-observer',
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.compiled-schema-observer',
 			setup: ({ schemas }) => {
 				const compiledSchema = schemas.get('DeferredPost')
 

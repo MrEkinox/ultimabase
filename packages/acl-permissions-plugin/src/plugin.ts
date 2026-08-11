@@ -723,7 +723,9 @@ export const aclPlugin = (options: ACLPluginOptions = {}): ACLPlugin => {
 	)
 
 	return definePlugin({
-		name: aclPluginName,
+		version: '0.0.0',
+		core: '^0.0.0',
+		pluginId: aclPluginName,
 		setup: ({ access, hooks, registries, schemas, services }) => {
 			registries.extensions.register(
 				extensionHandlerKey('schema', aclSchemaExtensionName),

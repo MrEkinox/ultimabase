@@ -19,7 +19,9 @@ describe('PluginLifecycleManager', () => {
 	it('runs every phase in dependency order and teardown in reverse order', async () => {
 		const events: string[] = []
 		const dependency = definePlugin({
-			name: 'fixture.dependency',
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.dependency',
 			setup: () => {
 				events.push('setup:dependency')
 
@@ -47,7 +49,9 @@ describe('PluginLifecycleManager', () => {
 			},
 		})
 		const consumer = definePlugin({
-			name: 'fixture.consumer',
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.consumer',
 			dependencies: ['fixture.dependency'],
 			setup: async () => {
 				await Promise.resolve()
@@ -106,7 +110,9 @@ describe('PluginLifecycleManager', () => {
 		const calls = { setup: 0, connect: 0, stop: 0, dispose: 0 }
 		const exportedValue = { port: 1337 }
 		const plugin = definePlugin({
-			name: 'fixture.server',
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.server',
 			setup: () => {
 				calls.setup += 1
 
@@ -157,7 +163,9 @@ describe('PluginLifecycleManager', () => {
 	it('cleans a partial start in reverse order before rejecting', async () => {
 		const events: string[] = []
 		const first = definePlugin({
-			name: 'fixture.first',
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.first',
 			setup: () => {
 				events.push('setup:first')
 			},
@@ -174,7 +182,9 @@ describe('PluginLifecycleManager', () => {
 			},
 		})
 		const second = definePlugin({
-			name: 'fixture.second',
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.second',
 			dependencies: ['fixture.first'],
 			setup: () => {
 				events.push('setup:second')
@@ -211,7 +221,9 @@ describe('PluginLifecycleManager', () => {
 	it('disposes completed setup when later setup fails', async () => {
 		const events: string[] = []
 		const first = definePlugin({
-			name: 'fixture.first',
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.first',
 			setup: () => ({ ready: true }),
 			hooks: {
 				dispose: () => {
@@ -220,7 +232,9 @@ describe('PluginLifecycleManager', () => {
 			},
 		})
 		const second = definePlugin({
-			name: 'fixture.second',
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.second',
 			setup: () => {
 				throw new Error('setup failed')
 			},
@@ -240,7 +254,9 @@ describe('PluginLifecycleManager', () => {
 			rejectConnection = reject
 		})
 		const plugin = definePlugin({
-			name: 'fixture.concurrent',
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.concurrent',
 			hooks: {
 				connect: async () => connection,
 			},
@@ -264,7 +280,9 @@ describe('PluginLifecycleManager', () => {
 			rejectConnection = reject
 		})
 		const plugin = definePlugin({
-			name: 'fixture.concurrent-disposal',
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.concurrent-disposal',
 			hooks: {
 				connect: async () => connection,
 			},
@@ -288,7 +306,9 @@ describe('PluginLifecycleManager', () => {
 		})
 		const events: string[] = []
 		const plugin = definePlugin({
-			name: 'fixture.concurrent-setup',
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.concurrent-setup',
 			setup: async () => {
 				await setupBarrier
 				events.push('setup')
@@ -312,7 +332,9 @@ describe('PluginLifecycleManager', () => {
 
 	it('continues reverse cleanup and reports hook failures', async () => {
 		const first = definePlugin({
-			name: 'fixture.first',
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.first',
 			hooks: {
 				stop: () => {
 					throw new Error('stop failed')
@@ -323,7 +345,9 @@ describe('PluginLifecycleManager', () => {
 			},
 		})
 		const second = definePlugin({
-			name: 'fixture.second',
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.second',
 			hooks: {
 				dispose: () => {
 					throw new Error('second dispose failed')
@@ -350,7 +374,9 @@ describe('PluginLifecycleManager', () => {
 	it('disposes setup-only plugins without invoking stop', async () => {
 		const events: string[] = []
 		const plugin = definePlugin({
-			name: 'fixture.setup-only',
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.setup-only',
 			hooks: {
 				stop: () => {
 					events.push('stop')
@@ -376,7 +402,9 @@ describe('PluginLifecycleManager', () => {
 
 	it('aggregates cleanup failures without hiding the startup failure', async () => {
 		const plugin = definePlugin({
-			name: 'fixture.unstable',
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.unstable',
 			hooks: {
 				connect: () => {
 					throw new Error('start failed')
@@ -402,7 +430,11 @@ describe('PluginLifecycleManager', () => {
 	})
 
 	it('allows a no-op stop before startup and rejects restart after stop', async () => {
-		const plugin = definePlugin({ name: 'fixture.plugin' })
+		const plugin = definePlugin({
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.plugin',
+		})
 		const lifecycle = createLifecycle([plugin])
 
 		await lifecycle.stop()

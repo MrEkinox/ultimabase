@@ -146,7 +146,9 @@ describe('PluginConstraintCompilerRegistry', () => {
 		'keeps identical compiler identities application-isolated',
 		async () => {
 			const plugin = definePlugin({
-				name: 'fixture.compiler-owner',
+				version: '0.0.0',
+				core: '^0.0.0',
+				pluginId: 'fixture.compiler-owner',
 				setup: ({ constraintCompilers }) => {
 					constraintCompilers.register(tenantCompiler)
 
@@ -175,7 +177,9 @@ describe('PluginConstraintCompilerRegistry', () => {
 	it('fails duplicate application setup before infrastructure starts', async () => {
 		const createCompilerPlugin = (name: string) =>
 			definePlugin({
-				name,
+				version: '0.0.0',
+				core: '^0.0.0',
+				pluginId: name,
 				setup: ({ constraintCompilers }) => {
 					constraintCompilers.register(tenantCompiler)
 				},

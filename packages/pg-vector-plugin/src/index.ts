@@ -114,7 +114,7 @@ export interface PgVectorPluginExports {
 
 /** Names the exact configured plugin contract retained by application lookup. */
 export type PgVectorPlugin = FrameworkPlugin<
-	'pg-vector',
+	'@ultimabase/pg-vector-plugin',
 	Readonly<PgVectorPluginExports>,
 	undefined,
 	undefined,
@@ -216,7 +216,9 @@ const pgVectorPluginExports: Readonly<PgVectorPluginExports> = immutableRecord({
 /** Declares the vector builder method before returning its validation handler. */
 export const pgVectorPlugin = (): PgVectorPlugin =>
 	definePlugin({
-		name: 'pg-vector',
+		version: '0.0.0',
+		core: '^0.0.0',
+		pluginId: '@ultimabase/pg-vector-plugin',
 		declareFields: (fields) => {
 			fields.register(vectorFieldBuilderMethod)
 		},

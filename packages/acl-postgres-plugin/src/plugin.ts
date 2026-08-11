@@ -21,7 +21,9 @@ export type ACLPostgresPlugin = FrameworkPlugin<
 export const aclPostgresPlugin = (): ACLPostgresPlugin =>
 	definePlugin({
 		dependencies: [aclPluginName, postgresPluginName],
-		name: aclPostgresPluginName,
+		version: '0.0.0',
+		core: '^0.0.0',
+		pluginId: aclPostgresPluginName,
 		setup: ({ constraintCompilers }) => {
 			constraintCompilers.register(aclPostgresConstraintCompiler)
 			constraintCompilers.register(aclReferencePostgresConstraintCompiler)

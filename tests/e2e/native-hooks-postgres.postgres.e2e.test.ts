@@ -205,7 +205,9 @@ const scopeConstraintCompiler = postgresConstraintCompiler({
 // This optional fixture models one generic row scope; Runtime and PostgreSQL
 // know only the opaque constraint contract contributed by this plugin.
 const scopePolicyPlugin = definePlugin({
-	name: 'fixture.native-hooks-scope-policy',
+	version: '0.0.0',
+	core: '^0.0.0',
+	pluginId: 'fixture.native-hooks-scope-policy',
 	setup: ({ constraintCompilers, registries }) => {
 		constraintCompilers.register(scopeConstraintCompiler)
 		registries.hooks.register(
@@ -267,7 +269,9 @@ const scopePolicyPlugin = definePlugin({
 })
 
 const behaviorPlugin = definePlugin({
-	name: 'fixture.native-hooks-behavior',
+	version: '0.0.0',
+	core: '^0.0.0',
+	pluginId: 'fixture.native-hooks-behavior',
 	dependencies: ['fixture.native-hooks-scope-policy'],
 	setup: ({ hooks, registries }) => {
 		hooks.schema('article-lifecycle', HookArticleSchema, {

@@ -32,8 +32,8 @@ const expectFrameworkError = (
 	return error
 }
 
-const pluginNames = (plugins: Iterable<NormalizedPlugin>): readonly string[] =>
-	[...plugins].map(({ definition }) => definition.name)
+const pluginIds = (plugins: Iterable<NormalizedPlugin>): readonly string[] =>
+	[...plugins].map(({ definition }) => definition.manifest.identity.pluginId)
 
 const normalize = (
 	plugins: readonly PluginDefinition[],
@@ -42,19 +42,31 @@ const normalize = (
 describe('PluginGraph', () => {
 	it('orders dependencies first and uses configuration position for ties', () => {
 		let setupCalls = 0
-		const base = definePlugin({ name: 'fixture.base' })
+		const base = definePlugin({
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.base',
+		})
 		const firstConsumer = definePlugin({
-			name: 'fixture.first-consumer',
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.first-consumer',
 			dependencies: ['fixture.base'],
 			setup: () => {
 				setupCalls += 1
 			},
 		})
 		const secondConsumer = definePlugin({
-			name: 'fixture.second-consumer',
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.second-consumer',
 			dependencies: ['fixture.base'],
 		})
-		const independent = definePlugin({ name: 'fixture.independent' })
+		const independent = definePlugin({
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.independent',
+		})
 		const normalized = normalize([
 			firstConsumer,
 			independent,
@@ -65,13 +77,13 @@ describe('PluginGraph', () => {
 		const firstGraph = new PluginGraph(normalized)
 		const secondGraph = new PluginGraph(normalized)
 
-		expect(pluginNames(firstGraph)).toStrictEqual([
+		expect(pluginIds(firstGraph)).toStrictEqual([
 			'fixture.independent',
 			'fixture.base',
 			'fixture.first-consumer',
 			'fixture.second-consumer',
 		])
-		expect(pluginNames(secondGraph)).toStrictEqual(pluginNames(firstGraph))
+		expect(pluginIds(secondGraph)).toStrictEqual(pluginIds(firstGraph))
 		expect(firstGraph.size).toBe(4)
 		expect(firstGraph.has('fixture.base')).toBe(true)
 		expect(firstGraph.has('fixture.missing')).toBe(false)
@@ -83,9 +95,15 @@ describe('PluginGraph', () => {
 	})
 
 	it('uses present optional dependencies and ignores absent ones', () => {
-		const cache = definePlugin({ name: 'fixture.cache' })
+		const cache = definePlugin({
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.cache',
+		})
 		const consumer = definePlugin({
-			name: 'fixture.consumer',
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.consumer',
 			dependencies: ['fixture.cache'],
 			optionalDependencies: ['fixture.cache', 'fixture.telemetry'],
 			conflicts: ['fixture.absent-conflict'],
@@ -93,18 +111,26 @@ describe('PluginGraph', () => {
 
 		const graph = new PluginGraph(normalize([consumer, cache]))
 
-		expect(pluginNames(graph)).toStrictEqual([
+		expect(pluginIds(graph)).toStrictEqual([
 			'fixture.cache',
 			'fixture.consumer',
 		])
 	})
 
 	it('uses input order when separately normalized positions are equal', () => {
-		const first = definePlugin({ name: 'fixture.first' })
-		const second = definePlugin({ name: 'fixture.second' })
+		const first = definePlugin({
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.first',
+		})
+		const second = definePlugin({
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.second',
+		})
 		const separatelyNormalized = [...normalize([first]), ...normalize([second])]
 
-		expect(pluginNames(new PluginGraph(separatelyNormalized))).toStrictEqual([
+		expect(pluginIds(new PluginGraph(separatelyNormalized))).toStrictEqual([
 			'fixture.first',
 			'fixture.second',
 		])
@@ -112,7 +138,9 @@ describe('PluginGraph', () => {
 
 	it('rejects a missing required dependency', () => {
 		const consumer = definePlugin({
-			name: 'fixture.consumer',
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.consumer',
 			dependencies: ['fixture.database'],
 		})
 
@@ -122,17 +150,23 @@ describe('PluginGraph', () => {
 
 		expect(error.code).toBe('PLUGIN_DEPENDENCY_MISSING')
 		expect(error.internalDetails).toStrictEqual({
-			pluginName: 'fixture.consumer',
-			dependencyName: 'fixture.database',
+			pluginId: 'fixture.consumer',
+			dependencyId: 'fixture.database',
 		})
 	})
 
 	it('rejects explicit plugin conflicts', () => {
 		const database = definePlugin({
-			name: 'fixture.database',
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.database',
 			conflicts: ['fixture.other-database'],
 		})
-		const otherDatabase = definePlugin({ name: 'fixture.other-database' })
+		const otherDatabase = definePlugin({
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.other-database',
+		})
 
 		const error = expectFrameworkError(
 			captureFrameworkError(
@@ -143,12 +177,16 @@ describe('PluginGraph', () => {
 		expect(error.code).toBe('PLUGIN_CONFLICT')
 		expect(error.internalDetails).toStrictEqual({
 			kind: 'explicit-conflict',
-			pluginNames: ['fixture.database', 'fixture.other-database'],
+			pluginIds: ['fixture.database', 'fixture.other-database'],
 		})
 	})
 
 	it('rejects repeated normalized entries', () => {
-		const plugin = definePlugin({ name: 'fixture.plugin' })
+		const plugin = definePlugin({
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.plugin',
+		})
 		// One declared plugin always produces one normalized entry.
 		const [normalizedPlugin] = normalize([plugin]) as readonly [
 			NormalizedPlugin,
@@ -162,18 +200,22 @@ describe('PluginGraph', () => {
 
 		expect(error.code).toBe('PLUGIN_DUPLICATE')
 		expect(error.internalDetails).toStrictEqual({
-			pluginName: 'fixture.plugin',
+			pluginId: 'fixture.plugin',
 			source: 'graph',
 		})
 	})
 
 	it('rejects slot collisions across separately normalized configurations', () => {
 		const postgres = definePlugin({
-			name: 'fixture.postgres',
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.postgres',
 			slot: 'database-adapter',
 		})
 		const sql = definePlugin({
-			name: 'fixture.sql',
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.sql',
 			slot: 'database-adapter',
 		})
 
@@ -193,18 +235,28 @@ describe('PluginGraph', () => {
 
 	it('reports a deterministic dependency cycle path', () => {
 		const first = definePlugin({
-			name: 'fixture.first',
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.first',
 			dependencies: ['fixture.resolved', 'fixture.second'],
 		})
 		const second = definePlugin({
-			name: 'fixture.second',
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.second',
 			dependencies: ['fixture.third'],
 		})
 		const third = definePlugin({
-			name: 'fixture.third',
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.third',
 			dependencies: ['fixture.first'],
 		})
-		const resolved = definePlugin({ name: 'fixture.resolved' })
+		const resolved = definePlugin({
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.resolved',
+		})
 
 		const error = expectFrameworkError(
 			captureFrameworkError(
@@ -229,7 +281,11 @@ describe('PluginGraph', () => {
 			new PluginGraph('fixture')
 		}).toThrow(new TypeError('plugins must be an array'))
 
-		const definition = definePlugin({ name: 'fixture.forged' })
+		const definition = definePlugin({
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.forged',
+		})
 
 		expect(() => {
 			new PluginGraph([
@@ -237,7 +293,7 @@ describe('PluginGraph', () => {
 				{
 					definition,
 					configurationIndex: 0,
-					parentNames: [],
+					parentIdentities: [],
 					dependencies: [],
 				},
 			])

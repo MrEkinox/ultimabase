@@ -195,7 +195,9 @@ describe('postgresPlugin', () => {
 	it('defers to a plugin that claims PostgreSQL schema preparation', async () => {
 		const pool = new FixturePool()
 		const migrationPlugin = definePlugin({
-			name: 'fixture.postgres-migrations',
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.postgres-migrations',
 			setup: ({ registries }) => {
 				registries.pipelines.register(postgresSchemaPreparationClaimName, true)
 			},

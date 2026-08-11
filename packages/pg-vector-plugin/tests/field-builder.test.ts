@@ -55,7 +55,7 @@ describe('pg-vector FieldBuilder method', () => {
 			expect.objectContaining({
 				fieldKind: vectorFieldKind,
 				name: 'vector',
-				owner: 'pg-vector',
+				owner: '@ultimabase/pg-vector-plugin',
 				typegen: {
 					methodType: 'VectorFieldBuilderMethod',
 					module: '@ultimabase/pg-vector-plugin',

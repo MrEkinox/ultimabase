@@ -242,7 +242,9 @@ describe('lazy schema targets', () => {
 			fields: () => ({ target: targetField(() => target) }),
 		})
 		const plugin = definePlugin({
-			name: 'fixture.schema-observer',
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.schema-observer',
 			setup: ({ schemas }) => {
 				events.push('setup')
 				expect(schemas.schemaTargets.get(source, ['target'])).toBe(target)
@@ -276,7 +278,9 @@ describe('lazy schema targets', () => {
 			fields: () => ({ target: targetField(() => missing) }),
 		})
 		const plugin = definePlugin({
-			name: 'fixture.target-failure',
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.target-failure',
 			setup: () => {
 				events.push('setup')
 			},

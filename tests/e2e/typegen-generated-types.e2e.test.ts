@@ -132,7 +132,9 @@ const PackedGeneratedDocument = Schema.define({
   },
 })
 const packedHookPlugin = definePlugin({
-  name: 'fixture.packed-generated-hooks',
+  pluginId: 'fixture.packed-generated-hooks',
+  version: '0.0.0',
+  core: '^0.0.0',
   setup: ({ hooks }) => {
     hooks.${pluginHookRegistryMarker}schema(
       'document-update',

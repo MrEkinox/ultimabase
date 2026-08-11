@@ -28,14 +28,30 @@ import {
 	ServiceRegistry,
 	type PluginServiceRegistry,
 } from '../services/service-registry.js'
+import { formatPluginIdentity, type PluginIdentity } from './manifest.js'
 
 const emptyFieldBuilderMethods: readonly OwnedFieldBuilderMethod[] =
 	immutableArray([])
+
+const toPluginIdentity = (owner: PluginIdentity | string): PluginIdentity => {
+	if (typeof owner === 'string') {
+		assertNonEmptyString(owner, 'pluginId')
+		return immutableRecord({ pluginId: owner })
+	}
+
+	assertNonEmptyString(owner.pluginId, 'pluginId')
+	if (owner.instanceId !== undefined) {
+		assertNonEmptyString(owner.instanceId, 'instanceId')
+	}
+
+	return owner
+}
 
 /** Records immutable setup metadata together with the plugin that contributed it. */
 export interface PluginContribution {
 	readonly name: string
 	readonly ownerPlugin: string
+	readonly ownerInstanceId?: string
 	readonly value: unknown
 }
 
@@ -61,7 +77,7 @@ export interface PluginContributionRegistry {
 }
 
 type PluginLocalContributionRegistrar = (
-	ownerPlugin: string,
+	owner: PluginIdentity,
 	name: string,
 	value: unknown,
 ) => void
@@ -75,23 +91,24 @@ const pluginLocalContributionRegistrars = new WeakMap<
 /** Stores one named contribution category for exactly one application. */
 export class ContributionRegistry {
 	readonly #contributions = new Map<string, PluginContribution>()
-	readonly #ownerLocalIdentities = new Set<string>()
+	readonly #orderedContributions: PluginContribution[] = []
+	readonly #ownerLocalNames = new Map<
+		string,
+		Map<string | undefined, Set<string>>
+	>()
 
 	constructor() {
-		pluginLocalContributionRegistrars.set(
-			this,
-			(ownerPlugin, name, value): void => {
-				this.#registerPluginLocal(ownerPlugin, name, value)
-			},
-		)
+		pluginLocalContributionRegistrars.set(this, (owner, name, value): void => {
+			this.#registerPluginLocal(owner, name, value)
+		})
 	}
 
 	get size(): number {
-		return this.#contributions.size
+		return this.#orderedContributions.length
 	}
 
-	forPlugin(pluginName: string): PluginContributionRegistry {
-		assertNonEmptyString(pluginName, 'pluginName')
+	forPlugin(ownerInput: PluginIdentity | string): PluginContributionRegistry {
+		const owner = toPluginIdentity(ownerInput)
 		const getSize = (): number => this.size
 
 		return Object.freeze({
@@ -99,7 +116,7 @@ export class ContributionRegistry {
 				return getSize()
 			},
 			register: (name: string, value: unknown): void => {
-				this.#registerOwnedContribution(pluginName, name, value)
+				this.#registerOwnedContribution(owner, name, value)
 			},
 			has: (name: string): boolean => this.has(name),
 			get: (name: string): PluginContribution | undefined => this.get(name),
@@ -120,36 +137,39 @@ export class ContributionRegistry {
 	}
 
 	values(): readonly PluginContribution[] {
-		return immutableArray([...this.#contributions.values()])
+		return immutableArray(this.#orderedContributions)
 	}
 
 	#registerPluginLocal(
-		ownerPlugin: string,
+		owner: PluginIdentity,
 		name: string,
 		value: unknown,
 	): void {
-		assertNonEmptyString(ownerPlugin, 'pluginName')
 		assertNonEmptyString(name, 'contribution name')
-		const identity = this.#ownerLocalIdentity(ownerPlugin, name)
+		const names = this.#ownerLocalContributionNames(owner)
 
-		this.#assertOwnerLocalIdentityAvailable(ownerPlugin, name, identity)
-		// A length-prefixed private key cannot collide with user-supplied names.
-		const storageKey = `\u0000${String(ownerPlugin.length)}:${ownerPlugin}${name}`
-		this.#contributions.set(
-			storageKey,
-			immutableRecord({ name, ownerPlugin, value }),
+		this.#assertOwnerLocalIdentityAvailable(owner, name, names)
+		this.#orderedContributions.push(
+			immutableRecord({
+				name,
+				ownerPlugin: owner.pluginId,
+				...(owner.instanceId === undefined
+					? {}
+					: { ownerInstanceId: owner.instanceId }),
+				value,
+			}),
 		)
-		this.#ownerLocalIdentities.add(identity)
+		names.add(name)
 	}
 
 	#registerOwnedContribution(
-		ownerPlugin: string,
+		owner: PluginIdentity,
 		name: string,
 		value: unknown,
 	): void {
 		assertNonEmptyString(name, 'contribution name')
-		const identity = this.#ownerLocalIdentity(ownerPlugin, name)
-		this.#assertOwnerLocalIdentityAvailable(ownerPlugin, name, identity)
+		const names = this.#ownerLocalContributionNames(owner)
+		this.#assertOwnerLocalIdentityAvailable(owner, name, names)
 
 		const existingContribution = this.#contributions.get(name)
 
@@ -163,38 +183,62 @@ export class ContributionRegistry {
 						contributionName: name,
 						pluginNames: immutableArray([
 							existingContribution.ownerPlugin,
-							ownerPlugin,
+							owner.pluginId,
 						]),
 					},
 				},
 			)
 		}
 
-		this.#contributions.set(name, immutableRecord({ name, ownerPlugin, value }))
-		this.#ownerLocalIdentities.add(identity)
+		const contribution = immutableRecord({
+			name,
+			ownerPlugin: owner.pluginId,
+			...(owner.instanceId === undefined
+				? {}
+				: { ownerInstanceId: owner.instanceId }),
+			value,
+		})
+		this.#contributions.set(name, contribution)
+		this.#orderedContributions.push(contribution)
+		names.add(name)
 	}
 
-	#ownerLocalIdentity(ownerPlugin: string, name: string): string {
-		return `${String(ownerPlugin.length)}:${ownerPlugin}${name}`
+	#ownerLocalContributionNames(owner: PluginIdentity): Set<string> {
+		let instances = this.#ownerLocalNames.get(owner.pluginId)
+		if (instances === undefined) {
+			instances = new Map()
+			this.#ownerLocalNames.set(owner.pluginId, instances)
+		}
+
+		let names = instances.get(owner.instanceId)
+		if (names === undefined) {
+			names = new Set()
+			instances.set(owner.instanceId, names)
+		}
+
+		return names
 	}
 
 	#assertOwnerLocalIdentityAvailable(
-		ownerPlugin: string,
+		owner: PluginIdentity,
 		name: string,
-		identity: string,
+		names: ReadonlySet<string>,
 	): void {
-		if (!this.#ownerLocalIdentities.has(identity)) {
+		if (!names.has(name)) {
 			return
 		}
 
 		throw new FrameworkError(
 			'PLUGIN_CONFLICT',
-			`Plugin "${ownerPlugin}" already registered contribution "${name}".`,
+			`Plugin "${formatPluginIdentity(owner)}" already registered contribution "${name}".`,
 			{
 				internalDetails: {
 					kind: 'duplicate-plugin-local-contribution',
 					contributionName: name,
-					ownerPlugin,
+					ownerPlugin: owner.pluginId,
+					...(owner.instanceId === undefined
+						? {}
+						: { ownerInstanceId: owner.instanceId }),
 				},
 			},
 		)
@@ -203,7 +247,7 @@ export class ContributionRegistry {
 
 const registerPluginLocalContribution = (
 	registry: ContributionRegistry,
-	ownerPlugin: string,
+	owner: PluginIdentity,
 	name: string,
 	value: unknown,
 ): void => {
@@ -213,7 +257,7 @@ const registerPluginLocalContribution = (
 		throw new TypeError('Unknown contribution registry')
 	}
 
-	register(ownerPlugin, name, value)
+	register(owner, name, value)
 }
 
 /** Groups every non-service contribution category exposed during plugin setup. */
@@ -262,7 +306,10 @@ export class PluginSetupRegistries {
 	readonly #contributionRegistries: Readonly<
 		Record<PluginContributionCategory, ContributionRegistry>
 	>
-	readonly #contexts = new Map<string, PluginSetupContext>()
+	readonly #contexts = new Map<
+		string,
+		Map<string | undefined, PluginSetupContext>
+	>()
 	#setupOpen = true
 	#hookTargetsResolved = false
 	#accessTargetsResolved = false
@@ -343,11 +390,16 @@ export class PluginSetupRegistries {
 		this.#accessTargetsResolved = true
 	}
 
-	/** Returns one stable owner-bound setup context for a plugin name. */
-	forPlugin(pluginName: string): PluginSetupContext {
-		assertNonEmptyString(pluginName, 'pluginName')
+	/** Returns one stable owner-bound setup context for a structured plugin identity. */
+	forPlugin(ownerInput: PluginIdentity | string): PluginSetupContext {
+		const owner = toPluginIdentity(ownerInput)
+		let instances = this.#contexts.get(owner.pluginId)
+		if (instances === undefined) {
+			instances = new Map()
+			this.#contexts.set(owner.pluginId, instances)
+		}
 
-		const existingContext = this.#contexts.get(pluginName)
+		const existingContext = instances.get(owner.instanceId)
 
 		if (existingContext !== undefined) {
 			return existingContext
@@ -356,21 +408,21 @@ export class PluginSetupRegistries {
 		const context = immutableRecord({
 			schemas: this.schemas,
 			fieldBuilderMethods: this.fieldBuilderMethods(),
-			services: this.services.forPlugin(pluginName),
+			services: this.services.forPlugin(formatPluginIdentity(owner)),
 			access: createPluginAccessRegistry({
 				isOpen: (): boolean => this.#setupOpen,
-				ownerPlugin: pluginName,
+				ownerPlugin: owner.pluginId,
 				register: (name: string, value: unknown): void => {
-					registerPluginLocalContribution(this.access, pluginName, name, value)
+					registerPluginLocalContribution(this.access, owner, name, value)
 				},
 			}),
 			constraintCompilers: createPluginConstraintCompilerRegistry({
 				isOpen: (): boolean => this.#setupOpen,
-				ownerPlugin: pluginName,
+				ownerPlugin: owner.pluginId,
 				register: (name: string, value: unknown): void => {
 					registerPluginLocalContribution(
 						this.constraintCompilers,
-						pluginName,
+						owner,
 						name,
 						value,
 					)
@@ -379,24 +431,24 @@ export class PluginSetupRegistries {
 			}),
 			hooks: createPluginHookRegistry({
 				isOpen: (): boolean => this.#setupOpen,
-				ownerPlugin: pluginName,
+				ownerPlugin: owner.pluginId,
 				register: (name: string, value: unknown): void => {
-					registerPluginLocalContribution(this.hooks, pluginName, name, value)
+					registerPluginLocalContribution(this.hooks, owner, name, value)
 				},
 			}),
 			registries: immutableRecord({
-				extensions: this.extensions.forPlugin(pluginName),
-				operators: this.operators.forPlugin(pluginName),
-				hooks: this.hooks.forPlugin(pluginName),
-				generators: this.generators.forPlugin(pluginName),
-				transports: this.transports.forPlugin(pluginName),
-				pipelines: this.pipelines.forPlugin(pluginName),
-				events: this.events.forPlugin(pluginName),
-				commands: this.commands.forPlugin(pluginName),
+				extensions: this.extensions.forPlugin(owner),
+				operators: this.operators.forPlugin(owner),
+				hooks: this.hooks.forPlugin(owner),
+				generators: this.generators.forPlugin(owner),
+				transports: this.transports.forPlugin(owner),
+				pipelines: this.pipelines.forPlugin(owner),
+				events: this.events.forPlugin(owner),
+				commands: this.commands.forPlugin(owner),
 			}),
 		})
 
-		this.#contexts.set(pluginName, context)
+		instances.set(owner.instanceId, context)
 
 		return context
 	}

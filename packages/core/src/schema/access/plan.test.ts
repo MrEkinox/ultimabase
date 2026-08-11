@@ -95,7 +95,9 @@ describe('compiled Access plans', () => {
 		const firstRule = vi.fn(() => true)
 		const secondRule = vi.fn(() => true)
 		const first = definePlugin({
-			name: 'fixture.access-first',
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.access-first',
 			setup: ({ access }) => {
 				access.schema(
 					'first',
@@ -106,7 +108,9 @@ describe('compiled Access plans', () => {
 			},
 		})
 		const second = definePlugin({
-			name: 'fixture.access-second',
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.access-second',
 			dependencies: ['fixture.access-first'],
 			setup: ({ access }) => {
 				access.schema(
@@ -155,7 +159,9 @@ describe('compiled Access plans', () => {
 	it('retains field target paths and exact identity lookup', async () => {
 		const pluginFieldRule = vi.fn(() => false)
 		const plugin = definePlugin({
-			name: 'fixture.access-field',
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.access-field',
 			setup: ({ access }) => {
 				access.field(
 					'secret-field',

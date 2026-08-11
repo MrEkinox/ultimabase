@@ -37,7 +37,9 @@ const Member = Schema.define({
 	extensions: [postgresTable({ name: 'acl_role_schema_members' })],
 })
 const identityPlugin = definePlugin({
-	name: 'fixture.acl-role-schema.identity',
+	version: '0.0.0',
+	core: '^0.0.0',
+	pluginId: 'fixture.acl-role-schema.identity',
 	setup: ({ services }) => {
 		services.provide(accessPrincipalResolverServiceToken, {
 			resolveCurrent: ({ context }) => {

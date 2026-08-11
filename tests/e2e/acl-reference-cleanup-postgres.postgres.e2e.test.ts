@@ -159,7 +159,9 @@ const applyPrincipalPolicy = async (
 
 /** Emulates a future auth provider while owning principal deletion policy. */
 const principalOwnerPlugin = definePlugin({
-	name: 'fixture.acl-principal-owner',
+	version: '0.0.0',
+	core: '^0.0.0',
+	pluginId: 'fixture.acl-principal-owner',
 	setup: ({ hooks, registries }) => {
 		registries.events.register(
 			'fixture.observe:acl-change',

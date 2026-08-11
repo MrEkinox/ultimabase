@@ -140,7 +140,9 @@ untyped contribution registries:
 
 ```ts
 const visibilityPlugin = definePlugin({
-	name: 'example.visibility',
+	pluginId: 'example.visibility',
+	version: '1.0.0',
+	core: '^0.0.0',
 	setup: ({ access }) => {
 		access.schema(
 			'published-posts',
@@ -316,7 +318,9 @@ configuration:
 
 ```ts
 const rolePolicy = definePlugin({
-	name: 'example.role-policy',
+	pluginId: 'example.role-policy',
+	version: '1.0.0',
+	core: '^0.0.0',
 	setup: ({ access, services }) => {
 		const roles = services.require(accessRoleResolverServiceToken)
 

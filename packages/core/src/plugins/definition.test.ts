@@ -12,15 +12,25 @@ describe('definePlugin', () => {
 		let setupCalls = 0
 		let hookCalls = 0
 		const dependencies = ['services']
+		const privileges = [
+			{
+				name: 'adapter:consume' as const,
+				reason: 'Provides database persistence.',
+			},
+		]
+		const environment = ['environment:network' as const]
 		const hooks = {
 			connect: () => {
 				hookCalls += 1
 			},
 		}
 		const plugin = definePlugin({
-			name: 'fixture.database',
+			core: '^0.0.0',
+			pluginId: 'fixture.database',
 			slot: 'database-adapter',
 			version: '1.0.0',
+			privileges,
+			environment,
 			dependencies,
 			optionalDependencies: ['cache'],
 			conflicts: ['fixture.other-database'],
@@ -48,33 +58,58 @@ describe('definePlugin', () => {
 		})
 
 		dependencies.push('late-dependency')
+		privileges[0] = {
+			name: 'adapter:consume',
+			reason: 'Late mutation must not alter the manifest.',
+		}
+		environment.length = 0
 
 		expect(setupCalls).toBe(0)
 		expect(hookCalls).toBe(0)
 		expect(declarationCalls).toBe(0)
 		expect(plugin).toMatchObject({
-			name: 'fixture.database',
+			manifest: {
+				identity: { pluginId: 'fixture.database' },
+				version: '1.0.0',
+				core: '^0.0.0',
+				privileges: [
+					{
+						name: 'adapter:consume',
+						reason: 'Provides database persistence.',
+					},
+				],
+				environment: ['environment:network'],
+			},
 			slot: 'database-adapter',
-			version: '1.0.0',
 			dependencies: ['services'],
 			optionalDependencies: ['cache'],
 			conflicts: ['fixture.other-database'],
 		})
-		expect(plugin.setup).toBeTypeOf('function')
-		expect(plugin.declareFields).toBeTypeOf('function')
-		expect(plugin.hooks?.connect).toBe(hooks.connect)
+		expect('setup' in plugin).toBe(false)
+		expect('declareFields' in plugin).toBe(false)
+		expect('hooks' in plugin).toBe(false)
 		expect(Object.isFrozen(plugin)).toBe(true)
+		expect(Object.isFrozen(plugin.manifest)).toBe(true)
+		expect(Object.isFrozen(plugin.manifest.identity)).toBe(true)
+		expect(Object.isFrozen(plugin.manifest.privileges)).toBe(true)
+		expect(Object.isFrozen(plugin.manifest.privileges[0])).toBe(true)
+		expect(Object.isFrozen(plugin.manifest.environment)).toBe(true)
 		expect(Object.isFrozen(plugin.dependencies)).toBe(true)
 		expect(Object.isFrozen(plugin.optionalDependencies)).toBe(true)
 		expect(Object.isFrozen(plugin.conflicts)).toBe(true)
-		expect(Object.isFrozen(plugin.hooks)).toBe(true)
 	})
 
 	it('retains immutable nested plugin definitions by identity', () => {
-		const child = definePlugin({ name: 'fixture.child' })
+		const child = definePlugin({
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.child',
+		})
 		const nestedPlugins = [child]
 		const parent = definePlugin({
-			name: 'fixture.parent',
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.parent',
 			plugins: nestedPlugins,
 		})
 
@@ -90,39 +125,52 @@ describe('definePlugin', () => {
 			// @ts-expect-error -- Runtime coverage protects null plugin options.
 			definePlugin(null)
 		}).toThrow(new TypeError('plugin options must be a plain object'))
-		expect(() => definePlugin({ name: '' })).toThrow(
-			new TypeError('name must be a non-empty string'),
-		)
-		expect(() => definePlugin({ name: 'fixture', slot: '' })).toThrow(
-			new TypeError('slot must be a non-empty string'),
-		)
-		expect(() => definePlugin({ name: 'fixture', version: '' })).toThrow(
-			new TypeError('version must be a non-empty string'),
-		)
+		expect(() =>
+			definePlugin({ version: '0.0.0', core: '^0.0.0', pluginId: '' }),
+		).toThrow(new TypeError('pluginId must be a non-empty string'))
+		expect(() =>
+			definePlugin({
+				version: '0.0.0',
+				core: '^0.0.0',
+				pluginId: 'fixture.plugin',
+				slot: '',
+			}),
+		).toThrow(new TypeError('slot must be a non-empty string'))
+		expect(() =>
+			definePlugin({ core: '^0.0.0', pluginId: 'fixture.plugin', version: '' }),
+		).toThrow(new TypeError('version must be a non-empty string'))
 		expect(() => {
 			definePlugin({
-				name: 'fixture',
+				version: '0.0.0',
+				core: '^0.0.0',
+				pluginId: 'fixture.plugin',
 				// @ts-expect-error -- Static field declarations must remain callable.
 				declareFields: 'later',
 			})
 		}).toThrow(new TypeError('declareFields must be a function'))
 		expect(() => {
 			definePlugin({
-				name: 'fixture',
+				version: '0.0.0',
+				core: '^0.0.0',
+				pluginId: 'fixture.plugin',
 				// @ts-expect-error -- Setup metadata must remain callable.
 				setup: 'later',
 			})
 		}).toThrow(new TypeError('setup must be a function'))
 		expect(() => {
 			definePlugin({
-				name: 'fixture',
+				version: '0.0.0',
+				core: '^0.0.0',
+				pluginId: 'fixture.plugin',
 				// @ts-expect-error -- Dependency metadata must remain an array.
 				dependencies: 'services',
 			})
 		}).toThrow(new TypeError('dependencies must be an array'))
 		expect(() => {
 			definePlugin({
-				name: 'fixture',
+				version: '0.0.0',
+				core: '^0.0.0',
+				pluginId: 'fixture.plugin',
 				// Runtime validation also protects JavaScript callers from empty names.
 				optionalDependencies: [''],
 			})
@@ -131,42 +179,54 @@ describe('definePlugin', () => {
 		)
 		expect(() => {
 			definePlugin({
-				name: 'fixture',
+				version: '0.0.0',
+				core: '^0.0.0',
+				pluginId: 'fixture.plugin',
 				// @ts-expect-error -- Conflict metadata must contain strings.
 				conflicts: [42],
 			})
 		}).toThrow(new TypeError('conflicts[0] must be a non-empty string'))
 		expect(() => {
 			definePlugin({
-				name: 'fixture',
+				version: '0.0.0',
+				core: '^0.0.0',
+				pluginId: 'fixture.plugin',
 				// @ts-expect-error -- Hooks must retain their object shape.
 				hooks: [],
 			})
 		}).toThrow(new TypeError('hooks must be a plain object'))
 		expect(() => {
 			definePlugin({
-				name: 'fixture',
+				version: '0.0.0',
+				core: '^0.0.0',
+				pluginId: 'fixture.plugin',
 				// @ts-expect-error -- Lifecycle hook names form a closed contract.
 				hooks: { initialize: () => undefined },
 			})
 		}).toThrow(new TypeError('Unknown plugin lifecycle hook: initialize'))
 		expect(() => {
 			definePlugin({
-				name: 'fixture',
+				version: '0.0.0',
+				core: '^0.0.0',
+				pluginId: 'fixture.plugin',
 				// @ts-expect-error -- Lifecycle hook values must remain callable.
 				hooks: { connect: true },
 			})
 		}).toThrow(new TypeError('hooks.connect must be a function'))
 		expect(() => {
 			definePlugin({
-				name: 'fixture',
+				version: '0.0.0',
+				core: '^0.0.0',
+				pluginId: 'fixture.plugin',
 				// @ts-expect-error -- Nested metadata must remain an array.
 				plugins: {},
 			})
 		}).toThrow(new TypeError('plugins must be an array'))
 		expect(() => {
 			definePlugin({
-				name: 'fixture',
+				version: '0.0.0',
+				core: '^0.0.0',
+				pluginId: 'fixture.plugin',
 				// @ts-expect-error -- Nested definitions require Core provenance.
 				plugins: [{ name: 'forged' }],
 			})

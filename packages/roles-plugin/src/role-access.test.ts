@@ -225,7 +225,9 @@ describe('stored role Access integration', () => {
 			hasRole: () => true,
 		}
 		const communityProvider = definePlugin({
-			name: 'fixture.community-role-provider',
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.community-role-provider',
 			setup: ({ services }) => {
 				services.provide(accessRoleResolverServiceToken, communityResolver)
 			},

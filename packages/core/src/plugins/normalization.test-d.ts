@@ -8,7 +8,9 @@ import {
 
 test('exposes immutable normalized plugin metadata', () => {
 	const plugin = definePlugin({
-		name: 'fixture.database',
+		version: '0.0.0',
+		core: '^0.0.0',
+		pluginId: 'fixture.database',
 		slot: 'database-adapter',
 	})
 	const normalized = normalizePlugins([plugin])

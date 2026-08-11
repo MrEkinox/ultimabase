@@ -48,7 +48,9 @@ const principalSchema = new RequestContextValue<'a' | 'b'>(
 )
 
 const identityPlugin = definePlugin({
-	name: 'fixture.acl-composition.identity',
+	version: '0.0.0',
+	core: '^0.0.0',
+	pluginId: 'fixture.acl-composition.identity',
 	setup: ({ services }) => {
 		services.provide(accessPrincipalResolverServiceToken, {
 			resolveCurrent: ({ context }) => {

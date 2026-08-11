@@ -43,7 +43,7 @@ describe('aclPostgresPlugin', () => {
 			schemas: [Protected],
 		})
 
-		expect(integration.name).toBe(aclPostgresPluginName)
+		expect(integration.manifest.identity.pluginId).toBe(aclPostgresPluginName)
 		expect(integration.dependencies).toStrictEqual([
 			'ultimabase.acl',
 			'@ultimabase/postgres-plugin',

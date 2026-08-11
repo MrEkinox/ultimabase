@@ -75,7 +75,9 @@ const createTypegenPlugin = (
 	normalized: NormalizedTypegenPluginOptions,
 ): TypegenPlugin =>
 	definePlugin({
-		name: typegenPluginName,
+		version: '0.0.0',
+		core: '^0.0.0',
+		pluginId: typegenPluginName,
 		slot: 'schema-typegen',
 		setup: async ({ fieldBuilderMethods, schemas }) => {
 			const generated = generateApplicationTypesFromSnapshot(

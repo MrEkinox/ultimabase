@@ -62,7 +62,7 @@ describe('ContributionRegistry', () => {
 		const registry = new ContributionRegistry()
 
 		expect(() => registry.forPlugin('')).toThrow(
-			new TypeError('pluginName must be a non-empty string'),
+			new TypeError('pluginId must be a non-empty string'),
 		)
 		expect(() => registry.has('')).toThrow(
 			new TypeError('contribution name must be a non-empty string'),
@@ -155,11 +155,11 @@ describe('PluginSetupRegistries', () => {
 		expect(first.commands.values()).not.toBe(second.commands.values())
 	})
 
-	it('validates scoped plugin names', () => {
+	it('validates scoped plugin IDs', () => {
 		const setupRegistries = new PluginSetupRegistries(new SchemaRegistry())
 
 		expect(() => setupRegistries.forPlugin('')).toThrow(
-			new TypeError('pluginName must be a non-empty string'),
+			new TypeError('pluginId must be a non-empty string'),
 		)
 	})
 

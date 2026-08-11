@@ -48,7 +48,9 @@ const createStoredArticle = (title: string) => ({
 
 const createOrderedPlugins = (trace: string[]) => {
 	const dependency = definePlugin({
-		name: 'fixture.hooks.dependency',
+		version: '0.0.0',
+		core: '^0.0.0',
+		pluginId: 'fixture.hooks.dependency',
 		setup: ({ registries }) => {
 			registries.hooks.register(
 				'fixture.dependency.global-before',
@@ -135,7 +137,9 @@ const createOrderedPlugins = (trace: string[]) => {
 		},
 	})
 	const consumer = definePlugin({
-		name: 'fixture.hooks.consumer',
+		version: '0.0.0',
+		core: '^0.0.0',
+		pluginId: 'fixture.hooks.consumer',
 		dependencies: ['fixture.hooks.dependency'],
 		setup: ({ registries }) => {
 			registries.hooks.register(
@@ -321,7 +325,9 @@ describe('Runtime hooks and post-commit events', () => {
 		const trace: string[] = []
 		const hookError = new Error('business after-hook rejected the write')
 		const plugin = definePlugin({
-			name: 'fixture.hooks.abort',
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.hooks.abort',
 			setup: ({ registries }) => {
 				registries.hooks.register(
 					'fixture.abort.after',

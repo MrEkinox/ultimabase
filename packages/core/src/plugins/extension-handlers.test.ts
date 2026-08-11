@@ -38,7 +38,9 @@ describe('extension handler validation', () => {
 	it('accepts handlers registered by the expected plugin owner', async () => {
 		const events: string[] = []
 		const plugin = definePlugin({
-			name: permissionsPluginName,
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: permissionsPluginName,
 			setup: ({ registries }) => {
 				registries.extensions.register(
 					extensionHandlerKey('schema', schemaPermissions.name),
@@ -87,7 +89,9 @@ describe('extension handler validation', () => {
 
 	it('reports nested field paths and a wrongly claimed handler owner', async () => {
 		const wrongOwner = definePlugin({
-			name: 'fixture.wrong-owner',
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.wrong-owner',
 			setup: ({ registries }) => {
 				registries.extensions.register(
 					extensionHandlerKey('schema', schemaPermissions.name),
@@ -131,7 +135,9 @@ describe('extension handler validation', () => {
 	it('rejects duplicate handlers through the shared contribution policy', async () => {
 		const registerHandler = (pluginName: string) =>
 			definePlugin({
-				name: pluginName,
+				version: '0.0.0',
+				core: '^0.0.0',
+				pluginId: pluginName,
 				setup: ({ registries }) => {
 					registries.extensions.register(
 						extensionHandlerKey('schema', schemaPermissions.name),
@@ -160,7 +166,9 @@ describe('extension handler validation', () => {
 
 	it('cleans initialized plugins when validation and disposal both fail', async () => {
 		const plugin = definePlugin({
-			name: 'fixture.cleanup-failure',
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.cleanup-failure',
 			hooks: {
 				dispose: () => {
 					throw new Error('cleanup failed')

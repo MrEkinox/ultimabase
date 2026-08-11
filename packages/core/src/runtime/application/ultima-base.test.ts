@@ -45,7 +45,9 @@ const createDatabasePlugin = (
 	} = {},
 ) =>
 	definePlugin({
-		name: 'fixture.ultimabase-database',
+		version: '0.0.0',
+		core: '^0.0.0',
+		pluginId: 'fixture.ultimabase-database',
 		slot: 'database-adapter',
 		setup: ({ registries, services }) => {
 			options.trace?.push('setup')
@@ -482,7 +484,9 @@ describe('UltimaBase', () => {
 	it('cleans initialized plugins when Runtime assembly fails', async () => {
 		const trace: string[] = []
 		const plugin = definePlugin({
-			name: 'fixture.ultimabase-missing-adapter',
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.ultimabase-missing-adapter',
 			setup: () => {
 				trace.push('setup')
 			},

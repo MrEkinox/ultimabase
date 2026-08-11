@@ -35,52 +35,68 @@ describe('normalizePlugins', () => {
 	it('flattens deep composition while preserving source and parent metadata', () => {
 		let setupCalls = 0
 		const leaf = definePlugin({
-			name: 'fixture.leaf',
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.leaf',
 			dependencies: ['fixture.child'],
 			setup: () => {
 				setupCalls += 1
 			},
 		})
 		const child = definePlugin({
-			name: 'fixture.child',
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.child',
 			plugins: [leaf],
 		})
 		const root = definePlugin({
-			name: 'fixture.root',
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.root',
 			plugins: [child],
 		})
 
 		const normalized = normalizePlugins([root])
 
 		expect(normalized).toHaveLength(3)
-		expect(normalized.map(({ definition }) => definition.name)).toStrictEqual([
-			'fixture.root',
-			'fixture.child',
-			'fixture.leaf',
-		])
+		expect(
+			normalized.map(({ definition }) => definition.manifest.identity.pluginId),
+		).toStrictEqual(['fixture.root', 'fixture.child', 'fixture.leaf'])
 		expect(
 			normalized.map(({ configurationIndex }) => configurationIndex),
 		).toStrictEqual([0, 1, 2])
-		expect(normalized[0]?.parentNames).toStrictEqual([])
-		expect(normalized[1]?.parentNames).toStrictEqual(['fixture.root'])
-		expect(normalized[1]?.dependencies).toStrictEqual(['fixture.root'])
-		expect(normalized[2]?.parentNames).toStrictEqual(['fixture.child'])
+		expect(normalized[0]?.parentIdentities).toStrictEqual([])
+		expect(normalized[1]?.parentIdentities).toStrictEqual([
+			{ pluginId: 'fixture.root' },
+		])
+		expect(normalized[1]?.dependencies).toStrictEqual([])
+		expect(normalized[2]?.parentIdentities).toStrictEqual([
+			{ pluginId: 'fixture.child' },
+		])
 		expect(normalized[2]?.dependencies).toStrictEqual(['fixture.child'])
 		expect(setupCalls).toBe(0)
 		expect(Object.isFrozen(normalized)).toBe(true)
 		expect(Object.isFrozen(normalized[1])).toBe(true)
-		expect(Object.isFrozen(normalized[1]?.parentNames)).toBe(true)
+		expect(Object.isFrozen(normalized[1]?.parentIdentities)).toBe(true)
 		expect(Object.isFrozen(normalized[1]?.dependencies)).toBe(true)
 	})
 
 	it('deduplicates repeated definition identities and retains every parent', () => {
-		const shared = definePlugin({ name: 'fixture.shared' })
+		const shared = definePlugin({
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.shared',
+		})
 		const firstParent = definePlugin({
-			name: 'fixture.first-parent',
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.first-parent',
 			plugins: [shared, shared],
 		})
 		const secondParent = definePlugin({
-			name: 'fixture.second-parent',
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.second-parent',
 			plugins: [shared],
 		})
 
@@ -97,15 +113,24 @@ describe('normalizePlugins', () => {
 		expect(normalized).toHaveLength(3)
 		expect(sharedPlugin).toMatchObject({
 			configurationIndex: 0,
-			parentNames: ['fixture.first-parent', 'fixture.second-parent'],
-			dependencies: ['fixture.first-parent', 'fixture.second-parent'],
+			parentIdentities: [
+				{ pluginId: 'fixture.first-parent' },
+				{ pluginId: 'fixture.second-parent' },
+			],
+			dependencies: [],
 		})
 	})
 
-	it('rejects separate definitions sharing one name', () => {
-		const first = definePlugin({ name: 'fixture.database' })
+	it('rejects separate definitions sharing one structured identity', () => {
+		const first = definePlugin({
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.database',
+		})
 		const second = definePlugin({
-			name: 'fixture.database',
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.database',
 			setup: () => ({ dialect: 'other' }),
 		})
 
@@ -115,18 +140,54 @@ describe('normalizePlugins', () => {
 
 		expect(error.code).toBe('PLUGIN_DUPLICATE')
 		expect(error.internalDetails).toStrictEqual({
-			pluginName: 'fixture.database',
+			pluginId: 'fixture.database',
 			source: 'definition',
 		})
 	})
 
+	it('accepts repeated plugins only through distinct explicit instance IDs', () => {
+		const first = definePlugin({
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.database',
+			instanceId: 'primary',
+		})
+		const second = definePlugin({
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.database',
+			instanceId: 'analytics',
+		})
+
+		expect(normalizePlugins([first, second])).toHaveLength(2)
+		expect(() =>
+			normalizePlugins([
+				definePlugin({
+					version: '0.0.0',
+					core: '^0.0.0',
+					pluginId: 'fixture.cache',
+				}),
+				definePlugin({
+					version: '0.0.0',
+					core: '^0.0.0',
+					pluginId: 'fixture.cache',
+					instanceId: 'secondary',
+				}),
+			]),
+		).toThrow(FrameworkError)
+	})
+
 	it('rejects distinct plugins occupying the same exclusive slot', () => {
 		const postgres = definePlugin({
-			name: 'fixture.postgres',
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.postgres',
 			slot: 'database-adapter',
 		})
 		const sql = definePlugin({
-			name: 'fixture.sql',
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.sql',
 			slot: 'database-adapter',
 		})
 
@@ -144,11 +205,15 @@ describe('normalizePlugins', () => {
 
 	it('accepts distinct exclusive slots', () => {
 		const database = definePlugin({
-			name: 'fixture.database',
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.database',
 			slot: 'database-adapter',
 		})
 		const transport = definePlugin({
-			name: 'fixture.transport',
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.transport',
 			slot: 'http-server',
 		})
 

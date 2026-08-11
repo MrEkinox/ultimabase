@@ -25,7 +25,9 @@ const fixtureFieldBuilder = (field: FieldBuilder): FixtureFieldBuilder =>
 const createFixture = (reverseOrder = false) => {
 	let setupCalls = 0
 	const setupGuard = definePlugin({
-		name: 'fixture.typegen-setup-guard',
+		version: '0.0.0',
+		core: '^0.0.0',
+		pluginId: 'fixture.typegen-setup-guard',
 		setup: () => {
 			setupCalls += 1
 		},
@@ -433,13 +435,17 @@ describe('generateApplicationTypes', () => {
 			},
 		})
 		const firstPlugin = definePlugin({
-			name: 'fixture.first-shared-plugin',
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.first-shared-plugin',
 			declareFields: (fields) => {
 				fields.register(firstMethod)
 			},
 		})
 		const secondPlugin = definePlugin({
-			name: 'fixture.second-shared-plugin',
+			version: '0.0.0',
+			core: '^0.0.0',
+			pluginId: 'fixture.second-shared-plugin',
 			declareFields: (fields) => {
 				fields.register(secondMethod)
 			},
