@@ -12,10 +12,22 @@ export type {
 	ConfiguredPluginId,
 	ConfiguredPluginIdentity,
 	ConfiguredPluginIdentityExports,
+} from './application/configured-plugins.js'
+export type {
 	FrameworkAccessDefaultPolicy,
 	FrameworkAccessOptions,
 	FrameworkApplicationOptions,
 } from './application/framework-application.js'
+export type {
+	PluginEnvironmentClaimReport,
+	PluginPrivilegeLogger,
+	PluginPrivilegePluginPolicy,
+	PluginPrivilegePluginReport,
+	PluginPrivilegePolicy,
+	PluginPrivilegePolicyScope,
+	PluginPrivilegeReport,
+	PluginPrivilegeRequestReport,
+} from './application/plugin-privilege-policy.js'
 export type {
 	FrameworkErrorCode,
 	FrameworkErrorDetails,
@@ -107,6 +119,7 @@ export { PluginGraph } from './plugins/graph.js'
 export {
 	formatPluginIdentity,
 	isSamePluginIdentity,
+	pluginEnvironmentClaims,
 	pluginPrivilegeMetadata,
 } from './plugins/manifest.js'
 export type {

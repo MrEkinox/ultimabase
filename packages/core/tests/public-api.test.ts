@@ -132,6 +132,7 @@ describe('@ultimabase/core public entry point', () => {
 			'onEvent',
 			'optionalCapability',
 			'parseAccessPrincipalReference',
+			'pluginEnvironmentClaims',
 			'pluginPrivilegeMetadata',
 			'pointerField',
 			'postCommitEvent',

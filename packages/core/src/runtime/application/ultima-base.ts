@@ -20,6 +20,7 @@ import {
 const ultimaBaseOptionKeys = new Set([
 	'access',
 	'masterAuthority',
+	'pluginPrivileges',
 	'plugins',
 	'schemas',
 	'validation',
@@ -51,6 +52,10 @@ export interface UltimaBaseOptions<
 	 */
 	readonly access?: NonNullable<
 		FrameworkApplicationOptions<TSchemas, TPlugins>['access']
+	>
+	/** Configures plugin privilege policy and startup reporting. */
+	readonly pluginPrivileges?: NonNullable<
+		FrameworkApplicationOptions<TSchemas, TPlugins>['pluginPrivileges']
 	>
 	/**
 	 * Supplies the optional audited authority used for explicit master access.
@@ -85,11 +90,11 @@ const assertUltimaBaseOptions: (
 	}
 }
 
-const readEngineOptions = (
-	options: UltimaBaseOptions<
-		readonly SchemaDefinition[],
-		readonly PluginDefinition[]
-	>,
+const readEngineOptions = <
+	TSchemas extends readonly SchemaDefinition[],
+	TPlugins extends readonly PluginDefinition[],
+>(
+	options: UltimaBaseOptions<TSchemas, TPlugins>,
 ): Readonly<CreateFrameworkEngineOptions> =>
 	normalizeCreateFrameworkEngineOptions({
 		...(options.masterAuthority === undefined
@@ -134,6 +139,9 @@ export class UltimaBase<
 
 		this.application = new FrameworkApplication({
 			...(options.access === undefined ? {} : { access: options.access }),
+			...(options.pluginPrivileges === undefined
+				? {}
+				: { pluginPrivileges: options.pluginPrivileges }),
 			schemas: options.schemas,
 			plugins: options.plugins,
 		})

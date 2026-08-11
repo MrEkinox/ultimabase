@@ -28,6 +28,19 @@ const readStringCompletions = (name: string): readonly string[] => {
 	).map(({ name: entryName }) => entryName)
 }
 
+const readMemberCompletions = (name: string): readonly string[] => {
+	const marker = `/* completion:${name} */`
+	const markerPosition = source.indexOf(marker)
+
+	if (markerPosition < 0) throw new TypeError(`Missing marker: ${marker}`)
+
+	return (
+		service.getCompletionsAtPosition(fixtureFile, markerPosition, {
+			includeCompletionsWithInsertText: true,
+		})?.entries ?? []
+	).map(({ name: entryName }) => entryName)
+}
+
 const readHover = (name: string): string => {
 	const marker = `/* hover:${name} */`
 	const markerPosition = source.indexOf(marker)
@@ -68,11 +81,23 @@ describe('plugin manifest source language service', () => {
 			'declaration',
 			'application',
 		])
+		expect(readStringCompletions('policy-privilege')).toContain(
+			'runtime:observe',
+		)
+		expect(readStringCompletions('policy-claim')).toContain(
+			'environment:network',
+		)
+		expect(readMemberCompletions('policy-plugin')).toContain(
+			'"fixture.policy-language-service"',
+		)
+		expect(readMemberCompletions('policy-instance')).toContain('editorial')
 		expect(readHover('privilege')).toContain('type PluginPrivilege =')
 		expect(readHover('environment')).toContain('type PluginEnvironmentClaim =')
 		expect(readHover('identity')).toContain('interface PluginIdentity')
 		expect(readHover('manifest')).toContain('interface PluginManifest')
 		expect(readHover('capability')).toContain('interface CapabilityToken')
 		expect(readHover('provider-value')).toContain('readonly endpoint: string;')
+		expect(readHover('policy')).toContain('interface PluginPrivilegePolicy')
+		expect(readHover('report')).toContain('interface PluginPrivilegeReport')
 	})
 })

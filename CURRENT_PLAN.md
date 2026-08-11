@@ -24,7 +24,7 @@ optional official plugins while keeping Core master authority unchanged.
 
 - Installed plugins are trusted in-process Node.js code; the privilege system controls UltimaBase facades and reports powers but does not claim an OS sandbox.
 - Every concrete privilege is resolved and reported before static declarations, Typegen, setup, connections, Runtime, or transports.
-- `pluginPrivileges` defaults to allowing requested powers and supports cumulative global and exact-plugin denials; denied plugins fail together with one typed diagnostic.
+- `pluginPrivileges` defaults to allowing requested powers and supports cumulative global, plugin-ID, and exact-instance privilege and environment-claim denials; denied plugins fail together with one typed diagnostic.
 - Capability tokens are namespaced, versioned, application-local, and declare `single`, `multiple`, or `pipeline` cardinality.
 - Capability tokens declare `declaration` or `application` lifetime; resource-backed implementations materialize only during setup and dispose with their owner.
 - `provide`, `require`, `decorate`, and `replace` retain owner provenance, graph order, version checks, and explicit conflict behavior.
@@ -56,7 +56,7 @@ optional official plugins while keeping Core master authority unchanged.
 
 1. [x] [1401 — Add plugin manifests and declared privileges](issues/1400-open-plugin-kernel/1401-plugin-manifests-and-privileges.md)
 2. [x] [1403 — Add versioned capability tokens and requirements](issues/1400-open-plugin-kernel/1403-versioned-capability-tokens.md)
-3. [ ] [1402 — Enforce application privilege policy and startup reporting](issues/1400-open-plugin-kernel/1402-privilege-policy-and-reporting.md)
+3. [x] [1402 — Enforce application privilege policy and startup reporting](issues/1400-open-plugin-kernel/1402-privilege-policy-and-reporting.md)
 4. [ ] [1404 — Compose capability providers, decorators, and replacements](issues/1400-open-plugin-kernel/1404-capability-composition.md)
 5. [ ] [1415 — Converge legacy services, slots, and setup registries](issues/1400-open-plugin-kernel/1415-converge-legacy-plugin-host.md)
 

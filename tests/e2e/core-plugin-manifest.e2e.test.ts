@@ -39,6 +39,22 @@ describe('packed @ultimabase/core plugin manifests', () => {
 			'declaration',
 			'application',
 		])
+		expect(languageFixture.readStringCompletions('policy-privilege')).toContain(
+			'runtime:observe',
+		)
+		expect(languageFixture.readStringCompletions('policy-claim')).toContain(
+			'environment:network',
+		)
+		expect(
+			languageFixture
+				.readMemberCompletions('policy-plugin')
+				.map(({ name }) => name),
+		).toContain('"fixture.policy-language-service"')
+		expect(
+			languageFixture
+				.readMemberCompletions('policy-instance')
+				.map(({ name }) => name),
+		).toContain('editorial')
 		const privilegeHover = languageFixture.readHover('privilege')
 		expect(privilegeHover.display).toContain('type PluginPrivilege =')
 		expect(privilegeHover.documentation).toContain('Core-enforceable power')
@@ -57,6 +73,12 @@ describe('packed @ultimabase/core plugin manifests', () => {
 		)
 		expect(languageFixture.readHover('provider-value').display).toContain(
 			'readonly endpoint: string;',
+		)
+		expect(languageFixture.readHover('policy').display).toContain(
+			'interface PluginPrivilegePolicy',
+		)
+		expect(languageFixture.readHover('report').display).toContain(
+			'interface PluginPrivilegeReport',
 		)
 	})
 })

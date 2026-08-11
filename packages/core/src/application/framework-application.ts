@@ -12,7 +12,6 @@ import {
 
 import {
 	type PluginDefinition,
-	type PluginExports,
 	runPluginFieldBuilderDeclaration,
 } from '../plugins/definition.js'
 import { validateExtensionHandlers } from '../plugins/extension-handlers.js'
@@ -34,70 +33,19 @@ import {
 	FieldBuilderMethodRegistry,
 	type OwnedFieldBuilderMethod,
 } from '../schema/schema/field-builder-methods.js'
-
-/** Recursively retains top-level and composition-nested plugin definitions. */
-export type ConfiguredPlugin<TPlugins extends readonly PluginDefinition[]> =
-	readonly PluginDefinition[] extends TPlugins
-		? PluginDefinition
-		: TPlugins[number] extends infer TPlugin
-			? TPlugin extends PluginDefinition
-				? | TPlugin
-					| ConfiguredPlugin<
-							Extract<TPlugin['plugins'], readonly PluginDefinition[]>
-					  >
-				: never
-			: never
-
-/** Lists the literal stable IDs addressable through one application configuration. */
-export type ConfiguredPluginId<TPlugins extends readonly PluginDefinition[]> =
-	ConfiguredPlugin<TPlugins>['manifest']['identity']['pluginId']
-
-/** Lists the structured identities addressable through one application configuration. */
-export type ConfiguredPluginIdentity<
-	TPlugins extends readonly PluginDefinition[],
-> = ConfiguredPlugin<TPlugins>['manifest']['identity']
-
-type ConfiguredPluginById<
-	TPlugins extends readonly PluginDefinition[],
-	TPluginId extends ConfiguredPluginId<TPlugins>,
-> =
-	ConfiguredPlugin<TPlugins> extends infer TPlugin
-		? TPlugin extends PluginDefinition
-			? TPlugin['manifest']['identity']['pluginId'] extends TPluginId
-				? TPlugin
-				: never
-			: never
-		: never
-
-/** Resolves setup exports for one configured literal plugin ID. */
-export type ConfiguredPluginExports<
-	TPlugins extends readonly PluginDefinition[],
-	TPluginId extends ConfiguredPluginId<TPlugins>,
-> =
-	string extends ConfiguredPluginId<TPlugins>
-		? unknown
-		: PluginExports<ConfiguredPluginById<TPlugins, TPluginId>>
-
-type ConfiguredPluginByIdentity<
-	TPlugins extends readonly PluginDefinition[],
-	TIdentity extends ConfiguredPluginIdentity<TPlugins>,
-> =
-	ConfiguredPlugin<TPlugins> extends infer TPlugin
-		? TPlugin extends PluginDefinition
-			? TIdentity extends TPlugin['manifest']['identity']
-				? TPlugin
-				: never
-			: never
-		: never
-
-/** Resolves setup exports for one exact configured plugin identity. */
-export type ConfiguredPluginIdentityExports<
-	TPlugins extends readonly PluginDefinition[],
-	TIdentity extends ConfiguredPluginIdentity<TPlugins>,
-> =
-	PluginIdentity extends ConfiguredPluginIdentity<TPlugins>
-		? unknown
-		: PluginExports<ConfiguredPluginByIdentity<TPlugins, TIdentity>>
+import type {
+	ConfiguredPluginExports,
+	ConfiguredPluginId,
+	ConfiguredPluginIdentity,
+	ConfiguredPluginIdentityExports,
+} from './configured-plugins.js'
+import {
+	assertPluginPrivilegesAllowed,
+	emitPluginPrivilegeReport,
+	evaluatePluginPrivilegePolicy,
+	type PluginPrivilegePolicy,
+	type PluginPrivilegeReport,
+} from './plugin-privilege-policy.js'
 
 /** Captures every static input needed to construct one isolated application. */
 export interface FrameworkApplicationOptions<
@@ -121,6 +69,8 @@ export interface FrameworkApplicationOptions<
 	 * @example `access: { default: { operation: false, field: true } }`
 	 */
 	readonly access?: FrameworkAccessOptions
+	/** Configures cumulative plugin privilege and environment-claim denials. */
+	readonly pluginPrivileges?: PluginPrivilegePolicy<TPlugins>
 }
 
 /** Distinguishes undeclared operation and field decisions when required. */
@@ -228,6 +178,8 @@ export class FrameworkApplication<
 > {
 	readonly schemas: SchemaRegistry<TSchemas>
 	readonly accessDefaults: FrameworkAccessDefaultPolicy
+	/** Exposes the detached policy result evaluated before every plugin effect. */
+	readonly pluginPrivilegeReport: PluginPrivilegeReport
 	readonly #setupRegistries: PluginSetupRegistries
 	readonly #lifecycle: PluginLifecycleManager
 	readonly #pluginGraph: PluginGraph
@@ -242,10 +194,17 @@ export class FrameworkApplication<
 
 		assertApplicationOptions(untrustedOptions)
 
+		const graph = new PluginGraph(normalizePlugins(options.plugins))
+		const privilegePolicy = evaluatePluginPrivilegePolicy(
+			graph,
+			options.pluginPrivileges,
+		)
+		this.pluginPrivilegeReport = privilegePolicy.report
+		emitPluginPrivilegeReport(privilegePolicy.logger, privilegePolicy.report)
+		assertPluginPrivilegesAllowed(privilegePolicy.report)
+
 		this.schemas = new SchemaRegistry(options.schemas)
 		this.accessDefaults = normalizeAccessDefaults(options.access)
-
-		const graph = new PluginGraph(normalizePlugins(options.plugins))
 		this.#pluginGraph = graph
 		this.#setupRegistries = new PluginSetupRegistries(
 			this.schemas,

@@ -1471,6 +1471,46 @@ and consumer reads are introduced by issue 1404. Required and optional uses are
 always explicit, and a conditional privilege must reference the same optional
 requirement object listed by its manifest.
 
+`pluginPrivileges` evaluates cumulative denials before field declarations,
+schema compilation, Typegen, setup, or infrastructure work. Core-controlled
+privileges and informational environment claims stay visibly separate:
+
+```ts
+const ultimabase = new UltimaBase({
+	schemas: [PostSchema],
+	plugins: [workflowPlugin({ instanceId: 'editorial' })],
+	pluginPrivileges: {
+		deny: ['runtime:replace'],
+		denyClaims: ['environment:native-code'],
+		plugins: {
+			'community.workflow': {
+				deny: ['adapter:raw'],
+				instances: {
+					editorial: {
+						deny: ['transport:expose'],
+					},
+				},
+			},
+		},
+	},
+})
+```
+
+`deny` prevents an active request for an enforceable Core facade.
+`denyClaims` rejects a plugin that announces direct filesystem, network,
+process, or native-code behavior; it never claims to sandbox trusted in-process
+JavaScript. Unknown privileges, claims, plugin IDs, and instance IDs are
+configuration errors. Denied active requests and claims produce one aggregate
+`PLUGIN_PRIVILEGE_DENIED` error, while a denied capability-conditioned request
+remains inspectable and harmless when its optional capability is absent.
+
+The default logger emits one ordered report through `console.info`, or through
+`console.error` when active requests are denied. Set
+`pluginPrivileges.logger: false` to silence it, or provide `{ info, error }` to
+route the same immutable report elsewhere. Logger failures are isolated from
+policy results. `application.pluginPrivilegeReport` exposes the detached report
+without plugin options, credentials, capability values, or stack traces.
+
 `normalizePlugins(definitions)` resolves that syntax into immutable flat
 metadata without running plugin code. Children receive implicit parent
 dependencies, source order is retained, and the exact same definition can be

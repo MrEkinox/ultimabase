@@ -102,9 +102,15 @@ const ultimabase = new UltimaBase({
 	plugins: [workflowPlugin({ instanceId: 'editorial' })],
 	pluginPrivileges: {
 		deny: ['adapter:raw', 'runtime:replace'],
+		denyClaims: ['environment:native-code'],
 		plugins: {
 			'community.workflow': {
 				deny: ['transport:expose'],
+				instances: {
+					editorial: {
+						deny: ['authority:elevate'],
+					},
+				},
 			},
 		},
 	},
@@ -113,7 +119,11 @@ const ultimabase = new UltimaBase({
 
 Startup reports the plugin instance, version, requested powers, reasons,
 severity, environmental claims, and policy result. A denied active privilege
-prevents declarations and infrastructure work.
+prevents declarations and infrastructure work. `denyClaims` rejects announced
+direct Node.js behavior without pretending to sandbox in-process JavaScript.
+Use `pluginPrivileges.logger: false` for explicit silence or supply an
+`{ info, error }` logger; the same detached result remains available through
+`ultimabase.application.pluginPrivilegeReport`.
 
 ## Use the plugin with TypeScript
 

@@ -204,12 +204,20 @@ export interface PluginManifestOptions {
 
 const pluginIdPattern =
 	/^(?:@[a-z0-9][a-z0-9._-]*\/[a-z0-9][a-z0-9._-]*|[a-z0-9][a-z0-9-]*(?:\.[a-z0-9][a-z0-9-]*)+)$/
-const environmentClaims = new Set<PluginEnvironmentClaim>([
+const declaredPluginEnvironmentClaims = [
 	'environment:filesystem',
 	'environment:native-code',
 	'environment:network',
 	'environment:process',
-])
+] as const satisfies readonly PluginEnvironmentClaim[]
+
+/** Lists every informational direct-environment claim accepted in manifests. */
+export const pluginEnvironmentClaims: readonly PluginEnvironmentClaim[] =
+	immutableArray(declaredPluginEnvironmentClaims)
+
+const environmentClaims = new Set<PluginEnvironmentClaim>(
+	pluginEnvironmentClaims,
+)
 
 /** Compares structured plugin identities without relying on serialized keys. */
 export const isSamePluginIdentity = (
