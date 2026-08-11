@@ -16,10 +16,9 @@ import {
 	executeQueryExists,
 	executeQueryGet,
 	executeQueryUpdateOne,
-	hydrateQueryFromAst,
-	QueryBuilder,
-	scopeQueryToObjectId,
-} from '../../query/query/query.js'
+} from '../../query/query/operation-execution.js'
+import { scopeQueryToObjectId } from '../../query/query/private-scope.js'
+import { hydrateQueryFromAst, QueryBuilder } from '../../query/query/query.js'
 import type { UpdateExpressionInput } from '../../query/updates/contracts.js'
 import { Pointer } from '../relations/pointer.js'
 import { createRelationHandle, type Relation } from '../relations/relation.js'

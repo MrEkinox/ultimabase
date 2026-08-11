@@ -31,7 +31,7 @@ import {
 	executeQueryFindMany,
 	executeQueryFindOne,
 	executeQueryGet,
-} from '../../query/query/query.js'
+} from '../../query/query/operation-execution.js'
 import {
 	queryFromCountInput,
 	queryFromExistsInput,

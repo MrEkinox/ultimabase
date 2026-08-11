@@ -1,5 +1,21 @@
 import { expectTypeOf, test } from 'vitest'
 
+// @ts-expect-error -- Trusted hydration is not part of Core's public authoring surface.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- The invalid import proves the source export stays absent.
+import { hydrateQueryFromAst } from '../../index.js'
+
+// @ts-expect-error -- Private object scopes are framework-owned and unforgeable through Core's root.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- The invalid import proves the source export stays absent.
+import { scopeQueryToObjectId } from '../../index.js'
+
+// @ts-expect-error -- Operation execution remains behind schema models and relation handles.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- The invalid import proves the source export stays absent.
+import { executeQueryFindMany } from '../../index.js'
+
+// @ts-expect-error -- The internal execution input carrier must not leak through Core's root.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- The invalid import proves the source export stays absent.
+import type { QueryExecutionInput } from '../../index.js'
+
 // @ts-expect-error -- Itemized schema commands replaced this unreachable helper.
 // eslint-disable-next-line @typescript-eslint/no-unused-vars -- The invalid import proves the source export stays absent.
 import { executeSchemaCreateMany } from './query.js'
@@ -16,6 +32,6 @@ import { executeSchemaUpsertMany } from './query.js'
 // eslint-disable-next-line @typescript-eslint/no-unused-vars -- The invalid import proves the source export stays absent.
 import { executeQueryDeleteMany } from './query.js'
 
-test('keeps legacy Query mutation execution helpers absent from source', () => {
+test('keeps Query execution and scope internals absent from source exports', () => {
 	expectTypeOf<true>().toEqualTypeOf<true>()
 })

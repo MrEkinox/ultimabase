@@ -5,7 +5,7 @@ import {
 	type SchemaRelationshipTargetName,
 } from '../../schema/index.js'
 import { getFieldSchemaTarget } from '../../schema/fields/base/definition.js'
-import { immutableArray, immutableRecord } from '@ultimabase/shared'
+import { immutableRecord } from '@ultimabase/shared'
 
 import type {
 	QueryAst,
@@ -41,7 +41,6 @@ import {
 	normalizeLogicalFilter,
 	type QueryFilterNode,
 } from '../filters/logical.js'
-import { createQueryValueFilter } from '../filters/factory.js'
 import type { QueryPrimitiveFilterNode } from '../filters/primitive.js'
 import type { QueryRelationFilterForSchema } from '../filters/relation.js'
 import {
@@ -52,45 +51,16 @@ import {
 	type WhereInput,
 	type WhereSource,
 } from '../filters/where.js'
+import type { OperationPrivateScope } from '../operations/execution.js'
 import type {
-	CountOperationAst,
-	CreateOneOperationAst,
-	DeleteOneOperationAst,
-	ExistsOperationAst,
-	FindManyOperationAst,
-	FindOneOperationAst,
-	GetOperationAst,
-	OperationAstNode,
-	OperationObjectId,
-	UpdateOneOperationAst,
-	UpsertOneOperationAst,
-} from '../operations/contracts.js'
-import {
-	executeOperation,
-	normalizeOperationOptions,
-	type QueryRelationPrivateScope,
-	type OperationPrivateScope,
-} from '../operations/execution.js'
-import type { OperationOptions } from '../operations/options.js'
-import type { OperationResult } from '../operations/results.js'
-import {
-	normalizeUniqueUpsertTarget,
-	normalizeUpsertInput,
-	type UpsertInput,
-} from '../operations/upsert.js'
-import type { SchemaCreateOneExecutionInput } from '../operations/schema-commands.js'
-import { queryFromFindOneInput } from './input.js'
-import type {
-	UpdateExpression,
-	UpdateExpressionInput,
-} from '../updates/contracts.js'
-import { normalizeUpdateExpression } from '../updates/normalize.js'
-import type {
-	QueryResult,
 	QueryPointerResultInclusion,
 	QueryRelationResultInclusion,
 } from './result.js'
-import type { NormalizedQueryInput, QueryBuilderInput } from './input.js'
+import type { QueryBuilderInput } from './input.js'
+import {
+	readQueryPrivateScope,
+	storeQueryPrivateScope,
+} from './private-scope.js'
 import type { QueryScope } from './scope.js'
 
 type QueryBuilderInclusion<TSchema extends SchemaDefinition> = [
@@ -105,18 +75,9 @@ type QueryBuilderAst<TSchema extends SchemaDefinition> = QueryAst<
 	QueryBuilderInclusion<TSchema>
 >
 
-type QueryExecutionInput<
-	TSchema extends SchemaDefinition,
-	TSelectedField extends QueryFieldName<TSchema>,
-	TIncludedPointer,
-> =
-	| NormalizedQueryInput<TSchema, TSelectedField, TIncludedPointer>
-	| QueryBuilder<TSchema, TSelectedField, TIncludedPointer>
-
 // QueryBuilder state stays outside the frozen public shell so internal hydration does
 // not need a public constructor overload or an externally callable static API.
 const queryAsts = new WeakMap<object, unknown>()
-const queryPrivateScopes = new WeakMap<object, OperationPrivateScope>()
 
 const readQueryAst = <const TSchema extends SchemaDefinition>(
 	query: object,
@@ -136,21 +97,6 @@ const storeQueryAst = <const TSchema extends SchemaDefinition>(
 	ast: QueryBuilderAst<TSchema>,
 ): void => {
 	queryAsts.set(query, ast)
-}
-
-/** Reads a trusted scope that must remain invisible to QueryBuilder hooks and serialization. */
-const readQueryPrivateScope = (
-	query: object,
-): OperationPrivateScope | undefined => queryPrivateScopes.get(query)
-
-/** Retains one immutable framework scope beside, never inside, the public AST. */
-const storeQueryPrivateScope = (
-	query: object,
-	scope: OperationPrivateScope | undefined,
-): void => {
-	if (scope !== undefined) {
-		queryPrivateScopes.set(query, scope)
-	}
 }
 
 type QueryAstPatch<TSchema extends SchemaDefinition> = Partial<
@@ -775,282 +721,4 @@ export const hydrateQueryFromAst = <
 	storeQueryPrivateScope(query, privateScope)
 
 	return query
-}
-
-/**
- * Applies a framework-owned object identity without exposing it to QueryBuilder hooks.
- *
- * @internal Pointer and relation handles are the only intended callers.
- */
-export const scopeQueryToObjectId = <
-	const TSchema extends SchemaDefinition,
-	TSelectedField extends QueryFieldName<TSchema>,
-	TIncludedPointer,
->(
-	query: QueryExecutionInput<TSchema, TSelectedField, TIncludedPointer>,
-	id: OperationObjectId<TSchema>,
-	options: Readonly<{ readonly nativeAccessDeniedAsMissing?: true }> = {},
-): NormalizedQueryInput<TSchema, TSelectedField, TIncludedPointer> => {
-	const rowFilter = createQueryValueFilter(query.schema, 'equal', 'id', id)
-	const scope: OperationPrivateScope = immutableRecord({
-		kind: 'row-filter',
-		...(options.nativeAccessDeniedAsMissing === undefined
-			? {}
-			: { nativeAccessDeniedAsMissing: true as const }),
-		objectId: id,
-		rowFilter,
-	})
-
-	const scoped = immutableRecord({ ast: query.ast, schema: query.schema })
-
-	storeQueryPrivateScope(scoped, scope)
-
-	return scoped
-}
-
-/** Describes one trusted relation restriction before it enters private QueryBuilder state. */
-export interface QueryRelationScopeInput<
-	TSource extends SchemaDefinition = SchemaDefinition,
-	TTarget extends SchemaDefinition = SchemaDefinition,
-> {
-	readonly fieldName: string
-	readonly source: TSource
-	readonly sourceObjectId: string
-	readonly target: TTarget
-}
-
-/**
- * Applies one framework-owned relation edge without adding it to the public AST.
- *
- * @internal Persisted Relation handles are the only intended caller.
- */
-export const scopeQueryToRelation = <
-	const TSource extends SchemaDefinition,
-	const TTarget extends SchemaDefinition,
-	TSelectedField extends QueryFieldName<TTarget>,
-	TIncludedPointer,
->(
-	query: QueryExecutionInput<TTarget, TSelectedField, TIncludedPointer>,
-	input: QueryRelationScopeInput<TSource, TTarget>,
-): NormalizedQueryInput<TTarget, TSelectedField, TIncludedPointer> => {
-	if (query.schema !== input.target) {
-		throw new TypeError('relation query must use its exact target schema')
-	}
-
-	const scope: QueryRelationPrivateScope = immutableRecord({
-		fieldPath: immutableArray([input.fieldName]),
-		kind: 'relation',
-		source: input.source,
-		sourceObjectId: input.sourceObjectId,
-		target: input.target,
-	})
-
-	const scoped = immutableRecord({ ast: query.ast, schema: query.schema })
-
-	storeQueryPrivateScope(scoped, scope)
-
-	return scoped
-}
-
-/**
- * Executes an internal operation with the protected scope retained by a QueryBuilder.
- *
- * @internal Relation mutations use this bridge so their source identity never
- * enters the transformable operation AST.
- */
-export const executeQueryWithPrivateScope = <
-	const TSchema extends SchemaDefinition,
-	TSelectedField extends QueryFieldName<TSchema>,
-	TIncludedPointer,
-	const TOperation extends OperationAstNode,
->(
-	query: QueryExecutionInput<TSchema, TSelectedField, TIncludedPointer>,
-	operation: TOperation,
-	options?: OperationOptions,
-): Promise<OperationResult<TOperation>> =>
-	executeOperation(
-		operation,
-		normalizeOperationOptions(options),
-		readQueryPrivateScope(query),
-	)
-
-/** Executes one collection read while retaining framework-owned private scope. */
-export const executeQueryFindMany = <
-	const TSchema extends SchemaDefinition,
-	TSelectedField extends QueryFieldName<TSchema>,
-	TIncludedPointer,
->(
-	query: QueryExecutionInput<TSchema, TSelectedField, TIncludedPointer>,
-	options?: OperationOptions,
-): Promise<
-	readonly QueryResult<TSchema, TSelectedField, TIncludedPointer>[]
-> => {
-	const operation: FindManyOperationAst<
-		TSchema,
-		QueryFilterNode<TSchema>,
-		TSelectedField,
-		TIncludedPointer
-	> = immutableRecord({ kind: 'find-many', query: query.ast })
-
-	return executeQueryWithPrivateScope(query, operation, options)
-}
-
-/** Executes one first-match read while retaining framework-owned private scope. */
-export const executeQueryFindOne = <
-	const TSchema extends SchemaDefinition,
-	TSelectedField extends QueryFieldName<TSchema>,
-	TIncludedPointer,
->(
-	query: QueryExecutionInput<TSchema, TSelectedField, TIncludedPointer>,
-	options?: OperationOptions,
-): Promise<QueryResult<TSchema, TSelectedField, TIncludedPointer> | null> => {
-	const operation: FindOneOperationAst<
-		TSchema,
-		QueryFilterNode<TSchema>,
-		TSelectedField,
-		TIncludedPointer
-	> = immutableRecord({ kind: 'find-one', query: query.ast })
-
-	return executeQueryWithPrivateScope(query, operation, options)
-}
-
-/** Executes one exact identifier read while retaining private QueryBuilder filters. */
-export const executeQueryGet = <
-	const TSchema extends SchemaDefinition,
-	TSelectedField extends QueryFieldName<TSchema>,
-	TIncludedPointer,
->(
-	query: QueryExecutionInput<TSchema, TSelectedField, TIncludedPointer>,
-	id: OperationObjectId<TSchema>,
-	options?: OperationOptions,
-): Promise<QueryResult<TSchema, TSelectedField, TIncludedPointer>> => {
-	const operation: GetOperationAst<
-		TSchema,
-		QueryFilterNode<TSchema>,
-		TSelectedField,
-		TIncludedPointer
-	> = immutableRecord({ kind: 'get', id, query: query.ast })
-
-	return executeQueryWithPrivateScope(query, operation, options)
-}
-
-/** Executes one filtered count without materializing model values. */
-export const executeQueryCount = <const TSchema extends SchemaDefinition>(
-	query: QueryExecutionInput<TSchema, never, never>,
-	options?: OperationOptions,
-): Promise<number> => {
-	const operation: CountOperationAst<
-		TSchema,
-		QueryFilterNode<TSchema>
-	> = immutableRecord({ kind: 'count', query: query.ast })
-
-	return executeQueryWithPrivateScope(query, operation, options)
-}
-
-/** Executes one filtered existence check without loading model values. */
-export const executeQueryExists = <const TSchema extends SchemaDefinition>(
-	query: QueryExecutionInput<TSchema, never, never>,
-	options?: OperationOptions,
-): Promise<boolean> => {
-	const operation: ExistsOperationAst<
-		TSchema,
-		QueryFilterNode<TSchema>
-	> = immutableRecord({ kind: 'exists', query: query.ast })
-
-	return executeQueryWithPrivateScope(query, operation, options)
-}
-
-/** Executes one schema-owned create command without inventing a meaningless QueryBuilder. */
-export const executeSchemaCreateOne = <const TSchema extends SchemaDefinition>(
-	schema: TSchema,
-	input: SchemaCreateOneExecutionInput<TSchema>,
-	options?: OperationOptions,
-): Promise<object> => {
-	const projection = queryFromFindOneInput(schema, {
-		...(input.include === undefined ? {} : { include: input.include }),
-		...(input.select === undefined ? {} : { select: input.select }),
-	})
-	const operation: CreateOneOperationAst<
-		TSchema,
-		QueryFieldName<TSchema>
-	> = immutableRecord({
-		kind: 'create-one',
-		schema: createQueryAst(schema).schema,
-		input: input.data,
-		inclusion: projection.ast.inclusion,
-		selection: projection.ast.selection,
-	})
-
-	return executeOperation(operation, normalizeOperationOptions(options))
-}
-
-/** Executes one singular update while retaining private QueryBuilder restrictions. */
-export const executeQueryUpdateOne = <
-	const TSchema extends SchemaDefinition,
-	TSelectedField extends QueryFieldName<TSchema>,
-	TIncludedPointer,
->(
-	query: QueryExecutionInput<TSchema, TSelectedField, TIncludedPointer>,
-	input: UpdateExpressionInput<TSchema> & {},
-	options?: OperationOptions,
-): Promise<QueryResult<TSchema, TSelectedField, TIncludedPointer> | null> => {
-	const operation: UpdateOneOperationAst<
-		TSchema,
-		UpdateExpression<TSchema>,
-		QueryFilterNode<TSchema>,
-		TSelectedField,
-		TIncludedPointer
-	> = immutableRecord({
-		kind: 'update-one',
-		query: query.ast,
-		update: normalizeUpdateExpression(query.schema, input),
-	})
-
-	return executeQueryWithPrivateScope(query, operation, options)
-}
-
-/** Executes one unique-target upsert while retaining private QueryBuilder restrictions. */
-export const executeQueryUpsertOne = <
-	const TSchema extends SchemaDefinition,
-	TSelectedField extends QueryFieldName<TSchema>,
-	TIncludedPointer,
->(
-	query: QueryBuilder<TSchema, TSelectedField, TIncludedPointer>,
-	input: UpsertInput<TSchema> & {},
-	options?: OperationOptions,
-): Promise<QueryResult<TSchema, TSelectedField, TIncludedPointer>> => {
-	const normalizedInput = normalizeUpsertInput(query.schema, input)
-	const operation: UpsertOneOperationAst<
-		TSchema,
-		UpdateExpression<TSchema>,
-		QueryFilterNode<TSchema>,
-		TSelectedField,
-		TIncludedPointer
-	> = immutableRecord({
-		kind: 'upsert-one',
-		query: query.ast,
-		target: normalizeUniqueUpsertTarget(query.schema, query.ast),
-		...normalizedInput,
-	})
-
-	return executeQueryWithPrivateScope(query, operation, options)
-}
-
-/** Executes one singular delete while retaining private QueryBuilder restrictions. */
-export const executeQueryDeleteOne = <
-	const TSchema extends SchemaDefinition,
-	TSelectedField extends QueryFieldName<TSchema>,
-	TIncludedPointer,
->(
-	query: QueryExecutionInput<TSchema, TSelectedField, TIncludedPointer>,
-	options?: OperationOptions,
-): Promise<QueryResult<TSchema, TSelectedField, TIncludedPointer> | null> => {
-	const operation: DeleteOneOperationAst<
-		TSchema,
-		QueryFilterNode<TSchema>,
-		TSelectedField,
-		TIncludedPointer
-	> = immutableRecord({ kind: 'delete-one', query: query.ast })
-
-	return executeQueryWithPrivateScope(query, operation, options)
 }

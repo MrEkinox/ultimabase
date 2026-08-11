@@ -20,8 +20,8 @@ import {
 	executeQueryUpdateOne,
 	executeQueryUpsertOne,
 	executeSchemaCreateOne,
-	hydrateQueryFromAst,
-} from '../query/query.js'
+} from '../query/operation-execution.js'
+import { hydrateQueryFromAst } from '../query/query.js'
 import { queryFromFindOneInput } from '../query/input.js'
 import { normalizeUniqueUpsertTarget, normalizeUpsertInput } from './upsert.js'
 import {

@@ -6,8 +6,8 @@ import type { QueryResult } from '../../query/query/result.js'
 import {
 	executeQueryExists,
 	executeQueryFindOne,
-	scopeQueryToObjectId,
-} from '../../query/query/query.js'
+} from '../../query/query/operation-execution.js'
+import { scopeQueryToObjectId } from '../../query/query/private-scope.js'
 import {
 	queryFromExistsInput,
 	queryFromFindOneInput,

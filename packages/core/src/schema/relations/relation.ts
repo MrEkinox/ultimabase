@@ -14,10 +14,12 @@ import {
 	executeQueryFindOne,
 	executeQueryGet,
 	executeQueryWithPrivateScope,
-	QueryBuilder,
+} from '../../query/query/operation-execution.js'
+import {
 	scopeQueryToObjectId,
 	scopeQueryToRelation,
-} from '../../query/query/query.js'
+} from '../../query/query/private-scope.js'
+import { QueryBuilder } from '../../query/query/query.js'
 import {
 	queryFromCountInput,
 	queryFromExistsInput,

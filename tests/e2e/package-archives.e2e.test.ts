@@ -145,6 +145,26 @@ describe('@ultimabase/core Schema, QueryBuilder, and Runtime declarations', () =
 		}
 	})
 
+	it('keeps Query scope and execution ownership private', async () => {
+		const declarations = await readFile(
+			path.join(packagesDirectory, 'core', 'dist', 'index.d.ts'),
+			'utf8',
+		)
+
+		for (const internalName of [
+			'QueryExecutionInput',
+			'QueryRelationScopeInput',
+			'executeQueryWithPrivateScope',
+			'hydrateQueryFromAst',
+			'readQueryPrivateScope',
+			'scopeQueryToObjectId',
+			'scopeQueryToRelation',
+			'storeQueryPrivateScope',
+		]) {
+			expect(declarations).not.toContain(internalName)
+		}
+	})
+
 	it('omits removed Query mutation helpers from packed implementation sources', async () => {
 		const sourceMap = await readFile(
 			path.join(packagesDirectory, 'core', 'dist', 'index.js.map'),
