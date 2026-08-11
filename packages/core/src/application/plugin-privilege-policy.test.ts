@@ -169,7 +169,7 @@ describe('plugin privilege policy', () => {
 				{ name: 'adapter:raw', reason: 'Instance denial fixture.' },
 			],
 			environment: ['environment:network'],
-			declareFields: () => {
+			declare: () => {
 				declarationCalls += 1
 			},
 			setup: () => {

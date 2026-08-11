@@ -89,11 +89,6 @@ export interface FieldBuilderMethodRegistrar {
 	register(definition: FieldBuilderMethodDefinition): void
 }
 
-/** Runs synchronously before schemas execute their field declarations. */
-export type PluginFieldBuilderDeclaration = (
-	fields: FieldBuilderMethodRegistrar,
-) => undefined
-
 const assertKnownKeys = (
 	value: Readonly<Record<string, unknown>>,
 	knownKeys: ReadonlySet<string>,
@@ -221,16 +216,30 @@ export class FieldBuilderMethodRegistry implements FieldBuilderMethodResolver {
 	#closed = false
 	#snapshot: readonly OwnedFieldBuilderMethod[] | undefined
 
-	forPlugin(pluginName: string): FieldBuilderMethodRegistrar {
+	/** Opens one transactional owner-bound registration session. */
+	beginPluginDeclaration(pluginName: string): Readonly<{
+		fields: FieldBuilderMethodRegistrar
+		commit(): void
+		close(): void
+	}> {
 		assertNonEmptyString(pluginName, 'pluginName')
+		if (this.#closed) {
+			throw new TypeError('FieldBuilder method registration is already closed')
+		}
 
-		return immutableRecord({
+		const stagedMethods = new Map<string, OwnedFieldBuilderMethod>()
+		let sessionClosed = false
+		const assertSessionOpen = (): void => {
+			if (sessionClosed || this.#closed) {
+				throw new TypeError(
+					'FieldBuilder method declaration facade is already closed',
+				)
+			}
+		}
+
+		const fields = immutableRecord({
 			register: (definition: FieldBuilderMethodDefinition): void => {
-				if (this.#closed) {
-					throw new TypeError(
-						'FieldBuilder method registration is already closed',
-					)
-				}
+				assertSessionOpen()
 
 				assertFieldBuilderMethodDefinition(
 					definition,
@@ -243,7 +252,9 @@ export class FieldBuilderMethodRegistry implements FieldBuilderMethodResolver {
 					)
 				}
 
-				const existing = this.#methods.get(definition.name)
+				const existing =
+					stagedMethods.get(definition.name) ??
+					this.#methods.get(definition.name)
 
 				if (existing !== undefined) {
 					throw new TypeError(
@@ -251,10 +262,25 @@ export class FieldBuilderMethodRegistry implements FieldBuilderMethodResolver {
 					)
 				}
 
-				this.#methods.set(
+				stagedMethods.set(
 					definition.name,
 					immutableRecord({ ...definition, owner: pluginName }),
 				)
+			},
+		})
+
+		return immutableRecord({
+			fields,
+			commit: (): void => {
+				assertSessionOpen()
+				for (const [name, method] of stagedMethods) {
+					this.#methods.set(name, method)
+				}
+				stagedMethods.clear()
+			},
+			close: (): void => {
+				sessionClosed = true
+				stagedMethods.clear()
 			},
 		})
 	}

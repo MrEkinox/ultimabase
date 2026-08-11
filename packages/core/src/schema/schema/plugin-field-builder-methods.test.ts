@@ -60,12 +60,18 @@ const betaMethod = defineFieldBuilderMethod({
 	},
 })
 
+const schemaDeclarePrivilege = {
+	name: 'schema:declare',
+	reason: 'Declares fixture FieldBuilder methods.',
+} as const
+
 const alphaPlugin = () =>
 	definePlugin({
 		version: '0.0.0',
 		core: '^0.0.0',
 		pluginId: 'fixture.alpha-plugin',
-		declareFields: (fields) => {
+		privileges: [schemaDeclarePrivilege],
+		declare: ({ fields }) => {
 			fields.register(alphaMethod)
 		},
 	})
@@ -75,7 +81,8 @@ const betaPlugin = () =>
 		version: '0.0.0',
 		core: '^0.0.0',
 		pluginId: 'fixture.beta-plugin',
-		declareFields: (fields) => {
+		privileges: [schemaDeclarePrivilege],
+		declare: ({ fields }) => {
 			fields.register(betaMethod)
 		},
 	})
@@ -87,7 +94,8 @@ describe('plugin FieldBuilder methods', () => {
 			version: '0.0.0',
 			core: '^0.0.0',
 			pluginId: 'fixture.ordered-plugin',
-			declareFields: (fields) => {
+			privileges: [schemaDeclarePrivilege],
+			declare: ({ fields }) => {
 				trace.push('declare')
 				fields.register(alphaMethod)
 			},
@@ -258,7 +266,8 @@ describe('plugin FieldBuilder methods', () => {
 			version: '0.0.0',
 			core: '^0.0.0',
 			pluginId: 'fixture.override-plugin',
-			declareFields: (fields) => {
+			privileges: [schemaDeclarePrivilege],
+			declare: ({ fields }) => {
 				fields.register(override)
 			},
 		})
@@ -278,7 +287,8 @@ describe('plugin FieldBuilder methods', () => {
 						version: '0.0.0',
 						core: '^0.0.0',
 						pluginId: 'fixture.duplicate-plugin',
-						declareFields: (fields) => {
+						privileges: [schemaDeclarePrivilege],
+						declare: ({ fields }) => {
 							fields.register(alphaMethod)
 						},
 					}),
@@ -306,7 +316,8 @@ describe('plugin FieldBuilder methods', () => {
 			version: '0.0.0',
 			core: '^0.0.0',
 			pluginId: 'fixture.incompatible-plugin',
-			declareFields: (fields) => {
+			privileges: [schemaDeclarePrivilege],
+			declare: ({ fields }) => {
 				fields.register(incompatibleMethod)
 			},
 		})
@@ -328,8 +339,9 @@ describe('plugin FieldBuilder methods', () => {
 			version: '0.0.0',
 			core: '^0.0.0',
 			pluginId: 'fixture.async-plugin',
+			privileges: [schemaDeclarePrivilege],
 			// @ts-expect-error -- Runtime still rejects declarations loaded from JavaScript.
-			declareFields: async (fields) => {
+			declare: async ({ fields }) => {
 				fields.register(alphaMethod)
 				await Promise.resolve()
 			},
@@ -338,7 +350,7 @@ describe('plugin FieldBuilder methods', () => {
 		await expect(
 			createApplication({ plugins: [asynchronousPlugin], schemas: [] }),
 		).rejects.toThrow(
-			'Plugin "fixture.async-plugin" declareFields must be synchronous and return nothing',
+			'Plugin "fixture.async-plugin" declare must be synchronous and return nothing',
 		)
 	})
 
@@ -362,7 +374,8 @@ describe('plugin FieldBuilder methods', () => {
 					version: '0.0.0',
 					core: '^0.0.0',
 					pluginId: 'fixture.snapshot-plugin',
-					declareFields: (fields) => {
+					privileges: [schemaDeclarePrivilege],
+					declare: ({ fields }) => {
 						fields.register(method)
 					},
 				}),
@@ -381,7 +394,8 @@ describe('plugin FieldBuilder methods', () => {
 			version: '0.0.0',
 			core: '^0.0.0',
 			pluginId: 'fixture.untrusted-plugin',
-			declareFields: (fields) => {
+			privileges: [schemaDeclarePrivilege],
+			declare: ({ fields }) => {
 				const untrusted = {
 					factory: alphaField,
 					fieldKind: 'fixture.alpha',

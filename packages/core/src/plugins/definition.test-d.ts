@@ -29,8 +29,12 @@ test('preserves literal manifests and synchronous setup exports', () => {
 				name: 'adapter:consume',
 				reason: 'Uses the configured database adapter.',
 			},
+			{
+				name: 'schema:declare',
+				reason: 'Declares the text FieldBuilder method.',
+			},
 		] as const,
-		declareFields: (fields) => {
+		declare: ({ fields }) => {
 			fields.register(method)
 		},
 		setup: ({ schemas }) => {
@@ -58,7 +62,7 @@ test('preserves literal manifests and synchronous setup exports', () => {
 	).toEqualTypeOf<'adapter:consume'>()
 	expectTypeOf<'adapter:consume'>().toExtend<PluginPrivilege>()
 	expectTypeOf(plugin).not.toHaveProperty('slot')
-	expectTypeOf(plugin).not.toHaveProperty('declareFields')
+	expectTypeOf(plugin).not.toHaveProperty('declare')
 	expectTypeOf(plugin).not.toHaveProperty('setup')
 	expectTypeOf(plugin).not.toHaveProperty('hooks')
 	expectTypeOf<PluginExports<typeof plugin>>().toEqualTypeOf<{
@@ -130,7 +134,7 @@ test('keeps definitions immutable and rejects incompatible metadata', () => {
 		version: '0.0.0',
 		core: '^0.0.0',
 		pluginId: 'fixture.invalid',
-		// @ts-expect-error -- Static field declarations must remain callable.
-		declareFields: true,
+		// @ts-expect-error -- Static declarations must remain callable.
+		declare: true,
 	})
 })

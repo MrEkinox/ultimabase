@@ -8,6 +8,7 @@ import {
 	type CapabilityToken,
 	type CapabilityProviderChainInspection,
 	type PluginEnvironmentClaim,
+	type PluginDeclarationContext,
 	type PluginIdentity,
 	type PluginManifest,
 	type PluginPrivilege,
@@ -95,6 +96,8 @@ type InspectedCapabilityChain =
 	/* hover:capability-chain */ CapabilityProviderChainInspection
 type InspectedPolicy = /* hover:policy */ PluginPrivilegePolicy
 type InspectedReport = /* hover:report */ PluginPrivilegeReport
+type InspectedDeclarationContext =
+	/* hover:declaration-context */ PluginDeclarationContext
 
 void plugin
 void privilege
@@ -113,3 +116,4 @@ void (undefined as unknown as InspectedCapability)
 void (undefined as unknown as InspectedCapabilityChain)
 void (undefined as unknown as InspectedPolicy)
 void (undefined as unknown as InspectedReport)
+void (undefined as unknown as InspectedDeclarationContext)

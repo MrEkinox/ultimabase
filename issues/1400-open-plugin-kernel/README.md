@@ -16,7 +16,7 @@ community packages.
 3. [x] [1402 — Enforce application privilege policy and startup reporting](1402-privilege-policy-and-reporting.md)
 4. [x] [1404 — Compose capability providers, decorators, and replacements](1404-capability-composition.md)
 5. [x] [1415 — Converge legacy services, slots, and setup registries](1415-converge-legacy-plugin-host.md)
-6. [ ] [1405 — Open the static plugin declaration host](1405-static-plugin-declaration-host.md)
+6. [x] [1405 — Open the static plugin declaration host](1405-static-plugin-declaration-host.md)
 7. [ ] [1406 — Compile owned schema transformations and provenance](1406-schema-transformations-and-provenance.md)
 8. [ ] [1407 — Add dynamic schemas, model extensions, and plugin operations](1407-dynamic-schemas-models-and-operations.md)
 9. [ ] [1408 — Let plugins contribute exact Typegen contracts](1408-plugin-typegen-contributions.md)

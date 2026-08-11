@@ -38,7 +38,7 @@ Detailed guides remain focused by domain:
 
 `Schema.define()` retains a synchronous field declaration instead of resolving
 fields during module evaluation. `createApplication()` first runs the pure,
-synchronous `declareFields` callback of every plugin in dependency order, then
+synchronous `declare` callback of every plugin in dependency order, then
 compiles every configured schema atomically before plugin setup or
 infrastructure lifecycle work. Setup receives the resulting read-only schema
 registry; plugins cannot register late schemas or field methods:
@@ -114,7 +114,13 @@ const plugin = definePlugin({
 	pluginId: '@ultimabase/pg-vector-plugin',
 	version: '1.0.0',
 	core: '^0.0.0',
-	declareFields(fields) {
+	privileges: [
+		{
+			name: 'schema:declare',
+			reason: 'Declares the vector FieldBuilder method.',
+		},
+	],
+	declare({ fields }) {
 		fields.register(vectorMethod)
 	},
 	setup: () => ({ ready: true }),
@@ -123,7 +129,8 @@ const plugin = definePlugin({
 
 Registrations are isolated per application and reject built-in overrides,
 duplicates, unstable declarations, and factories returning another field kind.
-`declareFields` receives no services or runtime state and must return
+`declare` receives only exact capability reads and facades authorized by active
+privileges; it receives no setup services or runtime state and must return
 synchronously. The generated application declaration emitted by
 `@ultimabase/typegen` adds the contributed method to that application's
 `FieldBuilder`; Core's base `FieldBuilder` does

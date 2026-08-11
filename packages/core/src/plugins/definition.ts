@@ -12,11 +12,11 @@ import type {
 	NormalizedPluginCapabilityDeclarations,
 	PluginCapabilityDeclarationOptions,
 } from './capabilities.js'
-import type { PluginSetupContext } from './setup-registries.js'
 import type {
-	FieldBuilderMethodRegistrar,
-	PluginFieldBuilderDeclaration,
-} from '../schema/schema/field-builder-methods.js'
+	PluginDeclaration,
+	PluginDeclarationContext,
+} from './declaration-host.js'
+import type { PluginSetupContext } from './setup-registries.js'
 import {
 	assertPluginId,
 	formatPluginIdentity,
@@ -63,8 +63,11 @@ export interface PluginLifecycleHooks<TExports> {
 /** Names every lifecycle boundary that Core may invoke for a plugin. */
 export type PluginLifecyclePhase = keyof PluginLifecycleHooks<unknown>
 
+interface PluginStaticDefinition {
+	readonly declare: PluginDeclaration | undefined
+}
+
 interface PluginRuntimeDefinition {
-	readonly declareFields: PluginFieldBuilderDeclaration | undefined
 	readonly setup: PluginSetup | undefined
 	runHook(
 		phase: PluginLifecyclePhase,
@@ -77,12 +80,16 @@ declare const pluginSetupExportsBrand: unique symbol
 const pluginRuntimeDefinition: unique symbol = Symbol(
 	'ultimabase.plugin-runtime-definition',
 )
+const pluginStaticDefinition: unique symbol = Symbol(
+	'ultimabase.plugin-static-definition',
+)
 
 /** Identifies definitions whose runtime provenance was validated by Core. */
 export interface PluginDefinition {
 	readonly [pluginDefinitionBrand]: true
 	readonly [pluginSetupExportsBrand]: unknown
 	readonly [pluginRuntimeDefinition]: PluginRuntimeDefinition
+	readonly [pluginStaticDefinition]: PluginStaticDefinition
 	readonly manifest: PluginManifest
 	readonly dependencies?: readonly PluginDependency[] | undefined
 	readonly optionalDependencies?: readonly PluginDependency[] | undefined
@@ -168,8 +175,11 @@ export interface DefinePluginOptions<
 	readonly dependencies?: TDependencies
 	readonly optionalDependencies?: TOptionalDependencies
 	readonly conflicts?: TConflicts
-	/** Declares owner-scoped FieldBuilder methods before schema compilation. */
-	readonly declareFields?: PluginFieldBuilderDeclaration
+	/**
+	 * Declares deterministic metadata through privilege-scoped static facades.
+	 * @example `declare: ({ fields }) => { fields.register(vectorMethod) }`
+	 */
+	readonly declare?: PluginDeclaration<TPrivileges, TCapabilities>
 	readonly setup?: (context: PluginSetupContext) => TSetupResult
 	readonly hooks?: PluginLifecycleHooks<Awaited<TSetupResult>>
 	readonly plugins?: TPlugins
@@ -189,7 +199,7 @@ const definePluginOptionKeys = new Set([
 	'capabilities',
 	'conflicts',
 	'core',
-	'declareFields',
+	'declare',
 	'dependencies',
 	'environment',
 	'hooks',
@@ -288,18 +298,22 @@ const getPluginRuntimeDefinition = (
 	plugin: PluginDefinition,
 ): PluginRuntimeDefinition => plugin[pluginRuntimeDefinition]
 
+const getPluginStaticDefinition = (
+	plugin: PluginDefinition,
+): PluginStaticDefinition => plugin[pluginStaticDefinition]
+
 /** Runs one setup callback while keeping its exact export type private to the definition. */
 export const runPluginSetup = (
 	plugin: PluginDefinition,
 	context: PluginSetupContext,
 ): MaybePromise<unknown> => getPluginRuntimeDefinition(plugin).setup?.(context)
 
-/** Runs one pure synchronous field-method declaration before schema compilation. */
-export const runPluginFieldBuilderDeclaration = (
+/** Runs one pure synchronous static declaration before schema compilation. */
+export const runPluginDeclaration = (
 	plugin: PluginDefinition,
-	fields: FieldBuilderMethodRegistrar,
+	context: PluginDeclarationContext,
 ): void => {
-	const declaration = getPluginRuntimeDefinition(plugin).declareFields
+	const declaration = getPluginStaticDefinition(plugin).declare
 
 	if (declaration === undefined) {
 		return
@@ -307,13 +321,13 @@ export const runPluginFieldBuilderDeclaration = (
 
 	// Keep the runtime boundary defensive for declarations loaded from JavaScript.
 	const invokeDeclaration = declaration as (
-		fields: FieldBuilderMethodRegistrar,
+		context: PluginDeclarationContext,
 	) => unknown
-	const returned = invokeDeclaration(fields)
+	const returned = invokeDeclaration(context)
 
 	if (returned !== undefined) {
 		throw new TypeError(
-			`Plugin "${formatPluginIdentity(plugin.manifest.identity)}" declareFields must be synchronous and return nothing`,
+			`Plugin "${formatPluginIdentity(plugin.manifest.identity)}" declare must be synchronous and return nothing`,
 		)
 	}
 }
@@ -448,11 +462,8 @@ export const definePlugin = <
 		throw new TypeError('setup must be a function')
 	}
 
-	if (
-		options.declareFields !== undefined &&
-		typeof options.declareFields !== 'function'
-	) {
-		throw new TypeError('declareFields must be a function')
+	if (options.declare !== undefined && typeof options.declare !== 'function') {
+		throw new TypeError('declare must be a function')
 	}
 
 	const lifecycleHooks =
@@ -460,8 +471,10 @@ export const definePlugin = <
 			? undefined
 			: normalizeLifecycleHooks(options.hooks)
 
+	const staticDefinition = immutableRecord({
+		declare: options.declare,
+	})
 	const runtimeDefinition = immutableRecord({
-		declareFields: options.declareFields,
 		setup: options.setup,
 		runHook: (
 			phase: PluginLifecyclePhase,
@@ -479,6 +492,7 @@ export const definePlugin = <
 	})
 	const plugin = immutableRecord({
 		[pluginRuntimeDefinition]: runtimeDefinition,
+		[pluginStaticDefinition]: staticDefinition,
 		manifest,
 		...(options.dependencies === undefined
 			? {}

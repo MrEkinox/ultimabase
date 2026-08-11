@@ -62,7 +62,7 @@ optional official plugins while keeping Core master authority unchanged.
 
 ### Phase 2 — Open static application compilation
 
-6. [ ] [1405 — Open the static plugin declaration host](issues/1400-open-plugin-kernel/1405-static-plugin-declaration-host.md)
+6. [x] [1405 — Open the static plugin declaration host](issues/1400-open-plugin-kernel/1405-static-plugin-declaration-host.md)
 7. [ ] [1406 — Compile owned schema transformations and provenance](issues/1400-open-plugin-kernel/1406-schema-transformations-and-provenance.md)
 8. [ ] [1407 — Add dynamic schemas, model extensions, and plugin operations](issues/1400-open-plugin-kernel/1407-dynamic-schemas-models-and-operations.md)
 9. [ ] [1408 — Let plugins contribute exact Typegen contracts](issues/1400-open-plugin-kernel/1408-plugin-typegen-contributions.md)

@@ -89,5 +89,10 @@ describe('packed @ultimabase/core plugin manifests', () => {
 		expect(languageFixture.readHover('report').display).toContain(
 			'interface PluginPrivilegeReport',
 		)
+		expect(
+			languageFixture.readHover('declaration-context').documentation,
+		).toContain(
+			'Supplies only immutable static facades authorized by one plugin manifest.',
+		)
 	})
 })

@@ -219,7 +219,13 @@ export const pgVectorPlugin = (): PgVectorPlugin =>
 		version: '0.0.0',
 		core: '^0.0.0',
 		pluginId: '@ultimabase/pg-vector-plugin',
-		declareFields: (fields) => {
+		privileges: [
+			{
+				name: 'schema:declare',
+				reason: 'Declares the vector FieldBuilder method.',
+			},
+		],
+		declare: ({ fields }) => {
 			fields.register(vectorFieldBuilderMethod)
 		},
 		setup: () => pgVectorPluginExports,

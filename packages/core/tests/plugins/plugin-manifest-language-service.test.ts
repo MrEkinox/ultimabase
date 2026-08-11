@@ -55,6 +55,20 @@ const readHover = (name: string): string => {
 	)
 }
 
+const readDocumentation = (name: string): string => {
+	const marker = `/* hover:${name} */`
+	const markerPosition = source.indexOf(marker)
+
+	if (markerPosition < 0) throw new TypeError(`Missing marker: ${marker}`)
+
+	let position = markerPosition + marker.length
+	while (/\s/u.test(source[position] ?? '')) position += 1
+
+	return ts.displayPartsToString(
+		service.getQuickInfoAtPosition(fixtureFile, position)?.documentation,
+	)
+}
+
 describe('plugin manifest source language service', () => {
 	it('offers the closed literals and preserves public manifest hovers', () => {
 		expect(service.getSemanticDiagnostics(fixtureFile)).toStrictEqual([])
@@ -106,5 +120,8 @@ describe('plugin manifest source language service', () => {
 		)
 		expect(readHover('policy')).toContain('interface PluginPrivilegePolicy')
 		expect(readHover('report')).toContain('interface PluginPrivilegeReport')
+		expect(readDocumentation('declaration-context')).toContain(
+			'Supplies only immutable static facades authorized by one plugin manifest.',
+		)
 	})
 })

@@ -10,12 +10,10 @@ import {
 	isUnknownArray,
 } from '@ultimabase/shared'
 
-import {
-	type PluginDefinition,
-	runPluginFieldBuilderDeclaration,
-} from '../plugins/definition.js'
+import { type PluginDefinition } from '../plugins/definition.js'
 import { composeDeclarationCapabilities } from '../plugins/capability-inventory.js'
 import { ApplicationCapabilityHost } from '../plugins/capability-host.js'
+import { PluginDeclarationHost } from '../plugins/declaration-host.js'
 import { bindApplicationCapabilityHost } from '../plugins/application-capability-access.js'
 import { validateExtensionOwners } from '../plugins/extension-handlers.js'
 import { FrameworkError } from '../errors/framework-error.js'
@@ -189,6 +187,7 @@ export class FrameworkApplication<
 	readonly #lifecycle: PluginLifecycleManager
 	readonly #pluginGraph: PluginGraph
 	readonly #fieldBuilderMethods = new FieldBuilderMethodRegistry()
+	readonly #declarationHost: PluginDeclarationHost
 	#schemaCompilationState: 'compiled' | 'compiling' | 'failed' | 'idle' = 'idle'
 	#schemaCompilationError: unknown
 	#initializePromise: Promise<this> | undefined
@@ -212,6 +211,10 @@ export class FrameworkApplication<
 		this.schemas = new SchemaRegistry(options.schemas)
 		this.accessDefaults = normalizeAccessDefaults(options.access)
 		this.#pluginGraph = graph
+		this.#declarationHost = new PluginDeclarationHost(
+			graph,
+			this.#fieldBuilderMethods,
+		)
 		const capabilityHostReference: {
 			current: ApplicationCapabilityHost | undefined
 		} = { current: undefined }
@@ -324,16 +327,7 @@ export class FrameworkApplication<
 		this.#schemaCompilationState = 'compiling'
 
 		try {
-			for (const plugin of this.#pluginGraph) {
-				runPluginFieldBuilderDeclaration(
-					plugin.definition,
-					this.#fieldBuilderMethods.forPlugin(
-						plugin.definition.manifest.identity.pluginId,
-					),
-				)
-			}
-
-			this.#fieldBuilderMethods.close()
+			this.#declarationHost.run()
 			this.schemas.compileSchemas(this.#fieldBuilderMethods)
 			this.#schemaCompilationState = 'compiled'
 

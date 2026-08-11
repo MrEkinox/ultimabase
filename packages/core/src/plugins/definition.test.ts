@@ -1,10 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import {
-	defineFieldBuilderMethod,
-	definePlugin,
-	stringField,
-} from '../index.js'
+import { definePlugin } from '../index.js'
 
 describe('definePlugin', () => {
 	it('creates immutable static definitions without running callbacks', () => {
@@ -33,20 +29,8 @@ describe('definePlugin', () => {
 			dependencies,
 			optionalDependencies: [{ pluginId: 'fixture.cache', version: '^0.0.0' }],
 			conflicts: ['fixture.other-database'],
-			declareFields: (fields) => {
+			declare: () => {
 				declarationCalls += 1
-				fields.register(
-					defineFieldBuilderMethod({
-						factory: stringField,
-						fieldKind: 'fixture.text',
-						name: 'text',
-						typegen: {
-							methodType: 'TextFieldBuilderMethod',
-							module: '@fixture/text-plugin',
-							valueType: 'TextValue',
-						},
-					}),
-				)
 			},
 			setup: () => {
 				setupCalls += 1
@@ -87,7 +71,7 @@ describe('definePlugin', () => {
 			conflicts: ['fixture.other-database'],
 		})
 		expect('setup' in plugin).toBe(false)
-		expect('declareFields' in plugin).toBe(false)
+		expect('declare' in plugin).toBe(false)
 		expect('hooks' in plugin).toBe(false)
 		expect(Object.isFrozen(plugin)).toBe(true)
 		expect(Object.isFrozen(plugin.manifest)).toBe(true)
@@ -146,10 +130,10 @@ describe('definePlugin', () => {
 				version: '0.0.0',
 				core: '^0.0.0',
 				pluginId: 'fixture.plugin',
-				// @ts-expect-error -- Static field declarations must remain callable.
-				declareFields: 'later',
+				// @ts-expect-error -- Static declarations must remain callable.
+				declare: 'later',
 			})
-		}).toThrow(new TypeError('declareFields must be a function'))
+		}).toThrow(new TypeError('declare must be a function'))
 		expect(() => {
 			definePlugin({
 				version: '0.0.0',

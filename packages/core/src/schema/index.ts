@@ -264,7 +264,6 @@ export type {
 	FieldBuilderMethodRegistrar,
 	FieldBuilderMethodTypegen,
 	OwnedFieldBuilderMethod,
-	PluginFieldBuilderDeclaration,
 } from './schema/field-builder-methods.js'
 export type {
 	BaseSchemaTypeInfo,

@@ -122,6 +122,11 @@ export type {
 	PluginSetupContext,
 	PluginSetupExports,
 } from './plugins/definition.js'
+export type {
+	PluginDeclaration,
+	PluginDeclarationCapabilityReader,
+	PluginDeclarationContext,
+} from './plugins/declaration-host.js'
 export { normalizePlugins } from './plugins/normalization.js'
 export type { NormalizedPlugin } from './plugins/normalization.js'
 export { PluginGraph } from './plugins/graph.js'

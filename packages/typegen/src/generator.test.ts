@@ -438,7 +438,13 @@ describe('generateApplicationTypes', () => {
 			version: '0.0.0',
 			core: '^0.0.0',
 			pluginId: 'fixture.first-shared-plugin',
-			declareFields: (fields) => {
+			privileges: [
+				{
+					name: 'schema:declare',
+					reason: 'Declares the first shared FieldBuilder method.',
+				},
+			],
+			declare: ({ fields }) => {
 				fields.register(firstMethod)
 			},
 		})
@@ -446,7 +452,13 @@ describe('generateApplicationTypes', () => {
 			version: '0.0.0',
 			core: '^0.0.0',
 			pluginId: 'fixture.second-shared-plugin',
-			declareFields: (fields) => {
+			privileges: [
+				{
+					name: 'schema:declare',
+					reason: 'Declares the second shared FieldBuilder method.',
+				},
+			],
+			declare: ({ fields }) => {
 				fields.register(secondMethod)
 			},
 		})

@@ -81,6 +81,10 @@ application capabilities but cannot register an undeclared or denied power.
 
 The workflow `declare(...)` and operation-handler surface above is the accepted
 milestone target; issues 1405 through 1417 deliver those domain-specific hosts.
+Issue 1405 establishes this single callback with exact declaration-capability
+reads and the `fields` registrar when `schema:declare` is active. Schema,
+patch, model, operation, and Typegen registrars remain target APIs until their
+own follow-up issues deliver their descriptor contracts.
 The capability kernel available after issue 1404 declares resource factories
 statically and exposes only exact requirement reads during setup:
 
