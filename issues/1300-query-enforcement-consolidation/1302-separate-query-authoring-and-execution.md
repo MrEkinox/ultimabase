@@ -1,6 +1,6 @@
 # 1302: Separate Query authoring from private execution
 
-- Status: planned
+- Status: ready
 - Milestone: 13
 - Packages: `@ultimabase/core`
 - Depends on: 1301

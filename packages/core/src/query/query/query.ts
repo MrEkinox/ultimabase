@@ -30,7 +30,6 @@ import {
 	normalizeQueryOffsetPagination,
 } from '../clauses/pagination.js'
 import {
-	emptyQuerySelection,
 	normalizeQuerySelectedFields,
 	normalizeQuerySelection,
 	type ExactQuerySelection,
@@ -55,9 +54,7 @@ import {
 } from '../filters/where.js'
 import type {
 	CountOperationAst,
-	CreateManyOperationAst,
 	CreateOneOperationAst,
-	DeleteManyOperationAst,
 	DeleteOneOperationAst,
 	ExistsOperationAst,
 	FindManyOperationAst,
@@ -65,9 +62,7 @@ import type {
 	GetOperationAst,
 	OperationAstNode,
 	OperationObjectId,
-	UpdateManyOperationAst,
 	UpdateOneOperationAst,
-	UpsertManyOperationAst,
 	UpsertOneOperationAst,
 } from '../operations/contracts.js'
 import {
@@ -78,18 +73,12 @@ import {
 } from '../operations/execution.js'
 import type { OperationOptions } from '../operations/options.js'
 import type { OperationResult } from '../operations/results.js'
-import { snapshotCreateInputs } from '../operations/bulk.js'
 import {
 	normalizeUniqueUpsertTarget,
 	normalizeUpsertInput,
-	normalizeUpsertItems,
 	type UpsertInput,
-	type UpsertManyItemInput,
 } from '../operations/upsert.js'
-import type {
-	SchemaCreateManyExecutionInput,
-	SchemaCreateOneExecutionInput,
-} from '../operations/schema-commands.js'
+import type { SchemaCreateOneExecutionInput } from '../operations/schema-commands.js'
 import { queryFromFindOneInput } from './input.js'
 import type {
 	UpdateExpression,
@@ -995,28 +984,6 @@ export const executeSchemaCreateOne = <const TSchema extends SchemaDefinition>(
 	return executeOperation(operation, normalizeOperationOptions(options))
 }
 
-/** Executes one ordered schema-owned bulk create command. */
-export const executeSchemaCreateMany = <const TSchema extends SchemaDefinition>(
-	schema: TSchema,
-	input: SchemaCreateManyExecutionInput<TSchema>,
-	options?: OperationOptions,
-): Promise<readonly QueryResult<TSchema, QueryFieldName<TSchema>>[]> => {
-	const operation: CreateManyOperationAst<
-		TSchema,
-		QueryFieldName<TSchema>
-	> = immutableRecord({
-		kind: 'create-many',
-		schema: createQueryAst(schema).schema,
-		inputs: snapshotCreateInputs(input.data),
-		selection:
-			input.select === undefined
-				? emptyQuerySelection
-				: normalizeQuerySelection(schema, input.select),
-	})
-
-	return executeOperation(operation, normalizeOperationOptions(options))
-}
-
 /** Executes one singular update while retaining private QueryBuilder restrictions. */
 export const executeQueryUpdateOne = <
 	const TSchema extends SchemaDefinition,
@@ -1035,29 +1002,6 @@ export const executeQueryUpdateOne = <
 		TIncludedPointer
 	> = immutableRecord({
 		kind: 'update-one',
-		query: query.ast,
-		update: normalizeUpdateExpression(query.schema, input),
-	})
-
-	return executeQueryWithPrivateScope(query, operation, options)
-}
-
-/** Executes one set-based update while retaining private QueryBuilder restrictions. */
-export const executeQueryUpdateMany = <
-	const TSchema extends SchemaDefinition,
-	TSelectedField extends QueryFieldName<TSchema>,
->(
-	query: QueryBuilder<TSchema, TSelectedField>,
-	input: UpdateExpressionInput<TSchema> & {},
-	options?: OperationOptions,
-): Promise<readonly QueryResult<TSchema, TSelectedField>[]> => {
-	const operation: UpdateManyOperationAst<
-		TSchema,
-		UpdateExpression<TSchema>,
-		QueryFilterNode<TSchema>,
-		TSelectedField
-	> = immutableRecord({
-		kind: 'update-many',
 		query: query.ast,
 		update: normalizeUpdateExpression(query.schema, input),
 	})
@@ -1092,31 +1036,6 @@ export const executeQueryUpsertOne = <
 	return executeQueryWithPrivateScope(query, operation, options)
 }
 
-/** Executes independently targeted upsert items without a container QueryBuilder. */
-export const executeSchemaUpsertMany = <const TSchema extends SchemaDefinition>(
-	schema: TSchema,
-	inputs: readonly UpsertManyItemInput<TSchema>[],
-	selection: QuerySelection<TSchema> | undefined,
-	options?: OperationOptions,
-): Promise<readonly QueryResult<TSchema, QueryFieldName<TSchema>>[]> => {
-	const operation: UpsertManyOperationAst<
-		TSchema,
-		UpdateExpression<TSchema>,
-		QueryFilterNode<TSchema>,
-		QueryFieldName<TSchema>
-	> = immutableRecord({
-		kind: 'upsert-many',
-		schema: createQueryAst(schema).schema,
-		items: normalizeUpsertItems(schema, inputs),
-		selection:
-			selection === undefined
-				? emptyQuerySelection
-				: normalizeQuerySelection(schema, selection),
-	})
-
-	return executeOperation(operation, normalizeOperationOptions(options))
-}
-
 /** Executes one singular delete while retaining private QueryBuilder restrictions. */
 export const executeQueryDeleteOne = <
 	const TSchema extends SchemaDefinition,
@@ -1132,23 +1051,6 @@ export const executeQueryDeleteOne = <
 		TSelectedField,
 		TIncludedPointer
 	> = immutableRecord({ kind: 'delete-one', query: query.ast })
-
-	return executeQueryWithPrivateScope(query, operation, options)
-}
-
-/** Executes one set-based delete while retaining private QueryBuilder restrictions. */
-export const executeQueryDeleteMany = <
-	const TSchema extends SchemaDefinition,
-	TSelectedField extends QueryFieldName<TSchema>,
->(
-	query: QueryBuilder<TSchema, TSelectedField>,
-	options?: OperationOptions,
-): Promise<readonly QueryResult<TSchema, TSelectedField>[]> => {
-	const operation: DeleteManyOperationAst<
-		TSchema,
-		QueryFilterNode<TSchema>,
-		TSelectedField
-	> = immutableRecord({ kind: 'delete-many', query: query.ast })
 
 	return executeQueryWithPrivateScope(query, operation, options)
 }

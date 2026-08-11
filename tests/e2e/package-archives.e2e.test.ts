@@ -145,6 +145,22 @@ describe('@ultimabase/core Schema, QueryBuilder, and Runtime declarations', () =
 		}
 	})
 
+	it('omits removed Query mutation helpers from packed implementation sources', async () => {
+		const sourceMap = await readFile(
+			path.join(packagesDirectory, 'core', 'dist', 'index.js.map'),
+			'utf8',
+		)
+
+		for (const removedName of [
+			'executeSchemaCreateMany',
+			'executeQueryUpdateMany',
+			'executeSchemaUpsertMany',
+			'executeQueryDeleteMany',
+		]) {
+			expect(sourceMap).not.toContain(removedName)
+		}
+	})
+
 	it('keeps Runtime orchestration implementation private', async () => {
 		const declarations = await readFile(
 			path.join(packagesDirectory, 'core', 'dist', 'index.d.ts'),

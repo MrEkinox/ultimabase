@@ -9,7 +9,7 @@ no public API, Runtime order, security semantic, or product capability.
 
 ## Execution order
 
-1. [ ] [1301 — Remove unused Query mutation execution helpers](1301-remove-unused-query-mutation-helpers.md)
+1. [x] [1301 — Remove unused Query mutation execution helpers](1301-remove-unused-query-mutation-helpers.md)
 2. [ ] [1302 — Separate Query authoring from private execution](1302-separate-query-authoring-and-execution.md)
 3. [ ] [1303 — Decompose policy-neutral Enforcement dispatch](1303-decompose-enforcement-dispatch.md)
 

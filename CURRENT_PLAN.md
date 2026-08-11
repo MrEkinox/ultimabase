@@ -33,7 +33,7 @@ contract and Runtime security invariant.
 
 ## Execution order
 
-1. [ ] [1301 — Remove unused Query mutation execution helpers](issues/1300-query-enforcement-consolidation/1301-remove-unused-query-mutation-helpers.md)
+1. [x] [1301 — Remove unused Query mutation execution helpers](issues/1300-query-enforcement-consolidation/1301-remove-unused-query-mutation-helpers.md)
 2. [ ] [1302 — Separate Query authoring from private execution](issues/1300-query-enforcement-consolidation/1302-separate-query-authoring-and-execution.md)
 3. [ ] [1303 — Decompose policy-neutral Enforcement dispatch](issues/1300-query-enforcement-consolidation/1303-decompose-enforcement-dispatch.md)
 
