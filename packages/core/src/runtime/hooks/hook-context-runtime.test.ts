@@ -462,7 +462,9 @@ describe('HookContext Runtime capabilities', () => {
 			}),
 		})
 		const secondConsumer = definePlugin({
-			dependencies: ['fixture.first-event-consumer'],
+			dependencies: [
+				{ pluginId: 'fixture.first-event-consumer', version: '^0.0.0' },
+			],
 			version: '0.0.0',
 			core: '^0.0.0',
 			pluginId: 'fixture.second-event-consumer',

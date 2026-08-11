@@ -12,7 +12,7 @@ community packages.
 ## Execution order
 
 1. [x] [1401 — Add plugin manifests and declared privileges](1401-plugin-manifests-and-privileges.md)
-2. [ ] [1403 — Add versioned capability tokens and requirements](1403-versioned-capability-tokens.md)
+2. [x] [1403 — Add versioned capability tokens and requirements](1403-versioned-capability-tokens.md)
 3. [ ] [1402 — Enforce application privilege policy and startup reporting](1402-privilege-policy-and-reporting.md)
 4. [ ] [1404 — Compose capability providers, decorators, and replacements](1404-capability-composition.md)
 5. [ ] [1415 — Converge legacy services, slots, and setup registries](1415-converge-legacy-plugin-host.md)

@@ -1,9 +1,11 @@
 import { immutableArray, isUnknownArray } from '@ultimabase/shared'
+import { satisfies } from 'semver'
 
 import { FrameworkError } from '../errors/framework-error.js'
 import {
 	formatPluginIdentity,
 	isSamePluginIdentity,
+	type PluginDependency,
 	type PluginIdentity,
 } from './manifest.js'
 import {
@@ -14,6 +16,7 @@ import {
 	createDuplicatePluginError,
 	createExclusiveSlotConflictError,
 } from './plugin-errors.js'
+import { CapabilityInventory } from './capability-inventory.js'
 
 interface GraphNode {
 	readonly plugin: NormalizedPlugin
@@ -223,21 +226,57 @@ const createGraphNodes = (
 const resolveNamedDependency = (
 	nodesByPluginId: ReadonlyMap<string, readonly GraphNode[]>,
 	pluginIdentity: PluginIdentity,
-	dependencyId: string,
+	dependencyDeclaration: PluginDependency,
 	required: boolean,
 ): GraphNode | undefined => {
-	const candidates = nodesByPluginId.get(dependencyId) ?? []
+	const configuredCandidates =
+		nodesByPluginId.get(dependencyDeclaration.pluginId) ?? []
+	const candidates =
+		dependencyDeclaration.instanceId === undefined
+			? configuredCandidates
+			: configuredCandidates.filter(
+					({ plugin }) =>
+						plugin.definition.manifest.identity.instanceId ===
+						dependencyDeclaration.instanceId,
+				)
+	const dependencyTarget =
+		dependencyDeclaration.instanceId === undefined
+			? dependencyDeclaration.pluginId
+			: `${dependencyDeclaration.pluginId} (instance ${dependencyDeclaration.instanceId})`
 
 	if (candidates.length === 0) {
-		if (required) throwMissingDependency(pluginIdentity, dependencyId)
+		if (required) throwMissingDependency(pluginIdentity, dependencyTarget)
 		return undefined
 	}
 
 	if (candidates.length > 1) {
-		throwAmbiguousDependency(pluginIdentity, dependencyId)
+		throwAmbiguousDependency(pluginIdentity, dependencyDeclaration.pluginId)
 	}
 
-	return candidates[0]
+	const [candidate] = candidates as [GraphNode, ...GraphNode[]]
+	if (
+		!satisfies(
+			candidate.plugin.definition.manifest.version,
+			dependencyDeclaration.version,
+		)
+	) {
+		const plugin = formatPluginIdentity(pluginIdentity)
+		throw new FrameworkError(
+			'PLUGIN_PROTOCOL_INCOMPATIBLE',
+			`Plugin "${plugin}" requires ${dependencyTarget} version "${dependencyDeclaration.version}", but version "${candidate.plugin.definition.manifest.version}" is installed.`,
+			{
+				internalDetails: {
+					kind: 'named-plugin-version',
+					pluginId: pluginIdentity.pluginId,
+					dependencyId: dependencyDeclaration.pluginId,
+					requiredVersion: dependencyDeclaration.version,
+					installedVersion: candidate.plugin.definition.manifest.version,
+				},
+			},
+		)
+	}
+
+	return candidate
 }
 
 const connectDependency = (node: GraphNode, dependency: GraphNode): void => {
@@ -260,14 +299,18 @@ const connectGraphNodes = (
 			}
 		}
 
-		for (const dependencyId of node.plugin.dependencies) {
+		for (const dependencyDeclaration of node.plugin.dependencies) {
 			const dependency = resolveNamedDependency(
 				nodesByPluginId,
 				identity,
-				dependencyId,
+				dependencyDeclaration,
 				true,
 			)
-			assertRequiredDependency(dependency, identity, dependencyId)
+			assertRequiredDependency(
+				dependency,
+				identity,
+				dependencyDeclaration.pluginId,
+			)
 			connectDependency(node, dependency)
 		}
 
@@ -281,12 +324,12 @@ const connectGraphNodes = (
 			connectDependency(node, parent)
 		}
 
-		for (const optionalDependencyId of node.plugin.definition
+		for (const optionalDependency of node.plugin.definition
 			.optionalDependencies ?? []) {
 			const dependency = resolveNamedDependency(
 				nodesByPluginId,
 				identity,
-				optionalDependencyId,
+				optionalDependency,
 				false,
 			)
 			if (dependency !== undefined) connectDependency(node, dependency)
@@ -334,6 +377,7 @@ const orderGraphNodes = (
 /** Owns one validated deterministic plugin order without initializing plugins. */
 export class PluginGraph implements Iterable<NormalizedPlugin> {
 	readonly plugins: readonly NormalizedPlugin[]
+	readonly capabilities: CapabilityInventory
 	readonly #pluginsById: ReadonlyMap<string, readonly NormalizedPlugin[]>
 
 	constructor(plugins: readonly NormalizedPlugin[]) {
@@ -351,6 +395,7 @@ export class PluginGraph implements Iterable<NormalizedPlugin> {
 
 		connectGraphNodes(nodesByPluginId)
 		this.plugins = orderGraphNodes(nodesByPluginId)
+		this.capabilities = new CapabilityInventory(this.plugins)
 		const pluginsById = new Map<string, NormalizedPlugin[]>()
 		for (const plugin of this.plugins) {
 			const pluginId = plugin.definition.manifest.identity.pluginId

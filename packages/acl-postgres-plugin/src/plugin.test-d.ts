@@ -14,6 +14,13 @@ test('retains the exact integration identity and dependencies', () => {
 		typeof aclPostgresPluginName
 	>()
 	expectTypeOf(plugin.dependencies).toEqualTypeOf<
-		readonly ['ultimabase.acl', '@ultimabase/postgres-plugin'] | undefined
+		| readonly [
+				Readonly<{ pluginId: 'ultimabase.acl'; version: '^0.0.0' }>,
+				Readonly<{
+					pluginId: '@ultimabase/postgres-plugin'
+					version: '^0.0.0'
+				}>,
+		  ]
+		| undefined
 	>()
 })

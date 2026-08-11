@@ -272,7 +272,9 @@ const behaviorPlugin = definePlugin({
 	version: '0.0.0',
 	core: '^0.0.0',
 	pluginId: 'fixture.native-hooks-behavior',
-	dependencies: ['fixture.native-hooks-scope-policy'],
+	dependencies: [
+		{ pluginId: 'fixture.native-hooks-scope-policy', version: '^0.0.0' },
+	],
 	setup: ({ hooks, registries }) => {
 		hooks.schema('article-lifecycle', HookArticleSchema, {
 			afterOperation: {

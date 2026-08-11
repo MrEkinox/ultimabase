@@ -297,7 +297,7 @@ describe('FrameworkApplication', () => {
 			version: '0.0.0',
 			core: '^0.0.0',
 			pluginId: 'fixture.invalid',
-			dependencies: ['fixture.missing'],
+			dependencies: [{ pluginId: 'fixture.missing', version: '^0.0.0' }],
 			setup: () => {
 				events.push('setup')
 			},
@@ -366,7 +366,12 @@ describe('FrameworkApplication', () => {
 			version: '0.0.0',
 			core: '^0.0.0',
 			pluginId: 'fixture.contribution-consumer',
-			dependencies: ['fixture.contribution-dependency'],
+			dependencies: [
+				{
+					pluginId: 'fixture.contribution-dependency',
+					version: '^0.0.0',
+				},
+			],
 			setup: ({ registries }) => {
 				registries.hooks.register('fixture.consumer.before', 'consumer')
 			},

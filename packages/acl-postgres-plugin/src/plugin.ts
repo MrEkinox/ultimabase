@@ -14,13 +14,19 @@ export const aclPostgresPluginName = 'ultimabase.acl-postgres' as const
 export type ACLPostgresPlugin = FrameworkPlugin<
 	typeof aclPostgresPluginName,
 	undefined,
-	readonly [typeof aclPluginName, typeof postgresPluginName]
+	readonly [
+		Readonly<{ pluginId: typeof aclPluginName; version: '^0.0.0' }>,
+		Readonly<{ pluginId: typeof postgresPluginName; version: '^0.0.0' }>,
+	]
 >
 
 /** Registers ACL's opaque row constraint with the selected PostgreSQL adapter. */
 export const aclPostgresPlugin = (): ACLPostgresPlugin =>
 	definePlugin({
-		dependencies: [aclPluginName, postgresPluginName],
+		dependencies: [
+			{ pluginId: aclPluginName, version: '^0.0.0' },
+			{ pluginId: postgresPluginName, version: '^0.0.0' },
+		],
 		version: '0.0.0',
 		core: '^0.0.0',
 		pluginId: aclPostgresPluginName,

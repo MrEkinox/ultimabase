@@ -140,7 +140,7 @@ const createOrderedPlugins = (trace: string[]) => {
 		version: '0.0.0',
 		core: '^0.0.0',
 		pluginId: 'fixture.hooks.consumer',
-		dependencies: ['fixture.hooks.dependency'],
+		dependencies: [{ pluginId: 'fixture.hooks.dependency', version: '^0.0.0' }],
 		setup: ({ registries }) => {
 			registries.hooks.register(
 				'fixture.consumer.global-before',

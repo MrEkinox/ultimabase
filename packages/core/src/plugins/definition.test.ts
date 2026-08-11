@@ -11,7 +11,7 @@ describe('definePlugin', () => {
 		let declarationCalls = 0
 		let setupCalls = 0
 		let hookCalls = 0
-		const dependencies = ['services']
+		const dependencies = [{ pluginId: 'fixture.services', version: '^0.0.0' }]
 		const privileges = [
 			{
 				name: 'adapter:consume' as const,
@@ -32,7 +32,7 @@ describe('definePlugin', () => {
 			privileges,
 			environment,
 			dependencies,
-			optionalDependencies: ['cache'],
+			optionalDependencies: [{ pluginId: 'fixture.cache', version: '^0.0.0' }],
 			conflicts: ['fixture.other-database'],
 			declareFields: (fields) => {
 				declarationCalls += 1
@@ -57,7 +57,10 @@ describe('definePlugin', () => {
 			hooks,
 		})
 
-		dependencies.push('late-dependency')
+		dependencies.push({
+			pluginId: 'fixture.late-dependency',
+			version: '^0.0.0',
+		})
 		privileges[0] = {
 			name: 'adapter:consume',
 			reason: 'Late mutation must not alter the manifest.',
@@ -81,8 +84,8 @@ describe('definePlugin', () => {
 				environment: ['environment:network'],
 			},
 			slot: 'database-adapter',
-			dependencies: ['services'],
-			optionalDependencies: ['cache'],
+			dependencies: [{ pluginId: 'fixture.services', version: '^0.0.0' }],
+			optionalDependencies: [{ pluginId: 'fixture.cache', version: '^0.0.0' }],
 			conflicts: ['fixture.other-database'],
 		})
 		expect('setup' in plugin).toBe(false)
@@ -172,10 +175,12 @@ describe('definePlugin', () => {
 				core: '^0.0.0',
 				pluginId: 'fixture.plugin',
 				// Runtime validation also protects JavaScript callers from empty names.
-				optionalDependencies: [''],
+				optionalDependencies: [{ pluginId: '', version: '^1.0.0' }],
 			})
 		}).toThrow(
-			new TypeError('optionalDependencies[0] must be a non-empty string'),
+			new TypeError(
+				'optionalDependencies[0].pluginId must be a non-empty string',
+			),
 		)
 		expect(() => {
 			definePlugin({

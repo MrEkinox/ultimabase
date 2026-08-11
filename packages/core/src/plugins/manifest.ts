@@ -7,6 +7,15 @@ import {
 } from '@ultimabase/shared'
 import { valid, validRange } from 'semver'
 
+import {
+	assertOptionalCapabilityRequirement,
+	normalizeCapabilityDeclarations,
+	type CapabilityRequirement,
+	type CapabilityToken,
+	type PluginCapabilityDeclarationOptions,
+	type PluginCapabilityDeclarations,
+} from './capabilities.js'
+
 /** Identifies one installed plugin definition without constructing a string key. */
 export interface PluginIdentity<
 	TPluginId extends string = string,
@@ -15,6 +24,20 @@ export interface PluginIdentity<
 	/** Stable namespaced identity shared by every configured instance of the plugin. */
 	readonly pluginId: TPluginId
 	/** Explicit application-local identity required when the same plugin is configured more than once. */
+	readonly instanceId?: TInstanceId
+}
+
+/** Targets one named plugin contract when a capability cannot express the dependency. */
+export interface PluginDependency<
+	TPluginId extends string = string,
+	TVersion extends string = string,
+	TInstanceId extends string | undefined = string | undefined,
+> {
+	/** Stable plugin package identity. */
+	readonly pluginId: TPluginId
+	/** Compatible semantic package-version range. */
+	readonly version: TVersion
+	/** Optional exact configured instance target. */
 	readonly instanceId?: TInstanceId
 }
 
@@ -131,11 +154,15 @@ export type PluginEnvironmentClaim =
 /** Requests one exact Core-owned power for a documented purpose. */
 export interface PluginPrivilegeRequest<
 	TPrivilege extends PluginPrivilege = PluginPrivilege,
+	TWhen extends CapabilityRequirement<CapabilityToken, true> | undefined =
+		CapabilityRequirement<CapabilityToken, true> | undefined,
 > {
 	/** Names one exact privilege from Core's closed vocabulary. */
 	readonly name: TPrivilege
 	/** Explains why the plugin needs this power in startup inspection. */
 	readonly reason: string
+	/** Activates the request only when this declared optional capability is present. */
+	readonly when?: TWhen
 }
 
 /** Contains the inert immutable metadata inspected before plugin callbacks run. */
@@ -148,6 +175,8 @@ export interface PluginManifest<
 		readonly PluginPrivilegeRequest[],
 	TEnvironment extends readonly PluginEnvironmentClaim[] =
 		readonly PluginEnvironmentClaim[],
+	TCapabilities extends PluginCapabilityDeclarations =
+		PluginCapabilityDeclarations,
 > {
 	/** Carries the stable package and optional exact instance identity. */
 	readonly identity: PluginIdentity<TPluginId, TInstanceId>
@@ -159,6 +188,8 @@ export interface PluginManifest<
 	readonly privileges: TPrivileges
 	/** Lists direct Node.js behaviors that Core reports but cannot enforce. */
 	readonly environment: TEnvironment
+	/** Lists inert typed providers and explicit required or optional protocol uses. */
+	readonly capabilities: TCapabilities
 }
 
 export interface PluginManifestOptions {
@@ -168,6 +199,7 @@ export interface PluginManifestOptions {
 	readonly core: string
 	readonly privileges?: readonly PluginPrivilegeRequest[]
 	readonly environment?: readonly PluginEnvironmentClaim[]
+	readonly capabilities?: PluginCapabilityDeclarationOptions
 }
 
 const pluginIdPattern =
@@ -192,8 +224,20 @@ export const formatPluginIdentity = (identity: PluginIdentity): string =>
 		? identity.pluginId
 		: `${identity.pluginId} (instance ${identity.instanceId})`
 
+/** Validates stable plugin identities consistently across manifests and dependencies. */
+export const assertPluginId: (
+	value: unknown,
+	path: string,
+) => asserts value is string = (value, path) => {
+	assertNonEmptyString(value, path)
+	if (!pluginIdPattern.test(value)) {
+		throw new TypeError(`${path} must be a namespaced plugin identifier`)
+	}
+}
+
 const normalizePrivilegeRequests = (
 	requests: readonly PluginPrivilegeRequest[] | undefined,
+	optionalCapabilities: readonly CapabilityRequirement<CapabilityToken, true>[],
 ): readonly PluginPrivilegeRequest[] => {
 	if (requests === undefined) return immutableArray([])
 
@@ -230,9 +274,25 @@ const normalizePrivilegeRequests = (
 				request.reason,
 				`privileges[${String(index)}].reason`,
 			)
+
+			if (request.when !== undefined) {
+				assertOptionalCapabilityRequirement(
+					request.when,
+					`privileges[${String(index)}].when`,
+				)
+				if (!optionalCapabilities.includes(request.when)) {
+					throw new TypeError(
+						`privileges[${String(index)}].when must reference a requirement from capabilities.optional`,
+					)
+				}
+			}
 			names.add(privilege)
 
-			return immutableRecord({ name: privilege, reason: request.reason })
+			return immutableRecord({
+				name: privilege,
+				reason: request.reason,
+				...(request.when === undefined ? {} : { when: request.when }),
+			})
 		}),
 	)
 }
@@ -272,10 +332,7 @@ const normalizeEnvironmentClaims = (
 export const normalizePluginManifest = (
 	options: PluginManifestOptions,
 ): PluginManifest => {
-	assertNonEmptyString(options.pluginId, 'pluginId')
-	if (!pluginIdPattern.test(options.pluginId)) {
-		throw new TypeError('pluginId must be a namespaced plugin identifier')
-	}
+	assertPluginId(options.pluginId, 'pluginId')
 
 	if (options.instanceId !== undefined) {
 		assertNonEmptyString(options.instanceId, 'instanceId')
@@ -291,6 +348,8 @@ export const normalizePluginManifest = (
 		throw new TypeError('core must be a valid semantic version range')
 	}
 
+	const capabilities = normalizeCapabilityDeclarations(options.capabilities)
+
 	return immutableRecord({
 		identity: immutableRecord({
 			pluginId: options.pluginId,
@@ -300,7 +359,11 @@ export const normalizePluginManifest = (
 		}),
 		version: options.version,
 		core: options.core,
-		privileges: normalizePrivilegeRequests(options.privileges),
+		privileges: normalizePrivilegeRequests(
+			options.privileges,
+			capabilities.optional,
+		),
 		environment: normalizeEnvironmentClaims(options.environment),
+		capabilities,
 	})
 }

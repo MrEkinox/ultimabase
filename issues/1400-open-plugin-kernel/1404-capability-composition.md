@@ -19,8 +19,8 @@ contributions into one immutable application-local capability graph.
 - [ ] Single and pipeline decorators wrap the complete capability with the earliest dependency outermost, so entry and exit order are deterministic.
 - [ ] Replacements require the declared replacement privilege, preserve provenance, and never inherit the replaced provider's privileges or master authority.
 - [ ] Replacement chains are linear and inspectable; branches, cycles, missing owners, incompatible versions, duplicate decorators, and ambiguous replacements fail before static compilation.
-- [ ] Declaration values are immutable before compilation; application providers materialize only during setup and dispose through their exact owner lifecycle.
-- [ ] Plugins resolve only read-only capability views permitted by their declared requirements.
+- [ ] Declaration values are immutable before compilation; application providers receive the privilege-aware factory context, materialize only during setup, and dispose through their exact owner lifecycle.
+- [ ] Plugins resolve only read-only capability views permitted by their required or optional declarations; undeclared reads fail without probing installed providers.
 
 ## Tests
 

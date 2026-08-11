@@ -30,6 +30,15 @@ describe('packed @ultimabase/core plugin manifests', () => {
 			'environment:network',
 			'environment:process',
 		])
+		expect(languageFixture.readStringCompletions('cardinality')).toStrictEqual([
+			'single',
+			'multiple',
+			'pipeline',
+		])
+		expect(languageFixture.readStringCompletions('lifetime')).toStrictEqual([
+			'declaration',
+			'application',
+		])
 		const privilegeHover = languageFixture.readHover('privilege')
 		expect(privilegeHover.display).toContain('type PluginPrivilege =')
 		expect(privilegeHover.documentation).toContain('Core-enforceable power')
@@ -42,6 +51,12 @@ describe('packed @ultimabase/core plugin manifests', () => {
 		)
 		expect(languageFixture.readHover('manifest').display).toContain(
 			'interface PluginManifest',
+		)
+		expect(languageFixture.readHover('capability').display).toContain(
+			'interface CapabilityToken',
+		)
+		expect(languageFixture.readHover('provider-value').display).toContain(
+			'readonly endpoint: string;',
 		)
 	})
 })

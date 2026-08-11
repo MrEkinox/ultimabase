@@ -6,15 +6,22 @@ import {
 	isUnknownArray,
 	type MaybePromise,
 } from '@ultimabase/shared'
+import { validRange } from 'semver'
 
+import type {
+	NormalizedPluginCapabilityDeclarations,
+	PluginCapabilityDeclarationOptions,
+} from './capabilities.js'
 import type { PluginSetupContext } from './setup-registries.js'
 import type {
 	FieldBuilderMethodRegistrar,
 	PluginFieldBuilderDeclaration,
 } from '../schema/schema/field-builder-methods.js'
 import {
+	assertPluginId,
 	formatPluginIdentity,
 	normalizePluginManifest,
+	type PluginDependency,
 	type PluginEnvironmentClaim,
 	type PluginManifest,
 	type PluginPrivilegeRequest,
@@ -78,8 +85,8 @@ export interface PluginDefinition {
 	readonly [pluginRuntimeDefinition]: PluginRuntimeDefinition
 	readonly manifest: PluginManifest
 	readonly slot?: string
-	readonly dependencies?: readonly string[] | undefined
-	readonly optionalDependencies?: readonly string[] | undefined
+	readonly dependencies?: readonly PluginDependency[] | undefined
+	readonly optionalDependencies?: readonly PluginDependency[] | undefined
 	readonly conflicts?: readonly string[] | undefined
 	readonly plugins?: readonly PluginDefinition[] | undefined
 }
@@ -88,10 +95,10 @@ export interface PluginDefinition {
 export interface FrameworkPlugin<
 	TPluginId extends string = string,
 	TSetupResult = unknown,
-	TDependencies extends readonly string[] | undefined =
-		readonly string[] | undefined,
-	TOptionalDependencies extends readonly string[] | undefined =
-		readonly string[] | undefined,
+	TDependencies extends readonly PluginDependency[] | undefined =
+		readonly PluginDependency[] | undefined,
+	TOptionalDependencies extends readonly PluginDependency[] | undefined =
+		readonly PluginDependency[] | undefined,
 	TConflicts extends readonly string[] | undefined =
 		readonly string[] | undefined,
 	TPlugins extends readonly PluginDefinition[] | undefined =
@@ -104,6 +111,8 @@ export interface FrameworkPlugin<
 		readonly PluginPrivilegeRequest[] | undefined,
 	TEnvironment extends readonly PluginEnvironmentClaim[] | undefined =
 		readonly PluginEnvironmentClaim[] | undefined,
+	TCapabilities extends PluginCapabilityDeclarationOptions | undefined =
+		PluginCapabilityDeclarationOptions | undefined,
 > extends PluginDefinition {
 	readonly [pluginSetupExportsBrand]: Awaited<TSetupResult>
 	readonly manifest: PluginManifest<
@@ -116,7 +125,8 @@ export interface FrameworkPlugin<
 			: readonly [],
 		TEnvironment extends readonly PluginEnvironmentClaim[]
 			? readonly [...TEnvironment]
-			: readonly []
+			: readonly [],
+		NormalizedPluginCapabilityDeclarations<TCapabilities>
 	>
 	readonly slot?: TSlot
 	readonly dependencies?: TDependencies
@@ -133,8 +143,8 @@ export type PluginExports<TPlugin> = TPlugin extends PluginDefinition
 export interface DefinePluginOptions<
 	TPluginId extends string,
 	TSetupResult,
-	TDependencies extends readonly string[] | undefined,
-	TOptionalDependencies extends readonly string[] | undefined,
+	TDependencies extends readonly PluginDependency[] | undefined,
+	TOptionalDependencies extends readonly PluginDependency[] | undefined,
 	TConflicts extends readonly string[] | undefined,
 	TPlugins extends readonly PluginDefinition[] | undefined,
 	TSlot extends string,
@@ -143,6 +153,7 @@ export interface DefinePluginOptions<
 	TCoreRange extends string,
 	TPrivileges extends readonly PluginPrivilegeRequest[] | undefined,
 	TEnvironment extends readonly PluginEnvironmentClaim[] | undefined,
+	TCapabilities extends PluginCapabilityDeclarationOptions | undefined,
 > {
 	/** Stable namespaced identity shared by every configured instance. @example "community.workflow" */
 	readonly pluginId: TPluginId
@@ -156,6 +167,8 @@ export interface DefinePluginOptions<
 	readonly privileges?: TPrivileges
 	/** Reports direct Node.js powers separately from enforceable Core facades. @example `['environment:network']` */
 	readonly environment?: TEnvironment
+	/** Declares inert typed providers and explicit required or optional capability uses. */
+	readonly capabilities?: TCapabilities
 	readonly slot?: TSlot
 	readonly dependencies?: TDependencies
 	readonly optionalDependencies?: TOptionalDependencies
@@ -196,6 +209,59 @@ const normalizePluginNames = <const TNames extends readonly string[]>(
 	}
 
 	return immutableArray(names)
+}
+
+const normalizePluginDependencies = <
+	const TDependencies extends readonly PluginDependency[],
+>(
+	dependencies: TDependencies,
+	path: string,
+): readonly [...TDependencies] => {
+	const untrustedDependencies: unknown = dependencies
+
+	if (!isUnknownArray(untrustedDependencies)) {
+		throw new TypeError(`${path} must be an array`)
+	}
+
+	return immutableArray(
+		untrustedDependencies.map((dependency, index) => {
+			const dependencyPath = `${path}[${String(index)}]`
+			if (!isPlainRecord(dependency)) {
+				throw new TypeError(`${dependencyPath} must be a plain object`)
+			}
+
+			for (const key of Object.keys(dependency)) {
+				if (key !== 'pluginId' && key !== 'version' && key !== 'instanceId') {
+					throw new TypeError(
+						`${dependencyPath} contains unknown option: ${key}`,
+					)
+				}
+			}
+
+			assertPluginId(dependency.pluginId, `${dependencyPath}.pluginId`)
+			assertNonEmptyString(dependency.version, `${dependencyPath}.version`)
+			if (validRange(dependency.version) === null) {
+				throw new TypeError(
+					`${dependencyPath}.version must be a valid semantic version range`,
+				)
+			}
+
+			if (dependency.instanceId !== undefined) {
+				assertNonEmptyString(
+					dependency.instanceId,
+					`${dependencyPath}.instanceId`,
+				)
+			}
+
+			return immutableRecord({
+				pluginId: dependency.pluginId,
+				version: dependency.version,
+				...(dependency.instanceId === undefined
+					? {}
+					: { instanceId: dependency.instanceId }),
+			})
+		}),
+	) as readonly [...TDependencies]
 }
 
 export const assertPluginDefinition: (
@@ -293,8 +359,10 @@ const normalizeLifecycleHooks = <const THooks extends object>(
 export const definePlugin = <
 	const TPluginId extends string,
 	const TSetupResult = undefined,
-	const TDependencies extends readonly string[] | undefined = undefined,
-	const TOptionalDependencies extends readonly string[] | undefined = undefined,
+	const TDependencies extends readonly PluginDependency[] | undefined =
+		undefined,
+	const TOptionalDependencies extends readonly PluginDependency[] | undefined =
+		undefined,
 	const TConflicts extends readonly string[] | undefined = undefined,
 	const TPlugins extends readonly PluginDefinition[] | undefined = undefined,
 	const TSlot extends string = never,
@@ -304,6 +372,8 @@ export const definePlugin = <
 	const TPrivileges extends readonly PluginPrivilegeRequest[] | undefined =
 		undefined,
 	const TEnvironment extends readonly PluginEnvironmentClaim[] | undefined =
+		undefined,
+	const TCapabilities extends PluginCapabilityDeclarationOptions | undefined =
 		undefined,
 >(
 	options: DefinePluginOptions<
@@ -318,7 +388,8 @@ export const definePlugin = <
 		TVersion,
 		TCoreRange,
 		TPrivileges,
-		TEnvironment
+		TEnvironment,
+		TCapabilities
 	>,
 ): FrameworkPlugin<
 	TPluginId,
@@ -332,7 +403,8 @@ export const definePlugin = <
 	TVersion,
 	TCoreRange,
 	TPrivileges,
-	TEnvironment
+	TEnvironment,
+	TCapabilities
 > => {
 	const untrustedOptions: unknown = options
 
@@ -353,6 +425,9 @@ export const definePlugin = <
 		...(options.environment === undefined
 			? {}
 			: { environment: options.environment }),
+		...(options.capabilities === undefined
+			? {}
+			: { capabilities: options.capabilities }),
 	})
 
 	if (options.slot !== undefined) {
@@ -399,7 +474,7 @@ export const definePlugin = <
 		...(options.dependencies === undefined
 			? {}
 			: {
-					dependencies: normalizePluginNames(
+					dependencies: normalizePluginDependencies(
 						options.dependencies,
 						'dependencies',
 					),
@@ -407,7 +482,7 @@ export const definePlugin = <
 		...(options.optionalDependencies === undefined
 			? {}
 			: {
-					optionalDependencies: normalizePluginNames(
+					optionalDependencies: normalizePluginDependencies(
 						options.optionalDependencies,
 						'optionalDependencies',
 					),
@@ -437,6 +512,7 @@ export const definePlugin = <
 		TVersion,
 		TCoreRange,
 		TPrivileges,
-		TEnvironment
+		TEnvironment,
+		TCapabilities
 	>
 }

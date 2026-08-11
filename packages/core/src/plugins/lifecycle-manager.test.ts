@@ -52,7 +52,7 @@ describe('PluginLifecycleManager', () => {
 			version: '0.0.0',
 			core: '^0.0.0',
 			pluginId: 'fixture.consumer',
-			dependencies: ['fixture.dependency'],
+			dependencies: [{ pluginId: 'fixture.dependency', version: '^0.0.0' }],
 			setup: async () => {
 				await Promise.resolve()
 				events.push('setup:consumer')
@@ -185,7 +185,7 @@ describe('PluginLifecycleManager', () => {
 			version: '0.0.0',
 			core: '^0.0.0',
 			pluginId: 'fixture.second',
-			dependencies: ['fixture.first'],
+			dependencies: [{ pluginId: 'fixture.first', version: '^0.0.0' }],
 			setup: () => {
 				events.push('setup:second')
 			},

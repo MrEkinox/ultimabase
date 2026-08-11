@@ -45,8 +45,8 @@ describe('aclPostgresPlugin', () => {
 
 		expect(integration.manifest.identity.pluginId).toBe(aclPostgresPluginName)
 		expect(integration.dependencies).toStrictEqual([
-			'ultimabase.acl',
-			'@ultimabase/postgres-plugin',
+			{ pluginId: 'ultimabase.acl', version: '^0.0.0' },
+			{ pluginId: '@ultimabase/postgres-plugin', version: '^0.0.0' },
 		])
 		await application.dispose()
 	})

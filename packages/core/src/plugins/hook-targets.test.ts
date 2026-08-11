@@ -389,7 +389,10 @@ describe('plugin hook targets', () => {
 	it('preserves graph, configuration, and registration order', async () => {
 		const createOrderedPlugin = (
 			name: string,
-			dependencies?: readonly string[],
+			dependencies?: readonly Readonly<{
+				pluginId: string
+				version: string
+			}>[],
 		) =>
 			definePlugin({
 				version: '0.0.0',
@@ -407,10 +410,16 @@ describe('plugin hook targets', () => {
 			})
 		const base = createOrderedPlugin('fixture.order-base')
 		const first = createOrderedPlugin('fixture.order-first', [
-			base.manifest.identity.pluginId,
+			{
+				pluginId: base.manifest.identity.pluginId,
+				version: '^0.0.0',
+			},
 		])
 		const second = createOrderedPlugin('fixture.order-second', [
-			base.manifest.identity.pluginId,
+			{
+				pluginId: base.manifest.identity.pluginId,
+				version: '^0.0.0',
+			},
 		])
 		const independent = createOrderedPlugin('fixture.order-independent')
 		const application = await createApplication({

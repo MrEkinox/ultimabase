@@ -55,7 +55,7 @@ optional official plugins while keeping Core master authority unchanged.
 ### Phase 1 — Manifests, privileges, and capability graph
 
 1. [x] [1401 — Add plugin manifests and declared privileges](issues/1400-open-plugin-kernel/1401-plugin-manifests-and-privileges.md)
-2. [ ] [1403 — Add versioned capability tokens and requirements](issues/1400-open-plugin-kernel/1403-versioned-capability-tokens.md)
+2. [x] [1403 — Add versioned capability tokens and requirements](issues/1400-open-plugin-kernel/1403-versioned-capability-tokens.md)
 3. [ ] [1402 — Enforce application privilege policy and startup reporting](issues/1400-open-plugin-kernel/1402-privilege-policy-and-reporting.md)
 4. [ ] [1404 — Compose capability providers, decorators, and replacements](issues/1400-open-plugin-kernel/1404-capability-composition.md)
 5. [ ] [1415 — Converge legacy services, slots, and setup registries](issues/1400-open-plugin-kernel/1415-converge-legacy-plugin-host.md)

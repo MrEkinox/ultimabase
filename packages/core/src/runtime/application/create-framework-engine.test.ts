@@ -104,7 +104,9 @@ describe('createFrameworkEngine', () => {
 			version: '0.0.0',
 			core: '^0.0.0',
 			pluginId: 'fixture.pipeline-consumer',
-			dependencies: ['fixture.pipeline-dependency'],
+			dependencies: [
+				{ pluginId: 'fixture.pipeline-dependency', version: '^0.0.0' },
+			],
 			setup: ({ registries }) => {
 				registries.pipelines.register(
 					'fixture.consumer-normalization',

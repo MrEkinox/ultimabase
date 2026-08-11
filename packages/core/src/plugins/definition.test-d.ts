@@ -79,7 +79,7 @@ test('unwraps asynchronous setup exports and preserves nested tuples', () => {
 		version: '0.0.0',
 		core: '^0.0.0',
 		pluginId: 'fixture.parent',
-		dependencies: ['fixture.base'] as const,
+		dependencies: [{ pluginId: 'fixture.base', version: '^0.0.0' }] as const,
 		plugins: [child] as const,
 	})
 
@@ -88,7 +88,10 @@ test('unwraps asynchronous setup exports and preserves nested tuples', () => {
 	}>()
 	expectTypeOf<PluginExports<typeof parent>>().toEqualTypeOf<undefined>()
 	expectTypeOf(parent.dependencies).toEqualTypeOf<
-		readonly ['fixture.base'] | undefined
+		| readonly [
+				{ readonly pluginId: 'fixture.base'; readonly version: '^0.0.0' },
+		  ]
+		| undefined
 	>()
 	expectTypeOf(parent.plugins).toEqualTypeOf<
 		readonly [typeof child] | undefined
@@ -115,7 +118,7 @@ test('keeps definitions immutable and rejects incompatible metadata', () => {
 		version: '0.0.0',
 		core: '^0.0.0',
 		pluginId: 'fixture.invalid',
-		// @ts-expect-error -- Dependency names must remain strings.
+		// @ts-expect-error -- Named dependencies require structured identity and range metadata.
 		dependencies: [42],
 	})
 	definePlugin({

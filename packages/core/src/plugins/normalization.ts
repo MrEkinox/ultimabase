@@ -9,6 +9,7 @@ import { assertPluginDefinition, type PluginDefinition } from './definition.js'
 import {
 	formatPluginIdentity,
 	isSamePluginIdentity,
+	type PluginDependency,
 	type PluginIdentity,
 } from './manifest.js'
 import {
@@ -24,14 +25,14 @@ export interface NormalizedPlugin {
 	readonly definition: PluginDefinition
 	readonly configurationIndex: number
 	readonly parentIdentities: readonly PluginIdentity[]
-	readonly dependencies: readonly string[]
+	readonly dependencies: readonly PluginDependency[]
 }
 
 interface MutableNormalizedPlugin {
 	readonly definition: PluginDefinition
 	readonly configurationIndex: number
 	readonly parentIdentities: PluginIdentity[]
-	readonly dependencies: string[]
+	readonly dependencies: PluginDependency[]
 }
 
 const declaredNormalizedPlugins = new WeakSet<object>()

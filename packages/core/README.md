@@ -1385,6 +1385,15 @@ clears its references and releases services implementing `Symbol.dispose` or
 lifecycle work:
 
 ```ts
+const dialectCapability = defineCapability<{
+	readonly dialect: 'postgres'
+}>()({
+	capabilityId: 'fixture.database-dialect',
+	version: '1.0.0',
+	cardinality: 'single',
+	lifetime: 'declaration',
+})
+
 export const databasePlugin = () =>
 	definePlugin({
 		pluginId: 'fixture.database',
@@ -1398,7 +1407,10 @@ export const databasePlugin = () =>
 		],
 		environment: ['environment:network'],
 		slot: 'database-adapter',
-		dependencies: ['fixture.config'],
+		dependencies: [{ pluginId: 'fixture.config', version: '^1.0.0' }],
+		capabilities: {
+			provides: [provideCapability(dialectCapability, { dialect: 'postgres' })],
+		},
 		setup: ({ services }) => {
 			const database = createDatabase()
 
@@ -1427,6 +1439,38 @@ hooks, and nested definitions are copied and frozen. Nested plugins remain
 global graph entries with their own manifest and privileges; their placement
 under `plugins` is composition syntax and grants no inherited power.
 
+Named dependencies use `{ pluginId, version, instanceId? }`. Their SemVer range
+is checked against the installed plugin version, and `instanceId` targets one
+exact configuration when the same plugin is installed more than once. Prefer a
+capability requirement when several packages can provide the same behavior:
+
+```ts
+const auditRequirement = optionalCapability(auditSinkCapability, '^1.0.0')
+
+const consumer = definePlugin({
+	pluginId: 'fixture.audit-consumer',
+	version: '1.0.0',
+	core: '^0.0.0',
+	capabilities: { optional: [auditRequirement] },
+	privileges: [
+		{
+			name: 'network:access',
+			reason: 'Forwards audit records when a sink is installed.',
+			when: auditRequirement,
+		},
+	],
+})
+```
+
+`defineCapability<Provider, Consumer>()` creates a nominal token with its own
+protocol version, `single`, `multiple`, or `pipeline` cardinality, and
+`declaration` or `application` lifetime. Declaration providers copy and deeply
+freeze a portable JSON value. Application providers declare only ownership and
+their exact value type at this stage; application-local factories, composition,
+and consumer reads are introduced by issue 1404. Required and optional uses are
+always explicit, and a conditional privilege must reference the same optional
+requirement object listed by its manifest.
+
 `normalizePlugins(definitions)` resolves that syntax into immutable flat
 metadata without running plugin code. Children receive implicit parent
 dependencies, source order is retained, and the exact same definition can be
@@ -1435,9 +1479,9 @@ explicit instance IDs. A duplicate structured identity or two plugins sharing
 one exclusive slot fail with `PLUGIN_CONFLICT`.
 
 `new PluginGraph(normalizedPlugins)` validates required and optional
-dependencies, explicit conflicts, duplicate entries, exclusive slots, and
-cycles. It exposes the deterministic dependency-first order through
-`graph.plugins` and iteration:
+dependencies, capability availability and nominal identity, semantic versions,
+explicit conflicts, duplicate entries, exclusive slots, and cycles. It exposes
+the deterministic dependency-first order through `graph.plugins` and iteration:
 
 ```ts
 const graph = new PluginGraph(normalizePlugins(configuredPlugins))
@@ -1445,10 +1489,15 @@ const graph = new PluginGraph(normalizePlugins(configuredPlugins))
 for (const plugin of graph) {
 	console.log(plugin.definition.manifest.identity)
 }
+
+for (const capability of graph.capabilities) {
+	console.log(capability.token.capabilityId, capability.providers.length)
+}
 ```
 
 Configuration position breaks ties between plugins that are ready together.
-Missing optional dependencies are ignored. Graph construction remains static
+Missing optional dependencies and capabilities remain inspectably inactive.
+Graph construction remains static, exposes no declaration capability values,
 and never executes setup or lifecycle hooks.
 
 ## Plugin setup registries

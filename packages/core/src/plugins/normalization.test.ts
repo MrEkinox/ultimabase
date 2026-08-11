@@ -38,7 +38,7 @@ describe('normalizePlugins', () => {
 			version: '0.0.0',
 			core: '^0.0.0',
 			pluginId: 'fixture.leaf',
-			dependencies: ['fixture.child'],
+			dependencies: [{ pluginId: 'fixture.child', version: '^0.0.0' }],
 			setup: () => {
 				setupCalls += 1
 			},
@@ -73,7 +73,9 @@ describe('normalizePlugins', () => {
 		expect(normalized[2]?.parentIdentities).toStrictEqual([
 			{ pluginId: 'fixture.child' },
 		])
-		expect(normalized[2]?.dependencies).toStrictEqual(['fixture.child'])
+		expect(normalized[2]?.dependencies).toStrictEqual([
+			{ pluginId: 'fixture.child', version: '^0.0.0' },
+		])
 		expect(setupCalls).toBe(0)
 		expect(Object.isFrozen(normalized)).toBe(true)
 		expect(Object.isFrozen(normalized[1])).toBe(true)

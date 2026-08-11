@@ -111,7 +111,7 @@ describe('compiled Access plans', () => {
 			version: '0.0.0',
 			core: '^0.0.0',
 			pluginId: 'fixture.access-second',
-			dependencies: ['fixture.access-first'],
+			dependencies: [{ pluginId: 'fixture.access-first', version: '^0.0.0' }],
 			setup: ({ access }) => {
 				access.schema(
 					'second',

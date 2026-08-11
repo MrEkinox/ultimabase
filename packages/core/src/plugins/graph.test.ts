@@ -51,7 +51,7 @@ describe('PluginGraph', () => {
 			version: '0.0.0',
 			core: '^0.0.0',
 			pluginId: 'fixture.first-consumer',
-			dependencies: ['fixture.base'],
+			dependencies: [{ pluginId: 'fixture.base', version: '^0.0.0' }],
 			setup: () => {
 				setupCalls += 1
 			},
@@ -60,7 +60,7 @@ describe('PluginGraph', () => {
 			version: '0.0.0',
 			core: '^0.0.0',
 			pluginId: 'fixture.second-consumer',
-			dependencies: ['fixture.base'],
+			dependencies: [{ pluginId: 'fixture.base', version: '^0.0.0' }],
 		})
 		const independent = definePlugin({
 			version: '0.0.0',
@@ -104,8 +104,11 @@ describe('PluginGraph', () => {
 			version: '0.0.0',
 			core: '^0.0.0',
 			pluginId: 'fixture.consumer',
-			dependencies: ['fixture.cache'],
-			optionalDependencies: ['fixture.cache', 'fixture.telemetry'],
+			dependencies: [{ pluginId: 'fixture.cache', version: '^0.0.0' }],
+			optionalDependencies: [
+				{ pluginId: 'fixture.cache', version: '^0.0.0' },
+				{ pluginId: 'fixture.telemetry', version: '^0.0.0' },
+			],
 			conflicts: ['fixture.absent-conflict'],
 		})
 
@@ -115,6 +118,100 @@ describe('PluginGraph', () => {
 			'fixture.cache',
 			'fixture.consumer',
 		])
+	})
+
+	it('supports semantic ranges and exact repeated-plugin instances', () => {
+		const primary = definePlugin({
+			pluginId: 'fixture.cache',
+			instanceId: 'primary',
+			version: '1.4.0',
+			core: '^0.0.0',
+		})
+		const analytics = definePlugin({
+			pluginId: 'fixture.cache',
+			instanceId: 'analytics',
+			version: '2.0.0',
+			core: '^0.0.0',
+		})
+		const consumer = definePlugin({
+			pluginId: 'fixture.consumer',
+			version: '1.0.0',
+			core: '^0.0.0',
+			dependencies: [
+				{
+					pluginId: 'fixture.cache',
+					instanceId: 'primary',
+					version: '^1.0.0',
+				},
+			],
+		})
+
+		expect(
+			pluginIds(new PluginGraph(normalize([consumer, analytics, primary]))),
+		).toStrictEqual(['fixture.cache', 'fixture.cache', 'fixture.consumer'])
+	})
+
+	it('rejects incompatible named dependency versions with protocol diagnostics', () => {
+		const cache = definePlugin({
+			pluginId: 'fixture.cache',
+			version: '2.0.0',
+			core: '^0.0.0',
+		})
+		const consumer = definePlugin({
+			pluginId: 'fixture.consumer',
+			version: '1.0.0',
+			core: '^0.0.0',
+			dependencies: [{ pluginId: 'fixture.cache', version: '^1.0.0' }],
+		})
+
+		const error = expectFrameworkError(
+			captureFrameworkError(
+				() => new PluginGraph(normalize([consumer, cache])),
+			),
+		)
+
+		expect(error.code).toBe('PLUGIN_PROTOCOL_INCOMPATIBLE')
+		expect(error.internalDetails).toStrictEqual({
+			kind: 'named-plugin-version',
+			pluginId: 'fixture.consumer',
+			dependencyId: 'fixture.cache',
+			requiredVersion: '^1.0.0',
+			installedVersion: '2.0.0',
+		})
+	})
+
+	it('requires exact targeting when a named dependency has repeated instances', () => {
+		const primary = definePlugin({
+			pluginId: 'fixture.cache',
+			instanceId: 'primary',
+			version: '1.0.0',
+			core: '^0.0.0',
+		})
+		const secondary = definePlugin({
+			pluginId: 'fixture.cache',
+			instanceId: 'secondary',
+			version: '1.0.0',
+			core: '^0.0.0',
+		})
+		const consumer = definePlugin({
+			pluginId: 'fixture.consumer',
+			version: '1.0.0',
+			core: '^0.0.0',
+			dependencies: [{ pluginId: 'fixture.cache', version: '^1.0.0' }],
+		})
+
+		const error = expectFrameworkError(
+			captureFrameworkError(
+				() => new PluginGraph(normalize([consumer, primary, secondary])),
+			),
+		)
+
+		expect(error.code).toBe('PLUGIN_CONFLICT')
+		expect(error.internalDetails).toStrictEqual({
+			kind: 'ambiguous-plugin-dependency',
+			pluginId: 'fixture.consumer',
+			dependencyId: 'fixture.cache',
+		})
 	})
 
 	it('uses input order when separately normalized positions are equal', () => {
@@ -141,7 +238,7 @@ describe('PluginGraph', () => {
 			version: '0.0.0',
 			core: '^0.0.0',
 			pluginId: 'fixture.consumer',
-			dependencies: ['fixture.database'],
+			dependencies: [{ pluginId: 'fixture.database', version: '^0.0.0' }],
 		})
 
 		const error = expectFrameworkError(
@@ -238,19 +335,22 @@ describe('PluginGraph', () => {
 			version: '0.0.0',
 			core: '^0.0.0',
 			pluginId: 'fixture.first',
-			dependencies: ['fixture.resolved', 'fixture.second'],
+			dependencies: [
+				{ pluginId: 'fixture.resolved', version: '^0.0.0' },
+				{ pluginId: 'fixture.second', version: '^0.0.0' },
+			],
 		})
 		const second = definePlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
 			pluginId: 'fixture.second',
-			dependencies: ['fixture.third'],
+			dependencies: [{ pluginId: 'fixture.third', version: '^0.0.0' }],
 		})
 		const third = definePlugin({
 			version: '0.0.0',
 			core: '^0.0.0',
 			pluginId: 'fixture.third',
-			dependencies: ['fixture.first'],
+			dependencies: [{ pluginId: 'fixture.first', version: '^0.0.0' }],
 		})
 		const resolved = definePlugin({
 			version: '0.0.0',

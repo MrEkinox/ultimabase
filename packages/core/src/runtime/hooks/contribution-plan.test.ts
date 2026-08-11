@@ -89,7 +89,7 @@ const dependentPlugin = definePlugin({
 	version: '0.0.0',
 	core: '^0.0.0',
 	pluginId: 'fixture.plan-dependent',
-	dependencies: ['fixture.plan-base'],
+	dependencies: [{ pluginId: 'fixture.plan-base', version: '^0.0.0' }],
 	setup: ({ hooks }) => {
 		hooks.schema('schema-dependent', planSchema, {
 			beforeOperation: { create: dependentSchemaHandler },

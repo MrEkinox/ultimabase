@@ -30,6 +30,31 @@ export type {
 } from './services/service-registry.js'
 export { ServiceRegistry } from './services/service-registry.js'
 export { definePlugin } from './plugins/definition.js'
+export {
+	defineCapability,
+	optionalCapability,
+	provideCapability,
+	requireCapability,
+} from './plugins/capabilities.js'
+export type {
+	CapabilityCardinality,
+	CapabilityConsumerValue,
+	CapabilityLifetime,
+	CapabilityProviderDeclaration,
+	CapabilityProviderValue,
+	CapabilityRequirement,
+	CapabilityToken,
+	DefineCapabilityFactory,
+	DefineCapabilityOptions,
+	PluginCapabilityDeclarationOptions,
+	PluginCapabilityDeclarations,
+} from './plugins/capabilities.js'
+export { CapabilityInventory } from './plugins/capability-inventory.js'
+export type {
+	CapabilityInventoryEntry,
+	CapabilityProviderInspection,
+	CapabilityRequirementInspection,
+} from './plugins/capability-inventory.js'
 export { defineDatabaseConstraintCompiler } from './plugins/constraint-compilers.js'
 export type {
 	DatabaseConstraintCompilerContribution,
@@ -86,6 +111,7 @@ export {
 } from './plugins/manifest.js'
 export type {
 	PluginEnvironmentClaim,
+	PluginDependency,
 	PluginIdentity,
 	PluginManifest,
 	PluginPrivilege,

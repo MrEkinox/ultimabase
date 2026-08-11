@@ -59,9 +59,20 @@ describe('plugin manifest source language service', () => {
 			'environment:network',
 			'environment:process',
 		])
+		expect(readStringCompletions('cardinality')).toStrictEqual([
+			'single',
+			'multiple',
+			'pipeline',
+		])
+		expect(readStringCompletions('lifetime')).toStrictEqual([
+			'declaration',
+			'application',
+		])
 		expect(readHover('privilege')).toContain('type PluginPrivilege =')
 		expect(readHover('environment')).toContain('type PluginEnvironmentClaim =')
 		expect(readHover('identity')).toContain('interface PluginIdentity')
 		expect(readHover('manifest')).toContain('interface PluginManifest')
+		expect(readHover('capability')).toContain('interface CapabilityToken')
+		expect(readHover('provider-value')).toContain('readonly endpoint: string;')
 	})
 })
