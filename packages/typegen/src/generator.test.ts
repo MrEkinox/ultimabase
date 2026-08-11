@@ -127,6 +127,7 @@ describe('generateApplicationTypes', () => {
 		expect(first.contents).not.toContain('schema-hook-secret-must-not-run')
 		expect(first.contents).not.toContain('export type DeepPartial<TValue>')
 		expect(first.contents).not.toContain('export type SchemaAccess<TItem')
+		expect(first.contents).not.toMatch(/^export type \w+(?:Access|Hooks) =/mu)
 		expect(first.contents).not.toContain('Core.GeneratedOrderBy')
 		expect(first.contents).toContain(
 			'export type OrderDirection = "asc" | "desc"',

@@ -59,10 +59,11 @@ await writeGeneratedTypeFile({
 The TypeScript loader transpiles the application before a previous generated
 registry exists. Static compilation registers configured plugin field methods,
 resolves fields and relationship targets, and then emits exact models,
-operation inputs, filters, projections, includes, Access/hook values, embedded
-objects, and FieldBuilder methods. Compatible object and enum `typeName`
-identities are reused; incompatible identities and normalized TypeScript name
-collisions report both owners.
+operation inputs, filters, projections, includes, embedded objects, and
+FieldBuilder methods. Those values drive exact contextual Access and hook
+declarations through Core. Compatible object and enum `typeName` identities are
+reused; incompatible identities and normalized TypeScript name collisions
+report both owners.
 
 Generated `Select` contracts mark `id` as `id?: true`: every root or nested
 model result contains its stable identifier even when the developer selects
@@ -79,7 +80,12 @@ nested per-schema `Item` alias. The lower-level Core augmentation references
 those schema types and is isolated in a framework registry section at the
 bottom. It adds only logical field kind, list, and relationship metadata that
 cannot be recovered safely from the public value types.
+
 Access and hook contracts are derived instead of duplicated in that registry.
+They are contextually inferred by Core rather than repeated as standalone
+`TodoAccess` or `TodoHooks` wrappers. Extracted code can name the canonical
+generated value or operation input directly.
+
 Each schema also receives a concrete object-shaped `TodoOrderByInput` whose
 optional fields use the generated local `OrderDirection` union; generated
 application code never exposes the Core ordering helper.

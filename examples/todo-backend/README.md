@@ -24,9 +24,10 @@ The generated declaration is included by this example's `tsconfig.json`. The
 schema deliberately exercises every built-in scalar field, every supported
 one-dimensional list, nested objects, enums, a pointer, and an inverse
 relation. Its output therefore exposes exact models, create/update data,
-scalar and array filters, selections, includes, Access, hooks, and structured
-path types. After startup, verify the application source against that
-declaration with:
+scalar and array filters, selections, includes, and structured path types.
+Access and hook declarations receive those exact values contextually through
+Core rather than through redundant generated wrappers. After startup, verify
+the application source against that declaration with:
 
 ```sh
 yarn workspace @ultimabase/example-todo-backend typecheck

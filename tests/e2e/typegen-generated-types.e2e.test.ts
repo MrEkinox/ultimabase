@@ -186,7 +186,7 @@ const invalidIdentifierSelection: PackedGeneratedDocumentSelect = {
   // @ts-expect-error -- Stable model identifiers cannot be omitted.
   id: false,
 }
-declare const packedItem: PackedGeneratedDocumentHooks['item']
+declare const packedItem: PackedGeneratedDocumentItem
 const ownerRead = packedItem.owner.findOne({
   where: { ${pointerMarker}name: { startsWith: 'A' } },
 })
@@ -435,6 +435,9 @@ describe('packed @ultimabase/typegen generated contracts', () => {
 	it('emits a stable registry that typechecks through package exports', () => {
 		expect(generated.fingerprint).toMatch(/^[a-f0-9]{64}$/u)
 		expect(generated.contents).not.toMatch(/\bany\b/u)
+		expect(generated.contents).not.toMatch(
+			/^export type \w+(?:Access|Hooks) =/mu,
+		)
 		expect(
 			service
 				.getSemanticDiagnostics(fileName)

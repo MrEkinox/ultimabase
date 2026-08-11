@@ -221,8 +221,6 @@ const pointerRead = item.author.findOne({
   select: { name: true },
   where: { name: { startsWith: 'A' } },
 })
-const hookItem: SemanticArticleHooks['item'] = item
-const accessWhere: SemanticArticleAccess['where'] = where
 const schemaItem: Schemas.SemanticArticle['item'] = item
 const schemaCreate: Schemas.SemanticArticle['inputs']['create'] = createInput
 
@@ -261,11 +259,9 @@ const invalidListFilter: SemanticArticleWhereInput = {
   },
 }
 
-void accessWhere
 void createInput
 void exactStatus
 void exactVector
-void hookItem
 void include
 void invalidEnum
 void invalidOrder
@@ -489,7 +485,7 @@ const createInput: SemanticArticleCreateInput = {
 }
 const draft = new SemanticArticle(createInput)
 const exactStatus: 'draft' | 'published' = draft.status
-declare const loadedArticle: SemanticArticleHooks['item']
+declare const loadedArticle: SemanticArticleItem
 const authorRead = loadedArticle.author.findOne({
   /* public-pointer-where-hover */where: { /* public-pointer-where */ name: { startsWith: 'A' } },
   select: { /* public-pointer-handle-select */ name: true },

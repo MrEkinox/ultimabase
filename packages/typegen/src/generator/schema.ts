@@ -155,14 +155,10 @@ export const renderSchemaPublic = (
 		renderWhere(schema, alias, context),
 		`export type ${alias}Select = ${renderSelect(schema)}`,
 		`export type ${alias}OrderByInput = ${renderOrderBy(schema)}`,
-		`export type ${alias}Access = {\n\treadonly create: ${alias}CreateInput\n\treadonly item: ${alias}Item\n\treadonly orderBy: ${alias}OrderByInput\n\treadonly update: ${alias}UpdateInput\n\treadonly where: ${alias}WhereInput\n}`,
-		`export type ${alias}Hooks = {\n\treadonly create: ${alias}CreateInput\n\treadonly item: ${alias}Item\n\treadonly originalItem: ${alias}Item\n\treadonly update: ${alias}UpdateInput\n}`,
 	)
 
 	if (hasRelationships(schema)) {
-		sections.splice(
-			sections.length - 2,
-			0,
+		sections.push(
 			`export type ${alias}Include = ${renderInclude(schema, context)}`,
 		)
 	}
