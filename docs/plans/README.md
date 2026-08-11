@@ -7,8 +7,7 @@ priority changes.
 
 ## Active
 
-- [Query execution and enforcement consolidation](../../CURRENT_PLAN.md),
-  tracked as milestone 13 and starting at issue 1301.
+- None.
 
 ## Paused
 
@@ -19,6 +18,7 @@ priority changes.
 
 ## Completed
 
+- [Query execution and enforcement consolidation](completed/query-execution-and-enforcement-consolidation.md)
 - [Pre-feature codebase consolidation](completed/pre-feature-codebase-consolidation.md)
 - [Explicit Typegen package identity](completed/explicit-typegen-package-identity.md)
 - [Singular identifier target aliases](completed/singular-identifier-target-aliases.md)

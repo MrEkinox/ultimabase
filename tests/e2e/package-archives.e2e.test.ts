@@ -201,6 +201,27 @@ describe('@ultimabase/core Schema, QueryBuilder, and Runtime declarations', () =
 		}
 	})
 
+	it('keeps Enforcement coordination implementation private', async () => {
+		const declarations = await readFile(
+			path.join(packagesDirectory, 'core', 'dist', 'index.d.ts'),
+			'utf8',
+		)
+
+		for (const internalName of [
+			'OwnedEnforcementContribution',
+			'createRelationPredicateEvaluator',
+			'enforceOperationRestrictions',
+			'enforceOutputRestrictions',
+			'enforceSelectionResultRestrictions',
+			'evaluateEnforcementContributions',
+			'normalizeEnforcementRestrictedFields',
+			'readEnforcementContributions',
+			'readEnforcementOperationSchema',
+		]) {
+			expect(declarations).not.toContain(internalName)
+		}
+	})
+
 	it('keeps native Access dispatch implementation private', async () => {
 		const declarations = await readFile(
 			path.join(packagesDirectory, 'core', 'dist', 'index.d.ts'),

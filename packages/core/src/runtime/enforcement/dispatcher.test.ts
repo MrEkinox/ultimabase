@@ -95,6 +95,27 @@ describe('createEnforcementStages', () => {
 						},
 					}),
 				)
+				registries.hooks.register(
+					'fixture.master-output-bypassed',
+					restrictOutput({
+						handler: () => {
+							trace.push('output-bypassed')
+
+							return []
+						},
+						master: 'bypass',
+					}),
+				)
+				registries.hooks.register(
+					'fixture.master-output-enforced',
+					restrictOutput({
+						handler: () => {
+							trace.push('output-enforced')
+
+							return ['title']
+						},
+					}),
+				)
 			},
 		})
 		const application = await createApplication({
@@ -113,6 +134,17 @@ describe('createEnforcementStages', () => {
 
 		await stages.evaluate({ context: master, operation })
 		expect(trace).toStrictEqual(['enforced'])
+		const enforcement = await stages.evaluate({
+			context: master,
+			operation,
+		})
+		await stages.enforceResult({
+			context: master,
+			enforcement,
+			operation,
+			result: { title: 'Visible' },
+		})
+		expect(trace).toStrictEqual(['enforced', 'enforced', 'output-enforced'])
 		await application.dispose()
 	})
 
@@ -458,6 +490,40 @@ describe('createEnforcementStages', () => {
 		expect(Object.isFrozen(enforcedCreate.operation.selection.fields)).toBe(
 			true,
 		)
+		const selectedQuery = new QueryBuilder(articleSchema).select({
+			id: true,
+			secret: true,
+			title: true,
+		}).ast
+		const upsertManyOperation = {
+			items: [
+				{
+					create: { title: 'Created' },
+					query: selectedQuery,
+					target: { fields: ['id'], kind: 'unique-upsert-target' },
+					update: { kind: 'update-expression', operations: [] },
+				},
+			],
+			kind: 'upsert-many',
+			selection: selectedQuery.selection,
+			schema: selectedQuery.schema,
+		} as const
+		const upsertManyEnforcement = await stages.evaluate({
+			context,
+			operation: upsertManyOperation,
+		})
+		const enforcedUpsertMany = await stages.enforceOperation({
+			context,
+			enforcement: upsertManyEnforcement,
+			operation: upsertManyOperation,
+		})
+
+		expect(enforcedUpsertMany.operation.selection.fields).toStrictEqual([
+			{ field: 'title', kind: 'selected-field' },
+		])
+		expect(
+			enforcedUpsertMany.operation.items[0].query.selection.fields,
+		).toStrictEqual([{ field: 'title', kind: 'selected-field' }])
 
 		await application.dispose()
 	})
@@ -732,6 +798,11 @@ describe('createEnforcementStages', () => {
 				}),
 			}),
 			'must be a database constraint node',
+		],
+		[
+			'non-array field restriction',
+			restrictSelection({ handler: (() => 'title') as never }),
+			'must return a field array',
 		],
 		[
 			'unknown field',

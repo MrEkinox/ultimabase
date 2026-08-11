@@ -11,11 +11,11 @@ complete foundations. The
 [pre-feature codebase consolidation plan](docs/plans/completed/pre-feature-codebase-consolidation.md)
 has also completed its strict Schema and public API boundaries, empty-package
 cleanup, and focused Query, schema-model, Runtime, and native Access splits
-without adding a product capability. The active
-[Query execution and enforcement consolidation plan](CURRENT_PLAN.md) now
-removes verified dead Query execution helpers, separates framework-owned
-execution state from the immutable public Query builder, and focuses the
-policy-neutral Enforcement dispatcher without changing public behavior.
+without adding a product capability. The
+[Query execution and enforcement consolidation plan](docs/plans/completed/query-execution-and-enforcement-consolidation.md)
+has likewise removed dead internal helpers and focused Query execution plus
+policy-neutral Enforcement ownership without changing public behavior. No
+cross-milestone plan is currently active.
 
 The ACL hardening plan remains paused at issue 432. Generated schema authoring
 and type contracts remain paused at the final DX and performance verification
