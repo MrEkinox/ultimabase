@@ -11,8 +11,11 @@ complete foundations. The
 [pre-feature codebase consolidation plan](docs/plans/completed/pre-feature-codebase-consolidation.md)
 has also completed its strict Schema and public API boundaries, empty-package
 cleanup, and focused Query, schema-model, Runtime, and native Access splits
-without adding a product capability. No cross-milestone plan is currently
-active.
+without adding a product capability. The active
+[Query execution and enforcement consolidation plan](CURRENT_PLAN.md) now
+removes verified dead Query execution helpers, separates framework-owned
+execution state from the immutable public Query builder, and focuses the
+policy-neutral Enforcement dispatcher without changing public behavior.
 
 The ACL hardening plan remains paused at issue 432. Generated schema authoring
 and type contracts remain paused at the final DX and performance verification
@@ -87,6 +90,13 @@ actionable field diagnostics, direct pre-release alias removal, and focused
 internal Query, schema-model, Runtime, and native Access responsibility splits.
 This milestone adds no product capability and leaves ACL hardening and Typegen
 performance verification paused.
+
+## Milestone 13 — Query execution and enforcement consolidation
+
+Verified dead internal Query mutation helpers, separation of immutable Query
+authoring from framework-owned scopes and execution, and focused internal
+ownership for monotonic Enforcement contribution, relation, input, selection,
+and output behavior. This milestone adds no public API or product capability.
 
 ## First usable release
 

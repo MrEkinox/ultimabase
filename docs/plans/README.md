@@ -7,7 +7,8 @@ priority changes.
 
 ## Active
 
-- None.
+- [Query execution and enforcement consolidation](../../CURRENT_PLAN.md),
+  tracked as milestone 13 and starting at issue 1301.
 
 ## Paused
 
