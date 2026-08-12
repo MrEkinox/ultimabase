@@ -8,7 +8,11 @@ const testProjects: TestProjectConfiguration[] = [
 	{
 		extends: true,
 		test: {
-			include: ['packages/*/src/**/*.test.ts', 'packages/*/tests/**/*.test.ts'],
+			include: [
+				'packages/*/src/**/*.test.ts',
+				'packages/*/tests/**/*.test.ts',
+				'tooling/eslint/**/*.test.ts',
+			],
 			name: 'unit',
 			// Language-service fixtures need headroom when coverage instruments Core.
 			testTimeout: 20_000,

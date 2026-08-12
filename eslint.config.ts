@@ -4,7 +4,18 @@ import { dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import tseslint from 'typescript-eslint'
 
+import {
+	createFileLineBudgetRule,
+	handwrittenFileLineBaseline,
+} from './tooling/eslint/file-line-budget.js'
+
 const configDirectory = dirname(fileURLToPath(import.meta.url))
+const repositoryFileLineBudget = createFileLineBudgetRule({
+	baseline: handwrittenFileLineBaseline,
+	productionMaximum: 600,
+	repositoryRoot: configDirectory,
+	testMaximum: 750,
+})
 
 export default defineConfig(
 	eslint.configs.recommended,
@@ -28,6 +39,11 @@ export default defineConfig(
 				tsconfigRootDir: configDirectory,
 			},
 		},
+		plugins: {
+			repository: {
+				rules: { 'file-line-budget': repositoryFileLineBudget },
+			},
+		},
 		rules: {
 			'@typescript-eslint/consistent-type-exports': 'error',
 			'@typescript-eslint/consistent-type-imports': 'error',
@@ -35,6 +51,8 @@ export default defineConfig(
 			'@typescript-eslint/no-misused-promises': 'error',
 			'@typescript-eslint/no-unnecessary-condition': 'error',
 			'@typescript-eslint/prefer-readonly': 'error',
+			'max-lines': ['warn', { max: 400 }],
+			'repository/file-line-budget': 'error',
 		},
 	},
 	{
@@ -45,6 +63,7 @@ export default defineConfig(
 			'packages/*/tests/**/*.ts',
 			'tests/e2e/**/*.ts',
 			'tooling/prototypes/generated-schema-authoring/**/*.ts',
+			'tooling/eslint/**/*.test.ts',
 			'tooling/vitest/typescript-language-service.ts',
 		],
 		languageOptions: {
@@ -54,6 +73,9 @@ export default defineConfig(
 				projectService: false,
 				tsconfigRootDir: configDirectory,
 			},
+		},
+		rules: {
+			'max-lines': ['warn', { max: 600 }],
 		},
 	},
 )

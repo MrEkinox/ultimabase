@@ -1,0 +1,181 @@
+import type { JsonValue } from '../schema/fields/builtins/json.js'
+
+import type { GenericField } from '../schema/fields/base/contract.js'
+
+import { type SchemaExtension } from '../schema/extensions/definition.js'
+
+import type {
+	SchemaIndexDefinition,
+	SchemaIndexOptions,
+} from '../schema/schema/indexes.js'
+
+import { type SchemaConstraintDefinition } from '../schema/schema/constraints.js'
+
+import { type SchemaContributionOwnerReference } from '../schema/schema/provenance.js'
+
+export interface SchemaSelectorOptions {
+	readonly className?: string
+	readonly field?: Readonly<{ readonly kind?: string; readonly name: string }>
+	readonly option?: Readonly<{
+		readonly equals: JsonValue
+		readonly name: string
+		readonly path?: readonly string[]
+	}>
+	readonly owner?: SchemaContributionOwnerReference
+}
+
+export interface SchemaSelection {
+	readonly selector: SchemaSelectorOptions
+}
+
+export const schemaSelections: WeakSet<object> = new WeakSet<object>()
+
+export interface AddSchemaFieldOperation {
+	readonly contributionId: string
+	readonly field: GenericField
+	readonly kind: 'field:add'
+	readonly name: string
+}
+
+export interface AddSchemaIndexOperation {
+	readonly contributionId: string
+	readonly index: SchemaIndexOptions
+	readonly kind: 'index:add'
+}
+
+export interface ExistingSchemaContributionTarget<TExpected> {
+	readonly contributionId: string
+	readonly expected: TExpected
+	readonly owner: SchemaContributionOwnerReference
+}
+
+export interface ReplaceSchemaFieldOperation {
+	readonly contributionId: string
+	readonly field: GenericField
+	readonly kind: 'field:replace'
+	readonly name: string
+	readonly target: ExistingSchemaContributionTarget<GenericField>
+}
+
+export interface RenameSchemaFieldOperation {
+	readonly contributionId: string
+	readonly from: string
+	readonly kind: 'field:rename'
+	readonly target: ExistingSchemaContributionTarget<GenericField>
+	readonly to: string
+}
+
+export interface RemoveSchemaFieldOperation {
+	readonly contributionId: string
+	readonly kind: 'field:remove'
+	readonly name: string
+	readonly target: ExistingSchemaContributionTarget<GenericField>
+}
+
+export interface SetSchemaOptionOperation {
+	readonly contributionId: string
+	readonly kind: 'schema-option:set'
+	readonly name: string
+	readonly target?: ExistingSchemaContributionTarget<JsonValue>
+	readonly value: unknown
+}
+
+export interface RemoveSchemaOptionOperation {
+	readonly contributionId: string
+	readonly kind: 'schema-option:remove'
+	readonly name: string
+	readonly target: ExistingSchemaContributionTarget<JsonValue>
+}
+
+export interface SetSchemaFieldOptionOperation {
+	readonly contributionId: string
+	readonly field: string
+	readonly kind: 'field-option:set'
+	readonly name: string
+	readonly target?: ExistingSchemaContributionTarget<JsonValue>
+	readonly value: unknown
+}
+
+export interface RemoveSchemaFieldOptionOperation {
+	readonly contributionId: string
+	readonly field: string
+	readonly kind: 'field-option:remove'
+	readonly name: string
+	readonly target: ExistingSchemaContributionTarget<JsonValue>
+}
+
+export interface ReplaceSchemaIndexOperation {
+	readonly contributionId: string
+	readonly index: SchemaIndexOptions
+	readonly kind: 'index:replace'
+	readonly target: ExistingSchemaContributionTarget<SchemaIndexDefinition>
+}
+
+export interface RemoveSchemaIndexOperation {
+	readonly contributionId: string
+	readonly kind: 'index:remove'
+	readonly target: ExistingSchemaContributionTarget<SchemaIndexDefinition>
+}
+
+export interface AddSchemaExtensionOperation {
+	readonly contributionId: string
+	readonly extension: SchemaExtension<string, object>
+	readonly kind: 'extension:add'
+}
+
+export interface ReplaceSchemaExtensionOperation {
+	readonly contributionId: string
+	readonly extension: SchemaExtension<string, object>
+	readonly kind: 'extension:replace'
+	readonly target: ExistingSchemaContributionTarget<
+		SchemaExtension<string, object>
+	>
+}
+
+export interface RemoveSchemaExtensionOperation {
+	readonly contributionId: string
+	readonly kind: 'extension:remove'
+	readonly target: ExistingSchemaContributionTarget<
+		SchemaExtension<string, object>
+	>
+}
+
+export interface AddSchemaConstraintOperation {
+	readonly constraint: SchemaConstraintDefinition
+	readonly contributionId: string
+	readonly kind: 'constraint:add'
+}
+
+export interface ReplaceSchemaConstraintOperation {
+	readonly constraint: SchemaConstraintDefinition
+	readonly contributionId: string
+	readonly kind: 'constraint:replace'
+	readonly target: ExistingSchemaContributionTarget<SchemaConstraintDefinition>
+}
+
+export interface RemoveSchemaConstraintOperation {
+	readonly contributionId: string
+	readonly kind: 'constraint:remove'
+	readonly target: ExistingSchemaContributionTarget<SchemaConstraintDefinition>
+}
+
+export type SchemaPatchOperation =
+	| AddSchemaConstraintOperation
+	| AddSchemaExtensionOperation
+	| AddSchemaFieldOperation
+	| AddSchemaIndexOperation
+	| RemoveSchemaFieldOptionOperation
+	| RemoveSchemaConstraintOperation
+	| RemoveSchemaFieldOperation
+	| RemoveSchemaExtensionOperation
+	| RemoveSchemaIndexOperation
+	| RemoveSchemaOptionOperation
+	| RenameSchemaFieldOperation
+	| ReplaceSchemaFieldOperation
+	| ReplaceSchemaConstraintOperation
+	| ReplaceSchemaExtensionOperation
+	| ReplaceSchemaIndexOperation
+	| SetSchemaFieldOptionOperation
+	| SetSchemaOptionOperation
+
+export const schemaPatchOperations: WeakSet<object> = new WeakSet<object>()

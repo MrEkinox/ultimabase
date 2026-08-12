@@ -1,6 +1,6 @@
 # 1421: Modularize schema declarations and enforce file budgets
 
-- Status: planned
+- Status: completed
 - Milestone: 14
 - Packages: repository-wide, `@ultimabase/core`
 - Depends on: 1419, 1420
@@ -25,21 +25,23 @@ back into unreviewable monoliths.
   temporary non-growth budgets that can only decrease until removed.
 - Repository contribution guidance records the limits and prohibits permanent
   local bypasses.
+- Handwritten production files warn above 400 lines and fail above 600 lines;
+  handwritten tests warn above 600 lines and fail above 750 lines.
 
 ## Acceptance criteria
 
-- [ ] No schema declaration production module exceeds 500 lines and focused test files stay within the accepted test budget.
-- [ ] Production files warn before the hard limit, handwritten test files have a separate explicit hard limit, and generated artifacts are excluded by path rather than inline suppression.
-- [ ] Every pre-existing oversized handwritten file is either brought under the limit or listed in one reviewed baseline that rejects line-count growth.
-- [ ] `AGENTS.md` documents the budgets, exception ownership, and decreasing-baseline rule.
-- [ ] The split introduces no public export, compatibility alias, dependency cycle, duplicated invariant, or behavior change.
-- [ ] Source and packed package consumers observe identical public declarations before and after the split.
+- [x] No schema declaration production module exceeds 500 lines and focused test files stay within the accepted test budget.
+- [x] Production files warn before the hard limit, handwritten test files have a separate explicit hard limit, and generated artifacts are excluded by path rather than inline suppression.
+- [x] Every pre-existing oversized handwritten file is either brought under the limit or listed in one reviewed baseline that rejects line-count growth.
+- [x] `AGENTS.md` documents the budgets, exception ownership, and decreasing-baseline rule.
+- [x] The split introduces no public export, compatibility alias, dependency cycle, duplicated invariant, or behavior change.
+- [x] Source and packed package consumers observe identical public declarations before and after the split.
 
 ## Tests
 
-- [ ] Existing schema declaration runtime, type, language-service, build, and packed-export suites pass unchanged except for file relocation.
-- [ ] Focused tests prove the file-budget rule, generated-file exclusion, baseline non-growth behavior, and failure diagnostics.
-- [ ] Repository constraints and lint pass with no local disable added for the new modules.
+- [x] Existing schema declaration runtime, type, language-service, build, and packed-export suites pass unchanged except for file relocation.
+- [x] Focused tests prove the file-budget rule, generated-file exclusion, baseline non-growth behavior, and failure diagnostics.
+- [x] Repository constraints and lint pass with no local disable added for the new modules.
 
 ## Out of scope
 

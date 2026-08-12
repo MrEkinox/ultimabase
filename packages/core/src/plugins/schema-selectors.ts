@@ -1,0 +1,264 @@
+import {
+	assertNonEmptyString,
+	immutableArray,
+	immutableRecord,
+	isPlainRecord,
+	isUnknownArray,
+} from '@ultimabase/shared'
+
+import { snapshotJsonValue } from '../schema/fields/builtins/json.js'
+
+import type { PreparedSchemaCompilation } from '../schema/schema/definition.js'
+
+import { areSchemaDeclarationValuesCompatible } from '../schema/schema/definition.js'
+
+import type {
+	CapabilityRequirement,
+	CapabilityToken,
+	PluginCapabilityReader,
+} from './capabilities.js'
+
+import {
+	applicationSchemaContributionOwner,
+	type ApplicationSchemaContributionOwner,
+	type SchemaContributionOwner,
+	type SchemaContributionOwnerReference,
+} from '../schema/schema/provenance.js'
+
+import {
+	assertKnownKeys,
+	type SchemaOptionRuntimeRequirement,
+} from './schema-option-definitions.js'
+
+import { type SchemaSelectorOptions } from './schema-patch-contracts.js'
+
+export const normalizeSelector = (
+	selector: SchemaSelectorOptions,
+): SchemaSelectorOptions => {
+	const untrustedSelector: unknown = selector
+	if (!isPlainRecord(untrustedSelector)) {
+		throw new TypeError('Schema selector must be a plain object')
+	}
+
+	assertKnownKeys(
+		untrustedSelector,
+		new Set(['className', 'field', 'option', 'owner']),
+		'schema selector',
+	)
+
+	const className = untrustedSelector.className
+	if (className !== undefined) {
+		assertNonEmptyString(className, 'Schema selector className')
+	}
+
+	const fieldInput = untrustedSelector.field
+	let field: SchemaSelectorOptions['field']
+	if (fieldInput !== undefined) {
+		if (!isPlainRecord(fieldInput)) {
+			throw new TypeError('Schema selector field must be a plain object')
+		}
+		assertKnownKeys(
+			fieldInput,
+			new Set(['kind', 'name']),
+			'schema selector field',
+		)
+		assertNonEmptyString(fieldInput.name, 'Schema selector field.name')
+		if (fieldInput.kind !== undefined) {
+			assertNonEmptyString(fieldInput.kind, 'Schema selector field.kind')
+		}
+		field = immutableRecord({
+			name: fieldInput.name,
+			...(fieldInput.kind === undefined ? {} : { kind: fieldInput.kind }),
+		})
+	}
+
+	const optionInput = untrustedSelector.option
+	let option: SchemaSelectorOptions['option']
+	if (optionInput !== undefined) {
+		if (!isPlainRecord(optionInput)) {
+			throw new TypeError('Schema selector option must be a plain object')
+		}
+		assertKnownKeys(
+			optionInput,
+			new Set(['equals', 'name', 'path']),
+			'schema selector option',
+		)
+		assertNonEmptyString(optionInput.name, 'Schema selector option.name')
+		if (optionInput.path !== undefined && !isUnknownArray(optionInput.path)) {
+			throw new TypeError('Schema selector option.path must be a list')
+		}
+		const path = optionInput.path
+		const normalizedPath =
+			path === undefined
+				? undefined
+				: immutableArray(
+						path.map((segment, index) => {
+							assertNonEmptyString(
+								segment,
+								`Schema selector option.path[${String(index)}]`,
+							)
+							return segment
+						}),
+					)
+		option = immutableRecord({
+			equals: snapshotJsonValue(
+				optionInput.equals,
+				'Schema selector option.equals',
+			),
+			name: optionInput.name,
+			...(normalizedPath === undefined ? {} : { path: normalizedPath }),
+		})
+	}
+
+	const ownerInput = untrustedSelector.owner
+	let owner: SchemaContributionOwnerReference | undefined
+	if (ownerInput !== undefined) {
+		if (!isPlainRecord(ownerInput)) {
+			throw new TypeError('Schema selector owner must be a plain object')
+		}
+		if (ownerInput.kind === 'application') {
+			assertKnownKeys(ownerInput, new Set(['kind']), 'schema selector owner')
+			owner = applicationOwner
+		} else if (ownerInput.kind === 'plugin') {
+			assertKnownKeys(
+				ownerInput,
+				new Set(['instanceId', 'kind', 'pluginId']),
+				'schema selector owner',
+			)
+			assertNonEmptyString(
+				ownerInput.pluginId,
+				'Schema selector owner.pluginId',
+			)
+			if (ownerInput.instanceId !== undefined) {
+				assertNonEmptyString(
+					ownerInput.instanceId,
+					'Schema selector owner.instanceId',
+				)
+			}
+			owner = immutableRecord({
+				kind: 'plugin',
+				pluginId: ownerInput.pluginId,
+				...(ownerInput.instanceId === undefined
+					? {}
+					: { instanceId: ownerInput.instanceId }),
+			})
+		} else {
+			throw new TypeError(
+				'Schema selector owner.kind must be application or plugin',
+			)
+		}
+	}
+
+	return immutableRecord({
+		...(className === undefined ? {} : { className }),
+		...(field === undefined ? {} : { field }),
+		...(option === undefined ? {} : { option }),
+		...(owner === undefined ? {} : { owner }),
+	})
+}
+
+export const applicationOwner: ApplicationSchemaContributionOwner =
+	applicationSchemaContributionOwner
+
+export const readDeclaredRuntimeCapability = (
+	reader: PluginCapabilityReader,
+	requirement: SchemaOptionRuntimeRequirement,
+): unknown =>
+	requirement.optional
+		? reader.get(
+				requirement as CapabilityRequirement<
+					CapabilityToken,
+					true,
+					string,
+					'materialization'
+				>,
+			)
+		: reader.get(
+				requirement as CapabilityRequirement<
+					CapabilityToken,
+					false,
+					string,
+					'materialization'
+				>,
+			)
+
+export const sameOwner = (
+	owner: SchemaContributionOwner,
+	reference: SchemaContributionOwnerReference,
+): boolean => {
+	if (owner.kind !== reference.kind) return false
+	if (owner.kind !== 'plugin') return true
+
+	return (
+		reference.kind === 'plugin' &&
+		owner.pluginId === reference.pluginId &&
+		owner.instanceId === reference.instanceId
+	)
+}
+
+const readOptionPath = (value: unknown, path: readonly string[]): unknown => {
+	let current = value
+	for (const segment of path) {
+		if (!isPlainRecord(current) || !Object.hasOwn(current, segment)) {
+			return undefined
+		}
+		current = current[segment]
+	}
+	return current
+}
+
+export const readPlainRecordValue = (
+	value: object,
+	key: string,
+	path: string,
+): unknown => {
+	const untrustedValue: unknown = value
+	if (!isPlainRecord(untrustedValue)) {
+		throw new TypeError(`${path} must be a plain object`)
+	}
+
+	return untrustedValue[key]
+}
+
+export const matchesSelector = (
+	candidate: PreparedSchemaCompilation,
+	owner: SchemaContributionOwner,
+	selector: SchemaSelectorOptions,
+): boolean => {
+	if (
+		selector.className !== undefined &&
+		candidate.schema.className !== selector.className
+	) {
+		return false
+	}
+
+	if (selector.owner !== undefined && !sameOwner(owner, selector.owner)) {
+		return false
+	}
+
+	if (selector.field !== undefined) {
+		const field = candidate.definition.fields[selector.field.name]
+		if (
+			field === undefined ||
+			(selector.field.kind !== undefined && field.kind !== selector.field.kind)
+		) {
+			return false
+		}
+	}
+
+	if (selector.option !== undefined) {
+		const value = readPlainRecordValue(
+			candidate.definition,
+			selector.option.name,
+			candidate.schema.className,
+		)
+		const selected = readOptionPath(value, selector.option.path ?? [])
+		if (
+			!areSchemaDeclarationValuesCompatible(selected, selector.option.equals)
+		) {
+			return false
+		}
+	}
+
+	return true
+}
