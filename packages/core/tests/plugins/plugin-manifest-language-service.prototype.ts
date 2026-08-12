@@ -2,9 +2,11 @@ import {
 	decorateCapability,
 	defineCapability,
 	definePlugin,
+	defineSchemaOption,
 	FrameworkApplication,
 	provideCapability,
 	replaceCapability,
+	requireCapability,
 	type CapabilityToken,
 	type CapabilityProviderChainInspection,
 	type PluginEnvironmentClaim,
@@ -39,6 +41,37 @@ const replacement = /* hover:replacement */ replaceCapability(capability, {
 		contributionId: 'local',
 	},
 	value: { endpoint: 'replacement' },
+})
+provideCapability(capability, {
+	contributionId: 'invalid-json',
+	// @ts-expect-error -- Packed declarations reject the same non-JSON values as source declarations.
+	value: { endpoint: new Date() },
+})
+
+const runtimeCapability = defineCapability<{ readonly register: () => void }>()(
+	{
+		capabilityId: 'fixture.language-runtime',
+		version: '1.0.0',
+		cardinality: 'single',
+		lifetime: 'application',
+		compose: ([provider]) => provider,
+	},
+)
+const setupRequirement = requireCapability(runtimeCapability, '^1.0.0', {
+	phase: 'setup',
+})
+defineSchemaOption({
+	normalize: (value) => String(value),
+	protocolVersion: 1,
+	runtime: {
+		compile: () => undefined,
+		// @ts-expect-error -- Runtime option compilers accept materialization requirements only.
+		requirement: setupRequirement,
+	},
+	typegen: {
+		module: '@fixture/runtime-option-plugin',
+		type: 'RuntimeOption',
+	},
 })
 const policyPlugin = definePlugin({
 	pluginId: 'fixture.policy-language-service',

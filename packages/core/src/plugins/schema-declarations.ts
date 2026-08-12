@@ -73,10 +73,18 @@ type RequirementConsumerValue<TRequirement> =
 			: CapabilityConsumerValue<TToken>
 		: never
 
+type SchemaOptionRuntimeRequirement = CapabilityRequirement<
+	CapabilityToken,
+	boolean,
+	string,
+	'materialization'
+>
+
 /** Describes optional Runtime compilation owned by an application capability. */
 export interface SchemaOptionRuntimeCompilationContext<
 	TValue extends JsonValue,
-	TRequirement extends CapabilityRequirement = CapabilityRequirement,
+	TRequirement extends SchemaOptionRuntimeRequirement =
+		SchemaOptionRuntimeRequirement,
 > {
 	/** Reads the exact application capability declared by the option owner. */
 	readonly capability: RequirementConsumerValue<TRequirement>
@@ -99,7 +107,8 @@ export interface SchemaOptionRuntimeCompilationContext<
 /** Describes optional Runtime compilation owned by an application capability. */
 export interface SchemaOptionRuntimeCompiler<
 	TValue extends JsonValue = JsonValue,
-	TRequirement extends CapabilityRequirement = CapabilityRequirement,
+	TRequirement extends SchemaOptionRuntimeRequirement =
+		SchemaOptionRuntimeRequirement,
 > {
 	readonly requirement: TRequirement
 	readonly compile: (
@@ -110,7 +119,8 @@ export interface SchemaOptionRuntimeCompiler<
 /** Defines one direct schema or field option owned by an installed plugin. */
 export interface SchemaOptionDefinition<
 	TValue extends JsonValue = JsonValue,
-	TRequirement extends CapabilityRequirement = CapabilityRequirement,
+	TRequirement extends SchemaOptionRuntimeRequirement =
+		SchemaOptionRuntimeRequirement,
 > {
 	readonly normalize: (value: unknown, path: string) => TValue
 	readonly protocolVersion: number
@@ -171,7 +181,8 @@ const normalizeTypegenDescriptor = (
 /** Creates one nominal option definition shared by schema and field namespaces. */
 export const defineSchemaOption = <
 	const TValue extends JsonValue,
-	const TRequirement extends CapabilityRequirement = CapabilityRequirement,
+	const TRequirement extends SchemaOptionRuntimeRequirement =
+		SchemaOptionRuntimeRequirement,
 >(
 	definition: SchemaOptionDefinition<TValue, TRequirement>,
 ): SchemaOptionDefinition => {
@@ -203,13 +214,19 @@ export const defineSchemaOption = <
 		if (typeof runtime.compile !== 'function') {
 			throw new TypeError('Schema option runtime.compile must be a function')
 		}
+		const untrustedRequirement: unknown = runtime.requirement
 		assertCapabilityRequirement(
-			runtime.requirement,
+			untrustedRequirement,
 			'Schema option runtime.requirement',
 		)
-		if (runtime.requirement.token.lifetime !== 'application') {
+		if (untrustedRequirement.token.lifetime !== 'application') {
 			throw new TypeError(
 				'Schema option runtime.requirement must target an application capability',
+			)
+		}
+		if (untrustedRequirement.phase !== 'materialization') {
+			throw new TypeError(
+				'Schema option runtime.requirement must use the materialization phase',
 			)
 		}
 	}
@@ -1432,11 +1449,25 @@ const applicationOwner: ApplicationSchemaContributionOwner =
 
 const readDeclaredRuntimeCapability = (
 	reader: PluginCapabilityReader,
-	requirement: CapabilityRequirement,
+	requirement: SchemaOptionRuntimeRequirement,
 ): unknown =>
 	requirement.optional
-		? reader.get(requirement as CapabilityRequirement<CapabilityToken, true>)
-		: reader.get(requirement as CapabilityRequirement<CapabilityToken, false>)
+		? reader.get(
+				requirement as CapabilityRequirement<
+					CapabilityToken,
+					true,
+					string,
+					'materialization'
+				>,
+			)
+		: reader.get(
+				requirement as CapabilityRequirement<
+					CapabilityToken,
+					false,
+					string,
+					'materialization'
+				>,
+			)
 
 /** Collects owner-bound declarations and compiles them after every callback succeeds. */
 export class SchemaDeclarationRegistry {

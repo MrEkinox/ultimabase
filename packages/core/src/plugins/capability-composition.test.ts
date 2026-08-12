@@ -801,6 +801,7 @@ describe('capability composition', () => {
 					provideCapability(consumerToken, {
 						contributionId: 'consumer',
 						create: ({ capabilities }) => ({
+							// @ts-expect-error -- Exercises the JavaScript boundary after the typed API rejects this read.
 							value: capabilities.get(setupRequirement),
 						}),
 					}),

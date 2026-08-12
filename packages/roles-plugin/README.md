@@ -115,10 +115,11 @@ ordinary `role.delete({}, options)` and
 complete policy.
 
 `hasRole(reference)` is an ordinary native Access decision. It resolves the
-neutral application service at execution time, so the declaration captures no
-application or request. A missing provider raises Core's typed
-`SERVICE_NOT_FOUND` error before business hooks or database execution; an
-installed provider with no current member or no membership returns `false`.
+application-local `accessRoleResolverCapability` at execution time, so the
+declaration captures no application or request. A missing provider raises
+Core's typed `PLUGIN_CAPABILITY_MISSING` error before business hooks or database
+execution; an installed provider with no current member or no membership
+returns `false`.
 
 The official provider calls the RoleSchema's optional `resolveCurrent` once per
 RequestEngine and domain, validates that it returned a Pointer from the exact

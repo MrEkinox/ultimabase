@@ -40,10 +40,11 @@ export type RoleAccessDecision = (
 ) => Promise<boolean>
 
 /**
- * Creates one native Access decision backed by the application's neutral role provider.
+ * Creates one native Access decision backed by `accessRoleResolverCapability`.
  *
  * The helper captures no application or request. At execution it requires the
- * neutral service, so a missing provider fails before business hooks or storage.
+ * application-local capability, so a missing provider raises
+ * `PLUGIN_CAPABILITY_MISSING` before business hooks or storage.
  *
  * @example `update: hasRole(AppRole.role("editor"))`
  */

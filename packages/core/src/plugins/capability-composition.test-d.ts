@@ -45,6 +45,8 @@ test('preserves exact provider, decorator, replacement, factory, and reader type
 			expectTypeOf(capabilities.get(optional)).toEqualTypeOf<
 				Consumer | undefined
 			>()
+			// @ts-expect-error -- Factories run before setup-phase requirements become readable.
+			capabilities.get(setupOptional)
 			return { value: { write: () => Promise.resolve() } }
 		},
 	})
@@ -73,11 +75,14 @@ test('preserves exact provider, decorator, replacement, factory, and reader type
 			decorates: [decorator],
 			replaces: [replacement],
 			requires: [required],
-			optional: [optional],
+			optional: [optional, setupOptional],
 		},
 		setup: ({ capabilities }) => {
 			expectTypeOf(capabilities.get(required)).toEqualTypeOf<Consumer>()
 			expectTypeOf(capabilities.get(optional)).toEqualTypeOf<
+				Consumer | undefined
+			>()
+			expectTypeOf(capabilities.get(setupOptional)).toEqualTypeOf<
 				Consumer | undefined
 			>()
 		},

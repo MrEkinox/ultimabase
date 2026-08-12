@@ -8,7 +8,10 @@ import {
 } from '@ultimabase/shared'
 import { satisfies, valid, validRange } from 'semver'
 
-import { snapshotJsonValue } from '../schema/fields/builtins/json.js'
+import {
+	snapshotJsonValue,
+	type JsonPrimitive,
+} from '../schema/fields/builtins/json.js'
 import type { CompiledSchemaRegistry } from '../schema/index.js'
 import type { DatabaseConstraintCompilerReader } from './constraint-compilers.js'
 import type { PluginIdentity } from './manifest.js'
@@ -294,18 +297,20 @@ export interface ApplicationCapabilityResource<TProvider> {
 }
 
 /** Reads only capability requirements declared by the current plugin owner. */
-export interface PluginCapabilityReader {
+export interface PluginCapabilityReader<
+	TPhase extends CapabilityRequirementPhase = CapabilityRequirementPhase,
+> {
 	get<TToken extends CapabilityToken, TRange extends string>(
-		requirement: CapabilityRequirement<TToken, false, TRange>,
+		requirement: CapabilityRequirement<TToken, false, TRange, TPhase>,
 	): CapabilityConsumerValue<TToken>
 	get<TToken extends CapabilityToken, TRange extends string>(
-		requirement: CapabilityRequirement<TToken, true, TRange>,
+		requirement: CapabilityRequirement<TToken, true, TRange, TPhase>,
 	): CapabilityConsumerValue<TToken> | undefined
 }
 
 /** Supplies an application provider with owner-bound declared capability reads. */
 export interface ApplicationCapabilityFactoryContext {
-	readonly capabilities: PluginCapabilityReader
+	readonly capabilities: PluginCapabilityReader<'materialization'>
 	/** Reads live owner-attributed compilers only with active adapter consumption authority. */
 	readonly constraintCompilers: DatabaseConstraintCompilerReader
 	/** Reads the complete compiled application schema graph without mutating it. */
@@ -354,11 +359,30 @@ const applicationCapabilityFactories = new WeakMap<
 	ApplicationCapabilityFactory<unknown>
 >()
 
+/** Converts one provider protocol into the immutable facts accepted by JSON snapshots. */
+type CapabilityDeclarationValue<TValue> = TValue extends JsonPrimitive
+	? TValue
+	: TValue extends (...arguments_: never[]) => unknown
+		? never
+		: TValue extends readonly unknown[]
+			? {
+					readonly [TIndex in keyof TValue]: CapabilityDeclarationValue<
+						TValue[TIndex]
+					>
+				}
+			: TValue extends object
+				? {
+						readonly [TKey in keyof TValue]: CapabilityDeclarationValue<
+							TValue[TKey]
+						>
+					}
+				: never
+
 type ProvideCapabilityOptions<TToken extends CapabilityToken> =
 	TToken['lifetime'] extends 'declaration'
 		? Readonly<{
 				contributionId: string
-				value: CapabilityProviderValue<TToken>
+				value: CapabilityDeclarationValue<CapabilityProviderValue<TToken>>
 			}>
 		: Readonly<{
 				contributionId: string

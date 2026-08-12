@@ -67,6 +67,23 @@ test('types Runtime option compilation from the exact capability requirement', (
 			type: 'TypedRuntimeOption',
 		},
 	})
+
+	const setupRequirement = requireCapability(token, '^1.0.0', {
+		phase: 'setup',
+	})
+	defineSchemaOption({
+		normalize: (value) => String(value),
+		protocolVersion: 1,
+		runtime: {
+			compile: () => undefined,
+			// @ts-expect-error -- Runtime option compilation happens before plugin setup.
+			requirement: setupRequirement,
+		},
+		typegen: {
+			module: '@fixture/typed-runtime-option-plugin',
+			type: 'InvalidSetupOption',
+		},
+	})
 })
 
 test('types schema declarations from exact active privileges', () => {

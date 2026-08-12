@@ -5,6 +5,7 @@ import {
 	definePlugin,
 	optionalCapability,
 	provideCapability,
+	replaceCapability,
 	requireCapability,
 	type CapabilityConsumerValue,
 	type CapabilityProviderValue,
@@ -105,5 +106,50 @@ test('rejects values and provider phases that do not match the token', () => {
 		contributionId: 'invalid',
 		// @ts-expect-error -- Application providers require factories, not static values.
 		value: { write: () => Promise.resolve() },
+	})
+})
+
+test('rejects declaration values that are not recursively JSON-compatible', () => {
+	interface DeclarationFacts {
+		readonly endpoint: string
+		readonly nested: {
+			readonly enabled: boolean
+			readonly priorities: readonly number[]
+		}
+	}
+	const token = defineCapability<DeclarationFacts>()({
+		capabilityId: 'fixture.json-declaration',
+		version: '1.0.0',
+		cardinality: 'single',
+		lifetime: 'declaration',
+		compose: ([provider]) => provider,
+	})
+	const target = {
+		owner: { pluginId: 'fixture.json-provider' },
+		contributionId: 'primary',
+	} as const
+
+	provideCapability(token, {
+		contributionId: 'primary',
+		value: {
+			endpoint: 'https://example.test',
+			nested: { enabled: true, priorities: [1, 2] },
+		},
+	})
+	provideCapability(token, {
+		contributionId: 'date',
+		// @ts-expect-error -- Date instances are not JSON-compatible declaration facts.
+		value: { endpoint: 'invalid', nested: new Date() },
+	})
+	provideCapability(token, {
+		contributionId: 'function',
+		// @ts-expect-error -- Functions are not JSON-compatible declaration facts.
+		value: { endpoint: 'invalid', nested: () => undefined },
+	})
+	replaceCapability(token, {
+		contributionId: 'invalid-replacement',
+		target,
+		// @ts-expect-error -- Replacement facts obey the same JSON contract as providers.
+		value: { endpoint: 'invalid', nested: { enabled: undefined } },
 	})
 })

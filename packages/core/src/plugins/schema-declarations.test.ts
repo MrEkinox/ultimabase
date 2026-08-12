@@ -77,6 +77,37 @@ const optionPlugin = (pluginId = 'fixture.schema-options') =>
 	})
 
 describe('plugin schema declarations', () => {
+	it('rejects setup-phase requirements for pre-setup Runtime option compilers', () => {
+		const token = defineCapability<{ readonly register: () => void }>()({
+			capabilityId: 'fixture.schema-option-setup-phase',
+			cardinality: 'single',
+			compose: ([provider]) => provider,
+			lifetime: 'application',
+			version: '1.0.0',
+		})
+		const requirement = requireCapability(token, '^1.0.0', {
+			phase: 'setup',
+		})
+
+		expect(() =>
+			defineSchemaOption({
+				normalize: (value) => String(value),
+				protocolVersion: 1,
+				runtime: {
+					compile: () => undefined,
+					// @ts-expect-error -- The runtime assertion protects JavaScript callers too.
+					requirement,
+				},
+				typegen: {
+					module: '@fixture/schema-option-setup-phase',
+					type: 'SetupPhaseOption',
+				},
+			}),
+		).toThrow(
+			'Schema option runtime.requirement must use the materialization phase',
+		)
+	})
+
 	it('runs used option compilers after capability materialization and before setup', async () => {
 		const events: string[] = []
 		interface RuntimeRegistry {

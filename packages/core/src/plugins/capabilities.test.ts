@@ -5,6 +5,7 @@ import {
 	defineCapability,
 	optionalCapability,
 	provideCapability,
+	replaceCapability,
 	requireCapability,
 } from './capabilities.js'
 import { definePlugin } from './definition.js'
@@ -80,6 +81,7 @@ describe('capability declarations', () => {
 
 	it('snapshots declaration values and keeps application providers inert', () => {
 		const source = { endpoint: 'https://audit.example' }
+		const replacementSource = { endpoint: 'https://replacement.example' }
 		const declarationProvider = provideCapability(declarationToken, {
 			contributionId: 'primary',
 			value: source,
@@ -90,8 +92,17 @@ describe('capability declarations', () => {
 				value: { write: () => Promise.resolve() },
 			}),
 		})
+		const replacement = replaceCapability(declarationToken, {
+			contributionId: 'replacement',
+			target: {
+				owner: { pluginId: 'fixture.audit-provider' },
+				contributionId: 'primary',
+			},
+			value: replacementSource,
+		})
 
 		source.endpoint = 'https://changed.example'
+		replacementSource.endpoint = 'https://changed.example'
 
 		expect(declarationProvider).toStrictEqual({
 			kind: 'capability-provider',
@@ -100,6 +111,10 @@ describe('capability declarations', () => {
 			value: { endpoint: 'https://audit.example' },
 		})
 		expect(Object.isFrozen(declarationProvider.value)).toBe(true)
+		expect(replacement.value).toStrictEqual({
+			endpoint: 'https://replacement.example',
+		})
+		expect(Object.isFrozen(replacement.value)).toBe(true)
 		expect(applicationProvider).toStrictEqual({
 			kind: 'capability-provider',
 			token: applicationToken,
@@ -166,6 +181,23 @@ describe('capability declarations', () => {
 		).toThrow(
 			new TypeError(
 				'capability provider value.endpoint must contain only plain JSON objects',
+			),
+		)
+		expect(() =>
+			replaceCapability(declarationToken, {
+				contributionId: 'invalid',
+				target: {
+					owner: { pluginId: 'fixture.audit-provider' },
+					contributionId: 'primary',
+				},
+				value: {
+					// Runtime validation protects JavaScript callers from non-JSON values.
+					endpoint: new Date(),
+				} as unknown as { readonly endpoint: string },
+			}),
+		).toThrow(
+			new TypeError(
+				'capability replacement value.endpoint must contain only plain JSON objects',
 			),
 		)
 		expect(() =>

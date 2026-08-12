@@ -68,7 +68,7 @@ optional official plugins while keeping Core master authority unchanged.
 6. [x] [1405 — Open the static plugin declaration host](issues/1400-open-plugin-kernel/1405-static-plugin-declaration-host.md)
 7. [x] [1406 — Compile owned schema transformations and provenance](issues/1400-open-plugin-kernel/1406-schema-transformations-and-provenance.md)
 8. [x] [1419 — Harden schema declaration correctness and atomicity](issues/1400-open-plugin-kernel/1419-schema-declaration-correctness-and-atomicity.md)
-9. [ ] [1420 — Align capability phases and declaration contracts](issues/1400-open-plugin-kernel/1420-capability-phase-and-contract-alignment.md)
+9. [x] [1420 — Align capability phases and declaration contracts](issues/1400-open-plugin-kernel/1420-capability-phase-and-contract-alignment.md)
 10. [ ] [1421 — Modularize schema declarations and enforce file budgets](issues/1400-open-plugin-kernel/1421-modularize-schema-declarations-and-enforce-file-budgets.md)
 11. [ ] [1418 — Replace the complete schema compiler through a versioned capability](issues/1400-open-plugin-kernel/1418-schema-compiler-replacement-capability.md)
 12. [ ] [1407 — Add dynamic schemas, model extensions, and plugin operations](issues/1400-open-plugin-kernel/1407-dynamic-schemas-models-and-operations.md)

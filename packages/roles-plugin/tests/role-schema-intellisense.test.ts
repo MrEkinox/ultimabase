@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -73,6 +74,25 @@ describe('RoleSchema IntelliSense', () => {
 		const documentation = ts.displayPartsToString(quickInfo?.documentation)
 
 		expect(documentation).toContain('Creates one native Access decision')
+		expect(documentation).toContain('accessRoleResolverCapability')
+		expect(documentation).toContain('PLUGIN_CAPABILITY_MISSING')
+	})
+
+	it('keeps current role documentation free of removed service terminology', () => {
+		const publicDocumentation = [
+			readFileSync(path.join(packageDirectory, '../README.md'), 'utf8'),
+			readFileSync(
+				path.join(packageDirectory, '../src/role-access.ts'),
+				'utf8',
+			),
+		].join('\n')
+
+		expect(publicDocumentation).toContain('accessRoleResolverCapability')
+		expect(publicDocumentation).toContain('PLUGIN_CAPABILITY_MISSING')
+		expect(publicDocumentation).not.toMatch(
+			/neutral (?:application )?service/iu,
+		)
+		expect(publicDocumentation).not.toContain('SERVICE_NOT_FOUND')
 	})
 
 	it('suggests the complete top-level declaration shape', () => {
