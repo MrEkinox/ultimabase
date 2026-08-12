@@ -242,10 +242,11 @@ Developer declarations and authorized plugin contributions compile into one
 immutable application graph with per-contribution provenance. Each plugin's
 selectors observe the graph completed by earlier plugins and freeze targets
 before that plugin's patches. Conflicts never silently use last-writer-wins. A
-schema class may be reused by applications only when its final plugin surface is
-compatible; otherwise compilation fails. Plugin-created schemas and
-application-specific commands remain reachable through the application-owned
-`ultimabase.schema(nameOrClass)` handle without mutating exported classes.
+schema class may expose different handle surfaces in independent applications;
+conflicting declarations within one application fail before setup. Plugin-created
+schemas and application-specific commands remain reachable through the
+application-owned `ultimabase.schema(nameOrClass)` handle without mutating
+exported classes or recording process-global compatibility state.
 
 Complete logical compilation crosses one versioned callback-free IR. Portable
 facts remain visible, while schema classes and Runtime-bearing field, extension,

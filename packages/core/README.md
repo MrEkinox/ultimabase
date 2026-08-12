@@ -331,6 +331,76 @@ name. Runtime values remain ordinary `Pointer` and `Relation` instances, and
 relation mutations still verify the exact registered schema identity before
 creating an operation.
 
+### Application-owned schema, model, and operation handles
+
+Plugin-created schemas and conditional public methods never mutate an exported
+schema class or its prototype. `ultimabase.schema(nameOrClass)` resolves one
+cached handle from the final application graph. Stable classes preserve their
+ordinary package-owned methods, while configuration-dependent schemas remain
+available by runtime name in JavaScript:
+
+```ts
+const Posts = ultimabase.schema(PostSchema)
+const AuditEntries = ultimabase.schema('WorkflowAuditEntry')
+
+Posts.schema === PostSchema
+AuditEntries.schema.className === 'WorkflowAuditEntry'
+```
+
+Custom operations are immutable namespaced SemVer tokens. Their input and
+result contracts validate and detach untrusted values, while target and
+transaction metadata stay transport-neutral:
+
+```ts
+const publishPost = defineOperation({
+	name: 'community.workflow.publish-post',
+	version: '1.0.0',
+	target: 'model',
+	transaction: 'required',
+	input: defineOperationValue(snapshotPublishInput),
+	result: defineOperationValue(snapshotPublishResult),
+})
+```
+
+`operation:declare`, `model:extend`, and `query:extend` expose separate static
+registrars. A model surface may target existing schemas through a frozen
+selector or directly target an exact schema class owned by the same plugin.
+The direct form lets one dynamic schema receive its own commands without
+changing selector ordering:
+
+```ts
+declare({ models, operations, queries, schemas }) {
+	schemas.add({ contributionId: 'audit-schema', schema: AuditEntry })
+	operations.declare(publishPost)
+	models.extend(AuditEntry, {
+		contributionId: 'audit-commands',
+		modelCommands: { publish: publishPost },
+	})
+	queries.extend(
+		{ className: 'Post' },
+		{ contributionId: 'post-queries', extensions: { byWorkflowState } },
+	)
+}
+```
+
+Handles expose commands as inert operation handles and query extensions as
+ordinary `QueryBuilder` factories. `prepare()` validates one immutable logical
+envelope but performs no I/O. Runtime handlers and `execute()`, wire
+serialization, and transport exposure remain separate work owned by issue 1416:
+
+```ts
+const Post = ultimabase.schema('Post')
+const envelope = Post.for(post)
+	.command('publish')
+	.prepare({ reason: 'reviewed' })
+const query = Post.query('byWorkflowState', 'ready')
+```
+
+Core preserves stable token input and result precision, stable schema-class
+precision, and safe dynamic JavaScript access. Issue 1408 adds generated
+autocomplete for application-specific command, query, operation, and dynamic
+schema names without generating executable client state.
+
 Pointer and relation declarations name their target schema without referencing
 another module-level constant. Static compilation resolves those names after
 every schema has been registered, then publishes one immutable graph owned by

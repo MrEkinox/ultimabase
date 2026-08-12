@@ -85,6 +85,11 @@ Issue 1405 establishes this single callback with exact declaration-capability
 reads and the `fields` registrar when `schema:declare` is active. Schema,
 patch, model, operation, and Typegen registrars remain target APIs until their
 own follow-up issues deliver their descriptor contracts.
+Issue 1407 implements dynamic schema resolution, immutable operation
+declarations and envelopes, direct or selector-bound model surfaces, and
+ordinary QueryBuilder extensions. The `execute()` and handler calls shown in
+this target document remain issue 1416 work; until then `prepare()` validates an
+inert logical envelope without running Runtime or exposing a transport.
 The capability kernel available after issue 1404 declares resource factories
 statically and exposes only exact requirement reads during setup:
 

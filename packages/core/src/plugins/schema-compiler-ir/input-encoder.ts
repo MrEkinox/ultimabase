@@ -11,7 +11,6 @@ import type {
 	SchemaDeclarationBatch,
 } from '../schema-declaration-contracts.js'
 import { collectOptionDefinitions } from '../schema-runtime-options.js'
-import type { SchemaSelection } from '../schema-patch-contracts.js'
 import type {
 	SchemaCompilerInput,
 	SchemaCompilerOptionDefinitionNode,
@@ -38,9 +37,6 @@ export interface SchemaCompilerEncodingPreparation {
 }
 
 class SchemaCompilerDeclarationEncoder {
-	readonly #selectionIds = new WeakMap<object, string>()
-	#nextSelectionId: number
-
 	constructor(
 		private readonly encoder: SchemaCompilerIrEncoder,
 		private readonly preparation: SchemaCompilerEncodingPreparation,
@@ -48,14 +44,24 @@ class SchemaCompilerDeclarationEncoder {
 			SchemaDefinition,
 			SchemaCompilerSchemaNode
 		>,
-	) {
-		this.#nextSelectionId = 0
-	}
+	) {}
 
 	declaration(
 		batch: SchemaDeclarationBatch,
 		order: number,
 	): SchemaCompilerPluginDeclarationNode {
+		const selections = new Map(
+			[
+				...batch.patches.map(({ targets }) => targets),
+				...batch.surfaces.modelSurfaces.flatMap(({ target }) =>
+					target.kind === 'selection' ? [target.selection] : [],
+				),
+				...batch.surfaces.querySurfaces.flatMap(({ target }) =>
+					target.kind === 'selection' ? [target.selection] : [],
+				),
+			].map((selection) => [selection.selectionId, selection]),
+		)
+
 		return immutableRecord({
 			additions: immutableArray(
 				batch.additions.map((addition) => {
@@ -89,6 +95,11 @@ class SchemaCompilerDeclarationEncoder {
 						patch,
 						`declarations.${String(order)}.patches.${String(index)}`,
 					),
+				),
+			),
+			selections: immutableArray(
+				[...selections.values()].map(({ selectionId, selector }) =>
+					immutableRecord({ selectionId, selector }),
 				),
 			),
 		})
@@ -143,20 +154,10 @@ class SchemaCompilerDeclarationEncoder {
 				),
 			),
 			owner: patch.owner,
-			selectionId: this.selectionId(patch.targets),
+			selectionId: patch.targets.selectionId,
 			selector: patch.targets.selector,
 			staticOptions: patch.staticOptions,
 		})
-	}
-
-	private selectionId(selection: SchemaSelection): string {
-		const existing = this.#selectionIds.get(selection)
-		if (existing !== undefined) return existing
-
-		const selectionId = `selection:${String(this.#nextSelectionId)}`
-		this.#nextSelectionId += 1
-		this.#selectionIds.set(selection, selectionId)
-		return selectionId
 	}
 }
 

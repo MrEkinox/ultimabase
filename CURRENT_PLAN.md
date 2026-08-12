@@ -36,7 +36,7 @@ optional official plugins while keeping Core master authority unchanged.
 - Option ownership conflicts are usage-driven; installed descriptors with no final schema or field occurrence have no effect.
 - Static declaration and schema compilation publish one complete application graph or fail terminally without exposing partial plugin additions.
 - Selectors observe the graph completed by earlier plugins and freeze targets before the current plugin's patches; Core identity fields require the complete compatible schema-compiler replacement delivered by issue 1418.
-- One schema class cannot bind to two incompatible final plugin surfaces. Dynamic plugin schemas remain reachable through `ultimabase.schema('Name')`.
+- Schema handle surfaces are application-local: conflicts within one graph fail before setup, while independent applications may bind different surfaces to one reusable class without process-global state. Dynamic plugin schemas remain reachable through `ultimabase.schema('Name')`.
 - Typegen emits inert declaration contracts only. JavaScript and Runtime never depend on generated files or a generated client.
 - Plugins may contribute Typegen references, structured declarations, or separately owned outputs only through the matching privilege and deterministic fingerprint.
 - Typegen-owned output is limited to inert declarations and non-executable metadata; it never emits JavaScript or a Runtime client.
@@ -73,7 +73,7 @@ optional official plugins while keeping Core master authority unchanged.
 11. [x] [1422 — Define the callback-free schema compiler IR](issues/1400-open-plugin-kernel/1422-callback-free-schema-compiler-ir.md)
 12. [x] [1423 — Run the canonical schema compiler through the public IR](issues/1400-open-plugin-kernel/1423-canonical-schema-compiler-ir.md)
 13. [x] [1418 — Replace the complete schema compiler through a versioned capability](issues/1400-open-plugin-kernel/1418-schema-compiler-replacement-capability.md)
-14. [ ] [1407 — Add dynamic schemas, model extensions, and plugin operations](issues/1400-open-plugin-kernel/1407-dynamic-schemas-models-and-operations.md)
+14. [x] [1407 — Add dynamic schemas, model extensions, and plugin operations](issues/1400-open-plugin-kernel/1407-dynamic-schemas-models-and-operations.md)
 15. [ ] [1408 — Let plugins contribute exact Typegen contracts](issues/1400-open-plugin-kernel/1408-plugin-typegen-contributions.md)
 
 ### Phase 3 — Runtime, persistence, and community toolbox

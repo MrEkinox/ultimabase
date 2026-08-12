@@ -47,6 +47,7 @@ describe('canonical schema compiler IR', () => {
 			fields: (field) => ({ title: field.string() }),
 		})
 		const selection = immutableRecord({
+			selectionId: 'selection:0',
 			selector: immutableRecord({}),
 		})
 		const batch: SchemaDeclarationBatch = immutableRecord({
@@ -101,6 +102,11 @@ describe('canonical schema compiler IR', () => {
 					targets: selection,
 				}),
 			]),
+			surfaces: immutableRecord({
+				modelSurfaces: immutableArray([]),
+				operations: immutableArray([]),
+				querySurfaces: immutableArray([]),
+			}),
 		})
 		const prepared = immutableArray([
 			prepareSchemaCompilation(Existing),

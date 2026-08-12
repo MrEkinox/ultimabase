@@ -108,3 +108,19 @@ automatic destructive cleanup remain forbidden.
 - Mutable Active Record models or generated Runtime delegates.
 - Automatically deciding whether two database columns represent a rename.
 - Executing physical migrations inside Core.
+
+## Implementation refinement: selector results and direct schema targets
+
+Issue 1407 advances both the schema compiler capability and its callback-free IR
+to 2.0.0. It carries every model or query surface selector through that protocol
+and requires compiler output to return the exact frozen class-name result. Core
+therefore never recalculates an earlier selector against the final graph after
+later patches have changed it.
+
+A plugin may instead bind a surface directly to one exact schema class that is
+registered in the same application. This is an identity target rather than a
+selector: it supports a plugin's own configuration-dependent schema without
+making that schema visible to the plugin's earlier frozen selectors. Both forms
+remain application-local and participate in conflict checks within that compiled
+graph. ADR-0197 supersedes cross-application surface fingerprints because the
+handles never mutate their reusable schema class.

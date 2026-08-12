@@ -182,6 +182,7 @@ Accepted records:
 - [ADR-0194: Optional engine contract packages and unprotected transports](0194-optional-engine-contract-packages.md)
 - [ADR-0195: Setup-phase capability requirements support peer composition](0195-setup-phase-capability-requirements.md)
 - [ADR-0196: Complete schema compilation uses a callback-free public IR](0196-callback-free-schema-compiler-ir.md)
+- [ADR-0197: Schema handle surfaces are application-local](0197-application-local-schema-handle-surfaces.md)
 
 Superseded records:
 

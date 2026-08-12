@@ -26,6 +26,7 @@ const selected = /* hover:compiler-provenance */ provenance
 const replacement = /* hover:compiler-replacement */ replaceSchemaCompiler({
 	compile: (compilerInput) => ({
 		protocolVersion: compilerInput.protocolVersion,
+		selections: [],
 		schemas: compilerInput.schemas,
 	}),
 	contributionId: 'packed-fixture',

@@ -20,6 +20,18 @@ export type { CreateFrameworkEngineOptions } from './application/create-framewor
 // UltimaBase is the regular class-based facade over Core composition and Runtime execution.
 export { UltimaBase } from './application/ultima-base.js'
 export type { UltimaBaseOptions } from './application/ultima-base.js'
+export {
+	ApplicationModelHandle,
+	ApplicationOperationHandle,
+	ApplicationSchemaHandleBase,
+} from '../application/application-handles.js'
+export type {
+	ApplicationContributionOwner,
+	ApplicationSchemaHandle,
+	ApplicationSchemaHandleForName,
+	PluginOperationEnvelope,
+	PluginOperationEnvelopeTarget,
+} from '../application/application-handles.js'
 export { requireCurrentAccessRoleResolver } from './access/subject-capabilities.js'
 // Applications create request-bound engines; opaque grants protect master construction.
 export { FrameworkEngine, RequestEngine } from './engine/framework-engine.js'

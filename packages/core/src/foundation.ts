@@ -36,6 +36,29 @@ export type {
 } from './errors/framework-error.js'
 export { definePlugin } from './plugins/definition.js'
 export {
+	defineOperation,
+	defineOperationValue,
+	isPluginOperationDefinition,
+} from './plugins/plugin-operations.js'
+export type {
+	DefinePluginOperationOptions,
+	PluginOperationDefinition,
+	PluginOperationInput,
+	PluginOperationResult,
+	PluginOperationTarget,
+	PluginOperationTransaction,
+	PluginOperationValueContract,
+} from './plugins/plugin-operations.js'
+export { defineQueryExtension } from './plugins/application-surface-declarations.js'
+export type {
+	DefineQueryExtensionOptions,
+	PluginModelSurfaceRegistrar,
+	PluginOperationDeclarationRegistrar,
+	PluginQuerySurfaceRegistrar,
+	QueryExtensionDefinition,
+	QueryExtensionInput,
+} from './plugins/application-surface-declarations.js'
+export {
 	decorateCapability,
 	defineCapability,
 	optionalCapability,
@@ -171,6 +194,8 @@ export type {
 	SchemaCompilerReplaceIndexOperation,
 	SchemaCompilerSchemaAdditionNode,
 	SchemaCompilerSchemaNode,
+	SchemaCompilerSelectionNode,
+	SchemaCompilerSelectionResultNode,
 	SchemaCompilerSetFieldOptionOperation,
 	SchemaCompilerSetSchemaOptionOperation,
 } from './plugins/schema-compiler-ir/index.js'

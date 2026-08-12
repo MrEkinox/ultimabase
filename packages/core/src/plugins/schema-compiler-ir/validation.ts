@@ -23,7 +23,7 @@ import {
 } from './value-validation.js'
 
 const inputKeys = new Set(['declarations', 'protocolVersion', 'schemas'])
-const outputKeys = new Set(['protocolVersion', 'schemas'])
+const outputKeys = new Set(['protocolVersion', 'schemas', 'selections'])
 const coreSystemFieldNames = new Set(['id', 'createdAt', 'updatedAt'])
 const declarationKeys = new Set([
 	'additions',
@@ -31,6 +31,7 @@ const declarationKeys = new Set([
 	'order',
 	'owner',
 	'patches',
+	'selections',
 ])
 const assertOwner = (value: unknown, path: string): void => {
 	if (!isPlainRecord(value)) {
@@ -133,6 +134,17 @@ const assertPatch = (
 	}
 }
 
+const assertSelection = (value: unknown, path: string): void => {
+	if (!isPlainRecord(value)) {
+		throw new TypeError(`${path} must be a selection node`)
+	}
+	assertExactKeys(value, new Set(['selectionId', 'selector']), path)
+	assertNonEmptyString(value.selectionId, `${path}.selectionId`)
+	if (!isPlainRecord(value.selector)) {
+		throw new TypeError(`${path}.selector must be portable selector facts`)
+	}
+}
+
 const assertDeclaration = (
 	value: unknown,
 	session: SchemaCompilerArtifactSession,
@@ -189,6 +201,33 @@ const assertDeclaration = (
 	}
 	for (const [index, patch] of readList(value, 'patches', path).entries()) {
 		assertPatch(patch, session, `${path}.patches[${String(index)}]`)
+	}
+	const selectionIds = new Set<string>()
+	for (const [index, selection] of readList(
+		value,
+		'selections',
+		path,
+	).entries()) {
+		assertSelection(selection, `${path}.selections[${String(index)}]`)
+		if (isPlainRecord(selection) && typeof selection.selectionId === 'string') {
+			if (selectionIds.has(selection.selectionId)) {
+				throw new TypeError(
+					`${path} contains duplicate selection: ${selection.selectionId}`,
+				)
+			}
+			selectionIds.add(selection.selectionId)
+		}
+	}
+	for (const patch of readList(value, 'patches', path)) {
+		if (
+			isPlainRecord(patch) &&
+			typeof patch.selectionId === 'string' &&
+			!selectionIds.has(patch.selectionId)
+		) {
+			throw new TypeError(
+				`${path} patch references undeclared selection: ${patch.selectionId}`,
+			)
+		}
 	}
 }
 
@@ -278,6 +317,28 @@ export function assertSchemaCompilerInput(
 			`schema compiler input.declarations[${String(index)}]`,
 		)
 	}
+	const selectionIds = new Set<string>()
+	for (const declaration of input.declarations) {
+		if (!isPlainRecord(declaration)) continue
+		for (const selection of readList(
+			declaration,
+			'selections',
+			'schema compiler input declaration',
+		)) {
+			if (
+				!isPlainRecord(selection) ||
+				typeof selection.selectionId !== 'string'
+			) {
+				continue
+			}
+			if (selectionIds.has(selection.selectionId)) {
+				throw new TypeError(
+					`schema compiler input contains duplicate selection: ${selection.selectionId}`,
+				)
+			}
+			selectionIds.add(selection.selectionId)
+		}
+	}
 	const expectedSchemas: unknown[] = [...input.schemas]
 	for (const declaration of input.declarations) {
 		if (isPlainRecord(declaration) && isUnknownArray(declaration.additions)) {
@@ -316,8 +377,10 @@ export function assertSchemaCompilerOutput(
 	if (output.protocolVersion !== input.protocolVersion) {
 		throw new TypeError('Schema compiler output protocol version mismatch')
 	}
-	if (!isUnknownArray(output.schemas)) {
-		throw new TypeError('schema compiler output.schemas must be a list')
+	if (!isUnknownArray(output.schemas) || !isUnknownArray(output.selections)) {
+		throw new TypeError(
+			'schema compiler output must contain schema and selection lists',
+		)
 	}
 
 	const candidateSchemas: SchemaCompilerSchemaNode[] = []
@@ -363,5 +426,53 @@ export function assertSchemaCompilerOutput(
 		if (expectedSchema !== undefined) {
 			assertProtectedSchemaFacts(expectedSchema, candidate)
 		}
+	}
+
+	const expectedSelectionIds = input.declarations.flatMap((declaration) =>
+		declaration.selections.map(({ selectionId }) => selectionId),
+	)
+	const finalClassNames = new Set(
+		candidateSchemas.map(({ className }) => className),
+	)
+	const returnedSelectionIds = new Set<string>()
+	for (const [index, selection] of output.selections.entries()) {
+		const path = `schema compiler output.selections[${String(index)}]`
+		if (!isPlainRecord(selection)) {
+			throw new TypeError(`${path} must be a selection result`)
+		}
+		assertExactKeys(selection, new Set(['classNames', 'selectionId']), path)
+		assertNonEmptyString(selection.selectionId, `${path}.selectionId`)
+		if (
+			!expectedSelectionIds.includes(selection.selectionId) ||
+			returnedSelectionIds.has(selection.selectionId)
+		) {
+			throw new TypeError(`${path} must resolve one exact declared selection`)
+		}
+		returnedSelectionIds.add(selection.selectionId)
+		const selectedClassNames = new Set<string>()
+		for (const [classNameIndex, className] of readList(
+			selection,
+			'classNames',
+			path,
+		).entries()) {
+			assertNonEmptyString(
+				className,
+				`${path}.classNames[${String(classNameIndex)}]`,
+			)
+			if (
+				!finalClassNames.has(className) ||
+				selectedClassNames.has(className)
+			) {
+				throw new TypeError(
+					`${path} contains an invalid schema target: ${className}`,
+				)
+			}
+			selectedClassNames.add(className)
+		}
+	}
+	if (returnedSelectionIds.size !== expectedSelectionIds.length) {
+		throw new TypeError(
+			'Schema compiler output must resolve every declared selection',
+		)
 	}
 }

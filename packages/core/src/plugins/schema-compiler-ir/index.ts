@@ -35,6 +35,8 @@ export type {
 	SchemaCompilerReplaceIndexOperation,
 	SchemaCompilerSchemaAdditionNode,
 	SchemaCompilerSchemaNode,
+	SchemaCompilerSelectionNode,
+	SchemaCompilerSelectionResultNode,
 	SchemaCompilerSetFieldOptionOperation,
 	SchemaCompilerSetSchemaOptionOperation,
 } from './contracts.js'

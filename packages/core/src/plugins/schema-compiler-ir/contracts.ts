@@ -11,7 +11,7 @@ import type {
 import type { SchemaSelectorOptions } from '../schema-patch-contracts.js'
 
 /** Versions the complete callback-free logical schema compiler protocol. */
-export const schemaCompilerProtocolVersion = '1.0.0' as const
+export const schemaCompilerProtocolVersion = '2.0.0' as const
 
 /** Names every private artifact that may cross the compiler IR as an inert reference. */
 export type SchemaCompilerArtifactKind =
@@ -288,6 +288,18 @@ export interface SchemaCompilerPatchNode {
 	readonly staticOptions: Readonly<Record<string, JsonValue>>
 }
 
+/** Identifies one selector that must freeze before its owner's schema changes. */
+export interface SchemaCompilerSelectionNode {
+	readonly selectionId: string
+	readonly selector: SchemaSelectorOptions
+}
+
+/** Returns the exact schema names selected at one deterministic graph position. */
+export interface SchemaCompilerSelectionResultNode {
+	readonly classNames: readonly string[]
+	readonly selectionId: string
+}
+
 /** Groups one plugin's declarations at its exact deterministic graph position. */
 export interface SchemaCompilerPluginDeclarationNode {
 	readonly additions: readonly SchemaCompilerSchemaAdditionNode[]
@@ -295,12 +307,13 @@ export interface SchemaCompilerPluginDeclarationNode {
 	readonly order: number
 	readonly owner: PluginSchemaContributionOwner
 	readonly patches: readonly SchemaCompilerPatchNode[]
+	readonly selections: readonly SchemaCompilerSelectionNode[]
 }
 
 /**
  * Supplies one complete callback-free compilation request.
  *
- * @example `const compile = (input: SchemaCompilerInput): SchemaCompilerOutput => Object.freeze({ protocolVersion: input.protocolVersion, schemas: Object.freeze([...input.schemas, ...input.declarations.flatMap(({ additions }) => additions.map(({ schema }) => schema))]) })`
+ * @example `const compile = (input: SchemaCompilerInput): SchemaCompilerOutput => Object.freeze({ protocolVersion: input.protocolVersion, schemas: Object.freeze([...input.schemas, ...input.declarations.flatMap(({ additions }) => additions.map(({ schema }) => schema))]), selections: Object.freeze([]) })`
  */
 export interface SchemaCompilerInput {
 	readonly declarations: readonly SchemaCompilerPluginDeclarationNode[]
@@ -311,5 +324,6 @@ export interface SchemaCompilerInput {
 /** Returns the complete logical graph selected by one compatible compiler. */
 export interface SchemaCompilerOutput {
 	readonly protocolVersion: typeof schemaCompilerProtocolVersion
+	readonly selections: readonly SchemaCompilerSelectionResultNode[]
 	readonly schemas: readonly SchemaCompilerSchemaNode[]
 }

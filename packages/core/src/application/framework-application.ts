@@ -55,6 +55,10 @@ import {
 	type PluginPrivilegePolicy,
 	type PluginPrivilegeReport,
 } from './plugin-privilege-policy.js'
+import type {
+	CompiledApplicationSchemaSurface,
+	CompiledPluginOperation,
+} from '../plugins/application-surface-registry.js'
 
 /** Captures every static input needed to construct one isolated application. */
 export interface FrameworkApplicationOptions<
@@ -311,6 +315,20 @@ export class FrameworkApplication<
 		const registeredSchema: unknown = this.schemas.get(schema.className)
 
 		return registeredSchema === schema
+	}
+
+	/** Resolves one compiled application-owned schema surface by exact identity. */
+	getSchemaSurface(
+		className: string,
+	): CompiledApplicationSchemaSurface | undefined {
+		this.compileSchemas()
+		return this.#schemaDeclarations.schemaSurface(className)
+	}
+
+	/** Resolves one inert custom operation declaration by its namespaced name. */
+	getOperation(name: string): CompiledPluginOperation | undefined {
+		this.compileSchemas()
+		return this.#schemaDeclarations.operation(name)
 	}
 
 	/** Completes declaration-only plugin setup before the application is returned. */

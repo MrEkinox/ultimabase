@@ -246,10 +246,16 @@ describe('schema compiler declaration encoding', () => {
 					owner,
 					staticOptions: immutableRecord({ release: 2 }),
 					targets: immutableRecord({
+						selectionId: 'selection:0',
 						selector: immutableRecord({ className: Post.className }),
 					}),
 				}),
 			]),
+			surfaces: immutableRecord({
+				modelSurfaces: immutableArray([]),
+				operations: immutableArray([]),
+				querySurfaces: immutableArray([]),
+			}),
 		})
 
 		const encoded = encodeSchemaCompilerInput(prepared, [batch])

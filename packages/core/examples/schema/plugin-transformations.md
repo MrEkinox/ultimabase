@@ -163,6 +163,38 @@ Until that generated declaration is present, a TypeScript application may model
 the same direct property through an explicit local intersection; JavaScript uses
 the identical runtime validation without generated artifacts.
 
+## Dynamic schemas and application handles
+
+A plugin may attach surfaces directly to a schema class it declares in the same
+static callback. Existing schemas instead use frozen selectors. Both resolve
+through one application-owned handle and neither path changes an exported class
+or prototype:
+
+```ts
+const WorkflowAuditEntry = Schema.define({
+	className: 'WorkflowAuditEntry',
+	fields: (field) => ({ message: field.string() }),
+})
+
+declare({ models, operations, schemas }) {
+	schemas.add({
+		contributionId: 'workflow-audit-entry',
+		schema: WorkflowAuditEntry,
+	})
+	operations.declare(publishWorkflowEntry)
+	models.extend(WorkflowAuditEntry, {
+		contributionId: 'workflow-audit-commands',
+		modelCommands: { publish: publishWorkflowEntry },
+	})
+}
+
+const AuditEntry = ultimabase.schema('WorkflowAuditEntry')
+const envelope = AuditEntry.for(entry).command('publish').prepare(input)
+```
+
+`prepare()` only validates the immutable logical envelope. Custom operation
+execution and transport exposure are deliberately absent until issue 1416.
+
 ## Complete compiler protocol
 
 Complete compiler implementations use the separately versioned callback-free IR
@@ -180,6 +212,13 @@ const preserveDeclaredGraph = (
 ): SchemaCompilerOutput =>
 	Object.freeze({
 		protocolVersion: schemaCompilerProtocolVersion,
+		selections: Object.freeze(
+			input.declarations.flatMap(({ selections }) =>
+				selections.map(({ selectionId }) =>
+					Object.freeze({ classNames: Object.freeze([]), selectionId }),
+				),
+			),
+		),
 		schemas: Object.freeze([
 			...input.schemas,
 			...input.declarations.flatMap(({ additions }) =>

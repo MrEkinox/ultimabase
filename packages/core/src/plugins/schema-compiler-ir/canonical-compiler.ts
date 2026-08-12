@@ -58,33 +58,40 @@ export const compileCanonicalSchemaCompilerIr = (
 		input.declarations.flatMap(({ optionDefinitions }) => optionDefinitions),
 	)
 	const classNames = new Set(states.map(({ className }) => className))
+	const selectionResults: SchemaCompilerOutput['selections'][number][] = []
 
 	for (const declaration of input.declarations) {
 		const frozenTargets = new Map<
 			string,
 			readonly CanonicalSchemaCompilerState[]
 		>()
-		for (const patch of declaration.patches) {
-			if (!frozenTargets.has(patch.selectionId)) {
+		for (const selection of declaration.selections) {
+			if (!frozenTargets.has(selection.selectionId)) {
 				const targets = states.filter((state) => {
 					try {
 						return matchesSchemaCompilerSelector(
 							state,
 							owners.get(state) ?? state.provenance.schema.owner,
-							patch.selector,
+							selection.selector,
 						)
 					} catch (cause: unknown) {
 						throw attachPluginDeclarationDiagnostic(
 							cause,
-							patch.owner,
+							declaration.owner,
 							state.className,
-							patch.operations.length === 1
-								? patch.operations[0]?.contributionId
-								: undefined,
 						)
 					}
 				})
-				frozenTargets.set(patch.selectionId, immutableArray(targets))
+				const frozen = immutableArray(targets)
+				frozenTargets.set(selection.selectionId, frozen)
+				selectionResults.push(
+					immutableRecord({
+						classNames: immutableArray(
+							frozen.map(({ className }) => className),
+						),
+						selectionId: selection.selectionId,
+					}),
+				)
 			}
 		}
 
@@ -125,6 +132,7 @@ export const compileCanonicalSchemaCompilerIr = (
 
 	return immutableRecord({
 		protocolVersion: input.protocolVersion,
+		selections: immutableArray(selectionResults),
 		schemas: immutableArray(states.map(snapshotCanonicalSchemaCompilerState)),
 	})
 }

@@ -17,16 +17,12 @@ import {
 	stageSchemaRegistryCompilation,
 } from '../schema/schema/registry.js'
 import type { SchemaTargetGraph } from '../schema/schema/targets.js'
-
 import type { CapabilityRequirement } from './capabilities.js'
-
 import type { ApplicationCapabilityHost } from './capability-host.js'
-
 import {
 	type PluginSchemaContributionOwner,
 	type SchemaCompilationProvenance,
 } from '../schema/schema/provenance.js'
-
 import {
 	attachPluginDeclarationDiagnostic,
 	diagnosePluginDeclarationFailure,
@@ -51,6 +47,7 @@ import { resolveCandidateOptions } from './schema-option-resolution.js'
 
 import {
 	type SchemaSelection,
+	type SchemaSelectorOptions,
 	schemaPatchOperations,
 	schemaSelections,
 } from './schema-patch-contracts.js'
@@ -65,26 +62,50 @@ import { decodeSchemaCompilerOutput } from './schema-compiler-ir/decoder.js'
 import { encodeSchemaCompilerInput } from './schema-compiler-ir/input-encoder.js'
 import type { SchemaCompilerImplementation } from './schema-compiler-ir/schema-compiler-capability.js'
 import { assertSchemaCompilerOutput } from './schema-compiler-ir/validation.js'
+import type { SchemaCompilerOutput } from './schema-compiler-ir/contracts.js'
+import {
+	createApplicationSurfaceRegistrars,
+	snapshotApplicationSurfaceDeclarations,
+	type PluginModelSurfaceRegistrar,
+	type PluginOperationDeclarationRegistrar,
+	type PluginQuerySurfaceRegistrar,
+} from './application-surface-declarations.js'
+import {
+	compileApplicationSurfaces,
+	type CompiledApplicationSchemaSurface,
+	type CompiledPluginOperation,
+} from './application-surface-registry.js'
 
 export class SchemaDeclarationRegistry {
 	readonly #batches: SchemaDeclarationBatch[] = []
 	#closed = false
+	#nextSelectionId = 0
 	#runtimeCompilations:
 		readonly PendingSchemaOptionRuntimeCompilation[] | undefined
 	#runtimeCompilationState: 'failed' | 'idle' | 'running' | 'succeeded' = 'idle'
 	#compiledProvenance:
 		ReadonlyMap<string, SchemaCompilationProvenance> | undefined
+	#compiledOperations: ReadonlyMap<string, CompiledPluginOperation> | undefined
+	#compiledSchemaSurfaces:
+		ReadonlyMap<string, CompiledApplicationSchemaSurface> | undefined
+	#compilerOutput: SchemaCompilerOutput | undefined
 
 	beginPluginDeclaration(
 		owner: PluginSchemaContributionOwner,
 		privileges: Readonly<{
 			declare: boolean
+			modelExtend: boolean
+			operationDeclare: boolean
+			queryExtend: boolean
 			requirements: readonly CapabilityRequirement[]
 			transform: boolean
 		}>,
 	): Readonly<{
 		close(): void
 		commit(): void
+		models: PluginModelSurfaceRegistrar
+		operations: PluginOperationDeclarationRegistrar
+		queries: PluginQuerySurfaceRegistrar
 		registrar: PluginSchemaDeclarationRegistrar
 	}> {
 		if (this.#closed) {
@@ -98,6 +119,11 @@ export class SchemaDeclarationRegistry {
 			options: [],
 			owner,
 			patches: [],
+			surfaces: {
+				modelSurfaces: [],
+				operations: [],
+				querySurfaces: [],
+			},
 		}
 		let open = true
 		const assertOpen = (): void => {
@@ -113,6 +139,23 @@ export class SchemaDeclarationRegistry {
 				throw new TypeError('schema:declare is required for this declaration')
 			}
 		}
+		const createSelection = (
+			selector: SchemaSelectorOptions,
+		): SchemaSelection => {
+			assertOpen()
+			const selection = immutableRecord({
+				selectionId: `selection:${String(this.#nextSelectionId)}`,
+				selector: normalizeSelector(selector),
+			})
+			this.#nextSelectionId += 1
+			schemaSelections.add(selection)
+			return selection
+		}
+		const surfaces = createApplicationSurfaceRegistrars(
+			owner,
+			batch.surfaces,
+			createSelection,
+		)
 		const registrar: PluginSchemaDeclarationRegistrar = immutableRecord({
 			add: (options): void => {
 				assertDeclare()
@@ -249,12 +292,7 @@ export class SchemaDeclarationRegistry {
 				)
 			},
 			select: (selector): SchemaSelection => {
-				assertOpen()
-				const selection = immutableRecord({
-					selector: normalizeSelector(selector),
-				})
-				schemaSelections.add(selection)
-				return selection
+				return createSelection(selector)
 			},
 		})
 
@@ -270,9 +308,13 @@ export class SchemaDeclarationRegistry {
 						additions: immutableArray(batch.additions),
 						options: immutableArray(batch.options),
 						patches: immutableArray(batch.patches),
+						surfaces: snapshotApplicationSurfaceDeclarations(batch.surfaces),
 					}),
 				)
 			},
+			models: surfaces.models,
+			operations: surfaces.operations,
+			queries: surfaces.queries,
 			registrar,
 		})
 	}
@@ -324,7 +366,23 @@ export class SchemaDeclarationRegistry {
 			fieldMethods,
 		)
 		const prepared = this.#compilePrepared(staging.prepared, compile)
-		return publishSchemaRegistryCompilation(registry, staging, prepared)
+		const output = this.#compilerOutput
+		if (output === undefined) {
+			throw new TypeError('Schema compiler output is unavailable')
+		}
+		const surfaces = compileApplicationSurfaces(
+			this.#batches.map(({ surfaces: declarations }) => declarations),
+			output,
+			staging.registry,
+		)
+		const targets = publishSchemaRegistryCompilation(
+			registry,
+			staging,
+			prepared,
+		)
+		this.#compiledOperations = surfaces.operations
+		this.#compiledSchemaSurfaces = surfaces.schemas
+		return targets
 	}
 
 	#compilePrepared(
@@ -373,6 +431,7 @@ export class SchemaDeclarationRegistry {
 		})
 		const output = compile(encoded.input)
 		assertSchemaCompilerOutput(encoded.input, output, encoded.session)
+		this.#compilerOutput = output
 		candidates = [...decodeSchemaCompilerOutput(output, encoded.session)]
 
 		this.#runtimeCompilations = collectRuntimeCompilations(
@@ -387,6 +446,24 @@ export class SchemaDeclarationRegistry {
 		)
 
 		return immutableArray(candidates)
+	}
+
+	/** Resolves one final operation declaration after static compilation. */
+	operation(name: string): CompiledPluginOperation | undefined {
+		if (this.#compiledOperations === undefined) {
+			throw new TypeError('Application operations have not been compiled')
+		}
+		return this.#compiledOperations.get(name)
+	}
+
+	/** Resolves one final application schema surface after static compilation. */
+	schemaSurface(
+		className: string,
+	): CompiledApplicationSchemaSurface | undefined {
+		if (this.#compiledSchemaSurfaces === undefined) {
+			throw new TypeError('Application schema surfaces have not been compiled')
+		}
+		return this.#compiledSchemaSurfaces.get(className)
 	}
 
 	diagnoseFailure(error: unknown): PluginDeclarationFailureDiagnostic {

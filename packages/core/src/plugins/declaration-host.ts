@@ -25,6 +25,11 @@ import {
 	attachPluginDeclarationDiagnostic,
 	type PluginSchemaDeclarationRegistrar,
 } from './schema-declarations.js'
+import type {
+	PluginModelSurfaceRegistrar,
+	PluginOperationDeclarationRegistrar,
+	PluginQuerySurfaceRegistrar,
+} from './application-surface-declarations.js'
 
 type RequiredCapability<TCapabilities> =
 	NormalizedPluginCapabilityDeclarations<TCapabilities>['requires'][number]
@@ -107,6 +112,50 @@ type PluginSchemaDeclarationContext<TPrivileges> = [
 		? Readonly<{ schemas?: PluginSchemaDeclarationRegistrar }>
 		: Readonly<{ schemas: PluginSchemaDeclarationRegistrar }>
 
+type PrivilegeRequest<
+	TPrivileges,
+	TName extends PluginPrivilegeRequest['name'],
+> = Extract<PrivilegeUnion<TPrivileges>, Readonly<{ name: TName }>>
+type UnconditionalPrivilegeRequest<
+	TPrivileges,
+	TName extends PluginPrivilegeRequest['name'],
+> =
+	PrivilegeRequest<TPrivileges, TName> extends infer TRequest
+		? TRequest extends Readonly<{ when: CapabilityRequirement }>
+			? never
+			: TRequest
+		: never
+type PrivilegedDeclarationContext<
+	TPrivileges,
+	TName extends PluginPrivilegeRequest['name'],
+	TProperty extends string,
+	TValue,
+> = [PrivilegeRequest<TPrivileges, TName>] extends [never]
+	? Readonly<Record<never, never>>
+	: [UnconditionalPrivilegeRequest<TPrivileges, TName>] extends [never]
+		? Readonly<Partial<Record<TProperty, TValue>>>
+		: Readonly<Record<TProperty, TValue>>
+
+type PluginModelDeclarationContext<TPrivileges> = PrivilegedDeclarationContext<
+	TPrivileges,
+	'model:extend',
+	'models',
+	PluginModelSurfaceRegistrar
+>
+type PluginOperationDeclarationContext<TPrivileges> =
+	PrivilegedDeclarationContext<
+		TPrivileges,
+		'operation:declare',
+		'operations',
+		PluginOperationDeclarationRegistrar
+	>
+type PluginQueryDeclarationContext<TPrivileges> = PrivilegedDeclarationContext<
+	TPrivileges,
+	'query:extend',
+	'queries',
+	PluginQuerySurfaceRegistrar
+>
+
 /**
  * Supplies only immutable static facades authorized by one plugin manifest.
  *
@@ -123,7 +172,10 @@ export type PluginDeclarationContext<
 	capabilities: PluginDeclarationCapabilityReader<TCapabilities>
 }> &
 	PluginFieldDeclarationContext<TPrivileges> &
-	PluginSchemaDeclarationContext<TPrivileges>
+	PluginSchemaDeclarationContext<TPrivileges> &
+	PluginModelDeclarationContext<TPrivileges> &
+	PluginOperationDeclarationContext<TPrivileges> &
+	PluginQueryDeclarationContext<TPrivileges>
 
 /** Declares deterministic application metadata before schemas are compiled. */
 export type PluginDeclaration<
@@ -180,6 +232,24 @@ export class PluginDeclarationHost {
 			const canTransform =
 				transformPrivilege !== undefined &&
 				this.graph.capabilities.isPrivilegeActive(owner, transformPrivilege)
+			const modelPrivilege = definition.manifest.privileges.find(
+				(request) => request.name === 'model:extend',
+			)
+			const operationPrivilege = definition.manifest.privileges.find(
+				(request) => request.name === 'operation:declare',
+			)
+			const queryPrivilege = definition.manifest.privileges.find(
+				(request) => request.name === 'query:extend',
+			)
+			const canExtendModels =
+				modelPrivilege !== undefined &&
+				this.graph.capabilities.isPrivilegeActive(owner, modelPrivilege)
+			const canDeclareOperations =
+				operationPrivilege !== undefined &&
+				this.graph.capabilities.isPrivilegeActive(owner, operationPrivilege)
+			const canExtendQueries =
+				queryPrivilege !== undefined &&
+				this.graph.capabilities.isPrivilegeActive(owner, queryPrivilege)
 			const fieldSession = canDeclare
 				? this.fieldBuilderMethods.beginPluginDeclaration(
 						formatPluginIdentity(owner),
@@ -194,11 +264,18 @@ export class PluginDeclarationHost {
 				version: definition.manifest.version,
 			})
 			const schemaSession =
-				canDeclare || canTransform
+				canDeclare ||
+				canTransform ||
+				canExtendModels ||
+				canDeclareOperations ||
+				canExtendQueries
 					? this.schemaDeclarations.beginPluginDeclaration(
 							schemaOwner,
 							immutableRecord({
 								declare: canDeclare,
+								modelExtend: canExtendModels,
+								operationDeclare: canDeclareOperations,
+								queryExtend: canExtendQueries,
 								requirements: immutableArray([
 									...definition.manifest.capabilities.requires,
 									...definition.manifest.capabilities.optional,
@@ -253,9 +330,18 @@ export class PluginDeclarationHost {
 			const context = immutableRecord({
 				capabilities,
 				...(fieldSession === undefined ? {} : { fields: fieldSession.fields }),
-				...(schemaSession === undefined
-					? {}
-					: { schemas: schemaSession.registrar }),
+				...(schemaSession !== undefined && (canDeclare || canTransform)
+					? { schemas: schemaSession.registrar }
+					: {}),
+				...(canExtendModels && schemaSession !== undefined
+					? { models: schemaSession.models }
+					: {}),
+				...(canDeclareOperations && schemaSession !== undefined
+					? { operations: schemaSession.operations }
+					: {}),
+				...(canExtendQueries && schemaSession !== undefined
+					? { queries: schemaSession.queries }
+					: {}),
 			})
 
 			try {

@@ -25,6 +25,7 @@ export interface SchemaSelectorOptions {
 }
 
 export interface SchemaSelection {
+	readonly selectionId: string
 	readonly selector: SchemaSelectorOptions
 }
 

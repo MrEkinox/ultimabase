@@ -27,7 +27,8 @@ TypeScript snippets:
 - [`extensions.md`](extensions.md) declares opaque schema and field metadata
   owned by a runtime plugin;
 - [`plugin-transformations.md`](plugin-transformations.md) declares direct plugin
-  options, stable plugin schemas, frozen selectors, immutable patches, conflicts,
+  options, stable and dynamic plugin schemas, application handles, frozen
+  selectors, immutable patches, conflicts,
   and logical provenance;
 - [`inference-registry-and-plans.md`](inference-registry-and-plans.md) shows
   operation-specific types, schema registration, and validation plans.

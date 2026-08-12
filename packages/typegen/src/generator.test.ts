@@ -136,6 +136,16 @@ describe('generateApplicationTypes', () => {
 						compile: (input) =>
 							immutableRecord({
 								protocolVersion: input.protocolVersion,
+								selections: immutableArray(
+									input.declarations.flatMap(({ selections }) =>
+										selections.map(({ selectionId }) =>
+											immutableRecord({
+												classNames: immutableArray([]),
+												selectionId,
+											}),
+										),
+									),
+								),
 								schemas: immutableArray(input.schemas),
 							}),
 						contributionId: 'typegen-fixture-compiler',

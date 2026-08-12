@@ -24,7 +24,7 @@ community packages.
 11. [x] [1422 — Define the callback-free schema compiler IR](1422-callback-free-schema-compiler-ir.md)
 12. [x] [1423 — Run the canonical schema compiler through the public IR](1423-canonical-schema-compiler-ir.md)
 13. [x] [1418 — Replace the complete schema compiler through a versioned capability](1418-schema-compiler-replacement-capability.md)
-14. [ ] [1407 — Add dynamic schemas, model extensions, and plugin operations](1407-dynamic-schemas-models-and-operations.md)
+14. [x] [1407 — Add dynamic schemas, model extensions, and plugin operations](1407-dynamic-schemas-models-and-operations.md)
 15. [ ] [1408 — Let plugins contribute exact Typegen contracts](1408-plugin-typegen-contributions.md)
 16. [ ] [1409 — Assemble Runtime through public capability middleware](1409-runtime-capability-assembly.md)
 17. [ ] [1410 — Separate logical operations from rewritable persistence plans](1410-rewritable-persistence-plans.md)

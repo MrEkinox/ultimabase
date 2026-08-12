@@ -22,6 +22,13 @@ import {
 const identityCompiler: SchemaCompilerImplementation = (input) =>
 	immutableRecord({
 		protocolVersion: input.protocolVersion,
+		selections: immutableArray(
+			input.declarations.flatMap(({ selections }) =>
+				selections.map(({ selectionId }) =>
+					immutableRecord({ classNames: immutableArray([]), selectionId }),
+				),
+			),
+		),
 		schemas: immutableArray([
 			...input.schemas,
 			...input.declarations.flatMap(({ additions }) =>
@@ -110,7 +117,7 @@ describe('schema compiler replacement capability', () => {
 
 		expect(application.schemaCompilerProvenance).toStrictEqual({
 			capabilityId: 'ultimabase.schema-compiler',
-			capabilityVersion: '1.0.0',
+			capabilityVersion: '2.0.0',
 			contributionId: 'complete-compiler',
 			normalizedStaticOptions: { engine: 'fixture', revision: 2 },
 			owner: {
@@ -118,7 +125,7 @@ describe('schema compiler replacement capability', () => {
 				pluginId: 'fixture.schema-compiler',
 				version: '2.3.4',
 			},
-			protocolVersion: '1.0.0',
+			protocolVersion: '2.0.0',
 			target: canonicalSchemaCompilerTarget,
 		})
 		expect(Object.isFrozen(application.schemaCompilerProvenance)).toBe(true)
@@ -138,11 +145,11 @@ describe('schema compiler replacement capability', () => {
 
 		expect(application.schemaCompilerProvenance).toStrictEqual({
 			capabilityId: 'ultimabase.schema-compiler',
-			capabilityVersion: '1.0.0',
+			capabilityVersion: '2.0.0',
 			contributionId: 'canonical-schema-compiler',
 			normalizedStaticOptions: {},
 			owner: { kind: 'core', version: '0.0.0' },
-			protocolVersion: '1.0.0',
+			protocolVersion: '2.0.0',
 		})
 	})
 
@@ -168,7 +175,7 @@ describe('schema compiler replacement capability', () => {
 						target: canonicalSchemaCompilerTarget,
 						value: {
 							kind: 'schema-compiler-provider',
-							protocolVersion: '1.0.0',
+							protocolVersion: '2.0.0',
 							staticOptions: {},
 						},
 					}),
@@ -247,6 +254,7 @@ describe('schema compiler replacement capability', () => {
 			'malformed',
 			(input) => ({
 				protocolVersion: input.protocolVersion,
+				selections: [],
 				schemas: [],
 			}),
 		)
@@ -388,14 +396,14 @@ describe('schema compiler replacement capability', () => {
 		).toThrow('contains a replacement cycle')
 	})
 
-	it('rejects a replacement declared through an incompatible protocol version', () => {
+	it('rejects a replacement declared through an incompatible capability version', () => {
 		const incompatibleToken = defineCapability<{
 			readonly kind: 'schema-compiler-provider'
 			readonly protocolVersion: '2.0.0'
 			readonly staticOptions: Readonly<Record<string, never>>
 		}>()({
 			capabilityId: 'ultimabase.schema-compiler',
-			version: '2.0.0',
+			version: '3.0.0',
 			cardinality: 'single',
 			lifetime: 'declaration',
 			compose: ([provider]) => provider,
@@ -432,7 +440,9 @@ describe('schema compiler replacement capability', () => {
 					plugins: [incompatible],
 					schemas: [],
 				}),
-		).toThrow('uses "ultimabase.schema-compiler@2.0.0"')
+		).toThrow(
+			'uses "ultimabase.schema-compiler@3.0.0" but its target contributes "ultimabase.schema-compiler@2.0.0"',
+		)
 	})
 
 	it('keeps compiler inputs isolated across applications', () => {
@@ -484,6 +494,7 @@ describe('schema compiler replacement capability', () => {
 			(input) =>
 				immutableRecord({
 					protocolVersion: input.protocolVersion,
+					selections: immutableArray([]),
 					schemas: immutableArray(
 						input.schemas.map((schema) =>
 							immutableRecord({
@@ -523,6 +534,7 @@ describe('schema compiler replacement capability', () => {
 				if (schema === undefined) return identityCompiler(input)
 				return immutableRecord({
 					protocolVersion: input.protocolVersion,
+					selections: immutableArray([]),
 					schemas: immutableArray([
 						immutableRecord({
 							...schema,

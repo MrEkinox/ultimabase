@@ -65,6 +65,7 @@ const createInput = (
 					version: '1.0.0',
 				}),
 				patches: immutableArray([]),
+				selections: immutableArray([]),
 			}),
 		]),
 		protocolVersion: schemaCompilerProtocolVersion,
@@ -79,6 +80,7 @@ describe('schema compiler IR validation', () => {
 		const input = createInput(session)
 		const output = immutableRecord({
 			protocolVersion: schemaCompilerProtocolVersion,
+			selections: immutableArray([]),
 			schemas: immutableArray([
 				...input.schemas,
 				...input.declarations.flatMap(({ additions }) =>
@@ -178,6 +180,7 @@ describe('schema compiler IR validation', () => {
 				input,
 				immutableRecord({
 					protocolVersion: schemaCompilerProtocolVersion,
+					selections: immutableArray([]),
 					schemas: immutableArray([developer]),
 				}),
 				session,
@@ -189,6 +192,7 @@ describe('schema compiler IR validation', () => {
 				input,
 				immutableRecord({
 					protocolVersion: schemaCompilerProtocolVersion,
+					selections: immutableArray([]),
 					schemas: immutableArray([developer, developer]),
 				}),
 				session,
@@ -201,6 +205,7 @@ describe('schema compiler IR validation', () => {
 				input,
 				immutableRecord({
 					protocolVersion: schemaCompilerProtocolVersion,
+					selections: immutableArray([]),
 					schemas: immutableArray([
 						renamed,
 						...input.declarations.flatMap(({ additions }) =>
@@ -225,6 +230,7 @@ describe('schema compiler IR validation', () => {
 		if (developer === undefined) throw new TypeError('Missing fixture schema')
 		const output = immutableRecord({
 			protocolVersion: schemaCompilerProtocolVersion,
+			selections: immutableArray([]),
 			schemas: immutableArray([
 				immutableRecord({ ...developer, artifact: staleArtifact }),
 				...input.declarations.flatMap(({ additions }) =>
@@ -253,6 +259,7 @@ describe('schema compiler IR validation', () => {
 		})
 		const output = immutableRecord({
 			protocolVersion: schemaCompilerProtocolVersion,
+			selections: immutableArray([]),
 			schemas: immutableArray([
 				immutableRecord({
 					...developer,

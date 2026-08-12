@@ -7,7 +7,15 @@ import {
 } from '../../foundation.js'
 import { registerQueryExecutionOwner } from '../../query/operations/execution.js'
 import type { SchemaDefinition } from '../../schema/index.js'
+import { Schema } from '../../schema/index.js'
 import { isPlainRecord } from '@ultimabase/shared'
+import type { PluginOperationDefinition } from '../../plugins/plugin-operations.js'
+import {
+	ApplicationOperationHandle,
+	ApplicationSchemaHandleBase,
+	type ApplicationSchemaHandle,
+	type ApplicationSchemaHandleForName,
+} from '../../application/application-handles.js'
 
 import { requestSources } from '../context/request-context.js'
 import type { FrameworkEngine } from '../engine/framework-engine.js'
@@ -131,6 +139,8 @@ export class UltimaBase<
 	readonly #engineOptions: Readonly<CreateFrameworkEngineOptions>
 	#frameworkEngine: FrameworkEngine<TSchemas, TPlugins> | undefined
 	#startPromise: Promise<void> | undefined
+	readonly #operationHandles = new Map<string, ApplicationOperationHandle>()
+	readonly #schemaHandles = new Map<string, ApplicationSchemaHandle>()
 
 	constructor(options: UltimaBaseOptions<TSchemas, TPlugins>) {
 		const untrustedOptions: unknown = options
@@ -181,6 +191,77 @@ export class UltimaBase<
 		}
 
 		return this.#frameworkEngine
+	}
+
+	/** Resolves one inert application operation handle by stable token. */
+	operation<TOperation extends PluginOperationDefinition>(
+		operation: TOperation,
+	): ApplicationOperationHandle<TOperation>
+	/** Resolves one dynamic operation handle by its namespaced JavaScript name. */
+	operation(name: string): ApplicationOperationHandle
+	operation(
+		tokenOrName: PluginOperationDefinition | string,
+	): ApplicationOperationHandle {
+		const name =
+			typeof tokenOrName === 'string' ? tokenOrName : tokenOrName.name
+		const compiled = this.application.getOperation(name)
+		if (compiled === undefined) {
+			throw new TypeError(`Unknown application operation: ${name}`)
+		}
+		if (typeof tokenOrName !== 'string' && compiled.operation !== tokenOrName) {
+			throw new TypeError(
+				`Operation token is not installed in this application: ${name}`,
+			)
+		}
+		let handle = this.#operationHandles.get(name)
+		if (handle === undefined) {
+			handle = new ApplicationOperationHandle(this, compiled)
+			this.#operationHandles.set(name, handle)
+		}
+		return handle
+	}
+
+	/** Resolves one exact stable schema class through its application-owned handle. */
+	schema<TSchema extends SchemaDefinition>(
+		schema: TSchema,
+	): ApplicationSchemaHandle<TSchema>
+	/** Resolves one dynamic or generated literal schema name through the same handle. */
+	schema<const TClassName extends string>(
+		className: TClassName,
+	): ApplicationSchemaHandleForName<TClassName>
+	schema(nameOrClass: SchemaDefinition | string): ApplicationSchemaHandle {
+		const className =
+			typeof nameOrClass === 'string' ? nameOrClass : nameOrClass.className
+		const surface = this.application.getSchemaSurface(className)
+		if (surface === undefined) {
+			throw new TypeError(`Unknown application schema: ${className}`)
+		}
+		if (typeof nameOrClass !== 'string') {
+			if (!Schema.is(nameOrClass) || surface.schema !== nameOrClass) {
+				throw new TypeError(
+					`Schema class does not belong to this application: ${className}`,
+				)
+			}
+		}
+		let handle = this.#schemaHandles.get(className)
+		if (handle === undefined) {
+			handle = new ApplicationSchemaHandleBase(
+				this,
+				this,
+				surface,
+				(operation, binding) => {
+					const compiled = this.application.getOperation(operation.name)
+					if (compiled?.operation !== operation) {
+						throw new TypeError(
+							`Operation token is not installed in this application: ${operation.name}`,
+						)
+					}
+					return new ApplicationOperationHandle(this, compiled, binding)
+				},
+			)
+			this.#schemaHandles.set(className, handle)
+		}
+		return handle
 	}
 
 	/** Initializes plugins, assembles Runtime, and starts infrastructure exactly once. */

@@ -28,6 +28,7 @@ import {
 	type SchemaSelection,
 	type SchemaSelectorOptions,
 } from './schema-patch-contracts.js'
+import type { ApplicationSurfaceDeclarations } from './application-surface-declarations.js'
 
 export interface PluginSchemaDeclarationRegistrar {
 	add(options: {
@@ -185,6 +186,7 @@ export interface SchemaDeclarationBatch {
 	readonly options: readonly OwnedOptionDefinition[]
 	readonly owner: PluginSchemaContributionOwner
 	readonly patches: readonly OwnedSchemaPatch[]
+	readonly surfaces: ApplicationSurfaceDeclarations
 }
 
 export interface MutableSchemaDeclarationBatch {
@@ -194,6 +196,11 @@ export interface MutableSchemaDeclarationBatch {
 	readonly options: OwnedOptionDefinition[]
 	readonly owner: PluginSchemaContributionOwner
 	readonly patches: OwnedSchemaPatch[]
+	readonly surfaces: {
+		readonly modelSurfaces: ApplicationSurfaceDeclarations['modelSurfaces'][number][]
+		readonly operations: ApplicationSurfaceDeclarations['operations'][number][]
+		readonly querySurfaces: ApplicationSurfaceDeclarations['querySurfaces'][number][]
+	}
 }
 
 /** Maps a terminal schema compilation failure back to its latest plugin owner. */
