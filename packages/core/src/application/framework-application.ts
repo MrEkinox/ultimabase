@@ -15,6 +15,7 @@ import { composeDeclarationCapabilities } from '../plugins/capability-inventory.
 import { ApplicationCapabilityHost } from '../plugins/capability-host.js'
 import { PluginDeclarationHost } from '../plugins/declaration-host.js'
 import { SchemaDeclarationRegistry } from '../plugins/schema-declarations.js'
+import { compileSchemaRegistryAtomically } from '../schema/schema/registry.js'
 import { bindApplicationCapabilityHost } from '../plugins/application-capability-access.js'
 import { validateExtensionOwners } from '../plugins/extension-handlers.js'
 import { FrameworkError } from '../errors/framework-error.js'
@@ -192,7 +193,7 @@ export class FrameworkApplication<
 	readonly #schemaDeclarations = new SchemaDeclarationRegistry()
 	readonly #declarationHost: PluginDeclarationHost
 	#schemaCompilationState: 'compiled' | 'compiling' | 'failed' | 'idle' = 'idle'
-	#schemaCompilationError: unknown
+	#schemaCompilationError: FrameworkError | undefined
 	#initializePromise: Promise<this> | undefined
 	#startPromise: Promise<void> | undefined
 
@@ -322,7 +323,10 @@ export class FrameworkApplication<
 		}
 
 		if (this.#schemaCompilationState === 'failed') {
-			throw this.#schemaCompilationError
+			throw (
+				this.#schemaCompilationError ??
+				new TypeError('Application schema compilation failure is unavailable')
+			)
 		}
 
 		if (this.#schemaCompilationState === 'compiling') {
@@ -333,18 +337,17 @@ export class FrameworkApplication<
 
 		try {
 			this.#declarationHost.run()
-			this.#schemaDeclarations.registerSchemas(this.schemas)
-			this.schemas.compileSchemas(this.#fieldBuilderMethods, (prepared) =>
-				this.#schemaDeclarations.compile(prepared),
+			compileSchemaRegistryAtomically(
+				this.schemas,
+				this.#schemaDeclarations.schemaAdditions(),
+				this.#fieldBuilderMethods,
+				(prepared) => this.#schemaDeclarations.compile(prepared),
 			)
 			this.#schemaCompilationState = 'compiled'
 
 			return this
 		} catch (error: unknown) {
-			this.#schemaCompilationError = error
-			this.#schemaCompilationState = 'failed'
-
-			throw error
+			throw this.#recordSchemaCompilationFailure(error)
 		}
 	}
 
@@ -382,7 +385,11 @@ export class FrameworkApplication<
 		try {
 			this.compileSchemas()
 			await this.#capabilityHost.materialize()
-			this.#schemaDeclarations.runRuntimeCompilers(this.#capabilityHost)
+			try {
+				this.#schemaDeclarations.runRuntimeCompilers(this.#capabilityHost)
+			} catch (error: unknown) {
+				throw this.#recordSchemaCompilationFailure(error)
+			}
 			await this.#lifecycle.setup()
 			validateExtensionOwners(this.schemas.values(), this.#pluginGraph)
 			this.#setupRegistries.resolveHookTargets()
@@ -410,6 +417,30 @@ export class FrameworkApplication<
 	async #performStart(): Promise<void> {
 		await this.initialize()
 		await this.#lifecycle.start()
+	}
+
+	#recordSchemaCompilationFailure(error: unknown): FrameworkError {
+		if (this.#schemaCompilationError !== undefined) {
+			return this.#schemaCompilationError
+		}
+
+		const reason =
+			error instanceof Error ? error.message : 'Unknown declaration failure'
+		const failure = new FrameworkError(
+			'PLUGIN_DECLARATION_INVALID',
+			`Plugin application declaration is invalid: ${reason}`,
+			{
+				cause: error,
+				internalDetails: {
+					kind: 'plugin-declaration-invalid',
+					...this.#schemaDeclarations.diagnoseFailure(error),
+				},
+			},
+		)
+		this.#schemaCompilationError = failure
+		this.#schemaCompilationState = 'failed'
+
+		return failure
 	}
 }
 

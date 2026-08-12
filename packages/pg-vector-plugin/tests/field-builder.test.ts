@@ -76,13 +76,16 @@ describe('pg-vector FieldBuilder method', () => {
 
 		await expect(
 			createApplication({ plugins: [], schemas: [Missing] }),
-		).rejects.toThrow(
-			expect.objectContaining({
+		).rejects.toMatchObject({
+			code: 'PLUGIN_DECLARATION_INVALID',
+			cause: {
 				cause: new TypeError(
 					'MissingVectorBuilderPlugin.fields.embedding FieldBuilder method "vector" is unavailable; configure the plugin that declares it',
 				),
-			}),
-		)
+				code: 'SCHEMA_COMPILATION_FAILED',
+				reason: 'callback-threw',
+			},
+		})
 	})
 
 	it('keeps vector option validation on the existing factory', async () => {
@@ -98,11 +101,14 @@ describe('pg-vector FieldBuilder method', () => {
 				plugins: [pgVectorPlugin()],
 				schemas: [Invalid],
 			}),
-		).rejects.toThrow(
-			expect.objectContaining({
+		).rejects.toMatchObject({
+			code: 'PLUGIN_DECLARATION_INVALID',
+			cause: {
 				cause: new RangeError('dimensions must be a positive safe integer'),
-			}),
-		)
+				code: 'SCHEMA_COMPILATION_FAILED',
+				reason: 'callback-threw',
+			},
+		})
 	})
 
 	it('removes the runtime method from an application without the plugin', async () => {

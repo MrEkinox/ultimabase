@@ -48,3 +48,12 @@ test('keeps framework codes closed and immutable', () => {
 	// @ts-expect-error -- Retryability remains stable after construction.
 	error.retryable = true
 })
+
+test('exposes the stable plugin declaration diagnostic code', () => {
+	const error = new FrameworkError(
+		'PLUGIN_DECLARATION_INVALID',
+		'Plugin schema declaration failed',
+	)
+
+	expectTypeOf(error.code).toEqualTypeOf<'PLUGIN_DECLARATION_INVALID'>()
+})

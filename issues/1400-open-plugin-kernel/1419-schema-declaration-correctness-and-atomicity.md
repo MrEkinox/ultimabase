@@ -1,6 +1,6 @@
 # 1419: Harden schema declaration correctness and atomicity
 
-- Status: planned
+- Status: completed
 - Milestone: 14
 - Packages: `@ultimabase/core`
 - Depends on: 1406
@@ -31,19 +31,19 @@ failure before the open kernel adds another compiler layer.
 
 ## Acceptance criteria
 
-- [ ] Two plugins declaring the same unused schema or field option compile without conflict and execute no validator or Runtime compiler.
-- [ ] A used option still requires one exact owner; missing and genuinely ambiguous used owners fail deterministically without last-writer-wins behavior.
-- [ ] Two explicit instances of one plugin may reuse one local schema `contributionId`, and final provenance retains the exact instance for each schema.
-- [ ] Duplicate contribution IDs for the same exact owner still fail before any schema addition is published.
-- [ ] Registration collisions, option failures, selector failures, patch failures, and final schema validation failures expose no partial plugin schema graph.
-- [ ] A failed application cannot compile, initialize, or start again and reports `PLUGIN_DECLARATION_INVALID` with the original failure as its cause.
-- [ ] Selector equality treats JSON object keys as unordered while preserving array order and exact primitive semantics.
-- [ ] No compiler replacement, Typegen rendering, dynamic handle, adapter, or migration behavior is introduced.
+- [x] Two plugins declaring the same unused schema or field option compile without conflict and execute no validator or Runtime compiler.
+- [x] A used option still requires one exact owner; missing and genuinely ambiguous used owners fail deterministically without last-writer-wins behavior.
+- [x] Two explicit instances of one plugin may reuse one local schema `contributionId`, and final provenance retains the exact instance for each schema.
+- [x] Duplicate contribution IDs for the same exact owner still fail before any schema addition is published.
+- [x] Registration collisions, option failures, selector failures, patch failures, and final schema validation failures expose no partial plugin schema graph.
+- [x] A failed application cannot compile, initialize, or start again and reports `PLUGIN_DECLARATION_INVALID` with the original failure as its cause.
+- [x] Selector equality treats JSON object keys as unordered while preserving array order and exact primitive semantics.
+- [x] No compiler replacement, Typegen rendering, dynamic handle, adapter, or migration behavior is introduced.
 
 ## Tests
 
-- [ ] Runtime regressions cover unused duplicate descriptors, used ambiguity, two explicit instances, same-owner duplicates, every atomic failure boundary, terminal application state, and reordered JSON object keys.
-- [ ] Type and public-export tests cover the stable declaration diagnostic without widening plugin option types before issue 1408.
+- [x] Runtime regressions cover unused duplicate descriptors, used ambiguity, two explicit instances, same-owner duplicates, every atomic failure boundary, terminal application state, and reordered JSON object keys.
+- [x] Type and public-export tests cover the stable declaration diagnostic without widening plugin option types before issue 1408.
 
 ## Out of scope
 

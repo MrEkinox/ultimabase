@@ -76,10 +76,12 @@ sequences.
 Every built-in factory immediately rejects unknown nested validation options and
 Core-owned root options that the selected field kind does not support. Other
 unknown root properties are detached and retained until application compilation:
-one installed plugin option descriptor validates and normalizes them, no owner
-rejects them, and multiple owners are a deterministic conflict. Plugin-defined
-fields retain their native option and validation keys; their factory remains the
-owning validation boundary.
+one exact installed plugin option descriptor validates and normalizes each used
+property. Duplicate descriptor names remain harmless while unused; a developer
+occurrence with no owner or several possible owners fails deterministically,
+while a plugin-owned occurrence resolves against its exact plugin and instance.
+Plugin-defined fields retain their native option and validation keys; their
+factory remains the owning validation boundary.
 
 TypeScript reports invalid option combinations on the primary option contract.
 For example, empty enum domains identify `values`, required pointers using
@@ -214,7 +216,10 @@ its current owner. A plugin therefore cannot make its own selection grow by
 adding a matching field or schema first. Additions require `schema:declare`;
 replacement, rename, and removal require `schema:transform` plus the exact prior
 owner, contribution ID, and expected logical shape. Core schema identity and
-system fields remain protected.
+system fields remain protected. Selector values use structural JSON equality:
+object key order is irrelevant, while array order and primitive identity remain
+exact. Contribution IDs are local to the full `{ pluginId, instanceId? }`
+identity, so two explicit instances may reuse the same local ID.
 
 Direct plugin options use ordinary properties rather than a separate options
 bag. Core validates them without generated files. The installed-option
@@ -234,6 +239,14 @@ capability, must return `undefined`, and contributes behavior through that
 capability rather than through a generic Core registry. Unused option contracts
 run nothing; a compiler failure aborts initialization and disposes already
 materialized capability resources.
+
+Static compilation stages plugin schemas away from the public registry and
+publishes the complete validated graph once. Registration, option, selector,
+patch, or final validation failure therefore exposes no partial plugin schema
+set. Every declaration failure uses `PLUGIN_DECLARATION_INVALID`, retains the
+original cause and safe owner, contribution, and path diagnostics, and
+permanently closes compilation, initialization, and startup for that application
+instance.
 
 `schema.definition.provenance` explains the final schema, fields, direct options,
 indexes, portable constraints, extensions, and applied patches. Typegen and

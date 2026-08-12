@@ -33,7 +33,6 @@ import {
 	type SchemaConstraintDefinition,
 } from '../schema/schema/constraints.js'
 import { normalizeContributedSchemaIndex } from '../schema/schema/indexes.js'
-import type { SchemaRegistry } from '../schema/schema/registry.js'
 import { reservedSystemFieldNames } from '../schema/schema/system-fields.js'
 import {
 	isReservedQueryLogicalFieldName,
@@ -1147,6 +1146,103 @@ interface OwnedOptionDefinition {
 	readonly staticOptions: Readonly<Record<string, JsonValue>>
 }
 
+interface OptionDefinitionIndex {
+	readonly field: ReadonlyMap<string, readonly OwnedOptionDefinition[]>
+	readonly schema: ReadonlyMap<string, readonly OwnedOptionDefinition[]>
+}
+
+type ResolvedFieldOptions = WeakMap<
+	object,
+	Map<PluginSchemaContributionOwner | undefined, GenericField>
+>
+
+export interface PluginDeclarationFailureDiagnostic {
+	readonly contributionId?: string
+	readonly instanceId?: string
+	readonly owners?: readonly string[]
+	readonly path?: string
+	readonly pluginId?: string
+}
+
+class PluginDeclarationDiagnosticError extends TypeError {
+	readonly diagnostic: PluginDeclarationFailureDiagnostic
+
+	constructor(
+		message: string,
+		diagnostic: PluginDeclarationFailureDiagnostic,
+		options?: ErrorOptions,
+	) {
+		super(message, options)
+		this.name = 'PluginDeclarationDiagnosticError'
+		this.diagnostic = immutableRecord(diagnostic)
+	}
+}
+
+const pluginDeclarationDiagnostic = (
+	owner: PluginSchemaContributionOwner,
+	path: string,
+	contributionId?: string,
+): PluginDeclarationFailureDiagnostic =>
+	immutableRecord({
+		...(contributionId === undefined ? {} : { contributionId }),
+		...(owner.instanceId === undefined ? {} : { instanceId: owner.instanceId }),
+		path,
+		pluginId: owner.pluginId,
+	})
+
+export const attachPluginDeclarationDiagnostic = (
+	cause: unknown,
+	owner: PluginSchemaContributionOwner,
+	path: string,
+	contributionId?: string,
+): PluginDeclarationDiagnosticError => {
+	if (cause instanceof PluginDeclarationDiagnosticError) return cause
+
+	return new PluginDeclarationDiagnosticError(
+		cause instanceof Error
+			? cause.message
+			: 'Unknown plugin declaration failure',
+		pluginDeclarationDiagnostic(owner, path, contributionId),
+		{ cause },
+	)
+}
+
+const samePluginOwner = (
+	left: PluginSchemaContributionOwner,
+	right: PluginSchemaContributionOwner,
+): boolean =>
+	left.pluginId === right.pluginId && left.instanceId === right.instanceId
+
+const resolveOptionDefinition = (
+	definitions: ReadonlyMap<string, readonly OwnedOptionDefinition[]>,
+	name: string,
+	path: string,
+	preferredOwner?: PluginSchemaContributionOwner,
+): OwnedOptionDefinition | undefined => {
+	const candidates = definitions.get(name) ?? []
+	if (candidates.length === 0) return undefined
+	if (candidates.length === 1) return candidates[0]
+
+	if (preferredOwner !== undefined) {
+		const owned = candidates.filter((candidate) =>
+			samePluginOwner(candidate.owner, preferredOwner),
+		)
+		if (owned.length === 1) return owned[0]
+	}
+
+	const owners = immutableArray(
+		candidates.map(({ owner }) =>
+			owner.instanceId === undefined
+				? owner.pluginId
+				: `${owner.pluginId}#${owner.instanceId}`,
+		),
+	)
+	throw new PluginDeclarationDiagnosticError(
+		`Ambiguous ${candidates[0]?.scope ?? 'plugin'} option owner for "${name}": ${owners.join(' and ')}`,
+		immutableRecord({ owners, path }),
+	)
+}
+
 interface PendingSchemaOptionRuntimeCompilation {
 	readonly context: Omit<
 		SchemaOptionRuntimeCompilationContext<JsonValue>,
@@ -1349,6 +1445,8 @@ export class SchemaDeclarationRegistry {
 	#runtimeCompilations:
 		readonly PendingSchemaOptionRuntimeCompilation[] | undefined
 	#runtimeCompilationState: 'failed' | 'idle' | 'running' | 'succeeded' = 'idle'
+	#compiledProvenance:
+		ReadonlyMap<string, SchemaCompilationProvenance> | undefined
 
 	beginPluginDeclaration(
 		owner: PluginSchemaContributionOwner,
@@ -1556,24 +1654,35 @@ export class SchemaDeclarationRegistry {
 		this.#closed = true
 	}
 
-	registerSchemas(registry: SchemaRegistry): void {
+	schemaAdditions(): readonly SchemaDefinition[] {
 		if (!this.#closed) {
 			throw new TypeError('Schema declaration registry is not closed')
 		}
 
-		const contributionIds = new Map<string, PluginSchemaContributionOwner>()
+		const contributionIds = new Map<
+			string,
+			readonly PluginSchemaContributionOwner[]
+		>()
+		const schemas: SchemaDefinition[] = []
 		for (const batch of this.#batches) {
 			for (const addition of batch.additions) {
-				const prior = contributionIds.get(addition.contributionId)
-				if (prior?.pluginId === addition.owner.pluginId) {
-					throw new TypeError(
+				const prior = contributionIds.get(addition.contributionId) ?? []
+				if (prior.some((owner) => samePluginOwner(owner, addition.owner))) {
+					throw new PluginDeclarationDiagnosticError(
 						`Duplicate schema contributionId: ${addition.contributionId}`,
+						pluginDeclarationDiagnostic(
+							addition.owner,
+							addition.schema.className,
+							addition.contributionId,
+						),
 					)
 				}
-				contributionIds.set(addition.contributionId, addition.owner)
-				registry.register(addition.schema)
+				contributionIds.set(addition.contributionId, [...prior, addition.owner])
+				schemas.push(addition.schema)
 			}
 		}
+
+		return immutableArray(schemas)
 	}
 
 	compile(
@@ -1584,7 +1693,7 @@ export class SchemaDeclarationRegistry {
 		}
 
 		const optionDefinitions = this.#collectOptionDefinitions()
-		const resolvedFields = new WeakMap<object, GenericField>()
+		const resolvedFields: ResolvedFieldOptions = new WeakMap()
 		const additionsBySchema = new Map<SchemaDefinition, OwnedSchemaAddition>()
 		for (const batch of this.#batches) {
 			for (const addition of batch.additions) {
@@ -1592,16 +1701,28 @@ export class SchemaDeclarationRegistry {
 			}
 		}
 		let candidates = prepared.map((candidate) => {
-			const resolved = resolveCandidateOptions(
-				candidate,
-				optionDefinitions,
-				resolvedFields,
-			)
-			return attachInitialContributionProvenance(
-				resolved,
-				additionsBySchema.get(candidate.schema),
-				optionDefinitions,
-			)
+			const addition = additionsBySchema.get(candidate.schema)
+			try {
+				const resolved = resolveCandidateOptions(
+					candidate,
+					optionDefinitions,
+					resolvedFields,
+					addition?.owner,
+				)
+				return attachInitialContributionProvenance(
+					resolved,
+					addition,
+					optionDefinitions,
+				)
+			} catch (cause: unknown) {
+				if (addition === undefined) throw cause
+				throw attachPluginDeclarationDiagnostic(
+					cause,
+					addition.owner,
+					candidate.schema.className,
+					addition.contributionId,
+				)
+			}
 		})
 		const addedSchemas = new Set(
 			this.#batches.flatMap((batch) =>
@@ -1631,15 +1752,25 @@ export class SchemaDeclarationRegistry {
 						patch.targets,
 						immutableArray(
 							candidates
-								.filter(
-									(candidate) =>
-										visibleSchemas.has(candidate.schema) &&
-										matchesSelector(
+								.filter((candidate) => {
+									if (!visibleSchemas.has(candidate.schema)) return false
+									try {
+										return matchesSelector(
 											candidate,
 											owners.get(candidate.schema) ?? applicationOwner,
 											patch.targets.selector,
-										),
-								)
+										)
+									} catch (cause: unknown) {
+										throw attachPluginDeclarationDiagnostic(
+											cause,
+											patch.owner,
+											candidate.schema.className,
+											patch.operations.length === 1
+												? patch.operations[0]?.contributionId
+												: undefined,
+										)
+									}
+								})
 								.map(({ schema }) => schema),
 						),
 					)
@@ -1654,17 +1785,80 @@ export class SchemaDeclarationRegistry {
 
 			for (const patch of batch.patches) {
 				const targets = frozenTargets.get(patch.targets) ?? []
-				candidates = candidates.map((candidate) =>
-					targets.includes(candidate.schema)
-						? applyPatch(candidate, patch, optionDefinitions, resolvedFields)
-						: candidate,
-				)
+				candidates = candidates.map((candidate) => {
+					if (!targets.includes(candidate.schema)) return candidate
+					try {
+						return applyPatch(
+							candidate,
+							patch,
+							optionDefinitions,
+							resolvedFields,
+						)
+					} catch (cause: unknown) {
+						throw attachPluginDeclarationDiagnostic(
+							cause,
+							patch.owner,
+							candidate.schema.className,
+							patch.operations.length === 1
+								? patch.operations[0]?.contributionId
+								: undefined,
+						)
+					}
+				})
 			}
 		}
 
 		this.#runtimeCompilations = this.#collectRuntimeCompilations(candidates)
+		this.#compiledProvenance = new Map(
+			candidates.map((candidate) => [
+				candidate.schema.className,
+				candidate.definition.provenance,
+			]),
+		)
 
 		return immutableArray(candidates)
+	}
+
+	diagnoseFailure(error: unknown): PluginDeclarationFailureDiagnostic {
+		if (error instanceof PluginDeclarationDiagnosticError) {
+			return error.diagnostic
+		}
+
+		const className =
+			isPlainRecord(error) && typeof error.className === 'string'
+				? error.className
+				: undefined
+		if (className === undefined) return immutableRecord({})
+
+		const provenance = this.#compiledProvenance?.get(className)
+		const latestPatch = provenance?.patches.at(-1)?.provenance
+		const source =
+			latestPatch ??
+			(provenance?.schema.owner.kind === 'plugin'
+				? provenance.schema
+				: undefined)
+		if (source?.owner.kind === 'plugin') {
+			return pluginDeclarationDiagnostic(
+				source.owner,
+				className,
+				source.contributionId,
+			)
+		}
+
+		for (const batch of this.#batches) {
+			const addition = batch.additions.find(
+				(candidate) => candidate.schema.className === className,
+			)
+			if (addition !== undefined) {
+				return pluginDeclarationDiagnostic(
+					addition.owner,
+					className,
+					addition.contributionId,
+				)
+			}
+		}
+
+		return immutableRecord({ path: className })
 	}
 
 	/** Executes used Runtime option compilers after capabilities exist and before setup. */
@@ -1682,20 +1876,29 @@ export class SchemaDeclarationRegistry {
 		this.#runtimeCompilationState = 'running'
 		try {
 			for (const compilation of this.#runtimeCompilations) {
-				const capability = readDeclaredRuntimeCapability(
-					capabilities.forPlugin(compilation.owner),
-					compilation.runtime.requirement,
-				)
-				const context = immutableRecord({
-					...compilation.context,
-					capability,
-				})
-				const compile: (input: typeof context) => unknown =
-					compilation.runtime.compile
-				const result = compile(context)
-				if (result !== undefined) {
-					throw new TypeError(
-						'Schema option Runtime compiler must return undefined',
+				try {
+					const capability = readDeclaredRuntimeCapability(
+						capabilities.forPlugin(compilation.owner),
+						compilation.runtime.requirement,
+					)
+					const context = immutableRecord({
+						...compilation.context,
+						capability,
+					})
+					const compile: (input: typeof context) => unknown =
+						compilation.runtime.compile
+					const result = compile(context)
+					if (result !== undefined) {
+						throw new TypeError(
+							'Schema option Runtime compiler must return undefined',
+						)
+					}
+				} catch (cause: unknown) {
+					throw attachPluginDeclarationDiagnostic(
+						cause,
+						compilation.owner,
+						compilation.context.path,
+						compilation.context.provenance.definition.contributionId,
 					)
 				}
 			}
@@ -1726,6 +1929,12 @@ export class SchemaDeclarationRegistry {
 							throw new TypeError(
 								`Missing schema option provenance: ${candidate.schema.className}.${option.name}`,
 							)
+						}
+						if (
+							!sameOwner(provenance.definition.owner, option.owner) ||
+							provenance.definition.contributionId !== option.contributionId
+						) {
+							continue
 						}
 						const path = `${candidate.schema.className}.${option.name}`
 						compilations.push(
@@ -1762,6 +1971,12 @@ export class SchemaDeclarationRegistry {
 								`Missing field option provenance: ${candidate.schema.className}.fields.${fieldName}.options.${option.name}`,
 							)
 						}
+						if (
+							!sameOwner(provenance.definition.owner, option.owner) ||
+							provenance.definition.contributionId !== option.contributionId
+						) {
+							continue
+						}
 						const path = `${candidate.schema.className}.fields.${fieldName}.options.${option.name}`
 						compilations.push(
 							immutableRecord({
@@ -1787,12 +2002,9 @@ export class SchemaDeclarationRegistry {
 		return immutableArray(compilations)
 	}
 
-	#collectOptionDefinitions(): Readonly<{
-		field: ReadonlyMap<string, OwnedOptionDefinition>
-		schema: ReadonlyMap<string, OwnedOptionDefinition>
-	}> {
-		const field = new Map<string, OwnedOptionDefinition>()
-		const schema = new Map<string, OwnedOptionDefinition>()
+	#collectOptionDefinitions(): OptionDefinitionIndex {
+		const field = new Map<string, readonly OwnedOptionDefinition[]>()
+		const schema = new Map<string, readonly OwnedOptionDefinition[]>()
 
 		for (const batch of this.#batches) {
 			for (const option of batch.options) {
@@ -1800,18 +2012,18 @@ export class SchemaDeclarationRegistry {
 					(option.scope === 'schema' && coreSchemaKeys.has(option.name)) ||
 					(option.scope === 'field' && isCoreFieldOptionKey(option.name))
 				) {
-					throw new TypeError(
+					const cause = new TypeError(
 						`Plugin option collides with Core-owned ${option.scope} option: ${option.name}`,
+					)
+					throw attachPluginDeclarationDiagnostic(
+						cause,
+						option.owner,
+						`${option.scope}.options.${option.name}`,
+						option.contributionId,
 					)
 				}
 				const target = option.scope === 'field' ? field : schema
-				const prior = target.get(option.name)
-				if (prior !== undefined) {
-					throw new TypeError(
-						`Ambiguous ${option.scope} option owner for "${option.name}": ${prior.owner.pluginId} and ${option.owner.pluginId}`,
-					)
-				}
-				target.set(option.name, option)
+				target.set(option.name, [...(target.get(option.name) ?? []), option])
 			}
 		}
 
@@ -1838,9 +2050,14 @@ const normalizeOwnedOptionValue = (
 	try {
 		normalized = option.definition.normalize(value, path)
 	} catch (cause: unknown) {
-		throw new TypeError(
-			`${path} is invalid for option owner ${option.owner.pluginId}`,
-			{ cause },
+		throw attachPluginDeclarationDiagnostic(
+			new TypeError(
+				`${path} is invalid for option owner ${option.owner.pluginId}`,
+				{ cause },
+			),
+			option.owner,
+			path,
+			option.contributionId,
 		)
 	}
 
@@ -1849,11 +2066,12 @@ const normalizeOwnedOptionValue = (
 
 const resolveFieldOptions = (
 	field: GenericField,
-	definitions: ReadonlyMap<string, OwnedOptionDefinition>,
+	definitions: ReadonlyMap<string, readonly OwnedOptionDefinition[]>,
 	path: string,
-	resolvedFields: WeakMap<object, GenericField>,
+	resolvedFields: ResolvedFieldOptions,
+	preferredOwner?: PluginSchemaContributionOwner,
 ): GenericField => {
-	const existing = resolvedFields.get(field)
+	const existing = resolvedFields.get(field)?.get(preferredOwner)
 	if (existing !== undefined) return existing
 
 	const contract = getDeclaredFieldOptionsContract(field)
@@ -1861,7 +2079,12 @@ const resolveFieldOptions = (
 	let changed = false
 
 	for (const [key, value] of Object.entries(field.options)) {
-		const descriptor = definitions.get(key)
+		const descriptor = resolveOptionDefinition(
+			definitions,
+			key,
+			`${path}.options.${key}`,
+			preferredOwner,
+		)
 		const coreOwnsKey = contract?.optionKeys.includes(key) === true
 
 		if (descriptor !== undefined && coreOwnsKey) {
@@ -1899,6 +2122,7 @@ const resolveFieldOptions = (
 							definitions,
 							`${path}.options.fields.${name}`,
 							resolvedFields,
+							preferredOwner,
 						),
 					]
 				}),
@@ -1917,25 +2141,32 @@ const resolveFieldOptions = (
 	const resolved = changed
 		? replaceDeclaredFieldOptions(field, immutableRecord(options))
 		: field
-	resolvedFields.set(field, resolved)
+	const ownerResolutions =
+		resolvedFields.get(field) ??
+		new Map<PluginSchemaContributionOwner | undefined, GenericField>()
+	ownerResolutions.set(preferredOwner, resolved)
+	resolvedFields.set(field, ownerResolutions)
 
 	return resolved
 }
 
 const resolveCandidateOptions = (
 	candidate: PreparedSchemaCompilation,
-	definitions: Readonly<{
-		field: ReadonlyMap<string, OwnedOptionDefinition>
-		schema: ReadonlyMap<string, OwnedOptionDefinition>
-	}>,
-	resolvedFields: WeakMap<object, GenericField>,
+	definitions: OptionDefinitionIndex,
+	resolvedFields: ResolvedFieldOptions,
+	preferredOwner?: PluginSchemaContributionOwner,
 ): PreparedSchemaCompilation => {
 	const schemaOptions: Record<string, unknown> = {}
 
 	for (const [key, value] of Object.entries(candidate.definition)) {
 		if (coreSchemaKeys.has(key)) continue
 
-		const descriptor = definitions.schema.get(key)
+		const descriptor = resolveOptionDefinition(
+			definitions.schema,
+			key,
+			`${candidate.schema.className}.${key}`,
+			preferredOwner,
+		)
 		if (descriptor === undefined) {
 			throw new TypeError(`Unknown schema option: ${key}`)
 		}
@@ -1956,6 +2187,7 @@ const resolveCandidateOptions = (
 					definitions.field,
 					`${candidate.schema.className}.fields.${name}`,
 					resolvedFields,
+					preferredOwner,
 				),
 			]),
 		),
@@ -1987,10 +2219,7 @@ const resolveCandidateOptions = (
 const attachInitialContributionProvenance = (
 	candidate: PreparedSchemaCompilation,
 	addition: OwnedSchemaAddition | undefined,
-	definitions: Readonly<{
-		field: ReadonlyMap<string, OwnedOptionDefinition>
-		schema: ReadonlyMap<string, OwnedOptionDefinition>
-	}>,
+	definitions: OptionDefinitionIndex,
 ): PreparedSchemaCompilation => {
 	const original = candidate.definition.provenance
 
@@ -2004,7 +2233,11 @@ const attachInitialContributionProvenance = (
 							Object.fromEntries(
 								Object.entries(optionProvenance).map(
 									([optionName, provenance]) => {
-										const descriptor = definitions.field.get(optionName)
+										const descriptor = resolveOptionDefinition(
+											definitions.field,
+											optionName,
+											`${candidate.schema.className}.fields.${fieldName}.options.${optionName}`,
+										)
 
 										return [
 											optionName,
@@ -2031,7 +2264,11 @@ const attachInitialContributionProvenance = (
 		const options = immutableRecord(
 			Object.fromEntries(
 				Object.entries(original.options).map(([name, provenance]) => {
-					const descriptor = definitions.schema.get(name)
+					const descriptor = resolveOptionDefinition(
+						definitions.schema,
+						name,
+						`${candidate.schema.className}.${name}`,
+					)
 
 					return [
 						name,
@@ -2112,7 +2349,12 @@ const attachInitialContributionProvenance = (
 							immutableRecord(
 								Object.fromEntries(
 									Object.keys(field.options).map((optionName) => {
-										const descriptor = definitions.field.get(optionName)
+										const descriptor = resolveOptionDefinition(
+											definitions.field,
+											optionName,
+											`${candidate.schema.className}.fields.${fieldName}.options.${optionName}`,
+											addition.owner,
+										)
 										const prior = original.fieldOptions[fieldName]?.[optionName]
 										return [
 											optionName,
@@ -2146,7 +2388,12 @@ const attachInitialContributionProvenance = (
 			Object.keys(candidate.definition)
 				.filter((name) => !coreSchemaKeys.has(name))
 				.map((name) => {
-					const descriptor = definitions.schema.get(name)
+					const descriptor = resolveOptionDefinition(
+						definitions.schema,
+						name,
+						`${candidate.schema.className}.${name}`,
+						addition.owner,
+					)
 					if (descriptor === undefined) {
 						throw new TypeError(`Unknown schema option: ${name}`)
 					}
@@ -2294,7 +2541,9 @@ const matchesSelector = (
 			candidate.schema.className,
 		)
 		const selected = readOptionPath(value, selector.option.path ?? [])
-		if (JSON.stringify(selected) !== JSON.stringify(selector.option.equals)) {
+		if (
+			!areSchemaDeclarationValuesCompatible(selected, selector.option.equals)
+		) {
 			return false
 		}
 	}
@@ -2375,11 +2624,8 @@ const renameIndexField = (
 const applyPatch = (
 	candidate: PreparedSchemaCompilation,
 	patch: OwnedSchemaPatch,
-	definitions: Readonly<{
-		field: ReadonlyMap<string, OwnedOptionDefinition>
-		schema: ReadonlyMap<string, OwnedOptionDefinition>
-	}>,
-	resolvedFields: WeakMap<object, GenericField>,
+	definitions: OptionDefinitionIndex,
+	resolvedFields: ResolvedFieldOptions,
 ): PreparedSchemaCompilation => {
 	let fields = candidate.definition.fields
 	let developerFields = candidate.developerFields
@@ -2594,6 +2840,7 @@ const applyPatch = (
 						definitions.field,
 						`${candidate.schema.className}.extensions.${replacement.name}.fields.${name}`,
 						resolvedFields,
+						patch.owner,
 					)
 					fields = immutableRecord({ ...fields, [name]: field })
 					provenance = immutableRecord({
@@ -2683,6 +2930,7 @@ const applyPatch = (
 				definitions.field,
 				`${candidate.schema.className}.fields.${operation.name}`,
 				resolvedFields,
+				patch.owner,
 			)
 			fields = immutableRecord({ ...fields, [operation.name]: field })
 			developerFields = immutableRecord({
@@ -2698,7 +2946,12 @@ const applyPatch = (
 			const fieldOptions = immutableRecord(
 				Object.fromEntries(
 					Object.keys(field.options).map((optionName) => {
-						const descriptor = definitions.field.get(optionName)
+						const descriptor = resolveOptionDefinition(
+							definitions.field,
+							optionName,
+							`${candidate.schema.className}.fields.${operation.name}.options.${optionName}`,
+							patch.owner,
+						)
 						const definition =
 							descriptor !== undefined
 								? createSchemaContributionProvenance(
@@ -2834,6 +3087,7 @@ const applyPatch = (
 							definitions.field,
 							`${candidate.schema.className}.fields.${targetName}`,
 							resolvedFields,
+							patch.owner,
 						)
 					: actual
 			fields = immutableRecord(
@@ -2923,7 +3177,12 @@ const applyPatch = (
 			operation.kind === 'schema-option:set' ||
 			operation.kind === 'schema-option:remove'
 		) {
-			const descriptor = definitions.schema.get(operation.name)
+			const descriptor = resolveOptionDefinition(
+				definitions.schema,
+				operation.name,
+				`${candidate.schema.className}.${operation.name}`,
+				patch.owner,
+			)
 			if (descriptor === undefined) {
 				throw new TypeError(`Unknown schema option: ${operation.name}`)
 			}
@@ -3024,7 +3283,12 @@ const applyPatch = (
 			if (field === undefined) {
 				throw new TypeError(`Unknown schema field: ${operation.field}`)
 			}
-			const descriptor = definitions.field.get(operation.name)
+			const descriptor = resolveOptionDefinition(
+				definitions.field,
+				operation.name,
+				`${candidate.schema.className}.fields.${operation.field}.options.${operation.name}`,
+				patch.owner,
+			)
 			if (descriptor === undefined) {
 				throw new TypeError(
 					`Unknown plugin field option: ${operation.name}; replace the field to change Core-owned validation or metadata`,

@@ -148,15 +148,16 @@ describe('plugin FieldBuilder methods', () => {
 
 		await expect(
 			createApplication({ plugins: [], schemas: [Missing] }),
-		).rejects.toThrow(
-			expect.objectContaining({
+		).rejects.toMatchObject({
+			code: 'PLUGIN_DECLARATION_INVALID',
+			cause: {
 				cause: new TypeError(
 					'MissingPluginMethod.fields.value FieldBuilder method "alpha" is unavailable; configure the plugin that declares it',
 				),
 				code: 'SCHEMA_COMPILATION_FAILED',
 				reason: 'callback-threw',
-			}),
-		)
+			},
+		})
 	})
 
 	it('keeps two application method graphs isolated', async () => {
@@ -201,13 +202,16 @@ describe('plugin FieldBuilder methods', () => {
 
 		await expect(
 			createApplication({ plugins: [], schemas: [Shared] }),
-		).rejects.toThrow(
-			expect.objectContaining({
+		).rejects.toMatchObject({
+			code: 'PLUGIN_DECLARATION_INVALID',
+			cause: {
 				cause: new TypeError(
 					'SharedPluginMethod.fields.value FieldBuilder method "alpha" is unavailable; configure the plugin that declares it',
 				),
-			}),
-		)
+				code: 'SCHEMA_COMPILATION_FAILED',
+				reason: 'callback-threw',
+			},
+		})
 		expect(sharedDeclarations).toBe(1)
 	})
 
@@ -327,13 +331,16 @@ describe('plugin FieldBuilder methods', () => {
 				plugins: [incompatiblePlugin],
 				schemas: [WrongKind],
 			}),
-		).rejects.toThrow(
-			expect.objectContaining({
+		).rejects.toMatchObject({
+			code: 'PLUGIN_DECLARATION_INVALID',
+			cause: {
 				cause: new TypeError(
 					'WrongPluginMethodKind.fields.value FieldBuilder method "alpha" from "fixture.incompatible-plugin" returned kind "fixture.beta" instead of "fixture.alpha"',
 				),
-			}),
-		)
+				code: 'SCHEMA_COMPILATION_FAILED',
+				reason: 'callback-threw',
+			},
+		})
 
 		const asynchronousPlugin = definePlugin({
 			version: '0.0.0',

@@ -287,13 +287,29 @@ describe('plugin schema declarations', () => {
 			readonly runtimeTag: string
 		})
 
-		await expect(
-			createApplication({
-				pluginPrivileges: { logger: false },
-				plugins: [owner, provider],
-				schemas: [Post],
-			}),
-		).rejects.toThrow('Runtime compilation failed')
+		const application = new FrameworkApplication({
+			pluginPrivileges: { logger: false },
+			plugins: [owner, provider],
+			schemas: [Post],
+		})
+		let failure: unknown
+		try {
+			await application.initialize()
+		} catch (error: unknown) {
+			failure = error
+		}
+		expect(failure).toMatchObject({
+			code: 'PLUGIN_DECLARATION_INVALID',
+			cause: { message: 'Runtime compilation failed' },
+			internalDetails: {
+				contributionId: 'runtime-options:schema:runtimeTag',
+				path: 'FailingRuntimeOptionPost.runtimeTag',
+				pluginId: 'fixture.failing-schema-option-runtime-owner',
+			},
+		})
+		expect(() => application.compileSchemas()).toThrow(failure)
+		await expect(application.initialize()).rejects.toBe(failure)
+		await expect(application.start()).rejects.toBe(failure)
 		expect(events).toStrictEqual([
 			'capability:create',
 			'runtime:compile',
@@ -367,22 +383,211 @@ describe('plugin schema declarations', () => {
 
 		await expect(
 			createApplication({ plugins: [], schemas: [UnknownSchemaOption] }),
-		).rejects.toThrow('Unknown schema option: workflow')
+		).rejects.toMatchObject({
+			code: 'PLUGIN_DECLARATION_INVALID',
+			cause: {
+				message: 'Unknown schema option: workflow',
+			},
+		})
 		await expect(
 			createApplication({ plugins: [], schemas: [UnknownFieldOption] }),
-		).rejects.toThrow('Unknown string field option: search')
+		).rejects.toMatchObject({
+			code: 'PLUGIN_DECLARATION_INVALID',
+			cause: {
+				message: 'Unknown string field option: search',
+			},
+		})
 	})
 
-	it('rejects ambiguous owners before an option can use last-writer-wins', async () => {
+	it('ignores duplicate unused option descriptors until an occurrence needs an owner', async () => {
+		let normalizations = 0
+		const unusedOption = defineSchemaOption({
+			normalize: (value) => {
+				normalizations += 1
+				return String(value)
+			},
+			protocolVersion: 1,
+			typegen: {
+				module: '@fixture/unused-option-plugin',
+				type: 'UnusedOption',
+			},
+		})
+		const plugin = (pluginId: string) =>
+			definePlugin({
+				core: '^0.0.0',
+				pluginId,
+				privileges: [
+					{
+						name: 'schema:declare',
+						reason: 'Declares one deliberately shared unused option name.',
+					},
+				] as const,
+				version: '1.0.0',
+				declare: ({ schemas }) => {
+					schemas.defineOptions({
+						contributionId: 'shared-options',
+						field: { shared: unusedOption },
+						schema: { shared: unusedOption },
+					})
+				},
+			})
+
+		const application = await createApplication({
+			pluginPrivileges: { logger: false },
+			plugins: [
+				plugin('fixture.first-options'),
+				plugin('fixture.second-options'),
+			],
+			schemas: [],
+		})
+
+		expect(normalizations).toBe(0)
+		await application.dispose()
+	})
+
+	it('uses the exact contributing owner when duplicate option names are plugin-owned', async () => {
+		const First = Schema.define({
+			className: 'ExactOptionOwnerFirst',
+			fields: () => ({}),
+			shared: 'value',
+		} as SchemaOptions<'ExactOptionOwnerFirst'> & { readonly shared: string })
+		const Second = Schema.define({
+			className: 'ExactOptionOwnerSecond',
+			fields: () => ({}),
+			shared: 'value',
+		} as SchemaOptions<'ExactOptionOwnerSecond'> & { readonly shared: string })
+		const plugin = (
+			pluginId: string,
+			schema: typeof First | typeof Second,
+			prefix: string,
+		) =>
+			definePlugin({
+				core: '^0.0.0',
+				pluginId,
+				privileges: [
+					{ name: 'schema:declare', reason: 'Owns one direct option.' },
+				] as const,
+				version: '1.0.0',
+				declare: ({ schemas }) => {
+					schemas.defineOptions({
+						contributionId: 'options',
+						schema: {
+							shared: defineSchemaOption({
+								normalize: (value) => `${prefix}:${String(value)}`,
+								protocolVersion: 1,
+								typegen: {
+									module: '@fixture/exact-option-owner',
+									type: 'SharedOption',
+								},
+							}),
+						},
+					})
+					schemas.add({ contributionId: 'schema', schema })
+				},
+			})
+
+		await createApplication({
+			pluginPrivileges: { logger: false },
+			plugins: [
+				plugin('fixture.first-exact-option', First, 'first'),
+				plugin('fixture.second-exact-option', Second, 'second'),
+			],
+			schemas: [],
+		})
+
+		expect(Reflect.get(First.definition, 'shared')).toBe('first:value')
+		expect(Reflect.get(Second.definition, 'shared')).toBe('second:value')
+		expect(First.provenance.options.shared?.definition.owner).toMatchObject({
+			pluginId: 'fixture.first-exact-option',
+		})
+		expect(Second.provenance.options.shared?.definition.owner).toMatchObject({
+			pluginId: 'fixture.second-exact-option',
+		})
+	})
+
+	it('does not reuse an owner-specific field normalization across plugin schemas', async () => {
+		const sharedField = stringField({
+			// @ts-expect-error -- Issue 1408 will generate the direct option type.
+			shared: 'value',
+		})
+		const First = Schema.define({
+			className: 'ExactFieldOptionOwnerFirst',
+			fields: () => ({ title: sharedField }),
+		})
+		const Second = Schema.define({
+			className: 'ExactFieldOptionOwnerSecond',
+			fields: () => ({ title: sharedField }),
+		})
+		const plugin = (
+			pluginId: string,
+			schema: typeof First | typeof Second,
+			prefix: string,
+		) =>
+			definePlugin({
+				core: '^0.0.0',
+				pluginId,
+				privileges: [
+					{ name: 'schema:declare', reason: 'Owns one direct field option.' },
+				] as const,
+				version: '1.0.0',
+				declare: ({ schemas }) => {
+					schemas.defineOptions({
+						contributionId: 'options',
+						field: {
+							shared: defineSchemaOption({
+								normalize: (value) => `${prefix}:${String(value)}`,
+								protocolVersion: 1,
+								typegen: {
+									module: '@fixture/exact-field-option-owner',
+									type: 'SharedFieldOption',
+								},
+							}),
+						},
+					})
+					schemas.add({ contributionId: 'schema', schema })
+				},
+			})
+
+		await createApplication({
+			pluginPrivileges: { logger: false },
+			plugins: [
+				plugin('fixture.first-exact-field-option', First, 'first'),
+				plugin('fixture.second-exact-field-option', Second, 'second'),
+			],
+			schemas: [],
+		})
+
+		const firstTitle = requireField(First.fields.title)
+		const secondTitle = requireField(Second.fields.title)
+		expect(Reflect.get(firstTitle.options, 'shared')).toBe('first:value')
+		expect(Reflect.get(secondTitle.options, 'shared')).toBe('second:value')
+	})
+
+	it('rejects an actually used option when no exact owner can be selected', async () => {
+		const Ambiguous = Schema.define({
+			className: 'AmbiguousOptionOwner',
+			fields: (field) => ({ title: field.string() }),
+			workflow: { enabled: true },
+		} as SchemaOptions<'AmbiguousOptionOwner'> & {
+			readonly workflow: Readonly<{ readonly enabled: boolean }>
+		})
+
 		await expect(
 			createApplication({
+				pluginPrivileges: { logger: false },
 				plugins: [
 					optionPlugin('fixture.first-options'),
 					optionPlugin('fixture.second-options'),
 				],
-				schemas: [],
+				schemas: [Ambiguous],
 			}),
-		).rejects.toThrow('Ambiguous schema option owner for "workflow"')
+		).rejects.toMatchObject({
+			code: 'PLUGIN_DECLARATION_INVALID',
+			cause: {
+				message:
+					'Ambiguous schema option owner for "workflow": fixture.first-options and fixture.second-options',
+			},
+		})
 	})
 
 	it('rejects plugin option names reserved by Core contracts', async () => {
@@ -953,6 +1158,302 @@ describe('plugin schema declarations', () => {
 		expect(Owned.fields.lateField).toBeUndefined()
 	})
 
+	it('scopes schema contribution IDs to the complete plugin instance identity', async () => {
+		const Primary = Schema.define({
+			className: 'RepeatedPluginPrimarySchema',
+			fields: (field) => ({ title: field.string() }),
+		})
+		const Analytics = Schema.define({
+			className: 'RepeatedPluginAnalyticsSchema',
+			fields: (field) => ({ title: field.string() }),
+		})
+		const plugin = (
+			instanceId: string,
+			schema: typeof Primary | typeof Analytics,
+		) =>
+			definePlugin({
+				core: '^0.0.0',
+				instanceId,
+				pluginId: 'fixture.repeated-schema-owner',
+				privileges: [
+					{
+						name: 'schema:declare',
+						reason: 'Declares one instance-local schema contribution.',
+					},
+				] as const,
+				version: '1.0.0',
+				declare: ({ schemas }) => {
+					schemas.add({ contributionId: 'owned-schema', schema })
+				},
+			})
+
+		const application = await createApplication({
+			pluginPrivileges: { logger: false },
+			plugins: [plugin('primary', Primary), plugin('analytics', Analytics)],
+			schemas: [],
+		})
+
+		expect(application.schemas.values()).toStrictEqual([Primary, Analytics])
+		expect(Primary.provenance.schema).toMatchObject({
+			contributionId: 'owned-schema',
+			owner: {
+				instanceId: 'primary',
+				pluginId: 'fixture.repeated-schema-owner',
+			},
+		})
+		expect(Analytics.provenance.schema).toMatchObject({
+			contributionId: 'owned-schema',
+			owner: {
+				instanceId: 'analytics',
+				pluginId: 'fixture.repeated-schema-owner',
+			},
+		})
+	})
+
+	it('publishes no plugin schema and permanently closes compilation after a duplicate contribution', async () => {
+		const First = Schema.define({
+			className: 'AtomicDuplicateFirst',
+			fields: (field) => ({ title: field.string() }),
+		})
+		const Second = Schema.define({
+			className: 'AtomicDuplicateSecond',
+			fields: (field) => ({ title: field.string() }),
+		})
+		const plugin = definePlugin({
+			core: '^0.0.0',
+			pluginId: 'fixture.atomic-duplicate-schema',
+			privileges: [
+				{
+					name: 'schema:declare',
+					reason: 'Exercises atomic duplicate contribution rejection.',
+				},
+			] as const,
+			version: '1.0.0',
+			declare: ({ schemas }) => {
+				schemas.add({ contributionId: 'duplicate', schema: First })
+				schemas.add({ contributionId: 'duplicate', schema: Second })
+			},
+		})
+		const application = new FrameworkApplication({
+			pluginPrivileges: { logger: false },
+			plugins: [plugin],
+			schemas: [],
+		})
+
+		let failure: unknown
+		try {
+			application.compileSchemas()
+		} catch (error: unknown) {
+			failure = error
+		}
+
+		expect(failure).toMatchObject({
+			code: 'PLUGIN_DECLARATION_INVALID',
+			cause: {
+				message: 'Duplicate schema contributionId: duplicate',
+			},
+			internalDetails: {
+				contributionId: 'duplicate',
+				path: 'AtomicDuplicateSecond',
+				pluginId: 'fixture.atomic-duplicate-schema',
+			},
+		})
+		expect(application.schemas.values()).toStrictEqual([])
+		expect(() => application.compileSchemas()).toThrow(failure)
+		await expect(application.initialize()).rejects.toBe(failure)
+		await expect(application.start()).rejects.toBe(failure)
+		expect(application.schemas.values()).toStrictEqual([])
+	})
+
+	it('keeps the public registry atomic across registration, option, patch, and final validation failures', () => {
+		const Existing = Schema.define({
+			className: 'AtomicRegistrationCollision',
+			fields: (field) => ({ title: field.string() }),
+		})
+		const Colliding = Schema.define({
+			className: 'AtomicRegistrationCollision',
+			fields: (field) => ({ other: field.string() }),
+		})
+		const registrationPlugin = definePlugin({
+			core: '^0.0.0',
+			pluginId: 'fixture.atomic-registration',
+			privileges: [
+				{ name: 'schema:declare', reason: 'Exercises registration rollback.' },
+			] as const,
+			version: '1.0.0',
+			declare: ({ schemas }) => {
+				schemas.add({ contributionId: 'collision', schema: Colliding })
+			},
+		})
+		const registrationApplication = new FrameworkApplication({
+			pluginPrivileges: { logger: false },
+			plugins: [registrationPlugin],
+			schemas: [Existing],
+		})
+		expect(() => registrationApplication.compileSchemas()).toThrow(
+			expect.objectContaining({ code: 'PLUGIN_DECLARATION_INVALID' }),
+		)
+		expect(registrationApplication.schemas.values()).toStrictEqual([Existing])
+
+		const invalidOption = defineSchemaOption({
+			normalize: () => {
+				throw new TypeError('Invalid fixture option')
+			},
+			protocolVersion: 1,
+			typegen: {
+				module: '@fixture/atomic-option-plugin',
+				type: 'AtomicOption',
+			},
+		})
+		const ValidAddition = Schema.define({
+			className: 'AtomicOptionValidAddition',
+			fields: () => ({}),
+		})
+		const InvalidAddition = Schema.define({
+			broken: true,
+			className: 'AtomicOptionInvalidAddition',
+			fields: () => ({}),
+		} as SchemaOptions<'AtomicOptionInvalidAddition'> & {
+			readonly broken: boolean
+		})
+		const optionFailurePlugin = definePlugin({
+			core: '^0.0.0',
+			pluginId: 'fixture.atomic-option',
+			privileges: [
+				{ name: 'schema:declare', reason: 'Exercises option rollback.' },
+			] as const,
+			version: '1.0.0',
+			declare: ({ schemas }) => {
+				schemas.defineOptions({
+					contributionId: 'options',
+					schema: { broken: invalidOption },
+				})
+				schemas.add({ contributionId: 'valid', schema: ValidAddition })
+				schemas.add({ contributionId: 'invalid', schema: InvalidAddition })
+			},
+		})
+		const optionApplication = new FrameworkApplication({
+			pluginPrivileges: { logger: false },
+			plugins: [optionFailurePlugin],
+			schemas: [],
+		})
+		expect(() => optionApplication.compileSchemas()).toThrow(
+			expect.objectContaining({ code: 'PLUGIN_DECLARATION_INVALID' }),
+		)
+		expect(optionApplication.schemas.values()).toStrictEqual([])
+
+		const PatchTarget = Schema.define({
+			className: 'AtomicPatchTarget',
+			fields: (field) => ({ title: field.string() }),
+		})
+		const PatchAddition = Schema.define({
+			className: 'AtomicPatchAddition',
+			fields: () => ({}),
+		})
+		const patchFailurePlugin = definePlugin({
+			core: '^0.0.0',
+			pluginId: 'fixture.atomic-patch',
+			privileges: [
+				{ name: 'schema:declare', reason: 'Exercises patch rollback.' },
+			] as const,
+			version: '1.0.0',
+			declare: ({ schemas }) => {
+				schemas.add({ contributionId: 'addition', schema: PatchAddition })
+				schemas.patch({
+					operations: [
+						addSchemaField({
+							contributionId: 'duplicate-title',
+							field: stringField(),
+							name: 'title',
+						}),
+					],
+					targets: schemas.select({ className: 'AtomicPatchTarget' }),
+				})
+			},
+		})
+		const patchApplication = new FrameworkApplication({
+			pluginPrivileges: { logger: false },
+			plugins: [patchFailurePlugin],
+			schemas: [PatchTarget],
+		})
+		expect(() => patchApplication.compileSchemas()).toThrow(
+			expect.objectContaining({ code: 'PLUGIN_DECLARATION_INVALID' }),
+		)
+		expect(patchApplication.schemas.values()).toStrictEqual([PatchTarget])
+
+		const InvalidTarget = Schema.define({
+			className: 'AtomicInvalidTarget',
+			fields: (field) => ({
+				missing: field.pointer({ target: 'AtomicMissingTarget' }),
+			}),
+		})
+		const finalValidationPlugin = definePlugin({
+			core: '^0.0.0',
+			pluginId: 'fixture.atomic-final-validation',
+			privileges: [
+				{
+					name: 'schema:declare',
+					reason: 'Exercises final validation rollback.',
+				},
+			] as const,
+			version: '1.0.0',
+			declare: ({ schemas }) => {
+				schemas.add({ contributionId: 'invalid-target', schema: InvalidTarget })
+			},
+		})
+		const finalValidationApplication = new FrameworkApplication({
+			pluginPrivileges: { logger: false },
+			plugins: [finalValidationPlugin],
+			schemas: [],
+		})
+		expect(() => finalValidationApplication.compileSchemas()).toThrow(
+			expect.objectContaining({ code: 'PLUGIN_DECLARATION_INVALID' }),
+		)
+		expect(finalValidationApplication.schemas.values()).toStrictEqual([])
+
+		const SelectorAddition = Schema.define({
+			className: 'AtomicSelectorAddition',
+			fields: () => ({}),
+		})
+		const selectorFailurePlugin = definePlugin({
+			core: '^0.0.0',
+			pluginId: 'fixture.atomic-selector',
+			privileges: [
+				{ name: 'schema:declare', reason: 'Exercises selector rollback.' },
+			] as const,
+			version: '1.0.0',
+			declare: ({ schemas }) => {
+				schemas.add({ contributionId: 'addition', schema: SelectorAddition })
+				schemas.select({
+					option: {
+						// @ts-expect-error -- Runtime rejects values outside portable JSON.
+						equals: undefined,
+						name: 'invalid',
+					},
+				})
+			},
+		})
+		const selectorApplication = new FrameworkApplication({
+			pluginPrivileges: { logger: false },
+			plugins: [selectorFailurePlugin],
+			schemas: [],
+		})
+		let selectorFailure: unknown
+		try {
+			selectorApplication.compileSchemas()
+		} catch (error: unknown) {
+			selectorFailure = error
+		}
+		expect(selectorFailure).toMatchObject({
+			code: 'PLUGIN_DECLARATION_INVALID',
+			internalDetails: {
+				path: 'plugins.fixture.atomic-selector.declare',
+				pluginId: 'fixture.atomic-selector',
+			},
+		})
+		expect(selectorApplication.schemas.values()).toStrictEqual([])
+	})
+
 	it('requires exact ownership and shape for ordered cross-owner field transforms', async () => {
 		const Post = Schema.define({
 			className: 'TransformedPost',
@@ -1120,20 +1621,26 @@ describe('plugin schema declarations', () => {
 		).rejects.toThrow('Protected Core schema contribution')
 	})
 
-	it('matches direct option paths and exact prior plugin owners', async () => {
+	it('matches structurally equal option objects while preserving array order', async () => {
 		const Content = Schema.define({
 			className: 'WorkflowContent',
 			fields: (field) => ({ title: field.string() }),
-			workflow: { enabled: true },
+			workflow: { enabled: true, stages: ['draft', 'published'] },
 		} as SchemaOptions<'WorkflowContent'> & {
-			readonly workflow: Readonly<{ readonly enabled: boolean }>
+			readonly workflow: Readonly<{
+				readonly enabled: boolean
+				readonly stages: readonly string[]
+			}>
 		})
 		const Audit = Schema.define({
 			className: 'WorkflowAudit',
 			fields: (field) => ({ message: field.string() }),
-			workflow: { enabled: true },
+			workflow: { enabled: true, stages: ['draft', 'published'] },
 		} as SchemaOptions<'WorkflowAudit'> & {
-			readonly workflow: Readonly<{ readonly enabled: boolean }>
+			readonly workflow: Readonly<{
+				readonly enabled: boolean
+				readonly stages: readonly string[]
+			}>
 		})
 		const provider = definePlugin({
 			core: '^0.0.0',
@@ -1174,9 +1681,33 @@ describe('plugin schema declarations', () => {
 					],
 					targets: schemas.select({
 						option: {
-							equals: true,
+							equals: {
+								stages: ['draft', 'published'],
+								enabled: true,
+							},
 							name: 'workflow',
-							path: ['enabled'],
+						},
+						owner: {
+							kind: 'plugin',
+							pluginId: 'fixture.workflow-schema-provider',
+						},
+					}),
+				})
+				schemas.patch({
+					operations: [
+						addSchemaField({
+							contributionId: 'wrong-array-order',
+							field: stringField(),
+							name: 'wrongArrayOrder',
+						}),
+					],
+					targets: schemas.select({
+						option: {
+							equals: {
+								enabled: true,
+								stages: ['published', 'draft'],
+							},
+							name: 'workflow',
 						},
 						owner: {
 							kind: 'plugin',
@@ -1194,6 +1725,7 @@ describe('plugin schema declarations', () => {
 
 		expect(Content.fields.selectedState).toBeUndefined()
 		expect(Audit.fields.selectedState?.kind).toBe('string')
+		expect(Audit.fields.wrongArrayOrder).toBeUndefined()
 	})
 
 	it('registers all plugin schemas before resolving circular targets', async () => {

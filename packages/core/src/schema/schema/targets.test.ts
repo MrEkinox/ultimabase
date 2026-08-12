@@ -299,8 +299,11 @@ describe('lazy schema targets', () => {
 		})
 
 		await expect(application.start()).rejects.toMatchObject({
-			reason: 'unregistered-target',
-			sourceClassName: 'FailingSource',
+			code: 'PLUGIN_DECLARATION_INVALID',
+			cause: {
+				reason: 'unregistered-target',
+				sourceClassName: 'FailingSource',
+			},
 		})
 		expect(events).toStrictEqual([])
 	})
@@ -333,8 +336,11 @@ describe('lazy schema targets', () => {
 					plugins: [],
 				}),
 			).rejects.toMatchObject({
-				className: 'IsolatedSource',
-				reason: 'incompatible-definition',
+				code: 'PLUGIN_DECLARATION_INVALID',
+				cause: {
+					className: 'IsolatedSource',
+					reason: 'incompatible-definition',
+				},
 			})
 			expect(firstApplication.schemaTargets.get(source, ['target'])).toBe(
 				firstTarget,

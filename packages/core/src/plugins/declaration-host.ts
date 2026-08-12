@@ -21,7 +21,10 @@ import {
 	type PluginPrivilegeRequest,
 } from './manifest.js'
 import type { SchemaDeclarationRegistry } from './schema-declarations.js'
-import { type PluginSchemaDeclarationRegistrar } from './schema-declarations.js'
+import {
+	attachPluginDeclarationDiagnostic,
+	type PluginSchemaDeclarationRegistrar,
+} from './schema-declarations.js'
 
 type RequiredCapability<TCapabilities> =
 	NormalizedPluginCapabilityDeclarations<TCapabilities>['requires'][number]
@@ -182,17 +185,18 @@ export class PluginDeclarationHost {
 						formatPluginIdentity(owner),
 					)
 				: undefined
+			const schemaOwner = immutableRecord({
+				kind: 'plugin' as const,
+				pluginId: owner.pluginId,
+				...(owner.instanceId === undefined
+					? {}
+					: { instanceId: owner.instanceId }),
+				version: definition.manifest.version,
+			})
 			const schemaSession =
 				canDeclare || canTransform
 					? this.schemaDeclarations.beginPluginDeclaration(
-							immutableRecord({
-								kind: 'plugin',
-								pluginId: owner.pluginId,
-								...(owner.instanceId === undefined
-									? {}
-									: { instanceId: owner.instanceId }),
-								version: definition.manifest.version,
-							}),
+							schemaOwner,
 							immutableRecord({
 								declare: canDeclare,
 								requirements: immutableArray([
@@ -255,7 +259,15 @@ export class PluginDeclarationHost {
 			})
 
 			try {
-				runPluginDeclaration(definition, context)
+				try {
+					runPluginDeclaration(definition, context)
+				} catch (cause: unknown) {
+					throw attachPluginDeclarationDiagnostic(
+						cause,
+						schemaOwner,
+						`plugins.${formatPluginIdentity(owner)}.declare`,
+					)
+				}
 				fieldSession?.commit()
 				schemaSession?.commit()
 			} finally {

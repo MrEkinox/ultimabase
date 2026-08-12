@@ -18,7 +18,7 @@ community packages.
 5. [x] [1415 — Converge legacy services, slots, and setup registries](1415-converge-legacy-plugin-host.md)
 6. [x] [1405 — Open the static plugin declaration host](1405-static-plugin-declaration-host.md)
 7. [x] [1406 — Compile owned schema transformations and provenance](1406-schema-transformations-and-provenance.md)
-8. [ ] [1419 — Harden schema declaration correctness and atomicity](1419-schema-declaration-correctness-and-atomicity.md)
+8. [x] [1419 — Harden schema declaration correctness and atomicity](1419-schema-declaration-correctness-and-atomicity.md)
 9. [ ] [1420 — Align capability phases and declaration contracts](1420-capability-phase-and-contract-alignment.md)
 10. [ ] [1421 — Modularize schema declarations and enforce file budgets](1421-modularize-schema-declarations-and-enforce-file-budgets.md)
 11. [ ] [1418 — Replace the complete schema compiler through a versioned capability](1418-schema-compiler-replacement-capability.md)

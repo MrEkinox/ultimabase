@@ -112,6 +112,22 @@ export interface CompiledSchemaRegistry {
 	values(): readonly SchemaDefinition[]
 }
 
+interface SchemaRegistryState {
+	readonly schemasByClassName: Map<string, SchemaDefinition>
+	schemaTargets: SchemaTargetGraph | undefined
+}
+
+const schemaRegistryStates = new WeakMap<object, SchemaRegistryState>()
+
+const getSchemaRegistryState = (registry: object): SchemaRegistryState => {
+	const state = schemaRegistryStates.get(registry)
+	if (state === undefined) {
+		throw new TypeError('Schema registry state is unavailable')
+	}
+
+	return state
+}
+
 /**
  * Stores schemas per application while preserving deterministic insertion order.
  *
@@ -120,10 +136,11 @@ export interface CompiledSchemaRegistry {
 export class SchemaRegistry<
 	const TSchemas extends readonly SchemaDefinition[] = readonly [],
 > {
-	readonly #schemasByClassName = new Map<string, SchemaDefinition>()
-	#schemaTargets: SchemaTargetGraph | undefined
-
 	constructor(schemas?: TSchemas) {
+		schemaRegistryStates.set(this, {
+			schemasByClassName: new Map<string, SchemaDefinition>(),
+			schemaTargets: undefined,
+		})
 		for (const schema of schemas ?? []) {
 			this.register(schema)
 		}
@@ -133,14 +150,15 @@ export class SchemaRegistry<
 	 * Returns the number of registered class definitions.
 	 */
 	get size(): number {
-		return this.#schemasByClassName.size
+		return getSchemaRegistryState(this).schemasByClassName.size
 	}
 
 	/**
 	 * Registers one schema and rejects ambiguous class-name ownership.
 	 */
 	register(schema: SchemaDefinition): void {
-		if (this.#schemaTargets !== undefined) {
+		const state = getSchemaRegistryState(this)
+		if (state.schemaTargets !== undefined) {
 			throw new TypeError('Cannot register schemas after static compilation')
 		}
 
@@ -148,18 +166,18 @@ export class SchemaRegistry<
 			throw new TypeError('schema must be a class created by Schema.define')
 		}
 
-		if (this.#schemasByClassName.has(schema.className)) {
+		if (state.schemasByClassName.has(schema.className)) {
 			throw new DuplicateSchemaError(schema.className)
 		}
 
-		this.#schemasByClassName.set(schema.className, schema)
+		state.schemasByClassName.set(schema.className, schema)
 	}
 
 	/**
 	 * Checks a class name without changing registry state.
 	 */
 	has(className: string): boolean {
-		return this.#schemasByClassName.has(className)
+		return getSchemaRegistryState(this).schemasByClassName.has(className)
 	}
 
 	/**
@@ -170,14 +188,16 @@ export class SchemaRegistry<
 	): SchemaForClassName<TSchemas, TClassName> | undefined
 
 	get(className: string): SchemaDefinition | undefined {
-		return this.#schemasByClassName.get(className)
+		return getSchemaRegistryState(this).schemasByClassName.get(className)
 	}
 
 	/**
 	 * Returns an immutable snapshot in registration order.
 	 */
 	values(): readonly SchemaDefinition[] {
-		return immutableArray([...this.#schemasByClassName.values()])
+		return immutableArray([
+			...getSchemaRegistryState(this).schemasByClassName.values(),
+		])
 	}
 
 	/** Compiles every deferred declaration atomically before plugin setup starts. */
@@ -185,8 +205,9 @@ export class SchemaRegistry<
 		fieldMethods?: FieldBuilderMethodResolver,
 		transform?: SchemaCompilationTransformer,
 	): SchemaTargetGraph {
-		if (this.#schemaTargets !== undefined) {
-			return this.#schemaTargets
+		const state = getSchemaRegistryState(this)
+		if (state.schemaTargets !== undefined) {
+			return state.schemaTargets
 		}
 
 		const initialPrepared = this.values().map((schema) =>
@@ -255,7 +276,7 @@ export class SchemaRegistry<
 			)
 		}
 
-		this.#schemaTargets = schemaTargets
+		state.schemaTargets = schemaTargets
 
 		return schemaTargets
 	}
@@ -267,10 +288,32 @@ export class SchemaRegistry<
 
 	/** Reads the immutable target graph after application static compilation. */
 	get schemaTargets(): SchemaTargetGraph {
-		if (this.#schemaTargets === undefined) {
+		const schemaTargets = getSchemaRegistryState(this).schemaTargets
+		if (schemaTargets === undefined) {
 			throw new TypeError('Schema targets have not been resolved')
 		}
 
-		return this.#schemaTargets
+		return schemaTargets
 	}
+}
+
+/** @internal Compiles additions in isolation and publishes only a complete graph. */
+export const compileSchemaRegistryAtomically = (
+	registry: SchemaRegistry,
+	additions: readonly SchemaDefinition[],
+	fieldMethods: FieldBuilderMethodResolver,
+	transform: SchemaCompilationTransformer,
+): SchemaTargetGraph => {
+	if (getSchemaRegistryState(registry).schemaTargets !== undefined) {
+		throw new TypeError('Cannot replace an already compiled schema registry')
+	}
+	const staged = new SchemaRegistry([
+		...registry.values(),
+		...additions,
+	] as readonly SchemaDefinition[])
+	const targets = staged.compileSchemas(fieldMethods, transform)
+
+	schemaRegistryStates.set(registry, getSchemaRegistryState(staged))
+
+	return targets
 }
